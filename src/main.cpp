@@ -53,41 +53,41 @@ enum TokenType {
 static int matchToken() {
   static int thisChar = ' ';
 
-    do 
-    {
-      thisChar = getchar();
+  thisChar = getchar();
 
-      // ignore white spaces and read next character
-      while (isspace(thisChar))
+  // ignore white spaces and read next character
+  while (isspace(thisChar))
+  {
+    thisChar = getchar();
+  }
+
+  switch (thisChar)
+  {
+    case EOF:
+      return TokenType::TOK_EOF;
+
+    case '(':
+      return TokenType::TOK_LPAREN;
+
+    case '@':
+      do
       {
         thisChar = getchar();
+      } while (isspace(thisChar));
+
+      // VAR_DEF := "@" "(" [<ID> ["," <ID>]*]? ")"
+      if (thisChar == '(') {
+        return TokenType::TOK_VARDEF;
+      } else {
+        return TokenType::TOK_UNKOWN;
       }
 
-      switch (thisChar)
-      {
-        case '(':
-          return TokenType::TOK_LPAREN;
-          break;
-        case '@':
-          do
-          {
-            thisChar = getchar();
-          } while (isspace(thisChar));
+    default:
+      std::cout << "[INFO]: unexpected char " << char(thisChar) << std::endl;
+      break;
+  }
 
-          // VAR_DEF := "@" "(" [<ID> ["," <ID>]*]? ")"
-          if (thisChar == '(') {
-            return TokenType::TOK_VARDEF;
-          }
-
-          break;
-
-        default:
-          break;
-      }
-
-    } while (thisChar != '\n');
-
-    return TokenType::TOK_UNKOWN;
+  return TokenType::TOK_UNKOWN;
 }
 
 int main() {
@@ -97,7 +97,7 @@ int main() {
 
     int thisToken = matchToken();
 
-    std::cout << "[INFO]: " << thisToken << std::endl;
+    std::cout << "[INFO]: Found " << thisToken << std::endl;
   };
 
   return 0;
