@@ -125,7 +125,8 @@ enum TokenType {
 
 static std::vector<int> inputBuffer;
 
-static int readInputChar() {
+static int readInputChar() 
+{
   int tmpChar = getchar();
 
   inputBuffer.push_back(tmpChar);
@@ -133,14 +134,24 @@ static int readInputChar() {
   return tmpChar;
 }
 
-static void ignoreSpaces(int& nextChar) {
+static void ignoreBlank(int& nextChar) 
+{
   while (isspace(nextChar)) {
     nextChar = readInputChar();
   };
 }
 
-static void parseSpace(std::vector<int>& tokenBuffer, int& nextChar) {
-  while (isspace(nextChar)) {
+
+static void ignoreSpaces(int& nextChar) 
+{
+  while (nextChar == ' ') {
+    nextChar = readInputChar();
+  };
+}
+
+static void parseSpace(std::vector<int>& tokenBuffer, int& nextChar) 
+{
+  while (nextChar == ' ') {
     nextChar = readInputChar();
     tokenBuffer.push_back(
       TokenType::TOK_SPACE
@@ -148,16 +159,32 @@ static void parseSpace(std::vector<int>& tokenBuffer, int& nextChar) {
   };
 }
 
-static void parseLF(std::vector<int>& tokenBuffer, int& nextChar) {
-  while (nextChar == '\n') {
-    nextChar = readInputChar();
-    tokenBuffer.push_back(
-      TokenType::TOK_LF
-    );
-  };
+static void parseLF(std::vector<int>& tokenBuffer, int& nextChar) 
+{
+  // nextChar = readInputChar();
+  tokenBuffer.push_back(
+    TokenType::TOK_LF
+  );
 }
 
-static void parseId(std::vector<int>& tokenBuffer, int& nextChar) {
+static void parseCR(std::vector<int>& tokenBuffer, int& nextChar) 
+{
+  // nextChar = readInputChar();
+  tokenBuffer.push_back(
+    TokenType::TOK_CR
+  );
+}
+
+static void parseEOF(std::vector<int>& tokenBuffer, int& nextChar) 
+{
+  // nextChar = readInputChar();
+  tokenBuffer.push_back(
+    TokenType::TOK_EOF
+  );
+}
+
+static void parseId(std::vector<int>& tokenBuffer, int& nextChar) 
+{
   std::string idStr = "";
   idStr += nextChar;
 
@@ -174,7 +201,8 @@ static void parseId(std::vector<int>& tokenBuffer, int& nextChar) {
   );
 }
 
-static void parseNum(std::vector<int>& tokenBuffer, int& nextChar) {
+static void parseNum(std::vector<int>& tokenBuffer, int& nextChar) 
+{
   std::string numStr = "";
   numStr += nextChar;
   nextChar = readInputChar();
@@ -229,6 +257,132 @@ static void parseNum(std::vector<int>& tokenBuffer, int& nextChar) {
   }
 }
 
+static void parseBinAdd(std::vector<int>& tokenBuffer, int& nextChar) 
+{
+  nextChar = readInputChar();
+
+  tokenBuffer.push_back(
+    TokenType::TOK_ADD
+  );
+
+  ignoreSpaces(nextChar);
+
+  if (isalpha(nextChar) || nextChar == '_') {
+    parseId(tokenBuffer, nextChar);
+  }
+
+  if (isdigit(nextChar)) {
+    parseNum(tokenBuffer, nextChar);
+  }
+  
+  // std::cout << "|NotImplemented| BIN_ADD" << std::endl;
+}
+
+static void parseBinSub(std::vector<int>& tokenBuffer, int& nextChar) 
+{
+  nextChar = readInputChar();
+
+  tokenBuffer.push_back(
+    TokenType::TOK_SUB
+  );
+
+  ignoreSpaces(nextChar);
+
+  if (isalpha(nextChar) || nextChar == '_') {
+    parseId(tokenBuffer, nextChar);
+  }
+
+  if (isdigit(nextChar)) {
+    parseNum(tokenBuffer, nextChar);
+  }
+  
+  // std::cout << "|NotImplemented| BIN_SUB" << std::endl;
+}
+
+static void parseBinMul(std::vector<int>& tokenBuffer, int& nextChar) 
+{
+  nextChar = readInputChar();
+  
+  tokenBuffer.push_back(
+    TokenType::TOK_MUL
+  );
+
+  ignoreSpaces(nextChar);
+
+  if (isalpha(nextChar) || nextChar == '_') {
+    parseId(tokenBuffer, nextChar);
+  }
+
+  if (isdigit(nextChar)) {
+    parseNum(tokenBuffer, nextChar);
+  }
+
+  // std::cout << "|NotImplemented| BIN_MUL" << std::endl;
+}
+
+static void parseBinDiv(std::vector<int>& tokenBuffer, int& nextChar) 
+{
+  nextChar = readInputChar();
+  
+  tokenBuffer.push_back(
+    TokenType::TOK_DIV
+  );
+
+  ignoreSpaces(nextChar);
+
+  if (isalpha(nextChar) || nextChar == '_') {
+    parseId(tokenBuffer, nextChar);
+  }
+
+  if (isdigit(nextChar)) {
+    parseNum(tokenBuffer, nextChar);
+  }
+
+  // std::cout << "|NotImplemented| BIN_DIV" << std::endl;
+}
+
+static void parseBinPow(std::vector<int>& tokenBuffer, int& nextChar) 
+{
+  nextChar = readInputChar();
+  
+  tokenBuffer.push_back(
+    TokenType::TOK_POW
+  );
+
+  ignoreSpaces(nextChar);
+
+  if (isalpha(nextChar) || nextChar == '_') {
+    parseId(tokenBuffer, nextChar);
+  }
+
+  if (isdigit(nextChar)) {
+    parseNum(tokenBuffer, nextChar);
+  }
+
+  // std::cout << "|NotImplemented| BIN_POW" << std::endl;
+}
+
+static void parseBinMod(std::vector<int>& tokenBuffer, int& nextChar) 
+{
+  nextChar = readInputChar();
+
+  tokenBuffer.push_back(
+    TokenType::TOK_MOD
+  );
+
+  ignoreSpaces(nextChar);
+
+  if (isalpha(nextChar) || nextChar == '_') {
+    parseId(tokenBuffer, nextChar);
+  }
+
+  if (isdigit(nextChar)) {
+    parseNum(tokenBuffer, nextChar);
+  }
+
+  // std::cout << "|NotImplemented| BIN_MOD" << std::endl;
+}
+
 static std::vector<int> Tokenize() {
   std::vector<int> tokenBuffer;
 
@@ -236,8 +390,7 @@ static std::vector<int> Tokenize() {
 
   do
   {
-    // ignore white spaces and read next character
-    ignoreSpaces(thisChar);
+    ignoreBlank(thisChar);
 
     if (isalpha(thisChar) || thisChar == '_') 
     {
@@ -250,11 +403,13 @@ static std::vector<int> Tokenize() {
       // check next character
       switch (thisChar)
       {
-        // LF -> 
+        // <LF>
         case '\n':
           parseLF(tokenBuffer, thisChar);
+
           return tokenBuffer;
-        // define variable ->
+        
+        // <ID> := <EXPR>
         case ':':
           thisChar = readInputChar();
 
@@ -265,11 +420,11 @@ static std::vector<int> Tokenize() {
           break;
         // BIN_ADD := <ID> "+" <ID>
         case '+':
-          std::cout << "|NotImplemented| BIN_ADD" << std::endl;
+          parseBinAdd(tokenBuffer, thisChar);
           break;
         // BIN_SUB := <ID> "-" <ID>
         case '-':
-          std::cout << "|NotImplemented| BIN_SUB" << std::endl;
+          parseBinSub(tokenBuffer, thisChar);
           break;
         // BIN_MUL | BIN_POW
         case '*':
@@ -277,21 +432,21 @@ static std::vector<int> Tokenize() {
           // BIN_POW := <ID> "**" <ID>
           if (thisChar == '*')
           {
-            std::cout << "|NotImplemented| BIN_POW" << std::endl;
+            parseBinPow(tokenBuffer, thisChar);
           } 
           // BIN_MUL := <ID> "*" <ID>
           else 
           {
-            std::cout << "|NotImplemented| BIN_MUL" << std::endl;
+            parseBinMul(tokenBuffer, thisChar);
           }
           break;
         // BIN_MUL := <ID> "/" <ID>
         case '/':
-          std::cout << "|NotImplemented| BIN_DIV" << std::endl;
+          parseBinDiv(tokenBuffer, thisChar);
           break;
         // BIN_MUL := <ID> "%" <ID>
         case '%':
-          std::cout << "|NotImplemented| BIN_MOD" << std::endl;
+          parseBinMod(tokenBuffer, thisChar);
           break;
         
         default:
@@ -303,67 +458,63 @@ static std::vector<int> Tokenize() {
     if (isdigit(thisChar)) {
       parseNum(tokenBuffer, thisChar);
 
+      ignoreSpaces(thisChar);
+
       switch (thisChar)
       {
-      case '\n':
-        parseLF(tokenBuffer, thisChar);
-        return tokenBuffer;
+        // <LF>
+        case '\n':
+          parseLF(tokenBuffer, thisChar);
+          return tokenBuffer;
+        // BIN_ADD := [<Integer>|<Float>] "+" [<Integer>|<Float>]
+        case '+':
+          parseBinAdd(tokenBuffer, thisChar);
+          break;
+        // BIN_SUB := [<Integer>|<Float>] "-" [<Integer>|<Float>]
+        case '-':
+          parseBinSub(tokenBuffer, thisChar);
+          break;
+        // BIN_MUL | BIN_POW
+        case '*':
+          thisChar = readInputChar();
+          // BIN_POW := [<Integer>|<Float>] "**" [<Integer>|<Float>]
+          if (thisChar == '*')
+          {
+            parseBinPow(tokenBuffer, thisChar);
+          } 
+          // BIN_MUL := [<Integer>|<Float>] "*" [<Integer>|<Float>]
+          else 
+          {
+            parseBinMul(tokenBuffer, thisChar);
+          }
+          break;
+        // BIN_DIV := [<Integer>|<Float>] "/" [<Integer>|<Float>]
+        case '/':
+          parseBinDiv(tokenBuffer, thisChar);
+          break;
+        // BIN_MOD := [<Integer>|<Float>] "%" [<Integer>|<Float>]
+        case '%':
+          parseBinMod(tokenBuffer, thisChar);
+          break;
 
-      case '+':
-        std::cout << "|NotImplemented| BIN_ADD" << std::endl;
-        break;
-      
-      case '-':
-        std::cout << "|NotImplemented| BIN_SUB" << std::endl;
-        break;
-
-      case '*':
-        thisChar = readInputChar();
-        if (thisChar == '*')
-        {
-          std::cout << "|NotImplemented| BIN_POW" << std::endl;
-        } 
-        else 
-        {
-          std::cout << "|NotImplemented| BIN_MUL" << std::endl;
-        }
-        break;
-
-      case '/':
-        std::cout << "|NotImplemented| BIN_DIV" << std::endl;
-        break;
-
-      case '%':
-        std::cout << "|NotImplemented| BIN_MOD" << std::endl;
-        break;
-      
-      default:
-        std::cout << "|Info| <Integer> followed by unhandled char " << thisChar << std::endl;
-        break;
+        default:
+          std::cout << "|Info| <Integer> followed by unhandled char " << thisChar << std::endl;
+          break;
       }
     }
 
     switch (thisChar)
     {
       case '\n':
-        tokenBuffer.push_back(
-          TokenType::TOK_LF
-        );
-        thisChar = readInputChar();
+        parseLF(tokenBuffer, thisChar);
         break;
 
       case '\r':
-        tokenBuffer.push_back(
-          TokenType::TOK_CR
-        );
-        thisChar = readInputChar();
+        parseCR(tokenBuffer, thisChar);
         break;
 
       case EOF:
-        tokenBuffer.push_back(
-          TokenType::TOK_EOF
-        );
-        thisChar = readInputChar();
+        parseEOF(tokenBuffer, thisChar);
         break;
 
       case '!':
