@@ -1,56 +1,87 @@
 #include <cstdio>
 #include <cstdlib>
-#include <string>
-#include <map>
-#include <vector>
 #include <iostream>
+#include <string>
+#include <vector>
+#include <map>
+#include <unordered_map>
+
+class StyioBaseException : public std::exception
+{
+  private:
+    std::string message;
+
+  public:
+    StyioBaseException() : message("|Styio.BaseException|"){}
+
+    StyioBaseException(std::string msg) : message("|Styio.BaseException| " + msg) {}
+
+    ~StyioBaseException() throw () {}
+
+    virtual const char* what() const throw () {
+      return message.c_str();
+    }
+};
+
+class StyioSyntaxError : public StyioBaseException 
+{
+  private:
+    std::string message;
+
+  public:
+    StyioSyntaxError() : message("|Styio.SyntaxError|"){}
+
+    StyioSyntaxError(std::string msg) : message("|Styio.SyntaxError| " + msg) {}
+
+    ~StyioSyntaxError() throw () {}
+
+    virtual const char* what() const throw () {
+      return message.c_str();
+    }
+};
 
 enum TokenType {
-  TOK_UNKNOWN,
-
-  TOK_SPACE,
-  
-  TOK_EOL, // \n
-  TOK_EOF, // EOF
+  TOK_EOF = -1, // EOF
+  TOK_NULL = 0, // ASCII 0 NUL
+  TOK_LF = 10, // ASCII 10 LF
+  TOK_CR = 13, // ASCII 13 CR
+  TOK_SPACE = 32, // ASCII 32 SPACE
+  TOK_EXCLAM = 33, // ASCII 33 !
+  TOK_DQUOTE = 34, // ASCII 24 "
+  TOK_HASH = 35, // ASCII 35 #
+  TOK_DOLLAR = 36, // ASCII 36 $
+  TOK_PERCENT = 37, // ASCII 37 %
+  TOK_AMP = 38, // ASCII 38 &
+  TOK_SQUOTE = 39, // ASCII 39 '
+  TOK_LPAREN = 40, // ASCII 40 (
+  TOK_RPAREN = 41, // ASCII 41 )
+  TOK_STAR = 42, // ASCII 42 *
+  TOK_PLUS = 43, // ASCII 43 +
+  TOK_COMMA = 44, // ASCII 44 ,
+  TOK_MINUS = 45, // ASCII 45 -
+  TOK_DOT = 46, // ASCII 46 .
+  TOK_SLASH = 47, // ASCII 47 / (slash)
+  TOK_COLON = 58, // ASCII 58 :
+  TOK_SEMICOLON = 59, // ASCII 59 ;
+  TOK_LANGBRAC = 60, // ASCII 60 <
+  TOK_RANGBRAC = 62, // ASCII 62 >
+  TOK_CHECK = 63, // ASCII 63 ?
+  TOK_AT = 64, // ASCII 64 @
+  TOK_LBOXBRAC = 91, // [
+  TOK_BSLASH = 92, // ASCII 92 \ (backslash)
+  TOK_RBOXBRAC = 93, // ]
+  TOK_HAT = 94, // ASCII 94 ^
+  TOK_UNDLINE = 95, // ASCII 95 _
+  TOK_BQUOTE = 96, // ASCII 96 `
+  TOK_LCURBRAC = 123, // ASCII 123 {
+  TOK_PIPE = 124, // ASCII 124 |
+  TOK_RCURBRAC = 125, // ASCII 125 }
+  TOK_TILDE = 126, // ASCII 126 ~
+  TOK_DEL = 127, // ASCII 127 DEL
 
   TOK_ID,
   TOK_INT,
   TOK_FLOAT,
-
-  TOK_DOT, // .
-  TOK_COMMA, // ,
-  TOK_COLON, // :
-  TOK_SEMICOLON, // ;
-
-  TOK_TILDE, // ~
-  TOK_EXCLAM, // !
-  TOK_AT, // @
-  TOK_HASH, // #
-  TOK_DOLLAR, // $
-  TOK_PERCENT, // %
-  TOK_HAT, // ^
-  TOK_CHECK, // ?
-  TOK_SLASH, // /
-  TOK_BSLASH, // Back Slash
-  TOK_PIPE, // |
-  
-  TOK_ELLIPSIS, // ...
-
-  TOK_SQUOTE, // '
-  TOK_DQUOTE, // "
-  TOK_BQUOTE, // `
-
-  TOK_LPAREN, // (
-  TOK_RPAREN, // )
-
-  TOK_LCURBRAC, // {
-  TOK_RCURBRAC, // }
-
-  TOK_LBOXBRAC, // [
-  TOK_RBOXBRAC, // ]
-
-  TOK_LANGBRAC, // <
-  TOK_RANGBRAC, // >
 
   TOK_AND, // &&
   TOK_OR, // ||
@@ -71,6 +102,8 @@ enum TokenType {
   TOK_SUB, // -
   TOK_MUL, // *
   TOK_DIV, // /
+  TOK_MOD, // %
+  TOK_POW, // **
 
   TOK_GT, // >
   TOK_GE, // >=
@@ -79,202 +112,542 @@ enum TokenType {
   TOK_EQ, // ==
   TOK_NE, // !=
 
+  TOK_WALRUS, // :=
+
   TOK_MATCH, // ?=
+
+  TOK_ELLIPSIS, // ...
 
   TOK_INFINITE_LIST, // [...]
 };
 
 // ?(a > 1) [true % false]
 
+static std::vector<int> inputBuffer;
+
+static int readInputChar() {
+  int tmpChar = getchar();
+
+  inputBuffer.push_back(tmpChar);
+
+  return tmpChar;
+}
+
+static void ignoreSpaces(int& nextChar) {
+  while (isspace(nextChar)) {
+    nextChar = readInputChar();
+  };
+}
+
+static void parseSpace(std::vector<int>& tokenBuffer, int& nextChar) {
+  while (isspace(nextChar)) {
+    nextChar = readInputChar();
+    tokenBuffer.push_back(
+      TokenType::TOK_SPACE
+    );
+  };
+}
+
+static void parseLF(std::vector<int>& tokenBuffer, int& nextChar) {
+  while (nextChar == '\n') {
+    nextChar = readInputChar();
+    tokenBuffer.push_back(
+      TokenType::TOK_LF
+    );
+  };
+}
+
+static void parseId(std::vector<int>& tokenBuffer, int& nextChar) {
+  std::string idStr = "";
+  idStr += nextChar;
+
+  // [a-zA-Z][a-zA-Z0-9_]*
+  while (isalnum((nextChar = readInputChar())) || nextChar == '_') 
+  {
+    idStr += nextChar;
+  }
+
+  std::cout << "|Info| ID `" << idStr << "`" << std::endl;
+
+  tokenBuffer.push_back(
+    TokenType::TOK_ID
+  );
+}
+
+static void parseNum(std::vector<int>& tokenBuffer, int& nextChar) {
+  std::string numStr = "";
+  numStr += nextChar;
+  nextChar = readInputChar();
+
+  // [0-9]*
+  while (isdigit(nextChar))
+  {
+    numStr += nextChar;
+    nextChar = readInputChar();
+  };
+
+  if (nextChar == '.') 
+  {
+    numStr += nextChar;
+    nextChar = readInputChar();
+
+    while (isdigit(nextChar))
+    {
+      numStr += nextChar;
+      nextChar = readInputChar();
+    };
+
+    if (!isspace(nextChar)) 
+    {
+      std::string errmsg = "Float `" + numStr + "` ends with unexpected char `" + char(nextChar) + "`";
+      throw StyioSyntaxError(errmsg);
+    } else {
+      std::cout << "|Info| Float `" << numStr << "`" << std::endl;
+    }
+
+    tokenBuffer.push_back(
+      TokenType::TOK_FLOAT
+    );
+
+    return;
+  } 
+  else 
+  {
+    if (!isspace(nextChar)) 
+    {
+      std::string errmsg = "Integer `" + numStr + "` ends with unexpected char `" + char(nextChar) + "`";
+      throw StyioSyntaxError(errmsg);
+    } else {
+      std::cout << "|Info| Integer `" << numStr << "`" << std::endl;
+    }
+
+    tokenBuffer.push_back(
+      TokenType::TOK_INT
+    );
+
+    return;
+  }
+}
+
 static std::vector<int> Tokenize() {
   std::vector<int> tokenBuffer;
 
   static int thisChar = ' ';
 
-  thisChar = getchar();
-
-  // ignore white spaces and read next character
-  while (isspace(thisChar))
+  do
   {
-    thisChar = getchar();
-  }
+    // ignore white spaces and read next character
+    ignoreSpaces(thisChar);
 
-  if (isalpha(thisChar) || thisChar == '_') {
-    std::string IdStr = "";
-    IdStr += thisChar;
-
-    // [a-zA-Z][a-zA-Z0-9_]*
-    while (isalnum((thisChar = getchar())) || thisChar == '_') 
+    if (isalpha(thisChar) || thisChar == '_') 
     {
-      IdStr += thisChar;
-    }
-
-    std::cout << "[INFO]: ID `" << IdStr << "`" << std::endl;
-
-    tokenBuffer.push_back(
-      TokenType::TOK_ID
-    );
-  }
-
-  if (isdigit(thisChar)) {
-    std::string numStr = "";
-    numStr += thisChar;
-    thisChar = getchar();
-
-    // [0-9]*
-      while (isdigit(thisChar))
-      {
-        numStr += thisChar;
-        thisChar = getchar();
-      };
-
-    if (thisChar == '.') {
-      numStr += thisChar;
-      thisChar = getchar();
-
-      while (isdigit(thisChar))
-      {
-        numStr += thisChar;
-        thisChar = getchar();
-      };
-
-      if (!isspace(thisChar)) {
-        std::cout << "[Error]: Float `" << numStr << "` ends with unexpected char `" << char(thisChar) << "`" << std::endl;
-      }
-
-      std::cout << "[INFO]: Float `" << numStr << "`" << std::endl;
-
-      tokenBuffer.push_back(
-        TokenType::TOK_FLOAT
-      );
-    } 
-    else 
-    {
-      if (!isspace(thisChar)) {
-        std::cout << "[Error]: Integer `" << numStr << "` ends with unexpected char `" << char(thisChar) << "`" << std::endl;
-      }
-
-      std::cout << "[INFO]: Integer `" << numStr << "`" << std::endl;
-
-      tokenBuffer.push_back(
-        TokenType::TOK_INT
-      );
-    }
-  }
-
-  switch (thisChar)
-  {
-    case EOF:
-      tokenBuffer.push_back(
-        TokenType::TOK_EOF
-      );
-      break;
-
-    case ',':
-      tokenBuffer.push_back(
-        TokenType::TOK_COMMA
-      );
-      break;
+      // parse id
+      parseId(tokenBuffer, thisChar);
       
-    case '.':
-      tokenBuffer.push_back(
-        TokenType::TOK_DOT
-      );
-      break;
+      // ignore white spaces after id
+      ignoreSpaces(thisChar);
 
-    case ';':
-      tokenBuffer.push_back(
-        TokenType::TOK_SEMICOLON
-      );
-      break;
+      // check next character
+      switch (thisChar)
+      {
+        // LF -> 
+        case '\n':
+          parseLF(tokenBuffer, thisChar);
+          return tokenBuffer;
+        // define variable ->
+        case ':':
+          thisChar = readInputChar();
 
-    case ':':
-      tokenBuffer.push_back(
-        TokenType::TOK_COLON
-      );
-      break;
-
-    case '!':
-      tokenBuffer.push_back(
-        TokenType::TOK_EXCLAM
-      );
-      break;
-
-    case '(':
-      tokenBuffer.push_back(
-        TokenType::TOK_LPAREN
-      );
-      break;
-
-    case ')':
-      tokenBuffer.push_back(
-        TokenType::TOK_RPAREN
-      );
-      break;
-
-    case '[':
-      tokenBuffer.push_back(
-        TokenType::TOK_LBOXBRAC
-      );
-      break;
-
-    case ']':
-      tokenBuffer.push_back(
-        TokenType::TOK_RBOXBRAC
-      );
-      break;
-
-    case '{':
-      tokenBuffer.push_back(
-        TokenType::TOK_LCURBRAC
-      );
-      break;
-
-    case '}':
-      tokenBuffer.push_back(
-        TokenType::TOK_RCURBRAC
-      );
-      break;
-
-    case '@':
-      thisChar = getchar();
-
-      if (thisChar != '\n' || thisChar != EOF) {
-        while (isspace(thisChar))
-        {
-          thisChar = getchar();
-        };
+          if (thisChar == '=')
+          {
+            std::cout << "|NotImplemented| VAR_ASSIGN" << std::endl;
+          }
+          break;
+        // BIN_ADD := <ID> "+" <ID>
+        case '+':
+          std::cout << "|NotImplemented| BIN_ADD" << std::endl;
+          break;
+        // BIN_SUB := <ID> "-" <ID>
+        case '-':
+          std::cout << "|NotImplemented| BIN_SUB" << std::endl;
+          break;
+        // BIN_MUL | BIN_POW
+        case '*':
+          thisChar = readInputChar();
+          // BIN_POW := <ID> "**" <ID>
+          if (thisChar == '*')
+          {
+            std::cout << "|NotImplemented| BIN_POW" << std::endl;
+          } 
+          // BIN_MUL := <ID> "*" <ID>
+          else 
+          {
+            std::cout << "|NotImplemented| BIN_MUL" << std::endl;
+          }
+          break;
+        // BIN_MUL := <ID> "/" <ID>
+        case '/':
+          std::cout << "|NotImplemented| BIN_DIV" << std::endl;
+          break;
+        // BIN_MUL := <ID> "%" <ID>
+        case '%':
+          std::cout << "|NotImplemented| BIN_MOD" << std::endl;
+          break;
+        
+        default:
+          std::cout << "|Info| <ID> followed by unhandled char " << thisChar << std::endl;
+          break;
       }
+    }
 
-      // VAR_DEF := "@" "(" [<ID> ["," <ID>]*]? ")"
-      if (thisChar == '(') {
+    if (isdigit(thisChar)) {
+      parseNum(tokenBuffer, thisChar);
+
+      switch (thisChar)
+      {
+      case '\n':
+        parseLF(tokenBuffer, thisChar);
+        return tokenBuffer;
+
+      case '+':
+        std::cout << "|NotImplemented| BIN_ADD" << std::endl;
+        break;
+      
+      case '-':
+        std::cout << "|NotImplemented| BIN_SUB" << std::endl;
+        break;
+
+      case '*':
+        thisChar = readInputChar();
+        if (thisChar == '*')
+        {
+          std::cout << "|NotImplemented| BIN_POW" << std::endl;
+        } 
+        else 
+        {
+          std::cout << "|NotImplemented| BIN_MUL" << std::endl;
+        }
+        break;
+
+      case '/':
+        std::cout << "|NotImplemented| BIN_DIV" << std::endl;
+        break;
+
+      case '%':
+        std::cout << "|NotImplemented| BIN_MOD" << std::endl;
+        break;
+      
+      default:
+        std::cout << "|Info| <Integer> followed by unhandled char " << thisChar << std::endl;
+        break;
+      }
+    }
+
+    switch (thisChar)
+    {
+      case '\n':
+        tokenBuffer.push_back(
+          TokenType::TOK_LF
+        );
+        thisChar = readInputChar();
+        break;
+
+      case '\r':
+        tokenBuffer.push_back(
+          TokenType::TOK_CR
+        );
+        thisChar = readInputChar();
+        break;
+
+      case EOF:
+        tokenBuffer.push_back(
+          TokenType::TOK_EOF
+        );
+        thisChar = readInputChar();
+        break;
+
+      case '!':
+        tokenBuffer.push_back(
+          TokenType::TOK_EXCLAM
+        );
+        thisChar = readInputChar();
+        break;
+
+      case '@':
         tokenBuffer.push_back(
           TokenType::TOK_AT
         );
+        thisChar = readInputChar();
         break;
-      }
 
-    default:
-      break;
-  }
+      case ',':
+        tokenBuffer.push_back(
+          TokenType::TOK_COMMA
+        );
+        thisChar = readInputChar();
+        break;
+
+      case '.':
+        tokenBuffer.push_back(
+          TokenType::TOK_DOT
+        );
+        thisChar = readInputChar();
+        break;
+
+      case ';':
+        tokenBuffer.push_back(
+          TokenType::TOK_SEMICOLON
+        );
+        thisChar = readInputChar();
+        break;
+
+      case ':':
+        tokenBuffer.push_back(
+          TokenType::TOK_COLON
+        );
+        thisChar = readInputChar();
+        break;
+
+      case '(':
+        tokenBuffer.push_back(
+          TokenType::TOK_LPAREN
+        );
+        thisChar = readInputChar();
+        break;
+
+      case ')':
+        tokenBuffer.push_back(
+          TokenType::TOK_RPAREN
+        );
+        thisChar = readInputChar();
+        break;
+
+      case '[':
+        tokenBuffer.push_back(
+          TokenType::TOK_LBOXBRAC
+        );
+        thisChar = readInputChar();
+        break;
+
+      case ']':
+        tokenBuffer.push_back(
+          TokenType::TOK_RBOXBRAC
+        );
+        thisChar = readInputChar();
+        break;
+
+      case '{':
+        tokenBuffer.push_back(
+          TokenType::TOK_LCURBRAC
+        );
+        thisChar = readInputChar();
+        break;
+
+      case '}':
+        tokenBuffer.push_back(
+          TokenType::TOK_RCURBRAC
+        );
+        thisChar = readInputChar();
+        break;
+
+      default:
+        std::cout << "|Unknown| " << thisChar << std::endl;
+        thisChar = readInputChar();
+        break;
+    }
+
+    std::cout << "|Cursor| " << thisChar << std::endl;
+
+  } while (thisChar != '\n' && thisChar != EOF);
 
   return tokenBuffer;
+}
+
+std::string tokenRepr(int token) {
+  switch (token)
+  {
+    case TokenType::TOK_SPACE:
+      return " ";
+
+    case TokenType::TOK_CR:
+      return "<CR>";
+
+    case TokenType::TOK_LF:
+      return "<LF>";
+
+    case TokenType::TOK_EOF:
+      return "<EOF>";
+
+    case TokenType::TOK_ID:
+      return "<ID>";
+
+    case TokenType::TOK_INT:
+      return "<INT>";
+
+    case TokenType::TOK_FLOAT:
+      return "<FLOAT>";
+
+    case TokenType::TOK_COMMA:
+      return ",";
+
+    case TokenType::TOK_DOT:
+      return ".";
+
+    case TokenType::TOK_COLON:
+      return ":";
+
+    case TokenType::TOK_TILDE:
+      return "~";
+
+    case TokenType::TOK_EXCLAM:
+      return "!";
+
+    case TokenType::TOK_AT:
+      return "@";
+
+    case TokenType::TOK_HASH:
+      return "#";
+
+    case TokenType::TOK_DOLLAR:
+      return "$";
+
+    case TokenType::TOK_PERCENT:
+      return "%";
+
+    case TokenType::TOK_HAT:
+      return "^";
+
+    case TokenType::TOK_CHECK:
+      return "?";
+
+    case TokenType::TOK_SLASH:
+      return "/";
+
+    case TokenType::TOK_BSLASH:
+      return "\\";
+
+    case TokenType::TOK_PIPE:
+      return "|";
+
+    case TokenType::TOK_ELLIPSIS:
+      return "...";
+
+    case TokenType::TOK_SQUOTE:
+      return "'";
+
+    case TokenType::TOK_DQUOTE:
+      return "\"";
+
+    case TokenType::TOK_BQUOTE:
+      return "`";
+
+    case TokenType::TOK_LPAREN:
+      return "(";
+
+    case TokenType::TOK_RPAREN:
+      return ")";
+
+    case TokenType::TOK_LBOXBRAC:
+      return "[";
+
+    case TokenType::TOK_RBOXBRAC:
+      return "]";
+
+    case TokenType::TOK_LANGBRAC:
+      return "<";
+
+    case TokenType::TOK_RANGBRAC:
+      return ">";
+
+    case TokenType::TOK_NOT:
+      return "<NOT>";
+
+    case TokenType::TOK_AND:
+      return "<LOGIC_AND>";
+
+    case TokenType::TOK_OR:
+      return "<LOGIC_OR>";
+
+    case TokenType::TOK_XOR:
+      return "<LOGIC_XOR>";
+
+    case TokenType::TOK_BITAND:
+      return "<BIT_AND>";
+
+    case TokenType::TOK_BITOR:
+      return "<BIT_OR>";
+
+    case TokenType::TOK_BITXOR:
+      return "<BIT_XOR>";
+
+    case TokenType::TOK_LSHIFT:
+      return "<BIT_LEFT_SHIFT>";
+
+    case TokenType::TOK_RSHIFT:
+      return "<BIT_RIGHT_SHIFT>";
+    
+    case TokenType::TOK_NEG:
+      return "<NEG_OP>";
+
+    case TokenType::TOK_ADD:
+      return "<ADD_OP>";
+
+    case TokenType::TOK_SUB:
+      return "<SUB_OP>";
+
+    case TokenType::TOK_MUL:
+      return "<MUL_OP>";
+
+    case TokenType::TOK_DIV:
+      return "<DIV_OP>";
+
+    case TokenType::TOK_MOD:
+      return "<MOD_OP>";
+
+    case TokenType::TOK_POW:
+      return "<POW_OP>";
+
+    case TokenType::TOK_GT:
+      return "<GT>";
+
+    case TokenType::TOK_GE:
+      return "<GE>";
+
+    case TokenType::TOK_LT:
+      return "<LT>";
+
+    case TokenType::TOK_LE:
+      return "<LE>";
+
+    case TokenType::TOK_EQ:
+      return "<EQ>";
+
+    case TokenType::TOK_NE:
+      return "<NE>";
+
+    case TokenType::TOK_MATCH:
+      return "?=";
+
+    case TokenType::TOK_INFINITE_LIST:
+      return "[...]";
+    
+    default:
+      return "<UNKNOWN>";
+  }
 }
 
 int main() {
 
   while (1) 
   {
-    fprintf(stderr, "</styio/> ");
+    fprintf(stderr, "styio$: ");
 
     for (int tok: Tokenize()) {
-      std::cout << tok << ' ';
+      std::cout << tokenRepr(tok) << ' ';
     };
-
     std::cout << std::endl;
 
-    // std::cout << "[INFO]: Token <" << thisToken << ">" << std::endl;
-  };
+  }; 
 
   return 0;
 }
