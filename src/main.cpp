@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <map>
@@ -40,7 +41,7 @@ class StyioSyntaxError : public StyioBaseException
     }
 };
 
-enum TokenType {
+enum StyioToken {
   TOK_EOF = -1, // EOF
   TOK_NULL = 0, // ASCII 0 NUL
   TOK_LF = 10, // ASCII 10 LF
@@ -82,6 +83,7 @@ enum TokenType {
   TOK_ID,
   TOK_INT,
   TOK_FLOAT,
+  TOK_STRING,
 
   TOK_AND, // &&
   TOK_OR, // ||
@@ -121,7 +123,333 @@ enum TokenType {
   TOK_INFINITE_LIST, // [...]
 };
 
+
+static std::string reprToken(int token) {
+  switch (token)
+  {
+    case StyioToken::TOK_SPACE:
+      return " ";
+
+    case StyioToken::TOK_CR:
+      return "<CR>";
+
+    case StyioToken::TOK_LF:
+      return "<LF>";
+
+    case StyioToken::TOK_EOF:
+      return "<EOF>";
+
+    case StyioToken::TOK_ID:
+      return "<ID>";
+
+    case StyioToken::TOK_INT:
+      return "<INT>";
+
+    case StyioToken::TOK_FLOAT:
+      return "<FLOAT>";
+
+    case StyioToken::TOK_STRING:
+      return "<STRING>";
+
+    case StyioToken::TOK_COMMA:
+      return ",";
+
+    case StyioToken::TOK_DOT:
+      return ".";
+
+    case StyioToken::TOK_COLON:
+      return ":";
+
+    case StyioToken::TOK_TILDE:
+      return "~";
+
+    case StyioToken::TOK_EXCLAM:
+      return "!";
+
+    case StyioToken::TOK_AT:
+      return "@";
+
+    case StyioToken::TOK_HASH:
+      return "#";
+
+    case StyioToken::TOK_DOLLAR:
+      return "$";
+
+    case StyioToken::TOK_PERCENT:
+      return "%";
+
+    case StyioToken::TOK_HAT:
+      return "^";
+
+    case StyioToken::TOK_CHECK:
+      return "?";
+
+    case StyioToken::TOK_SLASH:
+      return "/";
+
+    case StyioToken::TOK_BSLASH:
+      return "\\";
+
+    case StyioToken::TOK_PIPE:
+      return "|";
+
+    case StyioToken::TOK_ELLIPSIS:
+      return "...";
+
+    case StyioToken::TOK_SQUOTE:
+      return "'";
+
+    case StyioToken::TOK_DQUOTE:
+      return "\"";
+
+    case StyioToken::TOK_BQUOTE:
+      return "`";
+
+    case StyioToken::TOK_LPAREN:
+      return "(";
+
+    case StyioToken::TOK_RPAREN:
+      return ")";
+
+    case StyioToken::TOK_LBOXBRAC:
+      return "[";
+
+    case StyioToken::TOK_RBOXBRAC:
+      return "]";
+
+    case StyioToken::TOK_LANGBRAC:
+      return "<";
+
+    case StyioToken::TOK_RANGBRAC:
+      return ">";
+
+    case StyioToken::TOK_NOT:
+      return "<NOT>";
+
+    case StyioToken::TOK_AND:
+      return "<AND>";
+
+    case StyioToken::TOK_OR:
+      return "<OR>";
+
+    case StyioToken::TOK_XOR:
+      return "<XOR>";
+
+    case StyioToken::TOK_BITAND:
+      return "<BIT_AND>";
+
+    case StyioToken::TOK_BITOR:
+      return "<BIT_OR>";
+
+    case StyioToken::TOK_BITXOR:
+      return "<BIT_XOR>";
+
+    case StyioToken::TOK_LSHIFT:
+      return "<<";
+
+    case StyioToken::TOK_RSHIFT:
+      return ">>";
+    
+    case StyioToken::TOK_NEG:
+      return "<NEG>";
+
+    case StyioToken::TOK_ADD:
+      return "<ADD>";
+
+    case StyioToken::TOK_SUB:
+      return "<SUB>";
+
+    case StyioToken::TOK_MUL:
+      return "<MUL>";
+
+    case StyioToken::TOK_DIV:
+      return "<DIV>";
+
+    case StyioToken::TOK_MOD:
+      return "<MOD>";
+
+    case StyioToken::TOK_POW:
+      return "<POW>";
+
+    case StyioToken::TOK_GT:
+      return "<GT>";
+
+    case StyioToken::TOK_GE:
+      return "<GE>";
+
+    case StyioToken::TOK_LT:
+      return "<LT>";
+
+    case StyioToken::TOK_LE:
+      return "<LE>";
+
+    case StyioToken::TOK_EQ:
+      return "<EQ>";
+
+    case StyioToken::TOK_NE:
+      return "<NE>";
+
+    case StyioToken::TOK_MATCH:
+      return "?=";
+
+    case StyioToken::TOK_WALRUS:
+      return ":=";
+
+    case StyioToken::TOK_INFINITE_LIST:
+      return "[...]";
+    
+    default:
+      return "<UNKNOWN>";
+  }
+};
+
 // ?(a > 1) [true % false]
+
+/*
+StyioAST
+*/
+class StyioAST {
+  public:
+    virtual ~StyioAST() {}
+
+    virtual std::string toString() {
+      return "Styio.Base {}";
+    }
+
+    virtual std::string toStringInline() {
+      return "StyioAST";
+    }
+};
+
+/*
+IdAST
+*/
+class IdAST : public StyioAST {
+  std::string Id;
+
+  public:
+    IdAST(const std::string &id) : Id(id) {}
+
+    std::string toString() {
+      return std::string("ID { ") + Id + " }";
+    }
+
+    std::string toStringInline() {
+      return "<ID: \"" + Id + "\">";
+    }
+};
+
+/*
+IntAST
+*/
+class IntAST : public StyioAST {
+  int Value;
+
+  public:
+    IntAST(int val) : Value(val) {}
+
+    std::string toString() {
+      return "Int { " + std::to_string(Value) + " }";
+    }
+
+    std::string toStringInline() {
+      return std::to_string(Value);
+    }
+};
+
+/*
+FloatAST
+*/
+class FloatAST : public StyioAST {
+  double Value;
+
+  public:
+    FloatAST(double val) : Value(val) {}
+
+    std::string toString() {
+      return "Float { " + std::to_string(Value) + " }";
+    }
+
+    std::string toStringInline() {
+      return std::to_string(Value);
+    }
+};
+
+/*
+StringAST
+*/
+class StringAST : public StyioAST {
+  std::string Value;
+
+  public:
+    StringAST(std::string val) : Value(val) {}
+
+    std::string toString() {
+      return "String { \"" + Value + "\" }";
+    }
+
+    std::string toStringInline() {
+      return "\"" + Value + "\"";
+    }
+};
+
+/*
+VarDefAST
+*/
+class VarDefAST : public StyioAST {
+  IdAST *Id;
+
+  public:
+    VarDefAST(IdAST *id) : Id(id) {}
+
+    std::string toString() {
+      return "| Variable : " + Id -> toStringInline() + " |";
+    }
+
+    std::string toStringInline() {
+      return "Variable : " + Id -> toStringInline();
+    }
+};
+
+/*
+AssignAST
+*/
+class AssignAST : public StyioAST {
+  VarDefAST *varDef;
+  StyioAST *valExpr;
+
+  public:
+    AssignAST(VarDefAST *var, StyioAST *val) : varDef(var), valExpr(val) {}
+
+    std::string toString() {
+      return "| { " + varDef -> toStringInline() + " } := { " + valExpr -> toString() + " } |";
+    }
+};
+
+/*
+BinOpAST
+*/
+class BinOpAST : public StyioAST {
+  StyioToken Op;
+  StyioAST *LHS;
+  StyioAST *RHS;
+
+  public:
+    BinOpAST(StyioToken op, StyioAST *lhs, StyioAST *rhs): Op(op), LHS(lhs), RHS(rhs) {}
+
+    std::string toString() {
+      return std::string("BinOp {\n") 
+        + "  | "
+        + reprToken(Op) 
+        + "\n"
+        + "  | "
+        + LHS -> toString() 
+        + "\n"
+        + "  | "
+        + RHS -> toString()  
+        + "\n} ";
+    }
+};
 
 static std::vector<int> inputBuffer;
 
@@ -134,7 +462,7 @@ static int readInputChar()
   return tmpChar;
 }
 
-static void ignoreBlank(int& nextChar) 
+static void dropAllGaps(int& nextChar) 
 {
   while (isspace(nextChar)) {
     nextChar = readInputChar();
@@ -142,7 +470,7 @@ static void ignoreBlank(int& nextChar)
 }
 
 
-static void ignoreSpaces(int& nextChar) 
+static void dropSpaces(int& nextChar) 
 {
   while (nextChar == ' ') {
     nextChar = readInputChar();
@@ -154,7 +482,7 @@ static void parseSpace(std::vector<int>& tokenBuffer, int& nextChar)
   while (nextChar == ' ') {
     nextChar = readInputChar();
     tokenBuffer.push_back(
-      TokenType::TOK_SPACE
+      StyioToken::TOK_SPACE
     );
   };
 }
@@ -163,7 +491,7 @@ static void parseLF(std::vector<int>& tokenBuffer, int& nextChar)
 {
   // nextChar = readInputChar();
   tokenBuffer.push_back(
-    TokenType::TOK_LF
+    StyioToken::TOK_LF
   );
 }
 
@@ -171,7 +499,7 @@ static void parseCR(std::vector<int>& tokenBuffer, int& nextChar)
 {
   // nextChar = readInputChar();
   tokenBuffer.push_back(
-    TokenType::TOK_CR
+    StyioToken::TOK_CR
   );
 }
 
@@ -179,11 +507,11 @@ static void parseEOF(std::vector<int>& tokenBuffer, int& nextChar)
 {
   // nextChar = readInputChar();
   tokenBuffer.push_back(
-    TokenType::TOK_EOF
+    StyioToken::TOK_EOF
   );
 }
 
-static void parseId(std::vector<int>& tokenBuffer, int& nextChar) 
+static IdAST* parseId(std::vector<int>& tokenBuffer, int& nextChar) 
 {
   std::string idStr = "";
   idStr += nextChar;
@@ -194,14 +522,45 @@ static void parseId(std::vector<int>& tokenBuffer, int& nextChar)
     idStr += nextChar;
   }
 
-  std::cout << "|Info| ID `" << idStr << "`" << std::endl;
-
   tokenBuffer.push_back(
-    TokenType::TOK_ID
+    StyioToken::TOK_ID
   );
+
+  IdAST* result = new IdAST(idStr);
+
+  std::cout << result -> toString() << std::endl;
+
+  return result;
 }
 
-static void parseNum(std::vector<int>& tokenBuffer, int& nextChar) 
+static StringAST* parseString(std::vector<int>& tokenBuffer, int& nextChar) 
+{
+  // eliminate the first(start) double quote
+  nextChar = readInputChar();
+
+  std::string textStr = "";
+  
+  while (nextChar != '\"')
+  {
+    textStr += nextChar;
+    nextChar = readInputChar();
+  };
+
+  // eliminate the second(end) double quote
+  nextChar = readInputChar();
+
+  tokenBuffer.push_back(
+    StyioToken::TOK_STRING
+  );
+
+  StringAST* result = new StringAST(textStr);
+
+  std::cout << result -> toString() << std::endl;
+
+  return result;
+}
+
+static StyioAST* parseNum(std::vector<int>& tokenBuffer, int& nextChar) 
 {
   std::string numStr = "";
   numStr += nextChar;
@@ -225,576 +584,312 @@ static void parseNum(std::vector<int>& tokenBuffer, int& nextChar)
       nextChar = readInputChar();
     };
 
-    if (!isspace(nextChar)) 
-    {
-      std::string errmsg = "Float `" + numStr + "` ends with unexpected char `" + char(nextChar) + "`";
-      throw StyioSyntaxError(errmsg);
-    } else {
-      std::cout << "|Info| Float `" << numStr << "`" << std::endl;
-    }
+    // if (!isspace(nextChar)) 
+    // {
+    //   std::string errmsg = "Float `" + numStr + "` ends with unexpected char `" + char(nextChar) + "`";
+    //   throw StyioSyntaxError(errmsg);
+    // }
 
     tokenBuffer.push_back(
-      TokenType::TOK_FLOAT
+      StyioToken::TOK_FLOAT
     );
 
-    return;
+    FloatAST* result = new FloatAST(std::stod(numStr));
+
+    std::cout << result -> toString() << std::endl;
+
+    return result;
   } 
   else 
   {
-    if (!isspace(nextChar)) 
-    {
-      std::string errmsg = "Integer `" + numStr + "` ends with unexpected char `" + char(nextChar) + "`";
-      throw StyioSyntaxError(errmsg);
-    } else {
-      std::cout << "|Info| Integer `" << numStr << "`" << std::endl;
-    }
+    // if (!isspace(nextChar)) 
+    // {
+    //   std::string errmsg = "Integer `" + numStr + "` ends with unexpected char `" + char(nextChar) + "`";
+    //   throw StyioSyntaxError(errmsg);
+    // }
 
     tokenBuffer.push_back(
-      TokenType::TOK_INT
+      StyioToken::TOK_INT
     );
 
-    return;
+    IntAST* result = new IntAST(std::stoi(numStr));
+
+    std::cout << result -> toString() << std::endl;
+
+    return result;
   }
 }
 
-static void parseBinAdd(std::vector<int>& tokenBuffer, int& nextChar) 
+static BinOpAST* parseBinOp(
+  std::vector<int>& tokenBuffer, 
+  int& nextChar, 
+  StyioToken signToken,
+  StyioAST* lhsAST
+) 
 {
   nextChar = readInputChar();
 
-  tokenBuffer.push_back(
-    TokenType::TOK_ADD
-  );
+  tokenBuffer.push_back(signToken);
 
-  ignoreSpaces(nextChar);
+  dropSpaces(nextChar);
 
   if (isalpha(nextChar) || nextChar == '_') {
-    parseId(tokenBuffer, nextChar);
+    BinOpAST* result = new BinOpAST(signToken, lhsAST, parseId(tokenBuffer, nextChar));
+    std::cout << result -> toString() << std::endl;
+    return result;
   }
 
   if (isdigit(nextChar)) {
-    parseNum(tokenBuffer, nextChar);
+    BinOpAST* result = new BinOpAST(signToken, lhsAST, parseNum(tokenBuffer, nextChar));
+    std::cout << result -> toString() << std::endl;
+    return result;
   }
-  
-  // std::cout << "|NotImplemented| BIN_ADD" << std::endl;
-}
-
-static void parseBinSub(std::vector<int>& tokenBuffer, int& nextChar) 
-{
-  nextChar = readInputChar();
-
-  tokenBuffer.push_back(
-    TokenType::TOK_SUB
-  );
-
-  ignoreSpaces(nextChar);
-
-  if (isalpha(nextChar) || nextChar == '_') {
-    parseId(tokenBuffer, nextChar);
-  }
-
-  if (isdigit(nextChar)) {
-    parseNum(tokenBuffer, nextChar);
-  }
-  
-  // std::cout << "|NotImplemented| BIN_SUB" << std::endl;
-}
-
-static void parseBinMul(std::vector<int>& tokenBuffer, int& nextChar) 
-{
-  nextChar = readInputChar();
-  
-  tokenBuffer.push_back(
-    TokenType::TOK_MUL
-  );
-
-  ignoreSpaces(nextChar);
-
-  if (isalpha(nextChar) || nextChar == '_') {
-    parseId(tokenBuffer, nextChar);
-  }
-
-  if (isdigit(nextChar)) {
-    parseNum(tokenBuffer, nextChar);
-  }
-
-  // std::cout << "|NotImplemented| BIN_MUL" << std::endl;
-}
-
-static void parseBinDiv(std::vector<int>& tokenBuffer, int& nextChar) 
-{
-  nextChar = readInputChar();
-  
-  tokenBuffer.push_back(
-    TokenType::TOK_DIV
-  );
-
-  ignoreSpaces(nextChar);
-
-  if (isalpha(nextChar) || nextChar == '_') {
-    parseId(tokenBuffer, nextChar);
-  }
-
-  if (isdigit(nextChar)) {
-    parseNum(tokenBuffer, nextChar);
-  }
-
-  // std::cout << "|NotImplemented| BIN_DIV" << std::endl;
-}
-
-static void parseBinPow(std::vector<int>& tokenBuffer, int& nextChar) 
-{
-  nextChar = readInputChar();
-  
-  tokenBuffer.push_back(
-    TokenType::TOK_POW
-  );
-
-  ignoreSpaces(nextChar);
-
-  if (isalpha(nextChar) || nextChar == '_') {
-    parseId(tokenBuffer, nextChar);
-  }
-
-  if (isdigit(nextChar)) {
-    parseNum(tokenBuffer, nextChar);
-  }
-
-  // std::cout << "|NotImplemented| BIN_POW" << std::endl;
-}
-
-static void parseBinMod(std::vector<int>& tokenBuffer, int& nextChar) 
-{
-  nextChar = readInputChar();
-
-  tokenBuffer.push_back(
-    TokenType::TOK_MOD
-  );
-
-  ignoreSpaces(nextChar);
-
-  if (isalpha(nextChar) || nextChar == '_') {
-    parseId(tokenBuffer, nextChar);
-  }
-
-  if (isdigit(nextChar)) {
-    parseNum(tokenBuffer, nextChar);
-  }
-
-  // std::cout << "|NotImplemented| BIN_MOD" << std::endl;
 }
 
 static std::vector<int> Tokenize() {
   std::vector<int> tokenBuffer;
 
-  static int thisChar = ' ';
+  static int nextChar = ' ';
 
-  do
+  while (1)
   {
-    ignoreBlank(thisChar);
+    dropAllGaps(nextChar);
 
-    if (isalpha(thisChar) || thisChar == '_') 
+    if (isalpha(nextChar) || nextChar == '_') 
     {
       // parse id
-      parseId(tokenBuffer, thisChar);
+      IdAST* idAST = parseId(tokenBuffer, nextChar);
       
       // ignore white spaces after id
-      ignoreSpaces(thisChar);
+      dropSpaces(nextChar);
 
       // check next character
-      switch (thisChar)
+      switch (nextChar)
       {
         // <LF>
         case '\n':
-          parseLF(tokenBuffer, thisChar);
-
+          parseLF(tokenBuffer, nextChar);
           return tokenBuffer;
         
         // <ID> := <EXPR>
         case ':':
-          thisChar = readInputChar();
-
-          if (thisChar == '=')
+          nextChar = readInputChar();
+          if (nextChar == '=')
           {
             std::cout << "|NotImplemented| VAR_ASSIGN" << std::endl;
           }
           break;
-        // BIN_ADD := <ID> "+" <ID>
+        // BIN_ADD := <ID> "+" <EXPR>
         case '+':
-          parseBinAdd(tokenBuffer, thisChar);
+          parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_ADD, idAST);
           break;
-        // BIN_SUB := <ID> "-" <ID>
+        // BIN_SUB := <ID> "-" <EXPR>
         case '-':
-          parseBinSub(tokenBuffer, thisChar);
+          parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_SUB, idAST);
           break;
         // BIN_MUL | BIN_POW
         case '*':
-          thisChar = readInputChar();
-          // BIN_POW := <ID> "**" <ID>
-          if (thisChar == '*')
+          nextChar = readInputChar();
+          // BIN_POW := <ID> "**" <EXPR>
+          if (nextChar == '*')
           {
-            parseBinPow(tokenBuffer, thisChar);
+            parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_POW, idAST);
           } 
-          // BIN_MUL := <ID> "*" <ID>
+          // BIN_MUL := <ID> "*" <EXPR>
           else 
           {
-            parseBinMul(tokenBuffer, thisChar);
+            parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_MUL, idAST);
           }
           break;
-        // BIN_MUL := <ID> "/" <ID>
+        // BIN_MUL := <ID> "/" <EXPR>
         case '/':
-          parseBinDiv(tokenBuffer, thisChar);
+          parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_DIV, idAST);
           break;
-        // BIN_MUL := <ID> "%" <ID>
+        // BIN_MUL := <ID> "%" <EXPR>
         case '%':
-          parseBinMod(tokenBuffer, thisChar);
+          parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_MOD, idAST);
           break;
         
         default:
-          std::cout << "|Info| <ID> followed by unhandled char " << thisChar << std::endl;
+          // std::cout << "|Info| <ID> followed by unhandled char " << thisChar << std::endl;
           break;
       }
     }
 
-    if (isdigit(thisChar)) {
-      parseNum(tokenBuffer, thisChar);
+    if (isdigit(nextChar)) {
+      StyioAST* numAST = parseNum(tokenBuffer, nextChar);
 
-      ignoreSpaces(thisChar);
+      dropSpaces(nextChar);
 
-      switch (thisChar)
+      switch (nextChar)
       {
         // <LF>
         case '\n':
-          parseLF(tokenBuffer, thisChar);
+          parseLF(tokenBuffer, nextChar);
           return tokenBuffer;
-        // BIN_ADD := [<Integer>|<Float>] "+" [<Integer>|<Float>]
+        // BIN_ADD := [<Integer>|<Float>] "+" <EXPR>
         case '+':
-          parseBinAdd(tokenBuffer, thisChar);
+          parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_ADD, numAST);
           break;
-        // BIN_SUB := [<Integer>|<Float>] "-" [<Integer>|<Float>]
+        // BIN_SUB := [<Integer>|<Float>] "-" <EXPR>
         case '-':
-          parseBinSub(tokenBuffer, thisChar);
+          parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_SUB, numAST);
           break;
         // BIN_MUL | BIN_POW
         case '*':
-          thisChar = readInputChar();
-          // BIN_POW := [<Integer>|<Float>] "**" [<Integer>|<Float>]
-          if (thisChar == '*')
+          nextChar = readInputChar();
+          // BIN_POW := [<Integer>|<Float>] "**" <EXPR>
+          if (nextChar == '*')
           {
-            parseBinPow(tokenBuffer, thisChar);
+            parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_POW, numAST);
           } 
-          // BIN_MUL := [<Integer>|<Float>] "*" [<Integer>|<Float>]
+          // BIN_MUL := [<Integer>|<Float>] "*" <EXPR>
           else 
           {
-            parseBinMul(tokenBuffer, thisChar);
+            parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_MUL, numAST);
           }
           break;
-        // BIN_DIV := [<Integer>|<Float>] "/" [<Integer>|<Float>]
+        // BIN_DIV := [<Integer>|<Float>] "/" <EXPR>
         case '/':
-          parseBinDiv(tokenBuffer, thisChar);
+          parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_DIV, numAST);
           break;
-        // BIN_MOD := [<Integer>|<Float>] "%" [<Integer>|<Float>]
-        case '%':
-          parseBinMod(tokenBuffer, thisChar);
+        // BIN_MOD := [<Integer>|<Float>] "%" <EXPR>
+          parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_MOD, numAST);
           break;
 
         default:
-          std::cout << "|Info| <Integer> followed by unhandled char " << thisChar << std::endl;
+          // std::cout << "|Info| <Integer> followed by unhandled char " << thisChar << std::endl;
           break;
       }
     }
 
-    switch (thisChar)
+    switch (nextChar)
     {
-      case '\n':
-        parseLF(tokenBuffer, thisChar);
-        break;
+      case '@':
+        tokenBuffer.push_back(
+          StyioToken::TOK_AT
+        );
+        
+        dropSpaces(nextChar);
 
-      case '\r':
-        parseCR(tokenBuffer, thisChar);
-        break;
+        if (isalpha(nextChar) || ) {
 
-      case EOF:
-        parseEOF(tokenBuffer, thisChar);
+        } 
+        
+        break; 
+
+      case '\"':
+        parseString(tokenBuffer, nextChar);
         break;
 
       case '!':
         tokenBuffer.push_back(
-          TokenType::TOK_EXCLAM
+          StyioToken::TOK_EXCLAM
         );
-        thisChar = readInputChar();
-        break;
-
-      case '@':
-        tokenBuffer.push_back(
-          TokenType::TOK_AT
-        );
-        thisChar = readInputChar();
+        nextChar = readInputChar();
         break;
 
       case ',':
         tokenBuffer.push_back(
-          TokenType::TOK_COMMA
+          StyioToken::TOK_COMMA
         );
-        thisChar = readInputChar();
+        nextChar = readInputChar();
         break;
 
       case '.':
         tokenBuffer.push_back(
-          TokenType::TOK_DOT
+          StyioToken::TOK_DOT
         );
-        thisChar = readInputChar();
+        nextChar = readInputChar();
         break;
 
       case ';':
         tokenBuffer.push_back(
-          TokenType::TOK_SEMICOLON
+          StyioToken::TOK_SEMICOLON
         );
-        thisChar = readInputChar();
+        nextChar = readInputChar();
         break;
 
       case ':':
         tokenBuffer.push_back(
-          TokenType::TOK_COLON
+          StyioToken::TOK_COLON
         );
-        thisChar = readInputChar();
+        nextChar = readInputChar();
         break;
 
       case '(':
         tokenBuffer.push_back(
-          TokenType::TOK_LPAREN
+          StyioToken::TOK_LPAREN
         );
-        thisChar = readInputChar();
+        nextChar = readInputChar();
         break;
 
       case ')':
         tokenBuffer.push_back(
-          TokenType::TOK_RPAREN
+          StyioToken::TOK_RPAREN
         );
-        thisChar = readInputChar();
+        nextChar = readInputChar();
         break;
 
       case '[':
         tokenBuffer.push_back(
-          TokenType::TOK_LBOXBRAC
+          StyioToken::TOK_LBOXBRAC
         );
-        thisChar = readInputChar();
+        nextChar = readInputChar();
         break;
 
       case ']':
         tokenBuffer.push_back(
-          TokenType::TOK_RBOXBRAC
+          StyioToken::TOK_RBOXBRAC
         );
-        thisChar = readInputChar();
+        nextChar = readInputChar();
         break;
 
       case '{':
         tokenBuffer.push_back(
-          TokenType::TOK_LCURBRAC
+          StyioToken::TOK_LCURBRAC
         );
-        thisChar = readInputChar();
+        nextChar = readInputChar();
         break;
 
       case '}':
         tokenBuffer.push_back(
-          TokenType::TOK_RCURBRAC
+          StyioToken::TOK_RCURBRAC
         );
-        thisChar = readInputChar();
+        nextChar = readInputChar();
         break;
-
       default:
-        std::cout << "|Unknown| " << thisChar << std::endl;
-        thisChar = readInputChar();
         break;
     }
 
-    std::cout << "|Cursor| " << thisChar << std::endl;
+    switch (nextChar)
+    {
+      case '\n':
+        parseLF(tokenBuffer, nextChar);
+        return tokenBuffer;
 
-  } while (thisChar != '\n' && thisChar != EOF);
+      case EOF:
+        parseEOF(tokenBuffer, nextChar);
+        return tokenBuffer;
+    
+      default:
+        std::cout << "Continue: " << char(nextChar) << std::endl;
+        break;
+    }
+  };
 
   return tokenBuffer;
 }
 
-std::string tokenRepr(int token) {
-  switch (token)
-  {
-    case TokenType::TOK_SPACE:
-      return " ";
-
-    case TokenType::TOK_CR:
-      return "<CR>";
-
-    case TokenType::TOK_LF:
-      return "<LF>";
-
-    case TokenType::TOK_EOF:
-      return "<EOF>";
-
-    case TokenType::TOK_ID:
-      return "<ID>";
-
-    case TokenType::TOK_INT:
-      return "<INT>";
-
-    case TokenType::TOK_FLOAT:
-      return "<FLOAT>";
-
-    case TokenType::TOK_COMMA:
-      return ",";
-
-    case TokenType::TOK_DOT:
-      return ".";
-
-    case TokenType::TOK_COLON:
-      return ":";
-
-    case TokenType::TOK_TILDE:
-      return "~";
-
-    case TokenType::TOK_EXCLAM:
-      return "!";
-
-    case TokenType::TOK_AT:
-      return "@";
-
-    case TokenType::TOK_HASH:
-      return "#";
-
-    case TokenType::TOK_DOLLAR:
-      return "$";
-
-    case TokenType::TOK_PERCENT:
-      return "%";
-
-    case TokenType::TOK_HAT:
-      return "^";
-
-    case TokenType::TOK_CHECK:
-      return "?";
-
-    case TokenType::TOK_SLASH:
-      return "/";
-
-    case TokenType::TOK_BSLASH:
-      return "\\";
-
-    case TokenType::TOK_PIPE:
-      return "|";
-
-    case TokenType::TOK_ELLIPSIS:
-      return "...";
-
-    case TokenType::TOK_SQUOTE:
-      return "'";
-
-    case TokenType::TOK_DQUOTE:
-      return "\"";
-
-    case TokenType::TOK_BQUOTE:
-      return "`";
-
-    case TokenType::TOK_LPAREN:
-      return "(";
-
-    case TokenType::TOK_RPAREN:
-      return ")";
-
-    case TokenType::TOK_LBOXBRAC:
-      return "[";
-
-    case TokenType::TOK_RBOXBRAC:
-      return "]";
-
-    case TokenType::TOK_LANGBRAC:
-      return "<";
-
-    case TokenType::TOK_RANGBRAC:
-      return ">";
-
-    case TokenType::TOK_NOT:
-      return "<NOT>";
-
-    case TokenType::TOK_AND:
-      return "<LOGIC_AND>";
-
-    case TokenType::TOK_OR:
-      return "<LOGIC_OR>";
-
-    case TokenType::TOK_XOR:
-      return "<LOGIC_XOR>";
-
-    case TokenType::TOK_BITAND:
-      return "<BIT_AND>";
-
-    case TokenType::TOK_BITOR:
-      return "<BIT_OR>";
-
-    case TokenType::TOK_BITXOR:
-      return "<BIT_XOR>";
-
-    case TokenType::TOK_LSHIFT:
-      return "<BIT_LEFT_SHIFT>";
-
-    case TokenType::TOK_RSHIFT:
-      return "<BIT_RIGHT_SHIFT>";
-    
-    case TokenType::TOK_NEG:
-      return "<NEG_OP>";
-
-    case TokenType::TOK_ADD:
-      return "<ADD_OP>";
-
-    case TokenType::TOK_SUB:
-      return "<SUB_OP>";
-
-    case TokenType::TOK_MUL:
-      return "<MUL_OP>";
-
-    case TokenType::TOK_DIV:
-      return "<DIV_OP>";
-
-    case TokenType::TOK_MOD:
-      return "<MOD_OP>";
-
-    case TokenType::TOK_POW:
-      return "<POW_OP>";
-
-    case TokenType::TOK_GT:
-      return "<GT>";
-
-    case TokenType::TOK_GE:
-      return "<GE>";
-
-    case TokenType::TOK_LT:
-      return "<LT>";
-
-    case TokenType::TOK_LE:
-      return "<LE>";
-
-    case TokenType::TOK_EQ:
-      return "<EQ>";
-
-    case TokenType::TOK_NE:
-      return "<NE>";
-
-    case TokenType::TOK_MATCH:
-      return "?=";
-
-    case TokenType::TOK_INFINITE_LIST:
-      return "[...]";
-    
-    default:
-      return "<UNKNOWN>";
-  }
-}
 
 int main() {
 
   while (1) 
   {
-    fprintf(stderr, "styio$: ");
+    fprintf(stderr, "Styio/> ");
 
     for (int tok: Tokenize()) {
-      std::cout << tokenRepr(tok) << ' ';
+      std::cout << reprToken(tok) << ' ';
     };
     std::cout << std::endl;
 
