@@ -4,6 +4,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <list>
 #include <map>
 #include <unordered_map>
 
@@ -460,6 +461,38 @@ class BinOpAST : public StyioAST {
     }
 };
 
+/*
+
+*/
+class BlockAST : public StyioAST {
+  std::list<StyioAST> SideStmts;
+  StyioAST* Expr;
+
+  public:
+    BlockAST(std::list<StyioAST> stmts, StyioAST* expr): SideStmts(stmts), Expr(expr) {}
+
+    std::string toString(int indent = 2) {
+      std::string stmtStr;
+
+      for (std::list<StyioAST>::iterator it = SideStmts.begin(); 
+        it != SideStmts.end(); 
+        ++it
+      ) {
+        stmtStr += it -> toStringInline();
+        stmtStr += "\n";
+      };
+
+      return std::string("Block {\n")
+        
+        + std::string(indent, ' ') + "| Stmts: "
+        + stmtStr
+        + "\n"
+        + std::string(indent, ' ') + "| Expr:  "
+        + Expr -> toString()  
+        + "\n} ";
+    }
+};
+
 static std::vector<int> inputBuffer;
 
 static int readInputChar() 
@@ -542,7 +575,7 @@ static IdAST* parseId (std::vector<int>& tokenBuffer, int& nextChar)
   return result;
 }
 
-static StyioAST* parseNum (std::vector<int>& tokenBuffer, int& nextChar) 
+static StyioAST* parseNum (std::vector<int>& tokenBuffer, int& nextChar)
 {
   std::string numStr = "";
   numStr += nextChar;
@@ -691,6 +724,16 @@ static BinOpAST* parseBinOp (
     throw StyioSyntaxError(errmsg);
   };
 
+}
+
+static void parseStmt (std::vector<int>& tokenBuffer, int& nextChar) 
+{
+  
+}
+
+static void parseBlock (std::vector<int>& tokenBuffer, int& nextChar) 
+{
+  
 }
 
 static std::vector<int> Tokenize() {
@@ -1046,17 +1089,24 @@ static std::vector<int> Tokenize() {
         break;
 
       case '{':
+        nextChar = readInputChar();
+        
         tokenBuffer.push_back(
           StyioToken::TOK_LCURBRAC
         );
-        nextChar = readInputChar();
+        
+        // "{" | ->
+        parseBlock(tokenBuffer, nextChar);
+
         break;
 
       case '}':
+        nextChar = readInputChar();
+        
         tokenBuffer.push_back(
           StyioToken::TOK_RCURBRAC
         );
-        nextChar = readInputChar();
+
         break;
 
       case '<':
