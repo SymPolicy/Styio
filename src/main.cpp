@@ -352,7 +352,7 @@ class IdAST : public StyioAST {
     }
 
     std::string toStringInline() {
-      return "<ID: \"" + Id + "\">";
+      return "<ID: " + Id + ">";
     }
 };
 
@@ -370,7 +370,7 @@ class IntAST : public StyioAST {
     }
 
     std::string toStringInline() {
-      return std::to_string(Value);
+      return "<Int: " + std::to_string(Value) + ">";
     }
 };
 
@@ -388,7 +388,7 @@ class FloatAST : public StyioAST {
     }
 
     std::string toStringInline() {
-      return std::to_string(Value);
+      return "<Float: " + std::to_string(Value) + ">";
     }
 };
 
@@ -406,25 +406,7 @@ class StringAST : public StyioAST {
     }
 
     std::string toStringInline() {
-      return "\"" + Value + "\"";
-    }
-};
-
-/*
-VarDefAST
-*/
-class VarDefAST : public StyioAST {
-  IdAST *Id;
-
-  public:
-    VarDefAST(IdAST *id) : Id(id) {}
-
-    std::string toString() {
-      return "| Variable : " + Id -> toStringInline() + " |";
-    }
-
-    std::string toStringInline() {
-      return "Variable : " + Id -> toStringInline();
+      return "<String: \"" + Value + "\">";
     }
 };
 
@@ -432,14 +414,24 @@ class VarDefAST : public StyioAST {
 AssignAST
 */
 class AssignAST : public StyioAST {
-  VarDefAST *varDef;
-  StyioAST *valExpr;
+  IdAST* varId;
+  StyioAST* valExpr;
 
   public:
-    AssignAST(VarDefAST *var, StyioAST *val) : varDef(var), valExpr(val) {}
+    AssignAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
 
-    std::string toString() {
-      return "| { " + varDef -> toStringInline() + " } := { " + valExpr -> toString() + " } |";
+    std::string toString(int indent = 2) {
+      return std::string("Assign {\n") 
+        + std::string(indent, ' ') + "| Var: " 
+        + varId -> toString() 
+        + "\n"
+        + std::string(indent, ' ') + "| Op:  " 
+        + ":="
+        + "\n"
+        + std::string(indent, ' ') + "| Val: " 
+        + valExpr -> toString() 
+        + "\n"
+        + "}";
     }
 };
 
@@ -452,17 +444,17 @@ class BinOpAST : public StyioAST {
   StyioAST *RHS;
 
   public:
-    BinOpAST(StyioToken op, StyioAST *lhs, StyioAST *rhs): Op(op), LHS(lhs), RHS(rhs) {}
+    BinOpAST(StyioToken op, StyioAST* lhs, StyioAST* rhs): Op(op), LHS(lhs), RHS(rhs) {}
 
-    std::string toString() {
+    std::string toString(int indent = 2) {
       return std::string("BinOp {\n") 
-        + "  | "
-        + reprToken(Op) 
-        + "\n"
-        + "  | "
+        + std::string(indent, ' ') + "| LHS: "
         + LHS -> toString() 
         + "\n"
-        + "  | "
+        + std::string(indent, ' ') + "| Op:  "
+        + reprToken(Op)
+        + "\n"
+        + std::string(indent, ' ') + "| RHS: "
         + RHS -> toString()  
         + "\n} ";
     }
@@ -479,7 +471,7 @@ static int readInputChar()
   return tmpChar;
 }
 
-static void dropAllSpaces(int& nextChar) 
+static void dropAllSpaces (int& nextChar) 
 {
   while (isspace(nextChar)) {
     nextChar = readInputChar();
@@ -487,14 +479,14 @@ static void dropAllSpaces(int& nextChar)
 }
 
 
-static void dropWhiteSpace(int& nextChar) 
+static void dropWhiteSpace (int& nextChar) 
 {
   while (nextChar == ' ') {
     nextChar = readInputChar();
   };
 }
 
-static void parseSpace(std::vector<int>& tokenBuffer, int& nextChar) 
+static void parseSpace (std::vector<int>& tokenBuffer, int& nextChar) 
 {
   while (nextChar == ' ') {
     nextChar = readInputChar();
@@ -504,7 +496,7 @@ static void parseSpace(std::vector<int>& tokenBuffer, int& nextChar)
   };
 }
 
-static void parseLF(std::vector<int>& tokenBuffer, int& nextChar) 
+static void parseLF (std::vector<int>& tokenBuffer, int& nextChar) 
 {
   // nextChar = readInputChar();
   tokenBuffer.push_back(
@@ -512,7 +504,7 @@ static void parseLF(std::vector<int>& tokenBuffer, int& nextChar)
   );
 }
 
-static void parseCR(std::vector<int>& tokenBuffer, int& nextChar) 
+static void parseCR (std::vector<int>& tokenBuffer, int& nextChar) 
 {
   // nextChar = readInputChar();
   tokenBuffer.push_back(
@@ -520,7 +512,7 @@ static void parseCR(std::vector<int>& tokenBuffer, int& nextChar)
   );
 }
 
-static void parseEOF(std::vector<int>& tokenBuffer, int& nextChar) 
+static void parseEOF (std::vector<int>& tokenBuffer, int& nextChar) 
 {
   // nextChar = readInputChar();
   tokenBuffer.push_back(
@@ -528,7 +520,7 @@ static void parseEOF(std::vector<int>& tokenBuffer, int& nextChar)
   );
 }
 
-static IdAST* parseId(std::vector<int>& tokenBuffer, int& nextChar) 
+static IdAST* parseId (std::vector<int>& tokenBuffer, int& nextChar) 
 {
   std::string idStr = "";
   idStr += nextChar;
@@ -550,7 +542,7 @@ static IdAST* parseId(std::vector<int>& tokenBuffer, int& nextChar)
   return result;
 }
 
-static StyioAST* parseNum(std::vector<int>& tokenBuffer, int& nextChar) 
+static StyioAST* parseNum (std::vector<int>& tokenBuffer, int& nextChar) 
 {
   std::string numStr = "";
   numStr += nextChar;
@@ -610,7 +602,7 @@ static StyioAST* parseNum(std::vector<int>& tokenBuffer, int& nextChar)
   }
 }
 
-static StringAST* parseString(std::vector<int>& tokenBuffer, int& nextChar) 
+static StringAST* parseString (std::vector<int>& tokenBuffer, int& nextChar) 
 {
   // eliminate the first(start) double quote
   nextChar = readInputChar();
@@ -637,19 +629,43 @@ static StringAST* parseString(std::vector<int>& tokenBuffer, int& nextChar)
   return result;
 }
 
-static void parseAssign(
+static AssignAST* parseAssign (
   std::vector<int>& tokenBuffer, 
   int& nextChar, 
-  StyioAST* idAST
+  IdAST* idAST
 ) 
 {
-  // nextChar = readInputChar();
-  
-  
+  if (isalpha(nextChar) || nextChar == '_') 
+  {
+    StyioAST* value = parseId(tokenBuffer, nextChar);
+    
+    AssignAST* result = new AssignAST(idAST, value);
+
+    std::cout << result -> toString() << std::endl;
+
+    return result;
+  }
+  else
+  if (isdigit(nextChar))
+  {
+    StyioAST* value = parseNum(tokenBuffer, nextChar);
+    
+    AssignAST* result = new AssignAST(idAST, value);
+
+    std::cout << result -> toString() << std::endl;
+
+    return result;
+  }
+  else
+  {
+    std::string errmsg = std::string("Unexpected Assign.Value, starts with character `") + char(nextChar) + "`";
+    throw StyioSyntaxError(errmsg);
+  };
+
   std::cout << "|NotImplemented| VAR_ASSIGN" << std::endl;
 }
 
-static BinOpAST* parseBinOp(
+static BinOpAST* parseBinOp (
   std::vector<int>& tokenBuffer, 
   int& nextChar, 
   StyioToken signToken,
@@ -663,12 +679,18 @@ static BinOpAST* parseBinOp(
     std::cout << result -> toString() << std::endl;
     return result;
   }
-
+  else
   if (isdigit(nextChar)) {
     BinOpAST* result = new BinOpAST(signToken, lhsAST, parseNum(tokenBuffer, nextChar));
     std::cout << result -> toString() << std::endl;
     return result;
   }
+  else
+  {
+    std::string errmsg = std::string("Unexpected BinOp.RHS, starts with character `") + char(nextChar) + "`";
+    throw StyioSyntaxError(errmsg);
+  };
+
 }
 
 static std::vector<int> Tokenize() {
@@ -707,8 +729,10 @@ static std::vector<int> Tokenize() {
             tokenBuffer.push_back(
               StyioToken::TOK_WALRUS
             );
+
+            dropWhiteSpace(nextChar);
             
-            // <ID> := | ~>
+            // <ID> := | ->
             parseAssign(tokenBuffer, nextChar, idAST);
           }
           break;
@@ -718,7 +742,7 @@ static std::vector<int> Tokenize() {
           nextChar = readInputChar();
           tokenBuffer.push_back(StyioToken::TOK_ADD);
 
-          // <ID> "+" | ~> 
+          // <ID> "+" | -> 
           parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_ADD, idAST);
           break;
 
@@ -727,7 +751,7 @@ static std::vector<int> Tokenize() {
           nextChar = readInputChar();
           tokenBuffer.push_back(StyioToken::TOK_SUB);
 
-          // <ID> "-" | ~>
+          // <ID> "-" | ->
           parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_SUB, idAST);
           break;
 
@@ -740,7 +764,7 @@ static std::vector<int> Tokenize() {
             nextChar = readInputChar();
             tokenBuffer.push_back(StyioToken::TOK_POW);
 
-            // <ID> "**" | ~>
+            // <ID> "**" | ->
             parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_POW, idAST);
           } 
           // BIN_MUL := <ID> "*" <EXPR>
@@ -748,7 +772,7 @@ static std::vector<int> Tokenize() {
           {
             tokenBuffer.push_back(StyioToken::TOK_MUL);
 
-            // <ID> "*" | ~>
+            // <ID> "*" | ->
             parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_MUL, idAST);
           }
           break;
@@ -758,7 +782,7 @@ static std::vector<int> Tokenize() {
           nextChar = readInputChar();
           tokenBuffer.push_back(StyioToken::TOK_DIV);
 
-          // <ID> "/" | ~> 
+          // <ID> "/" | -> 
           parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_DIV, idAST);
           break;
 
@@ -767,7 +791,7 @@ static std::vector<int> Tokenize() {
           nextChar = readInputChar();
           tokenBuffer.push_back(StyioToken::TOK_MOD);
 
-          // <ID> "%" | ~> 
+          // <ID> "%" | -> 
           parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_MOD, idAST);
           break;
         
@@ -793,7 +817,7 @@ static std::vector<int> Tokenize() {
           nextChar = readInputChar();
           tokenBuffer.push_back(StyioToken::TOK_ADD);
 
-          // [<Int>|<Float>] "+" | ~>
+          // [<Int>|<Float>] "+" | ->
           parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_ADD, numAST);
           break;
 
@@ -802,7 +826,7 @@ static std::vector<int> Tokenize() {
           nextChar = readInputChar();
           tokenBuffer.push_back(StyioToken::TOK_SUB);
 
-          // [<Int>|<Float>] "-" | ~>
+          // [<Int>|<Float>] "-" | ->
           parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_SUB, numAST);
           break;
 
@@ -815,7 +839,7 @@ static std::vector<int> Tokenize() {
             nextChar = readInputChar();
             tokenBuffer.push_back(StyioToken::TOK_POW);
 
-            // [<Int>|<Float>] "**" | ~>
+            // [<Int>|<Float>] "**" | ->
             parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_POW, numAST);
           } 
           // BIN_MUL := [<Int>|<Float>] "*" <EXPR>
@@ -823,7 +847,7 @@ static std::vector<int> Tokenize() {
           {
             tokenBuffer.push_back(StyioToken::TOK_MUL);
 
-            // [<Int>|<Float>] "*" | ~>
+            // [<Int>|<Float>] "*" | ->
             parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_MUL, numAST);
           }
           break;
@@ -832,7 +856,7 @@ static std::vector<int> Tokenize() {
           nextChar = readInputChar();
           tokenBuffer.push_back(StyioToken::TOK_DIV);
           
-          // [<Int>|<Float>] "/" | ~>
+          // [<Int>|<Float>] "/" | ->
           parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_DIV, numAST);
           break;
         // BIN_MOD := [<Int>|<Float>] "%" <EXPR>
@@ -840,7 +864,7 @@ static std::vector<int> Tokenize() {
           nextChar = readInputChar();
           tokenBuffer.push_back(StyioToken::TOK_MOD);
           
-          // [<Int>|<Float>] "%" | ~>
+          // [<Int>|<Float>] "%" | ->
           parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_MOD, numAST);
           break;
 
@@ -871,13 +895,13 @@ static std::vector<int> Tokenize() {
         };
          
         if (isalpha(nextChar) || nextChar == '_') {
-          // "@" "(" | ~>
+          // "@" "(" | ->
           parseId(tokenBuffer, nextChar);
         };
 
         dropWhiteSpace(nextChar);
 
-        // "@" "(" [<ID> | ~>
+        // "@" "(" [<ID> | ->
         while (nextChar == ',')
         {
           nextChar = readInputChar();
