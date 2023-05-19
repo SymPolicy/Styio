@@ -462,7 +462,7 @@ class BinOpAST : public StyioAST {
 };
 
 /*
-
+BlockAST
 */
 class BlockAST : public StyioAST {
   std::list<StyioAST> SideStmts;
@@ -489,6 +489,30 @@ class BlockAST : public StyioAST {
         + "\n"
         + std::string(indent, ' ') + "| Expr:  "
         + Expr -> toString()  
+        + "\n} ";
+    }
+};
+
+/*
+DependAST
+*/
+class DependencyAST : public StyioAST {
+  std::vector<std::string> DependencyPaths;
+
+  public:
+    DependencyAST(std::vector<std::string> paths): DependencyPaths(paths) {}
+
+    std::string toString(int indent = 2) {
+      std::string dependencyPathsStr;
+
+      for(int i=0; i < DependencyPaths.size(); i++) {
+        dependencyPathsStr += std::string(indent, ' ') + "| ";
+        dependencyPathsStr += DependencyPaths[i];
+        dependencyPathsStr += "\n";
+      };
+
+      return std::string("Dependencies {\n")
+        + dependencyPathsStr
         + "\n} ";
     }
 };
@@ -734,6 +758,153 @@ static void parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
 static void parseBlock (std::vector<int>& tokenBuffer, int& nextChar) 
 {
   
+}
+
+
+static std::string parseDependencyItem(std::vector<int>& tokenBuffer, int& nextChar)
+{
+  std::string itemStr;
+
+  if (nextChar == '\"')
+  {
+    // eliminate double quote symbol " at the start of dependency item
+    nextChar = readInputChar();
+
+    while (nextChar != '\"') 
+    {
+      if (nextChar == ',') 
+      {
+        std::string errmsg = std::string("An \" was expected after") + itemStr + "however, a delimeter `,` was detected. ";
+        throw StyioSyntaxError(errmsg);
+      }
+
+      itemStr += nextChar;
+
+      nextChar = readInputChar();
+    };
+
+    // eliminate double quote symbol " at the end of dependency item
+    nextChar = readInputChar();
+
+    return itemStr;
+  }
+  else
+  {
+    std::string errmsg = std::string("Dependencies should be wrapped with double quote like \"abc/xyz\", rather than starting with the character `") + char(nextChar) + "`";
+    throw StyioSyntaxError(errmsg);
+  };
+}
+
+/*
+parseDependency
+
+Dependencies should be written like a list of paths
+like this -> ["ab/c", "x/yz"]
+
+// 1. The dependencies should be parsed before any domain (statement/expression). 
+// 2. The left square bracket `[` is only eliminated after entering this function (parseDependency)
+| -> "[" <PATH>+ "]"
+
+If ? ( "the program starts with a left square bracket `[`" ),
+then -> { 
+  "parseDependency() starts";
+  "eliminate the left square bracket `[`";
+  "parse dependency paths, which take comma `,` as delimeter";
+  "eliminate the right square bracket `]`";
+} 
+else :  { 
+  "parseDependency() should NOT be invoked in this case";
+  "if starts with left curly brace `{`, try parseDomain()";
+  "otherwise, try parseScript()";
+}
+
+*/
+static DependencyAST* parseDependency (std::vector<int>& tokenBuffer, int& nextChar) 
+{ 
+  // eliminate left square (box) bracket [
+  nextChar = readInputChar();
+  tokenBuffer.push_back(
+    StyioToken::TOK_LBOXBRAC
+  );
+
+  std::vector<std::string> dependencies;
+
+  dropAllSpaces(nextChar);
+
+  // add the first dependency path to the list
+  dependencies.push_back(parseDependencyItem(tokenBuffer, nextChar));
+
+  std::string pathStr = "";
+  
+  while (nextChar == ',') {
+    // eliminate comma ","
+    nextChar = readInputChar();
+
+    // reset pathStr to empty ""
+    pathStr = ""; 
+
+    dropAllSpaces(nextChar);
+    
+    // add the next dependency path to the list
+    dependencies.push_back(parseDependencyItem(tokenBuffer, nextChar));
+  };
+
+  if (nextChar == ']') {
+    // eliminate right square bracket `]` after dependency list
+    nextChar = readInputChar();
+  };
+
+  DependencyAST* result = new DependencyAST(dependencies);
+
+  std::cout << result -> toString() << std::endl;
+
+  return result;
+}
+
+static void parseDomain (std::vector<int>& tokenBuffer, int& nextChar) 
+{
+
+}
+
+static void parseModule (std::vector<int>& tokenBuffer, int& nextChar) 
+{
+  if (nextChar == '[') { 
+    // | -> <DEPEND>
+    parseDependency(tokenBuffer, nextChar);
+
+    dropAllSpaces(nextChar);
+  };
+
+  if (nextChar == '-') 
+  {
+    nextChar = readInputChar();
+
+    if (nextChar == '>')
+    {
+      nextChar = readInputChar();
+    }
+    else
+    {
+      std::string errmsg = "Missed `>` for right arrow `->`";
+      throw StyioSyntaxError(errmsg);
+    };
+  };
+
+  // | -> "{" <STMT>* <EXPR>? "}"
+  if (nextChar == '{') {
+    parseDomain(tokenBuffer, nextChar);
+  };
+
+  // | -> <STMT>* <EXPR>?
+  parseBlock(tokenBuffer, nextChar);
+}
+
+static std::vector<int> parseProgram () 
+{
+  std::vector<int> tokenBuffer;
+  static int nextChar = ' ';
+
+  return tokenBuffer;
 }
 
 static std::vector<int> Tokenize() {
@@ -1075,10 +1246,8 @@ static std::vector<int> Tokenize() {
         break;
 
       case '[':
-        tokenBuffer.push_back(
-          StyioToken::TOK_LBOXBRAC
-        );
-        nextChar = readInputChar();
+        parseDependency(tokenBuffer, nextChar);
+
         break;
 
       case ']':
@@ -1086,6 +1255,7 @@ static std::vector<int> Tokenize() {
           StyioToken::TOK_RBOXBRAC
         );
         nextChar = readInputChar();
+        
         break;
 
       case '{':
