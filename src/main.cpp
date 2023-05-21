@@ -465,20 +465,24 @@ class BinOpAST : public StyioAST {
 BlockAST
 */
 class BlockAST : public StyioAST {
-  std::list<StyioAST> SideStmts;
+  std::list<StyioAST*> Stmts;
   StyioAST* Expr;
 
   public:
-    BlockAST(std::list<StyioAST> stmts, StyioAST* expr): SideStmts(stmts), Expr(expr) {}
+    BlockAST() {}
+
+    BlockAST(StyioAST* expr): Expr(expr) {}
+
+    BlockAST(std::list<StyioAST*> stmts, StyioAST* expr): Stmts(stmts), Expr(expr) {}
 
     std::string toString(int indent = 2) {
       std::string stmtStr;
 
-      for (std::list<StyioAST>::iterator it = SideStmts.begin(); 
-        it != SideStmts.end(); 
+      for (std::list<StyioAST*>::iterator it = Stmts.begin(); 
+        it != Stmts.end(); 
         ++it
       ) {
-        stmtStr += it -> toStringInline();
+        stmtStr += (*it) -> toStringInline();
         stmtStr += "\n";
       };
 
@@ -747,16 +751,462 @@ static BinOpAST* parseBinOp (
     std::string errmsg = std::string("Unexpected BinOp.RHS, starts with character `") + char(nextChar) + "`";
     throw StyioSyntaxError(errmsg);
   };
-
 }
 
-static void parseStmt (std::vector<int>& tokenBuffer, int& nextChar) 
+static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar) 
 {
   
+  while (1)
+  {
+    dropAllSpaces(nextChar);
+
+    // <ID>
+    if (isalpha(nextChar) || nextChar == '_') 
+    {
+      // parse id
+      IdAST* idAST = parseId(tokenBuffer, nextChar);
+      
+      // ignore white spaces after id
+      dropWhiteSpace(nextChar);
+
+      // check next character
+      switch (nextChar)
+      {
+        // <LF>
+        case '\n':
+          // simply eliminate LF
+          nextChar = readInputChar();
+          // parseLF(tokenBuffer, nextChar);
+          break;
+        
+        // <ID> := <EXPR>
+        case ':':
+          nextChar = readInputChar();
+          if (nextChar == '=')
+          {
+            nextChar = readInputChar();
+
+            tokenBuffer.push_back(
+              StyioToken::TOK_WALRUS
+            );
+
+            dropWhiteSpace(nextChar);
+            
+            // <ID> := | ->
+            AssignAST* assignAST = parseAssign(tokenBuffer, nextChar, idAST);
+            
+            stmtBuffer.push_back(assignAST);
+          }
+          break;
+
+        // BIN_ADD := <ID> "+" <EXPR>
+        case '+':
+          nextChar = readInputChar();
+          tokenBuffer.push_back(StyioToken::TOK_ADD);
+
+          // <ID> "+" | -> 
+          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_ADD, idAST);
+          stmtBuffer.push_back(binOpAST);
+          break;
+
+        // BIN_SUB := <ID> "-" <EXPR>
+        case '-':
+          nextChar = readInputChar();
+          tokenBuffer.push_back(StyioToken::TOK_SUB);
+
+          // <ID> "-" | ->
+          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_SUB, idAST);
+          stmtBuffer.push_back(binOpAST);
+          break;
+
+        // BIN_MUL | BIN_POW
+        case '*':
+          nextChar = readInputChar();
+          // BIN_POW := <ID> "**" <EXPR>
+          if (nextChar == '*')
+          {
+            nextChar = readInputChar();
+            tokenBuffer.push_back(StyioToken::TOK_POW);
+
+            // <ID> "**" | ->
+            BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_POW, idAST);
+            stmtBuffer.push_back(binOpAST);
+          } 
+          // BIN_MUL := <ID> "*" <EXPR>
+          else 
+          {
+            tokenBuffer.push_back(StyioToken::TOK_MUL);
+
+            // <ID> "*" | ->
+            BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_MUL, idAST);
+            stmtBuffer.push_back(binOpAST);
+          }
+          break;
+          
+        // BIN_DIV := <ID> "/" <EXPR>
+        case '/':
+          nextChar = readInputChar();
+          tokenBuffer.push_back(StyioToken::TOK_DIV);
+
+          // <ID> "/" | -> 
+          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_DIV, idAST);
+          stmtBuffer.push_back(binOpAST);
+          break;
+
+        // BIN_MOD := <ID> "%" <EXPR> 
+        case '%':
+          nextChar = readInputChar();
+          tokenBuffer.push_back(StyioToken::TOK_MOD);
+
+          // <ID> "%" | -> 
+          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_MOD, idAST);
+          stmtBuffer.push_back(binOpAST);
+          break;
+        
+        default:
+          break;
+      }
+    }
+
+    if (isdigit(nextChar)) {
+      StyioAST* numAST = parseNum(tokenBuffer, nextChar);
+
+      dropWhiteSpace(nextChar);
+
+      switch (nextChar)
+      {
+        // <LF>
+        case '\n':
+          // simply eliminate LF
+          nextChar = readInputChar();
+          parseLF(tokenBuffer, nextChar);
+          break;
+
+        // BIN_ADD := [<Int>|<Float>] "+" <EXPR>
+        case '+':
+          nextChar = readInputChar();
+          tokenBuffer.push_back(StyioToken::TOK_ADD);
+
+          // [<Int>|<Float>] "+" | ->
+          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_ADD, numAST);
+          stmtBuffer.push_back(binOpAST);
+          break;
+
+        // BIN_SUB := [<Int>|<Float>] "-" <EXPR>
+        case '-':
+          nextChar = readInputChar();
+          tokenBuffer.push_back(StyioToken::TOK_SUB);
+
+          // [<Int>|<Float>] "-" | ->
+          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_SUB, numAST);
+          stmtBuffer.push_back(binOpAST);
+          break;
+
+        // BIN_MUL | BIN_POW
+        case '*':
+          nextChar = readInputChar();
+          // BIN_POW := [<Int>|<Float>] "**" <EXPR>
+          if (nextChar == '*')
+          {
+            nextChar = readInputChar();
+            tokenBuffer.push_back(StyioToken::TOK_POW);
+
+            // [<Int>|<Float>] "**" | ->
+            BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_POW, numAST);
+            stmtBuffer.push_back(binOpAST);
+          } 
+          // BIN_MUL := [<Int>|<Float>] "*" <EXPR>
+          else 
+          {
+            tokenBuffer.push_back(StyioToken::TOK_MUL);
+
+            // [<Int>|<Float>] "*" | ->
+            BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_MUL, numAST);
+            stmtBuffer.push_back(binOpAST);
+          }
+          break;
+        // BIN_DIV := [<Int>|<Float>] "/" <EXPR>
+        case '/':
+          nextChar = readInputChar();
+          tokenBuffer.push_back(StyioToken::TOK_DIV);
+          
+          // [<Int>|<Float>] "/" | ->
+          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_DIV, numAST);
+          stmtBuffer.push_back(binOpAST);
+          break;
+        // BIN_MOD := [<Int>|<Float>] "%" <EXPR>
+        case '%':
+          nextChar = readInputChar();
+          tokenBuffer.push_back(StyioToken::TOK_MOD);
+          
+          // [<Int>|<Float>] "%" | ->
+          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_MOD, numAST);
+          stmtBuffer.push_back(binOpAST);
+          break;
+
+        default:
+          break;
+      }
+    }
+
+    switch (nextChar)
+    {
+      // VAR_DEF := "@" "(" [<ID> ["," <ID>]*]? ")"
+      case '@':
+        nextChar = readInputChar();
+
+        tokenBuffer.push_back(
+          StyioToken::TOK_AT
+        );
+        
+        dropWhiteSpace(nextChar);
+
+        if (nextChar == '(') 
+        {
+          nextChar = readInputChar();
+
+          tokenBuffer.push_back(
+            StyioToken::TOK_LPAREN
+          );
+        };
+         
+        if (isalpha(nextChar) || nextChar == '_') {
+          // "@" "(" | ->
+          parseId(tokenBuffer, nextChar);
+        };
+
+        dropWhiteSpace(nextChar);
+
+        // "@" "(" [<ID> | ->
+        while (nextChar == ',')
+        {
+          nextChar = readInputChar();
+
+          dropWhiteSpace(nextChar);
+
+          if (isalpha(nextChar) || nextChar == '_') {
+            tokenBuffer.push_back(
+              StyioToken::TOK_COMMA
+            );
+            
+            parseId(tokenBuffer, nextChar);
+
+            dropWhiteSpace(nextChar);
+          };
+        };
+        
+        if (nextChar == ')') 
+        {
+          nextChar = readInputChar();
+
+          tokenBuffer.push_back(
+            StyioToken::TOK_RPAREN
+          );
+        };
+        
+        break; 
+
+      case ':':
+        nextChar = readInputChar();
+
+        if (nextChar == '=') {
+          nextChar = readInputChar();
+
+          tokenBuffer.push_back(
+            StyioToken::TOK_WALRUS
+          );
+        } 
+        else
+        {
+          tokenBuffer.push_back(
+            StyioToken::TOK_COLON
+          );
+        };
+        
+        break;
+
+      case '-':
+        nextChar = readInputChar();
+
+        if (nextChar == '>') {
+          nextChar = readInputChar();
+
+          tokenBuffer.push_back(
+            StyioToken::TOK_RARROW
+          );
+        } else {
+          tokenBuffer.push_back(
+            StyioToken::TOK_MINUS
+          );
+        };
+        
+        break;
+
+      case '?':
+        nextChar = readInputChar();
+        
+        if (nextChar == '=') {
+          nextChar = readInputChar();
+
+          tokenBuffer.push_back(
+            StyioToken::TOK_MATCH
+          );
+        } 
+        else 
+        {
+          tokenBuffer.push_back(
+            StyioToken::TOK_CHECK
+          );
+        };
+        
+        break;
+      
+      case '\"':
+        parseString(tokenBuffer, nextChar);
+        break;
+
+      case '!':
+        tokenBuffer.push_back(
+          StyioToken::TOK_EXCLAM
+        );
+        nextChar = readInputChar();
+        break;
+
+      case ',':
+        tokenBuffer.push_back(
+          StyioToken::TOK_COMMA
+        );
+        nextChar = readInputChar();
+        break;
+
+      case '.':
+        tokenBuffer.push_back(
+          StyioToken::TOK_DOT
+        );
+        nextChar = readInputChar();
+        break;
+
+      case ';':
+        tokenBuffer.push_back(
+          StyioToken::TOK_SEMICOLON
+        );
+        nextChar = readInputChar();
+        break;
+
+      case '(':
+        tokenBuffer.push_back(
+          StyioToken::TOK_LPAREN
+        );
+        nextChar = readInputChar();
+        break;
+
+      case ')':
+        tokenBuffer.push_back(
+          StyioToken::TOK_RPAREN
+        );
+        nextChar = readInputChar();
+        break;
+
+      case '[':
+        parseDependency(tokenBuffer, nextChar);
+
+        break;
+
+      case ']':
+        tokenBuffer.push_back(
+          StyioToken::TOK_RBOXBRAC
+        );
+        nextChar = readInputChar();
+        
+        break;
+
+      case '{':
+        nextChar = readInputChar();
+        
+        tokenBuffer.push_back(
+          StyioToken::TOK_LCURBRAC
+        );
+        
+        // "{" | ->
+        parseBlock(tokenBuffer, nextChar);
+
+        break;
+
+      case '}':
+        nextChar = readInputChar();
+        
+        tokenBuffer.push_back(
+          StyioToken::TOK_RCURBRAC
+        );
+
+        break;
+
+      case '<':
+        nextChar = readInputChar();
+        tokenBuffer.push_back(
+          StyioToken::TOK_LANGBRAC
+        );
+        break;
+
+      case '>':
+        nextChar = readInputChar();
+        tokenBuffer.push_back(
+          StyioToken::TOK_RANGBRAC
+        );
+        break;
+        
+      default:
+        break;
+    }
+
+    switch (nextChar)
+    {
+      case '\n':
+        nextChar = readInputChar();
+        // parseLF(tokenBuffer, nextChar);
+        break;
+
+      case EOF:
+        parseEOF(tokenBuffer, nextChar);
+        break;
+    
+      default:
+        std::cout << "Continue: " << char(nextChar) << std::endl;
+        break;
+    }
+  };
 }
 
-static void parseBlock (std::vector<int>& tokenBuffer, int& nextChar) 
+static BlockAST* parseBlock (std::vector<int>& tokenBuffer, int& nextChar) 
 {
+  // the last expression will be the return expression
+  // a block must have a return value
+  // either an expression
+  // or null
+
+  std::vector<int> tokenBuffer;
+  std::vector<StyioAST*> stmtBuffer;
+
+  static int nextChar = ' ';
+
+  nextChar = readInputChar();
+
+  if (nextChar != '}') {
+    StyioAST* exprAST = parseExpr(tokenBuffer, nextChar);
+
+    stmtBuffer.push_back(exprAST);
+
+    while (nextChar == ';')
+    {
+      
+    }
+
+    DependencyAST* result = new BlockAST(stmtBuffer, exprAST);
+
+    std::cout << result -> toString() << std::endl;
+
+    return result;
+  };
   
 }
 
