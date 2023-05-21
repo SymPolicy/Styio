@@ -462,10 +462,37 @@ class BinOpAST : public StyioAST {
 };
 
 /*
+VarDefAST
+*/
+class VarDefAST : public StyioAST {
+  std::vector<IdAST*> Vars;
+
+  public:
+    VarDefAST(std::vector<IdAST*> vars): Vars(vars) {}
+
+    std::string toString(int indent = 2) {
+      std::string varStr;
+
+      for (std::vector<IdAST*>::iterator it = Vars.begin(); 
+        it != Vars.end(); 
+        ++it
+      ) {
+        varStr += std::string(indent, ' ') + "| ";
+        varStr += (*it) -> toStringInline();
+        varStr += "\n";
+      };
+
+      return std::string("Variable Definition {\n")
+        + varStr
+        + "\n} ";
+    }
+};
+
+/*
 BlockAST
 */
 class BlockAST : public StyioAST {
-  std::list<StyioAST*> Stmts;
+  std::vector<StyioAST*> Stmts;
   StyioAST* Expr;
 
   public:
@@ -473,12 +500,12 @@ class BlockAST : public StyioAST {
 
     BlockAST(StyioAST* expr): Expr(expr) {}
 
-    BlockAST(std::list<StyioAST*> stmts, StyioAST* expr): Stmts(stmts), Expr(expr) {}
+    BlockAST(std::vector<StyioAST*> stmts, StyioAST* expr): Stmts(stmts), Expr(expr) {}
 
     std::string toString(int indent = 2) {
       std::string stmtStr;
 
-      for (std::list<StyioAST*>::iterator it = Stmts.begin(); 
+      for (std::vector<StyioAST*>::iterator it = Stmts.begin(); 
         it != Stmts.end(); 
         ++it
       ) {
@@ -755,8 +782,7 @@ static BinOpAST* parseBinOp (
 
 static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar) 
 {
-  
-  while (1)
+  while (nextChar != ';')
   {
     dropAllSpaces(nextChar);
 
@@ -776,7 +802,10 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
         case '\n':
           // simply eliminate LF
           nextChar = readInputChar();
-          // parseLF(tokenBuffer, nextChar);
+          parseLF(tokenBuffer, nextChar);
+          return idAST;
+
+          // You should NOT reach this line.
           break;
         
         // <ID> := <EXPR>
@@ -795,8 +824,15 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
             // <ID> := | ->
             AssignAST* assignAST = parseAssign(tokenBuffer, nextChar, idAST);
             
-            stmtBuffer.push_back(assignAST);
+            return assignAST;
           }
+          else
+          {
+            std::string errmsg = std::string("Unexpected `:`");
+            throw StyioSyntaxError(errmsg);
+          }
+
+          // You should NOT reach this line.
           break;
 
         // BIN_ADD := <ID> "+" <EXPR>
@@ -806,7 +842,9 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
 
           // <ID> "+" | -> 
           BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_ADD, idAST);
-          stmtBuffer.push_back(binOpAST);
+          return binOpAST;
+
+          // You should NOT reach this line.
           break;
 
         // BIN_SUB := <ID> "-" <EXPR>
@@ -816,7 +854,9 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
 
           // <ID> "-" | ->
           BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_SUB, idAST);
-          stmtBuffer.push_back(binOpAST);
+          return binOpAST;
+
+          // You should NOT reach this line.
           break;
 
         // BIN_MUL | BIN_POW
@@ -830,7 +870,7 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
 
             // <ID> "**" | ->
             BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_POW, idAST);
-            stmtBuffer.push_back(binOpAST);
+            return binOpAST;
           } 
           // BIN_MUL := <ID> "*" <EXPR>
           else 
@@ -839,8 +879,10 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
 
             // <ID> "*" | ->
             BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_MUL, idAST);
-            stmtBuffer.push_back(binOpAST);
+            return binOpAST;
           }
+
+          // You should NOT reach this line.
           break;
           
         // BIN_DIV := <ID> "/" <EXPR>
@@ -850,7 +892,9 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
 
           // <ID> "/" | -> 
           BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_DIV, idAST);
-          stmtBuffer.push_back(binOpAST);
+          return binOpAST;
+
+          // You should NOT reach this line.
           break;
 
         // BIN_MOD := <ID> "%" <EXPR> 
@@ -860,7 +904,9 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
 
           // <ID> "%" | -> 
           BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_MOD, idAST);
-          stmtBuffer.push_back(binOpAST);
+          return binOpAST;
+
+          // You should NOT reach this line.
           break;
         
         default:
@@ -880,6 +926,10 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
           // simply eliminate LF
           nextChar = readInputChar();
           parseLF(tokenBuffer, nextChar);
+
+          return numAST;
+
+          // You should NOT reach this line.
           break;
 
         // BIN_ADD := [<Int>|<Float>] "+" <EXPR>
@@ -889,7 +939,9 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
 
           // [<Int>|<Float>] "+" | ->
           BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_ADD, numAST);
-          stmtBuffer.push_back(binOpAST);
+          return binOpAST;
+
+          // You should NOT reach this line.
           break;
 
         // BIN_SUB := [<Int>|<Float>] "-" <EXPR>
@@ -899,7 +951,9 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
 
           // [<Int>|<Float>] "-" | ->
           BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_SUB, numAST);
-          stmtBuffer.push_back(binOpAST);
+          return binOpAST;
+
+          // You should NOT reach this line.
           break;
 
         // BIN_MUL | BIN_POW
@@ -913,7 +967,7 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
 
             // [<Int>|<Float>] "**" | ->
             BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_POW, numAST);
-            stmtBuffer.push_back(binOpAST);
+            return binOpAST;
           } 
           // BIN_MUL := [<Int>|<Float>] "*" <EXPR>
           else 
@@ -922,8 +976,10 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
 
             // [<Int>|<Float>] "*" | ->
             BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_MUL, numAST);
-            stmtBuffer.push_back(binOpAST);
+            return binOpAST;
           }
+
+          // You should NOT reach this line.
           break;
         // BIN_DIV := [<Int>|<Float>] "/" <EXPR>
         case '/':
@@ -932,7 +988,9 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
           
           // [<Int>|<Float>] "/" | ->
           BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_DIV, numAST);
-          stmtBuffer.push_back(binOpAST);
+          return binOpAST;
+
+          // You should NOT reach this line.
           break;
         // BIN_MOD := [<Int>|<Float>] "%" <EXPR>
         case '%':
@@ -941,7 +999,9 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
           
           // [<Int>|<Float>] "%" | ->
           BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_MOD, numAST);
-          stmtBuffer.push_back(binOpAST);
+          return binOpAST;
+
+          // You should NOT reach this line.
           break;
 
         default:
@@ -969,10 +1029,14 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
             StyioToken::TOK_LPAREN
           );
         };
-         
+        
+        std::vector<IdAST*> varBuffer;
+
         if (isalpha(nextChar) || nextChar == '_') {
           // "@" "(" | ->
-          parseId(tokenBuffer, nextChar);
+          IdAST* idAST = parseId(tokenBuffer, nextChar);
+      
+          varBuffer.push_back(idAST);
         };
 
         dropWhiteSpace(nextChar);
@@ -989,7 +1053,9 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
               StyioToken::TOK_COMMA
             );
             
-            parseId(tokenBuffer, nextChar);
+            IdAST* idAST = parseId(tokenBuffer, nextChar);
+      
+            varBuffer.push_back(idAST);
 
             dropWhiteSpace(nextChar);
           };
@@ -1003,7 +1069,14 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
             StyioToken::TOK_RPAREN
           );
         };
+
+        VarDefAST* result = new VarDefAST(varBuffer);
+
+        std::cout << result -> toString() << std::endl;
+
+        return result;
         
+        // You should NOT reach this line.
         break; 
 
       case ':':
@@ -1159,21 +1232,7 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
         break;
     }
 
-    switch (nextChar)
-    {
-      case '\n':
-        nextChar = readInputChar();
-        // parseLF(tokenBuffer, nextChar);
-        break;
-
-      case EOF:
-        parseEOF(tokenBuffer, nextChar);
-        break;
-    
-      default:
-        std::cout << "Continue: " << char(nextChar) << std::endl;
-        break;
-    }
+    std::cout << "Next: " << char(nextChar) << std::endl;
   };
 }
 
@@ -1193,15 +1252,18 @@ static BlockAST* parseBlock (std::vector<int>& tokenBuffer, int& nextChar)
 
   if (nextChar != '}') {
     StyioAST* exprAST = parseExpr(tokenBuffer, nextChar);
-
     stmtBuffer.push_back(exprAST);
 
     while (nextChar == ';')
     {
-      
+      // eliminate ;
+      nextChar = readInputChar();
+
+      StyioAST* exprAST = parseExpr(tokenBuffer, nextChar);
+      stmtBuffer.push_back(exprAST);
     }
 
-    DependencyAST* result = new BlockAST(stmtBuffer, exprAST);
+    BlockAST* result = new BlockAST(stmtBuffer, exprAST);
 
     std::cout << result -> toString() << std::endl;
 
