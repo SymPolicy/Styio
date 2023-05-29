@@ -1,0 +1,38 @@
+#ifndef STYIO_EXCEPTION_H_
+#define STYIO_EXCEPTION_H_
+
+class StyioBaseException : public std::exception
+{
+  private:
+    std::string message;
+
+  public:
+    StyioBaseException() : message("|Styio.BaseException|"){}
+
+    StyioBaseException(std::string msg) : message("|Styio.BaseException| " + msg) {}
+
+    ~StyioBaseException() throw () {}
+
+    virtual const char* what() const throw () {
+      return message.c_str();
+    }
+};
+
+class StyioSyntaxError : public StyioBaseException 
+{
+  private:
+    std::string message;
+
+  public:
+    StyioSyntaxError() : message("|Styio.SyntaxError|"){}
+
+    StyioSyntaxError(std::string msg) : message("|Styio.SyntaxError| " + msg) {}
+
+    ~StyioSyntaxError() throw () {}
+
+    virtual const char* what() const throw () {
+      return message.c_str();
+    }
+};
+
+#endif
