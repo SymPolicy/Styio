@@ -14,13 +14,7 @@
 #include "include/StyioParser/Parser.hpp"
 
 int main() {
-
-  while (1) 
-  {
-    fprintf(stderr, "Styio/> ");
-
-    parseProgram();
-  }; 
-
+  parseProgram();
+  
   return 0;
 }

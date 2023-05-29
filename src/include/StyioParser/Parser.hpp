@@ -197,7 +197,7 @@ static BinOpAST* parseBinOp (
 
 static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar) 
 {
-  while (nextChar != ';')
+  while (nextChar != '\n')
   {
     dropAllSpaces(nextChar);
 
@@ -859,18 +859,23 @@ static std::vector<int> parseProgram ()
   std::vector<int> tokenBuffer;
   static int nextChar = ' ';
 
-  nextChar = readNextChar();
-
-  if (nextChar == '[') 
+  while (1) 
   {
-    parseDependency(tokenBuffer, nextChar);
+    fprintf(stderr, "Styio/> ");
 
-    parseSpace(tokenBuffer, nextChar);
-  }
-  else
-  {
-    parseScript(tokenBuffer, nextChar);
-  }
+    nextChar = readNextChar();
+
+    if (nextChar == '[') 
+    {
+      parseDependency(tokenBuffer, nextChar);
+
+      parseSpace(tokenBuffer, nextChar);
+    }
+    else
+    {
+      parseScript(tokenBuffer, nextChar);
+    }
+  }; 
 
   for (int token: tokenBuffer) {
     std::cout << reprToken(token) << ' ';

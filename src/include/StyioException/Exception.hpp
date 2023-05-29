@@ -7,9 +7,9 @@ class StyioBaseException : public std::exception
     std::string message;
 
   public:
-    StyioBaseException() : message("|Styio.BaseException|"){}
+    StyioBaseException() : message("Styio.BaseException: Undefined."){}
 
-    StyioBaseException(std::string msg) : message("|Styio.BaseException| " + msg) {}
+    StyioBaseException(std::string msg) : message("Styio.BaseException: " + msg) {}
 
     ~StyioBaseException() throw () {}
 
@@ -24,9 +24,9 @@ class StyioSyntaxError : public StyioBaseException
     std::string message;
 
   public:
-    StyioSyntaxError() : message("|Styio.SyntaxError|"){}
+    StyioSyntaxError() : message("Styio.SyntaxError: Undefined."){}
 
-    StyioSyntaxError(std::string msg) : message("|Styio.SyntaxError| " + msg) {}
+    StyioSyntaxError(std::string msg) : message("Styio.SyntaxError: " + msg) {}
 
     ~StyioSyntaxError() throw () {}
 

@@ -13,7 +13,7 @@ class StyioAST {
     }
 
     virtual std::string toStringInline() {
-      return "StyioAST";
+      return "Styio.Base {}";
     }
 };
 
