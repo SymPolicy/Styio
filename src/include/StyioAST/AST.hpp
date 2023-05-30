@@ -100,7 +100,32 @@ class AssignAST : public StyioAST {
     AssignAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
 
     std::string toString(int indent = 2) {
-      return std::string("Assign {\n") 
+      return std::string("Assign (Mutable) {\n") 
+        + std::string(indent, ' ') + "| Var: " 
+        + varId -> toString() 
+        + "\n"
+        + std::string(indent, ' ') + "| Op:  " 
+        + "="
+        + "\n"
+        + std::string(indent, ' ') + "| Val: " 
+        + valExpr -> toString() 
+        + "\n"
+        + "}";
+    }
+};
+
+/*
+FinalAssignAST
+*/
+class FinalAssignAST : public StyioAST {
+  IdAST* varId;
+  StyioAST* valExpr;
+
+  public:
+    FinalAssignAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
+
+    std::string toString(int indent = 2) {
+      return std::string("Assign (Final) {\n") 
         + std::string(indent, ' ') + "| Var: " 
         + varId -> toString() 
         + "\n"
@@ -162,7 +187,7 @@ class VarDefAST : public StyioAST {
 
       return std::string("Variable Definition {\n")
         + varStr
-        + "\n} ";
+        + "} ";
     }
 };
 
@@ -239,5 +264,25 @@ class DependencyAST : public StyioAST {
         + "\n} ";
     }
 };
+
+/*
+StdOutAST
+*/
+class StdOutAST : public StyioAST {
+  std::string Output;
+
+  public:
+    StdOutAST(std::string output): Output(output) {}
+
+    std::string toString(int indent = 2) {
+      return std::string("stdout {")
+        + Output
+        + "} ";
+    }
+};
+
+/*
+
+*/
 
 #endif

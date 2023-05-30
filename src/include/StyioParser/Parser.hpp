@@ -132,6 +132,42 @@ static StringAST* parseString (std::vector<int>& tokenBuffer, int& nextChar)
   return result;
 }
 
+static FinalAssignAST* parseFinalAssign (
+  std::vector<int>& tokenBuffer, 
+  int& nextChar, 
+  IdAST* idAST
+) 
+{
+  if (isalpha(nextChar) || nextChar == '_') 
+  {
+    StyioAST* value = parseId(tokenBuffer, nextChar);
+    
+    FinalAssignAST* result = new FinalAssignAST(idAST, value);
+
+    std::cout << result -> toString() << std::endl;
+
+    return result;
+  }
+  else
+  if (isdigit(nextChar))
+  {
+    StyioAST* value = parseNum(tokenBuffer, nextChar);
+    
+    FinalAssignAST* result = new FinalAssignAST(idAST, value);
+
+    std::cout << result -> toString() << std::endl;
+
+    return result;
+  }
+  else
+  {
+    std::string errmsg = std::string("Unexpected Assign(Final).Value, starts with character `") + char(nextChar) + "`";
+    throw StyioSyntaxError(errmsg);
+  };
+
+  std::cout << "|NotImplemented| Var_Final_Assign" << std::endl;
+}
+
 static AssignAST* parseAssign (
   std::vector<int>& tokenBuffer, 
   int& nextChar, 
@@ -161,7 +197,7 @@ static AssignAST* parseAssign (
   }
   else
   {
-    std::string errmsg = std::string("Unexpected Assign.Value, starts with character `") + char(nextChar) + "`";
+    std::string errmsg = std::string("Unexpected Assign(Mutable).Value, starts with character `") + char(nextChar) + "`";
     throw StyioSyntaxError(errmsg);
   };
 
@@ -199,7 +235,7 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
 {
   while (nextChar != '\n')
   {
-    dropAllSpaces(nextChar);
+    dropWhiteSpace(nextChar);
 
     // <ID>
     if (isalpha(nextChar) || nextChar == '_') 
@@ -216,12 +252,26 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
         // <LF>
         case '\n':
           {
-            // simply eliminate LF
-            nextChar = readNextChar();
             tokenBuffer.push_back(
               StyioToken::TOK_LF
             );
             return idAST;
+          };
+
+          // You should NOT reach this line.
+          break;
+
+        // <ID> = <EXPR>
+        case '=':
+          {
+            nextChar = readNextChar();
+
+            dropWhiteSpace(nextChar);
+
+            // <ID> = | ->
+            AssignAST* assignAST = parseAssign(tokenBuffer, nextChar, idAST);
+            
+            return assignAST;
           };
 
           // You should NOT reach this line.
@@ -242,9 +292,9 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
               dropWhiteSpace(nextChar);
               
               // <ID> := | ->
-              AssignAST* assignAST = parseAssign(tokenBuffer, nextChar, idAST);
+              FinalAssignAST* finalAssignAST = parseFinalAssign(tokenBuffer, nextChar, idAST);
               
-              return assignAST;
+              return finalAssignAST;
             }
             else
             {
@@ -585,10 +635,21 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
         break;
 
       case '!':
-        tokenBuffer.push_back(
-          StyioToken::TOK_EXCLAM
-        );
-        nextChar = readNextChar();
+        {
+          nextChar = readNextChar();
+          tokenBuffer.push_back(
+            StyioToken::TOK_EXCLAM
+          );
+          
+          if (nextChar == '~') {
+            nextChar = readNextChar();
+            tokenBuffer.push_back(
+              StyioToken::TOK_TILDE
+            );
+          };
+        };
+
+        // You should NOT reach this line.
         break;
 
       case ',':
@@ -865,16 +926,18 @@ static std::vector<int> parseProgram ()
 
     nextChar = readNextChar();
 
-    if (nextChar == '[') 
-    {
-      parseDependency(tokenBuffer, nextChar);
+    parseExpr(tokenBuffer, nextChar);
 
-      parseSpace(tokenBuffer, nextChar);
-    }
-    else
-    {
-      parseScript(tokenBuffer, nextChar);
-    }
+    // if (nextChar == '[') 
+    // {
+    //   parseDependency(tokenBuffer, nextChar);
+
+    //   parseSpace(tokenBuffer, nextChar);
+    // }
+    // else
+    // {
+    //   parseScript(tokenBuffer, nextChar);
+    // }
   }; 
 
   for (int token: tokenBuffer) {
