@@ -77,6 +77,7 @@ enum StyioToken {
   TOK_RARROW, // ->
   TOK_LARROW, // <-
 
+  TOK_STDOUT, // >_
   TOK_WALRUS, // :=
   TOK_MATCH, // ?=
 

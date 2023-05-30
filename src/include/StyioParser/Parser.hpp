@@ -731,10 +731,30 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
         break;
 
       case '>':
-        nextChar = readNextChar();
-        tokenBuffer.push_back(
-          StyioToken::TOK_RANGBRAC
-        );
+        {
+          // eliminate >
+          nextChar = readNextChar();
+          
+          if (nextChar == '_') {
+            // eliminate _
+            nextChar = readNextChar();
+            tokenBuffer.push_back(
+              StyioToken::TOK_STDOUT
+            );
+
+            dropWhiteSpace(nextChar);
+
+            StringAST* strAST = parseString(tokenBuffer, nextChar);
+
+            StdOutAST* result = new StdOutAST(strAST);
+
+            std::cout << result -> toString() << std::endl;
+
+            return result;
+          };
+        }
+
+        // You should NOT reach this line.
         break;
         
       default:

@@ -99,15 +99,15 @@ class AssignAST : public StyioAST {
   public:
     AssignAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
 
-    std::string toString(int indent = 2) {
+    std::string toString(int indent = 0) {
       return std::string("Assign (Mutable) {\n") 
-        + std::string(indent, ' ') + "| Var: " 
+        + std::string(2, ' ') + "| Var: " 
         + varId -> toString() 
         + "\n"
-        + std::string(indent, ' ') + "| Op:  " 
+        + std::string(2, ' ') + "| Op:  " 
         + "="
         + "\n"
-        + std::string(indent, ' ') + "| Val: " 
+        + std::string(2, ' ') + "| Val: " 
         + valExpr -> toString() 
         + "\n"
         + "}";
@@ -124,15 +124,15 @@ class FinalAssignAST : public StyioAST {
   public:
     FinalAssignAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
 
-    std::string toString(int indent = 2) {
+    std::string toString(int indent = 0) {
       return std::string("Assign (Final) {\n") 
-        + std::string(indent, ' ') + "| Var: " 
+        + std::string(2, ' ') + "| Var: " 
         + varId -> toString() 
         + "\n"
-        + std::string(indent, ' ') + "| Op:  " 
+        + std::string(2, ' ') + "| Op:  " 
         + ":="
         + "\n"
-        + std::string(indent, ' ') + "| Val: " 
+        + std::string(2, ' ') + "| Val: " 
         + valExpr -> toString() 
         + "\n"
         + "}";
@@ -150,15 +150,15 @@ class BinOpAST : public StyioAST {
   public:
     BinOpAST(StyioToken op, StyioAST* lhs, StyioAST* rhs): Op(op), LHS(lhs), RHS(rhs) {}
 
-    std::string toString(int indent = 2) {
+    std::string toString(int indent = 0) {
       return std::string("BinOp {\n") 
-        + std::string(indent, ' ') + "| LHS: "
+        + std::string(2, ' ') + "| LHS: "
         + LHS -> toString() 
         + "\n"
-        + std::string(indent, ' ') + "| Op:  "
+        + std::string(2, ' ') + "| Op:  "
         + reprToken(Op)
         + "\n"
-        + std::string(indent, ' ') + "| RHS: "
+        + std::string(2, ' ') + "| RHS: "
         + RHS -> toString()  
         + "\n} ";
     }
@@ -173,14 +173,14 @@ class VarDefAST : public StyioAST {
   public:
     VarDefAST(std::vector<IdAST*> vars): Vars(vars) {}
 
-    std::string toString(int indent = 2) {
+    std::string toString(int indent = 0) {
       std::string varStr;
 
       for (std::vector<IdAST*>::iterator it = Vars.begin(); 
         it != Vars.end(); 
         ++it
       ) {
-        varStr += std::string(indent, ' ') + "| ";
+        varStr += std::string(2, ' ') + "| ";
         varStr += (*it) -> toStringInline();
         varStr += "\n";
       };
@@ -200,7 +200,7 @@ class ValExprAST : public StyioAST {
   public:
     ValExprAST(StyioAST* value): Value(value) {}
 
-    std::string toString(int indent = 2) {
+    std::string toString(int indent = 0) {
       return std::string("ValExpr { ") + Value -> toString() + " } ";
     }
 };
@@ -219,7 +219,7 @@ class BlockAST : public StyioAST {
 
     BlockAST(std::vector<StyioAST*> stmts, StyioAST* expr): Stmts(stmts), Expr(expr) {}
 
-    std::string toString(int indent = 2) {
+    std::string toString(int indent = 0) {
       std::string stmtStr;
 
       for (std::vector<StyioAST*>::iterator it = Stmts.begin(); 
@@ -231,11 +231,10 @@ class BlockAST : public StyioAST {
       };
 
       return std::string("Block {\n")
-        
-        + std::string(indent, ' ') + "| Stmts: "
+        + std::string(2, ' ') + "| Stmts: "
         + stmtStr
         + "\n"
-        + std::string(indent, ' ') + "| Expr:  "
+        + std::string(2, ' ') + "| Expr:  "
         + Expr -> toString()  
         + "\n} ";
     }
@@ -250,11 +249,11 @@ class DependencyAST : public StyioAST {
   public:
     DependencyAST(std::vector<std::string> paths): DependencyPaths(paths) {}
 
-    std::string toString(int indent = 2) {
+    std::string toString(int indent = 0) {
       std::string dependencyPathsStr;
 
       for(int i=0; i < DependencyPaths.size(); i++) {
-        dependencyPathsStr += std::string(indent, ' ') + "| ";
+        dependencyPathsStr += std::string(2, ' ') + "| ";
         dependencyPathsStr += DependencyPaths[i];
         dependencyPathsStr += "\n";
       };
@@ -269,15 +268,16 @@ class DependencyAST : public StyioAST {
 StdOutAST
 */
 class StdOutAST : public StyioAST {
-  std::string Output;
+  StringAST* Output;
 
   public:
-    StdOutAST(std::string output): Output(output) {}
+    StdOutAST(StringAST* output): Output(output) {}
 
-    std::string toString(int indent = 2) {
-      return std::string("stdout {")
-        + Output
-        + "} ";
+    std::string toString(int indent = 0) {
+      return std::string("stdout {\n")
+        + std::string(2, ' ') + "| "
+        + Output -> toString()
+        + "\n}";
     }
 };
 
