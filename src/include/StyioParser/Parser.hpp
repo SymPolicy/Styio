@@ -209,6 +209,16 @@ static StyioAST* parseList (std::vector<int>& tokenBuffer, int& nextChar)
       };
     };
 
+    if (isdigit(nextChar))
+    {
+      StyioAST* errnum = parseNum(tokenBuffer, nextChar);
+      
+      std::string errmsg = std::string("A finite list must have both start and end values. However, only the end value is detected: `") + errnum -> toStringInline() + "`. Try `[0.." + errnum -> toStringInline() + "]` rather than `[.." + errnum -> toStringInline() + "]`.";
+      throw StyioSyntaxError(errmsg);
+    }
+
+    std::string errmsg = std::string("Unexpected character `") + char(nextChar) + "` in infinite expression.";
+    throw StyioSyntaxError(errmsg);
   };
 
   std::vector<StyioAST*> elements;

@@ -49,7 +49,7 @@ class IntAST : public StyioAST {
     }
 
     std::string toStringInline() {
-      return "<Int: " + std::to_string(Value) + ">";
+      return std::to_string(Value);
     }
 };
 
@@ -67,7 +67,7 @@ class FloatAST : public StyioAST {
     }
 
     std::string toStringInline() {
-      return "<Float: " + std::to_string(Value) + ">";
+      return std::to_string(Value);
     }
 };
 
