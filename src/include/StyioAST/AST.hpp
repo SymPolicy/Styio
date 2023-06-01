@@ -282,7 +282,62 @@ class StdOutAST : public StyioAST {
 };
 
 /*
-
+LoopAST
 */
+class LoopAST : public StyioAST {
+  StyioAST* Start;
+  StyioAST* End;
+  StyioAST* Step;
+  BlockAST* Block;
+
+  public:
+    LoopAST(IntAST* start, IntAST* step, BlockAST* block): Start(start), Step(step), Block(block) {}
+
+    std::string toString(int indent = 0) {
+      return std::string("Loop {\n")
+        + std::string(2, ' ') + "| Start: " + Start -> toString() + "\n"
+        + std::string(2, ' ') + "| End: " + End -> toString() + "\n"
+        + std::string(2, ' ') + "| Step: " + Step -> toString() + "\n"
+        + std::string(2, ' ') + "| Block: " + Block -> toString() + "\n"
+        + "\n}";
+    }
+};
+
+/*
+ListAST
+*/
+class ListAST : public StyioAST {
+  std::vector<StyioAST*> Elems;
+
+  public:
+    ListAST(std::vector<StyioAST*> elems): Elems(elems) {}
+
+    std::string toString(int indent = 0) {
+      std::string ElemStr;
+
+      for(int i=0; i < Elems.size(); i++) {
+        ElemStr += std::string(2, ' ') + "| ";
+        ElemStr += Elems[i] -> toString();
+        ElemStr += "\n";
+      };
+
+      return std::string("List {\n")
+        + ElemStr
+        + "}";
+    }
+};
+
+/*
+InfiniteAST
+*/
+class InfiniteAST : public StyioAST {
+
+  public:
+    InfiniteAST() {}
+
+    std::string toString(int indent = 0) {
+      return std::string("Infinite { }");
+    }
+};
 
 #endif

@@ -45,6 +45,30 @@ static IdAST* parseId (std::vector<int>& tokenBuffer, int& nextChar)
   return result;
 }
 
+static IntAST* parseInt (std::vector<int>& tokenBuffer, int& nextChar)
+{
+  std::string intStr = "";
+  intStr += nextChar;
+  nextChar = readNextChar();
+
+  // [0-9]*
+  while (isdigit(nextChar))
+  {
+    intStr += nextChar;
+    nextChar = readNextChar();
+  };
+
+  tokenBuffer.push_back(
+    StyioToken::TOK_INT
+  );
+
+  IntAST* result = new IntAST(std::stoi(intStr));
+
+  std::cout << result -> toString() << std::endl;
+
+  return result;
+}
+
 static StyioAST* parseNum (std::vector<int>& tokenBuffer, int& nextChar)
 {
   std::string numStr = "";
@@ -130,6 +154,108 @@ static StringAST* parseString (std::vector<int>& tokenBuffer, int& nextChar)
   std::cout << result -> toString() << std::endl;
 
   return result;
+}
+
+static StyioAST* parseElemExpr (std::vector<int>& tokenBuffer, int& nextChar) 
+{
+  if (isdigit(nextChar)) {
+    StyioAST* numEl = parseNum(tokenBuffer, nextChar);
+
+    return numEl;
+  }
+  else if (isalpha(nextChar) || nextChar == '_') 
+  {
+    IdAST* idEl = parseId(tokenBuffer, nextChar);
+
+    return idEl;
+  }
+  else if (nextChar == '\"') 
+  {
+    StringAST* strEl = parseString(tokenBuffer, nextChar);
+
+    return strEl;
+  }
+  
+  std::string errmsg = std::string("Unexpected Element for Iterator, starts with character `") + char(nextChar) + "`";
+  throw StyioSyntaxError(errmsg);
+}
+
+static StyioAST* parseList (std::vector<int>& tokenBuffer, int& nextChar) 
+{
+  if (nextChar == '.') {
+    // eliminate the first dot .
+    nextChar = readNextChar();
+
+    if (nextChar == ']') 
+    {
+      std::string errmsg = std::string("[.] is not infinite, please use [..] or [...] instead.");
+      throw StyioSyntaxError(errmsg);
+    };
+
+    while (nextChar == '.') 
+    { 
+      // eliminate all .
+      nextChar = readNextChar();
+
+      if (nextChar == ']') 
+      {
+        nextChar = readNextChar();
+
+        InfiniteAST* result = new InfiniteAST();
+
+        std::cout << result -> toString() << std::endl;
+
+        return result;
+      };
+    };
+
+  };
+
+  std::vector<StyioAST*> elements;
+
+  StyioAST* el = parseElemExpr(tokenBuffer, nextChar);
+  elements.push_back(el);
+
+  dropWhiteSpace(nextChar);
+
+  while (nextChar == ',')
+  {
+    // eliminate ,
+    nextChar = readNextChar();
+
+    dropWhiteSpace(nextChar);
+
+    if (nextChar == ']') 
+    {
+      nextChar = readNextChar();
+
+      ListAST* result = new ListAST(elements);
+
+      std::cout << result -> toString() << std::endl;
+
+      return result;
+    };
+
+    StyioAST* el = parseElemExpr(tokenBuffer, nextChar);
+
+    elements.push_back(el);
+  };
+
+  dropWhiteSpace(nextChar);
+
+  if (nextChar == ']') 
+  {
+    nextChar = readNextChar();
+
+    ListAST* result = new ListAST(elements);
+
+    std::cout << result -> toString() << std::endl;
+
+    return result;
+  };
+
+  std::string errmsg = std::string("Uncompleted List, ends with character `") + char(nextChar) + "`";
+  throw StyioSyntaxError(errmsg);
 }
 
 static FinalAssignAST* parseFinalAssign (
@@ -565,11 +691,53 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
             );
           };
 
-          VarDefAST* result = new VarDefAST(varBuffer);
+          VarDefAST* varDef = new VarDefAST(varBuffer);
 
-          std::cout << result -> toString() << std::endl;
+          std::cout << varDef -> toString() << std::endl;
 
-          return result;
+          // if (nextChar == '[') 
+          // {
+          //   // eliminate single [
+          //   nextChar = readNextChar();
+
+          //   if (isdigit(nextChar)) 
+          //   {
+          //     IntAST* startInt = parseInt(tokenBuffer, nextChar);
+          //   };
+
+          //   int dotCount = 0;
+
+          //   while (nextChar == '.')
+          //   {
+          //     // eliminate all .
+          //     nextChar = readNextChar();
+
+          //     dotCount += 1;
+          //   };
+            
+          //   if (isdigit(nextChar)) 
+          //   {
+          //     IntAST* endInt = parseInt(tokenBuffer, nextChar);
+          //   };
+
+          //   if (nextChar == ']')
+          //   {
+          //     // eliminate single ]
+          //     nextChar = readNextChar();
+          //   };
+
+          //   while (nextChar == '>')
+          //   {
+          //     // eliminate all >
+          //     nextChar = readNextChar();
+          //   }
+
+          //   BlockAST* block = parseBlock(tokenBuffer, nextChar);
+
+          //   LoopAST* loop = new LoopAST(startInt, IntAST(1), block);
+          // }
+
+          return varDef;
           
           // You should NOT reach this line.
           break;
@@ -688,11 +856,15 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
         break;
 
       case '[':
-        tokenBuffer.push_back(
-          StyioToken::TOK_LBOXBRAC
-        );
-        nextChar = readNextChar();
+        {
+          nextChar = readNextChar();
 
+          StyioAST* result = parseList(tokenBuffer, nextChar);
+
+          return result;
+        }
+        
+        // You should NOT reach this line.
         break;
 
       case ']':
@@ -947,17 +1119,6 @@ static std::vector<int> parseProgram ()
     nextChar = readNextChar();
 
     parseExpr(tokenBuffer, nextChar);
-
-    // if (nextChar == '[') 
-    // {
-    //   parseDependency(tokenBuffer, nextChar);
-
-    //   parseSpace(tokenBuffer, nextChar);
-    // }
-    // else
-    // {
-    //   parseScript(tokenBuffer, nextChar);
-    // }
   }; 
 
   for (int token: tokenBuffer) {
