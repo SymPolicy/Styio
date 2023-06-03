@@ -1,6 +1,13 @@
 # visual studio code cache
 .vscode/
 
+# CMake cache
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+
+
 # Xmake cache
 .xmake/
 build/
