@@ -945,6 +945,8 @@ static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar)
 
     std::cout << "Next: " << char(nextChar) << std::endl;
   };
+
+  return new StyioAST();
 }
 
 static std::string parseDependencyItem(std::vector<int>& tokenBuffer, int& nextChar)
