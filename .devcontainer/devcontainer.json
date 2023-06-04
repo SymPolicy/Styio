@@ -1,0 +1,4 @@
+{
+    "workspaceMount": "source=${localWorkspaceFolder},target=/root/styio,type=bind",
+    "workspaceFolder": "/root/styio"
+}
