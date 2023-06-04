@@ -4,11 +4,13 @@ cmake_minimum_required(VERSION 3.12)
 project(styio VERSION 0.0.1)
 
 # [Styio] Build Output Directory
+set(PROJECT_BINARY_DIR "${PROJECT_SOURCE_DIR}/build")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/lib")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/bin")
 
 message(STATUS "[Styio] Source: " ${PROJECT_SOURCE_DIR})
+message(STATUS "[Styio] Binary: " ${PROJECT_BINARY_DIR})
 message(STATUS "[Styio] Archive: " ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
 message(STATUS "[Styio] Library: " ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 message(STATUS "[Styio] Runtime: " ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
