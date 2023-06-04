@@ -1,3 +1,6 @@
+# Build Cache
+build/
+
 # visual studio code cache
 .vscode/
 
@@ -9,7 +12,6 @@ cmake_install.cmake
 
 # Xmake cache
 .xmake/
-build/
 
 # MacOS Cache
 .DS_Store

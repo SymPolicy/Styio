@@ -1,12 +1,34 @@
 cmake_minimum_required(VERSION 3.12)
-set(CMAKE_CXX_STANDARD 20)
 
+# [Styio] Version
 project(styio VERSION 0.0.1)
 
-message(STATUS "[Styio] Source Directory: " ${PROJECT_SOURCE_DIR})
-message(STATUS "[Styio] Binary Directory: " ${PROJECT_BINARY_DIR})
+# [Styio] Build Output Directory
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/build/lib")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/build/lib")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/build/bin")
+
+message(STATUS "[Styio] Source: " ${PROJECT_SOURCE_DIR})
+message(STATUS "[Styio] Archive: " ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
+message(STATUS "[Styio] Library: " ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+message(STATUS "[Styio] Runtime: " ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+
+# [LLVM] Configuration
+find_package(LLVM REQUIRED CONFIG)
+include_directories(${LLVM_INCLUDE_DIRS})
+add_definitions(${LLVM_DEFINITIONS})
 
 message(STATUS "[LLVM] Version: ${LLVM_PACKAGE_VERSION}")
 message(STATUS "[LLVM] Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
+# llvm-config-${LLVM_VERSION} --components
+llvm_map_components_to_libnames(LLVM_LIBS support core irreader)
+
+# [C++ Standard]
+set(CMAKE_CXX_STANDARD 20)
+
+# [Styio] Executable
 add_executable(styio src/main.cpp)
+
+# [Styio ~ LLVM] Link
+target_link_libraries(styio ${LLVM_LIBS})
