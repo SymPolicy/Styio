@@ -329,14 +329,32 @@ class ListAST : public StyioAST {
 
 /*
 InfiniteAST
+  incEl Increment Element
 */
 class InfiniteAST : public StyioAST {
+  IdAST* IncEl;
 
   public:
     InfiniteAST() {}
 
     std::string toString(int indent = 0) {
       return std::string("Infinite { }");
+    }
+};
+
+/*
+EmptyListAST
+*/
+class EmptyListAST : public StyioAST {
+  public:
+    EmptyListAST() {}
+
+    std::string toString(int indent = 0) {
+      return std::string("List(Empty) { }");
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("List(Empty) { }");
     }
 };
 

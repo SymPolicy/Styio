@@ -180,47 +180,8 @@ static StyioAST* parseElemExpr (std::vector<int>& tokenBuffer, int& nextChar)
   throw StyioSyntaxError(errmsg);
 }
 
-static StyioAST* parseList (std::vector<int>& tokenBuffer, int& nextChar) 
+static ListAST* parseList (std::vector<int>& tokenBuffer, int& nextChar) 
 {
-  if (nextChar == '.') {
-    // eliminate the first dot .
-    nextChar = readNextChar();
-
-    if (nextChar == ']') 
-    {
-      std::string errmsg = std::string("[.] is not infinite, please use [..] or [...] instead.");
-      throw StyioSyntaxError(errmsg);
-    };
-
-    while (nextChar == '.') 
-    { 
-      // eliminate all .
-      nextChar = readNextChar();
-
-      if (nextChar == ']') 
-      {
-        nextChar = readNextChar();
-
-        InfiniteAST* result = new InfiniteAST();
-
-        std::cout << result -> toString() << std::endl;
-
-        return result;
-      };
-    };
-
-    if (isdigit(nextChar))
-    {
-      StyioAST* errnum = parseNum(tokenBuffer, nextChar);
-      
-      std::string errmsg = std::string("A finite list must have both start and end values. However, only the end value is detected: `") + errnum -> toStringInline() + "`. Try `[0.." + errnum -> toStringInline() + "]` rather than `[.." + errnum -> toStringInline() + "]`.";
-      throw StyioSyntaxError(errmsg);
-    }
-
-    std::string errmsg = std::string("Unexpected character `") + char(nextChar) + "` in infinite expression.";
-    throw StyioSyntaxError(errmsg);
-  };
-
   std::vector<StyioAST*> elements;
 
   StyioAST* el = parseElemExpr(tokenBuffer, nextChar);
@@ -268,6 +229,37 @@ static StyioAST* parseList (std::vector<int>& tokenBuffer, int& nextChar)
   throw StyioSyntaxError(errmsg);
 }
 
+static InfiniteAST* parseInfinite (std::vector<int>& tokenBuffer, int& nextChar)
+{
+  while (nextChar == '.') 
+  { 
+    // eliminate all .
+    nextChar = readNextChar();
+
+    if (nextChar == ']') 
+    {
+      nextChar = readNextChar();
+
+      InfiniteAST* result = new InfiniteAST();
+
+      std::cout << result -> toString() << std::endl;
+
+      return result;
+    };
+  };
+
+  if (isdigit(nextChar))
+  {
+    StyioAST* errnum = parseNum(tokenBuffer, nextChar);
+    
+    std::string errmsg = std::string("A finite list must have both start and end values. However, only the end value is detected: `") + errnum -> toStringInline() + "`. Try `[0.." + errnum -> toStringInline() + "]` rather than `[.." + errnum -> toStringInline() + "]`.";
+    throw StyioSyntaxError(errmsg);
+  }
+
+  std::string errmsg = std::string("Unexpected character `") + char(nextChar) + "` in infinite expression.";
+  throw StyioSyntaxError(errmsg);
+}
+
 static FinalAssignAST* parseFinalAssign (
   std::vector<int>& tokenBuffer, 
   int& nextChar, 
@@ -312,7 +304,7 @@ static AssignAST* parseAssign (
 {
   if (isalpha(nextChar) || nextChar == '_') 
   {
-    StyioAST* value = parseId(tokenBuffer, nextChar);
+    IdAST* value = parseId(tokenBuffer, nextChar);
     
     AssignAST* result = new AssignAST(idAST, value);
 
@@ -330,6 +322,45 @@ static AssignAST* parseAssign (
     std::cout << result -> toString() << std::endl;
 
     return result;
+  }
+  else
+  if (nextChar == '[') {
+    nextChar = readNextChar();
+
+    if (nextChar == ']') {
+      nextChar = readNextChar();
+
+      EmptyListAST* value = new EmptyListAST();
+      
+      AssignAST* result = new AssignAST(idAST, value);
+      std::cout << result -> toString() << std::endl;
+      return result;
+    }
+    else
+    if (nextChar == '.') {
+      // eliminate the first dot .
+      nextChar = readNextChar();
+
+      if (nextChar == ']') 
+      {
+        std::string errmsg = std::string("[.] is not infinite, please use [..] or [...] instead.");
+        throw StyioSyntaxError(errmsg);
+      };
+
+      InfiniteAST* value = parseInfinite(tokenBuffer, nextChar);
+
+      AssignAST* result = new AssignAST(idAST, value);
+      std::cout << result -> toString() << std::endl;
+      return result;
+    }
+    else
+    {
+      ListAST* value = parseList(tokenBuffer, nextChar);
+
+      AssignAST* result = new AssignAST(idAST, value);
+      std::cout << result -> toString() << std::endl;
+      return result;
+    }
   }
   else
   {
@@ -367,7 +398,7 @@ static BinOpAST* parseBinOp (
   };
 }
 
-static StyioAST* parseExpr (std::vector<int>& tokenBuffer, int& nextChar) 
+static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar) 
 {
   while (nextChar != '\n')
   {
@@ -1058,7 +1089,7 @@ static BlockAST* parseBlock (std::vector<int>& tokenBuffer, int& nextChar)
 
   std::vector<StyioAST*> stmtBuffer;
 
-  StyioAST* exprAST = parseExpr(tokenBuffer, nextChar);
+  StyioAST* exprAST = parseStmt(tokenBuffer, nextChar);
   
   if (nextChar == ';')
   {
@@ -1069,7 +1100,7 @@ static BlockAST* parseBlock (std::vector<int>& tokenBuffer, int& nextChar)
       // eliminate ;
       nextChar = readNextChar();
 
-      StyioAST* exprAST = parseExpr(tokenBuffer, nextChar);
+      StyioAST* exprAST = parseStmt(tokenBuffer, nextChar);
       stmtBuffer.push_back(exprAST);
     }
 
@@ -1130,7 +1161,7 @@ static std::vector<int> parseProgram ()
 
     nextChar = readNextChar();
 
-    parseExpr(tokenBuffer, nextChar);
+    parseStmt(tokenBuffer, nextChar);
   }; 
 
   for (int token: tokenBuffer) {
