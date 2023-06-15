@@ -8,13 +8,9 @@ class StyioAST {
   public:
     virtual ~StyioAST() {}
 
-    virtual std::string toString() {
-      return "Styio.Base {}";
-    }
+    virtual std::string toString(int indent = 0) = 0;
 
-    virtual std::string toStringInline() {
-      return "Styio.Base {}";
-    }
+    virtual std::string toStringInline(int indent = 0) = 0;
 };
 
 /*
@@ -26,11 +22,11 @@ class IdAST : public StyioAST {
   public:
     IdAST(const std::string &id) : Id(id) {}
 
-    std::string toString() {
+    std::string toString(int indent = 0) {
       return std::string("ID { ") + Id + " }";
     }
 
-    std::string toStringInline() {
+    std::string toStringInline(int indent = 0) {
       return "<ID: " + Id + ">";
     }
 };
@@ -44,12 +40,31 @@ class IntAST : public StyioAST {
   public:
     IntAST(int val) : Value(val) {}
 
-    std::string toString() {
+    std::string toString(int indent = 0) {
       return "Int { " + std::to_string(Value) + " }";
     }
 
-    std::string toStringInline() {
+    std::string toStringInline(int indent = 0) {
       return std::to_string(Value);
+    }
+};
+
+/*
+InfiniteAST
+  incEl Increment Element
+*/
+class InfiniteAST : public StyioAST {
+  IdAST* IncEl;
+
+  public:
+    InfiniteAST() {}
+
+    std::string toString(int indent = 0) {
+      return std::string("Infinite { }");
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Infinite { }");
     }
 };
 
@@ -62,11 +77,11 @@ class FloatAST : public StyioAST {
   public:
     FloatAST(double val) : Value(val) {}
 
-    std::string toString() {
+    std::string toString(int indent = 0) {
       return "Float { " + std::to_string(Value) + " }";
     }
 
-    std::string toStringInline() {
+    std::string toStringInline(int indent = 0) {
       return std::to_string(Value);
     }
 };
@@ -80,12 +95,65 @@ class StringAST : public StyioAST {
   public:
     StringAST(std::string val) : Value(val) {}
 
-    std::string toString() {
+    std::string toString(int indent = 0) {
       return "String { \"" + Value + "\" }";
     }
 
-    std::string toStringInline() {
+    std::string toStringInline(int indent = 0) {
       return "<String: \"" + Value + "\">";
+    }
+};
+
+/*
+EmptyListAST
+*/
+class EmptyListAST : public StyioAST {
+  public:
+    EmptyListAST() {}
+
+    std::string toString(int indent = 0) {
+      return std::string("List(Empty) [ ]");
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("List(Empty) [ ]");
+    }
+};
+
+/*
+ListAST
+*/
+class ListAST : public StyioAST {
+  std::vector<StyioAST*> Elems;
+
+  public:
+    ListAST(std::vector<StyioAST*> elems): Elems(elems) {}
+
+    std::string toString(int indent = 0) {
+      std::string ElemStr;
+
+      for(int i=0; i < Elems.size(); i++) {
+        ElemStr += std::string(2, ' ') + "| ";
+        ElemStr += Elems[i] -> toString(indent);
+        ElemStr += "\n";
+      };
+
+      return std::string("List [\n")
+        + ElemStr
+        + "]";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      std::string ElemStr;
+
+      for(int i = 0; i < Elems.size(); i++) {
+        ElemStr += Elems[i] -> toStringInline(indent);
+        ElemStr += ", ";
+      };
+
+      return std::string("List [ ")
+        + ElemStr
+        + "]";
     }
 };
 
@@ -102,15 +170,28 @@ class AssignAST : public StyioAST {
     std::string toString(int indent = 0) {
       return std::string("Assign (Mutable) {\n") 
         + std::string(2, ' ') + "| Var: " 
-        + varId -> toString() 
+        + varId -> toString(indent) 
         + "\n"
         + std::string(2, ' ') + "| Op:  " 
         + "="
         + "\n"
         + std::string(2, ' ') + "| Val: " 
-        + valExpr -> toString() 
+        + valExpr -> toStringInline(indent) 
         + "\n"
         + "}";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Assign (Mutable) {\n") 
+        + std::string(2, ' ') + "| Var: " 
+        + varId -> toString(indent) 
+        + "; "
+        + std::string(2, ' ') + "| Op:  " 
+        + "="
+        + "; "
+        + std::string(2, ' ') + "| Val: " 
+        + valExpr -> toStringInline(indent) 
+        + " }";
     }
 };
 
@@ -127,15 +208,28 @@ class FinalAssignAST : public StyioAST {
     std::string toString(int indent = 0) {
       return std::string("Assign (Final) {\n") 
         + std::string(2, ' ') + "| Var: " 
-        + varId -> toString() 
+        + varId -> toString(indent) 
         + "\n"
         + std::string(2, ' ') + "| Op:  " 
         + ":="
         + "\n"
         + std::string(2, ' ') + "| Val: " 
-        + valExpr -> toString() 
+        + valExpr -> toString(indent) 
         + "\n"
         + "}";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Assign (Final) { ") 
+        + std::string(2, ' ') + "| Var: " 
+        + varId -> toString(indent) 
+        + "; "
+        + std::string(2, ' ') + "| Op:  " 
+        + ":="
+        + "; "
+        + std::string(2, ' ') + "| Val: " 
+        + valExpr -> toString(indent) 
+        + " }";
     }
 };
 
@@ -153,14 +247,27 @@ class BinOpAST : public StyioAST {
     std::string toString(int indent = 0) {
       return std::string("BinOp {\n") 
         + std::string(2, ' ') + "| LHS: "
-        + LHS -> toString() 
+        + LHS -> toString(indent) 
         + "\n"
         + std::string(2, ' ') + "| Op:  "
         + reprToken(Op)
         + "\n"
         + std::string(2, ' ') + "| RHS: "
-        + RHS -> toString()  
+        + RHS -> toString(indent)  
         + "\n} ";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("BinOp { ") 
+        + std::string(2, ' ') + "| LHS: "
+        + LHS -> toString(indent) 
+        + "; "
+        + std::string(2, ' ') + "| Op:  "
+        + reprToken(Op)
+        + "; "
+        + std::string(2, ' ') + "| RHS: "
+        + RHS -> toString(indent)  
+        + " } ";
     }
 };
 
@@ -189,19 +296,22 @@ class VarDefAST : public StyioAST {
         + varStr
         + "} ";
     }
-};
 
-/*
-ValExprAST
-*/
-class ValExprAST : public StyioAST {
-  StyioAST* Value;
+    std::string toStringInline(int indent = 0) {
+      std::string varStr;
 
-  public:
-    ValExprAST(StyioAST* value): Value(value) {}
+      for (std::vector<IdAST*>::iterator it = Vars.begin(); 
+        it != Vars.end(); 
+        ++it
+      ) {
+        varStr += std::string(2, ' ') + "| ";
+        varStr += (*it) -> toStringInline();
+        varStr += " ;";
+      };
 
-    std::string toString(int indent = 0) {
-      return std::string("ValExpr { ") + Value -> toString() + " } ";
+      return std::string("Var Def { ")
+        + varStr
+        + " } ";
     }
 };
 
@@ -238,6 +348,26 @@ class BlockAST : public StyioAST {
         + Expr -> toString()  
         + "\n} ";
     }
+
+    std::string toStringInline(int indent = 0) {
+      std::string stmtStr;
+
+      for (std::vector<StyioAST*>::iterator it = Stmts.begin(); 
+        it != Stmts.end(); 
+        ++it
+      ) {
+        stmtStr += (*it) -> toStringInline();
+        stmtStr += " ;";
+      };
+
+      return std::string("Block { ")
+        + std::string(2, ' ') + "| Stmts: "
+        + stmtStr
+        + " |"
+        + std::string(2, ' ') + "| Expr:  "
+        + Expr -> toString()  
+        + " } ";
+    }
 };
 
 /*
@@ -252,7 +382,7 @@ class DependencyAST : public StyioAST {
     std::string toString(int indent = 0) {
       std::string dependencyPathsStr;
 
-      for(int i=0; i < DependencyPaths.size(); i++) {
+      for(int i = 0; i < DependencyPaths.size(); i++) {
         dependencyPathsStr += std::string(2, ' ') + "| ";
         dependencyPathsStr += DependencyPaths[i];
         dependencyPathsStr += "\n";
@@ -261,6 +391,20 @@ class DependencyAST : public StyioAST {
       return std::string("Dependencies {\n")
         + dependencyPathsStr
         + "\n} ";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      std::string dependencyPathsStr;
+
+      for(int i = 0; i < DependencyPaths.size(); i++) {
+        dependencyPathsStr += std::string(2, ' ') + "| ";
+        dependencyPathsStr += DependencyPaths[i];
+        dependencyPathsStr += " ;";
+      };
+
+      return std::string("Dependencies { ")
+        + dependencyPathsStr
+        + " } ";
     }
 };
 
@@ -278,6 +422,13 @@ class StdOutAST : public StyioAST {
         + std::string(2, ' ') + "| "
         + Output -> toString()
         + "\n}";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("stdout { ")
+        + std::string(2, ' ') + "| "
+        + Output -> toString()
+        + " }";
     }
 };
 
@@ -304,57 +455,19 @@ class LoopAST : public StyioAST {
 };
 
 /*
-ListAST
+NoneAST
 */
-class ListAST : public StyioAST {
-  std::vector<StyioAST*> Elems;
+class NoneAST : public StyioAST {
 
   public:
-    ListAST(std::vector<StyioAST*> elems): Elems(elems) {}
+    NoneAST () {}
 
     std::string toString(int indent = 0) {
-      std::string ElemStr;
-
-      for(int i=0; i < Elems.size(); i++) {
-        ElemStr += std::string(2, ' ') + "| ";
-        ElemStr += Elems[i] -> toString();
-        ElemStr += "\n";
-      };
-
-      return std::string("List {\n")
-        + ElemStr
-        + "}";
-    }
-};
-
-/*
-InfiniteAST
-  incEl Increment Element
-*/
-class InfiniteAST : public StyioAST {
-  IdAST* IncEl;
-
-  public:
-    InfiniteAST() {}
-
-    std::string toString(int indent = 0) {
-      return std::string("Infinite { }");
-    }
-};
-
-/*
-EmptyListAST
-*/
-class EmptyListAST : public StyioAST {
-  public:
-    EmptyListAST() {}
-
-    std::string toString(int indent = 0) {
-      return std::string("List(Empty) { }");
+      return std::string("None { }");
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("List(Empty) { }");
+      return std::string("None { }");
     }
 };
 

@@ -330,29 +330,33 @@ static AssignAST* parseAssign (
     if (nextChar == ']') {
       nextChar = readNextChar();
 
-      EmptyListAST* value = new EmptyListAST();
+      EmptyListAST* emptyList = new EmptyListAST();
+
+      std::cout << emptyList -> toString() << std::endl;
       
-      AssignAST* result = new AssignAST(idAST, value);
+      AssignAST* result = new AssignAST(idAST, emptyList);
+
       std::cout << result -> toString() << std::endl;
+
       return result;
     }
-    else
-    if (nextChar == '.') {
-      // eliminate the first dot .
-      nextChar = readNextChar();
+    // else
+    // if (nextChar == '.') {
+    //   // eliminate the first dot .
+    //   nextChar = readNextChar();
 
-      if (nextChar == ']') 
-      {
-        std::string errmsg = std::string("[.] is not infinite, please use [..] or [...] instead.");
-        throw StyioSyntaxError(errmsg);
-      };
+    //   if (nextChar == ']') 
+    //   {
+    //     std::string errmsg = std::string("[.] is not infinite, please use [..] or [...] instead.");
+    //     throw StyioSyntaxError(errmsg);
+    //   };
 
-      InfiniteAST* value = parseInfinite(tokenBuffer, nextChar);
+    //   InfiniteAST* value = parseInfinite(tokenBuffer, nextChar);
 
-      AssignAST* result = new AssignAST(idAST, value);
-      std::cout << result -> toString() << std::endl;
-      return result;
-    }
+    //   AssignAST* result = new AssignAST(idAST, value);
+    //   std::cout << result -> toString() << std::endl;
+    //   return result;
+    // }
     else
     {
       ListAST* value = parseList(tokenBuffer, nextChar);
@@ -576,7 +580,7 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
             tokenBuffer.push_back(
               StyioToken::TOK_LF
             );
-            return new ValExprAST(numAST);
+            return numAST;
           };
 
           // You should NOT reach this line.
@@ -590,7 +594,7 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
 
             // [<Int>|<Float>] "+" | ->
             BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_ADD, numAST);
-            return new ValExprAST(binOpAST);
+            return binOpAST;
           };
 
           // You should NOT reach this line.
@@ -604,7 +608,7 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
 
             // [<Int>|<Float>] "-" | ->
             BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_SUB, numAST);
-            return new ValExprAST(binOpAST);
+            return binOpAST;
           };
 
           // You should NOT reach this line.
@@ -621,7 +625,7 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
 
             // [<Int>|<Float>] "**" | ->
             BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_POW, numAST);
-            return new ValExprAST(binOpAST);
+            return binOpAST;
           } 
           // BIN_MUL := [<Int>|<Float>] "*" <EXPR>
           else 
@@ -630,7 +634,7 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
 
             // [<Int>|<Float>] "*" | ->
             BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_MUL, numAST);
-            return new ValExprAST(binOpAST);
+            return binOpAST;
           }
           // You should NOT reach this line.
           break;
@@ -643,7 +647,7 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
             
             // [<Int>|<Float>] "/" | ->
             BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_DIV, numAST);
-            return new ValExprAST(binOpAST);
+            return binOpAST;
           };
           // You should NOT reach this line.
           break;
@@ -656,14 +660,14 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
             
             // [<Int>|<Float>] "%" | ->
             BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, StyioToken::TOK_MOD, numAST);
-            return new ValExprAST(binOpAST);
+            return binOpAST;
           };
 
           // You should NOT reach this line.
           break;
 
         default:
-          return new ValExprAST(numAST);
+          return numAST;
 
           // You should NOT reach this line.
           break;
@@ -977,7 +981,7 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
     std::cout << "Next: " << char(nextChar) << std::endl;
   };
 
-  return new StyioAST();
+  return new NoneAST();
 }
 
 static std::string parseDependencyItem(std::vector<int>& tokenBuffer, int& nextChar)
