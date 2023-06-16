@@ -156,6 +156,66 @@ static StringAST* parseString (std::vector<int>& tokenBuffer, int& nextChar)
   return result;
 }
 
+static StyioAST* parseExtRes (std::vector<int>& tokenBuffer, int& nextChar) 
+{
+  // eliminate @
+  nextChar = readNextChar();
+
+  if (nextChar == '(') {
+    // eliminate (
+    nextChar = readNextChar();
+
+    if (nextChar == '\"') {
+      // eliminate the left double quote "
+      nextChar = readNextChar();
+
+      std::string textStr = "";
+  
+      while (nextChar != '\"')
+      {
+        textStr += nextChar;
+        nextChar = readNextChar();
+      };
+
+      if (nextChar == '\"') {
+        // eliminate the right double quote "
+        nextChar = readNextChar();
+      }
+      else
+      {
+        std::string errmsg = std::string("Expecting \" at the end, but got `") + char(nextChar) + "`.";
+        throw StyioSyntaxError(errmsg);
+      };
+
+      if (nextChar == ')') {
+        // eliminate )
+        nextChar = readNextChar();
+      }
+      else
+      {
+        std::string errmsg = std::string("Expecting ) at the end, but got `") + char(nextChar) + "`.";
+        throw StyioSyntaxError(errmsg);
+      };
+
+      PathAST* result = new PathAST(textStr);
+
+      std::cout << result -> toString() << std::endl;
+
+      return result;
+    }
+    else
+    {
+      std::string errmsg = std::string("Unexpected external resource, starts with `") + char(nextChar) + "`.";
+      throw StyioSyntaxError(errmsg);
+    }
+  }
+  else
+  {
+    std::string errmsg = "External resource must be wrapped with `(` and `)`.";
+    throw StyioSyntaxError(errmsg);
+  };
+}
+
 static StyioAST* parseElemExpr (std::vector<int>& tokenBuffer, int& nextChar) 
 {
   if (isdigit(nextChar)) {
@@ -260,42 +320,6 @@ static InfiniteAST* parseInfinite (std::vector<int>& tokenBuffer, int& nextChar)
   throw StyioSyntaxError(errmsg);
 }
 
-static FinalAssignAST* parseFinalAssign (
-  std::vector<int>& tokenBuffer, 
-  int& nextChar, 
-  IdAST* idAST
-) 
-{
-  if (isalpha(nextChar) || nextChar == '_') 
-  {
-    StyioAST* value = parseId(tokenBuffer, nextChar);
-    
-    FinalAssignAST* result = new FinalAssignAST(idAST, value);
-
-    std::cout << result -> toString() << std::endl;
-
-    return result;
-  }
-  else
-  if (isdigit(nextChar))
-  {
-    StyioAST* value = parseNum(tokenBuffer, nextChar);
-    
-    FinalAssignAST* result = new FinalAssignAST(idAST, value);
-
-    std::cout << result -> toString() << std::endl;
-
-    return result;
-  }
-  else
-  {
-    std::string errmsg = std::string("Unexpected Assign(Final).Value, starts with character `") + char(nextChar) + "`";
-    throw StyioSyntaxError(errmsg);
-  };
-
-  std::cout << "|NotImplemented| Var_Final_Assign" << std::endl;
-}
-
 static AssignAST* parseAssign (
   std::vector<int>& tokenBuffer, 
   int& nextChar, 
@@ -340,23 +364,6 @@ static AssignAST* parseAssign (
 
       return result;
     }
-    // else
-    // if (nextChar == '.') {
-    //   // eliminate the first dot .
-    //   nextChar = readNextChar();
-
-    //   if (nextChar == ']') 
-    //   {
-    //     std::string errmsg = std::string("[.] is not infinite, please use [..] or [...] instead.");
-    //     throw StyioSyntaxError(errmsg);
-    //   };
-
-    //   InfiniteAST* value = parseInfinite(tokenBuffer, nextChar);
-
-    //   AssignAST* result = new AssignAST(idAST, value);
-    //   std::cout << result -> toString() << std::endl;
-    //   return result;
-    // }
     else
     {
       ListAST* value = parseList(tokenBuffer, nextChar);
@@ -373,6 +380,65 @@ static AssignAST* parseAssign (
   };
 
   std::cout << "|NotImplemented| VAR_ASSIGN" << std::endl;
+}
+
+static AssignFinalAST* parseAssignFinal (
+  std::vector<int>& tokenBuffer, 
+  int& nextChar, 
+  IdAST* idAST
+) 
+{
+  if (isalpha(nextChar) || nextChar == '_') 
+  {
+    StyioAST* value = parseId(tokenBuffer, nextChar);
+    
+    AssignFinalAST* result = new AssignFinalAST(idAST, value);
+
+    std::cout << result -> toString() << std::endl;
+
+    return result;
+  }
+  else
+  if (isdigit(nextChar))
+  {
+    StyioAST* value = parseNum(tokenBuffer, nextChar);
+    
+    AssignFinalAST* result = new AssignFinalAST(idAST, value);
+
+    std::cout << result -> toString() << std::endl;
+
+    return result;
+  }
+  else
+  {
+    std::string errmsg = std::string("Unexpected Assign(Final).Value, starts with character `") + char(nextChar) + "`";
+    throw StyioSyntaxError(errmsg);
+  };
+
+  std::cout << "|NotImplemented| Var_Final_Assign" << std::endl;
+}
+
+static StyioAST* parseReadFile (
+  std::vector<int>& tokenBuffer, 
+  int& nextChar, 
+  IdAST* idAST
+) 
+{
+  if (nextChar == '@')
+  {
+    StyioAST* value = parseExtRes(tokenBuffer, nextChar);
+    
+    ReadAST* result = new ReadAST(idAST, value);
+
+    std::cout << result -> toString() << std::endl;
+
+    return result;
+  }
+  else
+  {
+    std::string errmsg = std::string("Unexpected Read.Path, starts with character `") + char(nextChar) + "`";
+    throw StyioSyntaxError(errmsg);
+  };
 }
 
 static BinOpAST* parseBinOp (
@@ -463,13 +529,41 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
               dropWhiteSpace(nextChar);
               
               // <ID> := | ->
-              FinalAssignAST* finalAssignAST = parseFinalAssign(tokenBuffer, nextChar, idAST);
+              AssignFinalAST* finalAssignAST = parseAssignFinal(tokenBuffer, nextChar, idAST);
               
               return finalAssignAST;
             }
             else
             {
               std::string errmsg = std::string("Unexpected `:`");
+              throw StyioSyntaxError(errmsg);
+            }
+          };
+
+          // You should NOT reach this line.
+          break;
+
+        // <ID> <- <EXPR>
+        case '<':
+          {
+            // eliminate <
+            nextChar = readNextChar();
+
+            if (nextChar == '-')
+            {
+              // eliminate -
+              nextChar = readNextChar();
+
+              dropWhiteSpace(nextChar);
+              
+              // <ID> <- | ->
+              StyioAST* result = parseReadFile(tokenBuffer, nextChar, idAST);
+              
+              return result;
+            }
+            else
+            {
+              std::string errmsg = std::string("Expecting `-` after `<`, but found `") + char(nextChar) + "`.";
               throw StyioSyntaxError(errmsg);
             }
           };
@@ -904,9 +998,28 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         {
           nextChar = readNextChar();
 
-          StyioAST* result = parseList(tokenBuffer, nextChar);
+          if (nextChar == '.') {
+            // eliminate the first dot .
+            nextChar = readNextChar();
 
-          return result;
+            if (nextChar == ']') 
+            {
+              std::string errmsg = std::string("[.] is not infinite, please use [..] or [...] instead.");
+              throw StyioSyntaxError(errmsg);
+            };
+
+            InfiniteAST* result = parseInfinite(tokenBuffer, nextChar);
+            std::cout << result -> toString() << std::endl;
+            return result;
+          }
+          else
+          {
+            StyioAST* result = parseList(tokenBuffer, nextChar);
+            std::cout << result -> toString() << std::endl;
+            return result;
+          }
+
+          
         }
         
         // You should NOT reach this line.
@@ -984,7 +1097,7 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
   return new NoneAST();
 }
 
-static std::string parseDependencyItem(std::vector<int>& tokenBuffer, int& nextChar)
+static std::string parsePacItem(std::vector<int>& tokenBuffer, int& nextChar)
 {
   std::string itemStr;
 
@@ -1042,7 +1155,7 @@ else :  {
 }
 
 */
-static DependencyAST* parseDependency (std::vector<int>& tokenBuffer, int& nextChar) 
+static ExtPacAST* parseDependency (std::vector<int>& tokenBuffer, int& nextChar) 
 { 
   // eliminate left square (box) bracket [
   nextChar = readNextChar();
@@ -1055,7 +1168,7 @@ static DependencyAST* parseDependency (std::vector<int>& tokenBuffer, int& nextC
   dropAllSpaces(nextChar);
 
   // add the first dependency path to the list
-  dependencies.push_back(parseDependencyItem(tokenBuffer, nextChar));
+  dependencies.push_back(parsePacItem(tokenBuffer, nextChar));
 
   std::string pathStr = "";
   
@@ -1069,7 +1182,7 @@ static DependencyAST* parseDependency (std::vector<int>& tokenBuffer, int& nextC
     dropAllSpaces(nextChar);
     
     // add the next dependency path to the list
-    dependencies.push_back(parseDependencyItem(tokenBuffer, nextChar));
+    dependencies.push_back(parsePacItem(tokenBuffer, nextChar));
   };
 
   if (nextChar == ']') {
@@ -1077,7 +1190,7 @@ static DependencyAST* parseDependency (std::vector<int>& tokenBuffer, int& nextC
     nextChar = readNextChar();
   };
 
-  DependencyAST* result = new DependencyAST(dependencies);
+  ExtPacAST* result = new ExtPacAST(dependencies);
 
   std::cout << result -> toString() << std::endl;
 
@@ -1161,7 +1274,7 @@ static std::vector<int> parseProgram ()
 
   while (1) 
   {
-    fprintf(stderr, "Styio/> ");
+    fprintf(stderr, "</> ");
 
     nextChar = readNextChar();
 

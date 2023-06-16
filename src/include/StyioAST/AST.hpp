@@ -14,7 +14,24 @@ class StyioAST {
 };
 
 /*
-IdAST
+NoneAST: None / Null / Nil
+*/
+class NoneAST : public StyioAST {
+
+  public:
+    NoneAST () {}
+
+    std::string toString(int indent = 0) {
+      return std::string("None { }");
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("None { }");
+    }
+};
+
+/*
+IdAST: Identifier
 */
 class IdAST : public StyioAST {
   std::string Id;
@@ -32,7 +49,7 @@ class IdAST : public StyioAST {
 };
 
 /*
-IntAST
+IntAST: Integer
 */
 class IntAST : public StyioAST {
   int Value;
@@ -50,26 +67,7 @@ class IntAST : public StyioAST {
 };
 
 /*
-InfiniteAST
-  incEl Increment Element
-*/
-class InfiniteAST : public StyioAST {
-  IdAST* IncEl;
-
-  public:
-    InfiniteAST() {}
-
-    std::string toString(int indent = 0) {
-      return std::string("Infinite { }");
-    }
-
-    std::string toStringInline(int indent = 0) {
-      return std::string("Infinite { }");
-    }
-};
-
-/*
-FloatAST
+FloatAST: Float
 */
 class FloatAST : public StyioAST {
   double Value;
@@ -87,7 +85,7 @@ class FloatAST : public StyioAST {
 };
 
 /*
-StringAST
+StringAST: String
 */
 class StringAST : public StyioAST {
   std::string Value;
@@ -105,7 +103,43 @@ class StringAST : public StyioAST {
 };
 
 /*
-EmptyListAST
+PathAST: (File) Path
+*/
+class PathAST : public StyioAST {
+  std::string Path;
+
+  public:
+    PathAST (std::string path): Path(path) {}
+
+    std::string toString(int indent = 0) {
+      return std::string("Path(File) { ") + Path + " }";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Path(File) { ") + Path + " }";
+    }
+};
+
+/*
+LinkAST: (Web) Link
+*/
+class LinkAST : public StyioAST {
+  std::string Link;
+
+  public:
+    LinkAST (std::string link): Link(link) {}
+
+    std::string toString(int indent = 0) {
+      return std::string("Link(Web) { }");
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Link(Web) { }");
+    }
+};
+
+/*
+EmptyListAST: Empty List
 */
 class EmptyListAST : public StyioAST {
   public:
@@ -172,9 +206,6 @@ class AssignAST : public StyioAST {
         + std::string(2, ' ') + "| Var: " 
         + varId -> toString(indent) 
         + "\n"
-        + std::string(2, ' ') + "| Op:  " 
-        + "="
-        + "\n"
         + std::string(2, ' ') + "| Val: " 
         + valExpr -> toStringInline(indent) 
         + "\n"
@@ -186,9 +217,6 @@ class AssignAST : public StyioAST {
         + std::string(2, ' ') + "| Var: " 
         + varId -> toString(indent) 
         + "; "
-        + std::string(2, ' ') + "| Op:  " 
-        + "="
-        + "; "
         + std::string(2, ' ') + "| Val: " 
         + valExpr -> toStringInline(indent) 
         + " }";
@@ -196,14 +224,14 @@ class AssignAST : public StyioAST {
 };
 
 /*
-FinalAssignAST
+AssignFinalAST
 */
-class FinalAssignAST : public StyioAST {
+class AssignFinalAST : public StyioAST {
   IdAST* varId;
   StyioAST* valExpr;
 
   public:
-    FinalAssignAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
+    AssignFinalAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
 
     std::string toString(int indent = 0) {
       return std::string("Assign (Final) {\n") 
@@ -229,6 +257,38 @@ class FinalAssignAST : public StyioAST {
         + "; "
         + std::string(2, ' ') + "| Val: " 
         + valExpr -> toString(indent) 
+        + " }";
+    }
+};
+
+/*
+ReadAST: Read (File)
+*/
+class ReadAST : public StyioAST {
+  IdAST* varId;
+  StyioAST* valExpr;
+
+  public:
+    ReadAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
+
+    std::string toString(int indent = 0) {
+      return std::string("Read {\n") 
+        + std::string(2, ' ') + "| Var: " 
+        + varId -> toString(indent) 
+        + "\n"
+        + std::string(2, ' ') + "| Val: " 
+        + valExpr -> toStringInline(indent) 
+        + "\n"
+        + "}";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Assign (Mutable) {\n") 
+        + std::string(2, ' ') + "| Var: " 
+        + varId -> toString(indent) 
+        + "; "
+        + std::string(2, ' ') + "| Val: " 
+        + valExpr -> toStringInline(indent) 
         + " }";
     }
 };
@@ -316,7 +376,7 @@ class VarDefAST : public StyioAST {
 };
 
 /*
-BlockAST
+BlockAST: Block
 */
 class BlockAST : public StyioAST {
   std::vector<StyioAST*> Stmts;
@@ -371,45 +431,45 @@ class BlockAST : public StyioAST {
 };
 
 /*
-DependencyAST
+ExtPacAST: External Packages
 */
-class DependencyAST : public StyioAST {
-  std::vector<std::string> DependencyPaths;
+class ExtPacAST : public StyioAST {
+  std::vector<std::string> PacPaths;
 
   public:
-    DependencyAST(std::vector<std::string> paths): DependencyPaths(paths) {}
+    ExtPacAST(std::vector<std::string> paths): PacPaths(paths) {}
 
     std::string toString(int indent = 0) {
-      std::string dependencyPathsStr;
+      std::string pacPathStr;
 
-      for(int i = 0; i < DependencyPaths.size(); i++) {
-        dependencyPathsStr += std::string(2, ' ') + "| ";
-        dependencyPathsStr += DependencyPaths[i];
-        dependencyPathsStr += "\n";
+      for(int i = 0; i < PacPaths.size(); i++) {
+        pacPathStr += std::string(2, ' ') + "| ";
+        pacPathStr += PacPaths[i];
+        pacPathStr += "\n";
       };
 
-      return std::string("Dependencies {\n")
-        + dependencyPathsStr
+      return std::string("Ext Pac {\n")
+        + pacPathStr
         + "\n} ";
     }
 
     std::string toStringInline(int indent = 0) {
-      std::string dependencyPathsStr;
+      std::string pacPathStr;
 
-      for(int i = 0; i < DependencyPaths.size(); i++) {
-        dependencyPathsStr += std::string(2, ' ') + "| ";
-        dependencyPathsStr += DependencyPaths[i];
-        dependencyPathsStr += " ;";
+      for(int i = 0; i < PacPaths.size(); i++) {
+        pacPathStr += std::string(2, ' ') + "| ";
+        pacPathStr += PacPaths[i];
+        pacPathStr += " ;";
       };
 
       return std::string("Dependencies { ")
-        + dependencyPathsStr
+        + pacPathStr
         + " } ";
     }
 };
 
 /*
-StdOutAST
+StdOutAST: Standard Output
 */
 class StdOutAST : public StyioAST {
   StringAST* Output;
@@ -433,7 +493,26 @@ class StdOutAST : public StyioAST {
 };
 
 /*
-LoopAST
+InfiniteAST: Infinite Loop
+  incEl Increment Element
+*/
+class InfiniteAST : public StyioAST {
+  IdAST* IncEl;
+
+  public:
+    InfiniteAST() {}
+
+    std::string toString(int indent = 0) {
+      return std::string("Infinite { }");
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Infinite { }");
+    }
+};
+
+/*
+LoopAST: Loop
 */
 class LoopAST : public StyioAST {
   StyioAST* Start;
@@ -451,23 +530,6 @@ class LoopAST : public StyioAST {
         + std::string(2, ' ') + "| Step: " + Step -> toString() + "\n"
         + std::string(2, ' ') + "| Block: " + Block -> toString() + "\n"
         + "\n}";
-    }
-};
-
-/*
-NoneAST
-*/
-class NoneAST : public StyioAST {
-
-  public:
-    NoneAST () {}
-
-    std::string toString(int indent = 0) {
-      return std::string("None { }");
-    }
-
-    std::string toStringInline(int indent = 0) {
-      return std::string("None { }");
     }
 };
 
