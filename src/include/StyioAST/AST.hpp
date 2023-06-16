@@ -238,9 +238,6 @@ class AssignFinalAST : public StyioAST {
         + std::string(2, ' ') + "| Var: " 
         + varId -> toString(indent) 
         + "\n"
-        + std::string(2, ' ') + "| Op:  " 
-        + ":="
-        + "\n"
         + std::string(2, ' ') + "| Val: " 
         + valExpr -> toString(indent) 
         + "\n"
@@ -251,9 +248,6 @@ class AssignFinalAST : public StyioAST {
       return std::string("Assign (Final) { ") 
         + std::string(2, ' ') + "| Var: " 
         + varId -> toString(indent) 
-        + "; "
-        + std::string(2, ' ') + "| Op:  " 
-        + ":="
         + "; "
         + std::string(2, ' ') + "| Val: " 
         + valExpr -> toString(indent) 
