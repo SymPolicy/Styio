@@ -23,6 +23,30 @@ static void dropWhiteSpace (int& nextChar)
   };
 }
 
+static bool isBinSign (int& nextChar) 
+{
+  switch (nextChar)
+  {
+  case '+':
+    return true;
+
+  case '-':
+    return true;
+
+  case '*':
+    return true;
+
+  case '/':
+    return true;
+
+  case '%':
+    return true;
+  
+  default:
+    return false
+  }
+}
+
 static IdAST* parseId (std::vector<int>& tokenBuffer, int& nextChar) 
 {
   std::string idStr = "";
@@ -466,6 +490,85 @@ static BinOpAST* parseBinOp (
     std::string errmsg = std::string("Unexpected BinOp.RHS, starts with character `") + char(nextChar) + "`";
     throw StyioSyntaxError(errmsg);
   };
+}
+
+static StyioAST* parseValExpr (
+  std::vector<int>& tokenBuffer, 
+  int& nextChar
+)
+{
+  if (isalpha(nextChar) || nextChar == '_') {
+    IdAST* result = parseId(tokenBuffer, nextChar);
+    std::cout << result -> toString() << std::endl;
+    return result;
+  }
+  else
+  if (isdigit(nextChar)) {
+    StyioAST* result = parseNum(tokenBuffer, nextChar);
+    std::cout << result -> toString() << std::endl;
+    return result;
+  }
+  else
+  {
+    switch (nextChar)
+    {
+    case '[':
+      {
+        nextChar = readNextChar();
+
+        if (nextChar == ']') {
+          nextChar = readNextChar();
+
+          EmptyListAST* result = new EmptyListAST();
+          std::cout << result -> toString() << std::endl;
+          return result;
+        }
+        else
+        {
+          ListAST* result = parseList(tokenBuffer, nextChar);
+          std::cout << result -> toString() << std::endl;
+          return result;
+        }
+      }
+
+      // You should NOT reach this line.
+      break;
+
+    case '|':
+      {
+        nextChar = readNextChar();
+
+        if (isalpha(nextChar) || nextChar == '_')
+        {
+          IdAST* result = parseId(tokenBuffer, nextChar);
+          std::cout << result -> toString() << std::endl;
+          return result;
+        }
+        else
+        {
+          std::string errmsg = std::string("Unexpected SizeOf(), starts with `") + char(nextChar) + "`";
+          throw StyioSyntaxError(errmsg);
+        }
+
+        if (nextChar == '|') {
+          nextChar = readNextChar();
+        }
+        else
+        {
+          std::string errmsg = std::string("Expecting | at the end of SizeOf(), but got `") + char(nextChar) + "`";
+          throw StyioSyntaxError(errmsg);
+        }
+      }
+
+      // You should NOT reach this line.
+      break;
+    
+    default:
+      break;
+    }
+  };
+
+  return new NoneAST();
 }
 
 static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar) 
@@ -1018,8 +1121,6 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
             std::cout << result -> toString() << std::endl;
             return result;
           }
-
-          
         }
         
         // You should NOT reach this line.
@@ -1132,30 +1233,30 @@ static std::string parsePacItem(std::vector<int>& tokenBuffer, int& nextChar)
 }
 
 /*
-parseDependency
+parseExtPac
 
 Dependencies should be written like a list of paths
 like this -> ["ab/c", "x/yz"]
 
 // 1. The dependencies should be parsed before any domain (statement/expression). 
-// 2. The left square bracket `[` is only eliminated after entering this function (parseDependency)
+// 2. The left square bracket `[` is only eliminated after entering this function (parseExtPac)
 | -> "[" <PATH>+ "]"
 
 If ? ( "the program starts with a left square bracket `[`" ),
 then -> { 
-  "parseDependency() starts";
+  "parseExtPac() starts";
   "eliminate the left square bracket `[`";
   "parse dependency paths, which take comma `,` as delimeter";
   "eliminate the right square bracket `]`";
 } 
 else :  { 
-  "parseDependency() should NOT be invoked in this case";
+  "parseExtPac() should NOT be invoked in this case";
   "if starts with left curly brace `{`, try parseSpace()";
   "otherwise, try parseScript()";
 }
 
 */
-static ExtPacAST* parseDependency (std::vector<int>& tokenBuffer, int& nextChar) 
+static ExtPacAST* parseExtPac (std::vector<int>& tokenBuffer, int& nextChar) 
 { 
   // eliminate left square (box) bracket [
   nextChar = readNextChar();

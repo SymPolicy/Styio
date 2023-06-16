@@ -277,7 +277,7 @@ class ReadAST : public StyioAST {
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Assign (Mutable) {\n") 
+      return std::string("Read {\n") 
         + std::string(2, ' ') + "| Var: " 
         + varId -> toString(indent) 
         + "; "
