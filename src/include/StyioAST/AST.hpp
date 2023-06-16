@@ -527,4 +527,22 @@ class LoopAST : public StyioAST {
     }
 };
 
+/*
+
+*/
+class SizeOfAST : public StyioAST {
+  IdAST* Var;
+
+  public:
+    SizeOfAST(IdAST* var): Var(var) {}
+
+    std::string toString(int indent = 0) {
+      return std::string("SizeOf { }");
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("SizeOf { }");
+    }
+};
+
 #endif

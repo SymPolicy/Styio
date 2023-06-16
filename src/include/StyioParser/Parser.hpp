@@ -472,24 +472,101 @@ static BinOpAST* parseBinOp (
   StyioAST* lhsAST
 ) 
 {
-  dropWhiteSpace(nextChar);
+  switch (nextChar)
+    {
+      // BIN_ADD := <ID> "+" <EXPR>
+      case '+':
+        {
+          nextChar = readNextChar();
+          dropWhiteSpace(nextChar);
 
-  if (isalpha(nextChar) || nextChar == '_') {
-    BinOpAST* result = new BinOpAST(signToken, lhsAST, parseId(tokenBuffer, nextChar));
-    std::cout << result -> toString() << std::endl;
-    return result;
-  }
-  else
-  if (isdigit(nextChar)) {
-    BinOpAST* result = new BinOpAST(signToken, lhsAST, parseNum(tokenBuffer, nextChar));
-    std::cout << result -> toString() << std::endl;
-    return result;
-  }
-  else
-  {
-    std::string errmsg = std::string("Unexpected BinOp.RHS, starts with character `") + char(nextChar) + "`";
-    throw StyioSyntaxError(errmsg);
-  };
+          // <ID> "+" | -> 
+          BinOpAST* result = new BinOpAST(signToken, lhsAST, parseValExpr(tokenBuffer, nextChar));
+          std::cout << result -> toString() << std::endl;
+          return result;
+        };
+
+        // You should NOT reach this line.
+        break;
+
+      // BIN_SUB := <ID> "-" <EXPR>
+      case '-':
+        {
+          nextChar = readNextChar();
+          dropWhiteSpace(nextChar);
+
+          // <ID> "-" | ->
+          BinOpAST* result = new BinOpAST(signToken, lhsAST, parseValExpr(tokenBuffer, nextChar));
+          std::cout << result -> toString() << std::endl;
+          return result;
+        };
+
+        // You should NOT reach this line.
+        break;
+
+      // BIN_MUL | BIN_POW
+      case '*':
+        {
+          nextChar = readNextChar();
+          // BIN_POW := <ID> "**" <EXPR>
+          if (nextChar == '*')
+          {
+            nextChar = readNextChar();
+            dropWhiteSpace(nextChar);
+
+            // <ID> "**" | ->
+            BinOpAST* result = new BinOpAST(signToken, lhsAST, parseValExpr(tokenBuffer, nextChar));
+            std::cout << result -> toString() << std::endl;
+            return result;
+          } 
+          // BIN_MUL := <ID> "*" <EXPR>
+          else 
+          {
+            dropWhiteSpace(nextChar);
+
+            // <ID> "*" | ->
+            BinOpAST* result = new BinOpAST(signToken, lhsAST, parseValExpr(tokenBuffer, nextChar));
+            std::cout << result -> toString() << std::endl;
+            return result;
+          }
+        };
+        // You should NOT reach this line.
+        break;
+        
+      // BIN_DIV := <ID> "/" <EXPR>
+      case '/':
+        {
+          nextChar = readNextChar();
+          dropWhiteSpace(nextChar);
+
+          // <ID> "/" | -> 
+          BinOpAST* result = new BinOpAST(signToken, lhsAST, parseValExpr(tokenBuffer, nextChar));
+          std::cout << result -> toString() << std::endl;
+          return result;
+        };
+
+        // You should NOT reach this line.
+        break;
+
+      // BIN_MOD := <ID> "%" <EXPR> 
+      case '%':
+        {
+          nextChar = readNextChar();
+          dropWhiteSpace(nextChar);
+
+          // <ID> "%" | -> 
+          BinOpAST* result = new BinOpAST(signToken, lhsAST, parseValExpr(tokenBuffer, nextChar));
+          std::cout << result -> toString() << std::endl;
+          return result;
+        };
+
+        // You should NOT reach this line.
+        break;
+      
+      default:
+        std::string errmsg = std::string("Unexpected BinOp.RHS, starts with character `") + char(nextChar) + "`";
+        throw StyioSyntaxError(errmsg);
+    }
 }
 
 static StyioAST* parseValExpr (
@@ -540,7 +617,8 @@ static StyioAST* parseValExpr (
 
         if (isalpha(nextChar) || nextChar == '_')
         {
-          IdAST* result = parseId(tokenBuffer, nextChar);
+          IdAST* var = parseId(tokenBuffer, nextChar);
+          SizeOfAST* result = new SizeOfAST(var);
           std::cout << result -> toString() << std::endl;
           return result;
         }
