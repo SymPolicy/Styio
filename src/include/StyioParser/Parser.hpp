@@ -344,206 +344,6 @@ static InfiniteAST* parseInfinite (std::vector<int>& tokenBuffer, int& nextChar)
   throw StyioSyntaxError(errmsg);
 }
 
-static AssignAST* parseAssign (
-  std::vector<int>& tokenBuffer, 
-  int& nextChar, 
-  IdAST* idAST
-) 
-{
-  if (isalpha(nextChar) || nextChar == '_') 
-  {
-    IdAST* value = parseId(tokenBuffer, nextChar);
-    
-    AssignAST* result = new AssignAST(idAST, value);
-
-    std::cout << result -> toString() << std::endl;
-
-    return result;
-  }
-  else
-  if (isdigit(nextChar))
-  {
-    StyioAST* value = parseNum(tokenBuffer, nextChar);
-    
-    AssignAST* result = new AssignAST(idAST, value);
-
-    std::cout << result -> toString() << std::endl;
-
-    return result;
-  }
-  else
-  if (nextChar == '[') {
-    nextChar = readNextChar();
-
-    if (nextChar == ']') {
-      nextChar = readNextChar();
-
-      EmptyListAST* emptyList = new EmptyListAST();
-
-      std::cout << emptyList -> toString() << std::endl;
-      
-      AssignAST* result = new AssignAST(idAST, emptyList);
-
-      std::cout << result -> toString() << std::endl;
-
-      return result;
-    }
-    else
-    {
-      ListAST* value = parseList(tokenBuffer, nextChar);
-
-      AssignAST* result = new AssignAST(idAST, value);
-      std::cout << result -> toString() << std::endl;
-      return result;
-    }
-  }
-  else
-  {
-    std::string errmsg = std::string("Unexpected Assign(Mutable).Value, starts with character `") + char(nextChar) + "`";
-    throw StyioSyntaxError(errmsg);
-  };
-
-  std::cout << "|NotImplemented| VAR_ASSIGN" << std::endl;
-}
-
-static AssignFinalAST* parseAssignFinal (
-  std::vector<int>& tokenBuffer, 
-  int& nextChar, 
-  IdAST* idAST
-) 
-{
-  if (isalpha(nextChar) || nextChar == '_') 
-  {
-    StyioAST* value = parseId(tokenBuffer, nextChar);
-    
-    AssignFinalAST* result = new AssignFinalAST(idAST, value);
-
-    std::cout << result -> toString() << std::endl;
-
-    return result;
-  }
-  else
-  if (isdigit(nextChar))
-  {
-    StyioAST* value = parseNum(tokenBuffer, nextChar);
-    
-    AssignFinalAST* result = new AssignFinalAST(idAST, value);
-
-    std::cout << result -> toString() << std::endl;
-
-    return result;
-  }
-  else
-  {
-    std::string errmsg = std::string("Unexpected Assign(Final).Value, starts with character `") + char(nextChar) + "`";
-    throw StyioSyntaxError(errmsg);
-  };
-
-  std::cout << "|NotImplemented| Var_Final_Assign" << std::endl;
-}
-
-static StyioAST* parseReadFile (
-  std::vector<int>& tokenBuffer, 
-  int& nextChar, 
-  IdAST* idAST
-) 
-{
-  if (nextChar == '@')
-  {
-    StyioAST* value = parseExtRes(tokenBuffer, nextChar);
-    
-    ReadAST* result = new ReadAST(idAST, value);
-
-    std::cout << result -> toString() << std::endl;
-
-    return result;
-  }
-  else
-  {
-    std::string errmsg = std::string("Unexpected Read.Path, starts with character `") + char(nextChar) + "`";
-    throw StyioSyntaxError(errmsg);
-  };
-}
-
-static StyioAST* parseValExpr (
-  std::vector<int>& tokenBuffer, 
-  int& nextChar
-)
-{
-  if (isalpha(nextChar) || nextChar == '_') {
-    IdAST* result = parseId(tokenBuffer, nextChar);
-    std::cout << result -> toString() << std::endl;
-    return result;
-  }
-  else
-  if (isdigit(nextChar)) {
-    StyioAST* result = parseNum(tokenBuffer, nextChar);
-    std::cout << result -> toString() << std::endl;
-    return result;
-  }
-  else
-  {
-    switch (nextChar)
-    {
-    case '[':
-      {
-        nextChar = readNextChar();
-
-        if (nextChar == ']') {
-          nextChar = readNextChar();
-
-          EmptyListAST* result = new EmptyListAST();
-          std::cout << result -> toString() << std::endl;
-          return result;
-        }
-        else
-        {
-          ListAST* result = parseList(tokenBuffer, nextChar);
-          std::cout << result -> toString() << std::endl;
-          return result;
-        }
-      }
-
-      // You should NOT reach this line.
-      break;
-
-    case '|':
-      {
-        nextChar = readNextChar();
-
-        if (isalpha(nextChar) || nextChar == '_')
-        {
-          IdAST* var = parseId(tokenBuffer, nextChar);
-          SizeOfAST* result = new SizeOfAST(var);
-          std::cout << result -> toString() << std::endl;
-          return result;
-        }
-        else
-        {
-          std::string errmsg = std::string("Unexpected SizeOf(), starts with `") + char(nextChar) + "`";
-          throw StyioSyntaxError(errmsg);
-        }
-
-        if (nextChar == '|') {
-          nextChar = readNextChar();
-        }
-        else
-        {
-          std::string errmsg = std::string("Expecting | at the end of SizeOf(), but got `") + char(nextChar) + "`";
-          throw StyioSyntaxError(errmsg);
-        }
-      }
-
-      // You should NOT reach this line.
-      break;
-    
-    default:
-      break;
-    }
-  };
-
-  return new NoneAST();
-}
 
 static StyioAST* parseBinRHS (
   std::vector<int>& tokenBuffer, 
@@ -729,6 +529,283 @@ static BinOpAST* parseBinOp (
   return binOp;
 }
 
+static StyioAST* parseValExpr (
+  std::vector<int>& tokenBuffer, 
+  int& nextChar
+)
+{
+  // <ID>
+  if (isalpha(nextChar) || nextChar == '_') 
+  {
+    // parse id
+    IdAST* idAST = parseId(tokenBuffer, nextChar);
+    
+    // ignore white spaces after id
+    dropWhiteSpace(nextChar);
+
+    // check next character
+    switch (nextChar)
+    {
+      // BIN_ADD := <ID> "+" <EXPR>
+      case '+':
+        {
+          // <ID> | -> 
+          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, idAST);
+          return binOpAST;
+        };
+
+        // You should NOT reach this line.
+        break;
+
+      // BIN_SUB := <ID> "-" <EXPR>
+      case '-':
+        {
+          // <ID> | ->
+          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, idAST);
+          return binOpAST;
+        };
+
+        // You should NOT reach this line.
+        break;
+
+      // BIN_MUL | BIN_POW
+      case '*':
+        {
+          // <ID> | ->
+          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, idAST);
+          return binOpAST;
+        };
+        // You should NOT reach this line.
+        break;
+        
+      // BIN_DIV := <ID> "/" <EXPR>
+      case '/':
+        {
+          // <ID> "/" | -> 
+          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, idAST);
+          return binOpAST;
+        };
+
+        // You should NOT reach this line.
+        break;
+
+      // BIN_MOD := <ID> "%" <EXPR> 
+      case '%':
+        {
+          // <ID> | -> 
+          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, idAST);
+          return binOpAST;
+        };
+
+        // You should NOT reach this line.
+        break;
+      
+      default:
+        return idAST;
+
+        // You should NOT reach this line.
+        break;
+    }
+  }
+  else
+  if (isdigit(nextChar)) {
+    StyioAST* numAST = parseNum(tokenBuffer, nextChar);
+
+    // ignore white spaces after number
+    dropWhiteSpace(nextChar);
+
+    switch (nextChar)
+    {
+      // BIN_ADD := [<Int>|<Float>] "+" <EXPR>
+      case '+':
+        {
+          // [<Int>|<Float>] | ->
+          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, numAST);
+          return binOpAST;
+        };
+
+        // You should NOT reach this line.
+        break;
+
+      // BIN_SUB := [<Int>|<Float>] "-" <EXPR>
+      case '-':
+        {
+          // [<Int>|<Float>] | ->
+          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, numAST);
+          return binOpAST;
+        };
+
+        // You should NOT reach this line.
+        break;
+
+      // BIN_MUL | BIN_POW
+      case '*':
+        {
+          // [<Int>|<Float>] | ->
+          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, numAST);
+          return binOpAST;
+        }
+
+        // You should NOT reach this line.
+        break;
+
+      // BIN_DIV := [<Int>|<Float>] "/" <EXPR>
+      case '/':
+        {
+          // [<Int>|<Float>] | ->
+          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, numAST);
+          return binOpAST;
+        };
+
+        // You should NOT reach this line.
+        break;
+
+      // BIN_MOD := [<Int>|<Float>] "%" <EXPR>
+      case '%':
+        {
+          // [<Int>|<Float>] | ->
+          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, numAST);
+          return binOpAST;
+        };
+
+        // You should NOT reach this line.
+        break;
+
+      default:
+        return numAST;
+
+        // You should NOT reach this line.
+        break;
+    }
+  }
+  else
+  {
+    switch (nextChar)
+    {
+    case '[':
+      {
+        nextChar = readNextChar();
+
+        if (nextChar == ']') {
+          nextChar = readNextChar();
+
+          EmptyListAST* result = new EmptyListAST();
+          std::cout << result -> toString() << std::endl;
+          return result;
+        }
+        else
+        {
+          ListAST* result = parseList(tokenBuffer, nextChar);
+          std::cout << result -> toString() << std::endl;
+          return result;
+        }
+      }
+
+      // You should NOT reach this line.
+      break;
+
+    case '|':
+      {
+        nextChar = readNextChar();
+
+        if (isalpha(nextChar) || nextChar == '_')
+        {
+          IdAST* var = parseId(tokenBuffer, nextChar);
+
+          if (nextChar == '|') {
+            nextChar = readNextChar();
+
+            SizeOfAST* result = new SizeOfAST(var);
+            std::cout << result -> toString() << std::endl;
+            return result;
+          }
+          else
+          {
+            std::string errmsg = std::string("Expecting | at the end of SizeOf(), but got `") + char(nextChar) + "`";
+            throw StyioSyntaxError(errmsg);
+          }
+        }
+        else
+        {
+          std::string errmsg = std::string("Unexpected SizeOf(), starts with `") + char(nextChar) + "`";
+          throw StyioSyntaxError(errmsg);
+        }
+      }
+
+      // You should NOT reach this line.
+      break;
+    
+    default:
+      break;
+    }
+  };
+
+  return new NoneAST();
+}
+
+static AssignAST* parseAssign (
+  std::vector<int>& tokenBuffer, 
+  int& nextChar, 
+  IdAST* idAST
+) 
+{
+  AssignAST* result = new AssignAST(idAST, parseValExpr(tokenBuffer, nextChar));
+  
+  if (nextChar == '\n') 
+  {
+    std::cout << result -> toString() << std::endl;
+    return result;
+  }
+  else
+  {
+    std::string errmsg = std::string("Unexpected character `") + char(nextChar) + "` after Assign(Mutable)";
+    throw StyioSyntaxError(errmsg);
+  }
+}
+
+static AssignFinalAST* parseAssignFinal (
+  std::vector<int>& tokenBuffer, 
+  int& nextChar, 
+  IdAST* idAST
+) 
+{
+  AssignFinalAST* result = new AssignFinalAST(idAST, parseValExpr(tokenBuffer, nextChar));
+  
+  if (nextChar == '\n') 
+  {
+    std::cout << result -> toString() << std::endl;
+    return result;
+  }
+  else
+  {
+    std::string errmsg = std::string("Unexpected character `") + char(nextChar) + "` after Assign(Mutable)";
+    throw StyioSyntaxError(errmsg);
+  }
+}
+
+static StyioAST* parseReadFile (
+  std::vector<int>& tokenBuffer, 
+  int& nextChar, 
+  IdAST* idAST
+) 
+{
+  if (nextChar == '@')
+  {
+    StyioAST* value = parseExtRes(tokenBuffer, nextChar);
+    
+    ReadAST* result = new ReadAST(idAST, value);
+
+    std::cout << result -> toString() << std::endl;
+
+    return result;
+  }
+  else
+  {
+    std::string errmsg = std::string("Unexpected Read.Path, starts with character `") + char(nextChar) + "`";
+    throw StyioSyntaxError(errmsg);
+  };
+}
+
 static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar) 
 {
   while (nextChar != '\n')
@@ -767,9 +844,7 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
             dropWhiteSpace(nextChar);
 
             // <ID> = | ->
-            AssignAST* assignAST = parseAssign(tokenBuffer, nextChar, idAST);
-            
-            return assignAST;
+            return parseAssign(tokenBuffer, nextChar, idAST);
           };
 
           // You should NOT reach this line.

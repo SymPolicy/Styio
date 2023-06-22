@@ -207,7 +207,7 @@ class AssignAST : public StyioAST {
         + varId -> toString(indent) 
         + "\n"
         + std::string(2, ' ') + "| Val: " 
-        + valExpr -> toStringInline(indent) 
+        + valExpr -> toString(indent) 
         + "\n"
         + "}";
     }
@@ -215,7 +215,7 @@ class AssignAST : public StyioAST {
     std::string toStringInline(int indent = 0) {
       return std::string("Assign (Mutable) {\n") 
         + std::string(2, ' ') + "| Var: " 
-        + varId -> toString(indent) 
+        + varId -> toStringInline(indent) 
         + "; "
         + std::string(2, ' ') + "| Val: " 
         + valExpr -> toStringInline(indent) 
@@ -312,16 +312,14 @@ class BinOpAST : public StyioAST {
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("BinOp { ") 
-        + std::string(2, ' ') + "| LHS: "
-        + LHS -> toString(indent) 
-        + "; "
-        + std::string(2, ' ') + "| Op:  "
+      return std::string("BinOp {") 
+        + " LHS: "
+        + LHS -> toStringInline(indent) 
+        + " | Op: "
         + reprToken(Op)
-        + "; "
-        + std::string(2, ' ') + "| RHS: "
-        + RHS -> toString(indent)  
-        + " } ";
+        + " | RHS: "
+        + RHS -> toStringInline(indent)  
+        + " }";
     }
 };
 
@@ -537,11 +535,15 @@ class SizeOfAST : public StyioAST {
     SizeOfAST(IdAST* var): Var(var) {}
 
     std::string toString(int indent = 0) {
-      return std::string("SizeOf { }");
+      return std::string("SizeOf { ") 
+      + Var -> toString()
+      + " }";
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("SizeOf { }");
+      return std::string("SizeOf { ") 
+      + Var -> toStringInline()
+      + " }";
     }
 };
 
