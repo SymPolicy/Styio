@@ -58,9 +58,7 @@ static IdAST* parse_id (std::vector<int>& tok_ctx, int& cur_char)
     idStr += cur_char;
   }
 
-  IdAST* result = new IdAST(idStr);
-
-  return result;
+  return new IdAST(idStr);
 }
 
 static IntAST* parse_int (std::vector<int>& tok_ctx, int& cur_char)
@@ -76,9 +74,7 @@ static IntAST* parse_int (std::vector<int>& tok_ctx, int& cur_char)
     cur_char = get_next_char();
   };
 
-  IntAST* result = new IntAST(std::stoi(intStr));
-
-  return result;
+  return new IntAST(std::stoi(intStr));
 }
 
 static StyioAST* parse_int_float (std::vector<int>& tok_ctx, int& cur_char)
@@ -105,15 +101,11 @@ static StyioAST* parse_int_float (std::vector<int>& tok_ctx, int& cur_char)
       cur_char = get_next_char();
     };
 
-    FloatAST* result = new FloatAST(std::stod(numStr));
-
-    return result;
+    return new FloatAST(std::stod(numStr));
   } 
   else 
   {
-    IntAST* result = new IntAST(std::stoi(numStr));
-
-    return result;
+    return new IntAST(std::stoi(numStr));
   }
 }
 
@@ -137,9 +129,7 @@ static StringAST* parse_string (std::vector<int>& tok_ctx, int& cur_char)
     StyioToken::TOK_STRING
   );
 
-  StringAST* result = new StringAST(textStr);
-
-  return result;
+  return new StringAST(textStr);
 }
 
 static StyioAST* parseExtRes (std::vector<int>& tok_ctx, int& cur_char) 
@@ -183,9 +173,7 @@ static StyioAST* parseExtRes (std::vector<int>& tok_ctx, int& cur_char)
         throw StyioSyntaxError(errmsg);
       };
 
-      PathAST* result = new PathAST(textStr);
-
-      return result;
+      return new PathAST(textStr);
     }
     else
     {
@@ -202,22 +190,17 @@ static StyioAST* parseExtRes (std::vector<int>& tok_ctx, int& cur_char)
 
 static StyioAST* parse_list_elem (std::vector<int>& tok_ctx, int& cur_char) 
 {
-  if (isdigit(cur_char)) {
-    StyioAST* numEl = parse_int_float(tok_ctx, cur_char);
-
-    return numEl;
+  if (isdigit(cur_char)) 
+  {
+    return parse_int_float(tok_ctx, cur_char);
   }
   else if (isalpha(cur_char) || cur_char == '_') 
   {
-    IdAST* idEl = parse_id(tok_ctx, cur_char);
-
-    return idEl;
+    return parse_id(tok_ctx, cur_char);
   }
   else if (cur_char == '\"') 
   {
-    StringAST* strEl = parse_string(tok_ctx, cur_char);
-
-    return strEl;
+    return parse_string(tok_ctx, cur_char);
   }
   
   std::string errmsg = std::string("Unexpected Element for Iterator, starts with character `") + char(cur_char) + "`";
@@ -244,9 +227,7 @@ static ListAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char)
     {
       cur_char = get_next_char();
 
-      ListAST* result = new ListAST(elements);
-
-      return result;
+      return new ListAST(elements);
     };
 
     StyioAST* el = parse_list_elem(tok_ctx, cur_char);
@@ -260,9 +241,7 @@ static ListAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char)
   {
     cur_char = get_next_char();
 
-    ListAST* result = new ListAST(elements);
-
-    return result;
+    return new ListAST(elements);
   };
 
   std::string errmsg = std::string("Uncompleted List, ends with character `") + char(cur_char) + "`";
@@ -280,9 +259,7 @@ static InfiniteAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
     {
       cur_char = get_next_char();
 
-      InfiniteAST* result = new InfiniteAST();
-
-      return result;
+      return new InfiniteAST();
     };
   };
 
@@ -329,8 +306,7 @@ static StyioAST* parseBinRHS (
         if (cur_char == ']') {
           cur_char = get_next_char();
 
-          EmptyListAST* result = new EmptyListAST();
-          return result;
+          return new EmptyListAST();
         }
         else
         {
@@ -497,8 +473,7 @@ static StyioAST* parse_assign_value (
       case '+':
         {
           // <ID> | -> 
-          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
-          return bin_ast;
+          return parse_bin_op(tok_ctx, cur_char, id_ast);
         };
 
         // You should NOT reach this line.
@@ -508,8 +483,7 @@ static StyioAST* parse_assign_value (
       case '-':
         {
           // <ID> | ->
-          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
-          return bin_ast;
+          return parse_bin_op(tok_ctx, cur_char, id_ast);
         };
 
         // You should NOT reach this line.
@@ -519,8 +493,7 @@ static StyioAST* parse_assign_value (
       case '*':
         {
           // <ID> | ->
-          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
-          return bin_ast;
+          return parse_bin_op(tok_ctx, cur_char, id_ast);
         };
         // You should NOT reach this line.
         break;
@@ -529,8 +502,7 @@ static StyioAST* parse_assign_value (
       case '/':
         {
           // <ID> "/" | -> 
-          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
-          return bin_ast;
+          return parse_bin_op(tok_ctx, cur_char, id_ast);
         };
 
         // You should NOT reach this line.
@@ -540,8 +512,7 @@ static StyioAST* parse_assign_value (
       case '%':
         {
           // <ID> | -> 
-          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
-          return bin_ast;
+          return parse_bin_op(tok_ctx, cur_char, id_ast);
         };
 
         // You should NOT reach this line.
@@ -567,8 +538,7 @@ static StyioAST* parse_assign_value (
       case '+':
         {
           // [<Int>|<Float>] | ->
-          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
-          return bin_ast;
+          return parse_bin_op(tok_ctx, cur_char, numAST);
         };
 
         // You should NOT reach this line.
@@ -578,8 +548,7 @@ static StyioAST* parse_assign_value (
       case '-':
         {
           // [<Int>|<Float>] | ->
-          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
-          return bin_ast;
+          return parse_bin_op(tok_ctx, cur_char, numAST);
         };
 
         // You should NOT reach this line.
@@ -589,8 +558,7 @@ static StyioAST* parse_assign_value (
       case '*':
         {
           // [<Int>|<Float>] | ->
-          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
-          return bin_ast;
+          return parse_bin_op(tok_ctx, cur_char, numAST);
         }
 
         // You should NOT reach this line.
@@ -600,8 +568,7 @@ static StyioAST* parse_assign_value (
       case '/':
         {
           // [<Int>|<Float>] | ->
-          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
-          return bin_ast;
+          return parse_bin_op(tok_ctx, cur_char, numAST);
         };
 
         // You should NOT reach this line.
@@ -611,8 +578,7 @@ static StyioAST* parse_assign_value (
       case '%':
         {
           // [<Int>|<Float>] | ->
-          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
-          return bin_ast;
+          return parse_bin_op(tok_ctx, cur_char, numAST);
         };
 
         // You should NOT reach this line.
@@ -636,13 +602,11 @@ static StyioAST* parse_assign_value (
         if (cur_char == ']') {
           cur_char = get_next_char();
 
-          EmptyListAST* result = new EmptyListAST();
-          return result;
+          return new EmptyListAST();
         }
         else
         {
-          ListAST* result = parse_list_expr(tok_ctx, cur_char);
-          return result;
+          return parse_list_expr(tok_ctx, cur_char);
         }
       }
 
@@ -660,8 +624,7 @@ static StyioAST* parse_assign_value (
           if (cur_char == '|') {
             cur_char = get_next_char();
 
-            SizeOfAST* result = new SizeOfAST(var);
-            return result;
+            return new SizeOfAST(var);
           }
           else
           {
@@ -693,11 +656,11 @@ static MutAssignAST* parse_mut_assign (
   IdAST* id_ast
 )
 {
-  MutAssignAST* result = new MutAssignAST(id_ast, parse_assign_value(tok_ctx, cur_char));
+  MutAssignAST* output = new MutAssignAST(id_ast, parse_assign_value(tok_ctx, cur_char));
   
   if (cur_char == '\n') 
   {
-    return result;
+    return output;
   }
   else
   {
@@ -712,11 +675,11 @@ static FixAssignAST* parse_fix_assign (
   IdAST* id_ast
 ) 
 {
-  FixAssignAST* result = new FixAssignAST(id_ast, parse_assign_value(tok_ctx, cur_char));
+  FixAssignAST* output = new FixAssignAST(id_ast, parse_assign_value(tok_ctx, cur_char));
   
   if (cur_char == '\n') 
   {
-    return result;
+    return output;
   }
   else
   {
@@ -725,7 +688,7 @@ static FixAssignAST* parse_fix_assign (
   }
 }
 
-static StyioAST* parseReadFile (
+static StyioAST* parse_read_file (
   std::vector<int>& tok_ctx, 
   int& cur_char, 
   IdAST* id_ast
@@ -734,10 +697,8 @@ static StyioAST* parseReadFile (
   if (cur_char == '@')
   {
     StyioAST* value = parseExtRes(tok_ctx, cur_char);
-    
-    ReadAST* result = new ReadAST(id_ast, value);
 
-    return result;
+    return new ReadAST(id_ast, value);
   }
   else
   {
@@ -805,9 +766,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
               drop_white_spaces(cur_char);
               
               // <ID> := | ->
-              FixAssignAST* finalAssignAST = parse_fix_assign(tok_ctx, cur_char, id_ast);
-              
-              return finalAssignAST;
+              return parse_fix_assign(tok_ctx, cur_char, id_ast);
             }
             else
             {
@@ -833,9 +792,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
               drop_white_spaces(cur_char);
               
               // <ID> <- | ->
-              StyioAST* result = parseReadFile(tok_ctx, cur_char, id_ast);
-              
-              return result;
+              return parse_read_file(tok_ctx, cur_char, id_ast);
             }
             else
             {
@@ -851,8 +808,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         case '+':
           {
             // <ID> | -> 
-            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
-            return bin_ast;
+            return parse_bin_op(tok_ctx, cur_char, id_ast);
           };
 
           // You should NOT reach this line.
@@ -862,8 +818,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         case '-':
           {
             // <ID> | ->
-            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
-            return bin_ast;
+            return parse_bin_op(tok_ctx, cur_char, id_ast);
           };
 
           // You should NOT reach this line.
@@ -873,8 +828,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         case '*':
           {
             // <ID> | ->
-            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
-            return bin_ast;
+            return parse_bin_op(tok_ctx, cur_char, id_ast);
           };
           // You should NOT reach this line.
           break;
@@ -883,8 +837,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         case '/':
           {
             // <ID> "/" | -> 
-            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
-            return bin_ast;
+            return parse_bin_op(tok_ctx, cur_char, id_ast);
           };
 
           // You should NOT reach this line.
@@ -894,8 +847,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         case '%':
           {
             // <ID> | -> 
-            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
-            return bin_ast;
+            return parse_bin_op(tok_ctx, cur_char, id_ast);
           };
 
           // You should NOT reach this line.
