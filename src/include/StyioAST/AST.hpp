@@ -291,12 +291,12 @@ class ReadAST : public StyioAST {
 BinOpAST
 */
 class BinOpAST : public StyioAST {
-  StyioToken Op;
+  BinTok Op;
   StyioAST *LHS;
   StyioAST *RHS;
 
   public:
-    BinOpAST(StyioToken op, StyioAST* lhs, StyioAST* rhs): Op(op), LHS(lhs), RHS(rhs) {}
+    BinOpAST(BinTok op, StyioAST* lhs, StyioAST* rhs): Op(op), LHS(lhs), RHS(rhs) {}
 
     std::string toString(int indent = 0) {
       return std::string("BinOp {\n") 

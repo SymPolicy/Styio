@@ -1,6 +1,15 @@
 #ifndef STYIO_TOKEN_H_
 #define STYIO_TOKEN_H_
 
+enum BinTok {
+  BIN_ADD, // +
+  BIN_SUB, // -
+  BIN_MUL, // *
+  BIN_DIV, // /
+  BIN_POW, // **
+  BIN_MOD, // %
+};
+
 enum StyioToken {
   TOK_EOF = -1, // EOF
   TOK_NULL = 0, // ASCII 0 NUL
@@ -89,8 +98,23 @@ enum StyioToken {
 static std::string reprToken(int token) {
   switch (token)
   {
-    case StyioToken::TOK_NULL:
-      return "<NULL>";
+    case BinTok::BIN_ADD:
+      return "<ADD>";
+
+    case BinTok::BIN_SUB:
+      return "<SUB>";
+
+    case BinTok::BIN_MUL:
+      return "<MUL>";
+
+    case BinTok::BIN_DIV:
+      return "<DIV>";
+
+    case BinTok::BIN_POW:
+      return "<POW>";
+
+    case BinTok::BIN_MOD:
+      return "<DIV>";
 
     case StyioToken::TOK_SPACE:
       return " ";
