@@ -192,14 +192,14 @@ class ListAST : public StyioAST {
 };
 
 /*
-AssignAST
+MutAssignAST
 */
-class AssignAST : public StyioAST {
+class MutAssignAST : public StyioAST {
   IdAST* varId;
   StyioAST* valExpr;
 
   public:
-    AssignAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
+    MutAssignAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
 
     std::string toString(int indent = 0) {
       return std::string("Assign (Mutable) {\n") 
@@ -224,14 +224,14 @@ class AssignAST : public StyioAST {
 };
 
 /*
-AssignFinalAST
+FixAssignAST
 */
-class AssignFinalAST : public StyioAST {
+class FixAssignAST : public StyioAST {
   IdAST* varId;
   StyioAST* valExpr;
 
   public:
-    AssignFinalAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
+    FixAssignAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
 
     std::string toString(int indent = 0) {
       return std::string("Assign (Final) {\n") 

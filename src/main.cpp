@@ -14,7 +14,7 @@
 #include "include/StyioParser/Parser.hpp"
 
 int main() {
-  parseProgram();
+  parse_program();
   
   return 0;
 }

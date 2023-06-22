@@ -1,31 +1,31 @@
 #ifndef STYIO_PARSER_H_
 #define STYIO_PARSER_H_
 
-static int readNextChar() 
+static int get_next_char() 
 {
   int tmpChar = getchar();
 
   return tmpChar;
 }
 
-static void dropAllSpaces (int& nextChar) 
+static void drop_all_spaces (int& cur_char) 
 {
-  while (isspace(nextChar)) {
-    nextChar = readNextChar();
+  while (isspace(cur_char)) {
+    cur_char = get_next_char();
   };
 }
 
 
-static void dropWhiteSpace (int& nextChar) 
+static void drop_white_spaces (int& cur_char) 
 {
-  while (nextChar == ' ') {
-    nextChar = readNextChar();
+  while (cur_char == ' ') {
+    cur_char = get_next_char();
   };
 }
 
-static bool isBinSign (int& nextChar) 
+static bool is_bin_tok (int& cur_char) 
 {
-  switch (nextChar)
+  switch (cur_char)
   {
   case '+':
     return true;
@@ -47,189 +47,149 @@ static bool isBinSign (int& nextChar)
   }
 }
 
-static IdAST* parseId (std::vector<int>& tokenBuffer, int& nextChar) 
+static IdAST* parse_id (std::vector<int>& tok_ctx, int& cur_char) 
 {
   std::string idStr = "";
-  idStr += nextChar;
+  idStr += cur_char;
 
   // [a-zA-Z][a-zA-Z0-9_]*
-  while (isalnum((nextChar = readNextChar())) || nextChar == '_') 
+  while (isalnum((cur_char = get_next_char())) || cur_char == '_') 
   {
-    idStr += nextChar;
+    idStr += cur_char;
   }
-
-  tokenBuffer.push_back(
-    StyioToken::TOK_ID
-  );
 
   IdAST* result = new IdAST(idStr);
 
-  std::cout << result -> toString() << std::endl;
-
   return result;
 }
 
-static IntAST* parseInt (std::vector<int>& tokenBuffer, int& nextChar)
+static IntAST* parse_int (std::vector<int>& tok_ctx, int& cur_char)
 {
   std::string intStr = "";
-  intStr += nextChar;
-  nextChar = readNextChar();
+  intStr += cur_char;
+  cur_char = get_next_char();
 
   // [0-9]*
-  while (isdigit(nextChar))
+  while (isdigit(cur_char))
   {
-    intStr += nextChar;
-    nextChar = readNextChar();
+    intStr += cur_char;
+    cur_char = get_next_char();
   };
-
-  tokenBuffer.push_back(
-    StyioToken::TOK_INT
-  );
 
   IntAST* result = new IntAST(std::stoi(intStr));
 
-  std::cout << result -> toString() << std::endl;
-
   return result;
 }
 
-static StyioAST* parseNum (std::vector<int>& tokenBuffer, int& nextChar)
+static StyioAST* parse_int_float (std::vector<int>& tok_ctx, int& cur_char)
 {
   std::string numStr = "";
-  numStr += nextChar;
-  nextChar = readNextChar();
+  numStr += cur_char;
+  cur_char = get_next_char();
 
   // [0-9]*
-  while (isdigit(nextChar))
+  while (isdigit(cur_char))
   {
-    numStr += nextChar;
-    nextChar = readNextChar();
+    numStr += cur_char;
+    cur_char = get_next_char();
   };
 
-  if (nextChar == '.') 
+  if (cur_char == '.') 
   {
-    numStr += nextChar;
-    nextChar = readNextChar();
+    numStr += cur_char;
+    cur_char = get_next_char();
 
-    while (isdigit(nextChar))
+    while (isdigit(cur_char))
     {
-      numStr += nextChar;
-      nextChar = readNextChar();
+      numStr += cur_char;
+      cur_char = get_next_char();
     };
 
-    // if (!isspace(nextChar)) 
-    // {
-    //   std::string errmsg = "Float `" + numStr + "` ends with unexpected char `" + char(nextChar) + "`";
-    //   throw StyioSyntaxError(errmsg);
-    // }
-
-    tokenBuffer.push_back(
-      StyioToken::TOK_FLOAT
-    );
-
     FloatAST* result = new FloatAST(std::stod(numStr));
-
-    std::cout << result -> toString() << std::endl;
 
     return result;
   } 
   else 
   {
-    // if (!isspace(nextChar)) 
-    // {
-    //   std::string errmsg = "Int `" + numStr + "` ends with unexpected char `" + char(nextChar) + "`";
-    //   throw StyioSyntaxError(errmsg);
-    // }
-
-    tokenBuffer.push_back(
-      StyioToken::TOK_INT
-    );
-
     IntAST* result = new IntAST(std::stoi(numStr));
-
-    std::cout << result -> toString() << std::endl;
 
     return result;
   }
 }
 
-static StringAST* parseString (std::vector<int>& tokenBuffer, int& nextChar) 
+static StringAST* parse_string (std::vector<int>& tok_ctx, int& cur_char) 
 {
   // eliminate the first(start) double quote
-  nextChar = readNextChar();
+  cur_char = get_next_char();
 
   std::string textStr = "";
   
-  while (nextChar != '\"')
+  while (cur_char != '\"')
   {
-    textStr += nextChar;
-    nextChar = readNextChar();
+    textStr += cur_char;
+    cur_char = get_next_char();
   };
 
   // eliminate the second(end) double quote
-  nextChar = readNextChar();
+  cur_char = get_next_char();
 
-  tokenBuffer.push_back(
+  tok_ctx.push_back(
     StyioToken::TOK_STRING
   );
 
   StringAST* result = new StringAST(textStr);
 
-  std::cout << result -> toString() << std::endl;
-
   return result;
 }
 
-static StyioAST* parseExtRes (std::vector<int>& tokenBuffer, int& nextChar) 
+static StyioAST* parseExtRes (std::vector<int>& tok_ctx, int& cur_char) 
 {
   // eliminate @
-  nextChar = readNextChar();
+  cur_char = get_next_char();
 
-  if (nextChar == '(') {
+  if (cur_char == '(') {
     // eliminate (
-    nextChar = readNextChar();
+    cur_char = get_next_char();
 
-    if (nextChar == '\"') {
+    if (cur_char == '\"') {
       // eliminate the left double quote "
-      nextChar = readNextChar();
+      cur_char = get_next_char();
 
       std::string textStr = "";
   
-      while (nextChar != '\"')
+      while (cur_char != '\"')
       {
-        textStr += nextChar;
-        nextChar = readNextChar();
+        textStr += cur_char;
+        cur_char = get_next_char();
       };
 
-      if (nextChar == '\"') {
+      if (cur_char == '\"') {
         // eliminate the right double quote "
-        nextChar = readNextChar();
+        cur_char = get_next_char();
       }
       else
       {
-        std::string errmsg = std::string("Expecting \" at the end, but got `") + char(nextChar) + "`.";
+        std::string errmsg = std::string("Expecting \" at the end, but got `") + char(cur_char) + "`.";
         throw StyioSyntaxError(errmsg);
       };
 
-      if (nextChar == ')') {
+      if (cur_char == ')') {
         // eliminate )
-        nextChar = readNextChar();
+        cur_char = get_next_char();
       }
       else
       {
-        std::string errmsg = std::string("Expecting ) at the end, but got `") + char(nextChar) + "`.";
+        std::string errmsg = std::string("Expecting ) at the end, but got `") + char(cur_char) + "`.";
         throw StyioSyntaxError(errmsg);
       };
 
       PathAST* result = new PathAST(textStr);
 
-      std::cout << result -> toString() << std::endl;
-
       return result;
     }
     else
     {
-      std::string errmsg = std::string("Unexpected external resource, starts with `") + char(nextChar) + "`.";
+      std::string errmsg = std::string("Unexpected external resource, starts with `") + char(cur_char) + "`.";
       throw StyioSyntaxError(errmsg);
     }
   }
@@ -240,151 +200,141 @@ static StyioAST* parseExtRes (std::vector<int>& tokenBuffer, int& nextChar)
   };
 }
 
-static StyioAST* parseElemExpr (std::vector<int>& tokenBuffer, int& nextChar) 
+static StyioAST* parse_list_elem (std::vector<int>& tok_ctx, int& cur_char) 
 {
-  if (isdigit(nextChar)) {
-    StyioAST* numEl = parseNum(tokenBuffer, nextChar);
+  if (isdigit(cur_char)) {
+    StyioAST* numEl = parse_int_float(tok_ctx, cur_char);
 
     return numEl;
   }
-  else if (isalpha(nextChar) || nextChar == '_') 
+  else if (isalpha(cur_char) || cur_char == '_') 
   {
-    IdAST* idEl = parseId(tokenBuffer, nextChar);
+    IdAST* idEl = parse_id(tok_ctx, cur_char);
 
     return idEl;
   }
-  else if (nextChar == '\"') 
+  else if (cur_char == '\"') 
   {
-    StringAST* strEl = parseString(tokenBuffer, nextChar);
+    StringAST* strEl = parse_string(tok_ctx, cur_char);
 
     return strEl;
   }
   
-  std::string errmsg = std::string("Unexpected Element for Iterator, starts with character `") + char(nextChar) + "`";
+  std::string errmsg = std::string("Unexpected Element for Iterator, starts with character `") + char(cur_char) + "`";
   throw StyioSyntaxError(errmsg);
 }
 
-static ListAST* parseList (std::vector<int>& tokenBuffer, int& nextChar) 
+static ListAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char) 
 {
   std::vector<StyioAST*> elements;
 
-  StyioAST* el = parseElemExpr(tokenBuffer, nextChar);
+  StyioAST* el = parse_list_elem(tok_ctx, cur_char);
   elements.push_back(el);
 
-  dropWhiteSpace(nextChar);
+  drop_white_spaces(cur_char);
 
-  while (nextChar == ',')
+  while (cur_char == ',')
   {
     // eliminate ,
-    nextChar = readNextChar();
+    cur_char = get_next_char();
 
-    dropWhiteSpace(nextChar);
+    drop_white_spaces(cur_char);
 
-    if (nextChar == ']') 
+    if (cur_char == ']') 
     {
-      nextChar = readNextChar();
+      cur_char = get_next_char();
 
       ListAST* result = new ListAST(elements);
-
-      std::cout << result -> toString() << std::endl;
 
       return result;
     };
 
-    StyioAST* el = parseElemExpr(tokenBuffer, nextChar);
+    StyioAST* el = parse_list_elem(tok_ctx, cur_char);
 
     elements.push_back(el);
   };
 
-  dropWhiteSpace(nextChar);
+  drop_white_spaces(cur_char);
 
-  if (nextChar == ']') 
+  if (cur_char == ']') 
   {
-    nextChar = readNextChar();
+    cur_char = get_next_char();
 
     ListAST* result = new ListAST(elements);
-
-    std::cout << result -> toString() << std::endl;
 
     return result;
   };
 
-  std::string errmsg = std::string("Uncompleted List, ends with character `") + char(nextChar) + "`";
+  std::string errmsg = std::string("Uncompleted List, ends with character `") + char(cur_char) + "`";
   throw StyioSyntaxError(errmsg);
 }
 
-static InfiniteAST* parseInfinite (std::vector<int>& tokenBuffer, int& nextChar)
+static InfiniteAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
 {
-  while (nextChar == '.') 
+  while (cur_char == '.') 
   { 
     // eliminate all .
-    nextChar = readNextChar();
+    cur_char = get_next_char();
 
-    if (nextChar == ']') 
+    if (cur_char == ']') 
     {
-      nextChar = readNextChar();
+      cur_char = get_next_char();
 
       InfiniteAST* result = new InfiniteAST();
-
-      std::cout << result -> toString() << std::endl;
 
       return result;
     };
   };
 
-  if (isdigit(nextChar))
+  if (isdigit(cur_char))
   {
-    StyioAST* errnum = parseNum(tokenBuffer, nextChar);
+    StyioAST* errnum = parse_int_float(tok_ctx, cur_char);
     
     std::string errmsg = std::string("A finite list must have both start and end values. However, only the end value is detected: `") + errnum -> toStringInline() + "`. Try `[0.." + errnum -> toStringInline() + "]` rather than `[.." + errnum -> toStringInline() + "]`.";
     throw StyioSyntaxError(errmsg);
   }
 
-  std::string errmsg = std::string("Unexpected character `") + char(nextChar) + "` in infinite expression.";
+  std::string errmsg = std::string("Unexpected character `") + char(cur_char) + "` in infinite expression.";
   throw StyioSyntaxError(errmsg);
 }
 
 
 static StyioAST* parseBinRHS (
-  std::vector<int>& tokenBuffer, 
-  int& nextChar
+  std::vector<int>& tok_ctx, 
+  int& cur_char
 ) 
 {
-  dropWhiteSpace(nextChar);
+  drop_white_spaces(cur_char);
 
   // ID
-  if (isalpha(nextChar) || nextChar == '_') {
-    IdAST* result = parseId(tokenBuffer, nextChar);
-    std::cout << result -> toString() << std::endl;
+  if (isalpha(cur_char) || cur_char == '_') {
+    IdAST* result = parse_id(tok_ctx, cur_char);
     return result;
   }
   else
   // Int / Float
-  if (isdigit(nextChar)) {
-    StyioAST* result = parseNum(tokenBuffer, nextChar);
-    std::cout << result -> toString() << std::endl;
+  if (isdigit(cur_char)) {
+    StyioAST* result = parse_int_float(tok_ctx, cur_char);
     return result;
   }
   else
   {
-    switch (nextChar)
+    switch (cur_char)
     {
     // List
     case '[':
       {
-        nextChar = readNextChar();
+        cur_char = get_next_char();
 
-        if (nextChar == ']') {
-          nextChar = readNextChar();
+        if (cur_char == ']') {
+          cur_char = get_next_char();
 
           EmptyListAST* result = new EmptyListAST();
-          std::cout << result -> toString() << std::endl;
           return result;
         }
         else
         {
-          ListAST* result = parseList(tokenBuffer, nextChar);
-          std::cout << result -> toString() << std::endl;
+          ListAST* result = parse_list_expr(tok_ctx, cur_char);
           return result;
         }
       }
@@ -395,27 +345,26 @@ static StyioAST* parseBinRHS (
     // SizeOf()
     case '|':
       {
-        nextChar = readNextChar();
+        cur_char = get_next_char();
        
-        if (isalpha(nextChar) || nextChar == '_')
+        if (isalpha(cur_char) || cur_char == '_')
         {
-          IdAST* var = parseId(tokenBuffer, nextChar);
+          IdAST* var = parse_id(tok_ctx, cur_char);
           SizeOfAST* result = new SizeOfAST(var);
-          std::cout << result -> toString() << std::endl;
           return result;
         }
         else
         {
-          std::string errmsg = std::string("Unexpected SizeOf(), starts with `") + char(nextChar) + "`";
+          std::string errmsg = std::string("Unexpected SizeOf(), starts with `") + char(cur_char) + "`";
           throw StyioSyntaxError(errmsg);
         }
 
-        if (nextChar == '|') {
-          nextChar = readNextChar();
+        if (cur_char == '|') {
+          cur_char = get_next_char();
         }
         else
         {
-          std::string errmsg = std::string("Expecting | at the end of SizeOf(), but got `") + char(nextChar) + "`";
+          std::string errmsg = std::string("Expecting | at the end of SizeOf(), but got `") + char(cur_char) + "`";
           throw StyioSyntaxError(errmsg);
         }
       }
@@ -428,29 +377,29 @@ static StyioAST* parseBinRHS (
     }
   };
 
-  std::string errmsg = std::string("Unexpected BinOp.RHS, starts with `") + char(nextChar) + "`";
+  std::string errmsg = std::string("Unexpected BinOp.RHS, starts with `") + char(cur_char) + "`";
   throw StyioSyntaxError(errmsg);
 }
 
-static BinOpAST* parseBinOp (
-  std::vector<int>& tokenBuffer, 
-  int& nextChar, 
-  StyioAST* lhsAST
+static BinOpAST* parse_bin_op (
+  std::vector<int>& tok_ctx, 
+  int& cur_char, 
+  StyioAST* lhs_ast
 ) 
 {
   BinOpAST* binOp;
 
-  dropWhiteSpace(nextChar);
+  drop_white_spaces(cur_char);
 
-  switch (nextChar)
+  switch (cur_char)
     {
       // BIN_ADD := <ID> "+" <EXPR>
       case '+':
         {
-          nextChar = readNextChar();
+          cur_char = get_next_char();
 
           // <ID> "+" | -> 
-          binOp = new BinOpAST(BinTok::BIN_ADD, lhsAST, parseBinRHS(tokenBuffer, nextChar));
+          binOp = new BinOpAST(BinTok::BIN_ADD, lhs_ast, parseBinRHS(tok_ctx, cur_char));
         };
 
         // You should NOT reach this line.
@@ -459,10 +408,10 @@ static BinOpAST* parseBinOp (
       // BIN_SUB := <ID> "-" <EXPR>
       case '-':
         {
-          nextChar = readNextChar();
+          cur_char = get_next_char();
 
           // <ID> "-" | ->
-          binOp = new BinOpAST(BinTok::BIN_SUB, lhsAST, parseBinRHS(tokenBuffer, nextChar));
+          binOp = new BinOpAST(BinTok::BIN_SUB, lhs_ast, parseBinRHS(tok_ctx, cur_char));
         };
 
         // You should NOT reach this line.
@@ -471,20 +420,20 @@ static BinOpAST* parseBinOp (
       // BIN_MUL | BIN_POW
       case '*':
         {
-          nextChar = readNextChar();
+          cur_char = get_next_char();
           // BIN_POW := <ID> "**" <EXPR>
-          if (nextChar == '*')
+          if (cur_char == '*')
           {
-            nextChar = readNextChar();
+            cur_char = get_next_char();
 
             // <ID> "**" | ->
-            binOp = new BinOpAST(BinTok::BIN_POW, lhsAST, parseBinRHS(tokenBuffer, nextChar));
+            binOp = new BinOpAST(BinTok::BIN_POW, lhs_ast, parseBinRHS(tok_ctx, cur_char));
           } 
           // BIN_MUL := <ID> "*" <EXPR>
           else 
           {
             // <ID> "*" | ->
-            binOp = new BinOpAST(BinTok::BIN_MUL, lhsAST, parseBinRHS(tokenBuffer, nextChar));
+            binOp = new BinOpAST(BinTok::BIN_MUL, lhs_ast, parseBinRHS(tok_ctx, cur_char));
           }
         };
         // You should NOT reach this line.
@@ -493,10 +442,10 @@ static BinOpAST* parseBinOp (
       // BIN_DIV := <ID> "/" <EXPR>
       case '/':
         {
-          nextChar = readNextChar();
+          cur_char = get_next_char();
 
           // <ID> "/" | -> 
-          binOp = new BinOpAST(BinTok::BIN_DIV, lhsAST, parseBinRHS(tokenBuffer, nextChar));
+          binOp = new BinOpAST(BinTok::BIN_DIV, lhs_ast, parseBinRHS(tok_ctx, cur_char));
         };
 
         // You should NOT reach this line.
@@ -505,53 +454,51 @@ static BinOpAST* parseBinOp (
       // BIN_MOD := <ID> "%" <EXPR> 
       case '%':
         {
-          nextChar = readNextChar();
+          cur_char = get_next_char();
 
           // <ID> "%" | -> 
-          binOp = new BinOpAST(BinTok::BIN_MOD, lhsAST, parseBinRHS(tokenBuffer, nextChar));
+          binOp = new BinOpAST(BinTok::BIN_MOD, lhs_ast, parseBinRHS(tok_ctx, cur_char));
         };
 
         // You should NOT reach this line.
         break;
       
       default:
-        std::string errmsg = std::string("Unexpected BinOp.Operator: `") + char(nextChar) + "`.";
+        std::string errmsg = std::string("Unexpected BinOp.Operator: `") + char(cur_char) + "`.";
         throw StyioSyntaxError(errmsg);
     }
 
-  while (nextChar != '\n') 
+  while (cur_char != '\n') 
   {
-    binOp = parseBinOp(tokenBuffer, nextChar, binOp);
+    binOp = parse_bin_op(tok_ctx, cur_char, binOp);
   }
-
-  std::cout << binOp -> toString() << std::endl;
 
   return binOp;
 }
 
-static StyioAST* parseValExpr (
-  std::vector<int>& tokenBuffer, 
-  int& nextChar
+static StyioAST* parse_assign_value (
+  std::vector<int>& tok_ctx, 
+  int& cur_char
 )
 {
   // <ID>
-  if (isalpha(nextChar) || nextChar == '_') 
+  if (isalpha(cur_char) || cur_char == '_') 
   {
     // parse id
-    IdAST* idAST = parseId(tokenBuffer, nextChar);
+    IdAST* id_ast = parse_id(tok_ctx, cur_char);
     
     // ignore white spaces after id
-    dropWhiteSpace(nextChar);
+    drop_white_spaces(cur_char);
 
     // check next character
-    switch (nextChar)
+    switch (cur_char)
     {
       // BIN_ADD := <ID> "+" <EXPR>
       case '+':
         {
           // <ID> | -> 
-          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, idAST);
-          return binOpAST;
+          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
+          return bin_ast;
         };
 
         // You should NOT reach this line.
@@ -561,8 +508,8 @@ static StyioAST* parseValExpr (
       case '-':
         {
           // <ID> | ->
-          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, idAST);
-          return binOpAST;
+          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
+          return bin_ast;
         };
 
         // You should NOT reach this line.
@@ -572,8 +519,8 @@ static StyioAST* parseValExpr (
       case '*':
         {
           // <ID> | ->
-          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, idAST);
-          return binOpAST;
+          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
+          return bin_ast;
         };
         // You should NOT reach this line.
         break;
@@ -582,8 +529,8 @@ static StyioAST* parseValExpr (
       case '/':
         {
           // <ID> "/" | -> 
-          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, idAST);
-          return binOpAST;
+          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
+          return bin_ast;
         };
 
         // You should NOT reach this line.
@@ -593,35 +540,35 @@ static StyioAST* parseValExpr (
       case '%':
         {
           // <ID> | -> 
-          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, idAST);
-          return binOpAST;
+          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
+          return bin_ast;
         };
 
         // You should NOT reach this line.
         break;
       
       default:
-        return idAST;
+        return id_ast;
 
         // You should NOT reach this line.
         break;
     }
   }
   else
-  if (isdigit(nextChar)) {
-    StyioAST* numAST = parseNum(tokenBuffer, nextChar);
+  if (isdigit(cur_char)) {
+    StyioAST* numAST = parse_int_float(tok_ctx, cur_char);
 
     // ignore white spaces after number
-    dropWhiteSpace(nextChar);
+    drop_white_spaces(cur_char);
 
-    switch (nextChar)
+    switch (cur_char)
     {
       // BIN_ADD := [<Int>|<Float>] "+" <EXPR>
       case '+':
         {
           // [<Int>|<Float>] | ->
-          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, numAST);
-          return binOpAST;
+          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
+          return bin_ast;
         };
 
         // You should NOT reach this line.
@@ -631,8 +578,8 @@ static StyioAST* parseValExpr (
       case '-':
         {
           // [<Int>|<Float>] | ->
-          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, numAST);
-          return binOpAST;
+          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
+          return bin_ast;
         };
 
         // You should NOT reach this line.
@@ -642,8 +589,8 @@ static StyioAST* parseValExpr (
       case '*':
         {
           // [<Int>|<Float>] | ->
-          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, numAST);
-          return binOpAST;
+          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
+          return bin_ast;
         }
 
         // You should NOT reach this line.
@@ -653,8 +600,8 @@ static StyioAST* parseValExpr (
       case '/':
         {
           // [<Int>|<Float>] | ->
-          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, numAST);
-          return binOpAST;
+          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
+          return bin_ast;
         };
 
         // You should NOT reach this line.
@@ -664,8 +611,8 @@ static StyioAST* parseValExpr (
       case '%':
         {
           // [<Int>|<Float>] | ->
-          BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, numAST);
-          return binOpAST;
+          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
+          return bin_ast;
         };
 
         // You should NOT reach this line.
@@ -680,23 +627,21 @@ static StyioAST* parseValExpr (
   }
   else
   {
-    switch (nextChar)
+    switch (cur_char)
     {
     case '[':
       {
-        nextChar = readNextChar();
+        cur_char = get_next_char();
 
-        if (nextChar == ']') {
-          nextChar = readNextChar();
+        if (cur_char == ']') {
+          cur_char = get_next_char();
 
           EmptyListAST* result = new EmptyListAST();
-          std::cout << result -> toString() << std::endl;
           return result;
         }
         else
         {
-          ListAST* result = parseList(tokenBuffer, nextChar);
-          std::cout << result -> toString() << std::endl;
+          ListAST* result = parse_list_expr(tok_ctx, cur_char);
           return result;
         }
       }
@@ -706,28 +651,27 @@ static StyioAST* parseValExpr (
 
     case '|':
       {
-        nextChar = readNextChar();
+        cur_char = get_next_char();
 
-        if (isalpha(nextChar) || nextChar == '_')
+        if (isalpha(cur_char) || cur_char == '_')
         {
-          IdAST* var = parseId(tokenBuffer, nextChar);
+          IdAST* var = parse_id(tok_ctx, cur_char);
 
-          if (nextChar == '|') {
-            nextChar = readNextChar();
+          if (cur_char == '|') {
+            cur_char = get_next_char();
 
             SizeOfAST* result = new SizeOfAST(var);
-            std::cout << result -> toString() << std::endl;
             return result;
           }
           else
           {
-            std::string errmsg = std::string("Expecting | at the end of SizeOf(), but got `") + char(nextChar) + "`";
+            std::string errmsg = std::string("Expecting | at the end of SizeOf(), but got `") + char(cur_char) + "`";
             throw StyioSyntaxError(errmsg);
           }
         }
         else
         {
-          std::string errmsg = std::string("Unexpected SizeOf(), starts with `") + char(nextChar) + "`";
+          std::string errmsg = std::string("Unexpected SizeOf(), starts with `") + char(cur_char) + "`";
           throw StyioSyntaxError(errmsg);
         }
       }
@@ -743,94 +687,90 @@ static StyioAST* parseValExpr (
   return new NoneAST();
 }
 
-static AssignAST* parseAssign (
-  std::vector<int>& tokenBuffer, 
-  int& nextChar, 
-  IdAST* idAST
-) 
+static MutAssignAST* parse_mut_assign (
+  std::vector<int>& tok_ctx, 
+  int& cur_char, 
+  IdAST* id_ast
+)
 {
-  AssignAST* result = new AssignAST(idAST, parseValExpr(tokenBuffer, nextChar));
+  MutAssignAST* result = new MutAssignAST(id_ast, parse_assign_value(tok_ctx, cur_char));
   
-  if (nextChar == '\n') 
+  if (cur_char == '\n') 
   {
-    std::cout << result -> toString() << std::endl;
     return result;
   }
   else
   {
-    std::string errmsg = std::string("Unexpected character `") + char(nextChar) + "` after Assign(Mutable)";
+    std::string errmsg = std::string("Unexpected character `") + char(cur_char) + "` after Assign(Mutable)";
     throw StyioSyntaxError(errmsg);
   }
 }
 
-static AssignFinalAST* parseAssignFinal (
-  std::vector<int>& tokenBuffer, 
-  int& nextChar, 
-  IdAST* idAST
+static FixAssignAST* parse_fix_assign (
+  std::vector<int>& tok_ctx, 
+  int& cur_char, 
+  IdAST* id_ast
 ) 
 {
-  AssignFinalAST* result = new AssignFinalAST(idAST, parseValExpr(tokenBuffer, nextChar));
+  FixAssignAST* result = new FixAssignAST(id_ast, parse_assign_value(tok_ctx, cur_char));
   
-  if (nextChar == '\n') 
+  if (cur_char == '\n') 
   {
-    std::cout << result -> toString() << std::endl;
     return result;
   }
   else
   {
-    std::string errmsg = std::string("Unexpected character `") + char(nextChar) + "` after Assign(Mutable)";
+    std::string errmsg = std::string("Unexpected character `") + char(cur_char) + "` after Assign(Mutable)";
     throw StyioSyntaxError(errmsg);
   }
 }
 
 static StyioAST* parseReadFile (
-  std::vector<int>& tokenBuffer, 
-  int& nextChar, 
-  IdAST* idAST
+  std::vector<int>& tok_ctx, 
+  int& cur_char, 
+  IdAST* id_ast
 ) 
 {
-  if (nextChar == '@')
+  if (cur_char == '@')
   {
-    StyioAST* value = parseExtRes(tokenBuffer, nextChar);
+    StyioAST* value = parseExtRes(tok_ctx, cur_char);
     
-    ReadAST* result = new ReadAST(idAST, value);
-
-    std::cout << result -> toString() << std::endl;
+    ReadAST* result = new ReadAST(id_ast, value);
 
     return result;
   }
   else
   {
-    std::string errmsg = std::string("Unexpected Read.Path, starts with character `") + char(nextChar) + "`";
+    std::string errmsg = std::string("Unexpected Read.Path, starts with character `") + char(cur_char) + "`";
     throw StyioSyntaxError(errmsg);
   };
 }
 
-static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar) 
+static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char) 
 {
-  while (nextChar != '\n')
+  while (cur_char != '\n')
   {
-    dropWhiteSpace(nextChar);
+    drop_white_spaces(cur_char);
 
     // <ID>
-    if (isalpha(nextChar) || nextChar == '_') 
+    if (isalpha(cur_char) || cur_char == '_') 
     {
       // parse id
-      IdAST* idAST = parseId(tokenBuffer, nextChar);
+      IdAST* id_ast = parse_id(tok_ctx, cur_char);
       
       // ignore white spaces after id
-      dropWhiteSpace(nextChar);
+      drop_white_spaces(cur_char);
 
       // check next character
-      switch (nextChar)
+      switch (cur_char)
       {
         // <LF>
         case '\n':
           {
-            tokenBuffer.push_back(
+            tok_ctx.push_back(
               StyioToken::TOK_LF
             );
-            return idAST;
+            return id_ast;
           };
 
           // You should NOT reach this line.
@@ -839,12 +779,12 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         // <ID> = <EXPR>
         case '=':
           {
-            nextChar = readNextChar();
+            cur_char = get_next_char();
 
-            dropWhiteSpace(nextChar);
+            drop_white_spaces(cur_char);
 
             // <ID> = | ->
-            return parseAssign(tokenBuffer, nextChar, idAST);
+            return parse_mut_assign(tok_ctx, cur_char, id_ast);
           };
 
           // You should NOT reach this line.
@@ -853,19 +793,19 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         // <ID> := <EXPR>
         case ':':
           {
-            nextChar = readNextChar();
-            if (nextChar == '=')
+            cur_char = get_next_char();
+            if (cur_char == '=')
             {
-              nextChar = readNextChar();
+              cur_char = get_next_char();
 
-              tokenBuffer.push_back(
+              tok_ctx.push_back(
                 StyioToken::TOK_WALRUS
               );
 
-              dropWhiteSpace(nextChar);
+              drop_white_spaces(cur_char);
               
               // <ID> := | ->
-              AssignFinalAST* finalAssignAST = parseAssignFinal(tokenBuffer, nextChar, idAST);
+              FixAssignAST* finalAssignAST = parse_fix_assign(tok_ctx, cur_char, id_ast);
               
               return finalAssignAST;
             }
@@ -883,23 +823,23 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         case '<':
           {
             // eliminate <
-            nextChar = readNextChar();
+            cur_char = get_next_char();
 
-            if (nextChar == '-')
+            if (cur_char == '-')
             {
               // eliminate -
-              nextChar = readNextChar();
+              cur_char = get_next_char();
 
-              dropWhiteSpace(nextChar);
+              drop_white_spaces(cur_char);
               
               // <ID> <- | ->
-              StyioAST* result = parseReadFile(tokenBuffer, nextChar, idAST);
+              StyioAST* result = parseReadFile(tok_ctx, cur_char, id_ast);
               
               return result;
             }
             else
             {
-              std::string errmsg = std::string("Expecting `-` after `<`, but found `") + char(nextChar) + "`.";
+              std::string errmsg = std::string("Expecting `-` after `<`, but found `") + char(cur_char) + "`.";
               throw StyioSyntaxError(errmsg);
             }
           };
@@ -911,8 +851,8 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         case '+':
           {
             // <ID> | -> 
-            BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, idAST);
-            return binOpAST;
+            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
+            return bin_ast;
           };
 
           // You should NOT reach this line.
@@ -922,8 +862,8 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         case '-':
           {
             // <ID> | ->
-            BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, idAST);
-            return binOpAST;
+            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
+            return bin_ast;
           };
 
           // You should NOT reach this line.
@@ -933,8 +873,8 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         case '*':
           {
             // <ID> | ->
-            BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, idAST);
-            return binOpAST;
+            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
+            return bin_ast;
           };
           // You should NOT reach this line.
           break;
@@ -943,8 +883,8 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         case '/':
           {
             // <ID> "/" | -> 
-            BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, idAST);
-            return binOpAST;
+            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
+            return bin_ast;
           };
 
           // You should NOT reach this line.
@@ -954,8 +894,8 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         case '%':
           {
             // <ID> | -> 
-            BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, idAST);
-            return binOpAST;
+            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, id_ast);
+            return bin_ast;
           };
 
           // You should NOT reach this line.
@@ -966,19 +906,19 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
       }
     }
 
-    if (isdigit(nextChar)) {
-      StyioAST* numAST = parseNum(tokenBuffer, nextChar);
+    if (isdigit(cur_char)) {
+      StyioAST* numAST = parse_int_float(tok_ctx, cur_char);
 
-      dropAllSpaces(nextChar);
+      drop_all_spaces(cur_char);
 
-      switch (nextChar)
+      switch (cur_char)
       {
         // <LF>
         case '\n':
           {
             // simply eliminate LF
-            nextChar = readNextChar();
-            tokenBuffer.push_back(
+            cur_char = get_next_char();
+            tok_ctx.push_back(
               StyioToken::TOK_LF
             );
             return numAST;
@@ -991,8 +931,8 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         case '+':
           {
             // [<Int>|<Float>] | ->
-            BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, numAST);
-            return binOpAST;
+            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
+            return bin_ast;
           };
 
           // You should NOT reach this line.
@@ -1002,8 +942,8 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         case '-':
           {
             // [<Int>|<Float>] | ->
-            BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, numAST);
-            return binOpAST;
+            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
+            return bin_ast;
           };
 
           // You should NOT reach this line.
@@ -1013,8 +953,8 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         case '*':
           {
             // [<Int>|<Float>] | ->
-            BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, numAST);
-            return binOpAST;
+            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
+            return bin_ast;
           }
 
           // You should NOT reach this line.
@@ -1024,8 +964,8 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         case '/':
           {
             // [<Int>|<Float>] | ->
-            BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, numAST);
-            return binOpAST;
+            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
+            return bin_ast;
           };
 
           // You should NOT reach this line.
@@ -1035,8 +975,8 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         case '%':
           {
             // [<Int>|<Float>] | ->
-            BinOpAST* binOpAST = parseBinOp(tokenBuffer, nextChar, numAST);
-            return binOpAST;
+            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
+            return bin_ast;
           };
 
           // You should NOT reach this line.
@@ -1050,110 +990,108 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
       }
     }
 
-    switch (nextChar)
+    switch (cur_char)
     {
       // VAR_DEF := "@" "(" [<ID> ["," <ID>]*]? ")"
       case '@':
         {
-          nextChar = readNextChar();
+          cur_char = get_next_char();
 
-          tokenBuffer.push_back(
+          tok_ctx.push_back(
             StyioToken::TOK_AT
           );
           
-          dropWhiteSpace(nextChar);
+          drop_white_spaces(cur_char);
 
-          if (nextChar == '(') 
+          if (cur_char == '(') 
           {
-            nextChar = readNextChar();
+            cur_char = get_next_char();
 
-            tokenBuffer.push_back(
+            tok_ctx.push_back(
               StyioToken::TOK_LPAREN
             );
           };
           
           std::vector<IdAST*> varBuffer;
 
-          if (isalpha(nextChar) || nextChar == '_') {
+          if (isalpha(cur_char) || cur_char == '_') {
             // "@" "(" | ->
-            IdAST* idAST = parseId(tokenBuffer, nextChar);
+            IdAST* id_ast = parse_id(tok_ctx, cur_char);
         
-            varBuffer.push_back(idAST);
+            varBuffer.push_back(id_ast);
           };
 
-          dropWhiteSpace(nextChar);
+          drop_white_spaces(cur_char);
 
           // "@" "(" [<ID> | ->
-          while (nextChar == ',')
+          while (cur_char == ',')
           {
-            nextChar = readNextChar();
+            cur_char = get_next_char();
 
-            dropWhiteSpace(nextChar);
+            drop_white_spaces(cur_char);
 
-            if (isalpha(nextChar) || nextChar == '_') {
-              tokenBuffer.push_back(
+            if (isalpha(cur_char) || cur_char == '_') {
+              tok_ctx.push_back(
                 StyioToken::TOK_COMMA
               );
               
-              IdAST* idAST = parseId(tokenBuffer, nextChar);
+              IdAST* id_ast = parse_id(tok_ctx, cur_char);
         
-              varBuffer.push_back(idAST);
+              varBuffer.push_back(id_ast);
 
-              dropWhiteSpace(nextChar);
+              drop_white_spaces(cur_char);
             };
           };
           
-          if (nextChar == ')') 
+          if (cur_char == ')') 
           {
-            nextChar = readNextChar();
+            cur_char = get_next_char();
 
-            tokenBuffer.push_back(
+            tok_ctx.push_back(
               StyioToken::TOK_RPAREN
             );
           };
 
           VarDefAST* varDef = new VarDefAST(varBuffer);
 
-          std::cout << varDef -> toString() << std::endl;
-
-          // if (nextChar == '[') 
+          // if (cur_char == '[') 
           // {
           //   // eliminate single [
-          //   nextChar = readNextChar();
+          //   cur_char = get_next_char();
 
-          //   if (isdigit(nextChar)) 
+          //   if (isdigit(cur_char)) 
           //   {
-          //     IntAST* startInt = parseInt(tokenBuffer, nextChar);
+          //     IntAST* startInt = parseInt(tok_ctx, cur_char);
           //   };
 
           //   int dotCount = 0;
 
-          //   while (nextChar == '.')
+          //   while (cur_char == '.')
           //   {
           //     // eliminate all .
-          //     nextChar = readNextChar();
+          //     cur_char = get_next_char();
 
           //     dotCount += 1;
           //   };
             
-          //   if (isdigit(nextChar)) 
+          //   if (isdigit(cur_char)) 
           //   {
-          //     IntAST* endInt = parseInt(tokenBuffer, nextChar);
+          //     IntAST* endInt = parseInt(tok_ctx, cur_char);
           //   };
 
-          //   if (nextChar == ']')
+          //   if (cur_char == ']')
           //   {
           //     // eliminate single ]
-          //     nextChar = readNextChar();
+          //     cur_char = get_next_char();
           //   };
 
-          //   while (nextChar == '>')
+          //   while (cur_char == '>')
           //   {
           //     // eliminate all >
-          //     nextChar = readNextChar();
+          //     cur_char = get_next_char();
           //   }
 
-          //   BlockAST* block = parseBlock(tokenBuffer, nextChar);
+          //   BlockAST* block = parseBlock(tok_ctx, cur_char);
 
           //   LoopAST* loop = new LoopAST(startInt, IntAST(1), block);
           // }
@@ -1165,18 +1103,18 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         };
 
       case ':':
-        nextChar = readNextChar();
+        cur_char = get_next_char();
 
-        if (nextChar == '=') {
-          nextChar = readNextChar();
+        if (cur_char == '=') {
+          cur_char = get_next_char();
 
-          tokenBuffer.push_back(
+          tok_ctx.push_back(
             StyioToken::TOK_WALRUS
           );
         } 
         else
         {
-          tokenBuffer.push_back(
+          tok_ctx.push_back(
             StyioToken::TOK_COLON
           );
         };
@@ -1184,35 +1122,27 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         break;
 
       case '-':
-        nextChar = readNextChar();
+        cur_char = get_next_char();
 
-        if (nextChar == '>') {
-          nextChar = readNextChar();
-
-          tokenBuffer.push_back(
-            StyioToken::TOK_RARROW
-          );
-        } else {
-          tokenBuffer.push_back(
-            StyioToken::TOK_MINUS
-          );
+        if (cur_char == '>') {
+          cur_char = get_next_char();
         };
         
         break;
 
       case '?':
-        nextChar = readNextChar();
+        cur_char = get_next_char();
         
-        if (nextChar == '=') {
-          nextChar = readNextChar();
+        if (cur_char == '=') {
+          cur_char = get_next_char();
 
-          tokenBuffer.push_back(
+          tok_ctx.push_back(
             StyioToken::TOK_MATCH
           );
         } 
         else 
         {
-          tokenBuffer.push_back(
+          tok_ctx.push_back(
             StyioToken::TOK_CHECK
           );
         };
@@ -1220,19 +1150,19 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         break;
       
       case '\"':
-        parseString(tokenBuffer, nextChar);
+        parse_string(tok_ctx, cur_char);
         break;
 
       case '!':
         {
-          nextChar = readNextChar();
-          tokenBuffer.push_back(
+          cur_char = get_next_char();
+          tok_ctx.push_back(
             StyioToken::TOK_EXCLAM
           );
           
-          if (nextChar == '~') {
-            nextChar = readNextChar();
-            tokenBuffer.push_back(
+          if (cur_char == '~') {
+            cur_char = get_next_char();
+            tok_ctx.push_back(
               StyioToken::TOK_TILDE
             );
           };
@@ -1242,62 +1172,60 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         break;
 
       case ',':
-        tokenBuffer.push_back(
+        tok_ctx.push_back(
           StyioToken::TOK_COMMA
         );
-        nextChar = readNextChar();
+        cur_char = get_next_char();
         break;
 
       case '.':
-        tokenBuffer.push_back(
+        tok_ctx.push_back(
           StyioToken::TOK_DOT
         );
-        nextChar = readNextChar();
+        cur_char = get_next_char();
         break;
 
       case ';':
-        tokenBuffer.push_back(
+        tok_ctx.push_back(
           StyioToken::TOK_SEMICOLON
         );
-        nextChar = readNextChar();
+        cur_char = get_next_char();
         break;
 
       case '(':
-        tokenBuffer.push_back(
+        tok_ctx.push_back(
           StyioToken::TOK_LPAREN
         );
-        nextChar = readNextChar();
+        cur_char = get_next_char();
         break;
 
       case ')':
-        tokenBuffer.push_back(
+        tok_ctx.push_back(
           StyioToken::TOK_RPAREN
         );
-        nextChar = readNextChar();
+        cur_char = get_next_char();
         break;
 
       case '[':
         {
-          nextChar = readNextChar();
+          cur_char = get_next_char();
 
-          if (nextChar == '.') {
+          if (cur_char == '.') {
             // eliminate the first dot .
-            nextChar = readNextChar();
+            cur_char = get_next_char();
 
-            if (nextChar == ']') 
+            if (cur_char == ']') 
             {
               std::string errmsg = std::string("[.] is not infinite, please use [..] or [...] instead.");
               throw StyioSyntaxError(errmsg);
             };
 
-            InfiniteAST* result = parseInfinite(tokenBuffer, nextChar);
-            std::cout << result -> toString() << std::endl;
+            InfiniteAST* result = parse_loop(tok_ctx, cur_char);
             return result;
           }
           else
           {
-            StyioAST* result = parseList(tokenBuffer, nextChar);
-            std::cout << result -> toString() << std::endl;
+            StyioAST* result = parse_list_expr(tok_ctx, cur_char);
             return result;
           }
         }
@@ -1306,17 +1234,17 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         break;
 
       case ']':
-        tokenBuffer.push_back(
+        tok_ctx.push_back(
           StyioToken::TOK_RBOXBRAC
         );
-        nextChar = readNextChar();
+        cur_char = get_next_char();
         
         break;
 
       case '{':
-        nextChar = readNextChar();
+        cur_char = get_next_char();
         
-        tokenBuffer.push_back(
+        tok_ctx.push_back(
           StyioToken::TOK_LCURBRAC
         );
         
@@ -1325,17 +1253,17 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         break;
 
       case '}':
-        nextChar = readNextChar();
+        cur_char = get_next_char();
         
-        tokenBuffer.push_back(
+        tok_ctx.push_back(
           StyioToken::TOK_RCURBRAC
         );
 
         break;
 
       case '<':
-        nextChar = readNextChar();
-        tokenBuffer.push_back(
+        cur_char = get_next_char();
+        tok_ctx.push_back(
           StyioToken::TOK_LANGBRAC
         );
         break;
@@ -1343,22 +1271,20 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
       case '>':
         {
           // eliminate >
-          nextChar = readNextChar();
+          cur_char = get_next_char();
           
-          if (nextChar == '_') {
+          if (cur_char == '_') {
             // eliminate _
-            nextChar = readNextChar();
-            tokenBuffer.push_back(
+            cur_char = get_next_char();
+            tok_ctx.push_back(
               StyioToken::TOK_STDOUT
             );
 
-            dropWhiteSpace(nextChar);
+            drop_white_spaces(cur_char);
 
-            StringAST* strAST = parseString(tokenBuffer, nextChar);
+            StringAST* strAST = parse_string(tok_ctx, cur_char);
 
             StdOutAST* result = new StdOutAST(strAST);
-
-            std::cout << result -> toString() << std::endl;
 
             return result;
           };
@@ -1371,113 +1297,111 @@ static StyioAST* parseStmt (std::vector<int>& tokenBuffer, int& nextChar)
         break;
     }
 
-    std::cout << "Next: " << char(nextChar) << std::endl;
+    std::cout << "Next: " << char(cur_char) << std::endl;
   };
 
   return new NoneAST();
 }
 
-static std::string parsePacItem(std::vector<int>& tokenBuffer, int& nextChar)
+static std::string parse_ext_elem(std::vector<int>& tok_ctx, int& cur_char)
 {
   std::string itemStr;
 
-  if (nextChar == '\"')
+  if (cur_char == '\"')
   {
     // eliminate double quote symbol " at the start of dependency item
-    nextChar = readNextChar();
+    cur_char = get_next_char();
 
-    while (nextChar != '\"') 
+    while (cur_char != '\"') 
     {
-      if (nextChar == ',') 
+      if (cur_char == ',') 
       {
         std::string errmsg = std::string("An \" was expected after") + itemStr + "however, a delimeter `,` was detected. ";
         throw StyioSyntaxError(errmsg);
       }
 
-      itemStr += nextChar;
+      itemStr += cur_char;
 
-      nextChar = readNextChar();
+      cur_char = get_next_char();
     };
 
     // eliminate double quote symbol " at the end of dependency item
-    nextChar = readNextChar();
+    cur_char = get_next_char();
 
     return itemStr;
   }
   else
   {
-    std::string errmsg = std::string("Dependencies should be wrapped with double quote like \"abc/xyz\", rather than starting with the character `") + char(nextChar) + "`";
+    std::string errmsg = std::string("Dependencies should be wrapped with double quote like \"abc/xyz\", rather than starting with the character `") + char(cur_char) + "`";
     throw StyioSyntaxError(errmsg);
   };
 }
 
 /*
-parseExtPac
+parse_ext_pack
 
 Dependencies should be written like a list of paths
 like this -> ["ab/c", "x/yz"]
 
 // 1. The dependencies should be parsed before any domain (statement/expression). 
-// 2. The left square bracket `[` is only eliminated after entering this function (parseExtPac)
+// 2. The left square bracket `[` is only eliminated after entering this function (parse_ext_pack)
 | -> "[" <PATH>+ "]"
 
 If ? ( "the program starts with a left square bracket `[`" ),
 then -> { 
-  "parseExtPac() starts";
+  "parse_ext_pack() starts";
   "eliminate the left square bracket `[`";
   "parse dependency paths, which take comma `,` as delimeter";
   "eliminate the right square bracket `]`";
 } 
 else :  { 
-  "parseExtPac() should NOT be invoked in this case";
+  "parse_ext_pack() should NOT be invoked in this case";
   "if starts with left curly brace `{`, try parseSpace()";
   "otherwise, try parseScript()";
 }
 
 */
-static ExtPacAST* parseExtPac (std::vector<int>& tokenBuffer, int& nextChar) 
+static ExtPacAST* parse_ext_pack (std::vector<int>& tok_ctx, int& cur_char) 
 { 
   // eliminate left square (box) bracket [
-  nextChar = readNextChar();
-  tokenBuffer.push_back(
+  cur_char = get_next_char();
+  tok_ctx.push_back(
     StyioToken::TOK_LBOXBRAC
   );
 
   std::vector<std::string> dependencies;
 
-  dropAllSpaces(nextChar);
+  drop_all_spaces(cur_char);
 
   // add the first dependency path to the list
-  dependencies.push_back(parsePacItem(tokenBuffer, nextChar));
+  dependencies.push_back(parse_ext_elem(tok_ctx, cur_char));
 
   std::string pathStr = "";
   
-  while (nextChar == ',') {
+  while (cur_char == ',') {
     // eliminate comma ","
-    nextChar = readNextChar();
+    cur_char = get_next_char();
 
     // reset pathStr to empty ""
     pathStr = ""; 
 
-    dropAllSpaces(nextChar);
+    drop_all_spaces(cur_char);
     
     // add the next dependency path to the list
-    dependencies.push_back(parsePacItem(tokenBuffer, nextChar));
+    dependencies.push_back(parse_ext_elem(tok_ctx, cur_char));
   };
 
-  if (nextChar == ']') {
+  if (cur_char == ']') {
     // eliminate right square bracket `]` after dependency list
-    nextChar = readNextChar();
+    cur_char = get_next_char();
   };
 
   ExtPacAST* result = new ExtPacAST(dependencies);
 
-  std::cout << result -> toString() << std::endl;
-
   return result;
 }
 
-static BlockAST* parseBlock (std::vector<int>& tokenBuffer, int& nextChar) 
+static BlockAST* parseBlock (std::vector<int>& tok_ctx, int& cur_char) 
 {
   // the last expression will be the return expression
   // a block must have a return value
@@ -1486,24 +1410,22 @@ static BlockAST* parseBlock (std::vector<int>& tokenBuffer, int& nextChar)
 
   std::vector<StyioAST*> stmtBuffer;
 
-  StyioAST* exprAST = parseStmt(tokenBuffer, nextChar);
+  StyioAST* exprAST = parse_stmt(tok_ctx, cur_char);
   
-  if (nextChar == ';')
+  if (cur_char == ';')
   {
     stmtBuffer.push_back(exprAST);
 
-    while (nextChar == ';')
+    while (cur_char == ';')
     {
       // eliminate ;
-      nextChar = readNextChar();
+      cur_char = get_next_char();
 
-      StyioAST* exprAST = parseStmt(tokenBuffer, nextChar);
+      StyioAST* exprAST = parse_stmt(tok_ctx, cur_char);
       stmtBuffer.push_back(exprAST);
     }
 
     BlockAST* result = new BlockAST(stmtBuffer, exprAST);
-
-    std::cout << result -> toString() << std::endl;
 
     return result;
   }
@@ -1511,29 +1433,27 @@ static BlockAST* parseBlock (std::vector<int>& tokenBuffer, int& nextChar)
   {
     BlockAST* result = new BlockAST(exprAST);
 
-    std::cout << result -> toString() << std::endl;
-
     return result;
   };
 }
 
-static void parseSpace (std::vector<int>& tokenBuffer, int& nextChar) 
+static void parseSpace (std::vector<int>& tok_ctx, int& cur_char) 
 {
   
 }
 
-static void parseScript (std::vector<int>& tokenBuffer, int& nextChar) {
-  if (nextChar == '{') 
+static void parseScript (std::vector<int>& tok_ctx, int& cur_char) {
+  if (cur_char == '{') 
   {
     // eliminate "{"
-    nextChar = readNextChar();
+    cur_char = get_next_char();
 
-    parseBlock(tokenBuffer, nextChar);
+    parseBlock(tok_ctx, cur_char);
 
     // eliminate "}"
-    if (nextChar == '}')
+    if (cur_char == '}')
     {
-      nextChar = readNextChar();
+      cur_char = get_next_char();
     }
     else
     {
@@ -1543,30 +1463,27 @@ static void parseScript (std::vector<int>& tokenBuffer, int& nextChar) {
   }
   else
   {
-    parseBlock(tokenBuffer, nextChar);
+    parseBlock(tok_ctx, cur_char);
   };
 }
 
-static std::vector<int> parseProgram () 
+static std::vector<int> parse_program () 
 {
-  std::vector<int> tokenBuffer;
-  static int nextChar = ' ';
+  std::vector<int> tok_ctx;
+  static int cur_char = ' ';
 
   while (1) 
   {
     fprintf(stderr, "</> ");
 
-    nextChar = readNextChar();
+    cur_char = get_next_char();
 
-    parseStmt(tokenBuffer, nextChar);
+    StyioAST* stmt = parse_stmt(tok_ctx, cur_char);
+
+    std::cout << stmt -> toString() << std::endl;
   }; 
 
-  for (int token: tokenBuffer) {
-    std::cout << reprToken(token) << ' ';
-  };
-  std::cout << std::endl;
-
-  return tokenBuffer;
+  return tok_ctx;
 }
 
 #endif
