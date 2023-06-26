@@ -132,7 +132,33 @@ static StringAST* parse_string (std::vector<int>& tok_ctx, int& cur_char)
   return new StringAST(textStr);
 }
 
-static StyioAST* parseExtRes (std::vector<int>& tok_ctx, int& cur_char) 
+static SizeOfAST* parse_size_of (std::vector<int>& tok_ctx, int& cur_char) 
+{
+  cur_char = get_next_char();
+       
+  if (isalpha(cur_char) || cur_char == '_')
+  {
+    IdAST* var = parse_id(tok_ctx, cur_char);
+
+    if (cur_char == '|') {
+      cur_char = get_next_char();
+
+      return new SizeOfAST(var);
+    }
+    else
+    {
+      std::string errmsg = std::string("Expecting | at the end of SizeOf(), but got `") + char(cur_char) + "`";
+      throw StyioSyntaxError(errmsg);
+    }
+  }
+  else
+  {
+    std::string errmsg = std::string("Unexpected SizeOf(), starts with `") + char(cur_char) + "`";
+    throw StyioSyntaxError(errmsg);
+  }
+}
+
+static StyioAST* parse_ext_res (std::vector<int>& tok_ctx, int& cur_char) 
 {
   // eliminate @
   cur_char = get_next_char();
@@ -276,7 +302,7 @@ static InfiniteAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
 }
 
 
-static StyioAST* parseBinRHS (
+static StyioAST* parse_bin_rhs (
   std::vector<int>& tok_ctx, 
   int& cur_char
 ) 
@@ -310,8 +336,7 @@ static StyioAST* parseBinRHS (
         }
         else
         {
-          ListAST* result = parse_list_expr(tok_ctx, cur_char);
-          return result;
+          return parse_list_expr(tok_ctx, cur_char);
         }
       }
 
@@ -321,28 +346,7 @@ static StyioAST* parseBinRHS (
     // SizeOf()
     case '|':
       {
-        cur_char = get_next_char();
-       
-        if (isalpha(cur_char) || cur_char == '_')
-        {
-          IdAST* var = parse_id(tok_ctx, cur_char);
-          SizeOfAST* result = new SizeOfAST(var);
-          return result;
-        }
-        else
-        {
-          std::string errmsg = std::string("Unexpected SizeOf(), starts with `") + char(cur_char) + "`";
-          throw StyioSyntaxError(errmsg);
-        }
-
-        if (cur_char == '|') {
-          cur_char = get_next_char();
-        }
-        else
-        {
-          std::string errmsg = std::string("Expecting | at the end of SizeOf(), but got `") + char(cur_char) + "`";
-          throw StyioSyntaxError(errmsg);
-        }
+        return parse_size_of(tok_ctx, cur_char);
       }
 
       // You should NOT reach this line.
@@ -368,81 +372,81 @@ static BinOpAST* parse_bin_op (
   drop_white_spaces(cur_char);
 
   switch (cur_char)
-    {
-      // BIN_ADD := <ID> "+" <EXPR>
-      case '+':
+  {
+    // BIN_ADD := <ID> "+" <EXPR>
+    case '+':
+      {
+        cur_char = get_next_char();
+
+        // <ID> "+" |-- 
+        binOp = new BinOpAST(BinTok::BIN_ADD, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
+      };
+
+      // You should NOT reach this line.
+      break;
+
+    // BIN_SUB := <ID> "-" <EXPR>
+    case '-':
+      {
+        cur_char = get_next_char();
+
+        // <ID> "-" |--
+        binOp = new BinOpAST(BinTok::BIN_SUB, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
+      };
+
+      // You should NOT reach this line.
+      break;
+
+    // BIN_MUL | BIN_POW
+    case '*':
+      {
+        cur_char = get_next_char();
+        // BIN_POW := <ID> "**" <EXPR>
+        if (cur_char == '*')
         {
           cur_char = get_next_char();
 
-          // <ID> "+" | -> 
-          binOp = new BinOpAST(BinTok::BIN_ADD, lhs_ast, parseBinRHS(tok_ctx, cur_char));
-        };
-
-        // You should NOT reach this line.
-        break;
-
-      // BIN_SUB := <ID> "-" <EXPR>
-      case '-':
+          // <ID> "**" |--
+          binOp = new BinOpAST(BinTok::BIN_POW, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
+        } 
+        // BIN_MUL := <ID> "*" <EXPR>
+        else 
         {
-          cur_char = get_next_char();
-
-          // <ID> "-" | ->
-          binOp = new BinOpAST(BinTok::BIN_SUB, lhs_ast, parseBinRHS(tok_ctx, cur_char));
-        };
-
-        // You should NOT reach this line.
-        break;
-
-      // BIN_MUL | BIN_POW
-      case '*':
-        {
-          cur_char = get_next_char();
-          // BIN_POW := <ID> "**" <EXPR>
-          if (cur_char == '*')
-          {
-            cur_char = get_next_char();
-
-            // <ID> "**" | ->
-            binOp = new BinOpAST(BinTok::BIN_POW, lhs_ast, parseBinRHS(tok_ctx, cur_char));
-          } 
-          // BIN_MUL := <ID> "*" <EXPR>
-          else 
-          {
-            // <ID> "*" | ->
-            binOp = new BinOpAST(BinTok::BIN_MUL, lhs_ast, parseBinRHS(tok_ctx, cur_char));
-          }
-        };
-        // You should NOT reach this line.
-        break;
-        
-      // BIN_DIV := <ID> "/" <EXPR>
-      case '/':
-        {
-          cur_char = get_next_char();
-
-          // <ID> "/" | -> 
-          binOp = new BinOpAST(BinTok::BIN_DIV, lhs_ast, parseBinRHS(tok_ctx, cur_char));
-        };
-
-        // You should NOT reach this line.
-        break;
-
-      // BIN_MOD := <ID> "%" <EXPR> 
-      case '%':
-        {
-          cur_char = get_next_char();
-
-          // <ID> "%" | -> 
-          binOp = new BinOpAST(BinTok::BIN_MOD, lhs_ast, parseBinRHS(tok_ctx, cur_char));
-        };
-
-        // You should NOT reach this line.
-        break;
+          // <ID> "*" |--
+          binOp = new BinOpAST(BinTok::BIN_MUL, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
+        }
+      };
+      // You should NOT reach this line.
+      break;
       
-      default:
-        std::string errmsg = std::string("Unexpected BinOp.Operator: `") + char(cur_char) + "`.";
-        throw StyioSyntaxError(errmsg);
-    }
+    // BIN_DIV := <ID> "/" <EXPR>
+    case '/':
+      {
+        cur_char = get_next_char();
+
+        // <ID> "/" |-- 
+        binOp = new BinOpAST(BinTok::BIN_DIV, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
+      };
+
+      // You should NOT reach this line.
+      break;
+
+    // BIN_MOD := <ID> "%" <EXPR> 
+    case '%':
+      {
+        cur_char = get_next_char();
+
+        // <ID> "%" |-- 
+        binOp = new BinOpAST(BinTok::BIN_MOD, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
+      };
+
+      // You should NOT reach this line.
+      break;
+    
+    default:
+      std::string errmsg = std::string("Unexpected BinOp.Operator: `") + char(cur_char) + "`.";
+      throw StyioSyntaxError(errmsg);
+  }
 
   while (cur_char != '\n') 
   {
@@ -452,7 +456,7 @@ static BinOpAST* parse_bin_op (
   return binOp;
 }
 
-static StyioAST* parse_assign_value (
+static StyioAST* parse_value_expr (
   std::vector<int>& tok_ctx, 
   int& cur_char
 )
@@ -466,63 +470,13 @@ static StyioAST* parse_assign_value (
     // ignore white spaces after id
     drop_white_spaces(cur_char);
 
-    // check next character
-    switch (cur_char)
+    if (is_bin_tok(cur_char))
     {
-      // BIN_ADD := <ID> "+" <EXPR>
-      case '+':
-        {
-          // <ID> | -> 
-          return parse_bin_op(tok_ctx, cur_char, id_ast);
-        };
-
-        // You should NOT reach this line.
-        break;
-
-      // BIN_SUB := <ID> "-" <EXPR>
-      case '-':
-        {
-          // <ID> | ->
-          return parse_bin_op(tok_ctx, cur_char, id_ast);
-        };
-
-        // You should NOT reach this line.
-        break;
-
-      // BIN_MUL | BIN_POW
-      case '*':
-        {
-          // <ID> | ->
-          return parse_bin_op(tok_ctx, cur_char, id_ast);
-        };
-        // You should NOT reach this line.
-        break;
-        
-      // BIN_DIV := <ID> "/" <EXPR>
-      case '/':
-        {
-          // <ID> "/" | -> 
-          return parse_bin_op(tok_ctx, cur_char, id_ast);
-        };
-
-        // You should NOT reach this line.
-        break;
-
-      // BIN_MOD := <ID> "%" <EXPR> 
-      case '%':
-        {
-          // <ID> | -> 
-          return parse_bin_op(tok_ctx, cur_char, id_ast);
-        };
-
-        // You should NOT reach this line.
-        break;
-      
-      default:
-        return id_ast;
-
-        // You should NOT reach this line.
-        break;
+      return parse_bin_op(tok_ctx, cur_char, id_ast);
+    }
+    else
+    {
+      return id_ast;
     }
   }
   else
@@ -532,63 +486,13 @@ static StyioAST* parse_assign_value (
     // ignore white spaces after number
     drop_white_spaces(cur_char);
 
-    switch (cur_char)
+    if (is_bin_tok(cur_char))
     {
-      // BIN_ADD := [<Int>|<Float>] "+" <EXPR>
-      case '+':
-        {
-          // [<Int>|<Float>] | ->
-          return parse_bin_op(tok_ctx, cur_char, numAST);
-        };
-
-        // You should NOT reach this line.
-        break;
-
-      // BIN_SUB := [<Int>|<Float>] "-" <EXPR>
-      case '-':
-        {
-          // [<Int>|<Float>] | ->
-          return parse_bin_op(tok_ctx, cur_char, numAST);
-        };
-
-        // You should NOT reach this line.
-        break;
-
-      // BIN_MUL | BIN_POW
-      case '*':
-        {
-          // [<Int>|<Float>] | ->
-          return parse_bin_op(tok_ctx, cur_char, numAST);
-        }
-
-        // You should NOT reach this line.
-        break;
-
-      // BIN_DIV := [<Int>|<Float>] "/" <EXPR>
-      case '/':
-        {
-          // [<Int>|<Float>] | ->
-          return parse_bin_op(tok_ctx, cur_char, numAST);
-        };
-
-        // You should NOT reach this line.
-        break;
-
-      // BIN_MOD := [<Int>|<Float>] "%" <EXPR>
-      case '%':
-        {
-          // [<Int>|<Float>] | ->
-          return parse_bin_op(tok_ctx, cur_char, numAST);
-        };
-
-        // You should NOT reach this line.
-        break;
-
-      default:
-        return numAST;
-
-        // You should NOT reach this line.
-        break;
+      return parse_bin_op(tok_ctx, cur_char, numAST);
+    }
+    else
+    {
+      return numAST;
     }
   }
   else
@@ -598,6 +502,8 @@ static StyioAST* parse_assign_value (
     case '[':
       {
         cur_char = get_next_char();
+
+        drop_white_spaces(cur_char);
 
         if (cur_char == ']') {
           cur_char = get_next_char();
@@ -615,28 +521,18 @@ static StyioAST* parse_assign_value (
 
     case '|':
       {
-        cur_char = get_next_char();
+        SizeOfAST* valExpr = parse_size_of(tok_ctx, cur_char);
 
-        if (isalpha(cur_char) || cur_char == '_')
+        drop_white_spaces(cur_char);
+
+        if (is_bin_tok(cur_char))
         {
-          IdAST* var = parse_id(tok_ctx, cur_char);
-
-          if (cur_char == '|') {
-            cur_char = get_next_char();
-
-            return new SizeOfAST(var);
-          }
-          else
-          {
-            std::string errmsg = std::string("Expecting | at the end of SizeOf(), but got `") + char(cur_char) + "`";
-            throw StyioSyntaxError(errmsg);
-          }
+          return parse_bin_op(tok_ctx, cur_char, valExpr);
         }
         else
         {
-          std::string errmsg = std::string("Unexpected SizeOf(), starts with `") + char(cur_char) + "`";
-          throw StyioSyntaxError(errmsg);
-        }
+          return valExpr;
+        };
       }
 
       // You should NOT reach this line.
@@ -656,7 +552,7 @@ static MutAssignAST* parse_mut_assign (
   IdAST* id_ast
 )
 {
-  MutAssignAST* output = new MutAssignAST(id_ast, parse_assign_value(tok_ctx, cur_char));
+  MutAssignAST* output = new MutAssignAST(id_ast, parse_value_expr(tok_ctx, cur_char));
   
   if (cur_char == '\n') 
   {
@@ -675,7 +571,7 @@ static FixAssignAST* parse_fix_assign (
   IdAST* id_ast
 ) 
 {
-  FixAssignAST* output = new FixAssignAST(id_ast, parse_assign_value(tok_ctx, cur_char));
+  FixAssignAST* output = new FixAssignAST(id_ast, parse_value_expr(tok_ctx, cur_char));
   
   if (cur_char == '\n') 
   {
@@ -696,7 +592,7 @@ static StyioAST* parse_read_file (
 {
   if (cur_char == '@')
   {
-    StyioAST* value = parseExtRes(tok_ctx, cur_char);
+    StyioAST* value = parse_ext_res(tok_ctx, cur_char);
 
     return new ReadAST(id_ast, value);
   }
@@ -728,9 +624,6 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         // <LF>
         case '\n':
           {
-            tok_ctx.push_back(
-              StyioToken::TOK_LF
-            );
             return id_ast;
           };
 
@@ -744,7 +637,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
 
             drop_white_spaces(cur_char);
 
-            // <ID> = | ->
+            // <ID> = |--
             return parse_mut_assign(tok_ctx, cur_char, id_ast);
           };
 
@@ -765,7 +658,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
 
               drop_white_spaces(cur_char);
               
-              // <ID> := | ->
+              // <ID> := |--
               return parse_fix_assign(tok_ctx, cur_char, id_ast);
             }
             else
@@ -791,7 +684,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
 
               drop_white_spaces(cur_char);
               
-              // <ID> <- | ->
+              // <ID> <- |--
               return parse_read_file(tok_ctx, cur_char, id_ast);
             }
             else
@@ -807,7 +700,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         // BIN_ADD := <ID> "+" <EXPR>
         case '+':
           {
-            // <ID> | -> 
+            // <ID> |-- 
             return parse_bin_op(tok_ctx, cur_char, id_ast);
           };
 
@@ -817,7 +710,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         // BIN_SUB := <ID> "-" <EXPR>
         case '-':
           {
-            // <ID> | ->
+            // <ID> |--
             return parse_bin_op(tok_ctx, cur_char, id_ast);
           };
 
@@ -827,7 +720,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         // BIN_MUL | BIN_POW
         case '*':
           {
-            // <ID> | ->
+            // <ID> |--
             return parse_bin_op(tok_ctx, cur_char, id_ast);
           };
           // You should NOT reach this line.
@@ -836,7 +729,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         // BIN_DIV := <ID> "/" <EXPR>
         case '/':
           {
-            // <ID> "/" | -> 
+            // <ID> |-- 
             return parse_bin_op(tok_ctx, cur_char, id_ast);
           };
 
@@ -846,7 +739,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         // BIN_MOD := <ID> "%" <EXPR> 
         case '%':
           {
-            // <ID> | -> 
+            // <ID> |-- 
             return parse_bin_op(tok_ctx, cur_char, id_ast);
           };
 
@@ -868,11 +761,6 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         // <LF>
         case '\n':
           {
-            // simply eliminate LF
-            cur_char = get_next_char();
-            tok_ctx.push_back(
-              StyioToken::TOK_LF
-            );
             return numAST;
           };
 
@@ -882,7 +770,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         // BIN_ADD := [<Int>|<Float>] "+" <EXPR>
         case '+':
           {
-            // [<Int>|<Float>] | ->
+            // [<Int>|<Float>] |--
             BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
             return bin_ast;
           };
@@ -893,7 +781,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         // BIN_SUB := [<Int>|<Float>] "-" <EXPR>
         case '-':
           {
-            // [<Int>|<Float>] | ->
+            // [<Int>|<Float>] |--
             BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
             return bin_ast;
           };
@@ -904,7 +792,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         // BIN_MUL | BIN_POW
         case '*':
           {
-            // [<Int>|<Float>] | ->
+            // [<Int>|<Float>] |--
             BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
             return bin_ast;
           }
@@ -915,7 +803,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         // BIN_DIV := [<Int>|<Float>] "/" <EXPR>
         case '/':
           {
-            // [<Int>|<Float>] | ->
+            // [<Int>|<Float>] |--
             BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
             return bin_ast;
           };
@@ -926,7 +814,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         // BIN_MOD := [<Int>|<Float>] "%" <EXPR>
         case '%':
           {
-            // [<Int>|<Float>] | ->
+            // [<Int>|<Float>] |--
             BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
             return bin_ast;
           };
@@ -967,7 +855,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
           std::vector<IdAST*> varBuffer;
 
           if (isalpha(cur_char) || cur_char == '_') {
-            // "@" "(" | ->
+            // "@" "(" |--
             IdAST* id_ast = parse_id(tok_ctx, cur_char);
         
             varBuffer.push_back(id_ast);
@@ -975,7 +863,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
 
           drop_white_spaces(cur_char);
 
-          // "@" "(" [<ID> | ->
+          // "@" "(" [<ID> |--
           while (cur_char == ',')
           {
             cur_char = get_next_char();
@@ -1200,7 +1088,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
           StyioToken::TOK_LCURBRAC
         );
         
-        // "{" | ->
+        // "{" |--
 
         break;
 
@@ -1297,7 +1185,7 @@ like this -> ["ab/c", "x/yz"]
 
 // 1. The dependencies should be parsed before any domain (statement/expression). 
 // 2. The left square bracket `[` is only eliminated after entering this function (parse_ext_pack)
-| -> "[" <PATH>+ "]"
+|-- "[" <PATH>+ "]"
 
 If ? ( "the program starts with a left square bracket `[`" ),
 then -> { 
@@ -1426,13 +1314,15 @@ static std::vector<int> parse_program ()
 
   while (1) 
   {
-    fprintf(stderr, "</> ");
+    fprintf(stderr, "<Styio/> ");
 
     cur_char = get_next_char();
 
     StyioAST* stmt = parse_stmt(tok_ctx, cur_char);
 
     std::cout << stmt -> toString() << std::endl;
+
+    std::cout << "Next Line >>" << std::endl;
   }; 
 
   return tok_ctx;

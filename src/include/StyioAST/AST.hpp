@@ -529,20 +529,20 @@ class LoopAST : public StyioAST {
 
 */
 class SizeOfAST : public StyioAST {
-  IdAST* Var;
+  StyioAST* Value;
 
   public:
-    SizeOfAST(IdAST* var): Var(var) {}
+    SizeOfAST(StyioAST* value): Value(value) {}
 
     std::string toString(int indent = 0) {
       return std::string("SizeOf { ") 
-      + Var -> toString()
+      + Value -> toString()
       + " }";
     }
 
     std::string toStringInline(int indent = 0) {
       return std::string("SizeOf { ") 
-      + Var -> toStringInline()
+      + Value -> toStringInline()
       + " }";
     }
 };
