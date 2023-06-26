@@ -92,8 +92,8 @@ static StyioAST* parse_int_float (std::vector<int>& tok_ctx, int& cur_char)
 
   if (cur_char == '.') 
   {
-    numStr += cur_char;
     cur_char = get_next_char();
+    numStr += cur_char;
 
     while (isdigit(cur_char))
     {
@@ -233,48 +233,77 @@ static StyioAST* parse_list_elem (std::vector<int>& tok_ctx, int& cur_char)
   throw StyioSyntaxError(errmsg);
 }
 
-static ListAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char) 
+static StyioAST* parse_list_loop (std::vector<int>& tok_ctx, int& cur_char) 
 {
   std::vector<StyioAST*> elements;
 
-  StyioAST* el = parse_list_elem(tok_ctx, cur_char);
-  elements.push_back(el);
+  StyioAST* startEl = parse_list_elem(tok_ctx, cur_char);
+  elements.push_back(startEl);
 
   drop_white_spaces(cur_char);
 
-  while (cur_char == ',')
+  switch (cur_char)
   {
-    // eliminate ,
-    cur_char = get_next_char();
+  // case '.':
+  //   {
+  //     cur_char = get_next_char();
 
-    drop_white_spaces(cur_char);
+  //     while (cur_char == '.')
+  //     {
+  //       cur_char = get_next_char();
+  //     }
+      
+  //     StyioAST* endEl = parse_list_elem(tok_ctx, cur_char);
 
-    if (cur_char == ']') 
+  //     return new InfList(endEl);
+  //   }
+
+  //   // You should not reach this line!
+  //   break;
+
+  case ',':
     {
-      cur_char = get_next_char();
+      while (cur_char == ',')
+      {
+        // eliminate ,
+        cur_char = get_next_char();
 
-      return new ListAST(elements);
-    };
+        drop_white_spaces(cur_char);
 
-    StyioAST* el = parse_list_elem(tok_ctx, cur_char);
+        if (cur_char == ']') 
+        {
+          cur_char = get_next_char();
 
-    elements.push_back(el);
-  };
+          return new ListAST(elements);
+        };
 
-  drop_white_spaces(cur_char);
+        StyioAST* el = parse_list_elem(tok_ctx, cur_char);
 
-  if (cur_char == ']') 
-  {
-    cur_char = get_next_char();
+        elements.push_back(el);
+      };
 
-    return new ListAST(elements);
-  };
+      drop_white_spaces(cur_char);
+
+      if (cur_char == ']') 
+      {
+        cur_char = get_next_char();
+
+        return new ListAST(elements);
+      };
+    }
+
+    // You should not reach this line!
+    break;
+  
+  default:
+    break;
+  }
 
   std::string errmsg = std::string("Uncompleted List, ends with character `") + char(cur_char) + "`";
   throw StyioSyntaxError(errmsg);
 }
 
-static InfiniteAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
+static InfList* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
 {
   while (cur_char == '.') 
   { 
@@ -285,7 +314,7 @@ static InfiniteAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
     {
       cur_char = get_next_char();
 
-      return new InfiniteAST();
+      return new InfList();
     };
   };
 
@@ -336,11 +365,11 @@ static StyioAST* parse_bin_rhs (
         }
         else
         {
-          return parse_list_expr(tok_ctx, cur_char);
+          return parse_list_loop(tok_ctx, cur_char);
         }
       }
 
-      // You should NOT reach this line.
+      // You should NOT reach this line!
       break;
 
     // SizeOf()
@@ -349,7 +378,7 @@ static StyioAST* parse_bin_rhs (
         return parse_size_of(tok_ctx, cur_char);
       }
 
-      // You should NOT reach this line.
+      // You should NOT reach this line!
       break;
     
     default:
@@ -382,7 +411,7 @@ static BinOpAST* parse_bin_op (
         binOp = new BinOpAST(BinTok::BIN_ADD, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
       };
 
-      // You should NOT reach this line.
+      // You should NOT reach this line!
       break;
 
     // BIN_SUB := <ID> "-" <EXPR>
@@ -394,7 +423,7 @@ static BinOpAST* parse_bin_op (
         binOp = new BinOpAST(BinTok::BIN_SUB, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
       };
 
-      // You should NOT reach this line.
+      // You should NOT reach this line!
       break;
 
     // BIN_MUL | BIN_POW
@@ -416,7 +445,7 @@ static BinOpAST* parse_bin_op (
           binOp = new BinOpAST(BinTok::BIN_MUL, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
         }
       };
-      // You should NOT reach this line.
+      // You should NOT reach this line!
       break;
       
     // BIN_DIV := <ID> "/" <EXPR>
@@ -428,7 +457,7 @@ static BinOpAST* parse_bin_op (
         binOp = new BinOpAST(BinTok::BIN_DIV, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
       };
 
-      // You should NOT reach this line.
+      // You should NOT reach this line!
       break;
 
     // BIN_MOD := <ID> "%" <EXPR> 
@@ -440,7 +469,7 @@ static BinOpAST* parse_bin_op (
         binOp = new BinOpAST(BinTok::BIN_MOD, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
       };
 
-      // You should NOT reach this line.
+      // You should NOT reach this line!
       break;
     
     default:
@@ -512,11 +541,11 @@ static StyioAST* parse_value_expr (
         }
         else
         {
-          return parse_list_expr(tok_ctx, cur_char);
+          return parse_list_loop(tok_ctx, cur_char);
         }
       }
 
-      // You should NOT reach this line.
+      // You should NOT reach this line!
       break;
 
     case '|':
@@ -535,7 +564,7 @@ static StyioAST* parse_value_expr (
         };
       }
 
-      // You should NOT reach this line.
+      // You should NOT reach this line!
       break;
     
     default:
@@ -627,7 +656,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
             return id_ast;
           };
 
-          // You should NOT reach this line.
+          // You should NOT reach this line!
           break;
 
         // <ID> = <EXPR>
@@ -641,7 +670,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
             return parse_mut_assign(tok_ctx, cur_char, id_ast);
           };
 
-          // You should NOT reach this line.
+          // You should NOT reach this line!
           break;
         
         // <ID> := <EXPR>
@@ -668,7 +697,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
             }
           };
 
-          // You should NOT reach this line.
+          // You should NOT reach this line!
           break;
 
         // <ID> <- <EXPR>
@@ -694,7 +723,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
             }
           };
 
-          // You should NOT reach this line.
+          // You should NOT reach this line!
           break;
 
         // BIN_ADD := <ID> "+" <EXPR>
@@ -704,7 +733,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
             return parse_bin_op(tok_ctx, cur_char, id_ast);
           };
 
-          // You should NOT reach this line.
+          // You should NOT reach this line!
           break;
 
         // BIN_SUB := <ID> "-" <EXPR>
@@ -714,7 +743,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
             return parse_bin_op(tok_ctx, cur_char, id_ast);
           };
 
-          // You should NOT reach this line.
+          // You should NOT reach this line!
           break;
 
         // BIN_MUL | BIN_POW
@@ -723,7 +752,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
             // <ID> |--
             return parse_bin_op(tok_ctx, cur_char, id_ast);
           };
-          // You should NOT reach this line.
+          // You should NOT reach this line!
           break;
           
         // BIN_DIV := <ID> "/" <EXPR>
@@ -733,7 +762,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
             return parse_bin_op(tok_ctx, cur_char, id_ast);
           };
 
-          // You should NOT reach this line.
+          // You should NOT reach this line!
           break;
 
         // BIN_MOD := <ID> "%" <EXPR> 
@@ -743,7 +772,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
             return parse_bin_op(tok_ctx, cur_char, id_ast);
           };
 
-          // You should NOT reach this line.
+          // You should NOT reach this line!
           break;
         
         default:
@@ -764,7 +793,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
             return numAST;
           };
 
-          // You should NOT reach this line.
+          // You should NOT reach this line!
           break;
 
         // BIN_ADD := [<Int>|<Float>] "+" <EXPR>
@@ -775,7 +804,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
             return bin_ast;
           };
 
-          // You should NOT reach this line.
+          // You should NOT reach this line!
           break;
 
         // BIN_SUB := [<Int>|<Float>] "-" <EXPR>
@@ -786,7 +815,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
             return bin_ast;
           };
 
-          // You should NOT reach this line.
+          // You should NOT reach this line!
           break;
 
         // BIN_MUL | BIN_POW
@@ -797,7 +826,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
             return bin_ast;
           }
 
-          // You should NOT reach this line.
+          // You should NOT reach this line!
           break;
 
         // BIN_DIV := [<Int>|<Float>] "/" <EXPR>
@@ -808,7 +837,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
             return bin_ast;
           };
 
-          // You should NOT reach this line.
+          // You should NOT reach this line!
           break;
 
         // BIN_MOD := [<Int>|<Float>] "%" <EXPR>
@@ -819,13 +848,13 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
             return bin_ast;
           };
 
-          // You should NOT reach this line.
+          // You should NOT reach this line!
           break;
 
         default:
           return numAST;
 
-          // You should NOT reach this line.
+          // You should NOT reach this line!
           break;
       }
     }
@@ -938,7 +967,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
 
           return varDef;
           
-          // You should NOT reach this line.
+          // You should NOT reach this line!
           break;
         };
 
@@ -1008,7 +1037,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
           };
         };
 
-        // You should NOT reach this line.
+        // You should NOT reach this line!
         break;
 
       case ',':
@@ -1060,17 +1089,17 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
               throw StyioSyntaxError(errmsg);
             };
 
-            InfiniteAST* result = parse_loop(tok_ctx, cur_char);
+            InfList* result = parse_loop(tok_ctx, cur_char);
             return result;
           }
           else
           {
-            StyioAST* result = parse_list_expr(tok_ctx, cur_char);
+            StyioAST* result = parse_list_loop(tok_ctx, cur_char);
             return result;
           }
         }
         
-        // You should NOT reach this line.
+        // You should NOT reach this line!
         break;
 
       case ']':
@@ -1130,7 +1159,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
           };
         }
 
-        // You should NOT reach this line.
+        // You should NOT reach this line!
         break;
         
       default:

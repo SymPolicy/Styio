@@ -485,14 +485,16 @@ class StdOutAST : public StyioAST {
 };
 
 /*
-InfiniteAST: Infinite Loop
+InfList: Infinite Loop
   incEl Increment Element
 */
-class InfiniteAST : public StyioAST {
+class InfList : public StyioAST {
   IdAST* IncEl;
 
   public:
-    InfiniteAST() {}
+    InfList() {}
+
+    InfList(IdAST* incEl): IncEl(incEl) {}
 
     std::string toString(int indent = 0) {
       return std::string("Infinite { }");
@@ -513,9 +515,18 @@ class LoopAST : public StyioAST {
   BlockAST* Block;
 
   public:
-    LoopAST(IntAST* start, IntAST* step, BlockAST* block): Start(start), Step(step), Block(block) {}
+    LoopAST(StyioAST* start, StyioAST* step, StyioAST* end): Start(start), Step(step), End(end) {}
 
     std::string toString(int indent = 0) {
+      return std::string("Loop {\n")
+        + std::string(2, ' ') + "| Start: " + Start -> toString() + "\n"
+        + std::string(2, ' ') + "| End: " + End -> toString() + "\n"
+        + std::string(2, ' ') + "| Step: " + Step -> toString() + "\n"
+        + std::string(2, ' ') + "| Block: " + Block -> toString() + "\n"
+        + "\n}";
+    }
+
+    std::string toStringInline(int indent = 0) {
       return std::string("Loop {\n")
         + std::string(2, ' ') + "| Start: " + Start -> toString() + "\n"
         + std::string(2, ' ') + "| End: " + End -> toString() + "\n"
