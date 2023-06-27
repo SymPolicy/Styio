@@ -1025,7 +1025,11 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         break;
       
       case '\"':
-        parse_string(tok_ctx, cur_char);
+        {
+          return parse_string(tok_ctx, cur_char);
+        }
+
+        
         break;
 
       case '!':
@@ -1040,23 +1044,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         // You should NOT reach this line!
         break;
 
-      case ',':
-        cur_char = get_next_char();
-        break;
-
-      case '.':
-        cur_char = get_next_char();
-        break;
-
-      case ';':
-        cur_char = get_next_char();
-        break;
-
       case '(':
-        cur_char = get_next_char();
-        break;
-
-      case ')':
         cur_char = get_next_char();
         break;
 
@@ -1074,22 +1062,15 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
               throw StyioSyntaxError(errmsg);
             };
 
-            InfLoop* result = parse_loop(tok_ctx, cur_char);
-            return result;
+            return parse_loop(tok_ctx, cur_char);
           }
           else
           {
-            StyioAST* result = parse_list_loop(tok_ctx, cur_char);
-            return result;
+            return parse_list_loop(tok_ctx, cur_char);
           }
         }
         
         // You should NOT reach this line!
-        break;
-
-      case ']':
-        cur_char = get_next_char();
-        
         break;
 
       case '{':
@@ -1097,15 +1078,6 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         
         // "{" |--
 
-        break;
-
-      case '}':
-        cur_char = get_next_char();
-
-        break;
-
-      case '<':
-        cur_char = get_next_char();
         break;
 
       case '>':
@@ -1118,6 +1090,34 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
             cur_char = get_next_char();
 
             drop_white_spaces(cur_char);
+
+            if (cur_char == '(')
+            {
+              // eliminate (
+              cur_char = get_next_char();
+
+              drop_all_spaces(cur_char);
+
+              if (cur_char == '\"')
+              {
+                return new WriteStdOutAST(parse_string(tok_ctx, cur_char));
+              }
+              else
+              {
+                std::string errmsg = std::string("Cannot parse the thing to be printed, starts with ") + char(cur_char) + ".";
+                throw StyioSyntaxError(errmsg);
+              };
+            }
+            else
+            if (cur_char == '\"')
+            {
+              return new WriteStdOutAST(parse_string(tok_ctx, cur_char));
+            }
+            else
+            {
+              std::string errmsg = std::string("Try >_(\"Styio\").");
+              throw StyioSyntaxError(errmsg);
+            };
 
             StringAST* strAST = parse_string(tok_ctx, cur_char);
 
@@ -1134,7 +1134,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         break;
     }
 
-    std::cout << "Next: " << char(cur_char) << std::endl;
+    std::cout << "Unknown: " << char(cur_char) << std::endl;
   };
 
   return new NoneAST();

@@ -540,7 +540,7 @@ class WriteStdOutAST : public StyioAST {
     }
 
     std::string toString(int indent = 0) {
-      return std::string("stdout {\n")
+      return std::string("Write (StdOut) {\n")
         + std::string(2, ' ') + "| "
         + Output -> toString()
         + "\n}";
