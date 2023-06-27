@@ -2,35 +2,124 @@
 #define STYIO_TOKEN_H_
 
 enum class StyioType {
+  /*
+   * None, Null, Empty
+   */
+
   None,
   EmptyList,
 
+  // -----------------
+
+  /*
+   * Basic Type
+   */
+
+  // Identifier: [a-zA-Z0-9_]
   Id,
+  // Integer (General)
   Int,
+  // Float (General)
   Float,
-  String,
+  // Character: '<Any Single Character>'
+  Char,
+
+  // -----------------
+
+  /*
+   * External Resource Identifier
+   */
+
+  // File Path
   ExtPath,
+  // Web Link
   ExtLink,
+  // Package
   ExtPack,
 
+  // -----------------
+  
+  /*
+   * Basic Operation
+   */
+
+  // Binary Operation
   BinOp,
 
+  // -----------------
+
+  /*
+   * Collection
+   */
+
+  // "   "
+  String,
+  // [a0, a1, ..., an]
   List,
+  // [start .. end]
   Range,
+
+  // -----------------
+
+  /*
+   * Basic Util
+   */
   
+  // Get the Size / Length / .. of A Collection
   SizeOf,
 
+  // -----------------
+  
+  /*
+   * Variable Definition
+   */
+
+  // @
   VarDef,
 
+  // -----------------
+
+  /*
+   * Variable Assignment 
+   */
+
+  // =
   MutAssign,
+  // := 
   FixAssign,
 
+  // -----------------
+
+  /*
+   * Control Flow: Loop
+   */
   InfLoop,
 
+  // -----------------
+
+  /*
+   * Read
+   */
+
   ReadFile,
+
+  // -----------------
+
+  /*
+   * Write
+   */
+
   WriteStdOut,
 
+  // -----------------
+
+  /*
+   * Code Block
+   */
+
   Block,
+
+  // -----------------
 };
 
 enum class BinTok {
