@@ -1,6 +1,13 @@
 #ifndef STYIO_PARSER_H_
 #define STYIO_PARSER_H_
 
+template <typename Enumeration>
+auto type_to_int(Enumeration const value)
+    -> typename std::underlying_type<Enumeration>::type
+{
+    return static_cast<typename std::underlying_type<Enumeration>::type>(value);
+}
+
 static int get_next_char() 
 {
   int tmpChar = getchar();
@@ -93,15 +100,25 @@ static StyioAST* parse_int_float (std::vector<int>& tok_ctx, int& cur_char)
   if (cur_char == '.') 
   {
     cur_char = get_next_char();
-    numStr += cur_char;
 
-    while (isdigit(cur_char))
+    if (isdigit(cur_char))
     {
-      numStr += cur_char;
-      cur_char = get_next_char();
-    };
+      numStr += '.';
 
-    return new FloatAST(std::stod(numStr));
+      numStr += cur_char;
+
+      while (isdigit(cur_char))
+      {
+        numStr += cur_char;
+        cur_char = get_next_char();
+      };
+
+      return new FloatAST(std::stod(numStr));
+    }
+    else
+    {
+      return new IntAST(std::stoi(numStr));
+    };
   } 
   else 
   {
@@ -251,9 +268,30 @@ static StyioAST* parse_list_loop (std::vector<int>& tok_ctx, int& cur_char)
       
       StyioAST* endEl = parse_list_elem(tok_ctx, cur_char);
 
-      StyioAST* result = new InfLoop(startEl, endEl);
+      if (startEl -> hint() == StyioType::Int 
+        && endEl -> hint() == StyioType::Id)
+      {
+        return new InfLoop(startEl, endEl);
+      }
+      else
+      if (startEl -> hint() == StyioType::Int 
+        && endEl -> hint() == StyioType::Int)
+      {
+        return new RangeAST(startEl, endEl, new IntAST(1));
+      }
+      else
+      {
+        std::string errmsg = std::string("Unexpected Range / List / Loop: ")
+          + "Start <"
+          + std::to_string(type_to_int(startEl -> hint()))
+          + ">, "
+          + "End <"
+          + std::to_string(type_to_int(endEl -> hint()))
+          + ">.";
+        throw StyioSyntaxError(errmsg);
+      }
 
-      return result;
+      return new InfLoop(startEl, endEl);
     }
 
     // You should not reach this line!

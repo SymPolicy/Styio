@@ -572,11 +572,11 @@ class InfLoop : public StyioAST {
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Infinite { }");
+      return std::string("InfLoop { }");
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Infinite { }");
+      return std::string("InfLoop { }");
     }
 };
 
@@ -584,33 +584,30 @@ class InfLoop : public StyioAST {
 RangeAST: Loop
 */
 class RangeAST : public StyioAST {
-  StyioAST* Start;
-  StyioAST* End;
-  StyioAST* Step;
-  BlockAST* Block;
+  StyioAST* StartVal;
+  StyioAST* EndVal;
+  StyioAST* StepVal;
 
   public:
-    RangeAST(StyioAST* start, StyioAST* step, StyioAST* end): Start(start), Step(step), End(end) {}
+    RangeAST(StyioAST* start, StyioAST* end, StyioAST* step): StartVal(start), EndVal(end), StepVal(step) {}
 
     StyioType hint() {
       return StyioType::Range;
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Loop {\n")
-        + std::string(2, ' ') + "| Start: " + Start -> toString() + "\n"
-        + std::string(2, ' ') + "| End: " + End -> toString() + "\n"
-        + std::string(2, ' ') + "| Step: " + Step -> toString() + "\n"
-        + std::string(2, ' ') + "| Block: " + Block -> toString() + "\n"
+      return std::string("Range {\n")
+        + std::string(2, ' ') + "| Start: " + StartVal -> toString() + "\n"
+        + std::string(2, ' ') + "| End: " + EndVal -> toString() + "\n"
+        + std::string(2, ' ') + "| Step: " + StepVal -> toString() + "\n"
         + "\n}";
     }
 
     std::string toStringInline(int indent = 0) {
       return std::string("Loop {\n")
-        + std::string(2, ' ') + "| Start: " + Start -> toString() + "\n"
-        + std::string(2, ' ') + "| End: " + End -> toString() + "\n"
-        + std::string(2, ' ') + "| Step: " + Step -> toString() + "\n"
-        + std::string(2, ' ') + "| Block: " + Block -> toString() + "\n"
+        + std::string(2, ' ') + "| Start: " + StartVal -> toString() + "\n"
+        + std::string(2, ' ') + "| End: " + EndVal -> toString() + "\n"
+        + std::string(2, ' ') + "| Step: " + StepVal -> toString() + "\n"
         + "\n}";
     }
 };
