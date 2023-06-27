@@ -1,7 +1,39 @@
 #ifndef STYIO_TOKEN_H_
 #define STYIO_TOKEN_H_
 
-enum BinTok {
+enum class StyioType {
+  None,
+  EmptyList,
+
+  Id,
+  Int,
+  Float,
+  String,
+  ExtPath,
+  ExtLink,
+  ExtPack,
+
+  BinOp,
+
+  List,
+  Range,
+  
+  SizeOf,
+
+  VarDef,
+
+  MutAssign,
+  FixAssign,
+
+  InfLoop,
+
+  ReadFile,
+  WriteStdOut,
+
+  Block,
+};
+
+enum class BinTok {
   BIN_ADD, // +
   BIN_SUB, // -
   BIN_MUL, // *
@@ -10,7 +42,7 @@ enum BinTok {
   BIN_MOD, // %
 };
 
-enum StyioToken {
+enum class StyioToken {
   TOK_EOF = -1, // EOF
   TOK_NULL = 0, // ASCII 0 NUL
   TOK_LF = 10, // ASCII 10 LF
@@ -95,7 +127,7 @@ enum StyioToken {
   TOK_INFINITE_LIST, // [...]
 };
 
-static std::string reprToken(int token) {
+static std::string reprToken(BinTok token) {
   switch (token)
   {
     case BinTok::BIN_ADD:
@@ -116,6 +148,16 @@ static std::string reprToken(int token) {
     case BinTok::BIN_MOD:
       return "<DIV>";
 
+    default:
+      return "<NULL>";
+
+      break;
+  }
+}
+
+static std::string reprToken(StyioToken token) {
+  switch (token)
+  {
     case StyioToken::TOK_SPACE:
       return " ";
 

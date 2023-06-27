@@ -125,10 +125,6 @@ static StringAST* parse_string (std::vector<int>& tok_ctx, int& cur_char)
   // eliminate the second(end) double quote
   cur_char = get_next_char();
 
-  tok_ctx.push_back(
-    StyioToken::TOK_STRING
-  );
-
   return new StringAST(textStr);
 }
 
@@ -199,7 +195,7 @@ static StyioAST* parse_ext_res (std::vector<int>& tok_ctx, int& cur_char)
         throw StyioSyntaxError(errmsg);
       };
 
-      return new PathAST(textStr);
+      return new ExtPathAST(textStr);
     }
     else
     {
@@ -244,22 +240,24 @@ static StyioAST* parse_list_loop (std::vector<int>& tok_ctx, int& cur_char)
 
   switch (cur_char)
   {
-  // case '.':
-  //   {
-  //     cur_char = get_next_char();
+  case '.':
+    {
+      cur_char = get_next_char();
 
-  //     while (cur_char == '.')
-  //     {
-  //       cur_char = get_next_char();
-  //     }
+      while (cur_char == '.')
+      {
+        cur_char = get_next_char();
+      }
       
-  //     StyioAST* endEl = parse_list_elem(tok_ctx, cur_char);
+      StyioAST* endEl = parse_list_elem(tok_ctx, cur_char);
 
-  //     return new InfList(endEl);
-  //   }
+      StyioAST* result = new InfLoop(startEl, endEl);
 
-  //   // You should not reach this line!
-  //   break;
+      return result;
+    }
+
+    // You should not reach this line!
+    break;
 
   case ',':
     {
@@ -303,7 +301,7 @@ static StyioAST* parse_list_loop (std::vector<int>& tok_ctx, int& cur_char)
   throw StyioSyntaxError(errmsg);
 }
 
-static InfList* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
+static InfLoop* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
 {
   while (cur_char == '.') 
   { 
@@ -314,7 +312,7 @@ static InfList* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
     {
       cur_char = get_next_char();
 
-      return new InfList();
+      return new InfLoop();
     };
   };
 
@@ -623,7 +621,7 @@ static StyioAST* parse_read_file (
   {
     StyioAST* value = parse_ext_res(tok_ctx, cur_char);
 
-    return new ReadAST(id_ast, value);
+    return new ReadFileAST(id_ast, value);
   }
   else
   {
@@ -680,10 +678,6 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
             if (cur_char == '=')
             {
               cur_char = get_next_char();
-
-              tok_ctx.push_back(
-                StyioToken::TOK_WALRUS
-              );
 
               drop_white_spaces(cur_char);
               
@@ -865,10 +859,6 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
       case '@':
         {
           cur_char = get_next_char();
-
-          tok_ctx.push_back(
-            StyioToken::TOK_AT
-          );
           
           drop_white_spaces(cur_char);
 
@@ -876,9 +866,6 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
           {
             cur_char = get_next_char();
 
-            tok_ctx.push_back(
-              StyioToken::TOK_LPAREN
-            );
           };
           
           std::vector<IdAST*> varBuffer;
@@ -900,9 +887,6 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
             drop_white_spaces(cur_char);
 
             if (isalpha(cur_char) || cur_char == '_') {
-              tok_ctx.push_back(
-                StyioToken::TOK_COMMA
-              );
               
               IdAST* id_ast = parse_id(tok_ctx, cur_char);
         
@@ -915,10 +899,6 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
           if (cur_char == ')') 
           {
             cur_char = get_next_char();
-
-            tok_ctx.push_back(
-              StyioToken::TOK_RPAREN
-            );
           };
 
           VarDefAST* varDef = new VarDefAST(varBuffer);
@@ -976,16 +956,10 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
 
         if (cur_char == '=') {
           cur_char = get_next_char();
-
-          tok_ctx.push_back(
-            StyioToken::TOK_WALRUS
-          );
         } 
         else
         {
-          tok_ctx.push_back(
-            StyioToken::TOK_COLON
-          );
+
         };
         
         break;
@@ -1004,16 +978,10 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         
         if (cur_char == '=') {
           cur_char = get_next_char();
-
-          tok_ctx.push_back(
-            StyioToken::TOK_MATCH
-          );
         } 
         else 
         {
-          tok_ctx.push_back(
-            StyioToken::TOK_CHECK
-          );
+
         };
         
         break;
@@ -1025,15 +993,9 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
       case '!':
         {
           cur_char = get_next_char();
-          tok_ctx.push_back(
-            StyioToken::TOK_EXCLAM
-          );
           
           if (cur_char == '~') {
             cur_char = get_next_char();
-            tok_ctx.push_back(
-              StyioToken::TOK_TILDE
-            );
           };
         };
 
@@ -1041,37 +1003,22 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         break;
 
       case ',':
-        tok_ctx.push_back(
-          StyioToken::TOK_COMMA
-        );
         cur_char = get_next_char();
         break;
 
       case '.':
-        tok_ctx.push_back(
-          StyioToken::TOK_DOT
-        );
         cur_char = get_next_char();
         break;
 
       case ';':
-        tok_ctx.push_back(
-          StyioToken::TOK_SEMICOLON
-        );
         cur_char = get_next_char();
         break;
 
       case '(':
-        tok_ctx.push_back(
-          StyioToken::TOK_LPAREN
-        );
         cur_char = get_next_char();
         break;
 
       case ')':
-        tok_ctx.push_back(
-          StyioToken::TOK_RPAREN
-        );
         cur_char = get_next_char();
         break;
 
@@ -1089,7 +1036,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
               throw StyioSyntaxError(errmsg);
             };
 
-            InfList* result = parse_loop(tok_ctx, cur_char);
+            InfLoop* result = parse_loop(tok_ctx, cur_char);
             return result;
           }
           else
@@ -1103,9 +1050,6 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         break;
 
       case ']':
-        tok_ctx.push_back(
-          StyioToken::TOK_RBOXBRAC
-        );
         cur_char = get_next_char();
         
         break;
@@ -1113,28 +1057,17 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
       case '{':
         cur_char = get_next_char();
         
-        tok_ctx.push_back(
-          StyioToken::TOK_LCURBRAC
-        );
-        
         // "{" |--
 
         break;
 
       case '}':
         cur_char = get_next_char();
-        
-        tok_ctx.push_back(
-          StyioToken::TOK_RCURBRAC
-        );
 
         break;
 
       case '<':
         cur_char = get_next_char();
-        tok_ctx.push_back(
-          StyioToken::TOK_LANGBRAC
-        );
         break;
 
       case '>':
@@ -1145,15 +1078,12 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
           if (cur_char == '_') {
             // eliminate _
             cur_char = get_next_char();
-            tok_ctx.push_back(
-              StyioToken::TOK_STDOUT
-            );
 
             drop_white_spaces(cur_char);
 
             StringAST* strAST = parse_string(tok_ctx, cur_char);
 
-            StdOutAST* result = new StdOutAST(strAST);
+            WriteStdOutAST* result = new WriteStdOutAST(strAST);
 
             return result;
           };
@@ -1230,13 +1160,10 @@ else :  {
 }
 
 */
-static ExtPacAST* parse_ext_pack (std::vector<int>& tok_ctx, int& cur_char) 
+static ExtPackAST* parse_ext_pack (std::vector<int>& tok_ctx, int& cur_char) 
 { 
   // eliminate left square (box) bracket [
   cur_char = get_next_char();
-  tok_ctx.push_back(
-    StyioToken::TOK_LBOXBRAC
-  );
 
   std::vector<std::string> dependencies;
 
@@ -1265,7 +1192,7 @@ static ExtPacAST* parse_ext_pack (std::vector<int>& tok_ctx, int& cur_char)
     cur_char = get_next_char();
   };
 
-  ExtPacAST* result = new ExtPacAST(dependencies);
+  ExtPackAST* result = new ExtPackAST(dependencies);
 
   return result;
 }
