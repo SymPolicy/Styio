@@ -374,6 +374,130 @@ static ListOpAST* parse_list_op (
   };
 }
 
+static std::vector<IdAST*> parse_multi_vars (
+  std::vector<int>& tok_ctx, 
+  int& cur_char
+) 
+{
+  std::vector<IdAST*> vars;
+
+  IdAST* firstVar = parse_id(tok_ctx, cur_char);
+
+  vars.push_back(firstVar);
+
+  drop_white_spaces(cur_char);
+
+  while (cur_char == ',')
+  {
+    cur_char = get_next_char();
+
+    drop_white_spaces(cur_char);
+
+    if (cur_char == ')' || cur_char == '|')
+    {
+      break;
+    };
+
+    vars.push_back(parse_id(tok_ctx, cur_char));
+  }
+
+  return vars;
+}
+
+static StyioAST* parse_iter_over (
+  std::vector<int>& tok_ctx, 
+  int& cur_char,
+  StyioAST* collection) 
+{
+  std::vector<IdAST*> tmpVars;
+
+  // eliminate the start
+  switch (cur_char)
+  {
+  case '(':
+    cur_char = get_next_char();
+    break;
+
+  case '[':
+    cur_char = get_next_char();
+    break;
+
+  case '|':
+    cur_char = get_next_char();
+    break;
+  
+  default:
+    break;
+  }
+
+  drop_white_spaces(cur_char);
+
+  tmpVars = parse_multi_vars(tok_ctx, cur_char);
+
+  drop_white_spaces(cur_char);
+
+  // eliminate the end
+  switch (cur_char)
+  {
+  case ')':
+    cur_char = get_next_char();
+    break;
+
+  case ']':
+    cur_char = get_next_char();
+    break;
+
+  case '|':
+    cur_char = get_next_char();
+    break;
+  
+  default:
+    break;
+  }
+
+  switch (cur_char)
+  {
+  case '=':
+    {
+      cur_char = get_next_char();
+
+      if (cur_char == '>')
+      {
+        cur_char = get_next_char();
+
+        // TODO: Iter Block
+      }
+      else
+      {
+        std::string errmsg = std::string("Missing `>` for `=>`.");
+        throw StyioSyntaxError(errmsg);
+      };
+    }
+    break;
+  
+  case '?':
+    {
+      cur_char = get_next_char();
+
+      if (cur_char == '=')
+      {
+        cur_char = get_next_char();
+
+        // TODO: Match Block
+      }
+      else
+      {
+        std::string errmsg = std::string("Missing `=` for `?=`.");
+        throw StyioSyntaxError(errmsg);
+      };
+    }
+    break;
+
+  default:
+    break;
+  }
+}
+
 static StyioAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char) 
 {
   std::vector<StyioAST*> elements;
@@ -452,8 +576,6 @@ static StyioAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char)
             cur_char = get_next_char();
             
           }
-          
-          cur_char = get_next_char();
 
           // TODO: Iteration Over List / Range / Loop
 
@@ -522,6 +644,8 @@ static StyioAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char)
         throw StyioSyntaxError(errmsg);
       };
 
+      drop_white_spaces(cur_char);
+
       switch (cur_char)
       {
       case '\n':
@@ -541,10 +665,9 @@ static StyioAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char)
           {
             // If: >>, Then: Iteration
             cur_char = get_next_char();
+
             
           }
-          
-          cur_char = get_next_char();
 
           // TODO: Iteration Over List / Range / Loop
 

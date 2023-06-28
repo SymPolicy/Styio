@@ -103,7 +103,8 @@ enum class StyioType {
   /* -----------------
    * Iterator
    */
-  Iter,
+  IterList,
+  IterRange,
 
   // -----------------
 
@@ -145,6 +146,30 @@ enum class ListOpType {
   Reversed, // [<]
   Insert_Item_By_Index, // [^ index <- item] 
   Get_Index_By_Item, // [?= item]
+};
+
+enum class IterOverWhat {
+  /*
+   * Accept: 0 [No Variable]
+   */
+  InfLoop, // [...]
+
+  /*
+   * Accept: 1 [Only One Variable]
+   */
+  List, // [a0, a1, ..., an]
+  Range, // [a0...an]
+
+  /*
+   * Accept: 2 [Two Variables]
+   */
+  Dict, // {k0: v0, k1: v1, kn: vn}
+
+  /*
+   * Accept: n [Any]
+   */
+  ListOfTuples, // [(a0, b0, ...), (a1, b1, ...), ..., (an, bn, ...)]
+  ListOfStructs, // [s0, s1, ..., sn]
 };
 
 enum class StyioToken {

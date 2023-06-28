@@ -668,28 +668,33 @@ class RangeAST : public StyioAST {
     }
 };
 
-/*
-
-*/
-class IterAST : public StyioAST {
-  StyioAST* Collection;
+class IterListAST : public StyioAST {
+  StyioAST* TheList;
+  std::vector<IdAST*> TmpVars;
 
   public:
-    IterAST(StyioAST* collection): Collection(collection) {}
+    IterListAST(
+      StyioAST* theList, 
+      std::vector<IdAST*> tmpVars): 
+      TheList(theList),
+      TmpVars(tmpVars) 
+      {
+
+      }
 
     StyioType hint() {
-      return StyioType::Iter;
+      return StyioType::IterList;
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Iterator { ") 
-      + Collection -> toString()
+      return std::string("Iter (List) { ") 
+      + TheList -> toString()
       + " }";
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Iterator { ") 
-      + Collection -> toStringInline()
+      return std::string("Iter (List) { ") 
+      + TheList -> toStringInline()
       + " }";
     }
 };
