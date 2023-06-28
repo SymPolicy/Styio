@@ -52,19 +52,7 @@ static bool is_bin_tok (int& cur_char)
   }
 }
 
-static IdAST* parse_id (std::vector<int>& tok_ctx, int& cur_char) 
-{
-  std::string idStr = "";
-  idStr += cur_char;
-
-  // [a-zA-Z][a-zA-Z0-9_]*
-  while (isalnum((cur_char = get_next_char())) || cur_char == '_') 
-  {
-    idStr += cur_char;
-  }
-
-  return new IdAST(idStr);
-}
+IdAST* parse_id (std::vector<int>& tok_ctx, int& cur_char);
 
 static IntAST* parse_int (std::vector<int>& tok_ctx, int& cur_char)
 {
