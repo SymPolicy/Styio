@@ -1,5 +1,4 @@
 {
-    "image": "debian:latest",
     "build": {
         "dockerfile": "Dockerfile"
     },
