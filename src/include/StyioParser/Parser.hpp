@@ -257,14 +257,21 @@ static ListOpAST* parse_list_op (
   // eliminate [ at the start
   cur_char = get_next_char();
 
+  ListOpAST* listop;
+
   switch (cur_char)
   {
   // List.get_reversed()
   case '<':
-    return new ListOpAST(
-      theList, 
-      ListOpType::Reversed);
+    {
+      cur_char = get_next_char();
 
+      listop = new ListOpAST(
+        theList, 
+        ListOpType::Reversed);
+    }
+
+    // You should NOT reach this line!
     break;
 
   // List.get_item_by_list(item)
@@ -278,7 +285,7 @@ static ListOpAST* parse_list_op (
 
         StyioAST* theItem = parse_list_elem(tok_ctx, cur_char);
 
-        return new ListOpAST(
+        listop = new ListOpAST(
           theList, 
           ListOpType::Get_Index_By_Item,
           theItem);
@@ -289,55 +296,66 @@ static ListOpAST* parse_list_op (
         throw StyioSyntaxError(errmsg);
       };
     }
+
+    // You should NOT reach this line!
     break;
   
   // List.insert_item_by_index(index, item)
   case '^':
-    cur_char = get_next_char();
-
-    // eliminate white spaces between ^ and index
-    drop_white_spaces(cur_char);
-
-    StyioAST* theIndex = parse_int(tok_ctx, cur_char);
-
-    // eliminate white spaces between index and <-
-    drop_white_spaces(cur_char);
-
-    if (cur_char == '<')
     {
       cur_char = get_next_char();
 
-      if (cur_char == '-')
+      // eliminate white spaces between ^ and index
+      drop_white_spaces(cur_char);
+
+      StyioAST* theIndex = parse_int(tok_ctx, cur_char);
+
+      // eliminate white spaces between index and <-
+      drop_white_spaces(cur_char);
+
+      if (cur_char == '<')
       {
         cur_char = get_next_char();
 
-        // eliminate white spaces between <- and the value to be inserted
-        drop_white_spaces(cur_char);
+        if (cur_char == '-')
+        {
+          cur_char = get_next_char();
 
-        // the item to be inserted into the list
-        StyioAST* theItemIns = parse_list_elem(tok_ctx, cur_char);
+          // eliminate white spaces between <- and the value to be inserted
+          drop_white_spaces(cur_char);
 
-        return new ListOpAST(
-          theList, 
-          ListOpType::Insert_Item_By_Index,
-          theIndex,
-          theItemIns);
+          // the item to be inserted into the list
+          StyioAST* theItemIns = parse_list_elem(tok_ctx, cur_char);
+
+          listop = new ListOpAST(
+            theList, 
+            ListOpType::Insert_Item_By_Index,
+            theIndex,
+            theItemIns);
+        }
+        else
+        {
+          std::string errmsg = std::string("Missing `-` for `<-` after `^? index`, but got `") + char(cur_char) + "`";
+          throw StyioSyntaxError(errmsg);
+        };
       }
       else
       {
-        std::string errmsg = std::string("Missing `-` for `<-` after `^? index`, but got `") + char(cur_char) + "`";
+        std::string errmsg = std::string("Expecting `<-` after `^? index`, but got `") + char(cur_char) + "`";
         throw StyioSyntaxError(errmsg);
-      };
-    }
-    else
-    {
-      std::string errmsg = std::string("Expecting `<-` after `^? index`, but got `") + char(cur_char) + "`";
-      throw StyioSyntaxError(errmsg);
+      }
     }
 
+    // You should NOT reach this line!
     break;
   
   default:
+    {
+      std::string errmsg = std::string("Unexpected List[Operation], starts with ") + char(cur_char);
+      throw StyioSyntaxError(errmsg);
+    }
+
+    // You should NOT reach this line!
     break;
   }
 
@@ -347,6 +365,7 @@ static ListOpAST* parse_list_op (
     // eliminate [ at the end
     cur_char = get_next_char();
     
+    return listop;
   }
   else
   {
@@ -417,8 +436,6 @@ static StyioAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char)
       case '\n':
         {
           // If: LF, Then: Statement Ends
-          cur_char = get_next_char();
-
           return list_loop;
         }
         
@@ -470,6 +487,8 @@ static StyioAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char)
 
   case ',':
     {
+      ListAST* theList;
+
       while (cur_char == ',')
       {
         // eliminate ,
@@ -481,7 +500,7 @@ static StyioAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char)
         {
           cur_char = get_next_char();
 
-          return new ListAST(elements);
+          theList = new ListAST(elements);
         };
 
         StyioAST* el = parse_list_elem(tok_ctx, cur_char);
@@ -495,13 +514,63 @@ static StyioAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char)
       {
         cur_char = get_next_char();
 
-        return new ListAST(elements);
+        theList = new ListAST(elements);
       }
       else
       {
         std::string errmsg = std::string("Missing `]` after List / Range / Loop: `") + char(cur_char) + "`";
         throw StyioSyntaxError(errmsg);
       };
+
+      switch (cur_char)
+      {
+      case '\n':
+        {
+          // If: LF, Then: Statement Ends
+          return theList;
+        }
+        
+        // You should NOT reach this line!
+        break;
+
+      case '>':
+        {
+          cur_char = get_next_char();
+
+          if (cur_char == '>')
+          {
+            // If: >>, Then: Iteration
+            cur_char = get_next_char();
+            
+          }
+          
+          cur_char = get_next_char();
+
+          // TODO: Iteration Over List / Range / Loop
+
+          return theList;
+        }
+        
+        // You should NOT reach this line!
+        break;
+
+      case '[':
+        {
+          return parse_list_op(tok_ctx, cur_char, theList);
+        }
+        
+        // You should NOT reach this line!
+        break;
+      
+      default:
+        {
+          std::string errmsg = std::string("Unexpected character after List / Range / Loop: `") + char(cur_char) + "`";
+          throw StyioSyntaxError(errmsg);
+        };
+        
+        // You should NOT reach this line!
+        break;
+      }
     }
 
     // You should not reach this line!
@@ -846,474 +915,428 @@ static StyioAST* parse_read_file (
 
 static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char) 
 {
-  while (cur_char != '\n')
+  drop_white_spaces(cur_char);
+
+  // <ID>
+  if (isalpha(cur_char) || cur_char == '_') 
   {
+    // parse id
+    IdAST* id_ast = parse_id(tok_ctx, cur_char);
+    
+    // ignore white spaces after id
     drop_white_spaces(cur_char);
 
-    // <ID>
-    if (isalpha(cur_char) || cur_char == '_') 
-    {
-      // parse id
-      IdAST* id_ast = parse_id(tok_ctx, cur_char);
-      
-      // ignore white spaces after id
-      drop_white_spaces(cur_char);
-
-      // check next character
-      switch (cur_char)
-      {
-        // <LF>
-        case '\n':
-          {
-            return id_ast;
-          };
-
-          // You should NOT reach this line!
-          break;
-
-        // <ID> = <EXPR>
-        case '=':
-          {
-            cur_char = get_next_char();
-
-            drop_white_spaces(cur_char);
-
-            // <ID> = |--
-            return parse_mut_assign(tok_ctx, cur_char, id_ast);
-          };
-
-          // You should NOT reach this line!
-          break;
-        
-        // <ID> := <EXPR>
-        case ':':
-          {
-            cur_char = get_next_char();
-            if (cur_char == '=')
-            {
-              cur_char = get_next_char();
-
-              drop_white_spaces(cur_char);
-              
-              // <ID> := |--
-              return parse_fix_assign(tok_ctx, cur_char, id_ast);
-            }
-            else
-            {
-              std::string errmsg = std::string("Unexpected `:`");
-              throw StyioSyntaxError(errmsg);
-            }
-          };
-
-          // You should NOT reach this line!
-          break;
-
-        // <ID> <- <EXPR>
-        case '<':
-          {
-            // eliminate <
-            cur_char = get_next_char();
-
-            if (cur_char == '-')
-            {
-              // eliminate -
-              cur_char = get_next_char();
-
-              drop_white_spaces(cur_char);
-              
-              // <ID> <- |--
-              return parse_read_file(tok_ctx, cur_char, id_ast);
-            }
-            else
-            {
-              std::string errmsg = std::string("Expecting `-` after `<`, but found `") + char(cur_char) + "`.";
-              throw StyioSyntaxError(errmsg);
-            }
-          };
-
-          // You should NOT reach this line!
-          break;
-
-        // BIN_ADD := <ID> "+" <EXPR>
-        case '+':
-          {
-            // <ID> |-- 
-            return parse_bin_op(tok_ctx, cur_char, id_ast);
-          };
-
-          // You should NOT reach this line!
-          break;
-
-        // BIN_SUB := <ID> "-" <EXPR>
-        case '-':
-          {
-            // <ID> |--
-            return parse_bin_op(tok_ctx, cur_char, id_ast);
-          };
-
-          // You should NOT reach this line!
-          break;
-
-        // BIN_MUL | BIN_POW
-        case '*':
-          {
-            // <ID> |--
-            return parse_bin_op(tok_ctx, cur_char, id_ast);
-          };
-          // You should NOT reach this line!
-          break;
-          
-        // BIN_DIV := <ID> "/" <EXPR>
-        case '/':
-          {
-            // <ID> |-- 
-            return parse_bin_op(tok_ctx, cur_char, id_ast);
-          };
-
-          // You should NOT reach this line!
-          break;
-
-        // BIN_MOD := <ID> "%" <EXPR> 
-        case '%':
-          {
-            // <ID> |-- 
-            return parse_bin_op(tok_ctx, cur_char, id_ast);
-          };
-
-          // You should NOT reach this line!
-          break;
-        
-        default:
-          break;
-      }
-    }
-
-    if (isdigit(cur_char)) {
-      StyioAST* numAST = parse_int_or_float(tok_ctx, cur_char);
-
-      drop_all_spaces(cur_char);
-
-      switch (cur_char)
-      {
-        // <LF>
-        case '\n':
-          {
-            return numAST;
-          };
-
-          // You should NOT reach this line!
-          break;
-
-        // BIN_ADD := [<Int>|<Float>] "+" <EXPR>
-        case '+':
-          {
-            // [<Int>|<Float>] |--
-            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
-            return bin_ast;
-          };
-
-          // You should NOT reach this line!
-          break;
-
-        // BIN_SUB := [<Int>|<Float>] "-" <EXPR>
-        case '-':
-          {
-            // [<Int>|<Float>] |--
-            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
-            return bin_ast;
-          };
-
-          // You should NOT reach this line!
-          break;
-
-        // BIN_MUL | BIN_POW
-        case '*':
-          {
-            // [<Int>|<Float>] |--
-            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
-            return bin_ast;
-          }
-
-          // You should NOT reach this line!
-          break;
-
-        // BIN_DIV := [<Int>|<Float>] "/" <EXPR>
-        case '/':
-          {
-            // [<Int>|<Float>] |--
-            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
-            return bin_ast;
-          };
-
-          // You should NOT reach this line!
-          break;
-
-        // BIN_MOD := [<Int>|<Float>] "%" <EXPR>
-        case '%':
-          {
-            // [<Int>|<Float>] |--
-            BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
-            return bin_ast;
-          };
-
-          // You should NOT reach this line!
-          break;
-
-        default:
-          return numAST;
-
-          // You should NOT reach this line!
-          break;
-      }
-    }
-
+    // check next character
     switch (cur_char)
     {
-      // VAR_DEF := "@" "(" [<ID> ["," <ID>]*]? ")"
-      case '@':
+      // <LF>
+      case '\n':
         {
-          cur_char = get_next_char();
-          
-          drop_white_spaces(cur_char);
-
-          if (cur_char == '(') 
-          {
-            cur_char = get_next_char();
-
-          };
-          
-          std::vector<IdAST*> varBuffer;
-
-          if (isalpha(cur_char) || cur_char == '_') {
-            // "@" "(" |--
-            IdAST* id_ast = parse_id(tok_ctx, cur_char);
-        
-            varBuffer.push_back(id_ast);
-          };
-
-          drop_white_spaces(cur_char);
-
-          // "@" "(" [<ID> |--
-          while (cur_char == ',')
-          {
-            cur_char = get_next_char();
-
-            drop_white_spaces(cur_char);
-
-            if (isalpha(cur_char) || cur_char == '_') {
-              
-              IdAST* id_ast = parse_id(tok_ctx, cur_char);
-        
-              varBuffer.push_back(id_ast);
-
-              drop_white_spaces(cur_char);
-            };
-          };
-          
-          if (cur_char == ')') 
-          {
-            cur_char = get_next_char();
-          };
-
-          VarDefAST* varDef = new VarDefAST(varBuffer);
-
-          // if (cur_char == '[') 
-          // {
-          //   // eliminate single [
-          //   cur_char = get_next_char();
-
-          //   if (isdigit(cur_char)) 
-          //   {
-          //     IntAST* startInt = parseInt(tok_ctx, cur_char);
-          //   };
-
-          //   int dotCount = 0;
-
-          //   while (cur_char == '.')
-          //   {
-          //     // eliminate all .
-          //     cur_char = get_next_char();
-
-          //     dotCount += 1;
-          //   };
-            
-          //   if (isdigit(cur_char)) 
-          //   {
-          //     IntAST* endInt = parseInt(tok_ctx, cur_char);
-          //   };
-
-          //   if (cur_char == ']')
-          //   {
-          //     // eliminate single ]
-          //     cur_char = get_next_char();
-          //   };
-
-          //   while (cur_char == '>')
-          //   {
-          //     // eliminate all >
-          //     cur_char = get_next_char();
-          //   }
-
-          //   BlockAST* block = parseBlock(tok_ctx, cur_char);
-
-          //   LoopAST* loop = new LoopAST(startInt, IntAST(1), block);
-          // }
-
-          return varDef;
-          
-          // You should NOT reach this line!
-          break;
-        };
-
-      case ':':
-        cur_char = get_next_char();
-
-        if (cur_char == '=') {
-          cur_char = get_next_char();
-        } 
-        else
-        {
-
-        };
-        
-        break;
-
-      case '-':
-        cur_char = get_next_char();
-
-        if (cur_char == '>') {
-          cur_char = get_next_char();
-        };
-        
-        break;
-
-      case '?':
-        cur_char = get_next_char();
-        
-        if (cur_char == '=') {
-          cur_char = get_next_char();
-        } 
-        else 
-        {
-
-        };
-        
-        break;
-      
-      case '\"':
-        {
-          return parse_string(tok_ctx, cur_char);
-        }
-
-        
-        break;
-
-      case '!':
-        {
-          cur_char = get_next_char();
-          
-          if (cur_char == '~') {
-            cur_char = get_next_char();
-          };
+          return id_ast;
         };
 
         // You should NOT reach this line!
         break;
 
-      case '(':
-        cur_char = get_next_char();
-        break;
-
-      case '[':
+      // <ID> = <EXPR>
+      case '=':
         {
           cur_char = get_next_char();
 
-          if (cur_char == '.') {
-            // eliminate the first dot .
+          drop_white_spaces(cur_char);
+
+          // <ID> = |--
+          return parse_mut_assign(tok_ctx, cur_char, id_ast);
+        };
+
+        // You should NOT reach this line!
+        break;
+      
+      // <ID> := <EXPR>
+      case ':':
+        {
+          cur_char = get_next_char();
+          if (cur_char == '=')
+          {
             cur_char = get_next_char();
 
-            if (cur_char == ']') 
-            {
-              std::string errmsg = std::string("[.] is not infinite, please use [..] or [...] instead.");
-              throw StyioSyntaxError(errmsg);
-            };
-
-            return parse_loop(tok_ctx, cur_char);
+            drop_white_spaces(cur_char);
+            
+            // <ID> := |--
+            return parse_fix_assign(tok_ctx, cur_char, id_ast);
           }
           else
           {
-            return parse_list_expr(tok_ctx, cur_char);
+            std::string errmsg = std::string("Unexpected `:`");
+            throw StyioSyntaxError(errmsg);
           }
-        }
-        
+        };
+
         // You should NOT reach this line!
         break;
 
-      case '{':
-        cur_char = get_next_char();
-        
-        // "{" |--
-
-        break;
-
-      case '>':
+      // <ID> <- <EXPR>
+      case '<':
         {
-          // eliminate >
+          // eliminate <
           cur_char = get_next_char();
-          
-          if (cur_char == '_') {
-            // eliminate _
+
+          if (cur_char == '-')
+          {
+            // eliminate -
             cur_char = get_next_char();
 
             drop_white_spaces(cur_char);
+            
+            // <ID> <- |--
+            return parse_read_file(tok_ctx, cur_char, id_ast);
+          }
+          else
+          {
+            std::string errmsg = std::string("Expecting `-` after `<`, but found `") + char(cur_char) + "`.";
+            throw StyioSyntaxError(errmsg);
+          }
+        };
 
-            if (cur_char == '(')
-            {
-              // eliminate (
-              cur_char = get_next_char();
+        // You should NOT reach this line!
+        break;
 
-              drop_all_spaces(cur_char);
+      // BIN_ADD := <ID> "+" <EXPR>
+      case '+':
+        {
+          // <ID> |-- 
+          return parse_bin_op(tok_ctx, cur_char, id_ast);
+        };
 
-              if (cur_char == '\"')
-              {
-                return new WriteStdOutAST(parse_string(tok_ctx, cur_char));
-              }
-              else
-              {
-                std::string errmsg = std::string("Cannot parse the thing to be printed, starts with ") + char(cur_char) + ".";
-                throw StyioSyntaxError(errmsg);
-              };
-            }
-            else
+        // You should NOT reach this line!
+        break;
+
+      // BIN_SUB := <ID> "-" <EXPR>
+      case '-':
+        {
+          // <ID> |--
+          return parse_bin_op(tok_ctx, cur_char, id_ast);
+        };
+
+        // You should NOT reach this line!
+        break;
+
+      // BIN_MUL | BIN_POW
+      case '*':
+        {
+          // <ID> |--
+          return parse_bin_op(tok_ctx, cur_char, id_ast);
+        };
+        // You should NOT reach this line!
+        break;
+        
+      // BIN_DIV := <ID> "/" <EXPR>
+      case '/':
+        {
+          // <ID> |-- 
+          return parse_bin_op(tok_ctx, cur_char, id_ast);
+        };
+
+        // You should NOT reach this line!
+        break;
+
+      // BIN_MOD := <ID> "%" <EXPR> 
+      case '%':
+        {
+          // <ID> |-- 
+          return parse_bin_op(tok_ctx, cur_char, id_ast);
+        };
+
+        // You should NOT reach this line!
+        break;
+      
+      default:
+        break;
+    }
+  }
+
+  if (isdigit(cur_char)) {
+    StyioAST* numAST = parse_int_or_float(tok_ctx, cur_char);
+
+    drop_all_spaces(cur_char);
+
+    switch (cur_char)
+    {
+      // <LF>
+      case '\n':
+        {
+          return numAST;
+        };
+
+        // You should NOT reach this line!
+        break;
+
+      // BIN_ADD := [<Int>|<Float>] "+" <EXPR>
+      case '+':
+        {
+          // [<Int>|<Float>] |--
+          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
+          return bin_ast;
+        };
+
+        // You should NOT reach this line!
+        break;
+
+      // BIN_SUB := [<Int>|<Float>] "-" <EXPR>
+      case '-':
+        {
+          // [<Int>|<Float>] |--
+          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
+          return bin_ast;
+        };
+
+        // You should NOT reach this line!
+        break;
+
+      // BIN_MUL | BIN_POW
+      case '*':
+        {
+          // [<Int>|<Float>] |--
+          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
+          return bin_ast;
+        }
+
+        // You should NOT reach this line!
+        break;
+
+      // BIN_DIV := [<Int>|<Float>] "/" <EXPR>
+      case '/':
+        {
+          // [<Int>|<Float>] |--
+          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
+          return bin_ast;
+        };
+
+        // You should NOT reach this line!
+        break;
+
+      // BIN_MOD := [<Int>|<Float>] "%" <EXPR>
+      case '%':
+        {
+          // [<Int>|<Float>] |--
+          BinOpAST* bin_ast = parse_bin_op(tok_ctx, cur_char, numAST);
+          return bin_ast;
+        };
+
+        // You should NOT reach this line!
+        break;
+
+      default:
+        return numAST;
+
+        // You should NOT reach this line!
+        break;
+    }
+  }
+
+  switch (cur_char)
+  {
+    // VAR_DEF := "@" "(" [<ID> ["," <ID>]*]? ")"
+    case '@':
+      {
+        cur_char = get_next_char();
+        
+        drop_white_spaces(cur_char);
+
+        if (cur_char == '(') 
+        {
+          cur_char = get_next_char();
+
+        };
+        
+        std::vector<IdAST*> varBuffer;
+
+        if (isalpha(cur_char) || cur_char == '_') {
+          // "@" "(" |--
+          IdAST* id_ast = parse_id(tok_ctx, cur_char);
+      
+          varBuffer.push_back(id_ast);
+        };
+
+        drop_white_spaces(cur_char);
+
+        // "@" "(" [<ID> |--
+        while (cur_char == ',')
+        {
+          cur_char = get_next_char();
+
+          drop_white_spaces(cur_char);
+
+          if (isalpha(cur_char) || cur_char == '_') {
+            
+            IdAST* id_ast = parse_id(tok_ctx, cur_char);
+      
+            varBuffer.push_back(id_ast);
+
+            drop_white_spaces(cur_char);
+          };
+        };
+        
+        if (cur_char == ')') 
+        {
+          cur_char = get_next_char();
+        };
+
+        VarDefAST* varDef = new VarDefAST(varBuffer);
+
+        return varDef;
+        
+        // You should NOT reach this line!
+        break;
+      };
+
+    case ':':
+      cur_char = get_next_char();
+
+      if (cur_char == '=') {
+        cur_char = get_next_char();
+      } 
+      else
+      {
+
+      };
+      
+      break;
+
+    case '-':
+      cur_char = get_next_char();
+
+      if (cur_char == '>') {
+        cur_char = get_next_char();
+      };
+      
+      break;
+
+    case '?':
+      cur_char = get_next_char();
+      
+      if (cur_char == '=') {
+        cur_char = get_next_char();
+      } 
+      else 
+      {
+
+      };
+      
+      break;
+    
+    case '\"':
+      {
+        return parse_string(tok_ctx, cur_char);
+      }
+
+      
+      break;
+
+    case '!':
+      {
+        cur_char = get_next_char();
+        
+        if (cur_char == '~') {
+          cur_char = get_next_char();
+        };
+      };
+
+      // You should NOT reach this line!
+      break;
+
+    case '(':
+      cur_char = get_next_char();
+      break;
+
+    case '[':
+      {
+        cur_char = get_next_char();
+
+        if (cur_char == '.') {
+          // eliminate the first dot .
+          cur_char = get_next_char();
+
+          if (cur_char == ']') 
+          {
+            std::string errmsg = std::string("[.] is not infinite, please use [..] or [...] instead.");
+            throw StyioSyntaxError(errmsg);
+          };
+
+          return parse_loop(tok_ctx, cur_char);
+        }
+        else
+        {
+          return parse_list_expr(tok_ctx, cur_char);
+        }
+      }
+      
+      // You should NOT reach this line!
+      break;
+
+    case '{':
+      cur_char = get_next_char();
+      
+      // "{" |--
+
+      break;
+
+    case '>':
+      {
+        // eliminate >
+        cur_char = get_next_char();
+        
+        if (cur_char == '_') {
+          // eliminate _
+          cur_char = get_next_char();
+
+          drop_white_spaces(cur_char);
+
+          if (cur_char == '(')
+          {
+            // eliminate (
+            cur_char = get_next_char();
+
+            drop_all_spaces(cur_char);
+
             if (cur_char == '\"')
             {
               return new WriteStdOutAST(parse_string(tok_ctx, cur_char));
             }
             else
             {
-              std::string errmsg = std::string("Try >_(\"Styio\").");
+              std::string errmsg = std::string("Cannot parse the thing to be printed, starts with ") + char(cur_char) + ".";
               throw StyioSyntaxError(errmsg);
             };
-
-            StringAST* strAST = parse_string(tok_ctx, cur_char);
-
-            WriteStdOutAST* result = new WriteStdOutAST(strAST);
-
-            return result;
+          }
+          else
+          if (cur_char == '\"')
+          {
+            return new WriteStdOutAST(parse_string(tok_ctx, cur_char));
+          }
+          else
+          {
+            std::string errmsg = std::string("Try >_(\"Styio\").");
+            throw StyioSyntaxError(errmsg);
           };
-        }
 
-        // You should NOT reach this line!
-        break;
-        
-      default:
-        break;
-    }
+          StringAST* strAST = parse_string(tok_ctx, cur_char);
 
-    std::cout << "Unknown: " << char(cur_char) << std::endl;
-  };
+          WriteStdOutAST* result = new WriteStdOutAST(strAST);
 
-  return new NoneAST();
+          return result;
+        };
+      }
+
+      // You should NOT reach this line!
+      break;
+      
+    default:
+      break;
+  }
+
+  std::string errmsg = std::string("Unrecognized statement, starting with `") + char(cur_char) + "`";
+  throw StyioSyntaxError(errmsg);
 }
 
 static std::string parse_ext_elem(std::vector<int>& tok_ctx, int& cur_char)
@@ -1492,7 +1515,7 @@ static std::vector<int> parse_program ()
 
     std::cout << stmt -> toString() << std::endl;
 
-    std::cout << "Next Line >>" << std::endl;
+    // std::cout << "Next Line >>" << std::endl;
   }; 
 
   return tok_ctx;

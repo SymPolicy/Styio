@@ -531,10 +531,10 @@ class BlockAST : public StyioAST {
       };
 
       return std::string("Block { ")
-        + std::string(2, ' ') + "| Stmts: "
+        + std::string(2, ' ') + "| Statements: "
         + stmtStr
         + " |"
-        + std::string(2, ' ') + "| Expr:  "
+        + std::string(2, ' ') + "| Expressions:  "
         + Expr -> toString()  
         + " } ";
     }
@@ -562,7 +562,7 @@ class ExtPackAST : public StyioAST {
         pacPathStr += "\n";
       };
 
-      return std::string("Ext Pac {\n")
+      return std::string("External Packages {\n")
         + pacPathStr
         + "\n} ";
     }
@@ -576,7 +576,7 @@ class ExtPackAST : public StyioAST {
         pacPathStr += " ;";
       };
 
-      return std::string("Dependencies { ")
+      return std::string("External Packages { ")
         + pacPathStr
         + " } ";
     }
@@ -603,7 +603,7 @@ class WriteStdOutAST : public StyioAST {
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("stdout { ")
+      return std::string("Write (StdOut) { ")
         + std::string(2, ' ') + "| "
         + Output -> toString()
         + " }";
@@ -652,7 +652,7 @@ class RangeAST : public StyioAST {
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Range {\n")
+      return std::string("Collection.Range {\n")
         + std::string(2, ' ') + "| Start: " + StartVal -> toString() + "\n"
         + std::string(2, ' ') + "| End: " + EndVal -> toString() + "\n"
         + std::string(2, ' ') + "| Step: " + StepVal -> toString() + "\n"
@@ -660,7 +660,7 @@ class RangeAST : public StyioAST {
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Loop {\n")
+      return std::string("Collection.Range {\n")
         + std::string(2, ' ') + "| Start: " + StartVal -> toString() + "\n"
         + std::string(2, ' ') + "| End: " + EndVal -> toString() + "\n"
         + std::string(2, ' ') + "| Step: " + StepVal -> toString() + "\n"
