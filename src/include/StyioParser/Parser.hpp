@@ -10,9 +10,7 @@ auto type_to_int(Enumeration const value)
 
 static int get_next_char() 
 {
-  int tmpChar = getchar();
-
-  return tmpChar;
+  return getchar();
 }
 
 static void drop_all_spaces (int& cur_char) 
@@ -71,7 +69,11 @@ static IdAST* parse_id (std::vector<int>& tok_ctx, int& cur_char)
 static IntAST* parse_int (std::vector<int>& tok_ctx, int& cur_char)
 {
   std::string intStr = "";
+
+  // push the current character into string
   intStr += cur_char;
+
+  // progress to the next
   cur_char = get_next_char();
 
   // [0-9]*
@@ -84,7 +86,7 @@ static IntAST* parse_int (std::vector<int>& tok_ctx, int& cur_char)
   return new IntAST(std::stoi(intStr));
 }
 
-static StyioAST* parse_int_float (std::vector<int>& tok_ctx, int& cur_char)
+static StyioAST* parse_int_or_float (std::vector<int>& tok_ctx, int& cur_char)
 {
   std::string numStr = "";
   numStr += cur_char;
@@ -231,7 +233,7 @@ static StyioAST* parse_list_elem (std::vector<int>& tok_ctx, int& cur_char)
 {
   if (isdigit(cur_char)) 
   {
-    return parse_int_float(tok_ctx, cur_char);
+    return parse_int_or_float(tok_ctx, cur_char);
   }
   else if (isalpha(cur_char) || cur_char == '_') 
   {
@@ -242,11 +244,118 @@ static StyioAST* parse_list_elem (std::vector<int>& tok_ctx, int& cur_char)
     return parse_string(tok_ctx, cur_char);
   }
   
-  std::string errmsg = std::string("Unexpected Element for Iterator, starts with character `") + char(cur_char) + "`";
+  std::string errmsg = std::string("Unexpected List / Range Element, starts with character `") + char(cur_char) + "`";
   throw StyioSyntaxError(errmsg);
 }
 
-static StyioAST* parse_list_loop (std::vector<int>& tok_ctx, int& cur_char) 
+static ListOpAST* parse_list_op (
+  std::vector<int>& tok_ctx, 
+  int& cur_char,
+  StyioAST* theList
+) 
+{
+  // eliminate [ at the start
+  cur_char = get_next_char();
+
+  switch (cur_char)
+  {
+  // List.get_reversed()
+  case '<':
+    return new ListOpAST(
+      theList, 
+      ListOpType::Reversed);
+
+    break;
+
+  // List.get_item_by_list(item)
+  case '?':
+    {
+      cur_char = get_next_char();
+
+      if (cur_char == '=')
+      {
+        cur_char = get_next_char();
+
+        StyioAST* theItem = parse_list_elem(tok_ctx, cur_char);
+
+        return new ListOpAST(
+          theList, 
+          ListOpType::Get_Index_By_Item,
+          theItem);
+      }
+      else
+      {
+        std::string errmsg = std::string("Missing `=` for `?=` after `?= item`, but got `") + char(cur_char) + "`";
+        throw StyioSyntaxError(errmsg);
+      };
+    }
+    break;
+  
+  // List.insert_item_by_index(index, item)
+  case '^':
+    cur_char = get_next_char();
+
+    // eliminate white spaces between ^ and index
+    drop_white_spaces(cur_char);
+
+    StyioAST* theIndex = parse_int(tok_ctx, cur_char);
+
+    // eliminate white spaces between index and <-
+    drop_white_spaces(cur_char);
+
+    if (cur_char == '<')
+    {
+      cur_char = get_next_char();
+
+      if (cur_char == '-')
+      {
+        cur_char = get_next_char();
+
+        // eliminate white spaces between <- and the value to be inserted
+        drop_white_spaces(cur_char);
+
+        // the item to be inserted into the list
+        StyioAST* theItemIns = parse_list_elem(tok_ctx, cur_char);
+
+        return new ListOpAST(
+          theList, 
+          ListOpType::Insert_Item_By_Index,
+          theIndex,
+          theItemIns);
+      }
+      else
+      {
+        std::string errmsg = std::string("Missing `-` for `<-` after `^? index`, but got `") + char(cur_char) + "`";
+        throw StyioSyntaxError(errmsg);
+      };
+    }
+    else
+    {
+      std::string errmsg = std::string("Expecting `<-` after `^? index`, but got `") + char(cur_char) + "`";
+      throw StyioSyntaxError(errmsg);
+    }
+
+    break;
+  
+  default:
+    break;
+  }
+
+  // check [ at the end
+  if (cur_char == ']')
+  {
+    // eliminate [ at the end
+    cur_char = get_next_char();
+    
+  }
+  else
+  {
+    std::string errmsg = std::string("Missing `]` after List[Operation].");
+    throw StyioSyntaxError(errmsg);
+  };
+}
+
+static StyioAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char) 
 {
   std::vector<StyioAST*> elements;
 
@@ -268,16 +377,18 @@ static StyioAST* parse_list_loop (std::vector<int>& tok_ctx, int& cur_char)
       
       StyioAST* endEl = parse_list_elem(tok_ctx, cur_char);
 
+      StyioAST* list_loop;
+
       if (startEl -> hint() == StyioType::Int 
         && endEl -> hint() == StyioType::Id)
       {
-        return new InfLoop(startEl, endEl);
+        list_loop = new InfLoop(startEl, endEl);
       }
       else
       if (startEl -> hint() == StyioType::Int 
         && endEl -> hint() == StyioType::Int)
       {
-        return new RangeAST(startEl, endEl, new IntAST(1));
+        list_loop = new RangeAST(startEl, endEl, new IntAST(1));
       }
       else
       {
@@ -291,7 +402,66 @@ static StyioAST* parse_list_loop (std::vector<int>& tok_ctx, int& cur_char)
         throw StyioSyntaxError(errmsg);
       }
 
-      return new InfLoop(startEl, endEl);
+      if (cur_char == ']') 
+      {
+        cur_char = get_next_char();
+      }
+      else
+      {
+        std::string errmsg = std::string("Missing `]` after List / Range / Loop: `") + char(cur_char) + "`";
+        throw StyioSyntaxError(errmsg);
+      };
+
+      switch (cur_char)
+      {
+      case '\n':
+        {
+          // If: LF, Then: Statement Ends
+          cur_char = get_next_char();
+
+          return list_loop;
+        }
+        
+        // You should NOT reach this line!
+        break;
+
+      case '>':
+        {
+          cur_char = get_next_char();
+
+          if (cur_char == '>')
+          {
+            // If: >>, Then: Iteration
+            cur_char = get_next_char();
+            
+          }
+
+          
+          cur_char = get_next_char();
+
+          return list_loop;
+        }
+        
+        // You should NOT reach this line!
+        break;
+
+      case '[':
+        {
+          return parse_list_op(tok_ctx, cur_char, list_loop);
+        }
+        
+        // You should NOT reach this line!
+        break;
+      
+      default:
+        {
+          std::string errmsg = std::string("Unexpected character after List / Range / Loop: `") + char(cur_char) + "`";
+          throw StyioSyntaxError(errmsg);
+        };
+        
+        // You should NOT reach this line!
+        break;
+      }
     }
 
     // You should not reach this line!
@@ -325,6 +495,11 @@ static StyioAST* parse_list_loop (std::vector<int>& tok_ctx, int& cur_char)
         cur_char = get_next_char();
 
         return new ListAST(elements);
+      }
+      else
+      {
+        std::string errmsg = std::string("Missing `]` after List / Range / Loop: `") + char(cur_char) + "`";
+        throw StyioSyntaxError(errmsg);
       };
     }
 
@@ -356,7 +531,7 @@ static InfLoop* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
 
   if (isdigit(cur_char))
   {
-    StyioAST* errnum = parse_int_float(tok_ctx, cur_char);
+    StyioAST* errnum = parse_int_or_float(tok_ctx, cur_char);
     
     std::string errmsg = std::string("A finite list must have both start and end values. However, only the end value is detected: `") + errnum -> toStringInline() + "`. Try `[0.." + errnum -> toStringInline() + "]` rather than `[.." + errnum -> toStringInline() + "]`.";
     throw StyioSyntaxError(errmsg);
@@ -382,7 +557,7 @@ static StyioAST* parse_bin_rhs (
   else
   // Int / Float
   if (isdigit(cur_char)) {
-    StyioAST* result = parse_int_float(tok_ctx, cur_char);
+    StyioAST* result = parse_int_or_float(tok_ctx, cur_char);
     return result;
   }
   else
@@ -401,7 +576,7 @@ static StyioAST* parse_bin_rhs (
         }
         else
         {
-          return parse_list_loop(tok_ctx, cur_char);
+          return parse_list_expr(tok_ctx, cur_char);
         }
       }
 
@@ -444,7 +619,7 @@ static BinOpAST* parse_bin_op (
         cur_char = get_next_char();
 
         // <ID> "+" |-- 
-        binOp = new BinOpAST(BinTok::BIN_ADD, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
+        binOp = new BinOpAST(BinOpType::BIN_ADD, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
       };
 
       // You should NOT reach this line!
@@ -456,7 +631,7 @@ static BinOpAST* parse_bin_op (
         cur_char = get_next_char();
 
         // <ID> "-" |--
-        binOp = new BinOpAST(BinTok::BIN_SUB, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
+        binOp = new BinOpAST(BinOpType::BIN_SUB, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
       };
 
       // You should NOT reach this line!
@@ -472,13 +647,13 @@ static BinOpAST* parse_bin_op (
           cur_char = get_next_char();
 
           // <ID> "**" |--
-          binOp = new BinOpAST(BinTok::BIN_POW, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
+          binOp = new BinOpAST(BinOpType::BIN_POW, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
         } 
         // BIN_MUL := <ID> "*" <EXPR>
         else 
         {
           // <ID> "*" |--
-          binOp = new BinOpAST(BinTok::BIN_MUL, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
+          binOp = new BinOpAST(BinOpType::BIN_MUL, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
         }
       };
       // You should NOT reach this line!
@@ -490,7 +665,7 @@ static BinOpAST* parse_bin_op (
         cur_char = get_next_char();
 
         // <ID> "/" |-- 
-        binOp = new BinOpAST(BinTok::BIN_DIV, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
+        binOp = new BinOpAST(BinOpType::BIN_DIV, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
       };
 
       // You should NOT reach this line!
@@ -502,7 +677,7 @@ static BinOpAST* parse_bin_op (
         cur_char = get_next_char();
 
         // <ID> "%" |-- 
-        binOp = new BinOpAST(BinTok::BIN_MOD, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
+        binOp = new BinOpAST(BinOpType::BIN_MOD, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
       };
 
       // You should NOT reach this line!
@@ -546,7 +721,7 @@ static StyioAST* parse_value_expr (
   }
   else
   if (isdigit(cur_char)) {
-    StyioAST* numAST = parse_int_float(tok_ctx, cur_char);
+    StyioAST* numAST = parse_int_or_float(tok_ctx, cur_char);
 
     // ignore white spaces after number
     drop_white_spaces(cur_char);
@@ -577,7 +752,7 @@ static StyioAST* parse_value_expr (
         }
         else
         {
-          return parse_list_loop(tok_ctx, cur_char);
+          return parse_list_expr(tok_ctx, cur_char);
         }
       }
 
@@ -813,7 +988,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
     }
 
     if (isdigit(cur_char)) {
-      StyioAST* numAST = parse_int_float(tok_ctx, cur_char);
+      StyioAST* numAST = parse_int_or_float(tok_ctx, cur_char);
 
       drop_all_spaces(cur_char);
 
@@ -1066,7 +1241,7 @@ static StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
           }
           else
           {
-            return parse_list_loop(tok_ctx, cur_char);
+            return parse_list_expr(tok_ctx, cur_char);
           }
         }
         

@@ -2,7 +2,7 @@
 #define STYIO_TOKEN_H_
 
 enum class StyioType {
-  /*
+  /* -----------------
    * None, Null, Empty
    */
 
@@ -11,7 +11,7 @@ enum class StyioType {
 
   // -----------------
 
-  /*
+  /* -----------------
    * Basic Type
    */
 
@@ -26,7 +26,7 @@ enum class StyioType {
 
   // -----------------
 
-  /*
+  /* -----------------
    * External Resource Identifier
    */
 
@@ -38,17 +38,8 @@ enum class StyioType {
   ExtPack,
 
   // -----------------
-  
-  /*
-   * Basic Operation
-   */
 
-  // Binary Operation
-  BinOp,
-
-  // -----------------
-
-  /*
+  /* -----------------
    * Collection
    */
 
@@ -61,7 +52,19 @@ enum class StyioType {
 
   // -----------------
 
-  /*
+  /* -----------------
+   * Basic Operation
+   */
+
+  // Binary Operation
+  BinOp,
+
+  // List Operation
+  ListOp,
+
+  // -----------------
+
+  /* -----------------
    * Basic Util
    */
   
@@ -70,7 +73,7 @@ enum class StyioType {
 
   // -----------------
   
-  /*
+  /* -----------------
    * Variable Definition
    */
 
@@ -79,7 +82,7 @@ enum class StyioType {
 
   // -----------------
 
-  /*
+  /* -----------------
    * Variable Assignment 
    */
 
@@ -90,14 +93,21 @@ enum class StyioType {
 
   // -----------------
 
-  /*
+  /* -----------------
    * Control Flow: Loop
    */
   InfLoop,
 
   // -----------------
 
-  /*
+  /* -----------------
+   * Iterator
+   */
+  Iter,
+
+  // -----------------
+
+  /* -----------------
    * Read
    */
 
@@ -105,7 +115,7 @@ enum class StyioType {
 
   // -----------------
 
-  /*
+  /* -----------------
    * Write
    */
 
@@ -113,7 +123,7 @@ enum class StyioType {
 
   // -----------------
 
-  /*
+  /* -----------------
    * Code Block
    */
 
@@ -122,13 +132,19 @@ enum class StyioType {
   // -----------------
 };
 
-enum class BinTok {
+enum class BinOpType {
   BIN_ADD, // +
   BIN_SUB, // -
   BIN_MUL, // *
   BIN_DIV, // /
   BIN_POW, // **
   BIN_MOD, // %
+};
+
+enum class ListOpType {
+  Reversed, // [<]
+  Insert_Item_By_Index, // [^ index <- item] 
+  Get_Index_By_Item, // [?= item]
 };
 
 enum class StyioToken {
@@ -216,25 +232,25 @@ enum class StyioToken {
   TOK_INFINITE_LIST, // [...]
 };
 
-static std::string reprToken(BinTok token) {
+static std::string reprToken(BinOpType token) {
   switch (token)
   {
-    case BinTok::BIN_ADD:
+    case BinOpType::BIN_ADD:
       return "<ADD>";
 
-    case BinTok::BIN_SUB:
+    case BinOpType::BIN_SUB:
       return "<SUB>";
 
-    case BinTok::BIN_MUL:
+    case BinOpType::BIN_MUL:
       return "<MUL>";
 
-    case BinTok::BIN_DIV:
+    case BinOpType::BIN_DIV:
       return "<DIV>";
 
-    case BinTok::BIN_POW:
+    case BinOpType::BIN_POW:
       return "<POW>";
 
-    case BinTok::BIN_MOD:
+    case BinOpType::BIN_MOD:
       return "<DIV>";
 
     default:

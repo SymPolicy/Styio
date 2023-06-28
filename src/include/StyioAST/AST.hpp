@@ -341,12 +341,12 @@ class ReadFileAST : public StyioAST {
 BinOpAST
 */
 class BinOpAST : public StyioAST {
-  BinTok Op;
+  BinOpType Op;
   StyioAST *LHS;
   StyioAST *RHS;
 
   public:
-    BinOpAST(BinTok op, StyioAST* lhs, StyioAST* rhs): Op(op), LHS(lhs), RHS(rhs) {}
+    BinOpAST(BinOpType op, StyioAST* lhs, StyioAST* rhs): Op(op), LHS(lhs), RHS(rhs) {}
 
     StyioType hint() {
       return StyioType::BinOp;
@@ -374,6 +374,62 @@ class BinOpAST : public StyioAST {
         + " | RHS: "
         + RHS -> toStringInline(indent)  
         + " }";
+    }
+};
+
+/*
+
+*/
+class ListOpAST : public StyioAST {
+  StyioAST* TheList;
+  ListOpType OpType;
+
+  StyioAST* Index;
+  StyioAST* Item;
+
+  public:
+    // Reversed
+    ListOpAST(
+      StyioAST* theList, 
+      ListOpType opType
+      ): 
+      TheList(theList), 
+      OpType(opType) {}
+
+    // Get_Index_By_Item
+    ListOpAST(
+      StyioAST* theList, 
+      ListOpType opType, 
+      StyioAST* item): 
+      TheList(theList), 
+      OpType(opType), 
+      Item(item) {}
+
+    // Insert_Item_By_Index
+    ListOpAST(
+      StyioAST* theList, 
+      ListOpType opType, 
+      StyioAST* index, 
+      StyioAST* item): 
+      TheList(theList), 
+      OpType(opType), 
+      Index(index), 
+      Item(item) {}
+
+    StyioType hint() {
+      return StyioType::ListOp;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("List[Operation] { ") 
+      + TheList -> toString()
+      + " }";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("List[Operation] { ") 
+      + TheList -> toStringInline()
+      + " }";
     }
 };
 
@@ -609,6 +665,32 @@ class RangeAST : public StyioAST {
         + std::string(2, ' ') + "| End: " + EndVal -> toString() + "\n"
         + std::string(2, ' ') + "| Step: " + StepVal -> toString() + "\n"
         + "\n}";
+    }
+};
+
+/*
+
+*/
+class IterAST : public StyioAST {
+  StyioAST* Collection;
+
+  public:
+    IterAST(StyioAST* collection): Collection(collection) {}
+
+    StyioType hint() {
+      return StyioType::Iter;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("Iterator { ") 
+      + Collection -> toString()
+      + " }";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Iterator { ") 
+      + Collection -> toStringInline()
+      + " }";
     }
 };
 
