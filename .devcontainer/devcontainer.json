@@ -1,7 +1,7 @@
 {
     "image": "debian:latest",
     "build": {
-        "dockerfile": "https://github.com/SymPolicy/Unka-Malloc-env.git#main:docker/std/Dockerfile"
+        "dockerfile": "Dockerfile"
     },
     "workspaceMount": "source=${localWorkspaceFolder},target=/root/styio,type=bind",
     "workspaceFolder": "/root/styio"
