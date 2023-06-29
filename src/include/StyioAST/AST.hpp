@@ -614,14 +614,14 @@ class WriteStdOutAST : public StyioAST {
 InfLoop: Infinite Loop
   incEl Increment Element
 */
-class InfLoop : public StyioAST {
+class InfLoopAST : public StyioAST {
   StyioAST* Start;
   StyioAST* IncEl;
 
   public:
-    InfLoop() {}
+    InfLoopAST() {}
 
-    InfLoop(StyioAST* start, StyioAST* incEl): Start(start), IncEl(incEl) {}
+    InfLoopAST(StyioAST* start, StyioAST* incEl): Start(start), IncEl(incEl) {}
 
     StyioType hint() {
       return StyioType::InfLoop;
