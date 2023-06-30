@@ -848,6 +848,20 @@ class BlockAST : public StyioAST {
 /*
   ICBSLayerAST: Intermediate Connection Between Scopes
 
+  ExtraMatch:
+    >> Elements ?= ValueExprs => {}
+    For each step of iteration, check if the elements match the value expressions, 
+    if match case is true, then execute the branch. 
+
+  ExtraFilter: 
+    >> Elements ?(Condition) :) {}
+    For each step of iteration, check the given condition, 
+    if condition is true, then execute the branch. 
+
+    >> Elements ?(Condition) :( {}
+    For each step of iteration, check the given condition, 
+    if condition is false, then execute the branch. 
+
   Rules:
     1. If: a variable NOT not exists in its outer scope
        Then: create a variable and refresh it for each step
@@ -914,9 +928,18 @@ class BlockAST : public StyioAST {
 
 class ICBSLayerAST : public StyioAST {
   std::vector<StyioAST*> TmpExprs;
+  StyioAST* ExtraFilter;
+  StyioAST* ExtraMatch;
 
   public:
     ICBSLayerAST() {}
+
+    ICBSLayerAST(
+      std::vector<StyioAST*> exprs): 
+      TmpExprs(exprs)
+      {
+
+      }
 
     ICBSLayerAST(
       std::vector<StyioAST*> exprs): 
