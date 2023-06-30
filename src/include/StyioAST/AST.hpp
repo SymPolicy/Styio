@@ -913,14 +913,14 @@ class BlockAST : public StyioAST {
 */
 
 class ICBSLayerAST : public StyioAST {
-  std::vector<StyioAST*> TmpVars;
+  std::vector<StyioAST*> TmpExprs;
 
   public:
     ICBSLayerAST() {}
 
     ICBSLayerAST(
-      std::vector<StyioAST*> vars): 
-      TmpVars(vars)
+      std::vector<StyioAST*> exprs): 
+      TmpExprs(exprs)
       {
 
       }
