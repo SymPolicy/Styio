@@ -188,7 +188,10 @@ ExtPackAST* parse_ext_pack (std::vector<int>& tok_ctx, int& cur_char);
 /*
   parse_block
 */
-BlockAST* parse_block (std::vector<int>& tok_ctx, int& cur_char);
+StyioAST* parse_block (
+  std::vector<int>& tok_ctx, 
+  int& cur_char
+);
 
 /*
   parse_program

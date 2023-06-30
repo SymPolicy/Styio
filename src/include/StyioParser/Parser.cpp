@@ -442,7 +442,7 @@ StyioAST* parse_iter_over (
   StyioAST* iterOverIt) 
 {
   std::vector<IdAST*> iterTmpVars;
-  BlockAST* iterBlock;
+  StyioAST* iterBlock;
 
   // eliminate the start
   switch (cur_char)
@@ -496,6 +496,8 @@ StyioAST* parse_iter_over (
     break;
   }
 
+  get_next_char(cur_char);
+
   if (check_this_char(cur_char, '?'))
   {
     get_next_char(cur_char);
@@ -514,17 +516,17 @@ StyioAST* parse_iter_over (
       throw StyioSyntaxError(errmsg);
     };
   };
-  
 
   if (check_this_char(cur_char, '='))
   {
-    cur_char = get_next_char();
+    get_next_char(cur_char);
 
     if (check_this_char(cur_char, '>'))
     {
-      cur_char = get_next_char();
+      get_next_char(cur_char);
 
-      // TODO: Iter Block
+      // support newline(\n) and other white spaces
+      drop_all_spaces(cur_char);
 
       if (check_this_char(cur_char, '{'))
       {
@@ -545,19 +547,19 @@ StyioAST* parse_iter_over (
 
   switch (iterOverIt -> hint())
   {
-  case StyioType::IterInfLoop:
+  case StyioType::InfLoop:
     return new IterInfLoopAST(iterTmpVars, iterBlock);
 
     // You should NOT reach this line!
     break;
 
-  case StyioType::IterList:
+  case StyioType::List:
     return new IterListAST(iterOverIt, iterTmpVars, iterBlock);
 
     // You should NOT reach this line!
     break;
 
-  case StyioType::IterRange:
+  case StyioType::Range:
     return new IterRangeAST(iterOverIt, iterTmpVars, iterBlock);
 
     // You should NOT reach this line!
@@ -565,7 +567,7 @@ StyioAST* parse_iter_over (
   
   default:
     {
-      std::string errmsg = std::string("Cannot recognize the collection for the iterator.");
+      std::string errmsg = std::string("Cannot recognize the collection for the iterator: ") + std::to_string(type_to_int(iterOverIt -> hint()));
       throw StyioSyntaxError(errmsg);
     }
 
@@ -653,11 +655,8 @@ StyioAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char)
             // If: >>, Then: Iteration
             cur_char = get_next_char();
             
+            return parse_iter_over(tok_ctx, cur_char, list_loop);
           }
-
-          // TODO: Iteration Over List / Range / Loop
-
-          return list_loop;
         }
         
         // You should NOT reach this line!
@@ -1641,7 +1640,7 @@ ExtPackAST* parse_ext_pack (std::vector<int>& tok_ctx, int& cur_char)
   return result;
 }
 
-BlockAST* parse_block (std::vector<int>& tok_ctx, int& cur_char) 
+StyioAST* parse_block (std::vector<int>& tok_ctx, int& cur_char) 
 {
   // the last expression will be the return expression
   // a block must have a return value
@@ -1656,24 +1655,29 @@ BlockAST* parse_block (std::vector<int>& tok_ctx, int& cur_char)
   while (1)
   {
     drop_all_spaces(cur_char);
-
+    
     if (check_this_char(cur_char, '}'))
     {
+      // eliminate } at the end
       get_next_char(cur_char);
 
-      return new BlockAST();
+      break;
     }
     else
     {
-      StyioAST* exprAST = parse_stmt(tok_ctx, cur_char);
-      stmtBuffer.push_back(exprAST);
+      StyioAST* tmpStmt = parse_stmt(tok_ctx, cur_char);
+      stmtBuffer.push_back(tmpStmt);
     };
   };
 
-  // eliminate } at the end
-  get_next_char(cur_char);
-
-  return new BlockAST();
+  if (stmtBuffer.size() == 0)
+  {
+    return new EmptyBlockAST();
+  }
+  else
+  {
+    return new BlockAST(stmtBuffer);
+  };
 }
 
 void parse_program () 

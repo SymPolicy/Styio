@@ -501,6 +501,28 @@ class VarDefAST : public StyioAST {
 };
 
 /*
+EmptyBlockAST: Block
+*/
+class EmptyBlockAST : public StyioAST {
+  public:
+    EmptyBlockAST() {}
+
+    StyioType hint() {
+      return StyioType::EmptyBlock;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("Block (Empty) { ")
+        + " } ";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Block (Empty) { ")
+        + " } ";
+    }
+};
+
+/*
 BlockAST: Block
 */
 class BlockAST : public StyioAST {
@@ -511,6 +533,8 @@ class BlockAST : public StyioAST {
     BlockAST() {}
 
     BlockAST(StyioAST* expr): Expr(expr) {}
+
+    BlockAST(std::vector<StyioAST*> stmts): Stmts(stmts) {}
 
     BlockAST(std::vector<StyioAST*> stmts, StyioAST* expr): Stmts(stmts), Expr(expr) {}
 
@@ -689,12 +713,12 @@ class RangeAST : public StyioAST {
 
 class IterInfLoopAST : public StyioAST {
   std::vector<IdAST*> TmpVars;
-  BlockAST* TheBlock;
+  StyioAST* TheBlock;
 
   public:
     IterInfLoopAST(
       std::vector<IdAST*> tmpVars,
-      BlockAST* block):
+      StyioAST* block):
       TmpVars(tmpVars),
       TheBlock(block)
       {
@@ -719,13 +743,13 @@ class IterInfLoopAST : public StyioAST {
 class IterListAST : public StyioAST {
   StyioAST* TheList;
   std::vector<IdAST*> TmpVars;
-  BlockAST* TheBlock;
+  StyioAST* TheBlock;
 
   public:
     IterListAST(
       StyioAST* theList, 
       std::vector<IdAST*> tmpVars,
-      BlockAST* block): 
+      StyioAST* block): 
       TheList(theList),
       TmpVars(tmpVars),
       TheBlock(block)
@@ -753,13 +777,13 @@ class IterListAST : public StyioAST {
 class IterRangeAST : public StyioAST {
   StyioAST* TheRange;
   std::vector<IdAST*> TmpVars;
-  BlockAST* TheBlock;
+  StyioAST* TheBlock;
 
   public:
     IterRangeAST(
       StyioAST* theRange, 
       std::vector<IdAST*> tmpVars,
-      BlockAST* block): 
+      StyioAST* block): 
       TheRange(theRange),
       TmpVars(tmpVars),
       TheBlock(block)
