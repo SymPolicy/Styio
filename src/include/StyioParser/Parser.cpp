@@ -436,7 +436,7 @@ std::vector<IdAST*> parse_multi_vars (
   return vars;
 }
 
-StyioAST* parse_iter_over (
+StyioAST* parse_iter (
   std::vector<int>& tok_ctx, 
   int& cur_char,
   StyioAST* iterOverIt) 
@@ -655,7 +655,7 @@ StyioAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char)
             // If: >>, Then: Iteration
             cur_char = get_next_char();
             
-            return parse_iter_over(tok_ctx, cur_char, list_loop);
+            return parse_iter(tok_ctx, cur_char, list_loop);
           }
         }
         
@@ -743,7 +743,7 @@ StyioAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char)
             // If: >>, Then: Iteration
             cur_char = get_next_char();
 
-            
+            return parse_iter(tok_ctx, cur_char, theList);
           }
 
           // TODO: Iteration Over List / Range / Loop

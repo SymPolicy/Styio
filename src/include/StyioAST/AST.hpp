@@ -2,7 +2,7 @@
 #define STYIO_AST_H_
 
 /*
-StyioAST
+  StyioAST
 */
 class StyioAST {
   public:
@@ -16,7 +16,13 @@ class StyioAST {
 };
 
 /*
-NoneAST: None / Null / Nil
+  =================
+    None / Empty
+  =================
+*/
+
+/*
+  NoneAST: None / Null / Nil
 */
 class NoneAST : public StyioAST {
 
@@ -37,7 +43,55 @@ class NoneAST : public StyioAST {
 };
 
 /*
-IdAST: Identifier
+  EmptyListAST: Empty List
+*/
+class EmptyListAST : public StyioAST {
+  public:
+    EmptyListAST() {}
+
+    StyioType hint() {
+      return StyioType::EmptyList;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("List(Empty) [ ]");
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("List(Empty) [ ]");
+    }
+};
+
+/*
+  EmptyBlockAST: Block
+*/
+class EmptyBlockAST : public StyioAST {
+  public:
+    EmptyBlockAST() {}
+
+    StyioType hint() {
+      return StyioType::EmptyBlock;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("Block (Empty) { ")
+        + " } ";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Block (Empty) { ")
+        + " } ";
+    }
+};
+
+/*
+  =================
+    Variable
+  =================
+*/
+
+/*
+  IdAST: Identifier
 */
 class IdAST : public StyioAST {
   std::string Id;
@@ -59,7 +113,13 @@ class IdAST : public StyioAST {
 };
 
 /*
-IntAST: Integer
+  =================
+    Scalar Value
+  =================
+*/
+
+/*
+  IntAST: Integer
 */
 class IntAST : public StyioAST {
   int Value;
@@ -81,7 +141,7 @@ class IntAST : public StyioAST {
 };
 
 /*
-FloatAST: Float
+  FloatAST: Float
 */
 class FloatAST : public StyioAST {
   double Value;
@@ -103,27 +163,8 @@ class FloatAST : public StyioAST {
 };
 
 /*
-StringAST: String
+  CharAST: Character
 */
-class StringAST : public StyioAST {
-  std::string Value;
-
-  public:
-    StringAST(std::string val) : Value(val) {}
-
-    StyioType hint() {
-      return StyioType::String;
-    }
-
-    std::string toString(int indent = 0) {
-      return "String { \"" + Value + "\" }";
-    }
-
-    std::string toStringInline(int indent = 0) {
-      return "<String: \"" + Value + "\">";
-    }
-};
-
 class CharAST : public StyioAST {
   std::string Value;
 
@@ -144,7 +185,13 @@ class CharAST : public StyioAST {
 };
 
 /*
-ExtPathAST: (File) Path
+  =================
+    Data Resource Identifier
+  =================
+*/
+
+/*
+  ExtPathAST: (File) Path
 */
 class ExtPathAST : public StyioAST {
   std::string Path;
@@ -166,7 +213,7 @@ class ExtPathAST : public StyioAST {
 };
 
 /*
-ExtLinkAST: (Web) Link
+  ExtLinkAST: (Web) Link
 */
 class ExtLinkAST : public StyioAST {
   std::string Link;
@@ -188,27 +235,35 @@ class ExtLinkAST : public StyioAST {
 };
 
 /*
-EmptyListAST: Empty List
+  =================
+    Collection
+  =================
 */
-class EmptyListAST : public StyioAST {
+
+/*
+  StringAST: String
+*/
+class StringAST : public StyioAST {
+  std::string Value;
+
   public:
-    EmptyListAST() {}
+    StringAST(std::string val) : Value(val) {}
 
     StyioType hint() {
-      return StyioType::EmptyList;
+      return StyioType::String;
     }
 
     std::string toString(int indent = 0) {
-      return std::string("List(Empty) [ ]");
+      return "String { \"" + Value + "\" }";
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("List(Empty) [ ]");
+      return "<String: \"" + Value + "\">";
     }
 };
 
 /*
-ListAST
+  ListAST: List (Extendable)
 */
 class ListAST : public StyioAST {
   std::vector<StyioAST*> Elems;
@@ -249,115 +304,125 @@ class ListAST : public StyioAST {
 };
 
 /*
-MutAssignAST
+  RangeAST: Loop
 */
-class MutAssignAST : public StyioAST {
-  IdAST* varId;
-  StyioAST* valExpr;
+class RangeAST : public StyioAST {
+  StyioAST* StartVal;
+  StyioAST* EndVal;
+  StyioAST* StepVal;
 
   public:
-    MutAssignAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
+    RangeAST(StyioAST* start, StyioAST* end, StyioAST* step): StartVal(start), EndVal(end), StepVal(step) {}
 
     StyioType hint() {
-      return StyioType::MutAssign;
+      return StyioType::Range;
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Assign (Mutable) {\n") 
-        + std::string(2, ' ') + "| Var: " 
-        + varId -> toString(indent) 
-        + "\n"
-        + std::string(2, ' ') + "| Val: " 
-        + valExpr -> toString(indent) 
-        + "\n"
-        + "}";
+      return std::string("Collection.Range {\n")
+        + std::string(2, ' ') + "| Start: " + StartVal -> toString() + "\n"
+        + std::string(2, ' ') + "| End: " + EndVal -> toString() + "\n"
+        + std::string(2, ' ') + "| Step: " + StepVal -> toString() + "\n"
+        + "\n}";
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Assign (Mutable) {\n") 
-        + std::string(2, ' ') + "| Var: " 
-        + varId -> toStringInline(indent) 
-        + "; "
-        + std::string(2, ' ') + "| Val: " 
-        + valExpr -> toStringInline(indent) 
-        + " }";
+      return std::string("Collection.Range {\n")
+        + std::string(2, ' ') + "| Start: " + StartVal -> toString() + "\n"
+        + std::string(2, ' ') + "| End: " + EndVal -> toString() + "\n"
+        + std::string(2, ' ') + "| Step: " + StepVal -> toString() + "\n"
+        + "\n}";
     }
 };
 
 /*
-FixAssignAST
+  =================
+    Basic Operation
+  =================
 */
-class FixAssignAST : public StyioAST {
-  IdAST* varId;
-  StyioAST* valExpr;
+
+/*
+  SizeOfAST: Get Size(Length) Of A Collection
+*/
+class SizeOfAST : public StyioAST {
+  StyioAST* Value;
 
   public:
-    FixAssignAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
+    SizeOfAST(StyioAST* value): Value(value) {}
 
     StyioType hint() {
-      return StyioType::FixAssign;
+      return StyioType::SizeOf;
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Assign (Final) {\n") 
-        + std::string(2, ' ') + "| Var: " 
-        + varId -> toString(indent) 
-        + "\n"
-        + std::string(2, ' ') + "| Val: " 
-        + valExpr -> toString(indent) 
-        + "\n"
-        + "}";
+      return std::string("SizeOf { ") 
+      + Value -> toString()
+      + " }";
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Assign (Final) { ") 
-        + std::string(2, ' ') + "| Var: " 
-        + varId -> toString(indent) 
-        + "; "
-        + std::string(2, ' ') + "| Val: " 
-        + valExpr -> toString(indent) 
-        + " }";
+      return std::string("SizeOf { ") 
+      + Value -> toStringInline()
+      + " }";
     }
 };
 
 /*
-ReadFileAST: Read (File)
-*/
-class ReadFileAST : public StyioAST {
-  IdAST* varId;
-  StyioAST* valExpr;
+  BinOpAST: Binary Operation
 
-  public:
-    ReadFileAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
+  | Variable
+  | Scalar Value
+    - Int
+      {
+        // General Operation
+        Int (+, -, *, **, /, %) Int => Int
+        
+        // Bitwise Operation
+        Int (&, |, >>, <<, ^) Int => Int
+      }
+    - Float
+      {
+        // General Operation
+        Float (+, -, *, **, /, %) Int => Float
+        Float (+, -, *, **, /, %) Float => Float
+      }
+    - Char
+      {
+        // Only Support Concatenation
+        Char + Char => String
+      }
+  | Collection
+    - Empty
+      | Empty Tuple
+      | Empty List (Extendable)
+    - Tuple <Any>
+      {
+        // Only Support Concatenation
+        Tuple<Any> + Tuple<Any> => Tuple
+      }
+    - Array <Scalar Value> // Immutable, Fixed Length
+      {
+        // (Only Same Length) Elementwise Operation
+        Array<Any>[Length] (+, -, *, **, /, %) Array<Any>[Length] => Array<Any>
 
-    StyioType hint() {
-      return StyioType::ReadFile;
-    }
+        // General Operation
+        Array<Int> (+, -, *, **, /, %) Int => Array<Int>
+        Array<Float> (+, -, *, **, /, %) Int => Array<Float>
 
-    std::string toString(int indent = 0) {
-      return std::string("Read {\n") 
-        + std::string(2, ' ') + "| Var: " 
-        + varId -> toString(indent) 
-        + "\n"
-        + std::string(2, ' ') + "| Val: " 
-        + valExpr -> toStringInline(indent) 
-        + "\n"
-        + "}";
-    }
-
-    std::string toStringInline(int indent = 0) {
-      return std::string("Read {\n") 
-        + std::string(2, ' ') + "| Var: " 
-        + varId -> toString(indent) 
-        + "; "
-        + std::string(2, ' ') + "| Val: " 
-        + valExpr -> toStringInline(indent) 
-        + " }";
-    }
-};
-
-/*
-BinOpAST
+        Array<Int> (+, -, *, **, /, %) Float => Array<Float>
+        Array<Float> (+, -, *, **, /, %) Float => Array<Float>
+      }
+    - List
+      {
+        // Only Support Concatenation
+        List<Any> + List<Any> => List<Any>
+      }
+    - String
+      {
+        // Only Support Concatenation
+        String + String => String
+      }
+  | Blcok (With Return Value)
 */
 class BinOpAST : public StyioAST {
   BinOpType Op;
@@ -453,7 +518,18 @@ class ListOpAST : public StyioAST {
 };
 
 /*
-VarDefAST
+  =================
+    Statement: Variable Definition
+  =================
+*/
+
+/*
+  VarDefAST: Variable Definition
+
+  Definition = 
+    Declaration (Neccessary)
+    + | Assignment (Optional)
+      | Import (Optional)
 */
 class VarDefAST : public StyioAST {
   std::vector<IdAST*> Vars;
@@ -501,29 +577,209 @@ class VarDefAST : public StyioAST {
 };
 
 /*
-EmptyBlockAST: Block
+  =================
+    Statement: Variable Assignment
+  =================
 */
-class EmptyBlockAST : public StyioAST {
+
+/*
+  MutAssignAST: Mutable Assignment
+*/
+class MutAssignAST : public StyioAST {
+  IdAST* varId;
+  StyioAST* valExpr;
+
   public:
-    EmptyBlockAST() {}
+    MutAssignAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
 
     StyioType hint() {
-      return StyioType::EmptyBlock;
+      return StyioType::MutAssign;
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Block (Empty) { ")
-        + " } ";
+      return std::string("Assign (Mutable) {\n") 
+        + std::string(2, ' ') + "| Var: " 
+        + varId -> toString(indent) 
+        + "\n"
+        + std::string(2, ' ') + "| Val: " 
+        + valExpr -> toString(indent) 
+        + "\n"
+        + "}";
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Block (Empty) { ")
+      return std::string("Assign (Mutable) {\n") 
+        + std::string(2, ' ') + "| Var: " 
+        + varId -> toStringInline(indent) 
+        + "; "
+        + std::string(2, ' ') + "| Val: " 
+        + valExpr -> toStringInline(indent) 
+        + " }";
+    }
+};
+
+/*
+  FixAssignAST: Immutable(Fixed) Assignment
+*/
+class FixAssignAST : public StyioAST {
+  IdAST* varId;
+  StyioAST* valExpr;
+
+  public:
+    FixAssignAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
+
+    StyioType hint() {
+      return StyioType::FixAssign;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("Assign (Final) {\n") 
+        + std::string(2, ' ') + "| Var: " 
+        + varId -> toString(indent) 
+        + "\n"
+        + std::string(2, ' ') + "| Val: " 
+        + valExpr -> toString(indent) 
+        + "\n"
+        + "}";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Assign (Final) { ") 
+        + std::string(2, ' ') + "| Var: " 
+        + varId -> toString(indent) 
+        + "; "
+        + std::string(2, ' ') + "| Val: " 
+        + valExpr -> toString(indent) 
+        + " }";
+    }
+};
+
+/*
+  =================
+    OS Utility: IO Stream
+  =================
+*/
+
+/*
+  ReadFileAST: Read (File)
+*/
+class ReadFileAST : public StyioAST {
+  IdAST* varId;
+  StyioAST* valExpr;
+
+  public:
+    ReadFileAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
+
+    StyioType hint() {
+      return StyioType::ReadFile;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("Read {\n") 
+        + std::string(2, ' ') + "| Var: " 
+        + varId -> toString(indent) 
+        + "\n"
+        + std::string(2, ' ') + "| Val: " 
+        + valExpr -> toStringInline(indent) 
+        + "\n"
+        + "}";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Read {\n") 
+        + std::string(2, ' ') + "| Var: " 
+        + varId -> toString(indent) 
+        + "; "
+        + std::string(2, ' ') + "| Val: " 
+        + valExpr -> toStringInline(indent) 
+        + " }";
+    }
+};
+
+/*
+  WriteStdOutAST: Write to Standard Output (Print)
+*/
+class WriteStdOutAST : public StyioAST {
+  StringAST* Output;
+
+  public:
+    WriteStdOutAST(StringAST* output): Output(output) {}
+
+    StyioType hint() {
+      return StyioType::WriteStdOut;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("Write (StdOut) {\n")
+        + std::string(2, ' ') + "| "
+        + Output -> toString()
+        + "\n}";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Write (StdOut) { ")
+        + std::string(2, ' ') + "| "
+        + Output -> toString()
+        + " }";
+    }
+};
+
+/*
+  =================
+    Abstract Level: Dependencies
+  =================
+*/
+
+/*
+  ExtPackAST: External Packages
+*/
+class ExtPackAST : public StyioAST {
+  std::vector<std::string> PackPaths;
+
+  public:
+    ExtPackAST(std::vector<std::string> paths): PackPaths(paths) {}
+
+    StyioType hint() {
+      return StyioType::ExtPack;
+    }
+
+    std::string toString(int indent = 0) {
+      std::string pacPathStr;
+
+      for(int i = 0; i < PackPaths.size(); i++) {
+        pacPathStr += std::string(2, ' ') + "| ";
+        pacPathStr += PackPaths[i];
+        pacPathStr += "\n";
+      };
+
+      return std::string("External Packages {\n")
+        + pacPathStr
+        + "\n} ";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      std::string pacPathStr;
+
+      for(int i = 0; i < PackPaths.size(); i++) {
+        pacPathStr += std::string(2, ' ') + "| ";
+        pacPathStr += PackPaths[i];
+        pacPathStr += " ;";
+      };
+
+      return std::string("External Packages { ")
+        + pacPathStr
         + " } ";
     }
 };
 
 /*
-BlockAST: Block
+  =================
+    Abstract Level: Block 
+  =================
+*/
+
+/*
+  BlockAST: Block
 */
 class BlockAST : public StyioAST {
   std::vector<StyioAST*> Stmts;
@@ -584,74 +840,109 @@ class BlockAST : public StyioAST {
 };
 
 /*
-ExtPackAST: External Packages
+  =================
+    Abstract Level: Layers
+  =================
 */
-class ExtPackAST : public StyioAST {
-  std::vector<std::string> PackPaths;
+
+/*
+  ICBSLayerAST: Intermediate Connection Between Scopes
+
+  Rules:
+    1. If: a variable NOT not exists in its outer scope
+       Then: create a variable and refresh it for each step
+
+    2. If: a value expression can be evaluated with respect to its outer scope
+       And: the value expression changes along with the iteration
+       Then: refresh the value expression for each step
+
+  How to parse ICBSLayer (for each element):
+    1. Is this a [variable] or a [value expression]?
+       
+      Variable => 2
+      Value Expression => 3
+
+      (Hint: A value expression is something can be evaluated to a value
+      after performing a series operations.)
+
+    2. Is this variable previously defined or declared?
+
+      Yes => 4
+      No => 5
+
+    3. Is this value expression using any variable that was NOT previously defined?
+
+      Yes => 6
+      No => 7
+
+    4. Is this variable still mutable?
+
+      Yes => 8
+      No => 9
+
+    5. Great! This element is a [temporary variable]
+      that can ONLY be used in the following block.
+      
+      For each step of the iteration, you should:
+        - Refresh this temporary variable before the start of the block.
+
+    6. Error! Why is it using something that does NOT exists?
+      This is an illegal value expression, 
+      you should throw an exception for this.
+
+    7. Great! This element is a [changing value expression]
+      that the value is changing while iteration.
+
+      For each step of the iteration, you should:
+        - Evaluate the value expression before the start of the block.
+
+    8. Great! This element is a [changing variable]
+      that the value of thisvariable is changing while iteration.
+
+      (Note: The value of this variable should be changed by
+        some statements inside the following code block.
+        However, if you can NOT find such statements,
+        do nothing.)
+
+      For each step of the iteration, you should:
+        - Refresh this variable before the start of the block.
+
+    9. Error! Why do you try to update a value that can NOT be changed?
+      There must be something wrong, 
+      you should throw an exception for this.
+*/
+
+class ICBSLayerAST : public StyioAST {
+  std::vector<StyioAST*> TmpVars;
 
   public:
-    ExtPackAST(std::vector<std::string> paths): PackPaths(paths) {}
+    ICBSLayerAST() {}
+
+    ICBSLayerAST(
+      std::vector<StyioAST*> vars): 
+      TmpVars(vars)
+      {
+
+      }
 
     StyioType hint() {
-      return StyioType::ExtPack;
+      return StyioType::ICBSLayer;
     }
 
     std::string toString(int indent = 0) {
-      std::string pacPathStr;
-
-      for(int i = 0; i < PackPaths.size(); i++) {
-        pacPathStr += std::string(2, ' ') + "| ";
-        pacPathStr += PackPaths[i];
-        pacPathStr += "\n";
-      };
-
-      return std::string("External Packages {\n")
-        + pacPathStr
-        + "\n} ";
+      return std::string("Layer (Intermediate Connection Between Scopes) { }");
     }
 
     std::string toStringInline(int indent = 0) {
-      std::string pacPathStr;
-
-      for(int i = 0; i < PackPaths.size(); i++) {
-        pacPathStr += std::string(2, ' ') + "| ";
-        pacPathStr += PackPaths[i];
-        pacPathStr += " ;";
-      };
-
-      return std::string("External Packages { ")
-        + pacPathStr
-        + " } ";
+      return std::string("Layer (Intermediate Connection Between Scopes) { }");
     }
 };
 
 /*
-WriteStdOutAST: Standard Output
+  =================
+    Infinite loop 
+  =================
 */
-class WriteStdOutAST : public StyioAST {
-  StringAST* Output;
-
-  public:
-    WriteStdOutAST(StringAST* output): Output(output) {}
-
-    StyioType hint() {
-      return StyioType::WriteStdOut;
-    }
-
-    std::string toString(int indent = 0) {
-      return std::string("Write (StdOut) {\n")
-        + std::string(2, ' ') + "| "
-        + Output -> toString()
-        + "\n}";
-    }
-
-    std::string toStringInline(int indent = 0) {
-      return std::string("Write (StdOut) { ")
-        + std::string(2, ' ') + "| "
-        + Output -> toString()
-        + " }";
-    }
-};
 
 /*
 InfLoop: Infinite Loop
@@ -680,37 +971,14 @@ class InfLoopAST : public StyioAST {
 };
 
 /*
-RangeAST: Loop
+  =================
+    Iterator
+  =================
 */
-class RangeAST : public StyioAST {
-  StyioAST* StartVal;
-  StyioAST* EndVal;
-  StyioAST* StepVal;
 
-  public:
-    RangeAST(StyioAST* start, StyioAST* end, StyioAST* step): StartVal(start), EndVal(end), StepVal(step) {}
-
-    StyioType hint() {
-      return StyioType::Range;
-    }
-
-    std::string toString(int indent = 0) {
-      return std::string("Collection.Range {\n")
-        + std::string(2, ' ') + "| Start: " + StartVal -> toString() + "\n"
-        + std::string(2, ' ') + "| End: " + EndVal -> toString() + "\n"
-        + std::string(2, ' ') + "| Step: " + StepVal -> toString() + "\n"
-        + "\n}";
-    }
-
-    std::string toStringInline(int indent = 0) {
-      return std::string("Collection.Range {\n")
-        + std::string(2, ' ') + "| Start: " + StartVal -> toString() + "\n"
-        + std::string(2, ' ') + "| End: " + EndVal -> toString() + "\n"
-        + std::string(2, ' ') + "| Step: " + StepVal -> toString() + "\n"
-        + "\n}";
-    }
-};
-
+/*
+  IterInfLoopAST: [...] >> {}
+*/
 class IterInfLoopAST : public StyioAST {
   std::vector<IdAST*> TmpVars;
   StyioAST* TheBlock;
@@ -740,6 +1008,9 @@ class IterInfLoopAST : public StyioAST {
     }
 };
 
+/*
+  IterListAST: <List> >> {}
+*/
 class IterListAST : public StyioAST {
   StyioAST* TheList;
   std::vector<IdAST*> TmpVars;
@@ -774,6 +1045,9 @@ class IterListAST : public StyioAST {
     }
 };
 
+/*
+  IterRangeAST: Range >> {}
+*/
 class IterRangeAST : public StyioAST {
   StyioAST* TheRange;
   std::vector<IdAST*> TmpVars;
@@ -813,32 +1087,6 @@ class IterRangeAST : public StyioAST {
     std::string toStringInline(int indent = 0) {
       return std::string("Iter (Range) { ") 
       + TheRange -> toStringInline()
-      + " }";
-    }
-};
-
-/*
-
-*/
-class SizeOfAST : public StyioAST {
-  StyioAST* Value;
-
-  public:
-    SizeOfAST(StyioAST* value): Value(value) {}
-
-    StyioType hint() {
-      return StyioType::SizeOf;
-    }
-
-    std::string toString(int indent = 0) {
-      return std::string("SizeOf { ") 
-      + Value -> toString()
-      + " }";
-    }
-
-    std::string toStringInline(int indent = 0) {
-      return std::string("SizeOf { ") 
-      + Value -> toStringInline()
       + " }";
     }
 };
