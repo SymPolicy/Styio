@@ -103,8 +103,16 @@ enum class StyioType {
   /* -----------------
    * Iterator
    */
+  IterInfLoop,
   IterList,
   IterRange,
+
+  // -----------------
+
+  /* -----------------
+   * Combination
+   */
+  IterWithMatch,
 
   // -----------------
 

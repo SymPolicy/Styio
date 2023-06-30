@@ -10,7 +10,9 @@ auto type_to_int(Enumeration const value)
 
 int get_next_char();
 
-bool check_it();
+void get_next_char(int& cur_char);
+
+bool check_this_char(int& cur_char, char value);
 
 void drop_all_spaces (int& cur_char);
 
@@ -102,6 +104,14 @@ BinOpAST* parse_bin_op (
   std::vector<int>& tok_ctx, 
   int& cur_char, 
   StyioAST* lhs_ast
+);
+
+/*
+  parse_simple_value
+*/
+StyioAST* parse_simple_value (
+  std::vector<int>& tok_ctx, 
+  int& cur_char
 );
 
 /*

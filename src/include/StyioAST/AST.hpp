@@ -124,6 +124,25 @@ class StringAST : public StyioAST {
     }
 };
 
+class CharAST : public StyioAST {
+  std::string Value;
+
+  public:
+    CharAST(std::string val) : Value(val) {}
+
+    StyioType hint() {
+      return StyioType::Char;
+    }
+
+    std::string toString(int indent = 0) {
+      return "Character { \"" + Value + "\" }";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return "<Character: \"" + Value + "\">";
+    }
+};
+
 /*
 ExtPathAST: (File) Path
 */
@@ -668,16 +687,48 @@ class RangeAST : public StyioAST {
     }
 };
 
+class IterInfLoopAST : public StyioAST {
+  std::vector<IdAST*> TmpVars;
+  BlockAST* TheBlock;
+
+  public:
+    IterInfLoopAST(
+      std::vector<IdAST*> tmpVars,
+      BlockAST* block):
+      TmpVars(tmpVars),
+      TheBlock(block)
+      {
+
+      }
+
+    StyioType hint() {
+      return StyioType::IterInfLoop;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("Iter (InfLoop) { ") 
+      + " }";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Iter (InfLoop) { ")
+      + " }";
+    }
+};
+
 class IterListAST : public StyioAST {
   StyioAST* TheList;
   std::vector<IdAST*> TmpVars;
+  BlockAST* TheBlock;
 
   public:
     IterListAST(
       StyioAST* theList, 
-      std::vector<IdAST*> tmpVars): 
+      std::vector<IdAST*> tmpVars,
+      BlockAST* block): 
       TheList(theList),
-      TmpVars(tmpVars) 
+      TmpVars(tmpVars),
+      TheBlock(block)
       {
 
       }
@@ -695,6 +746,49 @@ class IterListAST : public StyioAST {
     std::string toStringInline(int indent = 0) {
       return std::string("Iter (List) { ") 
       + TheList -> toStringInline()
+      + " }";
+    }
+};
+
+class IterRangeAST : public StyioAST {
+  StyioAST* TheRange;
+  std::vector<IdAST*> TmpVars;
+  BlockAST* TheBlock;
+
+  public:
+    IterRangeAST(
+      StyioAST* theRange, 
+      std::vector<IdAST*> tmpVars,
+      BlockAST* block): 
+      TheRange(theRange),
+      TmpVars(tmpVars),
+      TheBlock(block)
+      {
+
+      }
+
+    IterRangeAST(
+      StyioAST* theRange, 
+      std::vector<IdAST*> tmpVars): 
+      TheRange(theRange),
+      TmpVars(tmpVars)
+      {
+
+      }
+
+    StyioType hint() {
+      return StyioType::IterRange;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("Iter (Range) { ") 
+      + TheRange -> toString()
+      + " }";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Iter (Range) { ") 
+      + TheRange -> toStringInline()
       + " }";
     }
 };
