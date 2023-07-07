@@ -468,11 +468,91 @@ class ListOpAST : public StyioAST {
   StyioAST* TheList;
   ListOpType OpType;
 
-  StyioAST* Index;
-  StyioAST* Item;
+  IntAST* Index;
+  StyioAST* Value;
+
+  std::vector<IntAST*> IndexList;
+  std::vector<StyioAST*> ValueList;
 
   public:
-    // Reversed
+    /*
+      Get_Index_By_Item
+        [?= value]
+
+      Remove_Item_By_Value
+        [-: ?= value]
+
+      Get_Index_By_Item_From_Right
+        [[<] ?= value]
+
+      Remove_Item_By_Value_From_Right
+        [[<] -: ?= value]
+    */
+    ListOpAST(
+      StyioAST* theList, 
+      ListOpType opType, 
+      StyioAST* item): 
+      TheList(theList), 
+      OpType(opType), 
+      Value(item) {}
+
+    /*
+      Insert_Item_By_Index
+        [+: index <- value]
+    */
+    ListOpAST(
+      StyioAST* theList, 
+      ListOpType opType, 
+      IntAST* index, 
+      StyioAST* item): 
+      TheList(theList), 
+      OpType(opType), 
+      Index(index), 
+      Value(item) {}
+
+    /*
+      Remove_Item_By_Index
+        [-: index] 
+    */
+    ListOpAST(
+      StyioAST* theList, 
+      ListOpType opType, 
+      IntAST* index): 
+      TheList(theList), 
+      OpType(opType), 
+      Index(index) {}
+
+    /*
+      Remove_Many_Items_By_Indices
+        [-: (i0, i1, ...)]
+    */
+    ListOpAST(
+      StyioAST* theList, 
+      ListOpType opType, 
+      std::vector<IntAST*> indexList): 
+      TheList(theList), 
+      OpType(opType), 
+      IndexList(indexList) {}
+
+    /*
+      Remove_Many_Items_By_Values
+        [-: ?^ (v0, v1, ...)]
+
+      Remove_Many_Items_By_Values_From_Right
+        [[<] -: ?^ (v0, v1, ...)]
+    */
+    ListOpAST(
+      StyioAST* theList, 
+      ListOpType opType, 
+      std::vector<StyioAST*> valueList): 
+      TheList(theList), 
+      OpType(opType), 
+      ValueList(valueList) {}
+
+    /*
+      Get_Reversed
+        [<]
+    */
     ListOpAST(
       StyioAST* theList, 
       ListOpType opType
@@ -480,38 +560,20 @@ class ListOpAST : public StyioAST {
       TheList(theList), 
       OpType(opType) {}
 
-    // Get_Index_By_Item
-    ListOpAST(
-      StyioAST* theList, 
-      ListOpType opType, 
-      StyioAST* item): 
-      TheList(theList), 
-      OpType(opType), 
-      Item(item) {}
-
-    // Insert_Item_By_Index
-    ListOpAST(
-      StyioAST* theList, 
-      ListOpType opType, 
-      StyioAST* index, 
-      StyioAST* item): 
-      TheList(theList), 
-      OpType(opType), 
-      Index(index), 
-      Item(item) {}
-
     StyioType hint() {
       return StyioType::ListOp;
     }
 
     std::string toString(int indent = 0) {
-      return std::string("List[Operation] { ") 
-      + TheList -> toString()
-      + " }";
+      return std::string("List[Operation] { \n") 
+      + std::string(2, ' ') + "Type { " + reprListOp(OpType) + " }\n"
+      + std::string(2, ' ') + TheList -> toString() + "\n"
+      + "}";
     }
 
     std::string toStringInline(int indent = 0) {
       return std::string("List[Operation] { ") 
+      + reprListOp(OpType) 
       + TheList -> toStringInline()
       + " }";
     }
@@ -578,19 +640,19 @@ class VarDefAST : public StyioAST {
 
 /*
   =================
-    Statement: Variable Assignment
+    Statement: Variable Assignment (Variable-Value Binding)
   =================
 */
 
 /*
-  MutAssignAST: Mutable Assignment
+  FlexBindAST: Mutable Assignment (Flexible Binding)
 */
-class MutAssignAST : public StyioAST {
+class FlexBindAST : public StyioAST {
   IdAST* varId;
   StyioAST* valExpr;
 
   public:
-    MutAssignAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
+    FlexBindAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
 
     StyioType hint() {
       return StyioType::MutAssign;
@@ -619,14 +681,14 @@ class MutAssignAST : public StyioAST {
 };
 
 /*
-  FixAssignAST: Immutable(Fixed) Assignment
+  FinalBindAST: Immutable Assignment (Final Binding)
 */
-class FixAssignAST : public StyioAST {
+class FinalBindAST : public StyioAST {
   IdAST* varId;
   StyioAST* valExpr;
 
   public:
-    FixAssignAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
+    FinalBindAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
 
     StyioType hint() {
       return StyioType::FixAssign;
@@ -921,7 +983,7 @@ class BlockAST : public StyioAST {
       For each step of the iteration, you should:
         - Refresh this variable before the start of the block.
 
-    9. Error! Why do you try to update a value that can NOT be changed?
+    9. Error! Why are you trying to update a value that can NOT be changed?
       There must be something wrong, 
       you should throw an exception for this.
 */
@@ -933,13 +995,6 @@ class ICBSLayerAST : public StyioAST {
 
   public:
     ICBSLayerAST() {}
-
-    ICBSLayerAST(
-      std::vector<StyioAST*> exprs): 
-      TmpExprs(exprs)
-      {
-
-      }
 
     ICBSLayerAST(
       std::vector<StyioAST*> exprs): 

@@ -275,10 +275,42 @@ StyioAST* parse_list_elem (std::vector<int>& tok_ctx, int& cur_char)
   {
     return parse_string(tok_ctx, cur_char);
   }
+  else if (check_this_char(cur_char, '\'')) 
+  {
+    return parse_char_or_string(tok_ctx, cur_char);
+  }
   
   std::string errmsg = std::string("Unexpected List / Range Element, starts with character `") + char(cur_char) + "`";
   throw StyioSyntaxError(errmsg);
 }
+
+/*
+  List Operation
+
+  | [*] get_index_by_item
+    : [?= item]
+  
+  | [*] insert_item_by_index
+    : [+: index <- item]
+  
+  | [*] remove_item_by_index
+    : [-: index]
+  | [*] remove_many_items_by_indices
+    : [-: (i0, i1, ...)]
+  | [*] remove_item_by_value
+    : [-: ?= item]
+  | [ ] remove_many_items_by_values
+    : [-: ?^ (v0, v1, ...)]
+
+  | [*] get_reversed
+    : [<]
+  | [ ] get_index_by_item_from_right
+    : [[<] ?= item]
+  | [ ] remove_item_by_value_from_right
+    : [[<] -: ?= value]
+  | [ ] remove_many_items_by_values_from_right
+    : [[<] -: ?^ (v0, v1, ...)]
+*/
 
 ListOpAST* parse_list_op (
   std::vector<int>& tok_ctx, 
@@ -293,20 +325,23 @@ ListOpAST* parse_list_op (
 
   switch (cur_char)
   {
-  // List.get_reversed()
   case '<':
     {
+      /*
+        list[<]
+      */
+
       cur_char = get_next_char();
 
       listop = new ListOpAST(
         theList, 
-        ListOpType::Reversed);
+        ListOpType::Get_Reversed);
     }
 
     // You should NOT reach this line!
     break;
 
-  // List.get_item_by_list(item)
+  // list[?= item]
   case '?':
     {
       cur_char = get_next_char();
@@ -332,48 +367,64 @@ ListOpAST* parse_list_op (
     // You should NOT reach this line!
     break;
   
-  // List.insert_item_by_index(index, item)
-  case '^':
+  case '+':
     {
-      cur_char = get_next_char();
+      get_next_char(cur_char);
 
-      // eliminate white spaces between ^ and index
-      drop_white_spaces(cur_char);
-
-      StyioAST* theIndex = parse_int(tok_ctx, cur_char);
-
-      // eliminate white spaces between index and <-
-      drop_white_spaces(cur_char);
-
-      if (check_this_char(cur_char, '<'))
+      if (check_this_char(cur_char, ':'))
       {
-        cur_char = get_next_char();
+        get_next_char(cur_char);
 
-        if (check_this_char(cur_char, '-'))
+        // eliminate white spaces after +:
+        drop_white_spaces(cur_char);
+
+        if (isdigit(cur_char))
         {
-          cur_char = get_next_char();
+          /*
+            list[+: index <- value]
+          */
 
-          // eliminate white spaces between <- and the value to be inserted
+          IntAST* theIndex = parse_int(tok_ctx, cur_char);
+
+          // eliminate white spaces between index and <-
           drop_white_spaces(cur_char);
 
-          // the item to be inserted into the list
-          StyioAST* theItemIns = parse_list_elem(tok_ctx, cur_char);
+          if (check_this_char(cur_char, '<'))
+          {
+            cur_char = get_next_char();
 
-          listop = new ListOpAST(
-            theList, 
-            ListOpType::Insert_Item_By_Index,
-            theIndex,
-            theItemIns);
+            if (check_this_char(cur_char, '-'))
+            {
+              cur_char = get_next_char();
+
+              // eliminate white spaces between <- and the value to be inserted
+              drop_white_spaces(cur_char);
+
+              // the item to be inserted into the list
+              StyioAST* theItemIns = parse_list_elem(tok_ctx, cur_char);
+
+              listop = new ListOpAST(
+                theList, 
+                ListOpType::Insert_Item_By_Index,
+                theIndex,
+                theItemIns);
+            }
+            else
+            {
+              std::string errmsg = std::string("Missing `-` for `<-` after `+: index`, got `") + char(cur_char) + "`";
+              throw StyioSyntaxError(errmsg);
+            };
+          }
+          else
+          {
+            std::string errmsg = std::string("Expecting `<-` after `+: index`, but got `") + char(cur_char) + "`";
+            throw StyioSyntaxError(errmsg);
+          }
         }
-        else
-        {
-          std::string errmsg = std::string("Missing `-` for `<-` after `^? index`, but got `") + char(cur_char) + "`";
-          throw StyioSyntaxError(errmsg);
-        };
       }
       else
       {
-        std::string errmsg = std::string("Expecting `<-` after `^? index`, but got `") + char(cur_char) + "`";
+        std::string errmsg = std::string("Expecting integer index after `+:`, but got `") + char(cur_char) + "`";
         throw StyioSyntaxError(errmsg);
       }
     }
@@ -381,6 +432,168 @@ ListOpAST* parse_list_op (
     // You should NOT reach this line!
     break;
   
+  case '-':
+    {
+      get_next_char(cur_char);
+
+      if (check_this_char(cur_char, ':'))
+      {
+        get_next_char(cur_char);
+
+        // eliminate white spaces after -:
+        drop_white_spaces(cur_char);
+
+        if (isdigit(cur_char))
+        {
+          /*
+            list[-: index]
+          */
+
+          IntAST* theIndex = parse_int(tok_ctx, cur_char);
+
+          // eliminate white spaces between index
+          drop_white_spaces(cur_char);
+
+          listop = new ListOpAST(
+            theList, 
+            ListOpType::Remove_Item_By_Index,
+            theIndex);
+        }
+        else
+        {
+          switch (cur_char)
+          {
+          case '(':
+          {
+            /*
+              list[-: (i0, i1, ...)]
+            */
+
+            // eliminate ( at the start
+            get_next_char(cur_char);
+            
+            // drop white spaces between '(' and the first index
+            drop_white_spaces(cur_char);
+
+            std::vector<IntAST*> indices;
+
+            IntAST* firstIndex = parse_int(tok_ctx, cur_char);
+            indices.push_back(firstIndex);
+
+            // drop white spaces between first index and ,
+            drop_white_spaces(cur_char);
+
+            while (check_this_char(cur_char, ','))
+            {
+              // remove ,
+              get_next_char(cur_char);
+
+              // drop white spaces between , and next index
+              drop_white_spaces(cur_char);
+
+              if (check_this_char(cur_char, ')'))
+              {
+                break;
+              }
+
+              IntAST* nextIndex = parse_int(tok_ctx, cur_char);
+              indices.push_back(nextIndex);
+            }
+
+            // drop white spaces between , and )
+            drop_white_spaces(cur_char);
+            
+            if (check_this_char(cur_char, ')'))
+            {
+              get_next_char(cur_char);
+
+              listop = new ListOpAST(
+                theList, 
+                ListOpType::Remove_Many_Items_By_Indices,
+                indices);
+            }
+            else
+            {
+              std::string errmsg = std::string("Expecting `)` after `-: (i0, i1, ...`, but got `") + char(cur_char) + "`";
+              throw StyioSyntaxError(errmsg);
+            }
+          }
+
+            // You should NOT reach this line!
+            break;
+
+          case '?':
+          {
+            get_next_char(cur_char);
+
+            switch (cur_char)
+            {
+            case '=':
+            {
+              /*
+                list[-: ?= value]
+              */
+
+              get_next_char(cur_char);
+
+              // drop white spaces after ?=
+              drop_white_spaces(cur_char);
+              
+              StyioAST* valExpr = parse_list_elem(tok_ctx, cur_char);
+
+              listop = new ListOpAST(
+                theList, 
+                ListOpType::Remove_Item_By_Value,
+                valExpr);
+            }
+            
+              // You should NOT reach this line!
+              break;
+            
+            case '^':
+            {
+              /*
+                list[-: ?^ (v0, v1, ...)]
+              */
+
+              get_next_char(cur_char);
+
+              // drop white spaces after ?^
+              drop_white_spaces(cur_char);
+
+              if (check_this_char(cur_char, '(') 
+                || check_this_char(cur_char, '[')
+                || check_this_char(cur_char, '{'))
+              {
+                get_next_char(cur_char);
+
+
+              }
+            }
+            
+              // You should NOT reach this line!
+              break;
+            
+            default:
+              break;
+            }
+          }
+          
+          default:
+            break;
+          }
+        }
+      }
+      else
+      {
+        std::string errmsg = std::string("Missing `:` for `-:`, got `") + char(cur_char) + "`";
+        throw StyioSyntaxError(errmsg);
+      }
+    }
+
+    // You should NOT reach this line!
+    break;
+
   default:
     {
       std::string errmsg = std::string("Unexpected List[Operation], starts with ") + char(cur_char);
@@ -391,17 +604,17 @@ ListOpAST* parse_list_op (
     break;
   }
 
-  // check [ at the end
+  // check ] at the end
   if (check_this_char(cur_char, ']'))
   {
-    // eliminate [ at the end
+    // eliminate ] at the end
     cur_char = get_next_char();
     
     return listop;
   }
   else
   {
-    std::string errmsg = std::string("Missing `]` after List[Operation].");
+    std::string errmsg = std::string("Missing `]` after List[Operation], got `") + char(cur_char) + "`";
     throw StyioSyntaxError(errmsg);
   };
 }
@@ -1086,13 +1299,13 @@ StyioAST* parse_value_expr (
   return new NoneAST();
 }
 
-MutAssignAST* parse_mut_assign (
+FlexBindAST* parse_mut_assign (
   std::vector<int>& tok_ctx, 
   int& cur_char, 
   IdAST* id_ast
 )
 {
-  MutAssignAST* output = new MutAssignAST(id_ast, parse_value_expr(tok_ctx, cur_char));
+  FlexBindAST* output = new FlexBindAST(id_ast, parse_value_expr(tok_ctx, cur_char));
   
   if (check_this_char(cur_char, '\n')) 
   {
@@ -1105,13 +1318,13 @@ MutAssignAST* parse_mut_assign (
   }
 }
 
-FixAssignAST* parse_fix_assign (
+FinalBindAST* parse_fix_assign (
   std::vector<int>& tok_ctx, 
   int& cur_char, 
   IdAST* id_ast
 ) 
 {
-  FixAssignAST* output = new FixAssignAST(id_ast, parse_value_expr(tok_ctx, cur_char));
+  FinalBindAST* output = new FinalBindAST(id_ast, parse_value_expr(tok_ctx, cur_char));
   
   if (check_this_char(cur_char, '\n')) 
   {
@@ -1275,6 +1488,17 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         {
           // <ID> |-- 
           return parse_bin_op(tok_ctx, cur_char, id_ast);
+        };
+
+        // You should NOT reach this line!
+        break;
+
+      // LIST_OP |--
+      case '[':
+        {
+          // <ID> |-- 
+
+          return parse_list_op(tok_ctx, cur_char, id_ast);
         };
 
         // You should NOT reach this line!

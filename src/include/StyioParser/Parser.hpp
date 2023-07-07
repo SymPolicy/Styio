@@ -143,7 +143,7 @@ StyioAST* parse_value_expr (
 /*
   parse_mut_assign
 */
-MutAssignAST* parse_mut_assign (
+FlexBindAST* parse_mut_assign (
   std::vector<int>& tok_ctx, 
   int& cur_char, 
   IdAST* id_ast
@@ -152,7 +152,7 @@ MutAssignAST* parse_mut_assign (
 /*
   parse_fix_assign
 */
-FixAssignAST* parse_fix_assign (
+FinalBindAST* parse_fix_assign (
   std::vector<int>& tok_ctx, 
   int& cur_char, 
   IdAST* id_ast

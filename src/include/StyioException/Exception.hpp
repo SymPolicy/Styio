@@ -35,4 +35,21 @@ class StyioSyntaxError : public StyioBaseException
     }
 };
 
+class StyioNotImplemented : public StyioBaseException 
+{
+  private:
+    std::string message;
+
+  public:
+    StyioNotImplemented() : message("Styio.NotImplemented: Undefined."){}
+
+    StyioNotImplemented(std::string msg) : message("Styio.NotImplemented: " + msg) {}
+
+    ~StyioNotImplemented() throw () {}
+
+    virtual const char* what() const throw () {
+      return message.c_str();
+    }
+};
+
 #endif

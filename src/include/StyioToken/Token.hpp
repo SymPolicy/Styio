@@ -161,9 +161,20 @@ enum class BinOpType {
 };
 
 enum class ListOpType {
-  Reversed, // [<]
-  Insert_Item_By_Index, // [^ index <- item] 
-  Get_Index_By_Item, // [?= item]
+  
+  Get_Index_By_Item, // [?= value]
+
+  Insert_Item_By_Index, // [+: index <- value]
+
+  Remove_Item_By_Index, // [-: index] 
+  Remove_Many_Items_By_Indices, // [-: (i0, i1, ...)]
+  Remove_Item_By_Value, // [-: ?= value]
+  Remove_Many_Items_By_Values, // [-: ?^ (v0, v1, ...)]
+
+  Get_Reversed, // [<]
+  Get_Index_By_Item_From_Right, // [[<] ?= value]
+  Remove_Item_By_Value_From_Right, // [[<] -: ?= value]
+  Remove_Many_Items_By_Values_From_Right, // [[<] -: ?^ (v0, v1, ...)]
 };
 
 enum class IterOverWhat {
@@ -274,6 +285,37 @@ enum class StyioToken {
 
   TOK_INFINITE_LIST, // [...]
 };
+
+static std::string reprListOp(ListOpType listOp) {
+  switch (listOp)
+  {
+    case ListOpType::Get_Reversed:
+      return "Get_Reversed";
+
+    case ListOpType::Get_Index_By_Item:
+      return "Get_Index_By_Item";
+
+    case ListOpType::Insert_Item_By_Index:
+      return "Insert_Item_By_Index";
+
+    case ListOpType::Remove_Item_By_Index:
+      return "Remove_Item_By_Index";
+
+    case ListOpType::Remove_Item_By_Value:
+      return "Remove_Item_By_Value";
+
+    case ListOpType::Remove_Many_Items_By_Indices:
+      return "Remove_Many_Items_By_Indices";
+
+    case ListOpType::Remove_Many_Items_By_Values:
+      return "Remove_Many_Items_By_Values";
+
+    default:
+      return "List_Operation";
+
+      break;
+  }
+}
 
 static std::string reprToken(BinOpType token) {
   switch (token)
