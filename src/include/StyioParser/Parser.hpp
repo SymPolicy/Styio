@@ -122,7 +122,7 @@ StyioAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char);
 /*
   parse_loop
 */
-InfLoopAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char);
+StyioAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char);
 
 /*
   parse_simple_value
@@ -203,9 +203,17 @@ std::string parse_ext_elem(std::vector<int>& tok_ctx, int& cur_char);
 ExtPackAST* parse_ext_pack (std::vector<int>& tok_ctx, int& cur_char);
 
 /*
-  parse_block
+  parse_case_block
 */
-StyioAST* parse_block (
+StyioAST* parse_case_block (
+  std::vector<int>& tok_ctx, 
+  int& cur_char
+);
+
+/*
+  parse_exec_block
+*/
+StyioAST* parse_exec_block (
   std::vector<int>& tok_ctx, 
   int& cur_char
 );

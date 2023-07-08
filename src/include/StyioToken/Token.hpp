@@ -147,6 +147,7 @@ enum class StyioType {
    */
 
   Block,
+  MatchBlock,
 
   // -----------------
 };

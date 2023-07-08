@@ -1,5 +1,6 @@
 
 #include <string>
+#include <tuple>
 #include <vector>
 #include <iostream>
 
@@ -638,7 +639,13 @@ std::vector<IdAST*> parse_multi_vars (
 
     drop_white_spaces(cur_char);
 
-    if (check_this_char(cur_char, ')')  || check_this_char(cur_char, '|'))
+    /*
+      the last character will be eliminated outside parse_multi_vars()
+      therefore, this function only eliminate variable declaration
+    */
+    if (check_this_char(cur_char, ')')  
+      || check_this_char(cur_char, ']')
+      || check_this_char(cur_char, '|'))
     {
       break;
     };
@@ -668,10 +675,6 @@ StyioAST* parse_iter (
     cur_char = get_next_char();
     break;
 
-  case '{':
-    cur_char = get_next_char();
-    break;
-
   case '|':
     cur_char = get_next_char();
     break;
@@ -694,10 +697,6 @@ StyioAST* parse_iter (
     break;
 
   case ']':
-    cur_char = get_next_char();
-    break;
-
-  case '}':
     cur_char = get_next_char();
     break;
 
@@ -743,7 +742,7 @@ StyioAST* parse_iter (
 
       if (check_this_char(cur_char, '{'))
       {
-        iterBlock = parse_block(tok_ctx, cur_char);
+        iterBlock = parse_exec_block(tok_ctx, cur_char);
       }
       else
       {
@@ -997,7 +996,7 @@ StyioAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char)
   throw StyioSyntaxError(errmsg);
 }
 
-InfLoopAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
+StyioAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
 {
   while (check_this_char(cur_char, '.')) 
   { 
@@ -1008,9 +1007,25 @@ InfLoopAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
     {
       cur_char = get_next_char();
 
-      return new InfLoopAST();
+      // return new InfLoopAST();
+      break;
     };
   };
+
+  if (check_this_char(cur_char, '{'))
+  {
+    /*
+      the { at the start will be eliminated inside parse_exec_block() function
+    */
+    StyioAST* block = parse_exec_block(tok_ctx, cur_char);
+
+    return new IterInfLoopAST(block);
+  }
+  else
+  if (isalpha(cur_char) || check_this_char(cur_char, '_')) 
+  {
+    return parse_iter(tok_ctx, cur_char, new InfLoopAST());
+  }
 
   if (isdigit(cur_char))
   {
@@ -1864,13 +1879,13 @@ ExtPackAST* parse_ext_pack (std::vector<int>& tok_ctx, int& cur_char)
   return result;
 }
 
-StyioAST* parse_block (std::vector<int>& tok_ctx, int& cur_char) 
+StyioAST* parse_case_block (std::vector<int>& tok_ctx, int& cur_char)
 {
-  // the last expression will be the return expression
-  // a block must have a return value
-  // either an expression
-  // or null
+  return new NoneAST();
+}
 
+StyioAST* parse_exec_block (std::vector<int>& tok_ctx, int& cur_char) 
+{
   std::vector<StyioAST*> stmtBuffer;
 
   // eliminate { at the start

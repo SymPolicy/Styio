@@ -845,16 +845,33 @@ class ExtPackAST : public StyioAST {
 */
 class BlockAST : public StyioAST {
   std::vector<StyioAST*> Stmts;
-  StyioAST* Expr;
+  StyioAST* RetExpr;
 
   public:
     BlockAST() {}
 
-    BlockAST(StyioAST* expr): Expr(expr) {}
+    BlockAST(
+      StyioAST* expr): 
+      RetExpr(expr) 
+      {
 
-    BlockAST(std::vector<StyioAST*> stmts): Stmts(stmts) {}
+      }
 
-    BlockAST(std::vector<StyioAST*> stmts, StyioAST* expr): Stmts(stmts), Expr(expr) {}
+    BlockAST(
+      std::vector<StyioAST*> stmts): 
+      Stmts(stmts) 
+      {
+
+      }
+
+    BlockAST(
+      std::vector<StyioAST*> stmts, 
+      StyioAST* expr): 
+      Stmts(stmts), 
+      RetExpr(expr) 
+      {
+
+      }
 
     StyioType hint() {
       return StyioType::Block;
@@ -875,8 +892,8 @@ class BlockAST : public StyioAST {
         + std::string(2, ' ') + "| Stmts: "
         + stmtStr
         + "\n"
-        + std::string(2, ' ') + "| Expr:  "
-        + Expr -> toString()  
+        + std::string(2, ' ') + "| RetExpr:  "
+        + RetExpr -> toString()  
         + "\n} ";
     }
 
@@ -896,7 +913,61 @@ class BlockAST : public StyioAST {
         + stmtStr
         + " |"
         + std::string(2, ' ') + "| Expressions:  "
-        + Expr -> toString()  
+        + RetExpr -> toString()  
+        + " } ";
+    }
+};
+
+/*
+  MatchBlockAST: Match Block (Cases)
+*/
+class MatchBlockAST : public StyioAST {
+  std::vector<std::tuple<StyioAST*, StyioAST*>> Cases;
+
+  public:
+    MatchBlockAST() {}
+
+    MatchBlockAST(
+      std::vector<std::tuple<StyioAST*, StyioAST*>> cases): 
+      Cases(cases) 
+      {
+
+      }
+
+    StyioType hint() {
+      return StyioType::MatchBlock;
+    }
+
+    std::string toString(int indent = 0) {
+      std::string stmtStr;
+
+      for (auto [X, Y] : Cases)
+      {
+        stmtStr += X -> toStringInline();
+        stmtStr += Y -> toStringInline();
+        stmtStr += "\n";
+      };
+
+      return std::string("Match Block (Cases) {\n")
+        + std::string(2, ' ') + "| Cases: "
+        + stmtStr
+        + "\n"
+        + "\n} ";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      std::string stmtStr;
+
+      for (auto [X, Y] : Cases)
+      {
+        stmtStr += X -> toStringInline();
+        stmtStr += Y -> toStringInline();
+        stmtStr += "\n";
+      };
+
+      return std::string("Block { ")
+        + std::string(2, ' ') + "| Cases: "
+        + stmtStr
         + " } ";
     }
 };
@@ -910,17 +981,44 @@ class BlockAST : public StyioAST {
 /*
   ICBSLayerAST: Intermediate Connection Between Scopes
 
-  ExtraMatch:
-    >> Elements ?= ValueExprs => {}
-    For each step of iteration, check if the elements match the value expressions, 
+  ExtraMatchOne:
+    >> Element(Single) ?= ValueExpr(Single) => {
+      ...
+    }
+    
+    For each step of iteration, check if the element match the value expression, 
+    if match case is true, then execute the branch. 
+
+  ExtraMatchMany:
+    >> Element(Single) ?= {
+      v0 => {}
+      v1 => {}
+      _  => {}
+    }
+    
+    For each step of iteration, check if the element match any value expression, 
+    if match case is true, then execute the branch. 
+
+  ExtraCheckIsin:
+    >> Element(Single) ?^ IterableExpr(Collection) => {
+      ...
+    }
+
+    For each step of iteration, check if the element is in the following collection,
     if match case is true, then execute the branch. 
 
   ExtraFilter: 
-    >> Elements ?(Condition) :) {}
+    >> Elements ?? (Condition) :) {
+      ...
+    }
+    
     For each step of iteration, check the given condition, 
     if condition is true, then execute the branch. 
 
-    >> Elements ?(Condition) :( {}
+    >> Elements ?? (Condition) :( {
+      ...
+    }
+    
     For each step of iteration, check the given condition, 
     if condition is false, then execute the branch. 
 
@@ -989,7 +1087,7 @@ class BlockAST : public StyioAST {
 */
 
 class ICBSLayerAST : public StyioAST {
-  std::vector<StyioAST*> TmpExprs;
+  std::vector<StyioAST*> TmpVars;
   StyioAST* ExtraFilter;
   StyioAST* ExtraMatch;
 
@@ -997,8 +1095,8 @@ class ICBSLayerAST : public StyioAST {
     ICBSLayerAST() {}
 
     ICBSLayerAST(
-      std::vector<StyioAST*> exprs): 
-      TmpExprs(exprs)
+      std::vector<StyioAST*> vars): 
+      TmpVars(vars)
       {
 
       }
@@ -1062,6 +1160,13 @@ class IterInfLoopAST : public StyioAST {
   StyioAST* TheBlock;
 
   public:
+    IterInfLoopAST(
+      StyioAST* block):
+      TheBlock(block)
+      {
+
+      }
+
     IterInfLoopAST(
       std::vector<IdAST*> tmpVars,
       StyioAST* block):
