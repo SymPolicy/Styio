@@ -204,11 +204,11 @@ class ExtPathAST : public StyioAST {
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Path(File) { ") + Path + " }";
+      return std::string("Path { ") + Path + " }";
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Path(File) { ") + Path + " }";
+      return std::string("Path { ") + Path + " }";
     }
 };
 
@@ -430,23 +430,31 @@ class BinOpAST : public StyioAST {
   StyioAST *RHS;
 
   public:
-    BinOpAST(BinOpType op, StyioAST* lhs, StyioAST* rhs): Op(op), LHS(lhs), RHS(rhs) {}
+    BinOpAST(
+      BinOpType op, 
+      StyioAST* lhs, 
+      StyioAST* rhs): 
+      Op(op),
+      LHS(lhs), 
+      RHS(rhs) 
+      {
+
+      }
 
     StyioType hint() {
       return StyioType::BinOp;
     }
 
     std::string toString(int indent = 0) {
-      return std::string("BinOp {\n") 
-        + std::string(2, ' ') + "| LHS: "
-        + LHS -> toString(indent) 
+      return std::string("BinOp {\n")
+        + "|" + std::string(2 * indent, '-') + "| LHS: "
+        + LHS -> toString(indent + 1) 
         + "\n"
-        + std::string(2, ' ') + "| Op:  "
-        + reprToken(Op)
+        + "|" + std::string(2 * indent, '-') + "| Op: " + reprToken(Op)
         + "\n"
-        + std::string(2, ' ') + "| RHS: "
-        + RHS -> toString(indent)  
-        + "\n} ";
+        + "|" + std::string(2 * indent, '-') + "| RHS: "
+        + RHS -> toString(indent + 1) 
+        + "}";
     }
 
     std::string toStringInline(int indent = 0) {
@@ -659,18 +667,17 @@ class FlexBindAST : public StyioAST {
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Assign (Mutable) {\n") 
-        + std::string(2, ' ') + "| Var: " 
-        + varId -> toString(indent) 
+      return std::string("Binding (Flex) {\n") 
+        + "|" + std::string(2 * indent, '-') + " Var: " 
+        + varId -> toString(indent + 1) 
         + "\n"
-        + std::string(2, ' ') + "| Val: " 
-        + valExpr -> toString(indent) 
-        + "\n"
+        + "|" + std::string(2 * indent, '-') + " Val: " 
+        + valExpr -> toString(indent + 1)
         + "}";
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Assign (Mutable) {\n") 
+      return std::string("Binding (Flex) {\n") 
         + std::string(2, ' ') + "| Var: " 
         + varId -> toStringInline(indent) 
         + "; "
@@ -1007,7 +1014,7 @@ class MatchBlockAST : public StyioAST {
     For each step of iteration, check if the element is in the following collection,
     if match case is true, then execute the branch. 
 
-  ExtraFilter: 
+  TopFilter: 
     >> Elements ?? (Condition) :) {
       ...
     }
@@ -1088,8 +1095,8 @@ class MatchBlockAST : public StyioAST {
 
 class ICBSLayerAST : public StyioAST {
   std::vector<StyioAST*> TmpVars;
-  StyioAST* ExtraFilter;
-  StyioAST* ExtraMatch;
+  StyioAST* TopFilter;
+  StyioAST* TopMatch;
 
   public:
     ICBSLayerAST() {}
@@ -1125,20 +1132,57 @@ InfLoop: Infinite Loop
   incEl Increment Element
 */
 class InfLoopAST : public StyioAST {
+  InfiniteType WhatType;
   StyioAST* Start;
   StyioAST* IncEl;
 
   public:
-    InfLoopAST() {}
+    InfLoopAST() 
+    {
+      WhatType = InfiniteType::Original;
+    }
 
-    InfLoopAST(StyioAST* start, StyioAST* incEl): Start(start), IncEl(incEl) {}
+    InfLoopAST(
+      StyioAST* start, 
+      StyioAST* incEl): 
+      Start(start), 
+      IncEl(incEl) 
+      {
+        WhatType = InfiniteType::Incremental;
+      }
 
     StyioType hint() {
       return StyioType::InfLoop;
     }
 
     std::string toString(int indent = 0) {
-      return std::string("InfLoop { }");
+      switch (WhatType)
+      {
+      case InfiniteType::Original:
+        return std::string("Infinite { }");
+
+        // You should NOT reach this line!
+        break;
+      
+      case InfiniteType::Incremental:
+        return std::string("Infinite {")
+          + "\n" 
+          + "|" + std::string(2 * indent, '-') + "| Start: "
+          + Start -> toString(indent + 1) 
+          + "\n"
+          + "|" + std::string(2 * indent, '-') + "| Increment: "
+          + IncEl -> toString(indent + 1) 
+          + "\n"
+          + "}";
+
+        // You should NOT reach this line!
+        break;
+      
+      default:
+        break;
+      }
+
+      return std::string("Infinite { Undefined! }");
     }
 
     std::string toStringInline(int indent = 0) {
@@ -1153,27 +1197,28 @@ class InfLoopAST : public StyioAST {
 */
 
 /*
-  IterInfLoopAST: [...] >> {}
+  IterInfiniteAST: [...] >> {}
 */
-class IterInfLoopAST : public StyioAST {
+class IterInfiniteAST : public StyioAST {
+  IteratorType WhatType;
   std::vector<IdAST*> TmpVars;
   StyioAST* TheBlock;
 
   public:
-    IterInfLoopAST(
+    IterInfiniteAST(
       StyioAST* block):
       TheBlock(block)
       {
-
+        WhatType = IteratorType::Original;
       }
 
-    IterInfLoopAST(
+    IterInfiniteAST(
       std::vector<IdAST*> tmpVars,
       StyioAST* block):
       TmpVars(tmpVars),
       TheBlock(block)
       {
-
+        WhatType = IteratorType::Original;
       }
 
     StyioType hint() {
@@ -1181,13 +1226,13 @@ class IterInfLoopAST : public StyioAST {
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Iter (InfLoop) { ") 
-      + " }";
+      return std::string("Loop (Infinite) { ") 
+      + "}";
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Iter (InfLoop) { ")
-      + " }";
+      return std::string("Loop (Infinite) { ")
+      + "}";
     }
 };
 

@@ -152,6 +152,16 @@ enum class StyioType {
   // -----------------
 };
 
+enum class InfiniteType {
+  Original,
+  Incremental,
+};
+
+enum class IteratorType {
+  Original,
+  WithLayer,
+};
+
 enum class BinOpType {
   BIN_ADD, // +
   BIN_SUB, // -

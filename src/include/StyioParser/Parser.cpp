@@ -760,7 +760,7 @@ StyioAST* parse_iter (
   switch (iterOverIt -> hint())
   {
   case StyioType::InfLoop:
-    return new IterInfLoopAST(iterTmpVars, iterBlock);
+    return new IterInfiniteAST(iterTmpVars, iterBlock);
 
     // You should NOT reach this line!
     break;
@@ -1012,20 +1012,8 @@ StyioAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
     };
   };
 
-  if (check_this_char(cur_char, '{'))
-  {
-    /*
-      the { at the start will be eliminated inside parse_exec_block() function
-    */
-    StyioAST* block = parse_exec_block(tok_ctx, cur_char);
-
-    return new IterInfLoopAST(block);
-  }
-  else
-  if (isalpha(cur_char) || check_this_char(cur_char, '_')) 
-  {
-    return parse_iter(tok_ctx, cur_char, new InfLoopAST());
-  }
+  // eliminate white spaces after [...]
+  drop_white_spaces(cur_char);
 
   if (isdigit(cur_char))
   {
@@ -1033,6 +1021,61 @@ StyioAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
     
     std::string errmsg = std::string("A finite list must have both start and end values. However, only the end value is detected: `") + errnum -> toStringInline() + "`. Try `[0.." + errnum -> toStringInline() + "]` rather than `[.." + errnum -> toStringInline() + "]`.";
     throw StyioSyntaxError(errmsg);
+  }
+
+  switch (cur_char)
+  {
+  case '>':
+    {
+      get_next_char(cur_char);
+
+      if (check_this_char(cur_char, '>'))
+      {
+        get_next_char(cur_char);
+
+        // eliminate white spaces after >>
+        drop_white_spaces(cur_char);
+
+        if (isalpha(cur_char) 
+            || check_this_char(cur_char, '_')
+            || check_this_char(cur_char, '(')) 
+        {
+          return parse_iter(tok_ctx, cur_char, new InfLoopAST());
+        }
+        else
+        if (check_this_char(cur_char, '{'))
+        {
+          /*
+            the { at the start will be eliminated inside parse_exec_block() function
+          */
+          StyioAST* block = parse_exec_block(tok_ctx, cur_char);
+
+          return new IterInfiniteAST(block);
+        }
+      }
+    }
+
+    // You should not reach this line!
+    break;
+
+  case '(':
+    {
+      return parse_iter(tok_ctx, cur_char, new InfLoopAST());
+    }
+
+    // You should not reach this line!
+    break;
+  
+  case '\n':
+    {
+      return new InfLoopAST();
+    }
+
+    // You should not reach this line!
+    break;
+
+  default:
+    break;
   }
 
   std::string errmsg = std::string("Unexpected character `") + char(cur_char) + "` in infinite expression.";
