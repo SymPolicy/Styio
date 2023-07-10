@@ -134,8 +134,10 @@ enum class StyioType {
   // -----------------
 
   /* -----------------
-   * Lyaers
+   * Layers
    */
+
+  MatchLayer,
 
   // Intermediate Connection Between Scopes
   ICBSLayer,

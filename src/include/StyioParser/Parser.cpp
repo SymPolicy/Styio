@@ -662,7 +662,12 @@ StyioAST* parse_iter (
   StyioAST* iterOverIt) 
 {
   std::vector<IdAST*> iterTmpVars;
+  StyioAST* iterMatch;
+  StyioAST* iterFilter;
   StyioAST* iterBlock;
+
+  bool hasMatch = false;
+  bool hasFilter = false;
 
   // eliminate the start
   switch (cur_char)
@@ -708,25 +713,76 @@ StyioAST* parse_iter (
     break;
   }
 
-  get_next_char(cur_char);
+  /*
+    support:
+    
+    (x, y) \n
+    ?=
+
+    (x, y) \n
+    =>
+
+  */
+
+  drop_all_spaces(cur_char);
 
   if (check_this_char(cur_char, '?'))
   {
     get_next_char(cur_char);
 
-    if (check_this_char(cur_char, '='))
+    switch (cur_char)
     {
-      get_next_char(cur_char);
+    /*
+      ?= Value
+    */
+    case '=':
+      {
+        get_next_char(cur_char);
 
-      StyioAST* checkWithEl = parse_simple_value(tok_ctx, cur_char);
+        // drop white spaces after ?=
+        drop_white_spaces(cur_char);
 
-      // TODO: Match Block
-    }
-    else
-    {
-      std::string errmsg = std::string("Missing `=` for `?=`.");
+        StyioAST* matchValue = parse_simple_value(tok_ctx, cur_char);
+        
+        iterMatch = new MatchLayerAST(matchValue);
+        hasMatch = true;
+      }
+
+      break;
+    /*
+      ?^ [Iterable]
+    */
+    case '^':
+      {
+
+      }
+
+      break;
+
+    /*
+      ?(Condition) 
+      :) {
+
+      }
+      
+      ?(Condition) 
+      :( {
+
+      }
+    */
+    case '(':
+      {
+
+      }
+
+      break;
+    
+    default:
+      std::string errmsg = std::string("Unexpected character after ?: `") + char(cur_char) + "`";
       throw StyioSyntaxError(errmsg);
-    };
+
+      break;
+    }
   };
 
   if (check_this_char(cur_char, '='))
@@ -737,7 +793,12 @@ StyioAST* parse_iter (
     {
       get_next_char(cur_char);
 
-      // support newline(\n) and other white spaces
+      /*
+        support:
+
+        => \n
+        { }
+      */
       drop_all_spaces(cur_char);
 
       if (check_this_char(cur_char, '{'))
@@ -815,7 +876,7 @@ StyioAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char)
       if (startEl -> hint() == StyioType::Int 
         && endEl -> hint() == StyioType::Id)
       {
-        list_loop = new InfLoopAST(startEl, endEl);
+        list_loop = new InfiniteAST(startEl, endEl);
       }
       else
       if (startEl -> hint() == StyioType::Int 
@@ -1007,7 +1068,7 @@ StyioAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
     {
       cur_char = get_next_char();
 
-      // return new InfLoopAST();
+      // return new InfiniteAST();
       break;
     };
   };
@@ -1040,7 +1101,7 @@ StyioAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
             || check_this_char(cur_char, '_')
             || check_this_char(cur_char, '(')) 
         {
-          return parse_iter(tok_ctx, cur_char, new InfLoopAST());
+          return parse_iter(tok_ctx, cur_char, new InfiniteAST());
         }
         else
         if (check_this_char(cur_char, '{'))
@@ -1060,7 +1121,7 @@ StyioAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
 
   case '(':
     {
-      return parse_iter(tok_ctx, cur_char, new InfLoopAST());
+      return parse_iter(tok_ctx, cur_char, new InfiniteAST());
     }
 
     // You should not reach this line!
@@ -1068,7 +1129,7 @@ StyioAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
   
   case '\n':
     {
-      return new InfLoopAST();
+      return new InfiniteAST();
     }
 
     // You should not reach this line!

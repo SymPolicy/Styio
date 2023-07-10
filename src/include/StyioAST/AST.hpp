@@ -1093,6 +1093,32 @@ class MatchBlockAST : public StyioAST {
       you should throw an exception for this.
 */
 
+class MatchLayerAST : public StyioAST {
+  StyioAST* MatchValue;
+
+  public:
+    MatchLayerAST(
+      StyioAST* value): 
+      MatchValue(value)
+      {
+
+      }
+
+    StyioType hint() {
+      return StyioType::MatchLayer;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("Layer (Match) {") 
+      + "}";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Layer (Match) {") 
+      + "}";
+    }
+};
+
 class ICBSLayerAST : public StyioAST {
   std::vector<StyioAST*> TmpVars;
   StyioAST* TopFilter;
@@ -1131,18 +1157,18 @@ class ICBSLayerAST : public StyioAST {
 InfLoop: Infinite Loop
   incEl Increment Element
 */
-class InfLoopAST : public StyioAST {
+class InfiniteAST : public StyioAST {
   InfiniteType WhatType;
   StyioAST* Start;
   StyioAST* IncEl;
 
   public:
-    InfLoopAST() 
+    InfiniteAST() 
     {
       WhatType = InfiniteType::Original;
     }
 
-    InfLoopAST(
+    InfiniteAST(
       StyioAST* start, 
       StyioAST* incEl): 
       Start(start), 
