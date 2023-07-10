@@ -35,6 +35,23 @@ class StyioSyntaxError : public StyioBaseException
     }
 };
 
+class StyioParseError : public StyioBaseException 
+{
+  private:
+    std::string message;
+
+  public:
+    StyioParseError() : message("Styio.ParseError: Undefined."){}
+
+    StyioParseError(std::string msg) : message("Styio.ParseError: " + msg) {}
+
+    ~StyioParseError() throw () {}
+
+    virtual const char* what() const throw () {
+      return message.c_str();
+    }
+};
+
 class StyioNotImplemented : public StyioBaseException 
 {
   private:

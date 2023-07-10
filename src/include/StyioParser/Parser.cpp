@@ -1078,7 +1078,7 @@ StyioAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
     break;
   }
 
-  std::string errmsg = std::string("Unexpected character `") + char(cur_char) + "` in infinite expression.";
+  std::string errmsg = std::string("Unexpected character after infinite loop: `") + char(cur_char) + "` in infinite expression.";
   throw StyioSyntaxError(errmsg);
 }
 
@@ -1260,11 +1260,9 @@ StyioAST* parse_simple_value (
   {
     return parse_char_or_string(tok_ctx, cur_char);
   }
-  else
-  {
-    std::string errmsg = std::string("Unexpected character `") + char(cur_char) + "`";
-    throw StyioSyntaxError(errmsg);
-  };
+
+  std::string errmsg = std::string("parse_simple_value(), unexpected character `") + char(cur_char) + "`";
+  throw StyioParseError(errmsg);
 }
 
 StyioAST* parse_value_expr (
@@ -1371,7 +1369,7 @@ FlexBindAST* parse_mut_assign (
   }
   else
   {
-    std::string errmsg = std::string("Unexpected character `") + char(cur_char) + "` after Assign(Mutable)";
+    std::string errmsg = std::string("Unexpected character after binding (flexible): `") + char(cur_char) + "` after Assign(Mutable)";
     throw StyioSyntaxError(errmsg);
   }
 }
@@ -1390,7 +1388,7 @@ FinalBindAST* parse_fix_assign (
   }
   else
   {
-    std::string errmsg = std::string("Unexpected character `") + char(cur_char) + "` after Assign(Mutable)";
+    std::string errmsg = std::string("Unexpected character after binding (fixed): `") + char(cur_char) + "` after Assign(Mutable)";
     throw StyioSyntaxError(errmsg);
   }
 }
