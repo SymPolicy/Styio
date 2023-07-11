@@ -306,7 +306,8 @@ class ListAST : public StyioAST {
 /*
   RangeAST: Loop
 */
-class RangeAST : public StyioAST {
+class RangeAST : public StyioAST 
+{
   StyioAST* StartVal;
   StyioAST* EndVal;
   StyioAST* StepVal;
@@ -344,7 +345,8 @@ class RangeAST : public StyioAST {
 /*
   SizeOfAST: Get Size(Length) Of A Collection
 */
-class SizeOfAST : public StyioAST {
+class SizeOfAST : public StyioAST 
+{
   StyioAST* Value;
 
   public:
@@ -424,7 +426,8 @@ class SizeOfAST : public StyioAST {
       }
   | Blcok (With Return Value)
 */
-class BinOpAST : public StyioAST {
+class BinOpAST : public StyioAST 
+{
   BinOpType Op;
   StyioAST *LHS;
   StyioAST *RHS;
@@ -469,10 +472,116 @@ class BinOpAST : public StyioAST {
     }
 };
 
+class LogicNotAST: public StyioAST 
+{
+  StyioAST* Value;
+
+  public:
+    LogicNotAST(
+      StyioAST* value): 
+      Value(value)
+      {
+
+      }
+
+    StyioType hint() {
+      return StyioType::Not;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("Not {\n")
+        + std::string(2, ' ') + Value -> toString() + "\n"
+        + "}";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Not {\n")
+        + std::string(2, ' ') + Value -> toString() + "\n"
+        + "}";
+    }
+};
+
+class BinCompAST: public StyioAST 
+{
+  CompType CompSign;
+  StyioAST* LhsExpr;
+  StyioAST* RhsExpr;
+
+  public:
+    BinCompAST(
+      CompType sign, 
+      StyioAST* lhs, 
+      StyioAST* rhs): 
+      CompSign(sign), 
+      LhsExpr(lhs), 
+      RhsExpr(rhs) 
+      {
+
+      }
+
+    StyioType hint() {
+      return StyioType::Compare;
+    }
+
+    std::string toString(int indent = 0) {
+      return reprToken(CompSign) + std::string(" {\n")
+        + std::string(2, ' ') + "| LHS: " + LhsExpr -> toString() + "\n"
+        + std::string(2, ' ') + "| RHS: " + RhsExpr -> toString() + "\n"
+        + "}";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return reprToken(CompSign) + std::string(" {\n")
+        + std::string(2, ' ') + "| LHS: " + LhsExpr -> toString() + "\n"
+        + std::string(2, ' ') + "| RHS: " + RhsExpr -> toString() + "\n"
+        + "}";
+    }
+};
+
+class BinCondAST: public StyioAST 
+{
+  LogicType LogicOp;
+  StyioAST* LhsExpr;
+  StyioAST* RhsExpr;
+
+  public:
+    BinCondAST(
+      LogicType op, 
+      StyioAST* lhs, 
+      StyioAST* rhs): 
+      LogicOp(op), 
+      LhsExpr(lhs), 
+      RhsExpr(rhs) 
+      {
+
+      }
+
+    StyioType hint() {
+      return StyioType::Condition;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("Condition {\n")
+        + std::string(2, ' ') + "| Op: " + reprToken(LogicOp) + "\n"
+        + std::string(2, ' ') + "| LHS: " + LhsExpr -> toString() + "\n"
+        + std::string(2, ' ') + "| RHS: " + RhsExpr -> toString() + "\n"
+        + "}";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Condition {\n")
+        + std::string(2, ' ') + "| Op: " + reprToken(LogicOp) + "\n"
+        + std::string(2, ' ') + "| LHS: " + LhsExpr -> toString() + "\n"
+        + std::string(2, ' ') + "| RHS: " + RhsExpr -> toString() + "\n"
+        + "}";
+    }
+};
+
 /*
 
 */
-class ListOpAST : public StyioAST {
+class ListOpAST : public StyioAST 
+{
   StyioAST* TheList;
   ListOpType OpType;
 
@@ -769,24 +878,29 @@ class ReadFileAST : public StyioAST {
   WriteStdOutAST: Write to Standard Output (Print)
 */
 class WriteStdOutAST : public StyioAST {
-  StringAST* Output;
+  StyioAST* Output;
 
   public:
-    WriteStdOutAST(StringAST* output): Output(output) {}
+    WriteStdOutAST(
+      StyioAST* output): 
+      Output(output) 
+      {
+
+      }
 
     StyioType hint() {
       return StyioType::WriteStdOut;
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Write (StdOut) {\n")
+      return std::string("Print {\n")
         + std::string(2, ' ') + "| "
         + Output -> toString()
         + "\n}";
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Write (StdOut) { ")
+      return std::string("Print { ")
         + std::string(2, ' ') + "| "
         + Output -> toString()
         + " }";
@@ -1119,6 +1233,32 @@ class MatchLayerAST : public StyioAST {
     }
 };
 
+class FilterLayerAST : public StyioAST {
+  StyioAST* MatchValue;
+
+  public:
+    FilterLayerAST(
+      StyioAST* value): 
+      MatchValue(value)
+      {
+
+      }
+
+    StyioType hint() {
+      return StyioType::FilterLayer;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("Layer (Match) {") 
+      + "}";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Layer (Match) {") 
+      + "}";
+    }
+};
+
 class ICBSLayerAST : public StyioAST {
   std::vector<StyioAST*> TmpVars;
   StyioAST* TopFilter;
@@ -1130,6 +1270,15 @@ class ICBSLayerAST : public StyioAST {
     ICBSLayerAST(
       std::vector<StyioAST*> vars): 
       TmpVars(vars)
+      {
+
+      }
+
+    ICBSLayerAST(
+      std::vector<StyioAST*> vars,
+      StyioAST* filter): 
+      TmpVars(vars),
+      TopFilter(filter)
       {
 
       }

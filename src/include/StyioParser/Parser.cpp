@@ -43,6 +43,33 @@ void drop_white_spaces (int& cur_char)
   };
 }
 
+void check_and_drop (
+  int& cur_char,
+  char value,
+  int mode = 0)
+{
+  switch (mode)
+  {
+  case 1:
+    drop_white_spaces(cur_char);
+
+    break;
+
+  case 2:
+    drop_all_spaces(cur_char);
+
+    break;
+  
+  default:
+    break;
+  }
+
+  if (check_this_char(cur_char, value))
+  {
+    cur_char = getchar();
+  }
+}
+
 /*
   =================
 */
@@ -177,12 +204,14 @@ StyioAST* parse_char_or_string (
 
 SizeOfAST* parse_size_of (std::vector<int>& tok_ctx, int& cur_char) 
 {
+  // eliminate | at the start
   cur_char = get_next_char();
        
   if (isalpha(cur_char) || check_this_char(cur_char, '_'))
   {
     IdAST* var = parse_id(tok_ctx, cur_char);
 
+    // eliminate | at the end
     if (check_this_char(cur_char, '|')) {
       cur_char = get_next_char();
 
@@ -1143,7 +1172,7 @@ StyioAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char)
   throw StyioSyntaxError(errmsg);
 }
 
-StyioAST* parse_bin_rhs (
+StyioAST* parse_binop_rhs (
   std::vector<int>& tok_ctx, 
   int& cur_char
 ) 
@@ -1220,7 +1249,7 @@ BinOpAST* parse_bin_op (
         cur_char = get_next_char();
 
         // <ID> "+" |-- 
-        binOp = new BinOpAST(BinOpType::BIN_ADD, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
+        binOp = new BinOpAST(BinOpType::BIN_ADD, lhs_ast, parse_binop_rhs(tok_ctx, cur_char));
       };
 
       // You should NOT reach this line!
@@ -1232,7 +1261,7 @@ BinOpAST* parse_bin_op (
         cur_char = get_next_char();
 
         // <ID> "-" |--
-        binOp = new BinOpAST(BinOpType::BIN_SUB, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
+        binOp = new BinOpAST(BinOpType::BIN_SUB, lhs_ast, parse_binop_rhs(tok_ctx, cur_char));
       };
 
       // You should NOT reach this line!
@@ -1248,13 +1277,13 @@ BinOpAST* parse_bin_op (
           cur_char = get_next_char();
 
           // <ID> "**" |--
-          binOp = new BinOpAST(BinOpType::BIN_POW, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
+          binOp = new BinOpAST(BinOpType::BIN_POW, lhs_ast, parse_binop_rhs(tok_ctx, cur_char));
         } 
         // BIN_MUL := <ID> "*" <EXPR>
         else 
         {
           // <ID> "*" |--
-          binOp = new BinOpAST(BinOpType::BIN_MUL, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
+          binOp = new BinOpAST(BinOpType::BIN_MUL, lhs_ast, parse_binop_rhs(tok_ctx, cur_char));
         }
       };
       // You should NOT reach this line!
@@ -1266,7 +1295,7 @@ BinOpAST* parse_bin_op (
         cur_char = get_next_char();
 
         // <ID> "/" |-- 
-        binOp = new BinOpAST(BinOpType::BIN_DIV, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
+        binOp = new BinOpAST(BinOpType::BIN_DIV, lhs_ast, parse_binop_rhs(tok_ctx, cur_char));
       };
 
       // You should NOT reach this line!
@@ -1278,7 +1307,7 @@ BinOpAST* parse_bin_op (
         cur_char = get_next_char();
 
         // <ID> "%" |-- 
-        binOp = new BinOpAST(BinOpType::BIN_MOD, lhs_ast, parse_bin_rhs(tok_ctx, cur_char));
+        binOp = new BinOpAST(BinOpType::BIN_MOD, lhs_ast, parse_binop_rhs(tok_ctx, cur_char));
       };
 
       // You should NOT reach this line!
@@ -1297,6 +1326,287 @@ BinOpAST* parse_bin_op (
   return binOp;
 }
 
+/*
+  parse_val_for_cond
+
+  either:
+    simple_value
+  or:
+    simple_value == simple_value
+                 != 
+                 >= 
+                 >  
+                 <= 
+                 <  
+*/
+
+StyioAST* parse_val_for_cond (
+  std::vector<int>& tok_ctx, 
+  int& cur_char
+)
+{
+  StyioAST* lhsVal = parse_simple_value(tok_ctx, cur_char);
+  
+  // drop white spaces after first value
+  drop_white_spaces(cur_char);
+
+  switch (cur_char)
+  {
+  case '=':
+    {
+      get_next_char(cur_char);
+
+      if (check_this_char(cur_char, '='))
+      {
+        get_next_char(cur_char);
+
+        /*
+          Equal
+            expr == expr
+        */
+        
+        return new BinCompAST(
+          CompType::EQ,
+          lhsVal,
+          parse_simple_value(tok_ctx, cur_char));
+      };
+    }
+
+    break;
+
+  case '!':
+    {
+      get_next_char(cur_char);
+
+      if (check_this_char(cur_char, '='))
+      {
+        get_next_char(cur_char);
+
+        /*
+          Not Equal
+            expr != expr
+        */
+
+        return new BinCompAST(
+          CompType::NE,
+          lhsVal,
+          parse_simple_value(tok_ctx, cur_char));
+      };
+    }
+
+    break;
+
+  case '>':
+    {
+      get_next_char(cur_char);
+
+      if (check_this_char(cur_char, '='))
+      {
+        get_next_char(cur_char);
+
+        /*
+          Greater Than and Equal
+            expr >= expr
+        */
+
+        return new BinCompAST(
+          CompType::GE,
+          lhsVal,
+          parse_simple_value(tok_ctx, cur_char));
+      }
+      else
+      {
+        /*
+          Greater Than
+            expr > expr
+        */
+
+        return new BinCompAST(
+          CompType::GT,
+          lhsVal,
+          parse_simple_value(tok_ctx, cur_char));
+      };
+    }
+
+    break;
+
+  case '<':
+    {
+      get_next_char(cur_char);
+
+      if (check_this_char(cur_char, '='))
+      {
+        get_next_char(cur_char);
+
+        /*
+          Less Than and Equal
+            expr <= expr
+        */
+
+        return new BinCompAST(
+          CompType::LE,
+          lhsVal,
+          parse_simple_value(tok_ctx, cur_char));
+      }
+      else
+      {
+        /*
+          Less Than
+            expr < expr
+        */
+
+        return new BinCompAST(
+          CompType::LT,
+          lhsVal,
+          parse_simple_value(tok_ctx, cur_char));
+      };
+    }
+
+    break;
+
+  default:
+    break;
+  }
+
+  return lhsVal;
+}
+
+StyioAST* parse_cond_rhs (
+  std::vector<int>& tok_ctx, 
+  int& cur_char,
+  StyioAST* lhsExpr
+)
+{
+  StyioAST* tmpExpr;
+
+  switch (cur_char)
+  {
+  case '&':
+    {
+      get_next_char(cur_char);
+
+      if (check_this_char(cur_char, '&'))
+      {
+        get_next_char(cur_char);
+      };
+
+      /*
+        support:
+          && \n
+          expression
+      */
+
+      drop_all_spaces(cur_char);
+
+      tmpExpr = new BinCondAST(
+        LogicType::AND,
+        lhsExpr,
+        parse_val_for_cond(tok_ctx, cur_char)
+      );
+    }
+    break;
+
+  case '|':
+    {
+      get_next_char(cur_char);
+
+      if (check_this_char(cur_char, '|'))
+      {
+        get_next_char(cur_char);
+      };
+
+      /*
+        support:
+          || \n
+          expression
+      */
+
+      drop_all_spaces(cur_char);
+
+      tmpExpr = new BinCondAST(
+        LogicType::OR,
+        lhsExpr,
+        parse_val_for_cond(tok_ctx, cur_char)
+      );
+    }
+    break;
+
+  case '!':
+    {
+      get_next_char(cur_char);
+
+      if (check_this_char(cur_char, '('))
+      {
+        get_next_char(cur_char);
+
+        /*
+          support:
+            !( \n
+              expr
+            )
+        */
+        drop_all_spaces(cur_char);
+
+        tmpExpr = new LogicNotAST(parse_bin_cond(tok_ctx, cur_char));
+
+        check_and_drop(cur_char, ')', 2);
+      }
+    }
+
+    break;
+
+  default:
+    break;
+  }
+
+  while (!(check_this_char(cur_char, ')')))
+  {
+    tmpExpr = parse_cond_rhs(tok_ctx, cur_char, tmpExpr);
+  }
+  
+  return tmpExpr;
+}
+
+StyioAST* parse_bin_cond (
+  std::vector<int>& tok_ctx, 
+  int& cur_char
+)
+{
+  StyioAST* lhsExpr;
+
+  if (check_this_char(cur_char, '!'))
+  {
+    get_next_char(cur_char);
+
+    if (check_this_char(cur_char, '('))
+    {
+      get_next_char(cur_char);
+
+      /*
+        support:
+          !( \n
+            expr
+          )
+      */
+      drop_all_spaces(cur_char);
+
+      lhsExpr = parse_bin_cond(tok_ctx, cur_char);
+
+      drop_all_spaces(cur_char);
+    }
+    else
+    {
+      StyioAST* lhsVal = parse_val_for_cond(tok_ctx, cur_char);
+
+      if (check_this_char(cur_char, '&')
+        || check_this_char(cur_char, '|'))
+      {
+        return parse_cond_rhs(tok_ctx, cur_char, lhsVal);
+      }
+    };
+  };
+}
+
 StyioAST* parse_simple_value (
   std::vector<int>& tok_ctx, 
   int& cur_char
@@ -1311,15 +1621,29 @@ StyioAST* parse_simple_value (
   {
     return parse_id(tok_ctx, cur_char);
   }
-  else 
-  if (check_this_char(cur_char, '\"')) 
+
+  switch (cur_char)
   {
+  case '\"':
     return parse_string(tok_ctx, cur_char);
-  }
-  else
-  if (check_this_char(cur_char, '\'')) 
-  {
+    
+    // You should NOT reach this line!
+    break;
+  
+  case '\'':
     return parse_char_or_string(tok_ctx, cur_char);
+
+    // You should NOT reach this line!
+    break;
+
+  case '|':
+    return parse_size_of(tok_ctx, cur_char);
+
+    // You should NOT reach this line!
+    break;
+  
+  default:
+    break;
   }
 
   std::string errmsg = std::string("parse_simple_value(), unexpected character `") + char(cur_char) + "`";
@@ -1416,6 +1740,57 @@ StyioAST* parse_value_expr (
   return new NoneAST();
 }
 
+VarDefAST* parse_resources (
+  std::vector<int>& tok_ctx, 
+  int& cur_char
+)
+{
+  std::vector<IdAST*> varBuffer;
+
+  // eliminate @
+  cur_char = get_next_char();
+  
+  drop_white_spaces(cur_char);
+
+  if (check_this_char(cur_char, '(')) 
+  {
+    cur_char = get_next_char();
+
+    if (isalpha(cur_char) || check_this_char(cur_char, '_')) {
+      // "@" "(" |--
+      IdAST* id_ast = parse_id(tok_ctx, cur_char);
+  
+      varBuffer.push_back(id_ast);
+    };
+
+    drop_white_spaces(cur_char);
+
+    // "@" "(" [<ID> |--
+    while (check_this_char(cur_char, ','))
+    {
+      cur_char = get_next_char();
+
+      drop_white_spaces(cur_char);
+
+      if (isalpha(cur_char) || check_this_char(cur_char, '_')) {
+        
+        IdAST* id_ast = parse_id(tok_ctx, cur_char);
+  
+        varBuffer.push_back(id_ast);
+
+        drop_white_spaces(cur_char);
+      };
+    };
+    
+    if (check_this_char(cur_char, ')')) 
+    {
+      cur_char = get_next_char();
+
+      return new VarDefAST(varBuffer);
+    };
+  };
+}
+
 FlexBindAST* parse_mut_assign (
   std::vector<int>& tok_ctx, 
   int& cur_char, 
@@ -1471,6 +1846,53 @@ StyioAST* parse_read_file (
     std::string errmsg = std::string("Unexpected Read.Path, starts with character `") + char(cur_char) + "`";
     throw StyioSyntaxError(errmsg);
   };
+}
+
+StyioAST* parse_write_stdout (
+  std::vector<int>& tok_ctx, 
+  int& cur_char
+)
+{
+  StyioAST* result;
+
+  // eliminate >
+  cur_char = get_next_char();
+  
+  if (check_this_char(cur_char, '_')) {
+    // eliminate _
+    cur_char = get_next_char();
+
+    drop_white_spaces(cur_char);
+
+    if (check_this_char(cur_char, '('))
+    {
+      // eliminate (
+      cur_char = get_next_char();
+
+      drop_all_spaces(cur_char);
+
+      result = new WriteStdOutAST(parse_value_expr(tok_ctx, cur_char));
+
+      drop_all_spaces(cur_char);
+
+      if (check_this_char(cur_char, ')'))
+      {
+        get_next_char(cur_char);
+      }
+      else
+      {
+        std::string errmsg = std::string("Missing `)` for >_(), got `") + char(cur_char) + "`.";
+        throw StyioSyntaxError(errmsg);
+      };
+    }
+    else
+    {
+      std::string errmsg = std::string("Unrecognized `expr` for >_(`expr`), got `") + char(cur_char) + "`";
+      throw StyioSyntaxError(errmsg);
+    };
+  };
+
+  return result;
 }
 
 StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char) 
@@ -1707,203 +2129,85 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
 
   switch (cur_char)
   {
-    // VAR_DEF := "@" "(" [<ID> ["," <ID>]*]? ")"
-    case '@':
-      {
-        cur_char = get_next_char();
-        
-        drop_white_spaces(cur_char);
+  // VAR_DEF := "@" "(" [<ID> ["," <ID>]*]? ")"
+  case '@':
+    {
+      return parse_resources(tok_ctx, cur_char);
+    };
 
-        if (check_this_char(cur_char, '(')) 
-        {
-          cur_char = get_next_char();
+    // You should NOT reach this line!
+    break;
 
-        };
-        
-        std::vector<IdAST*> varBuffer;
-
-        if (isalpha(cur_char) || check_this_char(cur_char, '_')) {
-          // "@" "(" |--
-          IdAST* id_ast = parse_id(tok_ctx, cur_char);
-      
-          varBuffer.push_back(id_ast);
-        };
-
-        drop_white_spaces(cur_char);
-
-        // "@" "(" [<ID> |--
-        while (check_this_char(cur_char, ','))
-        {
-          cur_char = get_next_char();
-
-          drop_white_spaces(cur_char);
-
-          if (isalpha(cur_char) || check_this_char(cur_char, '_')) {
-            
-            IdAST* id_ast = parse_id(tok_ctx, cur_char);
-      
-            varBuffer.push_back(id_ast);
-
-            drop_white_spaces(cur_char);
-          };
-        };
-        
-        if (check_this_char(cur_char, ')')) 
-        {
-          cur_char = get_next_char();
-        };
-
-        VarDefAST* varDef = new VarDefAST(varBuffer);
-
-        return varDef;
-        
-        // You should NOT reach this line!
-        break;
-      };
-
-    case ':':
+  case '?':
+    {
       cur_char = get_next_char();
 
-      if (check_this_char(cur_char, '=')) {
-        cur_char = get_next_char();
-      } 
-      else
-      {
-
-      };
+      StyioAST* expr;
       
-      break;
-
-    case '-':
-      cur_char = get_next_char();
-
-      if (check_this_char(cur_char, '>')) {
+      if (check_this_char(cur_char, '(')) {
         cur_char = get_next_char();
-      };
-      
-      break;
 
-    case '?':
-      cur_char = get_next_char();
-      
-      if (check_this_char(cur_char, '=')) {
-        cur_char = get_next_char();
+        expr =  parse_bin_cond(tok_ctx, cur_char);
+
+        check_and_drop(cur_char, ')', 2);
+
+        std::cout << "here" << std::endl;
       } 
       else 
       {
-
+        std::string errmsg = std::string("Missing `(` for ?(`expr`).");
+        throw StyioSyntaxError(errmsg);
       };
-      
-      break;
+
+      return expr;
+    }
     
-    case '\"':
-      {
-        return parse_string(tok_ctx, cur_char);
-      }
+    // You should NOT reach this line!
+    break;
+  
+  case '\"':
+    {
+      return parse_string(tok_ctx, cur_char);
+    }
 
-      
-      break;
+    break;
 
-    case '!':
-      {
-        cur_char = get_next_char();
-        
-        if (check_this_char(cur_char, '~')) {
-          cur_char = get_next_char();
-        };
-      };
-
-      // You should NOT reach this line!
-      break;
-
-    case '(':
+  case '[':
+    {
       cur_char = get_next_char();
-      break;
 
-    case '[':
+      if (check_this_char(cur_char, '.')) 
       {
+        // eliminate the first dot .
         cur_char = get_next_char();
 
-        if (check_this_char(cur_char, '.')) {
-          // eliminate the first dot .
-          cur_char = get_next_char();
-
-          if (check_this_char(cur_char, ']')) 
-          {
-            std::string errmsg = std::string("[.] is not infinite, please use [..] or [...] instead.");
-            throw StyioSyntaxError(errmsg);
-          };
-
-          return parse_loop(tok_ctx, cur_char);
-        }
-        else
+        if (check_this_char(cur_char, ']')) 
         {
-          return parse_list_expr(tok_ctx, cur_char);
-        }
-      }
-      
-      // You should NOT reach this line!
-      break;
-
-    case '{':
-      cur_char = get_next_char();
-      
-      // "{" |--
-
-      break;
-
-    case '>':
-      {
-        // eliminate >
-        cur_char = get_next_char();
-        
-        if (check_this_char(cur_char, '_')) {
-          // eliminate _
-          cur_char = get_next_char();
-
-          drop_white_spaces(cur_char);
-
-          if (check_this_char(cur_char, '('))
-          {
-            // eliminate (
-            cur_char = get_next_char();
-
-            drop_all_spaces(cur_char);
-
-            if (check_this_char(cur_char, '\"'))
-            {
-              return new WriteStdOutAST(parse_string(tok_ctx, cur_char));
-            }
-            else
-            {
-              std::string errmsg = std::string("Cannot parse the thing to be printed, starts with ") + char(cur_char) + ".";
-              throw StyioSyntaxError(errmsg);
-            };
-          }
-          else
-          if (check_this_char(cur_char, '\"'))
-          {
-            return new WriteStdOutAST(parse_string(tok_ctx, cur_char));
-          }
-          else
-          {
-            std::string errmsg = std::string("Try >_(\"Styio\").");
-            throw StyioSyntaxError(errmsg);
-          };
-
-          StringAST* strAST = parse_string(tok_ctx, cur_char);
-
-          WriteStdOutAST* result = new WriteStdOutAST(strAST);
-
-          return result;
+          std::string errmsg = std::string("[.] is not infinite, please use [..] or [...] instead.");
+          throw StyioSyntaxError(errmsg);
         };
-      }
 
-      // You should NOT reach this line!
-      break;
-      
-    default:
-      break;
+        return parse_loop(tok_ctx, cur_char);
+      }
+      else
+      {
+        return parse_list_expr(tok_ctx, cur_char);
+      }
+    }
+    
+    // You should NOT reach this line!
+    break;
+
+  case '>':
+    {
+      return parse_write_stdout(tok_ctx, cur_char);
+    }
+
+    // You should NOT reach this line!
+    break;
+    
+  default:
+    break;
   }
 
   std::string errmsg = std::string("Unrecognized statement, starting with `") + char(cur_char) + "`";

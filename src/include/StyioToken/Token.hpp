@@ -57,6 +57,15 @@ enum class StyioType {
    * Basic Operation
    */
 
+  // Not
+  Not,
+
+  // Compare
+  Compare,
+
+  // Condition
+  Condition,
+
   // Binary Operation
   BinOp,
 
@@ -138,6 +147,7 @@ enum class StyioType {
    */
 
   MatchLayer,
+  FilterLayer,
 
   // Intermediate Connection Between Scopes
   ICBSLayer,
@@ -171,6 +181,20 @@ enum class BinOpType {
   BIN_DIV, // /
   BIN_POW, // **
   BIN_MOD, // %
+};
+
+enum class LogicType {
+  AND,
+  OR,
+};
+
+enum class CompType {
+  EQ, // == Equal
+  GT, // >  Greater Than
+  GE, // >= Greater Than and Equal
+  LT, // <  Less Than
+  LE, // <= Less Than and Equal
+  NE, // != Not Equal
 };
 
 enum class ListOpType {
@@ -212,6 +236,108 @@ enum class IterOverWhat {
    */
   ListOfTuples, // [(a0, b0, ...), (a1, b1, ...), ..., (an, bn, ...)]
   ListOfStructs, // [s0, s1, ..., sn]
+};
+
+static std::string reprListOp(ListOpType listOp) {
+  switch (listOp)
+  {
+    case ListOpType::Get_Reversed:
+      return "Get_Reversed";
+
+    case ListOpType::Get_Index_By_Item:
+      return "Get_Index_By_Item";
+
+    case ListOpType::Insert_Item_By_Index:
+      return "Insert_Item_By_Index";
+
+    case ListOpType::Remove_Item_By_Index:
+      return "Remove_Item_By_Index";
+
+    case ListOpType::Remove_Item_By_Value:
+      return "Remove_Item_By_Value";
+
+    case ListOpType::Remove_Many_Items_By_Indices:
+      return "Remove_Many_Items_By_Indices";
+
+    case ListOpType::Remove_Many_Items_By_Values:
+      return "Remove_Many_Items_By_Values";
+
+    default:
+      return "List_Operation";
+
+      break;
+  }
+}
+
+static std::string reprToken(LogicType token) {
+  switch (token)
+  {
+    case LogicType::AND:
+      return "<AND>";
+
+    case LogicType::OR:
+      return "<OR>";
+
+    default:
+      return "<NULL>";
+
+      break;
+  }
+}
+
+static std::string reprToken(CompType token) {
+  switch (token)
+  {
+    case CompType::EQ:
+      return "<EQ>";
+
+    case CompType::NE:
+      return "<NE>";
+
+    case CompType::GT:
+      return "<GT>";
+
+    case CompType::GE:
+      return "<GE>";
+
+    case CompType::LT:
+      return "<LT>";
+
+    case CompType::LE:
+      return "<LE>";
+
+    default:
+      return "<NULL>";
+      break;
+  }
+}
+
+static std::string reprToken(BinOpType token) {
+  switch (token)
+  {
+    case BinOpType::BIN_ADD:
+      return "<ADD>";
+
+    case BinOpType::BIN_SUB:
+      return "<SUB>";
+
+    case BinOpType::BIN_MUL:
+      return "<MUL>";
+
+    case BinOpType::BIN_DIV:
+      return "<DIV>";
+
+    case BinOpType::BIN_POW:
+      return "<POW>";
+
+    case BinOpType::BIN_MOD:
+      return "<DIV>";
+
+    default:
+      return "<NULL>";
+
+      break;
+  }
 };
 
 enum class StyioToken {
@@ -298,65 +424,6 @@ enum class StyioToken {
 
   TOK_INFINITE_LIST, // [...]
 };
-
-static std::string reprListOp(ListOpType listOp) {
-  switch (listOp)
-  {
-    case ListOpType::Get_Reversed:
-      return "Get_Reversed";
-
-    case ListOpType::Get_Index_By_Item:
-      return "Get_Index_By_Item";
-
-    case ListOpType::Insert_Item_By_Index:
-      return "Insert_Item_By_Index";
-
-    case ListOpType::Remove_Item_By_Index:
-      return "Remove_Item_By_Index";
-
-    case ListOpType::Remove_Item_By_Value:
-      return "Remove_Item_By_Value";
-
-    case ListOpType::Remove_Many_Items_By_Indices:
-      return "Remove_Many_Items_By_Indices";
-
-    case ListOpType::Remove_Many_Items_By_Values:
-      return "Remove_Many_Items_By_Values";
-
-    default:
-      return "List_Operation";
-
-      break;
-  }
-}
-
-static std::string reprToken(BinOpType token) {
-  switch (token)
-  {
-    case BinOpType::BIN_ADD:
-      return "<ADD>";
-
-    case BinOpType::BIN_SUB:
-      return "<SUB>";
-
-    case BinOpType::BIN_MUL:
-      return "<MUL>";
-
-    case BinOpType::BIN_DIV:
-      return "<DIV>";
-
-    case BinOpType::BIN_POW:
-      return "<POW>";
-
-    case BinOpType::BIN_MOD:
-      return "<DIV>";
-
-    default:
-      return "<NULL>";
-
-      break;
-  }
-}
 
 static std::string reprToken(StyioToken token) {
   switch (token)

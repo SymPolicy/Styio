@@ -69,7 +69,7 @@ SizeOfAST* parse_size_of (std::vector<int>& tok_ctx, int& cur_char);
 /*
   parse_bin_rhs
 */
-StyioAST* parse_bin_rhs (
+StyioAST* parse_binop_rhs (
   std::vector<int>& tok_ctx, 
   int& cur_char
 );
@@ -81,6 +81,22 @@ BinOpAST* parse_bin_op (
   std::vector<int>& tok_ctx, 
   int& cur_char, 
   StyioAST* lhs_ast
+);
+
+/*
+  parse_cond_elem
+*/
+StyioAST* parse_val_for_cond (
+  std::vector<int>& tok_ctx, 
+  int& cur_char
+);
+
+/*
+  parse_bin_cond
+*/
+StyioAST* parse_bin_cond (
+  std::vector<int>& tok_ctx, 
+  int& cur_char
 );
 
 /*
@@ -141,6 +157,14 @@ StyioAST* parse_value_expr (
 );
 
 /*
+  parse_resources
+*/
+VarDefAST* parse_resources (
+  std::vector<int>& tok_ctx, 
+  int& cur_char
+);
+
+/*
   parse_mut_assign
 */
 FlexBindAST* parse_mut_assign (
@@ -165,6 +189,14 @@ StyioAST* parse_read_file (
   std::vector<int>& tok_ctx, 
   int& cur_char, 
   IdAST* id_ast
+);
+
+/*
+  parse_write_stdout
+*/
+StyioAST* parse_write_stdout (
+  std::vector<int>& tok_ctx, 
+  int& cur_char
 );
 
 /*
