@@ -92,9 +92,9 @@ StyioAST* parse_val_for_cond (
 );
 
 /*
-  parse_bin_cond
+  parse_cond
 */
-StyioAST* parse_bin_cond (
+StyioAST* parse_cond (
   std::vector<int>& tok_ctx, 
   int& cur_char
 );
@@ -149,9 +149,9 @@ StyioAST* parse_simple_value (
 );
 
 /*
-  parse_value_expr
+  parse_expr
 */
-StyioAST* parse_value_expr (
+StyioAST* parse_expr (
   std::vector<int>& tok_ctx, 
   int& cur_char
 );

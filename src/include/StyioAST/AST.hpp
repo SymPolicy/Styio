@@ -449,7 +449,7 @@ class BinOpAST : public StyioAST
     }
 
     std::string toString(int indent = 0) {
-      return std::string("BinOp {\n")
+      return std::string("Binary Operation {\n")
         + "|" + std::string(2 * indent, '-') + "| LHS: "
         + LHS -> toString(indent + 1) 
         + "\n"
@@ -469,35 +469,6 @@ class BinOpAST : public StyioAST
         + " | RHS: "
         + RHS -> toStringInline(indent)  
         + " }";
-    }
-};
-
-class LogicNotAST: public StyioAST 
-{
-  StyioAST* Value;
-
-  public:
-    LogicNotAST(
-      StyioAST* value): 
-      Value(value)
-      {
-
-      }
-
-    StyioType hint() {
-      return StyioType::Not;
-    }
-
-    std::string toString(int indent = 0) {
-      return std::string("Not {\n")
-        + std::string(2, ' ') + Value -> toString() + "\n"
-        + "}";
-    }
-
-    std::string toStringInline(int indent = 0) {
-      return std::string("Not {\n")
-        + std::string(2, ' ') + Value -> toString() + "\n"
-        + "}";
     }
 };
 
@@ -525,27 +496,49 @@ class BinCompAST: public StyioAST
 
     std::string toString(int indent = 0) {
       return reprToken(CompSign) + std::string(" {\n")
-        + std::string(2, ' ') + "| LHS: " + LhsExpr -> toString() + "\n"
-        + std::string(2, ' ') + "| RHS: " + RhsExpr -> toString() + "\n"
+        + "|" + std::string(2 * indent, '-') + "| LHS: " + LhsExpr -> toString() 
+        + "\n"
+        + "|" + std::string(2 * indent, '-') + "| RHS: " + RhsExpr -> toString()
         + "}";
     }
 
     std::string toStringInline(int indent = 0) {
       return reprToken(CompSign) + std::string(" {\n")
-        + std::string(2, ' ') + "| LHS: " + LhsExpr -> toString() + "\n"
-        + std::string(2, ' ') + "| RHS: " + RhsExpr -> toString() + "\n"
+        + std::string(2, ' ') + "| LHS: " + LhsExpr -> toString() 
+        + "\n"
+        + std::string(2, ' ') + "| RHS: " + RhsExpr -> toString()
         + "}";
     }
 };
 
-class BinCondAST: public StyioAST 
+class CondAST: public StyioAST 
 {
   LogicType LogicOp;
+  
+  /*
+    RAW: expr
+    NOT: !(expr)
+  */
+  StyioAST* ValExpr;
+
+  /*
+    AND: expr && expr
+    OR : expr || expr
+  */
   StyioAST* LhsExpr;
   StyioAST* RhsExpr;
 
   public:
-    BinCondAST(
+    CondAST(
+      LogicType op, 
+      StyioAST* val): 
+      LogicOp(op), 
+      ValExpr(val)
+      {
+
+      }
+    
+    CondAST(
       LogicType op, 
       StyioAST* lhs, 
       StyioAST* rhs): 
@@ -561,19 +554,70 @@ class BinCondAST: public StyioAST
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Condition {\n")
-        + std::string(2, ' ') + "| Op: " + reprToken(LogicOp) + "\n"
-        + std::string(2, ' ') + "| LHS: " + LhsExpr -> toString() + "\n"
-        + std::string(2, ' ') + "| RHS: " + RhsExpr -> toString() + "\n"
+      if (LogicOp == LogicType::AND
+          || LogicOp == LogicType::OR
+          || LogicOp == LogicType::XOR)
+      {
+        return std::string("Condition {\n")
+        + "|" + std::string(2 * indent, '-') + "| Op: " + reprToken(LogicOp) 
+        + "\n"
+        + "|" + std::string(2 * indent, '-') + "| LHS: " + LhsExpr -> toString(indent + 1) 
+        + "\n"
+        + "|" + std::string(2 * indent, '-') + "| RHS: " + RhsExpr -> toString(indent + 1)
         + "}";
+      }
+      else
+      if (LogicOp == LogicType::NOT)
+      {
+        return std::string("Condition {\n")
+        + "|" + std::string(2 * indent, '-') + "| Op: " + reprToken(LogicOp) 
+        + "\n"
+        + "|" + std::string(2 * indent, '-') + "| Value: " + ValExpr -> toString(indent + 1)
+        + "}";
+      }
+      else
+      if (LogicOp == LogicType::RAW)
+      {
+        return std::string("Condition {\n")
+        + "|" + std::string(2 * indent, '-') + "| " + ValExpr -> toString(indent + 1) + "\n"
+        + "}";
+      }
+      else
+      {
+        return "Condition { Undefined! }";
+      }
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Condition {\n")
+      if (LogicOp == LogicType::AND
+          || LogicOp == LogicType::OR
+          || LogicOp == LogicType::XOR)
+      {
+        return std::string("Condition {\n")
         + std::string(2, ' ') + "| Op: " + reprToken(LogicOp) + "\n"
         + std::string(2, ' ') + "| LHS: " + LhsExpr -> toString() + "\n"
         + std::string(2, ' ') + "| RHS: " + RhsExpr -> toString() + "\n"
         + "}";
+      }
+      else
+      if (LogicOp == LogicType::NOT)
+      {
+        return std::string("Condition {\n")
+        + std::string(2, ' ') + "| Op: " + reprToken(LogicOp) + "\n"
+        + std::string(2, ' ') + "| Value: " + ValExpr -> toString() + "\n"
+        + "}";
+      }
+      else
+      if (LogicOp == LogicType::RAW)
+      {
+        return std::string("Condition {\n")
+        + std::string(2, ' ') + ValExpr -> toString() + "\n"
+        + "}";
+      }
+      else
+      {
+        return "Condition { Undefined! }";
+      }
     }
 };
 
@@ -776,11 +820,11 @@ class FlexBindAST : public StyioAST {
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Binding (Flex) {\n") 
-        + "|" + std::string(2 * indent, '-') + " Var: " 
+      return std::string("Binding (Flexible) {\n") 
+        + "|" + std::string(2 * indent, '-') + "| Var: " 
         + varId -> toString(indent + 1) 
         + "\n"
-        + "|" + std::string(2 * indent, '-') + " Val: " 
+        + "|" + std::string(2 * indent, '-') + "| Value: " 
         + valExpr -> toString(indent + 1)
         + "}";
     }

@@ -184,8 +184,11 @@ enum class BinOpType {
 };
 
 enum class LogicType {
+  RAW,
+  NOT,
   AND,
   OR,
+  XOR,
 };
 
 enum class CompType {
@@ -272,10 +275,16 @@ static std::string reprListOp(ListOpType listOp) {
 static std::string reprToken(LogicType token) {
   switch (token)
   {
+    case LogicType::NOT:
+      return "<NOT>";
+
     case LogicType::AND:
       return "<AND>";
 
     case LogicType::OR:
+      return "<OR>";
+
+    case LogicType::XOR:
       return "<OR>";
 
     default:
