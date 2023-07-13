@@ -579,7 +579,7 @@ class CondAST: public StyioAST
       if (LogicOp == LogicType::RAW)
       {
         return std::string("Condition {\n")
-        + "|" + std::string(2 * indent, '-') + "| " + ValExpr -> toString(indent + 1) + "\n"
+        + "|" + std::string(2 * indent, '-') + "| " + ValExpr -> toString(indent + 1)
         + "}";
       }
       else
@@ -1084,15 +1084,15 @@ class BlockAST : public StyioAST {
 };
 
 /*
-  MatchBlockAST: Match Block (Cases)
+  CaseAST: Match Block (Cases)
 */
-class MatchBlockAST : public StyioAST {
+class CaseAST : public StyioAST {
   std::vector<std::tuple<StyioAST*, StyioAST*>> Cases;
 
   public:
-    MatchBlockAST() {}
+    CaseAST() {}
 
-    MatchBlockAST(
+    CaseAST(
       std::vector<std::tuple<StyioAST*, StyioAST*>> cases): 
       Cases(cases) 
       {
@@ -1137,6 +1137,52 @@ class MatchBlockAST : public StyioAST {
     }
 };
 
+class CondFlowAST : public StyioAST {
+  FlowType WhatFlow;
+  CondAST* CondExpr;
+  StyioAST* ThenBlock;
+  StyioAST* ElseBlock;
+
+  public:
+    CondFlowAST(
+      FlowType whatFlow,
+      CondAST* condition,
+      StyioAST* block): 
+      WhatFlow(whatFlow),
+      CondExpr(condition),
+      ThenBlock(block)
+      {
+
+      }
+
+    CondFlowAST(
+      FlowType whatFlow,
+      CondAST* condition,
+      StyioAST* blockThen,
+      StyioAST* blockElse): 
+      WhatFlow(whatFlow),
+      CondExpr(condition),
+      ThenBlock(blockThen),
+      ElseBlock(blockElse)
+      {
+
+      }
+
+    StyioType hint() {
+      return StyioType::CondFlow;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("If (Flow) {") 
+      + "}";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("If (Flow) {") 
+      + "}";
+    }
+};
+
 /*
   =================
     Abstract Level: Layers
@@ -1146,7 +1192,7 @@ class MatchBlockAST : public StyioAST {
 /*
   ICBSLayerAST: Intermediate Connection Between Scopes
 
-  ExtraMatchOne:
+  ExtraMatchValue:
     >> Element(Single) ?= ValueExpr(Single) => {
       ...
     }
@@ -1154,7 +1200,7 @@ class MatchBlockAST : public StyioAST {
     For each step of iteration, check if the element match the value expression, 
     if match case is true, then execute the branch. 
 
-  ExtraMatchMany:
+  ExtraMatchCases:
     >> Element(Single) ?= {
       v0 => {}
       v1 => {}
@@ -1164,7 +1210,7 @@ class MatchBlockAST : public StyioAST {
     For each step of iteration, check if the element match any value expression, 
     if match case is true, then execute the branch. 
 
-  ExtraCheckIsin:
+  ExtraIsin:
     >> Element(Single) ?^ IterableExpr(Collection) => {
       ...
     }
@@ -1172,7 +1218,7 @@ class MatchBlockAST : public StyioAST {
     For each step of iteration, check if the element is in the following collection,
     if match case is true, then execute the branch. 
 
-  TopFilter: 
+  ExtraCond: 
     >> Elements ?? (Condition) :) {
       ...
     }
@@ -1251,62 +1297,100 @@ class MatchBlockAST : public StyioAST {
       you should throw an exception for this.
 */
 
-class MatchLayerAST : public StyioAST {
-  StyioAST* MatchValue;
+class CheckEqAST : public StyioAST {
+  StyioAST* Value;
 
   public:
-    MatchLayerAST(
+    CheckEqAST(
       StyioAST* value): 
-      MatchValue(value)
+      Value(value)
       {
 
       }
 
     StyioType hint() {
-      return StyioType::MatchLayer;
+      return StyioType::CheckEq;
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Layer (Match) {") 
+      return std::string("Check Equal {") 
       + "}";
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Layer (Match) {") 
+      return std::string("Check Equal {") 
       + "}";
     }
 };
 
-class FilterLayerAST : public StyioAST {
-  StyioAST* MatchValue;
+class CheckIsinAST : public StyioAST {
+  StyioAST* Iterable;
 
   public:
-    FilterLayerAST(
+    CheckIsinAST(
       StyioAST* value): 
-      MatchValue(value)
+      Iterable(value)
       {
 
       }
 
     StyioType hint() {
-      return StyioType::FilterLayer;
+      return StyioType::CheckIsin;
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Layer (Match) {") 
+      return std::string("Check Is In {") 
       + "}";
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Layer (Match) {") 
+      return std::string("Check Is In {") 
       + "}";
     }
 };
+
+class CheckCondAST : public StyioAST {
+  CondAST* Condition;
+
+  public:
+    CheckCondAST(
+      CondAST* condition): 
+      Condition(condition)
+      {
+
+      }
+
+    StyioType hint() {
+      return StyioType::CheckCond;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("Check Condition {") 
+      + "}";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Check Condition {") 
+      + "}";
+    }
+};
+
+/*
+  ExtraEq:
+    ?=
+
+  ExtraIsIn:
+    ?^
+  
+  ExtraCond:
+    ?()
+*/
 
 class ICBSLayerAST : public StyioAST {
   std::vector<StyioAST*> TmpVars;
-  StyioAST* TopFilter;
-  StyioAST* TopMatch;
+  CheckEqAST* ExtraEq;
+  CheckIsinAST* ExtraIsin;
+  CheckCondAST* ExtraCond;
 
   public:
     ICBSLayerAST() {}
@@ -1320,9 +1404,27 @@ class ICBSLayerAST : public StyioAST {
 
     ICBSLayerAST(
       std::vector<StyioAST*> vars,
-      StyioAST* filter): 
+      CheckEqAST* value): 
       TmpVars(vars),
-      TopFilter(filter)
+      ExtraEq(value)
+      {
+
+      }
+
+    ICBSLayerAST(
+      std::vector<StyioAST*> vars,
+      CheckIsinAST* isinExpr): 
+      TmpVars(vars),
+      ExtraIsin(isinExpr)
+      {
+
+      }
+
+    ICBSLayerAST(
+      std::vector<StyioAST*> vars,
+      CheckCondAST* condExpr): 
+      TmpVars(vars),
+      ExtraCond(condExpr)
       {
 
       }

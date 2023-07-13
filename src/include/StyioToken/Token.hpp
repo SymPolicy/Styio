@@ -71,7 +71,6 @@ enum class StyioType {
 
   // List Operation
   ListOp,
-
   // -----------------
 
   /* -----------------
@@ -80,7 +79,6 @@ enum class StyioType {
   
   // Get the Size / Length / .. of A Collection
   SizeOf,
-
   // -----------------
   
   /* -----------------
@@ -89,7 +87,6 @@ enum class StyioType {
 
   // @
   VarDef,
-
   // -----------------
 
   /* -----------------
@@ -100,14 +97,12 @@ enum class StyioType {
   MutAssign,
   // := 
   FixAssign,
-
   // -----------------
 
   /* -----------------
    * Control Flow: Loop
    */
   InfLoop,
-
   // -----------------
 
   /* -----------------
@@ -116,14 +111,12 @@ enum class StyioType {
   IterInfLoop,
   IterList,
   IterRange,
-
   // -----------------
 
   /* -----------------
    * Combination
    */
   IterWithMatch,
-
   // -----------------
 
   /* -----------------
@@ -131,7 +124,6 @@ enum class StyioType {
    */
 
   ReadFile,
-
   // -----------------
 
   /* -----------------
@@ -139,19 +131,21 @@ enum class StyioType {
    */
 
   WriteStdOut,
-
   // -----------------
 
   /* -----------------
    * Layers
    */
 
-  MatchLayer,
-  FilterLayer,
+  // ?=
+  CheckEq,
+  // ?^
+  CheckIsin,
+  // ?()
+  CheckCond,
 
   // Intermediate Connection Between Scopes
   ICBSLayer,
-
   // -----------------
 
   /* -----------------
@@ -160,8 +154,9 @@ enum class StyioType {
 
   Block,
   MatchBlock,
-
   // -----------------
+
+  CondFlow,
 };
 
 enum class InfiniteType {
@@ -189,6 +184,12 @@ enum class LogicType {
   AND,
   OR,
   XOR,
+};
+
+enum class FlowType {
+  OnlyTrue,
+  OnlyFalse,
+  TrueAndFalse,
 };
 
 enum class CompType {
