@@ -100,6 +100,15 @@ enum class StyioType {
   // -----------------
 
   /* -----------------
+   * Pipeline
+   */
+
+  Function,
+  Structure,
+  Evaluation,
+  // -----------------
+
+  /* -----------------
    * Control Flow: Loop
    */
   InfLoop,

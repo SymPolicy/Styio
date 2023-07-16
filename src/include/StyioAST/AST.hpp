@@ -878,6 +878,101 @@ class FinalBindAST : public StyioAST {
 
 /*
   =================
+    Pipeline
+      Function
+      Structure (Struct)
+      Evaluation
+  =================
+*/
+
+/*
+  FuncAST: Function
+*/
+class FuncAST : public StyioAST {
+  IdAST* FName;
+  std::vector<IdAST*> FVars;
+  StyioAST* FBlock;
+
+  bool FwithName;
+  bool FisFinal;
+
+  public:
+    FuncAST(
+      std::vector<IdAST*> vars,
+      StyioAST* block,
+      bool isFinal) :  
+      FVars(vars),
+      FBlock(block),
+      FisFinal(isFinal)
+      {
+        FwithName = false;
+      }
+
+    FuncAST(
+      IdAST* name, 
+      std::vector<IdAST*> vars,
+      StyioAST* block,
+      bool isFinal) : 
+      FName(name), 
+      FVars(vars),
+      FBlock(block),
+      FisFinal(isFinal)
+      {
+        FwithName = true;
+      }
+
+    StyioType hint() {
+      return StyioType::Function;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("Function {") 
+        + "}";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Function {") 
+        + "}";
+    }
+};
+
+/*
+  StructAST: Structure
+*/
+class StructAST : public StyioAST {
+  IdAST* FName;
+  std::vector<IdAST*> FVars;
+  StyioAST* FBlock;
+
+  public:
+    StructAST(
+      IdAST* name, 
+      std::vector<IdAST*> vars,
+      StyioAST* block) : 
+      FName(name), 
+      FVars(vars),
+      FBlock(block)
+      {
+
+      }
+
+    StyioType hint() {
+      return StyioType::Structure;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("Struct {") 
+        + "}";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Struct {") 
+        + "}";
+    }
+};
+
+/*
+  =================
     OS Utility: IO Stream
   =================
 */

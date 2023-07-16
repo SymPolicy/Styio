@@ -40,7 +40,9 @@ find_package(ICU COMPONENTS uc i18n REQUIRED)
 set(CMAKE_CXX_STANDARD 20)
 
 # [Styio] Executable
-add_executable(styio src/main.cpp)
+add_executable(styio src/main.cpp 
+    src/include/StyioParser/Parser.cpp
+    src/include/StyioUtil/Util.cpp)
 
 # [Styio - ICU4C] Link
 target_link_libraries(styio ICU::uc ICU::i18n)

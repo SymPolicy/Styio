@@ -2089,6 +2089,95 @@ FinalBindAST* parse_fix_assign (
   }
 }
 
+StyioAST* parse_pipeline (
+  std::vector<int>& tok_ctx, 
+  int& cur_char
+)
+{
+  IdAST* pipeName;
+  std::vector<IdAST*> pipeVars;
+  StyioAST* pipeBlock;
+  bool pwithName = false;
+  bool pisFinal = false;
+
+  // eliminate # at the start
+  get_next_char(cur_char);
+
+  // after #
+  drop_white_spaces(cur_char);
+
+  if (isalpha(cur_char) 
+    || check_this_char(cur_char, '_'))
+  {
+    pipeName = parse_id(tok_ctx, cur_char);
+
+    pwithName = true;
+  };
+  
+  // after function name
+  drop_all_spaces(cur_char);
+
+  if (check_this_char(cur_char, ':'))
+  {
+    get_next_char(cur_char);
+
+    pisFinal = true;
+  };
+
+  if (check_this_char(cur_char, '='))
+  {
+    get_next_char(cur_char);
+  };
+
+  drop_all_spaces(cur_char);
+
+  if (check_this_char(cur_char, '('))
+  {
+    get_next_char(cur_char);
+
+    pipeVars = parse_multi_vars(tok_ctx, cur_char);
+
+    check_and_drop(cur_char, ')', 2);
+  };
+
+  drop_all_spaces(cur_char);
+  
+  if (check_this_char(cur_char, '='))
+  {
+    get_next_char(cur_char);
+
+    if (check_this_char(cur_char, '>'))
+    {
+      get_next_char(cur_char);
+    };
+  };
+
+  drop_all_spaces(cur_char);
+
+  if (check_this_char(cur_char, '{'))
+  {
+    pipeBlock = parse_exec_block(tok_ctx, cur_char);
+
+    if (pwithName)
+    {
+      return new FuncAST(
+        pipeName,
+        pipeVars,
+        pipeBlock,
+        pisFinal
+      );
+    }
+    else
+    {
+      return new FuncAST(
+        pipeVars,
+        pipeBlock,
+        pisFinal
+      );
+    };
+  }
+}
+
 StyioAST* parse_read_file (
   std::vector<int>& tok_ctx, 
   int& cur_char, 
@@ -2389,7 +2478,11 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
 
   switch (cur_char)
   {
-  // VAR_DEF := "@" "(" [<ID> ["," <ID>]*]? ")"
+  /*
+    Resources
+
+    @(expr <- expr)
+  */
   case '@':
     {
       return parse_resources(tok_ctx, cur_char);
@@ -2397,15 +2490,10 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
 
     // You should NOT reach this line!
     break;
-
-  case '?':
-    {
-      return parse_cond_flow(tok_ctx, cur_char);
-    }
-    
-    // You should NOT reach this line!
-    break;
   
+  /*
+    "String"
+  */
   case '\"':
     {
       return parse_string(tok_ctx, cur_char);
@@ -2413,6 +2501,32 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
 
     break;
 
+  /*
+    Conditionals
+
+    ?(expr) 
+    :) {} 
+    :( {}
+
+    ?(expr) :( {}
+  */
+  case '?':
+    {
+      return parse_cond_flow(tok_ctx, cur_char);
+    }
+    
+    // You should NOT reach this line!
+    break;
+
+  /*
+    List:
+      [v0, v1, v2, ..., vn]
+    
+    Iterator:
+      [...] >> {}
+
+      List >> {}
+  */
   case '[':
     {
       cur_char = get_next_char();
@@ -2439,9 +2553,29 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
     // You should NOT reach this line!
     break;
 
+  /*
+    >_(expr)
+  */
   case '>':
     {
       return parse_write_stdout(tok_ctx, cur_char);
+    }
+
+    // You should NOT reach this line!
+    break;
+
+  /*
+    # function 
+      <: {
+        interfaces
+      } 
+      := (items) => {
+        statements
+      }
+  */
+  case '#':
+    {
+      return parse_pipeline(tok_ctx, cur_char);
     }
 
     // You should NOT reach this line!

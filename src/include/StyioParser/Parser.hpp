@@ -191,6 +191,14 @@ FinalBindAST* parse_fix_assign (
 );
 
 /*
+  parse_pipeline
+*/
+StyioAST* parse_pipeline (
+  std::vector<int>& tok_ctx, 
+  int& cur_char
+);
+
+/*
   parse_read_file
 */
 StyioAST* parse_read_file (
@@ -210,7 +218,10 @@ StyioAST* parse_write_stdout (
 /*
   parse_stmt
 */
-StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char);
+StyioAST* parse_stmt (
+  std::vector<int>& tok_ctx, 
+  int& cur_char
+);
 
 /*
   parse_ext_elem
