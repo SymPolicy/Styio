@@ -1,6 +1,12 @@
 #ifndef STYIO_PARSER_H_
 #define STYIO_PARSER_H_
 
+struct StyioCodeContext
+{
+  std::string text;
+  int cursor;
+};
+
 template <typename Enumeration>
 auto type_to_int(Enumeration const value)
     -> typename std::underlying_type<Enumeration>::type
@@ -8,15 +14,13 @@ auto type_to_int(Enumeration const value)
     return static_cast<typename std::underlying_type<Enumeration>::type>(value);
 }
 
-int get_next_char();
-
-void get_next_char(int& cur_char);
+void get_next_char(struct StyioCodeContext* code,int& cur_char);
 
 bool check_this_char(int& cur_char, char value);
 
-void drop_all_spaces (int& cur_char);
+void drop_all_spaces (struct StyioCodeContext* code,int& cur_char);
 
-void drop_white_spaces (int& cur_char);
+void drop_white_spaces (struct StyioCodeContext* code,int& cur_char);
 
 /*
   =================
@@ -27,7 +31,7 @@ void drop_white_spaces (int& cur_char);
 /*
   parse_id
 */
-IdAST* parse_id (std::vector<int>& tok_ctx, int& cur_char);
+IdAST* parse_id (struct StyioCodeContext* code,int& cur_char);
 
 /*
   =================
@@ -38,22 +42,22 @@ IdAST* parse_id (std::vector<int>& tok_ctx, int& cur_char);
 /*
   parse_int
 */
-IntAST* parse_int (std::vector<int>& tok_ctx, int& cur_char);
+IntAST* parse_int (struct StyioCodeContext* code,int& cur_char);
 
 /*
   parse_int_or_float
 */
-StyioAST* parse_int_or_float (std::vector<int>& tok_ctx, int& cur_char);
+StyioAST* parse_int_or_float (struct StyioCodeContext* code,int& cur_char);
 
 /*
   parse_string
 */
-StringAST* parse_string (std::vector<int>& tok_ctx, int& cur_char);
+StringAST* parse_string (struct StyioCodeContext* code,int& cur_char);
 
 /*
   parse_ext_res
 */
-StyioAST* parse_ext_res (std::vector<int>& tok_ctx, int& cur_char);
+StyioAST* parse_ext_res (struct StyioCodeContext* code,int& cur_char);
 
 /*
   =================
@@ -64,13 +68,13 @@ StyioAST* parse_ext_res (std::vector<int>& tok_ctx, int& cur_char);
 /*
   parse_size_of
 */
-SizeOfAST* parse_size_of (std::vector<int>& tok_ctx, int& cur_char);
+SizeOfAST* parse_size_of (struct StyioCodeContext* code,int& cur_char);
 
 /*
   parse_bin_rhs
 */
 StyioAST* parse_val_for_binop (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char
 );
 
@@ -78,7 +82,7 @@ StyioAST* parse_val_for_binop (
   parse_binop_rhs
 */
 BinOpAST* parse_binop_rhs (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char, 
   StyioAST* lhs_ast
 );
@@ -87,7 +91,7 @@ BinOpAST* parse_binop_rhs (
   parse_cond_elem
 */
 StyioAST* parse_val_for_cond (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char
 );
 
@@ -95,7 +99,7 @@ StyioAST* parse_val_for_cond (
   parse_cond
 */
 CondAST* parse_cond (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char
 );
 
@@ -103,7 +107,7 @@ CondAST* parse_cond (
   parse_cond_flow
 */
 StyioAST* parse_cond_flow (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char
 );
 
@@ -111,7 +115,7 @@ StyioAST* parse_cond_flow (
   parse_list_op
 */
 ListOpAST* parse_list_op (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char,
   StyioAST* theList
 );
@@ -120,7 +124,7 @@ ListOpAST* parse_list_op (
   parse_multi_vars
 */
 std::vector<IdAST*> parse_multi_vars (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char
 );
 
@@ -128,7 +132,7 @@ std::vector<IdAST*> parse_multi_vars (
   parse_iter
 */
 StyioAST* parse_iter (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char,
   StyioAST* collection
 );
@@ -136,23 +140,23 @@ StyioAST* parse_iter (
 /*
   parse_list_elem
 */
-StyioAST* parse_list_elem (std::vector<int>& tok_ctx, int& cur_char);
+StyioAST* parse_list_elem (struct StyioCodeContext* code,int& cur_char);
 
 /*
   parse_list_expr
 */
-StyioAST* parse_list_expr (std::vector<int>& tok_ctx, int& cur_char);
+StyioAST* parse_list_expr (struct StyioCodeContext* code,int& cur_char);
 
 /*
   parse_loop
 */
-StyioAST* parse_loop (std::vector<int>& tok_ctx, int& cur_char);
+StyioAST* parse_loop (struct StyioCodeContext* code,int& cur_char);
 
 /*
   parse_simple_value
 */
 StyioAST* parse_simple_value (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char
 );
 
@@ -160,7 +164,7 @@ StyioAST* parse_simple_value (
   parse_expr
 */
 StyioAST* parse_expr (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char
 );
 
@@ -168,7 +172,7 @@ StyioAST* parse_expr (
   parse_resources
 */
 VarDefAST* parse_resources (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char
 );
 
@@ -176,7 +180,7 @@ VarDefAST* parse_resources (
   parse_mut_assign
 */
 FlexBindAST* parse_mut_assign (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char, 
   IdAST* id_ast
 );
@@ -185,7 +189,7 @@ FlexBindAST* parse_mut_assign (
   parse_fix_assign
 */
 FinalBindAST* parse_fix_assign (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char, 
   IdAST* id_ast
 );
@@ -194,7 +198,7 @@ FinalBindAST* parse_fix_assign (
   parse_pipeline
 */
 StyioAST* parse_pipeline (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char
 );
 
@@ -202,7 +206,7 @@ StyioAST* parse_pipeline (
   parse_read_file
 */
 StyioAST* parse_read_file (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char, 
   IdAST* id_ast
 );
@@ -211,7 +215,7 @@ StyioAST* parse_read_file (
   parse_write_stdout
 */
 StyioAST* parse_write_stdout (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char
 );
 
@@ -219,14 +223,14 @@ StyioAST* parse_write_stdout (
   parse_stmt
 */
 StyioAST* parse_stmt (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char
 );
 
 /*
   parse_ext_elem
 */
-std::string parse_ext_elem(std::vector<int>& tok_ctx, int& cur_char);
+std::string parse_ext_elem(struct StyioCodeContext* code,int& cur_char);
 
 /*
   parse_ext_pack
@@ -251,13 +255,13 @@ std::string parse_ext_elem(std::vector<int>& tok_ctx, int& cur_char);
     "otherwise, try parseScript()";
   }
 */
-ExtPackAST* parse_ext_pack (std::vector<int>& tok_ctx, int& cur_char);
+ExtPackAST* parse_ext_pack (struct StyioCodeContext* code,int& cur_char);
 
 /*
   parse_case_block
 */
 StyioAST* parse_case_block (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char
 );
 
@@ -265,13 +269,13 @@ StyioAST* parse_case_block (
   parse_exec_block
 */
 StyioAST* parse_exec_block (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code,
   int& cur_char
 );
 
 /*
   parse_program
 */
-void parse_program ();
+void parse_program (std::string styio_code);
 
 #endif

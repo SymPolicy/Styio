@@ -1,7 +1,7 @@
-
 #include <string>
 #include <tuple>
 #include <vector>
+#include <fstream>
 #include <iostream>
 
 #include "../StyioException/Exception.hpp"
@@ -18,16 +18,17 @@
   =================
 */
 
-int get_next_char() 
-{
-  return getchar();
-}
-
 void get_next_char(
+  struct StyioCodeContext* code,
   int& cur_char
 )
 {
-  cur_char = getchar();
+  // std::cout << "This: " << code -> text.at(code -> cursor) << " | (" << code -> cursor << ")" << std::endl;
+
+  code -> cursor += 1;
+  cur_char = code -> text.at(code -> cursor);
+
+  // std::cout << "Next: " << char(cur_char) << " | (" << code -> cursor << ") \n ---------------" << std::endl;
 }
 
 bool check_this_char(
@@ -39,24 +40,27 @@ bool check_this_char(
 }
 
 void drop_all_spaces (
+  struct StyioCodeContext* code,
   int& cur_char
 ) 
 {
   while (isspace(cur_char)) {
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
   };
 }
 
 void drop_white_spaces (
+  struct StyioCodeContext* code,
   int& cur_char
 ) 
 {
   while (check_this_char(cur_char, ' ')) {
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
   };
 }
 
 void check_and_drop (
+  struct StyioCodeContext* code,
   int& cur_char,
   char value,
   int mode = 0)
@@ -64,12 +68,12 @@ void check_and_drop (
   switch (mode)
   {
   case 1:
-    drop_white_spaces(cur_char);
+    drop_white_spaces(code, cur_char);
 
     break;
 
   case 2:
-    drop_all_spaces(cur_char);
+    drop_all_spaces(code, cur_char);
 
     break;
   
@@ -79,7 +83,7 @@ void check_and_drop (
 
   if (check_this_char(cur_char, value))
   {
-    cur_char = getchar();
+    get_next_char(code, cur_char);
   }
 }
 
@@ -89,23 +93,28 @@ void check_and_drop (
 
 
 IdAST* parse_id (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 )
 {
   std::string idStr = "";
-  idStr += cur_char;
 
   // [a-zA-Z][a-zA-Z0-9_]*
-  while (isalnum((cur_char = get_next_char())) || check_this_char(cur_char, '_')) 
-  {
+  do {
     idStr += cur_char;
-  }
+    get_next_char(code, cur_char);
+  } while (
+    isalnum((cur_char)) 
+    || check_this_char(cur_char, '_')
+  );
 
   return new IdAST(idStr);
 }
 
-IntAST* parse_int (std::vector<int>& tok_ctx, int& cur_char)
+IntAST* parse_int (
+  struct StyioCodeContext* code, 
+  int& cur_char
+)
 {
   std::string intStr = "";
 
@@ -113,37 +122,37 @@ IntAST* parse_int (std::vector<int>& tok_ctx, int& cur_char)
   intStr += cur_char;
 
   // progress to the next
-  cur_char = get_next_char();
+  get_next_char(code, cur_char);
 
   // [0-9]*
   while (isdigit(cur_char))
   {
     intStr += cur_char;
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
   };
 
   return new IntAST(std::stoi(intStr));
 }
 
 StyioAST* parse_int_or_float (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 )
 {
   std::string numStr = "";
   numStr += cur_char;
-  cur_char = get_next_char();
+  get_next_char(code, cur_char);
 
   // [0-9]*
   while (isdigit(cur_char))
   {
     numStr += cur_char;
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
   };
 
   if (check_this_char(cur_char, '.')) 
   {
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
 
     if (isdigit(cur_char))
     {
@@ -154,7 +163,7 @@ StyioAST* parse_int_or_float (
       while (isdigit(cur_char))
       {
         numStr += cur_char;
-        cur_char = get_next_char();
+        get_next_char(code, cur_char);
       };
 
       return new FloatAST(std::stod(numStr));
@@ -171,45 +180,45 @@ StyioAST* parse_int_or_float (
 }
 
 StringAST* parse_string (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 )
 {
   // eliminate the first(start) double quote
-  cur_char = get_next_char();
+  get_next_char(code, cur_char);
 
   std::string textStr = "";
   
   while (cur_char != '\"')
   {
     textStr += cur_char;
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
   };
 
   // eliminate the second(end) double quote
-  cur_char = get_next_char();
+  get_next_char(code, cur_char);
 
   return new StringAST(textStr);
 }
 
 StyioAST* parse_char_or_string (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 )
 {
   // eliminate the first(start) single quote
-  get_next_char(cur_char);
+  get_next_char(code, cur_char);
 
   std::string textStr = "";
   
   while (cur_char != '\'')
   {
     textStr += cur_char;
-    get_next_char(cur_char);
+    get_next_char(code, cur_char);
   };
 
   // eliminate the second(end) single quote
-  get_next_char(cur_char);
+  get_next_char(code, cur_char);
 
   if (textStr.length() == 1)
   {
@@ -222,20 +231,20 @@ StyioAST* parse_char_or_string (
 }
 
 SizeOfAST* parse_size_of (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 ) 
 {
   // eliminate | at the start
-  cur_char = get_next_char();
+  get_next_char(code, cur_char);
        
   if (isalpha(cur_char) || check_this_char(cur_char, '_'))
   {
-    IdAST* var = parse_id(tok_ctx, cur_char);
+    IdAST* var = parse_id(code, cur_char);
 
     // eliminate | at the end
     if (check_this_char(cur_char, '|')) {
-      cur_char = get_next_char();
+      get_next_char(code, cur_char);
 
       return new SizeOfAST(var);
     }
@@ -256,34 +265,33 @@ SizeOfAST* parse_size_of (
   =================
 */
 
-
 StyioAST* parse_ext_res (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 )
 {
   // eliminate @
-  cur_char = get_next_char();
+  get_next_char(code, cur_char);
 
   if (check_this_char(cur_char, '(')) {
     // eliminate (
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
 
     if (check_this_char(cur_char, '\"')) {
       // eliminate the left double quote "
-      cur_char = get_next_char();
+      get_next_char(code, cur_char);
 
       std::string textStr = "";
   
       while (cur_char != '\"')
       {
         textStr += cur_char;
-        cur_char = get_next_char();
+        get_next_char(code, cur_char);
       };
 
       if (check_this_char(cur_char, '\"')) {
         // eliminate the right double quote "
-        cur_char = get_next_char();
+        get_next_char(code, cur_char);
       }
       else
       {
@@ -293,7 +301,7 @@ StyioAST* parse_ext_res (
 
       if (check_this_char(cur_char, ')')) {
         // eliminate )
-        cur_char = get_next_char();
+        get_next_char(code, cur_char);
       }
       else
       {
@@ -317,25 +325,25 @@ StyioAST* parse_ext_res (
 }
 
 StyioAST* parse_list_elem (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 )
 {
   if (isdigit(cur_char)) 
   {
-    return parse_int_or_float(tok_ctx, cur_char);
+    return parse_int_or_float(code, cur_char);
   }
   else if (isalpha(cur_char) || check_this_char(cur_char, '_')) 
   {
-    return parse_id(tok_ctx, cur_char);
+    return parse_id(code, cur_char);
   }
   else if (check_this_char(cur_char, '\"')) 
   {
-    return parse_string(tok_ctx, cur_char);
+    return parse_string(code, cur_char);
   }
   else if (check_this_char(cur_char, '\'')) 
   {
-    return parse_char_or_string(tok_ctx, cur_char);
+    return parse_char_or_string(code, cur_char);
   }
   
   std::string errmsg = std::string("Unexpected List / Range Element, starts with character `") + char(cur_char) + "`";
@@ -371,13 +379,13 @@ StyioAST* parse_list_elem (
 */
 
 ListOpAST* parse_list_op (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char,
   StyioAST* theList
 ) 
 {
   // eliminate [ at the start
-  cur_char = get_next_char();
+  get_next_char(code, cur_char);
 
   ListOpAST* listop;
 
@@ -389,7 +397,7 @@ ListOpAST* parse_list_op (
         list[<]
       */
 
-      cur_char = get_next_char();
+      get_next_char(code, cur_char);
 
       listop = new ListOpAST(
         theList, 
@@ -402,13 +410,13 @@ ListOpAST* parse_list_op (
   // list[?= item]
   case '?':
     {
-      cur_char = get_next_char();
+      get_next_char(code, cur_char);
 
       if (check_this_char(cur_char, '='))
       {
-        cur_char = get_next_char();
+        get_next_char(code, cur_char);
 
-        StyioAST* theItem = parse_list_elem(tok_ctx, cur_char);
+        StyioAST* theItem = parse_list_elem(code, cur_char);
 
         listop = new ListOpAST(
           theList, 
@@ -427,14 +435,14 @@ ListOpAST* parse_list_op (
   
   case '+':
     {
-      get_next_char(cur_char);
+      get_next_char(code, cur_char);
 
       if (check_this_char(cur_char, ':'))
       {
-        get_next_char(cur_char);
+        get_next_char(code, cur_char);
 
         // eliminate white spaces after +:
-        drop_white_spaces(cur_char);
+        drop_white_spaces(code, cur_char);
 
         if (isdigit(cur_char))
         {
@@ -442,24 +450,24 @@ ListOpAST* parse_list_op (
             list[+: index <- value]
           */
 
-          IntAST* theIndex = parse_int(tok_ctx, cur_char);
+          IntAST* theIndex = parse_int(code, cur_char);
 
           // eliminate white spaces between index and <-
-          drop_white_spaces(cur_char);
+          drop_white_spaces(code, cur_char);
 
           if (check_this_char(cur_char, '<'))
           {
-            cur_char = get_next_char();
+            get_next_char(code, cur_char);
 
             if (check_this_char(cur_char, '-'))
             {
-              cur_char = get_next_char();
+              get_next_char(code, cur_char);
 
               // eliminate white spaces between <- and the value to be inserted
-              drop_white_spaces(cur_char);
+              drop_white_spaces(code, cur_char);
 
               // the item to be inserted into the list
-              StyioAST* theItemIns = parse_list_elem(tok_ctx, cur_char);
+              StyioAST* theItemIns = parse_list_elem(code, cur_char);
 
               listop = new ListOpAST(
                 theList, 
@@ -492,14 +500,14 @@ ListOpAST* parse_list_op (
   
   case '-':
     {
-      get_next_char(cur_char);
+      get_next_char(code, cur_char);
 
       if (check_this_char(cur_char, ':'))
       {
-        get_next_char(cur_char);
+        get_next_char(code, cur_char);
 
         // eliminate white spaces after -:
-        drop_white_spaces(cur_char);
+        drop_white_spaces(code, cur_char);
 
         if (isdigit(cur_char))
         {
@@ -507,10 +515,10 @@ ListOpAST* parse_list_op (
             list[-: index]
           */
 
-          IntAST* theIndex = parse_int(tok_ctx, cur_char);
+          IntAST* theIndex = parse_int(code, cur_char);
 
           // eliminate white spaces between index
-          drop_white_spaces(cur_char);
+          drop_white_spaces(code, cur_char);
 
           listop = new ListOpAST(
             theList, 
@@ -528,42 +536,42 @@ ListOpAST* parse_list_op (
             */
 
             // eliminate ( at the start
-            get_next_char(cur_char);
+            get_next_char(code, cur_char);
             
             // drop white spaces between '(' and the first index
-            drop_white_spaces(cur_char);
+            drop_white_spaces(code, cur_char);
 
             std::vector<IntAST*> indices;
 
-            IntAST* firstIndex = parse_int(tok_ctx, cur_char);
+            IntAST* firstIndex = parse_int(code, cur_char);
             indices.push_back(firstIndex);
 
             // drop white spaces between first index and ,
-            drop_white_spaces(cur_char);
+            drop_white_spaces(code, cur_char);
 
             while (check_this_char(cur_char, ','))
             {
               // remove ,
-              get_next_char(cur_char);
+              get_next_char(code, cur_char);
 
               // drop white spaces between , and next index
-              drop_white_spaces(cur_char);
+              drop_white_spaces(code, cur_char);
 
               if (check_this_char(cur_char, ')'))
               {
                 break;
               }
 
-              IntAST* nextIndex = parse_int(tok_ctx, cur_char);
+              IntAST* nextIndex = parse_int(code, cur_char);
               indices.push_back(nextIndex);
             }
 
             // drop white spaces between , and )
-            drop_white_spaces(cur_char);
+            drop_white_spaces(code, cur_char);
             
             if (check_this_char(cur_char, ')'))
             {
-              get_next_char(cur_char);
+              get_next_char(code, cur_char);
 
               listop = new ListOpAST(
                 theList, 
@@ -582,7 +590,7 @@ ListOpAST* parse_list_op (
 
           case '?':
           {
-            get_next_char(cur_char);
+            get_next_char(code, cur_char);
 
             switch (cur_char)
             {
@@ -592,12 +600,12 @@ ListOpAST* parse_list_op (
                 list[-: ?= value]
               */
 
-              get_next_char(cur_char);
+              get_next_char(code, cur_char);
 
               // drop white spaces after ?=
-              drop_white_spaces(cur_char);
+              drop_white_spaces(code, cur_char);
               
-              StyioAST* valExpr = parse_list_elem(tok_ctx, cur_char);
+              StyioAST* valExpr = parse_list_elem(code, cur_char);
 
               listop = new ListOpAST(
                 theList, 
@@ -614,16 +622,16 @@ ListOpAST* parse_list_op (
                 list[-: ?^ (v0, v1, ...)]
               */
 
-              get_next_char(cur_char);
+              get_next_char(code, cur_char);
 
               // drop white spaces after ?^
-              drop_white_spaces(cur_char);
+              drop_white_spaces(code, cur_char);
 
               if (check_this_char(cur_char, '(') 
                 || check_this_char(cur_char, '[')
                 || check_this_char(cur_char, '{'))
               {
-                get_next_char(cur_char);
+                get_next_char(code, cur_char);
 
 
               }
@@ -666,7 +674,7 @@ ListOpAST* parse_list_op (
   if (check_this_char(cur_char, ']'))
   {
     // eliminate ] at the end
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
     
     return listop;
   }
@@ -678,23 +686,23 @@ ListOpAST* parse_list_op (
 }
 
 std::vector<IdAST*> parse_multi_vars (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 ) 
 {
   std::vector<IdAST*> vars;
 
-  IdAST* firstVar = parse_id(tok_ctx, cur_char);
+  IdAST* firstVar = parse_id(code, cur_char);
 
   vars.push_back(firstVar);
 
-  drop_white_spaces(cur_char);
+  drop_white_spaces(code, cur_char);
 
   while (check_this_char(cur_char, ','))
   {
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
 
-    drop_white_spaces(cur_char);
+    drop_white_spaces(code, cur_char);
 
     /*
       the last character will be eliminated outside parse_multi_vars()
@@ -707,14 +715,14 @@ std::vector<IdAST*> parse_multi_vars (
       break;
     };
 
-    vars.push_back(parse_id(tok_ctx, cur_char));
+    vars.push_back(parse_id(code, cur_char));
   }
 
   return vars;
 }
 
 StyioAST* parse_iter (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char,
   StyioAST* iterOverIt
 ) 
@@ -731,40 +739,40 @@ StyioAST* parse_iter (
   switch (cur_char)
   {
   case '(':
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
     break;
 
   case '[':
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
     break;
 
   case '|':
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
     break;
   
   default:
     break;
   }
 
-  drop_white_spaces(cur_char);
+  drop_white_spaces(code, cur_char);
 
-  iterTmpVars = parse_multi_vars(tok_ctx, cur_char);
+  iterTmpVars = parse_multi_vars(code, cur_char);
 
-  drop_white_spaces(cur_char);
+  drop_white_spaces(code, cur_char);
 
   // eliminate the end
   switch (cur_char)
   {
   case ')':
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
     break;
 
   case ']':
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
     break;
 
   case '|':
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
     break;
   
   default:
@@ -782,11 +790,11 @@ StyioAST* parse_iter (
 
   */
 
-  drop_all_spaces(cur_char);
+  drop_all_spaces(code, cur_char);
 
   if (check_this_char(cur_char, '?'))
   {
-    get_next_char(cur_char);
+    get_next_char(code, cur_char);
 
     switch (cur_char)
     {
@@ -795,12 +803,12 @@ StyioAST* parse_iter (
     */
     case '=':
       {
-        get_next_char(cur_char);
+        get_next_char(code, cur_char);
 
         // drop white spaces after ?=
-        drop_white_spaces(cur_char);
+        drop_white_spaces(code, cur_char);
 
-        StyioAST* matchValue = parse_simple_value(tok_ctx, cur_char);
+        StyioAST* matchValue = parse_simple_value(code, cur_char);
         
         iterMatch = new CheckEqAST(matchValue);
         hasMatch = true;
@@ -845,11 +853,11 @@ StyioAST* parse_iter (
 
   if (check_this_char(cur_char, '='))
   {
-    get_next_char(cur_char);
+    get_next_char(code, cur_char);
 
     if (check_this_char(cur_char, '>'))
     {
-      get_next_char(cur_char);
+      get_next_char(code, cur_char);
 
       /*
         support:
@@ -857,11 +865,11 @@ StyioAST* parse_iter (
         => \n
         { }
       */
-      drop_all_spaces(cur_char);
+      drop_all_spaces(code, cur_char);
 
       if (check_this_char(cur_char, '{'))
       {
-        iterBlock = parse_exec_block(tok_ctx, cur_char);
+        iterBlock = parse_exec_block(code, cur_char);
       }
       else
       {
@@ -908,29 +916,29 @@ StyioAST* parse_iter (
 }
 
 StyioAST* parse_list_expr (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 ) 
 {
   std::vector<StyioAST*> elements;
 
-  StyioAST* startEl = parse_list_elem(tok_ctx, cur_char);
+  StyioAST* startEl = parse_list_elem(code, cur_char);
   elements.push_back(startEl);
 
-  drop_white_spaces(cur_char);
+  drop_white_spaces(code, cur_char);
 
   switch (cur_char)
   {
   case '.':
     {
-      cur_char = get_next_char();
+      get_next_char(code, cur_char);
 
       while (check_this_char(cur_char, '.'))
       {
-        cur_char = get_next_char();
+        get_next_char(code, cur_char);
       }
       
-      StyioAST* endEl = parse_list_elem(tok_ctx, cur_char);
+      StyioAST* endEl = parse_list_elem(code, cur_char);
 
       StyioAST* list_loop;
 
@@ -959,7 +967,7 @@ StyioAST* parse_list_expr (
 
       if (check_this_char(cur_char, ']')) 
       {
-        cur_char = get_next_char();
+        get_next_char(code, cur_char);
       }
       else
       {
@@ -967,7 +975,7 @@ StyioAST* parse_list_expr (
         throw StyioSyntaxError(errmsg);
       };
 
-      drop_white_spaces(cur_char);
+      drop_white_spaces(code, cur_char);
 
       switch (cur_char)
       {
@@ -982,14 +990,14 @@ StyioAST* parse_list_expr (
 
       case '>':
         {
-          cur_char = get_next_char();
+          get_next_char(code, cur_char);
 
           if (check_this_char(cur_char, '>'))
           {
             // If: >>, Then: Iteration
-            cur_char = get_next_char();
+            get_next_char(code, cur_char);
             
-            return parse_iter(tok_ctx, cur_char, list_loop);
+            return parse_iter(code, cur_char, list_loop);
           }
         }
         
@@ -998,7 +1006,7 @@ StyioAST* parse_list_expr (
 
       case '[':
         {
-          return parse_list_op(tok_ctx, cur_char, list_loop);
+          return parse_list_op(code, cur_char, list_loop);
         }
         
         // You should NOT reach this line!
@@ -1025,27 +1033,27 @@ StyioAST* parse_list_expr (
       while (check_this_char(cur_char, ','))
       {
         // eliminate ,
-        cur_char = get_next_char();
+        get_next_char(code, cur_char);
 
-        drop_white_spaces(cur_char);
+        drop_white_spaces(code, cur_char);
 
         if (check_this_char(cur_char, ']')) 
         {
-          cur_char = get_next_char();
+          get_next_char(code, cur_char);
 
           theList = new ListAST(elements);
         };
 
-        StyioAST* el = parse_list_elem(tok_ctx, cur_char);
+        StyioAST* el = parse_list_elem(code, cur_char);
 
         elements.push_back(el);
       };
 
-      drop_white_spaces(cur_char);
+      drop_white_spaces(code, cur_char);
 
       if (check_this_char(cur_char, ']')) 
       {
-        cur_char = get_next_char();
+        get_next_char(code, cur_char);
 
         theList = new ListAST(elements);
       }
@@ -1055,7 +1063,7 @@ StyioAST* parse_list_expr (
         throw StyioSyntaxError(errmsg);
       };
 
-      drop_white_spaces(cur_char);
+      drop_white_spaces(code, cur_char);
 
       switch (cur_char)
       {
@@ -1070,14 +1078,14 @@ StyioAST* parse_list_expr (
 
       case '>':
         {
-          cur_char = get_next_char();
+          get_next_char(code, cur_char);
 
           if (check_this_char(cur_char, '>'))
           {
             // If: >>, Then: Iteration
-            cur_char = get_next_char();
+            get_next_char(code, cur_char);
 
-            return parse_iter(tok_ctx, cur_char, theList);
+            return parse_iter(code, cur_char, theList);
           }
 
           // TODO: Iteration Over List / Range / Loop
@@ -1090,7 +1098,7 @@ StyioAST* parse_list_expr (
 
       case '[':
         {
-          return parse_list_op(tok_ctx, cur_char, theList);
+          return parse_list_op(code, cur_char, theList);
         }
         
         // You should NOT reach this line!
@@ -1119,18 +1127,18 @@ StyioAST* parse_list_expr (
 }
 
 StyioAST* parse_loop (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 )
 {
   while (check_this_char(cur_char, '.')) 
   { 
     // eliminate all .
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
 
     if (check_this_char(cur_char, ']')) 
     {
-      cur_char = get_next_char();
+      get_next_char(code, cur_char);
 
       // return new InfiniteAST();
       break;
@@ -1138,11 +1146,11 @@ StyioAST* parse_loop (
   };
 
   // eliminate white spaces after [...]
-  drop_white_spaces(cur_char);
+  drop_white_spaces(code, cur_char);
 
   if (isdigit(cur_char))
   {
-    StyioAST* errnum = parse_int_or_float(tok_ctx, cur_char);
+    StyioAST* errnum = parse_int_or_float(code, cur_char);
     
     std::string errmsg = std::string("A finite list must have both start and end values. However, only the end value is detected: `") + errnum -> toStringInline() + "`. Try `[0.." + errnum -> toStringInline() + "]` rather than `[.." + errnum -> toStringInline() + "]`.";
     throw StyioSyntaxError(errmsg);
@@ -1152,20 +1160,20 @@ StyioAST* parse_loop (
   {
   case '>':
     {
-      get_next_char(cur_char);
+      get_next_char(code, cur_char);
 
       if (check_this_char(cur_char, '>'))
       {
-        get_next_char(cur_char);
+        get_next_char(code, cur_char);
 
         // eliminate white spaces after >>
-        drop_white_spaces(cur_char);
+        drop_white_spaces(code, cur_char);
 
         if (isalpha(cur_char) 
             || check_this_char(cur_char, '_')
             || check_this_char(cur_char, '(')) 
         {
-          return parse_iter(tok_ctx, cur_char, new InfiniteAST());
+          return parse_iter(code, cur_char, new InfiniteAST());
         }
         else
         if (check_this_char(cur_char, '{'))
@@ -1173,7 +1181,7 @@ StyioAST* parse_loop (
           /*
             the { at the start will be eliminated inside parse_exec_block() function
           */
-          StyioAST* block = parse_exec_block(tok_ctx, cur_char);
+          StyioAST* block = parse_exec_block(code, cur_char);
 
           return new IterInfiniteAST(block);
         }
@@ -1185,7 +1193,7 @@ StyioAST* parse_loop (
 
   case '(':
     {
-      return parse_iter(tok_ctx, cur_char, new InfiniteAST());
+      return parse_iter(code, cur_char, new InfiniteAST());
     }
 
     // You should not reach this line!
@@ -1208,21 +1216,21 @@ StyioAST* parse_loop (
 }
 
 StyioAST* parse_val_for_binop (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 ) 
 {
-  drop_white_spaces(cur_char);
+  drop_white_spaces(code, cur_char);
 
   // ID
   if (isalpha(cur_char) || check_this_char(cur_char, '_')) {
-    IdAST* result = parse_id(tok_ctx, cur_char);
+    IdAST* result = parse_id(code, cur_char);
     return result;
   }
   else
   // Int / Float
   if (isdigit(cur_char)) {
-    StyioAST* result = parse_int_or_float(tok_ctx, cur_char);
+    StyioAST* result = parse_int_or_float(code, cur_char);
     return result;
   }
   else
@@ -1232,16 +1240,16 @@ StyioAST* parse_val_for_binop (
     // List
     case '[':
       {
-        cur_char = get_next_char();
+        get_next_char(code, cur_char);
 
         if (check_this_char(cur_char, ']')) {
-          cur_char = get_next_char();
+          get_next_char(code, cur_char);
 
           return new EmptyListAST();
         }
         else
         {
-          return parse_list_expr(tok_ctx, cur_char);
+          return parse_list_expr(code, cur_char);
         }
       }
 
@@ -1251,7 +1259,7 @@ StyioAST* parse_val_for_binop (
     // SizeOf()
     case '|':
       {
-        return parse_size_of(tok_ctx, cur_char);
+        return parse_size_of(code, cur_char);
       }
 
       // You should NOT reach this line!
@@ -1267,27 +1275,27 @@ StyioAST* parse_val_for_binop (
 }
 
 BinOpAST* parse_binop_rhs (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char, 
   StyioAST* lhs_ast
 ) 
 {
   BinOpAST* binOp;
 
-  drop_all_spaces(cur_char);
+  drop_all_spaces(code, cur_char);
 
   switch (cur_char)
   {
     // BIN_ADD := <ID> "+" <EXPR>
     case '+':
       {
-        cur_char = get_next_char();
+        get_next_char(code, cur_char);
 
         // <ID> "+" |-- 
         binOp = new BinOpAST(
           BinOpType::BIN_ADD, 
           lhs_ast, 
-          parse_val_for_binop(tok_ctx, cur_char));
+          parse_val_for_binop(code, cur_char));
       };
 
       // You should NOT reach this line!
@@ -1296,13 +1304,13 @@ BinOpAST* parse_binop_rhs (
     // BIN_SUB := <ID> "-" <EXPR>
     case '-':
       {
-        cur_char = get_next_char();
+        get_next_char(code, cur_char);
 
         // <ID> "-" |--
         binOp = new BinOpAST(
           BinOpType::BIN_SUB, 
           lhs_ast, 
-          parse_val_for_binop(tok_ctx, cur_char));
+          parse_val_for_binop(code, cur_char));
       };
 
       // You should NOT reach this line!
@@ -1311,17 +1319,17 @@ BinOpAST* parse_binop_rhs (
     // BIN_MUL | BIN_POW
     case '*':
       {
-        cur_char = get_next_char();
+        get_next_char(code, cur_char);
         // BIN_POW := <ID> "**" <EXPR>
         if (check_this_char(cur_char, '*'))
         {
-          cur_char = get_next_char();
+          get_next_char(code, cur_char);
 
           // <ID> "**" |--
           binOp = new BinOpAST(
             BinOpType::BIN_POW, 
             lhs_ast, 
-            parse_val_for_binop(tok_ctx, cur_char));
+            parse_val_for_binop(code, cur_char));
         } 
         // BIN_MUL := <ID> "*" <EXPR>
         else 
@@ -1330,7 +1338,7 @@ BinOpAST* parse_binop_rhs (
           binOp = new BinOpAST(
             BinOpType::BIN_MUL, 
             lhs_ast, 
-            parse_val_for_binop(tok_ctx, cur_char));
+            parse_val_for_binop(code, cur_char));
         }
       };
       // You should NOT reach this line!
@@ -1339,13 +1347,13 @@ BinOpAST* parse_binop_rhs (
     // BIN_DIV := <ID> "/" <EXPR>
     case '/':
       {
-        cur_char = get_next_char();
+        get_next_char(code, cur_char);
 
         // <ID> "/" |-- 
         binOp = new BinOpAST(
           BinOpType::BIN_DIV, 
           lhs_ast, 
-          parse_val_for_binop(tok_ctx, cur_char));
+          parse_val_for_binop(code, cur_char));
       };
 
       // You should NOT reach this line!
@@ -1354,13 +1362,13 @@ BinOpAST* parse_binop_rhs (
     // BIN_MOD := <ID> "%" <EXPR> 
     case '%':
       {
-        cur_char = get_next_char();
+        get_next_char(code, cur_char);
 
         // <ID> "%" |-- 
         binOp = new BinOpAST(
           BinOpType::BIN_MOD, 
           lhs_ast, 
-          parse_val_for_binop(tok_ctx, cur_char));
+          parse_val_for_binop(code, cur_char));
       };
 
       // You should NOT reach this line!
@@ -1373,7 +1381,7 @@ BinOpAST* parse_binop_rhs (
 
   while (cur_char != '\n') 
   {
-    binOp = parse_binop_rhs(tok_ctx, cur_char, binOp);
+    binOp = parse_binop_rhs(code, cur_char, binOp);
   }
 
   return binOp;
@@ -1394,29 +1402,29 @@ BinOpAST* parse_binop_rhs (
 */
 
 StyioAST* parse_val_for_cond (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 )
 {
   StyioAST* valExpr;
 
   // drop all spaces first value
-  drop_all_spaces(cur_char);
+  drop_all_spaces(code, cur_char);
 
-  valExpr = parse_simple_value(tok_ctx, cur_char);
+  valExpr = parse_simple_value(code, cur_char);
   
   // drop all spaces after first value
-  drop_all_spaces(cur_char);
+  drop_all_spaces(code, cur_char);
 
   switch (cur_char)
   {
   case '=':
     {
-      get_next_char(cur_char);
+      get_next_char(code, cur_char);
 
       if (check_this_char(cur_char, '='))
       {
-        get_next_char(cur_char);
+        get_next_char(code, cur_char);
 
         /*
           Equal
@@ -1424,12 +1432,12 @@ StyioAST* parse_val_for_cond (
         */
 
         // drop all spaces after ==
-        drop_all_spaces(cur_char);
+        drop_all_spaces(code, cur_char);
         
         valExpr = new BinCompAST(
           CompType::EQ,
           valExpr,
-          parse_simple_value(tok_ctx, cur_char));
+          parse_simple_value(code, cur_char));
       };
     }
 
@@ -1437,11 +1445,11 @@ StyioAST* parse_val_for_cond (
 
   case '!':
     {
-      get_next_char(cur_char);
+      get_next_char(code, cur_char);
 
       if (check_this_char(cur_char, '='))
       {
-        get_next_char(cur_char);
+        get_next_char(code, cur_char);
 
         /*
           Not Equal
@@ -1449,12 +1457,12 @@ StyioAST* parse_val_for_cond (
         */
 
         // drop all spaces after !=
-        drop_all_spaces(cur_char);
+        drop_all_spaces(code, cur_char);
 
         valExpr = new BinCompAST(
           CompType::NE,
           valExpr,
-          parse_simple_value(tok_ctx, cur_char));
+          parse_simple_value(code, cur_char));
       };
     }
 
@@ -1462,11 +1470,11 @@ StyioAST* parse_val_for_cond (
 
   case '>':
     {
-      get_next_char(cur_char);
+      get_next_char(code, cur_char);
 
       if (check_this_char(cur_char, '='))
       {
-        get_next_char(cur_char);
+        get_next_char(code, cur_char);
 
         /*
           Greater Than and Equal
@@ -1474,12 +1482,12 @@ StyioAST* parse_val_for_cond (
         */
 
         // drop all spaces after >=
-        drop_all_spaces(cur_char);
+        drop_all_spaces(code, cur_char);
 
         valExpr = new BinCompAST(
           CompType::GE,
           valExpr,
-          parse_simple_value(tok_ctx, cur_char));
+          parse_simple_value(code, cur_char));
       }
       else
       {
@@ -1489,12 +1497,12 @@ StyioAST* parse_val_for_cond (
         */
 
         // drop all spaces after >
-        drop_all_spaces(cur_char);
+        drop_all_spaces(code, cur_char);
 
         valExpr = new BinCompAST(
           CompType::GT,
           valExpr,
-          parse_simple_value(tok_ctx, cur_char));
+          parse_simple_value(code, cur_char));
       };
     }
 
@@ -1502,11 +1510,11 @@ StyioAST* parse_val_for_cond (
 
   case '<':
     {
-      get_next_char(cur_char);
+      get_next_char(code, cur_char);
 
       if (check_this_char(cur_char, '='))
       {
-        get_next_char(cur_char);
+        get_next_char(code, cur_char);
 
         /*
           Less Than and Equal
@@ -1514,12 +1522,12 @@ StyioAST* parse_val_for_cond (
         */
 
         // drop all spaces after <=
-        drop_all_spaces(cur_char);
+        drop_all_spaces(code, cur_char);
 
         valExpr = new BinCompAST(
           CompType::LE,
           valExpr,
-          parse_simple_value(tok_ctx, cur_char));
+          parse_simple_value(code, cur_char));
       }
       else
       {
@@ -1529,12 +1537,12 @@ StyioAST* parse_val_for_cond (
         */
 
         // drop all spaces after <
-        drop_all_spaces(cur_char);
+        drop_all_spaces(code, cur_char);
 
         valExpr = new BinCompAST(
           CompType::LT,
           valExpr,
-          parse_simple_value(tok_ctx, cur_char));
+          parse_simple_value(code, cur_char));
       };
     }
 
@@ -1548,24 +1556,24 @@ StyioAST* parse_val_for_cond (
 }
 
 CondAST* parse_cond_rhs (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char,
   StyioAST* lhsExpr
 )
 {
   CondAST* condExpr;
 
-  drop_all_spaces(cur_char);
+  drop_all_spaces(code, cur_char);
 
   switch (cur_char)
   {
   case '&':
     {
-      get_next_char(cur_char);
+      get_next_char(code, cur_char);
 
       if (check_this_char(cur_char, '&'))
       {
-        get_next_char(cur_char);
+        get_next_char(code, cur_char);
       };
 
       /*
@@ -1574,12 +1582,12 @@ CondAST* parse_cond_rhs (
           expression
       */
 
-      drop_all_spaces(cur_char);
+      drop_all_spaces(code, cur_char);
 
       condExpr = new CondAST(
         LogicType::AND,
         lhsExpr,
-        parse_cond(tok_ctx, cur_char)
+        parse_cond(code, cur_char)
       );
     }
 
@@ -1587,11 +1595,11 @@ CondAST* parse_cond_rhs (
 
   case '|':
     {
-      get_next_char(cur_char);
+      get_next_char(code, cur_char);
 
       if (check_this_char(cur_char, '|'))
       {
-        get_next_char(cur_char);
+        get_next_char(code, cur_char);
       };
 
       /*
@@ -1600,12 +1608,12 @@ CondAST* parse_cond_rhs (
           expression
       */
 
-      drop_all_spaces(cur_char);
+      drop_all_spaces(code, cur_char);
 
       condExpr = new CondAST(
         LogicType::OR,
         lhsExpr,
-        parse_cond(tok_ctx, cur_char)
+        parse_cond(code, cur_char)
       );
     }
 
@@ -1613,7 +1621,7 @@ CondAST* parse_cond_rhs (
 
   case '^':
     {
-      get_next_char(cur_char);
+      get_next_char(code, cur_char);
 
       /*
         support:
@@ -1621,12 +1629,12 @@ CondAST* parse_cond_rhs (
           expression
       */
 
-      drop_all_spaces(cur_char);
+      drop_all_spaces(code, cur_char);
 
       condExpr = new CondAST(
         LogicType::OR,
         lhsExpr,
-        parse_cond(tok_ctx, cur_char)
+        parse_cond(code, cur_char)
       );
     }
 
@@ -1634,11 +1642,11 @@ CondAST* parse_cond_rhs (
 
   case '!':
     {
-      get_next_char(cur_char);
+      get_next_char(code, cur_char);
 
       if (check_this_char(cur_char, '('))
       {
-        get_next_char(cur_char);
+        get_next_char(code, cur_char);
 
         /*
           support:
@@ -1646,14 +1654,14 @@ CondAST* parse_cond_rhs (
               expr
             )
         */
-        drop_all_spaces(cur_char);
+        drop_all_spaces(code, cur_char);
 
         condExpr = new CondAST(
           LogicType::NOT,
-          parse_cond(tok_ctx, cur_char)
+          parse_cond(code, cur_char)
         );
 
-        check_and_drop(cur_char, ')', 2);
+        check_and_drop(code, cur_char, ')', 2);
       }
     }
 
@@ -1663,18 +1671,18 @@ CondAST* parse_cond_rhs (
     break;
   }
 
-  drop_all_spaces(cur_char);
+  drop_all_spaces(code, cur_char);
 
   while (!(check_this_char(cur_char, ')')))
   {
-    condExpr = parse_cond_rhs(tok_ctx, cur_char, condExpr);
+    condExpr = parse_cond_rhs(code, cur_char, condExpr);
   }
   
   return condExpr;
 }
 
 CondAST* parse_cond (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 )
 {
@@ -1682,20 +1690,20 @@ CondAST* parse_cond (
 
   if (check_this_char(cur_char, '('))
   {
-    get_next_char(cur_char);
+    get_next_char(code, cur_char);
 
-    lhsExpr = parse_cond(tok_ctx, cur_char);
+    lhsExpr = parse_cond(code, cur_char);
 
-    check_and_drop(cur_char, ')', 2);
+    check_and_drop(code, cur_char, ')', 2);
   }
   else
   if (check_this_char(cur_char, '!'))
   {
-    get_next_char(cur_char);
+    get_next_char(code, cur_char);
 
     if (check_this_char(cur_char, '('))
     {
-      get_next_char(cur_char);
+      get_next_char(code, cur_char);
 
       /*
         support:
@@ -1703,11 +1711,11 @@ CondAST* parse_cond (
             expr
           )
       */
-      drop_all_spaces(cur_char);
+      drop_all_spaces(code, cur_char);
 
-      lhsExpr = parse_cond(tok_ctx, cur_char);
+      lhsExpr = parse_cond(code, cur_char);
 
-      drop_all_spaces(cur_char);
+      drop_all_spaces(code, cur_char);
 
       return new CondAST(
         LogicType::NOT,
@@ -1722,16 +1730,16 @@ CondAST* parse_cond (
   }
   else
   {
-    lhsExpr = parse_val_for_cond(tok_ctx, cur_char);
+    lhsExpr = parse_val_for_cond(code, cur_char);
   };
 
   // drop all spaces after first value
-  drop_all_spaces(cur_char);
+  drop_all_spaces(code, cur_char);
 
   if (check_this_char(cur_char, '&')
     || check_this_char(cur_char, '|'))
   {
-    return parse_cond_rhs(tok_ctx, cur_char, lhsExpr);
+    return parse_cond_rhs(code, cur_char, lhsExpr);
   }
   else
   {
@@ -1746,21 +1754,21 @@ CondAST* parse_cond (
 }
 
 StyioAST* parse_cond_flow (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 )
 {
   // eliminate ?
-  get_next_char(cur_char);
+  get_next_char(code, cur_char);
 
   CondAST* condition;
   
   if (check_this_char(cur_char, '(')) {
-    get_next_char(cur_char);
+    get_next_char(code, cur_char);
 
-    condition =  parse_cond(tok_ctx, cur_char);
+    condition = parse_cond(code, cur_char);
 
-    check_and_drop(cur_char, ')', 2);
+    check_and_drop(code, cur_char, ')', 2);
 
     /*
       support:
@@ -1770,17 +1778,17 @@ StyioAST* parse_cond_flow (
         ?() \n
         :(
     */
-    drop_all_spaces(cur_char);
+    drop_all_spaces(code, cur_char);
 
     if (check_this_char(cur_char, ':'))
     {
-      get_next_char(cur_char);
+      get_next_char(code, cur_char);
 
       StyioAST* block;
 
       if (check_this_char(cur_char, ')'))
       {
-        get_next_char(cur_char);
+        get_next_char(code, cur_char);
 
         /*
           support:
@@ -1788,33 +1796,33 @@ StyioAST* parse_cond_flow (
             {}
         */
 
-        drop_all_spaces(cur_char);
+        drop_all_spaces(code, cur_char);
 
-        block = parse_exec_block(tok_ctx, cur_char);
+        block = parse_exec_block(code, cur_char);
 
         /*
           support:
             :) {} \n
             :(
         */
-        drop_all_spaces(cur_char);
+        drop_all_spaces(code, cur_char);
 
         if (check_this_char(cur_char, ':'))
         {
-          get_next_char(cur_char);
+          get_next_char(code, cur_char);
 
           if (check_this_char(cur_char, '('))
           {
-            get_next_char(cur_char);
+            get_next_char(code, cur_char);
 
             /*
               support:
                 :( \n
                 {}
             */
-            drop_all_spaces(cur_char);
+            drop_all_spaces(code, cur_char);
 
-            StyioAST* blockElse = parse_exec_block(tok_ctx, cur_char);
+            StyioAST* blockElse = parse_exec_block(code, cur_char);
 
             return new CondFlowAST(
               FlowType::TrueAndFalse,
@@ -1836,16 +1844,16 @@ StyioAST* parse_cond_flow (
       else
       if (check_this_char(cur_char, '('))
       {
-        get_next_char(cur_char);
+        get_next_char(code, cur_char);
 
         /*
           support:
             :( \n
             {}
         */
-        drop_all_spaces(cur_char);
+        drop_all_spaces(code, cur_char);
 
-        block = parse_exec_block(tok_ctx, cur_char);
+        block = parse_exec_block(code, cur_char);
 
         return new CondFlowAST(
           FlowType::OnlyFalse,
@@ -1865,36 +1873,37 @@ StyioAST* parse_cond_flow (
 }
 
 StyioAST* parse_simple_value (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 )
 {
   if (isdigit(cur_char)) 
   {
-    return parse_int_or_float(tok_ctx, cur_char);
+    return parse_int_or_float(code, cur_char);
   }
   else 
-  if (isalpha(cur_char) || check_this_char(cur_char, '_')) 
+  if (isalpha(cur_char) 
+    || check_this_char(cur_char, '_')) 
   {
-    return parse_id(tok_ctx, cur_char);
+    return parse_id(code, cur_char);
   }
 
   switch (cur_char)
   {
   case '\"':
-    return parse_string(tok_ctx, cur_char);
+    return parse_string(code, cur_char);
     
     // You should NOT reach this line!
     break;
   
   case '\'':
-    return parse_char_or_string(tok_ctx, cur_char);
+    return parse_char_or_string(code, cur_char);
 
     // You should NOT reach this line!
     break;
 
   case '|':
-    return parse_size_of(tok_ctx, cur_char);
+    return parse_size_of(code, cur_char);
 
     // You should NOT reach this line!
     break;
@@ -1908,7 +1917,7 @@ StyioAST* parse_simple_value (
 }
 
 StyioAST* parse_expr (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 )
 {
@@ -1916,14 +1925,14 @@ StyioAST* parse_expr (
   if (isalpha(cur_char) || check_this_char(cur_char, '_')) 
   {
     // parse id
-    IdAST* id_ast = parse_id(tok_ctx, cur_char);
+    IdAST* id_ast = parse_id(code, cur_char);
     
     // ignore white spaces after id
-    drop_white_spaces(cur_char);
+    drop_white_spaces(code, cur_char);
 
     if (is_bin_tok(cur_char))
     {
-      return parse_binop_rhs(tok_ctx, cur_char, id_ast);
+      return parse_binop_rhs(code, cur_char, id_ast);
     }
     else
     {
@@ -1932,14 +1941,14 @@ StyioAST* parse_expr (
   }
   else
   if (isdigit(cur_char)) {
-    StyioAST* numAST = parse_int_or_float(tok_ctx, cur_char);
+    StyioAST* numAST = parse_int_or_float(code, cur_char);
 
     // ignore white spaces after number
-    drop_white_spaces(cur_char);
+    drop_white_spaces(code, cur_char);
 
     if (is_bin_tok(cur_char))
     {
-      return parse_binop_rhs(tok_ctx, cur_char, numAST);
+      return parse_binop_rhs(code, cur_char, numAST);
     }
     else
     {
@@ -1952,18 +1961,18 @@ StyioAST* parse_expr (
     {
     case '[':
       {
-        cur_char = get_next_char();
+        get_next_char(code, cur_char);
 
-        drop_white_spaces(cur_char);
+        drop_white_spaces(code, cur_char);
 
         if (check_this_char(cur_char, ']')) {
-          cur_char = get_next_char();
+          get_next_char(code, cur_char);
 
           return new EmptyListAST();
         }
         else
         {
-          return parse_list_expr(tok_ctx, cur_char);
+          return parse_list_expr(code, cur_char);
         }
       }
 
@@ -1972,13 +1981,13 @@ StyioAST* parse_expr (
 
     case '|':
       {
-        SizeOfAST* valExpr = parse_size_of(tok_ctx, cur_char);
+        SizeOfAST* valExpr = parse_size_of(code, cur_char);
 
-        drop_white_spaces(cur_char);
+        drop_white_spaces(code, cur_char);
 
         if (is_bin_tok(cur_char))
         {
-          return parse_binop_rhs(tok_ctx, cur_char, valExpr);
+          return parse_binop_rhs(code, cur_char, valExpr);
         }
         else
         {
@@ -1998,50 +2007,50 @@ StyioAST* parse_expr (
 }
 
 VarDefAST* parse_resources (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 )
 {
   std::vector<IdAST*> varBuffer;
 
   // eliminate @
-  cur_char = get_next_char();
+  get_next_char(code, cur_char);
   
-  drop_white_spaces(cur_char);
+  drop_white_spaces(code, cur_char);
 
   if (check_this_char(cur_char, '(')) 
   {
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
 
     if (isalpha(cur_char) || check_this_char(cur_char, '_')) {
       // "@" "(" |--
-      IdAST* id_ast = parse_id(tok_ctx, cur_char);
+      IdAST* id_ast = parse_id(code, cur_char);
   
       varBuffer.push_back(id_ast);
     };
 
-    drop_white_spaces(cur_char);
+    drop_white_spaces(code, cur_char);
 
     // "@" "(" [<ID> |--
     while (check_this_char(cur_char, ','))
     {
-      cur_char = get_next_char();
+      get_next_char(code, cur_char);
 
-      drop_white_spaces(cur_char);
+      drop_white_spaces(code, cur_char);
 
       if (isalpha(cur_char) || check_this_char(cur_char, '_')) {
         
-        IdAST* id_ast = parse_id(tok_ctx, cur_char);
+        IdAST* id_ast = parse_id(code, cur_char);
   
         varBuffer.push_back(id_ast);
 
-        drop_white_spaces(cur_char);
+        drop_white_spaces(code, cur_char);
       };
     };
     
     if (check_this_char(cur_char, ')')) 
     {
-      cur_char = get_next_char();
+      get_next_char(code, cur_char);
 
       return new VarDefAST(varBuffer);
     };
@@ -2052,12 +2061,12 @@ VarDefAST* parse_resources (
 }
 
 FlexBindAST* parse_mut_assign (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char, 
   IdAST* id_ast
 )
 {
-  FlexBindAST* output = new FlexBindAST(id_ast, parse_expr(tok_ctx, cur_char));
+  FlexBindAST* output = new FlexBindAST(id_ast, parse_expr(code, cur_char));
   
   if (check_this_char(cur_char, '\n')) 
   {
@@ -2071,12 +2080,12 @@ FlexBindAST* parse_mut_assign (
 }
 
 FinalBindAST* parse_fix_assign (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char, 
   IdAST* id_ast
 ) 
 {
-  FinalBindAST* output = new FinalBindAST(id_ast, parse_expr(tok_ctx, cur_char));
+  FinalBindAST* output = new FinalBindAST(id_ast, parse_expr(code, cur_char));
   
   if (check_this_char(cur_char, '\n')) 
   {
@@ -2090,7 +2099,7 @@ FinalBindAST* parse_fix_assign (
 }
 
 StyioAST* parse_pipeline (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 )
 {
@@ -2101,62 +2110,62 @@ StyioAST* parse_pipeline (
   bool pisFinal = false;
 
   // eliminate # at the start
-  get_next_char(cur_char);
+  get_next_char(code, cur_char);
 
   // after #
-  drop_white_spaces(cur_char);
+  drop_white_spaces(code, cur_char);
 
   if (isalpha(cur_char) 
     || check_this_char(cur_char, '_'))
   {
-    pipeName = parse_id(tok_ctx, cur_char);
+    pipeName = parse_id(code, cur_char);
 
     pwithName = true;
   };
   
   // after function name
-  drop_all_spaces(cur_char);
+  drop_all_spaces(code, cur_char);
 
   if (check_this_char(cur_char, ':'))
   {
-    get_next_char(cur_char);
+    get_next_char(code, cur_char);
 
     pisFinal = true;
   };
 
   if (check_this_char(cur_char, '='))
   {
-    get_next_char(cur_char);
+    get_next_char(code, cur_char);
   };
 
-  drop_all_spaces(cur_char);
+  drop_all_spaces(code, cur_char);
 
   if (check_this_char(cur_char, '('))
   {
-    get_next_char(cur_char);
+    get_next_char(code, cur_char);
 
-    pipeVars = parse_multi_vars(tok_ctx, cur_char);
+    pipeVars = parse_multi_vars(code, cur_char);
 
-    check_and_drop(cur_char, ')', 2);
+    check_and_drop(code, cur_char, ')', 2);
   };
 
-  drop_all_spaces(cur_char);
+  drop_all_spaces(code, cur_char);
   
   if (check_this_char(cur_char, '='))
   {
-    get_next_char(cur_char);
+    get_next_char(code, cur_char);
 
     if (check_this_char(cur_char, '>'))
     {
-      get_next_char(cur_char);
+      get_next_char(code, cur_char);
     };
   };
 
-  drop_all_spaces(cur_char);
+  drop_all_spaces(code, cur_char);
 
   if (check_this_char(cur_char, '{'))
   {
-    pipeBlock = parse_exec_block(tok_ctx, cur_char);
+    pipeBlock = parse_exec_block(code, cur_char);
 
     if (pwithName)
     {
@@ -2179,14 +2188,14 @@ StyioAST* parse_pipeline (
 }
 
 StyioAST* parse_read_file (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char, 
   IdAST* id_ast
 ) 
 {
   if (check_this_char(cur_char, '@'))
   {
-    StyioAST* value = parse_ext_res(tok_ctx, cur_char);
+    StyioAST* value = parse_ext_res(code, cur_char);
 
     return new ReadFileAST(id_ast, value);
   }
@@ -2198,35 +2207,35 @@ StyioAST* parse_read_file (
 }
 
 StyioAST* parse_write_stdout (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 )
 {
   StyioAST* result;
 
   // eliminate >
-  cur_char = get_next_char();
+  get_next_char(code, cur_char);
   
   if (check_this_char(cur_char, '_')) {
     // eliminate _
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
 
-    drop_white_spaces(cur_char);
+    drop_white_spaces(code, cur_char);
 
     if (check_this_char(cur_char, '('))
     {
       // eliminate (
-      cur_char = get_next_char();
+      get_next_char(code, cur_char);
 
-      drop_all_spaces(cur_char);
+      drop_all_spaces(code, cur_char);
 
-      result = new WriteStdOutAST(parse_expr(tok_ctx, cur_char));
+      result = new WriteStdOutAST(parse_expr(code, cur_char));
 
-      drop_all_spaces(cur_char);
+      drop_all_spaces(code, cur_char);
 
       if (check_this_char(cur_char, ')'))
       {
-        get_next_char(cur_char);
+        get_next_char(code, cur_char);
       }
       else
       {
@@ -2244,18 +2253,22 @@ StyioAST* parse_write_stdout (
   return result;
 }
 
-StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char) 
+StyioAST* parse_stmt (
+  struct StyioCodeContext* code, 
+  int& cur_char
+) 
 {
-  drop_white_spaces(cur_char);
+  drop_all_spaces(code, cur_char);
 
   // <ID>
-  if (isalpha(cur_char) || check_this_char(cur_char, '_')) 
+  if (isalpha(cur_char) 
+    || check_this_char(cur_char, '_')) 
   {
     // parse id
-    IdAST* id_ast = parse_id(tok_ctx, cur_char);
+    IdAST* id_ast = parse_id(code, cur_char);
     
     // ignore white spaces after id
-    drop_white_spaces(cur_char);
+    drop_white_spaces(code, cur_char);
 
     // check next character
     switch (cur_char)
@@ -2263,6 +2276,8 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
       // <LF>
       case '\n':
         {
+          get_next_char(code, cur_char);
+
           return id_ast;
         };
 
@@ -2272,12 +2287,12 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
       // <ID> = <EXPR>
       case '=':
         {
-          cur_char = get_next_char();
+          get_next_char(code, cur_char);
 
-          drop_white_spaces(cur_char);
+          drop_white_spaces(code, cur_char);
 
           // <ID> = |--
-          return parse_mut_assign(tok_ctx, cur_char, id_ast);
+          return parse_mut_assign(code, cur_char, id_ast);
         };
 
         // You should NOT reach this line!
@@ -2286,15 +2301,15 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
       // <ID> := <EXPR>
       case ':':
         {
-          cur_char = get_next_char();
+          get_next_char(code, cur_char);
           if (check_this_char(cur_char, '='))
           {
-            cur_char = get_next_char();
+            get_next_char(code, cur_char);
 
-            drop_white_spaces(cur_char);
+            drop_white_spaces(code, cur_char);
             
             // <ID> := |--
-            return parse_fix_assign(tok_ctx, cur_char, id_ast);
+            return parse_fix_assign(code, cur_char, id_ast);
           }
           else
           {
@@ -2310,17 +2325,17 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
       case '<':
         {
           // eliminate <
-          cur_char = get_next_char();
+          get_next_char(code, cur_char);
 
           if (check_this_char(cur_char, '-'))
           {
             // eliminate -
-            cur_char = get_next_char();
+            get_next_char(code, cur_char);
 
-            drop_white_spaces(cur_char);
+            drop_white_spaces(code, cur_char);
             
             // <ID> <- |--
-            return parse_read_file(tok_ctx, cur_char, id_ast);
+            return parse_read_file(code, cur_char, id_ast);
           }
           else
           {
@@ -2336,7 +2351,7 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
       case '+':
         {
           // <ID> |-- 
-          return parse_binop_rhs(tok_ctx, cur_char, id_ast);
+          return parse_binop_rhs(code, cur_char, id_ast);
         };
 
         // You should NOT reach this line!
@@ -2346,7 +2361,7 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
       case '-':
         {
           // <ID> |--
-          return parse_binop_rhs(tok_ctx, cur_char, id_ast);
+          return parse_binop_rhs(code, cur_char, id_ast);
         };
 
         // You should NOT reach this line!
@@ -2356,7 +2371,7 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
       case '*':
         {
           // <ID> |--
-          return parse_binop_rhs(tok_ctx, cur_char, id_ast);
+          return parse_binop_rhs(code, cur_char, id_ast);
         };
         // You should NOT reach this line!
         break;
@@ -2365,7 +2380,7 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
       case '/':
         {
           // <ID> |-- 
-          return parse_binop_rhs(tok_ctx, cur_char, id_ast);
+          return parse_binop_rhs(code, cur_char, id_ast);
         };
 
         // You should NOT reach this line!
@@ -2375,7 +2390,7 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
       case '%':
         {
           // <ID> |-- 
-          return parse_binop_rhs(tok_ctx, cur_char, id_ast);
+          return parse_binop_rhs(code, cur_char, id_ast);
         };
 
         // You should NOT reach this line!
@@ -2386,7 +2401,7 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
         {
           // <ID> |-- 
 
-          return parse_list_op(tok_ctx, cur_char, id_ast);
+          return parse_list_op(code, cur_char, id_ast);
         };
 
         // You should NOT reach this line!
@@ -2398,9 +2413,9 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
   }
 
   if (isdigit(cur_char)) {
-    StyioAST* numAST = parse_int_or_float(tok_ctx, cur_char);
+    StyioAST* numAST = parse_int_or_float(code, cur_char);
 
-    drop_all_spaces(cur_char);
+    drop_all_spaces(code, cur_char);
 
     switch (cur_char)
     {
@@ -2417,7 +2432,7 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
       case '+':
         {
           // [<Int>|<Float>] |--
-          BinOpAST* bin_ast = parse_binop_rhs(tok_ctx, cur_char, numAST);
+          BinOpAST* bin_ast = parse_binop_rhs(code, cur_char, numAST);
           return bin_ast;
         };
 
@@ -2428,7 +2443,7 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
       case '-':
         {
           // [<Int>|<Float>] |--
-          BinOpAST* bin_ast = parse_binop_rhs(tok_ctx, cur_char, numAST);
+          BinOpAST* bin_ast = parse_binop_rhs(code, cur_char, numAST);
           return bin_ast;
         };
 
@@ -2439,7 +2454,7 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
       case '*':
         {
           // [<Int>|<Float>] |--
-          BinOpAST* bin_ast = parse_binop_rhs(tok_ctx, cur_char, numAST);
+          BinOpAST* bin_ast = parse_binop_rhs(code, cur_char, numAST);
           return bin_ast;
         }
 
@@ -2450,7 +2465,7 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
       case '/':
         {
           // [<Int>|<Float>] |--
-          BinOpAST* bin_ast = parse_binop_rhs(tok_ctx, cur_char, numAST);
+          BinOpAST* bin_ast = parse_binop_rhs(code, cur_char, numAST);
           return bin_ast;
         };
 
@@ -2461,7 +2476,7 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
       case '%':
         {
           // [<Int>|<Float>] |--
-          BinOpAST* bin_ast = parse_binop_rhs(tok_ctx, cur_char, numAST);
+          BinOpAST* bin_ast = parse_binop_rhs(code, cur_char, numAST);
           return bin_ast;
         };
 
@@ -2478,6 +2493,25 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
 
   switch (cur_char)
   {
+  case EOF:
+    return new EndAST();
+
+    // You should NOT reach this line!
+    break;
+
+  case '.':
+    {
+      while (check_this_char(cur_char, '.'))
+      {
+        get_next_char(code, cur_char);
+      }
+      
+      return new PassAST();
+    }
+
+    // You should NOT reach this line!
+    break;
+
   /*
     Resources
 
@@ -2485,7 +2519,7 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
   */
   case '@':
     {
-      return parse_resources(tok_ctx, cur_char);
+      return parse_resources(code, cur_char);
     };
 
     // You should NOT reach this line!
@@ -2496,7 +2530,7 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
   */
   case '\"':
     {
-      return parse_string(tok_ctx, cur_char);
+      return parse_string(code, cur_char);
     }
 
     break;
@@ -2512,7 +2546,7 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
   */
   case '?':
     {
-      return parse_cond_flow(tok_ctx, cur_char);
+      return parse_cond_flow(code, cur_char);
     }
     
     // You should NOT reach this line!
@@ -2529,12 +2563,12 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
   */
   case '[':
     {
-      cur_char = get_next_char();
+      get_next_char(code, cur_char);
 
       if (check_this_char(cur_char, '.')) 
       {
         // eliminate the first dot .
-        cur_char = get_next_char();
+        get_next_char(code, cur_char);
 
         if (check_this_char(cur_char, ']')) 
         {
@@ -2542,11 +2576,11 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
           throw StyioSyntaxError(errmsg);
         };
 
-        return parse_loop(tok_ctx, cur_char);
+        return parse_loop(code, cur_char);
       }
       else
       {
-        return parse_list_expr(tok_ctx, cur_char);
+        return parse_list_expr(code, cur_char);
       }
     }
     
@@ -2558,7 +2592,7 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
   */
   case '>':
     {
-      return parse_write_stdout(tok_ctx, cur_char);
+      return parse_write_stdout(code, cur_char);
     }
 
     // You should NOT reach this line!
@@ -2575,7 +2609,22 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
   */
   case '#':
     {
-      return parse_pipeline(tok_ctx, cur_char);
+      return parse_pipeline(code, cur_char);
+    }
+
+    // You should NOT reach this line!
+    break;
+
+  case '=':
+    {
+      if (check_this_char(cur_char, '>'))
+      {
+        get_next_char(code, cur_char);
+      };
+
+      drop_white_spaces(code, cur_char);
+      
+      return parse_expr(code, cur_char);
     }
 
     // You should NOT reach this line!
@@ -2589,14 +2638,17 @@ StyioAST* parse_stmt (std::vector<int>& tok_ctx, int& cur_char)
   throw StyioSyntaxError(errmsg);
 }
 
-std::string parse_ext_elem(std::vector<int>& tok_ctx, int& cur_char)
+std::string parse_ext_elem(
+  struct StyioCodeContext* code, 
+  int& cur_char
+)
 {
   std::string itemStr;
 
   if (check_this_char(cur_char, '\"'))
   {
     // eliminate double quote symbol " at the start of dependency item
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
 
     while (cur_char != '\"') 
     {
@@ -2608,11 +2660,11 @@ std::string parse_ext_elem(std::vector<int>& tok_ctx, int& cur_char)
 
       itemStr += cur_char;
 
-      cur_char = get_next_char();
+      get_next_char(code, cur_char);
     };
 
     // eliminate double quote symbol " at the end of dependency item
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
 
     return itemStr;
   }
@@ -2623,36 +2675,39 @@ std::string parse_ext_elem(std::vector<int>& tok_ctx, int& cur_char)
   };
 }
 
-ExtPackAST* parse_ext_pack (std::vector<int>& tok_ctx, int& cur_char) 
+ExtPackAST* parse_ext_pack (
+  struct StyioCodeContext* code, 
+  int& cur_char
+) 
 { 
   // eliminate left square (box) bracket [
-  cur_char = get_next_char();
+  get_next_char(code, cur_char);
 
   std::vector<std::string> dependencies;
 
-  drop_all_spaces(cur_char);
+  drop_all_spaces(code, cur_char);
 
   // add the first dependency path to the list
-  dependencies.push_back(parse_ext_elem(tok_ctx, cur_char));
+  dependencies.push_back(parse_ext_elem(code, cur_char));
 
   std::string pathStr = "";
   
   while (check_this_char(cur_char, ',')) {
     // eliminate comma ","
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
 
     // reset pathStr to empty ""
     pathStr = ""; 
 
-    drop_all_spaces(cur_char);
+    drop_all_spaces(code, cur_char);
     
     // add the next dependency path to the list
-    dependencies.push_back(parse_ext_elem(tok_ctx, cur_char));
+    dependencies.push_back(parse_ext_elem(code, cur_char));
   };
 
   if (check_this_char(cur_char, ']')) {
     // eliminate right square bracket `]` after dependency list
-    cur_char = get_next_char();
+    get_next_char(code, cur_char);
   };
 
   ExtPackAST* result = new ExtPackAST(dependencies);
@@ -2660,35 +2715,38 @@ ExtPackAST* parse_ext_pack (std::vector<int>& tok_ctx, int& cur_char)
   return result;
 }
 
-StyioAST* parse_case_block (std::vector<int>& tok_ctx, int& cur_char)
+StyioAST* parse_case_block (
+  struct StyioCodeContext* code, 
+  int& cur_char
+)
 {
   return new NoneAST();
 }
 
 StyioAST* parse_exec_block (
-  std::vector<int>& tok_ctx, 
+  struct StyioCodeContext* code, 
   int& cur_char
 ) 
 {
   std::vector<StyioAST*> stmtBuffer;
 
   // eliminate { at the start
-  get_next_char(cur_char);
+  get_next_char(code, cur_char);
 
   while (1)
   {
-    drop_all_spaces(cur_char);
+    drop_all_spaces(code, cur_char);
     
     if (check_this_char(cur_char, '}'))
     {
       // eliminate } at the end
-      get_next_char(cur_char);
+      get_next_char(code, cur_char);
 
       break;
     }
     else
     {
-      StyioAST* tmpStmt = parse_stmt(tok_ctx, cur_char);
+      StyioAST* tmpStmt = parse_stmt(code, cur_char);
       stmtBuffer.push_back(tmpStmt);
     };
   };
@@ -2703,19 +2761,25 @@ StyioAST* parse_exec_block (
   };
 }
 
-void parse_program () 
+void parse_program (std::string styio_code) 
 {
-  std::vector<int> tok_ctx;
-  static int cur_char = ' ';
+  int cur_char = styio_code.at(0);
+
+  struct StyioCodeContext styio_code_context = {
+    styio_code,
+    0
+  };
+
+  StyioCodeContext* ctx_ptr = &styio_code_context;
 
   while (1) 
   {
-    fprintf(stderr, "<Styio/> ");
+    StyioAST* stmt = parse_stmt(ctx_ptr, cur_char);
 
-    cur_char = get_next_char();
+    if ((stmt -> hint()) == StyioType::End) break;
 
-    StyioAST* stmt = parse_stmt(tok_ctx, cur_char);
+    // fprintf(stderr, "[>_<] ");
 
-    std::cout << stmt -> toString() << std::endl;
-  }; 
+    std::cout << "[>_<] " << stmt -> toString() << std::endl;
+  };
 }

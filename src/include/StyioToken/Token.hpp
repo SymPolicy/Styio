@@ -6,6 +6,8 @@ enum class StyioType {
    * None, Null, Empty
    */
 
+  End,
+  Pass,
   None,
   EmptyList,
   EmptyBlock,

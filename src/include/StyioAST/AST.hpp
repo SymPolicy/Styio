@@ -42,6 +42,42 @@ class NoneAST : public StyioAST {
     }
 };
 
+class EndAST : public StyioAST {
+
+  public:
+    EndAST () {}
+
+    StyioType hint() {
+      return StyioType::End;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("EOF { }");
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("EOF { }");
+    }
+};
+
+class PassAST : public StyioAST {
+
+  public:
+    PassAST () {}
+
+    StyioType hint() {
+      return StyioType::Pass;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("Pass { }");
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Pass { }");
+    }
+};
+
 /*
   EmptyListAST: Empty List
 */
