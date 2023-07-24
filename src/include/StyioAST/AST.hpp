@@ -60,24 +60,6 @@ class EndAST : public StyioAST {
     }
 };
 
-class PassAST : public StyioAST {
-
-  public:
-    PassAST () {}
-
-    StyioType hint() {
-      return StyioType::Pass;
-    }
-
-    std::string toString(int indent = 0) {
-      return std::string("Pass { }");
-    }
-
-    std::string toStringInline(int indent = 0) {
-      return std::string("Pass { }");
-    }
-};
-
 /*
   EmptyListAST: Empty List
 */
@@ -120,6 +102,52 @@ class EmptyBlockAST : public StyioAST {
     }
 };
 
+class PassAST : public StyioAST {
+
+  public:
+    PassAST () {}
+
+    StyioType hint() {
+      return StyioType::Pass;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("Pass { }");
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Pass { }");
+    }
+};
+
+class ReturnAST : public StyioAST {
+  StyioAST* Expr;
+
+  public:
+    ReturnAST (
+      StyioAST* expr) : 
+      Expr(expr) 
+    {
+
+    }
+
+    StyioType hint() {
+      return StyioType::Return;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("\033[1;36mReturn\033[0m { ") 
+        + Expr -> toStringInline(indent + 1)
+        + " }";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("\033[1;36mReturn\033[0m { ") 
+        + Expr -> toStringInline(indent + 1)
+        + " }";
+    }
+};
+
 /*
   =================
     Variable
@@ -144,7 +172,7 @@ class IdAST : public StyioAST {
     }
 
     std::string toStringInline(int indent = 0) {
-      return "<ID: " + Id + ">";
+      return Id;
     }
 };
 
@@ -485,11 +513,11 @@ class BinOpAST : public StyioAST
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Binary Operation {\n")
+      return std::string("\033[1;36mBinary Operation\033[0m {\n")
         + "|" + std::string(2 * indent, '-') + "| LHS: "
         + LHS -> toString(indent + 1) 
         + "\n"
-        + "|" + std::string(2 * indent, '-') + "| Op: " + reprToken(Op)
+        + "|" + std::string(2 * indent, '-') + "| OP : " + reprToken(Op)
         + "\n"
         + "|" + std::string(2 * indent, '-') + "| RHS: "
         + RHS -> toString(indent + 1) 
@@ -856,17 +884,17 @@ class FlexBindAST : public StyioAST {
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Binding (Flexible) {\n") 
+      return std::string("\033[1;36mBinding\033[0m \033[32m(Flexible)\033[0m {\n") 
         + "|" + std::string(2 * indent, '-') + "| Var: " 
         + varId -> toString(indent + 1) 
         + "\n"
-        + "|" + std::string(2 * indent, '-') + "| Value: " 
+        + "|" + std::string(2 * indent, '-') + "| Val: " 
         + valExpr -> toString(indent + 1)
         + "}";
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Binding (Flex) {\n") 
+      return std::string("\033[1;36mBinding (Flexible)\033[0m {\n") 
         + std::string(2, ' ') + "| Var: " 
         + varId -> toStringInline(indent) 
         + "; "
@@ -891,7 +919,7 @@ class FinalBindAST : public StyioAST {
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Assign (Final) {\n") 
+      return std::string("\033[1;36mBinding\033[0m \033[31m(Final)\033[0m {\n") 
         + std::string(2, ' ') + "| Var: " 
         + varId -> toString(indent) 
         + "\n"
@@ -902,7 +930,7 @@ class FinalBindAST : public StyioAST {
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Assign (Final) { ") 
+      return std::string("\033[1;36mBinding (Final)\033[0m { ") 
         + std::string(2, ' ') + "| Var: " 
         + varId -> toString(indent) 
         + "; "
@@ -962,8 +990,37 @@ class FuncAST : public StyioAST {
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Function {") 
-        + "}";
+      std::string output = std::string("\033[1;36mFunction\033[0m ");
+
+      if (FisFinal)
+      {
+        output += "\033[31m(Final)\033[0m";
+      }
+      else
+      {
+        output += "\033[32m(Flexible)\033[0m";
+      };
+
+      output += " {\n";
+      output += "|" + std::string(2 * indent, '-') + "| Name: " + FName -> toString(indent + 1) + "\n";
+      
+      output += "|" + std::string(2 * indent, '-') + "| Vars: ";
+      for (std::vector<IdAST*>::iterator it = FVars.begin(); 
+        it != FVars.end(); 
+        ++it
+      ) {
+        output += std::string(2 * indent, '-');
+        output += (*it) -> toString(indent + 1);
+        output += " ";
+      };
+
+      output += "\n";
+
+      output += "|" + std::string(2 * indent, '-') + "| " + FBlock -> toString(indent + 1);
+
+      output += "}";
+
+      return output;
     }
 
     std::string toStringInline(int indent = 0) {
@@ -1141,30 +1198,13 @@ class ExtPackAST : public StyioAST {
 */
 class BlockAST : public StyioAST {
   std::vector<StyioAST*> Stmts;
-  StyioAST* RetExpr;
 
   public:
     BlockAST() {}
 
     BlockAST(
-      StyioAST* expr): 
-      RetExpr(expr) 
-      {
-
-      }
-
-    BlockAST(
       std::vector<StyioAST*> stmts): 
       Stmts(stmts) 
-      {
-
-      }
-
-    BlockAST(
-      std::vector<StyioAST*> stmts, 
-      StyioAST* expr): 
-      Stmts(stmts), 
-      RetExpr(expr) 
       {
 
       }
@@ -1180,37 +1220,22 @@ class BlockAST : public StyioAST {
         it != Stmts.end(); 
         ++it
       ) {
-        stmtStr += (*it) -> toStringInline();
-        stmtStr += "\n";
+        stmtStr += "|" + std::string(2 * indent, '-') + "| ";
+        stmtStr += (*it) -> toString(indent + 1);
+        
+        if (it != (Stmts.end() - 1))
+        {
+          stmtStr += "\n";
+        };
       };
 
-      return std::string("Block {\n")
-        + std::string(2, ' ') + "| Stmts: "
+      return std::string("\033[1;36mBlock\033[0m {\n")
         + stmtStr
-        + "\n"
-        + std::string(2, ' ') + "| RetExpr:  "
-        + RetExpr -> toString()  
-        + "\n} ";
+        + "}";
     }
 
     std::string toStringInline(int indent = 0) {
-      std::string stmtStr;
-
-      for (std::vector<StyioAST*>::iterator it = Stmts.begin(); 
-        it != Stmts.end(); 
-        ++it
-      ) {
-        stmtStr += (*it) -> toStringInline();
-        stmtStr += " ;";
-      };
-
-      return std::string("Block { ")
-        + std::string(2, ' ') + "| Statements: "
-        + stmtStr
-        + " |"
-        + std::string(2, ' ') + "| Expressions:  "
-        + RetExpr -> toString()  
-        + " } ";
+      return std::string("Block { }");
     }
 };
 

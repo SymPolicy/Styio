@@ -632,8 +632,6 @@ ListOpAST* parse_list_op (
                 || check_this_char(cur_char, '{'))
               {
                 get_next_char(code, cur_char);
-
-
               }
             }
             
@@ -2617,6 +2615,8 @@ StyioAST* parse_stmt (
 
   case '=':
     {
+      get_next_char(code, cur_char);
+
       if (check_this_char(cur_char, '>'))
       {
         get_next_char(code, cur_char);
@@ -2624,7 +2624,7 @@ StyioAST* parse_stmt (
 
       drop_white_spaces(code, cur_char);
       
-      return parse_expr(code, cur_char);
+      return new ReturnAST(parse_expr(code, cur_char));
     }
 
     // You should NOT reach this line!
@@ -2778,8 +2778,8 @@ void parse_program (std::string styio_code)
 
     if ((stmt -> hint()) == StyioType::End) break;
 
-    // fprintf(stderr, "[>_<] ");
+    // fprintf(stderr, "[>_<] HERE!\n");
 
-    std::cout << "[>_<] " << stmt -> toString() << std::endl;
+    std::cout << "\033[1;33m[>_<]\033[0m " << stmt -> toString() << std::endl;
   };
 }

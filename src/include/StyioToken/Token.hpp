@@ -2,12 +2,13 @@
 #define STYIO_TOKEN_H_
 
 enum class StyioType {
+  End,
+  Pass,
+  Return,
+
   /* -----------------
    * None, Null, Empty
    */
-
-  End,
-  Pass,
   None,
   EmptyList,
   EmptyBlock,

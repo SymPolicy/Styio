@@ -3,6 +3,4 @@
 
 bool is_bin_tok (int& cur_char);
 
-
-
 #endif
