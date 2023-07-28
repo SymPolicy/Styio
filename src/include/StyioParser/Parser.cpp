@@ -2264,6 +2264,11 @@ StyioAST* parse_stmt (
   {
     // parse id
     IdAST* id_ast = parse_id(code, cur_char);
+
+    if (check_this_char(cur_char, '['))
+    {
+      return parse_list_op(code, cur_char, id_ast);
+    }
     
     // ignore white spaces after id
     drop_white_spaces(code, cur_char);
@@ -2342,6 +2347,23 @@ StyioAST* parse_stmt (
           }
         };
 
+        // You should NOT reach this line!
+        break;
+
+      // ID >> Layer
+      case '>':
+        {
+          get_next_char(code, cur_char);
+
+          if (check_this_char(cur_char, '>'))
+          {
+            // If: >>, Then: Iteration
+            get_next_char(code, cur_char);
+            
+            return parse_iter(code, cur_char, id_ast);
+          }
+        }
+        
         // You should NOT reach this line!
         break;
 

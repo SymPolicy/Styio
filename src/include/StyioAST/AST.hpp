@@ -1078,14 +1078,21 @@ class ReadFileAST : public StyioAST {
   StyioAST* valExpr;
 
   public:
-    ReadFileAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
+    ReadFileAST(
+      IdAST* var, 
+      StyioAST* val) : 
+      varId(var), 
+      valExpr(val) 
+      {
+
+      }
 
     StyioType hint() {
       return StyioType::ReadFile;
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Read {\n") 
+      return std::string("\033[1;36mRead\033[0m {\n") 
         + std::string(2, ' ') + "| Var: " 
         + varId -> toString(indent) 
         + "\n"
@@ -1096,7 +1103,7 @@ class ReadFileAST : public StyioAST {
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Read {\n") 
+      return std::string("\033[1;36mRead\033[0m {\n") 
         + std::string(2, ' ') + "| Var: " 
         + varId -> toString(indent) 
         + "; "
