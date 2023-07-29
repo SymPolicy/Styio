@@ -389,283 +389,311 @@ ListOpAST* parse_list_op (
 
   ListOpAST* listop;
 
-  switch (cur_char)
+  if (isdigit(cur_char))
   {
-  case '<':
+    IntAST* indexExpr = parse_int(code, cur_char);
+    listop = new ListOpAST(
+      theList, 
+      ListOpType::Access_Via_Index,
+      indexExpr);
+  }
+  else
+  {
+    switch (cur_char)
     {
-      /*
-        list[<]
-      */
-
-      get_next_char(code, cur_char);
-
-      listop = new ListOpAST(
-        theList, 
-        ListOpType::Get_Reversed);
-    }
-
-    // You should NOT reach this line!
-    break;
-
-  // list[?= item]
-  case '?':
-    {
-      get_next_char(code, cur_char);
-
-      if (check_this_char(cur_char, '='))
+    case '"':
       {
-        get_next_char(code, cur_char);
+        /*
+          list["any"]
+        */
 
-        StyioAST* theItem = parse_list_elem(code, cur_char);
+        StyioAST* strExpr = parse_string(code, cur_char);
+        
+        listop = new ListOpAST(
+          theList, 
+          ListOpType::Access_Via_Name,
+          strExpr);
+      }
+      
+      // You should NOT reach this line!
+      break;
+
+    case '<':
+      {
+        /*
+          list[<]
+        */
+
+        get_next_char(code, cur_char);
 
         listop = new ListOpAST(
           theList, 
-          ListOpType::Get_Index_By_Item,
-          theItem);
+          ListOpType::Get_Reversed);
       }
-      else
-      {
-        std::string errmsg = std::string("Missing `=` for `?=` after `?= item`, but got `") + char(cur_char) + "`";
-        throw StyioSyntaxError(errmsg);
-      };
-    }
 
-    // You should NOT reach this line!
-    break;
-  
-  case '+':
-    {
-      get_next_char(code, cur_char);
+      // You should NOT reach this line!
+      break;
 
-      if (check_this_char(cur_char, ':'))
+    // list[?= item]
+    case '?':
       {
         get_next_char(code, cur_char);
 
-        // eliminate white spaces after +:
-        drop_white_spaces(code, cur_char);
-
-        if (isdigit(cur_char))
+        if (check_this_char(cur_char, '='))
         {
-          /*
-            list[+: index <- value]
-          */
+          get_next_char(code, cur_char);
 
-          IntAST* theIndex = parse_int(code, cur_char);
-
-          // eliminate white spaces between index and <-
-          drop_white_spaces(code, cur_char);
-
-          if (check_this_char(cur_char, '<'))
-          {
-            get_next_char(code, cur_char);
-
-            if (check_this_char(cur_char, '-'))
-            {
-              get_next_char(code, cur_char);
-
-              // eliminate white spaces between <- and the value to be inserted
-              drop_white_spaces(code, cur_char);
-
-              // the item to be inserted into the list
-              StyioAST* theItemIns = parse_list_elem(code, cur_char);
-
-              listop = new ListOpAST(
-                theList, 
-                ListOpType::Insert_Item_By_Index,
-                theIndex,
-                theItemIns);
-            }
-            else
-            {
-              std::string errmsg = std::string("Missing `-` for `<-` after `+: index`, got `") + char(cur_char) + "`";
-              throw StyioSyntaxError(errmsg);
-            };
-          }
-          else
-          {
-            std::string errmsg = std::string("Expecting `<-` after `+: index`, but got `") + char(cur_char) + "`";
-            throw StyioSyntaxError(errmsg);
-          }
-        }
-      }
-      else
-      {
-        std::string errmsg = std::string("Expecting integer index after `+:`, but got `") + char(cur_char) + "`";
-        throw StyioSyntaxError(errmsg);
-      }
-    }
-
-    // You should NOT reach this line!
-    break;
-  
-  case '-':
-    {
-      get_next_char(code, cur_char);
-
-      if (check_this_char(cur_char, ':'))
-      {
-        get_next_char(code, cur_char);
-
-        // eliminate white spaces after -:
-        drop_white_spaces(code, cur_char);
-
-        if (isdigit(cur_char))
-        {
-          /*
-            list[-: index]
-          */
-
-          IntAST* theIndex = parse_int(code, cur_char);
-
-          // eliminate white spaces between index
-          drop_white_spaces(code, cur_char);
+          StyioAST* theItem = parse_list_elem(code, cur_char);
 
           listop = new ListOpAST(
             theList, 
-            ListOpType::Remove_Item_By_Index,
-            theIndex);
+            ListOpType::Get_Index_By_Item,
+            theItem);
         }
         else
         {
-          switch (cur_char)
-          {
-          case '(':
+          std::string errmsg = std::string("Missing `=` for `?=` after `?= item`, but got `") + char(cur_char) + "`";
+          throw StyioSyntaxError(errmsg);
+        };
+      }
+
+      // You should NOT reach this line!
+      break;
+    
+    case '+':
+      {
+        get_next_char(code, cur_char);
+
+        if (check_this_char(cur_char, ':'))
+        {
+          get_next_char(code, cur_char);
+
+          // eliminate white spaces after +:
+          drop_white_spaces(code, cur_char);
+
+          if (isdigit(cur_char))
           {
             /*
-              list[-: (i0, i1, ...)]
+              list[+: index <- value]
             */
 
-            // eliminate ( at the start
-            get_next_char(code, cur_char);
-            
-            // drop white spaces between '(' and the first index
+            IntAST* theIndex = parse_int(code, cur_char);
+
+            // eliminate white spaces between index and <-
             drop_white_spaces(code, cur_char);
 
-            std::vector<IntAST*> indices;
-
-            IntAST* firstIndex = parse_int(code, cur_char);
-            indices.push_back(firstIndex);
-
-            // drop white spaces between first index and ,
-            drop_white_spaces(code, cur_char);
-
-            while (check_this_char(cur_char, ','))
+            if (check_this_char(cur_char, '<'))
             {
-              // remove ,
               get_next_char(code, cur_char);
 
-              // drop white spaces between , and next index
-              drop_white_spaces(code, cur_char);
-
-              if (check_this_char(cur_char, ')'))
+              if (check_this_char(cur_char, '-'))
               {
-                break;
+                get_next_char(code, cur_char);
+
+                // eliminate white spaces between <- and the value to be inserted
+                drop_white_spaces(code, cur_char);
+
+                // the item to be inserted into the list
+                StyioAST* theItemIns = parse_list_elem(code, cur_char);
+
+                listop = new ListOpAST(
+                  theList, 
+                  ListOpType::Insert_Item_By_Index,
+                  theIndex,
+                  theItemIns);
               }
-
-              IntAST* nextIndex = parse_int(code, cur_char);
-              indices.push_back(nextIndex);
-            }
-
-            // drop white spaces between , and )
-            drop_white_spaces(code, cur_char);
-            
-            if (check_this_char(cur_char, ')'))
-            {
-              get_next_char(code, cur_char);
-
-              listop = new ListOpAST(
-                theList, 
-                ListOpType::Remove_Many_Items_By_Indices,
-                indices);
+              else
+              {
+                std::string errmsg = std::string("Missing `-` for `<-` after `+: index`, got `") + char(cur_char) + "`";
+                throw StyioSyntaxError(errmsg);
+              };
             }
             else
             {
-              std::string errmsg = std::string("Expecting `)` after `-: (i0, i1, ...`, but got `") + char(cur_char) + "`";
+              std::string errmsg = std::string("Expecting `<-` after `+: index`, but got `") + char(cur_char) + "`";
               throw StyioSyntaxError(errmsg);
             }
           }
+        }
+        else
+        {
+          std::string errmsg = std::string("Expecting integer index after `+:`, but got `") + char(cur_char) + "`";
+          throw StyioSyntaxError(errmsg);
+        }
+      }
 
-            // You should NOT reach this line!
-            break;
+      // You should NOT reach this line!
+      break;
+    
+    case '-':
+      {
+        get_next_char(code, cur_char);
 
-          case '?':
+        if (check_this_char(cur_char, ':'))
+        {
+          get_next_char(code, cur_char);
+
+          // eliminate white spaces after -:
+          drop_white_spaces(code, cur_char);
+
+          if (isdigit(cur_char))
           {
-            get_next_char(code, cur_char);
+            /*
+              list[-: index]
+            */
 
+            IntAST* theIndex = parse_int(code, cur_char);
+
+            // eliminate white spaces between index
+            drop_white_spaces(code, cur_char);
+
+            listop = new ListOpAST(
+              theList, 
+              ListOpType::Remove_Item_By_Index,
+              theIndex);
+          }
+          else
+          {
             switch (cur_char)
             {
-            case '=':
+            case '(':
             {
               /*
-                list[-: ?= value]
+                list[-: (i0, i1, ...)]
               */
 
+              // eliminate ( at the start
               get_next_char(code, cur_char);
+              
+              // drop white spaces between '(' and the first index
+              drop_white_spaces(code, cur_char);
 
-              // drop white spaces after ?=
+              std::vector<IntAST*> indices;
+
+              IntAST* firstIndex = parse_int(code, cur_char);
+              indices.push_back(firstIndex);
+
+              // drop white spaces between first index and ,
+              drop_white_spaces(code, cur_char);
+
+              while (check_this_char(cur_char, ','))
+              {
+                // remove ,
+                get_next_char(code, cur_char);
+
+                // drop white spaces between , and next index
+                drop_white_spaces(code, cur_char);
+
+                if (check_this_char(cur_char, ')'))
+                {
+                  break;
+                }
+
+                IntAST* nextIndex = parse_int(code, cur_char);
+                indices.push_back(nextIndex);
+              }
+
+              // drop white spaces between , and )
               drop_white_spaces(code, cur_char);
               
-              StyioAST* valExpr = parse_list_elem(code, cur_char);
-
-              listop = new ListOpAST(
-                theList, 
-                ListOpType::Remove_Item_By_Value,
-                valExpr);
-            }
-            
-              // You should NOT reach this line!
-              break;
-            
-            case '^':
-            {
-              /*
-                list[-: ?^ (v0, v1, ...)]
-              */
-
-              get_next_char(code, cur_char);
-
-              // drop white spaces after ?^
-              drop_white_spaces(code, cur_char);
-
-              if (check_this_char(cur_char, '(') 
-                || check_this_char(cur_char, '[')
-                || check_this_char(cur_char, '{'))
+              if (check_this_char(cur_char, ')'))
               {
                 get_next_char(code, cur_char);
+
+                listop = new ListOpAST(
+                  theList, 
+                  ListOpType::Remove_Many_Items_By_Indices,
+                  indices);
+              }
+              else
+              {
+                std::string errmsg = std::string("Expecting `)` after `-: (i0, i1, ...`, but got `") + char(cur_char) + "`";
+                throw StyioSyntaxError(errmsg);
               }
             }
-            
+
               // You should NOT reach this line!
               break;
+
+            case '?':
+            {
+              get_next_char(code, cur_char);
+
+              switch (cur_char)
+              {
+              case '=':
+              {
+                /*
+                  list[-: ?= value]
+                */
+
+                get_next_char(code, cur_char);
+
+                // drop white spaces after ?=
+                drop_white_spaces(code, cur_char);
+                
+                StyioAST* valExpr = parse_list_elem(code, cur_char);
+
+                listop = new ListOpAST(
+                  theList, 
+                  ListOpType::Remove_Item_By_Value,
+                  valExpr);
+              }
+              
+                // You should NOT reach this line!
+                break;
+              
+              case '^':
+              {
+                /*
+                  list[-: ?^ (v0, v1, ...)]
+                */
+
+                get_next_char(code, cur_char);
+
+                // drop white spaces after ?^
+                drop_white_spaces(code, cur_char);
+
+                if (check_this_char(cur_char, '(') 
+                  || check_this_char(cur_char, '[')
+                  || check_this_char(cur_char, '{'))
+                {
+                  get_next_char(code, cur_char);
+                }
+              }
+              
+              // You should NOT reach this line!
+              break;
+              
+              default:
+                break;
+              }
+            }
             
             default:
               break;
             }
           }
-          
-          default:
-            break;
-          }
+        }
+        else
+        {
+          std::string errmsg = std::string("Missing `:` for `-:`, got `") + char(cur_char) + "`";
+          throw StyioSyntaxError(errmsg);
         }
       }
-      else
+
+      // You should NOT reach this line!
+      break;
+
+    default:
       {
-        std::string errmsg = std::string("Missing `:` for `-:`, got `") + char(cur_char) + "`";
+        std::string errmsg = std::string("Unexpected List[Operation], starts with ") + char(cur_char);
         throw StyioSyntaxError(errmsg);
       }
+
+      // You should NOT reach this line!
+      break;
     }
-
-    // You should NOT reach this line!
-    break;
-
-  default:
-    {
-      std::string errmsg = std::string("Unexpected List[Operation], starts with ") + char(cur_char);
-      throw StyioSyntaxError(errmsg);
-    }
-
-    // You should NOT reach this line!
-    break;
   }
 
   // check ] at the end

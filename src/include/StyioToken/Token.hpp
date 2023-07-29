@@ -214,7 +214,9 @@ enum class CompType {
 };
 
 enum class ListOpType {
-  
+  Access_Via_Name, // ["name"]
+  Access_Via_Index, // [index]
+
   Get_Index_By_Item, // [?= value]
 
   Insert_Item_By_Index, // [+: index <- value]
@@ -257,6 +259,9 @@ enum class IterOverWhat {
 static std::string reprListOp(ListOpType listOp) {
   switch (listOp)
   {
+    case ListOpType::Access_Via_Name:
+      return "Access_Via_Name";
+
     case ListOpType::Get_Reversed:
       return "Get_Reversed";
 

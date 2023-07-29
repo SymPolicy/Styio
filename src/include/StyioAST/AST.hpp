@@ -701,6 +701,9 @@ class ListOpAST : public StyioAST
 
   public:
     /*
+      Access_Via_Name
+        ["name"]
+
       Get_Index_By_Item
         [?= value]
 
@@ -736,6 +739,9 @@ class ListOpAST : public StyioAST
       Value(item) {}
 
     /*
+      Access_Via_Index
+        [index]
+        
       Remove_Item_By_Index
         [-: index] 
     */
