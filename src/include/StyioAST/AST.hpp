@@ -513,7 +513,7 @@ class BinOpAST : public StyioAST
     }
 
     std::string toString(int indent = 0) {
-      return std::string("\033[1;36mBinary Operation\033[0m {\n")
+      return std::string("\033[1;36mBinary Op\033[0meration {\n")
         + "|" + std::string(2 * indent, '-') + "| LHS: "
         + LHS -> toString(indent + 1) 
         + "\n"
@@ -722,7 +722,10 @@ class ListOpAST : public StyioAST
       StyioAST* item): 
       TheList(theList), 
       OpType(opType), 
-      Value(item) {}
+      Value(item) 
+      {
+
+      }
 
     /*
       Insert_Item_By_Index
@@ -736,12 +739,15 @@ class ListOpAST : public StyioAST
       TheList(theList), 
       OpType(opType), 
       Index(index), 
-      Value(item) {}
+      Value(item) 
+      {
+
+      }
 
     /*
       Access_Via_Index
         [index]
-        
+
       Remove_Item_By_Index
         [-: index] 
     */
@@ -751,7 +757,10 @@ class ListOpAST : public StyioAST
       IntAST* index): 
       TheList(theList), 
       OpType(opType), 
-      Index(index) {}
+      Index(index) 
+      {
+
+      }
 
     /*
       Remove_Many_Items_By_Indices
@@ -763,7 +772,10 @@ class ListOpAST : public StyioAST
       std::vector<IntAST*> indexList): 
       TheList(theList), 
       OpType(opType), 
-      IndexList(indexList) {}
+      IndexList(indexList) 
+      {
+
+      }
 
     /*
       Remove_Many_Items_By_Values
@@ -778,7 +790,10 @@ class ListOpAST : public StyioAST
       std::vector<StyioAST*> valueList): 
       TheList(theList), 
       OpType(opType), 
-      ValueList(valueList) {}
+      ValueList(valueList) 
+      {
+
+      }
 
     /*
       Get_Reversed
@@ -789,16 +804,19 @@ class ListOpAST : public StyioAST
       ListOpType opType
       ): 
       TheList(theList), 
-      OpType(opType) {}
+      OpType(opType) 
+      {
+
+      }
 
     StyioType hint() {
       return StyioType::ListOp;
     }
 
     std::string toString(int indent = 0) {
-      return std::string("List[Operation] { \n") 
-      + std::string(2, ' ') + "Type { " + reprListOp(OpType) + " }\n"
-      + std::string(2, ' ') + TheList -> toString() + "\n"
+      return std::string("\033[1;36mList Op\033[0meration { \n") 
+      + "|" + std::string(2 * indent, '-') + "| Type { " + reprListOp(OpType) + " }\n"
+      + "|" + std::string(2 * indent, '-') + "| " + TheList -> toString()
       + "}";
     }
 
