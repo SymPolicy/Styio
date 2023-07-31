@@ -85,6 +85,11 @@ void check_and_drop (
   {
     get_next_char(code, cur_char);
   }
+  else
+  {
+    std::string errmsg = std::string("Expecting ->| ") + char(value) + " |<-, but got ->| " + char(cur_char) + "|<-";
+    throw StyioSyntaxError(errmsg);
+  }
 }
 
 /*
@@ -2032,12 +2037,12 @@ StyioAST* parse_expr (
   return new NoneAST();
 }
 
-VarDefAST* parse_resources (
+ResourceAST* parse_resources (
   struct StyioCodeContext* code, 
   int& cur_char
 )
 {
-  std::vector<IdAST*> varBuffer;
+  std::vector<StyioAST*> resources;
 
   // eliminate @
   get_next_char(code, cur_char);
@@ -2048,11 +2053,32 @@ VarDefAST* parse_resources (
   {
     get_next_char(code, cur_char);
 
+    drop_all_spaces(code, cur_char);
+
     if (isalpha(cur_char) || check_this_char(cur_char, '_')) {
       // "@" "(" |--
-      IdAST* id_ast = parse_id(code, cur_char);
-  
-      varBuffer.push_back(id_ast);
+      IdAST* tmp_var = parse_id(code, cur_char);
+
+      drop_white_spaces(code, cur_char);
+
+      if (check_this_char(cur_char, '<'))
+      {
+        get_next_char(code, cur_char);
+
+        check_and_drop(code, cur_char, '-');
+
+        drop_white_spaces(code, cur_char);
+
+        StyioAST* tmp_value = parse_simple_value(code, cur_char);
+
+        StyioAST* binding = new FinalBindAST(tmp_var, tmp_value);
+
+        resources.push_back(binding);
+      }
+      else
+      {
+        resources.push_back(tmp_var);
+      };
     };
 
     drop_white_spaces(code, cur_char);
@@ -2062,15 +2088,32 @@ VarDefAST* parse_resources (
     {
       get_next_char(code, cur_char);
 
-      drop_white_spaces(code, cur_char);
+      drop_all_spaces(code, cur_char);
 
       if (isalpha(cur_char) || check_this_char(cur_char, '_')) {
         
-        IdAST* id_ast = parse_id(code, cur_char);
-  
-        varBuffer.push_back(id_ast);
+        IdAST* tmp_var = parse_id(code, cur_char);
 
         drop_white_spaces(code, cur_char);
+
+        if (check_this_char(cur_char, '<'))
+        {
+          get_next_char(code, cur_char);
+
+          check_and_drop(code, cur_char, '-');
+
+          drop_white_spaces(code, cur_char);
+          
+          StyioAST* tmp_value = parse_simple_value(code, cur_char);
+
+          StyioAST* binding = new FinalBindAST(tmp_var, tmp_value);
+
+          resources.push_back(binding);
+        }
+        else
+        {
+          resources.push_back(tmp_var);
+        };
       };
     };
     
@@ -2078,11 +2121,21 @@ VarDefAST* parse_resources (
     {
       get_next_char(code, cur_char);
 
-      return new VarDefAST(varBuffer);
+      return new ResourceAST(resources);
+    }
+    else
+    {
+      std::string errmsg = std::string("@(expr) // Expecting ) at the end, but got ") + char(cur_char) + "";
+      throw StyioSyntaxError(errmsg);
     };
+  }
+  else
+  {
+    std::string errmsg = std::string("@(expr) // Expecting ( after @, but got ") + char(cur_char) + "";
+    throw StyioSyntaxError(errmsg);
   };
 
-  std::string errmsg = std::string("@(expr) // Expecting ( after @, but got ") + char(cur_char) + "";
+  std::string errmsg = std::string("@(expr) // Something wrong, got ") + char(cur_char) + "";
   throw StyioSyntaxError(errmsg);
 }
 

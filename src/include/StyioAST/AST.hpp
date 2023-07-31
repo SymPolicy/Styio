@@ -322,7 +322,7 @@ class StringAST : public StyioAST {
     }
 
     std::string toStringInline(int indent = 0) {
-      return "<String: \"" + Value + "\">";
+      return "\"" + Value + "\"";
     }
 };
 
@@ -842,21 +842,26 @@ class ListOpAST : public StyioAST
     + | Assignment (Optional)
       | Import (Optional)
 */
-class VarDefAST : public StyioAST {
-  std::vector<IdAST*> Vars;
+class ResourceAST : public StyioAST {
+  std::vector<StyioAST*> Resources;
 
   public:
-    VarDefAST(std::vector<IdAST*> vars): Vars(vars) {}
+    ResourceAST(
+      std::vector<StyioAST*> resources): 
+      Resources(resources) 
+      {
+
+      }
 
     StyioType hint() {
-      return StyioType::VarDef;
+      return StyioType::Resources;
     }
 
     std::string toString(int indent = 0) {
       std::string varStr;
 
-      for (std::vector<IdAST*>::iterator it = Vars.begin(); 
-        it != Vars.end(); 
+      for (std::vector<StyioAST*>::iterator it = Resources.begin(); 
+        it != Resources.end(); 
         ++it
       ) {
         varStr += std::string(2, ' ') + "| ";
@@ -870,20 +875,7 @@ class VarDefAST : public StyioAST {
     }
 
     std::string toStringInline(int indent = 0) {
-      std::string varStr;
-
-      for (std::vector<IdAST*>::iterator it = Vars.begin(); 
-        it != Vars.end(); 
-        ++it
-      ) {
-        varStr += std::string(2, ' ') + "| ";
-        varStr += (*it) -> toStringInline();
-        varStr += " ;";
-      };
-
-      return std::string("Var Def { ")
-        + varStr
-        + " } ";
+      return "Resources { }";
     }
 };
 
@@ -954,12 +946,10 @@ class FinalBindAST : public StyioAST {
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("\033[1;36mBinding (Final)\033[0m { ") 
-        + std::string(2, ' ') + "| Var: " 
-        + varId -> toString(indent) 
-        + "; "
-        + std::string(2, ' ') + "| Val: " 
-        + valExpr -> toString(indent) 
+      return std::string("\033[1;36mBinding\033[0m \033[31m(Final)\033[0m { ")
+        + varId -> toStringInline(indent) 
+        + " } <- { "
+        + valExpr -> toStringInline(indent) 
         + " }";
     }
 };

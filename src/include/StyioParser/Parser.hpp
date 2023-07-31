@@ -171,7 +171,7 @@ StyioAST* parse_expr (
 /*
   parse_resources
 */
-VarDefAST* parse_resources (
+ResourceAST* parse_resources (
   struct StyioCodeContext* code,
   int& cur_char
 );

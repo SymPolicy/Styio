@@ -89,7 +89,7 @@ enum class StyioType {
    */
 
   // @
-  VarDef,
+  Resources,
   // -----------------
 
   /* -----------------
