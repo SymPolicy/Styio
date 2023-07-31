@@ -120,9 +120,8 @@ enum class StyioType {
   /* -----------------
    * Iterator
    */
-  IterInfLoop,
-  IterList,
-  IterRange,
+  IterInfinite,
+  IterBounded,
   // -----------------
 
   /* -----------------
@@ -148,7 +147,8 @@ enum class StyioType {
   /* -----------------
    * Layers
    */
-
+  // (x, y, ...)
+  Filling,
   // ?=
   CheckEq,
   // ?^
@@ -199,12 +199,6 @@ enum class LogicType {
   XOR,
 };
 
-enum class FlowType {
-  OnlyTrue,
-  OnlyFalse,
-  TrueAndFalse,
-};
-
 enum class CompType {
   EQ, // == Equal
   GT, // >  Greater Than
@@ -212,6 +206,19 @@ enum class CompType {
   LT, // <  Less Than
   LE, // <= Less Than and Equal
   NE, // != Not Equal
+};
+
+enum class FlowType {
+  OnlyTrue,
+  OnlyFalse,
+  TrueAndFalse,
+};
+
+enum class ICBSType {
+  MatchValue,
+  MatchCases,
+  Isin,
+  Cond,
 };
 
 enum class ListOpType {

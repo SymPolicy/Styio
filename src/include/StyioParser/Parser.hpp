@@ -121,9 +121,9 @@ ListOpAST* parse_list_op (
 );
 
 /*
-  parse_multi_vars
+  parse_filling
 */
-std::vector<IdAST*> parse_multi_vars (
+FillingAST* parse_filling (
   struct StyioCodeContext* code,
   int& cur_char
 );

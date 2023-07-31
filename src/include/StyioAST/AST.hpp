@@ -181,6 +181,48 @@ class IdAST : public StyioAST {
     }
 };
 
+class FillingAST : public StyioAST {
+  std::vector<StyioAST*> Vars;
+
+  public:
+    FillingAST(
+      std::vector<StyioAST*> vars): 
+      Vars(vars)
+      {
+
+      }
+
+    StyioType hint() {
+      return StyioType::Filling;
+    }
+
+    std::string toString(int indent = 0) {
+      std::string outstr;
+
+      for (std::vector<StyioAST*>::iterator it = Vars.begin(); 
+        it != Vars.end(); 
+        ++it
+      ) {
+        outstr += make_padding(indent, " ");
+        outstr += (*it) -> toString(indent + 1);
+        
+        if (it != (Vars.end() - 1))
+        {
+          outstr += "\n";
+        };
+      };
+
+      return std::string("\033[1;36mFilling\033[0m {\n")
+        + outstr
+        + "}";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return std::string("Variables { ") 
+      + " }";
+    }
+};
+
 /*
   =================
     Scalar Value
@@ -382,26 +424,35 @@ class RangeAST : public StyioAST
   StyioAST* StepVal;
 
   public:
-    RangeAST(StyioAST* start, StyioAST* end, StyioAST* step): StartVal(start), EndVal(end), StepVal(step) {}
+    RangeAST(
+      StyioAST* start, 
+      StyioAST* end, 
+      StyioAST* step): 
+      StartVal(start), 
+      EndVal(end), 
+      StepVal(step) 
+      {
+
+      }
 
     StyioType hint() {
       return StyioType::Range;
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Collection.Range {\n")
-        + std::string(2, ' ') + "| Start: " + StartVal -> toString() + "\n"
-        + std::string(2, ' ') + "| End: " + EndVal -> toString() + "\n"
-        + std::string(2, ' ') + "| Step: " + StepVal -> toString() + "\n"
+      return std::string("\033[1;36mRange\033[0m {\n")
+        + make_padding(indent, " ") + "| Start: " + StartVal -> toString(indent + 1) + "\n"
+        + make_padding(indent, " ") + "| End: " + EndVal -> toString(indent + 1) + "\n"
+        + make_padding(indent, " ") + "| Step: " + StepVal -> toString(indent + 1) + "\n"
         + "\n}";
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Collection.Range {\n")
-        + std::string(2, ' ') + "| Start: " + StartVal -> toString() + "\n"
-        + std::string(2, ' ') + "| End: " + EndVal -> toString() + "\n"
-        + std::string(2, ' ') + "| Step: " + StepVal -> toString() + "\n"
-        + "\n}";
+      return std::string("\033[1;36mRange\033[0m { ")
+        + "Start: " + StartVal -> toStringInline(indent + 1)
+        + " | End: " + EndVal -> toStringInline(indent + 1)
+        + " | Step: " + StepVal -> toStringInline(indent + 1)
+        + " }";
     }
 };
 
@@ -427,13 +478,13 @@ class SizeOfAST : public StyioAST
 
     std::string toString(int indent = 0) {
       return std::string("SizeOf { ") 
-      + Value -> toString()
+      + Value -> toStringInline(indent + 1)
       + " }";
     }
 
     std::string toStringInline(int indent = 0) {
       return std::string("SizeOf { ") 
-      + Value -> toStringInline()
+      + Value -> toStringInline(indent + 1)
       + " }";
     }
 };
@@ -978,7 +1029,7 @@ class FinalBindAST : public StyioAST {
 */
 class FuncAST : public StyioAST {
   IdAST* FName;
-  std::vector<IdAST*> FVars;
+  FillingAST* FVars;
   StyioAST* FBlock;
 
   bool FwithName;
@@ -986,7 +1037,7 @@ class FuncAST : public StyioAST {
 
   public:
     FuncAST(
-      std::vector<IdAST*> vars,
+      FillingAST* vars,
       StyioAST* block,
       bool isFinal) :  
       FVars(vars),
@@ -998,7 +1049,7 @@ class FuncAST : public StyioAST {
 
     FuncAST(
       IdAST* name, 
-      std::vector<IdAST*> vars,
+      FillingAST* vars,
       StyioAST* block,
       bool isFinal) : 
       FName(name), 
@@ -1028,16 +1079,7 @@ class FuncAST : public StyioAST {
       output += " {\n";
       output += make_padding(indent, " ") + "Name: " + FName -> toString(indent + 1) + "\n";
       
-      output += make_padding(indent, " ") + "Vars: ";
-      for (std::vector<IdAST*>::iterator it = FVars.begin(); 
-        it != FVars.end(); 
-        ++it
-      ) {
-        output += (*it) -> toString(indent + 1);
-        output += " ";
-      };
-
-      output += "\n";
+      output += make_padding(indent, " ") + "Vars: " + FVars -> toString(indent + 1) + "\n";
 
       output += make_padding(indent, " ") + FBlock -> toString(indent + 1);
 
@@ -1057,13 +1099,13 @@ class FuncAST : public StyioAST {
 */
 class StructAST : public StyioAST {
   IdAST* FName;
-  std::vector<IdAST*> FVars;
+  FillingAST* FVars;
   StyioAST* FBlock;
 
   public:
     StructAST(
       IdAST* name, 
-      std::vector<IdAST*> vars,
+      FillingAST* vars,
       StyioAST* block) : 
       FName(name), 
       FVars(vars),
@@ -1155,16 +1197,14 @@ class WriteStdOutAST : public StyioAST {
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Print {\n")
-        + std::string(2, ' ') + "| "
-        + Output -> toString()
-        + "\n}";
+      return std::string("\033[1;36mPrint\033[0m { ")
+        + Output -> toStringInline(indent + 1)
+        + " }";
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Print { ")
-        + std::string(2, ' ') + "| "
-        + Output -> toString()
+      return std::string("\033[1;36mPrint\033[0m { ")
+        + Output -> toStringInline(indent + 1)
         + " }";
     }
 };
@@ -1638,7 +1678,7 @@ class CheckCondAST : public StyioAST {
 */
 
 class ICBSLayerAST : public StyioAST {
-  std::vector<StyioAST*> TmpVars;
+  FillingAST* TmpVars;
   CheckEqAST* ExtraEq;
   CheckIsinAST* ExtraIsin;
   CheckCondAST* ExtraCond;
@@ -1647,14 +1687,14 @@ class ICBSLayerAST : public StyioAST {
     ICBSLayerAST() {}
 
     ICBSLayerAST(
-      std::vector<StyioAST*> vars): 
+      FillingAST* vars): 
       TmpVars(vars)
       {
 
       }
 
     ICBSLayerAST(
-      std::vector<StyioAST*> vars,
+      FillingAST* vars,
       CheckEqAST* value): 
       TmpVars(vars),
       ExtraEq(value)
@@ -1663,7 +1703,7 @@ class ICBSLayerAST : public StyioAST {
       }
 
     ICBSLayerAST(
-      std::vector<StyioAST*> vars,
+      FillingAST* vars,
       CheckIsinAST* isinExpr): 
       TmpVars(vars),
       ExtraIsin(isinExpr)
@@ -1672,7 +1712,7 @@ class ICBSLayerAST : public StyioAST {
       }
 
     ICBSLayerAST(
-      std::vector<StyioAST*> vars,
+      FillingAST* vars,
       CheckCondAST* condExpr): 
       TmpVars(vars),
       ExtraCond(condExpr)
@@ -1685,11 +1725,12 @@ class ICBSLayerAST : public StyioAST {
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Layer (Intermediate Connection Between Scopes) { }");
+      return std::string("ICBS Layer {\n") 
+      + make_padding(indent, " ") + "// Intermediate Connection Between Scopes";
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Layer (Intermediate Connection Between Scopes) { }");
+      return std::string("ICBS Layer (Intermediate Connection Between Scopes) { }");
     }
 };
 
@@ -1769,23 +1810,23 @@ class InfiniteAST : public StyioAST {
 */
 
 /*
-  IterInfiniteAST: [...] >> {}
+  IterInfinite: [...] >> {}
 */
-class IterInfiniteAST : public StyioAST {
+class IterInfinite : public StyioAST {
   IteratorType WhatType;
-  std::vector<IdAST*> TmpVars;
+  FillingAST* TmpVars;
   StyioAST* TheBlock;
 
   public:
-    IterInfiniteAST(
+    IterInfinite(
       StyioAST* block):
       TheBlock(block)
       {
         WhatType = IteratorType::Original;
       }
 
-    IterInfiniteAST(
-      std::vector<IdAST*> tmpVars,
+    IterInfinite(
+      FillingAST* tmpVars,
       StyioAST* block):
       TmpVars(tmpVars),
       TheBlock(block)
@@ -1794,34 +1835,48 @@ class IterInfiniteAST : public StyioAST {
       }
 
     StyioType hint() {
-      return StyioType::IterInfLoop;
+      return StyioType::IterInfinite;
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Loop (Infinite) { ") 
-      + "}";
+      std::string output = std::string("\033[1;36mLoop\033[0m \033[31m(Infinite)\033[0m {\n");
+
+      output += make_padding(indent, " ") + TheBlock -> toString(indent + 1);
+
+      output += "}";
+
+      return output;
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Loop (Infinite) { ")
+      return std::string("\033[1;36mLoop\033[0m \033[31m(Infinite)\033[0m { ")
       + "}";
     }
 };
 
 /*
-  IterListAST: <List> >> {}
+  IterBounded: <List/Range> >> {}
 */
-class IterListAST : public StyioAST {
-  StyioAST* TheList;
-  std::vector<IdAST*> TmpVars;
+class IterBounded : public StyioAST {
+  StyioAST* TheCollection;
+  FillingAST* TmpVars;
   StyioAST* TheBlock;
 
   public:
-    IterListAST(
+    IterBounded(
+      StyioAST* theList,
+      StyioAST* block): 
+      TheCollection(theList),
+      TheBlock(block)
+      {
+
+      }
+
+    IterBounded(
       StyioAST* theList, 
-      std::vector<IdAST*> tmpVars,
+      FillingAST* tmpVars,
       StyioAST* block): 
-      TheList(theList),
+      TheCollection(theList),
       TmpVars(tmpVars),
       TheBlock(block)
       {
@@ -1829,64 +1884,18 @@ class IterListAST : public StyioAST {
       }
 
     StyioType hint() {
-      return StyioType::IterList;
+      return StyioType::IterBounded;
     }
 
     std::string toString(int indent = 0) {
-      return std::string("Iter (List) { ") 
-      + TheList -> toString()
-      + " }";
+      return std::string("\033[1;36mIterator\033[0m \033[32m(Bounded)\033[0m {\n") 
+      + make_padding(indent, " ") + TheCollection -> toStringInline(indent + 1)
+      + "}";
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("Iter (List) { ") 
-      + TheList -> toStringInline()
-      + " }";
-    }
-};
-
-/*
-  IterRangeAST: Range >> {}
-*/
-class IterRangeAST : public StyioAST {
-  StyioAST* TheRange;
-  std::vector<IdAST*> TmpVars;
-  StyioAST* TheBlock;
-
-  public:
-    IterRangeAST(
-      StyioAST* theRange, 
-      std::vector<IdAST*> tmpVars,
-      StyioAST* block): 
-      TheRange(theRange),
-      TmpVars(tmpVars),
-      TheBlock(block)
-      {
-
-      }
-
-    IterRangeAST(
-      StyioAST* theRange, 
-      std::vector<IdAST*> tmpVars): 
-      TheRange(theRange),
-      TmpVars(tmpVars)
-      {
-
-      }
-
-    StyioType hint() {
-      return StyioType::IterRange;
-    }
-
-    std::string toString(int indent = 0) {
-      return std::string("Iter (Range) { ") 
-      + TheRange -> toString()
-      + " }";
-    }
-
-    std::string toStringInline(int indent = 0) {
-      return std::string("Iter (Range) { ") 
-      + TheRange -> toStringInline()
+      return std::string("\033[1;36mIterator\033[0m \033[32m(Bounded)\033[0m { ") 
+      + TheCollection -> toStringInline(indent + 1)
       + " }";
     }
 };

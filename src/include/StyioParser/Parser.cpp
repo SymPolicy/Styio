@@ -749,14 +749,19 @@ ListOpAST* parse_list_op (
   };
 }
 
-std::vector<IdAST*> parse_multi_vars (
+FillingAST* parse_filling (
   struct StyioCodeContext* code, 
   int& cur_char
 ) 
 {
-  std::vector<IdAST*> vars;
+  std::vector<StyioAST*> vars;
 
-  IdAST* firstVar = parse_id(code, cur_char);
+  if (check_this_char(cur_char, '('))
+  {
+    get_next_char(code, cur_char);
+  };
+
+  StyioAST* firstVar = parse_id(code, cur_char);
 
   vars.push_back(firstVar);
 
@@ -769,7 +774,7 @@ std::vector<IdAST*> parse_multi_vars (
     drop_white_spaces(code, cur_char);
 
     /*
-      the last character will be eliminated outside parse_multi_vars()
+      the last character will be eliminated outside parse_filling()
       therefore, this function only eliminate variable declaration
     */
     if (check_this_char(cur_char, ')')  
@@ -782,7 +787,7 @@ std::vector<IdAST*> parse_multi_vars (
     vars.push_back(parse_id(code, cur_char));
   }
 
-  return vars;
+  return new FillingAST(vars);
 }
 
 StyioAST* parse_iter (
@@ -791,56 +796,26 @@ StyioAST* parse_iter (
   StyioAST* iterOverIt
 ) 
 {
-  std::vector<IdAST*> iterTmpVars;
+  FillingAST* iterTmpVars;
   StyioAST* iterMatch;
   StyioAST* iterFilter;
   StyioAST* iterBlock;
 
+  bool hasVars = false;
   bool hasMatch = false;
   bool hasFilter = false;
 
+  drop_all_spaces(code, cur_char);
+
   // eliminate the start
-  switch (cur_char)
+  if (check_this_char(cur_char, '('))
   {
-  case '(':
-    get_next_char(code, cur_char);
-    break;
+    drop_white_spaces(code, cur_char);
 
-  case '[':
-    get_next_char(code, cur_char);
-    break;
+    iterTmpVars = parse_filling(code, cur_char);
+    hasVars = true;
 
-  case '|':
-    get_next_char(code, cur_char);
-    break;
-  
-  default:
-    break;
-  }
-
-  drop_white_spaces(code, cur_char);
-
-  iterTmpVars = parse_multi_vars(code, cur_char);
-
-  drop_white_spaces(code, cur_char);
-
-  // eliminate the end
-  switch (cur_char)
-  {
-  case ')':
-    get_next_char(code, cur_char);
-    break;
-
-  case ']':
-    get_next_char(code, cur_char);
-    break;
-
-  case '|':
-    get_next_char(code, cur_char);
-    break;
-  
-  default:
-    break;
+    check_and_drop(code, cur_char, ')', 2);
   }
 
   /*
@@ -848,6 +823,12 @@ StyioAST* parse_iter (
     
     (x, y) \n
     ?=
+
+    (x, y) \n
+    ?^
+
+    (x, y) \n
+    ?()
 
     (x, y) \n
     =>
@@ -871,10 +852,8 @@ StyioAST* parse_iter (
 
         // drop white spaces after ?=
         drop_white_spaces(code, cur_char);
-
-        StyioAST* matchValue = parse_simple_value(code, cur_char);
         
-        iterMatch = new CheckEqAST(matchValue);
+        iterMatch = new CheckEqAST(parse_simple_value(code, cur_char));
         hasMatch = true;
       }
 
@@ -891,12 +870,12 @@ StyioAST* parse_iter (
 
     /*
       ?(Condition) 
-      :) {
+      \t\ {
 
       }
       
       ?(Condition) 
-      :( {
+      \f\ {
 
       }
     */
@@ -922,24 +901,6 @@ StyioAST* parse_iter (
     if (check_this_char(cur_char, '>'))
     {
       get_next_char(code, cur_char);
-
-      /*
-        support:
-
-        => \n
-        { }
-      */
-      drop_all_spaces(code, cur_char);
-
-      if (check_this_char(cur_char, '{'))
-      {
-        iterBlock = parse_exec_block(code, cur_char);
-      }
-      else
-      {
-        std::string errmsg = std::string("Cannot find block after `=>`.");
-        throw StyioSyntaxError(errmsg);
-      };
     }
     else
     {
@@ -948,35 +909,52 @@ StyioAST* parse_iter (
     };
   };
 
-  switch (iterOverIt -> hint())
+  /*
+    support:
+
+    => \n
+    { }
+  */
+  drop_all_spaces(code, cur_char);
+
+  if (check_this_char(cur_char, '{'))
   {
-  case StyioType::InfLoop:
-    return new IterInfiniteAST(iterTmpVars, iterBlock);
-
-    // You should NOT reach this line!
-    break;
-
-  case StyioType::List:
-    return new IterListAST(iterOverIt, iterTmpVars, iterBlock);
-
-    // You should NOT reach this line!
-    break;
-
-  case StyioType::Range:
-    return new IterRangeAST(iterOverIt, iterTmpVars, iterBlock);
-
-    // You should NOT reach this line!
-    break;
-  
-  default:
-    {
-      std::string errmsg = std::string("Cannot recognize the collection for the iterator: ") + std::to_string(type_to_int(iterOverIt -> hint()));
-      throw StyioSyntaxError(errmsg);
-    }
-
-    // You should NOT reach this line!
-    break;
+    iterBlock = parse_exec_block(code, cur_char);
   }
+  else
+  {
+    std::string errmsg = std::string("Cannot find block after `=>`.");
+    throw StyioSyntaxError(errmsg);
+  };
+
+  if ((iterOverIt -> hint()) == StyioType::InfLoop)
+  {
+    if (hasVars)
+    {
+      return new IterInfinite(iterTmpVars, iterBlock);
+    }
+    else
+    {
+      return new IterInfinite(iterBlock);
+    };
+  }
+  else if ((iterOverIt -> hint()) == StyioType::List 
+    || (iterOverIt -> hint()) == StyioType::Range)
+  {
+    if (hasVars)
+    {
+      return new IterBounded(iterOverIt, iterTmpVars, iterBlock);
+    }
+    else
+    {
+      return new IterBounded(iterOverIt, iterBlock);
+    };
+  }
+  else
+  {
+    std::string errmsg = std::string("Cannot recognize the collection for the iterator: ") + std::to_string(type_to_int(iterOverIt -> hint()));
+    throw StyioSyntaxError(errmsg);
+  };
 }
 
 StyioAST* parse_list_expr (
@@ -1247,7 +1225,7 @@ StyioAST* parse_loop (
           */
           StyioAST* block = parse_exec_block(code, cur_char);
 
-          return new IterInfiniteAST(block);
+          return new IterInfinite(block);
         }
       }
     }
@@ -1994,6 +1972,8 @@ StyioAST* parse_expr (
   int& cur_char
 )
 {
+  drop_all_spaces(code, cur_char);
+
   // <ID>
   if (isalpha(cur_char) || check_this_char(cur_char, '_')) 
   {
@@ -2027,54 +2007,62 @@ StyioAST* parse_expr (
     {
       return numAST;
     }
-  }
-  else
+  };
+
+  switch (cur_char)
   {
-    switch (cur_char)
+  case '\"':
     {
-    case '[':
-      {
+      return parse_string(code, cur_char);
+    }
+
+  case '\'':
+    {
+      return parse_char_or_string(code, cur_char);
+    }
+
+  case '[':
+    {
+      get_next_char(code, cur_char);
+
+      drop_white_spaces(code, cur_char);
+
+      if (check_this_char(cur_char, ']')) {
         get_next_char(code, cur_char);
 
-        drop_white_spaces(code, cur_char);
-
-        if (check_this_char(cur_char, ']')) {
-          get_next_char(code, cur_char);
-
-          return new EmptyListAST();
-        }
-        else
-        {
-          return parse_list_expr(code, cur_char);
-        }
+        return new EmptyListAST();
       }
-
-      // You should NOT reach this line!
-      break;
-
-    case '|':
+      else
       {
-        SizeOfAST* valExpr = parse_size_of(code, cur_char);
-
-        drop_white_spaces(code, cur_char);
-
-        if (is_bin_tok(cur_char))
-        {
-          return parse_binop_rhs(code, cur_char, valExpr);
-        }
-        else
-        {
-          return valExpr;
-        };
+        return parse_list_expr(code, cur_char);
       }
-
-      // You should NOT reach this line!
-      break;
-    
-    default:
-      break;
     }
-  };
+
+    // You should NOT reach this line!
+    break;
+
+  case '|':
+    {
+      SizeOfAST* valExpr = parse_size_of(code, cur_char);
+
+      drop_white_spaces(code, cur_char);
+
+      if (is_bin_tok(cur_char))
+      {
+        return parse_binop_rhs(code, cur_char, valExpr);
+      }
+      else
+      {
+        return valExpr;
+      };
+    }
+
+    // You should NOT reach this line!
+    break;
+  
+  default:
+    break;
+  }
 
   return new NoneAST();
 }
@@ -2225,7 +2213,7 @@ StyioAST* parse_pipeline (
 )
 {
   IdAST* pipeName;
-  std::vector<IdAST*> pipeVars;
+  FillingAST* pipeVars;
   StyioAST* pipeBlock;
   bool pwithName = false;
   bool pisFinal = false;
@@ -2265,7 +2253,7 @@ StyioAST* parse_pipeline (
   {
     get_next_char(code, cur_char);
 
-    pipeVars = parse_multi_vars(code, cur_char);
+    pipeVars = parse_filling(code, cur_char);
 
     check_and_drop(code, cur_char, ')', 2);
   };
