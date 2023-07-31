@@ -3,14 +3,7 @@
 
 inline std::string make_padding(int indent, std::string endswith = "")
 {
-  std::string output = "|";
-
-  for (int i = 0; i < indent; i++)
-  {
-    output += std::string("--");
-  };
-
-  return output + "|" + endswith;
+  return std::string("|") + std::string(2 * indent, '-') + "|" + endswith;
 }
 
 /*
@@ -1408,10 +1401,31 @@ class CondFlowAST : public StyioAST {
     }
 
     std::string toString(int indent = 0) {
-      return std::string("\033[1;36mIf (Else?)\033[0m {\n") 
-      + make_padding(indent, " ") + reprFlow(WhatFlow) + "\n"
-      + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1)
-      + "}";
+      if (WhatFlow == FlowType::OnlyTrue
+        || WhatFlow == FlowType::OnlyFalse)
+      {
+        return std::string("\033[1;36mIf (Else?)\033[0m {\n") 
+        + make_padding(indent, " ") + reprFlow(WhatFlow) + "\n"
+        + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1) + "\n"
+        + make_padding(indent, " ") + "\033[1;35mThen\033[0m: "+ ThenBlock -> toString(indent + 1)
+        + "}";
+      }
+      else if (WhatFlow == FlowType::TrueAndFalse)
+      {
+        return std::string("\033[1;36mIf (Else?)\033[0m {\n") 
+        + make_padding(indent, " ") + reprFlow(WhatFlow) + "\n"
+        + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1) + "\n"
+        + make_padding(indent, " ") + "\033[1;35mThen\033[0m: " + ThenBlock -> toString(indent + 1) + "\n"
+        + make_padding(indent, " ") + "\033[1;35mElse\033[0m: " + ElseBlock -> toString(indent + 1)
+        + "}";
+      }
+      else
+      {
+        return std::string("\033[1;36mIf (Else?)\033[0m {\n") 
+        + make_padding(indent, " ") + reprFlow(WhatFlow) + "\n"
+        + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1)
+        + "}";
+      }
     }
 
     std::string toStringInline(int indent = 0) {
