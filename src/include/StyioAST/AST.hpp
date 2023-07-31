@@ -1,6 +1,18 @@
 #ifndef STYIO_AST_H_
 #define STYIO_AST_H_
 
+inline std::string make_padding(int indent, std::string endswith = "")
+{
+  std::string output = "|";
+
+  for (int i = 0; i < indent; i++)
+  {
+    output += std::string("--");
+  };
+
+  return output + "|" + endswith;
+}
+
 /*
   StyioAST
 */
@@ -514,12 +526,12 @@ class BinOpAST : public StyioAST
 
     std::string toString(int indent = 0) {
       return std::string("\033[1;36mBinary Op\033[0meration {\n")
-        + "|" + std::string(2 * indent, '-') + "| LHS: "
+        + make_padding(indent, " ") + "LHS: "
         + LHS -> toString(indent + 1) 
         + "\n"
-        + "|" + std::string(2 * indent, '-') + "| OP : " + reprToken(Op)
+        + make_padding(indent, " ") + "OP : " + reprToken(Op)
         + "\n"
-        + "|" + std::string(2 * indent, '-') + "| RHS: "
+        + make_padding(indent, " ") + "RHS: "
         + RHS -> toString(indent + 1) 
         + "}";
     }
@@ -560,18 +572,19 @@ class BinCompAST: public StyioAST
 
     std::string toString(int indent = 0) {
       return reprToken(CompSign) + std::string(" {\n")
-        + "|" + std::string(2 * indent, '-') + "| LHS: " + LhsExpr -> toString() 
+        + make_padding(indent, " ") + "LHS: " + LhsExpr -> toString() 
         + "\n"
-        + "|" + std::string(2 * indent, '-') + "| RHS: " + RhsExpr -> toString()
+        + make_padding(indent, " ") + "RHS: " + RhsExpr -> toString()
         + "}";
     }
 
     std::string toStringInline(int indent = 0) {
-      return reprToken(CompSign) + std::string(" {\n")
-        + std::string(2, ' ') + "| LHS: " + LhsExpr -> toString() 
-        + "\n"
-        + std::string(2, ' ') + "| RHS: " + RhsExpr -> toString()
-        + "}";
+      return std::string("LHS: ") 
+        + LhsExpr -> toStringInline(indent + 1)
+        + " | Op: "
+        + reprToken(CompSign) 
+        + " | RHS: "
+        + RhsExpr -> toStringInline(indent + 1);
     }
 };
 
@@ -622,33 +635,33 @@ class CondAST: public StyioAST
           || LogicOp == LogicType::OR
           || LogicOp == LogicType::XOR)
       {
-        return std::string("Condition {\n")
-        + "|" + std::string(2 * indent, '-') + "| Op: " + reprToken(LogicOp) 
+        return std::string("\033[1;36mCondition\033[0m {\n")
+        + make_padding(indent, " ") + "Op: " + reprToken(LogicOp) 
         + "\n"
-        + "|" + std::string(2 * indent, '-') + "| LHS: " + LhsExpr -> toString(indent + 1) 
+        + make_padding(indent, " ") + "LHS: " + LhsExpr -> toString(indent + 1) 
         + "\n"
-        + "|" + std::string(2 * indent, '-') + "| RHS: " + RhsExpr -> toString(indent + 1)
+        + make_padding(indent, " ") + "RHS: " + RhsExpr -> toString(indent + 1)
         + "}";
       }
       else
       if (LogicOp == LogicType::NOT)
       {
-        return std::string("Condition {\n")
-        + "|" + std::string(2 * indent, '-') + "| Op: " + reprToken(LogicOp) 
+        return std::string("\033[1;36mCondition\033[0m {\n")
+        + make_padding(indent, " ") + "Op: " + reprToken(LogicOp) 
         + "\n"
-        + "|" + std::string(2 * indent, '-') + "| Value: " + ValExpr -> toString(indent + 1)
+        + make_padding(indent, " ") + "Value: " + ValExpr -> toString(indent + 1)
         + "}";
       }
       else
       if (LogicOp == LogicType::RAW)
       {
-        return std::string("Condition {\n")
-        + "|" + std::string(2 * indent, '-') + "| " + ValExpr -> toString(indent + 1)
+        return std::string("\033[1;36mCondition\033[0m {\n")
+        + make_padding(indent, " ") + ValExpr -> toString(indent + 1)
         + "}";
       }
       else
       {
-        return "Condition { Undefined! }";
+        return "\033[1;36mCondition\033[0m { Undefined! }";
       }
     }
 
@@ -657,30 +670,30 @@ class CondAST: public StyioAST
           || LogicOp == LogicType::OR
           || LogicOp == LogicType::XOR)
       {
-        return std::string("Condition {\n")
-        + std::string(2, ' ') + "| Op: " + reprToken(LogicOp) + "\n"
-        + std::string(2, ' ') + "| LHS: " + LhsExpr -> toString() + "\n"
-        + std::string(2, ' ') + "| RHS: " + RhsExpr -> toString() + "\n"
-        + "}";
+        return std::string("\033[1;36mCondition\033[0m { ")
+        + LhsExpr -> toStringInline(indent + 1) 
+        + reprToken(LogicOp)
+        + RhsExpr -> toStringInline(indent + 1)
+        + " }";
       }
       else
       if (LogicOp == LogicType::NOT)
       {
-        return std::string("Condition {\n")
-        + std::string(2, ' ') + "| Op: " + reprToken(LogicOp) + "\n"
-        + std::string(2, ' ') + "| Value: " + ValExpr -> toString() + "\n"
-        + "}";
+        return std::string("\033[1;36mCondition\033[0m { ")
+        + reprToken(LogicOp)
+        + ValExpr -> toStringInline(indent + 1)
+        + " }";
       }
       else
       if (LogicOp == LogicType::RAW)
       {
-        return std::string("Condition {\n")
-        + std::string(2, ' ') + ValExpr -> toString() + "\n"
-        + "}";
+        return std::string("\033[1;36mCondition\033[0m { ")
+        + ValExpr -> toStringInline(indent + 1)
+        + " }";
       }
       else
       {
-        return "Condition { Undefined! }";
+        return "\033[1;36mCondition\033[0m { Undefined! }";
       }
     }
 };
@@ -815,8 +828,8 @@ class ListOpAST : public StyioAST
 
     std::string toString(int indent = 0) {
       return std::string("\033[1;36mList Op\033[0meration { \n") 
-      + "|" + std::string(2 * indent, '-') + "| Type { " + reprListOp(OpType) + " }\n"
-      + "|" + std::string(2 * indent, '-') + "| " + TheList -> toString()
+      + make_padding(indent, " ") + "Type { " + reprListOp(OpType) + " }\n"
+      + make_padding(indent, " ") + TheList -> toString()
       + "}";
     }
 
@@ -830,12 +843,12 @@ class ListOpAST : public StyioAST
 
 /*
   =================
-    Statement: Variable Definition
+    Statement: Resources
   =================
 */
 
 /*
-  VarDefAST: Variable Definition
+  ResourceAST: Resources
 
   Definition = 
     Declaration (Neccessary)
@@ -864,14 +877,18 @@ class ResourceAST : public StyioAST {
         it != Resources.end(); 
         ++it
       ) {
-        varStr += std::string(2, ' ') + "| ";
+        varStr += make_padding(indent, " ");
         varStr += (*it) -> toStringInline();
-        varStr += "\n";
+
+        if (it != (Resources.end() - 1))
+        {
+          varStr += "\n";
+        };
       };
 
-      return std::string("Variable Definition {\n")
+      return std::string("\033[1;36mResources\033[0m {\n")
         + varStr
-        + "} ";
+        + "}";
     }
 
     std::string toStringInline(int indent = 0) {
@@ -901,10 +918,10 @@ class FlexBindAST : public StyioAST {
 
     std::string toString(int indent = 0) {
       return std::string("\033[1;36mBinding\033[0m \033[32m(Flexible)\033[0m {\n") 
-        + "|" + std::string(2 * indent, '-') + "| Var: " 
+        + make_padding(indent, " ") + "Var: " 
         + varId -> toString(indent + 1) 
         + "\n"
-        + "|" + std::string(2 * indent, '-') + "| Val: " 
+        + make_padding(indent, " ") + "Val: " 
         + valExpr -> toString(indent + 1)
         + "}";
     }
@@ -936,10 +953,10 @@ class FinalBindAST : public StyioAST {
 
     std::string toString(int indent = 0) {
       return std::string("\033[1;36mBinding\033[0m \033[31m(Final)\033[0m {\n") 
-        + std::string(2, ' ') + "| Var: " 
+        + make_padding(indent, " ") + "Var: " 
         + varId -> toString(indent) 
         + "\n"
-        + std::string(2, ' ') + "| Val: " 
+        + make_padding(indent, " ") + "Val: " 
         + valExpr -> toString(indent) 
         + "\n"
         + "}";
@@ -1016,21 +1033,20 @@ class FuncAST : public StyioAST {
       };
 
       output += " {\n";
-      output += "|" + std::string(2 * indent, '-') + "| Name: " + FName -> toString(indent + 1) + "\n";
+      output += make_padding(indent, " ") + "Name: " + FName -> toString(indent + 1) + "\n";
       
-      output += "|" + std::string(2 * indent, '-') + "| Vars: ";
+      output += make_padding(indent, " ") + "Vars: ";
       for (std::vector<IdAST*>::iterator it = FVars.begin(); 
         it != FVars.end(); 
         ++it
       ) {
-        output += std::string(2 * indent, '-');
         output += (*it) -> toString(indent + 1);
         output += " ";
       };
 
       output += "\n";
 
-      output += "|" + std::string(2 * indent, '-') + "| " + FBlock -> toString(indent + 1);
+      output += make_padding(indent, " ") + FBlock -> toString(indent + 1);
 
       output += "}";
 
@@ -1218,16 +1234,26 @@ class ExtPackAST : public StyioAST {
   BlockAST: Block
 */
 class BlockAST : public StyioAST {
+  StyioAST* Resources;
   std::vector<StyioAST*> Stmts;
 
   public:
     BlockAST() {}
 
     BlockAST(
+      StyioAST* resources,
       std::vector<StyioAST*> stmts): 
+      Resources(resources),
       Stmts(stmts) 
       {
 
+      }
+
+    BlockAST(
+      std::vector<StyioAST*> stmts): 
+      Stmts(stmts) 
+      {
+        
       }
 
     StyioType hint() {
@@ -1241,7 +1267,7 @@ class BlockAST : public StyioAST {
         it != Stmts.end(); 
         ++it
       ) {
-        stmtStr += "|" + std::string(2 * indent, '-') + "| ";
+        stmtStr += make_padding(indent, " ");
         stmtStr += (*it) -> toString(indent + 1);
         
         if (it != (Stmts.end() - 1))
@@ -1257,6 +1283,38 @@ class BlockAST : public StyioAST {
 
     std::string toStringInline(int indent = 0) {
       return std::string("Block { }");
+    }
+};
+
+/*
+  Injection
+*/
+class InjectAST : public StyioAST {
+  StyioAST* LastExpr;
+  StyioAST* NextExpr;
+
+  public:
+    InjectAST(
+      StyioAST* last,
+      StyioAST* next) : \
+      LastExpr(last), 
+      NextExpr(next) {}
+
+    StyioType hint() {
+      return StyioType::Injection;
+    }
+
+    std::string toString(int indent = 0) {
+      return std::string("Injection {")
+      + "\n" 
+      + make_padding(indent, " ") + LastExpr -> toString(indent + 1)
+      + "\n" 
+      + make_padding(indent, " ") + NextExpr -> toString(indent + 1)
+      + "}";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return "Injection {}";
     }
 };
 
@@ -1350,12 +1408,14 @@ class CondFlowAST : public StyioAST {
     }
 
     std::string toString(int indent = 0) {
-      return std::string("If (Flow) {") 
+      return std::string("\033[1;36mIf (Else?)\033[0m {\n") 
+      + make_padding(indent, " ") + reprFlow(WhatFlow) + "\n"
+      + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1)
       + "}";
     }
 
     std::string toStringInline(int indent = 0) {
-      return std::string("If (Flow) {") 
+      return std::string("\033[1;36mIf (Else?)\033[0m {") 
       + "}";
     }
 };

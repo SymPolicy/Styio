@@ -87,9 +87,42 @@ void check_and_drop (
   }
   else
   {
-    std::string errmsg = std::string("Expecting ->| ") + char(value) + " |<-, but got ->| " + char(cur_char) + "|<-";
+    std::string errmsg = std::string("Expecting .:| ") + char(value) + " |:. , but got .:| " + char(cur_char) + " |:.";
     throw StyioSyntaxError(errmsg);
   }
+}
+
+bool peak_next_char (
+  struct StyioCodeContext* code,
+  char value,
+  int mode = 0)
+{
+  int start_with = code -> cursor;
+  int move_forward = 0;
+
+  switch (mode)
+  {
+  case 1:
+    while ((code -> text.at(start_with + move_forward)) == ' ')
+    {
+      move_forward += 1;
+    }
+    
+    break;
+
+  case 2:
+    while (isspace((code -> text.at(start_with + move_forward))))
+    {
+      move_forward += 1;
+    }
+
+    break;
+  
+  default:
+    break;
+  }
+
+  return (code -> text.at(start_with + move_forward)) == value;
 }
 
 /*
@@ -1804,26 +1837,28 @@ StyioAST* parse_cond_flow (
     /*
       support:
         ?() \n
-        :)
+        \t\
 
         ?() \n
-        :(
+        \f\
     */
     drop_all_spaces(code, cur_char);
 
-    if (check_this_char(cur_char, ':'))
+    if (check_this_char(cur_char, '\\'))
     {
       get_next_char(code, cur_char);
 
       StyioAST* block;
 
-      if (check_this_char(cur_char, ')'))
+      if (check_this_char(cur_char, 't'))
       {
         get_next_char(code, cur_char);
 
+        check_and_drop(code, cur_char, '\\', 0);
+
         /*
           support:
-            :) \n
+            \t\ \n
             {}
         */
 
@@ -1833,22 +1868,24 @@ StyioAST* parse_cond_flow (
 
         /*
           support:
-            :) {} \n
-            :(
+            \t\ {} \n
+            \f\
         */
         drop_all_spaces(code, cur_char);
 
-        if (check_this_char(cur_char, ':'))
+        if (check_this_char(cur_char, '\\'))
         {
           get_next_char(code, cur_char);
 
-          if (check_this_char(cur_char, '('))
+          check_and_drop(code, cur_char, 'f', 0);
+
+          if (check_this_char(cur_char, '\\'))
           {
             get_next_char(code, cur_char);
 
             /*
               support:
-                :( \n
+                \f\ \n
                 {}
             */
             drop_all_spaces(code, cur_char);
@@ -1872,14 +1909,15 @@ StyioAST* parse_cond_flow (
           );
         };
       }
-      else
-      if (check_this_char(cur_char, '('))
+      else if (check_this_char(cur_char, 'f'))
       {
         get_next_char(code, cur_char);
 
+        check_and_drop(code, cur_char, '\\', 0);
+
         /*
           support:
-            :( \n
+            \f\ \n
             {}
         */
         drop_all_spaces(code, cur_char);
@@ -1891,6 +1929,10 @@ StyioAST* parse_cond_flow (
           condition,
           block
         );
+      }
+      else
+      {
+
       }
     }
   }
@@ -2620,7 +2662,24 @@ StyioAST* parse_stmt (
   */
   case '@':
     {
-      return parse_resources(code, cur_char);
+      ResourceAST* resources = parse_resources(code, cur_char);
+
+      if (peak_next_char(code, '-', 2))
+      {
+        check_and_drop(code, cur_char, '-', 2);
+
+        check_and_drop(code, cur_char, '>', 0);
+
+        drop_all_spaces(code, cur_char);
+
+        StyioAST* block = parse_exec_block(code, cur_char);
+
+        return new InjectAST(resources, block);
+      }
+      else
+      {
+        return resources;
+      };
     };
 
     // You should NOT reach this line!

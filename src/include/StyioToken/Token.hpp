@@ -158,6 +158,7 @@ enum class StyioType {
 
   // Intermediate Connection Between Scopes
   ICBSLayer,
+  Injection,
   // -----------------
 
   /* -----------------
@@ -285,6 +286,25 @@ static std::string reprListOp(ListOpType listOp) {
 
     default:
       return "List_Operation";
+
+      break;
+  }
+}
+
+static std::string reprFlow (FlowType flow) {
+  switch (flow)
+  {
+    case FlowType::OnlyTrue:
+      return "True";
+
+    case FlowType::OnlyFalse:
+      return "False";
+
+    case FlowType::TrueAndFalse:
+      return "True & False";
+
+    default:
+      return "Control Flow";
 
       break;
   }
