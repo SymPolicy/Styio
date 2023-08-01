@@ -69,6 +69,9 @@ enum class StyioType {
   // Condition
   Condition,
 
+  // Call
+  Call,
+
   // Binary Operation
   BinOp,
 
@@ -157,8 +160,14 @@ enum class StyioType {
   CheckCond,
 
   // Intermediate Connection Between Scopes
-  ICBSLayer,
-  Injection,
+  Forward,
+  Forward_Run,
+  Forward_Filling,
+  Forward_MatchValue,
+  Forward_MatchCases,
+  Forward_CheckIsin,
+  Forward_CheckCond_True,
+  Forward_CheckCond_False,
   // -----------------
 
   /* -----------------
@@ -166,10 +175,11 @@ enum class StyioType {
    */
 
   Block,
-  MatchBlock,
+  Cases,
   // -----------------
 
   CondFlow,
+  Connection
 };
 
 enum class InfiniteType {
@@ -209,16 +219,9 @@ enum class CompType {
 };
 
 enum class FlowType {
-  OnlyTrue,
-  OnlyFalse,
-  TrueAndFalse,
-};
-
-enum class ICBSType {
-  MatchValue,
-  MatchCases,
-  Isin,
-  Cond,
+  True,
+  False,
+  Both,
 };
 
 enum class ListOpType {
@@ -301,13 +304,13 @@ static std::string reprListOp(ListOpType listOp) {
 static std::string reprFlow (FlowType flow) {
   switch (flow)
   {
-    case FlowType::OnlyTrue:
+    case FlowType::True:
       return "True";
 
-    case FlowType::OnlyFalse:
+    case FlowType::False:
       return "False";
 
-    case FlowType::TrueAndFalse:
+    case FlowType::Both:
       return "True & False";
 
     default:
