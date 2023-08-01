@@ -24,15 +24,15 @@ class StyioAST {
   Connect
 */
 class ConnectAST : public StyioAST {
-  StyioAST* LastExpr;
-  StyioAST* NextExpr;
+  std::unique_ptr<StyioAST> LastExpr;
+  std::unique_ptr<StyioAST> NextExpr;
 
   public:
     ConnectAST(
-      StyioAST* last,
-      StyioAST* next) : 
-      LastExpr(last), 
-      NextExpr(next) {}
+      std::unique_ptr<StyioAST> last,
+      std::unique_ptr<StyioAST> next) : 
+      LastExpr(std::move(last)), 
+      NextExpr(std::move(next)) {}
 
     StyioType hint() {
       return StyioType::Connection;
@@ -158,12 +158,12 @@ class PassAST : public StyioAST {
 };
 
 class ReturnAST : public StyioAST {
-  StyioAST* Expr;
+  std::unique_ptr<StyioAST> Expr;
 
   public:
     ReturnAST (
-      StyioAST* expr) : 
-      Expr(expr) 
+      std::unique_ptr<StyioAST> expr) : 
+      Expr(std::move(expr)) 
     {
 
     }
@@ -328,6 +328,28 @@ class CharAST : public StyioAST {
 };
 
 /*
+  StringAST: String
+*/
+class StringAST : public StyioAST {
+  std::string Value;
+
+  public:
+    StringAST(std::string val) : Value(val) {}
+
+    StyioType hint() {
+      return StyioType::String;
+    }
+
+    std::string toString(int indent = 0) {
+      return "String { \"" + Value + "\" }";
+    }
+
+    std::string toStringInline(int indent = 0) {
+      return "\"" + Value + "\"";
+    }
+};
+
+/*
   =================
     Data Resource Identifier
   =================
@@ -389,35 +411,13 @@ class ExtLinkAST : public StyioAST {
 */
 
 /*
-  StringAST: String
-*/
-class StringAST : public StyioAST {
-  std::string Value;
-
-  public:
-    StringAST(std::string val) : Value(val) {}
-
-    StyioType hint() {
-      return StyioType::String;
-    }
-
-    std::string toString(int indent = 0) {
-      return "String { \"" + Value + "\" }";
-    }
-
-    std::string toStringInline(int indent = 0) {
-      return "\"" + Value + "\"";
-    }
-};
-
-/*
   ListAST: List (Extendable)
 */
 class ListAST : public StyioAST {
-  std::vector<StyioAST*> Elems;
+  std::vector<std::unique_ptr<StyioAST>> Elems;
 
   public:
-    ListAST(std::vector<StyioAST*> elems): Elems(elems) {}
+    ListAST(std::vector<std::unique_ptr<StyioAST>> elems): Elems(elems) {}
 
     StyioType hint() {
       return StyioType::List;
@@ -456,18 +456,18 @@ class ListAST : public StyioAST {
 */
 class RangeAST : public StyioAST 
 {
-  StyioAST* StartVal;
-  StyioAST* EndVal;
-  StyioAST* StepVal;
+  std::unique_ptr<StyioAST> StartVal;
+  std::unique_ptr<StyioAST> EndVal;
+  std::unique_ptr<StyioAST> StepVal;
 
   public:
     RangeAST(
-      StyioAST* start, 
-      StyioAST* end, 
-      StyioAST* step): 
-      StartVal(start), 
-      EndVal(end), 
-      StepVal(step) 
+      std::unique_ptr<StyioAST> start, 
+      std::unique_ptr<StyioAST> end, 
+      std::unique_ptr<StyioAST> step): 
+      StartVal(std::move(start)), 
+      EndVal(std::move(end)), 
+      StepVal(std::move(step)) 
       {
 
       }
@@ -682,32 +682,32 @@ class CondAST: public StyioAST
     RAW: expr
     NOT: !(expr)
   */
-  StyioAST* ValExpr;
+  std::unique_ptr<StyioAST> ValExpr;
 
   /*
     AND: expr && expr
     OR : expr || expr
   */
-  StyioAST* LhsExpr;
-  StyioAST* RhsExpr;
+  std::unique_ptr<StyioAST> LhsExpr;
+  std::unique_ptr<StyioAST> RhsExpr;
 
   public:
     CondAST(
       LogicType op, 
-      StyioAST* val): 
+      std::unique_ptr<StyioAST> val): 
       LogicOp(op), 
-      ValExpr(val)
+      ValExpr(std::move(val))
       {
 
       }
     
     CondAST(
       LogicType op, 
-      StyioAST* lhs, 
-      StyioAST* rhs): 
+      std::unique_ptr<StyioAST> lhs, 
+      std::unique_ptr<StyioAST> rhs): 
       LogicOp(op), 
-      LhsExpr(lhs), 
-      RhsExpr(rhs) 
+      LhsExpr(std::move(lhs)), 
+      RhsExpr(std::move(rhs)) 
       {
 
       }
@@ -788,7 +788,9 @@ class CallAST : public StyioAST {
   std::unique_ptr<StyioAST> Func;
 
   public:
-    CallAST(std::unique_ptr<StyioAST> func) : Func(std::move(func)) {}
+    CallAST(
+      std::unique_ptr<StyioAST> func) : 
+      Func(std::move(func)) {}
 
     StyioType hint() {
       return StyioType::Call;
@@ -808,14 +810,14 @@ class CallAST : public StyioAST {
 */
 class ListOpAST : public StyioAST 
 {
-  StyioAST* TheList;
+  std::unique_ptr<StyioAST> TheList;
   ListOpType OpType;
 
-  IntAST* Index;
-  StyioAST* Value;
+  std::unique_ptr<IntAST> Index;
+  std::unique_ptr<StyioAST> Value;
 
-  std::vector<IntAST*> IndexList;
-  std::vector<StyioAST*> ValueList;
+  std::vector<std::unique_ptr<IntAST>> IndexList;
+  std::vector<std::unique_ptr<StyioAST>> ValueList;
 
   public:
     /*
@@ -835,12 +837,12 @@ class ListOpAST : public StyioAST
         [[<] -: ?= value]
     */
     ListOpAST(
-      StyioAST* theList, 
       ListOpType opType, 
-      StyioAST* item): 
-      TheList(theList), 
+      std::unique_ptr<StyioAST> theList, 
+      std::unique_ptr<StyioAST> item): 
       OpType(opType), 
-      Value(item) 
+      TheList(std::move(theList)), 
+      Value(std::move(item)) 
       {
 
       }
@@ -850,14 +852,14 @@ class ListOpAST : public StyioAST
         [+: index <- value]
     */
     ListOpAST(
-      StyioAST* theList, 
       ListOpType opType, 
-      IntAST* index, 
-      StyioAST* item): 
-      TheList(theList), 
+      std::unique_ptr<StyioAST> theList, 
+      std::unique_ptr<IntAST> index, 
+      std::unique_ptr<StyioAST> item): 
       OpType(opType), 
-      Index(index), 
-      Value(item) 
+      TheList(std::move(theList)), 
+      Index(std::move(index)), 
+      Value(std::move(item)) 
       {
 
       }
@@ -870,12 +872,12 @@ class ListOpAST : public StyioAST
         [-: index] 
     */
     ListOpAST(
-      StyioAST* theList, 
       ListOpType opType, 
-      IntAST* index): 
-      TheList(theList), 
+      std::unique_ptr<StyioAST> theList, 
+      std::unique_ptr<IntAST> index): 
       OpType(opType), 
-      Index(index) 
+      TheList(std::move(theList)), 
+      Index(std::move(index)) 
       {
 
       }
@@ -885,11 +887,11 @@ class ListOpAST : public StyioAST
         [-: (i0, i1, ...)]
     */
     ListOpAST(
-      StyioAST* theList, 
       ListOpType opType, 
-      std::vector<IntAST*> indexList): 
-      TheList(theList), 
+      std::unique_ptr<StyioAST> theList, 
+      std::vector<std::unique_ptr<IntAST>> indexList): 
       OpType(opType), 
+      TheList(std::move(theList)), 
       IndexList(indexList) 
       {
 
@@ -903,11 +905,11 @@ class ListOpAST : public StyioAST
         [[<] -: ?^ (v0, v1, ...)]
     */
     ListOpAST(
-      StyioAST* theList, 
       ListOpType opType, 
-      std::vector<StyioAST*> valueList): 
-      TheList(theList), 
-      OpType(opType), 
+      std::unique_ptr<StyioAST> theList, 
+      std::vector<std::unique_ptr<StyioAST>> valueList):
+      OpType(opType),  
+      TheList(std::move(theList)), 
       ValueList(valueList) 
       {
 
@@ -918,11 +920,11 @@ class ListOpAST : public StyioAST
         [<]
     */
     ListOpAST(
-      StyioAST* theList, 
-      ListOpType opType
+      ListOpType opType,
+      std::unique_ptr<StyioAST> theList
       ): 
-      TheList(theList), 
-      OpType(opType) 
+      OpType(opType),
+      TheList(std::move(theList)) 
       {
 
       }
@@ -961,11 +963,11 @@ class ListOpAST : public StyioAST
       | Import (Optional)
 */
 class ResourceAST : public StyioAST {
-  std::vector<StyioAST*> Resources;
+  std::vector<std::unique_ptr<StyioAST>> Resources;
 
   public:
     ResourceAST(
-      std::vector<StyioAST*> resources): 
+      std::vector<std::unique_ptr<StyioAST>> resources): 
       Resources(resources) 
       {
 
@@ -978,7 +980,7 @@ class ResourceAST : public StyioAST {
     std::string toString(int indent = 0) {
       std::string varStr;
 
-      for (std::vector<StyioAST*>::iterator it = Resources.begin(); 
+      for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Resources.begin(); 
         it != Resources.end(); 
         ++it
       ) {
@@ -1011,11 +1013,15 @@ class ResourceAST : public StyioAST {
   FlexBindAST: Mutable Assignment (Flexible Binding)
 */
 class FlexBindAST : public StyioAST {
-  IdAST* varId;
-  StyioAST* valExpr;
+  std::unique_ptr<IdAST> varId;
+  std::unique_ptr<StyioAST> valExpr;
 
   public:
-    FlexBindAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
+    FlexBindAST(
+      std::unique_ptr<IdAST> var, 
+      std::unique_ptr<StyioAST> val) : 
+      varId(std::move(var)), 
+      valExpr(std::move(val)) {}
 
     StyioType hint() {
       return StyioType::MutAssign;
@@ -1046,11 +1052,18 @@ class FlexBindAST : public StyioAST {
   FinalBindAST: Immutable Assignment (Final Binding)
 */
 class FinalBindAST : public StyioAST {
-  IdAST* varId;
-  StyioAST* valExpr;
+  std::unique_ptr<IdAST> varId;
+  std::unique_ptr<StyioAST> valExpr;
 
   public:
-    FinalBindAST(IdAST* var, StyioAST* val) : varId(var), valExpr(val) {}
+    FinalBindAST(
+      std::unique_ptr<IdAST> var, 
+      std::unique_ptr<StyioAST> val) : 
+      varId(std::move(var)), 
+      valExpr(std::move(val)) 
+      {
+
+      }
 
     StyioType hint() {
       return StyioType::FixAssign;
@@ -1089,18 +1102,18 @@ class FinalBindAST : public StyioAST {
   StructAST: Structure
 */
 class StructAST : public StyioAST {
-  IdAST* FName;
-  FillingAST* FVars;
-  StyioAST* FBlock;
+  std::unique_ptr<IdAST> FName;
+  std::unique_ptr<FillingAST> FVars;
+  std::unique_ptr<StyioAST> FBlock;
 
   public:
     StructAST(
-      IdAST* name, 
-      FillingAST* vars,
-      StyioAST* block) : 
-      FName(name), 
-      FVars(vars),
-      FBlock(block)
+      std::unique_ptr<IdAST> name, 
+      std::unique_ptr<FillingAST> vars,
+      std::unique_ptr<StyioAST> block) : 
+      FName(std::move(name)), 
+      FVars(std::move(vars)),
+      FBlock(std::move(block))
       {
 
       }
@@ -1130,15 +1143,15 @@ class StructAST : public StyioAST {
   ReadFileAST: Read (File)
 */
 class ReadFileAST : public StyioAST {
-  IdAST* varId;
-  StyioAST* valExpr;
+  std::unique_ptr<IdAST> varId;
+  std::unique_ptr<StyioAST> valExpr;
 
   public:
     ReadFileAST(
-      IdAST* var, 
-      StyioAST* val) : 
-      varId(var), 
-      valExpr(val) 
+      std::unique_ptr<IdAST> var, 
+      std::unique_ptr<StyioAST> val) : 
+      varId(std::move(var)), 
+      valExpr(std::move(val)) 
       {
 
       }
@@ -1173,12 +1186,12 @@ class ReadFileAST : public StyioAST {
   WriteStdOutAST: Write to Standard Output (Print)
 */
 class WriteStdOutAST : public StyioAST {
-  StyioAST* Output;
+  std::unique_ptr<StyioAST> Output;
 
   public:
     WriteStdOutAST(
-      StyioAST* output): 
-      Output(output) 
+      std::unique_ptr<StyioAST> output): 
+      Output(std::move(output)) 
       {
 
       }
@@ -1213,7 +1226,12 @@ class ExtPackAST : public StyioAST {
   std::vector<std::string> PackPaths;
 
   public:
-    ExtPackAST(std::vector<std::string> paths): PackPaths(paths) {}
+    ExtPackAST(
+      std::vector<std::string> paths): 
+      PackPaths(paths) 
+      {
+
+      }
 
     StyioType hint() {
       return StyioType::ExtPack;
@@ -1258,23 +1276,21 @@ class ExtPackAST : public StyioAST {
   BlockAST: Block
 */
 class BlockAST : public StyioAST {
-  StyioAST* Resources;
-  std::vector<StyioAST*> Stmts;
+  std::unique_ptr<StyioAST> Resources;
+  std::vector<std::unique_ptr<StyioAST>> Stmts;
 
   public:
-    BlockAST() {}
-
     BlockAST(
-      StyioAST* resources,
-      std::vector<StyioAST*> stmts): 
-      Resources(resources),
+      std::unique_ptr<StyioAST> resources,
+      std::vector<std::unique_ptr<StyioAST>> stmts): 
+      Resources(std::move(resources)),
       Stmts(stmts) 
       {
 
       }
 
     BlockAST(
-      std::vector<StyioAST*> stmts): 
+      std::vector<std::unique_ptr<StyioAST>> stmts): 
       Stmts(stmts) 
       {
         
@@ -1287,7 +1303,7 @@ class BlockAST : public StyioAST {
     std::string toString(int indent = 0) {
       std::string stmtStr;
 
-      for (std::vector<StyioAST*>::iterator it = Stmts.begin(); 
+      for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Stmts.begin(); 
         it != Stmts.end(); 
         ++it
       ) {
@@ -1314,13 +1330,13 @@ class BlockAST : public StyioAST {
   CasesAST: Match Cases
 */
 class CasesAST : public StyioAST {
-  std::vector<std::tuple<StyioAST*, StyioAST*>> Cases;
+  std::vector<std::tuple<std::unique_ptr<StyioAST>, std::unique_ptr<StyioAST>>> Cases;
 
   public:
     CasesAST() {}
 
     CasesAST(
-      std::vector<std::tuple<StyioAST*, StyioAST*>> cases): 
+      std::vector<std::tuple<std::unique_ptr<StyioAST>, std::unique_ptr<StyioAST>>> cases): 
       Cases(cases) 
       {
 
@@ -1331,14 +1347,14 @@ class CasesAST : public StyioAST {
     }
 
     std::string toString(int indent = 0) {
-      std::string stmtStr;
+      std::string stmtStr = "Nothing";
 
-      for (auto [X, Y] : Cases)
-      {
-        stmtStr += X -> toStringInline();
-        stmtStr += Y -> toStringInline();
-        stmtStr += "\n";
-      };
+      // for (auto [X, Y] : Cases)
+      // {
+      //   stmtStr += X -> toStringInline();
+      //   stmtStr += Y -> toStringInline();
+      //   stmtStr += "\n";
+      // };
 
       return std::string("Match Block (Cases) {\n")
         + std::string(2, ' ') + "| Cases: "
@@ -1348,14 +1364,14 @@ class CasesAST : public StyioAST {
     }
 
     std::string toStringInline(int indent = 0) {
-      std::string stmtStr;
+      std::string stmtStr = "Nothing";
 
-      for (auto [X, Y] : Cases)
-      {
-        stmtStr += X -> toStringInline();
-        stmtStr += Y -> toStringInline();
-        stmtStr += "\n";
-      };
+      // for (auto [X, Y] : Cases)
+      // {
+      //   stmtStr += X -> toStringInline();
+      //   stmtStr += Y -> toStringInline();
+      //   stmtStr += "\n";
+      // };
 
       return std::string("Block { ")
         + std::string(2, ' ') + "| Cases: "
@@ -1366,31 +1382,31 @@ class CasesAST : public StyioAST {
 
 class CondFlowAST : public StyioAST {
   FlowType WhatFlow;
-  CondAST* CondExpr;
-  StyioAST* ThenBlock;
-  StyioAST* ElseBlock;
+  std::unique_ptr<CondAST> CondExpr;
+  std::unique_ptr<StyioAST> ThenBlock;
+  std::unique_ptr<StyioAST> ElseBlock;
 
   public:
     CondFlowAST(
       FlowType whatFlow,
-      CondAST* condition,
-      StyioAST* block): 
+      std::unique_ptr<CondAST> condition,
+      std::unique_ptr<StyioAST> block): 
       WhatFlow(whatFlow),
-      CondExpr(condition),
-      ThenBlock(block)
+      CondExpr(std::move(condition)),
+      ThenBlock(std::move(block))
       {
 
       }
 
     CondFlowAST(
       FlowType whatFlow,
-      CondAST* condition,
-      StyioAST* blockThen,
-      StyioAST* blockElse): 
+      std::unique_ptr<CondAST> condition,
+      std::unique_ptr<StyioAST> blockThen,
+      std::unique_ptr<StyioAST> blockElse): 
       WhatFlow(whatFlow),
-      CondExpr(condition),
-      ThenBlock(blockThen),
-      ElseBlock(blockElse)
+      CondExpr(std::move(condition)),
+      ThenBlock(std::move(blockThen)),
+      ElseBlock(std::move(blockElse))
       {
 
       }
@@ -1746,8 +1762,8 @@ InfLoop: Infinite Loop
 */
 class InfiniteAST : public StyioAST {
   InfiniteType WhatType;
-  StyioAST* Start;
-  StyioAST* IncEl;
+  std::unique_ptr<StyioAST> Start;
+  std::unique_ptr<StyioAST> IncEl;
 
   public:
     InfiniteAST() 
@@ -1756,10 +1772,10 @@ class InfiniteAST : public StyioAST {
     }
 
     InfiniteAST(
-      StyioAST* start, 
-      StyioAST* incEl): 
-      Start(start), 
-      IncEl(incEl) 
+      std::unique_ptr<StyioAST> start, 
+      std::unique_ptr<StyioAST> incEl): 
+      Start(std::move(start)), 
+      IncEl(std::move(incEl)) 
       {
         WhatType = InfiniteType::Incremental;
       }
@@ -1807,7 +1823,7 @@ class InfiniteAST : public StyioAST {
   FuncAST: Function
 */
 class FuncAST : public StyioAST {
-  IdAST* FName;
+  std::unique_ptr<IdAST> FName;
   std::unique_ptr<ForwardAST> Forward;
 
   bool FwithName;
@@ -1824,10 +1840,10 @@ class FuncAST : public StyioAST {
       }
 
     FuncAST(
-      IdAST* name, 
+      std::unique_ptr<IdAST> name, 
       std::unique_ptr<ForwardAST> forward,
       bool isFinal) : 
-      FName(name), 
+      FName(std::move(name)), 
       Forward(std::move(forward)),
       FisFinal(isFinal)
       {
@@ -1882,17 +1898,17 @@ class IterInfinite : public StyioAST {
 
   public:
     IterInfinite(
-      StyioAST* block):
-      TheBlock(block)
+      std::unique_ptr<StyioAST> block):
+      TheBlock(std::move(block))
       {
         WhatType = IteratorType::Original;
       }
 
     IterInfinite(
-      FillingAST* tmpVars,
-      StyioAST* block):
-      TmpVars(tmpVars),
-      TheBlock(block)
+      std::unique_ptr<FillingAST> tmpVars,
+      std::unique_ptr<StyioAST> block):
+      TmpVars(std::move(tmpVars)),
+      TheBlock(std::move(block))
       {
         WhatType = IteratorType::Original;
       }
@@ -1921,27 +1937,27 @@ class IterInfinite : public StyioAST {
   IterBounded: <List/Range> >> {}
 */
 class IterBounded : public StyioAST {
-  StyioAST* TheCollection;
-  FillingAST* TmpVars;
-  StyioAST* TheBlock;
+  std::unique_ptr<StyioAST> TheCollection;
+  std::unique_ptr<FillingAST> TmpVars;
+  std::unique_ptr<StyioAST> TheBlock;
 
   public:
     IterBounded(
-      StyioAST* theList,
-      StyioAST* block): 
-      TheCollection(theList),
-      TheBlock(block)
+      std::unique_ptr<StyioAST> theList,
+      std::unique_ptr<StyioAST> block): 
+      TheCollection(std::move(theList)),
+      TheBlock(std::move(block))
       {
 
       }
 
     IterBounded(
-      StyioAST* theList, 
-      FillingAST* tmpVars,
-      StyioAST* block): 
-      TheCollection(theList),
-      TmpVars(tmpVars),
-      TheBlock(block)
+      std::unique_ptr<StyioAST> theList, 
+      std::unique_ptr<FillingAST> tmpVars,
+      std::unique_ptr<StyioAST> block): 
+      TheCollection(std::move(theList)),
+      TmpVars(std::move(tmpVars)),
+      TheBlock(std::move(block))
       {
 
       }

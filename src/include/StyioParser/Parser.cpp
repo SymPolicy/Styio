@@ -972,8 +972,8 @@ std::unique_ptr<ListOpAST> parse_list_op (
   if (isdigit(cur_char))
   {
     output = std::make_unique<ListOpAST>(
-      theList, 
       ListOpType::Access_Via_Index,
+      theList, 
       parse_int(code, cur_char));
   }
   else
@@ -987,8 +987,8 @@ std::unique_ptr<ListOpAST> parse_list_op (
         */
         
         output = std::make_unique<ListOpAST>(
-          theList, 
           ListOpType::Access_Via_Name,
+          theList, 
           parse_string(code, cur_char));
       }
       
@@ -1004,8 +1004,8 @@ std::unique_ptr<ListOpAST> parse_list_op (
         get_next_char(code, cur_char);
 
         output = std::make_unique<ListOpAST>(
-          theList, 
-          ListOpType::Get_Reversed);
+          ListOpType::Get_Reversed,
+          theList);
       }
 
       // You should NOT reach this line!
@@ -1021,8 +1021,8 @@ std::unique_ptr<ListOpAST> parse_list_op (
           get_next_char(code, cur_char);
 
           output = std::make_unique<ListOpAST>(
-            theList, 
             ListOpType::Get_Index_By_Item,
+            theList, 
             parse_expr(code, cur_char));
         }
         else
@@ -1072,8 +1072,8 @@ std::unique_ptr<ListOpAST> parse_list_op (
                 std::unique_ptr<StyioAST> theItemIns = parse_expr(code, cur_char);
 
                 output = std::make_unique<ListOpAST>(
-                  theList, 
                   ListOpType::Insert_Item_By_Index,
+                  theList, 
                   theIndex,
                   theItemIns);
               }
@@ -1123,8 +1123,8 @@ std::unique_ptr<ListOpAST> parse_list_op (
             drop_white_spaces(code, cur_char);
 
             output = std::make_unique<ListOpAST>(
-              theList, 
               ListOpType::Remove_Item_By_Index,
+              theList, 
               theIndex);
           }
           else
@@ -1174,8 +1174,8 @@ std::unique_ptr<ListOpAST> parse_list_op (
                 get_next_char(code, cur_char);
 
                 output = std::make_unique<ListOpAST>(
-                  theList, 
                   ListOpType::Remove_Many_Items_By_Indices,
+                  theList, 
                   indices);
               }
               else
@@ -1206,8 +1206,8 @@ std::unique_ptr<ListOpAST> parse_list_op (
                 drop_white_spaces(code, cur_char);
 
                 output = std::make_unique<ListOpAST>(
-                  theList, 
                   ListOpType::Remove_Item_By_Value,
+                  theList, 
                   parse_expr(code, cur_char));
               }
               

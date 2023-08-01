@@ -132,7 +132,7 @@ std::unique_ptr<StyioAST> parse_val_for_binop (
 std::unique_ptr<BinOpAST> parse_binop_rhs (
   struct StyioCodeContext* code,
   int& cur_char, 
-  StyioAST* lhs_ast
+  std::unique_ptr<StyioAST> lhs_ast
 );
 
 /*
@@ -165,7 +165,7 @@ std::unique_ptr<StyioAST> parse_cond_flow (
 std::unique_ptr<ListOpAST> parse_list_op (
   struct StyioCodeContext* code,
   int& cur_char,
-  StyioAST* theList
+  std::unique_ptr<StyioAST> theList
 );
 
 /*
@@ -182,7 +182,7 @@ std::unique_ptr<FillingAST> parse_filling (
 std::unique_ptr<StyioAST> parse_iter (
   struct StyioCodeContext* code,
   int& cur_char,
-  StyioAST* collection
+  std::unique_ptr<StyioAST> collection
 );
 
 /*
