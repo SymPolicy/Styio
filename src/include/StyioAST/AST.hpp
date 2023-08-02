@@ -219,7 +219,7 @@ class FillingAST : public StyioAST {
   public:
     FillingAST(
       std::vector<std::unique_ptr<StyioAST>> vars): 
-      Vars(vars)
+      Vars(std::move(vars))
       {
 
       }
@@ -417,7 +417,12 @@ class ListAST : public StyioAST {
   std::vector<std::unique_ptr<StyioAST>> Elems;
 
   public:
-    ListAST(std::vector<std::unique_ptr<StyioAST>> elems): Elems(elems) {}
+    ListAST(
+      std::vector<std::unique_ptr<StyioAST>> elems): 
+      Elems(std::move(elems)) 
+      {
+
+      }
 
     StyioType hint() {
       return StyioType::List;
@@ -892,7 +897,7 @@ class ListOpAST : public StyioAST
       std::vector<std::unique_ptr<IntAST>> indexList): 
       OpType(opType), 
       TheList(std::move(theList)), 
-      IndexList(indexList) 
+      IndexList(std::move(indexList)) 
       {
 
       }
@@ -910,7 +915,7 @@ class ListOpAST : public StyioAST
       std::vector<std::unique_ptr<StyioAST>> valueList):
       OpType(opType),  
       TheList(std::move(theList)), 
-      ValueList(valueList) 
+      ValueList(std::move(valueList)) 
       {
 
       }
@@ -968,7 +973,7 @@ class ResourceAST : public StyioAST {
   public:
     ResourceAST(
       std::vector<std::unique_ptr<StyioAST>> resources): 
-      Resources(resources) 
+      Resources(std::move(resources)) 
       {
 
       }
@@ -1284,14 +1289,14 @@ class BlockAST : public StyioAST {
       std::unique_ptr<StyioAST> resources,
       std::vector<std::unique_ptr<StyioAST>> stmts): 
       Resources(std::move(resources)),
-      Stmts(stmts) 
+      Stmts(std::move(stmts)) 
       {
 
       }
 
     BlockAST(
       std::vector<std::unique_ptr<StyioAST>> stmts): 
-      Stmts(stmts) 
+      Stmts(std::move(stmts)) 
       {
         
       }
@@ -1337,7 +1342,7 @@ class CasesAST : public StyioAST {
 
     CasesAST(
       std::vector<std::tuple<std::unique_ptr<StyioAST>, std::unique_ptr<StyioAST>>> cases): 
-      Cases(cases) 
+      Cases(std::move(cases)) 
       {
 
       }
@@ -1665,7 +1670,7 @@ class ForwardAST : public StyioAST {
   std::unique_ptr<CheckEqAST> ExtraEq;
   std::unique_ptr<CheckIsInAST> ExtraIsin;
   std::unique_ptr<CheckCondAST> ExtraCond;
-  std::unique_ptr<BlockAST> RunBlock;
+  std::unique_ptr<StyioAST> RunBlock;
   std::unique_ptr<CasesAST> MatchCases;
 
   private:
@@ -1673,7 +1678,7 @@ class ForwardAST : public StyioAST {
 
   public:
     ForwardAST(
-      std::unique_ptr<BlockAST> block):
+      std::unique_ptr<StyioAST> block):
       RunBlock(std::move(block))
       {
         Type = StyioType::Forward_Run;
@@ -1681,7 +1686,7 @@ class ForwardAST : public StyioAST {
 
     ForwardAST(
       std::unique_ptr<FillingAST> vars,
-      std::unique_ptr<BlockAST> block): 
+      std::unique_ptr<StyioAST> block): 
       TmpVars(std::move(vars)),
       RunBlock(std::move(block))
       {
@@ -1691,7 +1696,7 @@ class ForwardAST : public StyioAST {
     ForwardAST(
       std::unique_ptr<FillingAST> vars,
       std::unique_ptr<CheckEqAST> value,
-      std::unique_ptr<BlockAST> block): 
+      std::unique_ptr<StyioAST> block): 
       TmpVars(std::move(vars)),
       ExtraEq(std::move(value)),
       RunBlock(std::move(block))
@@ -1711,7 +1716,7 @@ class ForwardAST : public StyioAST {
     ForwardAST(
       std::unique_ptr<FillingAST> vars,
       std::unique_ptr<CheckIsInAST> isin,
-      std::unique_ptr<BlockAST> block): 
+      std::unique_ptr<StyioAST> block): 
       TmpVars(std::move(vars)),
       ExtraIsin(std::move(isin)),
       RunBlock(std::move(block))
@@ -1722,7 +1727,7 @@ class ForwardAST : public StyioAST {
     ForwardAST(
       std::unique_ptr<FillingAST> vars,
       std::unique_ptr<CheckCondAST> condition,
-      std::unique_ptr<BlockAST> block,
+      std::unique_ptr<StyioAST> block,
       bool checkIf): 
       TmpVars(std::move(vars)),
       ExtraCond(std::move(condition)),

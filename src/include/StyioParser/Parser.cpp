@@ -405,7 +405,7 @@ std::unique_ptr<StyioAST> parse_path_or_link (
         throw StyioSyntaxError(errmsg);
       };
 
-      output = std::make_unique<ExtPathAST>(new ExtPathAST(std::move(path)));
+      output = std::make_unique<ExtPathAST>(std::move(path));
     }
     else
     {
@@ -445,7 +445,7 @@ std::unique_ptr<FillingAST> parse_filling (
     throw StyioSyntaxError(errmsg);
   };
 
-  vars.push_back(parse_id(code, cur_char));
+  vars.push_back(std::move(parse_id(code, cur_char)));
 
   until_useful_token(code, cur_char);
 
@@ -461,10 +461,10 @@ std::unique_ptr<FillingAST> parse_filling (
       break;
     };
 
-    vars.push_back(parse_id(code, cur_char));
+    vars.push_back(std::move(parse_id(code, cur_char)));
   }
 
-  output = std::make_unique<FillingAST>(vars);
+  output = std::make_unique<FillingAST>(std::move(vars));
 
   return output;
 }
@@ -487,7 +487,7 @@ std::unique_ptr<ResourceAST> parse_resources (
 
     if (isalpha(cur_char) || check_this_char(cur_char, '_')) {
       // "@" "(" |--
-      std::unique_ptr<IdAST> tmp_expr = parse_id(code, cur_char);
+      std::unique_ptr<IdAST> tmp_res_name = parse_id(code, cur_char);
 
       until_useful_token(code, cur_char);
 
@@ -495,13 +495,13 @@ std::unique_ptr<ResourceAST> parse_resources (
         get_next_char(code, cur_char);
 
         check_and_drop(code, cur_char, '-', 0);
-
-        until_useful_token(code, cur_char);
-
-        std::unique_ptr<StyioAST> tmp_value = parse_value(code, cur_char);
-
-        std::unique_ptr<StyioAST> tmp_expr = std::make_unique<FinalBindAST>(tmp_expr, tmp_value);
       };
+
+      until_useful_token(code, cur_char);
+
+      std::unique_ptr<StyioAST> tmp_expr = std::make_unique<FinalBindAST>(
+        std::move(tmp_res_name), 
+        parse_value(code, cur_char));
 
       resources.push_back(std::move(tmp_expr));
     };
@@ -517,7 +517,7 @@ std::unique_ptr<ResourceAST> parse_resources (
 
       if (isalpha(cur_char) || check_this_char(cur_char, '_')) {
         
-        std::unique_ptr<IdAST> tmp_expr = parse_id(code, cur_char);
+        std::unique_ptr<IdAST> tmp_res_name = parse_id(code, cur_char);
 
         until_useful_token(code, cur_char);
 
@@ -525,15 +525,16 @@ std::unique_ptr<ResourceAST> parse_resources (
           get_next_char(code, cur_char);
 
           check_and_drop(code, cur_char, '-', 0);
-
-          until_useful_token(code, cur_char);
-
-          std::unique_ptr<StyioAST> tmp_value = parse_value(code, cur_char);
-
-          std::unique_ptr<StyioAST> tmp_expr = std::make_unique<FinalBindAST>(tmp_expr, tmp_value);
         };
 
-        resources.push_back(std::move(tmp_expr));
+        until_useful_token(code, cur_char);
+
+        std::unique_ptr<StyioAST> tmp_value = parse_value(code, cur_char);
+
+        resources.push_back(std::move(
+          std::make_unique<FinalBindAST>(
+            std::move(tmp_res_name), 
+            std::move(tmp_value))));
       };
     };
     
@@ -548,7 +549,7 @@ std::unique_ptr<ResourceAST> parse_resources (
     };
 
     
-    output = std::make_unique<ResourceAST>(resources);
+    output = std::make_unique<ResourceAST>(std::move(resources));
   }
   else
   {
@@ -596,7 +597,7 @@ std::unique_ptr<StyioAST> parse_item_for_cond (
         
         output = std::make_unique<BinCompAST>(
           CompType::EQ,
-          output,
+          std::move(output),
           parse_value(code, cur_char));
       };
     }
@@ -621,7 +622,7 @@ std::unique_ptr<StyioAST> parse_item_for_cond (
 
         output = std::make_unique<BinCompAST>(
           CompType::NE,
-          output,
+          std::move(output),
           parse_value(code, cur_char));
       };
     }
@@ -646,7 +647,7 @@ std::unique_ptr<StyioAST> parse_item_for_cond (
 
         output = std::make_unique<BinCompAST>(
           CompType::GE,
-          output,
+          std::move(output),
           parse_value(code, cur_char));
       }
       else
@@ -661,7 +662,7 @@ std::unique_ptr<StyioAST> parse_item_for_cond (
 
         output = std::make_unique<BinCompAST>(
           CompType::GT,
-          output,
+          std::move(output),
           parse_value(code, cur_char));
       };
     }
@@ -686,7 +687,7 @@ std::unique_ptr<StyioAST> parse_item_for_cond (
 
         output = std::make_unique<BinCompAST>(
           CompType::LE,
-          output,
+          std::move(output),
           parse_value(code, cur_char));
       }
       else
@@ -701,7 +702,7 @@ std::unique_ptr<StyioAST> parse_item_for_cond (
 
         output = std::make_unique<BinCompAST>(
           CompType::LT,
-          output,
+          std::move(output),
           parse_value(code, cur_char));
       };
     }
@@ -843,7 +844,7 @@ std::unique_ptr<StyioAST> parse_expr (
       if (check_this_char(cur_char, ']')) {
         get_next_char(code, cur_char);
 
-        output = std::make_unique<EmptyListAST>(new EmptyListAST());
+        output = std::make_unique<EmptyListAST>();
       }
       else
       {
@@ -902,7 +903,7 @@ std::unique_ptr<SizeOfAST> parse_size_of (
     if (check_this_char(cur_char, '|')) {
       get_next_char(code, cur_char);
 
-      output = std::make_unique<SizeOfAST>(new SizeOfAST(std::move(var)));
+      output = std::make_unique<SizeOfAST>(std::move(var));
     }
     else
     {
@@ -973,7 +974,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
   {
     output = std::make_unique<ListOpAST>(
       ListOpType::Access_Via_Index,
-      theList, 
+      std::move(theList), 
       parse_int(code, cur_char));
   }
   else
@@ -988,7 +989,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
         
         output = std::make_unique<ListOpAST>(
           ListOpType::Access_Via_Name,
-          theList, 
+          std::move(theList), 
           parse_string(code, cur_char));
       }
       
@@ -1005,7 +1006,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
 
         output = std::make_unique<ListOpAST>(
           ListOpType::Get_Reversed,
-          theList);
+          std::move(theList));
       }
 
       // You should NOT reach this line!
@@ -1022,7 +1023,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
 
           output = std::make_unique<ListOpAST>(
             ListOpType::Get_Index_By_Item,
-            theList, 
+            std::move(theList), 
             parse_expr(code, cur_char));
         }
         else
@@ -1073,9 +1074,9 @@ std::unique_ptr<ListOpAST> parse_list_op (
 
                 output = std::make_unique<ListOpAST>(
                   ListOpType::Insert_Item_By_Index,
-                  theList, 
-                  theIndex,
-                  theItemIns);
+                  std::move(theList), 
+                  std::move(theIndex),
+                  std::move(theItemIns));
               }
               else
               {
@@ -1124,8 +1125,8 @@ std::unique_ptr<ListOpAST> parse_list_op (
 
             output = std::make_unique<ListOpAST>(
               ListOpType::Remove_Item_By_Index,
-              theList, 
-              theIndex);
+              std::move(theList), 
+              std::move(theIndex));
           }
           else
           {
@@ -1145,7 +1146,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
 
               std::vector<std::unique_ptr<IntAST>> indices;
 
-              indices.push_back(parse_int(code, cur_char));
+              indices.push_back(std::move(parse_int(code, cur_char)));
 
               // drop white spaces between first index and ,
               drop_white_spaces(code, cur_char);
@@ -1163,7 +1164,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
                   break;
                 }
 
-                indices.push_back(parse_int(code, cur_char));
+                indices.push_back(std::move(parse_int(code, cur_char)));
               }
 
               // drop white spaces between , and )
@@ -1175,8 +1176,8 @@ std::unique_ptr<ListOpAST> parse_list_op (
 
                 output = std::make_unique<ListOpAST>(
                   ListOpType::Remove_Many_Items_By_Indices,
-                  theList, 
-                  indices);
+                  std::move(theList), 
+                  std::move(indices));
               }
               else
               {
@@ -1207,7 +1208,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
 
                 output = std::make_unique<ListOpAST>(
                   ListOpType::Remove_Item_By_Value,
-                  theList, 
+                  std::move(theList), 
                   parse_expr(code, cur_char));
               }
               
@@ -1421,11 +1422,14 @@ std::unique_ptr<StyioAST> parse_iter (
   {
     if (hasVars)
     {
-      return std::make_unique<IterInfinite>(iterTmpVars, iterBlock);
+      return std::make_unique<IterInfinite>(
+        std::move(iterTmpVars), 
+        std::move(iterBlock));
     }
     else
     {
-      return std::make_unique<IterInfinite>(iterBlock);
+      return std::make_unique<IterInfinite>(
+        std::move(iterBlock));
     };
   }
   else if ((iterOverIt -> hint()) == StyioType::List 
@@ -1433,11 +1437,16 @@ std::unique_ptr<StyioAST> parse_iter (
   {
     if (hasVars)
     {
-      return std::make_unique<IterBounded>(iterOverIt, iterTmpVars, iterBlock);
+      return std::make_unique<IterBounded>(
+        std::move(iterOverIt), 
+        std::move(iterTmpVars), 
+        std::move(iterBlock));
     }
     else
     {
-      return std::make_unique<IterBounded>(iterOverIt, iterBlock);
+      return std::make_unique<IterBounded>(
+        std::move(iterOverIt), 
+        std::move(iterBlock));
     };
   }
   else
@@ -1457,7 +1466,7 @@ std::unique_ptr<StyioAST> parse_list_expr (
   std::vector<std::unique_ptr<StyioAST>> elements;
 
   std::unique_ptr<StyioAST> startEl = parse_expr(code, cur_char);
-  elements.push_back(startEl);
+  elements.push_back(std::move(startEl));
 
   until_useful_token(code, cur_char);
 
@@ -1479,13 +1488,18 @@ std::unique_ptr<StyioAST> parse_list_expr (
       if (startEl -> hint() == StyioType::Int 
         && endEl -> hint() == StyioType::Id)
       {
-        list_loop = std::make_unique<InfiniteAST>(startEl, endEl);
+        list_loop = std::make_unique<InfiniteAST>(
+          std::move(startEl), 
+          std::move(endEl));
       }
       else
       if (startEl -> hint() == StyioType::Int 
         && endEl -> hint() == StyioType::Int)
       {
-        list_loop = std::make_unique<RangeAST>(startEl, endEl, new IntAST(1));
+        list_loop = std::make_unique<RangeAST>(
+          std::move(startEl), 
+          std::move(endEl), 
+          std::make_unique<IntAST>(1));
       }
       else
       {
@@ -1575,10 +1589,10 @@ std::unique_ptr<StyioAST> parse_list_expr (
         {
           get_next_char(code, cur_char);
 
-          theList = std::make_unique<ListAST>(elements);
+          theList = std::make_unique<ListAST>(std::move(elements));
         };
 
-        elements.push_back(parse_value(code, cur_char));
+        elements.push_back(std::move(parse_value(code, cur_char)));
       };
 
       drop_white_spaces(code, cur_char);
@@ -1587,7 +1601,7 @@ std::unique_ptr<StyioAST> parse_list_expr (
       {
         get_next_char(code, cur_char);
 
-        theList = std::make_unique<ListAST>(elements);
+        theList = std::make_unique<ListAST>(std::move(elements));
       }
       else
       {
@@ -1722,7 +1736,7 @@ std::unique_ptr<StyioAST> parse_loop (
 
   case '(':
     {
-      output = parse_iter(code, cur_char, new InfiniteAST());
+      output = parse_iter(code, cur_char, std::make_unique<InfiniteAST>());
     }
 
     // You should not reach this line!
@@ -1778,8 +1792,8 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
         // <ID> "-" |--
         output = std::make_unique<BinOpAST>(
           BinOpType::BIN_SUB, 
-          lhs_ast, 
-          parse_val_for_binop(code, cur_char));
+          std::move(lhs_ast), 
+          std::move(parse_val_for_binop(code, cur_char)));
       };
 
       // You should NOT reach this line!
@@ -1797,8 +1811,8 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
           // <ID> "**" |--
           output = std::make_unique<BinOpAST>(
             BinOpType::BIN_POW, 
-            lhs_ast, 
-            parse_val_for_binop(code, cur_char));
+            std::move(lhs_ast), 
+            std::move(parse_val_for_binop(code, cur_char)));
         } 
         // BIN_MUL := <ID> "*" <EXPR>
         else 
@@ -1806,8 +1820,8 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
           // <ID> "*" |--
           output = std::make_unique<BinOpAST>(
             BinOpType::BIN_MUL, 
-            lhs_ast, 
-            parse_val_for_binop(code, cur_char));
+            std::move(lhs_ast), 
+            std::move(parse_val_for_binop(code, cur_char)));
         }
       };
       // You should NOT reach this line!
@@ -1821,8 +1835,8 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
         // <ID> "/" |-- 
         output = std::make_unique<BinOpAST>(
           BinOpType::BIN_DIV, 
-          lhs_ast, 
-          parse_val_for_binop(code, cur_char));
+          std::move(lhs_ast), 
+          std::move(parse_val_for_binop(code, cur_char)));
       };
 
       // You should NOT reach this line!
@@ -1836,8 +1850,8 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
         // <ID> "%" |-- 
         output = std::make_unique<BinOpAST>(
           BinOpType::BIN_MOD, 
-          lhs_ast, 
-          parse_val_for_binop(code, cur_char));
+          std::move(lhs_ast), 
+          std::move(parse_val_for_binop(code, cur_char)));
       };
 
       // You should NOT reach this line!
@@ -1887,7 +1901,7 @@ std::unique_ptr<CondAST> parse_cond_rhs (
 
       condExpr = std::make_unique<CondAST>(
         LogicType::AND,
-        lhsExpr,
+        std::move(lhsExpr),
         parse_cond(code, cur_char)
       );
     }
@@ -1913,7 +1927,7 @@ std::unique_ptr<CondAST> parse_cond_rhs (
 
       condExpr = std::make_unique<CondAST>(
         LogicType::OR,
-        lhsExpr,
+        std::move(lhsExpr),
         parse_cond(code, cur_char)
       );
     }
@@ -1934,7 +1948,7 @@ std::unique_ptr<CondAST> parse_cond_rhs (
 
       condExpr = std::make_unique<CondAST>(
         LogicType::OR,
-        lhsExpr,
+        std::move(lhsExpr),
         parse_cond(code, cur_char)
       );
     }
@@ -1993,7 +2007,7 @@ std::unique_ptr<CondAST> parse_cond (
   {
     get_next_char(code, cur_char);
 
-    lhsExpr = parse_cond(code, cur_char);
+    lhsExpr = std::move(parse_cond(code, cur_char));
 
     check_and_drop(code, cur_char, ')', 2);
   }
@@ -2014,13 +2028,13 @@ std::unique_ptr<CondAST> parse_cond (
       */
       drop_all_spaces(code, cur_char);
 
-      lhsExpr = parse_cond(code, cur_char);
+      lhsExpr = std::move(parse_cond(code, cur_char));
 
       drop_all_spaces(code, cur_char);
 
       return std::make_unique<CondAST>(
         LogicType::NOT,
-        lhsExpr
+        std::move(lhsExpr)
       );
     }
     else
@@ -2031,7 +2045,7 @@ std::unique_ptr<CondAST> parse_cond (
   }
   else
   {
-    lhsExpr = parse_item_for_cond(code, cur_char);
+    lhsExpr = std::move(parse_item_for_cond(code, cur_char));
   };
 
   // drop all spaces after first value
@@ -2046,7 +2060,7 @@ std::unique_ptr<CondAST> parse_cond (
   {
     return std::make_unique<CondAST>(
       LogicType::RAW,
-      lhsExpr
+      std::move(lhsExpr)
     );
   }
 
@@ -2131,9 +2145,9 @@ std::unique_ptr<StyioAST> parse_cond_flow (
 
             return std::make_unique<CondFlowAST>(
               FlowType::Both,
-              condition,
-              block,
-              blockElse
+              std::move(condition),
+              std::move(block),
+              std::move(blockElse)
             );
           };
         }
@@ -2141,8 +2155,8 @@ std::unique_ptr<StyioAST> parse_cond_flow (
         {
           return std::make_unique<CondFlowAST>(
             FlowType::True,
-            condition,
-            block
+            std::move(condition),
+            std::move(block)
           );
         };
       }
@@ -2163,8 +2177,8 @@ std::unique_ptr<StyioAST> parse_cond_flow (
 
         return std::make_unique<CondFlowAST>(
           FlowType::False,
-          condition,
-          block
+          std::move(condition),
+          std::move(block)
         );
       }
       else
@@ -2188,7 +2202,9 @@ std::unique_ptr<FlexBindAST> parse_mut_assign (
   std::unique_ptr<IdAST> id_ast
 )
 {
-  std::unique_ptr<FlexBindAST> output = std::make_unique<FlexBindAST>(id_ast, parse_expr(code, cur_char));
+  std::unique_ptr<FlexBindAST> output = std::make_unique<FlexBindAST>(
+    std::move(id_ast), 
+    std::move(parse_expr(code, cur_char)));
   
   if (check_this_char(cur_char, '\n')) 
   {
@@ -2205,7 +2221,9 @@ std::unique_ptr<FinalBindAST> parse_fix_assign (
   struct StyioCodeContext* code, 
   int& cur_char, 
   std::unique_ptr<IdAST> id_ast) {
-  std::unique_ptr<FinalBindAST> output = std::make_unique<FinalBindAST>(id_ast, parse_expr(code, cur_char));
+  std::unique_ptr<FinalBindAST> output = std::make_unique<FinalBindAST>(
+    std::move(id_ast), 
+    std::move(parse_expr(code, cur_char)));
   
   if (check_this_char(cur_char, '\n')) 
   {
@@ -2295,15 +2313,15 @@ std::unique_ptr<StyioAST> parse_pipeline (
     if (pwithName)
     {
       return std::make_unique<FuncAST>(
-        pipeName,
-        std::make_unique<ForwardAST>(pipeVars, pipeBlock),
+        std::move(pipeName),
+        std::make_unique<ForwardAST>(std::move(pipeVars), std::move(pipeBlock)),
         pisFinal
       );
     }
     else
     {
       return std::make_unique<FuncAST>(
-        std::make_unique<ForwardAST>(pipeBlock),
+        std::make_unique<ForwardAST>(std::move(pipeBlock)),
         pisFinal
       );
     };
@@ -2321,9 +2339,7 @@ std::unique_ptr<StyioAST> parse_read_file (
 {
   if (check_this_char(cur_char, '@'))
   {
-    std::unique_ptr<StyioAST> value = parse_path_or_link(code, cur_char);
-
-    return std::make_unique<ReadFileAST>(id_ast, value);
+    return std::make_unique<ReadFileAST>(std::move(id_ast), parse_path_or_link(code, cur_char));
   }
   else
   {
@@ -2671,7 +2687,7 @@ std::unique_ptr<StyioAST> parse_stmt (
         drop_all_spaces(code, cur_char);
 
         return std::make_unique<ConnectAST>(
-          resources, 
+          std::move(resources), 
           parse_exec_block(code, cur_char));
       }
       else
@@ -2848,7 +2864,7 @@ std::unique_ptr<ExtPackAST> parse_ext_pack (
   drop_all_spaces(code, cur_char);
 
   // add the first dependency path to the list
-  dependencies.push_back(parse_ext_elem(code, cur_char));
+  dependencies.push_back(std::move(parse_ext_elem(code, cur_char)));
 
   std::string pathStr = "";
   
@@ -2862,7 +2878,7 @@ std::unique_ptr<ExtPackAST> parse_ext_pack (
     drop_all_spaces(code, cur_char);
     
     // add the next dependency path to the list
-    dependencies.push_back(parse_ext_elem(code, cur_char));
+    dependencies.push_back(std::move(parse_ext_elem(code, cur_char)));
   };
 
   if (check_this_char(cur_char, ']')) {
@@ -2906,7 +2922,7 @@ std::unique_ptr<StyioAST> parse_exec_block (
     }
     else
     {
-      stmtBuffer.push_back(parse_stmt(code, cur_char));
+      stmtBuffer.push_back(std::move(parse_stmt(code, cur_char)));
     };
   };
 
@@ -2916,7 +2932,7 @@ std::unique_ptr<StyioAST> parse_exec_block (
   }
   else
   {
-    return std::make_unique<BlockAST>(stmtBuffer);
+    return std::make_unique<BlockAST>(std::move(stmtBuffer));
   };
 }
 
