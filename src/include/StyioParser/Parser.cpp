@@ -785,6 +785,93 @@ std::unique_ptr<StyioAST> parse_value (
   throw StyioParseError(errmsg);
 }
 
+std::unique_ptr<StyioAST> parse_item_for_binop (
+  struct StyioCodeContext* code, 
+  int& cur_char
+)
+{
+  std::unique_ptr<StyioAST> output (new NoneAST());
+
+  // <ID>
+  if (isalpha(cur_char) || check_this_char(cur_char, '_')) 
+  {
+    // parse id
+    output = parse_id(code, cur_char);
+    
+    // ignore white spaces after id
+    drop_white_spaces(code, cur_char);
+
+    return output;
+  }
+  else
+  if (isdigit(cur_char)) {
+    output = parse_int_or_float(code, cur_char);
+
+    // ignore white spaces after number
+    drop_white_spaces(code, cur_char);
+
+    if (is_binary_token(cur_char))
+    {
+      output = parse_binop_rhs(code, cur_char, std::move(output));
+    };
+
+    return output;
+  };
+
+  switch (cur_char)
+  {
+  case '\"':
+    {
+      return parse_string(code, cur_char);
+    }
+
+  case '\'':
+    {
+      return parse_char_or_string(code, cur_char);
+    }
+
+  case '[':
+    {
+      get_next_char(code, cur_char);
+
+      drop_white_spaces(code, cur_char);
+
+      if (check_this_char(cur_char, ']')) {
+        get_next_char(code, cur_char);
+
+        output = std::make_unique<EmptyListAST>();
+      }
+      else
+      {
+        output = parse_list_expr(code, cur_char);
+      }
+    }
+
+    // You should NOT reach this line!
+    break;
+
+  case '|':
+    {
+      output = parse_size_of(code, cur_char);
+
+      drop_white_spaces(code, cur_char);
+
+      if (is_binary_token(cur_char))
+      {
+        output = parse_binop_rhs(code, cur_char, std::move(output));
+      }
+    }
+
+    // You should NOT reach this line!
+    break;
+  
+  default:
+    break;
+  }
+
+  return output;
+}
+
 std::unique_ptr<StyioAST> parse_expr (
   struct StyioCodeContext* code, 
   int& cur_char
@@ -1778,7 +1865,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
         output = std::make_unique<BinOpAST>(
           BinOpType::BIN_ADD, 
           std::move(lhs_ast), 
-          std::move(parse_val_for_binop(code, cur_char)));
+          std::move(parse_item_for_binop(code, cur_char)));
       };
 
       // You should NOT reach this line!
@@ -1793,7 +1880,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
         output = std::make_unique<BinOpAST>(
           BinOpType::BIN_SUB, 
           std::move(lhs_ast), 
-          std::move(parse_val_for_binop(code, cur_char)));
+          std::move(parse_item_for_binop(code, cur_char)));
       };
 
       // You should NOT reach this line!
@@ -1812,7 +1899,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
           output = std::make_unique<BinOpAST>(
             BinOpType::BIN_POW, 
             std::move(lhs_ast), 
-            std::move(parse_val_for_binop(code, cur_char)));
+            std::move(parse_item_for_binop(code, cur_char)));
         } 
         // BIN_MUL := <ID> "*" <EXPR>
         else 
@@ -1821,7 +1908,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
           output = std::make_unique<BinOpAST>(
             BinOpType::BIN_MUL, 
             std::move(lhs_ast), 
-            std::move(parse_val_for_binop(code, cur_char)));
+            std::move(parse_item_for_binop(code, cur_char)));
         }
       };
       // You should NOT reach this line!
@@ -1836,7 +1923,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
         output = std::make_unique<BinOpAST>(
           BinOpType::BIN_DIV, 
           std::move(lhs_ast), 
-          std::move(parse_val_for_binop(code, cur_char)));
+          std::move(parse_item_for_binop(code, cur_char)));
       };
 
       // You should NOT reach this line!
@@ -1851,7 +1938,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
         output = std::make_unique<BinOpAST>(
           BinOpType::BIN_MOD, 
           std::move(lhs_ast), 
-          std::move(parse_val_for_binop(code, cur_char)));
+          std::move(parse_item_for_binop(code, cur_char)));
       };
 
       // You should NOT reach this line!

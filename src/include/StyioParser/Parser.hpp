@@ -121,7 +121,7 @@ std::unique_ptr<StyioAST> parse_call
 /*
   parse_bin_rhs
 */
-std::unique_ptr<StyioAST> parse_val_for_binop (
+std::unique_ptr<StyioAST> parse_item_for_binop (
   struct StyioCodeContext* code,
   int& cur_char
 );
