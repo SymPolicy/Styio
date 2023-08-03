@@ -1,3 +1,4 @@
+// C++ STL
 #include <type_traits>
 #include <cstdio>
 #include <cstdlib>
@@ -12,6 +13,10 @@
 #include <map>
 #include <unordered_map>
 
+// // Google Test
+// #include <gtest/gtest.h>
+
+// Styio
 #include "include/StyioException/Exception.hpp"
 #include "include/StyioToken/Token.hpp"
 #include "include/StyioUtil/Util.hpp"
@@ -56,3 +61,17 @@ int main() {
   
   return 0;
 }
+
+// int add(int a, int b)
+// {
+//   return a + b;
+// }
+// TEST(sum, simple)
+// {
+//   EXPECT_EQ(add(2, 3), 5);
+// }
+// int main(int argc, char **argv)
+// {
+//   testing::InitGoogleTest(&argc, argv);
+//   return RUN_ALL_TESTS();
+// }
