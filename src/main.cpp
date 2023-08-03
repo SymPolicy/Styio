@@ -1,4 +1,4 @@
-// C++ STL
+// [C++ STL]
 #include <type_traits>
 #include <cstdio>
 #include <cstdlib>
@@ -13,21 +13,18 @@
 #include <map>
 #include <unordered_map>
 
-// // Google Test
-// #include <gtest/gtest.h>
-
-// Styio
+// [Styio]
 #include "include/StyioException/Exception.hpp"
 #include "include/StyioToken/Token.hpp"
 #include "include/StyioUtil/Util.hpp"
 #include "include/StyioAST/AST.hpp"
 #include "include/StyioParser/Parser.hpp"
 
-std::string read_styio_file()
+std::string read_styio_file(const char* filename)
 {
-  if (std::filesystem::exists("___.styio"))
+  if (std::filesystem::exists(filename))
   {
-    std::ifstream file("___.styio");
+    std::ifstream file(filename);
     std::string contents;
 
     std::string str;
@@ -51,27 +48,10 @@ void show_cwd()
 {
   std::filesystem::path cwd = std::filesystem::current_path();
   std::cout << cwd.string() << std::endl;
-
-  // std::ofstream file(cwd.string());
-  // file.close();
 }
 
 int main() {
-  parse_program(read_styio_file());
+  parse_program(read_styio_file("_.styio"));
   
   return 0;
 }
-
-// int add(int a, int b)
-// {
-//   return a + b;
-// }
-// TEST(sum, simple)
-// {
-//   EXPECT_EQ(add(2, 3), 5);
-// }
-// int main(int argc, char **argv)
-// {
-//   testing::InitGoogleTest(&argc, argv);
-//   return RUN_ALL_TESTS();
-// }
