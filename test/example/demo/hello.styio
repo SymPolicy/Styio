@@ -1,1 +1,2 @@
->_("Hello, Styio!")
+RUN: echo "Hello, Styio!" | FileCheck %s
+CHECK: Hello, Styio!

@@ -3046,7 +3046,3 @@ void parse_program (std::string styio_code)
     std::cout << "\033[1;33m[>_<]\033[0m " << stmt -> toString() << std::endl;
   };
 }
-
-void read_and_parse(std::filesystem::path filepath) {
-  parse_program(read_styio_file(filepath));
-}

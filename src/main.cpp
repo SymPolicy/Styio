@@ -26,6 +26,32 @@ void show_cwd()
   std::cout << cwd.string() << std::endl;
 }
 
+std::string read_styio_file(const char* filename)
+{
+  if (std::filesystem::exists(filename))
+  {
+    std::ifstream file(filename);
+    std::string contents;
+
+    std::string str;
+    while (std::getline(file, str))
+    {
+      contents += str;
+      contents.push_back('\n');
+    }
+
+    contents += EOF;
+
+    printf("%s", contents.c_str());
+
+    return contents;
+  }
+
+  printf("Failed...");
+
+  return std::string("...");
+}
+
 int main() {
   parse_program(read_styio_file("_.styio"));
   

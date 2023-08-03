@@ -321,9 +321,4 @@ std::unique_ptr<StyioAST> parse_exec_block (
 */
 void parse_program (std::string styio_code);
 
-/*
-  read_and_parse
-*/
-void read_and_parse(std::filesystem::path filepath);
-
 #endif
