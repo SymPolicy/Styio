@@ -42,7 +42,7 @@ std::string read_styio_file(const char* filename)
 
     contents += EOF;
 
-    printf("%s", contents.c_str());
+    // printf("%s", contents.c_str());
 
     return contents;
   }
@@ -53,7 +53,7 @@ std::string read_styio_file(const char* filename)
 }
 
 int main() {
-  parse_program(read_styio_file("_.styio"));
+  parse_program(read_styio_file("hello.styio"));
   
   return 0;
 }
