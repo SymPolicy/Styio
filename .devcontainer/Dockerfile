@@ -27,7 +27,7 @@ RUN apt update \
     # [LLVM]
     && wget https://apt.llvm.org/llvm.sh \
     && chmod +x llvm.sh \
-    && ./llvm.sh ${LLVM_VERSION} \
+    && ./llvm.sh ${LLVM_VERSION} all \
     # [ICU]
     && apt install -y libicu \
     && apt install -y libicu-dev \
