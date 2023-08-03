@@ -6,6 +6,7 @@ ARG WORK_SPACE=/root
 # [Alias]
 ENV clang=/usr/bin/clang-${LLVM_VERSION}
 ENV clang++=/usr/bin/clang++-${LLVM_VERSION}
+ENV FileCheck=/usr/bin/FileCheck-${LLVM_VERSION}
 
 # [CMake]
 ENV CC=/usr/bin/clang-${LLVM_VERSION}

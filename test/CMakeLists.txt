@@ -7,8 +7,7 @@ FetchContent_MakeAvailable(googletest)
 
 enable_testing()
 
-add_executable(
-  styio_test
+add_executable(styio_test
   styio_test.cpp
 )
 target_link_libraries(

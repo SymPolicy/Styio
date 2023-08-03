@@ -40,7 +40,8 @@ message(STATUS "[ICU] Using FindICU.cmake in: ${PROJECT_SOURCE_DIR}")
 find_package(ICU COMPONENTS uc i18n REQUIRED)
 
 # [Styio] Executable
-add_executable(styio src/main.cpp
+add_executable(styio 
+    src/main.cpp
     src/include/StyioParser/Parser.cpp
     src/include/StyioUtil/Util.cpp)
 

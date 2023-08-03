@@ -10,9 +10,9 @@ void walkdirs() {
   auto test_path = std::filesystem::current_path()/"test/example/demo";
 
   if (std::filesystem::exists(test_path)) {
-    for (const auto& dirEntry : dir_iter(test_path)) {
-      if (std::filesystem::is_regular_file(dirEntry)) {
-        std::cout << dirEntry << std::endl;
+    for (const auto& dir_entry : dir_iter(test_path)) {
+      if (std::filesystem::is_regular_file(dir_entry)) {
+        std::cout << dir_entry << std::endl;
       }
     }
   }
