@@ -3040,8 +3040,6 @@ void parse_program (std::string styio_code)
 
     if ((stmt -> hint()) == StyioType::End) break;
 
-    // fprintf(stderr, "[>_<] HERE!\n");
-
     if ((stmt -> hint()) != StyioType::Comment) {
       std::cout << "\033[1;33m[>_<]\033[0m " << stmt -> toString(0, false) << std::endl;
     }
