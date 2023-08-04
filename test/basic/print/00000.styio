@@ -1,0 +1,7 @@
+// RUN: styio %s | FileCheck %s
+
+>_("Hello, World!")
+
+/*
+  CHECK: Print { "Hello, World!" }
+*/

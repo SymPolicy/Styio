@@ -19,7 +19,7 @@
 void get_next_char
 (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 )
 {
   code -> cursor += 1;
@@ -30,10 +30,10 @@ inline bool can_be_ignored(char token) {
   return isspace(token);
 }
 
-void until_useful_token
+void move_to_next_token
 (
   struct StyioCodeContext* code,
-  int& cur_char) {
+  char& cur_char) {
   while (can_be_ignored(code -> text.at(code -> cursor)))
   {
     code -> cursor += 1;
@@ -43,7 +43,7 @@ void until_useful_token
 
 bool check_this_char
 (
-  int& cur_char, 
+  char& cur_char, 
   char value
 )
 {
@@ -53,7 +53,7 @@ bool check_this_char
 void drop_all_spaces 
 (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 ) 
 {
   while (isspace(cur_char)) {
@@ -64,7 +64,7 @@ void drop_all_spaces
 void drop_white_spaces 
 (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 ) 
 {
   while (check_this_char(cur_char, ' ')) {
@@ -74,7 +74,7 @@ void drop_white_spaces
 
 void check_and_drop (
   struct StyioCodeContext* code,
-  int& cur_char,
+  char& cur_char,
   char value,
   int mode = 0) {
   switch (mode)
@@ -102,7 +102,7 @@ void check_and_drop (
   }
 }
 
-bool peak_until (
+bool peak_next_token (
   struct StyioCodeContext* code,
   char value,
   int mode = 0) {
@@ -132,7 +132,7 @@ bool peak_until (
   return (code -> text.at(start_with + move_forward)) == value;
 }
 
-bool check_binop (
+bool check_binop_token (
   struct StyioCodeContext* code) {
   int start_with = code -> cursor;
   int move_forward = 0;
@@ -162,7 +162,15 @@ bool check_binop (
     break;
 
   case '/':
-    return true;
+    {
+      char& the_next_char = code -> text.at(start_with + move_forward + 1);
+
+      if (check_this_char(the_next_char, '*')) {
+        return false;
+      } else {
+        return true;
+      }
+    }
 
     // You should NOT reach this line!
     break;
@@ -180,9 +188,9 @@ bool check_binop (
   return false;
 }
 
-void drop_until_binop (
+void move_until_binop (
   struct StyioCodeContext* code,
-  int& cur_char) {
+  char& cur_char) {
   while (true) {
     if (check_this_char(cur_char, '+') 
       || check_this_char(cur_char, '-') 
@@ -199,7 +207,7 @@ void drop_until_binop (
 
 void drop_until (
   struct StyioCodeContext* code,
-  int& cur_char,
+  char& cur_char,
   char value) {
   while (not check_this_char(cur_char, value)) {
     get_next_char(code, cur_char);
@@ -221,7 +229,7 @@ void drop_until (
 std::unique_ptr<IdAST> parse_id 
 (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 )
 {
   std::unique_ptr<IdAST> output;
@@ -244,7 +252,7 @@ std::unique_ptr<IdAST> parse_id
 std::unique_ptr<IntAST> parse_int 
 (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 )
 {
   std::unique_ptr<IntAST> output;
@@ -264,14 +272,14 @@ std::unique_ptr<IntAST> parse_int
     get_next_char(code, cur_char);
   };
 
-  output = std::make_unique<IntAST>(std::stoi(intStr));
+  output = std::make_unique<IntAST>(intStr);
   return output;
 }
 
 std::unique_ptr<StyioAST> parse_int_or_float 
 (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 )
 {
   std::unique_ptr<StyioAST> output;
@@ -295,24 +303,22 @@ std::unique_ptr<StyioAST> parse_int_or_float
     {
       numStr += '.';
 
-      numStr += cur_char;
-
       while (isdigit(cur_char))
       {
         numStr += cur_char;
         get_next_char(code, cur_char);
       };
 
-      output = std::make_unique<FloatAST>(std::stod(numStr));
+      output = std::make_unique<FloatAST>(numStr);
     }
     else
     {
-      output = std::make_unique<IntAST>(std::stoi(numStr));
+      output = std::make_unique<IntAST>(numStr);
     };
   } 
   else 
   {
-    output = std::make_unique<IntAST>(std::stoi(numStr));
+    output = std::make_unique<IntAST>(numStr);
   }
 
   return output;
@@ -321,7 +327,7 @@ std::unique_ptr<StyioAST> parse_int_or_float
 std::unique_ptr<StringAST> parse_string 
 (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 )
 {
   std::unique_ptr<StringAST> output;
@@ -348,7 +354,7 @@ std::unique_ptr<StringAST> parse_string
 std::unique_ptr<StyioAST> parse_char_or_string 
 (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 )
 {
   std::unique_ptr<StyioAST> output;
@@ -381,7 +387,7 @@ std::unique_ptr<StyioAST> parse_char_or_string
 
 std::unique_ptr<StyioAST> parse_path_or_link (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 )
 {
   std::unique_ptr<StyioAST> output;
@@ -425,7 +431,7 @@ std::unique_ptr<StyioAST> parse_path_or_link (
 
 std::unique_ptr<CommentAST> parse_comment (
   struct StyioCodeContext* code,
-  int& cur_char,
+  char& cur_char,
   int mode) {
   std::string commentText = "";
 
@@ -471,7 +477,7 @@ std::unique_ptr<CommentAST> parse_comment (
 
 std::unique_ptr<FillingAST> parse_filling (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 ) 
 {
   std::unique_ptr<FillingAST> output;
@@ -488,13 +494,13 @@ std::unique_ptr<FillingAST> parse_filling (
 
   vars.push_back(std::move(parse_id(code, cur_char)));
 
-  until_useful_token(code, cur_char);
+  move_to_next_token(code, cur_char);
 
   while (check_this_char(cur_char, ','))
   {
     get_next_char(code, cur_char);
 
-    until_useful_token(code, cur_char);
+    move_to_next_token(code, cur_char);
 
     if (check_this_char(cur_char, ')'))
     {
@@ -512,7 +518,7 @@ std::unique_ptr<FillingAST> parse_filling (
 
 std::unique_ptr<ResourceAST> parse_resources (
   struct StyioCodeContext* code, 
-  int& cur_char) {
+  char& cur_char) {
   std::unique_ptr<ResourceAST> output;
 
   std::vector<std::unique_ptr<StyioAST>> resources;
@@ -524,13 +530,13 @@ std::unique_ptr<ResourceAST> parse_resources (
   {
     get_next_char(code, cur_char);
 
-    until_useful_token(code, cur_char);
+    move_to_next_token(code, cur_char);
 
     if (isalpha(cur_char) || check_this_char(cur_char, '_')) {
       // "@" "(" |--
       std::unique_ptr<IdAST> tmp_res_name = parse_id(code, cur_char);
 
-      until_useful_token(code, cur_char);
+      move_to_next_token(code, cur_char);
 
       if (check_this_char(cur_char, '<')) {
         get_next_char(code, cur_char);
@@ -538,7 +544,7 @@ std::unique_ptr<ResourceAST> parse_resources (
         check_and_drop(code, cur_char, '-', 0);
       };
 
-      until_useful_token(code, cur_char);
+      move_to_next_token(code, cur_char);
 
       std::unique_ptr<StyioAST> tmp_expr = std::make_unique<FinalBindAST>(
         std::move(tmp_res_name), 
@@ -547,20 +553,20 @@ std::unique_ptr<ResourceAST> parse_resources (
       resources.push_back(std::move(tmp_expr));
     };
 
-    until_useful_token(code, cur_char);
+    move_to_next_token(code, cur_char);
 
     // "@" "(" [<ID> |--
     while (check_this_char(cur_char, ','))
     {
       get_next_char(code, cur_char);
 
-      until_useful_token(code, cur_char);
+      move_to_next_token(code, cur_char);
 
       if (isalpha(cur_char) || check_this_char(cur_char, '_')) {
         
         std::unique_ptr<IdAST> tmp_res_name = parse_id(code, cur_char);
 
-        until_useful_token(code, cur_char);
+        move_to_next_token(code, cur_char);
 
         if (check_this_char(cur_char, '<')) {
           get_next_char(code, cur_char);
@@ -568,7 +574,7 @@ std::unique_ptr<ResourceAST> parse_resources (
           check_and_drop(code, cur_char, '-', 0);
         };
 
-        until_useful_token(code, cur_char);
+        move_to_next_token(code, cur_char);
 
         std::unique_ptr<StyioAST> tmp_value = parse_value(code, cur_char);
 
@@ -609,14 +615,14 @@ std::unique_ptr<ResourceAST> parse_resources (
 
 std::unique_ptr<StyioAST> parse_item_for_cond (
   struct StyioCodeContext* code, 
-  int& cur_char) {
+  char& cur_char) {
   std::unique_ptr<StyioAST> output;
 
-  until_useful_token(code, cur_char);
+  move_to_next_token(code, cur_char);
 
   output = parse_value(code, cur_char);
   
-  until_useful_token(code, cur_char);
+  move_to_next_token(code, cur_char);
 
   switch (cur_char)
   {
@@ -778,7 +784,7 @@ std::unique_ptr<StyioAST> parse_item_for_cond (
 */
 std::unique_ptr<StyioAST> parse_id_or_value (
   struct StyioCodeContext* code, 
-  int& cur_char) {
+  char& cur_char) {
   std::unique_ptr<StyioAST> output;
 
   if (isalpha(cur_char) || check_this_char(cur_char, '_')) 
@@ -793,7 +799,7 @@ std::unique_ptr<StyioAST> parse_id_or_value (
     output = parse_call(code, cur_char);
   }
 
-  until_useful_token(code, cur_char);
+  move_to_next_token(code, cur_char);
 
   if (is_binary_token(cur_char)) {
     output = parse_binop_rhs(code, cur_char, std::move(output));
@@ -804,7 +810,7 @@ std::unique_ptr<StyioAST> parse_id_or_value (
 
 std::unique_ptr<StyioAST> parse_value (
   struct StyioCodeContext* code, 
-  int& cur_char) {
+  char& cur_char) {
   std::unique_ptr<StyioAST> output;
 
   if (isalpha(cur_char) || check_this_char(cur_char, '_')) 
@@ -828,7 +834,7 @@ std::unique_ptr<StyioAST> parse_value (
 
 std::unique_ptr<StyioAST> parse_item_for_binop (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 )
 {
   std::unique_ptr<StyioAST> output (new NoneAST());
@@ -838,23 +844,12 @@ std::unique_ptr<StyioAST> parse_item_for_binop (
   {
     // parse id
     output = parse_id(code, cur_char);
-    
-    // ignore white spaces after id
-    drop_white_spaces(code, cur_char);
 
     return output;
   }
   else
   if (isdigit(cur_char)) {
     output = parse_int_or_float(code, cur_char);
-
-    // ignore white spaces after number
-    drop_white_spaces(code, cur_char);
-
-    if (is_binary_token(cur_char))
-    {
-      output = parse_binop_rhs(code, cur_char, std::move(output));
-    };
 
     return output;
   };
@@ -894,13 +889,6 @@ std::unique_ptr<StyioAST> parse_item_for_binop (
   case '|':
     {
       output = parse_size_of(code, cur_char);
-
-      drop_white_spaces(code, cur_char);
-
-      if (is_binary_token(cur_char))
-      {
-        output = parse_binop_rhs(code, cur_char, std::move(output));
-      }
     }
 
     // You should NOT reach this line!
@@ -915,7 +903,7 @@ std::unique_ptr<StyioAST> parse_item_for_binop (
 
 std::unique_ptr<StyioAST> parse_expr (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 )
 {
   std::unique_ptr<StyioAST> output (new NoneAST());
@@ -1017,7 +1005,7 @@ std::unique_ptr<StyioAST> parse_expr (
 
 std::unique_ptr<SizeOfAST> parse_size_of (
   struct StyioCodeContext* code, 
-  int& cur_char) {
+  char& cur_char) {
   std::unique_ptr<SizeOfAST> output;
 
   // eliminate | at the start
@@ -1055,7 +1043,7 @@ std::unique_ptr<SizeOfAST> parse_size_of (
 std::unique_ptr<StyioAST> parse_call 
 (
   struct StyioCodeContext* code,
-  int& cur_char) {
+  char& cur_char) {
   return std::make_unique<NoneAST>();
 }
 
@@ -1089,7 +1077,7 @@ std::unique_ptr<StyioAST> parse_call
 
 std::unique_ptr<ListOpAST> parse_list_op (
   struct StyioCodeContext* code, 
-  int& cur_char,
+  char& cur_char,
   std::unique_ptr<StyioAST> theList
 ) 
 {
@@ -1413,7 +1401,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
 
 std::unique_ptr<StyioAST> parse_iter (
   struct StyioCodeContext* code, 
-  int& cur_char,
+  char& cur_char,
   std::unique_ptr<StyioAST> iterOverIt) {
   std::unique_ptr<FillingAST> iterTmpVars;
   std::unique_ptr<StyioAST> iterMatch;
@@ -1586,7 +1574,7 @@ std::unique_ptr<StyioAST> parse_iter (
 
 std::unique_ptr<StyioAST> parse_list_expr (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 ) 
 {
   std::unique_ptr<StyioAST> output;
@@ -1596,7 +1584,7 @@ std::unique_ptr<StyioAST> parse_list_expr (
   std::unique_ptr<StyioAST> startEl = parse_expr(code, cur_char);
   elements.push_back(std::move(startEl));
 
-  until_useful_token(code, cur_char);
+  move_to_next_token(code, cur_char);
 
   switch (cur_char)
   {
@@ -1627,7 +1615,7 @@ std::unique_ptr<StyioAST> parse_list_expr (
         list_loop = std::make_unique<RangeAST>(
           std::move(startEl), 
           std::move(endEl), 
-          std::make_unique<IntAST>(1));
+          std::make_unique<IntAST>("1"));
       }
       else
       {
@@ -1801,7 +1789,7 @@ std::unique_ptr<StyioAST> parse_list_expr (
 
 std::unique_ptr<StyioAST> parse_loop (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 )
 {
   std::unique_ptr<StyioAST> output;
@@ -1887,13 +1875,11 @@ std::unique_ptr<StyioAST> parse_loop (
 
 std::unique_ptr<BinOpAST> parse_binop_rhs (
   struct StyioCodeContext* code, 
-  int& cur_char, 
+  char& cur_char, 
   std::unique_ptr<StyioAST> lhs_ast
 ) 
 {
   std::unique_ptr<BinOpAST> output;
-
-  drop_all_spaces(code, cur_char);
 
   switch (cur_char)
   {
@@ -1901,6 +1887,8 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
     case '+':
       {
         get_next_char(code, cur_char);
+
+        move_to_next_token(code, cur_char);
 
         // <ID> "+" |-- 
         output = std::make_unique<BinOpAST>(
@@ -1916,6 +1904,8 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
     case '-':
       {
         get_next_char(code, cur_char);
+
+        move_to_next_token(code, cur_char);
 
         // <ID> "-" |--
         output = std::make_unique<BinOpAST>(
@@ -1936,6 +1926,8 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
         {
           get_next_char(code, cur_char);
 
+          move_to_next_token(code, cur_char);
+
           // <ID> "**" |--
           output = std::make_unique<BinOpAST>(
             BinOpType::BIN_POW, 
@@ -1945,6 +1937,8 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
         // BIN_MUL := <ID> "*" <EXPR>
         else 
         {
+          move_to_next_token(code, cur_char);
+
           // <ID> "*" |--
           output = std::make_unique<BinOpAST>(
             BinOpType::BIN_MUL, 
@@ -1959,6 +1953,8 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
     case '/':
       {
         get_next_char(code, cur_char);
+
+        move_to_next_token(code, cur_char);
 
         // <ID> "/" |-- 
         output = std::make_unique<BinOpAST>(
@@ -1975,6 +1971,8 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
       {
         get_next_char(code, cur_char);
 
+        move_to_next_token(code, cur_char);
+
         // <ID> "%" |-- 
         output = std::make_unique<BinOpAST>(
           BinOpType::BIN_MOD, 
@@ -1988,10 +1986,17 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
     default:
       std::string errmsg = std::string("Unexpected BinOp.Operator: `") + char(cur_char) + "`.";
       throw StyioSyntaxError(errmsg);
+
+      // You should NOT reach this line!
+      break;
   }
 
-  while (cur_char != '\n') 
+  move_to_next_token(code, cur_char);
+
+  while (check_binop_token(code)) 
   {
+    move_until_binop(code, cur_char);
+
     output = parse_binop_rhs(code, cur_char, std::move(output));
   }
 
@@ -2000,7 +2005,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
 
 std::unique_ptr<CondAST> parse_cond_rhs (
   struct StyioCodeContext* code, 
-  int& cur_char,
+  char& cur_char,
   std::unique_ptr<StyioAST> lhsExpr
 )
 {
@@ -2126,7 +2131,7 @@ std::unique_ptr<CondAST> parse_cond_rhs (
 
 std::unique_ptr<CondAST> parse_cond (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 )
 {
   std::unique_ptr<StyioAST> lhsExpr;
@@ -2198,7 +2203,7 @@ std::unique_ptr<CondAST> parse_cond (
 
 std::unique_ptr<StyioAST> parse_cond_flow (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 )
 {
   // eliminate ?
@@ -2326,7 +2331,7 @@ std::unique_ptr<StyioAST> parse_cond_flow (
 
 std::unique_ptr<FlexBindAST> parse_mut_assign (
   struct StyioCodeContext* code, 
-  int& cur_char, 
+  char& cur_char, 
   std::unique_ptr<IdAST> id_ast
 )
 {
@@ -2347,7 +2352,7 @@ std::unique_ptr<FlexBindAST> parse_mut_assign (
 
 std::unique_ptr<FinalBindAST> parse_fix_assign (
   struct StyioCodeContext* code, 
-  int& cur_char, 
+  char& cur_char, 
   std::unique_ptr<IdAST> id_ast) {
   std::unique_ptr<FinalBindAST> output = std::make_unique<FinalBindAST>(
     std::move(id_ast), 
@@ -2366,7 +2371,7 @@ std::unique_ptr<FinalBindAST> parse_fix_assign (
 
 std::unique_ptr<StyioAST> parse_pipeline (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 )
 {
   std::unique_ptr<IdAST> pipeName;
@@ -2461,7 +2466,7 @@ std::unique_ptr<StyioAST> parse_pipeline (
 
 std::unique_ptr<StyioAST> parse_read_file (
   struct StyioCodeContext* code, 
-  int& cur_char, 
+  char& cur_char, 
   std::unique_ptr<IdAST> id_ast
 ) 
 {
@@ -2478,7 +2483,7 @@ std::unique_ptr<StyioAST> parse_read_file (
 
 std::unique_ptr<StyioAST> parse_write_stdout (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 )
 {
   std::unique_ptr<StyioAST> output;
@@ -2525,8 +2530,9 @@ std::unique_ptr<StyioAST> parse_write_stdout (
 
 std::unique_ptr<StyioAST> parse_stmt (
   struct StyioCodeContext* code, 
-  int& cur_char) {
-  until_useful_token(code, cur_char);
+  char& cur_char) {
+  
+  move_to_next_token(code, cur_char);
 
   // <ID>
   if (isalpha(cur_char) 
@@ -2705,74 +2711,12 @@ std::unique_ptr<StyioAST> parse_stmt (
   if (isdigit(cur_char)) {
     std::unique_ptr<StyioAST> numAST = parse_int_or_float(code, cur_char);
 
-    drop_all_spaces(code, cur_char);
+    move_to_next_token(code, cur_char);
 
-    switch (cur_char)
-    {
-      // <LF>
-      case '\n':
-        {
-          return numAST;
-        };
-
-        // You should NOT reach this line!
-        break;
-
-      // BIN_ADD := [<Int>|<Float>] "+" <EXPR>
-      case '+':
-        {
-          // [<Int>|<Float>] |--
-          return parse_binop_rhs(code, cur_char, std::move(numAST));
-        };
-
-        // You should NOT reach this line!
-        break;
-
-      // BIN_SUB := [<Int>|<Float>] "-" <EXPR>
-      case '-':
-        {
-          // [<Int>|<Float>] |--
-          return parse_binop_rhs(code, cur_char, std::move(numAST));
-        };
-
-        // You should NOT reach this line!
-        break;
-
-      // BIN_MUL | BIN_POW
-      case '*':
-        {
-          // [<Int>|<Float>] |--
-          return parse_binop_rhs(code, cur_char, std::move(numAST));
-        }
-
-        // You should NOT reach this line!
-        break;
-
-      // BIN_DIV := [<Int>|<Float>] "/" <EXPR>
-      case '/':
-        {
-          // [<Int>|<Float>] |--
-          return parse_binop_rhs(code, cur_char, std::move(numAST));
-        };
-
-        // You should NOT reach this line!
-        break;
-
-      // BIN_MOD := [<Int>|<Float>] "%" <EXPR>
-      case '%':
-        {
-          // [<Int>|<Float>] |--
-          return parse_binop_rhs(code, cur_char, std::move(numAST));
-        };
-
-        // You should NOT reach this line!
-        break;
-
-      default:
-        return numAST;
-
-        // You should NOT reach this line!
-        break;
+    if (is_binary_token(cur_char)) {
+      return parse_binop_rhs(code, cur_char, std::move(numAST));
+    } else {
+      return numAST;
     }
   }
 
@@ -2806,7 +2750,7 @@ std::unique_ptr<StyioAST> parse_stmt (
     {
       std::unique_ptr<ResourceAST> resources = parse_resources(code, cur_char);
 
-      if (peak_until(code, '-', 2))
+      if (peak_next_token(code, '-', 2))
       {
         check_and_drop(code, cur_char, '-', 2);
 
@@ -2963,7 +2907,7 @@ std::unique_ptr<StyioAST> parse_stmt (
 
 std::string parse_ext_elem(
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 )
 {
   std::string itemStr;
@@ -3000,7 +2944,7 @@ std::string parse_ext_elem(
 
 std::unique_ptr<ExtPackAST> parse_ext_pack (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 ) 
 { 
   // eliminate left square (box) bracket [
@@ -3040,7 +2984,7 @@ std::unique_ptr<ExtPackAST> parse_ext_pack (
 
 std::unique_ptr<StyioAST> parse_case_block (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 )
 {
   return std::make_unique<NoneAST>();
@@ -3048,7 +2992,7 @@ std::unique_ptr<StyioAST> parse_case_block (
 
 std::unique_ptr<StyioAST> parse_exec_block (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 ) 
 {
   std::vector<std::unique_ptr<StyioAST>> stmtBuffer;
@@ -3085,7 +3029,7 @@ std::unique_ptr<StyioAST> parse_exec_block (
 
 void parse_program (std::string styio_code) 
 {
-  int cur_char = styio_code.at(0);
+  char cur_char = styio_code.at(0);
 
   struct StyioCodeContext styio_code_context = {
     styio_code,
@@ -3094,7 +3038,7 @@ void parse_program (std::string styio_code)
 
   StyioCodeContext* ctx_ptr = &styio_code_context;
 
-  while (1) 
+  while (true) 
   {
     std::unique_ptr<StyioAST> stmt = parse_stmt(ctx_ptr, cur_char);
 

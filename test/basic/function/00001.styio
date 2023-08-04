@@ -1,0 +1,5 @@
+// RUN: styio %s | FileCheck %s
+
+# f = (x, y) => {
+    => x + y
+}

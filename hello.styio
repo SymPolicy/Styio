@@ -1,4 +1,0 @@
-// RUN: styio "hello.styio" | FileCheck "hello.styio"
-
->_("Hello, World!")
-// CHECK: Print { "Hello, World!" }

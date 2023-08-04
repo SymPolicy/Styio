@@ -1,2 +1,0 @@
-RUN: styio "hello.styio" | FileCheck "hello.styio"
-CHECK: [>_<] Print { "Hello, Styio!" }

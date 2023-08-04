@@ -1,4 +1,4 @@
-bool is_binary_token (int& cur_char)
+bool is_binary_token (char& cur_char)
 {
   switch (cur_char)
   {

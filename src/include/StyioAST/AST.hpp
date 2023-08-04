@@ -284,21 +284,21 @@ class FillingAST : public StyioAST {
   IntAST: Integer
 */
 class IntAST : public StyioAST {
-  int Value;
+  std::string Value;
 
   public:
-    IntAST(int val) : Value(val) {}
+    IntAST(std::string val) : Value(val) {}
 
     StyioType hint() {
       return StyioType::Int;
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + " { " + std::to_string(Value) + " }";
+      return reprStyioType(this -> hint(), colorful) + " { " + Value + " }";
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return std::to_string(Value);
+      return reprStyioType(this -> hint(), colorful) + " { " + Value + " }";
     }
 };
 
@@ -306,21 +306,21 @@ class IntAST : public StyioAST {
   FloatAST: Float
 */
 class FloatAST : public StyioAST {
-  double Value;
+  std::string Value;
 
   public:
-    FloatAST(double val) : Value(val) {}
+    FloatAST(std::string val) : Value(val) {}
 
     StyioType hint() {
       return StyioType::Float;
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + " { " + std::to_string(Value) + " }";
+      return reprStyioType(this -> hint(), colorful) + " { " + Value + " }";
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return std::to_string(Value);
+      return reprStyioType(this -> hint(), colorful) + " { " + Value + " }";
     }
 };
 

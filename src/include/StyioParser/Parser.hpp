@@ -17,30 +17,31 @@ auto type_to_int (Enumeration const value)
 void get_next_char
 (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 void drop_all_spaces 
 (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 void drop_white_spaces 
 (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 bool check_this_char
 (
-  int& cur_char, 
+  char& cur_char, 
   char value
 );
 
 std::unique_ptr<CommentAST> parse_comment(
   struct StyioCodeContext* code,
-  int& cur_char);
+  char& cur_char,
+  int mode);
 
 /*
   =================
@@ -53,7 +54,7 @@ std::unique_ptr<CommentAST> parse_comment(
 */
 std::unique_ptr<IdAST> parse_id (
   struct StyioCodeContext* code,
-  int& cur_char);
+  char& cur_char);
 
 /*
   =================
@@ -67,7 +68,7 @@ std::unique_ptr<IdAST> parse_id (
 std::unique_ptr<IntAST> parse_int 
 (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 /*
@@ -76,7 +77,7 @@ std::unique_ptr<IntAST> parse_int
 std::unique_ptr<StyioAST> parse_int_or_float 
 (
   struct StyioCodeContext* code, 
-  int& cur_char
+  char& cur_char
 );
 
 /*
@@ -85,7 +86,7 @@ std::unique_ptr<StyioAST> parse_int_or_float
 std::unique_ptr<StringAST> parse_string 
 (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 /*
@@ -94,7 +95,7 @@ std::unique_ptr<StringAST> parse_string
 std::unique_ptr<StyioAST> parse_path_or_link 
 (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 /*
@@ -109,7 +110,7 @@ std::unique_ptr<StyioAST> parse_path_or_link
 std::unique_ptr<SizeOfAST> parse_size_of 
 (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 /*
@@ -118,7 +119,7 @@ std::unique_ptr<SizeOfAST> parse_size_of
 std::unique_ptr<StyioAST> parse_call 
 (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 /*
@@ -126,7 +127,7 @@ std::unique_ptr<StyioAST> parse_call
 */
 std::unique_ptr<StyioAST> parse_item_for_binop (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 /*
@@ -134,7 +135,7 @@ std::unique_ptr<StyioAST> parse_item_for_binop (
 */
 std::unique_ptr<BinOpAST> parse_binop_rhs (
   struct StyioCodeContext* code,
-  int& cur_char, 
+  char& cur_char, 
   std::unique_ptr<StyioAST> lhs_ast
 );
 
@@ -143,7 +144,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
 */
 std::unique_ptr<StyioAST> parse_item_for_cond (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 /*
@@ -151,7 +152,7 @@ std::unique_ptr<StyioAST> parse_item_for_cond (
 */
 std::unique_ptr<CondAST> parse_cond (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 /*
@@ -159,7 +160,7 @@ std::unique_ptr<CondAST> parse_cond (
 */
 std::unique_ptr<StyioAST> parse_cond_flow (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 /*
@@ -167,7 +168,7 @@ std::unique_ptr<StyioAST> parse_cond_flow (
 */
 std::unique_ptr<ListOpAST> parse_list_op (
   struct StyioCodeContext* code,
-  int& cur_char,
+  char& cur_char,
   std::unique_ptr<StyioAST> theList
 );
 
@@ -176,7 +177,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
 */
 std::unique_ptr<FillingAST> parse_filling (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 /*
@@ -184,26 +185,26 @@ std::unique_ptr<FillingAST> parse_filling (
 */
 std::unique_ptr<StyioAST> parse_iter (
   struct StyioCodeContext* code,
-  int& cur_char,
+  char& cur_char,
   std::unique_ptr<StyioAST> collection
 );
 
 /*
   parse_list_expr
 */
-std::unique_ptr<StyioAST> parse_list_expr (struct StyioCodeContext* code,int& cur_char);
+std::unique_ptr<StyioAST> parse_list_expr (struct StyioCodeContext* code,char& cur_char);
 
 /*
   parse_loop
 */
-std::unique_ptr<StyioAST> parse_loop (struct StyioCodeContext* code,int& cur_char);
+std::unique_ptr<StyioAST> parse_loop (struct StyioCodeContext* code,char& cur_char);
 
 /*
   parse_simple_value
 */
 std::unique_ptr<StyioAST> parse_value (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 /*
@@ -211,7 +212,7 @@ std::unique_ptr<StyioAST> parse_value (
 */
 std::unique_ptr<StyioAST> parse_expr (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 /*
@@ -219,7 +220,7 @@ std::unique_ptr<StyioAST> parse_expr (
 */
 std::unique_ptr<ResourceAST> parse_resources (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 /*
@@ -227,7 +228,7 @@ std::unique_ptr<ResourceAST> parse_resources (
 */
 std::unique_ptr<FlexBindAST> parse_mut_assign (
   struct StyioCodeContext* code,
-  int& cur_char, 
+  char& cur_char, 
   IdAST* id_ast
 );
 
@@ -236,7 +237,7 @@ std::unique_ptr<FlexBindAST> parse_mut_assign (
 */
 std::unique_ptr<FinalBindAST> parse_fix_assign (
   struct StyioCodeContext* code,
-  int& cur_char, 
+  char& cur_char, 
   IdAST* id_ast
 );
 
@@ -245,7 +246,7 @@ std::unique_ptr<FinalBindAST> parse_fix_assign (
 */
 std::unique_ptr<StyioAST> parse_pipeline (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 /*
@@ -253,7 +254,7 @@ std::unique_ptr<StyioAST> parse_pipeline (
 */
 std::unique_ptr<StyioAST> parse_read_file (
   struct StyioCodeContext* code,
-  int& cur_char, 
+  char& cur_char, 
   IdAST* id_ast
 );
 
@@ -262,7 +263,7 @@ std::unique_ptr<StyioAST> parse_read_file (
 */
 std::unique_ptr<StyioAST> parse_write_stdout (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 /*
@@ -270,13 +271,13 @@ std::unique_ptr<StyioAST> parse_write_stdout (
 */
 std::unique_ptr<StyioAST> parse_stmt (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 /*
   parse_ext_elem
 */
-std::string parse_ext_elem(struct StyioCodeContext* code,int& cur_char);
+std::string parse_ext_elem(struct StyioCodeContext* code,char& cur_char);
 
 /*
   parse_ext_pack
@@ -301,14 +302,14 @@ std::string parse_ext_elem(struct StyioCodeContext* code,int& cur_char);
     "otherwise, try parseScript()";
   }
 */
-std::unique_ptr<ExtPackAST> parse_ext_pack (struct StyioCodeContext* code,int& cur_char);
+std::unique_ptr<ExtPackAST> parse_ext_pack (struct StyioCodeContext* code,char& cur_char);
 
 /*
   parse_case_block
 */
 std::unique_ptr<StyioAST> parse_case_block (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 /*
@@ -316,7 +317,7 @@ std::unique_ptr<StyioAST> parse_case_block (
 */
 std::unique_ptr<StyioAST> parse_exec_block (
   struct StyioCodeContext* code,
-  int& cur_char
+  char& cur_char
 );
 
 /*
