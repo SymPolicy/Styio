@@ -1,1 +1,0 @@
-@(b: bool, i: int, f: float, s: string)

@@ -1,4 +1,6 @@
+// [C++ STL]
 #include <type_traits>
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -12,17 +14,24 @@
 #include <map>
 #include <unordered_map>
 
+// [Styio]
 #include "include/StyioException/Exception.hpp"
 #include "include/StyioToken/Token.hpp"
 #include "include/StyioUtil/Util.hpp"
 #include "include/StyioAST/AST.hpp"
 #include "include/StyioParser/Parser.hpp"
 
-std::string read_styio_file()
+void show_cwd() 
 {
-  if (std::filesystem::exists("___.styio"))
+  std::filesystem::path cwd = std::filesystem::current_path();
+  std::cout << cwd.string() << std::endl;
+}
+
+std::string read_styio_file(const char* filename)
+{
+  if (std::filesystem::exists(filename))
   {
-    std::ifstream file("___.styio");
+    std::ifstream file(filename);
     std::string contents;
 
     std::string str;
@@ -34,25 +43,26 @@ std::string read_styio_file()
 
     contents += EOF;
 
-    // std::cout << contents << std::endl;
+    // printf("%s", contents.c_str());
 
     return contents;
   }
 
+  printf("Failed...");
+
   return std::string("...");
 }
 
-void show_cwd() 
-{
-  std::filesystem::path cwd = std::filesystem::current_path();
-  std::cout << cwd.string() << std::endl;
+int main(int argc, char* argv[]) {
+  // std::copy(argv, argv + argc, std::ostream_iterator<char *>(std::cout, "\n"));
 
-  // std::ofstream file(cwd.string());
-  // file.close();
-}
-
-int main() {
-  parse_program(read_styio_file());
+  std::ifstream file ( argv[1] );
+  // Always check to see if file opening succeeded
+  if ( !file.is_open() )
+    printf("Failed: Can't open file %s.\n", argv[1]);
+  else {
+    parse_program(read_styio_file(argv[1]));
+  }
   
   return 0;
 }

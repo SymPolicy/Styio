@@ -1,0 +1,1 @@
+set -o pipefail;{ : 'RUN: at line 1';   styio /root/styio/test/basic/print/00000.styio | FileCheck /root/styio/test/basic/print/00000.styio; }

@@ -1,15 +1,7 @@
-FROM debian:latest
+FROM debian:11
 
 ARG LLVM_VERSION=16
 ARG WORK_SPACE=/root
-
-# [Alias]
-ENV clang=/usr/bin/clang-${LLVM_VERSION}
-ENV clang++=/usr/bin/clang++-${LLVM_VERSION}
-
-# [CMake]
-ENV CC=/usr/bin/clang-${LLVM_VERSION}
-ENV CXX=/usr/bin/clang++-${LLVM_VERSION}
 
 WORKDIR ${WORK_SPACE}
 
@@ -27,10 +19,11 @@ RUN apt update \
     # [LLVM]
     && wget https://apt.llvm.org/llvm.sh \
     && chmod +x llvm.sh \
-    && ./llvm.sh ${LLVM_VERSION} \
+    && ./llvm.sh ${LLVM_VERSION} all \
     # [ICU]
-    && apt install -y libicu \
-    && apt install -y libicu-dev \
+    && apt install -y libicu67 libicu-dev 
+
+RUN apt update \
     # [Python3]
     && apt install -y python3 python3-pip \
     # [Node.js]: nvm
@@ -39,6 +32,10 @@ RUN apt update \
     && nvm install node --lts \
     # [Node.js]: yarn
     && apt install -y yarn \
+    # [LLVM - Lit]
+    && pip install lit
+
+RUN apt update \
     # [GitHub Client]
     && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
     && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -51,5 +48,19 @@ RUN apt update \
     && git clone https://github.com/SymPolicy/Unka-Malloc-env.git \
     && rsync -a Unka-Malloc-env/docker/extra/.vscode ${WORK_SPACE} \
     && rm -rf Unka-Malloc-env
+
+# [System Environment Variables]
+ENV clang=/usr/bin/clang-${LLVM_VERSION}
+ENV clang++=/usr/bin/clang++-${LLVM_VERSION}
+ENV FileCheck=/usr/bin/FileCheck-${LLVM_VERSION}
+
+# [System Environment Variables]: CMake
+ENV CC=/usr/bin/clang-${LLVM_VERSION}
+ENV CXX=/usr/bin/clang++-${LLVM_VERSION}
+
+# [Alias]
+RUN echo "alias clang=/usr/bin/clang-${LLVM_VERSION}" >>/root/.bashrc
+RUN echo "alias clang++=/usr/bin/clang++-${LLVM_VERSION}" >>/root/.bashrc
+RUN echo "alias FileCheck=/usr/bin/FileCheck-${LLVM_VERSION}" >>/root/.bashrc
     
 WORKDIR ${WORK_SPACE}/styio

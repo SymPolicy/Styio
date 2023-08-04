@@ -1,4 +1,7 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.14)
+
+# [C++ Standard]: C++ 20
+set(CMAKE_CXX_STANDARD 20)
 
 # [Styio] Version
 project(styio VERSION 0.0.1)
@@ -9,8 +12,8 @@ project(styio VERSION 0.0.1)
 # [Styio] Build Output Directory
 set(PROJECT_BINARY_DIR "${PROJECT_SOURCE_DIR}/build")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/lib")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/lib")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/bin")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/lib")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}")
 
 message(STATUS "[Styio] Source: " ${PROJECT_SOURCE_DIR})
 message(STATUS "[Styio] Binary: " ${PROJECT_BINARY_DIR})
@@ -36,16 +39,22 @@ llvm_map_components_to_libnames(LLVM_LIBS support core irreader)
 message(STATUS "[ICU] Using FindICU.cmake in: ${PROJECT_SOURCE_DIR}")
 find_package(ICU COMPONENTS uc i18n REQUIRED)
 
-# [C++ Standard]: C++ 20
-set(CMAKE_CXX_STANDARD 20)
-
 # [Styio] Executable
-add_executable(styio src/main.cpp 
-    src/include/StyioParser/Parser.cpp
-    src/include/StyioUtil/Util.cpp)
+add_executable(styio 
+    src/main.cpp
+    src/include/StyioToken/Token.cpp
+    src/include/StyioUtil/Util.cpp
+    src/include/StyioParser/Parser.cpp)
 
 # [Styio - ICU4C] Link
-target_link_libraries(styio ICU::uc ICU::i18n)
+target_link_libraries(
+    styio 
+    ICU::uc ICU::i18n)
 
 # [Styio ~ LLVM] Link
-target_link_libraries(styio ${LLVM_LIBS})
+target_link_libraries(
+    styio 
+    ${LLVM_LIBS})
+
+# [CTest: Sub-Directory]
+add_subdirectory(test)
