@@ -1,5 +1,6 @@
 // [C++ STL]
 #include <type_traits>
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -53,6 +54,8 @@ std::string read_styio_file(const char* filename)
 }
 
 int main(int argc, char* argv[]) {
+  // std::copy(argv, argv + argc, std::ostream_iterator<char *>(std::cout, "\n"));
+
   std::ifstream file ( argv[1] );
   // Always check to see if file opening succeeded
   if ( !file.is_open() )

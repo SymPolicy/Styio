@@ -423,6 +423,46 @@ std::unique_ptr<StyioAST> parse_path_or_link (
   return output;
 }
 
+std::unique_ptr<CommentAST> parse_comment (
+  struct StyioCodeContext* code,
+  int& cur_char,
+  int mode) {
+  std::string commentText = "";
+
+  if (mode == 1) {
+    while (not check_this_char(cur_char, '\n'))
+    {
+      commentText += char(cur_char);
+
+      get_next_char(code, cur_char);
+    }
+
+    return std::make_unique<CommentAST>(commentText);
+  }
+  else if (mode == 2) {
+    while (true)
+    {
+      while (not check_this_char(cur_char, '*'))
+      {
+        commentText += char(cur_char);
+
+        get_next_char(code, cur_char);
+      }
+
+      // eliminate the detected *
+      get_next_char(code, cur_char);
+
+      if (check_this_char(cur_char, '/')) {
+        get_next_char(code, cur_char);
+
+        return std::make_unique<CommentAST>(commentText);
+      }
+    }
+  }
+
+  return std::make_unique<CommentAST>(commentText);
+}
+
 /*
   Basic Collection
   - Filling (Variable Tuple)
@@ -1510,13 +1550,13 @@ std::unique_ptr<StyioAST> parse_iter (
   {
     if (hasVars)
     {
-      return std::make_unique<IterInfinite>(
+      return std::make_unique<LoopAST>(
         std::move(iterTmpVars), 
         std::move(iterBlock));
     }
     else
     {
-      return std::make_unique<IterInfinite>(
+      return std::make_unique<LoopAST>(
         std::move(iterBlock));
     };
   }
@@ -1814,7 +1854,7 @@ std::unique_ptr<StyioAST> parse_loop (
             the { at the start will be eliminated inside parse_exec_block() function
           */
 
-          output = std::make_unique<IterInfinite>(parse_exec_block(code, cur_char));
+          output = std::make_unique<LoopAST>(parse_exec_block(code, cur_char));
         }
       }
     }
@@ -2893,6 +2933,25 @@ std::unique_ptr<StyioAST> parse_stmt (
 
     // You should NOT reach this line!
     break;
+
+  case '/':
+    {
+      get_next_char(code, cur_char);
+
+      if (check_this_char(cur_char, '/')) {
+        get_next_char(code, cur_char);
+
+        return parse_comment(code, cur_char, 1);
+      }
+      else if (check_this_char(cur_char, '*')) {
+        get_next_char(code, cur_char);
+
+        return parse_comment(code, cur_char, 2);
+      }
+    }
+
+    // You should NOT reach this line!
+    break;
     
   default:
     break;
@@ -3043,6 +3102,8 @@ void parse_program (std::string styio_code)
 
     // fprintf(stderr, "[>_<] HERE!\n");
 
-    std::cout << "\033[1;33m[>_<]\033[0m " << stmt -> toString() << std::endl;
+    if ((stmt -> hint()) != StyioType::Comment) {
+      std::cout << "\033[1;33m[>_<]\033[0m " << stmt -> toString(0, false) << std::endl;
+    }
   };
 }

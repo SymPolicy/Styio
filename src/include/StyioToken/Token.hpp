@@ -5,6 +5,7 @@ enum class StyioType {
   End,
   Pass,
   Return,
+  Comment,
 
   /* -----------------
    * None, Null, Empty
@@ -123,7 +124,7 @@ enum class StyioType {
   /* -----------------
    * Iterator
    */
-  IterInfinite,
+  Loop,
   IterBounded,
   // -----------------
 
@@ -267,136 +268,6 @@ enum class IterOverWhat {
   ListOfStructs, // [s0, s1, ..., sn]
 };
 
-static std::string reprListOp(ListOpType listOp) {
-  switch (listOp)
-  {
-    case ListOpType::Access_Via_Name:
-      return "Access_Via_Name";
-
-    case ListOpType::Get_Reversed:
-      return "Get_Reversed";
-
-    case ListOpType::Get_Index_By_Item:
-      return "Get_Index_By_Item";
-
-    case ListOpType::Insert_Item_By_Index:
-      return "Insert_Item_By_Index";
-
-    case ListOpType::Remove_Item_By_Index:
-      return "Remove_Item_By_Index";
-
-    case ListOpType::Remove_Item_By_Value:
-      return "Remove_Item_By_Value";
-
-    case ListOpType::Remove_Many_Items_By_Indices:
-      return "Remove_Many_Items_By_Indices";
-
-    case ListOpType::Remove_Many_Items_By_Values:
-      return "Remove_Many_Items_By_Values";
-
-    default:
-      return "List_Operation";
-
-      break;
-  }
-}
-
-static std::string reprFlow (FlowType flow) {
-  switch (flow)
-  {
-    case FlowType::True:
-      return "True";
-
-    case FlowType::False:
-      return "False";
-
-    case FlowType::Both:
-      return "True & False";
-
-    default:
-      return "Control Flow";
-
-      break;
-  }
-}
-
-static std::string reprToken(LogicType token) {
-  switch (token)
-  {
-    case LogicType::NOT:
-      return "<NOT>";
-
-    case LogicType::AND:
-      return "<AND>";
-
-    case LogicType::OR:
-      return "<OR>";
-
-    case LogicType::XOR:
-      return "<OR>";
-
-    default:
-      return "<NULL>";
-
-      break;
-  }
-}
-
-static std::string reprToken(CompType token) {
-  switch (token)
-  {
-    case CompType::EQ:
-      return "<EQ>";
-
-    case CompType::NE:
-      return "<NE>";
-
-    case CompType::GT:
-      return "<GT>";
-
-    case CompType::GE:
-      return "<GE>";
-
-    case CompType::LT:
-      return "<LT>";
-
-    case CompType::LE:
-      return "<LE>";
-
-    default:
-      return "<NULL>";
-      break;
-  }
-}
-
-static std::string reprToken(BinOpType token) {
-  switch (token)
-  {
-    case BinOpType::BIN_ADD:
-      return "<ADD>";
-
-    case BinOpType::BIN_SUB:
-      return "<SUB>";
-
-    case BinOpType::BIN_MUL:
-      return "<MUL>";
-
-    case BinOpType::BIN_DIV:
-      return "<DIV>";
-
-    case BinOpType::BIN_POW:
-      return "<POW>";
-
-    case BinOpType::BIN_MOD:
-      return "<DIV>";
-
-    default:
-      return "<NULL>";
-
-      break;
-  }
-};
-
 enum class StyioToken {
   TOK_EOF = -1, // EOF
   TOK_NULL = 0, // ASCII 0 NUL
@@ -482,195 +353,34 @@ enum class StyioToken {
   TOK_INFINITE_LIST, // [...]
 };
 
-static std::string reprToken(StyioToken token) {
-  switch (token)
-  {
-    case StyioToken::TOK_SPACE:
-      return " ";
-
-    case StyioToken::TOK_CR:
-      return "<CR>";
-
-    case StyioToken::TOK_LF:
-      return "<LF>";
-
-    case StyioToken::TOK_EOF:
-      return "<EOF>";
-
-    case StyioToken::TOK_ID:
-      return "<ID>";
-
-    case StyioToken::TOK_INT:
-      return "<INT>";
-
-    case StyioToken::TOK_FLOAT:
-      return "<FLOAT>";
-
-    case StyioToken::TOK_STRING:
-      return "<STRING>";
-
-    case StyioToken::TOK_COMMA:
-      return ",";
-
-    case StyioToken::TOK_DOT:
-      return ".";
-
-    case StyioToken::TOK_COLON:
-      return ":";
-
-    case StyioToken::TOK_TILDE:
-      return "~";
-
-    case StyioToken::TOK_EXCLAM:
-      return "!";
-
-    case StyioToken::TOK_AT:
-      return "@";
-
-    case StyioToken::TOK_HASH:
-      return "#";
-
-    case StyioToken::TOK_DOLLAR:
-      return "$";
-
-    case StyioToken::TOK_PERCENT:
-      return "%";
-
-    case StyioToken::TOK_HAT:
-      return "^";
-
-    case StyioToken::TOK_CHECK:
-      return "?";
-
-    case StyioToken::TOK_SLASH:
-      return "/";
-
-    case StyioToken::TOK_BSLASH:
-      return "\\";
-
-    case StyioToken::TOK_PIPE:
-      return "|";
-
-    case StyioToken::TOK_ELLIPSIS:
-      return "...";
-
-    case StyioToken::TOK_SQUOTE:
-      return "'";
-
-    case StyioToken::TOK_DQUOTE:
-      return "\"";
-
-    case StyioToken::TOK_BQUOTE:
-      return "`";
-
-    case StyioToken::TOK_LPAREN:
-      return "(";
-
-    case StyioToken::TOK_RPAREN:
-      return ")";
-
-    case StyioToken::TOK_LBOXBRAC:
-      return "[";
-
-    case StyioToken::TOK_RBOXBRAC:
-      return "]";
-
-    case StyioToken::TOK_LCURBRAC:
-      return "{";
-
-    case StyioToken::TOK_RCURBRAC:
-      return "}";
-
-    case StyioToken::TOK_LANGBRAC:
-      return "<";
-
-    case StyioToken::TOK_RANGBRAC:
-      return ">";
-
-    case StyioToken::TOK_NOT:
-      return "<NOT>";
-
-    case StyioToken::TOK_AND:
-      return "<AND>";
-
-    case StyioToken::TOK_OR:
-      return "<OR>";
-
-    case StyioToken::TOK_XOR:
-      return "<XOR>";
-
-    case StyioToken::TOK_BITAND:
-      return "<BIT_AND>";
-
-    case StyioToken::TOK_BITOR:
-      return "<BIT_OR>";
-
-    case StyioToken::TOK_BITXOR:
-      return "<BIT_XOR>";
-
-    case StyioToken::TOK_LSHIFT:
-      return "<<";
-
-    case StyioToken::TOK_RSHIFT:
-      return ">>";
-    
-    case StyioToken::TOK_NEG:
-      return "<NEG>";
-
-    case StyioToken::TOK_ADD:
-      return "<ADD>";
-
-    case StyioToken::TOK_SUB:
-      return "<SUB>";
-
-    case StyioToken::TOK_MUL:
-      return "<MUL>";
-
-    case StyioToken::TOK_DIV:
-      return "<DIV>";
-
-    case StyioToken::TOK_MOD:
-      return "<MOD>";
-
-    case StyioToken::TOK_POW:
-      return "<POW>";
-
-    case StyioToken::TOK_GT:
-      return "<GT>";
-
-    case StyioToken::TOK_GE:
-      return "<GE>";
-
-    case StyioToken::TOK_LT:
-      return "<LT>";
-
-    case StyioToken::TOK_LE:
-      return "<LE>";
-
-    case StyioToken::TOK_EQ:
-      return "<EQ>";
-
-    case StyioToken::TOK_NE:
-      return "<NE>";
-
-    case StyioToken::TOK_RARROW:
-      return "->";
-
-    case StyioToken::TOK_LARROW:
-      return "<-";
-
-    case StyioToken::TOK_WALRUS:
-      return ":=";
-
-    case StyioToken::TOK_MATCH:
-      return "?=";
-
-    case StyioToken::TOK_INFINITE_LIST:
-      return "[...]";
-    
-    default:
-      return "<UNKNOWN>";
-  }
+inline std::string make_colorful(std::string text, int color)
+{
+  /*
+    Red: 91
+    Green: 92
+    Orange: 93
+    Blue: 94
+    Magenta: 95
+    Cyan: 96
+  */
+  return std::string("\033[1;") + std::to_string(color) + "m" + text + "\033[0m";
 };
+
+std::string reprStyioType (
+  StyioType type,
+  bool colorful = false,
+  std::string extra = "");
+
+std::string reprListOp(ListOpType listOp);
+
+std::string reprFlow (FlowType flow);
+
+std::string reprToken(CompType token);
+
+std::string reprToken(LogicType token);
+
+std::string reprToken(BinOpType token);
+
+std::string reprToken(StyioToken token);
 
 #endif

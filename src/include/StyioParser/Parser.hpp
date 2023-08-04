@@ -38,6 +38,10 @@ bool check_this_char
   char value
 );
 
+std::unique_ptr<CommentAST> parse_comment(
+  struct StyioCodeContext* code,
+  int& cur_char);
+
 /*
   =================
     Variable
@@ -47,8 +51,7 @@ bool check_this_char
 /*
   parse_id
 */
-std::unique_ptr<IdAST> parse_id 
-(
+std::unique_ptr<IdAST> parse_id (
   struct StyioCodeContext* code,
   int& cur_char);
 

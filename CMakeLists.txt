@@ -42,8 +42,9 @@ find_package(ICU COMPONENTS uc i18n REQUIRED)
 # [Styio] Executable
 add_executable(styio 
     src/main.cpp
-    src/include/StyioParser/Parser.cpp
-    src/include/StyioUtil/Util.cpp)
+    src/include/StyioToken/Token.cpp
+    src/include/StyioUtil/Util.cpp
+    src/include/StyioParser/Parser.cpp)
 
 # [Styio - ICU4C] Link
 target_link_libraries(

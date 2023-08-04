@@ -1,2 +1,2 @@
-RUN: echo "Hello, Styio!" | FileCheck %s
-CHECK: Hello, Styio!
+RUN: styio "hello.styio" | FileCheck "hello.styio"
+CHECK: [>_<] Print { "Hello, Styio!" }

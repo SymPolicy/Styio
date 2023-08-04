@@ -15,9 +15,9 @@ class StyioAST {
 
     virtual StyioType hint() = 0;
 
-    virtual std::string toString(int indent = 0) = 0;
+    virtual std::string toString(int indent = 0, bool colorful = false) = 0;
 
-    virtual std::string toStringInline(int indent = 0) = 0;
+    virtual std::string toStringInline(int indent = 0, bool colorful = false) = 0;
 };
 
 /*
@@ -38,7 +38,7 @@ class ConnectAST : public StyioAST {
       return StyioType::Connection;
     }
 
-    std::string toString(int indent = 0) {
+    std::string toString(int indent = 0, bool colorful = false) {
       return std::string("Connect {")
       + "\n" 
       + make_padding(indent, " ") + LastExpr -> toString(indent + 1)
@@ -47,7 +47,7 @@ class ConnectAST : public StyioAST {
       + "}";
     }
 
-    std::string toStringInline(int indent = 0) {
+    std::string toStringInline(int indent = 0, bool colorful = false) {
       return "Connect {}";
     }
 };
@@ -70,11 +70,11 @@ class NoneAST : public StyioAST {
       return StyioType::None;
     }
 
-    std::string toString(int indent = 0) {
+    std::string toString(int indent = 0, bool colorful = false) {
       return std::string("None { }");
     }
 
-    std::string toStringInline(int indent = 0) {
+    std::string toStringInline(int indent = 0, bool colorful = false) {
       return std::string("None { }");
     }
 };
@@ -88,11 +88,11 @@ class EndAST : public StyioAST {
       return StyioType::End;
     }
 
-    std::string toString(int indent = 0) {
+    std::string toString(int indent = 0, bool colorful = false) {
       return std::string("EOF { }");
     }
 
-    std::string toStringInline(int indent = 0) {
+    std::string toStringInline(int indent = 0, bool colorful = false) {
       return std::string("EOF { }");
     }
 };
@@ -108,11 +108,11 @@ class EmptyListAST : public StyioAST {
       return StyioType::EmptyList;
     }
 
-    std::string toString(int indent = 0) {
+    std::string toString(int indent = 0, bool colorful = false) {
       return std::string("List(Empty) [ ]");
     }
 
-    std::string toStringInline(int indent = 0) {
+    std::string toStringInline(int indent = 0, bool colorful = false) {
       return std::string("List(Empty) [ ]");
     }
 };
@@ -128,12 +128,12 @@ class EmptyBlockAST : public StyioAST {
       return StyioType::EmptyBlock;
     }
 
-    std::string toString(int indent = 0) {
+    std::string toString(int indent = 0, bool colorful = false) {
       return std::string("Block (Empty) { ")
         + " } ";
     }
 
-    std::string toStringInline(int indent = 0) {
+    std::string toStringInline(int indent = 0, bool colorful = false) {
       return std::string("Block (Empty) { ")
         + " } ";
     }
@@ -148,11 +148,11 @@ class PassAST : public StyioAST {
       return StyioType::Pass;
     }
 
-    std::string toString(int indent = 0) {
+    std::string toString(int indent = 0, bool colorful = false) {
       return std::string("Pass { }");
     }
 
-    std::string toStringInline(int indent = 0) {
+    std::string toStringInline(int indent = 0, bool colorful = false) {
       return std::string("Pass { }");
     }
 };
@@ -172,16 +172,35 @@ class ReturnAST : public StyioAST {
       return StyioType::Return;
     }
 
-    std::string toString(int indent = 0) {
-      return std::string("\033[1;36mReturn\033[0m { ") 
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + " { "
         + Expr -> toStringInline(indent + 1)
         + " }";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("\033[1;36mReturn\033[0m { ") 
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + " { "
         + Expr -> toStringInline(indent + 1)
         + " }";
+    }
+};
+
+class CommentAST : public StyioAST {
+  std::string Text;
+
+  public:
+    CommentAST (std::string text): Text(text) {}
+
+    StyioType hint() {
+      return StyioType::Comment;
+    }
+
+    std::string toString(int indent = 0, bool colorful = false) {
+      return std::string("Comment { ") + Text + " }";
+    }
+
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return std::string("Comment { ") + Text + " }";
     }
 };
 
@@ -204,11 +223,11 @@ class IdAST : public StyioAST {
       return StyioType::Id;
     }
 
-    std::string toString(int indent = 0) {
+    std::string toString(int indent = 0, bool colorful = false) {
       return std::string("ID { ") + Id + " }";
     }
 
-    std::string toStringInline(int indent = 0) {
+    std::string toStringInline(int indent = 0, bool colorful = false) {
       return Id;
     }
 };
@@ -228,7 +247,7 @@ class FillingAST : public StyioAST {
       return StyioType::Filling;
     }
 
-    std::string toString(int indent = 0) {
+    std::string toString(int indent = 0, bool colorful = false) {
       std::string outstr;
 
       for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Vars.begin(); 
@@ -244,13 +263,13 @@ class FillingAST : public StyioAST {
         };
       };
 
-      return std::string("\033[1;36mFilling\033[0m {\n")
+      return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
         + outstr
         + "}";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("Variables { ") 
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 };
@@ -274,11 +293,11 @@ class IntAST : public StyioAST {
       return StyioType::Int;
     }
 
-    std::string toString(int indent = 0) {
-      return "Int { " + std::to_string(Value) + " }";
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + " { " + std::to_string(Value) + " }";
     }
 
-    std::string toStringInline(int indent = 0) {
+    std::string toStringInline(int indent = 0, bool colorful = false) {
       return std::to_string(Value);
     }
 };
@@ -296,11 +315,11 @@ class FloatAST : public StyioAST {
       return StyioType::Float;
     }
 
-    std::string toString(int indent = 0) {
-      return "Float { " + std::to_string(Value) + " }";
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + " { " + std::to_string(Value) + " }";
     }
 
-    std::string toStringInline(int indent = 0) {
+    std::string toStringInline(int indent = 0, bool colorful = false) {
       return std::to_string(Value);
     }
 };
@@ -318,11 +337,11 @@ class CharAST : public StyioAST {
       return StyioType::Char;
     }
 
-    std::string toString(int indent = 0) {
-      return "Character { \"" + Value + "\" }";
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + " { \"" + Value + "\" }";
     }
 
-    std::string toStringInline(int indent = 0) {
+    std::string toStringInline(int indent = 0, bool colorful = false) {
       return "<Character: \"" + Value + "\">";
     }
 };
@@ -340,11 +359,11 @@ class StringAST : public StyioAST {
       return StyioType::String;
     }
 
-    std::string toString(int indent = 0) {
-      return "String { \"" + Value + "\" }";
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + " { \"" + Value + "\" }";
     }
 
-    std::string toStringInline(int indent = 0) {
+    std::string toStringInline(int indent = 0, bool colorful = false) {
       return "\"" + Value + "\"";
     }
 };
@@ -373,12 +392,12 @@ class ExtPathAST : public StyioAST {
       return StyioType::ExtPath;
     }
 
-    std::string toString(int indent = 0) {
-      return std::string("Path { ") + Path -> toStringInline(indent + 1) + " }";
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" { ") + Path -> toStringInline(indent + 1) + " }";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("Path { ") + Path -> toStringInline(indent + 1) + " }";
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" { ") + Path -> toStringInline(indent + 1) + " }";
     }
 };
 
@@ -395,12 +414,12 @@ class ExtLinkAST : public StyioAST {
       return StyioType::ExtLink;
     }
 
-    std::string toString(int indent = 0) {
-      return std::string("Link(Web) { }");
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" { }");
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("Link(Web) { }");
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" { }");
     }
 };
 
@@ -428,7 +447,7 @@ class ListAST : public StyioAST {
       return StyioType::List;
     }
 
-    std::string toString(int indent = 0) {
+    std::string toString(int indent = 0, bool colorful = false) {
       std::string ElemStr;
 
       for(int i=0; i < Elems.size(); i++) {
@@ -437,12 +456,12 @@ class ListAST : public StyioAST {
         ElemStr += "\n";
       };
 
-      return std::string("List [\n")
+      return reprStyioType(this -> hint(), colorful) + std::string(" [\n")
         + ElemStr
         + "]";
     }
 
-    std::string toStringInline(int indent = 0) {
+    std::string toStringInline(int indent = 0, bool colorful = false) {
       std::string ElemStr;
 
       for(int i = 0; i < Elems.size(); i++) {
@@ -450,7 +469,7 @@ class ListAST : public StyioAST {
         ElemStr += ", ";
       };
 
-      return std::string("List [ ")
+      return reprStyioType(this -> hint(), colorful) + std::string(" [ ")
         + ElemStr
         + "]";
     }
@@ -481,16 +500,16 @@ class RangeAST : public StyioAST
       return StyioType::Range;
     }
 
-    std::string toString(int indent = 0) {
-      return std::string("\033[1;36mRange\033[0m {\n")
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
         + make_padding(indent, " ") + "| Start: " + StartVal -> toString(indent + 1) + "\n"
         + make_padding(indent, " ") + "| End: " + EndVal -> toString(indent + 1) + "\n"
         + make_padding(indent, " ") + "| Step: " + StepVal -> toString(indent + 1) + "\n"
         + "\n}";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("\033[1;36mRange\033[0m { ")
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" { ")
         + "Start: " + StartVal -> toStringInline(indent + 1)
         + " | End: " + EndVal -> toStringInline(indent + 1)
         + " | Step: " + StepVal -> toStringInline(indent + 1)
@@ -523,14 +542,14 @@ class SizeOfAST : public StyioAST
       return StyioType::SizeOf;
     }
 
-    std::string toString(int indent = 0) {
-      return std::string("SizeOf { ") 
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
       + Value -> toStringInline(indent + 1)
       + " }";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("SizeOf { ") 
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
       + Value -> toStringInline(indent + 1)
       + " }";
     }
@@ -615,8 +634,8 @@ class BinOpAST : public StyioAST
       return StyioType::BinOp;
     }
 
-    std::string toString(int indent = 0) {
-      return std::string("\033[1;36mBinary Op\033[0meration {\n")
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
         + make_padding(indent, " ") + "LHS: "
         + LHS -> toString(indent + 1) 
         + "\n"
@@ -627,8 +646,8 @@ class BinOpAST : public StyioAST
         + "}";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("BinOp {") 
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {") 
         + " LHS: "
         + LHS -> toStringInline(indent) 
         + " | Op: "
@@ -661,16 +680,16 @@ class BinCompAST: public StyioAST
       return StyioType::Compare;
     }
 
-    std::string toString(int indent = 0) {
-      return reprToken(CompSign) + std::string(" {\n")
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + " " + reprToken(CompSign) + std::string(" {\n")
         + make_padding(indent, " ") + "LHS: " + LhsExpr -> toString() 
         + "\n"
         + make_padding(indent, " ") + "RHS: " + RhsExpr -> toString()
         + "}";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("LHS: ") 
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string("LHS: ") 
         + LhsExpr -> toStringInline(indent + 1)
         + " | Op: "
         + reprToken(CompSign) 
@@ -721,12 +740,12 @@ class CondAST: public StyioAST
       return StyioType::Condition;
     }
 
-    std::string toString(int indent = 0) {
+    std::string toString(int indent = 0, bool colorful = false) {
       if (LogicOp == LogicType::AND
           || LogicOp == LogicType::OR
           || LogicOp == LogicType::XOR)
       {
-        return std::string("\033[1;36mCondition\033[0m {\n")
+        return reprStyioType(this -> hint(), colorful) + " {\n"
         + make_padding(indent, " ") + "Op: " + reprToken(LogicOp) 
         + "\n"
         + make_padding(indent, " ") + "LHS: " + LhsExpr -> toString(indent + 1) 
@@ -737,7 +756,7 @@ class CondAST: public StyioAST
       else
       if (LogicOp == LogicType::NOT)
       {
-        return std::string("\033[1;36mCondition\033[0m {\n")
+        return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
         + make_padding(indent, " ") + "Op: " + reprToken(LogicOp) 
         + "\n"
         + make_padding(indent, " ") + "Value: " + ValExpr -> toString(indent + 1)
@@ -746,22 +765,22 @@ class CondAST: public StyioAST
       else
       if (LogicOp == LogicType::RAW)
       {
-        return std::string("\033[1;36mCondition\033[0m {\n")
+        return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
         + make_padding(indent, " ") + ValExpr -> toString(indent + 1)
         + "}";
       }
       else
       {
-        return "\033[1;36mCondition\033[0m { Undefined! }";
+        return reprStyioType(this -> hint(), colorful) + " { Undefined! }";
       }
     }
 
-    std::string toStringInline(int indent = 0) {
+    std::string toStringInline(int indent = 0, bool colorful = false) {
       if (LogicOp == LogicType::AND
           || LogicOp == LogicType::OR
           || LogicOp == LogicType::XOR)
       {
-        return std::string("\033[1;36mCondition\033[0m { ")
+        return reprStyioType(this -> hint(), colorful) + std::string(" { ")
         + LhsExpr -> toStringInline(indent + 1) 
         + reprToken(LogicOp)
         + RhsExpr -> toStringInline(indent + 1)
@@ -770,7 +789,7 @@ class CondAST: public StyioAST
       else
       if (LogicOp == LogicType::NOT)
       {
-        return std::string("\033[1;36mCondition\033[0m { ")
+        return reprStyioType(this -> hint(), colorful) + std::string(" { ")
         + reprToken(LogicOp)
         + ValExpr -> toStringInline(indent + 1)
         + " }";
@@ -778,13 +797,13 @@ class CondAST: public StyioAST
       else
       if (LogicOp == LogicType::RAW)
       {
-        return std::string("\033[1;36mCondition\033[0m { ")
+        return reprStyioType(this -> hint(), colorful) + std::string(" { ")
         + ValExpr -> toStringInline(indent + 1)
         + " }";
       }
       else
       {
-        return "\033[1;36mCondition\033[0m { Undefined! }";
+        return reprStyioType(this -> hint(), colorful) + " { Undefined! }";
       }
     }
 };
@@ -801,12 +820,12 @@ class CallAST : public StyioAST {
       return StyioType::Call;
     }
 
-    std::string toString(int indent = 0) {
-      return "Call { }";
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + " { }";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return "Call { }";
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + " { }";
     }
 };
 
@@ -938,15 +957,15 @@ class ListOpAST : public StyioAST
       return StyioType::ListOp;
     }
 
-    std::string toString(int indent = 0) {
-      return std::string("\033[1;36mList Op\033[0meration { \n") 
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + "Type { " + reprListOp(OpType) + " }\n"
       + make_padding(indent, " ") + TheList -> toString()
       + "}";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("List[Operation] { ") 
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
       + reprListOp(OpType) 
       + TheList -> toStringInline()
       + " }";
@@ -982,7 +1001,7 @@ class ResourceAST : public StyioAST {
       return StyioType::Resources;
     }
 
-    std::string toString(int indent = 0) {
+    std::string toString(int indent = 0, bool colorful = false) {
       std::string varStr;
 
       for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Resources.begin(); 
@@ -998,13 +1017,13 @@ class ResourceAST : public StyioAST {
         };
       };
 
-      return std::string("\033[1;36mResources\033[0m {\n")
+      return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
         + varStr
         + "}";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return "Resources { }";
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + " { }";
     }
 };
 
@@ -1032,8 +1051,8 @@ class FlexBindAST : public StyioAST {
       return StyioType::MutAssign;
     }
 
-    std::string toString(int indent = 0) {
-      return std::string("\033[1;36mBinding\033[0m \033[32m(Flexible)\033[0m {\n") 
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
         + make_padding(indent, " ") + "Var: " 
         + varId -> toString(indent + 1) 
         + "\n"
@@ -1042,8 +1061,8 @@ class FlexBindAST : public StyioAST {
         + "}";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("\033[1;36mBinding (Flexible)\033[0m {\n") 
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
         + std::string(2, ' ') + "| Var: " 
         + varId -> toStringInline(indent) 
         + "; "
@@ -1074,8 +1093,8 @@ class FinalBindAST : public StyioAST {
       return StyioType::FixAssign;
     }
 
-    std::string toString(int indent = 0) {
-      return std::string("\033[1;36mBinding\033[0m \033[31m(Final)\033[0m {\n") 
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
         + make_padding(indent, " ") + "Var: " 
         + varId -> toString(indent) 
         + "\n"
@@ -1085,8 +1104,8 @@ class FinalBindAST : public StyioAST {
         + "}";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("\033[1;36mBinding\033[0m \033[31m(Final)\033[0m { ")
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" { ")
         + varId -> toStringInline(indent) 
         + " } <- { "
         + valExpr -> toStringInline(indent) 
@@ -1127,13 +1146,13 @@ class StructAST : public StyioAST {
       return StyioType::Structure;
     }
 
-    std::string toString(int indent = 0) {
-      return std::string("Struct {") 
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {") 
         + "}";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("Struct {") 
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {") 
         + "}";
     }
 };
@@ -1165,8 +1184,8 @@ class ReadFileAST : public StyioAST {
       return StyioType::ReadFile;
     }
 
-    std::string toString(int indent = 0) {
-      return std::string("\033[1;36mRead\033[0m {\n") 
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
         + std::string(2, ' ') + "| Var: " 
         + varId -> toString(indent) 
         + "\n"
@@ -1176,8 +1195,8 @@ class ReadFileAST : public StyioAST {
         + "}";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("\033[1;36mRead\033[0m {\n") 
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
         + std::string(2, ' ') + "| Var: " 
         + varId -> toString(indent) 
         + "; "
@@ -1205,14 +1224,14 @@ class WriteStdOutAST : public StyioAST {
       return StyioType::WriteStdOut;
     }
 
-    std::string toString(int indent = 0) {
-      return std::string("\033[1;36mPrint\033[0m { ")
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" { ")
         + Output -> toStringInline(indent + 1)
         + " }";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("\033[1;36mPrint\033[0m { ")
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" { ")
         + Output -> toStringInline(indent + 1)
         + " }";
     }
@@ -1242,7 +1261,7 @@ class ExtPackAST : public StyioAST {
       return StyioType::ExtPack;
     }
 
-    std::string toString(int indent = 0) {
+    std::string toString(int indent = 0, bool colorful = false) {
       std::string pacPathStr;
 
       for(int i = 0; i < PackPaths.size(); i++) {
@@ -1251,12 +1270,12 @@ class ExtPackAST : public StyioAST {
         pacPathStr += "\n";
       };
 
-      return std::string("External Packages {\n")
+      return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
         + pacPathStr
         + "\n} ";
     }
 
-    std::string toStringInline(int indent = 0) {
+    std::string toStringInline(int indent = 0, bool colorful = false) {
       std::string pacPathStr;
 
       for(int i = 0; i < PackPaths.size(); i++) {
@@ -1265,7 +1284,7 @@ class ExtPackAST : public StyioAST {
         pacPathStr += " ;";
       };
 
-      return std::string("External Packages { ")
+      return reprStyioType(this -> hint(), colorful) + std::string(" { ")
         + pacPathStr
         + " } ";
     }
@@ -1305,7 +1324,7 @@ class BlockAST : public StyioAST {
       return StyioType::Block;
     }
 
-    std::string toString(int indent = 0) {
+    std::string toString(int indent = 0, bool colorful = false) {
       std::string stmtStr;
 
       for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Stmts.begin(); 
@@ -1321,13 +1340,13 @@ class BlockAST : public StyioAST {
         };
       };
 
-      return std::string("\033[1;36mBlock\033[0m {\n")
+      return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
         + stmtStr
         + "}";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("Block { }");
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" { }");
     }
 };
 
@@ -1351,7 +1370,7 @@ class CasesAST : public StyioAST {
       return StyioType::Cases;
     }
 
-    std::string toString(int indent = 0) {
+    std::string toString(int indent = 0, bool colorful = false) {
       std::string stmtStr = "Nothing";
 
       // for (auto [X, Y] : Cases)
@@ -1361,14 +1380,14 @@ class CasesAST : public StyioAST {
       //   stmtStr += "\n";
       // };
 
-      return std::string("Match Block (Cases) {\n")
+      return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
         + std::string(2, ' ') + "| Cases: "
         + stmtStr
         + "\n"
         + "\n} ";
     }
 
-    std::string toStringInline(int indent = 0) {
+    std::string toStringInline(int indent = 0, bool colorful = false) {
       std::string stmtStr = "Nothing";
 
       // for (auto [X, Y] : Cases)
@@ -1378,7 +1397,7 @@ class CasesAST : public StyioAST {
       //   stmtStr += "\n";
       // };
 
-      return std::string("Block { ")
+      return reprStyioType(this -> hint(), colorful) + std::string(" { ")
         + std::string(2, ' ') + "| Cases: "
         + stmtStr
         + " } ";
@@ -1420,11 +1439,11 @@ class CondFlowAST : public StyioAST {
       return StyioType::CondFlow;
     }
 
-    std::string toString(int indent = 0) {
+    std::string toString(int indent = 0, bool colorful = false) {
       if (WhatFlow == FlowType::True
         || WhatFlow == FlowType::False)
       {
-        return std::string("\033[1;36mIf\033[0m (Then) (Else) {\n") 
+        return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
         + make_padding(indent, " ") + reprFlow(WhatFlow) + "\n"
         + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1) + "\n"
         + make_padding(indent, " ") + "\033[1;35mThen\033[0m: "+ ThenBlock -> toString(indent + 1)
@@ -1432,7 +1451,7 @@ class CondFlowAST : public StyioAST {
       }
       else if (WhatFlow == FlowType::Both)
       {
-        return std::string("\033[1;36mIf\033[0m (Else) {\n") 
+        return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
         + make_padding(indent, " ") + reprFlow(WhatFlow) + "\n"
         + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1) + "\n"
         + make_padding(indent, " ") + "\033[1;35mThen\033[0m: " + ThenBlock -> toString(indent + 1) + "\n"
@@ -1441,15 +1460,15 @@ class CondFlowAST : public StyioAST {
       }
       else
       {
-        return std::string("\033[1;36mIf (Else?)\033[0m {\n") 
+        return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
         + make_padding(indent, " ") + reprFlow(WhatFlow) + "\n"
         + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1)
         + "}";
       }
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("\033[1;36mIf (Else?)\033[0m {") 
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {") 
       + "}";
     }
 };
@@ -1591,13 +1610,13 @@ class CheckEqAST : public StyioAST {
       return StyioType::CheckEq;
     }
 
-    std::string toString(int indent = 0) {
-      return std::string("Check Equal {") 
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {") 
       + "}";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("Check Equal {") 
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {") 
       + "}";
     }
 };
@@ -1617,13 +1636,13 @@ class CheckIsInAST : public StyioAST {
       return StyioType::CheckIsin;
     }
 
-    std::string toString(int indent = 0) {
-      return std::string("Check Is In {") 
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {") 
       + "}";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("Check Is In {") 
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {") 
       + "}";
     }
 };
@@ -1643,13 +1662,13 @@ class CheckCondAST : public StyioAST {
       return StyioType::CheckCond;
     }
 
-    std::string toString(int indent = 0) {
-      return std::string("Check Condition {") 
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {") 
       + "}";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("Check Condition {") 
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {") 
       + "}";
     }
 };
@@ -1745,13 +1764,13 @@ class ForwardAST : public StyioAST {
       return Type;
     }
 
-    std::string toString(int indent = 0) {
-      return std::string("Forward {\n") 
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ");
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("Forward { }");
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" { }");
     }
 };
 
@@ -1789,17 +1808,17 @@ class InfiniteAST : public StyioAST {
       return StyioType::InfLoop;
     }
 
-    std::string toString(int indent = 0) {
+    std::string toString(int indent = 0, bool colorful = false) {
       switch (WhatType)
       {
       case InfiniteType::Original:
-        return std::string("Infinite { }");
+        return reprStyioType(this -> hint(), colorful) + std::string(" { }");
 
         // You should NOT reach this line!
         break;
       
       case InfiniteType::Incremental:
-        return std::string("Infinite {")
+        return reprStyioType(this -> hint(), colorful) + std::string(" {")
           + "\n" 
           + "|" + std::string(2 * indent, '-') + "| Start: "
           + Start -> toString(indent + 1) 
@@ -1816,11 +1835,11 @@ class InfiniteAST : public StyioAST {
         break;
       }
 
-      return std::string("Infinite { Undefined! }");
+      return reprStyioType(this -> hint(), colorful) + std::string(" { Undefined! }");
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("InfLoop { }");
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" { }");
     }
 };
 
@@ -1859,19 +1878,20 @@ class FuncAST : public StyioAST {
       return StyioType::Function;
     }
 
-    std::string toString(int indent = 0) {
-      std::string output = std::string("\033[1;36mFunction\033[0m ");
+    std::string toString(int indent = 0, bool colorful = false) {
+      std::string extra = "";
 
       if (FisFinal)
       {
-        output += "\033[31m(Final)\033[0m";
+        extra = "(Final)";
       }
       else
       {
-        output += "\033[32m(Flexible)\033[0m";
+        extra = "(Flexible)";
       };
 
-      output += " {\n";
+      std::string output = reprStyioType(this -> hint(), colorful, extra) + " {\n";
+
       output += make_padding(indent, " ") + "Name: " + FName -> toString(indent + 1) + "\n";
   
       output += make_padding(indent, " ") + Forward -> toString(indent + 1);
@@ -1881,8 +1901,19 @@ class FuncAST : public StyioAST {
       return output;
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("Function {") 
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      std::string extra = "";
+
+      if (FisFinal)
+      {
+        extra = "(Final)";
+      }
+      else
+      {
+        extra = "(Flexible)";
+      };
+
+      return reprStyioType(this -> hint(), colorful, extra) + std::string(" {") 
         + "}";
     }
 };
@@ -1896,20 +1927,20 @@ class FuncAST : public StyioAST {
 /*
   IterInfinite: [...] >> {}
 */
-class IterInfinite : public StyioAST {
+class LoopAST : public StyioAST {
   IteratorType WhatType;
   std::unique_ptr<FillingAST> TmpVars;
   std::unique_ptr<StyioAST> TheBlock;
 
   public:
-    IterInfinite(
+    LoopAST(
       std::unique_ptr<StyioAST> block):
       TheBlock(std::move(block))
       {
         WhatType = IteratorType::Original;
       }
 
-    IterInfinite(
+    LoopAST(
       std::unique_ptr<FillingAST> tmpVars,
       std::unique_ptr<StyioAST> block):
       TmpVars(std::move(tmpVars)),
@@ -1919,11 +1950,11 @@ class IterInfinite : public StyioAST {
       }
 
     StyioType hint() {
-      return StyioType::IterInfinite;
+      return StyioType::Loop;
     }
 
-    std::string toString(int indent = 0) {
-      std::string output = std::string("\033[1;36mLoop\033[0m \033[31m(Infinite)\033[0m {\n");
+    std::string toString(int indent = 0, bool colorful = false) {
+      std::string output = reprStyioType(this -> hint(), colorful) + std::string(" {\n");
 
       output += make_padding(indent, " ") + TheBlock -> toString(indent + 1);
 
@@ -1932,8 +1963,8 @@ class IterInfinite : public StyioAST {
       return output;
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("\033[1;36mLoop\033[0m \033[31m(Infinite)\033[0m { ")
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" { ")
       + "}";
     }
 };
@@ -1971,14 +2002,14 @@ class IterBounded : public StyioAST {
       return StyioType::IterBounded;
     }
 
-    std::string toString(int indent = 0) {
-      return std::string("\033[1;36mIterator\033[0m \033[32m(Bounded)\033[0m {\n") 
+    std::string toString(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + TheCollection -> toStringInline(indent + 1)
       + "}";
     }
 
-    std::string toStringInline(int indent = 0) {
-      return std::string("\033[1;36mIterator\033[0m \033[32m(Bounded)\033[0m { ") 
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
       + TheCollection -> toStringInline(indent + 1)
       + " }";
     }
