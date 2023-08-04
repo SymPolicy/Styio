@@ -52,8 +52,14 @@ std::string read_styio_file(const char* filename)
   return std::string("...");
 }
 
-int main() {
-  parse_program(read_styio_file("hello.styio"));
+int main(int argc, char* argv[]) {
+  std::ifstream file ( argv[1] );
+  // Always check to see if file opening succeeded
+  if ( !file.is_open() )
+    printf("Failed: Can't open file %s.\n", argv[1]);
+  else {
+    parse_program(read_styio_file(argv[1]));
+  }
   
   return 0;
 }
