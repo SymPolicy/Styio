@@ -1,4 +1,4 @@
-// RUN: styio %s | FileCheck %s
+// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
 
 >_("Hello, World!")
 

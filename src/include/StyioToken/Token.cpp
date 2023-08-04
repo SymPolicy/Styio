@@ -312,7 +312,7 @@ std::string reprStyioType (
 
   case StyioType::Function:
     {
-      auto name = std::string("func");
+      auto name = std::string("Function");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -323,7 +323,7 @@ std::string reprStyioType (
     
     break;
 
-case StyioType::Structure:
+  case StyioType::Structure:
     {
       auto name = std::string("struct");
 
@@ -336,7 +336,7 @@ case StyioType::Structure:
     
     break;
 
-case StyioType::Loop:
+  case StyioType::Loop:
     {
       auto name = std::string("loop");
 
@@ -349,7 +349,7 @@ case StyioType::Loop:
     
     break;
 
-case StyioType::CheckEq:
+  case StyioType::CheckEq:
     {
       auto name = std::string("if equal?");
 
@@ -362,7 +362,7 @@ case StyioType::CheckEq:
     
     break;
 
-case StyioType::CheckIsin:
+  case StyioType::CheckIsin:
     {
       auto name = std::string("if isin?");
 
@@ -375,9 +375,113 @@ case StyioType::CheckIsin:
     
     break;
 
-case StyioType::CheckCond:
+  case StyioType::CheckCond:
     {
       auto name = std::string("if cond?");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Forward:
+    {
+      auto name = std::string("Forward");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Forward_Run:
+    {
+      auto name = std::string("Forward(Run)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Forward_Filling:
+    {
+      auto name = std::string("Forward(Filling)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Forward_MatchValue:
+    {
+      auto name = std::string("Forward(Match, Value)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Forward_MatchCases:
+    {
+      auto name = std::string("Forward(Match, Cases)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Forward_CheckIsin:
+    {
+      auto name = std::string("Forward(Isin)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Forward_CheckCond_True:
+    {
+      auto name = std::string("Forward(Cond-True)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Forward_CheckCond_False:
+    {
+      auto name = std::string("Forward(Cond-False)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);

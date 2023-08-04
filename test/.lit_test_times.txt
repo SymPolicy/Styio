@@ -23,9 +23,10 @@
 -1.087189e-04 example/basic/variable_declare/single_variable_with_parens_with_type_string.styio
 -2.561092e-03 example/demo/hello.styio
 -1.606941e-04 example/demo/print.styio
--3.263235e-03 basic/binop/00001.styio
--3.735065e-03 basic/binop/00002.styio
+8.741617e-03 basic/binop/00001.styio
+8.857489e-03 basic/binop/00002.styio
 -7.941723e-04 basic/function/function.styio
--3.145218e-03 basic/function/00001.styio
+9.095669e-03 basic/function/00001.styio
 -3.231287e-03 basic/print/hello.styio
--3.583908e-03 basic/print/00000.styio
+-5.001545e-03 basic/print/00000.styio
+8.448362e-03 basic/print/00001.styio

@@ -1,4 +1,4 @@
-// RUN: styio %s | FileCheck %s
+// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
 
 0.0 + 0.1 + 0.2 + 0.3 + 0.4
 

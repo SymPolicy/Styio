@@ -16,13 +16,14 @@
   =================
 */
 
-void get_next_char
+void go_ahead
 (
   struct StyioCodeContext* code,
   char& cur_char
 )
 {
   code -> cursor += 1;
+
   cur_char = code -> text.at(code -> cursor);
 }
 
@@ -30,8 +31,7 @@ inline bool can_be_ignored(char token) {
   return isspace(token);
 }
 
-void move_to_next_token
-(
+void move_until_token (
   struct StyioCodeContext* code,
   char& cur_char) {
   while (can_be_ignored(code -> text.at(code -> cursor)))
@@ -57,7 +57,7 @@ void drop_all_spaces
 ) 
 {
   while (isspace(cur_char)) {
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
   };
 }
 
@@ -68,7 +68,7 @@ void drop_white_spaces
 ) 
 {
   while (check_this_char(cur_char, ' ')) {
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
   };
 }
 
@@ -94,7 +94,7 @@ void check_and_drop (
   }
 
   if (check_this_char(cur_char, value)) {
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
   }
   else {
     std::string errmsg = std::string("Expecting .:| ") + char(value) + " |:. , but got .:| " + char(cur_char) + " |:.";
@@ -200,7 +200,7 @@ void move_until_binop (
       break;
     } 
     else {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
     }
   };
 }
@@ -210,7 +210,7 @@ void drop_until (
   char& cur_char,
   char value) {
   while (not check_this_char(cur_char, value)) {
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
   };
 }
 
@@ -239,7 +239,7 @@ std::unique_ptr<IdAST> parse_id
   // [a-zA-Z][a-zA-Z0-9_]*
   do {
     idStr += cur_char;
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
   } while (
     isalnum((cur_char)) 
     || check_this_char(cur_char, '_')
@@ -263,13 +263,13 @@ std::unique_ptr<IntAST> parse_int
   intStr += cur_char;
 
   // progress to the next
-  get_next_char(code, cur_char);
+  go_ahead(code, cur_char);
 
   // [0-9]*
   while (isdigit(cur_char))
   {
     intStr += cur_char;
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
   };
 
   output = std::make_unique<IntAST>(intStr);
@@ -286,18 +286,18 @@ std::unique_ptr<StyioAST> parse_int_or_float
 
   std::string numStr = "";
   numStr += cur_char;
-  get_next_char(code, cur_char);
+  go_ahead(code, cur_char);
 
   // [0-9]*
   while (isdigit(cur_char))
   {
     numStr += cur_char;
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
   };
 
   if (check_this_char(cur_char, '.')) 
   {
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
 
     if (isdigit(cur_char))
     {
@@ -306,7 +306,7 @@ std::unique_ptr<StyioAST> parse_int_or_float
       while (isdigit(cur_char))
       {
         numStr += cur_char;
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
       };
 
       output = std::make_unique<FloatAST>(numStr);
@@ -333,18 +333,18 @@ std::unique_ptr<StringAST> parse_string
   std::unique_ptr<StringAST> output;
 
   // eliminate the first(start) double quote
-  get_next_char(code, cur_char);
+  go_ahead(code, cur_char);
 
   std::string textStr = "";
   
   while (cur_char != '\"')
   {
     textStr += cur_char;
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
   };
 
   // eliminate the second(end) double quote
-  get_next_char(code, cur_char);
+  go_ahead(code, cur_char);
 
   output = std::make_unique<StringAST>(textStr);
 
@@ -360,18 +360,18 @@ std::unique_ptr<StyioAST> parse_char_or_string
   std::unique_ptr<StyioAST> output;
 
   // eliminate the first(start) single quote
-  get_next_char(code, cur_char);
+  go_ahead(code, cur_char);
 
   std::string textStr = "";
   
   while (cur_char != '\'')
   {
     textStr += cur_char;
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
   };
 
   // eliminate the second(end) single quote
-  get_next_char(code, cur_char);
+  go_ahead(code, cur_char);
 
   if (textStr.length() == 1)
   {
@@ -393,18 +393,18 @@ std::unique_ptr<StyioAST> parse_path_or_link (
   std::unique_ptr<StyioAST> output;
 
   // eliminate @
-  get_next_char(code, cur_char);
+  go_ahead(code, cur_char);
 
   if (check_this_char(cur_char, '(')) {
     // eliminate (
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
 
     if (check_this_char(cur_char, '\"')) {
       std::unique_ptr<StringAST> path = parse_string(code, cur_char);
 
       if (check_this_char(cur_char, ')')) {
         // eliminate )
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
       }
       else
       {
@@ -440,7 +440,7 @@ std::unique_ptr<CommentAST> parse_comment (
     {
       commentText += char(cur_char);
 
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
     }
 
     return std::make_unique<CommentAST>(commentText);
@@ -452,14 +452,14 @@ std::unique_ptr<CommentAST> parse_comment (
       {
         commentText += char(cur_char);
 
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
       }
 
       // eliminate the detected *
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       if (check_this_char(cur_char, '/')) {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         return std::make_unique<CommentAST>(commentText);
       }
@@ -485,7 +485,7 @@ std::unique_ptr<FillingAST> parse_filling (
   std::vector<std::unique_ptr<StyioAST>> vars;
 
   if (check_this_char(cur_char, '(')) {
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
   }
   else {
     std::string errmsg = std::string("(x, y, ...) // Expecting ( at the start, but got .:| ") + char(cur_char) + " |:.";
@@ -494,22 +494,26 @@ std::unique_ptr<FillingAST> parse_filling (
 
   vars.push_back(std::move(parse_id(code, cur_char)));
 
-  move_to_next_token(code, cur_char);
+  move_until_token(code, cur_char);
 
   while (check_this_char(cur_char, ','))
   {
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
 
-    move_to_next_token(code, cur_char);
+    move_until_token(code, cur_char);
 
     if (check_this_char(cur_char, ')'))
     {
-      get_next_char(code, cur_char);
       break;
     };
 
     vars.push_back(std::move(parse_id(code, cur_char)));
   }
+
+  if (check_this_char(cur_char, ')'))
+  {
+    go_ahead(code, cur_char);
+  };
 
   output = std::make_unique<FillingAST>(std::move(vars));
 
@@ -524,27 +528,27 @@ std::unique_ptr<ResourceAST> parse_resources (
   std::vector<std::unique_ptr<StyioAST>> resources;
 
   // eliminate @ at the start
-  get_next_char(code, cur_char);
+  go_ahead(code, cur_char);
 
   if (check_this_char(cur_char, '(')) 
   {
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
 
-    move_to_next_token(code, cur_char);
+    move_until_token(code, cur_char);
 
     if (isalpha(cur_char) || check_this_char(cur_char, '_')) {
       // "@" "(" |--
       std::unique_ptr<IdAST> tmp_res_name = parse_id(code, cur_char);
 
-      move_to_next_token(code, cur_char);
+      move_until_token(code, cur_char);
 
       if (check_this_char(cur_char, '<')) {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         check_and_drop(code, cur_char, '-', 0);
       };
 
-      move_to_next_token(code, cur_char);
+      move_until_token(code, cur_char);
 
       std::unique_ptr<StyioAST> tmp_expr = std::make_unique<FinalBindAST>(
         std::move(tmp_res_name), 
@@ -553,28 +557,28 @@ std::unique_ptr<ResourceAST> parse_resources (
       resources.push_back(std::move(tmp_expr));
     };
 
-    move_to_next_token(code, cur_char);
+    move_until_token(code, cur_char);
 
     // "@" "(" [<ID> |--
     while (check_this_char(cur_char, ','))
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
-      move_to_next_token(code, cur_char);
+      move_until_token(code, cur_char);
 
       if (isalpha(cur_char) || check_this_char(cur_char, '_')) {
         
         std::unique_ptr<IdAST> tmp_res_name = parse_id(code, cur_char);
 
-        move_to_next_token(code, cur_char);
+        move_until_token(code, cur_char);
 
         if (check_this_char(cur_char, '<')) {
-          get_next_char(code, cur_char);
+          go_ahead(code, cur_char);
 
           check_and_drop(code, cur_char, '-', 0);
         };
 
-        move_to_next_token(code, cur_char);
+        move_until_token(code, cur_char);
 
         std::unique_ptr<StyioAST> tmp_value = parse_value(code, cur_char);
 
@@ -587,7 +591,7 @@ std::unique_ptr<ResourceAST> parse_resources (
     
     if (check_this_char(cur_char, ')')) 
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
     }
     else
     {
@@ -618,21 +622,21 @@ std::unique_ptr<StyioAST> parse_item_for_cond (
   char& cur_char) {
   std::unique_ptr<StyioAST> output;
 
-  move_to_next_token(code, cur_char);
+  move_until_token(code, cur_char);
 
   output = parse_value(code, cur_char);
   
-  move_to_next_token(code, cur_char);
+  move_until_token(code, cur_char);
 
   switch (cur_char)
   {
   case '=':
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       if (check_this_char(cur_char, '='))
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         /*
           Equal
@@ -653,11 +657,11 @@ std::unique_ptr<StyioAST> parse_item_for_cond (
 
   case '!':
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       if (check_this_char(cur_char, '='))
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         /*
           Not Equal
@@ -678,11 +682,11 @@ std::unique_ptr<StyioAST> parse_item_for_cond (
 
   case '>':
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       if (check_this_char(cur_char, '='))
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         /*
           Greater Than and Equal
@@ -718,11 +722,11 @@ std::unique_ptr<StyioAST> parse_item_for_cond (
 
   case '<':
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       if (check_this_char(cur_char, '='))
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         /*
           Less Than and Equal
@@ -799,7 +803,7 @@ std::unique_ptr<StyioAST> parse_id_or_value (
     output = parse_call(code, cur_char);
   }
 
-  move_to_next_token(code, cur_char);
+  move_until_token(code, cur_char);
 
   if (is_binary_token(cur_char)) {
     output = parse_binop_rhs(code, cur_char, std::move(output));
@@ -868,12 +872,12 @@ std::unique_ptr<StyioAST> parse_item_for_binop (
 
   case '[':
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       drop_white_spaces(code, cur_char);
 
       if (check_this_char(cur_char, ']')) {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         output = std::make_unique<EmptyListAST>();
       }
@@ -953,12 +957,12 @@ std::unique_ptr<StyioAST> parse_expr (
 
   case '[':
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       drop_white_spaces(code, cur_char);
 
       if (check_this_char(cur_char, ']')) {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         output = std::make_unique<EmptyListAST>();
       }
@@ -1009,7 +1013,7 @@ std::unique_ptr<SizeOfAST> parse_size_of (
   std::unique_ptr<SizeOfAST> output;
 
   // eliminate | at the start
-  get_next_char(code, cur_char);
+  go_ahead(code, cur_char);
        
   if (isalpha(cur_char) || check_this_char(cur_char, '_'))
   {
@@ -1017,7 +1021,7 @@ std::unique_ptr<SizeOfAST> parse_size_of (
 
     // eliminate | at the end
     if (check_this_char(cur_char, '|')) {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       output = std::make_unique<SizeOfAST>(std::move(var));
     }
@@ -1082,7 +1086,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
 ) 
 {
   // eliminate [ at the start
-  get_next_char(code, cur_char);
+  go_ahead(code, cur_char);
 
   std::unique_ptr<ListOpAST> output;
 
@@ -1118,7 +1122,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
           list[<]
         */
 
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         output = std::make_unique<ListOpAST>(
           ListOpType::Get_Reversed,
@@ -1131,11 +1135,11 @@ std::unique_ptr<ListOpAST> parse_list_op (
     // list[?= item]
     case '?':
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         if (check_this_char(cur_char, '='))
         {
-          get_next_char(code, cur_char);
+          go_ahead(code, cur_char);
 
           output = std::make_unique<ListOpAST>(
             ListOpType::Get_Index_By_Item,
@@ -1154,11 +1158,11 @@ std::unique_ptr<ListOpAST> parse_list_op (
     
     case '+':
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         if (check_this_char(cur_char, ':'))
         {
-          get_next_char(code, cur_char);
+          go_ahead(code, cur_char);
 
           // eliminate white spaces after +:
           drop_white_spaces(code, cur_char);
@@ -1176,11 +1180,11 @@ std::unique_ptr<ListOpAST> parse_list_op (
 
             if (check_this_char(cur_char, '<'))
             {
-              get_next_char(code, cur_char);
+              go_ahead(code, cur_char);
 
               if (check_this_char(cur_char, '-'))
               {
-                get_next_char(code, cur_char);
+                go_ahead(code, cur_char);
 
                 // eliminate white spaces between <- and the value to be inserted
                 drop_white_spaces(code, cur_char);
@@ -1219,11 +1223,11 @@ std::unique_ptr<ListOpAST> parse_list_op (
     
     case '-':
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         if (check_this_char(cur_char, ':'))
         {
-          get_next_char(code, cur_char);
+          go_ahead(code, cur_char);
 
           // eliminate white spaces after -:
           drop_white_spaces(code, cur_char);
@@ -1255,7 +1259,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
               */
 
               // eliminate ( at the start
-              get_next_char(code, cur_char);
+              go_ahead(code, cur_char);
               
               // drop white spaces between '(' and the first index
               drop_white_spaces(code, cur_char);
@@ -1270,7 +1274,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
               while (check_this_char(cur_char, ','))
               {
                 // remove ,
-                get_next_char(code, cur_char);
+                go_ahead(code, cur_char);
 
                 // drop white spaces between , and next index
                 drop_white_spaces(code, cur_char);
@@ -1288,7 +1292,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
               
               if (check_this_char(cur_char, ')'))
               {
-                get_next_char(code, cur_char);
+                go_ahead(code, cur_char);
 
                 output = std::make_unique<ListOpAST>(
                   ListOpType::Remove_Many_Items_By_Indices,
@@ -1307,7 +1311,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
 
             case '?':
             {
-              get_next_char(code, cur_char);
+              go_ahead(code, cur_char);
 
               switch (cur_char)
               {
@@ -1317,7 +1321,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
                   list[-: ?= value]
                 */
 
-                get_next_char(code, cur_char);
+                go_ahead(code, cur_char);
 
                 // drop white spaces after ?=
                 drop_white_spaces(code, cur_char);
@@ -1337,7 +1341,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
                   list[-: ?^ (v0, v1, ...)]
                 */
 
-                get_next_char(code, cur_char);
+                go_ahead(code, cur_char);
 
                 // drop white spaces after ?^
                 drop_white_spaces(code, cur_char);
@@ -1346,7 +1350,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
                   || check_this_char(cur_char, '[')
                   || check_this_char(cur_char, '{'))
                 {
-                  get_next_char(code, cur_char);
+                  go_ahead(code, cur_char);
                 }
               }
               
@@ -1388,7 +1392,7 @@ std::unique_ptr<ListOpAST> parse_list_op (
   if (check_this_char(cur_char, ']'))
   {
     // eliminate ] at the end
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
     
     return output;
   }
@@ -1417,12 +1421,8 @@ std::unique_ptr<StyioAST> parse_iter (
   // eliminate the start
   if (check_this_char(cur_char, '('))
   {
-    drop_white_spaces(code, cur_char);
-
     iterTmpVars = parse_filling(code, cur_char);
     hasVars = true;
-
-    check_and_drop(code, cur_char, ')', 2);
   }
 
   /*
@@ -1446,7 +1446,7 @@ std::unique_ptr<StyioAST> parse_iter (
 
   if (check_this_char(cur_char, '?'))
   {
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
 
     switch (cur_char)
     {
@@ -1455,7 +1455,7 @@ std::unique_ptr<StyioAST> parse_iter (
     */
     case '=':
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         // drop white spaces after ?=
         drop_white_spaces(code, cur_char);
@@ -1503,11 +1503,11 @@ std::unique_ptr<StyioAST> parse_iter (
 
   if (check_this_char(cur_char, '='))
   {
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
 
     if (check_this_char(cur_char, '>'))
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
     }
     else
     {
@@ -1584,17 +1584,17 @@ std::unique_ptr<StyioAST> parse_list_expr (
   std::unique_ptr<StyioAST> startEl = parse_expr(code, cur_char);
   elements.push_back(std::move(startEl));
 
-  move_to_next_token(code, cur_char);
+  move_until_token(code, cur_char);
 
   switch (cur_char)
   {
   case '.':
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       while (check_this_char(cur_char, '.'))
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
       }
       
       std::unique_ptr<StyioAST> endEl = parse_expr(code, cur_char);
@@ -1631,7 +1631,7 @@ std::unique_ptr<StyioAST> parse_list_expr (
 
       if (check_this_char(cur_char, ']')) 
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
       }
       else
       {
@@ -1654,12 +1654,12 @@ std::unique_ptr<StyioAST> parse_list_expr (
 
       case '>':
         {
-          get_next_char(code, cur_char);
+          go_ahead(code, cur_char);
 
           if (check_this_char(cur_char, '>'))
           {
             // If: >>, Then: Iteration
-            get_next_char(code, cur_char);
+            go_ahead(code, cur_char);
             
             return parse_iter(code, cur_char, std::move(list_loop));
           }
@@ -1697,13 +1697,13 @@ std::unique_ptr<StyioAST> parse_list_expr (
       while (check_this_char(cur_char, ','))
       {
         // eliminate ,
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         drop_white_spaces(code, cur_char);
 
         if (check_this_char(cur_char, ']')) 
         {
-          get_next_char(code, cur_char);
+          go_ahead(code, cur_char);
 
           theList = std::make_unique<ListAST>(std::move(elements));
         };
@@ -1715,7 +1715,7 @@ std::unique_ptr<StyioAST> parse_list_expr (
 
       if (check_this_char(cur_char, ']')) 
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         theList = std::make_unique<ListAST>(std::move(elements));
       }
@@ -1740,12 +1740,12 @@ std::unique_ptr<StyioAST> parse_list_expr (
 
       case '>':
         {
-          get_next_char(code, cur_char);
+          go_ahead(code, cur_char);
 
           if (check_this_char(cur_char, '>'))
           {
             // If: >>, Then: Iteration
-            get_next_char(code, cur_char);
+            go_ahead(code, cur_char);
 
             return parse_iter(code, cur_char, std::move(theList));
           }
@@ -1797,11 +1797,11 @@ std::unique_ptr<StyioAST> parse_loop (
   while (check_this_char(cur_char, '.')) 
   { 
     // eliminate all .
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
 
     if (check_this_char(cur_char, ']')) 
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       break;
     };
@@ -1820,11 +1820,11 @@ std::unique_ptr<StyioAST> parse_loop (
   {
   case '>':
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       if (check_this_char(cur_char, '>'))
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         // eliminate white spaces after >>
         drop_white_spaces(code, cur_char);
@@ -1886,9 +1886,9 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
     // BIN_ADD := <ID> "+" <EXPR>
     case '+':
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
-        move_to_next_token(code, cur_char);
+        move_until_token(code, cur_char);
 
         // <ID> "+" |-- 
         output = std::make_unique<BinOpAST>(
@@ -1903,9 +1903,9 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
     // BIN_SUB := <ID> "-" <EXPR>
     case '-':
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
-        move_to_next_token(code, cur_char);
+        move_until_token(code, cur_char);
 
         // <ID> "-" |--
         output = std::make_unique<BinOpAST>(
@@ -1920,13 +1920,13 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
     // BIN_MUL | BIN_POW
     case '*':
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
         // BIN_POW := <ID> "**" <EXPR>
         if (check_this_char(cur_char, '*'))
         {
-          get_next_char(code, cur_char);
+          go_ahead(code, cur_char);
 
-          move_to_next_token(code, cur_char);
+          move_until_token(code, cur_char);
 
           // <ID> "**" |--
           output = std::make_unique<BinOpAST>(
@@ -1937,7 +1937,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
         // BIN_MUL := <ID> "*" <EXPR>
         else 
         {
-          move_to_next_token(code, cur_char);
+          move_until_token(code, cur_char);
 
           // <ID> "*" |--
           output = std::make_unique<BinOpAST>(
@@ -1952,9 +1952,9 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
     // BIN_DIV := <ID> "/" <EXPR>
     case '/':
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
-        move_to_next_token(code, cur_char);
+        move_until_token(code, cur_char);
 
         // <ID> "/" |-- 
         output = std::make_unique<BinOpAST>(
@@ -1969,9 +1969,9 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
     // BIN_MOD := <ID> "%" <EXPR> 
     case '%':
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
-        move_to_next_token(code, cur_char);
+        move_until_token(code, cur_char);
 
         // <ID> "%" |-- 
         output = std::make_unique<BinOpAST>(
@@ -1991,7 +1991,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
       break;
   }
 
-  move_to_next_token(code, cur_char);
+  move_until_token(code, cur_char);
 
   while (check_binop_token(code)) 
   {
@@ -2017,11 +2017,11 @@ std::unique_ptr<CondAST> parse_cond_rhs (
   {
   case '&':
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       if (check_this_char(cur_char, '&'))
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
       };
 
       /*
@@ -2043,11 +2043,11 @@ std::unique_ptr<CondAST> parse_cond_rhs (
 
   case '|':
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       if (check_this_char(cur_char, '|'))
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
       };
 
       /*
@@ -2069,7 +2069,7 @@ std::unique_ptr<CondAST> parse_cond_rhs (
 
   case '^':
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       /*
         support:
@@ -2090,11 +2090,11 @@ std::unique_ptr<CondAST> parse_cond_rhs (
 
   case '!':
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       if (check_this_char(cur_char, '('))
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         /*
           support:
@@ -2138,7 +2138,7 @@ std::unique_ptr<CondAST> parse_cond (
 
   if (check_this_char(cur_char, '('))
   {
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
 
     lhsExpr = std::move(parse_cond(code, cur_char));
 
@@ -2147,11 +2147,11 @@ std::unique_ptr<CondAST> parse_cond (
   else
   if (check_this_char(cur_char, '!'))
   {
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
 
     if (check_this_char(cur_char, '('))
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       /*
         support:
@@ -2207,12 +2207,12 @@ std::unique_ptr<StyioAST> parse_cond_flow (
 )
 {
   // eliminate ?
-  get_next_char(code, cur_char);
+  go_ahead(code, cur_char);
 
   std::unique_ptr<CondAST> condition;
   
   if (check_this_char(cur_char, '(')) {
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
 
     condition = parse_cond(code, cur_char);
 
@@ -2230,13 +2230,13 @@ std::unique_ptr<StyioAST> parse_cond_flow (
 
     if (check_this_char(cur_char, '\\'))
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       std::unique_ptr<StyioAST> block;
 
       if (check_this_char(cur_char, 't'))
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         check_and_drop(code, cur_char, '\\', 0);
 
@@ -2259,13 +2259,13 @@ std::unique_ptr<StyioAST> parse_cond_flow (
 
         if (check_this_char(cur_char, '\\'))
         {
-          get_next_char(code, cur_char);
+          go_ahead(code, cur_char);
 
           check_and_drop(code, cur_char, 'f', 0);
 
           if (check_this_char(cur_char, '\\'))
           {
-            get_next_char(code, cur_char);
+            go_ahead(code, cur_char);
 
             /*
               support:
@@ -2295,7 +2295,7 @@ std::unique_ptr<StyioAST> parse_cond_flow (
       }
       else if (check_this_char(cur_char, 'f'))
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         check_and_drop(code, cur_char, '\\', 0);
 
@@ -2381,7 +2381,7 @@ std::unique_ptr<StyioAST> parse_pipeline (
   bool pisFinal = false;
 
   // eliminate # at the start
-  get_next_char(code, cur_char);
+  go_ahead(code, cur_char);
 
   // after #
   drop_white_spaces(code, cur_char);
@@ -2399,25 +2399,21 @@ std::unique_ptr<StyioAST> parse_pipeline (
 
   if (check_this_char(cur_char, ':'))
   {
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
 
     pisFinal = true;
   };
 
   if (check_this_char(cur_char, '='))
   {
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
   };
 
-  drop_all_spaces(code, cur_char);
+  move_until_token(code, cur_char);
 
   if (check_this_char(cur_char, '('))
   {
-    get_next_char(code, cur_char);
-
     pipeVars = parse_filling(code, cur_char);
-
-    check_and_drop(code, cur_char, ')', 2);
   }
   else
   {
@@ -2425,15 +2421,15 @@ std::unique_ptr<StyioAST> parse_pipeline (
     throw StyioSyntaxError(errmsg);
   };
 
-  drop_all_spaces(code, cur_char);
+  move_until_token(code, cur_char);
   
   if (check_this_char(cur_char, '='))
   {
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
 
     if (check_this_char(cur_char, '>'))
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
     };
   };
 
@@ -2489,18 +2485,18 @@ std::unique_ptr<StyioAST> parse_write_stdout (
   std::unique_ptr<StyioAST> output;
 
   // eliminate >
-  get_next_char(code, cur_char);
+  go_ahead(code, cur_char);
   
   if (check_this_char(cur_char, '_')) {
     // eliminate _
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
 
     drop_white_spaces(code, cur_char);
 
     if (check_this_char(cur_char, '('))
     {
       // eliminate (
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       drop_all_spaces(code, cur_char);
 
@@ -2510,7 +2506,7 @@ std::unique_ptr<StyioAST> parse_write_stdout (
 
       if (check_this_char(cur_char, ')'))
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
       }
       else
       {
@@ -2532,7 +2528,7 @@ std::unique_ptr<StyioAST> parse_stmt (
   struct StyioCodeContext* code, 
   char& cur_char) {
   
-  move_to_next_token(code, cur_char);
+  move_until_token(code, cur_char);
 
   // <ID>
   if (isalpha(cur_char) 
@@ -2555,7 +2551,7 @@ std::unique_ptr<StyioAST> parse_stmt (
       // <LF>
       case '\n':
         {
-          get_next_char(code, cur_char);
+          go_ahead(code, cur_char);
 
           return id_ast;
         };
@@ -2566,7 +2562,7 @@ std::unique_ptr<StyioAST> parse_stmt (
       // <ID> = <EXPR>
       case '=':
         {
-          get_next_char(code, cur_char);
+          go_ahead(code, cur_char);
 
           drop_white_spaces(code, cur_char);
 
@@ -2580,10 +2576,10 @@ std::unique_ptr<StyioAST> parse_stmt (
       // <ID> := <EXPR>
       case ':':
         {
-          get_next_char(code, cur_char);
+          go_ahead(code, cur_char);
           if (check_this_char(cur_char, '='))
           {
-            get_next_char(code, cur_char);
+            go_ahead(code, cur_char);
 
             drop_white_spaces(code, cur_char);
             
@@ -2604,12 +2600,12 @@ std::unique_ptr<StyioAST> parse_stmt (
       case '<':
         {
           // eliminate <
-          get_next_char(code, cur_char);
+          go_ahead(code, cur_char);
 
           if (check_this_char(cur_char, '-'))
           {
             // eliminate -
-            get_next_char(code, cur_char);
+            go_ahead(code, cur_char);
 
             drop_white_spaces(code, cur_char);
             
@@ -2629,12 +2625,12 @@ std::unique_ptr<StyioAST> parse_stmt (
       // ID >> Layer
       case '>':
         {
-          get_next_char(code, cur_char);
+          go_ahead(code, cur_char);
 
           if (check_this_char(cur_char, '>'))
           {
             // If: >>, Then: Iteration
-            get_next_char(code, cur_char);
+            go_ahead(code, cur_char);
             
             return parse_iter(code, cur_char, std::move(id_ast));
           }
@@ -2711,7 +2707,7 @@ std::unique_ptr<StyioAST> parse_stmt (
   if (isdigit(cur_char)) {
     std::unique_ptr<StyioAST> numAST = parse_int_or_float(code, cur_char);
 
-    move_to_next_token(code, cur_char);
+    move_until_token(code, cur_char);
 
     if (is_binary_token(cur_char)) {
       return parse_binop_rhs(code, cur_char, std::move(numAST));
@@ -2732,7 +2728,7 @@ std::unique_ptr<StyioAST> parse_stmt (
     {
       while (check_this_char(cur_char, '.'))
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
       }
       
       return std::make_unique<PassAST>();
@@ -2809,12 +2805,12 @@ std::unique_ptr<StyioAST> parse_stmt (
   */
   case '[':
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       if (check_this_char(cur_char, '.')) 
       {
         // eliminate the first dot .
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         if (check_this_char(cur_char, ']')) 
         {
@@ -2863,11 +2859,11 @@ std::unique_ptr<StyioAST> parse_stmt (
 
   case '=':
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       if (check_this_char(cur_char, '>'))
       {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
       };
 
       drop_white_spaces(code, cur_char);
@@ -2880,15 +2876,15 @@ std::unique_ptr<StyioAST> parse_stmt (
 
   case '/':
     {
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       if (check_this_char(cur_char, '/')) {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         return parse_comment(code, cur_char, 1);
       }
       else if (check_this_char(cur_char, '*')) {
-        get_next_char(code, cur_char);
+        go_ahead(code, cur_char);
 
         return parse_comment(code, cur_char, 2);
       }
@@ -2915,7 +2911,7 @@ std::string parse_ext_elem(
   if (check_this_char(cur_char, '\"'))
   {
     // eliminate double quote symbol " at the start of dependency item
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
 
     while (cur_char != '\"') 
     {
@@ -2927,11 +2923,11 @@ std::string parse_ext_elem(
 
       itemStr += cur_char;
 
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
     };
 
     // eliminate double quote symbol " at the end of dependency item
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
 
     return itemStr;
   }
@@ -2948,7 +2944,7 @@ std::unique_ptr<ExtPackAST> parse_ext_pack (
 ) 
 { 
   // eliminate left square (box) bracket [
-  get_next_char(code, cur_char);
+  go_ahead(code, cur_char);
 
   std::vector<std::string> dependencies;
 
@@ -2961,7 +2957,7 @@ std::unique_ptr<ExtPackAST> parse_ext_pack (
   
   while (check_this_char(cur_char, ',')) {
     // eliminate comma ","
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
 
     // reset pathStr to empty ""
     pathStr = ""; 
@@ -2974,7 +2970,7 @@ std::unique_ptr<ExtPackAST> parse_ext_pack (
 
   if (check_this_char(cur_char, ']')) {
     // eliminate right square bracket `]` after dependency list
-    get_next_char(code, cur_char);
+    go_ahead(code, cur_char);
   };
 
   std::unique_ptr<ExtPackAST> output = std::make_unique<ExtPackAST>(dependencies);
@@ -2998,7 +2994,7 @@ std::unique_ptr<StyioAST> parse_exec_block (
   std::vector<std::unique_ptr<StyioAST>> stmtBuffer;
 
   // eliminate { at the start
-  get_next_char(code, cur_char);
+  go_ahead(code, cur_char);
 
   while (1)
   {
@@ -3007,7 +3003,7 @@ std::unique_ptr<StyioAST> parse_exec_block (
     if (check_this_char(cur_char, '}'))
     {
       // eliminate } at the end
-      get_next_char(code, cur_char);
+      go_ahead(code, cur_char);
 
       break;
     }

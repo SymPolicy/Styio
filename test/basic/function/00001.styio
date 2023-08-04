@@ -1,5 +1,12 @@
-// RUN: styio %s | FileCheck %s
+// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
 
-# f = (x, y) => {
-    => x + y
+# f = (x) => {
+    => x 
 }
+
+/*
+  CHECK: Function(Flexible) {
+  CHECK-NEXT: || Name: ID { f }
+  CHECK-NEXT: || Forward(Filling) {
+  CHECK-NEXT: |--| }
+*/

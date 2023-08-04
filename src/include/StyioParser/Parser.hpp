@@ -14,7 +14,7 @@ auto type_to_int (Enumeration const value)
     return static_cast<typename std::underlying_type<Enumeration>::type>(value);
 }
 
-void get_next_char
+void go_ahead
 (
   struct StyioCodeContext* code,
   char& cur_char
