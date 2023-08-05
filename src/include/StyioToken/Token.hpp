@@ -1,3 +1,4 @@
+#pragma once
 #ifndef STYIO_TOKEN_H_
 #define STYIO_TOKEN_H_
 

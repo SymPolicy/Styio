@@ -1,3 +1,4 @@
+#pragma once
 #ifndef STYIO_EXCEPTION_H_
 #define STYIO_EXCEPTION_H_
 

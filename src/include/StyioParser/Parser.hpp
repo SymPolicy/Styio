@@ -1,3 +1,4 @@
+#pragma once
 #ifndef STYIO_PARSER_H_
 #define STYIO_PARSER_H_
 
@@ -14,29 +15,181 @@ auto type_to_int (Enumeration const value)
     return static_cast<typename std::underlying_type<Enumeration>::type>(value);
 }
 
-void go_ahead
-(
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+inline bool can_be_ignored (char token) {
+  return isspace(token);
+}
 
-void drop_all_spaces 
-(
-  struct StyioCodeContext* code,
-  char& cur_char
-);
-
-void drop_white_spaces 
-(
-  struct StyioCodeContext* code,
-  char& cur_char
-);
-
-bool check_this_char
-(
+inline bool check_token (
   char& cur_char, 
-  char value
-);
+  char value) {
+  return cur_char == value;
+}
+
+void find_token_panic (
+  struct StyioCodeContext* code,
+  char& cur_char,
+  char value) {
+  
+  move_across_ignored(code, cur_char);
+
+  if (not check_token(cur_char, value)) {
+    std::string errmsg = std::string("Expecting ") + char(value) + " but got " + char(cur_char);
+    throw StyioSyntaxError(errmsg);
+  }
+}
+
+bool peak_next_token (
+  struct StyioCodeContext* code,
+  char value) {
+  int pos = code -> cursor;
+
+  while (can_be_ignored((code -> text.at(pos)))) {
+    pos += 1;
+  }
+
+  return check_token(code -> text.at(pos), value);
+}
+
+inline void move_to_the_next (
+  struct StyioCodeContext* code,
+  char& cur_char
+) {
+  code -> cursor += 1;
+  cur_char = code -> text.at(code -> cursor);
+}
+
+void move_across_ignored (
+  struct StyioCodeContext* code,
+  char& cur_char) {
+  while (can_be_ignored(code -> text.at(code -> cursor)))
+  {
+    code -> cursor += 1;
+    cur_char = code -> text.at(code -> cursor);
+  }
+}
+
+void move_until (
+  struct StyioCodeContext* code,
+  char& cur_char,
+  char value) {
+  while (not check_token(cur_char, value)) {
+    move_to_the_next(code, cur_char);
+  }
+}
+
+void move_across (
+  struct StyioCodeContext* code,
+  char& cur_char,
+  char value) {
+  while (not check_token(cur_char, value)) {
+    move_to_the_next(code, cur_char);
+  }
+
+  move_to_the_next(code, cur_char);
+}
+
+bool find_and_drop (
+  struct StyioCodeContext* code,
+  char& cur_char,
+  char value) {
+  move_across_ignored(code, cur_char);
+
+  if (check_token(cur_char, value)) {
+    move_to_the_next(code, cur_char);
+    return true;
+  }
+
+  return false;
+}
+
+void find_and_drop_panic (
+  struct StyioCodeContext* code,
+  char& cur_char,
+  char value) {
+  
+  move_across_ignored(code, cur_char);
+
+  if (check_token(cur_char, value)) {
+    move_to_the_next(code, cur_char);
+  }
+  else {
+    std::string errmsg = std::string("Expecting ") + char(value) + " but got " + char(cur_char);
+    throw StyioSyntaxError(errmsg);
+  }
+}
+
+inline bool check_next_and_move (
+  struct StyioCodeContext* code, 
+  char& cur_char, 
+  char value) {
+  char next = code -> text.at(code -> cursor);
+
+  if (check_token(next, value)) {
+    move_to_the_next(code, cur_char);
+    return true;
+  }
+
+  return false;
+}
+
+inline void check_next_and_move_panic (
+  struct StyioCodeContext* code, 
+  char& cur_char,
+  char value) {
+  char next = code -> text.at(code -> cursor);
+
+  if (check_token(next, value)) {
+    move_to_the_next(code, cur_char);
+  }
+  else {
+    std::string errmsg = std::string("Expecting ") + char(value) + " but got " + char(cur_char);
+    throw StyioSyntaxError(errmsg);
+  }
+}
+
+void drop_spaces (
+  struct StyioCodeContext* code,
+  char& cur_char) {
+  while (isspace(cur_char)) {
+    move_to_the_next(code, cur_char);
+  };
+}
+
+void drop_white_spaces (
+  struct StyioCodeContext* code,
+  char& cur_char) {
+  while (check_token(cur_char, ' ')) {
+    move_to_the_next(code, cur_char);
+  };
+}
+
+inline bool check_binop_token (
+  struct StyioCodeContext* code) {
+  int pos = code -> cursor;
+
+  while (can_be_ignored((code -> text.at(pos)))) {
+    pos += 1;
+  }
+
+  char the_char = code -> text.at(pos);
+
+  if (the_char == '+' 
+    || the_char == '-' 
+    || the_char == '*' 
+    || the_char == '%') { 
+    return true; 
+  }
+  else if (the_char == '/') {
+    if ((code -> text.at(pos + 1)) == '*') { 
+      return false; 
+    } 
+    else { 
+      return true; 
+    }
+  }
+
+  return false;
+}
 
 std::unique_ptr<CommentAST> parse_comment(
   struct StyioCodeContext* code,

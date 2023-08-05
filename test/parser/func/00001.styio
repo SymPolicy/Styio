@@ -6,7 +6,7 @@
 
 /*
   CHECK: Function(Flexible) {
-  CHECK-NEXT: || Name: ID { f }
+  CHECK-NEXT: || Name: id { f }
   CHECK-NEXT: || Forward(Filling) {
   CHECK-NEXT: |--| }
 */

@@ -1,3 +1,4 @@
+#pragma once
 #ifndef STYIO_AST_H_
 #define STYIO_AST_H_
 
@@ -224,11 +225,11 @@ class IdAST : public StyioAST {
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
-      return std::string("ID { ") + Id + " }";
+      return std::string("id { ") + Id + " }";
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return Id;
+      return std::string("id { ") + Id + " }";
     }
 };
 
