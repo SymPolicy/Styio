@@ -147,6 +147,13 @@ inline void check_next_and_move_panic (
   }
 }
 
+inline void match_and_ignore (
+  struct StyioCodeContext* code,
+  char& cur_char) {
+  move_to_the_next(code, cur_char);
+  move_across_ignored(code, cur_char);
+}
+
 void drop_spaces (
   struct StyioCodeContext* code,
   char& cur_char) {

@@ -1688,9 +1688,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
     // BIN_ADD := <ID> "+" <EXPR>
     case '+':
       {
-        move_to_the_next(code, cur_char);
-
-        move_across_ignored(code, cur_char);
+        match_and_ignore(code, cur_char);
 
         // <ID> "+" |-- 
         output = std::make_unique<BinOpAST>(
@@ -1705,9 +1703,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
     // BIN_SUB := <ID> "-" <EXPR>
     case '-':
       {
-        move_to_the_next(code, cur_char);
-
-        move_across_ignored(code, cur_char);
+        match_and_ignore(code, cur_char);
 
         // <ID> "-" |--
         output = std::make_unique<BinOpAST>(
@@ -1726,9 +1722,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
         // BIN_POW := <ID> "**" <EXPR>
         if (check_token(cur_char, '*'))
         {
-          move_to_the_next(code, cur_char);
-
-          move_across_ignored(code, cur_char);
+          match_and_ignore(code, cur_char);
 
           // <ID> "**" |--
           output = std::make_unique<BinOpAST>(
@@ -1754,9 +1748,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
     // BIN_DIV := <ID> "/" <EXPR>
     case '/':
       {
-        move_to_the_next(code, cur_char);
-
-        move_across_ignored(code, cur_char);
+        match_and_ignore(code, cur_char);
 
         // <ID> "/" |-- 
         output = std::make_unique<BinOpAST>(
@@ -1771,9 +1763,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
     // BIN_MOD := <ID> "%" <EXPR> 
     case '%':
       {
-        move_to_the_next(code, cur_char);
-
-        move_across_ignored(code, cur_char);
+        match_and_ignore(code, cur_char);
 
         // <ID> "%" |-- 
         output = std::make_unique<BinOpAST>(
