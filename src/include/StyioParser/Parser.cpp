@@ -2040,7 +2040,7 @@ std::unique_ptr<StyioAST> parse_cond_flow (
       {
         move_to_the_next(code, cur_char);
 
-        check_next_and_move_panic(code, cur_char, "\\");
+        check_next_and_move_panic(code, cur_char, '\\');
 
         /*
           support:
