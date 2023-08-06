@@ -1211,12 +1211,12 @@ class ReadFileAST : public StyioAST {
   PrintAST: Write to Standard Output (Print)
 */
 class PrintAST : public StyioAST {
-  std::unique_ptr<StyioAST> Output;
+  std::vector<std::unique_ptr<StyioAST>> Exprs;
 
   public:
     PrintAST(
-      std::unique_ptr<StyioAST> output): 
-      Output(std::move(output)) {
+      std::vector<std::unique_ptr<StyioAST>> exprs): 
+      Exprs(std::move(exprs)) {
 
       }
 
@@ -1225,15 +1225,45 @@ class PrintAST : public StyioAST {
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ")
-        + Output -> toStringInline(indent + 1)
-        + " }";
+      std::string outstr;
+
+      for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Exprs.begin(); 
+        it != Exprs.end(); 
+        ++it
+      ) {
+        outstr += make_padding(indent, " ");
+        outstr += (*it) -> toString(indent + 1);
+        
+        if (it != (Exprs.end() - 1))
+        {
+          outstr += "\n";
+        };
+      };
+
+      return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
+        + outstr
+        + "}";
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ")
-        + Output -> toStringInline(indent + 1)
-        + " }";
+      std::string outstr;
+
+      for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Exprs.begin(); 
+        it != Exprs.end(); 
+        ++it
+      ) {
+        outstr += make_padding(indent, " ");
+        outstr += (*it) -> toString(indent + 1);
+        
+        if (it != (Exprs.end() - 1))
+        {
+          outstr += "\n";
+        };
+      };
+
+      return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
+        + outstr
+        + "}";
     }
 };
 

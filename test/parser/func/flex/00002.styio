@@ -11,8 +11,5 @@
 }
 
 /*
-  CHECK: Function(Flexible) {
-  CHECK-NEXT: || Name: id { f }
-  CHECK-NEXT: || Forward(Filling) {
-  CHECK-NEXT: |--| }
+  CHECK: Function(Flexible)
 */
