@@ -2979,23 +2979,18 @@ std::unique_ptr<StyioAST> parse_exec_block (
 
 void parse_program (std::string styio_code) 
 {
-  char cur_char = styio_code.at(0);
-
-  struct StyioCodeContext styio_code_context = {
-    styio_code,
-    0
-  };
+  struct StyioCodeContext styio_code_context = { styio_code, 0 };
 
   StyioCodeContext* ctx_ptr = &styio_code_context;
 
-  while (true) 
-  {
+  char cur_char = styio_code.at(0);
+
+  while (true) {
     std::unique_ptr<StyioAST> stmt = parse_stmt(ctx_ptr, cur_char);
 
-    if ((stmt -> hint()) == StyioType::End) break;
+    if ((stmt -> hint()) == StyioType::End) { break; }
 
     if ((stmt -> hint()) != StyioType::Comment) {
-      std::cout << "\033[1;33m[>_<]\033[0m " << stmt -> toString(0, false) << std::endl;
-    }
+      std::cout << "\033[1;33m[>_<]\033[0m " << stmt -> toString(0, false) << std::endl; }
   };
 }
