@@ -645,17 +645,54 @@ std::unique_ptr<CommentAST> parse_comment (
   return std::make_unique<CommentAST>(commentText);
 }
 
+std::unique_ptr<TypeAST> parse_type (
+  struct StyioCodeContext* code,
+  char& cur_char) {
+  std::string text = "";
+
+  if (isalpha((cur_char)) || check_char(cur_char, '_')) {
+    text += cur_char;
+    move_to_the_next_char(code, cur_char);
+  }
+  else {
+    std::string errmsg = std::string("parse_type() // Can't recognize ") + char(cur_char);
+    throw StyioSyntaxError(errmsg);
+  }
+
+  while (isalnum((cur_char)) || check_char(cur_char, '_')) {
+    text += cur_char;
+    move_to_the_next_char(code, cur_char);
+  }
+
+  return std::make_unique<TypeAST>(text);
+}
+
 /*
   Basic Collection
+  - typed_var
   - Filling (Variable Tuple)
   - Resources
 */
 
+std::unique_ptr<TypedVarAST> parse_typed_var (
+  struct StyioCodeContext* code,
+  char& cur_char) {
+  std::unique_ptr<IdAST> var = parse_id(code, cur_char);
+  
+  drop_white_spaces(code, cur_char);
+  
+  match_next_char_panic(code, cur_char, ':');
+  
+  drop_spaces(code, cur_char);
+
+  return std::make_unique<TypedVarAST>(
+    std::move(var),
+    parse_type(code, cur_char));
+}
+
 std::unique_ptr<FillingAST> parse_filling (
   struct StyioCodeContext* code, 
   char& cur_char) {
-  std::unique_ptr<FillingAST> output;
-
   std::vector<std::unique_ptr<StyioAST>> vars;
 
   /*
@@ -666,29 +703,19 @@ std::unique_ptr<FillingAST> parse_filling (
   */
   move_to_the_next_char(code, cur_char);
 
-  vars.push_back(std::move(parse_id(code, cur_char)));
+  do {
+    drop_spaces_and_comments(code, cur_char);
 
-  drop_spaces(code, cur_char);
+    if (check_and_drop_char(code, cur_char, ')')) {
+      return std::make_unique<FillingAST>(std::move(vars)); }
+    else {
+      vars.push_back(std::move(parse_typed_var(code, cur_char))); }
 
-  while (check_char(cur_char, ','))
-  {
-    move_to_the_next_char(code, cur_char);
-
-    drop_spaces(code, cur_char);
-
-    if (check_char(cur_char, ')'))
-    {
-      break;
-    };
-
-    vars.push_back(std::move(parse_id(code, cur_char)));
-  }
+  } while (check_and_drop_char(code, cur_char, ','));
 
   find_and_drop_char_panic(code, cur_char, ')');
 
-  output = std::make_unique<FillingAST>(std::move(vars));
-
-  return output;
+  return std::make_unique<FillingAST>(std::move(vars));
 }
 
 std::unique_ptr<ResourceAST> parse_resources (
@@ -1072,9 +1099,7 @@ std::unique_ptr<StyioAST> parse_item_for_binop (
 
 std::unique_ptr<StyioAST> parse_expr (
   struct StyioCodeContext* code, 
-  char& cur_char
-)
-{
+  char& cur_char) {
   std::unique_ptr<StyioAST> output (new NoneAST());
 
   // <ID>
@@ -1093,8 +1118,7 @@ std::unique_ptr<StyioAST> parse_expr (
 
     return output;
   }
-  else
-  if (isdigit(cur_char)) {
+  else if (isdigit(cur_char)) {
     output = parse_int_or_float(code, cur_char);
 
     // ignore white spaces after number
@@ -1732,7 +1756,7 @@ std::unique_ptr<StyioAST> parse_iter (
   }
   else
   {
-    std::string errmsg = std::string("Cannot recognize the collection for the iterator: ") + std::to_string(type_to_int(iterOverIt -> hint()));
+    std::string errmsg = std::string("Can't recognize the collection for the iterator: ") + std::to_string(type_to_int(iterOverIt -> hint()));
     throw StyioSyntaxError(errmsg);
   };
 }
@@ -2532,84 +2556,75 @@ std::unique_ptr<StyioAST> parse_pipeline (
   bool pwithName = false;
   bool pisFinal = false;
 
-  // eliminate # at the start
+  /*
+    Danger!
+    when entering parse_pipeline(), 
+    the cur_char must be #
+    this line will drop the next 1 character anyway!
+  */
   move_to_the_next_char(code, cur_char);
 
-  // after #
   drop_white_spaces(code, cur_char);
 
-  if (isalpha(cur_char) 
-    || check_char(cur_char, '_'))
-  {
+  if (isalpha(cur_char) || check_char(cur_char, '_')) {
     pipeName = parse_id(code, cur_char);
+    pwithName = true; }
 
-    pwithName = true;
-  };
-  
-  // after function name
-  drop_spaces(code, cur_char);
+  drop_spaces_and_comments(code, cur_char);
 
-  if (check_char(cur_char, ':'))
-  {
+  if (check_char(cur_char, ':')) {
     move_to_the_next_char(code, cur_char);
-
     pisFinal = true;
   };
 
-  if (check_char(cur_char, '='))
-  {
+  if (check_char(cur_char, '=')) {
     move_to_the_next_char(code, cur_char);
   };
 
   drop_spaces(code, cur_char);
 
-  if (check_char(cur_char, '('))
-  {
+  if (check_char(cur_char, '(')) {
     pipeVars = parse_filling(code, cur_char);
   }
-  else
-  {
-    std::string errmsg = std::string("Expecting ( after function name, but got ") + char(cur_char);
+  else {
+    std::string errmsg = std::string("parse_pipeline() // Expecting ( , but got ") + char(cur_char);
     throw StyioSyntaxError(errmsg);
   };
 
-  drop_spaces(code, cur_char);
-  
-  if (check_char(cur_char, '='))
-  {
-    move_to_the_next_char(code, cur_char);
+  drop_spaces_and_comments(code, cur_char);
 
-    if (check_char(cur_char, '>'))
-    {
-      move_to_the_next_char(code, cur_char);
-    };
+  check_and_drop_symbol(code, cur_char, "=>");
+
+  drop_spaces(code, cur_char);
+
+  if (check_char(cur_char, '{')) {
+    pipeBlock = parse_exec_block(code, cur_char);
+  }
+  else {
+    pipeBlock = parse_expr(code, cur_char);
+  }
+
+  if (pwithName) {
+    return std::make_unique<FuncAST>(
+      std::move(pipeName),
+      std::make_unique<ForwardAST>(
+        std::move(pipeVars), 
+        std::move(pipeBlock)),
+      pisFinal
+    );
+  }
+  else {
+    return std::make_unique<FuncAST>(
+      std::make_unique<ForwardAST>(
+        std::move(pipeBlock)),
+      pisFinal
+    );
   };
 
-  drop_spaces(code, cur_char);
-
-  if (check_char(cur_char, '{'))
-  {
-    pipeBlock = parse_exec_block(code, cur_char);
-
-    if (pwithName)
-    {
-      return std::make_unique<FuncAST>(
-        std::move(pipeName),
-        std::make_unique<ForwardAST>(std::move(pipeVars), std::move(pipeBlock)),
-        pisFinal
-      );
-    }
-    else
-    {
-      return std::make_unique<FuncAST>(
-        std::make_unique<ForwardAST>(std::move(pipeBlock)),
-        pisFinal
-      );
-    };
-  }
+ 
   
-  std::string errmsg = std::string("Something wrong with parse_pipeline, got ") + char(cur_char);
-  throw StyioSyntaxError(errmsg);
+  std::string errmsg = std::string("parse_pipeline() // Something wrong, got ") + char(cur_char);
+  throw StyioParseError(errmsg);
 }
 
 std::unique_ptr<StyioAST> parse_read_file (

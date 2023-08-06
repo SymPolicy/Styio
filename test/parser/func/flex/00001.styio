@@ -1,9 +1,5 @@
 // RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
 
-# f = (x) => {
-  => x 
-}
-
 # f = (x, y) => {
   => x + y
 }

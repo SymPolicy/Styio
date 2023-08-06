@@ -1,6 +1,6 @@
 // RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
 
-# f = (*args, **kwargs) => {
+# f := (*args, **kwargs) => {
   args >> (v) => {
     >_(v)
   }
@@ -11,5 +11,5 @@
 }
 
 /*
-  CHECK: Function(Flexible)
+  CHECK: Function(Final)
 */

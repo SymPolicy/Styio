@@ -23,6 +23,8 @@ enum class StyioType {
 
   // Identifier: [a-zA-Z0-9_]
   Id,
+  Type,
+  TypedVar,
   // Integer (General)
   Int,
   // Float (General)

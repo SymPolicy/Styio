@@ -1,0 +1,19 @@
+// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
+
+# f
+  = (
+    x:
+      i32, /* x */
+    y:
+      i32, /* y */
+    z:
+      i32, /* z */
+  )
+  => x + y + z
+
+/*
+  CHECK: Function(Flexible) {
+  CHECK-NEXT: || Name: id { f }
+  CHECK-NEXT: || Forward(Filling) {
+  CHECK-NEXT: |--| }
+*/

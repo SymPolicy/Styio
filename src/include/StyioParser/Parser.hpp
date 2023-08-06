@@ -31,7 +31,8 @@ std::unique_ptr<CommentAST> parse_comment(
 */
 std::unique_ptr<IdAST> parse_id (
   struct StyioCodeContext* code,
-  char& cur_char);
+  char& cur_char
+);
 
 /*
   =================
@@ -60,8 +61,7 @@ std::unique_ptr<StyioAST> parse_int_or_float
 /*
   parse_string
 */
-std::unique_ptr<StringAST> parse_string 
-(
+std::unique_ptr<StringAST> parse_string (
   struct StyioCodeContext* code,
   char& cur_char
 );
@@ -69,10 +69,18 @@ std::unique_ptr<StringAST> parse_string
 /*
   parse_path_or_link
 */
-std::unique_ptr<StyioAST> parse_path_or_link 
-(
+std::unique_ptr<StyioAST> parse_path_or_link (
   struct StyioCodeContext* code,
   char& cur_char
+);
+
+/*
+  parse_typed_var
+*/
+std::unique_ptr<StyioAST> parse_typed_var (
+  struct StyioCodeContext* code,
+  char& cur_char,
+  std::unique_ptr<IdAST> varname
 );
 
 /*
