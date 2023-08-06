@@ -7,6 +7,10 @@
 /*
   CHECK: Function(Flexible) {
   CHECK-NEXT: || Name: id { f }
-  CHECK-NEXT: || Forward(Filling) {
-  CHECK-NEXT: |--| }
+  CHECK-NEXT: || Forward (Fill -> Run) {
+  CHECK-NEXT: |--| Filling {
+  CHECK-NEXT: |----| id { x }
+  CHECK-NEXT: |----| id { y }}
+  CHECK-NEXT: |--| Run: Block {
+  CHECK-NEXT: |----| Return { BinOp { LHS: id { x } | Op: <ADD> | RHS: id { y } } }}}}
 */

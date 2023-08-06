@@ -166,12 +166,12 @@ enum class StyioType {
   // Intermediate Connection Between Scopes
   Forward,
   Forward_Run,
-  Forward_Filling,
-  Forward_MatchValue,
+  Forward_Fill_Run,
+  Forward_MatchValue_Run,
   Forward_MatchCases,
-  Forward_CheckIsin,
-  Forward_CheckCond_True,
-  Forward_CheckCond_False,
+  Forward_CheckIsin_Run,
+  Forward_Cond_True_Run,
+  Forward_Cond_False_Run,
   // -----------------
 
   /* -----------------

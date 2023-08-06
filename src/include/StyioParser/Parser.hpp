@@ -79,8 +79,7 @@ std::unique_ptr<StyioAST> parse_path_or_link (
 */
 std::unique_ptr<StyioAST> parse_typed_var (
   struct StyioCodeContext* code,
-  char& cur_char,
-  std::unique_ptr<IdAST> varname
+  char& cur_char
 );
 
 /*

@@ -403,7 +403,7 @@ std::string reprStyioType (
 
   case StyioType::Forward_Run:
     {
-      auto name = std::string("Forward(Run)");
+      auto name = std::string("Forward (Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -414,9 +414,9 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::Forward_Filling:
+  case StyioType::Forward_Fill_Run:
     {
-      auto name = std::string("Forward(Filling)");
+      auto name = std::string("Forward (Fill -> Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -427,9 +427,9 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::Forward_MatchValue:
+  case StyioType::Forward_MatchValue_Run:
     {
-      auto name = std::string("Forward(Match, Value)");
+      auto name = std::string("Forward (Match Value -> Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -442,7 +442,7 @@ std::string reprStyioType (
 
   case StyioType::Forward_MatchCases:
     {
-      auto name = std::string("Forward(Match, Cases)");
+      auto name = std::string("Forward (Match Cases)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -453,9 +453,9 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::Forward_CheckIsin:
+  case StyioType::Forward_CheckIsin_Run:
     {
-      auto name = std::string("Forward(Isin)");
+      auto name = std::string("Forward (Isin -> Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -466,9 +466,9 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::Forward_CheckCond_True:
+  case StyioType::Forward_Cond_True_Run:
     {
-      auto name = std::string("Forward(Cond-True)");
+      auto name = std::string("Forward (Cond-True -> Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -479,9 +479,35 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::Forward_CheckCond_False:
+  case StyioType::Forward_Cond_False_Run:
     {
-      auto name = std::string("Forward(Cond-False)");
+      auto name = std::string("Forward (Cond-False -> Run)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Type:
+    {
+      auto name = std::string("type");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::TypedVar:
+    {
+      auto name = std::string("Var");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
