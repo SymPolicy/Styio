@@ -146,7 +146,7 @@ enum class StyioType {
    * Write
    */
 
-  WriteStdOut,
+  Print,
   // -----------------
 
   /* -----------------

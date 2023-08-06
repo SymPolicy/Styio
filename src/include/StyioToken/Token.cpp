@@ -144,7 +144,7 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::WriteStdOut:
+  case StyioType::Print:
     {
       auto name = std::string("Print");
 

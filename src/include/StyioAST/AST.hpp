@@ -1208,21 +1208,20 @@ class ReadFileAST : public StyioAST {
 };
 
 /*
-  WriteStdOutAST: Write to Standard Output (Print)
+  PrintAST: Write to Standard Output (Print)
 */
-class WriteStdOutAST : public StyioAST {
+class PrintAST : public StyioAST {
   std::unique_ptr<StyioAST> Output;
 
   public:
-    WriteStdOutAST(
+    PrintAST(
       std::unique_ptr<StyioAST> output): 
-      Output(std::move(output)) 
-      {
+      Output(std::move(output)) {
 
       }
 
     StyioType hint() {
-      return StyioType::WriteStdOut;
+      return StyioType::Print;
     }
 
     std::string toString(int indent = 0, bool colorful = false) {

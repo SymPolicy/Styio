@@ -1,7 +1,7 @@
 // RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
 
->_("Hello, World!")
+>_("Hello, Styio!")
 
 /*
-  CHECK: Print { "Hello, World!" }
+  CHECK: Print { "Hello, Styio!" }
 */

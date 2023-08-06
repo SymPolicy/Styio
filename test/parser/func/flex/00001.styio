@@ -4,6 +4,10 @@
   => x 
 }
 
+# f = (x, y) => {
+  => x + y
+}
+
 /*
   CHECK: Function(Flexible) {
   CHECK-NEXT: || Name: id { f }

@@ -1,0 +1,18 @@
+// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
+
+# f = (*args, **kwargs) => {
+  args >> (v) => {
+    >_(v)
+  }
+
+  kwargs >> (k, v) => {
+    >_(k, v)
+  }
+}
+
+/*
+  CHECK: Function(Flexible) {
+  CHECK-NEXT: || Name: id { f }
+  CHECK-NEXT: || Forward(Filling) {
+  CHECK-NEXT: |--| }
+*/

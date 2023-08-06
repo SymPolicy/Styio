@@ -30,8 +30,11 @@
 -3.231287e-03 basic/print/hello.styio
 -5.001545e-03 basic/print/00000.styio
 8.680582e-03 basic/print/00001.styio
-8.363247e-03 parser/binding/final/00001.styio
-8.670330e-03 parser/binop/00001.styio
-8.234739e-03 parser/binop/00002.styio
+9.806156e-03 parser/binding/final/00001.styio
+1.002955e-02 parser/binop/00001.styio
+1.108837e-02 parser/binop/00002.styio
 8.281231e-03 parser/func/00001.styio
-8.172750e-03 parser/print/00001.styio
+1.044607e-02 parser/print/00001.styio
+9.421825e-03 parser/func/flex/00001.styio
+-1.017189e-02 parser/func/flex/00002.styio
+-1.802802e-02 parser/print/00002.styio
