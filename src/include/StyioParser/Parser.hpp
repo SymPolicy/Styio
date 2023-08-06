@@ -208,21 +208,21 @@ std::unique_ptr<ResourceAST> parse_resources (
 );
 
 /*
-  parse_mut_assign
+  parse_bind_flex
 */
-std::unique_ptr<FlexBindAST> parse_mut_assign (
+std::unique_ptr<FlexBindAST> parse_bind_flex (
   struct StyioCodeContext* code,
   char& cur_char, 
-  IdAST* id_ast
+  std::unique_ptr<IdAST> id_ast
 );
 
 /*
-  parse_fix_assign
+  parse_bind_final
 */
-std::unique_ptr<FinalBindAST> parse_fix_assign (
+std::unique_ptr<FinalBindAST> parse_bind_final (
   struct StyioCodeContext* code,
   char& cur_char, 
-  IdAST* id_ast
+  std::unique_ptr<IdAST> id_ast
 );
 
 /*

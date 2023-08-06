@@ -2510,18 +2510,15 @@ std::unique_ptr<StyioAST> parse_cond_flow (
   return condition;
 }
 
-std::unique_ptr<FlexBindAST> parse_mut_assign (
+std::unique_ptr<FlexBindAST> parse_bind_flex (
   struct StyioCodeContext* code, 
   char& cur_char, 
-  std::unique_ptr<IdAST> id_ast
-)
-{
+  std::unique_ptr<IdAST> id_ast) {
   std::unique_ptr<FlexBindAST> output = std::make_unique<FlexBindAST>(
     std::move(id_ast), 
     std::move(parse_expr(code, cur_char)));
   
-  if (check_char(cur_char, '\n')) 
-  {
+  if (check_char(cur_char, '\n')) {
     return output;
   }
   else
@@ -2531,7 +2528,7 @@ std::unique_ptr<FlexBindAST> parse_mut_assign (
   }
 }
 
-std::unique_ptr<FinalBindAST> parse_fix_assign (
+std::unique_ptr<FinalBindAST> parse_bind_final (
   struct StyioCodeContext* code, 
   char& cur_char, 
   std::unique_ptr<IdAST> id_ast) {
@@ -2702,7 +2699,7 @@ std::unique_ptr<StyioAST> parse_stmt (
 
           drop_spaces_and_comments(code, cur_char);
 
-          return parse_mut_assign(code, cur_char, std::move(id_ast));
+          return parse_bind_flex(code, cur_char, std::move(id_ast));
         };
 
         // You should NOT reach this line!
@@ -2715,11 +2712,31 @@ std::unique_ptr<StyioAST> parse_stmt (
           if (check_and_drop_char(code, cur_char, '=')) {
             drop_spaces_and_comments(code, cur_char);
             
-            return parse_fix_assign(code, cur_char, std::move(id_ast));
+            return parse_bind_final(code, cur_char, std::move(id_ast));
           }
           else {
-            std::string errmsg = std::string("Unexpected `:`");
-            throw StyioSyntaxError(errmsg);
+            drop_white_spaces(code, cur_char);
+
+            std::unique_ptr<TypeAST> type = parse_type(code, cur_char);
+
+            drop_white_spaces(code, cur_char);
+
+            if (check_and_drop_char(code, cur_char, ':')) {
+              if (check_and_drop_char(code, cur_char, '=')) {
+                drop_white_spaces(code, cur_char);
+                
+                return parse_bind_final(code, cur_char, std::move(id_ast));
+              }
+            }
+            else if (check_and_drop_char(code, cur_char, '=')) {
+              drop_white_spaces(code, cur_char);
+              
+              return parse_bind_final(code, cur_char, std::move(id_ast));
+            }
+            else {
+              std::string errmsg = std::string("parse_stmt() // Expecting = or := after type, but got ") + cur_char;
+              throw StyioSyntaxError(errmsg);
+            }
           }
         };
 
