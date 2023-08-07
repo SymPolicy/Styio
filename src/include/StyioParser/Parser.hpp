@@ -297,9 +297,9 @@ std::unique_ptr<StyioAST> parse_case_block (
 );
 
 /*
-  parse_exec_block
+  parse_block
 */
-std::unique_ptr<StyioAST> parse_exec_block (
+std::unique_ptr<StyioAST> parse_block (
   struct StyioCodeContext* code,
   char& cur_char
 );

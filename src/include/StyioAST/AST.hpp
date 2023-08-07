@@ -233,6 +233,54 @@ class IdAST : public StyioAST {
     }
 };
 
+class ArgAST : public StyioAST {
+  std::unique_ptr<IdAST> Id;
+
+  public:
+    ArgAST(
+      std::unique_ptr<IdAST> id): 
+      Id(std::move(id)) 
+      {
+
+      }
+
+    StyioType hint() {
+      return StyioType::Arg;
+    }
+
+    std::string toString(int indent = 0, bool colorful = false) {
+      return std::string("arg { ") + Id ->toString(indent + 1) + " }";
+    }
+
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return std::string("arg { ") + Id ->toString(indent + 1) + " }";
+    }
+};
+
+class KwArgAST : public StyioAST {
+  std::unique_ptr<IdAST> Id;
+
+  public:
+    KwArgAST(
+      std::unique_ptr<IdAST> id): 
+      Id(std::move(id)) 
+      {
+
+      }
+
+    StyioType hint() {
+      return StyioType::KwArg;
+    }
+
+    std::string toString(int indent = 0, bool colorful = false) {
+      return std::string("kwargs { ") + Id ->toString(indent + 1) + " }";
+    }
+
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return std::string("id { ") + Id ->toString(indent + 1) + " }";
+    }
+};
+
 class FillingAST : public StyioAST {
   std::vector<std::unique_ptr<StyioAST>> Vars;
 
@@ -1102,7 +1150,7 @@ class FlexBindAST : public StyioAST {
       valExpr(std::move(val)) {}
 
     StyioType hint() {
-      return StyioType::MutAssign;
+      return StyioType::MutBind;
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
@@ -1144,7 +1192,7 @@ class FinalBindAST : public StyioAST {
       }
 
     StyioType hint() {
-      return StyioType::FixAssign;
+      return StyioType::FixBind;
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
@@ -1197,7 +1245,7 @@ class StructAST : public StyioAST {
       }
 
     StyioType hint() {
-      return StyioType::Structure;
+      return StyioType::Struct;
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
@@ -1973,7 +2021,7 @@ class InfiniteAST : public StyioAST {
       }
 
     StyioType hint() {
-      return StyioType::InfLoop;
+      return StyioType::Infinite;
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
@@ -2043,7 +2091,7 @@ class FuncAST : public StyioAST {
       }
 
     StyioType hint() {
-      return StyioType::Function;
+      return StyioType::Func;
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
@@ -2140,26 +2188,26 @@ class LoopAST : public StyioAST {
 /*
   IterBounded: <List/Range> >> {}
 */
-class IterBounded : public StyioAST {
+class IterAST : public StyioAST {
   std::unique_ptr<StyioAST> TheCollection;
   std::unique_ptr<FillingAST> TmpVars;
   std::unique_ptr<StyioAST> TheBlock;
 
   public:
-    IterBounded(
-      std::unique_ptr<StyioAST> theList,
+    IterAST(
+      std::unique_ptr<StyioAST> collection,
       std::unique_ptr<StyioAST> block): 
-      TheCollection(std::move(theList)),
+      TheCollection(std::move(collection)),
       TheBlock(std::move(block))
       {
 
       }
 
-    IterBounded(
-      std::unique_ptr<StyioAST> theList, 
+    IterAST(
+      std::unique_ptr<StyioAST> collection, 
       std::unique_ptr<FillingAST> tmpVars,
       std::unique_ptr<StyioAST> block): 
-      TheCollection(std::move(theList)),
+      TheCollection(std::move(collection)),
       TmpVars(std::move(tmpVars)),
       TheBlock(std::move(block))
       {
@@ -2167,7 +2215,7 @@ class IterBounded : public StyioAST {
       }
 
     StyioType hint() {
-      return StyioType::IterBounded;
+      return StyioType::Iterator;
     }
 
     std::string toString(int indent = 0, bool colorful = false) {

@@ -262,7 +262,7 @@ std::string reprStyioType (
     break;
 
 
-    case StyioType::MutAssign:
+    case StyioType::MutBind:
     {
       if (colorful) {
         output = make_colorful(std::string("Binding"), titleColor) + " " + make_colorful(std::string("(Flexible)"), flexColor);
@@ -273,7 +273,7 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::FixAssign:
+  case StyioType::FixBind:
     {
       if (colorful) {
         output = make_colorful(std::string("Binding"), titleColor) + " " + make_colorful(std::string("(Final)"), flexColor);
@@ -310,7 +310,7 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::Function:
+  case StyioType::Func:
     {
       auto name = std::string("Function");
 
@@ -323,7 +323,7 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::Structure:
+  case StyioType::Struct:
     {
       auto name = std::string("struct");
 
@@ -339,6 +339,19 @@ std::string reprStyioType (
   case StyioType::Loop:
     {
       auto name = std::string("loop");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Iterator:
+    {
+      auto name = std::string("iter");
 
       if (colorful) {
         output = make_colorful(name, titleColor);

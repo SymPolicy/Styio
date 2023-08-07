@@ -25,6 +25,8 @@ enum class StyioType {
   Id,
   Type,
   TypedVar,
+  Arg,
+  KwArg,
   // Integer (General)
   Int,
   // Float (General)
@@ -104,31 +106,31 @@ enum class StyioType {
    */
 
   // =
-  MutAssign,
+  MutBind,
   // := 
-  FixAssign,
+  FixBind,
   // -----------------
 
   /* -----------------
    * Pipeline
    */
 
-  Function,
-  Structure,
-  Evaluation,
+  Func,
+  Struct,
+  Eval,
   // -----------------
 
   /* -----------------
    * Control Flow: Loop
    */
-  InfLoop,
+  Infinite,
   // -----------------
 
   /* -----------------
    * Iterator
    */
   Loop,
-  IterBounded,
+  Iterator,
   // -----------------
 
   /* -----------------

@@ -712,7 +712,17 @@ std::unique_ptr<FillingAST> parse_filling (
     if (check_and_drop_char(code, cur_char, ')')) {
       return std::make_unique<FillingAST>(std::move(vars)); }
     else {
-      vars.push_back(std::move(parse_typed_var(code, cur_char))); }
+      if (check_and_drop_char(code, cur_char, '*')) { 
+        if (check_and_drop_char(code, cur_char, '*')) {
+          drop_white_spaces(code, cur_char);
+          vars.push_back(std::move(std::make_unique<KwArgAST>(parse_id(code, cur_char)))); }
+        else {
+          vars.push_back(std::move(std::make_unique<ArgAST>(parse_id(code, cur_char))));
+        }
+      }
+      else{
+        vars.push_back(std::move(parse_typed_var(code, cur_char))); }
+    }
 
   } while (check_and_drop_char(code, cur_char, ','));
 
@@ -1718,51 +1728,33 @@ std::unique_ptr<StyioAST> parse_iter (
   */
   drop_spaces(code, cur_char);
 
-  if (check_char(cur_char, '{'))
-  {
-    iterBlock = parse_exec_block(code, cur_char);
+  if (check_char(cur_char, '{')) {
+    iterBlock = parse_block(code, cur_char);
   }
-  else
-  {
+  else {
     std::string errmsg = std::string("Cannot find block after `=>`.");
     throw StyioSyntaxError(errmsg);
   };
 
-  if ((iterOverIt -> hint()) == StyioType::InfLoop)
-  {
-    if (hasVars)
-    {
+  if ((iterOverIt -> hint()) == StyioType::Infinite) {
+    if (hasVars) {
       return std::make_unique<LoopAST>(
         std::move(iterTmpVars), 
-        std::move(iterBlock));
-    }
-    else
-    {
+        std::move(iterBlock)); }
+    else {
       return std::make_unique<LoopAST>(
-        std::move(iterBlock));
-    };
+        std::move(iterBlock)); };
   }
-  else if ((iterOverIt -> hint()) == StyioType::List 
-    || (iterOverIt -> hint()) == StyioType::Range)
-  {
-    if (hasVars)
-    {
-      return std::make_unique<IterBounded>(
+  else {
+    if (hasVars) {
+      return std::make_unique<IterAST>(
         std::move(iterOverIt), 
         std::move(iterTmpVars), 
-        std::move(iterBlock));
-    }
-    else
-    {
-      return std::make_unique<IterBounded>(
+        std::move(iterBlock)); }
+    else {
+      return std::make_unique<IterAST>(
         std::move(iterOverIt), 
-        std::move(iterBlock));
-    };
-  }
-  else
-  {
-    std::string errmsg = std::string("Can't recognize the collection for the iterator: ") + std::to_string(type_to_int(iterOverIt -> hint()));
-    throw StyioSyntaxError(errmsg);
+        std::move(iterBlock)); }; 
   };
 }
 
@@ -2036,7 +2028,7 @@ std::unique_ptr<StyioAST> parse_loop (
             the { at the start will be eliminated inside parse_exec_block() function
           */
 
-          output = std::make_unique<LoopAST>(parse_exec_block(code, cur_char));
+          output = std::make_unique<LoopAST>(parse_block(code, cur_char));
         }
       }
     }
@@ -2432,7 +2424,7 @@ std::unique_ptr<StyioAST> parse_cond_flow (
 
         drop_spaces(code, cur_char);
 
-        block = parse_exec_block(code, cur_char);
+        block = parse_block(code, cur_char);
 
         /*
           support:
@@ -2456,7 +2448,7 @@ std::unique_ptr<StyioAST> parse_cond_flow (
           */
           drop_spaces(code, cur_char);
 
-          std::unique_ptr<StyioAST> blockElse = parse_exec_block(code, cur_char);
+          std::unique_ptr<StyioAST> blockElse = parse_block(code, cur_char);
 
           return std::make_unique<CondFlowAST>(
             FlowType::Both,
@@ -2487,7 +2479,7 @@ std::unique_ptr<StyioAST> parse_cond_flow (
         */
         drop_spaces(code, cur_char);
 
-        block = parse_exec_block(code, cur_char);
+        block = parse_block(code, cur_char);
 
         return std::make_unique<CondFlowAST>(
           FlowType::False,
@@ -2597,7 +2589,7 @@ std::unique_ptr<StyioAST> parse_pipeline (
     drop_spaces(code, cur_char);
 
     if (check_char(cur_char, '{')) {
-      pipeBlock = parse_exec_block(code, cur_char);
+      pipeBlock = parse_block(code, cur_char);
     }
     else {
       pipeBlock = parse_expr(code, cur_char);
@@ -2846,7 +2838,7 @@ std::unique_ptr<StyioAST> parse_stmt (
 
         return std::make_unique<ConnectAST>(
           std::move(resources), 
-          parse_exec_block(code, cur_char));
+          parse_block(code, cur_char));
       }
       else
       {
@@ -2981,7 +2973,7 @@ std::unique_ptr<StyioAST> parse_case_block (
   return std::make_unique<NoneAST>();
 }
 
-std::unique_ptr<StyioAST> parse_exec_block (
+std::unique_ptr<StyioAST> parse_block (
   struct StyioCodeContext* code, 
   char& cur_char
 ) 
