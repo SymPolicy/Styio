@@ -528,9 +528,13 @@ class ListAST : public StyioAST {
       std::string ElemStr;
 
       for(int i=0; i < Elems.size(); i++) {
-        ElemStr += std::string(2, ' ') + "| ";
+        ElemStr += make_padding(indent, " ");
         ElemStr += Elems[i] -> toString(indent);
-        ElemStr += "\n";
+
+        if (i != (Elems.size() - 1))
+        {
+          ElemStr += "\n";
+        };
       };
 
       return reprStyioType(this -> hint(), colorful) + std::string(" [\n")
@@ -1804,8 +1808,9 @@ class CheckEqAST : public StyioAST {
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {") 
-      + "}";
+      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      + Value -> toString(indent + 1)
+      + " }";
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
@@ -1830,7 +1835,8 @@ class CheckIsInAST : public StyioAST {
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {") 
+      return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
+      + make_padding(indent, " ") + Iterable -> toString(indent + 1)
       + "}";
     }
 
@@ -1908,16 +1914,7 @@ class ForwardAST : public StyioAST {
       ExtraEq(std::move(value)),
       ThenExpr(std::move(whatnext))
       {
-        Type = StyioType::Match_Forward;
-      }
-
-    ForwardAST(
-      std::unique_ptr<VarsTupleAST> vars,
-      std::unique_ptr<CasesAST> cases): 
-      TmpVars(std::move(vars)),
-      Cases(std::move(cases))
-      {
-        Type = StyioType::MatchCases_Forward;
+        Type = StyioType::If_Equal_To_Forward;
       }
 
     ForwardAST(
@@ -1926,7 +1923,16 @@ class ForwardAST : public StyioAST {
       ExtraIsin(std::move(isin)),
       ThenExpr(std::move(whatnext))
       {
-        Type = StyioType::CheckIsin_Forward;
+        Type = StyioType::If_Is_In_Forward;
+      }
+
+    ForwardAST(
+      std::unique_ptr<VarsTupleAST> vars,
+      std::unique_ptr<CasesAST> cases): 
+      TmpVars(std::move(vars)),
+      Cases(std::move(cases))
+      {
+        Type = StyioType::Fill_Cases_Forward;
       }
 
     ForwardAST(
@@ -1961,7 +1967,7 @@ class ForwardAST : public StyioAST {
       ExtraEq(std::move(value)),
       ThenExpr(std::move(whatnext))
       {
-        Type = StyioType::Fill_Match_Forward;
+        Type = StyioType::Fill_If_Equal_To_Forward;
       }
 
     ForwardAST(
@@ -1972,7 +1978,7 @@ class ForwardAST : public StyioAST {
       ExtraIsin(std::move(isin)),
       ThenExpr(std::move(whatnext))
       {
-        Type = StyioType::Fill_CheckIsin_Forward;
+        Type = StyioType::Fill_If_Is_in_Forward;
       }
 
     ForwardAST(
@@ -2009,21 +2015,9 @@ class ForwardAST : public StyioAST {
         // You should NOT reach this line!
         break;
 
-      case StyioType::Fill_Forward:
+      case StyioType::If_Equal_To_Forward:
         {
-          return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
-          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1) 
-          + "}";
-        }
-
-        // You should NOT reach this line!
-        break;
-
-      case StyioType::Fill_Match_Forward:
-        {
-          return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
+          return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
           + make_padding(indent, " ") + ExtraEq -> toString(indent + 1) + "\n"
           + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1) 
           + "}";
@@ -2032,21 +2026,9 @@ class ForwardAST : public StyioAST {
         // You should NOT reach this line!
         break;
 
-      case StyioType::MatchCases_Forward:
+      case StyioType::If_Is_In_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
-          + make_padding(indent, " ") + "Cases: " + Cases -> toString(indent + 1) + "\n"
-          + "}";
-        }
-
-        // You should NOT reach this line!
-        break;
-
-      case StyioType::CheckIsin_Forward:
-        {
-          return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
           + make_padding(indent, " ") + ExtraIsin -> toString(indent + 1) + "\n"
           + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1) 
           + "}";
@@ -2058,9 +2040,7 @@ class ForwardAST : public StyioAST {
       case StyioType::If_True_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
-          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1) + "\n"
-          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1) 
+          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1)
           + "}";
         }
 
@@ -2070,15 +2050,102 @@ class ForwardAST : public StyioAST {
       case StyioType::If_False_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
-          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1) + "\n"
-          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1) 
+          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1)
           + "}";
         }
 
         // You should NOT reach this line!
         break;
       
+      case StyioType::If_Both_Forward:
+        {
+          return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1)
+          + "}";
+        }
+
+        // You should NOT reach this line!
+        break;
+
+      case StyioType::Fill_Forward:
+        {
+          return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
+          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1) 
+          + "}";
+        }
+
+        // You should NOT reach this line!
+        break;
+
+      case StyioType::Fill_If_Equal_To_Forward:
+        {
+          return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
+          + make_padding(indent, " ") + ExtraEq -> toString(indent + 1) + "\n"
+          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1) 
+          + "}";
+        }
+
+        // You should NOT reach this line!
+        break;
+
+      case StyioType::Fill_If_Is_in_Forward:
+        {
+          return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
+          + make_padding(indent, " ") + ExtraIsin -> toString(indent + 1) + "\n"
+          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1) 
+          + "}";
+        }
+
+        // You should NOT reach this line!
+        break;
+
+      case StyioType::Fill_Cases_Forward:
+        {
+          return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
+          + make_padding(indent, " ") + "Cases: " + Cases -> toString(indent + 1) + "\n"
+          + "}";
+        }
+
+        // You should NOT reach this line!
+        break;
+
+      case StyioType::Fill_If_True_Forward:
+        {
+          return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
+          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1)
+          + "}";
+        }
+
+        // You should NOT reach this line!
+        break;
+
+      case StyioType::Fill_If_False_Forward:
+        {
+          return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
+          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1)
+          + "}";
+        }
+
+        // You should NOT reach this line!
+        break;
+      
+      case StyioType::Fill_If_Both_Forward:
+        {
+          return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
+          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1)
+          + "}";
+        }
+
+        // You should NOT reach this line!
+        break;
+
       default:
         break;
       }
@@ -2200,11 +2267,11 @@ class FuncAST : public StyioAST {
 
       if (FisFinal)
       {
-        extra = "(Final)";
+        extra = " (Final)";
       }
       else
       {
-        extra = "(Flexible)";
+        extra = " (Flexible)";
       };
 
       std::string output = reprStyioType(this -> hint(), colorful, extra) + " {\n";

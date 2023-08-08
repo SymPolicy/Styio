@@ -364,7 +364,7 @@ std::string reprStyioType (
 
   case StyioType::CheckEq:
     {
-      auto name = std::string("if equal?");
+      auto name = std::string("Equal To?");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -377,20 +377,7 @@ std::string reprStyioType (
 
   case StyioType::CheckIsin:
     {
-      auto name = std::string("if isin?");
-
-      if (colorful) {
-        output = make_colorful(name, titleColor);
-      } else {
-        output = std::string(name);
-      }
-    }
-    
-    break;
-
-  case StyioType::CheckCond:
-    {
-      auto name = std::string("if cond?");
+      auto name = std::string("Is In?");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -416,7 +403,59 @@ std::string reprStyioType (
 
   case StyioType::Forward:
     {
-      auto name = std::string("Forward");
+      auto name = std::string("Forward (Run)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::If_Equal_To_Forward:
+    {
+      auto name = std::string("Forward (If Equal -> Run)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::If_Is_In_Forward:
+    {
+      auto name = std::string("Forward (If Is In -> Run)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::If_True_Forward:
+    {
+      auto name = std::string("Forward (If True -> Run)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::If_False_Forward:
+    {
+      auto name = std::string("Forward (If False -> Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -440,9 +479,9 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::Match_Forward:
+  case StyioType::Fill_If_Equal_To_Forward:
     {
-      auto name = std::string("Forward (Match Value -> Forward)");
+      auto name = std::string("Forward (Fill -> If Equal -> Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -453,9 +492,9 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::Fill_Match_Forward:
+  case StyioType::Fill_If_Is_in_Forward:
     {
-      auto name = std::string("Forward (Fill -> Match Value -> Run)");
+      auto name = std::string("Forward (Fill -> If Is In -> Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -466,9 +505,9 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::MatchCases_Forward:
+  case StyioType::Fill_Cases_Forward:
     {
-      auto name = std::string("Forward (Match Cases)");
+      auto name = std::string("Forward (Fill -> Cases)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -479,9 +518,9 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::CheckIsin_Forward:
+  case StyioType::Fill_If_True_Forward:
     {
-      auto name = std::string("Forward (Isin -> Run)");
+      auto name = std::string("Forward (Fill -> If True -> Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -492,22 +531,9 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::If_True_Forward:
+  case StyioType::Fill_If_False_Forward:
     {
-      auto name = std::string("Forward (Cond-True -> Run)");
-
-      if (colorful) {
-        output = make_colorful(name, titleColor);
-      } else {
-        output = std::string(name);
-      }
-    }
-    
-    break;
-
-  case StyioType::If_False_Forward:
-    {
-      auto name = std::string("Forward (Cond-False -> Run)");
+      auto name = std::string("Forward (Fill -> If False -> Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);

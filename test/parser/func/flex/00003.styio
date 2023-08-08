@@ -12,7 +12,7 @@
   => x + y + z
 
 /*
-  CHECK: Function(Flexible) {
+  CHECK: Function (Flexible) {
   CHECK-NEXT: || Name: id { f }
   CHECK-NEXT: || Forward (Fill -> Run) {
   CHECK-NEXT: |--| Fill {
