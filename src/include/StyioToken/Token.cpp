@@ -401,6 +401,19 @@ std::string reprStyioType (
     
     break;
 
+  case StyioType::FromTo:
+    {
+      auto name = std::string("Fill In");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
   case StyioType::Forward:
     {
       auto name = std::string("Forward");
@@ -414,20 +427,7 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::Forward_Run:
-    {
-      auto name = std::string("Forward (Run)");
-
-      if (colorful) {
-        output = make_colorful(name, titleColor);
-      } else {
-        output = std::string(name);
-      }
-    }
-    
-    break;
-
-  case StyioType::Forward_Fill_Run:
+  case StyioType::Fill_Forward:
     {
       auto name = std::string("Forward (Fill -> Run)");
 
@@ -440,9 +440,9 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::Forward_MatchValue_Run:
+  case StyioType::Match_Forward:
     {
-      auto name = std::string("Forward (Match Value -> Run)");
+      auto name = std::string("Forward (Match Value -> Forward)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -453,7 +453,20 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::Forward_MatchCases:
+  case StyioType::Fill_Match_Forward:
+    {
+      auto name = std::string("Forward (Fill -> Match Value -> Run)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::MatchCases_Forward:
     {
       auto name = std::string("Forward (Match Cases)");
 
@@ -466,7 +479,7 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::Forward_CheckIsin_Run:
+  case StyioType::CheckIsin_Forward:
     {
       auto name = std::string("Forward (Isin -> Run)");
 
@@ -479,7 +492,7 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::Forward_Cond_True_Run:
+  case StyioType::If_True_Forward:
     {
       auto name = std::string("Forward (Cond-True -> Run)");
 
@@ -492,7 +505,7 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::Forward_Cond_False_Run:
+  case StyioType::If_False_Forward:
     {
       auto name = std::string("Forward (Cond-False -> Run)");
 

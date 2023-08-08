@@ -22,18 +22,18 @@ class StyioAST {
 };
 
 /*
-  Connect
+  
 */
-class ConnectAST : public StyioAST {
-  std::unique_ptr<StyioAST> LastExpr;
-  std::unique_ptr<StyioAST> NextExpr;
+class FromToAST : public StyioAST {
+  std::unique_ptr<StyioAST> FromWhat;
+  std::unique_ptr<StyioAST> ToWhat;
 
   public:
-    ConnectAST(
-      std::unique_ptr<StyioAST> last,
-      std::unique_ptr<StyioAST> next) : 
-      LastExpr(std::move(last)), 
-      NextExpr(std::move(next)) {}
+    FromToAST(
+      std::unique_ptr<StyioAST> from_expr,
+      std::unique_ptr<StyioAST> to_expr) : 
+      FromWhat(std::move(from_expr)), 
+      ToWhat(std::move(to_expr)) {}
 
     StyioType hint() {
       return StyioType::Connection;
@@ -42,9 +42,9 @@ class ConnectAST : public StyioAST {
     std::string toString(int indent = 0, bool colorful = false) {
       return std::string("Connect {")
       + "\n" 
-      + make_padding(indent, " ") + LastExpr -> toString(indent + 1)
+      + make_padding(indent, " ") + FromWhat -> toString(indent + 1)
       + "\n" 
-      + make_padding(indent, " ") + NextExpr -> toString(indent + 1)
+      + make_padding(indent, " ") + ToWhat -> toString(indent + 1)
       + "}";
     }
 
@@ -281,11 +281,11 @@ class KwArgAST : public StyioAST {
     }
 };
 
-class FillingAST : public StyioAST {
+class VarsTupleAST : public StyioAST {
   std::vector<std::unique_ptr<StyioAST>> Vars;
 
   public:
-    FillingAST(
+    VarsTupleAST(
       std::vector<std::unique_ptr<StyioAST>> vars): 
       Vars(std::move(vars)) { }
 
@@ -547,6 +547,92 @@ class ListAST : public StyioAST {
 
     StyioType hint() {
       return StyioType::List;
+    }
+
+    std::string toString(int indent = 0, bool colorful = false) {
+      std::string ElemStr;
+
+      for(int i=0; i < Elems.size(); i++) {
+        ElemStr += std::string(2, ' ') + "| ";
+        ElemStr += Elems[i] -> toString(indent);
+        ElemStr += "\n";
+      };
+
+      return reprStyioType(this -> hint(), colorful) + std::string(" [\n")
+        + ElemStr
+        + "]";
+    }
+
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      std::string ElemStr;
+
+      for(int i = 0; i < Elems.size(); i++) {
+        ElemStr += Elems[i] -> toStringInline(indent);
+        ElemStr += ", ";
+      };
+
+      return reprStyioType(this -> hint(), colorful) + std::string(" [ ")
+        + ElemStr
+        + "]";
+    }
+};
+
+class TupleAST : public StyioAST {
+  std::vector<std::unique_ptr<StyioAST>> Elems;
+
+  public:
+    TupleAST(
+      std::vector<std::unique_ptr<StyioAST>> elems): 
+      Elems(std::move(elems)) 
+      {
+
+      }
+
+    StyioType hint() {
+      return StyioType::Tuple;
+    }
+
+    std::string toString(int indent = 0, bool colorful = false) {
+      std::string ElemStr;
+
+      for(int i=0; i < Elems.size(); i++) {
+        ElemStr += std::string(2, ' ') + "| ";
+        ElemStr += Elems[i] -> toString(indent);
+        ElemStr += "\n";
+      };
+
+      return reprStyioType(this -> hint(), colorful) + std::string(" [\n")
+        + ElemStr
+        + "]";
+    }
+
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      std::string ElemStr;
+
+      for(int i = 0; i < Elems.size(); i++) {
+        ElemStr += Elems[i] -> toStringInline(indent);
+        ElemStr += ", ";
+      };
+
+      return reprStyioType(this -> hint(), colorful) + std::string(" [ ")
+        + ElemStr
+        + "]";
+    }
+};
+
+class SetAST : public StyioAST {
+  std::vector<std::unique_ptr<StyioAST>> Elems;
+
+  public:
+    SetAST(
+      std::vector<std::unique_ptr<StyioAST>> elems): 
+      Elems(std::move(elems)) 
+      {
+
+      }
+
+    StyioType hint() {
+      return StyioType::Set;
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
@@ -1229,13 +1315,13 @@ class FinalBindAST : public StyioAST {
 */
 class StructAST : public StyioAST {
   std::unique_ptr<IdAST> FName;
-  std::unique_ptr<FillingAST> FVars;
+  std::unique_ptr<VarsTupleAST> FVars;
   std::unique_ptr<StyioAST> FBlock;
 
   public:
     StructAST(
       std::unique_ptr<IdAST> name, 
-      std::unique_ptr<FillingAST> vars,
+      std::unique_ptr<VarsTupleAST> vars,
       std::unique_ptr<StyioAST> block) : 
       FName(std::move(name)), 
       FVars(std::move(vars)),
@@ -1536,12 +1622,13 @@ class CasesAST : public StyioAST {
 };
 
 class CondFlowAST : public StyioAST {
-  FlowType WhatFlow;
   std::unique_ptr<CondAST> CondExpr;
   std::unique_ptr<StyioAST> ThenBlock;
   std::unique_ptr<StyioAST> ElseBlock;
 
   public:
+    FlowType WhatFlow;
+
     CondFlowAST(
       FlowType whatFlow,
       std::unique_ptr<CondAST> condition,
@@ -1778,29 +1865,38 @@ class CheckIsInAST : public StyioAST {
     }
 };
 
-class CheckCondAST : public StyioAST {
-  std::unique_ptr<CondAST> Condition;
+/*
+  FromToAST
+*/
+class FromToAST : public StyioAST {
+  std::unique_ptr<StyioAST> FromWhat;
+  std::unique_ptr<StyioAST> ToWhat;
 
   public:
-    CheckCondAST(
-      std::unique_ptr<CondAST> condition): 
-      Condition(std::move(condition))
+    FromToAST(
+      std::unique_ptr<StyioAST> last,
+      std::unique_ptr<StyioAST> next) : 
+      FromWhat(std::move(last)), 
+      ToWhat(std::move(next)) 
       {
 
       }
 
     StyioType hint() {
-      return StyioType::CheckCond;
+      return StyioType::FromTo;
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {") 
+      return reprStyioType(this -> hint(), colorful) + std::string(" {")
+      + "\n" 
+      + make_padding(indent, " ") + "From: " + FromWhat -> toString(indent + 1)
+      + "\n" 
+      + make_padding(indent, " ") + "To: " + ToWhat -> toString(indent + 1)
       + "}";
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {") 
-      + "}";
+      return reprStyioType(this -> hint(), colorful) + " { }";
     }
 };
 
@@ -1816,10 +1912,10 @@ class CheckCondAST : public StyioAST {
 */
 
 class ForwardAST : public StyioAST {
-  std::unique_ptr<FillingAST> TmpVars;
+  std::unique_ptr<VarsTupleAST> TmpVars;
   std::unique_ptr<CheckEqAST> ExtraEq;
   std::unique_ptr<CheckIsInAST> ExtraIsin;
-  std::unique_ptr<CheckCondAST> ExtraCond;
+  std::unique_ptr<CondFlowAST> ExtraCond;
   std::unique_ptr<StyioAST> ThenExpr;
   std::unique_ptr<CasesAST> Cases;
 
@@ -1831,63 +1927,96 @@ class ForwardAST : public StyioAST {
       std::unique_ptr<StyioAST> expr):
       ThenExpr(std::move(expr))
       {
-        Type = StyioType::Forward_Run;
+        Type = StyioType::Forward;
       }
 
     ForwardAST(
-      std::unique_ptr<FillingAST> vars,
-      std::unique_ptr<StyioAST> expr): 
-      TmpVars(std::move(vars)),
-      ThenExpr(std::move(expr))
-      {
-        Type = StyioType::Forward_Fill_Run;
-      }
-
-    ForwardAST(
-      std::unique_ptr<FillingAST> vars,
       std::unique_ptr<CheckEqAST> value,
-      std::unique_ptr<StyioAST> expr): 
-      TmpVars(std::move(vars)),
+      std::unique_ptr<StyioAST> whatnext):
       ExtraEq(std::move(value)),
-      ThenExpr(std::move(expr))
+      ThenExpr(std::move(whatnext))
       {
-        Type = StyioType::Forward_MatchValue_Run;
+        Type = StyioType::Match_Forward;
       }
 
     ForwardAST(
-      std::unique_ptr<FillingAST> vars,
+      std::unique_ptr<VarsTupleAST> vars,
       std::unique_ptr<CasesAST> cases): 
       TmpVars(std::move(vars)),
       Cases(std::move(cases))
       {
-        Type = StyioType::Forward_MatchCases;
+        Type = StyioType::MatchCases_Forward;
       }
 
     ForwardAST(
-      std::unique_ptr<FillingAST> vars,
       std::unique_ptr<CheckIsInAST> isin,
-      std::unique_ptr<StyioAST> expr): 
-      TmpVars(std::move(vars)),
+      std::unique_ptr<StyioAST> whatnext): 
       ExtraIsin(std::move(isin)),
-      ThenExpr(std::move(expr))
+      ThenExpr(std::move(whatnext))
       {
-        Type = StyioType::Forward_CheckIsin_Run;
+        Type = StyioType::CheckIsin_Forward;
       }
 
     ForwardAST(
-      std::unique_ptr<FillingAST> vars,
-      std::unique_ptr<CheckCondAST> condition,
-      std::unique_ptr<StyioAST> expr,
-      bool checkIf): 
-      TmpVars(std::move(vars)),
-      ExtraCond(std::move(condition)),
-      ThenExpr(std::move(expr))
+      std::unique_ptr<CondFlowAST> condflow): 
+      ExtraCond(std::move(condflow))
       {
-        if (checkIf) {
-          Type = StyioType::Forward_Cond_True_Run;
+        if ((condflow -> WhatFlow) == FlowType::True) {
+          Type = StyioType::If_True_Forward;
+        }
+        else if ((condflow -> WhatFlow) == FlowType::False) {
+          Type = StyioType::If_False_Forward;
         }
         else {
-          Type = StyioType::Forward_Cond_False_Run;
+          Type = StyioType::If_Both_Forward;
+        }
+      }
+
+    ForwardAST(
+      std::unique_ptr<VarsTupleAST> vars,
+      std::unique_ptr<StyioAST> whatnext): 
+      TmpVars(std::move(vars)),
+      ThenExpr(std::move(whatnext))
+      {
+        Type = StyioType::Fill_Forward;
+      }
+
+    ForwardAST(
+      std::unique_ptr<VarsTupleAST> vars,
+      std::unique_ptr<CheckEqAST> value,
+      std::unique_ptr<StyioAST> whatnext): 
+      TmpVars(std::move(vars)),
+      ExtraEq(std::move(value)),
+      ThenExpr(std::move(whatnext))
+      {
+        Type = StyioType::Fill_Match_Forward;
+      }
+
+    ForwardAST(
+      std::unique_ptr<VarsTupleAST> vars,
+      std::unique_ptr<CheckIsInAST> isin,
+      std::unique_ptr<StyioAST> whatnext): 
+      TmpVars(std::move(vars)),
+      ExtraIsin(std::move(isin)),
+      ThenExpr(std::move(whatnext))
+      {
+        Type = StyioType::Fill_CheckIsin_Forward;
+      }
+
+    ForwardAST(
+      std::unique_ptr<VarsTupleAST> vars,
+      std::unique_ptr<CondFlowAST> condflow): 
+      TmpVars(std::move(vars)),
+      ExtraCond(std::move(condflow))
+      {
+        if ((condflow -> WhatFlow) == FlowType::True) {
+          Type = StyioType::Fill_If_True_Forward;
+        }
+        else if ((condflow -> WhatFlow) == FlowType::False) {
+          Type = StyioType::Fill_If_False_Forward;
+        }
+        else {
+          Type = StyioType::Fill_If_Both_Forward;
         }
       }
 
@@ -1898,17 +2027,17 @@ class ForwardAST : public StyioAST {
     std::string toString(int indent = 0, bool colorful = false) {
       switch (Type)
       {
-      case StyioType::Forward_Run:
+      case StyioType::Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1) 
+          + make_padding(indent, " ") + "Next: " + ThenExpr -> toString(indent + 1) 
           + "}";
         }
 
         // You should NOT reach this line!
         break;
 
-      case StyioType::Forward_Fill_Run:
+      case StyioType::Fill_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
           + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
@@ -1919,7 +2048,7 @@ class ForwardAST : public StyioAST {
         // You should NOT reach this line!
         break;
 
-      case StyioType::Forward_MatchValue_Run:
+      case StyioType::Fill_Match_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
           + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
@@ -1931,7 +2060,7 @@ class ForwardAST : public StyioAST {
         // You should NOT reach this line!
         break;
 
-      case StyioType::Forward_MatchCases:
+      case StyioType::MatchCases_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
           + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
@@ -1942,7 +2071,7 @@ class ForwardAST : public StyioAST {
         // You should NOT reach this line!
         break;
 
-      case StyioType::Forward_CheckIsin_Run:
+      case StyioType::CheckIsin_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
           + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
@@ -1954,7 +2083,7 @@ class ForwardAST : public StyioAST {
         // You should NOT reach this line!
         break;
 
-      case StyioType::Forward_Cond_True_Run:
+      case StyioType::If_True_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
           + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
@@ -1966,7 +2095,7 @@ class ForwardAST : public StyioAST {
         // You should NOT reach this line!
         break;
 
-      case StyioType::Forward_Cond_False_Run:
+      case StyioType::If_False_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
           + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
@@ -2144,25 +2273,14 @@ class FuncAST : public StyioAST {
   IterInfinite: [...] >> {}
 */
 class LoopAST : public StyioAST {
-  IteratorType WhatType;
-  std::unique_ptr<FillingAST> TmpVars;
-  std::unique_ptr<StyioAST> TheBlock;
+  std::unique_ptr<ForwardAST> Forward;
 
   public:
     LoopAST(
-      std::unique_ptr<StyioAST> block):
-      TheBlock(std::move(block))
+      std::unique_ptr<ForwardAST> expr):
+      Forward(std::move(expr))
       {
-        WhatType = IteratorType::Original;
-      }
-
-    LoopAST(
-      std::unique_ptr<FillingAST> tmpVars,
-      std::unique_ptr<StyioAST> block):
-      TmpVars(std::move(tmpVars)),
-      TheBlock(std::move(block))
-      {
-        WhatType = IteratorType::Original;
+        
       }
 
     StyioType hint() {
@@ -2170,18 +2288,19 @@ class LoopAST : public StyioAST {
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
-      std::string output = reprStyioType(this -> hint(), colorful) + std::string(" {\n");
-
-      output += make_padding(indent, " ") + TheBlock -> toString(indent + 1);
-
-      output += "}";
+      std::string output = reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+      + make_padding(indent, " ") + Forward -> toString(indent + 1) 
+      + "}";
 
       return output;
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ")
+      std::string output = reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+      + make_padding(indent, " ") + Forward -> toStringInline(indent + 1) 
       + "}";
+
+      return output;
     }
 };
 
@@ -2190,26 +2309,23 @@ class LoopAST : public StyioAST {
 */
 class IterAST : public StyioAST {
   std::unique_ptr<StyioAST> TheCollection;
-  std::unique_ptr<FillingAST> TmpVars;
-  std::unique_ptr<StyioAST> TheBlock;
+  std::unique_ptr<ForwardAST> Forward;
 
   public:
     IterAST(
       std::unique_ptr<StyioAST> collection,
-      std::unique_ptr<StyioAST> block): 
+      std::unique_ptr<ForwardAST> forward): 
       TheCollection(std::move(collection)),
-      TheBlock(std::move(block))
+      Forward(std::move(forward))
       {
 
       }
 
     IterAST(
       std::unique_ptr<StyioAST> collection, 
-      std::unique_ptr<FillingAST> tmpVars,
-      std::unique_ptr<StyioAST> block): 
+      std::unique_ptr<ForwardAST> forward): 
       TheCollection(std::move(collection)),
-      TmpVars(std::move(tmpVars)),
-      TheBlock(std::move(block))
+      Forward(std::move(forward))
       {
 
       }

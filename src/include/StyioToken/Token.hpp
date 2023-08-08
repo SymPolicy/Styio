@@ -57,6 +57,8 @@ enum class StyioType {
   String,
   // [a0, a1, ..., an]
   List,
+  Tuple,
+  Set,
   // [start .. end]
   Range,
 
@@ -167,13 +169,19 @@ enum class StyioType {
 
   // Intermediate Connection Between Scopes
   Forward,
-  Forward_Run,
-  Forward_Fill_Run,
-  Forward_MatchValue_Run,
-  Forward_MatchCases,
-  Forward_CheckIsin_Run,
-  Forward_Cond_True_Run,
-  Forward_Cond_False_Run,
+  Match_Forward,
+  MatchCases_Forward,
+  CheckIsin_Forward,
+  If_True_Forward,
+  If_False_Forward,
+  If_Both_Forward,
+  
+  Fill_Forward,
+  Fill_Match_Forward,
+  Fill_CheckIsin_Forward,
+  Fill_If_True_Forward,
+  Fill_If_False_Forward,
+  Fill_If_Both_Forward,
   // -----------------
 
   /* -----------------
@@ -185,7 +193,8 @@ enum class StyioType {
   // -----------------
 
   CondFlow,
-  Connection
+  Connection,
+  FromTo
 };
 
 enum class InfiniteType {

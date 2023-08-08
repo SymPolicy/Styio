@@ -157,9 +157,9 @@ std::unique_ptr<ListOpAST> parse_list_op (
 );
 
 /*
-  parse_filling
+  parse_vars_tuple
 */
-std::unique_ptr<FillingAST> parse_filling (
+std::unique_ptr<VarsTupleAST> parse_vars_tuple (
   struct StyioCodeContext* code,
   char& cur_char
 );
@@ -174,9 +174,9 @@ std::unique_ptr<StyioAST> parse_iter (
 );
 
 /*
-  parse_list_expr
+  parse_list_or_loop
 */
-std::unique_ptr<StyioAST> parse_list_expr (struct StyioCodeContext* code,char& cur_char);
+std::unique_ptr<StyioAST> parse_list_or_loop (struct StyioCodeContext* code,char& cur_char);
 
 /*
   parse_loop
@@ -300,6 +300,11 @@ std::unique_ptr<StyioAST> parse_case_block (
   parse_block
 */
 std::unique_ptr<StyioAST> parse_block (
+  struct StyioCodeContext* code,
+  char& cur_char
+);
+
+std::unique_ptr<StyioAST> parse_forward (
   struct StyioCodeContext* code,
   char& cur_char
 );

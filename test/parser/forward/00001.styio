@@ -1,0 +1,7 @@
+// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
+
+#( ) => { ... }
+
+/*
+  CHECK: 
+*/
