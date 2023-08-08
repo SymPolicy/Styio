@@ -2119,16 +2119,12 @@ std::unique_ptr<StyioAST> parse_cond_flow (
     */
     drop_spaces(code, cur_char);
 
-    if (check_char(cur_char, '\\'))
+    if (check_and_drop_char(code, cur_char, '\\'))
     {
-      move_to_the_next_char(code, cur_char);
-
       std::unique_ptr<StyioAST> block;
 
-      if (check_char(cur_char, 't'))
+      if (check_and_drop_char(code, cur_char, 't'))
       {
-        move_to_the_next_char(code, cur_char);
-
         match_next_char_panic(code, cur_char, '\\');
 
         /*
@@ -2137,7 +2133,7 @@ std::unique_ptr<StyioAST> parse_cond_flow (
             {}
         */
 
-        drop_spaces(code, cur_char);
+        drop_spaces_and_comments(code, cur_char);
 
         block = parse_block(code, cur_char);
 
@@ -2146,12 +2142,10 @@ std::unique_ptr<StyioAST> parse_cond_flow (
             \t\ {} \n
             \f\
         */
-        drop_spaces(code, cur_char);
+        drop_spaces_and_comments(code, cur_char);
 
-        if (check_char(cur_char, '\\'))
+        if (check_and_drop_char(code, cur_char, '\\'))
         {
-          move_to_the_next_char(code, cur_char);
-
           match_next_char_panic(code, cur_char, 'f');
 
           match_next_char_panic(code, cur_char, '\\');
@@ -2161,7 +2155,7 @@ std::unique_ptr<StyioAST> parse_cond_flow (
               \f\ \n
               {}
           */
-          drop_spaces(code, cur_char);
+          drop_spaces_and_comments(code, cur_char);
 
           std::unique_ptr<StyioAST> blockElse = parse_block(code, cur_char);
 
@@ -2181,10 +2175,8 @@ std::unique_ptr<StyioAST> parse_cond_flow (
           );
         };
       }
-      else if (check_char(cur_char, 'f'))
+      else if (check_and_drop_char(code, cur_char, 'f'))
       {
-        move_to_the_next_char(code, cur_char);
-
         match_next_char_panic(code, cur_char, '\\');
 
         /*
@@ -2192,7 +2184,7 @@ std::unique_ptr<StyioAST> parse_cond_flow (
             \f\ \n
             {}
         */
-        drop_spaces(code, cur_char);
+        drop_spaces_and_comments(code, cur_char);
 
         block = parse_block(code, cur_char);
 
