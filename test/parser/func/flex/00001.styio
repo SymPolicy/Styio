@@ -8,7 +8,7 @@
   CHECK: Function(Flexible) {
   CHECK-NEXT: || Name: id { f }
   CHECK-NEXT: || Forward (Fill -> Run) {
-  CHECK-NEXT: |--| Filling {
+  CHECK-NEXT: |--| Fill {
   CHECK-NEXT: |----| id { x }
   CHECK-NEXT: |----| id { y }}
   CHECK-NEXT: |--| Run: Block {

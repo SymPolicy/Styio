@@ -22,38 +22,6 @@ class StyioAST {
 };
 
 /*
-  
-*/
-class FromToAST : public StyioAST {
-  std::unique_ptr<StyioAST> FromWhat;
-  std::unique_ptr<StyioAST> ToWhat;
-
-  public:
-    FromToAST(
-      std::unique_ptr<StyioAST> from_expr,
-      std::unique_ptr<StyioAST> to_expr) : 
-      FromWhat(std::move(from_expr)), 
-      ToWhat(std::move(to_expr)) {}
-
-    StyioType hint() {
-      return StyioType::Connection;
-    }
-
-    std::string toString(int indent = 0, bool colorful = false) {
-      return std::string("Connect {")
-      + "\n" 
-      + make_padding(indent, " ") + FromWhat -> toString(indent + 1)
-      + "\n" 
-      + make_padding(indent, " ") + ToWhat -> toString(indent + 1)
-      + "}";
-    }
-
-    std::string toStringInline(int indent = 0, bool colorful = false) {
-      return "Connect {}";
-    }
-};
-
-/*
   =================
     None / Empty
   =================
@@ -290,28 +258,35 @@ class VarsTupleAST : public StyioAST {
       Vars(std::move(vars)) { }
 
     StyioType hint() {
-      return StyioType::Filling;
+      return StyioType::Fill;
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
-      std::string outstr;
+      if (Vars.empty()) 
+      {
+        return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+      }
+      else 
+      {
+        std::string outstr;
 
-      for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Vars.begin(); 
-        it != Vars.end(); 
-        ++it
-      ) {
-        outstr += make_padding(indent, " ");
-        outstr += (*it) -> toString(indent + 1);
-        
-        if (it != (Vars.end() - 1))
-        {
-          outstr += "\n";
+        for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Vars.begin(); 
+          it != Vars.end(); 
+          ++it
+        ) {
+          outstr += make_padding(indent, " ");
+          outstr += (*it) -> toString(indent + 1);
+          
+          if (it != (Vars.end() - 1))
+          {
+            outstr += "\n";
+          };
         };
-      };
 
-      return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
-        + outstr
-        + "}";
+        return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
+          + outstr
+          + "}";
+      }
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
@@ -1705,10 +1680,10 @@ class CondFlowAST : public StyioAST {
 
     }
 
-  Filling: Filling + Block
+  Fill: Fill + Block
     >> () => {}
 
-  MatchValue: Filling + CheckEq + Block
+  MatchValue: Fill + CheckEq + Block
     >> Element(Single) ?= ValueExpr(Single) => {
       ...
     }
@@ -1716,7 +1691,7 @@ class CondFlowAST : public StyioAST {
     For each step of iteration, check if the element match the value expression, 
     if match case is true, then execute the branch. 
 
-  MatchCases: Filling + Cases
+  MatchCases: Fill + Cases
     >> Element(Single) ?= {
       v0 => {}
       v1 => {}
@@ -1726,7 +1701,7 @@ class CondFlowAST : public StyioAST {
     For each step of iteration, check if the element match any value expression, 
     if match case is true, then execute the branch. 
 
-  ExtraIsin: Filling + CheckIsIn
+  ExtraIsin: Fill + CheckIsIn
     >> Element(Single) ?^ IterableExpr(Collection) => {
       ...
     }
@@ -1734,7 +1709,7 @@ class CondFlowAST : public StyioAST {
     For each step of iteration, check if the element is in the following collection,
     if match case is true, then execute the branch. 
 
-  ExtraCond: Filling + CondFlow
+  ExtraCond: Fill + CondFlow
     >> Elements ? (Condition) \t\ {
       ...
     }
@@ -1874,13 +1849,10 @@ class FromToAST : public StyioAST {
 
   public:
     FromToAST(
-      std::unique_ptr<StyioAST> last,
-      std::unique_ptr<StyioAST> next) : 
-      FromWhat(std::move(last)), 
-      ToWhat(std::move(next)) 
-      {
-
-      }
+      std::unique_ptr<StyioAST> from_expr,
+      std::unique_ptr<StyioAST> to_expr) : 
+      FromWhat(std::move(from_expr)), 
+      ToWhat(std::move(to_expr)) {}
 
     StyioType hint() {
       return StyioType::FromTo;
@@ -1896,7 +1868,7 @@ class FromToAST : public StyioAST {
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + " { }";
+      return "From { } To { }";
     }
 };
 
@@ -2030,7 +2002,7 @@ class ForwardAST : public StyioAST {
       case StyioType::Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + "Next: " + ThenExpr -> toString(indent + 1) 
+          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1) 
           + "}";
         }
 
@@ -2193,14 +2165,14 @@ class InfiniteAST : public StyioAST {
 */
 class FuncAST : public StyioAST {
   std::unique_ptr<IdAST> FName;
-  std::unique_ptr<ForwardAST> Forward;
+  std::unique_ptr<StyioAST> Forward;
 
   bool FwithName;
   bool FisFinal;
 
   public:
     FuncAST(
-      std::unique_ptr<ForwardAST> forward,
+      std::unique_ptr<StyioAST> forward,
       bool isFinal) :  
       Forward(std::move(forward)),
       FisFinal(isFinal)
@@ -2210,7 +2182,7 @@ class FuncAST : public StyioAST {
 
     FuncAST(
       std::unique_ptr<IdAST> name, 
-      std::unique_ptr<ForwardAST> forward,
+      std::unique_ptr<StyioAST> forward,
       bool isFinal) : 
       FName(std::move(name)), 
       Forward(std::move(forward)),
@@ -2273,11 +2245,11 @@ class FuncAST : public StyioAST {
   IterInfinite: [...] >> {}
 */
 class LoopAST : public StyioAST {
-  std::unique_ptr<ForwardAST> Forward;
+  std::unique_ptr<StyioAST> Forward;
 
   public:
     LoopAST(
-      std::unique_ptr<ForwardAST> expr):
+      std::unique_ptr<StyioAST> expr):
       Forward(std::move(expr))
       {
         
@@ -2308,23 +2280,14 @@ class LoopAST : public StyioAST {
   IterBounded: <List/Range> >> {}
 */
 class IterAST : public StyioAST {
-  std::unique_ptr<StyioAST> TheCollection;
-  std::unique_ptr<ForwardAST> Forward;
+  std::unique_ptr<StyioAST> Collection;
+  std::unique_ptr<StyioAST> Forward;
 
   public:
     IterAST(
       std::unique_ptr<StyioAST> collection,
-      std::unique_ptr<ForwardAST> forward): 
-      TheCollection(std::move(collection)),
-      Forward(std::move(forward))
-      {
-
-      }
-
-    IterAST(
-      std::unique_ptr<StyioAST> collection, 
-      std::unique_ptr<ForwardAST> forward): 
-      TheCollection(std::move(collection)),
+      std::unique_ptr<StyioAST> forward): 
+      Collection(std::move(collection)),
       Forward(std::move(forward))
       {
 
@@ -2336,13 +2299,13 @@ class IterAST : public StyioAST {
 
     std::string toString(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-      + make_padding(indent, " ") + TheCollection -> toStringInline(indent + 1)
+      + make_padding(indent, " ") + Collection -> toStringInline(indent + 1)
       + "}";
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
-      + TheCollection -> toStringInline(indent + 1)
+      + Collection -> toStringInline(indent + 1)
       + " }";
     }
 };

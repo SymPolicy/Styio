@@ -15,7 +15,7 @@
   CHECK: Function(Flexible) {
   CHECK-NEXT: || Name: id { f }
   CHECK-NEXT: || Forward (Fill -> Run) {
-  CHECK-NEXT: |--| Filling {
+  CHECK-NEXT: |--| Fill {
   CHECK-NEXT: |----| Var { id { x } type { i32 } }
   CHECK-NEXT: |----| Var { id { y } type { i32 } }
   CHECK-NEXT: |----| Var { id { z } type { i32 } }}

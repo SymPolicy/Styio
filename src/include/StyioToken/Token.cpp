@@ -118,9 +118,9 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::Filling:
+  case StyioType::Fill:
     {
-      auto name = std::string("Filling");
+      auto name = std::string("Fill");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -299,7 +299,7 @@ std::string reprStyioType (
 
   case StyioType::CondFlow:
     {
-      auto name = std::string("If Then Else");
+      auto name = std::string("Conditional");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -325,7 +325,7 @@ std::string reprStyioType (
 
   case StyioType::Struct:
     {
-      auto name = std::string("struct");
+      auto name = std::string("Struct");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -338,7 +338,7 @@ std::string reprStyioType (
 
   case StyioType::Loop:
     {
-      auto name = std::string("loop");
+      auto name = std::string("Loop");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -351,7 +351,7 @@ std::string reprStyioType (
 
   case StyioType::Iterator:
     {
-      auto name = std::string("iter");
+      auto name = std::string("Iterator");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -403,7 +403,7 @@ std::string reprStyioType (
 
   case StyioType::FromTo:
     {
-      auto name = std::string("Fill In");
+      auto name = std::string("Transfer");
 
       if (colorful) {
         output = make_colorful(name, titleColor);

@@ -159,7 +159,7 @@ enum class StyioType {
    * Layers
    */
   // (x, y, ...)
-  Filling,
+  Fill,
   // ?=
   CheckEq,
   // ?^
