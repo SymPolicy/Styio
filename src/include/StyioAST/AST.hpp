@@ -143,13 +143,13 @@ class ReturnAST : public StyioAST {
 
     std::string toString(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + " { "
-        + Expr -> toStringInline(indent + 1)
+        + Expr -> toStringInline(indent + 1, colorful)
         + " }";
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + " { "
-        + Expr -> toStringInline(indent + 1)
+        + Expr -> toStringInline(indent + 1, colorful)
         + " }";
     }
 };
@@ -217,11 +217,11 @@ class ArgAST : public StyioAST {
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
-      return std::string("arg { ") + Id ->toString(indent + 1) + " }";
+      return std::string("arg { ") + Id ->toString(indent + 1, colorful) + " }";
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return std::string("arg { ") + Id ->toString(indent + 1) + " }";
+      return std::string("arg { ") + Id ->toString(indent + 1, colorful) + " }";
     }
 };
 
@@ -241,11 +241,11 @@ class KwArgAST : public StyioAST {
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
-      return std::string("kwargs { ") + Id ->toString(indent + 1) + " }";
+      return std::string("kwargs { ") + Id ->toString(indent + 1, colorful) + " }";
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return std::string("id { ") + Id ->toString(indent + 1) + " }";
+      return std::string("id { ") + Id ->toString(indent + 1, colorful) + " }";
     }
 };
 
@@ -275,7 +275,7 @@ class VarsTupleAST : public StyioAST {
           ++it
         ) {
           outstr += make_padding(indent, " ");
-          outstr += (*it) -> toString(indent + 1);
+          outstr += (*it) -> toString(indent + 1, colorful);
           
           if (it != (Vars.end() - 1))
           {
@@ -336,17 +336,17 @@ class TypedVarAST : public StyioAST {
 
     std::string toString(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
-      + Id -> toStringInline(indent + 1) 
+      + Id -> toStringInline(indent + 1, colorful) 
       + " "
-      + Type -> toStringInline(indent + 1) 
+      + Type -> toStringInline(indent + 1, colorful) 
       + " }";
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
-      + Id -> toStringInline(indent + 1) 
+      + Id -> toStringInline(indent + 1, colorful) 
       + " "
-      + Type -> toStringInline(indent + 1) 
+      + Type -> toStringInline(indent + 1, colorful) 
       + " }";
     }
 };
@@ -470,11 +470,11 @@ class ExtPathAST : public StyioAST {
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") + Path -> toStringInline(indent + 1) + " }";
+      return reprStyioType(this -> hint(), colorful) + std::string(" { ") + Path -> toStringInline(indent + 1, colorful) + " }";
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") + Path -> toStringInline(indent + 1) + " }";
+      return reprStyioType(this -> hint(), colorful) + std::string(" { ") + Path -> toStringInline(indent + 1, colorful) + " }";
     }
 };
 
@@ -669,17 +669,17 @@ class RangeAST : public StyioAST
 
     std::string toString(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
-        + make_padding(indent, " ") + "| Start: " + StartVal -> toString(indent + 1) + "\n"
-        + make_padding(indent, " ") + "| End: " + EndVal -> toString(indent + 1) + "\n"
-        + make_padding(indent, " ") + "| Step: " + StepVal -> toString(indent + 1) + "\n"
+        + make_padding(indent, " ") + "| Start: " + StartVal -> toString(indent + 1, colorful) + "\n"
+        + make_padding(indent, " ") + "| End: " + EndVal -> toString(indent + 1, colorful) + "\n"
+        + make_padding(indent, " ") + "| Step: " + StepVal -> toString(indent + 1, colorful) + "\n"
         + "\n}";
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { ")
-        + "Start: " + StartVal -> toStringInline(indent + 1)
-        + " | End: " + EndVal -> toStringInline(indent + 1)
-        + " | Step: " + StepVal -> toStringInline(indent + 1)
+        + "Start: " + StartVal -> toStringInline(indent + 1, colorful)
+        + " | End: " + EndVal -> toStringInline(indent + 1, colorful)
+        + " | Step: " + StepVal -> toStringInline(indent + 1, colorful)
         + " }";
     }
 };
@@ -711,13 +711,13 @@ class SizeOfAST : public StyioAST
 
     std::string toString(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
-      + Value -> toStringInline(indent + 1)
+      + Value -> toStringInline(indent + 1, colorful)
       + " }";
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
-      + Value -> toStringInline(indent + 1)
+      + Value -> toStringInline(indent + 1, colorful)
       + " }";
     }
 };
@@ -804,12 +804,12 @@ class BinOpAST : public StyioAST
     std::string toString(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
         + make_padding(indent, " ") + "LHS: "
-        + LHS -> toString(indent + 1) 
+        + LHS -> toString(indent + 1, colorful) 
         + "\n"
         + make_padding(indent, " ") + "OP : " + reprToken(Op)
         + "\n"
         + make_padding(indent, " ") + "RHS: "
-        + RHS -> toString(indent + 1) 
+        + RHS -> toString(indent + 1, colorful) 
         + "}";
     }
 
@@ -857,11 +857,11 @@ class BinCompAST: public StyioAST
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string("LHS: ") 
-        + LhsExpr -> toStringInline(indent + 1)
+        + LhsExpr -> toStringInline(indent + 1, colorful)
         + " | Op: "
         + reprToken(CompSign) 
         + " | RHS: "
-        + RhsExpr -> toStringInline(indent + 1);
+        + RhsExpr -> toStringInline(indent + 1, colorful);
     }
 };
 
@@ -915,9 +915,9 @@ class CondAST: public StyioAST
         return reprStyioType(this -> hint(), colorful) + " {\n"
         + make_padding(indent, " ") + "Op: " + reprToken(LogicOp) 
         + "\n"
-        + make_padding(indent, " ") + "LHS: " + LhsExpr -> toString(indent + 1) 
+        + make_padding(indent, " ") + "LHS: " + LhsExpr -> toString(indent + 1, colorful) 
         + "\n"
-        + make_padding(indent, " ") + "RHS: " + RhsExpr -> toString(indent + 1)
+        + make_padding(indent, " ") + "RHS: " + RhsExpr -> toString(indent + 1, colorful)
         + "}";
       }
       else
@@ -926,14 +926,14 @@ class CondAST: public StyioAST
         return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
         + make_padding(indent, " ") + "Op: " + reprToken(LogicOp) 
         + "\n"
-        + make_padding(indent, " ") + "Value: " + ValExpr -> toString(indent + 1)
+        + make_padding(indent, " ") + "Value: " + ValExpr -> toString(indent + 1, colorful)
         + "}";
       }
       else
       if (LogicOp == LogicType::RAW)
       {
         return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
-        + make_padding(indent, " ") + ValExpr -> toString(indent + 1)
+        + make_padding(indent, " ") + ValExpr -> toString(indent + 1, colorful)
         + "}";
       }
       else
@@ -948,9 +948,9 @@ class CondAST: public StyioAST
           || LogicOp == LogicType::XOR)
       {
         return reprStyioType(this -> hint(), colorful) + std::string(" { ")
-        + LhsExpr -> toStringInline(indent + 1) 
+        + LhsExpr -> toStringInline(indent + 1, colorful) 
         + reprToken(LogicOp)
-        + RhsExpr -> toStringInline(indent + 1)
+        + RhsExpr -> toStringInline(indent + 1, colorful)
         + " }";
       }
       else
@@ -958,14 +958,14 @@ class CondAST: public StyioAST
       {
         return reprStyioType(this -> hint(), colorful) + std::string(" { ")
         + reprToken(LogicOp)
-        + ValExpr -> toStringInline(indent + 1)
+        + ValExpr -> toStringInline(indent + 1, colorful)
         + " }";
       }
       else
       if (LogicOp == LogicType::RAW)
       {
         return reprStyioType(this -> hint(), colorful) + std::string(" { ")
-        + ValExpr -> toStringInline(indent + 1)
+        + ValExpr -> toStringInline(indent + 1, colorful)
         + " }";
       }
       else
@@ -1221,10 +1221,10 @@ class FlexBindAST : public StyioAST {
     std::string toString(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
         + make_padding(indent, " ") + "Var: " 
-        + varId -> toString(indent + 1) 
+        + varId -> toString(indent + 1, colorful) 
         + "\n"
         + make_padding(indent, " ") + "Val: " 
-        + valExpr -> toString(indent + 1)
+        + valExpr -> toString(indent + 1, colorful)
         + "}";
     }
 
@@ -1398,7 +1398,7 @@ class PrintAST : public StyioAST {
         ++it
       ) {
         outstr += make_padding(indent, " ");
-        outstr += (*it) -> toString(indent + 1);
+        outstr += (*it) -> toString(indent + 1, colorful);
         
         if (it != (Exprs.end() - 1))
         {
@@ -1419,7 +1419,7 @@ class PrintAST : public StyioAST {
         ++it
       ) {
         outstr += make_padding(indent, " ");
-        outstr += (*it) -> toString(indent + 1);
+        outstr += (*it) -> toString(indent + 1, colorful);
         
         if (it != (Exprs.end() - 1))
         {
@@ -1528,7 +1528,7 @@ class BlockAST : public StyioAST {
         ++it
       ) {
         stmtStr += make_padding(indent, " ");
-        stmtStr += (*it) -> toString(indent + 1);
+        stmtStr += (*it) -> toString(indent + 1, colorful);
         
         if (it != (Stmts.end() - 1))
         {
@@ -1582,8 +1582,8 @@ class CasesAST : public StyioAST {
         ++it
       ) {
         stmtStr += make_padding(indent, " ");
-        stmtStr += std::get<0>(*it) -> toString(indent + 1);
-        stmtStr += std::get<1>(*it) -> toString(indent + 1);
+        stmtStr += std::get<0>(*it) -> toString(indent + 1, colorful);
+        stmtStr += std::get<1>(*it) -> toString(indent + 1, colorful);
         
         if (it != (Cases.end() - 1))
         {
@@ -1593,6 +1593,7 @@ class CasesAST : public StyioAST {
 
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
         + stmtStr
+        + LastExpr -> toString(indent + 1, colorful);
         + "}";
     }
 
@@ -1643,24 +1644,24 @@ class CondFlowAST : public StyioAST {
       {
         return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
         + make_padding(indent, " ") + reprFlow(WhatFlow) + "\n"
-        + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1) + "\n"
-        + make_padding(indent, " ") + "\033[1;35mThen\033[0m: "+ ThenBlock -> toString(indent + 1)
+        + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1, colorful) + "\n"
+        + make_padding(indent, " ") + "\033[1;35mThen\033[0m: "+ ThenBlock -> toString(indent + 1, colorful)
         + "}";
       }
       else if (WhatFlow == FlowType::Both)
       {
         return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
         + make_padding(indent, " ") + reprFlow(WhatFlow) + "\n"
-        + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1) + "\n"
-        + make_padding(indent, " ") + "\033[1;35mThen\033[0m: " + ThenBlock -> toString(indent + 1) + "\n"
-        + make_padding(indent, " ") + "\033[1;35mElse\033[0m: " + ElseBlock -> toString(indent + 1)
+        + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1, colorful) + "\n"
+        + make_padding(indent, " ") + "\033[1;35mThen\033[0m: " + ThenBlock -> toString(indent + 1, colorful) + "\n"
+        + make_padding(indent, " ") + "\033[1;35mElse\033[0m: " + ElseBlock -> toString(indent + 1, colorful)
         + "}";
       }
       else
       {
         return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
         + make_padding(indent, " ") + reprFlow(WhatFlow) + "\n"
-        + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1)
+        + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1, colorful)
         + "}";
       }
     }
@@ -1810,7 +1811,7 @@ class CheckEqAST : public StyioAST {
 
     std::string toString(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
-      + Value -> toString(indent + 1)
+      + Value -> toString(indent + 1, colorful)
       + " }";
     }
 
@@ -1837,7 +1838,7 @@ class CheckIsInAST : public StyioAST {
 
     std::string toString(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
-      + make_padding(indent, " ") + Iterable -> toString(indent + 1)
+      + make_padding(indent, " ") + Iterable -> toString(indent + 1, colorful)
       + "}";
     }
 
@@ -1868,9 +1869,9 @@ class FromToAST : public StyioAST {
     std::string toString(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" {")
       + "\n" 
-      + make_padding(indent, " ") + "From: " + FromWhat -> toString(indent + 1)
+      + make_padding(indent, " ") + "From: " + FromWhat -> toString(indent + 1, colorful)
       + "\n" 
-      + make_padding(indent, " ") + "To: " + ToWhat -> toString(indent + 1)
+      + make_padding(indent, " ") + "To: " + ToWhat -> toString(indent + 1, colorful)
       + "}";
     }
 
@@ -2016,7 +2017,7 @@ class ForwardAST : public StyioAST {
       case StyioType::Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1) 
+          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1, colorful) 
           + "}";
         }
 
@@ -2026,8 +2027,8 @@ class ForwardAST : public StyioAST {
       case StyioType::If_Equal_To_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
-          + make_padding(indent, " ") + ExtraEq -> toString(indent + 1) + "\n"
-          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1) 
+          + make_padding(indent, " ") + ExtraEq -> toString(indent + 1, colorful) + "\n"
+          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1, colorful) 
           + "}";
         }
 
@@ -2037,8 +2038,8 @@ class ForwardAST : public StyioAST {
       case StyioType::If_Is_In_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + ExtraIsin -> toString(indent + 1) + "\n"
-          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1) 
+          + make_padding(indent, " ") + ExtraIsin -> toString(indent + 1, colorful) + "\n"
+          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1, colorful) 
           + "}";
         }
 
@@ -2048,7 +2049,7 @@ class ForwardAST : public StyioAST {
       case StyioType::Cases_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + "Cases: " + ThenExpr -> toString(indent + 1) + "\n"
+          + make_padding(indent, " ") + "Cases: " + ThenExpr -> toString(indent + 1, colorful) + "\n"
           + "}";
         }
 
@@ -2058,7 +2059,7 @@ class ForwardAST : public StyioAST {
       case StyioType::If_True_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1)
+          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
           + "}";
         }
 
@@ -2068,7 +2069,7 @@ class ForwardAST : public StyioAST {
       case StyioType::If_False_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1)
+          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
           + "}";
         }
 
@@ -2078,7 +2079,7 @@ class ForwardAST : public StyioAST {
       case StyioType::If_Both_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1)
+          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
           + "}";
         }
 
@@ -2088,8 +2089,8 @@ class ForwardAST : public StyioAST {
       case StyioType::Fill_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
-          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1) 
+          + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
+          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1, colorful) 
           + "}";
         }
 
@@ -2099,9 +2100,9 @@ class ForwardAST : public StyioAST {
       case StyioType::Fill_If_Equal_To_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
-          + make_padding(indent, " ") + ExtraEq -> toString(indent + 1) + "\n"
-          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1) 
+          + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
+          + make_padding(indent, " ") + ExtraEq -> toString(indent + 1, colorful) + "\n"
+          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1, colorful) 
           + "}";
         }
 
@@ -2111,9 +2112,9 @@ class ForwardAST : public StyioAST {
       case StyioType::Fill_If_Is_in_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
-          + make_padding(indent, " ") + ExtraIsin -> toString(indent + 1) + "\n"
-          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1) 
+          + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
+          + make_padding(indent, " ") + ExtraIsin -> toString(indent + 1, colorful) + "\n"
+          + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1, colorful) 
           + "}";
         }
 
@@ -2123,8 +2124,8 @@ class ForwardAST : public StyioAST {
       case StyioType::Fill_Cases_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
-          + make_padding(indent, " ") + "Cases: " + ThenExpr -> toString(indent + 1) + "\n"
+          + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
+          + make_padding(indent, " ") + "Cases: " + ThenExpr -> toString(indent + 1, colorful) + "\n"
           + "}";
         }
 
@@ -2134,8 +2135,8 @@ class ForwardAST : public StyioAST {
       case StyioType::Fill_If_True_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
-          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1)
+          + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
+          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
           + "}";
         }
 
@@ -2145,8 +2146,8 @@ class ForwardAST : public StyioAST {
       case StyioType::Fill_If_False_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
-          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1)
+          + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
+          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
           + "}";
         }
 
@@ -2156,8 +2157,8 @@ class ForwardAST : public StyioAST {
       case StyioType::Fill_If_Both_Forward:
         {
           return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-          + make_padding(indent, " ") + TmpVars -> toString(indent + 1) + "\n"
-          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1)
+          + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
+          + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
           + "}";
         }
 
@@ -2223,10 +2224,10 @@ class InfiniteAST : public StyioAST {
         return reprStyioType(this -> hint(), colorful) + std::string(" {")
           + "\n" 
           + "|" + std::string(2 * indent, '-') + "| Start: "
-          + Start -> toString(indent + 1) 
+          + Start -> toString(indent + 1, colorful) 
           + "\n"
           + "|" + std::string(2 * indent, '-') + "| Increment: "
-          + IncEl -> toString(indent + 1) 
+          + IncEl -> toString(indent + 1, colorful) 
           + "\n"
           + "}";
 
@@ -2294,9 +2295,9 @@ class FuncAST : public StyioAST {
 
       std::string output = reprStyioType(this -> hint(), colorful, extra) + " {\n";
 
-      output += make_padding(indent, " ") + "Name: " + FName -> toString(indent + 1) + "\n";
+      output += make_padding(indent, " ") + "Name: " + FName -> toString(indent + 1, colorful) + "\n";
   
-      output += make_padding(indent, " ") + Forward -> toString(indent + 1);
+      output += make_padding(indent, " ") + Forward -> toString(indent + 1, colorful);
 
       output += "}";
 
@@ -2346,7 +2347,7 @@ class LoopAST : public StyioAST {
 
     std::string toString(int indent = 0, bool colorful = false) {
       std::string output = reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-      + make_padding(indent, " ") + Forward -> toString(indent + 1) 
+      + make_padding(indent, " ") + Forward -> toString(indent + 1, colorful) 
       + "}";
 
       return output;
@@ -2354,7 +2355,7 @@ class LoopAST : public StyioAST {
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
       std::string output = reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-      + make_padding(indent, " ") + Forward -> toStringInline(indent + 1) 
+      + make_padding(indent, " ") + Forward -> toStringInline(indent + 1, colorful) 
       + "}";
 
       return output;
@@ -2384,13 +2385,13 @@ class IterAST : public StyioAST {
 
     std::string toString(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-      + make_padding(indent, " ") + Collection -> toStringInline(indent + 1)
+      + make_padding(indent, " ") + Collection -> toStringInline(indent + 1, colorful)
       + "}";
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
-      + Collection -> toStringInline(indent + 1)
+      + Collection -> toStringInline(indent + 1, colorful)
       + " }";
     }
 };
