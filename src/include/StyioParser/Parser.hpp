@@ -15,11 +15,6 @@ auto type_to_int (Enumeration const value)
     return static_cast<typename std::underlying_type<Enumeration>::type>(value);
 }
 
-std::unique_ptr<CommentAST> parse_comment(
-  struct StyioCodeContext* code,
-  char& cur_char,
-  int mode);
-
 /*
   =================
     Variable
@@ -208,15 +203,6 @@ std::unique_ptr<ResourceAST> parse_resources (
 );
 
 /*
-  parse_bind_flex
-*/
-std::unique_ptr<FlexBindAST> parse_bind_flex (
-  struct StyioCodeContext* code,
-  char& cur_char, 
-  std::unique_ptr<IdAST> id_ast
-);
-
-/*
   parse_bind_final
 */
 std::unique_ptr<FinalBindAST> parse_bind_final (
@@ -289,9 +275,9 @@ std::string parse_ext_elem(struct StyioCodeContext* code,char& cur_char);
 std::unique_ptr<ExtPackAST> parse_ext_pack (struct StyioCodeContext* code,char& cur_char);
 
 /*
-  parse_case_block
+  parse_cases
 */
-std::unique_ptr<StyioAST> parse_case_block (
+std::unique_ptr<StyioAST> parse_cases (
   struct StyioCodeContext* code,
   char& cur_char
 );

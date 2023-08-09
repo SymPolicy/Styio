@@ -57,23 +57,16 @@ inline bool check_binop_token (
   struct StyioCodeContext* code) {
   int pos = code -> cursor;
   while (isspace((code -> text.at(pos)))) {
-    pos += 1;
-  }
+    pos += 1; }
 
   char the_char = code -> text.at(pos);
-  if (the_char == '+' 
-    || the_char == '-' 
-    || the_char == '*' 
-    || the_char == '%') { 
-    return true; 
-  }
+  if (the_char == '+' || the_char == '-' || the_char == '*' || the_char == '%') { 
+    return true; }
   else if (the_char == '/') {
     if ((code -> text.at(pos + 1)) == '*') { 
-      return false; 
-    } 
+      return false; } 
     else { 
-      return true; 
-    }
+      return true; }
   }
 
   return false;
@@ -96,10 +89,8 @@ bool peak_next_char (
   struct StyioCodeContext* code,
   char value) {
   int pos = code -> cursor;
-
   while (isspace((code -> text.at(pos)))) {
-    pos += 1;
-  }
+    pos += 1; }
 
   return check_char(code -> text.at(pos), value);
 }
@@ -108,16 +99,14 @@ void drop_white_spaces (
   struct StyioCodeContext* code,
   char& cur_char) {
   while (check_char(cur_char, ' ')) {
-    move_to_the_next_char(code, cur_char);
-  };
+    move_to_the_next_char(code, cur_char); }
 }
 
 void drop_spaces (
   struct StyioCodeContext* code,
   char& cur_char) {
   while (isspace(cur_char)) {
-    move_to_the_next_char(code, cur_char);
-  };
+    move_to_the_next_char(code, cur_char); }
 }
 
 void move_until_char (
@@ -127,13 +116,12 @@ void move_until_char (
   /*
     Danger: No bound check!
   */
-  while (true) {
+  while (true) 
+  {
     if (check_char(cur_char, value)) {
-      break;
-    }
+      break; }
     else {
-      move_to_the_next_char(code, cur_char);
-    }
+      move_to_the_next_char(code, cur_char); }
   }
 }
 
@@ -144,14 +132,13 @@ void pass_over_char (
   /*
     Danger: No bound check!
   */
-  while (true) {
+  while (true) 
+  {
     if (check_char(cur_char, value)) {
       move_to_the_next_char(code, cur_char);
-      break;
-    }
+      break; }
     else {
-      move_to_the_next_char(code, cur_char);
-    }
+      move_to_the_next_char(code, cur_char); }
   }
 }
 
@@ -162,18 +149,16 @@ void pass_over_symbol (
   /*
     Danger!
   */
-  while (true) {
+  while (true) 
+  {
     while (not check_char(cur_char, value.at(0))) {
-      move_to_the_next_char(code, cur_char);
-    }
+      move_to_the_next_char(code, cur_char); }
 
     if (check_symbol(code, value)) {
       move_forward(code, cur_char, value.length());
-      break;
-    }
+      break; }
     else {
-      move_forward(code, cur_char, value.length());
-    }
+      move_forward(code, cur_char, value.length()); }
 
     // std::cout << "pass_over_symbol() " << cur_char << std::endl;
   }
@@ -185,22 +170,19 @@ void drop_spaces_and_comments (
   /*
     Danger: No bound check!
   */
-  while (true) {
+  while (true) 
+  {
     if (isspace(cur_char)) {
-      move_to_the_next_char(code, cur_char);
-    }
+      move_to_the_next_char(code, cur_char); }
     else if (check_symbol(code, "//")) {
-      pass_over_char(code, cur_char, '\n');
-    }
+      pass_over_char(code, cur_char, '\n'); }
     else if (check_symbol(code, "/*")) {
-      pass_over_symbol(code, cur_char, "*/");
-    }
+      pass_over_symbol(code, cur_char, "*/"); }
     else {
-      break;
-    } 
+      break; } 
 
     // std::cout << cur_char << std::endl;
-  };
+  }
 }
 
 /*
@@ -216,7 +198,8 @@ inline bool check_and_drop_char (
   if (check_char(cur_char, value)) {
     move_to_the_next_char(code, cur_char);
     return true; }
-  else { return false; }
+  else { 
+    return false; }
 }
 
 inline bool check_and_drop_symbol (
@@ -226,7 +209,8 @@ inline bool check_and_drop_symbol (
   if ((code -> text.substr(code -> cursor, value.length())) == value) {
     move_forward(code, cur_char, value.length());
     return true; }
-  else { return false; }
+  else { 
+    return false; }
 }
 
 bool find_and_drop_char (
@@ -239,22 +223,18 @@ bool find_and_drop_char (
   while (true)
   {
     if (isspace(cur_char)) {
-      move_to_the_next_char(code, cur_char);
-    }
+      move_to_the_next_char(code, cur_char); }
     else if (check_symbol(code, "//")) {
-      pass_over_char(code, cur_char, '\n');
-    }
+      pass_over_char(code, cur_char, '\n'); }
     else if (check_symbol(code, "/*")) {
-      pass_over_symbol(code, cur_char, "*/");
-    }
+      pass_over_symbol(code, cur_char, "*/"); }
     else {
       if (check_char(cur_char, value)) {
         move_to_the_next_char(code, cur_char);
-        return true;
-      }
-      
-      return false;
-    } 
+        return true; }
+      else {
+        return false; }
+    }
   }
 
   return false;
@@ -270,22 +250,18 @@ bool find_and_drop_symbol (
   while (true)
   {
     if (isspace(cur_char)) {
-      move_to_the_next_char(code, cur_char);
-    }
+      move_to_the_next_char(code, cur_char); }
     else if (check_symbol(code, "//")) {
-      pass_over_char(code, cur_char, '\n');
-    }
+      pass_over_char(code, cur_char, '\n'); }
     else if (check_symbol(code, "/*")) {
-      pass_over_symbol(code, cur_char, "*/");
-    }
+      pass_over_symbol(code, cur_char, "*/"); }
     else {
       if (check_symbol(code, value)) {
         move_forward(code, cur_char, value.length());
-        return true;
-      }
-
-      return false;
-    } 
+        return true; }
+      else { 
+        return false; }
+    }
   }
 
   return false;
@@ -301,24 +277,19 @@ bool find_and_drop_char_panic (
   while (true)
   {
     if (isspace(cur_char)) {
-      move_to_the_next_char(code, cur_char);
-    }
+      move_to_the_next_char(code, cur_char); }
     else if (check_symbol(code, "//")) {
-      pass_over_char(code, cur_char, '\n');
-    }
+      pass_over_char(code, cur_char, '\n'); }
     else if (check_symbol(code, "/*")) {
-      pass_over_symbol(code, cur_char, "*/");
-    }
+      pass_over_symbol(code, cur_char, "*/"); }
     else {
       if (check_char(cur_char, value)) {
         move_to_the_next_char(code, cur_char);
-        return true;
-      }
+        return true; }
       else {
         std::string errmsg = std::string("Expecting: ") + char(value) + "\n" 
           + "But Got: " + char(cur_char);
-        throw StyioSyntaxError(errmsg);
-      }
+        throw StyioSyntaxError(errmsg); }
     } 
   }
 }
@@ -333,25 +304,20 @@ bool find_and_drop_symbol_panic (
   while (true)
   {
     if (isspace(cur_char)) {
-      move_to_the_next_char(code, cur_char);
-    }
+      move_to_the_next_char(code, cur_char); }
     else if (check_symbol(code, "//")) {
-      pass_over_char(code, cur_char, '\n');
-    }
+      pass_over_char(code, cur_char, '\n'); }
     else if (check_symbol(code, "/*")) {
-      pass_over_symbol(code, cur_char, "*/");
-    }
+      pass_over_symbol(code, cur_char, "*/"); }
     else {
       if ((code -> text.substr(code -> cursor, value.length())) == value) {
         move_forward(code, cur_char, value.length());
-        return true;
-      }
+        return true; }
       else {
         std::string errmsg = std::string("Expecting: ") + value + "\n" 
           + "But Got: " + code -> text.substr(code -> cursor, value.length());
-        throw StyioSyntaxError(errmsg);
-      }
-    } 
+        throw StyioSyntaxError(errmsg); }
+    }
   }
 }
 
@@ -361,8 +327,7 @@ inline bool match_next_char_panic (
   char value) {
   if (check_char(cur_char, value)) {
     move_to_the_next_char(code, cur_char);
-    return true;
-  }
+    return true; }
 
   std::string errmsg = std::string("Expecting: ") + char(value) + "\n" 
     + "But Got " + char(cur_char) + "\n";
@@ -402,10 +367,7 @@ std::unique_ptr<IdAST> parse_id (
   do {
     idStr += cur_char;
     move_to_the_next_char(code, cur_char);
-  } while (
-    isalnum((cur_char)) 
-    || check_char(cur_char, '_')
-  );
+  } while (isalnum((cur_char)) || check_char(cur_char, '_'));
 
   return std::make_unique<IdAST>(idStr);
 }
@@ -424,21 +386,16 @@ std::unique_ptr<IntAST> parse_int (
   intStr += cur_char;
   move_to_the_next_char(code, cur_char);
 
-  while (isdigit(cur_char))
-  {
+  while (isdigit(cur_char)) {
     intStr += cur_char;
-    move_to_the_next_char(code, cur_char);
-  };
+    move_to_the_next_char(code, cur_char); };
 
   return std::make_unique<IntAST>(intStr);
 }
 
-std::unique_ptr<StyioAST> parse_int_or_float 
-(
+std::unique_ptr<StyioAST> parse_int_or_float (
   struct StyioCodeContext* code, 
-  char& cur_char
-)
-{
+  char& cur_char) {
   std::unique_ptr<StyioAST> output;
 
   std::string numStr = "";
@@ -454,31 +411,22 @@ std::unique_ptr<StyioAST> parse_int_or_float
 
   while (isdigit(cur_char)) {
     numStr += cur_char;
-    move_to_the_next_char(code, cur_char);
-  };
+    move_to_the_next_char(code, cur_char); };
 
-  if (check_char(cur_char, '.')) {
-    move_to_the_next_char(code, cur_char);
-
+  if (check_and_drop_char(code, cur_char, '.')) {
     if (isdigit(cur_char)) {
       numStr += '.';
 
       while (isdigit(cur_char)) {
         numStr += cur_char;
-        move_to_the_next_char(code, cur_char);
-      };
+        move_to_the_next_char(code, cur_char); }
 
-      output = std::make_unique<FloatAST>(numStr);
-    }
+      return std::make_unique<FloatAST>(numStr); }
     else {
-      output = std::make_unique<IntAST>(numStr);
-    };
+      return std::make_unique<IntAST>(numStr); }
   } 
-  else {
-    output = std::make_unique<IntAST>(numStr);
-  }
 
-  return output;
+  return std::make_unique<IntAST>(numStr); 
 }
 
 std::unique_ptr<StringAST> parse_string (
@@ -496,8 +444,7 @@ std::unique_ptr<StringAST> parse_string (
   
   while (not check_char(cur_char, '\"')) {
     textStr += cur_char;
-    move_to_the_next_char(code, cur_char);
-  };
+    move_to_the_next_char(code, cur_char); }
 
   // eliminate " at the end
   move_to_the_next_char(code, cur_char);
@@ -508,8 +455,6 @@ std::unique_ptr<StringAST> parse_string (
 std::unique_ptr<StyioAST> parse_char_or_string (
   struct StyioCodeContext* code, 
   char& cur_char) {
-  std::unique_ptr<StyioAST> output;
-
   /*
     Danger!
     when entering parse_char_or_string(), 
@@ -520,29 +465,22 @@ std::unique_ptr<StyioAST> parse_char_or_string (
 
   std::string textStr = "";
   
-  while (cur_char != '\'') {
+  while (not check_char(cur_char, '\'')) {
     textStr += cur_char;
-    move_to_the_next_char(code, cur_char);
-  };
+    move_to_the_next_char(code, cur_char); };
 
   // eliminate ' at the end
   move_to_the_next_char(code, cur_char);
 
-  if (textStr.length() == 1) {
-    output = std::make_unique<CharAST>(textStr);
-  }
+  if (textStr.size() == 1) {
+    return std::make_unique<CharAST>(textStr); }
   else {
-    output = std::make_unique<StringAST>(textStr);
-  }
-
-  return output;
+    return std::make_unique<StringAST>(textStr); }
 }
 
 std::unique_ptr<StyioAST> parse_path_or_link (
   struct StyioCodeContext* code, 
-  char& cur_char
-)
-{
+  char& cur_char) {
   std::unique_ptr<StyioAST> output;
 
   /*
@@ -557,17 +495,9 @@ std::unique_ptr<StyioAST> parse_path_or_link (
     if (check_char(cur_char, '\"')) {
       std::unique_ptr<StringAST> path = parse_string(code, cur_char);
 
-      if (check_char(cur_char, ')')) {
-        // eliminate )
-        move_to_the_next_char(code, cur_char);
-      }
-      else
-      {
-        std::string errmsg = std::string("@(___) // Resource: Expecting ) at the end, but got .:| ") + char(cur_char) + " |:.";
-        throw StyioSyntaxError(errmsg);
-      };
+      find_and_drop_char_panic(code, cur_char, ')');
 
-      output = std::make_unique<ExtPathAST>(std::move(path));
+      return std::make_unique<ExtPathAST>(std::move(path));
     }
     else
     {
@@ -584,46 +514,6 @@ std::unique_ptr<StyioAST> parse_path_or_link (
   return output;
 }
 
-std::unique_ptr<CommentAST> parse_comment (
-  struct StyioCodeContext* code,
-  char& cur_char,
-  int mode) {
-  std::string commentText = "";
-
-  if (mode == 1) {
-    while (not check_char(cur_char, '\n'))
-    {
-      commentText += char(cur_char);
-
-      move_to_the_next_char(code, cur_char);
-    }
-
-    return std::make_unique<CommentAST>(commentText);
-  }
-  else if (mode == 2) {
-    while (true)
-    {
-      while (not check_char(cur_char, '*'))
-      {
-        commentText += char(cur_char);
-
-        move_to_the_next_char(code, cur_char);
-      }
-
-      // eliminate the detected *
-      move_to_the_next_char(code, cur_char);
-
-      if (check_char(cur_char, '/')) {
-        move_to_the_next_char(code, cur_char);
-
-        return std::make_unique<CommentAST>(commentText);
-      }
-    }
-  }
-
-  return std::make_unique<CommentAST>(commentText);
-}
-
 std::unique_ptr<TypeAST> parse_type (
   struct StyioCodeContext* code,
   char& cur_char) {
@@ -631,12 +521,10 @@ std::unique_ptr<TypeAST> parse_type (
 
   if (isalpha((cur_char)) || check_char(cur_char, '_')) {
     text += cur_char;
-    move_to_the_next_char(code, cur_char);
-  }
+    move_to_the_next_char(code, cur_char); }
   else {
     std::string errmsg = std::string("parse_type() // Can't recognize ") + char(cur_char);
-    throw StyioSyntaxError(errmsg);
-  }
+    throw StyioSyntaxError(errmsg); }
 
   while (isalnum((cur_char)) || check_char(cur_char, '_')) {
     text += cur_char;
@@ -660,7 +548,7 @@ std::unique_ptr<StyioAST> parse_typed_var (
   
   drop_white_spaces(code, cur_char);
   
-  if (find_and_drop_char(code, cur_char, ':')) {
+  if (check_and_drop_char(code, cur_char, ':')) {
     drop_spaces(code, cur_char);
 
     return std::make_unique<TypedVarAST>(
@@ -694,13 +582,11 @@ std::unique_ptr<VarsTupleAST> parse_vars_tuple (
           drop_white_spaces(code, cur_char);
           vars.push_back(std::move(std::make_unique<KwArgAST>(parse_id(code, cur_char)))); }
         else {
-          vars.push_back(std::move(std::make_unique<ArgAST>(parse_id(code, cur_char))));
-        }
+          vars.push_back(std::move(std::make_unique<ArgAST>(parse_id(code, cur_char)))); }
       }
       else{
         vars.push_back(std::move(parse_typed_var(code, cur_char))); }
     }
-
   } while (check_and_drop_char(code, cur_char, ','));
 
   drop_spaces_and_comments(code, cur_char);
@@ -717,86 +603,42 @@ std::unique_ptr<ResourceAST> parse_resources (
 
   std::vector<std::unique_ptr<StyioAST>> resources;
 
-  // eliminate @ at the start
+  /*
+    Danger!
+    when entering parse_resources(), 
+    the cur_char must be @
+    this line will drop the next 1 character anyway!
+  */
   move_to_the_next_char(code, cur_char);
 
-  if (check_char(cur_char, '(')) 
-  {
-    move_to_the_next_char(code, cur_char);
+  if (check_and_drop_char(code, cur_char, '(')) {
+    do {
+      drop_spaces_and_comments(code, cur_char);
 
-    drop_spaces(code, cur_char);
-
-    if (isalpha(cur_char) || check_char(cur_char, '_')) {
-      // "@" "(" |--
-      std::unique_ptr<IdAST> tmp_res_name = parse_id(code, cur_char);
+      std::unique_ptr<IdAST> varname = parse_id(code, cur_char);
 
       drop_spaces(code, cur_char);
 
-      if (check_char(cur_char, '<')) {
-        move_to_the_next_char(code, cur_char);
-
-        match_next_char_panic(code, cur_char, '-');
-      };
+      if (check_and_drop_char(code, cur_char, '<')) {
+        match_next_char_panic(code, cur_char, '-'); }
 
       drop_spaces(code, cur_char);
 
-      std::unique_ptr<StyioAST> tmp_expr = std::make_unique<FinalBindAST>(
-        std::move(tmp_res_name), 
-        parse_value(code, cur_char));
-
-      resources.push_back(std::move(tmp_expr));
-    };
-
-    drop_spaces(code, cur_char);
-
-    // "@" "(" [<ID> |--
-    while (check_char(cur_char, ','))
-    {
-      move_to_the_next_char(code, cur_char);
-
-      drop_spaces(code, cur_char);
-
-      if (isalpha(cur_char) || check_char(cur_char, '_')) {
-        
-        std::unique_ptr<IdAST> tmp_res_name = parse_id(code, cur_char);
-
-        drop_spaces(code, cur_char);
-
-        if (check_char(cur_char, '<')) {
-          move_to_the_next_char(code, cur_char);
-
-          match_next_char_panic(code, cur_char, '-');
-        };
-
-        drop_spaces(code, cur_char);
-
-        std::unique_ptr<StyioAST> tmp_value = parse_value(code, cur_char);
-
-        resources.push_back(std::move(
-          std::make_unique<FinalBindAST>(
-            std::move(tmp_res_name), 
-            std::move(tmp_value))));
-      };
-    };
+      resources.push_back(std::make_unique<FinalBindAST>(
+        std::move(varname), 
+        parse_value(code, cur_char)));
+    } while (check_and_drop_char(code, cur_char, ','));
     
-    if (check_char(cur_char, ')')) 
-    {
-      move_to_the_next_char(code, cur_char);
-    }
-    else
-    {
+    if (check_and_drop_char(code, cur_char, ')')) { }
+    else {
       std::string errmsg = std::string("@(expr) // Expecting ) at the end, but got ") + char(cur_char) + "";
-      throw StyioSyntaxError(errmsg);
-    };
+      throw StyioSyntaxError(errmsg); }
 
-    
     output = std::make_unique<ResourceAST>(std::move(resources));
   }
-  else
-  {
+  else {
     std::string errmsg = std::string("@(expr) // Expecting ( after @, but got ") + char(cur_char) + "";
-    throw StyioSyntaxError(errmsg);
-  };
+    throw StyioSyntaxError(errmsg); }
 
   return output;
 }
@@ -1017,62 +859,37 @@ std::unique_ptr<StyioAST> parse_value (
 
 std::unique_ptr<StyioAST> parse_item_for_binop (
   struct StyioCodeContext* code, 
-  char& cur_char
-)
-{
+  char& cur_char) {
   std::unique_ptr<StyioAST> output (new NoneAST());
 
-  // <ID>
-  if (isalpha(cur_char) || check_char(cur_char, '_')) 
-  {
-    // parse id
-    output = parse_id(code, cur_char);
-
-    return output;
-  }
-  else
-  if (isdigit(cur_char)) {
-    output = parse_int_or_float(code, cur_char);
-
-    return output;
-  };
+  if (isalpha(cur_char) || check_char(cur_char, '_')) {
+    return parse_id(code, cur_char); }
+  else if (isdigit(cur_char)) {
+    return parse_int_or_float(code, cur_char); }
 
   switch (cur_char)
   {
   case '\"':
-    {
-      return parse_string(code, cur_char);
-    }
+    return parse_string(code, cur_char);
 
   case '\'':
-    {
-      return parse_char_or_string(code, cur_char);
-    }
+    return parse_char_or_string(code, cur_char);
 
   case '[':
-    {
-      move_to_the_next_char(code, cur_char);
+    move_to_the_next_char(code, cur_char);
 
-      drop_white_spaces(code, cur_char);
+    drop_spaces_and_comments(code, cur_char);
 
-      if (check_char(cur_char, ']')) {
-        move_to_the_next_char(code, cur_char);
-
-        output = std::make_unique<EmptyListAST>();
-      }
-      else
-      {
-        output = parse_list_or_loop(code, cur_char);
-      }
-    }
+    if (check_and_drop_char(code, cur_char, ']')) {
+      return std::make_unique<EmptyListAST>(); }
+    else {
+      return parse_list_or_loop(code, cur_char); }
 
     // You should NOT reach this line!
     break;
 
   case '|':
-    {
-      output = parse_size_of(code, cur_char);
-    }
+    return parse_size_of(code, cur_char);
 
     // You should NOT reach this line!
     break;
@@ -1089,32 +906,25 @@ std::unique_ptr<StyioAST> parse_expr (
   char& cur_char) {
   std::unique_ptr<StyioAST> output (new NoneAST());
 
-  // <ID>
   if (isalpha(cur_char) || check_char(cur_char, '_')) 
   {
-    // parse id
     output = parse_id(code, cur_char);
     
-    // ignore white spaces after id
-    drop_white_spaces(code, cur_char);
+    drop_spaces(code, cur_char);
 
-    if (check_binop_token(code))
-    {
-      output = parse_binop_rhs(code, cur_char, std::move(output));
-    };
+    if (check_binop_token(code)) {
+      output = parse_binop_rhs(code, cur_char, std::move(output)); };
 
     return output;
   }
-  else if (isdigit(cur_char)) {
+  else if (isdigit(cur_char)) 
+  {
     output = parse_int_or_float(code, cur_char);
 
-    // ignore white spaces after number
     drop_white_spaces(code, cur_char);
 
-    if (check_binop_token(code))
-    {
-      output = parse_binop_rhs(code, cur_char, std::move(output));
-    };
+    if (check_binop_token(code)) {
+      output = parse_binop_rhs(code, cur_char, std::move(output)); };
 
     return output;
   };
@@ -1135,17 +945,12 @@ std::unique_ptr<StyioAST> parse_expr (
     {
       move_to_the_next_char(code, cur_char);
 
-      drop_white_spaces(code, cur_char);
+      drop_spaces_and_comments(code, cur_char);
 
-      if (check_char(cur_char, ']')) {
-        move_to_the_next_char(code, cur_char);
-
-        output = std::make_unique<EmptyListAST>();
-      }
-      else
-      {
-        output = parse_list_or_loop(code, cur_char);
-      }
+      if (check_and_drop_char(code, cur_char, ']')) {
+        output = std::make_unique<EmptyListAST>(); }
+      else {
+        output = parse_list_or_loop(code, cur_char); }
     }
 
     // You should NOT reach this line!
@@ -1157,10 +962,8 @@ std::unique_ptr<StyioAST> parse_expr (
 
       drop_white_spaces(code, cur_char);
 
-      if (check_binop_token(code))
-      {
-        output = parse_binop_rhs(code, cur_char, std::move(output));
-      }
+      if (check_binop_token(code)) {
+        output = parse_binop_rhs(code, cur_char, std::move(output)); }
     }
 
     // You should NOT reach this line!
@@ -1639,7 +1442,7 @@ std::unique_ptr<StyioAST> parse_list_or_loop (
     do {
       drop_spaces_and_comments(code, cur_char);
 
-      if (find_and_drop_char(code, cur_char, ']')) {
+      if (check_and_drop_char(code, cur_char, ']')) {
         return std::make_unique<ListAST>(std::move(elements)); }
       else {
         elements.push_back(parse_expr(code, cur_char)); }
@@ -2113,43 +1916,6 @@ std::unique_ptr<StyioAST> parse_cond_flow (
   throw StyioParseError(errmsg); 
 }
 
-std::unique_ptr<FlexBindAST> parse_bind_flex (
-  struct StyioCodeContext* code, 
-  char& cur_char, 
-  std::unique_ptr<IdAST> id_ast) {
-  std::unique_ptr<FlexBindAST> output = std::make_unique<FlexBindAST>(
-    std::move(id_ast), 
-    std::move(parse_expr(code, cur_char)));
-  
-  if (check_char(cur_char, '\n')) {
-    return output;
-  }
-  else
-  {
-    std::string errmsg = std::string("Unexpected character after binding (flexible): ") + char(cur_char);
-    throw StyioSyntaxError(errmsg);
-  }
-}
-
-std::unique_ptr<FinalBindAST> parse_bind_final (
-  struct StyioCodeContext* code, 
-  char& cur_char, 
-  std::unique_ptr<IdAST> id_ast) {
-  std::unique_ptr<FinalBindAST> output = std::make_unique<FinalBindAST>(
-    std::move(id_ast), 
-    std::move(parse_expr(code, cur_char)));
-  
-  if (check_char(cur_char, '\n')) 
-  {
-    return output;
-  }
-  else
-  {
-    std::string errmsg = std::string("Unexpected character after binding (fixed): `") + char(cur_char) + "` after Assign(Mutable)";
-    throw StyioSyntaxError(errmsg);
-  }
-}
-
 std::unique_ptr<StyioAST> parse_pipeline (
   struct StyioCodeContext* code, 
   char& cur_char) {
@@ -2528,7 +2294,7 @@ std::unique_ptr<StyioAST> parse_read_file (
       std::move(id_ast), 
       parse_path_or_link(code, cur_char)); }
   else {
-    std::string errmsg = std::string("Unexpected Read.Path, starts with character `") + char(cur_char) + "`";
+    std::string errmsg = std::string("Unexpected Read.Path, starting with character `") + char(cur_char) + "`";
     throw StyioSyntaxError(errmsg); }
 }
 
@@ -2552,7 +2318,7 @@ std::unique_ptr<StyioAST> parse_print (
   do {
     drop_spaces_and_comments(code, cur_char);
 
-    if (find_and_drop_char(code, cur_char, ')')) {
+    if (check_and_drop_char(code, cur_char, ')')) {
       return std::make_unique<PrintAST>(std::move(exprs)); }
     else {
       exprs.push_back(parse_expr(code, cur_char)); }
@@ -2587,7 +2353,9 @@ std::unique_ptr<StyioAST> parse_stmt (
 
           drop_spaces_and_comments(code, cur_char);
 
-          return parse_bind_flex(code, cur_char, std::move(id_ast));
+          return std::make_unique<FlexBindAST>(
+            std::move(id_ast), 
+            std::move(parse_expr(code, cur_char)));
         };
 
         // You should NOT reach this line!
@@ -2601,7 +2369,9 @@ std::unique_ptr<StyioAST> parse_stmt (
           {
             drop_spaces_and_comments(code, cur_char);
             
-            return parse_bind_final(code, cur_char, std::move(id_ast));
+            return std::make_unique<FinalBindAST>(
+              std::move(id_ast), 
+              std::move(parse_expr(code, cur_char)));
           }
           else 
           {
@@ -2617,14 +2387,18 @@ std::unique_ptr<StyioAST> parse_stmt (
               {
                 drop_white_spaces(code, cur_char);
                 
-                return parse_bind_final(code, cur_char, std::move(id_ast));
+                return std::make_unique<FinalBindAST>(
+                  std::move(id_ast), 
+                  std::move(parse_expr(code, cur_char)));
               }
             }
             else if (check_and_drop_char(code, cur_char, '='))
             {
               drop_white_spaces(code, cur_char);
               
-              return parse_bind_flex(code, cur_char, std::move(id_ast));
+              return std::make_unique<FlexBindAST>(
+                std::move(id_ast), 
+                std::move(parse_expr(code, cur_char)));
             }
             else 
             {
@@ -2643,7 +2417,7 @@ std::unique_ptr<StyioAST> parse_stmt (
 
           if (check_and_drop_char(code, cur_char, '-'))
           {
-            drop_spaces_and_comments(code, cur_char);
+            drop_spaces(code, cur_char);
 
             return parse_read_file(code, cur_char, std::move(id_ast));
           }
@@ -2735,7 +2509,7 @@ std::unique_ptr<StyioAST> parse_stmt (
 
       drop_spaces_and_comments(code, cur_char);
 
-      if (find_and_drop_symbol(code, cur_char, "->")) {
+      if (check_and_drop_symbol(code, cur_char, "->")) {
         drop_spaces_and_comments(code, cur_char);
 
         return std::make_unique<FromToAST>(
@@ -2831,9 +2605,7 @@ std::string parse_ext_elem(
 
 std::unique_ptr<ExtPackAST> parse_ext_pack (
   struct StyioCodeContext* code, 
-  char& cur_char
-) 
-{ 
+  char& cur_char) { 
   // eliminate left square (box) bracket [
   move_to_the_next_char(code, cur_char);
 
@@ -2869,49 +2641,39 @@ std::unique_ptr<ExtPackAST> parse_ext_pack (
   return output;
 }
 
-std::unique_ptr<StyioAST> parse_case_block (
+std::unique_ptr<StyioAST> parse_cases (
   struct StyioCodeContext* code, 
-  char& cur_char
-)
-{
+  char& cur_char) {
   return std::make_unique<NoneAST>();
 }
 
 std::unique_ptr<StyioAST> parse_block (
   struct StyioCodeContext* code, 
-  char& cur_char
-) 
-{
+  char& cur_char) {
   std::vector<std::unique_ptr<StyioAST>> stmtBuffer;
 
-  // eliminate { at the start
+  /*
+    Danger!
+    when entering parse_block(), 
+    the cur_char must be {
+    this line will drop the next 1 character anyway!
+  */
   move_to_the_next_char(code, cur_char);
 
-  while (1)
+  while (true)
   {
-    drop_spaces(code, cur_char);
+    drop_spaces_and_comments(code, cur_char);
     
-    if (check_char(cur_char, '}'))
-    {
-      // eliminate } at the end
-      move_to_the_next_char(code, cur_char);
-
-      break;
-    }
-    else
-    {
-      stmtBuffer.push_back(std::move(parse_stmt(code, cur_char)));
-    };
+    if (check_and_drop_char(code, cur_char, '}')) {
+      break; }
+    else {
+      stmtBuffer.push_back(std::move(parse_stmt(code, cur_char))); };
   };
 
-  if (stmtBuffer.size() == 0)
-  {
-    return std::make_unique<EmptyBlockAST>();
-  }
-  else
-  {
-    return std::make_unique<BlockAST>(std::move(stmtBuffer));
-  };
+  if (stmtBuffer.size() == 0) {
+    return std::make_unique<EmptyBlockAST>(); }
+  else {
+    return std::make_unique<BlockAST>(std::move(stmtBuffer));};
 }
 
 void parse_program (std::string styio_code) 
