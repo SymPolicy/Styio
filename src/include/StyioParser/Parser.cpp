@@ -838,20 +838,12 @@ std::unique_ptr<StyioAST> parse_value (
   char& cur_char) {
   std::unique_ptr<StyioAST> output;
 
-  if (isalpha(cur_char) || check_char(cur_char, '_')) 
-  {
-    output = parse_id_or_value(code, cur_char);
-
-    return output;
-  }
-  else if (isdigit(cur_char)) 
-  {
-    return parse_int_or_float(code, cur_char);
-  }
-  else if (check_char(cur_char, '|'))
-  {
-    return parse_size_of(code, cur_char);
-  };
+  if (isalpha(cur_char) || check_char(cur_char, '_')) {
+    return parse_id_or_value(code, cur_char); }
+  else if (isdigit(cur_char)) {
+    return parse_int_or_float(code, cur_char); }
+  else if (check_char(cur_char, '|')) {
+    return parse_size_of(code, cur_char); }
 
   std::string errmsg = std::string("parse_value() // Unexpected value expression, starting with .:| ") + char(cur_char) + " |:.";
   throw StyioParseError(errmsg);
@@ -1919,7 +1911,6 @@ std::unique_ptr<StyioAST> parse_cond_flow (
 std::unique_ptr<StyioAST> parse_pipeline (
   struct StyioCodeContext* code, 
   char& cur_char) {
-
   /*
     Danger!
     when entering parse_pipeline(), 
@@ -1930,13 +1921,16 @@ std::unique_ptr<StyioAST> parse_pipeline (
 
   drop_white_spaces(code, cur_char);
 
-  if (isalpha(cur_char) || check_char(cur_char, '_')) {
+  if (isalpha(cur_char) || check_char(cur_char, '_')) 
+  {
     std::unique_ptr<IdAST> name = parse_id(code, cur_char);
 
     drop_spaces_and_comments(code, cur_char);
 
-    if (check_and_drop_char(code, cur_char, ':')) {
-      if (check_and_drop_char(code, cur_char, '=')) {
+    if (check_and_drop_char(code, cur_char, ':')) 
+    {
+      if (check_and_drop_char(code, cur_char, '=')) 
+      {
         drop_spaces(code, cur_char);
 
         return std::make_unique<FuncAST>(
@@ -1971,7 +1965,6 @@ std::unique_ptr<StyioAST> parse_pipeline (
   }
 
   drop_spaces(code, cur_char);
-
   return parse_forward(code, cur_char, true);
 }
 
@@ -1989,9 +1982,7 @@ std::unique_ptr<StyioAST> parse_forward (
       tmpvars = parse_vars_tuple(code, cur_char);
       hasVars = true; }
   }
-  else if (check_char(cur_char, '#')) {
-    move_to_the_next_char(code, cur_char);
-
+  else if (check_and_drop_char(code, cur_char, '#')) {
     drop_white_spaces(code, cur_char);
 
     if (check_char(cur_char, '(')) {
@@ -2035,39 +2026,53 @@ std::unique_ptr<StyioAST> parse_forward (
         {
           move_to_the_next_char(code, cur_char);
 
-          std::unique_ptr<CheckEqAST> value;
-          std::unique_ptr<StyioAST> then;
-
-          // drop white spaces after ?=
-          drop_white_spaces(code, cur_char);
-          
-          value = std::make_unique<CheckEqAST>(parse_value(code, cur_char));
-
           drop_spaces(code, cur_char);
 
-          if (check_and_drop_symbol(code, cur_char, "=>")) 
+          if (check_and_drop_char(code, cur_char, '{')) 
           {
-            drop_spaces(code, cur_char);
-
-            if (check_char(cur_char, '{')) { 
-              then = parse_block(code, cur_char); }
-            else {
-              then = parse_expr(code, cur_char); }
-
             if (hasVars) {
               output = std::make_unique<ForwardAST>(
                 std::move(tmpvars), 
-                std::move(value), 
-                std::move(then)); }
+                parse_cases(code, cur_char)); }
             else {
               output = std::make_unique<ForwardAST>(
-                std::move(value), 
-                std::move(then)); } 
+                parse_cases(code, cur_char)); } 
           }
-          else 
-          {
-            std::string errmsg = std::string("parse_forward() // Expecting `=>` after `?= value`, but got ") + char(cur_char);
-              throw StyioSyntaxError(errmsg); 
+          else {
+            std::unique_ptr<CheckEqAST> value;
+            std::unique_ptr<StyioAST> then;
+
+            // drop white spaces after ?=
+            drop_white_spaces(code, cur_char);
+            
+            value = std::make_unique<CheckEqAST>(parse_value(code, cur_char));
+
+            drop_spaces(code, cur_char);
+
+            if (check_and_drop_symbol(code, cur_char, "=>")) 
+            {
+              drop_spaces(code, cur_char);
+
+              if (check_char(cur_char, '{')) { 
+                then = parse_block(code, cur_char); }
+              else {
+                then = parse_expr(code, cur_char); }
+
+              if (hasVars) {
+                output = std::make_unique<ForwardAST>(
+                  std::move(tmpvars), 
+                  std::move(value), 
+                  std::move(then)); }
+              else {
+                output = std::make_unique<ForwardAST>(
+                  std::move(value), 
+                  std::move(then)); } 
+            }
+            else 
+            {
+              std::string errmsg = std::string("parse_forward() // Expecting `=>` after `?= value`, but got ") + char(cur_char);
+                throw StyioSyntaxError(errmsg); 
+            }
           }
         } 
 
@@ -2644,7 +2649,56 @@ std::unique_ptr<ExtPackAST> parse_ext_pack (
 std::unique_ptr<StyioAST> parse_cases (
   struct StyioCodeContext* code, 
   char& cur_char) {
-  return std::make_unique<NoneAST>();
+  std::vector<std::tuple<std::unique_ptr<StyioAST>, std::unique_ptr<StyioAST>>> pairs;
+  std::unique_ptr<StyioAST> _default_expr;
+
+  /*
+    Danger!
+    when entering parse_cases(), 
+    the cur_char must be {
+    this line will drop the next 1 character anyway!
+  */
+  move_to_the_next_char(code, cur_char);
+
+  while (true)
+  {
+    drop_spaces_and_comments(code, cur_char);
+    if (check_and_drop_char(code, cur_char, '_')) {
+
+      find_and_drop_symbol(code, cur_char, "=>");
+      
+      drop_spaces_and_comments(code, cur_char);
+      
+      if (check_char(cur_char, '{')) {
+        _default_expr = parse_block(code, cur_char); }
+      else {
+        _default_expr = parse_expr(code, cur_char); }
+
+      break;
+    }
+
+    std::unique_ptr<StyioAST> left = parse_expr(code, cur_char);
+    
+    find_and_drop_symbol(code, cur_char, "=>");
+
+    std::unique_ptr<StyioAST> right;
+    if (check_char(cur_char, '{')) {
+      right = parse_block(code, cur_char); }
+    else {
+      right = parse_expr(code, cur_char); }
+
+    pairs.push_back(std::make_tuple(std::move(left), std::move(right)));
+  }
+
+  find_and_drop_char_panic(code, cur_char, '}');
+
+  if (pairs.size() == 0) {
+    return std::make_unique<CasesAST>(
+      std::move(_default_expr)); }
+  else {
+    return std::make_unique<CasesAST>(
+      std::move(pairs), 
+      std::move(_default_expr)); }
 }
 
 std::unique_ptr<StyioAST> parse_block (

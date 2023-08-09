@@ -297,6 +297,19 @@ std::string reprStyioType (
     
     break;
 
+  case StyioType::Cases:
+    {
+      auto name = std::string("Cases");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
   case StyioType::CondFlow:
     {
       auto name = std::string("Conditional");
@@ -430,6 +443,19 @@ std::string reprStyioType (
   case StyioType::If_Is_In_Forward:
     {
       auto name = std::string("Forward (If Is In -> Run)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Cases_Forward:
+    {
+      auto name = std::string("Forward (Cases)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
