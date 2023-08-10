@@ -196,9 +196,152 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::ListOp:
+  case StyioType::Access_By_Name:
     {
-      auto name = std::string("ListOp");
+      auto name = std::string("Access by Name");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Access_By_Index:
+    {
+      auto name = std::string("Access by Index");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Get_Index_By_Value:
+    {
+      auto name = std::string("Get Index by Value");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Insert_Item_By_Index:
+    {
+      auto name = std::string("Insert by Index");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Remove_Item_By_Index:
+    {
+      auto name = std::string("Remove by Index");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Remove_Items_By_Many_Indices:
+    {
+      auto name = std::string("Remove by Multi-Indices");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Remove_Item_By_Value:
+    {
+      auto name = std::string("Remove by Value (From Left)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Remove_Items_By_Many_Values:
+    {
+      auto name = std::string("Remove by Multi-Values (From Left)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Get_Reversed:
+    {
+      auto name = std::string("Reversed");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Get_Index_By_Item_From_Right:
+    {
+      auto name = std::string("Get Index by Item (From Right)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Remove_Item_By_Value_From_Right:
+    {
+      auto name = std::string("Remove by Value (From Right)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Remove_Items_By_Many_Values_From_Right:
+    {
+      auto name = std::string("Remove by Multi-Values (From Right)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -603,40 +746,6 @@ std::string reprStyioType (
   }
   
   return output + extra;
-}
-
-std::string reprListOp(ListOpType listOp) {
-  switch (listOp)
-  {
-    case ListOpType::Access_Via_Name:
-      return "Access_Via_Name";
-
-    case ListOpType::Get_Reversed:
-      return "Get_Reversed";
-
-    case ListOpType::Get_Index_By_Item:
-      return "Get_Index_By_Item";
-
-    case ListOpType::Insert_Item_By_Index:
-      return "Insert_Item_By_Index";
-
-    case ListOpType::Remove_Item_By_Index:
-      return "Remove_Item_By_Index";
-
-    case ListOpType::Remove_Item_By_Value:
-      return "Remove_Item_By_Value";
-
-    case ListOpType::Remove_Many_Items_By_Indices:
-      return "Remove_Many_Items_By_Indices";
-
-    case ListOpType::Remove_Many_Items_By_Values:
-      return "Remove_Many_Items_By_Values";
-
-    default:
-      return "List_Operation";
-
-      break;
-  }
 }
 
 std::string reprFlow (FlowType flow) {

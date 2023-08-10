@@ -160,9 +160,9 @@ std::unique_ptr<VarsTupleAST> parse_vars_tuple (
 );
 
 /*
-  parse_iter
+  parse_loop_or_iter
 */
-std::unique_ptr<StyioAST> parse_iter (
+std::unique_ptr<StyioAST> parse_loop_or_iter (
   struct StyioCodeContext* code,
   char& cur_char,
   std::unique_ptr<StyioAST> collection

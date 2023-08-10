@@ -67,11 +67,11 @@ class EndAST : public StyioAST {
 };
 
 /*
-  EmptyListAST: Empty List
+  EmptyAST: Empty Tuple / List / Set
 */
-class EmptyListAST : public StyioAST {
+class EmptyAST : public StyioAST {
   public:
-    EmptyListAST() {}
+    EmptyAST() {}
 
     StyioType hint() {
       return StyioType::EmptyList;
@@ -669,18 +669,18 @@ class RangeAST : public StyioAST
 
     std::string toString(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
-        + make_padding(indent, " ") + "| Start: " + StartVal -> toString(indent + 1, colorful) + "\n"
-        + make_padding(indent, " ") + "| End: " + EndVal -> toString(indent + 1, colorful) + "\n"
-        + make_padding(indent, " ") + "| Step: " + StepVal -> toString(indent + 1, colorful) + "\n"
-        + "\n}";
+        + make_padding(indent, " ") + "Start: " + StartVal -> toString(indent + 1, colorful) + "\n"
+        + make_padding(indent, " ") + "End  : " + EndVal -> toString(indent + 1, colorful) + "\n"
+        + make_padding(indent, " ") + "Step : " + StepVal -> toString(indent + 1, colorful)
+        + "}";
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { ")
         + "Start: " + StartVal -> toStringInline(indent + 1, colorful)
-        + " | End: " + EndVal -> toStringInline(indent + 1, colorful)
-        + " | Step: " + StepVal -> toStringInline(indent + 1, colorful)
-        + " }";
+        + "End: " + EndVal -> toStringInline(indent + 1, colorful)
+        + "Step: " + StepVal -> toStringInline(indent + 1, colorful)
+        + "}";
     }
 };
 
@@ -996,44 +996,66 @@ class CallAST : public StyioAST {
     }
 };
 
-/*
-
-*/
 class ListOpAST : public StyioAST 
 {
+  StyioType OpType;
   std::unique_ptr<StyioAST> TheList;
-  ListOpType OpType;
 
-  std::unique_ptr<IntAST> Index;
-  std::unique_ptr<StyioAST> Value;
-
-  std::vector<std::unique_ptr<IntAST>> IndexList;
-  std::vector<std::unique_ptr<StyioAST>> ValueList;
+  std::unique_ptr<StyioAST> Slot_1;
+  std::unique_ptr<StyioAST> Slot_2;
 
   public:
     /*
-      Access_Via_Name
+      Get_Reversed
+        [<]
+    */
+    ListOpAST(
+      StyioType opType,
+      std::unique_ptr<StyioAST> theList): 
+      OpType(opType),
+      TheList(std::move(theList)) 
+      {
+
+      }
+
+    /*
+      Access_By_Index
+        [index]
+
+      Access_By_Name
         ["name"]
 
-      Get_Index_By_Item
+      Remove_Item_By_Index
+        [-: index] 
+
+      Get_Index_By_Value
         [?= value]
 
       Remove_Item_By_Value
         [-: ?= value]
+
+      Remove_Items_By_Many_Indices
+        [-: (i0, i1, ...)]
+
+      Remove_Items_By_Many_Values
+        [-: ?^ (v0, v1, ...)]
 
       Get_Index_By_Item_From_Right
         [[<] ?= value]
 
       Remove_Item_By_Value_From_Right
         [[<] -: ?= value]
+
+      Remove_Items_By_Many_Values_From_Right
+        [[<] -: ?^ (v0, v1, ...)]
     */
     ListOpAST(
-      ListOpType opType, 
+      StyioType opType, 
       std::unique_ptr<StyioAST> theList, 
       std::unique_ptr<StyioAST> item): 
       OpType(opType), 
       TheList(std::move(theList)), 
-      Value(std::move(item)) 
+      Slot_1(std::move(item)) 
       {
 
       }
@@ -1043,99 +1065,68 @@ class ListOpAST : public StyioAST
         [+: index <- value]
     */
     ListOpAST(
-      ListOpType opType, 
+      StyioType opType, 
       std::unique_ptr<StyioAST> theList, 
       std::unique_ptr<IntAST> index, 
-      std::unique_ptr<StyioAST> item): 
+      std::unique_ptr<StyioAST> value): 
       OpType(opType), 
       TheList(std::move(theList)), 
-      Index(std::move(index)), 
-      Value(std::move(item)) 
-      {
-
-      }
-
-    /*
-      Access_Via_Index
-        [index]
-
-      Remove_Item_By_Index
-        [-: index] 
-    */
-    ListOpAST(
-      ListOpType opType, 
-      std::unique_ptr<StyioAST> theList, 
-      std::unique_ptr<IntAST> index): 
-      OpType(opType), 
-      TheList(std::move(theList)), 
-      Index(std::move(index)) 
-      {
-
-      }
-
-    /*
-      Remove_Many_Items_By_Indices
-        [-: (i0, i1, ...)]
-    */
-    ListOpAST(
-      ListOpType opType, 
-      std::unique_ptr<StyioAST> theList, 
-      std::vector<std::unique_ptr<IntAST>> indexList): 
-      OpType(opType), 
-      TheList(std::move(theList)), 
-      IndexList(std::move(indexList)) 
-      {
-
-      }
-
-    /*
-      Remove_Many_Items_By_Values
-        [-: ?^ (v0, v1, ...)]
-
-      Remove_Many_Items_By_Values_From_Right
-        [[<] -: ?^ (v0, v1, ...)]
-    */
-    ListOpAST(
-      ListOpType opType, 
-      std::unique_ptr<StyioAST> theList, 
-      std::vector<std::unique_ptr<StyioAST>> valueList):
-      OpType(opType),  
-      TheList(std::move(theList)), 
-      ValueList(std::move(valueList)) 
-      {
-
-      }
-
-    /*
-      Get_Reversed
-        [<]
-    */
-    ListOpAST(
-      ListOpType opType,
-      std::unique_ptr<StyioAST> theList
-      ): 
-      OpType(opType),
-      TheList(std::move(theList)) 
+      Slot_1(std::move(index)), 
+      Slot_2(std::move(value)) 
       {
 
       }
 
     StyioType hint() {
-      return StyioType::ListOp;
+      return OpType;
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-      + make_padding(indent, " ") + "Type { " + reprListOp(OpType) + " }\n"
-      + make_padding(indent, " ") + TheList -> toString()
-      + "}";
+      // Reversed
+      if (OpType == StyioType::Get_Reversed)
+      {
+        return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+        + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful)
+        + "}";
+      }
+      if (OpType == StyioType::Access_By_Index
+        || OpType == StyioType::Access_By_Name 
+
+        || OpType == StyioType::Get_Index_By_Value 
+
+        || OpType == StyioType::Remove_Item_By_Index
+        || OpType == StyioType::Remove_Item_By_Value
+
+        || OpType == StyioType::Remove_Items_By_Many_Indices
+        || OpType == StyioType::Remove_Items_By_Many_Values
+
+        || OpType == StyioType::Get_Index_By_Item_From_Right
+
+        || OpType == StyioType::Remove_Item_By_Value_From_Right
+        || OpType == StyioType::Remove_Items_By_Many_Values_From_Right)
+      {
+        return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+        + TheList -> toString(indent + 1, colorful) + "\n"
+        + Slot_1 -> toString(indent + 1, colorful)
+        + "}";
+      }
+      // Index and Value
+      else if (OpType == StyioType::Insert_Item_By_Index) 
+      {
+        return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+        + make_padding(indent + 1, " ") + TheList -> toString(indent + 1, colorful) + "\n"
+        + make_padding(indent + 1, " ") + Slot_1 -> toString(indent + 1, colorful) + "\n"
+        + make_padding(indent + 1, " ") + Slot_2 -> toString(indent + 1, colorful)
+        + "}";
+      }
+      
+      return reprStyioType(this -> hint(), colorful) + std::string(" { undefined }"); 
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
-      + reprListOp(OpType) 
-      + TheList -> toStringInline()
-      + " }";
+      + make_padding(indent + 1, " ") + TheList -> toStringInline()
+      + "}";
     }
 };
 

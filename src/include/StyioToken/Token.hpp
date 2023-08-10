@@ -84,7 +84,22 @@ enum class StyioType {
   BinOp,
 
   // List Operation
-  ListOp,
+  Access_By_Name, // ["name"]
+  Access_By_Index, // [index]
+
+  Get_Index_By_Value, // [?= value]
+
+  Insert_Item_By_Index, // [+: index <- value]
+
+  Remove_Item_By_Index, // [-: index] 
+  Remove_Items_By_Many_Indices, // [-: (i0, i1, ...)]
+  Remove_Item_By_Value, // [-: ?= value]
+  Remove_Items_By_Many_Values, // [-: ?^ (v0, v1, ...)]
+
+  Get_Reversed, // [<]
+  Get_Index_By_Item_From_Right, // [[<] ?= value]
+  Remove_Item_By_Value_From_Right, // [[<] -: ?= value]
+  Remove_Items_By_Many_Values_From_Right, // [[<] -: ?^ (v0, v1, ...)]
   // -----------------
 
   /* -----------------
@@ -240,25 +255,6 @@ enum class FlowType {
   Both,
 };
 
-enum class ListOpType {
-  Access_Via_Name, // ["name"]
-  Access_Via_Index, // [index]
-
-  Get_Index_By_Item, // [?= value]
-
-  Insert_Item_By_Index, // [+: index <- value]
-
-  Remove_Item_By_Index, // [-: index] 
-  Remove_Many_Items_By_Indices, // [-: (i0, i1, ...)]
-  Remove_Item_By_Value, // [-: ?= value]
-  Remove_Many_Items_By_Values, // [-: ?^ (v0, v1, ...)]
-
-  Get_Reversed, // [<]
-  Get_Index_By_Item_From_Right, // [[<] ?= value]
-  Remove_Item_By_Value_From_Right, // [[<] -: ?= value]
-  Remove_Many_Items_By_Values_From_Right, // [[<] -: ?^ (v0, v1, ...)]
-};
-
 enum class IterOverWhat {
   /*
    * Accept: 0 [No Variable]
@@ -385,8 +381,6 @@ std::string reprStyioType (
   StyioType type,
   bool colorful = false,
   std::string extra = "");
-
-std::string reprListOp(ListOpType listOp);
 
 std::string reprFlow (FlowType flow);
 

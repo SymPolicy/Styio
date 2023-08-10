@@ -1,0 +1,8 @@
+// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
+
+[0..10][<]
+
+/*
+  CHECK:      Print {
+  CHECK-NEXT: || String { "Hello, Styio!" }}
+*/
