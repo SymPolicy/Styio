@@ -1,0 +1,12 @@
+// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
+
+['a', 'b', 'c'][0]
+
+/*
+  CHECK:      Access by Index {
+  CHECK-NEXT: || List [
+  CHECK-NEXT: |----| char { "a" }
+  CHECK-NEXT: |----| char { "b" }
+  CHECK-NEXT: |----| char { "c" }]
+  CHECK-NEXT: || Index: int { 0 }}
+*/

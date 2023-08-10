@@ -235,6 +235,19 @@ std::string reprStyioType (
     
     break;
 
+  case StyioType::Append_Value:
+    {
+      auto name = std::string("Append");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
   case StyioType::Insert_Item_By_Index:
     {
       auto name = std::string("Insert by Index");

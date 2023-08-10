@@ -145,7 +145,7 @@ std::unique_ptr<StyioAST> parse_cond_flow (
 /*
   parse_list_op
 */
-std::unique_ptr<ListOpAST> parse_list_op (
+std::unique_ptr<StyioAST> parse_list_op (
   struct StyioCodeContext* code,
   char& cur_char,
   std::unique_ptr<StyioAST> theList

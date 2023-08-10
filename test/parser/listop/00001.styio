@@ -1,8 +1,10 @@
 // RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
 
-[0..10][<]
+[0..10][]
 
 /*
-  CHECK:      Print {
-  CHECK-NEXT: || String { "Hello, Styio!" }}
+  CHECK:      Range {
+  CHECK-NEXT: || Start: int { 0 }
+  CHECK-NEXT: || End  : int { 10 }
+  CHECK-NEXT: || Step : int { 1 }}
 */

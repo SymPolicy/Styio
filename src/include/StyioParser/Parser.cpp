@@ -1240,10 +1240,12 @@ std::unique_ptr<StyioAST> parse_call
     : [[<] -: ?^ (v0, v1, ...)]
 */
 
-std::unique_ptr<ListOpAST> parse_list_op (
+std::unique_ptr<StyioAST> parse_list_op (
   struct StyioCodeContext* code, 
   char& cur_char,
   std::unique_ptr<StyioAST> theList) {
+  std::unique_ptr<StyioAST> output;
+
   /*
     Danger!
     when entering parse_list_op(), 
@@ -1252,15 +1254,15 @@ std::unique_ptr<ListOpAST> parse_list_op (
   */
   move_to_the_next_char(code, cur_char);
 
-  std::unique_ptr<ListOpAST> output;
-
   do
   {
-    if (isdigit(cur_char)) {
+    if (isdigit(cur_char)) 
+    {
       output = std::make_unique<ListOpAST>(
         StyioType::Access_By_Index,
         std::move(theList), 
-        parse_int(code, cur_char)); }
+        parse_int(code, cur_char));
+    }
     else
     {
       switch (cur_char)
@@ -1299,66 +1301,45 @@ std::unique_ptr<ListOpAST> parse_list_op (
         {
           move_to_the_next_char(code, cur_char);
 
-          if (check_and_drop_char(code, cur_char, '='))
-          {
-            output = std::make_unique<ListOpAST>(
-              StyioType::Get_Index_By_Value,
-              std::move(theList), 
-              parse_expr(code, cur_char));
-          }
-          else
-          {
-            std::string errmsg = std::string("Missing `=` for `?=` after `?= item`, but got `") + char(cur_char) + "`";
-            throw StyioSyntaxError(errmsg);
-          }
+          match_next_char_panic(code, cur_char, '=');
+
+          output = std::make_unique<ListOpAST>(
+            StyioType::Get_Index_By_Value,
+            std::move(theList), 
+            parse_expr(code, cur_char));
         }
 
         // You should NOT reach this line!
         break;
       
+      /*
+        list[+: index <- value]
+      */
       case '+':
         {
           move_to_the_next_char(code, cur_char);
 
-          if (check_and_drop_char(code, cur_char, ':'))
-          {
-            // eliminate white spaces after +:
+          match_next_char_panic(code, cur_char, ':');
+
+          drop_white_spaces(code, cur_char);
+
+          std::unique_ptr<StyioAST> expr = parse_value(code, cur_char);
+
+          drop_white_spaces(code, cur_char);
+
+          if (check_and_drop_symbol(code, cur_char, "<-")) {
             drop_white_spaces(code, cur_char);
 
-            if (isdigit(cur_char))
-            {
-              /*
-                list[+: index <- value]
-              */
-
-              std::unique_ptr<IntAST> index = parse_int(code, cur_char);
-
-              // eliminate white spaces between index and <-
-              drop_white_spaces(code, cur_char);
-
-              if (check_and_drop_symbol(code, cur_char, "<-"))
-              {
-                // eliminate white spaces between <- and the value to be inserted
-                drop_white_spaces(code, cur_char);
-
-                output = std::make_unique<ListOpAST>(
-                  StyioType::Insert_Item_By_Index,
-                  std::move(theList), 
-                  std::move(index),
-                  std::move(parse_expr(code, cur_char)));
-              }
-              else
-              {
-                std::string errmsg = std::string("Expecting `<-` after `+: index`, but got `") + char(cur_char) + "`";
-                throw StyioSyntaxError(errmsg);
-              }
-            }
-          }
-          else
-          {
-            std::string errmsg = std::string("Expecting integer index after `+:`, but got `") + char(cur_char) + "`";
-            throw StyioSyntaxError(errmsg);
-          }
+            output = std::make_unique<ListOpAST>(
+              StyioType::Insert_Item_By_Index,
+              std::move(theList), 
+              std::move(expr),
+              parse_expr(code, cur_char)); }
+          else {
+            output = std::make_unique<ListOpAST>(
+              StyioType::Append_Value,
+              std::move(theList), 
+              std::move(expr)); }
         }
 
         // You should NOT reach this line!
@@ -1368,106 +1349,82 @@ std::unique_ptr<ListOpAST> parse_list_op (
         {
           move_to_the_next_char(code, cur_char);
 
-          if (check_and_drop_char(code, cur_char, ':'))
+          match_next_char_panic(code, cur_char, ':');
+
+          drop_white_spaces(code, cur_char);
+
+          /*
+            list[-: index]
+          */
+          if (isdigit(cur_char))
           {
-            // eliminate white spaces after -:
-            drop_white_spaces(code, cur_char);
-
-            if (isdigit(cur_char))
+            output = std::make_unique<ListOpAST>(
+              StyioType::Remove_Item_By_Index,
+              std::move(theList), 
+              std::move(parse_int(code, cur_char)));
+          }
+          else if (check_and_drop_char(code, cur_char, '?')) 
+          {
+            switch (cur_char)
             {
-              /*
-                list[-: index]
-              */
+            /*
+              list[-: ?= value]
+            */
+            case '=':
+            {
+              move_to_the_next_char(code, cur_char);
 
-              std::unique_ptr<IntAST> theIndex = parse_int(code, cur_char);
+              drop_white_spaces(code, cur_char);
 
               output = std::make_unique<ListOpAST>(
-                StyioType::Remove_Item_By_Index,
+                StyioType::Remove_Item_By_Value,
                 std::move(theList), 
-                std::move(theIndex));
+                parse_expr(code, cur_char));
             }
-            else
+            
+              // You should NOT reach this line!
+              break;
+            
+            /*
+              list[-: ?^ (v0, v1, ...)]
+            */
+            case '^':
             {
-              switch (cur_char)
-              {
-              case '(':
-              {
-                /*
-                  list[-: (i0, i1, ...)]
-                */
+              move_to_the_next_char(code, cur_char);
 
-                output = std::make_unique<ListOpAST>(
-                  StyioType::Remove_Items_By_Many_Indices,
-                  std::move(theList), 
-                  std::move(parse_iterable(code, cur_char)));
-              }
+              drop_white_spaces(code, cur_char);
 
-                // You should NOT reach this line!
-                break;
-
-              case '?':
-              {
-                move_to_the_next_char(code, cur_char);
-
-                switch (cur_char)
-                {
-                case '=':
-                {
-                  /*
-                    list[-: ?= value]
-                  */
-
-                  move_to_the_next_char(code, cur_char);
-
-                  // drop white spaces after ?=
-                  drop_white_spaces(code, cur_char);
-
-                  output = std::make_unique<ListOpAST>(
-                    StyioType::Remove_Item_By_Value,
-                    std::move(theList), 
-                    parse_expr(code, cur_char));
-                }
-                
-                  // You should NOT reach this line!
-                  break;
-                
-                case '^':
-                {
-                  /*
-                    list[-: ?^ (v0, v1, ...)]
-                  */
-
-                  move_to_the_next_char(code, cur_char);
-
-                  // drop white spaces after ?^
-                  drop_white_spaces(code, cur_char);
-
-                  if (check_char(cur_char, '(') 
-                    || check_char(cur_char, '[')
-                    || check_char(cur_char, '{'))
-                  {
-                    move_to_the_next_char(code, cur_char);
-                  }
-                }
-                
-                // You should NOT reach this line!
-                break;
-                
-                default:
-                  break;
-                }
-              }
-              
-              default:
-                break;
-              }
+              output = std::make_unique<ListOpAST>(
+                StyioType::Remove_Items_By_Many_Values,
+                std::move(theList), 
+                parse_iterable(code, cur_char));
+            }
+            
+            // You should NOT reach this line!
+            break;
+            
+            default:
+              break;
             }
           }
           else
           {
-            std::string errmsg = std::string("Missing `:` for `-:`, got `") + char(cur_char) + "`";
-            throw StyioSyntaxError(errmsg);
+            /*
+              list[-: (v0, v1, ...)]
+            */
+            output = std::make_unique<ListOpAST>(
+              StyioType::Remove_Items_By_Many_Indices,
+              std::move(theList), 
+              std::move(parse_iterable(code, cur_char)));
           }
+        }
+
+        // You should NOT reach this line!
+        break;
+
+      case ']':
+        {
+          output = std::move(theList);
         }
 
         // You should NOT reach this line!
@@ -1483,12 +1440,9 @@ std::unique_ptr<ListOpAST> parse_list_op (
         break;
       }
     }
-
-    drop_spaces_and_comments(code, cur_char);
-
-    find_and_drop_char_panic(code, cur_char, ']');
-
   } while (check_char(cur_char, '['));
+
+  find_and_drop_char(code, cur_char, ']');
 
   return output;
 }
@@ -1506,6 +1460,7 @@ std::unique_ptr<StyioAST> parse_loop_or_iter (
       std::move(iterOverIt),
       parse_forward(code, cur_char, false)); }
 }
+
 
 std::unique_ptr<StyioAST> parse_list_or_loop (
   struct StyioCodeContext* code, 
@@ -1529,8 +1484,6 @@ std::unique_ptr<StyioAST> parse_list_or_loop (
     drop_white_spaces(code, cur_char);
 
     match_next_char_panic(code, cur_char, ']');
-
-    std::cout << startEl << "; " << endEl << std::endl;
 
     if (startEl -> hint() == StyioType::Int 
       && endEl -> hint() == StyioType::Id) {
@@ -1561,11 +1514,17 @@ std::unique_ptr<StyioAST> parse_list_or_loop (
       else {
         elements.push_back(parse_expr(code, cur_char)); }
     } while (check_and_drop_char(code, cur_char, ','));
+
+    find_and_drop_char_panic(code, cur_char, ']');
+
+    output = std::make_unique<ListAST>(std::move(elements));
   }
   else {
     elements.push_back(std::move(startEl));
 
-    return std::make_unique<ListAST>(std::move(elements));
+    find_and_drop_char_panic(code, cur_char, ']');
+
+    output = std::make_unique<ListAST>(std::move(elements));
   }
 
   while (check_char(cur_char, '[')) {
