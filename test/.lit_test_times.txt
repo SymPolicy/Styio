@@ -50,3 +50,10 @@
 2.734089e-02 parser/forward/00007.styio
 8.705378e-03 parser/forward/00008.styio
 -2.126431e-02 parser/forward/00009.styio
+8.648634e-03 parser/listop/00001.styio
+8.854866e-03 parser/listop/00002.styio
+8.426189e-03 parser/listop/00003.styio
+8.374453e-03 parser/listop/00004.styio
+9.136915e-03 parser/listop/00005.styio
+8.205652e-03 parser/listop/00006.styio
+8.243561e-03 parser/listop/00007.styio

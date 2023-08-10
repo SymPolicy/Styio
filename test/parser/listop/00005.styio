@@ -1,12 +1,18 @@
 // RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
 
-[1, 2, 3][+: 4]
+list = [1, 2, 3]
+
+list[?= 1]
 
 /*
-  CHECK:      Append {
-  CHECK-NEXT: || List [
+  CHECK:      Binding (Flexible) {
+  CHECK-NEXT: || Var: id { list }
+  CHECK-NEXT: || Val: List [
   CHECK-NEXT: |----| int { 1 }
   CHECK-NEXT: |----| int { 2 }
-  CHECK-NEXT: |----| int { 3 }]
-  CHECK-NEXT: || Value: int { 4 }}
+  CHECK-NEXT: |----| int { 3 }]}
+  
+  CHECK-NEXT: Get Index by Value {
+  CHECK-NEXT: || id { list }
+  CHECK-NEXT: || Index: int { 1 }}
 */

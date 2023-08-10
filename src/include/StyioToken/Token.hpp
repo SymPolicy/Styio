@@ -88,6 +88,7 @@ enum class StyioType {
   Access_By_Index, // [index]
 
   Get_Index_By_Value, // [?= value]
+  Get_Indices_By_Many_Values, // [?^ values]
 
   Append_Value, // [+: value]
   Insert_Item_By_Index, // [+: index <- value]

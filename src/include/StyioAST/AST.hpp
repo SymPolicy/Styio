@@ -1032,6 +1032,9 @@ class ListOpAST : public StyioAST
       Get_Index_By_Value
         [?= value]
 
+      Get_Indices_By_Many_Values
+        [?^ values]
+
       Remove_Item_By_Value
         [-: ?= value]
 
@@ -1100,6 +1103,13 @@ class ListOpAST : public StyioAST
         break;
       
       case StyioType::Get_Index_By_Value:
+        return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+        + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
+        + make_padding(indent, " ") + "Index: " + Slot1 -> toString(indent + 1, colorful)
+        + "}";
+        break;
+
+      case StyioType::Get_Indices_By_Many_Values:
         return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
         + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
         + make_padding(indent, " ") + "Index: " + Slot1 -> toString(indent + 1, colorful)

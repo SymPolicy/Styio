@@ -1,11 +1,9 @@
 // RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
 
-[0..10][<]
+dict["a"]
 
 /*
-  CHECK:      Reversed {
-  CHECK-NEXT: || Range {
-  CHECK-NEXT: |--| Start: int { 0 }
-  CHECK-NEXT: |--| End  : int { 10 }
-  CHECK-NEXT: |--| Step : int { 1 }}}
+  CHECK:      Access by Name {
+  CHECK-NEXT: || id { dict }
+  CHECK-NEXT: || Name : String { "a" }}
 */

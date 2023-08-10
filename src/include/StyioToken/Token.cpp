@@ -235,6 +235,19 @@ std::string reprStyioType (
     
     break;
 
+case StyioType::Get_Indices_By_Many_Values:
+    {
+      auto name = std::string("Get Indices by Many Value");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
   case StyioType::Append_Value:
     {
       auto name = std::string("Append");
@@ -276,7 +289,7 @@ std::string reprStyioType (
 
   case StyioType::Remove_Items_By_Many_Indices:
     {
-      auto name = std::string("Remove by Multi-Indices");
+      auto name = std::string("Remove by Many Indices");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -302,7 +315,7 @@ std::string reprStyioType (
 
   case StyioType::Remove_Items_By_Many_Values:
     {
-      auto name = std::string("Remove by Multi-Values (From Left)");
+      auto name = std::string("Remove by Many Values (From Left)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -354,7 +367,7 @@ std::string reprStyioType (
 
   case StyioType::Remove_Items_By_Many_Values_From_Right:
     {
-      auto name = std::string("Remove by Multi-Values (From Right)");
+      auto name = std::string("Remove by Many Values (From Right)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);

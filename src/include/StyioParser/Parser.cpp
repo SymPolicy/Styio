@@ -1022,7 +1022,7 @@ std::unique_ptr<StyioAST> parse_list (
       drop_white_spaces(code, cur_char); }
   } while (check_and_drop_char(code, cur_char, ','));
 
-  check_and_drop_char(code, cur_char, '[');
+  check_and_drop_char(code, cur_char, ']');
   
   if (exprs.size() == 0) {
     return std::make_unique<EmptyAST>(); }
@@ -1260,7 +1260,7 @@ std::unique_ptr<StyioAST> parse_list_op (
     {
       output = std::make_unique<ListOpAST>(
         StyioType::Access_By_Index,
-        std::move(theList), 
+        std::move(theList),
         parse_int(code, cur_char));
     }
     else
@@ -1274,7 +1274,7 @@ std::unique_ptr<StyioAST> parse_list_op (
         {
           output = std::make_unique<ListOpAST>(
             StyioType::Access_By_Name,
-            std::move(theList), 
+            std::move(theList),
             parse_string(code, cur_char)); 
         }
         
@@ -1287,6 +1287,9 @@ std::unique_ptr<StyioAST> parse_list_op (
       case '<':
         {
           move_to_the_next_char(code, cur_char);
+
+          while (check_char(cur_char, '<')) {
+            move_to_the_next_char(code, cur_char); }
 
           output = std::make_unique<ListOpAST>(
             StyioType::Get_Reversed,
@@ -1301,12 +1304,29 @@ std::unique_ptr<StyioAST> parse_list_op (
         {
           move_to_the_next_char(code, cur_char);
 
-          match_next_char_panic(code, cur_char, '=');
+          if (check_and_drop_char(code, cur_char, '='))
+          {
+            drop_spaces_and_comments(code, cur_char);
 
-          output = std::make_unique<ListOpAST>(
-            StyioType::Get_Index_By_Value,
-            std::move(theList), 
-            parse_expr(code, cur_char));
+            output = std::make_unique<ListOpAST>(
+              StyioType::Get_Index_By_Value,
+              std::move(theList),
+              parse_expr(code, cur_char));
+          }
+          else if (check_and_drop_char(code, cur_char, '^'))
+          {
+            drop_spaces_and_comments(code, cur_char);
+
+            output = std::make_unique<ListOpAST>(
+              StyioType::Get_Indices_By_Many_Values,
+              std::move(theList),
+              parse_iterable(code, cur_char));
+          }
+          else
+          {
+            std::string errmsg = std::string("Expecting ?= or ?^, but got ") + char(cur_char);
+            throw StyioSyntaxError(errmsg);
+          }
         }
 
         // You should NOT reach this line!
@@ -1332,13 +1352,13 @@ std::unique_ptr<StyioAST> parse_list_op (
 
             output = std::make_unique<ListOpAST>(
               StyioType::Insert_Item_By_Index,
-              std::move(theList), 
+              std::move(theList),
               std::move(expr),
               parse_expr(code, cur_char)); }
           else {
             output = std::make_unique<ListOpAST>(
               StyioType::Append_Value,
-              std::move(theList), 
+              std::move(theList),
               std::move(expr)); }
         }
 
@@ -1360,7 +1380,7 @@ std::unique_ptr<StyioAST> parse_list_op (
           {
             output = std::make_unique<ListOpAST>(
               StyioType::Remove_Item_By_Index,
-              std::move(theList), 
+              std::move(theList),
               std::move(parse_int(code, cur_char)));
           }
           else if (check_and_drop_char(code, cur_char, '?')) 
@@ -1378,7 +1398,7 @@ std::unique_ptr<StyioAST> parse_list_op (
 
               output = std::make_unique<ListOpAST>(
                 StyioType::Remove_Item_By_Value,
-                std::move(theList), 
+                std::move(theList),
                 parse_expr(code, cur_char));
             }
             
@@ -1396,7 +1416,7 @@ std::unique_ptr<StyioAST> parse_list_op (
 
               output = std::make_unique<ListOpAST>(
                 StyioType::Remove_Items_By_Many_Values,
-                std::move(theList), 
+                std::move(theList),
                 parse_iterable(code, cur_char));
             }
             
@@ -1414,7 +1434,7 @@ std::unique_ptr<StyioAST> parse_list_op (
             */
             output = std::make_unique<ListOpAST>(
               StyioType::Remove_Items_By_Many_Indices,
-              std::move(theList), 
+              std::move(theList),
               std::move(parse_iterable(code, cur_char)));
           }
         }

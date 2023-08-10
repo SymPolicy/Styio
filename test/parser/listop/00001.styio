@@ -1,10 +1,16 @@
 // RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
 
-[0..10][]
+list = [1, 2, 3]
+
+list[]
 
 /*
-  CHECK:      Range {
-  CHECK-NEXT: || Start: int { 0 }
-  CHECK-NEXT: || End  : int { 10 }
-  CHECK-NEXT: || Step : int { 1 }}
+  CHECK:      Binding (Flexible) {
+  CHECK-NEXT: || Var: id { list }
+  CHECK-NEXT: || Val: List [
+  CHECK-NEXT: |----| int { 1 }
+  CHECK-NEXT: |----| int { 2 }
+  CHECK-NEXT: |----| int { 3 }]}
+  
+  CHECK-NEXT: id { list }
 */
