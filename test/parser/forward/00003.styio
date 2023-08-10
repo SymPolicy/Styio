@@ -3,7 +3,7 @@
 [...] >> #( ) => { ... }
 
 /*
-  CHECK: Loop {
+  CHECK:      Loop {
   CHECK-NEXT: || Forward (Fill -> Run) {
   CHECK-NEXT: |--| Fill { }
   CHECK-NEXT: |--| Run: Block {

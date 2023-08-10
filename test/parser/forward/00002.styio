@@ -14,7 +14,7 @@
 }
 
 /*
-  CHECK: Transfer {
+  CHECK:      Transfer {
   CHECK-NEXT: || From: Forward (Fill -> Run) {
   CHECK-NEXT: |--| Fill { }
   CHECK-NEXT: |--| Run: Block {

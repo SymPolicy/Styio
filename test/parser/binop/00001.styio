@@ -3,7 +3,7 @@
 0 + 1 + 2 + 3 + 4
 
 /*
-  CHECK: BinOp {
+  CHECK:      BinOp {
   CHECK-NEXT: || LHS: BinOp {
   CHECK-NEXT: |--| LHS: BinOp {
   CHECK-NEXT: |----| LHS: BinOp {

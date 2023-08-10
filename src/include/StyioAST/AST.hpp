@@ -1581,19 +1581,13 @@ class CasesAST : public StyioAST {
         it != Cases.end(); 
         ++it
       ) {
-        stmtStr += make_padding(indent, " ");
-        stmtStr += std::get<0>(*it) -> toString(indent + 1, colorful);
-        stmtStr += std::get<1>(*it) -> toString(indent + 1, colorful);
-        
-        if (it != (Cases.end() - 1))
-        {
-          stmtStr += "\n";
-        }
+        stmtStr += make_padding(indent, " ") + "Left : " + std::get<0>(*it) -> toString(indent + 1, colorful) + "\n";
+        stmtStr += make_padding(indent, " ") + "Right: " + std::get<1>(*it) -> toString(indent + 1, colorful) + "\n";
       }
 
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
         + stmtStr
-        + LastExpr -> toString(indent + 1, colorful);
+        + make_padding(indent, " ") + "Default: " + LastExpr -> toString(indent + 1, colorful);
         + "}";
     }
 

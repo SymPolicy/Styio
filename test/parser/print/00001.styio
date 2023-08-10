@@ -3,6 +3,6 @@
 >_("Hello, Styio!")
 
 /*
-  CHECK: Print {
+  CHECK:      Print {
   CHECK-NEXT: || String { "Hello, Styio!" }}
 */

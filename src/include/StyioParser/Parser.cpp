@@ -2650,7 +2650,7 @@ std::unique_ptr<StyioAST> parse_cases (
   struct StyioCodeContext* code, 
   char& cur_char) {
   std::vector<std::tuple<std::unique_ptr<StyioAST>, std::unique_ptr<StyioAST>>> pairs;
-  std::unique_ptr<StyioAST> _default_expr;
+  std::unique_ptr<StyioAST> _default_stmt;
 
   /*
     Danger!
@@ -2670,9 +2670,9 @@ std::unique_ptr<StyioAST> parse_cases (
       drop_spaces_and_comments(code, cur_char);
       
       if (check_char(cur_char, '{')) {
-        _default_expr = parse_block(code, cur_char); }
+        _default_stmt = parse_block(code, cur_char); }
       else {
-        _default_expr = parse_expr(code, cur_char); }
+        _default_stmt = parse_stmt(code, cur_char); }
 
       break;
     }
@@ -2681,11 +2681,13 @@ std::unique_ptr<StyioAST> parse_cases (
     
     find_and_drop_symbol(code, cur_char, "=>");
 
+    drop_spaces_and_comments(code, cur_char);
+
     std::unique_ptr<StyioAST> right;
     if (check_char(cur_char, '{')) {
       right = parse_block(code, cur_char); }
     else {
-      right = parse_expr(code, cur_char); }
+      right = parse_stmt(code, cur_char); }
 
     pairs.push_back(std::make_tuple(std::move(left), std::move(right)));
   }
@@ -2694,11 +2696,11 @@ std::unique_ptr<StyioAST> parse_cases (
 
   if (pairs.size() == 0) {
     return std::make_unique<CasesAST>(
-      std::move(_default_expr)); }
+      std::move(_default_stmt)); }
   else {
     return std::make_unique<CasesAST>(
       std::move(pairs), 
-      std::move(_default_expr)); }
+      std::move(_default_stmt)); }
 }
 
 std::unique_ptr<StyioAST> parse_block (

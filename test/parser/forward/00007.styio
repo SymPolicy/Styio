@@ -5,7 +5,7 @@
   => { ... }
 
 /*
-  CHECK: Forward (If Is In -> Run) {
+  CHECK:      Forward (If Is In -> Run) {
   CHECK-NEXT: || Is In? {
   CHECK-NEXT: |--| List [
   CHECK-NEXT: |----| int { 1 }

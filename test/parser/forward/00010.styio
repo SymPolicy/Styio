@@ -1,0 +1,23 @@
+// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
+
+# cases ?= {
+  1 => >_("No.1")
+  2 => >_("No.2")
+  3 => >_("No.3")
+  _ => ...
+}
+
+/*
+  CHECK:      Forward (Run) {
+  CHECK-NEXT: || Run: Cases {
+  CHECK-NEXT: |--| Left : int { 1 }
+  CHECK-NEXT: |--| Right: Print {
+  CHECK-NEXT: |----| String { "No.1" }}
+  CHECK-NEXT: |--| Left : int { 2 }
+  CHECK-NEXT: |--| Right: Print {
+  CHECK-NEXT: |----| String { "No.2" }}
+  CHECK-NEXT: |--| Left : int { 3 }
+  CHECK-NEXT: |--| Right: Print {
+  CHECK-NEXT: |----| String { "No.3" }}
+  CHECK-NEXT: |--| Default: Pass { }}
+*/

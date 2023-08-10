@@ -3,7 +3,7 @@
 # f => { ... }
 
 /*
-  CHECK: Function (Flexible) {
+  CHECK:      Function (Flexible) {
   CHECK-NEXT: || Name: id { f }
   CHECK-NEXT: || Forward (Run) {
   CHECK-NEXT: |--| Run: Block {

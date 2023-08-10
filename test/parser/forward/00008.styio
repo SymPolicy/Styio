@@ -5,12 +5,8 @@
 }
 
 /*
-  CHECK: Forward (If Is In -> Run) {
-  CHECK-NEXT: || Is In? {
-  CHECK-NEXT: |--| List [
-  CHECK-NEXT: |----| int { 1 }
-  CHECK-NEXT: |----| int { 2 }
-  CHECK-NEXT: |----| int { 3 }]}
-  CHECK-NEXT: || Run: Block {
-  CHECK-NEXT: |--| Pass { }}}
+  CHECK:      Forward (Run) {
+  CHECK-NEXT: || Run: Cases {
+  CHECK-NEXT: |--| Default: Block {
+  CHECK-NEXT: |----| Pass { }}}
 */
