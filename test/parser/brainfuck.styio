@@ -1,0 +1,34 @@
+// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
+
+code <- @("code.txt")
+
+map = []
+
+iloop = 0
+
+ilast = |code| - 1
+
+[0..ilast] >> #(l) ?= '[' => {
+  iloop += 1
+  
+  success = \f\
+
+  count = 0
+
+  [0..ilast] >> #(r) ?= ']' => {
+    count = count + 1
+          
+    ?(count == iloop) 
+    \t\ {
+        map[+: (l, r)]
+
+        success = \t\
+
+        ^^^^^^^^^^^^
+    }
+  }
+}
+
+/*
+  CHECK: 
+*/

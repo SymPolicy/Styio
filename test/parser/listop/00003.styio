@@ -1,9 +1,9 @@
 // RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
 
-dict["a"]
+dict["k"]
 
 /*
   CHECK:      Access by Name {
   CHECK-NEXT: || id { dict }
-  CHECK-NEXT: || Name : String { "a" }}
+  CHECK-NEXT: || Name : String { "k" }}
 */

@@ -77,6 +77,21 @@ std::unique_ptr<StyioAST> parse_typed_var (
   char& cur_char
 );
 
+std::unique_ptr<StyioAST> parse_tuple (
+  struct StyioCodeContext* code,
+  char& cur_char
+);
+
+std::unique_ptr<StyioAST> parse_list (
+  struct StyioCodeContext* code,
+  char& cur_char
+);
+
+std::unique_ptr<StyioAST> parse_set (
+  struct StyioCodeContext* code,
+  char& cur_char
+);
+
 /*
   =================
     Basic Operation
@@ -181,7 +196,7 @@ std::unique_ptr<StyioAST> parse_loop (struct StyioCodeContext* code,char& cur_ch
 /*
   parse_simple_value
 */
-std::unique_ptr<StyioAST> parse_value (
+std::unique_ptr<StyioAST> parse_num_val (
   struct StyioCodeContext* code,
   char& cur_char
 );

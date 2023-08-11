@@ -5,14 +5,18 @@
 enum class StyioType {
   End,
   Pass,
+  Break,
   Return,
   Comment,
+
+  True,
+  False,
 
   /* -----------------
    * None, Null, Empty
    */
   None,
-  EmptyList,
+  Empty,
   EmptyBlock,
 
   // -----------------
@@ -81,11 +85,26 @@ enum class StyioType {
   Call,
 
   // Binary Operation
-  BinOp,
+  Bin_Add, // +
+  Bin_Sub, // -
+  Bin_Mul, // *
+  Bin_Div, // /
+  Bin_Pow, // **
+  Bin_Mod, // %
+  Inc_Add, // +
+  Inc_Sub, // -
+  Inc_Mul, // *
+  Inc_Div, // /
+
+  // Conditionals
+  CondFlow_True,
+  CondFlow_False,
+  CondFlow_Both,
 
   // List Operation
-  Access_By_Name, // ["name"]
+  Access, // [id]
   Access_By_Index, // [index]
+  Access_By_Name, // ["name"]
 
   Get_Index_By_Value, // [?= value]
   Get_Indices_By_Many_Values, // [?^ values]
@@ -93,6 +112,7 @@ enum class StyioType {
   Append_Value, // [+: value]
   Insert_Item_By_Index, // [+: index <- value]
 
+  Remove_Last_Item, // [-: ^-1]
   Remove_Item_By_Index, // [-: index] 
   Remove_Items_By_Many_Indices, // [-: (i0, i1, ...)]
   Remove_Item_By_Value, // [-: ?= value]
@@ -100,8 +120,6 @@ enum class StyioType {
 
   Get_Reversed, // [<]
   Get_Index_By_Item_From_Right, // [[<] ?= value]
-  Remove_Item_By_Value_From_Right, // [[<] -: ?= value]
-  Remove_Items_By_Many_Values_From_Right, // [[<] -: ?^ (v0, v1, ...)]
   // -----------------
 
   /* -----------------
@@ -210,7 +228,6 @@ enum class StyioType {
   Cases,
   // -----------------
 
-  CondFlow,
   Connection,
   FromTo
 };
@@ -223,15 +240,6 @@ enum class InfiniteType {
 enum class IteratorType {
   Original,
   WithLayer,
-};
-
-enum class BinOpType {
-  BIN_ADD, // +
-  BIN_SUB, // -
-  BIN_MUL, // *
-  BIN_DIV, // /
-  BIN_POW, // **
-  BIN_MOD, // %
 };
 
 enum class LogicType {
@@ -249,12 +257,6 @@ enum class CompType {
   LT, // <  Less Than
   LE, // <= Less Than and Equal
   NE, // != Not Equal
-};
-
-enum class FlowType {
-  True,
-  False,
-  Both,
 };
 
 enum class IterOverWhat {
@@ -384,13 +386,9 @@ std::string reprStyioType (
   bool colorful = false,
   std::string extra = "");
 
-std::string reprFlow (FlowType flow);
-
 std::string reprToken(CompType token);
 
 std::string reprToken(LogicType token);
-
-std::string reprToken(BinOpType token);
 
 std::string reprToken(StyioToken token);
 

@@ -14,6 +14,58 @@ std::string reprStyioType (
 
   switch (type)
   {
+  case StyioType::True:
+    {
+      auto name = std::string("True");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+
+    break;
+
+  case StyioType::False:
+    {
+      auto name = std::string("False");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+
+    break;
+    
+  case StyioType::None:
+    {
+      auto name = std::string("None");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+
+    break;
+
+  case StyioType::Empty:
+    {
+      auto name = std::string("Empty");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+
+    break;
+
   case StyioType::Id:
     {
       auto name = std::string("id");
@@ -144,6 +196,149 @@ std::string reprStyioType (
     
     break;
 
+  case StyioType::SizeOf:
+    {
+      auto name = std::string("SizeOf");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Bin_Add:
+    {
+      auto name = std::string("Add");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Bin_Sub:
+    {
+      auto name = std::string("Subtract");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Bin_Mul:
+    {
+      auto name = std::string("Multiply");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Bin_Div:
+    {
+      auto name = std::string("Divide");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Bin_Pow:
+    {
+      auto name = std::string("Power");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Bin_Mod:
+    {
+      auto name = std::string("Modulo");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Inc_Add:
+    {
+      auto name = std::string("Add (Inc.)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Inc_Sub:
+    {
+      auto name = std::string("Subtract (Inc.)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Inc_Mul:
+    {
+      auto name = std::string("Multiply (Inc.)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Inc_Div:
+    {
+      auto name = std::string("Divide (Inc.)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
   case StyioType::Print:
     {
       auto name = std::string("Print");
@@ -183,9 +378,9 @@ std::string reprStyioType (
     
     break;
 
-  case StyioType::BinOp:
+  case StyioType::Access:
     {
-      auto name = std::string("BinOp");
+      auto name = std::string("Access");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -302,7 +497,7 @@ case StyioType::Get_Indices_By_Many_Values:
 
   case StyioType::Remove_Item_By_Value:
     {
-      auto name = std::string("Remove by Value (From Left)");
+      auto name = std::string("Remove by Value");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -315,7 +510,7 @@ case StyioType::Get_Indices_By_Many_Values:
 
   case StyioType::Remove_Items_By_Many_Values:
     {
-      auto name = std::string("Remove by Many Values (From Left)");
+      auto name = std::string("Remove by Many Values");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -352,32 +547,6 @@ case StyioType::Get_Indices_By_Many_Values:
     
     break;
 
-  case StyioType::Remove_Item_By_Value_From_Right:
-    {
-      auto name = std::string("Remove by Value (From Right)");
-
-      if (colorful) {
-        output = make_colorful(name, titleColor);
-      } else {
-        output = std::string(name);
-      }
-    }
-    
-    break;
-
-  case StyioType::Remove_Items_By_Many_Values_From_Right:
-    {
-      auto name = std::string("Remove by Many Values (From Right)");
-
-      if (colorful) {
-        output = make_colorful(name, titleColor);
-      } else {
-        output = std::string(name);
-      }
-    }
-    
-    break;
-
   case StyioType::Return:
     {
       auto name = std::string("Return");
@@ -403,10 +572,36 @@ case StyioType::Get_Indices_By_Many_Values:
     }
     
     break;
+
+  case StyioType::Tuple:
+    {
+      auto name = std::string("Tuple");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
   
   case StyioType::List:
     {
       auto name = std::string("List");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Set:
+    {
+      auto name = std::string("Set");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -469,19 +664,6 @@ case StyioType::Get_Indices_By_Many_Values:
   case StyioType::Cases:
     {
       auto name = std::string("Cases");
-
-      if (colorful) {
-        output = make_colorful(name, titleColor);
-      } else {
-        output = std::string(name);
-      }
-    }
-    
-    break;
-
-  case StyioType::CondFlow:
-    {
-      auto name = std::string("Conditional");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -765,6 +947,71 @@ case StyioType::Get_Indices_By_Many_Values:
     
     break;
 
+  case StyioType::Pass:
+    {
+      auto name = std::string("Do Nothing");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::Break:
+    {
+      auto name = std::string("Break");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::CondFlow_True:
+    {
+      auto name = std::string("Conditionals (Only True)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::CondFlow_False:
+    {
+      auto name = std::string("Conditionals (Only False)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioType::CondFlow_Both:
+    {
+      auto name = std::string("Conditionals (True & False)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
   default:
     output = std::string("Styio[Unknown]");
 
@@ -772,25 +1019,6 @@ case StyioType::Get_Indices_By_Many_Values:
   }
   
   return output + extra;
-}
-
-std::string reprFlow (FlowType flow) {
-  switch (flow)
-  {
-    case FlowType::True:
-      return "True";
-
-    case FlowType::False:
-      return "False";
-
-    case FlowType::Both:
-      return "True & False";
-
-    default:
-      return "Control Flow";
-
-      break;
-  }
 }
 
 std::string reprToken(LogicType token) {
@@ -841,35 +1069,6 @@ std::string reprToken(CompType token) {
       break;
   }
 }
-
-std::string reprToken(BinOpType token) {
-  switch (token)
-  {
-    case BinOpType::BIN_ADD:
-      return "<ADD>";
-
-    case BinOpType::BIN_SUB:
-      return "<SUB>";
-
-    case BinOpType::BIN_MUL:
-      return "<MUL>";
-
-    case BinOpType::BIN_DIV:
-      return "<DIV>";
-
-    case BinOpType::BIN_POW:
-      return "<POW>";
-
-    case BinOpType::BIN_MOD:
-      return "<DIV>";
-
-    default:
-      return "<NULL>";
-
-      break;
-  }
-};
-
 
 std::string reprToken(StyioToken token) {
   switch (token)
