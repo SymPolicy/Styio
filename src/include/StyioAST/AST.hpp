@@ -154,11 +154,11 @@ class BreakAST : public StyioAST {
     }
 
     std::string toString(int indent = 0, bool colorful = false) {
-      return std::string("Pass { }");
+      return std::string("Break { }");
     }
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return std::string("Pass { }");
+      return std::string("Break { }");
     }
 };
 

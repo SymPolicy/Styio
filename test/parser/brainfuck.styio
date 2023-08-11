@@ -16,15 +16,15 @@ ilast = |code| - 1
   count = 0
 
   [0..ilast] >> #(r) ?= ']' => {
-    count = count + 1
+    count += 1
           
     ?(count == iloop) 
     \t\ {
-        map[+: (l, r)]
+      map[+: (l, r)]
 
-        success = \t\
+      success = \t\
 
-        ^^^^^^^^^^^^
+      ^^^^^^^^^^^^
     }
   }
 }
