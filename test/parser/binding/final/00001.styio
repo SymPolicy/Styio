@@ -5,6 +5,5 @@ a := 0
 /*
   CHECK:      Binding (Final) {
   CHECK-NEXT: || Var: id { a }
-  CHECK-NEXT: || Val: int { 0 }
-  CHECK-NEXT: }
+  CHECK-NEXT: || Val: int { 0 }}
 */

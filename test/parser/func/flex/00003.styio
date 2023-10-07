@@ -19,11 +19,9 @@
   CHECK-NEXT: |----| Var { id { x } type { i32 } }
   CHECK-NEXT: |----| Var { id { y } type { i32 } }
   CHECK-NEXT: |----| Var { id { z } type { i32 } }}
-  CHECK-NEXT: |--| Run: BinOp {
-  CHECK-NEXT: |----| LHS: BinOp {
+  CHECK-NEXT: |--| Run: Add {
+  CHECK-NEXT: |----| LHS: Add {
   CHECK-NEXT: |------| LHS: id { x }
-  CHECK-NEXT: |------| OP : <ADD>
   CHECK-NEXT: |------| RHS: id { y }}
-  CHECK-NEXT: |----| OP : <ADD>
   CHECK-NEXT: |----| RHS: id { z }}}}
 */

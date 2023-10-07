@@ -3,17 +3,13 @@
 0.0 + 0.1 + 0.2 + 0.3 + 0.4
 
 /*
-  CHECK:      BinOp {
-  CHECK-NEXT: || LHS: BinOp {
-  CHECK-NEXT: |--| LHS: BinOp {
-  CHECK-NEXT: |----| LHS: BinOp {
+  CHECK:      Add {
+  CHECK-NEXT: || LHS: Add {
+  CHECK-NEXT: |--| LHS: Add {
+  CHECK-NEXT: |----| LHS: Add {
   CHECK-NEXT: |------| LHS: float { 0.0 }
-  CHECK-NEXT: |------| OP : <ADD>
   CHECK-NEXT: |------| RHS: float { 0.1 }}
-  CHECK-NEXT: |----| OP : <ADD>
   CHECK-NEXT: |----| RHS: float { 0.2 }}
-  CHECK-NEXT: |--| OP : <ADD>
   CHECK-NEXT: |--| RHS: float { 0.3 }}
-  CHECK-NEXT: || OP : <ADD>
   CHECK-NEXT: || RHS: float { 0.4 }}
 */
