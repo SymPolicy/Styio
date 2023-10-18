@@ -496,6 +496,44 @@ class StringAST : public StyioAST {
 };
 
 /*
+  FmtStrAST: String
+*/
+class FmtStrAST : public StyioAST {
+  std::vector<std::string> Fragments;
+  std::vector<std::unique_ptr<StyioAST>> Exprs;
+
+  public:
+    FmtStrAST(
+      std::vector<std::string> fragments,
+      std::vector<std::unique_ptr<StyioAST>> expressions) : 
+      Fragments(fragments), 
+      Exprs(std::move(expressions)) {}
+
+    StyioType hint() {
+      return StyioType::FmtStr;
+    }
+
+    std::string toString(int indent = 0, bool colorful = false) {
+      std::string elemstr = "";
+
+      for (size_t i = 0; i < Fragments.size(); i++) {
+        elemstr += make_padding(indent, " ") + "\""+ Fragments.at(i) + "\"\n"; }
+      
+      for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Exprs.begin(); 
+        it != Exprs.end(); 
+        ++it) {
+        elemstr += make_padding(indent, " ") + (*it) -> toString(indent + 1, colorful);
+        if (it != (Exprs.end() - 1)) { elemstr += "\n"; } }
+
+      return reprStyioType(this -> hint(), colorful) + " {\n" + elemstr + "}";
+    }
+
+    std::string toStringInline(int indent = 0, bool colorful = false) {
+      return reprStyioType(this -> hint(), colorful) + " { \"" + "\" }";
+    }
+};
+
+/*
   =================
     Data Resource Identifier
   =================

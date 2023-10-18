@@ -1,0 +1,9 @@
+// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
+
+name := "Styio"
+
+>_($"Hello, {name}!")
+
+/*
+  CHECK:      Print {
+*/

@@ -74,7 +74,7 @@ inline bool check_binop_token (
 
 /*
   Advanced Utilities
-    peak_next_char()
+    check_over_next_char()
 
     drop_white_spaces()
     drop_spaces()
@@ -85,14 +85,10 @@ inline bool check_binop_token (
     pass_over_symbol()
 */
 
-bool peak_next_char (
+bool check_over_next_char (
   struct StyioCodeContext* code,
   char value) {
-  int pos = code -> cursor;
-  while (isspace((code -> text.at(pos)))) {
-    pos += 1; }
-
-  return check_char(code -> text.at(pos), value);
+  return check_char(code -> text.at(code -> cursor + 1), value);
 }
 
 void drop_white_spaces (
@@ -429,12 +425,12 @@ std::unique_ptr<StyioAST> parse_int_or_float (
   return std::make_unique<IntAST>(numStr); 
 }
 
-std::unique_ptr<StringAST> parse_string (
+std::unique_ptr<StringAST> parse_str (
   struct StyioCodeContext* code, 
   char& cur_char) {
   /*
     Danger!
-    when entering parse_string(), 
+    when entering parse_str(), 
     the cur_char must be "
     this line will drop the next 1 character anyway!
   */
@@ -478,6 +474,61 @@ std::unique_ptr<StyioAST> parse_char_or_string (
     return std::make_unique<StringAST>(textStr); }
 }
 
+std::unique_ptr<FmtStrAST> parse_fmt_str (
+  struct StyioCodeContext* code, 
+  char& cur_char) {
+  /*
+    Danger!
+    when entering parse_fmt_str(), 
+    the cur_char must be "
+    this line will drop the next 1 character anyway!
+  */
+  move_to_the_next_char(code, cur_char);
+
+  std::vector<std::string> fragments;
+  std::vector<std::unique_ptr<StyioAST>> exprs;
+  std::string textStr = "";
+
+  while (not check_char(cur_char, '\"')) {
+    if (check_char(cur_char, '{')) {
+      
+      if (check_over_next_char(code, '{')) {
+        textStr += cur_char;
+        move_forward(code, cur_char, 2); }
+      else {
+        move_to_the_next_char(code, cur_char);
+
+        exprs.push_back(parse_expr(code, cur_char));
+        
+        find_and_drop_char_panic(code, cur_char, '}');
+
+        fragments.push_back(textStr);
+        textStr.clear(); }
+    }
+    else if (check_char(cur_char, '}')) {
+      if (check_over_next_char(code, '}')) {
+        textStr += cur_char;
+        move_forward(code, cur_char, 2); }
+      else {
+        std::string errmsg = std::string("Expecting: ") + "}" + "\n" 
+          + "But Got: " + code -> text.at(code -> cursor);
+        throw StyioSyntaxError(errmsg);
+      }
+    }
+    else {
+      textStr += cur_char;
+      move_to_the_next_char(code, cur_char); }
+  }
+  // this line drops " at the end anyway!
+  move_to_the_next_char(code, cur_char);
+
+  fragments.push_back(textStr);
+
+  return std::make_unique<FmtStrAST>(
+    std::move(fragments), 
+    std::move(exprs));
+}
+
 std::unique_ptr<StyioAST> parse_path_or_link (
   struct StyioCodeContext* code, 
   char& cur_char) {
@@ -493,7 +544,7 @@ std::unique_ptr<StyioAST> parse_path_or_link (
 
   if (check_and_drop_char(code, cur_char, '(')) {
     if (check_char(cur_char, '\"')) {
-      std::unique_ptr<StringAST> path = parse_string(code, cur_char);
+      std::unique_ptr<StringAST> path = parse_str(code, cur_char);
 
       find_and_drop_char_panic(code, cur_char, ')');
 
@@ -862,7 +913,7 @@ std::unique_ptr<StyioAST> parse_item_for_binop (
   switch (cur_char)
   {
   case '\"':
-    return parse_string(code, cur_char);
+    return parse_str(code, cur_char);
 
   case '\'':
     return parse_char_or_string(code, cur_char);
@@ -923,14 +974,14 @@ std::unique_ptr<StyioAST> parse_expr (
 
   switch (cur_char)
   {
-  case '\"':
-    {
-      return parse_string(code, cur_char);
-    }
-
   case '\'':
     {
       return parse_char_or_string(code, cur_char);
+    }
+  
+  case '\"':
+    {
+      return parse_str(code, cur_char);
     }
 
   case '[':
@@ -945,6 +996,20 @@ std::unique_ptr<StyioAST> parse_expr (
         output = parse_list_or_loop(code, cur_char); }
 
       return output;
+    }
+
+    break;
+
+  case '(':
+    {
+      return parse_tuple(code, cur_char);
+    }
+
+    break;
+
+  case '{':
+    {
+      return parse_set(code, cur_char);
     }
 
     break;
@@ -967,7 +1032,7 @@ std::unique_ptr<StyioAST> parse_expr (
     {
       move_to_the_next_char(code, cur_char);
 
-      if (check_and_drop_char(code, cur_char, 't')){
+      if (check_and_drop_char(code, cur_char, 't')) {
         check_and_drop_char(code, cur_char, '\\'); 
         return std::make_unique<TrueAST>(); }
       else if (check_and_drop_char(code, cur_char, 'f')) {
@@ -977,19 +1042,12 @@ std::unique_ptr<StyioAST> parse_expr (
 
     break;
 
-  case '(':
+  case '$':
     {
-      return parse_tuple(code, cur_char);
+      move_to_the_next_char(code, cur_char);
+
+      return parse_fmt_str(code, cur_char);
     }
-
-    break;
-
-  case '{':
-    {
-      return parse_set(code, cur_char);
-    }
-
-    break;
   
   default:
     {
@@ -1315,7 +1373,7 @@ std::unique_ptr<StyioAST> parse_list_op (
           output = std::make_unique<ListOpAST>(
             StyioType::Access_By_Name,
             std::move(theList),
-            parse_string(code, cur_char)); 
+            parse_str(code, cur_char)); 
         }
         
         // You should NOT reach this line!
@@ -2565,6 +2623,32 @@ std::unique_ptr<StyioAST> parse_print (
   return std::make_unique<PrintAST>(std::move(exprs));
 }
 
+std::unique_ptr<StyioAST> parse_panic (
+  struct StyioCodeContext* code, 
+  char& cur_char) {
+  do
+  {
+    /*
+      Danger!
+      when entering parse_panic(), 
+      the following symbol must be !
+      this line will drop the next 1 character anyway!
+    */
+    move_to_the_next_char(code, cur_char);
+  } while (check_char(cur_char, '!'));
+  
+  if (find_and_drop_char(code, cur_char, '(')) {
+    /*
+      parse_one_or_many_repr
+      parse_fmt_str
+    */
+
+    
+  } else {
+
+  }
+}
+
 std::unique_ptr<StyioAST> parse_stmt (
   struct StyioCodeContext* code, 
   char& cur_char) {
@@ -2711,13 +2795,19 @@ std::unique_ptr<StyioAST> parse_stmt (
     break;
 
   case '\"':
-    return parse_string(code, cur_char);
+    return parse_str(code, cur_char);
 
     // You should NOT reach this line!
     break;
 
   case '?':
     return parse_cond_flow(code, cur_char);
+    
+    // You should NOT reach this line!
+    break;
+
+  case '!':
+    return parse_panic(code, cur_char);
     
     // You should NOT reach this line!
     break;

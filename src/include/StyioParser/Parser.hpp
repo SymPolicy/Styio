@@ -54,9 +54,17 @@ std::unique_ptr<StyioAST> parse_int_or_float
 );
 
 /*
-  parse_string
+  parse_str
 */
-std::unique_ptr<StringAST> parse_string (
+std::unique_ptr<StringAST> parse_str (
+  struct StyioCodeContext* code,
+  char& cur_char
+);
+
+/*
+  parse_fmt_str
+*/
+std::unique_ptr<FmtStrAST> parse_fmt_str (
   struct StyioCodeContext* code,
   char& cur_char
 );
@@ -244,9 +252,25 @@ std::unique_ptr<StyioAST> parse_read_file (
 );
 
 /*
+  parse_one_or_many_repr
+*/
+std::unique_ptr<StyioAST> parse_one_or_many_repr (
+  struct StyioCodeContext* code,
+  char& cur_char
+);
+
+/*
   parse_print
 */
 std::unique_ptr<StyioAST> parse_print (
+  struct StyioCodeContext* code,
+  char& cur_char
+);
+
+/*
+  parse_panic
+*/
+std::unique_ptr<StyioAST> parse_panic (
   struct StyioCodeContext* code,
   char& cur_char
 );

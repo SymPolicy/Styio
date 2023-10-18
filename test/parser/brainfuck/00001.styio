@@ -1,0 +1,9 @@
+// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
+
+code <- @("code.txt")
+
+/*
+  CHECK:      Read File {
+  CHECK-NEXT: || Var: id { code }
+  CHECK-NEXT: || Val: Path { "code.txt" }}
+*/

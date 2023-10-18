@@ -131,6 +131,19 @@ std::string reprStyioType (
     
     break;
 
+  case StyioType::FmtStr:
+    {
+      auto name = std::string("FmtStr");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
   case StyioType::ExtPath:
     {
       auto name = std::string("Path");

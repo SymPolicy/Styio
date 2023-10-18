@@ -57,8 +57,10 @@ enum class StyioType {
    * Collection
    */
 
-  // "   "
+  // ""
   String,
+  // $""
+  FmtStr,
   // [a0, a1, ..., an]
   List,
   Tuple,
