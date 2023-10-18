@@ -2,6 +2,9 @@
 #ifndef STYIO_AST_H_
 #define STYIO_AST_H_
 
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Value.h"
+
 inline std::string make_padding(int indent, std::string endswith = "")
 {
   return std::string("|") + std::string(2 * indent, '-') + "|" + endswith;
@@ -19,6 +22,8 @@ class StyioAST {
     virtual std::string toString(int indent = 0, bool colorful = false) = 0;
 
     virtual std::string toStringInline(int indent = 0, bool colorful = false) = 0;
+
+    virtual llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context) = 0;
 };
 
 /*
@@ -43,6 +48,8 @@ class TrueAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { }");
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class FalseAST : public StyioAST {
@@ -61,6 +68,8 @@ class FalseAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { }");
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -82,6 +91,8 @@ class NoneAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { }");
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class EndAST : public StyioAST {
@@ -100,6 +111,8 @@ class EndAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return std::string("EOF { }");
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -120,6 +133,8 @@ class EmptyAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { }");
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -142,6 +157,8 @@ class EmptyBlockAST : public StyioAST {
       return std::string("Block (Empty) { ")
         + " } ";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class BreakAST : public StyioAST {
@@ -160,6 +177,8 @@ class BreakAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return std::string("Break { }");
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class PassAST : public StyioAST {
@@ -178,6 +197,8 @@ class PassAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return std::string("Pass { }");
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class ReturnAST : public StyioAST {
@@ -206,6 +227,8 @@ class ReturnAST : public StyioAST {
         + Expr -> toStringInline(indent + 1, colorful)
         + " }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class CommentAST : public StyioAST {
@@ -225,6 +248,8 @@ class CommentAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return std::string("Comment { ") + Text + " }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -253,6 +278,8 @@ class IdAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return std::string("id { ") + Id + " }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class ArgAST : public StyioAST {
@@ -277,6 +304,8 @@ class ArgAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return std::string("arg { ") + Id ->toString(indent + 1, colorful) + " }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class KwArgAST : public StyioAST {
@@ -301,6 +330,8 @@ class KwArgAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return std::string("id { ") + Id ->toString(indent + 1, colorful) + " }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class VarsTupleAST : public StyioAST {
@@ -343,6 +374,8 @@ class VarsTupleAST : public StyioAST {
       return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class TypeAST : public StyioAST {
@@ -364,6 +397,8 @@ class TypeAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { ") + Type + " }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class TypedVarAST : public StyioAST {
@@ -399,6 +434,8 @@ class TypedVarAST : public StyioAST {
       + Type -> toStringInline(indent + 1, colorful) 
       + " }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -427,6 +464,8 @@ class IntAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + " { " + Value + " }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -449,6 +488,8 @@ class FloatAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + " { " + Value + " }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -471,6 +512,8 @@ class CharAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + " { \'" + Value + "\' }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -493,6 +536,8 @@ class StringAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return "\"" + Value + "\"";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -531,6 +576,8 @@ class FmtStrAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + " { \"" + "\" }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -564,6 +611,8 @@ class ExtPathAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { ") + Path -> toStringInline(indent + 1, colorful) + " }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -586,6 +635,8 @@ class ExtLinkAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { }");
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -640,6 +691,8 @@ class ListAST : public StyioAST {
         + ElemStr
         + "]";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class TupleAST : public StyioAST {
@@ -683,6 +736,8 @@ class TupleAST : public StyioAST {
         + ElemStr
         + "]";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class SetAST : public StyioAST {
@@ -726,6 +781,8 @@ class SetAST : public StyioAST {
         + ElemStr
         + "]";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -768,6 +825,8 @@ class RangeAST : public StyioAST
         + "Step: " + StepVal -> toStringInline(indent + 1, colorful)
         + "}";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -806,6 +865,8 @@ class SizeOfAST : public StyioAST
       + Value -> toStringInline(indent + 1, colorful)
       + " }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -902,6 +963,8 @@ class BinOpAST : public StyioAST
         + " | RHS: " + RHS -> toStringInline(indent)  
         + " }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class BinCompAST: public StyioAST 
@@ -942,6 +1005,8 @@ class BinCompAST: public StyioAST
         + " | RHS: "
         + RhsExpr -> toStringInline(indent + 1, colorful);
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class CondAST: public StyioAST 
@@ -1052,6 +1117,8 @@ class CondAST: public StyioAST
         return reprStyioType(this -> hint(), colorful) + " { Undefined! }";
       }
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class CallAST : public StyioAST {
@@ -1073,6 +1140,8 @@ class CallAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + " { }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class ListOpAST : public StyioAST 
@@ -1273,6 +1342,8 @@ class ListOpAST : public StyioAST
       + make_padding(indent, " ") + TheList -> toStringInline()
       + "}";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -1328,6 +1399,8 @@ class ResourceAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + " { }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -1370,6 +1443,8 @@ class FlexBindAST : public StyioAST {
         + valExpr -> toStringInline(indent) 
         + " }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -1407,6 +1482,8 @@ class FinalBindAST : public StyioAST {
         + valExpr -> toStringInline(indent) 
         + " }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -1451,6 +1528,8 @@ class StructAST : public StyioAST {
       return reprStyioType(this -> hint(), colorful) + std::string(" {") 
         + "}";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -1496,6 +1575,8 @@ class ReadFileAST : public StyioAST {
         + valExpr -> toStringInline(indent) 
         + " }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -1552,6 +1633,8 @@ class PrintAST : public StyioAST {
         + outstr
         + "}";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -1605,6 +1688,8 @@ class ExtPackAST : public StyioAST {
         + pacPathStr
         + " } ";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -1659,6 +1744,8 @@ class BlockAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { }");
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -1709,6 +1796,8 @@ class CasesAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { }");
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class CondFlowAST : public StyioAST {
@@ -1776,6 +1865,8 @@ class CondFlowAST : public StyioAST {
       return reprStyioType(this -> hint(), colorful) + std::string(" {") 
       + "}";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -1925,6 +2016,8 @@ class CheckEqAST : public StyioAST {
       return reprStyioType(this -> hint(), colorful) + std::string(" {") 
       + "}";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 class CheckIsInAST : public StyioAST {
@@ -1952,6 +2045,8 @@ class CheckIsInAST : public StyioAST {
       return reprStyioType(this -> hint(), colorful) + std::string(" {") 
       + "}";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -1984,6 +2079,8 @@ class FromToAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return "From { } To { }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -2259,6 +2356,8 @@ class ForwardAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { }");
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -2328,6 +2427,8 @@ class InfiniteAST : public StyioAST {
     std::string toStringInline(int indent = 0, bool colorful = false) {
       return reprStyioType(this -> hint(), colorful) + std::string(" { }");
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -2403,6 +2504,8 @@ class FuncAST : public StyioAST {
       return reprStyioType(this -> hint(), colorful, extra) + std::string(" {") 
         + "}";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -2444,6 +2547,8 @@ class LoopAST : public StyioAST {
 
       return output;
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 /*
@@ -2478,6 +2583,8 @@ class IterAST : public StyioAST {
       + Collection -> toStringInline(indent + 1, colorful)
       + " }";
     }
+
+    llvm::Value* codeGen(std::unique_ptr<llvm::LLVMContext> context);
 };
 
 #endif
