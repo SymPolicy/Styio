@@ -22,10 +22,7 @@
 llvm::Value* TrueAST::codeGen(
   std::unique_ptr<llvm::LLVMContext> context) {
 
-  auto output = llvm::ConstantInt::get(*context, llvm::APInt(
-    /*nbits*/ 8, 
-    /*value: uint64_t*/ 1, 
-    /*isSigned: bool*/ false));
+  auto output = llvm::ConstantInt::getTrue(*context);
 
   return output;
 }
@@ -33,10 +30,7 @@ llvm::Value* TrueAST::codeGen(
 llvm::Value* FalseAST::codeGen(
   std::unique_ptr<llvm::LLVMContext> context) {
 
-  auto output = llvm::ConstantInt::get(*context, llvm::APInt(
-    /*nbits*/ 8, 
-    /*value: uint64_t*/ 1, 
-    /*isSigned: bool*/ false));
+  auto output = llvm::ConstantInt::getFalse(*context);
 
   return output;
 }
@@ -44,10 +38,7 @@ llvm::Value* FalseAST::codeGen(
 llvm::Value* NoneAST::codeGen(
   std::unique_ptr<llvm::LLVMContext> context) {
 
-  auto output = llvm::ConstantInt::get(*context, llvm::APInt(
-    /*nbits*/ 8, 
-    /*value: uint64_t*/ 1, 
-    /*isSigned: bool*/ false));
+  auto output = llvm::ConstantInt::getFalse(*context);
 
   return output;
 }
