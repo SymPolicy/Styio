@@ -1354,14 +1354,14 @@ std::unique_ptr<StyioAST> parse_list_op (
     if (isalpha(cur_char) || check_char(cur_char, '_'))
     {
       output = std::make_unique<ListOpAST>(
-        StyioType::Access,
+        NodeHint::Access,
         std::move(theList),
         parse_id_or_value(code, cur_char));
     }
     else if (isdigit(cur_char)) 
     {
       output = std::make_unique<ListOpAST>(
-        StyioType::Access_By_Index,
+        NodeHint::Access_By_Index,
         std::move(theList),
         parse_int(code, cur_char));
     }
@@ -1375,7 +1375,7 @@ std::unique_ptr<StyioAST> parse_list_op (
       case '"':
         {
           output = std::make_unique<ListOpAST>(
-            StyioType::Access_By_Name,
+            NodeHint::Access_By_Name,
             std::move(theList),
             parse_str(code, cur_char)); 
         }
@@ -1394,7 +1394,7 @@ std::unique_ptr<StyioAST> parse_list_op (
             move_to_the_next_char(code, cur_char); }
 
           output = std::make_unique<ListOpAST>(
-            StyioType::Get_Reversed,
+            NodeHint::Get_Reversed,
             std::move(theList));
         }
 
@@ -1411,7 +1411,7 @@ std::unique_ptr<StyioAST> parse_list_op (
             drop_spaces_and_comments(code, cur_char);
 
             output = std::make_unique<ListOpAST>(
-              StyioType::Get_Index_By_Value,
+              NodeHint::Get_Index_By_Value,
               std::move(theList),
               parse_expr(code, cur_char));
           }
@@ -1420,7 +1420,7 @@ std::unique_ptr<StyioAST> parse_list_op (
             drop_spaces_and_comments(code, cur_char);
 
             output = std::make_unique<ListOpAST>(
-              StyioType::Get_Indices_By_Many_Values,
+              NodeHint::Get_Indices_By_Many_Values,
               std::move(theList),
               parse_iterable(code, cur_char));
           }
@@ -1456,7 +1456,7 @@ std::unique_ptr<StyioAST> parse_list_op (
             drop_white_spaces(code, cur_char);
 
             output = std::make_unique<ListOpAST>(
-              StyioType::Insert_Item_By_Index,
+              NodeHint::Insert_Item_By_Index,
               std::move(theList),
               std::move(index),
               parse_expr(code, cur_char)); 
@@ -1465,7 +1465,7 @@ std::unique_ptr<StyioAST> parse_list_op (
           else 
           {
             output = std::make_unique<ListOpAST>(
-              StyioType::Access_By_Index,
+              NodeHint::Access_By_Index,
               std::move(theList),
               std::move(index)); 
           }
@@ -1489,7 +1489,7 @@ std::unique_ptr<StyioAST> parse_list_op (
           drop_white_spaces(code, cur_char);
 
           output = std::make_unique<ListOpAST>(
-            StyioType::Append_Value,
+            NodeHint::Append_Value,
             std::move(theList),
             std::move(expr));
         }
@@ -1515,7 +1515,7 @@ std::unique_ptr<StyioAST> parse_list_op (
             if (isdigit(cur_char))
             {
               output = std::make_unique<ListOpAST>(
-              StyioType::Remove_Item_By_Index,
+              NodeHint::Remove_Item_By_Index,
               std::move(theList),
               std::move(parse_int(code, cur_char)));
             }
@@ -1525,7 +1525,7 @@ std::unique_ptr<StyioAST> parse_list_op (
                 list[-: ^(i0, i1, ...)]
               */
               output = std::make_unique<ListOpAST>(
-                StyioType::Remove_Items_By_Many_Indices,
+                NodeHint::Remove_Items_By_Many_Indices,
                 std::move(theList),
                 std::move(parse_iterable(code, cur_char)));
             }
@@ -1544,7 +1544,7 @@ std::unique_ptr<StyioAST> parse_list_op (
                 drop_white_spaces(code, cur_char);
 
                 output = std::make_unique<ListOpAST>(
-                  StyioType::Remove_Item_By_Value,
+                  NodeHint::Remove_Item_By_Value,
                   std::move(theList),
                   parse_expr(code, cur_char));
               }
@@ -1561,7 +1561,7 @@ std::unique_ptr<StyioAST> parse_list_op (
                 drop_white_spaces(code, cur_char);
 
                 output = std::make_unique<ListOpAST>(
-                  StyioType::Remove_Items_By_Many_Values,
+                  NodeHint::Remove_Items_By_Many_Values,
                   std::move(theList),
                   parse_iterable(code, cur_char));
               }
@@ -1575,7 +1575,7 @@ std::unique_ptr<StyioAST> parse_list_op (
           else 
           {
             output = std::make_unique<ListOpAST>(
-              StyioType::Remove_Item_By_Value,
+              NodeHint::Remove_Item_By_Value,
               std::move(theList),
               parse_expr(code, cur_char));
           }
@@ -1616,7 +1616,7 @@ std::unique_ptr<StyioAST> parse_loop_or_iter (
 
   drop_spaces_and_comments(code, cur_char);
 
-  if ((iterOverIt -> hint()) == StyioType::Infinite) {
+  if ((iterOverIt -> hint()) == NodeHint::Infinite) {
     return std::make_unique<LoopAST>(
       parse_forward(code, cur_char, false)); }
   else {
@@ -1649,14 +1649,14 @@ std::unique_ptr<StyioAST> parse_list_or_loop (
 
     match_next_char_panic(code, cur_char, ']');
 
-    if (startEl -> hint() == StyioType::Int 
-      && endEl -> hint() == StyioType::Id) {
+    if (startEl -> hint() == NodeHint::Int 
+      && endEl -> hint() == NodeHint::Id) {
       output = std::make_unique<InfiniteAST>(
         std::move(startEl), 
         std::move(endEl)); }
     else
-    if (startEl -> hint() == StyioType::Int 
-      && endEl -> hint() == StyioType::Int) {
+    if (startEl -> hint() == NodeHint::Int 
+      && endEl -> hint() == NodeHint::Int) {
       output = std::make_unique<RangeAST>(
         std::move(startEl), 
         std::move(endEl), 
@@ -1742,7 +1742,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
           drop_spaces(code, cur_char);
 
           output = std::make_unique<BinOpAST>(
-          StyioType::Inc_Add, 
+          NodeHint::Inc_Add, 
           std::move(lhs_ast), 
           std::move(parse_item_for_binop(code, cur_char)));
 
@@ -1751,7 +1751,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
         else
         {
           output = std::make_unique<BinOpAST>(
-          StyioType::Bin_Add, 
+          NodeHint::Bin_Add, 
           std::move(lhs_ast), 
           std::move(parse_item_for_binop(code, cur_char)));
         }
@@ -1770,7 +1770,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
           drop_spaces(code, cur_char);
 
           output = std::make_unique<BinOpAST>(
-          StyioType::Inc_Sub, 
+          NodeHint::Inc_Sub, 
           std::move(lhs_ast), 
           std::move(parse_item_for_binop(code, cur_char)));
 
@@ -1779,7 +1779,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
         else
         {
           output = std::make_unique<BinOpAST>(
-            StyioType::Bin_Sub, 
+            NodeHint::Bin_Sub, 
             std::move(lhs_ast), 
             std::move(parse_item_for_binop(code, cur_char)));
         }
@@ -1799,7 +1799,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
 
           // <ID> "**" |--
           output = std::make_unique<BinOpAST>(
-            StyioType::Bin_Pow, 
+            NodeHint::Bin_Pow, 
             std::move(lhs_ast), 
             std::move(parse_item_for_binop(code, cur_char)));
         }
@@ -1808,7 +1808,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
           drop_spaces(code, cur_char);
 
           output = std::make_unique<BinOpAST>(
-            StyioType::Inc_Mul, 
+            NodeHint::Inc_Mul, 
             std::move(lhs_ast), 
             std::move(parse_item_for_binop(code, cur_char)));
 
@@ -1821,7 +1821,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
 
           // <ID> "*" |--
           output = std::make_unique<BinOpAST>(
-            StyioType::Bin_Mul, 
+            NodeHint::Bin_Mul, 
             std::move(lhs_ast), 
             std::move(parse_item_for_binop(code, cur_char)));
         }
@@ -1839,7 +1839,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
           drop_spaces(code, cur_char);
           
           output = std::make_unique<BinOpAST>(
-            StyioType::Inc_Div, 
+            NodeHint::Inc_Div, 
             std::move(lhs_ast), 
             std::move(parse_item_for_binop(code, cur_char)));
 
@@ -1848,7 +1848,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
         else
         {
           output = std::make_unique<BinOpAST>(
-            StyioType::Bin_Div, 
+            NodeHint::Bin_Div, 
             std::move(lhs_ast), 
             std::move(parse_item_for_binop(code, cur_char)));
         }
@@ -1864,7 +1864,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
 
         // <ID> "%" |-- 
         output = std::make_unique<BinOpAST>(
-          StyioType::Bin_Mod, 
+          NodeHint::Bin_Mod, 
           std::move(lhs_ast), 
           std::move(parse_item_for_binop(code, cur_char)));
       };
@@ -2156,7 +2156,7 @@ std::unique_ptr<StyioAST> parse_cond_flow (
           std::unique_ptr<StyioAST> blockElse = parse_block(code, cur_char);
 
           return std::make_unique<CondFlowAST>(
-            StyioType::CondFlow_Both,
+            NodeHint::CondFlow_Both,
             std::move(condition),
             std::move(block),
             std::move(blockElse));
@@ -2164,7 +2164,7 @@ std::unique_ptr<StyioAST> parse_cond_flow (
         else 
         {
           return std::make_unique<CondFlowAST>(
-            StyioType::CondFlow_True,
+            NodeHint::CondFlow_True,
             std::move(condition),
             std::move(block)); 
         }
@@ -2183,7 +2183,7 @@ std::unique_ptr<StyioAST> parse_cond_flow (
         block = parse_block(code, cur_char);
 
         return std::make_unique<CondFlowAST>(
-          StyioType::CondFlow_False,
+          NodeHint::CondFlow_False,
           std::move(condition),
           std::move(block)); }
       else 
@@ -3046,7 +3046,8 @@ std::unique_ptr<StyioAST> parse_cases (
 
 std::unique_ptr<StyioAST> parse_block (
   struct StyioCodeContext* code, 
-  char& cur_char) {
+  char& cur_char
+) {
   std::vector<std::unique_ptr<StyioAST>> stmtBuffer;
 
   /*
@@ -3070,25 +3071,28 @@ std::unique_ptr<StyioAST> parse_block (
   if (stmtBuffer.size() == 0) {
     return std::make_unique<EmptyBlockAST>(); }
   else {
-    return std::make_unique<BlockAST>(std::move(stmtBuffer));};
+    return std::make_unique<SideBlockAST>(std::move(stmtBuffer));};
 }
 
-void parse_program (std::string styio_code) 
-{
+std::unique_ptr<MainBlockAST> parse_main_block (
+  std::string styio_code 
+) {
   struct StyioCodeContext styio_code_context = { styio_code, 0 };
-
   StyioCodeContext* ctx_ptr = &styio_code_context;
-
   char cur_char = styio_code.at(0);
+
+  std::vector<std::unique_ptr<StyioAST>> stmtBuffer;
 
   while (true) {
     std::unique_ptr<StyioAST> stmt = parse_stmt(ctx_ptr, cur_char);
 
-    if ((stmt -> hint()) == StyioType::End) { break; }
-
-    if ((stmt -> hint()) != StyioType::Comment) {
+    if ((stmt -> hint()) != NodeHint::End) { 
+      break; }
+    else if ((stmt -> hint()) != NodeHint::Comment) {
       std::cout << "\033[1;33m[>_<]\033[0m " << stmt -> toString(0, false) << std::endl; }
-    
-    // std::cout << "\033[1;33m[>_<]\033[0m" << std::endl;
-  };
+    else {
+      stmtBuffer.push_back(std::move(stmt)); }
+  }
+
+  return std::make_unique<MainBlockAST>(std::move(stmtBuffer));
 }

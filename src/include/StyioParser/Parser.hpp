@@ -335,9 +335,7 @@ std::unique_ptr<StyioAST> parse_forward (
   bool labeled = false
 );
 
-/*
-  parse_program
-*/
-void parse_program (std::string styio_code);
+
+std::unique_ptr<MainBlockAST> parse_main_block (std::string styio_code);
 
 #endif

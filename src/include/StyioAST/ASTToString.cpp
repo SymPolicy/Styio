@@ -246,81 +246,81 @@ std::string CallAST::toString(int indent, bool colorful) {
 std::string ListOpAST::toString(int indent, bool colorful) {
   switch (OpType)
   {
-  case StyioType::Access:
+  case NodeHint::Access:
     return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Key: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
   
-  case StyioType::Access_By_Index:
+  case NodeHint::Access_By_Index:
     return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Index: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
-  case StyioType::Access_By_Name:
+  case NodeHint::Access_By_Name:
     return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Name : " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
   
-  case StyioType::Get_Index_By_Value:
+  case NodeHint::Get_Index_By_Value:
     return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Index: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
-  case StyioType::Get_Indices_By_Many_Values:
+  case NodeHint::Get_Indices_By_Many_Values:
     return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Index: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
-  case StyioType::Append_Value:
+  case NodeHint::Append_Value:
     return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Value: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;  
-  case StyioType::Insert_Item_By_Index:
+  case NodeHint::Insert_Item_By_Index:
     return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Index: " + Slot1 -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Value: " + Slot2 -> toString(indent + 1, colorful)
     + "}";
     break;
-  case StyioType::Remove_Item_By_Index:
+  case NodeHint::Remove_Item_By_Index:
     return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Index: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
-  case StyioType::Remove_Item_By_Value:
+  case NodeHint::Remove_Item_By_Value:
     return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Value: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
-  case StyioType::Remove_Items_By_Many_Indices:
+  case NodeHint::Remove_Items_By_Many_Indices:
     return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Index: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
-  case StyioType::Remove_Items_By_Many_Values:
+  case NodeHint::Remove_Items_By_Many_Values:
     return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Value: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
-  case StyioType::Get_Reversed:
+  case NodeHint::Get_Reversed:
     return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful)
     + "}";
     break;
-  case StyioType::Get_Index_By_Item_From_Right:
+  case NodeHint::Get_Index_By_Item_From_Right:
     return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Index: " + Slot1 -> toString(indent + 1, colorful)
@@ -406,7 +406,7 @@ std::string ExtPackAST::toString(int indent, bool colorful) {
     + "\n} ";
 }
 
-std::string BlockAST::toString(int indent, bool colorful) {
+std::string SideBlockAST::toString(int indent, bool colorful) {
   std::string stmtStr;
 
   for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Stmts.begin(); 
@@ -438,15 +438,15 @@ std::string CasesAST::toString(int indent, bool colorful) {
 }
 
 std::string CondFlowAST::toString(int indent, bool colorful) {
-  if (WhatFlow == StyioType::CondFlow_True
-    || WhatFlow == StyioType::CondFlow_False)
+  if (WhatFlow == NodeHint::CondFlow_True
+    || WhatFlow == NodeHint::CondFlow_False)
   {
     return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Then: " + ThenBlock -> toString(indent + 1, colorful)
     + "}";
   }
-  else if (WhatFlow == StyioType::CondFlow_Both)
+  else if (WhatFlow == NodeHint::CondFlow_Both)
   {
     return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1, colorful) + "\n"
@@ -486,7 +486,7 @@ std::string FromToAST::toString(int indent, bool colorful) {
 std::string ForwardAST::toString(int indent, bool colorful) {
   switch (Type)
   {
-  case StyioType::Forward:
+  case NodeHint::Forward:
     {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1, colorful) 
@@ -494,7 +494,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
     }
     // You should NOT reach this line!
     break;
-  case StyioType::If_Equal_To_Forward:
+  case NodeHint::If_Equal_To_Forward:
     {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
       + make_padding(indent, " ") + ExtraEq -> toString(indent + 1, colorful) + "\n"
@@ -503,7 +503,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
     }
     // You should NOT reach this line!
     break;
-  case StyioType::If_Is_In_Forward:
+  case NodeHint::If_Is_In_Forward:
     {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + ExtraIsin -> toString(indent + 1, colorful) + "\n"
@@ -512,7 +512,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
     }
     // You should NOT reach this line!
     break;
-  case StyioType::Cases_Forward:
+  case NodeHint::Cases_Forward:
     {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + "Cases: " + ThenExpr -> toString(indent + 1, colorful) + "\n"
@@ -520,7 +520,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
     }
     // You should NOT reach this line!
     break;
-  case StyioType::If_True_Forward:
+  case NodeHint::If_True_Forward:
     {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
@@ -528,7 +528,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
     }
     // You should NOT reach this line!
     break;
-  case StyioType::If_False_Forward:
+  case NodeHint::If_False_Forward:
     {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
@@ -537,7 +537,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
     // You should NOT reach this line!
     break;
   
-  case StyioType::If_Both_Forward:
+  case NodeHint::If_Both_Forward:
     {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
@@ -545,7 +545,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
     }
     // You should NOT reach this line!
     break;
-  case StyioType::Fill_Forward:
+  case NodeHint::Fill_Forward:
     {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
@@ -554,7 +554,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
     }
     // You should NOT reach this line!
     break;
-  case StyioType::Fill_If_Equal_To_Forward:
+  case NodeHint::Fill_If_Equal_To_Forward:
     {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
@@ -564,7 +564,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
     }
     // You should NOT reach this line!
     break;
-  case StyioType::Fill_If_Is_in_Forward:
+  case NodeHint::Fill_If_Is_in_Forward:
     {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
@@ -574,7 +574,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
     }
     // You should NOT reach this line!
     break;
-  case StyioType::Fill_Cases_Forward:
+  case NodeHint::Fill_Cases_Forward:
     {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
@@ -583,7 +583,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
     }
     // You should NOT reach this line!
     break;
-  case StyioType::Fill_If_True_Forward:
+  case NodeHint::Fill_If_True_Forward:
     {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
@@ -592,7 +592,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
     }
     // You should NOT reach this line!
     break;
-  case StyioType::Fill_If_False_Forward:
+  case NodeHint::Fill_If_False_Forward:
     {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
@@ -602,7 +602,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
     // You should NOT reach this line!
     break;
   
-  case StyioType::Fill_If_Both_Forward:
+  case NodeHint::Fill_If_Both_Forward:
     {
       return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
@@ -669,4 +669,19 @@ std::string IterAST::toString(int indent, bool colorful) {
   return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
   + make_padding(indent, " ") + Collection -> toStringInline(indent + 1, colorful)
   + "}";
+}
+
+std::string MainBlockAST::toString(int indent, bool colorful) {
+  std::string stmtStr;
+
+  for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Stmts.begin(); 
+    it != Stmts.end(); 
+    ++it) {
+    stmtStr += make_padding(indent, " ") + (*it) -> toString(indent + 1, colorful);
+    if (it != (Stmts.end() - 1)) { stmtStr += "\n"; }
+  }
+
+  return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
+    + stmtStr
+    + "}";
 }

@@ -21,6 +21,10 @@
 #include "include/StyioAST/AST.hpp"
 #include "include/StyioParser/Parser.hpp"
 
+// [LLVM]
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Module.h"
 
 void show_cwd() 
 {
@@ -28,28 +32,22 @@ void show_cwd()
   std::cout << cwd.string() << std::endl;
 }
 
-std::string read_styio_file(const char* filename)
-{
-  if (std::filesystem::exists(filename))
-  {
+std::string read_styio_file(const char* filename) {
+  if (std::filesystem::exists(filename)) {
     std::ifstream file(filename);
     std::string contents;
 
     std::string str;
-    while (std::getline(file, str))
-    {
+    while (std::getline(file, str)) {
       contents += str;
-      contents.push_back('\n');
-    }
-
+      contents.push_back('\n'); }
     contents += EOF;
 
     // printf("%s", contents.c_str());
-
-    return contents;
+    return contents; }
+  else {
+    printf("Failed: Can't read file %s", filename);
   }
-
-  printf("Failed...");
 
   return std::string("...");
 }
@@ -57,13 +55,19 @@ std::string read_styio_file(const char* filename)
 int main(int argc, char* argv[]) {
   // std::copy(argv, argv + argc, std::ostream_iterator<char *>(std::cout, "\n"));
 
+  // std::unique_ptr<llvm::LLVMContext> llvm_context = std::make_unique<llvm::LLVMContext>();
+  // std::unique_ptr<llvm::Module> llvm_module = std::make_unique<llvm::Module>("styio", *llvm_context);
+  // std::unique_ptr<llvm::IRBuilder<>> llvm_builder = std::make_unique<llvm::IRBuilder<>>(*llvm_context);
+
   std::ifstream file ( argv[1] );
-  // Always check to see if file opening succeeded
-  if ( !file.is_open() )
-    printf("Failed: Can't open file %s.\n", argv[1]);
-  else {
-    parse_program(read_styio_file(argv[1]));
-  }
+  if ( !file.is_open() ) { printf("Failed: Can't open file %s.\n", argv[1]); }
+  
+  auto styio_program = parse_main_block(read_styio_file(argv[1]));
+
+  
+
+  auto generator = StyioToLLVM();
+  generator.gen_main_block(&*styio_program);
   
   return 0;
 }

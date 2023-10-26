@@ -2,7 +2,7 @@
 #ifndef STYIO_TOKEN_H_
 #define STYIO_TOKEN_H_
 
-enum class StyioType {
+enum class NodeHint {
   End,
   Pass,
   Break,
@@ -226,6 +226,7 @@ enum class StyioType {
    * Code Block
    */
 
+  MainBlock,
   Block,
   Cases,
   // -----------------
@@ -384,7 +385,7 @@ inline std::string make_colorful(std::string text, int color)
 };
 
 std::string reprStyioType (
-  StyioType type,
+  NodeHint type,
   bool colorful = false,
   std::string extra = "");
 
