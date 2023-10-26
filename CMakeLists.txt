@@ -42,10 +42,16 @@ find_package(ICU COMPONENTS uc i18n REQUIRED)
 # [Styio] Executable
 add_executable(styio 
     src/main.cpp
-    src/include/StyioAST/CodeGen.cpp
-    src/include/StyioToken/Token.cpp
+    # Utilities
     src/include/StyioUtil/Util.cpp
+    # Lexer (Token)
+    src/include/StyioToken/Token.cpp
+    # Parser (AST)
+    src/include/StyioAST/ASTToString.cpp
     src/include/StyioParser/Parser.cpp
+    # Visitor (AST)
+    src/include/StyioAST/ASTAccept.cpp
+    src/include/StyioVisitor/ASTVisitor.cpp
     )
 
 # [Styio - ICU4C] Link
