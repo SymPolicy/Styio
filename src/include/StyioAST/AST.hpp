@@ -12,6 +12,8 @@
 
 // [LLVM]
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Value.h"
 
 /*
@@ -26,14 +28,20 @@ class StyioAST {
   public:
     virtual ~StyioAST() {}
 
-    virtual NodeHint hint() = 0;
+    virtual StyioNodeHint hint() = 0;
 
     virtual std::string toString(int indent = 0, bool colorful = false) = 0;
 
     virtual std::string toStringInline(int indent = 0, bool colorful = false) = 0;
 
-    virtual void accept(StyioToLLVM* generator) = 0;
+    virtual void toLLVM(StyioToLLVM* generator) = 0;
 };
+
+class IdAST;
+class DTypeAST;
+
+class VarAST;
+class FillArgAST;
 
 /*
   - CasesAST
@@ -62,18 +70,18 @@ class CasesAST : public StyioAST {
 
     }
 
-    NodeHint hint() {
-      return NodeHint::Cases;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Cases;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 class SideBlockAST : public StyioAST {
@@ -97,18 +105,22 @@ class SideBlockAST : public StyioAST {
         
     }
 
-    NodeHint hint() {
-      return NodeHint::Block;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Block;
+    }
+
+    const std::vector<std::unique_ptr<StyioAST>>& getStmts() const {
+      return Stmts;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 class MainBlockAST : public StyioAST {
@@ -129,21 +141,25 @@ class MainBlockAST : public StyioAST {
       std::vector<std::unique_ptr<StyioAST>> stmts): 
       Stmts(std::move(stmts)
     ) {
-        
+
     }
 
-    NodeHint hint() {
-      return NodeHint::MainBlock;
+    StyioNodeHint hint() {
+      return StyioNodeHint::MainBlock;
+    }
+
+    const std::vector<std::unique_ptr<StyioAST>>& getStmts() const {
+      return Stmts;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -157,17 +173,17 @@ class TrueAST : public StyioAST {
   public:
     TrueAST () {}
 
-    NodeHint hint() {
-      return NodeHint::True;
+    StyioNodeHint hint() {
+      return StyioNodeHint::True;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+      return reprNodeType(this -> hint(), colorful) + std::string(" { }");
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 class FalseAST : public StyioAST {
@@ -175,17 +191,17 @@ class FalseAST : public StyioAST {
   public:
     FalseAST () {}
 
-    NodeHint hint() {
-      return NodeHint::False;
+    StyioNodeHint hint() {
+      return StyioNodeHint::False;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+      return reprNodeType(this -> hint(), colorful) + std::string(" { }");
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -196,17 +212,17 @@ class NoneAST : public StyioAST {
   public:
     NoneAST () {}
 
-    NodeHint hint() {
-      return NodeHint::None;
+    StyioNodeHint hint() {
+      return StyioNodeHint::None;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+      return reprNodeType(this -> hint(), colorful) + std::string(" { }");
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 class EndAST : public StyioAST {
@@ -214,17 +230,17 @@ class EndAST : public StyioAST {
   public:
     EndAST () {}
 
-    NodeHint hint() {
-      return NodeHint::End;
+    StyioNodeHint hint() {
+      return StyioNodeHint::End;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+      return reprNodeType(this -> hint(), colorful) + std::string(" { }");
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -234,17 +250,17 @@ class EmptyAST : public StyioAST {
   public:
     EmptyAST() {}
 
-    NodeHint hint() {
-      return NodeHint::Empty;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Empty;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+      return reprNodeType(this -> hint(), colorful) + std::string(" { }");
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -254,17 +270,17 @@ class EmptyBlockAST : public StyioAST {
   public:
     EmptyBlockAST() {}
 
-    NodeHint hint() {
-      return NodeHint::EmptyBlock;
+    StyioNodeHint hint() {
+      return StyioNodeHint::EmptyBlock;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+      return reprNodeType(this -> hint(), colorful) + std::string(" { }");
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 class BreakAST : public StyioAST {
@@ -272,17 +288,17 @@ class BreakAST : public StyioAST {
   public:
     BreakAST () {}
 
-    NodeHint hint() {
-      return NodeHint::Break;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Break;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+      return reprNodeType(this -> hint(), colorful) + std::string(" { }");
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 class PassAST : public StyioAST {
@@ -290,17 +306,17 @@ class PassAST : public StyioAST {
   public:
     PassAST () {}
 
-    NodeHint hint() {
-      return NodeHint::Pass;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Pass;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+      return reprNodeType(this -> hint(), colorful) + std::string(" { }");
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 class ReturnAST : public StyioAST {
@@ -314,17 +330,17 @@ class ReturnAST : public StyioAST {
 
     }
 
-    NodeHint hint() {
-      return NodeHint::Return;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Return;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+      return reprNodeType(this -> hint(), colorful) + std::string(" { }");
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 class CommentAST : public StyioAST {
@@ -333,17 +349,17 @@ class CommentAST : public StyioAST {
   public:
     CommentAST (std::string text): Text(text) {}
 
-    NodeHint hint() {
-      return NodeHint::Comment;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Comment;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+      return reprNodeType(this -> hint(), colorful) + std::string(" { }");
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -352,26 +368,126 @@ class CommentAST : public StyioAST {
   =================
 */
 
-/*
-  IdAST: Identifier
-*/
 class IdAST : public StyioAST {
-  std::string Id;
+  std::string Id = "";
 
   public:
-    IdAST(const std::string &id) : Id(id) {}
+    IdAST(
+      const std::string& id): 
+      Id(id) { }
 
-    NodeHint hint() {
-      return NodeHint::Id;
-    }
+    StyioNodeHint hint() {
+      return StyioNodeHint::Id; }
 
+    const std::string& getIdStr() const {
+      return Id; }
+
+    /* toString */
     std::string toString(int indent = 0, bool colorful = false);
+    std::string toStringInline(int indent = 0, bool colorful = false);
 
-    std::string toStringInline(int indent = 0, bool colorful = false) {
-      return std::string("id { ") + Id + " }";
-    }
+    /* toLLVM */
+    void toLLVM(StyioToLLVM* generator);
+};
 
-    void accept(StyioToLLVM* generator);
+class DTypeAST : public StyioAST {
+  std::string TypeStr = "";
+
+  public:
+    DTypeAST(
+      const std::string& dtype): 
+      TypeStr(dtype) { }
+
+    StyioNodeHint hint() {
+      return StyioNodeHint::DType; }
+
+    const std::string& getTypeStr() const {
+      return TypeStr; }
+
+    /* toString */
+    std::string toString(int indent = 0, bool colorful = false);
+    std::string toStringInline(int indent = 0, bool colorful = false);
+
+    /* toLLVM */
+    void toLLVM(StyioToLLVM* generator);
+};
+
+class VarAST : public StyioAST {
+  std::string Name = "";
+  std::unique_ptr<DTypeAST> DType;
+
+  bool VHasType = false;
+
+  public:
+    VarAST():
+      Name(""), 
+      DType(std::make_unique<DTypeAST>("")) { }
+
+    VarAST(
+      const std::string& name): 
+      Name(name) { }
+
+    VarAST(
+      const std::string& name,
+      std::unique_ptr<DTypeAST> dtype): 
+      Name(name), 
+      DType(std::move(dtype)) {
+        VHasType = true;
+      }
+
+    StyioNodeHint hint() {
+      return StyioNodeHint::Var; }
+
+    const std::string& getName() const {
+      return Name; }
+
+    bool hasType() {
+      return VHasType; }
+
+    const std::unique_ptr<DTypeAST>& getType() const {
+      return DType; }
+
+    /* toString */
+    std::string toString(int indent = 0, bool colorful = false);
+    std::string toStringInline(int indent = 0, bool colorful = false);
+
+    /* toLLVM */
+    void toLLVM(StyioToLLVM* generator);
+};
+
+class FillArgAST : public VarAST {
+  std::string Name;
+  std::unique_ptr<DTypeAST> DType;
+
+  public:
+    FillArgAST (
+      const std::string& name):
+      Name(name) {}
+
+    FillArgAST (
+      const std::string& name,
+      std::unique_ptr<DTypeAST> dtype): 
+      Name(name), 
+      DType(std::move(dtype)) {}
+
+    StyioNodeHint hint() {
+      return StyioNodeHint::FillArg; }
+
+    const std::string& getName() const {
+      return Name; }
+
+    const std::unique_ptr<DTypeAST>& getType() const {
+      return DType; }
+
+    const std::string& getTypeStr() const {
+      return DType -> getTypeStr(); }
+
+    /* toString */
+    std::string toString(int indent = 0, bool colorful = false);
+    std::string toStringInline(int indent = 0, bool colorful = false);
+
+    /* toLLVM */
+    void toLLVM(StyioToLLVM* generator);
 };
 
 class ArgAST : public StyioAST {
@@ -385,17 +501,17 @@ class ArgAST : public StyioAST {
 
       }
 
-    NodeHint hint() {
-      return NodeHint::Arg;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Arg;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+      return reprNodeType(this -> hint(), colorful) + std::string(" { }");
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 class KwArgAST : public StyioAST {
@@ -409,89 +525,68 @@ class KwArgAST : public StyioAST {
 
       }
 
-    NodeHint hint() {
-      return NodeHint::KwArg;
+    StyioNodeHint hint() {
+      return StyioNodeHint::KwArg;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+      return reprNodeType(this -> hint(), colorful) + std::string(" { }");
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
-class VarsTupleAST : public StyioAST {
+class VarTupleAST : public StyioAST {
   std::vector<std::unique_ptr<StyioAST>> Vars;
 
   public:
-    VarsTupleAST(
+    VarTupleAST(
       std::vector<std::unique_ptr<StyioAST>> vars): 
-      Vars(std::move(vars)) { }
+      Vars(std::move(vars)) {}
 
-    NodeHint hint() {
-      return NodeHint::Fill;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Fill; }
+
+    const std::vector<std::unique_ptr<StyioAST>>& getVars() {
+      return Vars;
     }
 
+    /* toString */
     std::string toString(int indent = 0, bool colorful = false);
+    std::string toStringInline(int indent = 0, bool colorful = false);
 
-    std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
-      + " }";
-    }
-
-    void accept(StyioToLLVM* generator);
-};
-
-class TypeAST : public StyioAST {
-  std::string Type;
-
-  public:
-    TypeAST(
-      const std::string& type): 
-      Type(type) {}
-
-    NodeHint hint() {
-      return NodeHint::Type;
-    }
-
-    std::string toString(int indent = 0, bool colorful = false);
-
-    std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
-      + " }";
-    }
-
-    void accept(StyioToLLVM* generator);
+    /* toLLVM */
+    void toLLVM(StyioToLLVM* generator);
 };
 
 class TypedVarAST : public StyioAST {
   std::unique_ptr<IdAST> Id;
-  std::unique_ptr<TypeAST> Type;
+  std::unique_ptr<DTypeAST> Type;
 
   public:
     TypedVarAST(
       std::unique_ptr<IdAST> id, 
-      std::unique_ptr<TypeAST> type) : 
+      std::unique_ptr<DTypeAST> type) : 
       Id(std::move(id)),
       Type(std::move(type)) 
       {
 
       }
 
-    NodeHint hint() {
-      return NodeHint::TypedVar;
+    StyioNodeHint hint() {
+      return StyioNodeHint::TypedVar;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -509,17 +604,17 @@ class IntAST : public StyioAST {
   public:
     IntAST(std::string val) : Value(val) {}
 
-    NodeHint hint() {
-      return NodeHint::Int;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Int;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + " { " + Value + " }";
+      return reprNodeType(this -> hint(), colorful) + " { " + Value + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -531,17 +626,17 @@ class FloatAST : public StyioAST {
   public:
     FloatAST(std::string val) : Value(val) {}
 
-    NodeHint hint() {
-      return NodeHint::Float;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Float;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + " { " + Value + " }";
+      return reprNodeType(this -> hint(), colorful) + " { " + Value + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -553,17 +648,17 @@ class CharAST : public StyioAST {
   public:
     CharAST(std::string val) : Value(val) {}
 
-    NodeHint hint() {
-      return NodeHint::Char;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Char;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + " { \'" + Value + "\' }";
+      return reprNodeType(this -> hint(), colorful) + " { \'" + Value + "\' }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -575,8 +670,8 @@ class StringAST : public StyioAST {
   public:
     StringAST(std::string val) : Value(val) {}
 
-    NodeHint hint() {
-      return NodeHint::String;
+    StyioNodeHint hint() {
+      return StyioNodeHint::String;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
@@ -585,7 +680,7 @@ class StringAST : public StyioAST {
       return "\"" + Value + "\"";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -602,17 +697,17 @@ class FmtStrAST : public StyioAST {
       Fragments(fragments), 
       Exprs(std::move(expressions)) {}
 
-    NodeHint hint() {
-      return NodeHint::FmtStr;
+    StyioNodeHint hint() {
+      return StyioNodeHint::FmtStr;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + " { \"" + "\" }";
+      return reprNodeType(this -> hint(), colorful) + " { \"" + "\" }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -635,17 +730,17 @@ class ExtPathAST : public StyioAST {
 
       }
 
-    NodeHint hint() {
-      return NodeHint::ExtPath;
+    StyioNodeHint hint() {
+      return StyioNodeHint::ExtPath;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") + Path -> toStringInline(indent + 1, colorful) + " }";
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") + Path -> toStringInline(indent + 1, colorful) + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -657,18 +752,18 @@ class ExtLinkAST : public StyioAST {
   public:
     ExtLinkAST (std::string link): Link(link) {}
 
-    NodeHint hint() {
-      return NodeHint::ExtLink;
+    StyioNodeHint hint() {
+      return StyioNodeHint::ExtLink;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -694,18 +789,18 @@ class ListAST : public StyioAST {
 
       }
 
-    NodeHint hint() {
-      return NodeHint::List;
+    StyioNodeHint hint() {
+      return StyioNodeHint::List;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 class TupleAST : public StyioAST {
@@ -719,18 +814,18 @@ class TupleAST : public StyioAST {
 
       }
 
-    NodeHint hint() {
-      return NodeHint::Tuple;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Tuple;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 class SetAST : public StyioAST {
@@ -744,18 +839,18 @@ class SetAST : public StyioAST {
 
       }
 
-    NodeHint hint() {
-      return NodeHint::Set;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Set;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -779,18 +874,18 @@ class RangeAST : public StyioAST
 
       }
 
-    NodeHint hint() {
-      return NodeHint::Range;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Range;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -814,18 +909,18 @@ class SizeOfAST : public StyioAST
         
       }
 
-    NodeHint hint() {
-      return NodeHint::SizeOf;
+    StyioNodeHint hint() {
+      return StyioNodeHint::SizeOf;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -887,13 +982,13 @@ class SizeOfAST : public StyioAST
 */
 class BinOpAST : public StyioAST 
 {
-  NodeHint Op;
+  StyioNodeHint Op;
   std::unique_ptr<StyioAST> LHS;
   std::unique_ptr<StyioAST> RHS;
 
   public:
     BinOpAST(
-      NodeHint op, 
+      StyioNodeHint op, 
       std::unique_ptr<StyioAST> lhs, 
       std::unique_ptr<StyioAST> rhs): 
       Op(op),
@@ -903,20 +998,20 @@ class BinOpAST : public StyioAST
 
       }
 
-    NodeHint hint() {
+    StyioNodeHint hint() {
       return Op;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" {") 
         + " LHS: " + LHS -> toStringInline(indent) 
         + " | RHS: " + RHS -> toStringInline(indent)  
         + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 class BinCompAST: public StyioAST 
@@ -937,18 +1032,18 @@ class BinCompAST: public StyioAST
 
       }
 
-    NodeHint hint() {
-      return NodeHint::Compare;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Compare;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 class CondAST: public StyioAST 
@@ -989,18 +1084,18 @@ class CondAST: public StyioAST
 
       }
 
-    NodeHint hint() {
-      return NodeHint::Condition;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Condition;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 class CallAST : public StyioAST {
@@ -1011,23 +1106,23 @@ class CallAST : public StyioAST {
       std::unique_ptr<StyioAST> func) : 
       Func(std::move(func)) {}
 
-    NodeHint hint() {
-      return NodeHint::Call;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Call;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 class ListOpAST : public StyioAST 
 {
-  NodeHint OpType;
+  StyioNodeHint OpType;
   std::unique_ptr<StyioAST> TheList;
 
   std::unique_ptr<StyioAST> Slot1;
@@ -1039,7 +1134,7 @@ class ListOpAST : public StyioAST
         [<]
     */
     ListOpAST(
-      NodeHint opType,
+      StyioNodeHint opType,
       std::unique_ptr<StyioAST> theList): 
       OpType(opType),
       TheList(std::move(theList)) 
@@ -1085,7 +1180,7 @@ class ListOpAST : public StyioAST
         [[<] -: ?^ (v0, v1, ...)]
     */
     ListOpAST(
-      NodeHint opType, 
+      StyioNodeHint opType, 
       std::unique_ptr<StyioAST> theList, 
       std::unique_ptr<StyioAST> item): 
       OpType(opType), 
@@ -1100,7 +1195,7 @@ class ListOpAST : public StyioAST
         [+: index <- value]
     */
     ListOpAST(
-      NodeHint opType, 
+      StyioNodeHint opType, 
       std::unique_ptr<StyioAST> theList, 
       std::unique_ptr<StyioAST> index, 
       std::unique_ptr<StyioAST> value): 
@@ -1112,18 +1207,18 @@ class ListOpAST : public StyioAST
 
       }
 
-    NodeHint hint() {
+    StyioNodeHint hint() {
       return OpType;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -1151,18 +1246,18 @@ class ResourceAST : public StyioAST {
 
       }
 
-    NodeHint hint() {
-      return NodeHint::Resources;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Resources;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -1185,18 +1280,18 @@ class FlexBindAST : public StyioAST {
       varId(std::move(var)), 
       valExpr(std::move(val)) {}
 
-    NodeHint hint() {
-      return NodeHint::MutBind;
+    StyioNodeHint hint() {
+      return StyioNodeHint::MutBind;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -1216,18 +1311,18 @@ class FinalBindAST : public StyioAST {
 
       }
 
-    NodeHint hint() {
-      return NodeHint::FixBind;
+    StyioNodeHint hint() {
+      return StyioNodeHint::FixBind;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -1244,13 +1339,13 @@ class FinalBindAST : public StyioAST {
 */
 class StructAST : public StyioAST {
   std::unique_ptr<IdAST> FName;
-  std::unique_ptr<VarsTupleAST> FVars;
+  std::unique_ptr<VarTupleAST> FVars;
   std::unique_ptr<StyioAST> FBlock;
 
   public:
     StructAST(
       std::unique_ptr<IdAST> name, 
-      std::unique_ptr<VarsTupleAST> vars,
+      std::unique_ptr<VarTupleAST> vars,
       std::unique_ptr<StyioAST> block) : 
       FName(std::move(name)), 
       FVars(std::move(vars)),
@@ -1259,18 +1354,18 @@ class StructAST : public StyioAST {
 
       }
 
-    NodeHint hint() {
-      return NodeHint::Struct;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Struct;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -1296,18 +1391,18 @@ class ReadFileAST : public StyioAST {
 
       }
 
-    NodeHint hint() {
-      return NodeHint::ReadFile;
+    StyioNodeHint hint() {
+      return StyioNodeHint::ReadFile;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -1323,18 +1418,18 @@ class PrintAST : public StyioAST {
 
       }
 
-    NodeHint hint() {
-      return NodeHint::Print;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Print;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -1357,18 +1452,18 @@ class ExtPackAST : public StyioAST {
 
       }
 
-    NodeHint hint() {
-      return NodeHint::ExtPack;
+    StyioNodeHint hint() {
+      return StyioNodeHint::ExtPack;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -1383,10 +1478,10 @@ class CondFlowAST : public StyioAST {
   std::unique_ptr<StyioAST> ElseBlock;
 
   public:
-    NodeHint WhatFlow;
+    StyioNodeHint WhatFlow;
 
     CondFlowAST(
-      NodeHint whatFlow,
+      StyioNodeHint whatFlow,
       std::unique_ptr<CondAST> condition,
       std::unique_ptr<StyioAST> block): 
       WhatFlow(whatFlow),
@@ -1397,7 +1492,7 @@ class CondFlowAST : public StyioAST {
       }
 
     CondFlowAST(
-      NodeHint whatFlow,
+      StyioNodeHint whatFlow,
       std::unique_ptr<CondAST> condition,
       std::unique_ptr<StyioAST> blockThen,
       std::unique_ptr<StyioAST> blockElse): 
@@ -1409,18 +1504,18 @@ class CondFlowAST : public StyioAST {
 
       }
 
-    NodeHint hint() {
+    StyioNodeHint hint() {
       return WhatFlow;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -1556,18 +1651,18 @@ class CheckEqAST : public StyioAST {
 
       }
 
-    NodeHint hint() {
-      return NodeHint::CheckEq;
+    StyioNodeHint hint() {
+      return StyioNodeHint::CheckEq;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 class CheckIsInAST : public StyioAST {
@@ -1581,18 +1676,18 @@ class CheckIsInAST : public StyioAST {
 
       }
 
-    NodeHint hint() {
-      return NodeHint::CheckIsin;
+    StyioNodeHint hint() {
+      return StyioNodeHint::CheckIsin;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -1609,18 +1704,18 @@ class FromToAST : public StyioAST {
       FromWhat(std::move(from_expr)), 
       ToWhat(std::move(to_expr)) {}
 
-    NodeHint hint() {
-      return NodeHint::FromTo;
+    StyioNodeHint hint() {
+      return StyioNodeHint::FromTo;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -1635,111 +1730,119 @@ class FromToAST : public StyioAST {
 */
 
 class ForwardAST : public StyioAST {
-  std::unique_ptr<VarsTupleAST> TmpVars;
+  std::unique_ptr<VarTupleAST> LocalVars;
   std::unique_ptr<CheckEqAST> ExtraEq;
   std::unique_ptr<CheckIsInAST> ExtraIsin;
   std::unique_ptr<CondFlowAST> ExtraCond;
   std::unique_ptr<StyioAST> ThenExpr;
 
   private:
-    NodeHint Type = NodeHint::Forward;
+    StyioNodeHint Type = StyioNodeHint::Forward;
 
   public:
     ForwardAST(
       std::unique_ptr<StyioAST> expr):
       ThenExpr(std::move(expr))
-      { Type = NodeHint::Forward; }
+      { Type = StyioNodeHint::Forward; }
 
     ForwardAST(
       std::unique_ptr<CheckEqAST> value,
       std::unique_ptr<StyioAST> whatnext):
       ExtraEq(std::move(value)),
       ThenExpr(std::move(whatnext))
-      { Type = NodeHint::If_Equal_To_Forward; }
+      { Type = StyioNodeHint::If_Equal_To_Forward; }
 
     ForwardAST(
       std::unique_ptr<CheckIsInAST> isin,
       std::unique_ptr<StyioAST> whatnext): 
       ExtraIsin(std::move(isin)),
       ThenExpr(std::move(whatnext))
-      { Type = NodeHint::If_Is_In_Forward; }
+      { Type = StyioNodeHint::If_Is_In_Forward; }
 
     ForwardAST(
       std::unique_ptr<CasesAST> cases): 
       ThenExpr(std::move(cases))
-      { Type = NodeHint::Cases_Forward; }
+      { Type = StyioNodeHint::Cases_Forward; }
 
     ForwardAST(
       std::unique_ptr<CondFlowAST> condflow): 
       ExtraCond(std::move(condflow))
       {
-        if ((condflow -> WhatFlow) == NodeHint::CondFlow_True) {
-          Type = NodeHint::If_True_Forward; }
-        else if ((condflow -> WhatFlow) == NodeHint::CondFlow_False) {
-          Type = NodeHint::If_False_Forward; }
+        if ((condflow -> WhatFlow) == StyioNodeHint::CondFlow_True) {
+          Type = StyioNodeHint::If_True_Forward; }
+        else if ((condflow -> WhatFlow) == StyioNodeHint::CondFlow_False) {
+          Type = StyioNodeHint::If_False_Forward; }
         else {
-          Type = NodeHint::If_Both_Forward; }
+          Type = StyioNodeHint::If_Both_Forward; }
       }
 
     ForwardAST(
-      std::unique_ptr<VarsTupleAST> vars,
+      std::unique_ptr<VarTupleAST> vars,
       std::unique_ptr<StyioAST> whatnext): 
-      TmpVars(std::move(vars)),
+      LocalVars(std::move(vars)),
       ThenExpr(std::move(whatnext))
-      { Type = NodeHint::Fill_Forward; }
+      { Type = StyioNodeHint::Fill_Forward; }
 
     ForwardAST(
-      std::unique_ptr<VarsTupleAST> vars,
+      std::unique_ptr<VarTupleAST> vars,
       std::unique_ptr<CheckEqAST> value,
       std::unique_ptr<StyioAST> whatnext): 
-      TmpVars(std::move(vars)),
+      LocalVars(std::move(vars)),
       ExtraEq(std::move(value)),
       ThenExpr(std::move(whatnext))
-      { Type = NodeHint::Fill_If_Equal_To_Forward; }
+      { Type = StyioNodeHint::Fill_If_Equal_To_Forward; }
 
     ForwardAST(
-      std::unique_ptr<VarsTupleAST> vars,
+      std::unique_ptr<VarTupleAST> vars,
       std::unique_ptr<CheckIsInAST> isin,
       std::unique_ptr<StyioAST> whatnext): 
-      TmpVars(std::move(vars)),
+      LocalVars(std::move(vars)),
       ExtraIsin(std::move(isin)),
       ThenExpr(std::move(whatnext))
-      { Type = NodeHint::Fill_If_Is_in_Forward; }
+      { Type = StyioNodeHint::Fill_If_Is_in_Forward; }
 
     
     ForwardAST(
-      std::unique_ptr<VarsTupleAST> vars,
+      std::unique_ptr<VarTupleAST> vars,
       std::unique_ptr<CasesAST> cases): 
-      TmpVars(std::move(vars)),
+      LocalVars(std::move(vars)),
       ThenExpr(std::move(cases))
-      { Type = NodeHint::Fill_Cases_Forward; }
+      { Type = StyioNodeHint::Fill_Cases_Forward; }
 
     ForwardAST(
-      std::unique_ptr<VarsTupleAST> vars,
+      std::unique_ptr<VarTupleAST> vars,
       std::unique_ptr<CondFlowAST> condflow): 
-      TmpVars(std::move(vars)),
+      LocalVars(std::move(vars)),
       ExtraCond(std::move(condflow))
       {
-        if ((condflow -> WhatFlow) == NodeHint::CondFlow_True) {
-          Type = NodeHint::Fill_If_True_Forward; }
-        else if ((condflow -> WhatFlow) == NodeHint::CondFlow_False) {
-          Type = NodeHint::Fill_If_False_Forward; }
+        if ((condflow -> WhatFlow) == StyioNodeHint::CondFlow_True) {
+          Type = StyioNodeHint::Fill_If_True_Forward; }
+        else if ((condflow -> WhatFlow) == StyioNodeHint::CondFlow_False) {
+          Type = StyioNodeHint::Fill_If_False_Forward; }
         else {
-          Type = NodeHint::Fill_If_Both_Forward; }
+          Type = StyioNodeHint::Fill_If_Both_Forward; }
       }
 
-    NodeHint hint() {
+    StyioNodeHint hint() {
       return Type;
+    }
+
+    const std::unique_ptr<VarTupleAST>& getVars() {
+      return LocalVars;
+    }
+
+    const std::unique_ptr<StyioAST>& getThen() {
+      return ThenExpr;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -1772,18 +1875,18 @@ class InfiniteAST : public StyioAST {
         WhatType = InfiniteType::Incremental;
       }
 
-    NodeHint hint() {
-      return NodeHint::Infinite;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Infinite;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -1817,18 +1920,30 @@ class FuncAST : public StyioAST {
         FwithName = true;
       }
 
-    NodeHint hint() {
-      return NodeHint::Func;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Func;
+    }
+
+    bool hasName() {
+      return FwithName;
+    }
+
+    std::string getName() {
+      return FName -> getIdStr();
+    }
+
+    const std::unique_ptr<StyioAST>& getForward() const {
+      return Forward;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -1851,18 +1966,18 @@ class LoopAST : public StyioAST {
         
       }
 
-    NodeHint hint() {
-      return NodeHint::Loop;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Loop;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
 /*
@@ -1882,23 +1997,23 @@ class IterAST : public StyioAST {
 
       }
 
-    NodeHint hint() {
-      return NodeHint::Iterator;
+    StyioNodeHint hint() {
+      return StyioNodeHint::Iterator;
     }
 
     std::string toString(int indent = 0, bool colorful = false);
 
     std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
       + " }";
     }
 
-    void accept(StyioToLLVM* generator);
+    void toLLVM(StyioToLLVM* generator);
 };
 
-class Styiogenerator {
+class StyioVisitor {
   public:
-    Styiogenerator () {}
+    StyioVisitor () {}
 
     void visit_true(TrueAST* ast);
 
@@ -1926,9 +2041,9 @@ class Styiogenerator {
 
     void visit_kwarg(KwArgAST* ast);
 
-    void visit_vars_tuple(VarsTupleAST* ast);
+    void visit_var_tuple(VarTupleAST* ast);
 
-    void visit_type(TypeAST* ast);
+    void visit_type(DTypeAST* ast);
 
     void visit_typed_var(TypedVarAST* ast);
 
@@ -2006,120 +2121,126 @@ class Styiogenerator {
 };
 
 class StyioToLLVM {
-  std::unique_ptr<llvm::LLVMContext> llvm_ctx;
-  std::unique_ptr<llvm::Module> llvm_mod;
+  std::unique_ptr<llvm::LLVMContext> llvm_context;
+  std::unique_ptr<llvm::Module> llvm_module;
+  std::unique_ptr<llvm::IRBuilder<>> llvm_builder;
 
   public:
     StyioToLLVM () {
-      llvm_ctx = std::make_unique<llvm::LLVMContext>();
-      llvm_mod = std::make_unique<llvm::Module>("styio", *llvm_ctx);
+      llvm_context = std::make_unique<llvm::LLVMContext>();
+      llvm_module = std::make_unique<llvm::Module>("styio", *llvm_context);
+      llvm_builder = std::make_unique<llvm::IRBuilder<>>(*llvm_context);
     }
 
-    llvm::Value* gen_true(TrueAST* ast);
+    void show();
 
-    llvm::Value* gen_false(FalseAST* ast);
+    llvm::Value* visit_true(TrueAST* ast);
 
-    llvm::Value* gen_none(NoneAST* ast);
+    llvm::Value* visit_false(FalseAST* ast);
 
-    llvm::Value* gen_end(EndAST* ast);
+    llvm::Value* visit_none(NoneAST* ast);
 
-    llvm::Value* gen_empty(EmptyAST* ast);
+    llvm::Value* visit_end(EndAST* ast);
 
-    llvm::Value* gen_empty_block(EmptyBlockAST* ast);
+    llvm::Value* visit_empty(EmptyAST* ast);
 
-    llvm::Value* gen_pass(PassAST* ast);
+    llvm::Value* visit_empty_block(EmptyBlockAST* ast);
 
-    llvm::Value* gen_break(BreakAST* ast);
+    llvm::Value* visit_pass(PassAST* ast);
 
-    llvm::Value* gen_return(ReturnAST* ast);
+    llvm::Value* visit_break(BreakAST* ast);
 
-    llvm::Value* gen_comment(CommentAST* ast);
+    llvm::Value* visit_return(ReturnAST* ast);
 
-    llvm::Value* gen_id(IdAST* ast);
+    llvm::Value* visit_comment(CommentAST* ast);
 
-    llvm::Value* gen_arg(ArgAST* ast);
+    llvm::Value* visit_id(IdAST* ast);
 
-    llvm::Value* gen_kwarg(KwArgAST* ast);
+    llvm::Value* visit_var(VarAST* ast);
 
-    llvm::Value* gen_vars_tuple(VarsTupleAST* ast);
+    llvm::Value* visit_fill_arg(FillArgAST* ast);
 
-    llvm::Value* gen_type(TypeAST* ast);
+    llvm::Value* visit_arg(ArgAST* ast);
 
-    llvm::Value* gen_typed_var(TypedVarAST* ast);
+    llvm::Value* visit_kwarg(KwArgAST* ast);
 
-    llvm::Value* gen_int(IntAST* ast);
+    llvm::Value* visit_var_tuple(VarTupleAST* ast);
 
-    llvm::Value* gen_float(FloatAST* ast);
+    llvm::Value* visit_type(DTypeAST* ast);
 
-    llvm::Value* gen_char(CharAST* ast);
+    llvm::Value* visit_typed_var(TypedVarAST* ast);
 
-    llvm::Value* gen_string(StringAST* ast);
+    llvm::Value* visit_int(IntAST* ast);
 
-    llvm::Value* gen_fmt_str(FmtStrAST* ast);
+    llvm::Value* visit_float(FloatAST* ast);
 
-    llvm::Value* gen_ext_path(ExtPathAST* ast);
+    llvm::Value* visit_char(CharAST* ast);
 
-    llvm::Value* gen_ext_link(ExtLinkAST* ast);
+    llvm::Value* visit_string(StringAST* ast);
 
-    llvm::Value* gen_list(ListAST* ast);
+    llvm::Value* visit_fmt_str(FmtStrAST* ast);
 
-    llvm::Value* gen_tuple(TupleAST* ast);
+    llvm::Value* visit_ext_path(ExtPathAST* ast);
 
-    llvm::Value* gen_set(SetAST* ast);
+    llvm::Value* visit_ext_link(ExtLinkAST* ast);
 
-    llvm::Value* gen_range(RangeAST* ast);
+    llvm::Value* visit_list(ListAST* ast);
 
-    llvm::Value* gen_size_of(SizeOfAST* ast);
+    llvm::Value* visit_tuple(TupleAST* ast);
 
-    llvm::Value* gen_bin_op(BinOpAST* ast);
+    llvm::Value* visit_set(SetAST* ast);
 
-    llvm::Value* gen_bin_comp(BinCompAST* ast);
+    llvm::Value* visit_range(RangeAST* ast);
 
-    llvm::Value* gen_cond(CondAST* ast);
+    llvm::Value* visit_size_of(SizeOfAST* ast);
 
-    llvm::Value* gen_call(CallAST* ast);
+    llvm::Value* visit_bin_op(BinOpAST* ast);
 
-    llvm::Value* gen_list_op(ListOpAST* ast);
+    llvm::Value* visit_bin_comp(BinCompAST* ast);
 
-    llvm::Value* gen_resources(ResourceAST* ast);
+    llvm::Value* visit_cond(CondAST* ast);
 
-    llvm::Value* gen_flex_bind(FlexBindAST* ast);
+    llvm::Value* visit_call(CallAST* ast);
 
-    llvm::Value* gen_final_bind(FinalBindAST* ast);
+    llvm::Value* visit_list_op(ListOpAST* ast);
 
-    llvm::Value* gen_struct(StructAST* ast);
+    llvm::Value* visit_resources(ResourceAST* ast);
 
-    llvm::Value* gen_read_file(ReadFileAST* ast);
+    llvm::Value* visit_flex_bind(FlexBindAST* ast);
 
-    llvm::Value* gen_print(PrintAST* ast);
+    llvm::Value* visit_final_bind(FinalBindAST* ast);
 
-    llvm::Value* gen_ext_pack(ExtPackAST* ast);
+    llvm::Value* visit_struct(StructAST* ast);
 
-    llvm::Value* gen_block(SideBlockAST* ast);
+    llvm::Value* visit_read_file(ReadFileAST* ast);
 
-    llvm::Value* gen_cases(CasesAST* ast);
+    llvm::Value* visit_print(PrintAST* ast);
 
-    llvm::Value* gen_cond_flow(CondFlowAST* ast);
+    llvm::Value* visit_ext_pack(ExtPackAST* ast);
 
-    llvm::Value* gen_check_equal(CheckEqAST* ast);
+    llvm::Value* visit_side_block(SideBlockAST* ast);
 
-    llvm::Value* gen_check_isin(CheckIsInAST* ast);
+    llvm::Value* visit_cases(CasesAST* ast);
 
-    llvm::Value* gen_from_to(FromToAST* ast);
+    llvm::Value* visit_cond_flow(CondFlowAST* ast);
 
-    llvm::Value* gen_forward(ForwardAST* ast);
+    llvm::Value* visit_check_equal(CheckEqAST* ast);
 
-    llvm::Value* gen_infinite(InfiniteAST* ast);
+    llvm::Value* visit_check_isin(CheckIsInAST* ast);
 
-    llvm::Value* gen_function(FuncAST* ast);
+    llvm::Value* visit_from_to(FromToAST* ast);
 
-    llvm::Value* gen_loop(LoopAST* ast);
+    llvm::Value* visit_forward(ForwardAST* ast);
 
-    llvm::Value* gen_iterator(IterAST* ast);
+    llvm::Value* visit_inf(InfiniteAST* ast);
 
-    llvm::Value* gen_main_block(MainBlockAST* ast);
+    llvm::Value* visit_func(FuncAST* ast);
 
-    llvm::Value* show();
+    llvm::Value* visit_loop(LoopAST* ast);
+
+    llvm::Value* visit_iterator(IterAST* ast);
+
+    llvm::Value* visit_main_block(MainBlockAST* ast);
 };
 
 #endif

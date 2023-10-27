@@ -2,7 +2,14 @@
 #ifndef STYIO_TOKEN_H_
 #define STYIO_TOKEN_H_
 
-enum class NodeHint {
+enum class StyioDataType {
+  i32,
+  i64,
+  f64,
+  str
+};
+
+enum class StyioNodeHint {
   End,
   Pass,
   Break,
@@ -27,10 +34,12 @@ enum class NodeHint {
 
   // Identifier: [a-zA-Z0-9_]
   Id,
-  Type,
+  DType,
   TypedVar,
   Arg,
   KwArg,
+  Var,
+  FillArg,
   // Integer (General)
   Int,
   // Float (General)
@@ -384,8 +393,10 @@ inline std::string make_colorful(std::string text, int color)
   return std::string("\033[1;") + std::to_string(color) + "m" + text + "\033[0m";
 };
 
-std::string reprStyioType (
-  NodeHint type,
+std::string reprDataType(StyioDataType dtype);
+
+std::string reprNodeType (
+  StyioNodeHint type,
   bool colorful = false,
   std::string extra = "");
 

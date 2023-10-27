@@ -78,9 +78,9 @@ std::unique_ptr<StyioAST> parse_path_or_link (
 );
 
 /*
-  parse_typed_var
+  parse_fill_arg
 */
-std::unique_ptr<StyioAST> parse_typed_var (
+std::unique_ptr<FillArgAST> parse_fill_arg (
   struct StyioCodeContext* code,
   char& cur_char
 );
@@ -177,7 +177,7 @@ std::unique_ptr<StyioAST> parse_list_op (
 /*
   parse_vars_tuple
 */
-std::unique_ptr<VarsTupleAST> parse_vars_tuple (
+std::unique_ptr<VarTupleAST> parse_vars_tuple (
   struct StyioCodeContext* code,
   char& cur_char
 );

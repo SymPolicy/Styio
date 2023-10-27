@@ -4,8 +4,29 @@
 // [Styio]
 #include "../StyioToken/Token.hpp"
 
-std::string reprStyioType (
-  NodeHint type,
+std::string reprDataType (
+  StyioDataType dtype) {
+    switch (dtype)
+    {
+    case StyioDataType::i32:
+      return std::string("i32");
+
+    case StyioDataType::i64:
+      return std::string("i64");
+
+    case StyioDataType::f64:
+      return std::string("f64");
+
+    case StyioDataType::str:
+      return std::string("str");
+    
+    default:
+      break;
+    }
+}
+
+std::string reprNodeType (
+  StyioNodeHint type,
   bool colorful,
   std::string extra) {
   int titleColor = 96;
@@ -16,7 +37,7 @@ std::string reprStyioType (
 
   switch (type)
   {
-  case NodeHint::True:
+  case StyioNodeHint::True:
     {
       auto name = std::string("True");
 
@@ -29,7 +50,7 @@ std::string reprStyioType (
 
     break;
 
-  case NodeHint::False:
+  case StyioNodeHint::False:
     {
       auto name = std::string("False");
 
@@ -42,7 +63,7 @@ std::string reprStyioType (
 
     break;
     
-  case NodeHint::None:
+  case StyioNodeHint::None:
     {
       auto name = std::string("None");
 
@@ -55,7 +76,7 @@ std::string reprStyioType (
 
     break;
 
-  case NodeHint::Empty:
+  case StyioNodeHint::Empty:
     {
       auto name = std::string("Empty");
 
@@ -68,7 +89,7 @@ std::string reprStyioType (
 
     break;
 
-  case NodeHint::Id:
+  case StyioNodeHint::Id:
     {
       auto name = std::string("id");
 
@@ -81,7 +102,33 @@ std::string reprStyioType (
 
     break;
 
-  case NodeHint::Int:
+  case StyioNodeHint::Var:
+    {
+      auto name = std::string("var");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+
+    break;
+
+  case StyioNodeHint::FillArg:
+    {
+      auto name = std::string("Arg (Fill)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+
+    break;
+
+  case StyioNodeHint::Int:
     {
       auto name = std::string("int");
 
@@ -94,7 +141,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Float:
+  case StyioNodeHint::Float:
     {
       auto name = std::string("float");
 
@@ -107,7 +154,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Char:
+  case StyioNodeHint::Char:
     {
       auto name = std::string("char");
 
@@ -120,7 +167,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::String:
+  case StyioNodeHint::String:
     {
       auto name = std::string("String");
 
@@ -133,7 +180,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::FmtStr:
+  case StyioNodeHint::FmtStr:
     {
       auto name = std::string("FmtStr");
 
@@ -146,7 +193,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::ExtPath:
+  case StyioNodeHint::ExtPath:
     {
       auto name = std::string("Path");
 
@@ -159,7 +206,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::ExtLink:
+  case StyioNodeHint::ExtLink:
     {
       auto name = std::string("Link");
 
@@ -172,7 +219,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::ExtPack:
+  case StyioNodeHint::ExtPack:
     {
       auto name = std::string("Package");
 
@@ -185,7 +232,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Fill:
+  case StyioNodeHint::Fill:
     {
       auto name = std::string("Fill");
 
@@ -198,7 +245,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Condition:
+  case StyioNodeHint::Condition:
     {
       auto name = std::string("Condition");
 
@@ -211,7 +258,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::SizeOf:
+  case StyioNodeHint::SizeOf:
     {
       auto name = std::string("SizeOf");
 
@@ -224,7 +271,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Bin_Add:
+  case StyioNodeHint::Bin_Add:
     {
       auto name = std::string("Add");
 
@@ -237,7 +284,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Bin_Sub:
+  case StyioNodeHint::Bin_Sub:
     {
       auto name = std::string("Subtract");
 
@@ -250,7 +297,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Bin_Mul:
+  case StyioNodeHint::Bin_Mul:
     {
       auto name = std::string("Multiply");
 
@@ -263,7 +310,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Bin_Div:
+  case StyioNodeHint::Bin_Div:
     {
       auto name = std::string("Divide");
 
@@ -276,7 +323,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Bin_Pow:
+  case StyioNodeHint::Bin_Pow:
     {
       auto name = std::string("Power");
 
@@ -289,7 +336,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Bin_Mod:
+  case StyioNodeHint::Bin_Mod:
     {
       auto name = std::string("Modulo");
 
@@ -302,7 +349,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Inc_Add:
+  case StyioNodeHint::Inc_Add:
     {
       auto name = std::string("Add (Inc.)");
 
@@ -315,7 +362,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Inc_Sub:
+  case StyioNodeHint::Inc_Sub:
     {
       auto name = std::string("Subtract (Inc.)");
 
@@ -328,7 +375,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Inc_Mul:
+  case StyioNodeHint::Inc_Mul:
     {
       auto name = std::string("Multiply (Inc.)");
 
@@ -341,7 +388,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Inc_Div:
+  case StyioNodeHint::Inc_Div:
     {
       auto name = std::string("Divide (Inc.)");
 
@@ -354,7 +401,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Print:
+  case StyioNodeHint::Print:
     {
       auto name = std::string("Print");
 
@@ -367,7 +414,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::ReadFile:
+  case StyioNodeHint::ReadFile:
     {
       auto name = std::string("Read File");
 
@@ -380,7 +427,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Call:
+  case StyioNodeHint::Call:
     {
       auto name = std::string("Call");
 
@@ -393,7 +440,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Access:
+  case StyioNodeHint::Access:
     {
       auto name = std::string("Access");
 
@@ -406,7 +453,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Access_By_Name:
+  case StyioNodeHint::Access_By_Name:
     {
       auto name = std::string("Access by Name");
 
@@ -419,7 +466,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Access_By_Index:
+  case StyioNodeHint::Access_By_Index:
     {
       auto name = std::string("Access by Index");
 
@@ -432,7 +479,7 @@ std::string reprStyioType (
     
     break;
 
-  case NodeHint::Get_Index_By_Value:
+  case StyioNodeHint::Get_Index_By_Value:
     {
       auto name = std::string("Get Index by Value");
 
@@ -445,7 +492,7 @@ std::string reprStyioType (
     
     break;
 
-case NodeHint::Get_Indices_By_Many_Values:
+case StyioNodeHint::Get_Indices_By_Many_Values:
     {
       auto name = std::string("Get Indices by Many Value");
 
@@ -458,7 +505,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Append_Value:
+  case StyioNodeHint::Append_Value:
     {
       auto name = std::string("Append");
 
@@ -471,7 +518,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Insert_Item_By_Index:
+  case StyioNodeHint::Insert_Item_By_Index:
     {
       auto name = std::string("Insert by Index");
 
@@ -484,7 +531,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Remove_Item_By_Index:
+  case StyioNodeHint::Remove_Item_By_Index:
     {
       auto name = std::string("Remove by Index");
 
@@ -497,7 +544,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Remove_Items_By_Many_Indices:
+  case StyioNodeHint::Remove_Items_By_Many_Indices:
     {
       auto name = std::string("Remove by Many Indices");
 
@@ -510,7 +557,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Remove_Item_By_Value:
+  case StyioNodeHint::Remove_Item_By_Value:
     {
       auto name = std::string("Remove by Value");
 
@@ -523,7 +570,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Remove_Items_By_Many_Values:
+  case StyioNodeHint::Remove_Items_By_Many_Values:
     {
       auto name = std::string("Remove by Many Values");
 
@@ -536,7 +583,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Get_Reversed:
+  case StyioNodeHint::Get_Reversed:
     {
       auto name = std::string("Reversed");
 
@@ -549,7 +596,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Get_Index_By_Item_From_Right:
+  case StyioNodeHint::Get_Index_By_Item_From_Right:
     {
       auto name = std::string("Get Index by Item (From Right)");
 
@@ -562,7 +609,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Return:
+  case StyioNodeHint::Return:
     {
       auto name = std::string("Return");
 
@@ -575,7 +622,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Range:
+  case StyioNodeHint::Range:
     {
       auto name = std::string("Range");
 
@@ -588,7 +635,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Tuple:
+  case StyioNodeHint::Tuple:
     {
       auto name = std::string("Tuple");
 
@@ -601,7 +648,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
   
-  case NodeHint::List:
+  case StyioNodeHint::List:
     {
       auto name = std::string("List");
 
@@ -614,7 +661,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Set:
+  case StyioNodeHint::Set:
     {
       auto name = std::string("Set");
 
@@ -627,7 +674,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Resources:
+  case StyioNodeHint::Resources:
     {
       auto name = std::string("Resources");
 
@@ -641,7 +688,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     break;
 
 
-    case NodeHint::MutBind:
+    case StyioNodeHint::MutBind:
     {
       if (colorful) {
         output = make_colorful(std::string("Binding"), titleColor) + " " + make_colorful(std::string("(Flexible)"), flexColor);
@@ -652,7 +699,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::FixBind:
+  case StyioNodeHint::FixBind:
     {
       if (colorful) {
         output = make_colorful(std::string("Binding"), titleColor) + " " + make_colorful(std::string("(Final)"), flexColor);
@@ -663,7 +710,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Block:
+  case StyioNodeHint::Block:
     {
       auto name = std::string("Block");
 
@@ -676,7 +723,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Cases:
+  case StyioNodeHint::Cases:
     {
       auto name = std::string("Cases");
 
@@ -689,7 +736,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Func:
+  case StyioNodeHint::Func:
     {
       auto name = std::string("Function");
 
@@ -702,7 +749,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Struct:
+  case StyioNodeHint::Struct:
     {
       auto name = std::string("Struct");
 
@@ -715,7 +762,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Loop:
+  case StyioNodeHint::Loop:
     {
       auto name = std::string("Loop");
 
@@ -728,7 +775,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Iterator:
+  case StyioNodeHint::Iterator:
     {
       auto name = std::string("Iterator");
 
@@ -741,7 +788,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::CheckEq:
+  case StyioNodeHint::CheckEq:
     {
       auto name = std::string("Equal To?");
 
@@ -754,7 +801,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::CheckIsin:
+  case StyioNodeHint::CheckIsin:
     {
       auto name = std::string("Is In?");
 
@@ -767,7 +814,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::FromTo:
+  case StyioNodeHint::FromTo:
     {
       auto name = std::string("Transfer");
 
@@ -780,7 +827,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Forward:
+  case StyioNodeHint::Forward:
     {
       auto name = std::string("Forward (Run)");
 
@@ -793,7 +840,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::If_Equal_To_Forward:
+  case StyioNodeHint::If_Equal_To_Forward:
     {
       auto name = std::string("Forward (If Equal -> Run)");
 
@@ -806,7 +853,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::If_Is_In_Forward:
+  case StyioNodeHint::If_Is_In_Forward:
     {
       auto name = std::string("Forward (If Is In -> Run)");
 
@@ -819,7 +866,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Cases_Forward:
+  case StyioNodeHint::Cases_Forward:
     {
       auto name = std::string("Forward (Cases)");
 
@@ -832,7 +879,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::If_True_Forward:
+  case StyioNodeHint::If_True_Forward:
     {
       auto name = std::string("Forward (If True -> Run)");
 
@@ -845,7 +892,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::If_False_Forward:
+  case StyioNodeHint::If_False_Forward:
     {
       auto name = std::string("Forward (If False -> Run)");
 
@@ -858,7 +905,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Fill_Forward:
+  case StyioNodeHint::Fill_Forward:
     {
       auto name = std::string("Forward (Fill -> Run)");
 
@@ -871,7 +918,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Fill_If_Equal_To_Forward:
+  case StyioNodeHint::Fill_If_Equal_To_Forward:
     {
       auto name = std::string("Forward (Fill -> If Equal -> Run)");
 
@@ -884,7 +931,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Fill_If_Is_in_Forward:
+  case StyioNodeHint::Fill_If_Is_in_Forward:
     {
       auto name = std::string("Forward (Fill -> If Is In -> Run)");
 
@@ -897,7 +944,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Fill_Cases_Forward:
+  case StyioNodeHint::Fill_Cases_Forward:
     {
       auto name = std::string("Forward (Fill -> Cases)");
 
@@ -910,7 +957,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Fill_If_True_Forward:
+  case StyioNodeHint::Fill_If_True_Forward:
     {
       auto name = std::string("Forward (Fill -> If True -> Run)");
 
@@ -923,7 +970,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Fill_If_False_Forward:
+  case StyioNodeHint::Fill_If_False_Forward:
     {
       auto name = std::string("Forward (Fill -> If False -> Run)");
 
@@ -936,7 +983,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Type:
+  case StyioNodeHint::DType:
     {
       auto name = std::string("type");
 
@@ -949,7 +996,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::TypedVar:
+  case StyioNodeHint::TypedVar:
     {
       auto name = std::string("Var");
 
@@ -962,7 +1009,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Pass:
+  case StyioNodeHint::Pass:
     {
       auto name = std::string("Do Nothing");
 
@@ -975,7 +1022,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::Break:
+  case StyioNodeHint::Break:
     {
       auto name = std::string("Break");
 
@@ -988,7 +1035,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::CondFlow_True:
+  case StyioNodeHint::CondFlow_True:
     {
       auto name = std::string("Conditionals (Only True)");
 
@@ -1001,7 +1048,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::CondFlow_False:
+  case StyioNodeHint::CondFlow_False:
     {
       auto name = std::string("Conditionals (Only False)");
 
@@ -1014,7 +1061,7 @@ case NodeHint::Get_Indices_By_Many_Values:
     
     break;
 
-  case NodeHint::CondFlow_Both:
+  case StyioNodeHint::CondFlow_Both:
     {
       auto name = std::string("Conditionals (True & False)");
 

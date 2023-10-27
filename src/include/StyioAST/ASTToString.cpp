@@ -9,15 +9,15 @@
 #include "../StyioToken/Token.hpp"
 
 std::string TrueAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+  return reprNodeType(this -> hint(), colorful) + std::string(" { }");
 }
 
 std::string FalseAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+  return reprNodeType(this -> hint(), colorful) + std::string(" { }");
 }
 
 std::string NoneAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+  return reprNodeType(this -> hint(), colorful) + std::string(" { }");
 }
 
 std::string EndAST::toString(int indent, bool colorful) {
@@ -25,7 +25,7 @@ std::string EndAST::toString(int indent, bool colorful) {
 }
 
 std::string EmptyAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+  return reprNodeType(this -> hint(), colorful) + std::string(" { }");
 }
 
 std::string EmptyBlockAST::toString(int indent, bool colorful) {
@@ -42,7 +42,7 @@ std::string PassAST::toString(int indent, bool colorful) {
 }
 
 std::string ReturnAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + " { "
+  return reprNodeType(this -> hint(), colorful) + " { "
     + Expr -> toStringInline(indent + 1, colorful)
     + " }";
 }
@@ -52,7 +52,65 @@ std::string CommentAST::toString(int indent, bool colorful) {
 }
 
 std::string IdAST::toString(int indent, bool colorful) {
-  return std::string("id { ") + Id + " }";
+  return reprNodeType(this -> hint(), colorful, " ") 
+    + std::string("< ") + Id + " >";
+}
+
+std::string IdAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this -> hint(), colorful, " ") 
+    + std::string("< ") + Id + " >";
+}
+
+std::string DTypeAST::toString(int indent, bool colorful) {
+  return reprNodeType(this -> hint(), colorful, " ") + std::string("{ ") + TypeStr + " }";
+}
+
+std::string DTypeAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this -> hint(), colorful, " ") + std::string("{ ") + TypeStr + " }";
+}
+
+std::string VarAST::toString(int indent, bool colorful) {
+  if (hasType()) {
+    return reprNodeType(this -> hint(), colorful) 
+    + std::string("< ") + Name + " : " + DType -> getTypeStr() + " >";
+  }
+  else {
+    return reprNodeType(this -> hint(), colorful) 
+    + std::string("< ") + Name + " : " + " >";
+  }
+}
+
+std::string VarAST::toStringInline(int indent, bool colorful) {
+  if (hasType()) {
+    return reprNodeType(this -> hint(), colorful) 
+    + std::string("< ") + Name + " : " + DType -> getTypeStr() + " >";
+  }
+  else {
+    return reprNodeType(this -> hint(), colorful) 
+    + std::string("< ") + Name + " : " + " >";
+  }
+}
+
+std::string FillArgAST::toString(int indent, bool colorful) {
+  if (hasType()) {
+    return reprNodeType(this -> hint(), colorful, " ") 
+    + std::string("< ") + Name + " : " + DType -> getTypeStr() + " >";
+  }
+  else {
+    return reprNodeType(this -> hint(), colorful, " ") 
+    + std::string("< ") + Name + " : " + " >";
+  }
+}
+
+std::string FillArgAST::toStringInline(int indent, bool colorful) {
+  if (hasType()) {
+    return reprNodeType(this -> hint(), colorful, " ") 
+    + std::string("< ") + Name + " : " + DType -> getTypeStr() + " >";
+  }
+  else {
+    return reprNodeType(this -> hint(), colorful, " ") 
+    + std::string("< ") + Name + " : " + " >";
+  }
 }
 
 std::string ArgAST::toString(int indent, bool colorful) {
@@ -63,10 +121,10 @@ std::string KwArgAST::toString(int indent, bool colorful) {
   return std::string("kwargs { ") + Id ->toString(indent + 1, colorful) + " }";
 }
 
-std::string VarsTupleAST::toString(int indent, bool colorful) {
+std::string VarTupleAST::toString(int indent, bool colorful) {
   if (Vars.empty()) 
   {
-    return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+    return reprNodeType(this -> hint(), colorful) + std::string(" { }");
   }
   else 
   {
@@ -78,18 +136,19 @@ std::string VarsTupleAST::toString(int indent, bool colorful) {
       outstr += make_padding(indent, " ") + (*it) -> toString(indent + 1, colorful);
       if (it != (Vars.end() - 1)) { outstr += "\n"; }
     }
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n")
       + outstr
       + "}";
   }
 }
 
-std::string TypeAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" { ") + Type + " }";
+std::string VarTupleAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this -> hint(), colorful, " ") + std::string("{ ") 
+  + " }";
 }
 
 std::string TypedVarAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+  return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
   + Id -> toStringInline(indent + 1, colorful) 
   + " "
   + Type -> toStringInline(indent + 1, colorful) 
@@ -97,19 +156,19 @@ std::string TypedVarAST::toString(int indent, bool colorful) {
 }
 
 std::string IntAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + " { " + Value + " }";
+  return reprNodeType(this -> hint(), colorful) + " { " + Value + " }";
 }
 
 std::string FloatAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + " { " + Value + " }";
+  return reprNodeType(this -> hint(), colorful) + " { " + Value + " }";
 }
 
 std::string CharAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + " { \'" + Value + "\' }";
+  return reprNodeType(this -> hint(), colorful) + " { \'" + Value + "\' }";
 }
 
 std::string StringAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + " { \"" + Value + "\" }";
+  return reprNodeType(this -> hint(), colorful) + " { \"" + Value + "\" }";
 }
 
 std::string FmtStrAST::toString(int indent, bool colorful) {
@@ -122,15 +181,15 @@ std::string FmtStrAST::toString(int indent, bool colorful) {
     ++it) {
     elemstr += make_padding(indent, " ") + (*it) -> toString(indent + 1, colorful);
     if (it != (Exprs.end() - 1)) { elemstr += "\n"; } }
-  return reprStyioType(this -> hint(), colorful) + " {\n" + elemstr + "}";
+  return reprNodeType(this -> hint(), colorful) + " {\n" + elemstr + "}";
 }
 
 std::string ExtPathAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" { ") + Path -> toStringInline(indent + 1, colorful) + " }";
+  return reprNodeType(this -> hint(), colorful) + std::string(" { ") + Path -> toStringInline(indent + 1, colorful) + " }";
 }
 
 std::string ExtLinkAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+  return reprNodeType(this -> hint(), colorful) + std::string(" { }");
 }
 
 std::string ListAST::toString(int indent, bool colorful) {
@@ -141,7 +200,7 @@ std::string ListAST::toString(int indent, bool colorful) {
     if (i != (Elems.size() - 1)) { ElemStr += "\n"; }
   };
 
-  return reprStyioType(this -> hint(), colorful) + std::string(" [\n")
+  return reprNodeType(this -> hint(), colorful) + std::string(" [\n")
     + ElemStr
     + "]";
 }
@@ -153,7 +212,7 @@ std::string TupleAST::toString(int indent, bool colorful) {
     ElemStr += make_padding(indent + 1, " ") + Elems[i] -> toString(indent + 1, colorful);
     if (i != (Elems.size() - 1)) { ElemStr += "\n"; } }
 
-  return reprStyioType(this -> hint(), colorful) + std::string(" (\n")
+  return reprNodeType(this -> hint(), colorful) + std::string(" (\n")
     + ElemStr
     + ")";
 }
@@ -168,13 +227,13 @@ std::string SetAST::toString(int indent, bool colorful) {
     if (i != (Elems.size() - 1)) { ElemStr += "\n"; }
   }
 
-  return reprStyioType(this -> hint(), colorful) + std::string(" [\n")
+  return reprNodeType(this -> hint(), colorful) + std::string(" [\n")
     + ElemStr
     + "]";
 }
 
 std::string RangeAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
+  return reprNodeType(this -> hint(), colorful) + std::string(" {\n")
     + make_padding(indent, " ") + "Start: " + StartVal -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "End  : " + EndVal -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Step : " + StepVal -> toString(indent + 1, colorful)
@@ -182,13 +241,13 @@ std::string RangeAST::toString(int indent, bool colorful) {
 }
 
 std::string SizeOfAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+  return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
   + Value -> toStringInline(indent + 1, colorful)
   + " }";
 }
 
 std::string BinOpAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" {")
+  return reprNodeType(this -> hint(), colorful) + std::string(" {")
     + "\n"
     + make_padding(indent, " ") + "LHS: " + LHS -> toString(indent + 1, colorful) 
     + "\n"
@@ -197,7 +256,7 @@ std::string BinOpAST::toString(int indent, bool colorful) {
 }
 
 std::string BinCompAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + " " + reprToken(CompSign) + std::string(" {\n")
+  return reprNodeType(this -> hint(), colorful) + " " + reprToken(CompSign) + std::string(" {\n")
     + make_padding(indent, " ") + "LHS: " + LhsExpr -> toString() 
     + "\n"
     + make_padding(indent, " ") + "RHS: " + RhsExpr -> toString()
@@ -209,7 +268,7 @@ std::string CondAST::toString(int indent, bool colorful) {
       || LogicOp == LogicType::OR
       || LogicOp == LogicType::XOR)
   {
-    return reprStyioType(this -> hint(), colorful) + " {\n"
+    return reprNodeType(this -> hint(), colorful) + " {\n"
     + make_padding(indent, " ") + "Op: " + reprToken(LogicOp) 
     + "\n"
     + make_padding(indent, " ") + "LHS: " + LhsExpr -> toString(indent + 1, colorful) 
@@ -220,7 +279,7 @@ std::string CondAST::toString(int indent, bool colorful) {
   else
   if (LogicOp == LogicType::NOT)
   {
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n")
     + make_padding(indent, " ") + "Op: " + reprToken(LogicOp) 
     + "\n"
     + make_padding(indent, " ") + "Value: " + ValExpr -> toString(indent + 1, colorful)
@@ -229,110 +288,110 @@ std::string CondAST::toString(int indent, bool colorful) {
   else
   if (LogicOp == LogicType::RAW)
   {
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n")
     + make_padding(indent, " ") + ValExpr -> toString(indent + 1, colorful)
     + "}";
   }
   else
   {
-    return reprStyioType(this -> hint(), colorful) + " { Undefined! }";
+    return reprNodeType(this -> hint(), colorful) + " { Undefined! }";
   }
 }
 
 std::string CallAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + " { }";
+  return reprNodeType(this -> hint(), colorful) + " { }";
 }
 
 std::string ListOpAST::toString(int indent, bool colorful) {
   switch (OpType)
   {
-  case NodeHint::Access:
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+  case StyioNodeHint::Access:
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Key: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
   
-  case NodeHint::Access_By_Index:
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+  case StyioNodeHint::Access_By_Index:
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Index: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
-  case NodeHint::Access_By_Name:
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+  case StyioNodeHint::Access_By_Name:
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Name : " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
   
-  case NodeHint::Get_Index_By_Value:
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+  case StyioNodeHint::Get_Index_By_Value:
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Index: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
-  case NodeHint::Get_Indices_By_Many_Values:
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+  case StyioNodeHint::Get_Indices_By_Many_Values:
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Index: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
-  case NodeHint::Append_Value:
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+  case StyioNodeHint::Append_Value:
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Value: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;  
-  case NodeHint::Insert_Item_By_Index:
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+  case StyioNodeHint::Insert_Item_By_Index:
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Index: " + Slot1 -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Value: " + Slot2 -> toString(indent + 1, colorful)
     + "}";
     break;
-  case NodeHint::Remove_Item_By_Index:
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+  case StyioNodeHint::Remove_Item_By_Index:
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Index: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
-  case NodeHint::Remove_Item_By_Value:
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+  case StyioNodeHint::Remove_Item_By_Value:
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Value: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
-  case NodeHint::Remove_Items_By_Many_Indices:
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+  case StyioNodeHint::Remove_Items_By_Many_Indices:
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Index: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
-  case NodeHint::Remove_Items_By_Many_Values:
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+  case StyioNodeHint::Remove_Items_By_Many_Values:
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Value: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
-  case NodeHint::Get_Reversed:
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+  case StyioNodeHint::Get_Reversed:
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful)
     + "}";
     break;
-  case NodeHint::Get_Index_By_Item_From_Right:
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+  case StyioNodeHint::Get_Index_By_Item_From_Right:
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + TheList -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Index: " + Slot1 -> toString(indent + 1, colorful)
     + "}";
     break;
   
   default:
-    return reprStyioType(this -> hint(), colorful) + std::string(" { undefined }"); 
+    return reprNodeType(this -> hint(), colorful) + std::string(" { undefined }"); 
     break;
   }
   
-  return reprStyioType(this -> hint(), colorful) + std::string(" { undefined }"); 
+  return reprNodeType(this -> hint(), colorful) + std::string(" { undefined }"); 
 }
 
 std::string ResourceAST::toString(int indent, bool colorful) {
@@ -346,32 +405,32 @@ std::string ResourceAST::toString(int indent, bool colorful) {
       if (it != (Resources.end() - 1)) { varStr += "\n"; } 
     }
   
-  return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
+  return reprNodeType(this -> hint(), colorful) + std::string(" {\n")
     + varStr
     + "}";
 }
 
 std::string FlexBindAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+  return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + "Var: " + varId -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Val: " + valExpr -> toString(indent + 1, colorful)
     + "}";
 }
 
 std::string FinalBindAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+  return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + "Var: " + varId -> toString(indent) + "\n"
     + make_padding(indent, " ") + "Val: " + valExpr -> toString(indent) 
     + "}";
 }
 
 std::string StructAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" {") 
+  return reprNodeType(this -> hint(), colorful) + std::string(" {") 
     + "}";
 }
 
 std::string ReadFileAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+  return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + "Var: " + varId -> toString(indent + 1) + "\n"
     + make_padding(indent, " ") + "Val: " + valExpr -> toString(indent + 1) 
     + "}";
@@ -387,7 +446,7 @@ std::string PrintAST::toString(int indent, bool colorful) {
     if (it != (Exprs.end() - 1)) { outstr += "\n"; }
   }
 
-  return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
+  return reprNodeType(this -> hint(), colorful) + std::string(" {\n")
     + outstr
     + "}";
 }
@@ -401,7 +460,7 @@ std::string ExtPackAST::toString(int indent, bool colorful) {
     pacPathStr += "\n";
   };
   
-  return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
+  return reprNodeType(this -> hint(), colorful) + std::string(" {\n")
     + pacPathStr
     + "\n} ";
 }
@@ -416,7 +475,7 @@ std::string SideBlockAST::toString(int indent, bool colorful) {
     if (it != (Stmts.end() - 1)) { stmtStr += "\n"; }
   }
 
-  return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
+  return reprNodeType(this -> hint(), colorful) + std::string(" {\n")
     + stmtStr
     + "}";
 }
@@ -431,24 +490,24 @@ std::string CasesAST::toString(int indent, bool colorful) {
     stmtStr += make_padding(indent, " ") + "Right: " + std::get<1>(*it) -> toString(indent + 1, colorful) + "\n";
   }
 
-  return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
+  return reprNodeType(this -> hint(), colorful) + std::string(" {\n")
     + stmtStr
     + make_padding(indent, " ") + "Default: " + LastExpr -> toString(indent + 1, colorful);
     + "}";
 }
 
 std::string CondFlowAST::toString(int indent, bool colorful) {
-  if (WhatFlow == NodeHint::CondFlow_True
-    || WhatFlow == NodeHint::CondFlow_False)
+  if (WhatFlow == StyioNodeHint::CondFlow_True
+    || WhatFlow == StyioNodeHint::CondFlow_False)
   {
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Then: " + ThenBlock -> toString(indent + 1, colorful)
     + "}";
   }
-  else if (WhatFlow == NodeHint::CondFlow_Both)
+  else if (WhatFlow == StyioNodeHint::CondFlow_Both)
   {
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Then: " + ThenBlock -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "Else: " + ElseBlock -> toString(indent + 1, colorful)
@@ -456,26 +515,26 @@ std::string CondFlowAST::toString(int indent, bool colorful) {
   }
   else
   {
-    return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+    return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
     + make_padding(indent, " ") + CondExpr -> toStringInline(indent + 1, colorful)
     + "}";
   }
 }
 
 std::string CheckEqAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" { ") 
+  return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
   + Value -> toString(indent + 1, colorful)
   + " }";
 }
 
 std::string CheckIsInAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
+  return reprNodeType(this -> hint(), colorful) + std::string(" {\n")
   + make_padding(indent, " ") + Iterable -> toString(indent + 1, colorful)
   + "}";
 }
 
 std::string FromToAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" {")
+  return reprNodeType(this -> hint(), colorful) + std::string(" {")
   + "\n" 
   + make_padding(indent, " ") + "From: " + FromWhat -> toString(indent + 1, colorful)
   + "\n" 
@@ -486,126 +545,126 @@ std::string FromToAST::toString(int indent, bool colorful) {
 std::string ForwardAST::toString(int indent, bool colorful) {
   switch (Type)
   {
-  case NodeHint::Forward:
+  case StyioNodeHint::Forward:
     {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1, colorful) 
       + "}";
     }
     // You should NOT reach this line!
     break;
-  case NodeHint::If_Equal_To_Forward:
+  case StyioNodeHint::If_Equal_To_Forward:
     {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
+      return reprNodeType(this -> hint(), colorful) + std::string(" {\n")
       + make_padding(indent, " ") + ExtraEq -> toString(indent + 1, colorful) + "\n"
       + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1, colorful) 
       + "}";
     }
     // You should NOT reach this line!
     break;
-  case NodeHint::If_Is_In_Forward:
+  case StyioNodeHint::If_Is_In_Forward:
     {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + ExtraIsin -> toString(indent + 1, colorful) + "\n"
       + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1, colorful) 
       + "}";
     }
     // You should NOT reach this line!
     break;
-  case NodeHint::Cases_Forward:
+  case StyioNodeHint::Cases_Forward:
     {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + "Cases: " + ThenExpr -> toString(indent + 1, colorful) + "\n"
       + "}";
     }
     // You should NOT reach this line!
     break;
-  case NodeHint::If_True_Forward:
+  case StyioNodeHint::If_True_Forward:
     {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
       + "}";
     }
     // You should NOT reach this line!
     break;
-  case NodeHint::If_False_Forward:
+  case StyioNodeHint::If_False_Forward:
     {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
       + "}";
     }
     // You should NOT reach this line!
     break;
   
-  case NodeHint::If_Both_Forward:
+  case StyioNodeHint::If_Both_Forward:
     {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+      return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
       + "}";
     }
     // You should NOT reach this line!
     break;
-  case NodeHint::Fill_Forward:
+  case StyioNodeHint::Fill_Forward:
     {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-      + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
+      return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
+      + make_padding(indent, " ") + LocalVars -> toString(indent + 1, colorful) + "\n"
       + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1, colorful) 
       + "}";
     }
     // You should NOT reach this line!
     break;
-  case NodeHint::Fill_If_Equal_To_Forward:
+  case StyioNodeHint::Fill_If_Equal_To_Forward:
     {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-      + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
+      return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
+      + make_padding(indent, " ") + LocalVars -> toString(indent + 1, colorful) + "\n"
       + make_padding(indent, " ") + ExtraEq -> toString(indent + 1, colorful) + "\n"
       + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1, colorful) 
       + "}";
     }
     // You should NOT reach this line!
     break;
-  case NodeHint::Fill_If_Is_in_Forward:
+  case StyioNodeHint::Fill_If_Is_in_Forward:
     {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-      + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
+      return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
+      + make_padding(indent, " ") + LocalVars -> toString(indent + 1, colorful) + "\n"
       + make_padding(indent, " ") + ExtraIsin -> toString(indent + 1, colorful) + "\n"
       + make_padding(indent, " ") + "Run: " + ThenExpr -> toString(indent + 1, colorful) 
       + "}";
     }
     // You should NOT reach this line!
     break;
-  case NodeHint::Fill_Cases_Forward:
+  case StyioNodeHint::Fill_Cases_Forward:
     {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-      + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
+      return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
+      + make_padding(indent, " ") + LocalVars -> toString(indent + 1, colorful) + "\n"
       + make_padding(indent, " ") + "Cases: " + ThenExpr -> toString(indent + 1, colorful) + "\n"
       + "}";
     }
     // You should NOT reach this line!
     break;
-  case NodeHint::Fill_If_True_Forward:
+  case StyioNodeHint::Fill_If_True_Forward:
     {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-      + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
+      return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
+      + make_padding(indent, " ") + LocalVars -> toString(indent + 1, colorful) + "\n"
       + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
       + "}";
     }
     // You should NOT reach this line!
     break;
-  case NodeHint::Fill_If_False_Forward:
+  case StyioNodeHint::Fill_If_False_Forward:
     {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-      + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
+      return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
+      + make_padding(indent, " ") + LocalVars -> toString(indent + 1, colorful) + "\n"
       + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
       + "}";
     }
     // You should NOT reach this line!
     break;
   
-  case NodeHint::Fill_If_Both_Forward:
+  case StyioNodeHint::Fill_If_Both_Forward:
     {
-      return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
-      + make_padding(indent, " ") + TmpVars -> toString(indent + 1, colorful) + "\n"
+      return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
+      + make_padding(indent, " ") + LocalVars -> toString(indent + 1, colorful) + "\n"
       + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
       + "}";
     }
@@ -614,19 +673,19 @@ std::string ForwardAST::toString(int indent, bool colorful) {
   default:
     break;
   }
-  return reprStyioType(this -> hint(), colorful) + std::string(" { Undefined }");
+  return reprNodeType(this -> hint(), colorful) + std::string(" { Undefined }");
 }
 
 std::string InfiniteAST::toString(int indent, bool colorful) {
   switch (WhatType)
   {
   case InfiniteType::Original:
-    return reprStyioType(this -> hint(), colorful) + std::string(" { }");
+    return reprNodeType(this -> hint(), colorful) + std::string(" { }");
     // You should NOT reach this line!
     break;
   
   case InfiniteType::Incremental:
-    return reprStyioType(this -> hint(), colorful) + std::string(" {")
+    return reprNodeType(this -> hint(), colorful) + std::string(" {")
       + "\n" 
       + "|" + std::string(2 * indent, '-') + "| Start: "
       + Start -> toString(indent + 1, colorful) 
@@ -641,7 +700,7 @@ std::string InfiniteAST::toString(int indent, bool colorful) {
   default:
     break;
   }
-  return reprStyioType(this -> hint(), colorful) + std::string(" { Undefined! }");
+  return reprNodeType(this -> hint(), colorful) + std::string(" { Undefined! }");
 }
 
 std::string FuncAST::toString(int indent, bool colorful) {
@@ -650,7 +709,7 @@ std::string FuncAST::toString(int indent, bool colorful) {
   if (FisFinal) { extra = " (Final)"; }
   else { extra = " (Flexible)"; }
 
-  std::string output = reprStyioType(this -> hint(), colorful, extra) + " {\n";
+  std::string output = reprNodeType(this -> hint(), colorful, extra) + " {\n";
   output += make_padding(indent, " ") + "Name: " + FName -> toString(indent + 1, colorful) + "\n";
   output += make_padding(indent, " ") + Forward -> toString(indent + 1, colorful);
   output += "}";
@@ -658,7 +717,7 @@ std::string FuncAST::toString(int indent, bool colorful) {
 }
 
 std::string LoopAST::toString(int indent, bool colorful) {
-  std::string output = reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+  std::string output = reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
   + make_padding(indent, " ") + Forward -> toString(indent + 1, colorful) 
   + "}";
 
@@ -666,7 +725,7 @@ std::string LoopAST::toString(int indent, bool colorful) {
 }
 
 std::string IterAST::toString(int indent, bool colorful) {
-  return reprStyioType(this -> hint(), colorful) + std::string(" {\n") 
+  return reprNodeType(this -> hint(), colorful) + std::string(" {\n") 
   + make_padding(indent, " ") + Collection -> toStringInline(indent + 1, colorful)
   + "}";
 }
@@ -681,7 +740,7 @@ std::string MainBlockAST::toString(int indent, bool colorful) {
     if (it != (Stmts.end() - 1)) { stmtStr += "\n"; }
   }
 
-  return reprStyioType(this -> hint(), colorful) + std::string(" {\n")
+  return reprNodeType(this -> hint(), colorful) + std::string(" {\n")
     + stmtStr
     + "}";
 }
