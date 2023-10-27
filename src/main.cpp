@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
   auto styio_program = parse_main_block(read_styio_file(argv[1]));
 
   auto generator = StyioToLLVM();
-  generator.visit_main_block(&*styio_program);
+  generator.visit_main(&*styio_program);
   generator.show();
   
   return 0;

@@ -569,7 +569,7 @@ std::unique_ptr<StyioAST> parse_path_or_link (
   return output;
 }
 
-std::unique_ptr<DTypeAST> parse_dtype (
+std::shared_ptr<DTypeAST> parse_dtype (
   struct StyioCodeContext* code,
   char& cur_char) {
   std::string text = "";
@@ -582,7 +582,7 @@ std::unique_ptr<DTypeAST> parse_dtype (
     text += cur_char;
     move_to_the_next_char(code, cur_char); }
 
-  return std::make_unique<DTypeAST>(text);
+  return std::make_shared<DTypeAST>(text);
 }
 
 /*
@@ -2236,7 +2236,7 @@ std::unique_ptr<StyioAST> parse_pipeline (
 
       drop_spaces_and_comments(code, cur_char);
 
-      std::unique_ptr<DTypeAST> dtype = parse_dtype(code, cur_char);
+      std::shared_ptr<DTypeAST> dtype = parse_dtype(code, cur_char);
 
       drop_spaces_and_comments(code, cur_char);
 
@@ -2716,7 +2716,7 @@ std::unique_ptr<StyioAST> parse_stmt (
           {
             drop_white_spaces(code, cur_char);
 
-            std::unique_ptr<DTypeAST> type = parse_dtype(code, cur_char);
+            std::shared_ptr<DTypeAST> type = parse_dtype(code, cur_char);
 
             drop_white_spaces(code, cur_char);
 

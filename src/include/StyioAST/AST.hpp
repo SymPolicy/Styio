@@ -414,7 +414,7 @@ class DTypeAST : public StyioAST {
 
 class VarAST : public StyioAST {
   std::string Name = "";
-  std::unique_ptr<DTypeAST> DType;
+  std::shared_ptr<DTypeAST> DType;
 
   private:
     bool VHasType = false;
@@ -422,7 +422,7 @@ class VarAST : public StyioAST {
   public:
     VarAST():
       Name(""), 
-      DType(std::make_unique<DTypeAST>("")) { }
+      DType(std::make_shared<DTypeAST>("")) { }
 
     VarAST(
       const std::string& name): 
@@ -430,7 +430,7 @@ class VarAST : public StyioAST {
 
     VarAST(
       const std::string& name,
-      std::unique_ptr<DTypeAST> dtype): 
+      std::shared_ptr<DTypeAST> dtype): 
       Name(name), 
       DType(std::move(dtype)) {
         VHasType = true; }
@@ -444,7 +444,7 @@ class VarAST : public StyioAST {
     bool hasType() {
       return VHasType; }
 
-    const std::unique_ptr<DTypeAST>& getType() const {
+    const std::shared_ptr<DTypeAST>& getType() const {
       return DType; }
 
     const std::string& getTypeStr() const {
@@ -460,22 +460,23 @@ class VarAST : public StyioAST {
 
 class FillArgAST : public VarAST {
   std::string Name;
-  std::unique_ptr<DTypeAST> DType;
+  std::shared_ptr<DTypeAST> DType;
 
   bool VHasType = false;
 
   public:
     FillArgAST (
       const std::string& name):
+      VarAST(name),
       Name(name) {}
 
     FillArgAST (
       const std::string& name,
-      std::unique_ptr<DTypeAST> dtype): 
+      std::shared_ptr<DTypeAST> dtype): 
+      VarAST(name, dtype),
       Name(name), 
-      DType(std::move(dtype)) {
-        VHasType = true;
-      }
+      DType(dtype) {
+        VHasType = true; }
 
     StyioNodeHint hint() {
       return StyioNodeHint::FillArg; }
@@ -486,7 +487,7 @@ class FillArgAST : public VarAST {
     bool hasType() {
       return VHasType; }
 
-    const std::unique_ptr<DTypeAST>& getType() const {
+    const std::shared_ptr<DTypeAST>& getType() const {
       return DType; }
 
     const std::string& getTypeStr() const {
@@ -1901,7 +1902,7 @@ class InfiniteAST : public StyioAST {
 */
 class FuncAST : public StyioAST {
   std::unique_ptr<IdAST> FName;
-  std::unique_ptr<DTypeAST> FRetType;
+  std::shared_ptr<DTypeAST> FRetType;
   std::unique_ptr<ForwardAST> Forward;
 
   bool FWithName;
@@ -1929,7 +1930,7 @@ class FuncAST : public StyioAST {
 
     FuncAST(
       std::unique_ptr<IdAST> name, 
-      std::unique_ptr<DTypeAST> type,
+      std::shared_ptr<DTypeAST> type,
       std::unique_ptr<ForwardAST> forward,
       bool isFinal): 
       FName(std::move(name)), 
@@ -1953,7 +1954,7 @@ class FuncAST : public StyioAST {
     bool hasRetType() {
       return FWithType; }
 
-    const std::unique_ptr<DTypeAST>& getRetType() {
+    const std::shared_ptr<DTypeAST>& getRetType() {
       return FRetType; }
 
     const std::string& getRetTypeStr() {
@@ -2144,7 +2145,7 @@ class StyioVisitor {
 
     void visit_iterator(IterAST* ast);
 
-    void visit_main_block(MainBlockAST* ast);
+    void enter_main(MainBlockAST* ast);
 };
 
 class StyioToLLVM {
@@ -2269,7 +2270,7 @@ class StyioToLLVM {
 
     llvm::Value* visit_iterator(IterAST* ast);
 
-    llvm::Value* visit_main_block(MainBlockAST* ast);
+    llvm::Value* visit_main(MainBlockAST* ast);
 };
 
 #endif

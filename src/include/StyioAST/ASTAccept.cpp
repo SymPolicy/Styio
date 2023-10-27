@@ -221,5 +221,5 @@ void IterAST::toLLVM(StyioToLLVM* generator) {
 }
 
 void MainBlockAST::toLLVM(StyioToLLVM* generator) {
-  generator -> visit_main_block(this);
+  generator -> visit_main(this);
 }

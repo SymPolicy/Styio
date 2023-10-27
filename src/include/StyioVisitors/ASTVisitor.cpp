@@ -25,8 +25,6 @@
 
 llvm::Type* StyioToLLVM::match_type(
   std::string type) {
-    std::cout << "type: " << type << std::endl;
-
     if (type == "i32") {
       return llvm_builder -> getInt32Ty(); }
     else if (type == "i64") {
@@ -93,11 +91,11 @@ llvm::Value* StyioToLLVM::visit_break(BreakAST* ast) {
 }
 
 llvm::Value* StyioToLLVM::visit_return(ReturnAST* ast) {
-  auto output = llvm_builder -> getInt32(0);
+  auto zero = llvm_builder -> getInt32(0);
 
-  llvm_builder -> CreateRet(output);
+  llvm_builder -> CreateRet(zero);
 
-  return output;
+  return zero;
 }
 
 llvm::Value* StyioToLLVM::visit_comment(CommentAST* ast) {
@@ -117,8 +115,6 @@ llvm::Value* StyioToLLVM::visit_var(VarAST* ast) {
 
 llvm::Value* StyioToLLVM::visit_fill_arg(FillArgAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
-
-
 
   return output;
 }
@@ -334,15 +330,9 @@ llvm::Value* StyioToLLVM::visit_func(FuncAST* ast) {
     for (auto& arg: sf_args) {
       lf_args.push_back(match_type(arg -> getTypeStr())); }
 
-    // lf_args.push_back(llvm_builder -> getInt32Ty());
-    // lf_args.push_back(llvm_builder -> getInt64Ty());
-
-    // std::vector<llvm::Type*> params (2, llvm_builder->getInt32Ty());
-
     llvm::FunctionType* lf_type = llvm::FunctionType::get(
       /* Result (Type) */ match_type(ast -> getRetTypeStr()),
       /* Params (Type) */ lf_args,
-      // /* Params (Type) */ params,
       /* isVarArg */ false);
 
     llvm::Function* lfunc = llvm::Function::Create(
@@ -351,7 +341,7 @@ llvm::Value* StyioToLLVM::visit_func(FuncAST* ast) {
       ast -> getName(),
       *llvm_module);
 
-    for (size_t i = 0; i < 2; i++) {
+    for (size_t i = 0; i < lf_args.size(); i++) {
       lfunc -> getArg(i) -> setName(sf_args.at(i) -> getName()); }
 
     llvm::BasicBlock* block = llvm::BasicBlock::Create(
@@ -361,7 +351,7 @@ llvm::Value* StyioToLLVM::visit_func(FuncAST* ast) {
     
     llvm_builder -> SetInsertPoint(block);
 
-    // ast -> getForward() -> toLLVM(this);
+    ast -> getForward() -> toLLVM(this);
 
     llvm::verifyFunction(*lfunc); 
   }
@@ -392,7 +382,7 @@ llvm::Value* StyioToLLVM::visit_side_block(SideBlockAST* ast) {
 }
 
 
-llvm::Value* StyioToLLVM::visit_main_block(MainBlockAST* ast) {
+llvm::Value* StyioToLLVM::visit_main(MainBlockAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
 
   auto& stmts = ast -> getStmts();
