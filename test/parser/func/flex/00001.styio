@@ -1,7 +1,7 @@
 // RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
 
 # add = (x, y) => {
-  >| x + y
+  => x + y
 }
 
 /*

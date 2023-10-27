@@ -1,0 +1,17 @@
+// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
+
+# addi : i32 := (x: i32, y: i32) => {
+  => x + y
+}
+
+/*
+  CHECK:      Function (Final) {
+  CHECK-NEXT: || Name: addi
+  CHECK-NEXT: || Type: i32
+  CHECK-NEXT: || Forward (Fill -> Run) {
+  CHECK-NEXT: |--| Fill {
+  CHECK-NEXT: |----| Arg (Fill) { x : i32 }
+  CHECK-NEXT: |----| Arg (Fill) { y : i32 }}
+  CHECK-NEXT: |--| Run: Block {
+  CHECK-NEXT: |----| Return { Add { LHS: x | RHS: y } }}}}
+*/

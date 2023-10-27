@@ -329,10 +329,10 @@ std::unique_ptr<StyioAST> parse_block (
   char& cur_char
 );
 
-std::unique_ptr<StyioAST> parse_forward (
+std::unique_ptr<ForwardAST> parse_forward (
   struct StyioCodeContext* code,
   char& cur_char,
-  bool labeled = false
+  bool ispipe = false
 );
 
 

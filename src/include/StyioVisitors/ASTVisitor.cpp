@@ -2,6 +2,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <iostream>
 
 // [Styio]
 #include "../StyioToken/Token.hpp"
@@ -21,6 +22,31 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/LinkAllIR.h"
 #include "llvm/IR/DerivedTypes.h"
+
+llvm::Type* StyioToLLVM::match_type(
+  std::string type) {
+    std::cout << "type: " << type << std::endl;
+
+    if (type == "i32") {
+      return llvm_builder -> getInt32Ty(); }
+    else if (type == "i64") {
+      return llvm_builder -> getInt64Ty(); }
+    else if (type == "f32") {
+      return llvm_builder -> getFloatTy(); }
+    else if (type == "f64") {
+      return llvm_builder -> getDoubleTy(); }
+    
+    else if (type == "i1") {
+      return llvm_builder -> getInt1Ty(); }
+    else if (type == "i8") {
+      return llvm_builder -> getInt8Ty(); }
+    else if (type == "i16") {
+      return llvm_builder -> getInt16Ty(); }
+    else if (type == "i128") {
+      return llvm_builder -> getInt128Ty(); }
+
+  return llvm_builder -> getInt1Ty();
+}
 
 void StyioToLLVM::show() {
   llvm_module -> print(llvm::errs(), nullptr);
@@ -110,7 +136,7 @@ llvm::Value* StyioToLLVM::visit_kwarg(KwArgAST* ast) {
 llvm::Value* StyioToLLVM::visit_var_tuple(VarTupleAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
 
-  auto& vars = ast -> getVars();
+  auto& vars = ast -> getArgs();
   for (auto const& s: vars) {
     s -> toLLVM(this); }
 
@@ -279,7 +305,7 @@ llvm::Value* StyioToLLVM::visit_forward(ForwardAST* ast) {
   {
   case StyioNodeHint::Fill_Forward:
     {
-      ast -> getVars() -> toLLVM(this);
+      // ast -> getArgs() -> toLLVM(this);
       ast -> getThen() -> toLLVM(this);
     }
     break;
@@ -297,37 +323,50 @@ llvm::Value* StyioToLLVM::visit_inf(InfiniteAST* ast) {
 }
 
 llvm::Value* StyioToLLVM::visit_func(FuncAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  if ( ast -> hasName()
+    && ast -> hasArgs()
+    && ast -> hasRetType())
+  {
+    /* FuncAST -> Forward -> VarTuple -> [<VarAST>..] */
+    auto& sf_args = ast -> getForward() -> getArgs() -> getArgs();
 
-  llvm::FunctionType* func_type = llvm::FunctionType::get(
-    /* */ llvm::Type::getInt32Ty(*llvm_context), 
-    /* isVarArg */ false
-  );
+    std::vector<llvm::Type*> lf_args;
+    for (auto& arg: sf_args) {
+      lf_args.push_back(match_type(arg -> getTypeStr())); }
 
-  if ( ast -> hasName() ) {
-    llvm::Function* func = llvm::Function::Create(
-      func_type, 
+    // lf_args.push_back(llvm_builder -> getInt32Ty());
+    // lf_args.push_back(llvm_builder -> getInt64Ty());
+
+    // std::vector<llvm::Type*> params (2, llvm_builder->getInt32Ty());
+
+    llvm::FunctionType* lf_type = llvm::FunctionType::get(
+      /* Result (Type) */ match_type(ast -> getRetTypeStr()),
+      /* Params (Type) */ lf_args,
+      // /* Params (Type) */ params,
+      /* isVarArg */ false);
+
+    llvm::Function* lfunc = llvm::Function::Create(
+      lf_type, 
       llvm::GlobalValue::ExternalLinkage,
       ast -> getName(),
-      *llvm_module
-    );
+      *llvm_module);
+
+    for (size_t i = 0; i < 2; i++) {
+      lfunc -> getArg(i) -> setName(sf_args.at(i) -> getName()); }
 
     llvm::BasicBlock* block = llvm::BasicBlock::Create(
       *llvm_context,
       "entry",
-      func
-    );
+      lfunc);
     
     llvm_builder -> SetInsertPoint(block);
 
-    ast -> getForward() -> toLLVM(this);
+    // ast -> getForward() -> toLLVM(this);
 
-    llvm::verifyFunction(*func); 
-  }
-  else {
-    
+    llvm::verifyFunction(*lfunc); 
   }
 
+  auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 

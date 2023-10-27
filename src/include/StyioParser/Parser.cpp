@@ -580,8 +580,7 @@ std::unique_ptr<DTypeAST> parse_dtype (
 
   while (isalnum((cur_char)) || check_char(cur_char, '_')) {
     text += cur_char;
-    move_to_the_next_char(code, cur_char);
-  }
+    move_to_the_next_char(code, cur_char); }
 
   return std::make_unique<DTypeAST>(text);
 }
@@ -618,7 +617,7 @@ std::unique_ptr<FillArgAST> parse_fill_arg (
 std::unique_ptr<VarTupleAST> parse_vars_tuple (
   struct StyioCodeContext* code, 
   char& cur_char) {
-  std::vector<std::unique_ptr<StyioAST>> vars;
+  std::vector<std::unique_ptr<VarAST>> vars;
 
   /*
     Danger!
@@ -2226,14 +2225,40 @@ std::unique_ptr<StyioAST> parse_pipeline (
 
     if (check_and_drop_char(code, cur_char, ':')) 
     {
-      if (check_and_drop_char(code, cur_char, '=')) 
-      {
+      if (check_and_drop_char(code, cur_char, '=')) {
         drop_spaces(code, cur_char);
 
         return std::make_unique<FuncAST>(
           std::move(name),
           parse_forward(code, cur_char, true),
           true);
+      }
+
+      drop_spaces_and_comments(code, cur_char);
+
+      std::unique_ptr<DTypeAST> dtype = parse_dtype(code, cur_char);
+
+      drop_spaces_and_comments(code, cur_char);
+
+      if (check_and_drop_char(code, cur_char, ':')) {
+        if (check_and_drop_char(code, cur_char, '=')) {
+          drop_spaces_and_comments(code, cur_char);
+
+          return std::make_unique<FuncAST>(
+            std::move(name),
+            std::move(dtype),
+            parse_forward(code, cur_char, true),
+            true);
+        }
+      }
+      else if (check_and_drop_char(code, cur_char, '=')) {
+        drop_spaces_and_comments(code, cur_char);
+
+        return std::make_unique<FuncAST>(
+          std::move(name),
+          std::move(dtype),
+          parse_forward(code, cur_char, true),
+          false);
       }
 
       std::string errmsg = std::string("parse_pipeline() // Inheritance, Type Hint.");
@@ -2265,11 +2290,11 @@ std::unique_ptr<StyioAST> parse_pipeline (
   return parse_forward(code, cur_char, true);
 }
 
-std::unique_ptr<StyioAST> parse_forward (
+std::unique_ptr<ForwardAST> parse_forward (
   struct StyioCodeContext* code,
   char& cur_char,
   bool ispipe) {
-  std::unique_ptr<StyioAST> output;
+  std::unique_ptr<ForwardAST> output;
 
   std::unique_ptr<VarTupleAST> tmpvars;
   bool hasVars = false;
@@ -2277,8 +2302,7 @@ std::unique_ptr<StyioAST> parse_forward (
   if (ispipe) {
     if (check_char(cur_char, '(')) {
       tmpvars = parse_vars_tuple(code, cur_char);
-      hasVars = true; }
-  }
+      hasVars = true; } }
   else if (check_and_drop_char(code, cur_char, '#')) {
     drop_white_spaces(code, cur_char);
 
@@ -2287,8 +2311,7 @@ std::unique_ptr<StyioAST> parse_forward (
       hasVars = true; }
     else {
       std::string errmsg = std::string("parse_forward() // Expecting ( after #, but got ") + char(cur_char);
-      throw StyioSyntaxError(errmsg); }
-  }
+      throw StyioSyntaxError(errmsg); } }
 
   drop_spaces(code, cur_char);
 
@@ -2325,16 +2348,14 @@ std::unique_ptr<StyioAST> parse_forward (
 
           drop_spaces(code, cur_char);
 
-          if (check_and_drop_char(code, cur_char, '{')) 
-          {
+          if (check_and_drop_char(code, cur_char, '{')) {
             if (hasVars) {
               output = std::make_unique<ForwardAST>(
                 std::move(tmpvars), 
                 parse_cases(code, cur_char)); }
             else {
               output = std::make_unique<ForwardAST>(
-                parse_cases(code, cur_char)); } 
-          }
+                parse_cases(code, cur_char)); } }
           else {
             std::unique_ptr<CheckEqAST> value;
             std::unique_ptr<StyioAST> then;
@@ -2345,8 +2366,7 @@ std::unique_ptr<StyioAST> parse_forward (
 
             drop_spaces(code, cur_char);
 
-            if (check_and_drop_symbol(code, cur_char, "=>")) 
-            {
+            if (check_and_drop_symbol(code, cur_char, "=>")) {
               drop_spaces(code, cur_char);
 
               if (check_char(cur_char, '{')) { 
@@ -2362,13 +2382,10 @@ std::unique_ptr<StyioAST> parse_forward (
               else {
                 output = std::make_unique<ForwardAST>(
                   std::move(value), 
-                  std::move(then)); } 
-            }
-            else 
-            {
+                  std::move(then)); } }
+            else {
               std::string errmsg = std::string("parse_forward() // Expecting `=>` after `?= value`, but got ") + char(cur_char);
-                throw StyioSyntaxError(errmsg); 
-            }
+                throw StyioSyntaxError(errmsg); }
           }
         } 
 
@@ -2523,26 +2540,22 @@ std::unique_ptr<StyioAST> parse_forward (
 
       drop_spaces(code, cur_char);
 
-      if (check_char(cur_char, '{')) 
-      {
+      if (check_char(cur_char, '{')) {
         if (hasVars) {
           output = std::make_unique<ForwardAST>(
             std::move(tmpvars), 
             parse_block(code, cur_char)); }
         else {
           output = std::make_unique<ForwardAST>(
-            parse_block(code, cur_char)); } 
-      }
-      else 
-      {
+            parse_block(code, cur_char)); } }
+      else {
         if (hasVars) {
           output = std::make_unique<ForwardAST>(
             std::move(tmpvars), 
             parse_expr(code, cur_char)); }
         else {
           output = std::make_unique<ForwardAST>(
-            parse_expr(code, cur_char)); }
-      }
+            parse_expr(code, cur_char)); } }
     }
     break;
 
@@ -2570,18 +2583,17 @@ std::unique_ptr<StyioAST> parse_forward (
     break;
   }
 
-  drop_spaces_and_comments(code, cur_char);
+  // drop_spaces_and_comments(code, cur_char);
 
-  while (check_and_drop_symbol(code, cur_char, "|>")) 
-  {
-    drop_spaces(code, cur_char);
+  // while (check_and_drop_symbol(code, cur_char, "|>")) {
+  //   drop_spaces(code, cur_char);
 
-    output = std::make_unique<FromToAST>(
-      std::move(output),
-      parse_forward(code, cur_char));
+  //   output = std::make_unique<FromToAST>(
+  //     std::move(output),
+  //     parse_forward(code, cur_char));
 
-    drop_spaces_and_comments(code, cur_char); 
-  }
+  //   drop_spaces_and_comments(code, cur_char); 
+  // }
 
   return output;
 }
@@ -2886,11 +2898,11 @@ std::unique_ptr<StyioAST> parse_stmt (
     // You should NOT reach this line!
     break;
 
-  case '>':
+  case '=':
     {
       move_to_the_next_char(code, cur_char);
 
-      if (check_and_drop_char(code, cur_char, '|'))
+      if (check_and_drop_char(code, cur_char, '>'))
       {
         drop_white_spaces(code, cur_char);
       
