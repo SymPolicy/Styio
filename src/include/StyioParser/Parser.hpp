@@ -2,10 +2,173 @@
 #ifndef STYIO_PARSER_H_
 #define STYIO_PARSER_H_
 
-struct StyioCodeContext
-{
-  std::string text;
-  int cursor;
+// struct StyioCodeContext
+// {
+//   std::string text;
+//   int cursor;
+// };
+
+class StyioContext {
+  private:
+    std::shared_ptr<StyioCodeContext> parent;
+    std::vector<std::shared_ptr<StyioCodeContext>> children;
+
+  public:
+    std::string code;
+    int pos;
+
+    StyioContext(
+      const std::string& text) :
+      code(text), 
+      pos(0) {
+        /* Construction */
+      }
+
+    StyioContext(
+      std::shared_ptr<StyioCodeContext> parent): 
+      parent(parent) {
+        /* Construction */
+      }
+
+    bool isRootCtx() {
+      if (parent) { return true; }
+      else { return false; } }
+
+    char& get_cur_char() {
+      return code.at(pos); }
+
+    /* 
+      + n => move forward n steps
+      - n => move backward n steps
+    */
+    void move(
+      int steps
+    ) {
+      pos += steps; }
+
+    bool check(
+      char value
+    ) {
+      return (code.at(pos)) == value; }
+
+    bool check(
+      const std::string& value
+    ) {
+      return (code.substr(pos, value.size())) == value; }
+
+    void move_until(
+      char value
+    ) {
+      while (not check(value)) {
+        move(1); }
+    }
+
+    bool check_and_drop(
+      char value
+    ) {
+      if (check(value)) {
+        move(1);
+        return true; }
+      else { 
+        return false; }
+    }
+
+    bool check_and_drop(
+      const std::string& value
+    ) {
+      if (check(value)) {
+        move(value.size());
+        return true; }
+      else { 
+        return false; }
+    }
+
+    bool find_and_drop(
+      char value
+    ) {
+      /* ! No Boundary Check ! */
+      while (true) {
+        if (isspace(get_cur_char())) {
+          move(1); }
+        else if (check("//")) {
+          pass_over('\n'); }
+        else if (check("/*")) {
+          pass_over("*/"); }
+        else {
+          if (check(value)) {
+            move(1);
+            return true; }
+          else {
+            return false; } } }
+
+      return false;
+    }
+
+    bool find_and_drop(
+      std::string value
+    ) {
+      /* ! No Boundary Check ! */
+      while (true) {
+        if (isspace(get_cur_char())) {
+          move(1); }
+        else if (check("//")) {
+          pass_over('\n'); }
+        else if (check("/*")) {
+          pass_over("*/"); }
+        else {
+          if ((code.substr(pos, value.size())) == value) {
+            move(value.size());
+            return true; }
+          else {
+            return false; } } }
+    }
+
+    void pass_over (
+      char value
+    ) {
+      /* ! No Boundary Check ! */
+      while (true) {
+        if (check(value)) {
+          move(1);
+          break; }
+        else {
+          move(1); } }
+    }
+
+    void pass_over (
+      const std::string& value
+    ) {
+      /* ! No Boundary Check ! */
+      while (true) {
+        if (check(value)) {
+          move(value.size());
+          break; }
+        else {
+          move(1); } }
+    }
+
+    void arrive() {
+      /* ! No Boundary Check ! */
+      while (true) {
+        if (isspace(code.at(pos))) {
+          move(1); }
+        else if (check("//")) {
+          pass_over('\n'); }
+        else if (check("/*")) {
+          pass_over("*/"); }
+        else {
+          break; } }
+    }
+
+    void drop_white_spaces() {
+      while (check(' ')) {
+        move(1); }
+    }
+
+    void drop_spaces() {
+      while (isspace(code.at(pos))) {
+        move(1); }
+    }
 };
 
 template <typename Enumeration>

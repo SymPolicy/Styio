@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 #include <iostream>
+#include <optional>
 
 // [Styio]
 #include "../StyioToken/Token.hpp"
@@ -211,6 +212,62 @@ llvm::Value* StyioToLLVM::visit_size_of(SizeOfAST* ast) {
 
 llvm::Value* StyioToLLVM::visit_bin_op(BinOpAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
+
+  llvm::Value* l_val = ast -> getLhs() -> toLLVM(this);
+  llvm::Value* r_val = ast -> getRhs() -> toLLVM(this);
+
+  switch (ast -> hint())
+  {
+  case StyioNodeHint::Bin_Add:
+    llvm_builder -> CreateAdd(l_val, r_val, "add");
+
+    break;
+
+  case StyioNodeHint::Bin_Sub:
+    llvm_builder -> CreateSub(l_val, r_val, "sub");
+
+    break;
+
+  case StyioNodeHint::Bin_Mul:
+    llvm_builder -> CreateMul(l_val, r_val, "mul");
+
+    break;
+
+  case StyioNodeHint::Bin_Div:
+    // llvm_builder -> CreateFDiv(l_val, r_val, "add");
+
+    break;
+
+  case StyioNodeHint::Bin_Pow:
+    // llvm_builder -> CreateFAdd(l_val, r_val, "add");
+
+    break;
+
+  case StyioNodeHint::Bin_Mod:
+    // llvm_builder -> CreateFAdd(l_val, r_val, "add");
+
+    break;
+
+  case StyioNodeHint::Inc_Add:
+    /* code */
+    break;
+
+  case StyioNodeHint::Inc_Sub:
+    /* code */
+    break;
+
+  case StyioNodeHint::Inc_Mul:
+    /* code */
+    break;
+
+  case StyioNodeHint::Inc_Div:
+    /* code */
+    break;
+  
+  default:
+    break;
+  }
+
   return output;
 }
 

@@ -234,12 +234,17 @@ std::string SizeOfAST::toString(int indent, bool colorful) {
 }
 
 std::string BinOpAST::toString(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + std::string(" {")
-    + "\n"
-    + make_padding(indent, " ") + "LHS: " + LHS -> toString(indent + 1, colorful) 
-    + "\n"
+  return reprNodeType(hint(), colorful, " ") + std::string("{") + "\n"
+    + make_padding(indent, " ") + "LHS: " + LHS -> toString(indent + 1, colorful) + "\n"
     + make_padding(indent, " ") + "RHS: " + RHS -> toString(indent + 1, colorful) 
     + "}";
+}
+
+std::string BinOpAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this -> hint(), colorful, " ") + std::string("{") 
+    + " LHS: " + LHS -> toStringInline() 
+    + " | RHS: " + RHS -> toStringInline()  
+    + " }";
 }
 
 std::string BinCompAST::toString(int indent, bool colorful) {

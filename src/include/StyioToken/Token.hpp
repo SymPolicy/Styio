@@ -2,6 +2,10 @@
 #ifndef STYIO_TOKEN_H_
 #define STYIO_TOKEN_H_
 
+enum class StyioContextType {
+  
+};
+
 enum class StyioDataType {
   i32,
   i64,
@@ -102,10 +106,10 @@ enum class StyioNodeHint {
   Bin_Div, // /
   Bin_Pow, // **
   Bin_Mod, // %
-  Inc_Add, // +
-  Inc_Sub, // -
-  Inc_Mul, // *
-  Inc_Div, // /
+  Inc_Add, // +=
+  Inc_Sub, // -=
+  Inc_Mul, // *=
+  Inc_Div, // /=
 
   // Conditionals
   CondFlow_True,
