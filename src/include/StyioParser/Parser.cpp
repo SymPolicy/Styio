@@ -119,8 +119,7 @@ inline bool match_next_char_panic (
 }
 
 inline void move_next_and_ignore (
-  std::shared_ptr<StyioContext> context,
-  char& cur_char) {
+  std::shared_ptr<StyioContext> context) {
   context -> move(1);
   context -> drop_spaces();
 }
@@ -330,8 +329,7 @@ std::unique_ptr<StyioAST> parse_path_or_link (
 }
 
 std::shared_ptr<DTypeAST> parse_dtype (
-  std::shared_ptr<StyioContext> context,
-  char& cur_char) {
+  std::shared_ptr<StyioContext> context) {
   std::string text = "";
 
   if (isalpha((cur_char)) || check_char(cur_char, '_')) {
@@ -353,8 +351,7 @@ std::shared_ptr<DTypeAST> parse_dtype (
 */
 
 std::unique_ptr<FillArgAST> parse_fill_arg (
-  std::shared_ptr<StyioContext> context,
-  char& cur_char) {
+  std::shared_ptr<StyioContext> context) {
   std::string name = "";
   /* it includes cur_char in the idStr without checking */
   do {
@@ -1052,8 +1049,7 @@ std::unique_ptr<SizeOfAST> parse_size_of (
 
 std::unique_ptr<StyioAST> parse_call 
 (
-  std::shared_ptr<StyioContext> context,
-  char& cur_char) {
+  std::shared_ptr<StyioContext> context) {
   return std::make_unique<NoneAST>();
 }
 
