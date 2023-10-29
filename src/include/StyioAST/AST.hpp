@@ -61,19 +61,13 @@ class CasesAST : public StyioAST {
   public:
     CasesAST(
       std::unique_ptr<StyioAST> expr): 
-      LastExpr(std::move(expr)
-    ) {
-
-    }
+      LastExpr(std::move(expr)) {}
 
     CasesAST(
       std::vector<std::tuple<std::unique_ptr<StyioAST>, std::unique_ptr<StyioAST>>> cases,
       std::unique_ptr<StyioAST> expr): 
       Cases(std::move(cases)),
-      LastExpr(std::move(expr)
-    ) {
-
-    }
+      LastExpr(std::move(expr)) {}
 
     StyioNodeHint hint() {
       return StyioNodeHint::Cases;
@@ -1673,22 +1667,16 @@ class CheckEqAST : public StyioAST {
   public:
     CheckEqAST(
       std::unique_ptr<StyioAST> value): 
-      Value(std::move(value))
-      {
-
-      }
+      Value(std::move(value)) {}
 
     StyioNodeHint hint() {
-      return StyioNodeHint::CheckEq;
-    }
+      return StyioNodeHint::CheckEq; }
 
+    /* toString */
     std::string toString(int indent = 0, bool colorful = false);
+    std::string toStringInline(int indent = 0, bool colorful = false);
 
-    std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
-      + " }";
-    }
-
+    /* toLLVM */
     llvm::Value* toLLVM(StyioToLLVM* generator);
 };
 
@@ -1698,22 +1686,16 @@ class CheckIsInAST : public StyioAST {
   public:
     CheckIsInAST(
       std::unique_ptr<StyioAST> value): 
-      Iterable(std::move(value))
-      {
-
-      }
+      Iterable(std::move(value)) {}
 
     StyioNodeHint hint() {
-      return StyioNodeHint::CheckIsin;
-    }
+      return StyioNodeHint::CheckIsin; }
 
+    /* toString */
     std::string toString(int indent = 0, bool colorful = false);
+    std::string toStringInline(int indent = 0, bool colorful = false);
 
-    std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
-      + " }";
-    }
-
+    /* toLLVM */
     llvm::Value* toLLVM(StyioToLLVM* generator);
 };
 
@@ -1744,23 +1726,27 @@ class FromToAST : public StyioAST {
 
 /*
   ExtraEq:
-    ?=
+    ?= Expr => Block
 
   ExtraIsIn:
-    ?^
+    ?^ Expr => Block
+
+  ThenExpr:
+    => Block
   
-  ExtraCond:
-    ?()
+  ThenCondFlow:
+    ?(Expr) \t\ Block \f\ Block
 */
 
 class ForwardAST : public StyioAST {
   std::unique_ptr<VarTupleAST> FillArgs;
+  
   std::unique_ptr<CheckEqAST> ExtraEq;
   std::unique_ptr<CheckIsInAST> ExtraIsin;
-  std::unique_ptr<CondFlowAST> ExtraCond;
-  std::unique_ptr<StyioAST> ThenExpr;
 
-  bool FHasArgs;
+  std::unique_ptr<StyioAST> ThenExpr;
+  std::unique_ptr<CondFlowAST> ThenCondFlow;
+
 
   private:
     StyioNodeHint Type = StyioNodeHint::Forward;
@@ -1792,7 +1778,7 @@ class ForwardAST : public StyioAST {
 
     ForwardAST(
       std::unique_ptr<CondFlowAST> condflow): 
-      ExtraCond(std::move(condflow)) {
+      ThenCondFlow(std::move(condflow)) {
         if ((condflow -> WhatFlow) == StyioNodeHint::CondFlow_True) {
           Type = StyioNodeHint::If_True_Forward; }
         else if ((condflow -> WhatFlow) == StyioNodeHint::CondFlow_False) {
@@ -1805,8 +1791,7 @@ class ForwardAST : public StyioAST {
       std::unique_ptr<StyioAST> whatnext): 
       FillArgs(std::move(vars)),
       ThenExpr(std::move(whatnext)) {
-        Type = StyioNodeHint::Fill_Forward;
-        FHasArgs = true; }
+        Type = StyioNodeHint::Fill_Forward; }
 
     ForwardAST(
       std::unique_ptr<VarTupleAST> vars,
@@ -1815,8 +1800,7 @@ class ForwardAST : public StyioAST {
       FillArgs(std::move(vars)),
       ExtraEq(std::move(value)),
       ThenExpr(std::move(whatnext)) {
-        Type = StyioNodeHint::Fill_If_Equal_To_Forward;
-        FHasArgs = true; }
+        Type = StyioNodeHint::Fill_If_Equal_To_Forward; }
 
     ForwardAST(
       std::unique_ptr<VarTupleAST> vars,
@@ -1825,8 +1809,7 @@ class ForwardAST : public StyioAST {
       FillArgs(std::move(vars)),
       ExtraIsin(std::move(isin)),
       ThenExpr(std::move(whatnext)) {
-        Type = StyioNodeHint::Fill_If_Is_in_Forward;
-        FHasArgs = true; }
+        Type = StyioNodeHint::Fill_If_Is_in_Forward; }
 
     
     ForwardAST(
@@ -1834,27 +1817,38 @@ class ForwardAST : public StyioAST {
       std::unique_ptr<CasesAST> cases): 
       FillArgs(std::move(vars)),
       ThenExpr(std::move(cases)) {
-        Type = StyioNodeHint::Fill_Cases_Forward;
-        FHasArgs = true; }
+        Type = StyioNodeHint::Fill_Cases_Forward; }
 
     ForwardAST(
       std::unique_ptr<VarTupleAST> vars,
       std::unique_ptr<CondFlowAST> condflow): 
       FillArgs(std::move(vars)),
-      ExtraCond(std::move(condflow)) {
-        if ((condflow -> WhatFlow) == StyioNodeHint::CondFlow_True) {
-          Type = StyioNodeHint::Fill_If_True_Forward; }
-        else if ((condflow -> WhatFlow) == StyioNodeHint::CondFlow_False) {
-          Type = StyioNodeHint::Fill_If_False_Forward; }
-        else {
-          Type = StyioNodeHint::Fill_If_Both_Forward; }
-        FHasArgs = true; }
+      ThenCondFlow(std::move(condflow)) {
+      switch (condflow -> WhatFlow)
+      {
+      case StyioNodeHint::CondFlow_True:
+        Type = StyioNodeHint::Fill_If_True_Forward;
+        break;
+
+      case StyioNodeHint::CondFlow_False:
+        Type = StyioNodeHint::Fill_If_False_Forward;
+        break;
+
+      case StyioNodeHint::CondFlow_Both:
+        Type = StyioNodeHint::Fill_If_Both_Forward;
+        break;
+      
+      default:
+        break;
+      }
+    }
 
     StyioNodeHint hint() {
       return Type; }
 
     bool hasArgs() {
-      return FHasArgs; }
+      if (FillArgs) { return true; }
+      else { return false; } }
 
     const std::unique_ptr<VarTupleAST>& getArgs() {
       return FillArgs; }
@@ -1915,67 +1909,123 @@ class InfiniteAST : public StyioAST {
 };
 
 /*
+  MatchCases
+*/
+class MatchCasesAST : public StyioAST {
+  std::shared_ptr<StyioAST> Value; 
+  std::shared_ptr<CasesAST> Cases;
+
+  public:
+    /* v ?= { _ => ... } */
+    MatchCasesAST(
+      std::shared_ptr<StyioAST> value,
+      std::shared_ptr<CasesAST> cases): 
+      Value(value),
+      Cases(cases) {}
+
+    StyioNodeHint hint() {
+      return StyioNodeHint::MatchCases; }
+
+    /* toString */
+    std::string toString(int indent = 0, bool colorful = false);
+    std::string toStringInline(int indent = 0, bool colorful = false);
+
+    /* toLLVM */
+    llvm::Value* toLLVM(StyioToLLVM* generator);
+};
+
+/*
+  Anonymous Function
+    [+] Arguments
+    [?] ExtraCheck
+    [+] ThenExpr
+*/
+class AnonyFuncAST : public StyioAST {
+  private:
+    std::unique_ptr<VarTupleAST> Args;
+    std::unique_ptr<StyioAST> ExtraCheck;
+    std::unique_ptr<StyioAST> ThenExpr;
+
+  public:
+    /* #() => Then */
+    AnonyFuncAST(
+      std::unique_ptr<VarTupleAST> vars,
+      std::unique_ptr<StyioAST> then): 
+      Args(std::move(vars)),
+      ThenExpr(std::move(then)) {}
+
+    /* #() ?= CheckEqual => Then */
+    /* #() ?^ CheckIsIn => Then */
+    AnonyFuncAST(
+      std::unique_ptr<VarTupleAST> vars,
+      std::unique_ptr<StyioAST> extra,
+      std::unique_ptr<StyioAST> then): 
+      Args(std::move(vars)),
+      ExtraCheck(std::move(extra)),
+      ThenExpr(std::move(then)) {}
+
+    StyioNodeHint hint() {
+      return StyioNodeHint::AnonyFunc; }
+
+    /* toString */
+    std::string toString(int indent = 0, bool colorful = false);
+    std::string toStringInline(int indent = 0, bool colorful = false);
+
+    /* toLLVM */
+    llvm::Value* toLLVM(StyioToLLVM* generator);
+};
+
+/*
   FuncAST: Function
 */
 class FuncAST : public StyioAST {
-  std::unique_ptr<IdAST> FName;
-  std::shared_ptr<DTypeAST> FRetType;
+  std::unique_ptr<IdAST> Name;
+  std::shared_ptr<DTypeAST> RetType;
   std::unique_ptr<ForwardAST> Forward;
 
-  bool FWithName;
-  bool FWithType;
-  bool FIsFinal;
+  bool isFinal;
 
   public:
     FuncAST(
       std::unique_ptr<ForwardAST> forward,
       bool isFinal) :  
       Forward(std::move(forward)),
-      FIsFinal(isFinal) {
-        FWithName = false;
-      }
+      isFinal(isFinal) {}
 
     FuncAST(
       std::unique_ptr<IdAST> name, 
       std::unique_ptr<ForwardAST> forward,
       bool isFinal) : 
-      FName(std::move(name)), 
+      Name(std::move(name)), 
       Forward(std::move(forward)),
-      FIsFinal(isFinal) {
-        FWithName = true;
-      }
+      isFinal(isFinal) {}
 
     FuncAST(
       std::unique_ptr<IdAST> name, 
       std::shared_ptr<DTypeAST> type,
       std::unique_ptr<ForwardAST> forward,
       bool isFinal): 
-      FName(std::move(name)), 
-      FRetType(std::move(type)),
+      Name(std::move(name)), 
+      RetType(std::move(type)),
       Forward(std::move(forward)),
-      FIsFinal(isFinal) {
-        FWithName = true;
-        FWithType = true;
-      }
+      isFinal(isFinal) {}
 
     StyioNodeHint hint() {
       return StyioNodeHint::Func;
     }
 
-    bool hasName() {
-      return FWithName; }
-
     std::string getName() {
-      return FName -> getIdStr(); }
+      return Name -> getIdStr(); }
 
     bool hasRetType() {
-      return FWithType; }
+      if (RetType) { return true; }
+      else { return false; } }
 
     const std::shared_ptr<DTypeAST>& getRetType() {
-      return FRetType; }
+      return RetType; }
 
     const std::string& getRetTypeStr() {
-      return FRetType -> getTypeStr(); }
+      return RetType -> getTypeStr(); }
 
     const std::unique_ptr<ForwardAST>& getForward() const {
       return Forward; }
@@ -2037,14 +2087,10 @@ class IterAST : public StyioAST {
       std::unique_ptr<StyioAST> collection,
       std::unique_ptr<StyioAST> forward): 
       Collection(std::move(collection)),
-      Forward(std::move(forward))
-      {
-
-      }
+      Forward(std::move(forward)) {}
 
     StyioNodeHint hint() {
-      return StyioNodeHint::Iterator;
-    }
+      return StyioNodeHint::Iterator; }
 
     std::string toString(int indent = 0, bool colorful = false);
 

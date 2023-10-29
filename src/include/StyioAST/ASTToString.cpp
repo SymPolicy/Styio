@@ -565,7 +565,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
   case StyioNodeHint::If_True_Forward:
     {
       return reprNodeType(hint(), colorful) + std::string(" {\n") 
-      + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
+      + make_padding(indent, " ") + ThenCondFlow -> toString(indent + 1, colorful)
       + "}";
     }
     // You should NOT reach this line!
@@ -573,7 +573,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
   case StyioNodeHint::If_False_Forward:
     {
       return reprNodeType(hint(), colorful) + std::string(" {\n") 
-      + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
+      + make_padding(indent, " ") + ThenCondFlow -> toString(indent + 1, colorful)
       + "}";
     }
     // You should NOT reach this line!
@@ -582,7 +582,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
   case StyioNodeHint::If_Both_Forward:
     {
       return reprNodeType(hint(), colorful) + std::string(" {\n") 
-      + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
+      + make_padding(indent, " ") + ThenCondFlow -> toString(indent + 1, colorful)
       + "}";
     }
     // You should NOT reach this line!
@@ -629,7 +629,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
     {
       return reprNodeType(hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + FillArgs -> toString(indent + 1, colorful) + "\n"
-      + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
+      + make_padding(indent, " ") + ThenCondFlow -> toString(indent + 1, colorful)
       + "}";
     }
     // You should NOT reach this line!
@@ -638,7 +638,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
     {
       return reprNodeType(hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + FillArgs -> toString(indent + 1, colorful) + "\n"
-      + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
+      + make_padding(indent, " ") + ThenCondFlow -> toString(indent + 1, colorful)
       + "}";
     }
     // You should NOT reach this line!
@@ -648,7 +648,7 @@ std::string ForwardAST::toString(int indent, bool colorful) {
     {
       return reprNodeType(hint(), colorful) + std::string(" {\n") 
       + make_padding(indent, " ") + FillArgs -> toString(indent + 1, colorful) + "\n"
-      + make_padding(indent, " ") + ExtraCond -> toString(indent + 1, colorful)
+      + make_padding(indent, " ") + ThenCondFlow -> toString(indent + 1, colorful)
       + "}";
     }
     // You should NOT reach this line!
@@ -694,12 +694,12 @@ std::string InfiniteAST::toString(int indent, bool colorful) {
 std::string FuncAST::toString(int indent, bool colorful) {
   std::string extra = "";
 
-  if (FIsFinal) { extra = " (Final) "; } else { extra = " (Flex) "; }
+  if (isFinal) { extra = " (Final) "; } else { extra = " (Flex) "; }
 
   std::string output = reprNodeType(hint(), colorful, extra) + "{\n";
-  output += make_padding(indent, " ") + "Name: " + FName -> toStringInline(indent + 1, colorful) + "\n";
+  output += make_padding(indent, " ") + "Name: " + Name -> toStringInline(indent + 1, colorful) + "\n";
   
-  if (FWithType) { output += make_padding(indent, " ") + "Type: " + FRetType -> toStringInline(indent + 1, colorful) + "\n"; }
+  if (FWithType) { output += make_padding(indent, " ") + "Type: " + RetType -> toStringInline(indent + 1, colorful) + "\n"; }
   
   output += make_padding(indent, " ") + Forward -> toString(indent + 1, colorful);
   output += "}";

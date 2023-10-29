@@ -35,7 +35,7 @@ std::unique_ptr<IdAST> parse_id (
   do {
     idStr += context -> get_cur_char();
     context -> move(1);
-  } while (isalnum((context -> get_cur_char())) 
+  } while (isalnum((context -> get_cur_char()))
     || context -> check('_'));
 
   return std::make_unique<IdAST>(idStr);
@@ -174,7 +174,7 @@ std::unique_ptr<FmtStrAST> parse_fmt_str (
         context -> move(2); }
       else {
         std::string errmsg = std::string("Expecting: ") + "}" + "\n" 
-          + "But Got: " + context -> code.at(context -> pos);
+          + "But Got: " + context -> get_cur_char();
         throw StyioSyntaxError(errmsg);
       }
     }
@@ -265,13 +265,13 @@ std::unique_ptr<FillArgAST> parse_fill_arg (
       name); }  
 }
 
-std::unique_ptr<VarTupleAST> parse_vars_tuple (
+std::unique_ptr<VarTupleAST> parse_var_tuple (
   std::shared_ptr<StyioContext> context) {
   std::vector<std::unique_ptr<VarAST>> vars;
 
   /*
     Danger!
-    when entering parse_vars_tuple(), 
+    when entering parse_var_tuple(), 
     the context -> get_cur_char() must be (
     this line will drop the next 1 character anyway!
   */
@@ -294,8 +294,6 @@ std::unique_ptr<VarTupleAST> parse_vars_tuple (
         vars.push_back(std::move(parse_fill_arg(context))); }
     }
   } while (context -> check_drop(','));
-
-  context -> drop_all_spaces_comments();
 
   context -> find_drop_panic(')');
 
@@ -1839,60 +1837,62 @@ std::unique_ptr<StyioAST> parse_cond_flow (
   throw StyioParseError(errmsg);
 }
 
-std::unique_ptr<StyioAST> parse_pipeline (
+std::unique_ptr<StyioAST> parse_func (
   std::shared_ptr<StyioContext> context) {
-  /*
-    Danger!
-    when entering parse_pipeline(), 
-    the context -> get_cur_char() must be #
-    this line will drop the next 1 character anyway!
-  */
+  /* this line drops cur_char without checking */
   context -> move(1);
-
   context -> drop_white_spaces();
 
-  if (isalpha(context -> get_cur_char()) || context -> check('_')) 
+  if (context -> check_var())
   {
-    std::unique_ptr<IdAST> name = parse_id(context);
+    auto name = parse_id(context);
 
     context -> drop_all_spaces_comments();
 
     if (context -> check_drop(':')) 
     {
-      if (context -> check_drop('=')) {
+      if (context -> check_drop('=')) 
+      {
         context -> drop_all_spaces();
 
         return std::make_unique<FuncAST>(
           std::move(name),
           parse_forward(context, true),
-          true);
+          true
+        );
       }
+      else
+      {
+        context -> drop_all_spaces_comments();
 
-      context -> drop_all_spaces_comments();
+        auto dtype = parse_dtype(context);
 
-      std::shared_ptr<DTypeAST> dtype = parse_dtype(context);
+        context -> drop_all_spaces_comments();
 
-      context -> drop_all_spaces_comments();
+        if (context -> check_drop(':')) 
+        {
+          if (context -> check_drop('=')) 
+          {
+            context -> drop_all_spaces_comments();
 
-      if (context -> check_drop(':')) {
-        if (context -> check_drop('=')) {
+            return std::make_unique<FuncAST>(
+              std::move(name),
+              std::move(dtype),
+              parse_forward(context, true),
+              true
+            );
+          }
+        }
+        else if (context -> check_drop('=')) 
+        {
           context -> drop_all_spaces_comments();
 
           return std::make_unique<FuncAST>(
             std::move(name),
             std::move(dtype),
             parse_forward(context, true),
-            true);
+            false);
         }
-      }
-      else if (context -> check_drop('=')) {
-        context -> drop_all_spaces_comments();
-
-        return std::make_unique<FuncAST>(
-          std::move(name),
-          std::move(dtype),
-          parse_forward(context, true),
-          false);
       }
 
       std::string errmsg = std::string("parse_pipeline() // Inheritance, Type Hint.");
@@ -1906,7 +1906,8 @@ std::unique_ptr<StyioAST> parse_pipeline (
         return std::make_unique<FuncAST>(
           std::move(name),
           parse_forward(context, true),
-          false);
+          false
+        );
       }
       else 
       {
@@ -1915,7 +1916,8 @@ std::unique_ptr<StyioAST> parse_pipeline (
         return std::make_unique<FuncAST>(
           std::move(name),
           parse_forward(context, true),
-          false);
+          false
+        );
       }
     }
   }
@@ -1924,24 +1926,30 @@ std::unique_ptr<StyioAST> parse_pipeline (
   return parse_forward(context, true);
 }
 
-std::unique_ptr<ForwardAST> parse_forward (
+/*
+  Return:
+    [?] AnonyFunc
+    [?] MatchCases
+*/
+std::unique_ptr<StyioAST> parse_forward (
   std::shared_ptr<StyioContext> context,
-  bool ispipe) {
-  std::unique_ptr<ForwardAST> output;
+  bool is_func) {
+  std::unique_ptr<StyioAST> output;
 
-  std::unique_ptr<VarTupleAST> tmpvars;
-  bool hasVars = false;
+  std::unique_ptr<VarTupleAST> args;
+  bool has_args = false;
 
-  if (ispipe) {
+  if (is_func) {
     if (context -> check('(')) {
-      tmpvars = parse_vars_tuple(context);
-      hasVars = true; } }
+      args = parse_var_tuple(context);
+      has_args = true; } }
   else if (context -> check_drop('#')) {
-    context -> drop_white_spaces();
+    is_anonymous = true;
 
+    context -> drop_white_spaces();
     if (context -> check('(')) {
-      tmpvars = parse_vars_tuple(context);
-      hasVars = true; }
+      args = parse_var_tuple(context);
+      has_args = true; }
     else {
       std::string errmsg = std::string("parse_forward() // Expecting ( after #, but got ") + char(context -> get_cur_char());
       throw StyioSyntaxError(errmsg); } }
@@ -1973,29 +1981,32 @@ std::unique_ptr<ForwardAST> parse_forward (
       switch (context -> get_cur_char())
       {
       /*
-        ?= Value
+        ?= value
       */
       case '=':
         {
           context -> move(1);
+          context -> drop_white_spaces();
 
-          context -> drop_all_spaces();
+          auto cases = parse_cases(context);
 
-          if (context -> check_drop('{')) {
-            if (hasVars) {
-              output = std::make_unique<ForwardAST>(
-                std::move(tmpvars), 
-                parse_cases(context)); }
-            else {
-              output = std::make_unique<ForwardAST>(
-                parse_cases(context)); } }
+          /* #(args) ?= cases */
+          if (context -> check('{')) {
+            output = std::make_unique<MatchCasesAST>(
+              args,
+              cases
+            );
+
+            return output;
+          }
+          /* #(args) ?= value => then */
           else {
-            std::unique_ptr<CheckEqAST> value;
+            std::unique_ptr<CheckEqAST> extra_check;
             std::unique_ptr<StyioAST> then;
 
-            context -> drop_white_spaces();
-            
-            value = std::make_unique<CheckEqAST>(parse_expr(context));
+            extra_check = std::make_unique<CheckEqAST>(
+              parse_expr(context)
+            );
 
             context -> drop_all_spaces();
 
@@ -2003,19 +2014,24 @@ std::unique_ptr<ForwardAST> parse_forward (
               context -> drop_all_spaces();
 
               if (context -> check('{')) { 
-                then = parse_block(context); }
+                then = parse_block(context);
+              }
               else {
-                then = parse_expr(context); }
+                then = parse_expr(context);
+              }
 
-              if (hasVars) {
+              if (has_args) {
                 output = std::make_unique<ForwardAST>(
-                  std::move(tmpvars), 
-                  std::move(value), 
-                  std::move(then)); }
+                  std::move(args), 
+                  std::move(extra_check), 
+                  std::move(then)); 
+              }
               else {
                 output = std::make_unique<ForwardAST>(
-                  std::move(value), 
-                  std::move(then)); } }
+                  std::move(extra_check), 
+                  std::move(then)); 
+              }
+            }
             else {
               std::string errmsg = std::string("parse_forward() // Expecting `=>` after `?= value`, but got ") + char(context -> get_cur_char());
                 throw StyioSyntaxError(errmsg); }
@@ -2120,9 +2136,9 @@ std::unique_ptr<ForwardAST> parse_forward (
             else {
               nextExpr = parse_expr(context); }
 
-            if (hasVars) {
+            if (has_args) {
               output = std::make_unique<ForwardAST>(
-                std::move(tmpvars), 
+                std::move(args), 
                 std::make_unique<CheckIsInAST>(std::move(iterable)), 
                 std::move(nextExpr)); }
             else {
@@ -2146,9 +2162,9 @@ std::unique_ptr<ForwardAST> parse_forward (
       default:
         context -> move(-1);
 
-        if (hasVars) {
+        if (has_args) {
           output = std::make_unique<ForwardAST>(
-            std::move(tmpvars),
+            std::move(args),
             parse_cond_flow(context)); }
         else {
           output = std::make_unique<ForwardAST>(
@@ -2174,17 +2190,17 @@ std::unique_ptr<ForwardAST> parse_forward (
       context -> drop_all_spaces();
 
       if (context -> check('{')) {
-        if (hasVars) {
+        if (has_args) {
           output = std::make_unique<ForwardAST>(
-            std::move(tmpvars), 
+            std::move(args), 
             parse_block(context)); }
         else {
           output = std::make_unique<ForwardAST>(
             parse_block(context)); } }
       else {
-        if (hasVars) {
+        if (has_args) {
           output = std::make_unique<ForwardAST>(
-            std::move(tmpvars), 
+            std::move(args), 
             parse_expr(context)); }
         else {
           output = std::make_unique<ForwardAST>(
@@ -2199,9 +2215,9 @@ std::unique_ptr<ForwardAST> parse_forward (
   */
   case '{':
     {
-      if (hasVars) {
+      if (has_args) {
         output = std::make_unique<ForwardAST>(
-          std::move(tmpvars), 
+          std::move(args), 
           parse_block(context)); }
       else {
         output = std::make_unique<ForwardAST>(
@@ -2215,18 +2231,6 @@ std::unique_ptr<ForwardAST> parse_forward (
 
     break;
   }
-
-  // context -> drop_all_spaces_comments();
-
-  // while (context -> check_and_drop("|>")) {
-  //   context -> drop_spaces();
-
-  //   output = std::make_unique<FromToAST>(
-  //     std::move(output),
-  //     parse_forward(context));
-
-  //   context -> drop_all_spaces_comments(); 
-  // }
 
   return output;
 }
@@ -2456,7 +2460,7 @@ std::unique_ptr<StyioAST> parse_stmt (
     break;
 
   case '#':
-    return parse_pipeline(context);
+    return parse_func(context);
 
     // You should NOT reach this line!
     break;
@@ -2497,13 +2501,10 @@ std::unique_ptr<StyioAST> parse_stmt (
 
         return std::make_unique<FromToAST>(
           std::move(resources), 
-          parse_block(context));
-      }
-      else
-      {
-        return resources;
-      };
-    };
+          parse_block(context)); }
+      else {
+        return resources; }
+    }
 
     // You should NOT reach this line!
     break;

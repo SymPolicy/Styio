@@ -9,6 +9,8 @@ class StyioContext {
     std::string code;
     int pos;
 
+    std::shared_ptr<StyioAST> ast;
+
     std::shared_ptr<StyioContext> parent;
     std::vector<std::shared_ptr<StyioContext>> children;
 
@@ -20,7 +22,7 @@ class StyioContext {
         /* Construction */ }
 
     StyioContext(
-      std::shared_ptr<StyioContext> parent): 
+      StyioContext* parent): 
       parent(parent) {
       code = parent -> getCode();
       pos = parent -> getPos(); }
@@ -39,7 +41,7 @@ class StyioContext {
       else { return false; } }
 
     /* Tree: getChild() */
-    static getChild() {
+    std::shared_ptr<StyioContext> getChild() {
       return std::make_shared<StyioContext>(this); }
 
     /* Get Current Character */
@@ -255,7 +257,12 @@ class StyioContext {
             throw StyioSyntaxError(errmsg); } } }
     }
 
-    /* Check(Binary) */
+    /* Check isalpha or _ */
+    bool check_var() {
+      return isalpha(code.at(pos)) || (code.at(pos) == '_');
+    }
+
+    /* Check Binary Operator */
     bool check_binary() {
       if (code.at(pos) == '+' || code.at(pos) == '-' 
         || code.at(pos) == '*' || code.at(pos) == '%') { 
@@ -422,9 +429,9 @@ std::unique_ptr<StyioAST> parse_list_op (
 );
 
 /*
-  parse_vars_tuple
+  parse_var_tuple
 */
-std::unique_ptr<VarTupleAST> parse_vars_tuple (
+std::unique_ptr<VarTupleAST> parse_var_tuple (
   std::shared_ptr<StyioContext> context
 );
 
@@ -480,7 +487,7 @@ std::unique_ptr<FinalBindAST> parse_bind_final (
 /*
   parse_pipeline
 */
-std::unique_ptr<StyioAST> parse_pipeline (
+std::unique_ptr<StyioAST> parse_func (
   std::shared_ptr<StyioContext> context
 );
 
@@ -564,7 +571,7 @@ std::unique_ptr<StyioAST> parse_block (
   std::shared_ptr<StyioContext> context
 );
 
-std::unique_ptr<ForwardAST> parse_forward (
+std::unique_ptr<StyioAST> parse_forward (
   std::shared_ptr<StyioContext> context,
   bool ispipe = false
 );

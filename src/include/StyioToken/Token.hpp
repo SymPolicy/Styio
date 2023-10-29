@@ -168,6 +168,8 @@ enum class StyioNodeHint {
    */
 
   Func,
+  AnonyFunc,
+  MatchCases,
   Struct,
   Eval,
   // -----------------

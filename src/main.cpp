@@ -54,10 +54,6 @@ std::string read_styio_file(const char* filename) {
 int main(int argc, char* argv[]) {
   // std::copy(argv, argv + argc, std::ostream_iterator<char *>(std::cout, "\n"));
 
-  // std::unique_ptr<llvm::LLVMContext> llvm_context = std::make_unique<llvm::LLVMContext>();
-  // std::unique_ptr<llvm::Module> llvm_module = std::make_unique<llvm::Module>("styio", *llvm_context);
-  // std::unique_ptr<llvm::IRBuilder<>> llvm_builder = std::make_unique<llvm::IRBuilder<>>(*llvm_context);
-  
   auto styio_code = read_styio_file(argv[1]);
   auto styio_context = std::make_shared<StyioContext>(styio_code);
   auto styio_program = parse_main_block(styio_context);
