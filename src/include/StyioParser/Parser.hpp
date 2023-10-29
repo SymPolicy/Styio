@@ -6,53 +6,67 @@ class StyioContext;
 
 class StyioContext {
   private:
+    std::string code;
+    int pos;
+
     std::shared_ptr<StyioContext> parent;
     std::vector<std::shared_ptr<StyioContext>> children;
 
   public:
-    std::string code;
-    int pos;
-
     StyioContext(
       const std::string& text) :
       code(text), 
       pos(0) {
-        /* Construction */
-      }
+        /* Construction */ }
 
     StyioContext(
       std::shared_ptr<StyioContext> parent): 
       parent(parent) {
-        /* Construction */
-      }
+      code = parent -> getCode();
+      pos = parent -> getPos(); }
 
+    /* Get `code` */
+    const std::string&  getCode() {
+      return code; }
+
+    /* Get `pos` */
+    int getPos() {
+      return pos; }
+
+    /* Tree: isRoot() */
     bool isRootCtx() {
       if (parent) { return true; }
       else { return false; } }
 
+    /* Tree: getChild() */
+    static getChild() {
+      return std::make_shared<StyioContext>(this); }
+
+    /* Get Current Character */
     char& get_cur_char() {
       return code.at(pos); }
 
-    /* 
-      + n => move forward n steps
-      - n => move backward n steps
-    */
+    // + n => move forward n steps
+    // - n => move backward n steps
     void move(
       int steps
     ) {
       pos += steps; }
 
+    /* Check Value */
     bool check(
       char value
     ) {
       return (code.at(pos)) == value; }
 
+    /* Check Value */
     bool check(
       const std::string& value
     ) {
       return (code.substr(pos, value.size())) == value; 
     }
 
+    /* Move Until */
     void move_until(
       char value
     ) {
@@ -60,6 +74,7 @@ class StyioContext {
         move(1); }
     }
 
+    /* Check & Drop */
     bool check_drop(
       char value
     ) {
@@ -70,6 +85,7 @@ class StyioContext {
         return false; }
     }
 
+    /* Check & Drop */
     bool check_drop(
       const std::string& value
     ) {
@@ -80,6 +96,7 @@ class StyioContext {
         return false; }
     }
 
+    /* Find & Drop */
     bool find_drop(
       char value
     ) {
@@ -101,6 +118,7 @@ class StyioContext {
       return false;
     }
 
+    /* Find & Drop */
     bool find_drop(
       std::string value
     ) {
@@ -120,6 +138,7 @@ class StyioContext {
             return false; } } }
     }
 
+    /* Pass Over */
     void pass_over (
       char value
     ) {
@@ -132,6 +151,7 @@ class StyioContext {
           move(1); } }
     }
 
+    /* Pass Over */
     void pass_over (
       const std::string& value
     ) {
@@ -144,6 +164,7 @@ class StyioContext {
           move(1); } }
     }
 
+    /* Peak Check */
     bool peak_check(
       int steps,
       char value
@@ -151,16 +172,19 @@ class StyioContext {
       return (code.at(pos + steps) == value);
     }
 
+    /* Drop White Spaces */
     void drop_white_spaces() {
       while (check(' ')) {
         move(1); } 
     }
 
+    /* Drop Spaces */
     void drop_all_spaces() {
       while (isspace(code.at(pos))) {
         move(1); } 
     }
 
+    /* Drop Spaces & Comments */
     void drop_all_spaces_comments() {
       /* ! No Boundary Check ! */
       while (true) {
@@ -174,6 +198,7 @@ class StyioContext {
           break; } }
     }
 
+    /* Match(Next) -> Panic */
     bool match_panic(
       char value
     ) {
@@ -186,6 +211,7 @@ class StyioContext {
       throw StyioSyntaxError(errmsg);
     }
 
+    /* Find & Drop -> Panic */
     bool find_drop_panic(
       char value
     ) {
@@ -207,6 +233,7 @@ class StyioContext {
             throw StyioSyntaxError(errmsg); } } }
     }
 
+    /* Find & Drop -> Panic */
     bool find_panic(
       const std::string& value
     ) {
@@ -228,9 +255,8 @@ class StyioContext {
             throw StyioSyntaxError(errmsg); } } }
     }
 
+    /* Check(Binary) */
     bool check_binary() {
-      drop_all_spaces_comments();
-
       if (code.at(pos) == '+' || code.at(pos) == '-' 
         || code.at(pos) == '*' || code.at(pos) == '%') { 
         return true; }

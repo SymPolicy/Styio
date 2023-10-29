@@ -16,29 +16,6 @@
 #include "../StyioUtil/Util.hpp"
 #include "Parser.hpp"
 
-
-/*
-  Basic Utilities
-*/
-
-inline bool check_binop_token (
-  std::shared_ptr<StyioContext> context) {
-  int pos = context -> pos;
-  while (isspace((context -> code.at(pos)))) {
-    pos += 1; }
-
-  char the_char = context -> code.at(pos);
-  if (the_char == '+' || the_char == '-' || the_char == '*' || the_char == '%') { 
-    return true; }
-  else if (the_char == '/') {
-    if ((context -> code.at(pos + 1)) == '*') { 
-      return false; } 
-    else { 
-      return true; } }
-
-  return false;
-}
-
 /*
   =================
   - id
