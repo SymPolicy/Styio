@@ -2733,17 +2733,11 @@ std::unique_ptr<StyioAST> parse_block (
 }
 
 std::unique_ptr<MainBlockAST> parse_main_block (
-  std::string styio_code 
+  std::shared_ptr<StyioContext> context
 ) {
-  auto styio_code_context = std::make_shared<StyioContext>(styio_code);
-  // struct StyioCodeContext styio_code_context = { styio_context, 0 };
-  // StyioCodeContext* ctx_ptr = &styio_code_context;
-  // char context -> get_cur_char() = styio_code.at(0);
-
   std::vector<std::unique_ptr<StyioAST>> stmtBuffer;
-
   while (true) {
-    std::unique_ptr<StyioAST> stmt = parse_stmt(styio_code_context);
+    std::unique_ptr<StyioAST> stmt = parse_stmt(context);
 
     if ((stmt -> hint()) == StyioNodeHint::End) { 
       break; }

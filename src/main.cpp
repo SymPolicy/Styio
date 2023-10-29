@@ -33,20 +33,22 @@ void show_cwd()
 }
 
 std::string read_styio_file(const char* filename) {
+  std::ifstream file ( filename );
+  
+
   if (std::filesystem::exists(filename)) {
     std::ifstream file(filename);
-    std::string contents;
+    if ( !file.is_open() ) { printf("Failed: Can't open file %s.\n", filename); }
 
-    std::string str;
-    while (std::getline(file, str)) {
-      contents += str;
-      contents.push_back('\n'); }
-    contents += EOF;
-
-    // printf("%s", contents.c_str());
-    return contents; }
+    std::string code;
+    std::string line;
+    while (std::getline(file, line)) {
+      code += line;
+      code.push_back('\n'); }
+    code += EOF;
+    return code; }
   else {
-    printf("Failed: Can't read file %s", filename);
+    printf("Failed: Can't read file %s.", filename);
   }
 
   return std::string("...");
@@ -58,11 +60,10 @@ int main(int argc, char* argv[]) {
   // std::unique_ptr<llvm::LLVMContext> llvm_context = std::make_unique<llvm::LLVMContext>();
   // std::unique_ptr<llvm::Module> llvm_module = std::make_unique<llvm::Module>("styio", *llvm_context);
   // std::unique_ptr<llvm::IRBuilder<>> llvm_builder = std::make_unique<llvm::IRBuilder<>>(*llvm_context);
-
-  std::ifstream file ( argv[1] );
-  if ( !file.is_open() ) { printf("Failed: Can't open file %s.\n", argv[1]); }
   
-  auto styio_program = parse_main_block(read_styio_file(argv[1]));
+  auto styio_code = read_styio_file(argv[1]);
+  auto styio_context = std::make_shared<StyioContext>(styio_code);
+  auto styio_program = parse_main_block(styio_context);
 
   auto generator = StyioToLLVM();
   generator.visit_main(&*styio_program);

@@ -544,6 +544,8 @@ std::unique_ptr<ForwardAST> parse_forward (
 );
 
 
-std::unique_ptr<MainBlockAST> parse_main_block (std::string styio_code);
+std::unique_ptr<MainBlockAST> parse_main_block (
+  std::shared_ptr<StyioContext> context
+);
 
 #endif
