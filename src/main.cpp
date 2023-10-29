@@ -33,9 +33,6 @@ void show_cwd()
 }
 
 std::string read_styio_file(const char* filename) {
-  std::ifstream file ( filename );
-  
-
   if (std::filesystem::exists(filename)) {
     std::ifstream file(filename);
     if ( !file.is_open() ) { printf("Failed: Can't open file %s.\n", filename); }
