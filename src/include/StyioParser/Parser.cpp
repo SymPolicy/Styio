@@ -35,7 +35,7 @@ std::unique_ptr<IdAST> parse_id (
   do {
     name += context -> get_cur_char();
     context -> move(1);
-  } while (context -> check_isdigit());
+  } while (context -> check_isalnum_());
 
   return IdAST::make(name);
 }
@@ -50,7 +50,7 @@ std::unique_ptr<IntAST> parse_int (
     context -> move(1);
   } while (context -> check_isdigit());
 
-  IntAST::make(digits);
+  return IntAST::make(digits);
 }
 
 std::unique_ptr<StyioAST> parse_int_or_float (
@@ -209,19 +209,19 @@ std::unique_ptr<StyioAST> parse_path_or_link (
   return output;
 }
 
-std::shared_ptr<DTypeAST> parse_dtype (
+std::unique_ptr<DTypeAST> parse_dtype (
   std::shared_ptr<StyioContext> context) {
   std::string text = "";
 
-  if (isalpha((context -> get_cur_char())) || context -> check('_')) {
+  if (context -> check_isal_()) {
     text += context -> get_cur_char();
     context -> move(1); }
 
-  while (isalnum((context -> get_cur_char())) || context -> check('_')) {
+  while (context -> check_isalnum_()) {
     text += context -> get_cur_char();
     context -> move(1); }
 
-  return std::make_shared<DTypeAST>(text);
+  return DTypeAST::make(text);
 }
 
 /*
@@ -234,13 +234,13 @@ std::shared_ptr<DTypeAST> parse_dtype (
 std::shared_ptr<ArgAST> parse_argument (
   std::shared_ptr<StyioContext> context) {
   std::string name = "";
-  /* it includes cur_char in the idStr without checking */
+  /* it includes cur_char in the name without checking */
   do {
     name += context -> get_cur_char();
     context -> move(1);
-  } while (context -> check_isdigit());
+  } while (context -> check_isalnum_());
 
-  std::shared_ptr<DTypeAST> data_type;
+  std::unique_ptr<DTypeAST> data_type;
   std::unique_ptr<StyioAST> default_value;
   
   context -> drop_white_spaces();
@@ -259,14 +259,14 @@ std::shared_ptr<ArgAST> parse_argument (
 
       return ArgAST::make(
         name, 
-        data_type, 
+        std::move(data_type), 
         std::move(default_value)
       );
     }
     else {
       return ArgAST::make(
         name, 
-        data_type
+        std::move(data_type)
       );
     }
   }
@@ -275,7 +275,7 @@ std::shared_ptr<ArgAST> parse_argument (
   }  
 }
 
-std::unique_ptr<VarTupleAST> parse_var_tuple (
+std::shared_ptr<VarTupleAST> parse_var_tuple (
   std::shared_ptr<StyioContext> context) {
   std::vector<std::shared_ptr<VarAST>> vars;
 
@@ -286,7 +286,7 @@ std::unique_ptr<VarTupleAST> parse_var_tuple (
     context -> drop_all_spaces_comments();
 
     if (context -> check_drop(')')) {
-      return std::make_unique<VarTupleAST>(std::move(vars)); }
+      return std::make_shared<VarTupleAST>(std::move(vars)); }
     else {
       if (context -> check_drop('*')) { 
         if (context -> check_drop('*')) {
@@ -302,7 +302,7 @@ std::unique_ptr<VarTupleAST> parse_var_tuple (
 
   context -> find_drop_panic(')');
 
-  return std::make_unique<VarTupleAST>(std::move(vars));
+  return std::make_shared<VarTupleAST>(vars);
 }
 
 std::unique_ptr<ResourceAST> parse_resources (
@@ -1936,12 +1936,12 @@ std::unique_ptr<StyioAST> parse_func (
     [?] AnonyFunc
     [?] MatchCases
 */
-std::unique_ptr<StyioAST> parse_forward (
+std::unique_ptr<ForwardAST> parse_forward (
   std::shared_ptr<StyioContext> context,
   bool is_func) {
-  std::unique_ptr<StyioAST> output;
+  std::unique_ptr<ForwardAST> output;
 
-  std::unique_ptr<VarTupleAST> args;
+  std::shared_ptr<VarTupleAST> args;
   bool has_args = false;
 
   if (is_func) {
@@ -1995,10 +1995,11 @@ std::unique_ptr<StyioAST> parse_forward (
 
           /* #(args) ?= cases */
           if (context -> check('{')) {
-            output = std::make_unique<MatchCasesAST>(
-              args,
-              cases
-            );
+            if (has_args) {
+              output = std::make_unique<ForwardAST>(std::move(cases));
+            } else {
+              output = std::make_unique<ForwardAST>(std::move(cases));
+            }
 
             return output;
           }
@@ -2350,7 +2351,7 @@ std::unique_ptr<StyioAST> parse_stmt (
           {
             context -> drop_white_spaces();
 
-            std::shared_ptr<DTypeAST> type = parse_dtype(context);
+            auto type = parse_dtype(context);
 
             context -> drop_white_spaces();
 
@@ -2630,14 +2631,13 @@ std::unique_ptr<ExtPackAST> parse_ext_pack (
   return output;
 }
 
-std::unique_ptr<StyioAST> parse_cases (
+std::unique_ptr<CasesAST> parse_cases (
   std::shared_ptr<StyioContext> context) {
   std::vector<std::tuple<std::unique_ptr<StyioAST>, std::unique_ptr<StyioAST>>> pairs;
   std::unique_ptr<StyioAST> _default_stmt;
 
   /*
     Danger!
-    when entering parse_cases(), 
     the context -> get_cur_char() must be {
     this line will drop the next 1 character anyway!
   */

@@ -8,6 +8,15 @@
 #include "../StyioToken/Token.hpp"
 #include "AST.hpp"
 
+/*
+  Styio Naive
+  - BoolAST
+*/
+
+llvm::Value* BoolAST::toLLVM(StyioToLLVM* generator) {
+  return generator -> visit_bool(this);
+}
+
 llvm::Value* TrueAST::toLLVM(StyioToLLVM* generator) {
   return generator -> visit_true(this);
 }
@@ -57,15 +66,15 @@ llvm::Value* VarAST::toLLVM(StyioToLLVM* generator) {
 }
 
 llvm::Value* ArgAST::toLLVM(StyioToLLVM* generator) {
-  return generator -> visit_fill_arg(this);
-}
-
-llvm::Value* OptArgAST::toLLVM(StyioToLLVM* generator) {
   return generator -> visit_arg(this);
 }
 
+llvm::Value* OptArgAST::toLLVM(StyioToLLVM* generator) {
+  return generator -> visit_opt_arg(this);
+}
+
 llvm::Value* OptKwArgAST::toLLVM(StyioToLLVM* generator) {
-  return generator -> visit_kwarg(this);
+  return generator -> visit_opt_kwarg(this);
 }
 
 llvm::Value* VarTupleAST::toLLVM(StyioToLLVM* generator) {

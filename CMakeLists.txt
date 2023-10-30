@@ -51,7 +51,8 @@ add_executable(styio
     src/include/StyioParser/Parser.cpp
     # Visitor (AST)
     src/include/StyioAST/ASTAccept.cpp
-    src/include/StyioVisitors/ASTVisitor.cpp
+    src/include/StyioVisitors/TypeChecker.cpp
+    src/include/StyioVisitors/LLVMGenerator.cpp
     )
 
 # [Styio - ICU4C] Link

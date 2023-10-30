@@ -20,6 +20,8 @@ enum class StyioNodeHint {
   Return,
   Comment,
 
+  Naive,
+
   True,
   False,
 
@@ -44,6 +46,8 @@ enum class StyioNodeHint {
   OptKwArg,
   Var,
   Arg,
+
+  Bool,
   // Integer (General)
   Int,
   // Float (General)

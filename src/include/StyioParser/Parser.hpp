@@ -2,6 +2,9 @@
 #ifndef STYIO_PARSER_H_
 #define STYIO_PARSER_H_
 
+/*
+  Context ~ ForwardAST
+*/
 class StyioContext;
 
 class StyioContext {
@@ -263,7 +266,7 @@ class StyioContext {
     }
 
     /* Check isalpha or isnum or _ */
-    bool check_isdigit() {
+    bool check_isalnum_() {
       return isalnum(code.at(pos)) || (code.at(pos) == '_');
     }
 
@@ -441,7 +444,7 @@ std::unique_ptr<StyioAST> parse_list_op (
 /*
   parse_var_tuple
 */
-std::unique_ptr<VarTupleAST> parse_var_tuple (
+std::shared_ptr<VarTupleAST> parse_var_tuple (
   std::shared_ptr<StyioContext> context
 );
 
@@ -570,7 +573,7 @@ std::unique_ptr<ExtPackAST> parse_ext_pack (std::shared_ptr<StyioContext> contex
 /*
   parse_cases
 */
-std::unique_ptr<StyioAST> parse_cases (
+std::unique_ptr<CasesAST> parse_cases (
   std::shared_ptr<StyioContext> context
 );
 
@@ -581,7 +584,7 @@ std::unique_ptr<StyioAST> parse_block (
   std::shared_ptr<StyioContext> context
 );
 
-std::unique_ptr<StyioAST> parse_forward (
+std::unique_ptr<ForwardAST> parse_forward (
   std::shared_ptr<StyioContext> context,
   bool ispipe = false
 );

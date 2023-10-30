@@ -51,6 +51,22 @@ void StyioToLLVM::show() {
   llvm_module -> print(llvm::errs(), nullptr);
 }
 
+/*
+  StyioNaive
+  [:] BoolAST
+*/
+
+llvm::Value* StyioToLLVM::visit_bool(BoolAST* ast) {
+  if ( ast -> getValue() ) {
+    return llvm::ConstantInt::getTrue(*llvm_context);
+  }
+  else {
+    return llvm::ConstantInt::getFalse(*llvm_context);
+  }
+}
+
+
+
 llvm::Value* StyioToLLVM::visit_true(TrueAST* ast) {
   auto output = llvm::ConstantInt::getTrue(*llvm_context);
   return output;
@@ -114,18 +130,17 @@ llvm::Value* StyioToLLVM::visit_var(VarAST* ast) {
   return output;
 }
 
-llvm::Value* StyioToLLVM::visit_fill_arg(ArgAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
-
-  return output;
-}
-
-llvm::Value* StyioToLLVM::visit_arg(OptArgAST* ast) {
+llvm::Value* StyioToLLVM::visit_arg(ArgAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
-llvm::Value* StyioToLLVM::visit_kwarg(OptKwArgAST* ast) {
+llvm::Value* StyioToLLVM::visit_opt_arg(OptArgAST* ast) {
+  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  return output;
+}
+
+llvm::Value* StyioToLLVM::visit_opt_kwarg(OptKwArgAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
