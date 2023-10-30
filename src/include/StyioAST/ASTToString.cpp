@@ -159,14 +159,6 @@ std::string VarTupleAST::toStringInline(int indent, bool colorful) {
   + " }";
 }
 
-std::string TypedVarAST::toString(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + std::string(" { ") 
-  + Id -> toStringInline(indent + 1, colorful) 
-  + " "
-  + Type -> toStringInline(indent + 1, colorful) 
-  + " }";
-}
-
 std::string IntAST::toString(int indent, bool colorful) {
   return reprNodeType(hint(), colorful) + " { " + Value + " }";
 }
@@ -445,11 +437,21 @@ std::string FlexBindAST::toString(int indent, bool colorful) {
     + "}";
 }
 
+std::string FlexBindAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
+  + " }";
+}
+
 std::string FinalBindAST::toString(int indent, bool colorful) {
   return reprNodeType(hint(), colorful) + std::string(" {\n") 
-    + make_padding(indent, " ") + "Var: " + varId -> toString(indent) + "\n"
-    + make_padding(indent, " ") + "Val: " + valExpr -> toString(indent) 
+    + make_padding(indent, " ") + "Var: " + VarId -> toString(indent) + "\n"
+    + make_padding(indent, " ") + "Val: " + ValExpr -> toString(indent) 
     + "}";
+}
+
+std::string FinalBindAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
+  + " }";
 }
 
 std::string StructAST::toString(int indent, bool colorful) {
@@ -804,4 +806,9 @@ std::string MainBlockAST::toString(int indent, bool colorful) {
   return reprNodeType(hint(), colorful) + std::string(" {\n")
     + stmtStr
     + "}";
+}
+
+std::string MainBlockAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this -> hint(), colorful) + std::string(" { ") 
+  + " }";
 }

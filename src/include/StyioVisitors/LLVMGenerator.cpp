@@ -160,11 +160,6 @@ llvm::Value* StyioToLLVM::visit_type(DTypeAST* ast) {
   return output;
 }
 
-llvm::Value* StyioToLLVM::visit_typed_var(TypedVarAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
-  return output;
-}
-
 llvm::Value* StyioToLLVM::visit_int(IntAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
