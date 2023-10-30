@@ -30,65 +30,54 @@
 
 std::unique_ptr<IdAST> parse_id (
   std::shared_ptr<StyioContext> context) {
-  std::string idStr = "";
-  /* it includes context -> get_cur_char() in the idStr without checking */
+  std::string name = "";
+  /* it will include cur_char in the id without checking */
   do {
-    idStr += context -> get_cur_char();
+    name += context -> get_cur_char();
     context -> move(1);
-  } while (isalnum((context -> get_cur_char()))
-    || context -> check('_'));
+  } while (context -> check_isdigit());
 
-  return std::make_unique<IdAST>(idStr);
+  return IdAST::make(name);
 }
 
 std::unique_ptr<IntAST> parse_int (
   std::shared_ptr<StyioContext> context) {
-  std::string intStr = "";
+  std::string digits = "";
 
-  /* it includes context -> get_cur_char() in the idStr without checking */
-  intStr += context -> get_cur_char();
-  context -> move(1);
+  /* it will include cur_char in the digits without checking */
+  do {
+    digits += context -> get_cur_char();
+    context -> move(1);
+  } while (context -> check_isdigit());
 
-  while (isdigit(context -> get_cur_char())) {
-    intStr += context -> get_cur_char();
-    context -> move(1); };
-
-  return std::make_unique<IntAST>(intStr);
+  IntAST::make(digits);
 }
 
 std::unique_ptr<StyioAST> parse_int_or_float (
   std::shared_ptr<StyioContext> context) {
-  std::unique_ptr<StyioAST> output;
+  std::string digits = "";
+  /* it will include cur_char in the digits without checking */
+  do {
+    digits += context -> get_cur_char();
+    context -> move(1);
+  } while (context -> check_isdigit());
 
-  std::string numStr = "";
+  int f_exp = 0; /* Float Exponent (Base: 10) */
+  if (context -> check('.')) {
+    context -> move(1);
+    if (context -> check_isdigit()) {
+      do {
+        digits += context -> get_cur_char();
+        context -> move(1);
+        f_exp += 1;
+      } while (context -> check_isdigit());
 
-  /*
-    Danger!
-    when entering parse_int_or_float(), 
-    the context -> get_cur_char() must be a digit
-    this line will drop the next 1 character anyway!
-  */
-  numStr += context -> get_cur_char();
-  context -> move(1);
-
-  while (isdigit(context -> get_cur_char())) {
-    numStr += context -> get_cur_char();
-    context -> move(1); };
-
-  if (context -> check_drop('.')) {
-    if (isdigit(context -> get_cur_char())) {
-      numStr += '.';
-
-      while (isdigit(context -> get_cur_char())) {
-        numStr += context -> get_cur_char();
-        context -> move(1); }
-
-      return std::make_unique<FloatAST>(numStr); }
+      return std::make_unique<FloatAST>(digits, f_exp); }
     else {
-      return std::make_unique<IntAST>(numStr); }
-  } 
+      return std::make_unique<IntAST>(digits); }
+  }
 
-  return std::make_unique<IntAST>(numStr); 
+  return std::make_unique<IntAST>(digits); 
 }
 
 std::unique_ptr<StringAST> parse_str (
@@ -122,20 +111,19 @@ std::unique_ptr<StyioAST> parse_char_or_string (
     this line will drop the next 1 character anyway!
   */
   context -> move(1);
-
-  std::string textStr = "";
+  std::string text = "";
   
   while (not context -> check('\'')) {
-    textStr += context -> get_cur_char();
-    context -> move(1); };
+    text += context -> get_cur_char();
+    context -> move(1); }
 
   // eliminate ' at the end
   context -> move(1);
 
-  if (textStr.size() == 1) {
-    return std::make_unique<CharAST>(textStr); }
+  if (text.size() == 1) {
+    return std::make_unique<CharAST>(text); }
   else {
-    return std::make_unique<StringAST>(textStr); }
+    return std::make_unique<StringAST>(text); }
 }
 
 std::unique_ptr<FmtStrAST> parse_fmt_str (
@@ -243,38 +231,55 @@ std::shared_ptr<DTypeAST> parse_dtype (
   - Resources
 */
 
-std::unique_ptr<FillArgAST> parse_fill_arg (
+std::shared_ptr<ArgAST> parse_argument (
   std::shared_ptr<StyioContext> context) {
   std::string name = "";
-  /* it includes context -> get_cur_char() in the idStr without checking */
+  /* it includes cur_char in the idStr without checking */
   do {
     name += context -> get_cur_char();
     context -> move(1);
-  } while (isalnum((context -> get_cur_char())) || context -> check('_'));
+  } while (context -> check_isdigit());
+
+  std::shared_ptr<DTypeAST> data_type;
+  std::unique_ptr<StyioAST> default_value;
   
   context -> drop_white_spaces();
   
   if (context -> check_drop(':')) {
-    context -> drop_all_spaces();
+    context -> drop_white_spaces();
 
-    return std::make_unique<FillArgAST>(
-      name,
-      parse_dtype(context)); }
+    data_type = parse_dtype(context);
+
+    context -> drop_white_spaces();
+
+    if (context -> check_drop('=')) {
+      context -> drop_white_spaces();
+
+      default_value = parse_expr(context);
+
+      return ArgAST::make(
+        name, 
+        data_type, 
+        std::move(default_value)
+      );
+    }
+    else {
+      return ArgAST::make(
+        name, 
+        data_type
+      );
+    }
+  }
   else {
-    return std::make_unique<FillArgAST>(
-      name); }  
+    return ArgAST::make(name);
+  }  
 }
 
 std::unique_ptr<VarTupleAST> parse_var_tuple (
   std::shared_ptr<StyioContext> context) {
-  std::vector<std::unique_ptr<VarAST>> vars;
+  std::vector<std::shared_ptr<VarAST>> vars;
 
-  /*
-    Danger!
-    when entering parse_var_tuple(), 
-    the context -> get_cur_char() must be (
-    this line will drop the next 1 character anyway!
-  */
+  /* cur_char must be `(` which will be removed without checking */
   context -> move(1);
 
   do {
@@ -285,13 +290,13 @@ std::unique_ptr<VarTupleAST> parse_var_tuple (
     else {
       if (context -> check_drop('*')) { 
         if (context -> check_drop('*')) {
-          context -> drop_white_spaces();
-          vars.push_back(std::move(std::make_unique<KwArgAST>(parse_id(context)))); }
+          vars.push_back(std::make_shared<OptKwArgAST>(parse_id(context))); }
         else {
-          vars.push_back(std::move(std::make_unique<ArgAST>(parse_id(context)))); }
+          vars.push_back(std::make_shared<OptArgAST>(parse_id(context))); }
       }
       else{
-        vars.push_back(std::move(parse_fill_arg(context))); }
+        vars.push_back(parse_argument(context));
+      }
     }
   } while (context -> check_drop(','));
 
@@ -528,7 +533,7 @@ std::unique_ptr<StyioAST> parse_id_or_value (
 
   context -> drop_all_spaces_comments();
 
-  if (context -> check_binary()) {
+  if (context -> check_binop()) {
     output = parse_binop_rhs(context, std::move(output)); };
 
   return output;
@@ -602,7 +607,7 @@ std::unique_ptr<StyioAST> parse_expr (
     
     context -> drop_all_spaces_comments();
 
-    if (context -> check_binary()) {
+    if (context -> check_binop()) {
       output = parse_binop_rhs(context, std::move(output)); }
 
     return output;
@@ -613,7 +618,7 @@ std::unique_ptr<StyioAST> parse_expr (
 
     context -> drop_all_spaces_comments();
 
-    if (context -> check_binary()) {
+    if (context -> check_binop()) {
       output = parse_binop_rhs(context, std::move(output)); }
 
     return output;
@@ -667,7 +672,7 @@ std::unique_ptr<StyioAST> parse_expr (
 
       context -> drop_all_spaces_comments();
 
-      if (context -> check_binary()) {
+      if (context -> check_binop()) {
         output = parse_binop_rhs(context, std::move(output)); }
 
       return output;
@@ -806,7 +811,7 @@ std::unique_ptr<StyioAST> parse_iterable (
     
     context -> drop_all_spaces_comments();
 
-    if (context -> check_binary()) {
+    if (context -> check_binop()) {
       output = parse_binop_rhs(context, std::move(output)); };
 
     return output;
@@ -1519,7 +1524,7 @@ std::unique_ptr<BinOpAST> parse_binop_rhs (
 
   context -> drop_all_spaces_comments();
 
-  while (context -> check_binary()) 
+  while (context -> check_binop()) 
   {
     context -> drop_all_spaces();
 
@@ -1843,7 +1848,7 @@ std::unique_ptr<StyioAST> parse_func (
   context -> move(1);
   context -> drop_white_spaces();
 
-  if (context -> check_var())
+  if (context -> check_isal_())
   {
     auto name = parse_id(context);
 
@@ -1944,8 +1949,6 @@ std::unique_ptr<StyioAST> parse_forward (
       args = parse_var_tuple(context);
       has_args = true; } }
   else if (context -> check_drop('#')) {
-    is_anonymous = true;
-
     context -> drop_white_spaces();
     if (context -> check('(')) {
       args = parse_var_tuple(context);
@@ -2024,12 +2027,14 @@ std::unique_ptr<StyioAST> parse_forward (
                 output = std::make_unique<ForwardAST>(
                   std::move(args), 
                   std::move(extra_check), 
-                  std::move(then)); 
+                  std::move(then)
+                ); 
               }
               else {
                 output = std::make_unique<ForwardAST>(
                   std::move(extra_check), 
-                  std::move(then)); 
+                  std::move(then)
+                ); 
               }
             }
             else {
@@ -2310,7 +2315,7 @@ std::unique_ptr<StyioAST> parse_stmt (
     
     context -> drop_all_spaces_comments();
 
-    if (context -> check_binary()) {
+    if (context -> check_binop()) {
       return parse_binop_rhs(context, std::move(id_ast)); } 
 
     switch (context -> get_cur_char())
@@ -2424,7 +2429,7 @@ std::unique_ptr<StyioAST> parse_stmt (
 
     context -> drop_all_spaces_comments();
 
-    if (context -> check_binary()) {
+    if (context -> check_binop()) {
       return parse_binop_rhs(context, std::move(numAST)); } 
     else { return numAST; }
   }

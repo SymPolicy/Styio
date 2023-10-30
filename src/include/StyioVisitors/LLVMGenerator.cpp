@@ -114,18 +114,18 @@ llvm::Value* StyioToLLVM::visit_var(VarAST* ast) {
   return output;
 }
 
-llvm::Value* StyioToLLVM::visit_fill_arg(FillArgAST* ast) {
+llvm::Value* StyioToLLVM::visit_fill_arg(ArgAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
 
   return output;
 }
 
-llvm::Value* StyioToLLVM::visit_arg(ArgAST* ast) {
+llvm::Value* StyioToLLVM::visit_arg(OptArgAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
-llvm::Value* StyioToLLVM::visit_kwarg(KwArgAST* ast) {
+llvm::Value* StyioToLLVM::visit_kwarg(OptKwArgAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }

@@ -258,12 +258,22 @@ class StyioContext {
     }
 
     /* Check isalpha or _ */
-    bool check_var() {
+    bool check_isal_() {
       return isalpha(code.at(pos)) || (code.at(pos) == '_');
     }
 
+    /* Check isalpha or isnum or _ */
+    bool check_isdigit() {
+      return isalnum(code.at(pos)) || (code.at(pos) == '_');
+    }
+
+    /* Check isdigit */
+    bool check_isdigit() {
+      return isdigit(code.at(pos));
+    }
+
     /* Check Binary Operator */
-    bool check_binary() {
+    bool check_binop() {
       if (code.at(pos) == '+' || code.at(pos) == '-' 
         || code.at(pos) == '*' || code.at(pos) == '%') { 
         return true; }
@@ -346,7 +356,7 @@ std::unique_ptr<StyioAST> parse_path_or_link (
 /*
   parse_fill_arg
 */
-std::unique_ptr<FillArgAST> parse_fill_arg (
+std::shared_ptr<ArgAST> parse_argument (
   std::shared_ptr<StyioContext> context
 );
 

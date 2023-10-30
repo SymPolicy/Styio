@@ -40,10 +40,10 @@ enum class StyioNodeHint {
   Id,
   DType,
   TypedVar,
-  Arg,
-  KwArg,
+  OptArg,
+  OptKwArg,
   Var,
-  FillArg,
+  Arg,
   // Integer (General)
   Int,
   // Float (General)
@@ -211,7 +211,7 @@ enum class StyioNodeHint {
    * Layers
    */
   // (x, y, ...)
-  Fill,
+  VarTuple,
   // ?=
   CheckEq,
   // ?^

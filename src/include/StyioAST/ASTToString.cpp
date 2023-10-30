@@ -88,29 +88,29 @@ std::string VarAST::toStringInline(int indent, bool colorful) {
     + std::string("{ ") + Name + " : " + " }"; }
 }
 
-std::string FillArgAST::toString(int indent, bool colorful) {
-  if (hasType()) {
-    return reprNodeType(hint(), colorful, " ")
-    + std::string("{ ") + Name + " : " + getTypeStr() + " }"; }
-  else {
-    return reprNodeType(hint(), colorful, " ")
-    + std::string("{ ") + Name + " }"; }
-}
-
-std::string FillArgAST::toStringInline(int indent, bool colorful) {
-  if (hasType()) {
-    return reprNodeType(hint(), colorful, " ")
-    + std::string("{ ") + Name + " : " + getTypeStr() + " }"; }
-  else {
-    return reprNodeType(hint(), colorful, " ")
-    + std::string("{ ") + Name + " }"; }
-}
-
 std::string ArgAST::toString(int indent, bool colorful) {
+  if (hasType()) {
+    return reprNodeType(hint(), colorful, " ")
+    + std::string("{ ") + Name + " : " + getTypeStr() + " }"; }
+  else {
+    return reprNodeType(hint(), colorful, " ")
+    + std::string("{ ") + Name + " }"; }
+}
+
+std::string ArgAST::toStringInline(int indent, bool colorful) {
+  if (hasType()) {
+    return reprNodeType(hint(), colorful, " ")
+    + std::string("{ ") + Name + " : " + getTypeStr() + " }"; }
+  else {
+    return reprNodeType(hint(), colorful, " ")
+    + std::string("{ ") + Name + " }"; }
+}
+
+std::string OptArgAST::toString(int indent, bool colorful) {
   return std::string("arg { ") + Id ->toString(indent + 1, colorful) + " }";
 }
 
-std::string KwArgAST::toString(int indent, bool colorful) {
+std::string OptKwArgAST::toString(int indent, bool colorful) {
   return std::string("kwargs { ") + Id ->toString(indent + 1, colorful) + " }";
 }
 

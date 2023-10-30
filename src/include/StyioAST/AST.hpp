@@ -40,13 +40,15 @@ class StyioAST {
 
     /* toLLVM */
     virtual llvm::Value* toLLVM(StyioToLLVM* generator) = 0;
+
+    /* typeCheck -> reArrange */
 };
 
 class IdAST;
 class DTypeAST;
 
 class VarAST;
-class FillArgAST;
+class ArgAST;
 
 /*
   - CasesAST
@@ -415,28 +417,39 @@ class DTypeAST : public StyioAST {
     llvm::Value* toLLVM(StyioToLLVM* generator);
 };
 
+/*
+  VarAST
+  |- Global Variable
+  |- Local Variable
+  |- Temporary Variable
+*/
 class VarAST : public StyioAST {
-  std::string Name = "";
-  std::shared_ptr<DTypeAST> DType;
-
   private:
-    bool VHasType = false;
+    std::string Name = "";            /* Variable Name */
+    std::shared_ptr<DTypeAST> DType;  /* Data Type */
+    std::unique_ptr<StyioAST> DValue; /* Default Value */
 
   public:
     VarAST():
-      Name(""), 
-      DType(std::make_shared<DTypeAST>("")) { }
+      Name("") {}
 
     VarAST(
       const std::string& name): 
-      Name(name) { }
+      Name(name) {}
 
     VarAST(
       const std::string& name,
-      std::shared_ptr<DTypeAST> dtype): 
+      std::shared_ptr<DTypeAST> data_type): 
       Name(name), 
-      DType(std::move(dtype)) {
-        VHasType = true; }
+      DType(std::move(data_type)) {}
+
+    VarAST(
+      const std::string& name,
+      std::shared_ptr<DTypeAST> data_type,
+      std::unique_ptr<StyioAST> default_value): 
+      Name(name), 
+      DType(std::move(data_type)),
+      DValue(std::move(default_value)) {}
 
     StyioNodeHint hint() {
       return StyioNodeHint::Var; }
@@ -445,7 +458,8 @@ class VarAST : public StyioAST {
       return Name; }
 
     bool hasType() {
-      return VHasType; }
+      if (DType) { return true; }
+      else { return false; } }
 
     const std::shared_ptr<DTypeAST>& getType() const {
       return DType; }
@@ -461,50 +475,88 @@ class VarAST : public StyioAST {
     llvm::Value* toLLVM(StyioToLLVM* generator);
 };
 
-class FillArgAST : public VarAST {
-  std::string Name;
-  std::shared_ptr<DTypeAST> DType;
-
+/*
+  Function
+  [+] Argument
+*/
+class ArgAST : public VarAST {
   private:
-    bool VHasType = false;
+    std::string Name = "";            /* Variable Name */
+    std::shared_ptr<DTypeAST> DType;  /* Data Type */
+    std::unique_ptr<StyioAST> DValue; /* Default Value */
 
   public:
-    FillArgAST (
+    ArgAST (
       const std::string& name):
-      VarAST(name),
+      VarAST(
+        name
+      ),
       Name(name) {}
 
-    FillArgAST (
+    ArgAST (
       const std::string& name,
       std::shared_ptr<DTypeAST> dtype): 
-      VarAST(name, dtype),
+      VarAST(
+        name, 
+        dtype
+      ),
       Name(name), 
-      DType(dtype) {
-        VHasType = true; }
+      DType(dtype) {}
+
+    ArgAST (
+      const std::string& name,
+      std::shared_ptr<DTypeAST> data_type,
+      std::unique_ptr<StyioAST> default_value): 
+      VarAST(
+        name, 
+        data_type, 
+        std::move(default_value)
+      ),
+      Name(name), 
+      DType(data_type),
+      DValue(std::move(default_value)) {}
 
     StyioNodeHint hint() {
-      return StyioNodeHint::FillArg; }
+      return StyioNodeHint::Arg; }
 
-    static std::shared_ptr<FillArgAST> make(
-      std::unique_ptr<IdAST> id,
-      std::shared_ptr<DTypeAST> dtype) {
-        return std::make_shared<FillArgAST>(
-          id -> getIdStr(), 
-          dtype
-        );
-      }
+    static std::shared_ptr<ArgAST> make (
+      const std::string& id) {
+      return std::make_shared<ArgAST>(
+        id
+      );
+    }
 
-    const std::string& getName() const {
-      return Name; }
+    static std::shared_ptr<ArgAST> make (
+      const std::string& id,
+      std::shared_ptr<DTypeAST> data_type) {
+      return std::make_shared<ArgAST>(
+        id,
+        data_type
+      );
+    }
 
-    bool hasType() {
-      return VHasType; }
+    static std::shared_ptr<ArgAST> make (
+      const std::string& id,
+      std::shared_ptr<DTypeAST> data_type,
+      std::unique_ptr<StyioAST> default_value) {
+      return std::make_shared<ArgAST>(
+        id -> getIdStr(),
+        data_type,
+        std::move(default_value)
+      );
+    }
+};
 
-    const std::shared_ptr<DTypeAST>& getType() const {
-      return DType; }
+class OptArgAST : public VarAST {
+  std::unique_ptr<IdAST> Id;
 
-    const std::string& getTypeStr() const {
-      return DType -> getTypeStr(); }
+  public:
+    OptArgAST(
+      std::unique_ptr<IdAST> id): 
+      Id(std::move(id)) {}
+
+    StyioNodeHint hint() {
+      return StyioNodeHint::OptArg; }
 
     /* toString */
     std::string toString(int indent = 0, bool colorful = false);
@@ -514,66 +566,35 @@ class FillArgAST : public VarAST {
     llvm::Value* toLLVM(StyioToLLVM* generator);
 };
 
-class ArgAST : public VarAST {
-  std::unique_ptr<IdAST> Id;
-
+class OptKwArgAST : public VarAST {
   public:
-    ArgAST(
+    OptKwArgAST(
       std::unique_ptr<IdAST> id): 
-      Id(std::move(id)) 
-      {
-
-      }
+      Id(std::move(id)) {}
 
     StyioNodeHint hint() {
-      return StyioNodeHint::Arg;
-    }
+      return StyioNodeHint::OptKwArg; }
 
+    /* toString */
     std::string toString(int indent = 0, bool colorful = false);
+    std::string toStringInline(int indent = 0, bool colorful = false);
 
-    std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprNodeType(this -> hint(), colorful) + std::string(" { }");
-    }
-
-    llvm::Value* toLLVM(StyioToLLVM* generator);
-};
-
-class KwArgAST : public VarAST {
-  std::unique_ptr<IdAST> Id;
-
-  public:
-    KwArgAST(
-      std::unique_ptr<IdAST> id): 
-      Id(std::move(id)) 
-      {
-
-      }
-
-    StyioNodeHint hint() {
-      return StyioNodeHint::KwArg;
-    }
-
-    std::string toString(int indent = 0, bool colorful = false);
-
-    std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprNodeType(this -> hint(), colorful) + std::string(" { }");
-    }
-
+    /* toLLVM */
     llvm::Value* toLLVM(StyioToLLVM* generator);
 };
 
 class VarTupleAST : public StyioAST {
-  std::vector<std::unique_ptr<VarAST>> Vars;
+  std::vector<std::shared_ptr<VarAST>> Vars;
 
   public:
     VarTupleAST(
-      std::vector<std::unique_ptr<VarAST>> vars): 
+      std::vector<std::shared_ptr<VarAST>> vars): 
       Vars(std::move(vars)) {}
 
     StyioNodeHint hint() {
-      return StyioNodeHint::Fill; }
+      return StyioNodeHint::VarTuple; }
 
-    const std::vector<std::unique_ptr<VarAST>>& getArgs() {
+    const std::vector<std::shared_ptr<VarAST>>& getArgs() {
       return Vars; }
 
     /* toString */
@@ -625,17 +646,21 @@ class IntAST : public StyioAST {
   std::string Value;
 
   public:
-    IntAST(std::string val) : Value(val) {}
+    IntAST (
+      std::string val): 
+      Value(val) {}
 
-    StyioNodeHint hint() {
-      return StyioNodeHint::Int;
+    StyioNodeHint hint () {
+      return StyioNodeHint::Int; }
+
+    static std::unique_ptr<IntAST> make (
+      std::string value
+    ) {
+      return std::make_unique<IntAST>(value);
     }
 
     std::string toString(int indent = 0, bool colorful = false);
-
-    std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprNodeType(this -> hint(), colorful) + " { " + Value + " }";
-    }
+    std::string toStringInline(int indent = 0, bool colorful = false);
 
     llvm::Value* toLLVM(StyioToLLVM* generator);
 };
@@ -644,20 +669,23 @@ class IntAST : public StyioAST {
   FloatAST: Float
 */
 class FloatAST : public StyioAST {
-  std::string Value;
+  private:
+    std::string Significand = "";
+    int Base = 10;
+    int Exponent = 0;
 
   public:
-    FloatAST(std::string val) : Value(val) {}
+    FloatAST(
+      std::string significand,
+      int exponent): 
+      Significand(significand),
+      Exponent(exponent) {}
 
     StyioNodeHint hint() {
-      return StyioNodeHint::Float;
-    }
+      return StyioNodeHint::Float; }
 
     std::string toString(int indent = 0, bool colorful = false);
-
-    std::string toStringInline(int indent = 0, bool colorful = false) {
-      return reprNodeType(this -> hint(), colorful) + " { " + Value + " }";
-    }
+    std::string toStringInline(int indent = 0, bool colorful = false);
 
     llvm::Value* toLLVM(StyioToLLVM* generator);
 };
@@ -1988,7 +2016,7 @@ class FuncAST : public StyioAST {
   public:
     FuncAST(
       std::unique_ptr<ForwardAST> forward,
-      bool isFinal) :  
+      bool isFinal) : 
       Forward(std::move(forward)),
       isFinal(isFinal) {}
 
@@ -2128,9 +2156,9 @@ class StyioVisitor {
 
     void visit_id(IdAST* ast);
 
-    void visit_arg(ArgAST* ast);
+    void visit_arg(OptArgAST* ast);
 
-    void visit_kwarg(KwArgAST* ast);
+    void visit_kwarg(OptKwArgAST* ast);
 
     void visit_var_tuple(VarTupleAST* ast);
 
@@ -2208,7 +2236,116 @@ class StyioVisitor {
 
     void visit_iterator(IterAST* ast);
 
-    void enter_main(MainBlockAST* ast);
+    void visit_main(MainBlockAST* ast);
+};
+
+class StyioChecker {
+  public:
+    StyioChecker () {}
+
+    std::shared_ptr<TrueAST> visit_true(TrueAST* ast);
+
+    std::shared_ptr<FalseAST> visit_false(FalseAST* ast);
+
+    std::shared_ptr<NoneAST> visit_none(NoneAST* ast);
+
+    std::shared_ptr<EndAST> visit_end(EndAST* ast);
+
+    std::shared_ptr<EmptyAST> visit_empty(EmptyAST* ast);
+
+    std::shared_ptr<EmptyBlockAST> visit_empty_block(EmptyBlockAST* ast);
+
+    std::shared_ptr<PassAST> visit_pass(PassAST* ast);
+
+    std::shared_ptr<BreakAST> visit_break(BreakAST* ast);
+
+    std::shared_ptr<ReturnAST> visit_return(ReturnAST* ast);
+
+    std::shared_ptr<CommentAST> visit_comment(CommentAST* ast);
+
+    std::shared_ptr<IdAST> visit_id(IdAST* ast);
+
+    std::shared_ptr<DTypeAST> visit_type(DTypeAST* ast);
+
+    std::shared_ptr<OptArgAST> visit_arg(OptArgAST* ast);
+
+    std::shared_ptr<OptKwArgAST> visit_kwarg(OptKwArgAST* ast);
+
+    std::shared_ptr<VarTupleAST> visit_var_tuple(VarTupleAST* ast);
+
+    std::shared_ptr<TypedVarAST> visit_typed_var(TypedVarAST* ast);
+
+    std::shared_ptr<IntAST> visit_int(IntAST* ast);
+
+    std::shared_ptr<FloatAST> visit_float(FloatAST* ast);
+
+    std::shared_ptr<CharAST> visit_char(CharAST* ast);
+
+    std::shared_ptr<StringAST> visit_string(StringAST* ast);
+
+    std::shared_ptr<FmtStrAST> visit_fmt_str(FmtStrAST* ast);
+
+    std::shared_ptr<ExtPathAST> visit_ext_path(ExtPathAST* ast);
+
+    std::shared_ptr<ExtLinkAST> visit_ext_link(ExtLinkAST* ast);
+
+    std::shared_ptr<ListAST> visit_list(ListAST* ast);
+
+    std::shared_ptr<TupleAST> visit_tuple(TupleAST* ast);
+
+    std::shared_ptr<SetAST> visit_set(SetAST* ast);
+
+    std::shared_ptr<RangeAST> visit_range(RangeAST* ast);
+
+    std::shared_ptr<SizeOfAST> visit_size_of(SizeOfAST* ast);
+
+    std::shared_ptr<BinOpAST> visit_bin_op(BinOpAST* ast);
+
+    std::shared_ptr<BinCompAST> visit_bin_comp(BinCompAST* ast);
+
+    std::shared_ptr<CondAST> visit_cond(CondAST* ast);
+
+    std::shared_ptr<CallAST> visit_call(CallAST* ast);
+
+    std::shared_ptr<ListOpAST> visit_list_op(ListOpAST* ast);
+
+    std::shared_ptr<ResourceAST> visit_resources(ResourceAST* ast);
+
+    std::shared_ptr<FlexBindAST> visit_flex_bind(FlexBindAST* ast);
+
+    std::shared_ptr<FinalBindAST> visit_final_bind(FinalBindAST* ast);
+
+    std::shared_ptr<StructAST> visit_struct(StructAST* ast);
+
+    std::shared_ptr<ReadFileAST> visit_read_file(ReadFileAST* ast);
+
+    std::shared_ptr<PrintAST> visit_print(PrintAST* ast);
+
+    std::shared_ptr<ExtPackAST> visit_ext_pack(ExtPackAST* ast);
+
+    std::shared_ptr<SideBlockAST> visit_block(SideBlockAST* ast);
+
+    std::shared_ptr<CasesAST> visit_cases(CasesAST* ast);
+
+    std::shared_ptr<CondFlowAST> visit_cond_flow(CondFlowAST* ast);
+
+    std::shared_ptr<CheckEqAST> visit_check_equal(CheckEqAST* ast);
+
+    std::shared_ptr<CheckIsInAST> visit_check_isin(CheckIsInAST* ast);
+
+    std::shared_ptr<FromToAST> visit_from_to(FromToAST* ast);
+
+    std::shared_ptr<ForwardAST> visit_forward(ForwardAST* ast);
+
+    std::shared_ptr<InfiniteAST> visit_infinite(InfiniteAST* ast);
+
+    std::shared_ptr<FuncAST> visit_function(FuncAST* ast);
+
+    std::shared_ptr<LoopAST> visit_loop(LoopAST* ast);
+
+    std::shared_ptr<IterAST> visit_iterator(IterAST* ast);
+
+    std::shared_ptr<MainBlockAST> visit_main(MainBlockAST* ast);
 };
 
 class StyioToLLVM {
@@ -2251,11 +2388,11 @@ class StyioToLLVM {
 
     llvm::Value* visit_var(VarAST* ast);
 
-    llvm::Value* visit_fill_arg(FillArgAST* ast);
+    llvm::Value* visit_fill_arg(ArgAST* ast);
 
-    llvm::Value* visit_arg(ArgAST* ast);
+    llvm::Value* visit_arg(OptArgAST* ast);
 
-    llvm::Value* visit_kwarg(KwArgAST* ast);
+    llvm::Value* visit_kwarg(OptKwArgAST* ast);
 
     llvm::Value* visit_var_tuple(VarTupleAST* ast);
 

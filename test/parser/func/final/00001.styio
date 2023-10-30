@@ -1,6 +1,9 @@
 // RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
 
-# addi: i32 := (x: i32, y: i32) => {
+# addi: i32 := (
+  x : i32 = 0, 
+  y : i32 = 0
+) => {
   => x + y
 }
 

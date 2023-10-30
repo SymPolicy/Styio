@@ -56,15 +56,15 @@ llvm::Value* VarAST::toLLVM(StyioToLLVM* generator) {
   return generator -> visit_var(this);
 }
 
-llvm::Value* FillArgAST::toLLVM(StyioToLLVM* generator) {
+llvm::Value* ArgAST::toLLVM(StyioToLLVM* generator) {
   return generator -> visit_fill_arg(this);
 }
 
-llvm::Value* ArgAST::toLLVM(StyioToLLVM* generator) {
+llvm::Value* OptArgAST::toLLVM(StyioToLLVM* generator) {
   return generator -> visit_arg(this);
 }
 
-llvm::Value* KwArgAST::toLLVM(StyioToLLVM* generator) {
+llvm::Value* OptKwArgAST::toLLVM(StyioToLLVM* generator) {
   return generator -> visit_kwarg(this);
 }
 

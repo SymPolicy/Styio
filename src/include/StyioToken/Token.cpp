@@ -115,7 +115,7 @@ std::string reprNodeType (
 
     break;
 
-  case StyioNodeHint::FillArg:
+  case StyioNodeHint::Arg:
     {
       auto name = std::string("Arg (Fill)");
 
@@ -232,7 +232,7 @@ std::string reprNodeType (
     
     break;
 
-  case StyioNodeHint::Fill:
+  case StyioNodeHint::VarTuple:
     {
       auto name = std::string("Fill");
 
