@@ -400,7 +400,7 @@ std::unique_ptr<StyioAST> parse_call
 /*
   parse_bin_rhs
 */
-std::unique_ptr<StyioAST> parse_item_for_binop (
+std::shared_ptr<StyioAST> parse_item_for_binop (
   std::shared_ptr<StyioContext> context
 );
 
@@ -409,7 +409,7 @@ std::unique_ptr<StyioAST> parse_item_for_binop (
 */
 std::unique_ptr<BinOpAST> parse_binop_rhs (
   std::shared_ptr<StyioContext> context, 
-  std::unique_ptr<StyioAST> lhs_ast
+  std::shared_ptr<StyioAST> lhs_ast
 );
 
 /*

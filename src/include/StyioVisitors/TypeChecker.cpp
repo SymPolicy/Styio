@@ -9,220 +9,199 @@
 #include "../StyioToken/Token.hpp"
 #include "../StyioAST/AST.hpp"
 
-void StyioChecker::visit_true(TrueAST* ast) {
+void StyioToLLVM::check(CommentAST* ast) {}
+
+void StyioToLLVM::check(NoneAST* ast) {}
+void StyioToLLVM::check(EmptyAST* ast) {}
+void StyioToLLVM::check(EmptyBlockAST* ast) {}
+
+void StyioToLLVM::check(IdAST* ast) {}
+void StyioToLLVM::check(DTypeAST* ast) {}
+
+void StyioToLLVM::check(BoolAST* ast) {}
+void StyioToLLVM::check(IntAST* ast) {}
+void StyioToLLVM::check(FloatAST* ast) {}
+void StyioToLLVM::check(CharAST* ast) {}
+void StyioToLLVM::check(StringAST* ast) {}
+
+void StyioToLLVM::check(VarAST* ast) {
   
 }
 
-void StyioChecker::visit_false(FalseAST* ast) {
+void StyioToLLVM::check(ArgAST* ast) {
   
 }
 
-void StyioChecker::visit_none(NoneAST* ast) {
+void StyioToLLVM::check(OptArgAST* ast) {
   
 }
 
-void StyioChecker::visit_end(EndAST* ast) {
+void StyioToLLVM::check(OptKwArgAST* ast) {
   
 }
 
-void StyioChecker::visit_empty(EmptyAST* ast) {
+void StyioToLLVM::check(FlexBindAST* ast) {
   
 }
 
-void StyioChecker::visit_empty_block(EmptyBlockAST* ast) {
+void StyioToLLVM::check(FinalBindAST* ast) {
   
 }
 
-void StyioChecker::visit_pass(PassAST* ast) {
+void StyioToLLVM::check(InfiniteAST* ast) {
   
 }
 
-void StyioChecker::visit_break(BreakAST* ast) {
+void StyioToLLVM::check(StructAST* ast) {
   
 }
 
-void StyioChecker::visit_return(ReturnAST* ast) {
+void StyioToLLVM::check(TupleAST* ast) {
   
 }
 
-void StyioChecker::visit_comment(CommentAST* ast) {
+void StyioToLLVM::check(VarTupleAST* ast) {
   
 }
 
-void StyioChecker::visit_id(IdAST* ast) {
+void StyioToLLVM::check(RangeAST* ast) {
   
 }
 
-void StyioChecker::visit_var(VarAST* ast) {
+void StyioToLLVM::check(SetAST* ast) {
   
 }
 
-void StyioChecker::visit_arg(ArgAST* ast) {
+void StyioToLLVM::check(ListAST* ast) {
   
 }
 
-void StyioChecker::visit_opt_arg(OptArgAST* ast) {
+void StyioToLLVM::check(SizeOfAST* ast) {
   
 }
 
-void StyioChecker::visit_opt_kwarg(OptKwArgAST* ast) {
+void StyioToLLVM::check(ListOpAST* ast) {
   
 }
 
-void StyioChecker::visit_var_tuple(VarTupleAST* ast) {
+void StyioToLLVM::check(BinCompAST* ast) {
   
 }
 
-void StyioChecker::visit_type(DTypeAST* ast) {
+void StyioToLLVM::check(CondAST* ast) {
   
 }
 
-void StyioChecker::visit_int(IntAST* ast) {
+void StyioToLLVM::check(BinOpAST* ast) {
+  auto lhs = ast -> getLhs();
+  auto rhs = ast -> getRhs();
+
+  std::cout << reprNodeType(lhs -> hint()) << std::endl;
+  std::cout << reprNodeType(rhs -> hint()) << std::endl;
+}
+
+void StyioToLLVM::check(FmtStrAST* ast) {
   
 }
 
-void StyioChecker::visit_float(FloatAST* ast) {
+void StyioToLLVM::check(ResourceAST* ast) {
   
 }
 
-void StyioChecker::visit_char(CharAST* ast) {
+void StyioToLLVM::check(ExtPathAST* ast) {
   
 }
 
-void StyioChecker::visit_string(StringAST* ast) {
+void StyioToLLVM::check(ExtLinkAST* ast) {
   
 }
 
-void StyioChecker::visit_fmt_str(FmtStrAST* ast) {
+void StyioToLLVM::check(ExtPackAST* ast) {
   
 }
 
-void StyioChecker::visit_ext_path(ExtPathAST* ast) {
+void StyioToLLVM::check(ReadFileAST* ast) {
   
 }
 
-void StyioChecker::visit_ext_link(ExtLinkAST* ast) {
+void StyioToLLVM::check(EOFAST* ast) {
   
 }
 
-void StyioChecker::visit_list(ListAST* ast) {
+void StyioToLLVM::check(BreakAST* ast) {
   
 }
 
-void StyioChecker::visit_tuple(TupleAST* ast) {
+void StyioToLLVM::check(PassAST* ast) {
   
 }
 
-void StyioChecker::visit_set(SetAST* ast) {
+void StyioToLLVM::check(ReturnAST* ast) {
   
 }
 
-void StyioChecker::visit_range(RangeAST* ast) {
+void StyioToLLVM::check(CallAST* ast) {
   
 }
 
-void StyioChecker::visit_size_of(SizeOfAST* ast) {
+void StyioToLLVM::check(PrintAST* ast) {
   
 }
 
-void StyioChecker::visit_bin_op(BinOpAST* ast) {
+void StyioToLLVM::check(ForwardAST* ast) {
   
 }
 
-void StyioChecker::visit_bin_comp(BinCompAST* ast) {
+void StyioToLLVM::check(CheckEqAST* ast) {
   
 }
 
-void StyioChecker::visit_cond(CondAST* ast) {
+void StyioToLLVM::check(CheckIsInAST* ast) {
   
 }
 
-void StyioChecker::visit_call(CallAST* ast) {
+void StyioToLLVM::check(FromToAST* ast) {
   
 }
 
-void StyioChecker::visit_list_op(ListOpAST* ast) {
+void StyioToLLVM::check(CondFlowAST* ast) {
   
 }
 
-void StyioChecker::visit_resources(ResourceAST* ast) {
+void StyioToLLVM::check(AnonyFuncAST* ast) {
   
 }
 
-void StyioChecker::visit_flex_bind(FlexBindAST* ast) {
+void StyioToLLVM::check(FuncAST* ast) {
   
 }
 
-void StyioChecker::visit_final_bind(FinalBindAST* ast) {
+void StyioToLLVM::check(IterAST* ast) {
   
 }
 
-void StyioChecker::visit_struct(StructAST* ast) {
+void StyioToLLVM::check(LoopAST* ast) {
   
 }
 
-void StyioChecker::visit_read_file(ReadFileAST* ast) {
+void StyioToLLVM::check(CasesAST* ast) {
   
 }
 
-void StyioChecker::visit_print(PrintAST* ast) {
+void StyioToLLVM::check(MatchCasesAST* ast) {
   
 }
 
-void StyioChecker::visit_ext_pack(ExtPackAST* ast) {
+void StyioToLLVM::check(
+  SideBlockAST* ast
+) {
   
 }
 
-void StyioChecker::visit_cases(CasesAST* ast) {
-  
-}
-
-void StyioChecker::visit_cond_flow(CondFlowAST* ast) {
-  
-}
-
-void StyioChecker::visit_check_equal(CheckEqAST* ast) {
-  
-}
-
-void StyioChecker::visit_check_isin(CheckIsInAST* ast) {
-  
-}
-
-void StyioChecker::visit_from_to(FromToAST* ast) {
-  
-}
-
-void StyioChecker::visit_forward(ForwardAST* ast) {
-  
-}
-
-void StyioChecker::visit_infinite(InfiniteAST* ast) {
-  
-}
-
-void StyioChecker::visit_function(FuncAST* ast) {
-  
-}
-
-void StyioChecker::visit_loop(LoopAST* ast) {
-  
-}
-
-void StyioChecker::visit_iterator(IterAST* ast) {
-  
-}
-
-
-void StyioChecker::visit_side_block(SideBlockAST* ast) {
-  
-}
-
-
-void StyioChecker::visit_main(
+void StyioToLLVM::check(
   MainBlockAST* ast
 ) {
   auto& stmts = ast -> getStmts();
   for (auto const& s: stmts) {
-    s -> accept(this); }
+    s -> check(this); }
 }

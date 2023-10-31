@@ -58,9 +58,6 @@ int main(int argc, char* argv[]) {
   auto styio_context = std::make_shared<StyioContext>(styio_code);
   auto styio_program = parse_main_block(styio_context);
 
-  // auto checker = StyioChecker();
-  // checker.visit_main(&*styio_program);
-
   auto generator = StyioToLLVM();
   generator.toLLVM(&*styio_program);
   generator.show();

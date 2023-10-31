@@ -65,24 +65,12 @@ llvm::Value* StyioToLLVM::toLLVM(BoolAST* ast) {
   }
 }
 
-
-
-llvm::Value* StyioToLLVM::toLLVM(TrueAST* ast) {
-  auto output = llvm::ConstantInt::getTrue(*llvm_context);
-  return output;
-}
-
-llvm::Value* StyioToLLVM::toLLVM(FalseAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
-  return output;
-}
-
 llvm::Value* StyioToLLVM::toLLVM(NoneAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
-llvm::Value* StyioToLLVM::toLLVM(EndAST* ast) {
+llvm::Value* StyioToLLVM::toLLVM(EOFAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }

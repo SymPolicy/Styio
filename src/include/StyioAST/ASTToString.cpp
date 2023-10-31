@@ -8,33 +8,16 @@
 #include "../StyioUtil/Util.hpp"
 #include "../StyioToken/Token.hpp"
 
-/*
-  Styio Naive
-  - BoolAST
-*/
-
-std::string BoolAST::toString(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful, " ") + std::string("{ }");
+std::string CommentAST::toString(int indent, bool colorful) {
+  return std::string("Comment { ") + Text + " }";
 }
 
-std::string BoolAST::toStringInline(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful, " ") + std::string("{ }");
-}
-
-std::string TrueAST::toString(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + std::string(" { }");
-}
-
-std::string FalseAST::toString(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + std::string(" { }");
+std::string CommentAST::toStringInline(int indent, bool colorful) {
+  return std::string("Comment { ") + Text + " }";
 }
 
 std::string NoneAST::toString(int indent, bool colorful) {
   return reprNodeType(hint(), colorful) + std::string(" { }");
-}
-
-std::string EndAST::toString(int indent, bool colorful) {
-  return std::string("EOF { }");
 }
 
 std::string EmptyAST::toString(int indent, bool colorful) {
@@ -44,24 +27,6 @@ std::string EmptyAST::toString(int indent, bool colorful) {
 std::string EmptyBlockAST::toString(int indent, bool colorful) {
   return std::string("Block (Empty) { ")
     + " } ";
-}
-
-std::string BreakAST::toString(int indent, bool colorful) {
-  return std::string("Break { }");
-}
-
-std::string PassAST::toString(int indent, bool colorful) {
-  return std::string("Pass { }");
-}
-
-std::string ReturnAST::toString(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + " { "
-    + Expr -> toStringInline(indent + 1, colorful)
-    + " }";
-}
-
-std::string CommentAST::toString(int indent, bool colorful) {
-  return std::string("Comment { ") + Text + " }";
 }
 
 std::string IdAST::toString(int indent, bool colorful) {
@@ -79,6 +44,42 @@ std::string DTypeAST::toString(int indent, bool colorful) {
 
 std::string DTypeAST::toStringInline(int indent, bool colorful) {
   return TypeStr;
+}
+
+std::string BoolAST::toString(int indent, bool colorful) {
+  return reprNodeType(hint(), colorful, " ") + std::string("{ }");
+}
+
+std::string BoolAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(hint(), colorful, " ") + std::string("{ }");
+}
+
+std::string IntAST::toString(int indent, bool colorful) {
+  return reprNodeType(hint(), colorful) + " { " + Value + " : " + reprDataType(DType) + " }";
+}
+
+std::string IntAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(hint(), colorful) + " { " + Value + " }";
+}
+
+std::string FloatAST::toString(int indent, bool colorful) {
+  return reprNodeType(hint(), colorful) + " { " 
+    + Significand + " * " + std::to_string(Base) + "^" + std::to_string(Exponent)
+    + " }";
+}
+
+std::string FloatAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(hint(), colorful) + " { " 
+    + Significand + " * " + std::to_string(Base) + "^" + std::to_string(Exponent)
+    + " }";
+}
+
+std::string CharAST::toString(int indent, bool colorful) {
+  return reprNodeType(hint(), colorful) + " { \'" + Value + "\' }";
+}
+
+std::string StringAST::toString(int indent, bool colorful) {
+  return reprNodeType(hint(), colorful) + " { \"" + Value + "\" }";
 }
 
 std::string VarAST::toString(int indent, bool colorful) {
@@ -157,34 +158,6 @@ std::string VarTupleAST::toString(int indent, bool colorful) {
 std::string VarTupleAST::toStringInline(int indent, bool colorful) {
   return reprNodeType(hint(), colorful, " ") + std::string("{ ") 
   + " }";
-}
-
-std::string IntAST::toString(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + " { " + Value + " }";
-}
-
-std::string IntAST::toStringInline(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + " { " + Value + " }";
-}
-
-std::string FloatAST::toString(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + " { " 
-    + Significand + " * " + std::to_string(Base) + "^" + std::to_string(Exponent)
-    + " }";
-}
-
-std::string FloatAST::toStringInline(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + " { " 
-    + Significand + " * " + std::to_string(Base) + "^" + std::to_string(Exponent)
-    + " }";
-}
-
-std::string CharAST::toString(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + " { \'" + Value + "\' }";
-}
-
-std::string StringAST::toString(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + " { \"" + Value + "\" }";
 }
 
 std::string FmtStrAST::toString(int indent, bool colorful) {
@@ -469,6 +442,24 @@ std::string ReadFileAST::toString(int indent, bool colorful) {
     + make_padding(indent, " ") + "Var: " + varId -> toString(indent + 1) + "\n"
     + make_padding(indent, " ") + "Val: " + valExpr -> toString(indent + 1) 
     + "}";
+}
+
+std::string EOFAST::toString(int indent, bool colorful) {
+  return std::string("EOF { }");
+}
+
+std::string BreakAST::toString(int indent, bool colorful) {
+  return std::string("Break { }");
+}
+
+std::string PassAST::toString(int indent, bool colorful) {
+  return std::string("Pass { }");
+}
+
+std::string ReturnAST::toString(int indent, bool colorful) {
+  return reprNodeType(hint(), colorful) + " { "
+    + Expr -> toStringInline(indent + 1, colorful)
+    + " }";
 }
 
 std::string PrintAST::toString(int indent, bool colorful) {

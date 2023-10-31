@@ -50,7 +50,7 @@ add_executable(styio
     src/include/StyioAST/ASTToString.cpp
     src/include/StyioParser/Parser.cpp
     # Visitor (AST)
-    # src/include/StyioVisitors/TypeChecker.cpp
+    src/include/StyioVisitors/TypeChecker.cpp
     src/include/StyioVisitors/LLVMGenerator.cpp
     )
 

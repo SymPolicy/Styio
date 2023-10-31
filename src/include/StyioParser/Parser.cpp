@@ -72,9 +72,11 @@ std::unique_ptr<StyioAST> parse_int_or_float (
         f_exp += 1;
       } while (context -> check_isdigit());
 
-      return std::make_unique<FloatAST>(digits, f_exp); }
+      return std::make_unique<FloatAST>(digits, f_exp);
+    }
     else {
-      return std::make_unique<IntAST>(digits); }
+      return std::make_unique<IntAST>(digits);
+    }
   }
 
   return std::make_unique<IntAST>(digits); 
@@ -554,13 +556,13 @@ std::unique_ptr<StyioAST> parse_num_val (
   throw StyioParseError(errmsg);
 }
 
-std::unique_ptr<StyioAST> parse_item_for_binop (
+std::shared_ptr<StyioAST> parse_item_for_binop (
   std::shared_ptr<StyioContext> context) {
-  std::unique_ptr<StyioAST> output (new NoneAST());
+  std::shared_ptr<StyioAST> output = std::make_shared<NoneAST>();
 
-  if (isalpha(context -> get_cur_char()) || context -> check('_')) {
+  if (context -> check_isal_()) {
     return parse_id(context); }
-  else if (isdigit(context -> get_cur_char())) {
+  else if (context -> check_isdigit()) {
     return parse_int_or_float(context); }
 
   switch (context -> get_cur_char())
@@ -686,10 +688,10 @@ std::unique_ptr<StyioAST> parse_expr (
 
       if (context -> check_drop('t')) {
         context -> check_drop('\\'); 
-        return std::make_unique<TrueAST>(); }
+        return std::make_unique<BoolAST>(true); }
       else if (context -> check_drop('f')) {
         context -> check_drop('\\'); 
-        return std::make_unique<FalseAST>(); }
+        return std::make_unique<BoolAST>(false); }
     }
 
     break;
@@ -1364,7 +1366,7 @@ std::unique_ptr<StyioAST> parse_loop (
 
 std::unique_ptr<BinOpAST> parse_binop_rhs (
   std::shared_ptr<StyioContext> context, 
-  std::unique_ptr<StyioAST> lhs_ast) {
+  std::shared_ptr<StyioAST> lhs_ast) {
   std::unique_ptr<BinOpAST> output;
 
   switch (context -> get_cur_char())
@@ -2278,30 +2280,30 @@ std::unique_ptr<StyioAST> parse_print (
   return std::make_unique<PrintAST>(std::move(exprs));
 }
 
-std::unique_ptr<StyioAST> parse_panic (
-  std::shared_ptr<StyioContext> context) {
-  do
-  {
-    /*
-      Danger!
-      when entering parse_panic(), 
-      the following symbol must be !
-      this line will drop the next 1 character anyway!
-    */
-    context -> move(1);
-  } while (context -> check('!'));
+// std::unique_ptr<StyioAST> parse_panic (
+//   std::shared_ptr<StyioContext> context) {
+//   do
+//   {
+//     /*
+//       Danger!
+//       when entering parse_panic(), 
+//       the following symbol must be !
+//       this line will drop the next 1 character anyway!
+//     */
+//     context -> move(1);
+//   } while (context -> check('!'));
   
-  if (context -> find_drop('(')) {
-    /*
-      parse_one_or_many_repr
-      parse_fmt_str
-    */
+//   if (context -> find_drop('(')) {
+//     /*
+//       parse_one_or_many_repr
+//       parse_fmt_str
+//     */
 
     
-  } else {
+//   } else {
 
-  }
-}
+//   }
+// }
 
 std::unique_ptr<StyioAST> parse_stmt (
   std::shared_ptr<StyioContext> context) {
@@ -2442,7 +2444,7 @@ std::unique_ptr<StyioAST> parse_stmt (
   switch (context -> get_cur_char())
   {
   case EOF:
-    return std::make_unique<EndAST>();
+    return std::make_unique<EOFAST>();
 
     // You should NOT reach this line!
     break;
@@ -2460,7 +2462,7 @@ std::unique_ptr<StyioAST> parse_stmt (
     break;
 
   case '!':
-    return parse_panic(context);
+    // return parse_panic(context);
     
     // You should NOT reach this line!
     break;
