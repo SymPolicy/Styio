@@ -803,7 +803,7 @@ std::unique_ptr<StyioAST> parse_set (
 
 std::unique_ptr<StyioAST> parse_iterable (
   std::shared_ptr<StyioContext> context) {
-  std::unique_ptr<StyioAST> output (new EmptyAST());
+  std::unique_ptr<StyioAST> output = std::make_unique<EmptyAST>();
 
   if (isalpha(context -> get_cur_char()) || context -> check('_')) 
   {

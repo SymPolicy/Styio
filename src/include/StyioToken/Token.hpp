@@ -389,7 +389,7 @@ enum class StyioToken {
 
   TOK_INFINITE_LIST, // [...]
 };
-
+         
 inline std::string make_colorful(std::string text, int color)
 {
   /*

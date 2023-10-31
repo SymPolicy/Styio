@@ -224,5 +224,5 @@ void StyioChecker::visit_main(
 ) {
   auto& stmts = ast -> getStmts();
   for (auto const& s: stmts) {
-    s -> typeCheck(this); }
+    s -> accept(this); }
 }
