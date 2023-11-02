@@ -63,15 +63,13 @@ std::string IntAST::toStringInline(int indent, bool colorful) {
 }
 
 std::string FloatAST::toString(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + " { " 
-    + Significand + " * " + std::to_string(Base) + "^" + std::to_string(Exponent)
-    + " }";
+  // return reprNodeType(hint(), colorful) + " { " + Significand + " * " + std::to_string(Base) + "^(-" + std::to_string(Exponent) + ")" + " }";
+  return reprNodeType(hint(), colorful) + " { " + Value + " }";
 }
 
 std::string FloatAST::toStringInline(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + " { " 
-    + Significand + " * " + std::to_string(Base) + "^" + std::to_string(Exponent)
-    + " }";
+  // return reprNodeType(hint(), colorful) + " { " + Significand + " * " + std::to_string(Base) + "^(-" + std::to_string(Exponent) + ")" + " }";
+  return reprNodeType(hint(), colorful) + " { " + Value + " }";
 }
 
 std::string CharAST::toString(int indent, bool colorful) {
@@ -80,6 +78,23 @@ std::string CharAST::toString(int indent, bool colorful) {
 
 std::string StringAST::toString(int indent, bool colorful) {
   return reprNodeType(hint(), colorful) + " { \"" + Value + "\" }";
+}
+
+std::string NumPromoAST::toString(int indent, bool colorful) {
+  std::string tStr = "";
+
+  if (PromoType == NumPromoTy::Int_To_Float) {
+    tStr = "float"; }
+  
+
+  return reprNodeType(hint(), colorful, " ") + "{ " 
+    + Value -> toStringInline() 
+    + " ~> " + tStr
+    + " }";
+}
+
+std::string NumPromoAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(hint(), colorful, " ") + "{ " + Value -> toStringInline() + " }";
 }
 
 std::string VarAST::toString(int indent, bool colorful) {
@@ -457,6 +472,12 @@ std::string PassAST::toString(int indent, bool colorful) {
 }
 
 std::string ReturnAST::toString(int indent, bool colorful) {
+  return reprNodeType(hint(), colorful) + " { "
+    + Expr -> toStringInline(indent + 1, colorful)
+    + " }";
+}
+
+std::string ReturnAST::toStringInline(int indent, bool colorful) {
   return reprNodeType(hint(), colorful) + " { "
     + Expr -> toStringInline(indent + 1, colorful)
     + " }";

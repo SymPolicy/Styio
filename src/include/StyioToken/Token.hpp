@@ -7,8 +7,12 @@ enum class StyioContextType {
 };
 
 enum class StyioDataType {
+  i1,
+  i8,
+  i16,
   i32,
   i64,
+  i128,
   f64,
   str
 };
@@ -54,6 +58,8 @@ enum class StyioNodeHint {
   Float,
   // Character: '<Any Single Character>'
   Char,
+
+  NumConvert,
 
   // -----------------
 
@@ -303,6 +309,11 @@ enum class IterOverWhat {
    */
   ListOfTuples, // [(a0, b0, ...), (a1, b1, ...), ..., (an, bn, ...)]
   ListOfStructs, // [s0, s1, ..., sn]
+};
+
+enum class NumPromoTy {
+  Bool_To_Int,
+  Int_To_Float,
 };
 
 enum class StyioToken {

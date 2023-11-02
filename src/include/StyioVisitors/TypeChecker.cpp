@@ -6,6 +6,7 @@
 #include <optional>
 
 // [Styio]
+#include "Util.hpp"
 #include "../StyioToken/Token.hpp"
 #include "../StyioAST/AST.hpp"
 
@@ -23,6 +24,8 @@ void StyioToLLVM::check(IntAST* ast) {}
 void StyioToLLVM::check(FloatAST* ast) {}
 void StyioToLLVM::check(CharAST* ast) {}
 void StyioToLLVM::check(StringAST* ast) {}
+
+void StyioToLLVM::check(NumPromoAST*) {}
 
 void StyioToLLVM::check(VarAST* ast) {
   
@@ -92,12 +95,33 @@ void StyioToLLVM::check(CondAST* ast) {
   
 }
 
+/*
+  Int -> Int => Pass
+  Int -> Float => Pass
+
+*/
 void StyioToLLVM::check(BinOpAST* ast) {
   auto lhs = ast -> getLhs();
   auto rhs = ast -> getRhs();
+  auto lhs_type = ast -> getLhs() -> hint();
+  auto rhs_type = ast -> getRhs() -> hint();
 
-  std::cout << reprNodeType(lhs -> hint()) << std::endl;
-  std::cout << reprNodeType(rhs -> hint()) << std::endl;
+  if (lhs_type != rhs_type) {
+    if (lhs_type == StyioNodeHint::Int
+      && rhs_type == StyioNodeHint::Float) {
+      /* LHS: Int ~> Float */
+      // ast -> setLhs(NumPromoAST::make(
+      //   lhs,
+      //   NumPromoTy::Int_To_Float)
+      // );
+    }
+    else if (lhs_type == StyioNodeHint::Float 
+      && rhs_type == StyioNodeHint::Int) {
+      /* RHS: Int ~> Float */
+    }
+
+  }
+  
 }
 
 void StyioToLLVM::check(FmtStrAST* ast) {

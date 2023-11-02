@@ -21,7 +21,7 @@ std::string reprDataType (
       return std::string("str");
     
     default:
-      break;
+      return std::string("dtype");
     }
 }
 
@@ -170,6 +170,19 @@ std::string reprNodeType (
   case StyioNodeHint::String:
     {
       auto name = std::string("String");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioNodeHint::NumConvert:
+    {
+      auto name = std::string("Convert");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
@@ -1064,6 +1077,19 @@ case StyioNodeHint::Get_Indices_By_Many_Values:
   case StyioNodeHint::CondFlow_Both:
     {
       auto name = std::string("Conditionals (True & False)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      } else {
+        output = std::string(name);
+      }
+    }
+    
+    break;
+
+  case StyioNodeHint::MainBlock:
+    {
+      auto name = std::string("Main");
 
       if (colorful) {
         output = make_colorful(name, titleColor);

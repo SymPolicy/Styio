@@ -59,6 +59,8 @@ class FloatAST;
 class CharAST;
 class StringAST;
 
+class NumPromoAST;
+
 class VarAST;
 class ArgAST;
 class OptArgAST;
@@ -134,6 +136,8 @@ using StyioVisitor = Visitor<
   class FloatAST,
   class CharAST,
   class StringAST,
+
+  class NumPromoAST,
 
   class VarAST,
   class ArgAST,
@@ -255,6 +259,8 @@ class StyioToLLVM : public StyioVisitor {
 
     void check(StringAST* ast);
 
+    void check(NumPromoAST* ast);
+
     void check(FmtStrAST* ast);
 
     void check(ExtPathAST* ast);
@@ -369,6 +375,8 @@ class StyioToLLVM : public StyioVisitor {
 
     llvm::Value* toLLVM(StringAST* ast);
 
+    llvm::Value* toLLVM(NumPromoAST* ast);
+
     llvm::Value* toLLVM(FmtStrAST* ast);
 
     llvm::Value* toLLVM(ExtPathAST* ast);
@@ -470,6 +478,7 @@ class StyioNode : public StyioAST {
       visitor -> check(static_cast<Derived*>(this)); }
 
     llvm::Value* toLLVM(StyioToLLVM* visitor) override {
+      visitor -> check(static_cast<Derived*>(this));
       return visitor -> toLLVM(static_cast<Derived*>(this)); }
 };
 
@@ -697,20 +706,16 @@ class ReturnAST : public StyioNode<ReturnAST> {
   public:
     ReturnAST (
       std::unique_ptr<StyioAST> expr): 
-      Expr(std::move(expr)) 
-    {
-
-    }
+      Expr(std::move(expr)) {}
 
     StyioNodeHint hint() override {
-      return StyioNodeHint::Return;
-    }
+      return StyioNodeHint::Return; }
+
+    const std::unique_ptr<StyioAST>& getExpr() {
+      return Expr; }
 
     std::string toString(int indent = 0, bool colorful = false) override;
-
-    std::string toStringInline(int indent = 0, bool colorful = false) override {
-      return reprNodeType(this -> hint(), colorful) + std::string(" { }");
-    }
+    std::string toStringInline(int indent = 0, bool colorful = false) override;
 };
 
 
@@ -978,6 +983,12 @@ class IntAST : public StyioNode<IntAST> {
     StyioNodeHint hint () override {
       return StyioNodeHint::Int; }
 
+    const std::string& getValue() const {
+      return Value; }
+
+    StyioDataType getType() const {
+      return DType; }
+
     static std::unique_ptr<IntAST> make (
       std::string value
     ) {
@@ -1003,22 +1014,46 @@ class IntAST : public StyioNode<IntAST> {
 */
 class FloatAST : public StyioNode<FloatAST> {
   private:
-    std::string Significand = "";
-    int Base = 10;
-    int Exponent = 0;
+    StyioDataType DType = StyioDataType::f64;
+
+    std::string Value;
+
+    // std::string Significand = "";
+    // int Base = 10;
+    // int Exponent = 0;
 
   public:
     FloatAST(
-      std::string significand,
-      int exponent): 
-      Significand(significand),
-      Exponent(exponent) {}
+      std::string value): 
+      Value(value) {}
+
+    // FloatAST(
+    //   std::string significand,
+    //   int exponent): 
+    //   Significand(significand),
+    //   Exponent(exponent) {}
+
+    // FloatAST(
+    //   std::string significand,
+    //   int exponent,
+    //   StyioDataType data_type): 
+    //   Significand(significand),
+    //   Exponent(exponent),
+    //   DType(data_type) {}
 
     StyioNodeHint hint() override {
       return StyioNodeHint::Float; }
 
+    StyioDataType getType() {
+      return DType; }
+
+    const std::string& getValue() const {
+      return Value;
+    }
+
     std::string toString(int indent = 0, bool colorful = false) override;
-    std::string toStringInline(int indent = 0, bool colorful = false) override;};
+    std::string toStringInline(int indent = 0, bool colorful = false) override;
+};
 
 /*
   CharAST: Character
@@ -1083,7 +1118,45 @@ class FmtStrAST : public StyioNode<FmtStrAST> {
     std::string toStringInline(int indent = 0, bool colorful = false) override {
       return reprNodeType(this -> hint(), colorful) + " { \"" + "\" }";
     }
-    };
+};
+
+class NumPromoAST : public StyioNode<NumPromoAST> {
+  std::shared_ptr<StyioAST> Value;
+  NumPromoTy PromoType;
+
+  public:
+    NumPromoAST (
+      std::shared_ptr<StyioAST> val,
+      NumPromoTy promo_type):
+      Value(std::move(val)),
+      PromoType(promo_type) {}
+
+    StyioNodeHint hint () override {
+      return StyioNodeHint::NumConvert; }
+
+    static std::shared_ptr<NumPromoAST> make (
+      std::shared_ptr<StyioAST> value,
+      NumPromoTy promo_type
+    ) {
+      return std::make_unique<NumPromoAST>(
+        std::move(value),
+        promo_type
+      );
+    }
+
+    static std::unique_ptr<IntAST> make (
+      std::string value,
+      StyioDataType dtype
+    ) {
+      return std::make_unique<IntAST>(
+        value,
+        dtype
+      );
+    }
+
+    std::string toString(int indent = 0, bool colorful = false) override;
+    std::string toStringInline(int indent = 0, bool colorful = false) override;
+};
 
 /*
   =================
@@ -1353,6 +1426,13 @@ class BinOpAST : public StyioNode<BinOpAST>
 
     const std::shared_ptr<StyioAST>& getRhs() const {
       return RHS; }
+
+    void setLhs(
+      std::shared_ptr<StyioAST> value
+    ) {
+      LHS.reset();
+      LHS = std::move(value);
+    }
 
     /* toString */
     std::string toString(int indent = 0, bool colorful = false) override;

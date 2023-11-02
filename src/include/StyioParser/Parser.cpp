@@ -62,19 +62,23 @@ std::unique_ptr<StyioAST> parse_int_or_float (
     context -> move(1);
   } while (context -> check_isdigit());
 
-  int f_exp = 0; /* Float Exponent (Base: 10) */
+  // int f_exp = 0; /* Float Exponent (Base: 10) */
   if (context -> check('.')) {
-    context -> move(1);
-    if (context -> check_isdigit()) {
-      do {
+    if (context -> peak_isdigit(1))
+    {
+      digits += ".";
+      context -> move(1); /* cur_char moves from . to the next */
+      do 
+      {
         digits += context -> get_cur_char();
         context -> move(1);
-        f_exp += 1;
+        // f_exp += 1;
       } while (context -> check_isdigit());
 
-      return std::make_unique<FloatAST>(digits, f_exp);
+      return std::make_unique<FloatAST>(digits);
     }
-    else {
+    else 
+    {
       return std::make_unique<IntAST>(digits);
     }
   }
@@ -2717,7 +2721,7 @@ std::unique_ptr<StyioAST> parse_block (
     return std::make_unique<SideBlockAST>(std::move(stmtBuffer));};
 }
 
-std::unique_ptr<MainBlockAST> parse_main_block (
+std::shared_ptr<MainBlockAST> parse_main_block (
   std::shared_ptr<StyioContext> context
 ) {
   std::vector<std::unique_ptr<StyioAST>> stmtBuffer;
@@ -2729,9 +2733,9 @@ std::unique_ptr<MainBlockAST> parse_main_block (
     else if ((stmt -> hint()) == StyioNodeHint::Comment) {
       continue; }
     else {
-      std::cout << "\033[1;33m[>_<]\033[0m " << stmt -> toString() << "\n" << std::endl;
+      // std::cout << "\033[1;33m[>_<]\033[0m " << stmt -> toString() << "\n" << std::endl;
       stmtBuffer.push_back(std::move(stmt)); }
   }
 
-  return std::make_unique<MainBlockAST>(std::move(stmtBuffer));
+  return std::make_shared<MainBlockAST>(std::move(stmtBuffer));
 }

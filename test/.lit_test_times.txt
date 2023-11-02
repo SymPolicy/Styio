@@ -68,3 +68,4 @@
 1.780438e-02 parser/listop/00014.styio
 5.834818e-03 parser/fmtstr/00001.styio
 5.952597e-03 parser/fmtstr/00002.styio
+1.128316e-02 codegen/func/final/00001.styio

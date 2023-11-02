@@ -26,8 +26,10 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 
-void show_cwd() 
-{
+// [Others]
+#include "include/Others/cxxopts.hpp" /* https://github.com/jarro2783/cxxopts */
+
+void show_cwd() {
   std::filesystem::path cwd = std::filesystem::current_path();
   std::cout << cwd.string() << std::endl;
 }
@@ -52,15 +54,46 @@ std::string read_styio_file(const char* filename) {
 }
 
 int main(int argc, char* argv[]) {
-  // std::copy(argv, argv + argc, std::ostream_iterator<char *>(std::cout, "\n"));
+  cxxopts::Options options("styio", "Styio Compiler");
 
-  auto styio_code = read_styio_file(argv[1]);
-  auto styio_context = std::make_shared<StyioContext>(styio_code);
-  auto styio_program = parse_main_block(styio_context);
+  options.add_options()
+  ("f,file", "Source File Path", cxxopts::value<std::string>())
+  ("a,ast", "Show Styio AST", cxxopts::value<bool>() -> default_value("false"))
+  ("i,ir", "Show LLVM IR", cxxopts::value<bool>() -> default_value("false"))
+  ("h,help", "Show All Command-Line Options")
+  ;
 
-  auto generator = StyioToLLVM();
-  generator.toLLVM(&*styio_program);
-  generator.show();
+  auto cmlopts = options.parse(argc, argv);
+
+  if (cmlopts.count("help")) {
+    std::cout << options.help() << std::endl;
+    exit(0); }
+
+  bool show_ast = cmlopts["ast"].as<bool>();
+  bool show_ir = cmlopts["ir"].as<bool>();
+
+  std::string fpath; /* File Path: fpath */
+  if (cmlopts.count("file")) 
+  {
+    fpath = cmlopts["file"].as<std::string>();
+    // std::cout << fpath << std::endl;
+
+    auto styio_code = read_styio_file(fpath.c_str());
+    auto styio_context = std::make_shared<StyioContext>(styio_code);
+    auto styio_program = parse_main_block(styio_context);
+
+    if (show_ast)
+    {
+      show_program(styio_program);
+    }
+
+    if (show_ir)
+    {
+      auto generator = StyioToLLVM();
+      generator.toLLVM(&*styio_program);
+      generator.show();
+    }
+  }
   
   return 0;
 }

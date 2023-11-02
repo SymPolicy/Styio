@@ -1,0 +1,1 @@
+set -o pipefail;{ : 'RUN: at line 1';   /root/styio/styio -i -f /root/styio/test/codegen/func/final/00001.styio | /usr/bin/FileCheck-16 /root/styio/test/codegen/func/final/00001.styio; }

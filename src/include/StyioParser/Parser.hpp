@@ -176,6 +176,12 @@ class StyioContext {
     ) {
       return (code.at(pos + steps) == value);
     }
+    
+    bool peak_isdigit(
+      int steps
+    ) {
+      return isdigit(code.at(pos + steps));
+    }
 
     /* Drop White Spaces */
     void drop_white_spaces() {
@@ -590,7 +596,7 @@ std::unique_ptr<ForwardAST> parse_forward (
 );
 
 
-std::unique_ptr<MainBlockAST> parse_main_block (
+std::shared_ptr<MainBlockAST> parse_main_block (
   std::shared_ptr<StyioContext> context
 );
 

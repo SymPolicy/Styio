@@ -24,6 +24,10 @@
 #include "llvm/LinkAllIR.h"
 #include "llvm/IR/DerivedTypes.h"
 
+void i_am_here() {
+  std::cout << "here" <<  std::endl;
+}
+
 llvm::Type* StyioToLLVM::match_type(
   std::string type) {
     if (type == "i32") {
@@ -48,7 +52,10 @@ llvm::Type* StyioToLLVM::match_type(
 }
 
 void StyioToLLVM::show() {
-  llvm_module -> print(llvm::errs(), nullptr);
+  /* stdout */
+  llvm_module -> print(llvm::outs(), nullptr);
+  /* stderr */
+  // llvm_module -> print(llvm::errs(), nullptr);
 }
 
 /*
@@ -96,11 +103,7 @@ llvm::Value* StyioToLLVM::toLLVM(BreakAST* ast) {
 }
 
 llvm::Value* StyioToLLVM::toLLVM(ReturnAST* ast) {
-  auto zero = llvm_builder -> getInt32(0);
-
-  llvm_builder -> CreateRet(zero);
-
-  return zero;
+  return llvm_builder -> CreateRet(ast -> getExpr() -> toLLVM(this));
 }
 
 llvm::Value* StyioToLLVM::toLLVM(CommentAST* ast) {
@@ -149,13 +152,49 @@ llvm::Value* StyioToLLVM::toLLVM(DTypeAST* ast) {
 }
 
 llvm::Value* StyioToLLVM::toLLVM(IntAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
-  return output;
+  switch (ast -> getType())
+  {
+  case StyioDataType::i32:
+    return llvm_builder -> getInt32(std::stoi(ast -> getValue()));
+
+  case StyioDataType::i64:
+    return llvm_builder -> getInt64(std::stoi(ast -> getValue()));
+
+  case StyioDataType::i1:
+    return llvm_builder -> getInt1(std::stoi(ast -> getValue()));
+
+  case StyioDataType::i8:
+    return llvm_builder -> getInt8(std::stoi(ast -> getValue()));
+
+  case StyioDataType::i16:
+    return llvm_builder -> getInt16(std::stoi(ast -> getValue()));
+
+  case StyioDataType::i128:
+    return llvm::ConstantInt::get(
+      llvm::Type::getInt128Ty(*llvm_context),
+      std::stoi(ast -> getValue())
+    );
+  
+  default:
+    return llvm_builder -> getInt32(std::stoi(ast -> getValue()));
+  }
 }
 
 llvm::Value* StyioToLLVM::toLLVM(FloatAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
-  return output;
+  switch (ast -> getType())
+  {
+  case StyioDataType::f64:
+    return llvm::ConstantFP::get(
+      *llvm_context, 
+      llvm::APFloat(std::stod(ast -> getValue()))
+    );
+  
+  default:
+    return llvm::ConstantFP::get(
+      *llvm_context, 
+      llvm::APFloat(std::stod(ast -> getValue()))
+    );
+  }
 }
 
 llvm::Value* StyioToLLVM::toLLVM(CharAST* ast) {
@@ -164,6 +203,11 @@ llvm::Value* StyioToLLVM::toLLVM(CharAST* ast) {
 }
 
 llvm::Value* StyioToLLVM::toLLVM(StringAST* ast) {
+  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  return output;
+}
+
+llvm::Value* StyioToLLVM::toLLVM(NumPromoAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
@@ -220,7 +264,7 @@ llvm::Value* StyioToLLVM::toLLVM(SizeOfAST* ast) {
 }
 
 llvm::Value* StyioToLLVM::toLLVM(BinOpAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  llvm::Value* output = llvm_builder -> getInt32(0);
 
   llvm::Value* l_val = ast -> getLhs() -> toLLVM(this);
   llvm::Value* r_val = ast -> getRhs() -> toLLVM(this);
@@ -228,12 +272,12 @@ llvm::Value* StyioToLLVM::toLLVM(BinOpAST* ast) {
   switch (ast -> hint())
   {
   case StyioNodeHint::Bin_Add:
-    llvm_builder -> CreateAdd(l_val, r_val, "add");
+    output = llvm_builder -> CreateAdd(l_val, r_val, "add");
 
     break;
 
   case StyioNodeHint::Bin_Sub:
-    llvm_builder -> CreateSub(l_val, r_val, "sub");
+    output = llvm_builder -> CreateSub(l_val, r_val, "sub");
 
     break;
 
