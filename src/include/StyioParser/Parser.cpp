@@ -231,8 +231,8 @@ parse_path(shared_ptr<StyioContext> context)
     return make_unique<DBUrlAST>(StyioPathType::db_postgresql, text);
   } else if (text.starts_with("mongo://")) {
     return make_unique<DBUrlAST>(StyioPathType::db_mongo, text);
-  } else if (text.starts_with("localhost")) {
-    return make_unique<RemotePathAST>(StyioPathType::ipv4_addr, text);
+  } else if (text.starts_with("localhost") || text.starts_with("127.0.0.1")) {
+    return make_unique<RemotePathAST>(StyioPathType::url_localhost, text);
   } else if (is_ipv4_at_start(text)) {
     return make_unique<RemotePathAST>(StyioPathType::ipv4_addr, text);
   } else if (is_ipv6_at_start(text)) {
