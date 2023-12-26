@@ -2,7 +2,7 @@
 build/
 
 # visual studio code cache
-.vscode/
+# .vscode/
 
 # CMake cache
 CMakeFiles/

@@ -20,10 +20,10 @@ using std::shared_ptr;
 using std::unique_ptr;
 
 // Generic Visitor
-template<typename... Types>
+template <typename... Types>
 class Visitor;
 
-template<typename T>
+template <typename T>
 class Visitor<T>
 {
 public:
@@ -34,7 +34,7 @@ public:
   virtual llvm::Value* toLLVM(T* t) = 0;
 };
 
-template<typename T, typename... Types>
+template <typename T, typename... Types>
 class Visitor<T, Types...> : public Visitor<Types...>
 {
 public:
@@ -135,86 +135,87 @@ class MatchCasesAST;
 class SideBlockAST;
 class MainBlockAST;
 
-using StyioVisitor = Visitor<class CommentAST,
+using StyioVisitor = Visitor<
+  class CommentAST,
 
-                             class NoneAST,
-                             class EmptyAST,
-                             class EmptyBlockAST,
+  class NoneAST,
+  class EmptyAST,
+  class EmptyBlockAST,
 
-                             class IdAST,
-                             class DTypeAST,
+  class IdAST,
+  class DTypeAST,
 
-                             class BoolAST,
-                             class IntAST,
-                             class FloatAST,
-                             class CharAST,
-                             class StringAST,
+  class BoolAST,
+  class IntAST,
+  class FloatAST,
+  class CharAST,
+  class StringAST,
 
-                             class NumPromoAST,
+  class NumPromoAST,
 
-                             class VarAST,
-                             class ArgAST,
-                             class OptArgAST,
-                             class OptKwArgAST,
+  class VarAST,
+  class ArgAST,
+  class OptArgAST,
+  class OptKwArgAST,
 
-                             class FlexBindAST,
-                             class FinalBindAST,
+  class FlexBindAST,
+  class FinalBindAST,
 
-                             class InfiniteAST,
+  class InfiniteAST,
 
-                             class StructAST,
-                             class TupleAST,
-                             class VarTupleAST,
-                             class RangeAST,
+  class StructAST,
+  class TupleAST,
+  class VarTupleAST,
+  class RangeAST,
 
-                             class SetAST,
-                             class ListAST,
+  class SetAST,
+  class ListAST,
 
-                             class SizeOfAST,
-                             class ListOpAST,
+  class SizeOfAST,
+  class ListOpAST,
 
-                             class BinCompAST,
-                             class CondAST,
-                             class BinOpAST,
+  class BinCompAST,
+  class CondAST,
+  class BinOpAST,
 
-                             class FmtStrAST,
-                             class ResourceAST,
+  class FmtStrAST,
+  class ResourceAST,
 
-                             class LocalPathAST,
-                             class RemotePathAST,
-                             class WebUrlAST,
-                             class DBUrlAST,
-                             
-                             class ExtPackAST,
+  class LocalPathAST,
+  class RemotePathAST,
+  class WebUrlAST,
+  class DBUrlAST,
 
-                             class ReadFileAST,
+  class ExtPackAST,
 
-                             class EOFAST,
-                             class BreakAST,
-                             class PassAST,
-                             class ReturnAST,
+  class ReadFileAST,
 
-                             class CallAST,
-                             class PrintAST,
+  class EOFAST,
+  class BreakAST,
+  class PassAST,
+  class ReturnAST,
 
-                             class ForwardAST,
-                             class CheckEqAST,
-                             class CheckIsInAST,
-                             class FromToAST,
+  class CallAST,
+  class PrintAST,
 
-                             class AnonyFuncAST,
-                             class FuncAST,
+  class ForwardAST,
+  class CheckEqAST,
+  class CheckIsInAST,
+  class FromToAST,
 
-                             class IterAST,
-                             class LoopAST,
+  class AnonyFuncAST,
+  class FuncAST,
 
-                             class CondFlowAST,
+  class IterAST,
+  class LoopAST,
 
-                             class CasesAST,
-                             class MatchCasesAST,
+  class CondFlowAST,
 
-                             class SideBlockAST,
-                             class MainBlockAST>;
+  class CasesAST,
+  class MatchCasesAST,
+
+  class SideBlockAST,
+  class MainBlockAST>;
 
 /* Styio -> LLVM Generator */
 class StyioToLLVM;
@@ -226,8 +227,7 @@ class StyioToLLVM : public StyioVisitor
   unique_ptr<llvm::IRBuilder<>> llvm_builder;
 
 public:
-  StyioToLLVM()
-  {
+  StyioToLLVM() {
     llvm_context = make_unique<llvm::LLVMContext>();
     llvm_module = make_unique<llvm::Module>("styio", *llvm_context);
     llvm_builder = make_unique<llvm::IRBuilder<>>(*llvm_context);
@@ -494,7 +494,7 @@ public:
   virtual llvm::Value* toLLVM(StyioToLLVM* generator) = 0;
 };
 
-template<class Derived>
+template <class Derived>
 class StyioNode : public StyioAST
 {
 public:
@@ -502,13 +502,11 @@ public:
   using StyioAST::toString;
   using StyioAST::toStringInline;
 
-  void check(StyioToLLVM* visitor) override
-  {
+  void check(StyioToLLVM* visitor) override {
     visitor->check(static_cast<Derived*>(this));
   }
 
-  llvm::Value* toLLVM(StyioToLLVM* visitor) override
-  {
+  llvm::Value* toLLVM(StyioToLLVM* visitor) override {
     visitor->check(static_cast<Derived*>(this));
     return visitor->toLLVM(static_cast<Derived*>(this));
   }
@@ -520,15 +518,21 @@ private:
   string Text;
 
 public:
-  CommentAST(string text)
-    : Text(text)
-  {
+  CommentAST(string text) :
+      Text(text) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Comment; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Comment;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 /* NoneAST: None / Null / Nil */
@@ -537,12 +541,16 @@ class NoneAST : public StyioNode<NoneAST>
 public:
   NoneAST() {}
 
-  StyioNodeHint hint() override { return StyioNodeHint::None; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::None;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { }");
   }
 };
@@ -553,12 +561,16 @@ class EmptyAST : public StyioNode<EmptyAST>
 public:
   EmptyAST() {}
 
-  StyioNodeHint hint() override { return StyioNodeHint::Empty; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Empty;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { }");
   }
 };
@@ -569,12 +581,16 @@ class EmptyBlockAST : public StyioNode<EmptyBlockAST>
 public:
   EmptyBlockAST() {}
 
-  StyioNodeHint hint() override { return StyioNodeHint::EmptyBlock; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::EmptyBlock;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { }");
   }
 };
@@ -584,22 +600,29 @@ class BoolAST : public StyioNode<BoolAST>
   bool Value;
 
 public:
-  BoolAST(bool val)
-    : Value(val)
-  {
+  BoolAST(bool val) :
+      Value(val) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Bool; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Bool;
+  }
 
-  static unique_ptr<BoolAST> make(bool value)
-  {
+  static unique_ptr<BoolAST> make(bool value) {
     return make_unique<BoolAST>(value);
   }
 
-  bool getValue() { return Value; }
+  bool getValue() {
+    return Value;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 class CasesAST : public StyioNode<CasesAST>
@@ -608,23 +631,24 @@ class CasesAST : public StyioNode<CasesAST>
   unique_ptr<StyioAST> LastExpr;
 
 public:
-  CasesAST(unique_ptr<StyioAST> expr)
-    : LastExpr(std::move(expr))
-  {
+  CasesAST(unique_ptr<StyioAST> expr) :
+      LastExpr(std::move(expr)) {
   }
 
-  CasesAST(vector<std::tuple<unique_ptr<StyioAST>, unique_ptr<StyioAST>>> cases,
-           unique_ptr<StyioAST> expr)
-    : Cases(std::move(cases))
-    , LastExpr(std::move(expr))
-  {
+  CasesAST(vector<std::tuple<unique_ptr<StyioAST>, unique_ptr<StyioAST>>> cases, unique_ptr<StyioAST> expr) :
+      Cases(std::move(cases)), LastExpr(std::move(expr)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Cases; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Cases;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
   }
 };
@@ -635,26 +659,29 @@ class SideBlockAST : public StyioNode<SideBlockAST>
   vector<unique_ptr<StyioAST>> Stmts;
 
 public:
-  SideBlockAST(unique_ptr<StyioAST> resources,
-               vector<unique_ptr<StyioAST>> stmts)
-    : Resources(std::move(resources))
-    , Stmts(std::move(stmts))
-  {
+  SideBlockAST(unique_ptr<StyioAST> resources, vector<unique_ptr<StyioAST>> stmts) :
+      Resources(std::move(resources)),
+      Stmts(std::move(stmts)) {
   }
 
-  SideBlockAST(vector<unique_ptr<StyioAST>> stmts)
-    : Stmts(std::move(stmts))
-  {
+  SideBlockAST(vector<unique_ptr<StyioAST>> stmts) :
+      Stmts(std::move(stmts)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Block; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Block;
+  }
 
-  const vector<unique_ptr<StyioAST>>& getStmts() const { return Stmts; }
+  const vector<unique_ptr<StyioAST>>& getStmts() const {
+    return Stmts;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
   }
 };
@@ -665,25 +692,36 @@ class MainBlockAST : public StyioNode<MainBlockAST>
   vector<unique_ptr<StyioAST>> Stmts;
 
 public:
-  MainBlockAST(unique_ptr<StyioAST> resources,
-               vector<unique_ptr<StyioAST>> stmts)
-    : Resources(std::move(resources))
-    , Stmts(std::move(stmts))
-  {
+  MainBlockAST(
+    unique_ptr<StyioAST> resources,
+    vector<unique_ptr<StyioAST>> stmts
+  ) :
+      Resources(std::move(resources)),
+      Stmts(std::move(stmts)) {
   }
 
-  MainBlockAST(vector<unique_ptr<StyioAST>> stmts)
-    : Stmts(std::move(stmts))
-  {
+  MainBlockAST(
+    vector<unique_ptr<StyioAST>> stmts
+  ) :
+      Stmts(std::move(stmts)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::MainBlock; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::MainBlock;
+  }
 
-  const vector<unique_ptr<StyioAST>>& getStmts() const { return Stmts; }
+  const vector<unique_ptr<StyioAST>>& getStmts() const {
+    return Stmts;
+  }
 
   /* toString */
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 class EOFAST : public StyioNode<EOFAST>
@@ -691,13 +729,21 @@ class EOFAST : public StyioNode<EOFAST>
 public:
   EOFAST() {}
 
-  StyioNodeHint hint() override { return StyioNodeHint::End; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::End;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
-    return reprNodeType(this->hint(), colorful) + string(" { }");
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override {
+    return reprNodeType(this->hint(), colorful)
+           + string(" { }");
   }
 };
 
@@ -706,12 +752,16 @@ class BreakAST : public StyioNode<BreakAST>
 public:
   BreakAST() {}
 
-  StyioNodeHint hint() override { return StyioNodeHint::Break; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Break;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { }");
   }
 };
@@ -721,12 +771,16 @@ class PassAST : public StyioNode<PassAST>
 public:
   PassAST() {}
 
-  StyioNodeHint hint() override { return StyioNodeHint::Pass; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Pass;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { }");
   }
 };
@@ -736,17 +790,26 @@ class ReturnAST : public StyioNode<ReturnAST>
   unique_ptr<StyioAST> Expr;
 
 public:
-  ReturnAST(unique_ptr<StyioAST> expr)
-    : Expr(std::move(expr))
-  {
+  ReturnAST(unique_ptr<StyioAST> expr) :
+      Expr(std::move(expr)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Return; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Return;
+  }
 
-  const unique_ptr<StyioAST>& getExpr() { return Expr; }
+  const unique_ptr<StyioAST>& getExpr() {
+    return Expr;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 /*
@@ -760,24 +823,31 @@ class IdAST : public StyioNode<IdAST>
   string Id = "";
 
 public:
-  IdAST(const string& id)
-    : Id(id)
-  {
+  IdAST(const string& id) :
+      Id(id) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Id; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Id;
+  }
 
-  const string& getIdStr() const { return Id; }
+  const string& getIdStr() const {
+    return Id;
+  }
 
   /* make shared pointer */
-  static unique_ptr<IdAST> make(const string& id)
-  {
+  static unique_ptr<IdAST> make(const string& id) {
     return make_unique<IdAST>(id);
   }
 
   /* toString */
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 class DTypeAST : public StyioNode<DTypeAST>
@@ -785,23 +855,30 @@ class DTypeAST : public StyioNode<DTypeAST>
   string TypeStr = "";
 
 public:
-  DTypeAST(const string& dtype)
-    : TypeStr(dtype)
-  {
+  DTypeAST(const string& dtype) :
+      TypeStr(dtype) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::DType; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::DType;
+  }
 
-  static unique_ptr<DTypeAST> make(string dtype)
-  {
+  static unique_ptr<DTypeAST> make(string dtype) {
     return make_unique<DTypeAST>(dtype);
   }
 
-  const string& getTypeStr() const { return TypeStr; }
+  const string& getTypeStr() const {
+    return TypeStr;
+  }
 
   /* toString */
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 /*
@@ -818,51 +895,56 @@ private:
   unique_ptr<StyioAST> DValue; /* Default Value */
 
 public:
-  VarAST()
-    : Name("")
-  {
+  VarAST() :
+      Name("") {
   }
 
-  VarAST(const string& name)
-    : Name(name)
-  {
+  VarAST(const string& name) :
+      Name(name) {
   }
 
-  VarAST(const string& name, shared_ptr<DTypeAST> data_type)
-    : Name(name)
-    , DType(std::move(data_type))
-  {
+  VarAST(const string& name, shared_ptr<DTypeAST> data_type) :
+      Name(name), DType(std::move(data_type)) {
   }
 
-  VarAST(const string& name,
-         shared_ptr<DTypeAST> data_type,
-         unique_ptr<StyioAST> default_value)
-    : Name(name)
-    , DType(std::move(data_type))
-    , DValue(std::move(default_value))
-  {
+  VarAST(const string& name, shared_ptr<DTypeAST> data_type, unique_ptr<StyioAST> default_value) :
+      Name(name), DType(std::move(data_type)), DValue(std::move(default_value)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Var; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Var;
+  }
 
-  const string& getName() const { return Name; }
+  const string& getName() const {
+    return Name;
+  }
 
-  bool hasType()
-  {
+  bool hasType() {
     if (DType) {
       return true;
-    } else {
+    }
+    else {
       return false;
     }
   }
 
-  const shared_ptr<DTypeAST>& getType() const { return DType; }
+  const shared_ptr<DTypeAST>& getType() const {
+    return DType;
+  }
 
-  const string& getTypeStr() const { return DType->getTypeStr(); }
+  const string& getTypeStr() const {
+    return DType->getTypeStr();
+  }
 
   /* toString */
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 /*
@@ -877,55 +959,48 @@ private:
   unique_ptr<StyioAST> DValue; /* Default Value */
 
 public:
-  ArgAST(const string& name)
-    : VarAST(name)
-    , Name(name)
-  {
+  ArgAST(const string& name) :
+      VarAST(name), Name(name) {
   }
 
-  ArgAST(const string& name, unique_ptr<DTypeAST> dtype)
-    : VarAST(name, DTypeAST::make(dtype->getTypeStr()))
-    , Name(name)
-    , DType(std::move(dtype))
-  {
+  ArgAST(const string& name, unique_ptr<DTypeAST> dtype) :
+      VarAST(name, DTypeAST::make(dtype->getTypeStr())), Name(name), DType(std::move(dtype)) {
   }
 
-  ArgAST(const string& name,
-         unique_ptr<DTypeAST> data_type,
-         unique_ptr<StyioAST> default_value)
-    : VarAST(name,
-             DTypeAST::make(data_type->getTypeStr()), /* Copy -> VarAST */
-             std::move(default_value))
-    , Name(name)
-    , DType(std::move(data_type))
-    , DValue(std::move(default_value))
-  {
+  ArgAST(const string& name, unique_ptr<DTypeAST> data_type, unique_ptr<StyioAST> default_value) :
+      VarAST(name, DTypeAST::make(data_type->getTypeStr()), /* Copy -> VarAST */
+             std::move(default_value)),
+      Name(name),
+      DType(std::move(data_type)),
+      DValue(std::move(default_value)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Arg; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Arg;
+  }
 
-  static shared_ptr<ArgAST> make(const string& id)
-  {
+  static shared_ptr<ArgAST> make(const string& id) {
     return std::make_shared<ArgAST>(id);
   }
 
-  static shared_ptr<ArgAST> make(const string& id,
-                                 unique_ptr<DTypeAST> data_type)
-  {
+  static shared_ptr<ArgAST> make(const string& id, unique_ptr<DTypeAST> data_type) {
     return std::make_shared<ArgAST>(id, std::move(data_type));
   }
 
-  static shared_ptr<ArgAST> make(const string& id,
-                                 unique_ptr<DTypeAST> data_type,
-                                 unique_ptr<StyioAST> default_value)
-  {
+  static shared_ptr<ArgAST> make(const string& id, unique_ptr<DTypeAST> data_type, unique_ptr<StyioAST> default_value) {
     return std::make_shared<ArgAST>(
-      id, std::move(data_type), std::move(default_value));
+      id, std::move(data_type), std::move(default_value)
+    );
   }
 
   /* toString */
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 class OptArgAST : public VarAST
@@ -933,16 +1008,22 @@ class OptArgAST : public VarAST
   unique_ptr<IdAST> Id;
 
 public:
-  OptArgAST(unique_ptr<IdAST> id)
-    : Id(std::move(id))
-  {
+  OptArgAST(unique_ptr<IdAST> id) :
+      Id(std::move(id)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::OptArg; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::OptArg;
+  }
 
   /* toString */
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 class OptKwArgAST : public VarAST
@@ -950,16 +1031,23 @@ class OptKwArgAST : public VarAST
   unique_ptr<IdAST> Id;
 
 public:
-  OptKwArgAST(unique_ptr<IdAST> id)
-    : Id(std::move(id))
-  {
+  OptKwArgAST(unique_ptr<IdAST> id) :
+      Id(std::move(id)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::OptKwArg; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::OptKwArg;
+  }
 
   /* toString */
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 class VarTupleAST : public StyioNode<VarTupleAST>
@@ -967,18 +1055,26 @@ class VarTupleAST : public StyioNode<VarTupleAST>
   vector<shared_ptr<VarAST>> Vars;
 
 public:
-  VarTupleAST(vector<shared_ptr<VarAST>> vars)
-    : Vars(std::move(vars))
-  {
+  VarTupleAST(vector<shared_ptr<VarAST>> vars) :
+      Vars(std::move(vars)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::VarTuple; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::VarTuple;
+  }
 
-  const vector<shared_ptr<VarAST>>& getArgs() { return Vars; }
+  const vector<shared_ptr<VarAST>>& getArgs() {
+    return Vars;
+  }
 
   /* toString */
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 /*
@@ -996,35 +1092,41 @@ class IntAST : public StyioNode<IntAST>
   StyioDataType DType = StyioDataType::i32;
 
 public:
-  IntAST(string val)
-    : Value(val)
-  {
+  IntAST(string val) :
+      Value(val) {
   }
 
-  IntAST(string val, StyioDataType dtype)
-    : Value(val)
-    , DType(dtype)
-  {
+  IntAST(string val, StyioDataType dtype) :
+      Value(val), DType(dtype) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Int; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Int;
+  }
 
-  const string& getValue() const { return Value; }
+  const string& getValue() const {
+    return Value;
+  }
 
-  StyioDataType getType() const { return DType; }
+  StyioDataType getType() const {
+    return DType;
+  }
 
-  static unique_ptr<IntAST> make(string value)
-  {
+  static unique_ptr<IntAST> make(string value) {
     return make_unique<IntAST>(value);
   }
 
-  static unique_ptr<IntAST> make(string value, StyioDataType dtype)
-  {
+  static unique_ptr<IntAST> make(string value, StyioDataType dtype) {
     return make_unique<IntAST>(value, dtype);
   }
 
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 /*
@@ -1042,9 +1144,8 @@ private:
   // int Exponent = 0;
 
 public:
-  FloatAST(string value)
-    : Value(value)
-  {
+  FloatAST(string value) :
+      Value(value) {
   }
 
   // FloatAST(
@@ -1061,14 +1162,26 @@ public:
   //   Exponent(exponent),
   //   DType(data_type) {}
 
-  StyioNodeHint hint() override { return StyioNodeHint::Float; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Float;
+  }
 
-  StyioDataType getType() { return DType; }
+  StyioDataType getType() {
+    return DType;
+  }
 
-  const string& getValue() const { return Value; }
+  const string& getValue() const {
+    return Value;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 /*
@@ -1079,17 +1192,22 @@ class CharAST : public StyioNode<CharAST>
   string Value;
 
 public:
-  CharAST(string val)
-    : Value(val)
-  {
+  CharAST(
+    string val
+  ) :
+      Value(val) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Char; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Char;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + " { \'" + Value + "\' }";
   }
 };
@@ -1102,17 +1220,20 @@ class StringAST : public StyioNode<StringAST>
   string Value;
 
 public:
-  StringAST(string val)
-    : Value(val)
-  {
+  StringAST(string val) :
+      Value(val) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::String; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::String;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return "\"" + Value + "\"";
   }
 };
@@ -1126,18 +1247,20 @@ class FmtStrAST : public StyioNode<FmtStrAST>
   vector<unique_ptr<StyioAST>> Exprs;
 
 public:
-  FmtStrAST(vector<string> fragments, vector<unique_ptr<StyioAST>> expressions)
-    : Fragments(fragments)
-    , Exprs(std::move(expressions))
-  {
+  FmtStrAST(vector<string> fragments, vector<unique_ptr<StyioAST>> expressions) :
+      Fragments(fragments), Exprs(std::move(expressions)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::FmtStr; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::FmtStr;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + " { \"" + "\" }";
   }
 };
@@ -1148,27 +1271,29 @@ class NumPromoAST : public StyioNode<NumPromoAST>
   NumPromoTy PromoType;
 
 public:
-  NumPromoAST(shared_ptr<StyioAST> val, NumPromoTy promo_type)
-    : Value(std::move(val))
-    , PromoType(promo_type)
-  {
+  NumPromoAST(shared_ptr<StyioAST> val, NumPromoTy promo_type) :
+      Value(std::move(val)), PromoType(promo_type) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::NumConvert; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::NumConvert;
+  }
 
-  static shared_ptr<NumPromoAST> make(shared_ptr<StyioAST> value,
-                                      NumPromoTy promo_type)
-  {
+  static shared_ptr<NumPromoAST> make(shared_ptr<StyioAST> value, NumPromoTy promo_type) {
     return make_unique<NumPromoAST>(std::move(value), promo_type);
   }
 
-  static unique_ptr<IntAST> make(string value, StyioDataType dtype)
-  {
+  static unique_ptr<IntAST> make(string value, StyioDataType dtype) {
     return make_unique<IntAST>(value, dtype);
   }
 
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 /*
@@ -1186,17 +1311,20 @@ class LocalPathAST : public StyioNode<LocalPathAST>
   StyioPathType Type;
 
 public:
-  LocalPathAST(StyioPathType type, string path)
-    : Type(type), Path(std::move(path))
-  {
+  LocalPathAST(StyioPathType type, string path) :
+      Type(type), Path(std::move(path)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::LocalPath; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::LocalPath;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + Path + string(" }");
   }
 };
@@ -1210,17 +1338,20 @@ class RemotePathAST : public StyioNode<RemotePathAST>
   StyioPathType Type;
 
 public:
-  RemotePathAST(StyioPathType type, string path)
-    : Type(type), Path(std::move(path))
-  {
+  RemotePathAST(StyioPathType type, string path) :
+      Type(type), Path(std::move(path)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::RemotePath; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::RemotePath;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + Path + string(" }");
   }
 };
@@ -1237,17 +1368,20 @@ class WebUrlAST : public StyioNode<WebUrlAST>
   StyioPathType Type;
 
 public:
-  WebUrlAST(StyioPathType type, string path)
-    : Type(type), Path(std::move(path))
-  {
+  WebUrlAST(StyioPathType type, string path) :
+      Type(type), Path(std::move(path)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::WebUrl; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::WebUrl;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + Path + string(" }");
   }
 };
@@ -1259,17 +1393,20 @@ class DBUrlAST : public StyioNode<DBUrlAST>
   StyioPathType Type;
 
 public:
-  DBUrlAST(StyioPathType type, string path)
-    : Type(type), Path(std::move(path))
-  {
+  DBUrlAST(StyioPathType type, string path) :
+      Type(type), Path(std::move(path)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::DBUrl; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::DBUrl;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + Path + string(" }");
   }
 };
@@ -1291,17 +1428,20 @@ class ListAST : public StyioNode<ListAST>
   vector<unique_ptr<StyioAST>> Elems;
 
 public:
-  ListAST(vector<unique_ptr<StyioAST>> elems)
-    : Elems(std::move(elems))
-  {
+  ListAST(vector<unique_ptr<StyioAST>> elems) :
+      Elems(std::move(elems)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::List; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::List;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
   }
 };
@@ -1311,17 +1451,20 @@ class TupleAST : public StyioNode<TupleAST>
   vector<unique_ptr<StyioAST>> Elems;
 
 public:
-  TupleAST(vector<unique_ptr<StyioAST>> elems)
-    : Elems(std::move(elems))
-  {
+  TupleAST(vector<unique_ptr<StyioAST>> elems) :
+      Elems(std::move(elems)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Tuple; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Tuple;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
   }
 };
@@ -1331,17 +1474,20 @@ class SetAST : public StyioNode<SetAST>
   vector<unique_ptr<StyioAST>> Elems;
 
 public:
-  SetAST(vector<unique_ptr<StyioAST>> elems)
-    : Elems(std::move(elems))
-  {
+  SetAST(vector<unique_ptr<StyioAST>> elems) :
+      Elems(std::move(elems)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Set; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Set;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
   }
 };
@@ -1356,21 +1502,20 @@ class RangeAST : public StyioNode<RangeAST>
   unique_ptr<StyioAST> StepVal;
 
 public:
-  RangeAST(unique_ptr<StyioAST> start,
-           unique_ptr<StyioAST> end,
-           unique_ptr<StyioAST> step)
-    : StartVal(std::move(start))
-    , EndVal(std::move(end))
-    , StepVal(std::move(step))
-  {
+  RangeAST(unique_ptr<StyioAST> start, unique_ptr<StyioAST> end, unique_ptr<StyioAST> step) :
+      StartVal(std::move(start)), EndVal(std::move(end)), StepVal(std::move(step)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Range; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Range;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
   }
 };
@@ -1389,17 +1534,20 @@ class SizeOfAST : public StyioNode<SizeOfAST>
   unique_ptr<StyioAST> Value;
 
 public:
-  SizeOfAST(unique_ptr<StyioAST> value)
-    : Value(std::move(value))
-  {
+  SizeOfAST(unique_ptr<StyioAST> value) :
+      Value(std::move(value)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::SizeOf; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::SizeOf;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
   }
 };
@@ -1468,28 +1616,35 @@ class BinOpAST : public StyioNode<BinOpAST>
   shared_ptr<StyioAST> RHS;
 
 public:
-  BinOpAST(StyioNodeHint op, shared_ptr<StyioAST> lhs, shared_ptr<StyioAST> rhs)
-    : Op(op)
-    , LHS(lhs)
-    , RHS(rhs)
-  {
+  BinOpAST(StyioNodeHint op, shared_ptr<StyioAST> lhs, shared_ptr<StyioAST> rhs) :
+      Op(op), LHS(lhs), RHS(rhs) {
   }
 
-  StyioNodeHint hint() override { return Op; }
+  StyioNodeHint hint() override {
+    return Op;
+  }
 
-  const shared_ptr<StyioAST>& getLhs() const { return LHS; }
+  const shared_ptr<StyioAST>& getLhs() const {
+    return LHS;
+  }
 
-  const shared_ptr<StyioAST>& getRhs() const { return RHS; }
+  const shared_ptr<StyioAST>& getRhs() const {
+    return RHS;
+  }
 
-  void setLhs(shared_ptr<StyioAST> value)
-  {
+  void setLhs(shared_ptr<StyioAST> value) {
     LHS.reset();
     LHS = std::move(value);
   }
 
   /* toString */
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 class BinCompAST : public StyioNode<BinCompAST>
@@ -1499,19 +1654,20 @@ class BinCompAST : public StyioNode<BinCompAST>
   unique_ptr<StyioAST> RhsExpr;
 
 public:
-  BinCompAST(CompType sign, unique_ptr<StyioAST> lhs, unique_ptr<StyioAST> rhs)
-    : CompSign(sign)
-    , LhsExpr(std::move(lhs))
-    , RhsExpr(std::move(rhs))
-  {
+  BinCompAST(CompType sign, unique_ptr<StyioAST> lhs, unique_ptr<StyioAST> rhs) :
+      CompSign(sign), LhsExpr(std::move(lhs)), RhsExpr(std::move(rhs)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Compare; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Compare;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
   }
 };
@@ -1534,25 +1690,24 @@ class CondAST : public StyioNode<CondAST>
   unique_ptr<StyioAST> RhsExpr;
 
 public:
-  CondAST(LogicType op, unique_ptr<StyioAST> val)
-    : LogicOp(op)
-    , ValExpr(std::move(val))
-  {
+  CondAST(LogicType op, unique_ptr<StyioAST> val) :
+      LogicOp(op), ValExpr(std::move(val)) {
   }
 
-  CondAST(LogicType op, unique_ptr<StyioAST> lhs, unique_ptr<StyioAST> rhs)
-    : LogicOp(op)
-    , LhsExpr(std::move(lhs))
-    , RhsExpr(std::move(rhs))
-  {
+  CondAST(LogicType op, unique_ptr<StyioAST> lhs, unique_ptr<StyioAST> rhs) :
+      LogicOp(op), LhsExpr(std::move(lhs)), RhsExpr(std::move(rhs)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Condition; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Condition;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
   }
 };
@@ -1562,17 +1717,20 @@ class CallAST : public StyioNode<CallAST>
   unique_ptr<StyioAST> Func;
 
 public:
-  CallAST(unique_ptr<StyioAST> func)
-    : Func(std::move(func))
-  {
+  CallAST(unique_ptr<StyioAST> func) :
+      Func(std::move(func)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Call; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Call;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
   }
 };
@@ -1590,10 +1748,8 @@ public:
     Get_Reversed
       [<]
   */
-  ListOpAST(StyioNodeHint opType, unique_ptr<StyioAST> theList)
-    : OpType(opType)
-    , TheList(std::move(theList))
-  {
+  ListOpAST(StyioNodeHint opType, unique_ptr<StyioAST> theList) :
+      OpType(opType), TheList(std::move(theList)) {
   }
 
   /*
@@ -1633,36 +1789,28 @@ public:
     Remove_Items_By_Many_Values_From_Right
       [[<] -: ?^ (v0, v1, ...)]
   */
-  ListOpAST(StyioNodeHint opType,
-            unique_ptr<StyioAST> theList,
-            unique_ptr<StyioAST> item)
-    : OpType(opType)
-    , TheList(std::move(theList))
-    , Slot1(std::move(item))
-  {
+  ListOpAST(StyioNodeHint opType, unique_ptr<StyioAST> theList, unique_ptr<StyioAST> item) :
+      OpType(opType), TheList(std::move(theList)), Slot1(std::move(item)) {
   }
 
   /*
     Insert_Item_By_Index
       [+: index <- value]
   */
-  ListOpAST(StyioNodeHint opType,
-            unique_ptr<StyioAST> theList,
-            unique_ptr<StyioAST> index,
-            unique_ptr<StyioAST> value)
-    : OpType(opType)
-    , TheList(std::move(theList))
-    , Slot1(std::move(index))
-    , Slot2(std::move(value))
-  {
+  ListOpAST(StyioNodeHint opType, unique_ptr<StyioAST> theList, unique_ptr<StyioAST> index, unique_ptr<StyioAST> value) :
+      OpType(opType), TheList(std::move(theList)), Slot1(std::move(index)), Slot2(std::move(value)) {
   }
 
-  StyioNodeHint hint() override { return OpType; }
+  StyioNodeHint hint() override {
+    return OpType;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
   }
 };
@@ -1686,17 +1834,20 @@ class ResourceAST : public StyioNode<ResourceAST>
   vector<unique_ptr<StyioAST>> Resources;
 
 public:
-  ResourceAST(vector<unique_ptr<StyioAST>> resources)
-    : Resources(std::move(resources))
-  {
+  ResourceAST(vector<unique_ptr<StyioAST>> resources) :
+      Resources(std::move(resources)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Resources; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Resources;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
   }
 };
@@ -1716,16 +1867,21 @@ class FlexBindAST : public StyioNode<FlexBindAST>
   unique_ptr<StyioAST> valExpr;
 
 public:
-  FlexBindAST(unique_ptr<IdAST> var, unique_ptr<StyioAST> val)
-    : varId(std::move(var))
-    , valExpr(std::move(val))
-  {
+  FlexBindAST(unique_ptr<IdAST> var, unique_ptr<StyioAST> val) :
+      varId(std::move(var)), valExpr(std::move(val)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::MutBind; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::MutBind;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 /*
@@ -1737,16 +1893,21 @@ class FinalBindAST : public StyioNode<FinalBindAST>
   unique_ptr<StyioAST> ValExpr;
 
 public:
-  FinalBindAST(unique_ptr<IdAST> var, unique_ptr<StyioAST> val)
-    : VarId(std::move(var))
-    , ValExpr(std::move(val))
-  {
+  FinalBindAST(unique_ptr<IdAST> var, unique_ptr<StyioAST> val) :
+      VarId(std::move(var)), ValExpr(std::move(val)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::FixBind; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::FixBind;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 /*
@@ -1768,20 +1929,22 @@ class StructAST : public StyioNode<StructAST>
   unique_ptr<StyioAST> FBlock;
 
 public:
-  StructAST(unique_ptr<IdAST> name,
-            shared_ptr<VarTupleAST> vars,
-            unique_ptr<StyioAST> block)
-    : FName(std::move(name))
-    , FVars(vars)
-    , FBlock(std::move(block))
-  {
+  StructAST(unique_ptr<IdAST> name, shared_ptr<VarTupleAST> vars, unique_ptr<StyioAST> block) :
+      FName(std::move(name)), FVars(vars), FBlock(std::move(block)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Struct; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Struct;
+  }
 
   /* toString */
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 /*
@@ -1799,18 +1962,20 @@ class ReadFileAST : public StyioNode<ReadFileAST>
   unique_ptr<StyioAST> valExpr;
 
 public:
-  ReadFileAST(unique_ptr<IdAST> var, unique_ptr<StyioAST> val)
-    : varId(std::move(var))
-    , valExpr(std::move(val))
-  {
+  ReadFileAST(unique_ptr<IdAST> var, unique_ptr<StyioAST> val) :
+      varId(std::move(var)), valExpr(std::move(val)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::ReadFile; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::ReadFile;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
   }
 };
@@ -1823,17 +1988,20 @@ class PrintAST : public StyioNode<PrintAST>
   vector<unique_ptr<StyioAST>> Exprs;
 
 public:
-  PrintAST(vector<unique_ptr<StyioAST>> exprs)
-    : Exprs(std::move(exprs))
-  {
+  PrintAST(vector<unique_ptr<StyioAST>> exprs) :
+      Exprs(std::move(exprs)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Print; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Print;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
   }
 };
@@ -1852,17 +2020,20 @@ class ExtPackAST : public StyioNode<ExtPackAST>
   vector<string> PackPaths;
 
 public:
-  ExtPackAST(vector<string> paths)
-    : PackPaths(paths)
-  {
+  ExtPackAST(vector<string> paths) :
+      PackPaths(paths) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::ExtPack; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::ExtPack;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
   }
 };
@@ -1882,32 +2053,24 @@ class CondFlowAST : public StyioNode<CondFlowAST>
 public:
   StyioNodeHint WhatFlow;
 
-  CondFlowAST(StyioNodeHint whatFlow,
-              unique_ptr<CondAST> condition,
-              unique_ptr<StyioAST> block)
-    : WhatFlow(whatFlow)
-    , CondExpr(std::move(condition))
-    , ThenBlock(std::move(block))
-  {
+  CondFlowAST(StyioNodeHint whatFlow, unique_ptr<CondAST> condition, unique_ptr<StyioAST> block) :
+      WhatFlow(whatFlow), CondExpr(std::move(condition)), ThenBlock(std::move(block)) {
   }
 
-  CondFlowAST(StyioNodeHint whatFlow,
-              unique_ptr<CondAST> condition,
-              unique_ptr<StyioAST> blockThen,
-              unique_ptr<StyioAST> blockElse)
-    : WhatFlow(whatFlow)
-    , CondExpr(std::move(condition))
-    , ThenBlock(std::move(blockThen))
-    , ElseBlock(std::move(blockElse))
-  {
+  CondFlowAST(StyioNodeHint whatFlow, unique_ptr<CondAST> condition, unique_ptr<StyioAST> blockThen, unique_ptr<StyioAST> blockElse) :
+      WhatFlow(whatFlow), CondExpr(std::move(condition)), ThenBlock(std::move(blockThen)), ElseBlock(std::move(blockElse)) {
   }
 
-  StyioNodeHint hint() override { return WhatFlow; }
+  StyioNodeHint hint() override {
+    return WhatFlow;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
   }
 };
@@ -2040,16 +2203,23 @@ class CheckEqAST : public StyioNode<CheckEqAST>
   unique_ptr<StyioAST> Value;
 
 public:
-  CheckEqAST(unique_ptr<StyioAST> value)
-    : Value(std::move(value))
-  {
+  CheckEqAST(unique_ptr<StyioAST> value) :
+      Value(std::move(value)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::CheckEq; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::CheckEq;
+  }
 
   /* toString */
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 class CheckIsInAST : public StyioNode<CheckIsInAST>
@@ -2057,16 +2227,25 @@ class CheckIsInAST : public StyioNode<CheckIsInAST>
   unique_ptr<StyioAST> Iterable;
 
 public:
-  CheckIsInAST(unique_ptr<StyioAST> value)
-    : Iterable(std::move(value))
-  {
+  CheckIsInAST(
+    unique_ptr<StyioAST> value
+  ) :
+      Iterable(std::move(value)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::CheckIsin; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::CheckIsin;
+  }
 
   /* toString */
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 /*
@@ -2078,17 +2257,23 @@ class FromToAST : public StyioNode<FromToAST>
   unique_ptr<StyioAST> ToWhat;
 
 public:
-  FromToAST(unique_ptr<StyioAST> from_expr, unique_ptr<StyioAST> to_expr)
-    : FromWhat(std::move(from_expr))
-    , ToWhat(std::move(to_expr))
-  {
+  FromToAST(unique_ptr<StyioAST> from_expr, unique_ptr<StyioAST> to_expr) :
+      FromWhat(std::move(from_expr)), ToWhat(std::move(to_expr)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::FromTo; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::FromTo;
+  }
 
   /* toString */
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 /*
@@ -2119,82 +2304,69 @@ private:
   StyioNodeHint Type = StyioNodeHint::Forward;
 
 public:
-  ForwardAST(unique_ptr<StyioAST> expr)
-    : ThenExpr(std::move(expr))
-  {
+  ForwardAST(unique_ptr<StyioAST> expr) :
+      ThenExpr(std::move(expr)) {
     Type = StyioNodeHint::Forward;
   }
 
-  ForwardAST(unique_ptr<CheckEqAST> value, unique_ptr<StyioAST> whatnext)
-    : ExtraEq(std::move(value))
-    , ThenExpr(std::move(whatnext))
-  {
+  ForwardAST(unique_ptr<CheckEqAST> value, unique_ptr<StyioAST> whatnext) :
+      ExtraEq(std::move(value)), ThenExpr(std::move(whatnext)) {
     Type = StyioNodeHint::If_Equal_To_Forward;
   }
 
-  ForwardAST(unique_ptr<CheckIsInAST> isin, unique_ptr<StyioAST> whatnext)
-    : ExtraIsin(std::move(isin))
-    , ThenExpr(std::move(whatnext))
-  {
+  ForwardAST(unique_ptr<CheckIsInAST> isin, unique_ptr<StyioAST> whatnext) :
+      ExtraIsin(std::move(isin)), ThenExpr(std::move(whatnext)) {
     Type = StyioNodeHint::If_Is_In_Forward;
   }
 
-  ForwardAST(unique_ptr<CasesAST> cases)
-    : ThenExpr(std::move(cases))
-  {
+  ForwardAST(unique_ptr<CasesAST> cases) :
+      ThenExpr(std::move(cases)) {
     Type = StyioNodeHint::Cases_Forward;
   }
 
-  ForwardAST(unique_ptr<CondFlowAST> condflow)
-    : ThenCondFlow(std::move(condflow))
-  {
+  ForwardAST(unique_ptr<CondFlowAST> condflow) :
+      ThenCondFlow(std::move(condflow)) {
     if ((condflow->WhatFlow) == StyioNodeHint::CondFlow_True) {
       Type = StyioNodeHint::If_True_Forward;
-    } else if ((condflow->WhatFlow) == StyioNodeHint::CondFlow_False) {
+    }
+    else if ((condflow->WhatFlow) == StyioNodeHint::CondFlow_False) {
       Type = StyioNodeHint::If_False_Forward;
-    } else {
+    }
+    else {
       Type = StyioNodeHint::If_Both_Forward;
     }
   }
 
-  ForwardAST(shared_ptr<VarTupleAST> vars, unique_ptr<StyioAST> whatnext)
-    : Args(std::move(vars))
-    , ThenExpr(std::move(whatnext))
-  {
+  ForwardAST(
+    shared_ptr<VarTupleAST> vars, 
+    unique_ptr<StyioAST> whatnext
+  ) :
+      Args(std::move(vars)),
+      ThenExpr(std::move(whatnext)) {
     Type = StyioNodeHint::Fill_Forward;
   }
 
-  ForwardAST(shared_ptr<VarTupleAST> vars,
-             unique_ptr<CheckEqAST> value,
-             unique_ptr<StyioAST> whatnext)
-    : Args(std::move(vars))
-    , ExtraEq(std::move(value))
-    , ThenExpr(std::move(whatnext))
-  {
+  ForwardAST(
+    shared_ptr<VarTupleAST> vars,
+    unique_ptr<CheckEqAST> value,
+    unique_ptr<StyioAST> whatnext
+  ) :
+      Args(std::move(vars)), ExtraEq(std::move(value)), ThenExpr(std::move(whatnext)) {
     Type = StyioNodeHint::Fill_If_Equal_To_Forward;
   }
 
-  ForwardAST(shared_ptr<VarTupleAST> vars,
-             unique_ptr<CheckIsInAST> isin,
-             unique_ptr<StyioAST> whatnext)
-    : Args(std::move(vars))
-    , ExtraIsin(std::move(isin))
-    , ThenExpr(std::move(whatnext))
-  {
+  ForwardAST(shared_ptr<VarTupleAST> vars, unique_ptr<CheckIsInAST> isin, unique_ptr<StyioAST> whatnext) :
+      Args(std::move(vars)), ExtraIsin(std::move(isin)), ThenExpr(std::move(whatnext)) {
     Type = StyioNodeHint::Fill_If_Is_in_Forward;
   }
 
-  ForwardAST(shared_ptr<VarTupleAST> vars, unique_ptr<CasesAST> cases)
-    : Args(std::move(vars))
-    , ThenExpr(std::move(cases))
-  {
+  ForwardAST(shared_ptr<VarTupleAST> vars, unique_ptr<CasesAST> cases) :
+      Args(std::move(vars)), ThenExpr(std::move(cases)) {
     Type = StyioNodeHint::Fill_Cases_Forward;
   }
 
-  ForwardAST(shared_ptr<VarTupleAST> vars, unique_ptr<CondFlowAST> condflow)
-    : Args(std::move(vars))
-    , ThenCondFlow(std::move(condflow))
-  {
+  ForwardAST(shared_ptr<VarTupleAST> vars, unique_ptr<CondFlowAST> condflow) :
+      Args(std::move(vars)), ThenCondFlow(std::move(condflow)) {
     switch (condflow->WhatFlow) {
       case StyioNodeHint::CondFlow_True:
         Type = StyioNodeHint::Fill_If_True_Forward;
@@ -2213,24 +2385,36 @@ public:
     }
   }
 
-  StyioNodeHint hint() override { return Type; }
+  StyioNodeHint hint() override {
+    return Type;
+  }
 
-  bool hasArgs()
-  {
+  bool hasArgs() {
     if (Args) {
       return true;
-    } else {
+    }
+    else {
       return false;
     }
   }
 
-  const shared_ptr<VarTupleAST>& getArgs() { return Args; }
+  const shared_ptr<VarTupleAST>& getArgs() {
+    return Args;
+  }
 
-  const unique_ptr<StyioAST>& getThen() { return ThenExpr; }
+  const unique_ptr<StyioAST>& getThen() {
+    return ThenExpr;
+  }
 
   /* toString */
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 /*
@@ -2250,21 +2434,25 @@ class InfiniteAST : public StyioNode<InfiniteAST>
   unique_ptr<StyioAST> IncEl;
 
 public:
-  InfiniteAST() { WhatType = InfiniteType::Original; }
+  InfiniteAST() {
+    WhatType = InfiniteType::Original;
+  }
 
-  InfiniteAST(unique_ptr<StyioAST> start, unique_ptr<StyioAST> incEl)
-    : Start(std::move(start))
-    , IncEl(std::move(incEl))
-  {
+  InfiniteAST(unique_ptr<StyioAST> start, unique_ptr<StyioAST> incEl) :
+      Start(std::move(start)), IncEl(std::move(incEl)) {
     WhatType = InfiniteType::Incremental;
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Infinite; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Infinite;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override
-  {
+  string toStringInline(int indent = 0, bool colorful = false) override {
     return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
   }
 };
@@ -2279,23 +2467,26 @@ class MatchCasesAST : public StyioNode<MatchCasesAST>
 
 public:
   /* v ?= { _ => ... } */
-  MatchCasesAST(shared_ptr<StyioAST> value, unique_ptr<CasesAST> cases)
-    : Value(value)
-    , Cases(std::move(cases))
-  {
+  MatchCasesAST(shared_ptr<StyioAST> value, unique_ptr<CasesAST> cases) :
+      Value(value), Cases(std::move(cases)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::MatchCases; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::MatchCases;
+  }
 
-  static shared_ptr<MatchCasesAST> make(shared_ptr<StyioAST> value,
-                                        unique_ptr<CasesAST> cases)
-  {
+  static shared_ptr<MatchCasesAST> make(shared_ptr<StyioAST> value, unique_ptr<CasesAST> cases) {
     return std::make_shared<MatchCasesAST>(value, std::move(cases));
   }
 
   /* toString */
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 /*
@@ -2312,17 +2503,22 @@ private:
 
 public:
   /* #() => Then */
-  AnonyFuncAST(shared_ptr<VarTupleAST> vars, unique_ptr<StyioAST> then)
-    : Args(vars)
-    , ThenExpr(std::move(then))
-  {
+  AnonyFuncAST(shared_ptr<VarTupleAST> vars, unique_ptr<StyioAST> then) :
+      Args(vars), ThenExpr(std::move(then)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::AnonyFunc; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::AnonyFunc;
+  }
 
   /* toString */
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 /*
@@ -2337,65 +2533,72 @@ class FuncAST : public StyioNode<FuncAST>
   bool isFinal;
 
 public:
-  FuncAST(unique_ptr<ForwardAST> forward, bool isFinal)
-    : Forward(std::move(forward))
-    , isFinal(isFinal)
-  {
+  FuncAST(unique_ptr<ForwardAST> forward, bool isFinal) :
+      Forward(std::move(forward)), isFinal(isFinal) {
   }
 
-  FuncAST(unique_ptr<IdAST> name, unique_ptr<ForwardAST> forward, bool isFinal)
-    : Name(std::move(name))
-    , Forward(std::move(forward))
-    , isFinal(isFinal)
-  {
+  FuncAST(unique_ptr<IdAST> name, unique_ptr<ForwardAST> forward, bool isFinal) :
+      Name(std::move(name)), Forward(std::move(forward)), isFinal(isFinal) {
   }
 
-  FuncAST(unique_ptr<IdAST> name,
-          unique_ptr<DTypeAST> type,
-          unique_ptr<ForwardAST> forward,
-          bool isFinal)
-    : Name(std::move(name))
-    , RetType(std::move(type))
-    , Forward(std::move(forward))
-    , isFinal(isFinal)
-  {
+  FuncAST(unique_ptr<IdAST> name, unique_ptr<DTypeAST> type, unique_ptr<ForwardAST> forward, bool isFinal) :
+      Name(std::move(name)), RetType(std::move(type)), Forward(std::move(forward)), isFinal(isFinal) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Func; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Func;
+  }
 
-  bool hasName()
-  {
+  bool hasName() {
     if (Name) {
       return true;
-    } else {
+    }
+    else {
       return false;
     }
   }
 
-  const unique_ptr<IdAST>& getId() { return Name; }
+  const unique_ptr<IdAST>& getId() {
+    return Name;
+  }
 
-  string getName() { return Name->getIdStr(); }
+  string getName() {
+    return Name->getIdStr();
+  }
 
-  bool hasRetType()
-  {
+  bool hasRetType() {
     if (RetType) {
       return true;
-    } else {
+    }
+    else {
       return false;
     }
   }
 
-  const unique_ptr<DTypeAST>& getRetType() { return RetType; }
+  const unique_ptr<DTypeAST>& getRetType() {
+    return RetType;
+  }
 
-  const string& getRetTypeStr() { return RetType->getTypeStr(); }
+  const string& getRetTypeStr() {
+    return RetType->getTypeStr();
+  }
 
-  const unique_ptr<ForwardAST>& getForward() const { return Forward; }
+  const unique_ptr<ForwardAST>& getForward() const {
+    return Forward;
+  }
 
-  bool hasArgs() { return Forward->hasArgs(); }
+  bool hasArgs() {
+    return Forward->hasArgs();
+  }
 
   /* toString */
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 /*
@@ -2412,15 +2615,21 @@ class LoopAST : public StyioNode<LoopAST>
   unique_ptr<ForwardAST> Forward;
 
 public:
-  LoopAST(unique_ptr<ForwardAST> expr)
-    : Forward(std::move(expr))
-  {
+  LoopAST(unique_ptr<ForwardAST> expr) :
+      Forward(std::move(expr)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Loop; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Loop;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
 
 /*
@@ -2432,16 +2641,20 @@ class IterAST : public StyioNode<IterAST>
   unique_ptr<ForwardAST> Forward;
 
 public:
-  IterAST(unique_ptr<StyioAST> collection, unique_ptr<ForwardAST> forward)
-    : Collection(std::move(collection))
-    , Forward(std::move(forward))
-  {
+  IterAST(unique_ptr<StyioAST> collection, unique_ptr<ForwardAST> forward) :
+      Collection(std::move(collection)), Forward(std::move(forward)) {
   }
 
-  StyioNodeHint hint() override { return StyioNodeHint::Iterator; }
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Iterator;
+  }
 
-  string toString(int indent = 0, bool colorful = false) override;
-  string toStringInline(int indent = 0, bool colorful = false) override;
+  string toString(
+    int indent = 0,
+    bool colorful = false
+  ) override;
+  string toStringInline(
+    int indent = 0, bool colorful = false
+  ) override;
 };
-
 #endif

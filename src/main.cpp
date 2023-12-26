@@ -30,15 +30,15 @@
 #include "include/Others/cxxopts.hpp" /* https://github.com/jarro2783/cxxopts */
 
 void
-show_cwd()
-{
+show_cwd() {
   std::filesystem::path cwd = std::filesystem::current_path();
   std::cout << cwd.string() << std::endl;
 }
 
 std::string
-read_styio_file(const char* filename)
-{
+read_styio_file(
+  const char* filename
+) {
   if (std::filesystem::exists(filename)) {
     std::ifstream file(filename);
     if (!file.is_open()) {
@@ -53,7 +53,8 @@ read_styio_file(const char* filename)
     }
     code += EOF;
     return code;
-  } else {
+  }
+  else {
     printf("Failed: Can't read file %s.", filename);
   }
 
@@ -61,15 +62,21 @@ read_styio_file(const char* filename)
 }
 
 int
-main(int argc, char* argv[])
-{
+main(
+  int argc,
+  char* argv[]
+) {
   cxxopts::Options options("styio", "Styio Compiler");
 
   options.add_options()(
-    "f,file", "Source File Path", cxxopts::value<std::string>())(
-    "a,ast", "Show Styio AST", cxxopts::value<bool>()->default_value("false"))(
-    "i,ir", "Show LLVM IR", cxxopts::value<bool>()->default_value("false"))(
-    "h,help", "Show All Command-Line Options");
+    "f,file", "Source File Path", cxxopts::value<std::string>()
+  )(
+    "a,ast", "Show Styio AST", cxxopts::value<bool>()->default_value("false")
+  )(
+    "i,ir", "Show LLVM IR", cxxopts::value<bool>()->default_value("false")
+  )(
+    "h,help", "Show All Command-Line Options"
+  );
 
   auto cmlopts = options.parse(argc, argv);
 

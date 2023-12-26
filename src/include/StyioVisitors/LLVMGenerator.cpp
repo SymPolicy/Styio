@@ -23,41 +23,42 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/LinkAllIR.h"
 
-void
-i_am_here()
-{
+void i_am_here() {
   std::cout << "here" << std::endl;
 }
 
 llvm::Type*
-StyioToLLVM::match_type(std::string type)
-{
+StyioToLLVM::match_type(std::string type) {
   if (type == "i32") {
     return llvm_builder->getInt32Ty();
-  } else if (type == "i64") {
+  }
+  else if (type == "i64") {
     return llvm_builder->getInt64Ty();
-  } else if (type == "f32") {
+  }
+  else if (type == "f32") {
     return llvm_builder->getFloatTy();
-  } else if (type == "f64") {
+  }
+  else if (type == "f64") {
     return llvm_builder->getDoubleTy();
   }
 
   else if (type == "i1") {
     return llvm_builder->getInt1Ty();
-  } else if (type == "i8") {
+  }
+  else if (type == "i8") {
     return llvm_builder->getInt8Ty();
-  } else if (type == "i16") {
+  }
+  else if (type == "i16") {
     return llvm_builder->getInt16Ty();
-  } else if (type == "i128") {
+  }
+  else if (type == "i128") {
     return llvm_builder->getInt128Ty();
   }
 
   return llvm_builder->getInt1Ty();
 }
 
-void
-StyioToLLVM::show()
-{
+void StyioToLLVM::show() {
   /* stdout */
   llvm_module->print(llvm::outs(), nullptr);
   /* stderr */
@@ -70,108 +71,94 @@ StyioToLLVM::show()
 */
 
 llvm::Value*
-StyioToLLVM::toLLVM(BoolAST* ast)
-{
+StyioToLLVM::toLLVM(BoolAST* ast) {
   if (ast->getValue()) {
     return llvm::ConstantInt::getTrue(*llvm_context);
-  } else {
+  }
+  else {
     return llvm::ConstantInt::getFalse(*llvm_context);
   }
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(NoneAST* ast)
-{
+StyioToLLVM::toLLVM(NoneAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(EOFAST* ast)
-{
+StyioToLLVM::toLLVM(EOFAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(EmptyAST* ast)
-{
+StyioToLLVM::toLLVM(EmptyAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(EmptyBlockAST* ast)
-{
+StyioToLLVM::toLLVM(EmptyBlockAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(PassAST* ast)
-{
+StyioToLLVM::toLLVM(PassAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(BreakAST* ast)
-{
+StyioToLLVM::toLLVM(BreakAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(ReturnAST* ast)
-{
+StyioToLLVM::toLLVM(ReturnAST* ast) {
   return llvm_builder->CreateRet(ast->getExpr()->toLLVM(this));
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(CommentAST* ast)
-{
+StyioToLLVM::toLLVM(CommentAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(IdAST* ast)
-{
+StyioToLLVM::toLLVM(IdAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(VarAST* ast)
-{
+StyioToLLVM::toLLVM(VarAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(ArgAST* ast)
-{
+StyioToLLVM::toLLVM(ArgAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(OptArgAST* ast)
-{
+StyioToLLVM::toLLVM(OptArgAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(OptKwArgAST* ast)
-{
+StyioToLLVM::toLLVM(OptKwArgAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(VarTupleAST* ast)
-{
+StyioToLLVM::toLLVM(VarTupleAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
 
   auto& vars = ast->getArgs();
@@ -183,15 +170,13 @@ StyioToLLVM::toLLVM(VarTupleAST* ast)
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(DTypeAST* ast)
-{
+StyioToLLVM::toLLVM(DTypeAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(IntAST* ast)
-{
+StyioToLLVM::toLLVM(IntAST* ast) {
   switch (ast->getType()) {
     case StyioDataType::i32:
       return llvm_builder->getInt32(std::stoi(ast->getValue()));
@@ -209,8 +194,7 @@ StyioToLLVM::toLLVM(IntAST* ast)
       return llvm_builder->getInt16(std::stoi(ast->getValue()));
 
     case StyioDataType::i128:
-      return llvm::ConstantInt::get(llvm::Type::getInt128Ty(*llvm_context),
-                                    std::stoi(ast->getValue()));
+      return llvm::ConstantInt::get(llvm::Type::getInt128Ty(*llvm_context), std::stoi(ast->getValue()));
 
     default:
       return llvm_builder->getInt32(std::stoi(ast->getValue()));
@@ -218,127 +202,108 @@ StyioToLLVM::toLLVM(IntAST* ast)
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(FloatAST* ast)
-{
+StyioToLLVM::toLLVM(FloatAST* ast) {
   switch (ast->getType()) {
     case StyioDataType::f64:
-      return llvm::ConstantFP::get(*llvm_context,
-                                   llvm::APFloat(std::stod(ast->getValue())));
+      return llvm::ConstantFP::get(*llvm_context, llvm::APFloat(std::stod(ast->getValue())));
 
     default:
-      return llvm::ConstantFP::get(*llvm_context,
-                                   llvm::APFloat(std::stod(ast->getValue())));
+      return llvm::ConstantFP::get(*llvm_context, llvm::APFloat(std::stod(ast->getValue())));
   }
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(CharAST* ast)
-{
+StyioToLLVM::toLLVM(CharAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(StringAST* ast)
-{
+StyioToLLVM::toLLVM(StringAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(NumPromoAST* ast)
-{
+StyioToLLVM::toLLVM(NumPromoAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(FmtStrAST* ast)
-{
+StyioToLLVM::toLLVM(FmtStrAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(ResourceAST* ast)
-{
+StyioToLLVM::toLLVM(ResourceAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(LocalPathAST* ast)
-{
+StyioToLLVM::toLLVM(LocalPathAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(RemotePathAST* ast)
-{
+StyioToLLVM::toLLVM(RemotePathAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(WebUrlAST* ast)
-{
+StyioToLLVM::toLLVM(WebUrlAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(DBUrlAST* ast)
-{
+StyioToLLVM::toLLVM(DBUrlAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(ExtPackAST* ast)
-{
+StyioToLLVM::toLLVM(ExtPackAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(ListAST* ast)
-{
+StyioToLLVM::toLLVM(ListAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(TupleAST* ast)
-{
+StyioToLLVM::toLLVM(TupleAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(SetAST* ast)
-{
+StyioToLLVM::toLLVM(SetAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(RangeAST* ast)
-{
+StyioToLLVM::toLLVM(RangeAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(SizeOfAST* ast)
-{
+StyioToLLVM::toLLVM(SizeOfAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(BinOpAST* ast)
-{
+StyioToLLVM::toLLVM(BinOpAST* ast) {
   llvm::Value* output = llvm_builder->getInt32(0);
 
   llvm::Value* l_val = ast->getLhs()->toLLVM(this);
@@ -399,71 +364,61 @@ StyioToLLVM::toLLVM(BinOpAST* ast)
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(BinCompAST* ast)
-{
+StyioToLLVM::toLLVM(BinCompAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(CondAST* ast)
-{
+StyioToLLVM::toLLVM(CondAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(CallAST* ast)
-{
+StyioToLLVM::toLLVM(CallAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(ListOpAST* ast)
-{
+StyioToLLVM::toLLVM(ListOpAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(FlexBindAST* ast)
-{
+StyioToLLVM::toLLVM(FlexBindAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(FinalBindAST* ast)
-{
+StyioToLLVM::toLLVM(FinalBindAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(StructAST* ast)
-{
+StyioToLLVM::toLLVM(StructAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(ReadFileAST* ast)
-{
+StyioToLLVM::toLLVM(ReadFileAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(PrintAST* ast)
-{
+StyioToLLVM::toLLVM(PrintAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(ForwardAST* ast)
-{
+StyioToLLVM::toLLVM(ForwardAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
 
   switch (ast->hint()) {
@@ -480,43 +435,37 @@ StyioToLLVM::toLLVM(ForwardAST* ast)
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(CheckEqAST* ast)
-{
+StyioToLLVM::toLLVM(CheckEqAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(CheckIsInAST* ast)
-{
+StyioToLLVM::toLLVM(CheckIsInAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(FromToAST* ast)
-{
+StyioToLLVM::toLLVM(FromToAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(InfiniteAST* ast)
-{
+StyioToLLVM::toLLVM(InfiniteAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(AnonyFuncAST* ast)
-{
+StyioToLLVM::toLLVM(AnonyFuncAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(FuncAST* ast)
-{
+StyioToLLVM::toLLVM(FuncAST* ast) {
   if (ast->hasName() && ast->hasArgs() && ast->hasRetType()) {
     /* FuncAST -> Forward -> VarTuple -> [<VarAST>..] */
     auto& sf_args = ast->getForward()->getArgs()->getArgs();
@@ -529,13 +478,11 @@ StyioToLLVM::toLLVM(FuncAST* ast)
     llvm::FunctionType* lf_type = llvm::FunctionType::get(
       /* Result (Type) */ match_type(ast->getRetTypeStr()),
       /* Params (Type) */ lf_args,
-      /* isVarArg */ false);
+      /* isVarArg */ false
+    );
 
     llvm::Function* lfunc =
-      llvm::Function::Create(lf_type,
-                             llvm::GlobalValue::ExternalLinkage,
-                             ast->getName(),
-                             *llvm_module);
+      llvm::Function::Create(lf_type, llvm::GlobalValue::ExternalLinkage, ast->getName(), *llvm_module);
 
     for (size_t i = 0; i < lf_args.size(); i++) {
       lfunc->getArg(i)->setName(sf_args.at(i)->getName());
@@ -556,43 +503,37 @@ StyioToLLVM::toLLVM(FuncAST* ast)
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(IterAST* ast)
-{
+StyioToLLVM::toLLVM(IterAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(LoopAST* ast)
-{
+StyioToLLVM::toLLVM(LoopAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(CondFlowAST* ast)
-{
+StyioToLLVM::toLLVM(CondFlowAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(CasesAST* ast)
-{
+StyioToLLVM::toLLVM(CasesAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(MatchCasesAST* ast)
-{
+StyioToLLVM::toLLVM(MatchCasesAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(SideBlockAST* ast)
-{
+StyioToLLVM::toLLVM(SideBlockAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
 
   auto& stmts = ast->getStmts();
@@ -604,8 +545,7 @@ StyioToLLVM::toLLVM(SideBlockAST* ast)
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(MainBlockAST* ast)
-{
+StyioToLLVM::toLLVM(MainBlockAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
 
   auto& stmts = ast->getStmts();

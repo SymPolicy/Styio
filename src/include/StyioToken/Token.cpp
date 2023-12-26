@@ -5,8 +5,7 @@
 #include "../StyioToken/Token.hpp"
 
 std::string
-reprDataType(StyioDataType dtype)
-{
+reprDataType(StyioDataType dtype) {
   switch (dtype) {
     case StyioDataType::i32:
       return std::string("i32");
@@ -26,8 +25,7 @@ reprDataType(StyioDataType dtype)
 }
 
 std::string
-reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
-{
+reprNodeType(StyioNodeHint type, bool colorful, std::string extra) {
   int titleColor = 96;
   int flexColor = 91;
   int fixColor = 92;
@@ -40,7 +38,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -52,7 +51,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -64,7 +64,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -76,7 +77,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -88,7 +90,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -100,7 +103,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -112,7 +116,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -124,7 +129,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -136,7 +142,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -148,7 +155,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -160,7 +168,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -172,7 +181,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -184,7 +194,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -196,51 +207,52 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
-    } 
-      break;
+    } break;
 
     case StyioNodeHint::RemotePath: {
       auto name = std::string("Addr");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
-    } 
-      break;
+    } break;
 
     case StyioNodeHint::WebUrl: {
       auto name = std::string("URL");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
-    } 
-      break;
+    } break;
 
     case StyioNodeHint::DBUrl: {
       auto name = std::string("URL (Database)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
-    }
-      break;
+    } break;
 
     case StyioNodeHint::ExtPack: {
       auto name = std::string("Package");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -252,7 +264,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -264,7 +277,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -276,7 +290,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -288,7 +303,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -300,7 +316,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -312,7 +329,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -324,7 +342,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -336,7 +355,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -348,7 +368,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -360,7 +381,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -372,7 +394,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -384,7 +407,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -396,7 +420,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -408,7 +433,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -420,7 +446,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -432,7 +459,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -444,7 +472,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -456,7 +485,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -468,7 +498,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -480,7 +511,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -492,7 +524,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -504,7 +537,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -516,7 +550,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -528,7 +563,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -540,7 +576,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -552,7 +589,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -564,7 +602,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -576,7 +615,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -588,7 +628,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -600,7 +641,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -612,7 +654,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -624,7 +667,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -636,7 +680,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -648,7 +693,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -660,7 +706,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -669,9 +716,9 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
     case StyioNodeHint::MutBind: {
       if (colorful) {
-        output = make_colorful(std::string("Binding"), titleColor) + " " +
-                 make_colorful(std::string("(Flexible)"), flexColor);
-      } else {
+        output = make_colorful(std::string("Binding"), titleColor) + " " + make_colorful(std::string("(Flexible)"), flexColor);
+      }
+      else {
         output = std::string("Binding (Flexible)");
       }
     }
@@ -680,9 +727,9 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
     case StyioNodeHint::FixBind: {
       if (colorful) {
-        output = make_colorful(std::string("Binding"), titleColor) + " " +
-                 make_colorful(std::string("(Final)"), flexColor);
-      } else {
+        output = make_colorful(std::string("Binding"), titleColor) + " " + make_colorful(std::string("(Final)"), flexColor);
+      }
+      else {
         output = std::string("Binding (Final)");
       }
     }
@@ -694,7 +741,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -706,7 +754,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -718,7 +767,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -730,7 +780,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -742,7 +793,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -754,7 +806,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -766,7 +819,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -778,7 +832,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -790,7 +845,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -802,7 +858,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -814,7 +871,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -826,7 +884,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -838,7 +897,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -850,7 +910,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -862,7 +923,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -874,7 +936,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -886,7 +949,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -898,7 +962,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -910,7 +975,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -922,7 +988,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -934,7 +1001,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -946,7 +1014,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -958,7 +1027,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -970,7 +1040,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -982,7 +1053,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -994,7 +1066,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -1006,7 +1079,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -1018,7 +1092,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -1030,7 +1105,8 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
@@ -1047,8 +1123,7 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra)
 }
 
 std::string
-reprToken(LogicType token)
-{
+reprToken(LogicType token) {
   switch (token) {
     case LogicType::NOT:
       return "<NOT>";
@@ -1070,8 +1145,7 @@ reprToken(LogicType token)
 }
 
 std::string
-reprToken(CompType token)
-{
+reprToken(CompType token) {
   switch (token) {
     case CompType::EQ:
       return "<EQ>";
@@ -1098,8 +1172,7 @@ reprToken(CompType token)
 }
 
 std::string
-reprToken(StyioToken token)
-{
+reprToken(StyioToken token) {
   switch (token) {
     case StyioToken::TOK_SPACE:
       return " ";
