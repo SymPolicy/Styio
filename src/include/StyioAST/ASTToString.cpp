@@ -27,13 +27,31 @@ NoneAST::toString(int indent, bool colorful) {
 }
 
 string
+NoneAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(hint(), colorful)
+         + string(" { }");
+}
+
+string
 EmptyAST::toString(int indent, bool colorful) {
   return reprNodeType(hint(), colorful)
          + string(" { }");
 }
 
 string
+EmptyAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(hint(), colorful)
+         + string(" { }");
+}
+
+string
 EmptyBlockAST::toString(int indent, bool colorful) {
+  return string("Block (Empty) { ")
+         + " } ";
+}
+
+string
+EmptyBlockAST::toStringInline(int indent, bool colorful) {
   return string("Block (Empty) { ")
          + " } ";
 }
@@ -104,8 +122,18 @@ CharAST::toString(int indent, bool colorful) {
 }
 
 string
+CharAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(hint(), colorful) + " { \'" + Value + "\' }";
+}
+
+string
 StringAST::toString(int indent, bool colorful) {
   return reprNodeType(hint(), colorful) + " { \"" + Value + "\" }";
+}
+
+string
+StringAST::toStringInline(int indent, bool colorful) {
+  return "\"" + Value + "\"";
 }
 
 string
@@ -239,9 +267,19 @@ FmtStrAST::toString(int indent, bool colorful) {
 }
 
 string
+FmtStrAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful) + " { \"" + "\" }";
+}
+
+string
 LocalPathAST::toString(int indent, bool colorful) {
   return reprNodeType(hint(), colorful)
          + string(" { ") + Path + string(" }");
+}
+
+string
+LocalPathAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful) + string(" { ") + Path + string(" }");
 }
 
 string
@@ -251,13 +289,33 @@ RemotePathAST::toString(int indent, bool colorful) {
 }
 
 string
+RemotePathAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful) + string(" { ") + Path + string(" }");
+}
+
+string
 WebUrlAST::toString(int indent, bool colorful) {
   return reprNodeType(hint(), colorful)
          + string(" { ") + Path + string(" }");
 }
 
 string
+WebUrlAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(hint(), colorful)
+         + string(" { ") + Path + string(" }");
+}
+
+string
 DBUrlAST::toString(
+  int indent,
+  bool colorful
+) {
+  return reprNodeType(hint(), colorful)
+         + string(" { ") + Path + string(" }");
+}
+
+string
+DBUrlAST::toStringInline(
   int indent,
   bool colorful
 ) {
@@ -281,6 +339,11 @@ ListAST::toString(int indent, bool colorful) {
 }
 
 string
+ListAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
+}
+
+string
 TupleAST::toString(int indent, bool colorful) {
   string ElemStr;
 
@@ -293,6 +356,12 @@ TupleAST::toString(int indent, bool colorful) {
 
   return reprNodeType(hint(), colorful)
          + string(" (\n") + ElemStr + ")";
+}
+
+string
+TupleAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(hint(), colorful)
+         + string(" (") + ")";
 }
 
 string
@@ -312,13 +381,33 @@ SetAST::toString(int indent, bool colorful) {
 }
 
 string
+SetAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
+}
+
+string
 RangeAST::toString(int indent, bool colorful) {
   return reprNodeType(hint(), colorful)
          + string(" {\n") + make_padding(indent, " ") + "Start: " + StartVal->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + "End  : " + EndVal->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + "Step : " + StepVal->toString(indent + 1, colorful) + "}";
 }
 
 string
+RangeAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(hint(), colorful) + string(" {\n")
+         + make_padding(indent, " ") + "Start: " + StartVal->toString(indent + 1, colorful) + "\n"
+         + make_padding(indent, " ") + "End  : " + EndVal->toString(indent + 1, colorful) + "\n"
+         + make_padding(indent, " ") + "Step : " + StepVal->toString(indent + 1, colorful)
+         + "}";
+}
+
+string
 SizeOfAST::toString(int indent, bool colorful) {
+  return reprNodeType(hint(), colorful)
+         + string(" { ") + Value->toStringInline(indent + 1, colorful) + " }";
+}
+
+string
+SizeOfAST::toStringInline(int indent, bool colorful) {
   return reprNodeType(hint(), colorful)
          + string(" { ") + Value->toStringInline(indent + 1, colorful) + " }";
 }
@@ -342,6 +431,11 @@ BinCompAST::toString(int indent, bool colorful) {
 }
 
 string
+BinCompAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
+}
+
+string
 CondAST::toString(int indent, bool colorful) {
   if (LogicOp == LogicType::AND || LogicOp == LogicType::OR || LogicOp == LogicType::XOR) {
     return reprNodeType(hint(), colorful) + " {\n" + make_padding(indent, " ") + "Op: " + reprToken(LogicOp) + "\n" + make_padding(indent, " ") + "LHS: " + LhsExpr->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + "RHS: " + RhsExpr->toString(indent + 1, colorful) + "}";
@@ -360,8 +454,18 @@ CondAST::toString(int indent, bool colorful) {
 }
 
 string
+CondAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
+}
+
+string
 CallAST::toString(int indent, bool colorful) {
   return reprNodeType(hint(), colorful) + " { }";
+}
+
+string
+CallAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
 }
 
 string
@@ -433,6 +537,11 @@ ListOpAST::toString(int indent, bool colorful) {
 }
 
 string
+ListOpAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
+}
+
+string
 ResourceAST::toString(int indent, bool colorful) {
   string varStr;
 
@@ -448,6 +557,11 @@ ResourceAST::toString(int indent, bool colorful) {
 
   return reprNodeType(hint(), colorful)
          + string(" {\n") + varStr + "}";
+}
+
+string
+ResourceAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
 }
 
 string
@@ -493,18 +607,42 @@ ReadFileAST::toString(int indent, bool colorful) {
 }
 
 string
+ReadFileAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
+}
+
+string
 EOFAST::toString(int indent, bool colorful) {
-  return string("EOF { }");
+  return reprNodeType(this->hint(), colorful)
+         + string(" { }");
+}
+
+string
+EOFAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful)
+         + string(" { }");
 }
 
 string
 BreakAST::toString(int indent, bool colorful) {
-  return string("Break { }");
+  return reprNodeType(this->hint(), colorful)
+         + string(" { }");
+}
+
+string
+BreakAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful)
+         + string(" { }");
 }
 
 string
 PassAST::toString(int indent, bool colorful) {
-  return string("Pass { }");
+  return reprNodeType(this->hint(), colorful) + string(" { }");
+}
+
+string
+PassAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful) + string(" { }");
 }
 
 string
@@ -535,6 +673,11 @@ PrintAST::toString(int indent, bool colorful) {
 }
 
 string
+PrintAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
+}
+
+string
 ExtPackAST::toString(int indent, bool colorful) {
   string pacPathStr;
 
@@ -545,6 +688,11 @@ ExtPackAST::toString(int indent, bool colorful) {
 
   return reprNodeType(hint(), colorful)
          + string(" {\n") + pacPathStr + "\n} ";
+}
+
+string
+ExtPackAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
 }
 
 string
@@ -565,6 +713,11 @@ SideBlockAST::toString(int indent, bool colorful) {
 }
 
 string
+SideBlockAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
+}
+
+string
 CasesAST::toString(int indent, bool colorful) {
   string stmtStr = "";
 
@@ -576,8 +729,15 @@ CasesAST::toString(int indent, bool colorful) {
   }
 
   return reprNodeType(hint(), colorful)
-         + string(" {\n") + stmtStr + make_padding(indent, " ") + "Default: " + LastExpr->toString(indent + 1, colorful);
-  +"}";
+         + string(" {\n") + stmtStr + make_padding(indent, " ") + "Default: " + LastExpr->toString(indent + 1, colorful)
+         + "}";
+}
+
+string
+CasesAST::toStringInline(
+  int indent, bool colorful
+) {
+  return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
 }
 
 string
@@ -594,6 +754,11 @@ CondFlowAST::toString(int indent, bool colorful) {
     return reprNodeType(hint(), colorful)
            + string(" {\n") + make_padding(indent, " ") + CondExpr->toStringInline(indent + 1, colorful) + "}";
   }
+}
+
+string
+CondFlowAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
 }
 
 string
@@ -754,6 +919,11 @@ InfiniteAST::toString(int indent, bool colorful) {
   }
   return reprNodeType(hint(), colorful)
          + string(" { Undefined! }");
+}
+
+string
+InfiniteAST::toStringInline(int indent, bool colorful) {
+  return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
 }
 
 string

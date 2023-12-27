@@ -50,53 +50,106 @@ public:
 
 /* Forward Declaration */
 
-/* StyioAST */
+/* Styio AST */
+// Base
 class StyioAST;
 
-/* Styio AST */
+// Comment
 class CommentAST;
 
+// None / Empty
 class NoneAST;
 class EmptyAST;
 class EmptyBlockAST;
 
-class IdAST;
-class DTypeAST;
-
+/*
+  Literals:
+  - Bool (Boolean)
+  - Int (Integer)
+  - Float
+  - Char (Character)
+*/
 class BoolAST;
 class IntAST;
 class FloatAST;
 class CharAST;
+
+/*
+  Collections:
+  - string [homo]
+  
+  - set [homo]
+  - list [heter]
+
+  - struct [heter]
+  - tuple [heter]
+*/
 class StringAST;
+class SetAST;
+class ListAST;
 
-class NumPromoAST;
+class StructAST;
+class TupleAST;
 
+/*
+  Variable:
+  - Id
+  - DType (Data Type)
+*/
+class IdAST;
+class DTypeAST;
+
+/*
+  Variable Types:
+  - Var ([Global|Local] Variables)
+  - Arg (Function Arguments)
+  - OptArg (Optional Function Arguments)
+  - OptKwArg (Optional Function Arguments)
+*/
 class VarAST;
 class ArgAST;
 class OptArgAST;
 class OptKwArgAST;
 
+/*
+  Assignment
+  - FlexBind
+  - FinalBind
+*/
 class FlexBindAST;
 class FinalBindAST;
 
+/*
+  Conceptions:
+  - Infinite
+*/
 class InfiniteAST;
 
-class StructAST;
-class TupleAST;
-class VarTupleAST;
-class RangeAST;
-
-class SetAST;
-class ListAST;
-
-class SizeOfAST;
-class ListOpAST;
-
+/*
+  Binary Tree:
+  - BinComp (Comparisons)
+  - Cond (Condition)
+  - BinOp (Binary Operations)
+*/
 class BinCompAST;
 class CondAST;
 class BinOpAST;
 
+/*
+  Features:
+  - FmtStr (Format String)
+*/
 class FmtStrAST;
+
+/*
+  Resources:
+  - ResourceAST
+
+  - LocalPath
+  - RemotePath
+  - WebUrl
+  - DBUrl
+*/
 class ResourceAST;
 
 class LocalPathAST;
@@ -104,36 +157,94 @@ class RemotePathAST;
 class WebUrlAST;
 class DBUrlAST;
 
-class ExtPackAST;
+/*
+  Methods:
+  - Range
+  - SizeOf
+  - ListOp
+*/
+class RangeAST;
+class SizeOfAST;
+class ListOpAST;
 
+/*
+  Methods (I/O)
+  - print
+  - read file
+*/
+class PrintAST;
 class ReadFileAST;
 
-class EOFAST;
-class BreakAST;
-class PassAST;
-class ReturnAST;
-
-class CallAST;
-class PrintAST;
+/*
+  Intermediate Components:
+  - VarTupleAST
+*/
+class VarTupleAST;
 
 class ForwardAST;
 class CheckEqAST;
 class CheckIsInAST;
 class FromToAST;
 
+/*
+  Function
+  - Anonymous Function
+  - Function
+
+  - Call
+*/
 class AnonyFuncAST;
 class FuncAST;
 
+class CallAST;
+
+/*
+  Iteration:
+  - Iter (Iterator)
+  - Loop
+*/
 class IterAST;
 class LoopAST;
 
+/*
+  Control Flow
+  - CondFlow (Conditional)
+
+  - End-Of-Line
+  - `pass` ..........
+  - `break` ^^^^^^^^^
+  - `continue` >>>>>>
+  - `return` <<<<<<<<
+*/
 class CondFlowAST;
 
+class EOFAST;
+class PassAST;
+class BreakAST;
+class ContinueAST;
+class ReturnAST;
+
+/*
+  Cases
+  - Cases
+  - MatchCases
+*/
 class CasesAST;
 class MatchCasesAST;
 
+/*
+  Blocks
+  - SideBlock
+  - MainBlock
+*/
 class SideBlockAST;
 class MainBlockAST;
+
+/*
+  Package Management
+  - ExtPack
+*/
+class ExtPackAST;
 
 using StyioVisitor = Visitor<
   class CommentAST,
@@ -484,8 +595,12 @@ public:
   virtual StyioNodeHint hint() = 0;
 
   /* toString */
-  virtual string toString(int indent = 0, bool colorful = false) = 0;
-  virtual string toStringInline(int indent = 0, bool colorful = false) = 0;
+  virtual string toString(
+    int indent = 0, bool colorful = false
+  ) = 0;
+  virtual string toStringInline(
+    int indent = 0, bool colorful = false
+  ) = 0;
 
   /* Type Checker & Modifier */
   virtual void check(StyioToLLVM* visitor) = 0;
@@ -506,9 +621,9 @@ public:
     visitor->check(static_cast<Derived*>(this));
   }
 
-  llvm::Value* toLLVM(StyioToLLVM* visitor) override {
-    visitor->check(static_cast<Derived*>(this));
-    return visitor->toLLVM(static_cast<Derived*>(this));
+  llvm::Value* toLLVM(StyioToLLVM* generator) override {
+    generator->check(static_cast<Derived*>(this));
+    return generator->toLLVM(static_cast<Derived*>(this));
   }
 };
 
@@ -530,6 +645,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;
@@ -550,9 +666,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { }");
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 /* EmptyAST: Empty Tuple / List / Set */
@@ -570,9 +687,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { }");
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 /* EmptyBlockAST: Block */
@@ -590,9 +708,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { }");
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 class BoolAST : public StyioNode<BoolAST>
@@ -620,6 +739,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;
@@ -648,9 +768,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 class SideBlockAST : public StyioNode<SideBlockAST>
@@ -681,9 +802,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 class MainBlockAST : public StyioNode<MainBlockAST>
@@ -719,6 +841,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;
@@ -741,10 +864,7 @@ public:
   string toStringInline(
     int indent = 0,
     bool colorful = false
-  ) override {
-    return reprNodeType(this->hint(), colorful)
-           + string(" { }");
-  }
+  ) override;
 };
 
 class BreakAST : public StyioNode<BreakAST>
@@ -761,9 +881,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { }");
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 class PassAST : public StyioNode<PassAST>
@@ -780,9 +901,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { }");
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 class ReturnAST : public StyioNode<ReturnAST>
@@ -845,6 +967,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;
@@ -876,6 +999,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;
@@ -998,6 +1122,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;
@@ -1021,6 +1146,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;
@@ -1072,6 +1198,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;
@@ -1124,6 +1251,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;
@@ -1207,9 +1335,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + " { \'" + Value + "\' }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 /*
@@ -1233,9 +1362,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return "\"" + Value + "\"";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 /*
@@ -1260,9 +1390,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + " { \"" + "\" }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 class NumPromoAST : public StyioNode<NumPromoAST>
@@ -1271,7 +1402,10 @@ class NumPromoAST : public StyioNode<NumPromoAST>
   NumPromoTy PromoType;
 
 public:
-  NumPromoAST(shared_ptr<StyioAST> val, NumPromoTy promo_type) :
+  NumPromoAST(
+    shared_ptr<StyioAST> val,
+    NumPromoTy promo_type
+  ) :
       Value(std::move(val)), PromoType(promo_type) {
   }
 
@@ -1279,11 +1413,17 @@ public:
     return StyioNodeHint::NumConvert;
   }
 
-  static shared_ptr<NumPromoAST> make(shared_ptr<StyioAST> value, NumPromoTy promo_type) {
+  static shared_ptr<NumPromoAST> make(
+    shared_ptr<StyioAST> value,
+    NumPromoTy promo_type
+  ) {
     return make_unique<NumPromoAST>(std::move(value), promo_type);
   }
 
-  static unique_ptr<IntAST> make(string value, StyioDataType dtype) {
+  static unique_ptr<IntAST> make(
+    string value,
+    StyioDataType dtype
+  ) {
     return make_unique<IntAST>(value, dtype);
   }
 
@@ -1291,6 +1431,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;
@@ -1311,8 +1452,12 @@ class LocalPathAST : public StyioNode<LocalPathAST>
   StyioPathType Type;
 
 public:
-  LocalPathAST(StyioPathType type, string path) :
-      Type(type), Path(std::move(path)) {
+  LocalPathAST(
+    StyioPathType type,
+    string path
+  ) :
+      Type(type),
+      Path(std::move(path)) {
   }
 
   StyioNodeHint hint() override {
@@ -1324,9 +1469,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + Path + string(" }");
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 /*
@@ -1338,8 +1484,12 @@ class RemotePathAST : public StyioNode<RemotePathAST>
   StyioPathType Type;
 
 public:
-  RemotePathAST(StyioPathType type, string path) :
-      Type(type), Path(std::move(path)) {
+  RemotePathAST(
+    StyioPathType type,
+    string path
+  ) :
+      Type(type),
+      Path(std::move(path)) {
   }
 
   StyioNodeHint hint() override {
@@ -1351,9 +1501,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + Path + string(" }");
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 /*
@@ -1381,9 +1532,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + Path + string(" }");
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 /* Database Access URL */
@@ -1406,9 +1558,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + Path + string(" }");
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 /*
@@ -1441,9 +1594,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 class TupleAST : public StyioNode<TupleAST>
@@ -1464,9 +1618,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 class SetAST : public StyioNode<SetAST>
@@ -1487,9 +1642,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 /*
@@ -1515,9 +1671,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 /*
@@ -1534,7 +1691,9 @@ class SizeOfAST : public StyioNode<SizeOfAST>
   unique_ptr<StyioAST> Value;
 
 public:
-  SizeOfAST(unique_ptr<StyioAST> value) :
+  SizeOfAST(
+    unique_ptr<StyioAST> value
+  ) :
       Value(std::move(value)) {
   }
 
@@ -1547,9 +1706,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 /*
@@ -1642,6 +1802,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;
@@ -1667,9 +1828,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 class CondAST : public StyioNode<CondAST>
@@ -1707,9 +1869,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 class CallAST : public StyioNode<CallAST>
@@ -1730,9 +1893,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 class ListOpAST : public StyioNode<ListOpAST>
@@ -1810,9 +1974,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 /*
@@ -1847,9 +2012,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 /*
@@ -1879,6 +2045,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;
@@ -1905,6 +2072,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;
@@ -1942,6 +2110,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;
@@ -1975,9 +2144,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 /*
@@ -2001,9 +2171,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 /*
@@ -2033,9 +2204,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 /*
@@ -2070,9 +2242,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 /*
@@ -2338,7 +2511,7 @@ public:
   }
 
   ForwardAST(
-    shared_ptr<VarTupleAST> vars, 
+    shared_ptr<VarTupleAST> vars,
     unique_ptr<StyioAST> whatnext
   ) :
       Args(std::move(vars)),
@@ -2452,9 +2625,10 @@ public:
     bool colorful = false
   ) override;
 
-  string toStringInline(int indent = 0, bool colorful = false) override {
-    return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
-  }
+  string toStringInline(
+    int indent = 0,
+    bool colorful = false
+  ) override;
 };
 
 /*
@@ -2484,6 +2658,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;
@@ -2516,6 +2691,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;
@@ -2596,6 +2772,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;
@@ -2627,6 +2804,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;
@@ -2653,6 +2831,7 @@ public:
     int indent = 0,
     bool colorful = false
   ) override;
+
   string toStringInline(
     int indent = 0, bool colorful = false
   ) override;

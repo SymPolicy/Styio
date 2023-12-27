@@ -75,7 +75,11 @@
     "__verbose_abort": "cpp",
     "ios": "cpp",
     "locale": "cpp",
-    "queue": "cpp"
+    "queue": "cpp",
+    "set": "cpp",
+    "regex": "cpp",
+    "__tree": "cpp",
+    "stack": "cpp"
   },
   "C_Cpp.clang_format_fallbackStyle": "Mozilla",
   "C_Cpp.clang_format_style": "file",
