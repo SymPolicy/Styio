@@ -2,7 +2,7 @@
 #ifndef STYIO_AST_H_
 #define STYIO_AST_H_
 
-// // [Styio]
+// [Styio]
 #include "../StyioToken/Token.hpp"
 
 // [LLVM]
@@ -14,10 +14,10 @@
 using std::string;
 using std::vector;
 
-using std::make_shared;
+using std::unique_ptr;
 using std::make_unique;
 using std::shared_ptr;
-using std::unique_ptr;
+using std::make_shared;
 
 // Generic Visitor
 template <typename... Types>
@@ -120,12 +120,6 @@ class FlexBindAST;
 class FinalBindAST;
 
 /*
-  Conceptions:
-  - Infinite
-*/
-class InfiniteAST;
-
-/*
   Binary Tree:
   - BinComp (Comparisons)
   - Cond (Condition)
@@ -134,57 +128,6 @@ class InfiniteAST;
 class BinCompAST;
 class CondAST;
 class BinOpAST;
-
-/*
-  Features:
-  - FmtStr (Format String)
-*/
-class FmtStrAST;
-
-/*
-  Resources:
-  - ResourceAST
-
-  - LocalPath
-  - RemotePath
-  - WebUrl
-  - DBUrl
-*/
-class ResourceAST;
-
-class LocalPathAST;
-class RemotePathAST;
-class WebUrlAST;
-class DBUrlAST;
-
-/*
-  Methods:
-  - Range
-  - SizeOf
-  - ListOp
-*/
-class RangeAST;
-class SizeOfAST;
-class ListOpAST;
-
-/*
-  Methods (I/O)
-  - print
-  - read file
-*/
-class PrintAST;
-class ReadFileAST;
-
-/*
-  Intermediate Components:
-  - VarTupleAST
-*/
-class VarTupleAST;
-
-class ForwardAST;
-class CheckEqAST;
-class CheckIsInAST;
-class FromToAST;
 
 /*
   Function
@@ -197,6 +140,25 @@ class AnonyFuncAST;
 class FuncAST;
 
 class CallAST;
+
+/*
+  Methods:
+  - SizeOf
+
+  - TypeOf
+  - TypeConvert
+
+  - Range
+  - ListOp
+*/
+class SizeOfAST;
+
+class TypeOfAST;
+class TypeConvertAST;
+
+class ListOpAST;
+
+class RangeAST;
 
 /*
   Iteration:
@@ -246,6 +208,55 @@ class MainBlockAST;
 */
 class ExtPackAST;
 
+/*
+  Conceptions:
+  - Infinite
+*/
+class InfiniteAST;
+
+/*
+  Intermediate Components:
+  - VarTupleAST
+*/
+class VarTupleAST;
+
+class ForwardAST;
+class CheckEqAST;
+class CheckIsInAST;
+class FromToAST;
+
+/*
+  Features:
+  - FmtStr (Format String)
+*/
+class FmtStrAST;
+
+/*
+  Resources:
+  - ResourceAST
+
+  - LocalPath
+  - RemotePath
+  - WebUrl
+  - DBUrl
+*/
+class ResourceAST;
+
+class LocalPathAST;
+class RemotePathAST;
+class WebUrlAST;
+class DBUrlAST;
+
+/*
+  Methods (I/O)
+  - print
+  - read file
+  - write file
+*/
+class PrintAST;
+class ReadFileAST;
+class WriteFileAST;
+
 using StyioVisitor = Visitor<
   class CommentAST,
 
@@ -253,16 +264,20 @@ using StyioVisitor = Visitor<
   class EmptyAST,
   class EmptyBlockAST,
 
-  class IdAST,
-  class DTypeAST,
-
   class BoolAST,
   class IntAST,
   class FloatAST,
   class CharAST,
-  class StringAST,
 
-  class NumPromoAST,
+  class StringAST,
+  class SetAST,
+  class ListAST,
+
+  class StructAST,
+  class TupleAST,
+
+  class IdAST,
+  class DTypeAST,
 
   class VarAST,
   class ArgAST,
@@ -272,24 +287,49 @@ using StyioVisitor = Visitor<
   class FlexBindAST,
   class FinalBindAST,
 
-  class InfiniteAST,
-
-  class StructAST,
-  class TupleAST,
-  class VarTupleAST,
-  class RangeAST,
-
-  class SetAST,
-  class ListAST,
-
-  class SizeOfAST,
-  class ListOpAST,
-
   class BinCompAST,
   class CondAST,
   class BinOpAST,
 
+  class AnonyFuncAST,
+  class FuncAST,
+
+  class CallAST,
+
+  class SizeOfAST,
+  class TypeConvertAST,
+  class ListOpAST,
+  class RangeAST,
+
+  class IterAST,
+  class LoopAST,
+
+  class CondFlowAST,
+
+  class EOFAST,
+  class PassAST,
+  class BreakAST,
+  class ReturnAST,
+
+  class CasesAST,
+  class MatchCasesAST,
+
+  class SideBlockAST,
+  class MainBlockAST,
+
+  class ExtPackAST,
+
+  class InfiniteAST,
+
+  class VarTupleAST,
+  
+  class ForwardAST,
+  class CheckEqAST,
+  class CheckIsInAST,
+  class FromToAST,
+
   class FmtStrAST,
+
   class ResourceAST,
 
   class LocalPathAST,
@@ -297,36 +337,8 @@ using StyioVisitor = Visitor<
   class WebUrlAST,
   class DBUrlAST,
 
-  class ExtPackAST,
-
-  class ReadFileAST,
-
-  class EOFAST,
-  class BreakAST,
-  class PassAST,
-  class ReturnAST,
-
-  class CallAST,
   class PrintAST,
-
-  class ForwardAST,
-  class CheckEqAST,
-  class CheckIsInAST,
-  class FromToAST,
-
-  class AnonyFuncAST,
-  class FuncAST,
-
-  class IterAST,
-  class LoopAST,
-
-  class CondFlowAST,
-
-  class CasesAST,
-  class MatchCasesAST,
-
-  class SideBlockAST,
-  class MainBlockAST>;
+  class ReadFileAST>;
 
 /* Styio -> LLVM Generator */
 class StyioToLLVM;
@@ -388,7 +400,7 @@ public:
 
   void check(StringAST* ast);
 
-  void check(NumPromoAST* ast);
+  void check(TypeConvertAST* ast);
 
   void check(FmtStrAST* ast);
 
@@ -508,7 +520,7 @@ public:
 
   llvm::Value* toLLVM(StringAST* ast);
 
-  llvm::Value* toLLVM(NumPromoAST* ast);
+  llvm::Value* toLLVM(TypeConvertAST* ast);
 
   llvm::Value* toLLVM(FmtStrAST* ast);
 
@@ -1396,13 +1408,13 @@ public:
   ) override;
 };
 
-class NumPromoAST : public StyioNode<NumPromoAST>
+class TypeConvertAST : public StyioNode<TypeConvertAST>
 {
   shared_ptr<StyioAST> Value;
   NumPromoTy PromoType;
 
 public:
-  NumPromoAST(
+  TypeConvertAST(
     shared_ptr<StyioAST> val,
     NumPromoTy promo_type
   ) :
@@ -1413,11 +1425,11 @@ public:
     return StyioNodeHint::NumConvert;
   }
 
-  static shared_ptr<NumPromoAST> make(
+  static shared_ptr<TypeConvertAST> make(
     shared_ptr<StyioAST> value,
     NumPromoTy promo_type
   ) {
-    return make_unique<NumPromoAST>(std::move(value), promo_type);
+    return make_unique<TypeConvertAST>(std::move(value), promo_type);
   }
 
   static unique_ptr<IntAST> make(

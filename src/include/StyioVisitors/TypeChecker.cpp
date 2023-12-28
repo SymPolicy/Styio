@@ -43,7 +43,7 @@ void StyioToLLVM::check(CharAST* ast) {
 void StyioToLLVM::check(StringAST* ast) {
 }
 
-void StyioToLLVM::check(NumPromoAST*) {
+void StyioToLLVM::check(TypeConvertAST*) {
 }
 
 void StyioToLLVM::check(VarAST* ast) {

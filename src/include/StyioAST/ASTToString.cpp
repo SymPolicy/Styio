@@ -137,7 +137,7 @@ StringAST::toStringInline(int indent, bool colorful) {
 }
 
 string
-NumPromoAST::toString(int indent, bool colorful) {
+TypeConvertAST::toString(int indent, bool colorful) {
   string tStr = "";
 
   if (PromoType == NumPromoTy::Int_To_Float) {
@@ -148,7 +148,7 @@ NumPromoAST::toString(int indent, bool colorful) {
 }
 
 string
-NumPromoAST::toStringInline(int indent, bool colorful) {
+TypeConvertAST::toStringInline(int indent, bool colorful) {
   return reprNodeType(hint(), colorful, " ") + "{ " + Value->toStringInline() + " }";
 }
 

@@ -225,7 +225,7 @@ StyioToLLVM::toLLVM(StringAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(NumPromoAST* ast) {
+StyioToLLVM::toLLVM(TypeConvertAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
