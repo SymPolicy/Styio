@@ -1,0 +1,23 @@
+// RUN: /root/styio/styio -a -f %s | /usr/bin/FileCheck %s
+
+fib := (n) => {
+  ? (n == 0) => 0
+  ? (n == 1 || n == 2) => 1
+
+  a = 0
+  b = 1
+
+  [1..n] >> {
+    tmp = a + b
+    a = b
+    b = tmp
+
+    => b
+  }
+}
+
+>_(fib(12))
+
+/*
+  Check: Main
+*/

@@ -348,7 +348,9 @@ parse_var_tuple(shared_ptr<StyioContext> context) {
 }
 
 unique_ptr<ResourceAST>
-parse_resources(shared_ptr<StyioContext> context) {
+parse_resources(
+  shared_ptr<StyioContext> context
+) {
   unique_ptr<ResourceAST> output;
 
   vector<unique_ptr<StyioAST>> resources;
@@ -371,11 +373,14 @@ parse_resources(shared_ptr<StyioContext> context) {
       else if (context->check_isal_()) {
         unique_ptr<IdAST> varname = parse_id(context);
 
-        context->find_drop_panic("->");
+        context->find_drop_panic("<-");
 
         context->drop_all_spaces_comments();
 
-        resources.push_back(make_unique<FinalBindAST>(std::move(varname), parse_num_val(context)));
+        resources.push_back(
+          make_unique<FinalBindAST>(
+            std::move(varname), 
+            parse_num_val(context)));
       }
 
     } while (context->check_drop(','));
@@ -2410,7 +2415,7 @@ parse_stmt(
         return make_unique<ReturnAST>(parse_expr(context));
       }
       else {
-        string errmsg = string("parse_stmt() // =");
+        string errmsg = string("parse_stmt() // =") + context->get_cur_char();
         throw StyioSyntaxError(errmsg);
       }
     }

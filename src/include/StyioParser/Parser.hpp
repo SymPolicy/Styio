@@ -23,7 +23,7 @@ class StyioContext
 {
 private:
   string code;
-  int pos;
+  size_t pos;
 
   shared_ptr<StyioAST> ast;
   unordered_map<string, shared_ptr<StyioAST>> constants;
@@ -33,326 +33,354 @@ private:
   vector<shared_ptr<StyioContext>> children;
 
 public:
-  StyioContext(const string& text)
-    : code(text)
-    , pos(0)
-  {
-        /* Construction */ }
+  StyioContext(
+    const string& text
+  ) :
+      code(text), 
+      pos(0) {
+  }
 
-        StyioContext(StyioContext* parent)
-          : parent(parent)
-        {
-          code = parent->getCode();
-          pos = parent->getPos();
+  StyioContext(
+    StyioContext* parent
+  ) :
+      parent(parent) {
+    code = parent->getCode();
+    pos = parent->getPos();
+  }
+
+  /* Get `code` */
+  const string&
+  getCode() const {
+    return code;
+  }
+
+  /* Get `pos` */
+  size_t getPos() {
+    return pos;
+  }
+
+  /* Tree: isRoot() */
+  bool isRootCtx() {
+    if (parent) {
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
+  /* Tree: getChild() */
+  shared_ptr<StyioContext>
+  getChild() {
+    return make_shared<StyioContext>(this);
+  }
+
+  /* Get Current Character */
+  char& get_cur_char() {
+    return code.at(pos);
+  }
+
+  string get_cur_line() {
+    size_t p = pos;
+    while (p >= 0 && code.at(p) != '\n') {
+      p = p - 1;
+    }
+
+    return code.substr(p, pos);
+  }
+
+  // No Boundary Check !
+  // | + n => move forward n steps
+  // | - n => move backward n steps
+  void move(size_t steps) {
+    pos += steps;
+  }
+
+  /* Check Value */
+  bool check(char value) {
+    return (code.at(pos)) == value;
+  }
+
+  /* Check Value */
+  bool check(const string& value) {
+    return code.compare(pos, value.size(), value) == 0;
+  }
+
+  /* Move Until */
+  void move_until(char value) {
+    while (not check(value)) {
+      move(1);
+    }
+  }
+
+  /* Check & Drop */
+  bool check_drop(char value) {
+    if (check(value)) {
+      move(1);
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
+  /* Check & Drop */
+  bool check_drop(const string& value) {
+    if (check(value)) {
+      move(value.size());
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
+  /* Find & Drop */
+  bool find_drop(char value) {
+    /* ! No Boundary Check ! */
+    while (true) {
+      if (isspace(get_cur_char())) {
+        move(1);
+      }
+      else if (check("//")) {
+        pass_over('\n');
+      }
+      else if (check("/*")) {
+        pass_over("*/");
+      }
+      else {
+        if (check(value)) {
+          move(1);
+          return true;
         }
-
-        /* Get `code` */
-        const string& getCode() { return code; }
-
-        /* Get `pos` */
-        int getPos() { return pos; }
-
-        /* Tree: isRoot() */
-        bool isRootCtx()
-        {
-          if (parent) {
-            return true;
-          } else {
-            return false;
-          }
-        }
-
-        /* Tree: getChild() */
-        shared_ptr<StyioContext> getChild()
-        {
-          return make_shared<StyioContext>(this);
-        }
-
-        /* Get Current Character */
-        char& get_cur_char() { return code.at(pos); }
-
-        // + n => move forward n steps
-        // - n => move backward n steps
-        void move(int steps) { pos += steps; }
-
-        /* Check Value */
-        bool check(char value) { return (code.at(pos)) == value; }
-
-        /* Check Value */
-        bool check(const string& value)
-        {
-          return code.compare(pos, value.size(), value) == 0;
-        }
-
-        /* Move Until */
-        void move_until(char value)
-        {
-          while (not check(value)) {
-            move(1);
-          }
-        }
-
-        /* Check & Drop */
-        bool check_drop(char value)
-        {
-          if (check(value)) {
-            move(1);
-            return true;
-          } else {
-            return false;
-          }
-        }
-
-        /* Check & Drop */
-        bool check_drop(const string& value)
-        {
-          if (check(value)) {
-            move(value.size());
-            return true;
-          } else {
-            return false;
-          }
-        }
-
-        /* Find & Drop */
-        bool find_drop(char value)
-        {
-          /* ! No Boundary Check ! */
-          while (true) {
-            if (isspace(get_cur_char())) {
-              move(1);
-            } else if (check("//")) {
-              pass_over('\n');
-            } else if (check("/*")) {
-              pass_over("*/");
-            } else {
-              if (check(value)) {
-                move(1);
-                return true;
-              } else {
-                return false;
-              }
-            }
-          }
-
+        else {
           return false;
         }
+      }
+    }
 
-        /* Find & Drop */
-        bool find_drop(string value)
-        {
-          /* ! No Boundary Check ! */
-          while (true) {
-            if (isspace(get_cur_char())) {
-              move(1);
-            } else if (check("//")) {
-              pass_over('\n');
-            } else if (check("/*")) {
-              pass_over("*/");
-            } else {
-              if ((code.substr(pos, value.size())) == value) {
-                move(value.size());
-                return true;
-              } else {
-                return false;
-              }
-            }
-          }
+    return false;
+  }
+
+  /* Find & Drop */
+  bool find_drop(string value) {
+    /* ! No Boundary Check ! */
+    while (true) {
+      if (isspace(get_cur_char())) {
+        move(1);
+      }
+      else if (check("//")) {
+        pass_over('\n');
+      }
+      else if (check("/*")) {
+        pass_over("*/");
+      }
+      else {
+        if ((code.substr(pos, value.size())) == value) {
+          move(value.size());
+          return true;
         }
-
-        /* Pass Over */
-        void pass_over(char value)
-        {
-          /* ! No Boundary Check ! */
-          while (true) {
-            if (check(value)) {
-              move(1);
-              break;
-            } else {
-              move(1);
-            }
-          }
+        else {
+          return false;
         }
+      }
+    }
+  }
 
-        /* Pass Over */
-        void pass_over(const string& value)
-        {
-          /* ! No Boundary Check ! */
-          while (true) {
-            if (check(value)) {
-              move(value.size());
-              break;
-            } else {
-              move(1);
-            }
-          }
+  /* Pass Over */
+  void pass_over(char value) {
+    /* ! No Boundary Check ! */
+    while (true) {
+      if (check(value)) {
+        move(1);
+        break;
+      }
+      else {
+        move(1);
+      }
+    }
+  }
+
+  /* Pass Over */
+  void pass_over(const string& value) {
+    /* ! No Boundary Check ! */
+    while (true) {
+      if (check(value)) {
+        move(value.size());
+        break;
+      }
+      else {
+        move(1);
+      }
+    }
+  }
+
+  /* Peak Check */
+  bool peak_check(int steps, char value) {
+    return (code.at(pos + steps) == value);
+  }
+
+  bool peak_isdigit(int steps) {
+    return isdigit(code.at(pos + steps));
+  }
+
+  /* Drop White Spaces */
+  void drop_white_spaces() {
+    while (check(' ')) {
+      move(1);
+    }
+  }
+
+  /* Drop Spaces */
+  void drop_all_spaces() {
+    while (isspace(code.at(pos))) {
+      move(1);
+    }
+  }
+
+  /* Drop Spaces & Comments */
+  void drop_all_spaces_comments() {
+    /* ! No Boundary Check ! */
+    while (true) {
+      if (isspace(code.at(pos))) {
+        move(1);
+      }
+      else if (check("//")) {
+        pass_over('\n');
+      }
+      else if (check("/*")) {
+        pass_over("*/");
+      }
+      else {
+        break;
+      }
+    }
+  }
+
+  /* Match(Next) -> Panic */
+  bool check_drop_panic(char value) {
+    if (check(value)) {
+      move(1);
+      return true;
+    }
+
+    string errmsg = string("Expecting: ") + value + "\n" + "But Got: " + char(get_cur_char()) + "\n";
+    throw StyioSyntaxError(errmsg);
+  }
+
+  /* (Char) Find & Drop -> Panic */
+  bool find_drop_panic(char value) {
+    /* ! No Boundary Check ! */
+    while (true) {
+      if (isspace(get_cur_char())) {
+        move(1);
+      }
+      else if (check("//")) {
+        pass_over('\n');
+      }
+      else if (check("/*")) {
+        pass_over("*/");
+      }
+      else {
+        if (check(value)) {
+          move(1);
+          return true;
         }
-
-        /* Peak Check */
-        bool peak_check(int steps, char value)
-        {
-          return (code.at(pos + steps) == value);
-        }
-
-        bool peak_isdigit(int steps) { return isdigit(code.at(pos + steps)); }
-
-        /* Drop White Spaces */
-        void drop_white_spaces()
-        {
-          while (check(' ')) {
-            move(1);
-          }
-        }
-
-        /* Drop Spaces */
-        void drop_all_spaces()
-        {
-          while (isspace(code.at(pos))) {
-            move(1);
-          }
-        }
-
-        /* Drop Spaces & Comments */
-        void drop_all_spaces_comments()
-        {
-          /* ! No Boundary Check ! */
-          while (true) {
-            if (isspace(code.at(pos))) {
-              move(1);
-            } else if (check("//")) {
-              pass_over('\n');
-            } else if (check("/*")) {
-              pass_over("*/");
-            } else {
-              break;
-            }
-          }
-        }
-
-        /* Match(Next) -> Panic */
-        bool check_drop_panic(char value)
-        {
-          if (check(value)) {
-            move(1);
-            return true;
-          }
-
-          string errmsg = string("Expecting: ") + value + "\n" +
-                          "But Got: " + char(get_cur_char()) + "\n";
+        else {
+          string errmsg = string("Expecting: ") + char(value) + "\n" + "But Got: " + get_cur_char();
           throw StyioSyntaxError(errmsg);
         }
+      }
+    }
+  }
 
-        /* (Char) Find & Drop -> Panic */
-        bool find_drop_panic(char value)
-        {
-          /* ! No Boundary Check ! */
-          while (true) {
-            if (isspace(get_cur_char())) {
-              move(1);
-            } else if (check("//")) {
-              pass_over('\n');
-            } else if (check("/*")) {
-              pass_over("*/");
-            } else {
-              if (check(value)) {
-                move(1);
-                return true;
-              } else {
-                string errmsg = string("Expecting: ") + char(value) + "\n" +
-                                "But Got: " + get_cur_char();
-                throw StyioSyntaxError(errmsg);
-              }
-            }
-          }
+  /* (String) Find & Drop -> Panic */
+  bool find_drop_panic(string value) {
+    /* ! No Boundary Check ! */
+    while (true) {
+      if (isspace(get_cur_char()))
+        move(1);
+      else if (check("//"))
+        pass_over('\n');
+      else if (check("/*"))
+        pass_over("*/");
+      else {
+        if (check(value)) {
+          move(value.size());
+          return true;
         }
-
-        /* (String) Find & Drop -> Panic */
-        bool find_drop_panic(string value)
-        {
-          /* ! No Boundary Check ! */
-          while (true) {
-            if (isspace(get_cur_char()))
-              move(1);
-            else if (check("//"))
-              pass_over('\n');
-            else if (check("/*"))
-              pass_over("*/");
-            else {
-              if (check(value)) {
-                move(value.size());
-                return true;
-              } else {
-                string errmsg = string("Expecting: ") + value + "\n" +
-                                "But Got: " + code.substr(pos, value.size());
-                throw StyioSyntaxError(errmsg);
-              }
-            }
-          }
+        else {
+          string errmsg = get_cur_line() + string("Expecting: ") + value + "\n" + "But Got: " + code.substr(pos, value.size());
+          throw StyioSyntaxError(errmsg);
         }
+      }
+    }
+  }
 
-        /* Find & Drop -> Panic */
-        bool find_panic(const string& value)
-        {
-          /* ! No Boundary Check ! */
-          while (true) {
-            if (isspace(get_cur_char())) {
-              move(1);
-            } else if (check("//")) {
-              pass_over('\n');
-            } else if (check("/*")) {
-              pass_over("*/");
-            } else {
-              if (check(value)) {
-                move(value.size());
-                return true;
-              } else {
-                string errmsg = string("Expecting: ") + value + "\n" +
-                                "But Got: " + get_cur_char();
-                throw StyioSyntaxError(errmsg);
-              }
-            }
-          }
+  /* Find & Drop -> Panic */
+  bool find_panic(const string& value) {
+    /* ! No Boundary Check ! */
+    while (true) {
+      if (isspace(get_cur_char())) {
+        move(1);
+      }
+      else if (check("//")) {
+        pass_over('\n');
+      }
+      else if (check("/*")) {
+        pass_over("*/");
+      }
+      else {
+        if (check(value)) {
+          move(value.size());
+          return true;
         }
-
-        /* Check isalpha or _ */
-        bool check_isal_()
-        {
-          return isalpha(code.at(pos)) || (code.at(pos) == '_');
+        else {
+          string errmsg = string("Expecting: ") + value + "\n" + "But Got: " + get_cur_char();
+          throw StyioSyntaxError(errmsg);
         }
+      }
+    }
+  }
 
-        /* Check isalpha or isnum or _ */
-        bool check_isalnum_()
-        {
-          return isalnum(code.at(pos)) || (code.at(pos) == '_');
-        }
+  /* Check isalpha or _ */
+  bool check_isal_() {
+    return isalpha(code.at(pos)) || (code.at(pos) == '_');
+  }
 
-        /* Check isdigit */
-        bool check_isdigit() { return isdigit(code.at(pos)); }
+  /* Check isalpha or isnum or _ */
+  bool check_isalnum_() {
+    return isalnum(code.at(pos)) || (code.at(pos) == '_');
+  }
 
-        /* Check Binary Operator */
-        bool check_binop()
-        {
-          if (code.at(pos) == '+' || code.at(pos) == '-' ||
-              code.at(pos) == '*' || code.at(pos) == '%') {
-            return true;
-          } else if (code.at(pos) == '/') {
-            /* Comments */
-            if ((code.at(pos + 1)) == '*' || code.at(pos + 1) == '/') {
-              return false;
-            } else {
-              return true;
-            }
-          }
+  /* Check isdigit */
+  bool check_isdigit() {
+    return isdigit(code.at(pos));
+  }
 
-          return false;
-        }
+  /* Check Binary Operator */
+  bool check_binop() {
+    if (code.at(pos) == '+' || code.at(pos) == '-' || code.at(pos) == '*' || code.at(pos) == '%') {
+      return true;
+    }
+    else if (code.at(pos) == '/') {
+      /* Comments */
+      if ((code.at(pos + 1)) == '*' || code.at(pos + 1) == '/') {
+        return false;
+      }
+      else {
+        return true;
+      }
+    }
+
+    return false;
+  }
 };
 
-template<typename Enumeration>
+template <typename Enumeration>
 auto
 type_to_int(Enumeration const value) ->
-  typename std::underlying_type<Enumeration>::type
-{
+  typename std::underlying_type<Enumeration>::type {
   return static_cast<typename std::underlying_type<Enumeration>::type>(value);
 }
 
@@ -483,8 +511,7 @@ parse_var_tuple(shared_ptr<StyioContext> context);
   parse_loop_or_iter
 */
 unique_ptr<StyioAST>
-parse_loop_or_iter(shared_ptr<StyioContext> context,
-                   unique_ptr<StyioAST> collection);
+parse_loop_or_iter(shared_ptr<StyioContext> context, unique_ptr<StyioAST> collection);
 
 /*
   parse_list_or_loop

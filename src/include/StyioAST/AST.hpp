@@ -14,10 +14,10 @@
 using std::string;
 using std::vector;
 
-using std::unique_ptr;
+using std::make_shared;
 using std::make_unique;
 using std::shared_ptr;
-using std::make_shared;
+using std::unique_ptr;
 
 // Generic Visitor
 template <typename... Types>
@@ -77,7 +77,7 @@ class CharAST;
 /*
   Collections:
   - string [homo]
-  
+
   - set [homo]
   - list [heter]
 
@@ -322,7 +322,7 @@ using StyioVisitor = Visitor<
   class InfiniteAST,
 
   class VarTupleAST,
-  
+
   class ForwardAST,
   class CheckEqAST,
   class CheckIsInAST,
