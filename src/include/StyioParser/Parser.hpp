@@ -2,6 +2,7 @@
 #ifndef STYIO_PARSER_H_
 #define STYIO_PARSER_H_
 
+using std::pair;
 using std::string;
 using std::unordered_map;
 using std::vector;
@@ -22,8 +23,10 @@ class StyioContext;
 class StyioContext
 {
 private:
-  string code;
   size_t pos;
+
+  string code;
+  vector<pair<size_t, size_t>> linesep;
 
   shared_ptr<StyioAST> ast;
   unordered_map<string, shared_ptr<StyioAST>> constants;
@@ -34,28 +37,28 @@ private:
 
 public:
   StyioContext(
-    const string& text
+    const string& text,
+    vector<pair<size_t, size_t>> linesep
   ) :
-      code(text), 
-      pos(0) {
+      code(text), linesep(linesep), pos(0) {
   }
 
   StyioContext(
     StyioContext* parent
   ) :
       parent(parent) {
-    code = parent->getCode();
-    pos = parent->getPos();
+    code = parent->get_code();
+    pos = parent->get_pos();
   }
 
   /* Get `code` */
   const string&
-  getCode() const {
+  get_code() const {
     return code;
   }
 
   /* Get `pos` */
-  size_t getPos() {
+  size_t get_pos() {
     return pos;
   }
 
@@ -69,9 +72,9 @@ public:
     }
   }
 
-  /* Tree: getChild() */
+  /* Tree: get_child() */
   shared_ptr<StyioContext>
-  getChild() {
+  get_child() {
     return make_shared<StyioContext>(this);
   }
 
@@ -80,13 +83,52 @@ public:
     return code.at(pos);
   }
 
-  string get_cur_line() {
-    size_t p = pos;
-    while (p >= 0 && code.at(p) != '\n') {
-      p = p - 1;
+  size_t find_line_index(
+    int p = -1
+  ) {
+    const size_t total_lines = linesep.size();
+    size_t line_index = total_lines / 2;
+    cout << "find_line_index(), initial: [" << line_index << "]" << endl;
+
+    if (p < 0)
+      p = pos;
+
+    while (
+      p < linesep[line_index].first
+      || p > (linesep[line_index].first + linesep[line_index].second)
+    ) {
+      cout << "[" << line_index << "] is ";
+      if (p < linesep[line_index].first) {
+        line_index = line_index / 2;
+        cout << "too large, go to: [" << line_index << "]" << endl;
+      }
+      else {
+        line_index = (line_index + total_lines) / 2;
+        cout << "too small, go to: [" << line_index << "]" << endl;
+      }
     }
 
-    return code.substr(p, pos);
+    cout << "result: [" << line_index << "]" << endl;
+
+    return line_index;
+  }
+
+  string label_cur_line(
+    int start = -1
+  ) {
+    string output ("\n");
+
+    if (start < 0) start = pos;
+
+    size_t lindex = find_line_index(start);
+    size_t offset = pos - linesep[lindex].first;
+
+    output += code.substr(linesep[lindex].first, linesep[lindex].second) + "\n";
+    output += std::string(offset, ' ') 
+      + std::string(linesep[lindex].second - offset, '^') 
+      + "\n";
+
+    return output;
   }
 
   // No Boundary Check !
@@ -310,7 +352,7 @@ public:
           return true;
         }
         else {
-          string errmsg = get_cur_line() + string("Expecting: ") + value + "\n" + "But Got: " + code.substr(pos, value.size());
+          string errmsg = string("Expecting: ") + value + "\n" + "But Got: " + code.substr(pos, value.size());
           throw StyioSyntaxError(errmsg);
         }
       }

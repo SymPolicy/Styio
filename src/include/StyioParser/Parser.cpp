@@ -1735,10 +1735,10 @@ parse_cond_flow(shared_ptr<StyioContext> context) {
   }
 
   string errmsg = string(
-                    "parse_cond_flow() // You should not reach the end of "
-                    "this function. Char: "
+                    "parse_cond_flow()\n"
+                    "Can't match the following:\n"
                   )
-                  + context->get_cur_char();
+                  + context->label_cur_line();
   throw StyioParseError(errmsg);
 }
 

@@ -81,7 +81,8 @@
     "__tree": "cpp",
     "stack": "cpp",
     "span": "cpp",
-    "semaphore": "cpp"
+    "semaphore": "cpp",
+    "unordered_set": "cpp"
   },
   "C_Cpp.clang_format_fallbackStyle": "Mozilla",
   "C_Cpp.clang_format_style": "file",

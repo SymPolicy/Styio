@@ -33,7 +33,6 @@
 
 struct code
 {
-  size_t length;
   std::string text;
   std::vector<std::pair<size_t, size_t>> linesep;
 };
@@ -102,9 +101,7 @@ read_styio_file(
     printf("Failed: Can't read file %s.", filename);
   }
 
-  size_t total_length = text.size();
-
-  struct code result = {total_length, text, linesep};
+  struct code result = {text, linesep};
   return result;
 }
 
@@ -121,7 +118,7 @@ show_code_with_linenum(code c) {
     std::string replaced_text = std::regex_replace(line, newline_regex, "[NEWLINE]");
 
     std::cout 
-      << "|" << i + 1 << "|-[" << linesep.at(i).first << ":" << (linesep.at(i).first + linesep.at(i).second - 1) << "] "
+      << "|" << i << "|-[" << linesep.at(i).first << ":" << (linesep.at(i).first + linesep.at(i).second) << "] "
       << line << std::endl;
   }
 };
@@ -160,7 +157,9 @@ main(
 
     auto styio_code = read_styio_file(fpath.c_str());
     show_code_with_linenum(styio_code);
-    auto styio_context = std::make_shared<StyioContext>(styio_code.text);
+    auto styio_context = std::make_shared<StyioContext>(
+      styio_code.text,
+      styio_code.linesep);
     auto styio_program = parse_main_block(styio_context);
 
     if (show_ast) {
