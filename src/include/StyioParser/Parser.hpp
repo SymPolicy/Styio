@@ -2,17 +2,386 @@
 #ifndef STYIO_PARSER_H_
 #define STYIO_PARSER_H_
 
-struct StyioCodeContext
+using std::string;
+using std::unordered_map;
+using std::vector;
+
+using std::cout;
+using std::endl;
+
+using std::make_shared;
+using std::make_unique;
+using std::shared_ptr;
+using std::unique_ptr;
+
+/*
+  Context ~ ForwardAST
+*/
+class StyioContext;
+
+class StyioContext
 {
-  std::string text;
-  int cursor;
+private:
+  string code;
+  size_t pos;
+
+  shared_ptr<StyioAST> ast;
+  unordered_map<string, shared_ptr<StyioAST>> constants;
+  unordered_map<string, shared_ptr<StyioAST>> variables;
+
+  shared_ptr<StyioContext> parent;
+  vector<shared_ptr<StyioContext>> children;
+
+public:
+  StyioContext(
+    const string& text
+  ) :
+      code(text), 
+      pos(0) {
+  }
+
+  StyioContext(
+    StyioContext* parent
+  ) :
+      parent(parent) {
+    code = parent->getCode();
+    pos = parent->getPos();
+  }
+
+  /* Get `code` */
+  const string&
+  getCode() const {
+    return code;
+  }
+
+  /* Get `pos` */
+  size_t getPos() {
+    return pos;
+  }
+
+  /* Tree: isRoot() */
+  bool isRootCtx() {
+    if (parent) {
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
+  /* Tree: getChild() */
+  shared_ptr<StyioContext>
+  getChild() {
+    return make_shared<StyioContext>(this);
+  }
+
+  /* Get Current Character */
+  char& get_cur_char() {
+    return code.at(pos);
+  }
+
+  string get_cur_line() {
+    size_t p = pos;
+    while (p >= 0 && code.at(p) != '\n') {
+      p = p - 1;
+    }
+
+    return code.substr(p, pos);
+  }
+
+  // No Boundary Check !
+  // | + n => move forward n steps
+  // | - n => move backward n steps
+  void move(size_t steps) {
+    pos += steps;
+  }
+
+  /* Check Value */
+  bool check(char value) {
+    return (code.at(pos)) == value;
+  }
+
+  /* Check Value */
+  bool check(const string& value) {
+    return code.compare(pos, value.size(), value) == 0;
+  }
+
+  /* Move Until */
+  void move_until(char value) {
+    while (not check(value)) {
+      move(1);
+    }
+  }
+
+  /* Check & Drop */
+  bool check_drop(char value) {
+    if (check(value)) {
+      move(1);
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
+  /* Check & Drop */
+  bool check_drop(const string& value) {
+    if (check(value)) {
+      move(value.size());
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
+  /* Find & Drop */
+  bool find_drop(char value) {
+    /* ! No Boundary Check ! */
+    while (true) {
+      if (isspace(get_cur_char())) {
+        move(1);
+      }
+      else if (check("//")) {
+        pass_over('\n');
+      }
+      else if (check("/*")) {
+        pass_over("*/");
+      }
+      else {
+        if (check(value)) {
+          move(1);
+          return true;
+        }
+        else {
+          return false;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /* Find & Drop */
+  bool find_drop(string value) {
+    /* ! No Boundary Check ! */
+    while (true) {
+      if (isspace(get_cur_char())) {
+        move(1);
+      }
+      else if (check("//")) {
+        pass_over('\n');
+      }
+      else if (check("/*")) {
+        pass_over("*/");
+      }
+      else {
+        if ((code.substr(pos, value.size())) == value) {
+          move(value.size());
+          return true;
+        }
+        else {
+          return false;
+        }
+      }
+    }
+  }
+
+  /* Pass Over */
+  void pass_over(char value) {
+    /* ! No Boundary Check ! */
+    while (true) {
+      if (check(value)) {
+        move(1);
+        break;
+      }
+      else {
+        move(1);
+      }
+    }
+  }
+
+  /* Pass Over */
+  void pass_over(const string& value) {
+    /* ! No Boundary Check ! */
+    while (true) {
+      if (check(value)) {
+        move(value.size());
+        break;
+      }
+      else {
+        move(1);
+      }
+    }
+  }
+
+  /* Peak Check */
+  bool peak_check(int steps, char value) {
+    return (code.at(pos + steps) == value);
+  }
+
+  bool peak_isdigit(int steps) {
+    return isdigit(code.at(pos + steps));
+  }
+
+  /* Drop White Spaces */
+  void drop_white_spaces() {
+    while (check(' ')) {
+      move(1);
+    }
+  }
+
+  /* Drop Spaces */
+  void drop_all_spaces() {
+    while (isspace(code.at(pos))) {
+      move(1);
+    }
+  }
+
+  /* Drop Spaces & Comments */
+  void drop_all_spaces_comments() {
+    /* ! No Boundary Check ! */
+    while (true) {
+      if (isspace(code.at(pos))) {
+        move(1);
+      }
+      else if (check("//")) {
+        pass_over('\n');
+      }
+      else if (check("/*")) {
+        pass_over("*/");
+      }
+      else {
+        break;
+      }
+    }
+  }
+
+  /* Match(Next) -> Panic */
+  bool check_drop_panic(char value) {
+    if (check(value)) {
+      move(1);
+      return true;
+    }
+
+    string errmsg = string("Expecting: ") + value + "\n" + "But Got: " + char(get_cur_char()) + "\n";
+    throw StyioSyntaxError(errmsg);
+  }
+
+  /* (Char) Find & Drop -> Panic */
+  bool find_drop_panic(char value) {
+    /* ! No Boundary Check ! */
+    while (true) {
+      if (isspace(get_cur_char())) {
+        move(1);
+      }
+      else if (check("//")) {
+        pass_over('\n');
+      }
+      else if (check("/*")) {
+        pass_over("*/");
+      }
+      else {
+        if (check(value)) {
+          move(1);
+          return true;
+        }
+        else {
+          string errmsg = string("Expecting: ") + char(value) + "\n" + "But Got: " + get_cur_char();
+          throw StyioSyntaxError(errmsg);
+        }
+      }
+    }
+  }
+
+  /* (String) Find & Drop -> Panic */
+  bool find_drop_panic(string value) {
+    /* ! No Boundary Check ! */
+    while (true) {
+      if (isspace(get_cur_char()))
+        move(1);
+      else if (check("//"))
+        pass_over('\n');
+      else if (check("/*"))
+        pass_over("*/");
+      else {
+        if (check(value)) {
+          move(value.size());
+          return true;
+        }
+        else {
+          string errmsg = get_cur_line() + string("Expecting: ") + value + "\n" + "But Got: " + code.substr(pos, value.size());
+          throw StyioSyntaxError(errmsg);
+        }
+      }
+    }
+  }
+
+  /* Find & Drop -> Panic */
+  bool find_panic(const string& value) {
+    /* ! No Boundary Check ! */
+    while (true) {
+      if (isspace(get_cur_char())) {
+        move(1);
+      }
+      else if (check("//")) {
+        pass_over('\n');
+      }
+      else if (check("/*")) {
+        pass_over("*/");
+      }
+      else {
+        if (check(value)) {
+          move(value.size());
+          return true;
+        }
+        else {
+          string errmsg = string("Expecting: ") + value + "\n" + "But Got: " + get_cur_char();
+          throw StyioSyntaxError(errmsg);
+        }
+      }
+    }
+  }
+
+  /* Check isalpha or _ */
+  bool check_isal_() {
+    return isalpha(code.at(pos)) || (code.at(pos) == '_');
+  }
+
+  /* Check isalpha or isnum or _ */
+  bool check_isalnum_() {
+    return isalnum(code.at(pos)) || (code.at(pos) == '_');
+  }
+
+  /* Check isdigit */
+  bool check_isdigit() {
+    return isdigit(code.at(pos));
+  }
+
+  /* Check Binary Operator */
+  bool check_binop() {
+    if (code.at(pos) == '+' || code.at(pos) == '-' || code.at(pos) == '*' || code.at(pos) == '%') {
+      return true;
+    }
+    else if (code.at(pos) == '/') {
+      /* Comments */
+      if ((code.at(pos + 1)) == '*' || code.at(pos + 1) == '/') {
+        return false;
+      }
+      else {
+        return true;
+      }
+    }
+
+    return false;
+  }
 };
 
 template <typename Enumeration>
-auto type_to_int (Enumeration const value)
-    -> typename std::underlying_type<Enumeration>::type
-{
-    return static_cast<typename std::underlying_type<Enumeration>::type>(value);
+auto
+type_to_int(Enumeration const value) ->
+  typename std::underlying_type<Enumeration>::type {
+  return static_cast<typename std::underlying_type<Enumeration>::type>(value);
 }
 
 /*
@@ -24,10 +393,8 @@ auto type_to_int (Enumeration const value)
 /*
   parse_id
 */
-std::unique_ptr<IdAST> parse_id (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<IdAST>
+parse_id(shared_ptr<StyioContext> context);
 
 /*
   =================
@@ -38,67 +405,47 @@ std::unique_ptr<IdAST> parse_id (
 /*
   parse_int
 */
-std::unique_ptr<IntAST> parse_int 
-(
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<IntAST>
+parse_int(shared_ptr<StyioContext> context);
 
 /*
   parse_int_or_float
 */
-std::unique_ptr<StyioAST> parse_int_or_float 
-(
-  struct StyioCodeContext* code, 
-  char& cur_char
-);
+unique_ptr<StyioAST>
+parse_int_or_float(shared_ptr<StyioContext> context, char& cur_char);
 
 /*
-  parse_str
+  parse_string
 */
-std::unique_ptr<StringAST> parse_str (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<StringAST>
+parse_string(shared_ptr<StyioContext> context);
 
 /*
   parse_fmt_str
 */
-std::unique_ptr<FmtStrAST> parse_fmt_str (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<FmtStrAST>
+parse_fmt_str(shared_ptr<StyioContext> context);
 
 /*
-  parse_path_or_link
+  parse_path
 */
-std::unique_ptr<StyioAST> parse_path_or_link (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<StyioAST>
+parse_path(shared_ptr<StyioContext> context);
 
 /*
   parse_fill_arg
 */
-std::unique_ptr<FillArgAST> parse_fill_arg (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+shared_ptr<ArgAST>
+parse_argument(shared_ptr<StyioContext> context);
 
-std::unique_ptr<StyioAST> parse_tuple (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<StyioAST>
+parse_tuple(shared_ptr<StyioContext> context);
 
-std::unique_ptr<StyioAST> parse_list (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<StyioAST>
+parse_list(shared_ptr<StyioContext> context);
 
-std::unique_ptr<StyioAST> parse_set (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<StyioAST>
+parse_set(shared_ptr<StyioContext> context);
 
 /*
   =================
@@ -109,184 +456,140 @@ std::unique_ptr<StyioAST> parse_set (
 /*
   parse_size_of
 */
-std::unique_ptr<SizeOfAST> parse_size_of 
-(
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<SizeOfAST>
+parse_size_of(shared_ptr<StyioContext> context);
 
 /*
   parse_call
 */
-std::unique_ptr<StyioAST> parse_call 
-(
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<StyioAST>
+parse_call(shared_ptr<StyioContext> context);
 
 /*
   parse_bin_rhs
 */
-std::unique_ptr<StyioAST> parse_item_for_binop (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+shared_ptr<StyioAST>
+parse_item_for_binop(shared_ptr<StyioContext> context);
 
 /*
   parse_binop_rhs
 */
-std::unique_ptr<BinOpAST> parse_binop_rhs (
-  struct StyioCodeContext* code,
-  char& cur_char, 
-  std::unique_ptr<StyioAST> lhs_ast
-);
+unique_ptr<BinOpAST>
+parse_binop_rhs(shared_ptr<StyioContext> context, shared_ptr<StyioAST> lhs_ast);
 
 /*
   parse_item_for_cond
 */
-std::unique_ptr<StyioAST> parse_item_for_cond (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<StyioAST>
+parse_item_for_cond(shared_ptr<StyioContext> context);
 
 /*
   parse_cond
 */
-std::unique_ptr<CondAST> parse_cond (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<CondAST>
+parse_cond(shared_ptr<StyioContext> context);
 
 /*
   parse_cond_flow
 */
-std::unique_ptr<StyioAST> parse_cond_flow (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<StyioAST>
+parse_cond_flow(shared_ptr<StyioContext> context);
 
 /*
   parse_list_op
 */
-std::unique_ptr<StyioAST> parse_list_op (
-  struct StyioCodeContext* code,
-  char& cur_char,
-  std::unique_ptr<StyioAST> theList
-);
+unique_ptr<StyioAST>
+parse_list_op(shared_ptr<StyioContext> context, unique_ptr<StyioAST> theList);
 
 /*
-  parse_vars_tuple
+  parse_var_tuple
 */
-std::unique_ptr<VarTupleAST> parse_vars_tuple (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+shared_ptr<VarTupleAST>
+parse_var_tuple(shared_ptr<StyioContext> context);
 
 /*
   parse_loop_or_iter
 */
-std::unique_ptr<StyioAST> parse_loop_or_iter (
-  struct StyioCodeContext* code,
-  char& cur_char,
-  std::unique_ptr<StyioAST> collection
-);
+unique_ptr<StyioAST>
+parse_loop_or_iter(shared_ptr<StyioContext> context, unique_ptr<StyioAST> collection);
 
 /*
   parse_list_or_loop
 */
-std::unique_ptr<StyioAST> parse_list_or_loop (struct StyioCodeContext* code,char& cur_char);
+unique_ptr<StyioAST>
+parse_list_or_loop(shared_ptr<StyioContext> context);
 
 /*
   parse_loop
 */
-std::unique_ptr<StyioAST> parse_loop (struct StyioCodeContext* code,char& cur_char);
+unique_ptr<StyioAST>
+parse_loop(shared_ptr<StyioContext> context, char& cur_char);
 
 /*
   parse_simple_value
 */
-std::unique_ptr<StyioAST> parse_num_val (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<StyioAST>
+parse_num_val(shared_ptr<StyioContext> context);
 
 /*
   parse_expr
 */
-std::unique_ptr<StyioAST> parse_expr (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<StyioAST>
+parse_expr(shared_ptr<StyioContext> context);
 
 /*
   parse_resources
 */
-std::unique_ptr<ResourceAST> parse_resources (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<ResourceAST>
+parse_resources(shared_ptr<StyioContext> context);
 
 /*
   parse_bind_final
 */
-std::unique_ptr<FinalBindAST> parse_bind_final (
-  struct StyioCodeContext* code,
-  char& cur_char, 
-  std::unique_ptr<IdAST> id_ast
-);
+unique_ptr<FinalBindAST>
+parse_bind_final(shared_ptr<StyioContext> context, unique_ptr<IdAST> id_ast);
 
 /*
   parse_pipeline
 */
-std::unique_ptr<StyioAST> parse_pipeline (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<StyioAST>
+parse_func(shared_ptr<StyioContext> context);
 
 /*
   parse_read_file
 */
-std::unique_ptr<StyioAST> parse_read_file (
-  struct StyioCodeContext* code,
-  char& cur_char, 
-  IdAST* id_ast
-);
+unique_ptr<StyioAST>
+parse_read_file(shared_ptr<StyioContext> context, IdAST* id_ast);
 
 /*
   parse_one_or_many_repr
 */
-std::unique_ptr<StyioAST> parse_one_or_many_repr (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<StyioAST>
+parse_one_or_many_repr(shared_ptr<StyioContext> context);
 
 /*
   parse_print
 */
-std::unique_ptr<StyioAST> parse_print (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<StyioAST>
+parse_print(shared_ptr<StyioContext> context);
 
 /*
   parse_panic
 */
-std::unique_ptr<StyioAST> parse_panic (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<StyioAST>
+parse_panic(shared_ptr<StyioContext> context);
 
 /*
   parse_stmt
 */
-std::unique_ptr<StyioAST> parse_stmt (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<StyioAST>
+parse_stmt(shared_ptr<StyioContext> context);
 
 /*
   parse_ext_elem
 */
-std::string parse_ext_elem(struct StyioCodeContext* code,char& cur_char);
+string
+parse_ext_elem(shared_ptr<StyioContext> context, char& cur_char);
 
 /*
   parse_ext_pack
@@ -294,48 +597,44 @@ std::string parse_ext_elem(struct StyioCodeContext* code,char& cur_char);
   Dependencies should be written like a list of paths
   like this -> ["ab/c", "x/yz"]
 
-  // 1. The dependencies should be parsed before any domain (statement/expression). 
-  // 2. The left square bracket `[` is only eliminated after entering this function (parse_ext_pack)
+  // 1. The dependencies should be parsed before any domain
+  (statement/expression).
+  // 2. The left square bracket `[` is only eliminated after entering this
+  function (parse_ext_pack)
   |-- "[" <PATH>+ "]"
 
   If ? ( "the program starts with a left square bracket `[`" ),
-  then -> { 
+  then -> {
     "parse_ext_pack() starts";
     "eliminate the left square bracket `[`";
     "parse dependency paths, which take comma `,` as delimeter";
     "eliminate the right square bracket `]`";
-  } 
-  else :  { 
+  }
+  else :  {
     "parse_ext_pack() should NOT be invoked in this case";
     "if starts with left curly brace `{`, try parseSpace()";
     "otherwise, try parseScript()";
   }
 */
-std::unique_ptr<ExtPackAST> parse_ext_pack (struct StyioCodeContext* code,char& cur_char);
+unique_ptr<ExtPackAST>
+parse_ext_pack(shared_ptr<StyioContext> context, char& cur_char);
 
 /*
   parse_cases
 */
-std::unique_ptr<StyioAST> parse_cases (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<CasesAST>
+parse_cases(shared_ptr<StyioContext> context);
 
 /*
   parse_block
 */
-std::unique_ptr<StyioAST> parse_block (
-  struct StyioCodeContext* code,
-  char& cur_char
-);
+unique_ptr<StyioAST>
+parse_block(shared_ptr<StyioContext> context);
 
-std::unique_ptr<ForwardAST> parse_forward (
-  struct StyioCodeContext* code,
-  char& cur_char,
-  bool ispipe = false
-);
+unique_ptr<ForwardAST>
+parse_forward(shared_ptr<StyioContext> context, bool ispipe = false);
 
-
-std::unique_ptr<MainBlockAST> parse_main_block (std::string styio_code);
+shared_ptr<MainBlockAST>
+parse_main_block(shared_ptr<StyioContext> context);
 
 #endif

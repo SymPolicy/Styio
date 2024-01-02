@@ -1,0 +1,7 @@
+// RUN: /root/styio/styio -a -f %s | /usr/bin/FileCheck %s
+
+@("192.168.0.0:8080")
+
+/*
+  Check: Main
+*/

@@ -1,0 +1,7 @@
+// RUN: /root/styio/styio -a -f %s | /usr/bin/FileCheck %s
+
+@("https://example.com")
+
+/*
+  Check: Main
+*/

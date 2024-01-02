@@ -25,9 +25,9 @@ class StyioSyntaxError : public StyioBaseException
     std::string message;
 
   public:
-    StyioSyntaxError() : message("Styio.SyntaxError: Undefined."){}
+    StyioSyntaxError() : message("\nStyio.SyntaxError: Undefined."){}
 
-    StyioSyntaxError(std::string msg) : message("Styio.SyntaxError: " + msg) {}
+    StyioSyntaxError(std::string msg) : message("\nStyio.SyntaxError: " + msg) {}
 
     ~StyioSyntaxError() throw () {}
 
@@ -42,9 +42,9 @@ class StyioParseError : public StyioBaseException
     std::string message;
 
   public:
-    StyioParseError() : message("Styio.ParseError: Undefined."){}
+    StyioParseError() : message("\nStyio.ParseError: Undefined."){}
 
-    StyioParseError(std::string msg) : message("Styio.ParseError: " + msg) {}
+    StyioParseError(std::string msg) : message("\nStyio.ParseError: " + msg) {}
 
     ~StyioParseError() throw () {}
 
@@ -59,9 +59,9 @@ class StyioNotImplemented : public StyioBaseException
     std::string message;
 
   public:
-    StyioNotImplemented() : message("Styio.NotImplemented: Undefined."){}
+    StyioNotImplemented() : message("\nStyio.NotImplemented: Undefined."){}
 
-    StyioNotImplemented(std::string msg) : message("Styio.NotImplemented: " + msg) {}
+    StyioNotImplemented(std::string msg) : message("\nStyio.NotImplemented: " + msg) {}
 
     ~StyioNotImplemented() throw () {}
 

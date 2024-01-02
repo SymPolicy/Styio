@@ -4,10 +4,9 @@
 // [Styio]
 #include "../StyioToken/Token.hpp"
 
-std::string reprDataType (
-  StyioDataType dtype) {
-    switch (dtype)
-    {
+std::string
+reprDataType(StyioDataType dtype) {
+  switch (dtype) {
     case StyioDataType::i32:
       return std::string("i32");
 
@@ -19,1073 +18,1113 @@ std::string reprDataType (
 
     case StyioDataType::str:
       return std::string("str");
-    
+
     default:
-      break;
-    }
+      return std::string("dtype");
+  }
 }
 
-std::string reprNodeType (
-  StyioNodeHint type,
-  bool colorful,
-  std::string extra) {
+std::string
+reprNodeType(StyioNodeHint type, bool colorful, std::string extra) {
   int titleColor = 96;
   int flexColor = 91;
   int fixColor = 92;
 
   std::string output = "";
 
-  switch (type)
-  {
-  case StyioNodeHint::True:
-    {
+  switch (type) {
+    case StyioNodeHint::True: {
       auto name = std::string("True");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
 
     break;
 
-  case StyioNodeHint::False:
-    {
+    case StyioNodeHint::False: {
       auto name = std::string("False");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
 
     break;
-    
-  case StyioNodeHint::None:
-    {
+
+    case StyioNodeHint::None: {
       auto name = std::string("None");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
 
     break;
 
-  case StyioNodeHint::Empty:
-    {
+    case StyioNodeHint::Empty: {
       auto name = std::string("Empty");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
 
     break;
 
-  case StyioNodeHint::Id:
-    {
+    case StyioNodeHint::Id: {
       auto name = std::string("id");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
 
     break;
 
-  case StyioNodeHint::Var:
-    {
+    case StyioNodeHint::Var: {
       auto name = std::string("var");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
 
     break;
 
-  case StyioNodeHint::FillArg:
-    {
+    case StyioNodeHint::Arg: {
       auto name = std::string("Arg (Fill)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
 
     break;
 
-  case StyioNodeHint::Int:
-    {
+    case StyioNodeHint::Int: {
       auto name = std::string("int");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Float:
-    {
+    case StyioNodeHint::Float: {
       auto name = std::string("float");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Char:
-    {
+    case StyioNodeHint::Char: {
       auto name = std::string("char");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::String:
-    {
+    case StyioNodeHint::String: {
       auto name = std::string("String");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::FmtStr:
-    {
+    case StyioNodeHint::NumConvert: {
+      auto name = std::string("Convert");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      }
+      else {
+        output = std::string(name);
+      }
+    }
+
+    break;
+
+    case StyioNodeHint::FmtStr: {
       auto name = std::string("FmtStr");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::ExtPath:
-    {
+    case StyioNodeHint::LocalPath: {
       auto name = std::string("Path");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
-    }
-    
-    break;
+    } break;
 
-  case StyioNodeHint::ExtLink:
-    {
-      auto name = std::string("Link");
+    case StyioNodeHint::RemotePath: {
+      auto name = std::string("Addr");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
-    }
-    
-    break;
+    } break;
 
-  case StyioNodeHint::ExtPack:
-    {
+    case StyioNodeHint::WebUrl: {
+      auto name = std::string("URL");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      }
+      else {
+        output = std::string(name);
+      }
+    } break;
+
+    case StyioNodeHint::DBUrl: {
+      auto name = std::string("URL (Database)");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      }
+      else {
+        output = std::string(name);
+      }
+    } break;
+
+    case StyioNodeHint::ExtPack: {
       auto name = std::string("Package");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Fill:
-    {
+    case StyioNodeHint::VarTuple: {
       auto name = std::string("Fill");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Condition:
-    {
+    case StyioNodeHint::Condition: {
       auto name = std::string("Condition");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::SizeOf:
-    {
+    case StyioNodeHint::SizeOf: {
       auto name = std::string("SizeOf");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Bin_Add:
-    {
+    case StyioNodeHint::Bin_Add: {
       auto name = std::string("Add");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Bin_Sub:
-    {
+    case StyioNodeHint::Bin_Sub: {
       auto name = std::string("Subtract");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Bin_Mul:
-    {
+    case StyioNodeHint::Bin_Mul: {
       auto name = std::string("Multiply");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Bin_Div:
-    {
+    case StyioNodeHint::Bin_Div: {
       auto name = std::string("Divide");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Bin_Pow:
-    {
+    case StyioNodeHint::Bin_Pow: {
       auto name = std::string("Power");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Bin_Mod:
-    {
+    case StyioNodeHint::Bin_Mod: {
       auto name = std::string("Modulo");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Inc_Add:
-    {
+    case StyioNodeHint::Inc_Add: {
       auto name = std::string("Add (Inc.)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Inc_Sub:
-    {
+    case StyioNodeHint::Inc_Sub: {
       auto name = std::string("Subtract (Inc.)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Inc_Mul:
-    {
+    case StyioNodeHint::Inc_Mul: {
       auto name = std::string("Multiply (Inc.)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Inc_Div:
-    {
+    case StyioNodeHint::Inc_Div: {
       auto name = std::string("Divide (Inc.)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Print:
-    {
+    case StyioNodeHint::Print: {
       auto name = std::string("Print");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::ReadFile:
-    {
+    case StyioNodeHint::ReadFile: {
       auto name = std::string("Read File");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Call:
-    {
+    case StyioNodeHint::Call: {
       auto name = std::string("Call");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Access:
-    {
+    case StyioNodeHint::Access: {
       auto name = std::string("Access");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Access_By_Name:
-    {
+    case StyioNodeHint::Access_By_Name: {
       auto name = std::string("Access by Name");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Access_By_Index:
-    {
+    case StyioNodeHint::Access_By_Index: {
       auto name = std::string("Access by Index");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Get_Index_By_Value:
-    {
+    case StyioNodeHint::Get_Index_By_Value: {
       auto name = std::string("Get Index by Value");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-case StyioNodeHint::Get_Indices_By_Many_Values:
-    {
+    case StyioNodeHint::Get_Indices_By_Many_Values: {
       auto name = std::string("Get Indices by Many Value");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Append_Value:
-    {
+    case StyioNodeHint::Append_Value: {
       auto name = std::string("Append");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Insert_Item_By_Index:
-    {
+    case StyioNodeHint::Insert_Item_By_Index: {
       auto name = std::string("Insert by Index");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Remove_Item_By_Index:
-    {
+    case StyioNodeHint::Remove_Item_By_Index: {
       auto name = std::string("Remove by Index");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Remove_Items_By_Many_Indices:
-    {
+    case StyioNodeHint::Remove_Items_By_Many_Indices: {
       auto name = std::string("Remove by Many Indices");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Remove_Item_By_Value:
-    {
+    case StyioNodeHint::Remove_Item_By_Value: {
       auto name = std::string("Remove by Value");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Remove_Items_By_Many_Values:
-    {
+    case StyioNodeHint::Remove_Items_By_Many_Values: {
       auto name = std::string("Remove by Many Values");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Get_Reversed:
-    {
+    case StyioNodeHint::Get_Reversed: {
       auto name = std::string("Reversed");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Get_Index_By_Item_From_Right:
-    {
+    case StyioNodeHint::Get_Index_By_Item_From_Right: {
       auto name = std::string("Get Index by Item (From Right)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Return:
-    {
+    case StyioNodeHint::Return: {
       auto name = std::string("Return");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Range:
-    {
+    case StyioNodeHint::Range: {
       auto name = std::string("Range");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Tuple:
-    {
+    case StyioNodeHint::Tuple: {
       auto name = std::string("Tuple");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
-  
-  case StyioNodeHint::List:
-    {
+
+    case StyioNodeHint::List: {
       auto name = std::string("List");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Set:
-    {
+    case StyioNodeHint::Set: {
       auto name = std::string("Set");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Resources:
-    {
+    case StyioNodeHint::Resources: {
       auto name = std::string("Resources");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-
-    case StyioNodeHint::MutBind:
-    {
+    case StyioNodeHint::MutBind: {
       if (colorful) {
         output = make_colorful(std::string("Binding"), titleColor) + " " + make_colorful(std::string("(Flexible)"), flexColor);
-      } else {
+      }
+      else {
         output = std::string("Binding (Flexible)");
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::FixBind:
-    {
+    case StyioNodeHint::FixBind: {
       if (colorful) {
         output = make_colorful(std::string("Binding"), titleColor) + " " + make_colorful(std::string("(Final)"), flexColor);
-      } else {
+      }
+      else {
         output = std::string("Binding (Final)");
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Block:
-    {
+    case StyioNodeHint::Block: {
       auto name = std::string("Block");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Cases:
-    {
+    case StyioNodeHint::Cases: {
       auto name = std::string("Cases");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Func:
-    {
+    case StyioNodeHint::Func: {
       auto name = std::string("Function");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Struct:
-    {
+    case StyioNodeHint::Struct: {
       auto name = std::string("Struct");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Loop:
-    {
+    case StyioNodeHint::Loop: {
       auto name = std::string("Loop");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Iterator:
-    {
+    case StyioNodeHint::Iterator: {
       auto name = std::string("Iterator");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::CheckEq:
-    {
+    case StyioNodeHint::CheckEq: {
       auto name = std::string("Equal To?");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::CheckIsin:
-    {
+    case StyioNodeHint::CheckIsin: {
       auto name = std::string("Is In?");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::FromTo:
-    {
+    case StyioNodeHint::FromTo: {
       auto name = std::string("Transfer");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Forward:
-    {
+    case StyioNodeHint::Forward: {
       auto name = std::string("Forward (Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::If_Equal_To_Forward:
-    {
+    case StyioNodeHint::If_Equal_To_Forward: {
       auto name = std::string("Forward (If Equal -> Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::If_Is_In_Forward:
-    {
+    case StyioNodeHint::If_Is_In_Forward: {
       auto name = std::string("Forward (If Is In -> Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Cases_Forward:
-    {
+    case StyioNodeHint::Cases_Forward: {
       auto name = std::string("Forward (Cases)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::If_True_Forward:
-    {
+    case StyioNodeHint::If_True_Forward: {
       auto name = std::string("Forward (If True -> Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::If_False_Forward:
-    {
+    case StyioNodeHint::If_False_Forward: {
       auto name = std::string("Forward (If False -> Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Fill_Forward:
-    {
+    case StyioNodeHint::Fill_Forward: {
       auto name = std::string("Forward (Fill -> Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Fill_If_Equal_To_Forward:
-    {
+    case StyioNodeHint::Fill_If_Equal_To_Forward: {
       auto name = std::string("Forward (Fill -> If Equal -> Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Fill_If_Is_in_Forward:
-    {
+    case StyioNodeHint::Fill_If_Is_in_Forward: {
       auto name = std::string("Forward (Fill -> If Is In -> Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Fill_Cases_Forward:
-    {
+    case StyioNodeHint::Fill_Cases_Forward: {
       auto name = std::string("Forward (Fill -> Cases)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Fill_If_True_Forward:
-    {
+    case StyioNodeHint::Fill_If_True_Forward: {
       auto name = std::string("Forward (Fill -> If True -> Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Fill_If_False_Forward:
-    {
+    case StyioNodeHint::Fill_If_False_Forward: {
       auto name = std::string("Forward (Fill -> If False -> Run)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::DType:
-    {
+    case StyioNodeHint::DType: {
       auto name = std::string("type");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::TypedVar:
-    {
+    case StyioNodeHint::TypedVar: {
       auto name = std::string("Var");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Pass:
-    {
+    case StyioNodeHint::Pass: {
       auto name = std::string("Do Nothing");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::Break:
-    {
+    case StyioNodeHint::Break: {
       auto name = std::string("Break");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::CondFlow_True:
-    {
+    case StyioNodeHint::CondFlow_True: {
       auto name = std::string("Conditionals (Only True)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::CondFlow_False:
-    {
+    case StyioNodeHint::CondFlow_False: {
       auto name = std::string("Conditionals (Only False)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
+
     break;
 
-  case StyioNodeHint::CondFlow_Both:
-    {
+    case StyioNodeHint::CondFlow_Both: {
       auto name = std::string("Conditionals (True & False)");
 
       if (colorful) {
         output = make_colorful(name, titleColor);
-      } else {
+      }
+      else {
         output = std::string(name);
       }
     }
-    
-    break;
-
-  default:
-    output = std::string("Styio[Unknown]");
 
     break;
+
+    case StyioNodeHint::MainBlock: {
+      auto name = std::string("Main");
+
+      if (colorful) {
+        output = make_colorful(name, titleColor);
+      }
+      else {
+        output = std::string(name);
+      }
+    }
+
+    break;
+
+    default:
+      output = std::string("Styio[Unknown]");
+
+      break;
   }
-  
+
   return output + extra;
 }
 
-std::string reprToken(LogicType token) {
-  switch (token)
-  {
+std::string
+reprToken(LogicType token) {
+  switch (token) {
     case LogicType::NOT:
       return "<NOT>";
 
@@ -1105,9 +1144,9 @@ std::string reprToken(LogicType token) {
   }
 }
 
-std::string reprToken(CompType token) {
-  switch (token)
-  {
+std::string
+reprToken(CompType token) {
+  switch (token) {
     case CompType::EQ:
       return "<EQ>";
 
@@ -1132,9 +1171,9 @@ std::string reprToken(CompType token) {
   }
 }
 
-std::string reprToken(StyioToken token) {
-  switch (token)
-  {
+std::string
+reprToken(StyioToken token) {
+  switch (token) {
     case StyioToken::TOK_SPACE:
       return " ";
 
@@ -1263,7 +1302,7 @@ std::string reprToken(StyioToken token) {
 
     case StyioToken::TOK_RSHIFT:
       return ">>";
-    
+
     case StyioToken::TOK_NEG:
       return "<NEG>";
 
@@ -1317,7 +1356,7 @@ std::string reprToken(StyioToken token) {
 
     case StyioToken::TOK_INFINITE_LIST:
       return "[...]";
-    
+
     default:
       return "<UNKNOWN>";
   }

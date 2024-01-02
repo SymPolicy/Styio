@@ -1,0 +1,9 @@
+// RUN: /root/styio/styio -a -f %s | /usr/bin/FileCheck %s
+
+>_("Hello, Styio!")
+
+/*
+  CHECK:      Main {
+  CHECK-NEXT: || Print {
+  CHECK-NEXT: |--| String { "Hello, Styio!" }}}
+*/

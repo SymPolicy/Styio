@@ -1,8 +1,0 @@
-// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
-
->_("Hello, Styio!")
-
-/*
-  CHECK:      Print {
-  CHECK-NEXT: || String { "Hello, Styio!" }}
-*/
