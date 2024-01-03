@@ -23,7 +23,8 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/LinkAllIR.h"
 
-void i_am_here() {
+void
+i_am_here() {
   std::cout << "here" << std::endl;
 }
 
@@ -58,11 +59,16 @@ StyioToLLVM::match_type(std::string type) {
   return llvm_builder->getInt1Ty();
 }
 
-void StyioToLLVM::show() {
+void
+StyioToLLVM::show() {
+  std::cout << ">>> \033[1;32mLLVM IR\033[0m <<<" << "\n" << std::endl;
+
   /* stdout */
   llvm_module->print(llvm::outs(), nullptr);
   /* stderr */
   // llvm_module -> print(llvm::errs(), nullptr);
+
+  std::cout << "\n" << std::endl;
 }
 
 /*
@@ -546,12 +552,15 @@ StyioToLLVM::toLLVM(SideBlockAST* ast) {
 
 llvm::Value*
 StyioToLLVM::toLLVM(MainBlockAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  llvm::FunctionType* func_type = llvm::FunctionType::get(llvm_builder->getInt32Ty(), false);
+  llvm::Function* main_func = llvm::Function::Create(func_type, llvm::Function::ExternalLinkage, "main", *llvm_module);
+  llvm::BasicBlock* entry = llvm::BasicBlock::Create(*llvm_context, "entrypoint", main_func);
+  llvm_builder->SetInsertPoint(entry);
 
   auto& stmts = ast->getStmts();
   for (auto const& s : stmts) {
     s->toLLVM(this);
   }
 
-  return output;
+  return main_func;
 }

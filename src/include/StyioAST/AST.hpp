@@ -1228,7 +1228,7 @@ public:
 class IntAST : public StyioNode<IntAST>
 {
   string Value;
-  StyioDataType DType = StyioDataType::i32;
+  StyioDataType DType = StyioDataType::undefined;
 
 public:
   IntAST(string val) :

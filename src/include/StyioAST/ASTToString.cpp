@@ -986,8 +986,7 @@ MainBlockAST::toString(int indent, bool colorful) {
   string stmtStr;
 
   if (Stmts.empty())
-    return reprNodeType(hint(), colorful)
-           + string(" { }");
+    return reprNodeType(hint(), colorful, " { }");
 
   for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Stmts.begin();
        it != Stmts.end();

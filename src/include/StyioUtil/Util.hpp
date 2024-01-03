@@ -24,11 +24,10 @@ show_vector(std::vector<T> v) {
 
 template <typename T>
 void
-show_program(T& program) {
-  std::cout
-    << "\033[1;33m[>_<]\033[0m "
-    << program->toString()
-    << std::endl;
+display_ast(T& program) {
+  std::cout << ">>> \033[1;32mAST\033[0m \033[31m--No-Type-Checking\033[0m <<<" << "\n" << std::endl;
+  std::cout << program->toString() << std::endl;
+  std::cout << "\n" << std::endl;
 };
 
 inline bool

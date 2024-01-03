@@ -155,7 +155,7 @@ main(
     // std::cout << fpath << std::endl;
 
     auto styio_code = read_styio_file(fpath);
-    show_code_with_linenum(styio_code);
+    // show_code_with_linenum(styio_code);
     auto styio_context = std::make_shared<StyioContext>(
       fpath,
       styio_code.code_text,
@@ -164,11 +164,12 @@ main(
     auto styio_program = parse_main_block(styio_context);
 
     if (show_ast) {
-      show_program(styio_program);
+      display_ast(styio_program);
     }
 
     if (show_ir) {
       auto generator = StyioToLLVM();
+      generator.check(&*styio_program);
       generator.toLLVM(&*styio_program);
       generator.show();
     }
