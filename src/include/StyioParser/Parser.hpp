@@ -23,10 +23,11 @@ class StyioContext;
 class StyioContext
 {
 private:
-  size_t pos;
+  size_t curr_pos; /* current position */
 
+  string file_name;
   string code;
-  vector<pair<size_t, size_t>> linesep;
+  vector<pair<size_t, size_t>> line_seps; /* line separations */
 
   shared_ptr<StyioAST> ast;
   unordered_map<string, shared_ptr<StyioAST>> constants;
@@ -37,10 +38,14 @@ private:
 
 public:
   StyioContext(
-    const string& text,
-    vector<pair<size_t, size_t>> linesep
-  ) :
-      code(text), linesep(linesep), pos(0) {
+    const string& file_name,
+    const string& code_text,
+    vector<pair<size_t, size_t>> line_seps
+  ) : 
+      file_name(file_name),
+      code(code_text), 
+      line_seps(line_seps), 
+      curr_pos(0) {
   }
 
   StyioContext(
@@ -48,7 +53,7 @@ public:
   ) :
       parent(parent) {
     code = parent->get_code();
-    pos = parent->get_pos();
+    curr_pos = parent->get_curr_pos();
   }
 
   /* Get `code` */
@@ -58,8 +63,8 @@ public:
   }
 
   /* Get `pos` */
-  size_t get_pos() {
-    return pos;
+  size_t get_curr_pos() {
+    return curr_pos;
   }
 
   /* Tree: isRoot() */
@@ -79,26 +84,27 @@ public:
   }
 
   /* Get Current Character */
-  char& get_cur_char() {
-    return code.at(pos);
+  char& get_curr_char() {
+    return code.at(curr_pos);
   }
 
   size_t find_line_index(
     int p = -1
   ) {
-    const size_t total_lines = linesep.size();
+    const size_t total_lines = line_seps.size();
     size_t line_index = total_lines / 2;
-    cout << "find_line_index(), initial: [" << line_index << "]" << endl;
 
     if (p < 0)
-      p = pos;
+      p = curr_pos;
+
+    cout << "find_line_index(), at pos: " << p << "\ninitial: line [" << line_index << "]" << endl;
 
     while (
-      p < linesep[line_index].first
-      || p > (linesep[line_index].first + linesep[line_index].second)
+      p < line_seps[line_index].first
+      || p > (line_seps[line_index].first + line_seps[line_index].second)
     ) {
       cout << "[" << line_index << "] is ";
-      if (p < linesep[line_index].first) {
+      if (p < line_seps[line_index].first) {
         line_index = line_index / 2;
         cout << "too large, go to: [" << line_index << "]" << endl;
       }
@@ -118,14 +124,15 @@ public:
   ) {
     string output ("\n");
 
-    if (start < 0) start = pos;
+    if (start < 0) start = curr_pos;
 
     size_t lindex = find_line_index(start);
-    size_t offset = pos - linesep[lindex].first;
+    size_t offset = curr_pos - line_seps[lindex].first;
 
-    output += code.substr(linesep[lindex].first, linesep[lindex].second) + "\n";
+    output += "File \"" + file_name + "\", Line " + std::to_string(lindex) + ":\n\n";
+    output += code.substr(line_seps[lindex].first, line_seps[lindex].second) + "\n";
     output += std::string(offset, ' ') 
-      + std::string(linesep[lindex].second - offset, '^') 
+      + std::string(line_seps[lindex].second - offset, '^') 
       + "\n";
 
     return output;
@@ -135,17 +142,17 @@ public:
   // | + n => move forward n steps
   // | - n => move backward n steps
   void move(size_t steps) {
-    pos += steps;
+    curr_pos += steps;
   }
 
   /* Check Value */
   bool check(char value) {
-    return (code.at(pos)) == value;
+    return (code.at(curr_pos)) == value;
   }
 
   /* Check Value */
   bool check(const string& value) {
-    return code.compare(pos, value.size(), value) == 0;
+    return code.compare(curr_pos, value.size(), value) == 0;
   }
 
   /* Move Until */
@@ -181,7 +188,7 @@ public:
   bool find_drop(char value) {
     /* ! No Boundary Check ! */
     while (true) {
-      if (isspace(get_cur_char())) {
+      if (isspace(get_curr_char())) {
         move(1);
       }
       else if (check("//")) {
@@ -208,7 +215,7 @@ public:
   bool find_drop(string value) {
     /* ! No Boundary Check ! */
     while (true) {
-      if (isspace(get_cur_char())) {
+      if (isspace(get_curr_char())) {
         move(1);
       }
       else if (check("//")) {
@@ -218,7 +225,7 @@ public:
         pass_over("*/");
       }
       else {
-        if ((code.substr(pos, value.size())) == value) {
+        if ((code.substr(curr_pos, value.size())) == value) {
           move(value.size());
           return true;
         }
@@ -259,11 +266,11 @@ public:
 
   /* Peak Check */
   bool peak_check(int steps, char value) {
-    return (code.at(pos + steps) == value);
+    return (code.at(curr_pos + steps) == value);
   }
 
   bool peak_isdigit(int steps) {
-    return isdigit(code.at(pos + steps));
+    return isdigit(code.at(curr_pos + steps));
   }
 
   /* Drop White Spaces */
@@ -275,7 +282,7 @@ public:
 
   /* Drop Spaces */
   void drop_all_spaces() {
-    while (isspace(code.at(pos))) {
+    while (isspace(code.at(curr_pos))) {
       move(1);
     }
   }
@@ -284,7 +291,7 @@ public:
   void drop_all_spaces_comments() {
     /* ! No Boundary Check ! */
     while (true) {
-      if (isspace(code.at(pos))) {
+      if (isspace(code.at(curr_pos))) {
         move(1);
       }
       else if (check("//")) {
@@ -306,7 +313,7 @@ public:
       return true;
     }
 
-    string errmsg = string("Expecting: ") + value + "\n" + "But Got: " + char(get_cur_char()) + "\n";
+    string errmsg = string("Expecting: ") + value + "\n" + "But Got: " + char(get_curr_char()) + "\n";
     throw StyioSyntaxError(errmsg);
   }
 
@@ -314,7 +321,7 @@ public:
   bool find_drop_panic(char value) {
     /* ! No Boundary Check ! */
     while (true) {
-      if (isspace(get_cur_char())) {
+      if (isspace(get_curr_char())) {
         move(1);
       }
       else if (check("//")) {
@@ -329,7 +336,7 @@ public:
           return true;
         }
         else {
-          string errmsg = string("Expecting: ") + char(value) + "\n" + "But Got: " + get_cur_char();
+          string errmsg = string("Expecting: ") + char(value) + "\n" + "But Got: " + get_curr_char();
           throw StyioSyntaxError(errmsg);
         }
       }
@@ -340,7 +347,7 @@ public:
   bool find_drop_panic(string value) {
     /* ! No Boundary Check ! */
     while (true) {
-      if (isspace(get_cur_char()))
+      if (isspace(get_curr_char()))
         move(1);
       else if (check("//"))
         pass_over('\n');
@@ -352,7 +359,7 @@ public:
           return true;
         }
         else {
-          string errmsg = string("Expecting: ") + value + "\n" + "But Got: " + code.substr(pos, value.size());
+          string errmsg = string("Expecting: ") + value + "\n" + "But Got: " + code.substr(curr_pos, value.size());
           throw StyioSyntaxError(errmsg);
         }
       }
@@ -363,7 +370,7 @@ public:
   bool find_panic(const string& value) {
     /* ! No Boundary Check ! */
     while (true) {
-      if (isspace(get_cur_char())) {
+      if (isspace(get_curr_char())) {
         move(1);
       }
       else if (check("//")) {
@@ -378,7 +385,7 @@ public:
           return true;
         }
         else {
-          string errmsg = string("Expecting: ") + value + "\n" + "But Got: " + get_cur_char();
+          string errmsg = string("Expecting: ") + value + "\n" + "But Got: " + get_curr_char();
           throw StyioSyntaxError(errmsg);
         }
       }
@@ -387,27 +394,27 @@ public:
 
   /* Check isalpha or _ */
   bool check_isal_() {
-    return isalpha(code.at(pos)) || (code.at(pos) == '_');
+    return isalpha(code.at(curr_pos)) || (code.at(curr_pos) == '_');
   }
 
   /* Check isalpha or isnum or _ */
   bool check_isalnum_() {
-    return isalnum(code.at(pos)) || (code.at(pos) == '_');
+    return isalnum(code.at(curr_pos)) || (code.at(curr_pos) == '_');
   }
 
   /* Check isdigit */
   bool check_isdigit() {
-    return isdigit(code.at(pos));
+    return isdigit(code.at(curr_pos));
   }
 
   /* Check Binary Operator */
   bool check_binop() {
-    if (code.at(pos) == '+' || code.at(pos) == '-' || code.at(pos) == '*' || code.at(pos) == '%') {
+    if (code.at(curr_pos) == '+' || code.at(curr_pos) == '-' || code.at(curr_pos) == '*' || code.at(curr_pos) == '%') {
       return true;
     }
-    else if (code.at(pos) == '/') {
+    else if (code.at(curr_pos) == '/') {
       /* Comments */
-      if ((code.at(pos + 1)) == '*' || code.at(pos + 1) == '/') {
+      if ((code.at(curr_pos + 1)) == '*' || code.at(curr_pos + 1) == '/') {
         return false;
       }
       else {
