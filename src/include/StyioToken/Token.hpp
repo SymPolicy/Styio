@@ -29,6 +29,7 @@ enum class StyioPathType
 
 enum class StyioDataType
 {
+  undefined,
   i1,
   i8,
   i16,
