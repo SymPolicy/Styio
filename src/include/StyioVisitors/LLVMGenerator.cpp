@@ -25,7 +25,7 @@
 
 void
 i_am_here() {
-  std::cout << "here" << std::endl;
+  std::cout << "I am here!" << std::endl;
 }
 
 llvm::Type*
@@ -60,15 +60,21 @@ StyioToLLVM::match_type(std::string type) {
 }
 
 void
-StyioToLLVM::show() {
-  std::cout << ">>> \033[1;32mLLVM IR\033[0m <<<" << "\n" << std::endl;
+StyioToLLVM::print(shared_ptr<StyioAST> program) {
+  std::cout << ">>> \033[1;32mAST\033[0m \033[1;33m--After-Type-Checking\033[0m <<<"
+            << "\n"
+            << std::endl;
+  std::cout << program->toString() << std::endl;
+  std::cout << "\n"
+            << std::endl;
 
+  std::cout << ">>> \033[1;32mLLVM IR\033[0m <<<"
+            << "\n"
+            << std::endl;
   /* stdout */
   llvm_module->print(llvm::outs(), nullptr);
   /* stderr */
   // llvm_module -> print(llvm::errs(), nullptr);
-
-  std::cout << "\n" << std::endl;
 }
 
 /*
@@ -316,20 +322,23 @@ StyioToLLVM::toLLVM(BinOpAST* ast) {
   llvm::Value* r_val = ast->getRhs()->toLLVM(this);
 
   switch (ast->hint()) {
-    case StyioNodeHint::Bin_Add:
+    case StyioNodeHint::Bin_Add: {
       output = llvm_builder->CreateAdd(l_val, r_val, "add");
+    }
 
-      break;
+    break;
 
-    case StyioNodeHint::Bin_Sub:
+    case StyioNodeHint::Bin_Sub: {
       output = llvm_builder->CreateSub(l_val, r_val, "sub");
+    }
 
-      break;
+    break;
 
-    case StyioNodeHint::Bin_Mul:
+    case StyioNodeHint::Bin_Mul: {
       llvm_builder->CreateMul(l_val, r_val, "mul");
+    }
 
-      break;
+    break;
 
     case StyioNodeHint::Bin_Div:
       // llvm_builder -> CreateFDiv(l_val, r_val, "add");

@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <atomic>
 
 // [Styio]
 #include "include/StyioAST/AST.hpp"
@@ -169,9 +170,12 @@ main(
 
     if (show_ir) {
       auto generator = StyioToLLVM();
-      generator.check(&*styio_program);
-      generator.toLLVM(&*styio_program);
-      generator.show();
+
+      generator.check(styio_program.get());
+      
+      generator.toLLVM(styio_program.get());
+
+      generator.print(styio_program);
     }
   }
 

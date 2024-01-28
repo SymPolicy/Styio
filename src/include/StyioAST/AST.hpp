@@ -476,8 +476,6 @@ public:
 
   /* Styio to LLVM IR Generator */
 
-  void show();
-
   llvm::Type* match_type(string type);
 
   llvm::Value* toLLVM(BoolAST* ast);
@@ -593,6 +591,8 @@ public:
   llvm::Value* toLLVM(MatchCasesAST* ast);
 
   llvm::Value* toLLVM(MainBlockAST* ast);
+  
+  void print(shared_ptr<StyioAST> program);
 };
 
 /*
@@ -1227,6 +1227,7 @@ public:
 */
 class IntAST : public StyioNode<IntAST>
 {
+private:
   string Value;
   StyioDataType DType = StyioDataType::undefined;
 
@@ -1249,6 +1250,10 @@ public:
 
   StyioDataType getType() const {
     return DType;
+  }
+
+  void setType(StyioDataType type) {
+    this->DType = type;
   }
 
   static unique_ptr<IntAST> make(string value) {

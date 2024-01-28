@@ -58,7 +58,9 @@ StyioToLLVM::check(BoolAST* ast) {
 
 void
 StyioToLLVM::check(IntAST* ast) {
-  
+  if (ast->getType() == StyioDataType::undefined) {
+    ast->setType(StyioDataType::i32);
+  }
 }
 
 void
@@ -281,8 +283,4 @@ StyioToLLVM::check(MainBlockAST* ast) {
   for (auto const& s : stmts) {
     s->check(this);
   }
-
-  std::cout << ">>> \033[1;32mAST\033[0m \033[1;33m--After-Type-Checking\033[0m <<<" << "\n" << std::endl;
-  std::cout << ast->toString() << std::endl;
-  std::cout << "\n" << std::endl;
 }
