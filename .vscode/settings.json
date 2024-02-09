@@ -84,7 +84,9 @@
     "semaphore": "cpp",
     "unordered_set": "cpp",
     "numbers": "cpp",
-    "print": "cpp"
+    "print": "cpp",
+    "forward_list": "cpp",
+    "execution": "cpp"
   },
   "C_Cpp.clang_format_fallbackStyle": "Mozilla",
   "C_Cpp.clang_format_style": "file",

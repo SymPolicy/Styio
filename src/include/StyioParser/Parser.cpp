@@ -1735,7 +1735,7 @@ parse_cond_flow(shared_ptr<StyioContext> context) {
     string errmsg = string("Missing （ for ?(`expr`).");
     throw StyioSyntaxError(errmsg);
   }
-  
+
   throw StyioSyntaxError(context->label_cur_line(), string("Invalid Syntax"));
 }
 

@@ -347,18 +347,25 @@ class StyioToLLVM : public StyioVisitor
 {
   unique_ptr<llvm::LLVMContext> llvm_context;
   unique_ptr<llvm::Module> llvm_module;
-  unique_ptr<llvm::IRBuilder<>> llvm_builder;
+  unique_ptr<llvm::IRBuilder<>> llvm_ir_builder;
+
+  std::unordered_map<string, llvm::AllocaInst*> named_values;
 
 public:
-  StyioToLLVM() {
-    llvm_context = make_unique<llvm::LLVMContext>();
-    llvm_module = make_unique<llvm::Module>("styio", *llvm_context);
-    llvm_builder = make_unique<llvm::IRBuilder<>>(*llvm_context);
+  StyioToLLVM() :
+      llvm_context(make_unique<llvm::LLVMContext>()),
+      llvm_module(make_unique<llvm::Module>("styio", *llvm_context)),
+      llvm_ir_builder(make_unique<llvm::IRBuilder<>>(*llvm_context)) {
   }
 
   ~StyioToLLVM() {}
 
-  /* Styio AST Type Checker & Modifier */
+  /* Utility Functions */
+  llvm::Type* matchType(string type);
+
+  llvm::AllocaInst* createAllocaFuncEntry(llvm::Function* TheFunction, llvm::StringRef VarName);
+
+  /* Styio AST Type Checker*/
 
   void check(BoolAST* ast);
 
@@ -474,9 +481,7 @@ public:
 
   void check(MainBlockAST* ast);
 
-  /* Styio to LLVM IR Generator */
-
-  llvm::Type* match_type(string type);
+  /* LLVM IR Generator */
 
   llvm::Value* toLLVM(BoolAST* ast);
 
@@ -591,7 +596,7 @@ public:
   llvm::Value* toLLVM(MatchCasesAST* ast);
 
   llvm::Value* toLLVM(MainBlockAST* ast);
-  
+
   void print(shared_ptr<StyioAST> program);
 };
 
@@ -965,7 +970,7 @@ public:
     return StyioNodeHint::Id;
   }
 
-  const string& getIdStr() const {
+  const string& getAsStr() const {
     return Id;
   }
 
@@ -2046,16 +2051,22 @@ public:
 */
 class FlexBindAST : public StyioNode<FlexBindAST>
 {
-  unique_ptr<IdAST> varId;
+  unique_ptr<IdAST> varName;
   unique_ptr<StyioAST> valExpr;
+  StyioDataType valType;
 
 public:
   FlexBindAST(unique_ptr<IdAST> var, unique_ptr<StyioAST> val) :
-      varId(std::move(var)), valExpr(std::move(val)) {
+      varName(std::move(var)), valExpr(std::move(val)) {
+    
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::MutBind;
+  }
+
+  const string& getName() const {
+    return varName->getAsStr();
   }
 
   string toString(
@@ -2756,7 +2767,7 @@ public:
   }
 
   string getName() {
-    return Name->getIdStr();
+    return Name->getAsStr();
   }
 
   bool hasRetType() {

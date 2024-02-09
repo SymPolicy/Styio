@@ -567,7 +567,7 @@ ResourceAST::toStringInline(int indent, bool colorful) {
 string
 FlexBindAST::toString(int indent, bool colorful) {
   return reprNodeType(hint(), colorful)
-         + string(" {\n") + make_padding(indent, " ") + "Var: " + varId->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + "Val: " + valExpr->toString(indent + 1, colorful) + "}";
+         + string(" {\n") + make_padding(indent, " ") + "Var: " + varName->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + "Val: " + valExpr->toString(indent + 1, colorful) + "}";
 }
 
 string

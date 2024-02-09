@@ -7,56 +7,126 @@
 
 // [Styio]
 #include "../StyioAST/AST.hpp"
+#include "../StyioException/Exception.hpp"
 #include "../StyioToken/Token.hpp"
+#include "./Util.hpp"
 
 // [LLVM]
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/LinkAllIR.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Passes/StandardInstrumentations.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Scalar/Reassociate.h"
+#include "llvm/Transforms/Scalar/SimplifyCFG.h"
+#include "llvm/Transforms/Utils.h"
+
+// template <typename T>
+// llvm::Type
+// get_llvm_type(T ast) {
+//   switch (ast->hint()) {
+//     case StyioNodeHint::Bool:
+
+//       break;
+
+//     case StyioNodeHint::Int:
+//       switch (ast->DType) {
+//         case StyioDataType::i32:
+//           return llvm_ir_builder->getInt32Ty();
+//           // break;
+
+//         case StyioDataType::i64:
+//           return llvm_ir_builder->getInt64Ty();
+//           // break;
+
+//         case StyioDataType::undefined:
+//           return llvm_ir_builder->getInt32Ty();
+//           // break;
+
+//         default:
+//           return llvm_ir_builder->getInt32Ty();
+//           // break;
+//       }
+//       break;
+
+//     case StyioNodeHint::Float:
+
+//       break;
+
+//     case StyioNodeHint::Char:
+
+//       break;
+
+//     default:
+//       break;
+//   }
+// }
 
 void
 i_am_here() {
   std::cout << "I am here!" << std::endl;
 }
 
+/*
+  CreateEntryBlockAlloca: Create an alloca() instruction in the entry block of
+  the function. This is used for mutable variables etc.
+*/
+llvm::AllocaInst*
+StyioToLLVM::createAllocaFuncEntry(llvm::Function* TheFunction, llvm::StringRef VarName) {
+  llvm::IRBuilder<> tmp_block(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
+  return tmp_block.CreateAlloca(
+    llvm::Type::getDoubleTy(*llvm_context), /* Type should be modified in the future. */
+    nullptr,
+    VarName
+  );
+}
+
 llvm::Type*
-StyioToLLVM::match_type(std::string type) {
+StyioToLLVM::matchType(std::string type) {
   if (type == "i32") {
-    return llvm_builder->getInt32Ty();
+    return llvm_ir_builder->getInt32Ty();
   }
   else if (type == "i64") {
-    return llvm_builder->getInt64Ty();
+    return llvm_ir_builder->getInt64Ty();
   }
   else if (type == "f32") {
-    return llvm_builder->getFloatTy();
+    return llvm_ir_builder->getFloatTy();
   }
   else if (type == "f64") {
-    return llvm_builder->getDoubleTy();
+    return llvm_ir_builder->getDoubleTy();
   }
 
   else if (type == "i1") {
-    return llvm_builder->getInt1Ty();
+    return llvm_ir_builder->getInt1Ty();
   }
   else if (type == "i8") {
-    return llvm_builder->getInt8Ty();
+    return llvm_ir_builder->getInt8Ty();
   }
   else if (type == "i16") {
-    return llvm_builder->getInt16Ty();
+    return llvm_ir_builder->getInt16Ty();
   }
   else if (type == "i128") {
-    return llvm_builder->getInt128Ty();
+    return llvm_ir_builder->getInt128Ty();
   }
 
-  return llvm_builder->getInt1Ty();
+  return llvm_ir_builder->getInt1Ty();
 }
 
 void
@@ -130,7 +200,7 @@ StyioToLLVM::toLLVM(BreakAST* ast) {
 
 llvm::Value*
 StyioToLLVM::toLLVM(ReturnAST* ast) {
-  return llvm_builder->CreateRet(ast->getExpr()->toLLVM(this));
+  return llvm_ir_builder->CreateRet(ast->getExpr()->toLLVM(this));
 }
 
 llvm::Value*
@@ -191,25 +261,25 @@ llvm::Value*
 StyioToLLVM::toLLVM(IntAST* ast) {
   switch (ast->getType()) {
     case StyioDataType::i32:
-      return llvm_builder->getInt32(std::stoi(ast->getValue()));
+      return llvm_ir_builder->getInt32(std::stoi(ast->getValue()));
 
     case StyioDataType::i64:
-      return llvm_builder->getInt64(std::stoi(ast->getValue()));
+      return llvm_ir_builder->getInt64(std::stoi(ast->getValue()));
 
     case StyioDataType::i1:
-      return llvm_builder->getInt1(std::stoi(ast->getValue()));
+      return llvm_ir_builder->getInt1(std::stoi(ast->getValue()));
 
     case StyioDataType::i8:
-      return llvm_builder->getInt8(std::stoi(ast->getValue()));
+      return llvm_ir_builder->getInt8(std::stoi(ast->getValue()));
 
     case StyioDataType::i16:
-      return llvm_builder->getInt16(std::stoi(ast->getValue()));
+      return llvm_ir_builder->getInt16(std::stoi(ast->getValue()));
 
     case StyioDataType::i128:
       return llvm::ConstantInt::get(llvm::Type::getInt128Ty(*llvm_context), std::stoi(ast->getValue()));
 
     default:
-      return llvm_builder->getInt32(std::stoi(ast->getValue()));
+      return llvm_ir_builder->getInt32(std::stoi(ast->getValue()));
   }
 }
 
@@ -316,42 +386,42 @@ StyioToLLVM::toLLVM(SizeOfAST* ast) {
 
 llvm::Value*
 StyioToLLVM::toLLVM(BinOpAST* ast) {
-  llvm::Value* output = llvm_builder->getInt32(0);
+  llvm::Value* output = llvm_ir_builder->getInt32(0);
 
   llvm::Value* l_val = ast->getLhs()->toLLVM(this);
   llvm::Value* r_val = ast->getRhs()->toLLVM(this);
 
   switch (ast->hint()) {
     case StyioNodeHint::Bin_Add: {
-      output = llvm_builder->CreateAdd(l_val, r_val, "add");
+      output = llvm_ir_builder->CreateAdd(l_val, r_val, "add");
     }
 
     break;
 
     case StyioNodeHint::Bin_Sub: {
-      output = llvm_builder->CreateSub(l_val, r_val, "sub");
+      output = llvm_ir_builder->CreateSub(l_val, r_val, "sub");
     }
 
     break;
 
     case StyioNodeHint::Bin_Mul: {
-      llvm_builder->CreateMul(l_val, r_val, "mul");
+      llvm_ir_builder->CreateMul(l_val, r_val, "mul");
     }
 
     break;
 
     case StyioNodeHint::Bin_Div:
-      // llvm_builder -> CreateFDiv(l_val, r_val, "add");
+      // llvm_ir_builder -> CreateFDiv(l_val, r_val, "add");
 
       break;
 
     case StyioNodeHint::Bin_Pow:
-      // llvm_builder -> CreateFAdd(l_val, r_val, "add");
+      // llvm_ir_builder -> CreateFAdd(l_val, r_val, "add");
 
       break;
 
     case StyioNodeHint::Bin_Mod:
-      // llvm_builder -> CreateFAdd(l_val, r_val, "add");
+      // llvm_ir_builder -> CreateFAdd(l_val, r_val, "add");
 
       break;
 
@@ -402,9 +472,42 @@ StyioToLLVM::toLLVM(ListOpAST* ast) {
   return output;
 }
 
+/*
+  FlexBind
+
+  Other Names For Search:
+  - Flexible Binding
+  - Mutable Variable
+  - Mutable Assignment
+*/
 llvm::Value*
 StyioToLLVM::toLLVM(FlexBindAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
+
+  // // Look this variable up in the function.
+  // llvm::AllocaInst* A = named_values[ast->getName()];
+  // if (!A) {
+  //   string errmsg = string("varname not found");
+  //   throw StyioSyntaxError(errmsg);
+  //   return nullptr;
+  // }
+
+  // // Load the value.
+  // return llvm_ir_builder->CreateLoad(A->getAllocatedType(), A, Name.c_str());
+
+  switch (ast->hint())
+  {
+  case StyioNodeHint::Int:
+    llvm_ir_builder->CreateAlloca(llvm::Type::getInt32Ty(*llvm_context), nullptr, ast->getName());
+    break;
+  
+  default:
+    break;
+  }
+  
+
+  // llvm_ir_builder->CreateAlloca(llvm::Type::getDoubleTy(*llvm_context), nullptr, ast->getName());
+
   return output;
 }
 
@@ -487,11 +590,11 @@ StyioToLLVM::toLLVM(FuncAST* ast) {
 
     std::vector<llvm::Type*> lf_args;
     for (auto& arg : sf_args) {
-      lf_args.push_back(match_type(arg->getTypeStr()));
+      lf_args.push_back(matchType(arg->getTypeStr()));
     }
 
     llvm::FunctionType* lf_type = llvm::FunctionType::get(
-      /* Result (Type) */ match_type(ast->getRetTypeStr()),
+      /* Result (Type) */ matchType(ast->getRetTypeStr()),
       /* Params (Type) */ lf_args,
       /* isVarArg */ false
     );
@@ -506,7 +609,7 @@ StyioToLLVM::toLLVM(FuncAST* ast) {
     llvm::BasicBlock* block =
       llvm::BasicBlock::Create(*llvm_context, "entry", lfunc);
 
-    llvm_builder->SetInsertPoint(block);
+    llvm_ir_builder->SetInsertPoint(block);
 
     ast->getForward()->toLLVM(this);
 
@@ -561,10 +664,10 @@ StyioToLLVM::toLLVM(SideBlockAST* ast) {
 
 llvm::Value*
 StyioToLLVM::toLLVM(MainBlockAST* ast) {
-  llvm::FunctionType* func_type = llvm::FunctionType::get(llvm_builder->getInt32Ty(), false);
+  llvm::FunctionType* func_type = llvm::FunctionType::get(llvm_ir_builder->getInt32Ty(), false);
   llvm::Function* main_func = llvm::Function::Create(func_type, llvm::Function::ExternalLinkage, "main", *llvm_module);
   llvm::BasicBlock* entry = llvm::BasicBlock::Create(*llvm_context, "entrypoint", main_func);
-  llvm_builder->SetInsertPoint(entry);
+  llvm_ir_builder->SetInsertPoint(entry);
 
   auto& stmts = ast->getStmts();
   for (auto const& s : stmts) {
