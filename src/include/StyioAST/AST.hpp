@@ -2058,7 +2058,6 @@ class FlexBindAST : public StyioNode<FlexBindAST>
 public:
   FlexBindAST(unique_ptr<IdAST> var, unique_ptr<StyioAST> val) :
       varName(std::move(var)), valExpr(std::move(val)) {
-    
   }
 
   StyioNodeHint hint() override {
@@ -2067,6 +2066,14 @@ public:
 
   const string& getName() const {
     return varName->getAsStr();
+  }
+
+  const unique_ptr<StyioAST>& getValue() const {
+    return valExpr;
+  }
+
+  const StyioNodeHint getValueHint() const {
+    return valExpr->hint();
   }
 
   string toString(

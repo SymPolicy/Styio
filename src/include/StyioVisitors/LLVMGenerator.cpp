@@ -212,6 +212,14 @@ StyioToLLVM::toLLVM(CommentAST* ast) {
 llvm::Value*
 StyioToLLVM::toLLVM(IdAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
+
+  const string& varname = ast->getAsStr();
+  llvm::AllocaInst* variable = named_values[varname];
+
+  if (named_values.contains(varname)) {
+    return variable;
+  }
+
   return output;
 }
 
@@ -260,12 +268,6 @@ StyioToLLVM::toLLVM(DTypeAST* ast) {
 llvm::Value*
 StyioToLLVM::toLLVM(IntAST* ast) {
   switch (ast->getType()) {
-    case StyioDataType::i32:
-      return llvm_ir_builder->getInt32(std::stoi(ast->getValue()));
-
-    case StyioDataType::i64:
-      return llvm_ir_builder->getInt64(std::stoi(ast->getValue()));
-
     case StyioDataType::i1:
       return llvm_ir_builder->getInt1(std::stoi(ast->getValue()));
 
@@ -274,6 +276,12 @@ StyioToLLVM::toLLVM(IntAST* ast) {
 
     case StyioDataType::i16:
       return llvm_ir_builder->getInt16(std::stoi(ast->getValue()));
+
+    case StyioDataType::i32:
+      return llvm_ir_builder->getInt32(std::stoi(ast->getValue()));
+
+    case StyioDataType::i64:
+      return llvm_ir_builder->getInt64(std::stoi(ast->getValue()));
 
     case StyioDataType::i128:
       return llvm::ConstantInt::get(llvm::Type::getInt128Ty(*llvm_context), std::stoi(ast->getValue()));
@@ -495,16 +503,56 @@ StyioToLLVM::toLLVM(FlexBindAST* ast) {
   // // Load the value.
   // return llvm_ir_builder->CreateLoad(A->getAllocatedType(), A, Name.c_str());
 
-  switch (ast->hint())
-  {
-  case StyioNodeHint::Int:
-    llvm_ir_builder->CreateAlloca(llvm::Type::getInt32Ty(*llvm_context), nullptr, ast->getName());
+  switch (ast->getValue()->hint()) {
+    case StyioNodeHint::Int: {
+      const string& varname = ast->getName();
+      if (named_values.contains(varname)) {
+        llvm::AllocaInst* variable = named_values[varname];
+        llvm_ir_builder->CreateStore(ast->getValue()->toLLVM(this), variable);
+        // llvm_ir_builder->CreateLoad(allocInst->getAllocatedType(), allocInst, varname.c_str());
+      }
+      else {
+        llvm::AllocaInst* variable = llvm_ir_builder->CreateAlloca(llvm_ir_builder->getInt32Ty(), nullptr, varname);
+        named_values[varname] = variable;
+
+        llvm_ir_builder->CreateStore(ast->getValue()->toLLVM(this), variable);
+      }
+    }
+
     break;
-  
-  default:
+
+    case StyioNodeHint::Float: {
+      const string& varname = ast->getName();
+      if (named_values.contains(varname)) {
+        llvm::AllocaInst* variable = named_values[varname];
+        llvm_ir_builder->CreateStore(ast->getValue()->toLLVM(this), variable);
+        // llvm_ir_builder->CreateLoad(allocInst->getAllocatedType(), allocInst, varname.c_str());
+      }
+      else {
+        llvm::AllocaInst* variable = llvm_ir_builder->CreateAlloca(llvm_ir_builder->getDoubleTy(), nullptr, varname);
+        named_values[varname] = variable;
+
+        llvm_ir_builder->CreateStore(ast->getValue()->toLLVM(this), variable);
+      }
+    }
+
     break;
+
+    case StyioNodeHint::Id: {
+      const string& varname = ast->getName();
+      if (named_values.contains(varname)) {
+        llvm::AllocaInst* variable = named_values[varname];
+        // llvm_ir_builder->CreateLoad(variable->getAllocatedType(), variable, varname.c_str());
+        llvm_ir_builder->CreateStore(ast->getValue()->toLLVM(this), variable);
+      }
+      else {}
+    }
+
+    break;
+
+    default:
+      break;
   }
-  
 
   // llvm_ir_builder->CreateAlloca(llvm::Type::getDoubleTy(*llvm_context), nullptr, ast->getName());
 
