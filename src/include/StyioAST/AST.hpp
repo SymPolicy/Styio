@@ -595,9 +595,11 @@ public:
 
   llvm::Value* toLLVM(MatchCasesAST* ast);
 
-  llvm::Value* toLLVM(MainBlockAST* ast);
+  // llvm::Value* toLLVM(MainBlockAST* ast);
+  llvm::Function* toLLVM(MainBlockAST* ast);
 
-  void print(shared_ptr<StyioAST> program);
+  void print_type_checking(shared_ptr<StyioAST> program);
+  void print_llvm_ir(shared_ptr<StyioAST> program, llvm::Function* main_func);
 };
 
 /*

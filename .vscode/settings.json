@@ -86,7 +86,9 @@
     "numbers": "cpp",
     "print": "cpp",
     "forward_list": "cpp",
-    "execution": "cpp"
+    "execution": "cpp",
+    "__availability": "cpp",
+    "version": "cpp"
   },
   "C_Cpp.clang_format_fallbackStyle": "Mozilla",
   "C_Cpp.clang_format_style": "file",

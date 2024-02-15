@@ -135,6 +135,8 @@ main(
   )(
     "a,ast", "Show Styio AST", cxxopts::value<bool>()->default_value("false")
   )(
+    "c,check", "Show Type Checking", cxxopts::value<bool>()->default_value("false")
+  )(
     "i,ir", "Show LLVM IR", cxxopts::value<bool>()->default_value("false")
   )(
     "h,help", "Show All Command-Line Options"
@@ -148,6 +150,7 @@ main(
   }
 
   bool show_ast = cmlopts["ast"].as<bool>();
+  bool show_type_checking = cmlopts["check"].as<bool>();
   bool show_ir = cmlopts["ir"].as<bool>();
 
   std::string fpath; /* File Path */
@@ -165,17 +168,23 @@ main(
     auto styio_program = parse_main_block(styio_context);
 
     if (show_ast) {
-      display_ast(styio_program);
+      print_ast(styio_program);
+    }
+
+    auto generator = StyioToLLVM();
+
+    if (show_type_checking) {
+      generator.check(styio_program.get());
+
+      generator.print_type_checking(styio_program);
     }
 
     if (show_ir) {
-      auto generator = StyioToLLVM();
-
       generator.check(styio_program.get());
-      
-      generator.toLLVM(styio_program.get());
 
-      generator.print(styio_program);
+      llvm::Function* main_func = generator.toLLVM(styio_program.get());
+
+      generator.print_llvm_ir(styio_program, main_func);
     }
   }
 

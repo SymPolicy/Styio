@@ -1,1 +1,6 @@
-a = 1, b = 2, c = 3
+// RUN: /root/styio/styio --ir --file %s | /usr/bin/FileCheck %s
+
+a = 1
+b = 2
+
+a = b
