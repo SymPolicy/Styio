@@ -1,5 +1,6 @@
 // [C++ STL]
 #include <algorithm>
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -15,7 +16,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <atomic>
 
 // [Styio]
 #include "include/StyioAST/AST.hpp"
@@ -131,13 +131,15 @@ main(
   cxxopts::Options options("styio", "Styio Compiler");
 
   options.add_options()(
-    "f,file", "Source File Path", cxxopts::value<std::string>()
+    "f,file", "Take the given source file.", cxxopts::value<std::string>()
   )(
-    "a,ast", "Show Styio AST", cxxopts::value<bool>()->default_value("false")
+    "a,ast", "Show the AST", cxxopts::value<bool>()->default_value("false")
   )(
-    "c,check", "Show Type Checking", cxxopts::value<bool>()->default_value("false")
+    "c,check", "Show the AST after type checking.", cxxopts::value<bool>()->default_value("false")
   )(
-    "i,ir", "Show LLVM IR", cxxopts::value<bool>()->default_value("false")
+    "i,ir", "Show LLVM IR.", cxxopts::value<bool>()->default_value("false")
+  )(
+    "r,run", "Run the program.", cxxopts::value<bool>()->default_value("false")
   )(
     "h,help", "Show All Command-Line Options"
   );
@@ -172,15 +174,18 @@ main(
     }
 
     auto generator = StyioToLLVM();
+    bool type_checked = false;
 
     if (show_type_checking) {
       generator.check(styio_program.get());
+      type_checked = true;
 
       generator.print_type_checking(styio_program);
     }
 
     if (show_ir) {
-      generator.check(styio_program.get());
+      if (not type_checked)
+        generator.check(styio_program.get());
 
       llvm::Function* main_func = generator.toLLVM(styio_program.get());
 

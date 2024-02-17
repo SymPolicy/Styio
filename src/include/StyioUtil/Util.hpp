@@ -25,7 +25,7 @@ show_vector(std::vector<T> v) {
 template <typename T>
 void
 print_ast(T& program) {
-  std::cout << ">>> \033[1;32mAST\033[0m \033[31m--No-Type-Checking\033[0m <<<" << "\n" << std::endl;
+  std::cout << "\033[1;32mAST\033[0m \033[31m--No-Type-Checking\033[0m" << "\n" << std::endl;
   std::cout << program->toString() << std::endl;
   std::cout << "\n" << std::endl;
 };

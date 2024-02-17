@@ -131,7 +131,7 @@ StyioToLLVM::matchType(std::string type) {
 
 void
 StyioToLLVM::print_type_checking(shared_ptr<StyioAST> program) {
-  std::cout << ">>> \033[1;32mAST\033[0m \033[1;33m--After-Type-Checking\033[0m <<<"
+  std::cout << "\033[1;32mAST\033[0m \033[1;33m--After-Type-Checking\033[0m"
             << "\n"
             << std::endl;
   std::cout << program->toString() << std::endl;
@@ -144,15 +144,15 @@ StyioToLLVM::print_llvm_ir(shared_ptr<StyioAST> program, llvm::Function* main_fu
   string legal_or_not;
 
   if (llvm::verifyFunction(*main_func)) {
-    legal_or_not = "\033[1;31m[ERROR]\033[0m";
+    legal_or_not = "- Grammar Check: \033[1;31mFAILED\033[0m";
   }
   else {
-    legal_or_not = "\033[1;32m[PASS]\033[0m";
+    legal_or_not = "- Grammar Check: \033[1;32mPASS\033[0m";
   }
 
-  std::cout << ">>> \033[1;32mLLVM IR\033[0m "
+  std::cout << "\033[1;32mLLVM IR\033[0m"
+            << "\n"
             << legal_or_not
-            << " <<<"
             << "\n"
             << std::endl;
   /* stdout */
@@ -565,6 +565,7 @@ StyioToLLVM::toLLVM(FlexBindAST* ast) {
     break;
 
     default:
+
       break;
   }
 
@@ -726,7 +727,11 @@ StyioToLLVM::toLLVM(SideBlockAST* ast) {
 
 llvm::Function*
 StyioToLLVM::toLLVM(MainBlockAST* ast) {
-  llvm::FunctionType* func_type = llvm::FunctionType::get(llvm::Type::getVoidTy(*llvm_context), false);
+  /*
+    Get Void Type: llvm::Type::getVoidTy(*llvm_context)
+    Use Void Type: nullptr
+  */
+  llvm::FunctionType* func_type = llvm::FunctionType::get(llvm_ir_builder->getInt32Ty(), false);
   llvm::Function* main_func = llvm::Function::Create(func_type, llvm::Function::ExternalLinkage, "main", *llvm_module);
   llvm::BasicBlock* entry = llvm::BasicBlock::Create(*llvm_context, "entrypoint", main_func);
   llvm_ir_builder->SetInsertPoint(entry);
@@ -736,7 +741,7 @@ StyioToLLVM::toLLVM(MainBlockAST* ast) {
     s->toLLVM(this);
   }
 
-  llvm_ir_builder->CreateRet(nullptr);
+  llvm_ir_builder->CreateRet(llvm_ir_builder->getInt32(0));
 
   return main_func;
 }
