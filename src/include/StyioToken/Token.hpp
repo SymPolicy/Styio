@@ -136,6 +136,7 @@ enum class StyioNodeHint
   Call,
 
   // Binary Operation
+  BinOp,
   Bin_Add,  // +
   Bin_Sub,  // -
   Bin_Mul,  // *

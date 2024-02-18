@@ -349,7 +349,8 @@ class StyioToLLVM : public StyioVisitor
   unique_ptr<llvm::Module> llvm_module;
   unique_ptr<llvm::IRBuilder<>> llvm_ir_builder;
 
-  std::unordered_map<string, llvm::AllocaInst*> named_values;
+  std::unordered_map<string, llvm::AllocaInst*> mutable_variables; /* [FlexBind] */
+  std::unordered_map<string, llvm::Value*> named_values; /* [FinalBind] Immutable Variables */
 
 public:
   StyioToLLVM() :
@@ -1797,17 +1798,21 @@ public:
 */
 class BinOpAST : public StyioNode<BinOpAST>
 {
-  StyioNodeHint Op;
+  StyioNodeHint Operand;
   shared_ptr<StyioAST> LHS;
   shared_ptr<StyioAST> RHS;
 
 public:
   BinOpAST(StyioNodeHint op, shared_ptr<StyioAST> lhs, shared_ptr<StyioAST> rhs) :
-      Op(op), LHS(lhs), RHS(rhs) {
+      Operand(op), LHS(lhs), RHS(rhs) {
   }
 
   StyioNodeHint hint() override {
-    return Op;
+    return StyioNodeHint::BinOp;
+  }
+
+  const StyioNodeHint getOperand() const {
+    return Operand;
   }
 
   const shared_ptr<StyioAST>& getLhs() const {
@@ -1818,10 +1823,10 @@ public:
     return RHS;
   }
 
-  void setLhs(shared_ptr<StyioAST> value) {
-    LHS.reset();
-    LHS = std::move(value);
-  }
+  // void setLhs(shared_ptr<StyioAST> value) {
+  //   LHS.reset();
+  //   LHS = std::move(value);
+  // }
 
   /* toString */
   string toString(
@@ -2095,16 +2100,24 @@ public:
 */
 class FinalBindAST : public StyioNode<FinalBindAST>
 {
-  unique_ptr<IdAST> VarId;
-  unique_ptr<StyioAST> ValExpr;
+  unique_ptr<IdAST> varName;
+  unique_ptr<StyioAST> valExpr;
 
 public:
   FinalBindAST(unique_ptr<IdAST> var, unique_ptr<StyioAST> val) :
-      VarId(std::move(var)), ValExpr(std::move(val)) {
+      varName(std::move(var)), valExpr(std::move(val)) {
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::FixBind;
+  }
+
+    const string& getName() const {
+    return varName->getAsStr();
+  }
+
+  const unique_ptr<StyioAST>& getValue() const {
+    return valExpr;
   }
 
   string toString(

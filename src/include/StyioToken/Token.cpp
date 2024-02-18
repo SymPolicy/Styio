@@ -1117,7 +1117,7 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra) {
     break;
 
     default:
-      output = std::string("Styio[Unknown]");
+      output = std::string("!{UnknownAST}");
 
       break;
   }

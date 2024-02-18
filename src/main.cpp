@@ -25,13 +25,13 @@
 #include "include/StyioUtil/Util.hpp"
 
 // [LLVM]
+#include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Bitcode/BitcodeWriter.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Error.h"
+#include "llvm/Support/FileSystem.h"
 
 // [Others]
 #include "include/Others/cxxopts.hpp" /* https://github.com/jarro2783/cxxopts */
@@ -143,8 +143,6 @@ main(
   )(
     "i,ir", "Show LLVM IR.", cxxopts::value<bool>()->default_value("false")
   )(
-    "r,run", "Run the program.", cxxopts::value<bool>()->default_value("false")
-  )(
     "h,help", "Show All Command-Line Options"
   );
 
@@ -158,7 +156,6 @@ main(
   bool show_ast = cmlopts["ast"].as<bool>();
   bool show_type_checking = cmlopts["check"].as<bool>();
   bool show_ir = cmlopts["ir"].as<bool>();
-  bool run_ir = cmlopts["run"].as<bool>();
 
   std::string fpath; /* File Path */
   if (cmlopts.count("file")) {
@@ -172,7 +169,7 @@ main(
       styio_code.code_text,
       styio_code.line_seps
     );
-    
+
     auto styio_program = parse_main_block(styio_context);
 
     if (show_ast) {
@@ -181,7 +178,7 @@ main(
 
     auto generator = StyioToLLVM();
     generator.check(styio_program.get());
-    
+
     if (show_type_checking) {
       generator.print_type_checking(styio_program);
     }

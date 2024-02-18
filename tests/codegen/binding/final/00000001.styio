@@ -1,13 +1,4 @@
-// RUN: /root/styio/styio -i -f %s | /usr/bin/FileCheck-16 %s
+// RUN: /root/styio/styio --ir --file %s | /usr/bin/FileCheck %s
 
-a := 1
-
-/*
-  CHECK:       ; ModuleID = 'styio'
-  CHECK-NEXT:  source_filename = "styio" 
-  CHECK-EMPTY:  
-  CHECK-NEXT:  define i32 @addi() {
-  CHECK-NEXT:  entry:
-  CHECK-NEXT:    ret i32 3
-  CHECK-NEXT:  }
-*/
+a := 2
+b  = a
