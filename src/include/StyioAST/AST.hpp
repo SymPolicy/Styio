@@ -599,7 +599,9 @@ public:
   llvm::Function* toLLVM(MainBlockAST* ast);
 
   void print_type_checking(shared_ptr<StyioAST> program);
-  void print_llvm_ir(shared_ptr<StyioAST> program, llvm::Function* main_func);
+  
+  int run_llvm_ir(shared_ptr<MainBlockAST> program);
+  void print_llvm_ir(int lli_result);
 };
 
 /*

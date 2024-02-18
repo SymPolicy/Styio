@@ -1,9 +1,11 @@
 // [C++ STL]
-#include <iostream>
-#include <memory>
-#include <optional>
 #include <string>
 #include <vector>
+#include <optional>
+#include <iostream>
+#include <memory>
+#include <cstdio>
+#include <cstdlib>
 
 // [Styio]
 #include "../StyioAST/AST.hpp"
@@ -139,26 +141,59 @@ StyioToLLVM::print_type_checking(shared_ptr<StyioAST> program) {
             << std::endl;
 }
 
-void
-StyioToLLVM::print_llvm_ir(shared_ptr<StyioAST> program, llvm::Function* main_func) {
-  string legal_or_not;
+int
+StyioToLLVM::run_llvm_ir(shared_ptr<MainBlockAST> program) {
+  this->toLLVM(program.get());
 
-  if (llvm::verifyFunction(*main_func)) {
-    legal_or_not = "- Grammar Check: \033[1;31mFAILED\033[0m";
+  std::error_code EC;
+  llvm::raw_fd_ostream output_stream(
+    "output.ll", 
+    EC,
+    llvm::sys::fs::OpenFlags::OF_None
+  );
+  if (EC) {
+    std::cerr << "Can't open file output.ll; " << EC.message() << std::endl;
+  }
+  /* write to current_work_directory/output.ll */
+  llvm_module->print(output_stream, nullptr);
+  
+  return std::system("lli output.ll");
+}
+
+void
+StyioToLLVM::print_llvm_ir(int lli_result) {
+  string verifyModule_msg;
+
+  if (llvm::verifyModule(*llvm_module)) {
+    verifyModule_msg = "[\033[1;31mFAILED \033[0m] llvm::verifyModule()";
   }
   else {
-    legal_or_not = "- Grammar Check: \033[1;32mPASS\033[0m";
+    verifyModule_msg = "[SUCCESS] llvm::verifyModule()";
   }
 
-  std::cout << "\033[1;32mLLVM IR\033[0m"
-            << "\n"
-            << legal_or_not
-            << "\n"
-            << std::endl;
-  /* stdout */
+  std::string lli_msg; 
+  if (lli_result) {
+    lli_msg = "[\033[1;31mFAILED \033[0m] lli output.ll";
+  }
+  else {
+    lli_msg = "[SUCCESS] lli output.ll";
+  }
+
+  std::cout << "\n";
+  
+  /* llvm ir -> stdout */
   llvm_module->print(llvm::outs(), nullptr);
-  /* stderr */
+  /* llvm ir -> stderr */
   // llvm_module -> print(llvm::errs(), nullptr);
+
+  /* print to stdout */
+  std::cout << "\n"
+            << "\033[1;32mLLVM IR\033[0m"
+            << "\n"
+            << verifyModule_msg
+            << "\n"
+            << lli_msg
+            << std::endl;
 }
 
 /*
@@ -231,7 +266,8 @@ StyioToLLVM::toLLVM(IdAST* ast) {
   llvm::AllocaInst* variable = named_values[varname];
 
   if (named_values.contains(varname)) {
-    return variable;
+    return llvm_ir_builder->CreateLoad(variable->getAllocatedType(), variable, varname.c_str());
+    // return variable; /* This line is WRONG! I keep it for debug. */
   }
 
   return output;

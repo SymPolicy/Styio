@@ -28,6 +28,10 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Error.h"
 
 // [Others]
 #include "include/Others/cxxopts.hpp" /* https://github.com/jarro2783/cxxopts */
@@ -154,6 +158,7 @@ main(
   bool show_ast = cmlopts["ast"].as<bool>();
   bool show_type_checking = cmlopts["check"].as<bool>();
   bool show_ir = cmlopts["ir"].as<bool>();
+  bool run_ir = cmlopts["run"].as<bool>();
 
   std::string fpath; /* File Path */
   if (cmlopts.count("file")) {
@@ -167,6 +172,7 @@ main(
       styio_code.code_text,
       styio_code.line_seps
     );
+    
     auto styio_program = parse_main_block(styio_context);
 
     if (show_ast) {
@@ -174,22 +180,16 @@ main(
     }
 
     auto generator = StyioToLLVM();
-    bool type_checked = false;
-
+    generator.check(styio_program.get());
+    
     if (show_type_checking) {
-      generator.check(styio_program.get());
-      type_checked = true;
-
       generator.print_type_checking(styio_program);
     }
 
+    int lli_result = generator.run_llvm_ir(styio_program);
+
     if (show_ir) {
-      if (not type_checked)
-        generator.check(styio_program.get());
-
-      llvm::Function* main_func = generator.toLLVM(styio_program.get());
-
-      generator.print_llvm_ir(styio_program, main_func);
+      generator.print_llvm_ir(lli_result);
     }
   }
 
