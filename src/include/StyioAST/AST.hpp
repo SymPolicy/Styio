@@ -27,11 +27,14 @@ template <typename T>
 class Visitor<T>
 {
 public:
-  /* Check */
+  /* Type Checking */
   virtual void check(T* t) = 0;
 
+  /* Get LLVM Type */
+  virtual llvm::Type* getLLVMType(T* t) = 0;
+
   /* LLVM IR Generator */
-  virtual llvm::Value* toLLVM(T* t) = 0;
+  virtual llvm::Value* toLLVMIR(T* t) = 0;
 };
 
 template <typename T, typename... Types>
@@ -39,13 +42,17 @@ class Visitor<T, Types...> : public Visitor<Types...>
 {
 public:
   using Visitor<Types...>::check;
-  using Visitor<Types...>::toLLVM;
+  using Visitor<Types...>::getLLVMType;
+  using Visitor<Types...>::toLLVMIR;
 
-  /* Type Checker & Modifier */
+  /* Type Checking */
   virtual void check(T* t) = 0;
 
+  /* Get LLVM Type */
+  virtual llvm::Type* getLLVMType(T* t) = 0;
+
   /* LLVM IR Generator */
-  virtual llvm::Value* toLLVM(T* t) = 0;
+  virtual llvm::Value* toLLVMIR(T* t) = 0;
 };
 
 /* Forward Declaration */
@@ -350,7 +357,7 @@ class StyioToLLVM : public StyioVisitor
   unique_ptr<llvm::IRBuilder<>> llvm_ir_builder;
 
   std::unordered_map<string, llvm::AllocaInst*> mutable_variables; /* [FlexBind] */
-  std::unordered_map<string, llvm::Value*> named_values; /* [FinalBind] Immutable Variables */
+  std::unordered_map<string, llvm::Value*> named_values;           /* [FinalBind] Immutable Variables */
 
 public:
   StyioToLLVM() :
@@ -482,125 +489,241 @@ public:
 
   void check(MainBlockAST* ast);
 
+  /* Get LLVM Type */
+
+  llvm::Type* getLLVMType(BoolAST* ast);
+
+  llvm::Type* getLLVMType(NoneAST* ast);
+
+  llvm::Type* getLLVMType(EOFAST* ast);
+
+  llvm::Type* getLLVMType(EmptyAST* ast);
+
+  llvm::Type* getLLVMType(EmptyBlockAST* ast);
+
+  llvm::Type* getLLVMType(PassAST* ast);
+
+  llvm::Type* getLLVMType(BreakAST* ast);
+
+  llvm::Type* getLLVMType(ReturnAST* ast);
+
+  llvm::Type* getLLVMType(CommentAST* ast);
+
+  llvm::Type* getLLVMType(IdAST* ast);
+
+  llvm::Type* getLLVMType(VarAST* ast);
+
+  llvm::Type* getLLVMType(ArgAST* ast);
+
+  llvm::Type* getLLVMType(OptArgAST* ast);
+
+  llvm::Type* getLLVMType(OptKwArgAST* ast);
+
+  llvm::Type* getLLVMType(VarTupleAST* ast);
+
+  llvm::Type* getLLVMType(DTypeAST* ast);
+
+  llvm::Type* getLLVMType(IntAST* ast);
+
+  llvm::Type* getLLVMType(FloatAST* ast);
+
+  llvm::Type* getLLVMType(CharAST* ast);
+
+  llvm::Type* getLLVMType(StringAST* ast);
+
+  llvm::Type* getLLVMType(TypeConvertAST* ast);
+
+  llvm::Type* getLLVMType(FmtStrAST* ast);
+
+  llvm::Type* getLLVMType(ListAST* ast);
+
+  llvm::Type* getLLVMType(TupleAST* ast);
+
+  llvm::Type* getLLVMType(SetAST* ast);
+
+  llvm::Type* getLLVMType(RangeAST* ast);
+
+  llvm::Type* getLLVMType(SizeOfAST* ast);
+
+  llvm::Type* getLLVMType(BinOpAST* ast);
+
+  llvm::Type* getLLVMType(BinCompAST* ast);
+
+  llvm::Type* getLLVMType(CondAST* ast);
+
+  llvm::Type* getLLVMType(CallAST* ast);
+
+  llvm::Type* getLLVMType(ListOpAST* ast);
+
+  llvm::Type* getLLVMType(ResourceAST* ast);
+
+  llvm::Type* getLLVMType(LocalPathAST* ast);
+
+  llvm::Type* getLLVMType(RemotePathAST* ast);
+
+  llvm::Type* getLLVMType(WebUrlAST* ast);
+
+  llvm::Type* getLLVMType(DBUrlAST* ast);
+
+  llvm::Type* getLLVMType(FlexBindAST* ast);
+
+  llvm::Type* getLLVMType(FinalBindAST* ast);
+
+  llvm::Type* getLLVMType(StructAST* ast);
+
+  llvm::Type* getLLVMType(ReadFileAST* ast);
+
+  llvm::Type* getLLVMType(PrintAST* ast);
+
+  llvm::Type* getLLVMType(ExtPackAST* ast);
+
+  llvm::Type* getLLVMType(SideBlockAST* ast);
+
+  llvm::Type* getLLVMType(CasesAST* ast);
+
+  llvm::Type* getLLVMType(CondFlowAST* ast);
+
+  llvm::Type* getLLVMType(CheckEqAST* ast);
+
+  llvm::Type* getLLVMType(CheckIsInAST* ast);
+
+  llvm::Type* getLLVMType(FromToAST* ast);
+
+  llvm::Type* getLLVMType(ForwardAST* ast);
+
+  llvm::Type* getLLVMType(InfiniteAST* ast);
+
+  llvm::Type* getLLVMType(AnonyFuncAST* ast);
+
+  llvm::Type* getLLVMType(FuncAST* ast);
+
+  llvm::Type* getLLVMType(LoopAST* ast);
+
+  llvm::Type* getLLVMType(IterAST* ast);
+
+  llvm::Type* getLLVMType(MatchCasesAST* ast);
+
+  llvm::Type* getLLVMType(MainBlockAST* ast);
+
   /* LLVM IR Generator */
 
-  llvm::Value* toLLVM(BoolAST* ast);
+  llvm::Value* toLLVMIR(BoolAST* ast);
 
-  llvm::Value* toLLVM(NoneAST* ast);
+  llvm::Value* toLLVMIR(NoneAST* ast);
 
-  llvm::Value* toLLVM(EOFAST* ast);
+  llvm::Value* toLLVMIR(EOFAST* ast);
 
-  llvm::Value* toLLVM(EmptyAST* ast);
+  llvm::Value* toLLVMIR(EmptyAST* ast);
 
-  llvm::Value* toLLVM(EmptyBlockAST* ast);
+  llvm::Value* toLLVMIR(EmptyBlockAST* ast);
 
-  llvm::Value* toLLVM(PassAST* ast);
+  llvm::Value* toLLVMIR(PassAST* ast);
 
-  llvm::Value* toLLVM(BreakAST* ast);
+  llvm::Value* toLLVMIR(BreakAST* ast);
 
-  llvm::Value* toLLVM(ReturnAST* ast);
+  llvm::Value* toLLVMIR(ReturnAST* ast);
 
-  llvm::Value* toLLVM(CommentAST* ast);
+  llvm::Value* toLLVMIR(CommentAST* ast);
 
-  llvm::Value* toLLVM(IdAST* ast);
+  llvm::Value* toLLVMIR(IdAST* ast);
 
-  llvm::Value* toLLVM(VarAST* ast);
+  llvm::Value* toLLVMIR(VarAST* ast);
 
-  llvm::Value* toLLVM(ArgAST* ast);
+  llvm::Value* toLLVMIR(ArgAST* ast);
 
-  llvm::Value* toLLVM(OptArgAST* ast);
+  llvm::Value* toLLVMIR(OptArgAST* ast);
 
-  llvm::Value* toLLVM(OptKwArgAST* ast);
+  llvm::Value* toLLVMIR(OptKwArgAST* ast);
 
-  llvm::Value* toLLVM(VarTupleAST* ast);
+  llvm::Value* toLLVMIR(VarTupleAST* ast);
 
-  llvm::Value* toLLVM(DTypeAST* ast);
+  llvm::Value* toLLVMIR(DTypeAST* ast);
 
-  llvm::Value* toLLVM(IntAST* ast);
+  llvm::Value* toLLVMIR(IntAST* ast);
 
-  llvm::Value* toLLVM(FloatAST* ast);
+  llvm::Value* toLLVMIR(FloatAST* ast);
 
-  llvm::Value* toLLVM(CharAST* ast);
+  llvm::Value* toLLVMIR(CharAST* ast);
 
-  llvm::Value* toLLVM(StringAST* ast);
+  llvm::Value* toLLVMIR(StringAST* ast);
 
-  llvm::Value* toLLVM(TypeConvertAST* ast);
+  llvm::Value* toLLVMIR(TypeConvertAST* ast);
 
-  llvm::Value* toLLVM(FmtStrAST* ast);
+  llvm::Value* toLLVMIR(FmtStrAST* ast);
 
-  llvm::Value* toLLVM(ListAST* ast);
+  llvm::Value* toLLVMIR(ListAST* ast);
 
-  llvm::Value* toLLVM(TupleAST* ast);
+  llvm::Value* toLLVMIR(TupleAST* ast);
 
-  llvm::Value* toLLVM(SetAST* ast);
+  llvm::Value* toLLVMIR(SetAST* ast);
 
-  llvm::Value* toLLVM(RangeAST* ast);
+  llvm::Value* toLLVMIR(RangeAST* ast);
 
-  llvm::Value* toLLVM(SizeOfAST* ast);
+  llvm::Value* toLLVMIR(SizeOfAST* ast);
 
-  llvm::Value* toLLVM(BinOpAST* ast);
+  llvm::Value* toLLVMIR(BinOpAST* ast);
 
-  llvm::Value* toLLVM(BinCompAST* ast);
+  llvm::Value* toLLVMIR(BinCompAST* ast);
 
-  llvm::Value* toLLVM(CondAST* ast);
+  llvm::Value* toLLVMIR(CondAST* ast);
 
-  llvm::Value* toLLVM(CallAST* ast);
+  llvm::Value* toLLVMIR(CallAST* ast);
 
-  llvm::Value* toLLVM(ListOpAST* ast);
+  llvm::Value* toLLVMIR(ListOpAST* ast);
 
-  llvm::Value* toLLVM(ResourceAST* ast);
+  llvm::Value* toLLVMIR(ResourceAST* ast);
 
-  llvm::Value* toLLVM(LocalPathAST* ast);
+  llvm::Value* toLLVMIR(LocalPathAST* ast);
 
-  llvm::Value* toLLVM(RemotePathAST* ast);
+  llvm::Value* toLLVMIR(RemotePathAST* ast);
 
-  llvm::Value* toLLVM(WebUrlAST* ast);
+  llvm::Value* toLLVMIR(WebUrlAST* ast);
 
-  llvm::Value* toLLVM(DBUrlAST* ast);
+  llvm::Value* toLLVMIR(DBUrlAST* ast);
 
-  llvm::Value* toLLVM(FlexBindAST* ast);
+  llvm::Value* toLLVMIR(FlexBindAST* ast);
 
-  llvm::Value* toLLVM(FinalBindAST* ast);
+  llvm::Value* toLLVMIR(FinalBindAST* ast);
 
-  llvm::Value* toLLVM(StructAST* ast);
+  llvm::Value* toLLVMIR(StructAST* ast);
 
-  llvm::Value* toLLVM(ReadFileAST* ast);
+  llvm::Value* toLLVMIR(ReadFileAST* ast);
 
-  llvm::Value* toLLVM(PrintAST* ast);
+  llvm::Value* toLLVMIR(PrintAST* ast);
 
-  llvm::Value* toLLVM(ExtPackAST* ast);
+  llvm::Value* toLLVMIR(ExtPackAST* ast);
 
-  llvm::Value* toLLVM(SideBlockAST* ast);
+  llvm::Value* toLLVMIR(SideBlockAST* ast);
 
-  llvm::Value* toLLVM(CasesAST* ast);
+  llvm::Value* toLLVMIR(CasesAST* ast);
 
-  llvm::Value* toLLVM(CondFlowAST* ast);
+  llvm::Value* toLLVMIR(CondFlowAST* ast);
 
-  llvm::Value* toLLVM(CheckEqAST* ast);
+  llvm::Value* toLLVMIR(CheckEqAST* ast);
 
-  llvm::Value* toLLVM(CheckIsInAST* ast);
+  llvm::Value* toLLVMIR(CheckIsInAST* ast);
 
-  llvm::Value* toLLVM(FromToAST* ast);
+  llvm::Value* toLLVMIR(FromToAST* ast);
 
-  llvm::Value* toLLVM(ForwardAST* ast);
+  llvm::Value* toLLVMIR(ForwardAST* ast);
 
-  llvm::Value* toLLVM(InfiniteAST* ast);
+  llvm::Value* toLLVMIR(InfiniteAST* ast);
 
-  llvm::Value* toLLVM(AnonyFuncAST* ast);
+  llvm::Value* toLLVMIR(AnonyFuncAST* ast);
 
-  llvm::Value* toLLVM(FuncAST* ast);
+  llvm::Value* toLLVMIR(FuncAST* ast);
 
-  llvm::Value* toLLVM(LoopAST* ast);
+  llvm::Value* toLLVMIR(LoopAST* ast);
 
-  llvm::Value* toLLVM(IterAST* ast);
+  llvm::Value* toLLVMIR(IterAST* ast);
 
-  llvm::Value* toLLVM(MatchCasesAST* ast);
+  llvm::Value* toLLVMIR(MatchCasesAST* ast);
 
-  // llvm::Value* toLLVM(MainBlockAST* ast);
-  llvm::Function* toLLVM(MainBlockAST* ast);
+  // llvm::Value* toLLVMIR(MainBlockAST* ast);
+  llvm::Function* toLLVMIR(MainBlockAST* ast);
 
   void print_type_checking(shared_ptr<StyioAST> program);
-  
+
   int run_llvm_ir(shared_ptr<MainBlockAST> program);
   void print_llvm_ir(int lli_result);
 };
@@ -624,11 +747,14 @@ public:
     int indent = 0, bool colorful = false
   ) = 0;
 
-  /* Type Checker & Modifier */
+  /* Type Checking */
   virtual void check(StyioToLLVM* visitor) = 0;
 
+  /* Get LLVM Type */
+  virtual llvm::Type* getLLVMType(StyioToLLVM* generator) = 0;
+
   /* LLVM IR Generator */
-  virtual llvm::Value* toLLVM(StyioToLLVM* generator) = 0;
+  virtual llvm::Value* toLLVMIR(StyioToLLVM* generator) = 0;
 };
 
 template <class Derived>
@@ -643,9 +769,13 @@ public:
     visitor->check(static_cast<Derived*>(this));
   }
 
-  llvm::Value* toLLVM(StyioToLLVM* generator) override {
-    generator->check(static_cast<Derived*>(this));
-    return generator->toLLVM(static_cast<Derived*>(this));
+  llvm::Type* getLLVMType(StyioToLLVM* visitor) override {
+    return visitor->getLLVMType(static_cast<Derived*>(this));
+  }
+
+  llvm::Value* toLLVMIR(StyioToLLVM* visitor) override {
+    visitor->check(static_cast<Derived*>(this));
+    return visitor->toLLVMIR(static_cast<Derived*>(this));
   }
 };
 
@@ -2112,7 +2242,7 @@ public:
     return StyioNodeHint::FixBind;
   }
 
-    const string& getName() const {
+  const string& getName() const {
     return varName->getAsStr();
   }
 
@@ -2761,16 +2891,34 @@ class FuncAST : public StyioNode<FuncAST>
   bool isFinal;
 
 public:
-  FuncAST(unique_ptr<ForwardAST> forward, bool isFinal) :
-      Forward(std::move(forward)), isFinal(isFinal) {
+  FuncAST(
+    unique_ptr<ForwardAST> forward,
+    bool isFinal
+  ) :
+      Forward(std::move(forward)),
+      isFinal(isFinal) {
   }
 
-  FuncAST(unique_ptr<IdAST> name, unique_ptr<ForwardAST> forward, bool isFinal) :
-      Name(std::move(name)), Forward(std::move(forward)), isFinal(isFinal) {
+  FuncAST(
+    unique_ptr<IdAST> name,
+    unique_ptr<ForwardAST> forward,
+    bool isFinal
+  ) :
+      Name(std::move(name)),
+      Forward(std::move(forward)),
+      isFinal(isFinal) {
   }
 
-  FuncAST(unique_ptr<IdAST> name, unique_ptr<DTypeAST> type, unique_ptr<ForwardAST> forward, bool isFinal) :
-      Name(std::move(name)), RetType(std::move(type)), Forward(std::move(forward)), isFinal(isFinal) {
+  FuncAST(
+    unique_ptr<IdAST> name,
+    unique_ptr<DTypeAST> type,
+    unique_ptr<ForwardAST> forward,
+    bool isFinal
+  ) :
+      Name(std::move(name)),
+      RetType(std::move(type)),
+      Forward(std::move(forward)),
+      isFinal(isFinal) {
   }
 
   StyioNodeHint hint() override {

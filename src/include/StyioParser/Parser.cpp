@@ -1755,7 +1755,9 @@ parse_func(shared_ptr<StyioContext> context) {
         context->drop_all_spaces();
 
         return make_unique<FuncAST>(
-          std::move(name), parse_forward(context, true), true
+          std::move(name),
+          parse_forward(context, true),
+          true
         );
       }
       else {

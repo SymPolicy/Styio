@@ -51,6 +51,7 @@ add_executable(styio
     src/include/StyioParser/Parser.cpp
     # Visitor (AST)
     src/include/StyioVisitors/TypeChecker.cpp
+    src/include/StyioVisitors/LLVMTypeGetter.cpp
     src/include/StyioVisitors/LLVMGenerator.cpp
     )
 

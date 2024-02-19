@@ -2,8 +2,11 @@
 source_filename = "styio"
 
 define i32 @main() {
-entrypoint:
-  %0 = alloca i32, align 4
-  store i32 2, ptr %0, align 4
+entry:
   ret i32 0
+}
+
+define i32 @f() {
+entry:
+  ret i32 3
 }

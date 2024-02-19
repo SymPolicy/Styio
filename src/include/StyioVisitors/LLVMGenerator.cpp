@@ -137,13 +137,11 @@ StyioToLLVM::print_type_checking(shared_ptr<StyioAST> program) {
             << "\n"
             << std::endl;
   std::cout << program->toString() << std::endl;
-  std::cout << "\n"
-            << std::endl;
 }
 
 int
 StyioToLLVM::run_llvm_ir(shared_ptr<MainBlockAST> program) {
-  this->toLLVM(program.get());
+  this->toLLVMIR(program.get());
 
   std::error_code EC;
   llvm::raw_fd_ostream output_stream(
@@ -162,6 +160,16 @@ StyioToLLVM::run_llvm_ir(shared_ptr<MainBlockAST> program) {
 
 void
 StyioToLLVM::print_llvm_ir(int lli_result) {
+  std::cout << "\n"
+            << "\033[1;32mLLVM IR\033[0m"
+            << "\n" 
+            << std::endl;
+
+  /* llvm ir -> stdout */
+  llvm_module->print(llvm::outs(), nullptr);
+  /* llvm ir -> stderr */
+  // llvm_module -> print(llvm::errs(), nullptr);
+
   string verifyModule_msg;
 
   if (llvm::verifyModule(*llvm_module)) {
@@ -179,17 +187,8 @@ StyioToLLVM::print_llvm_ir(int lli_result) {
     lli_msg = "[\033[1;32mSUCCESS\033[0m] lli output.ll";
   }
 
-  std::cout << "\n";
-
-  /* llvm ir -> stdout */
-  llvm_module->print(llvm::outs(), nullptr);
-  /* llvm ir -> stderr */
-  // llvm_module -> print(llvm::errs(), nullptr);
-
   /* print to stdout */
   std::cout << "\n"
-            << "\033[1;32mLLVM IR\033[0m"
-            << "\n"
             << verifyModule_msg
             << "\n"
             << lli_msg
@@ -202,7 +201,7 @@ StyioToLLVM::print_llvm_ir(int lli_result) {
 */
 
 llvm::Value*
-StyioToLLVM::toLLVM(BoolAST* ast) {
+StyioToLLVM::toLLVMIR(BoolAST* ast) {
   if (ast->getValue()) {
     return llvm::ConstantInt::getTrue(*llvm_context);
   }
@@ -212,118 +211,117 @@ StyioToLLVM::toLLVM(BoolAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(NoneAST* ast) {
+StyioToLLVM::toLLVMIR(NoneAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(EOFAST* ast) {
+StyioToLLVM::toLLVMIR(EOFAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(EmptyAST* ast) {
+StyioToLLVM::toLLVMIR(EmptyAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(EmptyBlockAST* ast) {
+StyioToLLVM::toLLVMIR(EmptyBlockAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(PassAST* ast) {
+StyioToLLVM::toLLVMIR(PassAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(BreakAST* ast) {
+StyioToLLVM::toLLVMIR(BreakAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(ReturnAST* ast) {
-  return llvm_ir_builder->CreateRet(ast->getExpr()->toLLVM(this));
+StyioToLLVM::toLLVMIR(ReturnAST* ast) {
+  return llvm_ir_builder->CreateRet(ast->getExpr()->toLLVMIR(this));
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(CommentAST* ast) {
+StyioToLLVM::toLLVMIR(CommentAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(IdAST* ast) {
+StyioToLLVM::toLLVMIR(IdAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
 
   const string& varname = ast->getAsStr();
-  
+
+  if (named_values.contains(varname)) {
+    return named_values[varname];
+  }
+
   if (mutable_variables.contains(varname)) {
     llvm::AllocaInst* variable = mutable_variables[varname];
-    
+
     return llvm_ir_builder->CreateLoad(variable->getAllocatedType(), variable);
     // return llvm_ir_builder->CreateLoad(variable->getAllocatedType(), variable, varname.c_str());
     // return variable; /* This line is WRONG! I keep it for debug. */
   }
 
-  if (named_values.contains(varname)) {
-    return named_values[varname];
-    // return variable; /* This line is WRONG! I keep it for debug. */
-  }
-
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(VarAST* ast) {
+StyioToLLVM::toLLVMIR(VarAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(ArgAST* ast) {
+StyioToLLVM::toLLVMIR(ArgAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(OptArgAST* ast) {
+StyioToLLVM::toLLVMIR(OptArgAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(OptKwArgAST* ast) {
+StyioToLLVM::toLLVMIR(OptKwArgAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(VarTupleAST* ast) {
+StyioToLLVM::toLLVMIR(VarTupleAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
 
   auto& vars = ast->getArgs();
   for (auto const& s : vars) {
-    s->toLLVM(this);
+    s->toLLVMIR(this);
   }
 
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(DTypeAST* ast) {
+StyioToLLVM::toLLVMIR(DTypeAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(IntAST* ast) {
+StyioToLLVM::toLLVMIR(IntAST* ast) {
   switch (ast->getType()) {
     case StyioDataType::i1: {
       return llvm_ir_builder->getInt1(std::stoi(ast->getValue()));
@@ -356,7 +354,7 @@ StyioToLLVM::toLLVM(IntAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(FloatAST* ast) {
+StyioToLLVM::toLLVMIR(FloatAST* ast) {
   switch (ast->getType()) {
     case StyioDataType::f64:
       return llvm::ConstantFP::get(*llvm_context, llvm::APFloat(std::stod(ast->getValue())));
@@ -367,101 +365,101 @@ StyioToLLVM::toLLVM(FloatAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(CharAST* ast) {
+StyioToLLVM::toLLVMIR(CharAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(StringAST* ast) {
+StyioToLLVM::toLLVMIR(StringAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(TypeConvertAST* ast) {
+StyioToLLVM::toLLVMIR(TypeConvertAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(FmtStrAST* ast) {
+StyioToLLVM::toLLVMIR(FmtStrAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(ResourceAST* ast) {
+StyioToLLVM::toLLVMIR(ResourceAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(LocalPathAST* ast) {
+StyioToLLVM::toLLVMIR(LocalPathAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(RemotePathAST* ast) {
+StyioToLLVM::toLLVMIR(RemotePathAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(WebUrlAST* ast) {
+StyioToLLVM::toLLVMIR(WebUrlAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(DBUrlAST* ast) {
+StyioToLLVM::toLLVMIR(DBUrlAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(ExtPackAST* ast) {
+StyioToLLVM::toLLVMIR(ExtPackAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(ListAST* ast) {
+StyioToLLVM::toLLVMIR(ListAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(TupleAST* ast) {
+StyioToLLVM::toLLVMIR(TupleAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(SetAST* ast) {
+StyioToLLVM::toLLVMIR(SetAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(RangeAST* ast) {
+StyioToLLVM::toLLVMIR(RangeAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(SizeOfAST* ast) {
+StyioToLLVM::toLLVMIR(SizeOfAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(BinOpAST* ast) {
+StyioToLLVM::toLLVMIR(BinOpAST* ast) {
   llvm::Value* output = llvm_ir_builder->getInt32(0);
 
-  llvm::Value* l_val = ast->getLhs()->toLLVM(this);
-  llvm::Value* r_val = ast->getRhs()->toLLVM(this);
+  llvm::Value* l_val = ast->getLhs()->toLLVMIR(this);
+  llvm::Value* r_val = ast->getRhs()->toLLVMIR(this);
 
   switch (ast->getOperand()) {
     case StyioNodeHint::Bin_Add: {
@@ -522,25 +520,25 @@ StyioToLLVM::toLLVM(BinOpAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(BinCompAST* ast) {
+StyioToLLVM::toLLVMIR(BinCompAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(CondAST* ast) {
+StyioToLLVM::toLLVMIR(CondAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(CallAST* ast) {
+StyioToLLVM::toLLVMIR(CallAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(ListOpAST* ast) {
+StyioToLLVM::toLLVMIR(ListOpAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
@@ -554,7 +552,7 @@ StyioToLLVM::toLLVM(ListOpAST* ast) {
   - Mutable Assignment
 */
 llvm::Value*
-StyioToLLVM::toLLVM(FlexBindAST* ast) {
+StyioToLLVM::toLLVMIR(FlexBindAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
 
   // // Look this variable up in the function.
@@ -573,7 +571,7 @@ StyioToLLVM::toLLVM(FlexBindAST* ast) {
       const string& varname = ast->getName();
       if (mutable_variables.contains(varname)) {
         llvm::AllocaInst* variable = mutable_variables[varname];
-        llvm_ir_builder->CreateStore(ast->getValue()->toLLVM(this), variable);
+        llvm_ir_builder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
       }
       else {
         llvm::AllocaInst* variable = llvm_ir_builder->CreateAlloca(
@@ -583,7 +581,7 @@ StyioToLLVM::toLLVM(FlexBindAST* ast) {
         );
         mutable_variables[varname] = variable;
 
-        llvm_ir_builder->CreateStore(ast->getValue()->toLLVM(this), variable);
+        llvm_ir_builder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
       }
     }
 
@@ -593,7 +591,7 @@ StyioToLLVM::toLLVM(FlexBindAST* ast) {
       const string& varname = ast->getName();
       if (mutable_variables.contains(varname)) {
         llvm::AllocaInst* variable = mutable_variables[varname];
-        llvm_ir_builder->CreateStore(ast->getValue()->toLLVM(this), variable);
+        llvm_ir_builder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
       }
       else {
         llvm::AllocaInst* variable = llvm_ir_builder->CreateAlloca(
@@ -603,7 +601,7 @@ StyioToLLVM::toLLVM(FlexBindAST* ast) {
         );
         mutable_variables[varname] = variable;
 
-        llvm_ir_builder->CreateStore(ast->getValue()->toLLVM(this), variable);
+        llvm_ir_builder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
       }
     }
 
@@ -613,13 +611,13 @@ StyioToLLVM::toLLVM(FlexBindAST* ast) {
       const string& varname = ast->getName();
       if (mutable_variables.contains(varname)) {
         llvm::AllocaInst* variable = mutable_variables[varname];
-        llvm_ir_builder->CreateStore(ast->getValue()->toLLVM(this), variable);
+        llvm_ir_builder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
       }
       else {
         llvm::AllocaInst* variable = llvm_ir_builder->CreateAlloca(llvm_ir_builder->getInt32Ty(), nullptr);
         mutable_variables[varname] = variable;
 
-        llvm_ir_builder->CreateStore(ast->getValue()->toLLVM(this), variable);
+        llvm_ir_builder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
       }
     }
 
@@ -630,14 +628,14 @@ StyioToLLVM::toLLVM(FlexBindAST* ast) {
       if (mutable_variables.contains(varname)) {
         llvm::AllocaInst* variable = mutable_variables[varname];
         // llvm_ir_builder->CreateLoad(variable->getAllocatedType(), variable, varname.c_str());
-        llvm_ir_builder->CreateStore(ast->getValue()->toLLVM(this), variable);
+        llvm_ir_builder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
       }
       else {
         // llvm::AllocaInst* variable = llvm_ir_builder->CreateAlloca(llvm_ir_builder->getInt32Ty(), nullptr, varname);
         llvm::AllocaInst* variable = llvm_ir_builder->CreateAlloca(llvm_ir_builder->getInt32Ty(), nullptr);
         mutable_variables[varname] = variable;
 
-        llvm_ir_builder->CreateStore(ast->getValue()->toLLVM(this), variable);
+        llvm_ir_builder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
       }
     }
 
@@ -654,7 +652,7 @@ StyioToLLVM::toLLVM(FlexBindAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(FinalBindAST* ast) {
+StyioToLLVM::toLLVMIR(FinalBindAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
 
   switch (ast->getValue()->hint()) {
@@ -664,7 +662,7 @@ StyioToLLVM::toLLVM(FinalBindAST* ast) {
         /* ERROR */
       }
       else {
-        named_values[varname] = ast->getValue()->toLLVM(this);
+        named_values[varname] = ast->getValue()->toLLVMIR(this);
       }
     } break;
 
@@ -674,7 +672,7 @@ StyioToLLVM::toLLVM(FinalBindAST* ast) {
         /* ERROR */
       }
       else {
-        named_values[varname] = ast->getValue()->toLLVM(this);
+        named_values[varname] = ast->getValue()->toLLVMIR(this);
       }
     }
 
@@ -686,31 +684,35 @@ StyioToLLVM::toLLVM(FinalBindAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(StructAST* ast) {
+StyioToLLVM::toLLVMIR(StructAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(ReadFileAST* ast) {
+StyioToLLVM::toLLVMIR(ReadFileAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(PrintAST* ast) {
+StyioToLLVM::toLLVMIR(PrintAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(ForwardAST* ast) {
+StyioToLLVM::toLLVMIR(ForwardAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
 
   switch (ast->hint()) {
     case StyioNodeHint::Fill_Forward: {
-      // ast -> getArgs() -> toLLVM(this);
-      ast->getThen()->toLLVM(this);
+      // ast -> getArgs() -> toLLVMIR(this);
+      ast->getThen()->toLLVMIR(this);
+    } break;
+
+    case StyioNodeHint::Forward: {
+      ast->getThen()->toLLVMIR(this);
     } break;
 
     default:
@@ -721,130 +723,170 @@ StyioToLLVM::toLLVM(ForwardAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(CheckEqAST* ast) {
+StyioToLLVM::toLLVMIR(CheckEqAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(CheckIsInAST* ast) {
+StyioToLLVM::toLLVMIR(CheckIsInAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(FromToAST* ast) {
+StyioToLLVM::toLLVMIR(FromToAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(InfiniteAST* ast) {
+StyioToLLVM::toLLVMIR(InfiniteAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(AnonyFuncAST* ast) {
+StyioToLLVM::toLLVMIR(AnonyFuncAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
+
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(FuncAST* ast) {
-  if (ast->hasName() && ast->hasArgs() && ast->hasRetType()) {
-    /* FuncAST -> Forward -> VarTuple -> [<VarAST>..] */
-    auto& sf_args = ast->getForward()->getArgs()->getArgs();
+StyioToLLVM::toLLVMIR(FuncAST* ast) {
+  auto latest_insert_point = llvm_ir_builder->saveIP();
+  
+  if (ast->hasName()) {
+    if (ast->hasArgs()) {
+      /* FuncAST -> Forward -> VarTuple -> [<VarAST>..] */
+      auto& sf_args = ast->getForward()->getArgs()->getArgs();
 
-    std::vector<llvm::Type*> lf_args;
-    for (auto& arg : sf_args) {
-      lf_args.push_back(matchType(arg->getTypeStr()));
+      std::vector<llvm::Type*> lf_args;
+      for (auto& arg : sf_args) {
+        lf_args.push_back(matchType(arg->getTypeStr()));
+      }
+
+      llvm::FunctionType* lf_type = llvm::FunctionType::get(
+        /* Result (Type) */ matchType(ast->getRetTypeStr()),
+        /* Params (Type) */ lf_args,
+        /* isVarArg */ false
+      );
+
+      llvm::Function* lfunc =
+        llvm::Function::Create(lf_type, llvm::GlobalValue::ExternalLinkage, ast->getName(), *llvm_module);
+
+      for (size_t i = 0; i < lf_args.size(); i++) {
+        lfunc->getArg(i)->setName(sf_args.at(i)->getName());
+      }
+
+      llvm::BasicBlock* block =
+        llvm::BasicBlock::Create(*llvm_context, "entry", lfunc);
+
+      llvm_ir_builder->SetInsertPoint(block);
+
+      ast->getForward()->toLLVMIR(this);
+
+      llvm::verifyFunction(*lfunc);
     }
+    /* No Parameters */
+    else {
+      llvm::FunctionType* func_type = llvm::FunctionType::get(
+        /* Result (Type) */ this->getLLVMType(ast),
+        /* isVarArg */ false
+      );
+      llvm::Function* func = llvm::Function::Create(
+        func_type, 
+        llvm::GlobalValue::ExternalLinkage, 
+        ast->getName(), 
+        *llvm_module
+      );
+    
+      llvm::BasicBlock* block = llvm::BasicBlock::Create(
+        *llvm_context, 
+        "entry", 
+        func
+      );
 
-    llvm::FunctionType* lf_type = llvm::FunctionType::get(
-      /* Result (Type) */ matchType(ast->getRetTypeStr()),
-      /* Params (Type) */ lf_args,
-      /* isVarArg */ false
-    );
+      llvm_ir_builder->SetInsertPoint(block);
 
-    llvm::Function* lfunc =
-      llvm::Function::Create(lf_type, llvm::GlobalValue::ExternalLinkage, ast->getName(), *llvm_module);
+      ast->getForward()->toLLVMIR(this);
 
-    for (size_t i = 0; i < lf_args.size(); i++) {
-      lfunc->getArg(i)->setName(sf_args.at(i)->getName());
+      llvm::verifyFunction(*func);
     }
-
-    llvm::BasicBlock* block =
-      llvm::BasicBlock::Create(*llvm_context, "entry", lfunc);
-
-    llvm_ir_builder->SetInsertPoint(block);
-
-    ast->getForward()->toLLVM(this);
-
-    llvm::verifyFunction(*lfunc);
   }
 
+  llvm_ir_builder->restoreIP(latest_insert_point);
+
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(IterAST* ast) {
+StyioToLLVM::toLLVMIR(IterAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(LoopAST* ast) {
+StyioToLLVM::toLLVMIR(LoopAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(CondFlowAST* ast) {
+StyioToLLVM::toLLVMIR(CondFlowAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(CasesAST* ast) {
+StyioToLLVM::toLLVMIR(CasesAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(MatchCasesAST* ast) {
+StyioToLLVM::toLLVMIR(MatchCasesAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVM(SideBlockAST* ast) {
+StyioToLLVM::toLLVMIR(SideBlockAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
 
   auto& stmts = ast->getStmts();
   for (auto const& s : stmts) {
-    s->toLLVM(this);
+    s->toLLVMIR(this);
   }
 
   return output;
 }
 
 llvm::Function*
-StyioToLLVM::toLLVM(MainBlockAST* ast) {
+StyioToLLVM::toLLVMIR(MainBlockAST* ast) {
   /*
     Get Void Type: llvm::Type::getVoidTy(*llvm_context)
     Use Void Type: nullptr
   */
   llvm::FunctionType* func_type = llvm::FunctionType::get(llvm_ir_builder->getInt32Ty(), false);
   llvm::Function* main_func = llvm::Function::Create(func_type, llvm::Function::ExternalLinkage, "main", *llvm_module);
-  llvm::BasicBlock* entry = llvm::BasicBlock::Create(*llvm_context, "entrypoint", main_func);
-  llvm_ir_builder->SetInsertPoint(entry);
+  llvm::BasicBlock* entry_block = llvm::BasicBlock::Create(*llvm_context, "entry", main_func);
+  
+  /* Add statements to the current basic block */
+  llvm_ir_builder->SetInsertPoint(entry_block);
+  // llvm_ir_builder->saveIP();
 
   auto& stmts = ast->getStmts();
   for (auto const& s : stmts) {
-    s->toLLVM(this);
+    s->toLLVMIR(this);
   }
+
+  /* Reset insert point after adding statements */
+  llvm_ir_builder->SetInsertPoint(entry_block);
+
+  // entry_block->getInstList()
 
   llvm_ir_builder->CreateRet(llvm_ir_builder->getInt32(0));
 
