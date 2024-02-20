@@ -206,7 +206,7 @@ class MatchCasesAST;
   - SideBlock
   - MainBlock
 */
-class SideBlockAST;
+class BlockAST;
 class MainBlockAST;
 
 /*
@@ -321,7 +321,7 @@ using StyioVisitor = Visitor<
   class CasesAST,
   class MatchCasesAST,
 
-  class SideBlockAST,
+  class BlockAST,
   class MainBlockAST,
 
   class ExtPackAST,
@@ -461,7 +461,7 @@ public:
 
   void check(ExtPackAST* ast);
 
-  void check(SideBlockAST* ast);
+  void check(BlockAST* ast);
 
   void check(CasesAST* ast);
 
@@ -577,7 +577,7 @@ public:
 
   llvm::Type* getLLVMType(ExtPackAST* ast);
 
-  llvm::Type* getLLVMType(SideBlockAST* ast);
+  llvm::Type* getLLVMType(BlockAST* ast);
 
   llvm::Type* getLLVMType(CasesAST* ast);
 
@@ -693,7 +693,7 @@ public:
 
   llvm::Value* toLLVMIR(ExtPackAST* ast);
 
-  llvm::Value* toLLVMIR(SideBlockAST* ast);
+  llvm::Value* toLLVMIR(BlockAST* ast);
 
   llvm::Value* toLLVMIR(CasesAST* ast);
 
@@ -741,10 +741,12 @@ public:
 
   /* toString */
   virtual string toString(
-    int indent = 0, bool colorful = false
+    int indent = 0,
+    bool colorful = false
   ) = 0;
   virtual string toStringInline(
-    int indent = 0, bool colorful = false
+    int indent = 0,
+    bool colorful = false
   ) = 0;
 
   /* Type Checking */
@@ -926,18 +928,18 @@ public:
   ) override;
 };
 
-class SideBlockAST : public StyioNode<SideBlockAST>
+class BlockAST : public StyioNode<BlockAST>
 {
   unique_ptr<StyioAST> Resources;
   vector<unique_ptr<StyioAST>> Stmts;
 
 public:
-  SideBlockAST(unique_ptr<StyioAST> resources, vector<unique_ptr<StyioAST>> stmts) :
+  BlockAST(unique_ptr<StyioAST> resources, vector<unique_ptr<StyioAST>> stmts) :
       Resources(std::move(resources)),
       Stmts(std::move(stmts)) {
   }
 
-  SideBlockAST(vector<unique_ptr<StyioAST>> stmts) :
+  BlockAST(vector<unique_ptr<StyioAST>> stmts) :
       Stmts(std::move(stmts)) {
   }
 
@@ -1127,23 +1129,39 @@ public:
 
 class DTypeAST : public StyioNode<DTypeAST>
 {
-  string TypeStr = "";
+private:
+  string TypeName;
+  StyioDataType DType = StyioDataType::undefined;
 
 public:
-  DTypeAST(const string& dtype) :
-      TypeStr(dtype) {
+  DTypeAST(StyioDataType dtype): DType(dtype) {
+
+  }
+
+  DTypeAST(const string& dtype): TypeName(dtype) {
+    auto it = DType_Table.find(dtype);
+    if (it != DType_Table.end()) {
+      DType = it->second;
+    }
+    else {
+      DType = StyioDataType::undefined;
+    }
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::DType;
   }
 
-  static unique_ptr<DTypeAST> make(string dtype) {
-    return make_unique<DTypeAST>(dtype);
+  const StyioDataType getDtype() const {
+    return DType;
   }
 
-  const string& getTypeStr() const {
-    return TypeStr;
+  const string& getTypeName() const {
+    return TypeName;
+  }
+
+  static unique_ptr<DTypeAST> make(string dtype) {
+    return make_unique<DTypeAST>(dtype);
   }
 
   /* toString */
@@ -1204,12 +1222,8 @@ public:
     }
   }
 
-  const shared_ptr<DTypeAST>& getType() const {
+  const shared_ptr<DTypeAST>& getDType() const {
     return DType;
-  }
-
-  const string& getTypeStr() const {
-    return DType->getTypeStr();
   }
 
   /* toString */
@@ -1239,12 +1253,12 @@ public:
       VarAST(name), Name(name) {
   }
 
-  ArgAST(const string& name, unique_ptr<DTypeAST> dtype) :
-      VarAST(name, DTypeAST::make(dtype->getTypeStr())), Name(name), DType(std::move(dtype)) {
+  ArgAST(const string& name, unique_ptr<DTypeAST> data_type) :
+      VarAST(name, DTypeAST::make(data_type->getTypeName())), Name(name), DType(std::move(data_type)) {
   }
 
   ArgAST(const string& name, unique_ptr<DTypeAST> data_type, unique_ptr<StyioAST> default_value) :
-      VarAST(name, DTypeAST::make(data_type->getTypeStr()), /* Copy -> VarAST */
+      VarAST(name, DTypeAST::make(data_type->getTypeName()), /* Copy -> VarAST */
              std::move(default_value)),
       Name(name),
       DType(std::move(data_type)),
@@ -2745,16 +2759,11 @@ public:
   }
 
   bool hasArgs() {
-    if (Args) {
-      return true;
-    }
-    else {
-      return false;
-    }
+    return Args && (!(Args->getArgs().empty()));
   }
 
-  const shared_ptr<VarTupleAST>& getArgs() {
-    return Args;
+  const vector<shared_ptr<VarAST>>& getArgs() {
+    return Args->getArgs();
   }
 
   const unique_ptr<StyioAST>& getThen() {
@@ -2955,16 +2964,16 @@ public:
     return RetType;
   }
 
-  const string& getRetTypeStr() {
-    return RetType->getTypeStr();
-  }
-
   const unique_ptr<ForwardAST>& getForward() const {
     return Forward;
   }
 
   bool hasArgs() {
     return Forward->hasArgs();
+  }
+
+  const vector<shared_ptr<VarAST>>& getArgList() {
+    return Forward->getArgs();
   }
 
   /* toString */

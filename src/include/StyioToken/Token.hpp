@@ -2,6 +2,33 @@
 #ifndef STYIO_TOKEN_H_
 #define STYIO_TOKEN_H_
 
+#include <unordered_map>
+#include <string>
+
+enum class StyioDataType
+{
+  undefined,
+  i1,
+  i8,
+  i16,
+  i32,
+  i64,
+  i128,
+  f32,
+  f64
+};
+
+static std::unordered_map<std::string, StyioDataType> const DType_Table = {
+  {"i32", StyioDataType::i32},
+  {"i64", StyioDataType::i64},
+  {"f64", StyioDataType::f64},
+  {"i1", StyioDataType::i1},
+  {"i8", StyioDataType::i8},
+  {"i16", StyioDataType::i16},
+  {"i128", StyioDataType::i128},
+  {"f32", StyioDataType::f32}
+};
+
 enum class StyioContextType
 {
 };
@@ -27,18 +54,7 @@ enum class StyioPathType
   remote_windows
 };
 
-enum class StyioDataType
-{
-  undefined,
-  i1,
-  i8,
-  i16,
-  i32,
-  i64,
-  i128,
-  f64,
-  str
-};
+
 
 enum class StyioNodeHint
 {

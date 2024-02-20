@@ -2584,7 +2584,7 @@ parse_block(shared_ptr<StyioContext> context) {
     return make_unique<EmptyBlockAST>();
   }
   else {
-    return make_unique<SideBlockAST>(std::move(stmtBuffer));
+    return make_unique<BlockAST>(std::move(stmtBuffer));
   };
 }
 

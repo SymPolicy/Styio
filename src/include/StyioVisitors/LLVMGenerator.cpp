@@ -162,7 +162,7 @@ void
 StyioToLLVM::print_llvm_ir(int lli_result) {
   std::cout << "\n"
             << "\033[1;32mLLVM IR\033[0m"
-            << "\n" 
+            << "\n"
             << std::endl;
 
   /* llvm ir -> stdout */
@@ -281,6 +281,7 @@ StyioToLLVM::toLLVMIR(IdAST* ast) {
 llvm::Value*
 StyioToLLVM::toLLVMIR(VarAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
+
   return output;
 }
 
@@ -756,38 +757,35 @@ StyioToLLVM::toLLVMIR(AnonyFuncAST* ast) {
 llvm::Value*
 StyioToLLVM::toLLVMIR(FuncAST* ast) {
   auto latest_insert_point = llvm_ir_builder->saveIP();
-  
+
   if (ast->hasName()) {
     if (ast->hasArgs()) {
-      /* FuncAST -> Forward -> VarTuple -> [<VarAST>..] */
-      auto& sf_args = ast->getForward()->getArgs()->getArgs();
-
-      std::vector<llvm::Type*> lf_args;
-      for (auto& arg : sf_args) {
-        lf_args.push_back(matchType(arg->getTypeStr()));
+      std::vector<llvm::Type*> llvm_func_args;
+      for (auto& arg : ast->getArgList()) {
+        llvm_func_args.push_back(arg->getLLVMType(this));
       }
 
-      llvm::FunctionType* lf_type = llvm::FunctionType::get(
-        /* Result (Type) */ matchType(ast->getRetTypeStr()),
-        /* Params (Type) */ lf_args,
+      llvm::FunctionType* llvm_func_type = llvm::FunctionType::get(
+        /* Result (Type) */ ast->getRetType()->getLLVMType(this),
+        /* Params (Type) */ llvm_func_args,
         /* isVarArg */ false
       );
 
-      llvm::Function* lfunc =
-        llvm::Function::Create(lf_type, llvm::GlobalValue::ExternalLinkage, ast->getName(), *llvm_module);
+      llvm::Function* llvm_func =
+        llvm::Function::Create(llvm_func_type, llvm::GlobalValue::ExternalLinkage, ast->getName(), *llvm_module);
 
-      for (size_t i = 0; i < lf_args.size(); i++) {
-        lfunc->getArg(i)->setName(sf_args.at(i)->getName());
+      for (size_t i = 0; i < llvm_func_args.size(); i++) {
+        llvm_func->getArg(i)->setName(ast->getArgList().at(i)->getName());
       }
 
       llvm::BasicBlock* block =
-        llvm::BasicBlock::Create(*llvm_context, "entry", lfunc);
+        llvm::BasicBlock::Create(*llvm_context, "entry", llvm_func);
 
       llvm_ir_builder->SetInsertPoint(block);
 
       ast->getForward()->toLLVMIR(this);
 
-      llvm::verifyFunction(*lfunc);
+      llvm::verifyFunction(*llvm_func);
     }
     /* No Parameters */
     else {
@@ -796,15 +794,15 @@ StyioToLLVM::toLLVMIR(FuncAST* ast) {
         /* isVarArg */ false
       );
       llvm::Function* func = llvm::Function::Create(
-        func_type, 
-        llvm::GlobalValue::ExternalLinkage, 
-        ast->getName(), 
+        func_type,
+        llvm::GlobalValue::ExternalLinkage,
+        ast->getName(),
         *llvm_module
       );
-    
+
       llvm::BasicBlock* block = llvm::BasicBlock::Create(
-        *llvm_context, 
-        "entry", 
+        *llvm_context,
+        "entry",
         func
       );
 
@@ -853,7 +851,7 @@ StyioToLLVM::toLLVMIR(MatchCasesAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(SideBlockAST* ast) {
+StyioToLLVM::toLLVMIR(BlockAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
 
   auto& stmts = ast->getStmts();
@@ -873,18 +871,14 @@ StyioToLLVM::toLLVMIR(MainBlockAST* ast) {
   llvm::FunctionType* func_type = llvm::FunctionType::get(llvm_ir_builder->getInt32Ty(), false);
   llvm::Function* main_func = llvm::Function::Create(func_type, llvm::Function::ExternalLinkage, "main", *llvm_module);
   llvm::BasicBlock* entry_block = llvm::BasicBlock::Create(*llvm_context, "entry", main_func);
-  
+
   /* Add statements to the current basic block */
   llvm_ir_builder->SetInsertPoint(entry_block);
-  // llvm_ir_builder->saveIP();
 
   auto& stmts = ast->getStmts();
   for (auto const& s : stmts) {
     s->toLLVMIR(this);
   }
-
-  /* Reset insert point after adding statements */
-  llvm_ir_builder->SetInsertPoint(entry_block);
 
   // entry_block->getInstList()
 

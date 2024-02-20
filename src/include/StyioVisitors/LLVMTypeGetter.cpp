@@ -37,7 +37,23 @@ StyioToLLVM::getLLVMType(IdAST* ast) {
 
 llvm::Type*
 StyioToLLVM::getLLVMType(DTypeAST* ast) {
-  return llvm_ir_builder->getInt32Ty();
+  switch (ast->getDtype()) {
+    case StyioDataType::i32: {
+      return llvm_ir_builder->getInt32Ty();
+    } break;
+
+    case StyioDataType::i64: {
+      return llvm_ir_builder->getInt64Ty();
+    } break;
+
+    case StyioDataType::f64: {
+      return llvm_ir_builder->getDoubleTy();
+    } break;
+
+    default: {
+      return llvm_ir_builder->getInt32Ty();
+    } break;
+  }
 }
 
 llvm::Type*
@@ -72,7 +88,7 @@ StyioToLLVM::getLLVMType(TypeConvertAST*) {
 
 llvm::Type*
 StyioToLLVM::getLLVMType(VarAST* ast) {
-  return llvm_ir_builder->getInt32Ty();
+  return ast->getDType()->getLLVMType(this);
 }
 
 llvm::Type*
@@ -291,7 +307,7 @@ StyioToLLVM::getLLVMType(MatchCasesAST* ast) {
 }
 
 llvm::Type*
-StyioToLLVM::getLLVMType(SideBlockAST* ast) {
+StyioToLLVM::getLLVMType(BlockAST* ast) {
   return llvm_ir_builder->getInt32Ty();
 }
 

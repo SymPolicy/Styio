@@ -1,0 +1,7 @@
+// RUN: /root/styio/styio --ir --file %s | /usr/bin/FileCheck %s
+
+# f := (a, b) => {
+  => a + b
+}
+
+f(1, 2)

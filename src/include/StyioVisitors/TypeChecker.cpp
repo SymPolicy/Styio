@@ -274,7 +274,7 @@ StyioToLLVM::check(MatchCasesAST* ast) {
 }
 
 void
-StyioToLLVM::check(SideBlockAST* ast) {
+StyioToLLVM::check(BlockAST* ast) {
 }
 
 void

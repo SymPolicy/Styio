@@ -8,5 +8,5 @@ entry:
 
 define i32 @f() {
 entry:
-  ret i32 3
+  ret i32 4
 }

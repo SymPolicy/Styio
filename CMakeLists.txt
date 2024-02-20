@@ -22,7 +22,7 @@ message(STATUS "[Styio] Library: " ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 message(STATUS "[Styio] Runtime: " ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 # [LLVM] Configuration
-find_package(LLVM REQUIRED CONFIG)
+find_package(LLVM 18.1.0 REQUIRED CONFIG)
 include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
@@ -42,14 +42,14 @@ find_package(ICU COMPONENTS uc i18n REQUIRED)
 # [Styio] Executable
 add_executable(styio 
     src/main.cpp
-    # Utilities
+    # Utility
     src/include/StyioUtil/Util.cpp
-    # Lexer (Token)
+    # Lexer
     src/include/StyioToken/Token.cpp
-    # Parser (AST)
+    # Parser
     src/include/StyioAST/ASTToString.cpp
     src/include/StyioParser/Parser.cpp
-    # Visitor (AST)
+    # Visitor
     src/include/StyioVisitors/TypeChecker.cpp
     src/include/StyioVisitors/LLVMTypeGetter.cpp
     src/include/StyioVisitors/LLVMGenerator.cpp

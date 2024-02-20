@@ -19,9 +19,6 @@ reprDataType(StyioDataType dtype) {
     case StyioDataType::f64:
       return std::string("f64");
 
-    case StyioDataType::str:
-      return std::string("str");
-
     default:
       return std::string("dtype");
   }

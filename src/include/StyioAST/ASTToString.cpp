@@ -72,12 +72,12 @@ IdAST::toStringInline(int indent, bool colorful) {
 string
 DTypeAST::toString(int indent, bool colorful) {
   return reprNodeType(hint(), colorful, " ")
-         + string("{ ") + TypeStr + " }";
+         + string("{ ") + TypeName + " }";
 }
 
 string
 DTypeAST::toStringInline(int indent, bool colorful) {
-  return TypeStr;
+  return TypeName;
 }
 
 string
@@ -156,7 +156,7 @@ string
 VarAST::toString(int indent, bool colorful) {
   if (hasType()) {
     return reprNodeType(hint(), colorful, " ")
-           + string("{ ") + Name + " : " + DType->getTypeStr() + " }";
+           + string("{ ") + Name + " : " + DType->getTypeName() + " }";
   }
   else {
     return reprNodeType(hint(), colorful, " ")
@@ -168,7 +168,7 @@ string
 VarAST::toStringInline(int indent, bool colorful) {
   if (hasType()) {
     return reprNodeType(hint(), colorful, " ")
-           + string("{ ") + Name + " : " + DType->getTypeStr() + " }";
+           + string("{ ") + Name + " : " + DType->getTypeName() + " }";
   }
   else {
     return reprNodeType(hint(), colorful, " ")
@@ -180,7 +180,7 @@ string
 ArgAST::toString(int indent, bool colorful) {
   if (hasType()) {
     return reprNodeType(hint(), colorful, " ")
-           + string("{ ") + Name + " : " + getTypeStr() + " }";
+           + string("{ ") + Name + " : " + getDType()->getTypeName() + " }";
   }
   else {
     return reprNodeType(hint(), colorful, " ")
@@ -192,7 +192,7 @@ string
 ArgAST::toStringInline(int indent, bool colorful) {
   if (hasType()) {
     return reprNodeType(hint(), colorful, " ")
-           + string("{ ") + Name + " : " + getTypeStr() + " }";
+           + string("{ ") + Name + " : " + getDType()->getTypeName() + " }";
   }
   else {
     return reprNodeType(hint(), colorful, " ")
@@ -696,7 +696,7 @@ ExtPackAST::toStringInline(int indent, bool colorful) {
 }
 
 string
-SideBlockAST::toString(int indent, bool colorful) {
+BlockAST::toString(int indent, bool colorful) {
   string stmtStr;
 
   for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Stmts.begin();
@@ -713,7 +713,7 @@ SideBlockAST::toString(int indent, bool colorful) {
 }
 
 string
-SideBlockAST::toStringInline(int indent, bool colorful) {
+BlockAST::toStringInline(int indent, bool colorful) {
   return reprNodeType(this->hint(), colorful) + string(" { ") + " }";
 }
 
