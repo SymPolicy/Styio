@@ -724,8 +724,8 @@ public:
 
   void print_type_checking(shared_ptr<StyioAST> program);
 
-  int run_llvm_ir(shared_ptr<MainBlockAST> program);
-  void print_llvm_ir(int lli_result);
+  void print_llvm_ir();
+  void print_test_results();
 };
 
 /*
@@ -1134,11 +1134,12 @@ private:
   StyioDataType DType = StyioDataType::undefined;
 
 public:
-  DTypeAST(StyioDataType dtype): DType(dtype) {
-
+  DTypeAST(StyioDataType dtype) :
+      DType(dtype) {
   }
 
-  DTypeAST(const string& dtype): TypeName(dtype) {
+  DTypeAST(const string& dtype) :
+      TypeName(dtype) {
     auto it = DType_Table.find(dtype);
     if (it != DType_Table.end()) {
       DType = it->second;
@@ -2052,11 +2053,16 @@ public:
 
 class CallAST : public StyioNode<CallAST>
 {
-  unique_ptr<StyioAST> Func;
+  unique_ptr<IdAST> Func;
+  vector<unique_ptr<StyioAST>> Params;
 
 public:
-  CallAST(unique_ptr<StyioAST> func) :
-      Func(std::move(func)) {
+  CallAST(
+    unique_ptr<IdAST> func,
+    vector<unique_ptr<StyioAST>> params
+  ) :
+      Func(std::move(func)),
+      Params(std::move(params)) {
   }
 
   StyioNodeHint hint() override {

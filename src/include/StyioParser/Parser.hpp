@@ -41,10 +41,10 @@ public:
     const string& file_name,
     const string& code_text,
     vector<pair<size_t, size_t>> line_seps
-  ) : 
+  ) :
       file_name(file_name),
-      code(code_text), 
-      line_seps(line_seps), 
+      code(code_text),
+      line_seps(line_seps),
       curr_pos(0) {
   }
 
@@ -122,18 +122,19 @@ public:
   string label_cur_line(
     int start = -1
   ) {
-    string output ("\n");
+    string output("\n");
 
-    if (start < 0) start = curr_pos;
+    if (start < 0)
+      start = curr_pos;
 
     size_t lindex = find_line_index(start);
     size_t offset = curr_pos - line_seps[lindex].first;
 
     output += "File \"" + file_name + "\", Line " + std::to_string(lindex) + ":\n\n";
     output += code.substr(line_seps[lindex].first, line_seps[lindex].second) + "\n";
-    output += std::string(offset, ' ') 
-      + std::string(line_seps[lindex].second - offset, '^') 
-      + "\n";
+    output += std::string(offset, ' ')
+              + std::string(line_seps[lindex].second - offset, '^')
+              + "\n";
 
     return output;
   }
@@ -511,8 +512,11 @@ parse_size_of(shared_ptr<StyioContext> context);
 /*
   parse_call
 */
-unique_ptr<StyioAST>
-parse_call(shared_ptr<StyioContext> context);
+unique_ptr<CallAST>
+parse_call(
+  shared_ptr<StyioContext> context, 
+  unique_ptr<IdAST> func_name
+);
 
 /*
   parse_bin_rhs

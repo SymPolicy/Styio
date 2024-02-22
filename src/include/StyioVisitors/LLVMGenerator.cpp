@@ -139,10 +139,21 @@ StyioToLLVM::print_type_checking(shared_ptr<StyioAST> program) {
   std::cout << program->toString() << std::endl;
 }
 
-int
-StyioToLLVM::run_llvm_ir(shared_ptr<MainBlockAST> program) {
-  this->toLLVMIR(program.get());
+void
+StyioToLLVM::print_llvm_ir() {
+  std::cout << "\n"
+            << "\033[1;32mLLVM IR\033[0m"
+            << "\n"
+            << std::endl;
 
+  /* llvm ir -> stdout */
+  llvm_module->print(llvm::outs(), nullptr);
+  /* llvm ir -> stderr */
+  // llvm_module -> print(llvm::errs(), nullptr);
+}
+
+void
+StyioToLLVM::print_test_results() {
   std::error_code EC;
   llvm::raw_fd_ostream output_stream(
     "output.ll",
@@ -155,20 +166,7 @@ StyioToLLVM::run_llvm_ir(shared_ptr<MainBlockAST> program) {
   /* write to current_work_directory/output.ll */
   llvm_module->print(output_stream, nullptr);
 
-  return std::system("lli output.ll");
-}
-
-void
-StyioToLLVM::print_llvm_ir(int lli_result) {
-  std::cout << "\n"
-            << "\033[1;32mLLVM IR\033[0m"
-            << "\n"
-            << std::endl;
-
-  /* llvm ir -> stdout */
-  llvm_module->print(llvm::outs(), nullptr);
-  /* llvm ir -> stderr */
-  // llvm_module -> print(llvm::errs(), nullptr);
+  int lli_result = std::system("lli output.ll");
 
   string verifyModule_msg;
 

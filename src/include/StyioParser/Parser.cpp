@@ -560,15 +560,18 @@ unique_ptr<StyioAST>
 parse_id_or_value(shared_ptr<StyioContext> context) {
   unique_ptr<StyioAST> output;
 
-  if (isalpha(context->get_curr_char()) || context->check('_')) {
-    output = parse_id(context);
-  }
+  if (context->check_isalnum_()) {
+    auto id = parse_id(context);
 
-  if (context->check('[')) {
-    output = parse_list_op(context, std::move(output));
-  }
-  else if (context->check('(')) {
-    output = parse_call(context);
+    if (context->check('[')) {
+      output = parse_list_op(context, std::move(id));
+    }
+    else if (context->check('(')) {
+      output = parse_call(context, std::move(id));
+    }
+    else {
+      output = std::move(id);
+    }
   }
 
   context->drop_all_spaces_comments();
@@ -645,7 +648,9 @@ parse_item_for_binop(shared_ptr<StyioContext> context) {
 }
 
 unique_ptr<StyioAST>
-parse_expr(shared_ptr<StyioContext> context) {
+parse_expr(
+  shared_ptr<StyioContext> context
+) {
   unique_ptr<StyioAST> output;
 
   if (isalpha(context->get_curr_char()) || context->check('_')) {
@@ -659,7 +664,7 @@ parse_expr(shared_ptr<StyioContext> context) {
 
     return output;
   }
-  else if (isdigit(context->get_curr_char())) {
+  else if (context->check_isdigit()) {
     output = parse_int_or_float(context);
 
     context->drop_all_spaces_comments();
@@ -1000,9 +1005,27 @@ parse_size_of(shared_ptr<StyioContext> context) {
   Invoke / Call
 */
 
-unique_ptr<StyioAST>
-parse_call(shared_ptr<StyioContext> context) {
-  return make_unique<NoneAST>();
+unique_ptr<CallAST>
+parse_call(
+  shared_ptr<StyioContext> context,
+  unique_ptr<IdAST> func_name
+) {
+  context->check_drop_panic('(');
+
+  vector<unique_ptr<StyioAST>> exprs;
+
+  while (not context->check(')')) {
+    exprs.push_back(parse_expr(context));
+    context->find_drop(',');
+    context->drop_all_spaces_comments();
+  }
+
+  context->check_drop_panic(')');
+
+  return make_unique<CallAST>(
+    std::move(func_name),
+    std::move(exprs)
+  );
 }
 
 /*
@@ -2203,11 +2226,20 @@ parse_stmt(
 ) {
   context->drop_all_spaces_comments();
 
-  if (isalpha(context->get_curr_char()) || context->check('_')) {
+  if (context->check_isal_()) {
     unique_ptr<IdAST> id_ast = parse_id(context);
 
-    if (context->check('[')) {
-      return parse_list_op(context, std::move(id_ast));
+    switch (context->get_curr_char()) {
+      case '[': {
+        return parse_list_op(context, std::move(id_ast));
+      } break;
+
+      case '(': {
+        return parse_call(context, std::move(id_ast));
+      } break;
+
+      default:
+        break;
     }
 
     context->drop_all_spaces_comments();

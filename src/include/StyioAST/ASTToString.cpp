@@ -460,7 +460,19 @@ CondAST::toStringInline(int indent, bool colorful) {
 
 string
 CallAST::toString(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + " { }";
+  string paramStr;
+
+  for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Params.begin();
+       it != Params.end();
+       ++it) {
+    paramStr += make_padding(indent, " ");
+    paramStr += (*it)->toStringInline();
+    if (it != (Params.end() - 1)) {
+      paramStr += "\n";
+    }
+  }
+
+  return reprNodeType(hint(), colorful, " ") + "{" + "\n" + paramStr + "}";
 }
 
 string

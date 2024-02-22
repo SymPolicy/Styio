@@ -176,17 +176,18 @@ main(
       print_ast(styio_program);
     }
 
-    auto generator = StyioToLLVM();
+    StyioToLLVM generator = StyioToLLVM();
     generator.check(styio_program.get());
 
     if (show_type_checking) {
       generator.print_type_checking(styio_program);
     }
 
-    int lli_result = generator.run_llvm_ir(styio_program);
+    generator.toLLVMIR(styio_program.get());
 
     if (show_ir) {
-      generator.print_llvm_ir(lli_result);
+      generator.print_llvm_ir();
+      generator.print_test_results();
     }
   }
 
