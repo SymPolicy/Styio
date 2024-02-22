@@ -7,6 +7,9 @@
 std::string
 reprDataType(StyioDataType dtype) {
   switch (dtype) {
+    case StyioDataType::undefined:
+      return std::string("default");
+
     case StyioDataType::i32:
       return std::string("i32");
 
@@ -15,9 +18,6 @@ reprDataType(StyioDataType dtype) {
 
     case StyioDataType::f64:
       return std::string("f64");
-
-    case StyioDataType::str:
-      return std::string("str");
 
     default:
       return std::string("dtype");
@@ -1114,7 +1114,7 @@ reprNodeType(StyioNodeHint type, bool colorful, std::string extra) {
     break;
 
     default:
-      output = std::string("Styio[Unknown]");
+      output = std::string("!{UnknownAST}");
 
       break;
   }

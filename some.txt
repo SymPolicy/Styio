@@ -1,0 +1,12 @@
+# Show IR
+styio -if /root/Styio/tests/codegen/binding/flexible/00000003.styio
+
+# Copy and Paste to tests/handcraft.ll
+# Then:
+/usr/bin/lli tests/handcraft.ll
+
+# Compile C Code to LLVM IR (for sample.c):
+clang -emit-llvm -c -S sample.c
+
+# Run sample.ll:
+lli sample.ll

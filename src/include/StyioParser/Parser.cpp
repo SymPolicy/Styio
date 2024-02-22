@@ -45,7 +45,7 @@ parse_id(shared_ptr<StyioContext> context) {
   string name = "";
   /* it will include cur_char in the id without checking */
   do {
-    name += context->get_cur_char();
+    name += context->get_curr_char();
     context->move(1);
   } while (context->check_isalnum_());
 
@@ -58,7 +58,7 @@ parse_int(shared_ptr<StyioContext> context) {
 
   /* it will include cur_char in the digits without checking */
   do {
-    digits += context->get_cur_char();
+    digits += context->get_curr_char();
     context->move(1);
   } while (context->check_isdigit());
 
@@ -70,7 +70,7 @@ parse_int_or_float(shared_ptr<StyioContext> context) {
   string digits = "";
   /* it will include cur_char in the digits without checking */
   do {
-    digits += context->get_cur_char();
+    digits += context->get_curr_char();
     context->move(1);
   } while (context->check_isdigit());
 
@@ -80,7 +80,7 @@ parse_int_or_float(shared_ptr<StyioContext> context) {
       digits += ".";
       context->move(1); /* cur_char moves from . to the next */
       do {
-        digits += context->get_cur_char();
+        digits += context->get_curr_char();
         context->move(1);
         // f_exp += 1;
       } while (context->check_isdigit());
@@ -100,7 +100,7 @@ parse_string(shared_ptr<StyioContext> context) {
   /*
     Danger!
     when entering parse_string(),
-    the context -> get_cur_char() must be "
+    the context -> get_curr_char() must be "
     this line will drop the next 1 character anyway!
   */
   context->move(1);
@@ -108,7 +108,7 @@ parse_string(shared_ptr<StyioContext> context) {
   string textStr = "";
 
   while (not context->check('\"')) {
-    textStr += context->get_cur_char();
+    textStr += context->get_curr_char();
     context->move(1);
   }
 
@@ -123,14 +123,14 @@ parse_char_or_string(shared_ptr<StyioContext> context) {
   /*
     Danger!
     when entering parse_char_or_string(),
-    the context -> get_cur_char() must be '
+    the context -> get_curr_char() must be '
     this line will drop the next 1 character anyway!
   */
   context->move(1);
   string text = "";
 
   while (not context->check('\'')) {
-    text += context->get_cur_char();
+    text += context->get_curr_char();
     context->move(1);
   }
 
@@ -150,7 +150,7 @@ parse_fmt_str(shared_ptr<StyioContext> context) {
   /*
     Danger!
     when entering parse_fmt_str(),
-    the context -> get_cur_char() must be "
+    the context -> get_curr_char() must be "
     this line will drop the next 1 character anyway!
   */
   context->move(1);
@@ -162,7 +162,7 @@ parse_fmt_str(shared_ptr<StyioContext> context) {
   while (not context->check('\"')) {
     if (context->check('{')) {
       if (context->peak_check(1, '{')) {
-        textStr += context->get_cur_char();
+        textStr += context->get_curr_char();
         context->move(2);
       }
       else {
@@ -178,16 +178,16 @@ parse_fmt_str(shared_ptr<StyioContext> context) {
     }
     else if (context->check('}')) {
       if (context->peak_check(1, '}')) {
-        textStr += context->get_cur_char();
+        textStr += context->get_curr_char();
         context->move(2);
       }
       else {
-        string errmsg = string("Expecting: ") + "}" + "\n" + "But Got: " + context->get_cur_char();
+        string errmsg = string("Expecting: ") + "}" + "\n" + "But Got: " + context->get_curr_char();
         throw StyioSyntaxError(errmsg);
       }
     }
     else {
-      textStr += context->get_cur_char();
+      textStr += context->get_curr_char();
       context->move(1);
     }
   }
@@ -206,7 +206,7 @@ parse_path(shared_ptr<StyioContext> context) {
   string text = "";
 
   while (not context->check('"')) {
-    text += context->get_cur_char();
+    text += context->get_curr_char();
     context->move(1);
   }
 
@@ -258,12 +258,12 @@ parse_dtype(shared_ptr<StyioContext> context) {
   string text = "";
 
   if (context->check_isal_()) {
-    text += context->get_cur_char();
+    text += context->get_curr_char();
     context->move(1);
   }
 
   while (context->check_isalnum_()) {
-    text += context->get_cur_char();
+    text += context->get_curr_char();
     context->move(1);
   }
 
@@ -282,7 +282,7 @@ parse_argument(shared_ptr<StyioContext> context) {
   string name = "";
   /* it includes cur_char in the name without checking */
   do {
-    name += context->get_cur_char();
+    name += context->get_curr_char();
     context->move(1);
   } while (context->check_isalnum_());
 
@@ -358,7 +358,7 @@ parse_resources(
   /*
     Danger!
     when entering parse_resources(),
-    the context -> get_cur_char() must be @
+    the context -> get_curr_char() must be @
     this line will drop the next 1 character anyway!
   */
   context->move(1);
@@ -379,8 +379,10 @@ parse_resources(
 
         resources.push_back(
           make_unique<FinalBindAST>(
-            std::move(varname), 
-            parse_num_val(context)));
+            std::move(varname),
+            parse_num_val(context)
+          )
+        );
       }
 
     } while (context->check_drop(','));
@@ -390,7 +392,7 @@ parse_resources(
     output = make_unique<ResourceAST>(std::move(resources));
   }
   else {
-    string errmsg = string("@(expr) // Expecting ( after @, but got ") + char(context->get_cur_char()) + "";
+    string errmsg = string("@(expr) // Expecting ( after @, but got ") + char(context->get_curr_char()) + "";
     throw StyioSyntaxError(errmsg);
   }
 
@@ -413,7 +415,7 @@ parse_item_for_cond(shared_ptr<StyioContext> context) {
 
   context->drop_all_spaces();
 
-  switch (context->get_cur_char()) {
+  switch (context->get_curr_char()) {
     case '=': {
       context->move(1);
 
@@ -558,15 +560,18 @@ unique_ptr<StyioAST>
 parse_id_or_value(shared_ptr<StyioContext> context) {
   unique_ptr<StyioAST> output;
 
-  if (isalpha(context->get_cur_char()) || context->check('_')) {
-    output = parse_id(context);
-  }
+  if (context->check_isalnum_()) {
+    auto id = parse_id(context);
 
-  if (context->check('[')) {
-    output = parse_list_op(context, std::move(output));
-  }
-  else if (context->check('(')) {
-    output = parse_call(context);
+    if (context->check('[')) {
+      output = parse_list_op(context, std::move(id));
+    }
+    else if (context->check('(')) {
+      output = parse_call(context, std::move(id));
+    }
+    else {
+      output = std::move(id);
+    }
   }
 
   context->drop_all_spaces_comments();
@@ -582,17 +587,17 @@ unique_ptr<StyioAST>
 parse_num_val(shared_ptr<StyioContext> context) {
   unique_ptr<StyioAST> output;
 
-  if (isalpha(context->get_cur_char()) || context->check('_')) {
+  if (isalpha(context->get_curr_char()) || context->check('_')) {
     return parse_id_or_value(context);
   }
-  else if (isdigit(context->get_cur_char())) {
+  else if (isdigit(context->get_curr_char())) {
     return parse_int_or_float(context);
   }
   else if (context->check('|')) {
     return parse_size_of(context);
   }
 
-  string errmsg = string("parse_num_val() // Unexpected value expression, starting with ") + char(context->get_cur_char());
+  string errmsg = string("parse_num_val() // Unexpected value expression, starting with ") + char(context->get_curr_char());
   throw StyioParseError(errmsg);
 }
 
@@ -607,7 +612,7 @@ parse_item_for_binop(shared_ptr<StyioContext> context) {
     return parse_int_or_float(context);
   }
 
-  switch (context->get_cur_char()) {
+  switch (context->get_curr_char()) {
     case '\"':
       return parse_string(context);
 
@@ -643,10 +648,12 @@ parse_item_for_binop(shared_ptr<StyioContext> context) {
 }
 
 unique_ptr<StyioAST>
-parse_expr(shared_ptr<StyioContext> context) {
+parse_expr(
+  shared_ptr<StyioContext> context
+) {
   unique_ptr<StyioAST> output;
 
-  if (isalpha(context->get_cur_char()) || context->check('_')) {
+  if (isalpha(context->get_curr_char()) || context->check('_')) {
     output = parse_id(context);
 
     context->drop_all_spaces_comments();
@@ -657,7 +664,7 @@ parse_expr(shared_ptr<StyioContext> context) {
 
     return output;
   }
-  else if (isdigit(context->get_cur_char())) {
+  else if (context->check_isdigit()) {
     output = parse_int_or_float(context);
 
     context->drop_all_spaces_comments();
@@ -669,7 +676,7 @@ parse_expr(shared_ptr<StyioContext> context) {
     return output;
   }
 
-  switch (context->get_cur_char()) {
+  switch (context->get_curr_char()) {
     case '\'': {
       return parse_char_or_string(context);
     }
@@ -757,7 +764,7 @@ parse_tuple(shared_ptr<StyioContext> context) {
   /*
     Danger!
     when entering parse_tuple(),
-    the context -> get_cur_char() must be (
+    the context -> get_curr_char() must be (
     this line will drop the next 1 character anyway!
   */
   context->move(1);
@@ -791,7 +798,7 @@ parse_list(shared_ptr<StyioContext> context) {
   /*
     Danger!
     when entering parse_list(),
-    the context -> get_cur_char() must be [
+    the context -> get_curr_char() must be [
     this line will drop the next 1 character anyway!
   */
   context->move(1);
@@ -825,7 +832,7 @@ parse_set(shared_ptr<StyioContext> context) {
   /*
     Danger!
     when entering parse_set(),
-    the context -> get_cur_char() must be {
+    the context -> get_curr_char() must be {
     this line will drop the next 1 character anyway!
   */
   context->move(1);
@@ -856,7 +863,7 @@ unique_ptr<StyioAST>
 parse_iterable(shared_ptr<StyioContext> context) {
   unique_ptr<StyioAST> output = make_unique<EmptyAST>();
 
-  if (isalpha(context->get_cur_char()) || context->check('_')) {
+  if (isalpha(context->get_curr_char()) || context->check('_')) {
     output = parse_id(context);
 
     context->drop_all_spaces_comments();
@@ -868,7 +875,7 @@ parse_iterable(shared_ptr<StyioContext> context) {
     return output;
   }
   else {
-    switch (context->get_cur_char()) {
+    switch (context->get_curr_char()) {
       case '(': {
         context->move(1);
 
@@ -972,7 +979,7 @@ parse_size_of(shared_ptr<StyioContext> context) {
   // eliminate | at the start
   context->move(1);
 
-  if (isalpha(context->get_cur_char()) || context->check('_')) {
+  if (isalpha(context->get_curr_char()) || context->check('_')) {
     unique_ptr<StyioAST> var = parse_id_or_value(context);
 
     // eliminate | at the end
@@ -982,12 +989,12 @@ parse_size_of(shared_ptr<StyioContext> context) {
       output = make_unique<SizeOfAST>(std::move(var));
     }
     else {
-      string errmsg = string("|expr| // SizeOf: Expecting | at the end, but got .:| ") + char(context->get_cur_char()) + " |:.";
+      string errmsg = string("|expr| // SizeOf: Expecting | at the end, but got .:| ") + char(context->get_curr_char()) + " |:.";
       throw StyioSyntaxError(errmsg);
     }
   }
   else {
-    string errmsg = string("|expr| // SizeOf: Unexpected expression, starting with .:| ") + char(context->get_cur_char()) + " |:.";
+    string errmsg = string("|expr| // SizeOf: Unexpected expression, starting with .:| ") + char(context->get_curr_char()) + " |:.";
     throw StyioParseError(errmsg);
   }
 
@@ -998,9 +1005,27 @@ parse_size_of(shared_ptr<StyioContext> context) {
   Invoke / Call
 */
 
-unique_ptr<StyioAST>
-parse_call(shared_ptr<StyioContext> context) {
-  return make_unique<NoneAST>();
+unique_ptr<CallAST>
+parse_call(
+  shared_ptr<StyioContext> context,
+  unique_ptr<IdAST> func_name
+) {
+  context->check_drop_panic('(');
+
+  vector<unique_ptr<StyioAST>> exprs;
+
+  while (not context->check(')')) {
+    exprs.push_back(parse_expr(context));
+    context->find_drop(',');
+    context->drop_all_spaces_comments();
+  }
+
+  context->check_drop_panic(')');
+
+  return make_unique<CallAST>(
+    std::move(func_name),
+    std::move(exprs)
+  );
 }
 
 /*
@@ -1038,24 +1063,24 @@ parse_list_op(shared_ptr<StyioContext> context, unique_ptr<StyioAST> theList) {
   /*
     Danger!
     when entering parse_list_op(),
-    the context -> get_cur_char() must be [
+    the context -> get_curr_char() must be [
     this line will drop the next 1 character anyway!
   */
   context->move(1);
 
   do {
-    if (isalpha(context->get_cur_char()) || context->check('_')) {
+    if (isalpha(context->get_curr_char()) || context->check('_')) {
       output = make_unique<ListOpAST>(
         StyioNodeHint::Access, std::move(theList), parse_id_or_value(context)
       );
     }
-    else if (isdigit(context->get_cur_char())) {
+    else if (isdigit(context->get_curr_char())) {
       output = make_unique<ListOpAST>(
         StyioNodeHint::Access_By_Index, std::move(theList), parse_int(context)
       );
     }
     else {
-      switch (context->get_cur_char()) {
+      switch (context->get_curr_char()) {
         /*
           list["any"]
         */
@@ -1097,7 +1122,7 @@ parse_list_op(shared_ptr<StyioContext> context, unique_ptr<StyioAST> theList) {
             output = make_unique<ListOpAST>(StyioNodeHint::Get_Indices_By_Many_Values, std::move(theList), parse_iterable(context));
           }
           else {
-            string errmsg = string("Expecting ?= or ?^, but got ") + char(context->get_cur_char());
+            string errmsg = string("Expecting ?= or ?^, but got ") + char(context->get_curr_char());
             throw StyioSyntaxError(errmsg);
           }
         }
@@ -1169,7 +1194,7 @@ parse_list_op(shared_ptr<StyioContext> context, unique_ptr<StyioAST> theList) {
           if (context->check_drop('^')) {
             context->drop_white_spaces();
 
-            if (isdigit(context->get_cur_char())) {
+            if (isdigit(context->get_curr_char())) {
               output = make_unique<ListOpAST>(StyioNodeHint::Remove_Item_By_Index, std::move(theList), std::move(parse_int(context)));
             }
             else {
@@ -1184,7 +1209,7 @@ parse_list_op(shared_ptr<StyioContext> context, unique_ptr<StyioAST> theList) {
             }
           }
           else if (context->check_drop('?')) {
-            switch (context->get_cur_char()) {
+            switch (context->get_curr_char()) {
               /*
                 list[-: ?= value]
               */
@@ -1235,7 +1260,7 @@ parse_list_op(shared_ptr<StyioContext> context, unique_ptr<StyioAST> theList) {
         break;
 
         default: {
-          string errmsg = string("Unexpected List[Operation], starts with ") + char(context->get_cur_char());
+          string errmsg = string("Unexpected List[Operation], starts with ") + char(context->get_curr_char());
           throw StyioSyntaxError(errmsg);
         }
 
@@ -1362,7 +1387,7 @@ unique_ptr<BinOpAST>
 parse_binop_rhs(shared_ptr<StyioContext> context, shared_ptr<StyioAST> lhs_ast) {
   unique_ptr<BinOpAST> output;
 
-  switch (context->get_cur_char()) {
+  switch (context->get_curr_char()) {
     // Bin_Add := <ID> "+" <EXPR>
     case '+': {
       context->move(1);
@@ -1465,7 +1490,7 @@ parse_binop_rhs(shared_ptr<StyioContext> context, shared_ptr<StyioAST> lhs_ast) 
       break;
 
     default:
-      string errmsg = string("Unexpected BinOp.Operator: `") + char(context->get_cur_char()) + "`.";
+      string errmsg = string("Unexpected BinOp.Operator: `") + char(context->get_curr_char()) + "`.";
       throw StyioSyntaxError(errmsg);
 
       // You should NOT reach this line!
@@ -1489,7 +1514,7 @@ parse_cond_rhs(shared_ptr<StyioContext> context, unique_ptr<StyioAST> lhsExpr) {
 
   context->drop_all_spaces();
 
-  switch (context->get_cur_char()) {
+  switch (context->get_curr_char()) {
     case '&': {
       context->move(1);
 
@@ -1617,7 +1642,7 @@ parse_cond(shared_ptr<StyioContext> context) {
       return make_unique<CondAST>(LogicType::NOT, std::move(lhsExpr));
     }
     else {
-      string errmsg = string("!(expr) // Expecting ( after !, but got ") + char(context->get_cur_char());
+      string errmsg = string("!(expr) // Expecting ( after !, but got ") + char(context->get_curr_char());
       throw StyioSyntaxError(errmsg);
     };
   }
@@ -1635,7 +1660,7 @@ parse_cond(shared_ptr<StyioContext> context) {
     return make_unique<CondAST>(LogicType::RAW, std::move(lhsExpr));
   }
 
-  string errmsg = string("parse_cond() : You should not reach this line!") + char(context->get_cur_char());
+  string errmsg = string("parse_cond() : You should not reach this line!") + char(context->get_curr_char());
   throw StyioParseError(errmsg);
 }
 
@@ -1644,7 +1669,7 @@ parse_cond_flow(shared_ptr<StyioContext> context) {
   /*
     Danger!
     when entering parse_cond_flow(),
-    the context -> get_cur_char() must be ?
+    the context -> get_curr_char() must be ?
     this line will drop the next 1 character anyway!
   */
   context->move(1);
@@ -1724,7 +1749,7 @@ parse_cond_flow(shared_ptr<StyioContext> context) {
         return make_unique<CondFlowAST>(StyioNodeHint::CondFlow_False, std::move(condition), std::move(block));
       }
       else {
-        string errmsg = string("parse_cond_flow() // Unexpected character ") + context->get_cur_char();
+        string errmsg = string("parse_cond_flow() // Unexpected character ") + context->get_curr_char();
         throw StyioSyntaxError(errmsg);
       }
     }
@@ -1734,12 +1759,7 @@ parse_cond_flow(shared_ptr<StyioContext> context) {
     throw StyioSyntaxError(errmsg);
   }
 
-  string errmsg = string(
-                    "parse_cond_flow()\n"
-                    "Can't match the following:\n"
-                  )
-                  + context->label_cur_line();
-  throw StyioParseError(errmsg);
+  throw StyioSyntaxError(context->label_cur_line(), string("Invalid Syntax"));
 }
 
 unique_ptr<StyioAST>
@@ -1758,7 +1778,9 @@ parse_func(shared_ptr<StyioContext> context) {
         context->drop_all_spaces();
 
         return make_unique<FuncAST>(
-          std::move(name), parse_forward(context, true), true
+          std::move(name),
+          parse_forward(context, true),
+          true
         );
       }
       else {
@@ -1832,7 +1854,7 @@ parse_forward(shared_ptr<StyioContext> context, bool is_func) {
       has_args = true;
     }
     else {
-      string errmsg = string("parse_forward() // Expecting ( after #, but got ") + char(context->get_cur_char());
+      string errmsg = string("parse_forward() // Expecting ( after #, but got ") + char(context->get_curr_char());
       throw StyioSyntaxError(errmsg);
     }
   }
@@ -1855,11 +1877,11 @@ parse_forward(shared_ptr<StyioContext> context, bool is_func) {
     =>
 
   */
-  switch (context->get_cur_char()) {
+  switch (context->get_curr_char()) {
     case '?': {
       context->move(1);
 
-      switch (context->get_cur_char()) {
+      switch (context->get_curr_char()) {
         /*
           ?= value
         */
@@ -1913,7 +1935,7 @@ parse_forward(shared_ptr<StyioContext> context, bool is_func) {
                                 "parse_forward() // Expecting `=>` after `?= "
                                 "value`, but got "
                               )
-                              + char(context->get_cur_char());
+                              + char(context->get_curr_char());
               throw StyioSyntaxError(errmsg);
             }
           }
@@ -1932,7 +1954,7 @@ parse_forward(shared_ptr<StyioContext> context, bool is_func) {
 
           context->drop_white_spaces();
 
-          switch (context->get_cur_char()) {
+          switch (context->get_curr_char()) {
             case '(': {
               context->move(1);
 
@@ -1996,7 +2018,7 @@ parse_forward(shared_ptr<StyioContext> context, bool is_func) {
             } break;
 
             default: {
-              if (isalpha(context->get_cur_char()) || context->check('_')) {
+              if (isalpha(context->get_curr_char()) || context->check('_')) {
                 iterable = parse_id_or_value(context);
               }
               else {
@@ -2004,7 +2026,7 @@ parse_forward(shared_ptr<StyioContext> context, bool is_func) {
                                   "parse_forward() // Unexpected collection, "
                                   "starting with "
                                 )
-                                + char(context->get_cur_char());
+                                + char(context->get_curr_char());
                 throw StyioSyntaxError(errmsg);
               }
             } break;
@@ -2041,7 +2063,7 @@ parse_forward(shared_ptr<StyioContext> context, bool is_func) {
                               "parse_forward() // Expecting `=>` after `?^ "
                               "iterable`, but got "
                             )
-                            + char(context->get_cur_char());
+                            + char(context->get_curr_char());
             throw StyioSyntaxError(errmsg);
           }
         }
@@ -2115,7 +2137,7 @@ parse_forward(shared_ptr<StyioContext> context, bool is_func) {
     } break;
 
     default:
-      string errmsg = string("parse_forward() // Unexpected character ") + char(context->get_cur_char());
+      string errmsg = string("parse_forward() // Unexpected character ") + char(context->get_curr_char());
       throw StyioSyntaxError(errmsg);
 
       break;
@@ -2137,12 +2159,12 @@ parse_read_file(shared_ptr<StyioContext> context, unique_ptr<IdAST> id_ast) {
       return make_unique<ReadFileAST>(std::move(id_ast), std::move(path));
     }
     else {
-      string errmsg = string("Expecting id or string, but got ` ") + char(context->get_cur_char()) + " `";
+      string errmsg = string("Expecting id or string, but got ` ") + char(context->get_curr_char()) + " `";
       throw StyioSyntaxError(errmsg);
     }
   }
   else {
-    string errmsg = string("parse_read_file() // Expecting @ as first character but got ` ") + char(context->get_cur_char()) + " `";
+    string errmsg = string("parse_read_file() // Expecting @ as first character but got ` ") + char(context->get_curr_char()) + " `";
     throw StyioSyntaxError(errmsg);
   }
 }
@@ -2204,11 +2226,20 @@ parse_stmt(
 ) {
   context->drop_all_spaces_comments();
 
-  if (isalpha(context->get_cur_char()) || context->check('_')) {
+  if (context->check_isal_()) {
     unique_ptr<IdAST> id_ast = parse_id(context);
 
-    if (context->check('[')) {
-      return parse_list_op(context, std::move(id_ast));
+    switch (context->get_curr_char()) {
+      case '[': {
+        return parse_list_op(context, std::move(id_ast));
+      } break;
+
+      case '(': {
+        return parse_call(context, std::move(id_ast));
+      } break;
+
+      default:
+        break;
     }
 
     context->drop_all_spaces_comments();
@@ -2217,7 +2248,7 @@ parse_stmt(
       return parse_binop_rhs(context, std::move(id_ast));
     }
 
-    switch (context->get_cur_char()) {
+    switch (context->get_curr_char()) {
       case '=': {
         context->move(1);
 
@@ -2257,7 +2288,7 @@ parse_stmt(
             return make_unique<FlexBindAST>(std::move(id_ast), std::move(parse_expr(context)));
           }
           else {
-            string errmsg = string("parse_stmt() // Expecting = or := after type, but got ") + context->get_cur_char();
+            string errmsg = string("parse_stmt() // Expecting = or := after type, but got ") + context->get_curr_char();
             throw StyioSyntaxError(errmsg);
           }
         }
@@ -2275,7 +2306,7 @@ parse_stmt(
           return parse_read_file(context, std::move(id_ast));
         }
         else {
-          string errmsg = string("Expecting `-` after `<`, but found `") + char(context->get_cur_char()) + "`.";
+          string errmsg = string("Expecting `-` after `<`, but found `") + char(context->get_curr_char()) + "`.";
           throw StyioSyntaxError(errmsg);
         }
       }
@@ -2300,7 +2331,7 @@ parse_stmt(
     }
   }
   // Int / Float
-  else if (isdigit(context->get_cur_char())) {
+  else if (isdigit(context->get_curr_char())) {
     unique_ptr<StyioAST> numAST = parse_int_or_float(context);
 
     context->drop_all_spaces_comments();
@@ -2317,7 +2348,7 @@ parse_stmt(
     return parse_print(context);
   }
 
-  switch (context->get_cur_char()) {
+  switch (context->get_curr_char()) {
     case EOF:
       return make_unique<EOFAST>();
 
@@ -2415,7 +2446,7 @@ parse_stmt(
         return make_unique<ReturnAST>(parse_expr(context));
       }
       else {
-        string errmsg = string("parse_stmt() // =") + context->get_cur_char();
+        string errmsg = string("parse_stmt() // =") + context->get_curr_char();
         throw StyioSyntaxError(errmsg);
       }
     }
@@ -2427,7 +2458,7 @@ parse_stmt(
       break;
   }
 
-  string errmsg = string("Unrecognized statement, starting with `") + char(context->get_cur_char()) + "`";
+  string errmsg = string("Unrecognized statement, starting with `") + char(context->get_curr_char()) + "`";
   throw StyioSyntaxError(errmsg);
 }
 
@@ -2439,13 +2470,13 @@ parse_ext_elem(shared_ptr<StyioContext> context) {
     // eliminate double quote symbol " at the start of dependency item
     context->move(1);
 
-    while (context->get_cur_char() != '\"') {
+    while (context->get_curr_char() != '\"') {
       if (context->check(',')) {
         string errmsg = string("An \" was expected after") + itemStr + "however, a delimeter `,` was detected. ";
         throw StyioSyntaxError(errmsg);
       }
 
-      itemStr += context->get_cur_char();
+      itemStr += context->get_curr_char();
 
       context->move(1);
     };
@@ -2460,7 +2491,7 @@ parse_ext_elem(shared_ptr<StyioContext> context) {
                       "Dependencies should be wrapped with double quote like "
                       "\"abc/xyz\", rather than starting with the character `"
                     )
-                    + char(context->get_cur_char()) + "`";
+                    + char(context->get_curr_char()) + "`";
     throw StyioSyntaxError(errmsg);
   };
 }
@@ -2509,7 +2540,7 @@ parse_cases(shared_ptr<StyioContext> context) {
 
   /*
     Danger!
-    the context -> get_cur_char() must be {
+    the context -> get_curr_char() must be {
     this line will drop the next 1 character anyway!
   */
   context->move(1);
@@ -2565,7 +2596,7 @@ parse_block(shared_ptr<StyioContext> context) {
   /*
     Danger!
     when entering parse_block(),
-    the context -> get_cur_char() must be {
+    the context -> get_curr_char() must be {
     this line will drop the next 1 character anyway!
   */
   context->move(1);
@@ -2585,7 +2616,7 @@ parse_block(shared_ptr<StyioContext> context) {
     return make_unique<EmptyBlockAST>();
   }
   else {
-    return make_unique<SideBlockAST>(std::move(stmtBuffer));
+    return make_unique<BlockAST>(std::move(stmtBuffer));
   };
 }
 

@@ -1,1 +1,1 @@
-set -o pipefail;{ : 'RUN: at line 1';   /root/styio/styio /root/styio/test/parser/listop/00005.styio | /usr/bin/FileCheck /root/styio/test/parser/listop/00005.styio; }
+set -o pipefail;{ : 'RUN: at line 1';   /root/styio/styio /root/Styio/tests/parser/listop/00005.styio | /usr/bin/FileCheck /root/Styio/tests/parser/listop/00005.styio; }

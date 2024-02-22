@@ -1,5 +1,6 @@
 // [C++ STL]
 #include <algorithm>
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -7,14 +8,14 @@
 #include <iostream>
 #include <list>
 #include <map>
+#include <regex>
 #include <sstream>
 #include <string>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
-#include <vector>
-#include <regex>
 #include <utility>
+#include <vector>
 
 // [Styio]
 #include "include/StyioAST/AST.hpp"
@@ -24,19 +25,22 @@
 #include "include/StyioUtil/Util.hpp"
 
 // [LLVM]
+#include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/Error.h"
+#include "llvm/Support/FileSystem.h"
 
 // [Others]
 #include "include/Others/cxxopts.hpp" /* https://github.com/jarro2783/cxxopts */
 
-struct code
+struct tmp_code_wrap
 {
-  std::string text;
-  std::vector<std::pair<size_t, size_t>> linesep;
+  std::string code_text;
+  std::vector<std::pair<size_t, size_t>> line_seps;
 };
-
 
 void
 show_cwd() {
@@ -62,8 +66,8 @@ show_cwd() {
   l: total length of the code
   n: last line number
   p: current position
-  
-  p < (l / 2) 
+
+  p < (l / 2)
   then [0 ~ l/2]
   else [l/2 ~ l]
 
@@ -71,24 +75,25 @@ show_cwd() {
   that is: "\n\n"
 */
 
-code
+tmp_code_wrap
 read_styio_file(
-  const char* filename
+  std::string file_path
 ) {
   std::string text = "";
-  std::vector<std::pair<size_t, size_t>> linesep;
+  std::vector<std::pair<size_t, size_t>> lineseps;
 
-  if (std::filesystem::exists(filename)) {
-    std::ifstream file(filename);
+  const char* fpath_cstr = file_path.c_str();
+  if (std::filesystem::exists(fpath_cstr)) {
+    std::ifstream file(fpath_cstr);
     if (!file.is_open()) {
-      printf("Failed: Can't open file %s.\n", filename);
+      printf("Error: Can't open file %s.\n", fpath_cstr);
     }
-    
+
     size_t p = 0;
     std::string line;
     while (std::getline(file, line)) {
       text += line;
-      linesep.push_back(std::make_pair(p, line.size()));
+      lineseps.push_back(std::make_pair(p, line.size()));
       p += line.size();
 
       text.push_back('\n');
@@ -98,27 +103,26 @@ read_styio_file(
   }
   else {
     text = std::string("...");
-    printf("Failed: Can't read file %s.", filename);
+    printf("Error: File %s not found.", fpath_cstr);
   }
 
-  struct code result = {text, linesep};
+  struct tmp_code_wrap result = {text, lineseps};
   return result;
 }
 
 void
-show_code_with_linenum(code c) {
-  auto& text = c.text;
-  auto& linesep = c.linesep;
+show_code_with_linenum(tmp_code_wrap c) {
+  auto& code = c.code_text;
+  auto& lineseps = c.line_seps;
 
-  for (size_t i = 0; i < linesep.size(); i++)
-  {
-    std::string line = text.substr(linesep.at(i).first, linesep.at(i).second);
+  for (size_t i = 0; i < lineseps.size(); i++) {
+    std::string line = code.substr(lineseps.at(i).first, lineseps.at(i).second);
 
-    std::regex newline_regex ("\n");
+    std::regex newline_regex("\n");
     std::string replaced_text = std::regex_replace(line, newline_regex, "[NEWLINE]");
 
-    std::cout 
-      << "|" << i << "|-[" << linesep.at(i).first << ":" << (linesep.at(i).first + linesep.at(i).second) << "] "
+    std::cout
+      << "|" << i << "|-[" << lineseps.at(i).first << ":" << (lineseps.at(i).first + lineseps.at(i).second) << "] "
       << line << std::endl;
   }
 };
@@ -131,11 +135,13 @@ main(
   cxxopts::Options options("styio", "Styio Compiler");
 
   options.add_options()(
-    "f,file", "Source File Path", cxxopts::value<std::string>()
+    "f,file", "Take the given source file.", cxxopts::value<std::string>()
   )(
-    "a,ast", "Show Styio AST", cxxopts::value<bool>()->default_value("false")
+    "a,ast", "Show the AST", cxxopts::value<bool>()->default_value("false")
   )(
-    "i,ir", "Show LLVM IR", cxxopts::value<bool>()->default_value("false")
+    "c,check", "Show the AST after type checking.", cxxopts::value<bool>()->default_value("false")
+  )(
+    "i,ir", "Show LLVM IR.", cxxopts::value<bool>()->default_value("false")
   )(
     "h,help", "Show All Command-Line Options"
   );
@@ -148,28 +154,40 @@ main(
   }
 
   bool show_ast = cmlopts["ast"].as<bool>();
+  bool show_type_checking = cmlopts["check"].as<bool>();
   bool show_ir = cmlopts["ir"].as<bool>();
 
-  std::string fpath; /* File Path: fpath */
+  std::string fpath; /* File Path */
   if (cmlopts.count("file")) {
     fpath = cmlopts["file"].as<std::string>();
     // std::cout << fpath << std::endl;
 
-    auto styio_code = read_styio_file(fpath.c_str());
-    show_code_with_linenum(styio_code);
+    auto styio_code = read_styio_file(fpath);
+    // show_code_with_linenum(styio_code);
     auto styio_context = std::make_shared<StyioContext>(
-      styio_code.text,
-      styio_code.linesep);
+      fpath,
+      styio_code.code_text,
+      styio_code.line_seps
+    );
+
     auto styio_program = parse_main_block(styio_context);
 
     if (show_ast) {
-      show_program(styio_program);
+      print_ast(styio_program);
     }
 
+    StyioToLLVM generator = StyioToLLVM();
+    generator.check(styio_program.get());
+
+    if (show_type_checking) {
+      generator.print_type_checking(styio_program);
+    }
+
+    generator.toLLVMIR(styio_program.get());
+
     if (show_ir) {
-      auto generator = StyioToLLVM();
-      generator.toLLVM(&*styio_program);
-      generator.show();
+      generator.print_llvm_ir();
+      generator.print_test_results();
     }
   }
 

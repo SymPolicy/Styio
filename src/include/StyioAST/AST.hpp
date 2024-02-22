@@ -27,11 +27,14 @@ template <typename T>
 class Visitor<T>
 {
 public:
-  /* Check */
+  /* Type Checking */
   virtual void check(T* t) = 0;
 
+  /* Get LLVM Type */
+  virtual llvm::Type* getLLVMType(T* t) = 0;
+
   /* LLVM IR Generator */
-  virtual llvm::Value* toLLVM(T* t) = 0;
+  virtual llvm::Value* toLLVMIR(T* t) = 0;
 };
 
 template <typename T, typename... Types>
@@ -39,13 +42,17 @@ class Visitor<T, Types...> : public Visitor<Types...>
 {
 public:
   using Visitor<Types...>::check;
-  using Visitor<Types...>::toLLVM;
+  using Visitor<Types...>::getLLVMType;
+  using Visitor<Types...>::toLLVMIR;
 
-  /* Type Checker & Modifier */
+  /* Type Checking */
   virtual void check(T* t) = 0;
 
+  /* Get LLVM Type */
+  virtual llvm::Type* getLLVMType(T* t) = 0;
+
   /* LLVM IR Generator */
-  virtual llvm::Value* toLLVM(T* t) = 0;
+  virtual llvm::Value* toLLVMIR(T* t) = 0;
 };
 
 /* Forward Declaration */
@@ -199,7 +206,7 @@ class MatchCasesAST;
   - SideBlock
   - MainBlock
 */
-class SideBlockAST;
+class BlockAST;
 class MainBlockAST;
 
 /*
@@ -314,7 +321,7 @@ using StyioVisitor = Visitor<
   class CasesAST,
   class MatchCasesAST,
 
-  class SideBlockAST,
+  class BlockAST,
   class MainBlockAST,
 
   class ExtPackAST,
@@ -347,18 +354,26 @@ class StyioToLLVM : public StyioVisitor
 {
   unique_ptr<llvm::LLVMContext> llvm_context;
   unique_ptr<llvm::Module> llvm_module;
-  unique_ptr<llvm::IRBuilder<>> llvm_builder;
+  unique_ptr<llvm::IRBuilder<>> llvm_ir_builder;
+
+  std::unordered_map<string, llvm::AllocaInst*> mutable_variables; /* [FlexBind] */
+  std::unordered_map<string, llvm::Value*> named_values;           /* [FinalBind] Immutable Variables */
 
 public:
-  StyioToLLVM() {
-    llvm_context = make_unique<llvm::LLVMContext>();
-    llvm_module = make_unique<llvm::Module>("styio", *llvm_context);
-    llvm_builder = make_unique<llvm::IRBuilder<>>(*llvm_context);
+  StyioToLLVM() :
+      llvm_context(make_unique<llvm::LLVMContext>()),
+      llvm_module(make_unique<llvm::Module>("styio", *llvm_context)),
+      llvm_ir_builder(make_unique<llvm::IRBuilder<>>(*llvm_context)) {
   }
 
   ~StyioToLLVM() {}
 
-  /* Styio AST Type Checker & Modifier */
+  /* Utility Functions */
+  llvm::Type* matchType(string type);
+
+  llvm::AllocaInst* createAllocaFuncEntry(llvm::Function* TheFunction, llvm::StringRef VarName);
+
+  /* Styio AST Type Checker*/
 
   void check(BoolAST* ast);
 
@@ -446,7 +461,7 @@ public:
 
   void check(ExtPackAST* ast);
 
-  void check(SideBlockAST* ast);
+  void check(BlockAST* ast);
 
   void check(CasesAST* ast);
 
@@ -474,125 +489,243 @@ public:
 
   void check(MainBlockAST* ast);
 
-  /* Styio to LLVM IR Generator */
+  /* Get LLVM Type */
 
-  void show();
+  llvm::Type* getLLVMType(BoolAST* ast);
 
-  llvm::Type* match_type(string type);
+  llvm::Type* getLLVMType(NoneAST* ast);
 
-  llvm::Value* toLLVM(BoolAST* ast);
+  llvm::Type* getLLVMType(EOFAST* ast);
 
-  llvm::Value* toLLVM(NoneAST* ast);
+  llvm::Type* getLLVMType(EmptyAST* ast);
 
-  llvm::Value* toLLVM(EOFAST* ast);
+  llvm::Type* getLLVMType(EmptyBlockAST* ast);
 
-  llvm::Value* toLLVM(EmptyAST* ast);
+  llvm::Type* getLLVMType(PassAST* ast);
 
-  llvm::Value* toLLVM(EmptyBlockAST* ast);
+  llvm::Type* getLLVMType(BreakAST* ast);
 
-  llvm::Value* toLLVM(PassAST* ast);
+  llvm::Type* getLLVMType(ReturnAST* ast);
 
-  llvm::Value* toLLVM(BreakAST* ast);
+  llvm::Type* getLLVMType(CommentAST* ast);
 
-  llvm::Value* toLLVM(ReturnAST* ast);
+  llvm::Type* getLLVMType(IdAST* ast);
 
-  llvm::Value* toLLVM(CommentAST* ast);
+  llvm::Type* getLLVMType(VarAST* ast);
 
-  llvm::Value* toLLVM(IdAST* ast);
+  llvm::Type* getLLVMType(ArgAST* ast);
 
-  llvm::Value* toLLVM(VarAST* ast);
+  llvm::Type* getLLVMType(OptArgAST* ast);
 
-  llvm::Value* toLLVM(ArgAST* ast);
+  llvm::Type* getLLVMType(OptKwArgAST* ast);
 
-  llvm::Value* toLLVM(OptArgAST* ast);
+  llvm::Type* getLLVMType(VarTupleAST* ast);
 
-  llvm::Value* toLLVM(OptKwArgAST* ast);
+  llvm::Type* getLLVMType(DTypeAST* ast);
 
-  llvm::Value* toLLVM(VarTupleAST* ast);
+  llvm::Type* getLLVMType(IntAST* ast);
 
-  llvm::Value* toLLVM(DTypeAST* ast);
+  llvm::Type* getLLVMType(FloatAST* ast);
 
-  llvm::Value* toLLVM(IntAST* ast);
+  llvm::Type* getLLVMType(CharAST* ast);
 
-  llvm::Value* toLLVM(FloatAST* ast);
+  llvm::Type* getLLVMType(StringAST* ast);
 
-  llvm::Value* toLLVM(CharAST* ast);
+  llvm::Type* getLLVMType(TypeConvertAST* ast);
 
-  llvm::Value* toLLVM(StringAST* ast);
+  llvm::Type* getLLVMType(FmtStrAST* ast);
 
-  llvm::Value* toLLVM(TypeConvertAST* ast);
+  llvm::Type* getLLVMType(ListAST* ast);
 
-  llvm::Value* toLLVM(FmtStrAST* ast);
+  llvm::Type* getLLVMType(TupleAST* ast);
 
-  llvm::Value* toLLVM(ListAST* ast);
+  llvm::Type* getLLVMType(SetAST* ast);
 
-  llvm::Value* toLLVM(TupleAST* ast);
+  llvm::Type* getLLVMType(RangeAST* ast);
 
-  llvm::Value* toLLVM(SetAST* ast);
+  llvm::Type* getLLVMType(SizeOfAST* ast);
 
-  llvm::Value* toLLVM(RangeAST* ast);
+  llvm::Type* getLLVMType(BinOpAST* ast);
 
-  llvm::Value* toLLVM(SizeOfAST* ast);
+  llvm::Type* getLLVMType(BinCompAST* ast);
 
-  llvm::Value* toLLVM(BinOpAST* ast);
+  llvm::Type* getLLVMType(CondAST* ast);
 
-  llvm::Value* toLLVM(BinCompAST* ast);
+  llvm::Type* getLLVMType(CallAST* ast);
 
-  llvm::Value* toLLVM(CondAST* ast);
+  llvm::Type* getLLVMType(ListOpAST* ast);
 
-  llvm::Value* toLLVM(CallAST* ast);
+  llvm::Type* getLLVMType(ResourceAST* ast);
 
-  llvm::Value* toLLVM(ListOpAST* ast);
+  llvm::Type* getLLVMType(LocalPathAST* ast);
 
-  llvm::Value* toLLVM(ResourceAST* ast);
+  llvm::Type* getLLVMType(RemotePathAST* ast);
 
-  llvm::Value* toLLVM(LocalPathAST* ast);
+  llvm::Type* getLLVMType(WebUrlAST* ast);
 
-  llvm::Value* toLLVM(RemotePathAST* ast);
+  llvm::Type* getLLVMType(DBUrlAST* ast);
 
-  llvm::Value* toLLVM(WebUrlAST* ast);
+  llvm::Type* getLLVMType(FlexBindAST* ast);
 
-  llvm::Value* toLLVM(DBUrlAST* ast);
+  llvm::Type* getLLVMType(FinalBindAST* ast);
 
-  llvm::Value* toLLVM(FlexBindAST* ast);
+  llvm::Type* getLLVMType(StructAST* ast);
 
-  llvm::Value* toLLVM(FinalBindAST* ast);
+  llvm::Type* getLLVMType(ReadFileAST* ast);
 
-  llvm::Value* toLLVM(StructAST* ast);
+  llvm::Type* getLLVMType(PrintAST* ast);
 
-  llvm::Value* toLLVM(ReadFileAST* ast);
+  llvm::Type* getLLVMType(ExtPackAST* ast);
 
-  llvm::Value* toLLVM(PrintAST* ast);
+  llvm::Type* getLLVMType(BlockAST* ast);
 
-  llvm::Value* toLLVM(ExtPackAST* ast);
+  llvm::Type* getLLVMType(CasesAST* ast);
 
-  llvm::Value* toLLVM(SideBlockAST* ast);
+  llvm::Type* getLLVMType(CondFlowAST* ast);
 
-  llvm::Value* toLLVM(CasesAST* ast);
+  llvm::Type* getLLVMType(CheckEqAST* ast);
 
-  llvm::Value* toLLVM(CondFlowAST* ast);
+  llvm::Type* getLLVMType(CheckIsInAST* ast);
 
-  llvm::Value* toLLVM(CheckEqAST* ast);
+  llvm::Type* getLLVMType(FromToAST* ast);
 
-  llvm::Value* toLLVM(CheckIsInAST* ast);
+  llvm::Type* getLLVMType(ForwardAST* ast);
 
-  llvm::Value* toLLVM(FromToAST* ast);
+  llvm::Type* getLLVMType(InfiniteAST* ast);
 
-  llvm::Value* toLLVM(ForwardAST* ast);
+  llvm::Type* getLLVMType(AnonyFuncAST* ast);
 
-  llvm::Value* toLLVM(InfiniteAST* ast);
+  llvm::Type* getLLVMType(FuncAST* ast);
 
-  llvm::Value* toLLVM(AnonyFuncAST* ast);
+  llvm::Type* getLLVMType(LoopAST* ast);
 
-  llvm::Value* toLLVM(FuncAST* ast);
+  llvm::Type* getLLVMType(IterAST* ast);
 
-  llvm::Value* toLLVM(LoopAST* ast);
+  llvm::Type* getLLVMType(MatchCasesAST* ast);
 
-  llvm::Value* toLLVM(IterAST* ast);
+  llvm::Type* getLLVMType(MainBlockAST* ast);
 
-  llvm::Value* toLLVM(MatchCasesAST* ast);
+  /* LLVM IR Generator */
 
-  llvm::Value* toLLVM(MainBlockAST* ast);
+  llvm::Value* toLLVMIR(BoolAST* ast);
+
+  llvm::Value* toLLVMIR(NoneAST* ast);
+
+  llvm::Value* toLLVMIR(EOFAST* ast);
+
+  llvm::Value* toLLVMIR(EmptyAST* ast);
+
+  llvm::Value* toLLVMIR(EmptyBlockAST* ast);
+
+  llvm::Value* toLLVMIR(PassAST* ast);
+
+  llvm::Value* toLLVMIR(BreakAST* ast);
+
+  llvm::Value* toLLVMIR(ReturnAST* ast);
+
+  llvm::Value* toLLVMIR(CommentAST* ast);
+
+  llvm::Value* toLLVMIR(IdAST* ast);
+
+  llvm::Value* toLLVMIR(VarAST* ast);
+
+  llvm::Value* toLLVMIR(ArgAST* ast);
+
+  llvm::Value* toLLVMIR(OptArgAST* ast);
+
+  llvm::Value* toLLVMIR(OptKwArgAST* ast);
+
+  llvm::Value* toLLVMIR(VarTupleAST* ast);
+
+  llvm::Value* toLLVMIR(DTypeAST* ast);
+
+  llvm::Value* toLLVMIR(IntAST* ast);
+
+  llvm::Value* toLLVMIR(FloatAST* ast);
+
+  llvm::Value* toLLVMIR(CharAST* ast);
+
+  llvm::Value* toLLVMIR(StringAST* ast);
+
+  llvm::Value* toLLVMIR(TypeConvertAST* ast);
+
+  llvm::Value* toLLVMIR(FmtStrAST* ast);
+
+  llvm::Value* toLLVMIR(ListAST* ast);
+
+  llvm::Value* toLLVMIR(TupleAST* ast);
+
+  llvm::Value* toLLVMIR(SetAST* ast);
+
+  llvm::Value* toLLVMIR(RangeAST* ast);
+
+  llvm::Value* toLLVMIR(SizeOfAST* ast);
+
+  llvm::Value* toLLVMIR(BinOpAST* ast);
+
+  llvm::Value* toLLVMIR(BinCompAST* ast);
+
+  llvm::Value* toLLVMIR(CondAST* ast);
+
+  llvm::Value* toLLVMIR(CallAST* ast);
+
+  llvm::Value* toLLVMIR(ListOpAST* ast);
+
+  llvm::Value* toLLVMIR(ResourceAST* ast);
+
+  llvm::Value* toLLVMIR(LocalPathAST* ast);
+
+  llvm::Value* toLLVMIR(RemotePathAST* ast);
+
+  llvm::Value* toLLVMIR(WebUrlAST* ast);
+
+  llvm::Value* toLLVMIR(DBUrlAST* ast);
+
+  llvm::Value* toLLVMIR(FlexBindAST* ast);
+
+  llvm::Value* toLLVMIR(FinalBindAST* ast);
+
+  llvm::Value* toLLVMIR(StructAST* ast);
+
+  llvm::Value* toLLVMIR(ReadFileAST* ast);
+
+  llvm::Value* toLLVMIR(PrintAST* ast);
+
+  llvm::Value* toLLVMIR(ExtPackAST* ast);
+
+  llvm::Value* toLLVMIR(BlockAST* ast);
+
+  llvm::Value* toLLVMIR(CasesAST* ast);
+
+  llvm::Value* toLLVMIR(CondFlowAST* ast);
+
+  llvm::Value* toLLVMIR(CheckEqAST* ast);
+
+  llvm::Value* toLLVMIR(CheckIsInAST* ast);
+
+  llvm::Value* toLLVMIR(FromToAST* ast);
+
+  llvm::Value* toLLVMIR(ForwardAST* ast);
+
+  llvm::Value* toLLVMIR(InfiniteAST* ast);
+
+  llvm::Value* toLLVMIR(AnonyFuncAST* ast);
+
+  llvm::Value* toLLVMIR(FuncAST* ast);
+
+  llvm::Value* toLLVMIR(LoopAST* ast);
+
+  llvm::Value* toLLVMIR(IterAST* ast);
+
+  llvm::Value* toLLVMIR(MatchCasesAST* ast);
+
+  // llvm::Value* toLLVMIR(MainBlockAST* ast);
+  llvm::Function* toLLVMIR(MainBlockAST* ast);
+
+  void print_type_checking(shared_ptr<StyioAST> program);
+
+  void print_llvm_ir();
+  void print_test_results();
 };
 
 /*
@@ -608,17 +741,22 @@ public:
 
   /* toString */
   virtual string toString(
-    int indent = 0, bool colorful = false
+    int indent = 0,
+    bool colorful = false
   ) = 0;
   virtual string toStringInline(
-    int indent = 0, bool colorful = false
+    int indent = 0,
+    bool colorful = false
   ) = 0;
 
-  /* Type Checker & Modifier */
+  /* Type Checking */
   virtual void check(StyioToLLVM* visitor) = 0;
 
+  /* Get LLVM Type */
+  virtual llvm::Type* getLLVMType(StyioToLLVM* generator) = 0;
+
   /* LLVM IR Generator */
-  virtual llvm::Value* toLLVM(StyioToLLVM* generator) = 0;
+  virtual llvm::Value* toLLVMIR(StyioToLLVM* generator) = 0;
 };
 
 template <class Derived>
@@ -633,9 +771,13 @@ public:
     visitor->check(static_cast<Derived*>(this));
   }
 
-  llvm::Value* toLLVM(StyioToLLVM* generator) override {
-    generator->check(static_cast<Derived*>(this));
-    return generator->toLLVM(static_cast<Derived*>(this));
+  llvm::Type* getLLVMType(StyioToLLVM* visitor) override {
+    return visitor->getLLVMType(static_cast<Derived*>(this));
+  }
+
+  llvm::Value* toLLVMIR(StyioToLLVM* visitor) override {
+    visitor->check(static_cast<Derived*>(this));
+    return visitor->toLLVMIR(static_cast<Derived*>(this));
   }
 };
 
@@ -786,18 +928,18 @@ public:
   ) override;
 };
 
-class SideBlockAST : public StyioNode<SideBlockAST>
+class BlockAST : public StyioNode<BlockAST>
 {
   unique_ptr<StyioAST> Resources;
   vector<unique_ptr<StyioAST>> Stmts;
 
 public:
-  SideBlockAST(unique_ptr<StyioAST> resources, vector<unique_ptr<StyioAST>> stmts) :
+  BlockAST(unique_ptr<StyioAST> resources, vector<unique_ptr<StyioAST>> stmts) :
       Resources(std::move(resources)),
       Stmts(std::move(stmts)) {
   }
 
-  SideBlockAST(vector<unique_ptr<StyioAST>> stmts) :
+  BlockAST(vector<unique_ptr<StyioAST>> stmts) :
       Stmts(std::move(stmts)) {
   }
 
@@ -965,7 +1107,7 @@ public:
     return StyioNodeHint::Id;
   }
 
-  const string& getIdStr() const {
+  const string& getAsStr() const {
     return Id;
   }
 
@@ -987,23 +1129,40 @@ public:
 
 class DTypeAST : public StyioNode<DTypeAST>
 {
-  string TypeStr = "";
+private:
+  string TypeName;
+  StyioDataType DType = StyioDataType::undefined;
 
 public:
+  DTypeAST(StyioDataType dtype) :
+      DType(dtype) {
+  }
+
   DTypeAST(const string& dtype) :
-      TypeStr(dtype) {
+      TypeName(dtype) {
+    auto it = DType_Table.find(dtype);
+    if (it != DType_Table.end()) {
+      DType = it->second;
+    }
+    else {
+      DType = StyioDataType::undefined;
+    }
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::DType;
   }
 
-  static unique_ptr<DTypeAST> make(string dtype) {
-    return make_unique<DTypeAST>(dtype);
+  const StyioDataType getDtype() const {
+    return DType;
   }
 
-  const string& getTypeStr() const {
-    return TypeStr;
+  const string& getTypeName() const {
+    return TypeName;
+  }
+
+  static unique_ptr<DTypeAST> make(string dtype) {
+    return make_unique<DTypeAST>(dtype);
   }
 
   /* toString */
@@ -1064,12 +1223,8 @@ public:
     }
   }
 
-  const shared_ptr<DTypeAST>& getType() const {
+  const shared_ptr<DTypeAST>& getDType() const {
     return DType;
-  }
-
-  const string& getTypeStr() const {
-    return DType->getTypeStr();
   }
 
   /* toString */
@@ -1099,12 +1254,12 @@ public:
       VarAST(name), Name(name) {
   }
 
-  ArgAST(const string& name, unique_ptr<DTypeAST> dtype) :
-      VarAST(name, DTypeAST::make(dtype->getTypeStr())), Name(name), DType(std::move(dtype)) {
+  ArgAST(const string& name, unique_ptr<DTypeAST> data_type) :
+      VarAST(name, DTypeAST::make(data_type->getTypeName())), Name(name), DType(std::move(data_type)) {
   }
 
   ArgAST(const string& name, unique_ptr<DTypeAST> data_type, unique_ptr<StyioAST> default_value) :
-      VarAST(name, DTypeAST::make(data_type->getTypeStr()), /* Copy -> VarAST */
+      VarAST(name, DTypeAST::make(data_type->getTypeName()), /* Copy -> VarAST */
              std::move(default_value)),
       Name(name),
       DType(std::move(data_type)),
@@ -1227,8 +1382,9 @@ public:
 */
 class IntAST : public StyioNode<IntAST>
 {
+private:
   string Value;
-  StyioDataType DType = StyioDataType::i32;
+  StyioDataType DType = StyioDataType::undefined;
 
 public:
   IntAST(string val) :
@@ -1249,6 +1405,10 @@ public:
 
   StyioDataType getType() const {
     return DType;
+  }
+
+  void setType(StyioDataType type) {
+    this->DType = type;
   }
 
   static unique_ptr<IntAST> make(string value) {
@@ -1783,17 +1943,21 @@ public:
 */
 class BinOpAST : public StyioNode<BinOpAST>
 {
-  StyioNodeHint Op;
+  StyioNodeHint Operand;
   shared_ptr<StyioAST> LHS;
   shared_ptr<StyioAST> RHS;
 
 public:
   BinOpAST(StyioNodeHint op, shared_ptr<StyioAST> lhs, shared_ptr<StyioAST> rhs) :
-      Op(op), LHS(lhs), RHS(rhs) {
+      Operand(op), LHS(lhs), RHS(rhs) {
   }
 
   StyioNodeHint hint() override {
-    return Op;
+    return StyioNodeHint::BinOp;
+  }
+
+  const StyioNodeHint getOperand() const {
+    return Operand;
   }
 
   const shared_ptr<StyioAST>& getLhs() const {
@@ -1804,10 +1968,10 @@ public:
     return RHS;
   }
 
-  void setLhs(shared_ptr<StyioAST> value) {
-    LHS.reset();
-    LHS = std::move(value);
-  }
+  // void setLhs(shared_ptr<StyioAST> value) {
+  //   LHS.reset();
+  //   LHS = std::move(value);
+  // }
 
   /* toString */
   string toString(
@@ -1889,11 +2053,16 @@ public:
 
 class CallAST : public StyioNode<CallAST>
 {
-  unique_ptr<StyioAST> Func;
+  unique_ptr<IdAST> Func;
+  vector<unique_ptr<StyioAST>> Params;
 
 public:
-  CallAST(unique_ptr<StyioAST> func) :
-      Func(std::move(func)) {
+  CallAST(
+    unique_ptr<IdAST> func,
+    vector<unique_ptr<StyioAST>> params
+  ) :
+      Func(std::move(func)),
+      Params(std::move(params)) {
   }
 
   StyioNodeHint hint() override {
@@ -2041,16 +2210,29 @@ public:
 */
 class FlexBindAST : public StyioNode<FlexBindAST>
 {
-  unique_ptr<IdAST> varId;
+  unique_ptr<IdAST> varName;
   unique_ptr<StyioAST> valExpr;
+  StyioDataType valType;
 
 public:
   FlexBindAST(unique_ptr<IdAST> var, unique_ptr<StyioAST> val) :
-      varId(std::move(var)), valExpr(std::move(val)) {
+      varName(std::move(var)), valExpr(std::move(val)) {
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::MutBind;
+  }
+
+  const string& getName() const {
+    return varName->getAsStr();
+  }
+
+  const unique_ptr<StyioAST>& getValue() const {
+    return valExpr;
+  }
+
+  const StyioNodeHint getValueHint() const {
+    return valExpr->hint();
   }
 
   string toString(
@@ -2068,16 +2250,24 @@ public:
 */
 class FinalBindAST : public StyioNode<FinalBindAST>
 {
-  unique_ptr<IdAST> VarId;
-  unique_ptr<StyioAST> ValExpr;
+  unique_ptr<IdAST> varName;
+  unique_ptr<StyioAST> valExpr;
 
 public:
   FinalBindAST(unique_ptr<IdAST> var, unique_ptr<StyioAST> val) :
-      VarId(std::move(var)), ValExpr(std::move(val)) {
+      varName(std::move(var)), valExpr(std::move(val)) {
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::FixBind;
+  }
+
+  const string& getName() const {
+    return varName->getAsStr();
+  }
+
+  const unique_ptr<StyioAST>& getValue() const {
+    return valExpr;
   }
 
   string toString(
@@ -2575,16 +2765,11 @@ public:
   }
 
   bool hasArgs() {
-    if (Args) {
-      return true;
-    }
-    else {
-      return false;
-    }
+    return Args && (!(Args->getArgs().empty()));
   }
 
-  const shared_ptr<VarTupleAST>& getArgs() {
-    return Args;
+  const vector<shared_ptr<VarAST>>& getArgs() {
+    return Args->getArgs();
   }
 
   const unique_ptr<StyioAST>& getThen() {
@@ -2721,16 +2906,34 @@ class FuncAST : public StyioNode<FuncAST>
   bool isFinal;
 
 public:
-  FuncAST(unique_ptr<ForwardAST> forward, bool isFinal) :
-      Forward(std::move(forward)), isFinal(isFinal) {
+  FuncAST(
+    unique_ptr<ForwardAST> forward,
+    bool isFinal
+  ) :
+      Forward(std::move(forward)),
+      isFinal(isFinal) {
   }
 
-  FuncAST(unique_ptr<IdAST> name, unique_ptr<ForwardAST> forward, bool isFinal) :
-      Name(std::move(name)), Forward(std::move(forward)), isFinal(isFinal) {
+  FuncAST(
+    unique_ptr<IdAST> name,
+    unique_ptr<ForwardAST> forward,
+    bool isFinal
+  ) :
+      Name(std::move(name)),
+      Forward(std::move(forward)),
+      isFinal(isFinal) {
   }
 
-  FuncAST(unique_ptr<IdAST> name, unique_ptr<DTypeAST> type, unique_ptr<ForwardAST> forward, bool isFinal) :
-      Name(std::move(name)), RetType(std::move(type)), Forward(std::move(forward)), isFinal(isFinal) {
+  FuncAST(
+    unique_ptr<IdAST> name,
+    unique_ptr<DTypeAST> type,
+    unique_ptr<ForwardAST> forward,
+    bool isFinal
+  ) :
+      Name(std::move(name)),
+      RetType(std::move(type)),
+      Forward(std::move(forward)),
+      isFinal(isFinal) {
   }
 
   StyioNodeHint hint() override {
@@ -2751,7 +2954,7 @@ public:
   }
 
   string getName() {
-    return Name->getIdStr();
+    return Name->getAsStr();
   }
 
   bool hasRetType() {
@@ -2767,16 +2970,16 @@ public:
     return RetType;
   }
 
-  const string& getRetTypeStr() {
-    return RetType->getTypeStr();
-  }
-
   const unique_ptr<ForwardAST>& getForward() const {
     return Forward;
   }
 
   bool hasArgs() {
     return Forward->hasArgs();
+  }
+
+  const vector<shared_ptr<VarAST>>& getArgList() {
+    return Forward->getArgs();
   }
 
   /* toString */
