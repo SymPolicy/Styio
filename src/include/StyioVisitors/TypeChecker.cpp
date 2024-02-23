@@ -255,6 +255,7 @@ StyioToLLVM::check(AnonyFuncAST* ast) {
 
 void
 StyioToLLVM::check(FuncAST* ast) {
+  
 }
 
 void

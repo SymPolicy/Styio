@@ -305,7 +305,7 @@ llvm::Value*
 StyioToLLVM::toLLVMIR(VarTupleAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
 
-  auto& vars = ast->getArgs();
+  auto& vars = ast->getParams();
   for (auto const& s : vars) {
     s->toLLVMIR(this);
   }
@@ -758,57 +758,60 @@ StyioToLLVM::toLLVMIR(FuncAST* ast) {
 
   if (ast->hasName()) {
     if (ast->hasArgs()) {
-      std::vector<llvm::Type*> llvm_func_args;
-      for (auto& arg : ast->getArgList()) {
-        llvm_func_args.push_back(arg->getLLVMType(this));
-      }
+      if (ast->allArgsTyped()) {
+        
+        std::vector<llvm::Type*> llvm_func_args;
+        for (auto& arg : ast->getAllArgs()) {
+          llvm_func_args.push_back(arg->getLLVMType(this));
+        }
 
+        llvm::FunctionType* llvm_func_type = llvm::FunctionType::get(
+          /* Result (Type) */ this->getLLVMType(ast),
+          /* Params (Type) */ llvm_func_args,
+          /* isVarArg */ false
+        );
+
+        llvm::Function* llvm_func =
+          llvm::Function::Create(llvm_func_type, llvm::GlobalValue::ExternalLinkage, ast->getFuncName(), *llvm_module);
+
+        for (size_t i = 0; i < llvm_func_args.size(); i++) {
+          llvm_func->getArg(i)->setName(ast->getAllArgs().at(i)->getName());
+        }
+
+        llvm::BasicBlock* block =
+          llvm::BasicBlock::Create(*llvm_context, "entry", llvm_func);
+
+        llvm_ir_builder->SetInsertPoint(block);
+
+        ast->getForward()->toLLVMIR(this);
+
+        llvm::verifyFunction(*llvm_func);
+      }
+    }
+    /* No Parameters */
+    else {
       llvm::FunctionType* llvm_func_type = llvm::FunctionType::get(
-        /* Result (Type) */ ast->getRetType()->getLLVMType(this),
-        /* Params (Type) */ llvm_func_args,
+        /* Result (Type) */ this->getLLVMType(ast),
         /* isVarArg */ false
       );
+      llvm::Function* llvm_func = llvm::Function::Create(
+        llvm_func_type,
+        llvm::GlobalValue::ExternalLinkage,
+        ast->getFuncName(),
+        *llvm_module
+      );
 
-      llvm::Function* llvm_func =
-        llvm::Function::Create(llvm_func_type, llvm::GlobalValue::ExternalLinkage, ast->getName(), *llvm_module);
+      llvm::BasicBlock* llvm_basic_block = llvm::BasicBlock::Create(
+        *llvm_context,
+        "entry",
+        llvm_func
+      );
 
-      for (size_t i = 0; i < llvm_func_args.size(); i++) {
-        llvm_func->getArg(i)->setName(ast->getArgList().at(i)->getName());
-      }
-
-      llvm::BasicBlock* block =
-        llvm::BasicBlock::Create(*llvm_context, "entry", llvm_func);
-
-      llvm_ir_builder->SetInsertPoint(block);
+      llvm_ir_builder->SetInsertPoint(llvm_basic_block);
 
       ast->getForward()->toLLVMIR(this);
 
       llvm::verifyFunction(*llvm_func);
-    }
-    /* No Parameters */
-    else {
-      llvm::FunctionType* func_type = llvm::FunctionType::get(
-        /* Result (Type) */ this->getLLVMType(ast),
-        /* isVarArg */ false
-      );
-      llvm::Function* func = llvm::Function::Create(
-        func_type,
-        llvm::GlobalValue::ExternalLinkage,
-        ast->getName(),
-        *llvm_module
-      );
-
-      llvm::BasicBlock* block = llvm::BasicBlock::Create(
-        *llvm_context,
-        "entry",
-        func
-      );
-
-      llvm_ir_builder->SetInsertPoint(block);
-
-      ast->getForward()->toLLVMIR(this);
-
-      llvm::verifyFunction(*func);
     }
   }
 

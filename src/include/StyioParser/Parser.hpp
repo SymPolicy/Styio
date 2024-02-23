@@ -33,9 +33,6 @@ private:
   unordered_map<string, shared_ptr<StyioAST>> constants;
   unordered_map<string, shared_ptr<StyioAST>> variables;
 
-  shared_ptr<StyioContext> parent;
-  vector<shared_ptr<StyioContext>> children;
-
 public:
   StyioContext(
     const string& file_name,
@@ -48,12 +45,12 @@ public:
       curr_pos(0) {
   }
 
-  StyioContext(
-    StyioContext* parent
-  ) :
-      parent(parent) {
-    code = parent->get_code();
-    curr_pos = parent->get_curr_pos();
+  static StyioContext* Create (
+    const string& file_name,
+    const string& code_text,
+    vector<pair<size_t, size_t>> line_seps
+  ) {
+    return new StyioContext(file_name, code_text, line_seps);
   }
 
   /* Get `code` */
@@ -65,22 +62,6 @@ public:
   /* Get `pos` */
   size_t get_curr_pos() {
     return curr_pos;
-  }
-
-  /* Tree: isRoot() */
-  bool isRootCtx() {
-    if (parent) {
-      return true;
-    }
-    else {
-      return false;
-    }
-  }
-
-  /* Tree: get_child() */
-  shared_ptr<StyioContext>
-  get_child() {
-    return make_shared<StyioContext>(this);
   }
 
   /* Get Current Character */
@@ -444,7 +425,7 @@ type_to_int(Enumeration const value) ->
   parse_id
 */
 unique_ptr<IdAST>
-parse_id(shared_ptr<StyioContext> context);
+parse_id(StyioContext& context);
 
 /*
   =================
@@ -456,46 +437,46 @@ parse_id(shared_ptr<StyioContext> context);
   parse_int
 */
 unique_ptr<IntAST>
-parse_int(shared_ptr<StyioContext> context);
+parse_int(StyioContext& context);
 
 /*
   parse_int_or_float
 */
 unique_ptr<StyioAST>
-parse_int_or_float(shared_ptr<StyioContext> context, char& cur_char);
+parse_int_or_float(StyioContext& context, char& cur_char);
 
 /*
   parse_string
 */
 unique_ptr<StringAST>
-parse_string(shared_ptr<StyioContext> context);
+parse_string(StyioContext& context);
 
 /*
   parse_fmt_str
 */
 unique_ptr<FmtStrAST>
-parse_fmt_str(shared_ptr<StyioContext> context);
+parse_fmt_str(StyioContext& context);
 
 /*
   parse_path
 */
 unique_ptr<StyioAST>
-parse_path(shared_ptr<StyioContext> context);
+parse_path(StyioContext& context);
 
 /*
   parse_fill_arg
 */
 shared_ptr<ArgAST>
-parse_argument(shared_ptr<StyioContext> context);
+parse_argument(StyioContext& context);
 
 unique_ptr<StyioAST>
-parse_tuple(shared_ptr<StyioContext> context);
+parse_tuple(StyioContext& context);
 
 unique_ptr<StyioAST>
-parse_list(shared_ptr<StyioContext> context);
+parse_list(StyioContext& context);
 
 unique_ptr<StyioAST>
-parse_set(shared_ptr<StyioContext> context);
+parse_set(StyioContext& context);
 
 /*
   =================
@@ -507,14 +488,14 @@ parse_set(shared_ptr<StyioContext> context);
   parse_size_of
 */
 unique_ptr<SizeOfAST>
-parse_size_of(shared_ptr<StyioContext> context);
+parse_size_of(StyioContext& context);
 
 /*
   parse_call
 */
 unique_ptr<CallAST>
 parse_call(
-  shared_ptr<StyioContext> context, 
+  StyioContext& context, 
   unique_ptr<IdAST> func_name
 );
 
@@ -522,127 +503,127 @@ parse_call(
   parse_bin_rhs
 */
 shared_ptr<StyioAST>
-parse_item_for_binop(shared_ptr<StyioContext> context);
+parse_item_for_binop(StyioContext& context);
 
 /*
   parse_binop_rhs
 */
 unique_ptr<BinOpAST>
-parse_binop_rhs(shared_ptr<StyioContext> context, shared_ptr<StyioAST> lhs_ast);
+parse_binop_rhs(StyioContext& context, shared_ptr<StyioAST> lhs_ast);
 
 /*
   parse_item_for_cond
 */
 unique_ptr<StyioAST>
-parse_item_for_cond(shared_ptr<StyioContext> context);
+parse_item_for_cond(StyioContext& context);
 
 /*
   parse_cond
 */
 unique_ptr<CondAST>
-parse_cond(shared_ptr<StyioContext> context);
+parse_cond(StyioContext& context);
 
 /*
   parse_cond_flow
 */
 unique_ptr<StyioAST>
-parse_cond_flow(shared_ptr<StyioContext> context);
+parse_cond_flow(StyioContext& context);
 
 /*
   parse_list_op
 */
 unique_ptr<StyioAST>
-parse_list_op(shared_ptr<StyioContext> context, unique_ptr<StyioAST> theList);
+parse_list_op(StyioContext& context, unique_ptr<StyioAST> theList);
 
 /*
   parse_var_tuple
 */
 shared_ptr<VarTupleAST>
-parse_var_tuple(shared_ptr<StyioContext> context);
+parse_var_tuple(StyioContext& context);
 
 /*
   parse_loop_or_iter
 */
 unique_ptr<StyioAST>
-parse_loop_or_iter(shared_ptr<StyioContext> context, unique_ptr<StyioAST> collection);
+parse_loop_or_iter(StyioContext& context, unique_ptr<StyioAST> collection);
 
 /*
   parse_list_or_loop
 */
 unique_ptr<StyioAST>
-parse_list_or_loop(shared_ptr<StyioContext> context);
+parse_list_or_loop(StyioContext& context);
 
 /*
   parse_loop
 */
 unique_ptr<StyioAST>
-parse_loop(shared_ptr<StyioContext> context, char& cur_char);
+parse_loop(StyioContext& context, char& cur_char);
 
 /*
   parse_simple_value
 */
 unique_ptr<StyioAST>
-parse_num_val(shared_ptr<StyioContext> context);
+parse_num_val(StyioContext& context);
 
 /*
   parse_expr
 */
 unique_ptr<StyioAST>
-parse_expr(shared_ptr<StyioContext> context);
+parse_expr(StyioContext& context);
 
 /*
   parse_resources
 */
 unique_ptr<ResourceAST>
-parse_resources(shared_ptr<StyioContext> context);
+parse_resources(StyioContext& context);
 
 /*
   parse_bind_final
 */
 unique_ptr<FinalBindAST>
-parse_bind_final(shared_ptr<StyioContext> context, unique_ptr<IdAST> id_ast);
+parse_bind_final(StyioContext& context, unique_ptr<IdAST> id_ast);
 
 /*
   parse_pipeline
 */
 unique_ptr<StyioAST>
-parse_func(shared_ptr<StyioContext> context);
+parse_func(StyioContext& context);
 
 /*
   parse_read_file
 */
 unique_ptr<StyioAST>
-parse_read_file(shared_ptr<StyioContext> context, IdAST* id_ast);
+parse_read_file(StyioContext& context, IdAST* id_ast);
 
 /*
   parse_one_or_many_repr
 */
 unique_ptr<StyioAST>
-parse_one_or_many_repr(shared_ptr<StyioContext> context);
+parse_one_or_many_repr(StyioContext& context);
 
 /*
   parse_print
 */
 unique_ptr<StyioAST>
-parse_print(shared_ptr<StyioContext> context);
+parse_print(StyioContext& context);
 
 /*
   parse_panic
 */
 unique_ptr<StyioAST>
-parse_panic(shared_ptr<StyioContext> context);
+parse_panic(StyioContext& context);
 
 /*
   parse_stmt
 */
 unique_ptr<StyioAST>
-parse_stmt(shared_ptr<StyioContext> context);
+parse_stmt(StyioContext& context);
 
 /*
   parse_ext_elem
 */
 string
-parse_ext_elem(shared_ptr<StyioContext> context, char& cur_char);
+parse_ext_elem(StyioContext& context, char& cur_char);
 
 /*
   parse_ext_pack
@@ -670,24 +651,24 @@ parse_ext_elem(shared_ptr<StyioContext> context, char& cur_char);
   }
 */
 unique_ptr<ExtPackAST>
-parse_ext_pack(shared_ptr<StyioContext> context, char& cur_char);
+parse_ext_pack(StyioContext& context, char& cur_char);
 
 /*
   parse_cases
 */
 unique_ptr<CasesAST>
-parse_cases(shared_ptr<StyioContext> context);
+parse_cases(StyioContext& context);
 
 /*
   parse_block
 */
 unique_ptr<StyioAST>
-parse_block(shared_ptr<StyioContext> context);
+parse_block(StyioContext& context);
 
 unique_ptr<ForwardAST>
-parse_forward(shared_ptr<StyioContext> context, bool ispipe = false);
+parse_forward(StyioContext& context, bool ispipe = false);
 
 shared_ptr<MainBlockAST>
-parse_main_block(shared_ptr<StyioContext> context);
+parse_main_block(StyioContext& context);
 
 #endif

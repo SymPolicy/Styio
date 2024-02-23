@@ -359,6 +359,8 @@ class StyioToLLVM : public StyioVisitor
   std::unordered_map<string, llvm::AllocaInst*> mutable_variables; /* [FlexBind] */
   std::unordered_map<string, llvm::Value*> named_values;           /* [FinalBind] Immutable Variables */
 
+  std::unordered_map<string, shared_ptr<FuncAST>> defined_functions;
+
 public:
   StyioToLLVM() :
       llvm_context(make_unique<llvm::LLVMContext>()),
@@ -1130,22 +1132,24 @@ public:
 class DTypeAST : public StyioNode<DTypeAST>
 {
 private:
-  string TypeName;
-  StyioDataType DType = StyioDataType::undefined;
+  string type_name;
+  StyioDataType data_type = StyioDataType::undefined;
 
 public:
-  DTypeAST(StyioDataType dtype) :
-      DType(dtype) {
+  DTypeAST(StyioDataType data_type) :
+      data_type(data_type) {
   }
 
-  DTypeAST(const string& dtype) :
-      TypeName(dtype) {
-    auto it = DType_Table.find(dtype);
+  DTypeAST(
+    const string& type_name
+  ) :
+      type_name(type_name) {
+    auto it = DType_Table.find(type_name);
     if (it != DType_Table.end()) {
-      DType = it->second;
+      data_type = it->second;
     }
     else {
-      DType = StyioDataType::undefined;
+      data_type = StyioDataType::undefined;
     }
   }
 
@@ -1153,12 +1157,12 @@ public:
     return StyioNodeHint::DType;
   }
 
-  const StyioDataType getDtype() const {
-    return DType;
+  const StyioDataType getDType() const {
+    return data_type;
   }
 
   const string& getTypeName() const {
-    return TypeName;
+    return type_name;
   }
 
   static unique_ptr<DTypeAST> make(string dtype) {
@@ -1214,13 +1218,11 @@ public:
     return Name;
   }
 
-  bool hasType() {
-    if (DType) {
-      return true;
-    }
-    else {
-      return false;
-    }
+  bool isTyped() {
+    return (
+      DType
+      && (DType->getDType() != StyioDataType::undefined)
+    );
   }
 
   const shared_ptr<DTypeAST>& getDType() const {
@@ -1356,7 +1358,7 @@ public:
     return StyioNodeHint::VarTuple;
   }
 
-  const vector<shared_ptr<VarAST>>& getArgs() {
+  const vector<shared_ptr<VarAST>>& getParams() {
     return Vars;
   }
 
@@ -2667,7 +2669,7 @@ public:
 
 class ForwardAST : public StyioNode<ForwardAST>
 {
-  shared_ptr<VarTupleAST> Args;
+  shared_ptr<VarTupleAST> params;
 
   unique_ptr<CheckEqAST> ExtraEq;
   unique_ptr<CheckIsInAST> ExtraIsin;
@@ -2716,7 +2718,7 @@ public:
     shared_ptr<VarTupleAST> vars,
     unique_ptr<StyioAST> whatnext
   ) :
-      Args(std::move(vars)),
+      params(std::move(vars)),
       ThenExpr(std::move(whatnext)) {
     Type = StyioNodeHint::Fill_Forward;
   }
@@ -2726,22 +2728,22 @@ public:
     unique_ptr<CheckEqAST> value,
     unique_ptr<StyioAST> whatnext
   ) :
-      Args(std::move(vars)), ExtraEq(std::move(value)), ThenExpr(std::move(whatnext)) {
+      params(std::move(vars)), ExtraEq(std::move(value)), ThenExpr(std::move(whatnext)) {
     Type = StyioNodeHint::Fill_If_Equal_To_Forward;
   }
 
   ForwardAST(shared_ptr<VarTupleAST> vars, unique_ptr<CheckIsInAST> isin, unique_ptr<StyioAST> whatnext) :
-      Args(std::move(vars)), ExtraIsin(std::move(isin)), ThenExpr(std::move(whatnext)) {
+      params(std::move(vars)), ExtraIsin(std::move(isin)), ThenExpr(std::move(whatnext)) {
     Type = StyioNodeHint::Fill_If_Is_in_Forward;
   }
 
   ForwardAST(shared_ptr<VarTupleAST> vars, unique_ptr<CasesAST> cases) :
-      Args(std::move(vars)), ThenExpr(std::move(cases)) {
+      params(std::move(vars)), ThenExpr(std::move(cases)) {
     Type = StyioNodeHint::Fill_Cases_Forward;
   }
 
   ForwardAST(shared_ptr<VarTupleAST> vars, unique_ptr<CondFlowAST> condflow) :
-      Args(std::move(vars)), ThenCondFlow(std::move(condflow)) {
+      params(std::move(vars)), ThenCondFlow(std::move(condflow)) {
     switch (condflow->WhatFlow) {
       case StyioNodeHint::CondFlow_True:
         Type = StyioNodeHint::Fill_If_True_Forward;
@@ -2764,12 +2766,12 @@ public:
     return Type;
   }
 
-  bool hasArgs() {
-    return Args && (!(Args->getArgs().empty()));
+  bool withParams() {
+    return params && (!(params->getParams().empty()));
   }
 
-  const vector<shared_ptr<VarAST>>& getArgs() {
-    return Args->getArgs();
+  const vector<shared_ptr<VarAST>>& getParams() {
+    return params->getParams();
   }
 
   const unique_ptr<StyioAST>& getThen() {
@@ -2953,7 +2955,7 @@ public:
     return Name;
   }
 
-  string getName() {
+  string getFuncName() {
     return Name->getAsStr();
   }
 
@@ -2975,11 +2977,24 @@ public:
   }
 
   bool hasArgs() {
-    return Forward->hasArgs();
+    return Forward->withParams();
   }
 
-  const vector<shared_ptr<VarAST>>& getArgList() {
-    return Forward->getArgs();
+  bool allArgsTyped() {
+    auto Args = Forward->getParams();
+
+    return std::all_of(
+      Args.begin(),
+      Args.end(),
+      [](shared_ptr<VarAST> var)
+      {
+        return var->isTyped();
+      }
+    );
+  }
+
+  const vector<shared_ptr<VarAST>>& getAllArgs() {
+    return Forward->getParams();
   }
 
   /* toString */

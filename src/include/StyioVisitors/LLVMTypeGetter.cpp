@@ -37,7 +37,7 @@ StyioToLLVM::getLLVMType(IdAST* ast) {
 
 llvm::Type*
 StyioToLLVM::getLLVMType(DTypeAST* ast) {
-  switch (ast->getDtype()) {
+  switch (ast->getDType()) {
     case StyioDataType::i32: {
       return llvm_ir_builder->getInt32Ty();
     } break;
@@ -93,7 +93,7 @@ StyioToLLVM::getLLVMType(VarAST* ast) {
 
 llvm::Type*
 StyioToLLVM::getLLVMType(ArgAST* ast) {
-  return llvm_ir_builder->getInt32Ty();
+  return ast->getDType()->getLLVMType(this);
 }
 
 llvm::Type*

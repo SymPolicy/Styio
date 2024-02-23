@@ -164,13 +164,9 @@ main(
 
     auto styio_code = read_styio_file(fpath);
     // show_code_with_linenum(styio_code);
-    auto styio_context = std::make_shared<StyioContext>(
-      fpath,
-      styio_code.code_text,
-      styio_code.line_seps
-    );
+    auto styio_context = StyioContext::Create(fpath, styio_code.code_text, styio_code.line_seps);
 
-    auto styio_program = parse_main_block(styio_context);
+    auto styio_program = parse_main_block(*styio_context);
 
     if (show_ast) {
       print_ast(styio_program);
