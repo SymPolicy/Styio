@@ -173,13 +173,13 @@ main(
     }
 
     StyioToLLVM generator = StyioToLLVM();
-    generator.check(styio_program.get());
+    generator.check(styio_program);
 
     if (show_type_checking) {
       generator.print_type_checking(styio_program);
     }
 
-    generator.toLLVMIR(styio_program.get());
+    generator.toLLVMIR(styio_program);
 
     if (show_ir) {
       generator.print_llvm_ir();

@@ -26,11 +26,6 @@ StyioToLLVM::getLLVMType(EmptyAST* ast) {
 }
 
 llvm::Type*
-StyioToLLVM::getLLVMType(EmptyBlockAST* ast) {
-  return llvm_ir_builder->getInt32Ty();
-}
-
-llvm::Type*
 StyioToLLVM::getLLVMType(IdAST* ast) {
   return llvm_ir_builder->getInt32Ty();
 }

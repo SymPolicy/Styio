@@ -132,7 +132,7 @@ StyioToLLVM::matchType(std::string type) {
 }
 
 void
-StyioToLLVM::print_type_checking(shared_ptr<StyioAST> program) {
+StyioToLLVM::print_type_checking(StyioAST* program) {
   std::cout << "\033[1;32mAST\033[0m \033[1;33m--After-Type-Checking\033[0m"
             << "\n"
             << std::endl;
@@ -227,12 +227,6 @@ StyioToLLVM::toLLVMIR(EmptyAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(EmptyBlockAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
-  return output;
-}
-
-llvm::Value*
 StyioToLLVM::toLLVMIR(PassAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
   return output;
@@ -305,7 +299,7 @@ llvm::Value*
 StyioToLLVM::toLLVMIR(VarTupleAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
 
-  auto& vars = ast->getParams();
+  auto vars = ast->getParams();
   for (auto const& s : vars) {
     s->toLLVMIR(this);
   }
@@ -855,7 +849,7 @@ llvm::Value*
 StyioToLLVM::toLLVMIR(BlockAST* ast) {
   auto output = llvm::ConstantInt::getFalse(*llvm_context);
 
-  auto& stmts = ast->getStmts();
+  auto stmts = ast->getStmts();
   for (auto const& s : stmts) {
     s->toLLVMIR(this);
   }
@@ -876,7 +870,7 @@ StyioToLLVM::toLLVMIR(MainBlockAST* ast) {
   /* Add statements to the current basic block */
   llvm_ir_builder->SetInsertPoint(entry_block);
 
-  auto& stmts = ast->getStmts();
+  auto stmts = ast->getStmts();
   for (auto const& s : stmts) {
     s->toLLVMIR(this);
   }

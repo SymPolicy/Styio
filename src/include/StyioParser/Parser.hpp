@@ -424,7 +424,7 @@ type_to_int(Enumeration const value) ->
 /*
   parse_id
 */
-unique_ptr<IdAST>
+IdAST*
 parse_id(StyioContext& context);
 
 /*
@@ -436,46 +436,46 @@ parse_id(StyioContext& context);
 /*
   parse_int
 */
-unique_ptr<IntAST>
+IntAST*
 parse_int(StyioContext& context);
 
 /*
   parse_int_or_float
 */
-unique_ptr<StyioAST>
+StyioAST*
 parse_int_or_float(StyioContext& context, char& cur_char);
 
 /*
   parse_string
 */
-unique_ptr<StringAST>
+StringAST*
 parse_string(StyioContext& context);
 
 /*
   parse_fmt_str
 */
-unique_ptr<FmtStrAST>
+FmtStrAST*
 parse_fmt_str(StyioContext& context);
 
 /*
   parse_path
 */
-unique_ptr<StyioAST>
+StyioAST*
 parse_path(StyioContext& context);
 
 /*
   parse_fill_arg
 */
-shared_ptr<ArgAST>
+ArgAST*
 parse_argument(StyioContext& context);
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_tuple(StyioContext& context);
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_list(StyioContext& context);
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_set(StyioContext& context);
 
 /*
@@ -487,143 +487,143 @@ parse_set(StyioContext& context);
 /*
   parse_size_of
 */
-unique_ptr<SizeOfAST>
+SizeOfAST*
 parse_size_of(StyioContext& context);
 
 /*
   parse_call
 */
-unique_ptr<CallAST>
+CallAST*
 parse_call(
   StyioContext& context, 
-  unique_ptr<IdAST> func_name
+  IdAST* func_name
 );
 
 /*
   parse_bin_rhs
 */
-shared_ptr<StyioAST>
+StyioAST*
 parse_item_for_binop(StyioContext& context);
 
 /*
   parse_binop_rhs
 */
-unique_ptr<BinOpAST>
-parse_binop_rhs(StyioContext& context, shared_ptr<StyioAST> lhs_ast);
+BinOpAST*
+parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast);
 
 /*
   parse_item_for_cond
 */
-unique_ptr<StyioAST>
+StyioAST*
 parse_item_for_cond(StyioContext& context);
 
 /*
   parse_cond
 */
-unique_ptr<CondAST>
+CondAST*
 parse_cond(StyioContext& context);
 
 /*
   parse_cond_flow
 */
-unique_ptr<StyioAST>
+StyioAST*
 parse_cond_flow(StyioContext& context);
 
 /*
   parse_list_op
 */
-unique_ptr<StyioAST>
-parse_list_op(StyioContext& context, unique_ptr<StyioAST> theList);
+StyioAST*
+parse_list_op(StyioContext& context, StyioAST* theList);
 
 /*
   parse_var_tuple
 */
-shared_ptr<VarTupleAST>
+VarTupleAST*
 parse_var_tuple(StyioContext& context);
 
 /*
   parse_loop_or_iter
 */
-unique_ptr<StyioAST>
-parse_loop_or_iter(StyioContext& context, unique_ptr<StyioAST> collection);
+StyioAST*
+parse_loop_or_iter(StyioContext& context, StyioAST* collection);
 
 /*
   parse_list_or_loop
 */
-unique_ptr<StyioAST>
+StyioAST*
 parse_list_or_loop(StyioContext& context);
 
 /*
   parse_loop
 */
-unique_ptr<StyioAST>
+StyioAST*
 parse_loop(StyioContext& context, char& cur_char);
 
 /*
   parse_simple_value
 */
-unique_ptr<StyioAST>
+StyioAST*
 parse_num_val(StyioContext& context);
 
 /*
   parse_expr
 */
-unique_ptr<StyioAST>
+StyioAST*
 parse_expr(StyioContext& context);
 
 /*
   parse_resources
 */
-unique_ptr<ResourceAST>
+ResourceAST*
 parse_resources(StyioContext& context);
 
 /*
   parse_bind_final
 */
-unique_ptr<FinalBindAST>
-parse_bind_final(StyioContext& context, unique_ptr<IdAST> id_ast);
+FinalBindAST*
+parse_bind_final(StyioContext& context, IdAST* id_ast);
 
 /*
   parse_pipeline
 */
-unique_ptr<StyioAST>
+StyioAST*
 parse_func(StyioContext& context);
 
 /*
   parse_read_file
 */
-unique_ptr<StyioAST>
+StyioAST*
 parse_read_file(StyioContext& context, IdAST* id_ast);
 
 /*
   parse_one_or_many_repr
 */
-unique_ptr<StyioAST>
+StyioAST*
 parse_one_or_many_repr(StyioContext& context);
 
 /*
   parse_print
 */
-unique_ptr<StyioAST>
+StyioAST*
 parse_print(StyioContext& context);
 
 /*
   parse_panic
 */
-unique_ptr<StyioAST>
+StyioAST*
 parse_panic(StyioContext& context);
 
 /*
   parse_stmt
 */
-unique_ptr<StyioAST>
+StyioAST*
 parse_stmt(StyioContext& context);
 
 /*
   parse_ext_elem
 */
 string
-parse_ext_elem(StyioContext& context, char& cur_char);
+parse_ext_elem(StyioContext& context);
 
 /*
   parse_ext_pack
@@ -650,25 +650,25 @@ parse_ext_elem(StyioContext& context, char& cur_char);
     "otherwise, try parseScript()";
   }
 */
-unique_ptr<ExtPackAST>
-parse_ext_pack(StyioContext& context, char& cur_char);
+ExtPackAST*
+parse_ext_pack(StyioContext& context);
 
 /*
   parse_cases
 */
-unique_ptr<CasesAST>
+CasesAST*
 parse_cases(StyioContext& context);
 
 /*
   parse_block
 */
-unique_ptr<StyioAST>
+StyioAST*
 parse_block(StyioContext& context);
 
-unique_ptr<ForwardAST>
-parse_forward(StyioContext& context, bool ispipe = false);
+ForwardAST*
+parse_forward(StyioContext& context, bool is_func = false);
 
-shared_ptr<MainBlockAST>
+MainBlockAST*
 parse_main_block(StyioContext& context);
 
 #endif

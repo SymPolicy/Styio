@@ -23,11 +23,6 @@ using std::vector;
 using std::cout;
 using std::endl;
 
-using std::make_shared;
-using std::make_unique;
-using std::shared_ptr;
-using std::unique_ptr;
-
 /*
   =================
   - id
@@ -40,7 +35,7 @@ using std::unique_ptr;
   =================
 */
 
-unique_ptr<IdAST>
+IdAST*
 parse_id(StyioContext& context) {
   string name = "";
   /* it will include cur_char in the id without checking */
@@ -49,10 +44,10 @@ parse_id(StyioContext& context) {
     context.move(1);
   } while (context.check_isalnum_());
 
-  return IdAST::make(name);
+  return IdAST::Create(name);
 }
 
-unique_ptr<IntAST>
+IntAST*
 parse_int(StyioContext& context) {
   string digits = "";
 
@@ -62,10 +57,10 @@ parse_int(StyioContext& context) {
     context.move(1);
   } while (context.check_isdigit());
 
-  return IntAST::make(digits);
+  return IntAST::Create(digits);
 }
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_int_or_float(StyioContext& context) {
   string digits = "";
   /* it will include cur_char in the digits without checking */
@@ -85,17 +80,17 @@ parse_int_or_float(StyioContext& context) {
         // f_exp += 1;
       } while (context.check_isdigit());
 
-      return make_unique<FloatAST>(digits);
+      return FloatAST::Create(digits);
     }
     else {
-      return make_unique<IntAST>(digits);
+      return IntAST::Create(digits);
     }
   }
 
-  return make_unique<IntAST>(digits);
+  return IntAST::Create(digits);
 }
 
-unique_ptr<StringAST>
+StringAST*
 parse_string(StyioContext& context) {
   /*
     Danger!
@@ -115,10 +110,10 @@ parse_string(StyioContext& context) {
   // eliminate " at the end
   context.move(1);
 
-  return make_unique<StringAST>(textStr);
+  return StringAST::Create(textStr);
 }
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_char_or_string(StyioContext& context) {
   /*
     Danger!
@@ -138,14 +133,14 @@ parse_char_or_string(StyioContext& context) {
   context.move(1);
 
   if (text.size() == 1) {
-    return make_unique<CharAST>(text);
+    return CharAST::Create(text);
   }
   else {
-    return make_unique<StringAST>(text);
+    return StringAST::Create(text);
   }
 }
 
-unique_ptr<FmtStrAST>
+FmtStrAST*
 parse_fmt_str(StyioContext& context) {
   /*
     Danger!
@@ -156,7 +151,7 @@ parse_fmt_str(StyioContext& context) {
   context.move(1);
 
   vector<string> fragments;
-  vector<unique_ptr<StyioAST>> exprs;
+  vector<StyioAST*> exprs;
   string textStr = "";
 
   while (not context.check('\"')) {
@@ -196,10 +191,10 @@ parse_fmt_str(StyioContext& context) {
 
   fragments.push_back(textStr);
 
-  return make_unique<FmtStrAST>(std::move(fragments), std::move(exprs));
+  return new FmtStrAST((fragments), (exprs));
 }
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_path(StyioContext& context) {
   context.move(1);
 
@@ -214,46 +209,46 @@ parse_path(StyioContext& context) {
   context.move(1);
 
   if (text.starts_with("/")) {
-    return make_unique<LocalPathAST>(StyioPathType::local_absolute_unix_like, text);
+    return new LocalPathAST(StyioPathType::local_absolute_unix_like, text);
   }
   else if (std::isupper(text.at(0)) && text.at(1) == ':') {
-    return make_unique<LocalPathAST>(StyioPathType::local_absolute_windows, text);
+    return new LocalPathAST(StyioPathType::local_absolute_windows, text);
   }
   else if (text.starts_with("http://")) {
-    return make_unique<WebUrlAST>(StyioPathType::url_http, text);
+    return new WebUrlAST(StyioPathType::url_http, text);
   }
   else if (text.starts_with("https://")) {
-    return make_unique<WebUrlAST>(StyioPathType::url_https, text);
+    return new WebUrlAST(StyioPathType::url_https, text);
   }
   else if (text.starts_with("ftp://")) {
-    return make_unique<WebUrlAST>(StyioPathType::url_ftp, text);
+    return new WebUrlAST(StyioPathType::url_ftp, text);
   }
   else if (text.starts_with("mysql://")) {
-    return make_unique<DBUrlAST>(StyioPathType::db_mysql, text);
+    return new DBUrlAST(StyioPathType::db_mysql, text);
   }
   else if (text.starts_with("postgres://")) {
-    return make_unique<DBUrlAST>(StyioPathType::db_postgresql, text);
+    return new DBUrlAST(StyioPathType::db_postgresql, text);
   }
   else if (text.starts_with("mongo://")) {
-    return make_unique<DBUrlAST>(StyioPathType::db_mongo, text);
+    return new DBUrlAST(StyioPathType::db_mongo, text);
   }
   else if (text.starts_with("localhost") || text.starts_with("127.0.0.1")) {
-    return make_unique<RemotePathAST>(StyioPathType::url_localhost, text);
+    return new RemotePathAST(StyioPathType::url_localhost, text);
   }
   else if (is_ipv4_at_start(text)) {
-    return make_unique<RemotePathAST>(StyioPathType::ipv4_addr, text);
+    return new RemotePathAST(StyioPathType::ipv4_addr, text);
   }
   else if (is_ipv6_at_start(text)) {
-    return make_unique<RemotePathAST>(StyioPathType::ipv6_addr, text);
+    return new RemotePathAST(StyioPathType::ipv6_addr, text);
   }
   else if (text.starts_with("\\\\")) {
-    return make_unique<RemotePathAST>(StyioPathType::remote_windows, text);
+    return new RemotePathAST(StyioPathType::remote_windows, text);
   }
 
-  return make_unique<LocalPathAST>(StyioPathType::local_relevant_any, text);
+  return new LocalPathAST(StyioPathType::local_relevant_any, text);
 }
 
-unique_ptr<DTypeAST>
+DTypeAST*
 parse_dtype(StyioContext& context) {
   string text = "";
 
@@ -267,7 +262,7 @@ parse_dtype(StyioContext& context) {
     context.move(1);
   }
 
-  return DTypeAST::make(text);
+  return DTypeAST::Create(text);
 }
 
 /*
@@ -277,7 +272,7 @@ parse_dtype(StyioContext& context) {
   - Resources
 */
 
-shared_ptr<ArgAST>
+ArgAST*
 parse_argument(StyioContext& context) {
   string name = "";
   /* it includes cur_char in the name without checking */
@@ -286,8 +281,8 @@ parse_argument(StyioContext& context) {
     context.move(1);
   } while (context.check_isalnum_());
 
-  unique_ptr<DTypeAST> data_type;
-  unique_ptr<StyioAST> default_value;
+  DTypeAST* data_type;
+  StyioAST* default_value;
 
   context.drop_white_spaces();
 
@@ -303,20 +298,20 @@ parse_argument(StyioContext& context) {
 
       default_value = parse_expr(context);
 
-      return ArgAST::make(name, std::move(data_type), std::move(default_value));
+      return ArgAST::Create(name, data_type, default_value);
     }
     else {
-      return ArgAST::make(name, std::move(data_type));
+      return ArgAST::Create(name, data_type);
     }
   }
   else {
-    return ArgAST::make(name);
+    return ArgAST::Create(name);
   }
 }
 
-shared_ptr<VarTupleAST>
+VarTupleAST*
 parse_var_tuple(StyioContext& context) {
-  vector<shared_ptr<VarAST>> vars;
+  vector<VarAST*> vars;
 
   /* cur_char must be `(` which will be removed without checking */
   context.move(1);
@@ -325,15 +320,15 @@ parse_var_tuple(StyioContext& context) {
     context.drop_all_spaces_comments();
 
     if (context.check_drop(')')) {
-      return make_shared<VarTupleAST>(std::move(vars));
+      return new VarTupleAST(vars);
     }
     else {
       if (context.check_drop('*')) {
         if (context.check_drop('*')) {
-          vars.push_back(make_shared<OptKwArgAST>(parse_id(context)));
+          vars.push_back(new OptKwArgAST(parse_id(context)));
         }
         else {
-          vars.push_back(make_shared<OptArgAST>(parse_id(context)));
+          vars.push_back(new OptArgAST(parse_id(context)));
         }
       }
       else {
@@ -344,16 +339,16 @@ parse_var_tuple(StyioContext& context) {
 
   context.find_drop_panic(')');
 
-  return make_shared<VarTupleAST>(vars);
+  return new VarTupleAST(vars);
 }
 
-unique_ptr<ResourceAST>
+ResourceAST*
 parse_resources(
   StyioContext& context
 ) {
-  unique_ptr<ResourceAST> output;
+  ResourceAST* output;
 
-  vector<unique_ptr<StyioAST>> resources;
+  vector<StyioAST*> resources;
 
   /*
     Danger!
@@ -371,15 +366,15 @@ parse_resources(
         resources.push_back(parse_path(context));
       }
       else if (context.check_isal_()) {
-        unique_ptr<IdAST> varname = parse_id(context);
+        IdAST* varname = parse_id(context);
 
         context.find_drop_panic("<-");
 
         context.drop_all_spaces_comments();
 
         resources.push_back(
-          make_unique<FinalBindAST>(
-            std::move(varname),
+          new FinalBindAST(
+            (varname),
             parse_num_val(context)
           )
         );
@@ -389,7 +384,7 @@ parse_resources(
 
     context.find_drop_panic(')');
 
-    output = make_unique<ResourceAST>(std::move(resources));
+    output = new ResourceAST((resources));
   }
   else {
     string errmsg = string("@(expr) // Expecting ( after @, but got ") + char(context.get_curr_char()) + "";
@@ -405,9 +400,9 @@ parse_resources(
   - Binary Comparison
 */
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_item_for_cond(StyioContext& context) {
-  unique_ptr<StyioAST> output;
+  StyioAST* output;
 
   context.drop_all_spaces();
 
@@ -430,8 +425,8 @@ parse_item_for_cond(StyioContext& context) {
         // drop all spaces after ==
         context.drop_all_spaces();
 
-        output = make_unique<BinCompAST>(
-          CompType::EQ, std::move(output), parse_num_val(context)
+        output = new BinCompAST(
+          CompType::EQ, (output), parse_num_val(context)
         );
       };
     }
@@ -452,8 +447,8 @@ parse_item_for_cond(StyioContext& context) {
         // drop all spaces after !=
         context.drop_all_spaces();
 
-        output = make_unique<BinCompAST>(
-          CompType::NE, std::move(output), parse_num_val(context)
+        output = new BinCompAST(
+          CompType::NE, (output), parse_num_val(context)
         );
       };
     }
@@ -474,8 +469,8 @@ parse_item_for_cond(StyioContext& context) {
         // drop all spaces after >=
         context.drop_all_spaces();
 
-        output = make_unique<BinCompAST>(
-          CompType::GE, std::move(output), parse_num_val(context)
+        output = new BinCompAST(
+          CompType::GE, (output), parse_num_val(context)
         );
       }
       else {
@@ -487,8 +482,8 @@ parse_item_for_cond(StyioContext& context) {
         // drop all spaces after >
         context.drop_all_spaces();
 
-        output = make_unique<BinCompAST>(
-          CompType::GT, std::move(output), parse_num_val(context)
+        output = new BinCompAST(
+          CompType::GT, (output), parse_num_val(context)
         );
       };
     }
@@ -509,8 +504,8 @@ parse_item_for_cond(StyioContext& context) {
         // drop all spaces after <=
         context.drop_all_spaces();
 
-        output = make_unique<BinCompAST>(
-          CompType::LE, std::move(output), parse_num_val(context)
+        output = new BinCompAST(
+          CompType::LE, (output), parse_num_val(context)
         );
       }
       else {
@@ -522,8 +517,8 @@ parse_item_for_cond(StyioContext& context) {
         // drop all spaces after <
         context.drop_all_spaces();
 
-        output = make_unique<BinCompAST>(
-          CompType::LT, std::move(output), parse_num_val(context)
+        output = new BinCompAST(
+          CompType::LT, (output), parse_num_val(context)
         );
       };
     }
@@ -556,36 +551,36 @@ parse_item_for_cond(StyioContext& context) {
     id /  id
     id %  id
 */
-unique_ptr<StyioAST>
+StyioAST*
 parse_id_or_value(StyioContext& context) {
-  unique_ptr<StyioAST> output;
+  StyioAST* output;
 
   if (context.check_isalnum_()) {
     auto id = parse_id(context);
 
     if (context.check('[')) {
-      output = parse_list_op(context, std::move(id));
+      output = parse_list_op(context, (id));
     }
     else if (context.check('(')) {
-      output = parse_call(context, std::move(id));
+      output = parse_call(context, (id));
     }
     else {
-      output = std::move(id);
+      output = (id);
     }
   }
 
   context.drop_all_spaces_comments();
 
   if (context.check_binop()) {
-    output = parse_binop_rhs(context, std::move(output));
+    output = parse_binop_rhs(context, (output));
   };
 
   return output;
 }
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_num_val(StyioContext& context) {
-  unique_ptr<StyioAST> output;
+  StyioAST* output;
 
   if (isalpha(context.get_curr_char()) || context.check('_')) {
     return parse_id_or_value(context);
@@ -601,9 +596,9 @@ parse_num_val(StyioContext& context) {
   throw StyioParseError(errmsg);
 }
 
-shared_ptr<StyioAST>
+StyioAST*
 parse_item_for_binop(StyioContext& context) {
-  shared_ptr<StyioAST> output = make_shared<NoneAST>();
+  StyioAST* output = NoneAST::Create();
 
   if (context.check_isal_()) {
     return parse_id(context);
@@ -625,7 +620,7 @@ parse_item_for_binop(StyioContext& context) {
       context.drop_all_spaces_comments();
 
       if (context.check_drop(']')) {
-        return make_unique<EmptyAST>();
+        return new EmptyAST();
       }
       else {
         return parse_list_or_loop(context);
@@ -647,11 +642,11 @@ parse_item_for_binop(StyioContext& context) {
   return output;
 }
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_expr(
   StyioContext& context
 ) {
-  unique_ptr<StyioAST> output;
+  StyioAST* output;
 
   if (isalpha(context.get_curr_char()) || context.check('_')) {
     output = parse_id(context);
@@ -659,7 +654,7 @@ parse_expr(
     context.drop_all_spaces_comments();
 
     if (context.check_binop()) {
-      output = parse_binop_rhs(context, std::move(output));
+      output = parse_binop_rhs(context, (output));
     }
 
     return output;
@@ -670,7 +665,7 @@ parse_expr(
     context.drop_all_spaces_comments();
 
     if (context.check_binop()) {
-      output = parse_binop_rhs(context, std::move(output));
+      output = parse_binop_rhs(context, (output));
     }
 
     return output;
@@ -691,7 +686,7 @@ parse_expr(
       context.drop_all_spaces_comments();
 
       if (context.check_drop(']')) {
-        output = make_unique<EmptyAST>();
+        output = new EmptyAST();
       }
       else {
         output = parse_list_or_loop(context);
@@ -720,7 +715,7 @@ parse_expr(
       context.drop_all_spaces_comments();
 
       if (context.check_binop()) {
-        output = parse_binop_rhs(context, std::move(output));
+        output = parse_binop_rhs(context, (output));
       }
 
       return output;
@@ -733,11 +728,11 @@ parse_expr(
 
       if (context.check_drop('t')) {
         context.check_drop('\\');
-        return make_unique<BoolAST>(true);
+        return new BoolAST(true);
       }
       else if (context.check_drop('f')) {
         context.check_drop('\\');
-        return make_unique<BoolAST>(false);
+        return new BoolAST(false);
       }
     }
 
@@ -750,16 +745,16 @@ parse_expr(
     }
 
     default: {
-      output = make_unique<NoneAST>();
+      output = new NoneAST();
     } break;
   }
 
   return output;
 }
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_tuple(StyioContext& context) {
-  vector<unique_ptr<StyioAST>> exprs;
+  vector<StyioAST*> exprs;
 
   /*
     Danger!
@@ -773,7 +768,7 @@ parse_tuple(StyioContext& context) {
     context.drop_all_spaces_comments();
 
     if (context.check_drop(')')) {
-      return make_unique<TupleAST>(std::move(exprs));
+      return new TupleAST((exprs));
     }
     else {
       exprs.push_back(parse_expr(context));
@@ -784,16 +779,16 @@ parse_tuple(StyioContext& context) {
   context.check_drop(')');
 
   if (exprs.size() == 0) {
-    return make_unique<EmptyAST>();
+    return new EmptyAST();
   }
   else {
-    return make_unique<TupleAST>(std::move(exprs));
+    return new TupleAST((exprs));
   }
 }
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_list(StyioContext& context) {
-  vector<unique_ptr<StyioAST>> exprs;
+  vector<StyioAST*> exprs;
 
   /*
     Danger!
@@ -807,7 +802,7 @@ parse_list(StyioContext& context) {
     context.drop_all_spaces_comments();
 
     if (context.check_drop(']')) {
-      return make_unique<ListAST>(std::move(exprs));
+      return new ListAST((exprs));
     }
     else {
       exprs.push_back(parse_expr(context));
@@ -818,16 +813,16 @@ parse_list(StyioContext& context) {
   context.check_drop(']');
 
   if (exprs.size() == 0) {
-    return make_unique<EmptyAST>();
+    return new EmptyAST();
   }
   else {
-    return make_unique<ListAST>(std::move(exprs));
+    return new ListAST((exprs));
   }
 }
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_set(StyioContext& context) {
-  vector<unique_ptr<StyioAST>> exprs;
+  vector<StyioAST*> exprs;
 
   /*
     Danger!
@@ -841,7 +836,7 @@ parse_set(StyioContext& context) {
     context.drop_all_spaces_comments();
 
     if (context.check_drop('}')) {
-      return make_unique<SetAST>(std::move(exprs));
+      return new SetAST((exprs));
     }
     else {
       exprs.push_back(parse_expr(context));
@@ -852,16 +847,16 @@ parse_set(StyioContext& context) {
   context.check_drop('}');
 
   if (exprs.size() == 0) {
-    return make_unique<EmptyAST>();
+    return new EmptyAST();
   }
   else {
-    return make_unique<SetAST>(std::move(exprs));
+    return new SetAST((exprs));
   }
 }
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_iterable(StyioContext& context) {
-  unique_ptr<StyioAST> output = make_unique<EmptyAST>();
+  StyioAST* output = new EmptyAST();
 
   if (isalpha(context.get_curr_char()) || context.check('_')) {
     output = parse_id(context);
@@ -869,7 +864,7 @@ parse_iterable(StyioContext& context) {
     context.drop_all_spaces_comments();
 
     if (context.check_binop()) {
-      output = parse_binop_rhs(context, std::move(output));
+      output = parse_binop_rhs(context, (output));
     };
 
     return output;
@@ -879,12 +874,12 @@ parse_iterable(StyioContext& context) {
       case '(': {
         context.move(1);
 
-        vector<unique_ptr<StyioAST>> exprs;
+        vector<StyioAST*> exprs;
         do {
           context.drop_all_spaces_comments();
 
           if (context.check_drop(')')) {
-            return make_unique<TupleAST>(std::move(exprs));
+            return new TupleAST((exprs));
           }
           else {
             exprs.push_back(parse_expr(context));
@@ -895,22 +890,22 @@ parse_iterable(StyioContext& context) {
         context.check_drop(')');
 
         if (exprs.size() == 0) {
-          return make_unique<EmptyAST>();
+          return new EmptyAST();
         }
         else {
-          return make_unique<TupleAST>(std::move(exprs));
+          return new TupleAST((exprs));
         }
       }
 
       case '[': {
         context.move(1);
 
-        vector<unique_ptr<StyioAST>> exprs;
+        vector<StyioAST*> exprs;
         do {
           context.drop_all_spaces_comments();
 
           if (context.check_drop(']')) {
-            return make_unique<ListAST>(std::move(exprs));
+            return new ListAST((exprs));
           }
           else {
             exprs.push_back(parse_expr(context));
@@ -921,22 +916,22 @@ parse_iterable(StyioContext& context) {
         context.check_drop(']');
 
         if (exprs.size() == 0) {
-          return make_unique<EmptyAST>();
+          return new EmptyAST();
         }
         else {
-          return make_unique<ListAST>(std::move(exprs));
+          return new ListAST((exprs));
         }
       }
 
       case '{': {
         context.move(1);
 
-        vector<unique_ptr<StyioAST>> exprs;
+        vector<StyioAST*> exprs;
         do {
           context.drop_all_spaces_comments();
 
           if (context.check_drop('}')) {
-            return make_unique<SetAST>(std::move(exprs));
+            return new SetAST((exprs));
           }
           else {
             exprs.push_back(parse_expr(context));
@@ -947,10 +942,10 @@ parse_iterable(StyioContext& context) {
         context.check_drop('}');
 
         if (exprs.size() == 0) {
-          return make_unique<EmptyAST>();
+          return new EmptyAST();
         }
         else {
-          return make_unique<SetAST>(std::move(exprs));
+          return new SetAST((exprs));
         }
       }
 
@@ -972,21 +967,21 @@ parse_iterable(StyioContext& context) {
   - Binary Operation
 */
 
-unique_ptr<SizeOfAST>
+SizeOfAST*
 parse_size_of(StyioContext& context) {
-  unique_ptr<SizeOfAST> output;
+  SizeOfAST* output;
 
   // eliminate | at the start
   context.move(1);
 
   if (isalpha(context.get_curr_char()) || context.check('_')) {
-    unique_ptr<StyioAST> var = parse_id_or_value(context);
+    StyioAST* var = parse_id_or_value(context);
 
     // eliminate | at the end
     if (context.check('|')) {
       context.move(1);
 
-      output = make_unique<SizeOfAST>(std::move(var));
+      output = new SizeOfAST((var));
     }
     else {
       string errmsg = string("|expr| // SizeOf: Expecting | at the end, but got .:| ") + char(context.get_curr_char()) + " |:.";
@@ -1005,14 +1000,14 @@ parse_size_of(StyioContext& context) {
   Invoke / Call
 */
 
-unique_ptr<CallAST>
+CallAST*
 parse_call(
   StyioContext& context,
-  unique_ptr<IdAST> func_name
+  IdAST* func_name
 ) {
   context.check_drop_panic('(');
 
-  vector<unique_ptr<StyioAST>> exprs;
+  vector<StyioAST*> exprs;
 
   while (not context.check(')')) {
     exprs.push_back(parse_expr(context));
@@ -1022,9 +1017,9 @@ parse_call(
 
   context.check_drop_panic(')');
 
-  return make_unique<CallAST>(
-    std::move(func_name),
-    std::move(exprs)
+  return new CallAST(
+    (func_name),
+    (exprs)
   );
 }
 
@@ -1056,9 +1051,9 @@ parse_call(
     : [[<] -: ?^ (v0, v1, ...)]
 */
 
-unique_ptr<StyioAST>
-parse_list_op(StyioContext& context, unique_ptr<StyioAST> theList) {
-  unique_ptr<StyioAST> output;
+StyioAST*
+parse_list_op(StyioContext& context, StyioAST* theList) {
+  StyioAST* output;
 
   /*
     Danger!
@@ -1070,13 +1065,13 @@ parse_list_op(StyioContext& context, unique_ptr<StyioAST> theList) {
 
   do {
     if (isalpha(context.get_curr_char()) || context.check('_')) {
-      output = make_unique<ListOpAST>(
-        StyioNodeHint::Access, std::move(theList), parse_id_or_value(context)
+      output = new ListOpAST(
+        StyioNodeHint::Access, (theList), parse_id_or_value(context)
       );
     }
     else if (isdigit(context.get_curr_char())) {
-      output = make_unique<ListOpAST>(
-        StyioNodeHint::Access_By_Index, std::move(theList), parse_int(context)
+      output = new ListOpAST(
+        StyioNodeHint::Access_By_Index, (theList), parse_int(context)
       );
     }
     else {
@@ -1085,7 +1080,7 @@ parse_list_op(StyioContext& context, unique_ptr<StyioAST> theList) {
           list["any"]
         */
         case '"': {
-          output = make_unique<ListOpAST>(StyioNodeHint::Access_By_Name, std::move(theList), parse_string(context));
+          output = new ListOpAST(StyioNodeHint::Access_By_Name, (theList), parse_string(context));
         }
 
         // You should NOT reach this line!
@@ -1101,7 +1096,7 @@ parse_list_op(StyioContext& context, unique_ptr<StyioAST> theList) {
             context.move(1);
           }
 
-          output = make_unique<ListOpAST>(StyioNodeHint::Get_Reversed, std::move(theList));
+          output = new ListOpAST(StyioNodeHint::Get_Reversed, (theList));
         }
 
         // You should NOT reach this line!
@@ -1114,12 +1109,12 @@ parse_list_op(StyioContext& context, unique_ptr<StyioAST> theList) {
           if (context.check_drop('=')) {
             context.drop_all_spaces_comments();
 
-            output = make_unique<ListOpAST>(StyioNodeHint::Get_Index_By_Value, std::move(theList), parse_expr(context));
+            output = new ListOpAST(StyioNodeHint::Get_Index_By_Value, (theList), parse_expr(context));
           }
           else if (context.check_drop('^')) {
             context.drop_all_spaces_comments();
 
-            output = make_unique<ListOpAST>(StyioNodeHint::Get_Indices_By_Many_Values, std::move(theList), parse_iterable(context));
+            output = new ListOpAST(StyioNodeHint::Get_Indices_By_Many_Values, (theList), parse_iterable(context));
           }
           else {
             string errmsg = string("Expecting ?= or ?^, but got ") + char(context.get_curr_char());
@@ -1139,7 +1134,7 @@ parse_list_op(StyioContext& context, unique_ptr<StyioAST> theList) {
 
           context.drop_white_spaces();
 
-          unique_ptr<StyioAST> index = parse_int(context);
+          StyioAST* index = parse_int(context);
 
           context.drop_white_spaces();
 
@@ -1149,11 +1144,11 @@ parse_list_op(StyioContext& context, unique_ptr<StyioAST> theList) {
           if (context.check_drop("<-")) {
             context.drop_white_spaces();
 
-            output = make_unique<ListOpAST>(StyioNodeHint::Insert_Item_By_Index, std::move(theList), std::move(index), parse_expr(context));
+            output = new ListOpAST(StyioNodeHint::Insert_Item_By_Index, (theList), (index), parse_expr(context));
           }
           // list[^index]
           else {
-            output = make_unique<ListOpAST>(StyioNodeHint::Access_By_Index, std::move(theList), std::move(index));
+            output = new ListOpAST(StyioNodeHint::Access_By_Index, (theList), (index));
           }
         }
         // You should NOT reach this line!
@@ -1169,12 +1164,12 @@ parse_list_op(StyioContext& context, unique_ptr<StyioAST> theList) {
 
           context.drop_white_spaces();
 
-          unique_ptr<StyioAST> expr = parse_expr(context);
+          StyioAST* expr = parse_expr(context);
 
           context.drop_white_spaces();
 
-          output = make_unique<ListOpAST>(
-            StyioNodeHint::Append_Value, std::move(theList), std::move(expr)
+          output = new ListOpAST(
+            StyioNodeHint::Append_Value, (theList), (expr)
           );
         }
 
@@ -1195,16 +1190,16 @@ parse_list_op(StyioContext& context, unique_ptr<StyioAST> theList) {
             context.drop_white_spaces();
 
             if (isdigit(context.get_curr_char())) {
-              output = make_unique<ListOpAST>(StyioNodeHint::Remove_Item_By_Index, std::move(theList), std::move(parse_int(context)));
+              output = new ListOpAST(StyioNodeHint::Remove_Item_By_Index, (theList), (parse_int(context)));
             }
             else {
               /*
                 list[-: ^(i0, i1, ...)]
               */
-              output = make_unique<ListOpAST>(
+              output = new ListOpAST(
                 StyioNodeHint::Remove_Items_By_Many_Indices,
-                std::move(theList),
-                std::move(parse_iterable(context))
+                (theList),
+                (parse_iterable(context))
               );
             }
           }
@@ -1218,7 +1213,7 @@ parse_list_op(StyioContext& context, unique_ptr<StyioAST> theList) {
 
                 context.drop_white_spaces();
 
-                output = make_unique<ListOpAST>(StyioNodeHint::Remove_Item_By_Value, std::move(theList), parse_expr(context));
+                output = new ListOpAST(StyioNodeHint::Remove_Item_By_Value, (theList), parse_expr(context));
               }
 
               break;
@@ -1231,9 +1226,9 @@ parse_list_op(StyioContext& context, unique_ptr<StyioAST> theList) {
 
                 context.drop_white_spaces();
 
-                output = make_unique<ListOpAST>(
+                output = new ListOpAST(
                   StyioNodeHint::Remove_Items_By_Many_Values,
-                  std::move(theList),
+                  (theList),
                   parse_iterable(context)
                 );
               }
@@ -1245,7 +1240,7 @@ parse_list_op(StyioContext& context, unique_ptr<StyioAST> theList) {
             }
           }
           else {
-            output = make_unique<ListOpAST>(StyioNodeHint::Remove_Item_By_Value, std::move(theList), parse_expr(context));
+            output = new ListOpAST(StyioNodeHint::Remove_Item_By_Value, (theList), parse_expr(context));
           }
         }
 
@@ -1253,7 +1248,7 @@ parse_list_op(StyioContext& context, unique_ptr<StyioAST> theList) {
         break;
 
         case ']': {
-          output = std::move(theList);
+          output = (theList);
         }
 
         // You should NOT reach this line!
@@ -1275,25 +1270,25 @@ parse_list_op(StyioContext& context, unique_ptr<StyioAST> theList) {
   return output;
 }
 
-unique_ptr<StyioAST>
-parse_loop_or_iter(StyioContext& context, unique_ptr<StyioAST> iterOverIt) {
+StyioAST*
+parse_loop_or_iter(StyioContext& context, StyioAST* iterOverIt) {
   context.drop_all_spaces_comments();
 
   if ((iterOverIt->hint()) == StyioNodeHint::Infinite) {
-    return make_unique<LoopAST>(parse_forward(context, false));
+    return new LoopAST(parse_forward(context, false));
   }
   else {
-    return make_unique<IterAST>(std::move(iterOverIt), parse_forward(context, false));
+    return new IterAST((iterOverIt), parse_forward(context, false));
   }
 }
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_list_or_loop(StyioContext& context) {
-  unique_ptr<StyioAST> output;
+  StyioAST* output;
 
-  vector<unique_ptr<StyioAST>> elements;
+  vector<StyioAST*> elements;
 
-  unique_ptr<StyioAST> startEl = parse_expr(context);
+  StyioAST* startEl = parse_expr(context);
 
   context.drop_white_spaces();
 
@@ -1304,18 +1299,18 @@ parse_list_or_loop(StyioContext& context) {
 
     context.drop_white_spaces();
 
-    unique_ptr<StyioAST> endEl = parse_expr(context);
+    StyioAST* endEl = parse_expr(context);
 
     context.drop_white_spaces();
 
     context.check_drop_panic(']');
 
     if (startEl->hint() == StyioNodeHint::Int && endEl->hint() == StyioNodeHint::Id) {
-      output = make_unique<InfiniteAST>(std::move(startEl), std::move(endEl));
+      output = new InfiniteAST((startEl), (endEl));
     }
     else if (startEl->hint() == StyioNodeHint::Int && endEl->hint() == StyioNodeHint::Int) {
-      output = make_unique<RangeAST>(
-        std::move(startEl), std::move(endEl), make_unique<IntAST>("1")
+      output = new RangeAST(
+        (startEl), (endEl), IntAST::Create("1")
       );
     }
     else {
@@ -1324,13 +1319,13 @@ parse_list_or_loop(StyioContext& context) {
     }
   }
   else if (context.check_drop(',')) {
-    elements.push_back(std::move(startEl));
+    elements.push_back((startEl));
 
     do {
       context.drop_all_spaces_comments();
 
       if (context.check_drop(']')) {
-        return make_unique<ListAST>(std::move(elements));
+        return new ListAST(elements);
       }
       else {
         elements.push_back(parse_expr(context));
@@ -1339,32 +1334,32 @@ parse_list_or_loop(StyioContext& context) {
 
     context.find_drop_panic(']');
 
-    output = make_unique<ListAST>(std::move(elements));
+    output = new ListAST((elements));
   }
   else {
-    elements.push_back(std::move(startEl));
+    elements.push_back((startEl));
 
     context.find_drop_panic(']');
 
-    output = make_unique<ListAST>(std::move(elements));
+    output = new ListAST((elements));
   }
 
   while (context.check('[')) {
-    output = parse_list_op(context, std::move(output));
+    output = parse_list_op(context, (output));
   }
 
   context.drop_all_spaces();
 
   if (context.check_drop(">>")) {
-    output = parse_loop_or_iter(context, std::move(output));
+    output = parse_loop_or_iter(context, (output));
   }
 
   return output;
 }
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_loop(StyioContext& context) {
-  unique_ptr<StyioAST> output;
+  StyioAST* output;
 
   while (context.check('.')) {
     context.move(1);
@@ -1377,15 +1372,15 @@ parse_loop(StyioContext& context) {
   if (context.check_drop(">>")) {
     context.drop_all_spaces();
 
-    return make_unique<LoopAST>(parse_forward(context, false));
+    return new LoopAST(parse_forward(context, false));
   }
 
-  return make_unique<InfiniteAST>();
+  return new InfiniteAST();
 }
 
-unique_ptr<BinOpAST>
-parse_binop_rhs(StyioContext& context, shared_ptr<StyioAST> lhs_ast) {
-  unique_ptr<BinOpAST> output;
+BinOpAST*
+parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast) {
+  BinOpAST* output;
 
   switch (context.get_curr_char()) {
     // Bin_Add := <ID> "+" <EXPR>
@@ -1396,12 +1391,12 @@ parse_binop_rhs(StyioContext& context, shared_ptr<StyioAST> lhs_ast) {
       if (context.check_drop('=')) {
         context.drop_all_spaces();
 
-        output = make_unique<BinOpAST>(StyioNodeHint::Inc_Add, std::move(lhs_ast), std::move(parse_item_for_binop(context)));
+        output = new BinOpAST(StyioNodeHint::Inc_Add, (lhs_ast), (parse_item_for_binop(context)));
 
         return output;
       }
       else {
-        output = make_unique<BinOpAST>(StyioNodeHint::Bin_Add, std::move(lhs_ast), std::move(parse_item_for_binop(context)));
+        output = new BinOpAST(StyioNodeHint::Bin_Add, (lhs_ast), (parse_item_for_binop(context)));
       }
     };
 
@@ -1416,12 +1411,12 @@ parse_binop_rhs(StyioContext& context, shared_ptr<StyioAST> lhs_ast) {
       if (context.check_drop('=')) {
         context.drop_all_spaces();
 
-        output = make_unique<BinOpAST>(StyioNodeHint::Inc_Sub, std::move(lhs_ast), std::move(parse_item_for_binop(context)));
+        output = new BinOpAST(StyioNodeHint::Inc_Sub, (lhs_ast), (parse_item_for_binop(context)));
 
         return output;
       }
       else {
-        output = make_unique<BinOpAST>(StyioNodeHint::Bin_Sub, std::move(lhs_ast), std::move(parse_item_for_binop(context)));
+        output = new BinOpAST(StyioNodeHint::Bin_Sub, (lhs_ast), (parse_item_for_binop(context)));
       }
     };
 
@@ -1437,12 +1432,12 @@ parse_binop_rhs(StyioContext& context, shared_ptr<StyioAST> lhs_ast) {
         context.drop_all_spaces_comments();
 
         // <ID> "**" |--
-        output = make_unique<BinOpAST>(StyioNodeHint::Bin_Pow, std::move(lhs_ast), std::move(parse_item_for_binop(context)));
+        output = new BinOpAST(StyioNodeHint::Bin_Pow, (lhs_ast), (parse_item_for_binop(context)));
       }
       else if (context.check_drop('=')) {
         context.drop_all_spaces();
 
-        output = make_unique<BinOpAST>(StyioNodeHint::Inc_Mul, std::move(lhs_ast), std::move(parse_item_for_binop(context)));
+        output = new BinOpAST(StyioNodeHint::Inc_Mul, (lhs_ast), (parse_item_for_binop(context)));
 
         return output;
       }
@@ -1451,7 +1446,7 @@ parse_binop_rhs(StyioContext& context, shared_ptr<StyioAST> lhs_ast) {
         context.drop_all_spaces();
 
         // <ID> "*" |--
-        output = make_unique<BinOpAST>(StyioNodeHint::Bin_Mul, std::move(lhs_ast), std::move(parse_item_for_binop(context)));
+        output = new BinOpAST(StyioNodeHint::Bin_Mul, (lhs_ast), (parse_item_for_binop(context)));
       }
     };
       // You should NOT reach this line!
@@ -1465,12 +1460,12 @@ parse_binop_rhs(StyioContext& context, shared_ptr<StyioAST> lhs_ast) {
       if (context.check_drop('=')) {
         context.drop_all_spaces();
 
-        output = make_unique<BinOpAST>(StyioNodeHint::Inc_Div, std::move(lhs_ast), std::move(parse_item_for_binop(context)));
+        output = new BinOpAST(StyioNodeHint::Inc_Div, (lhs_ast), (parse_item_for_binop(context)));
 
         return output;
       }
       else {
-        output = make_unique<BinOpAST>(StyioNodeHint::Bin_Div, std::move(lhs_ast), std::move(parse_item_for_binop(context)));
+        output = new BinOpAST(StyioNodeHint::Bin_Div, (lhs_ast), (parse_item_for_binop(context)));
       }
     };
 
@@ -1483,7 +1478,7 @@ parse_binop_rhs(StyioContext& context, shared_ptr<StyioAST> lhs_ast) {
       context.drop_all_spaces_comments();
 
       // <ID> "%" |--
-      output = make_unique<BinOpAST>(StyioNodeHint::Bin_Mod, std::move(lhs_ast), std::move(parse_item_for_binop(context)));
+      output = new BinOpAST(StyioNodeHint::Bin_Mod, lhs_ast, (parse_item_for_binop(context)));
     };
 
       // You should NOT reach this line!
@@ -1502,15 +1497,15 @@ parse_binop_rhs(StyioContext& context, shared_ptr<StyioAST> lhs_ast) {
   while (context.check_binop()) {
     context.drop_all_spaces();
 
-    output = parse_binop_rhs(context, std::move(output));
+    output = parse_binop_rhs(context, (output));
   }
 
   return output;
 }
 
-unique_ptr<CondAST>
-parse_cond_rhs(StyioContext& context, unique_ptr<StyioAST> lhsExpr) {
-  unique_ptr<CondAST> condExpr;
+CondAST*
+parse_cond_rhs(StyioContext& context, StyioAST* lhsExpr) {
+  CondAST* condExpr;
 
   context.drop_all_spaces();
 
@@ -1528,8 +1523,8 @@ parse_cond_rhs(StyioContext& context, unique_ptr<StyioAST> lhsExpr) {
 
       context.drop_all_spaces();
 
-      condExpr = make_unique<CondAST>(
-        LogicType::AND, std::move(lhsExpr), parse_cond(context)
+      condExpr = new CondAST(
+        LogicType::AND, (lhsExpr), parse_cond(context)
       );
     }
 
@@ -1550,8 +1545,8 @@ parse_cond_rhs(StyioContext& context, unique_ptr<StyioAST> lhsExpr) {
 
       context.drop_all_spaces();
 
-      condExpr = make_unique<CondAST>(
-        LogicType::OR, std::move(lhsExpr), parse_cond(context)
+      condExpr = new CondAST(
+        LogicType::OR, (lhsExpr), parse_cond(context)
       );
     }
 
@@ -1568,8 +1563,8 @@ parse_cond_rhs(StyioContext& context, unique_ptr<StyioAST> lhsExpr) {
 
       context.drop_all_spaces();
 
-      condExpr = make_unique<CondAST>(
-        LogicType::OR, std::move(lhsExpr), parse_cond(context)
+      condExpr = new CondAST(
+        LogicType::OR, (lhsExpr), parse_cond(context)
       );
     }
 
@@ -1589,7 +1584,7 @@ parse_cond_rhs(StyioContext& context, unique_ptr<StyioAST> lhsExpr) {
         */
         context.drop_all_spaces();
 
-        condExpr = make_unique<CondAST>(LogicType::NOT, parse_cond(context));
+        condExpr = new CondAST(LogicType::NOT, parse_cond(context));
 
         context.find_drop_panic(')');
       }
@@ -1604,20 +1599,20 @@ parse_cond_rhs(StyioContext& context, unique_ptr<StyioAST> lhsExpr) {
   context.drop_all_spaces();
 
   while (!(context.check(')'))) {
-    condExpr = std::move(parse_cond_rhs(context, std::move(condExpr)));
+    condExpr = (parse_cond_rhs(context, (condExpr)));
   }
 
   return condExpr;
 }
 
-unique_ptr<CondAST>
+CondAST*
 parse_cond(StyioContext& context) {
-  unique_ptr<StyioAST> lhsExpr;
+  StyioAST* lhsExpr;
 
   if (context.check('(')) {
     context.move(1);
 
-    lhsExpr = std::move(parse_cond(context));
+    lhsExpr = (parse_cond(context));
 
     context.find_drop_panic(')');
   }
@@ -1635,11 +1630,11 @@ parse_cond(StyioContext& context) {
       */
       context.drop_all_spaces();
 
-      lhsExpr = std::move(parse_cond(context));
+      lhsExpr = (parse_cond(context));
 
       context.drop_all_spaces();
 
-      return make_unique<CondAST>(LogicType::NOT, std::move(lhsExpr));
+      return new CondAST(LogicType::NOT, (lhsExpr));
     }
     else {
       string errmsg = string("!(expr) // Expecting ( after !, but got ") + char(context.get_curr_char());
@@ -1647,24 +1642,24 @@ parse_cond(StyioContext& context) {
     };
   }
   else {
-    lhsExpr = std::move(parse_item_for_cond(context));
+    lhsExpr = (parse_item_for_cond(context));
   };
 
   // drop all spaces after first value
   context.drop_all_spaces();
 
   if (context.check('&') || context.check('|')) {
-    return parse_cond_rhs(context, std::move(lhsExpr));
+    return parse_cond_rhs(context, (lhsExpr));
   }
   else {
-    return make_unique<CondAST>(LogicType::RAW, std::move(lhsExpr));
+    return new CondAST(LogicType::RAW, (lhsExpr));
   }
 
   string errmsg = string("parse_cond() : You should not reach this line!") + char(context.get_curr_char());
   throw StyioParseError(errmsg);
 }
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_cond_flow(StyioContext& context) {
   /*
     Danger!
@@ -1677,7 +1672,7 @@ parse_cond_flow(StyioContext& context) {
   context.drop_white_spaces();
 
   if (context.check_drop('(')) {
-    unique_ptr<CondAST> condition = parse_cond(context);
+    CondAST* condition = parse_cond(context);
 
     context.find_drop_panic(')');
 
@@ -1692,7 +1687,7 @@ parse_cond_flow(StyioContext& context) {
     context.drop_all_spaces_comments();
 
     if (context.check_drop('\\')) {
-      unique_ptr<StyioAST> block;
+      StyioAST* block;
 
       if (context.check_drop('t')) {
         context.check_drop('\\');
@@ -1726,12 +1721,12 @@ parse_cond_flow(StyioContext& context) {
           */
           context.drop_all_spaces_comments();
 
-          unique_ptr<StyioAST> blockElse = parse_block(context);
+          StyioAST* blockElse = parse_block(context);
 
-          return make_unique<CondFlowAST>(StyioNodeHint::CondFlow_Both, std::move(condition), std::move(block), std::move(blockElse));
+          return new CondFlowAST(StyioNodeHint::CondFlow_Both, (condition), (block), (blockElse));
         }
         else {
-          return make_unique<CondFlowAST>(StyioNodeHint::CondFlow_True, std::move(condition), std::move(block));
+          return new CondFlowAST(StyioNodeHint::CondFlow_True, (condition), (block));
         }
       }
       else if (context.check_drop('f')) {
@@ -1746,7 +1741,7 @@ parse_cond_flow(StyioContext& context) {
 
         block = parse_block(context);
 
-        return make_unique<CondFlowAST>(StyioNodeHint::CondFlow_False, std::move(condition), std::move(block));
+        return new CondFlowAST(StyioNodeHint::CondFlow_False, (condition), (block));
       }
       else {
         string errmsg = string("parse_cond_flow() // Unexpected character ") + context.get_curr_char();
@@ -1762,7 +1757,7 @@ parse_cond_flow(StyioContext& context) {
   throw StyioSyntaxError(context.label_cur_line(), string("Invalid Syntax"));
 }
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_func(StyioContext& context) {
   /* this line drops cur_char without checking */
   context.move(1);
@@ -1777,8 +1772,8 @@ parse_func(StyioContext& context) {
       if (context.check_drop('=')) {
         context.drop_all_spaces();
 
-        return make_unique<FuncAST>(
-          std::move(name),
+        return new FuncAST(
+          (name),
           parse_forward(context, true),
           true
         );
@@ -1794,13 +1789,13 @@ parse_func(StyioContext& context) {
           if (context.check_drop('=')) {
             context.drop_all_spaces_comments();
 
-            return make_unique<FuncAST>(std::move(name), std::move(dtype), parse_forward(context, true), true);
+            return new FuncAST((name), (dtype), parse_forward(context, true), true);
           }
         }
         else if (context.check_drop('=')) {
           context.drop_all_spaces_comments();
 
-          return make_unique<FuncAST>(std::move(name), std::move(dtype), parse_forward(context, true), false);
+          return new FuncAST((name), (dtype), parse_forward(context, true), false);
         }
       }
 
@@ -1811,15 +1806,15 @@ parse_func(StyioContext& context) {
       if (context.check('>')) {
         context.move(-1);
 
-        return make_unique<FuncAST>(
-          std::move(name), parse_forward(context, true), false
+        return new FuncAST(
+          (name), parse_forward(context, true), false
         );
       }
       else {
         context.drop_all_spaces();
 
-        return make_unique<FuncAST>(
-          std::move(name), parse_forward(context, true), false
+        return new FuncAST(
+          (name), parse_forward(context, true), false
         );
       }
     }
@@ -1834,11 +1829,11 @@ parse_func(StyioContext& context) {
     [?] AnonyFunc
     [?] MatchCases
 */
-unique_ptr<ForwardAST>
+ForwardAST*
 parse_forward(StyioContext& context, bool is_func) {
-  unique_ptr<ForwardAST> output;
+  ForwardAST* output;
 
-  shared_ptr<VarTupleAST> args;
+  VarTupleAST* args;
   bool has_args = false;
 
   if (is_func) {
@@ -1894,20 +1889,20 @@ parse_forward(StyioContext& context, bool is_func) {
           /* #(args) ?= cases */
           if (context.check('{')) {
             if (has_args) {
-              output = make_unique<ForwardAST>(std::move(cases));
+              output = new ForwardAST((cases));
             }
             else {
-              output = make_unique<ForwardAST>(std::move(cases));
+              output = new ForwardAST((cases));
             }
 
             return output;
           }
           /* #(args) ?= value => then */
           else {
-            unique_ptr<CheckEqAST> extra_check;
-            unique_ptr<StyioAST> then;
+            CheckEqAST* extra_check;
+            StyioAST* then;
 
-            extra_check = make_unique<CheckEqAST>(parse_expr(context));
+            extra_check = new CheckEqAST(parse_expr(context));
 
             context.drop_all_spaces();
 
@@ -1922,12 +1917,12 @@ parse_forward(StyioContext& context, bool is_func) {
               }
 
               if (has_args) {
-                output = make_unique<ForwardAST>(
-                  std::move(args), std::move(extra_check), std::move(then)
+                output = new ForwardAST(
+                  (args), (extra_check), (then)
                 );
               }
               else {
-                output = make_unique<ForwardAST>(std::move(extra_check), std::move(then));
+                output = new ForwardAST((extra_check), (then));
               }
             }
             else {
@@ -1948,9 +1943,9 @@ parse_forward(StyioContext& context, bool is_func) {
         case '^': {
           context.move(1);
 
-          unique_ptr<StyioAST> nextExpr;
+          StyioAST* nextExpr;
 
-          unique_ptr<StyioAST> iterable;
+          StyioAST* iterable;
 
           context.drop_white_spaces();
 
@@ -1958,7 +1953,7 @@ parse_forward(StyioContext& context, bool is_func) {
             case '(': {
               context.move(1);
 
-              vector<unique_ptr<StyioAST>> exprs;
+              vector<StyioAST*> exprs;
               do {
                 context.drop_all_spaces_comments();
 
@@ -1972,13 +1967,13 @@ parse_forward(StyioContext& context, bool is_func) {
 
               context.find_drop(')');
 
-              iterable = make_unique<TupleAST>(std::move(exprs));
+              iterable = new TupleAST((exprs));
             } break;
 
             case '[': {
               context.move(1);
 
-              vector<unique_ptr<StyioAST>> exprs;
+              vector<StyioAST*> exprs;
               do {
                 context.drop_all_spaces_comments();
 
@@ -1992,7 +1987,7 @@ parse_forward(StyioContext& context, bool is_func) {
 
               context.find_drop(']');
 
-              iterable = make_unique<ListAST>(std::move(exprs));
+              iterable = new ListAST((exprs));
             }
 
             break;
@@ -2000,7 +1995,7 @@ parse_forward(StyioContext& context, bool is_func) {
             case '{': {
               context.move(1);
 
-              vector<unique_ptr<StyioAST>> exprs;
+              vector<StyioAST*> exprs;
               do {
                 context.drop_all_spaces_comments();
 
@@ -2014,7 +2009,7 @@ parse_forward(StyioContext& context, bool is_func) {
 
               context.find_drop('}');
 
-              iterable = make_unique<SetAST>(std::move(exprs));
+              iterable = new SetAST((exprs));
             } break;
 
             default: {
@@ -2045,16 +2040,16 @@ parse_forward(StyioContext& context, bool is_func) {
             }
 
             if (has_args) {
-              output = make_unique<ForwardAST>(
-                std::move(args),
-                make_unique<CheckIsInAST>(std::move(iterable)),
-                std::move(nextExpr)
+              output = new ForwardAST(
+                (args),
+                new CheckIsInAST((iterable)),
+                (nextExpr)
               );
             }
             else {
-              output = make_unique<ForwardAST>(
-                make_unique<CheckIsInAST>(std::move(iterable)),
-                std::move(nextExpr)
+              output = new ForwardAST(
+                new CheckIsInAST((iterable)),
+                (nextExpr)
               );
             }
           }
@@ -2081,10 +2076,10 @@ parse_forward(StyioContext& context, bool is_func) {
           context.move(-1);
 
           if (has_args) {
-            output = make_unique<ForwardAST>(std::move(args), parse_cond_flow(context));
+            output = new ForwardAST((args), parse_cond_flow(context));
           }
           else {
-            output = make_unique<ForwardAST>(parse_cond_flow(context));
+            output = new ForwardAST(parse_cond_flow(context));
           }
 
           break;
@@ -2106,18 +2101,18 @@ parse_forward(StyioContext& context, bool is_func) {
 
       if (context.check('{')) {
         if (has_args) {
-          output = make_unique<ForwardAST>(std::move(args), parse_block(context));
+          output = new ForwardAST((args), parse_block(context));
         }
         else {
-          output = make_unique<ForwardAST>(parse_block(context));
+          output = new ForwardAST(parse_block(context));
         }
       }
       else {
         if (has_args) {
-          output = make_unique<ForwardAST>(std::move(args), parse_expr(context));
+          output = new ForwardAST((args), parse_expr(context));
         }
         else {
-          output = make_unique<ForwardAST>(parse_expr(context));
+          output = new ForwardAST(parse_expr(context));
         }
       }
     } break;
@@ -2129,10 +2124,10 @@ parse_forward(StyioContext& context, bool is_func) {
     */
     case '{': {
       if (has_args) {
-        output = make_unique<ForwardAST>(std::move(args), parse_block(context));
+        output = new ForwardAST((args), parse_block(context));
       }
       else {
-        output = make_unique<ForwardAST>(parse_block(context));
+        output = new ForwardAST(parse_block(context));
       }
     } break;
 
@@ -2146,8 +2141,8 @@ parse_forward(StyioContext& context, bool is_func) {
   return output;
 }
 
-unique_ptr<StyioAST>
-parse_read_file(StyioContext& context, unique_ptr<IdAST> id_ast) {
+StyioAST*
+parse_read_file(StyioContext& context, IdAST* id_ast) {
   if (context.check_drop('@')) {
     context.check_drop_panic('(');
 
@@ -2156,7 +2151,7 @@ parse_read_file(StyioContext& context, unique_ptr<IdAST> id_ast) {
 
       context.find_drop_panic(')');
 
-      return make_unique<ReadFileAST>(std::move(id_ast), std::move(path));
+      return new ReadFileAST((id_ast), (path));
     }
     else {
       string errmsg = string("Expecting id or string, but got ` ") + char(context.get_curr_char()) + " `";
@@ -2169,11 +2164,11 @@ parse_read_file(StyioContext& context, unique_ptr<IdAST> id_ast) {
   }
 }
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_print(StyioContext& context) {
-  unique_ptr<StyioAST> output;
+  StyioAST* output;
 
-  vector<unique_ptr<StyioAST>> exprs;
+  vector<StyioAST*> exprs;
 
   /* Expecting >_ ! Move Without Check !*/
   context.move(2);
@@ -2185,7 +2180,7 @@ parse_print(StyioContext& context) {
     context.drop_all_spaces_comments();
 
     if (context.check_drop(')')) {
-      return make_unique<PrintAST>(std::move(exprs));
+      return new PrintAST((exprs));
     }
     else {
       exprs.push_back(parse_expr(context));
@@ -2193,10 +2188,10 @@ parse_print(StyioContext& context) {
   } while (context.check_drop(','));
 
   context.find_drop_panic(')');
-  return make_unique<PrintAST>(std::move(exprs));
+  return new PrintAST((exprs));
 }
 
-// unique_ptr<StyioAST> parse_panic (
+// StyioAST* parse_panic (
 //   StyioContext& context) {
 //   do
 //   {
@@ -2220,22 +2215,22 @@ parse_print(StyioContext& context) {
 //   }
 // }
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_stmt(
   StyioContext& context
 ) {
   context.drop_all_spaces_comments();
 
   if (context.check_isal_()) {
-    unique_ptr<IdAST> id_ast = parse_id(context);
+    auto id_ast = parse_id(context);
 
     switch (context.get_curr_char()) {
       case '[': {
-        return parse_list_op(context, std::move(id_ast));
+        return parse_list_op(context, (id_ast));
       } break;
 
       case '(': {
-        return parse_call(context, std::move(id_ast));
+        return parse_call(context, (id_ast));
       } break;
 
       default:
@@ -2245,7 +2240,7 @@ parse_stmt(
     context.drop_all_spaces_comments();
 
     if (context.check_binop()) {
-      return parse_binop_rhs(context, std::move(id_ast));
+      return parse_binop_rhs(context, (id_ast));
     }
 
     switch (context.get_curr_char()) {
@@ -2254,7 +2249,7 @@ parse_stmt(
 
         context.drop_all_spaces_comments();
 
-        return make_unique<FlexBindAST>(std::move(id_ast), std::move(parse_expr(context)));
+        return new FlexBindAST((id_ast), (parse_expr(context)));
       };
 
         // You should NOT reach this line!
@@ -2266,7 +2261,7 @@ parse_stmt(
         if (context.check_drop('=')) {
           context.drop_all_spaces_comments();
 
-          return make_unique<FinalBindAST>(std::move(id_ast), std::move(parse_expr(context)));
+          return new FinalBindAST((id_ast), (parse_expr(context)));
         }
         else {
           context.drop_white_spaces();
@@ -2279,13 +2274,13 @@ parse_stmt(
             if (context.check_drop('=')) {
               context.drop_white_spaces();
 
-              return make_unique<FinalBindAST>(std::move(id_ast), std::move(parse_expr(context)));
+              return new FinalBindAST((id_ast), (parse_expr(context)));
             }
           }
           else if (context.check_drop('=')) {
             context.drop_white_spaces();
 
-            return make_unique<FlexBindAST>(std::move(id_ast), std::move(parse_expr(context)));
+            return new FlexBindAST((id_ast), (parse_expr(context)));
           }
           else {
             string errmsg = string("parse_stmt() // Expecting = or := after type, but got ") + context.get_curr_char();
@@ -2303,7 +2298,7 @@ parse_stmt(
         if (context.check_drop('-')) {
           context.drop_all_spaces();
 
-          return parse_read_file(context, std::move(id_ast));
+          return parse_read_file(context, (id_ast));
         }
         else {
           string errmsg = string("Expecting `-` after `<`, but found `") + char(context.get_curr_char()) + "`.";
@@ -2320,7 +2315,7 @@ parse_stmt(
         if (context.check_drop('>')) {
           context.drop_all_spaces();
 
-          return parse_loop_or_iter(context, std::move(id_ast));
+          return parse_loop_or_iter(context, (id_ast));
         }
       }
       // You should NOT reach this line!
@@ -2332,12 +2327,12 @@ parse_stmt(
   }
   // Int / Float
   else if (isdigit(context.get_curr_char())) {
-    unique_ptr<StyioAST> numAST = parse_int_or_float(context);
+    StyioAST* numAST = parse_int_or_float(context);
 
     context.drop_all_spaces_comments();
 
     if (context.check_binop()) {
-      return parse_binop_rhs(context, std::move(numAST));
+      return parse_binop_rhs(context, (numAST));
     }
     else {
       return numAST;
@@ -2350,7 +2345,7 @@ parse_stmt(
 
   switch (context.get_curr_char()) {
     case EOF:
-      return make_unique<EOFAST>();
+      return new EOFAST();
 
       // You should NOT reach this line!
       break;
@@ -2384,7 +2379,7 @@ parse_stmt(
       while (context.check('.')) {
         context.move(1);
       }
-      return make_unique<PassAST>();
+      return new PassAST();
     }
 
     // You should NOT reach this line!
@@ -2397,21 +2392,21 @@ parse_stmt(
         context.move(1);
       }
 
-      return make_unique<BreakAST>();
+      return new BreakAST();
     }
 
     // You should NOT reach this line!
     break;
 
     case '@': {
-      unique_ptr<ResourceAST> resources = parse_resources(context);
+      auto resources = parse_resources(context);
 
       context.drop_all_spaces_comments();
 
       if (context.check_drop("->")) {
         context.drop_all_spaces_comments();
 
-        return make_unique<FromToAST>(std::move(resources), parse_block(context));
+        return new FromToAST((resources), parse_block(context));
       }
       else {
         return resources;
@@ -2443,7 +2438,7 @@ parse_stmt(
       if (context.check_drop('>')) {
         context.drop_white_spaces();
 
-        return make_unique<ReturnAST>(parse_expr(context));
+        return new ReturnAST(parse_expr(context));
       }
       else {
         string errmsg = string("parse_stmt() // =") + context.get_curr_char();
@@ -2496,7 +2491,7 @@ parse_ext_elem(StyioContext& context) {
   };
 }
 
-unique_ptr<ExtPackAST>
+ExtPackAST*
 parse_ext_pack(StyioContext& context) {
   // eliminate left square (box) bracket [
   context.move(1);
@@ -2506,7 +2501,7 @@ parse_ext_pack(StyioContext& context) {
   context.drop_all_spaces();
 
   // add the first dependency path to the list
-  dependencies.push_back(std::move(parse_ext_elem(context)));
+  dependencies.push_back((parse_ext_elem(context)));
 
   string pathStr = "";
 
@@ -2520,7 +2515,7 @@ parse_ext_pack(StyioContext& context) {
     context.drop_all_spaces();
 
     // add the next dependency path to the list
-    dependencies.push_back(std::move(parse_ext_elem(context)));
+    dependencies.push_back((parse_ext_elem(context)));
   };
 
   if (context.check(']')) {
@@ -2528,15 +2523,15 @@ parse_ext_pack(StyioContext& context) {
     context.move(1);
   };
 
-  unique_ptr<ExtPackAST> output = make_unique<ExtPackAST>(dependencies);
+  ExtPackAST* output = new ExtPackAST(dependencies);
 
   return output;
 }
 
-unique_ptr<CasesAST>
+CasesAST*
 parse_cases(StyioContext& context) {
-  vector<std::tuple<unique_ptr<StyioAST>, unique_ptr<StyioAST>>> pairs;
-  unique_ptr<StyioAST> _default_stmt;
+  vector<std::tuple<StyioAST*, StyioAST*>> pairs;
+  StyioAST* _default_stmt;
 
   /*
     Danger!
@@ -2562,13 +2557,13 @@ parse_cases(StyioContext& context) {
       break;
     }
 
-    unique_ptr<StyioAST> left = parse_expr(context);
+    StyioAST* left = parse_expr(context);
 
     context.find_drop("=>");
 
     context.drop_all_spaces_comments();
 
-    unique_ptr<StyioAST> right;
+    StyioAST* right;
     if (context.check('{')) {
       right = parse_block(context);
     }
@@ -2576,22 +2571,22 @@ parse_cases(StyioContext& context) {
       right = parse_stmt(context);
     }
 
-    pairs.push_back(std::make_tuple(std::move(left), std::move(right)));
+    pairs.push_back(std::make_tuple((left), (right)));
   }
 
   context.find_drop_panic('}');
 
   if (pairs.size() == 0) {
-    return make_unique<CasesAST>(std::move(_default_stmt));
+    return new CasesAST((_default_stmt));
   }
   else {
-    return make_unique<CasesAST>(std::move(pairs), std::move(_default_stmt));
+    return new CasesAST((pairs), (_default_stmt));
   }
 }
 
-unique_ptr<StyioAST>
+StyioAST*
 parse_block(StyioContext& context) {
-  vector<unique_ptr<StyioAST>> stmtBuffer;
+  vector<StyioAST*> stmtBuffer;
 
   /*
     Danger!
@@ -2608,23 +2603,18 @@ parse_block(StyioContext& context) {
       break;
     }
     else {
-      stmtBuffer.push_back(std::move(parse_stmt(context)));
+      stmtBuffer.push_back((parse_stmt(context)));
     };
   };
 
-  if (stmtBuffer.size() == 0) {
-    return make_unique<EmptyBlockAST>();
-  }
-  else {
-    return make_unique<BlockAST>(std::move(stmtBuffer));
-  };
+  return new BlockAST((stmtBuffer));
 }
 
-shared_ptr<MainBlockAST>
+MainBlockAST*
 parse_main_block(StyioContext& context) {
-  vector<unique_ptr<StyioAST>> stmtBuffer;
+  vector<StyioAST*> stmtBuffer;
   while (true) {
-    unique_ptr<StyioAST> stmt = parse_stmt(context);
+    StyioAST* stmt = parse_stmt(context);
 
     if ((stmt->hint()) == StyioNodeHint::End) {
       break;
@@ -2633,9 +2623,9 @@ parse_main_block(StyioContext& context) {
       continue;
     }
     else {
-      stmtBuffer.push_back(std::move(stmt));
+      stmtBuffer.push_back((stmt));
     }
   }
 
-  return make_shared<MainBlockAST>(std::move(stmtBuffer));
+  return new MainBlockAST((stmtBuffer));
 }

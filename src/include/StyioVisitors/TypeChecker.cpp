@@ -41,10 +41,6 @@ StyioToLLVM::check(EmptyAST* ast) {
 }
 
 void
-StyioToLLVM::check(EmptyBlockAST* ast) {
-}
-
-void
 StyioToLLVM::check(IdAST* ast) {
 }
 
@@ -280,7 +276,7 @@ StyioToLLVM::check(BlockAST* ast) {
 
 void
 StyioToLLVM::check(MainBlockAST* ast) {
-  auto& stmts = ast->getStmts();
+  auto stmts = ast->getStmts();
   for (auto const& s : stmts) {
     s->check(this);
   }

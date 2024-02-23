@@ -45,18 +45,6 @@ EmptyAST::toStringInline(int indent, bool colorful) {
 }
 
 string
-EmptyBlockAST::toString(int indent, bool colorful) {
-  return string("Block (Empty) { ")
-         + " } ";
-}
-
-string
-EmptyBlockAST::toStringInline(int indent, bool colorful) {
-  return string("Block (Empty) { ")
-         + " } ";
-}
-
-string
 IdAST::toString(int indent, bool colorful) {
   return reprNodeType(hint(), colorful, " ")
          + string("{ ")
@@ -94,46 +82,46 @@ BoolAST::toStringInline(int indent, bool colorful) {
 
 string
 IntAST::toString(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + " { " + Value + " : " + reprDataType(DType) + " }";
+  return reprNodeType(hint(), colorful) + " { " + value + " : " + reprDataType(data_type) + " }";
 }
 
 string
 IntAST::toStringInline(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + " { " + Value + " }";
+  return reprNodeType(hint(), colorful) + " { " + value + " }";
 }
 
 string
 FloatAST::toString(int indent, bool colorful) {
   // return reprNodeType(hint(), colorful) + " { " + Significand + " * " +
   // std::to_string(Base) + "^(-" + std::to_string(Exponent) + ")" + " }";
-  return reprNodeType(hint(), colorful) + " { " + Value + " }";
+  return reprNodeType(hint(), colorful) + " { " + value + " }";
 }
 
 string
 FloatAST::toStringInline(int indent, bool colorful) {
   // return reprNodeType(hint(), colorful) + " { " + Significand + " * " +
   // std::to_string(Base) + "^(-" + std::to_string(Exponent) + ")" + " }";
-  return reprNodeType(hint(), colorful) + " { " + Value + " }";
+  return reprNodeType(hint(), colorful) + " { " + value + " }";
 }
 
 string
 CharAST::toString(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + " { \'" + Value + "\' }";
+  return reprNodeType(hint(), colorful) + " { \'" + value + "\' }";
 }
 
 string
 CharAST::toStringInline(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + " { \'" + Value + "\' }";
+  return reprNodeType(hint(), colorful) + " { \'" + value + "\' }";
 }
 
 string
 StringAST::toString(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful) + " { \"" + Value + "\" }";
+  return reprNodeType(hint(), colorful) + " { \"" + value + "\" }";
 }
 
 string
 StringAST::toStringInline(int indent, bool colorful) {
-  return "\"" + Value + "\"";
+  return "\"" + value + "\"";
 }
 
 string
@@ -229,7 +217,7 @@ VarTupleAST::toString(int indent, bool colorful) {
   else {
     string outstr;
 
-    for (std::vector<std::shared_ptr<VarAST>>::iterator it = Vars.begin();
+    for (std::vector<VarAST*>::iterator it = Vars.begin();
          it != Vars.end();
          ++it) {
       outstr += make_padding(indent, " ") + (*it)->toString(indent + 1, colorful);
@@ -255,7 +243,7 @@ FmtStrAST::toString(int indent, bool colorful) {
     elemstr += make_padding(indent, " ") + "\"" + Fragments.at(i) + "\"\n";
   }
 
-  for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Exprs.begin();
+  for (std::vector<StyioAST*>::iterator it = Exprs.begin();
        it != Exprs.end();
        ++it) {
     elemstr += make_padding(indent, " ") + (*it)->toString(indent + 1, colorful);
@@ -462,7 +450,7 @@ string
 CallAST::toString(int indent, bool colorful) {
   string paramStr;
 
-  for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Params.begin();
+  for (std::vector<StyioAST*>::iterator it = Params.begin();
        it != Params.end();
        ++it) {
     paramStr += make_padding(indent, " ");
@@ -557,7 +545,7 @@ string
 ResourceAST::toString(int indent, bool colorful) {
   string varStr;
 
-  for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Resources.begin();
+  for (std::vector<StyioAST*>::iterator it = Resources.begin();
        it != Resources.end();
        ++it) {
     varStr += make_padding(indent, " ");
@@ -671,7 +659,7 @@ string
 PrintAST::toString(int indent, bool colorful) {
   string outstr;
 
-  for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Exprs.begin();
+  for (std::vector<StyioAST*>::iterator it = Exprs.begin();
        it != Exprs.end();
        ++it) {
     outstr += make_padding(indent, " ") + (*it)->toString(indent + 1, colorful);
@@ -711,7 +699,7 @@ string
 BlockAST::toString(int indent, bool colorful) {
   string stmtStr;
 
-  for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Stmts.begin();
+  for (std::vector<StyioAST*>::iterator it = Stmts.begin();
        it != Stmts.end();
        ++it) {
     stmtStr += make_padding(indent, " ") + (*it)->toString(indent + 1, colorful);
@@ -733,7 +721,7 @@ string
 CasesAST::toString(int indent, bool colorful) {
   string stmtStr = "";
 
-  for (std::vector<std::tuple<std::unique_ptr<StyioAST>, std::unique_ptr<StyioAST>>>::iterator it = Cases.begin();
+  for (std::vector<std::tuple<StyioAST*, StyioAST*>>::iterator it = Cases.begin();
        it != Cases.end();
        ++it) {
     stmtStr += make_padding(indent, " ") + "Left : " + std::get<0>(*it)->toString(indent + 1, colorful) + "\n";
@@ -1000,7 +988,7 @@ MainBlockAST::toString(int indent, bool colorful) {
   if (Stmts.empty())
     return reprNodeType(hint(), colorful, " { }");
 
-  for (std::vector<std::unique_ptr<StyioAST>>::iterator it = Stmts.begin();
+  for (std::vector<StyioAST*>::iterator it = Stmts.begin();
        it != Stmts.end();
        ++it) {
     stmtStr += make_padding(indent, " ") + (*it)->toString(indent + 1, colorful);
