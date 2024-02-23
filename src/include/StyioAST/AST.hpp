@@ -13,6 +13,7 @@
 
 using std::string;
 using std::vector;
+using std::unordered_map;
 
 using std::make_shared;
 using std::make_unique;
@@ -807,7 +808,7 @@ public:
 
 class IdAST : public StyioNode<IdAST>
 {
-  string Id = "";
+  string Id;
 
 public:
   IdAST(const string& id) :
@@ -869,16 +870,20 @@ public:
     return new DTypeAST(type_name);
   }
 
-  StyioNodeHint hint() override {
-    return StyioNodeHint::DType;
-  }
-
-  const StyioDataType getDType() const {
+  StyioDataType getDType() {
     return data_type;
   }
 
   const string& getTypeName() const {
     return type_name;
+  }
+
+  void setDType(StyioDataType type) {
+    data_type = type;
+  }
+
+  StyioNodeHint hint() override {
+    return StyioNodeHint::DType;
   }
 
   /* toString */
@@ -989,7 +994,7 @@ class IntAST : public StyioNode<IntAST>
 {
 private:
   string value;
-  StyioDataType data_type = StyioDataType::undefined;
+  StyioDataType data_type = StyioDataType::i32;
 
 public:
   IntAST(string value) :
@@ -1008,10 +1013,6 @@ public:
     return new IntAST(value, data_type);
   }
 
-  StyioNodeHint hint() override {
-    return StyioNodeHint::Int;
-  }
-
   const string& getValue() {
     return value;
   }
@@ -1022,6 +1023,10 @@ public:
 
   void setType(StyioDataType type) {
     this->data_type = type;
+  }
+
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Int;
   }
 
   string toString(
@@ -1142,25 +1147,25 @@ public:
 
 class CasesAST : public StyioNode<CasesAST>
 {
-  vector<std::tuple<StyioAST*, StyioAST*>> Cases;
-  StyioAST* LastExpr;
+  vector<std::pair<StyioAST*, StyioAST*>> Cases;
+  StyioAST* LastExpr = nullptr;
 
 public:
   CasesAST(StyioAST* expr) :
       LastExpr((expr)) {
   }
 
-  CasesAST(vector<std::tuple<StyioAST*, StyioAST*>> cases, StyioAST* expr) :
-      Cases((cases)), LastExpr((expr)) {
+  CasesAST(vector<std::pair<StyioAST*, StyioAST*>> cases, StyioAST* expr) :
+      Cases(cases), LastExpr(expr) {
   }
 
-  // static CasesAST* Create() {
-  //   return new CasesAST();
-  // }
+  static CasesAST* Create(StyioAST* expr) {
+    return new CasesAST(expr);
+  }
 
-  // static CasesAST* Create() {
-  //   return new CasesAST();
-  // }
+  static CasesAST* Create(vector<std::pair<StyioAST*, StyioAST*>> cases, StyioAST* expr) {
+    return new CasesAST(cases, expr);
+  }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::Cases;
@@ -1179,7 +1184,7 @@ public:
 
 class BlockAST : public StyioNode<BlockAST>
 {
-  StyioAST* Resources;
+  StyioAST* Resources = nullptr;
   vector<StyioAST*> Stmts;
 
 public:
@@ -1213,7 +1218,7 @@ public:
 
 class MainBlockAST : public StyioNode<MainBlockAST>
 {
-  StyioAST* Resources;
+  StyioAST* Resources = nullptr;
   vector<StyioAST*> Stmts;
 
 public:
@@ -1229,6 +1234,12 @@ public:
     vector<StyioAST*> stmts
   ) :
       Stmts((stmts)) {
+  }
+
+  static MainBlockAST* Create(
+    vector<StyioAST*> stmts
+  ) {
+    return new MainBlockAST(stmts);
   }
 
   StyioNodeHint hint() override {
@@ -1312,7 +1323,7 @@ public:
 
 class ReturnAST : public StyioNode<ReturnAST>
 {
-  StyioAST* Expr;
+  StyioAST* Expr = nullptr;
 
 public:
   ReturnAST(StyioAST* expr) :
@@ -1352,9 +1363,9 @@ public:
 class VarAST : public StyioNode<VarAST>
 {
 private:
-  string Name = ""; /* Variable Name */
-  DTypeAST* DType;  /* Data Type */
-  StyioAST* DValue; /* Default Value */
+  string Name; /* Variable Name */
+  DTypeAST* DType = nullptr;  /* Data Type */
+  StyioAST* DValue = nullptr; /* Default Value */
 
 public:
   VarAST() :
@@ -1392,6 +1403,10 @@ public:
     return DType;
   }
 
+  void setDType(StyioDataType type) {
+    return DType->setDType(type);
+  }
+
   /* toString */
   string toString(
     int indent = 0,
@@ -1410,9 +1425,9 @@ public:
 class ArgAST : public VarAST
 {
 private:
-  string Name = ""; /* Variable Name */
-  DTypeAST* DType;  /* Data Type */
-  StyioAST* DValue; /* Default Value */
+  string Name;                /* Variable Name */
+  DTypeAST* DType = nullptr;  /* Data Type */
+  StyioAST* DValue = nullptr; /* Default Value */
 
 public:
   ArgAST(const string& name) :
@@ -1456,7 +1471,7 @@ public:
 
   bool isTyped() {
     return (
-      DType
+      DType != nullptr
       && (DType->getDType() != StyioDataType::undefined)
     );
   }
@@ -1478,11 +1493,15 @@ public:
 
 class OptArgAST : public VarAST
 {
-  IdAST* Id;
+  IdAST* Id = nullptr;
 
 public:
   OptArgAST(IdAST* id) :
       Id(id) {
+  }
+
+  static OptArgAST* Create(IdAST* id) {
+    return new OptArgAST(id);
   }
 
   StyioNodeHint hint() override {
@@ -1502,11 +1521,15 @@ public:
 
 class OptKwArgAST : public VarAST
 {
-  IdAST* Id;
+  IdAST* Id = nullptr;
 
 public:
   OptKwArgAST(IdAST* id) :
       Id(id) {
+  }
+
+  static OptKwArgAST* Create(IdAST* id) {
+    return new OptKwArgAST(id);
   }
 
   StyioNodeHint hint() override {
@@ -1526,11 +1549,16 @@ public:
 
 class VarTupleAST : public StyioNode<VarTupleAST>
 {
+private:
   vector<VarAST*> Vars;
 
 public:
   VarTupleAST(vector<VarAST*> vars) :
       Vars(vars) {
+  }
+
+  static VarTupleAST* Create(vector<VarAST*> vars) {
+    return new VarTupleAST(vars);
   }
 
   StyioNodeHint hint() override {
@@ -1569,6 +1597,10 @@ public:
     return StyioNodeHint::FmtStr;
   }
 
+  static FmtStrAST* Create(vector<string> fragments, vector<StyioAST*> expressions) {
+    return new FmtStrAST(fragments, expressions);
+  };
+
   string toString(
     int indent = 0,
     bool colorful = false
@@ -1582,7 +1614,7 @@ public:
 
 class TypeConvertAST : public StyioNode<TypeConvertAST>
 {
-  StyioAST* Value;
+  StyioAST* Value = nullptr;
   NumPromoTy PromoType;
 
 public:
@@ -1634,7 +1666,14 @@ public:
     string path
   ) :
       Type(type),
-      Path((path)) {
+      Path(path) {
+  }
+
+  static LocalPathAST* Create(
+    StyioPathType type,
+    string path
+  ) {
+    return new LocalPathAST(type, path);
   }
 
   StyioNodeHint hint() override {
@@ -1666,7 +1705,14 @@ public:
     string path
   ) :
       Type(type),
-      Path((path)) {
+      Path(path) {
+  }
+
+  static RemotePathAST* Create(
+    StyioPathType type,
+    string path
+  ) {
+    return new RemotePathAST(type, path);
   }
 
   StyioNodeHint hint() override {
@@ -1697,7 +1743,11 @@ class WebUrlAST : public StyioNode<WebUrlAST>
 
 public:
   WebUrlAST(StyioPathType type, string path) :
-      Type(type), Path((path)) {
+      Type(type), Path(path) {
+  }
+
+  static WebUrlAST* Create(StyioPathType type, string path) {
+    return new WebUrlAST(type, path);
   }
 
   StyioNodeHint hint() override {
@@ -1723,7 +1773,11 @@ class DBUrlAST : public StyioNode<DBUrlAST>
 
 public:
   DBUrlAST(StyioPathType type, string path) :
-      Type(type), Path((path)) {
+      Type(type), Path(path) {
+  }
+
+  static DBUrlAST* Create(StyioPathType type, string path) {
+    return new DBUrlAST(type, path);
   }
 
   StyioNodeHint hint() override {
@@ -1830,9 +1884,9 @@ public:
 */
 class RangeAST : public StyioNode<RangeAST>
 {
-  StyioAST* StartVal;
-  StyioAST* EndVal;
-  StyioAST* StepVal;
+  StyioAST* StartVal = nullptr;
+  StyioAST* EndVal = nullptr;
+  StyioAST* StepVal = nullptr;
 
 public:
   RangeAST(StyioAST* start, StyioAST* end, StyioAST* step) :
@@ -1865,13 +1919,13 @@ public:
 */
 class SizeOfAST : public StyioNode<SizeOfAST>
 {
-  StyioAST* Value;
+  StyioAST* Value = nullptr;
 
 public:
   SizeOfAST(
     StyioAST* value
   ) :
-      Value((value)) {
+      Value(value) {
   }
 
   StyioNodeHint hint() override {
@@ -1949,8 +2003,8 @@ public:
 class BinOpAST : public StyioNode<BinOpAST>
 {
   StyioNodeHint Operand;
-  StyioAST* LHS;
-  StyioAST* RHS;
+  StyioAST* LHS = nullptr;
+  StyioAST* RHS = nullptr;
 
 public:
   BinOpAST(StyioNodeHint op, StyioAST* lhs, StyioAST* rhs) :
@@ -1987,8 +2041,8 @@ public:
 class BinCompAST : public StyioNode<BinCompAST>
 {
   CompType CompSign;
-  StyioAST* LhsExpr;
-  StyioAST* RhsExpr;
+  StyioAST* LhsExpr = nullptr;
+  StyioAST* RhsExpr = nullptr;
 
 public:
   BinCompAST(CompType sign, StyioAST* lhs, StyioAST* rhs) :
@@ -2018,14 +2072,14 @@ class CondAST : public StyioNode<CondAST>
     RAW: expr
     NOT: !(expr)
   */
-  StyioAST* ValExpr;
+  StyioAST* ValExpr = nullptr;
 
   /*
     AND: expr && expr
     OR : expr || expr
   */
-  StyioAST* LhsExpr;
-  StyioAST* RhsExpr;
+  StyioAST* LhsExpr = nullptr;
+  StyioAST* RhsExpr = nullptr;
 
 public:
   CondAST(LogicType op, StyioAST* val) :
@@ -2053,16 +2107,25 @@ public:
 
 class CallAST : public StyioNode<CallAST>
 {
-  IdAST* Func;
-  vector<StyioAST*> Params;
+private:
+  IdAST* func_name = nullptr;
+  vector<StyioAST*> func_args;
 
 public:
   CallAST(
-    IdAST* func,
-    vector<StyioAST*> params
+    IdAST* func_name,
+    vector<StyioAST*> arguments
   ) :
-      Func((func)),
-      Params((params)) {
+      func_name(func_name),
+      func_args(arguments) {
+  }
+
+  const string& getName() {
+    return func_name->getAsStr();
+  }
+
+  vector<StyioAST*> getArgs() {
+    return func_args;
   }
 
   StyioNodeHint hint() override {
@@ -2083,10 +2146,10 @@ public:
 class ListOpAST : public StyioNode<ListOpAST>
 {
   StyioNodeHint OpType;
-  StyioAST* TheList;
+  StyioAST* TheList = nullptr;
 
-  StyioAST* Slot1;
-  StyioAST* Slot2;
+  StyioAST* Slot1 = nullptr;
+  StyioAST* Slot2 = nullptr;
 
 public:
   /*
@@ -2210,8 +2273,8 @@ public:
 */
 class FlexBindAST : public StyioNode<FlexBindAST>
 {
-  IdAST* varName;
-  StyioAST* valExpr;
+  IdAST* varName = nullptr;
+  StyioAST* valExpr = nullptr;
   StyioDataType valType;
 
 public:
@@ -2250,8 +2313,8 @@ public:
 */
 class FinalBindAST : public StyioNode<FinalBindAST>
 {
-  IdAST* varName;
-  StyioAST* valExpr;
+  IdAST* varName = nullptr;
+  StyioAST* valExpr = nullptr;
 
 public:
   FinalBindAST(IdAST* var, StyioAST* val) :
@@ -2294,9 +2357,9 @@ public:
 */
 class StructAST : public StyioNode<StructAST>
 {
-  IdAST* FName;
-  VarTupleAST* FVars;
-  StyioAST* FBlock;
+  IdAST* FName = nullptr;
+  VarTupleAST* FVars = nullptr;
+  StyioAST* FBlock = nullptr;
 
 public:
   StructAST(IdAST* name, VarTupleAST* vars, StyioAST* block) :
@@ -2329,8 +2392,8 @@ public:
 */
 class ReadFileAST : public StyioNode<ReadFileAST>
 {
-  IdAST* varId;
-  StyioAST* valExpr;
+  IdAST* varId = nullptr;
+  StyioAST* valExpr = nullptr;
 
 public:
   ReadFileAST(IdAST* var, StyioAST* val) :
@@ -2420,9 +2483,9 @@ public:
 
 class CondFlowAST : public StyioNode<CondFlowAST>
 {
-  CondAST* CondExpr;
-  StyioAST* ThenBlock;
-  StyioAST* ElseBlock;
+  CondAST* CondExpr = nullptr;
+  StyioAST* ThenBlock = nullptr;
+  StyioAST* ElseBlock = nullptr;
 
 public:
   StyioNodeHint WhatFlow;
@@ -2575,7 +2638,7 @@ public:
 
 class CheckEqAST : public StyioNode<CheckEqAST>
 {
-  StyioAST* Value;
+  StyioAST* Value = nullptr;
 
 public:
   CheckEqAST(StyioAST* value) :
@@ -2599,7 +2662,7 @@ public:
 
 class CheckIsInAST : public StyioNode<CheckIsInAST>
 {
-  StyioAST* Iterable;
+  StyioAST* Iterable = nullptr;
 
 public:
   CheckIsInAST(
@@ -2628,8 +2691,8 @@ public:
 */
 class FromToAST : public StyioNode<FromToAST>
 {
-  StyioAST* FromWhat;
-  StyioAST* ToWhat;
+  StyioAST* FromWhat = nullptr;
+  StyioAST* ToWhat = nullptr;
 
 public:
   FromToAST(StyioAST* from_expr, StyioAST* to_expr) :
@@ -2667,13 +2730,13 @@ public:
 
 class ForwardAST : public StyioNode<ForwardAST>
 {
-  VarTupleAST* params;
+  VarTupleAST* params = nullptr;
 
-  CheckEqAST* ExtraEq;
-  CheckIsInAST* ExtraIsin;
+  CheckEqAST* ExtraEq = nullptr;
+  CheckIsInAST* ExtraIsin = nullptr;
 
-  StyioAST* ThenExpr;
-  CondFlowAST* ThenCondFlow;
+  StyioAST* ThenExpr = nullptr;
+  CondFlowAST* ThenCondFlow = nullptr;
 
 private:
   StyioNodeHint Type = StyioNodeHint::Forward;
@@ -2800,8 +2863,8 @@ InfLoop: Infinite Loop
 class InfiniteAST : public StyioNode<InfiniteAST>
 {
   InfiniteType WhatType;
-  StyioAST* Start;
-  StyioAST* IncEl;
+  StyioAST* Start = nullptr;
+  StyioAST* IncEl = nullptr;
 
 public:
   InfiniteAST() {
@@ -2833,8 +2896,8 @@ public:
 */
 class MatchCasesAST : public StyioNode<MatchCasesAST>
 {
-  StyioAST* Value;
-  CasesAST* Cases;
+  StyioAST* Value = nullptr;
+  CasesAST* Cases = nullptr;
 
 public:
   /* v ?= { _ => ... } */
@@ -2870,8 +2933,8 @@ public:
 class AnonyFuncAST : public StyioNode<AnonyFuncAST>
 {
 private:
-  VarTupleAST* Args;
-  StyioAST* ThenExpr;
+  VarTupleAST* Args = nullptr;
+  StyioAST* ThenExpr = nullptr;
 
 public:
   /* #() => Then */
@@ -2899,9 +2962,9 @@ public:
 */
 class FuncAST : public StyioNode<FuncAST>
 {
-  IdAST* Name;
-  DTypeAST* RetType;
-  ForwardAST* Forward;
+  IdAST* Name = nullptr;
+  DTypeAST* RetType = nullptr;
+  ForwardAST* Forward = nullptr;
 
   bool isFinal;
 
@@ -2930,9 +2993,9 @@ public:
     ForwardAST* forward,
     bool isFinal
   ) :
-      Name((name)),
-      RetType((type)),
-      Forward((forward)),
+      Name(name),
+      RetType(type),
+      Forward(forward),
       isFinal(isFinal) {
   }
 
@@ -2995,6 +3058,16 @@ public:
     return Forward->getParams();
   }
 
+  unordered_map<string, VarAST*> getParamMap() {
+    unordered_map<string, VarAST*> param_map;
+    
+    for (auto param: Forward->getParams()) {
+      param_map[param->getName()] = param;
+    }
+    
+    return param_map;
+  }
+
   /* toString */
   string toString(
     int indent = 0,
@@ -3018,7 +3091,7 @@ public:
 class LoopAST : public StyioNode<LoopAST>
 {
 private:
-  ForwardAST* Forward;
+  ForwardAST* Forward = nullptr;
 
 public:
   LoopAST(ForwardAST* expr) :
@@ -3044,8 +3117,8 @@ public:
 */
 class IterAST : public StyioNode<IterAST>
 {
-  StyioAST* Collection;
-  ForwardAST* Forward;
+  StyioAST* Collection = nullptr;
+  ForwardAST* Forward = nullptr;
 
 public:
   IterAST(StyioAST* collection, ForwardAST* forward) :
@@ -3065,4 +3138,5 @@ public:
     int indent = 0, bool colorful = false
   ) override;
 };
+
 #endif

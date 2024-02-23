@@ -191,7 +191,7 @@ parse_fmt_str(StyioContext& context) {
 
   fragments.push_back(textStr);
 
-  return new FmtStrAST((fragments), (exprs));
+  return FmtStrAST::Create(fragments, exprs);
 }
 
 StyioAST*
@@ -209,43 +209,43 @@ parse_path(StyioContext& context) {
   context.move(1);
 
   if (text.starts_with("/")) {
-    return new LocalPathAST(StyioPathType::local_absolute_unix_like, text);
+    return LocalPathAST::Create(StyioPathType::local_absolute_unix_like, text);
   }
   else if (std::isupper(text.at(0)) && text.at(1) == ':') {
-    return new LocalPathAST(StyioPathType::local_absolute_windows, text);
+    return LocalPathAST::Create(StyioPathType::local_absolute_windows, text);
   }
   else if (text.starts_with("http://")) {
-    return new WebUrlAST(StyioPathType::url_http, text);
+    return WebUrlAST::Create(StyioPathType::url_http, text);
   }
   else if (text.starts_with("https://")) {
-    return new WebUrlAST(StyioPathType::url_https, text);
+    return WebUrlAST::Create(StyioPathType::url_https, text);
   }
   else if (text.starts_with("ftp://")) {
-    return new WebUrlAST(StyioPathType::url_ftp, text);
+    return WebUrlAST::Create(StyioPathType::url_ftp, text);
   }
   else if (text.starts_with("mysql://")) {
-    return new DBUrlAST(StyioPathType::db_mysql, text);
+    return DBUrlAST::Create(StyioPathType::db_mysql, text);
   }
   else if (text.starts_with("postgres://")) {
-    return new DBUrlAST(StyioPathType::db_postgresql, text);
+    return DBUrlAST::Create(StyioPathType::db_postgresql, text);
   }
   else if (text.starts_with("mongo://")) {
-    return new DBUrlAST(StyioPathType::db_mongo, text);
+    return DBUrlAST::Create(StyioPathType::db_mongo, text);
   }
   else if (text.starts_with("localhost") || text.starts_with("127.0.0.1")) {
-    return new RemotePathAST(StyioPathType::url_localhost, text);
+    return RemotePathAST::Create(StyioPathType::url_localhost, text);
   }
   else if (is_ipv4_at_start(text)) {
-    return new RemotePathAST(StyioPathType::ipv4_addr, text);
+    return RemotePathAST::Create(StyioPathType::ipv4_addr, text);
   }
   else if (is_ipv6_at_start(text)) {
-    return new RemotePathAST(StyioPathType::ipv6_addr, text);
+    return RemotePathAST::Create(StyioPathType::ipv6_addr, text);
   }
   else if (text.starts_with("\\\\")) {
-    return new RemotePathAST(StyioPathType::remote_windows, text);
+    return RemotePathAST::Create(StyioPathType::remote_windows, text);
   }
 
-  return new LocalPathAST(StyioPathType::local_relevant_any, text);
+  return LocalPathAST::Create(StyioPathType::local_relevant_any, text);
 }
 
 DTypeAST*
@@ -325,10 +325,10 @@ parse_var_tuple(StyioContext& context) {
     else {
       if (context.check_drop('*')) {
         if (context.check_drop('*')) {
-          vars.push_back(new OptKwArgAST(parse_id(context)));
+          vars.push_back(OptKwArgAST::Create(parse_id(context)));
         }
         else {
-          vars.push_back(new OptArgAST(parse_id(context)));
+          vars.push_back(OptArgAST::Create(parse_id(context)));
         }
       }
       else {
@@ -339,7 +339,7 @@ parse_var_tuple(StyioContext& context) {
 
   context.find_drop_panic(')');
 
-  return new VarTupleAST(vars);
+  return VarTupleAST::Create(vars);
 }
 
 ResourceAST*
@@ -374,7 +374,7 @@ parse_resources(
 
         resources.push_back(
           new FinalBindAST(
-            (varname),
+            varname,
             parse_num_val(context)
           )
         );
@@ -2124,7 +2124,7 @@ parse_forward(StyioContext& context, bool is_func) {
     */
     case '{': {
       if (has_args) {
-        output = new ForwardAST((args), parse_block(context));
+        output = new ForwardAST(args, parse_block(context));
       }
       else {
         output = new ForwardAST(parse_block(context));
@@ -2530,7 +2530,7 @@ parse_ext_pack(StyioContext& context) {
 
 CasesAST*
 parse_cases(StyioContext& context) {
-  vector<std::tuple<StyioAST*, StyioAST*>> pairs;
+  vector<std::pair<StyioAST*, StyioAST*>> pairs;
   StyioAST* _default_stmt;
 
   /*
@@ -2571,16 +2571,16 @@ parse_cases(StyioContext& context) {
       right = parse_stmt(context);
     }
 
-    pairs.push_back(std::make_tuple((left), (right)));
+    pairs.push_back(std::make_pair(left, right));
   }
 
   context.find_drop_panic('}');
 
   if (pairs.size() == 0) {
-    return new CasesAST((_default_stmt));
+    return CasesAST::Create(_default_stmt);
   }
   else {
-    return new CasesAST((pairs), (_default_stmt));
+    return CasesAST::Create(pairs, _default_stmt);
   }
 }
 
@@ -2623,9 +2623,9 @@ parse_main_block(StyioContext& context) {
       continue;
     }
     else {
-      stmtBuffer.push_back((stmt));
+      stmtBuffer.push_back(stmt);
     }
   }
 
-  return new MainBlockAST((stmtBuffer));
+  return MainBlockAST::Create(stmtBuffer);
 }

@@ -450,12 +450,12 @@ string
 CallAST::toString(int indent, bool colorful) {
   string paramStr;
 
-  for (std::vector<StyioAST*>::iterator it = Params.begin();
-       it != Params.end();
+  for (std::vector<StyioAST*>::iterator it = func_args.begin();
+       it != func_args.end();
        ++it) {
     paramStr += make_padding(indent, " ");
     paramStr += (*it)->toStringInline();
-    if (it != (Params.end() - 1)) {
+    if (it != (func_args.end() - 1)) {
       paramStr += "\n";
     }
   }
@@ -721,7 +721,7 @@ string
 CasesAST::toString(int indent, bool colorful) {
   string stmtStr = "";
 
-  for (std::vector<std::tuple<StyioAST*, StyioAST*>>::iterator it = Cases.begin();
+  for (std::vector<std::pair<StyioAST*, StyioAST*>>::iterator it = Cases.begin();
        it != Cases.end();
        ++it) {
     stmtStr += make_padding(indent, " ") + "Left : " + std::get<0>(*it)->toString(indent + 1, colorful) + "\n";
@@ -928,24 +928,26 @@ InfiniteAST::toStringInline(int indent, bool colorful) {
 
 string
 FuncAST::toString(int indent, bool colorful) {
-  string extra = "";
+  string suffix = "";
 
   if (isFinal) {
-    extra = " (Final) ";
+    suffix = " (Final) ";
   }
   else {
-    extra = " (Flex) ";
+    suffix = " (Flex) ";
   }
 
-  string output = reprNodeType(hint(), colorful, extra) + "{\n";
-  output += make_padding(indent, " ") + "Name: " + Name->toStringInline(indent + 1, colorful) + "\n";
+  string output = reprNodeType(hint(), colorful, suffix) + "{\n";
+  if (Name != nullptr) {
+    output += make_padding(indent, " ") + "Name: " + Name->toStringInline(indent + 1, colorful) + "\n";
+  }
 
-  if (RetType) {
+  if (RetType != nullptr) {
+    std::cout << "ret type is not null";
     output += make_padding(indent, " ") + "Type: " + RetType->toStringInline(indent + 1, colorful) + "\n";
   }
 
-  output += make_padding(indent, " ") + Forward->toString(indent + 1, colorful);
-  output += "}";
+  output += make_padding(indent, " ") + Forward->toString(indent + 1, colorful) + "}";
   return output;
 }
 
@@ -997,12 +999,10 @@ MainBlockAST::toString(int indent, bool colorful) {
     }
   }
 
-  return reprNodeType(hint(), colorful)
-         + string(" {\n") + stmtStr + "}";
+  return reprNodeType(hint(), colorful, " ") + string("{\n") + stmtStr + "}";
 }
 
 string
 MainBlockAST::toStringInline(int indent, bool colorful) {
-  return reprNodeType(this->hint(), colorful)
-         + string(" { ") + " }";
+  return reprNodeType(this->hint(), colorful, " ") + string("{ ") + " }";
 }

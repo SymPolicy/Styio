@@ -219,6 +219,47 @@ StyioToLLVM::check(ReturnAST* ast) {
 
 void
 StyioToLLVM::check(CallAST* ast) {
+  if (not defined_functions.contains(ast->getName())) {
+    std::cout << "func " << ast->getName() << " not exist" << std::endl;
+    return;
+  }
+
+  vector<StyioDataType> arg_types;
+
+  for (auto arg : ast->getArgs()) {
+    StyioDataType data_type;
+
+    std::cout << "try static_cast " << std::endl;
+
+    switch (arg->hint()) {
+      case StyioNodeHint::Int: {
+        
+        arg_types.push_back(static_cast<IntAST*>(arg)->getType());
+      } break;
+
+      default:
+        break;
+    }
+  }
+
+  std::cout << "after static_cast" << std::endl;
+
+  auto func_args = defined_functions[ast->getName()]->getAllArgs();
+
+  std::cout << "got func_args" << std::endl;
+
+  if (arg_types.size() != func_args.size()) {
+    std::cout << "arg list not match" << std::endl;
+    return;
+  }
+
+  std::cout << "try to set types" << std::endl;  
+
+  for (size_t i = 0; i < func_args.size(); i++) {
+    func_args[i]->setDType(arg_types[i]);
+  }
+
+  std::cout << "done" << std::endl;
 }
 
 void
@@ -251,7 +292,7 @@ StyioToLLVM::check(AnonyFuncAST* ast) {
 
 void
 StyioToLLVM::check(FuncAST* ast) {
-  
+  defined_functions[ast->getFuncName()] = ast;
 }
 
 void
