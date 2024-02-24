@@ -355,10 +355,12 @@ class StyioToLLVM : public StyioVisitor
   unique_ptr<llvm::Module> llvm_module;
   unique_ptr<llvm::IRBuilder<>> llvm_ir_builder;
 
-  std::unordered_map<string, llvm::AllocaInst*> mutable_variables; /* [FlexBind] */
-  std::unordered_map<string, llvm::Value*> named_values;           /* [FinalBind] Immutable Variables */
+  unordered_map<string, FuncAST*> func_defs;
 
-  std::unordered_map<string, FuncAST*> defined_functions;
+  unordered_map<string, llvm::AllocaInst*> mut_vars; /* [FlexBind] Mutable Variables */
+  unordered_map<string, llvm::Value*> named_values;  /* [FinalBind] Named Values = Immutable Variables */
+
+  unordered_map<string, vector<std::pair<llvm::AllocaInst*, llvm::Value*>>> func_tmp_params;
 
 public:
   StyioToLLVM() :
@@ -862,6 +864,10 @@ public:
     }
   }
 
+  static DTypeAST* Create() {
+    return new DTypeAST(StyioDataType::undefined);
+  }
+
   static DTypeAST* Create(StyioDataType data_type) {
     return new DTypeAST(data_type);
   }
@@ -1189,12 +1195,16 @@ class BlockAST : public StyioNode<BlockAST>
 
 public:
   BlockAST(StyioAST* resources, vector<StyioAST*> stmts) :
-      Resources((resources)),
-      Stmts((stmts)) {
+      Resources(resources),
+      Stmts(stmts) {
   }
 
   BlockAST(vector<StyioAST*> stmts) :
-      Stmts((stmts)) {
+      Stmts(stmts) {
+  }
+
+  static BlockAST* Create (vector<StyioAST*> stmts) {
+    return new BlockAST(stmts);
   }
 
   StyioNodeHint hint() override {
@@ -1373,7 +1383,7 @@ public:
   }
 
   VarAST(const string& name) :
-      Name(name) {
+      Name(name), DType(DTypeAST::Create()){
   }
 
   VarAST(const string& name, DTypeAST* data_type) :
@@ -1381,7 +1391,7 @@ public:
   }
 
   VarAST(const string& name, DTypeAST* data_type, StyioAST* default_value) :
-      Name(name), DType((data_type)), DValue((default_value)) {
+      Name(name), DType(data_type), DValue(default_value) {
   }
 
   StyioNodeHint hint() override {
@@ -1561,12 +1571,12 @@ public:
     return new VarTupleAST(vars);
   }
 
-  StyioNodeHint hint() override {
-    return StyioNodeHint::VarTuple;
+  const vector<VarAST*>& getParams() {
+    return Vars;
   }
 
-  vector<VarAST*> getParams() {
-    return Vars;
+  StyioNodeHint hint() override {
+    return StyioNodeHint::VarTuple;
   }
 
   /* toString */
@@ -2831,7 +2841,7 @@ public:
     return params && (!(params->getParams().empty()));
   }
 
-  vector<VarAST*> getParams() {
+  const vector<VarAST*>& getParams() {
     return params->getParams();
   }
 
@@ -3054,7 +3064,7 @@ public:
     );
   }
 
-  vector<VarAST*> getAllArgs() {
+  const vector<VarAST*>& getAllArgs() {
     return Forward->getParams();
   }
 

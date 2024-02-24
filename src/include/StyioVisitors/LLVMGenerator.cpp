@@ -204,37 +204,37 @@ StyioToLLVM::toLLVMIR(BoolAST* ast) {
     return llvm::ConstantInt::getTrue(*llvm_context);
   }
   else {
-    return llvm::ConstantInt::getFalse(*llvm_context);
+    return llvm_ir_builder->getInt32(0);
   }
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(NoneAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(EOFAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(EmptyAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(PassAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(BreakAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
@@ -245,13 +245,13 @@ StyioToLLVM::toLLVMIR(ReturnAST* ast) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(CommentAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(IdAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
 
   const string& varname = ast->getAsStr();
 
@@ -259,8 +259,8 @@ StyioToLLVM::toLLVMIR(IdAST* ast) {
     return named_values[varname];
   }
 
-  if (mutable_variables.contains(varname)) {
-    llvm::AllocaInst* variable = mutable_variables[varname];
+  if (mut_vars.contains(varname)) {
+    llvm::AllocaInst* variable = mut_vars[varname];
 
     return llvm_ir_builder->CreateLoad(variable->getAllocatedType(), variable);
     // return llvm_ir_builder->CreateLoad(variable->getAllocatedType(), variable, varname.c_str());
@@ -272,32 +272,32 @@ StyioToLLVM::toLLVMIR(IdAST* ast) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(VarAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
 
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(ArgAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(OptArgAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(OptKwArgAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(VarTupleAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
 
   auto vars = ast->getParams();
   for (auto const& s : vars) {
@@ -309,7 +309,7 @@ StyioToLLVM::toLLVMIR(VarTupleAST* ast) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(DTypeAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
@@ -359,91 +359,91 @@ StyioToLLVM::toLLVMIR(FloatAST* ast) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(CharAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(StringAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(TypeConvertAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(FmtStrAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(ResourceAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(LocalPathAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(RemotePathAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(WebUrlAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(DBUrlAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(ExtPackAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(ListAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(TupleAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SetAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(RangeAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SizeOfAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
@@ -514,25 +514,25 @@ StyioToLLVM::toLLVMIR(BinOpAST* ast) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(BinCompAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(CondAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(CallAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(ListOpAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
@@ -546,7 +546,7 @@ StyioToLLVM::toLLVMIR(ListOpAST* ast) {
 */
 llvm::Value*
 StyioToLLVM::toLLVMIR(FlexBindAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
 
   // // Look this variable up in the function.
   // llvm::AllocaInst* A = named_values[ast->getName()];
@@ -562,8 +562,8 @@ StyioToLLVM::toLLVMIR(FlexBindAST* ast) {
   switch (ast->getValue()->hint()) {
     case StyioNodeHint::Int: {
       const string& varname = ast->getName();
-      if (mutable_variables.contains(varname)) {
-        llvm::AllocaInst* variable = mutable_variables[varname];
+      if (mut_vars.contains(varname)) {
+        llvm::AllocaInst* variable = mut_vars[varname];
         llvm_ir_builder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
       }
       else {
@@ -572,7 +572,7 @@ StyioToLLVM::toLLVMIR(FlexBindAST* ast) {
           nullptr,
           varname.c_str()
         );
-        mutable_variables[varname] = variable;
+        mut_vars[varname] = variable;
 
         llvm_ir_builder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
       }
@@ -582,8 +582,8 @@ StyioToLLVM::toLLVMIR(FlexBindAST* ast) {
 
     case StyioNodeHint::Float: {
       const string& varname = ast->getName();
-      if (mutable_variables.contains(varname)) {
-        llvm::AllocaInst* variable = mutable_variables[varname];
+      if (mut_vars.contains(varname)) {
+        llvm::AllocaInst* variable = mut_vars[varname];
         llvm_ir_builder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
       }
       else {
@@ -592,7 +592,7 @@ StyioToLLVM::toLLVMIR(FlexBindAST* ast) {
           nullptr,
           varname.c_str()
         );
-        mutable_variables[varname] = variable;
+        mut_vars[varname] = variable;
 
         llvm_ir_builder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
       }
@@ -602,13 +602,13 @@ StyioToLLVM::toLLVMIR(FlexBindAST* ast) {
 
     case StyioNodeHint::Id: {
       const string& varname = ast->getName();
-      if (mutable_variables.contains(varname)) {
-        llvm::AllocaInst* variable = mutable_variables[varname];
+      if (mut_vars.contains(varname)) {
+        llvm::AllocaInst* variable = mut_vars[varname];
         llvm_ir_builder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
       }
       else {
         llvm::AllocaInst* variable = llvm_ir_builder->CreateAlloca(llvm_ir_builder->getInt32Ty(), nullptr);
-        mutable_variables[varname] = variable;
+        mut_vars[varname] = variable;
 
         llvm_ir_builder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
       }
@@ -618,15 +618,15 @@ StyioToLLVM::toLLVMIR(FlexBindAST* ast) {
 
     case StyioNodeHint::BinOp: {
       const string& varname = ast->getName();
-      if (mutable_variables.contains(varname)) {
-        llvm::AllocaInst* variable = mutable_variables[varname];
+      if (mut_vars.contains(varname)) {
+        llvm::AllocaInst* variable = mut_vars[varname];
         // llvm_ir_builder->CreateLoad(variable->getAllocatedType(), variable, varname.c_str());
         llvm_ir_builder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
       }
       else {
         // llvm::AllocaInst* variable = llvm_ir_builder->CreateAlloca(llvm_ir_builder->getInt32Ty(), nullptr, varname);
         llvm::AllocaInst* variable = llvm_ir_builder->CreateAlloca(llvm_ir_builder->getInt32Ty(), nullptr);
-        mutable_variables[varname] = variable;
+        mut_vars[varname] = variable;
 
         llvm_ir_builder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
       }
@@ -646,7 +646,7 @@ StyioToLLVM::toLLVMIR(FlexBindAST* ast) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(FinalBindAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
 
   switch (ast->getValue()->hint()) {
     case StyioNodeHint::Int: {
@@ -678,25 +678,25 @@ StyioToLLVM::toLLVMIR(FinalBindAST* ast) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(StructAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(ReadFileAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(PrintAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(ForwardAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
 
   switch (ast->hint()) {
     case StyioNodeHint::Fill_Forward: {
@@ -717,31 +717,31 @@ StyioToLLVM::toLLVMIR(ForwardAST* ast) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(CheckEqAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(CheckIsInAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(FromToAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(InfiniteAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(AnonyFuncAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
 
   return output;
 }
@@ -768,14 +768,28 @@ StyioToLLVM::toLLVMIR(FuncAST* ast) {
         llvm::Function* llvm_func =
           llvm::Function::Create(llvm_func_type, llvm::GlobalValue::ExternalLinkage, ast->getFuncName(), *llvm_module);
 
-        for (size_t i = 0; i < llvm_func_args.size(); i++) {
+        for (size_t i = 0; i < llvm_func->arg_size(); i++) {
           llvm_func->getArg(i)->setName(ast->getAllArgs().at(i)->getName());
         }
-
+        
         llvm::BasicBlock* block =
           llvm::BasicBlock::Create(*llvm_context, "entry", llvm_func);
 
         llvm_ir_builder->SetInsertPoint(block);
+
+        for (auto& arg: llvm_func->args())
+        {
+          llvm::AllocaInst *alloca_inst = llvm_ir_builder->CreateAlloca(
+            llvm::Type::getDoubleTy(*llvm_context), 
+            nullptr,
+            arg.getName());
+
+          auto init_val = llvm_ir_builder->getInt32(0);
+
+          llvm_ir_builder->CreateStore(&arg, alloca_inst);
+
+          func_tmp_params[std::string(arg.getName())].push_back(std::make_pair(alloca_inst, init_val));
+        }
 
         ast->getForward()->toLLVMIR(this);
 
@@ -811,43 +825,43 @@ StyioToLLVM::toLLVMIR(FuncAST* ast) {
 
   llvm_ir_builder->restoreIP(latest_insert_point);
 
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(IterAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(LoopAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(CondFlowAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(CasesAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(MatchCasesAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(BlockAST* ast) {
-  auto output = llvm::ConstantInt::getFalse(*llvm_context);
+  auto output = llvm_ir_builder->getInt32(0);
 
   auto stmts = ast->getStmts();
   for (auto const& s : stmts) {

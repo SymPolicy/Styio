@@ -20,9 +20,6 @@
 using std::string;
 using std::vector;
 
-using std::cout;
-using std::endl;
-
 /*
   =================
   - id
@@ -2603,11 +2600,11 @@ parse_block(StyioContext& context) {
       break;
     }
     else {
-      stmtBuffer.push_back((parse_stmt(context)));
+      stmtBuffer.push_back(parse_stmt(context));
     };
   };
 
-  return new BlockAST((stmtBuffer));
+  return BlockAST::Create(std::move(stmtBuffer));
 }
 
 MainBlockAST*

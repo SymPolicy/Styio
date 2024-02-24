@@ -166,7 +166,7 @@ VarAST::toStringInline(int indent, bool colorful) {
 
 string
 ArgAST::toString(int indent, bool colorful) {
-  if (isTyped()) {
+  if (DType != nullptr) {
     return reprNodeType(hint(), colorful, " ")
            + string("{ ") + Name + " : " + getDType()->getTypeName() + " }";
   }
@@ -178,7 +178,7 @@ ArgAST::toString(int indent, bool colorful) {
 
 string
 ArgAST::toStringInline(int indent, bool colorful) {
-  if (isTyped()) {
+  if (DType != nullptr) {
     return reprNodeType(hint(), colorful, " ")
            + string("{ ") + Name + " : " + getDType()->getTypeName() + " }";
   }

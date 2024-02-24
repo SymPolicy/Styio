@@ -8,7 +8,7 @@ std::string
 reprDataType(StyioDataType dtype) {
   switch (dtype) {
     case StyioDataType::undefined:
-      return std::string("default");
+      return std::string("undefined");
 
     case StyioDataType::i32:
       return std::string("i32");
