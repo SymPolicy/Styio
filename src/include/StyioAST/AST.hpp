@@ -2136,7 +2136,7 @@ public:
     return func_name->getAsStr();
   }
 
-  vector<StyioAST*> getArgs() {
+  const vector<StyioAST*>& getArgs() {
     return func_args;
   }
 

@@ -527,7 +527,31 @@ StyioToLLVM::toLLVMIR(CondAST* ast) {
 llvm::Value*
 StyioToLLVM::toLLVMIR(CallAST* ast) {
   auto output = llvm_ir_builder->getInt32(0);
-  return output;
+
+  auto styio_func_args = ast->getArgs();
+
+  llvm::Function* callee_func = llvm_module->getFunction(ast->getName());
+
+  if (callee_func == nullptr) {
+    std::cout << "func " + ast->getName() + " not found" << std::endl;
+    return output;
+  }
+
+  if (callee_func->arg_size() != styio_func_args.size()) {
+    std::cout << "func " + ast->getName() + " args not match" << std::endl;
+    return output;
+  }
+
+  vector<llvm::Value*> llvm_args;
+  for (size_t i = 0, e = styio_func_args.size(); i != e; ++i) {
+    llvm_args.push_back(styio_func_args[i]->toLLVMIR(this));
+    if (!llvm_args.back()) {
+      std::cout << "ends here: !llvm_args.back()" << std::endl;
+      return output;
+    }
+  }
+
+  return llvm_ir_builder->CreateCall(callee_func, llvm_args);
 }
 
 llvm::Value*
@@ -777,8 +801,7 @@ StyioToLLVM::toLLVMIR(FuncAST* ast) {
 
         llvm_ir_builder->SetInsertPoint(block);
 
-        for (auto& arg: llvm_func->args())
-        {
+        for (auto& arg: llvm_func->args()) {
           llvm::AllocaInst *alloca_inst = llvm_ir_builder->CreateAlloca(
             llvm::Type::getInt32Ty(*llvm_context), 
             nullptr,
@@ -792,6 +815,10 @@ StyioToLLVM::toLLVMIR(FuncAST* ast) {
         }
 
         ast->getForward()->toLLVMIR(this);
+
+        for (auto& arg: llvm_func->args()) {
+          mut_vars.erase(std::string(arg.getName()));
+        }
 
         llvm::verifyFunction(*llvm_func);
       }

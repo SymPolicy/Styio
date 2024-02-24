@@ -3,6 +3,7 @@ source_filename = "styio"
 
 define i32 @main() {
 entry:
+  %0 = call i32 @f(i32 1, i32 2)
   ret i32 0
 }
 
