@@ -1760,21 +1760,24 @@ parse_func(StyioContext& context) {
   context.move(1);
   context.drop_white_spaces();
 
+  /* # func_name ... */
   if (context.check_isal_()) {
-    auto name = parse_id(context);
+    auto func_name = parse_id(context);
 
     context.drop_all_spaces_comments();
 
     if (context.check_drop(':')) {
+      /* f := ... */
       if (context.check_drop('=')) {
         context.drop_all_spaces();
 
         return new FuncAST(
-          (name),
+          (func_name),
           parse_forward(context, true),
           true
         );
       }
+      /* f : ... */
       else {
         context.drop_all_spaces_comments();
 
@@ -1782,36 +1785,42 @@ parse_func(StyioContext& context) {
 
         context.drop_all_spaces_comments();
 
+        /* f : type := ...*/
         if (context.check_drop(':')) {
           if (context.check_drop('=')) {
             context.drop_all_spaces_comments();
 
-            return new FuncAST((name), (dtype), parse_forward(context, true), true);
+            return new FuncAST(func_name, dtype, parse_forward(context, true), true);
+          }
+          else {
+            /* Error */
           }
         }
+        /* f : type = ... */
         else if (context.check_drop('=')) {
           context.drop_all_spaces_comments();
 
-          return new FuncAST((name), (dtype), parse_forward(context, true), false);
+          return new FuncAST(func_name, dtype, parse_forward(context, true), false);
         }
       }
 
       string errmsg = string("parse_pipeline() // Inheritance, Type Hint.");
       throw StyioNotImplemented(errmsg);
     }
-    else if (context.check_drop('=')) {
-      if (context.check('>')) {
-        context.move(-1);
-
+    else if (context.check('=')) {
+      /* f => ... */
+      if (context.check("=>")) {
         return new FuncAST(
-          (name), parse_forward(context, true), false
-        );
+          func_name, 
+          parse_forward(context, true), 
+          /* isFinal */ false); /* Should `f => {}` be flexible or final? */
       }
+      /* f = ... */
       else {
         context.drop_all_spaces();
 
         return new FuncAST(
-          (name), parse_forward(context, true), false
+          func_name, parse_forward(context, true), false
         );
       }
     }
@@ -2098,18 +2107,22 @@ parse_forward(StyioContext& context, bool is_func) {
 
       if (context.check('{')) {
         if (has_args) {
-          output = new ForwardAST((args), parse_block(context));
+          output = new ForwardAST(args, parse_block(context));
         }
         else {
           output = new ForwardAST(parse_block(context));
         }
       }
       else {
+        vector<StyioAST*> tmp_stmts;
+        tmp_stmts.push_back(ReturnAST::Create(parse_expr(context)));
+        BlockAST* block = BlockAST::Create(tmp_stmts);
+
         if (has_args) {
-          output = new ForwardAST((args), parse_expr(context));
+          output = new ForwardAST(args, block);
         }
         else {
-          output = new ForwardAST(parse_expr(context));
+          output = new ForwardAST(block);
         }
       }
     } break;

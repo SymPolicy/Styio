@@ -780,7 +780,7 @@ StyioToLLVM::toLLVMIR(FuncAST* ast) {
         for (auto& arg: llvm_func->args())
         {
           llvm::AllocaInst *alloca_inst = llvm_ir_builder->CreateAlloca(
-            llvm::Type::getDoubleTy(*llvm_context), 
+            llvm::Type::getInt32Ty(*llvm_context), 
             nullptr,
             arg.getName());
 
@@ -788,7 +788,7 @@ StyioToLLVM::toLLVMIR(FuncAST* ast) {
 
           llvm_ir_builder->CreateStore(&arg, alloca_inst);
 
-          func_tmp_params[std::string(arg.getName())].push_back(std::make_pair(alloca_inst, init_val));
+          mut_vars[std::string(arg.getName())] = alloca_inst;
         }
 
         ast->getForward()->toLLVMIR(this);

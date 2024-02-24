@@ -360,8 +360,6 @@ class StyioToLLVM : public StyioVisitor
   unordered_map<string, llvm::AllocaInst*> mut_vars; /* [FlexBind] Mutable Variables */
   unordered_map<string, llvm::Value*> named_values;  /* [FinalBind] Named Values = Immutable Variables */
 
-  unordered_map<string, vector<std::pair<llvm::AllocaInst*, llvm::Value*>>> func_tmp_params;
-
 public:
   StyioToLLVM() :
       llvm_context(make_unique<llvm::LLVMContext>()),
@@ -1337,15 +1335,19 @@ class ReturnAST : public StyioNode<ReturnAST>
 
 public:
   ReturnAST(StyioAST* expr) :
-      Expr((expr)) {
+      Expr(expr) {
   }
 
-  StyioNodeHint hint() override {
-    return StyioNodeHint::Return;
+  static ReturnAST* Create(StyioAST* expr) {
+    return new ReturnAST(expr);
   }
 
   StyioAST* getExpr() {
     return Expr;
+  }
+
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Return;
   }
 
   string toString(
@@ -2748,32 +2750,37 @@ class ForwardAST : public StyioNode<ForwardAST>
   StyioAST* ThenExpr = nullptr;
   CondFlowAST* ThenCondFlow = nullptr;
 
+  StyioAST* ret_expr = nullptr;
+
 private:
   StyioNodeHint Type = StyioNodeHint::Forward;
 
 public:
   ForwardAST(StyioAST* expr) :
-      ThenExpr((expr)) {
+      ThenExpr(expr) {
     Type = StyioNodeHint::Forward;
+    if (ThenExpr->hint() != StyioNodeHint::Block) {
+      ret_expr = expr;
+    }
   }
 
   ForwardAST(CheckEqAST* value, StyioAST* whatnext) :
-      ExtraEq((value)), ThenExpr((whatnext)) {
+      ExtraEq(value), ThenExpr(whatnext) {
     Type = StyioNodeHint::If_Equal_To_Forward;
   }
 
   ForwardAST(CheckIsInAST* isin, StyioAST* whatnext) :
-      ExtraIsin((isin)), ThenExpr((whatnext)) {
+      ExtraIsin(isin), ThenExpr(whatnext) {
     Type = StyioNodeHint::If_Is_In_Forward;
   }
 
   ForwardAST(CasesAST* cases) :
-      ThenExpr((cases)) {
+      ThenExpr(cases) {
     Type = StyioNodeHint::Cases_Forward;
   }
 
   ForwardAST(CondFlowAST* condflow) :
-      ThenCondFlow((condflow)) {
+      ThenCondFlow(condflow) {
     if ((condflow->WhatFlow) == StyioNodeHint::CondFlow_True) {
       Type = StyioNodeHint::If_True_Forward;
     }
@@ -2790,7 +2797,7 @@ public:
     StyioAST* whatnext
   ) :
       params(vars),
-      ThenExpr((whatnext)) {
+      ThenExpr(whatnext) {
     Type = StyioNodeHint::Fill_Forward;
   }
 
@@ -2799,17 +2806,17 @@ public:
     CheckEqAST* value,
     StyioAST* whatnext
   ) :
-      params((vars)), ExtraEq((value)), ThenExpr((whatnext)) {
+      params(vars), ExtraEq(value), ThenExpr(whatnext) {
     Type = StyioNodeHint::Fill_If_Equal_To_Forward;
   }
 
   ForwardAST(VarTupleAST* vars, CheckIsInAST* isin, StyioAST* whatnext) :
-      params((vars)), ExtraIsin((isin)), ThenExpr((whatnext)) {
+      params(vars), ExtraIsin(isin), ThenExpr(whatnext) {
     Type = StyioNodeHint::Fill_If_Is_in_Forward;
   }
 
   ForwardAST(VarTupleAST* vars, CasesAST* cases) :
-      params((vars)), ThenExpr((cases)) {
+      params(vars), ThenExpr(cases) {
     Type = StyioNodeHint::Fill_Cases_Forward;
   }
 
@@ -2833,9 +2840,10 @@ public:
     }
   }
 
-  StyioNodeHint hint() override {
-    return Type;
+  StyioAST* getRetExpr() {
+    return ret_expr;
   }
+
 
   bool withParams() {
     return params && (!(params->getParams().empty()));
@@ -2847,6 +2855,10 @@ public:
 
   StyioAST* getThen() {
     return ThenExpr;
+  }
+
+  StyioNodeHint hint() override {
+    return Type;
   }
 
   /* toString */
