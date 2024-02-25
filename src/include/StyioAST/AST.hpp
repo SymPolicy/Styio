@@ -23,6 +23,7 @@
 #include "llvm/Transforms/Scalar/GVN.h"         /* GVNPass */
 #include "llvm/Transforms/Scalar/Reassociate.h" /* ReassociatePass */
 #include "llvm/Transforms/Scalar/SimplifyCFG.h" /* SimplifyCFGPass */
+#include "llvm/Transforms/Utils.h"
 
 using std::string;
 using std::unordered_map;
@@ -398,8 +399,6 @@ public:
       TheMAM(std::make_unique<llvm::ModuleAnalysisManager>()),
       ThePIC(std::make_unique<llvm::PassInstrumentationCallbacks>()),
       TheSI(std::make_unique<llvm::StandardInstrumentations>(*llvm_context, /*DebugLogging*/ true)) {
-    
-
     llvm_module->setDataLayout(TheJIT->getDataLayout());
 
     TheSI->registerCallbacks(*ThePIC, TheMAM.get());

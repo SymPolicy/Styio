@@ -27,12 +27,14 @@
 // [LLVM]
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/ExecutionEngine/Orc/LLJIT.h"
+#include "llvm/ExecutionEngine/Orc/ThreadSafeModule.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Error.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Error.h" /* ExitOnErr */
+#include "llvm/Support/FileSystem.h"
 
 // [Styio LLVM ORC JIT]
 #include "include/StyioJIT/StyioJIT_ORC.hpp"
@@ -182,10 +184,11 @@ main(
     llvm::InitializeNativeTargetAsmParser();
 
     llvm::ExitOnError exit_on_error;
+    std::unique_ptr<StyioJIT_ORC> orc_jit = exit_on_error(StyioJIT_ORC::Create());
 
-    std::unique_ptr<StyioJIT_ORC> styio_orc_jit = exit_on_error(StyioJIT_ORC::Create());
+    StyioToLLVM generator = StyioToLLVM(std::move(orc_jit));
+    // StyioToLLVM generator = StyioToLLVM(std::move(orc_jit));
 
-    StyioToLLVM generator = StyioToLLVM(std::move(styio_orc_jit));
     generator.typeInfer(styio_program);
 
     if (show_type_checking) {
@@ -198,8 +201,6 @@ main(
       generator.print_llvm_ir();
       generator.print_test_results();
     }
-
-    
   }
 
   return 0;

@@ -30,7 +30,8 @@ message(STATUS "[LLVM] Version: ${LLVM_PACKAGE_VERSION}")
 message(STATUS "[LLVM] Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 # llvm-config-${LLVM_VERSION} --components
-llvm_map_components_to_libnames(LLVM_LIBS support core irreader)
+# llvm-config-18 --components
+llvm_map_components_to_libnames(LLVM_LIBS core orcjit native)
 
 # [ICU]
 # ICU Components Reference:

@@ -736,7 +736,6 @@ StyioToLLVM::toLLVMIR(FuncAST* ast) {
   if (ast->hasName()) {
     if (ast->hasArgs()) {
       if (ast->allArgsTyped()) {
-        
         std::vector<llvm::Type*> llvm_func_args;
         for (auto& arg : ast->getAllArgs()) {
           llvm_func_args.push_back(arg->getLLVMType(this));
@@ -754,17 +753,18 @@ StyioToLLVM::toLLVMIR(FuncAST* ast) {
         for (size_t i = 0; i < llvm_func->arg_size(); i++) {
           llvm_func->getArg(i)->setName(ast->getAllArgs().at(i)->getName());
         }
-        
+
         llvm::BasicBlock* block =
           llvm::BasicBlock::Create(*llvm_context, "entry", llvm_func);
 
         llvm_ir_builder->SetInsertPoint(block);
 
-        for (auto& arg: llvm_func->args()) {
-          llvm::AllocaInst *alloca_inst = llvm_ir_builder->CreateAlloca(
-            llvm::Type::getInt32Ty(*llvm_context), 
+        for (auto& arg : llvm_func->args()) {
+          llvm::AllocaInst* alloca_inst = llvm_ir_builder->CreateAlloca(
+            llvm::Type::getInt32Ty(*llvm_context),
             nullptr,
-            arg.getName());
+            arg.getName()
+          );
 
           auto init_val = llvm_ir_builder->getInt32(0);
 
@@ -775,7 +775,7 @@ StyioToLLVM::toLLVMIR(FuncAST* ast) {
 
         ast->getForward()->toLLVMIR(this);
 
-        for (auto& arg: llvm_func->args()) {
+        for (auto& arg : llvm_func->args()) {
           mut_vars.erase(std::string(arg.getName()));
         }
 
