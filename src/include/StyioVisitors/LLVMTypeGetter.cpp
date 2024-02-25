@@ -257,7 +257,7 @@ StyioToLLVM::getLLVMType(CheckEqAST* ast) {
 }
 
 llvm::Type*
-StyioToLLVM::getLLVMType(CheckIsInAST* ast) {
+StyioToLLVM::getLLVMType(CheckIsinAST* ast) {
   return llvm_ir_builder->getInt32Ty();
 }
 

@@ -774,13 +774,13 @@ CheckEqAST::toStringInline(int indent, bool colorful) {
 }
 
 string
-CheckIsInAST::toString(int indent, bool colorful) {
+CheckIsinAST::toString(int indent, bool colorful) {
   return reprNodeType(hint(), colorful)
          + string(" {\n") + make_padding(indent, " ") + Iterable->toString(indent + 1, colorful) + "}";
 }
 
 string
-CheckIsInAST::toStringInline(int indent, bool colorful) {
+CheckIsinAST::toStringInline(int indent, bool colorful) {
   return reprNodeType(hint(), colorful)
          + string(" {\n") + make_padding(indent, " ") + Iterable->toString(indent + 1, colorful) + "}";
 }

@@ -40,47 +40,6 @@
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/Utils.h"
 
-// template <typename T>
-// llvm::Type
-// get_llvm_type(T ast) {
-//   switch (ast->hint()) {
-//     case StyioNodeHint::Bool:
-
-//       break;
-
-//     case StyioNodeHint::Int:
-//       switch (ast->DType) {
-//         case StyioDataType::i32:
-//           return llvm_ir_builder->getInt32Ty();
-//           // break;
-
-//         case StyioDataType::i64:
-//           return llvm_ir_builder->getInt64Ty();
-//           // break;
-
-//         case StyioDataType::undefined:
-//           return llvm_ir_builder->getInt32Ty();
-//           // break;
-
-//         default:
-//           return llvm_ir_builder->getInt32Ty();
-//           // break;
-//       }
-//       break;
-
-//     case StyioNodeHint::Float:
-
-//       break;
-
-//     case StyioNodeHint::Char:
-
-//       break;
-
-//     default:
-//       break;
-//   }
-// }
-
 void
 im_here() {
   std::cout << "I am here!" << std::endl;
@@ -132,7 +91,7 @@ StyioToLLVM::matchType(std::string type) {
 }
 
 void
-StyioToLLVM::print_type_checking(StyioAST* program) {
+StyioToLLVM::print_type_infer(StyioAST* program) {
   std::cout << "\033[1;32mAST\033[0m \033[1;33m--After-Type-Checking\033[0m"
             << "\n"
             << std::endl;
@@ -746,7 +705,7 @@ StyioToLLVM::toLLVMIR(CheckEqAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(CheckIsInAST* ast) {
+StyioToLLVM::toLLVMIR(CheckIsinAST* ast) {
   auto output = llvm_ir_builder->getInt32(0);
   return output;
 }

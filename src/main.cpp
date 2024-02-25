@@ -32,6 +32,10 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Error.h" /* ExitOnErr */
+
+// [Styio LLVM ORC JIT]
+#include "include/StyioJIT/StyioJIT_ORC.hpp"
 
 // [Others]
 #include "include/Others/cxxopts.hpp" /* https://github.com/jarro2783/cxxopts */
@@ -172,11 +176,20 @@ main(
       print_ast(styio_program);
     }
 
-    StyioToLLVM generator = StyioToLLVM();
-    generator.check(styio_program);
+    /* JIT Initialization */
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
+    llvm::InitializeNativeTargetAsmParser();
+
+    llvm::ExitOnError exit_on_error;
+
+    std::unique_ptr<StyioJIT_ORC> styio_orc_jit = exit_on_error(StyioJIT_ORC::Create());
+
+    StyioToLLVM generator = StyioToLLVM(std::move(styio_orc_jit));
+    generator.typeInfer(styio_program);
 
     if (show_type_checking) {
-      generator.print_type_checking(styio_program);
+      generator.print_type_infer(styio_program);
     }
 
     generator.toLLVMIR(styio_program);
@@ -185,6 +198,8 @@ main(
       generator.print_llvm_ir();
       generator.print_test_results();
     }
+
+    
   }
 
   return 0;

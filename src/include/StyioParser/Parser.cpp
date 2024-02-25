@@ -2048,13 +2048,13 @@ parse_forward(StyioContext& context, bool is_func) {
             if (has_args) {
               output = new ForwardAST(
                 (args),
-                new CheckIsInAST((iterable)),
+                new CheckIsinAST((iterable)),
                 (nextExpr)
               );
             }
             else {
               output = new ForwardAST(
-                new CheckIsInAST((iterable)),
+                new CheckIsinAST((iterable)),
                 (nextExpr)
               );
             }

@@ -3,17 +3,30 @@
 #define STYIO_AST_H_
 
 // [Styio]
+#include "../StyioJIT/StyioJIT_ORC.hpp"
 #include "../StyioToken/Token.hpp"
 
 // [LLVM]
+#include "llvm/Analysis/CGSCCPassManager.h" /* CGSCCAnalysisManager */
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h" /* FunctionPassManager */
 #include "llvm/IR/Module.h"
+#include "llvm/IR/PassInstrumentation.h" /* PassInstrumentationCallbacks */
+#include "llvm/IR/PassManager.h"         /* LoopAnalysisManager, FunctionAnalysisManager, ModuleAnalysisManager */
 #include "llvm/IR/Value.h"
+#include "llvm/Passes/PassBuilder.h"                 /* PassBuilder */
+#include "llvm/Passes/StandardInstrumentations.h"    /* StandardInstrumentations.h */
+#include "llvm/Support/TargetSelect.h"               /* InitializeNativeTarget, InitializeNativeTargetAsmPrinter, InitializeNativeTargetAsmParser */
+#include "llvm/Transforms/InstCombine/InstCombine.h" /* InstCombinePass */
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/GVN.h"         /* GVNPass */
+#include "llvm/Transforms/Scalar/Reassociate.h" /* ReassociatePass */
+#include "llvm/Transforms/Scalar/SimplifyCFG.h" /* SimplifyCFGPass */
 
 using std::string;
-using std::vector;
 using std::unordered_map;
+using std::vector;
 
 using std::make_shared;
 using std::make_unique;
@@ -28,8 +41,8 @@ template <typename T>
 class Visitor<T>
 {
 public:
-  /* Type Checking */
-  virtual void check(T* t) = 0;
+  /* Type Inference */
+  virtual void typeInfer(T* t) = 0;
 
   /* Get LLVM Type */
   virtual llvm::Type* getLLVMType(T* t) = 0;
@@ -42,12 +55,12 @@ template <typename T, typename... Types>
 class Visitor<T, Types...> : public Visitor<Types...>
 {
 public:
-  using Visitor<Types...>::check;
+  using Visitor<Types...>::typeInfer;
   using Visitor<Types...>::getLLVMType;
   using Visitor<Types...>::toLLVMIR;
 
-  /* Type Checking */
-  virtual void check(T* t) = 0;
+  /* Type Inference */
+  virtual void typeInfer(T* t) = 0;
 
   /* Get LLVM Type */
   virtual llvm::Type* getLLVMType(T* t) = 0;
@@ -229,7 +242,7 @@ class VarTupleAST;
 
 class ForwardAST;
 class CheckEqAST;
-class CheckIsInAST;
+class CheckIsinAST;
 class FromToAST;
 
 /*
@@ -331,7 +344,7 @@ using StyioVisitor = Visitor<
 
   class ForwardAST,
   class CheckEqAST,
-  class CheckIsInAST,
+  class CheckIsinAST,
   class FromToAST,
 
   class FmtStrAST,
@@ -355,16 +368,55 @@ class StyioToLLVM : public StyioVisitor
   unique_ptr<llvm::Module> llvm_module;
   unique_ptr<llvm::IRBuilder<>> llvm_ir_builder;
 
+  std::unique_ptr<StyioJIT_ORC> TheJIT;
+
+  // Create new pass and analysis managers.
+  unique_ptr<llvm::FunctionPassManager> TheFPM;
+  unique_ptr<llvm::LoopAnalysisManager> TheLAM;
+  unique_ptr<llvm::FunctionAnalysisManager> TheFAM;
+  unique_ptr<llvm::CGSCCAnalysisManager> TheCGAM;
+  unique_ptr<llvm::ModuleAnalysisManager> TheMAM;
+  unique_ptr<llvm::PassInstrumentationCallbacks> ThePIC;
+  unique_ptr<llvm::StandardInstrumentations> TheSI;
+  llvm::PassBuilder PB;
+
   unordered_map<string, FuncAST*> func_defs;
 
   unordered_map<string, llvm::AllocaInst*> mut_vars; /* [FlexBind] Mutable Variables */
   unordered_map<string, llvm::Value*> named_values;  /* [FinalBind] Named Values = Immutable Variables */
 
 public:
-  StyioToLLVM() :
-      llvm_context(make_unique<llvm::LLVMContext>()),
-      llvm_module(make_unique<llvm::Module>("styio", *llvm_context)),
-      llvm_ir_builder(make_unique<llvm::IRBuilder<>>(*llvm_context)) {
+  StyioToLLVM(std::unique_ptr<StyioJIT_ORC> styio_jit) :
+      llvm_context(std::make_unique<llvm::LLVMContext>()),
+      llvm_module(std::make_unique<llvm::Module>("styio", *llvm_context)),
+      llvm_ir_builder(std::make_unique<llvm::IRBuilder<>>(*llvm_context)),
+      TheJIT(std::move(styio_jit)),
+      TheFPM(std::make_unique<llvm::FunctionPassManager>()),
+      TheLAM(std::make_unique<llvm::LoopAnalysisManager>()),
+      TheFAM(std::make_unique<llvm::FunctionAnalysisManager>()),
+      TheCGAM(std::make_unique<llvm::CGSCCAnalysisManager>()),
+      TheMAM(std::make_unique<llvm::ModuleAnalysisManager>()),
+      ThePIC(std::make_unique<llvm::PassInstrumentationCallbacks>()),
+      TheSI(std::make_unique<llvm::StandardInstrumentations>(*llvm_context, /*DebugLogging*/ true)) {
+    
+
+    llvm_module->setDataLayout(TheJIT->getDataLayout());
+
+    TheSI->registerCallbacks(*ThePIC, TheMAM.get());
+
+    // Add transform passes.
+    // Do simple "peephole" optimizations and bit-twiddling optzns.
+    TheFPM->addPass(llvm::InstCombinePass());
+    // Reassociate expressions.
+    TheFPM->addPass(llvm::ReassociatePass());
+    // Eliminate Common SubExpressions.
+    TheFPM->addPass(llvm::GVNPass());
+    // Simplify the control flow graph (deleting unreachable blocks, etc).
+    TheFPM->addPass(llvm::SimplifyCFGPass());
+
+    PB.registerModuleAnalyses(*TheMAM);
+    PB.registerFunctionAnalyses(*TheFAM);
+    PB.crossRegisterProxies(*TheLAM, *TheFAM, *TheCGAM, *TheMAM);
   }
 
   ~StyioToLLVM() {}
@@ -374,119 +426,119 @@ public:
 
   llvm::AllocaInst* createAllocaFuncEntry(llvm::Function* TheFunction, llvm::StringRef VarName);
 
-  /* Styio AST Type Checker*/
+  /* Styio AST Type typeInferer*/
 
-  void check(BoolAST* ast);
+  void typeInfer(BoolAST* ast);
 
-  void check(NoneAST* ast);
+  void typeInfer(NoneAST* ast);
 
-  void check(EOFAST* ast);
+  void typeInfer(EOFAST* ast);
 
-  void check(EmptyAST* ast);
+  void typeInfer(EmptyAST* ast);
 
-  void check(PassAST* ast);
+  void typeInfer(PassAST* ast);
 
-  void check(BreakAST* ast);
+  void typeInfer(BreakAST* ast);
 
-  void check(ReturnAST* ast);
+  void typeInfer(ReturnAST* ast);
 
-  void check(CommentAST* ast);
+  void typeInfer(CommentAST* ast);
 
-  void check(IdAST* ast);
+  void typeInfer(IdAST* ast);
 
-  void check(VarAST* ast);
+  void typeInfer(VarAST* ast);
 
-  void check(ArgAST* ast);
+  void typeInfer(ArgAST* ast);
 
-  void check(OptArgAST* ast);
+  void typeInfer(OptArgAST* ast);
 
-  void check(OptKwArgAST* ast);
+  void typeInfer(OptKwArgAST* ast);
 
-  void check(VarTupleAST* ast);
+  void typeInfer(VarTupleAST* ast);
 
-  void check(DTypeAST* ast);
+  void typeInfer(DTypeAST* ast);
 
-  void check(IntAST* ast);
+  void typeInfer(IntAST* ast);
 
-  void check(FloatAST* ast);
+  void typeInfer(FloatAST* ast);
 
-  void check(CharAST* ast);
+  void typeInfer(CharAST* ast);
 
-  void check(StringAST* ast);
+  void typeInfer(StringAST* ast);
 
-  void check(TypeConvertAST* ast);
+  void typeInfer(TypeConvertAST* ast);
 
-  void check(FmtStrAST* ast);
+  void typeInfer(FmtStrAST* ast);
 
-  void check(LocalPathAST* ast);
+  void typeInfer(LocalPathAST* ast);
 
-  void check(RemotePathAST* ast);
+  void typeInfer(RemotePathAST* ast);
 
-  void check(WebUrlAST* ast);
+  void typeInfer(WebUrlAST* ast);
 
-  void check(DBUrlAST* ast);
+  void typeInfer(DBUrlAST* ast);
 
-  void check(ListAST* ast);
+  void typeInfer(ListAST* ast);
 
-  void check(TupleAST* ast);
+  void typeInfer(TupleAST* ast);
 
-  void check(SetAST* ast);
+  void typeInfer(SetAST* ast);
 
-  void check(RangeAST* ast);
+  void typeInfer(RangeAST* ast);
 
-  void check(SizeOfAST* ast);
+  void typeInfer(SizeOfAST* ast);
 
-  void check(BinOpAST* ast);
+  void typeInfer(BinOpAST* ast);
 
-  void check(BinCompAST* ast);
+  void typeInfer(BinCompAST* ast);
 
-  void check(CondAST* ast);
+  void typeInfer(CondAST* ast);
 
-  void check(CallAST* ast);
+  void typeInfer(CallAST* ast);
 
-  void check(ListOpAST* ast);
+  void typeInfer(ListOpAST* ast);
 
-  void check(ResourceAST* ast);
+  void typeInfer(ResourceAST* ast);
 
-  void check(FlexBindAST* ast);
+  void typeInfer(FlexBindAST* ast);
 
-  void check(FinalBindAST* ast);
+  void typeInfer(FinalBindAST* ast);
 
-  void check(StructAST* ast);
+  void typeInfer(StructAST* ast);
 
-  void check(ReadFileAST* ast);
+  void typeInfer(ReadFileAST* ast);
 
-  void check(PrintAST* ast);
+  void typeInfer(PrintAST* ast);
 
-  void check(ExtPackAST* ast);
+  void typeInfer(ExtPackAST* ast);
 
-  void check(BlockAST* ast);
+  void typeInfer(BlockAST* ast);
 
-  void check(CasesAST* ast);
+  void typeInfer(CasesAST* ast);
 
-  void check(CondFlowAST* ast);
+  void typeInfer(CondFlowAST* ast);
 
-  void check(CheckEqAST* ast);
+  void typeInfer(CheckEqAST* ast);
 
-  void check(CheckIsInAST* ast);
+  void typeInfer(CheckIsinAST* ast);
 
-  void check(FromToAST* ast);
+  void typeInfer(FromToAST* ast);
 
-  void check(ForwardAST* ast);
+  void typeInfer(ForwardAST* ast);
 
-  void check(InfiniteAST* ast);
+  void typeInfer(InfiniteAST* ast);
 
-  void check(AnonyFuncAST* ast);
+  void typeInfer(AnonyFuncAST* ast);
 
-  void check(FuncAST* ast);
+  void typeInfer(FuncAST* ast);
 
-  void check(LoopAST* ast);
+  void typeInfer(LoopAST* ast);
 
-  void check(IterAST* ast);
+  void typeInfer(IterAST* ast);
 
-  void check(MatchCasesAST* ast);
+  void typeInfer(MatchCasesAST* ast);
 
-  void check(MainBlockAST* ast);
+  void typeInfer(MainBlockAST* ast);
 
   /* Get LLVM Type */
 
@@ -582,7 +634,7 @@ public:
 
   llvm::Type* getLLVMType(CheckEqAST* ast);
 
-  llvm::Type* getLLVMType(CheckIsInAST* ast);
+  llvm::Type* getLLVMType(CheckIsinAST* ast);
 
   llvm::Type* getLLVMType(FromToAST* ast);
 
@@ -696,7 +748,7 @@ public:
 
   llvm::Value* toLLVMIR(CheckEqAST* ast);
 
-  llvm::Value* toLLVMIR(CheckIsInAST* ast);
+  llvm::Value* toLLVMIR(CheckIsinAST* ast);
 
   llvm::Value* toLLVMIR(FromToAST* ast);
 
@@ -717,7 +769,7 @@ public:
   // llvm::Value* toLLVMIR(MainBlockAST* ast);
   llvm::Function* toLLVMIR(MainBlockAST* ast);
 
-  void print_type_checking(StyioAST* program);
+  void print_type_infer(StyioAST* program);
 
   void print_llvm_ir();
   void print_test_results();
@@ -744,8 +796,8 @@ public:
     bool colorful = false
   ) = 0;
 
-  /* Type Checking */
-  virtual void check(StyioToLLVM* visitor) = 0;
+  /* Type Inference */
+  virtual void typeInfer(StyioToLLVM* visitor) = 0;
 
   /* Get LLVM Type */
   virtual llvm::Type* getLLVMType(StyioToLLVM* generator) = 0;
@@ -762,8 +814,8 @@ public:
   using StyioAST::toString;
   using StyioAST::toStringInline;
 
-  void check(StyioToLLVM* visitor) override {
-    visitor->check(static_cast<Derived*>(this));
+  void typeInfer(StyioToLLVM* visitor) override {
+    visitor->typeInfer(static_cast<Derived*>(this));
   }
 
   llvm::Type* getLLVMType(StyioToLLVM* visitor) override {
@@ -771,7 +823,7 @@ public:
   }
 
   llvm::Value* toLLVMIR(StyioToLLVM* visitor) override {
-    visitor->check(static_cast<Derived*>(this));
+    visitor->typeInfer(static_cast<Derived*>(this));
     return visitor->toLLVMIR(static_cast<Derived*>(this));
   }
 };
@@ -1201,7 +1253,7 @@ public:
       Stmts(stmts) {
   }
 
-  static BlockAST* Create (vector<StyioAST*> stmts) {
+  static BlockAST* Create(vector<StyioAST*> stmts) {
     return new BlockAST(stmts);
   }
 
@@ -1375,7 +1427,7 @@ public:
 class VarAST : public StyioNode<VarAST>
 {
 private:
-  string Name; /* Variable Name */
+  string Name;                /* Variable Name */
   DTypeAST* DType = nullptr;  /* Data Type */
   StyioAST* DValue = nullptr; /* Default Value */
 
@@ -1385,7 +1437,7 @@ public:
   }
 
   VarAST(const string& name) :
-      Name(name), DType(DTypeAST::Create()){
+      Name(name), DType(DTypeAST::Create()) {
   }
 
   VarAST(const string& name, DTypeAST* data_type) :
@@ -2547,7 +2599,7 @@ public:
       ...
     }
 
-    For each step of iteration, check if the element match the value
+    For each step of iteration, typeInfer if the element match the value
   expression, if match case is true, then execute the branch.
 
   MatchCases: Fill + Cases
@@ -2557,15 +2609,15 @@ public:
       _  => {}
     }
 
-    For each step of iteration, check if the element match any value
+    For each step of iteration, typeInfer if the element match any value
   expression, if match case is true, then execute the branch.
 
-  ExtraIsin: Fill + CheckIsIn
+  ExtraIsin: Fill + CheckIsin
     >> Element(Single) ?^ IterableExpr(Collection) => {
       ...
     }
 
-    For each step of iteration, check if the element is in the following
+    For each step of iteration, typeInfer if the element is in the following
   collection, if match case is true, then execute the branch.
 
   ExtraCond: Fill + CondFlow
@@ -2573,14 +2625,14 @@ public:
       ...
     }
 
-    For each step of iteration, check the given condition,
+    For each step of iteration, typeInfer the given condition,
     if condition is true, then execute the branch.
 
     >> Elements ? (Condition) \f\ {
       ...
     }
 
-    For each step of iteration, check the given condition,
+    For each step of iteration, typeInfer the given condition,
     if condition is false, then execute the branch.
 
   Rules:
@@ -2672,12 +2724,12 @@ public:
   ) override;
 };
 
-class CheckIsInAST : public StyioNode<CheckIsInAST>
+class CheckIsinAST : public StyioNode<CheckIsinAST>
 {
   StyioAST* Iterable = nullptr;
 
 public:
-  CheckIsInAST(
+  CheckIsinAST(
     StyioAST* value
   ) :
       Iterable((value)) {
@@ -2745,7 +2797,7 @@ class ForwardAST : public StyioNode<ForwardAST>
   VarTupleAST* params = nullptr;
 
   CheckEqAST* ExtraEq = nullptr;
-  CheckIsInAST* ExtraIsin = nullptr;
+  CheckIsinAST* ExtraIsin = nullptr;
 
   StyioAST* ThenExpr = nullptr;
   CondFlowAST* ThenCondFlow = nullptr;
@@ -2769,7 +2821,7 @@ public:
     Type = StyioNodeHint::If_Equal_To_Forward;
   }
 
-  ForwardAST(CheckIsInAST* isin, StyioAST* whatnext) :
+  ForwardAST(CheckIsinAST* isin, StyioAST* whatnext) :
       ExtraIsin(isin), ThenExpr(whatnext) {
     Type = StyioNodeHint::If_Is_In_Forward;
   }
@@ -2810,7 +2862,7 @@ public:
     Type = StyioNodeHint::Fill_If_Equal_To_Forward;
   }
 
-  ForwardAST(VarTupleAST* vars, CheckIsInAST* isin, StyioAST* whatnext) :
+  ForwardAST(VarTupleAST* vars, CheckIsinAST* isin, StyioAST* whatnext) :
       params(vars), ExtraIsin(isin), ThenExpr(whatnext) {
     Type = StyioNodeHint::Fill_If_Is_in_Forward;
   }
@@ -2843,7 +2895,6 @@ public:
   StyioAST* getRetExpr() {
     return ret_expr;
   }
-
 
   bool withParams() {
     return params && (!(params->getParams().empty()));
@@ -2949,7 +3000,7 @@ public:
 /*
   Anonymous Function
     [+] Arguments
-    [?] ExtraCheck
+    [?] ExtratypeInfer
     [+] ThenExpr
 */
 class AnonyFuncAST : public StyioNode<AnonyFuncAST>
@@ -3082,11 +3133,11 @@ public:
 
   unordered_map<string, VarAST*> getParamMap() {
     unordered_map<string, VarAST*> param_map;
-    
-    for (auto param: Forward->getParams()) {
+
+    for (auto param : Forward->getParams()) {
       param_map[param->getName()] = param;
     }
-    
+
     return param_map;
   }
 

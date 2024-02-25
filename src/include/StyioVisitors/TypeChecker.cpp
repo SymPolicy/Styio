@@ -29,118 +29,118 @@ display(
 }
 
 void
-StyioToLLVM::check(CommentAST* ast) {
+StyioToLLVM::typeInfer(CommentAST* ast) {
 }
 
 void
-StyioToLLVM::check(NoneAST* ast) {
+StyioToLLVM::typeInfer(NoneAST* ast) {
 }
 
 void
-StyioToLLVM::check(EmptyAST* ast) {
+StyioToLLVM::typeInfer(EmptyAST* ast) {
 }
 
 void
-StyioToLLVM::check(IdAST* ast) {
+StyioToLLVM::typeInfer(IdAST* ast) {
 }
 
 void
-StyioToLLVM::check(DTypeAST* ast) {
+StyioToLLVM::typeInfer(DTypeAST* ast) {
 }
 
 void
-StyioToLLVM::check(BoolAST* ast) {
+StyioToLLVM::typeInfer(BoolAST* ast) {
 }
 
 void
-StyioToLLVM::check(IntAST* ast) {
+StyioToLLVM::typeInfer(IntAST* ast) {
   if (ast->getType() == StyioDataType::undefined) {
     ast->setType(StyioDataType::i32);
   }
 }
 
 void
-StyioToLLVM::check(FloatAST* ast) {
+StyioToLLVM::typeInfer(FloatAST* ast) {
 }
 
 void
-StyioToLLVM::check(CharAST* ast) {
+StyioToLLVM::typeInfer(CharAST* ast) {
 }
 
 void
-StyioToLLVM::check(StringAST* ast) {
+StyioToLLVM::typeInfer(StringAST* ast) {
 }
 
 void
-StyioToLLVM::check(TypeConvertAST*) {
+StyioToLLVM::typeInfer(TypeConvertAST*) {
 }
 
 void
-StyioToLLVM::check(VarAST* ast) {
+StyioToLLVM::typeInfer(VarAST* ast) {
 }
 
 void
-StyioToLLVM::check(ArgAST* ast) {
+StyioToLLVM::typeInfer(ArgAST* ast) {
 }
 
 void
-StyioToLLVM::check(OptArgAST* ast) {
+StyioToLLVM::typeInfer(OptArgAST* ast) {
 }
 
 void
-StyioToLLVM::check(OptKwArgAST* ast) {
+StyioToLLVM::typeInfer(OptKwArgAST* ast) {
 }
 
 void
-StyioToLLVM::check(FlexBindAST* ast) {
+StyioToLLVM::typeInfer(FlexBindAST* ast) {
 }
 
 void
-StyioToLLVM::check(FinalBindAST* ast) {
+StyioToLLVM::typeInfer(FinalBindAST* ast) {
 }
 
 void
-StyioToLLVM::check(InfiniteAST* ast) {
+StyioToLLVM::typeInfer(InfiniteAST* ast) {
 }
 
 void
-StyioToLLVM::check(StructAST* ast) {
+StyioToLLVM::typeInfer(StructAST* ast) {
 }
 
 void
-StyioToLLVM::check(TupleAST* ast) {
+StyioToLLVM::typeInfer(TupleAST* ast) {
 }
 
 void
-StyioToLLVM::check(VarTupleAST* ast) {
+StyioToLLVM::typeInfer(VarTupleAST* ast) {
 }
 
 void
-StyioToLLVM::check(RangeAST* ast) {
+StyioToLLVM::typeInfer(RangeAST* ast) {
 }
 
 void
-StyioToLLVM::check(SetAST* ast) {
+StyioToLLVM::typeInfer(SetAST* ast) {
 }
 
 void
-StyioToLLVM::check(ListAST* ast) {
+StyioToLLVM::typeInfer(ListAST* ast) {
 }
 
 void
-StyioToLLVM::check(SizeOfAST* ast) {
+StyioToLLVM::typeInfer(SizeOfAST* ast) {
 }
 
 void
-StyioToLLVM::check(ListOpAST* ast) {
+StyioToLLVM::typeInfer(ListOpAST* ast) {
 }
 
 void
-StyioToLLVM::check(BinCompAST* ast) {
+StyioToLLVM::typeInfer(BinCompAST* ast) {
 }
 
 void
-StyioToLLVM::check(CondAST* ast) {
+StyioToLLVM::typeInfer(CondAST* ast) {
 }
 
 /*
@@ -149,7 +149,7 @@ StyioToLLVM::check(CondAST* ast) {
 
 */
 void
-StyioToLLVM::check(BinOpAST* ast) {
+StyioToLLVM::typeInfer(BinOpAST* ast) {
   auto lhs = ast->getLhs();
   auto rhs = ast->getRhs();
   auto lhs_type = ast->getLhs()->hint();
@@ -170,55 +170,55 @@ StyioToLLVM::check(BinOpAST* ast) {
 }
 
 void
-StyioToLLVM::check(FmtStrAST* ast) {
+StyioToLLVM::typeInfer(FmtStrAST* ast) {
 }
 
 void
-StyioToLLVM::check(ResourceAST* ast) {
+StyioToLLVM::typeInfer(ResourceAST* ast) {
 }
 
 void
-StyioToLLVM::check(LocalPathAST* ast) {
+StyioToLLVM::typeInfer(LocalPathAST* ast) {
 }
 
 void
-StyioToLLVM::check(RemotePathAST* ast) {
+StyioToLLVM::typeInfer(RemotePathAST* ast) {
 }
 
 void
-StyioToLLVM::check(WebUrlAST* ast) {
+StyioToLLVM::typeInfer(WebUrlAST* ast) {
 }
 
 void
-StyioToLLVM::check(DBUrlAST* ast) {
+StyioToLLVM::typeInfer(DBUrlAST* ast) {
 }
 
 void
-StyioToLLVM::check(ExtPackAST* ast) {
+StyioToLLVM::typeInfer(ExtPackAST* ast) {
 }
 
 void
-StyioToLLVM::check(ReadFileAST* ast) {
+StyioToLLVM::typeInfer(ReadFileAST* ast) {
 }
 
 void
-StyioToLLVM::check(EOFAST* ast) {
+StyioToLLVM::typeInfer(EOFAST* ast) {
 }
 
 void
-StyioToLLVM::check(BreakAST* ast) {
+StyioToLLVM::typeInfer(BreakAST* ast) {
 }
 
 void
-StyioToLLVM::check(PassAST* ast) {
+StyioToLLVM::typeInfer(PassAST* ast) {
 }
 
 void
-StyioToLLVM::check(ReturnAST* ast) {
+StyioToLLVM::typeInfer(ReturnAST* ast) {
 }
 
 void
-StyioToLLVM::check(CallAST* ast) {
+StyioToLLVM::typeInfer(CallAST* ast) {
   if (not func_defs.contains(ast->getName())) {
     std::cout << "func " << ast->getName() << " not exist" << std::endl;
     return;
@@ -253,62 +253,62 @@ StyioToLLVM::check(CallAST* ast) {
 }
 
 void
-StyioToLLVM::check(PrintAST* ast) {
+StyioToLLVM::typeInfer(PrintAST* ast) {
 }
 
 void
-StyioToLLVM::check(ForwardAST* ast) {
+StyioToLLVM::typeInfer(ForwardAST* ast) {
 }
 
 void
-StyioToLLVM::check(CheckEqAST* ast) {
+StyioToLLVM::typeInfer(CheckEqAST* ast) {
 }
 
 void
-StyioToLLVM::check(CheckIsInAST* ast) {
+StyioToLLVM::typeInfer(CheckIsinAST* ast) {
 }
 
 void
-StyioToLLVM::check(FromToAST* ast) {
+StyioToLLVM::typeInfer(FromToAST* ast) {
 }
 
 void
-StyioToLLVM::check(CondFlowAST* ast) {
+StyioToLLVM::typeInfer(CondFlowAST* ast) {
 }
 
 void
-StyioToLLVM::check(AnonyFuncAST* ast) {
+StyioToLLVM::typeInfer(AnonyFuncAST* ast) {
 }
 
 void
-StyioToLLVM::check(FuncAST* ast) {
+StyioToLLVM::typeInfer(FuncAST* ast) {
   func_defs[ast->getFuncName()] = ast;
 }
 
 void
-StyioToLLVM::check(IterAST* ast) {
+StyioToLLVM::typeInfer(IterAST* ast) {
 }
 
 void
-StyioToLLVM::check(LoopAST* ast) {
+StyioToLLVM::typeInfer(LoopAST* ast) {
 }
 
 void
-StyioToLLVM::check(CasesAST* ast) {
+StyioToLLVM::typeInfer(CasesAST* ast) {
 }
 
 void
-StyioToLLVM::check(MatchCasesAST* ast) {
+StyioToLLVM::typeInfer(MatchCasesAST* ast) {
 }
 
 void
-StyioToLLVM::check(BlockAST* ast) {
+StyioToLLVM::typeInfer(BlockAST* ast) {
 }
 
 void
-StyioToLLVM::check(MainBlockAST* ast) {
+StyioToLLVM::typeInfer(MainBlockAST* ast) {
   auto stmts = ast->getStmts();
   for (auto const& s : stmts) {
-    s->check(this);
+    s->typeInfer(this);
   }
 }
