@@ -24,14 +24,18 @@ message(STATUS "[Styio] Runtime: " ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 # [LLVM] Configuration
 find_package(LLVM 18.1.0 REQUIRED CONFIG)
 include_directories(${LLVM_INCLUDE_DIRS})
-add_definitions(${LLVM_DEFINITIONS})
+separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
+add_definitions(${LLVM_DEFINITIONS_LIST})
+
+message(STATUS "[LLVM] Include Directory: ${LLVM_INCLUDE_DIRS}")
+message(STATUS "[LLVM] Definitions: ${LLVM_DEFINITIONS_LIST}")
 
 message(STATUS "[LLVM] Version: ${LLVM_PACKAGE_VERSION}")
 message(STATUS "[LLVM] Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 # llvm-config-${LLVM_VERSION} --components
 # llvm-config-18 --components
-llvm_map_components_to_libnames(LLVM_LIBS core orcjit native)
+llvm_map_components_to_libnames(LLVM_LIBS support core irreader orcjit native)
 
 # [ICU]
 # ICU Components Reference:
@@ -41,7 +45,7 @@ message(STATUS "[ICU] Using FindICU.cmake in: ${PROJECT_SOURCE_DIR}")
 find_package(ICU COMPONENTS uc i18n REQUIRED)
 
 # [Styio] Executable
-add_executable(styio 
+add_executable( styio 
     src/main.cpp
     # Utility
     src/include/StyioUtil/Util.cpp
@@ -54,7 +58,7 @@ add_executable(styio
     src/include/StyioVisitors/TypeChecker.cpp
     src/include/StyioVisitors/LLVMTypeGetter.cpp
     src/include/StyioVisitors/LLVMGenerator.cpp
-    )
+)
 
 # [Styio - ICU4C] Link
 target_link_libraries(

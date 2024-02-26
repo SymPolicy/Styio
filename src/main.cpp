@@ -184,10 +184,9 @@ main(
     llvm::InitializeNativeTargetAsmParser();
 
     llvm::ExitOnError exit_on_error;
-    std::unique_ptr<StyioJIT_ORC> orc_jit = exit_on_error(StyioJIT_ORC::Create());
+    std::unique_ptr<StyioJIT_ORC> styio_orc_jit = exit_on_error(StyioJIT_ORC::Create());
 
-    StyioToLLVM generator = StyioToLLVM(std::move(orc_jit));
-    // StyioToLLVM generator = StyioToLLVM(std::move(orc_jit));
+    StyioToLLVM generator = StyioToLLVM(std::move(styio_orc_jit));
 
     generator.typeInfer(styio_program);
 
@@ -201,6 +200,8 @@ main(
       generator.print_llvm_ir();
       generator.print_test_results();
     }
+
+    generator.execute();
   }
 
   return 0;

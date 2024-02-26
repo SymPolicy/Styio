@@ -365,57 +365,56 @@ class StyioToLLVM;
 
 class StyioToLLVM : public StyioVisitor
 {
-  unique_ptr<llvm::LLVMContext> llvm_context;
-  unique_ptr<llvm::Module> llvm_module;
-  unique_ptr<llvm::IRBuilder<>> llvm_ir_builder;
+  unique_ptr<llvm::LLVMContext> theContext;
+  unique_ptr<llvm::Module> theModule;
+  unique_ptr<llvm::IRBuilder<>> theBuilder;
 
-  std::unique_ptr<StyioJIT_ORC> TheJIT;
+  std::unique_ptr<StyioJIT_ORC> theORCJIT;
 
-  // Create new pass and analysis managers.
-  unique_ptr<llvm::FunctionPassManager> TheFPM;
-  unique_ptr<llvm::LoopAnalysisManager> TheLAM;
-  unique_ptr<llvm::FunctionAnalysisManager> TheFAM;
-  unique_ptr<llvm::CGSCCAnalysisManager> TheCGAM;
-  unique_ptr<llvm::ModuleAnalysisManager> TheMAM;
-  unique_ptr<llvm::PassInstrumentationCallbacks> ThePIC;
-  unique_ptr<llvm::StandardInstrumentations> TheSI;
-  llvm::PassBuilder PB;
-
-  unordered_map<string, FuncAST*> func_defs;
+  unique_ptr<llvm::FunctionPassManager> theFPM;
+  unique_ptr<llvm::LoopAnalysisManager> theLAM;
+  unique_ptr<llvm::FunctionAnalysisManager> theFAM;
+  unique_ptr<llvm::CGSCCAnalysisManager> theCGAM;
+  unique_ptr<llvm::ModuleAnalysisManager> theMAM;
+  unique_ptr<llvm::PassInstrumentationCallbacks> thePIC;
+  unique_ptr<llvm::StandardInstrumentations> theSI;
+  llvm::PassBuilder thePB;
 
   unordered_map<string, llvm::AllocaInst*> mut_vars; /* [FlexBind] Mutable Variables */
   unordered_map<string, llvm::Value*> named_values;  /* [FinalBind] Named Values = Immutable Variables */
 
+  unordered_map<string, FuncAST*> func_defs;
+
 public:
   StyioToLLVM(std::unique_ptr<StyioJIT_ORC> styio_jit) :
-      llvm_context(std::make_unique<llvm::LLVMContext>()),
-      llvm_module(std::make_unique<llvm::Module>("styio", *llvm_context)),
-      llvm_ir_builder(std::make_unique<llvm::IRBuilder<>>(*llvm_context)),
-      TheJIT(std::move(styio_jit)),
-      TheFPM(std::make_unique<llvm::FunctionPassManager>()),
-      TheLAM(std::make_unique<llvm::LoopAnalysisManager>()),
-      TheFAM(std::make_unique<llvm::FunctionAnalysisManager>()),
-      TheCGAM(std::make_unique<llvm::CGSCCAnalysisManager>()),
-      TheMAM(std::make_unique<llvm::ModuleAnalysisManager>()),
-      ThePIC(std::make_unique<llvm::PassInstrumentationCallbacks>()),
-      TheSI(std::make_unique<llvm::StandardInstrumentations>(*llvm_context, /*DebugLogging*/ true)) {
-    llvm_module->setDataLayout(TheJIT->getDataLayout());
+      theContext(std::make_unique<llvm::LLVMContext>()),
+      theModule(std::make_unique<llvm::Module>("styio", *theContext)),
+      theBuilder(std::make_unique<llvm::IRBuilder<>>(*theContext)),
+      theORCJIT(std::move(styio_jit)),
+      theFPM(std::make_unique<llvm::FunctionPassManager>()),
+      theLAM(std::make_unique<llvm::LoopAnalysisManager>()),
+      theFAM(std::make_unique<llvm::FunctionAnalysisManager>()),
+      theCGAM(std::make_unique<llvm::CGSCCAnalysisManager>()),
+      theMAM(std::make_unique<llvm::ModuleAnalysisManager>()),
+      thePIC(std::make_unique<llvm::PassInstrumentationCallbacks>()),
+      theSI(std::make_unique<llvm::StandardInstrumentations>(*theContext, /*DebugLogging*/ true)) {
+    theModule->setDataLayout(theORCJIT->getDataLayout());
 
-    TheSI->registerCallbacks(*ThePIC, TheMAM.get());
+    theSI->registerCallbacks(*thePIC, theMAM.get());
 
     // Add transform passes.
-    // Do simple "peephole" optimizations and bit-twiddling optzns.
-    TheFPM->addPass(llvm::InstCombinePass());
+    // Do simple "peephole" optimizations and bit-twiddling optimizations.
+    theFPM->addPass(llvm::InstCombinePass());
     // Reassociate expressions.
-    TheFPM->addPass(llvm::ReassociatePass());
-    // Eliminate Common SubExpressions.
-    TheFPM->addPass(llvm::GVNPass());
+    theFPM->addPass(llvm::ReassociatePass());
+    // Eliminate common sub-expressions.
+    theFPM->addPass(llvm::GVNPass());
     // Simplify the control flow graph (deleting unreachable blocks, etc).
-    TheFPM->addPass(llvm::SimplifyCFGPass());
+    theFPM->addPass(llvm::SimplifyCFGPass());
 
-    PB.registerModuleAnalyses(*TheMAM);
-    PB.registerFunctionAnalyses(*TheFAM);
-    PB.crossRegisterProxies(*TheLAM, *TheFAM, *TheCGAM, *TheMAM);
+    thePB.registerModuleAnalyses(*theMAM);
+    thePB.registerFunctionAnalyses(*theFAM);
+    thePB.crossRegisterProxies(*theLAM, *theFAM, *theCGAM, *theMAM);
   }
 
   ~StyioToLLVM() {}
@@ -772,6 +771,8 @@ public:
 
   void print_llvm_ir();
   void print_test_results();
+
+  void execute();
 };
 
 /*
