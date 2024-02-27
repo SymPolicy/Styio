@@ -23,6 +23,8 @@
 #include "include/StyioParser/Parser.hpp"
 #include "include/StyioToken/Token.hpp"
 #include "include/StyioUtil/Util.hpp"
+#include "include/StyioVisitors/CodeGenVisitor.hpp" /* StyioToLLVMIR Code Generator */
+#include "include/StyioVisitors/ASTAnalyzer.hpp" /* StyioASTAnalyzer */
 
 // [LLVM]
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -175,7 +177,7 @@ main(
     auto styio_program = parse_main_block(*styio_context);
 
     if (show_ast) {
-      print_ast(styio_program);
+      print_ast(styio_program, false);
     }
 
     /* JIT Initialization */
@@ -186,12 +188,13 @@ main(
     llvm::ExitOnError exit_on_error;
     std::unique_ptr<StyioJIT_ORC> styio_orc_jit = exit_on_error(StyioJIT_ORC::Create());
 
-    StyioToLLVM generator = StyioToLLVM(std::move(styio_orc_jit));
+    StyioToLLVMIR generator = StyioToLLVMIR(std::move(styio_orc_jit));
+    StyioASTAnalyzer analyzer = StyioASTAnalyzer();
 
-    generator.typeInfer(styio_program);
+    analyzer.typeInfer(styio_program);
 
     if (show_type_checking) {
-      generator.print_type_infer(styio_program);
+      print_ast(styio_program, true);
     }
 
     generator.toLLVMIR(styio_program);

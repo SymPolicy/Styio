@@ -59,7 +59,7 @@ im_here() {
   the function. This is used for mutable variables etc.
 */
 llvm::AllocaInst*
-StyioToLLVM::createAllocaFuncEntry(llvm::Function* TheFunction, llvm::StringRef VarName) {
+StyioToLLVMIR::createAllocaFuncEntry(llvm::Function* TheFunction, llvm::StringRef VarName) {
   llvm::IRBuilder<> tmp_block(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
   return tmp_block.CreateAlloca(
     llvm::Type::getDoubleTy(*theContext), /* Type should be modified in the future. */
@@ -69,7 +69,7 @@ StyioToLLVM::createAllocaFuncEntry(llvm::Function* TheFunction, llvm::StringRef 
 }
 
 llvm::Type*
-StyioToLLVM::matchType(std::string type) {
+StyioToLLVMIR::matchType(std::string type) {
   if (type == "i32") {
     return theBuilder->getInt32Ty();
   }
@@ -100,15 +100,7 @@ StyioToLLVM::matchType(std::string type) {
 }
 
 void
-StyioToLLVM::print_type_infer(StyioAST* program) {
-  std::cout << "\033[1;32mAST\033[0m \033[1;33m--After-Type-Checking\033[0m"
-            << "\n"
-            << std::endl;
-  std::cout << program->toString() << std::endl;
-}
-
-void
-StyioToLLVM::print_llvm_ir() {
+StyioToLLVMIR::print_llvm_ir() {
   std::cout << "\n"
             << "\033[1;32mLLVM IR\033[0m"
             << "\n"
@@ -121,7 +113,7 @@ StyioToLLVM::print_llvm_ir() {
 }
 
 void
-StyioToLLVM::print_test_results() {
+StyioToLLVMIR::print_test_results() {
   std::error_code EC;
   llvm::raw_fd_ostream output_stream(
     "output.ll",
@@ -167,7 +159,7 @@ StyioToLLVM::print_test_results() {
 */
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(BoolAST* ast) {
+StyioToLLVMIR::toLLVMIR(BoolAST* ast) {
   if (ast->getValue()) {
     return llvm::ConstantInt::getTrue(*theContext);
   }
@@ -177,48 +169,48 @@ StyioToLLVM::toLLVMIR(BoolAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(NoneAST* ast) {
+StyioToLLVMIR::toLLVMIR(NoneAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(EOFAST* ast) {
+StyioToLLVMIR::toLLVMIR(EOFAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(EmptyAST* ast) {
+StyioToLLVMIR::toLLVMIR(EmptyAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(PassAST* ast) {
+StyioToLLVMIR::toLLVMIR(PassAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(BreakAST* ast) {
+StyioToLLVMIR::toLLVMIR(BreakAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(ReturnAST* ast) {
+StyioToLLVMIR::toLLVMIR(ReturnAST* ast) {
   return theBuilder->CreateRet(ast->getExpr()->toLLVMIR(this));
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(CommentAST* ast) {
+StyioToLLVMIR::toLLVMIR(CommentAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(IdAST* ast) {
+StyioToLLVMIR::toLLVMIR(IdAST* ast) {
   auto output = theBuilder->getInt32(0);
 
   const string& varname = ast->getAsStr();
@@ -239,32 +231,32 @@ StyioToLLVM::toLLVMIR(IdAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(VarAST* ast) {
+StyioToLLVMIR::toLLVMIR(VarAST* ast) {
   auto output = theBuilder->getInt32(0);
 
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(ArgAST* ast) {
+StyioToLLVMIR::toLLVMIR(ArgAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(OptArgAST* ast) {
+StyioToLLVMIR::toLLVMIR(OptArgAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(OptKwArgAST* ast) {
+StyioToLLVMIR::toLLVMIR(OptKwArgAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(VarTupleAST* ast) {
+StyioToLLVMIR::toLLVMIR(VarTupleAST* ast) {
   auto output = theBuilder->getInt32(0);
 
   auto vars = ast->getParams();
@@ -276,13 +268,13 @@ StyioToLLVM::toLLVMIR(VarTupleAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(DTypeAST* ast) {
+StyioToLLVMIR::toLLVMIR(DTypeAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(IntAST* ast) {
+StyioToLLVMIR::toLLVMIR(IntAST* ast) {
   switch (ast->getType()) {
     case StyioDataType::i1: {
       return theBuilder->getInt1(std::stoi(ast->getValue()));
@@ -315,7 +307,7 @@ StyioToLLVM::toLLVMIR(IntAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(FloatAST* ast) {
+StyioToLLVMIR::toLLVMIR(FloatAST* ast) {
   switch (ast->getType()) {
     case StyioDataType::f64:
       return llvm::ConstantFP::get(*theContext, llvm::APFloat(std::stod(ast->getValue())));
@@ -326,97 +318,97 @@ StyioToLLVM::toLLVMIR(FloatAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(CharAST* ast) {
+StyioToLLVMIR::toLLVMIR(CharAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(StringAST* ast) {
+StyioToLLVMIR::toLLVMIR(StringAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(TypeConvertAST* ast) {
+StyioToLLVMIR::toLLVMIR(TypeConvertAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(FmtStrAST* ast) {
+StyioToLLVMIR::toLLVMIR(FmtStrAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(ResourceAST* ast) {
+StyioToLLVMIR::toLLVMIR(ResourceAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(LocalPathAST* ast) {
+StyioToLLVMIR::toLLVMIR(LocalPathAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(RemotePathAST* ast) {
+StyioToLLVMIR::toLLVMIR(RemotePathAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(WebUrlAST* ast) {
+StyioToLLVMIR::toLLVMIR(WebUrlAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(DBUrlAST* ast) {
+StyioToLLVMIR::toLLVMIR(DBUrlAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(ExtPackAST* ast) {
+StyioToLLVMIR::toLLVMIR(ExtPackAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(ListAST* ast) {
+StyioToLLVMIR::toLLVMIR(ListAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(TupleAST* ast) {
+StyioToLLVMIR::toLLVMIR(TupleAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(SetAST* ast) {
+StyioToLLVMIR::toLLVMIR(SetAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(RangeAST* ast) {
+StyioToLLVMIR::toLLVMIR(RangeAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(SizeOfAST* ast) {
+StyioToLLVMIR::toLLVMIR(SizeOfAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(BinOpAST* ast) {
+StyioToLLVMIR::toLLVMIR(BinOpAST* ast) {
   llvm::Value* output = theBuilder->getInt32(0);
 
   llvm::Value* l_val = ast->getLhs()->toLLVMIR(this);
@@ -481,19 +473,19 @@ StyioToLLVM::toLLVMIR(BinOpAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(BinCompAST* ast) {
+StyioToLLVMIR::toLLVMIR(BinCompAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(CondAST* ast) {
+StyioToLLVMIR::toLLVMIR(CondAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(CallAST* ast) {
+StyioToLLVMIR::toLLVMIR(CallAST* ast) {
   auto output = theBuilder->getInt32(0);
 
   auto styio_func_args = ast->getArgs();
@@ -523,7 +515,7 @@ StyioToLLVM::toLLVMIR(CallAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(ListOpAST* ast) {
+StyioToLLVMIR::toLLVMIR(ListOpAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
@@ -537,7 +529,7 @@ StyioToLLVM::toLLVMIR(ListOpAST* ast) {
   - Mutable Assignment
 */
 llvm::Value*
-StyioToLLVM::toLLVMIR(FlexBindAST* ast) {
+StyioToLLVMIR::toLLVMIR(FlexBindAST* ast) {
   auto output = theBuilder->getInt32(0);
 
   // // Look this variable up in the function.
@@ -637,7 +629,7 @@ StyioToLLVM::toLLVMIR(FlexBindAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(FinalBindAST* ast) {
+StyioToLLVMIR::toLLVMIR(FinalBindAST* ast) {
   auto output = theBuilder->getInt32(0);
 
   switch (ast->getValue()->hint()) {
@@ -669,25 +661,25 @@ StyioToLLVM::toLLVMIR(FinalBindAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(StructAST* ast) {
+StyioToLLVMIR::toLLVMIR(StructAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(ReadFileAST* ast) {
+StyioToLLVMIR::toLLVMIR(ReadFileAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(PrintAST* ast) {
+StyioToLLVMIR::toLLVMIR(PrintAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(ForwardAST* ast) {
+StyioToLLVMIR::toLLVMIR(ForwardAST* ast) {
   auto output = theBuilder->getInt32(0);
 
   switch (ast->hint()) {
@@ -708,38 +700,38 @@ StyioToLLVM::toLLVMIR(ForwardAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(CheckEqAST* ast) {
+StyioToLLVMIR::toLLVMIR(CheckEqAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(CheckIsinAST* ast) {
+StyioToLLVMIR::toLLVMIR(CheckIsinAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(FromToAST* ast) {
+StyioToLLVMIR::toLLVMIR(FromToAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(InfiniteAST* ast) {
+StyioToLLVMIR::toLLVMIR(InfiniteAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(AnonyFuncAST* ast) {
+StyioToLLVMIR::toLLVMIR(AnonyFuncAST* ast) {
   auto output = theBuilder->getInt32(0);
 
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(FuncAST* ast) {
+StyioToLLVMIR::toLLVMIR(FuncAST* ast) {
   auto latest_insert_point = theBuilder->saveIP();
 
   if (ast->hasName()) {
@@ -821,37 +813,37 @@ StyioToLLVM::toLLVMIR(FuncAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(IterAST* ast) {
+StyioToLLVMIR::toLLVMIR(IterAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(LoopAST* ast) {
+StyioToLLVMIR::toLLVMIR(LoopAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(CondFlowAST* ast) {
+StyioToLLVMIR::toLLVMIR(CondFlowAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(CasesAST* ast) {
+StyioToLLVMIR::toLLVMIR(CasesAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(MatchCasesAST* ast) {
+StyioToLLVMIR::toLLVMIR(MatchCasesAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(BlockAST* ast) {
+StyioToLLVMIR::toLLVMIR(BlockAST* ast) {
   auto output = theBuilder->getInt32(0);
 
   auto stmts = ast->getStmts();
@@ -863,7 +855,7 @@ StyioToLLVM::toLLVMIR(BlockAST* ast) {
 }
 
 llvm::Function*
-StyioToLLVM::toLLVMIR(MainBlockAST* ast) {
+StyioToLLVMIR::toLLVMIR(MainBlockAST* ast) {
   /*
     Get Void Type: llvm::Type::getVoidTy(*llvm_context)
     Use Void Type: nullptr
@@ -891,7 +883,7 @@ StyioToLLVM::toLLVMIR(MainBlockAST* ast) {
 }
 
 void
-StyioToLLVM::execute() {
+StyioToLLVMIR::execute() {
   auto RT = theORCJIT->getMainJITDylib().createResourceTracker();
   auto TSM = llvm::orc::ThreadSafeModule(std::move(theModule), std::move(theContext));
   llvm::ExitOnError exit_on_error;

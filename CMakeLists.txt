@@ -55,9 +55,9 @@ add_executable( styio
     src/include/StyioAST/ASTToString.cpp
     src/include/StyioParser/Parser.cpp
     # Visitor
-    src/include/StyioVisitors/TypeChecker.cpp
-    src/include/StyioVisitors/LLVMTypeGetter.cpp
-    src/include/StyioVisitors/LLVMGenerator.cpp
+    src/include/StyioVisitors/TypeInferImpl.cpp
+    src/include/StyioVisitors/GetTypeImpl.cpp
+    src/include/StyioVisitors/CodeGenImpl.cpp
 )
 
 # [Styio - ICU4C] Link
