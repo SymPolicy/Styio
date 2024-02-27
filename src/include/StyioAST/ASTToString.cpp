@@ -59,13 +59,12 @@ IdAST::toStringInline(int indent, bool colorful) {
 
 string
 DTypeAST::toString(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful, " ")
-         + string("{ ") + type_name + " }";
+  return reprNodeType(hint(), colorful, " ") + string("{ ") + getTypeName() + " }";
 }
 
 string
 DTypeAST::toStringInline(int indent, bool colorful) {
-  return type_name;
+  return getTypeName();
 }
 
 string
@@ -142,50 +141,24 @@ TypeConvertAST::toStringInline(int indent, bool colorful) {
 
 string
 VarAST::toString(int indent, bool colorful) {
-  if (isTyped()) {
-    return reprNodeType(hint(), colorful, " ")
-           + string("{ ") + Name + " : " + DType->getTypeName() + " }";
-  }
-  else {
-    return reprNodeType(hint(), colorful, " ")
-           + string("{ ") + Name + " : " + " }";
-  }
+  return reprNodeType(hint(), colorful, " ") + string("{ ") + Name + " : " + DType->toStringInline() + " }";
 }
 
 string
 VarAST::toStringInline(int indent, bool colorful) {
-  if (isTyped()) {
-    return reprNodeType(hint(), colorful, " ")
-           + string("{ ") + Name + " : " + DType->getTypeName() + " }";
-  }
-  else {
-    return reprNodeType(hint(), colorful, " ")
-           + string("{ ") + Name + " : " + " }";
-  }
+  return reprNodeType(hint(), colorful, " ") + string("{ ") + Name + " : " + DType->toStringInline() + " }";
 }
 
 string
 ArgAST::toString(int indent, bool colorful) {
-  if (DType != nullptr) {
-    return reprNodeType(hint(), colorful, " ")
-           + string("{ ") + Name + " : " + getDType()->getTypeName() + " }";
-  }
-  else {
-    return reprNodeType(hint(), colorful, " ")
-           + string("{ ") + Name + " }";
-  }
+  std::cout << "arg to string at " << this << " type " << reprDataType(getDType()->getDType()) << std::endl;
+  return reprNodeType(hint(), colorful, " ") + string("{ ") + Name + " : " + DType->toStringInline() + " }";
 }
 
 string
 ArgAST::toStringInline(int indent, bool colorful) {
-  if (DType != nullptr) {
-    return reprNodeType(hint(), colorful, " ")
-           + string("{ ") + Name + " : " + getDType()->getTypeName() + " }";
-  }
-  else {
-    return reprNodeType(hint(), colorful, " ")
-           + string("{ ") + Name + " }";
-  }
+  std::cout << "arg to string inline at " << this << " type " << reprDataType(getDType()->getDType()) << std::endl;
+  return reprNodeType(hint(), colorful, " ") + string("{ ") + Name + " : " + DType->toStringInline() + " }";
 }
 
 string

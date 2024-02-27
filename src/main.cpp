@@ -174,7 +174,7 @@ main(
     // show_code_with_linenum(styio_code);
     auto styio_context = StyioContext::Create(fpath, styio_code.code_text, styio_code.line_seps);
 
-    auto styio_program = parse_main_block(*styio_context);
+    volatile auto styio_program = parse_main_block(*styio_context);
 
     if (show_ast) {
       print_ast(styio_program, false);
@@ -193,17 +193,17 @@ main(
 
     analyzer.typeInfer(styio_program);
 
+    generator.toLLVMIR(styio_program);
+
     if (show_type_checking) {
       print_ast(styio_program, true);
     }
-
-    generator.toLLVMIR(styio_program);
 
     if (show_ir) {
       generator.print_llvm_ir();
       generator.print_test_results();
     }
-
+    
     generator.execute();
   }
 

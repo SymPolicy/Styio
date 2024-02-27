@@ -227,12 +227,13 @@ StyioASTAnalyzer::typeInfer(CallAST* ast) {
   vector<StyioDataType> arg_types;
 
   for (auto arg : ast->getArgs()) {
-    StyioDataType data_type;
-
     switch (arg->hint()) {
       case StyioNodeHint::Int: {
-        
         arg_types.push_back(static_cast<IntAST*>(arg)->getType());
+      } break;
+
+      case StyioNodeHint::Float: {
+        arg_types.push_back(static_cast<FloatAST*>(arg)->getType());
       } break;
 
       default:
@@ -249,6 +250,7 @@ StyioASTAnalyzer::typeInfer(CallAST* ast) {
 
   for (size_t i = 0; i < func_args.size(); i++) {
     func_args[i]->setDType(arg_types[i]);
+    std::cout << "set type for " << func_args[i]->getName() << " at " << func_args[i] << " to " << reprDataType(func_args[i]->getDType()->getDType()) << std::endl;
   }
 }
 

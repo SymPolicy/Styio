@@ -27,18 +27,18 @@ void
 print_ast(T& program, bool after_check) {
   if (after_check) {
     std::cout 
-      << "\033[1;32mAST\033[0m \033[31m-No-Type-Checking\033[0m" 
-      << "\n" 
-      << program->toString() 
-      << "\n" << std::endl;
-  }
-  else {
-    std::cout 
       << "\033[1;32mAST\033[0m \033[1;33m-After-Type-Checking\033[0m"
       << "\n"
       << program->toString() 
       << "\n"
       << std::endl;
+  }
+  else {
+    std::cout 
+      << "\033[1;32mAST\033[0m \033[31m-No-Type-Checking\033[0m" 
+      << "\n" 
+      << program->toString() 
+      << "\n" << std::endl;
   }
 };
 

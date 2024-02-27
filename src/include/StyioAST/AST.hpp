@@ -9,8 +9,8 @@
 #include "ASTDecl.hpp"
 
 // [LLVM]
-#include "llvm/IR/Value.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/Value.h"
 
 /* ========================================================================== */
 
@@ -135,36 +135,33 @@ public:
 class DTypeAST : public StyioNode<DTypeAST>
 {
 private:
-  string type_name;
   StyioDataType data_type = StyioDataType::undefined;
 
 public:
+  DTypeAST() {}
+
   DTypeAST(StyioDataType data_type) :
       data_type(data_type) {
   }
 
   DTypeAST(
-    const string& type_name
-  ) :
-      type_name(type_name) {
+    string type_name
+  ) {
     auto it = DType_Table.find(type_name);
     if (it != DType_Table.end()) {
       data_type = it->second;
     }
-    else {
-      data_type = StyioDataType::undefined;
-    }
   }
 
   static DTypeAST* Create() {
-    return new DTypeAST(StyioDataType::undefined);
+    return new DTypeAST();
   }
 
   static DTypeAST* Create(StyioDataType data_type) {
     return new DTypeAST(data_type);
   }
 
-  static DTypeAST* Create(const string& type_name) {
+  static DTypeAST* Create(string type_name) {
     return new DTypeAST(type_name);
   }
 
@@ -172,8 +169,8 @@ public:
     return data_type;
   }
 
-  const string& getTypeName() const {
-    return type_name;
+  string getTypeName() {
+    return reprDataType(data_type);
   }
 
   void setDType(StyioDataType type) {
@@ -669,9 +666,9 @@ public:
 class VarAST : public StyioNode<VarAST>
 {
 private:
-  string Name;                /* Variable Name */
-  DTypeAST* DType = nullptr;  /* Data Type */
-  StyioAST* DValue = nullptr; /* Default Value */
+  string Name;                                                  /* Variable Name */
+  DTypeAST* DType = DTypeAST::Create(StyioDataType::undefined); /* Data Type */
+  StyioAST* DValue = nullptr;                                   /* Default Value */
 
 public:
   VarAST() :
@@ -731,14 +728,15 @@ public:
 class ArgAST : public VarAST
 {
 private:
-  string Name;                /* Variable Name */
-  DTypeAST* DType = nullptr;  /* Data Type */
-  StyioAST* DValue = nullptr; /* Default Value */
+  string Name;                                                  /* Variable Name */
+  DTypeAST* DType = DTypeAST::Create(StyioDataType::undefined); /* Data Type */
+  StyioAST* DValue = nullptr;                                   /* Default Value */
 
 public:
   ArgAST(const string& name) :
       VarAST(name),
       Name(name) {
+    std::cout << "got data type: " << DType->getTypeName() << std::endl;
   }
 
   ArgAST(
@@ -770,9 +768,7 @@ public:
   }
 
   static ArgAST* Create(const string& id, DTypeAST* data_type, StyioAST* default_value) {
-    return new ArgAST(
-      id, data_type, default_value
-    );
+    return new ArgAST(id, data_type, default_value);
   }
 
   bool isTyped() {
@@ -784,6 +780,10 @@ public:
 
   DTypeAST* getDType() {
     return DType;
+  }
+
+  void setDType(StyioDataType type) {
+    return DType->setDType(type);
   }
 
   /* toString */

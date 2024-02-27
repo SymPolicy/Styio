@@ -233,7 +233,6 @@ StyioToLLVMIR::toLLVMIR(IdAST* ast) {
 llvm::Value*
 StyioToLLVMIR::toLLVMIR(VarAST* ast) {
   auto output = theBuilder->getInt32(0);
-
   return output;
 }
 
@@ -493,7 +492,7 @@ StyioToLLVMIR::toLLVMIR(CallAST* ast) {
   llvm::Function* callee_func = theModule->getFunction(ast->getName());
 
   if (callee_func == nullptr) {
-    std::cout << "func " + ast->getName() + " not found" << std::endl;
+    std::cout << "func " + ast->getName() + " not found (as callee)" << std::endl;
     return output;
   }
 
@@ -755,6 +754,11 @@ StyioToLLVMIR::toLLVMIR(FuncAST* ast) {
           llvm_func->getArg(i)->setName(ast->getAllArgs().at(i)->getName());
         }
 
+        for (auto& arg : ast->getAllArgs()) {
+          std::cout << "code gen at " << arg << " type " << reprDataType(arg->getDType()->getDType()) << std::endl;
+          std::cout << arg->toString() << std::endl;
+        }
+
         llvm::BasicBlock* block =
           llvm::BasicBlock::Create(*theContext, (ast->getFuncName() + "_entry"), llvm_func);
 
@@ -781,6 +785,9 @@ StyioToLLVMIR::toLLVMIR(FuncAST* ast) {
         }
 
         llvm::verifyFunction(*llvm_func);
+      }
+      else {
+        std::cout << "func " << ast->getFuncName() << " not all args typed" << std::endl;
       }
     }
     /* No Parameters */
@@ -875,8 +882,6 @@ StyioToLLVMIR::toLLVMIR(MainBlockAST* ast) {
   // entry_block->getInstList()
 
   theBuilder->CreateRet(theBuilder->getInt32(0));
-
-
 
   return main_func;
   // return nullptr;

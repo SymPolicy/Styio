@@ -20,7 +20,7 @@ reprDataType(StyioDataType dtype) {
       return std::string("f64");
 
     default:
-      return std::string("dtype");
+      return std::string("default data type");
   }
 }
 
