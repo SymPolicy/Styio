@@ -25,18 +25,11 @@ public:
   /* type hint */
   virtual StyioNodeHint hint() = 0;
 
-  /* toString */
-  virtual string toString(
-    int indent = 0,
-    bool colorful = false
-  ) = 0;
-  virtual string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) = 0;
+  
+  virtual std::string toString(StyioAnalyzer* visitor, int indent) = 0;
 
   /* Type Inference */
-  virtual void typeInfer(StyioASTAnalyzer* visitor) = 0;
+  virtual void typeInfer(StyioAnalyzer* visitor) = 0;
 
   /* Get LLVM Type */
   virtual llvm::Type* getLLVMType(StyioToLLVMIR* visitor) = 0;
@@ -52,10 +45,12 @@ class StyioNode : public StyioAST
 {
 public:
   using StyioAST::hint;
-  using StyioAST::toString;
-  using StyioAST::toStringInline;
 
-  void typeInfer(StyioASTAnalyzer* visitor) override {
+  std::string toString(StyioAnalyzer* visitor, int indent) override {
+    return visitor->toString(static_cast<Derived*>(this), indent);
+  }
+
+  void typeInfer(StyioAnalyzer* visitor) override {
     visitor->typeInfer(static_cast<Derived*>(this));
   }
 
@@ -73,63 +68,58 @@ public:
 class CommentAST : public StyioNode<CommentAST>
 {
 private:
-  string Text;
+  string text;
 
 public:
   CommentAST(const string& text) :
-      Text(text) {
+      text(text) {
   }
 
   static CommentAST* Create(const string& text) {
     return new CommentAST(text);
   }
 
+  const string& getText() {
+    return text;
+  }
+
   StyioNodeHint hint() override {
     return StyioNodeHint::Comment;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 /* ========================================================================== */
 
 class IdAST : public StyioNode<IdAST>
 {
+private:
   string Id;
 
 public:
-  IdAST(const string& id) :
+  IdAST(string id) :
       Id(id) {
   }
 
-  static IdAST* Create(const string& id) {
+  static IdAST* Create(string id) {
     return new IdAST(id);
+  }
+
+  const string& getId() {
+    return Id;
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::Id;
   }
 
-  const string& getAsStr() const {
-    return Id;
-  }
+  
+  
 
-  /* toString */
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
-
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 class DTypeAST : public StyioNode<DTypeAST>
@@ -181,15 +171,10 @@ public:
     return StyioNodeHint::DType;
   }
 
-  /* toString */
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 /* ========================================================================== */
@@ -210,15 +195,9 @@ public:
     return StyioNodeHint::None;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -237,15 +216,9 @@ public:
     return StyioNodeHint::Empty;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -272,14 +245,9 @@ public:
     return Value;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -324,14 +292,9 @@ public:
     return StyioNodeHint::Int;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -364,14 +327,9 @@ public:
     return value;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -392,19 +350,17 @@ public:
     return new CharAST(value);
   }
 
+  const string& getValue() {
+    return value;
+  }
+
   StyioNodeHint hint() override {
     return StyioNodeHint::Char;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -423,26 +379,24 @@ public:
     return new StringAST(value);
   }
 
+  const string& getValue() {
+    return value;
+  }
+
   StyioNodeHint hint() override {
     return StyioNodeHint::String;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 /* ========================================================================== */
 
 class CasesAST : public StyioNode<CasesAST>
 {
-  vector<std::pair<StyioAST*, StyioAST*>> Cases;
+  std::vector<std::pair<StyioAST*, StyioAST*>> Cases;
   StyioAST* LastExpr = nullptr;
 
 public:
@@ -450,7 +404,7 @@ public:
       LastExpr((expr)) {
   }
 
-  CasesAST(vector<std::pair<StyioAST*, StyioAST*>> cases, StyioAST* expr) :
+  CasesAST(std::vector<std::pair<StyioAST*, StyioAST*>> cases, StyioAST* expr) :
       Cases(cases), LastExpr(expr) {
   }
 
@@ -458,23 +412,25 @@ public:
     return new CasesAST(expr);
   }
 
-  static CasesAST* Create(vector<std::pair<StyioAST*, StyioAST*>> cases, StyioAST* expr) {
+  static CasesAST* Create(std::vector<std::pair<StyioAST*, StyioAST*>> cases, StyioAST* expr) {
     return new CasesAST(cases, expr);
+  }
+
+  const std::vector<std::pair<StyioAST*, StyioAST*>>& getCases() {
+    return Cases;
+  }
+
+  StyioAST* getLastExpr() {
+    return LastExpr;
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::Cases;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 class BlockAST : public StyioNode<BlockAST>
@@ -496,23 +452,19 @@ public:
     return new BlockAST(stmts);
   }
 
-  StyioNodeHint hint() override {
-    return StyioNodeHint::Block;
-  }
-
   vector<StyioAST*> getStmts() {
     return Stmts;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  StyioNodeHint hint() override {
+    return StyioNodeHint::Block;
+  }
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
+
+  
+
+  
 };
 
 class MainBlockAST : public StyioNode<MainBlockAST>
@@ -541,23 +493,20 @@ public:
     return new MainBlockAST(stmts);
   }
 
+  const vector<StyioAST*>& getStmts() {
+    return Stmts;
+  }
+
   StyioNodeHint hint() override {
     return StyioNodeHint::MainBlock;
   }
 
-  vector<StyioAST*> getStmts() {
-    return Stmts;
-  }
+  
 
-  /* toString */
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 class EOFAST : public StyioNode<EOFAST>
@@ -569,15 +518,9 @@ public:
     return StyioNodeHint::End;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 class BreakAST : public StyioNode<BreakAST>
@@ -589,15 +532,9 @@ public:
     return StyioNodeHint::Break;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 class PassAST : public StyioNode<PassAST>
@@ -609,15 +546,9 @@ public:
     return StyioNodeHint::Pass;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 class ReturnAST : public StyioNode<ReturnAST>
@@ -641,14 +572,9 @@ public:
     return StyioNodeHint::Return;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -710,15 +636,10 @@ public:
     return DType->setDType(type);
   }
 
-  /* toString */
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -771,6 +692,10 @@ public:
     return new ArgAST(id, data_type, default_value);
   }
 
+  const string& getName() {
+    return Name;
+  }
+
   bool isTyped() {
     return (
       DType != nullptr
@@ -786,15 +711,10 @@ public:
     return DType->setDType(type);
   }
 
-  /* toString */
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 class OptArgAST : public VarAST
@@ -814,15 +734,10 @@ public:
     return StyioNodeHint::OptArg;
   }
 
-  /* toString */
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 class OptKwArgAST : public VarAST
@@ -842,15 +757,10 @@ public:
     return StyioNodeHint::OptKwArg;
   }
 
-  /* toString */
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 class VarTupleAST : public StyioNode<VarTupleAST>
@@ -875,15 +785,10 @@ public:
     return StyioNodeHint::VarTuple;
   }
 
-  /* toString */
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -899,23 +804,21 @@ public:
       Fragments(fragments), Exprs((expressions)) {
   }
 
-  StyioNodeHint hint() override {
-    return StyioNodeHint::FmtStr;
-  }
-
   static FmtStrAST* Create(vector<string> fragments, vector<StyioAST*> expressions) {
     return new FmtStrAST(fragments, expressions);
   };
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  const vector<string>& getFragments() {
+    return Fragments;
+  }
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  const vector<StyioAST*>& getExprs() {
+    return Exprs;
+  }
+
+  StyioNodeHint hint() override {
+    return StyioNodeHint::FmtStr;
+  }
 };
 
 class TypeConvertAST : public StyioNode<TypeConvertAST>
@@ -928,11 +831,7 @@ public:
     StyioAST* val,
     NumPromoTy promo_type
   ) :
-      Value((val)), PromoType(promo_type) {
-  }
-
-  StyioNodeHint hint() override {
-    return StyioNodeHint::NumConvert;
+      Value(val), PromoType(promo_type) {
   }
 
   static TypeConvertAST* Create(
@@ -942,14 +841,21 @@ public:
     return new TypeConvertAST(value, promo_type);
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  StyioAST* getValue() {
+    return Value;
+  }
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  NumPromoTy getPromoTy() {
+    return PromoType;
+  }
+
+  StyioNodeHint hint() override {
+    return StyioNodeHint::NumConvert;
+  }
+
+  
+
+  
 };
 
 /*
@@ -982,19 +888,14 @@ public:
     return new LocalPathAST(type, path);
   }
 
+  const string& getPath() {
+    return Path;
+  }
+
   StyioNodeHint hint() override {
     return StyioNodeHint::LocalPath;
   }
-
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
-
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -1021,19 +922,17 @@ public:
     return new RemotePathAST(type, path);
   }
 
+  const string& getPath() {
+    return Path;
+  }
+
   StyioNodeHint hint() override {
     return StyioNodeHint::RemotePath;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -1056,19 +955,17 @@ public:
     return new WebUrlAST(type, path);
   }
 
+  const string& getPath() {
+    return Path;
+  }
+
   StyioNodeHint hint() override {
     return StyioNodeHint::WebUrl;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 /* Database Access URL */
@@ -1086,19 +983,17 @@ public:
     return new DBUrlAST(type, path);
   }
 
+  const string& getPath() {
+    return Path;
+  }
+
   StyioNodeHint hint() override {
     return StyioNodeHint::DBUrl;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -1119,22 +1014,20 @@ class ListAST : public StyioNode<ListAST>
 
 public:
   ListAST(vector<StyioAST*> elems) :
-      Elems((elems)) {
+      Elems(elems) {
+  }
+
+  const vector<StyioAST*>& getElements() {
+    return Elems;
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::List;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 class TupleAST : public StyioNode<TupleAST>
@@ -1143,22 +1036,20 @@ class TupleAST : public StyioNode<TupleAST>
 
 public:
   TupleAST(vector<StyioAST*> elems) :
-      Elems((elems)) {
+      Elems(elems) {
+  }
+
+  const vector<StyioAST*>& getElements() {
+    return Elems;
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::Tuple;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 class SetAST : public StyioNode<SetAST>
@@ -1167,22 +1058,20 @@ class SetAST : public StyioNode<SetAST>
 
 public:
   SetAST(vector<StyioAST*> elems) :
-      Elems((elems)) {
+      Elems(elems) {
+  }
+
+  const vector<StyioAST*>& getElements() {
+    return Elems;
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::Set;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -1199,19 +1088,25 @@ public:
       StartVal((start)), EndVal((end)), StepVal((step)) {
   }
 
+  StyioAST* getStart() {
+    return StartVal;
+  }
+
+  StyioAST* getEnd() {
+    return EndVal;
+  }
+
+  StyioAST* getStep() {
+    return StepVal;
+  }
+
   StyioNodeHint hint() override {
     return StyioNodeHint::Range;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -1234,19 +1129,17 @@ public:
       Value(value) {
   }
 
+  StyioAST* getValue() {
+    return Value;
+  }
+
   StyioNodeHint hint() override {
     return StyioNodeHint::SizeOf;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -1317,10 +1210,6 @@ public:
       Operand(op), LHS(lhs), RHS(rhs) {
   }
 
-  StyioNodeHint hint() override {
-    return StyioNodeHint::BinOp;
-  }
-
   StyioNodeHint getOperand() {
     return Operand;
   }
@@ -1333,15 +1222,9 @@ public:
     return RHS;
   }
 
-  /* toString */
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
-
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  StyioNodeHint hint() override {
+    return StyioNodeHint::BinOp;
+  }
 };
 
 class BinCompAST : public StyioNode<BinCompAST>
@@ -1352,22 +1235,28 @@ class BinCompAST : public StyioNode<BinCompAST>
 
 public:
   BinCompAST(CompType sign, StyioAST* lhs, StyioAST* rhs) :
-      CompSign(sign), LhsExpr((lhs)), RhsExpr((rhs)) {
+      CompSign(sign), LhsExpr(lhs), RhsExpr(rhs) {
+  }
+
+  CompType getSign() {
+    return CompSign;
+  }
+
+  StyioAST* getLHS() {
+    return LhsExpr;
+  }
+
+  StyioAST* getRHS() {
+    return RhsExpr;
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::Compare;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 class CondAST : public StyioNode<CondAST>
@@ -1389,26 +1278,38 @@ class CondAST : public StyioNode<CondAST>
 
 public:
   CondAST(LogicType op, StyioAST* val) :
-      LogicOp(op), ValExpr((val)) {
+      LogicOp(op), ValExpr(val) {
   }
 
   CondAST(LogicType op, StyioAST* lhs, StyioAST* rhs) :
-      LogicOp(op), LhsExpr((lhs)), RhsExpr((rhs)) {
+      LogicOp(op), LhsExpr(lhs), RhsExpr(rhs) {
   }
+
+  LogicType getSign() {
+    return LogicOp;
+  }
+
+  StyioAST* getValue() {
+    return ValExpr;
+  }
+
+  StyioAST* getLHS() {
+    return LhsExpr;
+  }
+
+  StyioAST* getRHS() {
+    return RhsExpr;
+  }
+
+  
 
   StyioNodeHint hint() override {
     return StyioNodeHint::Condition;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 class CallAST : public StyioNode<CallAST>
@@ -1427,7 +1328,7 @@ public:
   }
 
   const string& getName() {
-    return func_name->getAsStr();
+    return func_name->getId();
   }
 
   const vector<StyioAST*>& getArgs() {
@@ -1438,15 +1339,9 @@ public:
     return StyioNodeHint::Call;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 class ListOpAST : public StyioNode<ListOpAST>
@@ -1515,19 +1410,29 @@ public:
       OpType(opType), TheList((theList)), Slot1((index)), Slot2((value)) {
   }
 
+  StyioNodeHint getOp() {
+    return OpType;
+  }
+
+  StyioAST* getList() {
+    return TheList;
+  }
+
+  StyioAST* getSlot1() {
+    return Slot1;
+  }
+
+  StyioAST* getSlot2() {
+    return Slot2;
+  }
+
   StyioNodeHint hint() override {
     return OpType;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -1550,22 +1455,17 @@ class ResourceAST : public StyioNode<ResourceAST>
 
 public:
   ResourceAST(vector<StyioAST*> resources) :
-      Resources((resources)) {
+      Resources(resources) {
+  }
+
+  const vector<StyioAST*>& getResList() {
+    return Resources;
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::Resources;
   }
-
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
-
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -1592,8 +1492,12 @@ public:
     return StyioNodeHint::MutBind;
   }
 
+  IdAST* getVarName() {
+    return varName;
+  }
+
   const string& getName() {
-    return varName->getAsStr();
+    return varName->getId();
   }
 
   StyioAST* getValue() {
@@ -1604,14 +1508,9 @@ public:
     return valExpr->hint();
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -1631,22 +1530,17 @@ public:
     return StyioNodeHint::FixBind;
   }
 
-  const string& getName() {
-    return varName->getAsStr();
+  IdAST* getVarName() {
+    return varName;
   }
 
   StyioAST* getValue() {
     return valExpr;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
-
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  const string& getName() {
+    return varName->getId();
+  }
 };
 
 /*
@@ -1676,15 +1570,10 @@ public:
     return StyioNodeHint::Struct;
   }
 
-  /* toString */
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -1703,22 +1592,24 @@ class ReadFileAST : public StyioNode<ReadFileAST>
 
 public:
   ReadFileAST(IdAST* var, StyioAST* val) :
-      varId((var)), valExpr((val)) {
+      varId(var), valExpr(val) {
+  }
+
+  IdAST* getId() {
+    return varId;
+  }
+
+  StyioAST* getValue() {
+    return valExpr;
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::ReadFile;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -1730,22 +1621,20 @@ class PrintAST : public StyioNode<PrintAST>
 
 public:
   PrintAST(vector<StyioAST*> exprs) :
-      Exprs((exprs)) {
+      Exprs(exprs) {
+  }
+
+  const vector<StyioAST*>& getExprs() {
+    return Exprs;
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::Print;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -1766,19 +1655,17 @@ public:
       PackPaths(paths) {
   }
 
+  const vector<string>& getPaths() {
+    return PackPaths;
+  }
+
   StyioNodeHint hint() override {
     return StyioNodeHint::ExtPack;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -1804,19 +1691,25 @@ public:
       WhatFlow(whatFlow), CondExpr((condition)), ThenBlock((blockThen)), ElseBlock((blockElse)) {
   }
 
+  CondAST* getCond() {
+    return CondExpr;
+  }
+
+  StyioAST* getThen() {
+    return ThenBlock;
+  }
+
+  StyioAST* getElse() {
+    return ElseBlock;
+  }
+
   StyioNodeHint hint() override {
     return WhatFlow;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -1948,22 +1841,21 @@ class CheckEqAST : public StyioNode<CheckEqAST>
 
 public:
   CheckEqAST(StyioAST* value) :
-      Value((value)) {
+      Value(value) {
+  }
+
+  StyioAST* getValue() {
+    return Value;
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::CheckEq;
   }
 
-  /* toString */
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 class CheckIsinAST : public StyioNode<CheckIsinAST>
@@ -1974,22 +1866,21 @@ public:
   CheckIsinAST(
     StyioAST* value
   ) :
-      Iterable((value)) {
+      Iterable(value) {
+  }
+
+  StyioAST* getIterable() {
+    return Iterable;
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::CheckIsin;
   }
 
-  /* toString */
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -2005,19 +1896,22 @@ public:
       FromWhat((from_expr)), ToWhat((to_expr)) {
   }
 
+  StyioAST* getFromExpr() {
+    return FromWhat;
+  }
+
+  StyioAST* getToExpr() {
+    return ToWhat;
+  }
+
   StyioNodeHint hint() override {
     return StyioNodeHint::FromTo;
   }
 
-  /* toString */
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -2134,35 +2028,41 @@ public:
     }
   }
 
-  StyioAST* getRetExpr() {
-    return ret_expr;
-  }
-
   bool withParams() {
     return params && (!(params->getParams().empty()));
+  }
+
+  VarTupleAST* getVarTuple() {
+    return params;
   }
 
   const vector<VarAST*>& getParams() {
     return params->getParams();
   }
 
+  CheckEqAST* getCheckEq() {
+    return ExtraEq;
+  }
+
+  CheckIsinAST* getCheckIsin() {
+    return ExtraIsin;
+  }
+
   StyioAST* getThen() {
     return ThenExpr;
+  }
+
+  CondFlowAST* getCondFlow() {
+    return ThenCondFlow;
+  }
+
+  StyioAST* getRetExpr() {
+    return ret_expr;
   }
 
   StyioNodeHint hint() override {
     return Type;
   }
-
-  /* toString */
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
-
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
 };
 
 /*
@@ -2187,23 +2087,25 @@ public:
   }
 
   InfiniteAST(StyioAST* start, StyioAST* incEl) :
-      Start((start)), IncEl((incEl)) {
+      Start(start), IncEl(incEl) {
     WhatType = InfiniteType::Incremental;
+  }
+
+  InfiniteType getType() {
+    return WhatType;
+  }
+
+  StyioAST* getStart() {
+    return Start;
+  }
+
+  StyioAST* getIncEl() {
+    return IncEl;
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::Infinite;
   }
-
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
-
-  string toStringInline(
-    int indent = 0,
-    bool colorful = false
-  ) override;
 };
 
 /*
@@ -2228,15 +2130,10 @@ public:
     return new MatchCasesAST(value, cases);
   }
 
-  /* toString */
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -2254,22 +2151,25 @@ private:
 public:
   /* #() => Then */
   AnonyFuncAST(VarTupleAST* vars, StyioAST* then) :
-      Args(vars), ThenExpr((then)) {
+      Args(vars), ThenExpr(then) {
+  }
+
+  VarTupleAST* getArgs() {
+    return Args;
+  }
+
+  StyioAST* getThenExpr() {
+    return ThenExpr;
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::AnonyFunc;
   }
 
-  /* toString */
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -2277,13 +2177,14 @@ public:
 */
 class FuncAST : public StyioNode<FuncAST>
 {
+private:
   IdAST* Name = nullptr;
   DTypeAST* RetType = nullptr;
   ForwardAST* Forward = nullptr;
 
+public:
   bool isFinal;
 
-public:
   FuncAST(
     ForwardAST* forward,
     bool isFinal
@@ -2327,12 +2228,12 @@ public:
     }
   }
 
-  const IdAST* getId() {
+  IdAST* getId() {
     return Name;
   }
 
   string getFuncName() {
-    return Name->getAsStr();
+    return Name->getId();
   }
 
   bool hasRetType() {
@@ -2369,7 +2270,7 @@ public:
     );
   }
 
-  const vector<VarAST*>& getAllArgs() {
+  vector<VarAST*> getAllArgs() {
     return Forward->getParams();
   }
 
@@ -2383,15 +2284,10 @@ public:
     return param_map;
   }
 
-  /* toString */
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -2413,18 +2309,17 @@ public:
       Forward(expr) {
   }
 
+  ForwardAST* getForward() {
+    return Forward;
+  }
+
   StyioNodeHint hint() override {
     return StyioNodeHint::Loop;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 /*
@@ -2440,18 +2335,21 @@ public:
       Collection(collection), Forward(forward) {
   }
 
+  StyioAST* getIterable() {
+    return Collection;
+  }
+
+  ForwardAST* getForward() {
+    return Forward;
+  }
+
   StyioNodeHint hint() override {
     return StyioNodeHint::Iterator;
   }
 
-  string toString(
-    int indent = 0,
-    bool colorful = false
-  ) override;
+  
 
-  string toStringInline(
-    int indent = 0, bool colorful = false
-  ) override;
+  
 };
 
 #endif

@@ -471,6 +471,9 @@ std::string
 reprNodeType(StyioNodeHint type, bool colorful = false, std::string extra = "");
 
 std::string
+reprNodeType(StyioNodeHint type, std::string extra = "");
+
+std::string
 reprToken(CompType token);
 
 std::string

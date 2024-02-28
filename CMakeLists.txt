@@ -52,9 +52,9 @@ add_executable( styio
     # Lexer
     src/include/StyioToken/Token.cpp
     # Parser
-    src/include/StyioAST/ASTToString.cpp
     src/include/StyioParser/Parser.cpp
     # Visitor
+    src/include/StyioVisitors/ToStringImpl.cpp
     src/include/StyioVisitors/TypeInferImpl.cpp
     src/include/StyioVisitors/GetTypeImpl.cpp
     src/include/StyioVisitors/CodeGenImpl.cpp

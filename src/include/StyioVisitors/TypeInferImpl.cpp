@@ -11,136 +11,118 @@
 #include "Util.hpp"
 
 void
-display(
-  string msg,
-  StyioAST* ast
-) {
-  std::cout << msg << std::endl;
-  std::cout << ast->toString() << std::endl;
+StyioAnalyzer::typeInfer(CommentAST* ast) {
 }
 
 void
-display(
-  StyioAST* ast,
-  string msg = ""
-) {
-  std::cout << ast->toString() << std::endl;
-  std::cout << msg << std::endl;
+StyioAnalyzer::typeInfer(NoneAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(CommentAST* ast) {
+StyioAnalyzer::typeInfer(EmptyAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(NoneAST* ast) {
+StyioAnalyzer::typeInfer(IdAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(EmptyAST* ast) {
+StyioAnalyzer::typeInfer(DTypeAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(IdAST* ast) {
+StyioAnalyzer::typeInfer(BoolAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(DTypeAST* ast) {
-}
-
-void
-StyioASTAnalyzer::typeInfer(BoolAST* ast) {
-}
-
-void
-StyioASTAnalyzer::typeInfer(IntAST* ast) {
+StyioAnalyzer::typeInfer(IntAST* ast) {
   if (ast->getType() == StyioDataType::undefined) {
     ast->setType(StyioDataType::i32);
   }
 }
 
 void
-StyioASTAnalyzer::typeInfer(FloatAST* ast) {
+StyioAnalyzer::typeInfer(FloatAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(CharAST* ast) {
+StyioAnalyzer::typeInfer(CharAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(StringAST* ast) {
+StyioAnalyzer::typeInfer(StringAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(TypeConvertAST*) {
+StyioAnalyzer::typeInfer(TypeConvertAST*) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(VarAST* ast) {
+StyioAnalyzer::typeInfer(VarAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(ArgAST* ast) {
+StyioAnalyzer::typeInfer(ArgAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(OptArgAST* ast) {
+StyioAnalyzer::typeInfer(OptArgAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(OptKwArgAST* ast) {
+StyioAnalyzer::typeInfer(OptKwArgAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(FlexBindAST* ast) {
+StyioAnalyzer::typeInfer(FlexBindAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(FinalBindAST* ast) {
+StyioAnalyzer::typeInfer(FinalBindAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(InfiniteAST* ast) {
+StyioAnalyzer::typeInfer(InfiniteAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(StructAST* ast) {
+StyioAnalyzer::typeInfer(StructAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(TupleAST* ast) {
+StyioAnalyzer::typeInfer(TupleAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(VarTupleAST* ast) {
+StyioAnalyzer::typeInfer(VarTupleAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(RangeAST* ast) {
+StyioAnalyzer::typeInfer(RangeAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(SetAST* ast) {
+StyioAnalyzer::typeInfer(SetAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(ListAST* ast) {
+StyioAnalyzer::typeInfer(ListAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(SizeOfAST* ast) {
+StyioAnalyzer::typeInfer(SizeOfAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(ListOpAST* ast) {
+StyioAnalyzer::typeInfer(ListOpAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(BinCompAST* ast) {
+StyioAnalyzer::typeInfer(BinCompAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(CondAST* ast) {
+StyioAnalyzer::typeInfer(CondAST* ast) {
 }
 
 /*
@@ -149,7 +131,7 @@ StyioASTAnalyzer::typeInfer(CondAST* ast) {
 
 */
 void
-StyioASTAnalyzer::typeInfer(BinOpAST* ast) {
+StyioAnalyzer::typeInfer(BinOpAST* ast) {
   auto lhs = ast->getLhs();
   auto rhs = ast->getRhs();
   auto lhs_type = ast->getLhs()->hint();
@@ -170,55 +152,55 @@ StyioASTAnalyzer::typeInfer(BinOpAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(FmtStrAST* ast) {
+StyioAnalyzer::typeInfer(FmtStrAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(ResourceAST* ast) {
+StyioAnalyzer::typeInfer(ResourceAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(LocalPathAST* ast) {
+StyioAnalyzer::typeInfer(LocalPathAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(RemotePathAST* ast) {
+StyioAnalyzer::typeInfer(RemotePathAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(WebUrlAST* ast) {
+StyioAnalyzer::typeInfer(WebUrlAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(DBUrlAST* ast) {
+StyioAnalyzer::typeInfer(DBUrlAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(ExtPackAST* ast) {
+StyioAnalyzer::typeInfer(ExtPackAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(ReadFileAST* ast) {
+StyioAnalyzer::typeInfer(ReadFileAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(EOFAST* ast) {
+StyioAnalyzer::typeInfer(EOFAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(BreakAST* ast) {
+StyioAnalyzer::typeInfer(BreakAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(PassAST* ast) {
+StyioAnalyzer::typeInfer(PassAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(ReturnAST* ast) {
+StyioAnalyzer::typeInfer(ReturnAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(CallAST* ast) {
+StyioAnalyzer::typeInfer(CallAST* ast) {
   if (not func_defs.contains(ast->getName())) {
     std::cout << "func " << ast->getName() << " not exist" << std::endl;
     return;
@@ -251,64 +233,65 @@ StyioASTAnalyzer::typeInfer(CallAST* ast) {
   for (size_t i = 0; i < func_args.size(); i++) {
     func_args[i]->setDType(arg_types[i]);
     std::cout << "set type for " << func_args[i]->getName() << " at " << func_args[i] << " to " << reprDataType(func_args[i]->getDType()->getDType()) << std::endl;
+    // std::cout << "data type to string: " << func_args[i]->toString() << std::endl;
   }
 }
 
 void
-StyioASTAnalyzer::typeInfer(PrintAST* ast) {
+StyioAnalyzer::typeInfer(PrintAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(ForwardAST* ast) {
+StyioAnalyzer::typeInfer(ForwardAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(CheckEqAST* ast) {
+StyioAnalyzer::typeInfer(CheckEqAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(CheckIsinAST* ast) {
+StyioAnalyzer::typeInfer(CheckIsinAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(FromToAST* ast) {
+StyioAnalyzer::typeInfer(FromToAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(CondFlowAST* ast) {
+StyioAnalyzer::typeInfer(CondFlowAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(AnonyFuncAST* ast) {
+StyioAnalyzer::typeInfer(AnonyFuncAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(FuncAST* ast) {
+StyioAnalyzer::typeInfer(FuncAST* ast) {
   func_defs[ast->getFuncName()] = ast;
 }
 
 void
-StyioASTAnalyzer::typeInfer(IterAST* ast) {
+StyioAnalyzer::typeInfer(IterAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(LoopAST* ast) {
+StyioAnalyzer::typeInfer(LoopAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(CasesAST* ast) {
+StyioAnalyzer::typeInfer(CasesAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(MatchCasesAST* ast) {
+StyioAnalyzer::typeInfer(MatchCasesAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(BlockAST* ast) {
+StyioAnalyzer::typeInfer(BlockAST* ast) {
 }
 
 void
-StyioASTAnalyzer::typeInfer(MainBlockAST* ast) {
+StyioAnalyzer::typeInfer(MainBlockAST* ast) {
   auto stmts = ast->getStmts();
   for (auto const& s : stmts) {
     s->typeInfer(this);

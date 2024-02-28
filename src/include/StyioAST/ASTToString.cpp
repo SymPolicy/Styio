@@ -12,12 +12,12 @@ using std::string;
 
 string
 CommentAST::toString(int indent, bool colorful) {
-  return string("Comment { ") + Text + " }";
+  return string("Comment { ") + text + " }";
 }
 
 string
 CommentAST::toStringInline(int indent, bool colorful) {
-  return string("Comment { ") + Text + " }";
+  return string("Comment { ") + text + " }";
 }
 
 string

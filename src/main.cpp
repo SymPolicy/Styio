@@ -175,9 +175,13 @@ main(
     auto styio_context = StyioContext::Create(fpath, styio_code.code_text, styio_code.line_seps);
 
     volatile auto styio_program = parse_main_block(*styio_context);
+    StyioAnalyzer* analyzer = new StyioAnalyzer();
 
     if (show_ast) {
-      print_ast(styio_program, false);
+      std::cout 
+      << "\033[1;32mAST\033[0m \033[31m-No-Type-Checking\033[0m" << "\n"
+      << styio_program->toString(analyzer, 0) << "\n"
+      << std::endl;
     }
 
     /* JIT Initialization */
@@ -189,15 +193,17 @@ main(
     std::unique_ptr<StyioJIT_ORC> styio_orc_jit = exit_on_error(StyioJIT_ORC::Create());
 
     StyioToLLVMIR generator = StyioToLLVMIR(std::move(styio_orc_jit));
-    StyioASTAnalyzer analyzer = StyioASTAnalyzer();
 
-    analyzer.typeInfer(styio_program);
-
-    generator.toLLVMIR(styio_program);
+    analyzer->typeInfer(styio_program);
 
     if (show_type_checking) {
-      print_ast(styio_program, true);
+      std::cout 
+      << "\033[1;32mAST\033[0m \033[1;33m-After-Type-Checking\033[0m" << "\n"
+      << styio_program->toString(analyzer, 0) << "\n"
+      << std::endl;
     }
+
+    generator.toLLVMIR(styio_program);
 
     if (show_ir) {
       generator.print_llvm_ir();

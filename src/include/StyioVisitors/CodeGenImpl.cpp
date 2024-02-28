@@ -11,7 +11,7 @@
 #include "../StyioAST/AST.hpp"
 #include "../StyioException/Exception.hpp"
 #include "../StyioToken/Token.hpp"
-#include "./Util.hpp"
+#include "Util.hpp"
 
 // [LLVM]
 #include "llvm/ADT/APFloat.h"
@@ -213,7 +213,7 @@ llvm::Value*
 StyioToLLVMIR::toLLVMIR(IdAST* ast) {
   auto output = theBuilder->getInt32(0);
 
-  const string& varname = ast->getAsStr();
+  const string& varname = ast->getId();
 
   if (named_values.contains(varname)) {
     return named_values[varname];
@@ -756,7 +756,8 @@ StyioToLLVMIR::toLLVMIR(FuncAST* ast) {
 
         for (auto& arg : ast->getAllArgs()) {
           std::cout << "code gen at " << arg << " type " << reprDataType(arg->getDType()->getDType()) << std::endl;
-          std::cout << arg->toString() << std::endl;
+          // std::cout << "code gen arg to string: " << arg->toString() << std::endl;
+          // std::cout << "code gen getRepr() " << getRepr(arg) << std::endl;
         }
 
         llvm::BasicBlock* block =

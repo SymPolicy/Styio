@@ -21,7 +21,8 @@ template <typename T>
 class AnalyzerVisitor<T>
 {
 public:
-  /* Type Inference */
+  virtual std::string toString(T* t, int indent = 0) = 0;
+
   virtual void typeInfer(T* t) = 0;
 };
 
@@ -29,13 +30,14 @@ template <typename T, typename... Types>
 class AnalyzerVisitor<T, Types...> : public AnalyzerVisitor<Types...>
 {
 public:
-  using AnalyzerVisitor<Types...>::typeInfer;
+  using AnalyzerVisitor<Types...>::toString;
+  virtual std::string toString(T* t, int indent = 0) = 0;
 
-  /* Type Inference */
+  using AnalyzerVisitor<Types...>::typeInfer;
   virtual void typeInfer(T* t) = 0;
 };
 
-using StyioASTVisitor = AnalyzerVisitor<
+using StyioAnalyzerVisitor = AnalyzerVisitor<
   class CommentAST,
 
   class NoneAST,
@@ -117,16 +119,130 @@ using StyioASTVisitor = AnalyzerVisitor<
   class PrintAST,
   class ReadFileAST>;
 
-class StyioASTAnalyzer : public StyioASTVisitor
+class StyioAnalyzer : public StyioAnalyzerVisitor
 {
   unordered_map<string, FuncAST*> func_defs;
 
 public:
-  StyioASTAnalyzer() {}
+  StyioAnalyzer() {}
 
-  ~StyioASTAnalyzer() {}
+  ~StyioAnalyzer() {}
 
-  /* Styio AST Type typeInferer*/
+  /* Styio AST To String */
+
+  std::string toString(BoolAST* ast, int indent = 0);
+
+  std::string toString(NoneAST* ast, int indent = 0);
+
+  std::string toString(EOFAST* ast, int indent = 0);
+
+  std::string toString(EmptyAST* ast, int indent = 0);
+
+  std::string toString(PassAST* ast, int indent = 0);
+
+  std::string toString(BreakAST* ast, int indent = 0);
+
+  std::string toString(ReturnAST* ast, int indent = 0);
+
+  std::string toString(CommentAST* ast, int indent = 0);
+
+  std::string toString(IdAST* ast, int indent = 0);
+
+  std::string toString(VarAST* ast, int indent = 0);
+
+  std::string toString(ArgAST* ast, int indent = 0);
+
+  std::string toString(OptArgAST* ast, int indent = 0);
+
+  std::string toString(OptKwArgAST* ast, int indent = 0);
+
+  std::string toString(VarTupleAST* ast, int indent = 0);
+
+  std::string toString(DTypeAST* ast, int indent = 0);
+
+  std::string toString(IntAST* ast, int indent = 0);
+
+  std::string toString(FloatAST* ast, int indent = 0);
+
+  std::string toString(CharAST* ast, int indent = 0);
+
+  std::string toString(StringAST* ast, int indent = 0);
+
+  std::string toString(TypeConvertAST* ast, int indent = 0);
+
+  std::string toString(FmtStrAST* ast, int indent = 0);
+
+  std::string toString(LocalPathAST* ast, int indent = 0);
+
+  std::string toString(RemotePathAST* ast, int indent = 0);
+
+  std::string toString(WebUrlAST* ast, int indent = 0);
+
+  std::string toString(DBUrlAST* ast, int indent = 0);
+
+  std::string toString(ListAST* ast, int indent = 0);
+
+  std::string toString(TupleAST* ast, int indent = 0);
+
+  std::string toString(SetAST* ast, int indent = 0);
+
+  std::string toString(RangeAST* ast, int indent = 0);
+
+  std::string toString(SizeOfAST* ast, int indent = 0);
+
+  std::string toString(BinOpAST* ast, int indent = 0);
+
+  std::string toString(BinCompAST* ast, int indent = 0);
+
+  std::string toString(CondAST* ast, int indent = 0);
+
+  std::string toString(CallAST* ast, int indent = 0);
+
+  std::string toString(ListOpAST* ast, int indent = 0);
+
+  std::string toString(ResourceAST* ast, int indent = 0);
+
+  std::string toString(FlexBindAST* ast, int indent = 0);
+
+  std::string toString(FinalBindAST* ast, int indent = 0);
+
+  std::string toString(StructAST* ast, int indent = 0);
+
+  std::string toString(ReadFileAST* ast, int indent = 0);
+
+  std::string toString(PrintAST* ast, int indent = 0);
+
+  std::string toString(ExtPackAST* ast, int indent = 0);
+
+  std::string toString(BlockAST* ast, int indent = 0);
+
+  std::string toString(CasesAST* ast, int indent = 0);
+
+  std::string toString(CondFlowAST* ast, int indent = 0);
+
+  std::string toString(CheckEqAST* ast, int indent = 0);
+
+  std::string toString(CheckIsinAST* ast, int indent = 0);
+
+  std::string toString(FromToAST* ast, int indent = 0);
+
+  std::string toString(ForwardAST* ast, int indent = 0);
+
+  std::string toString(InfiniteAST* ast, int indent = 0);
+
+  std::string toString(AnonyFuncAST* ast, int indent = 0);
+
+  std::string toString(FuncAST* ast, int indent = 0);
+
+  std::string toString(LoopAST* ast, int indent = 0);
+
+  std::string toString(IterAST* ast, int indent = 0);
+
+  std::string toString(MatchCasesAST* ast, int indent = 0);
+
+  std::string toString(MainBlockAST* ast, int indent = 0);
+
+  /* Styio AST Type Inference */
 
   void typeInfer(BoolAST* ast);
 
