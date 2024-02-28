@@ -424,7 +424,7 @@ type_to_int(Enumeration const value) ->
 /*
   parse_id
 */
-IdAST*
+NameAST*
 parse_id(StyioContext& context);
 
 /*
@@ -496,7 +496,7 @@ parse_size_of(StyioContext& context);
 CallAST*
 parse_call(
   StyioContext& context, 
-  IdAST* func_name
+  NameAST* func_name
 );
 
 /*
@@ -581,7 +581,7 @@ parse_resources(StyioContext& context);
   parse_bind_final
 */
 FinalBindAST*
-parse_bind_final(StyioContext& context, IdAST* id_ast);
+parse_bind_final(StyioContext& context, NameAST* id_ast);
 
 /*
   parse_pipeline
@@ -593,7 +593,7 @@ parse_func(StyioContext& context);
   parse_read_file
 */
 StyioAST*
-parse_read_file(StyioContext& context, IdAST* id_ast);
+parse_read_file(StyioContext& context, NameAST* id_ast);
 
 /*
   parse_one_or_many_repr

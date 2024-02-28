@@ -451,19 +451,6 @@ enum class StyioToken
   TOK_INFINITE_LIST,  // [...]
 };
 
-inline std::string
-make_colorful(std::string text, int color) {
-  /*
-    Red: 91
-    Green: 92
-    Orange: 93
-    Blue: 94
-    Magenta: 95
-    Cyan: 96
-  */
-  return std::string("\033[1;") + std::to_string(color) + "m" + text + "\033[0m";
-};
-
 std::string
 reprDataType(StyioDataType dtype);
 

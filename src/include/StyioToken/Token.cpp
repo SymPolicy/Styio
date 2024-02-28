@@ -78,7 +78,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
     break;
 
     case StyioNodeHint::Arg: {
-      auto name = std::string("Arg (Fill)");
+      auto name = std::string("Arg");
 
       output = std::string(name);
     }

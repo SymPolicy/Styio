@@ -49,7 +49,7 @@ class TupleAST;
   - Id
   - DType (Data Type)
 */
-class IdAST;
+class NameAST;
 class DTypeAST;
 
 /*

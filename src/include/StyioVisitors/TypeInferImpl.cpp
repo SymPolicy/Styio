@@ -23,7 +23,7 @@ StyioAnalyzer::typeInfer(EmptyAST* ast) {
 }
 
 void
-StyioAnalyzer::typeInfer(IdAST* ast) {
+StyioAnalyzer::typeInfer(NameAST* ast) {
 }
 
 void
@@ -201,14 +201,14 @@ StyioAnalyzer::typeInfer(ReturnAST* ast) {
 
 void
 StyioAnalyzer::typeInfer(CallAST* ast) {
-  if (not func_defs.contains(ast->getName())) {
-    std::cout << "func " << ast->getName() << " not exist" << std::endl;
+  if (not func_defs.contains(ast->getNameAsStr())) {
+    std::cout << "func " << ast->getNameAsStr() << " not exist" << std::endl;
     return;
   }
 
   vector<StyioDataType> arg_types;
 
-  for (auto arg : ast->getArgs()) {
+  for (auto arg : ast->getArgList()) {
     switch (arg->hint()) {
       case StyioNodeHint::Int: {
         arg_types.push_back(static_cast<IntAST*>(arg)->getType());
@@ -223,7 +223,7 @@ StyioAnalyzer::typeInfer(CallAST* ast) {
     }
   }
 
-  auto func_args = func_defs[ast->getName()]->getAllArgs();
+  auto func_args = func_defs[ast->getNameAsStr()]->getAllArgs();
 
   if (arg_types.size() != func_args.size()) {
     std::cout << "arg list not match" << std::endl;
@@ -266,6 +266,11 @@ StyioAnalyzer::typeInfer(AnonyFuncAST* ast) {
 void
 StyioAnalyzer::typeInfer(FuncAST* ast) {
   func_defs[ast->getFuncName()] = ast;
+
+  if (ast->getForward()->getRetExpr() != nullptr)
+  {
+    std::cout << "type infer func ast get ret type" << std::endl;
+  }
 }
 
 void

@@ -45,7 +45,7 @@ EmptyAST::toStringInline(int indent, bool colorful) {
 }
 
 string
-IdAST::toString(int indent, bool colorful) {
+NameAST::toString(int indent, bool colorful) {
   return reprNodeType(hint(), colorful, " ")
          + string("{ ")
          + Id
@@ -53,7 +53,7 @@ IdAST::toString(int indent, bool colorful) {
 }
 
 string
-IdAST::toStringInline(int indent, bool colorful) {
+NameAST::toStringInline(int indent, bool colorful) {
   return Id;
 }
 
@@ -93,7 +93,7 @@ string
 FloatAST::toString(int indent, bool colorful) {
   // return reprNodeType(hint(), colorful) + " { " + Significand + " * " +
   // std::to_string(Base) + "^(-" + std::to_string(Exponent) + ")" + " }";
-  return reprNodeType(hint(), colorful) + " { " + value + " }";
+  return reprNodeType(hint(), colorful) + " { " + Value + " }";
 }
 
 string
@@ -818,44 +818,44 @@ ForwardAST::toString(int indent, bool colorful) {
     break;
     case StyioNodeHint::Fill_Forward: {
       return reprNodeType(hint(), colorful)
-             + string(" {\n") + make_padding(indent, " ") + params->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + "Run: " + ThenExpr->toString(indent + 1, colorful) + "}";
+             + string(" {\n") + make_padding(indent, " ") + Params->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + "Run: " + ThenExpr->toString(indent + 1, colorful) + "}";
     }
     // You should NOT reach this line!
     break;
     case StyioNodeHint::Fill_If_Equal_To_Forward: {
       return reprNodeType(hint(), colorful)
-             + string(" {\n") + make_padding(indent, " ") + params->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + ExtraEq->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + "Run: " + ThenExpr->toString(indent + 1, colorful) + "}";
+             + string(" {\n") + make_padding(indent, " ") + Params->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + ExtraEq->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + "Run: " + ThenExpr->toString(indent + 1, colorful) + "}";
     }
     // You should NOT reach this line!
     break;
     case StyioNodeHint::Fill_If_Is_in_Forward: {
       return reprNodeType(hint(), colorful)
-             + string(" {\n") + make_padding(indent, " ") + params->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + ExtraIsin->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + "Run: " + ThenExpr->toString(indent + 1, colorful) + "}";
+             + string(" {\n") + make_padding(indent, " ") + Params->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + ExtraIsin->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + "Run: " + ThenExpr->toString(indent + 1, colorful) + "}";
     }
     // You should NOT reach this line!
     break;
     case StyioNodeHint::Fill_Cases_Forward: {
       return reprNodeType(hint(), colorful)
-             + string(" {\n") + make_padding(indent, " ") + params->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + "Cases: " + ThenExpr->toString(indent + 1, colorful) + "\n" + "}";
+             + string(" {\n") + make_padding(indent, " ") + Params->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + "Cases: " + ThenExpr->toString(indent + 1, colorful) + "\n" + "}";
     }
     // You should NOT reach this line!
     break;
     case StyioNodeHint::Fill_If_True_Forward: {
       return reprNodeType(hint(), colorful)
-             + string(" {\n") + make_padding(indent, " ") + params->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + ThenCondFlow->toString(indent + 1, colorful) + "}";
+             + string(" {\n") + make_padding(indent, " ") + Params->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + ThenCondFlow->toString(indent + 1, colorful) + "}";
     }
     // You should NOT reach this line!
     break;
     case StyioNodeHint::Fill_If_False_Forward: {
       return reprNodeType(hint(), colorful)
-             + string(" {\n") + make_padding(indent, " ") + params->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + ThenCondFlow->toString(indent + 1, colorful) + "}";
+             + string(" {\n") + make_padding(indent, " ") + Params->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + ThenCondFlow->toString(indent + 1, colorful) + "}";
     }
     // You should NOT reach this line!
     break;
 
     case StyioNodeHint::Fill_If_Both_Forward: {
       return reprNodeType(hint(), colorful)
-             + string(" {\n") + make_padding(indent, " ") + params->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + ThenCondFlow->toString(indent + 1, colorful) + "}";
+             + string(" {\n") + make_padding(indent, " ") + Params->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + ThenCondFlow->toString(indent + 1, colorful) + "}";
     }
     // You should NOT reach this line!
     break;

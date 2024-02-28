@@ -26,7 +26,7 @@ StyioToLLVMIR::getLLVMType(EmptyAST* ast) {
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(IdAST* ast) {
+StyioToLLVMIR::getLLVMType(NameAST* ast) {
   return theBuilder->getInt32Ty();
 }
 

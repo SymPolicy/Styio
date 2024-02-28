@@ -210,10 +210,10 @@ StyioToLLVMIR::toLLVMIR(CommentAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVMIR::toLLVMIR(IdAST* ast) {
+StyioToLLVMIR::toLLVMIR(NameAST* ast) {
   auto output = theBuilder->getInt32(0);
 
-  const string& varname = ast->getId();
+  const string& varname = ast->getNameAsStr();
 
   if (named_values.contains(varname)) {
     return named_values[varname];
@@ -487,17 +487,17 @@ llvm::Value*
 StyioToLLVMIR::toLLVMIR(CallAST* ast) {
   auto output = theBuilder->getInt32(0);
 
-  auto styio_func_args = ast->getArgs();
+  auto styio_func_args = ast->getArgList();
 
-  llvm::Function* callee_func = theModule->getFunction(ast->getName());
+  llvm::Function* callee_func = theModule->getFunction(ast->getNameAsStr());
 
   if (callee_func == nullptr) {
-    std::cout << "func " + ast->getName() + " not found (as callee)" << std::endl;
+    std::cout << "func " + ast->getNameAsStr() + " not found (as callee)" << std::endl;
     return output;
   }
 
   if (callee_func->arg_size() != styio_func_args.size()) {
-    std::cout << "func " + ast->getName() + " args not match" << std::endl;
+    std::cout << "func " + ast->getNameAsStr() + " args not match" << std::endl;
     return output;
   }
 

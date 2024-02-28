@@ -26,30 +26,28 @@ StyioAnalyzer::toString(EmptyAST* ast, int indent) {
 }
 
 std::string
-StyioAnalyzer::toString(IdAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ")
-         + "{ " + ast->getId() + " }";
+StyioAnalyzer::toString(NameAST* ast, int indent) {
+  return "{ " + reprNodeType(ast->hint()) + ": " + ast->getNameAsStr() + " }";
 }
 
 std::string
 StyioAnalyzer::toString(DTypeAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") + "{ " + ast->getTypeName() + " }";
+  return "{ " + reprNodeType(ast->hint()) + ": " + ast->getTypeName() + " }";
 }
 
 std::string
 StyioAnalyzer::toString(BoolAST* ast, int indent) {
-    return reprNodeType(ast->hint(), " ") + string("{ }");
+  return reprNodeType(ast->hint(), " ") + string("{ }");
 }
 
 std::string
 StyioAnalyzer::toString(IntAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") 
-    + "{ " + ast->getValue() + " : " + reprDataType(ast->getType()) + " }";
+  return "{ " + reprDataType(ast->getType()) + ": " + ast->getValue() + " }";
 }
 
 std::string
 StyioAnalyzer::toString(FloatAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") + "{ " + ast->getValue() + " }";
+  return "{ " + reprDataType(ast->getType()) + ": " + ast->getValue() + " }";
 }
 
 std::string
@@ -70,40 +68,40 @@ StyioAnalyzer::toString(TypeConvertAST* ast, int indent) {
 std::string
 StyioAnalyzer::toString(VarAST* ast, int indent) {
   return reprNodeType(ast->hint(), " ") 
-    + string("{ ") + ast->getName() + " : " + ast->getDType()->toString(this, indent + 1) + " }";
+         + string("{ ") + ast->getName() + " : " + ast->getDType()->getTypeName() + " }";
 }
 
 std::string
 StyioAnalyzer::toString(ArgAST* ast, int indent) {
   return reprNodeType(ast->hint(), " ") 
-    + string("{ ") + ast->getName() + " : " + ast->getDType()->toString(this, indent + 1) + " }";
+         + string("{ ") + ast->getName() + " : " + ast->getDType()->getTypeName() + " }";
 }
 
 std::string
 StyioAnalyzer::toString(OptArgAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") 
-    + "{ " + " }";
+  return reprNodeType(ast->hint(), " ")
+         + "{ " + " }";
 }
 
 std::string
 StyioAnalyzer::toString(OptKwArgAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") 
-    + "{ " + " }";
+  return reprNodeType(ast->hint(), " ")
+         + "{ " + " }";
 }
 
 std::string
 StyioAnalyzer::toString(FlexBindAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") + string("{") 
-         + "\n" + make_padding(indent, " ") + "Var: " + ast->getVarName()->toString(this, indent + 1) 
-         + "\n" + make_padding(indent, " ") + "Val: " + ast->getValue()->toString(this, indent + 1) 
+  return reprNodeType(ast->hint(), " ") + string("{")
+         + "\n" + make_padding(indent, " ") + "Var: " + ast->getVarName()->toString(this, indent + 1)
+         + "\n" + make_padding(indent, " ") + "Val: " + ast->getValue()->toString(this, indent + 1)
          + "}";
 }
 
 std::string
 StyioAnalyzer::toString(FinalBindAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") + string("{") 
-         + "\n" + make_padding(indent, " ") + "Var: " + ast->getVarName()->toString(this, indent + 1) 
-         + "\n" + make_padding(indent, " ") + "Val: " + ast->getValue()->toString(this, indent + 1) 
+  return reprNodeType(ast->hint(), " ") + string("{")
+         + "\n" + make_padding(indent, " ") + "Var: " + ast->getVarName()->toString(this, indent + 1)
+         + "\n" + make_padding(indent, " ") + "Val: " + ast->getValue()->toString(this, indent + 1)
          + "}";
 }
 
@@ -112,15 +110,15 @@ StyioAnalyzer::toString(InfiniteAST* ast, int indent) {
   switch (ast->getType()) {
     case InfiniteType::Original: {
       return reprNodeType(ast->hint(), " ") + string("{ }");
-    } break; // You should NOT reach this line!
+    } break;  // You should NOT reach this line!
 
     case InfiniteType::Incremental: {
-        return reprNodeType(ast->hint(), " ") + string("{") 
-        + "\n" + "|" + string(2 * indent, '-') + "| Start: " + ast->getStart()->toString(this, indent + 1) 
-        + "\n" + "|" + string(2 * indent, '-') + "| Increment: " + ast->getIncEl()->toString(this, indent + 1) 
-        + "}";
-      
-      } break; // You should NOT reach this line!
+      return reprNodeType(ast->hint(), " ") + string("{")
+             + "\n" + "|" + string(2 * indent, '-') + "| Start: " + ast->getStart()->toString(this, indent + 1)
+             + "\n" + "|" + string(2 * indent, '-') + "| Increment: " + ast->getIncEl()->toString(this, indent + 1)
+             + "}";
+
+    } break;  // You should NOT reach this line!
 
     default:
       break;
@@ -153,7 +151,7 @@ std::string
 StyioAnalyzer::toString(VarTupleAST* ast, int indent) {
   auto Vars = ast->getParams();
   if (Vars.empty()) {
-    return reprNodeType(ast->hint(), " ") + "{ }";
+    return reprNodeType(ast->hint(), " ") + "[ ]";
   }
   else {
     string varStr;
@@ -165,17 +163,17 @@ StyioAnalyzer::toString(VarTupleAST* ast, int indent) {
       }
     }
 
-    return reprNodeType(ast->hint(), " ") + "{\n" + varStr + "}";
+    return reprNodeType(ast->hint(), " ") + "[\n" + varStr + "]";
   }
 }
 
 std::string
 StyioAnalyzer::toString(RangeAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") + "{\n" 
-    + make_padding(indent, " ") + "Start : " + ast->getStart()->toString(this, indent + 1) + "\n" 
-    + make_padding(indent, " ") + "End   : " + ast->getEnd()->toString(this, indent + 1) + "\n" 
-    + make_padding(indent, " ") + "Step  : " + ast->getStep()->toString(this, indent + 1) 
-    + "}";
+  return reprNodeType(ast->hint(), " ") + "{\n"
+         + make_padding(indent, " ") + "Start : " + ast->getStart()->toString(this, indent + 1) + "\n"
+         + make_padding(indent, " ") + "End   : " + ast->getEnd()->toString(this, indent + 1) + "\n"
+         + make_padding(indent, " ") + "Step  : " + ast->getStep()->toString(this, indent + 1)
+         + "}";
 }
 
 std::string
@@ -219,88 +217,89 @@ StyioAnalyzer::toString(ListOpAST* ast, int indent) {
   auto OpType = ast->getOp();
   switch (OpType) {
     case StyioNodeHint::Access:
-      return reprNodeType(ast->hint(), " ") + "{" 
-             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1) 
-             + "\n" + make_padding(indent, " ") + "Key: " + ast->getSlot1()->toString(this, indent + 1) 
+      return reprNodeType(ast->hint(), " ") + "{"
+             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1)
+             + "\n" + make_padding(indent, " ") + "Key: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
 
     case StyioNodeHint::Access_By_Index:
       return reprNodeType(ast->hint(), " ")
-             + "{\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1) 
-             + "\n" + make_padding(indent, " ") + "Index: " + ast->getSlot1()->toString(this, indent + 1) 
+             + "{\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1)
+             + "\n" + make_padding(indent, " ") + "Index: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
     case StyioNodeHint::Access_By_Name:
       return reprNodeType(ast->hint(), " ")
-             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1) 
-             + "\n" + make_padding(indent, " ") + "Name : " + ast->getSlot1()->toString(this, indent + 1) 
+             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1)
+             + "\n" + make_padding(indent, " ") + "Name : " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
 
     case StyioNodeHint::Get_Index_By_Value:
       return reprNodeType(ast->hint(), " ")
-             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1) 
-             + "\n" + make_padding(indent, " ") + "Index: " + ast->getSlot1()->toString(this, indent + 1) 
+             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1)
+             + "\n" + make_padding(indent, " ") + "Index: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
     case StyioNodeHint::Get_Indices_By_Many_Values:
       return reprNodeType(ast->hint(), " ")
-             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1) 
-             + "\n" + make_padding(indent, " ") + "Index: " + ast->getSlot1()->toString(this, indent + 1) 
+             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1)
+             + "\n" + make_padding(indent, " ") + "Index: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
     case StyioNodeHint::Append_Value:
       return reprNodeType(ast->hint(), " ")
-             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1) 
-             + "\n" + make_padding(indent, " ") + "Value: " + ast->getSlot1()->toString(this, indent + 1) 
+             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1)
+             + "\n" + make_padding(indent, " ") + "Value: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
     case StyioNodeHint::Insert_Item_By_Index:
       return reprNodeType(ast->hint(), " ")
-             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1) 
-             + "\n" + make_padding(indent, " ") + "Index: " + ast->getSlot1()->toString(this, indent + 1) 
-             + "\n" + make_padding(indent, " ") + "Value: " + ast->getSlot2()->toString(this, indent + 1) 
+             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1)
+             + "\n" + make_padding(indent, " ") + "Index: " + ast->getSlot1()->toString(this, indent + 1)
+             + "\n" + make_padding(indent, " ") + "Value: " + ast->getSlot2()->toString(this, indent + 1)
              + "}";
       break;
     case StyioNodeHint::Remove_Item_By_Index:
       return reprNodeType(ast->hint(), " ")
-             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1) 
-             + "\n" + make_padding(indent, " ") + "Index: " + ast->getSlot1()->toString(this, indent + 1) 
+             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1)
+             + "\n" + make_padding(indent, " ") + "Index: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
     case StyioNodeHint::Remove_Item_By_Value:
       return reprNodeType(ast->hint(), " ")
-             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1) 
-             + "\n" + make_padding(indent, " ") + "Value: " + ast->getSlot1()->toString(this, indent + 1) 
+             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1)
+             + "\n" + make_padding(indent, " ") + "Value: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
     case StyioNodeHint::Remove_Items_By_Many_Indices:
       return reprNodeType(ast->hint(), " ")
-             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1) 
-             + "\n" + make_padding(indent, " ") + "Index: " + ast->getSlot1()->toString(this, indent + 1) 
+             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1)
+             + "\n" + make_padding(indent, " ") + "Index: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
     case StyioNodeHint::Remove_Items_By_Many_Values:
       return reprNodeType(ast->hint(), " ")
-             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1) 
-             + "\n" + make_padding(indent, " ") + "Value: " + ast->getSlot1()->toString(this, indent + 1) 
+             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1)
+             + "\n" + make_padding(indent, " ") + "Value: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
     case StyioNodeHint::Get_Reversed:
       return reprNodeType(ast->hint(), " ")
-             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1) 
+             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1)
              + "}";
       break;
     case StyioNodeHint::Get_Index_By_Item_From_Right:
       return reprNodeType(ast->hint(), " ")
-             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1) 
-             + "\n" + make_padding(indent, " ") + "Index: " + ast->getSlot1()->toString(this, indent + 1) 
+             + "\n" + make_padding(indent, " ") + ast->getList()->toString(this, indent + 1)
+             + "\n" + make_padding(indent, " ") + "Index: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
 
-    default: { return reprNodeType(ast->hint(), " ") + string("{ undefined }"); }
-      break;
+    default: {
+      return reprNodeType(ast->hint(), " ") + string("{ undefined }");
+    } break;
   }
 
   return reprNodeType(ast->hint(), " ") + string("{ undefined }");
@@ -308,10 +307,10 @@ StyioAnalyzer::toString(ListOpAST* ast, int indent) {
 
 std::string
 StyioAnalyzer::toString(BinCompAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") + reprToken(ast->getSign()) + " {\n" 
-    + make_padding(indent, " ") + "LHS: " + ast->getLHS()->toString(this, indent + 1) + "\n" 
-    + make_padding(indent, " ") + "RHS: " + ast->getRHS()->toString(this, indent + 1)
-    + "}";
+  return reprNodeType(ast->hint(), " ") + reprToken(ast->getSign()) + " {\n"
+         + make_padding(indent, " ") + "LHS: " + ast->getLHS()->toString(this, indent + 1) + "\n"
+         + make_padding(indent, " ") + "RHS: " + ast->getRHS()->toString(this, indent + 1)
+         + "}";
 }
 
 std::string
@@ -319,21 +318,21 @@ StyioAnalyzer::toString(CondAST* ast, int indent) {
   LogicType LogicOp = ast->getSign();
 
   if (LogicOp == LogicType::AND || LogicOp == LogicType::OR || LogicOp == LogicType::XOR) {
-    return reprNodeType(ast->hint(), " ") + "{\n" 
-      + make_padding(indent, " ") + "Op: " + reprToken(LogicOp) + "\n" 
-      + make_padding(indent, " ") + "LHS: " + ast->getLHS()->toString(this, indent + 1) + "\n" 
-      + make_padding(indent, " ") + "RHS: " + ast->getRHS()->toString(this, indent + 1) 
-      + "}";
+    return reprNodeType(ast->hint(), " ") + "{\n"
+           + make_padding(indent, " ") + "Op: " + reprToken(LogicOp) + "\n"
+           + make_padding(indent, " ") + "LHS: " + ast->getLHS()->toString(this, indent + 1) + "\n"
+           + make_padding(indent, " ") + "RHS: " + ast->getRHS()->toString(this, indent + 1)
+           + "}";
   }
   else if (LogicOp == LogicType::NOT) {
     return reprNodeType(ast->hint(), " ") + "\n"
-           + make_padding(indent, " ") + "Op: " + reprToken(LogicOp) + "\n" 
+           + make_padding(indent, " ") + "Op: " + reprToken(LogicOp) + "\n"
            + make_padding(indent, " ") + "Value: " + ast->getValue()->toString(this, indent + 1)
            + "}";
   }
   else if (LogicOp == LogicType::RAW) {
-    return reprNodeType(ast->hint(), " ") + "\n" 
-      + make_padding(indent, " ") + ast->getValue()->toString(this, indent + 1) + "}";
+    return reprNodeType(ast->hint(), " ") + "\n"
+           + make_padding(indent, " ") + ast->getValue()->toString(this, indent + 1) + "}";
   }
   else {
     return reprNodeType(ast->hint(), " ") + " { Undefined! }";
@@ -347,10 +346,10 @@ StyioAnalyzer::toString(CondAST* ast, int indent) {
 */
 std::string
 StyioAnalyzer::toString(BinOpAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") + "{" + "\n" 
-    + make_padding(indent, " ") + "LHS: " + ast->getLhs()->toString(this, indent + 1) + "\n" 
-    + make_padding(indent, " ") + "RHS: " + ast->getRhs()->toString(this, indent + 1) 
-    + "}";
+  return reprNodeType(ast->hint(), " ") + "{" + "\n"
+         + make_padding(indent, " ") + "LHS: " + ast->getLhs()->toString(this, indent + 1) + "\n"
+         + make_padding(indent, " ") + "RHS: " + ast->getRhs()->toString(this, indent + 1)
+         + "}";
 }
 
 std::string
@@ -422,8 +421,8 @@ StyioAnalyzer::toString(ExtPackAST* ast, int indent) {
 
 std::string
 StyioAnalyzer::toString(ReadFileAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") + "{\n" 
-         + make_padding(indent, " ") + "Var: " + ast->getId()->toString(this, indent + 1) + "\n" 
+  return reprNodeType(ast->hint(), " ") + "{\n"
+         + make_padding(indent, " ") + "Var: " + ast->getId()->toString(this, indent + 1) + "\n"
          + make_padding(indent, " ") + "Val: " + ast->getValue()->toString(this, indent + 1) + "}";
 }
 
@@ -444,24 +443,24 @@ StyioAnalyzer::toString(PassAST* ast, int indent) {
 
 std::string
 StyioAnalyzer::toString(ReturnAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") + "{ " 
-    + ast->getExpr()->toString(this, indent + 1) 
-    + " }";
+  return reprNodeType(ast->hint(), " ") + "{\n"
+         + make_padding(indent, " ") + ast->getExpr()->toString(this, indent + 1)
+         + "}";
 }
 
 std::string
 StyioAnalyzer::toString(CallAST* ast, int indent) {
-  string paramStr;
+  string outstr;
 
-  auto call_args = ast->getArgs();
+  auto call_args = ast->getArgList();
   for (int i = 0; i < call_args.size(); i++) {
-    paramStr += make_padding(indent, " ") + call_args[i]->toString(this, indent + 1);
+    outstr += make_padding(indent, " ") + call_args[i]->toString(this, indent + 1);
     if (i < (call_args.size() - 1)) {
-      paramStr += "\n";
+      outstr += "\n";
     }
   }
 
-  return reprNodeType(ast->hint(), " ") + "{" + "\n" + paramStr + "}";
+  return reprNodeType(ast->hint(), " ") + ast->getFuncName()->toString(this) + " [\n" + outstr + "]";
 }
 
 std::string
@@ -483,28 +482,28 @@ std::string
 StyioAnalyzer::toString(ForwardAST* ast, int indent) {
   switch (ast->hint()) {
     case StyioNodeHint::Forward: {
-      return reprNodeType(ast->hint(), " ") + "{\n" 
+      return reprNodeType(ast->hint(), " ") + "{\n"
              + make_padding(indent, " ") + "Run: " + ast->getThen()->toString(this, indent + 1) + "}";
     }
     // You should NOT reach this line!
     break;
     case StyioNodeHint::If_Equal_To_Forward: {
-      return reprNodeType(ast->hint(), " ") + "{\n" 
-      + make_padding(indent, " ") + ast->getCheckEq()->toString(this, indent + 1) + "\n" 
-      + make_padding(indent, " ") + "Run: " + ast->getThen()->toString(this, indent + 1) + "}";
+      return reprNodeType(ast->hint(), " ") + "{\n"
+             + make_padding(indent, " ") + ast->getCheckEq()->toString(this, indent + 1) + "\n"
+             + make_padding(indent, " ") + "Run: " + ast->getThen()->toString(this, indent + 1) + "}";
     }
     // You should NOT reach this line!
     break;
     case StyioNodeHint::If_Is_In_Forward: {
       return reprNodeType(ast->hint(), " ")
-             + "{\n" + make_padding(indent, " ") + ast->getCheckIsin()->toString(this, indent + 1) + "\n" 
+             + "{\n" + make_padding(indent, " ") + ast->getCheckIsin()->toString(this, indent + 1) + "\n"
              + make_padding(indent, " ") + "Run: " + ast->getThen()->toString(this, indent + 1) + "}";
     }
     // You should NOT reach this line!
     break;
     case StyioNodeHint::Cases_Forward: {
       return reprNodeType(ast->hint(), " ")
-             + "{\n" + make_padding(indent, " ") + "Cases: " + ast->getThen()->toString(this, indent + 1) + "\n" 
+             + "{\n" + make_padding(indent, " ") + "Cases: " + ast->getThen()->toString(this, indent + 1) + "\n"
              + "}";
     }
     // You should NOT reach this line!
@@ -530,45 +529,45 @@ StyioAnalyzer::toString(ForwardAST* ast, int indent) {
     break;
     case StyioNodeHint::Fill_Forward: {
       return reprNodeType(ast->hint(), " ")
-             + "{\n" + make_padding(indent, " ") + ast->getVarTuple()->toString(this, indent + 1) + "\n" 
+             + "{\n" + make_padding(indent, " ") + ast->getVarTuple()->toString(this, indent + 1) + "\n"
              + make_padding(indent, " ") + "Run: " + ast->getThen()->toString(this, indent + 1) + "}";
     }
     // You should NOT reach this line!
     break;
     case StyioNodeHint::Fill_If_Equal_To_Forward: {
       return reprNodeType(ast->hint(), " ")
-             + "{\n" + make_padding(indent, " ") + ast->getVarTuple()->toString(this, indent + 1) + "\n" 
-             + make_padding(indent, " ") + ast->getCheckEq()->toString(this, indent + 1) + "\n" 
+             + "{\n" + make_padding(indent, " ") + ast->getVarTuple()->toString(this, indent + 1) + "\n"
+             + make_padding(indent, " ") + ast->getCheckEq()->toString(this, indent + 1) + "\n"
              + make_padding(indent, " ") + "Run: " + ast->getThen()->toString(this, indent + 1) + "}";
     }
     // You should NOT reach this line!
     break;
     case StyioNodeHint::Fill_If_Is_in_Forward: {
       return reprNodeType(ast->hint(), " ")
-             + "{\n" + make_padding(indent, " ") + ast->getVarTuple()->toString(this, indent + 1) + "\n" 
-             + make_padding(indent, " ") + ast->getCheckIsin()->toString(this, indent + 1) + "\n" 
+             + "{\n" + make_padding(indent, " ") + ast->getVarTuple()->toString(this, indent + 1) + "\n"
+             + make_padding(indent, " ") + ast->getCheckIsin()->toString(this, indent + 1) + "\n"
              + make_padding(indent, " ") + "Run: " + ast->getThen()->toString(this, indent + 1) + "}";
     }
     // You should NOT reach this line!
     break;
     case StyioNodeHint::Fill_Cases_Forward: {
       return reprNodeType(ast->hint(), " ")
-             + "{\n" + make_padding(indent, " ") + ast->getVarTuple()->toString(this, indent + 1) 
-             + "\n" + make_padding(indent, " ") + "Cases: " + ast->getThen()->toString(this, indent + 1) 
+             + "{\n" + make_padding(indent, " ") + ast->getVarTuple()->toString(this, indent + 1)
+             + "\n" + make_padding(indent, " ") + "Cases: " + ast->getThen()->toString(this, indent + 1)
              + "\n" + "}";
     }
     // You should NOT reach this line!
     break;
     case StyioNodeHint::Fill_If_True_Forward: {
       return reprNodeType(ast->hint(), " ")
-             + "{\n" + make_padding(indent, " ") + ast->getVarTuple()->toString(this, indent + 1) + "\n" 
+             + "{\n" + make_padding(indent, " ") + ast->getVarTuple()->toString(this, indent + 1) + "\n"
              + make_padding(indent, " ") + ast->getCondFlow()->toString(this, indent + 1) + "}";
     }
     // You should NOT reach this line!
     break;
     case StyioNodeHint::Fill_If_False_Forward: {
       return reprNodeType(ast->hint(), " ")
-             + "{\n" + make_padding(indent, " ") + ast->getVarTuple()->toString(this, indent + 1) + "\n" 
+             + "{\n" + make_padding(indent, " ") + ast->getVarTuple()->toString(this, indent + 1) + "\n"
              + make_padding(indent, " ") + ast->getCondFlow()->toString(this, indent + 1) + "}";
     }
     // You should NOT reach this line!
@@ -576,7 +575,7 @@ StyioAnalyzer::toString(ForwardAST* ast, int indent) {
 
     case StyioNodeHint::Fill_If_Both_Forward: {
       return reprNodeType(ast->hint(), " ")
-             + "{\n" + make_padding(indent, " ") + ast->getVarTuple()->toString(this, indent + 1) + "\n" 
+             + "{\n" + make_padding(indent, " ") + ast->getVarTuple()->toString(this, indent + 1) + "\n"
              + make_padding(indent, " ") + ast->getCondFlow()->toString(this, indent + 1) + "}";
     }
     // You should NOT reach this line!
@@ -589,21 +588,21 @@ StyioAnalyzer::toString(ForwardAST* ast, int indent) {
 
 std::string
 StyioAnalyzer::toString(CheckEqAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") + string("{ ") 
-  + ast->getValue()->toString(this, indent + 1) + " }";
+  return reprNodeType(ast->hint(), " ") + string("{ ")
+         + ast->getValue()->toString(this, indent + 1) + " }";
 }
 
 std::string
 StyioAnalyzer::toString(CheckIsinAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") + string("{\n") 
-  + make_padding(indent, " ") + ast->getIterable()->toString(this, indent + 1) + "}";
+  return reprNodeType(ast->hint(), " ") + string("{\n")
+         + make_padding(indent, " ") + ast->getIterable()->toString(this, indent + 1) + "}";
 }
 
 std::string
 StyioAnalyzer::toString(FromToAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") + string("{") + "\n" 
-  + make_padding(indent, " ") + "From: " + ast->getFromExpr()->toString(this, indent + 1) + "\n" 
-  + make_padding(indent, " ") + "To: " + ast->getToExpr()->toString(this, indent + 1) + "}";
+  return reprNodeType(ast->hint(), " ") + string("{") + "\n"
+         + make_padding(indent, " ") + "From: " + ast->getFromExpr()->toString(this, indent + 1) + "\n"
+         + make_padding(indent, " ") + "To: " + ast->getToExpr()->toString(this, indent + 1) + "}";
 }
 
 std::string
@@ -612,14 +611,14 @@ StyioAnalyzer::toString(CondFlowAST* ast, int indent) {
 
   if (WhatFlow == StyioNodeHint::CondFlow_True || WhatFlow == StyioNodeHint::CondFlow_False) {
     return reprNodeType(ast->hint(), " ")
-           + string("{\n") 
-           + make_padding(indent, " ") + ast->getCond()->toString(this, indent + 1) + "\n" 
+           + string("{\n")
+           + make_padding(indent, " ") + ast->getCond()->toString(this, indent + 1) + "\n"
            + make_padding(indent, " ") + "Then: " + ast->getThen()->toString(this, indent + 1) + "}";
   }
   else if (WhatFlow == StyioNodeHint::CondFlow_Both) {
     return reprNodeType(ast->hint(), " ")
-           + string("{\n") + make_padding(indent, " ") + ast->getCond()->toString(this, indent + 1) + "\n" 
-           + make_padding(indent, " ") + "Then: " + ast->getThen()->toString(this, indent + 1) + "\n" 
+           + string("{\n") + make_padding(indent, " ") + ast->getCond()->toString(this, indent + 1) + "\n"
+           + make_padding(indent, " ") + "Then: " + ast->getThen()->toString(this, indent + 1) + "\n"
            + make_padding(indent, " ") + "Else: " + ast->getElse()->toString(this, indent + 1) + "}";
   }
   else {
@@ -660,17 +659,17 @@ StyioAnalyzer::toString(FuncAST* ast, int indent) {
 
 std::string
 StyioAnalyzer::toString(IterAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") + "{"  + "\n" 
-    + make_padding(indent, " ") + ast->getIterable()->toString(this, indent + 1) + "\n"
-    + make_padding(indent, " ") + ast->getForward()->toString(this, indent + 1)
-    + "}";
+  return reprNodeType(ast->hint(), " ") + "{" + "\n"
+         + make_padding(indent, " ") + ast->getIterable()->toString(this, indent + 1) + "\n"
+         + make_padding(indent, " ") + ast->getForward()->toString(this, indent + 1)
+         + "}";
 }
 
 std::string
 StyioAnalyzer::toString(LoopAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") + "{"  + "\n" 
-    + make_padding(indent, " ") + ast->getForward()->toString(this, indent + 1) 
-    + "}";
+  return reprNodeType(ast->hint(), " ") + "{" + "\n"
+         + make_padding(indent, " ") + ast->getForward()->toString(this, indent + 1)
+         + "}";
 }
 
 std::string
@@ -683,10 +682,10 @@ StyioAnalyzer::toString(CasesAST* ast, int indent) {
     outstr += make_padding(indent, " ") + "Right : " + std::get<1>(Cases[i])->toString(this, indent + 1) + "\n";
   }
 
-  return reprNodeType(ast->hint(), " ") + "{\n" 
-    + outstr 
-    + make_padding(indent, " ") + "Default: " + ast->getLastExpr()->toString(this, indent + 1)
-    + "}";
+  return reprNodeType(ast->hint(), " ") + "{\n"
+         + outstr
+         + make_padding(indent, " ") + "Default: " + ast->getLastExpr()->toString(this, indent + 1)
+         + "}";
 }
 
 std::string
@@ -721,7 +720,7 @@ StyioAnalyzer::toString(MainBlockAST* ast, int indent) {
     return reprNodeType(ast->hint(), " ") + "{ " + " }";
 
   for (int i = 0; i < Stmts.size(); i++) {
-    outstr += make_padding(indent + 1) + Stmts[i]->toString(this, indent + 1);
+    outstr += make_padding(indent, " ") + Stmts[i]->toString(this, indent + 1);
     if (i < (Stmts.size() - 1)) {
       outstr += "\n";
     }

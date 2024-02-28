@@ -23,8 +23,8 @@
 #include "include/StyioParser/Parser.hpp"
 #include "include/StyioToken/Token.hpp"
 #include "include/StyioUtil/Util.hpp"
+#include "include/StyioVisitors/ASTAnalyzer.hpp"    /* StyioASTAnalyzer */
 #include "include/StyioVisitors/CodeGenVisitor.hpp" /* StyioToLLVMIR Code Generator */
-#include "include/StyioVisitors/ASTAnalyzer.hpp" /* StyioASTAnalyzer */
 
 // [LLVM]
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -174,14 +174,15 @@ main(
     // show_code_with_linenum(styio_code);
     auto styio_context = StyioContext::Create(fpath, styio_code.code_text, styio_code.line_seps);
 
-    volatile auto styio_program = parse_main_block(*styio_context);
-    StyioAnalyzer* analyzer = new StyioAnalyzer();
+    auto styio_program = parse_main_block(*styio_context);
+    StyioAnalyzer analyzer = StyioAnalyzer();
 
     if (show_ast) {
-      std::cout 
-      << "\033[1;32mAST\033[0m \033[31m-No-Type-Checking\033[0m" << "\n"
-      << styio_program->toString(analyzer, 0) << "\n"
-      << std::endl;
+      std::cout
+        << "\033[1;32mAST\033[0m \033[31m-No-Type-Checking\033[0m"
+        << "\n"
+        << styio_program->toString(&analyzer) << "\n"
+        << std::endl;
     }
 
     /* JIT Initialization */
@@ -194,13 +195,14 @@ main(
 
     StyioToLLVMIR generator = StyioToLLVMIR(std::move(styio_orc_jit));
 
-    analyzer->typeInfer(styio_program);
+    analyzer.typeInfer(styio_program);
 
     if (show_type_checking) {
-      std::cout 
-      << "\033[1;32mAST\033[0m \033[1;33m-After-Type-Checking\033[0m" << "\n"
-      << styio_program->toString(analyzer, 0) << "\n"
-      << std::endl;
+      std::cout
+        << "\033[1;32mAST\033[0m \033[1;33m-After-Type-Checking\033[0m"
+        << "\n"
+        << styio_program->toString(&analyzer) << "\n"
+        << std::endl;
     }
 
     generator.toLLVMIR(styio_program);
@@ -209,7 +211,7 @@ main(
       generator.print_llvm_ir();
       generator.print_test_results();
     }
-    
+
     generator.execute();
   }
 

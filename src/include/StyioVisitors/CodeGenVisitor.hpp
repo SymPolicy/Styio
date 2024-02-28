@@ -90,7 +90,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class StructAST,
   class TupleAST,
 
-  class IdAST,
+  class NameAST,
   class DTypeAST,
 
   class VarAST,
@@ -238,7 +238,7 @@ public:
 
   llvm::Type* getLLVMType(CommentAST* ast);
 
-  llvm::Type* getLLVMType(IdAST* ast);
+  llvm::Type* getLLVMType(NameAST* ast);
 
   llvm::Type* getLLVMType(VarAST* ast);
 
@@ -352,7 +352,7 @@ public:
 
   llvm::Value* toLLVMIR(CommentAST* ast);
 
-  llvm::Value* toLLVMIR(IdAST* ast);
+  llvm::Value* toLLVMIR(NameAST* ast);
 
   llvm::Value* toLLVMIR(VarAST* ast);
 

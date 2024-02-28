@@ -32,7 +32,7 @@ using std::vector;
   =================
 */
 
-IdAST*
+NameAST*
 parse_id(StyioContext& context) {
   string name = "";
   /* it will include cur_char in the id without checking */
@@ -41,7 +41,7 @@ parse_id(StyioContext& context) {
     context.move(1);
   } while (context.check_isalnum_());
 
-  return IdAST::Create(name);
+  return NameAST::Create(name);
 }
 
 IntAST*
@@ -363,7 +363,7 @@ parse_resources(
         resources.push_back(parse_path(context));
       }
       else if (context.check_isal_()) {
-        IdAST* varname = parse_id(context);
+        NameAST* varname = parse_id(context);
 
         context.find_drop_panic("<-");
 
@@ -1000,7 +1000,7 @@ parse_size_of(StyioContext& context) {
 CallAST*
 parse_call(
   StyioContext& context,
-  IdAST* func_name
+  NameAST* func_name
 ) {
   context.check_drop_panic('(');
 
@@ -1772,7 +1772,7 @@ parse_func(StyioContext& context) {
         context.drop_all_spaces();
 
         return new FuncAST(
-          (func_name),
+          func_name,
           parse_forward(context, true),
           true
         );
@@ -2015,7 +2015,7 @@ parse_forward(StyioContext& context, bool is_func) {
 
               context.find_drop('}');
 
-              iterable = new SetAST((exprs));
+              iterable = new SetAST(exprs);
             } break;
 
             default: {
@@ -2115,14 +2115,13 @@ parse_forward(StyioContext& context, bool is_func) {
       }
       else {
         vector<StyioAST*> tmp_stmts;
-        tmp_stmts.push_back(ReturnAST::Create(parse_expr(context)));
-        BlockAST* block = BlockAST::Create(tmp_stmts);
+        StyioAST* expr = parse_expr(context);
 
         if (has_args) {
-          output = new ForwardAST(args, block);
+          output = new ForwardAST(args, ReturnAST::Create(expr));
         }
         else {
-          output = new ForwardAST(block);
+          output = new ForwardAST(ReturnAST::Create(expr));
         }
       }
     } break;
@@ -2152,7 +2151,7 @@ parse_forward(StyioContext& context, bool is_func) {
 }
 
 StyioAST*
-parse_read_file(StyioContext& context, IdAST* id_ast) {
+parse_read_file(StyioContext& context, NameAST* id_ast) {
   if (context.check_drop('@')) {
     context.check_drop_panic('(');
 

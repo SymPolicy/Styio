@@ -3,9 +3,9 @@
 #define STYIO_AST_ANALYZER_VISITOR_H_
 
 // [STL]
+#include <iostream>
 #include <string>
 #include <unordered_map>
-#include <iostream>
 
 using std::string;
 using std::unordered_map;
@@ -55,7 +55,7 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
   class StructAST,
   class TupleAST,
 
-  class IdAST,
+  class NameAST,
   class DTypeAST,
 
   class VarAST,
@@ -146,7 +146,7 @@ public:
 
   std::string toString(CommentAST* ast, int indent = 0);
 
-  std::string toString(IdAST* ast, int indent = 0);
+  std::string toString(NameAST* ast, int indent = 0);
 
   std::string toString(VarAST* ast, int indent = 0);
 
@@ -260,7 +260,7 @@ public:
 
   void typeInfer(CommentAST* ast);
 
-  void typeInfer(IdAST* ast);
+  void typeInfer(NameAST* ast);
 
   void typeInfer(VarAST* ast);
 
