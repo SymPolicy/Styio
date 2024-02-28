@@ -232,8 +232,6 @@ StyioAnalyzer::typeInfer(CallAST* ast) {
 
   for (size_t i = 0; i < func_args.size(); i++) {
     func_args[i]->setDType(arg_types[i]);
-    std::cout << "set type for " << func_args[i]->getName() << " at " << func_args[i] << " to " << reprDataType(func_args[i]->getDType()->getDType()) << std::endl;
-    // std::cout << "data type to string: " << func_args[i]->toString() << std::endl;
   }
 }
 

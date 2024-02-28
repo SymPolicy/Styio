@@ -754,12 +754,6 @@ StyioToLLVMIR::toLLVMIR(FuncAST* ast) {
           llvm_func->getArg(i)->setName(ast->getAllArgs().at(i)->getName());
         }
 
-        for (auto& arg : ast->getAllArgs()) {
-          std::cout << "code gen at " << arg << " type " << reprDataType(arg->getDType()->getDType()) << std::endl;
-          // std::cout << "code gen arg to string: " << arg->toString() << std::endl;
-          // std::cout << "code gen getRepr() " << getRepr(arg) << std::endl;
-        }
-
         llvm::BasicBlock* block =
           llvm::BasicBlock::Create(*theContext, (ast->getFuncName() + "_entry"), llvm_func);
 

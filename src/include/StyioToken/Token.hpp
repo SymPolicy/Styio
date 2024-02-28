@@ -468,9 +468,6 @@ std::string
 reprDataType(StyioDataType dtype);
 
 std::string
-reprNodeType(StyioNodeHint type, bool colorful = false, std::string extra = "");
-
-std::string
 reprNodeType(StyioNodeHint type, std::string extra = "");
 
 std::string

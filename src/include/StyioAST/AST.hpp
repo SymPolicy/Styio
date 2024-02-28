@@ -657,7 +657,6 @@ public:
   ArgAST(const string& name) :
       VarAST(name),
       Name(name) {
-    std::cout << "got data type: " << DType->getTypeName() << std::endl;
   }
 
   ArgAST(
