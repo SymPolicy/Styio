@@ -7,15 +7,17 @@
 
 enum class StyioDataType
 {
-  undefined,
-  i1,
-  i8,
-  i16,
-  i32,
-  i64,
-  i128,
-  f32,
-  f64
+  undefined = 0,
+
+  i1 = 1001,
+  i8 = 1008,
+  i16 = 1016,
+  i32 = 1032,
+  i64 = 1064,
+  i128 = 1128,
+
+  f32 = 2032,
+  f64 = 2064,
 };
 
 static std::unordered_map<std::string, StyioDataType> const DType_Table = {
@@ -88,7 +90,7 @@ enum class StyioNodeHint
   TypedVar,
   OptArg,
   OptKwArg,
-  Var,
+  Variable,
   Arg,
 
   Bool,
@@ -153,16 +155,6 @@ enum class StyioNodeHint
 
   // Binary Operation
   BinOp,
-  Bin_Add,  // +
-  Bin_Sub,  // -
-  Bin_Mul,  // *
-  Bin_Div,  // /
-  Bin_Pow,  // **
-  Bin_Mod,  // %
-  Inc_Add,  // +=
-  Inc_Sub,  // -=
-  Inc_Mul,  // *=
-  Inc_Div,  // /=
 
   // Conditionals
   CondFlow_True,
@@ -315,6 +307,20 @@ enum class IteratorType
   WithLayer,
 };
 
+enum class BinOpType
+{
+  Add, // a + b
+  Sub, // a - b
+  Mul, // a * b
+  Div, // a / b
+  Pow, // a ^ b
+  Mod, // a % b
+  Rec_Add, // a += b
+  Rec_Sub, // a -= b
+  Rec_Mul, // a *= b
+  Rec_Div, // a /= b
+};
+
 enum class LogicType
 {
   RAW,
@@ -461,9 +467,18 @@ std::string
 reprToken(CompType token);
 
 std::string
+reprToken(BinOpType token);
+
+std::string
 reprToken(LogicType token);
 
 std::string
 reprToken(StyioToken token);
+
+bool isIntType(StyioDataType T);
+
+bool isFloatType(StyioDataType T);
+
+StyioDataType getMaxType(StyioDataType T1, StyioDataType T2);
 
 #endif

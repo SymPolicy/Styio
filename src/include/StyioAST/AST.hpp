@@ -99,6 +99,10 @@ public:
       name_str(name) {
   }
 
+  static NameAST* Create() {
+    return new NameAST("");
+  }
+
   static NameAST* Create(string name) {
     return new NameAST(name);
   }
@@ -516,48 +520,61 @@ public:
 class VarAST : public StyioNode<VarAST>
 {
 private:
-  string Name;                                                  /* Variable Name */
-  DTypeAST* DType = DTypeAST::Create(StyioDataType::undefined); /* Data Type */
-  StyioAST* DValue = nullptr;                                   /* Default Value */
+  NameAST* var_name = NameAST::Create();    /* Variable Name */
+  DTypeAST* data_type = DTypeAST::Create(); /* Data Type */
+  StyioAST* default_value = nullptr;        /* Default Value */
 
 public:
-  VarAST() :
-      Name("") {
+  VarAST(NameAST* name) :
+      var_name(name),
+      data_type(DTypeAST::Create()) {
   }
 
-  VarAST(const string& name) :
-      Name(name), DType(DTypeAST::Create()) {
+  VarAST(NameAST* name, DTypeAST* data_type) :
+      var_name(name),
+      data_type(data_type) {
   }
 
-  VarAST(const string& name, DTypeAST* data_type) :
-      Name(name), DType(data_type) {
+  VarAST(NameAST* name, DTypeAST* data_type, StyioAST* default_value) :
+      var_name(name),
+      data_type(data_type),
+      default_value(default_value) {
   }
 
-  VarAST(const string& name, DTypeAST* data_type, StyioAST* default_value) :
-      Name(name), DType(data_type), DValue(default_value) {
+  static VarAST* Create(NameAST* name) {
+    return new VarAST(name);
+  }
+
+  static VarAST* Create(NameAST* name, DTypeAST* data_type) {
+    return new VarAST(name, data_type);
   }
 
   StyioNodeHint hint() override {
-    return StyioNodeHint::Var;
+    return StyioNodeHint::Variable;
   }
 
-  const string& getName() {
-    return Name;
+  NameAST* getName() {
+    return var_name;
+  }
+
+  const string& getNameAsStr() {
+    return var_name->getNameAsStr();
+  }
+
+  DTypeAST* getType() {
+    return data_type;
+  }
+
+  string getTypeAsStr() {
+    return data_type->getTypeName();
+  }
+
+  void setType(StyioDataType type) {
+    return data_type->setDType(type);
   }
 
   bool isTyped() {
-    return (
-      DType
-      && (DType->getDType() != StyioDataType::undefined)
-    );
-  }
-
-  DTypeAST* getDType() {
-    return DType;
-  }
-
-  void setDType(StyioDataType type) {
-    return DType->setDType(type);
+    return (data_type && (data_type->getDType() != StyioDataType::undefined));
   }
 };
 
@@ -568,76 +585,77 @@ public:
 class ArgAST : public VarAST
 {
 private:
-  string Name;                                                  /* Variable Name */
-  DTypeAST* DType = DTypeAST::Create(StyioDataType::undefined); /* Data Type */
-  StyioAST* DValue = nullptr;                                   /* Default Value */
+  NameAST* var_name = NameAST::Create("");  /* Variable Name */
+  DTypeAST* data_type = DTypeAST::Create(); /* Data Type */
+  StyioAST* default_value = nullptr;        /* Default Value */
 
 public:
-  ArgAST(const string& name) :
+  ArgAST(NameAST* name) :
       VarAST(name),
-      Name(name) {
+      var_name(name) {
   }
 
   ArgAST(
-    const string& name,
+    NameAST* name,
     DTypeAST* data_type
   ) :
       VarAST(name, data_type),
-      Name(name),
-      DType(data_type) {
+      var_name(name),
+      data_type(data_type) {
   }
 
-  ArgAST(const string& name, DTypeAST* data_type, StyioAST* default_value) :
+  ArgAST(NameAST* name, DTypeAST* data_type, StyioAST* default_value) :
       VarAST(name, data_type, default_value),
-      Name(name),
-      DType(data_type),
-      DValue(default_value) {
+      var_name(name),
+      data_type(data_type),
+      default_value(default_value) {
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::Arg;
   }
 
-  static ArgAST* Create(const string& id) {
-    return new ArgAST(id);
+  static ArgAST* Create(NameAST* name) {
+    return new ArgAST(name);
   }
 
-  static ArgAST* Create(const string& id, DTypeAST* data_type) {
-    return new ArgAST(id, data_type);
+  static ArgAST* Create(NameAST* name, DTypeAST* data_type) {
+    return new ArgAST(name, data_type);
   }
 
-  static ArgAST* Create(const string& id, DTypeAST* data_type, StyioAST* default_value) {
-    return new ArgAST(id, data_type, default_value);
+  static ArgAST* Create(NameAST* name, DTypeAST* data_type, StyioAST* default_value) {
+    return new ArgAST(name, data_type, default_value);
   }
 
   const string& getName() {
-    return Name;
+    return var_name->getNameAsStr();
   }
 
   bool isTyped() {
     return (
-      DType != nullptr
-      && (DType->getDType() != StyioDataType::undefined)
+      data_type != nullptr
+      && (data_type->getDType() != StyioDataType::undefined)
     );
   }
 
   DTypeAST* getDType() {
-    return DType;
+    return data_type;
   }
 
   void setDType(StyioDataType type) {
-    return DType->setDType(type);
+    return data_type->setDType(type);
   }
 };
 
 class OptArgAST : public VarAST
 {
-private: 
-  NameAST* Name = nullptr;
+private:
+  NameAST* var_name = nullptr;
 
 public:
   OptArgAST(NameAST* name) :
-      Name(name) {
+    VarAST(name),
+      var_name(name) {
   }
 
   static OptArgAST* Create(NameAST* name) {
@@ -651,11 +669,12 @@ public:
 
 class OptKwArgAST : public VarAST
 {
-  NameAST* Id = nullptr;
+  NameAST* var_name = nullptr;
 
 public:
-  OptKwArgAST(NameAST* id) :
-      Id(id) {
+  OptKwArgAST(NameAST* name) :
+    VarAST(name),
+      var_name(name) {
   }
 
   static OptKwArgAST* Create(NameAST* id) {
@@ -1063,25 +1082,35 @@ public:
 */
 class BinOpAST : public StyioNode<BinOpAST>
 {
-  StyioNodeHint Operand;
+  DTypeAST* data_type = DTypeAST::Create();
+
+  BinOpType operand;
   StyioAST* LHS = nullptr;
   StyioAST* RHS = nullptr;
 
 public:
-  BinOpAST(StyioNodeHint op, StyioAST* lhs, StyioAST* rhs) :
-      Operand(op), LHS(lhs), RHS(rhs) {
+  BinOpAST(BinOpType op, StyioAST* lhs, StyioAST* rhs) :
+      operand(op), LHS(lhs), RHS(rhs) {
   }
 
-  StyioNodeHint getOperand() {
-    return Operand;
+  static BinOpAST* Create(BinOpType op, StyioAST* lhs, StyioAST* rhs) {
+    return new BinOpAST(op, lhs, rhs);
   }
 
-  StyioAST* getLhs() {
+  BinOpType getOp() {
+    return operand;
+  }
+
+  StyioAST* getLHS() {
     return LHS;
   }
 
-  StyioAST* getRhs() {
+  StyioAST* getRHS() {
     return RHS;
+  }
+
+  void setDType(StyioDataType type) {
+    return data_type->setDType(type);
   }
 
   StyioNodeHint hint() override {
@@ -1326,34 +1355,35 @@ public:
 */
 class FlexBindAST : public StyioNode<FlexBindAST>
 {
-  NameAST* varName = nullptr;
-  StyioAST* valExpr = nullptr;
-  StyioDataType valType;
+  VarAST* variable = nullptr;
+  StyioAST* value = nullptr;
 
 public:
-  FlexBindAST(NameAST* var, StyioAST* val) :
-      varName((var)), valExpr((val)) {
+  FlexBindAST(VarAST* variable, StyioAST* value) :
+      variable(variable), value(value) {
+  }
+
+  static FlexBindAST* Create(VarAST* variable, StyioAST* value) {
+    return new FlexBindAST(variable, value);
   }
 
   StyioNodeHint hint() override {
     return StyioNodeHint::MutBind;
   }
 
-  NameAST* getVarName() {
-    return varName;
-  }
-
-  const string& getName() {
-    return varName->getNameAsStr();
+  VarAST* getVar() {
+    return variable;
   }
 
   StyioAST* getValue() {
-    return valExpr;
+    return value;
   }
 
-  StyioNodeHint getValueHint() {
-    return valExpr->hint();
+  const string& getName() {
+    return variable->getName()->getNameAsStr();
   }
+
+  
 };
 
 /*
@@ -1988,11 +2018,11 @@ private:
 
 public:
   bool isFinal;
-  
-  /* 
-    A function that contains sufficient information for the code generation 
-      without refering additional information from any other definition or statement 
-      is called self-completed. 
+
+  /*
+    A function that contains sufficient information for the code generation
+      without refering additional information from any other definition or statement
+      is called self-completed.
   */
   bool isSelfCompleted;
 
@@ -2098,7 +2128,7 @@ public:
     unordered_map<string, VarAST*> param_map;
 
     for (auto param : Forward->getParams()) {
-      param_map[param->getName()] = param;
+      param_map[param->getNameAsStr()] = param;
     }
 
     return param_map;

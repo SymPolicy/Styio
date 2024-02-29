@@ -84,4 +84,26 @@ public:
   }
 };
 
+class StyioUndefinedBehaviour : public StyioBaseException
+{
+private:
+  std::string message;
+
+public:
+  StyioUndefinedBehaviour() :
+      message("\nStyio.UndefinedBehaviour: Undefined.") {}
+
+  StyioUndefinedBehaviour(std::string msg) :
+      message("\nStyio.UndefinedBehaviour: " + msg) {}
+
+  StyioUndefinedBehaviour(char msg[]) :
+      message(std::string("\nStyio.UndefinedBehaviour: ") + std::string(msg)) {}
+
+  ~StyioUndefinedBehaviour() throw() {}
+
+  virtual const char* what() const throw() {
+    return message.c_str();
+  }
+};
+
 #endif

@@ -128,27 +128,33 @@ StyioAnalyzer::typeInfer(CondAST* ast) {
 /*
   Int -> Int => Pass
   Int -> Float => Pass
-
 */
 void
 StyioAnalyzer::typeInfer(BinOpAST* ast) {
-  auto lhs = ast->getLhs();
-  auto rhs = ast->getRhs();
-  auto lhs_type = ast->getLhs()->hint();
-  auto rhs_type = ast->getRhs()->hint();
+  auto op = ast->getOp();
+  auto lhs = ast->getLHS();
+  auto rhs = ast->getRHS();
+  auto lhs_hint = ast->getLHS()->hint();
+  auto rhs_hint = ast->getRHS()->hint();
 
-  if (lhs_type != rhs_type) {
-    if (lhs_type == StyioNodeHint::Int && rhs_type == StyioNodeHint::Float) {
-      /* LHS: Int ~> Float */
-      // ast -> setLhs(NumPromoAST::make(
-      //   lhs,
-      //   NumPromoTy::Int_To_Float)
-      // );
+  if (lhs_hint == StyioNodeHint::Int && rhs_hint == StyioNodeHint::Int) {
+    auto lhs_int = static_cast<IntAST*>(ast->getLHS());
+    auto rhs_int = static_cast<IntAST*>(ast->getRHS());
+
+    if (op == BinOpType::Add || op == BinOpType::Sub || op == BinOpType::Mul) {
+      ast->setDType(getMaxType(lhs_int->getType(), rhs_int->getType()));
     }
-    else if (lhs_type == StyioNodeHint::Float && rhs_type == StyioNodeHint::Int) {
-      /* RHS: Int ~> Float */
+    else if (op == BinOpType::Div) {
+      if (lhs_int->getValue() == "0") {
+        ast->setDType(getMaxType(lhs_int->getType(), rhs_int->getType()));
+      }
+      
     }
+    
   }
+  else if (lhs_hint == StyioNodeHint::Float && rhs_hint == StyioNodeHint::Float) {
+  }
+  
 }
 
 void
@@ -231,7 +237,7 @@ StyioAnalyzer::typeInfer(CallAST* ast) {
   }
 
   for (size_t i = 0; i < func_args.size(); i++) {
-    func_args[i]->setDType(arg_types[i]);
+    func_args[i]->setType(arg_types[i]);
   }
 }
 

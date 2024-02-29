@@ -410,57 +410,57 @@ llvm::Value*
 StyioToLLVMIR::toLLVMIR(BinOpAST* ast) {
   llvm::Value* output = theBuilder->getInt32(0);
 
-  llvm::Value* l_val = ast->getLhs()->toLLVMIR(this);
-  llvm::Value* r_val = ast->getRhs()->toLLVMIR(this);
+  llvm::Value* l_val = ast->getLHS()->toLLVMIR(this);
+  llvm::Value* r_val = ast->getRHS()->toLLVMIR(this);
 
-  switch (ast->getOperand()) {
-    case StyioNodeHint::Bin_Add: {
+  switch (ast->getOp()) {
+    case BinOpType::Add: {
       return theBuilder->CreateAdd(l_val, r_val);
     }
 
     break;
 
-    case StyioNodeHint::Bin_Sub: {
+    case BinOpType::Sub: {
       return theBuilder->CreateSub(l_val, r_val);
     }
 
     break;
 
-    case StyioNodeHint::Bin_Mul: {
+    case BinOpType::Mul: {
       return theBuilder->CreateMul(l_val, r_val);
     }
 
     break;
 
-    case StyioNodeHint::Bin_Div: {
+    case BinOpType::Div: {
       // llvm_ir_builder -> CreateFDiv(l_val, r_val, "add");
     }
 
     break;
 
-    case StyioNodeHint::Bin_Pow:
+    case BinOpType::Pow:
       // llvm_ir_builder -> CreateFAdd(l_val, r_val, "add");
 
       break;
 
-    case StyioNodeHint::Bin_Mod:
+    case BinOpType::Mod:
       // llvm_ir_builder -> CreateFAdd(l_val, r_val, "add");
 
       break;
 
-    case StyioNodeHint::Inc_Add:
+    case BinOpType::Rec_Add:
       /* code */
       break;
 
-    case StyioNodeHint::Inc_Sub:
+    case BinOpType::Rec_Sub:
       /* code */
       break;
 
-    case StyioNodeHint::Inc_Mul:
+    case BinOpType::Rec_Mul:
       /* code */
       break;
 
-    case StyioNodeHint::Inc_Div:
+    case BinOpType::Rec_Div:
       /* code */
       break;
 
@@ -531,96 +531,102 @@ llvm::Value*
 StyioToLLVMIR::toLLVMIR(FlexBindAST* ast) {
   auto output = theBuilder->getInt32(0);
 
-  // // Look this variable up in the function.
-  // llvm::AllocaInst* A = named_values[ast->getName()];
-  // if (!A) {
-  //   string errmsg = string("varname not found");
-  //   throw StyioSyntaxError(errmsg);
-  //   return nullptr;
-  // }
-
-  // // Load the value.
+  // Load the value.
   // return llvm_ir_builder->CreateLoad(A->getAllocatedType(), A, Name.c_str());
 
-  switch (ast->getValue()->hint()) {
-    case StyioNodeHint::Int: {
-      const string& varname = ast->getName();
-      if (mut_vars.contains(varname)) {
-        llvm::AllocaInst* variable = mut_vars[varname];
-        theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
-      }
-      else {
-        llvm::AllocaInst* variable = theBuilder->CreateAlloca(
-          theBuilder->getInt32Ty(),
-          nullptr,
-          varname.c_str()
-        );
-        mut_vars[varname] = variable;
+  const string& varname = ast->getName();
+  llvm::Type* var_type;
 
-        theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
-      }
-    }
-
-    break;
-
-    case StyioNodeHint::Float: {
-      const string& varname = ast->getName();
-      if (mut_vars.contains(varname)) {
-        llvm::AllocaInst* variable = mut_vars[varname];
-        theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
-      }
-      else {
-        llvm::AllocaInst* variable = theBuilder->CreateAlloca(
-          theBuilder->getDoubleTy(),
-          nullptr,
-          varname.c_str()
-        );
-        mut_vars[varname] = variable;
-
-        theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
-      }
-    }
-
-    break;
-
-    case StyioNodeHint::Id: {
-      const string& varname = ast->getName();
-      if (mut_vars.contains(varname)) {
-        llvm::AllocaInst* variable = mut_vars[varname];
-        theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
-      }
-      else {
-        llvm::AllocaInst* variable = theBuilder->CreateAlloca(theBuilder->getInt32Ty(), nullptr);
-        mut_vars[varname] = variable;
-
-        theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
-      }
-    }
-
-    break;
-
-    case StyioNodeHint::BinOp: {
-      const string& varname = ast->getName();
-      if (mut_vars.contains(varname)) {
-        llvm::AllocaInst* variable = mut_vars[varname];
-        // llvm_ir_builder->CreateLoad(variable->getAllocatedType(), variable, varname.c_str());
-        theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
-      }
-      else {
-        // llvm::AllocaInst* variable = llvm_ir_builder->CreateAlloca(llvm_ir_builder->getInt32Ty(), nullptr, varname);
-        llvm::AllocaInst* variable = theBuilder->CreateAlloca(theBuilder->getInt32Ty(), nullptr);
-        mut_vars[varname] = variable;
-
-        theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
-      }
-    }
-
-    break;
-
-    default:
-
-      break;
+  if (mut_vars.contains(varname)) {
+    llvm::AllocaInst* variable = mut_vars[varname];
+    theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
   }
+  else {
+    llvm::AllocaInst* variable = theBuilder->CreateAlloca(
+      ast->getLLVMType(this),
+      nullptr,
+      varname.c_str()
+    );
+    mut_vars[varname] = variable;
+
+    theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
+  }
+
+  // switch (ast->getValue()->hint()) {
+  //   case StyioNodeHint::Int: {
+  //     if (mut_vars.contains(varname)) {
+  //       llvm::AllocaInst* variable = mut_vars[varname];
+  //       theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
+  //     }
+  //     else {
+  //       llvm::AllocaInst* variable = theBuilder->CreateAlloca(
+  //         theBuilder->getInt32Ty(),
+  //         nullptr,
+  //         varname.c_str()
+  //       );
+  //       mut_vars[varname] = variable;
+
+  //       theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
+  //     }
+  //   }
+
+  //   break;
+
+  //   case StyioNodeHint::Float: {
+  //     if (mut_vars.contains(varname)) {
+  //       llvm::AllocaInst* variable = mut_vars[varname];
+  //       theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
+  //     }
+  //     else {
+  //       llvm::AllocaInst* variable = theBuilder->CreateAlloca(
+  //         theBuilder->getDoubleTy(),
+  //         nullptr,
+  //         varname.c_str()
+  //       );
+  //       mut_vars[varname] = variable;
+
+  //       theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
+  //     }
+  //   }
+
+  //   break;
+
+  //   case StyioNodeHint::Id: {
+  //     if (mut_vars.contains(varname)) {
+  //       llvm::AllocaInst* variable = mut_vars[varname];
+  //       theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
+  //     }
+  //     else {
+  //       llvm::AllocaInst* variable = theBuilder->CreateAlloca(theBuilder->getInt32Ty(), nullptr);
+  //       mut_vars[varname] = variable;
+
+  //       theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
+  //     }
+  //   }
+
+  //   break;
+
+  //   case StyioNodeHint::BinOp: {
+  //     if (mut_vars.contains(varname)) {
+  //       llvm::AllocaInst* variable = mut_vars[varname];
+  //       // llvm_ir_builder->CreateLoad(variable->getAllocatedType(), variable, varname.c_str());
+  //       theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
+  //     }
+  //     else {
+  //       // llvm::AllocaInst* variable = llvm_ir_builder->CreateAlloca(llvm_ir_builder->getInt32Ty(), nullptr, varname);
+  //       llvm::AllocaInst* variable = theBuilder->CreateAlloca(theBuilder->getInt32Ty(), nullptr);
+  //       mut_vars[varname] = variable;
+
+  //       theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
+  //     }
+  //   }
+
+  //   break;
+
+  //   default:
+
+  //     break;
+  // }
 
   // llvm_ir_builder->CreateAlloca(llvm::Type::getDoubleTy(*llvm_context), nullptr, ast->getName());
 
@@ -751,7 +757,7 @@ StyioToLLVMIR::toLLVMIR(FuncAST* ast) {
           llvm::Function::Create(llvm_func_type, llvm::GlobalValue::ExternalLinkage, ast->getFuncName(), *theModule);
 
         for (size_t i = 0; i < llvm_func->arg_size(); i++) {
-          llvm_func->getArg(i)->setName(ast->getAllArgs().at(i)->getName());
+          llvm_func->getArg(i)->setName(ast->getAllArgs().at(i)->getNameAsStr());
         }
 
         llvm::BasicBlock* block =

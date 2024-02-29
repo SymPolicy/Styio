@@ -27,12 +27,12 @@ StyioAnalyzer::toString(EmptyAST* ast, int indent) {
 
 std::string
 StyioAnalyzer::toString(NameAST* ast, int indent) {
-  return "{ " + reprNodeType(ast->hint()) + ": " + ast->getNameAsStr() + " }";
+  return reprNodeType(ast->hint()) + " { " + ast->getNameAsStr() + " }";
 }
 
 std::string
 StyioAnalyzer::toString(DTypeAST* ast, int indent) {
-  return "{ " + reprNodeType(ast->hint()) + ": " + ast->getTypeName() + " }";
+  return reprNodeType(ast->hint()) + " { " + ast->getTypeName() + " }";
 }
 
 std::string
@@ -42,12 +42,12 @@ StyioAnalyzer::toString(BoolAST* ast, int indent) {
 
 std::string
 StyioAnalyzer::toString(IntAST* ast, int indent) {
-  return "{ " + reprDataType(ast->getType()) + ": " + ast->getValue() + " }";
+  return "{ " + ast->getValue() + " : " + reprDataType(ast->getType()) + " }";
 }
 
 std::string
 StyioAnalyzer::toString(FloatAST* ast, int indent) {
-  return "{ " + reprDataType(ast->getType()) + ": " + ast->getValue() + " }";
+  return "{ " + ast->getValue() + " : " + reprDataType(ast->getType()) + " }";
 }
 
 std::string
@@ -68,7 +68,7 @@ StyioAnalyzer::toString(TypeConvertAST* ast, int indent) {
 std::string
 StyioAnalyzer::toString(VarAST* ast, int indent) {
   return reprNodeType(ast->hint(), " ") 
-         + string("{ ") + ast->getName() + " : " + ast->getDType()->getTypeName() + " }";
+         + string("{ ") + ast->getNameAsStr() + " : " + ast->getType()->getTypeName() + " }";
 }
 
 std::string
@@ -92,8 +92,8 @@ StyioAnalyzer::toString(OptKwArgAST* ast, int indent) {
 std::string
 StyioAnalyzer::toString(FlexBindAST* ast, int indent) {
   return reprNodeType(ast->hint(), " ") + string("{")
-         + "\n" + make_padding(indent, " ") + "Var: " + ast->getVarName()->toString(this, indent + 1)
-         + "\n" + make_padding(indent, " ") + "Val: " + ast->getValue()->toString(this, indent + 1)
+         + "\n" + make_padding(indent, " ") + ast->getVar()->toString(this)
+         + "\n" + make_padding(indent, " ") + "val = " + ast->getValue()->toString(this, indent + 1)
          + "}";
 }
 
@@ -346,9 +346,10 @@ StyioAnalyzer::toString(CondAST* ast, int indent) {
 */
 std::string
 StyioAnalyzer::toString(BinOpAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") + "{" + "\n"
-         + make_padding(indent, " ") + "LHS: " + ast->getLhs()->toString(this, indent + 1) + "\n"
-         + make_padding(indent, " ") + "RHS: " + ast->getRhs()->toString(this, indent + 1)
+  return "{\n"
+         + make_padding(indent, " ") + "LHS : " + ast->getLHS()->toString(this, indent + 1) + "\n"
+         + make_padding(indent, " ") + "OP  : " + reprToken(ast->getOp()) + "\n"
+         + make_padding(indent, " ") + "RHS : " + ast->getRHS()->toString(this, indent + 1)
          + "}";
 }
 

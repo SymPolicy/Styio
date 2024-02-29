@@ -271,13 +271,14 @@ parse_dtype(StyioContext& context) {
 
 ArgAST*
 parse_argument(StyioContext& context) {
-  string name = "";
+  string namestr = "";
   /* it includes cur_char in the name without checking */
   do {
-    name += context.get_curr_char();
+    namestr += context.get_curr_char();
     context.move(1);
   } while (context.check_isalnum_());
 
+  NameAST* name = NameAST::Create(namestr);
   DTypeAST* data_type;
   StyioAST* default_value;
 
@@ -321,12 +322,12 @@ parse_var_tuple(StyioContext& context) {
     }
     else {
       if (context.check_drop('*')) {
-        if (context.check_drop('*')) {
-          vars.push_back(OptKwArgAST::Create(parse_id(context)));
-        }
-        else {
-          vars.push_back(OptArgAST::Create(parse_id(context)));
-        }
+        // if (context.check_drop('*')) {
+        //   vars.push_back(OptKwArgAST::Create(parse_id(context)));
+        // }
+        // else {
+        //   vars.push_back(OptArgAST::Create(parse_id(context)));
+        // }
       }
       else {
         vars.push_back(parse_argument(context));
@@ -1275,7 +1276,7 @@ parse_loop_or_iter(StyioContext& context, StyioAST* iterOverIt) {
     return new LoopAST(parse_forward(context, false));
   }
   else {
-    return new IterAST((iterOverIt), parse_forward(context, false));
+    return new IterAST(iterOverIt, parse_forward(context, false));
   }
 }
 
@@ -1388,12 +1389,12 @@ parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast) {
       if (context.check_drop('=')) {
         context.drop_all_spaces();
 
-        output = new BinOpAST(StyioNodeHint::Inc_Add, (lhs_ast), (parse_item_for_binop(context)));
+        output = BinOpAST::Create(BinOpType::Rec_Add, (lhs_ast), (parse_item_for_binop(context)));
 
         return output;
       }
       else {
-        output = new BinOpAST(StyioNodeHint::Bin_Add, (lhs_ast), (parse_item_for_binop(context)));
+        output = BinOpAST::Create(BinOpType::Add, (lhs_ast), (parse_item_for_binop(context)));
       }
     };
 
@@ -1408,12 +1409,11 @@ parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast) {
       if (context.check_drop('=')) {
         context.drop_all_spaces();
 
-        output = new BinOpAST(StyioNodeHint::Inc_Sub, (lhs_ast), (parse_item_for_binop(context)));
-
+        output = BinOpAST::Create(BinOpType::Rec_Sub, (lhs_ast), (parse_item_for_binop(context)));
         return output;
       }
       else {
-        output = new BinOpAST(StyioNodeHint::Bin_Sub, (lhs_ast), (parse_item_for_binop(context)));
+        output = BinOpAST::Create(BinOpType::Sub, (lhs_ast), (parse_item_for_binop(context)));
       }
     };
 
@@ -1429,12 +1429,12 @@ parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast) {
         context.drop_all_spaces_comments();
 
         // <ID> "**" |--
-        output = new BinOpAST(StyioNodeHint::Bin_Pow, (lhs_ast), (parse_item_for_binop(context)));
+        output = BinOpAST::Create(BinOpType::Pow, (lhs_ast), (parse_item_for_binop(context)));
       }
       else if (context.check_drop('=')) {
         context.drop_all_spaces();
 
-        output = new BinOpAST(StyioNodeHint::Inc_Mul, (lhs_ast), (parse_item_for_binop(context)));
+        output = BinOpAST::Create(BinOpType::Rec_Mul, (lhs_ast), (parse_item_for_binop(context)));
 
         return output;
       }
@@ -1443,7 +1443,7 @@ parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast) {
         context.drop_all_spaces();
 
         // <ID> "*" |--
-        output = new BinOpAST(StyioNodeHint::Bin_Mul, (lhs_ast), (parse_item_for_binop(context)));
+        output = BinOpAST::Create(BinOpType::Mul, (lhs_ast), (parse_item_for_binop(context)));
       }
     };
       // You should NOT reach this line!
@@ -1457,12 +1457,12 @@ parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast) {
       if (context.check_drop('=')) {
         context.drop_all_spaces();
 
-        output = new BinOpAST(StyioNodeHint::Inc_Div, (lhs_ast), (parse_item_for_binop(context)));
+        output = BinOpAST::Create(BinOpType::Rec_Div, (lhs_ast), (parse_item_for_binop(context)));
 
         return output;
       }
       else {
-        output = new BinOpAST(StyioNodeHint::Bin_Div, (lhs_ast), (parse_item_for_binop(context)));
+        output = BinOpAST::Create(BinOpType::Div, (lhs_ast), (parse_item_for_binop(context)));
       }
     };
 
@@ -1475,7 +1475,7 @@ parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast) {
       context.drop_all_spaces_comments();
 
       // <ID> "%" |--
-      output = new BinOpAST(StyioNodeHint::Bin_Mod, lhs_ast, (parse_item_for_binop(context)));
+      output = BinOpAST::Create(BinOpType::Mod, lhs_ast, (parse_item_for_binop(context)));
     };
 
       // You should NOT reach this line!
@@ -1798,9 +1798,20 @@ parse_func(StyioContext& context) {
         }
         /* f : type = ... */
         else if (context.check_drop('=')) {
-          context.drop_all_spaces_comments();
+          /* f : type => ... */
+          if (context.check_drop('>'))
+          {
+            context.move(-2);
+            context.drop_all_spaces_comments();
 
-          return new FuncAST(func_name, dtype, parse_forward(context, true), false);
+            return new FuncAST(func_name, dtype, parse_forward(context, true), false);
+          }
+          /* f : type = ... */
+          else {
+            context.drop_all_spaces_comments();
+
+            return new FuncAST(func_name, dtype, parse_forward(context, true), false);
+          }
         }
       }
 
@@ -2258,7 +2269,7 @@ parse_stmt(
 
         context.drop_all_spaces_comments();
 
-        return new FlexBindAST((id_ast), (parse_expr(context)));
+        return FlexBindAST::Create(VarAST::Create(id_ast), parse_expr(context));
       };
 
         // You should NOT reach this line!
@@ -2275,7 +2286,7 @@ parse_stmt(
         else {
           context.drop_white_spaces();
 
-          auto type = parse_dtype(context);
+          auto var_data_type = parse_dtype(context);
 
           context.drop_white_spaces();
 
@@ -2283,13 +2294,13 @@ parse_stmt(
             if (context.check_drop('=')) {
               context.drop_white_spaces();
 
-              return new FinalBindAST((id_ast), (parse_expr(context)));
+              return new FinalBindAST(id_ast, (parse_expr(context)));
             }
           }
           else if (context.check_drop('=')) {
             context.drop_white_spaces();
 
-            return new FlexBindAST((id_ast), (parse_expr(context)));
+            return FlexBindAST::Create(VarAST::Create(id_ast, var_data_type), (parse_expr(context)));
           }
           else {
             string errmsg = string("parse_stmt() // Expecting = or := after type, but got ") + context.get_curr_char();

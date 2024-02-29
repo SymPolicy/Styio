@@ -69,7 +69,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Var: {
+    case StyioNodeHint::Variable: {
       auto name = std::string("var");
 
       output = std::string(name);
@@ -189,85 +189,11 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Bin_Add: {
-      auto name = std::string("Add");
+    case StyioNodeHint::BinOp: {
+      auto name = std::string("BinOp");
 
       output = std::string(name);
     }
-
-    break;
-
-    case StyioNodeHint::Bin_Sub: {
-      auto name = std::string("Subtract");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Bin_Mul: {
-      auto name = std::string("Multiply");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Bin_Div: {
-      auto name = std::string("Divide");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Bin_Pow: {
-      auto name = std::string("Power");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Bin_Mod: {
-      auto name = std::string("Modulo");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Inc_Add: {
-      auto name = std::string("Add (Inc.)");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Inc_Sub: {
-      auto name = std::string("Subtract (Inc.)");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Inc_Mul: {
-      auto name = std::string("Multiply (Inc.)");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Inc_Div: {
-      auto name = std::string("Divide (Inc.)");
-
-      output = std::string(name);
-    }
-
-    break;
 
     case StyioNodeHint::Print: {
       auto name = std::string("Print");
@@ -483,7 +409,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     case StyioNodeHint::Struct: {
       auto name = std::string("Struct");
-      
+
       output = std::string(name);
     }
 
@@ -696,6 +622,45 @@ reprNodeType(StyioNodeHint type, std::string extra) {
   }
 
   return output + extra;
+}
+
+std::string
+reprToken(BinOpType token) {
+  switch (token) {
+    case BinOpType::Add:
+      return "<Add>";
+
+    case BinOpType::Sub:
+      return "<Sub>";
+
+    case BinOpType::Mul:
+      return "<Mul>";
+
+    case BinOpType::Div:
+      return "<Div>";
+
+    case BinOpType::Pow:
+      return "<Pow>";
+
+    case BinOpType::Mod:
+      return "<Mod>";
+
+    case BinOpType::Rec_Add:
+      return "+=";
+
+    case BinOpType::Rec_Sub:
+      return "-=";
+
+    case BinOpType::Rec_Mul:
+      return "*=";
+
+    case BinOpType::Rec_Div:
+      return "/=";
+
+    default:
+      return "<Undefined>";
+      break;
+  }
 }
 
 std::string
@@ -937,3 +902,71 @@ reprToken(StyioToken token) {
       return "<UNKNOWN>";
   }
 };
+
+bool
+isIntType(StyioDataType T) {
+  return (
+    T == StyioDataType::i1
+    || T == StyioDataType::i8
+    || T == StyioDataType::i16
+    || T == StyioDataType::i32
+    || T == StyioDataType::i64
+    || T == StyioDataType::i128
+  );
+}
+
+bool
+isFloatType(StyioDataType T) {
+  return (
+    T == StyioDataType::f32
+    || T == StyioDataType::f64
+  );
+}
+
+StyioDataType
+getMaxType(StyioDataType T1, StyioDataType T2) {
+  if (T1 == T2) {
+    return T1;
+  }
+  /* max(int, int) */
+  else if (isIntType(T1) && isIntType(T2)) {
+    if (T1 < T2) {
+      return T2;
+    }
+    else {
+      return T1;
+    }
+  }
+  /* max(float, float) */
+  else if (isFloatType(T1) && isFloatType(T2)) {
+    if (T1 < T2) {
+      return T2;
+    }
+    else {
+      return T1;
+    }
+  }
+  else if ((T1 == StyioDataType::i32 && T2 == StyioDataType::f64)
+    || (T1 == StyioDataType::f64 && T2 == StyioDataType::i32)) {
+    return StyioDataType::f64;
+  } 
+  else if ((T1 == StyioDataType::i1 && T2 == StyioDataType::f64)
+    || (T1 == StyioDataType::i8 && T2 == StyioDataType::f64)
+    || (T1 == StyioDataType::i16 && T2 == StyioDataType::f64)) {
+    return StyioDataType::f64;
+  }
+  else if ((T1 == StyioDataType::f64 && T2 == StyioDataType::i1)
+    || (T1 == StyioDataType::f64 && T2 == StyioDataType::i8)
+    || (T1 == StyioDataType::f64 && T2 == StyioDataType::i16)) {
+    return StyioDataType::f64;
+  }
+  else if ((T1 == StyioDataType::i64 && T2 == StyioDataType::f32)
+    || (T1 == StyioDataType::f32 && T2 == StyioDataType::i64)) {
+    return StyioDataType::f64;
+  }
+  else if (T1 == StyioDataType::undefined || T2 == StyioDataType::undefined) {
+    return StyioDataType::undefined;
+  }
+
+  return StyioDataType::undefined;
+}

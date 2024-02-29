@@ -141,7 +141,7 @@ TypeConvertAST::toStringInline(int indent, bool colorful) {
 
 string
 VarAST::toString(int indent, bool colorful) {
-  return reprNodeType(hint(), colorful, " ") + string("{ ") + Name + " : " + DType->toStringInline() + " }";
+  return reprNodeType(hint(), colorful, " ") + string("{ ") + var_name + " : " + data_type->toStringInline() + " }";
 }
 
 string
@@ -173,7 +173,7 @@ OptArgAST::toStringInline(int indent, bool colorful) {
 
 string
 OptKwArgAST::toString(int indent, bool colorful) {
-  return string("kwargs { ") + Id->toString(indent + 1, colorful) + " }";
+  return string("kwargs { ") + var_name->toString(indent + 1, colorful) + " }";
 }
 
 string
@@ -540,7 +540,7 @@ ResourceAST::toStringInline(int indent, bool colorful) {
 string
 FlexBindAST::toString(int indent, bool colorful) {
   return reprNodeType(hint(), colorful)
-         + string(" {\n") + make_padding(indent, " ") + "Var: " + varName->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + "Val: " + valExpr->toString(indent + 1, colorful) + "}";
+         + string(" {\n") + make_padding(indent, " ") + "Var: " + varName->toString(indent + 1, colorful) + "\n" + make_padding(indent, " ") + "Val: " + ValExpr->toString(indent + 1, colorful) + "}";
 }
 
 string

@@ -40,4 +40,4 @@ if __name__ == "__main__":
   # for dir_name in os.listdir(tests_path):
   #   print(f"{file_path}/{dir_name}")
   #   print(os.path.isdir(f"{file_path}/{dir_name}"))
-  extend_tests("/root/Styio/tests/codegen", 10)
+  extend_tests("/root/Styio/tests/codegen/binop", 10)
