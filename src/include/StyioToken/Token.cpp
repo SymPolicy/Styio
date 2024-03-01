@@ -607,36 +607,36 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 }
 
 std::string
-reprToken(BinOpType token) {
+reprToken(TokenKind token) {
   switch (token) {
-    case BinOpType::Add:
+    case TokenKind::Binary_Add:
       return "<Add>";
 
-    case BinOpType::Sub:
+    case TokenKind::Binary_Sub:
       return "<Sub>";
 
-    case BinOpType::Mul:
+    case TokenKind::Binary_Mul:
       return "<Mul>";
 
-    case BinOpType::Div:
+    case TokenKind::Binary_Div:
       return "<Div>";
 
-    case BinOpType::Pow:
+    case TokenKind::Binary_Pow:
       return "<Pow>";
 
-    case BinOpType::Mod:
+    case TokenKind::Binary_Mod:
       return "<Mod>";
 
-    case BinOpType::Rec_Add:
+    case TokenKind::Self_Add_Assign:
       return "+=";
 
-    case BinOpType::Rec_Sub:
+    case TokenKind::Self_Sub_Assign:
       return "-=";
 
-    case BinOpType::Rec_Mul:
+    case TokenKind::Self_Mul_Assign:
       return "*=";
 
-    case BinOpType::Rec_Div:
+    case TokenKind::Self_Div_Assign:
       return "/=";
 
     default:

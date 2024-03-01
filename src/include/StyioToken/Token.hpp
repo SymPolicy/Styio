@@ -2,8 +2,8 @@
 #ifndef STYIO_TOKEN_H_
 #define STYIO_TOKEN_H_
 
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
 
 enum class StyioDataType
 {
@@ -31,6 +31,82 @@ static std::unordered_map<std::string, StyioDataType> const DType_Table = {
   {"f32", StyioDataType::f32}
 };
 
+enum class TokenKind
+{
+  Unary_Positive,       // + a
+  Unary_Negative,       // - a
+  Binary_Add,           // a + b
+  Binary_Sub,           // a - b
+  Binary_Mul,           // a * b
+  Binary_Div,           // a / b
+  Binary_Pow,           // a ** b
+  Binary_Mod,           // a % b
+  Greater_Than,         // a > b
+  Less_Than,            // a < b
+  Greater_Than_Equal,   // a >= b
+  Less_Than_Equal,      // a <= b
+  Self_Add_Assign,      // a += b
+  Self_Sub_Assign,      // a -= b
+  Self_Mul_Assign,      // a *= b
+  Self_Div_Assign,      // a /= b
+  Bitwise_NOT,          // ~ a
+  Bitwise_AND,          // a & b
+  Bitwise_OR,           // a | b
+  Bitwise_XOR,          // a ^ b
+  Bitwise_Left_Shift,   // a << b
+  Bitwise_Right_Shift,  // a >> b
+  Logic_NOT,            // ! a
+  Logic_AND,            // a && b
+  Logic_OR,             // a || b
+  Logic_Eqaul,          // a == b
+  Logic_Not_Equal,      // a != b
+  If_Else_Flow,         // ?() => a : b
+};
+
+static std::unordered_map<TokenKind, int> const Token_Precedence_Table = {
+  {TokenKind::Unary_Positive, 14},  // + a
+  {TokenKind::Unary_Negative, 14},  // - a
+  {TokenKind::Bitwise_NOT, 14},     // ~ a
+  {TokenKind::Logic_NOT, 14},       // ! a
+
+  {TokenKind::Binary_Pow, 13},  // a ** b
+
+  {TokenKind::Binary_Mul, 12},  // a * b
+  {TokenKind::Binary_Div, 12},  // a / b
+  {TokenKind::Binary_Mod, 12},  // a % b
+
+  {TokenKind::Binary_Add, 11},  // a + b
+  {TokenKind::Binary_Sub, 11},  // a - b
+
+  {TokenKind::Bitwise_Left_Shift, 10},   // a << b
+  {TokenKind::Bitwise_Right_Shift, 10},  // a >> b
+
+  {TokenKind::Greater_Than, 9},        // a > b
+  {TokenKind::Less_Than, 9},           // a < b
+  {TokenKind::Greater_Than_Equal, 9},  // a >= b
+  {TokenKind::Less_Than_Equal, 9},     // a <= b
+
+  {TokenKind::Logic_Eqaul, 8},      // a == b
+  {TokenKind::Logic_Not_Equal, 8},  // a != b
+
+  {TokenKind::Bitwise_AND, 7},  // a & b
+
+  {TokenKind::Bitwise_XOR, 6},  // a ^ b
+
+  {TokenKind::Bitwise_OR, 5},  // a | b
+
+  {TokenKind::Logic_AND, 4},  // a && b
+
+  {TokenKind::Logic_OR, 3},  // a || b
+
+  {TokenKind::If_Else_Flow, 2},  // ?() => a : b
+
+  {TokenKind::Self_Add_Assign, 1},  // a += b
+  {TokenKind::Self_Sub_Assign, 1},  // a -= b
+  {TokenKind::Self_Mul_Assign, 1},  // a *= b
+  {TokenKind::Self_Div_Assign, 1},  // a /= b
+};
+
 enum class StyioContextType
 {
 };
@@ -55,8 +131,6 @@ enum class StyioPathType
 
   remote_windows
 };
-
-
 
 enum class StyioNodeHint
 {
@@ -307,20 +381,6 @@ enum class IteratorType
   WithLayer,
 };
 
-enum class BinOpType
-{
-  Add, // a + b
-  Sub, // a - b
-  Mul, // a * b
-  Div, // a / b
-  Pow, // a ^ b
-  Mod, // a % b
-  Rec_Add, // a += b
-  Rec_Sub, // a -= b
-  Rec_Mul, // a *= b
-  Rec_Div, // a /= b
-};
-
 enum class LogicType
 {
   RAW,
@@ -467,7 +527,7 @@ std::string
 reprToken(CompType token);
 
 std::string
-reprToken(BinOpType token);
+reprToken(TokenKind token);
 
 std::string
 reprToken(LogicType token);

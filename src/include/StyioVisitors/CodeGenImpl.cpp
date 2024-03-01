@@ -413,7 +413,7 @@ StyioToLLVMIR::toLLVMIR(BinOpAST* ast) {
   llvm::Value* r_val = ast->getRHS()->toLLVMIR(this);
 
   switch (ast->getOp()) {
-    case BinOpType::Add: {
+    case TokenKind::Binary_Add: {
       if (isSignedIntTy(data_type)) {
         return theBuilder->CreateAdd(l_val, r_val);
       }
@@ -422,7 +422,7 @@ StyioToLLVMIR::toLLVMIR(BinOpAST* ast) {
       }
     } break;
 
-    case BinOpType::Sub: {
+    case TokenKind::Binary_Sub: {
       if (isSignedIntTy(data_type)) {
         return theBuilder->CreateSub(l_val, r_val);
       }
@@ -431,7 +431,7 @@ StyioToLLVMIR::toLLVMIR(BinOpAST* ast) {
       }
     } break;
 
-    case BinOpType::Mul: {
+    case TokenKind::Binary_Mul: {
       if (isSignedIntTy(data_type)) {
         return theBuilder->CreateMul(l_val, r_val);
       }
@@ -440,7 +440,7 @@ StyioToLLVMIR::toLLVMIR(BinOpAST* ast) {
       }
     } break;
 
-    case BinOpType::Div: {
+    case TokenKind::Binary_Div: {
       /* Signed Integer */
       if (isSignedIntTy(data_type)) {
         return theBuilder->CreateSDiv(l_val, r_val);
@@ -450,22 +450,22 @@ StyioToLLVMIR::toLLVMIR(BinOpAST* ast) {
       }
     } break;
 
-    case BinOpType::Pow: {
+    case TokenKind::Binary_Pow: {
     } break;
 
-    case BinOpType::Mod: {
+    case TokenKind::Binary_Mod: {
     } break;
 
-    case BinOpType::Rec_Add: {
+    case TokenKind::Self_Add_Assign: {
     } break;
 
-    case BinOpType::Rec_Sub: {
+    case TokenKind::Self_Sub_Assign: {
     } break;
 
-    case BinOpType::Rec_Mul: {
+    case TokenKind::Self_Mul_Assign: {
     } break;
 
-    case BinOpType::Rec_Div: {
+    case TokenKind::Self_Div_Assign: {
     } break;
 
     default:
