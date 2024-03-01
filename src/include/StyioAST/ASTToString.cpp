@@ -151,7 +151,7 @@ VarAST::toStringInline(int indent, bool colorful) {
 
 string
 ArgAST::toString(int indent, bool colorful) {
-  std::cout << "arg to string at " << this << " type " << reprDataType(getDType()->getDType()) << std::endl;
+  std::cout << "arg to string at " << this << " type " << reprDataType(getDType()->getType()) << std::endl;
   return reprNodeType(hint(), colorful, " ") + string("{ ") + Name + " : " + DType->toStringInline() + " }";
 }
 

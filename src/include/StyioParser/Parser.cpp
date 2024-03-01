@@ -2200,7 +2200,7 @@ parse_print(StyioContext& context) {
     context.drop_all_spaces_comments();
 
     if (context.check_drop(')')) {
-      return new PrintAST((exprs));
+      return new PrintAST(exprs);
     }
     else {
       exprs.push_back(parse_expr(context));
@@ -2208,7 +2208,7 @@ parse_print(StyioContext& context) {
   } while (context.check_drop(','));
 
   context.find_drop_panic(')');
-  return new PrintAST((exprs));
+  return new PrintAST(exprs);
 }
 
 // StyioAST* parse_panic (

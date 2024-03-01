@@ -346,7 +346,7 @@ StyioAnalyzer::toString(CondAST* ast, int indent) {
 */
 std::string
 StyioAnalyzer::toString(BinOpAST* ast, int indent) {
-  return "{\n"
+  return reprNodeType(ast->hint(), " : ") + reprDataType(ast->getType()) + " {" + "\n"
          + make_padding(indent, " ") + "LHS : " + ast->getLHS()->toString(this, indent + 1) + "\n"
          + make_padding(indent, " ") + "OP  : " + reprToken(ast->getOp()) + "\n"
          + make_padding(indent, " ") + "RHS : " + ast->getRHS()->toString(this, indent + 1)

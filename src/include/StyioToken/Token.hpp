@@ -103,6 +103,9 @@ enum class StyioNodeHint
 
   NumConvert,
 
+  // Binary Operation
+  BinOp,
+
   // -----------------
 
   /* -----------------
@@ -153,9 +156,6 @@ enum class StyioNodeHint
   // Call
   Call,
 
-  // Binary Operation
-  BinOp,
-
   // Conditionals
   CondFlow_True,
   CondFlow_False,
@@ -205,7 +205,7 @@ enum class StyioNodeHint
   // =
   MutBind,
   // :=
-  FixBind,
+  FinalBind,
   // -----------------
 
   /* -----------------
@@ -475,7 +475,7 @@ reprToken(LogicType token);
 std::string
 reprToken(StyioToken token);
 
-bool isIntType(StyioDataType T);
+bool isSignedIntTy(StyioDataType T);
 
 bool isFloatType(StyioDataType T);
 

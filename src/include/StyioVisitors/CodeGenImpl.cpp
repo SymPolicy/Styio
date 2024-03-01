@@ -408,67 +408,72 @@ StyioToLLVMIR::toLLVMIR(SizeOfAST* ast) {
 
 llvm::Value*
 StyioToLLVMIR::toLLVMIR(BinOpAST* ast) {
-  llvm::Value* output = theBuilder->getInt32(0);
-
+  StyioDataType data_type = ast->getType();
   llvm::Value* l_val = ast->getLHS()->toLLVMIR(this);
   llvm::Value* r_val = ast->getRHS()->toLLVMIR(this);
 
   switch (ast->getOp()) {
     case BinOpType::Add: {
-      return theBuilder->CreateAdd(l_val, r_val);
-    }
-
-    break;
+      if (isSignedIntTy(data_type)) {
+        return theBuilder->CreateAdd(l_val, r_val);
+      }
+      else if (isFloatType(data_type)) {
+        return theBuilder->CreateFAdd(l_val, r_val);
+      }
+    } break;
 
     case BinOpType::Sub: {
-      return theBuilder->CreateSub(l_val, r_val);
-    }
-
-    break;
+      if (isSignedIntTy(data_type)) {
+        return theBuilder->CreateSub(l_val, r_val);
+      }
+      else if (isFloatType(data_type)) {
+        return theBuilder->CreateFSub(l_val, r_val);
+      }
+    } break;
 
     case BinOpType::Mul: {
-      return theBuilder->CreateMul(l_val, r_val);
-    }
-
-    break;
+      if (isSignedIntTy(data_type)) {
+        return theBuilder->CreateMul(l_val, r_val);
+      }
+      else if (isFloatType(data_type)) {
+        return theBuilder->CreateFMul(l_val, r_val);
+      }
+    } break;
 
     case BinOpType::Div: {
-      // llvm_ir_builder -> CreateFDiv(l_val, r_val, "add");
-    }
+      /* Signed Integer */
+      if (isSignedIntTy(data_type)) {
+        return theBuilder->CreateSDiv(l_val, r_val);
+      }
+      else if (isFloatType(data_type)) {
+        return theBuilder->CreateFDiv(l_val, r_val);
+      }
+    } break;
 
-    break;
+    case BinOpType::Pow: {
+    } break;
 
-    case BinOpType::Pow:
-      // llvm_ir_builder -> CreateFAdd(l_val, r_val, "add");
+    case BinOpType::Mod: {
+    } break;
 
-      break;
+    case BinOpType::Rec_Add: {
+    } break;
 
-    case BinOpType::Mod:
-      // llvm_ir_builder -> CreateFAdd(l_val, r_val, "add");
+    case BinOpType::Rec_Sub: {
+    } break;
 
-      break;
+    case BinOpType::Rec_Mul: {
+    } break;
 
-    case BinOpType::Rec_Add:
-      /* code */
-      break;
-
-    case BinOpType::Rec_Sub:
-      /* code */
-      break;
-
-    case BinOpType::Rec_Mul:
-      /* code */
-      break;
-
-    case BinOpType::Rec_Div:
-      /* code */
-      break;
+    case BinOpType::Rec_Div: {
+    } break;
 
     default:
       break;
   }
 
-  return output;
+  throw StyioNotImplemented(std::string("BinOp Unrecognized Operator: ") + reprToken(ast->getOp()) + " " + reprDataType(ast->getType()));
+  return nullptr;
 }
 
 llvm::Value*
@@ -534,7 +539,7 @@ StyioToLLVMIR::toLLVMIR(FlexBindAST* ast) {
   // Load the value.
   // return llvm_ir_builder->CreateLoad(A->getAllocatedType(), A, Name.c_str());
 
-  const string& varname = ast->getName();
+  const string& varname = ast->getNameAsStr();
   llvm::Type* var_type;
 
   if (mut_vars.contains(varname)) {

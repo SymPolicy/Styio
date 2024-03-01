@@ -75,6 +75,20 @@ StyioAnalyzer::typeInfer(OptKwArgAST* ast) {
 
 void
 StyioAnalyzer::typeInfer(FlexBindAST* ast) {
+  auto var_type = ast->getVar()->getType()->getType();
+  /* FlexBindAST -> VarAST -> DTypeAST */
+  if (var_type != StyioDataType::undefined) {
+    switch (ast->getValue()->hint()) {
+      case StyioNodeHint::BinOp: {
+        static_cast<BinOpAST*>(ast->getValue())->setDType(var_type);
+      } break;
+
+      default:
+        break;
+    }
+  }
+
+  ast->getValue()->typeInfer(this);
 }
 
 void
@@ -131,30 +145,88 @@ StyioAnalyzer::typeInfer(CondAST* ast) {
 */
 void
 StyioAnalyzer::typeInfer(BinOpAST* ast) {
-  auto op = ast->getOp();
   auto lhs = ast->getLHS();
   auto rhs = ast->getRHS();
-  auto lhs_hint = ast->getLHS()->hint();
-  auto rhs_hint = ast->getRHS()->hint();
 
-  if (lhs_hint == StyioNodeHint::Int && rhs_hint == StyioNodeHint::Int) {
-    auto lhs_int = static_cast<IntAST*>(ast->getLHS());
-    auto rhs_int = static_cast<IntAST*>(ast->getRHS());
+  if (ast->getType() == StyioDataType::undefined) {
+    lhs->typeInfer(this);
+    rhs->typeInfer(this);
 
-    if (op == BinOpType::Add || op == BinOpType::Sub || op == BinOpType::Mul) {
-      ast->setDType(getMaxType(lhs_int->getType(), rhs_int->getType()));
+    auto op = ast->getOp();
+    auto lhs_hint = lhs->hint();
+    auto rhs_hint = rhs->hint();
+
+    if (lhs_hint == StyioNodeHint::BinOp && rhs_hint == StyioNodeHint::Int) {
+      auto lhs_expr = static_cast<BinOpAST*>(lhs);
+      auto rhs_expr = static_cast<IntAST*>(rhs);
+
+      if (op == BinOpType::Add || op == BinOpType::Sub || op == BinOpType::Mul || op == BinOpType::Div) {
+        ast->setDType(getMaxType(lhs_expr->getType(), rhs_expr->getType()));
+      }
     }
-    else if (op == BinOpType::Div) {
-      if (lhs_int->getValue() == "0") {
+    else if (lhs_hint == StyioNodeHint::BinOp && rhs_hint == StyioNodeHint::Float) {
+      auto lhs_binop = static_cast<BinOpAST*>(lhs);
+      auto rhs_float = static_cast<FloatAST*>(rhs);
+
+      if (op == BinOpType::Add || op == BinOpType::Sub || op == BinOpType::Mul || op == BinOpType::Div) {
+        ast->setDType(getMaxType(lhs_binop->getType(), rhs_float->getType()));
+      }
+    }
+    else if (lhs_hint == StyioNodeHint::Int && rhs_hint == StyioNodeHint::Int) {
+      auto lhs_int = static_cast<IntAST*>(lhs);
+      auto rhs_int = static_cast<IntAST*>(rhs);
+
+      if (op == BinOpType::Add || op == BinOpType::Sub || op == BinOpType::Mul) {
         ast->setDType(getMaxType(lhs_int->getType(), rhs_int->getType()));
       }
-      
+      else if (op == BinOpType::Div) {
+        // 0 / n = 0
+        if (std::stoi(lhs_int->getValue()) == 0) {
+          ast->setDType(getMaxType(lhs_int->getType(), rhs_int->getType()));
+        }
+      }
     }
-    
+    else if (lhs_hint == StyioNodeHint::Float && rhs_hint == StyioNodeHint::Float) {
+      auto lhs_float = static_cast<FloatAST*>(lhs);
+      auto rhs_float = static_cast<FloatAST*>(rhs);
+
+      if (op == BinOpType::Add || op == BinOpType::Sub || op == BinOpType::Mul || op == BinOpType::Div) {
+        ast->setDType(getMaxType(lhs_float->getType(), rhs_float->getType()));
+      }
+    }
+    else if (lhs_hint == StyioNodeHint::Int && rhs_hint == StyioNodeHint::Float) {
+      auto lhs_int = static_cast<IntAST*>(lhs);
+      auto rhs_float = static_cast<FloatAST*>(rhs);
+
+      if (op == BinOpType::Add || op == BinOpType::Sub || op == BinOpType::Mul || op == BinOpType::Div) {
+        ast->setDType(getMaxType(lhs_int->getType(), rhs_float->getType()));
+      }
+    }
+    else if (lhs_hint == StyioNodeHint::Float && rhs_hint == StyioNodeHint::Int) {
+      auto lhs_float = static_cast<FloatAST*>(lhs);
+      auto rhs_int = static_cast<IntAST*>(rhs);
+
+      if (op == BinOpType::Add || op == BinOpType::Sub || op == BinOpType::Mul || op == BinOpType::Div) {
+        ast->setDType(getMaxType(lhs_float->getType(), rhs_int->getType()));
+      }
+    }
   }
-  else if (lhs_hint == StyioNodeHint::Float && rhs_hint == StyioNodeHint::Float) {
+  else {
+    /* transfer the type of this binop to the child binop */
+    if (lhs->hint() == StyioNodeHint::BinOp) {
+      auto lhs_binop = static_cast<BinOpAST*>(lhs);
+      lhs_binop->setDType(ast->getType());
+      lhs->typeInfer(this);
+    }
+
+    if (rhs->hint() == StyioNodeHint::BinOp) {
+      auto rhs_binop = static_cast<BinOpAST*>(rhs);
+      rhs_binop->setDType(ast->getType());
+      rhs->typeInfer(this);
+    }
+
+    return;
   }
-  
 }
 
 void
@@ -273,8 +345,7 @@ void
 StyioAnalyzer::typeInfer(FuncAST* ast) {
   func_defs[ast->getFuncName()] = ast;
 
-  if (ast->getForward()->getRetExpr() != nullptr)
-  {
+  if (ast->getForward()->getRetExpr() != nullptr) {
     std::cout << "type infer func ast get ret type" << std::endl;
   }
 }

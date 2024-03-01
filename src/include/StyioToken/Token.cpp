@@ -185,79 +185,61 @@ reprNodeType(StyioNodeHint type, std::string extra) {
       auto name = std::string("SizeOf");
 
       output = std::string(name);
-    }
-
-    break;
+    } break;
 
     case StyioNodeHint::BinOp: {
       auto name = std::string("BinOp");
 
       output = std::string(name);
-    }
+    } break;
 
     case StyioNodeHint::Print: {
       auto name = std::string("Print");
 
       output = std::string(name);
-    }
-
-    break;
+    } break;
 
     case StyioNodeHint::ReadFile: {
       auto name = std::string("Read File");
 
       output = std::string(name);
-    }
-
-    break;
+    } break;
 
     case StyioNodeHint::Call: {
       auto name = std::string("Call");
 
       output = std::string(name);
-    }
-
-    break;
+    } break;
 
     case StyioNodeHint::Access: {
       auto name = std::string("Access");
 
       output = std::string(name);
-    }
-
-    break;
+    } break;
 
     case StyioNodeHint::Access_By_Name: {
       auto name = std::string("Access by Name");
 
       output = std::string(name);
-    }
-
-    break;
+    } break;
 
     case StyioNodeHint::Access_By_Index: {
       auto name = std::string("Access by Index");
 
       output = std::string(name);
-    }
-
-    break;
+    } break;
 
     case StyioNodeHint::Get_Index_By_Value: {
       auto name = std::string("Get Index by Value");
 
       output = std::string(name);
-    }
-
-    break;
+    } break;
 
     case StyioNodeHint::Get_Indices_By_Many_Values: {
       auto name = std::string("Get Indices by Many Value");
 
       output = std::string(name);
-    }
-
-    break;
+    } break;
 
     case StyioNodeHint::Append_Value: {
       auto name = std::string("Append");
@@ -377,7 +359,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::FixBind: {
+    case StyioNodeHint::FinalBind: {
       output = std::string("Binding (Final)");
     }
 
@@ -904,7 +886,7 @@ reprToken(StyioToken token) {
 };
 
 bool
-isIntType(StyioDataType T) {
+isSignedIntTy(StyioDataType T) {
   return (
     T == StyioDataType::i1
     || T == StyioDataType::i8
@@ -929,7 +911,7 @@ getMaxType(StyioDataType T1, StyioDataType T2) {
     return T1;
   }
   /* max(int, int) */
-  else if (isIntType(T1) && isIntType(T2)) {
+  else if (isSignedIntTy(T1) && isSignedIntTy(T2)) {
     if (T1 < T2) {
       return T2;
     }
