@@ -45,7 +45,7 @@ public:
       curr_pos(0) {
   }
 
-  static StyioContext* Create (
+  static StyioContext* Create(
     const string& file_name,
     const string& code_text,
     vector<pair<size_t, size_t>> line_seps
@@ -495,7 +495,7 @@ parse_size_of(StyioContext& context);
 */
 CallAST*
 parse_call(
-  StyioContext& context, 
+  StyioContext& context,
   NameAST* func_name
 );
 

@@ -67,13 +67,13 @@ StyioAnalyzer::toString(TypeConvertAST* ast, int indent) {
 
 std::string
 StyioAnalyzer::toString(VarAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") 
+  return reprNodeType(ast->hint(), " ")
          + string("{ ") + ast->getNameAsStr() + " : " + ast->getType()->getTypeName() + " }";
 }
 
 std::string
 StyioAnalyzer::toString(ArgAST* ast, int indent) {
-  return reprNodeType(ast->hint(), " ") 
+  return reprNodeType(ast->hint(), " ")
          + string("{ ") + ast->getName() + " : " + ast->getDType()->getTypeName() + " }";
 }
 
