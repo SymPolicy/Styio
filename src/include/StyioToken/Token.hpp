@@ -57,6 +57,7 @@ enum class TokenKind
   Bitwise_Right_Shift,  // a >> b
   Logic_NOT,            // ! a
   Logic_AND,            // a && b
+  Logic_XOR,            // a ⊕ b
   Logic_OR,             // a || b
   Logic_Eqaul,          // a == b
   Logic_Not_Equal,      // a != b
@@ -64,42 +65,40 @@ enum class TokenKind
 };
 
 static std::unordered_map<TokenKind, int> const Token_Precedence_Table = {
-  {TokenKind::Unary_Positive, 14},  // + a
-  {TokenKind::Unary_Negative, 14},  // - a
-  {TokenKind::Bitwise_NOT, 14},     // ~ a
-  {TokenKind::Logic_NOT, 14},       // ! a
+  {TokenKind::Unary_Positive, 999},  // + a
+  {TokenKind::Unary_Negative, 999},  // - a
+  {TokenKind::Bitwise_NOT, 999},     // ~ a
+  {TokenKind::Logic_NOT, 999},       // ! a
 
-  {TokenKind::Binary_Pow, 13},  // a ** b
+  {TokenKind::Binary_Pow, 704},  // a ** b
 
-  {TokenKind::Binary_Mul, 12},  // a * b
-  {TokenKind::Binary_Div, 12},  // a / b
-  {TokenKind::Binary_Mod, 12},  // a % b
+  {TokenKind::Binary_Mul, 703},  // a * b
+  {TokenKind::Binary_Div, 703},  // a / b
+  {TokenKind::Binary_Mod, 703},  // a % b
 
-  {TokenKind::Binary_Add, 11},  // a + b
-  {TokenKind::Binary_Sub, 11},  // a - b
+  {TokenKind::Binary_Add, 702},  // a + b
+  {TokenKind::Binary_Sub, 702},  // a - b
 
-  {TokenKind::Bitwise_Left_Shift, 10},   // a << b
-  {TokenKind::Bitwise_Right_Shift, 10},  // a >> b
+  {TokenKind::Bitwise_Left_Shift, 701},   // a << b
+  {TokenKind::Bitwise_Right_Shift, 701},  // a >> b
 
-  {TokenKind::Greater_Than, 9},        // a > b
-  {TokenKind::Less_Than, 9},           // a < b
-  {TokenKind::Greater_Than_Equal, 9},  // a >= b
-  {TokenKind::Less_Than_Equal, 9},     // a <= b
+  {TokenKind::Greater_Than, 502},        // a > b
+  {TokenKind::Less_Than, 502},           // a < b
+  {TokenKind::Greater_Than_Equal, 502},  // a >= b
+  {TokenKind::Less_Than_Equal, 502},     // a <= b
 
-  {TokenKind::Logic_Eqaul, 8},      // a == b
-  {TokenKind::Logic_Not_Equal, 8},  // a != b
+  {TokenKind::Logic_Eqaul, 501},      // a == b
+  {TokenKind::Logic_Not_Equal, 501},  // a != b
 
-  {TokenKind::Bitwise_AND, 7},  // a & b
+  {TokenKind::Bitwise_AND, 303},  // a & b
+  {TokenKind::Bitwise_XOR, 302},  // a ^ b
+  {TokenKind::Bitwise_OR, 301},  // a | b
 
-  {TokenKind::Bitwise_XOR, 6},  // a ^ b
+  {TokenKind::Logic_AND, 203},  // a && b
+  {TokenKind::Logic_XOR, 202},  // a ⊕ b
+  {TokenKind::Logic_OR, 201},  // a || b
 
-  {TokenKind::Bitwise_OR, 5},  // a | b
-
-  {TokenKind::Logic_AND, 4},  // a && b
-
-  {TokenKind::Logic_OR, 3},  // a || b
-
-  {TokenKind::If_Else_Flow, 2},  // ?() => a : b
+  {TokenKind::If_Else_Flow, 101},  // ?() => a : b
 
   {TokenKind::Self_Add_Assign, 1},  // a += b
   {TokenKind::Self_Sub_Assign, 1},  // a -= b
