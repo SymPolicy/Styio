@@ -1377,9 +1377,11 @@ parse_loop(StyioContext& context) {
 }
 
 /*
-  += -= *= /= should be recognized before entering parse_binop,
+  The LHS of BinOp should be recognized before entering parse_binop_with_lhs
+
+  += -= *= /= should be recognized before entering parse_binop_with_lhs,
   and should be treated as a statement rather than a binary operation expression
-  parse_binop only handle the following operators:
+  parse_binop_with_lhs only handle the following operators:
 
   Unary_Positive + a
   Unary_Negative - a
@@ -1393,7 +1395,7 @@ parse_loop(StyioContext& context) {
   For boolean expressions, go to parse_bool_expr.
 */
 BinOpAST*
-parse_binop(StyioContext& context, StyioAST* lhs_ast) {
+parse_binop_with_lhs(StyioContext& context, StyioAST* lhs_ast) {
   BinOpAST* output;
 
   context.drop_all_spaces_comments();

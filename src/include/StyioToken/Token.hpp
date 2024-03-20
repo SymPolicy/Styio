@@ -59,8 +59,8 @@ enum class TokenKind
   Logic_AND,            // a && b
   Logic_XOR,            // a ⊕ b
   Logic_OR,             // a || b
-  Equal,          // a == b
-  Not_Equal,      // a != b
+  Equal,                // a == b
+  Not_Equal,            // a != b
   If_Else_Flow,         // ?() => a : b
 };
 
@@ -92,11 +92,11 @@ static std::unordered_map<TokenKind, int> const Token_Precedence_Table = {
 
   {TokenKind::Bitwise_AND, 303},  // a & b
   {TokenKind::Bitwise_XOR, 302},  // a ^ b
-  {TokenKind::Bitwise_OR, 301},  // a | b
+  {TokenKind::Bitwise_OR, 301},   // a | b
 
   {TokenKind::Logic_AND, 203},  // a && b
   {TokenKind::Logic_XOR, 202},  // a ⊕ b
-  {TokenKind::Logic_OR, 201},  // a || b
+  {TokenKind::Logic_OR, 201},   // a || b
 
   {TokenKind::If_Else_Flow, 101},  // ?() => a : b
 
@@ -116,8 +116,8 @@ static std::unordered_map<TokenKind, std::string> const Token_String_Map = {
   {TokenKind::Binary_Add, "+"},  // a + b
   {TokenKind::Binary_Sub, "-"},  // a - b
 
-  {TokenKind::Greater_Than, ">"},        // a > b
-  {TokenKind::Less_Than, "<"},           // a < b
+  {TokenKind::Greater_Than, ">"},         // a > b
+  {TokenKind::Less_Than, "<"},            // a < b
   {TokenKind::Greater_Than_Equal, ">="},  // a >= b
   {TokenKind::Less_Than_Equal, "<="},     // a <= b
 
@@ -126,16 +126,48 @@ static std::unordered_map<TokenKind, std::string> const Token_String_Map = {
 
   {TokenKind::Bitwise_AND, "&"},  // a & b
   {TokenKind::Bitwise_XOR, "^"},  // a ^ b
-  {TokenKind::Bitwise_OR, "|"},  // a | b
+  {TokenKind::Bitwise_OR, "|"},   // a | b
 
   {TokenKind::Logic_AND, "&&"},  // a && b
-  {TokenKind::Logic_XOR, "⊕"},  // a ⊕ b
-  {TokenKind::Logic_OR, "||"},  // a || b
+  {TokenKind::Logic_XOR, "⊕"},   // a ⊕ b
+  {TokenKind::Logic_OR, "||"},   // a || b
 
   {TokenKind::Self_Add_Assign, "+="},  // a += b
   {TokenKind::Self_Sub_Assign, "-="},  // a -= b
   {TokenKind::Self_Mul_Assign, "*="},  // a *= b
   {TokenKind::Self_Div_Assign, "/="},  // a /= b
+};
+
+static std::unordered_map<TokenKind, std::string> const Op_Tok_Map = {
+  {"**", TokenKind::Binary_Pow},  // a ** b
+
+  {"*", TokenKind::Binary_Mul},  // a * b
+  {"/", TokenKind::Binary_Div},  // a / b
+  {"%", TokenKind::Binary_Mod},  // a % b
+
+  {"+", TokenKind::Binary_Add},  // a + b
+  {"-", TokenKind::Binary_Sub},  // a - b
+
+  {">", TokenKind::Greater_Than},         // a > b
+  {"<", TokenKind::Less_Than},            // a < b
+  {">=", TokenKind::Greater_Than_Equal},  // a >= b
+  {"<=", TokenKind::Less_Than_Equal},     // a <= b
+
+  {"==", TokenKind::Equal},      // a == b
+  {"!=", TokenKind::Not_Equal},  // a != b
+
+  {"&", TokenKind::Bitwise_AND},  // a & b
+  {"^", TokenKind::Bitwise_XOR},  // a ^ b
+  {"|", TokenKind::Bitwise_OR},   // a | b
+
+  {"&&", TokenKind::Logic_AND},  // a && b
+  {"⊕", TokenKind::Logic_XOR},   // a ⊕ b
+  {"||", TokenKind::Logic_OR},   // a || b
+
+  {"+=", TokenKind::Self_Add_Assign},  // a += b
+  {"-=", TokenKind::Self_Sub_Assign},  // a -= b
+  {"*=", TokenKind::Self_Mul_Assign},  // a *= b
+  {"/=", TokenKind::Self_Div_Assign},  // a /= b
 };
 
 enum class StyioContextType
