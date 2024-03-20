@@ -2,6 +2,8 @@
 #ifndef STYIO_PARSER_H_
 #define STYIO_PARSER_H_
 
+#include "../StyioToken/Token.hpp"
+
 using std::pair;
 using std::string;
 using std::unordered_map;
@@ -144,6 +146,12 @@ public:
     }
   }
 
+  void move_until(const string& value) {
+    while (not check(value)) {
+      move(1);
+    }
+  }
+
   /* Check & Drop */
   bool check_drop(char value) {
     if (check(value)) {
@@ -247,8 +255,51 @@ public:
   }
 
   /* Peak Check */
-  bool peak_check(int steps, char value) {
+  bool check_ahead(int steps, char value) {
     return (code.at(curr_pos + steps) == value);
+  }
+
+  /*
+    usage:
+    1. the current position is after a known operator
+    like: a + b
+             ^     right here, after +, the current position is a white space
+    2. there is a variable or a value behind the current position
+    like: 1 + 2
+             ^     this space is followed by the value of 2
+    3. the expected operator is behind that variable or value
+    like: 1 + 2 * 3
+             ^     curr_pos is a white space, the expected operator is *, which is behind 2.
+  */
+  string peak_operator(int num) {
+    int tmp_pos = curr_pos;
+    for (size_t i = 0; i < num; i++) {
+      while (isspace(code.at(tmp_pos))) {
+        tmp_pos += 1;
+      }
+      /* match */ /* like */ /* this */
+      while (code.compare(tmp_pos, 2, string("/*")) == 0) {
+        tmp_pos += 2;
+        while (code.compare(tmp_pos, 2, string("*/")) != 0) {
+          tmp_pos += 1;
+        } /* warning: no boundary check */
+      }   /* warning: no boundary check */
+      while (isalnum(code.at(tmp_pos)) || (code.at(tmp_pos) == '_')) {
+        tmp_pos += 1;
+      }
+
+      int offset = 0;
+      /* that is: not space, not alpha, not number, not _ , and not comment*/
+      while (
+        not(isspace(code.at(tmp_pos))                      /* not space */
+            || code.compare(tmp_pos, 2, string("/*")) != 0 /* not comment, not start with `/*` */
+            || isalnum(code.at(tmp_pos)) || (code.at(tmp_pos) == '_') /* not alpha, not number, not _ */)
+      ) {
+        offset += 1;
+      }
+
+      return code.substr(tmp_pos, offset);
+    }
   }
 
   bool peak_isdigit(int steps) {
@@ -512,13 +563,24 @@ BinOpAST*
 parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast);
 
 /*
-  parse_item_for_cond
+  parse_cond_item
 */
 StyioAST*
-parse_item_for_cond(StyioContext& context);
+parse_cond_item(StyioContext& context);
 
 /*
-  parse_cond
+  parse_cond: parse conditional expressions
+
+  The following operators can be handled by parse_cond():
+  >  Greater_Than
+  <  Less_Than
+  >= Greater_Than_Equal
+  <= Less_Than_Equal
+  == Eqaul
+  != Not_Equal
+  && Logic_AND
+  ⊕ Logic_XOR
+  || Logic_OR
 */
 CondAST*
 parse_cond(StyioContext& context);

@@ -53,14 +53,14 @@ enum class TokenKind
   Bitwise_AND,          // a & b
   Bitwise_OR,           // a | b
   Bitwise_XOR,          // a ^ b
-  Bitwise_Left_Shift,   // a << b
-  Bitwise_Right_Shift,  // a >> b
+  Bitwise_Left_Shift,   // shl(x, y)
+  Bitwise_Right_Shift,  // shr(x, y)
   Logic_NOT,            // ! a
   Logic_AND,            // a && b
   Logic_XOR,            // a ⊕ b
   Logic_OR,             // a || b
-  Logic_Eqaul,          // a == b
-  Logic_Not_Equal,      // a != b
+  Equal,          // a == b
+  Not_Equal,      // a != b
   If_Else_Flow,         // ?() => a : b
 };
 
@@ -79,16 +79,16 @@ static std::unordered_map<TokenKind, int> const Token_Precedence_Table = {
   {TokenKind::Binary_Add, 702},  // a + b
   {TokenKind::Binary_Sub, 702},  // a - b
 
-  {TokenKind::Bitwise_Left_Shift, 701},   // a << b
-  {TokenKind::Bitwise_Right_Shift, 701},  // a >> b
+  {TokenKind::Bitwise_Left_Shift, 701},   // shl(x, y)
+  {TokenKind::Bitwise_Right_Shift, 701},  // shr(x, y)
 
   {TokenKind::Greater_Than, 502},        // a > b
   {TokenKind::Less_Than, 502},           // a < b
   {TokenKind::Greater_Than_Equal, 502},  // a >= b
   {TokenKind::Less_Than_Equal, 502},     // a <= b
 
-  {TokenKind::Logic_Eqaul, 501},      // a == b
-  {TokenKind::Logic_Not_Equal, 501},  // a != b
+  {TokenKind::Equal, 501},      // a == b
+  {TokenKind::Not_Equal, 501},  // a != b
 
   {TokenKind::Bitwise_AND, 303},  // a & b
   {TokenKind::Bitwise_XOR, 302},  // a ^ b
@@ -104,6 +104,38 @@ static std::unordered_map<TokenKind, int> const Token_Precedence_Table = {
   {TokenKind::Self_Sub_Assign, 1},  // a -= b
   {TokenKind::Self_Mul_Assign, 1},  // a *= b
   {TokenKind::Self_Div_Assign, 1},  // a /= b
+};
+
+static std::unordered_map<TokenKind, std::string> const Token_String_Map = {
+  {TokenKind::Binary_Pow, "**"},  // a ** b
+
+  {TokenKind::Binary_Mul, "*"},  // a * b
+  {TokenKind::Binary_Div, "/"},  // a / b
+  {TokenKind::Binary_Mod, "%"},  // a % b
+
+  {TokenKind::Binary_Add, "+"},  // a + b
+  {TokenKind::Binary_Sub, "-"},  // a - b
+
+  {TokenKind::Greater_Than, ">"},        // a > b
+  {TokenKind::Less_Than, "<"},           // a < b
+  {TokenKind::Greater_Than_Equal, ">="},  // a >= b
+  {TokenKind::Less_Than_Equal, "<="},     // a <= b
+
+  {TokenKind::Equal, "=="},      // a == b
+  {TokenKind::Not_Equal, "!="},  // a != b
+
+  {TokenKind::Bitwise_AND, "&"},  // a & b
+  {TokenKind::Bitwise_XOR, "^"},  // a ^ b
+  {TokenKind::Bitwise_OR, "|"},  // a | b
+
+  {TokenKind::Logic_AND, "&&"},  // a && b
+  {TokenKind::Logic_XOR, "⊕"},  // a ⊕ b
+  {TokenKind::Logic_OR, "||"},  // a || b
+
+  {TokenKind::Self_Add_Assign, "+="},  // a += b
+  {TokenKind::Self_Sub_Assign, "-="},  // a -= b
+  {TokenKind::Self_Mul_Assign, "*="},  // a *= b
+  {TokenKind::Self_Div_Assign, "/="},  // a /= b
 };
 
 enum class StyioContextType

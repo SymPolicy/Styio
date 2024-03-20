@@ -153,7 +153,7 @@ parse_fmt_str(StyioContext& context) {
 
   while (not context.check('\"')) {
     if (context.check('{')) {
-      if (context.peak_check(1, '{')) {
+      if (context.check_ahead(1, '{')) {
         textStr += context.get_curr_char();
         context.move(2);
       }
@@ -169,7 +169,7 @@ parse_fmt_str(StyioContext& context) {
       }
     }
     else if (context.check('}')) {
-      if (context.peak_check(1, '}')) {
+      if (context.check_ahead(1, '}')) {
         textStr += context.get_curr_char();
         context.move(2);
       }
@@ -399,7 +399,7 @@ parse_resources(
 */
 
 StyioAST*
-parse_item_for_cond(StyioContext& context) {
+parse_cond_item(StyioContext& context) {
   StyioAST* output;
 
   context.drop_all_spaces();
@@ -646,13 +646,13 @@ parse_expr(
 ) {
   StyioAST* output;
 
-  if (isalpha(context.get_curr_char()) || context.check('_')) {
+  if (context.check_isal_()) {
     output = parse_id(context);
 
     context.drop_all_spaces_comments();
 
     if (context.check_binop()) {
-      output = parse_binop_rhs(context, (output));
+      output = parse_binop_rhs(context, output);
     }
 
     return output;
@@ -1376,6 +1376,148 @@ parse_loop(StyioContext& context) {
   return new InfiniteAST();
 }
 
+/*
+  += -= *= /= should be recognized before entering parse_binop,
+  and should be treated as a statement rather than a binary operation expression
+  parse_binop only handle the following operators:
+
+  Unary_Positive + a
+  Unary_Negative - a
+  Binary_Pow     a ** b
+  Binary_Mul     a * b
+  Binary_Div     a / b
+  Binary_Mod     a % b
+  Binary_Add     a + b
+  Binary_Sub     a - b
+
+  For boolean expressions, go to parse_bool_expr.
+*/
+BinOpAST*
+parse_binop(StyioContext& context, StyioAST* lhs_ast) {
+  BinOpAST* output;
+
+  context.drop_all_spaces_comments();
+
+  switch (context.get_curr_char()) {
+    // Bin_Add := <ID> "+" <EXPR>
+    case '+': {
+      context.move(1);
+      context.drop_all_spaces_comments(); 
+
+      if (context.check_drop('=')) {
+        context.drop_all_spaces_comments();
+
+        output = BinOpAST::Create(TokenKind::Self_Add_Assign, lhs_ast, (parse_item_for_binop(context)));
+
+        return output;
+      }
+      else {
+        output = BinOpAST::Create(TokenKind::Binary_Add, lhs_ast, parse_item_for_binop(context));
+      }
+    };
+
+      // You should NOT reach this line!
+      break;
+
+    // Bin_Sub := <ID> "-" <EXPR>
+    case '-': {
+      context.move(1);
+      context.drop_all_spaces_comments();
+
+      if (context.check_drop('=')) {
+        context.drop_all_spaces();
+
+        output = BinOpAST::Create(TokenKind::Self_Sub_Assign, lhs_ast, (parse_item_for_binop(context)));
+        return output;
+      }
+      else {
+        output = BinOpAST::Create(TokenKind::Binary_Sub, lhs_ast, (parse_item_for_binop(context)));
+      }
+    };
+
+      // You should NOT reach this line!
+      break;
+
+    // Bin_Mul | Bin_Pow
+    case '*': {
+      context.move(1);
+      // Bin_Pow := <ID> "**" <EXPR>
+      if (context.check_drop('*')) {
+        context.move(1);
+        context.drop_all_spaces_comments();
+
+        // <ID> "**" |--
+        output = BinOpAST::Create(TokenKind::Binary_Pow, lhs_ast, (parse_item_for_binop(context)));
+      }
+      else if (context.check_drop('=')) {
+        context.drop_all_spaces();
+
+        output = BinOpAST::Create(TokenKind::Self_Mul_Assign, lhs_ast, (parse_item_for_binop(context)));
+
+        return output;
+      }
+      // Bin_Mul := <ID> "*" <EXPR>
+      else {
+        context.drop_all_spaces();
+
+        // <ID> "*" |--
+        output = BinOpAST::Create(TokenKind::Binary_Mul, lhs_ast, (parse_item_for_binop(context)));
+      }
+    };
+      // You should NOT reach this line!
+      break;
+
+    // Bin_Div := <ID> "/" <EXPR>
+    case '/': {
+      context.move(1);
+      context.drop_all_spaces_comments();
+
+      if (context.check_drop('=')) {
+        context.drop_all_spaces();
+
+        output = BinOpAST::Create(TokenKind::Self_Div_Assign, lhs_ast, (parse_item_for_binop(context)));
+
+        return output;
+      }
+      else {
+        output = BinOpAST::Create(TokenKind::Binary_Div, lhs_ast, (parse_item_for_binop(context)));
+      }
+    };
+
+      // You should NOT reach this line!
+      break;
+
+    // Bin_Mod := <ID> "%" <EXPR>
+    case '%': {
+      context.move(1);
+      context.drop_all_spaces_comments();
+
+      // <ID> "%" |--
+      output = BinOpAST::Create(TokenKind::Binary_Mod, lhs_ast, (parse_item_for_binop(context)));
+    };
+
+      // You should NOT reach this line!
+      break;
+
+    default:
+      string errmsg = string("Unexpected BinOp.Operator: `") + char(context.get_curr_char()) + "`.";
+      throw StyioSyntaxError(errmsg);
+
+      // You should NOT reach this line!
+      break;
+  }
+
+  context.drop_all_spaces_comments();
+
+  while (context.check_binop()) {
+    context.drop_all_spaces();
+
+    output = parse_binop_rhs(context, output);
+  }
+
+  return output;
+}
+
 BinOpAST*
 parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast) {
   BinOpAST* output;
@@ -1494,7 +1636,7 @@ parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast) {
   while (context.check_binop()) {
     context.drop_all_spaces();
 
-    output = parse_binop_rhs(context, (output));
+    output = parse_binop_rhs(context, output);
   }
 
   return output;
@@ -1639,7 +1781,7 @@ parse_cond(StyioContext& context) {
     };
   }
   else {
-    lhsExpr = (parse_item_for_cond(context));
+    lhsExpr = (parse_cond_item(context));
   };
 
   // drop all spaces after first value
