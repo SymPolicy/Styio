@@ -34,6 +34,7 @@ static std::unordered_map<std::string, StyioDataType> const DType_Table = {
 enum class TokenKind
 {
   Undefined,            // Undefined
+  End_Of_File,          // EOF
   Unary_Positive,       // + a
   Unary_Negative,       // - a
   Binary_Add,           // a + b
@@ -107,9 +108,13 @@ static std::unordered_map<TokenKind, int> const Token_Precedence_Table = {
   {TokenKind::Self_Div_Assign, 1},  // a /= b
 
   {TokenKind::Undefined, 0},  // Undefined
+  {TokenKind::End_Of_File, 0},  // Undefined
 };
 
 static std::unordered_map<TokenKind, std::string> const TokOpMap = {
+  {TokenKind::Undefined, "undefined"},  // undefined
+  {TokenKind::End_Of_File, "EOF"},  // EOF
+
   {TokenKind::Binary_Pow, "**"},  // a ** b
 
   {TokenKind::Binary_Mul, "*"},  // a * b
@@ -143,6 +148,7 @@ static std::unordered_map<TokenKind, std::string> const TokOpMap = {
 
 static std::unordered_map<std::string, TokenKind> const OpTokMap = {
   {"", TokenKind::Undefined},  // Undefined
+  {"�", TokenKind::End_Of_File},  // EOF
   
   {"**", TokenKind::Binary_Pow},  // a ** b
 

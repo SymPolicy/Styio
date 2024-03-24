@@ -273,21 +273,36 @@ public:
   */
   string peak_operator(int num = 1) {
     int tmp_pos = curr_pos;
-    int offset = 0;
+    int offset = 1;
 
     for (size_t i = 0; i < num; i++) {
-      while (isspace(code.at(tmp_pos))) {
-        tmp_pos += 1;
-      }
-      /* match */ /* like */ /* this */
-      while (code.compare(tmp_pos, 2, string("/*")) == 0) {
-        tmp_pos += 2;
-        while (code.compare(tmp_pos, 2, string("*/")) != 0) {
+      while (true) {
+        if (isspace(code.at(tmp_pos))) {
           tmp_pos += 1;
-        } /* warning: no boundary check */
-      }   /* warning: no boundary check */
-      while (isalnum(code.at(tmp_pos)) || (code.at(tmp_pos) == '_')) {
-        tmp_pos += 1;
+        }
+        else if (code.compare(tmp_pos, 2, string("//")) == 0) {
+          tmp_pos += 2;
+
+          while (code.at(tmp_pos) != '\n') {
+            tmp_pos += 1;
+          } /* warning: no boundary check */ 
+          tmp_pos += 1;
+        }
+        /* match */ /* like */ /* this */
+        else if (code.compare(tmp_pos, 2, string("/*")) == 0) {
+          tmp_pos += 2;
+
+          while (code.compare(tmp_pos, 2, string("*/")) != 0) {
+            tmp_pos += 1;
+          } /* warning: no boundary check */ 
+          tmp_pos += 2;
+        }   /* warning: no boundary check */
+        else if (isalnum(code.at(tmp_pos)) || (code.at(tmp_pos) == '_')) {
+          tmp_pos += 1;
+        }
+        else {
+          break;
+        }
       }
 
       /* that is: not space, not alpha, not number, not _ , and not comment*/
@@ -299,6 +314,10 @@ public:
         offset += 1;
       }
     }
+
+    std::cout << "peak tmp_pos: " << tmp_pos << " " << code.at(tmp_pos) << " : " << int(code.at(tmp_pos)) << std::endl;
+    std::cout << "peak offset: " << offset << std::endl;
+    std::cout << "peak operator: " << code.substr(tmp_pos, offset) << std::endl;
 
     return code.substr(tmp_pos, offset);
   }
