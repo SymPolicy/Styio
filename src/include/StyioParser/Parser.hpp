@@ -271,8 +271,10 @@ public:
     like: 1 + 2 * 3
              ^     curr_pos is a white space, the expected operator is *, which is behind 2.
   */
-  string peak_operator(int num) {
+  string peak_operator(int num = 1) {
     int tmp_pos = curr_pos;
+    int offset = 0;
+
     for (size_t i = 0; i < num; i++) {
       while (isspace(code.at(tmp_pos))) {
         tmp_pos += 1;
@@ -288,18 +290,17 @@ public:
         tmp_pos += 1;
       }
 
-      int offset = 0;
       /* that is: not space, not alpha, not number, not _ , and not comment*/
       while (
         not(isspace(code.at(tmp_pos))                      /* not space */
-            || code.compare(tmp_pos, 2, string("/*")) != 0 /* not comment, not start with `/*` */
+            || code.compare(tmp_pos, 2, string("/*")) != 0 /* not comment */
             || isalnum(code.at(tmp_pos)) || (code.at(tmp_pos) == '_') /* not alpha, not number, not _ */)
       ) {
         offset += 1;
       }
-
-      return code.substr(tmp_pos, offset);
     }
+
+    return code.substr(tmp_pos, offset);
   }
 
   bool peak_isdigit(int steps) {

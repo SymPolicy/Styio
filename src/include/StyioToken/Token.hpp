@@ -33,6 +33,7 @@ static std::unordered_map<std::string, StyioDataType> const DType_Table = {
 
 enum class TokenKind
 {
+  Undefined,            // Undefined
   Unary_Positive,       // + a
   Unary_Negative,       // - a
   Binary_Add,           // a + b
@@ -104,9 +105,11 @@ static std::unordered_map<TokenKind, int> const Token_Precedence_Table = {
   {TokenKind::Self_Sub_Assign, 1},  // a -= b
   {TokenKind::Self_Mul_Assign, 1},  // a *= b
   {TokenKind::Self_Div_Assign, 1},  // a /= b
+
+  {TokenKind::Undefined, 0},  // Undefined
 };
 
-static std::unordered_map<TokenKind, std::string> const Token_String_Map = {
+static std::unordered_map<TokenKind, std::string> const TokOpMap = {
   {TokenKind::Binary_Pow, "**"},  // a ** b
 
   {TokenKind::Binary_Mul, "*"},  // a * b
@@ -138,7 +141,9 @@ static std::unordered_map<TokenKind, std::string> const Token_String_Map = {
   {TokenKind::Self_Div_Assign, "/="},  // a /= b
 };
 
-static std::unordered_map<TokenKind, std::string> const Op_Tok_Map = {
+static std::unordered_map<std::string, TokenKind> const OpTokMap = {
+  {"", TokenKind::Undefined},  // Undefined
+  
   {"**", TokenKind::Binary_Pow},  // a ** b
 
   {"*", TokenKind::Binary_Mul},  // a * b
