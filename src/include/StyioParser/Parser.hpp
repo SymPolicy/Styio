@@ -555,13 +555,13 @@ parse_call(
   parse_bin_rhs
 */
 StyioAST*
-parse_item_for_binop(StyioContext& context);
+parse_binop_item(StyioContext& context);
 
 /*
-  parse_binop_rhs
+  parse_binop_with_lhs
 */
 BinOpAST*
-parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast);
+parse_binop_with_lhs(StyioContext& context, StyioAST* lhs_ast);
 
 /*
   parse_cond_item

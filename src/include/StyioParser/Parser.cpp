@@ -570,7 +570,7 @@ parse_id_or_value(StyioContext& context) {
   context.drop_all_spaces_comments();
 
   if (context.check_binop()) {
-    output = parse_binop_rhs(context, (output));
+    output = parse_binop_with_lhs(context, (output));
   };
 
   return output;
@@ -634,55 +634,7 @@ parse_binop_item(StyioContext& context) {
 }
 
 StyioAST*
-parse_item_for_binop(StyioContext& context) {
-  StyioAST* output = NoneAST::Create();
-
-  if (context.check_isal_()) {
-    return parse_id(context);
-  }
-  else if (context.check_isdigit()) {
-    return parse_int_or_float(context);
-  }
-
-  switch (context.get_curr_char()) {
-    case '\"':
-      return parse_string(context);
-
-    case '\'':
-      return parse_char_or_string(context);
-
-    case '[':
-      context.move(1);
-
-      context.drop_all_spaces_comments();
-
-      if (context.check_drop(']')) {
-        return new EmptyAST();
-      }
-      else {
-        return parse_list_or_loop(context);
-      }
-
-      // You should NOT reach this line!
-      break;
-
-    case '|':
-      return parse_size_of(context);
-
-      // You should NOT reach this line!
-      break;
-
-    default:
-      break;
-  }
-
-  return output;
-}
-
-StyioAST*
-parse_expr(
-  StyioContext& context
-) {
+parse_expr(StyioContext& context) {
   StyioAST* output;
 
   if (context.check_isal_()) {
@@ -691,7 +643,7 @@ parse_expr(
     context.drop_all_spaces_comments();
 
     if (context.check_binop()) {
-      output = parse_binop_rhs(context, output);
+      output = parse_binop_with_lhs(context, output);
     }
 
     return output;
@@ -702,7 +654,7 @@ parse_expr(
     context.drop_all_spaces_comments();
 
     if (context.check_binop()) {
-      output = parse_binop_rhs(context, output);
+      output = parse_binop_with_lhs(context, output);
     }
 
     return output;
@@ -752,7 +704,7 @@ parse_expr(
       context.drop_all_spaces_comments();
 
       if (context.check_binop()) {
-        output = parse_binop_rhs(context, output);
+        output = parse_binop_with_lhs(context, output);
       }
 
       return output;
@@ -901,7 +853,7 @@ parse_iterable(StyioContext& context) {
     context.drop_all_spaces_comments();
 
     if (context.check_binop()) {
-      output = parse_binop_rhs(context, (output));
+      output = parse_binop_with_lhs(context, (output));
     };
 
     return output;
@@ -1510,130 +1462,6 @@ parse_binop_with_lhs(StyioContext& context, StyioAST* lhs_ast) {
   else {
     return BinOpAST::Create(curr_tok, lhs_ast, parse_binop_item(context));
   }
-}
-
-BinOpAST*
-parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast) {
-  BinOpAST* output;
-
-  switch (context.get_curr_char()) {
-    // Bin_Add := <ID> "+" <EXPR>
-    case '+': {
-      context.move(1);
-      context.drop_all_spaces_comments();
-
-      if (context.check_drop('=')) {
-        context.drop_all_spaces();
-
-        output = BinOpAST::Create(TokenKind::Self_Add_Assign, lhs_ast, (parse_item_for_binop(context)));
-
-        return output;
-      }
-      else {
-        output = BinOpAST::Create(TokenKind::Binary_Add, lhs_ast, parse_item_for_binop(context));
-      }
-    };
-
-      // You should NOT reach this line!
-      break;
-
-    // Bin_Sub := <ID> "-" <EXPR>
-    case '-': {
-      context.move(1);
-      context.drop_all_spaces_comments();
-
-      if (context.check_drop('=')) {
-        context.drop_all_spaces();
-
-        output = BinOpAST::Create(TokenKind::Self_Sub_Assign, lhs_ast, (parse_item_for_binop(context)));
-        return output;
-      }
-      else {
-        output = BinOpAST::Create(TokenKind::Binary_Sub, lhs_ast, (parse_item_for_binop(context)));
-      }
-    };
-
-      // You should NOT reach this line!
-      break;
-
-    // Bin_Mul | Bin_Pow
-    case '*': {
-      context.move(1);
-      // Bin_Pow := <ID> "**" <EXPR>
-      if (context.check_drop('*')) {
-        context.move(1);
-        context.drop_all_spaces_comments();
-
-        // <ID> "**" |--
-        output = BinOpAST::Create(TokenKind::Binary_Pow, lhs_ast, (parse_item_for_binop(context)));
-      }
-      else if (context.check_drop('=')) {
-        context.drop_all_spaces();
-
-        output = BinOpAST::Create(TokenKind::Self_Mul_Assign, lhs_ast, (parse_item_for_binop(context)));
-
-        return output;
-      }
-      // Bin_Mul := <ID> "*" <EXPR>
-      else {
-        context.drop_all_spaces();
-
-        // <ID> "*" |--
-        output = BinOpAST::Create(TokenKind::Binary_Mul, lhs_ast, (parse_item_for_binop(context)));
-      }
-    };
-      // You should NOT reach this line!
-      break;
-
-    // Bin_Div := <ID> "/" <EXPR>
-    case '/': {
-      context.move(1);
-      context.drop_all_spaces_comments();
-
-      if (context.check_drop('=')) {
-        context.drop_all_spaces();
-
-        output = BinOpAST::Create(TokenKind::Self_Div_Assign, lhs_ast, (parse_item_for_binop(context)));
-
-        return output;
-      }
-      else {
-        output = BinOpAST::Create(TokenKind::Binary_Div, lhs_ast, (parse_item_for_binop(context)));
-      }
-    };
-
-      // You should NOT reach this line!
-      break;
-
-    // Bin_Mod := <ID> "%" <EXPR>
-    case '%': {
-      context.move(1);
-      context.drop_all_spaces_comments();
-
-      // <ID> "%" |--
-      output = BinOpAST::Create(TokenKind::Binary_Mod, lhs_ast, (parse_item_for_binop(context)));
-    };
-
-      // You should NOT reach this line!
-      break;
-
-    default:
-      string errmsg = string("Unexpected BinOp.Operator: `") + char(context.get_curr_char()) + "`.";
-      throw StyioSyntaxError(errmsg);
-
-      // You should NOT reach this line!
-      break;
-  }
-
-  context.drop_all_spaces_comments();
-
-  while (context.check_binop()) {
-    context.drop_all_spaces();
-
-    output = parse_binop_rhs(context, output);
-  }
-
-  return output;
 }
 
 CondAST*
@@ -2396,7 +2224,7 @@ parse_stmt(
     context.drop_all_spaces_comments();
 
     if (context.check_binop()) {
-      return parse_binop_rhs(context, id_ast);
+      return parse_binop_with_lhs(context, id_ast);
     }
 
     switch (context.get_curr_char()) {
@@ -2488,7 +2316,7 @@ parse_stmt(
     context.drop_all_spaces_comments();
 
     if (context.check_binop()) {
-      return parse_binop_rhs(context, (numAST));
+      return parse_binop_with_lhs(context, (numAST));
     }
     else {
       return numAST;
