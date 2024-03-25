@@ -156,59 +156,99 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
     auto lhs_hint = lhs->hint();
     auto rhs_hint = rhs->hint();
 
-    if (lhs_hint == StyioNodeHint::BinOp && rhs_hint == StyioNodeHint::Int) {
-      auto lhs_expr = static_cast<BinOpAST*>(lhs);
-      auto rhs_expr = static_cast<IntAST*>(rhs);
+    switch (lhs_hint) {
+      case StyioNodeHint::Int: {
+        switch (rhs_hint) {
+          case StyioNodeHint::Int: {
+            auto lhs_int = static_cast<IntAST*>(lhs);
+            auto rhs_int = static_cast<IntAST*>(rhs);
 
-      if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
-        ast->setDType(getMaxType(lhs_expr->getType(), rhs_expr->getType()));
-      }
-    }
-    else if (lhs_hint == StyioNodeHint::BinOp && rhs_hint == StyioNodeHint::Float) {
-      auto lhs_binop = static_cast<BinOpAST*>(lhs);
-      auto rhs_float = static_cast<FloatAST*>(rhs);
+            if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul) {
+              ast->setDType(getMaxType(lhs_int->getType(), rhs_int->getType()));
+            }
+            else if (op == TokenKind::Binary_Div) {
+              // 0 / n = 0
+              if (std::stoi(lhs_int->getValue()) == 0) {
+                ast->setDType(getMaxType(lhs_int->getType(), rhs_int->getType()));
+              }
+            }
+          } break;
 
-      if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
-        ast->setDType(getMaxType(lhs_binop->getType(), rhs_float->getType()));
-      }
-    }
-    else if (lhs_hint == StyioNodeHint::Int && rhs_hint == StyioNodeHint::Int) {
-      auto lhs_int = static_cast<IntAST*>(lhs);
-      auto rhs_int = static_cast<IntAST*>(rhs);
+          case StyioNodeHint::Float: {
+            auto lhs_int = static_cast<IntAST*>(lhs);
+            auto rhs_float = static_cast<FloatAST*>(rhs);
 
-      if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul) {
-        ast->setDType(getMaxType(lhs_int->getType(), rhs_int->getType()));
-      }
-      else if (op == TokenKind::Binary_Div) {
-        // 0 / n = 0
-        if (std::stoi(lhs_int->getValue()) == 0) {
-          ast->setDType(getMaxType(lhs_int->getType(), rhs_int->getType()));
+            if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
+              ast->setDType(getMaxType(lhs_int->getType(), rhs_float->getType()));
+            }
+          } break;
+
+          case StyioNodeHint::BinOp: {
+            auto lhs_expr = static_cast<IntAST*>(lhs);
+            auto rhs_expr = static_cast<BinOpAST*>(rhs);
+
+            if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
+              ast->setDType(getMaxType(lhs_expr->getType(), rhs_expr->getType()));
+            }
+          } break;
+
+          default:
+            break;
         }
-      }
-    }
-    else if (lhs_hint == StyioNodeHint::Float && rhs_hint == StyioNodeHint::Float) {
-      auto lhs_float = static_cast<FloatAST*>(lhs);
-      auto rhs_float = static_cast<FloatAST*>(rhs);
+      } break;
 
-      if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
-        ast->setDType(getMaxType(lhs_float->getType(), rhs_float->getType()));
-      }
-    }
-    else if (lhs_hint == StyioNodeHint::Int && rhs_hint == StyioNodeHint::Float) {
-      auto lhs_int = static_cast<IntAST*>(lhs);
-      auto rhs_float = static_cast<FloatAST*>(rhs);
+      case StyioNodeHint::Float: {
+        switch (rhs_hint) {
+          case StyioNodeHint::Int: {
+            auto lhs_float = static_cast<FloatAST*>(lhs);
+            auto rhs_int = static_cast<IntAST*>(rhs);
 
-      if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
-        ast->setDType(getMaxType(lhs_int->getType(), rhs_float->getType()));
-      }
-    }
-    else if (lhs_hint == StyioNodeHint::Float && rhs_hint == StyioNodeHint::Int) {
-      auto lhs_float = static_cast<FloatAST*>(lhs);
-      auto rhs_int = static_cast<IntAST*>(rhs);
+            if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
+              ast->setDType(getMaxType(lhs_float->getType(), rhs_int->getType()));
+            }
+          } break;
 
-      if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
-        ast->setDType(getMaxType(lhs_float->getType(), rhs_int->getType()));
-      }
+          case StyioNodeHint::Float: {
+            auto lhs_float = static_cast<FloatAST*>(lhs);
+            auto rhs_float = static_cast<FloatAST*>(rhs);
+
+            if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
+              ast->setDType(getMaxType(lhs_float->getType(), rhs_float->getType()));
+            }
+          } break;
+
+          default:
+            break;
+        }
+      } break;
+
+      case StyioNodeHint::BinOp: {
+        switch (rhs_hint) {
+          case StyioNodeHint::Int: {
+            auto lhs_expr = static_cast<BinOpAST*>(lhs);
+            auto rhs_expr = static_cast<IntAST*>(rhs);
+
+            if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
+              ast->setDType(getMaxType(lhs_expr->getType(), rhs_expr->getType()));
+            }
+          } break;
+
+          case StyioNodeHint::Float: {
+            auto lhs_binop = static_cast<BinOpAST*>(lhs);
+            auto rhs_float = static_cast<FloatAST*>(rhs);
+
+            if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
+              ast->setDType(getMaxType(lhs_binop->getType(), rhs_float->getType()));
+            }
+          } break;
+
+          default:
+            break;
+        }
+      } break;
+
+      default:
+        break;
     }
   }
   else {

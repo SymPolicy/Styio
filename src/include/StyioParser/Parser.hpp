@@ -300,6 +300,9 @@ public:
         else if (isalnum(code.at(tmp_pos)) || (code.at(tmp_pos) == '_')) {
           tmp_pos += 1;
         }
+        else if (code.at(tmp_pos) == EOF) {
+          return "EOF";
+        }
         else {
           break;
         }
@@ -315,9 +318,9 @@ public:
       }
     }
 
-    std::cout << "peak tmp_pos: " << tmp_pos << " " << code.at(tmp_pos) << " : " << int(code.at(tmp_pos)) << std::endl;
-    std::cout << "peak offset: " << offset << std::endl;
-    std::cout << "peak operator: " << code.substr(tmp_pos, offset) << std::endl;
+    // std::cout << "peak tmp_pos: " << tmp_pos << " " << code.at(tmp_pos) << std::endl;
+    // std::cout << "peak offset: " << offset << std::endl;
+    // std::cout << "peak operator: " << code.substr(tmp_pos, offset) << std::endl;
 
     return code.substr(tmp_pos, offset);
   }
@@ -462,7 +465,10 @@ public:
 
   /* Check Binary Operator */
   bool check_binop() {
-    if (code.at(curr_pos) == '+' || code.at(curr_pos) == '-' || code.at(curr_pos) == '*' || code.at(curr_pos) == '%') {
+    if (code.at(curr_pos) == '+' || code.at(curr_pos) == '-') {
+      return true;
+    }
+    else if (code.at(curr_pos) == '*' || code.at(curr_pos) == '%') {
       return true;
     }
     else if (code.at(curr_pos) == '/') {
@@ -473,6 +479,9 @@ public:
       else {
         return true;
       }
+    }
+    else if (code.at(curr_pos) == '%') {
+      return true;
     }
 
     return false;

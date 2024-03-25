@@ -148,7 +148,7 @@ static std::unordered_map<TokenKind, std::string> const TokOpMap = {
 
 static std::unordered_map<std::string, TokenKind> const OpTokMap = {
   {"", TokenKind::Undefined},  // Undefined
-  {"�", TokenKind::End_Of_File},  // EOF
+  {"EOF", TokenKind::End_Of_File},  // EOF
   
   {"**", TokenKind::Binary_Pow},  // a ** b
 

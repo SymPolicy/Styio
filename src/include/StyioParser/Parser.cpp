@@ -1457,8 +1457,8 @@ parse_binop_with_lhs(StyioContext& context, StyioAST* lhs_ast) {
   std::string next_op = context.peak_operator();
   next_tok = OpTokMap.at(next_op);
 
-  std::cout << "curr token: " << TokOpMap.at(curr_tok) << std::endl;
-  std::cout << "next token: " << next_op << std::endl;
+  // std::cout << "curr token: " << TokOpMap.at(curr_tok) << std::endl;
+  // std::cout << "next token: " << next_op << std::endl;
 
   if (next_tok > curr_tok) {
     return BinOpAST::Create(curr_tok, lhs_ast, parse_expr(context));
