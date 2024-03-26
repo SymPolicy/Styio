@@ -1387,6 +1387,8 @@ parse_loop(StyioContext& context) {
 */
 BinOpAST*
 parse_binop_with_lhs(StyioContext& context, StyioAST* lhs_ast) {
+  BinOpAST* output;
+
   TokenKind curr_tok;
   TokenKind next_tok;
 
@@ -1461,11 +1463,24 @@ parse_binop_with_lhs(StyioContext& context, StyioAST* lhs_ast) {
   // std::cout << "next token: " << next_op << std::endl;
 
   if (next_tok > curr_tok) {
-    return BinOpAST::Create(curr_tok, lhs_ast, parse_expr(context));
+    output = BinOpAST::Create(curr_tok, lhs_ast, parse_expr(context));
   }
   else {
-    return BinOpAST::Create(curr_tok, lhs_ast, parse_binop_item(context));
+    output = BinOpAST::Create(curr_tok, lhs_ast, parse_binop_item(context));
   }
+
+  std::cout << context.label_cur_line() << std::endl;
+
+  context.pass_over(next_op);
+
+  context.drop_all_spaces_comments();
+  
+  while (context.check_binop()) {
+    output = parse_binop_with_lhs(context, output);
+    context.drop_all_spaces_comments();
+  }
+  
+  return output;
 }
 
 CondAST*

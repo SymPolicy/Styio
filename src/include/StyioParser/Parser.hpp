@@ -80,24 +80,24 @@ public:
     if (p < 0)
       p = curr_pos;
 
-    cout << "find_line_index(), at pos: " << p << "\ninitial: line [" << line_index << "]" << endl;
+    // cout << "find_line_index(), at pos: " << p << "\ninitial: line [" << line_index << "]" << endl;
 
     while (
       p < line_seps[line_index].first
       || p > (line_seps[line_index].first + line_seps[line_index].second)
     ) {
-      cout << "[" << line_index << "] is ";
+      // cout << "[" << line_index << "] is ";
       if (p < line_seps[line_index].first) {
         line_index = line_index / 2;
-        cout << "too large, go to: [" << line_index << "]" << endl;
+        // cout << "too large, go to: [" << line_index << "]" << endl;
       }
       else {
         line_index = (line_index + total_lines) / 2;
-        cout << "too small, go to: [" << line_index << "]" << endl;
+        // cout << "too small, go to: [" << line_index << "]" << endl;
       }
     }
 
-    cout << "result: [" << line_index << "]" << endl;
+    // cout << "result: [" << line_index << "]" << endl;
 
     return line_index;
   }
@@ -116,7 +116,8 @@ public:
     output += "File \"" + file_name + "\", Line " + std::to_string(lindex) + ":\n\n";
     output += code.substr(line_seps[lindex].first, line_seps[lindex].second) + "\n";
     output += std::string(offset, ' ')
-              + std::string(line_seps[lindex].second - offset, '^')
+              + std::string("^")
+              + std::string(line_seps[lindex].second - offset - 1, '-')
               + "\n";
 
     return output;
