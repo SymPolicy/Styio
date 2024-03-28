@@ -1384,6 +1384,12 @@ parse_loop(StyioContext& context) {
   Binary_Sub     a - b
 
   For boolean expressions, go to parse_bool_expr.
+
+  hi, you need to pass the precedence as a parameter,
+  the reason is that, the internal part should know where to stop, 
+  and that depends on the outer part.
+  the outer part should know where to create binop,
+  and this information comes from the internal part. 
 */
 BinOpAST*
 parse_binop_with_lhs(StyioContext& context, StyioAST* lhs_ast) {
