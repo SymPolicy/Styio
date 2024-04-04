@@ -64,9 +64,13 @@ enum class TokenKind
   Equal,                // a == b
   Not_Equal,            // a != b
   If_Else_Flow,         // ?() => a : b
+
+  Comment_SingleLine, // Like This
+  Comment_MultiLine, /* Like This */
 };
 
-static std::unordered_map<TokenKind, int> const Token_Precedence_Table = {
+/* Token Precedence Map */
+static std::unordered_map<TokenKind, int> const TokenPrecedenceMap = {
   {TokenKind::Unary_Positive, 999},  // + a
   {TokenKind::Unary_Negative, 999},  // - a
   {TokenKind::Bitwise_NOT, 999},     // ~ a
@@ -111,7 +115,7 @@ static std::unordered_map<TokenKind, int> const Token_Precedence_Table = {
   {TokenKind::End_Of_File, 0},  // Undefined
 };
 
-static std::unordered_map<TokenKind, std::string> const TokOpMap = {
+static std::unordered_map<TokenKind, std::string> const TokenStrMap = {
   {TokenKind::Undefined, "undefined"},  // undefined
   {TokenKind::End_Of_File, "EOF"},  // EOF
 
@@ -146,7 +150,7 @@ static std::unordered_map<TokenKind, std::string> const TokOpMap = {
   {TokenKind::Self_Div_Assign, "/="},  // a /= b
 };
 
-static std::unordered_map<std::string, TokenKind> const OpTokMap = {
+static std::unordered_map<std::string, TokenKind> const StrTokenMap = {
   {"", TokenKind::Undefined},  // Undefined
   {"EOF", TokenKind::End_Of_File},  // EOF
   

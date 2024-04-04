@@ -569,9 +569,40 @@ parse_id_or_value(StyioContext& context) {
 
   context.drop_all_spaces_comments();
 
-  if (context.check_binop()) {
-    output = parse_binop_with_lhs(context, (output));
-  };
+  switch (context.get_curr_char()) {
+    case '+': {
+      context.move(1);
+      output = parse_binop_rhs(context, output, TokenKind::Binary_Add);
+    } break;
+
+    case '-': {
+      context.move(1);
+      output = parse_binop_rhs(context, output, TokenKind::Binary_Sub);
+    } break;
+
+    case '*': {
+      context.move(1);
+      if (context.check_drop('*')) {
+        output = parse_binop_rhs(context, output, TokenKind::Binary_Pow);
+      }
+      else {
+        output = parse_binop_rhs(context, output, TokenKind::Binary_Mul);
+      }
+    } break;
+
+    case '/': {
+      context.move(1);
+      output = parse_binop_rhs(context, output, TokenKind::Binary_Div);
+    } break;
+
+    case '%': {
+      context.move(1);
+      output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
+    } break;
+
+    default:
+      break;
+  }
 
   return output;
 }
@@ -642,8 +673,39 @@ parse_expr(StyioContext& context) {
 
     context.drop_all_spaces_comments();
 
-    if (context.check_binop()) {
-      output = parse_binop_with_lhs(context, output);
+    switch (context.get_curr_char()) {
+      case '+': {
+        context.move(1);
+        output = parse_binop_rhs(context, output, TokenKind::Binary_Add);
+      } break;
+
+      case '-': {
+        context.move(1);
+        output = parse_binop_rhs(context, output, TokenKind::Binary_Sub);
+      } break;
+
+      case '*': {
+        context.move(1);
+        if (context.check_drop('*')) {
+          output = parse_binop_rhs(context, output, TokenKind::Binary_Pow);
+        }
+        else {
+          output = parse_binop_rhs(context, output, TokenKind::Binary_Mul);
+        }
+      } break;
+
+      case '/': {
+        context.move(1);
+        output = parse_binop_rhs(context, output, TokenKind::Binary_Div);
+      } break;
+
+      case '%': {
+        context.move(1);
+        output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
+      } break;
+
+      default:
+        break;
     }
 
     return output;
@@ -653,8 +715,39 @@ parse_expr(StyioContext& context) {
 
     context.drop_all_spaces_comments();
 
-    if (context.check_binop()) {
-      output = parse_binop_with_lhs(context, output);
+    switch (context.get_curr_char()) {
+      case '+': {
+        context.move(1);
+        output = parse_binop_rhs(context, output, TokenKind::Binary_Add);
+      } break;
+
+      case '-': {
+        context.move(1);
+        output = parse_binop_rhs(context, output, TokenKind::Binary_Sub);
+      } break;
+
+      case '*': {
+        context.move(1);
+        if (context.check_drop('*')) {
+          output = parse_binop_rhs(context, output, TokenKind::Binary_Pow);
+        }
+        else {
+          output = parse_binop_rhs(context, output, TokenKind::Binary_Mul);
+        }
+      } break;
+
+      case '/': {
+        context.move(1);
+        output = parse_binop_rhs(context, output, TokenKind::Binary_Div);
+      } break;
+
+      case '%': {
+        context.move(1);
+        output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
+      } break;
+
+      default:
+        break;
     }
 
     return output;
@@ -703,8 +796,39 @@ parse_expr(StyioContext& context) {
 
       context.drop_all_spaces_comments();
 
-      if (context.check_binop()) {
-        output = parse_binop_with_lhs(context, output);
+      switch (context.get_curr_char()) {
+        case '+': {
+          context.move(1);
+          output = parse_binop_rhs(context, output, TokenKind::Binary_Add);
+        } break;
+
+        case '-': {
+          context.move(1);
+          output = parse_binop_rhs(context, output, TokenKind::Binary_Sub);
+        } break;
+
+        case '*': {
+          context.move(1);
+          if (context.check_drop('*')) {
+            output = parse_binop_rhs(context, output, TokenKind::Binary_Pow);
+          }
+          else {
+            output = parse_binop_rhs(context, output, TokenKind::Binary_Mul);
+          }
+        } break;
+
+        case '/': {
+          context.move(1);
+          output = parse_binop_rhs(context, output, TokenKind::Binary_Div);
+        } break;
+
+        case '%': {
+          context.move(1);
+          output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
+        } break;
+
+        default:
+          break;
       }
 
       return output;
@@ -852,9 +976,40 @@ parse_iterable(StyioContext& context) {
 
     context.drop_all_spaces_comments();
 
-    if (context.check_binop()) {
-      output = parse_binop_with_lhs(context, (output));
-    };
+    switch (context.get_curr_char()) {
+      case '+': {
+        context.move(1);
+        output = parse_binop_rhs(context, output, TokenKind::Binary_Add);
+      } break;
+
+      case '-': {
+        context.move(1);
+        output = parse_binop_rhs(context, output, TokenKind::Binary_Sub);
+      } break;
+
+      case '*': {
+        context.move(1);
+        if (context.check_drop('*')) {
+          output = parse_binop_rhs(context, output, TokenKind::Binary_Pow);
+        }
+        else {
+          output = parse_binop_rhs(context, output, TokenKind::Binary_Mul);
+        }
+      } break;
+
+      case '/': {
+        context.move(1);
+        output = parse_binop_rhs(context, output, TokenKind::Binary_Div);
+      } break;
+
+      case '%': {
+        context.move(1);
+        output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
+      } break;
+
+      default:
+        break;
+    }
 
     return output;
   }
@@ -1386,106 +1541,69 @@ parse_loop(StyioContext& context) {
   For boolean expressions, go to parse_bool_expr.
 
   hi, you need to pass the precedence as a parameter,
-  the reason is that, the internal part should know where to stop, 
+  the reason is that, the internal part should know where to stop,
   and that depends on the outer part.
   the outer part should know where to create binop,
-  and this information comes from the internal part. 
+  and this information comes from the internal part.
 */
 BinOpAST*
-parse_binop_with_lhs(StyioContext& context, StyioAST* lhs_ast) {
+parse_binop_rhs(
+  StyioContext& context,
+  StyioAST* lhs_ast,
+  TokenKind curr_token
+) {
   BinOpAST* output;
 
-  TokenKind curr_tok;
-  TokenKind next_tok;
+  context.drop_all_spaces_comments();
+
+  StyioAST* rhs_ast = parse_binop_item(context);
 
   context.drop_all_spaces_comments();
 
+  TokenKind next_token;
   switch (context.get_curr_char()) {
-    // Bin_Add := <Expr> "+" <EXPR>
     case '+': {
       context.move(1);
+      next_token = TokenKind::Binary_Add;
+    } break;
 
-      if (context.check('='))
-        throw StyioParseError("Self_Add_Assign");
-
-      curr_tok = TokenKind::Binary_Add;
-    } break;  // You should NOT reach this line!
-
-    // Bin_Sub := <Expr> "-" <EXPR>
     case '-': {
       context.move(1);
+      next_token = TokenKind::Binary_Sub;
+    } break;
 
-      if (context.check('='))
-        throw StyioParseError("Self_Binary_Add");
-
-      curr_tok = TokenKind::Binary_Sub;
-    } break;  // You should NOT reach this line!
-
-    // Bin_Mul | Bin_Pow
     case '*': {
       context.move(1);
-
-      if (context.check('='))
-        throw StyioParseError("Self_Mul_Assign");
-
-      // Bin_Pow := <Expr> "**" <EXPR>
       if (context.check_drop('*')) {
-        curr_tok = TokenKind::Binary_Pow;
+        next_token = TokenKind::Binary_Pow;
       }
-      // Bin_Mul := <Expr> "*" <EXPR>
       else {
-        curr_tok = TokenKind::Binary_Mul;
+        next_token = TokenKind::Binary_Mul;
       }
-    } break;  // You should NOT reach this line!
+    } break;
 
-    // Bin_Div := <Expr> "/" <EXPR>
     case '/': {
       context.move(1);
+      next_token = TokenKind::Binary_Div;
+    } break;
 
-      if (context.check_drop('='))
-        throw StyioNotImplemented("Self_Div_Assign");
-
-      curr_tok = TokenKind::Binary_Div;
-    } break;  // You should NOT reach this line!
-
-    // Bin_Mod := <Expr> "%" <EXPR>
     case '%': {
       context.move(1);
-      curr_tok = TokenKind::Binary_Mod;
-    } break;  // You should NOT reach this line!
+      next_token = TokenKind::Binary_Mod;
+    } break;
 
     default: {
-      string errmsg = string("Unexpected BinOp.Operator: `") + char(context.get_curr_char()) + "`.";
-      throw StyioSyntaxError(errmsg);
-    } break;  // You should NOT reach this line!
+      return BinOpAST::Create(curr_token, lhs_ast, rhs_ast);
+    } break;
   }
 
-  context.drop_all_spaces_comments();
-
-  std::string next_op = context.peak_operator();
-  next_tok = OpTokMap.at(next_op);
-
-  // std::cout << "curr token: " << TokOpMap.at(curr_tok) << std::endl;
-  // std::cout << "next token: " << next_op << std::endl;
-
-  if (next_tok > curr_tok) {
-    output = BinOpAST::Create(curr_tok, lhs_ast, parse_expr(context));
+  if (next_token > curr_token) {
+    output = BinOpAST::Create(curr_token, lhs_ast, parse_binop_rhs(context, rhs_ast, next_token));
   }
   else {
-    output = BinOpAST::Create(curr_tok, lhs_ast, parse_binop_item(context));
+    output = parse_binop_rhs(context, BinOpAST::Create(curr_token, lhs_ast, rhs_ast), next_token);
   }
 
-  std::cout << context.label_cur_line() << std::endl;
-
-  context.pass_over(next_op);
-
-  context.drop_all_spaces_comments();
-  
-  while (context.check_binop()) {
-    output = parse_binop_with_lhs(context, output);
-    context.drop_all_spaces_comments();
-  }
-  
   return output;
 }
 
@@ -2248,21 +2366,44 @@ parse_stmt(
 
     context.drop_all_spaces_comments();
 
-    if (context.check_binop()) {
-      return parse_binop_with_lhs(context, id_ast);
-    }
-
     switch (context.get_curr_char()) {
+      case '+': {
+        context.move(1);
+        return parse_binop_rhs(context, id_ast, TokenKind::Binary_Add);
+      } break;
+
+      case '-': {
+        context.move(1);
+        return parse_binop_rhs(context, id_ast, TokenKind::Binary_Sub);
+      } break;
+
+      case '*': {
+        context.move(1);
+        if (context.check_drop('*')) {
+          return parse_binop_rhs(context, id_ast, TokenKind::Binary_Pow);
+        }
+        else {
+          return parse_binop_rhs(context, id_ast, TokenKind::Binary_Mul);
+        }
+      } break;
+
+      case '/': {
+        context.move(1);
+        return parse_binop_rhs(context, id_ast, TokenKind::Binary_Div);
+      } break;
+
+      case '%': {
+        context.move(1);
+        return parse_binop_rhs(context, id_ast, TokenKind::Binary_Mod);
+      } break;
+
       case '=': {
         context.move(1);
 
         context.drop_all_spaces_comments();
 
         return FlexBindAST::Create(VarAST::Create(id_ast), parse_expr(context));
-      };
-
-        // You should NOT reach this line!
-        break;
+      } break;  // You should NOT reach this line!
 
       case ':': {
         context.move(1);
@@ -2296,10 +2437,7 @@ parse_stmt(
             throw StyioSyntaxError(errmsg);
           }
         }
-      };
-
-        // You should NOT reach this line!
-        break;
+      } break;  // You should NOT reach this line!
 
       case '<': {
         context.move(1);
@@ -2313,10 +2451,7 @@ parse_stmt(
           string errmsg = string("Expecting `-` after `<`, but found `") + char(context.get_curr_char()) + "`.";
           throw StyioSyntaxError(errmsg);
         }
-      }
-
-      // You should NOT reach this line!
-      break;
+      } break;  // You should NOT reach this line!
 
       case '>': {
         context.move(1);
@@ -2326,26 +2461,54 @@ parse_stmt(
 
           return parse_loop_or_iter(context, (id_ast));
         }
-      }
-      // You should NOT reach this line!
-      break;
+      } break;  // You should NOT reach this line!
 
       default:
         break;
     }
   }
   // Int / Float
-  else if (isdigit(context.get_curr_char())) {
-    StyioAST* numAST = parse_int_or_float(context);
+  else if (context.check_isdigit()) {
+    StyioAST* output = parse_int_or_float(context);
 
     context.drop_all_spaces_comments();
 
-    if (context.check_binop()) {
-      return parse_binop_with_lhs(context, (numAST));
+    switch (context.get_curr_char()) {
+      case '+': {
+        context.move(1);
+        output = parse_binop_rhs(context, output, TokenKind::Binary_Add);
+      } break;
+
+      case '-': {
+        context.move(1);
+        output = parse_binop_rhs(context, output, TokenKind::Binary_Sub);
+      } break;
+
+      case '*': {
+        context.move(1);
+        if (context.check_drop('*')) {
+          output = parse_binop_rhs(context, output, TokenKind::Binary_Pow);
+        }
+        else {
+          output = parse_binop_rhs(context, output, TokenKind::Binary_Mul);
+        }
+      } break;
+
+      case '/': {
+        context.move(1);
+        output = parse_binop_rhs(context, output, TokenKind::Binary_Div);
+      } break;
+
+      case '%': {
+        context.move(1);
+        output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
+      } break;
+
+      default: {
+      } break;
     }
-    else {
-      return numAST;
-    }
+
+    return output;
   }
   // Print
   else if (context.check(">_")) {

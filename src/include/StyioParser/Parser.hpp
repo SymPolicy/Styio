@@ -71,6 +71,22 @@ public:
     return code.at(curr_pos);
   }
 
+  // /* Get Current Token */
+  // TokenKind get_curr_token() {
+  //   int tmp_pos = curr_pos;
+  //   int offset = 0;
+
+  //   while (
+  //     not(isspace(code.at(tmp_pos))                      /* not space */
+  //         || code.compare(tmp_pos, 2, string("/*")) != 0 /* not comment */
+  //         || isalnum(code.at(tmp_pos)) || (code.at(tmp_pos) == '_') /* not [a-z], not [0-9], not _ */)
+  //   ) {
+  //     offset += 1;
+  //   }
+
+  //   return StrTokenMap.at(code.substr(tmp_pos, offset));
+  // }
+
   size_t find_line_index(
     int p = -1
   ) {
@@ -286,7 +302,7 @@ public:
 
           while (code.at(tmp_pos) != '\n') {
             tmp_pos += 1;
-          } /* warning: no boundary check */ 
+          } /* warning: no boundary check */
           tmp_pos += 1;
         }
         /* match */ /* like */ /* this */
@@ -295,9 +311,9 @@ public:
 
           while (code.compare(tmp_pos, 2, string("*/")) != 0) {
             tmp_pos += 1;
-          } /* warning: no boundary check */ 
+          } /* warning: no boundary check */
           tmp_pos += 2;
-        }   /* warning: no boundary check */
+        } /* warning: no boundary check */
         else if (isalnum(code.at(tmp_pos)) || (code.at(tmp_pos) == '_')) {
           tmp_pos += 1;
         }
@@ -487,6 +503,47 @@ public:
 
     return false;
   }
+
+  std::tuple<bool, TokenKind> get_binop_token() {
+    switch (code.at(curr_pos)) {
+      case '+': {
+        return {true, TokenKind::Binary_Add};
+      } break;
+
+      case '-': {
+        return {true, TokenKind::Binary_Sub};
+      } break;
+
+      case '*': {
+        return {true, TokenKind::Binary_Mul};
+      } break;
+
+      case '/': {
+        switch (code.at(curr_pos + 1)) {
+          case '*': {
+            return {false, TokenKind::Comment_MultiLine};
+          } break;
+
+          case '/': {
+            return {false, TokenKind::Comment_SingleLine};
+          } break;
+
+          default: {
+            return {true, TokenKind::Binary_Div};
+          } break;
+        }
+      } break;
+
+      case '%': {
+        return {true, TokenKind::Binary_Mod};
+      } break;
+
+      default:
+        break;
+    }
+
+    return {false, TokenKind::Undefined};
+  }
 };
 
 template <typename Enumeration>
@@ -587,10 +644,10 @@ StyioAST*
 parse_binop_item(StyioContext& context);
 
 /*
-  parse_binop_with_lhs
+  parse_binop_rhs
 */
 BinOpAST*
-parse_binop_with_lhs(StyioContext& context, StyioAST* lhs_ast);
+parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast, TokenKind curr_tok);
 
 /*
   parse_cond_item

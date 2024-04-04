@@ -73,11 +73,31 @@ void
 StyioAnalyzer::typeInfer(OptKwArgAST* ast) {
 }
 
+/*
+  The declared type is always top priority
+  because the programmer wrote in that way!
+  Therefore, infer the type of variable at first,
+  and then the value.
+*/
 void
 StyioAnalyzer::typeInfer(FlexBindAST* ast) {
   auto var_type = ast->getVar()->getType()->getType();
   /* FlexBindAST -> VarAST -> DTypeAST */
-  if (var_type != StyioDataType::undefined) {
+  /* var type is not declared, try to deduce from the type of value */
+  if (var_type == StyioDataType::undefined) {
+    ast->getValue()->typeInfer(this);
+
+    switch (ast->getValue()->hint()) {
+      case StyioNodeHint::BinOp: {
+        ast->getVar()->setType(static_cast<BinOpAST*>(ast->getValue())->getType());
+      } break;
+
+      default:
+        break;
+    }
+  }
+  /* if var type has been declared, the type of value must be converted to whatever declared */
+  else {
     switch (ast->getValue()->hint()) {
       case StyioNodeHint::BinOp: {
         static_cast<BinOpAST*>(ast->getValue())->setDType(var_type);
@@ -86,9 +106,9 @@ StyioAnalyzer::typeInfer(FlexBindAST* ast) {
       default:
         break;
     }
-  }
 
-  ast->getValue()->typeInfer(this);
+    ast->getValue()->typeInfer(this);
+  }
 }
 
 void
@@ -239,6 +259,15 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
 
             if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
               ast->setDType(getMaxType(lhs_binop->getType(), rhs_float->getType()));
+            }
+          } break;
+
+          case StyioNodeHint::BinOp: {
+            auto lhs_binop = static_cast<BinOpAST*>(lhs);
+            auto rhs_binop = static_cast<BinOpAST*>(rhs);
+
+            if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
+              ast->setDType(getMaxType(lhs_binop->getType(), rhs_binop->getType()));
             }
           } break;
 

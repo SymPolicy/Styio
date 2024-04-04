@@ -520,25 +520,25 @@ public:
 class VarAST : public StyioNode<VarAST>
 {
 private:
-  NameAST* var_name = NameAST::Create();    /* Variable Name */
-  DTypeAST* data_type = DTypeAST::Create(); /* Data Type */
-  StyioAST* default_value = nullptr;        /* Default Value */
+  NameAST* var_name_ = NameAST::Create();    /* Variable Name */
+  DTypeAST* data_type_ = DTypeAST::Create(); /* Data Type */
+  StyioAST* default_value_ = nullptr;        /* Default Value */
 
 public:
   VarAST(NameAST* name) :
-      var_name(name),
-      data_type(DTypeAST::Create()) {
+      var_name_(name),
+      data_type_(DTypeAST::Create()) {
   }
 
   VarAST(NameAST* name, DTypeAST* data_type) :
-      var_name(name),
-      data_type(data_type) {
+      var_name_(name),
+      data_type_(data_type) {
   }
 
   VarAST(NameAST* name, DTypeAST* data_type, StyioAST* default_value) :
-      var_name(name),
-      data_type(data_type),
-      default_value(default_value) {
+      var_name_(name),
+      data_type_(data_type),
+      default_value_(default_value) {
   }
 
   static VarAST* Create(NameAST* name) {
@@ -554,27 +554,27 @@ public:
   }
 
   NameAST* getName() {
-    return var_name;
+    return var_name_;
   }
 
   const string& getNameAsStr() {
-    return var_name->getNameAsStr();
+    return var_name_->getNameAsStr();
   }
 
   DTypeAST* getType() {
-    return data_type;
-  }
-
-  string getTypeAsStr() {
-    return data_type->getTypeName();
+    return data_type_;
   }
 
   void setType(StyioDataType type) {
-    return data_type->setDType(type);
+    data_type_->setDType(type);
+  }
+
+  string getTypeAsStr() {
+    return data_type_->getTypeName();
   }
 
   bool isTyped() {
-    return (data_type && (data_type->getType() != StyioDataType::undefined));
+    return (data_type_ && (data_type_->getType() != StyioDataType::undefined));
   }
 };
 
