@@ -74,15 +74,14 @@ StyioAnalyzer::typeInfer(OptKwArgAST* ast) {
 }
 
 /*
-  The declared type is always top priority
+  The declared type is always the *top* priority
   because the programmer wrote in that way!
-  Therefore, infer the type of variable at first,
-  and then the value.
 */
 void
 StyioAnalyzer::typeInfer(FlexBindAST* ast) {
+  /* FlexBindAST -> VarAST -> DTypeAST -> StyioDataType */
   auto var_type = ast->getVar()->getType()->getType();
-  /* FlexBindAST -> VarAST -> DTypeAST */
+  
   /* var type is not declared, try to deduce from the type of value */
   if (var_type == StyioDataType::undefined) {
     ast->getValue()->typeInfer(this);
