@@ -150,6 +150,7 @@ StyioAnalyzer::typeInfer(TupleAST* ast) {
   }
 
   if (is_consistent) {
+    ast->setConsistency(is_consistent);
     ast->setDataType(aggregated_type);
   }
 }

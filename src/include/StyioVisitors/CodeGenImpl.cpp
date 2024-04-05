@@ -547,8 +547,12 @@ StyioToLLVMIR::toLLVMIR(FlexBindAST* ast) {
   switch (ast->getValue()->getNodeType()) {
     case StyioNodeHint::Tuple: {
       TupleAST* val_expr = static_cast<TupleAST*>(ast->getValue());
-      llvm::ArrayType* val_llvm_type = static_cast<llvm::ArrayType*>(ast->toLLVMType(this));
 
+      if (not val_expr->isConsistent()) {
+        return output;
+      }
+
+      llvm::ArrayType* val_llvm_type = static_cast<llvm::ArrayType*>(ast->toLLVMType(this));
       llvm::AllocaInst* variable = theBuilder->CreateAlloca(
         val_llvm_type,
         theBuilder->getInt32(val_expr->getElements().size()),

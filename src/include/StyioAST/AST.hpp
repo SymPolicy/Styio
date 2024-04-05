@@ -1024,6 +1024,7 @@ public:
 class TupleAST : public StyioNode<TupleAST>
 {
   vector<StyioAST*> elements;
+  bool consistency = false;
   DTypeAST* consistent_type = DTypeAST::Create();
 
 public:
@@ -1041,6 +1042,14 @@ public:
 
   DTypeAST* getDTypeObj() {
     return consistent_type;
+  }
+
+  void setConsistency(bool value) {
+    consistency = value;
+  }
+
+  bool isConsistent() {
+    return consistency;
   }
 
   const StyioNodeHint getNodeType() const {
