@@ -36,7 +36,7 @@ StyioAnalyzer::typeInfer(BoolAST* ast) {
 
 void
 StyioAnalyzer::typeInfer(IntAST* ast) {
-  if (ast->getType() == StyioDataType::undefined) {
+  if (ast->getDataType() == StyioDataType::undefined) {
     ast->setDataType(StyioDataType::i32);
   }
 }
@@ -81,14 +81,26 @@ void
 StyioAnalyzer::typeInfer(FlexBindAST* ast) {
   /* FlexBindAST -> VarAST -> DTypeAST -> StyioDataType */
   auto var_type = ast->getVar()->getDType()->getType();
-  
+
   /* var type is not declared, try to deduce from the type of value */
   if (var_type == StyioDataType::undefined) {
     ast->getValue()->typeInfer(this);
 
     switch (ast->getValue()->getNodeType()) {
+      case StyioNodeHint::Int: {
+        ast->getVar()->setDataType(ast->getValue()->getDataType());
+      } break;
+
+      case StyioNodeHint::Float: {
+        ast->getVar()->setDataType(ast->getValue()->getDataType());
+      } break;
+
       case StyioNodeHint::BinOp: {
-        ast->getVar()->setDataType(static_cast<BinOpAST*>(ast->getValue())->getType());
+        ast->getVar()->setDataType(ast->getValue()->getDataType());
+      } break;
+
+      case StyioNodeHint::Tuple: {
+        ast->getVar()->setDataType(ast->getValue()->getDataType());
       } break;
 
       default:
@@ -124,7 +136,21 @@ StyioAnalyzer::typeInfer(StructAST* ast) {
 
 void
 StyioAnalyzer::typeInfer(TupleAST* ast) {
-  for (auto item: ast->getElements()) {
+  /* if no element against the consistency, the tuple will have a type. */
+  auto elements = ast->getElements();
+
+  bool is_consistent = true;
+  StyioDataType aggregated_type = elements[0]->getDataType();
+  if (aggregated_type != StyioDataType::undefined) {
+    for (size_t i = 1; i < elements.size(); i += 1) {
+      if (elements[i]->getDataType() != aggregated_type) {
+        is_consistent = false;
+      }
+    }
+  }
+
+  if (is_consistent) {
+    ast->setDataType(aggregated_type);
   }
 }
 
@@ -185,12 +211,12 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto rhs_int = static_cast<IntAST*>(rhs);
 
             if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul) {
-              ast->setDType(getMaxType(lhs_int->getType(), rhs_int->getType()));
+              ast->setDType(getMaxType(lhs_int->getDataType(), rhs_int->getDataType()));
             }
             else if (op == TokenKind::Binary_Div) {
               // 0 / n = 0
               if (std::stoi(lhs_int->getValue()) == 0) {
-                ast->setDType(getMaxType(lhs_int->getType(), rhs_int->getType()));
+                ast->setDType(getMaxType(lhs_int->getDataType(), rhs_int->getDataType()));
               }
             }
           } break;
@@ -200,7 +226,7 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto rhs_float = static_cast<FloatAST*>(rhs);
 
             if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
-              ast->setDType(getMaxType(lhs_int->getType(), rhs_float->getType()));
+              ast->setDType(getMaxType(lhs_int->getDataType(), rhs_float->getDataType()));
             }
           } break;
 
@@ -209,7 +235,7 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto rhs_expr = static_cast<BinOpAST*>(rhs);
 
             if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
-              ast->setDType(getMaxType(lhs_expr->getType(), rhs_expr->getType()));
+              ast->setDType(getMaxType(lhs_expr->getDataType(), rhs_expr->getDataType()));
             }
           } break;
 
@@ -225,7 +251,7 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto rhs_int = static_cast<IntAST*>(rhs);
 
             if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
-              ast->setDType(getMaxType(lhs_float->getType(), rhs_int->getType()));
+              ast->setDType(getMaxType(lhs_float->getDataType(), rhs_int->getDataType()));
             }
           } break;
 
@@ -234,7 +260,7 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto rhs_float = static_cast<FloatAST*>(rhs);
 
             if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
-              ast->setDType(getMaxType(lhs_float->getType(), rhs_float->getType()));
+              ast->setDType(getMaxType(lhs_float->getDataType(), rhs_float->getDataType()));
             }
           } break;
 
@@ -250,7 +276,7 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto rhs_expr = static_cast<IntAST*>(rhs);
 
             if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
-              ast->setDType(getMaxType(lhs_expr->getType(), rhs_expr->getType()));
+              ast->setDType(getMaxType(lhs_expr->getType(), rhs_expr->getDataType()));
             }
           } break;
 
@@ -259,7 +285,7 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto rhs_float = static_cast<FloatAST*>(rhs);
 
             if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
-              ast->setDType(getMaxType(lhs_binop->getType(), rhs_float->getType()));
+              ast->setDType(getMaxType(lhs_binop->getType(), rhs_float->getDataType()));
             }
           } break;
 
@@ -359,11 +385,11 @@ StyioAnalyzer::typeInfer(CallAST* ast) {
   for (auto arg : ast->getArgList()) {
     switch (arg->getNodeType()) {
       case StyioNodeHint::Int: {
-        arg_types.push_back(static_cast<IntAST*>(arg)->getType());
+        arg_types.push_back(static_cast<IntAST*>(arg)->getDataType());
       } break;
 
       case StyioNodeHint::Float: {
-        arg_types.push_back(static_cast<FloatAST*>(arg)->getType());
+        arg_types.push_back(static_cast<FloatAST*>(arg)->getDataType());
       } break;
 
       default:

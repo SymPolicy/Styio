@@ -42,12 +42,12 @@ StyioAnalyzer::toString(BoolAST* ast, int indent) {
 
 std::string
 StyioAnalyzer::toString(IntAST* ast, int indent) {
-  return "{ " + ast->getValue() + " : " + reprDataType(ast->getType()) + " }";
+  return "{ " + ast->getValue() + " : " + reprDataType(ast->getDataType()) + " }";
 }
 
 std::string
 StyioAnalyzer::toString(FloatAST* ast, int indent) {
-  return "{ " + ast->getValue() + " : " + reprDataType(ast->getType()) + " }";
+  return "{ " + ast->getValue() + " : " + reprDataType(ast->getDataType()) + " }";
 }
 
 std::string
@@ -93,7 +93,7 @@ std::string
 StyioAnalyzer::toString(FlexBindAST* ast, int indent) {
   return reprNodeType(ast->getNodeType(), " ") + string("{")
          + "\n" + make_padding(indent, " ") + ast->getVar()->toString(this)
-         + "\n" + make_padding(indent, " ") + "val = " + ast->getValue()->toString(this, indent + 1)
+         + "\n" + make_padding(indent, " ") + "val { " + ast->getValue()->toString(this, indent + 1) + "}"
          + "}";
 }
 
@@ -138,13 +138,15 @@ StyioAnalyzer::toString(TupleAST* ast, int indent) {
 
   auto Elems = ast->getElements();
   for (int i = 0; i < Elems.size(); i++) {
-    ElemStr += make_padding(indent + 1) + Elems[i]->toString(this, indent + 1);
+    ElemStr += make_padding(indent + 1, " ") + Elems[i]->toString(this, indent + 1);
     if (i < (Elems.size() - 1)) {
       ElemStr += "\n";
     }
   }
 
-  return reprNodeType(ast->getNodeType(), " ") + "(\n" + ElemStr + ")";
+  return reprNodeType(ast->getNodeType(), ": ")
+         + reprDataType(ast->getDataType())
+         + " {\n" + ElemStr + "}";
 }
 
 std::string

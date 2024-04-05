@@ -7,9 +7,9 @@
 
 // [Styio]
 #include "../StyioAST/AST.hpp"
+#include "../StyioException/Exception.hpp"
 #include "../StyioToken/Token.hpp"
 #include "Util.hpp"
-#include "../StyioException/Exception.hpp"
 
 llvm::Type*
 StyioToLLVMIR::toLLVMType(CommentAST* ast) {
@@ -47,7 +47,7 @@ StyioToLLVMIR::toLLVMType(DTypeAST* ast) {
     } break;
 
     default: {
-    } break;    
+    } break;
   }
 
   return nullptr;
@@ -110,7 +110,10 @@ StyioToLLVMIR::toLLVMType(OptKwArgAST* ast) {
 
 llvm::Type*
 StyioToLLVMIR::toLLVMType(FlexBindAST* ast) {
-  /* expecting: VarAST -> DTypeAST -> llvm::Type */
+  if (ast->getDataType() == StyioDataType::undefined) {
+    return ast->getValue()->toLLVMType(this);
+  }
+
   return ast->getVar()->toLLVMType(this);
 }
 
@@ -131,7 +134,7 @@ StyioToLLVMIR::toLLVMType(StructAST* ast) {
 
 llvm::Type*
 StyioToLLVMIR::toLLVMType(TupleAST* ast) {
-  return theBuilder->getInt32Ty();
+  return llvm::ArrayType::get(ast->getDTypeObj()->toLLVMType(this), ast->getElements().size());
 }
 
 llvm::Type*

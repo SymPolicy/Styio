@@ -251,7 +251,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType::undefined;
+    return StyioDataType::i1;
   }
 };
 
@@ -262,15 +262,16 @@ class IntAST : public StyioNode<IntAST>
 {
 private:
   string value;
-  StyioDataType data_type = StyioDataType::i32;
+  DTypeAST* data_type = DTypeAST::Create(StyioDataType::i32);
 
 public:
   IntAST(string value) :
       value(value) {
   }
 
-  IntAST(string value, StyioDataType data_type) :
-      value(value), data_type(data_type) {
+  IntAST(string value, StyioDataType type) :
+      value(value) {
+        data_type->setDType(type);
   }
 
   static IntAST* Create(string value) {
@@ -290,11 +291,11 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return data_type;
+    return data_type->getDataType();
   }
 
   void setDataType(StyioDataType type) {
-    this->data_type = type;
+    data_type->setDType(type);
   }
 };
 
@@ -304,24 +305,25 @@ public:
 class FloatAST : public StyioNode<FloatAST>
 {
 private:
-  string Value;
-  StyioDataType FType = StyioDataType::f64;
+  string value;
+  DTypeAST* data_type = DTypeAST::Create(StyioDataType::f64);
 
 public:
   FloatAST(const string& value) :
-      Value(value) {
+      value(value) {
+  }
+
+  FloatAST(const string& value, StyioDataType type) :
+      value(value) {
+    data_type->setDType(type);
   }
 
   static FloatAST* Create(const string& value) {
     return new FloatAST(value);
   }
 
-  StyioDataType getType() {
-    return FType;
-  }
-
   const string& getValue() {
-    return Value;
+    return value;
   }
 
   const StyioNodeHint getNodeType() const {
@@ -329,7 +331,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType::undefined;
+    return data_type->getDataType();
   }
 };
 
@@ -588,25 +590,25 @@ public:
 class VarAST : public StyioNode<VarAST>
 {
 private:
-  NameAST* var_name_ = NameAST::Create();    /* Variable Name */
-  DTypeAST* data_type_ = DTypeAST::Create(); /* Data Type */
-  StyioAST* default_value_ = nullptr;        /* Default Value */
+  NameAST* var_name_ = NameAST::Create();   /* Variable Name */
+  DTypeAST* var_dtype = DTypeAST::Create(); /* Variable Data Type */
+  StyioAST* var_init_val = nullptr;         /* Variable Initial Value */
 
 public:
   VarAST(NameAST* name) :
       var_name_(name),
-      data_type_(DTypeAST::Create()) {
+      var_dtype(DTypeAST::Create()) {
   }
 
   VarAST(NameAST* name, DTypeAST* data_type) :
       var_name_(name),
-      data_type_(data_type) {
+      var_dtype(data_type) {
   }
 
   VarAST(NameAST* name, DTypeAST* data_type, StyioAST* default_value) :
       var_name_(name),
-      data_type_(data_type),
-      default_value_(default_value) {
+      var_dtype(data_type),
+      var_init_val(default_value) {
   }
 
   static VarAST* Create(NameAST* name) {
@@ -626,7 +628,7 @@ public:
   }
 
   void setDataType(StyioDataType type) {
-    data_type_->setDType(type);
+    var_dtype->setDType(type);
   }
 
   NameAST* getName() {
@@ -638,15 +640,15 @@ public:
   }
 
   DTypeAST* getDType() {
-    return data_type_;
+    return var_dtype;
   }
   
   string getTypeAsStr() {
-    return data_type_->getTypeName();
+    return var_dtype->getTypeName();
   }
 
   bool isTyped() {
-    return (data_type_ && (data_type_->getType() != StyioDataType::undefined));
+    return (var_dtype && (var_dtype->getType() != StyioDataType::undefined));
   }
 };
 
@@ -658,8 +660,8 @@ class ArgAST : public VarAST
 {
 private:
   NameAST* var_name = NameAST::Create("");  /* Variable Name */
-  DTypeAST* data_type = DTypeAST::Create(); /* Data Type */
-  StyioAST* default_value = nullptr;        /* Default Value */
+  DTypeAST* var_dtype = DTypeAST::Create(); /* Variable Data Type */
+  StyioAST* var_init_value = nullptr;       /* Variable Initial Value */
 
 public:
   ArgAST(NameAST* name) :
@@ -673,14 +675,14 @@ public:
   ) :
       VarAST(name, data_type),
       var_name(name),
-      data_type(data_type) {
+      var_dtype(data_type) {
   }
 
   ArgAST(NameAST* name, DTypeAST* data_type, StyioAST* default_value) :
       VarAST(name, data_type, default_value),
       var_name(name),
-      data_type(data_type),
-      default_value(default_value) {
+      var_dtype(data_type),
+      var_init_value(default_value) {
   }
 
   const StyioNodeHint getNodeType() const {
@@ -709,17 +711,17 @@ public:
 
   bool isTyped() {
     return (
-      data_type != nullptr
-      && (data_type->getType() != StyioDataType::undefined)
+      var_dtype != nullptr
+      && (var_dtype->getType() != StyioDataType::undefined)
     );
   }
 
   DTypeAST* getDType() {
-    return data_type;
+    return var_dtype;
   }
 
   void setDType(StyioDataType type) {
-    return data_type->setDType(type);
+    return var_dtype->setDType(type);
   }
 };
 
@@ -1021,12 +1023,12 @@ public:
 /* Tuple */
 class TupleAST : public StyioNode<TupleAST>
 {
-  vector<StyioAST*> elements_;
-  StyioDataType consistent_type_ = StyioDataType::undefined;
+  vector<StyioAST*> elements;
+  DTypeAST* consistent_type = DTypeAST::Create();
 
 public:
   TupleAST(vector<StyioAST*> elems) :
-      elements_(elems) {
+      elements(elems) {
   }
 
   static TupleAST* Create(vector<StyioAST*> elems) {
@@ -1034,11 +1036,11 @@ public:
   }
 
   const vector<StyioAST*>& getElements() {
-    return elements_;
+    return elements;
   }
 
-  StyioDataType getType() {
-    return consistent_type_;
+  DTypeAST* getDTypeObj() {
+    return consistent_type;
   }
 
   const StyioNodeHint getNodeType() const {
@@ -1046,7 +1048,11 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType::undefined;
+    return consistent_type->getDataType();
+  }
+
+  void setDataType(StyioDataType type) {
+    consistent_type->setDType(type);
   }
 };
 

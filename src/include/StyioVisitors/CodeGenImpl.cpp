@@ -274,7 +274,7 @@ StyioToLLVMIR::toLLVMIR(DTypeAST* ast) {
 
 llvm::Value*
 StyioToLLVMIR::toLLVMIR(IntAST* ast) {
-  switch (ast->getType()) {
+  switch (ast->getDataType()) {
     case StyioDataType::i1: {
       return theBuilder->getInt1(std::stoi(ast->getValue()));
     } break;
@@ -307,7 +307,7 @@ StyioToLLVMIR::toLLVMIR(IntAST* ast) {
 
 llvm::Value*
 StyioToLLVMIR::toLLVMIR(FloatAST* ast) {
-  switch (ast->getType()) {
+  switch (ast->getDataType()) {
     case StyioDataType::f64:
       return llvm::ConstantFP::get(*theContext, llvm::APFloat(std::stod(ast->getValue())));
 
@@ -536,25 +536,43 @@ llvm::Value*
 StyioToLLVMIR::toLLVMIR(FlexBindAST* ast) {
   auto output = theBuilder->getInt32(0);
 
-  // Load the value.
-  // return llvm_ir_builder->CreateLoad(A->getAllocatedType(), A, Name.c_str());
-
   const string& varname = ast->getNameAsStr();
   llvm::Type* var_type;
 
   if (mut_vars.contains(varname)) {
-    llvm::AllocaInst* variable = mut_vars[varname];
-    theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
+    theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), mut_vars[varname]);
+    return output;
   }
-  else {
-    llvm::AllocaInst* variable = theBuilder->CreateAlloca(
-      ast->toLLVMType(this),
-      nullptr,
-      varname.c_str()
-    );
-    mut_vars[varname] = variable;
 
-    theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
+  switch (ast->getValue()->getNodeType()) {
+    case StyioNodeHint::Tuple: {
+      TupleAST* val_expr = static_cast<TupleAST*>(ast->getValue());
+      llvm::ArrayType* val_llvm_type = static_cast<llvm::ArrayType*>(ast->toLLVMType(this));
+
+      llvm::AllocaInst* variable = theBuilder->CreateAlloca(
+        val_llvm_type,
+        theBuilder->getInt32(val_expr->getElements().size()),
+        varname.c_str()
+      );
+      mut_vars[varname] = variable;
+      
+      std::vector<llvm::Constant*> init_vals;
+      for (auto item: val_expr->getElements()) {
+        init_vals.push_back(static_cast<llvm::Constant*>(item->toLLVMIR(this)));
+      }
+      theBuilder->CreateStore(llvm::ConstantArray::get(val_llvm_type, init_vals), variable);
+      // theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
+    } break;
+
+    default: {
+      llvm::AllocaInst* variable = theBuilder->CreateAlloca(
+        ast->toLLVMType(this),
+        nullptr,
+        varname.c_str()
+      );
+      mut_vars[varname] = variable;
+      theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
+    } break;
   }
 
   // switch (ast->getValue()->hint()) {
