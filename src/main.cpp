@@ -34,7 +34,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/Error.h" /* ExitOnErr */
 #include "llvm/Support/FileSystem.h"
 
@@ -173,7 +172,8 @@ main(
     auto styio_code = read_styio_file(fpath);
     // show_code_with_linenum(styio_code);
     auto styio_context = StyioContext::Create(fpath, styio_code.code_text, styio_code.line_seps);
-
+    
+    /* Parser */
     auto styio_program = parse_main_block(*styio_context);
     StyioAnalyzer analyzer = StyioAnalyzer();
 
@@ -195,6 +195,7 @@ main(
 
     StyioToLLVMIR generator = StyioToLLVMIR(std::move(styio_orc_jit));
 
+    /* Type Inference */
     analyzer.typeInfer(styio_program);
 
     if (show_type_checking) {
@@ -205,12 +206,16 @@ main(
         << std::endl;
     }
 
+    /* CodeGen (LLVM IR) */
+
     generator.toLLVMIR(styio_program);
 
     if (show_ir) {
       generator.print_llvm_ir();
       generator.print_test_results();
     }
+
+    /* JIT Execute */
 
     generator.execute();
   }

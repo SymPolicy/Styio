@@ -22,16 +22,19 @@ class StyioAST
 public:
   virtual ~StyioAST() {}
 
-  /* type hint */
-  virtual const StyioNodeHint hint() = 0;
+  /* Type Hint */
+  virtual const StyioNodeHint getNodeType() const = 0;
 
+  virtual const StyioDataType getDataType() const = 0;
+
+  /* StyioAST to String */
   virtual std::string toString(StyioAnalyzer* visitor, int indent = 0) = 0;
 
   /* Type Inference */
   virtual void typeInfer(StyioAnalyzer* visitor) = 0;
 
   /* Get LLVM Type */
-  virtual llvm::Type* getLLVMType(StyioToLLVMIR* visitor) = 0;
+  virtual llvm::Type* toLLVMType(StyioToLLVMIR* visitor) = 0;
 
   /* LLVM IR Generator */
   virtual llvm::Value* toLLVMIR(StyioToLLVMIR* visitor) = 0;
@@ -43,7 +46,8 @@ template <class Derived>
 class StyioNode : public StyioAST
 {
 public:
-  using StyioAST::hint;
+  using StyioAST::getNodeType;
+  using StyioAST::getDataType;
 
   std::string toString(StyioAnalyzer* visitor, int indent = 0) override {
     return visitor->toString(static_cast<Derived*>(this), indent);
@@ -53,8 +57,8 @@ public:
     visitor->typeInfer(static_cast<Derived*>(this));
   }
 
-  llvm::Type* getLLVMType(StyioToLLVMIR* visitor) override {
-    return visitor->getLLVMType(static_cast<Derived*>(this));
+  llvm::Type* toLLVMType(StyioToLLVMIR* visitor) override {
+    return visitor->toLLVMType(static_cast<Derived*>(this));
   }
 
   llvm::Value* toLLVMIR(StyioToLLVMIR* visitor) override {
@@ -82,8 +86,12 @@ public:
     return text;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Comment;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -111,8 +119,12 @@ public:
     return name_str;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Id;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -161,8 +173,12 @@ public:
     data_type = type;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::DType;
+  }
+
+  const StyioDataType getDataType() const {
+    return data_type;
   }
 };
 
@@ -180,8 +196,12 @@ public:
     return new NoneAST();
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::None;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -197,8 +217,12 @@ public:
     return new EmptyAST();
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Empty;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -218,12 +242,16 @@ public:
     return new BoolAST(value);
   }
 
-  const StyioNodeHint hint() {
+  bool getValue() {
+    return Value;
+  }
+
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Bool;
   }
 
-  bool getValue() {
-    return Value;
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -257,16 +285,16 @@ public:
     return value;
   }
 
-  StyioDataType getType() {
+  const StyioNodeHint getNodeType() const {
+    return StyioNodeHint::Int;
+  }
+
+  const StyioDataType getDataType() const {
     return data_type;
   }
 
-  void setType(StyioDataType type) {
+  void setDataType(StyioDataType type) {
     this->data_type = type;
-  }
-
-  const StyioNodeHint hint() {
-    return StyioNodeHint::Int;
   }
 };
 
@@ -296,8 +324,12 @@ public:
     return Value;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Float;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -323,8 +355,12 @@ public:
     return value;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Char;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -348,8 +384,12 @@ public:
     return value;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::String;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -385,8 +425,12 @@ public:
     return LastExpr;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Cases;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -413,8 +457,12 @@ public:
     return Stmts;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Block;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -448,8 +496,12 @@ public:
     return Stmts;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::MainBlock;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -458,8 +510,12 @@ class EOFAST : public StyioNode<EOFAST>
 public:
   EOFAST() {}
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::End;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -468,8 +524,12 @@ class BreakAST : public StyioNode<BreakAST>
 public:
   BreakAST() {}
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Break;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -478,8 +538,12 @@ class PassAST : public StyioNode<PassAST>
 public:
   PassAST() {}
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Pass;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -500,8 +564,12 @@ public:
     return Expr;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Return;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -549,8 +617,16 @@ public:
     return new VarAST(name, data_type);
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Variable;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
+  }
+
+  void setDataType(StyioDataType type) {
+    data_type_->setDType(type);
   }
 
   NameAST* getName() {
@@ -561,14 +637,10 @@ public:
     return var_name_->getNameAsStr();
   }
 
-  DTypeAST* getType() {
+  DTypeAST* getDType() {
     return data_type_;
   }
-
-  void setType(StyioDataType type) {
-    data_type_->setDType(type);
-  }
-
+  
   string getTypeAsStr() {
     return data_type_->getTypeName();
   }
@@ -611,8 +683,12 @@ public:
       default_value(default_value) {
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Arg;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 
   static ArgAST* Create(NameAST* name) {
@@ -662,8 +738,12 @@ public:
     return new OptArgAST(name);
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::OptArg;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -681,8 +761,12 @@ public:
     return new OptKwArgAST(id);
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::OptKwArg;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -704,8 +788,12 @@ public:
     return Vars;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::VarTuple;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -734,8 +822,12 @@ public:
     return Exprs;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::FmtStr;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -767,8 +859,12 @@ public:
     return PromoType;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::NumConvert;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -806,8 +902,12 @@ public:
     return Path;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::LocalPath;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -839,8 +939,12 @@ public:
     return Path;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::RemotePath;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -868,8 +972,12 @@ public:
     return Path;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::WebUrl;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -892,8 +1000,12 @@ public:
     return Path;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::DBUrl;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -905,6 +1017,38 @@ public:
       Set
   =================
 */
+
+/* Tuple */
+class TupleAST : public StyioNode<TupleAST>
+{
+  vector<StyioAST*> elements_;
+  StyioDataType consistent_type_ = StyioDataType::undefined;
+
+public:
+  TupleAST(vector<StyioAST*> elems) :
+      elements_(elems) {
+  }
+
+  static TupleAST* Create(vector<StyioAST*> elems) {
+    return new TupleAST(std::move(elems));
+  }
+
+  const vector<StyioAST*>& getElements() {
+    return elements_;
+  }
+
+  StyioDataType getType() {
+    return consistent_type_;
+  }
+
+  const StyioNodeHint getNodeType() const {
+    return StyioNodeHint::Tuple;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
+  }
+};
 
 /*
   ListAST: List (Extendable)
@@ -918,48 +1062,46 @@ public:
       Elems(elems) {
   }
 
+  static ListAST* Create(vector<StyioAST*> elems) {
+    return new ListAST(std::move(elems));
+  }
+
   const vector<StyioAST*>& getElements() {
     return Elems;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::List;
   }
-};
 
-class TupleAST : public StyioNode<TupleAST>
-{
-  vector<StyioAST*> Elems;
-
-public:
-  TupleAST(vector<StyioAST*> elems) :
-      Elems(elems) {
-  }
-
-  const vector<StyioAST*>& getElements() {
-    return Elems;
-  }
-
-  const StyioNodeHint hint() {
-    return StyioNodeHint::Tuple;
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
 class SetAST : public StyioNode<SetAST>
 {
-  vector<StyioAST*> Elems;
+  vector<StyioAST*> elements_;
 
 public:
   SetAST(vector<StyioAST*> elems) :
-      Elems(elems) {
+      elements_(elems) {
+  }
+
+  static SetAST* Create(vector<StyioAST*> elems) {
+    return new SetAST(std::move(elems));
   }
 
   const vector<StyioAST*>& getElements() {
-    return Elems;
+    return elements_;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Set;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -989,8 +1131,12 @@ public:
     return StepVal;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Range;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -1018,8 +1164,12 @@ public:
     return Value;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::SizeOf;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -1117,8 +1267,12 @@ public:
     return data_type->setDType(type);
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::BinOp;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -1145,8 +1299,12 @@ public:
     return RhsExpr;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Compare;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -1192,8 +1350,12 @@ public:
     return RhsExpr;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Condition;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -1224,8 +1386,12 @@ public:
     return func_args;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Call;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -1311,8 +1477,12 @@ public:
     return Slot2;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return OpType;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -1343,8 +1513,12 @@ public:
     return Resources;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Resources;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -1371,8 +1545,12 @@ public:
     return new FlexBindAST(variable, value);
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::MutBind;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 
   VarAST* getVar() {
@@ -1401,8 +1579,12 @@ public:
       varName(var), valExpr(val) {
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::FinalBind;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 
   NameAST* getVarName() {
@@ -1441,8 +1623,12 @@ public:
       FName((name)), FVars(vars), FBlock((block)) {
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Struct;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -1473,8 +1659,12 @@ public:
     return valExpr;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::ReadFile;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -1494,8 +1684,12 @@ public:
     return Exprs;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Print;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -1521,8 +1715,12 @@ public:
     return PackPaths;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::ExtPack;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -1561,8 +1759,12 @@ public:
     return ElseBlock;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return WhatFlow;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -1702,8 +1904,12 @@ public:
     return Value;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::CheckEq;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -1722,8 +1928,12 @@ public:
     return Iterable;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::CheckIsin;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -1748,8 +1958,12 @@ public:
     return ToWhat;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::FromTo;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -1786,7 +2000,7 @@ public:
   ForwardAST(StyioAST* expr) :
       ThenExpr(expr) {
     Type = StyioNodeHint::Forward;
-    if (ThenExpr->hint() != StyioNodeHint::Block) {
+    if (ThenExpr->getNodeType() != StyioNodeHint::Block) {
       RetExpr = expr;
     }
   }
@@ -1826,7 +2040,7 @@ public:
       Params(vars),
       ThenExpr(then_expr) {
     Type = StyioNodeHint::Fill_Forward;
-    if (ThenExpr->hint() != StyioNodeHint::Block) {
+    if (ThenExpr->getNodeType() != StyioNodeHint::Block) {
       RetExpr = then_expr;
     }
   }
@@ -1906,8 +2120,12 @@ public:
     RetExpr = expr;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return Type;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -1949,8 +2167,12 @@ public:
     return IncEl;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Infinite;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -1968,8 +2190,12 @@ public:
       Value(value), Cases((cases)) {
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::MatchCases;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 
   static MatchCasesAST* make(StyioAST* value, CasesAST* cases) {
@@ -2003,8 +2229,12 @@ public:
     return ThenExpr;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::AnonyFunc;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -2058,8 +2288,12 @@ public:
       isFinal(isFinal) {
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Func;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 
   bool hasName() {
@@ -2160,8 +2394,12 @@ public:
     return Forward;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Loop;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 
@@ -2186,8 +2424,12 @@ public:
     return Forward;
   }
 
-  const StyioNodeHint hint() {
+  const StyioNodeHint getNodeType() const {
     return StyioNodeHint::Iterator;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
   }
 };
 

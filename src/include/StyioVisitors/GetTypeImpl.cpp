@@ -12,27 +12,27 @@
 #include "../StyioException/Exception.hpp"
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(CommentAST* ast) {
+StyioToLLVMIR::toLLVMType(CommentAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(NoneAST* ast) {
+StyioToLLVMIR::toLLVMType(NoneAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(EmptyAST* ast) {
+StyioToLLVMIR::toLLVMType(EmptyAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(NameAST* ast) {
+StyioToLLVMIR::toLLVMType(NameAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(DTypeAST* ast) {
+StyioToLLVMIR::toLLVMType(DTypeAST* ast) {
   switch (ast->getType()) {
     case StyioDataType::i32: {
       return theBuilder->getInt32Ty();
@@ -54,123 +54,123 @@ StyioToLLVMIR::getLLVMType(DTypeAST* ast) {
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(BoolAST* ast) {
+StyioToLLVMIR::toLLVMType(BoolAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(IntAST* ast) {
+StyioToLLVMIR::toLLVMType(IntAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(FloatAST* ast) {
+StyioToLLVMIR::toLLVMType(FloatAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(CharAST* ast) {
+StyioToLLVMIR::toLLVMType(CharAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(StringAST* ast) {
+StyioToLLVMIR::toLLVMType(StringAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(TypeConvertAST*) {
+StyioToLLVMIR::toLLVMType(TypeConvertAST*) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(VarAST* ast) {
-  if (ast->getType() != nullptr) {
+StyioToLLVMIR::toLLVMType(VarAST* ast) {
+  if (ast->getDType() != nullptr) {
     /* VarAST -> DTypeAST -> llvm::Type */
-    return ast->getType()->getLLVMType(this);
+    return ast->getDType()->toLLVMType(this);
   }
 
   return nullptr;
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(ArgAST* ast) {
-  return ast->getDType()->getLLVMType(this);
+StyioToLLVMIR::toLLVMType(ArgAST* ast) {
+  return ast->getDType()->toLLVMType(this);
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(OptArgAST* ast) {
+StyioToLLVMIR::toLLVMType(OptArgAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(OptKwArgAST* ast) {
+StyioToLLVMIR::toLLVMType(OptKwArgAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(FlexBindAST* ast) {
+StyioToLLVMIR::toLLVMType(FlexBindAST* ast) {
   /* expecting: VarAST -> DTypeAST -> llvm::Type */
-  return ast->getVar()->getLLVMType(this);
+  return ast->getVar()->toLLVMType(this);
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(FinalBindAST* ast) {
+StyioToLLVMIR::toLLVMType(FinalBindAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(InfiniteAST* ast) {
+StyioToLLVMIR::toLLVMType(InfiniteAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(StructAST* ast) {
+StyioToLLVMIR::toLLVMType(StructAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(TupleAST* ast) {
+StyioToLLVMIR::toLLVMType(TupleAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(VarTupleAST* ast) {
+StyioToLLVMIR::toLLVMType(VarTupleAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(RangeAST* ast) {
+StyioToLLVMIR::toLLVMType(RangeAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(SetAST* ast) {
+StyioToLLVMIR::toLLVMType(SetAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(ListAST* ast) {
+StyioToLLVMIR::toLLVMType(ListAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(SizeOfAST* ast) {
+StyioToLLVMIR::toLLVMType(SizeOfAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(ListOpAST* ast) {
+StyioToLLVMIR::toLLVMType(ListOpAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(BinCompAST* ast) {
+StyioToLLVMIR::toLLVMType(BinCompAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(CondAST* ast) {
+StyioToLLVMIR::toLLVMType(CondAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
@@ -180,141 +180,141 @@ StyioToLLVMIR::getLLVMType(CondAST* ast) {
 
 */
 llvm::Type*
-StyioToLLVMIR::getLLVMType(BinOpAST* ast) {
+StyioToLLVMIR::toLLVMType(BinOpAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(FmtStrAST* ast) {
+StyioToLLVMIR::toLLVMType(FmtStrAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(ResourceAST* ast) {
+StyioToLLVMIR::toLLVMType(ResourceAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(LocalPathAST* ast) {
+StyioToLLVMIR::toLLVMType(LocalPathAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(RemotePathAST* ast) {
+StyioToLLVMIR::toLLVMType(RemotePathAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(WebUrlAST* ast) {
+StyioToLLVMIR::toLLVMType(WebUrlAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(DBUrlAST* ast) {
+StyioToLLVMIR::toLLVMType(DBUrlAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(ExtPackAST* ast) {
+StyioToLLVMIR::toLLVMType(ExtPackAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(ReadFileAST* ast) {
+StyioToLLVMIR::toLLVMType(ReadFileAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(EOFAST* ast) {
+StyioToLLVMIR::toLLVMType(EOFAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(BreakAST* ast) {
+StyioToLLVMIR::toLLVMType(BreakAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(PassAST* ast) {
+StyioToLLVMIR::toLLVMType(PassAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(ReturnAST* ast) {
+StyioToLLVMIR::toLLVMType(ReturnAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(CallAST* ast) {
+StyioToLLVMIR::toLLVMType(CallAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(PrintAST* ast) {
+StyioToLLVMIR::toLLVMType(PrintAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(ForwardAST* ast) {
+StyioToLLVMIR::toLLVMType(ForwardAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(CheckEqAST* ast) {
+StyioToLLVMIR::toLLVMType(CheckEqAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(CheckIsinAST* ast) {
+StyioToLLVMIR::toLLVMType(CheckIsinAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(FromToAST* ast) {
+StyioToLLVMIR::toLLVMType(FromToAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(CondFlowAST* ast) {
+StyioToLLVMIR::toLLVMType(CondFlowAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(AnonyFuncAST* ast) {
+StyioToLLVMIR::toLLVMType(AnonyFuncAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(FuncAST* ast) {
+StyioToLLVMIR::toLLVMType(FuncAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(IterAST* ast) {
+StyioToLLVMIR::toLLVMType(IterAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(LoopAST* ast) {
+StyioToLLVMIR::toLLVMType(LoopAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(CasesAST* ast) {
+StyioToLLVMIR::toLLVMType(CasesAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(MatchCasesAST* ast) {
+StyioToLLVMIR::toLLVMType(MatchCasesAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(BlockAST* ast) {
+StyioToLLVMIR::toLLVMType(BlockAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::getLLVMType(MainBlockAST* ast) {
+StyioToLLVMIR::toLLVMType(MainBlockAST* ast) {
   return theBuilder->getInt32Ty();
 }

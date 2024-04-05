@@ -548,7 +548,7 @@ StyioToLLVMIR::toLLVMIR(FlexBindAST* ast) {
   }
   else {
     llvm::AllocaInst* variable = theBuilder->CreateAlloca(
-      ast->getLLVMType(this),
+      ast->toLLVMType(this),
       nullptr,
       varname.c_str()
     );
@@ -642,7 +642,7 @@ llvm::Value*
 StyioToLLVMIR::toLLVMIR(FinalBindAST* ast) {
   auto output = theBuilder->getInt32(0);
 
-  switch (ast->getValue()->hint()) {
+  switch (ast->getValue()->getNodeType()) {
     case StyioNodeHint::Int: {
       const string& varname = ast->getName();
       if (named_values.contains(varname)) {
@@ -692,7 +692,7 @@ llvm::Value*
 StyioToLLVMIR::toLLVMIR(ForwardAST* ast) {
   auto output = theBuilder->getInt32(0);
 
-  switch (ast->hint()) {
+  switch (ast->getNodeType()) {
     case StyioNodeHint::Fill_Forward: {
       // ast -> getArgs() -> toLLVMIR(this);
       ast->getThen()->toLLVMIR(this);
@@ -749,11 +749,11 @@ StyioToLLVMIR::toLLVMIR(FuncAST* ast) {
       if (ast->allArgsTyped()) {
         std::vector<llvm::Type*> llvm_func_args;
         for (auto& arg : ast->getAllArgs()) {
-          llvm_func_args.push_back(arg->getLLVMType(this));
+          llvm_func_args.push_back(arg->toLLVMType(this));
         }
 
         llvm::FunctionType* llvm_func_type = llvm::FunctionType::get(
-          /* Result (Type) */ this->getLLVMType(ast),
+          /* Result (Type) */ this->toLLVMType(ast),
           /* Params (Type) */ llvm_func_args,
           /* isVarArg */ false
         );
@@ -799,7 +799,7 @@ StyioToLLVMIR::toLLVMIR(FuncAST* ast) {
     /* No Parameters */
     else {
       llvm::FunctionType* llvm_func_type = llvm::FunctionType::get(
-        /* Result (Type) */ this->getLLVMType(ast),
+        /* Result (Type) */ this->toLLVMType(ast),
         /* isVarArg */ false
       );
       llvm::Function* llvm_func = llvm::Function::Create(

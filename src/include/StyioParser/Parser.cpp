@@ -881,7 +881,7 @@ parse_tuple(StyioContext& context) {
     context.drop_all_spaces_comments();
 
     if (context.check_drop(')')) {
-      return new TupleAST((exprs));
+      return TupleAST::Create(exprs);
     }
     else {
       exprs.push_back(parse_expr(context));
@@ -889,14 +889,9 @@ parse_tuple(StyioContext& context) {
     }
   } while (context.check_drop(','));
 
-  context.check_drop(')');
+  context.find_drop_panic(')');
 
-  if (exprs.size() == 0) {
-    return new EmptyAST();
-  }
-  else {
-    return new TupleAST((exprs));
-  }
+  return TupleAST::Create(exprs);
 }
 
 StyioAST*
@@ -929,7 +924,7 @@ parse_list(StyioContext& context) {
     return new EmptyAST();
   }
   else {
-    return new ListAST((exprs));
+    return new ListAST(exprs);
   }
 }
 
@@ -940,7 +935,7 @@ parse_set(StyioContext& context) {
   /*
     Danger!
     when entering parse_set(),
-    the context -> get_curr_char() must be {
+    the current character must be {
     this line will drop the next 1 character anyway!
   */
   context.move(1);
@@ -949,7 +944,7 @@ parse_set(StyioContext& context) {
     context.drop_all_spaces_comments();
 
     if (context.check_drop('}')) {
-      return new SetAST((exprs));
+      return SetAST::Create(exprs);
     }
     else {
       exprs.push_back(parse_expr(context));
@@ -957,14 +952,9 @@ parse_set(StyioContext& context) {
     }
   } while (context.check_drop(','));
 
-  context.check_drop('}');
+  context.find_drop_panic('}');
 
-  if (exprs.size() == 0) {
-    return new EmptyAST();
-  }
-  else {
-    return new SetAST((exprs));
-  }
+  return SetAST::Create(exprs);
 }
 
 StyioAST*
@@ -1418,7 +1408,7 @@ StyioAST*
 parse_loop_or_iter(StyioContext& context, StyioAST* iterOverIt) {
   context.drop_all_spaces_comments();
 
-  if ((iterOverIt->hint()) == StyioNodeHint::Infinite) {
+  if ((iterOverIt->getNodeType()) == StyioNodeHint::Infinite) {
     return new LoopAST(parse_forward(context, false));
   }
   else {
@@ -1449,16 +1439,16 @@ parse_list_or_loop(StyioContext& context) {
 
     context.check_drop_panic(']');
 
-    if (startEl->hint() == StyioNodeHint::Int && endEl->hint() == StyioNodeHint::Id) {
+    if (startEl->getNodeType() == StyioNodeHint::Int && endEl->getNodeType() == StyioNodeHint::Id) {
       output = new InfiniteAST((startEl), (endEl));
     }
-    else if (startEl->hint() == StyioNodeHint::Int && endEl->hint() == StyioNodeHint::Int) {
+    else if (startEl->getNodeType() == StyioNodeHint::Int && endEl->getNodeType() == StyioNodeHint::Int) {
       output = new RangeAST(
         (startEl), (endEl), IntAST::Create("1")
       );
     }
     else {
-      string errmsg = string("Unexpected Range / List / Loop: ") + "starts with: " + std::to_string(type_to_int(startEl->hint())) + ", " + "ends with: " + std::to_string(type_to_int(endEl->hint())) + ".";
+      string errmsg = string("Unexpected Range / List / Loop: ") + "starts with: " + std::to_string(type_to_int(startEl->getNodeType())) + ", " + "ends with: " + std::to_string(type_to_int(endEl->getNodeType())) + ".";
       throw StyioSyntaxError(errmsg);
     }
   }
@@ -2516,35 +2506,25 @@ parse_stmt(
   }
 
   switch (context.get_curr_char()) {
-    case EOF:
+    case EOF: {
       return new EOFAST();
+    } break;  // You should NOT reach this line!
 
-      // You should NOT reach this line!
-      break;
-
-    case '\"':
+    case '\"': {
       return parse_string(context);
+    } break;  // You should NOT reach this line!
 
-      // You should NOT reach this line!
-      break;
-
-    case '?':
+    case '?': {
       return parse_cond_flow(context);
+    } break;  // You should NOT reach this line!
 
-      // You should NOT reach this line!
-      break;
-
-    case '!':
+    case '!': {
       // return parse_panic(context);
+    } break;  // You should NOT reach this line!
 
-      // You should NOT reach this line!
-      break;
-
-    case '#':
+    case '#': {
       return parse_func(context);
-
-      // You should NOT reach this line!
-      break;
+    } break;  // You should NOT reach this line!
 
     case '.': {
       context.move(1);
@@ -2552,10 +2532,7 @@ parse_stmt(
         context.move(1);
       }
       return new PassAST();
-    }
-
-    // You should NOT reach this line!
-    break;
+    } break;  // You should NOT reach this line!
 
     case '^': {
       context.move(1);
@@ -2565,10 +2542,7 @@ parse_stmt(
       }
 
       return new BreakAST();
-    }
-
-    // You should NOT reach this line!
-    break;
+    } break;  // You should NOT reach this line!
 
     case '@': {
       auto resources = parse_resources(context);
@@ -2583,10 +2557,7 @@ parse_stmt(
       else {
         return resources;
       }
-    }
-
-    // You should NOT reach this line!
-    break;
+    } break;  // You should NOT reach this line!
 
     case '[': {
       context.move(1);
@@ -2599,27 +2570,28 @@ parse_stmt(
       else {
         return parse_list_or_loop(context);
       }
-    }
+    } break;  // You should NOT reach this line!
 
-    // You should NOT reach this line!
-    break;
+    case '{': {
+      return parse_set(context);
+    } break;  // You should NOT reach this line!
+
+    case '(': {
+      return parse_tuple(context);
+    } break;  // You should NOT reach this line!
 
     case '=': {
       context.move(1);
 
       if (context.check_drop('>')) {
         context.drop_white_spaces();
-
         return new ReturnAST(parse_expr(context));
       }
       else {
         string errmsg = string("parse_stmt() // =") + context.get_curr_char();
         throw StyioSyntaxError(errmsg);
       }
-    }
-
-    // You should NOT reach this line!
-    break;
+    } break; // You should NOT reach this line!
 
     default:
       break;
@@ -2788,10 +2760,10 @@ parse_main_block(StyioContext& context) {
   while (true) {
     StyioAST* stmt = parse_stmt(context);
 
-    if ((stmt->hint()) == StyioNodeHint::End) {
+    if ((stmt->getNodeType()) == StyioNodeHint::End) {
       break;
     }
-    else if ((stmt->hint()) == StyioNodeHint::Comment) {
+    else if ((stmt->getNodeType()) == StyioNodeHint::Comment) {
       continue;
     }
     else {

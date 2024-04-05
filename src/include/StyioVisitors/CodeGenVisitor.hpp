@@ -50,7 +50,7 @@ class CodeGenVisitor<T>
 {
 public:
   /* Get LLVM Type */
-  virtual llvm::Type* getLLVMType(T* t) = 0;
+  virtual llvm::Type* toLLVMType(T* t) = 0;
 
   /* LLVM IR Generator */
   virtual llvm::Value* toLLVMIR(T* t) = 0;
@@ -61,11 +61,11 @@ template <typename T, typename... Types>
 class CodeGenVisitor<T, Types...> : public CodeGenVisitor<Types...>
 {
 public:
-  using CodeGenVisitor<Types...>::getLLVMType;
+  using CodeGenVisitor<Types...>::toLLVMType;
   using CodeGenVisitor<Types...>::toLLVMIR;
 
   /* Get LLVM Type */
-  virtual llvm::Type* getLLVMType(T* t) = 0;
+  virtual llvm::Type* toLLVMType(T* t) = 0;
 
   /* LLVM IR Generator */
   virtual llvm::Value* toLLVMIR(T* t) = 0;
@@ -222,117 +222,117 @@ public:
 
   /* Get LLVM Type */
 
-  llvm::Type* getLLVMType(BoolAST* ast);
+  llvm::Type* toLLVMType(BoolAST* ast);
 
-  llvm::Type* getLLVMType(NoneAST* ast);
+  llvm::Type* toLLVMType(NoneAST* ast);
 
-  llvm::Type* getLLVMType(EOFAST* ast);
+  llvm::Type* toLLVMType(EOFAST* ast);
 
-  llvm::Type* getLLVMType(EmptyAST* ast);
+  llvm::Type* toLLVMType(EmptyAST* ast);
 
-  llvm::Type* getLLVMType(PassAST* ast);
+  llvm::Type* toLLVMType(PassAST* ast);
 
-  llvm::Type* getLLVMType(BreakAST* ast);
+  llvm::Type* toLLVMType(BreakAST* ast);
 
-  llvm::Type* getLLVMType(ReturnAST* ast);
+  llvm::Type* toLLVMType(ReturnAST* ast);
 
-  llvm::Type* getLLVMType(CommentAST* ast);
+  llvm::Type* toLLVMType(CommentAST* ast);
 
-  llvm::Type* getLLVMType(NameAST* ast);
+  llvm::Type* toLLVMType(NameAST* ast);
 
-  llvm::Type* getLLVMType(VarAST* ast);
+  llvm::Type* toLLVMType(VarAST* ast);
 
-  llvm::Type* getLLVMType(ArgAST* ast);
+  llvm::Type* toLLVMType(ArgAST* ast);
 
-  llvm::Type* getLLVMType(OptArgAST* ast);
+  llvm::Type* toLLVMType(OptArgAST* ast);
 
-  llvm::Type* getLLVMType(OptKwArgAST* ast);
+  llvm::Type* toLLVMType(OptKwArgAST* ast);
 
-  llvm::Type* getLLVMType(VarTupleAST* ast);
+  llvm::Type* toLLVMType(VarTupleAST* ast);
 
-  llvm::Type* getLLVMType(DTypeAST* ast);
+  llvm::Type* toLLVMType(DTypeAST* ast);
 
-  llvm::Type* getLLVMType(IntAST* ast);
+  llvm::Type* toLLVMType(IntAST* ast);
 
-  llvm::Type* getLLVMType(FloatAST* ast);
+  llvm::Type* toLLVMType(FloatAST* ast);
 
-  llvm::Type* getLLVMType(CharAST* ast);
+  llvm::Type* toLLVMType(CharAST* ast);
 
-  llvm::Type* getLLVMType(StringAST* ast);
+  llvm::Type* toLLVMType(StringAST* ast);
 
-  llvm::Type* getLLVMType(TypeConvertAST* ast);
+  llvm::Type* toLLVMType(TypeConvertAST* ast);
 
-  llvm::Type* getLLVMType(FmtStrAST* ast);
+  llvm::Type* toLLVMType(FmtStrAST* ast);
 
-  llvm::Type* getLLVMType(ListAST* ast);
+  llvm::Type* toLLVMType(ListAST* ast);
 
-  llvm::Type* getLLVMType(TupleAST* ast);
+  llvm::Type* toLLVMType(TupleAST* ast);
 
-  llvm::Type* getLLVMType(SetAST* ast);
+  llvm::Type* toLLVMType(SetAST* ast);
 
-  llvm::Type* getLLVMType(RangeAST* ast);
+  llvm::Type* toLLVMType(RangeAST* ast);
 
-  llvm::Type* getLLVMType(SizeOfAST* ast);
+  llvm::Type* toLLVMType(SizeOfAST* ast);
 
-  llvm::Type* getLLVMType(BinOpAST* ast);
+  llvm::Type* toLLVMType(BinOpAST* ast);
 
-  llvm::Type* getLLVMType(BinCompAST* ast);
+  llvm::Type* toLLVMType(BinCompAST* ast);
 
-  llvm::Type* getLLVMType(CondAST* ast);
+  llvm::Type* toLLVMType(CondAST* ast);
 
-  llvm::Type* getLLVMType(CallAST* ast);
+  llvm::Type* toLLVMType(CallAST* ast);
 
-  llvm::Type* getLLVMType(ListOpAST* ast);
+  llvm::Type* toLLVMType(ListOpAST* ast);
 
-  llvm::Type* getLLVMType(ResourceAST* ast);
+  llvm::Type* toLLVMType(ResourceAST* ast);
 
-  llvm::Type* getLLVMType(LocalPathAST* ast);
+  llvm::Type* toLLVMType(LocalPathAST* ast);
 
-  llvm::Type* getLLVMType(RemotePathAST* ast);
+  llvm::Type* toLLVMType(RemotePathAST* ast);
 
-  llvm::Type* getLLVMType(WebUrlAST* ast);
+  llvm::Type* toLLVMType(WebUrlAST* ast);
 
-  llvm::Type* getLLVMType(DBUrlAST* ast);
+  llvm::Type* toLLVMType(DBUrlAST* ast);
 
-  llvm::Type* getLLVMType(FlexBindAST* ast);
+  llvm::Type* toLLVMType(FlexBindAST* ast);
 
-  llvm::Type* getLLVMType(FinalBindAST* ast);
+  llvm::Type* toLLVMType(FinalBindAST* ast);
 
-  llvm::Type* getLLVMType(StructAST* ast);
+  llvm::Type* toLLVMType(StructAST* ast);
 
-  llvm::Type* getLLVMType(ReadFileAST* ast);
+  llvm::Type* toLLVMType(ReadFileAST* ast);
 
-  llvm::Type* getLLVMType(PrintAST* ast);
+  llvm::Type* toLLVMType(PrintAST* ast);
 
-  llvm::Type* getLLVMType(ExtPackAST* ast);
+  llvm::Type* toLLVMType(ExtPackAST* ast);
 
-  llvm::Type* getLLVMType(BlockAST* ast);
+  llvm::Type* toLLVMType(BlockAST* ast);
 
-  llvm::Type* getLLVMType(CasesAST* ast);
+  llvm::Type* toLLVMType(CasesAST* ast);
 
-  llvm::Type* getLLVMType(CondFlowAST* ast);
+  llvm::Type* toLLVMType(CondFlowAST* ast);
 
-  llvm::Type* getLLVMType(CheckEqAST* ast);
+  llvm::Type* toLLVMType(CheckEqAST* ast);
 
-  llvm::Type* getLLVMType(CheckIsinAST* ast);
+  llvm::Type* toLLVMType(CheckIsinAST* ast);
 
-  llvm::Type* getLLVMType(FromToAST* ast);
+  llvm::Type* toLLVMType(FromToAST* ast);
 
-  llvm::Type* getLLVMType(ForwardAST* ast);
+  llvm::Type* toLLVMType(ForwardAST* ast);
 
-  llvm::Type* getLLVMType(InfiniteAST* ast);
+  llvm::Type* toLLVMType(InfiniteAST* ast);
 
-  llvm::Type* getLLVMType(AnonyFuncAST* ast);
+  llvm::Type* toLLVMType(AnonyFuncAST* ast);
 
-  llvm::Type* getLLVMType(FuncAST* ast);
+  llvm::Type* toLLVMType(FuncAST* ast);
 
-  llvm::Type* getLLVMType(LoopAST* ast);
+  llvm::Type* toLLVMType(LoopAST* ast);
 
-  llvm::Type* getLLVMType(IterAST* ast);
+  llvm::Type* toLLVMType(IterAST* ast);
 
-  llvm::Type* getLLVMType(MatchCasesAST* ast);
+  llvm::Type* toLLVMType(MatchCasesAST* ast);
 
-  llvm::Type* getLLVMType(MainBlockAST* ast);
+  llvm::Type* toLLVMType(MainBlockAST* ast);
 
   /* LLVM IR Generator */
 
