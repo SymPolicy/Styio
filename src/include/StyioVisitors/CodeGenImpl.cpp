@@ -379,6 +379,22 @@ StyioToLLVMIR::toLLVMIR(ExtPackAST* ast) {
 llvm::Value*
 StyioToLLVMIR::toLLVMIR(ListAST* ast) {
   auto output = theBuilder->getInt32(0);
+
+  if (ast->getDataType() == StyioDataType::undefined) {
+    return output;
+  }
+
+  /* element type */
+  llvm::Type* elTy = ast->toLLVMType(this);
+
+  /* vector type */
+  llvm::Type* vecTy = llvm::VectorType::get(
+    /* Element Type */ elTy, 
+    /* Element Size */ 4,
+    /* Scalable */ true);
+  llvm::Value* emptyVec = llvm::UndefValue::get(vecTy);
+  // llvm::Constant* index0 = llvm::Constant::getIntegerValue(elTy, llvm::APInt(32, 0));
+
   return output;
 }
 
@@ -498,7 +514,39 @@ StyioToLLVMIR::toLLVMIR(CallAST* ast) {
 
   if (callee_func == nullptr) {
     std::cout << "func " + ast->getNameAsStr() + " not found (as callee)" << std::endl;
-    return output;
+
+    // vector<llvm::Type*> llvm_arg_types (styio_func_args.size(), theBuilder->getDoubleTy());
+    // llvm::FunctionType* llvm_func_type = llvm::FunctionType::get(theBuilder->getDoubleTy(), llvm_arg_types, false);
+    // llvm::Function* llvm_func = llvm::Function::Create(llvm_func_type, llvm::Function::ExternalLinkage, llvm_arg_types, theModule.get());
+
+    // vector<llvm::Value*> llvm_args;
+    // for (size_t i = 0; i < styio_func_args.size(); i+=1) {
+    //   llvm_args.push_back(styio_func_args[i]->toLLVMIR(this));
+    //   if (!llvm_args.back()) {
+    //     std::cout << "ends here: !llvm_args.back()" << std::endl;
+    //     return output;
+    //   }
+    // }
+
+    // return theBuilder->CreateCall(callee_func, llvm_args);
+
+    // vector<llvm::Type*> llvm_arg_types (styio_func_args.size(), theBuilder->getDoubleTy());
+    // auto llvm_func = theModule->getOrInsertFunction("sin", llvm::FunctionType::get(
+    //   /* Result (Return Type) */ theBuilder->getDoubleTy(),
+    //   /* Params (Arg Types) */ llvm_arg_types,
+    //   /* isVarArg */ false
+    // ));
+    // std::vector<llvm::Value*> llvm_func_args;
+    // llvm_func_args.push_back(llvm::ConstantFP::get(*theContext, llvm::APFloat(1.0)));
+
+    vector<llvm::Type*> llvm_arg_types (styio_func_args.size(), theBuilder->getDoubleTy());
+    auto llvm_func = theModule->getOrInsertFunction("something", llvm::FunctionType::get(
+      /* Result (Return Type) */ theBuilder->getInt32Ty(),
+      /* isVarArg */ false
+    ));
+    std::vector<llvm::Value*> llvm_func_args;
+    
+    return theBuilder->CreateCall(llvm_func, llvm_func_args);
   }
 
   if (callee_func->arg_size() != styio_func_args.size()) {
@@ -552,20 +600,43 @@ StyioToLLVMIR::toLLVMIR(FlexBindAST* ast) {
         return output;
       }
 
-      llvm::ArrayType* val_llvm_type = static_cast<llvm::ArrayType*>(ast->toLLVMType(this));
+      llvm::ArrayType* val_llvm_type = static_cast<llvm::ArrayType*>(ast->getValue()->toLLVMType(this));
       llvm::AllocaInst* variable = theBuilder->CreateAlloca(
         val_llvm_type,
         theBuilder->getInt32(val_expr->getElements().size()),
         varname.c_str()
       );
       mut_vars[varname] = variable;
-      
+
       std::vector<llvm::Constant*> init_vals;
-      for (auto item: val_expr->getElements()) {
+      for (auto item : val_expr->getElements()) {
         init_vals.push_back(static_cast<llvm::Constant*>(item->toLLVMIR(this)));
       }
       theBuilder->CreateStore(llvm::ConstantArray::get(val_llvm_type, init_vals), variable);
       // theBuilder->CreateStore(ast->getValue()->toLLVMIR(this), variable);
+    } break;
+
+    case StyioNodeHint::List: {
+      ListAST* val_expr = static_cast<ListAST*>(ast->getValue());
+
+      if (not val_expr->isConsistent()) {
+        return output;
+      }
+
+      llvm::ArrayType* val_llvm_type = static_cast<llvm::ArrayType*>(ast->getValue()->toLLVMType(this));
+
+      llvm::AllocaInst* variable = theBuilder->CreateAlloca(
+        val_llvm_type,
+        theBuilder->getInt32(val_expr->getElements().size()),
+        varname.c_str()
+      );
+      mut_vars[varname] = variable;
+
+      std::vector<llvm::Constant*> init_vals;
+      for (auto item : val_expr->getElements()) {
+        init_vals.push_back(static_cast<llvm::Constant*>(item->toLLVMIR(this)));
+      }
+      theBuilder->CreateStore(llvm::ConstantArray::get(val_llvm_type, init_vals), variable);
     } break;
 
     default: {

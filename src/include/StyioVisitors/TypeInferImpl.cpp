@@ -169,6 +169,23 @@ StyioAnalyzer::typeInfer(SetAST* ast) {
 
 void
 StyioAnalyzer::typeInfer(ListAST* ast) {
+    /* if no element against the consistency, the tuple will have a type. */
+  auto elements = ast->getElements();
+
+  bool is_consistent = true;
+  StyioDataType aggregated_type = elements[0]->getDataType();
+  if (aggregated_type != StyioDataType::undefined) {
+    for (size_t i = 1; i < elements.size(); i += 1) {
+      if (elements[i]->getDataType() != aggregated_type) {
+        is_consistent = false;
+      }
+    }
+  }
+
+  if (is_consistent) {
+    ast->setConsistency(is_consistent);
+    ast->setDataType(aggregated_type);
+  }
 }
 
 void

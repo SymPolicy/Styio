@@ -3,6 +3,8 @@
 
 #include <memory>
 
+#include "../StyioExtern/ExternLib.hpp"
+
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
@@ -46,6 +48,31 @@ public:
       CompileLayer(*this->ES, ObjectLayer, std::make_unique<llvm::orc::ConcurrentIRCompiler>(std::move(JTMB))),
       MainJD(this->ES->createBareJITDylib("<main>")) {
     MainJD.addGenerator(llvm::cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(DL.getGlobalPrefix())));
+
+    // llvm::orc::SymbolMap symbolMap;
+    // // Register every symbol that can be accessed from the JIT'ed code.
+    // symbolMap[Mangle("jitExample")] = llvm::orc::ExecutorSymbolDef(
+    //     llvm::pointerToJITTargetAddress(&jitExample), llvm::JITSymbolFlags());
+
+    // llvm::cantFail(MainJD.define(absoluteSymbols(symbolMap)));
+
+    // MainJD.define(
+    //   llvm::orc::absoluteSymbols({
+    //     { Mangle("puts"), llvm::orc::ExecutorAddr::fromPtr(&puts)},
+    //     { Mangle("printf"), llvm::orc::ExecutorAddr::fromPtr(&printf)}
+    // }));
+
+    if (auto DLSGOrErr =
+        llvm::orc::DynamicLibrarySearchGenerator::Load("/root/Styio/src/include/StyioJIT/ExternLib.hpp",
+                                            DL.getGlobalPrefix()))
+      MainJD.addGenerator(std::move(*DLSGOrErr));
+
+    // MainJD.setGenerator(llvm::orc::DynamicLibrarySearchGenerator::Load(
+    //   "/root/Styio/src/include/StyioJIT/ExternLib.hpp", DL.getGlobalPrefix()));
+
+    // MainJD.addGenerator(llvm::orc::DynamicLibrarySearchGenerator::Load(
+    //   "/root/Styio/src/include/StyioJIT/ExternLib.hpp", DL.getGlobalPrefix()))
+
     if (JTMB.getTargetTriple().isOSBinFormatCOFF()) {
       ObjectLayer.setOverrideObjectFlagsWithResponsibilityFlags(true);
       ObjectLayer.setAutoClaimResponsibilityForObjectSymbols(true);

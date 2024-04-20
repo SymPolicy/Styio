@@ -322,7 +322,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
     break;
 
     case StyioNodeHint::Tuple: {
-      auto name = std::string("Tuple");
+      auto name = std::string("tuple");
 
       output = std::string(name);
     }
@@ -330,7 +330,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
     break;
 
     case StyioNodeHint::List: {
-      auto name = std::string("List");
+      auto name = std::string("list");
 
       output = std::string(name);
     }
@@ -338,7 +338,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
     break;
 
     case StyioNodeHint::Set: {
-      auto name = std::string("Set");
+      auto name = std::string("hashset");
 
       output = std::string(name);
     }

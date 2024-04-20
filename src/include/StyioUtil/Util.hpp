@@ -7,9 +7,14 @@
 #include <string>
 #include <vector>
 
+// inline std::string
+// make_padding(int indent, std::string endswith = "") {
+//   return std::string("|") + std::string(2 * indent, '-') + std::string("|") + endswith;
+// }
+
 inline std::string
 make_padding(int indent, std::string endswith = "") {
-  return std::string("|") + std::string(2 * indent, '-') + std::string("|") + endswith;
+  return std::string(2 * indent, ' ') + std::string("|- ") + endswith;
 }
 
 template <typename T>

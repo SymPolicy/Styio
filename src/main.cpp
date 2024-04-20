@@ -43,6 +43,10 @@
 // [Others]
 #include "include/Others/cxxopts.hpp" /* https://github.com/jarro2783/cxxopts */
 
+extern "C" void hello_world() {
+  std::cout << "hello, world!" << std::endl;
+}
+
 struct tmp_code_wrap
 {
   std::string code_text;
@@ -212,7 +216,7 @@ main(
 
     if (show_ir) {
       generator.print_llvm_ir();
-      generator.print_test_results();
+      // generator.print_test_results();
     }
 
     /* JIT Execute */

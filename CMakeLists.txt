@@ -1,7 +1,17 @@
 cmake_minimum_required(VERSION 3.14)
 
-# [C++ Standard]: C++ 20
+# [clang]
+set(CMAKE_BUILD_TYPE "Debug")
+set(CMAKE_C_COMPILER "/usr/bin/clang")
+set(CMAKE_C_FLAGS "-Wl,-export-dynamic")
+
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
+
+set(CMAKE_LINKER "/usr/bin/lld")
+set(CMAKE_OBJDUMP "/usr/bin/llvm-objdump")
+
+set(CMAKE_EXE_LINKER_FLAGS "-Wl,-export-dynamic")
 
 # [Styio] Version
 project(styio VERSION 0.0.1)
@@ -58,6 +68,8 @@ add_executable( styio
     src/include/StyioVisitors/TypeInferImpl.cpp
     src/include/StyioVisitors/GetTypeImpl.cpp
     src/include/StyioVisitors/CodeGenImpl.cpp
+    # ExternLib
+    src/include/StyioExtern/ExternLib.cpp
 )
 
 # [Styio - ICU4C] Link

@@ -1070,11 +1070,20 @@ public:
 */
 class ListAST : public StyioNode<ListAST>
 {
-  vector<StyioAST*> Elems;
+  vector<StyioAST*> elements_;
+  bool consistency = false;
+  DTypeAST* consistent_type = DTypeAST::Create();
 
 public:
+  ListAST() {
+  }
+
   ListAST(vector<StyioAST*> elems) :
-      Elems(elems) {
+      elements_(elems) {
+  }
+
+  static ListAST* Create() {
+    return new ListAST();
   }
 
   static ListAST* Create(vector<StyioAST*> elems) {
@@ -1082,7 +1091,19 @@ public:
   }
 
   const vector<StyioAST*>& getElements() {
-    return Elems;
+    return elements_;
+  }
+
+  DTypeAST* getDTypeObj() {
+    return consistent_type;
+  }
+
+  void setConsistency(bool value) {
+    consistency = value;
+  }
+
+  bool isConsistent() {
+    return consistency;
   }
 
   const StyioNodeHint getNodeType() const {
@@ -1090,7 +1111,11 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType::undefined;
+    return consistent_type->getDataType();
+  }
+
+  void setDataType(StyioDataType type) {
+    consistent_type->setDType(type);
   }
 };
 

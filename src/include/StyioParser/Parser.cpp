@@ -650,7 +650,7 @@ parse_binop_item(StyioContext& context) {
       context.drop_all_spaces_comments();
 
       if (context.check_drop(']')) {
-        return EmptyAST::Create();
+        return ListAST::Create();
       }
       else {
         return parse_list_or_loop(context);
@@ -702,6 +702,10 @@ parse_expr(StyioContext& context) {
       case '%': {
         context.move(1);
         output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
+      } break;
+
+      case '[': {
+        output = parse_list_op(context, output);
       } break;
 
       default:
@@ -768,7 +772,7 @@ parse_expr(StyioContext& context) {
       context.drop_all_spaces_comments();
 
       if (context.check_drop(']')) {
-        output = new EmptyAST();
+        output = ListAST::Create();
       }
       else {
         output = parse_list_or_loop(context);
@@ -920,12 +924,7 @@ parse_list(StyioContext& context) {
 
   context.check_drop(']');
 
-  if (exprs.size() == 0) {
-    return new EmptyAST();
-  }
-  else {
-    return new ListAST(exprs);
-  }
+  return ListAST::Create(exprs);
 }
 
 StyioAST*
@@ -959,7 +958,7 @@ parse_set(StyioContext& context) {
 
 StyioAST*
 parse_iterable(StyioContext& context) {
-  StyioAST* output = new EmptyAST();
+  StyioAST* output = EmptyAST::Create();
 
   if (isalpha(context.get_curr_char()) || context.check('_')) {
     output = parse_id(context);
@@ -1023,12 +1022,7 @@ parse_iterable(StyioContext& context) {
 
         context.check_drop(')');
 
-        if (exprs.size() == 0) {
-          return new EmptyAST();
-        }
-        else {
-          return new TupleAST((exprs));
-        }
+        return TupleAST::Create(exprs);
       }
 
       case '[': {
@@ -1049,12 +1043,7 @@ parse_iterable(StyioContext& context) {
 
         context.check_drop(']');
 
-        if (exprs.size() == 0) {
-          return new EmptyAST();
-        }
-        else {
-          return new ListAST((exprs));
-        }
+        return ListAST::Create(exprs);
       }
 
       case '{': {
@@ -1075,12 +1064,7 @@ parse_iterable(StyioContext& context) {
 
         context.check_drop('}');
 
-        if (exprs.size() == 0) {
-          return new EmptyAST();
-        }
-        else {
-          return new SetAST((exprs));
-        }
+        return SetAST::Create(exprs);
       }
 
       default:
@@ -1190,9 +1174,7 @@ parse_list_op(StyioContext& context, StyioAST* theList) {
   StyioAST* output;
 
   /*
-    Danger!
-    when entering parse_list_op(),
-    the context -> get_curr_char() must be [
+    the current character must be [
     this line will drop the next 1 character anyway!
   */
   context.move(1);
@@ -1204,6 +1186,7 @@ parse_list_op(StyioContext& context, StyioAST* theList) {
       );
     }
     else if (isdigit(context.get_curr_char())) {
+      std::cout << "parse list op access by index" << std::endl;
       output = new ListOpAST(
         StyioNodeHint::Access_By_Index, (theList), parse_int(context)
       );
@@ -1397,7 +1380,7 @@ parse_list_op(StyioContext& context, StyioAST* theList) {
         break;
       }
     }
-  } while (context.check('['));
+  } while (context.check_drop('['));
 
   context.find_drop(']');
 
@@ -2287,7 +2270,7 @@ parse_print(StyioContext& context) {
 
   vector<StyioAST*> exprs;
 
-  /* Expecting >_ ! Move Without Check !*/
+  /* Expecting >_ , Move Forward Without Checking */
   context.move(2);
 
   /* Expecting ( ! Must Have ! */

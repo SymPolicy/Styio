@@ -154,7 +154,17 @@ StyioToLLVMIR::toLLVMType(SetAST* ast) {
 
 llvm::Type*
 StyioToLLVMIR::toLLVMType(ListAST* ast) {
-  return theBuilder->getInt32Ty();
+  if (ast->getDataType() == StyioDataType::undefined) {
+    return nullptr;
+  }
+
+  // /* element type */
+  // return llvm::VectorType::get(
+  //   /* Element Type */ ast->getDTypeObj()->toLLVMType(this), 
+  //   /* Element Size */ ast->getElements().size(),
+  //   /* Scalable */ true);
+
+  return llvm::ArrayType::get(ast->getDTypeObj()->toLLVMType(this), ast->getElements().size());
 }
 
 llvm::Type*

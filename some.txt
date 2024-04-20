@@ -7,6 +7,9 @@ styio -if /root/Styio/tests/codegen/binding/flexible/00000003.styio
 
 # Compile C Code to LLVM IR (for sample.c):
 clang -emit-llvm -c -S sample.c
+clang -c -emit-llvm sample.c -o sample.ll
 
 # Run sample.ll:
 lli sample.ll
+
+clang -S -emit-llvm sample.cpp -o sample.ll
