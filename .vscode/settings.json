@@ -88,7 +88,10 @@
     "forward_list": "cpp",
     "execution": "cpp",
     "__availability": "cpp",
-    "version": "cpp"
+    "version": "cpp",
+    "any": "cpp",
+    "future": "cpp",
+    "*.def": "cpp"
   },
   "C_Cpp.clang_format_fallbackStyle": "Mozilla",
   "C_Cpp.clang_format_style": "file",

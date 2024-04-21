@@ -1,0 +1,9 @@
+// RUN: /root/styio/styio --ir %s | /usr/bin/FileCheck %s
+
+Node = {
+  name : string,
+  val : int,
+
+  prev : Node,
+  next : Node,
+}

@@ -18,23 +18,36 @@
 #include <vector>
 
 // [Styio]
-#include "include/StyioAST/AST.hpp"
-#include "include/StyioException/Exception.hpp"
-#include "include/StyioParser/Parser.hpp"
-#include "include/StyioToken/Token.hpp"
-#include "include/StyioUtil/Util.hpp"
+#include "StyioAST/AST.hpp"
+#include "StyioException/Exception.hpp"
+#include "StyioParser/Parser.hpp"
+#include "StyioToken/Token.hpp"
+#include "StyioUtil/Util.hpp"
+#include "StyioIR/StyioIR.hpp" /* StyioIR */
+#include "StyioToString/ToStringVisitor.hpp" /* StyioRepr */
+#include "StyioVisitors/ASTAnalyzer.hpp"    /* StyioASTAnalyzer */
+#include "StyioVisitors/CodeGenVisitor.hpp" /* StyioToLLVMIR Code Generator */
 
 // [LLVM]
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/ExecutionEngine/Orc/LLJIT.h"
+#include "llvm/ExecutionEngine/Orc/ThreadSafeModule.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/Error.h"
+#include "llvm/Support/Error.h" /* ExitOnErr */
 #include "llvm/Support/FileSystem.h"
 
+// [Styio LLVM ORC JIT]
+#include "StyioJIT/StyioJIT_ORC.hpp"
+
 // [Others]
-#include "include/Others/cxxopts.hpp" /* https://github.com/jarro2783/cxxopts */
+#include "include/cxxopts.hpp" /* https://github.com/jarro2783/cxxopts */
+
+extern "C" void hello_world() {
+  std::cout << "hello, world!" << std::endl;
+}
 
 struct tmp_code_wrap
 {
@@ -164,31 +177,54 @@ main(
 
     auto styio_code = read_styio_file(fpath);
     // show_code_with_linenum(styio_code);
-    auto styio_context = std::make_shared<StyioContext>(
-      fpath,
-      styio_code.code_text,
-      styio_code.line_seps
-    );
+    auto styio_context = StyioContext::Create(fpath, styio_code.code_text, styio_code.line_seps);
+    
+    StyioRepr styio_repr = StyioRepr();
 
-    auto styio_program = parse_main_block(styio_context);
+    /* Parser */
+    auto styio_program = parse_main_block(*styio_context);
 
     if (show_ast) {
-      print_ast(styio_program);
+      std::cout
+        << "\033[1;32mAST\033[0m \033[31m-No-Type-Checking\033[0m"
+        << "\n"
+        << styio_program->toString(&styio_repr) << "\n"
+        << std::endl;
     }
 
-    StyioToLLVM generator = StyioToLLVM();
-    generator.check(styio_program.get());
+    /* Type Inference */
+    StyioAnalyzer analyzer = StyioAnalyzer();
+    analyzer.typeInfer(styio_program);
 
     if (show_type_checking) {
-      generator.print_type_checking(styio_program);
+      std::cout
+        << "\033[1;32mAST\033[0m \033[1;33m-After-Type-Checking\033[0m"
+        << "\n"
+        << styio_program->toString(&styio_repr) << "\n"
+        << std::endl;
     }
 
-    generator.toLLVMIR(styio_program.get());
+    /* JIT Initialization */
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
+    llvm::InitializeNativeTargetAsmParser();
+
+    llvm::ExitOnError exit_on_error;
+    std::unique_ptr<StyioJIT_ORC> styio_orc_jit = exit_on_error(StyioJIT_ORC::Create());
+
+    StyioToLLVMIR generator = StyioToLLVMIR(std::move(styio_orc_jit));
+
+    /* CodeGen (LLVM IR) */
+    generator.toLLVMIR(styio_program);
 
     if (show_ir) {
       generator.print_llvm_ir();
-      generator.print_test_results();
+      // generator.print_test_results();
     }
+
+    /* JIT Execute */
+
+    generator.execute();
   }
 
   return 0;
