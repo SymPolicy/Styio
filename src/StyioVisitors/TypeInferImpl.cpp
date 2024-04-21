@@ -1,3 +1,10 @@
+/*
+  Type Inference Implementation
+
+  - Label Types
+  - Find Recursive Type
+*/
+
 // [C++ STL]
 #include <iostream>
 #include <memory>

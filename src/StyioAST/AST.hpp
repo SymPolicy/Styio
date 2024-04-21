@@ -4,6 +4,7 @@
 
 // [Styio]
 #include "../StyioToken/Token.hpp"
+#include "../StyioToString/ToStringVisitor.hpp"
 #include "../StyioVisitors/ASTAnalyzer.hpp"
 #include "../StyioVisitors/CodeGenVisitor.hpp"
 #include "ASTDecl.hpp"
@@ -28,7 +29,7 @@ public:
   virtual const StyioDataType getDataType() const = 0;
 
   /* StyioAST to String */
-  virtual std::string toString(StyioAnalyzer* visitor, int indent = 0) = 0;
+  virtual std::string toString(StyioRepr* visitor, int indent = 0) = 0;
 
   /* Type Inference */
   virtual void typeInfer(StyioAnalyzer* visitor) = 0;
@@ -49,7 +50,7 @@ public:
   using StyioAST::getNodeType;
   using StyioAST::getDataType;
 
-  std::string toString(StyioAnalyzer* visitor, int indent = 0) override {
+  std::string toString(StyioRepr* visitor, int indent = 0) override {
     return visitor->toString(static_cast<Derived*>(this), indent);
   }
 

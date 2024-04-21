@@ -23,6 +23,8 @@
 #include "StyioParser/Parser.hpp"
 #include "StyioToken/Token.hpp"
 #include "StyioUtil/Util.hpp"
+#include "StyioIR/StyioIR.hpp" /* StyioIR */
+#include "StyioToString/ToStringVisitor.hpp" /* StyioRepr */
 #include "StyioVisitors/ASTAnalyzer.hpp"    /* StyioASTAnalyzer */
 #include "StyioVisitors/CodeGenVisitor.hpp" /* StyioToLLVMIR Code Generator */
 
@@ -177,15 +179,28 @@ main(
     // show_code_with_linenum(styio_code);
     auto styio_context = StyioContext::Create(fpath, styio_code.code_text, styio_code.line_seps);
     
+    StyioRepr styio_repr = StyioRepr();
+
     /* Parser */
     auto styio_program = parse_main_block(*styio_context);
-    StyioAnalyzer analyzer = StyioAnalyzer();
 
     if (show_ast) {
       std::cout
         << "\033[1;32mAST\033[0m \033[31m-No-Type-Checking\033[0m"
         << "\n"
-        << styio_program->toString(&analyzer) << "\n"
+        << styio_program->toString(&styio_repr) << "\n"
+        << std::endl;
+    }
+
+    /* Type Inference */
+    StyioAnalyzer analyzer = StyioAnalyzer();
+    analyzer.typeInfer(styio_program);
+
+    if (show_type_checking) {
+      std::cout
+        << "\033[1;32mAST\033[0m \033[1;33m-After-Type-Checking\033[0m"
+        << "\n"
+        << styio_program->toString(&styio_repr) << "\n"
         << std::endl;
     }
 
@@ -199,19 +214,7 @@ main(
 
     StyioToLLVMIR generator = StyioToLLVMIR(std::move(styio_orc_jit));
 
-    /* Type Inference */
-    analyzer.typeInfer(styio_program);
-
-    if (show_type_checking) {
-      std::cout
-        << "\033[1;32mAST\033[0m \033[1;33m-After-Type-Checking\033[0m"
-        << "\n"
-        << styio_program->toString(&analyzer) << "\n"
-        << std::endl;
-    }
-
     /* CodeGen (LLVM IR) */
-
     generator.toLLVMIR(styio_program);
 
     if (show_ir) {
