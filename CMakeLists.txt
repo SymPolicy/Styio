@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.14)
 # [clang]
 set(CMAKE_BUILD_TYPE "Debug")
 set(CMAKE_C_COMPILER "/usr/bin/clang")
-set(CMAKE_C_FLAGS "-Wl,-export-dynamic")
+# set(CMAKE_C_FLAGS "-Wl,-export-dynamic")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
@@ -11,7 +11,7 @@ set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 set(CMAKE_LINKER "/usr/bin/lld")
 set(CMAKE_OBJDUMP "/usr/bin/llvm-objdump")
 
-set(CMAKE_EXE_LINKER_FLAGS "-Wl,-export-dynamic")
+# set(CMAKE_EXE_LINKER_FLAGS "-Wl,-export-dynamic")
 
 # [Styio] Version
 project(styio VERSION 0.0.1)
@@ -58,18 +58,18 @@ find_package(ICU COMPONENTS uc i18n REQUIRED)
 add_executable( styio 
     src/main.cpp
     # Utility
-    src/include/StyioUtil/Util.cpp
+    src/StyioUtil/Util.cpp
     # Lexer
-    src/include/StyioToken/Token.cpp
+    src/StyioToken/Token.cpp
     # Parser
-    src/include/StyioParser/Parser.cpp
+    src/StyioParser/Parser.cpp
     # Visitor
-    src/include/StyioVisitors/ToStringImpl.cpp
-    src/include/StyioVisitors/TypeInferImpl.cpp
-    src/include/StyioVisitors/GetTypeImpl.cpp
-    src/include/StyioVisitors/CodeGenImpl.cpp
+    src/StyioVisitors/ToStringImpl.cpp
+    src/StyioVisitors/TypeInferImpl.cpp
+    src/StyioVisitors/GetTypeImpl.cpp
+    src/StyioVisitors/CodeGenImpl.cpp
     # ExternLib
-    src/include/StyioExtern/ExternLib.cpp
+    src/StyioExtern/ExternLib.cpp
 )
 
 # [Styio - ICU4C] Link

@@ -18,13 +18,13 @@
 #include <vector>
 
 // [Styio]
-#include "include/StyioAST/AST.hpp"
-#include "include/StyioException/Exception.hpp"
-#include "include/StyioParser/Parser.hpp"
-#include "include/StyioToken/Token.hpp"
-#include "include/StyioUtil/Util.hpp"
-#include "include/StyioVisitors/ASTAnalyzer.hpp"    /* StyioASTAnalyzer */
-#include "include/StyioVisitors/CodeGenVisitor.hpp" /* StyioToLLVMIR Code Generator */
+#include "StyioAST/AST.hpp"
+#include "StyioException/Exception.hpp"
+#include "StyioParser/Parser.hpp"
+#include "StyioToken/Token.hpp"
+#include "StyioUtil/Util.hpp"
+#include "StyioVisitors/ASTAnalyzer.hpp"    /* StyioASTAnalyzer */
+#include "StyioVisitors/CodeGenVisitor.hpp" /* StyioToLLVMIR Code Generator */
 
 // [LLVM]
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -38,10 +38,10 @@
 #include "llvm/Support/FileSystem.h"
 
 // [Styio LLVM ORC JIT]
-#include "include/StyioJIT/StyioJIT_ORC.hpp"
+#include "StyioJIT/StyioJIT_ORC.hpp"
 
 // [Others]
-#include "include/Others/cxxopts.hpp" /* https://github.com/jarro2783/cxxopts */
+#include "include/cxxopts.hpp" /* https://github.com/jarro2783/cxxopts */
 
 extern "C" void hello_world() {
   std::cout << "hello, world!" << std::endl;

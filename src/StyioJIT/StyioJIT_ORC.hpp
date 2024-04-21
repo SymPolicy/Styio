@@ -49,29 +49,17 @@ public:
       MainJD(this->ES->createBareJITDylib("<main>")) {
     MainJD.addGenerator(llvm::cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(DL.getGlobalPrefix())));
 
-    // llvm::orc::SymbolMap symbolMap;
-    // // Register every symbol that can be accessed from the JIT'ed code.
-    // symbolMap[Mangle("jitExample")] = llvm::orc::ExecutorSymbolDef(
-    //     llvm::pointerToJITTargetAddress(&jitExample), llvm::JITSymbolFlags());
+    auto err = MainJD.define(llvm::orc::absoluteSymbols(llvm::orc::SymbolMap({
+      { Mangle("something"), { llvm::orc::ExecutorAddr::fromPtr(&something), llvm::JITSymbolFlags::Callable } }
+    })));
 
-    // llvm::cantFail(MainJD.define(absoluteSymbols(symbolMap)));
+    // llvm::DenseSet<llvm::orc::SymbolStringPtr> AllowList({
+    //   Mangle("something")
+    // });
 
-    // MainJD.define(
-    //   llvm::orc::absoluteSymbols({
-    //     { Mangle("puts"), llvm::orc::ExecutorAddr::fromPtr(&puts)},
-    //     { Mangle("printf"), llvm::orc::ExecutorAddr::fromPtr(&printf)}
-    // }));
-
-    if (auto DLSGOrErr =
-        llvm::orc::DynamicLibrarySearchGenerator::Load("/root/Styio/src/include/StyioJIT/ExternLib.hpp",
-                                            DL.getGlobalPrefix()))
-      MainJD.addGenerator(std::move(*DLSGOrErr));
-
-    // MainJD.setGenerator(llvm::orc::DynamicLibrarySearchGenerator::Load(
-    //   "/root/Styio/src/include/StyioJIT/ExternLib.hpp", DL.getGlobalPrefix()));
-
-    // MainJD.addGenerator(llvm::orc::DynamicLibrarySearchGenerator::Load(
-    //   "/root/Styio/src/include/StyioJIT/ExternLib.hpp", DL.getGlobalPrefix()))
+    // MainJD.addGenerator(llvm::cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
+    //   DL.getGlobalPrefix(),
+    //   [&](const llvm::orc::SymbolStringPtr &S) { return AllowList.count(S); })));
 
     if (JTMB.getTargetTriple().isOSBinFormatCOFF()) {
       ObjectLayer.setOverrideObjectFlagsWithResponsibilityFlags(true);

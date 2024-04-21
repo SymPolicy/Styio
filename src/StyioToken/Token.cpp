@@ -2,7 +2,7 @@
 #include <string>
 
 // [Styio]
-#include "../StyioToken/Token.hpp"
+#include "Token.hpp"
 
 std::string
 reprDataType(StyioDataType dtype) {
