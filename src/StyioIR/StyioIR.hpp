@@ -14,34 +14,34 @@
 #include "../StyioVisitors/CodeGenVisitor.hpp"
 #include "IRDecl.hpp"
 
-class StyioIRBase
+class StyioIR
 {
 public:
-  virtual ~StyioIRBase() {}
+  virtual ~StyioIR() {}
 
   /* StyioAST to String */
   virtual std::string toString(StyioRepr* visitor, int indent = 0) = 0;
 
   /* Get LLVM Type */
-  virtual llvm::Type* toLLVMType(StyioToLLVMIR* visitor) = 0;
+  virtual llvm::Type* toLLVMType(StyioToLLVM* visitor) = 0;
 
   /* LLVM IR Generator */
-  virtual llvm::Value* toLLVMIR(StyioToLLVMIR* visitor) = 0;
+  virtual llvm::Value* toLLVMIR(StyioToLLVM* visitor) = 0;
 };
 
 template <class Derived>
-class StyioIR : public StyioIRBase
+class StyioIRTraits : public StyioIR
 {
 public:
   std::string toString(StyioRepr* visitor, int indent = 0) override {
     return visitor->toString(static_cast<Derived*>(this), indent);
   }
 
-  llvm::Type* toLLVMType(StyioToLLVMIR* visitor) override {
+  llvm::Type* toLLVMType(StyioToLLVM* visitor) override {
     return visitor->toLLVMType(static_cast<Derived*>(this));
   }
 
-  llvm::Value* toLLVMIR(StyioToLLVMIR* visitor) override {
+  llvm::Value* toLLVMIR(StyioToLLVM* visitor) override {
     return visitor->toLLVMIR(static_cast<Derived*>(this));
   }
 };

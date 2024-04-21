@@ -19,14 +19,14 @@
 
 // [Styio]
 #include "StyioAST/AST.hpp"
+#include "StyioAnalyzer/ASTAnalyzer.hpp"   /* StyioASTAnalyzer */
+#include "StyioCodeGen/CodeGenVisitor.hpp" /* StyioToLLVMIR Code Generator */
 #include "StyioException/Exception.hpp"
+#include "StyioIR/StyioIR.hpp" /* StyioIR */
 #include "StyioParser/Parser.hpp"
+#include "StyioToString/ToStringVisitor.hpp" /* StyioRepr */
 #include "StyioToken/Token.hpp"
 #include "StyioUtil/Util.hpp"
-#include "StyioIR/StyioIR.hpp" /* StyioIR */
-#include "StyioToString/ToStringVisitor.hpp" /* StyioRepr */
-#include "StyioVisitors/ASTAnalyzer.hpp"    /* StyioASTAnalyzer */
-#include "StyioVisitors/CodeGenVisitor.hpp" /* StyioToLLVMIR Code Generator */
 
 // [LLVM]
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -45,7 +45,8 @@
 // [Others]
 #include "include/cxxopts.hpp" /* https://github.com/jarro2783/cxxopts */
 
-extern "C" void hello_world() {
+extern "C" void
+hello_world() {
   std::cout << "hello, world!" << std::endl;
 }
 
@@ -178,7 +179,7 @@ main(
     auto styio_code = read_styio_file(fpath);
     // show_code_with_linenum(styio_code);
     auto styio_context = StyioContext::Create(fpath, styio_code.code_text, styio_code.line_seps);
-    
+
     StyioRepr styio_repr = StyioRepr();
 
     /* Parser */

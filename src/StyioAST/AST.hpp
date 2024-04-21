@@ -5,8 +5,7 @@
 // [Styio]
 #include "../StyioToken/Token.hpp"
 #include "../StyioToString/ToStringVisitor.hpp"
-#include "../StyioVisitors/ASTAnalyzer.hpp"
-#include "../StyioVisitors/CodeGenVisitor.hpp"
+#include "../StyioAnalyzer/ASTAnalyzer.hpp"
 #include "ASTDecl.hpp"
 
 // [LLVM]
@@ -34,11 +33,8 @@ public:
   /* Type Inference */
   virtual void typeInfer(StyioAnalyzer* visitor) = 0;
 
-  /* Get LLVM Type */
-  virtual llvm::Type* toLLVMType(StyioToLLVMIR* visitor) = 0;
-
-  /* LLVM IR Generator */
-  virtual llvm::Value* toLLVMIR(StyioToLLVMIR* visitor) = 0;
+  /* Code Gen. StyioIR */
+  virtual StyioIR* toStyioIR(StyioAnalyzer* visitor) = 0;
 };
 
 /* ========================================================================== */
@@ -58,12 +54,8 @@ public:
     visitor->typeInfer(static_cast<Derived*>(this));
   }
 
-  llvm::Type* toLLVMType(StyioToLLVMIR* visitor) override {
-    return visitor->toLLVMType(static_cast<Derived*>(this));
-  }
-
-  llvm::Value* toLLVMIR(StyioToLLVMIR* visitor) override {
-    return visitor->toLLVMIR(static_cast<Derived*>(this));
+  StyioIR* toStyioIR(StyioAnalyzer* visitor) override {
+    return visitor->toStyioIR(static_cast<Derived*>(this));
   }
 };
 
