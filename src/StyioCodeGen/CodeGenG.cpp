@@ -269,7 +269,7 @@ StyioToLLVM::toLLVMIR(SGMainEntry* node) {
     Use Void Type: nullptr
   */
   llvm::Function* main_func = llvm::Function::Create(
-    llvm::FunctionType::get(theBuilder->getInt64Ty(), false),
+    llvm::FunctionType::get(theBuilder->getInt32Ty(), false),
     llvm::Function::ExternalLinkage,
     "main",
     *theModule
@@ -285,32 +285,32 @@ StyioToLLVM::toLLVMIR(SGMainEntry* node) {
 
   // entry_block->getInstList()
 
-  theBuilder->CreateRet(theBuilder->getInt64(0));
+  theBuilder->CreateRet(theBuilder->getInt32(0));
 
   return main_func;
 }
 
-// void
-// StyioToLLVM::execute() {
-//   auto RT = theORCJIT->getMainJITDylib().createResourceTracker();
-//   auto TSM = llvm::orc::ThreadSafeModule(std::move(theModule), std::move(theContext));
-//   llvm::ExitOnError exit_on_error;
-//   exit_on_error(theORCJIT->addModule(std::move(TSM), RT));
+void
+StyioToLLVM::execute() {
+  auto RT = theORCJIT->getMainJITDylib().createResourceTracker();
+  auto TSM = llvm::orc::ThreadSafeModule(std::move(theModule), std::move(theContext));
+  llvm::ExitOnError exit_on_error;
+  exit_on_error(theORCJIT->addModule(std::move(TSM), RT));
 
-//   // Look up the JIT'd code entry point.
-//   auto ExprSymbol = theORCJIT->lookup("main");
-//   if (!ExprSymbol) {
-//     std::cout << "not found" << std::endl;
-//     return;
-//   }
+  // Look up the JIT'd code entry point.
+  auto ExprSymbol = theORCJIT->lookup("main");
+  if (!ExprSymbol) {
+    std::cout << "not found" << std::endl;
+    return;
+  }
 
-//   std::cout << "after look up" << std::endl;
+  std::cout << "after look up" << std::endl;
 
-//   // Cast the entry point address to a function pointer.
-//   int (*FP)() = ExprSymbol->getAddress().toPtr<int (*)()>();
+  // Cast the entry point address to a function pointer.
+  int (*FP)() = ExprSymbol->getAddress().toPtr<int (*)()>();
 
-//   // Call into JIT'd code.
-//   std::cout << "result: " << FP() << std::endl;
+  // Call into JIT'd code.
+  std::cout << "result: " << FP() << std::endl;
 
-//   std::cout << "after run jit'd code" << std::endl;
-// }
+  std::cout << "after run jit'd code" << std::endl;
+}

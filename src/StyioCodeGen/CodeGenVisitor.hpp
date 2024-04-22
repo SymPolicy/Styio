@@ -166,6 +166,9 @@ public:
     return new StyioToLLVM(std::move(styio_jit));
   }
 
+  void print_llvm_ir();
+  void execute();
+
   /* CodeGen Get LLVM Type */
   llvm::Type* toLLVMType(SGResId* node);
   llvm::Type* toLLVMType(SGType* node);

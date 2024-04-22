@@ -189,27 +189,35 @@ main(
     StyioRepr styio_repr = StyioRepr();
 
     /* Parser */
-    auto styio_program = parse_main_block(*styio_context);
+    auto styio_ast = parse_main_block(*styio_context);
 
     if (show_ast) {
       std::cout
         << "\033[1;32mAST\033[0m \033[31m-No-Type-Checking\033[0m"
         << "\n"
-        << styio_program->toString(&styio_repr) << "\n"
+        << styio_ast->toString(&styio_repr) << "\n"
         << std::endl;
     }
 
     /* Type Inference */
     StyioAnalyzer analyzer = StyioAnalyzer();
-    analyzer.typeInfer(styio_program);
+    analyzer.typeInfer(styio_ast);
 
     if (show_type_checking) {
       std::cout
         << "\033[1;32mAST\033[0m \033[1;33m-After-Type-Checking\033[0m"
         << "\n"
-        << styio_program->toString(&styio_repr) << "\n"
+        << styio_ast->toString(&styio_repr) << "\n"
         << std::endl;
     }
+
+    StyioIR* styio_ir = analyzer.toStyioIR(styio_ast);
+
+    std::cout
+      << "\033[1;32mSTYIO IR\033[0m \033[1;33m\033[0m"
+      << "\n"
+      << styio_ir->toString(&styio_repr) << "\n"
+      << std::endl;
 
     /* JIT Initialization */
     llvm::InitializeNativeTarget();
@@ -219,19 +227,18 @@ main(
     llvm::ExitOnError exit_on_error;
     std::unique_ptr<StyioJIT_ORC> styio_orc_jit = exit_on_error(StyioJIT_ORC::Create());
 
-    // StyioToLLVMIR generator = StyioToLLVMIR(std::move(styio_orc_jit));
+    StyioToLLVM generator = StyioToLLVM(std::move(styio_orc_jit));
 
     /* CodeGen (LLVM IR) */
-    // generator.toLLVMIR(styio_program);
+    styio_ir->toLLVMIR(&generator);
 
-    // if (show_ir) {
-    //   generator.print_llvm_ir();
-    //   // generator.print_test_results();
-    // }
+    if (show_ir) {
+      generator.print_llvm_ir();
+    }
 
     /* JIT Execute */
 
-    // generator.execute();
+    generator.execute();
   }
 
   return 0;

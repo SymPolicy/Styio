@@ -303,5 +303,11 @@ StyioAnalyzer::toStyioIR(BlockAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(MainBlockAST* ast) {
-  return SGConstInt::Create(0);
+  std::vector<StyioIR*> ir_stmts;
+
+  // for (auto stmt: ast->getStmts()) {
+  //   ir_stmts.push_back(ast->toStyioIR(this));
+  // }
+
+  return SGMainEntry::Create(ir_stmts);
 }

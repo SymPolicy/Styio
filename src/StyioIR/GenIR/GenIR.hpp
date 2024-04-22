@@ -374,11 +374,11 @@ public:
   std::vector<StyioIR*> stmts;
 
   SGMainEntry(std::vector<StyioIR*> stmts) :
-      stmts(std::move(stmts)) {
+      stmts(stmts) {
   }
 
   static SGMainEntry* Create(std::vector<StyioIR*> stmts) {
-    return new SGMainEntry(std::move(stmts));
+    return new SGMainEntry(stmts);
   }
 };
 

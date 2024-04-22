@@ -13,6 +13,9 @@ set(CMAKE_OBJDUMP "/usr/bin/llvm-objdump")
 
 # set(CMAKE_EXE_LINKER_FLAGS "-Wl,-export-dynamic")
 
+# [CMake]
+set(DOWNLOAD_EXTRACT_TIMESTAMP true)
+
 # [Styio] Version
 project(styio VERSION 0.0.1)
 
@@ -69,6 +72,7 @@ add_executable( styio
     src/StyioAnalyzer/TypeInfer.cpp
     src/StyioAnalyzer/ToStyioIR.cpp
     # StyioIR
+    src/StyioCodeGen/CodeGen.cpp
     src/StyioCodeGen/GetTypeG.cpp
     src/StyioCodeGen/CodeGenG.cpp
     src/StyioCodeGen/GetTypeIO.cpp
