@@ -11,6 +11,7 @@
 #include "../StyioIR/IRDecl.hpp"
 #include "../StyioException/Exception.hpp"
 #include "../StyioToken/Token.hpp"
+#include "CodeGenVisitor.hpp"
 #include "Util.hpp"
 
 // [LLVM]
@@ -50,13 +51,19 @@
 #include "llvm/Transforms/Utils.h"
 
 llvm::Value*
+StyioToLLVM::toLLVMIR(SIOPath* node) {
+  auto output = theBuilder->getInt32(0);
+  return output;
+}
+
+llvm::Value*
 StyioToLLVM::toLLVMIR(SIOPrint* node) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(SIOReadFile* node) {
+StyioToLLVM::toLLVMIR(SIORead* node) {
   auto output = theBuilder->getInt32(0);
   return output;
 }

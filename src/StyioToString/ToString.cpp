@@ -1,4 +1,4 @@
-#include "../StyioAST/AST.hpp"
+
 
 // [C++ STL]
 #include <iostream>
@@ -7,8 +7,18 @@
 
 // [Styio]
 #include "../StyioAST/AST.hpp"
+#include "../StyioIR/DFIR/DFIR.hpp"
+#include "../StyioIR/GenIR/GenIR.hpp"
+#include "../StyioIR/IOIR/IOIR.hpp"
 #include "../StyioToken/Token.hpp"
 #include "../StyioUtil/Util.hpp"
+
+/*                                                                */
+/*    ___| __ __| \ \   / _ _|   _ \          \      ___| __ __|  */
+/*  \___ \    |    \   /    |   |   |        _ \   \___ \    |    */
+/*        |   |       |     |   |   |       ___ \        |   |    */
+/*  _____/   _|      _|   ___| \___/      _/    _\ _____/   _|    */
+/*                                                                */
 
 std::string
 StyioRepr::toString(CommentAST* ast, int indent) {
@@ -734,4 +744,141 @@ StyioRepr::toString(MainBlockAST* ast, int indent) {
   }
 
   return reprNodeType(ast->getNodeType(), " ") + "{\n" + outstr + "}";
+}
+
+/*                                                     */
+/*    ___| __ __| \ \   / _ _|   _ \      _ _|   _ \   */
+/*  \___ \    |    \   /    |   |   |       |   |   |  */
+/*        |   |       |     |   |   |       |   __ <   */
+/*  _____/   _|      _|   ___| \___/      ___| _| \_\  */
+/*                                                     */
+
+std::string
+StyioRepr::toString(SGResId* node, int indent) {
+  return std::string("styio.ir.id { ") + node->id + " }";
+}
+
+std::string
+StyioRepr::toString(SGType* node, int indent) {
+  return std::string("styio.ir.type { ") + node->type_name + " }";
+}
+
+std::string
+StyioRepr::toString(SGConstBool* node, int indent) {
+  return std::string("styio.ir.bool { ") + std::to_string(node->value) + " }";
+}
+
+std::string
+StyioRepr::toString(SGConstInt* node, int indent) {
+  return std::string("styio.ir.int { ") + node->value + " }";
+}
+
+std::string
+StyioRepr::toString(SGConstFloat* node, int indent) {
+  return std::string("styio.ir.float { ") + node->value + " }";
+}
+
+std::string
+StyioRepr::toString(SGConstChar* node, int indent) {
+  return std::string("styio.ir.char { ") + node->value + " }";
+}
+
+std::string
+StyioRepr::toString(SGConstString* node, int indent) {
+  return std::string("styio.ir.string { ") + node->value + " }";
+}
+
+std::string
+StyioRepr::toString(SGFormatString* node, int indent) {
+  return std::string("styio.ir.fmtstr { ") + " }";
+}
+
+std::string
+StyioRepr::toString(SGStruct* node, int indent) {
+  return std::string("styio.ir.struct { ") + " }";
+}
+
+std::string
+StyioRepr::toString(SGCast* node, int indent) {
+  return std::string("styio.ir.cast { ") + " }";
+}
+
+std::string
+StyioRepr::toString(SGBinOp* node, int indent) {
+  return std::string("styio.ir.binop { ") + " }";
+}
+
+std::string
+StyioRepr::toString(SGCond* node, int indent) {
+  return std::string("styio.ir.cond { ") + " }";
+}
+
+std::string
+StyioRepr::toString(SGFlexBind* node, int indent) {
+  return std::string("styio.ir.flex_bind { ") + " }";
+}
+
+std::string
+StyioRepr::toString(SGFinalBind* node, int indent) {
+  return std::string("styio.ir.final_bind { ") + " }";
+}
+
+std::string
+StyioRepr::toString(SGFuncArg* node, int indent) {
+  return std::string("styio.ir.func_arg { ") + " }";
+}
+
+std::string
+StyioRepr::toString(SGFunc* node, int indent) {
+  return std::string("styio.ir.func { ") + " }";
+}
+
+std::string
+StyioRepr::toString(SGCall* node, int indent) {
+  return std::string("styio.ir.call { ") + " }";
+}
+
+std::string
+StyioRepr::toString(SGReturn* node, int indent) {
+  return std::string("styio.ir.return { ") + " }";
+}
+
+std::string
+StyioRepr::toString(SGIfElse* node, int indent) {
+  return std::string("styio.ir.if_else { ") + " }";
+}
+
+std::string
+StyioRepr::toString(SGForLoop* node, int indent) {
+  return std::string("styio.ir.for { ") + " }";
+}
+
+std::string
+StyioRepr::toString(SGWhileLoop* node, int indent) {
+  return std::string("styio.ir.while { ") + " }";
+}
+
+std::string
+StyioRepr::toString(SGBlock* node, int indent) {
+  return std::string("styio.ir.block { ") + " }";
+}
+
+std::string
+StyioRepr::toString(SGEntry* node, int indent) {
+  return std::string("styio.ir.entry { ") + " }";
+}
+
+std::string
+StyioRepr::toString(SGMainEntry* node, int indent) {
+  return std::string("styio.ir.main { ") + " }";
+}
+
+std::string
+StyioRepr::toString(SIOPrint* node, int indent) {
+  return std::string("styio.ir.print { ") + " }";
+}
+
+std::string
+StyioRepr::toString(SIOReadFile* node, int indent) {
+  return std::string("styio.ir.read { ") + " }";
 }

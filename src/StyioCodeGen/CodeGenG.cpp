@@ -11,6 +11,7 @@
 #include "../StyioException/Exception.hpp"
 #include "../StyioIR/GenIR/GenIR.hpp"
 #include "../StyioToken/Token.hpp"
+#include "CodeGenVisitor.hpp"
 #include "Util.hpp"
 
 // [LLVM]
@@ -66,6 +67,11 @@ StyioToLLVM::toLLVMIR(SGResId* node) {
 }
 
 llvm::Value*
+StyioToLLVM::toLLVMIR(SGType* node) {
+  return llvm::ConstantInt::getBool(*theContext, node->type_name);
+}
+
+llvm::Value*
 StyioToLLVM::toLLVMIR(SGConstBool* node) {
   return llvm::ConstantInt::getBool(*theContext, node->value);
 }
@@ -103,84 +109,26 @@ StyioToLLVM::toLLVMIR(SGStruct* node) {
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(SGTypeCast* node) {
+StyioToLLVM::toLLVMIR(SGCast* node) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGBinOp* node) {
-  StyioDataType data_type = node->data_type->data_type;
-  llvm::Value* l_val = node->lhs_expr->toLLVMIR(this);
-  llvm::Value* r_val = node->rhs_expr->toLLVMIR(this);
-
-  switch (node->operand) {
-    case TokenKind::Binary_Add: {
-      if (isSignedIntTy(data_type)) {
-        return theBuilder->CreateAdd(l_val, r_val);
-      }
-      else if (isFloatType(data_type)) {
-        return theBuilder->CreateFAdd(l_val, r_val);
-      }
-    } break;
-
-    case TokenKind::Binary_Sub: {
-      if (isSignedIntTy(data_type)) {
-        return theBuilder->CreateSub(l_val, r_val);
-      }
-      else if (isFloatType(data_type)) {
-        return theBuilder->CreateFSub(l_val, r_val);
-      }
-    } break;
-
-    case TokenKind::Binary_Mul: {
-      if (isSignedIntTy(data_type)) {
-        return theBuilder->CreateMul(l_val, r_val);
-      }
-      else if (isFloatType(data_type)) {
-        return theBuilder->CreateFMul(l_val, r_val);
-      }
-    } break;
-
-    case TokenKind::Binary_Div: {
-      /* Signed Integer */
-      if (isSignedIntTy(data_type)) {
-        return theBuilder->CreateSDiv(l_val, r_val);
-      }
-      else if (isFloatType(data_type)) {
-        return theBuilder->CreateFDiv(l_val, r_val);
-      }
-    } break;
-
-    case TokenKind::Binary_Pow: {
-    } break;
-
-    case TokenKind::Binary_Mod: {
-    } break;
-
-    case TokenKind::Self_Add_Assign: {
-    } break;
-
-    case TokenKind::Self_Sub_Assign: {
-    } break;
-
-    case TokenKind::Self_Mul_Assign: {
-    } break;
-
-    case TokenKind::Self_Div_Assign: {
-    } break;
-
-    default:
-      break;
-  }
-
-  throw StyioNotImplemented(std::string("BinOp Unrecognized Operator: ") + reprToken(node->getOp()) + " " + reprDataType(node->getType()));
-  return nullptr;
+  return theBuilder->getInt64(0);
 }
 
 llvm::Value*
-StyioToLLVM::toLLVMIR(SGBoolExpr* node) {
-  return theBuilder->getInt64(0);
+StyioToLLVM::toLLVMIR(SGCond* node) {
+  auto output = theBuilder->getInt32(0);
+  return output;
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SGVar* node) {
+  auto output = theBuilder->getInt32(0);
+  return output;
 }
 
 /*
@@ -198,6 +146,11 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGFinalBind* node) {
+  return theBuilder->getInt64(0);
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SGFuncArg* node) {
   return theBuilder->getInt64(0);
 }
 
@@ -297,10 +250,15 @@ StyioToLLVM::toLLVMIR(SGReturn* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGBlock* node) {
-  for (auto const& s : node->stmt) {
+  for (auto const& s : node->stmts) {
     s->toLLVMIR(this);
   }
 
+  return theBuilder->getInt64(0);
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SGEntry* node) {
   return theBuilder->getInt64(0);
 }
 

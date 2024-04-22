@@ -9,10 +9,21 @@
 #include "../StyioException/Exception.hpp"
 #include "../StyioIR/GenIR/GenIR.hpp"
 #include "../StyioToken/Token.hpp"
+#include "CodeGenVisitor.hpp"
 #include "Util.hpp"
 
 llvm::Type*
-toLLVMType(SGResId* node) {
+StyioToLLVM::toLLVMType(SGResId* node) {
+  return theBuilder->getInt64Ty();
+};
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGType* node) {
+  return theBuilder->getInt64Ty();
+};
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGConstBool* node) {
   return theBuilder->getInt64Ty();
 };
 
@@ -27,6 +38,11 @@ StyioToLLVM::toLLVMType(SGConstFloat* node) {
 };
 
 llvm::Type*
+StyioToLLVM::toLLVMType(SGConstChar* node) {
+  return theBuilder->getInt64Ty();
+};
+
+llvm::Type*
 StyioToLLVM::toLLVMType(SGConstString* node) {
   return theBuilder->getInt64Ty();
 };
@@ -37,8 +53,38 @@ StyioToLLVM::toLLVMType(SGFormatString* node) {
 };
 
 llvm::Type*
+StyioToLLVM::toLLVMType(SGStruct* node) {
+  return node->data_type->toLLVMType(this);
+};
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGCast* node) {
+  return node->data_type->toLLVMType(this);
+};
+
+llvm::Type*
 StyioToLLVM::toLLVMType(SGBinOp* node) {
   return node->data_type->toLLVMType(this);
+};
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGCond* node) {
+  return node->data_type->toLLVMType(this);
+};
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGVar* node) {
+  return node->arg_type->toLLVMType(this);
+};
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGFlexBind* node) {
+  return node->arg_type->toLLVMType(this);
+};
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGFinalBind* node) {
+  return node->arg_type->toLLVMType(this);
 };
 
 llvm::Type*
@@ -53,6 +99,11 @@ StyioToLLVM::toLLVMType(SGFunc* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGCall* node) {
+  return theBuilder->getInt64Ty();
+};
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGReturn* node) {
   return theBuilder->getInt64Ty();
 };
 

@@ -72,22 +72,41 @@ public:
 
 using StyioCodeGenVisitor = CodeGenVisitor<
   class SGResId,
+  class SGType,
+
+  class SGConstBool,
 
   class SGConstInt,
   class SGConstFloat,
 
+  class SGConstChar,
   class SGConstString,
   class SGFormatString,
 
-  class SGBinOp,
+  class SGStruct,
 
-  class SGFuncArgs,
-  class SGFunction,
+  class SGCast,
+
+  class SGBinOp,
+  class SGCond,
+
+  class SGVar,
+  class SGFlexBind,
+  class SGFinalBind,
+
+  class SGFuncArg,
+  class SGFunc,
   class SGCall,
+
+  class SGReturn,
 
   class SGBlock,
   class SGEntry,
-  class SGMainEntry>;
+  class SGMainEntry,
+
+  class SIOPath,
+  class SIOPrint,
+  class SIORead>;
 
 class StyioToLLVM : public StyioCodeGenVisitor
 {
@@ -147,37 +166,89 @@ public:
     return new StyioToLLVM(std::move(styio_jit));
   }
 
+  /* CodeGen Get LLVM Type */
   llvm::Type* toLLVMType(SGResId* node);
+  llvm::Type* toLLVMType(SGType* node);
+
+  llvm::Type* toLLVMType(SGConstBool* node);
+
   llvm::Type* toLLVMType(SGConstInt* node);
   llvm::Type* toLLVMType(SGConstFloat* node);
+
+  llvm::Type* toLLVMType(SGConstChar* node);
   llvm::Type* toLLVMType(SGConstString* node);
   llvm::Type* toLLVMType(SGFormatString* node);
+
+  llvm::Type* toLLVMType(SGStruct* node);
+
+  llvm::Type* toLLVMType(SGCast* node);
+
   llvm::Type* toLLVMType(SGBinOp* node);
+  llvm::Type* toLLVMType(SGCond* node);
+
+  llvm::Type* toLLVMType(SGVar* node);
+  llvm::Type* toLLVMType(SGFlexBind* node);
+  llvm::Type* toLLVMType(SGFinalBind* node);
+
   llvm::Type* toLLVMType(SGFuncArg* node);
   llvm::Type* toLLVMType(SGFunc* node);
   llvm::Type* toLLVMType(SGCall* node);
+
+  llvm::Type* toLLVMType(SGReturn* node);
+
+  // llvm::Type* toLLVMType(SGIfElse* node);
+  // llvm::Type* toLLVMType(SGForLoop* node);
+  // llvm::Type* toLLVMType(SGWhileLoop* node);
+
   llvm::Type* toLLVMType(SGBlock* node);
   llvm::Type* toLLVMType(SGEntry* node);
   llvm::Type* toLLVMType(SGMainEntry* node);
 
+  llvm::Type* toLLVMType(SIOPath* node);
+  llvm::Type* toLLVMType(SIOPrint* node);
+  llvm::Type* toLLVMType(SIORead* node);
+
   /* LLVM Code Generation */
   llvm::Value* toLLVMIR(SGResId* node);
+  llvm::Value* toLLVMIR(SGType* node);
+
+  llvm::Value* toLLVMIR(SGConstBool* node);
 
   llvm::Value* toLLVMIR(SGConstInt* node);
   llvm::Value* toLLVMIR(SGConstFloat* node);
 
+  llvm::Value* toLLVMIR(SGConstChar* node);
   llvm::Value* toLLVMIR(SGConstString* node);
   llvm::Value* toLLVMIR(SGFormatString* node);
 
+  llvm::Value* toLLVMIR(SGStruct* node);
+
+  llvm::Value* toLLVMIR(SGCast* node);
+
   llvm::Value* toLLVMIR(SGBinOp* node);
+  llvm::Value* toLLVMIR(SGCond* node);
+
+  llvm::Value* toLLVMIR(SGVar* node);
+  llvm::Value* toLLVMIR(SGFlexBind* node);
+  llvm::Value* toLLVMIR(SGFinalBind* node);
 
   llvm::Value* toLLVMIR(SGFuncArg* node);
   llvm::Value* toLLVMIR(SGFunc* node);
   llvm::Value* toLLVMIR(SGCall* node);
 
+  llvm::Value* toLLVMIR(SGReturn* node);
+
+  // llvm::Value* toLLVMIR(SGIfElse* node);
+  // llvm::Value* toLLVMIR(SGForLoop* node);
+  // llvm::Value* toLLVMIR(SGWhileLoop* node);
+
   llvm::Value* toLLVMIR(SGBlock* node);
   llvm::Value* toLLVMIR(SGEntry* node);
   llvm::Value* toLLVMIR(SGMainEntry* node);
+
+  llvm::Value* toLLVMIR(SIOPath* node);
+  llvm::Value* toLLVMIR(SIOPrint* node);
+  llvm::Value* toLLVMIR(SIORead* node);
 };
 
 #endif

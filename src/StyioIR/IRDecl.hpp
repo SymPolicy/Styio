@@ -20,11 +20,12 @@ class SGFormatString;
 
 class SGStruct;
 
-class SGTypeCast;
+class SGCast;
 
 class SGBinOp;
-class SGBoolExpr; /* An expression that can be evaluated to a boolean type. */
+class SGCond; /* Conditional: An expression that can be evaluated to a boolean type. */
 
+class SGVar;
 class SGFlexBind;
 class SGFinalBind;
 
@@ -34,16 +35,17 @@ class SGCall;
 
 class SGReturn;
 
-class SGIfElse;
-class SGForLoop;
-class SGWhileLoop;
+// class SGIfElse;
+// class SGForLoop;
+// class SGWhileLoop;
 
 class SGBlock;
 class SGEntry;
 class SGMainEntry;
 
 /* IOIR */
+class SIOPath;
 class SIOPrint;
-class SIOReadFile;
+class SIORead;
 
 #endif  // STYIO_IR_DECLARATION_H_
