@@ -13,7 +13,7 @@
 #include <vector>
 
 // [Styio]
-#include "../StyioIR/IRDecl.hpp"
+#include "../StyioIR/GenIR/GenIR.hpp"
 #include "../StyioAST/AST.hpp"
 #include "../StyioToken/Token.hpp"
 #include "Util.hpp"

@@ -10,7 +10,7 @@
 #include "../StyioIR/GenIR/GenIR.hpp"
 #include "../StyioToken/Token.hpp"
 #include "CodeGenVisitor.hpp"
-#include "Util.hpp"
+#include "../StyioUtil/Util.hpp"
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGResId* node) {
@@ -54,12 +54,12 @@ StyioToLLVM::toLLVMType(SGFormatString* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGStruct* node) {
-  return node->data_type->toLLVMType(this);
+  return theBuilder->getInt64Ty();
 };
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGCast* node) {
-  return node->data_type->toLLVMType(this);
+  return theBuilder->getInt64Ty();
 };
 
 llvm::Type*
@@ -69,22 +69,22 @@ StyioToLLVM::toLLVMType(SGBinOp* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGCond* node) {
-  return node->data_type->toLLVMType(this);
+  return theBuilder->getInt64Ty();
 };
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGVar* node) {
-  return node->arg_type->toLLVMType(this);
+  return node->var_type->toLLVMType(this);
 };
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGFlexBind* node) {
-  return node->arg_type->toLLVMType(this);
+  return node->var->toLLVMType(this);
 };
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGFinalBind* node) {
-  return node->arg_type->toLLVMType(this);
+  return node->var->toLLVMType(this);
 };
 
 llvm::Type*

@@ -12,7 +12,7 @@
 #include "../StyioException/Exception.hpp"
 #include "../StyioToken/Token.hpp"
 #include "CodeGenVisitor.hpp"
-#include "Util.hpp"
+#include "../StyioUtil/Util.hpp"
 
 // [LLVM]
 #include "llvm/ADT/APFloat.h"

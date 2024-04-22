@@ -1,44 +1,47 @@
-class SIOPath : StyioIRTraits<SIOPath>
+#pragma once
+#ifndef STYIO_IO_IR_H_
+#define STYIO_IO_IR_H_
+
+class SIOPath : public StyioIRTraits<SIOPath>
 {
-private:
+public:
+  std::string path;
+
   SIOPath(std::string path) :
       path(path) {
   }
-
-public:
-  std::string path;
 
   static SIOPath* Create(std::string path) {
     return new SIOPath(path);
   }
 };
 
-class SIOPrint : StyioIRTraits<SIOPrint>
+class SIOPrint : public StyioIRTraits<SIOPrint>
 {
-private:
+public:
+  std::vector<StyioIR*> expr;
+
   SIOPrint(std::vector<StyioIR*> expr) :
       expr(expr) {
   }
-
-public:
-  std::vector<StyioIR*> expr;
 
   static SIOPrint* Create(std::vector<StyioIR*> expr) {
     return new SIOPrint(expr);
   }
 };
 
-class SIORead : StyioIRTraits<SIORead>
+class SIORead : public StyioIRTraits<SIORead>
 {
-private:
+public:
+  SIOPath* file_path;
+
   SIORead(SIOPath* file_path) :
       file_path(file_path) {
   }
-
-public:
-  SIOPath* file_path;
 
   static SIORead* Create(SIOPath* file_path) {
     return new SIORead(file_path);
   }
 };
+
+#endif

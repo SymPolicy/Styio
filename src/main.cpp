@@ -219,19 +219,19 @@ main(
     llvm::ExitOnError exit_on_error;
     std::unique_ptr<StyioJIT_ORC> styio_orc_jit = exit_on_error(StyioJIT_ORC::Create());
 
-    StyioToLLVMIR generator = StyioToLLVMIR(std::move(styio_orc_jit));
+    // StyioToLLVMIR generator = StyioToLLVMIR(std::move(styio_orc_jit));
 
     /* CodeGen (LLVM IR) */
-    generator.toLLVMIR(styio_program);
+    // generator.toLLVMIR(styio_program);
 
-    if (show_ir) {
-      generator.print_llvm_ir();
-      // generator.print_test_results();
-    }
+    // if (show_ir) {
+    //   generator.print_llvm_ir();
+    //   // generator.print_test_results();
+    // }
 
     /* JIT Execute */
 
-    generator.execute();
+    // generator.execute();
   }
 
   return 0;

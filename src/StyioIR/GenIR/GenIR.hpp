@@ -7,9 +7,9 @@
 #include <vector>
 
 // [Styio]
+#include "../../StyioToken/Token.hpp"
 #include "../IRDecl.hpp"
 #include "../StyioIR.hpp"
-#include "../StyioToken/Token.hpp"
 
 /*
   Styio General Intermediate Representation (Styio GenIR)
@@ -24,13 +24,12 @@
 */
 class SGResId : public StyioIRTraits<SGResId>
 {
-private:
+public:
+  std::string id;
+
   SGResId(std::string id) :
       id(id) {
   }
-
-public:
-  std::string id;
 
   static SGResId* Create() {
     return new SGResId("");
@@ -43,15 +42,14 @@ public:
 
 class SGType : public StyioIRTraits<SGType>
 {
-private:
+public:
+  std::string type_name;
+
   SGType() {}
 
   SGType(std::string name) :
       type_name(name) {
   }
-
-public:
-  std::string type_name;
 
   static SGType* Create() {
     return new SGType();
@@ -64,13 +62,12 @@ public:
 
 class SGConstBool : public StyioIRTraits<SGConstBool>
 {
-private:
+public:
+  bool value;
+
   SGConstBool(bool value) :
       value(value) {
   }
-
-public:
-  bool value;
 
   static SGConstBool* Create(bool value) {
     return new SGConstBool(value);
@@ -84,7 +81,10 @@ public:
 */
 class SGConstInt : public StyioIRTraits<SGConstInt>
 {
-private:
+public:
+  std::string value;
+  size_t numbits;
+
   SGConstInt(
     std::string value,
     size_t numbits
@@ -92,10 +92,6 @@ private:
       value(value),
       numbits(numbits) {
   }
-
-public:
-  std::string value;
-  size_t numbits;
 
   static SGConstInt* Create(long value) {
     return new SGConstInt(std::to_string(value), 64);
@@ -112,13 +108,12 @@ public:
 
 class SGConstFloat : public StyioIRTraits<SGConstFloat>
 {
-private:
+public:
+  std::string value;
+
   SGConstFloat(std::string value) :
       value(value) {
   }
-
-public:
-  std::string value;
 
   static SGConstFloat* Create(std::string value) {
     return new SGConstFloat(value);
@@ -127,13 +122,12 @@ public:
 
 class SGConstChar : public StyioIRTraits<SGConstChar>
 {
-private:
+public:
+  char value;
+
   SGConstChar(char value) :
       value(value) {
   }
-
-public:
-  char value;
 
   static SGConstChar* Create(char value) {
     return new SGConstChar(value);
@@ -142,13 +136,12 @@ public:
 
 class SGConstString : public StyioIRTraits<SGConstString>
 {
-private:
+public:
+  std::string value;
+
   SGConstString(std::string value) :
       value(value) {
   }
-
-public:
-  std::string value;
 
   static SGConstString* Create(std::string value) {
     return new SGConstString(value);
@@ -157,14 +150,13 @@ public:
 
 class SGFormatString : public StyioIRTraits<SGFormatString>
 {
-private:
-  SGFormatString(std::vector<string> fragments, std::vector<StyioIR*> expressions) :
-      frags(std::move(fragments)), exprs(std::move(expressions)) {
-  }
-
 public:
   std::vector<string> frags;   /* fragments */
   std::vector<StyioIR*> exprs; /* expressions */
+
+  SGFormatString(std::vector<string> fragments, std::vector<StyioIR*> expressions) :
+      frags(std::move(fragments)), exprs(std::move(expressions)) {
+  }
 
   static SGFormatString* Create(std::vector<string> fragments, std::vector<StyioIR*> expressions) {
     return new SGFormatString(fragments, expressions);
@@ -173,13 +165,12 @@ public:
 
 class SGStruct : public StyioIRTraits<SGStruct>
 {
-private:
+public:
+  std::unordered_map<SGResId*, std::pair<SGType*, StyioIR*>> elems; /* {id: (type, default_value)} */
+
   SGStruct(std::unordered_map<SGResId*, std::pair<SGType*, StyioIR*>> elements) :
       elems(elements) {
   }
-
-public:
-  std::unordered_map<SGResId*, std::pair<SGType*, StyioIR*>> elems; /* {id: (type, default_value)} */
 
   static SGStruct* Create(std::unordered_map<SGResId*, std::pair<SGType*, StyioIR*>> elements) {
     return new SGStruct(elements);
@@ -188,14 +179,13 @@ public:
 
 class SGCast : public StyioIRTraits<SGCast>
 {
-private:
-  SGCast(SGType* from_type, SGType* to_type) :
-      from_type(from_type), to_type(to_type) {
-  }
-
 public:
   SGType* from_type;
   SGType* to_type;
+
+  SGCast(SGType* from_type, SGType* to_type) :
+      from_type(from_type), to_type(to_type) {
+  }
 
   static SGCast* Create(SGType* from_type, SGType* to_type) {
     return new SGCast(from_type, to_type);
@@ -205,16 +195,15 @@ public:
 /* Binary Operation Expression */
 class SGBinOp : public StyioIRTraits<SGBinOp>
 {
-private:
-  SGBinOp(StyioIR* lhs, StyioIR* rhs, TokenKind op, SGType* data_type) :
-      lhs_expr(std::move(lhs)), rhs_expr(std::move(rhs)), operand(op), data_type(std::move(data_type)) {
-  }
-
 public:
   SGType* data_type;
   StyioIR* lhs_expr;
   StyioIR* rhs_expr;
   TokenKind operand;
+
+  SGBinOp(StyioIR* lhs, StyioIR* rhs, TokenKind op, SGType* data_type) :
+      lhs_expr(std::move(lhs)), rhs_expr(std::move(rhs)), operand(op), data_type(std::move(data_type)) {
+  }
 
   static SGBinOp* Create(StyioIR* lhs, StyioIR* rhs, TokenKind op, SGType* data_type) {
     return new SGBinOp(lhs, rhs, op, data_type);
@@ -223,15 +212,14 @@ public:
 
 class SGCond : public StyioIRTraits<SGCond>
 {
-private:
-  SGCond(StyioIR* lhs, StyioIR* rhs, TokenKind op) :
-      lhs_expr(std::move(lhs)), rhs_expr(std::move(rhs)), operand(op) {
-  }
-
 public:
   StyioIR* lhs_expr;
   StyioIR* rhs_expr;
   TokenKind operand;
+
+  SGCond(StyioIR* lhs, StyioIR* rhs, TokenKind op) :
+      lhs_expr(std::move(lhs)), rhs_expr(std::move(rhs)), operand(op) {
+  }
 
   static SGCond* Create(StyioIR* lhs, StyioIR* rhs, TokenKind op) {
     return new SGCond(lhs, rhs, op);
@@ -240,14 +228,13 @@ public:
 
 class SGVar : public StyioIRTraits<SGVar>
 {
-private:
-  SGVar(SGResId* id, SGType* type) :
-      var_id(id), var_type(type) {
-  }
-
 public:
   SGResId* var_id;
   SGType* var_type;
+
+  SGVar(SGResId* id, SGType* type) :
+      var_id(id), var_type(type) {
+  }
 
   static SGVar* Create(SGResId* id, SGType* type) {
     return new SGVar(id, type);
@@ -256,14 +243,13 @@ public:
 
 class SGFlexBind : public StyioIRTraits<SGFlexBind>
 {
-private:
-  SGFlexBind(SGVar* var, StyioIR* value) :
-      var(var), value(value) {
-  }
-
 public:
   SGVar* var;
   StyioIR* value;
+
+  SGFlexBind(SGVar* var, StyioIR* value) :
+      var(var), value(value) {
+  }
 
   static SGFlexBind* Create(SGVar* id, StyioIR* value) {
     return new SGFlexBind(id, value);
@@ -272,14 +258,13 @@ public:
 
 class SGFinalBind : public StyioIRTraits<SGFinalBind>
 {
-private:
-  SGFinalBind(SGVar* var, StyioIR* value) :
-      var(var), value(value) {
-  }
-
 public:
   SGVar* var;
   StyioIR* value;
+
+  SGFinalBind(SGVar* var, StyioIR* value) :
+      var(var), value(value) {
+  }
 
   static SGFinalBind* Create(SGVar* id, StyioIR* value) {
     return new SGFinalBind(id, value);
@@ -288,23 +273,27 @@ public:
 
 class SGFuncArg : public StyioIRTraits<SGFuncArg>
 {
-private:
-  SGFuncArg(std::string id, SGType* type) :
-      id(id), arg_type(type) {
-  }
-
 public:
   std::string id;
   SGType* arg_type;
+
+  SGFuncArg(std::string id, SGType* type) :
+      id(id), arg_type(type) {
+  }
 
   static SGFuncArg* Create(std::string id, SGType* type) {
     return new SGFuncArg(id, type);
   }
 };
 
-class SGFunc : StyioIRTraits<SGFunc>
+class SGFunc : public StyioIRTraits<SGFunc>
 {
-private:
+public:
+  SGType* ret_type;
+  SGResId* func_name;
+  std::vector<SGFuncArg*> func_args;
+  SGBlock* func_block;
+
   SGFunc(
     SGType* ret_type,
     SGResId* func_name,
@@ -317,87 +306,76 @@ private:
       func_block(std::move(func_block)) {
   }
 
-public:
-  SGType* ret_type;
-  SGResId* func_name;
-  std::vector<SGFuncArg*> func_args;
-  SGBlock* func_block;
-
   static SGFunc* Create(SGType* ret_type, SGResId* func_name, std::vector<SGFuncArg*> func_args, SGBlock* func_block) {
     return new SGFunc(ret_type, func_name, func_args, func_block);
   }
 };
 
-class SGCall : StyioIRTraits<SGCall>
+class SGCall : public StyioIRTraits<SGCall>
 {
-private:
-  SGCall(SGResId* func_name, std::vector<StyioIR*> func_args) :
-      func_name(std::move(func_name)), func_args(std::move(func_args)) {
-  }
-
 public:
   SGResId* func_name;
   std::vector<StyioIR*> func_args;
+
+  SGCall(SGResId* func_name, std::vector<StyioIR*> func_args) :
+      func_name(std::move(func_name)), func_args(std::move(func_args)) {
+  }
 
   static SGCall* Create(SGResId* func_name, std::vector<StyioIR*> func_args) {
     return new SGCall(std::move(func_name), std::move(func_args));
   }
 };
 
-class SGReturn : StyioIRTraits<SGReturn>
+class SGReturn : public StyioIRTraits<SGReturn>
 {
-private:
+public:
+  StyioIR* expr;
+
   SGReturn(StyioIR* expr) :
       expr(expr) {
   }
-
-public:
-  StyioIR* expr;
 
   static SGReturn* Create(StyioIR* expr) {
     return new SGReturn(expr);
   }
 };
 
-class SGBlock : StyioIRTraits<SGBlock>
+class SGBlock : public StyioIRTraits<SGBlock>
 {
-private:
+public:
+  std::vector<StyioIR*> stmts;
+
   SGBlock(std::vector<StyioIR*> stmts) :
       stmts(std::move(stmts)) {
   }
-
-public:
-  std::vector<StyioIR*> stmts;
 
   static SGBlock* Create(std::vector<StyioIR*> stmts) {
     return new SGBlock(std::move(stmts));
   }
 };
 
-class SGEntry : StyioIRTraits<SGEntry>
+class SGEntry : public StyioIRTraits<SGEntry>
 {
-private:
+public:
+  std::vector<StyioIR*> stmts;
+
   SGEntry(std::vector<StyioIR*> stmts) :
       stmts(std::move(stmts)) {
   }
-
-public:
-  std::vector<StyioIR*> stmts;
 
   static SGEntry* Create(std::vector<StyioIR*> stmts) {
     return new SGEntry(std::move(stmts));
   }
 };
 
-class SGMainEntry : StyioIRTraits<SGMainEntry>
+class SGMainEntry : public StyioIRTraits<SGMainEntry>
 {
-private:
+public:
+  std::vector<StyioIR*> stmts;
+
   SGMainEntry(std::vector<StyioIR*> stmts) :
       stmts(std::move(stmts)) {
   }
-
-public:
-  std::vector<StyioIR*> stmts;
 
   static SGMainEntry* Create(std::vector<StyioIR*> stmts) {
     return new SGMainEntry(std::move(stmts));

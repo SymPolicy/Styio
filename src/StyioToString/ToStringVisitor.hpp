@@ -240,28 +240,42 @@ public:
 
   std::string toString(SGResId* node, int indent = 0);
   std::string toString(SGType* node, int indent = 0);
+  
   std::string toString(SGConstBool* node, int indent = 0);
+
   std::string toString(SGConstInt* node, int indent = 0);
   std::string toString(SGConstFloat* node, int indent = 0);
+
   std::string toString(SGConstChar* node, int indent = 0);
   std::string toString(SGConstString* node, int indent = 0);
   std::string toString(SGFormatString* node, int indent = 0);
+  
   std::string toString(SGStruct* node, int indent = 0);
+
   std::string toString(SGCast* node, int indent = 0);
+
   std::string toString(SGBinOp* node, int indent = 0);
   std::string toString(SGCond* node, int indent = 0);
+
+  std::string toString(SGVar* node, int indent = 0);
   std::string toString(SGFlexBind* node, int indent = 0);
   std::string toString(SGFinalBind* node, int indent = 0);
+
   std::string toString(SGFuncArg* node, int indent = 0);
   std::string toString(SGFunc* node, int indent = 0);
   std::string toString(SGCall* node, int indent = 0);
+
   std::string toString(SGReturn* node, int indent = 0);
+
   // std::string toString(SGIfElse* node, int indent = 0);
   // std::string toString(SGForLoop* node, int indent = 0);
   // std::string toString(SGWhileLoop* node, int indent = 0);
+
   std::string toString(SGBlock* node, int indent = 0);
   std::string toString(SGEntry* node, int indent = 0);
   std::string toString(SGMainEntry* node, int indent = 0);
+
+  std::string toString(SIOPath* node, int indent = 0);
   std::string toString(SIOPrint* node, int indent = 0);
   std::string toString(SIORead* node, int indent = 0);
 };

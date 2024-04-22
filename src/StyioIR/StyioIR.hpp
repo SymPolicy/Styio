@@ -11,7 +11,7 @@
 
 // [Styio]
 #include "../StyioToString/ToStringVisitor.hpp"
-#include "../StyioVisitors/CodeGenVisitor.hpp"
+#include "../StyioCodeGen/CodeGenVisitor.hpp"
 #include "IRDecl.hpp"
 
 class StyioIR

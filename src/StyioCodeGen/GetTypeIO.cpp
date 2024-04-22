@@ -10,7 +10,7 @@
 #include "../StyioIR/GenIR/GenIR.hpp"
 #include "../StyioToken/Token.hpp"
 #include "CodeGenVisitor.hpp"
-#include "Util.hpp"
+#include "../StyioUtil/Util.hpp"
 
 // [LLVM]
 #include "llvm/IR/IRBuilder.h"

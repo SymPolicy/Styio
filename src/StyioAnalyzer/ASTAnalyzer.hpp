@@ -22,6 +22,8 @@ class AnalyzerVisitor<T>
 {
 public:
   virtual void typeInfer(T* t) = 0;
+
+  virtual StyioIR* toStyioIR(T* t) = 0;
 };
 
 template <typename T, typename... Types>
@@ -29,8 +31,11 @@ class AnalyzerVisitor<T, Types...> : public AnalyzerVisitor<Types...>
 {
 public:
   using AnalyzerVisitor<Types...>::typeInfer;
+  using AnalyzerVisitor<Types...>::toStyioIR;
+
   virtual void typeInfer(T* t) = 0;
-  virtual StyioIR* toStyioIR(StyioAST* ast) = 0;
+
+  virtual StyioIR* toStyioIR(T* t) = 0;
 };
 
 using StyioAnalyzerVisitor = AnalyzerVisitor<

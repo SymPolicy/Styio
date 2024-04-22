@@ -11,8 +11,8 @@
 #include "../StyioException/Exception.hpp"
 #include "../StyioIR/GenIR/GenIR.hpp"
 #include "../StyioToken/Token.hpp"
+#include "../StyioUtil/Util.hpp"
 #include "CodeGenVisitor.hpp"
-#include "Util.hpp"
 
 // [LLVM]
 #include "llvm/ADT/APFloat.h"
@@ -63,12 +63,12 @@ StyioToLLVM::toLLVMIR(SGResId* node) {
     return theBuilder->CreateLoad(variable->getAllocatedType(), variable);
   }
 
-  return llvm::StringRef(resid);
+  return theBuilder->getInt64(0);
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGType* node) {
-  return llvm::ConstantInt::getBool(*theContext, node->type_name);
+  return theBuilder->getInt64(0);
 }
 
 llvm::Value*
@@ -262,7 +262,7 @@ StyioToLLVM::toLLVMIR(SGEntry* node) {
   return theBuilder->getInt64(0);
 }
 
-llvm::Function*
+llvm::Value*
 StyioToLLVM::toLLVMIR(SGMainEntry* node) {
   /*
     Get Void Type: llvm::Type::getVoidTy(*llvm_context)

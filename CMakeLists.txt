@@ -65,13 +65,14 @@ add_executable( styio
     src/StyioParser/Parser.cpp
     # ToString
     src/StyioToString/ToString.cpp
+    # StyioASTAnalyzer
+    src/StyioAnalyzer/TypeInfer.cpp
+    src/StyioAnalyzer/ToStyioIR.cpp
     # StyioIR
     src/StyioCodeGen/GetTypeG.cpp
     src/StyioCodeGen/CodeGenG.cpp
-    # Visitor    
-    src/StyioVisitors/TypeInferImpl.cpp
-    # src/StyioVisitors/GetTypeImpl.cpp
-    # src/StyioVisitors/CodeGenImpl.cpp
+    src/StyioCodeGen/GetTypeIO.cpp
+    src/StyioCodeGen/CodeGenIO.cpp
     # ExternLib
     src/StyioExtern/ExternLib.cpp
 )

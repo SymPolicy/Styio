@@ -2,6 +2,11 @@
 #ifndef STYIO_AST_H_
 #define STYIO_AST_H_
 
+// [C++]
+#include <vector>
+
+using std::vector;
+
 // [Styio]
 #include "../StyioToken/Token.hpp"
 #include "../StyioToString/ToStringVisitor.hpp"
@@ -40,7 +45,7 @@ public:
 /* ========================================================================== */
 
 template <class Derived>
-class StyioNode : public StyioAST
+class StyioASTTraits : public StyioAST
 {
 public:
   using StyioAST::getNodeType;
@@ -61,7 +66,7 @@ public:
 
 /* ========================================================================== */
 
-class CommentAST : public StyioNode<CommentAST>
+class CommentAST : public StyioASTTraits<CommentAST>
 {
 private:
   string text;
@@ -90,7 +95,7 @@ public:
 
 /* ========================================================================== */
 
-class NameAST : public StyioNode<NameAST>
+class NameAST : public StyioASTTraits<NameAST>
 {
 private:
   string name_str;
@@ -121,7 +126,7 @@ public:
   }
 };
 
-class DTypeAST : public StyioNode<DTypeAST>
+class DTypeAST : public StyioASTTraits<DTypeAST>
 {
 private:
   StyioDataType data_type = StyioDataType::undefined;
@@ -180,7 +185,7 @@ public:
 /*
   NoneAST: None / Null / Nil
 */
-class NoneAST : public StyioNode<NoneAST>
+class NoneAST : public StyioASTTraits<NoneAST>
 {
 public:
   NoneAST() {}
@@ -201,7 +206,7 @@ public:
 /*
   EmptyAST: Empty
 */
-class EmptyAST : public StyioNode<EmptyAST>
+class EmptyAST : public StyioASTTraits<EmptyAST>
 {
 public:
   EmptyAST() {}
@@ -222,7 +227,7 @@ public:
 /*
   BoolAST: Boolean
 */
-class BoolAST : public StyioNode<BoolAST>
+class BoolAST : public StyioASTTraits<BoolAST>
 {
   bool Value;
 
@@ -251,7 +256,7 @@ public:
 /*
   IntAST: Integer
 */
-class IntAST : public StyioNode<IntAST>
+class IntAST : public StyioASTTraits<IntAST>
 {
 private:
   string value;
@@ -295,7 +300,7 @@ public:
 /*
   FloatAST: Float
 */
-class FloatAST : public StyioNode<FloatAST>
+class FloatAST : public StyioASTTraits<FloatAST>
 {
 private:
   string value;
@@ -331,7 +336,7 @@ public:
 /*
   CharAST: Single Character
 */
-class CharAST : public StyioNode<CharAST>
+class CharAST : public StyioASTTraits<CharAST>
 {
   string value;
 
@@ -362,7 +367,7 @@ public:
 /*
   StringAST: String
 */
-class StringAST : public StyioNode<StringAST>
+class StringAST : public StyioASTTraits<StringAST>
 {
   string value;
 
@@ -390,7 +395,7 @@ public:
 
 /* ========================================================================== */
 
-class CasesAST : public StyioNode<CasesAST>
+class CasesAST : public StyioASTTraits<CasesAST>
 {
   std::vector<std::pair<StyioAST*, StyioAST*>> Cases;
   StyioAST* LastExpr = nullptr;
@@ -429,7 +434,7 @@ public:
   }
 };
 
-class BlockAST : public StyioNode<BlockAST>
+class BlockAST : public StyioASTTraits<BlockAST>
 {
   StyioAST* Resources = nullptr;
   vector<StyioAST*> Stmts;
@@ -461,7 +466,7 @@ public:
   }
 };
 
-class MainBlockAST : public StyioNode<MainBlockAST>
+class MainBlockAST : public StyioASTTraits<MainBlockAST>
 {
   StyioAST* Resources = nullptr;
   vector<StyioAST*> Stmts;
@@ -500,7 +505,7 @@ public:
   }
 };
 
-class EOFAST : public StyioNode<EOFAST>
+class EOFAST : public StyioASTTraits<EOFAST>
 {
 public:
   EOFAST() {}
@@ -514,7 +519,7 @@ public:
   }
 };
 
-class BreakAST : public StyioNode<BreakAST>
+class BreakAST : public StyioASTTraits<BreakAST>
 {
 public:
   BreakAST() {}
@@ -528,7 +533,7 @@ public:
   }
 };
 
-class PassAST : public StyioNode<PassAST>
+class PassAST : public StyioASTTraits<PassAST>
 {
 public:
   PassAST() {}
@@ -542,7 +547,7 @@ public:
   }
 };
 
-class ReturnAST : public StyioNode<ReturnAST>
+class ReturnAST : public StyioASTTraits<ReturnAST>
 {
   StyioAST* Expr = nullptr;
 
@@ -580,7 +585,7 @@ public:
   |- Local Variable
   |- Temporary Variable
 */
-class VarAST : public StyioNode<VarAST>
+class VarAST : public StyioASTTraits<VarAST>
 {
 private:
   NameAST* var_name_ = NameAST::Create();   /* Variable Name */
@@ -765,7 +770,7 @@ public:
   }
 };
 
-class VarTupleAST : public StyioNode<VarTupleAST>
+class VarTupleAST : public StyioASTTraits<VarTupleAST>
 {
 private:
   vector<VarAST*> Vars;
@@ -795,7 +800,7 @@ public:
 /*
   FmtStrAST: String
 */
-class FmtStrAST : public StyioNode<FmtStrAST>
+class FmtStrAST : public StyioASTTraits<FmtStrAST>
 {
   vector<string> Fragments;
   vector<StyioAST*> Exprs;
@@ -826,7 +831,7 @@ public:
   }
 };
 
-class TypeConvertAST : public StyioNode<TypeConvertAST>
+class TypeConvertAST : public StyioASTTraits<TypeConvertAST>
 {
   StyioAST* Value = nullptr;
   NumPromoTy PromoType;
@@ -872,7 +877,7 @@ public:
 /*
   Local [ File | Directory ] Path
 */
-class LocalPathAST : public StyioNode<LocalPathAST>
+class LocalPathAST : public StyioASTTraits<LocalPathAST>
 {
   string Path;
   StyioPathType Type;
@@ -909,7 +914,7 @@ public:
 /*
   ipv4 / ipv6 / example.com
 */
-class RemotePathAST : public StyioNode<RemotePathAST>
+class RemotePathAST : public StyioASTTraits<RemotePathAST>
 {
   string Path;
   StyioPathType Type;
@@ -949,7 +954,7 @@ public:
   - HTTPS
   - FTP
 */
-class WebUrlAST : public StyioNode<WebUrlAST>
+class WebUrlAST : public StyioASTTraits<WebUrlAST>
 {
   string Path;
   StyioPathType Type;
@@ -977,7 +982,7 @@ public:
 };
 
 /* Database Access URL */
-class DBUrlAST : public StyioNode<DBUrlAST>
+class DBUrlAST : public StyioASTTraits<DBUrlAST>
 {
   string Path;
   StyioPathType Type;
@@ -1014,7 +1019,7 @@ public:
 */
 
 /* Tuple */
-class TupleAST : public StyioNode<TupleAST>
+class TupleAST : public StyioASTTraits<TupleAST>
 {
   vector<StyioAST*> elements;
   bool consistency = false;
@@ -1061,7 +1066,7 @@ public:
 /*
   ListAST: List (Extendable)
 */
-class ListAST : public StyioNode<ListAST>
+class ListAST : public StyioASTTraits<ListAST>
 {
   vector<StyioAST*> elements_;
   bool consistency = false;
@@ -1112,7 +1117,7 @@ public:
   }
 };
 
-class SetAST : public StyioNode<SetAST>
+class SetAST : public StyioASTTraits<SetAST>
 {
   vector<StyioAST*> elements_;
 
@@ -1141,7 +1146,7 @@ public:
 /*
   RangeAST: Loop
 */
-class RangeAST : public StyioNode<RangeAST>
+class RangeAST : public StyioASTTraits<RangeAST>
 {
   StyioAST* StartVal = nullptr;
   StyioAST* EndVal = nullptr;
@@ -1182,7 +1187,7 @@ public:
 /*
   SizeOfAST: Get Size(Length) Of A Collection
 */
-class SizeOfAST : public StyioNode<SizeOfAST>
+class SizeOfAST : public StyioASTTraits<SizeOfAST>
 {
   StyioAST* Value = nullptr;
 
@@ -1263,7 +1268,7 @@ public:
       }
   | Blcok (With Return Value)
 */
-class BinOpAST : public StyioNode<BinOpAST>
+class BinOpAST : public StyioASTTraits<BinOpAST>
 {
   DTypeAST* data_type = DTypeAST::Create();
 
@@ -1309,7 +1314,7 @@ public:
   }
 };
 
-class BinCompAST : public StyioNode<BinCompAST>
+class BinCompAST : public StyioASTTraits<BinCompAST>
 {
   CompType CompSign;
   StyioAST* LhsExpr = nullptr;
@@ -1341,7 +1346,7 @@ public:
   }
 };
 
-class CondAST : public StyioNode<CondAST>
+class CondAST : public StyioASTTraits<CondAST>
 {
   LogicType LogicOp;
 
@@ -1392,7 +1397,7 @@ public:
   }
 };
 
-class CallAST : public StyioNode<CallAST>
+class CallAST : public StyioASTTraits<CallAST>
 {
 private:
   NameAST* func_name = nullptr;
@@ -1428,7 +1433,7 @@ public:
   }
 };
 
-class ListOpAST : public StyioNode<ListOpAST>
+class ListOpAST : public StyioASTTraits<ListOpAST>
 {
   StyioNodeHint OpType;
   StyioAST* TheList = nullptr;
@@ -1533,7 +1538,7 @@ public:
     + | Assignment (Optional)
       | Import (Optional)
 */
-class ResourceAST : public StyioNode<ResourceAST>
+class ResourceAST : public StyioASTTraits<ResourceAST>
 {
   vector<StyioAST*> Resources;
 
@@ -1564,7 +1569,7 @@ public:
 /*
   FlexBindAST: Mutable Assignment (Flexible Binding)
 */
-class FlexBindAST : public StyioNode<FlexBindAST>
+class FlexBindAST : public StyioASTTraits<FlexBindAST>
 {
   VarAST* variable = nullptr;
   StyioAST* value = nullptr;
@@ -1602,7 +1607,7 @@ public:
 /*
   FinalBindAST: Immutable Assignment (Final Binding)
 */
-class FinalBindAST : public StyioNode<FinalBindAST>
+class FinalBindAST : public StyioASTTraits<FinalBindAST>
 {
   NameAST* varName = nullptr;
   StyioAST* valExpr = nullptr;
@@ -1645,7 +1650,7 @@ public:
 /*
   StructAST: Structure
 */
-class StructAST : public StyioNode<StructAST>
+class StructAST : public StyioASTTraits<StructAST>
 {
   NameAST* FName = nullptr;
   VarTupleAST* FVars = nullptr;
@@ -1674,7 +1679,7 @@ public:
 /*
   ReadFileAST: Read (File)
 */
-class ReadFileAST : public StyioNode<ReadFileAST>
+class ReadFileAST : public StyioASTTraits<ReadFileAST>
 {
   NameAST* varId = nullptr;
   StyioAST* valExpr = nullptr;
@@ -1704,7 +1709,7 @@ public:
 /*
   PrintAST: Write to Standard Output (Print)
 */
-class PrintAST : public StyioNode<PrintAST>
+class PrintAST : public StyioASTTraits<PrintAST>
 {
   vector<StyioAST*> Exprs;
 
@@ -1735,7 +1740,7 @@ public:
 /*
   ExtPackAST: External Packages
 */
-class ExtPackAST : public StyioNode<ExtPackAST>
+class ExtPackAST : public StyioASTTraits<ExtPackAST>
 {
   vector<string> PackPaths;
 
@@ -1763,7 +1768,7 @@ public:
   =================
 */
 
-class CondFlowAST : public StyioNode<CondFlowAST>
+class CondFlowAST : public StyioASTTraits<CondFlowAST>
 {
   CondAST* CondExpr = nullptr;
   StyioAST* ThenBlock = nullptr;
@@ -1924,7 +1929,7 @@ public:
       you should throw an exception for this.
 */
 
-class CheckEqAST : public StyioNode<CheckEqAST>
+class CheckEqAST : public StyioASTTraits<CheckEqAST>
 {
   StyioAST* Value = nullptr;
 
@@ -1946,7 +1951,7 @@ public:
   }
 };
 
-class CheckIsinAST : public StyioNode<CheckIsinAST>
+class CheckIsinAST : public StyioASTTraits<CheckIsinAST>
 {
   StyioAST* Iterable = nullptr;
 
@@ -1973,7 +1978,7 @@ public:
 /*
   FromToAST
 */
-class FromToAST : public StyioNode<FromToAST>
+class FromToAST : public StyioASTTraits<FromToAST>
 {
   StyioAST* FromWhat = nullptr;
   StyioAST* ToWhat = nullptr;
@@ -2014,7 +2019,7 @@ public:
     ?(Expr) \t\ Block \f\ Block
 */
 
-class ForwardAST : public StyioNode<ForwardAST>
+class ForwardAST : public StyioASTTraits<ForwardAST>
 {
   VarTupleAST* Params = nullptr;
 
@@ -2172,7 +2177,7 @@ public:
 InfLoop: Infinite Loop
   incEl Increment Element
 */
-class InfiniteAST : public StyioNode<InfiniteAST>
+class InfiniteAST : public StyioASTTraits<InfiniteAST>
 {
   InfiniteType WhatType;
   StyioAST* Start = nullptr;
@@ -2212,7 +2217,7 @@ public:
 /*
   MatchCases
 */
-class MatchCasesAST : public StyioNode<MatchCasesAST>
+class MatchCasesAST : public StyioASTTraits<MatchCasesAST>
 {
   StyioAST* Value = nullptr;
   CasesAST* Cases = nullptr;
@@ -2242,7 +2247,7 @@ public:
     [?] ExtratypeInfer
     [+] ThenExpr
 */
-class AnonyFuncAST : public StyioNode<AnonyFuncAST>
+class AnonyFuncAST : public StyioASTTraits<AnonyFuncAST>
 {
 private:
   VarTupleAST* Args = nullptr;
@@ -2274,7 +2279,7 @@ public:
 /*
   FuncAST: Function
 */
-class FuncAST : public StyioNode<FuncAST>
+class FuncAST : public StyioASTTraits<FuncAST>
 {
 private:
   NameAST* Name = nullptr;
@@ -2413,7 +2418,7 @@ public:
 /*
   IterInfinite: [...] >> {}
 */
-class LoopAST : public StyioNode<LoopAST>
+class LoopAST : public StyioASTTraits<LoopAST>
 {
 private:
   ForwardAST* Forward = nullptr;
@@ -2439,7 +2444,7 @@ public:
 /*
   IterBounded: <List/Range> >> {}
 */
-class IterAST : public StyioNode<IterAST>
+class IterAST : public StyioASTTraits<IterAST>
 {
   StyioAST* Collection = nullptr;
   ForwardAST* Forward = nullptr;

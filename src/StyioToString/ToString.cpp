@@ -814,6 +814,11 @@ StyioRepr::toString(SGCond* node, int indent) {
 }
 
 std::string
+StyioRepr::toString(SGVar* node, int indent) {
+  return std::string("styio.ir.var { ") + " }";
+}
+
+std::string
 StyioRepr::toString(SGFlexBind* node, int indent) {
   return std::string("styio.ir.flex_bind { ") + " }";
 }
@@ -843,20 +848,20 @@ StyioRepr::toString(SGReturn* node, int indent) {
   return std::string("styio.ir.return { ") + " }";
 }
 
-std::string
-StyioRepr::toString(SGIfElse* node, int indent) {
-  return std::string("styio.ir.if_else { ") + " }";
-}
+// std::string
+// StyioRepr::toString(SGIfElse* node, int indent) {
+//   return std::string("styio.ir.if_else { ") + " }";
+// }
 
-std::string
-StyioRepr::toString(SGForLoop* node, int indent) {
-  return std::string("styio.ir.for { ") + " }";
-}
+// std::string
+// StyioRepr::toString(SGForLoop* node, int indent) {
+//   return std::string("styio.ir.for { ") + " }";
+// }
 
-std::string
-StyioRepr::toString(SGWhileLoop* node, int indent) {
-  return std::string("styio.ir.while { ") + " }";
-}
+// std::string
+// StyioRepr::toString(SGWhileLoop* node, int indent) {
+//   return std::string("styio.ir.while { ") + " }";
+// }
 
 std::string
 StyioRepr::toString(SGBlock* node, int indent) {
@@ -874,11 +879,16 @@ StyioRepr::toString(SGMainEntry* node, int indent) {
 }
 
 std::string
+StyioRepr::toString(SIOPath* node, int indent) {
+  return std::string("styio.ir.path { ") + " }";
+}
+
+std::string
 StyioRepr::toString(SIOPrint* node, int indent) {
   return std::string("styio.ir.print { ") + " }";
 }
 
 std::string
-StyioRepr::toString(SIOReadFile* node, int indent) {
+StyioRepr::toString(SIORead* node, int indent) {
   return std::string("styio.ir.read { ") + " }";
 }
