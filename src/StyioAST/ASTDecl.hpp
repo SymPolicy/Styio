@@ -94,6 +94,8 @@ class FuncAST;
 
 class CallAST;
 
+class AttrAST;
+
 /*
   Methods:
   - SizeOf
@@ -174,6 +176,7 @@ class InfiniteAST;
 class VarTupleAST;
 
 class ForwardAST;
+class CODPAST;
 class CheckEqAST;
 class CheckIsinAST;
 class FromToAST;

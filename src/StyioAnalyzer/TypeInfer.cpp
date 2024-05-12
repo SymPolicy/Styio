@@ -435,11 +435,19 @@ StyioAnalyzer::typeInfer(CallAST* ast) {
 }
 
 void
+StyioAnalyzer::typeInfer(AttrAST* ast) {
+}
+
+void
 StyioAnalyzer::typeInfer(PrintAST* ast) {
 }
 
 void
 StyioAnalyzer::typeInfer(ForwardAST* ast) {
+}
+
+void
+StyioAnalyzer::typeInfer(CODPAST* ast) {
 }
 
 void

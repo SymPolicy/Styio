@@ -32,6 +32,17 @@ using std::vector;
   =================
 */
 
+std::string parse_name_as_str(StyioContext& context) {
+  string name = "";
+
+  while (context.check_isalnum_()) {
+    name += context.get_curr_char();
+    context.move(1);
+  }
+
+  return name;
+}
+
 NameAST*
 parse_id(StyioContext& context) {
   string name = "";
@@ -899,6 +910,19 @@ parse_tuple(StyioContext& context) {
 }
 
 StyioAST*
+parse_tuple_no_braces(StyioContext& context) {
+  vector<StyioAST*> exprs;
+
+  do {
+    context.drop_all_spaces_comments();
+
+    exprs.push_back(parse_expr(context));
+  } while (context.check_drop(','));
+
+  return TupleAST::Create(exprs);
+}
+
+StyioAST*
 parse_list(StyioContext& context) {
   vector<StyioAST*> exprs;
 
@@ -1139,6 +1163,33 @@ parse_call(
     (func_name),
     (exprs)
   );
+}
+
+AttrAST*
+parse_attr(
+  StyioContext& context
+) {
+  auto main_name = NameAST::Create(parse_name_as_str(context));
+  
+  StyioAST* attr_name;
+  if (context.find_drop('.')) {
+    attr_name = NameAST::Create(parse_name_as_str(context));
+  }
+  else if (context.find_drop('[')) {
+    /* Object["name"] */
+    if (context.check('"'))
+    {
+      attr_name = parse_string(context);
+    }
+    /* 
+      Object[any_expr]
+    */
+    else {
+      attr_name = parse_expr(context);
+    }
+  }
+
+  return AttrAST::Create(main_name, attr_name);
 }
 
 /*
@@ -2204,8 +2255,10 @@ parse_forward(StyioContext& context, bool is_func) {
           output = new ForwardAST(parse_block(context));
         }
       }
+      else if (context.check_codp()) {
+        throw StyioNotImplemented("Chain of Data Processing");
+      }
       else {
-        vector<StyioAST*> tmp_stmts;
         StyioAST* expr = parse_expr(context);
 
         if (has_args) {
@@ -2239,6 +2292,52 @@ parse_forward(StyioContext& context, bool is_func) {
   }
 
   return output;
+}
+
+/*
+  parse_codp takes the name of operation as a start, 
+  but not a `=>` symbol.
+*/
+CODPAST* parse_codp(StyioContext& context, CODPAST* prev_op = nullptr) {
+  CODPAST* curr_op;
+
+  string name = parse_name_as_str(context);
+
+  context.find_drop_panic('{');
+
+  vector<StyioAST*> op_args;
+
+  if (name == "filter") {
+    context.drop_all_spaces_comments();
+    op_args.push_back(parse_cond(context));
+  }
+  else if (name == "sort" or name == "map") {
+    do {
+      context.drop_all_spaces_comments();
+      op_args.push_back(parse_attr(context));
+    } while (context.find_drop(','));
+  }
+  else if (name == "slice") {
+    do {
+      context.drop_all_spaces_comments();
+      op_args.push_back(parse_int(context));
+    } while (context.find_drop(','));
+  }
+
+  context.find_drop_panic('}');
+
+  curr_op = CODPAST::Create(name, op_args, prev_op);
+  
+  if (prev_op != nullptr) {
+    prev_op->NextOp = curr_op;
+  }
+
+  if (context.find_drop("=>")) {
+    context.drop_all_spaces_comments();
+    parse_codp(context, curr_op);
+  }
+  
+  return curr_op;
 }
 
 StyioAST*
@@ -2537,6 +2636,13 @@ parse_stmt(
 
         return new FromToAST((resources), parse_block(context));
       }
+      else if (context.check_drop(">>")) {
+        context.drop_all_spaces_comments();
+
+        auto forward = parse_forward(context, false);
+
+        return IterAST::Create(resources, forward);
+      }
       else {
         return resources;
       }
@@ -2566,19 +2672,23 @@ parse_stmt(
     case '=': {
       context.move(1);
 
-      if (context.check_drop('>')) {
-        context.drop_white_spaces();
-        return new ReturnAST(parse_expr(context));
+      context.check_drop_panic('>');
+
+      context.drop_all_spaces_comments();
+
+      if (context.check_codp()) {
+        throw StyioNotImplemented("Chain of Data Processing");
       }
       else {
-        string errmsg = string("parse_stmt() // =") + context.get_curr_char();
-        throw StyioSyntaxError(errmsg);
+        return new ReturnAST(parse_expr(context));
       }
-    } break; // You should NOT reach this line!
+    } break;  // You should NOT reach this line!
 
     default:
       break;
   }
+
+  std::cout << "current position: " << context.get_curr_pos() << std::endl;
 
   string errmsg = string("Unrecognized statement, starting with `") + char(context.get_curr_char()) + "`";
   throw StyioSyntaxError(errmsg);

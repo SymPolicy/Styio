@@ -237,12 +237,22 @@ StyioAnalyzer::toStyioIR(CallAST* ast) {
 }
 
 StyioIR*
+StyioAnalyzer::toStyioIR(AttrAST* ast) {
+  return SGConstInt::Create(0);
+}
+
+StyioIR*
 StyioAnalyzer::toStyioIR(PrintAST* ast) {
   return SGConstInt::Create(0);
 }
 
 StyioIR*
 StyioAnalyzer::toStyioIR(ForwardAST* ast) {
+  return SGConstInt::Create(0);
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(CODPAST* ast) {
   return SGConstInt::Create(0);
 }
 

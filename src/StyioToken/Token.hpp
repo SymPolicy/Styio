@@ -308,6 +308,9 @@ enum class StyioNodeHint
   // Call
   Call,
 
+  // Attribute
+  Attribute,
+
   // Conditionals
   CondFlow_True,
   CondFlow_False,
@@ -432,6 +435,14 @@ enum class StyioNodeHint
   Fill_If_True_Forward,
   Fill_If_False_Forward,
   Fill_If_Both_Forward,
+  // -----------------
+
+  /* -----------------
+   * Chain of Data Processing
+   */
+
+  Chain_Of_Data_Processing,
+  
   // -----------------
 
   /* -----------------

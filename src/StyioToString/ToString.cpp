@@ -481,6 +481,14 @@ StyioRepr::toString(CallAST* ast, int indent) {
 }
 
 std::string
+StyioRepr::toString(AttrAST* ast, int indent) {
+  return reprNodeType(ast->getNodeType(), " ") + "{\n"
+         + make_padding(indent) + ast->main_name->toString(this, indent + 1)
+         + make_padding(indent) + ast->attr_name->toString(this, indent + 1)
+         + "}";
+}
+
+std::string
 StyioRepr::toString(PrintAST* ast, int indent) {
   string outstr;
 
@@ -620,6 +628,11 @@ StyioRepr::toString(FromToAST* ast, int indent) {
   return reprNodeType(ast->getNodeType(), " ") + string("{") + "\n"
          + make_padding(indent) + "From: " + ast->getFromExpr()->toString(this, indent + 1) + "\n"
          + make_padding(indent) + "To: " + ast->getToExpr()->toString(this, indent + 1) + "}";
+}
+
+std::string
+StyioRepr::toString(CODPAST* ast, int indent) {
+  return reprNodeType(ast->getNodeType(), " ") + string("{ ") + " }";
 }
 
 std::string

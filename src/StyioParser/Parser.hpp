@@ -96,30 +96,34 @@ public:
     if (p < 0)
       p = curr_pos;
 
-    // cout << "find_line_index(), at pos: " << p << "\ninitial: line [" << line_index << "]" << endl;
+    cout << "find_line_index(), at pos: " << p << "\ninitial: line [" << line_index << "]" << endl;
 
-    while (
-      p < line_seps[line_index].first
-      || p > (line_seps[line_index].first + line_seps[line_index].second)
-    ) {
-      // cout << "[" << line_index << "] is ";
+    // while (
+    //   p < line_seps[line_index].first
+    //   || p > (line_seps[line_index].first + line_seps[line_index].second)
+    // ) {
+    for (size_t i = 0; i < total_lines; i++) {
+      cout << "[" << line_index << "] is ";
       if (p < line_seps[line_index].first) {
         line_index = line_index / 2;
-        // cout << "too large, go to: [" << line_index << "]" << endl;
+        cout << "too large, go to: [" << line_index << "]" << endl;
+      }
+      else if (p > (line_seps[line_index].first + line_seps[line_index].second)) {
+        line_index = (line_index + total_lines) / 2;
+        cout << "too small, go to: [" << line_index << "]" << endl;
       }
       else {
-        line_index = (line_index + total_lines) / 2;
-        // cout << "too small, go to: [" << line_index << "]" << endl;
+        cout << "result: [" << line_index << "]" << endl;
+        break;
       }
     }
-
-    // cout << "result: [" << line_index << "]" << endl;
 
     return line_index;
   }
 
   string label_cur_line(
-    int start = -1
+    int start = -1,
+    std::string endswith = ""
   ) {
     string output("\n");
 
@@ -131,10 +135,14 @@ public:
 
     output += "File \"" + file_name + "\", Line " + std::to_string(lindex) + ":\n\n";
     output += code.substr(line_seps[lindex].first, line_seps[lindex].second) + "\n";
-    output += std::string(offset, ' ')
-              + std::string("^")
-              + std::string(line_seps[lindex].second - offset - 1, '-')
-              + "\n";
+    output += std::string(offset, ' ') + std::string("^");
+
+    if (endswith.empty()) {
+      output += std::string(line_seps[lindex].second - offset - 1, '-') + "\n";
+    }
+    else {
+      output += " " + endswith + "\n";
+    }
 
     return output;
   }
@@ -386,7 +394,7 @@ public:
       return true;
     }
 
-    string errmsg = string("Expecting: ") + value + "\n" + "But Got: " + char(get_curr_char()) + "\n";
+    string errmsg = string("check_drop_panic(char)") + label_cur_line(curr_pos, std::string("which is expected to be ") + std::string(1, char(value)));
     throw StyioSyntaxError(errmsg);
   }
 
@@ -409,7 +417,7 @@ public:
           return true;
         }
         else {
-          string errmsg = string("Expecting: ") + char(value) + "\n" + "But Got: " + get_curr_char();
+          string errmsg = string("find_drop_panic(char)") + label_cur_line(curr_pos, std::string("which is expected to be ") + std::string(1, char(value)));
           throw StyioSyntaxError(errmsg);
         }
       }
@@ -432,7 +440,7 @@ public:
           return true;
         }
         else {
-          string errmsg = string("Expecting: ") + value + "\n" + "But Got: " + code.substr(curr_pos, value.size());
+          string errmsg = string("find_drop_panic(string)") + label_cur_line(curr_pos, std::string("which is expected to be ") + value);
           throw StyioSyntaxError(errmsg);
         }
       }
@@ -458,7 +466,7 @@ public:
           return true;
         }
         else {
-          string errmsg = string("Expecting: ") + value + "\n" + "But Got: " + get_curr_char();
+          string errmsg = string("find_panic(string)") + label_cur_line(curr_pos, std::string("which is expected to be ") + value);
           throw StyioSyntaxError(errmsg);
         }
       }
@@ -478,6 +486,14 @@ public:
   /* Check isdigit */
   bool check_isdigit() {
     return isdigit(code.at(curr_pos));
+  }
+
+  /* Check Chain of Data Processing */
+  bool check_codp() {
+    return check("filter")
+           or check("sort")
+           or check("map")
+           or check("slice");
   }
 
   /* Check Binary Operator */
@@ -543,6 +559,20 @@ public:
     }
 
     return {false, TokenKind::Undefined};
+  }
+
+  void
+  show_code_with_linenum() {
+    for (size_t i = 0; i < line_seps.size(); i++) {
+      std::string line = code.substr(line_seps.at(i).first, line_seps.at(i).second);
+
+      std::regex newline_regex("\n");
+      std::string replaced_text = std::regex_replace(line, newline_regex, "[NEWLINE]");
+
+      std::cout
+        << "|" << i << "|-[" << line_seps.at(i).first << ":" << (line_seps.at(i).first + line_seps.at(i).second) << "] "
+        << line << std::endl;
+    }
   }
 };
 
@@ -635,6 +665,11 @@ CallAST*
 parse_call(
   StyioContext& context,
   NameAST* func_name
+);
+
+AttrAST*
+parse_attr(
+  StyioContext& context
 );
 
 /*
@@ -816,6 +851,9 @@ parse_block(StyioContext& context);
 
 ForwardAST*
 parse_forward(StyioContext& context, bool is_func = false);
+
+CODPAST* 
+parse_codp(StyioContext& context, CODPAST* prev_op = nullptr);
 
 MainBlockAST*
 parse_main_block(StyioContext& context);

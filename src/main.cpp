@@ -183,7 +183,7 @@ main(
     // std::cout << fpath << std::endl;
 
     auto styio_code = read_styio_file(fpath);
-    // show_code_with_linenum(styio_code);
+    show_code_with_linenum(styio_code);
     auto styio_context = StyioContext::Create(fpath, styio_code.code_text, styio_code.line_seps);
 
     StyioRepr styio_repr = StyioRepr();
@@ -211,6 +211,7 @@ main(
         << std::endl;
     }
 
+    /* Generate Styio IR */
     StyioIR* styio_ir = analyzer.toStyioIR(styio_ast);
 
     std::cout
@@ -227,6 +228,7 @@ main(
     llvm::ExitOnError exit_on_error;
     std::unique_ptr<StyioJIT_ORC> styio_orc_jit = exit_on_error(StyioJIT_ORC::Create());
 
+    /* CodeGen Initialization */
     StyioToLLVM generator = StyioToLLVM(std::move(styio_orc_jit));
 
     /* CodeGen (LLVM IR) */
@@ -237,7 +239,6 @@ main(
     }
 
     /* JIT Execute */
-
     generator.execute();
   }
 

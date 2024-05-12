@@ -8,13 +8,39 @@
 
 void
 StyioToLLVM::print_llvm_ir() {
-  std::cout << "\n"
-            << "\033[1;32mLLVM IR\033[0m"
-            << "\n"
-            << std::endl;
+  std::cout << "\033[1;32mLLVM IR\033[0m" << std::endl;
 
   /* llvm ir -> stdout */
   theModule->print(llvm::outs(), nullptr);
   /* llvm ir -> stderr */
   // llvm_module -> print(llvm::errs(), nullptr);
+
+  std::cout << std::endl;
+}
+
+void
+StyioToLLVM::execute() {
+  std::cout << "\033[1;32mJIT\033[0m" << std::endl;
+
+  auto RT = theORCJIT->getMainJITDylib().createResourceTracker();
+  auto TSM = llvm::orc::ThreadSafeModule(std::move(theModule), std::move(theContext));
+  llvm::ExitOnError exit_on_error;
+  exit_on_error(theORCJIT->addModule(std::move(TSM), RT));
+
+  // Look up the JIT'd code entry point.
+  auto ExprSymbol = theORCJIT->lookup("main");
+  if (!ExprSymbol) {
+    std::cout << "not found" << std::endl;
+    return;
+  }
+
+  std::cout << "after look up" << std::endl;
+
+  // Cast the entry point address to a function pointer.
+  int (*FP)() = ExprSymbol->getAddress().toPtr<int (*)()>();
+
+  // Call into JIT'd code.
+  std::cout << "result: " << FP() << std::endl;
+
+  std::cout << "after run jit'd code" << std::endl;
 }

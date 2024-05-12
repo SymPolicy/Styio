@@ -70,6 +70,7 @@ using StyioToStringVisitor = ToStringVisitor<
   class FuncAST,
 
   class CallAST,
+  class AttrAST,
 
   class SizeOfAST,
   class TypeConvertAST,
@@ -102,6 +103,8 @@ using StyioToStringVisitor = ToStringVisitor<
   class CheckEqAST,
   class CheckIsinAST,
   class FromToAST,
+
+  class CODPAST,
 
   class FmtStrAST,
 
@@ -192,6 +195,8 @@ public:
 
   std::string toString(CallAST* ast, int indent = 0);
 
+  std::string toString(AttrAST* ast, int indent = 0);
+
   std::string toString(ListOpAST* ast, int indent = 0);
 
   std::string toString(ResourceAST* ast, int indent = 0);
@@ -221,6 +226,8 @@ public:
   std::string toString(FromToAST* ast, int indent = 0);
 
   std::string toString(ForwardAST* ast, int indent = 0);
+
+  std::string toString(CODPAST* ast, int indent = 0);
 
   std::string toString(InfiniteAST* ast, int indent = 0);
 

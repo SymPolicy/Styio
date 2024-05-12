@@ -1524,6 +1524,33 @@ public:
   }
 };
 
+class AttrAST : public StyioASTTraits<AttrAST>
+{
+public:
+  NameAST* main_name = nullptr;
+  StyioAST* attr_name = nullptr;
+
+  AttrAST(
+    NameAST* main_name,
+    StyioAST* attr_name
+  ) :
+      main_name(main_name),
+      attr_name(attr_name) {
+  }
+
+  static AttrAST* Create(NameAST* main_name, StyioAST* attr_name) {
+    return new AttrAST(main_name, attr_name);
+  }
+
+  const StyioNodeHint getNodeType() const {
+    return StyioNodeHint::Attribute;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
+  }
+};
+
 /*
   =================
     Statement: Resources
@@ -2167,6 +2194,48 @@ public:
   }
 };
 
+/* Chain of Data Processing */
+class CODPAST : public StyioASTTraits<CODPAST>
+{
+public:
+  std::string OpName = "";
+  vector<StyioAST*> OpArgs;
+  CODPAST* PrevOp = nullptr;
+  CODPAST* NextOp = nullptr;
+
+  CODPAST(std::string op_name, vector<StyioAST*> op_body) :
+      OpName(op_name), OpArgs(op_body) {
+  }
+
+  CODPAST(std::string op_name, vector<StyioAST*> op_body, CODPAST* prev_op) :
+      OpName(op_name), OpArgs(op_body), PrevOp(prev_op) {
+  }
+
+  CODPAST(std::string op_name, vector<StyioAST*> op_body, CODPAST* prev_op, CODPAST* next_op) :
+      OpName(op_name), OpArgs(op_body), PrevOp(prev_op), NextOp(next_op) {
+  }
+
+  static CODPAST* Create(std::string op_name, vector<StyioAST*> op_body) {
+    return new CODPAST(op_name, op_body);
+  }
+
+  static CODPAST* Create(std::string op_name, vector<StyioAST*> op_body, CODPAST* prev_op) {
+    return new CODPAST(op_name, op_body, prev_op);
+  }
+
+  static CODPAST* Create(std::string op_name, vector<StyioAST*> op_body, CODPAST* prev_op, StyioAST* next_op) {
+    return new CODPAST(op_name, op_body, prev_op, next_op);
+  }
+
+  const StyioNodeHint getNodeType() const {
+    return StyioNodeHint::Chain_Of_Data_Processing;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType::undefined;
+  }
+};
+
 /*
   =================
     Infinite loop
@@ -2452,6 +2521,10 @@ class IterAST : public StyioASTTraits<IterAST>
 public:
   IterAST(StyioAST* collection, ForwardAST* forward) :
       Collection(collection), Forward(forward) {
+  }
+
+  static IterAST* Create(StyioAST* collection, ForwardAST* forward) {
+    return new IterAST(collection, forward);
   }
 
   StyioAST* getIterable() {

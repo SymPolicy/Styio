@@ -211,6 +211,12 @@ reprNodeType(StyioNodeHint type, std::string extra) {
       output = std::string(name);
     } break;
 
+    case StyioNodeHint::Attribute: {
+      auto name = std::string("Attr.");
+
+      output = std::string(name);
+    } break;
+
     case StyioNodeHint::Access: {
       auto name = std::string("Access");
 
@@ -529,17 +535,19 @@ reprNodeType(StyioNodeHint type, std::string extra) {
       auto name = std::string("Forward (Fill -> If False -> Run)");
 
       output = std::string(name);
-    }
+    } break;
 
-    break;
+    case StyioNodeHint::Chain_Of_Data_Processing: {
+      auto name = std::string("CODP");
+
+      output = std::string(name);
+    } break;
 
     case StyioNodeHint::DType: {
       auto name = std::string("type");
 
       output = std::string(name);
-    }
-
-    break;
+    } break;
 
     case StyioNodeHint::TypedVar: {
       auto name = std::string("Var");
@@ -928,22 +936,16 @@ getMaxType(StyioDataType T1, StyioDataType T2) {
       return T1;
     }
   }
-  else if ((T1 == StyioDataType::i32 && T2 == StyioDataType::f64)
-    || (T1 == StyioDataType::f64 && T2 == StyioDataType::i32)) {
-    return StyioDataType::f64;
-  } 
-  else if ((T1 == StyioDataType::i1 && T2 == StyioDataType::f64)
-    || (T1 == StyioDataType::i8 && T2 == StyioDataType::f64)
-    || (T1 == StyioDataType::i16 && T2 == StyioDataType::f64)) {
+  else if ((T1 == StyioDataType::i32 && T2 == StyioDataType::f64) || (T1 == StyioDataType::f64 && T2 == StyioDataType::i32)) {
     return StyioDataType::f64;
   }
-  else if ((T1 == StyioDataType::f64 && T2 == StyioDataType::i1)
-    || (T1 == StyioDataType::f64 && T2 == StyioDataType::i8)
-    || (T1 == StyioDataType::f64 && T2 == StyioDataType::i16)) {
+  else if ((T1 == StyioDataType::i1 && T2 == StyioDataType::f64) || (T1 == StyioDataType::i8 && T2 == StyioDataType::f64) || (T1 == StyioDataType::i16 && T2 == StyioDataType::f64)) {
     return StyioDataType::f64;
   }
-  else if ((T1 == StyioDataType::i64 && T2 == StyioDataType::f32)
-    || (T1 == StyioDataType::f32 && T2 == StyioDataType::i64)) {
+  else if ((T1 == StyioDataType::f64 && T2 == StyioDataType::i1) || (T1 == StyioDataType::f64 && T2 == StyioDataType::i8) || (T1 == StyioDataType::f64 && T2 == StyioDataType::i16)) {
+    return StyioDataType::f64;
+  }
+  else if ((T1 == StyioDataType::i64 && T2 == StyioDataType::f32) || (T1 == StyioDataType::f32 && T2 == StyioDataType::i64)) {
     return StyioDataType::f64;
   }
   else if (T1 == StyioDataType::undefined || T2 == StyioDataType::undefined) {
