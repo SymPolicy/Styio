@@ -481,7 +481,7 @@ StyioRepr::toString(CallAST* ast, int indent) {
          + make_padding(indent) + ast->func_callee->toString(this, indent + 1) + "\n"
          + make_padding(indent) + ast->getFuncName()->toString(this, indent + 1) + " {\n"
          + args_str
-         + "}";
+         + "}}";
 }
 
 std::string
