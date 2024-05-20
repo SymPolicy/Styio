@@ -467,17 +467,21 @@ StyioRepr::toString(ReturnAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(CallAST* ast, int indent) {
-  string outstr;
+  string args_str;
 
   auto call_args = ast->getArgList();
   for (int i = 0; i < call_args.size(); i++) {
-    outstr += make_padding(indent) + call_args[i]->toString(this, indent + 1);
+    args_str += make_padding(indent + 1) + call_args[i]->toString(this, indent + 2);
     if (i < (call_args.size() - 1)) {
-      outstr += "\n";
+      args_str += "\n";
     }
   }
 
-  return reprNodeType(ast->getNodeType(), " ") + ast->getFuncName()->toString(this) + " [\n" + outstr + "]";
+  return reprNodeType(ast->getNodeType(), " {\n")
+         + make_padding(indent) + ast->func_callee->toString(this, indent + 1) + "\n"
+         + make_padding(indent) + ast->getFuncName()->toString(this, indent + 1) + " {\n"
+         + args_str
+         + "}";
 }
 
 std::string

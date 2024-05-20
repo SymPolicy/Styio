@@ -1399,15 +1399,25 @@ public:
 
 class CallAST : public StyioASTTraits<CallAST>
 {
-private:
+public:
+  StyioAST* func_callee = nullptr;
   NameAST* func_name = nullptr;
   vector<StyioAST*> func_args;
 
-public:
   CallAST(
     NameAST* func_name,
     vector<StyioAST*> arguments
   ) :
+      func_name(func_name),
+      func_args(arguments) {
+  }
+
+  CallAST(
+    StyioAST* func_callee,
+    NameAST* func_name,
+    vector<StyioAST*> arguments
+  ) :
+      func_callee(func_callee),
       func_name(func_name),
       func_args(arguments) {
   }

@@ -1208,34 +1208,28 @@ parse_chain_of_call(
   StyioContext& context,
   StyioAST* callee
 ) {
-  StyioAST* output;
-
   while (true) {
     std::string curr_token = parse_token_as_str(context);
     context.drop_all_spaces_comments();
 
     if (context.check_drop('.')) {
-      output = parse_chain_of_call(
-        context,
-        AttrAST::Create(callee, NameAST::Create(curr_token))
-      );
+      AttrAST* temp = AttrAST::Create(callee, NameAST::Create(curr_token));
+      return parse_chain_of_call(context, temp);
     }
     else if (context.check('(')) {
       CallAST* temp = parse_call(context, NameAST::Create(curr_token));
+
       if (context.check_drop('.')) {
-        output = parse_chain_of_call(context, temp);
+        return parse_chain_of_call(context, temp);
       }
       else {
-        return output;
+        temp->func_callee = callee;
+        return temp;
       }
     }
-    else {
-      output = AttrAST::Create(callee, NameAST::Create(curr_token));
-      return output;
-    }
-  }
 
-  return output;
+    return AttrAST::Create(callee, NameAST::Create(curr_token));
+  }
 }
 
 /*

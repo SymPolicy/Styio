@@ -206,7 +206,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
     } break;
 
     case StyioNodeHint::Call: {
-      auto name = std::string("Call");
+      auto name = std::string("styio.ast.call");
 
       output = std::string(name);
     } break;
