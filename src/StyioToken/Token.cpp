@@ -86,7 +86,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
     break;
 
     case StyioNodeHint::Int: {
-      auto name = std::string("int");
+      auto name = std::string("styio.ast.int");
 
       output = std::string(name);
     }
@@ -134,7 +134,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
     break;
 
     case StyioNodeHint::LocalPath: {
-      auto name = std::string("Path");
+      auto name = std::string("styio.ast.path");
 
       output = std::string(name);
     } break;
@@ -174,7 +174,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
     break;
 
     case StyioNodeHint::Condition: {
-      auto name = std::string("Condition");
+      auto name = std::string("styio.ast.cond");
 
       output = std::string(name);
     }
@@ -212,7 +212,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
     } break;
 
     case StyioNodeHint::Attribute: {
-      auto name = std::string("Attr.");
+      auto name = std::string("styio.ast.attr");
 
       output = std::string(name);
     } break;
@@ -352,7 +352,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
     break;
 
     case StyioNodeHint::Resources: {
-      auto name = std::string("Resources");
+      auto name = std::string("styio.ast.resources");
 
       output = std::string(name);
     }
@@ -412,7 +412,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
     break;
 
     case StyioNodeHint::Iterator: {
-      auto name = std::string("Iterator");
+      auto name = std::string("styio.ast.iterator");
 
       output = std::string(name);
     }
@@ -444,7 +444,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
     break;
 
     case StyioNodeHint::Forward: {
-      auto name = std::string("Forward (Run)");
+      auto name = std::string("styio.ast.forward.run");
 
       output = std::string(name);
     }
@@ -538,7 +538,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
     } break;
 
     case StyioNodeHint::Chain_Of_Data_Processing: {
-      auto name = std::string("CODP");
+      auto name = std::string("styio.ast.chain_of_data_processing");
 
       output = std::string(name);
     } break;

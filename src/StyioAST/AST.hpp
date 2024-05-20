@@ -8,9 +8,9 @@
 using std::vector;
 
 // [Styio]
-#include "../StyioToken/Token.hpp"
-#include "../StyioToString/ToStringVisitor.hpp"
 #include "../StyioAnalyzer/ASTAnalyzer.hpp"
+#include "../StyioToString/ToStringVisitor.hpp"
+#include "../StyioToken/Token.hpp"
 #include "ASTDecl.hpp"
 
 // [LLVM]
@@ -48,8 +48,8 @@ template <class Derived>
 class StyioASTTraits : public StyioAST
 {
 public:
-  using StyioAST::getNodeType;
   using StyioAST::getDataType;
+  using StyioAST::getNodeType;
 
   std::string toString(StyioRepr* visitor, int indent = 0) override {
     return visitor->toString(static_cast<Derived*>(this), indent);
@@ -269,7 +269,7 @@ public:
 
   IntAST(string value, StyioDataType type) :
       value(value) {
-        data_type->setDType(type);
+    data_type->setDType(type);
   }
 
   static IntAST* Create(string value) {
@@ -640,7 +640,7 @@ public:
   DTypeAST* getDType() {
     return var_dtype;
   }
-  
+
   string getTypeAsStr() {
     return var_dtype->getTypeName();
   }
@@ -1527,19 +1527,19 @@ public:
 class AttrAST : public StyioASTTraits<AttrAST>
 {
 public:
-  NameAST* main_name = nullptr;
-  StyioAST* attr_name = nullptr;
+  StyioAST* body = nullptr;
+  StyioAST* attr = nullptr;
 
   AttrAST(
-    NameAST* main_name,
-    StyioAST* attr_name
+    StyioAST* body,
+    StyioAST* attr
   ) :
-      main_name(main_name),
-      attr_name(attr_name) {
+      body(body),
+      attr(attr) {
   }
 
-  static AttrAST* Create(NameAST* main_name, StyioAST* attr_name) {
-    return new AttrAST(main_name, attr_name);
+  static AttrAST* Create(StyioAST* body, StyioAST* attr) {
+    return new AttrAST(body, attr);
   }
 
   const StyioNodeHint getNodeType() const {
@@ -2070,9 +2070,17 @@ public:
     }
   }
 
+  static ForwardAST* Create(StyioAST* expr) {
+    return new ForwardAST(expr);
+  }
+
   ForwardAST(CheckEqAST* value, StyioAST* whatnext) :
       ExtraEq(value), ThenExpr(whatnext) {
     Type = StyioNodeHint::If_Equal_To_Forward;
+  }
+
+  static ForwardAST* Create(CheckEqAST* value, StyioAST* whatnext) {
+    return new ForwardAST(value, whatnext);
   }
 
   ForwardAST(CheckIsinAST* isin, StyioAST* whatnext) :
@@ -2080,9 +2088,17 @@ public:
     Type = StyioNodeHint::If_Is_In_Forward;
   }
 
+  static ForwardAST* Create(CheckIsinAST* isin, StyioAST* whatnext) {
+    return new ForwardAST(isin, whatnext);
+  }
+
   ForwardAST(CasesAST* cases) :
       ThenExpr(cases) {
     Type = StyioNodeHint::Cases_Forward;
+  }
+
+  static ForwardAST* Create(CasesAST* cases) {
+    return new ForwardAST(cases);
   }
 
   ForwardAST(CondFlowAST* condflow) :
@@ -2098,6 +2114,10 @@ public:
     }
   }
 
+  static ForwardAST* Create(CondFlowAST* condflow) {
+    return new ForwardAST(condflow);
+  }
+
   ForwardAST(
     VarTupleAST* vars,
     StyioAST* then_expr
@@ -2110,6 +2130,10 @@ public:
     }
   }
 
+  static ForwardAST* Create(VarTupleAST* vars, StyioAST* whatnext) {
+    return new ForwardAST(vars, whatnext);
+  }
+
   ForwardAST(
     VarTupleAST* vars,
     CheckEqAST* value,
@@ -2119,14 +2143,37 @@ public:
     Type = StyioNodeHint::Fill_If_Equal_To_Forward;
   }
 
+  static ForwardAST* Create(
+    VarTupleAST* vars,
+    CheckEqAST* value,
+    StyioAST* whatnext
+  ) {
+    return new ForwardAST(vars, value, whatnext);
+  }
+
   ForwardAST(VarTupleAST* vars, CheckIsinAST* isin, StyioAST* whatnext) :
       Params(vars), ExtraIsin(isin), ThenExpr(whatnext) {
     Type = StyioNodeHint::Fill_If_Is_in_Forward;
   }
 
+  static ForwardAST* Create(
+    VarTupleAST* vars,
+    CheckIsinAST* isin,
+    StyioAST* whatnext
+  ) {
+    return new ForwardAST(vars, isin, whatnext);
+  }
+
   ForwardAST(VarTupleAST* vars, CasesAST* cases) :
       Params(vars), ThenExpr(cases) {
     Type = StyioNodeHint::Fill_Cases_Forward;
+  }
+
+  static ForwardAST* Create(
+    VarTupleAST* vars,
+    CasesAST* cases
+  ) {
+    return new ForwardAST(vars, cases);
   }
 
   ForwardAST(VarTupleAST* vars, CondFlowAST* condflow) :
@@ -2147,6 +2194,13 @@ public:
       default:
         break;
     }
+  }
+
+  static ForwardAST* Create(
+    VarTupleAST* vars, 
+    CondFlowAST* condflow
+  ) {
+    return new ForwardAST(vars, condflow);
   }
 
   bool withParams() {
@@ -2223,7 +2277,7 @@ public:
     return new CODPAST(op_name, op_body, prev_op);
   }
 
-  static CODPAST* Create(std::string op_name, vector<StyioAST*> op_body, CODPAST* prev_op, StyioAST* next_op) {
+  static CODPAST* Create(std::string op_name, vector<StyioAST*> op_body, CODPAST* prev_op, CODPAST* next_op) {
     return new CODPAST(op_name, op_body, prev_op, next_op);
   }
 

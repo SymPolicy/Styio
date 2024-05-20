@@ -37,7 +37,7 @@ StyioRepr::toString(EmptyAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(NameAST* ast, int indent) {
-  return reprNodeType(ast->getNodeType()) + " { " + ast->getNameAsStr() + " }";
+  return ast->getNameAsStr();
 }
 
 std::string
@@ -347,7 +347,7 @@ StyioRepr::toString(CondAST* ast, int indent) {
            + "}";
   }
   else if (LogicOp == LogicType::RAW) {
-    return reprNodeType(ast->getNodeType(), " ") + "\n"
+    return reprNodeType(ast->getNodeType(), " {\n")
            + make_padding(indent) + ast->getValue()->toString(this, indent + 1) + "}";
   }
   else {
@@ -482,10 +482,10 @@ StyioRepr::toString(CallAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(AttrAST* ast, int indent) {
-  return reprNodeType(ast->getNodeType(), " ") + "{\n"
-         + make_padding(indent) + ast->main_name->toString(this, indent + 1)
-         + make_padding(indent) + ast->attr_name->toString(this, indent + 1)
-         + "}";
+  return reprNodeType(ast->getNodeType(), " { ")
+         + ast->body->toString(this) + "."
+         + ast->attr->toString(this)
+         + " }";
 }
 
 std::string
@@ -508,7 +508,7 @@ StyioRepr::toString(ForwardAST* ast, int indent) {
   switch (ast->getNodeType()) {
     case StyioNodeHint::Forward: {
       return reprNodeType(ast->getNodeType(), " ") + "{\n"
-             + make_padding(indent) + "Run: " + ast->getThen()->toString(this, indent + 1) + "}";
+             + make_padding(indent) + "Next: " + ast->getThen()->toString(this, indent + 1) + "}";
     }
     // You should NOT reach this line!
     break;
@@ -632,7 +632,27 @@ StyioRepr::toString(FromToAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(CODPAST* ast, int indent) {
-  return reprNodeType(ast->getNodeType(), " ") + string("{ ") + " }";
+  std::string result;
+
+  // result += reprNodeType(ast->getNodeType(), " {\n");
+  result += "\n" + make_padding(indent) + "CODP." + ast->OpName + " {\n";
+
+  auto exprs = ast->OpArgs;
+  for (int i = 0; i < exprs.size(); i++) {
+    result += make_padding(indent + 1) + exprs[i]->toString(this, indent + 2);
+    if (i != exprs.size() - 1) {
+      result += "\n";
+    }
+    else {
+      result += "}";
+    }
+  }
+
+  if (ast->NextOp) {
+    result += ast->NextOp->toString(this, indent);
+  }
+
+  return result;
 }
 
 std::string

@@ -12,6 +12,7 @@ using std::unordered_map;
 
 // [Styio]
 #include "../StyioAST/ASTDecl.hpp"
+#include "../StyioIR/IRDecl.hpp"
 
 // Generic Visitor
 template <typename... Types>
@@ -168,6 +169,7 @@ public:
   void typeInfer(BinCompAST* ast);
   void typeInfer(CondAST* ast);
   void typeInfer(CallAST* ast);
+  void typeInfer(AttrAST* ast);
   void typeInfer(ListOpAST* ast);
   void typeInfer(ResourceAST* ast);
   void typeInfer(FlexBindAST* ast);
@@ -226,6 +228,7 @@ public:
   StyioIR* toStyioIR(BinCompAST* ast);
   StyioIR* toStyioIR(CondAST* ast);
   StyioIR* toStyioIR(CallAST* ast);
+  StyioIR* toStyioIR(AttrAST* ast);
   StyioIR* toStyioIR(ListOpAST* ast);
   StyioIR* toStyioIR(ResourceAST* ast);
   StyioIR* toStyioIR(FlexBindAST* ast);

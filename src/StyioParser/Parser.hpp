@@ -672,6 +672,13 @@ parse_attr(
   StyioContext& context
 );
 
+StyioAST*
+parse_chain_of_call(
+  StyioContext& context,
+  StyioAST* callee
+);
+
+
 /*
   parse_bin_rhs
 */
@@ -747,7 +754,7 @@ parse_loop(StyioContext& context, char& cur_char);
   parse_simple_value
 */
 StyioAST*
-parse_num_val(StyioContext& context);
+parse_value(StyioContext& context);
 
 /*
   parse_expr

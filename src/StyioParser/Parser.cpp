@@ -32,7 +32,8 @@ using std::vector;
   =================
 */
 
-std::string parse_name_as_str(StyioContext& context) {
+std::string
+parse_token_as_str(StyioContext& context) {
   string name = "";
 
   while (context.check_isalnum_()) {
@@ -384,7 +385,7 @@ parse_resources(
         resources.push_back(
           new FinalBindAST(
             varname,
-            parse_num_val(context)
+            parse_value(context)
           )
         );
       }
@@ -415,7 +416,7 @@ parse_cond_item(StyioContext& context) {
 
   context.drop_all_spaces();
 
-  output = parse_num_val(context);
+  output = parse_value(context);
 
   context.drop_all_spaces();
 
@@ -435,7 +436,7 @@ parse_cond_item(StyioContext& context) {
         context.drop_all_spaces();
 
         output = new BinCompAST(
-          CompType::EQ, (output), parse_num_val(context)
+          CompType::EQ, (output), parse_value(context)
         );
       };
     }
@@ -457,7 +458,7 @@ parse_cond_item(StyioContext& context) {
         context.drop_all_spaces();
 
         output = new BinCompAST(
-          CompType::NE, (output), parse_num_val(context)
+          CompType::NE, (output), parse_value(context)
         );
       };
     }
@@ -479,7 +480,7 @@ parse_cond_item(StyioContext& context) {
         context.drop_all_spaces();
 
         output = new BinCompAST(
-          CompType::GE, (output), parse_num_val(context)
+          CompType::GE, (output), parse_value(context)
         );
       }
       else {
@@ -492,7 +493,7 @@ parse_cond_item(StyioContext& context) {
         context.drop_all_spaces();
 
         output = new BinCompAST(
-          CompType::GT, (output), parse_num_val(context)
+          CompType::GT, (output), parse_value(context)
         );
       };
     }
@@ -514,7 +515,7 @@ parse_cond_item(StyioContext& context) {
         context.drop_all_spaces();
 
         output = new BinCompAST(
-          CompType::LE, (output), parse_num_val(context)
+          CompType::LE, (output), parse_value(context)
         );
       }
       else {
@@ -527,7 +528,7 @@ parse_cond_item(StyioContext& context) {
         context.drop_all_spaces();
 
         output = new BinCompAST(
-          CompType::LT, (output), parse_num_val(context)
+          CompType::LT, (output), parse_value(context)
         );
       };
     }
@@ -564,17 +565,17 @@ StyioAST*
 parse_id_or_value(StyioContext& context) {
   StyioAST* output;
 
-  if (context.check_isalnum_()) {
-    auto id = parse_id(context);
+  if (context.check_isal_()) {
+    auto varname = parse_id(context);
 
     if (context.check('[')) {
-      output = parse_list_op(context, (id));
+      output = parse_list_op(context, varname);
     }
     else if (context.check('(')) {
-      output = parse_call(context, (id));
+      output = parse_call(context, varname);
     }
     else {
-      output = (id);
+      output = varname;
     }
   }
 
@@ -611,6 +612,11 @@ parse_id_or_value(StyioContext& context) {
       output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
     } break;
 
+    case '.': {
+      context.move(1);
+      output = parse_chain_of_call(context, output);
+    } break;
+
     default:
       break;
   }
@@ -619,7 +625,7 @@ parse_id_or_value(StyioContext& context) {
 }
 
 StyioAST*
-parse_num_val(StyioContext& context) {
+parse_value(StyioContext& context) {
   StyioAST* output;
 
   if (isalpha(context.get_curr_char()) || context.check('_')) {
@@ -632,7 +638,7 @@ parse_num_val(StyioContext& context) {
     return parse_size_of(context);
   }
 
-  string errmsg = string("parse_num_val() // Unexpected value expression, starting with ") + char(context.get_curr_char());
+  string errmsg = string("parse_value() // Unexpected value expression, starting with ") + char(context.get_curr_char());
   throw StyioParseError(errmsg);
 }
 
@@ -1160,8 +1166,8 @@ parse_call(
   context.check_drop_panic(')');
 
   return new CallAST(
-    (func_name),
-    (exprs)
+    func_name,
+    exprs
   );
 }
 
@@ -1169,19 +1175,18 @@ AttrAST*
 parse_attr(
   StyioContext& context
 ) {
-  auto main_name = NameAST::Create(parse_name_as_str(context));
-  
+  auto main_name = NameAST::Create(parse_token_as_str(context));
+
   StyioAST* attr_name;
   if (context.find_drop('.')) {
-    attr_name = NameAST::Create(parse_name_as_str(context));
+    attr_name = NameAST::Create(parse_token_as_str(context));
   }
   else if (context.find_drop('[')) {
     /* Object["name"] */
-    if (context.check('"'))
-    {
+    if (context.check('"')) {
       attr_name = parse_string(context);
     }
-    /* 
+    /*
       Object[any_expr]
     */
     else {
@@ -1190,6 +1195,47 @@ parse_attr(
   }
 
   return AttrAST::Create(main_name, attr_name);
+}
+
+/*
+  parse_chain_of_call takes an alphabeta name as the start, not a dot (e.g. '.').
+
+  person.name
+         ^ where parse_chain_of_call() starts
+*/
+StyioAST*
+parse_chain_of_call(
+  StyioContext& context,
+  StyioAST* callee
+) {
+  StyioAST* output;
+
+  while (true) {
+    std::string curr_token = parse_token_as_str(context);
+    context.drop_all_spaces_comments();
+
+    if (context.check_drop('.')) {
+      output = parse_chain_of_call(
+        context,
+        AttrAST::Create(callee, NameAST::Create(curr_token))
+      );
+    }
+    else if (context.check('(')) {
+      CallAST* temp = parse_call(context, NameAST::Create(curr_token));
+      if (context.check_drop('.')) {
+        output = parse_chain_of_call(context, temp);
+      }
+      else {
+        return output;
+      }
+    }
+    else {
+      output = AttrAST::Create(callee, NameAST::Create(curr_token));
+      return output;
+    }
+  }
+
+  return output;
 }
 
 /*
@@ -2249,23 +2295,23 @@ parse_forward(StyioContext& context, bool is_func) {
 
       if (context.check('{')) {
         if (has_args) {
-          output = new ForwardAST(args, parse_block(context));
+          output = ForwardAST::Create(args, parse_block(context));
         }
         else {
-          output = new ForwardAST(parse_block(context));
+          output = ForwardAST::Create(parse_block(context));
         }
       }
       else if (context.check_codp()) {
-        throw StyioNotImplemented("Chain of Data Processing");
+        output = ForwardAST::Create(parse_codp(context));
       }
       else {
         StyioAST* expr = parse_expr(context);
 
         if (has_args) {
-          output = new ForwardAST(args, ReturnAST::Create(expr));
+          output = ForwardAST::Create(args, ReturnAST::Create(expr));
         }
         else {
-          output = new ForwardAST(ReturnAST::Create(expr));
+          output = ForwardAST::Create(ReturnAST::Create(expr));
         }
       }
     } break;
@@ -2295,13 +2341,14 @@ parse_forward(StyioContext& context, bool is_func) {
 }
 
 /*
-  parse_codp takes the name of operation as a start, 
+  parse_codp takes the name of operation as a start,
   but not a `=>` symbol.
 */
-CODPAST* parse_codp(StyioContext& context, CODPAST* prev_op = nullptr) {
+CODPAST*
+parse_codp(StyioContext& context, CODPAST* prev_op) {
   CODPAST* curr_op;
 
-  string name = parse_name_as_str(context);
+  string name = parse_token_as_str(context);
 
   context.find_drop_panic('{');
 
@@ -2327,7 +2374,7 @@ CODPAST* parse_codp(StyioContext& context, CODPAST* prev_op = nullptr) {
   context.find_drop_panic('}');
 
   curr_op = CODPAST::Create(name, op_args, prev_op);
-  
+
   if (prev_op != nullptr) {
     prev_op->NextOp = curr_op;
   }
@@ -2336,7 +2383,7 @@ CODPAST* parse_codp(StyioContext& context, CODPAST* prev_op = nullptr) {
     context.drop_all_spaces_comments();
     parse_codp(context, curr_op);
   }
-  
+
   return curr_op;
 }
 
@@ -2677,7 +2724,7 @@ parse_stmt(
       context.drop_all_spaces_comments();
 
       if (context.check_codp()) {
-        throw StyioNotImplemented("Chain of Data Processing");
+        return parse_codp(context);
       }
       else {
         return new ReturnAST(parse_expr(context));
