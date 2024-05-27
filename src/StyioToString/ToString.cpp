@@ -37,7 +37,7 @@ StyioRepr::toString(EmptyAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(NameAST* ast, int indent) {
-  return ast->getNameAsStr();
+  return ast->getAsStr();
 }
 
 std::string
@@ -140,8 +140,11 @@ StyioRepr::toString(InfiniteAST* ast, int indent) {
 std::string
 StyioRepr::toString(StructAST* ast, int indent) {
   std::string argstr;
-  for (size_t i = 0; i < ast->attrs.size(); i++) {
-    argstr += make_padding(indent) + ast->attrs.at(i)->toString(this, indent + 1);
+  for (size_t i = 0; i < ast->args.size(); i++) {
+    argstr += make_padding(indent) + ast->args.at(i)->toString(this, indent + 1);
+    if (i != ast->args.size() - 1) {
+      argstr += "\n";
+    }
   }
 
   return reprASTType(ast->getNodeType(), " {\n") + argstr + "}";
@@ -776,7 +779,7 @@ StyioRepr::toString(MainBlockAST* ast, int indent) {
 
   auto Stmts = ast->getStmts();
   if (Stmts.empty())
-    return reprASTType(ast->getNodeType(), " ") + "{ " + " }";
+    return reprASTType(ast->getNodeType(), " { }");
 
   for (int i = 0; i < Stmts.size(); i++) {
     outstr += make_padding(indent) + Stmts[i]->toString(this, indent + 1);
@@ -802,7 +805,11 @@ StyioRepr::toString(SGResId* node, int indent) {
 
 std::string
 StyioRepr::toString(SGType* node, int indent) {
-  return std::string("styio.ir.type { ") + node->data_type.name + " }";
+  return std::string("styio.ir.type { ") 
+  + reprDataTypeOption(node->data_type.option) + ", " 
+  + node->data_type.name + ", " 
+  + std::to_string(node->data_type.num_of_bit)
+  + " }";
 }
 
 std::string
@@ -837,7 +844,14 @@ StyioRepr::toString(SGFormatString* node, int indent) {
 
 std::string
 StyioRepr::toString(SGStruct* node, int indent) {
-  return std::string("styio.ir.struct { ") + " }";
+  std::string argstr;
+  for (size_t i = 0; i < node->elements.size(); i++) {
+    argstr += make_padding(indent) + node->elements.at(i)->toString(this, indent + 1);
+    if (i != node->elements.size() - 1) {
+      argstr += "\n";
+    }
+  }
+  return std::string("styio.ir.struct {\n") + argstr + "}";
 }
 
 std::string
@@ -848,10 +862,10 @@ StyioRepr::toString(SGCast* node, int indent) {
 std::string
 StyioRepr::toString(SGBinOp* node, int indent) {
   return std::string("styio.ir.binop {\n")
-  + make_padding(indent) + reprToken(node->operand) + "\n"
-  + make_padding(indent) + node->lhs_expr->toString(this, indent + 1) + "\n"
-  + make_padding(indent) + node->rhs_expr->toString(this, indent + 1)
-  + "}";
+         + make_padding(indent) + reprToken(node->operand) + "\n"
+         + make_padding(indent) + node->lhs_expr->toString(this, indent + 1) + "\n"
+         + make_padding(indent) + node->rhs_expr->toString(this, indent + 1)
+         + "}";
 }
 
 std::string
@@ -861,7 +875,20 @@ StyioRepr::toString(SGCond* node, int indent) {
 
 std::string
 StyioRepr::toString(SGVar* node, int indent) {
-  return std::string("styio.ir.var { ") + " }";
+  std::string output = std::string("styio.ir.var {\n") 
+    + make_padding(indent) + node->var_id->toString(this, indent + 1) + "\n";
+  
+  if (node->val_init) {
+    output += make_padding(indent) + node->var_type->toString(this, indent + 1) + "\n";
+    output += make_padding(indent) + node->val_init->toString(this, indent + 1);
+  }
+  else {
+    output += make_padding(indent) + node->var_type->toString(this, indent + 1);
+  }
+  
+  output += "}";
+
+  return output;
 }
 
 std::string
@@ -921,10 +948,12 @@ StyioRepr::toString(SGEntry* node, int indent) {
 
 std::string
 StyioRepr::toString(SGMainEntry* node, int indent) {
-  std::string stmtstr;
+  if (node->stmts.empty())
+    return "styio.ir.main { }";
 
+  std::string stmtstr;
   for (size_t i = 0; i < node->stmts.size(); i++) {
-    stmtstr += make_padding(indent) + node->stmts.at(i)->toString(this, indent+1);
+    stmtstr += make_padding(indent) + node->stmts.at(i)->toString(this, indent + 1) + "\n";
   }
 
   return std::string("styio.ir.main {\n") + stmtstr + "}";

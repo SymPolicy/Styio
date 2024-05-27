@@ -13,8 +13,8 @@
 #include <vector>
 
 // [Styio]
-#include "../StyioIR/GenIR/GenIR.hpp"
 #include "../StyioAST/AST.hpp"
+#include "../StyioIR/GenIR/GenIR.hpp"
 #include "../StyioToken/Token.hpp"
 #include "Util.hpp"
 
@@ -35,7 +35,7 @@ StyioAnalyzer::toStyioIR(EmptyAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(NameAST* ast) {
-  return SGConstInt::Create(0);
+  return SGResId::Create(ast->getAsStr());
 }
 
 StyioIR*
@@ -45,7 +45,7 @@ StyioAnalyzer::toStyioIR(DTypeAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(BoolAST* ast) {
-  return SGConstInt::Create(0);
+  return SGConstBool::Create(ast->getValue());
 }
 
 StyioIR*
@@ -75,12 +75,36 @@ StyioAnalyzer::toStyioIR(TypeConvertAST*) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(VarAST* ast) {
-  return SGConstInt::Create(0);
+  if (ast->val_init) {
+    return SGVar::Create(
+      static_cast<SGResId*>(ast->var_name->toStyioIR(this)),
+      static_cast<SGType*>(ast->var_type->toStyioIR(this)),
+      ast->val_init->toStyioIR(this)
+    );
+  }
+  else {
+    return SGVar::Create(
+      static_cast<SGResId*>(ast->var_name->toStyioIR(this)),
+      static_cast<SGType*>(ast->var_type->toStyioIR(this))
+    );
+  }
 }
 
 StyioIR*
 StyioAnalyzer::toStyioIR(ArgAST* ast) {
-  return SGConstInt::Create(0);
+  if (ast->val_init) {
+    return SGVar::Create(
+      static_cast<SGResId*>(ast->var_name->toStyioIR(this)),
+      static_cast<SGType*>(ast->var_type->toStyioIR(this)),
+      ast->val_init->toStyioIR(this)
+    );
+  }
+  else {
+    return SGVar::Create(
+      static_cast<SGResId*>(ast->var_name->toStyioIR(this)),
+      static_cast<SGType*>(ast->var_type->toStyioIR(this))
+    );
+  }
 }
 
 StyioIR*
@@ -114,7 +138,13 @@ StyioAnalyzer::toStyioIR(InfiniteAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(StructAST* ast) {
-  return SGConstInt::Create(0);
+  std::vector<SGVar*> elems;
+
+  for (auto arg : ast->args) {
+    elems.push_back(static_cast<SGVar*>(arg->toStyioIR(this)));
+  }
+
+  return SGStruct::Create(SGResId::Create(ast->name->getAsStr()), elems);
 }
 
 StyioIR*
@@ -168,11 +198,7 @@ StyioAnalyzer::toStyioIR(CondAST* ast) {
 */
 StyioIR*
 StyioAnalyzer::toStyioIR(BinOpAST* ast) {
-
-  return SGBinOp::Create(ast->LHS->toStyioIR(this), 
-    ast->RHS->toStyioIR(this), 
-    ast->operand,
-    static_cast<SGType*>(ast->data_type->toStyioIR(this)));
+  return SGBinOp::Create(ast->LHS->toStyioIR(this), ast->RHS->toStyioIR(this), ast->operand, static_cast<SGType*>(ast->data_type->toStyioIR(this)));
 
   return SGConstInt::Create(0);
 }
@@ -321,7 +347,7 @@ StyioIR*
 StyioAnalyzer::toStyioIR(MainBlockAST* ast) {
   std::vector<StyioIR*> ir_stmts;
 
-  for (auto stmt: ast->getStmts()) {
+  for (auto stmt : ast->getStmts()) {
     ir_stmts.push_back(stmt->toStyioIR(this));
   }
 

@@ -18,9 +18,7 @@
 */
 
 /*
-  SResId (Styio Resource Indentifier):
-    The resource indentifier in Styio.
-    SResId must be UNIQUE.
+  SResId (Styio Resource Indentifier)
 */
 class SGResId : public StyioIRTraits<SGResId>
 {
@@ -160,15 +158,24 @@ public:
 class SGStruct : public StyioIRTraits<SGStruct>
 {
 public:
-  std::unordered_map<SGResId*, std::pair<SGType*, StyioIR*>> elems; /* {id: (type, default_value)} */
+  SGResId* name;
+  std::vector<SGVar*> elements;
 
-  SGStruct(std::unordered_map<SGResId*, std::pair<SGType*, StyioIR*>> elements) :
-      elems(elements) {
+  SGStruct(std::vector<SGVar*> elements) :
+      elements(elements) {
   }
 
-  static SGStruct* Create(std::unordered_map<SGResId*, std::pair<SGType*, StyioIR*>> elements) {
+  SGStruct(SGResId* name, std::vector<SGVar*> elements) :
+      name(name), elements(elements) {
+  }
+
+  static SGStruct* Create(std::vector<SGVar*> elements) {
     return new SGStruct(elements);
-  };
+  }
+
+  static SGStruct* Create(SGResId* name, std::vector<SGVar*> elements) {
+    return new SGStruct(name, elements);
+  }
 };
 
 class SGCast : public StyioIRTraits<SGCast>
@@ -225,13 +232,22 @@ class SGVar : public StyioIRTraits<SGVar>
 public:
   SGResId* var_id;
   SGType* var_type;
+  StyioIR* val_init = nullptr;
 
   SGVar(SGResId* id, SGType* type) :
       var_id(id), var_type(type) {
   }
 
+  SGVar(SGResId* id, SGType* type, StyioIR* value) :
+      var_id(id), var_type(type), val_init(value) {
+  }
+
   static SGVar* Create(SGResId* id, SGType* type) {
     return new SGVar(id, type);
+  }
+
+  static SGVar* Create(SGResId* id, SGType* type, StyioIR* value) {
+    return new SGVar(id, type, value);
   }
 };
 

@@ -194,6 +194,7 @@ public:
   void typeInfer(MatchCasesAST* ast);
   void typeInfer(MainBlockAST* ast);
 
+  StyioIR* toStyioIR(NameAST* ast);
   StyioIR* toStyioIR(BoolAST* ast);
   StyioIR* toStyioIR(NoneAST* ast);
   StyioIR* toStyioIR(EOFAST* ast);
@@ -202,7 +203,7 @@ public:
   StyioIR* toStyioIR(BreakAST* ast);
   StyioIR* toStyioIR(ReturnAST* ast);
   StyioIR* toStyioIR(CommentAST* ast);
-  StyioIR* toStyioIR(NameAST* ast);
+  
   StyioIR* toStyioIR(VarAST* ast);
   StyioIR* toStyioIR(ArgAST* ast);
   StyioIR* toStyioIR(OptArgAST* ast);

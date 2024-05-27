@@ -1,0 +1,14 @@
+// RUN: /root/styio/styio --llvm-ir --file %s | /usr/bin/FileCheck %s
+
+# s1 := {
+  e1 : bool;
+
+  e2 : int;
+  e3 : long;
+
+  e4 : float;
+  e5 : double;
+  
+  e6 : char;
+  e7 : string;
+}

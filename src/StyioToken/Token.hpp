@@ -55,18 +55,33 @@ struct StyioDataType {
 };
 
 static std::unordered_map<std::string, StyioDataType> const DType_Table = {
-  {"i1", StyioDataType{StyioDataTypeOption::Integer, "Integer", 1} },
-  {"i8", StyioDataType{StyioDataTypeOption::Integer, "Integer", 8} },
-  {"i16", StyioDataType{StyioDataTypeOption::Integer, "Integer", 16} },
-  {"i32", StyioDataType{StyioDataTypeOption::Integer, "Integer", 32} },
-  {"i64", StyioDataType{StyioDataTypeOption::Integer, "Integer", 64} },
-  {"i128", StyioDataType{StyioDataTypeOption::Integer, "Integer", 128} },
+  {"bool", StyioDataType{StyioDataTypeOption::Bool, "bool", 1} },
+  
+  {"int", StyioDataType{StyioDataTypeOption::Integer, "i32", 32} },
+  {"long", StyioDataType{StyioDataTypeOption::Integer, "i64", 64} },
 
-  {"f32", StyioDataType{StyioDataTypeOption::Float, "Float", 32} },
-  {"f64", StyioDataType{StyioDataTypeOption::Float, "Float", 64} },
+  {"i1", StyioDataType{StyioDataTypeOption::Integer, "i1", 1} },
+  {"i8", StyioDataType{StyioDataTypeOption::Integer, "i8", 8} },
+  {"i16", StyioDataType{StyioDataTypeOption::Integer, "i16", 16} },
+  {"i32", StyioDataType{StyioDataTypeOption::Integer, "i32", 32} },
+  {"i64", StyioDataType{StyioDataTypeOption::Integer, "i64", 64} },
+  {"i128", StyioDataType{StyioDataTypeOption::Integer, "i128", 128} },
+
+  {"float", StyioDataType{StyioDataTypeOption::Float, "f32", 32} },
+  {"double", StyioDataType{StyioDataTypeOption::Float, "f64", 64} },
+
+  {"f32", StyioDataType{StyioDataTypeOption::Float, "f64", 32} },
+  {"f64", StyioDataType{StyioDataTypeOption::Float, "f64", 64} },
+
+  {"char", StyioDataType{StyioDataTypeOption::Char, "char", 0} },
+
+  {"string", StyioDataType{StyioDataTypeOption::String, "string", 0} },
+  {"str", StyioDataType{StyioDataTypeOption::String, "string", 0} },
 };
 
 StyioDataType getMaxType(StyioDataType T1, StyioDataType T2);
+
+std::string reprDataTypeOption(StyioDataTypeOption option);
 
 enum class TokenKind
 {

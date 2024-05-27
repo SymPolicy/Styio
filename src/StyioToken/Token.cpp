@@ -617,3 +617,60 @@ getMaxType(StyioDataType T1, StyioDataType T2) {
 
   return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
 }
+
+std::string reprDataTypeOption(StyioDataTypeOption option) {
+  switch (option)
+  {
+  case StyioDataTypeOption::Undefined:{
+    return "undefined";
+  } break;
+
+  case StyioDataTypeOption::Defined:{
+    return "defined";
+  } break;
+
+  case StyioDataTypeOption::Bool:{
+    return "bool";
+  } break;
+
+  case StyioDataTypeOption::Integer:{
+    return "int";
+  } break;
+
+  case StyioDataTypeOption::Float:{
+    return "float";
+  } break;
+
+  case StyioDataTypeOption::Decimal:{
+    return "decimal";
+  } break;
+
+  case StyioDataTypeOption::Char:{
+    return "char";
+  } break;
+
+  case StyioDataTypeOption::String:{
+    return "string";
+  } break;
+
+  case StyioDataTypeOption::Tuple:{
+    return "tuple";
+  } break;
+
+  case StyioDataTypeOption::List:{
+    return "list";
+  } break;
+
+  case StyioDataTypeOption::Struct:{
+    return "struct";
+  } break;
+  
+  case StyioDataTypeOption::Func:{
+    return "func";
+  } break;
+
+  default: {
+    return "unknown";
+  } break;
+  }
+};
