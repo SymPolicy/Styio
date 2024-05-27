@@ -43,20 +43,14 @@ public:
 class SGType : public StyioIRTraits<SGType>
 {
 public:
-  std::string type_name;
+  StyioDataType data_type;
 
-  SGType() {}
-
-  SGType(std::string name) :
-      type_name(name) {
+  SGType(StyioDataType data_type) :
+      data_type(data_type) {
   }
 
-  static SGType* Create() {
-    return new SGType();
-  }
-
-  static SGType* Create(std::string name) {
-    return new SGType(name);
+  static SGType* Create(StyioDataType data_type) {
+    return new SGType(data_type);
   }
 };
 
@@ -83,14 +77,14 @@ class SGConstInt : public StyioIRTraits<SGConstInt>
 {
 public:
   std::string value;
-  size_t numbits;
+  size_t num_of_bit;
 
   SGConstInt(
     std::string value,
     size_t numbits
   ) :
       value(value),
-      numbits(numbits) {
+      num_of_bit(numbits) {
   }
 
   static SGConstInt* Create(long value) {

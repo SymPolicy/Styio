@@ -40,7 +40,7 @@ StyioAnalyzer::toStyioIR(NameAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(DTypeAST* ast) {
-  return SGConstInt::Create(0);
+  return SGType::Create(ast->data_type);
 }
 
 StyioIR*
@@ -50,12 +50,12 @@ StyioAnalyzer::toStyioIR(BoolAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(IntAST* ast) {
-  return SGConstInt::Create(0);
+  return SGConstInt::Create(ast->value, ast->num_of_bit);
 }
 
 StyioIR*
 StyioAnalyzer::toStyioIR(FloatAST* ast) {
-  return SGConstInt::Create(0);
+  return SGConstFloat::Create(ast->value);
 }
 
 StyioIR*
@@ -168,6 +168,12 @@ StyioAnalyzer::toStyioIR(CondAST* ast) {
 */
 StyioIR*
 StyioAnalyzer::toStyioIR(BinOpAST* ast) {
+
+  return SGBinOp::Create(ast->LHS->toStyioIR(this), 
+    ast->RHS->toStyioIR(this), 
+    ast->operand,
+    static_cast<SGType*>(ast->data_type->toStyioIR(this)));
+
   return SGConstInt::Create(0);
 }
 
@@ -315,9 +321,9 @@ StyioIR*
 StyioAnalyzer::toStyioIR(MainBlockAST* ast) {
   std::vector<StyioIR*> ir_stmts;
 
-  // for (auto stmt: ast->getStmts()) {
-  //   ir_stmts.push_back(ast->toStyioIR(this));
-  // }
+  for (auto stmt: ast->getStmts()) {
+    ir_stmts.push_back(stmt->toStyioIR(this));
+  }
 
   return SGMainEntry::Create(ir_stmts);
 }

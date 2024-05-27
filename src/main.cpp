@@ -157,13 +157,15 @@ main(
   options.add_options()(
     "f,file", "Take the given source file.", cxxopts::value<std::string>()
   )(
-    "a,ast", "Show the AST", cxxopts::value<bool>()->default_value("false")
-  )(
-    "c,check", "Show the AST after type checking.", cxxopts::value<bool>()->default_value("false")
-  )(
-    "i,ir", "Show LLVM IR.", cxxopts::value<bool>()->default_value("false")
-  )(
     "h,help", "Show All Command-Line Options"
+  );
+
+  options.add_options()(
+    "styio-ast", "Show Styio AST", cxxopts::value<bool>()->default_value("false")
+  )(
+    "styio-ir", "Show Styio IR", cxxopts::value<bool>()->default_value("false")
+  )(
+    "llvm-ir", "Show LLVM IR", cxxopts::value<bool>()->default_value("false")
   );
 
   auto cmlopts = options.parse(argc, argv);
@@ -173,9 +175,9 @@ main(
     exit(0);
   }
 
-  bool show_ast = cmlopts["ast"].as<bool>();
-  bool show_type_checking = cmlopts["check"].as<bool>();
-  bool show_ir = cmlopts["ir"].as<bool>();
+  bool show_styio_ast = cmlopts["styio-ast"].as<bool>();
+  bool show_styio_ir = cmlopts["styio-ir"].as<bool>();
+  bool show_llvm_ir = cmlopts["llvm-ir"].as<bool>();
 
   std::string fpath; /* File Path */
   if (cmlopts.count("file")) {
@@ -191,7 +193,7 @@ main(
     /* Parser */
     auto styio_ast = parse_main_block(*styio_context);
 
-    if (show_ast) {
+    if (show_styio_ast) {
       std::cout
         << "\033[1;32mAST\033[0m \033[31m-No-Type-Checking\033[0m"
         << "\n"
@@ -203,7 +205,7 @@ main(
     StyioAnalyzer analyzer = StyioAnalyzer();
     analyzer.typeInfer(styio_ast);
 
-    if (show_type_checking) {
+    if (show_styio_ast) {
       std::cout
         << "\033[1;32mAST\033[0m \033[1;33m-After-Type-Checking\033[0m"
         << "\n"
@@ -214,11 +216,14 @@ main(
     /* Generate Styio IR */
     StyioIR* styio_ir = analyzer.toStyioIR(styio_ast);
 
-    std::cout
+    if (show_styio_ir) {
+      std::cout
       << "\033[1;32mSTYIO IR\033[0m \033[1;33m\033[0m"
       << "\n"
       << styio_ir->toString(&styio_repr) << "\n"
       << std::endl;
+    }
+    
 
     /* JIT Initialization */
     llvm::InitializeNativeTarget();
@@ -234,7 +239,7 @@ main(
     /* CodeGen (LLVM IR) */
     styio_ir->toLLVMIR(&generator);
 
-    if (show_ir) {
+    if (show_llvm_ir) {
       generator.print_llvm_ir();
     }
 

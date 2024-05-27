@@ -5,31 +5,68 @@
 #include <string>
 #include <unordered_map>
 
-enum class StyioDataType
-{
-  undefined = 0,
+// enum class StyioDataType
+// {
+//   undefined = 0,
 
-  i1 = 1001,
-  i8 = 1008,
-  i16 = 1016,
-  i32 = 1032,
-  i64 = 1064,
-  i128 = 1128,
+//   i1 = 1001,
+//   i8 = 1008,
+//   i16 = 1016,
+//   i32 = 1032,
+//   i64 = 1064,
+//   i128 = 1128,
 
-  f32 = 2032,
-  f64 = 2064,
+//   f32 = 2032,
+//   f64 = 2064,
+// };
+
+enum class StyioDataTypeOption {
+  Undefined,
+  Defined,
+
+  Bool, // Boolean
+  Integer,
+  Float,
+  Decimal,
+
+  Char, // Character
+  String,
+
+  Tuple,
+  List,
+  
+  Struct,
+
+  Func, // Function
+};
+
+struct StyioDataType {
+  StyioDataTypeOption option;
+  std::string name;
+  size_t num_of_bit = 0;
+
+  bool isUndefined() {
+    return option == StyioDataTypeOption::Undefined;
+  }
+
+  bool equals(const StyioDataType other) const {
+    return option == other.option and name == other.name;
+  }
 };
 
 static std::unordered_map<std::string, StyioDataType> const DType_Table = {
-  {"i32", StyioDataType::i32},
-  {"i64", StyioDataType::i64},
-  {"f64", StyioDataType::f64},
-  {"i1", StyioDataType::i1},
-  {"i8", StyioDataType::i8},
-  {"i16", StyioDataType::i16},
-  {"i128", StyioDataType::i128},
-  {"f32", StyioDataType::f32}
+  {"i1", StyioDataType{StyioDataTypeOption::Integer, "Integer", 1} },
+  {"i8", StyioDataType{StyioDataTypeOption::Integer, "Integer", 8} },
+  {"i16", StyioDataType{StyioDataTypeOption::Integer, "Integer", 16} },
+  {"i32", StyioDataType{StyioDataTypeOption::Integer, "Integer", 32} },
+  {"i64", StyioDataType{StyioDataTypeOption::Integer, "Integer", 64} },
+  {"i128", StyioDataType{StyioDataTypeOption::Integer, "Integer", 128} },
+
+  {"f32", StyioDataType{StyioDataTypeOption::Float, "Float", 32} },
+  {"f64", StyioDataType{StyioDataTypeOption::Float, "Float", 64} },
 };
+
+StyioDataType getMaxType(StyioDataType T1, StyioDataType T2);
 
 enum class TokenKind
 {
@@ -210,7 +247,7 @@ enum class StyioPathType
   remote_windows
 };
 
-enum class StyioNodeHint
+enum class StyioASTType
 {
   End,
   Pass,
@@ -247,7 +284,7 @@ enum class StyioNodeHint
 
   Bool,
   // Integer (General)
-  Int,
+  Integer,
   // Float (General)
   Float,
   // Character: '<Any Single Character>'
@@ -607,10 +644,7 @@ enum class StyioToken
 };
 
 std::string
-reprDataType(StyioDataType dtype);
-
-std::string
-reprNodeType(StyioNodeHint type, std::string extra = "");
+reprASTType(StyioASTType type, std::string extra = "");
 
 std::string
 reprToken(CompType token);
@@ -623,11 +657,5 @@ reprToken(LogicType token);
 
 std::string
 reprToken(StyioToken token);
-
-bool isSignedIntTy(StyioDataType T);
-
-bool isFloatType(StyioDataType T);
-
-StyioDataType getMaxType(StyioDataType T1, StyioDataType T2);
 
 #endif

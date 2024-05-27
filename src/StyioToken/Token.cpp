@@ -5,31 +5,11 @@
 #include "Token.hpp"
 
 std::string
-reprDataType(StyioDataType dtype) {
-  switch (dtype) {
-    case StyioDataType::undefined:
-      return std::string("undefined");
-
-    case StyioDataType::i32:
-      return std::string("i32");
-
-    case StyioDataType::i64:
-      return std::string("i64");
-
-    case StyioDataType::f64:
-      return std::string("f64");
-
-    default:
-      return std::string("default data type");
-  }
-}
-
-std::string
-reprNodeType(StyioNodeHint type, std::string extra) {
+reprASTType(StyioASTType type, std::string extra) {
   std::string output = "";
 
   switch (type) {
-    case StyioNodeHint::True: {
+    case StyioASTType::True: {
       auto name = std::string("True");
 
       output = std::string(name);
@@ -37,7 +17,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::False: {
+    case StyioASTType::False: {
       auto name = std::string("False");
 
       output = std::string(name);
@@ -45,7 +25,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::None: {
+    case StyioASTType::None: {
       auto name = std::string("None");
 
       output = std::string(name);
@@ -53,7 +33,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Empty: {
+    case StyioASTType::Empty: {
       auto name = std::string("Empty");
 
       output = std::string(name);
@@ -61,7 +41,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Id: {
+    case StyioASTType::Id: {
       auto name = std::string("id");
 
       output = std::string(name);
@@ -69,7 +49,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Variable: {
+    case StyioASTType::Variable: {
       auto name = std::string("var");
 
       output = std::string(name);
@@ -77,7 +57,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Arg: {
+    case StyioASTType::Arg: {
       auto name = std::string("Arg");
 
       output = std::string(name);
@@ -85,7 +65,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Int: {
+    case StyioASTType::Integer: {
       auto name = std::string("styio.ast.int");
 
       output = std::string(name);
@@ -93,7 +73,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Float: {
+    case StyioASTType::Float: {
       auto name = std::string("float");
 
       output = std::string(name);
@@ -101,7 +81,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Char: {
+    case StyioASTType::Char: {
       auto name = std::string("char");
 
       output = std::string(name);
@@ -109,7 +89,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::String: {
+    case StyioASTType::String: {
       auto name = std::string("String");
 
       output = std::string(name);
@@ -117,7 +97,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::NumConvert: {
+    case StyioASTType::NumConvert: {
       auto name = std::string("Convert");
 
       output = std::string(name);
@@ -125,7 +105,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::FmtStr: {
+    case StyioASTType::FmtStr: {
       auto name = std::string("FmtStr");
 
       output = std::string(name);
@@ -133,31 +113,31 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::LocalPath: {
+    case StyioASTType::LocalPath: {
       auto name = std::string("styio.ast.path");
 
       output = std::string(name);
     } break;
 
-    case StyioNodeHint::RemotePath: {
+    case StyioASTType::RemotePath: {
       auto name = std::string("Addr");
 
       output = std::string(name);
     } break;
 
-    case StyioNodeHint::WebUrl: {
+    case StyioASTType::WebUrl: {
       auto name = std::string("URL");
 
       output = std::string(name);
     } break;
 
-    case StyioNodeHint::DBUrl: {
+    case StyioASTType::DBUrl: {
       auto name = std::string("URL (Database)");
 
       output = std::string(name);
     } break;
 
-    case StyioNodeHint::ExtPack: {
+    case StyioASTType::ExtPack: {
       auto name = std::string("Package");
 
       output = std::string(name);
@@ -165,7 +145,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::VarTuple: {
+    case StyioASTType::VarTuple: {
       auto name = std::string("Fill");
 
       output = std::string(name);
@@ -173,7 +153,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Condition: {
+    case StyioASTType::Condition: {
       auto name = std::string("styio.ast.cond");
 
       output = std::string(name);
@@ -181,73 +161,73 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::SizeOf: {
+    case StyioASTType::SizeOf: {
       auto name = std::string("SizeOf");
 
       output = std::string(name);
     } break;
 
-    case StyioNodeHint::BinOp: {
+    case StyioASTType::BinOp: {
       auto name = std::string("BinOp");
 
       output = std::string(name);
     } break;
 
-    case StyioNodeHint::Print: {
+    case StyioASTType::Print: {
       auto name = std::string("Print");
 
       output = std::string(name);
     } break;
 
-    case StyioNodeHint::ReadFile: {
+    case StyioASTType::ReadFile: {
       auto name = std::string("Read File");
 
       output = std::string(name);
     } break;
 
-    case StyioNodeHint::Call: {
+    case StyioASTType::Call: {
       auto name = std::string("styio.ast.call");
 
       output = std::string(name);
     } break;
 
-    case StyioNodeHint::Attribute: {
+    case StyioASTType::Attribute: {
       auto name = std::string("styio.ast.attr");
 
       output = std::string(name);
     } break;
 
-    case StyioNodeHint::Access: {
+    case StyioASTType::Access: {
       auto name = std::string("Access");
 
       output = std::string(name);
     } break;
 
-    case StyioNodeHint::Access_By_Name: {
+    case StyioASTType::Access_By_Name: {
       auto name = std::string("Access by Name");
 
       output = std::string(name);
     } break;
 
-    case StyioNodeHint::Access_By_Index: {
+    case StyioASTType::Access_By_Index: {
       auto name = std::string("Access by Index");
 
       output = std::string(name);
     } break;
 
-    case StyioNodeHint::Get_Index_By_Value: {
+    case StyioASTType::Get_Index_By_Value: {
       auto name = std::string("Get Index by Value");
 
       output = std::string(name);
     } break;
 
-    case StyioNodeHint::Get_Indices_By_Many_Values: {
+    case StyioASTType::Get_Indices_By_Many_Values: {
       auto name = std::string("Get Indices by Many Value");
 
       output = std::string(name);
     } break;
 
-    case StyioNodeHint::Append_Value: {
+    case StyioASTType::Append_Value: {
       auto name = std::string("Append");
 
       output = std::string(name);
@@ -255,7 +235,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Insert_Item_By_Index: {
+    case StyioASTType::Insert_Item_By_Index: {
       auto name = std::string("Insert by Index");
 
       output = std::string(name);
@@ -263,7 +243,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Remove_Item_By_Index: {
+    case StyioASTType::Remove_Item_By_Index: {
       auto name = std::string("Remove by Index");
 
       output = std::string(name);
@@ -271,7 +251,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Remove_Items_By_Many_Indices: {
+    case StyioASTType::Remove_Items_By_Many_Indices: {
       auto name = std::string("Remove by Many Indices");
 
       output = std::string(name);
@@ -279,7 +259,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Remove_Item_By_Value: {
+    case StyioASTType::Remove_Item_By_Value: {
       auto name = std::string("Remove by Value");
 
       output = std::string(name);
@@ -287,7 +267,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Remove_Items_By_Many_Values: {
+    case StyioASTType::Remove_Items_By_Many_Values: {
       auto name = std::string("Remove by Many Values");
 
       output = std::string(name);
@@ -295,7 +275,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Get_Reversed: {
+    case StyioASTType::Get_Reversed: {
       auto name = std::string("Reversed");
 
       output = std::string(name);
@@ -303,7 +283,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Get_Index_By_Item_From_Right: {
+    case StyioASTType::Get_Index_By_Item_From_Right: {
       auto name = std::string("Get Index by Item (From Right)");
 
       output = std::string(name);
@@ -311,7 +291,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Return: {
+    case StyioASTType::Return: {
       auto name = std::string("Return");
 
       output = std::string(name);
@@ -319,7 +299,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Range: {
+    case StyioASTType::Range: {
       auto name = std::string("Range");
 
       output = std::string(name);
@@ -327,7 +307,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Tuple: {
+    case StyioASTType::Tuple: {
       auto name = std::string("tuple");
 
       output = std::string(name);
@@ -335,7 +315,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::List: {
+    case StyioASTType::List: {
       auto name = std::string("list");
 
       output = std::string(name);
@@ -343,7 +323,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Set: {
+    case StyioASTType::Set: {
       auto name = std::string("hashset");
 
       output = std::string(name);
@@ -351,7 +331,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Resources: {
+    case StyioASTType::Resources: {
       auto name = std::string("styio.ast.resources");
 
       output = std::string(name);
@@ -359,19 +339,19 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::MutBind: {
+    case StyioASTType::MutBind: {
       output = std::string("Binding (Flexible)");
     }
 
     break;
 
-    case StyioNodeHint::FinalBind: {
+    case StyioASTType::FinalBind: {
       output = std::string("Binding (Final)");
     }
 
     break;
 
-    case StyioNodeHint::Block: {
+    case StyioASTType::Block: {
       auto name = std::string("Block");
 
       output = std::string(name);
@@ -379,7 +359,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Cases: {
+    case StyioASTType::Cases: {
       auto name = std::string("Cases");
 
       output = std::string(name);
@@ -387,7 +367,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Func: {
+    case StyioASTType::Func: {
       auto name = std::string("Function");
 
       output = std::string(name);
@@ -395,7 +375,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Struct: {
+    case StyioASTType::Struct: {
       auto name = std::string("Struct");
 
       output = std::string(name);
@@ -403,7 +383,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Loop: {
+    case StyioASTType::Loop: {
       auto name = std::string("Loop");
 
       output = std::string(name);
@@ -411,7 +391,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Iterator: {
+    case StyioASTType::Iterator: {
       auto name = std::string("styio.ast.iterator");
 
       output = std::string(name);
@@ -419,7 +399,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::CheckEq: {
+    case StyioASTType::CheckEq: {
       auto name = std::string("Equal To?");
 
       output = std::string(name);
@@ -427,7 +407,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::CheckIsin: {
+    case StyioASTType::CheckIsin: {
       auto name = std::string("Is In?");
 
       output = std::string(name);
@@ -435,7 +415,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::FromTo: {
+    case StyioASTType::FromTo: {
       auto name = std::string("Transfer");
 
       output = std::string(name);
@@ -443,7 +423,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Forward: {
+    case StyioASTType::Forward: {
       auto name = std::string("styio.ast.forward.run");
 
       output = std::string(name);
@@ -451,7 +431,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::If_Equal_To_Forward: {
+    case StyioASTType::If_Equal_To_Forward: {
       auto name = std::string("Forward (If Equal -> Run)");
 
       output = std::string(name);
@@ -459,7 +439,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::If_Is_In_Forward: {
+    case StyioASTType::If_Is_In_Forward: {
       auto name = std::string("Forward (If Is In -> Run)");
 
       output = std::string(name);
@@ -467,7 +447,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Cases_Forward: {
+    case StyioASTType::Cases_Forward: {
       auto name = std::string("Forward (Cases)");
 
       output = std::string(name);
@@ -475,7 +455,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::If_True_Forward: {
+    case StyioASTType::If_True_Forward: {
       auto name = std::string("Forward (If True -> Run)");
 
       output = std::string(name);
@@ -483,7 +463,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::If_False_Forward: {
+    case StyioASTType::If_False_Forward: {
       auto name = std::string("Forward (If False -> Run)");
 
       output = std::string(name);
@@ -491,7 +471,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Fill_Forward: {
+    case StyioASTType::Fill_Forward: {
       auto name = std::string("Forward (Fill -> Run)");
 
       output = std::string(name);
@@ -499,7 +479,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Fill_If_Equal_To_Forward: {
+    case StyioASTType::Fill_If_Equal_To_Forward: {
       auto name = std::string("Forward (Fill -> If Equal -> Run)");
 
       output = std::string(name);
@@ -507,7 +487,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Fill_If_Is_in_Forward: {
+    case StyioASTType::Fill_If_Is_in_Forward: {
       auto name = std::string("Forward (Fill -> If Is In -> Run)");
 
       output = std::string(name);
@@ -515,7 +495,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Fill_Cases_Forward: {
+    case StyioASTType::Fill_Cases_Forward: {
       auto name = std::string("Forward (Fill -> Cases)");
 
       output = std::string(name);
@@ -523,7 +503,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Fill_If_True_Forward: {
+    case StyioASTType::Fill_If_True_Forward: {
       auto name = std::string("Forward (Fill -> If True -> Run)");
 
       output = std::string(name);
@@ -531,25 +511,25 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Fill_If_False_Forward: {
+    case StyioASTType::Fill_If_False_Forward: {
       auto name = std::string("Forward (Fill -> If False -> Run)");
 
       output = std::string(name);
     } break;
 
-    case StyioNodeHint::Chain_Of_Data_Processing: {
+    case StyioASTType::Chain_Of_Data_Processing: {
       auto name = std::string("styio.ast.chain_of_data_processing");
 
       output = std::string(name);
     } break;
 
-    case StyioNodeHint::DType: {
+    case StyioASTType::DType: {
       auto name = std::string("type");
 
       output = std::string(name);
     } break;
 
-    case StyioNodeHint::TypedVar: {
+    case StyioASTType::TypedVar: {
       auto name = std::string("Var");
 
       output = std::string(name);
@@ -557,7 +537,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Pass: {
+    case StyioASTType::Pass: {
       auto name = std::string("Do Nothing");
 
       output = std::string(name);
@@ -565,7 +545,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::Break: {
+    case StyioASTType::Break: {
       auto name = std::string("Break");
 
       output = std::string(name);
@@ -573,7 +553,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::CondFlow_True: {
+    case StyioASTType::CondFlow_True: {
       auto name = std::string("Conditionals (Only True)");
 
       output = std::string(name);
@@ -581,7 +561,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::CondFlow_False: {
+    case StyioASTType::CondFlow_False: {
       auto name = std::string("Conditionals (Only False)");
 
       output = std::string(name);
@@ -589,7 +569,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::CondFlow_Both: {
+    case StyioASTType::CondFlow_Both: {
       auto name = std::string("Conditionals (True & False)");
 
       output = std::string(name);
@@ -597,7 +577,7 @@ reprNodeType(StyioNodeHint type, std::string extra) {
 
     break;
 
-    case StyioNodeHint::MainBlock: {
+    case StyioASTType::MainBlock: {
       auto name = std::string("Main");
 
       output = std::string(name);
@@ -893,64 +873,11 @@ reprToken(StyioToken token) {
   }
 };
 
-bool
-isSignedIntTy(StyioDataType T) {
-  return (
-    T == StyioDataType::i1
-    || T == StyioDataType::i8
-    || T == StyioDataType::i16
-    || T == StyioDataType::i32
-    || T == StyioDataType::i64
-    || T == StyioDataType::i128
-  );
-}
-
-bool
-isFloatType(StyioDataType T) {
-  return (
-    T == StyioDataType::f32
-    || T == StyioDataType::f64
-  );
-}
-
 StyioDataType
 getMaxType(StyioDataType T1, StyioDataType T2) {
-  if (T1 == T2) {
+  if (T1.option == T2.option) {
     return T1;
   }
-  /* max(int, int) */
-  else if (isSignedIntTy(T1) && isSignedIntTy(T2)) {
-    if (T1 < T2) {
-      return T2;
-    }
-    else {
-      return T1;
-    }
-  }
-  /* max(float, float) */
-  else if (isFloatType(T1) && isFloatType(T2)) {
-    if (T1 < T2) {
-      return T2;
-    }
-    else {
-      return T1;
-    }
-  }
-  else if ((T1 == StyioDataType::i32 && T2 == StyioDataType::f64) || (T1 == StyioDataType::f64 && T2 == StyioDataType::i32)) {
-    return StyioDataType::f64;
-  }
-  else if ((T1 == StyioDataType::i1 && T2 == StyioDataType::f64) || (T1 == StyioDataType::i8 && T2 == StyioDataType::f64) || (T1 == StyioDataType::i16 && T2 == StyioDataType::f64)) {
-    return StyioDataType::f64;
-  }
-  else if ((T1 == StyioDataType::f64 && T2 == StyioDataType::i1) || (T1 == StyioDataType::f64 && T2 == StyioDataType::i8) || (T1 == StyioDataType::f64 && T2 == StyioDataType::i16)) {
-    return StyioDataType::f64;
-  }
-  else if ((T1 == StyioDataType::i64 && T2 == StyioDataType::f32) || (T1 == StyioDataType::f32 && T2 == StyioDataType::i64)) {
-    return StyioDataType::f64;
-  }
-  else if (T1 == StyioDataType::undefined || T2 == StyioDataType::undefined) {
-    return StyioDataType::undefined;
-  }
-
-  return StyioDataType::undefined;
+  
+  return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
 }
