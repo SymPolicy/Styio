@@ -145,7 +145,7 @@ public:
       data_type = it->second;
     }
     else {
-      data_type = StyioDataType{ StyioDataTypeOption::Defined, "Defined", 0 };
+      data_type = StyioDataType{StyioDataTypeOption::Defined, type_name, 0};
     }
   }
 
@@ -289,7 +289,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType {StyioDataTypeOption::Integer, "Integer", num_of_bit};
+    return StyioDataType{StyioDataTypeOption::Integer, "Integer", num_of_bit};
   }
 };
 
@@ -1684,13 +1684,16 @@ public:
 */
 class StructAST : public StyioASTTraits<StructAST>
 {
-  NameAST* FName = nullptr;
-  VarTupleAST* FVars = nullptr;
-  StyioAST* FBlock = nullptr;
-
 public:
-  StructAST(NameAST* name, VarTupleAST* vars, StyioAST* block) :
-      FName((name)), FVars(vars), FBlock((block)) {
+  NameAST* name = nullptr;
+  std::vector<ArgAST*> attrs;
+
+  StructAST(NameAST* name, std::vector<ArgAST*> attrs) :
+      name(name), attrs(attrs) {
+  }
+
+  static StructAST* Create(NameAST* name, std::vector<ArgAST*> attrs) {
+    return new StructAST(name, attrs);
   }
 
   const StyioASTType getNodeType() const {
@@ -1698,7 +1701,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Struct, name->getNameAsStr(), 0};
   }
 };
 
@@ -2202,7 +2205,7 @@ public:
   }
 
   static ForwardAST* Create(
-    VarTupleAST* vars, 
+    VarTupleAST* vars,
     CondFlowAST* condflow
   ) {
     return new ForwardAST(vars, condflow);

@@ -17,9 +17,6 @@ using std::make_unique;
 using std::shared_ptr;
 using std::unique_ptr;
 
-/*
-  Context ~ ForwardAST
-*/
 class StyioContext;
 
 class StyioContext
@@ -646,6 +643,9 @@ parse_list(StyioContext& context);
 StyioAST*
 parse_set(StyioContext& context);
 
+StyioAST* 
+parse_struct(StyioContext& context);
+
 /*
   =================
     Basic Operation
@@ -778,7 +778,7 @@ parse_bind_final(StyioContext& context, NameAST* id_ast);
   parse_pipeline
 */
 StyioAST*
-parse_func(StyioContext& context);
+parse_template(StyioContext& context);
 
 /*
   parse_read_file

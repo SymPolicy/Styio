@@ -42,7 +42,7 @@ StyioRepr::toString(NameAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(DTypeAST* ast, int indent) {
-  return reprASTType(ast->getNodeType()) + " { " + ast->getTypeName() + " }";
+  return reprASTType(ast->getNodeType()) + " { " + ast->data_type.name + " }";
 }
 
 std::string
@@ -103,7 +103,7 @@ std::string
 StyioRepr::toString(FlexBindAST* ast, int indent) {
   return reprASTType(ast->getNodeType(), " ") + string("{")
          + "\n" + make_padding(indent) + ast->getVar()->toString(this)
-         + "\n" + make_padding(indent) + "val = " + ast->getValue()->toString(this, indent + 1)
+         + "\n" + make_padding(indent) + ast->getValue()->toString(this, indent + 1)
          + "}";
 }
 
@@ -139,7 +139,12 @@ StyioRepr::toString(InfiniteAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(StructAST* ast, int indent) {
-  return reprASTType(ast->getNodeType(), " ") + "{" + "}";
+  std::string argstr;
+  for (size_t i = 0; i < ast->attrs.size(); i++) {
+    argstr += make_padding(indent) + ast->attrs.at(i)->toString(this, indent + 1);
+  }
+
+  return reprASTType(ast->getNodeType(), " {\n") + argstr + "}";
 }
 
 std::string

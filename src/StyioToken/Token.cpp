@@ -6,589 +6,325 @@
 
 std::string
 reprASTType(StyioASTType type, std::string extra) {
-  std::string output = "";
+  std::string output = "styio.ast.";
 
   switch (type) {
     case StyioASTType::True: {
-      auto name = std::string("True");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("true");
+    } break;
 
     case StyioASTType::False: {
-      auto name = std::string("False");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("false");
+    } break;
 
     case StyioASTType::None: {
-      auto name = std::string("None");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("none");
+    } break;
 
     case StyioASTType::Empty: {
-      auto name = std::string("Empty");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("empty");
+    } break;
 
     case StyioASTType::Id: {
-      auto name = std::string("id");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("name");
+    } break;
 
     case StyioASTType::Variable: {
-      auto name = std::string("var");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("var");
+    } break;
 
     case StyioASTType::Arg: {
-      auto name = std::string("Arg");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("arg");
+    } break;
 
     case StyioASTType::Integer: {
       auto name = std::string("styio.ast.int");
 
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("");
+    } break;
 
     case StyioASTType::Float: {
-      auto name = std::string("float");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("float");
+    } break;
 
     case StyioASTType::Char: {
-      auto name = std::string("char");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("char");
+    } break;
 
     case StyioASTType::String: {
-      auto name = std::string("String");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("string");
+    } break;
 
     case StyioASTType::NumConvert: {
-      auto name = std::string("Convert");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("convert");
+    } break;
 
     case StyioASTType::FmtStr: {
-      auto name = std::string("FmtStr");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("fmtstr");
+    } break;
 
     case StyioASTType::LocalPath: {
-      auto name = std::string("styio.ast.path");
-
-      output = std::string(name);
+      output += std::string("path");
     } break;
 
     case StyioASTType::RemotePath: {
-      auto name = std::string("Addr");
-
-      output = std::string(name);
+      output += std::string("addr");
     } break;
 
     case StyioASTType::WebUrl: {
-      auto name = std::string("URL");
-
-      output = std::string(name);
+      output += std::string("url");
     } break;
 
     case StyioASTType::DBUrl: {
-      auto name = std::string("URL (Database)");
-
-      output = std::string(name);
+      output += std::string("url.database");
     } break;
 
     case StyioASTType::ExtPack: {
-      auto name = std::string("Package");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("package");
+    } break;
 
     case StyioASTType::VarTuple: {
-      auto name = std::string("Fill");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("vars");
+    } break;
 
     case StyioASTType::Condition: {
-      auto name = std::string("styio.ast.cond");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("cond");
+    } break;
 
     case StyioASTType::SizeOf: {
-      auto name = std::string("SizeOf");
-
-      output = std::string(name);
+      output += std::string("sizeof");
     } break;
 
     case StyioASTType::BinOp: {
-      auto name = std::string("BinOp");
-
-      output = std::string(name);
+      output += std::string("binop");
     } break;
 
     case StyioASTType::Print: {
-      auto name = std::string("Print");
-
-      output = std::string(name);
+      output += std::string("print");
     } break;
 
     case StyioASTType::ReadFile: {
-      auto name = std::string("Read File");
-
-      output = std::string(name);
+      output += std::string("read.file");
     } break;
 
     case StyioASTType::Call: {
-      auto name = std::string("styio.ast.call");
-
-      output = std::string(name);
+      output += std::string("call");
     } break;
 
     case StyioASTType::Attribute: {
-      auto name = std::string("styio.ast.attr");
-
-      output = std::string(name);
+      output += std::string("attr");
     } break;
 
     case StyioASTType::Access: {
-      auto name = std::string("Access");
-
-      output = std::string(name);
+      output += std::string("access");
     } break;
 
     case StyioASTType::Access_By_Name: {
-      auto name = std::string("Access by Name");
-
-      output = std::string(name);
+      output += std::string("access.by_name");
     } break;
 
     case StyioASTType::Access_By_Index: {
-      auto name = std::string("Access by Index");
-
-      output = std::string(name);
+      output += std::string("access.by_index");
     } break;
 
     case StyioASTType::Get_Index_By_Value: {
-      auto name = std::string("Get Index by Value");
-
-      output = std::string(name);
+      output += std::string("get_index.by_value");
     } break;
 
     case StyioASTType::Get_Indices_By_Many_Values: {
-      auto name = std::string("Get Indices by Many Value");
-
-      output = std::string(name);
+      output += std::string("get_indices.by_values");
     } break;
 
     case StyioASTType::Append_Value: {
-      auto name = std::string("Append");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("append");
+    } break;
 
     case StyioASTType::Insert_Item_By_Index: {
-      auto name = std::string("Insert by Index");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("insert.by_index");
+    } break;
 
     case StyioASTType::Remove_Item_By_Index: {
-      auto name = std::string("Remove by Index");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("remove.by_index");
+    } break;
 
     case StyioASTType::Remove_Items_By_Many_Indices: {
-      auto name = std::string("Remove by Many Indices");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("remove.by_indices");
+    } break;
 
     case StyioASTType::Remove_Item_By_Value: {
-      auto name = std::string("Remove by Value");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("remove.by_value");
+    } break;
 
     case StyioASTType::Remove_Items_By_Many_Values: {
-      auto name = std::string("Remove by Many Values");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("remove.by_values");
+    } break;
 
     case StyioASTType::Get_Reversed: {
-      auto name = std::string("Reversed");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("reversed");
+    } break;
 
     case StyioASTType::Get_Index_By_Item_From_Right: {
-      auto name = std::string("Get Index by Item (From Right)");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("get_index.by_item_backward");
+    } break;
 
     case StyioASTType::Return: {
-      auto name = std::string("Return");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("return");
+    } break;
 
     case StyioASTType::Range: {
-      auto name = std::string("Range");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("range");
+    } break;
 
     case StyioASTType::Tuple: {
-      auto name = std::string("tuple");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("tuple");
+    } break;
 
     case StyioASTType::List: {
-      auto name = std::string("list");
 
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("list");
+    } break;
 
     case StyioASTType::Set: {
-      auto name = std::string("hashset");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("set");
+    } break;
 
     case StyioASTType::Resources: {
-      auto name = std::string("styio.ast.resources");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("resources");
+    } break;
 
     case StyioASTType::MutBind: {
-      output = std::string("Binding (Flexible)");
-    }
-
-    break;
+      output += std::string("bind.flex");
+    } break;
 
     case StyioASTType::FinalBind: {
-      output = std::string("Binding (Final)");
-    }
-
-    break;
+      output += std::string("styio.ast.bind.final");
+    } break;
 
     case StyioASTType::Block: {
-      auto name = std::string("Block");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("block");
+    } break;
 
     case StyioASTType::Cases: {
-      auto name = std::string("Cases");
 
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("cases");
+    } break;
 
     case StyioASTType::Func: {
-      auto name = std::string("Function");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("func");
+    } break;
 
     case StyioASTType::Struct: {
-      auto name = std::string("Struct");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("struct");
+    } break;
 
     case StyioASTType::Loop: {
-      auto name = std::string("Loop");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("loop");
+    } break;
 
     case StyioASTType::Iterator: {
-      auto name = std::string("styio.ast.iterator");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("iterator");
+    } break;
 
     case StyioASTType::CheckEq: {
-      auto name = std::string("Equal To?");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("check.equal");
+    } break;
 
     case StyioASTType::CheckIsin: {
-      auto name = std::string("Is In?");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("check.isin");
+    } break;
 
     case StyioASTType::FromTo: {
-      auto name = std::string("Transfer");
 
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("from_to");
+    } break;
 
     case StyioASTType::Forward: {
-      auto name = std::string("styio.ast.forward.run");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("forward.run");
+    } break;
 
     case StyioASTType::If_Equal_To_Forward: {
-      auto name = std::string("Forward (If Equal -> Run)");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("forward.check.equal");
+    } break;
 
     case StyioASTType::If_Is_In_Forward: {
-      auto name = std::string("Forward (If Is In -> Run)");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("forward.check.isin");
+    } break;
 
     case StyioASTType::Cases_Forward: {
-      auto name = std::string("Forward (Cases)");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("forward.cases");
+    } break;
 
     case StyioASTType::If_True_Forward: {
-      auto name = std::string("Forward (If True -> Run)");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("forward.only_true");
+    } break;
 
     case StyioASTType::If_False_Forward: {
-      auto name = std::string("Forward (If False -> Run)");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("forward.only_false");
+    } break;
 
     case StyioASTType::Fill_Forward: {
-      auto name = std::string("Forward (Fill -> Run)");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("forward.fill.run");
+    } break;
 
     case StyioASTType::Fill_If_Equal_To_Forward: {
-      auto name = std::string("Forward (Fill -> If Equal -> Run)");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("fill.check.equal");
+    } break;
 
     case StyioASTType::Fill_If_Is_in_Forward: {
-      auto name = std::string("Forward (Fill -> If Is In -> Run)");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("fill.check.isin");
+    } break;
 
     case StyioASTType::Fill_Cases_Forward: {
-      auto name = std::string("Forward (Fill -> Cases)");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("fill.cases");
+    } break;
 
     case StyioASTType::Fill_If_True_Forward: {
-      auto name = std::string("Forward (Fill -> If True -> Run)");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("fill.only_true");
+    } break;
 
     case StyioASTType::Fill_If_False_Forward: {
-      auto name = std::string("Forward (Fill -> If False -> Run)");
-
-      output = std::string(name);
+      output += std::string("fill.only_false");
     } break;
 
     case StyioASTType::Chain_Of_Data_Processing: {
-      auto name = std::string("styio.ast.chain_of_data_processing");
-
-      output = std::string(name);
+      output += std::string("chain_of_data_processing");
     } break;
 
     case StyioASTType::DType: {
-      auto name = std::string("type");
-
-      output = std::string(name);
+      output += std::string("type");
     } break;
 
     case StyioASTType::TypedVar: {
-      auto name = std::string("Var");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("var");
+    } break;
 
     case StyioASTType::Pass: {
-      auto name = std::string("Do Nothing");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("do_nothing");
+    } break;
 
     case StyioASTType::Break: {
-      auto name = std::string("Break");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("break");
+    } break;
 
     case StyioASTType::CondFlow_True: {
-      auto name = std::string("Conditionals (Only True)");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("only_true");
+    } break;
 
     case StyioASTType::CondFlow_False: {
-      auto name = std::string("Conditionals (Only False)");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("only_false");
+    } break;
 
     case StyioASTType::CondFlow_Both: {
-      auto name = std::string("Conditionals (True & False)");
-
-      output = std::string(name);
-    }
-
-    break;
+      output += std::string("if_else");
+    } break;
 
     case StyioASTType::MainBlock: {
-      auto name = std::string("Main");
+      output += std::string("main");
+    } break;
 
-      output = std::string(name);
-    }
-
-    break;
-
-    default:
-      output = std::string("!{UnknownAST}");
-
-      break;
+    default: {
+      output += std::string("unknown");
+    } break;
   }
 
   return output + extra;
@@ -878,6 +614,6 @@ getMaxType(StyioDataType T1, StyioDataType T2) {
   if (T1.option == T2.option) {
     return T1;
   }
-  
+
   return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
 }

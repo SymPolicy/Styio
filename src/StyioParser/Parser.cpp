@@ -20,6 +20,10 @@
 using std::string;
 using std::vector;
 
+void here() {
+  std::cout << "here" << std::endl;
+}
+
 /*
   =================
   - id
@@ -987,6 +991,27 @@ parse_set(StyioContext& context) {
 }
 
 StyioAST*
+parse_struct(StyioContext& context,
+  NameAST* name) {
+  vector<ArgAST*> elems;
+
+  do {
+    context.drop_all_spaces_comments();
+
+    if (context.check_drop('}')) {
+      return StructAST::Create(name, elems);
+    }
+    else {
+      elems.push_back(parse_argument(context));
+    }
+  } while (context.check_drop(',') or context.check_drop(';'));
+
+  context.find_drop_panic('}');
+    
+  return StructAST::Create(name, elems);
+}
+
+StyioAST*
 parse_iterable(StyioContext& context) {
   StyioAST* output = EmptyAST::Create();
 
@@ -1926,9 +1951,8 @@ parse_cond_flow(StyioContext& context) {
 }
 
 StyioAST*
-parse_func(StyioContext& context) {
-  /* this line drops cur_char without checking */
-  context.move(1);
+parse_template(StyioContext& context) {
+  context.move(1); /* this line drops cur_char without checking */
   context.drop_white_spaces();
 
   /* # func_name ... */
@@ -1942,11 +1966,16 @@ parse_func(StyioContext& context) {
       if (context.check_drop('=')) {
         context.drop_all_spaces();
 
-        return new FuncAST(
-          func_name,
-          parse_forward(context, true),
-          true
-        );
+        if (context.check_drop('{')) {
+          return parse_struct(context, func_name);
+        }
+        else {
+          return new FuncAST(
+            func_name,
+            parse_forward(context, true),
+            true
+          );
+        }
       }
       /* f : ... */
       else {
@@ -2646,7 +2675,7 @@ parse_stmt(
     } break;  // You should NOT reach this line!
 
     case '#': {
-      return parse_func(context);
+      return parse_template(context);
     } break;  // You should NOT reach this line!
 
     case '.': {

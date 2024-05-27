@@ -1,0 +1,9 @@
+// RUN: /root/styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
+
+# Person := {
+  name: string
+}
+
+A: Person = {
+  "Alice"
+}

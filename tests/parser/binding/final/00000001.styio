@@ -1,0 +1,5 @@
+// RUN: /root/styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
+
+ConstTuple := ( 1, 2, 3 )
+ConstList  := [ 1, 2, 3 ]
+ConstSet   := { 0, 1, 2 }
