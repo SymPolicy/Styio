@@ -123,12 +123,16 @@ StyioAnalyzer::toStyioIR(OptKwArgAST* ast) {
 */
 StyioIR*
 StyioAnalyzer::toStyioIR(FlexBindAST* ast) {
-  return SGConstInt::Create(0);
+  return SGFlexBind::Create(
+    static_cast<SGVar*>(ast->getVar()->toStyioIR(this)), 
+    ast->getValue()->toStyioIR(this));
 }
 
 StyioIR*
 StyioAnalyzer::toStyioIR(FinalBindAST* ast) {
-  return SGConstInt::Create(0);
+  return SGFinalBind::Create(
+    static_cast<SGVar*>(ast->getVar()->toStyioIR(this)), 
+    ast->getValue()->toStyioIR(this));
 }
 
 StyioIR*

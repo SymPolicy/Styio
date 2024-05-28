@@ -30,17 +30,16 @@ StyioToLLVM::execute() {
   // Look up the JIT'd code entry point.
   auto ExprSymbol = theORCJIT->lookup("main");
   if (!ExprSymbol) {
-    std::cout << "not found" << std::endl;
+    std::cout << "main not found" << std::endl;
     return;
+  } 
+  else {
+    std::cout << "main found" << std::endl;
   }
-
-  std::cout << "after look up" << std::endl;
 
   // Cast the entry point address to a function pointer.
   int (*FP)() = ExprSymbol->getAddress().toPtr<int (*)()>();
 
   // Call into JIT'd code.
   std::cout << "result: " << FP() << std::endl;
-
-  std::cout << "after run jit'd code" << std::endl;
 }

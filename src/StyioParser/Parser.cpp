@@ -388,7 +388,7 @@ parse_resources(
 
         resources.push_back(
           new FinalBindAST(
-            varname,
+            VarAST::Create(varname),
             parse_value(context)
           )
         );
@@ -2553,7 +2553,7 @@ parse_stmt(
         if (context.check_drop('=')) {
           context.drop_all_spaces_comments();
 
-          return new FinalBindAST((id_ast), (parse_expr(context)));
+          return new FinalBindAST(VarAST::Create(id_ast), parse_expr(context));
         }
         else {
           context.drop_white_spaces();
@@ -2566,7 +2566,7 @@ parse_stmt(
             if (context.check_drop('=')) {
               context.drop_white_spaces();
 
-              return new FinalBindAST(id_ast, (parse_expr(context)));
+              return new FinalBindAST(VarAST::Create(id_ast), parse_expr(context));
             }
           }
           else if (context.check_drop('=')) {

@@ -125,7 +125,7 @@ class StyioToLLVM : public StyioCodeGenVisitor
   unique_ptr<llvm::StandardInstrumentations> theSI;
   llvm::PassBuilder thePB;
 
-  unordered_map<string, llvm::AllocaInst*> mut_vars; /* [FlexBind] Mutable Variables */
+  unordered_map<string, llvm::AllocaInst*> mutable_variables; /* [FlexBind] Mutable Variables */
   unordered_map<string, llvm::Value*> named_values;  /* [FinalBind] Named Values = Immutable Variables */
 
 public:

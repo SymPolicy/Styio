@@ -22,9 +22,10 @@
 */
 class SGResId : public StyioIRTraits<SGResId>
 {
-public:
+private:
   std::string id;
 
+public:
   SGResId(std::string id) :
       id(id) {
   }
@@ -35,6 +36,10 @@ public:
 
   static SGResId* Create(std::string id) {
     return new SGResId(id);
+  }
+
+  const std::string& as_str() {
+    return id;
   }
 };
 
@@ -230,16 +235,16 @@ public:
 class SGVar : public StyioIRTraits<SGVar>
 {
 public:
-  SGResId* var_id;
+  SGResId* var_name;
   SGType* var_type;
   StyioIR* val_init = nullptr;
 
   SGVar(SGResId* id, SGType* type) :
-      var_id(id), var_type(type) {
+      var_name(id), var_type(type) {
   }
 
   SGVar(SGResId* id, SGType* type, StyioIR* value) :
-      var_id(id), var_type(type), val_init(value) {
+      var_name(id), var_type(type), val_init(value) {
   }
 
   static SGVar* Create(SGResId* id, SGType* type) {

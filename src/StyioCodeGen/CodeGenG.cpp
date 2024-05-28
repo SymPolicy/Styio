@@ -52,14 +52,14 @@
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGResId* node) {
-  const string& resid = node->id;
+  const string& name = node->as_str();
 
-  if (named_values.contains(resid)) {
-    return named_values[resid];
+  if (named_values.contains(name)) {
+    return named_values[name];
   }
 
-  if (mut_vars.contains(resid)) {
-    llvm::AllocaInst* variable = mut_vars[resid];
+  if (mutable_variables.contains(name)) {
+    llvm::AllocaInst* variable = mutable_variables[name];
     return theBuilder->CreateLoad(variable->getAllocatedType(), variable);
   }
 
@@ -116,6 +116,70 @@ StyioToLLVM::toLLVMIR(SGCast* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGBinOp* node) {
+  StyioDataType data_type = node->data_type->data_type;
+  llvm::Value* l_val = node->lhs_expr->toLLVMIR(this);
+  llvm::Value* r_val = node->rhs_expr->toLLVMIR(this);
+
+  switch (node->operand) {
+    case TokenKind::Binary_Add: {
+      if (data_type.isInteger()) {
+        return theBuilder->CreateAdd(l_val, r_val);
+      }
+      else if (data_type.isFloat()) {
+        return theBuilder->CreateFAdd(l_val, r_val);
+      }
+    } break;
+
+    case TokenKind::Binary_Sub: {
+      if (data_type.isInteger()) {
+        return theBuilder->CreateSub(l_val, r_val);
+      }
+      else if (data_type.isFloat()) {
+        return theBuilder->CreateFSub(l_val, r_val);
+      }
+    } break;
+
+    case TokenKind::Binary_Mul: {
+      if (data_type.isInteger()) {
+        return theBuilder->CreateMul(l_val, r_val);
+      }
+      else if (data_type.isFloat()) {
+        return theBuilder->CreateFMul(l_val, r_val);
+      }
+    } break;
+
+    case TokenKind::Binary_Div: {
+      /* Signed Integer */
+      if (data_type.isInteger()) {
+        return theBuilder->CreateSDiv(l_val, r_val);
+      }
+      else if (data_type.isFloat()) {
+        return theBuilder->CreateFDiv(l_val, r_val);
+      }
+    } break;
+
+    case TokenKind::Binary_Pow: {
+    } break;
+
+    case TokenKind::Binary_Mod: {
+    } break;
+
+    case TokenKind::Self_Add_Assign: {
+    } break;
+
+    case TokenKind::Self_Sub_Assign: {
+    } break;
+
+    case TokenKind::Self_Mul_Assign: {
+    } break;
+
+    case TokenKind::Self_Div_Assign: {
+    } break;
+
+    default:
+      break;
+  }
+
   return theBuilder->getInt64(0);
 }
 
@@ -141,12 +205,59 @@ StyioToLLVM::toLLVMIR(SGVar* node) {
 */
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGFlexBind* node) {
-  return theBuilder->getInt64(0);
+  std::string varname = node->var->var_name->as_str();
+  llvm::AllocaInst* variable;
+
+  if (named_values.contains(varname)) {
+    /* ERROR */
+    throw StyioNotImplemented("if a immutable variable is re-defined ...");
+  }
+
+  if (mutable_variables.contains(varname)) {
+    variable = mutable_variables[varname];
+  }
+  else {
+    variable = theBuilder->CreateAlloca(
+      node->toLLVMType(this),
+      nullptr,
+      varname.c_str()
+    );
+
+    theBuilder->CreateStore(
+      node->value->toLLVMIR(this),
+      variable
+    );
+
+    mutable_variables[varname] = variable;
+  }
+
+  return variable;
 }
 
+/*
+  named_values stores only the llvm::value,
+  if required, use llvm::value instead of load inst.
+*/
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGFinalBind* node) {
-  return theBuilder->getInt64(0);
+  std::string varname = node->var->var_name->as_str();
+  if (named_values.contains(varname)) {
+    /* ERROR */
+    throw StyioNotImplemented("if a immutable variable is re-defined ...");
+  }
+
+  llvm::AllocaInst* variable = theBuilder->CreateAlloca(
+    node->toLLVMType(this),
+    nullptr,
+    varname.c_str()
+  );
+
+  auto value = node->value->toLLVMIR(this);
+  named_values[varname] = value;
+
+  theBuilder->CreateStore(value, variable);
+
+  return variable;
 }
 
 llvm::Value*
@@ -158,7 +269,7 @@ llvm::Value*
 StyioToLLVM::toLLVMIR(SGFunc* node) {
   auto latest_insert_point = theBuilder->saveIP();
 
-  std::string fname = node->func_name->id;
+  std::string fname = node->func_name->as_str();
 
   if (node->func_args.empty()) {
     llvm::Function* llvm_func = llvm::Function::Create(
@@ -289,4 +400,3 @@ StyioToLLVM::toLLVMIR(SGMainEntry* node) {
 
   return main_func;
 }
-

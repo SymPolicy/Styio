@@ -1,4 +1,4 @@
-// RUN: /root/styio/styio --ir --file %s | /usr/bin/FileCheck %s
+// RUN: /root/styio/styio --llvm-ir --file %s | /usr/bin/FileCheck %s
 
 a := 2
 b  = a

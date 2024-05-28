@@ -1639,12 +1639,12 @@ public:
 */
 class FinalBindAST : public StyioASTTraits<FinalBindAST>
 {
-  NameAST* varName = nullptr;
+  VarAST* var = nullptr;
   StyioAST* valExpr = nullptr;
 
 public:
-  FinalBindAST(NameAST* var, StyioAST* val) :
-      varName(var), valExpr(val) {
+  FinalBindAST(VarAST* var, StyioAST* val) :
+      var(var), valExpr(val) {
   }
 
   const StyioASTType getNodeType() const {
@@ -1655,8 +1655,8 @@ public:
     return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
   }
 
-  NameAST* getVarName() {
-    return varName;
+  VarAST* getVar() {
+    return var;
   }
 
   StyioAST* getValue() {
@@ -1664,7 +1664,7 @@ public:
   }
 
   const string& getName() {
-    return varName->getAsStr();
+    return var->getNameAsStr();
   }
 };
 

@@ -5,21 +5,6 @@
 #include <string>
 #include <unordered_map>
 
-// enum class StyioDataType
-// {
-//   undefined = 0,
-
-//   i1 = 1001,
-//   i8 = 1008,
-//   i16 = 1016,
-//   i32 = 1032,
-//   i64 = 1064,
-//   i128 = 1128,
-
-//   f32 = 2032,
-//   f64 = 2064,
-// };
-
 enum class StyioDataTypeOption {
   Undefined,
   Defined,
@@ -47,6 +32,14 @@ struct StyioDataType {
 
   bool isUndefined() {
     return option == StyioDataTypeOption::Undefined;
+  }
+
+  bool isInteger() {
+    return option == StyioDataTypeOption::Integer;
+  }
+
+  bool isFloat() {
+    return option == StyioDataTypeOption::Float;
   }
 
   bool equals(const StyioDataType other) const {
