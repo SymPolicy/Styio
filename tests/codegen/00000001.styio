@@ -1,2 +1,5 @@
 // RUN: /root/styio/styio --ir --file %s | /usr/bin/FileCheck %s
 
+@("a.json") -> <- @("b.json")
+
+@("a.json").switch(@("b.json"))

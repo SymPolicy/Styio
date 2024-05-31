@@ -1,0 +1,8 @@
+// RUN: /root/styio/styio --llvm-ir --file %s | /usr/bin/FileCheck %s
+
+a = @("a.json") -> $a
+    ?= Err(e) => { >_ (e) }
+
+a = @("a.json").read()
+    ?= Err(e) => { >_ (e) }
+    |  Ok(o)  => { o -> $a }

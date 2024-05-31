@@ -1,0 +1,7 @@
+// RUN: /root/styio/styio --llvm-ir --file %s | /usr/bin/FileCheck %s
+
+a, n = @("a.json")
+  .read() -> $a
+  .size() -> $n
+
+>_ (a, n)
