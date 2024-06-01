@@ -1,0 +1,8 @@
+// RUN: /root/styio/styio --llvm-ir --file %s | /usr/bin/FileCheck %s
+
+buf, len << @("a.json") 
+  => #(a)           // File
+  => read() -> $buf // ByteArray
+  => size() -> $len // Integer
+
+>_ (buf, len)
