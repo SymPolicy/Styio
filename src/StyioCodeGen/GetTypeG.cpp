@@ -9,8 +9,8 @@
 #include "../StyioException/Exception.hpp"
 #include "../StyioIR/GenIR/GenIR.hpp"
 #include "../StyioToken/Token.hpp"
-#include "CodeGenVisitor.hpp"
 #include "../StyioUtil/Util.hpp"
+#include "CodeGenVisitor.hpp"
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGResId* node) {

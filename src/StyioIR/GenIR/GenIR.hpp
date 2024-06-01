@@ -315,10 +315,10 @@ public:
     std::vector<SGFuncArg*> func_args,
     SGBlock* func_block
   ) :
-      ret_type(std::move(ret_type)),
-      func_name(std::move(func_name)),
-      func_args(std::move(func_args)),
-      func_block(std::move(func_block)) {
+      ret_type(ret_type),
+      func_name(func_name),
+      func_args(func_args),
+      func_block(func_block) {
   }
 
   static SGFunc* Create(SGType* ret_type, SGResId* func_name, std::vector<SGFuncArg*> func_args, SGBlock* func_block) {

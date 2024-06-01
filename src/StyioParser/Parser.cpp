@@ -2758,10 +2758,7 @@ parse_stmt(
       break;
   }
 
-  std::cout << "current position: " << context.get_curr_pos() << std::endl;
-
-  string errmsg = string("Unrecognized statement, starting with `") + char(context.get_curr_char()) + "`";
-  throw StyioSyntaxError(errmsg);
+  throw StyioSyntaxError(context.label_cur_line(), "Unrecognized statement");
 }
 
 string

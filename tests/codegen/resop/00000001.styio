@@ -2,4 +2,4 @@
 
 @("a.json") -> <- @("b.json")
 
-@("a.json").switch(@("b.json"))
+@("a.json").exchange(@("b.json"))

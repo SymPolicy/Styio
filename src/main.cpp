@@ -161,6 +161,8 @@ main(
   );
 
   options.add_options()(
+    "a,all", "Show All: Styio AST, Styio IR, LLVM IR", cxxopts::value<bool>()->default_value("false")
+  )(
     "styio-ast", "Show Styio AST", cxxopts::value<bool>()->default_value("false")
   )(
     "styio-ir", "Show Styio IR", cxxopts::value<bool>()->default_value("false")
@@ -174,6 +176,8 @@ main(
     std::cout << options.help() << std::endl;
     exit(0);
   }
+
+  bool show_all = cmlopts["all"].as<bool>();
 
   bool show_styio_ast = cmlopts["styio-ast"].as<bool>();
   bool show_styio_ir = cmlopts["styio-ir"].as<bool>();
@@ -193,7 +197,7 @@ main(
     /* Parser */
     auto styio_ast = parse_main_block(*styio_context);
 
-    if (show_styio_ast) {
+    if (show_all or show_styio_ast) {
       std::cout
         << "\033[1;32mAST\033[0m \033[31m-No-Type-Checking\033[0m"
         << "\n"
@@ -205,7 +209,7 @@ main(
     StyioAnalyzer analyzer = StyioAnalyzer();
     analyzer.typeInfer(styio_ast);
 
-    if (show_styio_ast) {
+    if (show_all or show_styio_ast) {
       std::cout
         << "\033[1;32mAST\033[0m \033[1;33m-After-Type-Checking\033[0m"
         << "\n"
@@ -216,7 +220,7 @@ main(
     /* Generate Styio IR */
     StyioIR* styio_ir = analyzer.toStyioIR(styio_ast);
 
-    if (show_styio_ir) {
+    if (show_all or show_styio_ir) {
       std::cout
       << "\033[1;32mSTYIO IR\033[0m \033[1;33m\033[0m"
       << "\n"

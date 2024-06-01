@@ -490,7 +490,8 @@ public:
     return check("filter")
            or check("sort")
            or check("map")
-           or check("slice");
+           or check("slice")
+           or check("print");
   }
 
   /* Check Binary Operator */

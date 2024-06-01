@@ -585,7 +585,7 @@ class VarAST : public StyioASTTraits<VarAST>
 public:
   NameAST* var_name = NameAST::Create();   /* Variable Name */
   DTypeAST* var_type = DTypeAST::Create(); /* Variable Data Type */
-  StyioAST* val_init = nullptr;         /* Variable Initial Value */
+  StyioAST* val_init = nullptr;            /* Variable Initial Value */
 
   VarAST(NameAST* name) :
       var_name(name),
@@ -651,9 +651,9 @@ public:
 class ArgAST : public VarAST
 {
 public:
-  NameAST* var_name = NameAST::Create("");  /* Variable Name */
+  NameAST* var_name = NameAST::Create(""); /* Variable Name */
   DTypeAST* var_type = DTypeAST::Create(); /* Variable Data Type */
-  StyioAST* val_init = nullptr;       /* Variable Initial Value */
+  StyioAST* val_init = nullptr;            /* Variable Initial Value */
 
   ArgAST(NameAST* name) :
       VarAST(name),
