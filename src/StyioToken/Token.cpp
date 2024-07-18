@@ -238,6 +238,10 @@ reprASTType(StyioASTType type, std::string extra) {
       output += std::string("from_to");
     } break;
 
+    case StyioASTType::TupleOperation: {
+      output += std::string("tuple.op");
+    } break;
+
     case StyioASTType::Forward: {
       output += std::string("forward.run");
     } break;

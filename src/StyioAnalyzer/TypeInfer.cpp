@@ -164,6 +164,10 @@ StyioAnalyzer::typeInfer(VarTupleAST* ast) {
 }
 
 void
+StyioAnalyzer::typeInfer(TupleOpAST* ast) {
+}
+
+void
 StyioAnalyzer::typeInfer(RangeAST* ast) {
 }
 

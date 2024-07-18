@@ -2254,6 +2254,34 @@ public:
   }
 };
 
+/*
+  TupleOpAST: theTuple <OP> theOpOnIt
+*/
+class TupleOpAST : public StyioASTTraits<TupleOpAST>
+{
+private:
+  TupleOpAST(VarTupleAST* theTuple, StyioAST* theOpOnIt) :
+      theTuple(theTuple), theOpOnIt(theOpOnIt) {
+  }
+
+public:
+  VarTupleAST* theTuple;
+  StyioAST* theOpOnIt;
+
+
+  TupleOpAST* Create(VarTupleAST* the_tuple, StyioAST* the_op) {
+    return new TupleOpAST(the_tuple, the_op);
+  }
+
+  const StyioASTType getNodeType() const {
+    return StyioASTType::TupleOperation;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "TupleOp", 0};
+  }
+};
+
 /* Chain of Data Processing */
 class CODPAST : public StyioASTTraits<CODPAST>
 {

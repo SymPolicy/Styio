@@ -188,6 +188,14 @@ StyioRepr::toString(VarTupleAST* ast, int indent) {
 }
 
 std::string
+StyioRepr::toString(TupleOpAST* ast, int indent) {
+  return reprASTType(ast->getNodeType()) + " {\n"
+    + make_padding(indent) + ast->theTuple->toString(this, indent + 1) + "\n"
+    + make_padding(indent) + ast->theOpOnIt->toString(this, indent + 1)
+    + "}";
+}
+
+std::string
 StyioRepr::toString(RangeAST* ast, int indent) {
   return reprASTType(ast->getNodeType(), " ") + "{\n"
          + make_padding(indent) + "Start : " + ast->getStart()->toString(this, indent + 1) + "\n"

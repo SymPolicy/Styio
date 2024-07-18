@@ -770,12 +770,6 @@ ResourceAST*
 parse_resources(StyioContext& context);
 
 /*
-  parse_bind_final
-*/
-FinalBindAST*
-parse_bind_final(StyioContext& context, NameAST* id_ast);
-
-/*
   parse_pipeline
 */
 StyioAST*
@@ -859,6 +853,9 @@ parse_block(StyioContext& context);
 
 ForwardAST*
 parse_forward(StyioContext& context, bool is_func = false);
+
+TupleOpAST*
+parse_tuple_operations(StyioContext& context);
 
 CODPAST* 
 parse_codp(StyioContext& context, CODPAST* prev_op = nullptr);

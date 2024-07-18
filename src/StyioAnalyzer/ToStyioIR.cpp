@@ -162,6 +162,11 @@ StyioAnalyzer::toStyioIR(VarTupleAST* ast) {
 }
 
 StyioIR*
+StyioAnalyzer::toStyioIR(TupleOpAST* ast) {
+  return SGConstInt::Create(0);
+}
+
+StyioIR*
 StyioAnalyzer::toStyioIR(RangeAST* ast) {
   return SGConstInt::Create(0);
 }

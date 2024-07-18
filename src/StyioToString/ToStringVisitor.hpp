@@ -99,6 +99,8 @@ using StyioToStringVisitor = ToStringVisitor<
 
   class VarTupleAST,
 
+  class TupleOpAST,
+
   class ForwardAST,
   class CheckEqAST,
   class CheckIsinAST,
@@ -154,6 +156,8 @@ public:
   std::string toString(OptKwArgAST* ast, int indent = 0);
 
   std::string toString(VarTupleAST* ast, int indent = 0);
+
+  std::string toString(TupleOpAST* ast, int indent = 0);
 
   std::string toString(DTypeAST* ast, int indent = 0);
 

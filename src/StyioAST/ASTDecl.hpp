@@ -175,6 +175,8 @@ class InfiniteAST;
 */
 class VarTupleAST;
 
+class TupleOpAST;
+
 class ForwardAST;
 class CODPAST;
 class CheckEqAST;

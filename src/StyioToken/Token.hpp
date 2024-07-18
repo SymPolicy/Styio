@@ -483,6 +483,14 @@ enum class StyioASTType
   // -----------------
 
   /* -----------------
+   * Tuple Operations
+   */
+
+  TupleOperation,
+  
+  // -----------------
+
+  /* -----------------
    * Chain of Data Processing
    */
 

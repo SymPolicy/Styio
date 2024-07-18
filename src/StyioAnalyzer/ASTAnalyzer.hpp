@@ -104,6 +104,7 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
   class InfiniteAST,
 
   class VarTupleAST,
+  class TupleOpAST,
 
   class ForwardAST,
   class CheckEqAST,
@@ -149,6 +150,7 @@ public:
   void typeInfer(OptArgAST* ast);
   void typeInfer(OptKwArgAST* ast);
   void typeInfer(VarTupleAST* ast);
+  void typeInfer(TupleOpAST* ast);
   void typeInfer(DTypeAST* ast);
   void typeInfer(IntAST* ast);
   void typeInfer(FloatAST* ast);
@@ -209,6 +211,7 @@ public:
   StyioIR* toStyioIR(OptArgAST* ast);
   StyioIR* toStyioIR(OptKwArgAST* ast);
   StyioIR* toStyioIR(VarTupleAST* ast);
+  StyioIR* toStyioIR(TupleOpAST* ast);
   StyioIR* toStyioIR(DTypeAST* ast);
   StyioIR* toStyioIR(IntAST* ast);
   StyioIR* toStyioIR(FloatAST* ast);

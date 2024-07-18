@@ -2363,6 +2363,11 @@ parse_forward(StyioContext& context, bool is_func) {
   return output;
 }
 
+TupleOpAST*
+parse_tuple_operations(StyioContext& context) {
+  
+}
+
 /*
   parse_codp takes the name of operation as a start,
   but not a `=>` symbol.
@@ -2605,8 +2610,16 @@ parse_stmt(
         }
       } break;  // You should NOT reach this line!
 
-      default:
-        break;
+      case ',': {
+        context.move(1);
+
+        // parse_tuple_operations
+
+      } break;  // You should NOT reach this line!
+
+      default: {
+        // Nothing
+      } break;
     }
   }
   // Int / Float
