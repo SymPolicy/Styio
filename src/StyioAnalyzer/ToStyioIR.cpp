@@ -162,7 +162,7 @@ StyioAnalyzer::toStyioIR(VarTupleAST* ast) {
 }
 
 StyioIR*
-StyioAnalyzer::toStyioIR(TupleOpAST* ast) {
+StyioAnalyzer::toStyioIR(ExtractorAST* ast) {
   return SGConstInt::Create(0);
 }
 
@@ -293,6 +293,11 @@ StyioAnalyzer::toStyioIR(ForwardAST* ast) {
 }
 
 StyioIR*
+StyioAnalyzer::toStyioIR(BackwardAST* ast) {
+  return SGConstInt::Create(0);
+}
+
+StyioIR*
 StyioAnalyzer::toStyioIR(CODPAST* ast) {
   return SGConstInt::Create(0);
 }
@@ -328,12 +333,12 @@ StyioAnalyzer::toStyioIR(FuncAST* ast) {
 }
 
 StyioIR*
-StyioAnalyzer::toStyioIR(IterAST* ast) {
+StyioAnalyzer::toStyioIR(IteratorAST* ast) {
   return SGConstInt::Create(0);
 }
 
 StyioIR*
-StyioAnalyzer::toStyioIR(LoopAST* ast) {
+StyioAnalyzer::toStyioIR(InfiniteLoopAST* ast) {
   return SGConstInt::Create(0);
 }
 

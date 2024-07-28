@@ -919,13 +919,13 @@ StyioToLLVMIR::toLLVMIR(FuncAST* ast) {
 }
 
 llvm::Value*
-StyioToLLVMIR::toLLVMIR(IterAST* ast) {
+StyioToLLVMIR::toLLVMIR(IteratorAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }
 
 llvm::Value*
-StyioToLLVMIR::toLLVMIR(LoopAST* ast) {
+StyioToLLVMIR::toLLVMIR(InfiniteLoopAST* ast) {
   auto output = theBuilder->getInt32(0);
   return output;
 }

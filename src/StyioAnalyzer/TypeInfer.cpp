@@ -164,7 +164,7 @@ StyioAnalyzer::typeInfer(VarTupleAST* ast) {
 }
 
 void
-StyioAnalyzer::typeInfer(TupleOpAST* ast) {
+StyioAnalyzer::typeInfer(ExtractorAST* ast) {
 }
 
 void
@@ -448,6 +448,10 @@ StyioAnalyzer::typeInfer(ForwardAST* ast) {
 }
 
 void
+StyioAnalyzer::typeInfer(BackwardAST* ast) {
+}
+
+void
 StyioAnalyzer::typeInfer(CODPAST* ast) {
 }
 
@@ -481,11 +485,11 @@ StyioAnalyzer::typeInfer(FuncAST* ast) {
 }
 
 void
-StyioAnalyzer::typeInfer(IterAST* ast) {
+StyioAnalyzer::typeInfer(IteratorAST* ast) {
 }
 
 void
-StyioAnalyzer::typeInfer(LoopAST* ast) {
+StyioAnalyzer::typeInfer(InfiniteLoopAST* ast) {
 }
 
 void

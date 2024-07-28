@@ -115,8 +115,8 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class ListOpAST,
   class RangeAST,
 
-  class IterAST,
-  class LoopAST,
+  class IteratorAST,
+  class InfiniteLoopAST,
 
   class CondFlowAST,
 
@@ -326,9 +326,9 @@ public:
 
   llvm::Type* toLLVMType(FuncAST* ast);
 
-  llvm::Type* toLLVMType(LoopAST* ast);
+  llvm::Type* toLLVMType(InfiniteLoopAST* ast);
 
-  llvm::Type* toLLVMType(IterAST* ast);
+  llvm::Type* toLLVMType(IteratorAST* ast);
 
   llvm::Type* toLLVMType(MatchCasesAST* ast);
 
@@ -440,9 +440,9 @@ public:
 
   llvm::Value* toLLVMIR(FuncAST* ast);
 
-  llvm::Value* toLLVMIR(LoopAST* ast);
+  llvm::Value* toLLVMIR(InfiniteLoopAST* ast);
 
-  llvm::Value* toLLVMIR(IterAST* ast);
+  llvm::Value* toLLVMIR(IteratorAST* ast);
 
   llvm::Value* toLLVMIR(MatchCasesAST* ast);
 

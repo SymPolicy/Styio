@@ -303,12 +303,12 @@ StyioToLLVMIR::toLLVMType(FuncAST* ast) {
 }
 
 llvm::Type*
-StyioToLLVMIR::toLLVMType(IterAST* ast) {
+StyioToLLVMIR::toLLVMType(IteratorAST* ast) {
   return theBuilder->getInt32Ty();
 }
 
 llvm::Type*
-StyioToLLVMIR::toLLVMType(LoopAST* ast) {
+StyioToLLVMIR::toLLVMType(InfiniteLoopAST* ast) {
   return theBuilder->getInt32Ty();
 }
 

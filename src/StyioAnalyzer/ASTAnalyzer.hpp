@@ -83,8 +83,8 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
   class ListOpAST,
   class RangeAST,
 
-  class IterAST,
-  class LoopAST,
+  class IteratorAST,
+  class InfiniteLoopAST,
 
   class CondFlowAST,
 
@@ -104,9 +104,11 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
   class InfiniteAST,
 
   class VarTupleAST,
-  class TupleOpAST,
+  class ExtractorAST,
 
   class ForwardAST,
+  class BackwardAST,
+
   class CheckEqAST,
   class CheckIsinAST,
   class FromToAST,
@@ -150,7 +152,7 @@ public:
   void typeInfer(OptArgAST* ast);
   void typeInfer(OptKwArgAST* ast);
   void typeInfer(VarTupleAST* ast);
-  void typeInfer(TupleOpAST* ast);
+  void typeInfer(ExtractorAST* ast);
   void typeInfer(DTypeAST* ast);
   void typeInfer(IntAST* ast);
   void typeInfer(FloatAST* ast);
@@ -187,12 +189,13 @@ public:
   void typeInfer(CheckIsinAST* ast);
   void typeInfer(FromToAST* ast);
   void typeInfer(ForwardAST* ast);
+  void typeInfer(BackwardAST* ast);
   void typeInfer(CODPAST* ast);
   void typeInfer(InfiniteAST* ast);
   void typeInfer(AnonyFuncAST* ast);
   void typeInfer(FuncAST* ast);
-  void typeInfer(LoopAST* ast);
-  void typeInfer(IterAST* ast);
+  void typeInfer(InfiniteLoopAST* ast);
+  void typeInfer(IteratorAST* ast);
   void typeInfer(MatchCasesAST* ast);
   void typeInfer(MainBlockAST* ast);
 
@@ -211,7 +214,7 @@ public:
   StyioIR* toStyioIR(OptArgAST* ast);
   StyioIR* toStyioIR(OptKwArgAST* ast);
   StyioIR* toStyioIR(VarTupleAST* ast);
-  StyioIR* toStyioIR(TupleOpAST* ast);
+  StyioIR* toStyioIR(ExtractorAST* ast);
   StyioIR* toStyioIR(DTypeAST* ast);
   StyioIR* toStyioIR(IntAST* ast);
   StyioIR* toStyioIR(FloatAST* ast);
@@ -248,12 +251,13 @@ public:
   StyioIR* toStyioIR(CheckIsinAST* ast);
   StyioIR* toStyioIR(FromToAST* ast);
   StyioIR* toStyioIR(ForwardAST* ast);
+  StyioIR* toStyioIR(BackwardAST* ast);
   StyioIR* toStyioIR(CODPAST* ast);
   StyioIR* toStyioIR(InfiniteAST* ast);
   StyioIR* toStyioIR(AnonyFuncAST* ast);
   StyioIR* toStyioIR(FuncAST* ast);
-  StyioIR* toStyioIR(LoopAST* ast);
-  StyioIR* toStyioIR(IterAST* ast);
+  StyioIR* toStyioIR(InfiniteLoopAST* ast);
+  StyioIR* toStyioIR(IteratorAST* ast);
   StyioIR* toStyioIR(MatchCasesAST* ast);
   StyioIR* toStyioIR(MainBlockAST* ast);
 };

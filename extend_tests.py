@@ -24,11 +24,11 @@ def extend_tests(dir_path, n=10):
     fnames = [f'{dir_path}/{pad_with_zeros(i)}.styio' for i in range(latest+1, latest+n+1)]
     for fn in fnames:
       if "parser" in fn:
-        create_file(fn, r"// RUN: /root/styio/styio --ast --file %s | /usr/bin/FileCheck %s")
+        create_file(fn, r"// RUN: /home/Styio/styio --ast --file %s | /usr/bin/FileCheck %s")
       elif "type_checking" in fn:
-        create_file(fn, r"// RUN: /root/styio/styio --check --file %s | /usr/bin/FileCheck %s")
+        create_file(fn, r"// RUN: /home/Styio/styio --check --file %s | /usr/bin/FileCheck %s")
       elif "codegen" in fn:
-        create_file(fn, r"// RUN: /root/styio/styio --ir --file %s | /usr/bin/FileCheck %s")
+        create_file(fn, r"// RUN: /home/Styio/styio --ir --file %s | /usr/bin/FileCheck %s")
       else:
         create_file(fn, r"")
   else:

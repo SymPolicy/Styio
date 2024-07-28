@@ -485,6 +485,14 @@ public:
     return isdigit(code.at(curr_pos));
   }
 
+  /* Tuple Operations */
+  bool check_tuple_ops() {
+    return check("<<")     // extract
+           or check(">>")  // iterate
+           or check("=>")  // next
+      ;
+  }
+
   /* Check Chain of Data Processing */
   bool check_codp() {
     return check("filter")
@@ -591,7 +599,7 @@ type_to_int(Enumeration const value) ->
   parse_id
 */
 NameAST*
-parse_id(StyioContext& context);
+parse_name(StyioContext& context);
 
 /*
   =================
@@ -639,12 +647,15 @@ StyioAST*
 parse_tuple(StyioContext& context);
 
 StyioAST*
+parse_tuple_no_braces(StyioContext& context, StyioAST* first_element = nullptr);
+
+StyioAST*
 parse_list(StyioContext& context);
 
 StyioAST*
 parse_set(StyioContext& context);
 
-StyioAST* 
+StyioAST*
 parse_struct(StyioContext& context);
 
 /*
@@ -678,7 +689,6 @@ parse_chain_of_call(
   StyioContext& context,
   StyioAST* callee
 );
-
 
 /*
   parse_bin_rhs
@@ -854,10 +864,10 @@ parse_block(StyioContext& context);
 ForwardAST*
 parse_forward(StyioContext& context, bool is_func = false);
 
-TupleOpAST*
-parse_tuple_operations(StyioContext& context);
+ExtractorAST*
+parse_tuple_operations(StyioContext& context, TupleAST* the_tuple);
 
-CODPAST* 
+CODPAST*
 parse_codp(StyioContext& context, CODPAST* prev_op = nullptr);
 
 MainBlockAST*

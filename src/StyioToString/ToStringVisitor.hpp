@@ -77,8 +77,8 @@ using StyioToStringVisitor = ToStringVisitor<
   class ListOpAST,
   class RangeAST,
 
-  class IterAST,
-  class LoopAST,
+  class IteratorAST,
+  class InfiniteLoopAST,
 
   class CondFlowAST,
 
@@ -99,9 +99,11 @@ using StyioToStringVisitor = ToStringVisitor<
 
   class VarTupleAST,
 
-  class TupleOpAST,
+  class ExtractorAST,
 
   class ForwardAST,
+  class BackwardAST,
+
   class CheckEqAST,
   class CheckIsinAST,
   class FromToAST,
@@ -157,7 +159,7 @@ public:
 
   std::string toString(VarTupleAST* ast, int indent = 0);
 
-  std::string toString(TupleOpAST* ast, int indent = 0);
+  std::string toString(ExtractorAST* ast, int indent = 0);
 
   std::string toString(DTypeAST* ast, int indent = 0);
 
@@ -231,6 +233,8 @@ public:
 
   std::string toString(ForwardAST* ast, int indent = 0);
 
+  std::string toString(BackwardAST* ast, int indent = 0);
+
   std::string toString(CODPAST* ast, int indent = 0);
 
   std::string toString(InfiniteAST* ast, int indent = 0);
@@ -239,9 +243,9 @@ public:
 
   std::string toString(FuncAST* ast, int indent = 0);
 
-  std::string toString(LoopAST* ast, int indent = 0);
+  std::string toString(InfiniteLoopAST* ast, int indent = 0);
 
-  std::string toString(IterAST* ast, int indent = 0);
+  std::string toString(IteratorAST* ast, int indent = 0);
 
   std::string toString(MatchCasesAST* ast, int indent = 0);
 

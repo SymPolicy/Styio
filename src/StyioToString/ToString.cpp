@@ -188,7 +188,7 @@ StyioRepr::toString(VarTupleAST* ast, int indent) {
 }
 
 std::string
-StyioRepr::toString(TupleOpAST* ast, int indent) {
+StyioRepr::toString(ExtractorAST* ast, int indent) {
   return reprASTType(ast->getNodeType()) + " {\n"
     + make_padding(indent) + ast->theTuple->toString(this, indent + 1) + "\n"
     + make_padding(indent) + ast->theOpOnIt->toString(this, indent + 1)
@@ -632,6 +632,12 @@ StyioRepr::toString(ForwardAST* ast, int indent) {
 }
 
 std::string
+StyioRepr::toString(BackwardAST* ast, int indent) {
+  return reprASTType(ast->getNodeType()) + string(" { ") + " }";
+}
+
+
+std::string
 StyioRepr::toString(CheckEqAST* ast, int indent) {
   return reprASTType(ast->getNodeType(), " ") + string("{ ")
          + ast->getValue()->toString(this, indent + 1) + " }";
@@ -728,7 +734,7 @@ StyioRepr::toString(FuncAST* ast, int indent) {
 }
 
 std::string
-StyioRepr::toString(IterAST* ast, int indent) {
+StyioRepr::toString(IteratorAST* ast, int indent) {
   return reprASTType(ast->getNodeType(), " ") + "{" + "\n"
          + make_padding(indent) + ast->getIterable()->toString(this, indent + 1) + "\n"
          + make_padding(indent) + ast->getForward()->toString(this, indent + 1)
@@ -736,7 +742,7 @@ StyioRepr::toString(IterAST* ast, int indent) {
 }
 
 std::string
-StyioRepr::toString(LoopAST* ast, int indent) {
+StyioRepr::toString(InfiniteLoopAST* ast, int indent) {
   return reprASTType(ast->getNodeType(), " ") + "{" + "\n"
          + make_padding(indent) + ast->getForward()->toString(this, indent + 1)
          + "}";

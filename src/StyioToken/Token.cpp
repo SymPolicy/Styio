@@ -290,6 +290,10 @@ reprASTType(StyioASTType type, std::string extra) {
       output += std::string("fill.only_false");
     } break;
 
+    case StyioASTType::Backward: {
+      output += std::string("backward");
+    } break;
+
     case StyioASTType::Chain_Of_Data_Processing: {
       output += std::string("chain_of_data_processing");
     } break;

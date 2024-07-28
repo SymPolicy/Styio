@@ -120,8 +120,8 @@ class RangeAST;
   - Iter (Iterator)
   - Loop
 */
-class IterAST;
-class LoopAST;
+class IteratorAST;
+class InfiniteLoopAST;
 
 /*
   Control Flow
@@ -175,9 +175,11 @@ class InfiniteAST;
 */
 class VarTupleAST;
 
-class TupleOpAST;
+class ExtractorAST;
 
 class ForwardAST;
+class BackwardAST;
+
 class CODPAST;
 class CheckEqAST;
 class CheckIsinAST;

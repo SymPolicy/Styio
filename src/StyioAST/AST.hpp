@@ -763,32 +763,7 @@ public:
   }
 };
 
-class VarTupleAST : public StyioASTTraits<VarTupleAST>
-{
-private:
-  vector<VarAST*> Vars;
 
-public:
-  VarTupleAST(vector<VarAST*> vars) :
-      Vars(vars) {
-  }
-
-  static VarTupleAST* Create(vector<VarAST*> vars) {
-    return new VarTupleAST(vars);
-  }
-
-  const vector<VarAST*>& getParams() {
-    return Vars;
-  }
-
-  const StyioASTType getNodeType() const {
-    return StyioASTType::VarTuple;
-  }
-
-  const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
-  }
-};
 
 /*
   FmtStrAST: String
@@ -1023,6 +998,10 @@ public:
       elements(elems) {
   }
 
+  TupleAST(vector<VarAST*> elems) :
+      elements(elems.begin(), elems.end()) {
+  }
+
   static TupleAST* Create(vector<StyioAST*> elems) {
     return new TupleAST(std::move(elems));
   }
@@ -1053,6 +1032,34 @@ public:
 
   void setDataType(StyioDataType type) {
     consistent_type->setDType(type);
+  }
+};
+
+class VarTupleAST : public TupleAST
+{
+private:
+  vector<VarAST*> Vars;
+
+public:
+  VarTupleAST(vector<VarAST*> vars) :
+      TupleAST(vars),
+      Vars(vars) {
+  }
+
+  static VarTupleAST* Create(vector<VarAST*> vars) {
+    return new VarTupleAST(vars);
+  }
+
+  const vector<VarAST*>& getParams() {
+    return Vars;
+  }
+
+  const StyioASTType getNodeType() const {
+    return StyioASTType::VarTuple;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
   }
 };
 
@@ -2254,31 +2261,30 @@ public:
   }
 };
 
-/*
-  TupleOpAST: theTuple <OP> theOpOnIt
-*/
-class TupleOpAST : public StyioASTTraits<TupleOpAST>
+/* Backward */
+class BackwardAST : public StyioASTTraits<BackwardAST>
 {
 private:
-  TupleOpAST(VarTupleAST* theTuple, StyioAST* theOpOnIt) :
-      theTuple(theTuple), theOpOnIt(theOpOnIt) {
+  BackwardAST(StyioAST* obj, VarTupleAST* params, std::vector<StyioAST*> ops, std::vector<StyioAST*> rets) :
+      object(obj), params(params), operations(ops), ret_exprs(rets) {
   }
 
 public:
-  VarTupleAST* theTuple;
-  StyioAST* theOpOnIt;
-
-
-  TupleOpAST* Create(VarTupleAST* the_tuple, StyioAST* the_op) {
-    return new TupleOpAST(the_tuple, the_op);
+  StyioAST* object = nullptr;
+  VarTupleAST* params = nullptr;
+  std::vector<StyioAST*> operations; 
+  std::vector<StyioAST*> ret_exprs; // return-able expressions
+  
+  static BackwardAST* Create(StyioAST* obj, VarTupleAST* params, std::vector<StyioAST*> ops, std::vector<StyioAST*> rets) {
+    return new BackwardAST(obj, params, ops, rets);
   }
 
   const StyioASTType getNodeType() const {
-    return StyioASTType::TupleOperation;
+    return StyioASTType::Backward;
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "TupleOp", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
   }
 };
 
@@ -2573,15 +2579,15 @@ public:
 */
 
 /*
-  IterInfinite: [...] >> {}
+  Infinite Loop: [...] >> {}
 */
-class LoopAST : public StyioASTTraits<LoopAST>
+class InfiniteLoopAST : public StyioASTTraits<InfiniteLoopAST>
 {
 private:
   ForwardAST* Forward = nullptr;
 
 public:
-  LoopAST(ForwardAST* expr) :
+  InfiniteLoopAST(ForwardAST* expr) :
       Forward(expr) {
   }
 
@@ -2599,20 +2605,21 @@ public:
 };
 
 /*
-  IterBounded: <List/Range> >> {}
+  Iterator: 
+    collection >> operations
 */
-class IterAST : public StyioASTTraits<IterAST>
+class IteratorAST : public StyioASTTraits<IteratorAST>
 {
   StyioAST* Collection = nullptr;
   ForwardAST* Forward = nullptr;
 
 public:
-  IterAST(StyioAST* collection, ForwardAST* forward) :
+  IteratorAST(StyioAST* collection, ForwardAST* forward) :
       Collection(collection), Forward(forward) {
   }
 
-  static IterAST* Create(StyioAST* collection, ForwardAST* forward) {
-    return new IterAST(collection, forward);
+  static IteratorAST* Create(StyioAST* collection, ForwardAST* forward) {
+    return new IteratorAST(collection, forward);
   }
 
   StyioAST* getIterable() {
@@ -2629,6 +2636,35 @@ public:
 
   const StyioDataType getDataType() const {
     return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+  }
+};
+
+/*
+  Extractor:
+    collection << operations
+*/
+class ExtractorAST : public StyioASTTraits<ExtractorAST>
+{
+private:
+  ExtractorAST(StyioAST* theTuple, StyioAST* theOpOnIt) :
+      theTuple(theTuple), theOpOnIt(theOpOnIt) {
+  }
+
+public:
+  StyioAST* theTuple;
+  StyioAST* theOpOnIt;
+
+
+  ExtractorAST* Create(StyioAST* the_tuple, StyioAST* the_op) {
+    return new ExtractorAST(the_tuple, the_op);
+  }
+
+  const StyioASTType getNodeType() const {
+    return StyioASTType::TupleOperation;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "TupleOp", 0};
   }
 };
 

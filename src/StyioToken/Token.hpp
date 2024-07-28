@@ -5,27 +5,29 @@
 #include <string>
 #include <unordered_map>
 
-enum class StyioDataTypeOption {
+enum class StyioDataTypeOption
+{
   Undefined,
   Defined,
 
-  Bool, // Boolean
+  Bool,  // Boolean
   Integer,
   Float,
   Decimal,
 
-  Char, // Character
+  Char,  // Character
   String,
 
   Tuple,
   List,
-  
+
   Struct,
 
-  Func, // Function
+  Func,  // Function
 };
 
-struct StyioDataType {
+struct StyioDataType
+{
   StyioDataTypeOption option;
   std::string name;
   size_t num_of_bit = 0;
@@ -48,28 +50,28 @@ struct StyioDataType {
 };
 
 static std::unordered_map<std::string, StyioDataType> const DType_Table = {
-  {"bool", StyioDataType{StyioDataTypeOption::Bool, "bool", 1} },
-  
-  {"int", StyioDataType{StyioDataTypeOption::Integer, "i32", 32} },
-  {"long", StyioDataType{StyioDataTypeOption::Integer, "i64", 64} },
+  {"bool", StyioDataType{StyioDataTypeOption::Bool, "bool", 1}},
 
-  {"i1", StyioDataType{StyioDataTypeOption::Integer, "i1", 1} },
-  {"i8", StyioDataType{StyioDataTypeOption::Integer, "i8", 8} },
-  {"i16", StyioDataType{StyioDataTypeOption::Integer, "i16", 16} },
-  {"i32", StyioDataType{StyioDataTypeOption::Integer, "i32", 32} },
-  {"i64", StyioDataType{StyioDataTypeOption::Integer, "i64", 64} },
-  {"i128", StyioDataType{StyioDataTypeOption::Integer, "i128", 128} },
+  {"int", StyioDataType{StyioDataTypeOption::Integer, "i32", 32}},
+  {"long", StyioDataType{StyioDataTypeOption::Integer, "i64", 64}},
 
-  {"float", StyioDataType{StyioDataTypeOption::Float, "f32", 32} },
-  {"double", StyioDataType{StyioDataTypeOption::Float, "f64", 64} },
+  {"i1", StyioDataType{StyioDataTypeOption::Integer, "i1", 1}},
+  {"i8", StyioDataType{StyioDataTypeOption::Integer, "i8", 8}},
+  {"i16", StyioDataType{StyioDataTypeOption::Integer, "i16", 16}},
+  {"i32", StyioDataType{StyioDataTypeOption::Integer, "i32", 32}},
+  {"i64", StyioDataType{StyioDataTypeOption::Integer, "i64", 64}},
+  {"i128", StyioDataType{StyioDataTypeOption::Integer, "i128", 128}},
 
-  {"f32", StyioDataType{StyioDataTypeOption::Float, "f64", 32} },
-  {"f64", StyioDataType{StyioDataTypeOption::Float, "f64", 64} },
+  {"float", StyioDataType{StyioDataTypeOption::Float, "f32", 32}},
+  {"double", StyioDataType{StyioDataTypeOption::Float, "f64", 64}},
 
-  {"char", StyioDataType{StyioDataTypeOption::Char, "char", 0} },
+  {"f32", StyioDataType{StyioDataTypeOption::Float, "f64", 32}},
+  {"f64", StyioDataType{StyioDataTypeOption::Float, "f64", 64}},
 
-  {"string", StyioDataType{StyioDataTypeOption::String, "string", 0} },
-  {"str", StyioDataType{StyioDataTypeOption::String, "string", 0} },
+  {"char", StyioDataType{StyioDataTypeOption::Char, "char", 0}},
+
+  {"string", StyioDataType{StyioDataTypeOption::String, "string", 0}},
+  {"str", StyioDataType{StyioDataTypeOption::String, "string", 0}},
 };
 
 StyioDataType getMaxType(StyioDataType T1, StyioDataType T2);
@@ -110,8 +112,12 @@ enum class TokenKind
   Not_Equal,            // a != b
   If_Else_Flow,         // ?() => a : b
 
-  Comment_SingleLine, // Like This
-  Comment_MultiLine, /* Like This */
+  Iterate,  // a >> b
+  Extract,  // a << b
+  Next,     // a => b
+
+  Comment_SingleLine,  // // Like This
+  Comment_MultiLine,   // /* Like This */
 };
 
 /* Token Precedence Map */
@@ -156,13 +162,13 @@ static std::unordered_map<TokenKind, int> const TokenPrecedenceMap = {
   {TokenKind::Self_Mul_Assign, 1},  // a *= b
   {TokenKind::Self_Div_Assign, 1},  // a /= b
 
-  {TokenKind::Undefined, 0},  // Undefined
+  {TokenKind::Undefined, 0},    // Undefined
   {TokenKind::End_Of_File, 0},  // Undefined
 };
 
 static std::unordered_map<TokenKind, std::string> const TokenStrMap = {
   {TokenKind::Undefined, "undefined"},  // undefined
-  {TokenKind::End_Of_File, "EOF"},  // EOF
+  {TokenKind::End_Of_File, "EOF"},      // EOF
 
   {TokenKind::Binary_Pow, "**"},  // a ** b
 
@@ -196,9 +202,9 @@ static std::unordered_map<TokenKind, std::string> const TokenStrMap = {
 };
 
 static std::unordered_map<std::string, TokenKind> const StrTokenMap = {
-  {"", TokenKind::Undefined},  // Undefined
+  {"", TokenKind::Undefined},       // Undefined
   {"EOF", TokenKind::End_Of_File},  // EOF
-  
+
   {"**", TokenKind::Binary_Pow},  // a ** b
 
   {"*", TokenKind::Binary_Mul},  // a * b
@@ -483,11 +489,19 @@ enum class StyioASTType
   // -----------------
 
   /* -----------------
+   * Backward
+   */
+
+  Backward,
+
+  // -----------------
+
+  /* -----------------
    * Tuple Operations
    */
 
   TupleOperation,
-  
+
   // -----------------
 
   /* -----------------
@@ -495,7 +509,7 @@ enum class StyioASTType
    */
 
   Chain_Of_Data_Processing,
-  
+
   // -----------------
 
   /* -----------------

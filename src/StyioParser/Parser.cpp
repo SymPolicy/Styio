@@ -20,7 +20,8 @@
 using std::string;
 using std::vector;
 
-void here() {
+void
+here() {
   std::cout << "here" << std::endl;
 }
 
@@ -49,7 +50,7 @@ parse_token_as_str(StyioContext& context) {
 }
 
 NameAST*
-parse_id(StyioContext& context) {
+parse_name(StyioContext& context) {
   string name = "";
   /* it will include cur_char in the id without checking */
   do {
@@ -380,7 +381,7 @@ parse_resources(
         resources.push_back(parse_path(context));
       }
       else if (context.check_isal_()) {
-        NameAST* varname = parse_id(context);
+        NameAST* varname = parse_name(context);
 
         context.find_drop_panic("<-");
 
@@ -570,7 +571,7 @@ parse_id_or_value(StyioContext& context) {
   StyioAST* output;
 
   if (context.check_isal_()) {
-    auto varname = parse_id(context);
+    auto varname = parse_name(context);
 
     if (context.check('[')) {
       output = parse_list_op(context, varname);
@@ -651,7 +652,7 @@ parse_binop_item(StyioContext& context) {
   StyioAST* output = NoneAST::Create();
 
   if (context.check_isal_()) {
-    return parse_id(context);
+    return parse_name(context);
   }
   else if (context.check_isdigit()) {
     return parse_int_or_float(context);
@@ -690,7 +691,7 @@ parse_expr(StyioContext& context) {
   StyioAST* output;
 
   if (context.check_isal_()) {
-    output = parse_id(context);
+    output = parse_name(context);
 
     context.drop_all_spaces_comments();
 
@@ -919,9 +920,18 @@ parse_tuple(StyioContext& context) {
   return TupleAST::Create(exprs);
 }
 
+/*
+  While entering parse_tuple_no_braces(),
+  curr_char should be the next element (or at least part of the next element),
+  but not a comma (,).
+*/
 StyioAST*
-parse_tuple_no_braces(StyioContext& context) {
+parse_tuple_no_braces(StyioContext& context, StyioAST* first_element) {
   vector<StyioAST*> exprs;
+
+  if (first_element) {
+    exprs.push_back(first_element);
+  }
 
   do {
     context.drop_all_spaces_comments();
@@ -929,7 +939,15 @@ parse_tuple_no_braces(StyioContext& context) {
     exprs.push_back(parse_expr(context));
   } while (context.check_drop(','));
 
-  return TupleAST::Create(exprs);
+  TupleAST* the_tuple = TupleAST::Create(exprs);
+
+  // no check for right brace ')'
+
+  if (context.check_tuple_ops()) {
+    return parse_tuple_operations(context, the_tuple);
+  }
+
+  return the_tuple;
 }
 
 StyioAST*
@@ -991,8 +1009,7 @@ parse_set(StyioContext& context) {
 }
 
 StyioAST*
-parse_struct(StyioContext& context,
-  NameAST* name) {
+parse_struct(StyioContext& context, NameAST* name) {
   vector<ArgAST*> elems;
 
   do {
@@ -1007,7 +1024,7 @@ parse_struct(StyioContext& context,
   } while (context.check_drop(',') or context.check_drop(';'));
 
   context.find_drop_panic('}');
-    
+
   return StructAST::Create(name, elems);
 }
 
@@ -1016,7 +1033,7 @@ parse_iterable(StyioContext& context) {
   StyioAST* output = EmptyAST::Create();
 
   if (isalpha(context.get_curr_char()) || context.check('_')) {
-    output = parse_id(context);
+    output = parse_name(context);
 
     context.drop_all_spaces_comments();
 
@@ -1508,10 +1525,10 @@ parse_loop_or_iter(StyioContext& context, StyioAST* iterOverIt) {
   context.drop_all_spaces_comments();
 
   if ((iterOverIt->getNodeType()) == StyioASTType::Infinite) {
-    return new LoopAST(parse_forward(context, false));
+    return new InfiniteLoopAST(parse_forward(context, false));
   }
   else {
-    return new IterAST(iterOverIt, parse_forward(context, false));
+    return new IteratorAST(iterOverIt, parse_forward(context, false));
   }
 }
 
@@ -1605,7 +1622,7 @@ parse_loop(StyioContext& context) {
   if (context.check_drop(">>")) {
     context.drop_all_spaces();
 
-    return new LoopAST(parse_forward(context, false));
+    return new InfiniteLoopAST(parse_forward(context, false));
   }
 
   return new InfiniteAST();
@@ -1957,7 +1974,7 @@ parse_template(StyioContext& context) {
 
   /* # func_name ... */
   if (context.check_isal_()) {
-    auto func_name = parse_id(context);
+    auto func_name = parse_name(context);
 
     context.drop_all_spaces_comments();
 
@@ -2363,9 +2380,25 @@ parse_forward(StyioContext& context, bool is_func) {
   return output;
 }
 
-TupleOpAST*
-parse_tuple_operations(StyioContext& context) {
+ExtractorAST*
+parse_tuple_operations(StyioContext& context, TupleAST* the_tuple) {
+  ExtractorAST* result;
   
+  if (context.check_drop("<<")) {
+    
+  }
+  else if (context.check_drop(">>")) {
+    
+  }
+  else if (context.check_drop("=>")) {
+    
+  }
+  else {
+    // Exception: Tuple Operation Not Found (Unacceptable Inside parse_tuple_operations Function)
+  }
+
+
+  return 
 }
 
 /*
@@ -2496,15 +2529,15 @@ parse_stmt(
   context.drop_all_spaces_comments();
 
   if (context.check_isal_()) {
-    auto id_ast = parse_id(context);
+    auto this_name = parse_name(context);
 
     switch (context.get_curr_char()) {
       case '[': {
-        return parse_list_op(context, (id_ast));
+        return parse_list_op(context, (this_name));
       } break;
 
       case '(': {
-        return parse_call(context, (id_ast));
+        return parse_call(context, (this_name));
       } break;
 
       default:
@@ -2516,32 +2549,32 @@ parse_stmt(
     switch (context.get_curr_char()) {
       case '+': {
         context.move(1);
-        return parse_binop_rhs(context, id_ast, TokenKind::Binary_Add);
+        return parse_binop_rhs(context, this_name, TokenKind::Binary_Add);
       } break;
 
       case '-': {
         context.move(1);
-        return parse_binop_rhs(context, id_ast, TokenKind::Binary_Sub);
+        return parse_binop_rhs(context, this_name, TokenKind::Binary_Sub);
       } break;
 
       case '*': {
         context.move(1);
         if (context.check_drop('*')) {
-          return parse_binop_rhs(context, id_ast, TokenKind::Binary_Pow);
+          return parse_binop_rhs(context, this_name, TokenKind::Binary_Pow);
         }
         else {
-          return parse_binop_rhs(context, id_ast, TokenKind::Binary_Mul);
+          return parse_binop_rhs(context, this_name, TokenKind::Binary_Mul);
         }
       } break;
 
       case '/': {
         context.move(1);
-        return parse_binop_rhs(context, id_ast, TokenKind::Binary_Div);
+        return parse_binop_rhs(context, this_name, TokenKind::Binary_Div);
       } break;
 
       case '%': {
         context.move(1);
-        return parse_binop_rhs(context, id_ast, TokenKind::Binary_Mod);
+        return parse_binop_rhs(context, this_name, TokenKind::Binary_Mod);
       } break;
 
       case '=': {
@@ -2549,7 +2582,7 @@ parse_stmt(
 
         context.drop_all_spaces_comments();
 
-        return FlexBindAST::Create(VarAST::Create(id_ast), parse_expr(context));
+        return FlexBindAST::Create(VarAST::Create(this_name), parse_expr(context));
       } break;  // You should NOT reach this line!
 
       case ':': {
@@ -2558,7 +2591,7 @@ parse_stmt(
         if (context.check_drop('=')) {
           context.drop_all_spaces_comments();
 
-          return new FinalBindAST(VarAST::Create(id_ast), parse_expr(context));
+          return new FinalBindAST(VarAST::Create(this_name), parse_expr(context));
         }
         else {
           context.drop_white_spaces();
@@ -2571,13 +2604,13 @@ parse_stmt(
             if (context.check_drop('=')) {
               context.drop_white_spaces();
 
-              return new FinalBindAST(VarAST::Create(id_ast), parse_expr(context));
+              return new FinalBindAST(VarAST::Create(this_name), parse_expr(context));
             }
           }
           else if (context.check_drop('=')) {
             context.drop_white_spaces();
 
-            return FlexBindAST::Create(VarAST::Create(id_ast, var_data_type), (parse_expr(context)));
+            return FlexBindAST::Create(VarAST::Create(this_name, var_data_type), (parse_expr(context)));
           }
           else {
             string errmsg = string("parse_stmt() // Expecting = or := after type, but got ") + context.get_curr_char();
@@ -2592,7 +2625,7 @@ parse_stmt(
         if (context.check_drop('-')) {
           context.drop_all_spaces();
 
-          return parse_read_file(context, (id_ast));
+          return parse_read_file(context, (this_name));
         }
         else {
           string errmsg = string("Expecting `-` after `<`, but found `") + char(context.get_curr_char()) + "`.";
@@ -2606,15 +2639,14 @@ parse_stmt(
         if (context.check_drop('>')) {
           context.drop_all_spaces();
 
-          return parse_loop_or_iter(context, (id_ast));
+          return parse_loop_or_iter(context, this_name);
         }
       } break;  // You should NOT reach this line!
 
       case ',': {
         context.move(1);
 
-        // parse_tuple_operations
-
+        return parse_tuple_no_braces(context, VarAST::Create(this_name));
       } break;  // You should NOT reach this line!
 
       default: {
@@ -2724,7 +2756,7 @@ parse_stmt(
 
         auto forward = parse_forward(context, false);
 
-        return IterAST::Create(resources, forward);
+        return IteratorAST::Create(resources, forward);
       }
       else {
         return resources;
