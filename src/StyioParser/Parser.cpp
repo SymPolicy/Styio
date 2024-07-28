@@ -2385,20 +2385,20 @@ parse_tuple_operations(StyioContext& context, TupleAST* the_tuple) {
   ExtractorAST* result;
   
   if (context.check_drop("<<")) {
-    
+    // parse_extractor
   }
   else if (context.check_drop(">>")) {
-    
+    // parse_iterator
   }
   else if (context.check_drop("=>")) {
-    
+    // parse_forward
   }
   else {
     // Exception: Tuple Operation Not Found (Unacceptable Inside parse_tuple_operations Function)
   }
 
 
-  return 
+  return result;
 }
 
 /*
