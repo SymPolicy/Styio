@@ -864,6 +864,9 @@ parse_block(StyioContext& context);
 ForwardAST*
 parse_forward(StyioContext& context, bool is_func = false);
 
+BackwardAST*
+parse_backward(StyioContext& context, bool is_func = false);
+
 ExtractorAST*
 parse_tuple_operations(StyioContext& context, TupleAST* the_tuple);
 

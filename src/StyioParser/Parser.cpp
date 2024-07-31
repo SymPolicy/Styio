@@ -2380,6 +2380,23 @@ parse_forward(StyioContext& context, bool is_func) {
   return output;
 }
 
+/*
+  BackwardAST
+  - Filling: (a, b, ...) << EXPR
+    EXPR should return an special type (not decided yet), 
+    where
+      1. the returned values and the tuple should be the same length (
+          probably, the returned values can be
+        )
+      2. the type (if declared) should be the same
+  - Import: 
+    a, b <- @("./ra.txt"), @("./rb.txt")
+*/
+BackwardAST*
+parse_backward(StyioContext& context, bool is_func = false) {
+  
+}
+
 ExtractorAST*
 parse_tuple_operations(StyioContext& context, TupleAST* the_tuple) {
   ExtractorAST* result;
@@ -2394,7 +2411,7 @@ parse_tuple_operations(StyioContext& context, TupleAST* the_tuple) {
     // parse_forward
   }
   else {
-    // Exception: Tuple Operation Not Found (Unacceptable Inside parse_tuple_operations Function)
+    // Exception: Tuple Operation Not Found (unacceptable in this function.)
   }
 
 
