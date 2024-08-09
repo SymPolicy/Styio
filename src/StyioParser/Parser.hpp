@@ -123,7 +123,7 @@ public:
     else {
       for (size_t curr_line_index = 0; curr_line_index < total_lines; curr_line_index += 1) {
         if (line_seps[curr_line_index].first <= curr_pos
-            && curr_pos <= (line_seps[curr_line_index].first + line_seps[line_index].second)) {
+            && curr_pos <= (line_seps[curr_line_index].first + line_seps[curr_line_index].second)) {
           return curr_line_index;
         }
       }
@@ -142,9 +142,9 @@ public:
       start = curr_pos;
 
     size_t lindex = find_line_index(start);
-    size_t offset = curr_pos - line_seps[lindex].first;
+    size_t offset = start - line_seps[lindex].first;
 
-    output += "File \"" + file_name + "\", Line " + std::to_string(lindex) + ":\n\n";
+    output += "File \"" + file_name + "\", Line " + std::to_string(lindex) + ", At " + std::to_string(offset) + ":\n\n";
     output += code.substr(line_seps[lindex].first, line_seps[lindex].second) + "\n";
     output += std::string(offset, ' ') + std::string("^");
 
@@ -779,7 +779,7 @@ parse_loop(StyioContext& context, char& cur_char);
   parse_simple_value
 */
 StyioAST*
-parse_value(StyioContext& context);
+parse_value_expr(StyioContext& context);
 
 /*
   parse_expr

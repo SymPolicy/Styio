@@ -1364,12 +1364,22 @@ class CondAST : public StyioASTTraits<CondAST>
   StyioAST* RhsExpr = nullptr;
 
 public:
+
+
   CondAST(LogicType op, StyioAST* val) :
       LogicOp(op), ValExpr(val) {
   }
 
   CondAST(LogicType op, StyioAST* lhs, StyioAST* rhs) :
       LogicOp(op), LhsExpr(lhs), RhsExpr(rhs) {
+  }
+
+  static CondAST* Create(LogicType op, StyioAST* val) {
+    return new CondAST(op, val);
+  }
+
+  static CondAST* Create(LogicType op, StyioAST* lhs, StyioAST* rhs) {
+    return new CondAST(op, lhs, rhs);
   }
 
   LogicType getSign() {

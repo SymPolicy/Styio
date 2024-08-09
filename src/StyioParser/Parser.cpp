@@ -15,22 +15,11 @@
 #include "../StyioException/Exception.hpp"
 #include "../StyioToken/Token.hpp"
 #include "../StyioUtil/Util.hpp"
+#include "BinExprMapper.hpp"
 #include "Parser.hpp"
 
 using std::string;
 using std::vector;
-
-using bin_op_func = std::function<StyioAST(StyioAST*, StyioAST*)>;
-std::unordered_map<std::string, bin_op_func> bin_op_mapper{
-      // Plus function from functools
-    { "+", std::plus<long>() }, 
-      // Minus function from functools
-    { "-", minus<long>() }, 
-       // Divides function from functools
-    { "/", divides<long>() },
-     // Multiplies function from functools
-    { "*", multiplies<long>() }
-}; 
 
 void
 here() {
@@ -402,7 +391,7 @@ parse_resources(
         resources.push_back(
           new FinalBindAST(
             VarAST::Create(varname),
-            parse_value(context)
+            parse_value_expr(context)
           )
         );
       }
@@ -433,7 +422,7 @@ parse_cond_item(StyioContext& context) {
 
   context.drop_all_spaces();
 
-  output = parse_value(context);
+  output = parse_value_expr(context);
 
   context.drop_all_spaces();
 
@@ -453,7 +442,7 @@ parse_cond_item(StyioContext& context) {
         context.drop_all_spaces();
 
         output = new BinCompAST(
-          CompType::EQ, (output), parse_value(context)
+          CompType::EQ, (output), parse_value_expr(context)
         );
       };
     }
@@ -475,7 +464,7 @@ parse_cond_item(StyioContext& context) {
         context.drop_all_spaces();
 
         output = new BinCompAST(
-          CompType::NE, (output), parse_value(context)
+          CompType::NE, (output), parse_value_expr(context)
         );
       };
     }
@@ -497,7 +486,7 @@ parse_cond_item(StyioContext& context) {
         context.drop_all_spaces();
 
         output = new BinCompAST(
-          CompType::GE, (output), parse_value(context)
+          CompType::GE, (output), parse_value_expr(context)
         );
       }
       else {
@@ -510,7 +499,7 @@ parse_cond_item(StyioContext& context) {
         context.drop_all_spaces();
 
         output = new BinCompAST(
-          CompType::GT, (output), parse_value(context)
+          CompType::GT, (output), parse_value_expr(context)
         );
       };
     }
@@ -532,7 +521,7 @@ parse_cond_item(StyioContext& context) {
         context.drop_all_spaces();
 
         output = new BinCompAST(
-          CompType::LE, (output), parse_value(context)
+          CompType::LE, (output), parse_value_expr(context)
         );
       }
       else {
@@ -545,7 +534,7 @@ parse_cond_item(StyioContext& context) {
         context.drop_all_spaces();
 
         output = new BinCompAST(
-          CompType::LT, (output), parse_value(context)
+          CompType::LT, (output), parse_value_expr(context)
         );
       };
     }
@@ -579,7 +568,7 @@ parse_cond_item(StyioContext& context) {
     id %  id
 */
 StyioAST*
-parse_id_or_value(StyioContext& context) {
+parse_var_name_or_value_expr(StyioContext& context) {
   StyioAST* output;
 
   if (context.check_isal_()) {
@@ -596,7 +585,12 @@ parse_id_or_value(StyioContext& context) {
     }
   }
 
-  context.drop_all_spaces_comments();
+  context.drop_all_spaces();
+
+  if (context.check('.')) {
+    context.move(1);
+    output = parse_chain_of_call(context, output);
+  }
 
   switch (context.get_curr_char()) {
     case '+': {
@@ -630,8 +624,6 @@ parse_id_or_value(StyioContext& context) {
     } break;
 
     case '.': {
-      context.move(1);
-      output = parse_chain_of_call(context, output);
     } break;
 
     default:
@@ -642,11 +634,11 @@ parse_id_or_value(StyioContext& context) {
 }
 
 StyioAST*
-parse_value(StyioContext& context) {
+parse_value_expr(StyioContext& context) {
   StyioAST* output;
 
   if (isalpha(context.get_curr_char()) || context.check('_')) {
-    return parse_id_or_value(context);
+    return parse_var_name_or_value_expr(context);
   }
   else if (isdigit(context.get_curr_char())) {
     return parse_int_or_float(context);
@@ -1177,7 +1169,7 @@ parse_size_of(StyioContext& context) {
   context.move(1);
 
   if (isalpha(context.get_curr_char()) || context.check('_')) {
-    StyioAST* var = parse_id_or_value(context);
+    StyioAST* var = parse_var_name_or_value_expr(context);
 
     // eliminate | at the end
     if (context.check('|')) {
@@ -1327,7 +1319,7 @@ parse_list_op(StyioContext& context, StyioAST* theList) {
   do {
     if (isalpha(context.get_curr_char()) || context.check('_')) {
       output = new ListOpAST(
-        StyioASTType::Access, (theList), parse_id_or_value(context)
+        StyioASTType::Access, (theList), parse_var_name_or_value_expr(context)
       );
     }
     else if (isdigit(context.get_curr_char())) {
@@ -1827,17 +1819,15 @@ CondAST*
 parse_cond(StyioContext& context) {
   StyioAST* lhsExpr;
 
+  context.drop_all_spaces_comments();
+
   if (context.check_drop('(')) {
-
     lhsExpr = parse_cond(context);
-
     context.find_drop_panic(')');
   }
-  else if (context.check('!')) {
-    context.move(1);
-
+  else if (context.check_drop('!')) {
+    context.drop_all_spaces_comments();
     if (context.check_drop('(')) {
-
       /*
         support:
           !( \n
@@ -1855,11 +1845,11 @@ parse_cond(StyioContext& context) {
     else {
       string errmsg = string("!(expr) // Expecting ( after !, but got ") + char(context.get_curr_char());
       throw StyioSyntaxError(errmsg);
-    };
+    }
   }
   else {
     lhsExpr = parse_cond_item(context);
-  };
+  }
 
   // drop all spaces after first value
   context.drop_all_spaces();
@@ -2254,7 +2244,7 @@ parse_forward(StyioContext& context, bool is_func) {
 
             default: {
               if (isalpha(context.get_curr_char()) || context.check('_')) {
-                iterable = parse_id_or_value(context);
+                iterable = parse_var_name_or_value_expr(context);
               }
               else {
                 string errmsg = string(
@@ -2389,24 +2379,23 @@ parse_forward(StyioContext& context, bool is_func) {
 /*
   BackwardAST
   - Filling: (a, b, ...) << EXPR
-    EXPR should return an special type (not decided yet), 
+    EXPR should return an special type (not decided yet),
     where
       1. the returned values and the tuple should be the same length (
           probably, the returned values can be
         )
       2. the type (if declared) should be the same
-  - Import: 
+  - Import:
     a, b <- @("./ra.txt"), @("./rb.txt")
 */
 BackwardAST*
 parse_backward(StyioContext& context, bool is_func) {
-  
 }
 
 ExtractorAST*
 parse_tuple_operations(StyioContext& context, TupleAST* the_tuple) {
   ExtractorAST* result;
-  
+
   if (context.check_drop("<<")) {
     // parse_extractor
   }
@@ -2419,7 +2408,6 @@ parse_tuple_operations(StyioContext& context, TupleAST* the_tuple) {
   else {
     // Exception: Tuple Operation Not Found (unacceptable in this function.)
   }
-
 
   return result;
 }
@@ -2439,7 +2427,6 @@ parse_codp(StyioContext& context, CODPAST* prev_op) {
   vector<StyioAST*> op_args;
 
   if (name == "filter") {
-    context.drop_all_spaces_comments();
     op_args.push_back(parse_cond(context));
   }
   else if (name == "sort" or name == "map") {
