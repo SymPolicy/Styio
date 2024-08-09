@@ -5,3 +5,22 @@
   => sort { data.salary }
   => map { data.id, data.name, data.salary }
   => slice { 0, 10 }
+
+{
+  HTTPCODE = 200,
+  name = "Bob"
+}
+
+@(server = "172.163.8.102:50600")
+  >> (i: json) => {
+  ? (i.name == "Alice") => {
+
+  }
+
+  ? () => {
+    
+  }
+} 
+! {
+ 
+}

@@ -54,8 +54,8 @@ public:
     bool debug_mode = false
   ) {
     return new StyioContext(
-      file_name, 
-      code_text, 
+      file_name,
+      code_text,
       line_seps,
       debug_mode
     );
@@ -81,38 +81,51 @@ public:
     int p = -1
   ) {
     const size_t total_lines = line_seps.size();
-    size_t line_index = total_lines / 2;
+    size_t line_index = 0;
 
     if (p < 0) {
       p = curr_pos;
     }
 
     if (debug_mode) {
-      cout << "find_line_index(), at pos: " << p << " char: " << get_curr_char() << "\ninitial: line [" << line_index << "]" << endl;
+      cout << "find_line_index(), starts with position: " << p << " current character: " << get_curr_char() << "\ninitial: line [" << line_index << "]" << endl;
     }
 
-    for (size_t i = 0; i < total_lines; i++) {
-      if (debug_mode) {
-        cout << "[" << line_index << "] is ";
-      }
-      
-      if (p < line_seps[line_index].first) {
-        line_index = line_index / 2;
+    bool binary_search = false;
+    if (binary_search) {
+      line_index = total_lines / 2;
+
+      for (size_t i = 0; i < total_lines; i++) {
         if (debug_mode) {
-          cout << "too large, go to: [" << line_index << "]" << endl;
+          cout << "[" << line_index << "] is ";
+        }
+
+        if (p < line_seps[line_index].first) {
+          line_index = line_index / 2;
+          if (debug_mode) {
+            cout << "too large, go to: [" << line_index << "]" << endl;
+          }
+        }
+        else if (p > (line_seps[line_index].first + line_seps[line_index].second)) {
+          line_index = (line_index + total_lines) / 2;
+          if (debug_mode) {
+            cout << "too small, go to: [" << line_index << "]" << endl;
+          }
+        }
+        else {
+          if (debug_mode) {
+            cout << "result: [" << line_index << "]" << endl;
+          }
+          break;
         }
       }
-      else if (p > (line_seps[line_index].first + line_seps[line_index].second)) {
-        line_index = (line_index + total_lines) / 2;
-        if (debug_mode) {
-          cout << "too small, go to: [" << line_index << "]" << endl;
+    }
+    else {
+      for (size_t curr_line_index = 0; curr_line_index < total_lines; curr_line_index += 1) {
+        if (line_seps[curr_line_index].first <= curr_pos
+            && curr_pos <= (line_seps[curr_line_index].first + line_seps[line_index].second)) {
+          return curr_line_index;
         }
-      }
-      else {
-        if (debug_mode) {
-          cout << "result: [" << line_index << "]" << endl;
-        }
-        break;
       }
     }
 

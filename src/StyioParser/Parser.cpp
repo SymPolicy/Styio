@@ -20,6 +20,18 @@
 using std::string;
 using std::vector;
 
+using bin_op_func = std::function<StyioAST(StyioAST*, StyioAST*)>;
+std::unordered_map<std::string, bin_op_func> bin_op_mapper{
+      // Plus function from functools
+    { "+", std::plus<long>() }, 
+      // Minus function from functools
+    { "-", minus<long>() }, 
+       // Divides function from functools
+    { "/", divides<long>() },
+     // Multiplies function from functools
+    { "*", multiplies<long>() }
+}; 
+
 void
 here() {
   std::cout << "here" << std::endl;
@@ -1722,8 +1734,7 @@ parse_cond_rhs(StyioContext& context, StyioAST* lhsExpr) {
   switch (context.get_curr_char()) {
     case '&': {
       context.move(1);
-
-      context.check_drop('&');
+      context.check_drop_panic('&');
 
       /*
         support:
@@ -1742,10 +1753,7 @@ parse_cond_rhs(StyioContext& context, StyioAST* lhsExpr) {
 
     case '|': {
       context.move(1);
-
-      if (context.check('|')) {
-        context.move(1);
-      };
+      context.check_drop_panic('|');
 
       /*
         support:
@@ -1774,7 +1782,7 @@ parse_cond_rhs(StyioContext& context, StyioAST* lhsExpr) {
       context.drop_all_spaces();
 
       condExpr = new CondAST(
-        LogicType::OR, (lhsExpr), parse_cond(context)
+        LogicType::XOR, (lhsExpr), parse_cond(context)
       );
     }
 
@@ -1819,18 +1827,16 @@ CondAST*
 parse_cond(StyioContext& context) {
   StyioAST* lhsExpr;
 
-  if (context.check('(')) {
-    context.move(1);
+  if (context.check_drop('(')) {
 
-    lhsExpr = (parse_cond(context));
+    lhsExpr = parse_cond(context);
 
     context.find_drop_panic(')');
   }
   else if (context.check('!')) {
     context.move(1);
 
-    if (context.check('(')) {
-      context.move(1);
+    if (context.check_drop('(')) {
 
       /*
         support:
@@ -1840,11 +1846,11 @@ parse_cond(StyioContext& context) {
       */
       context.drop_all_spaces();
 
-      lhsExpr = (parse_cond(context));
+      lhsExpr = parse_cond(context);
 
       context.drop_all_spaces();
 
-      return new CondAST(LogicType::NOT, (lhsExpr));
+      return new CondAST(LogicType::NOT, lhsExpr);
     }
     else {
       string errmsg = string("!(expr) // Expecting ( after !, but got ") + char(context.get_curr_char());
@@ -1852,17 +1858,17 @@ parse_cond(StyioContext& context) {
     };
   }
   else {
-    lhsExpr = (parse_cond_item(context));
+    lhsExpr = parse_cond_item(context);
   };
 
   // drop all spaces after first value
   context.drop_all_spaces();
 
-  if (context.check('&') || context.check('|')) {
-    return parse_cond_rhs(context, (lhsExpr));
+  if (context.check("&&") || context.check("||")) {
+    return parse_cond_rhs(context, lhsExpr);
   }
   else {
-    return new CondAST(LogicType::RAW, (lhsExpr));
+    return new CondAST(LogicType::RAW, lhsExpr);
   }
 
   string errmsg = string("parse_cond() : You should not reach this line!") + char(context.get_curr_char());

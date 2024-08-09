@@ -1,7 +1,7 @@
 // RUN: /root/styio/styio --llvm-ir --file %s | /usr/bin/FileCheck %s
 
 @("./tests/resources/salary") 
-  >> #(data: json) // JSON (Dictionary)
+  >> #(data: json)
   => filter { data.title.contains("Senior") }
   => sort { data.salary }
   => map { data.id, data.name, data.salary }
