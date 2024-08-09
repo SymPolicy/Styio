@@ -154,6 +154,9 @@ main(
 ) {
   cxxopts::Options options("styio", "Styio Compiler");
 
+  // styio example.styio
+  options.allow_unrecognised_options();
+
   options.add_options()(
     "f,file", "Take the given source file.", cxxopts::value<std::string>()
   )(
@@ -170,6 +173,12 @@ main(
     "llvm-ir", "Show LLVM IR", cxxopts::value<bool>()->default_value("false")
   );
 
+  options.add_options()(
+    "debug", "Debug Mode", cxxopts::value<bool>()->default_value("false")
+  );
+
+  options.parse_positional({"file"});
+
   auto cmlopts = options.parse(argc, argv);
 
   if (cmlopts.count("help")) {
@@ -183,14 +192,23 @@ main(
   bool show_styio_ir = cmlopts["styio-ir"].as<bool>();
   bool show_llvm_ir = cmlopts["llvm-ir"].as<bool>();
 
+  bool is_debug_mode = cmlopts["debug"].as<bool>();
+
   std::string fpath; /* File Path */
   if (cmlopts.count("file")) {
     fpath = cmlopts["file"].as<std::string>();
     // std::cout << fpath << std::endl;
 
     auto styio_code = read_styio_file(fpath);
-    show_code_with_linenum(styio_code);
-    auto styio_context = StyioContext::Create(fpath, styio_code.code_text, styio_code.line_seps);
+    if (is_debug_mode) {
+      show_code_with_linenum(styio_code);
+    }
+
+    auto styio_context = StyioContext::Create(
+      fpath, 
+      styio_code.code_text, 
+      styio_code.line_seps,
+      is_debug_mode /* is debug mode */);
 
     StyioRepr styio_repr = StyioRepr();
 
@@ -222,12 +240,11 @@ main(
 
     if (show_all or show_styio_ir) {
       std::cout
-      << "\033[1;32mSTYIO IR\033[0m \033[1;33m\033[0m"
-      << "\n"
-      << styio_ir->toString(&styio_repr) << "\n"
-      << std::endl;
+        << "\033[1;32mSTYIO IR\033[0m \033[1;33m\033[0m"
+        << "\n"
+        << styio_ir->toString(&styio_repr) << "\n"
+        << std::endl;
     }
-    
 
     /* JIT Initialization */
     llvm::InitializeNativeTarget();

@@ -22,7 +22,7 @@ class StyioContext;
 class StyioContext
 {
 private:
-  size_t curr_pos; /* current position */
+  size_t curr_pos = 0; /* current position */
 
   string file_name;
   string code;
@@ -32,24 +32,33 @@ private:
   unordered_map<string, shared_ptr<StyioAST>> constants;
   unordered_map<string, shared_ptr<StyioAST>> variables;
 
+  bool debug_mode = false;
+
 public:
   StyioContext(
     const string& file_name,
     const string& code_text,
-    vector<pair<size_t, size_t>> line_seps
+    vector<pair<size_t, size_t>> line_seps,
+    bool debug_mode = false
   ) :
       file_name(file_name),
       code(code_text),
       line_seps(line_seps),
-      curr_pos(0) {
+      debug_mode(debug_mode) {
   }
 
   static StyioContext* Create(
     const string& file_name,
     const string& code_text,
-    vector<pair<size_t, size_t>> line_seps
+    vector<pair<size_t, size_t>> line_seps,
+    bool debug_mode = false
   ) {
-    return new StyioContext(file_name, code_text, line_seps);
+    return new StyioContext(
+      file_name, 
+      code_text, 
+      line_seps,
+      debug_mode
+    );
   }
 
   /* Get `code` */
@@ -68,49 +77,41 @@ public:
     return code.at(curr_pos);
   }
 
-  // /* Get Current Token */
-  // TokenKind get_curr_token() {
-  //   int tmp_pos = curr_pos;
-  //   int offset = 0;
-
-  //   while (
-  //     not(isspace(code.at(tmp_pos))                      /* not space */
-  //         || code.compare(tmp_pos, 2, string("/*")) != 0 /* not comment */
-  //         || isalnum(code.at(tmp_pos)) || (code.at(tmp_pos) == '_') /* not [a-z], not [0-9], not _ */)
-  //   ) {
-  //     offset += 1;
-  //   }
-
-  //   return StrTokenMap.at(code.substr(tmp_pos, offset));
-  // }
-
   size_t find_line_index(
     int p = -1
   ) {
     const size_t total_lines = line_seps.size();
     size_t line_index = total_lines / 2;
 
-    if (p < 0)
+    if (p < 0) {
       p = curr_pos;
+    }
 
-    cout << "find_line_index(), at pos: " << p << "\ninitial: line [" << line_index << "]" << endl;
+    if (debug_mode) {
+      cout << "find_line_index(), at pos: " << p << " char: " << get_curr_char() << "\ninitial: line [" << line_index << "]" << endl;
+    }
 
-    // while (
-    //   p < line_seps[line_index].first
-    //   || p > (line_seps[line_index].first + line_seps[line_index].second)
-    // ) {
     for (size_t i = 0; i < total_lines; i++) {
-      cout << "[" << line_index << "] is ";
+      if (debug_mode) {
+        cout << "[" << line_index << "] is ";
+      }
+      
       if (p < line_seps[line_index].first) {
         line_index = line_index / 2;
-        cout << "too large, go to: [" << line_index << "]" << endl;
+        if (debug_mode) {
+          cout << "too large, go to: [" << line_index << "]" << endl;
+        }
       }
       else if (p > (line_seps[line_index].first + line_seps[line_index].second)) {
         line_index = (line_index + total_lines) / 2;
-        cout << "too small, go to: [" << line_index << "]" << endl;
+        if (debug_mode) {
+          cout << "too small, go to: [" << line_index << "]" << endl;
+        }
       }
       else {
-        cout << "result: [" << line_index << "]" << endl;
+        if (debug_mode) {
+          cout << "result: [" << line_index << "]" << endl;
+        }
         break;
       }
     }

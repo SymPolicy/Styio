@@ -2393,7 +2393,7 @@ parse_forward(StyioContext& context, bool is_func) {
     a, b <- @("./ra.txt"), @("./rb.txt")
 */
 BackwardAST*
-parse_backward(StyioContext& context, bool is_func = false) {
+parse_backward(StyioContext& context, bool is_func) {
   
 }
 
