@@ -364,7 +364,7 @@ parse_resources(
 ) {
   ResourceAST* output;
 
-  vector<StyioAST*> resources;
+  vector<StyioAST*> res_list;
 
   /*
     Danger!
@@ -379,7 +379,7 @@ parse_resources(
       context.drop_all_spaces_comments();
 
       if (context.check('"')) {
-        resources.push_back(parse_path(context));
+        res_list.push_back(parse_path(context));
       }
       else if (context.check_isal_()) {
         NameAST* varname = parse_name(context);
@@ -388,7 +388,7 @@ parse_resources(
 
         context.drop_all_spaces_comments();
 
-        resources.push_back(
+        res_list.push_back(
           new FinalBindAST(
             VarAST::Create(varname),
             parse_value_expr(context)
@@ -400,14 +400,13 @@ parse_resources(
 
     context.find_drop_panic(')');
 
-    output = new ResourceAST((resources));
+    output = ResourceAST::Create(res_list);
   }
-  else {
-    string errmsg = string("@(expr) // Expecting ( after @, but got ") + char(context.get_curr_char()) + "";
-    throw StyioSyntaxError(errmsg);
-  }
+  
+  string errmsg = string("@(expr) // Expecting ( after @, but got ") + char(context.get_curr_char()) + "";
+  throw StyioSyntaxError(errmsg);
 
-  return output;
+  // return output;
 }
 
 /*

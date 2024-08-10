@@ -409,7 +409,7 @@ std::string
 StyioRepr::toString(ResourceAST* ast, int indent) {
   string varStr;
 
-  auto Resources = ast->getResList();
+  auto Resources = ast->res_list;
   for (int i = 0; i < Resources.size(); i++) {
     varStr += make_padding(indent) + Resources[i]->toString(this, indent + 1);
     if (i < (Resources.size() - 1)) {

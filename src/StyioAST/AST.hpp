@@ -763,8 +763,6 @@ public:
   }
 };
 
-
-
 /*
   FmtStrAST: String
 */
@@ -1364,8 +1362,6 @@ class CondAST : public StyioASTTraits<CondAST>
   StyioAST* RhsExpr = nullptr;
 
 public:
-
-
   CondAST(LogicType op, StyioAST* val) :
       LogicOp(op), ValExpr(val) {
   }
@@ -1587,15 +1583,16 @@ public:
 */
 class ResourceAST : public StyioASTTraits<ResourceAST>
 {
-  vector<StyioAST*> Resources;
-
-public:
+private:
   ResourceAST(vector<StyioAST*> resources) :
-      Resources(resources) {
+      res_list(resources) {
   }
 
-  const vector<StyioAST*>& getResList() {
-    return Resources;
+public:
+  vector<StyioAST*> res_list;
+
+  static ResourceAST* Create(vector<StyioAST*> resources) {
+    return new ResourceAST(resources);
   }
 
   const StyioASTType getNodeType() const {
@@ -2282,9 +2279,9 @@ private:
 public:
   StyioAST* object = nullptr;
   VarTupleAST* params = nullptr;
-  std::vector<StyioAST*> operations; 
-  std::vector<StyioAST*> ret_exprs; // return-able expressions
-  
+  std::vector<StyioAST*> operations;
+  std::vector<StyioAST*> ret_exprs;  // return-able expressions
+
   static BackwardAST* Create(StyioAST* obj, VarTupleAST* params, std::vector<StyioAST*> ops, std::vector<StyioAST*> rets) {
     return new BackwardAST(obj, params, ops, rets);
   }
@@ -2615,7 +2612,7 @@ public:
 };
 
 /*
-  Iterator: 
+  Iterator:
     collection >> operations
 */
 class IteratorAST : public StyioASTTraits<IteratorAST>
@@ -2663,7 +2660,6 @@ private:
 public:
   StyioAST* theTuple;
   StyioAST* theOpOnIt;
-
 
   ExtractorAST* Create(StyioAST* the_tuple, StyioAST* the_op) {
     return new ExtractorAST(the_tuple, the_op);
