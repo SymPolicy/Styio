@@ -2,7 +2,7 @@
 
 @("lineitem.csv") >> #(data: csv)
   => filter { 
-    data["l_shipdate"] <= @("1998-12-01") - 90
+    data["l_shipdate"] <= @("1998-12-01": date) - @(90: date.day)
   }
   => map { 
     l_returnflag = data["l_returnflag"],
