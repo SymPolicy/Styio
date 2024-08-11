@@ -205,10 +205,11 @@ main(
     }
 
     auto styio_context = StyioContext::Create(
-      fpath, 
-      styio_code.code_text, 
+      fpath,
+      styio_code.code_text,
       styio_code.line_seps,
-      is_debug_mode /* is debug mode */);
+      is_debug_mode /* is debug mode */
+    );
 
     StyioRepr styio_repr = StyioRepr();
 

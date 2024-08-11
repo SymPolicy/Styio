@@ -16,7 +16,7 @@ StyioAST* binop_subtraction(StyioAST* left, StyioAST* right) {
   return BinOpAST::Create(TokenKind::Binary_Sub, left, right);
 };
 
-StyioAST* binop_multiplication(StyioAST* left, StyioAST* right) {
+BinOpAST* binop_multiplication(StyioAST* left, StyioAST* right) {
   return BinOpAST::Create(TokenKind::Binary_Mul, left, right);
 };
 

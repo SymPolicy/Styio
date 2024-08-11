@@ -407,17 +407,18 @@ StyioRepr::toString(FmtStrAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(ResourceAST* ast, int indent) {
-  string varStr;
+  string var_str;
 
-  auto Resources = ast->res_list;
-  for (int i = 0; i < Resources.size(); i++) {
-    varStr += make_padding(indent) + Resources[i]->toString(this, indent + 1);
-    if (i < (Resources.size() - 1)) {
-      varStr += "\n";
+  auto res_list = ast->res_list;
+  for (int i = 0; i < res_list.size(); i++) {
+    var_str += make_padding(indent) + res_list[i].first->toString(this, indent + 1) + "\n";
+    var_str += make_padding(indent) + "type: { " + res_list[i].second + " }";
+    if (i < (res_list.size() - 1)) {
+      var_str += "\n";
     }
   }
 
-  return reprASTType(ast->getNodeType(), " ") + "{\n" + varStr + "}";
+  return reprASTType(ast->getNodeType(), " ") + "{\n" + var_str + "}";
 }
 
 std::string

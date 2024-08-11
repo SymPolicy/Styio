@@ -1,5 +1,0 @@
-// RUN: /root/styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
-
-@(a <- 2)
-
-a <- @(2)

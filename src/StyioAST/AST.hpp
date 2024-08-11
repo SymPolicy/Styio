@@ -1584,15 +1584,15 @@ public:
 class ResourceAST : public StyioASTTraits<ResourceAST>
 {
 private:
-  ResourceAST(vector<StyioAST*> resources) :
-      res_list(resources) {
+  ResourceAST(std::vector<std::pair<StyioAST*, std::string>> res_list) :
+      res_list(res_list) {
   }
 
 public:
-  vector<StyioAST*> res_list;
+  std::vector<std::pair<StyioAST*, std::string>> res_list;
 
-  static ResourceAST* Create(vector<StyioAST*> resources) {
-    return new ResourceAST(resources);
+  static ResourceAST* Create(std::vector<std::pair<StyioAST*, std::string>> resources_with_types) {
+    return new ResourceAST(resources_with_types);
   }
 
   const StyioASTType getNodeType() const {
@@ -1653,12 +1653,16 @@ public:
 */
 class FinalBindAST : public StyioASTTraits<FinalBindAST>
 {
-  VarAST* var = nullptr;
-  StyioAST* valExpr = nullptr;
+  VarAST* var_name = nullptr;
+  StyioAST* val_expr = nullptr;
 
 public:
   FinalBindAST(VarAST* var, StyioAST* val) :
-      var(var), valExpr(val) {
+      var_name(var), val_expr(val) {
+  }
+
+  static FinalBindAST* Create(VarAST* var, StyioAST* val) {
+    return FinalBindAST::Create(var, val);
   }
 
   const StyioASTType getNodeType() const {
@@ -1670,15 +1674,15 @@ public:
   }
 
   VarAST* getVar() {
-    return var;
+    return var_name;
   }
 
   StyioAST* getValue() {
-    return valExpr;
+    return val_expr;
   }
 
   const string& getName() {
-    return var->getNameAsStr();
+    return var_name->getNameAsStr();
   }
 };
 

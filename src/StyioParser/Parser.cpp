@@ -39,7 +39,7 @@ here() {
 */
 
 std::string
-parse_token_as_str(StyioContext& context) {
+parse_name_as_str(StyioContext& context) {
   string name = "";
 
   while (context.check_isalnum_()) {
@@ -53,7 +53,7 @@ parse_token_as_str(StyioContext& context) {
 NameAST*
 parse_name(StyioContext& context) {
   string name = "";
-  /* it will include cur_char in the id without checking */
+  /* this function will add the current character to the name without checking */
   do {
     name += context.get_curr_char();
     context.move(1);
@@ -107,23 +107,15 @@ parse_int_or_float(StyioContext& context) {
 
 StringAST*
 parse_string(StyioContext& context) {
-  /*
-    Danger!
-    when entering parse_string(),
-    the context -> get_curr_char() must be "
-    this line will drop the next 1 character anyway!
-  */
-  context.move(1);
+  context.check_drop('"');
 
   string textStr = "";
-
   while (not context.check('\"')) {
     textStr += context.get_curr_char();
     context.move(1);
   }
 
-  // eliminate " at the end
-  context.move(1);
+  context.check_drop_panic('"');
 
   return StringAST::Create(textStr);
 }
@@ -364,49 +356,54 @@ parse_resources(
 ) {
   ResourceAST* output;
 
-  vector<StyioAST*> res_list;
+  std::vector<std::pair<StyioAST*, std::string>> res_list;
 
-  /*
-    Danger!
-    when entering parse_resources(),
-    the context -> get_curr_char() must be @
-    this line will drop the next 1 character anyway!
-  */
-  context.move(1);
+  context.check_drop_panic('@');
 
   if (context.check_drop('(')) {
     do {
       context.drop_all_spaces_comments();
 
       if (context.check('"')) {
-        res_list.push_back(parse_path(context));
-      }
-      else if (context.check_isal_()) {
-        NameAST* varname = parse_name(context);
-
-        context.find_drop_panic("<-");
-
+        auto val = parse_string(context);
+        
         context.drop_all_spaces_comments();
-
-        res_list.push_back(
-          new FinalBindAST(
-            VarAST::Create(varname),
-            parse_value_expr(context)
-          )
-        );
+        if (context.check_drop(':')) {
+          context.drop_all_spaces_comments();
+          auto type_name = parse_name_as_str(context);
+          res_list.push_back(
+            std::make_pair(val, type_name)
+          );
+        }
+        else {
+          res_list.push_back(
+            std::make_pair(val, std::string(""))
+          );
+        }
       }
+      // else if (context.check_isal_()) {
+      //   NameAST* varname = parse_name(context);
 
+      //   context.find_drop_panic("<-");
+
+      //   context.drop_all_spaces_comments();
+
+      //   res_list.push_back(
+      //     std::make_pair(
+      //       FinalBindAST::Create(VarAST::Create(varname), parse_value_expr(context)),
+      //       std::string("")
+      //     )
+      //   );
+      // }
     } while (context.check_drop(','));
 
     context.find_drop_panic(')');
 
-    output = ResourceAST::Create(res_list);
+    return ResourceAST::Create(res_list);
   }
-  
+
   string errmsg = string("@(expr) // Expecting ( after @, but got ") + char(context.get_curr_char()) + "";
   throw StyioSyntaxError(errmsg);
-
-  // return output;
 }
 
 /*
@@ -1220,11 +1217,11 @@ AttrAST*
 parse_attr(
   StyioContext& context
 ) {
-  auto main_name = NameAST::Create(parse_token_as_str(context));
+  auto main_name = NameAST::Create(parse_name_as_str(context));
 
   StyioAST* attr_name;
   if (context.find_drop('.')) {
-    attr_name = NameAST::Create(parse_token_as_str(context));
+    attr_name = NameAST::Create(parse_name_as_str(context));
   }
   else if (context.find_drop('[')) {
     /* Object["name"] */
@@ -1254,7 +1251,7 @@ parse_chain_of_call(
   StyioAST* callee
 ) {
   while (true) {
-    std::string curr_token = parse_token_as_str(context);
+    std::string curr_token = parse_name_as_str(context);
     context.drop_all_spaces_comments();
 
     if (context.check_drop('.')) {
@@ -2419,7 +2416,7 @@ CODPAST*
 parse_codp(StyioContext& context, CODPAST* prev_op) {
   CODPAST* curr_op;
 
-  string name = parse_token_as_str(context);
+  string name = parse_name_as_str(context);
 
   context.find_drop_panic('{');
 

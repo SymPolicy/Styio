@@ -399,14 +399,18 @@ public:
   }
 
   /* Match(Next) -> Panic */
-  bool check_drop_panic(char value) {
+  bool check_drop_panic(char value, std::string errmsg = "") {
     if (check(value)) {
       move(1);
       return true;
     }
 
-    string errmsg = string("check_drop_panic(char)") + label_cur_line(curr_pos, std::string("which is expected to be ") + std::string(1, char(value)));
-    throw StyioSyntaxError(errmsg);
+    if (errmsg.empty()) {
+      throw StyioSyntaxError(string("check_drop_panic(char)") + label_cur_line(curr_pos, std::string("which is expected to be ") + std::string(1, char(value))));
+    }
+    else {
+      throw StyioSyntaxError(label_cur_line(curr_pos, errmsg));
+    }
   }
 
   /* (Char) Find & Drop -> Panic */
