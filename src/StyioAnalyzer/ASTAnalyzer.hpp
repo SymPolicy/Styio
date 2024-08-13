@@ -119,7 +119,7 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
 
   class ResourceAST,
 
-  class LocalPathAST,
+  class ResPathAST,
   class RemotePathAST,
   class WebUrlAST,
   class DBUrlAST,
@@ -160,7 +160,7 @@ public:
   void typeInfer(StringAST* ast);
   void typeInfer(TypeConvertAST* ast);
   void typeInfer(FmtStrAST* ast);
-  void typeInfer(LocalPathAST* ast);
+  void typeInfer(ResPathAST* ast);
   void typeInfer(RemotePathAST* ast);
   void typeInfer(WebUrlAST* ast);
   void typeInfer(DBUrlAST* ast);
@@ -222,7 +222,7 @@ public:
   StyioIR* toStyioIR(StringAST* ast);
   StyioIR* toStyioIR(TypeConvertAST* ast);
   StyioIR* toStyioIR(FmtStrAST* ast);
-  StyioIR* toStyioIR(LocalPathAST* ast);
+  StyioIR* toStyioIR(ResPathAST* ast);
   StyioIR* toStyioIR(RemotePathAST* ast);
   StyioIR* toStyioIR(WebUrlAST* ast);
   StyioIR* toStyioIR(DBUrlAST* ast);

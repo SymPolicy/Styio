@@ -166,31 +166,31 @@ public:
   }
 
   /* Check Value */
-  bool check(char value) {
+  bool check_next(char value) {
     return (code.at(curr_pos)) == value;
   }
 
   /* Check Value */
-  bool check(const string& value) {
+  bool check_next(const string& value) {
     return code.compare(curr_pos, value.size(), value) == 0;
   }
 
   /* Move Until */
   void move_until(char value) {
-    while (not check(value)) {
+    while (not check_next(value)) {
       move(1);
     }
   }
 
   void move_until(const string& value) {
-    while (not check(value)) {
+    while (not check_next(value)) {
       move(1);
     }
   }
 
   /* Check & Drop */
   bool check_drop(char value) {
-    if (check(value)) {
+    if (check_next(value)) {
       move(1);
       return true;
     }
@@ -201,7 +201,7 @@ public:
 
   /* Check & Drop */
   bool check_drop(const string& value) {
-    if (check(value)) {
+    if (check_next(value)) {
       move(value.size());
       return true;
     }
@@ -217,14 +217,14 @@ public:
       if (isspace(get_curr_char())) {
         move(1);
       }
-      else if (check("//")) {
+      else if (check_next("//")) {
         pass_over('\n');
       }
-      else if (check("/*")) {
+      else if (check_next("/*")) {
         pass_over("*/");
       }
       else {
-        if (check(value)) {
+        if (check_next(value)) {
           move(1);
           return true;
         }
@@ -244,10 +244,10 @@ public:
       if (isspace(get_curr_char())) {
         move(1);
       }
-      else if (check("//")) {
+      else if (check_next("//")) {
         pass_over('\n');
       }
-      else if (check("/*")) {
+      else if (check_next("/*")) {
         pass_over("*/");
       }
       else {
@@ -266,7 +266,7 @@ public:
   void pass_over(char value) {
     /* ! No Boundary Check ! */
     while (true) {
-      if (check(value)) {
+      if (check_next(value)) {
         move(1);
         break;
       }
@@ -280,7 +280,7 @@ public:
   void pass_over(const string& value) {
     /* ! No Boundary Check ! */
     while (true) {
-      if (check(value)) {
+      if (check_next(value)) {
         move(value.size());
         break;
       }
@@ -367,7 +367,7 @@ public:
 
   /* Drop White Spaces */
   void drop_white_spaces() {
-    while (check(' ')) {
+    while (check_next(' ')) {
       move(1);
     }
   }
@@ -386,10 +386,10 @@ public:
       if (isspace(code.at(curr_pos))) {
         move(1);
       }
-      else if (check("//")) {
+      else if (check_next("//")) {
         pass_over('\n');
       }
-      else if (check("/*")) {
+      else if (check_next("/*")) {
         pass_over("*/");
       }
       else {
@@ -400,7 +400,7 @@ public:
 
   /* Match(Next) -> Panic */
   bool check_drop_panic(char value, std::string errmsg = "") {
-    if (check(value)) {
+    if (check_next(value)) {
       move(1);
       return true;
     }
@@ -420,14 +420,14 @@ public:
       if (isspace(get_curr_char())) {
         move(1);
       }
-      else if (check("//")) {
+      else if (check_next("//")) {
         pass_over('\n');
       }
-      else if (check("/*")) {
+      else if (check_next("/*")) {
         pass_over("*/");
       }
       else {
-        if (check(value)) {
+        if (check_next(value)) {
           move(1);
           return true;
         }
@@ -445,12 +445,12 @@ public:
     while (true) {
       if (isspace(get_curr_char()))
         move(1);
-      else if (check("//"))
+      else if (check_next("//"))
         pass_over('\n');
-      else if (check("/*"))
+      else if (check_next("/*"))
         pass_over("*/");
       else {
-        if (check(value)) {
+        if (check_next(value)) {
           move(value.size());
           return true;
         }
@@ -469,14 +469,14 @@ public:
       if (isspace(get_curr_char())) {
         move(1);
       }
-      else if (check("//")) {
+      else if (check_next("//")) {
         pass_over('\n');
       }
-      else if (check("/*")) {
+      else if (check_next("/*")) {
         pass_over("*/");
       }
       else {
-        if (check(value)) {
+        if (check_next(value)) {
           move(value.size());
           return true;
         }
@@ -505,19 +505,19 @@ public:
 
   /* Tuple Operations */
   bool check_tuple_ops() {
-    return check("<<")     // extract
-           or check(">>")  // iterate
-           or check("=>")  // next
+    return check_next("<<")     // extract
+           or check_next(">>")  // iterate
+           or check_next("=>")  // next
       ;
   }
 
   /* Check Chain of Data Processing */
   bool check_codp() {
-    return check("filter")
-           or check("sort")
-           or check("map")
-           or check("slice")
-           or check("print");
+    return check_next("filter")
+           or check_next("sort")
+           or check_next("map")
+           or check_next("slice")
+           or check_next("print");
   }
 
   /* Check Binary Operator */
@@ -598,6 +598,8 @@ public:
         << line << std::endl;
     }
   }
+
+  std::vector<StyioToken*> tokenize();
 };
 
 template <typename Enumeration>

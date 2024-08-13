@@ -427,189 +427,189 @@ reprToken(CompType token) {
 }
 
 std::string
-reprToken(StyioToken token) {
+reprToken(StyioTokenType token) {
   switch (token) {
-    case StyioToken::TOK_SPACE:
+    case StyioTokenType::TOK_SPACE:
       return " ";
 
-    case StyioToken::TOK_CR:
+    case StyioTokenType::TOK_CR:
       return "<CR>";
 
-    case StyioToken::TOK_LF:
+    case StyioTokenType::TOK_LF:
       return "<LF>";
 
-    case StyioToken::TOK_EOF:
+    case StyioTokenType::TOK_EOF:
       return "<EOF>";
 
-    case StyioToken::TOK_ID:
+    case StyioTokenType::TOK_NAME:
       return "<ID>";
 
-    case StyioToken::TOK_INT:
+    case StyioTokenType::TOK_INT:
       return "<INT>";
 
-    case StyioToken::TOK_FLOAT:
+    case StyioTokenType::TOK_FLOAT:
       return "<FLOAT>";
 
-    case StyioToken::TOK_STRING:
+    case StyioTokenType::TOK_STRING:
       return "<STRING>";
 
-    case StyioToken::TOK_COMMA:
+    case StyioTokenType::TOK_COMMA:
       return ",";
 
-    case StyioToken::TOK_DOT:
+    case StyioTokenType::TOK_DOT:
       return ".";
 
-    case StyioToken::TOK_COLON:
+    case StyioTokenType::TOK_COLON:
       return ":";
 
-    case StyioToken::TOK_TILDE:
+    case StyioTokenType::TOK_TILDE:
       return "~";
 
-    case StyioToken::TOK_EXCLAM:
+    case StyioTokenType::TOK_EXCLAM:
       return "!";
 
-    case StyioToken::TOK_AT:
+    case StyioTokenType::TOK_AT:
       return "@";
 
-    case StyioToken::TOK_HASH:
+    case StyioTokenType::TOK_HASH:
       return "#";
 
-    case StyioToken::TOK_DOLLAR:
+    case StyioTokenType::TOK_DOLLAR:
       return "$";
 
-    case StyioToken::TOK_PERCENT:
+    case StyioTokenType::TOK_PERCENT:
       return "%";
 
-    case StyioToken::TOK_HAT:
+    case StyioTokenType::TOK_HAT:
       return "^";
 
-    case StyioToken::TOK_CHECK:
+    case StyioTokenType::TOK_QUESTION:
       return "?";
 
-    case StyioToken::TOK_SLASH:
+    case StyioTokenType::TOK_SLASH:
       return "/";
 
-    case StyioToken::TOK_BSLASH:
+    case StyioTokenType::TOK_BACKSLASH:
       return "\\";
 
-    case StyioToken::TOK_PIPE:
+    case StyioTokenType::TOK_PIPE:
       return "|";
 
-    case StyioToken::TOK_ELLIPSIS:
+    case StyioTokenType::TOK_ELLIPSIS:
       return "...";
 
-    case StyioToken::TOK_SQUOTE:
+    case StyioTokenType::TOK_SQUOTE:
       return "'";
 
-    case StyioToken::TOK_DQUOTE:
+    case StyioTokenType::TOK_DQUOTE:
       return "\"";
 
-    case StyioToken::TOK_BQUOTE:
+    case StyioTokenType::TOK_BQUOTE:
       return "`";
 
-    case StyioToken::TOK_LPAREN:
+    case StyioTokenType::TOK_LPAREN:
       return "(";
 
-    case StyioToken::TOK_RPAREN:
+    case StyioTokenType::TOK_RPAREN:
       return ")";
 
-    case StyioToken::TOK_LBOXBRAC:
+    case StyioTokenType::TOK_LBOXBRAC:
       return "[";
 
-    case StyioToken::TOK_RBOXBRAC:
+    case StyioTokenType::TOK_RBOXBRAC:
       return "]";
 
-    case StyioToken::TOK_LCURBRAC:
+    case StyioTokenType::TOK_LCURBRAC:
       return "{";
 
-    case StyioToken::TOK_RCURBRAC:
+    case StyioTokenType::TOK_RCURBRAC:
       return "}";
 
-    case StyioToken::TOK_LANGBRAC:
+    case StyioTokenType::TOK_LANGBRAC:
       return "<";
 
-    case StyioToken::TOK_RANGBRAC:
+    case StyioTokenType::TOK_RANGBRAC:
       return ">";
 
-    case StyioToken::TOK_NOT:
+    case StyioTokenType::TOK_NOT:
       return "<NOT>";
 
-    case StyioToken::TOK_AND:
+    case StyioTokenType::TOK_AND:
       return "<AND>";
 
-    case StyioToken::TOK_OR:
+    case StyioTokenType::TOK_OR:
       return "<OR>";
 
-    case StyioToken::TOK_XOR:
+    case StyioTokenType::TOK_XOR:
       return "<XOR>";
 
-    case StyioToken::TOK_BITAND:
+    case StyioTokenType::TOK_BITAND:
       return "<BIT_AND>";
 
-    case StyioToken::TOK_BITOR:
+    case StyioTokenType::TOK_BITOR:
       return "<BIT_OR>";
 
-    case StyioToken::TOK_BITXOR:
+    case StyioTokenType::TOK_BITXOR:
       return "<BIT_XOR>";
 
-    case StyioToken::TOK_LSHIFT:
+    case StyioTokenType::TOK_BACKWARD:
       return "<<";
 
-    case StyioToken::TOK_RSHIFT:
+    case StyioTokenType::TOK_FORWARD:
       return ">>";
 
-    case StyioToken::TOK_NEG:
+    case StyioTokenType::TOK_NEG:
       return "<NEG>";
 
-    case StyioToken::TOK_ADD:
+    case StyioTokenType::TOK_ADD:
       return "<ADD>";
 
-    case StyioToken::TOK_SUB:
+    case StyioTokenType::TOK_SUB:
       return "<SUB>";
 
-    case StyioToken::TOK_MUL:
+    case StyioTokenType::TOK_MUL:
       return "<MUL>";
 
-    case StyioToken::TOK_DIV:
+    case StyioTokenType::TOK_DIV:
       return "<DIV>";
 
-    case StyioToken::TOK_MOD:
+    case StyioTokenType::TOK_MOD:
       return "<MOD>";
 
-    case StyioToken::TOK_POW:
+    case StyioTokenType::TOK_POW:
       return "<POW>";
 
-    case StyioToken::TOK_GT:
+    case StyioTokenType::TOK_GT:
       return "<GT>";
 
-    case StyioToken::TOK_GE:
+    case StyioTokenType::TOK_GE:
       return "<GE>";
 
-    case StyioToken::TOK_LT:
+    case StyioTokenType::TOK_LT:
       return "<LT>";
 
-    case StyioToken::TOK_LE:
+    case StyioTokenType::TOK_LE:
       return "<LE>";
 
-    case StyioToken::TOK_EQ:
+    case StyioTokenType::TOK_EQ:
       return "<EQ>";
 
-    case StyioToken::TOK_NE:
+    case StyioTokenType::TOK_NE:
       return "<NE>";
 
-    case StyioToken::TOK_RARROW:
+    case StyioTokenType::TOK_RARROW:
       return "->";
 
-    case StyioToken::TOK_LARROW:
+    case StyioTokenType::TOK_LARROW:
       return "<-";
 
-    case StyioToken::TOK_WALRUS:
+    case StyioTokenType::TOK_WALRUS:
       return ":=";
 
-    case StyioToken::TOK_MATCH:
+    case StyioTokenType::TOK_MATCH:
       return "?=";
 
-    case StyioToken::TOK_INFINITE_LIST:
+    case StyioTokenType::TOK_INFINITE_LIST:
       return "[...]";
 
     default:

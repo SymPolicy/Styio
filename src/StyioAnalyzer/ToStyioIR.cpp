@@ -223,7 +223,7 @@ StyioAnalyzer::toStyioIR(ResourceAST* ast) {
 }
 
 StyioIR*
-StyioAnalyzer::toStyioIR(LocalPathAST* ast) {
+StyioAnalyzer::toStyioIR(ResPathAST* ast) {
   return SGConstInt::Create(0);
 }
 

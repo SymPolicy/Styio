@@ -85,7 +85,7 @@ parse_int_or_float(StyioContext& context) {
   } while (context.check_isdigit());
 
   // int f_exp = 0; /* Float Exponent (Base: 10) */
-  if (context.check('.')) {
+  if (context.check_next('.')) {
     if (context.peak_isdigit(1)) {
       digits += ".";
       context.move(1); /* cur_char moves from . to the next */
@@ -110,7 +110,7 @@ parse_string(StyioContext& context) {
   context.check_drop('"');
 
   string textStr = "";
-  while (not context.check('\"')) {
+  while (not context.check_next('\"')) {
     textStr += context.get_curr_char();
     context.move(1);
   }
@@ -131,7 +131,7 @@ parse_char_or_string(StyioContext& context) {
   context.move(1);
   string text = "";
 
-  while (not context.check('\'')) {
+  while (not context.check_next('\'')) {
     text += context.get_curr_char();
     context.move(1);
   }
@@ -161,8 +161,8 @@ parse_fmt_str(StyioContext& context) {
   vector<StyioAST*> exprs;
   string textStr = "";
 
-  while (not context.check('\"')) {
-    if (context.check('{')) {
+  while (not context.check_next('\"')) {
+    if (context.check_next('{')) {
       if (context.check_ahead(1, '{')) {
         textStr += context.get_curr_char();
         context.move(2);
@@ -178,7 +178,7 @@ parse_fmt_str(StyioContext& context) {
         textStr.clear();
       }
     }
-    else if (context.check('}')) {
+    else if (context.check_next('}')) {
       if (context.check_ahead(1, '}')) {
         textStr += context.get_curr_char();
         context.move(2);
@@ -207,7 +207,7 @@ parse_path(StyioContext& context) {
 
   string text = "";
 
-  while (not context.check('"')) {
+  while (not context.check_next('"')) {
     text += context.get_curr_char();
     context.move(1);
   }
@@ -216,10 +216,10 @@ parse_path(StyioContext& context) {
   context.move(1);
 
   if (text.starts_with("/")) {
-    return LocalPathAST::Create(StyioPathType::local_absolute_unix_like, text);
+    return ResPathAST::Create(StyioPathType::local_absolute_unix_like, text);
   }
   else if (std::isupper(text.at(0)) && text.at(1) == ':') {
-    return LocalPathAST::Create(StyioPathType::local_absolute_windows, text);
+    return ResPathAST::Create(StyioPathType::local_absolute_windows, text);
   }
   else if (text.starts_with("http://")) {
     return WebUrlAST::Create(StyioPathType::url_http, text);
@@ -252,7 +252,7 @@ parse_path(StyioContext& context) {
     return RemotePathAST::Create(StyioPathType::remote_windows, text);
   }
 
-  return LocalPathAST::Create(StyioPathType::local_relevant_any, text);
+  return ResPathAST::Create(StyioPathType::local_relevant_any, text);
 }
 
 DTypeAST*
@@ -364,7 +364,7 @@ parse_resources(
     do {
       context.drop_all_spaces_comments();
 
-      if (context.check('"')) {
+      if (context.check_next('"')) {
         auto val = parse_string(context);
         
         context.drop_all_spaces_comments();
@@ -426,7 +426,7 @@ parse_cond_item(StyioContext& context) {
     case '=': {
       context.move(1);
 
-      if (context.check('=')) {
+      if (context.check_next('=')) {
         context.move(1);
 
         /*
@@ -448,7 +448,7 @@ parse_cond_item(StyioContext& context) {
     case '!': {
       context.move(1);
 
-      if (context.check('=')) {
+      if (context.check_next('=')) {
         context.move(1);
 
         /*
@@ -470,7 +470,7 @@ parse_cond_item(StyioContext& context) {
     case '>': {
       context.move(1);
 
-      if (context.check('=')) {
+      if (context.check_next('=')) {
         context.move(1);
 
         /*
@@ -505,7 +505,7 @@ parse_cond_item(StyioContext& context) {
     case '<': {
       context.move(1);
 
-      if (context.check('=')) {
+      if (context.check_next('=')) {
         context.move(1);
 
         /*
@@ -570,10 +570,10 @@ parse_var_name_or_value_expr(StyioContext& context) {
   if (context.check_isal_()) {
     auto varname = parse_name(context);
 
-    if (context.check('[')) {
+    if (context.check_next('[')) {
       output = parse_list_op(context, varname);
     }
-    else if (context.check('(')) {
+    else if (context.check_next('(')) {
       output = parse_call(context, varname);
     }
     else {
@@ -583,7 +583,7 @@ parse_var_name_or_value_expr(StyioContext& context) {
 
   context.drop_all_spaces();
 
-  if (context.check('.')) {
+  if (context.check_next('.')) {
     context.move(1);
     output = parse_chain_of_call(context, output);
   }
@@ -633,13 +633,13 @@ StyioAST*
 parse_value_expr(StyioContext& context) {
   StyioAST* output;
 
-  if (isalpha(context.get_curr_char()) || context.check('_')) {
+  if (isalpha(context.get_curr_char()) || context.check_next('_')) {
     return parse_var_name_or_value_expr(context);
   }
   else if (isdigit(context.get_curr_char())) {
     return parse_int_or_float(context);
   }
-  else if (context.check('|')) {
+  else if (context.check_next('|')) {
     return parse_size_of(context);
   }
 
@@ -1032,7 +1032,7 @@ StyioAST*
 parse_iterable(StyioContext& context) {
   StyioAST* output = EmptyAST::Create();
 
-  if (isalpha(context.get_curr_char()) || context.check('_')) {
+  if (isalpha(context.get_curr_char()) || context.check_next('_')) {
     output = parse_name(context);
 
     context.drop_all_spaces_comments();
@@ -1164,11 +1164,11 @@ parse_size_of(StyioContext& context) {
   // eliminate | at the start
   context.move(1);
 
-  if (isalpha(context.get_curr_char()) || context.check('_')) {
+  if (isalpha(context.get_curr_char()) || context.check_next('_')) {
     StyioAST* var = parse_var_name_or_value_expr(context);
 
     // eliminate | at the end
-    if (context.check('|')) {
+    if (context.check_next('|')) {
       context.move(1);
 
       output = new SizeOfAST((var));
@@ -1199,7 +1199,7 @@ parse_call(
 
   vector<StyioAST*> exprs;
 
-  while (not context.check(')')) {
+  while (not context.check_next(')')) {
     exprs.push_back(parse_expr(context));
     context.find_drop(',');
     context.drop_all_spaces_comments();
@@ -1225,7 +1225,7 @@ parse_attr(
   }
   else if (context.find_drop('[')) {
     /* Object["name"] */
-    if (context.check('"')) {
+    if (context.check_next('"')) {
       attr_name = parse_string(context);
     }
     /*
@@ -1258,7 +1258,7 @@ parse_chain_of_call(
       AttrAST* temp = AttrAST::Create(callee, NameAST::Create(curr_token));
       return parse_chain_of_call(context, temp);
     }
-    else if (context.check('(')) {
+    else if (context.check_next('(')) {
       CallAST* temp = parse_call(context, NameAST::Create(curr_token));
 
       if (context.check_drop('.')) {
@@ -1313,7 +1313,7 @@ parse_list_op(StyioContext& context, StyioAST* theList) {
   context.move(1);
 
   do {
-    if (isalpha(context.get_curr_char()) || context.check('_')) {
+    if (isalpha(context.get_curr_char()) || context.check_next('_')) {
       output = new ListOpAST(
         StyioASTType::Access, (theList), parse_var_name_or_value_expr(context)
       );
@@ -1342,7 +1342,7 @@ parse_list_op(StyioContext& context, StyioAST* theList) {
         case '<': {
           context.move(1);
 
-          while (context.check('<')) {
+          while (context.check_next('<')) {
             context.move(1);
           }
 
@@ -1543,7 +1543,7 @@ parse_list_or_loop(StyioContext& context) {
   context.drop_white_spaces();
 
   if (context.check_drop('.')) {
-    while (context.check('.')) {
+    while (context.check_next('.')) {
       context.move(1);
     }
 
@@ -1594,7 +1594,7 @@ parse_list_or_loop(StyioContext& context) {
     output = new ListAST((elements));
   }
 
-  while (context.check('[')) {
+  while (context.check_next('[')) {
     output = parse_list_op(context, (output));
   }
 
@@ -1611,7 +1611,7 @@ StyioAST*
 parse_loop(StyioContext& context) {
   StyioAST* output;
 
-  while (context.check('.')) {
+  while (context.check_next('.')) {
     context.move(1);
   }
 
@@ -1779,7 +1779,7 @@ parse_cond_rhs(StyioContext& context, StyioAST* lhsExpr) {
     case '!': {
       context.move(1);
 
-      if (context.check('(')) {
+      if (context.check_next('(')) {
         context.move(1);
 
         /*
@@ -1804,7 +1804,7 @@ parse_cond_rhs(StyioContext& context, StyioAST* lhsExpr) {
 
   context.drop_all_spaces();
 
-  while (!(context.check(')'))) {
+  while (!(context.check_next(')'))) {
     condExpr = (parse_cond_rhs(context, (condExpr)));
   }
 
@@ -1850,7 +1850,7 @@ parse_cond(StyioContext& context) {
   // drop all spaces after first value
   context.drop_all_spaces();
 
-  if (context.check("&&") || context.check("||")) {
+  if (context.check_next("&&") || context.check_next("||")) {
     return parse_cond_rhs(context, lhsExpr);
   }
   else {
@@ -2026,9 +2026,9 @@ parse_template(StyioContext& context) {
       string errmsg = string("parse_pipeline() // Inheritance, Type Hint.");
       throw StyioNotImplemented(errmsg);
     }
-    else if (context.check('=')) {
+    else if (context.check_next('=')) {
       /* f => ... */
-      if (context.check("=>")) {
+      if (context.check_next("=>")) {
         return new FuncAST(
           func_name,
           parse_forward(context, true),
@@ -2063,14 +2063,14 @@ parse_forward(StyioContext& context, bool is_func) {
   bool has_args = false;
 
   if (is_func) {
-    if (context.check('(')) {
+    if (context.check_next('(')) {
       args = parse_var_tuple(context);
       has_args = true;
     }
   }
   else if (context.check_drop('#')) {
     context.drop_white_spaces();
-    if (context.check('(')) {
+    if (context.check_next('(')) {
       args = parse_var_tuple(context);
       has_args = true;
     }
@@ -2113,7 +2113,7 @@ parse_forward(StyioContext& context, bool is_func) {
           auto cases = parse_cases(context);
 
           /* #(args) ?= cases */
-          if (context.check('{')) {
+          if (context.check_next('{')) {
             if (has_args) {
               output = new ForwardAST((cases));
             }
@@ -2135,7 +2135,7 @@ parse_forward(StyioContext& context, bool is_func) {
             if (context.check_drop("=>")) {
               context.drop_all_spaces();
 
-              if (context.check('{')) {
+              if (context.check_next('{')) {
                 then = parse_block(context);
               }
               else {
@@ -2183,7 +2183,7 @@ parse_forward(StyioContext& context, bool is_func) {
               do {
                 context.drop_all_spaces_comments();
 
-                if (context.check(')')) {
+                if (context.check_next(')')) {
                   break;
                 }
                 else {
@@ -2203,7 +2203,7 @@ parse_forward(StyioContext& context, bool is_func) {
               do {
                 context.drop_all_spaces_comments();
 
-                if (context.check(']')) {
+                if (context.check_next(']')) {
                   break;
                 }
                 else {
@@ -2225,7 +2225,7 @@ parse_forward(StyioContext& context, bool is_func) {
               do {
                 context.drop_all_spaces_comments();
 
-                if (context.check('}')) {
+                if (context.check_next('}')) {
                   break;
                 }
                 else {
@@ -2239,7 +2239,7 @@ parse_forward(StyioContext& context, bool is_func) {
             } break;
 
             default: {
-              if (isalpha(context.get_curr_char()) || context.check('_')) {
+              if (isalpha(context.get_curr_char()) || context.check_next('_')) {
                 iterable = parse_var_name_or_value_expr(context);
               }
               else {
@@ -2258,7 +2258,7 @@ parse_forward(StyioContext& context, bool is_func) {
           if (context.check_drop("=>")) {
             context.drop_all_spaces();
 
-            if (context.check('{')) {
+            if (context.check_next('{')) {
               nextExpr = parse_block(context);
             }
             else {
@@ -2325,7 +2325,7 @@ parse_forward(StyioContext& context, bool is_func) {
 
       context.drop_all_spaces();
 
-      if (context.check('{')) {
+      if (context.check_next('{')) {
         if (has_args) {
           output = ForwardAST::Create(args, parse_block(context));
         }
@@ -2459,7 +2459,7 @@ parse_read_file(StyioContext& context, NameAST* id_ast) {
   if (context.check_drop('@')) {
     context.check_drop_panic('(');
 
-    if (context.check('"')) {
+    if (context.check_next('"')) {
       auto path = parse_path(context);
 
       context.find_drop_panic(')');
@@ -2704,7 +2704,7 @@ parse_stmt(
     return output;
   }
   // Print
-  else if (context.check(">_")) {
+  else if (context.check_next(">_")) {
     return parse_print(context);
   }
 
@@ -2731,7 +2731,7 @@ parse_stmt(
 
     case '.': {
       context.move(1);
-      while (context.check('.')) {
+      while (context.check_next('.')) {
         context.move(1);
       }
       return new PassAST();
@@ -2740,7 +2740,7 @@ parse_stmt(
     case '^': {
       context.move(1);
 
-      while (context.check('^')) {
+      while (context.check_next('^')) {
         context.move(1);
       }
 
@@ -2816,12 +2816,12 @@ string
 parse_ext_elem(StyioContext& context) {
   string itemStr;
 
-  if (context.check('\"')) {
+  if (context.check_next('\"')) {
     // eliminate double quote symbol " at the start of dependency item
     context.move(1);
 
     while (context.get_curr_char() != '\"') {
-      if (context.check(',')) {
+      if (context.check_next(',')) {
         string errmsg = string("An \" was expected after") + itemStr + "however, a delimeter `,` was detected. ";
         throw StyioSyntaxError(errmsg);
       }
@@ -2860,7 +2860,7 @@ parse_ext_pack(StyioContext& context) {
 
   string pathStr = "";
 
-  while (context.check(',')) {
+  while (context.check_next(',')) {
     // eliminate comma ","
     context.move(1);
 
@@ -2873,7 +2873,7 @@ parse_ext_pack(StyioContext& context) {
     dependencies.push_back((parse_ext_elem(context)));
   };
 
-  if (context.check(']')) {
+  if (context.check_next(']')) {
     // eliminate right square bracket `]` after dependency list
     context.move(1);
   };
@@ -2902,7 +2902,7 @@ parse_cases(StyioContext& context) {
 
       context.drop_all_spaces_comments();
 
-      if (context.check('{')) {
+      if (context.check_next('{')) {
         _default_stmt = parse_block(context);
       }
       else {
@@ -2919,7 +2919,7 @@ parse_cases(StyioContext& context) {
     context.drop_all_spaces_comments();
 
     StyioAST* right;
-    if (context.check('{')) {
+    if (context.check_next('{')) {
       right = parse_block(context);
     }
     else {

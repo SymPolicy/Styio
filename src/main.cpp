@@ -211,6 +211,16 @@ main(
       is_debug_mode /* is debug mode */
     );
 
+    if (is_debug_mode) {
+      auto tokens = styio_context->tokenize();
+      std::cout << "\033[1;32mTokens\033[0m" << std::endl;
+      for (auto tok: tokens) {
+        std::cout << tok->as_str();
+      }
+      std::cout << "\n" << std::endl;
+    }
+    
+
     StyioRepr styio_repr = StyioRepr();
 
     /* Parser */

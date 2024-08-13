@@ -146,7 +146,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
 
   class ResourceAST,
 
-  class LocalPathAST,
+  class ResPathAST,
   class RemotePathAST,
   class WebUrlAST,
   class DBUrlAST,

@@ -422,7 +422,7 @@ StyioRepr::toString(ResourceAST* ast, int indent) {
 }
 
 std::string
-StyioRepr::toString(LocalPathAST* ast, int indent) {
+StyioRepr::toString(ResPathAST* ast, int indent) {
   return reprASTType(ast->getNodeType(), " ") + "{ " + ast->getPath() + " }";
 }
 

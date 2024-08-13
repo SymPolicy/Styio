@@ -360,7 +360,7 @@ StyioAnalyzer::typeInfer(ResourceAST* ast) {
 }
 
 void
-StyioAnalyzer::typeInfer(LocalPathAST* ast) {
+StyioAnalyzer::typeInfer(ResPathAST* ast) {
 }
 
 void

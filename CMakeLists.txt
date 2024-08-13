@@ -66,6 +66,7 @@ add_executable( styio
     src/StyioToken/Token.cpp
     # Parser
     src/StyioParser/Parser.cpp
+    src/StyioParser/Tokenizer.cpp
     # ToString
     src/StyioToString/ToString.cpp
     # StyioASTAnalyzer

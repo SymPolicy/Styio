@@ -843,13 +843,13 @@ public:
 /*
   Local [ File | Directory ] Path
 */
-class LocalPathAST : public StyioASTTraits<LocalPathAST>
+class ResPathAST : public StyioASTTraits<ResPathAST>
 {
   string Path;
   StyioPathType Type;
 
 public:
-  LocalPathAST(
+  ResPathAST(
     StyioPathType type,
     string path
   ) :
@@ -857,11 +857,11 @@ public:
       Path(path) {
   }
 
-  static LocalPathAST* Create(
+  static ResPathAST* Create(
     StyioPathType type,
     string path
   ) {
-    return new LocalPathAST(type, path);
+    return new ResPathAST(type, path);
   }
 
   const string& getPath() {

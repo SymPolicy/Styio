@@ -114,7 +114,7 @@ using StyioToStringVisitor = ToStringVisitor<
 
   class ResourceAST,
 
-  class LocalPathAST,
+  class ResPathAST,
   class RemotePathAST,
   class WebUrlAST,
   class DBUrlAST,
@@ -175,7 +175,7 @@ public:
 
   std::string toString(FmtStrAST* ast, int indent = 0);
 
-  std::string toString(LocalPathAST* ast, int indent = 0);
+  std::string toString(ResPathAST* ast, int indent = 0);
 
   std::string toString(RemotePathAST* ast, int indent = 0);
 
