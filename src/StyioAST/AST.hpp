@@ -364,14 +364,15 @@ public:
 */
 class StringAST : public StyioASTTraits<StringAST>
 {
+private:
   string value;
 
-public:
-  StringAST(const string& value) :
+  StringAST(std::string value) :
       value(value) {
   }
 
-  static StringAST* Create(const string& value) {
+public:
+  static StringAST* Create(std::string value) {
     return new StringAST(value);
   }
 
@@ -502,8 +503,13 @@ public:
 
 class EOFAST : public StyioASTTraits<EOFAST>
 {
-public:
+private:
   EOFAST() {}
+
+public:
+  static EOFAST* Create() {
+    return new EOFAST();
+  }
 
   const StyioASTType getNodeType() const {
     return StyioASTType::End;
@@ -1762,11 +1768,16 @@ public:
 */
 class PrintAST : public StyioASTTraits<PrintAST>
 {
+private:
   vector<StyioAST*> Exprs;
 
-public:
   PrintAST(vector<StyioAST*> exprs) :
       Exprs(exprs) {
+  }
+
+public:
+  static PrintAST* Create(vector<StyioAST*> exprs) {
+    return new PrintAST(exprs);
   }
 
   const vector<StyioAST*>& getExprs() {

@@ -22,11 +22,14 @@ class StyioContext;
 class StyioContext
 {
 private:
-  size_t curr_pos = 0; /* current position */
+  size_t cur_pos = 0; /* current position */
 
   string file_name;
   string code;
   vector<pair<size_t, size_t>> line_seps; /* line separations */
+
+  size_t index_of_token = 0;
+  std::vector<StyioToken*> tokens;
 
   shared_ptr<StyioAST> ast;
   unordered_map<string, shared_ptr<StyioAST>> constants;
@@ -39,11 +42,13 @@ public:
     const string& file_name,
     const string& code_text,
     vector<pair<size_t, size_t>> line_seps,
+    std::vector<StyioToken*> tokens,
     bool debug_mode = false
   ) :
       file_name(file_name),
       code(code_text),
       line_seps(line_seps),
+      tokens(tokens),
       debug_mode(debug_mode) {
   }
 
@@ -51,12 +56,14 @@ public:
     const string& file_name,
     const string& code_text,
     vector<pair<size_t, size_t>> line_seps,
+    std::vector<StyioToken*> tokens,
     bool debug_mode = false
   ) {
     return new StyioContext(
       file_name,
       code_text,
       line_seps,
+      tokens,
       debug_mode
     );
   }
@@ -67,14 +74,91 @@ public:
     return code;
   }
 
+  StyioToken* cur_tok() {
+    return tokens.at(index_of_token);
+  }
+
+  StyioTokenType cur_tok_type() {
+    return tokens.at(index_of_token)->type;
+  }
+
+  void move_forward() {
+    this->cur_pos += tokens.at(index_of_token)->length();
+    this->index_of_token += 1;
+
+    std::cout << StyioToken::getTokName(tokens.at(index_of_token)->type) << " - " << tokens.at(index_of_token)->length() << std::endl;
+  }
+
+  void skip() {
+    while (cur_tok()->type == StyioTokenType::TOK_SPACE             /* white spaces */
+           || cur_tok()->type == StyioTokenType::TOK_LF             /* \n */
+           || cur_tok()->type == StyioTokenType::TOK_CR             /* \r */
+           || cur_tok()->type == StyioTokenType::TOK_LINE_COMMENT   // comments like this
+           || cur_tok()->type == StyioTokenType::TOK_CLOSED_COMMENT /* comments like this */
+    ) {
+      this->move_forward();
+    }
+  }
+
+  /*
+    === Tokens
+  */
+
+  bool check(StyioTokenType type) {
+    return type == cur_tok_type();
+  }
+
+  bool match(StyioTokenType type) {
+    if (type == this->cur_tok_type()) {
+      this->move_forward();
+      return true;
+    }
+
+    return false;
+  }
+
+  bool match_panic(StyioTokenType type, std::string errmsg = "") {
+    if (type == cur_tok_type()) {
+      this->move_forward();
+      return true;
+    }
+
+    if (errmsg.empty()) {
+      throw StyioSyntaxError(
+        string("match_panic(token)")
+        + label_cur_line(
+          cur_pos,
+          std::string("which is expected to be ") + StyioToken::getTokName(type)
+        )
+      );
+    }
+    else {
+      throw StyioSyntaxError(label_cur_line(cur_pos, errmsg));
+    }
+  }
+
+  bool find_match(StyioTokenType type) {
+    this->skip();
+    return this->match(type);
+  }
+
+  bool find_match_panic(StyioTokenType type, std::string errmsg = "") {
+    this->skip();
+    return this->match_panic(type, errmsg);
+  }
+
+  /*
+    === Tokens
+  */
+
   /* Get `pos` */
   size_t get_curr_pos() {
-    return curr_pos;
+    return cur_pos;
   }
 
   /* Get Current Character */
   char& get_curr_char() {
-    return code.at(curr_pos);
+    return code.at(cur_pos);
   }
 
   size_t find_line_index(
@@ -84,7 +168,7 @@ public:
     size_t line_index = 0;
 
     if (p < 0) {
-      p = curr_pos;
+      p = cur_pos;
     }
 
     if (debug_mode) {
@@ -122,8 +206,8 @@ public:
     }
     else {
       for (size_t curr_line_index = 0; curr_line_index < total_lines; curr_line_index += 1) {
-        if (line_seps[curr_line_index].first <= curr_pos
-            && curr_pos <= (line_seps[curr_line_index].first + line_seps[curr_line_index].second)) {
+        if (line_seps[curr_line_index].first <= cur_pos
+            && cur_pos <= (line_seps[curr_line_index].first + line_seps[curr_line_index].second)) {
           return curr_line_index;
         }
       }
@@ -139,7 +223,7 @@ public:
     string output("\n");
 
     if (start < 0)
-      start = curr_pos;
+      start = cur_pos;
 
     size_t lindex = find_line_index(start);
     size_t offset = start - line_seps[lindex].first;
@@ -162,17 +246,17 @@ public:
   // | + n => move forward n steps
   // | - n => move backward n steps
   void move(size_t steps) {
-    curr_pos += steps;
+    cur_pos += steps;
   }
 
   /* Check Value */
   bool check_next(char value) {
-    return (code.at(curr_pos)) == value;
+    return (code.at(cur_pos)) == value;
   }
 
   /* Check Value */
   bool check_next(const string& value) {
-    return code.compare(curr_pos, value.size(), value) == 0;
+    return code.compare(cur_pos, value.size(), value) == 0;
   }
 
   /* Move Until */
@@ -251,7 +335,7 @@ public:
         pass_over("*/");
       }
       else {
-        if ((code.substr(curr_pos, value.size())) == value) {
+        if ((code.substr(cur_pos, value.size())) == value) {
           move(value.size());
           return true;
         }
@@ -292,7 +376,7 @@ public:
 
   /* Peak Check */
   bool check_ahead(int steps, char value) {
-    return (code.at(curr_pos + steps) == value);
+    return (code.at(cur_pos + steps) == value);
   }
 
   /*
@@ -308,7 +392,7 @@ public:
              ^     curr_pos is a white space, the expected operator is *, which is behind 2.
   */
   string peak_operator(int num = 1) {
-    int tmp_pos = curr_pos;
+    int tmp_pos = cur_pos;
     int offset = 1;
 
     for (size_t i = 0; i < num; i++) {
@@ -362,7 +446,7 @@ public:
   }
 
   bool peak_isdigit(int steps) {
-    return isdigit(code.at(curr_pos + steps));
+    return isdigit(code.at(cur_pos + steps));
   }
 
   /* Drop White Spaces */
@@ -374,7 +458,7 @@ public:
 
   /* Drop Spaces */
   void drop_all_spaces() {
-    while (isspace(code.at(curr_pos))) {
+    while (isspace(code.at(cur_pos))) {
       move(1);
     }
   }
@@ -383,7 +467,7 @@ public:
   void drop_all_spaces_comments() {
     /* ! No Boundary Check ! */
     while (true) {
-      if (isspace(code.at(curr_pos))) {
+      if (isspace(code.at(cur_pos))) {
         move(1);
       }
       else if (check_next("//")) {
@@ -406,10 +490,10 @@ public:
     }
 
     if (errmsg.empty()) {
-      throw StyioSyntaxError(string("check_drop_panic(char)") + label_cur_line(curr_pos, std::string("which is expected to be ") + std::string(1, char(value))));
+      throw StyioSyntaxError(string("check_drop_panic(char)") + label_cur_line(cur_pos, std::string("which is expected to be ") + std::string(1, char(value))));
     }
     else {
-      throw StyioSyntaxError(label_cur_line(curr_pos, errmsg));
+      throw StyioSyntaxError(label_cur_line(cur_pos, errmsg));
     }
   }
 
@@ -432,7 +516,7 @@ public:
           return true;
         }
         else {
-          string errmsg = string("find_drop_panic(char)") + label_cur_line(curr_pos, std::string("which is expected to be ") + std::string(1, char(value)));
+          string errmsg = string("find_drop_panic(char)") + label_cur_line(cur_pos, std::string("which is expected to be ") + std::string(1, char(value)));
           throw StyioSyntaxError(errmsg);
         }
       }
@@ -455,7 +539,7 @@ public:
           return true;
         }
         else {
-          string errmsg = string("find_drop_panic(string)") + label_cur_line(curr_pos, std::string("which is expected to be ") + value);
+          string errmsg = string("find_drop_panic(string)") + label_cur_line(cur_pos, std::string("which is expected to be ") + value);
           throw StyioSyntaxError(errmsg);
         }
       }
@@ -481,7 +565,7 @@ public:
           return true;
         }
         else {
-          string errmsg = string("find_panic(string)") + label_cur_line(curr_pos, std::string("which is expected to be ") + value);
+          string errmsg = string("find_panic(string)") + label_cur_line(cur_pos, std::string("which is expected to be ") + value);
           throw StyioSyntaxError(errmsg);
         }
       }
@@ -490,17 +574,17 @@ public:
 
   /* Check isalpha or _ */
   bool check_isal_() {
-    return isalpha(code.at(curr_pos)) || (code.at(curr_pos) == '_');
+    return isalpha(code.at(cur_pos)) || (code.at(cur_pos) == '_');
   }
 
   /* Check isalpha or isnum or _ */
   bool check_isalnum_() {
-    return isalnum(code.at(curr_pos)) || (code.at(curr_pos) == '_');
+    return isalnum(code.at(cur_pos)) || (code.at(cur_pos) == '_');
   }
 
   /* Check isdigit */
   bool check_isdigit() {
-    return isdigit(code.at(curr_pos));
+    return isdigit(code.at(cur_pos));
   }
 
   /* Tuple Operations */
@@ -522,22 +606,22 @@ public:
 
   /* Check Binary Operator */
   bool check_binop() {
-    if (code.at(curr_pos) == '+' || code.at(curr_pos) == '-') {
+    if (code.at(cur_pos) == '+' || code.at(cur_pos) == '-') {
       return true;
     }
-    else if (code.at(curr_pos) == '*' || code.at(curr_pos) == '%') {
+    else if (code.at(cur_pos) == '*' || code.at(cur_pos) == '%') {
       return true;
     }
-    else if (code.at(curr_pos) == '/') {
+    else if (code.at(cur_pos) == '/') {
       /* Comments */
-      if ((code.at(curr_pos + 1)) == '*' || code.at(curr_pos + 1) == '/') {
+      if ((code.at(cur_pos + 1)) == '*' || code.at(cur_pos + 1) == '/') {
         return false;
       }
       else {
         return true;
       }
     }
-    else if (code.at(curr_pos) == '%') {
+    else if (code.at(cur_pos) == '%') {
       return true;
     }
 
@@ -545,7 +629,7 @@ public:
   }
 
   std::tuple<bool, TokenKind> get_binop_token() {
-    switch (code.at(curr_pos)) {
+    switch (code.at(cur_pos)) {
       case '+': {
         return {true, TokenKind::Binary_Add};
       } break;
@@ -559,7 +643,7 @@ public:
       } break;
 
       case '/': {
-        switch (code.at(curr_pos + 1)) {
+        switch (code.at(cur_pos + 1)) {
           case '*': {
             return {false, TokenKind::Comment_MultiLine};
           } break;
@@ -598,8 +682,6 @@ public:
         << line << std::endl;
     }
   }
-
-  std::vector<StyioToken*> tokenize();
 };
 
 template <typename Enumeration>
@@ -755,7 +837,7 @@ parse_cond_flow(StyioContext& context);
   parse_list_op
 */
 StyioAST*
-parse_list_op(StyioContext& context, StyioAST* theList);
+parse_index_op(StyioContext& context, StyioAST* theList);
 
 /*
   parse_var_tuple
@@ -786,6 +868,9 @@ parse_loop(StyioContext& context, char& cur_char);
 */
 StyioAST*
 parse_value_expr(StyioContext& context);
+
+StyioAST*
+parse_var_name_or_value_expr(StyioContext& context);
 
 /*
   parse_expr
@@ -833,7 +918,7 @@ parse_panic(StyioContext& context);
   parse_stmt
 */
 StyioAST*
-parse_stmt(StyioContext& context);
+parse_stmt_or_expr(StyioContext& context);
 
 /*
   parse_ext_elem

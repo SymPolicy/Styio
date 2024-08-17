@@ -40,39 +40,42 @@ here() {
 
 std::string
 parse_name_as_str(StyioContext& context) {
-  string name = "";
-
-  while (context.check_isalnum_()) {
-    name += context.get_curr_char();
-    context.move(1);
-  }
+  auto name = context.cur_tok()->literal;
+  context.move_forward();
 
   return name;
 }
 
 NameAST*
 parse_name(StyioContext& context) {
-  string name = "";
-  /* this function will add the current character to the name without checking */
-  do {
-    name += context.get_curr_char();
-    context.move(1);
-  } while (context.check_isalnum_());
+  auto ret_val = NameAST::Create(context.cur_tok()->literal);
+  context.move_forward();
 
-  return NameAST::Create(name);
+  return ret_val;
 }
 
 IntAST*
 parse_int(StyioContext& context) {
-  string digits = "";
+  auto ret_val = IntAST::Create(context.cur_tok()->literal);
+  context.move_forward();
 
-  /* it will include cur_char in the digits without checking */
-  do {
-    digits += context.get_curr_char();
-    context.move(1);
-  } while (context.check_isdigit());
+  return ret_val;
+}
 
-  return IntAST::Create(digits);
+FloatAST*
+parse_float(StyioContext& context) {
+  auto ret_val = FloatAST::Create(context.cur_tok()->literal);
+  context.move_forward();
+
+  return ret_val;
+}
+
+StringAST*
+parse_string(StyioContext& context) {
+  auto ret_val = StringAST::Create(context.cur_tok()->literal);
+  context.move_forward();
+
+  return ret_val;
 }
 
 StyioAST*
@@ -103,21 +106,6 @@ parse_int_or_float(StyioContext& context) {
   }
 
   return IntAST::Create(digits);
-}
-
-StringAST*
-parse_string(StyioContext& context) {
-  context.check_drop('"');
-
-  string textStr = "";
-  while (not context.check_next('\"')) {
-    textStr += context.get_curr_char();
-    context.move(1);
-  }
-
-  context.check_drop_panic('"');
-
-  return StringAST::Create(textStr);
 }
 
 StyioAST*
@@ -354,56 +342,77 @@ ResourceAST*
 parse_resources(
   StyioContext& context
 ) {
-  ResourceAST* output;
-
   std::vector<std::pair<StyioAST*, std::string>> res_list;
 
-  context.check_drop_panic('@');
+  context.match_panic(StyioTokenType::TOK_AT); /* @ */
 
-  if (context.check_drop('(')) {
+  if (context.match_panic(StyioTokenType::TOK_LPAREN) /* ( */) {
     do {
-      context.drop_all_spaces_comments();
+      context.skip();
+      switch (context.cur_tok_type()) {
+        /* ( */
+        case StyioTokenType::TOK_RPAREN: {
+          context.move_forward();
+          return ResourceAST::Create(res_list);
+        } break;
 
-      if (context.check_next('"')) {
-        auto val = parse_string(context);
-        
-        context.drop_all_spaces_comments();
-        if (context.check_drop(':')) {
-          context.drop_all_spaces_comments();
-          auto type_name = parse_name_as_str(context);
-          res_list.push_back(
-            std::make_pair(val, type_name)
-          );
-        }
-        else {
-          res_list.push_back(
-            std::make_pair(val, std::string(""))
-          );
-        }
+        case StyioTokenType::TOK_STRING: {
+          auto the_str = parse_string(context);
+
+          context.skip();
+          if (context.match(StyioTokenType::TOK_COLON) /* : */) {
+            context.skip();
+            if (context.check(StyioTokenType::TOK_NAME)  /* check! */) {
+              auto the_type_name = parse_name_as_str(context);
+              res_list.push_back(
+                std::make_pair(the_str, the_type_name)
+              );
+            }
+          }
+          else {
+            res_list.push_back(
+              std::make_pair(the_str, std::string(""))
+            );
+          }
+        } break;
+
+        case StyioTokenType::TOK_NAME: {
+          auto the_name = parse_name(context);
+
+          context.skip();
+          if (context.match(StyioTokenType::TOK_LARROW)) {
+            context.skip();
+            if (context.check(StyioTokenType::TOK_NAME)) {
+              auto the_expr = parse_var_name_or_value_expr(context);
+
+              res_list.push_back(
+                std::make_pair(
+                  FinalBindAST::Create(
+                    VarAST::Create(the_name),
+                    the_expr
+                  ),
+                  std::string("")
+                )
+              );
+            }
+          }
+          else {
+          }
+
+        } break;
+
+        default:
+          break;
       }
-      // else if (context.check_isal_()) {
-      //   NameAST* varname = parse_name(context);
+    } while (context.match(StyioTokenType::TOK_COMMA) /* , */
+             || context.match(StyioTokenType::TOK_SEMICOLON) /* ; */);
 
-      //   context.find_drop_panic("<-");
-
-      //   context.drop_all_spaces_comments();
-
-      //   res_list.push_back(
-      //     std::make_pair(
-      //       FinalBindAST::Create(VarAST::Create(varname), parse_value_expr(context)),
-      //       std::string("")
-      //     )
-      //   );
-      // }
-    } while (context.check_drop(','));
-
-    context.find_drop_panic(')');
+    context.find_match_panic(StyioTokenType::TOK_RPAREN);
 
     return ResourceAST::Create(res_list);
   }
 
-  string errmsg = string("@(expr) // Expecting ( after @, but got ") + char(context.get_curr_char()) + "";
-  throw StyioSyntaxError(errmsg);
+  return ResourceAST::Create(res_list);
 }
 
 /*
@@ -567,63 +576,26 @@ StyioAST*
 parse_var_name_or_value_expr(StyioContext& context) {
   StyioAST* output;
 
-  if (context.check_isal_()) {
+  if (context.check(StyioTokenType::TOK_NAME)) {
     auto varname = parse_name(context);
-
-    if (context.check_next('[')) {
-      output = parse_list_op(context, varname);
+    if (context.check(StyioTokenType::TOK_LBOXBRAC) /* [ */) {
+      output = parse_index_op(context, varname);
     }
-    else if (context.check_next('(')) {
-      output = parse_call(context, varname);
+    else if (context.check(StyioTokenType::TOK_LPAREN) /* ( */) {
+      output = parse_index_op(context, varname);
     }
     else {
       output = varname;
     }
   }
-
-  context.drop_all_spaces();
-
-  if (context.check_next('.')) {
-    context.move(1);
-    output = parse_chain_of_call(context, output);
+  else if (context.check(StyioTokenType::TOK_INT)) {
+    output = parse_int(context);
   }
-
-  switch (context.get_curr_char()) {
-    case '+': {
-      context.move(1);
-      output = parse_binop_rhs(context, output, TokenKind::Binary_Add);
-    } break;
-
-    case '-': {
-      context.move(1);
-      output = parse_binop_rhs(context, output, TokenKind::Binary_Sub);
-    } break;
-
-    case '*': {
-      context.move(1);
-      if (context.check_drop('*')) {
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Pow);
-      }
-      else {
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Mul);
-      }
-    } break;
-
-    case '/': {
-      context.move(1);
-      output = parse_binop_rhs(context, output, TokenKind::Binary_Div);
-    } break;
-
-    case '%': {
-      context.move(1);
-      output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
-    } break;
-
-    case '.': {
-    } break;
-
-    default:
-      break;
+  else if (context.check(StyioTokenType::TOK_FLOAT)) {
+    output = parse_float(context);
+  }
+  else if (context.check(StyioTokenType::TOK_STRING)) {
+    output = parse_string(context);
   }
 
   return output;
@@ -690,205 +662,26 @@ StyioAST*
 parse_expr(StyioContext& context) {
   StyioAST* output;
 
-  if (context.check_isal_()) {
-    output = parse_name(context);
+  switch (context.cur_tok_type()) {
+    case StyioTokenType::TOK_NAME: {
+      return parse_name(context);
+    } break;
 
-    context.drop_all_spaces_comments();
+    case StyioTokenType::TOK_INT: {
+      return parse_int(context);
+    } break;
 
-    switch (context.get_curr_char()) {
-      case '+': {
-        context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Add);
-      } break;
+    case StyioTokenType::TOK_FLOAT: {
+      return parse_float(context);
+    } break;
 
-      case '-': {
-        context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Sub);
-      } break;
-
-      case '*': {
-        context.move(1);
-        if (context.check_drop('*')) {
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Pow);
-        }
-        else {
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Mul);
-        }
-      } break;
-
-      case '/': {
-        context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Div);
-      } break;
-
-      case '%': {
-        context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
-      } break;
-
-      case '[': {
-        output = parse_list_op(context, output);
-      } break;
-
-      default:
-        break;
-    }
-
-    return output;
-  }
-  else if (context.check_isdigit()) {
-    output = parse_int_or_float(context);
-
-    context.drop_all_spaces_comments();
-
-    switch (context.get_curr_char()) {
-      case '+': {
-        context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Add);
-      } break;
-
-      case '-': {
-        context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Sub);
-      } break;
-
-      case '*': {
-        context.move(1);
-        if (context.check_drop('*')) {
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Pow);
-        }
-        else {
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Mul);
-        }
-      } break;
-
-      case '/': {
-        context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Div);
-      } break;
-
-      case '%': {
-        context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
-      } break;
-
-      default:
-        break;
-    }
-
-    return output;
-  }
-
-  switch (context.get_curr_char()) {
-    case '\'': {
-      return parse_char_or_string(context);
-    }
-
-    case '\"': {
+    case StyioTokenType::TOK_STRING: {
       return parse_string(context);
-    }
-
-    case '[': {
-      context.move(1);
-
-      context.drop_all_spaces_comments();
-
-      if (context.check_drop(']')) {
-        output = ListAST::Create();
-      }
-      else {
-        output = parse_list_or_loop(context);
-      }
-
-      return output;
-    }
-
-    break;
-
-    case '(': {
-      return parse_tuple(context);
-    }
-
-    break;
-
-    case '{': {
-      return parse_set(context);
-    }
-
-    break;
-
-    case '|': {
-      output = parse_size_of(context);
-
-      context.drop_all_spaces_comments();
-
-      switch (context.get_curr_char()) {
-        case '+': {
-          context.move(1);
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Add);
-        } break;
-
-        case '-': {
-          context.move(1);
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Sub);
-        } break;
-
-        case '*': {
-          context.move(1);
-          if (context.check_drop('*')) {
-            output = parse_binop_rhs(context, output, TokenKind::Binary_Pow);
-          }
-          else {
-            output = parse_binop_rhs(context, output, TokenKind::Binary_Mul);
-          }
-        } break;
-
-        case '/': {
-          context.move(1);
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Div);
-        } break;
-
-        case '%': {
-          context.move(1);
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
-        } break;
-
-        default:
-          break;
-      }
-
-      return output;
-    }
-
-    break;
-
-    case '\\': {
-      context.move(1);
-
-      if (context.check_drop('t')) {
-        context.check_drop('\\');
-        return new BoolAST(true);
-      }
-      else if (context.check_drop('f')) {
-        context.check_drop('\\');
-        return new BoolAST(false);
-      }
-    }
-
-    break;
-
-    case '$': {
-      context.move(1);
-
-      return parse_fmt_str(context);
-    }
+    } break;
 
     default: {
-      output = new NoneAST();
     } break;
   }
-
-  return output;
 }
 
 StyioAST*
@@ -1303,7 +1096,7 @@ parse_chain_of_call(
 */
 
 StyioAST*
-parse_list_op(StyioContext& context, StyioAST* theList) {
+parse_index_op(StyioContext& context, StyioAST* theList) {
   StyioAST* output;
 
   /*
@@ -1595,7 +1388,7 @@ parse_list_or_loop(StyioContext& context) {
   }
 
   while (context.check_next('[')) {
-    output = parse_list_op(context, (output));
+    output = parse_index_op(context, (output));
   }
 
   context.drop_all_spaces();
@@ -2050,6 +1843,62 @@ parse_template(StyioContext& context) {
   return parse_forward(context, true);
 }
 
+CasesAST*
+parse_cases(StyioContext& context) {
+  vector<std::pair<StyioAST*, StyioAST*>> pairs;
+  StyioAST* _default_stmt;
+
+  /*
+    Danger!
+    the context -> get_curr_char() must be {
+    this line will drop the next 1 character anyway!
+  */
+  context.move(1);
+
+  while (true) {
+    context.drop_all_spaces_comments();
+    if (context.check_drop('_')) {
+      context.find_drop("=>");
+
+      context.drop_all_spaces_comments();
+
+      if (context.check_next('{')) {
+        _default_stmt = parse_block(context);
+      }
+      else {
+        _default_stmt = parse_stmt_or_expr(context);
+      }
+
+      break;
+    }
+
+    StyioAST* left = parse_expr(context);
+
+    context.find_drop("=>");
+
+    context.drop_all_spaces_comments();
+
+    StyioAST* right;
+    if (context.check_next('{')) {
+      right = parse_block(context);
+    }
+    else {
+      right = parse_stmt_or_expr(context);
+    }
+
+    pairs.push_back(std::make_pair(left, right));
+  }
+
+  context.find_drop_panic('}');
+
+  if (pairs.size() == 0) {
+    return CasesAST::Create(_default_stmt);
+  }
+  else {
+    return CasesAST::Create(pairs, _default_stmt);
+  }
+}
+
 /*
   Return:
     [?] AnonyFunc
@@ -2479,29 +2328,26 @@ parse_read_file(StyioContext& context, NameAST* id_ast) {
 
 StyioAST*
 parse_print(StyioContext& context) {
-  StyioAST* output;
-
   vector<StyioAST*> exprs;
 
-  /* Expecting >_ , Move Forward Without Checking */
-  context.move(2);
+  context.match_panic(StyioTokenType::TOK_TERMINAL);  // >_
 
-  /* Expecting ( ! Must Have ! */
-  context.check_drop_panic('(');
+  context.skip();
+  context.match_panic(StyioTokenType::TOK_LPAREN);  // (
 
   do {
-    context.drop_all_spaces_comments();
+    context.skip();
 
-    if (context.check_drop(')')) {
-      return new PrintAST(exprs);
+    if (context.match(StyioTokenType::TOK_RPAREN) /* ) */) {
+      return PrintAST::Create(exprs);
     }
     else {
       exprs.push_back(parse_expr(context));
     }
-  } while (context.check_drop(','));
+  } while (context.match(StyioTokenType::TOK_COMMA) /* , */);
 
-  context.find_drop_panic(')');
-  return new PrintAST(exprs);
+  context.find_match_panic(StyioTokenType::TOK_RPAREN);
+  return PrintAST::Create(exprs);
 }
 
 // StyioAST* parse_panic (
@@ -2529,427 +2375,66 @@ parse_print(StyioContext& context) {
 // }
 
 StyioAST*
-parse_stmt(
+parse_stmt_or_expr(
   StyioContext& context
 ) {
-  context.drop_all_spaces_comments();
+  context.skip();
 
-  if (context.check_isal_()) {
-    auto this_name = parse_name(context);
+  switch (context.cur_tok_type()) {
+    case StyioTokenType::TOK_NAME: {
+      auto the_name = parse_name(context);
 
-    switch (context.get_curr_char()) {
-      case '[': {
-        return parse_list_op(context, (this_name));
-      } break;
+      switch (context.cur_tok()->type) {
+        /* [ */
+        case StyioTokenType::TOK_LBOXBRAC: {
+          return parse_index_op(context, the_name);
+        } break;
 
-      case '(': {
-        return parse_call(context, (this_name));
-      } break;
+        /* ( */
+        case StyioTokenType::TOK_LPAREN: {
+          return parse_call(context, the_name);
+        } break;
 
-      default:
-        break;
-    }
+        default: {
+        } break;
 
-    context.drop_all_spaces_comments();
-
-    switch (context.get_curr_char()) {
-      case '+': {
-        context.move(1);
-        return parse_binop_rhs(context, this_name, TokenKind::Binary_Add);
-      } break;
-
-      case '-': {
-        context.move(1);
-        return parse_binop_rhs(context, this_name, TokenKind::Binary_Sub);
-      } break;
-
-      case '*': {
-        context.move(1);
-        if (context.check_drop('*')) {
-          return parse_binop_rhs(context, this_name, TokenKind::Binary_Pow);
-        }
-        else {
-          return parse_binop_rhs(context, this_name, TokenKind::Binary_Mul);
-        }
-      } break;
-
-      case '/': {
-        context.move(1);
-        return parse_binop_rhs(context, this_name, TokenKind::Binary_Div);
-      } break;
-
-      case '%': {
-        context.move(1);
-        return parse_binop_rhs(context, this_name, TokenKind::Binary_Mod);
-      } break;
-
-      case '=': {
-        context.move(1);
-
-        context.drop_all_spaces_comments();
-
-        return FlexBindAST::Create(VarAST::Create(this_name), parse_expr(context));
-      } break;  // You should NOT reach this line!
-
-      case ':': {
-        context.move(1);
-
-        if (context.check_drop('=')) {
-          context.drop_all_spaces_comments();
-
-          return new FinalBindAST(VarAST::Create(this_name), parse_expr(context));
-        }
-        else {
-          context.drop_white_spaces();
-
-          auto var_data_type = parse_dtype(context);
-
-          context.drop_white_spaces();
-
-          if (context.check_drop(':')) {
-            if (context.check_drop('=')) {
-              context.drop_white_spaces();
-
-              return new FinalBindAST(VarAST::Create(this_name), parse_expr(context));
-            }
-          }
-          else if (context.check_drop('=')) {
-            context.drop_white_spaces();
-
-            return FlexBindAST::Create(VarAST::Create(this_name, var_data_type), (parse_expr(context)));
-          }
-          else {
-            string errmsg = string("parse_stmt() // Expecting = or := after type, but got ") + context.get_curr_char();
-            throw StyioSyntaxError(errmsg);
-          }
-        }
-      } break;  // You should NOT reach this line!
-
-      case '<': {
-        context.move(1);
-
-        if (context.check_drop('-')) {
-          context.drop_all_spaces();
-
-          return parse_read_file(context, (this_name));
-        }
-        else {
-          string errmsg = string("Expecting `-` after `<`, but found `") + char(context.get_curr_char()) + "`.";
-          throw StyioSyntaxError(errmsg);
-        }
-      } break;  // You should NOT reach this line!
-
-      case '>': {
-        context.move(1);
-
-        if (context.check_drop('>')) {
-          context.drop_all_spaces();
-
-          return parse_loop_or_iter(context, this_name);
-        }
-      } break;  // You should NOT reach this line!
-
-      case ',': {
-        context.move(1);
-
-        return parse_tuple_no_braces(context, VarAST::Create(this_name));
-      } break;  // You should NOT reach this line!
-
-      default: {
-        // Nothing
-      } break;
-    }
-  }
-  // Int / Float
-  else if (context.check_isdigit()) {
-    StyioAST* output = parse_int_or_float(context);
-
-    context.drop_all_spaces_comments();
-
-    switch (context.get_curr_char()) {
-      case '+': {
-        context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Add);
-      } break;
-
-      case '-': {
-        context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Sub);
-      } break;
-
-      case '*': {
-        context.move(1);
-        if (context.check_drop('*')) {
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Pow);
-        }
-        else {
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Mul);
-        }
-      } break;
-
-      case '/': {
-        context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Div);
-      } break;
-
-      case '%': {
-        context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
-      } break;
-
-      default: {
-      } break;
-    }
-
-    return output;
-  }
-  // Print
-  else if (context.check_next(">_")) {
-    return parse_print(context);
-  }
-
-  switch (context.get_curr_char()) {
-    case EOF: {
-      return new EOFAST();
-    } break;  // You should NOT reach this line!
-
-    case '\"': {
-      return parse_string(context);
-    } break;  // You should NOT reach this line!
-
-    case '?': {
-      return parse_cond_flow(context);
-    } break;  // You should NOT reach this line!
-
-    case '!': {
-      // return parse_panic(context);
-    } break;  // You should NOT reach this line!
-
-    case '#': {
-      return parse_template(context);
-    } break;  // You should NOT reach this line!
-
-    case '.': {
-      context.move(1);
-      while (context.check_next('.')) {
-        context.move(1);
-      }
-      return new PassAST();
-    } break;  // You should NOT reach this line!
-
-    case '^': {
-      context.move(1);
-
-      while (context.check_next('^')) {
-        context.move(1);
+          context.skip();
       }
 
-      return new BreakAST();
-    } break;  // You should NOT reach this line!
+    } break;
 
-    case '@': {
-      auto resources = parse_resources(context);
+    case StyioTokenType::TOK_INT: {
+      auto the_int = parse_int(context);
+    } break;
 
-      context.drop_all_spaces_comments();
+    case StyioTokenType::TOK_FLOAT: {
+      auto the_float = parse_float(context);
+    } break;
 
-      if (context.check_drop("->")) {
-        context.drop_all_spaces_comments();
+    case StyioTokenType::TOK_AT: {
+      return parse_resources(context);
+    } break;
 
-        return new FromToAST((resources), parse_block(context));
-      }
-      else if (context.check_drop(">>")) {
-        context.drop_all_spaces_comments();
+    case StyioTokenType::TOK_TERMINAL: {
+      return parse_print(context);
+    } break;
 
-        auto forward = parse_forward(context, false);
+    case StyioTokenType::TOK_EOF: {
+      return EOFAST::Create();
+    } break;
 
-        return IteratorAST::Create(resources, forward);
-      }
-      else {
-        return resources;
-      }
-    } break;  // You should NOT reach this line!
-
-    case '[': {
-      context.move(1);
-
-      context.drop_all_spaces_comments();
-
-      if (context.check_drop('.')) {
-        return parse_loop(context);
-      }
-      else {
-        return parse_list_or_loop(context);
-      }
-    } break;  // You should NOT reach this line!
-
-    case '{': {
-      return parse_set(context);
-    } break;  // You should NOT reach this line!
-
-    case '(': {
-      return parse_tuple(context);
-    } break;  // You should NOT reach this line!
-
-    case '=': {
-      context.move(1);
-
-      context.check_drop_panic('>');
-
-      context.drop_all_spaces_comments();
-
-      if (context.check_codp()) {
-        return parse_codp(context);
-      }
-      else {
-        return new ReturnAST(parse_expr(context));
-      }
-    } break;  // You should NOT reach this line!
-
-    default:
-      break;
+    default: {
+    } break;
   }
 
   throw StyioSyntaxError(context.label_cur_line(), "Unrecognized statement");
-}
-
-string
-parse_ext_elem(StyioContext& context) {
-  string itemStr;
-
-  if (context.check_next('\"')) {
-    // eliminate double quote symbol " at the start of dependency item
-    context.move(1);
-
-    while (context.get_curr_char() != '\"') {
-      if (context.check_next(',')) {
-        string errmsg = string("An \" was expected after") + itemStr + "however, a delimeter `,` was detected. ";
-        throw StyioSyntaxError(errmsg);
-      }
-
-      itemStr += context.get_curr_char();
-
-      context.move(1);
-    };
-
-    // eliminate double quote symbol " at the end of dependency item
-    context.move(1);
-
-    return itemStr;
-  }
-  else {
-    string errmsg = string(
-                      "Dependencies should be wrapped with double quote like "
-                      "\"abc/xyz\", rather than starting with the character `"
-                    )
-                    + char(context.get_curr_char()) + "`";
-    throw StyioSyntaxError(errmsg);
-  };
-}
-
-ExtPackAST*
-parse_ext_pack(StyioContext& context) {
-  // eliminate left square (box) bracket [
-  context.move(1);
-
-  vector<string> dependencies;
-
-  context.drop_all_spaces();
-
-  // add the first dependency path to the list
-  dependencies.push_back((parse_ext_elem(context)));
-
-  string pathStr = "";
-
-  while (context.check_next(',')) {
-    // eliminate comma ","
-    context.move(1);
-
-    // reset pathStr to empty ""
-    pathStr = "";
-
-    context.drop_all_spaces();
-
-    // add the next dependency path to the list
-    dependencies.push_back((parse_ext_elem(context)));
-  };
-
-  if (context.check_next(']')) {
-    // eliminate right square bracket `]` after dependency list
-    context.move(1);
-  };
-
-  ExtPackAST* output = new ExtPackAST(dependencies);
-
-  return output;
-}
-
-CasesAST*
-parse_cases(StyioContext& context) {
-  vector<std::pair<StyioAST*, StyioAST*>> pairs;
-  StyioAST* _default_stmt;
-
-  /*
-    Danger!
-    the context -> get_curr_char() must be {
-    this line will drop the next 1 character anyway!
-  */
-  context.move(1);
-
-  while (true) {
-    context.drop_all_spaces_comments();
-    if (context.check_drop('_')) {
-      context.find_drop("=>");
-
-      context.drop_all_spaces_comments();
-
-      if (context.check_next('{')) {
-        _default_stmt = parse_block(context);
-      }
-      else {
-        _default_stmt = parse_stmt(context);
-      }
-
-      break;
-    }
-
-    StyioAST* left = parse_expr(context);
-
-    context.find_drop("=>");
-
-    context.drop_all_spaces_comments();
-
-    StyioAST* right;
-    if (context.check_next('{')) {
-      right = parse_block(context);
-    }
-    else {
-      right = parse_stmt(context);
-    }
-
-    pairs.push_back(std::make_pair(left, right));
-  }
-
-  context.find_drop_panic('}');
-
-  if (pairs.size() == 0) {
-    return CasesAST::Create(_default_stmt);
-  }
-  else {
-    return CasesAST::Create(pairs, _default_stmt);
-  }
 }
 
 StyioAST*
 parse_block(StyioContext& context) {
   vector<StyioAST*> stmtBuffer;
 
-  /*
-    Danger!
-    when entering parse_block(),
-    the context -> get_curr_char() must be {
-    this line will drop the next 1 character anyway!
-  */
-  context.move(1);
+  context.match(StyioTokenType::TOK_LCURBRAC);  // {
 
   while (true) {
     context.drop_all_spaces_comments();
@@ -2958,7 +2443,7 @@ parse_block(StyioContext& context) {
       break;
     }
     else {
-      stmtBuffer.push_back(parse_stmt(context));
+      stmtBuffer.push_back(parse_stmt_or_expr(context));
     };
   };
 
@@ -2967,9 +2452,10 @@ parse_block(StyioContext& context) {
 
 MainBlockAST*
 parse_main_block(StyioContext& context) {
-  vector<StyioAST*> stmtBuffer;
+  vector<StyioAST*> statements;
+
   while (true) {
-    StyioAST* stmt = parse_stmt(context);
+    StyioAST* stmt = parse_stmt_or_expr(context);
 
     if ((stmt->getNodeType()) == StyioASTType::End) {
       break;
@@ -2978,9 +2464,9 @@ parse_main_block(StyioContext& context) {
       continue;
     }
     else {
-      stmtBuffer.push_back(stmt);
+      statements.push_back(stmt);
     }
   }
 
-  return MainBlockAST::Create(stmtBuffer);
+  return MainBlockAST::Create(statements);
 }

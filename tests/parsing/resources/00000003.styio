@@ -1,7 +1,7 @@
 // RUN: /home/Styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
 
-@[
+@(
   "file_1",
   "file_2",
   "file_3",
-]
+)

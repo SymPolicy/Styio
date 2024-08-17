@@ -644,6 +644,8 @@ enum class StyioTokenType
   TOK_INT,
   TOK_FLOAT,
   TOK_STRING,
+  TOK_LINE_COMMENT,
+  TOK_CLOSED_COMMENT,
 
   TOK_AND,  // &&
   TOK_OR,   // ||
@@ -677,33 +679,38 @@ enum class StyioTokenType
   TOK_RARROW,  // ->
   TOK_LARROW,  // <-
 
-  TOK_STDOUT,  // >_
-  TOK_WALRUS,  // :=
-  TOK_MATCH,   // ?=
+  TOK_TERMINAL,  // >_
+  TOK_WALRUS,    // :=
+  TOK_MATCH,     // ?=
 
   TOK_ELLIPSIS,  // ...
 
   TOK_INFINITE_LIST,  // [...]
+
+  TOK_UNKNOWN,
 };
 
 class StyioToken
 {
 private:
   StyioToken(StyioTokenType token_type, std::string token_literal) :
-      token_type(token_type), token_literal(token_literal) {
+      type(token_type), literal(token_literal) {
   }
 
 public:
-  StyioTokenType token_type;
-  std::string token_literal;
+  StyioTokenType type;
+  std::string literal;
+
+  static StyioToken* Create(StyioTokenType token_type) {
+    return new StyioToken(token_type, "");
+  }
 
   static StyioToken* Create(StyioTokenType token_type, std::string token_literal) {
     return new StyioToken(token_type, token_literal);
   }
 
-  std::string
-  getTokName(StyioTokenType token) {
-    switch (token) {
+  static std::string getTokName(StyioTokenType type) {
+    switch (type) {
       case StyioTokenType::TOK_SPACE:
         return " ";
 
@@ -727,6 +734,12 @@ public:
 
       case StyioTokenType::TOK_STRING:
         return "<STRING>";
+
+      case StyioTokenType::TOK_LINE_COMMENT:
+        return "// COMMENT";
+
+      case StyioTokenType::TOK_CLOSED_COMMENT:
+        return "/* COMMENT */";
 
       case StyioTokenType::TOK_COMMA:
         return ",";
@@ -833,6 +846,9 @@ public:
       case StyioTokenType::TOK_FORWARD:
         return ">>";
 
+      case StyioTokenType::TOK_TERMINAL:
+        return ">_";
+
       case StyioTokenType::TOK_NEG:
         return "<NEG>";
 
@@ -892,14 +908,222 @@ public:
     }
   };
 
+  size_t length() {
+    switch (type) {
+      case StyioTokenType::TOK_SPACE:
+        return 1;
+
+      case StyioTokenType::TOK_CR:
+        return 1;
+
+      case StyioTokenType::TOK_LF:
+        return 1;
+
+      case StyioTokenType::TOK_EOF:
+        return 1;
+
+      case StyioTokenType::TOK_NAME:
+        return literal.length();
+
+      case StyioTokenType::TOK_INT:
+        return literal.length();
+
+      case StyioTokenType::TOK_FLOAT:
+        return literal.length();
+
+      case StyioTokenType::TOK_STRING:
+        return literal.length() + 2;
+
+      case StyioTokenType::TOK_LINE_COMMENT:
+        return literal.length() + 2;
+
+      case StyioTokenType::TOK_CLOSED_COMMENT:
+        return literal.length() + 4;
+
+      case StyioTokenType::TOK_COMMA:
+        return 1;
+
+      case StyioTokenType::TOK_DOT:
+        return 1;
+
+      case StyioTokenType::TOK_COLON:
+        return 1;
+
+      case StyioTokenType::TOK_TILDE:
+        return 1;
+
+      case StyioTokenType::TOK_EXCLAM:
+        return 1;
+
+      case StyioTokenType::TOK_AT:
+        return 1;
+
+      case StyioTokenType::TOK_HASH:
+        return 1;
+
+      case StyioTokenType::TOK_DOLLAR:
+        return 1;
+
+      case StyioTokenType::TOK_PERCENT:
+        return 1;
+
+      case StyioTokenType::TOK_HAT:
+        return 1;
+
+      case StyioTokenType::TOK_QUESTION:
+        return 1;
+
+      case StyioTokenType::TOK_SLASH:
+        return 1;
+
+      case StyioTokenType::TOK_BACKSLASH:
+        return 1;
+
+      case StyioTokenType::TOK_PIPE:
+        return 1;
+
+      case StyioTokenType::TOK_ELLIPSIS:
+        return 3;
+
+      case StyioTokenType::TOK_SQUOTE:
+        return 1;
+
+      case StyioTokenType::TOK_DQUOTE:
+        return 1;
+
+      case StyioTokenType::TOK_BQUOTE:
+        return 1;
+
+      case StyioTokenType::TOK_LPAREN:
+        return 1;
+
+      case StyioTokenType::TOK_RPAREN:
+        return 1;
+
+      case StyioTokenType::TOK_LBOXBRAC:
+        return 1;
+
+      case StyioTokenType::TOK_RBOXBRAC:
+        return 1;
+
+      case StyioTokenType::TOK_LCURBRAC:
+        return 1;
+
+      case StyioTokenType::TOK_RCURBRAC:
+        return 1;
+
+      case StyioTokenType::TOK_LANGBRAC:
+        return 1;
+
+      case StyioTokenType::TOK_RANGBRAC:
+        return 1;
+
+      case StyioTokenType::TOK_NOT:
+        return 1;
+
+      case StyioTokenType::TOK_AND:
+        return 2;
+
+      case StyioTokenType::TOK_OR:
+        return 2;
+
+      case StyioTokenType::TOK_XOR:
+        return 1;
+
+      case StyioTokenType::TOK_BITAND:
+        return 1;
+
+      case StyioTokenType::TOK_BITOR:
+        return 1;
+
+      case StyioTokenType::TOK_BITXOR:
+        return 1;
+
+      case StyioTokenType::TOK_BACKWARD:
+        return 2;
+
+      case StyioTokenType::TOK_FORWARD:
+        return 2;
+
+      case StyioTokenType::TOK_TERMINAL:
+        return 2;
+
+      case StyioTokenType::TOK_NEG:
+        return 1;
+
+      case StyioTokenType::TOK_ADD:
+        return 1;
+
+      case StyioTokenType::TOK_SUB:
+        return 1;
+
+      case StyioTokenType::TOK_MUL:
+        return 1;
+
+      case StyioTokenType::TOK_DIV:
+        return 1;
+
+      case StyioTokenType::TOK_MOD:
+        return 1;
+
+      case StyioTokenType::TOK_POW:
+        return 2;
+
+      case StyioTokenType::TOK_GT:
+        return 1;
+
+      case StyioTokenType::TOK_GE:
+        return 2;
+
+      case StyioTokenType::TOK_LT:
+        return 1;
+
+      case StyioTokenType::TOK_LE:
+        return 2;
+
+      case StyioTokenType::TOK_EQ:
+        return 2;
+
+      case StyioTokenType::TOK_NE:
+        return 2;
+
+      case StyioTokenType::TOK_RARROW:
+        return 2;
+
+      case StyioTokenType::TOK_LARROW:
+        return 2;
+
+      case StyioTokenType::TOK_WALRUS:
+        return 2;
+
+      case StyioTokenType::TOK_MATCH:
+        return 2;
+
+      case StyioTokenType::TOK_INFINITE_LIST:
+        return 5;
+
+      default:
+        return 0;
+    }
+  }
+
   std::string as_str() {
-    if (token_type == StyioTokenType::TOK_NAME || token_type == StyioTokenType::TOK_INT
-        || token_type == StyioTokenType::TOK_FLOAT
-        || token_type == StyioTokenType::TOK_STRING) {
-      return std::string("{ ") + getTokName(token_type) + ": " + token_literal + " }\n";
+    if (type == StyioTokenType::TOK_LF) {
+      return std::string(" ║ ") + getTokName(this->type) + "\n";
+    }
+    else if (type == StyioTokenType::TOK_NAME) {
+      return std::string(" ║ ") + this->literal;
+    }
+    else if (type == StyioTokenType::TOK_NAME
+             || type == StyioTokenType::TOK_INT
+             || type == StyioTokenType::TOK_FLOAT) {
+      return std::string(" ║ ") + getTokName(this->type) + ": " + this->literal;
+    }
+    else if (type == StyioTokenType::TOK_STRING) {
+      return std::string(" ║ ") + "\"" + this->literal + "\"";
     }
     else {
-      return std::string("{ ") + getTokName(token_type) + " }\n";
+      return std::string(" ║ ") + getTokName(this->type);
     }
   }
 };

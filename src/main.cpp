@@ -33,6 +33,7 @@
 #include "StyioToString/ToStringVisitor.hpp" /* StyioRepr */
 #include "StyioToken/Token.hpp"
 #include "StyioUtil/Util.hpp"
+#include "StyioParser/Tokenizer.hpp"
 
 // [LLVM]
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -135,6 +136,7 @@ show_code_with_linenum(tmp_code_wrap c) {
   auto& code = c.code_text;
   auto& lineseps = c.line_seps;
 
+  std::cout << "\033[1;32mCode\033[0m\n";
   for (size_t i = 0; i < lineseps.size(); i++) {
     std::string line = code.substr(lineseps.at(i).first, lineseps.at(i).second);
 
@@ -204,22 +206,28 @@ main(
       show_code_with_linenum(styio_code);
     }
 
+    auto styio_tokenizer = StyioTokenizer();
+    auto tokens = styio_tokenizer.tokenize(styio_code.code_text);
+
     auto styio_context = StyioContext::Create(
       fpath,
       styio_code.code_text,
       styio_code.line_seps,
+      tokens,
       is_debug_mode /* is debug mode */
     );
 
     if (is_debug_mode) {
-      auto tokens = styio_context->tokenize();
-      std::cout << "\033[1;32mTokens\033[0m" << std::endl;
-      for (auto tok: tokens) {
+      std::cout
+        << "\n"
+        << "\033[1;32mTokens\033[0m"
+        << std::endl;
+      for (auto tok : tokens) {
         std::cout << tok->as_str();
       }
-      std::cout << "\n" << std::endl;
+      std::cout << "\n"
+                << std::endl;
     }
-    
 
     StyioRepr styio_repr = StyioRepr();
 
@@ -228,7 +236,7 @@ main(
 
     if (show_all or show_styio_ast) {
       std::cout
-        << "\033[1;32mAST\033[0m \033[31m-No-Type-Checking\033[0m"
+        << "\033[1;32mAST\033[0m \033[31m-Original\033[0m"
         << "\n"
         << styio_ast->toString(&styio_repr) << "\n"
         << std::endl;
@@ -240,7 +248,7 @@ main(
 
     if (show_all or show_styio_ast) {
       std::cout
-        << "\033[1;32mAST\033[0m \033[1;33m-After-Type-Checking\033[0m"
+        << "\033[1;32mAST\033[0m \033[1;33m-Type-Checking\033[0m"
         << "\n"
         << styio_ast->toString(&styio_repr) << "\n"
         << std::endl;
@@ -251,7 +259,7 @@ main(
 
     if (show_all or show_styio_ir) {
       std::cout
-        << "\033[1;32mSTYIO IR\033[0m \033[1;33m\033[0m"
+        << "\033[1;32mStyio IR\033[0m \033[1;33m\033[0m"
         << "\n"
         << styio_ir->toString(&styio_repr) << "\n"
         << std::endl;

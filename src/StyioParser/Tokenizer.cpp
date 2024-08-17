@@ -16,10 +16,10 @@
 #include "../StyioException/Exception.hpp"
 #include "../StyioToken/Token.hpp"
 #include "../StyioUtil/Util.hpp"
-#include "Parser.hpp"
+#include "Tokenizer.hpp"
 
 std::vector<StyioToken *>
-StyioContext::tokenize() {
+StyioTokenizer::tokenize(std::string code) {
   std::vector<StyioToken *> tokens;
   unsigned long long loc = 0; /* local position */
 
@@ -44,29 +44,36 @@ StyioContext::tokenize() {
       } break;
 
       default: {
-        // commments
-        if (code.compare(loc, 2, "//")) {
-          std::string literal;
-          loc += 2;
-
-          while (code.at(loc) != '\n' && code.at(loc) != '\r') {
-            literal += code.at(loc);
-            loc += 1;
-          }
-        }
-        /* comments */
-        else if (code.compare(loc, 2, "/*")) {
-          std::string literal;
-          loc += 2;
-
-          while (not code.compare(loc, 2, "*/")) {
-            literal += code.at(loc);
-            loc += 1;
-          }
-
-          loc += 2;
-        }
       } break;
+    }
+
+    // commments
+    if (code.compare(loc, 2, "//") == 0) {
+      std::string literal;
+      loc += 2;
+
+      while (code.at(loc) != '\n'
+             && code.at(loc) != '\r'
+             && code.at(loc) != EOF) {
+        literal += code.at(loc);
+        loc += 1;
+      }
+
+      tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LINE_COMMENT, literal));
+    }
+    /* comments */
+    else if (code.compare(loc, 2, "/*") == 0) {
+      std::string literal;
+      loc += 2;
+
+      while (not (code.compare(loc, 2, "*/") == 0)) {
+        literal += code.at(loc);
+        loc += 1;
+      }
+
+      loc += 2;
+
+      tokens.push_back(StyioToken::Create(StyioTokenType::TOK_CLOSED_COMMENT, literal));
     }
 
     /* varname / typename */
@@ -123,8 +130,17 @@ StyioContext::tokenize() {
 
       // 34
       case '\"': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_DQUOTE, ""));
         loc += 1;
+
+        std::string literal;
+        while (code.at(loc) != '\"') {
+          literal += code.at(loc);
+          loc += 1;
+        }
+
+        loc += 1;
+
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_STRING, literal));
       } break;
 
       // 35
@@ -231,8 +247,20 @@ StyioContext::tokenize() {
 
       // 62
       case '>': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RANGBRAC, ""));
         loc += 1;
+
+        if (code.at(loc) == '>') {
+          loc += 1;
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_FORWARD));
+        }
+        if (code.at(loc) == '_') {
+          loc += 1;
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_TERMINAL));
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RANGBRAC));
+        }
+
       } break;
 
       // 63

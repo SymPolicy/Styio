@@ -91,10 +91,11 @@
     "version": "cpp",
     "any": "cpp",
     "future": "cpp",
-    "*.def": "cpp"
+    "*.def": "cpp",
+    "filesystem": "cpp"
   },
   "C_Cpp.clang_format_fallbackStyle": "Mozilla",
   "C_Cpp.clang_format_style": "file",
   "C_Cpp.formatting": "clangFormat",
-  "C_Cpp.errorSquiggles": "enabled"
+  "C_Cpp.errorSquiggles": "disabled"
 }
