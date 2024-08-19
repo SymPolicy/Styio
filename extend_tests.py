@@ -41,4 +41,4 @@ if __name__ == "__main__":
   # for dir_name in os.listdir(tests_path):
   #   print(f"{file_path}/{dir_name}")
   #   print(os.path.isdir(f"{file_path}/{dir_name}"))
-  extend_tests("/home/Styio/tests/parsing/print", 5)
+  extend_tests("/home/Styio/tests/parsing/collections/tuple", 5)

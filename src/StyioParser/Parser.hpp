@@ -74,6 +74,10 @@ public:
     return code;
   }
 
+  /*
+    === Token Start
+  */
+
   StyioToken* cur_tok() {
     return tokens.at(index_of_token);
   }
@@ -82,9 +86,11 @@ public:
     return tokens.at(index_of_token)->type;
   }
 
-  void move_forward() {
-    this->cur_pos += tokens.at(index_of_token)->length();
-    this->index_of_token += 1;
+  void move_forward(size_t steps = 1) {
+    for (size_t i = 0; i < steps; i++) {
+      this->cur_pos += tokens.at(index_of_token)->length();
+      this->index_of_token += 1;
+    }
 
     std::cout << StyioToken::getTokName(tokens.at(index_of_token)->type) << " - " << tokens.at(index_of_token)->length() << std::endl;
   }
@@ -100,9 +106,17 @@ public:
     }
   }
 
-  /*
-    === Tokens
-  */
+  /* check length of consecutive sequence of token */
+  size_t check_seq_of(StyioTokenType type) {
+    size_t start = this->index_of_token;
+    size_t count = 0;
+
+    while (start + count < tokens.length() && tokens.at(start + count)->type == type) {
+      count += 1;
+    }
+
+    return count;
+  }
 
   bool check(StyioTokenType type) {
     return type == cur_tok_type();
@@ -148,7 +162,7 @@ public:
   }
 
   /*
-    === Tokens
+    === Token End ===
   */
 
   /* Get `pos` */
@@ -869,14 +883,14 @@ parse_loop(StyioContext& context, char& cur_char);
 StyioAST*
 parse_value_expr(StyioContext& context);
 
-StyioAST*
-parse_var_name_or_value_expr(StyioContext& context);
-
 /*
   parse_expr
 */
 StyioAST*
 parse_expr(StyioContext& context);
+
+StyioAST*
+parse_var_name_or_value_expr(StyioContext& context);
 
 /*
   parse_resources
@@ -980,5 +994,34 @@ parse_codp(StyioContext& context, CODPAST* prev_op = nullptr);
 
 MainBlockAST*
 parse_main_block(StyioContext& context);
+
+StyioAST*
+parse_expr(StyioContext& context);
+
+/*
+  parse_var_name_or_value_expr
+  - might be variable name
+  - or something else after a variable name
+*/
+StyioAST*
+parse_var_name_or_value_expr(StyioContext& context);
+
+/*
+  parse_tuple_exprs
+  - tuple
+  - tuple operations
+  - something else after tuple
+*/
+StyioAST*
+parse_tuple_exprs(StyioContext& context);
+
+/*
+  parse_list_exprs
+  - list
+  - list operations
+  - something else after list
+*/
+StyioAST*
+parse_list_exprs(StyioContext& context);
 
 #endif

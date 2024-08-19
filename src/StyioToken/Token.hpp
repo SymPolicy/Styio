@@ -599,6 +599,19 @@ reprToken(TokenKind token);
 std::string
 reprToken(LogicType token);
 
+/*
+  To distinguish 
+    <= (less than or equal) 
+    from 
+    <= (left double arrow),
+  construct a static map:
+    {
+      TOK_LE: (LANGLEBRAC, EQUAL),
+      TOK_ARROW_DOUBLE_LEFT: (LANGLEBRAC, EQUAL)
+    }
+  use a function:
+    check_pattern(StyioTokenType::TOK_LE)
+*/
 enum class StyioTokenType
 {
   TOK_EOF = -1,        // EOF
@@ -676,12 +689,14 @@ enum class StyioTokenType
   TOK_EQ,  // ==
   TOK_NE,  // !=
 
-  TOK_RARROW,  // ->
-  TOK_LARROW,  // <-
-
   TOK_TERMINAL,  // >_
   TOK_WALRUS,    // :=
   TOK_MATCH,     // ?=
+
+  TOK_ARROW_DOUBLE_RIGHT,  // =>
+  TOK_ARROW_DOUBLE_LEFT,   // <=
+  TOK_ARROW_SINGLE_RIGHT,  // ->
+  TOK_ARROW_SINGLE_LEFT,   // <-
 
   TOK_ELLIPSIS,  // ...
 
@@ -888,10 +903,10 @@ public:
       case StyioTokenType::TOK_NE:
         return "<NE>";
 
-      case StyioTokenType::TOK_RARROW:
+      case StyioTokenType::TOK_ARROW_SINGLE_RIGHT:
         return "->";
 
-      case StyioTokenType::TOK_LARROW:
+      case StyioTokenType::TOK_ARROW_SINGLE_LEFT:
         return "<-";
 
       case StyioTokenType::TOK_WALRUS:
@@ -1087,10 +1102,10 @@ public:
       case StyioTokenType::TOK_NE:
         return 2;
 
-      case StyioTokenType::TOK_RARROW:
+      case StyioTokenType::TOK_ARROW_SINGLE_RIGHT:
         return 2;
 
-      case StyioTokenType::TOK_LARROW:
+      case StyioTokenType::TOK_ARROW_SINGLE_LEFT:
         return 2;
 
       case StyioTokenType::TOK_WALRUS:
