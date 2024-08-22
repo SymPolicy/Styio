@@ -1277,19 +1277,19 @@ class BinOpAST : public StyioASTTraits<BinOpAST>
 public:
   DTypeAST* data_type = DTypeAST::Create();
 
-  TokenKind operand;
+  StyioOpType operand;
   StyioAST* LHS = nullptr;
   StyioAST* RHS = nullptr;
 
-  BinOpAST(TokenKind op, StyioAST* lhs, StyioAST* rhs) :
+  BinOpAST(StyioOpType op, StyioAST* lhs, StyioAST* rhs) :
       operand(op), LHS(lhs), RHS(rhs) {
   }
 
-  static BinOpAST* Create(TokenKind op, StyioAST* lhs, StyioAST* rhs) {
+  static BinOpAST* Create(StyioOpType op, StyioAST* lhs, StyioAST* rhs) {
     return new BinOpAST(op, lhs, rhs);
   }
 
-  TokenKind getOp() {
+  StyioOpType getOp() {
     return operand;
   }
 

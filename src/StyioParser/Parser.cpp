@@ -683,6 +683,7 @@ parse_tuple_exprs(StyioContext& context) {
   switch (context.cur_tok_type()) {
     /* >> */
     case StyioTokenType::TOK_FORWARD: {
+      auto forward_expr = parse_forward();
     } break;
 
     /* << */
@@ -878,32 +879,32 @@ parse_iterable(StyioContext& context) {
     switch (context.get_curr_char()) {
       case '+': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Add);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Add);
       } break;
 
       case '-': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Sub);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Sub);
       } break;
 
       case '*': {
         context.move(1);
         if (context.check_drop('*')) {
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Pow);
+          output = parse_binop_rhs(context, output, StyioOpType::Binary_Pow);
         }
         else {
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Mul);
+          output = parse_binop_rhs(context, output, StyioOpType::Binary_Mul);
         }
       } break;
 
       case '/': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Div);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Div);
       } break;
 
       case '%': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Mod);
       } break;
 
       default:
@@ -1494,7 +1495,7 @@ BinOpAST*
 parse_binop_rhs(
   StyioContext& context,
   StyioAST* lhs_ast,
-  TokenKind curr_token
+  StyioOpType curr_token
 ) {
   BinOpAST* output;
 
@@ -1504,36 +1505,36 @@ parse_binop_rhs(
 
   context.drop_all_spaces_comments();
 
-  TokenKind next_token;
+  StyioOpType next_token;
   switch (context.get_curr_char()) {
     case '+': {
       context.move(1);
-      next_token = TokenKind::Binary_Add;
+      next_token = StyioOpType::Binary_Add;
     } break;
 
     case '-': {
       context.move(1);
-      next_token = TokenKind::Binary_Sub;
+      next_token = StyioOpType::Binary_Sub;
     } break;
 
     case '*': {
       context.move(1);
       if (context.check_drop('*')) {
-        next_token = TokenKind::Binary_Pow;
+        next_token = StyioOpType::Binary_Pow;
       }
       else {
-        next_token = TokenKind::Binary_Mul;
+        next_token = StyioOpType::Binary_Mul;
       }
     } break;
 
     case '/': {
       context.move(1);
-      next_token = TokenKind::Binary_Div;
+      next_token = StyioOpType::Binary_Div;
     } break;
 
     case '%': {
       context.move(1);
-      next_token = TokenKind::Binary_Mod;
+      next_token = StyioOpType::Binary_Mod;
     } break;
 
     default: {
@@ -1942,6 +1943,12 @@ parse_cases(StyioContext& context) {
   else {
     return CasesAST::Create(pairs, _default_stmt);
   }
+}
+
+StyioAST*
+parse_forward_iterator(StyioContext& context) {
+  context.find_match_panic(StyioTokenType::TOK_FORWARD);
+
 }
 
 /*
@@ -2426,6 +2433,7 @@ parse_stmt_or_expr(
   context.skip();
 
   switch (context.cur_tok_type()) {
+    /* var_name / func_name */
     case StyioTokenType::TOK_NAME: {
       auto the_name = parse_name(context);
 
@@ -2448,20 +2456,29 @@ parse_stmt_or_expr(
 
     } break;
 
+    /* int */
     case StyioTokenType::TOK_INT: {
       auto the_int = parse_int(context);
     } break;
-
+    
+    /* float */
     case StyioTokenType::TOK_FLOAT: {
       auto the_float = parse_float(context);
     } break;
 
+    /* @ */
     case StyioTokenType::TOK_AT: {
       return parse_resources(context);
     } break;
 
+    /* >_ */
     case StyioTokenType::TOK_TERMINAL: {
       return parse_print(context);
+    } break;
+
+    /* ( */
+    case StyioTokenType::TOK_LPAREN: {
+      return parse_tuple_exprs(context);
     } break;
 
     /* ... */

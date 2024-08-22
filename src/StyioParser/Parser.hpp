@@ -642,45 +642,45 @@ public:
     return false;
   }
 
-  std::tuple<bool, TokenKind> get_binop_token() {
+  std::tuple<bool, StyioOpType> get_binop_token() {
     switch (code.at(cur_pos)) {
       case '+': {
-        return {true, TokenKind::Binary_Add};
+        return {true, StyioOpType::Binary_Add};
       } break;
 
       case '-': {
-        return {true, TokenKind::Binary_Sub};
+        return {true, StyioOpType::Binary_Sub};
       } break;
 
       case '*': {
-        return {true, TokenKind::Binary_Mul};
+        return {true, StyioOpType::Binary_Mul};
       } break;
 
       case '/': {
         switch (code.at(cur_pos + 1)) {
           case '*': {
-            return {false, TokenKind::Comment_MultiLine};
+            return {false, StyioOpType::Comment_MultiLine};
           } break;
 
           case '/': {
-            return {false, TokenKind::Comment_SingleLine};
+            return {false, StyioOpType::Comment_SingleLine};
           } break;
 
           default: {
-            return {true, TokenKind::Binary_Div};
+            return {true, StyioOpType::Binary_Div};
           } break;
         }
       } break;
 
       case '%': {
-        return {true, TokenKind::Binary_Mod};
+        return {true, StyioOpType::Binary_Mod};
       } break;
 
       default:
         break;
     }
 
-    return {false, TokenKind::Undefined};
+    return {false, StyioOpType::Undefined};
   }
 
   void
@@ -816,7 +816,7 @@ parse_binop_item(StyioContext& context);
   parse_binop_rhs
 */
 BinOpAST*
-parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast, TokenKind curr_tok);
+parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast, StyioOpType curr_tok);
 
 /*
   parse_cond_item
@@ -979,6 +979,9 @@ parse_cases(StyioContext& context);
 */
 StyioAST*
 parse_block(StyioContext& context);
+
+StyioAST*
+parse_forward_iterator(StyioContext& context);
 
 ForwardAST*
 parse_forward(StyioContext& context, bool is_func = false);

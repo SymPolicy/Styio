@@ -66,7 +66,7 @@ StyioTokenizer::tokenize(std::string code) {
       std::string literal;
       loc += 2;
 
-      while (not (code.compare(loc, 2, "*/") == 0)) {
+      while (not(code.compare(loc, 2, "*/") == 0)) {
         literal += code.at(loc);
         loc += 1;
       }
@@ -235,7 +235,7 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 60
       case '<': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LANGBRAC, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LANGBRAC));
         loc += 1;
       } break;
 
@@ -248,18 +248,7 @@ StyioTokenizer::tokenize(std::string code) {
       // 62
       case '>': {
         loc += 1;
-
-        if (code.at(loc) == '>') {
-          loc += 1;
-          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_FORWARD));
-        }
-        if (code.at(loc) == '_') {
-          loc += 1;
-          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_TERMINAL));
-        }
-        else {
-          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RANGBRAC));
-        }
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RANGBRAC));
 
       } break;
 

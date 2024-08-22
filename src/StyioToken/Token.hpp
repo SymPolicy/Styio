@@ -78,7 +78,7 @@ StyioDataType getMaxType(StyioDataType T1, StyioDataType T2);
 
 std::string reprDataTypeOption(StyioDataTypeOption option);
 
-enum class TokenKind
+enum class StyioOpType
 {
   Undefined,            // Undefined
   End_Of_File,          // EOF
@@ -121,119 +121,119 @@ enum class TokenKind
 };
 
 /* Token Precedence Map */
-static std::unordered_map<TokenKind, int> const TokenPrecedenceMap = {
-  {TokenKind::Unary_Positive, 999},  // + a
-  {TokenKind::Unary_Negative, 999},  // - a
-  {TokenKind::Bitwise_NOT, 999},     // ~ a
-  {TokenKind::Logic_NOT, 999},       // ! a
+static std::unordered_map<StyioOpType, int> const TokenPrecedenceMap = {
+  {StyioOpType::Unary_Positive, 999},  // + a
+  {StyioOpType::Unary_Negative, 999},  // - a
+  {StyioOpType::Bitwise_NOT, 999},     // ~ a
+  {StyioOpType::Logic_NOT, 999},       // ! a
 
-  {TokenKind::Binary_Pow, 704},  // a ** b
+  {StyioOpType::Binary_Pow, 704},  // a ** b
 
-  {TokenKind::Binary_Mul, 703},  // a * b
-  {TokenKind::Binary_Div, 703},  // a / b
-  {TokenKind::Binary_Mod, 703},  // a % b
+  {StyioOpType::Binary_Mul, 703},  // a * b
+  {StyioOpType::Binary_Div, 703},  // a / b
+  {StyioOpType::Binary_Mod, 703},  // a % b
 
-  {TokenKind::Binary_Add, 702},  // a + b
-  {TokenKind::Binary_Sub, 702},  // a - b
+  {StyioOpType::Binary_Add, 702},  // a + b
+  {StyioOpType::Binary_Sub, 702},  // a - b
 
-  {TokenKind::Bitwise_Left_Shift, 701},   // shl(x, y)
-  {TokenKind::Bitwise_Right_Shift, 701},  // shr(x, y)
+  {StyioOpType::Bitwise_Left_Shift, 701},   // shl(x, y)
+  {StyioOpType::Bitwise_Right_Shift, 701},  // shr(x, y)
 
-  {TokenKind::Greater_Than, 502},        // a > b
-  {TokenKind::Less_Than, 502},           // a < b
-  {TokenKind::Greater_Than_Equal, 502},  // a >= b
-  {TokenKind::Less_Than_Equal, 502},     // a <= b
+  {StyioOpType::Greater_Than, 502},        // a > b
+  {StyioOpType::Less_Than, 502},           // a < b
+  {StyioOpType::Greater_Than_Equal, 502},  // a >= b
+  {StyioOpType::Less_Than_Equal, 502},     // a <= b
 
-  {TokenKind::Equal, 501},      // a == b
-  {TokenKind::Not_Equal, 501},  // a != b
+  {StyioOpType::Equal, 501},      // a == b
+  {StyioOpType::Not_Equal, 501},  // a != b
 
-  {TokenKind::Bitwise_AND, 303},  // a & b
-  {TokenKind::Bitwise_XOR, 302},  // a ^ b
-  {TokenKind::Bitwise_OR, 301},   // a | b
+  {StyioOpType::Bitwise_AND, 303},  // a & b
+  {StyioOpType::Bitwise_XOR, 302},  // a ^ b
+  {StyioOpType::Bitwise_OR, 301},   // a | b
 
-  {TokenKind::Logic_AND, 203},  // a && b
-  {TokenKind::Logic_XOR, 202},  // a ⊕ b
-  {TokenKind::Logic_OR, 201},   // a || b
+  {StyioOpType::Logic_AND, 203},  // a && b
+  {StyioOpType::Logic_XOR, 202},  // a ⊕ b
+  {StyioOpType::Logic_OR, 201},   // a || b
 
-  {TokenKind::If_Else_Flow, 101},  // ?() => a : b
+  {StyioOpType::If_Else_Flow, 101},  // ?() => a : b
 
-  {TokenKind::Self_Add_Assign, 1},  // a += b
-  {TokenKind::Self_Sub_Assign, 1},  // a -= b
-  {TokenKind::Self_Mul_Assign, 1},  // a *= b
-  {TokenKind::Self_Div_Assign, 1},  // a /= b
+  {StyioOpType::Self_Add_Assign, 1},  // a += b
+  {StyioOpType::Self_Sub_Assign, 1},  // a -= b
+  {StyioOpType::Self_Mul_Assign, 1},  // a *= b
+  {StyioOpType::Self_Div_Assign, 1},  // a /= b
 
-  {TokenKind::Undefined, 0},    // Undefined
-  {TokenKind::End_Of_File, 0},  // Undefined
+  {StyioOpType::Undefined, 0},    // Undefined
+  {StyioOpType::End_Of_File, 0},  // Undefined
 };
 
-static std::unordered_map<TokenKind, std::string> const TokenStrMap = {
-  {TokenKind::Undefined, "undefined"},  // undefined
-  {TokenKind::End_Of_File, "EOF"},      // EOF
+static std::unordered_map<StyioOpType, std::string> const TokenStrMap = {
+  {StyioOpType::Undefined, "undefined"},  // undefined
+  {StyioOpType::End_Of_File, "EOF"},      // EOF
 
-  {TokenKind::Binary_Pow, "**"},  // a ** b
+  {StyioOpType::Binary_Pow, "**"},  // a ** b
 
-  {TokenKind::Binary_Mul, "*"},  // a * b
-  {TokenKind::Binary_Div, "/"},  // a / b
-  {TokenKind::Binary_Mod, "%"},  // a % b
+  {StyioOpType::Binary_Mul, "*"},  // a * b
+  {StyioOpType::Binary_Div, "/"},  // a / b
+  {StyioOpType::Binary_Mod, "%"},  // a % b
 
-  {TokenKind::Binary_Add, "+"},  // a + b
-  {TokenKind::Binary_Sub, "-"},  // a - b
+  {StyioOpType::Binary_Add, "+"},  // a + b
+  {StyioOpType::Binary_Sub, "-"},  // a - b
 
-  {TokenKind::Greater_Than, ">"},         // a > b
-  {TokenKind::Less_Than, "<"},            // a < b
-  {TokenKind::Greater_Than_Equal, ">="},  // a >= b
-  {TokenKind::Less_Than_Equal, "<="},     // a <= b
+  {StyioOpType::Greater_Than, ">"},         // a > b
+  {StyioOpType::Less_Than, "<"},            // a < b
+  {StyioOpType::Greater_Than_Equal, ">="},  // a >= b
+  {StyioOpType::Less_Than_Equal, "<="},     // a <= b
 
-  {TokenKind::Equal, "=="},      // a == b
-  {TokenKind::Not_Equal, "!="},  // a != b
+  {StyioOpType::Equal, "=="},      // a == b
+  {StyioOpType::Not_Equal, "!="},  // a != b
 
-  {TokenKind::Bitwise_AND, "&"},  // a & b
-  {TokenKind::Bitwise_XOR, "^"},  // a ^ b
-  {TokenKind::Bitwise_OR, "|"},   // a | b
+  {StyioOpType::Bitwise_AND, "&"},  // a & b
+  {StyioOpType::Bitwise_XOR, "^"},  // a ^ b
+  {StyioOpType::Bitwise_OR, "|"},   // a | b
 
-  {TokenKind::Logic_AND, "&&"},  // a && b
-  {TokenKind::Logic_XOR, "⊕"},   // a ⊕ b
-  {TokenKind::Logic_OR, "||"},   // a || b
+  {StyioOpType::Logic_AND, "&&"},  // a && b
+  {StyioOpType::Logic_XOR, "⊕"},   // a ⊕ b
+  {StyioOpType::Logic_OR, "||"},   // a || b
 
-  {TokenKind::Self_Add_Assign, "+="},  // a += b
-  {TokenKind::Self_Sub_Assign, "-="},  // a -= b
-  {TokenKind::Self_Mul_Assign, "*="},  // a *= b
-  {TokenKind::Self_Div_Assign, "/="},  // a /= b
+  {StyioOpType::Self_Add_Assign, "+="},  // a += b
+  {StyioOpType::Self_Sub_Assign, "-="},  // a -= b
+  {StyioOpType::Self_Mul_Assign, "*="},  // a *= b
+  {StyioOpType::Self_Div_Assign, "/="},  // a /= b
 };
 
-static std::unordered_map<std::string, TokenKind> const StrTokenMap = {
-  {"", TokenKind::Undefined},       // Undefined
-  {"EOF", TokenKind::End_Of_File},  // EOF
+static std::unordered_map<std::string, StyioOpType> const StrTokenMap = {
+  {"", StyioOpType::Undefined},       // Undefined
+  {"EOF", StyioOpType::End_Of_File},  // EOF
 
-  {"**", TokenKind::Binary_Pow},  // a ** b
+  {"**", StyioOpType::Binary_Pow},  // a ** b
 
-  {"*", TokenKind::Binary_Mul},  // a * b
-  {"/", TokenKind::Binary_Div},  // a / b
-  {"%", TokenKind::Binary_Mod},  // a % b
+  {"*", StyioOpType::Binary_Mul},  // a * b
+  {"/", StyioOpType::Binary_Div},  // a / b
+  {"%", StyioOpType::Binary_Mod},  // a % b
 
-  {"+", TokenKind::Binary_Add},  // a + b
-  {"-", TokenKind::Binary_Sub},  // a - b
+  {"+", StyioOpType::Binary_Add},  // a + b
+  {"-", StyioOpType::Binary_Sub},  // a - b
 
-  {">", TokenKind::Greater_Than},         // a > b
-  {"<", TokenKind::Less_Than},            // a < b
-  {">=", TokenKind::Greater_Than_Equal},  // a >= b
-  {"<=", TokenKind::Less_Than_Equal},     // a <= b
+  {">", StyioOpType::Greater_Than},         // a > b
+  {"<", StyioOpType::Less_Than},            // a < b
+  {">=", StyioOpType::Greater_Than_Equal},  // a >= b
+  {"<=", StyioOpType::Less_Than_Equal},     // a <= b
 
-  {"==", TokenKind::Equal},      // a == b
-  {"!=", TokenKind::Not_Equal},  // a != b
+  {"==", StyioOpType::Equal},      // a == b
+  {"!=", StyioOpType::Not_Equal},  // a != b
 
-  {"&", TokenKind::Bitwise_AND},  // a & b
-  {"^", TokenKind::Bitwise_XOR},  // a ^ b
-  {"|", TokenKind::Bitwise_OR},   // a | b
+  {"&", StyioOpType::Bitwise_AND},  // a & b
+  {"^", StyioOpType::Bitwise_XOR},  // a ^ b
+  {"|", StyioOpType::Bitwise_OR},   // a | b
 
-  {"&&", TokenKind::Logic_AND},  // a && b
-  {"⊕", TokenKind::Logic_XOR},   // a ⊕ b
-  {"||", TokenKind::Logic_OR},   // a || b
+  {"&&", StyioOpType::Logic_AND},  // a && b
+  {"⊕", StyioOpType::Logic_XOR},   // a ⊕ b
+  {"||", StyioOpType::Logic_OR},   // a || b
 
-  {"+=", TokenKind::Self_Add_Assign},  // a += b
-  {"-=", TokenKind::Self_Sub_Assign},  // a -= b
-  {"*=", TokenKind::Self_Mul_Assign},  // a *= b
-  {"/=", TokenKind::Self_Div_Assign},  // a /= b
+  {"+=", StyioOpType::Self_Add_Assign},  // a += b
+  {"-=", StyioOpType::Self_Sub_Assign},  // a -= b
+  {"*=", StyioOpType::Self_Mul_Assign},  // a *= b
+  {"/=", StyioOpType::Self_Div_Assign},  // a /= b
 };
 
 enum class StyioContextType
@@ -594,7 +594,7 @@ std::string
 reprToken(CompType token);
 
 std::string
-reprToken(TokenKind token);
+reprToken(StyioOpType token);
 
 std::string
 reprToken(LogicType token);
@@ -1142,5 +1142,9 @@ public:
     }
   }
 };
+
+enum class StyioSymbol {
+  
+}
 
 #endif

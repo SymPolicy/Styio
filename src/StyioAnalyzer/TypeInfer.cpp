@@ -236,10 +236,10 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto lhs_int = static_cast<IntAST*>(lhs);
             auto rhs_int = static_cast<IntAST*>(rhs);
 
-            if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul) {
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul) {
               ast->setDType(getMaxType(lhs_int->getDataType(), rhs_int->getDataType()));
             }
-            else if (op == TokenKind::Binary_Div) {
+            else if (op == StyioOpType::Binary_Div) {
               // 0 / n = 0
               if (std::stoi(lhs_int->getValue()) == 0) {
                 ast->setDType(getMaxType(lhs_int->getDataType(), rhs_int->getDataType()));
@@ -251,7 +251,7 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto lhs_int = static_cast<IntAST*>(lhs);
             auto rhs_float = static_cast<FloatAST*>(rhs);
 
-            if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul || op == StyioOpType::Binary_Div) {
               ast->setDType(getMaxType(lhs_int->getDataType(), rhs_float->getDataType()));
             }
           } break;
@@ -260,7 +260,7 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto lhs_expr = static_cast<IntAST*>(lhs);
             auto rhs_expr = static_cast<BinOpAST*>(rhs);
 
-            if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul || op == StyioOpType::Binary_Div) {
               ast->setDType(getMaxType(lhs_expr->getDataType(), rhs_expr->getDataType()));
             }
           } break;
@@ -276,7 +276,7 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto lhs_float = static_cast<FloatAST*>(lhs);
             auto rhs_int = static_cast<IntAST*>(rhs);
 
-            if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul || op == StyioOpType::Binary_Div) {
               ast->setDType(getMaxType(lhs_float->getDataType(), rhs_int->getDataType()));
             }
           } break;
@@ -285,7 +285,7 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto lhs_float = static_cast<FloatAST*>(lhs);
             auto rhs_float = static_cast<FloatAST*>(rhs);
 
-            if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul || op == StyioOpType::Binary_Div) {
               ast->setDType(getMaxType(lhs_float->getDataType(), rhs_float->getDataType()));
             }
           } break;
@@ -301,7 +301,7 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto lhs_expr = static_cast<BinOpAST*>(lhs);
             auto rhs_expr = static_cast<IntAST*>(rhs);
 
-            if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul || op == StyioOpType::Binary_Div) {
               ast->setDType(getMaxType(lhs_expr->getType(), rhs_expr->getDataType()));
             }
           } break;
@@ -310,7 +310,7 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto lhs_binop = static_cast<BinOpAST*>(lhs);
             auto rhs_float = static_cast<FloatAST*>(rhs);
 
-            if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul || op == StyioOpType::Binary_Div) {
               ast->setDType(getMaxType(lhs_binop->getType(), rhs_float->getDataType()));
             }
           } break;
@@ -319,7 +319,7 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto lhs_binop = static_cast<BinOpAST*>(lhs);
             auto rhs_binop = static_cast<BinOpAST*>(rhs);
 
-            if (op == TokenKind::Binary_Add || op == TokenKind::Binary_Sub || op == TokenKind::Binary_Mul || op == TokenKind::Binary_Div) {
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul || op == StyioOpType::Binary_Div) {
               ast->setDType(getMaxType(lhs_binop->getType(), rhs_binop->getType()));
             }
           } break;

@@ -121,7 +121,7 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
   llvm::Value* r_val = node->rhs_expr->toLLVMIR(this);
 
   switch (node->operand) {
-    case TokenKind::Binary_Add: {
+    case StyioOpType::Binary_Add: {
       if (data_type.isInteger()) {
         return theBuilder->CreateAdd(l_val, r_val);
       }
@@ -130,7 +130,7 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
       }
     } break;
 
-    case TokenKind::Binary_Sub: {
+    case StyioOpType::Binary_Sub: {
       if (data_type.isInteger()) {
         return theBuilder->CreateSub(l_val, r_val);
       }
@@ -139,7 +139,7 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
       }
     } break;
 
-    case TokenKind::Binary_Mul: {
+    case StyioOpType::Binary_Mul: {
       if (data_type.isInteger()) {
         return theBuilder->CreateMul(l_val, r_val);
       }
@@ -148,7 +148,7 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
       }
     } break;
 
-    case TokenKind::Binary_Div: {
+    case StyioOpType::Binary_Div: {
       /* Signed Integer */
       if (data_type.isInteger()) {
         return theBuilder->CreateSDiv(l_val, r_val);
@@ -158,22 +158,22 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
       }
     } break;
 
-    case TokenKind::Binary_Pow: {
+    case StyioOpType::Binary_Pow: {
     } break;
 
-    case TokenKind::Binary_Mod: {
+    case StyioOpType::Binary_Mod: {
     } break;
 
-    case TokenKind::Self_Add_Assign: {
+    case StyioOpType::Self_Add_Assign: {
     } break;
 
-    case TokenKind::Self_Sub_Assign: {
+    case StyioOpType::Self_Sub_Assign: {
     } break;
 
-    case TokenKind::Self_Mul_Assign: {
+    case StyioOpType::Self_Mul_Assign: {
     } break;
 
-    case TokenKind::Self_Div_Assign: {
+    case StyioOpType::Self_Div_Assign: {
     } break;
 
     default:

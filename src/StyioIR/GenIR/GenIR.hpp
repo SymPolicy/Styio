@@ -205,13 +205,13 @@ public:
   SGType* data_type;
   StyioIR* lhs_expr;
   StyioIR* rhs_expr;
-  TokenKind operand;
+  StyioOpType operand;
 
-  SGBinOp(StyioIR* lhs, StyioIR* rhs, TokenKind op, SGType* data_type) :
+  SGBinOp(StyioIR* lhs, StyioIR* rhs, StyioOpType op, SGType* data_type) :
       lhs_expr(std::move(lhs)), rhs_expr(std::move(rhs)), operand(op), data_type(std::move(data_type)) {
   }
 
-  static SGBinOp* Create(StyioIR* lhs, StyioIR* rhs, TokenKind op, SGType* data_type) {
+  static SGBinOp* Create(StyioIR* lhs, StyioIR* rhs, StyioOpType op, SGType* data_type) {
     return new SGBinOp(lhs, rhs, op, data_type);
   }
 };
@@ -221,13 +221,13 @@ class SGCond : public StyioIRTraits<SGCond>
 public:
   StyioIR* lhs_expr;
   StyioIR* rhs_expr;
-  TokenKind operand;
+  StyioOpType operand;
 
-  SGCond(StyioIR* lhs, StyioIR* rhs, TokenKind op) :
+  SGCond(StyioIR* lhs, StyioIR* rhs, StyioOpType op) :
       lhs_expr(std::move(lhs)), rhs_expr(std::move(rhs)), operand(op) {
   }
 
-  static SGCond* Create(StyioIR* lhs, StyioIR* rhs, TokenKind op) {
+  static SGCond* Create(StyioIR* lhs, StyioIR* rhs, StyioOpType op) {
     return new SGCond(lhs, rhs, op);
   }
 };

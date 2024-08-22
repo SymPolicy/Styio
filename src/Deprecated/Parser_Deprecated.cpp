@@ -591,32 +591,32 @@ parse_var_name_or_value_expr(StyioContext& context) {
   switch (context.get_curr_char()) {
     case '+': {
       context.move(1);
-      output = parse_binop_rhs(context, output, TokenKind::Binary_Add);
+      output = parse_binop_rhs(context, output, StyioOpType::Binary_Add);
     } break;
 
     case '-': {
       context.move(1);
-      output = parse_binop_rhs(context, output, TokenKind::Binary_Sub);
+      output = parse_binop_rhs(context, output, StyioOpType::Binary_Sub);
     } break;
 
     case '*': {
       context.move(1);
       if (context.check_drop('*')) {
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Pow);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Pow);
       }
       else {
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Mul);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Mul);
       }
     } break;
 
     case '/': {
       context.move(1);
-      output = parse_binop_rhs(context, output, TokenKind::Binary_Div);
+      output = parse_binop_rhs(context, output, StyioOpType::Binary_Div);
     } break;
 
     case '%': {
       context.move(1);
-      output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
+      output = parse_binop_rhs(context, output, StyioOpType::Binary_Mod);
     } break;
 
     case '.': {
@@ -698,32 +698,32 @@ parse_expr(StyioContext& context) {
     switch (context.get_curr_char()) {
       case '+': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Add);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Add);
       } break;
 
       case '-': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Sub);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Sub);
       } break;
 
       case '*': {
         context.move(1);
         if (context.check_drop('*')) {
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Pow);
+          output = parse_binop_rhs(context, output, StyioOpType::Binary_Pow);
         }
         else {
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Mul);
+          output = parse_binop_rhs(context, output, StyioOpType::Binary_Mul);
         }
       } break;
 
       case '/': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Div);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Div);
       } break;
 
       case '%': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Mod);
       } break;
 
       case '[': {
@@ -744,32 +744,32 @@ parse_expr(StyioContext& context) {
     switch (context.get_curr_char()) {
       case '+': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Add);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Add);
       } break;
 
       case '-': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Sub);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Sub);
       } break;
 
       case '*': {
         context.move(1);
         if (context.check_drop('*')) {
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Pow);
+          output = parse_binop_rhs(context, output, StyioOpType::Binary_Pow);
         }
         else {
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Mul);
+          output = parse_binop_rhs(context, output, StyioOpType::Binary_Mul);
         }
       } break;
 
       case '/': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Div);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Div);
       } break;
 
       case '%': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Mod);
       } break;
 
       default:
@@ -825,32 +825,32 @@ parse_expr(StyioContext& context) {
       switch (context.get_curr_char()) {
         case '+': {
           context.move(1);
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Add);
+          output = parse_binop_rhs(context, output, StyioOpType::Binary_Add);
         } break;
 
         case '-': {
           context.move(1);
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Sub);
+          output = parse_binop_rhs(context, output, StyioOpType::Binary_Sub);
         } break;
 
         case '*': {
           context.move(1);
           if (context.check_drop('*')) {
-            output = parse_binop_rhs(context, output, TokenKind::Binary_Pow);
+            output = parse_binop_rhs(context, output, StyioOpType::Binary_Pow);
           }
           else {
-            output = parse_binop_rhs(context, output, TokenKind::Binary_Mul);
+            output = parse_binop_rhs(context, output, StyioOpType::Binary_Mul);
           }
         } break;
 
         case '/': {
           context.move(1);
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Div);
+          output = parse_binop_rhs(context, output, StyioOpType::Binary_Div);
         } break;
 
         case '%': {
           context.move(1);
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
+          output = parse_binop_rhs(context, output, StyioOpType::Binary_Mod);
         } break;
 
         default:
@@ -1040,32 +1040,32 @@ parse_iterable(StyioContext& context) {
     switch (context.get_curr_char()) {
       case '+': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Add);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Add);
       } break;
 
       case '-': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Sub);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Sub);
       } break;
 
       case '*': {
         context.move(1);
         if (context.check_drop('*')) {
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Pow);
+          output = parse_binop_rhs(context, output, StyioOpType::Binary_Pow);
         }
         else {
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Mul);
+          output = parse_binop_rhs(context, output, StyioOpType::Binary_Mul);
         }
       } break;
 
       case '/': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Div);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Div);
       } break;
 
       case '%': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Mod);
       } break;
 
       default:
@@ -1656,7 +1656,7 @@ BinOpAST*
 parse_binop_rhs(
   StyioContext& context,
   StyioAST* lhs_ast,
-  TokenKind curr_token
+  StyioOpType curr_token
 ) {
   BinOpAST* output;
 
@@ -1666,36 +1666,36 @@ parse_binop_rhs(
 
   context.drop_all_spaces_comments();
 
-  TokenKind next_token;
+  StyioOpType next_token;
   switch (context.get_curr_char()) {
     case '+': {
       context.move(1);
-      next_token = TokenKind::Binary_Add;
+      next_token = StyioOpType::Binary_Add;
     } break;
 
     case '-': {
       context.move(1);
-      next_token = TokenKind::Binary_Sub;
+      next_token = StyioOpType::Binary_Sub;
     } break;
 
     case '*': {
       context.move(1);
       if (context.check_drop('*')) {
-        next_token = TokenKind::Binary_Pow;
+        next_token = StyioOpType::Binary_Pow;
       }
       else {
-        next_token = TokenKind::Binary_Mul;
+        next_token = StyioOpType::Binary_Mul;
       }
     } break;
 
     case '/': {
       context.move(1);
-      next_token = TokenKind::Binary_Div;
+      next_token = StyioOpType::Binary_Div;
     } break;
 
     case '%': {
       context.move(1);
-      next_token = TokenKind::Binary_Mod;
+      next_token = StyioOpType::Binary_Mod;
     } break;
 
     default: {
@@ -2555,32 +2555,32 @@ parse_stmt_or_expr(
     switch (context.get_curr_char()) {
       case '+': {
         context.move(1);
-        return parse_binop_rhs(context, this_name, TokenKind::Binary_Add);
+        return parse_binop_rhs(context, this_name, StyioOpType::Binary_Add);
       } break;
 
       case '-': {
         context.move(1);
-        return parse_binop_rhs(context, this_name, TokenKind::Binary_Sub);
+        return parse_binop_rhs(context, this_name, StyioOpType::Binary_Sub);
       } break;
 
       case '*': {
         context.move(1);
         if (context.check_drop('*')) {
-          return parse_binop_rhs(context, this_name, TokenKind::Binary_Pow);
+          return parse_binop_rhs(context, this_name, StyioOpType::Binary_Pow);
         }
         else {
-          return parse_binop_rhs(context, this_name, TokenKind::Binary_Mul);
+          return parse_binop_rhs(context, this_name, StyioOpType::Binary_Mul);
         }
       } break;
 
       case '/': {
         context.move(1);
-        return parse_binop_rhs(context, this_name, TokenKind::Binary_Div);
+        return parse_binop_rhs(context, this_name, StyioOpType::Binary_Div);
       } break;
 
       case '%': {
         context.move(1);
-        return parse_binop_rhs(context, this_name, TokenKind::Binary_Mod);
+        return parse_binop_rhs(context, this_name, StyioOpType::Binary_Mod);
       } break;
 
       case '=': {
@@ -2669,32 +2669,32 @@ parse_stmt_or_expr(
     switch (context.get_curr_char()) {
       case '+': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Add);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Add);
       } break;
 
       case '-': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Sub);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Sub);
       } break;
 
       case '*': {
         context.move(1);
         if (context.check_drop('*')) {
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Pow);
+          output = parse_binop_rhs(context, output, StyioOpType::Binary_Pow);
         }
         else {
-          output = parse_binop_rhs(context, output, TokenKind::Binary_Mul);
+          output = parse_binop_rhs(context, output, StyioOpType::Binary_Mul);
         }
       } break;
 
       case '/': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Div);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Div);
       } break;
 
       case '%': {
         context.move(1);
-        output = parse_binop_rhs(context, output, TokenKind::Binary_Mod);
+        output = parse_binop_rhs(context, output, StyioOpType::Binary_Mod);
       } break;
 
       default: {

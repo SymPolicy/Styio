@@ -339,36 +339,36 @@ reprASTType(StyioASTType type, std::string extra) {
 }
 
 std::string
-reprToken(TokenKind token) {
+reprToken(StyioOpType token) {
   switch (token) {
-    case TokenKind::Binary_Add:
+    case StyioOpType::Binary_Add:
       return "<Add>";
 
-    case TokenKind::Binary_Sub:
+    case StyioOpType::Binary_Sub:
       return "<Sub>";
 
-    case TokenKind::Binary_Mul:
+    case StyioOpType::Binary_Mul:
       return "<Mul>";
 
-    case TokenKind::Binary_Div:
+    case StyioOpType::Binary_Div:
       return "<Div>";
 
-    case TokenKind::Binary_Pow:
+    case StyioOpType::Binary_Pow:
       return "<Pow>";
 
-    case TokenKind::Binary_Mod:
+    case StyioOpType::Binary_Mod:
       return "<Mod>";
 
-    case TokenKind::Self_Add_Assign:
+    case StyioOpType::Self_Add_Assign:
       return "+=";
 
-    case TokenKind::Self_Sub_Assign:
+    case StyioOpType::Self_Sub_Assign:
       return "-=";
 
-    case TokenKind::Self_Mul_Assign:
+    case StyioOpType::Self_Mul_Assign:
       return "*=";
 
-    case TokenKind::Self_Div_Assign:
+    case StyioOpType::Self_Div_Assign:
       return "/=";
 
     default:
