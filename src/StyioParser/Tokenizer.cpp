@@ -247,14 +247,32 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 62
       case '>': {
-        loc += 1;
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RANGBRAC));
+        // loc += 1;
+        // tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RANGBRAC));
+        size_t count = 1;
+
+        while (code.at(loc + count) == '>') {
+          count += 1;
+        }
+
+        if (count == 1) {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RANGBRAC));
+        }
+        else if (count == 2) {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_FORWARD));
+        }
+        else {
+          
+        }
+
+        // anyway
+        loc += count;
 
       } break;
 
       // 63
       case '?': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_QUESTION, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_QUEST, ""));
         loc += 1;
       } break;
 

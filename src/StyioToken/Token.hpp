@@ -4,6 +4,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 enum class StyioDataTypeOption
 {
@@ -600,9 +601,9 @@ std::string
 reprToken(LogicType token);
 
 /*
-  To distinguish 
-    <= (less than or equal) 
-    from 
+  To distinguish
+    <= (less than or equal)
+    from
     <= (left double arrow),
   construct a static map:
     {
@@ -639,7 +640,7 @@ enum class StyioTokenType
   TOK_LANGBRAC = 60,   // ASCII 60 <
   TOK_EQUAL = 61,      // ASCII 61 =
   TOK_RANGBRAC = 62,   // ASCII 62 >
-  TOK_QUESTION = 63,   // ASCII 63 ?
+  TOK_QUEST = 63,   // ASCII 63 ?
   TOK_AT = 64,         // ASCII 64 @
   TOK_LBOXBRAC = 91,   // [
   TOK_BACKSLASH = 92,  // ASCII 92 \ (backslash)
@@ -660,61 +661,65 @@ enum class StyioTokenType
   TOK_LINE_COMMENT,
   TOK_CLOSED_COMMENT,
 
-  TOK_AND,  // &&
-  TOK_OR,   // ||
-  TOK_XOR,  // ^
-
-  TOK_BITAND,  // &
-  TOK_BITOR,   // |
-  TOK_BITXOR,  // ^
+  BINOP_BITAND,  // &
+  BINOP_BITOR,   // |
+  BINOP_BITXOR,  // ^
 
   TOK_BACKWARD,  // <<
   TOK_FORWARD,   // >>
 
-  TOK_NOT,  // !
+  TOK_
 
-  TOK_NEG,  // -
+  LOGIC_NOT,  // !
+  LOGIC_AND,  // &&
+  LOGIC_OR,   // ||
+  LOGIC_XOR,  // ^
 
-  TOK_ADD,  // +
-  TOK_SUB,  // -
-  TOK_MUL,  // *
-  TOK_DIV,  // /
-  TOK_MOD,  // %
-  TOK_POW,  // **
+  UNARY_NEG,  // -
 
-  TOK_GT,  // >
-  TOK_GE,  // >=
-  TOK_LT,  // <
-  TOK_LE,  // <=
-  TOK_EQ,  // ==
-  TOK_NE,  // !=
+  BINOP_ADD,  // +
+  BINOP_SUB,  // -
+  BINOP_MUL,  // *
+  BINOP_DIV,  // /
+  BINOP_MOD,  // %
+  BINOP_POW,  // **
 
-  TOK_TERMINAL,  // >_
-  TOK_WALRUS,    // :=
-  TOK_MATCH,     // ?=
+  BINOP_GT,  // >
+  BINOP_GE,  // >=
+  BINOP_LT,  // <
+  BINOP_LE,  // <=
+  BINOP_EQ,  // ==
+  BINOP_NE,  // !=
 
-  TOK_ARROW_DOUBLE_RIGHT,  // =>
-  TOK_ARROW_DOUBLE_LEFT,   // <=
-  TOK_ARROW_SINGLE_RIGHT,  // ->
-  TOK_ARROW_SINGLE_LEFT,   // <-
+  PRINT,   // >_
+  WALRUS,  // :=
+  MATCH,   // ?=
 
-  TOK_ELLIPSIS,  // ...
+  ARROW_DOUBLE_RIGHT,  // =>
+  ARROW_DOUBLE_LEFT,   // <=
+  ARROW_SINGLE_RIGHT,  // ->
+  ARROW_SINGLE_LEFT,   // <-
 
-  TOK_INFINITE_LIST,  // [...]
+  ELLIPSIS,       // ...
+  INFINITE_LIST,  // [...]
 
-  TOK_UNKNOWN,
+  UNKNOWN,
 };
 
 class StyioToken
 {
 private:
-  StyioToken(StyioTokenType token_type, std::string token_literal) :
+  StyioToken(
+    StyioTokenType token_type, 
+    std::string token_literal
+  ) :
       type(token_type), literal(token_literal) {
   }
 
 public:
   StyioTokenType type;
   std::string literal;
+  size_t length;
 
   static StyioToken* Create(StyioTokenType token_type) {
     return new StyioToken(token_type, "");
@@ -786,7 +791,7 @@ public:
       case StyioTokenType::TOK_HAT:
         return "^";
 
-      case StyioTokenType::TOK_QUESTION:
+      case StyioTokenType::TOK_QUEST:
         return "?";
 
       case StyioTokenType::TOK_SLASH:
@@ -798,7 +803,7 @@ public:
       case StyioTokenType::TOK_PIPE:
         return "|";
 
-      case StyioTokenType::TOK_ELLIPSIS:
+      case StyioTokenType::ELLIPSIS:
         return "...";
 
       case StyioTokenType::TOK_SQUOTE:
@@ -834,25 +839,25 @@ public:
       case StyioTokenType::TOK_RANGBRAC:
         return ">";
 
-      case StyioTokenType::TOK_NOT:
+      case StyioTokenType::LOGIC_NOT:
         return "<NOT>";
 
-      case StyioTokenType::TOK_AND:
+      case StyioTokenType::LOGIC_AND:
         return "<AND>";
 
-      case StyioTokenType::TOK_OR:
+      case StyioTokenType::LOGIC_OR:
         return "<OR>";
 
-      case StyioTokenType::TOK_XOR:
+      case StyioTokenType::LOGIC_XOR:
         return "<XOR>";
 
-      case StyioTokenType::TOK_BITAND:
+      case StyioTokenType::BINOP_BITAND:
         return "<BIT_AND>";
 
-      case StyioTokenType::TOK_BITOR:
+      case StyioTokenType::BINOP_BITOR:
         return "<BIT_OR>";
 
-      case StyioTokenType::TOK_BITXOR:
+      case StyioTokenType::BINOP_BITXOR:
         return "<BIT_XOR>";
 
       case StyioTokenType::TOK_BACKWARD:
@@ -861,61 +866,61 @@ public:
       case StyioTokenType::TOK_FORWARD:
         return ">>";
 
-      case StyioTokenType::TOK_TERMINAL:
+      case StyioTokenType::PRINT:
         return ">_";
 
-      case StyioTokenType::TOK_NEG:
+      case StyioTokenType::UNARY_NEG:
         return "<NEG>";
 
-      case StyioTokenType::TOK_ADD:
+      case StyioTokenType::BINOP_ADD:
         return "<ADD>";
 
-      case StyioTokenType::TOK_SUB:
+      case StyioTokenType::BINOP_SUB:
         return "<SUB>";
 
-      case StyioTokenType::TOK_MUL:
+      case StyioTokenType::BINOP_MUL:
         return "<MUL>";
 
-      case StyioTokenType::TOK_DIV:
+      case StyioTokenType::BINOP_DIV:
         return "<DIV>";
 
-      case StyioTokenType::TOK_MOD:
+      case StyioTokenType::BINOP_MOD:
         return "<MOD>";
 
-      case StyioTokenType::TOK_POW:
+      case StyioTokenType::BINOP_POW:
         return "<POW>";
 
-      case StyioTokenType::TOK_GT:
+      case StyioTokenType::BINOP_GT:
         return "<GT>";
 
-      case StyioTokenType::TOK_GE:
+      case StyioTokenType::BINOP_GE:
         return "<GE>";
 
-      case StyioTokenType::TOK_LT:
+      case StyioTokenType::BINOP_LT:
         return "<LT>";
 
-      case StyioTokenType::TOK_LE:
+      case StyioTokenType::BINOP_LE:
         return "<LE>";
 
-      case StyioTokenType::TOK_EQ:
+      case StyioTokenType::BINOP_EQ:
         return "<EQ>";
 
-      case StyioTokenType::TOK_NE:
+      case StyioTokenType::BINOP_NE:
         return "<NE>";
 
-      case StyioTokenType::TOK_ARROW_SINGLE_RIGHT:
+      case StyioTokenType::ARROW_SINGLE_RIGHT:
         return "->";
 
-      case StyioTokenType::TOK_ARROW_SINGLE_LEFT:
+      case StyioTokenType::ARROW_SINGLE_LEFT:
         return "<-";
 
-      case StyioTokenType::TOK_WALRUS:
+      case StyioTokenType::WALRUS:
         return ":=";
 
-      case StyioTokenType::TOK_MATCH:
+      case StyioTokenType::MATCH:
         return "?=";
 
-      case StyioTokenType::TOK_INFINITE_LIST:
+      case StyioTokenType::INFINITE_LIST:
         return "[...]";
 
       default:
@@ -985,7 +990,7 @@ public:
       case StyioTokenType::TOK_HAT:
         return 1;
 
-      case StyioTokenType::TOK_QUESTION:
+      case StyioTokenType::TOK_QUEST:
         return 1;
 
       case StyioTokenType::TOK_SLASH:
@@ -997,7 +1002,7 @@ public:
       case StyioTokenType::TOK_PIPE:
         return 1;
 
-      case StyioTokenType::TOK_ELLIPSIS:
+      case StyioTokenType::ELLIPSIS:
         return 3;
 
       case StyioTokenType::TOK_SQUOTE:
@@ -1033,25 +1038,25 @@ public:
       case StyioTokenType::TOK_RANGBRAC:
         return 1;
 
-      case StyioTokenType::TOK_NOT:
+      case StyioTokenType::LOGIC_NOT:
         return 1;
 
-      case StyioTokenType::TOK_AND:
+      case StyioTokenType::LOGIC_AND:
         return 2;
 
-      case StyioTokenType::TOK_OR:
+      case StyioTokenType::LOGIC_OR:
         return 2;
 
-      case StyioTokenType::TOK_XOR:
+      case StyioTokenType::LOGIC_XOR:
         return 1;
 
-      case StyioTokenType::TOK_BITAND:
+      case StyioTokenType::BINOP_BITAND:
         return 1;
 
-      case StyioTokenType::TOK_BITOR:
+      case StyioTokenType::BINOP_BITOR:
         return 1;
 
-      case StyioTokenType::TOK_BITXOR:
+      case StyioTokenType::BINOP_BITXOR:
         return 1;
 
       case StyioTokenType::TOK_BACKWARD:
@@ -1060,61 +1065,61 @@ public:
       case StyioTokenType::TOK_FORWARD:
         return 2;
 
-      case StyioTokenType::TOK_TERMINAL:
+      case StyioTokenType::PRINT:
         return 2;
 
-      case StyioTokenType::TOK_NEG:
+      case StyioTokenType::UNARY_NEG:
         return 1;
 
-      case StyioTokenType::TOK_ADD:
+      case StyioTokenType::BINOP_ADD:
         return 1;
 
-      case StyioTokenType::TOK_SUB:
+      case StyioTokenType::BINOP_SUB:
         return 1;
 
-      case StyioTokenType::TOK_MUL:
+      case StyioTokenType::BINOP_MUL:
         return 1;
 
-      case StyioTokenType::TOK_DIV:
+      case StyioTokenType::BINOP_DIV:
         return 1;
 
-      case StyioTokenType::TOK_MOD:
+      case StyioTokenType::BINOP_MOD:
         return 1;
 
-      case StyioTokenType::TOK_POW:
+      case StyioTokenType::BINOP_POW:
         return 2;
 
-      case StyioTokenType::TOK_GT:
+      case StyioTokenType::BINOP_GT:
         return 1;
 
-      case StyioTokenType::TOK_GE:
+      case StyioTokenType::BINOP_GE:
         return 2;
 
-      case StyioTokenType::TOK_LT:
+      case StyioTokenType::BINOP_LT:
         return 1;
 
-      case StyioTokenType::TOK_LE:
+      case StyioTokenType::BINOP_LE:
         return 2;
 
-      case StyioTokenType::TOK_EQ:
+      case StyioTokenType::BINOP_EQ:
         return 2;
 
-      case StyioTokenType::TOK_NE:
+      case StyioTokenType::BINOP_NE:
         return 2;
 
-      case StyioTokenType::TOK_ARROW_SINGLE_RIGHT:
+      case StyioTokenType::ARROW_SINGLE_RIGHT:
         return 2;
 
-      case StyioTokenType::TOK_ARROW_SINGLE_LEFT:
+      case StyioTokenType::ARROW_SINGLE_LEFT:
         return 2;
 
-      case StyioTokenType::TOK_WALRUS:
+      case StyioTokenType::WALRUS:
         return 2;
 
-      case StyioTokenType::TOK_MATCH:
+      case StyioTokenType::MATCH:
         return 2;
 
-      case StyioTokenType::TOK_INFINITE_LIST:
+      case StyioTokenType::INFINITE_LIST:
         return 5;
 
       default:
@@ -1143,8 +1148,128 @@ public:
   }
 };
 
-enum class StyioSymbol {
-  
-}
+static std::unordered_map<StyioTokenType, std::vector<StyioTokenType> > const
+  StyioTokenMap = {
+    // =>
+    {StyioTokenType::ARROW_DOUBLE_RIGHT,
+     std::vector<StyioTokenType>{
+       StyioTokenType::TOK_EQUAL,
+       StyioTokenType::TOK_RANGBRAC
+     }
+    },
+    // <=
+    {StyioTokenType::ARROW_DOUBLE_LEFT,
+     std::vector<StyioTokenType>{
+       StyioTokenType::TOK_LANGBRAC,
+       StyioTokenType::TOK_EQUAL
+     }
+    },
+    // ->
+    {StyioTokenType::ARROW_SINGLE_LEFT,
+     std::vector<StyioTokenType>{
+       StyioTokenType::TOK_MINUS,
+       StyioTokenType::TOK_RANGBRAC
+     }
+    },
+    // <-
+    {StyioTokenType::ARROW_SINGLE_LEFT,
+     std::vector<StyioTokenType>{
+       StyioTokenType::TOK_LANGBRAC,
+       StyioTokenType::TOK_MINUS
+     }
+    },
+    /*
+      Binary Operations
+    */
+    // ==
+    {StyioTokenType::BINOP_EQ,
+     std::vector<StyioTokenType>{
+       StyioTokenType::TOK_EQUAL,
+       StyioTokenType::TOK_EQUAL
+     }
+    },
+    // !=
+    {StyioTokenType::BINOP_NE,
+     std::vector<StyioTokenType>{
+       StyioTokenType::TOK_EXCLAM,
+       StyioTokenType::TOK_EQUAL
+     }
+    },
+    // >=
+    {StyioTokenType::BINOP_GE,
+     std::vector<StyioTokenType>{
+       StyioTokenType::TOK_RANGBRAC,
+       StyioTokenType::TOK_EQUAL
+     }
+    },
+    // >
+    {StyioTokenType::BINOP_GT,
+     std::vector<StyioTokenType>{
+       StyioTokenType::TOK_RANGBRAC
+     }
+    },
+    // <=
+    {StyioTokenType::BINOP_LE,
+     std::vector<StyioTokenType>{
+       StyioTokenType::TOK_LANGBRAC,
+       StyioTokenType::TOK_EQUAL
+     }
+    },
+    // <
+    {StyioTokenType::BINOP_LT,
+     std::vector<StyioTokenType>{
+       StyioTokenType::TOK_LANGBRAC
+     }
+    },
+
+    /*
+      Special
+    */
+    // >_
+    {StyioTokenType::PRINT,
+     std::vector<StyioTokenType>{
+       StyioTokenType::TOK_RANGBRAC,
+       StyioTokenType::TOK_UNDLINE
+     }
+    },
+    // :=
+    {StyioTokenType::WALRUS,
+     std::vector<StyioTokenType>{
+       StyioTokenType::TOK_COLON,
+       StyioTokenType::TOK_EQUAL
+     }
+    },
+    // ?=
+    {StyioTokenType::MATCH,
+     std::vector<StyioTokenType>{
+       StyioTokenType::TOK_QUEST,
+       StyioTokenType::TOK_EQUAL
+     }
+    },
+
+    /*
+      LOGIC
+    */
+   // ! (Alternative)
+    {StyioTokenType::LOGIC_NOT,
+     std::vector<StyioTokenType>{
+       StyioTokenType::TOK_EXCLAM
+     }
+    },
+    // &&
+    {StyioTokenType::LOGIC_AND,
+     std::vector<StyioTokenType>{
+       StyioTokenType::TOK_AMP,
+       StyioTokenType::TOK_AMP
+     }
+    },
+    // ||
+    {StyioTokenType::LOGIC_OR,
+     std::vector<StyioTokenType>{
+       StyioTokenType::TOK_PIPE,
+       StyioTokenType::TOK_AMP
+     }
+    },
+};
 
 #endif

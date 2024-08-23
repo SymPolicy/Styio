@@ -111,7 +111,10 @@ public:
     size_t start = this->index_of_token;
     size_t count = 0;
 
-    while (start + count < tokens.length() && tokens.at(start + count)->type == type) {
+    while (
+      start + count < tokens.size()
+      && tokens.at(start + count)->type == type
+    ) {
       count += 1;
     }
 

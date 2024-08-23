@@ -1,17 +1,8 @@
 # Styio
 
-# Files
-### styio
+# Command-Line Arguments
 ```
-styio --ast --file 
-```
-
-```
-styio --ir --file 
-```
-
-```
-styio --ast --ir --file 
+styio --styio-ast --styio-ir --llvm-ir --file a.styio
 ```
 
 ### extend_tests.py

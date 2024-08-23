@@ -380,7 +380,7 @@ parse_resources(
           auto the_name = parse_name(context);
 
           context.skip();
-          if (context.match(StyioTokenType::TOK_ARROW_SINGLE_LEFT)) {
+          if (context.match(StyioTokenType::ARROW_SINGLE_LEFT)) {
             context.skip();
             if (context.check(StyioTokenType::TOK_NAME)) {
               auto the_expr = parse_var_name_or_value_expr(context);
@@ -680,19 +680,7 @@ parse_tuple_exprs(StyioContext& context) {
   the_tuple = TupleAST::Create(elems);
 
   context.skip();
-  switch (context.cur_tok_type()) {
-    /* >> */
-    case StyioTokenType::TOK_FORWARD: {
-      auto forward_expr = parse_forward();
-    } break;
-
-    /* << */
-    case StyioTokenType::TOK_BACKWARD: {
-    } break;
-
-    default:
-      break;
-  }
+  
 }
 
 StyioAST*
@@ -1947,7 +1935,16 @@ parse_cases(StyioContext& context) {
 
 StyioAST*
 parse_forward_iterator(StyioContext& context) {
-  context.find_match_panic(StyioTokenType::TOK_FORWARD);
+  /* >> */
+  if (context.check_seq_of(StyioTokenType::TOK_RANGBRAC) == 2) {
+    std::cout << "parse_forward_iterator" << std::endl;
+  }
+  else {
+    /* error */
+  }
+  
+
+
 
 }
 
@@ -2382,7 +2379,7 @@ StyioAST*
 parse_print(StyioContext& context) {
   vector<StyioAST*> exprs;
 
-  context.match_panic(StyioTokenType::TOK_TERMINAL);  // >_
+  context.match_panic(StyioTokenType::PRINT);  // >_
 
   context.skip();
   context.match_panic(StyioTokenType::TOK_LPAREN);  // (
@@ -2472,7 +2469,7 @@ parse_stmt_or_expr(
     } break;
 
     /* >_ */
-    case StyioTokenType::TOK_TERMINAL: {
+    case StyioTokenType::PRINT: {
       return parse_print(context);
     } break;
 
