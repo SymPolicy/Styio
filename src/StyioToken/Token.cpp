@@ -180,7 +180,6 @@ reprASTType(StyioASTType type, std::string extra) {
     } break;
 
     case StyioASTType::List: {
-
       output += std::string("list");
     } break;
 
@@ -205,7 +204,6 @@ reprASTType(StyioASTType type, std::string extra) {
     } break;
 
     case StyioASTType::Cases: {
-
       output += std::string("cases");
     } break;
 
@@ -234,7 +232,6 @@ reprASTType(StyioASTType type, std::string extra) {
     } break;
 
     case StyioASTType::FromTo: {
-
       output += std::string("from_to");
     } break;
 
@@ -435,59 +432,487 @@ getMaxType(StyioDataType T1, StyioDataType T2) {
   return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
 }
 
-std::string reprDataTypeOption(StyioDataTypeOption option) {
-  switch (option)
-  {
-  case StyioDataTypeOption::Undefined:{
-    return "undefined";
-  } break;
+std::string
+reprDataTypeOption(StyioDataTypeOption option) {
+  switch (option) {
+    case StyioDataTypeOption::Undefined: {
+      return "undefined";
+    } break;
 
-  case StyioDataTypeOption::Defined:{
-    return "defined";
-  } break;
+    case StyioDataTypeOption::Defined: {
+      return "defined";
+    } break;
 
-  case StyioDataTypeOption::Bool:{
-    return "bool";
-  } break;
+    case StyioDataTypeOption::Bool: {
+      return "bool";
+    } break;
 
-  case StyioDataTypeOption::Integer:{
-    return "int";
-  } break;
+    case StyioDataTypeOption::Integer: {
+      return "int";
+    } break;
 
-  case StyioDataTypeOption::Float:{
-    return "float";
-  } break;
+    case StyioDataTypeOption::Float: {
+      return "float";
+    } break;
 
-  case StyioDataTypeOption::Decimal:{
-    return "decimal";
-  } break;
+    case StyioDataTypeOption::Decimal: {
+      return "decimal";
+    } break;
 
-  case StyioDataTypeOption::Char:{
-    return "char";
-  } break;
+    case StyioDataTypeOption::Char: {
+      return "char";
+    } break;
 
-  case StyioDataTypeOption::String:{
-    return "string";
-  } break;
+    case StyioDataTypeOption::String: {
+      return "string";
+    } break;
 
-  case StyioDataTypeOption::Tuple:{
-    return "tuple";
-  } break;
+    case StyioDataTypeOption::Tuple: {
+      return "tuple";
+    } break;
 
-  case StyioDataTypeOption::List:{
-    return "list";
-  } break;
+    case StyioDataTypeOption::List: {
+      return "list";
+    } break;
 
-  case StyioDataTypeOption::Struct:{
-    return "struct";
-  } break;
-  
-  case StyioDataTypeOption::Func:{
-    return "func";
-  } break;
+    case StyioDataTypeOption::Struct: {
+      return "struct";
+    } break;
 
-  default: {
-    return "unknown";
-  } break;
+    case StyioDataTypeOption::Func: {
+      return "func";
+    } break;
+
+    default: {
+      return "unknown";
+    } break;
   }
 };
+
+/*
+  =========================
+  
+  StyioToken Implementation
+
+  =========================
+*/
+
+std::string
+StyioToken::getTokName(StyioTokenType type) {
+  switch (type) {
+    case StyioTokenType::TOK_SPACE:
+      return " ";
+
+    case StyioTokenType::TOK_CR:
+      return "<CR>";
+
+    case StyioTokenType::TOK_LF:
+      return "<LF>";
+
+    case StyioTokenType::TOK_EOF:
+      return "<EOF>";
+
+    case StyioTokenType::TOK_NAME:
+      return "<ID>";
+
+    case StyioTokenType::TOK_INT:
+      return "<INT>";
+
+    case StyioTokenType::TOK_FLOAT:
+      return "<FLOAT>";
+
+    case StyioTokenType::TOK_STRING:
+      return "<STRING>";
+
+    case StyioTokenType::TOK_LINE_COMMENT:
+      return "// COMMENT";
+
+    case StyioTokenType::TOK_CLOSED_COMMENT:
+      return "/* COMMENT */";
+
+    case StyioTokenType::TOK_COMMA:
+      return ",";
+
+    case StyioTokenType::TOK_DOT:
+      return ".";
+
+    case StyioTokenType::TOK_COLON:
+      return ":";
+
+    case StyioTokenType::TOK_TILDE:
+      return "~";
+
+    case StyioTokenType::TOK_EXCLAM:
+      return "!";
+
+    case StyioTokenType::TOK_AT:
+      return "@";
+
+    case StyioTokenType::TOK_HASH:
+      return "#";
+
+    case StyioTokenType::TOK_DOLLAR:
+      return "$";
+
+    case StyioTokenType::TOK_PERCENT:
+      return "%";
+
+    case StyioTokenType::TOK_HAT:
+      return "^";
+
+    case StyioTokenType::TOK_QUEST:
+      return "?";
+
+    case StyioTokenType::TOK_SLASH:
+      return "/";
+
+    case StyioTokenType::TOK_BACKSLASH:
+      return "\\";
+
+    case StyioTokenType::TOK_PIPE:
+      return "|";
+
+    case StyioTokenType::ELLIPSIS:
+      return "...";
+
+    case StyioTokenType::TOK_SQUOTE:
+      return "'";
+
+    case StyioTokenType::TOK_DQUOTE:
+      return "\"";
+
+    case StyioTokenType::TOK_BQUOTE:
+      return "`";
+
+    case StyioTokenType::TOK_LPAREN:
+      return "(";
+
+    case StyioTokenType::TOK_RPAREN:
+      return ")";
+
+    case StyioTokenType::TOK_LBOXBRAC:
+      return "[";
+
+    case StyioTokenType::TOK_RBOXBRAC:
+      return "]";
+
+    case StyioTokenType::TOK_LCURBRAC:
+      return "{";
+
+    case StyioTokenType::TOK_RCURBRAC:
+      return "}";
+
+    case StyioTokenType::TOK_LANGBRAC:
+      return "<";
+
+    case StyioTokenType::TOK_RANGBRAC:
+      return ">";
+
+    case StyioTokenType::LOGIC_NOT:
+      return "<NOT>";
+
+    case StyioTokenType::LOGIC_AND:
+      return "<AND>";
+
+    case StyioTokenType::LOGIC_OR:
+      return "<OR>";
+
+    case StyioTokenType::LOGIC_XOR:
+      return "<XOR>";
+
+    case StyioTokenType::BINOP_BITAND:
+      return "<BIT_AND>";
+
+    case StyioTokenType::BINOP_BITOR:
+      return "<BIT_OR>";
+
+    case StyioTokenType::BINOP_BITXOR:
+      return "<BIT_XOR>";
+
+    case StyioTokenType::TOK_BACKWARD:
+      return "<<";
+
+    case StyioTokenType::TOK_FORWARD:
+      return ">>";
+
+    case StyioTokenType::PRINT:
+      return ">_";
+
+    case StyioTokenType::UNARY_NEG:
+      return "<NEG>";
+
+    case StyioTokenType::BINOP_ADD:
+      return "<ADD>";
+
+    case StyioTokenType::BINOP_SUB:
+      return "<SUB>";
+
+    case StyioTokenType::BINOP_MUL:
+      return "<MUL>";
+
+    case StyioTokenType::BINOP_DIV:
+      return "<DIV>";
+
+    case StyioTokenType::BINOP_MOD:
+      return "<MOD>";
+
+    case StyioTokenType::BINOP_POW:
+      return "<POW>";
+
+    case StyioTokenType::BINOP_GT:
+      return "<GT>";
+
+    case StyioTokenType::BINOP_GE:
+      return "<GE>";
+
+    case StyioTokenType::BINOP_LT:
+      return "<LT>";
+
+    case StyioTokenType::BINOP_LE:
+      return "<LE>";
+
+    case StyioTokenType::BINOP_EQ:
+      return "<EQ>";
+
+    case StyioTokenType::BINOP_NE:
+      return "<NE>";
+
+    case StyioTokenType::ARROW_SINGLE_RIGHT:
+      return "->";
+
+    case StyioTokenType::ARROW_SINGLE_LEFT:
+      return "<-";
+
+    case StyioTokenType::WALRUS:
+      return ":=";
+
+    case StyioTokenType::MATCH:
+      return "?=";
+
+    case StyioTokenType::INFINITE_LIST:
+      return "[...]";
+
+    default:
+      return "<UNKNOWN>";
+  }
+};
+
+size_t
+StyioToken::length() {
+  switch (type) {
+    case StyioTokenType::TOK_SPACE:
+      return 1;
+
+    case StyioTokenType::TOK_CR:
+      return 1;
+
+    case StyioTokenType::TOK_LF:
+      return 1;
+
+    case StyioTokenType::TOK_EOF:
+      return 1;
+
+    case StyioTokenType::TOK_NAME:
+      return literal.length();
+
+    case StyioTokenType::TOK_INT:
+      return literal.length();
+
+    case StyioTokenType::TOK_FLOAT:
+      return literal.length();
+
+    case StyioTokenType::TOK_STRING:
+      return literal.length() + 2;
+
+    case StyioTokenType::TOK_LINE_COMMENT:
+      return literal.length() + 2;
+
+    case StyioTokenType::TOK_CLOSED_COMMENT:
+      return literal.length() + 4;
+
+    case StyioTokenType::TOK_COMMA:
+      return 1;
+
+    case StyioTokenType::TOK_DOT:
+      return 1;
+
+    case StyioTokenType::TOK_COLON:
+      return 1;
+
+    case StyioTokenType::TOK_TILDE:
+      return 1;
+
+    case StyioTokenType::TOK_EXCLAM:
+      return 1;
+
+    case StyioTokenType::TOK_AT:
+      return 1;
+
+    case StyioTokenType::TOK_HASH:
+      return 1;
+
+    case StyioTokenType::TOK_DOLLAR:
+      return 1;
+
+    case StyioTokenType::TOK_PERCENT:
+      return 1;
+
+    case StyioTokenType::TOK_HAT:
+      return 1;
+
+    case StyioTokenType::TOK_QUEST:
+      return 1;
+
+    case StyioTokenType::TOK_SLASH:
+      return 1;
+
+    case StyioTokenType::TOK_BACKSLASH:
+      return 1;
+
+    case StyioTokenType::TOK_PIPE:
+      return 1;
+
+    case StyioTokenType::ELLIPSIS:
+      return 3;
+
+    case StyioTokenType::TOK_SQUOTE:
+      return 1;
+
+    case StyioTokenType::TOK_DQUOTE:
+      return 1;
+
+    case StyioTokenType::TOK_BQUOTE:
+      return 1;
+
+    case StyioTokenType::TOK_LPAREN:
+      return 1;
+
+    case StyioTokenType::TOK_RPAREN:
+      return 1;
+
+    case StyioTokenType::TOK_LBOXBRAC:
+      return 1;
+
+    case StyioTokenType::TOK_RBOXBRAC:
+      return 1;
+
+    case StyioTokenType::TOK_LCURBRAC:
+      return 1;
+
+    case StyioTokenType::TOK_RCURBRAC:
+      return 1;
+
+    case StyioTokenType::TOK_LANGBRAC:
+      return 1;
+
+    case StyioTokenType::TOK_RANGBRAC:
+      return 1;
+
+    case StyioTokenType::LOGIC_NOT:
+      return 1;
+
+    case StyioTokenType::LOGIC_AND:
+      return 2;
+
+    case StyioTokenType::LOGIC_OR:
+      return 2;
+
+    case StyioTokenType::LOGIC_XOR:
+      return 1;
+
+    case StyioTokenType::BINOP_BITAND:
+      return 1;
+
+    case StyioTokenType::BINOP_BITOR:
+      return 1;
+
+    case StyioTokenType::BINOP_BITXOR:
+      return 1;
+
+    case StyioTokenType::TOK_BACKWARD:
+      return 2;
+
+    case StyioTokenType::TOK_FORWARD:
+      return 2;
+
+    case StyioTokenType::PRINT:
+      return 2;
+
+    case StyioTokenType::UNARY_NEG:
+      return 1;
+
+    case StyioTokenType::BINOP_ADD:
+      return 1;
+
+    case StyioTokenType::BINOP_SUB:
+      return 1;
+
+    case StyioTokenType::BINOP_MUL:
+      return 1;
+
+    case StyioTokenType::BINOP_DIV:
+      return 1;
+
+    case StyioTokenType::BINOP_MOD:
+      return 1;
+
+    case StyioTokenType::BINOP_POW:
+      return 2;
+
+    case StyioTokenType::BINOP_GT:
+      return 1;
+
+    case StyioTokenType::BINOP_GE:
+      return 2;
+
+    case StyioTokenType::BINOP_LT:
+      return 1;
+
+    case StyioTokenType::BINOP_LE:
+      return 2;
+
+    case StyioTokenType::BINOP_EQ:
+      return 2;
+
+    case StyioTokenType::BINOP_NE:
+      return 2;
+
+    case StyioTokenType::ARROW_SINGLE_RIGHT:
+      return 2;
+
+    case StyioTokenType::ARROW_SINGLE_LEFT:
+      return 2;
+
+    case StyioTokenType::WALRUS:
+      return 2;
+
+    case StyioTokenType::MATCH:
+      return 2;
+
+    case StyioTokenType::INFINITE_LIST:
+      return 5;
+
+    default:
+      return 0;
+  }
+}
+
+std::string StyioToken::as_str() {
+    if (type == StyioTokenType::TOK_LF) {
+      return std::string(" ║ ") + getTokName(this->type) + "\n";
+    }
+    else if (type == StyioTokenType::TOK_NAME) {
+      return std::string(" ║ ") + this->literal;
+    }
+    else if (type == StyioTokenType::TOK_NAME
+             || type == StyioTokenType::TOK_INT
+             || type == StyioTokenType::TOK_FLOAT) {
+      return std::string(" ║ ") + getTokName(this->type) + ": " + this->literal;
+    }
+    else if (type == StyioTokenType::TOK_STRING) {
+      return std::string(" ║ ") + "\"" + this->literal + "\"";
+    }
+    else {
+      return std::string(" ║ ") + getTokName(this->type);
+    }
+  }
