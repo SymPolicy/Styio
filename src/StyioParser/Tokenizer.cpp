@@ -71,7 +71,7 @@ StyioTokenizer::tokenize(std::string code) {
         loc += 1;
       }
 
-      tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LINE_COMMENT, literal));
+      tokens.push_back(StyioToken::Create(StyioTokenType::COMMENT_LINE, literal));
     }
     /* comments */
     else if (code.compare(loc, 2, "/*") == 0) {
@@ -85,7 +85,7 @@ StyioTokenizer::tokenize(std::string code) {
 
       loc += 2;
 
-      tokens.push_back(StyioToken::Create(StyioTokenType::TOK_CLOSED_COMMENT, literal));
+      tokens.push_back(StyioToken::Create(StyioTokenType::COMMENT_CLOSED, literal));
     }
 
     /* varname / typename */
@@ -97,7 +97,7 @@ StyioTokenizer::tokenize(std::string code) {
         loc += 1;
       } while (isalnum(code.at(loc)));
 
-      tokens.push_back(StyioToken::Create(StyioTokenType::TOK_NAME, literal));
+      tokens.push_back(StyioToken::Create(StyioTokenType::NAME, literal));
     }
     /* integer / float / decimal */
     else if (isdigit(code.at(loc))) {
@@ -120,10 +120,10 @@ StyioTokenizer::tokenize(std::string code) {
           loc += 1;
         } while (isdigit(code.at(loc)));
 
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_INT, literal));
+        tokens.push_back(StyioToken::Create(StyioTokenType::INTEGER, literal));
       }
       else {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_FLOAT, literal));
+        tokens.push_back(StyioToken::Create(StyioTokenType::DECIMAL, literal));
       }
     }
 
@@ -152,7 +152,7 @@ StyioTokenizer::tokenize(std::string code) {
 
         loc += 1;
 
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_STRING, literal));
+        tokens.push_back(StyioToken::Create(StyioTokenType::STRING, literal));
       } break;
 
       // 35
@@ -275,7 +275,7 @@ StyioTokenizer::tokenize(std::string code) {
           tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LANGBRAC));
         }
         else {
-          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_BACKWARD, std::string(count, '<')));
+          tokens.push_back(StyioToken::Create(StyioTokenType::BACKWARD, std::string(count, '<')));
         }
 
         // anyway
@@ -314,7 +314,7 @@ StyioTokenizer::tokenize(std::string code) {
           tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RANGBRAC));
         }
         else {
-          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_FORWARD, std::string(count, '>')));
+          tokens.push_back(StyioToken::Create(StyioTokenType::FORWARD, std::string(count, '>')));
         }
 
         // anyway

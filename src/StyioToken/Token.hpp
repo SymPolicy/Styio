@@ -50,7 +50,8 @@ struct StyioDataType
   }
 };
 
-static std::unordered_map<std::string, StyioDataType> const DType_Table = {
+/* Pre-defined DType Table */
+static std::unordered_map<std::string, StyioDataType> const DTypeTable = {
   {"bool", StyioDataType{StyioDataTypeOption::Bool, "bool", 1}},
 
   {"int", StyioDataType{StyioDataTypeOption::Integer, "i32", 32}},
@@ -463,7 +464,7 @@ enum class StyioASTType
    * Layers
    */
   // (x, y, ...)
-  VarTuple,
+  Parameters,
   // ?=
   CheckEq,
   // ?^
@@ -640,7 +641,7 @@ enum class StyioTokenType
   TOK_LANGBRAC = 60,   // ASCII 60 <
   TOK_EQUAL = 61,      // ASCII 61 =
   TOK_RANGBRAC = 62,   // ASCII 62 >
-  TOK_QUEST = 63,   // ASCII 63 ?
+  TOK_QUEST = 63,      // ASCII 63 ?
   TOK_AT = 64,         // ASCII 64 @
   TOK_LBOXBRAC = 91,   // [
   TOK_BACKSLASH = 92,  // ASCII 92 \ (backslash)
@@ -654,21 +655,19 @@ enum class StyioTokenType
   TOK_TILDE = 126,     // ASCII 126 ~
   TOK_DEL = 127,       // ASCII 127 DEL
 
-  TOK_NAME,
-  TOK_INT,
-  TOK_FLOAT,
-  TOK_STRING,
-  TOK_LINE_COMMENT,
-  TOK_CLOSED_COMMENT,
+  NAME,           // varname, funcname
+  INTEGER,        // 0
+  DECIMAL,        // 0.0
+  STRING,         // "string"
+  COMMENT_LINE,   //
+  COMMENT_CLOSED, /* */
 
   BINOP_BITAND,  // &
   BINOP_BITOR,   // |
   BINOP_BITXOR,  // ^
 
-  TOK_BACKWARD,  // <<
-  TOK_FORWARD,   // >>
-
-  TOK_
+  BACKWARD,  // <<
+  FORWARD,   // >>
 
   LOGIC_NOT,  // !
   LOGIC_AND,  // &&
@@ -703,8 +702,8 @@ enum class StyioTokenType
   ELLIPSIS,       // ...
   INFINITE_LIST,  // [...]
 
-  SINGLE_SEP_LINE, // ---
-  DOUBLE_SEP_LINE, // ===
+  SINGLE_SEP_LINE,  // ---
+  DOUBLE_SEP_LINE,  // ===
 
   UNKNOWN,
 };
@@ -713,7 +712,7 @@ class StyioToken
 {
 private:
   StyioToken(
-    StyioTokenType token_type, 
+    StyioTokenType token_type,
     std::string token_literal
   ) :
       type(token_type), literal(token_literal) {
@@ -840,7 +839,7 @@ static std::unordered_map<StyioTokenType, std::vector<StyioTokenType> > const
     /*
       LOGIC
     */
-   // ! (Alternative)
+    // ! (Alternative)
     {StyioTokenType::LOGIC_NOT,
      std::vector<StyioTokenType>{
        StyioTokenType::TOK_EXCLAM

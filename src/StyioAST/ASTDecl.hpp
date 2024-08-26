@@ -60,7 +60,7 @@ class DTypeAST;
   - OptKwArg (Optional Function Arguments)
 */
 class VarAST;
-class ArgAST;
+class ParamAST;
 class OptArgAST;
 class OptKwArgAST;
 
@@ -120,7 +120,7 @@ class RangeAST;
   - Iter (Iterator)
   - Loop
 */
-class IteratorAST;
+class IterAST;
 class InfiniteLoopAST;
 
 /*

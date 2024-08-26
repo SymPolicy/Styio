@@ -128,9 +128,7 @@ public:
 
 class DTypeAST : public StyioASTTraits<DTypeAST>
 {
-public:
-  StyioDataType data_type = StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
-
+private:
   DTypeAST() {}
 
   DTypeAST(StyioDataType data_type) :
@@ -140,14 +138,17 @@ public:
   DTypeAST(
     string type_name
   ) {
-    auto it = DType_Table.find(type_name);
-    if (it != DType_Table.end()) {
+    auto it = DTypeTable.find(type_name);
+    if (it != DTypeTable.end()) {
       data_type = it->second;
     }
     else {
       data_type = StyioDataType{StyioDataTypeOption::Defined, type_name, 0};
     }
   }
+
+public:
+  StyioDataType data_type = StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
 
   static DTypeAST* Create() {
     return new DTypeAST();
@@ -654,19 +655,15 @@ public:
   Function
   [+] Argument
 */
-class ArgAST : public VarAST
+class ParamAST : public VarAST
 {
-public:
-  NameAST* var_name = NameAST::Create(""); /* Variable Name */
-  DTypeAST* var_type = DTypeAST::Create(); /* Variable Data Type */
-  StyioAST* val_init = nullptr;            /* Variable Initial Value */
-
-  ArgAST(NameAST* name) :
+private:
+  ParamAST(NameAST* name) :
       VarAST(name),
       var_name(name) {
   }
 
-  ArgAST(
+  ParamAST(
     NameAST* name,
     DTypeAST* data_type
   ) :
@@ -675,12 +672,17 @@ public:
       var_type(data_type) {
   }
 
-  ArgAST(NameAST* name, DTypeAST* data_type, StyioAST* default_value) :
+  ParamAST(NameAST* name, DTypeAST* data_type, StyioAST* default_value) :
       VarAST(name, data_type, default_value),
       var_name(name),
       var_type(data_type),
       val_init(default_value) {
   }
+
+public:
+  NameAST* var_name = NameAST::Create(""); /* Variable Name */
+  DTypeAST* var_type = DTypeAST::Create(); /* Variable Data Type */
+  StyioAST* val_init = nullptr;            /* Variable Initial Value */
 
   const StyioASTType getNodeType() const {
     return StyioASTType::Arg;
@@ -690,16 +692,16 @@ public:
     return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
   }
 
-  static ArgAST* Create(NameAST* name) {
-    return new ArgAST(name);
+  static ParamAST* Create(NameAST* name) {
+    return new ParamAST(name);
   }
 
-  static ArgAST* Create(NameAST* name, DTypeAST* data_type) {
-    return new ArgAST(name, data_type);
+  static ParamAST* Create(NameAST* name, DTypeAST* data_type) {
+    return new ParamAST(name, data_type);
   }
 
-  static ArgAST* Create(NameAST* name, DTypeAST* data_type, StyioAST* default_value) {
-    return new ArgAST(name, data_type, default_value);
+  static ParamAST* Create(NameAST* name, DTypeAST* data_type, StyioAST* default_value) {
+    return new ParamAST(name, data_type, default_value);
   }
 
   const string& getName() {
@@ -994,6 +996,7 @@ public:
 class TupleAST : public StyioASTTraits<TupleAST>
 {
   vector<StyioAST*> elements;
+
   bool consistency = false;
   DTypeAST* consistent_type = DTypeAST::Create();
 
@@ -1042,15 +1045,15 @@ public:
 class VarTupleAST : public TupleAST
 {
 private:
-  vector<VarAST*> Vars;
+  std::vector<VarAST*> Vars;
 
 public:
-  VarTupleAST(vector<VarAST*> vars) :
+  VarTupleAST(std::vector<VarAST*> vars) :
       TupleAST(vars),
       Vars(vars) {
   }
 
-  static VarTupleAST* Create(vector<VarAST*> vars) {
+  static VarTupleAST* Create(std::vector<VarAST*> vars) {
     return new VarTupleAST(vars);
   }
 
@@ -1059,7 +1062,7 @@ public:
   }
 
   const StyioASTType getNodeType() const {
-    return StyioASTType::VarTuple;
+    return StyioASTType::Parameters;
   }
 
   const StyioDataType getDataType() const {
@@ -1708,13 +1711,13 @@ class StructAST : public StyioASTTraits<StructAST>
 {
 public:
   NameAST* name = nullptr;
-  std::vector<ArgAST*> args;
+  std::vector<ParamAST*> args;
 
-  StructAST(NameAST* name, std::vector<ArgAST*> arguments) :
+  StructAST(NameAST* name, std::vector<ParamAST*> arguments) :
       name(name), args(arguments) {
   }
 
-  static StructAST* Create(NameAST* name, std::vector<ArgAST*> arguments) {
+  static StructAST* Create(NameAST* name, std::vector<ParamAST*> arguments) {
     return new StructAST(name, arguments);
   }
 
@@ -2630,26 +2633,30 @@ public:
   Iterator:
     collection >> operations
 */
-class IteratorAST : public StyioASTTraits<IteratorAST>
+class IterAST : public StyioASTTraits<IterAST>
 {
-  StyioAST* Collection = nullptr;
-  ForwardAST* Forward = nullptr;
+private:
+  IterAST(
+    StyioAST* collection,
+    VarTupleAST* params,
+    BlockAST* block
+  ) :
+      collection(collection),
+      params(params),
+      block(block) {
+  }
 
 public:
-  IteratorAST(StyioAST* collection, ForwardAST* forward) :
-      Collection(collection), Forward(forward) {
-  }
+  StyioAST* collection = nullptr;
+  VarTupleAST* params = nullptr;
+  BlockAST* block = nullptr;
 
-  static IteratorAST* Create(StyioAST* collection, ForwardAST* forward) {
-    return new IteratorAST(collection, forward);
-  }
-
-  StyioAST* getIterable() {
-    return Collection;
-  }
-
-  ForwardAST* getForward() {
-    return Forward;
+  static IterAST* Create(
+    StyioAST* collection,
+    ParamsAST* params,
+    BlockAST* block
+  ) {
+    return new IterAST(collection, params, block);
   }
 
   const StyioASTType getNodeType() const {

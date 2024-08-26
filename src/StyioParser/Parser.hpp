@@ -95,12 +95,12 @@ public:
     std::cout << StyioToken::getTokName(tokens.at(index_of_token)->type) << " - " << tokens.at(index_of_token)->length() << std::endl;
   }
 
-  void skip() {
-    while (cur_tok()->type == StyioTokenType::TOK_SPACE             /* white spaces */
-           || cur_tok()->type == StyioTokenType::TOK_LF             /* \n */
-           || cur_tok()->type == StyioTokenType::TOK_CR             /* \r */
-           || cur_tok()->type == StyioTokenType::TOK_LINE_COMMENT   // comments like this
-           || cur_tok()->type == StyioTokenType::TOK_CLOSED_COMMENT /* comments like this */
+  inline void skip() {
+    while (cur_tok()->type == StyioTokenType::TOK_SPACE         /* white spaces */
+           || cur_tok()->type == StyioTokenType::TOK_LF         /* \n */
+           || cur_tok()->type == StyioTokenType::TOK_CR         /* \r */
+           || cur_tok()->type == StyioTokenType::COMMENT_LINE   // comments like this
+           || cur_tok()->type == StyioTokenType::COMMENT_CLOSED /* comments like this */
     ) {
       this->move_forward();
     }
@@ -154,14 +154,76 @@ public:
     }
   }
 
-  bool find_match(StyioTokenType type) {
-    this->skip();
-    return this->match(type);
+  bool map_match(StyioTokenType target) {
+    auto it = StyioTokenMap.find(target);
+    /* found */
+    if (it != StyioTokenMap.end()) {
+      bool is_same = true;
+      auto tok_seq = it->second;
+      for (size_t i = 0; i < tok_seq.size(); i++) {
+        if (tok_seq.at(i) != tokens.at(index_of_token + i)) {
+          is_same = false;
+        }
+      }
+
+      return is_same;
+    }
+    /* not found */
+    else {
+      std::string errmsg = "Undefined: " + StyioToken::getTokName(target) + " not found in StyioTokenMap.";
+      throw StyioSyntaxError(label_cur_line(cur_pos, errmsg));
+    }
   }
 
-  bool find_match_panic(StyioTokenType type, std::string errmsg = "") {
-    this->skip();
-    return this->match_panic(type, errmsg);
+  bool try_match(StyioTokenType target) {
+    size_t offset = 0;
+    while (tokens.at(index_of_token + offset)->type == StyioTokenType::TOK_SPACE         /* white spaces */
+           || tokens.at(index_of_token + offset)->type == StyioTokenType::TOK_LF         /* \n */
+           || tokens.at(index_of_token + offset)->type == StyioTokenType::TOK_CR         /* \r */
+           || tokens.at(index_of_token + offset)->type == StyioTokenType::COMMENT_LINE   // comments like this
+           || tokens.at(index_of_token + offset)->type == StyioTokenType::COMMENT_CLOSED /* comments like this */
+    ) {
+      offset += 1;
+    }
+
+    if (tokens.at(index_of_token + offset)->type == target) {
+      this->index_of_token += offset;
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
+  bool try_match_panic(StyioTokenType type, std::string errmsg = "") {
+    size_t offset = 0;
+    while (tokens.at(index_of_token + offset)->type == StyioTokenType::TOK_SPACE         /* white spaces */
+           || tokens.at(index_of_token + offset)->type == StyioTokenType::TOK_LF         /* \n */
+           || tokens.at(index_of_token + offset)->type == StyioTokenType::TOK_CR         /* \r */
+           || tokens.at(index_of_token + offset)->type == StyioTokenType::COMMENT_LINE   // comments like this
+           || tokens.at(index_of_token + offset)->type == StyioTokenType::COMMENT_CLOSED /* comments like this */
+    ) {
+      offset += 1;
+    }
+
+    if (tokens.at(index_of_token + offset)->type == target) {
+      this->index_of_token += offset;
+      return true;
+    }
+    else {
+      if (errmsg.empty()) {
+        throw StyioSyntaxError(
+          string("try_match_panic(token)")
+          + label_cur_line(
+            cur_pos,
+            std::string("which is expected to be ") + StyioToken::getTokName(type)
+          )
+        );
+      }
+      else {
+        throw StyioSyntaxError(label_cur_line(cur_pos, errmsg));
+      }
+    }
   }
 
   /*
@@ -759,7 +821,7 @@ parse_path(StyioContext& context);
 /*
   parse_fill_arg
 */
-ArgAST*
+ParamAST*
 parse_argument(StyioContext& context);
 
 StyioAST*
@@ -980,8 +1042,11 @@ parse_cases(StyioContext& context);
 /*
   parse_block
 */
-StyioAST*
+BlockAST*
 parse_block(StyioContext& context);
+
+std::vector<ParamAST*>
+parse_params(StyioContext& context);
 
 StyioAST*
 parse_forward_iterator(StyioContext& context);

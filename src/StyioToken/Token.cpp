@@ -83,7 +83,7 @@ reprASTType(StyioASTType type, std::string extra) {
       output += std::string("package");
     } break;
 
-    case StyioASTType::VarTuple: {
+    case StyioASTType::Parameters: {
       output += std::string("vars");
     } break;
 
@@ -512,22 +512,22 @@ StyioToken::getTokName(StyioTokenType type) {
     case StyioTokenType::TOK_EOF:
       return "<EOF>";
 
-    case StyioTokenType::TOK_NAME:
+    case StyioTokenType::NAME:
       return "<ID>";
 
-    case StyioTokenType::TOK_INT:
+    case StyioTokenType::INTEGER:
       return "<INT>";
 
-    case StyioTokenType::TOK_FLOAT:
+    case StyioTokenType::DECIMAL:
       return "<FLOAT>";
 
-    case StyioTokenType::TOK_STRING:
+    case StyioTokenType::STRING:
       return "<STRING>";
 
-    case StyioTokenType::TOK_LINE_COMMENT:
+    case StyioTokenType::COMMENT_LINE:
       return "// COMMENT";
 
-    case StyioTokenType::TOK_CLOSED_COMMENT:
+    case StyioTokenType::COMMENT_CLOSED:
       return "/* COMMENT */";
 
     case StyioTokenType::TOK_COMMA:
@@ -629,10 +629,10 @@ StyioToken::getTokName(StyioTokenType type) {
     case StyioTokenType::BINOP_BITXOR:
       return "<BIT_XOR>";
 
-    case StyioTokenType::TOK_BACKWARD:
+    case StyioTokenType::BACKWARD:
       return "<<";
 
-    case StyioTokenType::TOK_FORWARD:
+    case StyioTokenType::FORWARD:
       return ">>";
 
     case StyioTokenType::PRINT:
@@ -712,22 +712,22 @@ StyioToken::length() {
     case StyioTokenType::TOK_EOF:
       return 1;
 
-    case StyioTokenType::TOK_NAME:
+    case StyioTokenType::NAME:
       return literal.length();
 
-    case StyioTokenType::TOK_INT:
+    case StyioTokenType::INTEGER:
       return literal.length();
 
-    case StyioTokenType::TOK_FLOAT:
+    case StyioTokenType::DECIMAL:
       return literal.length();
 
-    case StyioTokenType::TOK_STRING:
+    case StyioTokenType::STRING:
       return literal.length() + 2;
 
-    case StyioTokenType::TOK_LINE_COMMENT:
+    case StyioTokenType::COMMENT_LINE:
       return literal.length() + 2;
 
-    case StyioTokenType::TOK_CLOSED_COMMENT:
+    case StyioTokenType::COMMENT_CLOSED:
       return literal.length() + 4;
 
     case StyioTokenType::TOK_COMMA:
@@ -829,10 +829,10 @@ StyioToken::length() {
     case StyioTokenType::BINOP_BITXOR:
       return 1;
 
-    case StyioTokenType::TOK_BACKWARD:
+    case StyioTokenType::BACKWARD:
       return 2;
 
-    case StyioTokenType::TOK_FORWARD:
+    case StyioTokenType::FORWARD:
       return 2;
 
     case StyioTokenType::PRINT:
@@ -901,15 +901,15 @@ std::string StyioToken::as_str() {
     if (type == StyioTokenType::TOK_LF) {
       return std::string(" ║ ") + getTokName(this->type) + "\n";
     }
-    else if (type == StyioTokenType::TOK_NAME) {
+    else if (type == StyioTokenType::NAME) {
       return std::string(" ║ ") + this->literal;
     }
-    else if (type == StyioTokenType::TOK_NAME
-             || type == StyioTokenType::TOK_INT
-             || type == StyioTokenType::TOK_FLOAT) {
+    else if (type == StyioTokenType::NAME
+             || type == StyioTokenType::INTEGER
+             || type == StyioTokenType::DECIMAL) {
       return std::string(" ║ ") + getTokName(this->type) + ": " + this->literal;
     }
-    else if (type == StyioTokenType::TOK_STRING) {
+    else if (type == StyioTokenType::STRING) {
       return std::string(" ║ ") + "\"" + this->literal + "\"";
     }
     else {

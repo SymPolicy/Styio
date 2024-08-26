@@ -279,7 +279,7 @@ parse_dtype(StyioContext& context) {
   - Resources
 */
 
-ArgAST*
+ParamAST*
 parse_argument(StyioContext& context) {
   string namestr = "";
   /* it includes cur_char in the name without checking */
@@ -306,14 +306,14 @@ parse_argument(StyioContext& context) {
 
       default_value = parse_expr(context);
 
-      return ArgAST::Create(name, data_type, default_value);
+      return ParamAST::Create(name, data_type, default_value);
     }
     else {
-      return ArgAST::Create(name, data_type);
+      return ParamAST::Create(name, data_type);
     }
   }
   else {
-    return ArgAST::Create(name);
+    return ParamAST::Create(name);
   }
 }
 
@@ -1010,7 +1010,7 @@ parse_set(StyioContext& context) {
 
 StyioAST*
 parse_struct(StyioContext& context, NameAST* name) {
-  vector<ArgAST*> elems;
+  vector<ParamAST*> elems;
 
   do {
     context.drop_all_spaces_comments();
@@ -1528,7 +1528,7 @@ parse_loop_or_iter(StyioContext& context, StyioAST* iterOverIt) {
     return new InfiniteLoopAST(parse_forward(context, false));
   }
   else {
-    return new IteratorAST(iterOverIt, parse_forward(context, false));
+    return new IterAST(iterOverIt, parse_forward(context, false));
   }
 }
 
@@ -2762,7 +2762,7 @@ parse_stmt_or_expr(
 
         auto forward = parse_forward(context, false);
 
-        return IteratorAST::Create(resources, forward);
+        return IterAST::Create(resources, forward);
       }
       else {
         return resources;

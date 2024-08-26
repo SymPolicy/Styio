@@ -55,7 +55,7 @@ using StyioToStringVisitor = ToStringVisitor<
   class DTypeAST,
 
   class VarAST,
-  class ArgAST,
+  class ParamAST,
   class OptArgAST,
   class OptKwArgAST,
 
@@ -77,7 +77,7 @@ using StyioToStringVisitor = ToStringVisitor<
   class ListOpAST,
   class RangeAST,
 
-  class IteratorAST,
+  class IterAST,
   class InfiniteLoopAST,
 
   class CondFlowAST,
@@ -151,7 +151,7 @@ public:
 
   std::string toString(VarAST* ast, int indent = 0);
 
-  std::string toString(ArgAST* ast, int indent = 0);
+  std::string toString(ParamAST* ast, int indent = 0);
 
   std::string toString(OptArgAST* ast, int indent = 0);
 
@@ -245,7 +245,7 @@ public:
 
   std::string toString(InfiniteLoopAST* ast, int indent = 0);
 
-  std::string toString(IteratorAST* ast, int indent = 0);
+  std::string toString(IterAST* ast, int indent = 0);
 
   std::string toString(MatchCasesAST* ast, int indent = 0);
 

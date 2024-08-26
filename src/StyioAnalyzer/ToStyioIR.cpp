@@ -91,7 +91,7 @@ StyioAnalyzer::toStyioIR(VarAST* ast) {
 }
 
 StyioIR*
-StyioAnalyzer::toStyioIR(ArgAST* ast) {
+StyioAnalyzer::toStyioIR(ParamAST* ast) {
   if (ast->val_init) {
     return SGVar::Create(
       static_cast<SGResId*>(ast->var_name->toStyioIR(this)),
@@ -333,7 +333,7 @@ StyioAnalyzer::toStyioIR(FuncAST* ast) {
 }
 
 StyioIR*
-StyioAnalyzer::toStyioIR(IteratorAST* ast) {
+StyioAnalyzer::toStyioIR(IterAST* ast) {
   return SGConstInt::Create(0);
 }
 

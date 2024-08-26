@@ -1,5 +1,7 @@
 // RUN: /home/Styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
 
-(1, 2) >> {
+(1, 2) 
+  >> #(x: int, y: int) 
+  => {
   ...
 }

@@ -82,7 +82,7 @@ StyioRepr::toString(VarAST* ast, int indent) {
 }
 
 std::string
-StyioRepr::toString(ArgAST* ast, int indent) {
+StyioRepr::toString(Param* ast, int indent) {
   return reprASTType(ast->getNodeType(), " ")
          + string("{ ") + ast->getName() + " : " + ast->getDType()->getTypeName() + " }";
 }
@@ -735,9 +735,9 @@ StyioRepr::toString(FuncAST* ast, int indent) {
 }
 
 std::string
-StyioRepr::toString(IteratorAST* ast, int indent) {
+StyioRepr::toString(IterAST* ast, int indent) {
   return reprASTType(ast->getNodeType(), " ") + "{" + "\n"
-         + make_padding(indent) + ast->getIterable()->toString(this, indent + 1) + "\n"
+         + make_padding(indent) + ast->getCollection()->toString(this, indent + 1) + "\n"
          + make_padding(indent) + ast->getForward()->toString(this, indent + 1)
          + "}";
 }

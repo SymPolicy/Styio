@@ -61,7 +61,7 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
   class DTypeAST,
 
   class VarAST,
-  class ArgAST,
+  class ParamAST,
   class OptArgAST,
   class OptKwArgAST,
 
@@ -83,7 +83,7 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
   class ListOpAST,
   class RangeAST,
 
-  class IteratorAST,
+  class IterAST,
   class InfiniteLoopAST,
 
   class CondFlowAST,
@@ -148,7 +148,7 @@ public:
   void typeInfer(CommentAST* ast);
   void typeInfer(NameAST* ast);
   void typeInfer(VarAST* ast);
-  void typeInfer(ArgAST* ast);
+  void typeInfer(ParamAST* ast);
   void typeInfer(OptArgAST* ast);
   void typeInfer(OptKwArgAST* ast);
   void typeInfer(VarTupleAST* ast);
@@ -195,7 +195,7 @@ public:
   void typeInfer(AnonyFuncAST* ast);
   void typeInfer(FuncAST* ast);
   void typeInfer(InfiniteLoopAST* ast);
-  void typeInfer(IteratorAST* ast);
+  void typeInfer(IterAST* ast);
   void typeInfer(MatchCasesAST* ast);
   void typeInfer(MainBlockAST* ast);
 
@@ -210,7 +210,7 @@ public:
   StyioIR* toStyioIR(CommentAST* ast);
   
   StyioIR* toStyioIR(VarAST* ast);
-  StyioIR* toStyioIR(ArgAST* ast);
+  StyioIR* toStyioIR(ParamAST* ast);
   StyioIR* toStyioIR(OptArgAST* ast);
   StyioIR* toStyioIR(OptKwArgAST* ast);
   StyioIR* toStyioIR(VarTupleAST* ast);
@@ -257,7 +257,7 @@ public:
   StyioIR* toStyioIR(AnonyFuncAST* ast);
   StyioIR* toStyioIR(FuncAST* ast);
   StyioIR* toStyioIR(InfiniteLoopAST* ast);
-  StyioIR* toStyioIR(IteratorAST* ast);
+  StyioIR* toStyioIR(IterAST* ast);
   StyioIR* toStyioIR(MatchCasesAST* ast);
   StyioIR* toStyioIR(MainBlockAST* ast);
 };

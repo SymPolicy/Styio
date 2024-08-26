@@ -66,7 +66,7 @@ StyioAnalyzer::typeInfer(VarAST* ast) {
 }
 
 void
-StyioAnalyzer::typeInfer(ArgAST* ast) {
+StyioAnalyzer::typeInfer(ParamAST* ast) {
 }
 
 void
@@ -485,7 +485,7 @@ StyioAnalyzer::typeInfer(FuncAST* ast) {
 }
 
 void
-StyioAnalyzer::typeInfer(IteratorAST* ast) {
+StyioAnalyzer::typeInfer(IterAST* ast) {
 }
 
 void

@@ -94,7 +94,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class DTypeAST,
 
   class VarAST,
-  class ArgAST,
+  class Param,
   class OptArgAST,
   class OptKwArgAST,
 
@@ -115,7 +115,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class ListOpAST,
   class RangeAST,
 
-  class IteratorAST,
+  class IterAST,
   class InfiniteLoopAST,
 
   class CondFlowAST,
