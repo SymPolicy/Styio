@@ -120,7 +120,7 @@ class RangeAST;
   - Iter (Iterator)
   - Loop
 */
-class IterAST;
+class IteratorAST;
 class InfiniteLoopAST;
 
 /*

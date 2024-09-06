@@ -1528,7 +1528,7 @@ parse_loop_or_iter(StyioContext& context, StyioAST* iterOverIt) {
     return new InfiniteLoopAST(parse_forward(context, false));
   }
   else {
-    return new IterAST(iterOverIt, parse_forward(context, false));
+    return new IteratorAST(iterOverIt, parse_forward(context, false));
   }
 }
 
@@ -2762,7 +2762,7 @@ parse_stmt_or_expr(
 
         auto forward = parse_forward(context, false);
 
-        return IterAST::Create(resources, forward);
+        return IteratorAST::Create(resources, forward);
       }
       else {
         return resources;

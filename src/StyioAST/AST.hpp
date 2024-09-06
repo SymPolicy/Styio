@@ -537,8 +537,13 @@ public:
 
 class PassAST : public StyioASTTraits<PassAST>
 {
-public:
+private:
   PassAST() {}
+
+public:
+  static PassAST* Create() {
+    return new PassAST();
+  }
 
   const StyioASTType getNodeType() const {
     return StyioASTType::Pass;
@@ -2633,12 +2638,12 @@ public:
   Iterator:
     collection >> operations
 */
-class IterAST : public StyioASTTraits<IterAST>
+class IteratorAST : public StyioASTTraits<IteratorAST>
 {
 private:
-  IterAST(
+  IteratorAST(
     StyioAST* collection,
-    VarTupleAST* params,
+    std::vector<ParamAST*> params,
     BlockAST* block
   ) :
       collection(collection),
@@ -2648,15 +2653,15 @@ private:
 
 public:
   StyioAST* collection = nullptr;
-  VarTupleAST* params = nullptr;
+  std::vector<ParamAST*> params;
   BlockAST* block = nullptr;
 
-  static IterAST* Create(
+  static IteratorAST* Create(
     StyioAST* collection,
-    ParamsAST* params,
+    std::vector<ParamAST*> params,
     BlockAST* block
   ) {
-    return new IterAST(collection, params, block);
+    return new IteratorAST(collection, params, block);
   }
 
   const StyioASTType getNodeType() const {

@@ -7,8 +7,8 @@
       "name": "lldb launch",
       "program": "${workspaceFolder}/styio",
       "args": [
-        "--all",
-        "--file", "/home/Styio/tests/parsing/collections/tuple/00000005.styio"
+        "-a",
+        "/home/Styio/tests/parsing/collections/tuple/00000005.styio"
       ],
       "cwd": "${workspaceFolder}"
     }

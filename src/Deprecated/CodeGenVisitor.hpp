@@ -115,7 +115,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class ListOpAST,
   class RangeAST,
 
-  class IterAST,
+  class IteratorAST,
   class InfiniteLoopAST,
 
   class CondFlowAST,

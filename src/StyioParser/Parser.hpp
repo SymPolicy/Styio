@@ -161,7 +161,7 @@ public:
       bool is_same = true;
       auto tok_seq = it->second;
       for (size_t i = 0; i < tok_seq.size(); i++) {
-        if (tok_seq.at(i) != tokens.at(index_of_token + i)) {
+        if (tok_seq.at(i) != tokens.at(index_of_token + i)->type) {
           is_same = false;
         }
       }
@@ -187,7 +187,7 @@ public:
     }
 
     if (tokens.at(index_of_token + offset)->type == target) {
-      this->index_of_token += offset;
+      this->index_of_token += offset + 1;
       return true;
     }
     else {
@@ -195,7 +195,7 @@ public:
     }
   }
 
-  bool try_match_panic(StyioTokenType type, std::string errmsg = "") {
+  bool try_match_panic(StyioTokenType target, std::string errmsg = "") {
     size_t offset = 0;
     while (tokens.at(index_of_token + offset)->type == StyioTokenType::TOK_SPACE         /* white spaces */
            || tokens.at(index_of_token + offset)->type == StyioTokenType::TOK_LF         /* \n */
@@ -207,7 +207,7 @@ public:
     }
 
     if (tokens.at(index_of_token + offset)->type == target) {
-      this->index_of_token += offset;
+      this->index_of_token += offset + 1;
       return true;
     }
     else {
@@ -216,7 +216,7 @@ public:
           string("try_match_panic(token)")
           + label_cur_line(
             cur_pos,
-            std::string("which is expected to be ") + StyioToken::getTokName(type)
+            std::string("which is expected to be ") + StyioToken::getTokName(target)
           )
         );
       }
@@ -1049,7 +1049,7 @@ std::vector<ParamAST*>
 parse_params(StyioContext& context);
 
 StyioAST*
-parse_forward_iterator(StyioContext& context);
+parse_forward_iterator(StyioContext& context, StyioAST* collection);
 
 ForwardAST*
 parse_forward(StyioContext& context, bool is_func = false);

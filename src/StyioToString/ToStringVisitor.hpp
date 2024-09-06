@@ -77,7 +77,7 @@ using StyioToStringVisitor = ToStringVisitor<
   class ListOpAST,
   class RangeAST,
 
-  class IterAST,
+  class IteratorAST,
   class InfiniteLoopAST,
 
   class CondFlowAST,
@@ -245,7 +245,7 @@ public:
 
   std::string toString(InfiniteLoopAST* ast, int indent = 0);
 
-  std::string toString(IterAST* ast, int indent = 0);
+  std::string toString(IteratorAST* ast, int indent = 0);
 
   std::string toString(MatchCasesAST* ast, int indent = 0);
 

@@ -59,6 +59,7 @@ parse_name(StyioContext& context) {
 IntAST*
 parse_int(StyioContext& context) {
   auto ret_val = IntAST::Create(context.cur_tok()->literal);
+
   context.move_forward();
 
   return ret_val;
@@ -676,10 +677,11 @@ parse_tuple_exprs(StyioContext& context) {
     elems.push_back(parse_expr(context));
   } while (context.try_match(StyioTokenType::TOK_COMMA) /* , */);
 
-  /* ) */
-  context.try_match_panic(StyioTokenType::TOK_RPAREN);
+  context.try_match_panic(StyioTokenType::TOK_RPAREN); /* ) */
 
   the_tuple = TupleAST::Create(elems);
+
+  std::cout << StyioRepr().toString(the_tuple) << std::endl;
 
   context.skip();
 
@@ -691,11 +693,17 @@ parse_tuple_exprs(StyioContext& context) {
     default:
       break;
   }
+
+  return the_tuple;
 }
 
 StyioAST*
 parse_expr(StyioContext& context) {
   StyioAST* output;
+
+  context.skip();
+
+  std::cout << context.cur_tok()->as_str() << std::endl;
 
   switch (context.cur_tok_type()) {
     /* name */
@@ -1365,7 +1373,7 @@ parse_loop_or_iter(StyioContext& context, StyioAST* iterOverIt) {
     return new InfiniteLoopAST(parse_forward(context, false));
   }
   else {
-    return new IterAST(iterOverIt, parse_forward(context, false));
+    // return new IteratorAST(iterOverIt, parse_forward(context, false));
   }
 }
 
@@ -1990,19 +1998,19 @@ parse_forward_iterator(
   if (context.cur_tok_type() == StyioTokenType::TOK_HASH      /* # */
       || context.cur_tok_type() == StyioTokenType::TOK_LPAREN /* ( */
       || context.cur_tok_type() == StyioTokenType::NAME /* param */) {
+    context.move_forward();
+    
     params = parse_params(context);
   }
 
-  context.try_match(StyioTokenType::ARROW_DOUBLE_RIGHT); /* => */
+  context.map_match(StyioTokenType::ARROW_DOUBLE_RIGHT); /* => */
 
   context.skip();
   if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
     block = parse_block(context);
-
-    context.try_match_panic(StyioTokenType::TOK_RCURBRAC);
   }
 
-  return IterAST::Create(collection, params, block);
+  return IteratorAST::Create(collection, params, block);
 }
 
 /*
@@ -2536,11 +2544,8 @@ parse_stmt_or_expr(
     } break;
 
     /* ... */
-    case StyioTokenType::TOK_DOT: {
-      size_t num_of_dots = context.check_seq_of(StyioTokenType::TOK_DOT);
-      if (num_of_dots > 2) {
-        context.move_forward(num_of_dots);
-      }
+    case StyioTokenType::ELLIPSIS: {
+      return PassAST::Create();
     } break;
 
     case StyioTokenType::TOK_EOF: {
@@ -2558,20 +2563,19 @@ BlockAST*
 parse_block(StyioContext& context) {
   vector<StyioAST*> stmts;
 
-  context.match_panic(StyioTokenType::TOK_LCURBRAC);  // {
-  
+  context.match_panic(StyioTokenType::TOK_LCURBRAC); /* { */
+
   while (
     context.cur_tok_type() != StyioTokenType::TOK_EOF
   ) {
     context.skip();
-
     if (context.match(StyioTokenType::TOK_RCURBRAC) /* } */) {
       break;
     }
     else {
       stmts.push_back(parse_stmt_or_expr(context));
-    };
-  };
+    }
+  }
 
   return BlockAST::Create(std::move(stmts));
 }
