@@ -30,10 +30,10 @@
 #include "StyioException/Exception.hpp"
 #include "StyioIR/StyioIR.hpp" /* StyioIR */
 #include "StyioParser/Parser.hpp"
+#include "StyioParser/Tokenizer.hpp"
 #include "StyioToString/ToStringVisitor.hpp" /* StyioRepr */
 #include "StyioToken/Token.hpp"
 #include "StyioUtil/Util.hpp"
-#include "StyioParser/Tokenizer.hpp"
 
 // [LLVM]
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -149,6 +149,37 @@ show_code_with_linenum(tmp_code_wrap c) {
   }
 };
 
+void
+show_tokens(std::vector<StyioToken*> tokens) {
+  std::cout
+    << "\n"
+    << "\033[1;32mTokens\033[0m"
+    << std::endl;
+  for (auto tok : tokens) {
+    if (tok->type == StyioTokenType::TOK_LF) {
+      std::cout << std::string(" ║ ") + "\\n" + "\n";
+    }
+    else if (tok->type == StyioTokenType::TOK_SPACE) {
+      std::cout << std::string(" ║ ") + " ";
+    }
+    else if (tok->type == StyioTokenType::NAME) {
+      std::cout << std::string(" ║ ") + tok->literal;
+    }
+    else if (tok->type == StyioTokenType::INTEGER
+             || tok->type == StyioTokenType::DECIMAL) {
+      std::cout << std::string(" ║ ") + StyioToken::getTokName(tok->type) + " = " + tok->literal;
+    }
+    else if (tok->type == StyioTokenType::STRING) {
+      std::cout << std::string(" ║ ") + "\"" + tok->literal + "\"";
+    }
+    else {
+      std::cout << std::string(" ║ ") + StyioToken::getTokName(tok->type);
+    }
+  }
+  std::cout << "\n"
+            << std::endl;
+}
+
 int
 main(
   int argc,
@@ -207,26 +238,18 @@ main(
     }
 
     auto styio_tokenizer = StyioTokenizer();
-    auto tokens = styio_tokenizer.tokenize(styio_code.code_text);
+    auto token_list = styio_tokenizer.tokenize(styio_code.code_text);
 
     auto styio_context = StyioContext::Create(
       fpath,
       styio_code.code_text,
       styio_code.line_seps,
-      tokens,
+      token_list,
       is_debug_mode /* is debug mode */
     );
 
     if (is_debug_mode) {
-      std::cout
-        << "\n"
-        << "\033[1;32mTokens\033[0m"
-        << std::endl;
-      for (auto tok : tokens) {
-        std::cout << tok->as_str();
-      }
-      std::cout << "\n"
-                << std::endl;
+      show_tokens(token_list);
     }
 
     StyioRepr styio_repr = StyioRepr();

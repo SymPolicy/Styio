@@ -39,19 +39,19 @@ StyioTokenizer::tokenize(std::string code) {
     /* Spaces and Comments */
     switch (code.at(loc)) {
       case ' ': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_SPACE, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_SPACE, " "));
         loc += 1;
       } break;
 
       /* LF */
       case '\n': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LF, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LF, "\\n"));
         loc += 1;
       } break;
 
       /* CR */
       case '\r': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_CR, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_CR, "\\r"));
         loc += 1;
       } break;
 
@@ -120,23 +120,23 @@ StyioTokenizer::tokenize(std::string code) {
           loc += 1;
         } while (isdigit(code.at(loc)));
 
-        tokens.push_back(StyioToken::Create(StyioTokenType::INTEGER, literal));
+        tokens.push_back(StyioToken::Create(StyioTokenType::DECIMAL, literal));
       }
       else {
-        tokens.push_back(StyioToken::Create(StyioTokenType::DECIMAL, literal));
+        tokens.push_back(StyioToken::Create(StyioTokenType::INTEGER, literal));
       }
     }
 
     switch (code.at(loc)) {
       // -1
       case EOF: {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_EOF, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_EOF, "EOF"));
         return tokens;
       } break;
 
       // 33
       case '!': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_EXCLAM, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_EXCLAM, "!"));
         loc += 1;
       } break;
 
@@ -157,61 +157,61 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 35
       case '#': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_HASH, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_HASH, "#"));
         loc += 1;
       } break;
 
       // 36
       case '$': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_DOLLAR, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_DOLLAR, "$"));
         loc += 1;
       } break;
 
       // 37
       case '%': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_PERCENT, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_PERCENT, "%"));
         loc += 1;
       } break;
 
       // 38
       case '&': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_AMP, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_AMP, "&"));
         loc += 1;
       } break;
 
       // 39
       case '\'': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_SQUOTE, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_SQUOTE, "\'"));
         loc += 1;
       } break;
 
       // 40
       case '(': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LPAREN, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LPAREN, "("));
         loc += 1;
       } break;
 
       // 41
       case ')': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RPAREN, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RPAREN, ")"));
         loc += 1;
       } break;
 
       // 42
       case '*': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_STAR, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_STAR, "*"));
         loc += 1;
       } break;
 
       // 43
       case '+': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_PLUS, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_PLUS, "+"));
         loc += 1;
       } break;
 
       // 44
       case ',': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_COMMA, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_COMMA, ","));
         loc += 1;
       } break;
 
@@ -220,12 +220,10 @@ StyioTokenizer::tokenize(std::string code) {
         size_t count = 1 + count_consecutive(code, loc + 1, '-');
 
         if (count == 1) {
-          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_MINUS));
-          loc += 1;
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_MINUS, "-"));
         }
         else {
           tokens.push_back(StyioToken::Create(StyioTokenType::SINGLE_SEP_LINE, std::string(count, '-')));
-          loc += 1;
         }
 
         // anyway
@@ -237,12 +235,10 @@ StyioTokenizer::tokenize(std::string code) {
         size_t count = 1 + count_consecutive(code, loc + 1, '.');
 
         if (count == 1) {
-          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_DOT));
-          loc += 1;
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_DOT, "."));
         }
         else {
           tokens.push_back(StyioToken::Create(StyioTokenType::ELLIPSIS, std::string(count, '.')));
-          loc += 1;
         }
 
         // anyway
@@ -251,19 +247,19 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 47
       case '/': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_SLASH, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_SLASH, "/"));
         loc += 1;
       } break;
 
       // 58
       case ':': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_COLON, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_COLON, ":"));
         loc += 1;
       } break;
 
       // 59
       case ';': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_SEMICOLON, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_SEMICOLON, ";"));
         loc += 1;
       } break;
 
@@ -272,7 +268,7 @@ StyioTokenizer::tokenize(std::string code) {
         size_t count = 1 + count_consecutive(code, loc + 1, '<');
 
         if (count == 1) {
-          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LANGBRAC));
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LANGBRAC, "<"));
         }
         else {
           tokens.push_back(StyioToken::Create(StyioTokenType::BACKWARD, std::string(count, '<')));
@@ -288,18 +284,15 @@ StyioTokenizer::tokenize(std::string code) {
 
         /* = TOK_EQUAL */
         if (count == 1) {
-          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_EQUAL));
-          loc += 1;
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_EQUAL, "="));
         }
         /* == BINOP_EQ */
-        if (count == 2) {
-          tokens.push_back(StyioToken::Create(StyioTokenType::BINOP_EQ));
-          loc += 1;
+        else if (count == 2) {
+          tokens.push_back(StyioToken::Create(StyioTokenType::BINOP_EQ, "=="));
         }
         /* === DOUBLE_SEP_LINE */
         else {
-          tokens.push_back(StyioToken::Create(StyioTokenType::SINGLE_SEP_LINE, std::string(count, '-')));
-          loc += 1;
+          tokens.push_back(StyioToken::Create(StyioTokenType::DOUBLE_SEP_LINE, std::string(count, '=')));
         }
 
         // anyway
@@ -311,7 +304,7 @@ StyioTokenizer::tokenize(std::string code) {
         size_t count = 1 + count_consecutive(code, loc + 1, '>');
 
         if (count == 1) {
-          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RANGBRAC));
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RANGBRAC, ">"));
         }
         else {
           tokens.push_back(StyioToken::Create(StyioTokenType::FORWARD, std::string(count, '>')));
@@ -323,73 +316,73 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 63
       case '?': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_QUEST, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_QUEST, "?"));
         loc += 1;
       } break;
 
       // 64
       case '@': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_AT, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_AT, "@"));
         loc += 1;
       } break;
 
       // 91
       case '[': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LBOXBRAC, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LBOXBRAC, "["));
         loc += 1;
       } break;
 
       // 92
       case '\\': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_BACKSLASH, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_BACKSLASH, "\\"));
         loc += 1;
       } break;
 
       // 93
       case ']': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RBOXBRAC, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RBOXBRAC, "]"));
         loc += 1;
       } break;
 
       // 94
       case '^': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_HAT, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_HAT, "^"));
         loc += 1;
       } break;
 
       // 95
       case '_': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_UNDLINE, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_UNDLINE, "_"));
         loc += 1;
       } break;
 
       // 96
       case '`': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_BQUOTE, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_BQUOTE, "`"));
         loc += 1;
       } break;
 
       // 123
       case '{': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LCURBRAC, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LCURBRAC, "{"));
         loc += 1;
       } break;
 
       // 124
       case '|': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_PIPE, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_PIPE, "|"));
         loc += 1;
       } break;
 
       // 125
       case '}': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RCURBRAC, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RCURBRAC, "}"));
         loc += 1;
       } break;
 
       // 126
       case '~': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_TILDE, ""));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_TILDE, "~"));
         loc += 1;
       } break;
 

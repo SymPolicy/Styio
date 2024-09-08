@@ -86,13 +86,13 @@ public:
     return tokens.at(index_of_token)->type;
   }
 
-  void move_forward(size_t steps = 1) {
+  void move_forward(size_t steps = 1, std::string caller = "") {
+    // std::cout << "[" << index_of_token << "] " << caller << "(`" << cur_tok()->as_str() << "`)" << ", step: " << steps << std::endl;
+
     for (size_t i = 0; i < steps; i++) {
       this->cur_pos += tokens.at(index_of_token)->length();
       this->index_of_token += 1;
     }
-
-    std::cout << StyioToken::getTokName(tokens.at(index_of_token)->type) << " - " << tokens.at(index_of_token)->length() << std::endl;
   }
 
   inline void skip() {
@@ -102,7 +102,7 @@ public:
            || cur_tok()->type == StyioTokenType::COMMENT_LINE   // comments like this
            || cur_tok()->type == StyioTokenType::COMMENT_CLOSED /* comments like this */
     ) {
-      this->move_forward();
+      this->move_forward(1, "skip");
     }
   }
 
@@ -127,7 +127,7 @@ public:
 
   bool match(StyioTokenType type) {
     if (type == this->cur_tok_type()) {
-      this->move_forward();
+      this->move_forward(1, "match");
       return true;
     }
 
@@ -135,8 +135,8 @@ public:
   }
 
   bool match_panic(StyioTokenType type, std::string errmsg = "") {
-    if (type == cur_tok_type()) {
-      this->move_forward();
+    if (cur_tok_type() == type) {
+      this->move_forward(1, "match_panic");
       return true;
     }
 
@@ -162,8 +162,14 @@ public:
       auto tok_seq = it->second;
       for (size_t i = 0; i < tok_seq.size(); i++) {
         if (tok_seq.at(i) != tokens.at(index_of_token + i)->type) {
+          std::cout << StyioToken::getTokName(tok_seq.at(i)) << std::endl;
+          std::cout << ": " << StyioToken::getTokName(tokens.at(index_of_token + i)->type) << std::endl;
           is_same = false;
         }
+      }
+
+      if (is_same) {
+        move_forward(tok_seq.size(), "map_match");
       }
 
       return is_same;
@@ -177,53 +183,104 @@ public:
 
   bool try_match(StyioTokenType target) {
     size_t offset = 0;
-    while (tokens.at(index_of_token + offset)->type == StyioTokenType::TOK_SPACE         /* white spaces */
-           || tokens.at(index_of_token + offset)->type == StyioTokenType::TOK_LF         /* \n */
-           || tokens.at(index_of_token + offset)->type == StyioTokenType::TOK_CR         /* \r */
-           || tokens.at(index_of_token + offset)->type == StyioTokenType::COMMENT_LINE   // comments like this
-           || tokens.at(index_of_token + offset)->type == StyioTokenType::COMMENT_CLOSED /* comments like this */
-    ) {
-      offset += 1;
+    while (index_of_token + offset < tokens.size()) {
+      switch (tokens.at(index_of_token + offset)->type) {
+        /* white spaces */
+        case StyioTokenType::TOK_SPACE: {
+          offset += 1;
+        } break;
+
+        /* \n */
+        case StyioTokenType::TOK_LF: {
+          offset += 1;
+        } break;
+
+        /* \r */
+        case StyioTokenType::TOK_CR: {
+          offset += 1;
+        } break;
+
+        // comments like this
+        case StyioTokenType::COMMENT_LINE: {
+          offset += 1;
+        } break;
+
+        /* comments like this */
+        case StyioTokenType::COMMENT_CLOSED: {
+          offset += 1;
+        } break;
+
+        default: {
+          if (tokens.at(index_of_token + offset)->type == target) {
+            move_forward(offset + 1, "try_match");
+            return true;
+          }
+          else {
+            return false;
+          }
+        } break;
+      }
     }
 
-    if (tokens.at(index_of_token + offset)->type == target) {
-      this->index_of_token += offset + 1;
-      return true;
-    }
-    else {
-      return false;
-    }
+    return false;
   }
 
   bool try_match_panic(StyioTokenType target, std::string errmsg = "") {
     size_t offset = 0;
-    while (tokens.at(index_of_token + offset)->type == StyioTokenType::TOK_SPACE         /* white spaces */
-           || tokens.at(index_of_token + offset)->type == StyioTokenType::TOK_LF         /* \n */
-           || tokens.at(index_of_token + offset)->type == StyioTokenType::TOK_CR         /* \r */
-           || tokens.at(index_of_token + offset)->type == StyioTokenType::COMMENT_LINE   // comments like this
-           || tokens.at(index_of_token + offset)->type == StyioTokenType::COMMENT_CLOSED /* comments like this */
-    ) {
-      offset += 1;
+    while (index_of_token + offset < tokens.size()) {
+      switch (tokens.at(index_of_token + offset)->type) {
+        /* white spaces */
+        case StyioTokenType::TOK_SPACE: {
+          offset += 1;
+        } break;
+
+        /* \n */
+        case StyioTokenType::TOK_LF: {
+          offset += 1;
+        } break;
+
+        /* \r */
+        case StyioTokenType::TOK_CR: {
+          offset += 1;
+        } break;
+
+        // comments like this
+        case StyioTokenType::COMMENT_LINE: {
+          offset += 1;
+        } break;
+
+        /* comments like this */
+        case StyioTokenType::COMMENT_CLOSED: {
+          offset += 1;
+        } break;
+
+        default: {
+          if (tokens.at(index_of_token + offset)->type == target) {
+            move_forward(offset + 1, "try_match_panic");
+            return true;
+          }
+          else {
+            if (errmsg.empty()) {
+              throw StyioSyntaxError(
+                string("try_match_panic(token)")
+                + label_cur_line(
+                  cur_pos,
+                  std::string("which is expected to be ") + StyioToken::getTokName(target)
+                )
+              );
+            }
+            else {
+              throw StyioSyntaxError(label_cur_line(cur_pos, errmsg));
+            }
+          }
+        } break;
+      }
     }
 
-    if (tokens.at(index_of_token + offset)->type == target) {
-      this->index_of_token += offset + 1;
-      return true;
-    }
-    else {
-      if (errmsg.empty()) {
-        throw StyioSyntaxError(
-          string("try_match_panic(token)")
-          + label_cur_line(
-            cur_pos,
-            std::string("which is expected to be ") + StyioToken::getTokName(target)
-          )
-        );
-      }
-      else {
-        throw StyioSyntaxError(label_cur_line(cur_pos, errmsg));
-      }
-    }
+    throw StyioParseError(label_cur_line(
+      cur_pos,
+      "try_match_panic(token): Couldn't find " + StyioToken::getTokName(target) + " until the end of the file."
+    ));
   }
 
   /*

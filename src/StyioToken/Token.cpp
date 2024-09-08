@@ -491,7 +491,7 @@ reprDataTypeOption(StyioDataTypeOption option) {
 
 /*
   =========================
-  
+
   StyioToken Implementation
 
   =========================
@@ -516,10 +516,10 @@ StyioToken::getTokName(StyioTokenType type) {
       return "<ID>";
 
     case StyioTokenType::INTEGER:
-      return "<INT>";
+      return "<INTEGER>";
 
     case StyioTokenType::DECIMAL:
-      return "<FLOAT>";
+      return "<DECIMAL>";
 
     case StyioTokenType::STRING:
       return "<STRING>";
@@ -601,6 +601,9 @@ StyioToken::getTokName(StyioTokenType type) {
 
     case StyioTokenType::TOK_RCURBRAC:
       return "}";
+
+    case StyioTokenType::TOK_EQUAL:
+      return "=";
 
     case StyioTokenType::TOK_LANGBRAC:
       return "<";
@@ -897,22 +900,23 @@ StyioToken::length() {
   }
 }
 
-std::string StyioToken::as_str() {
-    if (type == StyioTokenType::TOK_LF) {
-      return std::string(" ║ ") + getTokName(this->type) + "\n";
-    }
-    else if (type == StyioTokenType::NAME) {
-      return std::string(" ║ ") + this->literal;
-    }
-    else if (type == StyioTokenType::NAME
-             || type == StyioTokenType::INTEGER
-             || type == StyioTokenType::DECIMAL) {
-      return std::string(" ║ ") + getTokName(this->type) + ": " + this->literal;
-    }
-    else if (type == StyioTokenType::STRING) {
-      return std::string(" ║ ") + "\"" + this->literal + "\"";
-    }
-    else {
-      return std::string(" ║ ") + getTokName(this->type);
-    }
+std::string
+StyioToken::as_str() {
+  if (type == StyioTokenType::TOK_LF) {
+    return "<LF>";
   }
+  else if (type == StyioTokenType::TOK_SPACE) {
+    return "<SPACE>";
+  }
+  else if (type == StyioTokenType::NAME
+           || type == StyioTokenType::INTEGER
+           || type == StyioTokenType::DECIMAL) {
+    return getTokName(this->type) + " = " + this->literal;
+  }
+  else if (type == StyioTokenType::STRING) {
+    return "\"" + this->literal + "\"";
+  }
+  else {
+    return getTokName(this->type);
+  }
+}

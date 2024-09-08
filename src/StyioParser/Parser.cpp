@@ -40,44 +40,61 @@ here() {
 
 std::string
 parse_name_as_str(StyioContext& context) {
+  if (context.cur_tok_type() != StyioTokenType::NAME) {
+    string errmsg = string("parse_name_as_str(): False Invoke");
+    throw StyioParseError(errmsg);
+  }
+
   auto name = context.cur_tok()->literal;
-
-  context.move_forward();
-
+  context.move_forward(1, "parse_name_as_str");
   return name;
 }
 
 NameAST*
 parse_name(StyioContext& context) {
+  if (context.cur_tok_type() != StyioTokenType::NAME) {
+    string errmsg = string("parse_name(): False Invoke");
+    throw StyioParseError(errmsg);
+  }
+
   auto ret_val = NameAST::Create(context.cur_tok()->literal);
-
-  context.move_forward();
-
+  context.move_forward(1, "parse_name");
   return ret_val;
 }
 
 IntAST*
 parse_int(StyioContext& context) {
+  if (context.cur_tok_type() != StyioTokenType::INTEGER) {
+    string errmsg = string("parse_int(): False Invoke");
+    throw StyioParseError(errmsg);
+  }
+
   auto ret_val = IntAST::Create(context.cur_tok()->literal);
-
   context.move_forward();
-
   return ret_val;
 }
 
 FloatAST*
 parse_float(StyioContext& context) {
+  if (context.cur_tok_type() != StyioTokenType::DECIMAL) {
+    string errmsg = string("parse_float(): False Invoke");
+    throw StyioParseError(errmsg);
+  }
+
   auto ret_val = FloatAST::Create(context.cur_tok()->literal);
   context.move_forward();
-
   return ret_val;
 }
 
 StringAST*
 parse_string(StyioContext& context) {
+  if (context.cur_tok_type() != StyioTokenType::STRING) {
+    string errmsg = string("parse_string(): False Invoke");
+    throw StyioParseError(errmsg);
+  }
+
   auto ret_val = StringAST::Create(context.cur_tok()->literal);
   context.move_forward();
-
   return ret_val;
 }
 
@@ -681,8 +698,6 @@ parse_tuple_exprs(StyioContext& context) {
 
   the_tuple = TupleAST::Create(elems);
 
-  std::cout << StyioRepr().toString(the_tuple) << std::endl;
-
   context.skip();
 
   switch (context.cur_tok_type()) {
@@ -702,8 +717,6 @@ parse_expr(StyioContext& context) {
   StyioAST* output;
 
   context.skip();
-
-  std::cout << context.cur_tok()->as_str() << std::endl;
 
   switch (context.cur_tok_type()) {
     /* name */
@@ -1164,7 +1177,6 @@ parse_index_op(StyioContext& context, StyioAST* theList) {
       );
     }
     else if (isdigit(context.get_curr_char())) {
-      std::cout << "parse list op access by index" << std::endl;
       output = new ListOpAST(
         StyioASTType::Access_By_Index, (theList), parse_int(context)
       );
@@ -1960,7 +1972,8 @@ parse_params(StyioContext& context) {
   context.try_match(StyioTokenType::TOK_LPAREN); /* ( */
 
   do {
-    if (context.try_match(StyioTokenType::NAME)) {
+    context.skip();
+    if (context.check(StyioTokenType::NAME)) {
       NameAST* var_name = parse_name(context);
 
       context.skip();
@@ -1994,15 +2007,13 @@ parse_forward_iterator(
   BlockAST* block;
 
   context.skip();
-
   if (context.cur_tok_type() == StyioTokenType::TOK_HASH      /* # */
       || context.cur_tok_type() == StyioTokenType::TOK_LPAREN /* ( */
       || context.cur_tok_type() == StyioTokenType::NAME /* param */) {
-    context.move_forward();
-    
     params = parse_params(context);
   }
 
+  context.skip();
   context.map_match(StyioTokenType::ARROW_DOUBLE_RIGHT); /* => */
 
   context.skip();
@@ -2545,6 +2556,7 @@ parse_stmt_or_expr(
 
     /* ... */
     case StyioTokenType::ELLIPSIS: {
+      context.move_forward(1, "parse_stmt_or_expr");
       return PassAST::Create();
     } break;
 
