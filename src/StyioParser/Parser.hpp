@@ -37,6 +37,61 @@ private:
 
   bool debug_mode = false;
 
+  std::vector<std::vector<std::pair<size_t, size_t>>> token_segmentation; /* offset, length */
+  std::vector<std::pair<size_t, size_t>> token_coordinates;               /* row, col */
+
+  std::vector<std::string> token_lines; /* lines */
+
+  void initialize_token_coordinates_and_segmentations() {
+    /* token_segmentation */
+    size_t offset = 0;
+    std::vector<std::pair<size_t, size_t>> seg_line;
+
+    /* token_coordinates */
+    size_t row = 0;
+    size_t col = 0;
+
+    /* token_lines */
+    for (size_t i = 0; i < tokens.size(); i++) {
+      token_coordinates.push_back(std::make_pair(row, col));
+
+      if (tokens[i]->type == StyioTokenType::TOK_LF) {
+        /* token_coordinates */
+        seg_line.push_back(std::make_pair(offset, tokens[i]->length()));
+        token_segmentation.push_back(seg_line);
+        seg_line.clear();
+        offset = 0; /* reset to the start of the line */
+
+        /* tok_loc */
+        row += 1;
+        col = 0;
+      }
+      else {
+        /* token_segmentation */
+        seg_line.push_back(std::make_pair(offset, tokens[i]->length()));
+        offset += tokens[i]->length();
+
+        /* token_coordinates */
+        col += 1;
+      }
+
+      
+    }
+  }
+
+  void initialize_token_lines() {
+    /* token_lines */
+    std::string tmp_line;
+    for (auto c : code) {
+      tmp_line += c;
+
+      if (c == '\n') {
+        token_lines.push_back(tmp_line);
+        tmp_line.clear();
+      }
+    }
+  }
+
 public:
   StyioContext(
     const string& file_name,
@@ -50,6 +105,8 @@ public:
       line_seps(line_seps),
       tokens(tokens),
       debug_mode(debug_mode) {
+    initialize_token_coordinates_and_segmentations();
+    initialize_token_lines();
   }
 
   static StyioContext* Create(
@@ -376,6 +433,23 @@ public:
     }
 
     return output;
+  }
+
+  std::string mark_cur_tok() {
+    std::string result;
+
+    auto row_num = token_coordinates[index_of_token].first;
+    auto col_num = token_coordinates[index_of_token].second;
+
+    auto offset = token_segmentation[row_num][col_num].first;
+    auto length = token_segmentation[row_num][col_num].second;
+
+    auto that_line = token_lines[row_num];
+
+    result += that_line;
+    result += std::string(offset, ' ') + std::string(length, '^') + std::string((that_line.length() - offset - length), '-');
+
+    return result;
   }
 
   // No Boundary Check !

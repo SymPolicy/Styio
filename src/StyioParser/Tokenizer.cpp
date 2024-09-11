@@ -45,13 +45,13 @@ StyioTokenizer::tokenize(std::string code) {
 
       /* LF */
       case '\n': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LF, "\\n"));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LF, "\n"));
         loc += 1;
       } break;
 
       /* CR */
       case '\r': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_CR, "\\r"));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_CR, "\r"));
         loc += 1;
       } break;
 
@@ -61,7 +61,7 @@ StyioTokenizer::tokenize(std::string code) {
 
     // commments
     if (code.compare(loc, 2, "//") == 0) {
-      std::string literal;
+      std::string literal = "//";
       loc += 2;
 
       while (code.at(loc) != '\n'
@@ -75,7 +75,7 @@ StyioTokenizer::tokenize(std::string code) {
     }
     /* comments */
     else if (code.compare(loc, 2, "/*") == 0) {
-      std::string literal;
+      std::string literal = "/*";
       loc += 2;
 
       while (not(code.compare(loc, 2, "*/") == 0)) {
@@ -83,6 +83,7 @@ StyioTokenizer::tokenize(std::string code) {
         loc += 1;
       }
 
+      literal += "*/";
       loc += 2;
 
       tokens.push_back(StyioToken::Create(StyioTokenType::COMMENT_CLOSED, literal));
@@ -130,7 +131,7 @@ StyioTokenizer::tokenize(std::string code) {
     switch (code.at(loc)) {
       // -1
       case EOF: {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_EOF, "EOF"));
+        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_EOF, std::to_string(EOF)));
         return tokens;
       } break;
 
@@ -142,14 +143,15 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 34
       case '\"': {
+        std::string literal = "\"";
         loc += 1;
 
-        std::string literal;
         while (code.at(loc) != '\"') {
           literal += code.at(loc);
           loc += 1;
         }
 
+        literal += "\"";
         loc += 1;
 
         tokens.push_back(StyioToken::Create(StyioTokenType::STRING, literal));

@@ -45,7 +45,7 @@ parse_name_as_str(StyioContext& context) {
     throw StyioParseError(errmsg);
   }
 
-  auto name = context.cur_tok()->literal;
+  auto name = context.cur_tok()->original;
   context.move_forward(1, "parse_name_as_str");
   return name;
 }
@@ -57,7 +57,7 @@ parse_name(StyioContext& context) {
     throw StyioParseError(errmsg);
   }
 
-  auto ret_val = NameAST::Create(context.cur_tok()->literal);
+  auto ret_val = NameAST::Create(context.cur_tok()->original);
   context.move_forward(1, "parse_name");
   return ret_val;
 }
@@ -69,7 +69,7 @@ parse_int(StyioContext& context) {
     throw StyioParseError(errmsg);
   }
 
-  auto ret_val = IntAST::Create(context.cur_tok()->literal);
+  auto ret_val = IntAST::Create(context.cur_tok()->original);
   context.move_forward();
   return ret_val;
 }
@@ -81,7 +81,7 @@ parse_float(StyioContext& context) {
     throw StyioParseError(errmsg);
   }
 
-  auto ret_val = FloatAST::Create(context.cur_tok()->literal);
+  auto ret_val = FloatAST::Create(context.cur_tok()->original);
   context.move_forward();
   return ret_val;
 }
@@ -93,7 +93,7 @@ parse_string(StyioContext& context) {
     throw StyioParseError(errmsg);
   }
 
-  auto ret_val = StringAST::Create(context.cur_tok()->literal);
+  auto ret_val = StringAST::Create(context.cur_tok()->original);
   context.move_forward();
   return ret_val;
 }
@@ -2012,6 +2012,8 @@ parse_forward_iterator(
       || context.cur_tok_type() == StyioTokenType::NAME /* param */) {
     params = parse_params(context);
   }
+
+  
 
   context.skip();
   context.map_match(StyioTokenType::ARROW_DOUBLE_RIGHT); /* => */

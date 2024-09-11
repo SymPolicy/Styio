@@ -163,14 +163,14 @@ show_tokens(std::vector<StyioToken*> tokens) {
       std::cout << std::string(" ║ ") + " ";
     }
     else if (tok->type == StyioTokenType::NAME) {
-      std::cout << std::string(" ║ ") + tok->literal;
+      std::cout << std::string(" ║ ") + tok->original;
     }
     else if (tok->type == StyioTokenType::INTEGER
              || tok->type == StyioTokenType::DECIMAL) {
-      std::cout << std::string(" ║ ") + StyioToken::getTokName(tok->type) + " = " + tok->literal;
+      std::cout << std::string(" ║ ") + StyioToken::getTokName(tok->type) + " = " + tok->original;
     }
     else if (tok->type == StyioTokenType::STRING) {
-      std::cout << std::string(" ║ ") + "\"" + tok->literal + "\"";
+      std::cout << std::string(" ║ ") + "\"" + tok->original + "\"";
     }
     else {
       std::cout << std::string(" ║ ") + StyioToken::getTokName(tok->type);

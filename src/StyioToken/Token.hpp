@@ -715,19 +715,15 @@ private:
     StyioTokenType token_type,
     std::string token_literal
   ) :
-      type(token_type), literal(token_literal) {
+      type(token_type), original(token_literal) {
   }
 
 public:
   StyioTokenType type;
-  std::string literal;
+  std::string original;
 
-  static StyioToken* Create(StyioTokenType token_type) {
-    return new StyioToken(token_type, "");
-  }
-
-  static StyioToken* Create(StyioTokenType token_type, std::string token_literal) {
-    return new StyioToken(token_type, token_literal);
+  static StyioToken* Create(StyioTokenType token_type, std::string original_string) {
+    return new StyioToken(token_type, original_string);
   }
 
   static std::string getTokName(StyioTokenType type);
