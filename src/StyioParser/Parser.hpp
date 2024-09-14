@@ -74,8 +74,6 @@ private:
         /* token_coordinates */
         col += 1;
       }
-
-      
     }
   }
 
@@ -219,8 +217,8 @@ public:
       auto tok_seq = it->second;
       for (size_t i = 0; i < tok_seq.size(); i++) {
         if (tok_seq.at(i) != tokens.at(index_of_token + i)->type) {
-          std::cout << StyioToken::getTokName(tok_seq.at(i)) << std::endl;
-          std::cout << ": " << StyioToken::getTokName(tokens.at(index_of_token + i)->type) << std::endl;
+          std::cout << StyioToken::getTokName(tok_seq.at(i)) << "\n"
+                    << ": " << StyioToken::getTokName(tokens.at(index_of_token + i)->type) << std::endl;
           is_same = false;
         }
       }
@@ -1183,7 +1181,7 @@ StyioAST*
 parse_forward_iterator(StyioContext& context, StyioAST* collection);
 
 ForwardAST*
-parse_forward(StyioContext& context, bool is_func = false);
+parse_forward(StyioContext& context, bool hashtag_required = false);
 
 BackwardAST*
 parse_backward(StyioContext& context, bool is_func = false);

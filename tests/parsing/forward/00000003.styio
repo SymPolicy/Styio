@@ -1,4 +1,4 @@
-// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
+// RUN: /home/Styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
 
 [...] >> #( ) => { ... }
 

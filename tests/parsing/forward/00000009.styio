@@ -1,0 +1,15 @@
+// RUN: /home/Styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
+# cases ?= {
+  1 
+    =>
+      { >_("No.1") }
+  2 
+    => 
+      { >_("No.2") }
+  3 
+    => 
+      { >_("No.3") }
+  _ 
+    => 
+      { ... }
+}
