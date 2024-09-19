@@ -328,7 +328,7 @@ StyioAnalyzer::toStyioIR(AnonyFuncAST* ast) {
 }
 
 StyioIR*
-StyioAnalyzer::toStyioIR(FuncAST* ast) {
+StyioAnalyzer::toStyioIR(FunctionAST* ast) {
   return SGConstInt::Create(0);
 }
 

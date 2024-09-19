@@ -296,7 +296,7 @@ enum class StyioASTType
   OptArg,
   OptKwArg,
   Variable,
-  Arg,
+  Param,
 
   Bool,
   // Integer (General)
@@ -655,7 +655,7 @@ enum class StyioTokenType
   TOK_TILDE = 126,     // ASCII 126 ~
   TOK_DEL = 127,       // ASCII 127 DEL
 
-  NAME,           // varname, funcname
+  NAME = 1024,           // varname, funcname
   INTEGER,        // 0
   DECIMAL,        // 0.0
   STRING,         // "string"
@@ -666,8 +666,8 @@ enum class StyioTokenType
   BINOP_BITOR,   // |
   BINOP_BITXOR,  // ^
 
-  BACKWARD,  // <<
-  FORWARD,   // >>
+  EXTRACTOR,  // <<
+  ITERATOR,   // >>
 
   LOGIC_NOT,  // !
   LOGIC_AND,  // &&

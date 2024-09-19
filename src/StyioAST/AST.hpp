@@ -162,16 +162,8 @@ public:
     return new DTypeAST(type_name);
   }
 
-  StyioDataType getType() {
-    return data_type;
-  }
-
   string getTypeName() {
     return data_type.name;
-  }
-
-  void setDType(StyioDataType type) {
-    data_type = type;
   }
 
   const StyioASTType getNodeType() const {
@@ -436,18 +428,25 @@ class BlockAST : public StyioASTTraits<BlockAST>
   StyioAST* Resources = nullptr;
   vector<StyioAST*> Stmts;
 
+  BlockAST(vector<StyioAST*> stmts) :
+      Stmts(stmts) {
+  }
+
+  BlockAST() {
+  }
+
 public:
   BlockAST(StyioAST* resources, vector<StyioAST*> stmts) :
       Resources(resources),
       Stmts(stmts) {
   }
 
-  BlockAST(vector<StyioAST*> stmts) :
-      Stmts(stmts) {
-  }
-
   static BlockAST* Create(vector<StyioAST*> stmts) {
     return new BlockAST(stmts);
+  }
+
+  static BlockAST* Create() {
+    return new BlockAST();
   }
 
   vector<StyioAST*> getStmts() {
@@ -677,7 +676,11 @@ private:
       var_type(data_type) {
   }
 
-  ParamAST(NameAST* name, DTypeAST* data_type, StyioAST* default_value) :
+  ParamAST(
+    NameAST* name,
+    DTypeAST* data_type,
+    StyioAST* default_value
+  ) :
       VarAST(name, data_type, default_value),
       var_name(name),
       var_type(data_type),
@@ -685,12 +688,12 @@ private:
   }
 
 public:
-  NameAST* var_name = NameAST::Create(""); /* Variable Name */
-  DTypeAST* var_type = DTypeAST::Create(); /* Variable Data Type */
-  StyioAST* val_init = nullptr;            /* Variable Initial Value */
+  NameAST* var_name = nullptr;  /* Variable Name */
+  DTypeAST* var_type = nullptr; /* Variable Data Type */
+  StyioAST* val_init = nullptr; /* Variable Initial Value */
 
   const StyioASTType getNodeType() const {
-    return StyioASTType::Arg;
+    return StyioASTType::Param;
   }
 
   const StyioDataType getDataType() const {
@@ -715,7 +718,7 @@ public:
 
   bool isTyped() {
     return (
-      var_type != nullptr
+      var_type
       && (var_type->getType().option != StyioDataTypeOption::Undefined)
     );
   }
@@ -2082,7 +2085,7 @@ public:
   ExtraIsIn:
     ?^ Expr => Block
 
-  ThenExpr:
+  next_expr:
     => Block
 
   ThenCondFlow:
@@ -2091,12 +2094,13 @@ public:
 
 class ForwardAST : public StyioASTTraits<ForwardAST>
 {
-  VarTupleAST* Params = nullptr;
+  std::vector<ParamAST*> params;
+  BlockAST* block = BlockAST::Create();
 
   CheckEqAST* ExtraEq = nullptr;
   CheckIsinAST* ExtraIsin = nullptr;
 
-  StyioAST* ThenExpr = nullptr;
+  StyioAST* next_expr = nullptr;
   CondFlowAST* ThenCondFlow = nullptr;
 
   StyioAST* RetExpr = nullptr;
@@ -2106,9 +2110,9 @@ private:
 
 public:
   ForwardAST(StyioAST* expr) :
-      ThenExpr(expr) {
+      next_expr(expr) {
     Type = StyioASTType::Forward;
-    if (ThenExpr->getNodeType() != StyioASTType::Block) {
+    if (next_expr->getNodeType() != StyioASTType::Block) {
       RetExpr = expr;
     }
   }
@@ -2118,7 +2122,7 @@ public:
   }
 
   ForwardAST(CheckEqAST* value, StyioAST* whatnext) :
-      ExtraEq(value), ThenExpr(whatnext) {
+      ExtraEq(value), next_expr(whatnext) {
     Type = StyioASTType::If_Equal_To_Forward;
   }
 
@@ -2127,7 +2131,7 @@ public:
   }
 
   ForwardAST(CheckIsinAST* isin, StyioAST* whatnext) :
-      ExtraIsin(isin), ThenExpr(whatnext) {
+      ExtraIsin(isin), next_expr(whatnext) {
     Type = StyioASTType::If_Is_In_Forward;
   }
 
@@ -2136,7 +2140,7 @@ public:
   }
 
   ForwardAST(CasesAST* cases) :
-      ThenExpr(cases) {
+      next_expr(cases) {
     Type = StyioASTType::Cases_Forward;
   }
 
@@ -2166,9 +2170,9 @@ public:
     StyioAST* then_expr
   ) :
       Params(vars),
-      ThenExpr(then_expr) {
+      next_expr(then_expr) {
     Type = StyioASTType::Fill_Forward;
-    if (ThenExpr->getNodeType() != StyioASTType::Block) {
+    if (next_expr->getNodeType() != StyioASTType::Block) {
       RetExpr = then_expr;
     }
   }
@@ -2182,7 +2186,7 @@ public:
     CheckEqAST* value,
     StyioAST* whatnext
   ) :
-      Params(vars), ExtraEq(value), ThenExpr(whatnext) {
+      Params(vars), ExtraEq(value), next_expr(whatnext) {
     Type = StyioASTType::Fill_If_Equal_To_Forward;
   }
 
@@ -2195,7 +2199,7 @@ public:
   }
 
   ForwardAST(VarTupleAST* vars, CheckIsinAST* isin, StyioAST* whatnext) :
-      Params(vars), ExtraIsin(isin), ThenExpr(whatnext) {
+      Params(vars), ExtraIsin(isin), next_expr(whatnext) {
     Type = StyioASTType::Fill_If_Is_in_Forward;
   }
 
@@ -2208,7 +2212,7 @@ public:
   }
 
   ForwardAST(VarTupleAST* vars, CasesAST* cases) :
-      Params(vars), ThenExpr(cases) {
+      Params(vars), next_expr(cases) {
     Type = StyioASTType::Fill_Cases_Forward;
   }
 
@@ -2267,7 +2271,7 @@ public:
   }
 
   StyioAST* getThen() {
-    return ThenExpr;
+    return next_expr;
   }
 
   CondFlowAST* getCondFlow() {
@@ -2472,51 +2476,58 @@ public:
 /*
   FuncAST: Function
 */
-class FuncAST : public StyioASTTraits<FuncAST>
+class FunctionAST : public StyioASTTraits<FunctionAST>
 {
 private:
-  NameAST* Name = nullptr;
-  DTypeAST* RetType = DTypeAST::Create();
-  ForwardAST* Forward = nullptr;
+  FunctionAST(
+    NameAST* name,
+    bool is_final,
+    std::vector<ParamAST*> params,
+    DTypeAST* ret_type,
+    BlockAST* body
+  ) :
+      func_name(name),
+      is_final(is_final),
+      params(params),
+      ret_type(type),
+      func_body(body) {
+  }
 
 public:
-  bool isFinal;
+  NameAST* func_name = nullptr;
+  bool is_final = false;
+  std::vector<ParamAST*> params;
+  DTypeAST* ret_type = DTypeAST::Create();
+
+  /*
+    Forward (BlockAST)
+      => {}
+    Iterator (IteratorAST)
+      >> () => {}
+    Extractor (ExtractorAST)
+      << () => {}
+    Conditional (CondFlowAST)
+      ? () => {} : {}
+    Match Cases (CasesAST)
+      ?= {}
+  */
+  StyioAST* func_body = nullptr;
 
   /*
     A function that contains sufficient information for the code generation
       without refering additional information from any other definition or statement
       is called self-completed.
   */
-  bool isSelfCompleted;
+  bool is_self_completed;
 
-  FuncAST(
-    ForwardAST* forward,
-    bool isFinal
-  ) :
-      Forward((forward)),
-      isFinal(isFinal) {
-  }
-
-  FuncAST(
+  static FunctionAST* Create(
     NameAST* name,
-    ForwardAST* forward,
-    bool isFinal
-  ) :
-      Name((name)),
-      Forward((forward)),
-      isFinal(isFinal) {
-  }
-
-  FuncAST(
-    NameAST* name,
-    DTypeAST* type,
-    ForwardAST* forward,
-    bool isFinal
-  ) :
-      Name(name),
-      RetType(type),
-      Forward(forward),
-      isFinal(isFinal) {
+    bool is_final,
+    std::vector<ParamAST*> params,
+    DTypeAST* ret_type,
+    BlockAST* body
+  ) {
+    return new FunctionAST(name, is_final, params, ret_type, body);
   }
 
   const StyioASTType getNodeType() const {
@@ -2528,24 +2539,16 @@ public:
   }
 
   bool hasName() {
-    if (Name) {
+    if (func_name) {
       return true;
     }
     else {
       return false;
     }
-  }
-
-  NameAST* getId() {
-    return Name;
-  }
-
-  string getFuncName() {
-    return Name->getAsStr();
   }
 
   bool hasRetType() {
-    if (RetType) {
+    if (ret_type) {
       return true;
     }
     else {
@@ -2553,49 +2556,35 @@ public:
     }
   }
 
-  DTypeAST* getRetType() {
-    return RetType;
+  const std::string& getNameAsStr() {
+    return func_name->getAsStr();
   }
 
   void setRetType(StyioDataType type) {
-    if (RetType != nullptr) {
-      RetType->setDType(type);
+    if (ret_type) {
+      ret_type->setDType(type);
     }
     else {
-      RetType = DTypeAST::Create(type);
+      ret_type = DTypeAST::Create(type);
     }
-  }
-
-  ForwardAST* getForward() {
-    return Forward;
-  }
-
-  bool hasArgs() {
-    return Forward->withParams();
   }
 
   bool allArgsTyped() {
-    auto Args = Forward->getParams();
-
     return std::all_of(
-      Args.begin(),
-      Args.end(),
-      [](VarAST* var)
+      params.begin(),
+      params.end(),
+      [](ParamAST* param)
       {
-        return var->isTyped();
+        return param->isTyped();
       }
     );
   }
 
-  vector<VarAST*> getAllArgs() {
-    return Forward->getParams();
-  }
+  unordered_map<string, ParamAST*> getParamMap() {
+    unordered_map<string, ParamAST*> param_map;
 
-  unordered_map<string, VarAST*> getParamMap() {
-    unordered_map<string, VarAST*> param_map;
-
-    for (auto param : Forward->getParams()) {
-      param_map[param->getNameAsStr()] = param;
+    for (auto p : params) {
+      param_map[p->getNameAsStr()] = p;
     }
 
     return param_map;

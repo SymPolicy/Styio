@@ -1960,7 +1960,7 @@ parse_cond_flow(StyioContext& context) {
 }
 
 StyioAST*
-parse_template(StyioContext& context) {
+parse_hash_tag(StyioContext& context) {
   context.move(1); /* this line drops cur_char without checking */
   context.drop_white_spaces();
 
@@ -1979,7 +1979,7 @@ parse_template(StyioContext& context) {
           return parse_struct(context, func_name);
         }
         else {
-          return new FuncAST(
+          return new FunctionAST(
             func_name,
             parse_forward(context, true),
             true
@@ -1999,7 +1999,7 @@ parse_template(StyioContext& context) {
           if (context.check_drop('=')) {
             context.drop_all_spaces_comments();
 
-            return new FuncAST(func_name, dtype, parse_forward(context, true), true);
+            return new FunctionAST(func_name, dtype, parse_forward(context, true), true);
           }
           else {
             /* Error */
@@ -2012,13 +2012,13 @@ parse_template(StyioContext& context) {
             context.move(-2);
             context.drop_all_spaces_comments();
 
-            return new FuncAST(func_name, dtype, parse_forward(context, true), false);
+            return new FunctionAST(func_name, dtype, parse_forward(context, true), false);
           }
           /* f : type = ... */
           else {
             context.drop_all_spaces_comments();
 
-            return new FuncAST(func_name, dtype, parse_forward(context, true), false);
+            return new FunctionAST(func_name, dtype, parse_forward(context, true), false);
           }
         }
       }
@@ -2029,7 +2029,7 @@ parse_template(StyioContext& context) {
     else if (context.check_next('=')) {
       /* f => ... */
       if (context.check_next("=>")) {
-        return new FuncAST(
+        return new FunctionAST(
           func_name,
           parse_forward(context, true),
           /* isFinal */ false
@@ -2039,7 +2039,7 @@ parse_template(StyioContext& context) {
       else {
         context.drop_all_spaces();
 
-        return new FuncAST(
+        return new FunctionAST(
           func_name, parse_forward(context, true), false
         );
       }
@@ -2726,7 +2726,7 @@ parse_stmt_or_expr(
     } break;  // You should NOT reach this line!
 
     case '#': {
-      return parse_template(context);
+      return parse_hash_tag(context);
     } break;  // You should NOT reach this line!
 
     case '.': {

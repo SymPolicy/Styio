@@ -255,8 +255,15 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 58
       case ':': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_COLON, ":"));
-        loc += 1;
+        if (loc + 1 < code.length() && code.at(loc + 1) == '=') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::WALRUS, ":="));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_COLON, ":"));
+          loc += 1;
+        }
+
       } break;
 
       // 59
@@ -273,7 +280,7 @@ StyioTokenizer::tokenize(std::string code) {
           tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LANGBRAC, "<"));
         }
         else {
-          tokens.push_back(StyioToken::Create(StyioTokenType::BACKWARD, std::string(count, '<')));
+          tokens.push_back(StyioToken::Create(StyioTokenType::EXTRACTOR, std::string(count, '<')));
         }
 
         // anyway
@@ -309,7 +316,7 @@ StyioTokenizer::tokenize(std::string code) {
           tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RANGBRAC, ">"));
         }
         else {
-          tokens.push_back(StyioToken::Create(StyioTokenType::FORWARD, std::string(count, '>')));
+          tokens.push_back(StyioToken::Create(StyioTokenType::ITERATOR, std::string(count, '>')));
         }
 
         // anyway

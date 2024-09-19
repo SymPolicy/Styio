@@ -90,7 +90,7 @@ class BinOpAST;
   - Call
 */
 class AnonyFuncAST;
-class FuncAST;
+class FunctionAST;
 
 class CallAST;
 

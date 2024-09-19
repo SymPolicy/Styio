@@ -33,7 +33,7 @@ reprASTType(StyioASTType type, std::string extra) {
       output += std::string("var");
     } break;
 
-    case StyioASTType::Arg: {
+    case StyioASTType::Param: {
       output += std::string("arg");
     } break;
 
@@ -632,10 +632,10 @@ StyioToken::getTokName(StyioTokenType type) {
     case StyioTokenType::BINOP_BITXOR:
       return "<BIT_XOR>";
 
-    case StyioTokenType::BACKWARD:
+    case StyioTokenType::EXTRACTOR:
       return "<<";
 
-    case StyioTokenType::FORWARD:
+    case StyioTokenType::ITERATOR:
       return ">>";
 
     case StyioTokenType::PRINT:

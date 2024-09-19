@@ -62,6 +62,13 @@ parse_name(StyioContext& context) {
   return ret_val;
 }
 
+NameAST*
+parse_name_unsafe(StyioContext& context) {
+  auto ret_val = NameAST::Create(context.cur_tok()->original);
+  context.move_forward(1, "parse_name");
+  return ret_val;
+}
+
 IntAST*
 parse_int(StyioContext& context) {
   if (context.cur_tok_type() != StyioTokenType::INTEGER) {
@@ -701,7 +708,7 @@ parse_tuple_exprs(StyioContext& context) {
   context.skip();
 
   switch (context.cur_tok_type()) {
-    case StyioTokenType::FORWARD: {
+    case StyioTokenType::ITERATOR: {
       return parse_forward_iterator(context, the_tuple);
     } break;
 
@@ -717,7 +724,6 @@ parse_expr(StyioContext& context) {
   StyioAST* output;
 
   context.skip();
-
   switch (context.cur_tok_type()) {
     /* name */
     case StyioTokenType::NAME: {
@@ -747,6 +753,16 @@ parse_expr(StyioContext& context) {
     default: {
     } break;
   }
+
+  return output;
+}
+
+RerturnAST*
+parse_return(
+  StyioContext& context
+) {
+  context.match_panic(StyioTokenType::EXTRACTOR);  // <<
+  return ReturnAST::Create(parse_expr(context));
 }
 
 StyioAST*
@@ -1817,94 +1833,48 @@ parse_cond_flow(StyioContext& context) {
 }
 
 StyioAST*
-parse_template(StyioContext& context) {
-  context.move(1); /* this line drops cur_char without checking */
-  context.drop_white_spaces();
+parse_hash_tag(StyioContext& context) {
+  context.match_panic(StyioTokenType::TOK_HASH); /* # */
 
-  /* # func_name ... */
-  if (context.check_isal_()) {
-    auto func_name = parse_name(context);
+  /* TAG NAME */
 
-    context.drop_all_spaces_comments();
+  NameAST* tag_name = nullptr;
 
-    if (context.check_drop(':')) {
-      /* f := ... */
-      if (context.check_drop('=')) {
-        context.drop_all_spaces();
-
-        if (context.check_drop('{')) {
-          return parse_struct(context, func_name);
-        }
-        else {
-          return new FuncAST(
-            func_name,
-            parse_forward(context, true),
-            true
-          );
-        }
-      }
-      /* f : ... */
-      else {
-        context.drop_all_spaces_comments();
-
-        auto dtype = parse_dtype(context);
-
-        context.drop_all_spaces_comments();
-
-        /* f : type := ...*/
-        if (context.check_drop(':')) {
-          if (context.check_drop('=')) {
-            context.drop_all_spaces_comments();
-
-            return new FuncAST(func_name, dtype, parse_forward(context, true), true);
-          }
-          else {
-            /* Error */
-          }
-        }
-        /* f : type = ... */
-        else if (context.check_drop('=')) {
-          /* f : type => ... */
-          if (context.check_drop('>')) {
-            context.move(-2);
-            context.drop_all_spaces_comments();
-
-            return new FuncAST(func_name, dtype, parse_forward(context, true), false);
-          }
-          /* f : type = ... */
-          else {
-            context.drop_all_spaces_comments();
-
-            return new FuncAST(func_name, dtype, parse_forward(context, true), false);
-          }
-        }
-      }
-
-      string errmsg = string("parse_pipeline() // Inheritance, Type Hint.");
-      throw StyioNotImplemented(errmsg);
-    }
-    else if (context.check_next('=')) {
-      /* f => ... */
-      if (context.check_next("=>")) {
-        return new FuncAST(
-          func_name,
-          parse_forward(context, true),
-          /* isFinal */ false
-        ); /* Should `f => {}` be flexible or final? */
-      }
-      /* f = ... */
-      else {
-        context.drop_all_spaces();
-
-        return new FuncAST(
-          func_name, parse_forward(context, true), false
-        );
-      }
-    }
+  context.skip();
+  if (context.check(StyioTokenType::NAME)) {
+    tag_name = parse_name(context);
   }
 
-  context.drop_all_spaces();
-  return parse_forward(context, true);
+  /* TAG MUTABLE (OR NOT) */
+
+  bool is_final = false;
+
+  context.skip();
+  if (context.map_match(StyioTokenType::WALRUS) /* := */) {
+    is_final = true;
+  }
+  else if (context.map_match(StyioTokenType::TOK_EQUAL) /* = */) {
+    is_final = false;
+  }
+
+  auto params = parse_params(context);
+
+  context.skip();
+  if (context.map_match(StyioTokenType::ARROW_DOUBLE_RIGHT) /* => */) {
+    context.skip();
+    if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
+      auto block = parse_block(context);
+
+      return FunctionAST::Create();
+    }
+    else {
+    }
+  }
+  else if (context.match(StyioTokenType::ITERATOR) /* >> */) {
+    return parse_forward_iterator(context);
+  }
+  else if (context.map_match(StyioTokenType::MATCH) /* ?= */) {
+  }
 }
 
 CasesAST*
@@ -2000,8 +1970,8 @@ parse_forward_iterator(
   StyioContext& context,
   StyioAST* collection
 ) {
-  // Guard
-  context.match_panic(StyioTokenType::FORWARD);  // >>
+  // Guard: Check >>
+  context.match_panic(StyioTokenType::ITERATOR);
 
   std::vector<ParamAST*> params;
   BlockAST* block;
@@ -2031,21 +2001,45 @@ parse_forward_iterator(
 */
 ForwardAST*
 parse_forward(
-  StyioContext& context, 
+  StyioContext& context,
   bool hashtag_required
 ) {
   std::vector<ParamAST*> params;
+  StyioAST* next_expr = BlockAST::Create();
 
   if (hashtag_required) {
     context.try_match_panic(StyioTokenType::TOK_HASH); /* # */
   }
-  
-  context.try_match(StyioTokenType::TOK_LPAREN); /* ( */
 
-  
+  params = parse_params(context);
 
-  context.try_match(StyioTokenType::TOK_RPAREN); /* ) */
+  switch (context.cur_tok_type()) {
+    /* => */
+    case StyioTokenType::TOK_EQUAL: {
+      context.move_forward(1);                           /* = */
+      context.match_panic(StyioTokenType::TOK_RANGBRAC); /* > */
 
+      context.skip();
+      if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
+        next_expr = parse_block(context);
+      }
+      else {
+        next_expr = parse_expr(context);
+      }
+    } break;
+
+    /* { ... } */
+    case StyioTokenType::TOK_LCURBRAC: {
+      next_expr = parse_block(context);
+    } break;
+
+    default:
+      break;
+  }
+
+  return ForwardAST::Create(
+    params, next_expr
+  );
 }
 
 /*
@@ -2246,6 +2240,11 @@ parse_stmt_or_expr(
       return parse_resources(context);
     } break;
 
+    /* # */
+    case StyioTokenType::TOK_HASH: {
+      return parse_hash_tag(context);
+    } break;
+
     /* >_ */
     case StyioTokenType::PRINT: {
       return parse_print(context);
@@ -2260,6 +2259,11 @@ parse_stmt_or_expr(
     case StyioTokenType::ELLIPSIS: {
       context.move_forward(1, "parse_stmt_or_expr");
       return PassAST::Create();
+    } break;
+
+    /* << */
+    case StyioTokenType::EXTRACTOR: {
+      return parse_return(context);
     } break;
 
     case StyioTokenType::TOK_EOF: {

@@ -1,14 +1,4 @@
 // RUN: /home/Styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
 
-/* From: */
-#( ) => {
-  ...
-} 
-/* To: */
->> #( ) => {
-  ...
-} 
-/* To: */
->> #( ) => { 
-  ... 
-}
+/* Minimalist Style: Expression Assignment */
+# f (x, y) = x + y

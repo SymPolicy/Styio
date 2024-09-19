@@ -106,7 +106,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class BinOpAST,
 
   class AnonyFuncAST,
-  class FuncAST,
+  class FunctionAST,
 
   class CallAST,
 
@@ -175,7 +175,7 @@ class StyioToLLVMIR : public StyioCodeGenVisitor
   unordered_map<string, llvm::AllocaInst*> mut_vars; /* [FlexBind] Mutable Variables */
   unordered_map<string, llvm::Value*> named_values;  /* [FinalBind] Named Values = Immutable Variables */
 
-  unordered_map<string, FuncAST*> func_defs;
+  unordered_map<string, FunctionAST*> func_defs;
 
 public:
   StyioToLLVMIR(std::unique_ptr<StyioJIT_ORC> styio_jit) :

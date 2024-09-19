@@ -476,8 +476,8 @@ StyioAnalyzer::typeInfer(AnonyFuncAST* ast) {
 }
 
 void
-StyioAnalyzer::typeInfer(FuncAST* ast) {
-  func_defs[ast->getFuncName()] = ast;
+StyioAnalyzer::typeInfer(FunctionAST* ast) {
+  func_defs[ast->getNameAsStr()] = ast;
 
   if (ast->getForward()->getRetExpr() != nullptr) {
     std::cout << "type infer func ast get ret type" << std::endl;

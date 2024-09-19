@@ -709,10 +709,10 @@ StyioRepr::toString(AnonyFuncAST* ast, int indent) {
 }
 
 std::string
-StyioRepr::toString(FuncAST* ast, int indent) {
+StyioRepr::toString(FunctionAST* ast, int indent) {
   string suffix = "";
 
-  if (ast->isFinal) {
+  if (ast->is_final) {
     suffix = " (Final) ";
   }
   else {

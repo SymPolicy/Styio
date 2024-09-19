@@ -73,7 +73,7 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
   class BinOpAST,
 
   class AnonyFuncAST,
-  class FuncAST,
+  class FunctionAST,
 
   class CallAST,
   class AttrAST,
@@ -129,7 +129,7 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
 
 class StyioAnalyzer : public StyioAnalyzerVisitor
 {
-  unordered_map<string, FuncAST*> func_defs;
+  unordered_map<string, FunctionAST*> func_defs;
 
 public:
   StyioAnalyzer() {}
@@ -193,7 +193,7 @@ public:
   void typeInfer(CODPAST* ast);
   void typeInfer(InfiniteAST* ast);
   void typeInfer(AnonyFuncAST* ast);
-  void typeInfer(FuncAST* ast);
+  void typeInfer(FunctionAST* ast);
   void typeInfer(InfiniteLoopAST* ast);
   void typeInfer(IteratorAST* ast);
   void typeInfer(MatchCasesAST* ast);
@@ -255,7 +255,7 @@ public:
   StyioIR* toStyioIR(CODPAST* ast);
   StyioIR* toStyioIR(InfiniteAST* ast);
   StyioIR* toStyioIR(AnonyFuncAST* ast);
-  StyioIR* toStyioIR(FuncAST* ast);
+  StyioIR* toStyioIR(FunctionAST* ast);
   StyioIR* toStyioIR(InfiniteLoopAST* ast);
   StyioIR* toStyioIR(IteratorAST* ast);
   StyioIR* toStyioIR(MatchCasesAST* ast);

@@ -1,11 +1,9 @@
 // RUN: /home/Styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
 
-[...] >> #( ) => { ... }
-
-/*
-  CHECK:      Loop {
-  CHECK-NEXT: || Forward (Fill -> Run) {
-  CHECK-NEXT: |--| Fill { }
-  CHECK-NEXT: |--| Run: Block {
-  CHECK-NEXT: |----| Pass { }}}}
-*/
+/* 
+  Return with types;
+  Return in a tuple.
+ */
+# f (x, y) 
+  => (T1, T2) 
+  << (x + y, x - y)

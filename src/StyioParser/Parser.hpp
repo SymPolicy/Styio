@@ -911,6 +911,9 @@ type_to_int(Enumeration const value) ->
 NameAST*
 parse_name(StyioContext& context);
 
+NameAST*
+parse_name_unsafe(StyioContext& context);
+
 /*
   =================
     Scalar Value
@@ -1096,7 +1099,7 @@ parse_resources(StyioContext& context);
   parse_pipeline
 */
 StyioAST*
-parse_template(StyioContext& context);
+parse_hash_tag(StyioContext& context);
 
 /*
   parse_read_file
@@ -1223,5 +1226,8 @@ parse_tuple_exprs(StyioContext& context);
 */
 StyioAST*
 parse_list_exprs(StyioContext& context);
+
+ReturnAST*
+parse_return(StyioContext& context);
 
 #endif
