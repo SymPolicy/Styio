@@ -18,6 +18,7 @@ using std::shared_ptr;
 using std::unique_ptr;
 
 class StyioContext;
+class StyioParser;
 
 class StyioContext
 {
@@ -957,12 +958,6 @@ ParamAST*
 parse_argument(StyioContext& context);
 
 StyioAST*
-parse_tuple(StyioContext& context);
-
-StyioAST*
-parse_tuple_no_braces(StyioContext& context, StyioAST* first_element = nullptr);
-
-StyioAST*
 parse_list(StyioContext& context);
 
 StyioAST*
@@ -1189,9 +1184,6 @@ parse_forward(StyioContext& context, bool hashtag_required = false);
 BackwardAST*
 parse_backward(StyioContext& context, bool is_func = false);
 
-ExtractorAST*
-parse_tuple_operations(StyioContext& context, TupleAST* the_tuple);
-
 CODPAST*
 parse_codp(StyioContext& context, CODPAST* prev_op = nullptr);
 
@@ -1207,7 +1199,26 @@ parse_expr(StyioContext& context);
   - or something else after a variable name
 */
 StyioAST*
-parse_var_name_or_value_expr(StyioContext& context);
+parse_var_name_or_value_expr(
+  StyioContext& context
+);
+
+StyioAST*
+parse_tuple(
+  StyioContext& context
+);
+
+StyioAST*
+parse_tuple_no_braces(
+  StyioContext& context,
+  StyioAST* first_element = nullptr
+);
+
+ExtractorAST*
+parse_tuple_operations(
+  StyioContext& context,
+  TupleAST* the_tuple
+);
 
 /*
   parse_tuple_exprs
@@ -1216,7 +1227,9 @@ parse_var_name_or_value_expr(StyioContext& context);
   - something else after tuple
 */
 StyioAST*
-parse_tuple_exprs(StyioContext& context);
+parse_tuple_exprs(
+  StyioContext& context
+);
 
 /*
   parse_list_exprs

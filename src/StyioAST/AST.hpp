@@ -132,7 +132,7 @@ private:
   DTypeAST() {}
 
   DTypeAST(StyioDataType data_type) :
-      data_type(data_type) {
+      type(data_type) {
   }
 
   DTypeAST(
@@ -140,15 +140,15 @@ private:
   ) {
     auto it = DTypeTable.find(type_name);
     if (it != DTypeTable.end()) {
-      data_type = it->second;
+      type = it->second;
     }
     else {
-      data_type = StyioDataType{StyioDataTypeOption::Defined, type_name, 0};
+      type = StyioDataType{StyioDataTypeOption::Defined, type_name, 0};
     }
   }
 
 public:
-  StyioDataType data_type = StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+  StyioDataType type = StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
 
   static DTypeAST* Create() {
     return new DTypeAST();
@@ -162,8 +162,12 @@ public:
     return new DTypeAST(type_name);
   }
 
+  void setType(StyioDataType new_type) {
+    this->type = new_type;
+  }
+
   string getTypeName() {
-    return data_type.name;
+    return type.name;
   }
 
   const StyioASTType getNodeType() const {
@@ -171,7 +175,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return data_type;
+    return type;
   }
 };
 
@@ -301,7 +305,7 @@ public:
 
   FloatAST(const string& value, StyioDataType type) :
       value(value) {
-    data_type->setDType(type);
+    data_type->type = type;
   }
 
   static FloatAST* Create(const string& value) {
@@ -631,7 +635,7 @@ public:
   }
 
   void setDataType(StyioDataType type) {
-    var_type->setDType(type);
+    var_type->type = type;
   }
 
   NameAST* getName() {
@@ -651,7 +655,7 @@ public:
   }
 
   bool isTyped() {
-    return (var_type && (var_type->getType().option != StyioDataTypeOption::Undefined));
+    return (var_type && (var_type->getDataType().option != StyioDataTypeOption::Undefined));
   }
 };
 
@@ -688,6 +692,8 @@ private:
   }
 
 public:
+  using VarAST::isTyped;
+
   NameAST* var_name = nullptr;  /* Variable Name */
   DTypeAST* var_type = nullptr; /* Variable Data Type */
   StyioAST* val_init = nullptr; /* Variable Initial Value */
@@ -716,19 +722,12 @@ public:
     return var_name->getAsStr();
   }
 
-  bool isTyped() {
-    return (
-      var_type
-      && (var_type->getType().option != StyioDataTypeOption::Undefined)
-    );
-  }
-
   DTypeAST* getDType() {
     return var_type;
   }
 
   void setDType(StyioDataType type) {
-    return var_type->setDType(type);
+    return var_type->setType(type);
   }
 };
 
@@ -1046,7 +1045,7 @@ public:
   }
 
   void setDataType(StyioDataType type) {
-    consistent_type->setDType(type);
+    consistent_type->setType(type);
   }
 };
 
@@ -1128,7 +1127,7 @@ public:
   }
 
   void setDataType(StyioDataType type) {
-    consistent_type->setDType(type);
+    consistent_type->setType(type);
   }
 };
 
@@ -1313,11 +1312,11 @@ public:
   }
 
   StyioDataType getType() {
-    return data_type->getType();
+    return data_type->type;
   }
 
   void setDType(StyioDataType type) {
-    return data_type->setDType(type);
+    data_type->setType(type);
   }
 
   const StyioASTType getNodeType() const {
@@ -2109,158 +2108,7 @@ private:
   StyioASTType Type = StyioASTType::Forward;
 
 public:
-  ForwardAST(StyioAST* expr) :
-      next_expr(expr) {
-    Type = StyioASTType::Forward;
-    if (next_expr->getNodeType() != StyioASTType::Block) {
-      RetExpr = expr;
-    }
-  }
-
-  static ForwardAST* Create(StyioAST* expr) {
-    return new ForwardAST(expr);
-  }
-
-  ForwardAST(CheckEqAST* value, StyioAST* whatnext) :
-      ExtraEq(value), next_expr(whatnext) {
-    Type = StyioASTType::If_Equal_To_Forward;
-  }
-
-  static ForwardAST* Create(CheckEqAST* value, StyioAST* whatnext) {
-    return new ForwardAST(value, whatnext);
-  }
-
-  ForwardAST(CheckIsinAST* isin, StyioAST* whatnext) :
-      ExtraIsin(isin), next_expr(whatnext) {
-    Type = StyioASTType::If_Is_In_Forward;
-  }
-
-  static ForwardAST* Create(CheckIsinAST* isin, StyioAST* whatnext) {
-    return new ForwardAST(isin, whatnext);
-  }
-
-  ForwardAST(CasesAST* cases) :
-      next_expr(cases) {
-    Type = StyioASTType::Cases_Forward;
-  }
-
-  static ForwardAST* Create(CasesAST* cases) {
-    return new ForwardAST(cases);
-  }
-
-  ForwardAST(CondFlowAST* condflow) :
-      ThenCondFlow(condflow) {
-    if ((condflow->WhatFlow) == StyioASTType::CondFlow_True) {
-      Type = StyioASTType::If_True_Forward;
-    }
-    else if ((condflow->WhatFlow) == StyioASTType::CondFlow_False) {
-      Type = StyioASTType::If_False_Forward;
-    }
-    else {
-      Type = StyioASTType::If_Both_Forward;
-    }
-  }
-
-  static ForwardAST* Create(CondFlowAST* condflow) {
-    return new ForwardAST(condflow);
-  }
-
-  ForwardAST(
-    VarTupleAST* vars,
-    StyioAST* then_expr
-  ) :
-      Params(vars),
-      next_expr(then_expr) {
-    Type = StyioASTType::Fill_Forward;
-    if (next_expr->getNodeType() != StyioASTType::Block) {
-      RetExpr = then_expr;
-    }
-  }
-
-  static ForwardAST* Create(VarTupleAST* vars, StyioAST* whatnext) {
-    return new ForwardAST(vars, whatnext);
-  }
-
-  ForwardAST(
-    VarTupleAST* vars,
-    CheckEqAST* value,
-    StyioAST* whatnext
-  ) :
-      Params(vars), ExtraEq(value), next_expr(whatnext) {
-    Type = StyioASTType::Fill_If_Equal_To_Forward;
-  }
-
-  static ForwardAST* Create(
-    VarTupleAST* vars,
-    CheckEqAST* value,
-    StyioAST* whatnext
-  ) {
-    return new ForwardAST(vars, value, whatnext);
-  }
-
-  ForwardAST(VarTupleAST* vars, CheckIsinAST* isin, StyioAST* whatnext) :
-      Params(vars), ExtraIsin(isin), next_expr(whatnext) {
-    Type = StyioASTType::Fill_If_Is_in_Forward;
-  }
-
-  static ForwardAST* Create(
-    VarTupleAST* vars,
-    CheckIsinAST* isin,
-    StyioAST* whatnext
-  ) {
-    return new ForwardAST(vars, isin, whatnext);
-  }
-
-  ForwardAST(VarTupleAST* vars, CasesAST* cases) :
-      Params(vars), next_expr(cases) {
-    Type = StyioASTType::Fill_Cases_Forward;
-  }
-
-  static ForwardAST* Create(
-    VarTupleAST* vars,
-    CasesAST* cases
-  ) {
-    return new ForwardAST(vars, cases);
-  }
-
-  ForwardAST(VarTupleAST* vars, CondFlowAST* condflow) :
-      Params(vars), ThenCondFlow(condflow) {
-    switch (condflow->WhatFlow) {
-      case StyioASTType::CondFlow_True:
-        Type = StyioASTType::Fill_If_True_Forward;
-        break;
-
-      case StyioASTType::CondFlow_False:
-        Type = StyioASTType::Fill_If_False_Forward;
-        break;
-
-      case StyioASTType::CondFlow_Both:
-        Type = StyioASTType::Fill_If_Both_Forward;
-        break;
-
-      default:
-        break;
-    }
-  }
-
-  static ForwardAST* Create(
-    VarTupleAST* vars,
-    CondFlowAST* condflow
-  ) {
-    return new ForwardAST(vars, condflow);
-  }
-
-  bool withParams() {
-    return Params && (!(Params->getParams().empty()));
-  }
-
-  VarTupleAST* getVarTuple() {
-    return Params;
-  }
-
-  const vector<VarAST*>& getParams() {
-    return Params->getParams();
-  }
+  ForwardAST() {}
 
   CheckEqAST* getCheckEq() {
     return ExtraEq;
@@ -2484,12 +2332,12 @@ private:
     bool is_final,
     std::vector<ParamAST*> params,
     DTypeAST* ret_type,
-    BlockAST* body
+    StyioAST* body
   ) :
       func_name(name),
       is_final(is_final),
       params(params),
-      ret_type(type),
+      ret_type(ret_type),
       func_body(body) {
   }
 
@@ -2497,7 +2345,7 @@ public:
   NameAST* func_name = nullptr;
   bool is_final = false;
   std::vector<ParamAST*> params;
-  DTypeAST* ret_type = DTypeAST::Create();
+  DTypeAST* ret_type = nullptr;
 
   /*
     Forward (BlockAST)
@@ -2525,7 +2373,7 @@ public:
     bool is_final,
     std::vector<ParamAST*> params,
     DTypeAST* ret_type,
-    BlockAST* body
+    StyioAST* body
   ) {
     return new FunctionAST(name, is_final, params, ret_type, body);
   }
@@ -2562,7 +2410,7 @@ public:
 
   void setRetType(StyioDataType type) {
     if (ret_type) {
-      ret_type->setDType(type);
+      ret_type->setType(type);
     }
     else {
       ret_type = DTypeAST::Create(type);
@@ -2605,7 +2453,13 @@ class InfiniteLoopAST : public StyioASTTraits<InfiniteLoopAST>
 private:
   ForwardAST* Forward = nullptr;
 
+  InfiniteLoopAST() {}
+
 public:
+  static InfiniteLoopAST* Create() {
+    return new InfiniteLoopAST();
+  }
+
   InfiniteLoopAST(ForwardAST* expr) :
       Forward(expr) {
   }

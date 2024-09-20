@@ -40,7 +40,7 @@ StyioAnalyzer::toStyioIR(NameAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(DTypeAST* ast) {
-  return SGType::Create(ast->data_type);
+  return SGType::Create(ast->type);
 }
 
 StyioIR*

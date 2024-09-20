@@ -84,7 +84,7 @@ StyioAnalyzer::typeInfer(OptKwArgAST* ast) {
 void
 StyioAnalyzer::typeInfer(FlexBindAST* ast) {
   /* FlexBindAST -> VarAST -> DTypeAST -> StyioDataType */
-  auto var_type = ast->getVar()->getDType()->getType();
+  auto var_type = ast->getVar()->getDType()->type;
 
   /* var type is not declared, try to deduce from the type of value */
   if (var_type.option == StyioDataTypeOption::Undefined) {
@@ -423,7 +423,7 @@ StyioAnalyzer::typeInfer(CallAST* ast) {
     }
   }
 
-  auto func_args = func_defs[ast->getNameAsStr()]->getAllArgs();
+  auto func_args = func_defs[ast->getNameAsStr()]->params;
 
   if (arg_types.size() != func_args.size()) {
     std::cout << "arg list not match" << std::endl;
@@ -478,10 +478,6 @@ StyioAnalyzer::typeInfer(AnonyFuncAST* ast) {
 void
 StyioAnalyzer::typeInfer(FunctionAST* ast) {
   func_defs[ast->getNameAsStr()] = ast;
-
-  if (ast->getForward()->getRetExpr() != nullptr) {
-    std::cout << "type infer func ast get ret type" << std::endl;
-  }
 }
 
 void

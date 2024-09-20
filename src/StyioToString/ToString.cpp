@@ -42,7 +42,7 @@ StyioRepr::toString(NameAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(DTypeAST* ast, int indent) {
-  return reprASTType(ast->getNodeType()) + " { " + ast->data_type.name + " }";
+  return reprASTType(ast->getNodeType()) + " { " + ast->type.name + " }";
 }
 
 std::string
@@ -526,109 +526,109 @@ StyioRepr::toString(PrintAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(ForwardAST* ast, int indent) {
-  switch (ast->getNodeType()) {
-    case StyioASTType::Forward: {
-      return reprASTType(ast->getNodeType(), " ") + "{\n"
-             + make_padding(indent) + "Next: " + ast->getThen()->toString(this, indent + 1) + "}";
-    }
-    // You should NOT reach this line!
-    break;
-    case StyioASTType::If_Equal_To_Forward: {
-      return reprASTType(ast->getNodeType(), " ") + "{\n"
-             + make_padding(indent) + ast->getCheckEq()->toString(this, indent + 1) + "\n"
-             + make_padding(indent) + "Run: " + ast->getThen()->toString(this, indent + 1) + "}";
-    }
-    // You should NOT reach this line!
-    break;
-    case StyioASTType::If_Is_In_Forward: {
-      return reprASTType(ast->getNodeType(), " ")
-             + "{\n" + make_padding(indent) + ast->getCheckIsin()->toString(this, indent + 1) + "\n"
-             + make_padding(indent) + "Run: " + ast->getThen()->toString(this, indent + 1) + "}";
-    }
-    // You should NOT reach this line!
-    break;
-    case StyioASTType::Cases_Forward: {
-      return reprASTType(ast->getNodeType(), " ")
-             + "{\n" + make_padding(indent) + "Cases: " + ast->getThen()->toString(this, indent + 1) + "\n"
-             + "}";
-    }
-    // You should NOT reach this line!
-    break;
-    case StyioASTType::If_True_Forward: {
-      return reprASTType(ast->getNodeType(), " ")
-             + "{\n" + make_padding(indent) + ast->getCondFlow()->toString(this, indent + 1) + "}";
-    }
-    // You should NOT reach this line!
-    break;
-    case StyioASTType::If_False_Forward: {
-      return reprASTType(ast->getNodeType(), " ")
-             + "{\n" + make_padding(indent) + ast->getCondFlow()->toString(this, indent + 1) + "}";
-    }
-    // You should NOT reach this line!
-    break;
+  // switch (ast->getNodeType()) {
+  //   case StyioASTType::Forward: {
+  //     return reprASTType(ast->getNodeType(), " ") + "{\n"
+  //            + make_padding(indent) + "Next: " + ast->getThen()->toString(this, indent + 1) + "}";
+  //   }
+  //   // You should NOT reach this line!
+  //   break;
+  //   case StyioASTType::If_Equal_To_Forward: {
+  //     return reprASTType(ast->getNodeType(), " ") + "{\n"
+  //            + make_padding(indent) + ast->getCheckEq()->toString(this, indent + 1) + "\n"
+  //            + make_padding(indent) + "Run: " + ast->getThen()->toString(this, indent + 1) + "}";
+  //   }
+  //   // You should NOT reach this line!
+  //   break;
+  //   case StyioASTType::If_Is_In_Forward: {
+  //     return reprASTType(ast->getNodeType(), " ")
+  //            + "{\n" + make_padding(indent) + ast->getCheckIsin()->toString(this, indent + 1) + "\n"
+  //            + make_padding(indent) + "Run: " + ast->getThen()->toString(this, indent + 1) + "}";
+  //   }
+  //   // You should NOT reach this line!
+  //   break;
+  //   case StyioASTType::Cases_Forward: {
+  //     return reprASTType(ast->getNodeType(), " ")
+  //            + "{\n" + make_padding(indent) + "Cases: " + ast->getThen()->toString(this, indent + 1) + "\n"
+  //            + "}";
+  //   }
+  //   // You should NOT reach this line!
+  //   break;
+  //   case StyioASTType::If_True_Forward: {
+  //     return reprASTType(ast->getNodeType(), " ")
+  //            + "{\n" + make_padding(indent) + ast->getCondFlow()->toString(this, indent + 1) + "}";
+  //   }
+  //   // You should NOT reach this line!
+  //   break;
+  //   case StyioASTType::If_False_Forward: {
+  //     return reprASTType(ast->getNodeType(), " ")
+  //            + "{\n" + make_padding(indent) + ast->getCondFlow()->toString(this, indent + 1) + "}";
+  //   }
+  //   // You should NOT reach this line!
+  //   break;
 
-    case StyioASTType::If_Both_Forward: {
-      return reprASTType(ast->getNodeType(), " ")
-             + "{\n" + make_padding(indent) + ast->getCondFlow()->toString(this, indent + 1) + "}";
-    }
-    // You should NOT reach this line!
-    break;
-    case StyioASTType::Fill_Forward: {
-      return reprASTType(ast->getNodeType(), " ")
-             + "{\n" + make_padding(indent) + ast->getVarTuple()->toString(this, indent + 1) + "\n"
-             + make_padding(indent) + "Run: " + ast->getThen()->toString(this, indent + 1) + "}";
-    }
-    // You should NOT reach this line!
-    break;
-    case StyioASTType::Fill_If_Equal_To_Forward: {
-      return reprASTType(ast->getNodeType(), " ")
-             + "{\n" + make_padding(indent) + ast->getVarTuple()->toString(this, indent + 1) + "\n"
-             + make_padding(indent) + ast->getCheckEq()->toString(this, indent + 1) + "\n"
-             + make_padding(indent) + "Run: " + ast->getThen()->toString(this, indent + 1) + "}";
-    }
-    // You should NOT reach this line!
-    break;
-    case StyioASTType::Fill_If_Is_in_Forward: {
-      return reprASTType(ast->getNodeType(), " ")
-             + "{\n" + make_padding(indent) + ast->getVarTuple()->toString(this, indent + 1) + "\n"
-             + make_padding(indent) + ast->getCheckIsin()->toString(this, indent + 1) + "\n"
-             + make_padding(indent) + "Run: " + ast->getThen()->toString(this, indent + 1) + "}";
-    }
-    // You should NOT reach this line!
-    break;
-    case StyioASTType::Fill_Cases_Forward: {
-      return reprASTType(ast->getNodeType(), " ")
-             + "{\n" + make_padding(indent) + ast->getVarTuple()->toString(this, indent + 1)
-             + "\n" + make_padding(indent) + "Cases: " + ast->getThen()->toString(this, indent + 1)
-             + "\n" + "}";
-    }
-    // You should NOT reach this line!
-    break;
-    case StyioASTType::Fill_If_True_Forward: {
-      return reprASTType(ast->getNodeType(), " ")
-             + "{\n" + make_padding(indent) + ast->getVarTuple()->toString(this, indent + 1) + "\n"
-             + make_padding(indent) + ast->getCondFlow()->toString(this, indent + 1) + "}";
-    }
-    // You should NOT reach this line!
-    break;
-    case StyioASTType::Fill_If_False_Forward: {
-      return reprASTType(ast->getNodeType(), " ")
-             + "{\n" + make_padding(indent) + ast->getVarTuple()->toString(this, indent + 1) + "\n"
-             + make_padding(indent) + ast->getCondFlow()->toString(this, indent + 1) + "}";
-    }
-    // You should NOT reach this line!
-    break;
+  //   case StyioASTType::If_Both_Forward: {
+  //     return reprASTType(ast->getNodeType(), " ")
+  //            + "{\n" + make_padding(indent) + ast->getCondFlow()->toString(this, indent + 1) + "}";
+  //   }
+  //   // You should NOT reach this line!
+  //   break;
+  //   case StyioASTType::Fill_Forward: {
+  //     return reprASTType(ast->getNodeType(), " ")
+  //            + "{\n" + make_padding(indent) + ast->getVarTuple()->toString(this, indent + 1) + "\n"
+  //            + make_padding(indent) + "Run: " + ast->getThen()->toString(this, indent + 1) + "}";
+  //   }
+  //   // You should NOT reach this line!
+  //   break;
+  //   case StyioASTType::Fill_If_Equal_To_Forward: {
+  //     return reprASTType(ast->getNodeType(), " ")
+  //            + "{\n" + make_padding(indent) + ast->getVarTuple()->toString(this, indent + 1) + "\n"
+  //            + make_padding(indent) + ast->getCheckEq()->toString(this, indent + 1) + "\n"
+  //            + make_padding(indent) + "Run: " + ast->getThen()->toString(this, indent + 1) + "}";
+  //   }
+  //   // You should NOT reach this line!
+  //   break;
+  //   case StyioASTType::Fill_If_Is_in_Forward: {
+  //     return reprASTType(ast->getNodeType(), " ")
+  //            + "{\n" + make_padding(indent) + ast->getVarTuple()->toString(this, indent + 1) + "\n"
+  //            + make_padding(indent) + ast->getCheckIsin()->toString(this, indent + 1) + "\n"
+  //            + make_padding(indent) + "Run: " + ast->getThen()->toString(this, indent + 1) + "}";
+  //   }
+  //   // You should NOT reach this line!
+  //   break;
+  //   case StyioASTType::Fill_Cases_Forward: {
+  //     return reprASTType(ast->getNodeType(), " ")
+  //            + "{\n" + make_padding(indent) + ast->getVarTuple()->toString(this, indent + 1)
+  //            + "\n" + make_padding(indent) + "Cases: " + ast->getThen()->toString(this, indent + 1)
+  //            + "\n" + "}";
+  //   }
+  //   // You should NOT reach this line!
+  //   break;
+  //   case StyioASTType::Fill_If_True_Forward: {
+  //     return reprASTType(ast->getNodeType(), " ")
+  //            + "{\n" + make_padding(indent) + ast->getVarTuple()->toString(this, indent + 1) + "\n"
+  //            + make_padding(indent) + ast->getCondFlow()->toString(this, indent + 1) + "}";
+  //   }
+  //   // You should NOT reach this line!
+  //   break;
+  //   case StyioASTType::Fill_If_False_Forward: {
+  //     return reprASTType(ast->getNodeType(), " ")
+  //            + "{\n" + make_padding(indent) + ast->getVarTuple()->toString(this, indent + 1) + "\n"
+  //            + make_padding(indent) + ast->getCondFlow()->toString(this, indent + 1) + "}";
+  //   }
+  //   // You should NOT reach this line!
+  //   break;
 
-    case StyioASTType::Fill_If_Both_Forward: {
-      return reprASTType(ast->getNodeType(), " ")
-             + "{\n" + make_padding(indent) + ast->getVarTuple()->toString(this, indent + 1) + "\n"
-             + make_padding(indent) + ast->getCondFlow()->toString(this, indent + 1) + "}";
-    }
-    // You should NOT reach this line!
-    break;
-    default:
-      break;
-  }
+  //   case StyioASTType::Fill_If_Both_Forward: {
+  //     return reprASTType(ast->getNodeType(), " ")
+  //            + "{\n" + make_padding(indent) + ast->getVarTuple()->toString(this, indent + 1) + "\n"
+  //            + make_padding(indent) + ast->getCondFlow()->toString(this, indent + 1) + "}";
+  //   }
+  //   // You should NOT reach this line!
+  //   break;
+  //   default:
+  //     break;
+  // }
   return reprASTType(ast->getNodeType(), " ") + string("{ Undefined }");
 }
 
@@ -713,23 +713,23 @@ StyioRepr::toString(FunctionAST* ast, int indent) {
   string suffix = "";
 
   if (ast->is_final) {
-    suffix = " (Final) ";
+    suffix = "_final";
   }
   else {
-    suffix = " (Flex) ";
+    suffix = "_flex";
   }
 
   string output = reprASTType(ast->getNodeType(), suffix) + "{" + "\n";
 
-  if (ast->getId() != nullptr) {
-    output += make_padding(indent) + "Name: " + ast->getId()->toString(this, indent + 1) + "\n";
+  if (ast->func_name) {
+    output += make_padding(indent) + "func_name: " + ast->func_name->toString(this, indent + 1) + "\n";
   }
 
-  if (ast->getRetType() != nullptr) {
-    output += make_padding(indent) + "Type: " + ast->getRetType()->toString(this, indent + 1) + "\n";
+  if (ast->ret_type) {
+    output += make_padding(indent) + "ret_type: " + ast->ret_type->toString(this, indent + 1) + "\n";
   }
 
-  output += make_padding(indent) + ast->getForward()->toString(this, indent + 1) + "}";
+  output += make_padding(indent) + "func_body: " + ast->func_body->toString(this, indent + 1) + "}";
   return output;
 }
 
