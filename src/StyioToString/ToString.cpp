@@ -725,11 +725,42 @@ StyioRepr::toString(FunctionAST* ast, int indent) {
     output += make_padding(indent) + "func_name: " + ast->func_name->toString(this, indent + 1) + "\n";
   }
 
+  std::string param_str;
+  for (size_t i = 0; i < ast->params.size(); i++) {
+    param_str += make_padding(indent) + ast->params.at(i)->toString(this, indent + 1) + "\n";
+  }
+
+  output += make_padding(indent) + "params: " + param_str;
+
   if (ast->ret_type) {
     output += make_padding(indent) + "ret_type: " + ast->ret_type->toString(this, indent + 1) + "\n";
   }
 
   output += make_padding(indent) + "func_body: " + ast->func_body->toString(this, indent + 1) + "}";
+  return output;
+}
+
+std::string
+StyioRepr::toString(SimpleFuncAST* ast, int indent) {
+  string output = reprASTType(ast->getNodeType()) + "{" + "\n";
+
+  if (ast->func_name) {
+    output += make_padding(indent) + "func_name: " + ast->func_name->toString(this, indent + 1) + "\n";
+  }
+
+  if (not ast->params.empty()) {
+    std::string param_str;
+    for (size_t i = 0; i < ast->params.size(); i++) {
+      param_str += make_padding(indent) + ast->params.at(i)->toString(this, indent + 1) + "\n";
+    }
+    output += make_padding(indent) + "params: " + param_str;
+  }
+
+    if (ast->ret_type) {
+    output += make_padding(indent) + "ret_type: " + ast->ret_type->toString(this, indent + 1) + "\n";
+  }
+
+  output += make_padding(indent) + "ret_expr: " + ast->ret_expr->toString(this, indent + 1) + "}";
   return output;
 }
 

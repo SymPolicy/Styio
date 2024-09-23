@@ -68,6 +68,7 @@ using StyioToStringVisitor = ToStringVisitor<
 
   class AnonyFuncAST,
   class FunctionAST,
+  class SimpleFuncAST,
 
   class CallAST,
   class AttrAST,
@@ -242,6 +243,8 @@ public:
   std::string toString(AnonyFuncAST* ast, int indent = 0);
 
   std::string toString(FunctionAST* ast, int indent = 0);
+
+  std::string toString(SimpleFuncAST* ast, int indent = 0);
 
   std::string toString(InfiniteLoopAST* ast, int indent = 0);
 

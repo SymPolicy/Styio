@@ -15,5 +15,5 @@ __Check List:__ Add a new ast class:
 [x] Add a new `typeInfer` method to `StyioAnalyzer/ASTAnalyzerAST.hpp::StyioAnalyzer`
 [x] Add a new `toStyioIR` method to `StyioAnalyzer/ASTAnalyzerAST.hpp::StyioAnalyzer`
 
-[x] Implement `typeInfer` method in `StyioAnalyzer/TypeInfer.cpp`
-[x] Implement `toStyioIR` method in `StyioAnalyzer/ToStyioIR.cpp`
+[X] Implement `typeInfer` method in `StyioAnalyzer/TypeInfer.cpp`
+[] Implement `toStyioIR` method in `StyioAnalyzer/ToStyioIR.cpp`

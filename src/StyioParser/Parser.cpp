@@ -1683,34 +1683,40 @@ parse_binop_rhs(
   context.drop_all_spaces_comments();
 
   StyioOpType next_token;
-  switch (context.get_curr_char()) {
-    case '+': {
-      context.move(1);
+  switch (context.cur_tok_type()) {
+    /* + */
+    case StyioTokenType::TOK_PLUS: {
+      context.move_forward(1, "parse_binop_rhs(TOK_PLUS)");
       next_token = StyioOpType::Binary_Add;
     } break;
 
-    case '-': {
-      context.move(1);
+    /* - */
+    case StyioTokenType::TOK_MINUS: {
+      context.move_forward(1, "parse_binop_rhs(TOK_MINUS)");
       next_token = StyioOpType::Binary_Sub;
     } break;
 
-    case '*': {
-      context.move(1);
-      if (context.check_drop('*')) {
-        next_token = StyioOpType::Binary_Pow;
-      }
-      else {
-        next_token = StyioOpType::Binary_Mul;
-      }
+    /* * */
+    case StyioTokenType::TOK_STAR: {
+      context.move_forward(1, "parse_binop_rhs(TOK_STAR)");
+      next_token = StyioOpType::Binary_Mul;
     } break;
 
-    case '/': {
-      context.move(1);
+    /* ** */
+    case StyioTokenType::BINOP_POW: {
+      context.move_forward(1, "parse_binop_rhs(BINOP_POW)");
+      next_token = StyioOpType::Binary_Pow;
+    } break;
+
+    /* / */
+    case StyioTokenType::TOK_SLASH: {
+      context.move_forward(1, "parse_binop_rhs(TOK_SLASH)");
       next_token = StyioOpType::Binary_Div;
     } break;
 
-    case '%': {
-      context.move(1);
+    /* % */
+    case StyioTokenType::TOK_PERCENT: {
+      context.move_forward(1, "parse_binop_rhs(TOK_PERCENT)");
       next_token = StyioOpType::Binary_Mod;
     } break;
 
@@ -1720,10 +1726,26 @@ parse_binop_rhs(
   }
 
   if (next_token > curr_token) {
-    output = BinOpAST::Create(curr_token, lhs_ast, parse_binop_rhs(context, rhs_ast, next_token));
+    output = BinOpAST::Create(
+      curr_token,
+      lhs_ast,
+      parse_binop_rhs(
+        context,
+        rhs_ast,
+        next_token
+      )
+    );
   }
   else {
-    output = parse_binop_rhs(context, BinOpAST::Create(curr_token, lhs_ast, rhs_ast), next_token);
+    output = parse_binop_rhs(
+      context,
+      BinOpAST::Create(
+        curr_token,
+        lhs_ast,
+        rhs_ast
+      ),
+      next_token
+    );
   }
 
   return output;
@@ -2033,7 +2055,42 @@ parse_hash_tag(StyioContext& context) {
       // SyntaxError
     }
   }
-  else if (context.map_match(StyioTokenType::MATCH) /* ?= */) {
+  /* Return: CaseAST */
+  else if (context.match(StyioTokenType::MATCH) /* ?= */) {
+    
+  }
+  else if (context.match(StyioTokenType::TOK_EQUAL) /* = */) {
+    context.skip();
+    auto value_expr = parse_expr(context);
+
+    return SimpleFuncAST::Create(tag_name, params, value_expr);
+  }
+  else if (context.match(StyioTokenType::WALRUS) /* := */) {
+    context.skip();
+    auto value_expr = parse_expr(context);
+
+    return SimpleFuncAST::Create(tag_name, params, value_expr);
+  }
+  else if (context.match(StyioTokenType::TOK_COLON) /* : */) {
+    context.skip();
+    if (context.check(StyioTokenType::NAME)) {
+      auto type_name = parse_name_as_str_unsafe(context);
+      auto ret_type = DTypeAST::Create(type_name);
+
+      context.skip();
+      if (context.match(StyioTokenType::TOK_EQUAL) /* = */) {
+        context.skip();
+        auto value_expr = parse_expr(context);
+
+        return SimpleFuncAST::Create(tag_name, params, ret_type, value_expr);
+      }
+      else if (context.match(StyioTokenType::WALRUS) /* := */) {
+        context.skip();
+        auto value_expr = parse_expr(context);
+
+        return SimpleFuncAST::Create(tag_name, params, ret_type, value_expr);
+      }
+    }
   }
 }
 

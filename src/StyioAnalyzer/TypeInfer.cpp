@@ -481,6 +481,11 @@ StyioAnalyzer::typeInfer(FunctionAST* ast) {
 }
 
 void
+StyioAnalyzer::typeInfer(SimpleFuncAST* ast) {
+  // func_defs[ast->func_name->getAsStr()] = ast;
+}
+
+void
 StyioAnalyzer::typeInfer(IteratorAST* ast) {
 }
 

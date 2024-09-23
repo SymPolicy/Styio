@@ -2544,4 +2544,67 @@ public:
   }
 };
 
+class SimpleFuncAST : public StyioASTTraits<SimpleFuncAST>
+{
+private:
+  SimpleFuncAST() {}
+
+  SimpleFuncAST(
+    NameAST* func_name,
+    std::vector<ParamAST*> params,
+    StyioAST* ret_expr
+  ) :
+      func_name(func_name),
+      params(std::move(params)),
+      ret_expr(ret_expr) {
+  }
+
+  SimpleFuncAST(
+    NameAST* func_name,
+    std::vector<ParamAST*> params,
+    DTypeAST* ret_type,
+    StyioAST* ret_expr
+  ) :
+      func_name(func_name),
+      params(std::move(params)),
+      ret_type(ret_type),
+      ret_expr(ret_expr) {
+  }
+
+public:
+  NameAST* func_name = nullptr; /* */
+  std::vector<ParamAST*> params;
+  DTypeAST* ret_type = nullptr; /* */
+  StyioAST* ret_expr = nullptr; /* */
+
+  static SimpleFuncAST* Create() {
+    return new SimpleFuncAST();
+  }
+
+  static SimpleFuncAST* Create(
+    NameAST* func_name,
+    std::vector<ParamAST*> params,
+    DTypeAST* ret_type,
+    StyioAST* ret_expr
+  ) {
+    return new SimpleFuncAST(func_name, params, ret_type, ret_expr);
+  }
+
+  static SimpleFuncAST* Create(
+    NameAST* func_name,
+    std::vector<ParamAST*> params,
+    StyioAST* ret_expr
+  ) {
+    return new SimpleFuncAST(func_name, params, ret_expr);
+  }
+
+  const StyioASTType getNodeType() const {
+    return StyioASTType::SimpleFunc;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "TupleOp", 0};
+  }
+};
+
 #endif

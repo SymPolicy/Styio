@@ -421,6 +421,7 @@ enum class StyioASTType
    */
 
   Func,
+  SimpleFunc,
   AnonyFunc,
   MatchCases,
   Struct,

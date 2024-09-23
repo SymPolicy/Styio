@@ -74,6 +74,7 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
 
   class AnonyFuncAST,
   class FunctionAST,
+  class SimpleFuncAST,
 
   class CallAST,
   class AttrAST,
@@ -194,6 +195,7 @@ public:
   void typeInfer(InfiniteAST* ast);
   void typeInfer(AnonyFuncAST* ast);
   void typeInfer(FunctionAST* ast);
+  void typeInfer(SimpleFuncAST* ast);
   void typeInfer(InfiniteLoopAST* ast);
   void typeInfer(IteratorAST* ast);
   void typeInfer(MatchCasesAST* ast);
@@ -256,6 +258,7 @@ public:
   StyioIR* toStyioIR(InfiniteAST* ast);
   StyioIR* toStyioIR(AnonyFuncAST* ast);
   StyioIR* toStyioIR(FunctionAST* ast);
+  StyioIR* toStyioIR(SimpleFuncAST* ast);
   StyioIR* toStyioIR(InfiniteLoopAST* ast);
   StyioIR* toStyioIR(IteratorAST* ast);
   StyioIR* toStyioIR(MatchCasesAST* ast);

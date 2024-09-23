@@ -211,6 +211,10 @@ reprASTType(StyioASTType type, std::string extra) {
       output += std::string("func");
     } break;
 
+    case StyioASTType::SimpleFunc: {
+      output += std::string("func_simple");
+    } break;
+
     case StyioASTType::Struct: {
       output += std::string("struct");
     } break;

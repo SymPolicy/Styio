@@ -217,4 +217,6 @@ class PrintAST;
 class ReadFileAST;
 class WriteFileAST;
 
+class SimpleFuncAST;
+
 #endif

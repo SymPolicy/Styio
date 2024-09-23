@@ -333,6 +333,11 @@ StyioAnalyzer::toStyioIR(FunctionAST* ast) {
 }
 
 StyioIR*
+StyioAnalyzer::toStyioIR(SimpleFuncAST* ast) {
+  return SGConstInt::Create(0);
+}
+
+StyioIR*
 StyioAnalyzer::toStyioIR(IteratorAST* ast) {
   return SGConstInt::Create(0);
 }
