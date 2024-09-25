@@ -1,4 +1,4 @@
 // RUN: /home/Styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
 
 /* Minimalist Style: Expression Assignment */
-# f(x, y): T = x + y
+# f(x, y) : T = x + y

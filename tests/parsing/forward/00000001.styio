@@ -1,6 +1,6 @@
 // RUN: /home/Styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
 
-/* function definition: completed format */
-# f := (x, y) => T {
+/* Function Definition: Complete Format */
+# f(x, y) : T => {
   << x + y
 }

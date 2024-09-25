@@ -255,7 +255,7 @@ parse_path(StyioContext& context) {
   return ResPathAST::Create(StyioPathType::local_relevant_any, text);
 }
 
-DTypeAST*
+TypeAST*
 parse_dtype(StyioContext& context) {
   string text = "";
 
@@ -269,7 +269,7 @@ parse_dtype(StyioContext& context) {
     context.move(1);
   }
 
-  return DTypeAST::Create(text);
+  return TypeAST::Create(text);
 }
 
 /*
@@ -289,7 +289,7 @@ parse_argument(StyioContext& context) {
   } while (context.check_isalnum_());
 
   NameAST* name = NameAST::Create(namestr);
-  DTypeAST* data_type;
+  TypeAST* data_type;
   StyioAST* default_value;
 
   context.drop_white_spaces();

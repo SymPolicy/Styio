@@ -1,7 +1,11 @@
 // RUN: /home/Styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
 
-# iterator >> (it) {
-  it.do()
-}
+# match (x) ?= {
+  1 => { >_("Case 1") }
+  2 => { >_("Case 2") }
+  _ => { >_("Default") }
+} 
+
+match(2)
 
 a => iterator => 

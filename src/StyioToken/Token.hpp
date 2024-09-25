@@ -292,6 +292,7 @@ enum class StyioASTType
   // Identifier: [a-zA-Z0-9_]
   Id,
   DType,
+  TypeTuple,
   TypedVar,
   OptArg,
   OptKwArg,

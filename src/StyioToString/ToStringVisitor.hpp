@@ -52,7 +52,8 @@ using StyioToStringVisitor = ToStringVisitor<
   class TupleAST,
 
   class NameAST,
-  class DTypeAST,
+  class TypeAST,
+  class TypeTupleAST,
 
   class VarAST,
   class ParamAST,
@@ -162,7 +163,9 @@ public:
 
   std::string toString(ExtractorAST* ast, int indent = 0);
 
-  std::string toString(DTypeAST* ast, int indent = 0);
+  std::string toString(TypeAST* ast, int indent = 0);
+
+  std::string toString(TypeTupleAST* ast, int indent = 0);
 
   std::string toString(IntAST* ast, int indent = 0);
 

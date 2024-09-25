@@ -9,3 +9,9 @@ case | A | B | C |:
 ```
   a: T = <!>
 ```
+
+3. 2 ways of finding unique functions:
+```
+  1. inferenced by back-end
+  2. labeled by user
+```

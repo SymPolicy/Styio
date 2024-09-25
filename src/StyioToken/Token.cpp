@@ -29,6 +29,14 @@ reprASTType(StyioASTType type, std::string extra) {
       output += std::string("name");
     } break;
 
+    case StyioASTType::DType: {
+      output += std::string("type");
+    } break;
+
+    case StyioASTType::TypeTuple: {
+      output += std::string("type.tuple");
+    } break;
+
     case StyioASTType::Variable: {
       output += std::string("var");
     } break;
@@ -212,7 +220,7 @@ reprASTType(StyioASTType type, std::string extra) {
     } break;
 
     case StyioASTType::SimpleFunc: {
-      output += std::string("func_simple");
+      output += std::string("func.simple");
     } break;
 
     case StyioASTType::Struct: {
@@ -299,9 +307,7 @@ reprASTType(StyioASTType type, std::string extra) {
       output += std::string("chain_of_data_processing");
     } break;
 
-    case StyioASTType::DType: {
-      output += std::string("type");
-    } break;
+    
 
     case StyioASTType::TypedVar: {
       output += std::string("var");

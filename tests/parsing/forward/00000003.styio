@@ -1,9 +1,3 @@
 // RUN: /home/Styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
 
-/* 
-  Return with types;
-  Return in a tuple.
- */
-# f (x, y) 
-  => (T1, T2) 
-  << (x + y, x - y)
+# f : (T1, T2) << ("a", "b")

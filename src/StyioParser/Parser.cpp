@@ -76,11 +76,11 @@ parse_name_unsafe(StyioContext& context) {
   return ret_val;
 }
 
-DTypeAST*
+TypeAST*
 parse_name_as_type_unsafe(StyioContext& context) {
   auto name = context.cur_tok()->original;
   context.move_forward(1, "parse_name_as_type_unsafe");
-  return DTypeAST::Create(name);
+  return TypeAST::Create(name);
 }
 
 IntAST*
@@ -284,7 +284,7 @@ parse_path(StyioContext& context) {
   return ResPathAST::Create(StyioPathType::local_relevant_any, text);
 }
 
-DTypeAST*
+TypeAST*
 parse_dtype(StyioContext& context) {
   string text = "";
 
@@ -298,7 +298,7 @@ parse_dtype(StyioContext& context) {
     context.move(1);
   }
 
-  return DTypeAST::Create(text);
+  return TypeAST::Create(text);
 }
 
 /*
@@ -318,7 +318,7 @@ parse_argument(StyioContext& context) {
   } while (context.check_isalnum_());
 
   NameAST* name = NameAST::Create(namestr);
-  DTypeAST* data_type;
+  TypeAST* data_type;
   StyioAST* default_value;
 
   context.drop_white_spaces();
@@ -2010,42 +2010,62 @@ parse_hash_tag(StyioContext& context) {
     tag_name = parse_name_unsafe(context);
   }
 
-  /* TAG MUTABLE (OR NOT) */
-
-  bool is_final = false;
-
   context.skip();
-  if (context.match(StyioTokenType::WALRUS) /* := */) {
-    is_final = true;
-  }
-  else if (context.match(StyioTokenType::TOK_EQUAL) /* = */) {
-    is_final = false;
-  }
-
   auto params = parse_params(context);
 
+  std::variant<TypeAST*, TypeTupleAST*> ret_type;
   context.skip();
-  if (context.map_match(StyioTokenType::ARROW_DOUBLE_RIGHT) /* => */) {
+  if (context.match(StyioTokenType::TOK_COLON) /* : */) {
     context.skip();
-
-    DTypeAST* ret_type;
     if (context.check(StyioTokenType::NAME)) {
-      ret_type = parse_name_as_type_unsafe(context);
+      auto type_name = parse_name_as_str_unsafe(context);
+      ret_type = TypeAST::Create(type_name);
     }
-    else {
-      ret_type = DTypeAST::Create();
-    }
+    else if (context.match(StyioTokenType::TOK_LPAREN) /* ( */) {
+      std::vector<TypeAST*> types;
+      do {
+        context.skip();
+        if (context.check(StyioTokenType::NAME)) {
+          TypeAST* type_name = parse_name_as_type_unsafe(context);
+          types.push_back(type_name);
+        }
+      } while (context.try_match(StyioTokenType::TOK_COMMA) /* , */);
 
+      context.try_match_panic(StyioTokenType::TOK_RPAREN); /* ) */
+
+      ret_type = TypeTupleAST::Create(types);
+    }
+  }
+  
+
+  context.skip();
+  if (context.match(StyioTokenType::TOK_EQUAL) /* = */) {
+    if (context.match(StyioTokenType::TOK_RANGBRAC) /* > */) {
+      context.skip();
+      if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
+        auto block = parse_block(context);
+        return FunctionAST::Create(tag_name, false, params, ret_type, block);
+      }
+      else {
+        auto stmt = parse_stmt_or_expr(context);
+        return SimpleFuncAST::Create(tag_name, params, ret_type, stmt);
+      }
+    }
+    /* f(a, b) = a + b */
+    else {
+      context.skip();
+      auto value_expr = parse_expr(context);
+
+      return SimpleFuncAST::Create(tag_name, false, params, ret_type, value_expr);
+    }
+  }
+  else if (context.match(StyioTokenType::WALRUS) /* := */) {
     context.skip();
-    if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
-      auto block = parse_block(context);
+    auto value_expr = parse_expr(context);
 
-      return FunctionAST::Create(tag_name, is_final, params, ret_type, block);
-    }
-    else {
-      auto ret_expr = parse_expr(context);
-      return FunctionAST::Create(tag_name, is_final, params, ret_type, ret_expr);
-    }
+    return SimpleFuncAST::Create(tag_name, true, params, value_expr);
+  }
+  else if (context.match(StyioTokenType::MATCH) /* ?= */) {
   }
   else if (context.match(StyioTokenType::ITERATOR) /* >> */) {
     if (tag_name) {
@@ -2055,42 +2075,13 @@ parse_hash_tag(StyioContext& context) {
       // SyntaxError
     }
   }
-  /* Return: CaseAST */
-  else if (context.match(StyioTokenType::MATCH) /* ?= */) {
-    
-  }
-  else if (context.match(StyioTokenType::TOK_EQUAL) /* = */) {
+  else if (context.match(StyioTokenType::EXTRACTOR) /* << */) {
+    here();
+
     context.skip();
     auto value_expr = parse_expr(context);
 
-    return SimpleFuncAST::Create(tag_name, params, value_expr);
-  }
-  else if (context.match(StyioTokenType::WALRUS) /* := */) {
-    context.skip();
-    auto value_expr = parse_expr(context);
-
-    return SimpleFuncAST::Create(tag_name, params, value_expr);
-  }
-  else if (context.match(StyioTokenType::TOK_COLON) /* : */) {
-    context.skip();
-    if (context.check(StyioTokenType::NAME)) {
-      auto type_name = parse_name_as_str_unsafe(context);
-      auto ret_type = DTypeAST::Create(type_name);
-
-      context.skip();
-      if (context.match(StyioTokenType::TOK_EQUAL) /* = */) {
-        context.skip();
-        auto value_expr = parse_expr(context);
-
-        return SimpleFuncAST::Create(tag_name, params, ret_type, value_expr);
-      }
-      else if (context.match(StyioTokenType::WALRUS) /* := */) {
-        context.skip();
-        auto value_expr = parse_expr(context);
-
-        return SimpleFuncAST::Create(tag_name, params, ret_type, value_expr);
-      }
-    }
+    return SimpleFuncAST::Create(tag_name, true, params, ret_type, value_expr);
   }
 }
 
@@ -2170,8 +2161,11 @@ parse_params(StyioContext& context) {
 
         params.push_back(ParamAST::Create(
           var_name,
-          DTypeAST::Create(var_type)
+          TypeAST::Create(var_type)
         ));
+      }
+      else {
+        params.push_back(ParamAST::Create(var_name));
       }
     }
   } while (context.try_match(StyioTokenType::TOK_COMMA) /* , */);

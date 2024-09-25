@@ -1,9 +1,3 @@
 // RUN: /home/Styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
 
-# match (x) ?= {
-  1 => { >_("Case 1") }
-  2 => { >_("Case 2") }
-  _ => { >_("Default") }
-} 
-
-match(2)
+f(x) : (T1, T2) => do()

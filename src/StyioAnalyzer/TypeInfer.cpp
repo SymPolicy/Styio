@@ -34,7 +34,11 @@ StyioAnalyzer::typeInfer(NameAST* ast) {
 }
 
 void
-StyioAnalyzer::typeInfer(DTypeAST* ast) {
+StyioAnalyzer::typeInfer(TypeAST* ast) {
+}
+
+void
+StyioAnalyzer::typeInfer(TypeTupleAST* ast) {
 }
 
 void

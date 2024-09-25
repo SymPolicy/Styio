@@ -50,7 +50,7 @@ class TupleAST;
   - DType (Data Type)
 */
 class NameAST;
-class DTypeAST;
+class TypeAST;
 
 /*
   Variable Types:
@@ -218,5 +218,6 @@ class ReadFileAST;
 class WriteFileAST;
 
 class SimpleFuncAST;
+class TypeTupleAST;
 
 #endif

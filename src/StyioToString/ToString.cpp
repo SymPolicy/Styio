@@ -41,8 +41,20 @@ StyioRepr::toString(NameAST* ast, int indent) {
 }
 
 std::string
-StyioRepr::toString(DTypeAST* ast, int indent) {
+StyioRepr::toString(TypeAST* ast, int indent) {
   return reprASTType(ast->getNodeType()) + " { " + ast->type.name + " }";
+}
+
+std::string
+StyioRepr::toString(TypeTupleAST* ast, int indent) {
+  std::string type_str = "\n";
+  for (size_t i = 0; i < ast->type_list.size(); i++) {
+    type_str += make_padding(indent + 1) + ast->type_list.at(i)->toString(this, indent + 2) + "\n";
+  }
+
+  return reprASTType(ast->getNodeType()) + " {"
+         + type_str
+         + "}";
 }
 
 std::string
@@ -712,11 +724,8 @@ std::string
 StyioRepr::toString(FunctionAST* ast, int indent) {
   string suffix = "";
 
-  if (ast->is_final) {
-    suffix = "_final";
-  }
-  else {
-    suffix = "_flex";
+  if (ast->is_unique) {
+    suffix = ".unique";
   }
 
   string output = reprASTType(ast->getNodeType(), suffix) + "{" + "\n";
@@ -725,15 +734,26 @@ StyioRepr::toString(FunctionAST* ast, int indent) {
     output += make_padding(indent) + "func_name: " + ast->func_name->toString(this, indent + 1) + "\n";
   }
 
-  std::string param_str;
-  for (size_t i = 0; i < ast->params.size(); i++) {
-    param_str += make_padding(indent) + ast->params.at(i)->toString(this, indent + 1) + "\n";
+  if (not ast->params.empty()) {
+    std::string param_str = "\n";
+    for (size_t i = 0; i < ast->params.size(); i++) {
+      param_str += make_padding(indent + 1) + ast->params.at(i)->toString(this, indent + 2);
+      param_str += "\n";
+    }
+    output += make_padding(indent) + "params: " + param_str;
   }
 
-  output += make_padding(indent) + "params: " + param_str;
+  if (not ast->ret_type.valueless_by_exception()) {
+    std::string ret_type_str;
 
-  if (ast->ret_type) {
-    output += make_padding(indent) + "ret_type: " + ast->ret_type->toString(this, indent + 1) + "\n";
+    if (std::holds_alternative<TypeAST*>(ast->ret_type)) {
+      ret_type_str = std::get<TypeAST*>(ast->ret_type)->toString(this, indent + 1);
+    }
+    else if (std::holds_alternative<TypeTupleAST*>(ast->ret_type)) {
+      ret_type_str = std::get<TypeTupleAST*>(ast->ret_type)->toString(this, indent + 1);
+    }
+
+    output += make_padding(indent) + "ret_type: " + ret_type_str + "\n";
   }
 
   output += make_padding(indent) + "func_body: " + ast->func_body->toString(this, indent + 1) + "}";
@@ -742,22 +762,37 @@ StyioRepr::toString(FunctionAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(SimpleFuncAST* ast, int indent) {
-  string output = reprASTType(ast->getNodeType()) + "{" + "\n";
+  std::string suffix;
+  if (ast->is_unique) {
+    suffix = ".unique";
+  }
+
+  string output = reprASTType(ast->getNodeType(), suffix) + "{" + "\n";
 
   if (ast->func_name) {
     output += make_padding(indent) + "func_name: " + ast->func_name->toString(this, indent + 1) + "\n";
   }
 
   if (not ast->params.empty()) {
-    std::string param_str;
+    std::string param_str = "\n";
     for (size_t i = 0; i < ast->params.size(); i++) {
-      param_str += make_padding(indent) + ast->params.at(i)->toString(this, indent + 1) + "\n";
+      param_str += make_padding(indent + 1) + ast->params.at(i)->toString(this, indent + 2);
+      param_str += "\n";
     }
     output += make_padding(indent) + "params: " + param_str;
   }
 
-    if (ast->ret_type) {
-    output += make_padding(indent) + "ret_type: " + ast->ret_type->toString(this, indent + 1) + "\n";
+  if (not ast->ret_type.valueless_by_exception()) {
+    std::string ret_type_str;
+
+    if (std::holds_alternative<TypeAST*>(ast->ret_type)) {
+      ret_type_str = std::get<TypeAST*>(ast->ret_type)->toString(this, indent + 1);
+    }
+    else if (std::holds_alternative<TypeTupleAST*>(ast->ret_type)) {
+      ret_type_str = std::get<TypeTupleAST*>(ast->ret_type)->toString(this, indent + 1);
+    }
+
+    output += make_padding(indent) + "ret_type: " + ret_type_str + "\n";
   }
 
   output += make_padding(indent) + "ret_expr: " + ast->ret_expr->toString(this, indent + 1) + "}";

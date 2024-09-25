@@ -91,7 +91,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class TupleAST,
 
   class NameAST,
-  class DTypeAST,
+  class TypeAST,
 
   class VarAST,
   class Param,

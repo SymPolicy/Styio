@@ -3,6 +3,7 @@
 #define STYIO_AST_H_
 
 // [C++]
+#include <variant>
 #include <vector>
 
 using std::vector;
@@ -126,16 +127,18 @@ public:
   }
 };
 
-class DTypeAST : public StyioASTTraits<DTypeAST>
+class TypeAST : public StyioASTTraits<TypeAST>
 {
-private:
-  DTypeAST() {}
+public:
+  StyioDataType type = StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
 
-  DTypeAST(StyioDataType data_type) :
+  TypeAST() {}
+
+  TypeAST(StyioDataType data_type) :
       type(data_type) {
   }
 
-  DTypeAST(
+  TypeAST(
     string type_name
   ) {
     auto it = DTypeTable.find(type_name);
@@ -147,19 +150,16 @@ private:
     }
   }
 
-public:
-  StyioDataType type = StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
-
-  static DTypeAST* Create() {
-    return new DTypeAST();
+  static TypeAST* Create() {
+    return new TypeAST();
   }
 
-  static DTypeAST* Create(StyioDataType data_type) {
-    return new DTypeAST(data_type);
+  static TypeAST* Create(StyioDataType data_type) {
+    return new TypeAST(data_type);
   }
 
-  static DTypeAST* Create(string type_name) {
-    return new DTypeAST(type_name);
+  static TypeAST* Create(string type_name) {
+    return new TypeAST(type_name);
   }
 
   void setType(StyioDataType new_type) {
@@ -176,6 +176,37 @@ public:
 
   const StyioDataType getDataType() const {
     return type;
+  }
+};
+
+class TypeTupleAST : public StyioASTTraits<TypeTupleAST>
+{
+private:
+  TypeTupleAST() {}
+
+  TypeTupleAST(
+    std::vector<TypeAST*> type_list
+  ) :
+      type_list(type_list) {
+  }
+
+public:
+  std::vector<TypeAST*> type_list;
+
+  static TypeTupleAST* Create() {
+    return new TypeTupleAST();
+  }
+
+  static TypeTupleAST* Create(std::vector<TypeAST*> type_list) {
+    return new TypeTupleAST(type_list);
+  }
+
+  const StyioASTType getNodeType() const {
+    return StyioASTType::TypeTuple;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Tuple, "TypeTuple", 0};
   }
 };
 
@@ -297,7 +328,7 @@ class FloatAST : public StyioASTTraits<FloatAST>
 {
 public:
   string value;
-  DTypeAST* data_type = DTypeAST::Create(StyioDataType{StyioDataTypeOption::Float, "Float", 64});
+  TypeAST* data_type = TypeAST::Create(StyioDataType{StyioDataTypeOption::Float, "Float", 64});
 
   FloatAST(const string& value) :
       value(value) {
@@ -598,21 +629,21 @@ public:
 class VarAST : public StyioASTTraits<VarAST>
 {
 public:
-  NameAST* var_name = NameAST::Create();   /* Variable Name */
-  DTypeAST* var_type = DTypeAST::Create(); /* Variable Data Type */
-  StyioAST* val_init = nullptr;            /* Variable Initial Value */
+  NameAST* var_name = NameAST::Create(); /* Variable Name */
+  TypeAST* var_type = TypeAST::Create(); /* Variable Data Type */
+  StyioAST* val_init = nullptr;          /* Variable Initial Value */
 
   VarAST(NameAST* name) :
       var_name(name),
-      var_type(DTypeAST::Create()) {
+      var_type(TypeAST::Create()) {
   }
 
-  VarAST(NameAST* name, DTypeAST* data_type) :
+  VarAST(NameAST* name, TypeAST* data_type) :
       var_name(name),
       var_type(data_type) {
   }
 
-  VarAST(NameAST* name, DTypeAST* data_type, StyioAST* default_value) :
+  VarAST(NameAST* name, TypeAST* data_type, StyioAST* default_value) :
       var_name(name),
       var_type(data_type),
       val_init(default_value) {
@@ -622,7 +653,7 @@ public:
     return new VarAST(name);
   }
 
-  static VarAST* Create(NameAST* name, DTypeAST* data_type) {
+  static VarAST* Create(NameAST* name, TypeAST* data_type) {
     return new VarAST(name, data_type);
   }
 
@@ -646,7 +677,7 @@ public:
     return var_name->getAsStr();
   }
 
-  DTypeAST* getDType() {
+  TypeAST* getDType() {
     return var_type;
   }
 
@@ -673,7 +704,7 @@ private:
 
   ParamAST(
     NameAST* name,
-    DTypeAST* data_type
+    TypeAST* data_type
   ) :
       VarAST(name, data_type),
       var_name(name),
@@ -682,7 +713,7 @@ private:
 
   ParamAST(
     NameAST* name,
-    DTypeAST* data_type,
+    TypeAST* data_type,
     StyioAST* default_value
   ) :
       VarAST(name, data_type, default_value),
@@ -695,7 +726,7 @@ public:
   using VarAST::isTyped;
 
   NameAST* var_name = nullptr;  /* Variable Name */
-  DTypeAST* var_type = nullptr; /* Variable Data Type */
+  TypeAST* var_type = nullptr;  /* Variable Data Type */
   StyioAST* val_init = nullptr; /* Variable Initial Value */
 
   const StyioASTType getNodeType() const {
@@ -710,11 +741,11 @@ public:
     return new ParamAST(name);
   }
 
-  static ParamAST* Create(NameAST* name, DTypeAST* data_type) {
+  static ParamAST* Create(NameAST* name, TypeAST* data_type) {
     return new ParamAST(name, data_type);
   }
 
-  static ParamAST* Create(NameAST* name, DTypeAST* data_type, StyioAST* default_value) {
+  static ParamAST* Create(NameAST* name, TypeAST* data_type, StyioAST* default_value) {
     return new ParamAST(name, data_type, default_value);
   }
 
@@ -722,7 +753,7 @@ public:
     return var_name->getAsStr();
   }
 
-  DTypeAST* getDType() {
+  TypeAST* getDType() {
     return var_type;
   }
 
@@ -1005,7 +1036,7 @@ class TupleAST : public StyioASTTraits<TupleAST>
   vector<StyioAST*> elements;
 
   bool consistency = false;
-  DTypeAST* consistent_type = DTypeAST::Create();
+  TypeAST* consistent_type = TypeAST::Create();
 
 public:
   TupleAST(vector<StyioAST*> elems) :
@@ -1024,7 +1055,7 @@ public:
     return elements;
   }
 
-  DTypeAST* getDTypeObj() {
+  TypeAST* getDTypeObj() {
     return consistent_type;
   }
 
@@ -1084,7 +1115,7 @@ class ListAST : public StyioASTTraits<ListAST>
 {
   vector<StyioAST*> elements_;
   bool consistency = false;
-  DTypeAST* consistent_type = DTypeAST::Create();
+  TypeAST* consistent_type = TypeAST::Create();
 
 public:
   ListAST() {
@@ -1106,7 +1137,7 @@ public:
     return elements_;
   }
 
-  DTypeAST* getDTypeObj() {
+  TypeAST* getDTypeObj() {
     return consistent_type;
   }
 
@@ -1285,7 +1316,7 @@ public:
 class BinOpAST : public StyioASTTraits<BinOpAST>
 {
 public:
-  DTypeAST* data_type = DTypeAST::Create();
+  TypeAST* data_type = TypeAST::Create();
 
   StyioOpType operand;
   StyioAST* LHS = nullptr;
@@ -2329,13 +2360,41 @@ class FunctionAST : public StyioASTTraits<FunctionAST>
 private:
   FunctionAST(
     NameAST* name,
-    bool is_final,
+    bool is_unique,
     std::vector<ParamAST*> params,
-    DTypeAST* ret_type,
+    TypeAST* ret_type,
     StyioAST* body
   ) :
       func_name(name),
-      is_final(is_final),
+      is_unique(is_unique),
+      params(params),
+      ret_type(ret_type),
+      func_body(body) {
+  }
+
+  FunctionAST(
+    NameAST* name,
+    bool is_unique,
+    std::vector<ParamAST*> params,
+    TypeTupleAST* ret_type,
+    StyioAST* body
+  ) :
+      func_name(name),
+      is_unique(is_unique),
+      params(params),
+      ret_type(ret_type),
+      func_body(body) {
+  }
+
+  FunctionAST(
+    NameAST* name,
+    bool is_unique,
+    std::vector<ParamAST*> params,
+    std::variant<TypeAST*, TypeTupleAST*> ret_type,
+    StyioAST* body
+  ) :
+      func_name(name),
+      is_unique(is_unique),
       params(params),
       ret_type(ret_type),
       func_body(body) {
@@ -2343,9 +2402,9 @@ private:
 
 public:
   NameAST* func_name = nullptr;
-  bool is_final = false;
+  bool is_unique = false;
   std::vector<ParamAST*> params;
-  DTypeAST* ret_type = nullptr;
+  std::variant<TypeAST*, TypeTupleAST*> ret_type;
 
   /*
     Forward (BlockAST)
@@ -2370,12 +2429,32 @@ public:
 
   static FunctionAST* Create(
     NameAST* name,
-    bool is_final,
+    bool is_unique,
     std::vector<ParamAST*> params,
-    DTypeAST* ret_type,
+    TypeAST* ret_type,
     StyioAST* body
   ) {
-    return new FunctionAST(name, is_final, params, ret_type, body);
+    return new FunctionAST(name, is_unique, params, ret_type, body);
+  }
+
+  static FunctionAST* Create(
+    NameAST* name,
+    bool is_unique,
+    std::vector<ParamAST*> params,
+    TypeTupleAST* ret_type,
+    StyioAST* body
+  ) {
+    return new FunctionAST(name, is_unique, params, ret_type, body);
+  }
+
+  static FunctionAST* Create(
+    NameAST* name,
+    bool is_unique,
+    std::vector<ParamAST*> params,
+    std::variant<TypeAST*, TypeTupleAST*> ret_type,
+    StyioAST* body
+  ) {
+    return new FunctionAST(name, is_unique, params, ret_type, body);
   }
 
   const StyioASTType getNodeType() const {
@@ -2396,7 +2475,7 @@ public:
   }
 
   bool hasRetType() {
-    if (ret_type) {
+    if (ret_type.valueless_by_exception()) {
       return true;
     }
     else {
@@ -2409,12 +2488,6 @@ public:
   }
 
   void setRetType(StyioDataType type) {
-    if (ret_type) {
-      ret_type->setType(type);
-    }
-    else {
-      ret_type = DTypeAST::Create(type);
-    }
   }
 
   bool allArgsTyped() {
@@ -2436,6 +2509,217 @@ public:
     }
 
     return param_map;
+  }
+};
+
+class SimpleFuncAST : public StyioASTTraits<SimpleFuncAST>
+{
+private:
+  SimpleFuncAST() {}
+
+  SimpleFuncAST(
+    NameAST* func_name,
+    std::vector<ParamAST*> params,
+    StyioAST* ret_expr
+  ) :
+      func_name(func_name),
+      params(std::move(params)),
+      ret_expr(ret_expr) {
+  }
+
+  SimpleFuncAST(
+    NameAST* func_name,
+    bool is_unique,
+    std::vector<ParamAST*> params,
+    StyioAST* ret_expr
+  ) :
+      func_name(func_name),
+      is_unique(is_unique),
+      params(std::move(params)),
+      ret_expr(ret_expr) {
+  }
+
+  /* TypeAST */
+
+  SimpleFuncAST(
+    NameAST* func_name,
+    std::vector<ParamAST*> params,
+    TypeAST* ret_type,
+    StyioAST* ret_expr
+  ) :
+      func_name(func_name),
+      params(std::move(params)),
+      ret_type(ret_type),
+      ret_expr(ret_expr) {
+  }
+
+  SimpleFuncAST(
+    NameAST* func_name,
+    bool is_unique,
+    std::vector<ParamAST*> params,
+    TypeAST* ret_type,
+    StyioAST* ret_expr
+  ) :
+      func_name(func_name),
+      is_unique(is_unique),
+      params(std::move(params)),
+      ret_type(ret_type),
+      ret_expr(ret_expr) {
+  }
+
+  /* TypeTupleAST */
+
+  SimpleFuncAST(
+    NameAST* func_name,
+    std::vector<ParamAST*> params,
+    TypeTupleAST* ret_type,
+    StyioAST* ret_expr
+  ) :
+      func_name(func_name),
+      params(std::move(params)),
+      ret_type(ret_type),
+      ret_expr(ret_expr) {
+  }
+
+  SimpleFuncAST(
+    NameAST* func_name,
+    bool is_unique,
+    std::vector<ParamAST*> params,
+    TypeTupleAST* ret_type,
+    StyioAST* ret_expr
+  ) :
+      func_name(func_name),
+      is_unique(is_unique),
+      params(std::move(params)),
+      ret_type(ret_type),
+      ret_expr(ret_expr) {
+  }
+
+  /* std::variant<TypeAST*, TypeTupleAST*> */
+
+  SimpleFuncAST(
+    NameAST* func_name,
+    std::vector<ParamAST*> params,
+    std::variant<TypeAST*, TypeTupleAST*> ret_type,
+    StyioAST* ret_expr
+  ) :
+      func_name(func_name),
+      params(std::move(params)),
+      ret_type(ret_type),
+      ret_expr(ret_expr) {
+  }
+
+  SimpleFuncAST(
+    NameAST* func_name,
+    bool is_unique,
+    std::vector<ParamAST*> params,
+    std::variant<TypeAST*, TypeTupleAST*> ret_type,
+    StyioAST* ret_expr
+  ) :
+      func_name(func_name),
+      is_unique(is_unique),
+      params(std::move(params)),
+      ret_type(ret_type),
+      ret_expr(ret_expr) {
+  }
+
+public:
+  NameAST* func_name = nullptr; /* */
+  bool is_unique = false;
+  std::vector<ParamAST*> params;
+  std::variant<TypeAST*, TypeTupleAST*> ret_type; /* */
+  StyioAST* ret_expr = nullptr;                   /* */
+
+  static SimpleFuncAST* Create() {
+    return new SimpleFuncAST();
+  }
+
+  static SimpleFuncAST* Create(
+    NameAST* func_name,
+    bool is_unique,
+    std::vector<ParamAST*> params,
+    StyioAST* ret_expr
+  ) {
+    return new SimpleFuncAST(func_name, is_unique, params, ret_expr);
+  }
+
+  static SimpleFuncAST* Create(
+    NameAST* func_name,
+    std::vector<ParamAST*> params,
+    StyioAST* ret_expr
+  ) {
+    return new SimpleFuncAST(func_name, params, ret_expr);
+  }
+
+  /* TypeAST */
+
+  static SimpleFuncAST* Create(
+    NameAST* func_name,
+    bool is_unique,
+    std::vector<ParamAST*> params,
+    TypeAST* ret_type,
+    StyioAST* ret_expr
+  ) {
+    return new SimpleFuncAST(func_name, is_unique, params, ret_type, ret_expr);
+  }
+
+  static SimpleFuncAST* Create(
+    NameAST* func_name,
+    std::vector<ParamAST*> params,
+    TypeAST* ret_type,
+    StyioAST* ret_expr
+  ) {
+    return new SimpleFuncAST(func_name, params, ret_type, ret_expr);
+  }
+
+  /* TypeTupleAST */
+
+  static SimpleFuncAST* Create(
+    NameAST* func_name,
+    bool is_unique,
+    std::vector<ParamAST*> params,
+    TypeTupleAST* ret_type,
+    StyioAST* ret_expr
+  ) {
+    return new SimpleFuncAST(func_name, is_unique, params, ret_type, ret_expr);
+  }
+
+  static SimpleFuncAST* Create(
+    NameAST* func_name,
+    std::vector<ParamAST*> params,
+    TypeTupleAST* ret_type,
+    StyioAST* ret_expr
+  ) {
+    return new SimpleFuncAST(func_name, params, ret_type, ret_expr);
+  }
+
+  /* std::variant<TypeAST*, TypeTupleAST*> */
+
+  static SimpleFuncAST* Create(
+    NameAST* func_name,
+    bool is_unique,
+    std::vector<ParamAST*> params,
+    std::variant<TypeAST*, TypeTupleAST*> ret_type,
+    StyioAST* ret_expr
+  ) {
+    return new SimpleFuncAST(func_name, is_unique, params, ret_type, ret_expr);
+  }
+
+  static SimpleFuncAST* Create(
+    NameAST* func_name,
+    std::vector<ParamAST*> params,
+    std::variant<TypeAST*, TypeTupleAST*> ret_type,
+    StyioAST* ret_expr
+  ) {
+    return new SimpleFuncAST(func_name, params, ret_type, ret_expr);
+  }
+
+  const StyioASTType getNodeType() const {
+    return StyioASTType::SimpleFunc;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "TupleOp", 0};
   }
 };
 
@@ -2537,69 +2821,6 @@ public:
 
   const StyioASTType getNodeType() const {
     return StyioASTType::TupleOperation;
-  }
-
-  const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "TupleOp", 0};
-  }
-};
-
-class SimpleFuncAST : public StyioASTTraits<SimpleFuncAST>
-{
-private:
-  SimpleFuncAST() {}
-
-  SimpleFuncAST(
-    NameAST* func_name,
-    std::vector<ParamAST*> params,
-    StyioAST* ret_expr
-  ) :
-      func_name(func_name),
-      params(std::move(params)),
-      ret_expr(ret_expr) {
-  }
-
-  SimpleFuncAST(
-    NameAST* func_name,
-    std::vector<ParamAST*> params,
-    DTypeAST* ret_type,
-    StyioAST* ret_expr
-  ) :
-      func_name(func_name),
-      params(std::move(params)),
-      ret_type(ret_type),
-      ret_expr(ret_expr) {
-  }
-
-public:
-  NameAST* func_name = nullptr; /* */
-  std::vector<ParamAST*> params;
-  DTypeAST* ret_type = nullptr; /* */
-  StyioAST* ret_expr = nullptr; /* */
-
-  static SimpleFuncAST* Create() {
-    return new SimpleFuncAST();
-  }
-
-  static SimpleFuncAST* Create(
-    NameAST* func_name,
-    std::vector<ParamAST*> params,
-    DTypeAST* ret_type,
-    StyioAST* ret_expr
-  ) {
-    return new SimpleFuncAST(func_name, params, ret_type, ret_expr);
-  }
-
-  static SimpleFuncAST* Create(
-    NameAST* func_name,
-    std::vector<ParamAST*> params,
-    StyioAST* ret_expr
-  ) {
-    return new SimpleFuncAST(func_name, params, ret_expr);
-  }
-
-  const StyioASTType getNodeType() const {
-    return StyioASTType::SimpleFunc;
   }
 
   const StyioDataType getDataType() const {

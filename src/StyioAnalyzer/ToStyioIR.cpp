@@ -39,8 +39,13 @@ StyioAnalyzer::toStyioIR(NameAST* ast) {
 }
 
 StyioIR*
-StyioAnalyzer::toStyioIR(DTypeAST* ast) {
+StyioAnalyzer::toStyioIR(TypeAST* ast) {
   return SGType::Create(ast->type);
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(TypeTupleAST* ast) {
+  return SGConstInt::Create(0);
 }
 
 StyioIR*
