@@ -310,17 +310,22 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 62
       case '>': {
-        size_t count = 1 + count_consecutive(code, loc + 1, '>');
-
-        if (count == 1) {
-          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RANGBRAC, ">"));
+        // std::cout << ">" << std::endl;
+        if (loc + 1 < code.size() - 1 && code.at(loc + 1) == '_') {
+          // std::cout << ">_" << std::endl;
+          tokens.push_back(StyioToken::Create(StyioTokenType::PRINT, ">_"));
+          loc += 2;
+        }
+        else if (loc + 1 < code.size() - 1 && code.at(loc + 1) == '>') {
+          // std::cout << "multi >" << std::endl;
+          size_t count = 2 + count_consecutive(code, loc + 2, '>');
+          tokens.push_back(StyioToken::Create(StyioTokenType::ITERATOR, std::string(count, '>')));
+          loc += count;
         }
         else {
-          tokens.push_back(StyioToken::Create(StyioTokenType::ITERATOR, std::string(count, '>')));
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RANGBRAC, ">"));
+          loc += 1;
         }
-
-        // anyway
-        loc += count;
       } break;
 
       // 63

@@ -2083,6 +2083,7 @@ parse_hash_tag(StyioContext& context) {
     return SimpleFuncAST::Create(tag_name, true, params, value_expr);
   }
   else if (context.match(StyioTokenType::MATCH) /* ?= */) {
+    return parse_cases(context);
   }
   else if (context.match(StyioTokenType::ITERATOR) /* >> */) {
     if (tag_name) {
@@ -2107,48 +2108,52 @@ parse_cases(StyioContext& context) {
   vector<std::pair<StyioAST*, StyioAST*>> pairs;
   StyioAST* _default_stmt;
 
-  /*
-    Danger!
-    the context -> get_curr_char() must be {
-    this line will drop the next 1 character anyway!
-  */
-  context.move(1);
+  context.try_match_panic(StyioTokenType::TOK_LCURBRAC); /* { */
 
-  while (true) {
-    context.drop_all_spaces_comments();
-    if (context.check_drop('_')) {
-      context.find_drop("=>");
-
-      context.drop_all_spaces_comments();
-
-      if (context.check_next('{')) {
-        _default_stmt = parse_block(context);
+  while (not context.match(StyioTokenType::TOK_RCURBRAC) /* } */) {
+    context.skip();
+    if (context.match(StyioTokenType::TOK_UNDLINE) /* _ */) {
+      context.skip();
+      if (context.map_match(StyioTokenType::ARROW_DOUBLE_RIGHT) /* => */) {
+        context.skip();
+        if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
+          _default_stmt = parse_block(context);
+        }
+        else {
+          _default_stmt = parse_stmt_or_expr(context);
+        }
       }
       else {
-        _default_stmt = parse_stmt_or_expr(context);
+        // SyntaxError
+        throw StyioSyntaxError("=> not found for default case");
       }
-
-      break;
-    }
-
-    StyioAST* left = parse_expr(context);
-
-    context.find_drop("=>");
-
-    context.drop_all_spaces_comments();
-
-    StyioAST* right;
-    if (context.check_next('{')) {
-      right = parse_block(context);
     }
     else {
-      right = parse_stmt_or_expr(context);
+      // StyioAST* left = parse_cond(context);
+      StyioAST* left = parse_expr(context);
+
+      context.skip();
+      if (context.map_match(StyioTokenType::ARROW_DOUBLE_RIGHT) /* => */) {
+        StyioAST* right;
+
+        context.skip();
+        if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
+          right = parse_block(context);
+        }
+        else {
+          right = parse_stmt_or_expr(context);
+        }
+
+        pairs.push_back(std::make_pair(left, right));
+      }
+      else {
+        // SyntaxError
+        throw StyioSyntaxError(context.mark_cur_tok("`=>` not found"));
+      }
     }
 
-    pairs.push_back(std::make_pair(left, right));
+    context.skip();
   }
-
-  context.find_drop_panic('}');
 
   if (pairs.size() == 0) {
     return CasesAST::Create(_default_stmt);

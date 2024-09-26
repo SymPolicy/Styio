@@ -53,7 +53,6 @@ StyioRepr::toString(TypeTupleAST* ast, int indent) {
     if (i < ast->type_list.size() - 1) {
       type_str += "\n";
     }
-    
   }
 
   return reprASTType(ast->getNodeType()) + " {"

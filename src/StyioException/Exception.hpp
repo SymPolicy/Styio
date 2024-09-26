@@ -34,10 +34,10 @@ public:
     std::string meta_info,
     std::string msg
   ) :
-      message("\n" + meta_info + "\nStyio.SyntaxError: " + msg + "\n") {}
+      message("\n" + meta_info + "\nStyio.SyntaxError:\n" + msg + "\n") {}
 
   StyioSyntaxError(std::string msg) :
-      message("\nStyio.SyntaxError: " + msg) {}
+      message("\nStyio.SyntaxError:\n" + msg) {}
 
   ~StyioSyntaxError() throw() {}
 

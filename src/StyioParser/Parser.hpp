@@ -218,8 +218,8 @@ public:
       auto tok_seq = it->second;
       for (size_t i = 0; i < tok_seq.size(); i++) {
         if (tok_seq.at(i) != tokens.at(index_of_token + i)->type) {
-          std::cout << StyioToken::getTokName(tok_seq.at(i)) << "\n"
-                    << ": " << StyioToken::getTokName(tokens.at(index_of_token + i)->type) << std::endl;
+          std::cout << "map match " << StyioToken::getTokName(tok_seq.at(i)) << " not equal "
+                    << StyioToken::getTokName(tokens.at(index_of_token + i)->type) << std::endl;
           is_same = false;
         }
       }
@@ -434,7 +434,7 @@ public:
     return output;
   }
 
-  std::string mark_cur_tok() {
+  std::string mark_cur_tok(std::string comment = "") {
     std::string result;
 
     auto row_num = token_coordinates[index_of_token].first;
@@ -446,7 +446,7 @@ public:
     auto that_line = token_lines[row_num];
 
     result += that_line;
-    result += std::string(offset, ' ') + std::string(length, '^') + std::string((that_line.length() - offset - length), '-');
+    result += std::string(offset, ' ') + std::string(length, '^') + std::string((that_line.length() - offset - length), '-') + " " + comment;
 
     return result;
   }

@@ -7,5 +7,3 @@
 } 
 
 match(2)
-
-a => iterator => 
