@@ -77,7 +77,7 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
   class FunctionAST,
   class SimpleFuncAST,
 
-  class CallAST,
+  class FuncCallAST,
   class AttrAST,
 
   class SizeOfAST,
@@ -175,7 +175,7 @@ public:
   void typeInfer(BinOpAST* ast);
   void typeInfer(BinCompAST* ast);
   void typeInfer(CondAST* ast);
-  void typeInfer(CallAST* ast);
+  void typeInfer(FuncCallAST* ast);
   void typeInfer(AttrAST* ast);
   void typeInfer(ListOpAST* ast);
   void typeInfer(ResourceAST* ast);
@@ -239,7 +239,7 @@ public:
   StyioIR* toStyioIR(BinOpAST* ast);
   StyioIR* toStyioIR(BinCompAST* ast);
   StyioIR* toStyioIR(CondAST* ast);
-  StyioIR* toStyioIR(CallAST* ast);
+  StyioIR* toStyioIR(FuncCallAST* ast);
   StyioIR* toStyioIR(AttrAST* ast);
   StyioIR* toStyioIR(ListOpAST* ast);
   StyioIR* toStyioIR(ResourceAST* ast);

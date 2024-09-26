@@ -981,7 +981,7 @@ parse_size_of(StyioContext& context);
 /*
   parse_call
 */
-CallAST*
+FuncCallAST*
 parse_call(
   StyioContext& context,
   NameAST* func_name

@@ -108,7 +108,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class AnonyFuncAST,
   class FunctionAST,
 
-  class CallAST,
+  class FuncCallAST,
 
   class SizeOfAST,
   class TypeConvertAST,

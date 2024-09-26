@@ -1033,12 +1033,14 @@ public:
 /* Tuple */
 class TupleAST : public StyioASTTraits<TupleAST>
 {
+  
+
+public:
   vector<StyioAST*> elements;
 
   bool consistency = false;
   TypeAST* consistent_type = TypeAST::Create();
 
-public:
   TupleAST(vector<StyioAST*> elems) :
       elements(elems) {
   }
@@ -1450,14 +1452,14 @@ public:
   }
 };
 
-class CallAST : public StyioASTTraits<CallAST>
+class FuncCallAST : public StyioASTTraits<FuncCallAST>
 {
 public:
   StyioAST* func_callee = nullptr;
   NameAST* func_name = nullptr;
   vector<StyioAST*> func_args;
 
-  CallAST(
+  FuncCallAST(
     NameAST* func_name,
     vector<StyioAST*> arguments
   ) :
@@ -1465,7 +1467,7 @@ public:
       func_args(arguments) {
   }
 
-  CallAST(
+  FuncCallAST(
     StyioAST* func_callee,
     NameAST* func_name,
     vector<StyioAST*> arguments
@@ -1473,6 +1475,21 @@ public:
       func_callee(func_callee),
       func_name(func_name),
       func_args(arguments) {
+  }
+
+  static FuncCallAST* Create(
+    NameAST* func_name, 
+    vector<StyioAST*> arguments
+  ) {
+    return new FuncCallAST(func_name, arguments);
+  }
+
+  static FuncCallAST* Create(
+    StyioAST* func_callee, 
+    NameAST* func_name, 
+    vector<StyioAST*> arguments
+  ) {
+    return new FuncCallAST(func_callee, func_name, arguments);
   }
 
   NameAST* getFuncName() {

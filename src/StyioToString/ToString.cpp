@@ -49,7 +49,11 @@ std::string
 StyioRepr::toString(TypeTupleAST* ast, int indent) {
   std::string type_str = "\n";
   for (size_t i = 0; i < ast->type_list.size(); i++) {
-    type_str += make_padding(indent + 1) + ast->type_list.at(i)->toString(this, indent + 2) + "\n";
+    type_str += make_padding(indent + 1) + ast->type_list.at(i)->toString(this, indent + 2);
+    if (i < ast->type_list.size() - 1) {
+      type_str += "\n";
+    }
+    
   }
 
   return reprASTType(ast->getNodeType()) + " {"
@@ -164,19 +168,19 @@ StyioRepr::toString(StructAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(TupleAST* ast, int indent) {
-  string ElemStr;
+  string elem_str;
 
-  auto Elems = ast->getElements();
-  for (int i = 0; i < Elems.size(); i++) {
-    ElemStr += make_padding(indent) + Elems[i]->toString(this, indent + 1);
-    if (i < (Elems.size() - 1)) {
-      ElemStr += "\n";
+  auto elems = ast->elements;
+  for (int i = 0; i < elems.size(); i++) {
+    elem_str += make_padding(indent) + elems[i]->toString(this, indent + 1);
+    if (i < (elems.size() - 1)) {
+      elem_str += "\n";
     }
   }
 
-  return reprASTType(ast->getNodeType(), " : ")
+  return reprASTType(ast->getNodeType()) + " : "
          + ast->getDataType().name
-         + " (\n" + ElemStr + ")";
+         + " (\n" + elem_str + ")";
 }
 
 std::string
@@ -495,9 +499,18 @@ StyioRepr::toString(ReturnAST* ast, int indent) {
 }
 
 std::string
-StyioRepr::toString(CallAST* ast, int indent) {
-  string args_str;
+StyioRepr::toString(FuncCallAST* ast, int indent) {
+  std::string out_str;
 
+  out_str += reprASTType(ast->getNodeType(), " {\n");
+
+  if (ast->func_callee) {
+    out_str += make_padding(indent) + ast->func_callee->toString(this, indent + 1) + "\n";
+  }
+
+  out_str += make_padding(indent) + ast->getFuncName()->toString(this, indent + 1) + " {\n";
+
+  string args_str;
   auto call_args = ast->getArgList();
   for (int i = 0; i < call_args.size(); i++) {
     args_str += make_padding(indent + 1) + call_args[i]->toString(this, indent + 2);
@@ -505,12 +518,9 @@ StyioRepr::toString(CallAST* ast, int indent) {
       args_str += "\n";
     }
   }
+  out_str += args_str + "}}";
 
-  return reprASTType(ast->getNodeType(), " {\n")
-         + make_padding(indent) + ast->func_callee->toString(this, indent + 1) + "\n"
-         + make_padding(indent) + ast->getFuncName()->toString(this, indent + 1) + " {\n"
-         + args_str
-         + "}}";
+  return out_str;
 }
 
 std::string

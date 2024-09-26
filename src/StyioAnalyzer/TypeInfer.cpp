@@ -404,7 +404,7 @@ StyioAnalyzer::typeInfer(ReturnAST* ast) {
 }
 
 void
-StyioAnalyzer::typeInfer(CallAST* ast) {
+StyioAnalyzer::typeInfer(FuncCallAST* ast) {
   if (not func_defs.contains(ast->getNameAsStr())) {
     std::cout << "func " << ast->getNameAsStr() << " not exist" << std::endl;
     return;

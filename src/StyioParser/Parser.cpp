@@ -76,6 +76,63 @@ parse_name_unsafe(StyioContext& context) {
   return ret_val;
 }
 
+StyioAST*
+parse_name_expr_unsafe(StyioContext& context) {
+  StyioAST* output;
+
+  auto name = NameAST::Create(context.cur_tok()->original);
+  context.move_forward(1, "parse_name_expr_unsafe");
+
+  context.skip();
+  switch (context.cur_tok_type()) {
+    /* + */
+    case StyioTokenType::TOK_PLUS: {
+      context.move_forward(1);
+      output = parse_binop_rhs(context, name, StyioOpType::Binary_Add);
+    } break;
+
+    /* - */
+    case StyioTokenType::TOK_MINUS: {
+      context.move_forward(1);
+      output = parse_binop_rhs(context, name, StyioOpType::Binary_Sub);
+    } break;
+
+    /* * */
+    case StyioTokenType::TOK_STAR: {
+      context.move_forward(1);
+      output = parse_binop_rhs(context, name, StyioOpType::Binary_Mul);
+    } break;
+
+    /* ** */
+    case StyioTokenType::BINOP_POW: {
+      context.move_forward(1);
+      output = parse_binop_rhs(context, name, StyioOpType::Binary_Pow);
+    } break;
+
+    /* / */
+    case StyioTokenType::TOK_SLASH: {
+      context.move_forward(1);
+      output = parse_binop_rhs(context, name, StyioOpType::Binary_Div);
+    } break;
+
+    /* % */
+    case StyioTokenType::TOK_PERCENT: {
+      context.move_forward(1);
+      output = parse_binop_rhs(context, name, StyioOpType::Binary_Mod);
+    } break;
+
+    /* ( */
+    case StyioTokenType::TOK_LPAREN: {
+      output = parse_call(context, name);
+    } break;
+
+    default:
+      break;
+  }
+
+  return output;
+}
+
 TypeAST*
 parse_name_as_type_unsafe(StyioContext& context) {
   auto name = context.cur_tok()->original;
@@ -732,41 +789,6 @@ parse_expr(StyioContext& context) {
     case StyioTokenType::NAME: {
       output = parse_name(context);
 
-      context.skip();
-      switch (context.cur_tok_type()) {
-        case StyioTokenType::TOK_PLUS: {
-          context.move_forward(1);
-          output = parse_binop_rhs(context, output, StyioOpType::Binary_Add);
-        } break;
-
-        case StyioTokenType::TOK_MINUS: {
-          context.move_forward(1);
-          output = parse_binop_rhs(context, output, StyioOpType::Binary_Sub);
-        } break;
-
-        case StyioTokenType::TOK_STAR: {
-          context.move_forward(1);
-          if (context.check_drop('*')) {
-            output = parse_binop_rhs(context, output, StyioOpType::Binary_Pow);
-          }
-          else {
-            output = parse_binop_rhs(context, output, StyioOpType::Binary_Mul);
-          }
-        } break;
-
-        case StyioTokenType::TOK_SLASH: {
-          context.move_forward(1);
-          output = parse_binop_rhs(context, output, StyioOpType::Binary_Div);
-        } break;
-
-        case StyioTokenType::TOK_PERCENT: {
-          context.move_forward(1);
-          output = parse_binop_rhs(context, output, StyioOpType::Binary_Mod);
-        } break;
-
-        default:
-          break;
-      }
     } break;
 
     /* 0 */
@@ -1208,27 +1230,23 @@ parse_size_of(StyioContext& context) {
   Invoke / Call
 */
 
-CallAST*
+FuncCallAST*
 parse_call(
   StyioContext& context,
   NameAST* func_name
 ) {
-  context.check_drop_panic('(');
+  context.try_match_panic(StyioTokenType::TOK_LPAREN); /* ( */
 
-  vector<StyioAST*> exprs;
-
-  while (not context.check_next(')')) {
-    exprs.push_back(parse_expr(context));
-    context.find_drop(',');
-    context.drop_all_spaces_comments();
+  vector<StyioAST*> args;
+  while (not context.check(StyioTokenType::TOK_RPAREN) /* ) */) {
+    args.push_back(parse_expr(context));
+    context.try_match(StyioTokenType::TOK_COMMA); /* , */
+    context.skip();
   }
 
-  context.check_drop_panic(')');
+  context.try_match_panic(StyioTokenType::TOK_RPAREN); /* ) */
 
-  return new CallAST(
-    func_name,
-    exprs
-  );
+  return FuncCallAST::Create(func_name, args);
 }
 
 AttrAST*
@@ -1277,7 +1295,7 @@ parse_chain_of_call(
       return parse_chain_of_call(context, temp);
     }
     else if (context.check_next('(')) {
-      CallAST* temp = parse_call(context, NameAST::Create(curr_token));
+      FuncCallAST* temp = parse_call(context, NameAST::Create(curr_token));
 
       if (context.check_drop('.')) {
         return parse_chain_of_call(context, temp);
@@ -2036,7 +2054,6 @@ parse_hash_tag(StyioContext& context) {
       ret_type = TypeTupleAST::Create(types);
     }
   }
-  
 
   context.skip();
   if (context.match(StyioTokenType::TOK_EQUAL) /* = */) {

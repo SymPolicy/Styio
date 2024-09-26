@@ -92,7 +92,7 @@ class BinOpAST;
 class AnonyFuncAST;
 class FunctionAST;
 
-class CallAST;
+class FuncCallAST;
 
 class AttrAST;
 

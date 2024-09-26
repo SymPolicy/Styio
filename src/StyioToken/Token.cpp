@@ -34,7 +34,7 @@ reprASTType(StyioASTType type, std::string extra) {
     } break;
 
     case StyioASTType::TypeTuple: {
-      output += std::string("type.tuple");
+      output += std::string("types");
     } break;
 
     case StyioASTType::Variable: {

@@ -1190,7 +1190,7 @@ parse_size_of(StyioContext& context) {
   Invoke / Call
 */
 
-CallAST*
+FuncCallAST*
 parse_call(
   StyioContext& context,
   NameAST* func_name
@@ -1207,7 +1207,7 @@ parse_call(
 
   context.check_drop_panic(')');
 
-  return new CallAST(
+  return new FuncCallAST(
     func_name,
     exprs
   );
@@ -1259,7 +1259,7 @@ parse_chain_of_call(
       return parse_chain_of_call(context, temp);
     }
     else if (context.check_next('(')) {
-      CallAST* temp = parse_call(context, NameAST::Create(curr_token));
+      FuncCallAST* temp = parse_call(context, NameAST::Create(curr_token));
 
       if (context.check_drop('.')) {
         return parse_chain_of_call(context, temp);

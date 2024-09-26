@@ -71,7 +71,7 @@ using StyioToStringVisitor = ToStringVisitor<
   class FunctionAST,
   class SimpleFuncAST,
 
-  class CallAST,
+  class FuncCallAST,
   class AttrAST,
 
   class SizeOfAST,
@@ -203,7 +203,7 @@ public:
 
   std::string toString(CondAST* ast, int indent = 0);
 
-  std::string toString(CallAST* ast, int indent = 0);
+  std::string toString(FuncCallAST* ast, int indent = 0);
 
   std::string toString(AttrAST* ast, int indent = 0);
 
