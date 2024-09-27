@@ -82,7 +82,7 @@ StyioRepr::toString(CharAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(StringAST* ast, int indent) {
-  return reprASTType(ast->getNodeType(), " ") + "{ \"" + ast->getValue() + "\" }";
+  return reprASTType(ast->getNodeType(), " ") + "{ " + ast->getValue() + " }";
 }
 
 std::string
@@ -832,18 +832,23 @@ StyioRepr::toString(InfiniteLoopAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(CasesAST* ast, int indent) {
-  string outstr = "";
+  string outstr = reprASTType(ast->getNodeType(), " ") + "{\n";
 
+  std::string case_str;
   auto Cases = ast->getCases();
   for (int i = 0; i < Cases.size(); i++) {
-    outstr += make_padding(indent) + "Left  : " + std::get<0>(Cases[i])->toString(this, indent + 1) + "\n";
-    outstr += make_padding(indent) + "Right : " + std::get<1>(Cases[i])->toString(this, indent + 1) + "\n";
+    case_str += make_padding(indent) + "(case) " + std::get<0>(Cases[i])->toString(this, indent + 1) + "\n";
+    case_str += make_padding(indent) + std::get<1>(Cases[i])->toString(this, indent + 1) + "\n";
+  }
+  outstr += case_str;
+
+  if (ast->case_default) {
+    outstr += make_padding(indent) + "(default) " + ast->case_default->toString(this, indent + 1);
   }
 
-  return reprASTType(ast->getNodeType(), " ") + "{\n"
-         + outstr
-         + make_padding(indent) + "Default: " + ast->getLastExpr()->toString(this, indent + 1)
-         + "}";
+  outstr += "}";
+
+  return outstr;
 }
 
 std::string

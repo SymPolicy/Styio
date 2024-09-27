@@ -8,7 +8,7 @@
       "program": "${workspaceFolder}/styio",
       "args": [
         "-a",
-        "/home/Styio/tests/parsing/forward/00000004.styio"
+        "/home/Styio/tests/parsing/forward/00000005.styio"
       ],
       "cwd": "${workspaceFolder}"
     }

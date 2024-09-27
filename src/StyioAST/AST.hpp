@@ -90,7 +90,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -123,14 +123,14 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
 class TypeAST : public StyioASTTraits<TypeAST>
 {
 public:
-  StyioDataType type = StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+  StyioDataType type = StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
 
   TypeAST() {}
 
@@ -229,7 +229,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -250,7 +250,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -383,7 +383,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -413,7 +413,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -421,16 +421,20 @@ public:
 
 class CasesAST : public StyioASTTraits<CasesAST>
 {
-  std::vector<std::pair<StyioAST*, StyioAST*>> Cases;
-  StyioAST* LastExpr = nullptr;
+  
 
 public:
+  std::vector<std::pair<StyioAST*, StyioAST*>> case_list;
+  StyioAST* case_default = nullptr;
+
   CasesAST(StyioAST* expr) :
-      LastExpr((expr)) {
+      case_default(expr) {
+        std::cout << "CaseAST Only Default" << std::endl;
   }
 
   CasesAST(std::vector<std::pair<StyioAST*, StyioAST*>> cases, StyioAST* expr) :
-      Cases(cases), LastExpr(expr) {
+      case_list(cases), case_default(expr) {
+        std::cout << "CaseAST List and Default" << std::endl;
   }
 
   static CasesAST* Create(StyioAST* expr) {
@@ -442,11 +446,7 @@ public:
   }
 
   const std::vector<std::pair<StyioAST*, StyioAST*>>& getCases() {
-    return Cases;
-  }
-
-  StyioAST* getLastExpr() {
-    return LastExpr;
+    return case_list;
   }
 
   const StyioASTType getNodeType() const {
@@ -454,7 +454,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -493,7 +493,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -532,7 +532,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -551,7 +551,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -565,7 +565,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -584,7 +584,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -610,7 +610,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -662,7 +662,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 
   void setDataType(StyioDataType type) {
@@ -734,7 +734,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 
   static ParamAST* Create(NameAST* name) {
@@ -782,7 +782,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -805,7 +805,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -839,7 +839,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -876,7 +876,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -919,7 +919,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -956,7 +956,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -989,7 +989,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -1017,7 +1017,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -1033,8 +1033,6 @@ public:
 /* Tuple */
 class TupleAST : public StyioASTTraits<TupleAST>
 {
-  
-
 public:
   vector<StyioAST*> elements;
 
@@ -1106,7 +1104,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -1186,7 +1184,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -1221,7 +1219,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -1254,7 +1252,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -1357,7 +1355,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -1389,7 +1387,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -1448,7 +1446,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -1478,15 +1476,15 @@ public:
   }
 
   static FuncCallAST* Create(
-    NameAST* func_name, 
+    NameAST* func_name,
     vector<StyioAST*> arguments
   ) {
     return new FuncCallAST(func_name, arguments);
   }
 
   static FuncCallAST* Create(
-    StyioAST* func_callee, 
-    NameAST* func_name, 
+    StyioAST* func_callee,
+    NameAST* func_name,
     vector<StyioAST*> arguments
   ) {
     return new FuncCallAST(func_callee, func_name, arguments);
@@ -1509,7 +1507,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -1600,7 +1598,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -1627,7 +1625,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -1664,7 +1662,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -1696,7 +1694,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 
   VarAST* getVar() {
@@ -1734,7 +1732,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 
   VarAST* getVar() {
@@ -1817,7 +1815,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -1847,7 +1845,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -1878,7 +1876,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -1922,7 +1920,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -2067,7 +2065,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -2091,7 +2089,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -2121,7 +2119,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -2187,7 +2185,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -2214,7 +2212,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -2256,7 +2254,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -2303,7 +2301,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -2326,7 +2324,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 
   static MatchCasesAST* make(StyioAST* value, CasesAST* cases) {
@@ -2365,7 +2363,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -2479,7 +2477,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 
   bool hasName() {
@@ -2774,7 +2772,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 
@@ -2813,7 +2811,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
 };
 

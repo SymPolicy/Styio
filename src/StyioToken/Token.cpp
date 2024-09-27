@@ -526,16 +526,16 @@ StyioToken::getTokName(StyioTokenType type) {
       return "<ID>";
 
     case StyioTokenType::INTEGER:
-      return "<INTEGER>";
+      return "<INT>";
 
     case StyioTokenType::DECIMAL:
-      return "<DECIMAL>";
+      return "<FLOAT>";
 
     case StyioTokenType::STRING:
       return "<STRING>";
 
     case StyioTokenType::COMMENT_LINE:
-      return "// COMMENT";
+      return "// COMMENT ";
 
     case StyioTokenType::COMMENT_CLOSED:
       return "/* COMMENT */";
@@ -689,6 +689,12 @@ StyioToken::getTokName(StyioTokenType type) {
 
     case StyioTokenType::BINOP_NE:
       return "<NE>";
+
+    case StyioTokenType::ARROW_DOUBLE_RIGHT:
+      return "=>";
+
+    case StyioTokenType::ARROW_DOUBLE_LEFT:
+      return "<=";
 
     case StyioTokenType::ARROW_SINGLE_RIGHT:
       return "->";

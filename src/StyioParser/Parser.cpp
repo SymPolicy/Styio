@@ -77,11 +77,11 @@ parse_name_unsafe(StyioContext& context) {
 }
 
 StyioAST*
-parse_name_expr_unsafe(StyioContext& context) {
+parse_name_following_unsafe(StyioContext& context) {
   StyioAST* output;
 
   auto name = NameAST::Create(context.cur_tok()->original);
-  context.move_forward(1, "parse_name_expr_unsafe");
+  context.move_forward(1, "parse_name_following_unsafe");
 
   context.skip();
   switch (context.cur_tok_type()) {
@@ -787,8 +787,7 @@ parse_expr(StyioContext& context) {
   switch (context.cur_tok_type()) {
     /* name */
     case StyioTokenType::NAME: {
-      output = parse_name(context);
-
+      output = parse_name_following_unsafe(context);
     } break;
 
     /* 0 */
@@ -2056,9 +2055,8 @@ parse_hash_tag(StyioContext& context) {
   }
 
   context.skip();
-  if (context.match(StyioTokenType::TOK_EQUAL) /* = */) {
-    if (context.match(StyioTokenType::TOK_RANGBRAC) /* > */) {
-      context.skip();
+  if (context.match(StyioTokenType::ARROW_DOUBLE_RIGHT) /* => */) {
+    context.skip();
       if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
         auto block = parse_block(context);
         return FunctionAST::Create(tag_name, false, params, ret_type, block);
@@ -2067,14 +2065,12 @@ parse_hash_tag(StyioContext& context) {
         auto stmt = parse_stmt_or_expr(context);
         return SimpleFuncAST::Create(tag_name, params, ret_type, stmt);
       }
-    }
-    /* f(a, b) = a + b */
-    else {
-      context.skip();
+  }
+  else if (context.match(StyioTokenType::TOK_EQUAL) /* = */) {
+    context.skip();
       auto value_expr = parse_expr(context);
 
       return SimpleFuncAST::Create(tag_name, false, params, ret_type, value_expr);
-    }
   }
   else if (context.match(StyioTokenType::WALRUS) /* := */) {
     context.skip();
@@ -2105,8 +2101,8 @@ parse_hash_tag(StyioContext& context) {
 
 CasesAST*
 parse_cases(StyioContext& context) {
-  vector<std::pair<StyioAST*, StyioAST*>> pairs;
-  StyioAST* _default_stmt;
+  vector<std::pair<StyioAST*, StyioAST*>> case_pairs;
+  StyioAST* default_stmt;
 
   context.try_match_panic(StyioTokenType::TOK_LCURBRAC); /* { */
 
@@ -2114,13 +2110,13 @@ parse_cases(StyioContext& context) {
     context.skip();
     if (context.match(StyioTokenType::TOK_UNDLINE) /* _ */) {
       context.skip();
-      if (context.map_match(StyioTokenType::ARROW_DOUBLE_RIGHT) /* => */) {
+      if (context.match(StyioTokenType::ARROW_DOUBLE_RIGHT) /* => */) {
         context.skip();
         if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
-          _default_stmt = parse_block(context);
+          default_stmt = parse_block(context);
         }
         else {
-          _default_stmt = parse_stmt_or_expr(context);
+          default_stmt = parse_stmt_or_expr(context);
         }
       }
       else {
@@ -2133,7 +2129,7 @@ parse_cases(StyioContext& context) {
       StyioAST* left = parse_expr(context);
 
       context.skip();
-      if (context.map_match(StyioTokenType::ARROW_DOUBLE_RIGHT) /* => */) {
+      if (context.match(StyioTokenType::ARROW_DOUBLE_RIGHT) /* => */) {
         StyioAST* right;
 
         context.skip();
@@ -2144,7 +2140,7 @@ parse_cases(StyioContext& context) {
           right = parse_stmt_or_expr(context);
         }
 
-        pairs.push_back(std::make_pair(left, right));
+        case_pairs.push_back(std::make_pair(left, right));
       }
       else {
         // SyntaxError
@@ -2155,11 +2151,20 @@ parse_cases(StyioContext& context) {
     context.skip();
   }
 
-  if (pairs.size() == 0) {
-    return CasesAST::Create(_default_stmt);
+  for (size_t i = 0; i < case_pairs.size(); i++) {
+    std::cout << "First: " << std::endl;
+    context.show_ast(case_pairs[i].first);
+    std::cout << "Second" << std::endl;
+    context.show_ast(case_pairs[i].second);
+  }
+
+  context.show_ast(default_stmt);
+
+  if (case_pairs.size() == 0) {
+    return CasesAST::Create(default_stmt);
   }
   else {
-    return CasesAST::Create(pairs, _default_stmt);
+    return CasesAST::Create(case_pairs, default_stmt);
   }
 }
 

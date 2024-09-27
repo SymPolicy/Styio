@@ -155,25 +155,26 @@ show_tokens(std::vector<StyioToken*> tokens) {
     << "\n"
     << "\033[1;32mTokens\033[0m"
     << std::endl;
+  std::string sep = " ║ "; // ┃ ║
   for (auto tok : tokens) {
     if (tok->type == StyioTokenType::TOK_LF) {
-      std::cout << std::string(" ║ ") + "\\n" + "\n";
+      std::cout << sep + "\\n" + "\n";
     }
     else if (tok->type == StyioTokenType::TOK_SPACE) {
-      std::cout << std::string(" ║ ") + " ";
+      std::cout << sep + " ";
     }
     else if (tok->type == StyioTokenType::NAME) {
-      std::cout << std::string(" ║ ") + tok->original;
+      std::cout << sep + tok->original;
+    }
+    else if (tok->type == StyioTokenType::STRING) {
+      std::cout << sep + tok->original;
     }
     else if (tok->type == StyioTokenType::INTEGER
              || tok->type == StyioTokenType::DECIMAL) {
-      std::cout << std::string(" ║ ") + StyioToken::getTokName(tok->type) + " = " + tok->original;
-    }
-    else if (tok->type == StyioTokenType::STRING) {
-      std::cout << std::string(" ║ ") + "\"" + tok->original + "\"";
+      std::cout << sep + tok->original + ": " + StyioToken::getTokName(tok->type);
     }
     else {
-      std::cout << std::string(" ║ ") + StyioToken::getTokName(tok->type);
+      std::cout << sep + StyioToken::getTokName(tok->type);
     }
   }
   std::cout << "\n"

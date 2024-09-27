@@ -40,8 +40,9 @@ private:
 
   std::vector<std::vector<std::pair<size_t, size_t>>> token_segmentation; /* offset, length */
   std::vector<std::pair<size_t, size_t>> token_coordinates;               /* row, col */
-
   std::vector<std::string> token_lines; /* lines */
+
+  StyioRepr* ast_repr = new StyioRepr();
 
   void initialize_token_coordinates_and_segmentations() {
     /* token_segmentation */
@@ -182,7 +183,8 @@ public:
   }
 
   bool match(StyioTokenType type) {
-    if (type == this->cur_tok_type()) {
+    auto cur_type = this->cur_tok_type();
+    if (type == cur_type) {
       this->move_forward(1, "match");
       return true;
     }
@@ -890,6 +892,10 @@ public:
         << "|" << i << "|-[" << line_seps.at(i).first << ":" << (line_seps.at(i).first + line_seps.at(i).second) << "] "
         << line << std::endl;
     }
+  }
+
+  void show_ast(StyioAST* ast) {
+    std::cout << ast->toString(ast_repr) << std::endl;
   }
 };
 
