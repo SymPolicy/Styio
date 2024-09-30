@@ -40,7 +40,7 @@ private:
 
   std::vector<std::vector<std::pair<size_t, size_t>>> token_segmentation; /* offset, length */
   std::vector<std::pair<size_t, size_t>> token_coordinates;               /* row, col */
-  std::vector<std::string> token_lines; /* lines */
+  std::vector<std::string> token_lines;                                   /* lines */
 
   StyioRepr* ast_repr = new StyioRepr();
 
@@ -284,6 +284,13 @@ public:
   }
 
   bool try_match_panic(StyioTokenType target, std::string errmsg = "") {
+    // just match
+    if (tokens.at(index_of_token)->type == target) {
+      move_forward(1, "try_match_panic");
+      return true;
+    }
+
+    // skip spaces and match token
     size_t offset = 0;
     while (index_of_token + offset < tokens.size()) {
       switch (tokens.at(index_of_token + offset)->type) {
@@ -990,7 +997,8 @@ parse_size_of(StyioContext& context);
 FuncCallAST*
 parse_call(
   StyioContext& context,
-  NameAST* func_name
+  NameAST* func_name,
+  StyioAST* callee = nullptr
 );
 
 AttrAST*

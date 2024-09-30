@@ -2793,10 +2793,25 @@ private:
       block(block) {
   }
 
+  IteratorAST(
+    StyioAST* collection,
+    std::vector<ParamAST*> params
+  ) :
+      collection(collection),
+      params(params) {
+  }
+
 public:
   StyioAST* collection = nullptr;
   std::vector<ParamAST*> params;
   BlockAST* block = nullptr;
+
+  static IteratorAST* Create(
+    StyioAST* collection,
+    std::vector<ParamAST*> params
+  ) {
+    return new IteratorAST(collection, params);
+  }
 
   static IteratorAST* Create(
     StyioAST* collection,

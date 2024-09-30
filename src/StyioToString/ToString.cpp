@@ -776,7 +776,7 @@ StyioRepr::toString(SimpleFuncAST* ast, int indent) {
     suffix = ".unique";
   }
 
-  string output = reprASTType(ast->getNodeType(), suffix) + "{" + "\n";
+  string output = reprASTType(ast->getNodeType(), suffix) + " {" + "\n";
 
   if (ast->func_name) {
     output += make_padding(indent) + "func_name: " + ast->func_name->toString(this, indent + 1) + "\n";
@@ -795,10 +795,14 @@ StyioRepr::toString(SimpleFuncAST* ast, int indent) {
     std::string ret_type_str;
 
     if (std::holds_alternative<TypeAST*>(ast->ret_type)) {
-      ret_type_str = std::get<TypeAST*>(ast->ret_type)->toString(this, indent + 1);
+      if (std::get<TypeAST*>(ast->ret_type)) {
+        ret_type_str = std::get<TypeAST*>(ast->ret_type)->toString(this, indent + 1);
+      }
     }
     else if (std::holds_alternative<TypeTupleAST*>(ast->ret_type)) {
-      ret_type_str = std::get<TypeTupleAST*>(ast->ret_type)->toString(this, indent + 1);
+      if (std::get<TypeTupleAST*>(ast->ret_type)) {
+        ret_type_str = std::get<TypeTupleAST*>(ast->ret_type)->toString(this, indent + 1);
+      }
     }
 
     output += make_padding(indent) + "ret_type: " + ret_type_str + "\n";
@@ -816,10 +820,16 @@ StyioRepr::toString(IteratorAST* ast, int indent) {
     param_str += make_padding(indent) + ast->params.at(i)->toString(this, indent + 1) + "\n";
   }
 
+  std::string block_str;
+  if (ast->block) {
+    block_str = make_padding(indent) + ast->block->toString(this, indent + 1);
+  }
+  
+
   return reprASTType(ast->getNodeType(), " ") + "{" + "\n"
          + make_padding(indent) + ast->collection->toString(this, indent + 1) + "\n"
          + param_str
-         + make_padding(indent) + ast->block->toString(this, indent + 1)
+         + block_str
          + "}";
 }
 

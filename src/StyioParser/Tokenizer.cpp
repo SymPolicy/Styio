@@ -96,7 +96,7 @@ StyioTokenizer::tokenize(std::string code) {
       do {
         literal += code.at(loc);
         loc += 1;
-      } while (isalnum(code.at(loc)));
+      } while (isalnum(code.at(loc)) || (code.at(loc) == '_'));
 
       if (literal == "_") {
         tokens.push_back(StyioToken::Create(StyioTokenType::TOK_UNDLINE, "_"));
@@ -305,7 +305,7 @@ StyioTokenizer::tokenize(std::string code) {
         }
         else if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
           size_t count = 2 + count_consecutive(code, loc + 2, '=');
-          
+
           /* == BINOP_EQ */
           if (count == 2) {
             tokens.push_back(StyioToken::Create(StyioTokenType::BINOP_EQ, "=="));

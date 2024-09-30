@@ -56,7 +56,7 @@ public:
       message("\nStyio.ParseError: Undefined.") {}
 
   StyioParseError(std::string msg) :
-      message("\nStyio.ParseError: " + msg) {}
+      message("\nStyio.ParseError:\n" + msg) {}
 
   ~StyioParseError() throw() {}
 
