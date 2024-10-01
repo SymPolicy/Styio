@@ -308,7 +308,7 @@ StyioAnalyzer::toStyioIR(CODPAST* ast) {
 }
 
 StyioIR*
-StyioAnalyzer::toStyioIR(CheckEqAST* ast) {
+StyioAnalyzer::toStyioIR(MatchSingleCase* ast) {
   return SGConstInt::Create(0);
 }
 
@@ -318,7 +318,7 @@ StyioAnalyzer::toStyioIR(CheckIsinAST* ast) {
 }
 
 StyioIR*
-StyioAnalyzer::toStyioIR(FromToAST* ast) {
+StyioAnalyzer::toStyioIR(HashTagNameAST* ast) {
   return SGConstInt::Create(0);
 }
 
@@ -344,6 +344,11 @@ StyioAnalyzer::toStyioIR(SimpleFuncAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(IteratorAST* ast) {
+  return SGConstInt::Create(0);
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(IterSeqAST* ast) {
   return SGConstInt::Create(0);
 }
 

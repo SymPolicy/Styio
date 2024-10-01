@@ -440,6 +440,7 @@ enum class StyioASTType
    */
   Loop,
   Iterator,
+  IterSeq,
   // -----------------
 
   /* -----------------
@@ -526,7 +527,7 @@ enum class StyioASTType
   // -----------------
 
   Connection,
-  FromTo
+  HashTagName
 };
 
 enum class InfiniteType

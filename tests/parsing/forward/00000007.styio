@@ -3,4 +3,4 @@
 # step_1 (it) => it.do_this()
 # step_2 (it) => it.do_that()
 
-collection >> # step_1 > # step_2
+collection >> # step 1 > # step 2

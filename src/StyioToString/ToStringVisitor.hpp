@@ -80,6 +80,7 @@ using StyioToStringVisitor = ToStringVisitor<
   class RangeAST,
 
   class IteratorAST,
+  class IterSeqAST,
   class InfiniteLoopAST,
 
   class CondFlowAST,
@@ -106,9 +107,9 @@ using StyioToStringVisitor = ToStringVisitor<
   class ForwardAST,
   class BackwardAST,
 
-  class CheckEqAST,
+  class MatchSingleCase,
   class CheckIsinAST,
-  class FromToAST,
+  class HashTagNameAST,
 
   class CODPAST,
 
@@ -229,11 +230,11 @@ public:
 
   std::string toString(CondFlowAST* ast, int indent = 0);
 
-  std::string toString(CheckEqAST* ast, int indent = 0);
+  std::string toString(MatchSingleCase* ast, int indent = 0);
 
   std::string toString(CheckIsinAST* ast, int indent = 0);
 
-  std::string toString(FromToAST* ast, int indent = 0);
+  std::string toString(HashTagNameAST* ast, int indent = 0);
 
   std::string toString(ForwardAST* ast, int indent = 0);
 
@@ -252,6 +253,8 @@ public:
   std::string toString(InfiniteLoopAST* ast, int indent = 0);
 
   std::string toString(IteratorAST* ast, int indent = 0);
+
+  std::string toString(IterSeqAST* ast, int indent = 0);
 
   std::string toString(MatchCasesAST* ast, int indent = 0);
 

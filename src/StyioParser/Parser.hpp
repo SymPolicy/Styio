@@ -1175,12 +1175,6 @@ ExtPackAST*
 parse_ext_pack(StyioContext& context);
 
 /*
-  parse_cases
-*/
-CasesAST*
-parse_cases(StyioContext& context);
-
-/*
   parse_block
 */
 BlockAST*
@@ -1189,11 +1183,17 @@ parse_block(StyioContext& context);
 std::vector<ParamAST*>
 parse_params(StyioContext& context);
 
-StyioAST*
-parse_forward_iterator(StyioContext& context, StyioAST* collection);
+std::vector<StyioAST*>
+parse_forward(StyioContext& context);
 
-ForwardAST*
-parse_forward(StyioContext& context, bool hashtag_required = false);
+BlockAST*
+parse_forward_block(StyioContext& context);
+
+StyioAST*
+parse_iterator_only(StyioContext& context, StyioAST* collection);
+
+CasesAST*
+parse_cases_only(StyioContext& context);
 
 BackwardAST*
 parse_backward(StyioContext& context, bool is_func = false);

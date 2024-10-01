@@ -417,47 +417,6 @@ public:
   }
 };
 
-/* ========================================================================== */
-
-class CasesAST : public StyioASTTraits<CasesAST>
-{
-  
-
-public:
-  std::vector<std::pair<StyioAST*, StyioAST*>> case_list;
-  StyioAST* case_default = nullptr;
-
-  CasesAST(StyioAST* expr) :
-      case_default(expr) {
-        std::cout << "CaseAST Only Default" << std::endl;
-  }
-
-  CasesAST(std::vector<std::pair<StyioAST*, StyioAST*>> cases, StyioAST* expr) :
-      case_list(cases), case_default(expr) {
-        std::cout << "CaseAST List and Default" << std::endl;
-  }
-
-  static CasesAST* Create(StyioAST* expr) {
-    return new CasesAST(expr);
-  }
-
-  static CasesAST* Create(std::vector<std::pair<StyioAST*, StyioAST*>> cases, StyioAST* expr) {
-    return new CasesAST(cases, expr);
-  }
-
-  const std::vector<std::pair<StyioAST*, StyioAST*>>& getCases() {
-    return case_list;
-  }
-
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Cases;
-  }
-
-  const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
-  }
-};
-
 class BlockAST : public StyioASTTraits<BlockAST>
 {
   StyioAST* Resources = nullptr;
@@ -2047,12 +2006,76 @@ public:
       you should throw an exception for this.
 */
 
-class CheckEqAST : public StyioASTTraits<CheckEqAST>
+class CasesAST : public StyioASTTraits<CasesAST>
+{
+public:
+  std::vector<std::pair<StyioAST*, StyioAST*>> case_list;
+  StyioAST* case_default = nullptr;
+
+  CasesAST(StyioAST* expr) :
+      case_default(expr) {
+    std::cout << "CaseAST Only Default" << std::endl;
+  }
+
+  CasesAST(std::vector<std::pair<StyioAST*, StyioAST*>> cases, StyioAST* expr) :
+      case_list(cases), case_default(expr) {
+    std::cout << "CaseAST List and Default" << std::endl;
+  }
+
+  static CasesAST* Create(StyioAST* expr) {
+    return new CasesAST(expr);
+  }
+
+  static CasesAST* Create(std::vector<std::pair<StyioAST*, StyioAST*>> cases, StyioAST* expr) {
+    return new CasesAST(cases, expr);
+  }
+
+  const std::vector<std::pair<StyioAST*, StyioAST*>>& getCases() {
+    return case_list;
+  }
+
+  const StyioASTType getNodeType() const {
+    return StyioASTType::Cases;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+/*
+  MatchCases
+*/
+class MatchCasesAST : public StyioASTTraits<MatchCasesAST>
+{
+  StyioAST* Value = nullptr;
+  CasesAST* Cases = nullptr;
+
+public:
+  /* v ?= { _ => ... } */
+  MatchCasesAST(StyioAST* value, CasesAST* cases) :
+      Value(value), Cases((cases)) {
+  }
+
+  const StyioASTType getNodeType() const {
+    return StyioASTType::MatchCases;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+
+  static MatchCasesAST* make(StyioAST* value, CasesAST* cases) {
+    return new MatchCasesAST(value, cases);
+  }
+};
+
+class MatchSingleCase : public StyioASTTraits<MatchSingleCase>
 {
   StyioAST* Value = nullptr;
 
 public:
-  CheckEqAST(StyioAST* value) :
+  MatchSingleCase(StyioAST* value) :
       Value(value) {
   }
 
@@ -2093,33 +2116,26 @@ public:
   }
 };
 
-/*
-  FromToAST
-*/
-class FromToAST : public StyioASTTraits<FromToAST>
+class HashTagNameAST : public StyioASTTraits<HashTagNameAST>
 {
-  StyioAST* FromWhat = nullptr;
-  StyioAST* ToWhat = nullptr;
+private:
+  HashTagNameAST(std::vector<std::string> words) :
+      words(words) {
+  }
 
 public:
-  FromToAST(StyioAST* from_expr, StyioAST* to_expr) :
-      FromWhat((from_expr)), ToWhat((to_expr)) {
-  }
+  std::vector<std::string> words;
 
-  StyioAST* getFromExpr() {
-    return FromWhat;
-  }
-
-  StyioAST* getToExpr() {
-    return ToWhat;
+  static HashTagNameAST* Create(std::vector<std::string> words) {
+    return new HashTagNameAST(words);
   }
 
   const StyioASTType getNodeType() const {
-    return StyioASTType::FromTo;
+    return StyioASTType::HashTagName;
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    return StyioDataType{StyioDataTypeOption::String, "#name", 0};
   }
 };
 
@@ -2142,7 +2158,7 @@ class ForwardAST : public StyioASTTraits<ForwardAST>
   std::vector<ParamAST*> params;
   BlockAST* block = BlockAST::Create();
 
-  CheckEqAST* ExtraEq = nullptr;
+  MatchSingleCase* ExtraEq = nullptr;
   CheckIsinAST* ExtraIsin = nullptr;
 
   StyioAST* next_expr = nullptr;
@@ -2156,7 +2172,7 @@ private:
 public:
   ForwardAST() {}
 
-  CheckEqAST* getCheckEq() {
+  MatchSingleCase* getCheckEq() {
     return ExtraEq;
   }
 
@@ -2302,33 +2318,6 @@ public:
 
   const StyioDataType getDataType() const {
     return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
-  }
-};
-
-/*
-  MatchCases
-*/
-class MatchCasesAST : public StyioASTTraits<MatchCasesAST>
-{
-  StyioAST* Value = nullptr;
-  CasesAST* Cases = nullptr;
-
-public:
-  /* v ?= { _ => ... } */
-  MatchCasesAST(StyioAST* value, CasesAST* cases) :
-      Value(value), Cases((cases)) {
-  }
-
-  const StyioASTType getNodeType() const {
-    return StyioASTType::MatchCases;
-  }
-
-  const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
-  }
-
-  static MatchCasesAST* make(StyioAST* value, CasesAST* cases) {
-    return new MatchCasesAST(value, cases);
   }
 };
 
@@ -2780,17 +2769,52 @@ public:
   Iterator:
     collection >> operations
 */
+class IterSeqAST : public StyioASTTraits<IterSeqAST>
+{
+private:
+  IterSeqAST(
+    StyioAST* collection,
+    std::vector<HashTagNameAST*> hash_tags
+  ) :
+      collection(collection),
+      hash_tags(hash_tags) {
+  }
+
+public:
+  StyioAST* collection = nullptr;
+  std::vector<HashTagNameAST*> hash_tags;
+
+  static IterSeqAST* Create(
+    StyioAST* collection,
+    std::vector<HashTagNameAST*> hash_tags
+  ) {
+    return new IterSeqAST(collection, hash_tags);
+  }
+
+  const StyioASTType getNodeType() const {
+    return StyioASTType::IterSeq;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+/*
+  Iterator:
+    collection >> operations
+*/
 class IteratorAST : public StyioASTTraits<IteratorAST>
 {
 private:
   IteratorAST(
     StyioAST* collection,
     std::vector<ParamAST*> params,
-    BlockAST* block
+    StyioAST* block
   ) :
       collection(collection),
       params(params),
-      block(block) {
+      then_expr(block) {
   }
 
   IteratorAST(
@@ -2804,7 +2828,7 @@ private:
 public:
   StyioAST* collection = nullptr;
   std::vector<ParamAST*> params;
-  BlockAST* block = nullptr;
+  StyioAST* then_expr = nullptr;
 
   static IteratorAST* Create(
     StyioAST* collection,
@@ -2816,7 +2840,7 @@ public:
   static IteratorAST* Create(
     StyioAST* collection,
     std::vector<ParamAST*> params,
-    BlockAST* block
+    StyioAST* block
   ) {
     return new IteratorAST(collection, params, block);
   }

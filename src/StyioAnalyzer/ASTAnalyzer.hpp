@@ -86,6 +86,7 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
   class RangeAST,
 
   class IteratorAST,
+  class IterSeqAST,
   class InfiniteLoopAST,
 
   class CondFlowAST,
@@ -111,9 +112,9 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
   class ForwardAST,
   class BackwardAST,
 
-  class CheckEqAST,
+  class MatchSingleCase,
   class CheckIsinAST,
-  class FromToAST,
+  class HashTagNameAST,
 
   class CODPAST,
 
@@ -188,9 +189,9 @@ public:
   void typeInfer(BlockAST* ast);
   void typeInfer(CasesAST* ast);
   void typeInfer(CondFlowAST* ast);
-  void typeInfer(CheckEqAST* ast);
+  void typeInfer(MatchSingleCase* ast);
   void typeInfer(CheckIsinAST* ast);
-  void typeInfer(FromToAST* ast);
+  void typeInfer(HashTagNameAST* ast);
   void typeInfer(ForwardAST* ast);
   void typeInfer(BackwardAST* ast);
   void typeInfer(CODPAST* ast);
@@ -200,6 +201,7 @@ public:
   void typeInfer(SimpleFuncAST* ast);
   void typeInfer(InfiniteLoopAST* ast);
   void typeInfer(IteratorAST* ast);
+  void typeInfer(IterSeqAST* ast);
   void typeInfer(MatchCasesAST* ast);
   void typeInfer(MainBlockAST* ast);
 
@@ -252,9 +254,9 @@ public:
   StyioIR* toStyioIR(BlockAST* ast);
   StyioIR* toStyioIR(CasesAST* ast);
   StyioIR* toStyioIR(CondFlowAST* ast);
-  StyioIR* toStyioIR(CheckEqAST* ast);
+  StyioIR* toStyioIR(MatchSingleCase* ast);
   StyioIR* toStyioIR(CheckIsinAST* ast);
-  StyioIR* toStyioIR(FromToAST* ast);
+  StyioIR* toStyioIR(HashTagNameAST* ast);
   StyioIR* toStyioIR(ForwardAST* ast);
   StyioIR* toStyioIR(BackwardAST* ast);
   StyioIR* toStyioIR(CODPAST* ast);
@@ -264,6 +266,7 @@ public:
   StyioIR* toStyioIR(SimpleFuncAST* ast);
   StyioIR* toStyioIR(InfiniteLoopAST* ast);
   StyioIR* toStyioIR(IteratorAST* ast);
+  StyioIR* toStyioIR(IterSeqAST* ast);
   StyioIR* toStyioIR(MatchCasesAST* ast);
   StyioIR* toStyioIR(MainBlockAST* ast);
 };

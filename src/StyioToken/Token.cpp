@@ -235,6 +235,11 @@ reprASTType(StyioASTType type, std::string extra) {
       output += std::string("iterator");
     } break;
 
+    case StyioASTType::IterSeq: {
+      output += std::string("iterator.sequence");
+    } break;
+
+
     case StyioASTType::CheckEq: {
       output += std::string("check.equal");
     } break;
@@ -243,8 +248,8 @@ reprASTType(StyioASTType type, std::string extra) {
       output += std::string("check.isin");
     } break;
 
-    case StyioASTType::FromTo: {
-      output += std::string("from_to");
+    case StyioASTType::HashTagName: {
+      output += std::string("hash_tag");
     } break;
 
     case StyioASTType::TupleOperation: {

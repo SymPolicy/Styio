@@ -121,6 +121,7 @@ class RangeAST;
   - Loop
 */
 class IteratorAST;
+class IterSeqAST; /* Iterator Sequence */
 class InfiniteLoopAST;
 
 /*
@@ -181,9 +182,9 @@ class ForwardAST;
 class BackwardAST;
 
 class CODPAST;
-class CheckEqAST;
+class MatchSingleCase;
 class CheckIsinAST;
-class FromToAST;
+class HashTagNameAST;
 
 /*
   Features:
@@ -219,5 +220,7 @@ class WriteFileAST;
 
 class SimpleFuncAST;
 class TypeTupleAST;
+
+
 
 #endif

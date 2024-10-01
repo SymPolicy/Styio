@@ -659,7 +659,7 @@ StyioRepr::toString(BackwardAST* ast, int indent) {
 }
 
 std::string
-StyioRepr::toString(CheckEqAST* ast, int indent) {
+StyioRepr::toString(MatchSingleCase* ast, int indent) {
   return reprASTType(ast->getNodeType(), " ") + string("{ ")
          + ast->getValue()->toString(this, indent + 1) + " }";
 }
@@ -671,10 +671,16 @@ StyioRepr::toString(CheckIsinAST* ast, int indent) {
 }
 
 std::string
-StyioRepr::toString(FromToAST* ast, int indent) {
-  return reprASTType(ast->getNodeType(), " ") + string("{") + "\n"
-         + make_padding(indent) + "From: " + ast->getFromExpr()->toString(this, indent + 1) + "\n"
-         + make_padding(indent) + "To: " + ast->getToExpr()->toString(this, indent + 1) + "}";
+StyioRepr::toString(HashTagNameAST* ast, int indent) {
+  std::string outstr = reprASTType(ast->getNodeType()) + string(" { ");
+
+  for (auto i : ast->words) {
+    outstr += i + " ";
+  }
+
+  outstr += "}";
+
+  return outstr;
 }
 
 std::string
@@ -821,16 +827,35 @@ StyioRepr::toString(IteratorAST* ast, int indent) {
   }
 
   std::string block_str;
-  if (ast->block) {
-    block_str = make_padding(indent) + ast->block->toString(this, indent + 1);
+  if (ast->then_expr) {
+    block_str = make_padding(indent) + ast->then_expr->toString(this, indent + 1);
   }
-  
 
   return reprASTType(ast->getNodeType(), " ") + "{" + "\n"
          + make_padding(indent) + ast->collection->toString(this, indent + 1) + "\n"
          + param_str
          + block_str
          + "}";
+}
+
+std::string
+StyioRepr::toString(IterSeqAST* ast, int indent) {
+  std::string outstr = reprASTType(ast->getNodeType(), " ") + "{" + "\n";
+
+  if (ast->collection) {
+    outstr += make_padding(indent) + ast->collection->toString(this, indent + 1) + "\n";
+  }
+
+  for (size_t i = 0; i < ast->hash_tags.size(); i++) {
+    outstr += make_padding(indent) + ast->hash_tags.at(i)->toString(this, indent + 1);
+    if (i < ast->hash_tags.size() - 1) {
+      outstr += "\n";
+    }
+  }
+
+  outstr += "}";
+
+  return outstr;
 }
 
 std::string

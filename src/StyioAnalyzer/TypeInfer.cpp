@@ -460,7 +460,7 @@ StyioAnalyzer::typeInfer(CODPAST* ast) {
 }
 
 void
-StyioAnalyzer::typeInfer(CheckEqAST* ast) {
+StyioAnalyzer::typeInfer(MatchSingleCase* ast) {
 }
 
 void
@@ -468,7 +468,7 @@ StyioAnalyzer::typeInfer(CheckIsinAST* ast) {
 }
 
 void
-StyioAnalyzer::typeInfer(FromToAST* ast) {
+StyioAnalyzer::typeInfer(HashTagNameAST* ast) {
 }
 
 void
@@ -492,6 +492,11 @@ StyioAnalyzer::typeInfer(SimpleFuncAST* ast) {
 void
 StyioAnalyzer::typeInfer(IteratorAST* ast) {
 }
+
+void
+StyioAnalyzer::typeInfer(IterSeqAST* ast) {
+}
+
 
 void
 StyioAnalyzer::typeInfer(InfiniteLoopAST* ast) {

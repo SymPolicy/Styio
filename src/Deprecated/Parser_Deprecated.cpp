@@ -2110,7 +2110,7 @@ parse_forward(StyioContext& context, bool is_func) {
           context.move(1);
           context.drop_white_spaces();
 
-          auto cases = parse_cases(context);
+          auto cases = parse_cases_only(context);
 
           /* #(args) ?= cases */
           if (context.check_next('{')) {
@@ -2125,10 +2125,10 @@ parse_forward(StyioContext& context, bool is_func) {
           }
           /* #(args) ?= value => then */
           else {
-            CheckEqAST* extra_check;
+            MatchSingleCase* extra_check;
             StyioAST* then;
 
-            extra_check = new CheckEqAST(parse_expr(context));
+            extra_check = new MatchSingleCase(parse_expr(context));
 
             context.drop_all_spaces();
 
@@ -2396,7 +2396,7 @@ parse_tuple_operations(StyioContext& context, TupleAST* the_tuple) {
     // parse_extractor
   }
   else if (context.check_drop(">>")) {
-    // parse_iterator
+    // parse_iterator_only
   }
   else if (context.check_drop("=>")) {
     // parse_forward
@@ -2755,7 +2755,7 @@ parse_stmt_or_expr(
       if (context.check_drop("->")) {
         context.drop_all_spaces_comments();
 
-        return new FromToAST((resources), parse_block(context));
+        return new HashTagNameAST((resources), parse_block(context));
       }
       else if (context.check_drop(">>")) {
         context.drop_all_spaces_comments();
@@ -2884,7 +2884,7 @@ parse_ext_pack(StyioContext& context) {
 }
 
 CasesAST*
-parse_cases(StyioContext& context) {
+parse_cases_only(StyioContext& context) {
   vector<std::pair<StyioAST*, StyioAST*>> pairs;
   StyioAST* _default_stmt;
 
