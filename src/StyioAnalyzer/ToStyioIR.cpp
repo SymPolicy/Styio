@@ -308,7 +308,7 @@ StyioAnalyzer::toStyioIR(CODPAST* ast) {
 }
 
 StyioIR*
-StyioAnalyzer::toStyioIR(MatchSingleCase* ast) {
+StyioAnalyzer::toStyioIR(CheckEqualAST* ast) {
   return SGConstInt::Create(0);
 }
 

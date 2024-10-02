@@ -965,10 +965,10 @@ parse_expr(StyioContext& context) {
       return parse_tuple_exprs(context);
     } break;
 
-      /* [ */
-      case StyioTokenType::TOK_LBOXBRAC: {
-        return parse_list_exprs(context);
-      } break;
+    /* [ */
+    case StyioTokenType::TOK_LBOXBRAC: {
+      return parse_list_exprs(context);
+    } break;
 
     default: {
       throw StyioNotImplemented(context.mark_cur_tok("Unknown Expression"));
@@ -2146,7 +2146,18 @@ parse_hash_tag(StyioContext& context) {
   }
   /* Match Cases */
   else if (context.match(StyioTokenType::MATCH) /* ?= */) {
-    return parse_cases_only(context);
+    if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
+      return FunctionAST::Create(tag_name, true, params, ret_type, parse_cases_only(context));
+    }
+    else {
+      std::vector<StyioAST*> rvals;
+
+      do {
+        rvals.push_back(parse_expr(context));
+      } while (context.try_match(StyioTokenType::TOK_COMMA) /* , */);
+      
+      return FunctionAST::Create(tag_name, true, params, ret_type, CheckEqualAST::Create(rvals));
+    }
   }
   /* Iterator */
   else if (context.check(StyioTokenType::ITERATOR) /* >> */) {
@@ -2198,7 +2209,9 @@ parse_params(StyioContext& context) {
 }
 
 std::vector<StyioAST*>
-parse_forward(StyioContext& context) {
+parse_forward(
+  StyioContext& context
+) {
   std::vector<StyioAST*> following_exprs;
 
   while (true) {
@@ -2219,7 +2232,13 @@ parse_forward(StyioContext& context) {
         following_exprs.push_back(parse_cases_only(context));
       }
       else {
-        throw StyioNotImplemented("parse_forward(MatchSingleCase)");
+        std::vector<StyioAST*> rvals;
+
+        do {
+          rvals.push_back(parse_expr(context));
+        } while (context.try_match(StyioTokenType::TOK_COMMA) /* , */);
+
+        following_exprs.push_back(CheckEqualAST::Create(rvals));
       }
     }
     /* >> Iterator */
@@ -2486,7 +2505,7 @@ parse_print(StyioContext& context) {
     }
   } while (context.try_match(StyioTokenType::TOK_COMMA) /* , */);
 
-  context.try_match_panic(StyioTokenType::TOK_RPAREN);  /* ) */
+  context.try_match_panic(StyioTokenType::TOK_RPAREN); /* ) */
 
   return PrintAST::Create(exprs);
 }

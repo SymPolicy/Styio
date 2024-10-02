@@ -107,7 +107,7 @@ using StyioToStringVisitor = ToStringVisitor<
   class ForwardAST,
   class BackwardAST,
 
-  class MatchSingleCase,
+  class CheckEqualAST,
   class CheckIsinAST,
   class HashTagNameAST,
 
@@ -230,7 +230,7 @@ public:
 
   std::string toString(CondFlowAST* ast, int indent = 0);
 
-  std::string toString(MatchSingleCase* ast, int indent = 0);
+  std::string toString(CheckEqualAST* ast, int indent = 0);
 
   std::string toString(CheckIsinAST* ast, int indent = 0);
 

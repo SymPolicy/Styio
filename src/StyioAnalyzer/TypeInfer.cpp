@@ -460,7 +460,7 @@ StyioAnalyzer::typeInfer(CODPAST* ast) {
 }
 
 void
-StyioAnalyzer::typeInfer(MatchSingleCase* ast) {
+StyioAnalyzer::typeInfer(CheckEqualAST* ast) {
 }
 
 void

@@ -1896,7 +1896,7 @@ public:
   Fill: Fill + Block
     >> () => {}
 
-  MatchValue: Fill + CheckEq + Block
+  MatchValueAST: Fill + CheckEq + Block
     >> Element(Single) ?= ValueExpr(Single) => {
       ...
     }
@@ -2066,17 +2066,22 @@ public:
   }
 };
 
-class MatchSingleCase : public StyioASTTraits<MatchSingleCase>
+/* Match a Value Expression to See if they equal */
+class CheckEqualAST : public StyioASTTraits<CheckEqualAST>
 {
-  StyioAST* Value = nullptr;
-
 public:
-  MatchSingleCase(StyioAST* value) :
-      Value(value) {
+  std::vector<StyioAST*> right_values;
+
+  CheckEqualAST(
+    std::vector<StyioAST*> right
+  ) :
+      right_values(right) {
   }
 
-  StyioAST* getValue() {
-    return Value;
+  static CheckEqualAST* Create(
+    std::vector<StyioAST*> values
+  ) {
+    return new CheckEqualAST(values);
   }
 
   const StyioASTType getNodeType() const {
@@ -2154,7 +2159,7 @@ class ForwardAST : public StyioASTTraits<ForwardAST>
   std::vector<ParamAST*> params;
   BlockAST* block = BlockAST::Create();
 
-  MatchSingleCase* ExtraEq = nullptr;
+  CheckEqualAST* ExtraEq = nullptr;
   CheckIsinAST* ExtraIsin = nullptr;
 
   StyioAST* next_expr = nullptr;
@@ -2168,7 +2173,7 @@ private:
 public:
   ForwardAST() {}
 
-  MatchSingleCase* getCheckEq() {
+  CheckEqualAST* getCheckEq() {
     return ExtraEq;
   }
 

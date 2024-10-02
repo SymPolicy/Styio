@@ -112,7 +112,7 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
   class ForwardAST,
   class BackwardAST,
 
-  class MatchSingleCase,
+  class CheckEqualAST,
   class CheckIsinAST,
   class HashTagNameAST,
 
@@ -189,7 +189,7 @@ public:
   void typeInfer(BlockAST* ast);
   void typeInfer(CasesAST* ast);
   void typeInfer(CondFlowAST* ast);
-  void typeInfer(MatchSingleCase* ast);
+  void typeInfer(CheckEqualAST* ast);
   void typeInfer(CheckIsinAST* ast);
   void typeInfer(HashTagNameAST* ast);
   void typeInfer(ForwardAST* ast);
@@ -254,7 +254,7 @@ public:
   StyioIR* toStyioIR(BlockAST* ast);
   StyioIR* toStyioIR(CasesAST* ast);
   StyioIR* toStyioIR(CondFlowAST* ast);
-  StyioIR* toStyioIR(MatchSingleCase* ast);
+  StyioIR* toStyioIR(CheckEqualAST* ast);
   StyioIR* toStyioIR(CheckIsinAST* ast);
   StyioIR* toStyioIR(HashTagNameAST* ast);
   StyioIR* toStyioIR(ForwardAST* ast);

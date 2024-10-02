@@ -660,9 +660,16 @@ StyioRepr::toString(BackwardAST* ast, int indent) {
 }
 
 std::string
-StyioRepr::toString(MatchSingleCase* ast, int indent) {
-  return reprASTType(ast->getNodeType(), " ") + string("{ ")
-         + ast->getValue()->toString(this, indent + 1) + " }";
+StyioRepr::toString(CheckEqualAST* ast, int indent) {
+  std::string outstr = reprASTType(ast->getNodeType()) + " {\n";
+
+  for (size_t i = 0; i < ast->right_values.size(); i++) {
+    outstr += make_padding(indent) + ast->right_values[i]->toString(this, indent + 1);
+  }
+
+  outstr += "}";
+
+  return outstr;
 }
 
 std::string

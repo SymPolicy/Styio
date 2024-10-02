@@ -2125,10 +2125,10 @@ parse_forward(StyioContext& context, bool is_func) {
           }
           /* #(args) ?= value => then */
           else {
-            MatchSingleCase* extra_check;
+            CheckEqualAST* extra_check;
             StyioAST* then;
 
-            extra_check = new MatchSingleCase(parse_expr(context));
+            extra_check = new CheckEqualAST(parse_expr(context));
 
             context.drop_all_spaces();
 

@@ -1,7 +1,6 @@
 // RUN: /home/Styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
 
-# print_each(list)
-  >> (elem) 
-  => >_(elem)
+# step_1 (it) => it.do_this()
+# step_2 (it) => it.do_that()
 
-print_each([1, 2, 3])
+collection >> # step_1 > # step_2

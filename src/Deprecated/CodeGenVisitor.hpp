@@ -138,7 +138,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class VarTupleAST,
 
   class ForwardAST,
-  class MatchSingleCase,
+  class CheckEqualAST,
   class CheckIsinAST,
   class HashTagNameAST,
 

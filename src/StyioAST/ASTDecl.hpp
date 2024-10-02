@@ -182,7 +182,7 @@ class ForwardAST;
 class BackwardAST;
 
 class CODPAST;
-class MatchSingleCase;
+class CheckEqualAST;
 class CheckIsinAST;
 class HashTagNameAST;
 
