@@ -71,6 +71,20 @@ parse_name_with_spaces_unsafe(StyioContext& context) {
   return name_seps;
 }
 
+HashTagNameAST*
+parse_name_for_hash_tag(StyioContext& context) {
+  std::vector<std::string> name_seps;
+  do {
+    name_seps.push_back(context.cur_tok()->original);
+    context.move_forward(1);
+    while (context.check(StyioTokenType::TOK_SPACE) /* White Space */) {
+      context.move_forward(1);
+    }
+  } while (context.check(StyioTokenType::NAME) || context.check(StyioTokenType::INTEGER));
+
+  return HashTagNameAST::Create(name_seps);
+}
+
 NameAST*
 parse_name(StyioContext& context) {
   if (context.cur_tok_type() != StyioTokenType::NAME) {
@@ -92,10 +106,10 @@ parse_name_unsafe(StyioContext& context) {
 
 StyioAST*
 parse_name_and_following_unsafe(StyioContext& context) {
-  StyioAST* output;
-
   auto name = NameAST::Create(context.cur_tok()->original);
   context.move_forward(1);
+
+  StyioAST* output = name;
 
   context.skip();
   switch (context.cur_tok_type()) {
@@ -158,8 +172,8 @@ parse_name_and_following_unsafe(StyioContext& context) {
       return parse_iterator_only(context, name);
     } break;
 
-    default:
-      break;
+    default: {
+    } break;
   }
 
   if (not output) {
@@ -951,7 +965,13 @@ parse_expr(StyioContext& context) {
       return parse_tuple_exprs(context);
     } break;
 
+      /* [ */
+      case StyioTokenType::TOK_LBOXBRAC: {
+        return parse_list_exprs(context);
+      } break;
+
     default: {
+      throw StyioNotImplemented(context.mark_cur_tok("Unknown Expression"));
     } break;
   }
 
@@ -1026,30 +1046,24 @@ parse_tuple_no_braces(StyioContext& context, StyioAST* first_element) {
 }
 
 StyioAST*
-parse_list(StyioContext& context) {
+parse_list_exprs(StyioContext& context) {
   vector<StyioAST*> exprs;
 
-  /*
-    Danger!
-    when entering parse_list(),
-    the context -> get_curr_char() must be [
-    this line will drop the next 1 character anyway!
-  */
-  context.move(1);
+  context.move_forward(1);
 
   do {
-    context.drop_all_spaces_comments();
+    context.skip();
 
-    if (context.check_drop(']')) {
-      return new ListAST((exprs));
+    if (context.match(StyioTokenType::TOK_RBOXBRAC) /* ] */) {
+      return ListAST::Create(exprs);
     }
     else {
       exprs.push_back(parse_expr(context));
-      context.drop_white_spaces();
+      context.skip();
     }
-  } while (context.check_drop(','));
+  } while (context.try_match(StyioTokenType::TOK_COMMA) /* , */);
 
-  context.check_drop(']');
+  context.try_match_panic(StyioTokenType::TOK_RBOXBRAC); /* ] */
 
   return ListAST::Create(exprs);
 }
@@ -2136,13 +2150,16 @@ parse_hash_tag(StyioContext& context) {
   }
   /* Iterator */
   else if (context.check(StyioTokenType::ITERATOR) /* >> */) {
-    if (tag_name) {
-      return parse_iterator_only(context, tag_name);
+    if (params.size() != 1) {
+      throw StyioSyntaxError(context.mark_cur_tok("Confusing: The iterator (>>) can not be applied to multiple objects."));
     }
-    else {
-      // SyntaxError
-    }
+
+    ret_expr = parse_iterator_only(context, params[0]);
+
+    return FunctionAST::Create(tag_name, true, params, ret_type, ret_expr);
   }
+
+  throw StyioParseError(context.mark_cur_tok("Reached the End of parse_hash_tag."));
 }
 
 std::vector<ParamAST*>
@@ -2456,8 +2473,7 @@ parse_print(StyioContext& context) {
 
   context.match_panic(StyioTokenType::PRINT);  // >_
 
-  context.skip();
-  context.match_panic(StyioTokenType::TOK_LPAREN);  // (
+  context.try_match_panic(StyioTokenType::TOK_LPAREN);  // (
 
   do {
     context.skip();
@@ -2468,9 +2484,10 @@ parse_print(StyioContext& context) {
     else {
       exprs.push_back(parse_expr(context));
     }
-  } while (context.match(StyioTokenType::TOK_COMMA) /* , */);
+  } while (context.try_match(StyioTokenType::TOK_COMMA) /* , */);
 
-  context.try_match_panic(StyioTokenType::TOK_RPAREN);
+  context.try_match_panic(StyioTokenType::TOK_RPAREN);  /* ) */
+
   return PrintAST::Create(exprs);
 }
 

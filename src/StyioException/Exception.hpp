@@ -75,7 +75,7 @@ public:
       message("\nStyio.NotImplemented: Undefined.") {}
 
   StyioNotImplemented(std::string msg) :
-      message("\nStyio.NotImplemented: " + msg) {}
+      message("\nStyio.NotImplemented:\n" + msg) {}
 
   ~StyioNotImplemented() throw() {}
 

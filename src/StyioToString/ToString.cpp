@@ -534,11 +534,12 @@ std::string
 StyioRepr::toString(PrintAST* ast, int indent) {
   string outstr;
 
-  auto Exprs = ast->getExprs();
-  for (int i = 0; i < Exprs.size(); i++) {
-    outstr += make_padding(indent) + Exprs[i]->toString(this, indent + 1);
-    if (i < (Exprs.size() - 1)) {
-      outstr += "\n";
+  if (not ast->exprs.empty()) {
+    for (int i = 0; i < ast->exprs.size(); i++) {
+      outstr += make_padding(indent) + ast->exprs[i]->toString(this, indent + 1);
+      if (i < (ast->exprs.size() - 1)) {
+        outstr += "\n";
+      }
     }
   }
 
@@ -761,10 +762,10 @@ StyioRepr::toString(FunctionAST* ast, int indent) {
   if (not ast->ret_type.valueless_by_exception()) {
     std::string ret_type_str;
 
-    if (std::holds_alternative<TypeAST*>(ast->ret_type)) {
+    if (std::holds_alternative<TypeAST*>(ast->ret_type) && std::get<TypeAST*>(ast->ret_type)) {
       ret_type_str = std::get<TypeAST*>(ast->ret_type)->toString(this, indent + 1);
     }
-    else if (std::holds_alternative<TypeTupleAST*>(ast->ret_type)) {
+    else if (std::holds_alternative<TypeTupleAST*>(ast->ret_type) && std::get<TypeTupleAST*>(ast->ret_type)) {
       ret_type_str = std::get<TypeTupleAST*>(ast->ret_type)->toString(this, indent + 1);
     }
 
@@ -820,22 +821,21 @@ StyioRepr::toString(SimpleFuncAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(IteratorAST* ast, int indent) {
-  std::string param_str;
+  std::string outstr = reprASTType(ast->getNodeType()) + " {" + "\n";
+
+  outstr += make_padding(indent) + "iterable object: " + ast->collection->toString(this, indent + 1) + "\n";
 
   for (size_t i = 0; i < ast->params.size(); i++) {
-    param_str += make_padding(indent) + ast->params.at(i)->toString(this, indent + 1) + "\n";
+    outstr += make_padding(indent) + ast->params.at(i)->toString(this, indent + 1) + "\n";
   }
 
-  std::string block_str;
   if (ast->then_expr) {
-    block_str = make_padding(indent) + ast->then_expr->toString(this, indent + 1);
+    outstr += make_padding(indent) + ast->then_expr->toString(this, indent + 1);
   }
 
-  return reprASTType(ast->getNodeType(), " ") + "{" + "\n"
-         + make_padding(indent) + ast->collection->toString(this, indent + 1) + "\n"
-         + param_str
-         + block_str
-         + "}";
+  outstr += "}";
+
+  return outstr;
 }
 
 std::string

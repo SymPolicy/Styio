@@ -1228,12 +1228,6 @@ parse_tuple_no_braces(
   StyioAST* first_element = nullptr
 );
 
-ExtractorAST*
-parse_tuple_operations(
-  StyioContext& context,
-  TupleAST* the_tuple
-);
-
 /*
   parse_tuple_exprs
   - tuple
@@ -1243,6 +1237,12 @@ parse_tuple_operations(
 StyioAST*
 parse_tuple_exprs(
   StyioContext& context
+);
+
+ExtractorAST*
+parse_tuple_operations(
+  StyioContext& context,
+  TupleAST* the_tuple
 );
 
 /*

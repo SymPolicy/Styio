@@ -42,7 +42,7 @@ Iterator After Iterator
     => >_(j)
 ```
 
-Comment Iterator
+Commen Iterator
 ```
   list >> (i) => >_(i)
 ```

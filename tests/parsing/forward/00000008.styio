@@ -1,5 +1,7 @@
 // RUN: /home/Styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
 
-# match ?= {
-  _ => { ... }
-}
+# print_each(list)
+  >> (elem) 
+  => >_(elem)
+
+print_each([1, 2, 3])

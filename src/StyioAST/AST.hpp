@@ -1784,19 +1784,15 @@ public:
 class PrintAST : public StyioASTTraits<PrintAST>
 {
 private:
-  vector<StyioAST*> Exprs;
-
   PrintAST(vector<StyioAST*> exprs) :
-      Exprs(exprs) {
+      exprs(exprs) {
   }
 
 public:
+  vector<StyioAST*> exprs;
+
   static PrintAST* Create(vector<StyioAST*> exprs) {
     return new PrintAST(exprs);
-  }
-
-  const vector<StyioAST*>& getExprs() {
-    return Exprs;
   }
 
   const StyioASTType getNodeType() const {
