@@ -95,19 +95,19 @@ StyioAnalyzer::typeInfer(FlexBindAST* ast) {
     ast->getValue()->typeInfer(this);
 
     switch (ast->getValue()->getNodeType()) {
-      case StyioASTType::Integer: {
+      case StyioNodeType::Integer: {
         ast->getVar()->setDataType(ast->getValue()->getDataType());
       } break;
 
-      case StyioASTType::Float: {
+      case StyioNodeType::Float: {
         ast->getVar()->setDataType(ast->getValue()->getDataType());
       } break;
 
-      case StyioASTType::BinOp: {
+      case StyioNodeType::BinOp: {
         ast->getVar()->setDataType(ast->getValue()->getDataType());
       } break;
 
-      case StyioASTType::Tuple: {
+      case StyioNodeType::Tuple: {
         ast->getVar()->setDataType(ast->getValue()->getDataType());
       } break;
 
@@ -118,7 +118,7 @@ StyioAnalyzer::typeInfer(FlexBindAST* ast) {
   /* if var type has been declared, the type of value must be converted to whatever declared */
   else {
     switch (ast->getValue()->getNodeType()) {
-      case StyioASTType::BinOp: {
+      case StyioNodeType::BinOp: {
         static_cast<BinOpAST*>(ast->getValue())->setDType(var_type);
       } break;
 
@@ -234,9 +234,9 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
     auto rhs_hint = rhs->getNodeType();
 
     switch (lhs_hint) {
-      case StyioASTType::Integer: {
+      case StyioNodeType::Integer: {
         switch (rhs_hint) {
-          case StyioASTType::Integer: {
+          case StyioNodeType::Integer: {
             auto lhs_int = static_cast<IntAST*>(lhs);
             auto rhs_int = static_cast<IntAST*>(rhs);
 
@@ -251,7 +251,7 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             }
           } break;
 
-          case StyioASTType::Float: {
+          case StyioNodeType::Float: {
             auto lhs_int = static_cast<IntAST*>(lhs);
             auto rhs_float = static_cast<FloatAST*>(rhs);
 
@@ -260,7 +260,7 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             }
           } break;
 
-          case StyioASTType::BinOp: {
+          case StyioNodeType::BinOp: {
             auto lhs_expr = static_cast<IntAST*>(lhs);
             auto rhs_expr = static_cast<BinOpAST*>(rhs);
 
@@ -274,9 +274,9 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
         }
       } break;
 
-      case StyioASTType::Float: {
+      case StyioNodeType::Float: {
         switch (rhs_hint) {
-          case StyioASTType::Integer: {
+          case StyioNodeType::Integer: {
             auto lhs_float = static_cast<FloatAST*>(lhs);
             auto rhs_int = static_cast<IntAST*>(rhs);
 
@@ -285,7 +285,7 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             }
           } break;
 
-          case StyioASTType::Float: {
+          case StyioNodeType::Float: {
             auto lhs_float = static_cast<FloatAST*>(lhs);
             auto rhs_float = static_cast<FloatAST*>(rhs);
 
@@ -299,9 +299,9 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
         }
       } break;
 
-      case StyioASTType::BinOp: {
+      case StyioNodeType::BinOp: {
         switch (rhs_hint) {
-          case StyioASTType::Integer: {
+          case StyioNodeType::Integer: {
             auto lhs_expr = static_cast<BinOpAST*>(lhs);
             auto rhs_expr = static_cast<IntAST*>(rhs);
 
@@ -310,7 +310,7 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             }
           } break;
 
-          case StyioASTType::Float: {
+          case StyioNodeType::Float: {
             auto lhs_binop = static_cast<BinOpAST*>(lhs);
             auto rhs_float = static_cast<FloatAST*>(rhs);
 
@@ -319,7 +319,7 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             }
           } break;
 
-          case StyioASTType::BinOp: {
+          case StyioNodeType::BinOp: {
             auto lhs_binop = static_cast<BinOpAST*>(lhs);
             auto rhs_binop = static_cast<BinOpAST*>(rhs);
 
@@ -339,13 +339,13 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
   }
   else {
     /* transfer the type of this binop to the child binop */
-    if (lhs->getNodeType() == StyioASTType::BinOp) {
+    if (lhs->getNodeType() == StyioNodeType::BinOp) {
       auto lhs_binop = static_cast<BinOpAST*>(lhs);
       lhs_binop->setDType(ast->getType());
       lhs->typeInfer(this);
     }
 
-    if (rhs->getNodeType() == StyioASTType::BinOp) {
+    if (rhs->getNodeType() == StyioNodeType::BinOp) {
       auto rhs_binop = static_cast<BinOpAST*>(rhs);
       rhs_binop->setDType(ast->getType());
       rhs->typeInfer(this);
@@ -414,11 +414,11 @@ StyioAnalyzer::typeInfer(FuncCallAST* ast) {
 
   for (auto arg : ast->getArgList()) {
     switch (arg->getNodeType()) {
-      case StyioASTType::Integer: {
+      case StyioNodeType::Integer: {
         arg_types.push_back(static_cast<IntAST*>(arg)->getDataType());
       } break;
 
-      case StyioASTType::Float: {
+      case StyioNodeType::Float: {
         arg_types.push_back(static_cast<FloatAST*>(arg)->getDataType());
       } break;
 

@@ -5,340 +5,340 @@
 #include "Token.hpp"
 
 std::string
-reprASTType(StyioASTType type, std::string extra) {
+reprASTType(StyioNodeType type, std::string extra) {
   std::string output = "styio.ast.";
 
   switch (type) {
-    case StyioASTType::True: {
+    case StyioNodeType::True: {
       output += std::string("true");
     } break;
 
-    case StyioASTType::False: {
+    case StyioNodeType::False: {
       output += std::string("false");
     } break;
 
-    case StyioASTType::None: {
+    case StyioNodeType::None: {
       output += std::string("none");
     } break;
 
-    case StyioASTType::Empty: {
+    case StyioNodeType::Empty: {
       output += std::string("empty");
     } break;
 
-    case StyioASTType::Id: {
+    case StyioNodeType::Id: {
       output += std::string("name");
     } break;
 
-    case StyioASTType::DType: {
+    case StyioNodeType::DType: {
       output += std::string("type");
     } break;
 
-    case StyioASTType::TypeTuple: {
+    case StyioNodeType::TypeTuple: {
       output += std::string("types");
     } break;
 
-    case StyioASTType::Variable: {
+    case StyioNodeType::Variable: {
       output += std::string("var");
     } break;
 
-    case StyioASTType::Param: {
+    case StyioNodeType::Param: {
       output += std::string("arg");
     } break;
 
-    case StyioASTType::Integer: {
+    case StyioNodeType::Integer: {
       auto name = std::string("styio.ast.int");
 
       output += std::string("");
     } break;
 
-    case StyioASTType::Float: {
+    case StyioNodeType::Float: {
       output += std::string("float");
     } break;
 
-    case StyioASTType::Char: {
+    case StyioNodeType::Char: {
       output += std::string("char");
     } break;
 
-    case StyioASTType::String: {
+    case StyioNodeType::String: {
       output += std::string("string");
     } break;
 
-    case StyioASTType::NumConvert: {
+    case StyioNodeType::NumConvert: {
       output += std::string("convert");
     } break;
 
-    case StyioASTType::FmtStr: {
+    case StyioNodeType::FmtStr: {
       output += std::string("fmtstr");
     } break;
 
-    case StyioASTType::LocalPath: {
+    case StyioNodeType::LocalPath: {
       output += std::string("path");
     } break;
 
-    case StyioASTType::RemotePath: {
+    case StyioNodeType::RemotePath: {
       output += std::string("addr");
     } break;
 
-    case StyioASTType::WebUrl: {
+    case StyioNodeType::WebUrl: {
       output += std::string("url");
     } break;
 
-    case StyioASTType::DBUrl: {
+    case StyioNodeType::DBUrl: {
       output += std::string("url.database");
     } break;
 
-    case StyioASTType::ExtPack: {
+    case StyioNodeType::ExtPack: {
       output += std::string("package");
     } break;
 
-    case StyioASTType::Parameters: {
+    case StyioNodeType::Parameters: {
       output += std::string("vars");
     } break;
 
-    case StyioASTType::Condition: {
+    case StyioNodeType::Condition: {
       output += std::string("cond");
     } break;
 
-    case StyioASTType::SizeOf: {
+    case StyioNodeType::SizeOf: {
       output += std::string("sizeof");
     } break;
 
-    case StyioASTType::BinOp: {
+    case StyioNodeType::BinOp: {
       output += std::string("binop");
     } break;
 
-    case StyioASTType::Print: {
+    case StyioNodeType::Print: {
       output += std::string("print");
     } break;
 
-    case StyioASTType::ReadFile: {
+    case StyioNodeType::ReadFile: {
       output += std::string("read.file");
     } break;
 
-    case StyioASTType::Call: {
+    case StyioNodeType::Call: {
       output += std::string("call");
     } break;
 
-    case StyioASTType::Attribute: {
+    case StyioNodeType::Attribute: {
       output += std::string("attr");
     } break;
 
-    case StyioASTType::Access: {
+    case StyioNodeType::Access: {
       output += std::string("access");
     } break;
 
-    case StyioASTType::Access_By_Name: {
+    case StyioNodeType::Access_By_Name: {
       output += std::string("access.by_name");
     } break;
 
-    case StyioASTType::Access_By_Index: {
+    case StyioNodeType::Access_By_Index: {
       output += std::string("access.by_index");
     } break;
 
-    case StyioASTType::Get_Index_By_Value: {
+    case StyioNodeType::Get_Index_By_Value: {
       output += std::string("get_index.by_value");
     } break;
 
-    case StyioASTType::Get_Indices_By_Many_Values: {
+    case StyioNodeType::Get_Indices_By_Many_Values: {
       output += std::string("get_indices.by_values");
     } break;
 
-    case StyioASTType::Append_Value: {
+    case StyioNodeType::Append_Value: {
       output += std::string("append");
     } break;
 
-    case StyioASTType::Insert_Item_By_Index: {
+    case StyioNodeType::Insert_Item_By_Index: {
       output += std::string("insert.by_index");
     } break;
 
-    case StyioASTType::Remove_Item_By_Index: {
+    case StyioNodeType::Remove_Item_By_Index: {
       output += std::string("remove.by_index");
     } break;
 
-    case StyioASTType::Remove_Items_By_Many_Indices: {
+    case StyioNodeType::Remove_Items_By_Many_Indices: {
       output += std::string("remove.by_indices");
     } break;
 
-    case StyioASTType::Remove_Item_By_Value: {
+    case StyioNodeType::Remove_Item_By_Value: {
       output += std::string("remove.by_value");
     } break;
 
-    case StyioASTType::Remove_Items_By_Many_Values: {
+    case StyioNodeType::Remove_Items_By_Many_Values: {
       output += std::string("remove.by_values");
     } break;
 
-    case StyioASTType::Get_Reversed: {
+    case StyioNodeType::Get_Reversed: {
       output += std::string("reversed");
     } break;
 
-    case StyioASTType::Get_Index_By_Item_From_Right: {
+    case StyioNodeType::Get_Index_By_Item_From_Right: {
       output += std::string("get_index.by_item_backward");
     } break;
 
-    case StyioASTType::Return: {
+    case StyioNodeType::Return: {
       output += std::string("return");
     } break;
 
-    case StyioASTType::Range: {
+    case StyioNodeType::Range: {
       output += std::string("range");
     } break;
 
-    case StyioASTType::Tuple: {
+    case StyioNodeType::Tuple: {
       output += std::string("tuple");
     } break;
 
-    case StyioASTType::List: {
+    case StyioNodeType::List: {
       output += std::string("list");
     } break;
 
-    case StyioASTType::Set: {
+    case StyioNodeType::Set: {
       output += std::string("set");
     } break;
 
-    case StyioASTType::Resources: {
+    case StyioNodeType::Resources: {
       output += std::string("resources");
     } break;
 
-    case StyioASTType::MutBind: {
+    case StyioNodeType::MutBind: {
       output += std::string("bind.flex");
     } break;
 
-    case StyioASTType::FinalBind: {
+    case StyioNodeType::FinalBind: {
       output += std::string("styio.ast.bind.final");
     } break;
 
-    case StyioASTType::Block: {
+    case StyioNodeType::Block: {
       output += std::string("block");
     } break;
 
-    case StyioASTType::Cases: {
+    case StyioNodeType::Cases: {
       output += std::string("cases");
     } break;
 
-    case StyioASTType::Func: {
+    case StyioNodeType::Func: {
       output += std::string("func");
     } break;
 
-    case StyioASTType::SimpleFunc: {
+    case StyioNodeType::SimpleFunc: {
       output += std::string("func.simple");
     } break;
 
-    case StyioASTType::Struct: {
+    case StyioNodeType::Struct: {
       output += std::string("struct");
     } break;
 
-    case StyioASTType::Loop: {
+    case StyioNodeType::Loop: {
       output += std::string("loop");
     } break;
 
-    case StyioASTType::Iterator: {
+    case StyioNodeType::Iterator: {
       output += std::string("iterator");
     } break;
 
-    case StyioASTType::IterSeq: {
+    case StyioNodeType::IterSeq: {
       output += std::string("iterator.sequence");
     } break;
 
 
-    case StyioASTType::CheckEq: {
+    case StyioNodeType::CheckEq: {
       output += std::string("check.equal");
     } break;
 
-    case StyioASTType::CheckIsin: {
+    case StyioNodeType::CheckIsin: {
       output += std::string("check.isin");
     } break;
 
-    case StyioASTType::HashTagName: {
+    case StyioNodeType::HashTagName: {
       output += std::string("hash_tag");
     } break;
 
-    case StyioASTType::TupleOperation: {
+    case StyioNodeType::TupleOperation: {
       output += std::string("tuple.op");
     } break;
 
-    case StyioASTType::Forward: {
+    case StyioNodeType::Forward: {
       output += std::string("forward.run");
     } break;
 
-    case StyioASTType::If_Equal_To_Forward: {
+    case StyioNodeType::If_Equal_To_Forward: {
       output += std::string("forward.check.equal");
     } break;
 
-    case StyioASTType::If_Is_In_Forward: {
+    case StyioNodeType::If_Is_In_Forward: {
       output += std::string("forward.check.isin");
     } break;
 
-    case StyioASTType::Cases_Forward: {
+    case StyioNodeType::Cases_Forward: {
       output += std::string("forward.cases");
     } break;
 
-    case StyioASTType::If_True_Forward: {
+    case StyioNodeType::If_True_Forward: {
       output += std::string("forward.only_true");
     } break;
 
-    case StyioASTType::If_False_Forward: {
+    case StyioNodeType::If_False_Forward: {
       output += std::string("forward.only_false");
     } break;
 
-    case StyioASTType::Fill_Forward: {
+    case StyioNodeType::Fill_Forward: {
       output += std::string("forward.fill.run");
     } break;
 
-    case StyioASTType::Fill_If_Equal_To_Forward: {
+    case StyioNodeType::Fill_If_Equal_To_Forward: {
       output += std::string("fill.check.equal");
     } break;
 
-    case StyioASTType::Fill_If_Is_in_Forward: {
+    case StyioNodeType::Fill_If_Is_in_Forward: {
       output += std::string("fill.check.isin");
     } break;
 
-    case StyioASTType::Fill_Cases_Forward: {
+    case StyioNodeType::Fill_Cases_Forward: {
       output += std::string("fill.cases");
     } break;
 
-    case StyioASTType::Fill_If_True_Forward: {
+    case StyioNodeType::Fill_If_True_Forward: {
       output += std::string("fill.only_true");
     } break;
 
-    case StyioASTType::Fill_If_False_Forward: {
+    case StyioNodeType::Fill_If_False_Forward: {
       output += std::string("fill.only_false");
     } break;
 
-    case StyioASTType::Backward: {
+    case StyioNodeType::Backward: {
       output += std::string("backward");
     } break;
 
-    case StyioASTType::Chain_Of_Data_Processing: {
+    case StyioNodeType::Chain_Of_Data_Processing: {
       output += std::string("chain_of_data_processing");
     } break;
 
     
 
-    case StyioASTType::TypedVar: {
+    case StyioNodeType::TypedVar: {
       output += std::string("var");
     } break;
 
-    case StyioASTType::Pass: {
+    case StyioNodeType::Pass: {
       output += std::string("do_nothing");
     } break;
 
-    case StyioASTType::Break: {
+    case StyioNodeType::Break: {
       output += std::string("break");
     } break;
 
-    case StyioASTType::CondFlow_True: {
+    case StyioNodeType::CondFlow_True: {
       output += std::string("only_true");
     } break;
 
-    case StyioASTType::CondFlow_False: {
+    case StyioNodeType::CondFlow_False: {
       output += std::string("only_false");
     } break;
 
-    case StyioASTType::CondFlow_Both: {
+    case StyioNodeType::CondFlow_Both: {
       output += std::string("if_else");
     } break;
 
-    case StyioASTType::MainBlock: {
+    case StyioNodeType::MainBlock: {
       output += std::string("main");
     } break;
 

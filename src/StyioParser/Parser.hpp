@@ -1174,26 +1174,42 @@ parse_ext_elem(StyioContext& context);
 ExtPackAST*
 parse_ext_pack(StyioContext& context);
 
-/*
-  parse_block
-*/
-BlockAST*
-parse_block(StyioContext& context);
-
 std::vector<ParamAST*>
 parse_params(StyioContext& context);
 
 std::vector<StyioAST*>
-parse_forward(StyioContext& context);
+parse_forward_as_list(StyioContext& context);
 
+/*
+  => { Code Block }
+*/
 BlockAST*
-parse_forward_block(StyioContext& context);
+parse_block_only(StyioContext& context);
 
+/*
+  ?= Match Cases
+*/
+CasesAST*
+parse_cases_only(StyioContext& context);
+
+/*
+  >> Iterator
+*/
 StyioAST*
 parse_iterator_only(StyioContext& context, StyioAST* collection);
 
+/*
+  parse_something_with_forward
+*/
+
+BlockAST*
+parse_block_with_forward(StyioContext& context);
+
 CasesAST*
-parse_cases_only(StyioContext& context);
+parse_cases_with_forward(StyioContext& context);
+
+StyioAST*
+parse_iterator_with_forward(StyioContext& context, StyioAST* collection);
 
 BackwardAST*
 parse_backward(StyioContext& context, bool is_func = false);

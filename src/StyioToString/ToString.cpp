@@ -263,81 +263,81 @@ std::string
 StyioRepr::toString(ListOpAST* ast, int indent) {
   auto OpType = ast->getOp();
   switch (OpType) {
-    case StyioASTType::Access:
+    case StyioNodeType::Access:
       return reprASTType(ast->getNodeType(), " ") + "{"
              + "\n" + make_padding(indent) + ast->getList()->toString(this, indent + 1)
              + "\n" + make_padding(indent) + "Key: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
 
-    case StyioASTType::Access_By_Index:
+    case StyioNodeType::Access_By_Index:
       return reprASTType(ast->getNodeType(), " ")
              + "{\n" + make_padding(indent) + ast->getList()->toString(this, indent + 1)
              + "\n" + make_padding(indent) + "Index: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
-    case StyioASTType::Access_By_Name:
+    case StyioNodeType::Access_By_Name:
       return reprASTType(ast->getNodeType(), " ")
              + "\n" + make_padding(indent) + ast->getList()->toString(this, indent + 1)
              + "\n" + make_padding(indent) + "Name : " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
 
-    case StyioASTType::Get_Index_By_Value:
+    case StyioNodeType::Get_Index_By_Value:
       return reprASTType(ast->getNodeType(), " ")
              + "\n" + make_padding(indent) + ast->getList()->toString(this, indent + 1)
              + "\n" + make_padding(indent) + "Index: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
-    case StyioASTType::Get_Indices_By_Many_Values:
+    case StyioNodeType::Get_Indices_By_Many_Values:
       return reprASTType(ast->getNodeType(), " ")
              + "\n" + make_padding(indent) + ast->getList()->toString(this, indent + 1)
              + "\n" + make_padding(indent) + "Index: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
-    case StyioASTType::Append_Value:
+    case StyioNodeType::Append_Value:
       return reprASTType(ast->getNodeType(), " ")
              + "\n" + make_padding(indent) + ast->getList()->toString(this, indent + 1)
              + "\n" + make_padding(indent) + "Value: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
-    case StyioASTType::Insert_Item_By_Index:
+    case StyioNodeType::Insert_Item_By_Index:
       return reprASTType(ast->getNodeType(), " ")
              + "\n" + make_padding(indent) + ast->getList()->toString(this, indent + 1)
              + "\n" + make_padding(indent) + "Index: " + ast->getSlot1()->toString(this, indent + 1)
              + "\n" + make_padding(indent) + "Value: " + ast->getSlot2()->toString(this, indent + 1)
              + "}";
       break;
-    case StyioASTType::Remove_Item_By_Index:
+    case StyioNodeType::Remove_Item_By_Index:
       return reprASTType(ast->getNodeType(), " ")
              + "\n" + make_padding(indent) + ast->getList()->toString(this, indent + 1)
              + "\n" + make_padding(indent) + "Index: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
-    case StyioASTType::Remove_Item_By_Value:
+    case StyioNodeType::Remove_Item_By_Value:
       return reprASTType(ast->getNodeType(), " ")
              + "\n" + make_padding(indent) + ast->getList()->toString(this, indent + 1)
              + "\n" + make_padding(indent) + "Value: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
-    case StyioASTType::Remove_Items_By_Many_Indices:
+    case StyioNodeType::Remove_Items_By_Many_Indices:
       return reprASTType(ast->getNodeType(), " ")
              + "\n" + make_padding(indent) + ast->getList()->toString(this, indent + 1)
              + "\n" + make_padding(indent) + "Index: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
-    case StyioASTType::Remove_Items_By_Many_Values:
+    case StyioNodeType::Remove_Items_By_Many_Values:
       return reprASTType(ast->getNodeType(), " ")
              + "\n" + make_padding(indent) + ast->getList()->toString(this, indent + 1)
              + "\n" + make_padding(indent) + "Value: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
-    case StyioASTType::Get_Reversed:
+    case StyioNodeType::Get_Reversed:
       return reprASTType(ast->getNodeType(), " ")
              + "\n" + make_padding(indent) + ast->getList()->toString(this, indent + 1)
              + "}";
       break;
-    case StyioASTType::Get_Index_By_Item_From_Right:
+    case StyioNodeType::Get_Index_By_Item_From_Right:
       return reprASTType(ast->getNodeType(), " ")
              + "\n" + make_padding(indent) + ast->getList()->toString(this, indent + 1)
              + "\n" + make_padding(indent) + "Index: " + ast->getSlot1()->toString(this, indent + 1)
@@ -720,13 +720,13 @@ std::string
 StyioRepr::toString(CondFlowAST* ast, int indent) {
   auto WhatFlow = ast->getNodeType();
 
-  if (WhatFlow == StyioASTType::CondFlow_True || WhatFlow == StyioASTType::CondFlow_False) {
+  if (WhatFlow == StyioNodeType::CondFlow_True || WhatFlow == StyioNodeType::CondFlow_False) {
     return reprASTType(ast->getNodeType(), " ")
            + string("{\n")
            + make_padding(indent) + ast->getCond()->toString(this, indent + 1) + "\n"
            + make_padding(indent) + "Then: " + ast->getThen()->toString(this, indent + 1) + "}";
   }
-  else if (WhatFlow == StyioASTType::CondFlow_Both) {
+  else if (WhatFlow == StyioNodeType::CondFlow_Both) {
     return reprASTType(ast->getNodeType(), " ")
            + string("{\n") + make_padding(indent) + ast->getCond()->toString(this, indent + 1) + "\n"
            + make_padding(indent) + "Then: " + ast->getThen()->toString(this, indent + 1) + "\n"

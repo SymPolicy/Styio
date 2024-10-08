@@ -263,7 +263,7 @@ enum class StyioPathType
   remote_windows
 };
 
-enum class StyioASTType
+enum class StyioNodeType
 {
   End,
   Pass,
@@ -593,7 +593,7 @@ enum class NumPromoTy
 };
 
 std::string
-reprASTType(StyioASTType type, std::string extra = "");
+reprASTType(StyioNodeType type, std::string extra = "");
 
 std::string
 reprToken(CompType token);

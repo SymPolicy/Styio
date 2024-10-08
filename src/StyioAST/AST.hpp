@@ -29,7 +29,7 @@ public:
   virtual ~StyioAST() {}
 
   /* Type Hint */
-  virtual const StyioASTType getNodeType() const = 0;
+  virtual const StyioNodeType getNodeType() const = 0;
 
   virtual const StyioDataType getDataType() const = 0;
 
@@ -85,8 +85,8 @@ public:
     return text;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Comment;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Comment;
   }
 
   const StyioDataType getDataType() const {
@@ -118,8 +118,8 @@ public:
     return name_str;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Id;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Id;
   }
 
   const StyioDataType getDataType() const {
@@ -170,8 +170,8 @@ public:
     return type.name;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::DType;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::DType;
   }
 
   const StyioDataType getDataType() const {
@@ -201,8 +201,8 @@ public:
     return new TypeTupleAST(type_list);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::TypeTuple;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::TypeTuple;
   }
 
   const StyioDataType getDataType() const {
@@ -224,8 +224,8 @@ public:
     return new NoneAST();
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::None;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::None;
   }
 
   const StyioDataType getDataType() const {
@@ -245,8 +245,8 @@ public:
     return new EmptyAST();
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Empty;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Empty;
   }
 
   const StyioDataType getDataType() const {
@@ -274,8 +274,8 @@ public:
     return Value;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Bool;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Bool;
   }
 
   const StyioDataType getDataType() const {
@@ -312,8 +312,8 @@ public:
     return value;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Integer;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Integer;
   }
 
   const StyioDataType getDataType() const {
@@ -347,8 +347,8 @@ public:
     return value;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Float;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Float;
   }
 
   const StyioDataType getDataType() const {
@@ -378,8 +378,8 @@ public:
     return value;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Char;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Char;
   }
 
   const StyioDataType getDataType() const {
@@ -408,8 +408,8 @@ public:
     return value;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::String;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::String;
   }
 
   const StyioDataType getDataType() const {
@@ -447,8 +447,8 @@ public:
     return Stmts;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Block;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Block;
   }
 
   const StyioDataType getDataType() const {
@@ -486,8 +486,8 @@ public:
     return Stmts;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::MainBlock;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::MainBlock;
   }
 
   const StyioDataType getDataType() const {
@@ -505,8 +505,8 @@ public:
     return new EOFAST();
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::End;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::End;
   }
 
   const StyioDataType getDataType() const {
@@ -519,8 +519,8 @@ class BreakAST : public StyioASTTraits<BreakAST>
 public:
   BreakAST() {}
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Break;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Break;
   }
 
   const StyioDataType getDataType() const {
@@ -538,8 +538,8 @@ public:
     return new PassAST();
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Pass;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Pass;
   }
 
   const StyioDataType getDataType() const {
@@ -564,8 +564,8 @@ public:
     return Expr;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Return;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Return;
   }
 
   const StyioDataType getDataType() const {
@@ -616,8 +616,8 @@ public:
     return new VarAST(name, data_type);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Variable;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Variable;
   }
 
   const StyioDataType getDataType() const {
@@ -688,8 +688,8 @@ public:
   TypeAST* var_type = nullptr;  /* Variable Data Type */
   StyioAST* val_init = nullptr; /* Variable Initial Value */
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Param;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Param;
   }
 
   const StyioDataType getDataType() const {
@@ -736,8 +736,8 @@ public:
     return new OptArgAST(name);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::OptArg;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::OptArg;
   }
 
   const StyioDataType getDataType() const {
@@ -759,8 +759,8 @@ public:
     return new OptKwArgAST(id);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::OptKwArg;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::OptKwArg;
   }
 
   const StyioDataType getDataType() const {
@@ -793,8 +793,8 @@ public:
     return Exprs;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::FmtStr;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::FmtStr;
   }
 
   const StyioDataType getDataType() const {
@@ -830,8 +830,8 @@ public:
     return PromoType;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::NumConvert;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::NumConvert;
   }
 
   const StyioDataType getDataType() const {
@@ -873,8 +873,8 @@ public:
     return Path;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::LocalPath;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::LocalPath;
   }
 
   const StyioDataType getDataType() const {
@@ -910,8 +910,8 @@ public:
     return Path;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::RemotePath;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::RemotePath;
   }
 
   const StyioDataType getDataType() const {
@@ -943,8 +943,8 @@ public:
     return Path;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::WebUrl;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::WebUrl;
   }
 
   const StyioDataType getDataType() const {
@@ -971,8 +971,8 @@ public:
     return Path;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::DBUrl;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::DBUrl;
   }
 
   const StyioDataType getDataType() const {
@@ -1026,8 +1026,8 @@ public:
     return consistency;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Tuple;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Tuple;
   }
 
   const StyioDataType getDataType() const {
@@ -1058,8 +1058,8 @@ public:
     return Vars;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Parameters;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Parameters;
   }
 
   const StyioDataType getDataType() const {
@@ -1108,8 +1108,8 @@ public:
     return consistency;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::List;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::List;
   }
 
   const StyioDataType getDataType() const {
@@ -1138,8 +1138,8 @@ public:
     return elements_;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Set;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Set;
   }
 
   const StyioDataType getDataType() const {
@@ -1173,8 +1173,8 @@ public:
     return StepVal;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Range;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Range;
   }
 
   const StyioDataType getDataType() const {
@@ -1206,8 +1206,8 @@ public:
     return Value;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::SizeOf;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::SizeOf;
   }
 
   const StyioDataType getDataType() const {
@@ -1309,8 +1309,8 @@ public:
     data_type->setType(type);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::BinOp;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::BinOp;
   }
 
   const StyioDataType getDataType() const {
@@ -1341,8 +1341,8 @@ public:
     return RhsExpr;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Compare;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Compare;
   }
 
   const StyioDataType getDataType() const {
@@ -1400,8 +1400,8 @@ public:
     return RhsExpr;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Condition;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Condition;
   }
 
   const StyioDataType getDataType() const {
@@ -1461,8 +1461,8 @@ public:
     return func_args;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Call;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Call;
   }
 
   const StyioDataType getDataType() const {
@@ -1472,7 +1472,7 @@ public:
 
 class ListOpAST : public StyioASTTraits<ListOpAST>
 {
-  StyioASTType OpType;
+  StyioNodeType OpType;
   StyioAST* TheList = nullptr;
 
   StyioAST* Slot1 = nullptr;
@@ -1483,7 +1483,7 @@ public:
     Get_Reversed
       [<]
   */
-  ListOpAST(StyioASTType opType, StyioAST* theList) :
+  ListOpAST(StyioNodeType opType, StyioAST* theList) :
       OpType(opType), TheList((theList)) {
   }
 
@@ -1524,7 +1524,7 @@ public:
     Remove_Items_By_Many_Values_From_Right
       [[<] -: ?^ (v0, v1, ...)]
   */
-  ListOpAST(StyioASTType opType, StyioAST* theList, StyioAST* item) :
+  ListOpAST(StyioNodeType opType, StyioAST* theList, StyioAST* item) :
       OpType(opType), TheList((theList)), Slot1((item)) {
   }
 
@@ -1532,11 +1532,11 @@ public:
     Insert_Item_By_Index
       [+: index <- value]
   */
-  ListOpAST(StyioASTType opType, StyioAST* theList, StyioAST* index, StyioAST* value) :
+  ListOpAST(StyioNodeType opType, StyioAST* theList, StyioAST* index, StyioAST* value) :
       OpType(opType), TheList((theList)), Slot1((index)), Slot2((value)) {
   }
 
-  StyioASTType getOp() {
+  StyioNodeType getOp() {
     return OpType;
   }
 
@@ -1552,7 +1552,7 @@ public:
     return Slot2;
   }
 
-  const StyioASTType getNodeType() const {
+  const StyioNodeType getNodeType() const {
     return OpType;
   }
 
@@ -1579,8 +1579,8 @@ public:
     return new AttrAST(body, attr);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Attribute;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Attribute;
   }
 
   const StyioDataType getDataType() const {
@@ -1616,8 +1616,8 @@ public:
     return new ResourceAST(resources_with_types);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Resources;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Resources;
   }
 
   const StyioDataType getDataType() const {
@@ -1648,8 +1648,8 @@ public:
     return new FlexBindAST(variable, value);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::MutBind;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::MutBind;
   }
 
   const StyioDataType getDataType() const {
@@ -1686,8 +1686,8 @@ public:
     return FinalBindAST::Create(var, val);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::FinalBind;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::FinalBind;
   }
 
   const StyioDataType getDataType() const {
@@ -1733,8 +1733,8 @@ public:
     return new StructAST(name, arguments);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Struct;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Struct;
   }
 
   const StyioDataType getDataType() const {
@@ -1769,8 +1769,8 @@ public:
     return valExpr;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::ReadFile;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::ReadFile;
   }
 
   const StyioDataType getDataType() const {
@@ -1795,8 +1795,8 @@ public:
     return new PrintAST(exprs);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Print;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Print;
   }
 
   const StyioDataType getDataType() const {
@@ -1826,8 +1826,8 @@ public:
     return PackPaths;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::ExtPack;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::ExtPack;
   }
 
   const StyioDataType getDataType() const {
@@ -1848,13 +1848,13 @@ class CondFlowAST : public StyioASTTraits<CondFlowAST>
   StyioAST* ElseBlock = nullptr;
 
 public:
-  StyioASTType WhatFlow;
+  StyioNodeType WhatFlow;
 
-  CondFlowAST(StyioASTType whatFlow, CondAST* condition, StyioAST* block) :
+  CondFlowAST(StyioNodeType whatFlow, CondAST* condition, StyioAST* block) :
       WhatFlow(whatFlow), CondExpr((condition)), ThenBlock((block)) {
   }
 
-  CondFlowAST(StyioASTType whatFlow, CondAST* condition, StyioAST* blockThen, StyioAST* blockElse) :
+  CondFlowAST(StyioNodeType whatFlow, CondAST* condition, StyioAST* blockThen, StyioAST* blockElse) :
       WhatFlow(whatFlow), CondExpr((condition)), ThenBlock((blockThen)), ElseBlock((blockElse)) {
   }
 
@@ -1870,7 +1870,7 @@ public:
     return ElseBlock;
   }
 
-  const StyioASTType getNodeType() const {
+  const StyioNodeType getNodeType() const {
     return WhatFlow;
   }
 
@@ -2030,8 +2030,8 @@ public:
     return case_list;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Cases;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Cases;
   }
 
   const StyioDataType getDataType() const {
@@ -2053,8 +2053,8 @@ public:
       Value(value), Cases((cases)) {
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::MatchCases;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::MatchCases;
   }
 
   const StyioDataType getDataType() const {
@@ -2084,8 +2084,8 @@ public:
     return new CheckEqualAST(values);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::CheckEq;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::CheckEq;
   }
 
   const StyioDataType getDataType() const {
@@ -2108,8 +2108,8 @@ public:
     return Iterable;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::CheckIsin;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::CheckIsin;
   }
 
   const StyioDataType getDataType() const {
@@ -2131,8 +2131,8 @@ public:
     return new HashTagNameAST(words);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::HashTagName;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::HashTagName;
   }
 
   const StyioDataType getDataType() const {
@@ -2168,7 +2168,7 @@ class ForwardAST : public StyioASTTraits<ForwardAST>
   StyioAST* RetExpr = nullptr;
 
 private:
-  StyioASTType Type = StyioASTType::Forward;
+  StyioNodeType Type = StyioNodeType::Forward;
 
 public:
   ForwardAST() {}
@@ -2197,7 +2197,7 @@ public:
     RetExpr = expr;
   }
 
-  const StyioASTType getNodeType() const {
+  const StyioNodeType getNodeType() const {
     return Type;
   }
 
@@ -2224,8 +2224,8 @@ public:
     return new BackwardAST(obj, params, ops, rets);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Backward;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Backward;
   }
 
   const StyioDataType getDataType() const {
@@ -2266,8 +2266,8 @@ public:
     return new CODPAST(op_name, op_body, prev_op, next_op);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Chain_Of_Data_Processing;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Chain_Of_Data_Processing;
   }
 
   const StyioDataType getDataType() const {
@@ -2313,8 +2313,8 @@ public:
     return IncEl;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Infinite;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Infinite;
   }
 
   const StyioDataType getDataType() const {
@@ -2348,8 +2348,8 @@ public:
     return ThenExpr;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::AnonyFunc;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::AnonyFunc;
   }
 
   const StyioDataType getDataType() const {
@@ -2462,8 +2462,8 @@ public:
     return new FunctionAST(name, is_unique, params, ret_type, body);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Func;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Func;
   }
 
   const StyioDataType getDataType() const {
@@ -2719,8 +2719,8 @@ public:
     return new SimpleFuncAST(func_name, params, ret_type, ret_expr);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::SimpleFunc;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::SimpleFunc;
   }
 
   const StyioDataType getDataType() const {
@@ -2757,8 +2757,8 @@ public:
     return Forward;
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Loop;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Loop;
   }
 
   const StyioDataType getDataType() const {
@@ -2770,36 +2770,6 @@ public:
   Iterator:
     collection >> operations
 */
-class IterSeqAST : public StyioASTTraits<IterSeqAST>
-{
-private:
-  IterSeqAST(
-    StyioAST* collection,
-    std::vector<HashTagNameAST*> hash_tags
-  ) :
-      collection(collection),
-      hash_tags(hash_tags) {
-  }
-
-public:
-  StyioAST* collection = nullptr;
-  std::vector<HashTagNameAST*> hash_tags;
-
-  static IterSeqAST* Create(
-    StyioAST* collection,
-    std::vector<HashTagNameAST*> hash_tags
-  ) {
-    return new IterSeqAST(collection, hash_tags);
-  }
-
-  const StyioASTType getNodeType() const {
-    return StyioASTType::IterSeq;
-  }
-
-  const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
-  }
-};
 
 /*
   Iterator:
@@ -2807,15 +2777,15 @@ public:
 */
 class IteratorAST : public StyioASTTraits<IteratorAST>
 {
-private:
+public:
+  StyioAST* collection = nullptr;
+  std::vector<ParamAST*> params;
+  StyioAST* then_expr = nullptr;
+
   IteratorAST(
-    StyioAST* collection,
-    std::vector<ParamAST*> params,
-    StyioAST* block
+    StyioAST* collection
   ) :
-      collection(collection),
-      params(params),
-      then_expr(block) {
+      collection(collection) {
   }
 
   IteratorAST(
@@ -2826,16 +2796,21 @@ private:
       params(params) {
   }
 
-public:
-  StyioAST* collection = nullptr;
-  std::vector<ParamAST*> params;
-  StyioAST* then_expr = nullptr;
-
   static IteratorAST* Create(
     StyioAST* collection,
     std::vector<ParamAST*> params
   ) {
     return new IteratorAST(collection, params);
+  }
+
+  IteratorAST(
+    StyioAST* collection,
+    std::vector<ParamAST*> params,
+    StyioAST* block
+  ) :
+      collection(collection),
+      params(params),
+      then_expr(block) {
   }
 
   static IteratorAST* Create(
@@ -2846,8 +2821,60 @@ public:
     return new IteratorAST(collection, params, block);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::Iterator;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Iterator;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+class IterSeqAST : public IteratorAST
+{
+private:
+  IterSeqAST(
+    StyioAST* collection,
+    std::vector<HashTagNameAST*> hash_tags
+  ) :
+      IteratorAST(collection),
+      collection(collection),
+      hash_tags(hash_tags) {
+  }
+
+  IterSeqAST(
+    StyioAST* collection,
+    std::vector<ParamAST*> params,
+    std::vector<HashTagNameAST*> hash_tags
+  ) :
+      IteratorAST(collection, params),
+      collection(collection),
+      params(params),
+      hash_tags(hash_tags) {
+  }
+
+public:
+  StyioAST* collection = nullptr;
+  std::vector<ParamAST*> params;
+  std::vector<HashTagNameAST*> hash_tags;
+
+  static IterSeqAST* Create(
+    StyioAST* collection,
+    std::vector<HashTagNameAST*> hash_tags
+  ) {
+    return new IterSeqAST(collection, hash_tags);
+  }
+
+  static IterSeqAST* Create(
+    StyioAST* collection,
+    std::vector<ParamAST*> params,
+    std::vector<HashTagNameAST*> hash_tags
+  ) {
+    return new IterSeqAST(collection, params, hash_tags);
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::IterSeq;
   }
 
   const StyioDataType getDataType() const {
@@ -2874,8 +2901,8 @@ public:
     return new ExtractorAST(the_tuple, the_op);
   }
 
-  const StyioASTType getNodeType() const {
-    return StyioASTType::TupleOperation;
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::TupleOperation;
   }
 
   const StyioDataType getDataType() const {

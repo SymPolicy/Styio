@@ -1315,13 +1315,13 @@ parse_index_op(StyioContext& context, StyioAST* theList) {
   do {
     if (isalpha(context.get_curr_char()) || context.check_next('_')) {
       output = new ListOpAST(
-        StyioASTType::Access, (theList), parse_var_name_or_value_expr(context)
+        StyioNodeType::Access, (theList), parse_var_name_or_value_expr(context)
       );
     }
     else if (isdigit(context.get_curr_char())) {
       std::cout << "parse list op access by index" << std::endl;
       output = new ListOpAST(
-        StyioASTType::Access_By_Index, (theList), parse_int(context)
+        StyioNodeType::Access_By_Index, (theList), parse_int(context)
       );
     }
     else {
@@ -1330,7 +1330,7 @@ parse_index_op(StyioContext& context, StyioAST* theList) {
           list["any"]
         */
         case '"': {
-          output = new ListOpAST(StyioASTType::Access_By_Name, (theList), parse_string(context));
+          output = new ListOpAST(StyioNodeType::Access_By_Name, (theList), parse_string(context));
         }
 
         // You should NOT reach this line!
@@ -1346,7 +1346,7 @@ parse_index_op(StyioContext& context, StyioAST* theList) {
             context.move(1);
           }
 
-          output = new ListOpAST(StyioASTType::Get_Reversed, (theList));
+          output = new ListOpAST(StyioNodeType::Get_Reversed, (theList));
         }
 
         // You should NOT reach this line!
@@ -1359,12 +1359,12 @@ parse_index_op(StyioContext& context, StyioAST* theList) {
           if (context.check_drop('=')) {
             context.drop_all_spaces_comments();
 
-            output = new ListOpAST(StyioASTType::Get_Index_By_Value, (theList), parse_expr(context));
+            output = new ListOpAST(StyioNodeType::Get_Index_By_Value, (theList), parse_expr(context));
           }
           else if (context.check_drop('^')) {
             context.drop_all_spaces_comments();
 
-            output = new ListOpAST(StyioASTType::Get_Indices_By_Many_Values, (theList), parse_iterable(context));
+            output = new ListOpAST(StyioNodeType::Get_Indices_By_Many_Values, (theList), parse_iterable(context));
           }
           else {
             string errmsg = string("Expecting ?= or ?^, but got ") + char(context.get_curr_char());
@@ -1394,11 +1394,11 @@ parse_index_op(StyioContext& context, StyioAST* theList) {
           if (context.check_drop("<-")) {
             context.drop_white_spaces();
 
-            output = new ListOpAST(StyioASTType::Insert_Item_By_Index, (theList), (index), parse_expr(context));
+            output = new ListOpAST(StyioNodeType::Insert_Item_By_Index, (theList), (index), parse_expr(context));
           }
           // list[^index]
           else {
-            output = new ListOpAST(StyioASTType::Access_By_Index, (theList), (index));
+            output = new ListOpAST(StyioNodeType::Access_By_Index, (theList), (index));
           }
         }
         // You should NOT reach this line!
@@ -1419,7 +1419,7 @@ parse_index_op(StyioContext& context, StyioAST* theList) {
           context.drop_white_spaces();
 
           output = new ListOpAST(
-            StyioASTType::Append_Value, (theList), (expr)
+            StyioNodeType::Append_Value, (theList), (expr)
           );
         }
 
@@ -1440,14 +1440,14 @@ parse_index_op(StyioContext& context, StyioAST* theList) {
             context.drop_white_spaces();
 
             if (isdigit(context.get_curr_char())) {
-              output = new ListOpAST(StyioASTType::Remove_Item_By_Index, (theList), (parse_int(context)));
+              output = new ListOpAST(StyioNodeType::Remove_Item_By_Index, (theList), (parse_int(context)));
             }
             else {
               /*
                 list[-: ^(i0, i1, ...)]
               */
               output = new ListOpAST(
-                StyioASTType::Remove_Items_By_Many_Indices,
+                StyioNodeType::Remove_Items_By_Many_Indices,
                 (theList),
                 (parse_iterable(context))
               );
@@ -1463,7 +1463,7 @@ parse_index_op(StyioContext& context, StyioAST* theList) {
 
                 context.drop_white_spaces();
 
-                output = new ListOpAST(StyioASTType::Remove_Item_By_Value, (theList), parse_expr(context));
+                output = new ListOpAST(StyioNodeType::Remove_Item_By_Value, (theList), parse_expr(context));
               }
 
               break;
@@ -1477,7 +1477,7 @@ parse_index_op(StyioContext& context, StyioAST* theList) {
                 context.drop_white_spaces();
 
                 output = new ListOpAST(
-                  StyioASTType::Remove_Items_By_Many_Values,
+                  StyioNodeType::Remove_Items_By_Many_Values,
                   (theList),
                   parse_iterable(context)
                 );
@@ -1490,7 +1490,7 @@ parse_index_op(StyioContext& context, StyioAST* theList) {
             }
           }
           else {
-            output = new ListOpAST(StyioASTType::Remove_Item_By_Value, (theList), parse_expr(context));
+            output = new ListOpAST(StyioNodeType::Remove_Item_By_Value, (theList), parse_expr(context));
           }
         }
 
@@ -1524,7 +1524,7 @@ StyioAST*
 parse_loop_or_iter(StyioContext& context, StyioAST* iterOverIt) {
   context.drop_all_spaces_comments();
 
-  if ((iterOverIt->getNodeType()) == StyioASTType::Infinite) {
+  if ((iterOverIt->getNodeType()) == StyioNodeType::Infinite) {
     return new InfiniteLoopAST(parse_forward(context, false));
   }
   else {
@@ -1555,10 +1555,10 @@ parse_list_or_loop(StyioContext& context) {
 
     context.check_drop_panic(']');
 
-    if (startEl->getNodeType() == StyioASTType::Integer && endEl->getNodeType() == StyioASTType::Id) {
+    if (startEl->getNodeType() == StyioNodeType::Integer && endEl->getNodeType() == StyioNodeType::Id) {
       output = new InfiniteAST((startEl), (endEl));
     }
-    else if (startEl->getNodeType() == StyioASTType::Integer && endEl->getNodeType() == StyioASTType::Integer) {
+    else if (startEl->getNodeType() == StyioNodeType::Integer && endEl->getNodeType() == StyioNodeType::Integer) {
       output = new RangeAST(
         (startEl), (endEl), IntAST::Create("1")
       );
@@ -1902,7 +1902,7 @@ parse_cond_flow(StyioContext& context) {
 
         context.drop_all_spaces_comments();
 
-        block = parse_block(context);
+        block = parse_block_only(context);
 
         /*
           support:
@@ -1923,12 +1923,12 @@ parse_cond_flow(StyioContext& context) {
           */
           context.drop_all_spaces_comments();
 
-          StyioAST* blockElse = parse_block(context);
+          StyioAST* blockElse = parse_block_only(context);
 
-          return new CondFlowAST(StyioASTType::CondFlow_Both, (condition), (block), (blockElse));
+          return new CondFlowAST(StyioNodeType::CondFlow_Both, (condition), (block), (blockElse));
         }
         else {
-          return new CondFlowAST(StyioASTType::CondFlow_True, (condition), (block));
+          return new CondFlowAST(StyioNodeType::CondFlow_True, (condition), (block));
         }
       }
       else if (context.check_drop('f')) {
@@ -1941,9 +1941,9 @@ parse_cond_flow(StyioContext& context) {
         */
         context.drop_all_spaces_comments();
 
-        block = parse_block(context);
+        block = parse_block_only(context);
 
-        return new CondFlowAST(StyioASTType::CondFlow_False, (condition), (block));
+        return new CondFlowAST(StyioNodeType::CondFlow_False, (condition), (block));
       }
       else {
         string errmsg = string("parse_cond_flow() // Unexpected character ") + context.get_curr_char();
@@ -2136,7 +2136,7 @@ parse_forward(StyioContext& context, bool is_func) {
               context.drop_all_spaces();
 
               if (context.check_next('{')) {
-                then = parse_block(context);
+                then = parse_block_only(context);
               }
               else {
                 then = parse_expr(context);
@@ -2259,7 +2259,7 @@ parse_forward(StyioContext& context, bool is_func) {
             context.drop_all_spaces();
 
             if (context.check_next('{')) {
-              nextExpr = parse_block(context);
+              nextExpr = parse_block_only(context);
             }
             else {
               nextExpr = parse_expr(context);
@@ -2327,10 +2327,10 @@ parse_forward(StyioContext& context, bool is_func) {
 
       if (context.check_next('{')) {
         if (has_args) {
-          output = ForwardAST::Create(args, parse_block(context));
+          output = ForwardAST::Create(args, parse_block_only(context));
         }
         else {
-          output = ForwardAST::Create(parse_block(context));
+          output = ForwardAST::Create(parse_block_only(context));
         }
       }
       else if (context.check_codp()) {
@@ -2355,10 +2355,10 @@ parse_forward(StyioContext& context, bool is_func) {
     */
     case '{': {
       if (has_args) {
-        output = new ForwardAST(args, parse_block(context));
+        output = new ForwardAST(args, parse_block_only(context));
       }
       else {
-        output = new ForwardAST(parse_block(context));
+        output = new ForwardAST(parse_block_only(context));
       }
     } break;
 
@@ -2755,7 +2755,7 @@ parse_stmt_or_expr(
       if (context.check_drop("->")) {
         context.drop_all_spaces_comments();
 
-        return new HashTagNameAST((resources), parse_block(context));
+        return new HashTagNameAST((resources), parse_block_only(context));
       }
       else if (context.check_drop(">>")) {
         context.drop_all_spaces_comments();
@@ -2903,7 +2903,7 @@ parse_cases_only(StyioContext& context) {
       context.drop_all_spaces_comments();
 
       if (context.check_next('{')) {
-        _default_stmt = parse_block(context);
+        _default_stmt = parse_block_only(context);
       }
       else {
         _default_stmt = parse_stmt_or_expr(context);
@@ -2920,7 +2920,7 @@ parse_cases_only(StyioContext& context) {
 
     StyioAST* right;
     if (context.check_next('{')) {
-      right = parse_block(context);
+      right = parse_block_only(context);
     }
     else {
       right = parse_stmt_or_expr(context);
@@ -2971,10 +2971,10 @@ parse_main_block(StyioContext& context) {
   while (true) {
     StyioAST* stmt = parse_stmt_or_expr(context);
 
-    if ((stmt->getNodeType()) == StyioASTType::End) {
+    if ((stmt->getNodeType()) == StyioNodeType::End) {
       break;
     }
-    else if ((stmt->getNodeType()) == StyioASTType::Comment) {
+    else if ((stmt->getNodeType()) == StyioNodeType::Comment) {
       continue;
     }
     else {
