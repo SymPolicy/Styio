@@ -317,7 +317,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Integer, "Integer", num_of_bit};
+    return StyioDataType{StyioDataTypeOption::Integer, "int", num_of_bit};
   }
 };
 
@@ -419,32 +419,24 @@ public:
 
 class BlockAST : public StyioASTTraits<BlockAST>
 {
-  StyioAST* Resources = nullptr;
-  vector<StyioAST*> Stmts;
-
-  BlockAST(vector<StyioAST*> stmts) :
-      Stmts(stmts) {
-  }
-
+private:
   BlockAST() {
   }
 
-public:
-  BlockAST(StyioAST* resources, vector<StyioAST*> stmts) :
-      Resources(resources),
-      Stmts(stmts) {
+  BlockAST(vector<StyioAST*> stmts) :
+      stmts(stmts) {
   }
 
-  static BlockAST* Create(vector<StyioAST*> stmts) {
-    return new BlockAST(stmts);
-  }
+public:
+  std::vector<StyioAST*> stmts;
+  std::vector<StyioAST*> followings;
 
   static BlockAST* Create() {
     return new BlockAST();
   }
 
-  vector<StyioAST*> getStmts() {
-    return Stmts;
+  static BlockAST* Create(vector<StyioAST*> stmts) {
+    return new BlockAST(stmts);
   }
 
   const StyioNodeType getNodeType() const {
@@ -2780,7 +2772,7 @@ class IteratorAST : public StyioASTTraits<IteratorAST>
 public:
   StyioAST* collection = nullptr;
   std::vector<ParamAST*> params;
-  StyioAST* then_expr = nullptr;
+  std::vector<StyioAST*> following;
 
   IteratorAST(
     StyioAST* collection
@@ -2806,19 +2798,28 @@ public:
   IteratorAST(
     StyioAST* collection,
     std::vector<ParamAST*> params,
-    StyioAST* block
+    std::vector<StyioAST*> following
   ) :
       collection(collection),
       params(params),
-      then_expr(block) {
+      following(following) {
   }
 
   static IteratorAST* Create(
     StyioAST* collection,
     std::vector<ParamAST*> params,
-    StyioAST* block
+    std::vector<StyioAST*> following
   ) {
-    return new IteratorAST(collection, params, block);
+    return new IteratorAST(collection, params, following);
+  }
+
+  static IteratorAST* Create(
+    StyioAST* collection,
+    std::vector<ParamAST*> params,
+    StyioAST* forward_expr
+  ) {
+    std::vector<StyioAST*> forward_followings{forward_expr};
+    return new IteratorAST(collection, params, forward_followings);
   }
 
   const StyioNodeType getNodeType() const {
@@ -2838,7 +2839,6 @@ private:
     std::vector<HashTagNameAST*> hash_tags
   ) :
       IteratorAST(collection),
-      collection(collection),
       hash_tags(hash_tags) {
   }
 
@@ -2848,14 +2848,13 @@ private:
     std::vector<HashTagNameAST*> hash_tags
   ) :
       IteratorAST(collection, params),
-      collection(collection),
-      params(params),
       hash_tags(hash_tags) {
   }
 
 public:
-  StyioAST* collection = nullptr;
-  std::vector<ParamAST*> params;
+  using IteratorAST::collection;
+  using IteratorAST::following;
+  using IteratorAST::params;
   std::vector<HashTagNameAST*> hash_tags;
 
   static IterSeqAST* Create(

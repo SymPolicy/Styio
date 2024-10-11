@@ -182,6 +182,54 @@ public:
     return type == cur_tok_type();
   }
 
+  bool try_check(StyioTokenType target) {
+    // just match
+    if (tokens.at(index_of_token)->type == target) {
+      return true;
+    }
+
+    size_t offset = 0;
+    while (index_of_token + offset < tokens.size()) {
+      switch (tokens.at(index_of_token + offset)->type) {
+        /* white spaces */
+        case StyioTokenType::TOK_SPACE: {
+          offset += 1;
+        } break;
+
+        /* \n */
+        case StyioTokenType::TOK_LF: {
+          offset += 1;
+        } break;
+
+        /* \r */
+        case StyioTokenType::TOK_CR: {
+          offset += 1;
+        } break;
+
+        // comments like this
+        case StyioTokenType::COMMENT_LINE: {
+          offset += 1;
+        } break;
+
+        /* comments like this */
+        case StyioTokenType::COMMENT_CLOSED: {
+          offset += 1;
+        } break;
+
+        default: {
+          if (tokens.at(index_of_token + offset)->type == target) {
+            return true;
+          }
+          else {
+            return false;
+          }
+        } break;
+      }
+    }
+
+    return false;
+  }
+
   bool match(StyioTokenType type) {
     auto cur_type = this->cur_tok_type();
     if (type == cur_type) {
@@ -200,15 +248,11 @@ public:
 
     if (errmsg.empty()) {
       throw StyioSyntaxError(
-        string("match_panic(token)")
-        + label_cur_line(
-          cur_pos,
-          std::string("which is expected to be ") + StyioToken::getTokName(type)
-        )
+        string("match_panic(token)"), mark_cur_tok(std::string("which is expected to be ") + StyioToken::getTokName(type))
       );
     }
     else {
-      throw StyioSyntaxError(label_cur_line(cur_pos, errmsg));
+      throw StyioSyntaxError(mark_cur_tok(errmsg));
     }
   }
 
@@ -240,6 +284,12 @@ public:
   }
 
   bool try_match(StyioTokenType target) {
+    // just match
+    if (tokens.at(index_of_token)->type == target) {
+      move_forward(1, "try_match");
+      return true;
+    }
+
     size_t offset = 0;
     while (index_of_token + offset < tokens.size()) {
       switch (tokens.at(index_of_token + offset)->type) {
@@ -1195,7 +1245,7 @@ parse_cases_only(StyioContext& context);
 /*
   >> Iterator
 */
-StyioAST*
+IteratorAST*
 parse_iterator_only(StyioContext& context, StyioAST* collection);
 
 /*
@@ -1208,7 +1258,7 @@ parse_block_with_forward(StyioContext& context);
 CasesAST*
 parse_cases_with_forward(StyioContext& context);
 
-StyioAST*
+IteratorAST*
 parse_iterator_with_forward(StyioContext& context, StyioAST* collection);
 
 BackwardAST*

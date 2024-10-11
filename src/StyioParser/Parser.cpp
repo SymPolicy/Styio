@@ -2113,7 +2113,7 @@ parse_hash_tag(StyioContext& context) {
   context.skip();
   /* Block */
   if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
-    ret_expr = parse_block_only(context);
+    ret_expr = parse_block_with_forward(context);
     return FunctionAST::Create(tag_name, false, params, ret_type, ret_expr);
   }
   /* Block or Statement */
@@ -2121,7 +2121,7 @@ parse_hash_tag(StyioContext& context) {
     context.skip();
     /* Block */
     if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
-      ret_expr = parse_block_only(context);
+      ret_expr = parse_block_with_forward(context);
       return FunctionAST::Create(tag_name, false, params, ret_type, ret_expr);
     }
     /* Statement */
@@ -2165,7 +2165,7 @@ parse_hash_tag(StyioContext& context) {
       throw StyioSyntaxError(context.mark_cur_tok("Confusing: The iterator (>>) can not be applied to multiple objects."));
     }
 
-    ret_expr = parse_iterator_only(context, params[0]);
+    ret_expr = parse_iterator_with_forward(context, params[0]);
 
     return FunctionAST::Create(tag_name, true, params, ret_type, ret_expr);
   }
@@ -2216,34 +2216,52 @@ parse_forward_as_list(
 
   while (true) {
     context.skip();
-    /* => Block or Statement */
-    if (context.check(StyioTokenType::ARROW_DOUBLE_RIGHT)) {
-      following_exprs.push_back(parse_block_only(context));
-    }
-    /* ? Conditionals */
-    else if (context.check(StyioTokenType::TOK_QUEST)) {
-      throw StyioNotImplemented("parse_forward(Conditionals)");
-    }
-    /* ?= Match Cases */
-    else if (context.match(StyioTokenType::MATCH)) {
-      context.skip();
-      /* { _ => ... } Cases */
-      if (context.check(StyioTokenType::TOK_LPAREN) /* { */) {
-        following_exprs.push_back(parse_cases_only(context));
-      }
-      else {
-        std::vector<StyioAST*> rvals;
+    switch (context.cur_tok_type()) {
+      /* => Block or Statement */
+      case StyioTokenType::ARROW_DOUBLE_RIGHT: {
+        context.move_forward(1);
 
-        do {
-          rvals.push_back(parse_expr(context));
-        } while (context.try_match(StyioTokenType::TOK_COMMA) /* , */);
+        context.skip();
+        if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
+          following_exprs.push_back(parse_block_only(context));
+        }
+        else {
+          following_exprs.push_back(parse_stmt_or_expr(context));
+        }
+      } break;
 
-        following_exprs.push_back(CheckEqualAST::Create(rvals));
-      }
-    }
-    /* >> Iterator */
-    else if (context.check(StyioTokenType::ITERATOR)) {
-      /* code */
+      /* ? Conditionals */
+      case StyioTokenType::TOK_QUEST: {
+        throw StyioNotImplemented("parse_forward(Conditionals)");
+      } break;
+
+      /* ?= Match Cases */
+      case StyioTokenType::MATCH: {
+        context.move_forward(1);
+
+        context.skip();
+        /* { _ => ... } Cases */
+        if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
+          following_exprs.push_back(parse_cases_only(context));
+        }
+        else {
+          std::vector<StyioAST*> rvals;
+
+          do {
+            rvals.push_back(parse_expr(context));
+          } while (context.try_match(StyioTokenType::TOK_COMMA) /* , */);
+
+          following_exprs.push_back(CheckEqualAST::Create(rvals));
+        }
+      } break;
+
+      /* >> Iterator */
+      case StyioTokenType::ITERATOR: {
+      } break;
+
+      default: {
+        return following_exprs;
+      } break;
     }
   }
 
@@ -2252,6 +2270,11 @@ parse_forward_as_list(
 
 BlockAST*
 parse_block_with_forward(StyioContext& context) {
+  BlockAST* block = parse_block_only(context);
+
+  block->followings = parse_forward_as_list(context);
+
+  return block;
 }
 
 CasesAST*
@@ -2321,14 +2344,25 @@ parse_cases_only(StyioContext& context) {
   }
 }
 
-StyioAST*
+IteratorAST*
 parse_iterator_with_forward(
   StyioContext& context,
   StyioAST* collection
 ) {
+  IteratorAST* output = parse_iterator_only(context, collection);
+
+  auto forward_following = parse_forward_as_list(context);
+
+  output->following.insert(
+    output->following.end(),
+    std::make_move_iterator(forward_following.begin()),
+    std::make_move_iterator(forward_following.end())
+  );
+
+  return output;
 }
 
-StyioAST*
+IteratorAST*
 parse_iterator_only(
   StyioContext& context,
   StyioAST* collection
@@ -2365,8 +2399,6 @@ parse_iterator_only(
       }
     }
 
-    // IterSeq with Parameters: Pending...
-
     return IterSeqAST::Create(collection, hash_tags);
   }
   else if (context.cur_tok_type() == StyioTokenType::TOK_LPAREN /* ( */
@@ -2374,22 +2406,23 @@ parse_iterator_only(
     params = parse_params(context);
   }
 
+  context.skip();
+
   if (context.try_match(StyioTokenType::ARROW_DOUBLE_RIGHT) /* => */) {
-    context.skip();
-    if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
+    if (context.try_match(StyioTokenType::TOK_LCURBRAC) /* { */) {
       return IteratorAST::Create(collection, params, parse_block_only(context));
     }
     else {
       return IteratorAST::Create(collection, params, parse_stmt_or_expr(context));
     }
   }
-  else if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
+  else if (context.try_match(StyioTokenType::TOK_LCURBRAC) /* { */) {
     return IteratorAST::Create(collection, params, parse_block_only(context));
   }
-  else if (context.check(StyioTokenType::TOK_RANGBRAC) /* > */) {
+  else if (context.try_match(StyioTokenType::TOK_RANGBRAC) /* > */) {
     std::vector<HashTagNameAST*> hash_tags;
 
-    while (context.try_match(StyioTokenType::TOK_RANGBRAC) /* > */) {
+    do {
       if (context.try_match(StyioTokenType::TOK_HASH) /* # */) {
         context.skip();
         if (context.check(StyioTokenType::NAME)) {
@@ -2402,7 +2435,7 @@ parse_iterator_only(
       else {
         throw StyioSyntaxError(context.mark_cur_tok("Iterator sequence only support hash tags."));
       }
-    }
+    } while (context.try_match(StyioTokenType::TOK_RANGBRAC) /* > */);
 
     return IterSeqAST::Create(collection, params, hash_tags);
   }
@@ -2424,6 +2457,9 @@ parse_iterator_only(
 */
 BackwardAST*
 parse_backward(StyioContext& context, bool is_func) {
+  BackwardAST* output;
+
+  return output;
 }
 
 ExtractorAST*
@@ -2639,7 +2675,7 @@ parse_block_only(StyioContext& context) {
   ) {
     context.skip();
     if (context.match(StyioTokenType::TOK_RCURBRAC) /* } */) {
-      break;
+      return BlockAST::Create(std::move(stmts));
     }
     else {
       stmts.push_back(parse_stmt_or_expr(context));

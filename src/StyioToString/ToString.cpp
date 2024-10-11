@@ -237,7 +237,7 @@ StyioRepr::toString(SetAST* ast, int indent) {
 std::string
 StyioRepr::toString(ListAST* ast, int indent) {
   if (ast->getElements().empty()) {
-    return reprASTType(ast->getNodeType(), " ") + "[ ]";
+    return reprASTType(ast->getNodeType()) + " [ ]";
   }
 
   string ElemStr;
@@ -255,8 +255,7 @@ StyioRepr::toString(ListAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(SizeOfAST* ast, int indent) {
-  return reprASTType(ast->getNodeType(), " ")
-         + "{ " + ast->getValue()->toString(this, indent + 1) + " }";
+  return reprASTType(ast->getNodeType()) + " { " + ast->getValue()->toString(this, indent + 1) + " }";
 }
 
 std::string
@@ -779,7 +778,8 @@ StyioRepr::toString(FunctionAST* ast, int indent) {
     output += make_padding(indent) + "ret_type: " + ret_type_str + "\n";
   }
 
-  output += make_padding(indent) + "func_body: " + ast->func_body->toString(this, indent + 1) + "}";
+  output += make_padding(indent) + "func_body:\n"
+            + make_padding(indent + 1) + ast->func_body->toString(this, indent + 2) + "}";
   return output;
 }
 
@@ -836,8 +836,13 @@ StyioRepr::toString(IteratorAST* ast, int indent) {
     outstr += make_padding(indent) + ast->params.at(i)->toString(this, indent + 1) + "\n";
   }
 
-  if (ast->then_expr) {
-    outstr += make_padding(indent) + ast->then_expr->toString(this, indent + 1);
+  if (not ast->following.empty()) {
+    for (size_t i = 0; i < ast->following.size(); i++) {
+      outstr += make_padding(indent) + ast->following.at(i)->toString(this, indent + 1);
+      if (i < ast->following.size() - 1) {
+        outstr += "\n";
+      }
+    }
   }
 
   outstr += "}";
@@ -902,14 +907,22 @@ std::string
 StyioRepr::toString(BlockAST* ast, int indent) {
   string outstr;
 
-  auto Stmts = ast->getStmts();
-  if (Stmts.empty())
-    return reprASTType(ast->getNodeType(), " ") + "{ " + " }";
-
-  for (int i = 0; i < Stmts.size(); i++) {
-    outstr += make_padding(indent) + Stmts[i]->toString(this, indent + 1);
-    if (i < (Stmts.size() - 1)) {
+  auto stmts = ast->stmts;
+  for (int i = 0; i < stmts.size(); i++) {
+    outstr += make_padding(indent) + stmts.at(i)->toString(this, indent + 1);
+    if (i < (stmts.size() - 1)) {
       outstr += "\n";
+    }
+  }
+
+  auto followings = ast->followings;
+  if (not followings.empty()) {
+    outstr += "\n";
+    for (int i = 0; i < followings.size(); i++) {
+      outstr += make_padding(indent + i) + followings.at(i)->toString(this, indent + i + 1);
+      if (i < (followings.size() - 1)) {
+        outstr += "\n";
+      }
     }
   }
 
