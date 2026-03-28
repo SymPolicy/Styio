@@ -3,6 +3,8 @@
 **Date:** 2026-03-28  
 **Methodology:** Test-Case Driven Development. Every milestone defines its acceptance tests FIRST.
 
+**Ambiguities:** See [`docs/Logic-Conflicts.md`](../Logic-Conflicts.md) for overloaded symbols, milestone ordering tensions, and gaps between design and the current compiler.
+
 ---
 
 ## Overview
