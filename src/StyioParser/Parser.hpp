@@ -152,6 +152,17 @@ public:
     }
   }
 
+  std::pair<size_t, size_t>
+  save_cursor() const {
+    return {index_of_token, cur_pos};
+  }
+
+  void
+  restore_cursor(std::pair<size_t, size_t> c) {
+    index_of_token = c.first;
+    cur_pos = c.second;
+  }
+
   inline void skip() {
     while (cur_tok()->type == StyioTokenType::TOK_SPACE         /* white spaces */
            || cur_tok()->type == StyioTokenType::TOK_LF         /* \n */

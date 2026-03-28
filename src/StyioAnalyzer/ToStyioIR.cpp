@@ -15,8 +15,29 @@
 // [Styio]
 #include "../StyioAST/AST.hpp"
 #include "../StyioIR/GenIR/GenIR.hpp"
+#include "../StyioIR/IOIR/IOIR.hpp"
 #include "../StyioToken/Token.hpp"
 #include "Util.hpp"
+
+static StyioOpType
+comp_type_to_op(CompType ct) {
+  switch (ct) {
+    case CompType::EQ:
+      return StyioOpType::Equal;
+    case CompType::NE:
+      return StyioOpType::Not_Equal;
+    case CompType::GT:
+      return StyioOpType::Greater_Than;
+    case CompType::GE:
+      return StyioOpType::Greater_Than_Equal;
+    case CompType::LT:
+      return StyioOpType::Less_Than;
+    case CompType::LE:
+      return StyioOpType::Less_Than_Equal;
+    default:
+      return StyioOpType::Equal;
+  }
+}
 
 StyioIR*
 StyioAnalyzer::toStyioIR(CommentAST* ast) {
@@ -70,7 +91,12 @@ StyioAnalyzer::toStyioIR(CharAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(StringAST* ast) {
-  return SGConstInt::Create(0);
+  const std::string& raw = ast->getValue();
+  std::string inner = raw;
+  if (raw.size() >= 2 && raw.front() == '"' && raw.back() == '"') {
+    inner = raw.substr(1, raw.size() - 2);
+  }
+  return SGConstString::Create(inner);
 }
 
 StyioIR*
@@ -198,12 +224,32 @@ StyioAnalyzer::toStyioIR(ListOpAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(BinCompAST* ast) {
-  return SGConstInt::Create(0);
+  StyioOpType op = comp_type_to_op(ast->getSign());
+  return SGBinOp::Create(
+    ast->getLHS()->toStyioIR(this),
+    ast->getRHS()->toStyioIR(this),
+    op,
+    SGType::Create(StyioDataType{StyioDataTypeOption::Bool, "bool", 1}));
 }
 
 StyioIR*
 StyioAnalyzer::toStyioIR(CondAST* ast) {
-  return SGConstInt::Create(0);
+  switch (ast->getSign()) {
+    case LogicType::AND:
+      return SGCond::Create(
+        ast->getLHS()->toStyioIR(this),
+        ast->getRHS()->toStyioIR(this),
+        StyioOpType::Logic_AND);
+    case LogicType::OR:
+      return SGCond::Create(
+        ast->getLHS()->toStyioIR(this),
+        ast->getRHS()->toStyioIR(this),
+        StyioOpType::Logic_OR);
+    case LogicType::RAW:
+      return ast->getValue()->toStyioIR(this);
+    default:
+      return ast->getValue() ? ast->getValue()->toStyioIR(this) : SGConstInt::Create(0);
+  }
 }
 
 /*
@@ -212,9 +258,11 @@ StyioAnalyzer::toStyioIR(CondAST* ast) {
 */
 StyioIR*
 StyioAnalyzer::toStyioIR(BinOpAST* ast) {
-  return SGBinOp::Create(ast->LHS->toStyioIR(this), ast->RHS->toStyioIR(this), ast->operand, static_cast<SGType*>(ast->data_type->toStyioIR(this)));
-
-  return SGConstInt::Create(0);
+  return SGBinOp::Create(
+    ast->LHS->toStyioIR(this),
+    ast->RHS->toStyioIR(this),
+    ast->operand,
+    static_cast<SGType*>(ast->data_type->toStyioIR(this)));
 }
 
 StyioIR*
@@ -289,7 +337,11 @@ StyioAnalyzer::toStyioIR(AttrAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(PrintAST* ast) {
-  return SGConstInt::Create(0);
+  std::vector<StyioIR*> parts;
+  for (auto* e : ast->exprs) {
+    parts.push_back(e->toStyioIR(this));
+  }
+  return SIOPrint::Create(parts);
 }
 
 StyioIR*
@@ -369,7 +421,11 @@ StyioAnalyzer::toStyioIR(MatchCasesAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(BlockAST* ast) {
-  return SGConstInt::Create(0);
+  std::vector<StyioIR*> ir_stmts;
+  for (auto* s : ast->stmts) {
+    ir_stmts.push_back(s->toStyioIR(this));
+  }
+  return SGBlock::Create(ir_stmts);
 }
 
 StyioIR*

@@ -383,6 +383,9 @@ reprToken(StyioOpType token) {
     case StyioOpType::Self_Div_Assign:
       return "/=";
 
+    case StyioOpType::Self_Mod_Assign:
+      return "%=";
+
     default:
       return "<Undefined>";
       break;
@@ -442,6 +445,10 @@ StyioDataType
 getMaxType(StyioDataType T1, StyioDataType T2) {
   if (T1.option == T2.option) {
     return T1;
+  }
+
+  if ((T1.isInteger() && T2.isFloat()) || (T1.isFloat() && T2.isInteger())) {
+    return StyioDataType{StyioDataTypeOption::Float, "f64", 64};
   }
 
   return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
@@ -709,6 +716,21 @@ StyioToken::getTokName(StyioTokenType type) {
 
     case StyioTokenType::WALRUS:
       return ":=";
+
+    case StyioTokenType::COMPOUND_ADD:
+      return "+=";
+
+    case StyioTokenType::COMPOUND_SUB:
+      return "-=";
+
+    case StyioTokenType::COMPOUND_MUL:
+      return "*=";
+
+    case StyioTokenType::COMPOUND_DIV:
+      return "/=";
+
+    case StyioTokenType::COMPOUND_MOD:
+      return "%=";
 
     case StyioTokenType::MATCH:
       return "?=";

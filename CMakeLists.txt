@@ -61,7 +61,6 @@ find_package(ICU COMPONENTS uc i18n REQUIRED)
 add_executable( styio 
     src/main.cpp
     # Utility
-    src/StyioUtil/Util.cpp
     # Lexer
     src/StyioToken/Token.cpp
     # Parser

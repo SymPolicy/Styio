@@ -87,24 +87,34 @@ StyioAnalyzer::typeInfer(OptKwArgAST* ast) {
 */
 void
 StyioAnalyzer::typeInfer(FlexBindAST* ast) {
-  /* FlexBindAST -> VarAST -> DTypeAST -> StyioDataType */
   auto var_type = ast->getVar()->getDType()->type;
 
-  /* var type is not declared, try to deduce from the type of value */
-  if (var_type.option == StyioDataTypeOption::Undefined) {
-    ast->getValue()->typeInfer(this);
+  if (var_type.option != StyioDataTypeOption::Undefined) {
+    if (ast->getValue()->getNodeType() == StyioNodeType::BinOp) {
+      static_cast<BinOpAST*>(ast->getValue())->setDType(var_type);
+    }
+  }
 
+  ast->getValue()->typeInfer(this);
+
+  if (var_type.option == StyioDataTypeOption::Undefined) {
     switch (ast->getValue()->getNodeType()) {
       case StyioNodeType::Integer: {
-        ast->getVar()->setDataType(ast->getValue()->getDataType());
+        ast->getVar()->setDataType(static_cast<IntAST*>(ast->getValue())->getDataType());
       } break;
 
       case StyioNodeType::Float: {
-        ast->getVar()->setDataType(ast->getValue()->getDataType());
+        ast->getVar()->setDataType(static_cast<FloatAST*>(ast->getValue())->getDataType());
       } break;
 
       case StyioNodeType::BinOp: {
-        ast->getVar()->setDataType(ast->getValue()->getDataType());
+        ast->getVar()->setDataType(static_cast<BinOpAST*>(ast->getValue())->getType());
+      } break;
+
+      case StyioNodeType::Bool:
+      case StyioNodeType::Condition:
+      case StyioNodeType::Compare: {
+        ast->getVar()->setDataType(StyioDataType{StyioDataTypeOption::Bool, "bool", 1});
       } break;
 
       case StyioNodeType::Tuple: {
@@ -115,23 +125,19 @@ StyioAnalyzer::typeInfer(FlexBindAST* ast) {
         break;
     }
   }
-  /* if var type has been declared, the type of value must be converted to whatever declared */
-  else {
-    switch (ast->getValue()->getNodeType()) {
-      case StyioNodeType::BinOp: {
-        static_cast<BinOpAST*>(ast->getValue())->setDType(var_type);
-      } break;
 
-      default:
-        break;
-    }
-
-    ast->getValue()->typeInfer(this);
-  }
+  local_binding_types[ast->getNameAsStr()] = ast->getVar()->getDType()->type;
 }
 
 void
 StyioAnalyzer::typeInfer(FinalBindAST* ast) {
+  ast->getValue()->typeInfer(this);
+  auto vt = ast->getVar()->getDType()->type;
+  if (ast->getValue()->getNodeType() == StyioNodeType::BinOp) {
+    static_cast<BinOpAST*>(ast->getValue())->setDType(vt);
+    ast->getValue()->typeInfer(this);
+  }
+  local_binding_types[ast->getVar()->getNameAsStr()] = vt;
 }
 
 void
@@ -210,10 +216,21 @@ StyioAnalyzer::typeInfer(ListOpAST* ast) {
 
 void
 StyioAnalyzer::typeInfer(BinCompAST* ast) {
+  ast->getLHS()->typeInfer(this);
+  ast->getRHS()->typeInfer(this);
 }
 
 void
 StyioAnalyzer::typeInfer(CondAST* ast) {
+  if (ast->getValue()) {
+    ast->getValue()->typeInfer(this);
+  }
+  if (ast->getLHS()) {
+    ast->getLHS()->typeInfer(this);
+  }
+  if (ast->getRHS()) {
+    ast->getRHS()->typeInfer(this);
+  }
 }
 
 /*
@@ -224,12 +241,26 @@ void
 StyioAnalyzer::typeInfer(BinOpAST* ast) {
   auto lhs = ast->getLHS();
   auto rhs = ast->getRHS();
+  auto op = ast->getOp();
+
+  if (op == StyioOpType::Self_Add_Assign || op == StyioOpType::Self_Sub_Assign
+      || op == StyioOpType::Self_Mul_Assign || op == StyioOpType::Self_Div_Assign
+      || op == StyioOpType::Self_Mod_Assign) {
+    rhs->typeInfer(this);
+    auto* nm = static_cast<NameAST*>(lhs);
+    auto it = local_binding_types.find(nm->getAsStr());
+    if (it != local_binding_types.end()) {
+      ast->setDType(it->second);
+    }
+    else {
+      ast->setDType(StyioDataType{StyioDataTypeOption::Integer, "i64", 64});
+    }
+    return;
+  }
 
   if (ast->getType().isUndefined()) {
     lhs->typeInfer(this);
     rhs->typeInfer(this);
-
-    auto op = ast->getOp();
     auto lhs_hint = lhs->getNodeType();
     auto rhs_hint = rhs->getNodeType();
 
@@ -240,14 +271,9 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto lhs_int = static_cast<IntAST*>(lhs);
             auto rhs_int = static_cast<IntAST*>(rhs);
 
-            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul) {
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul
+                || op == StyioOpType::Binary_Div || op == StyioOpType::Binary_Mod || op == StyioOpType::Binary_Pow) {
               ast->setDType(getMaxType(lhs_int->getDataType(), rhs_int->getDataType()));
-            }
-            else if (op == StyioOpType::Binary_Div) {
-              // 0 / n = 0
-              if (std::stoi(lhs_int->getValue()) == 0) {
-                ast->setDType(getMaxType(lhs_int->getDataType(), rhs_int->getDataType()));
-              }
             }
           } break;
 
@@ -255,7 +281,8 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto lhs_int = static_cast<IntAST*>(lhs);
             auto rhs_float = static_cast<FloatAST*>(rhs);
 
-            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul || op == StyioOpType::Binary_Div) {
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul
+                || op == StyioOpType::Binary_Div || op == StyioOpType::Binary_Mod || op == StyioOpType::Binary_Pow) {
               ast->setDType(getMaxType(lhs_int->getDataType(), rhs_float->getDataType()));
             }
           } break;
@@ -264,8 +291,9 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto lhs_expr = static_cast<IntAST*>(lhs);
             auto rhs_expr = static_cast<BinOpAST*>(rhs);
 
-            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul || op == StyioOpType::Binary_Div) {
-              ast->setDType(getMaxType(lhs_expr->getDataType(), rhs_expr->getDataType()));
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul
+                || op == StyioOpType::Binary_Div || op == StyioOpType::Binary_Mod || op == StyioOpType::Binary_Pow) {
+              ast->setDType(getMaxType(lhs_expr->getDataType(), rhs_expr->getType()));
             }
           } break;
 
@@ -280,7 +308,8 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto lhs_float = static_cast<FloatAST*>(lhs);
             auto rhs_int = static_cast<IntAST*>(rhs);
 
-            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul || op == StyioOpType::Binary_Div) {
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul
+                || op == StyioOpType::Binary_Div || op == StyioOpType::Binary_Mod || op == StyioOpType::Binary_Pow) {
               ast->setDType(getMaxType(lhs_float->getDataType(), rhs_int->getDataType()));
             }
           } break;
@@ -289,7 +318,8 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto lhs_float = static_cast<FloatAST*>(lhs);
             auto rhs_float = static_cast<FloatAST*>(rhs);
 
-            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul || op == StyioOpType::Binary_Div) {
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul
+                || op == StyioOpType::Binary_Div || op == StyioOpType::Binary_Mod || op == StyioOpType::Binary_Pow) {
               ast->setDType(getMaxType(lhs_float->getDataType(), rhs_float->getDataType()));
             }
           } break;
@@ -305,7 +335,8 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto lhs_expr = static_cast<BinOpAST*>(lhs);
             auto rhs_expr = static_cast<IntAST*>(rhs);
 
-            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul || op == StyioOpType::Binary_Div) {
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul
+                || op == StyioOpType::Binary_Div || op == StyioOpType::Binary_Mod || op == StyioOpType::Binary_Pow) {
               ast->setDType(getMaxType(lhs_expr->getType(), rhs_expr->getDataType()));
             }
           } break;
@@ -314,7 +345,8 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto lhs_binop = static_cast<BinOpAST*>(lhs);
             auto rhs_float = static_cast<FloatAST*>(rhs);
 
-            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul || op == StyioOpType::Binary_Div) {
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul
+                || op == StyioOpType::Binary_Div || op == StyioOpType::Binary_Mod || op == StyioOpType::Binary_Pow) {
               ast->setDType(getMaxType(lhs_binop->getType(), rhs_float->getDataType()));
             }
           } break;
@@ -323,8 +355,59 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
             auto lhs_binop = static_cast<BinOpAST*>(lhs);
             auto rhs_binop = static_cast<BinOpAST*>(rhs);
 
-            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul || op == StyioOpType::Binary_Div) {
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul
+                || op == StyioOpType::Binary_Div || op == StyioOpType::Binary_Mod || op == StyioOpType::Binary_Pow) {
               ast->setDType(getMaxType(lhs_binop->getType(), rhs_binop->getType()));
+            }
+          } break;
+
+          default:
+            break;
+        }
+      } break;
+
+      case StyioNodeType::Id: {
+        auto* lid = static_cast<NameAST*>(lhs);
+        auto lt_it = local_binding_types.find(lid->getAsStr());
+        if (lt_it == local_binding_types.end()) {
+          break;
+        }
+        StyioDataType lt = lt_it->second;
+
+        switch (rhs_hint) {
+          case StyioNodeType::Integer: {
+            auto* ri = static_cast<IntAST*>(rhs);
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul
+                || op == StyioOpType::Binary_Div || op == StyioOpType::Binary_Mod || op == StyioOpType::Binary_Pow) {
+              ast->setDType(getMaxType(lt, ri->getDataType()));
+            }
+          } break;
+
+          case StyioNodeType::Float: {
+            auto* rf = static_cast<FloatAST*>(rhs);
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul
+                || op == StyioOpType::Binary_Div || op == StyioOpType::Binary_Mod || op == StyioOpType::Binary_Pow) {
+              ast->setDType(getMaxType(lt, rf->getDataType()));
+            }
+          } break;
+
+          case StyioNodeType::BinOp: {
+            auto* rb = static_cast<BinOpAST*>(rhs);
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul
+                || op == StyioOpType::Binary_Div || op == StyioOpType::Binary_Mod || op == StyioOpType::Binary_Pow) {
+              ast->setDType(getMaxType(lt, rb->getType()));
+            }
+          } break;
+
+          case StyioNodeType::Id: {
+            auto* rid = static_cast<NameAST*>(rhs);
+            auto rt_it = local_binding_types.find(rid->getAsStr());
+            if (rt_it == local_binding_types.end()) {
+              break;
+            }
+            if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul
+                || op == StyioOpType::Binary_Div || op == StyioOpType::Binary_Mod || op == StyioOpType::Binary_Pow) {
+              ast->setDType(getMaxType(lt, rt_it->second));
             }
           } break;
 
@@ -445,6 +528,9 @@ StyioAnalyzer::typeInfer(AttrAST* ast) {
 
 void
 StyioAnalyzer::typeInfer(PrintAST* ast) {
+  for (auto* e : ast->exprs) {
+    e->typeInfer(this);
+  }
 }
 
 void
@@ -516,6 +602,7 @@ StyioAnalyzer::typeInfer(BlockAST* ast) {
 
 void
 StyioAnalyzer::typeInfer(MainBlockAST* ast) {
+  local_binding_types.clear();
   auto stmts = ast->getStmts();
   for (auto const& s : stmts) {
     s->typeInfer(this);

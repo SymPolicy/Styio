@@ -19,12 +19,23 @@ StyioToLLVM::toLLVMType(SGResId* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGType* node) {
-  return theBuilder->getInt64Ty();
+  switch (node->data_type.option) {
+    case StyioDataTypeOption::Bool:
+      return theBuilder->getInt1Ty();
+    case StyioDataTypeOption::Integer:
+      return theBuilder->getInt64Ty();
+    case StyioDataTypeOption::Float:
+      return theBuilder->getDoubleTy();
+    case StyioDataTypeOption::String:
+      return llvm::PointerType::get(*theContext, 0);
+    default:
+      return theBuilder->getInt64Ty();
+  }
 };
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGConstBool* node) {
-  return theBuilder->getInt64Ty();
+  return theBuilder->getInt1Ty();
 };
 
 llvm::Type*
@@ -44,7 +55,7 @@ StyioToLLVM::toLLVMType(SGConstChar* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGConstString* node) {
-  return theBuilder->getInt64Ty();
+  return llvm::PointerType::get(*theContext, 0);
 };
 
 llvm::Type*

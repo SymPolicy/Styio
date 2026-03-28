@@ -13,6 +13,7 @@ using std::unordered_map;
 // [Styio]
 #include "../StyioAST/ASTDecl.hpp"
 #include "../StyioIR/IRDecl.hpp"
+#include "../StyioToken/Token.hpp"
 
 // Generic Visitor
 template <typename... Types>
@@ -133,6 +134,7 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
 class StyioAnalyzer : public StyioAnalyzerVisitor
 {
   unordered_map<string, FunctionAST*> func_defs;
+  unordered_map<string, StyioDataType> local_binding_types;
 
 public:
   StyioAnalyzer() {}

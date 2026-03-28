@@ -20,26 +20,17 @@ StyioToLLVM::print_llvm_ir() {
 
 void
 StyioToLLVM::execute() {
-  std::cout << "\033[1;32mJIT\033[0m" << std::endl;
-
   auto RT = theORCJIT->getMainJITDylib().createResourceTracker();
   auto TSM = llvm::orc::ThreadSafeModule(std::move(theModule), std::move(theContext));
   llvm::ExitOnError exit_on_error;
   exit_on_error(theORCJIT->addModule(std::move(TSM), RT));
 
-  // Look up the JIT'd code entry point.
   auto ExprSymbol = theORCJIT->lookup("main");
   if (!ExprSymbol) {
-    std::cout << "main not found" << std::endl;
+    std::cerr << "styio: main not found" << std::endl;
     return;
-  } 
-  else {
-    std::cout << "main found" << std::endl;
   }
 
-  // Cast the entry point address to a function pointer.
   int (*FP)() = ExprSymbol->getAddress().toPtr<int (*)()>();
-
-  // Call into JIT'd code.
-  std::cout << "result: " << FP() << std::endl;
+  FP();
 }

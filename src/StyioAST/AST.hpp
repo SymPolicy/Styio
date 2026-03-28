@@ -1675,7 +1675,7 @@ public:
   }
 
   static FinalBindAST* Create(VarAST* var, StyioAST* val) {
-    return FinalBindAST::Create(var, val);
+    return new FinalBindAST(var, val);
   }
 
   const StyioNodeType getNodeType() const {

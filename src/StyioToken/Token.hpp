@@ -100,6 +100,7 @@ enum class StyioOpType
   Self_Sub_Assign,      // a -= b
   Self_Mul_Assign,      // a *= b
   Self_Div_Assign,      // a /= b
+  Self_Mod_Assign,      // a %= b
   Bitwise_NOT,          // ~ a
   Bitwise_AND,          // a & b
   Bitwise_OR,           // a | b
@@ -163,6 +164,7 @@ static std::unordered_map<StyioOpType, int> const TokenPrecedenceMap = {
   {StyioOpType::Self_Sub_Assign, 1},  // a -= b
   {StyioOpType::Self_Mul_Assign, 1},  // a *= b
   {StyioOpType::Self_Div_Assign, 1},  // a /= b
+  {StyioOpType::Self_Mod_Assign, 1},  // a %= b
 
   {StyioOpType::Undefined, 0},    // Undefined
   {StyioOpType::End_Of_File, 0},  // Undefined
@@ -201,6 +203,7 @@ static std::unordered_map<StyioOpType, std::string> const TokenStrMap = {
   {StyioOpType::Self_Sub_Assign, "-="},  // a -= b
   {StyioOpType::Self_Mul_Assign, "*="},  // a *= b
   {StyioOpType::Self_Div_Assign, "/="},  // a /= b
+  {StyioOpType::Self_Mod_Assign, "%="},  // a %= b
 };
 
 static std::unordered_map<std::string, StyioOpType> const StrTokenMap = {
@@ -236,6 +239,7 @@ static std::unordered_map<std::string, StyioOpType> const StrTokenMap = {
   {"-=", StyioOpType::Self_Sub_Assign},  // a -= b
   {"*=", StyioOpType::Self_Mul_Assign},  // a *= b
   {"/=", StyioOpType::Self_Div_Assign},  // a /= b
+  {"%=", StyioOpType::Self_Mod_Assign},  // a %= b
 };
 
 enum class StyioContextType
@@ -707,6 +711,12 @@ enum class StyioTokenType
 
   SINGLE_SEP_LINE,  // ---
   DOUBLE_SEP_LINE,  // ===
+
+  COMPOUND_ADD,  // +=
+  COMPOUND_SUB,  // -=
+  COMPOUND_MUL,  // *=
+  COMPOUND_DIV,  // /=
+  COMPOUND_MOD,  // %=
 
   UNKNOWN,
 };

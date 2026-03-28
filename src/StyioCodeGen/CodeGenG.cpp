@@ -1,6 +1,7 @@
 // [C++ STL]
 #include <cstdio>
 #include <cstdlib>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -93,7 +94,7 @@ StyioToLLVM::toLLVMIR(SGConstChar* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGConstString* node) {
-  return llvm::ConstantDataArray::getString(*theContext, node->value, /* AddNull */ true);
+  return theBuilder->CreateGlobalStringPtr(node->value, "styio_str");
 }
 
 llvm::Value*
@@ -117,15 +118,58 @@ StyioToLLVM::toLLVMIR(SGCast* node) {
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGBinOp* node) {
   StyioDataType data_type = node->data_type->data_type;
+
+  using Bin2 = std::function<llvm::Value*(llvm::Value*, llvm::Value*)>;
+
+  auto do_self_assign = [&](Bin2 bi, Bin2 bf) -> llvm::Value* {
+    auto* lid = static_cast<SGResId*>(node->lhs_expr);
+    const std::string& varname = lid->as_str();
+    if (not mutable_variables.contains(varname)) {
+      throw StyioNotImplemented("compound assignment requires a mutable binding");
+    }
+    llvm::AllocaInst* slot = mutable_variables[varname];
+    llvm::Type* slot_ty = slot->getAllocatedType();
+    llvm::Value* cur = theBuilder->CreateLoad(slot_ty, slot);
+    llvm::Value* r_val = node->rhs_expr->toLLVMIR(this);
+    llvm::Value* next = nullptr;
+    if (slot_ty->isDoubleTy()) {
+      if (not r_val->getType()->isDoubleTy()) {
+        r_val = theBuilder->CreateSIToFP(r_val, theBuilder->getDoubleTy());
+      }
+      if (not cur->getType()->isDoubleTy()) {
+        cur = theBuilder->CreateSIToFP(cur, theBuilder->getDoubleTy());
+      }
+      next = bf(cur, r_val);
+    }
+    else {
+      if (r_val->getType()->isDoubleTy()) {
+        cur = theBuilder->CreateSIToFP(cur, theBuilder->getDoubleTy());
+      }
+      next = bi(cur, r_val);
+    }
+    theBuilder->CreateStore(next, slot);
+    return next;
+  };
+
   llvm::Value* l_val = node->lhs_expr->toLLVMIR(this);
   llvm::Value* r_val = node->rhs_expr->toLLVMIR(this);
 
   switch (node->operand) {
     case StyioOpType::Binary_Add: {
       if (data_type.isInteger()) {
+        if (r_val->getType()->isDoubleTy()) {
+          l_val = theBuilder->CreateSIToFP(l_val, theBuilder->getDoubleTy());
+          return theBuilder->CreateFAdd(l_val, r_val);
+        }
         return theBuilder->CreateAdd(l_val, r_val);
       }
       else if (data_type.isFloat()) {
+        if (not l_val->getType()->isDoubleTy()) {
+          l_val = theBuilder->CreateSIToFP(l_val, theBuilder->getDoubleTy());
+        }
+        if (not r_val->getType()->isDoubleTy()) {
+          r_val = theBuilder->CreateSIToFP(r_val, theBuilder->getDoubleTy());
+        }
         return theBuilder->CreateFAdd(l_val, r_val);
       }
     } break;
@@ -135,45 +179,189 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
         return theBuilder->CreateSub(l_val, r_val);
       }
       else if (data_type.isFloat()) {
+        if (not l_val->getType()->isDoubleTy()) {
+          l_val = theBuilder->CreateSIToFP(l_val, theBuilder->getDoubleTy());
+        }
+        if (not r_val->getType()->isDoubleTy()) {
+          r_val = theBuilder->CreateSIToFP(r_val, theBuilder->getDoubleTy());
+        }
         return theBuilder->CreateFSub(l_val, r_val);
       }
     } break;
 
     case StyioOpType::Binary_Mul: {
       if (data_type.isInteger()) {
+        if (r_val->getType()->isDoubleTy()) {
+          l_val = theBuilder->CreateSIToFP(l_val, theBuilder->getDoubleTy());
+          return theBuilder->CreateFMul(l_val, r_val);
+        }
         return theBuilder->CreateMul(l_val, r_val);
       }
       else if (data_type.isFloat()) {
+        if (not l_val->getType()->isDoubleTy()) {
+          l_val = theBuilder->CreateSIToFP(l_val, theBuilder->getDoubleTy());
+        }
+        if (not r_val->getType()->isDoubleTy()) {
+          r_val = theBuilder->CreateSIToFP(r_val, theBuilder->getDoubleTy());
+        }
         return theBuilder->CreateFMul(l_val, r_val);
       }
     } break;
 
     case StyioOpType::Binary_Div: {
-      /* Signed Integer */
       if (data_type.isInteger()) {
         return theBuilder->CreateSDiv(l_val, r_val);
       }
       else if (data_type.isFloat()) {
+        if (not l_val->getType()->isDoubleTy()) {
+          l_val = theBuilder->CreateSIToFP(l_val, theBuilder->getDoubleTy());
+        }
+        if (not r_val->getType()->isDoubleTy()) {
+          r_val = theBuilder->CreateSIToFP(r_val, theBuilder->getDoubleTy());
+        }
         return theBuilder->CreateFDiv(l_val, r_val);
       }
     } break;
 
     case StyioOpType::Binary_Pow: {
+      llvm::Type* d = theBuilder->getDoubleTy();
+      llvm::FunctionCallee pow_fn = theModule->getOrInsertFunction(
+        "pow",
+        llvm::FunctionType::get(d, {d, d}, false));
+      llvm::Value* lf = l_val->getType()->isDoubleTy()
+        ? l_val
+        : theBuilder->CreateSIToFP(l_val, d);
+      llvm::Value* rf = r_val->getType()->isDoubleTy()
+        ? r_val
+        : theBuilder->CreateSIToFP(r_val, d);
+      llvm::Value* pr = theBuilder->CreateCall(pow_fn, {lf, rf});
+      if (data_type.isInteger()) {
+        return theBuilder->CreateFPToSI(pr, theBuilder->getInt64Ty());
+      }
+      return pr;
     } break;
 
     case StyioOpType::Binary_Mod: {
+      if (data_type.isInteger()) {
+        return theBuilder->CreateSRem(l_val, r_val);
+      }
+      else if (data_type.isFloat()) {
+        if (not l_val->getType()->isDoubleTy()) {
+          l_val = theBuilder->CreateSIToFP(l_val, theBuilder->getDoubleTy());
+        }
+        if (not r_val->getType()->isDoubleTy()) {
+          r_val = theBuilder->CreateSIToFP(r_val, theBuilder->getDoubleTy());
+        }
+        return theBuilder->CreateFRem(l_val, r_val);
+      }
+    } break;
+
+    case StyioOpType::Equal: {
+      if (l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
+        if (not l_val->getType()->isDoubleTy()) {
+          l_val = theBuilder->CreateSIToFP(l_val, theBuilder->getDoubleTy());
+        }
+        if (not r_val->getType()->isDoubleTy()) {
+          r_val = theBuilder->CreateSIToFP(r_val, theBuilder->getDoubleTy());
+        }
+        return theBuilder->CreateFCmpOEQ(l_val, r_val);
+      }
+      return theBuilder->CreateICmpEQ(l_val, r_val);
+    } break;
+
+    case StyioOpType::Not_Equal: {
+      if (l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
+        if (not l_val->getType()->isDoubleTy()) {
+          l_val = theBuilder->CreateSIToFP(l_val, theBuilder->getDoubleTy());
+        }
+        if (not r_val->getType()->isDoubleTy()) {
+          r_val = theBuilder->CreateSIToFP(r_val, theBuilder->getDoubleTy());
+        }
+        return theBuilder->CreateFCmpONE(l_val, r_val);
+      }
+      return theBuilder->CreateICmpNE(l_val, r_val);
+    } break;
+
+    case StyioOpType::Greater_Than: {
+      if (l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
+        if (not l_val->getType()->isDoubleTy()) {
+          l_val = theBuilder->CreateSIToFP(l_val, theBuilder->getDoubleTy());
+        }
+        if (not r_val->getType()->isDoubleTy()) {
+          r_val = theBuilder->CreateSIToFP(r_val, theBuilder->getDoubleTy());
+        }
+        return theBuilder->CreateFCmpOGT(l_val, r_val);
+      }
+      return theBuilder->CreateICmpSGT(l_val, r_val);
+    } break;
+
+    case StyioOpType::Greater_Than_Equal: {
+      if (l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
+        if (not l_val->getType()->isDoubleTy()) {
+          l_val = theBuilder->CreateSIToFP(l_val, theBuilder->getDoubleTy());
+        }
+        if (not r_val->getType()->isDoubleTy()) {
+          r_val = theBuilder->CreateSIToFP(r_val, theBuilder->getDoubleTy());
+        }
+        return theBuilder->CreateFCmpOGE(l_val, r_val);
+      }
+      return theBuilder->CreateICmpSGE(l_val, r_val);
+    } break;
+
+    case StyioOpType::Less_Than: {
+      if (l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
+        if (not l_val->getType()->isDoubleTy()) {
+          l_val = theBuilder->CreateSIToFP(l_val, theBuilder->getDoubleTy());
+        }
+        if (not r_val->getType()->isDoubleTy()) {
+          r_val = theBuilder->CreateSIToFP(r_val, theBuilder->getDoubleTy());
+        }
+        return theBuilder->CreateFCmpOLT(l_val, r_val);
+      }
+      return theBuilder->CreateICmpSLT(l_val, r_val);
+    } break;
+
+    case StyioOpType::Less_Than_Equal: {
+      if (l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
+        if (not l_val->getType()->isDoubleTy()) {
+          l_val = theBuilder->CreateSIToFP(l_val, theBuilder->getDoubleTy());
+        }
+        if (not r_val->getType()->isDoubleTy()) {
+          r_val = theBuilder->CreateSIToFP(r_val, theBuilder->getDoubleTy());
+        }
+        return theBuilder->CreateFCmpOLE(l_val, r_val);
+      }
+      return theBuilder->CreateICmpSLE(l_val, r_val);
     } break;
 
     case StyioOpType::Self_Add_Assign: {
+      return do_self_assign(
+        [&](llvm::Value* a, llvm::Value* b) { return theBuilder->CreateAdd(a, b); },
+        [&](llvm::Value* a, llvm::Value* b) { return theBuilder->CreateFAdd(a, b); });
     } break;
 
     case StyioOpType::Self_Sub_Assign: {
+      return do_self_assign(
+        [&](llvm::Value* a, llvm::Value* b) { return theBuilder->CreateSub(a, b); },
+        [&](llvm::Value* a, llvm::Value* b) { return theBuilder->CreateFSub(a, b); });
     } break;
 
     case StyioOpType::Self_Mul_Assign: {
+      return do_self_assign(
+        [&](llvm::Value* a, llvm::Value* b) { return theBuilder->CreateMul(a, b); },
+        [&](llvm::Value* a, llvm::Value* b) { return theBuilder->CreateFMul(a, b); });
     } break;
 
     case StyioOpType::Self_Div_Assign: {
+      return do_self_assign(
+        [&](llvm::Value* a, llvm::Value* b) { return theBuilder->CreateSDiv(a, b); },
+        [&](llvm::Value* a, llvm::Value* b) { return theBuilder->CreateFDiv(a, b); });
+    } break;
+
+    case StyioOpType::Self_Mod_Assign: {
+      return do_self_assign(
+        [&](llvm::Value* a, llvm::Value* b) { return theBuilder->CreateSRem(a, b); },
+        [&](llvm::Value* a, llvm::Value* b) { return theBuilder->CreateFRem(a, b); });
     } break;
 
     default:
@@ -185,8 +373,26 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGCond* node) {
-  auto output = theBuilder->getInt32(0);
-  return output;
+  llvm::Value* L = node->lhs_expr->toLLVMIR(this);
+  llvm::Value* R = node->rhs_expr->toLLVMIR(this);
+  auto to_bool = [&](llvm::Value* v) -> llvm::Value* {
+    if (v->getType()->isIntegerTy(1)) {
+      return v;
+    }
+    return theBuilder->CreateICmpNE(
+      v,
+      llvm::ConstantInt::get(
+        llvm::cast<llvm::IntegerType>(v->getType()), 0));
+  };
+  L = to_bool(L);
+  R = to_bool(R);
+  if (node->operand == StyioOpType::Logic_AND) {
+    return theBuilder->CreateAnd(L, R);
+  }
+  if (node->operand == StyioOpType::Logic_OR) {
+    return theBuilder->CreateOr(L, R);
+  }
+  return L;
 }
 
 llvm::Value*

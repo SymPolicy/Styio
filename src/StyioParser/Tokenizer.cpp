@@ -142,8 +142,14 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 33
       case '!': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_EXCLAM, "!"));
-        loc += 1;
+        if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::BINOP_NE, "!="));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_EXCLAM, "!"));
+          loc += 1;
+        }
       } break;
 
       // 34
@@ -176,14 +182,26 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 37
       case '%': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_PERCENT, "%"));
-        loc += 1;
+        if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::COMPOUND_MOD, "%="));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_PERCENT, "%"));
+          loc += 1;
+        }
       } break;
 
       // 38
       case '&': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_AMP, "&"));
-        loc += 1;
+        if (loc + 1 < code.size() && code.at(loc + 1) == '&') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::LOGIC_AND, "&&"));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_AMP, "&"));
+          loc += 1;
+        }
       } break;
 
       // 39
@@ -206,14 +224,30 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 42
       case '*': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_STAR, "*"));
-        loc += 1;
+        if (loc + 1 < code.size() && code.at(loc + 1) == '*') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::BINOP_POW, "**"));
+          loc += 2;
+        }
+        else if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::COMPOUND_MUL, "*="));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_STAR, "*"));
+          loc += 1;
+        }
       } break;
 
       // 43
       case '+': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_PLUS, "+"));
-        loc += 1;
+        if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::COMPOUND_ADD, "+="));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_PLUS, "+"));
+          loc += 1;
+        }
       } break;
 
       // 44
@@ -234,6 +268,10 @@ StyioTokenizer::tokenize(std::string code) {
           size_t count = 2 + count_consecutive(code, loc + 2, '-');
           tokens.push_back(StyioToken::Create(StyioTokenType::SINGLE_SEP_LINE, std::string(count, '-')));
           loc += count;
+        }
+        else if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::COMPOUND_SUB, "-="));
+          loc += 2;
         }
         else {
           /* - TOK_MINUS */
@@ -259,8 +297,14 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 47
       case '/': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_SLASH, "/"));
-        loc += 1;
+        if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::COMPOUND_DIV, "/="));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_SLASH, "/"));
+          loc += 1;
+        }
       } break;
 
       // 58
@@ -287,14 +331,19 @@ StyioTokenizer::tokenize(std::string code) {
         size_t count = 1 + count_consecutive(code, loc + 1, '<');
 
         if (count == 1) {
-          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LANGBRAC, "<"));
+          if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
+            tokens.push_back(StyioToken::Create(StyioTokenType::BINOP_LE, "<="));
+            loc += 2;
+          }
+          else {
+            tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LANGBRAC, "<"));
+            loc += 1;
+          }
         }
         else {
           tokens.push_back(StyioToken::Create(StyioTokenType::EXTRACTOR, std::string(count, '<')));
+          loc += count;
         }
-
-        // anyway
-        loc += count;
       } break;
 
       // 61
@@ -336,6 +385,10 @@ StyioTokenizer::tokenize(std::string code) {
           size_t count = 2 + count_consecutive(code, loc + 2, '>');
           tokens.push_back(StyioToken::Create(StyioTokenType::ITERATOR, std::string(count, '>')));
           loc += count;
+        }
+        else if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::BINOP_GE, ">="));
+          loc += 2;
         }
         else {
           tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RANGBRAC, ">"));
@@ -406,8 +459,14 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 124
       case '|': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_PIPE, "|"));
-        loc += 1;
+        if (loc + 1 < code.size() && code.at(loc + 1) == '|') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::LOGIC_OR, "||"));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_PIPE, "|"));
+          loc += 1;
+        }
       } break;
 
       // 125
