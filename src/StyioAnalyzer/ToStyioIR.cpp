@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 // [Styio]
@@ -18,6 +19,50 @@
 #include "../StyioIR/IOIR/IOIR.hpp"
 #include "../StyioToken/Token.hpp"
 #include "Util.hpp"
+
+namespace {
+
+SGType*
+func_ret_to_sgtype(
+  const std::variant<TypeAST*, TypeTupleAST*>& ret_type,
+  StyioAnalyzer* an
+) {
+  if (ret_type.valueless_by_exception()) {
+    return SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64});
+  }
+  if (std::holds_alternative<TypeTupleAST*>(ret_type)) {
+    return SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64});
+  }
+  TypeAST* t = std::get<TypeAST*>(ret_type);
+  if (!t || t->getDataType().option == StyioDataTypeOption::Undefined) {
+    return SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64});
+  }
+  return static_cast<SGType*>(t->toStyioIR(an));
+}
+
+SGFuncArg*
+param_to_sgarg(ParamAST* p, StyioAnalyzer* an) {
+  StyioDataType opty = p->var_type->getDataType().option;
+  SGType* ty = (opty == StyioDataTypeOption::Undefined)
+    ? SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64})
+    : static_cast<SGType*>(p->var_type->toStyioIR(an));
+  return SGFuncArg::Create(p->getName(), ty);
+}
+
+SGBlock*
+lower_func_body(StyioAnalyzer* an, StyioAST* body) {
+  if (!body) {
+    return SGBlock::Create({});
+  }
+  if (auto* blk = dynamic_cast<BlockAST*>(body)) {
+    return static_cast<SGBlock*>(blk->toStyioIR(an));
+  }
+  std::vector<StyioIR*> one;
+  one.push_back(body->toStyioIR(an));
+  return SGBlock::Create(std::move(one));
+}
+
+}  // namespace
 
 static StyioOpType
 comp_type_to_op(CompType ct) {
@@ -322,12 +367,18 @@ StyioAnalyzer::toStyioIR(PassAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(ReturnAST* ast) {
-  return SGConstInt::Create(0);
+  return SGReturn::Create(ast->getExpr()->toStyioIR(this));
 }
 
 StyioIR*
 StyioAnalyzer::toStyioIR(FuncCallAST* ast) {
-  return SGConstInt::Create(0);
+  std::vector<StyioIR*> args;
+  for (auto* a : ast->getArgList()) {
+    args.push_back(a->toStyioIR(this));
+  }
+  return SGCall::Create(
+    SGResId::Create(ast->getNameAsStr()),
+    std::move(args));
 }
 
 StyioIR*
@@ -386,12 +437,30 @@ StyioAnalyzer::toStyioIR(AnonyFuncAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(FunctionAST* ast) {
-  return SGConstInt::Create(0);
+  std::vector<SGFuncArg*> fargs;
+  for (auto* p : ast->params) {
+    fargs.push_back(param_to_sgarg(p, this));
+  }
+  SGBlock* body = lower_func_body(this, ast->func_body);
+  return SGFunc::Create(
+    func_ret_to_sgtype(ast->ret_type, this),
+    SGResId::Create(ast->getNameAsStr()),
+    std::move(fargs),
+    body);
 }
 
 StyioIR*
 StyioAnalyzer::toStyioIR(SimpleFuncAST* ast) {
-  return SGConstInt::Create(0);
+  std::vector<SGFuncArg*> fargs;
+  for (auto* p : ast->params) {
+    fargs.push_back(param_to_sgarg(p, this));
+  }
+  SGBlock* body = lower_func_body(this, ast->ret_expr);
+  return SGFunc::Create(
+    func_ret_to_sgtype(ast->ret_type, this),
+    SGResId::Create(ast->func_name->getAsStr()),
+    std::move(fargs),
+    body);
 }
 
 StyioIR*

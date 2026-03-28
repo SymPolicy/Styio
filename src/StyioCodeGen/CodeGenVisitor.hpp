@@ -252,6 +252,13 @@ public:
   llvm::Value* toLLVMIR(SIOPath* node);
   llvm::Value* toLLVMIR(SIOPrint* node);
   llvm::Value* toLLVMIR(SIORead* node);
+
+private:
+  void declare_sgfunc(SGFunc* node);
+  void define_sgfunc_body(SGFunc* node);
+  static void collect_sgfuncs_postorder(SGFunc* node, std::vector<SGFunc*>& out);
+  llvm::Value* coerce_for_return(llvm::Value* v, llvm::Type* want_ty);
+  llvm::Value* truncate_for_main_ret(llvm::Value* v);
 };
 
 #endif

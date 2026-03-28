@@ -847,6 +847,12 @@ parse_arithmetic_expr(StyioContext& context) {
       return parse_list_exprs(context);
     } break;
 
+    case StyioTokenType::YIELD_PIPE: {
+      context.move_forward(1, "yield_pipe_expr");
+      context.skip();
+      return ReturnAST::Create(parse_or_expr(context));
+    } break;
+
     default: {
       throw StyioNotImplemented(context.mark_cur_tok("Unknown Expression"));
     } break;
@@ -2181,6 +2187,24 @@ parse_hash_tag(StyioContext& context) {
   /* SimpleFunc */
   else if (context.match(StyioTokenType::TOK_EQUAL) /* = */) {
     context.skip();
+    /*
+      # f : Ret = (a: T, ...) => body
+      (params after `=` override the empty param list from `# name` when `: ret` was parsed first.)
+    */
+    if (context.check(StyioTokenType::TOK_LPAREN) /* ( */) {
+      params = parse_params(context);
+      context.skip();
+      if (context.match(StyioTokenType::ARROW_DOUBLE_RIGHT) /* => */) {
+        context.skip();
+        if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
+          ret_expr = parse_block_with_forward(context);
+          return FunctionAST::Create(tag_name, false, params, ret_type, ret_expr);
+        }
+        ret_expr = parse_stmt_or_expr(context);
+        return SimpleFuncAST::Create(tag_name, false, params, ret_type, ret_expr);
+      }
+    }
+
     ret_expr = parse_expr(context);
 
     return SimpleFuncAST::Create(tag_name, false, params, ret_type, ret_expr);
@@ -2761,6 +2785,12 @@ parse_stmt_or_expr(
     /* << */
     case StyioTokenType::EXTRACTOR: {
       return parse_return(context);
+    } break;
+
+    case StyioTokenType::YIELD_PIPE: {
+      context.move_forward(1, "stmt_yield_pipe");
+      context.skip();
+      return ReturnAST::Create(parse_expr(context));
     } break;
 
     case StyioTokenType::TOK_EOF: {

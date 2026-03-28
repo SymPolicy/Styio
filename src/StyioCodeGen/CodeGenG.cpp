@@ -471,93 +471,183 @@ StyioToLLVM::toLLVMIR(SGFuncArg* node) {
   return theBuilder->getInt64(0);
 }
 
+void
+StyioToLLVM::collect_sgfuncs_postorder(SGFunc* node, std::vector<SGFunc*>& out) {
+  for (auto* stmt : node->func_block->stmts) {
+    if (auto* inner = dynamic_cast<SGFunc*>(stmt)) {
+      collect_sgfuncs_postorder(inner, out);
+    }
+  }
+  out.push_back(node);
+}
+
+void
+StyioToLLVM::declare_sgfunc(SGFunc* node) {
+  std::string fname = node->func_name->as_str();
+  if (theModule->getFunction(fname)) {
+    return;
+  }
+
+  std::vector<llvm::Type*> llvm_func_args;
+  for (auto* arg : node->func_args) {
+    llvm_func_args.push_back(arg->toLLVMType(this));
+  }
+
+  llvm::Type* ret_ty = node->ret_type->toLLVMType(this);
+  auto* fty = llvm::FunctionType::get(ret_ty, llvm_func_args, false);
+  llvm::Function* F = llvm::Function::Create(
+    fty,
+    llvm::GlobalValue::ExternalLinkage,
+    fname,
+    *theModule);
+
+  size_t i = 0;
+  for (llvm::Argument& arg : F->args()) {
+    arg.setName(node->func_args[i++]->id);
+  }
+}
+
+llvm::Value*
+StyioToLLVM::coerce_for_return(llvm::Value* v, llvm::Type* want_ty) {
+  if (!v || !want_ty) {
+    return v;
+  }
+  if (v->getType() == want_ty) {
+    return v;
+  }
+  if (want_ty->isDoubleTy() && v->getType()->isIntegerTy()) {
+    return theBuilder->CreateSIToFP(v, want_ty);
+  }
+  if (want_ty->isIntegerTy() && v->getType()->isDoubleTy()) {
+    return theBuilder->CreateFPToSI(v, want_ty);
+  }
+  if (want_ty->isIntegerTy(64) && v->getType()->isIntegerTy(1)) {
+    return theBuilder->CreateZExt(v, want_ty);
+  }
+  return v;
+}
+
+llvm::Value*
+StyioToLLVM::truncate_for_main_ret(llvm::Value* v) {
+  if (!v) {
+    return theBuilder->getInt32(0);
+  }
+  if (v->getType()->isVoidTy()) {
+    return theBuilder->getInt32(0);
+  }
+  if (v->getType()->isIntegerTy(32)) {
+    return v;
+  }
+  if (v->getType()->isIntegerTy(1)) {
+    return theBuilder->CreateZExt(v, theBuilder->getInt32Ty());
+  }
+  if (v->getType()->isIntegerTy(64)) {
+    return theBuilder->CreateTrunc(v, theBuilder->getInt32Ty());
+  }
+  if (v->getType()->isDoubleTy()) {
+    return theBuilder->CreateFPToSI(v, theBuilder->getInt32Ty());
+  }
+  return theBuilder->getInt32(0);
+}
+
+void
+StyioToLLVM::define_sgfunc_body(SGFunc* node) {
+  std::string fname = node->func_name->as_str();
+  llvm::Function* F = theModule->getFunction(fname);
+  if (!F) {
+    return;
+  }
+
+  if (!F->empty() && F->getEntryBlock().getTerminator()) {
+    return;
+  }
+
+  auto saved_mut = mutable_variables;
+  auto saved_named = named_values;
+  mutable_variables.clear();
+  named_values.clear();
+
+  llvm::BasicBlock* block = llvm::BasicBlock::Create(
+    *theContext,
+    (fname + "_entry"),
+    F);
+  theBuilder->SetInsertPoint(block);
+
+  size_t ai = 0;
+  for (llvm::Argument& arg : F->args()) {
+    SGFuncArg* sg = node->func_args[ai++];
+    llvm::Type* at = sg->arg_type->toLLVMType(this);
+    llvm::AllocaInst* slot = theBuilder->CreateAlloca(
+      at,
+      nullptr,
+      std::string(arg.getName()));
+    theBuilder->CreateStore(&arg, slot);
+    mutable_variables[std::string(arg.getName())] = slot;
+  }
+
+  llvm::Value* last = nullptr;
+  for (auto* stmt : node->func_block->stmts) {
+    if (dynamic_cast<SGFunc*>(stmt)) {
+      stmt->toLLVMIR(this);
+      continue;
+    }
+
+    last = stmt->toLLVMIR(this);
+    if (theBuilder->GetInsertBlock()->getTerminator()) {
+      break;
+    }
+  }
+
+  llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
+  if (cur && !cur->getTerminator()) {
+    llvm::Type* rt = node->ret_type->toLLVMType(this);
+    if (!last) {
+      if (rt->isFloatingPointTy()) {
+        last = llvm::ConstantFP::get(rt, 0.0);
+      }
+      else {
+        last = llvm::ConstantInt::get(rt, 0);
+      }
+    }
+    else {
+      last = coerce_for_return(last, rt);
+    }
+
+    theBuilder->CreateRet(last);
+  }
+
+  mutable_variables = std::move(saved_mut);
+  named_values = std::move(saved_named);
+}
+
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGFunc* node) {
-  auto latest_insert_point = theBuilder->saveIP();
-
-  std::string fname = node->func_name->as_str();
-
-  if (node->func_args.empty()) {
-    llvm::Function* llvm_func = llvm::Function::Create(
-      llvm::FunctionType::get(
-        /* Result (Type) */ node->ret_type->toLLVMType(this),
-        /* isVarArg */ false
-      ),
-      llvm::GlobalValue::ExternalLinkage,
-      fname,
-      *theModule
-    );
-
-    llvm::BasicBlock* llvm_basic_block = llvm::BasicBlock::Create(
-      *theContext,
-      (fname + "_entry"),
-      llvm_func
-    );
-
-    theBuilder->SetInsertPoint(llvm_basic_block);
-
-    node->func_block->toLLVMIR(this);
-  }
-  else {
-    std::vector<llvm::Type*> llvm_func_args;
-    for (auto& arg : node->func_args) {
-      llvm_func_args.push_back(arg->toLLVMType(this));
-    }
-
-    llvm::Function* llvm_func =
-      llvm::Function::Create(
-        llvm::FunctionType::get(
-          /* Result (Type) */ node->ret_type->toLLVMType(this),
-          /* Params (Type) */ llvm_func_args,
-          /* isVarArg */ false
-        ),
-        llvm::GlobalValue::ExternalLinkage,
-        fname,
-        *theModule
-      );
-
-    for (size_t i = 0; i < llvm_func->arg_size(); i++) {
-      llvm_func->getArg(i)->setName(node->func_args[i]->id);
-    }
-
-    llvm::BasicBlock* block = llvm::BasicBlock::Create(
-      *theContext,
-      (fname + "_entry"),
-      llvm_func
-    );
-
-    theBuilder->SetInsertPoint(block);
-
-    /* Initialize Arguments */
-    // for (auto& arg : llvm_func->args()) {
-    //   llvm::AllocaInst* alloca_inst = theBuilder->CreateAlloca(
-    //     llvm::Type::getInt32Ty(*theContext),
-    //     nullptr,
-    //     arg.getName()
-    //   );
-
-    //   auto init_val = theBuilder->getInt32(0);
-
-    //   theBuilder->CreateStore(&arg, alloca_inst);
-
-    //   // mut_vars[std::string(arg.getName())] = alloca_inst;
-    // }
-
-    node->func_block->toLLVMIR(this);
-
-    // for (auto& arg : llvm_func->args()) {
-    //   mut_vars.erase(std::string(arg.getName()));
-    // }
-  }
-
-  theBuilder->restoreIP(latest_insert_point);
-
+  /* Bodies are emitted from SGMainEntry after a full declare pass. */
   return theBuilder->getInt64(0);
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGCall* node) {
-  return theBuilder->getInt64(0);
+  llvm::Function* callee = theModule->getFunction(node->func_name->as_str());
+  if (!callee) {
+    return theBuilder->getInt64(0);
+  }
+
+  llvm::FunctionType* ft = callee->getFunctionType();
+  std::vector<llvm::Value*> args;
+  for (size_t i = 0; i < node->func_args.size(); ++i) {
+    llvm::Value* av = node->func_args[i]->toLLVMIR(this);
+    llvm::Type* pt = ft->getParamType(i);
+    if (pt->isDoubleTy() && av->getType()->isIntegerTy()) {
+      av = theBuilder->CreateSIToFP(av, pt);
+    }
+    else if (pt->isIntegerTy() && av->getType()->isDoubleTy()) {
+      av = theBuilder->CreateFPToSI(av, pt);
+    }
+    args.push_back(av);
+  }
+
+  return theBuilder->CreateCall(ft, callee, args);
 }
 
 llvm::Value*
@@ -581,28 +671,46 @@ StyioToLLVM::toLLVMIR(SGEntry* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGMainEntry* node) {
-  /*
-    Get Void Type: llvm::Type::getVoidTy(*llvm_context)
-    Use Void Type: nullptr
-  */
+  std::vector<SGFunc*> ordered_funcs;
+  for (auto* s : node->stmts) {
+    if (auto* f = dynamic_cast<SGFunc*>(s)) {
+      collect_sgfuncs_postorder(f, ordered_funcs);
+    }
+  }
+
+  for (auto* f : ordered_funcs) {
+    declare_sgfunc(f);
+  }
+
+  for (auto* f : ordered_funcs) {
+    define_sgfunc_body(f);
+  }
+
   llvm::Function* main_func = llvm::Function::Create(
     llvm::FunctionType::get(theBuilder->getInt32Ty(), false),
     llvm::Function::ExternalLinkage,
     "main",
-    *theModule
-  );
+    *theModule);
   llvm::BasicBlock* entry_block = llvm::BasicBlock::Create(*theContext, "main_entry", main_func);
 
-  /* Add statements to the current basic block */
   theBuilder->SetInsertPoint(entry_block);
 
+  llvm::Value* last_main = nullptr;
   for (auto const& s : node->stmts) {
-    s->toLLVMIR(this);
+    if (dynamic_cast<SGFunc*>(s)) {
+      continue;
+    }
+
+    last_main = s->toLLVMIR(this);
+    if (theBuilder->GetInsertBlock()->getTerminator()) {
+      break;
+    }
   }
 
-  // entry_block->getInstList()
-
-  theBuilder->CreateRet(theBuilder->getInt32(0));
+  llvm::BasicBlock* mcur = theBuilder->GetInsertBlock();
+  if (mcur && !mcur->getTerminator()) {
+    theBuilder->CreateRet(truncate_for_main_ret(last_main));
+  }
 
   return main_func;
 }

@@ -701,6 +701,8 @@ enum class StyioTokenType
   WALRUS,  // :=
   MATCH,   // ?=
 
+  YIELD_PIPE,  // <|
+
   ARROW_DOUBLE_RIGHT,  // =>
   ARROW_DOUBLE_LEFT,   // <=
   ARROW_SINGLE_RIGHT,  // ->

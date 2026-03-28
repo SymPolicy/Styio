@@ -133,7 +133,7 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
 
 class StyioAnalyzer : public StyioAnalyzerVisitor
 {
-  unordered_map<string, FunctionAST*> func_defs;
+  unordered_map<string, StyioAST*> func_defs;
   unordered_map<string, StyioDataType> local_binding_types;
 
 public:

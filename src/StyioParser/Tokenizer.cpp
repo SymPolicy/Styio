@@ -335,6 +335,10 @@ StyioTokenizer::tokenize(std::string code) {
             tokens.push_back(StyioToken::Create(StyioTokenType::BINOP_LE, "<="));
             loc += 2;
           }
+          else if (loc + 1 < code.size() && code.at(loc + 1) == '|') {
+            tokens.push_back(StyioToken::Create(StyioTokenType::YIELD_PIPE, "<|"));
+            loc += 2;
+          }
           else {
             tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LANGBRAC, "<"));
             loc += 1;

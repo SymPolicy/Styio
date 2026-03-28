@@ -735,6 +735,9 @@ StyioToken::getTokName(StyioTokenType type) {
     case StyioTokenType::MATCH:
       return "?=";
 
+    case StyioTokenType::YIELD_PIPE:
+      return "<|";
+
     case StyioTokenType::INFINITE_LIST:
       return "[...]";
 

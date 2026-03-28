@@ -17,6 +17,17 @@
 #include "../StyioToken/Token.hpp"
 #include "Util.hpp"
 
+static std::vector<ParamAST*>
+params_of_func_def(StyioAST* def) {
+  if (auto* f = dynamic_cast<FunctionAST*>(def)) {
+    return f->params;
+  }
+  if (auto* s = dynamic_cast<SimpleFuncAST*>(def)) {
+    return s->params;
+  }
+  return {};
+}
+
 void
 StyioAnalyzer::typeInfer(CommentAST* ast) {
 }
@@ -510,7 +521,7 @@ StyioAnalyzer::typeInfer(FuncCallAST* ast) {
     }
   }
 
-  auto func_args = func_defs[ast->getNameAsStr()]->params;
+  auto func_args = params_of_func_def(func_defs[ast->getNameAsStr()]);
 
   if (arg_types.size() != func_args.size()) {
     std::cout << "arg list not match" << std::endl;
@@ -572,7 +583,7 @@ StyioAnalyzer::typeInfer(FunctionAST* ast) {
 
 void
 StyioAnalyzer::typeInfer(SimpleFuncAST* ast) {
-  // func_defs[ast->func_name->getAsStr()] = ast;
+  func_defs[ast->func_name->getAsStr()] = ast;
 }
 
 void

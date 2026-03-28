@@ -110,6 +110,9 @@ StyioToLLVM::toLLVMType(SGFunc* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGCall* node) {
+  if (llvm::Function* f = theModule->getFunction(node->func_name->as_str())) {
+    return f->getReturnType();
+  }
   return theBuilder->getInt64Ty();
 };
 
