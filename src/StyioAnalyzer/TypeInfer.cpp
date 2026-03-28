@@ -558,6 +558,10 @@ StyioAnalyzer::typeInfer(FuncCallAST* ast) {
         arg_types.push_back(static_cast<FloatAST*>(arg)->getDataType());
       } break;
 
+      case StyioNodeType::String: {
+        arg_types.push_back(static_cast<StringAST*>(arg)->getDataType());
+      } break;
+
       default:
         break;
     }

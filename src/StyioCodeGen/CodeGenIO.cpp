@@ -74,8 +74,8 @@ StyioToLLVM::toLLVMIR(SIOPrint* node) {
     llvm::Value* v = part->toLLVMIR(this);
 
     if (v->getType()->isIntegerTy(1)) {
-      llvm::Value* tstr = theBuilder->CreateGlobalStringPtr("true\n", "styio_true_nl");
-      llvm::Value* fstr = theBuilder->CreateGlobalStringPtr("false\n", "styio_false_nl");
+      llvm::Value* tstr = theBuilder->CreateGlobalStringPtr("true", "styio_true_nl");
+      llvm::Value* fstr = theBuilder->CreateGlobalStringPtr("false", "styio_false_nl");
       llvm::Value* pick = theBuilder->CreateSelect(v, tstr, fstr);
       theBuilder->CreateCall(puts_fn, {pick});
     }
@@ -91,7 +91,7 @@ StyioToLLVM::toLLVMIR(SIOPrint* node) {
       llvm::BasicBlock* b_done = llvm::BasicBlock::Create(*theContext, "print_done", F);
       theBuilder->CreateCondBr(isU, b_at, b_num);
       theBuilder->SetInsertPoint(b_at);
-      llvm::Value* ats = theBuilder->CreateGlobalStringPtr("@\n", "styio_print_at");
+      llvm::Value* ats = theBuilder->CreateGlobalStringPtr("@", "styio_print_at");
       theBuilder->CreateCall(puts_fn, {ats});
       theBuilder->CreateBr(b_done);
       theBuilder->SetInsertPoint(b_num);
