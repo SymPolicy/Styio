@@ -331,7 +331,11 @@ StyioTokenizer::tokenize(std::string code) {
         size_t count = 1 + count_consecutive(code, loc + 1, '<');
 
         if (count == 1) {
-          if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
+          if (loc + 1 < code.size() && code.at(loc + 1) == '~') {
+            tokens.push_back(StyioToken::Create(StyioTokenType::WAVE_LEFT, "<~"));
+            loc += 2;
+          }
+          else if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
             tokens.push_back(StyioToken::Create(StyioTokenType::BINOP_LE, "<="));
             loc += 2;
           }
@@ -404,6 +408,10 @@ StyioTokenizer::tokenize(std::string code) {
       case '?': {
         if (loc + 1 < code.length() && code.at(loc + 1) == '=') {
           tokens.push_back(StyioToken::Create(StyioTokenType::MATCH, "?="));
+          loc += 2;
+        }
+        else if (loc + 1 < code.length() && code.at(loc + 1) == '?') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::DBQUESTION, "??"));
           loc += 2;
         }
         else {
@@ -481,8 +489,14 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 126
       case '~': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_TILDE, "~"));
-        loc += 1;
+        if (loc + 1 < code.size() && code.at(loc + 1) == '>') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::WAVE_RIGHT, "~>"));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_TILDE, "~"));
+          loc += 1;
+        }
       } break;
 
       default:

@@ -95,6 +95,13 @@ StyioToLLVM::toLLVMType(SGFlexBind* node) {
       return llvm::PointerType::get(*theContext, 0);
     }
   }
+  if (auto* fb = dynamic_cast<SGFallback*>(node->value)) {
+    llvm::Type* pt = fb->primary->toLLVMType(this);
+    llvm::Type* at = fb->alternate->toLLVMType(this);
+    if (pt->isIntegerTy(64) && at->isPointerTy()) {
+      return at;
+    }
+  }
   return node->var->toLLVMType(this);
 };
 
@@ -177,4 +184,44 @@ llvm::Type*
 StyioToLLVM::toLLVMType(SGContinue* node) {
   (void)node;
   return theBuilder->getVoidTy();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGUndef* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGFallback* node) {
+  llvm::Type* pt = node->primary->toLLVMType(this);
+  llvm::Type* at = node->alternate->toLLVMType(this);
+  if (pt->isIntegerTy(64) && at->isPointerTy()) {
+    return at;
+  }
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGWaveMerge* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGWaveDispatch* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGGuardSelect* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGEqProbe* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
 }

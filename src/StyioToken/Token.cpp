@@ -736,6 +736,15 @@ StyioToken::getTokName(StyioTokenType type) {
     case StyioTokenType::COMPOUND_MOD:
       return "%=";
 
+    case StyioTokenType::WAVE_LEFT:
+      return "<~";
+
+    case StyioTokenType::WAVE_RIGHT:
+      return "~>";
+
+    case StyioTokenType::DBQUESTION:
+      return "??";
+
     case StyioTokenType::MATCH:
       return "?=";
 

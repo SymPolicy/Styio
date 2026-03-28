@@ -42,6 +42,13 @@ class SGMatch;
 class SGBreak;
 class SGContinue;
 
+class SGUndef;
+class SGFallback;
+class SGWaveMerge;
+class SGWaveDispatch;
+class SGGuardSelect;
+class SGEqProbe;
+
 // class SGIfElse;
 // class SGForLoop;
 // class SGWhileLoop;

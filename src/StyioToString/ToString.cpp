@@ -385,6 +385,60 @@ StyioRepr::toString(CondAST* ast, int indent) {
   }
 }
 
+std::string
+StyioRepr::toString(UndefinedLitAST* ast, int indent) {
+  (void)ast;
+  (void)indent;
+  return "@";
+}
+
+std::string
+StyioRepr::toString(WaveMergeAST* ast, int indent) {
+  return reprASTType(ast->getNodeType(), " ")
+         + " {\n"
+         + make_padding(indent) + "cond: " + ast->getCond()->toString(this, indent + 1) + "\n"
+         + make_padding(indent) + "true: " + ast->getTrueVal()->toString(this, indent + 1) + "\n"
+         + make_padding(indent) + "false: " + ast->getFalseVal()->toString(this, indent + 1)
+         + "}";
+}
+
+std::string
+StyioRepr::toString(WaveDispatchAST* ast, int indent) {
+  return reprASTType(ast->getNodeType(), " ")
+         + " {\n"
+         + make_padding(indent) + "cond: " + ast->getCond()->toString(this, indent + 1) + "\n"
+         + make_padding(indent) + "true: " + ast->getTrueArm()->toString(this, indent + 1) + "\n"
+         + make_padding(indent) + "false: " + ast->getFalseArm()->toString(this, indent + 1)
+         + "}";
+}
+
+std::string
+StyioRepr::toString(FallbackAST* ast, int indent) {
+  return reprASTType(ast->getNodeType(), " ")
+         + " {\n"
+         + make_padding(indent) + "primary: " + ast->getPrimary()->toString(this, indent + 1) + "\n"
+         + make_padding(indent) + "alt: " + ast->getAlternate()->toString(this, indent + 1)
+         + "}";
+}
+
+std::string
+StyioRepr::toString(GuardSelectorAST* ast, int indent) {
+  return reprASTType(ast->getNodeType(), " ")
+         + " {\n"
+         + make_padding(indent) + "base: " + ast->getBase()->toString(this, indent + 1) + "\n"
+         + make_padding(indent) + "cond: " + ast->getCond()->toString(this, indent + 1)
+         + "}";
+}
+
+std::string
+StyioRepr::toString(EqProbeAST* ast, int indent) {
+  return reprASTType(ast->getNodeType(), " ")
+         + " {\n"
+         + make_padding(indent) + "base: " + ast->getBase()->toString(this, indent + 1) + "\n"
+         + make_padding(indent) + "probe: " + ast->getProbeValue()->toString(this, indent + 1)
+         + "}";
+}
+
 /*
   Int -> Int => Pass
   Int -> Float => Pass
@@ -1162,6 +1216,48 @@ StyioRepr::toString(SGContinue* node, int indent) {
   (void)node;
   (void)indent;
   return "styio.ir.continue { }";
+}
+
+std::string
+StyioRepr::toString(SGUndef* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.undef { }";
+}
+
+std::string
+StyioRepr::toString(SGFallback* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.fallback { }";
+}
+
+std::string
+StyioRepr::toString(SGWaveMerge* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.wave_merge { }";
+}
+
+std::string
+StyioRepr::toString(SGWaveDispatch* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.wave_dispatch { }";
+}
+
+std::string
+StyioRepr::toString(SGGuardSelect* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.guard { }";
+}
+
+std::string
+StyioRepr::toString(SGEqProbe* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.eq_probe { }";
 }
 
 std::string

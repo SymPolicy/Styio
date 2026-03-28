@@ -364,6 +364,14 @@ enum class StyioNodeType
   // Condition
   Condition,
 
+  // M4: undefined literal, wave ops, fallback, selectors
+  UndefLiteral,
+  WaveMerge,
+  WaveDispatch,
+  Fallback,
+  GuardSelector,
+  EqProbeSelector,
+
   // Call
   Call,
 
@@ -720,6 +728,10 @@ enum class StyioTokenType
   COMPOUND_MUL,  // *=
   COMPOUND_DIV,  // /=
   COMPOUND_MOD,  // %=
+
+  WAVE_LEFT,   // <~
+  WAVE_RIGHT,  // ~>
+  DBQUESTION,  // ??
 
   UNKNOWN,
 };

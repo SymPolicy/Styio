@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -79,8 +80,25 @@ StyioToLLVM::toLLVMIR(SIOPrint* node) {
       theBuilder->CreateCall(puts_fn, {pick});
     }
     else if (v->getType()->isIntegerTy(64)) {
+      llvm::Value* sent = llvm::ConstantInt::get(
+        theBuilder->getInt64Ty(),
+        static_cast<uint64_t>(std::numeric_limits<int64_t>::min()),
+        true);
+      llvm::Value* isU = theBuilder->CreateICmpEQ(v, sent);
+      llvm::Function* F = theBuilder->GetInsertBlock()->getParent();
+      llvm::BasicBlock* b_at = llvm::BasicBlock::Create(*theContext, "print_at", F);
+      llvm::BasicBlock* b_num = llvm::BasicBlock::Create(*theContext, "print_i64", F);
+      llvm::BasicBlock* b_done = llvm::BasicBlock::Create(*theContext, "print_done", F);
+      theBuilder->CreateCondBr(isU, b_at, b_num);
+      theBuilder->SetInsertPoint(b_at);
+      llvm::Value* ats = theBuilder->CreateGlobalStringPtr("@\n", "styio_print_at");
+      theBuilder->CreateCall(puts_fn, {ats});
+      theBuilder->CreateBr(b_done);
+      theBuilder->SetInsertPoint(b_num);
       llvm::Value* fmt = theBuilder->CreateGlobalStringPtr("%lld\n", "styio_fmt_i64");
       theBuilder->CreateCall(printf_fn, {fmt, v});
+      theBuilder->CreateBr(b_done);
+      theBuilder->SetInsertPoint(b_done);
     }
     else if (v->getType()->isDoubleTy()) {
       llvm::Value* fmt = theBuilder->CreateGlobalStringPtr("%.6f\n", "styio_fmt_f64");

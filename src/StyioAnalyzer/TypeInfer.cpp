@@ -244,6 +244,43 @@ StyioAnalyzer::typeInfer(CondAST* ast) {
   }
 }
 
+void
+StyioAnalyzer::typeInfer(UndefinedLitAST* ast) {
+  (void)ast;
+}
+
+void
+StyioAnalyzer::typeInfer(WaveMergeAST* ast) {
+  ast->getCond()->typeInfer(this);
+  ast->getTrueVal()->typeInfer(this);
+  ast->getFalseVal()->typeInfer(this);
+}
+
+void
+StyioAnalyzer::typeInfer(WaveDispatchAST* ast) {
+  ast->getCond()->typeInfer(this);
+  ast->getTrueArm()->typeInfer(this);
+  ast->getFalseArm()->typeInfer(this);
+}
+
+void
+StyioAnalyzer::typeInfer(FallbackAST* ast) {
+  ast->getPrimary()->typeInfer(this);
+  ast->getAlternate()->typeInfer(this);
+}
+
+void
+StyioAnalyzer::typeInfer(GuardSelectorAST* ast) {
+  ast->getBase()->typeInfer(this);
+  ast->getCond()->typeInfer(this);
+}
+
+void
+StyioAnalyzer::typeInfer(EqProbeAST* ast) {
+  ast->getBase()->typeInfer(this);
+  ast->getProbeValue()->typeInfer(this);
+}
+
 /*
   Int -> Int => Pass
   Int -> Float => Pass

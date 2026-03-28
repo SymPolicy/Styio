@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -51,6 +52,13 @@
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/Utils.h"
 
+namespace {
+int64_t
+styio_undef_i64() {
+  return std::numeric_limits<int64_t>::min();
+}
+}  // namespace
+
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGResId* node) {
   const string& name = node->as_str();
@@ -79,7 +87,11 @@ StyioToLLVM::toLLVMIR(SGConstBool* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGConstInt* node) {
-  return theBuilder->getInt64(std::stol(node->value));
+  long long v = std::stoll(node->value);
+  return llvm::ConstantInt::get(
+    theBuilder->getInt64Ty(),
+    static_cast<uint64_t>(v),
+    /*isSigned=*/true);
 }
 
 llvm::Value*
@@ -153,6 +165,7 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
 
   llvm::Value* l_val = node->lhs_expr->toLLVMIR(this);
   llvm::Value* r_val = node->rhs_expr->toLLVMIR(this);
+  llvm::Value* const styioUndef = theBuilder->getInt64(styio_undef_i64());
 
   switch (node->operand) {
     case StyioOpType::Binary_Add: {
@@ -170,6 +183,13 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
           l_val = theBuilder->CreateSIToFP(l_val, theBuilder->getDoubleTy());
           return theBuilder->CreateFAdd(l_val, r_val);
         }
+        if (l_val->getType()->isIntegerTy(64) && r_val->getType()->isIntegerTy(64)) {
+          llvm::Value* lu = theBuilder->CreateICmpEQ(l_val, styioUndef);
+          llvm::Value* ru = theBuilder->CreateICmpEQ(r_val, styioUndef);
+          llvm::Value* bad = theBuilder->CreateOr(lu, ru);
+          llvm::Value* sum = theBuilder->CreateAdd(l_val, r_val);
+          return theBuilder->CreateSelect(bad, styioUndef, sum);
+        }
         return theBuilder->CreateAdd(l_val, r_val);
       }
     } break;
@@ -185,6 +205,13 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
         return theBuilder->CreateFSub(l_val, r_val);
       }
       if (data_type.isInteger() || (l_val->getType()->isIntegerTy() && r_val->getType()->isIntegerTy())) {
+        if (l_val->getType()->isIntegerTy(64) && r_val->getType()->isIntegerTy(64)) {
+          llvm::Value* lu = theBuilder->CreateICmpEQ(l_val, styioUndef);
+          llvm::Value* ru = theBuilder->CreateICmpEQ(r_val, styioUndef);
+          llvm::Value* bad = theBuilder->CreateOr(lu, ru);
+          llvm::Value* out = theBuilder->CreateSub(l_val, r_val);
+          return theBuilder->CreateSelect(bad, styioUndef, out);
+        }
         return theBuilder->CreateSub(l_val, r_val);
       }
     } break;
@@ -204,6 +231,13 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
           l_val = theBuilder->CreateSIToFP(l_val, theBuilder->getDoubleTy());
           return theBuilder->CreateFMul(l_val, r_val);
         }
+        if (l_val->getType()->isIntegerTy(64) && r_val->getType()->isIntegerTy(64)) {
+          llvm::Value* lu = theBuilder->CreateICmpEQ(l_val, styioUndef);
+          llvm::Value* ru = theBuilder->CreateICmpEQ(r_val, styioUndef);
+          llvm::Value* bad = theBuilder->CreateOr(lu, ru);
+          llvm::Value* out = theBuilder->CreateMul(l_val, r_val);
+          return theBuilder->CreateSelect(bad, styioUndef, out);
+        }
         return theBuilder->CreateMul(l_val, r_val);
       }
     } break;
@@ -219,6 +253,13 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
         return theBuilder->CreateFDiv(l_val, r_val);
       }
       if (data_type.isInteger() || (l_val->getType()->isIntegerTy() && r_val->getType()->isIntegerTy())) {
+        if (l_val->getType()->isIntegerTy(64) && r_val->getType()->isIntegerTy(64)) {
+          llvm::Value* lu = theBuilder->CreateICmpEQ(l_val, styioUndef);
+          llvm::Value* ru = theBuilder->CreateICmpEQ(r_val, styioUndef);
+          llvm::Value* bad = theBuilder->CreateOr(lu, ru);
+          llvm::Value* out = theBuilder->CreateSDiv(l_val, r_val);
+          return theBuilder->CreateSelect(bad, styioUndef, out);
+        }
         return theBuilder->CreateSDiv(l_val, r_val);
       }
     } break;
@@ -252,6 +293,13 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
         return theBuilder->CreateFRem(l_val, r_val);
       }
       if (data_type.isInteger() || (l_val->getType()->isIntegerTy() && r_val->getType()->isIntegerTy())) {
+        if (l_val->getType()->isIntegerTy(64) && r_val->getType()->isIntegerTy(64)) {
+          llvm::Value* lu = theBuilder->CreateICmpEQ(l_val, styioUndef);
+          llvm::Value* ru = theBuilder->CreateICmpEQ(r_val, styioUndef);
+          llvm::Value* bad = theBuilder->CreateOr(lu, ru);
+          llvm::Value* out = theBuilder->CreateSRem(l_val, r_val);
+          return theBuilder->CreateSelect(bad, styioUndef, out);
+        }
         return theBuilder->CreateSRem(l_val, r_val);
       }
     } break;
@@ -375,6 +423,14 @@ llvm::Value*
 StyioToLLVM::toLLVMIR(SGCond* node) {
   llvm::Value* L = node->lhs_expr->toLLVMIR(this);
   llvm::Value* R = node->rhs_expr->toLLVMIR(this);
+  if (node->operand == StyioOpType::Logic_AND) {
+    if (L->getType()->isIntegerTy(1) && R->getType()->isIntegerTy(64)) {
+      return theBuilder->CreateSelect(L, R, theBuilder->getInt64(0));
+    }
+    if (R->getType()->isIntegerTy(1) && L->getType()->isIntegerTy(64)) {
+      return theBuilder->CreateSelect(R, L, theBuilder->getInt64(0));
+    }
+  }
   auto to_bool = [&](llvm::Value* v) -> llvm::Value* {
     if (v->getType()->isIntegerTy(1)) {
       return v;
@@ -929,6 +985,105 @@ StyioToLLVM::toLLVMIR(SGContinue* node) {
   size_t ix = loop_stack_.size() - node->depth;
   theBuilder->CreateBr(loop_stack_[ix].continue_dest);
   return nullptr;
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SGUndef* node) {
+  (void)node;
+  return theBuilder->getInt64(styio_undef_i64());
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SGFallback* node) {
+  llvm::Value* p = node->primary->toLLVMIR(this);
+  llvm::Value* a = node->alternate->toLLVMIR(this);
+  llvm::Value* u = theBuilder->getInt64(styio_undef_i64());
+  if (p->getType()->isIntegerTy(64) && a->getType()->isPointerTy()) {
+    llvm::Value* isU = theBuilder->CreateICmpEQ(p, u);
+    llvm::Function* F = theBuilder->GetInsertBlock()->getParent();
+    llvm::BasicBlock* b_alt = llvm::BasicBlock::Create(*theContext, "fb_alt", F);
+    llvm::BasicBlock* b_num = llvm::BasicBlock::Create(*theContext, "fb_num", F);
+    llvm::BasicBlock* b_m = llvm::BasicBlock::Create(*theContext, "fb_merge", F);
+    theBuilder->CreateCondBr(isU, b_alt, b_num);
+    theBuilder->SetInsertPoint(b_alt);
+    theBuilder->CreateBr(b_m);
+    theBuilder->SetInsertPoint(b_num);
+    llvm::Value* ps = promote_to_cstr(p);
+    theBuilder->CreateBr(b_m);
+    theBuilder->SetInsertPoint(b_m);
+    llvm::PHINode* phi = theBuilder->CreatePHI(
+      llvm::PointerType::get(*theContext, 0), 2, "fb_phi");
+    phi->addIncoming(a, b_alt);
+    phi->addIncoming(ps, b_num);
+    return phi;
+  }
+  if (p->getType()->isIntegerTy(64) && a->getType()->isIntegerTy(64)) {
+    llvm::Value* isU = theBuilder->CreateICmpEQ(p, u);
+    return theBuilder->CreateSelect(isU, a, p);
+  }
+  return p;
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SGWaveMerge* node) {
+  llvm::Value* c = node->cond->toLLVMIR(this);
+  llvm::Value* t = node->true_val->toLLVMIR(this);
+  llvm::Value* f = node->false_val->toLLVMIR(this);
+  if (c->getType()->isIntegerTy(64)) {
+    c = theBuilder->CreateICmpNE(
+      c,
+      llvm::ConstantInt::get(theBuilder->getInt64Ty(), 0, true));
+  }
+  return theBuilder->CreateSelect(c, t, f);
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SGWaveDispatch* node) {
+  llvm::Value* c = node->cond->toLLVMIR(this);
+  if (c->getType()->isIntegerTy(64)) {
+    c = theBuilder->CreateICmpNE(
+      c,
+      llvm::ConstantInt::get(theBuilder->getInt64Ty(), 0, true));
+  }
+  llvm::Function* F = theBuilder->GetInsertBlock()->getParent();
+  llvm::BasicBlock* bt = llvm::BasicBlock::Create(*theContext, "wave_disp_t", F);
+  llvm::BasicBlock* bf = llvm::BasicBlock::Create(*theContext, "wave_disp_f", F);
+  llvm::BasicBlock* bm = llvm::BasicBlock::Create(*theContext, "wave_disp_m", F);
+  theBuilder->CreateCondBr(c, bt, bf);
+  theBuilder->SetInsertPoint(bt);
+  (void)node->true_arm->toLLVMIR(this);
+  if (not theBuilder->GetInsertBlock()->getTerminator()) {
+    theBuilder->CreateBr(bm);
+  }
+  theBuilder->SetInsertPoint(bf);
+  (void)node->false_arm->toLLVMIR(this);
+  if (not theBuilder->GetInsertBlock()->getTerminator()) {
+    theBuilder->CreateBr(bm);
+  }
+  theBuilder->SetInsertPoint(bm);
+  return theBuilder->getInt64(0);
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SGGuardSelect* node) {
+  llvm::Value* b = node->base->toLLVMIR(this);
+  llvm::Value* g = node->guard_cond->toLLVMIR(this);
+  if (g->getType()->isIntegerTy(64)) {
+    g = theBuilder->CreateICmpNE(
+      g,
+      llvm::ConstantInt::get(theBuilder->getInt64Ty(), 0, true));
+  }
+  llvm::Value* u = theBuilder->getInt64(styio_undef_i64());
+  return theBuilder->CreateSelect(g, b, u);
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SGEqProbe* node) {
+  llvm::Value* b = node->base->toLLVMIR(this);
+  llvm::Value* v = node->probe->toLLVMIR(this);
+  llvm::Value* eq = theBuilder->CreateICmpEQ(b, v);
+  llvm::Value* u = theBuilder->getInt64(styio_undef_i64());
+  return theBuilder->CreateSelect(eq, b, u);
 }
 
 llvm::Value*

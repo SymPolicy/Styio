@@ -520,4 +520,89 @@ public:
   }
 };
 
+class SGUndef : public StyioIRTraits<SGUndef>
+{
+public:
+  static SGUndef* Create() {
+    return new SGUndef();
+  }
+};
+
+class SGFallback : public StyioIRTraits<SGFallback>
+{
+public:
+  StyioIR* primary = nullptr;
+  StyioIR* alternate = nullptr;
+
+  SGFallback(StyioIR* p, StyioIR* a) :
+      primary(p), alternate(a) {
+  }
+
+  static SGFallback* Create(StyioIR* p, StyioIR* a) {
+    return new SGFallback(p, a);
+  }
+};
+
+class SGWaveMerge : public StyioIRTraits<SGWaveMerge>
+{
+public:
+  StyioIR* cond = nullptr;
+  StyioIR* true_val = nullptr;
+  StyioIR* false_val = nullptr;
+
+  SGWaveMerge(StyioIR* c, StyioIR* t, StyioIR* f) :
+      cond(c), true_val(t), false_val(f) {
+  }
+
+  static SGWaveMerge* Create(StyioIR* c, StyioIR* t, StyioIR* f) {
+    return new SGWaveMerge(c, t, f);
+  }
+};
+
+class SGWaveDispatch : public StyioIRTraits<SGWaveDispatch>
+{
+public:
+  StyioIR* cond = nullptr;
+  StyioIR* true_arm = nullptr;
+  StyioIR* false_arm = nullptr;
+
+  SGWaveDispatch(StyioIR* c, StyioIR* t, StyioIR* f) :
+      cond(c), true_arm(t), false_arm(f) {
+  }
+
+  static SGWaveDispatch* Create(StyioIR* c, StyioIR* t, StyioIR* f) {
+    return new SGWaveDispatch(c, t, f);
+  }
+};
+
+class SGGuardSelect : public StyioIRTraits<SGGuardSelect>
+{
+public:
+  StyioIR* base = nullptr;
+  StyioIR* guard_cond = nullptr;
+
+  SGGuardSelect(StyioIR* b, StyioIR* c) :
+      base(b), guard_cond(c) {
+  }
+
+  static SGGuardSelect* Create(StyioIR* b, StyioIR* c) {
+    return new SGGuardSelect(b, c);
+  }
+};
+
+class SGEqProbe : public StyioIRTraits<SGEqProbe>
+{
+public:
+  StyioIR* base = nullptr;
+  StyioIR* probe = nullptr;
+
+  SGEqProbe(StyioIR* b, StyioIR* p) :
+      base(b), probe(p) {
+  }
+
+  static SGEqProbe* Create(StyioIR* b, StyioIR* p) {
+    return new SGEqProbe(b, p);
+  }
+};
+
 #endif

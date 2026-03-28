@@ -395,6 +395,49 @@ StyioAnalyzer::toStyioIR(CondAST* ast) {
   }
 }
 
+StyioIR*
+StyioAnalyzer::toStyioIR(UndefinedLitAST* ast) {
+  (void)ast;
+  return SGUndef::Create();
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(WaveMergeAST* ast) {
+  return SGWaveMerge::Create(
+    ast->getCond()->toStyioIR(this),
+    ast->getTrueVal()->toStyioIR(this),
+    ast->getFalseVal()->toStyioIR(this));
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(WaveDispatchAST* ast) {
+  return SGWaveDispatch::Create(
+    ast->getCond()->toStyioIR(this),
+    ast->getTrueArm()->toStyioIR(this),
+    ast->getFalseArm()->toStyioIR(this));
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(FallbackAST* ast) {
+  return SGFallback::Create(
+    ast->getPrimary()->toStyioIR(this),
+    ast->getAlternate()->toStyioIR(this));
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(GuardSelectorAST* ast) {
+  return SGGuardSelect::Create(
+    ast->getBase()->toStyioIR(this),
+    ast->getCond()->toStyioIR(this));
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(EqProbeAST* ast) {
+  return SGEqProbe::Create(
+    ast->getBase()->toStyioIR(this),
+    ast->getProbeValue()->toStyioIR(this));
+}
+
 /*
   Int -> Int => Pass
   Int -> Float => Pass

@@ -82,6 +82,13 @@ class BinCompAST;
 class CondAST;
 class BinOpAST;
 
+class UndefinedLitAST;
+class WaveMergeAST;
+class WaveDispatchAST;
+class FallbackAST;
+class GuardSelectorAST;
+class EqProbeAST;
+
 /*
   Function
   - Anonymous Function

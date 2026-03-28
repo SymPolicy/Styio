@@ -1165,6 +1165,9 @@ parse_var_name_or_value_expr(StyioContext& context);
 ResourceAST*
 parse_resources(StyioContext& context);
 
+ResourceAST*
+parse_resources_after_at(StyioContext& context);
+
 /*
   parse_pipeline
 */

@@ -1380,6 +1380,183 @@ public:
   }
 };
 
+/* M4: algebraic absence @ and wave / fallback */
+class UndefinedLitAST : public StyioASTTraits<UndefinedLitAST>
+{
+  UndefinedLitAST() = default;
+
+public:
+  static UndefinedLitAST* Create() {
+    return new UndefinedLitAST();
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::UndefLiteral;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+class WaveMergeAST : public StyioASTTraits<WaveMergeAST>
+{
+  StyioAST* cond_ = nullptr;
+  StyioAST* true_val_ = nullptr;
+  StyioAST* false_val_ = nullptr;
+
+  WaveMergeAST(StyioAST* c, StyioAST* t, StyioAST* f) :
+      cond_(c), true_val_(t), false_val_(f) {
+  }
+
+public:
+  static WaveMergeAST* Create(StyioAST* c, StyioAST* t, StyioAST* f) {
+    return new WaveMergeAST(c, t, f);
+  }
+
+  StyioAST* getCond() {
+    return cond_;
+  }
+  StyioAST* getTrueVal() {
+    return true_val_;
+  }
+  StyioAST* getFalseVal() {
+    return false_val_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::WaveMerge;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+class WaveDispatchAST : public StyioASTTraits<WaveDispatchAST>
+{
+  StyioAST* cond_ = nullptr;
+  StyioAST* true_arm_ = nullptr;
+  StyioAST* false_arm_ = nullptr;
+
+  WaveDispatchAST(StyioAST* c, StyioAST* t, StyioAST* f) :
+      cond_(c), true_arm_(t), false_arm_(f) {
+  }
+
+public:
+  static WaveDispatchAST* Create(StyioAST* c, StyioAST* t, StyioAST* f) {
+    return new WaveDispatchAST(c, t, f);
+  }
+
+  StyioAST* getCond() {
+    return cond_;
+  }
+  StyioAST* getTrueArm() {
+    return true_arm_;
+  }
+  StyioAST* getFalseArm() {
+    return false_arm_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::WaveDispatch;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+class FallbackAST : public StyioASTTraits<FallbackAST>
+{
+  StyioAST* primary_ = nullptr;
+  StyioAST* alt_ = nullptr;
+
+  FallbackAST(StyioAST* p, StyioAST* a) :
+      primary_(p), alt_(a) {
+  }
+
+public:
+  static FallbackAST* Create(StyioAST* p, StyioAST* a) {
+    return new FallbackAST(p, a);
+  }
+
+  StyioAST* getPrimary() {
+    return primary_;
+  }
+  StyioAST* getAlternate() {
+    return alt_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Fallback;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+class GuardSelectorAST : public StyioASTTraits<GuardSelectorAST>
+{
+  StyioAST* base_ = nullptr;
+  StyioAST* cond_ = nullptr;
+
+  GuardSelectorAST(StyioAST* b, StyioAST* c) :
+      base_(b), cond_(c) {
+  }
+
+public:
+  static GuardSelectorAST* Create(StyioAST* b, StyioAST* c) {
+    return new GuardSelectorAST(b, c);
+  }
+
+  StyioAST* getBase() {
+    return base_;
+  }
+  StyioAST* getCond() {
+    return cond_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::GuardSelector;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+class EqProbeAST : public StyioASTTraits<EqProbeAST>
+{
+  StyioAST* base_ = nullptr;
+  StyioAST* probe_val_ = nullptr;
+
+  EqProbeAST(StyioAST* b, StyioAST* v) :
+      base_(b), probe_val_(v) {
+  }
+
+public:
+  static EqProbeAST* Create(StyioAST* b, StyioAST* v) {
+    return new EqProbeAST(b, v);
+  }
+
+  StyioAST* getBase() {
+    return base_;
+  }
+  StyioAST* getProbeValue() {
+    return probe_val_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::EqProbeSelector;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
 class CondAST : public StyioASTTraits<CondAST>
 {
   LogicType LogicOp;

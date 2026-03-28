@@ -67,6 +67,13 @@ using StyioToStringVisitor = ToStringVisitor<
   class CondAST,
   class BinOpAST,
 
+  class UndefinedLitAST,
+  class WaveMergeAST,
+  class WaveDispatchAST,
+  class FallbackAST,
+  class GuardSelectorAST,
+  class EqProbeAST,
+
   class AnonyFuncAST,
   class FunctionAST,
   class SimpleFuncAST,
@@ -206,6 +213,13 @@ public:
 
   std::string toString(CondAST* ast, int indent = 0);
 
+  std::string toString(UndefinedLitAST* ast, int indent = 0);
+  std::string toString(WaveMergeAST* ast, int indent = 0);
+  std::string toString(WaveDispatchAST* ast, int indent = 0);
+  std::string toString(FallbackAST* ast, int indent = 0);
+  std::string toString(GuardSelectorAST* ast, int indent = 0);
+  std::string toString(EqProbeAST* ast, int indent = 0);
+
   std::string toString(FuncCallAST* ast, int indent = 0);
 
   std::string toString(AttrAST* ast, int indent = 0);
@@ -307,6 +321,13 @@ public:
   std::string toString(SGMatch* node, int indent = 0);
   std::string toString(SGBreak* node, int indent = 0);
   std::string toString(SGContinue* node, int indent = 0);
+
+  std::string toString(SGUndef* node, int indent = 0);
+  std::string toString(SGFallback* node, int indent = 0);
+  std::string toString(SGWaveMerge* node, int indent = 0);
+  std::string toString(SGWaveDispatch* node, int indent = 0);
+  std::string toString(SGGuardSelect* node, int indent = 0);
+  std::string toString(SGEqProbe* node, int indent = 0);
 
   std::string toString(SIOPath* node, int indent = 0);
   std::string toString(SIOPrint* node, int indent = 0);

@@ -74,6 +74,13 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
   class CondAST,
   class BinOpAST,
 
+  class UndefinedLitAST,
+  class WaveMergeAST,
+  class WaveDispatchAST,
+  class FallbackAST,
+  class GuardSelectorAST,
+  class EqProbeAST,
+
   class AnonyFuncAST,
   class FunctionAST,
   class SimpleFuncAST,
@@ -180,6 +187,12 @@ public:
   void typeInfer(BinOpAST* ast);
   void typeInfer(BinCompAST* ast);
   void typeInfer(CondAST* ast);
+  void typeInfer(UndefinedLitAST* ast);
+  void typeInfer(WaveMergeAST* ast);
+  void typeInfer(WaveDispatchAST* ast);
+  void typeInfer(FallbackAST* ast);
+  void typeInfer(GuardSelectorAST* ast);
+  void typeInfer(EqProbeAST* ast);
   void typeInfer(FuncCallAST* ast);
   void typeInfer(AttrAST* ast);
   void typeInfer(ListOpAST* ast);
@@ -246,6 +259,12 @@ public:
   StyioIR* toStyioIR(BinOpAST* ast);
   StyioIR* toStyioIR(BinCompAST* ast);
   StyioIR* toStyioIR(CondAST* ast);
+  StyioIR* toStyioIR(UndefinedLitAST* ast);
+  StyioIR* toStyioIR(WaveMergeAST* ast);
+  StyioIR* toStyioIR(WaveDispatchAST* ast);
+  StyioIR* toStyioIR(FallbackAST* ast);
+  StyioIR* toStyioIR(GuardSelectorAST* ast);
+  StyioIR* toStyioIR(EqProbeAST* ast);
   StyioIR* toStyioIR(FuncCallAST* ast);
   StyioIR* toStyioIR(AttrAST* ast);
   StyioIR* toStyioIR(ListOpAST* ast);

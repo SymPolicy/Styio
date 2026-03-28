@@ -108,6 +108,13 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SGBreak,
   class SGContinue,
 
+  class SGUndef,
+  class SGFallback,
+  class SGWaveMerge,
+  class SGWaveDispatch,
+  class SGGuardSelect,
+  class SGEqProbe,
+
   class SGBlock,
   class SGEntry,
   class SGMainEntry,
@@ -220,6 +227,13 @@ public:
   llvm::Type* toLLVMType(SGBreak* node);
   llvm::Type* toLLVMType(SGContinue* node);
 
+  llvm::Type* toLLVMType(SGUndef* node);
+  llvm::Type* toLLVMType(SGFallback* node);
+  llvm::Type* toLLVMType(SGWaveMerge* node);
+  llvm::Type* toLLVMType(SGWaveDispatch* node);
+  llvm::Type* toLLVMType(SGGuardSelect* node);
+  llvm::Type* toLLVMType(SGEqProbe* node);
+
   // llvm::Type* toLLVMType(SGIfElse* node);
   // llvm::Type* toLLVMType(SGForLoop* node);
   // llvm::Type* toLLVMType(SGWhileLoop* node);
@@ -268,6 +282,13 @@ public:
   llvm::Value* toLLVMIR(SGMatch* node);
   llvm::Value* toLLVMIR(SGBreak* node);
   llvm::Value* toLLVMIR(SGContinue* node);
+
+  llvm::Value* toLLVMIR(SGUndef* node);
+  llvm::Value* toLLVMIR(SGFallback* node);
+  llvm::Value* toLLVMIR(SGWaveMerge* node);
+  llvm::Value* toLLVMIR(SGWaveDispatch* node);
+  llvm::Value* toLLVMIR(SGGuardSelect* node);
+  llvm::Value* toLLVMIR(SGEqProbe* node);
 
   // llvm::Value* toLLVMIR(SGIfElse* node);
   // llvm::Value* toLLVMIR(SGForLoop* node);
