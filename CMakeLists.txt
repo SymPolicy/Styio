@@ -92,4 +92,5 @@ target_link_libraries(
     ${LLVM_LIBS})
 
 # [CTest: Sub-Directory]
+enable_testing()
 add_subdirectory(tests)

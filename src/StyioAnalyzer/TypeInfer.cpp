@@ -490,6 +490,11 @@ StyioAnalyzer::typeInfer(BreakAST* ast) {
 }
 
 void
+StyioAnalyzer::typeInfer(ContinueAST* ast) {
+  (void)ast;
+}
+
+void
 StyioAnalyzer::typeInfer(PassAST* ast) {
 }
 

@@ -3,7 +3,9 @@
 #define STYIO_GENERAL_IR_H_
 
 // [C++ STL]
+#include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 // [Styio]
@@ -394,6 +396,127 @@ public:
 
   static SGMainEntry* Create(std::vector<StyioIR*> stmts) {
     return new SGMainEntry(stmts);
+  }
+};
+
+enum class SGLoopTag
+{
+  Infinite,
+  WhileCond,
+};
+
+class SGLoop : public StyioIRTraits<SGLoop>
+{
+public:
+  SGLoopTag tag;
+  StyioIR* cond = nullptr;
+  SGBlock* body = nullptr;
+
+  SGLoop(SGLoopTag t, StyioIR* c, SGBlock* b) :
+      tag(t), cond(c), body(b) {
+  }
+
+  static SGLoop* CreateInfinite(SGBlock* b) {
+    return new SGLoop(SGLoopTag::Infinite, nullptr, b);
+  }
+
+  static SGLoop* CreateWhile(StyioIR* c, SGBlock* b) {
+    return new SGLoop(SGLoopTag::WhileCond, c, b);
+  }
+};
+
+class SGListLiteral : public StyioIRTraits<SGListLiteral>
+{
+public:
+  std::vector<StyioIR*> elems;
+
+  explicit SGListLiteral(std::vector<StyioIR*> e) :
+      elems(std::move(e)) {
+  }
+
+  static SGListLiteral* Create(std::vector<StyioIR*> e) {
+    return new SGListLiteral(std::move(e));
+  }
+};
+
+class SGForEach : public StyioIRTraits<SGForEach>
+{
+public:
+  StyioIR* iterable = nullptr;
+  std::string var;
+  SGBlock* body = nullptr;
+
+  SGForEach(StyioIR* it, std::string v, SGBlock* b) :
+      iterable(it), var(std::move(v)), body(b) {
+  }
+
+  static SGForEach* Create(StyioIR* it, std::string v, SGBlock* b) {
+    return new SGForEach(it, std::move(v), b);
+  }
+};
+
+enum class SGMatchReprKind
+{
+  Stmt,
+  ExprInt,
+  ExprMixed,
+};
+
+class SGMatch : public StyioIRTraits<SGMatch>
+{
+public:
+  StyioIR* scrutinee = nullptr;
+  std::vector<std::pair<std::int64_t, SGBlock*>> int_arms;
+  SGBlock* default_arm = nullptr;
+  SGMatchReprKind repr_kind = SGMatchReprKind::Stmt;
+
+  SGMatch(
+    StyioIR* s,
+    std::vector<std::pair<std::int64_t, SGBlock*>> arms,
+    SGBlock* d,
+    SGMatchReprKind k
+  ) :
+      scrutinee(s),
+      int_arms(std::move(arms)),
+      default_arm(d),
+      repr_kind(k) {
+  }
+
+  static SGMatch* Create(
+    StyioIR* s,
+    std::vector<std::pair<std::int64_t, SGBlock*>> arms,
+    SGBlock* d,
+    SGMatchReprKind k
+  ) {
+    return new SGMatch(s, std::move(arms), d, k);
+  }
+};
+
+class SGBreak : public StyioIRTraits<SGBreak>
+{
+public:
+  unsigned depth = 1;
+
+  explicit SGBreak(unsigned d) :
+      depth(d) {
+  }
+
+  static SGBreak* Create(unsigned d = 1) {
+    return new SGBreak(d);
+  }
+};
+
+class SGContinue : public StyioIRTraits<SGContinue>
+{
+public:
+  unsigned depth = 1;
+
+  explicit SGContinue(unsigned d) :
+      depth(d) {
+  }
+
+  static SGContinue* Create(unsigned d = 1) {
+    return new SGContinue(d);
   }
 };
 

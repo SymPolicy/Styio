@@ -88,6 +88,7 @@ using StyioToStringVisitor = ToStringVisitor<
   class EOFAST,
   class PassAST,
   class BreakAST,
+  class ContinueAST,
   class ReturnAST,
 
   class CasesAST,
@@ -145,6 +146,7 @@ public:
   std::string toString(PassAST* ast, int indent = 0);
 
   std::string toString(BreakAST* ast, int indent = 0);
+  std::string toString(ContinueAST* ast, int indent = 0);
 
   std::string toString(ReturnAST* ast, int indent = 0);
 
@@ -298,6 +300,13 @@ public:
   std::string toString(SGBlock* node, int indent = 0);
   std::string toString(SGEntry* node, int indent = 0);
   std::string toString(SGMainEntry* node, int indent = 0);
+
+  std::string toString(SGLoop* node, int indent = 0);
+  std::string toString(SGForEach* node, int indent = 0);
+  std::string toString(SGListLiteral* node, int indent = 0);
+  std::string toString(SGMatch* node, int indent = 0);
+  std::string toString(SGBreak* node, int indent = 0);
+  std::string toString(SGContinue* node, int indent = 0);
 
   std::string toString(SIOPath* node, int indent = 0);
   std::string toString(SIOPrint* node, int indent = 0);

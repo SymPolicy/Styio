@@ -90,6 +90,11 @@ StyioToLLVM::toLLVMType(SGVar* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGFlexBind* node) {
+  if (auto* m = dynamic_cast<SGMatch*>(node->value)) {
+    if (m->repr_kind == SGMatchReprKind::ExprMixed) {
+      return llvm::PointerType::get(*theContext, 0);
+    }
+  }
   return node->var->toLLVMType(this);
 };
 
@@ -135,3 +140,41 @@ llvm::Type*
 StyioToLLVM::toLLVMType(SGMainEntry* node) {
   return theBuilder->getInt64Ty();
 };
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGLoop* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGForEach* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGListLiteral* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGMatch* node) {
+  if (node->repr_kind == SGMatchReprKind::ExprMixed) {
+    return llvm::PointerType::get(*theContext, 0);
+  }
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGBreak* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGContinue* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}

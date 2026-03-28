@@ -95,6 +95,7 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
   class EOFAST,
   class PassAST,
   class BreakAST,
+  class ContinueAST,
   class ReturnAST,
 
   class CasesAST,
@@ -149,6 +150,7 @@ public:
   void typeInfer(EmptyAST* ast);
   void typeInfer(PassAST* ast);
   void typeInfer(BreakAST* ast);
+  void typeInfer(ContinueAST* ast);
   void typeInfer(ReturnAST* ast);
   void typeInfer(CommentAST* ast);
   void typeInfer(NameAST* ast);
@@ -214,6 +216,7 @@ public:
   StyioIR* toStyioIR(EmptyAST* ast);
   StyioIR* toStyioIR(PassAST* ast);
   StyioIR* toStyioIR(BreakAST* ast);
+  StyioIR* toStyioIR(ContinueAST* ast);
   StyioIR* toStyioIR(ReturnAST* ast);
   StyioIR* toStyioIR(CommentAST* ast);
   

@@ -9,6 +9,8 @@
 
 // [Styio]
 #include "../StyioIR/IRDecl.hpp"
+#include "../StyioIR/StyioIR.hpp"
+#include "../StyioIR/IOIR/IOIR.hpp"
 #include "../StyioException/Exception.hpp"
 #include "../StyioToken/Token.hpp"
 #include "CodeGenVisitor.hpp"

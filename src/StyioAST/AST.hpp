@@ -508,11 +508,49 @@ public:
 
 class BreakAST : public StyioASTTraits<BreakAST>
 {
+  unsigned depth_ = 1;
+
 public:
-  BreakAST() {}
+  explicit BreakAST(unsigned d = 1) :
+      depth_(d) {
+  }
+
+  static BreakAST* Create(unsigned d = 1) {
+    return new BreakAST(d);
+  }
+
+  unsigned getDepth() const {
+    return depth_;
+  }
 
   const StyioNodeType getNodeType() const {
     return StyioNodeType::Break;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+class ContinueAST : public StyioASTTraits<ContinueAST>
+{
+  unsigned depth_ = 1;
+
+public:
+  explicit ContinueAST(unsigned d = 1) :
+      depth_(d) {
+  }
+
+  static ContinueAST* Create(unsigned d = 1) {
+    return new ContinueAST(d);
+  }
+
+  unsigned getDepth() const {
+    return depth_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Continue;
   }
 
   const StyioDataType getDataType() const {
@@ -2002,12 +2040,10 @@ public:
 
   CasesAST(StyioAST* expr) :
       case_default(expr) {
-    std::cout << "CaseAST Only Default" << std::endl;
   }
 
   CasesAST(std::vector<std::pair<StyioAST*, StyioAST*>> cases, StyioAST* expr) :
       case_list(cases), case_default(expr) {
-    std::cout << "CaseAST List and Default" << std::endl;
   }
 
   static CasesAST* Create(StyioAST* expr) {
@@ -2055,6 +2091,14 @@ public:
 
   static MatchCasesAST* make(StyioAST* value, CasesAST* cases) {
     return new MatchCasesAST(value, cases);
+  }
+
+  StyioAST* getScrutinee() const {
+    return Value;
+  }
+
+  CasesAST* getCases() const {
+    return Cases;
   }
 };
 
@@ -2727,26 +2771,37 @@ public:
 */
 
 /*
-  Infinite Loop: [...] >> {}
+  Infinite / while loop: [...] => { } or [...] ?(cond) >> { }
 */
 class InfiniteLoopAST : public StyioASTTraits<InfiniteLoopAST>
 {
-private:
-  ForwardAST* Forward = nullptr;
+  StyioAST* while_cond_ = nullptr;
+  BlockAST* body_ = nullptr;
 
-  InfiniteLoopAST() {}
+  InfiniteLoopAST(StyioAST* cond, BlockAST* body) :
+      while_cond_(cond), body_(body) {
+  }
 
 public:
+  static InfiniteLoopAST* CreateInfinite(BlockAST* body) {
+    return new InfiniteLoopAST(nullptr, body);
+  }
+
+  static InfiniteLoopAST* CreateWhile(StyioAST* cond, BlockAST* body) {
+    return new InfiniteLoopAST(cond, body);
+  }
+
+  /* Legacy empty loop (unused list/loop char parser path). */
   static InfiniteLoopAST* Create() {
-    return new InfiniteLoopAST();
+    return new InfiniteLoopAST(nullptr, BlockAST::Create({}));
   }
 
-  InfiniteLoopAST(ForwardAST* expr) :
-      Forward(expr) {
+  StyioAST* getWhileCond() const {
+    return while_cond_;
   }
 
-  ForwardAST* getForward() {
-    return Forward;
+  BlockAST* getBody() const {
+    return body_;
   }
 
   const StyioNodeType getNodeType() const {

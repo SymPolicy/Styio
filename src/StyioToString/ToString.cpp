@@ -485,6 +485,13 @@ StyioRepr::toString(BreakAST* ast, int indent) {
 }
 
 std::string
+StyioRepr::toString(ContinueAST* ast, int indent) {
+  (void)ast;
+  (void)indent;
+  return reprASTType(StyioNodeType::Continue, " ") + string("{ }");
+}
+
+std::string
 StyioRepr::toString(PassAST* ast, int indent) {
   return reprASTType(ast->getNodeType(), " ") + string("{ }");
 }
@@ -872,9 +879,9 @@ StyioRepr::toString(IterSeqAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(InfiniteLoopAST* ast, int indent) {
-  return reprASTType(ast->getNodeType(), " ") + "{" + "\n"
-         + make_padding(indent) + ast->getForward()->toString(this, indent + 1)
-         + "}";
+  return reprASTType(ast->getNodeType(), " ") + "{\n"
+         + make_padding(indent) + ast->getBody()->toString(this, indent + 1)
+         + "\n}";
 }
 
 std::string
@@ -1113,6 +1120,48 @@ StyioRepr::toString(SGMainEntry* node, int indent) {
   }
 
   return std::string("styio.ir.main {\n") + stmtstr + "}";
+}
+
+std::string
+StyioRepr::toString(SGLoop* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.loop { }";
+}
+
+std::string
+StyioRepr::toString(SGForEach* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.foreach { }";
+}
+
+std::string
+StyioRepr::toString(SGListLiteral* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.listlit { }";
+}
+
+std::string
+StyioRepr::toString(SGMatch* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.match { }";
+}
+
+std::string
+StyioRepr::toString(SGBreak* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.break { }";
+}
+
+std::string
+StyioRepr::toString(SGContinue* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.continue { }";
 }
 
 std::string

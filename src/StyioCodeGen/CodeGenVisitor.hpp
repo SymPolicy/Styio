@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 // [Styio]
@@ -100,6 +101,13 @@ using StyioCodeGenVisitor = CodeGenVisitor<
 
   class SGReturn,
 
+  class SGLoop,
+  class SGForEach,
+  class SGListLiteral,
+  class SGMatch,
+  class SGBreak,
+  class SGContinue,
+
   class SGBlock,
   class SGEntry,
   class SGMainEntry,
@@ -127,6 +135,12 @@ class StyioToLLVM : public StyioCodeGenVisitor
 
   unordered_map<string, llvm::AllocaInst*> mutable_variables; /* [FlexBind] Mutable Variables */
   unordered_map<string, llvm::Value*> named_values;  /* [FinalBind] Named Values = Immutable Variables */
+
+  struct LoopFrame {
+    llvm::BasicBlock* break_dest = nullptr;
+    llvm::BasicBlock* continue_dest = nullptr;
+  };
+  std::vector<LoopFrame> loop_stack_;
 
 public:
   StyioToLLVM(std::unique_ptr<StyioJIT_ORC> styio_jit) :
@@ -199,6 +213,13 @@ public:
 
   llvm::Type* toLLVMType(SGReturn* node);
 
+  llvm::Type* toLLVMType(SGLoop* node);
+  llvm::Type* toLLVMType(SGForEach* node);
+  llvm::Type* toLLVMType(SGListLiteral* node);
+  llvm::Type* toLLVMType(SGMatch* node);
+  llvm::Type* toLLVMType(SGBreak* node);
+  llvm::Type* toLLVMType(SGContinue* node);
+
   // llvm::Type* toLLVMType(SGIfElse* node);
   // llvm::Type* toLLVMType(SGForLoop* node);
   // llvm::Type* toLLVMType(SGWhileLoop* node);
@@ -241,6 +262,13 @@ public:
 
   llvm::Value* toLLVMIR(SGReturn* node);
 
+  llvm::Value* toLLVMIR(SGLoop* node);
+  llvm::Value* toLLVMIR(SGForEach* node);
+  llvm::Value* toLLVMIR(SGListLiteral* node);
+  llvm::Value* toLLVMIR(SGMatch* node);
+  llvm::Value* toLLVMIR(SGBreak* node);
+  llvm::Value* toLLVMIR(SGContinue* node);
+
   // llvm::Value* toLLVMIR(SGIfElse* node);
   // llvm::Value* toLLVMIR(SGForLoop* node);
   // llvm::Value* toLLVMIR(SGWhileLoop* node);
@@ -259,6 +287,9 @@ private:
   static void collect_sgfuncs_postorder(SGFunc* node, std::vector<SGFunc*>& out);
   llvm::Value* coerce_for_return(llvm::Value* v, llvm::Type* want_ty);
   llvm::Value* truncate_for_main_ret(llvm::Value* v);
+
+  llvm::Value* promote_to_cstr(llvm::Value* v);
+  llvm::Value* evaluate_arm_block_value(SGBlock* b, bool mixed_phi);
 };
 
 #endif

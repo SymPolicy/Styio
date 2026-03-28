@@ -272,6 +272,7 @@ enum class StyioNodeType
   End,
   Pass,
   Break,
+  Continue,
   Return,
   Comment,
 

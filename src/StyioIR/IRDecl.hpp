@@ -35,6 +35,13 @@ class SGCall;
 
 class SGReturn;
 
+class SGLoop;
+class SGForEach;
+class SGListLiteral;
+class SGMatch;
+class SGBreak;
+class SGContinue;
+
 // class SGIfElse;
 // class SGForLoop;
 // class SGWhileLoop;

@@ -6,6 +6,7 @@
 */
 
 // [C++ STL]
+#include <cstdint>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -17,6 +18,7 @@
 #include "../StyioAST/AST.hpp"
 #include "../StyioIR/GenIR/GenIR.hpp"
 #include "../StyioIR/IOIR/IOIR.hpp"
+#include "../StyioException/Exception.hpp"
 #include "../StyioToken/Token.hpp"
 #include "Util.hpp"
 
@@ -42,7 +44,7 @@ func_ret_to_sgtype(
 
 SGFuncArg*
 param_to_sgarg(ParamAST* p, StyioAnalyzer* an) {
-  StyioDataType opty = p->var_type->getDataType().option;
+  StyioDataTypeOption opty = p->var_type->getDataType().option;
   SGType* ty = (opty == StyioDataTypeOption::Undefined)
     ? SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64})
     : static_cast<SGType*>(p->var_type->toStyioIR(an));
@@ -60,6 +62,98 @@ lower_func_body(StyioAnalyzer* an, StyioAST* body) {
   std::vector<StyioIR*> one;
   one.push_back(body->toStyioIR(an));
   return SGBlock::Create(std::move(one));
+}
+
+bool
+stmt_has_return_tree(StyioAST* ast) {
+  if (!ast) {
+    return false;
+  }
+  if (ast->getNodeType() == StyioNodeType::Return) {
+    return true;
+  }
+  if (ast->getNodeType() == StyioNodeType::MatchCases) {
+    auto* m = static_cast<MatchCasesAST*>(ast);
+    CasesAST* c = m->getCases();
+    for (auto const& pr : c->case_list) {
+      if (stmt_has_return_tree(pr.second)) {
+        return true;
+      }
+    }
+    return stmt_has_return_tree(c->case_default);
+  }
+  if (auto* b = dynamic_cast<BlockAST*>(ast)) {
+    for (auto* s : b->stmts) {
+      if (stmt_has_return_tree(s)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+void
+scan_returns_for_str_int(StyioAST* ast, bool& has_str, bool& has_int) {
+  if (!ast) {
+    return;
+  }
+  if (ast->getNodeType() == StyioNodeType::Return) {
+    StyioAST* e = static_cast<ReturnAST*>(ast)->getExpr();
+    if (e->getNodeType() == StyioNodeType::String) {
+      has_str = true;
+    }
+    else if (e->getNodeType() == StyioNodeType::Integer) {
+      has_int = true;
+    }
+    else {
+      has_int = true;
+    }
+    return;
+  }
+  if (ast->getNodeType() == StyioNodeType::MatchCases) {
+    auto* m = static_cast<MatchCasesAST*>(ast);
+    CasesAST* c = m->getCases();
+    for (auto const& pr : c->case_list) {
+      scan_returns_for_str_int(pr.second, has_str, has_int);
+    }
+    scan_returns_for_str_int(c->case_default, has_str, has_int);
+    return;
+  }
+  if (auto* b = dynamic_cast<BlockAST*>(ast)) {
+    for (auto* s : b->stmts) {
+      scan_returns_for_str_int(s, has_str, has_int);
+    }
+  }
+}
+
+SGMatchReprKind
+classify_cases(CasesAST* c) {
+  bool any = false;
+  for (auto const& pr : c->case_list) {
+    if (stmt_has_return_tree(pr.second)) {
+      any = true;
+    }
+  }
+  if (stmt_has_return_tree(c->case_default)) {
+    any = true;
+  }
+  if (!any) {
+    return SGMatchReprKind::Stmt;
+  }
+  bool hs = false;
+  bool hi = false;
+  for (auto const& pr : c->case_list) {
+    scan_returns_for_str_int(pr.second, hs, hi);
+  }
+  scan_returns_for_str_int(c->case_default, hs, hi);
+  if (hs && hi) {
+    return SGMatchReprKind::ExprMixed;
+  }
+  if (hs) {
+    /* All arms yield strings (or only strings detected): phi must be i8* */
+    return SGMatchReprKind::ExprMixed;
+  }
+  return SGMatchReprKind::ExprInt;
 }
 
 }  // namespace
@@ -254,7 +348,11 @@ StyioAnalyzer::toStyioIR(SetAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(ListAST* ast) {
-  return SGConstInt::Create(0);
+  std::vector<StyioIR*> el;
+  for (auto* e : ast->getElements()) {
+    el.push_back(e->toStyioIR(this));
+  }
+  return SGListLiteral::Create(std::move(el));
 }
 
 StyioIR*
@@ -357,7 +455,12 @@ StyioAnalyzer::toStyioIR(EOFAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(BreakAST* ast) {
-  return SGConstInt::Create(0);
+  return SGBreak::Create(ast->getDepth());
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(ContinueAST* ast) {
+  return SGContinue::Create(ast->getDepth());
 }
 
 StyioIR*
@@ -441,9 +544,25 @@ StyioAnalyzer::toStyioIR(FunctionAST* ast) {
   for (auto* p : ast->params) {
     fargs.push_back(param_to_sgarg(p, this));
   }
+  SGType* rt = func_ret_to_sgtype(ast->ret_type, this);
+  if (auto* blk = dynamic_cast<BlockAST*>(ast->func_body)) {
+    if (blk->stmts.size() == 1 && blk->stmts[0]->getNodeType() == StyioNodeType::MatchCases) {
+      auto* mc = static_cast<MatchCasesAST*>(blk->stmts[0]);
+      CasesAST* c = mc->getCases();
+      bool hs = false;
+      bool hi = false;
+      for (auto const& pr : c->case_list) {
+        scan_returns_for_str_int(pr.second, hs, hi);
+      }
+      scan_returns_for_str_int(c->case_default, hs, hi);
+      if (hs) {
+        rt = SGType::Create(StyioDataType{StyioDataTypeOption::String, "string", 0});
+      }
+    }
+  }
   SGBlock* body = lower_func_body(this, ast->func_body);
   return SGFunc::Create(
-    func_ret_to_sgtype(ast->ret_type, this),
+    rt,
     SGResId::Create(ast->getNameAsStr()),
     std::move(fargs),
     body);
@@ -455,9 +574,26 @@ StyioAnalyzer::toStyioIR(SimpleFuncAST* ast) {
   for (auto* p : ast->params) {
     fargs.push_back(param_to_sgarg(p, this));
   }
+  SGType* rt = func_ret_to_sgtype(ast->ret_type, this);
+  if (auto* blk = dynamic_cast<BlockAST*>(ast->ret_expr)) {
+    if (blk->stmts.size() == 1 && blk->stmts[0]->getNodeType() == StyioNodeType::MatchCases) {
+      auto* mc = static_cast<MatchCasesAST*>(blk->stmts[0]);
+      CasesAST* c = mc->getCases();
+      bool hs = false;
+      bool hi = false;
+      for (auto const& pr : c->case_list) {
+        scan_returns_for_str_int(pr.second, hs, hi);
+      }
+      scan_returns_for_str_int(c->case_default, hs, hi);
+      if (hs) {
+        /* Any <| "..." arm: LLVM return must be i8* (and may mix with snprintf ints). */
+        rt = SGType::Create(StyioDataType{StyioDataTypeOption::String, "string", 0});
+      }
+    }
+  }
   SGBlock* body = lower_func_body(this, ast->ret_expr);
   return SGFunc::Create(
-    func_ret_to_sgtype(ast->ret_type, this),
+    rt,
     SGResId::Create(ast->func_name->getAsStr()),
     std::move(fargs),
     body);
@@ -465,7 +601,15 @@ StyioAnalyzer::toStyioIR(SimpleFuncAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(IteratorAST* ast) {
-  return SGConstInt::Create(0);
+  std::string vname = "it";
+  if (!ast->params.empty()) {
+    vname = ast->params[0]->getName();
+  }
+  SGBlock* body = SGBlock::Create({});
+  if (!ast->following.empty()) {
+    body = lower_func_body(this, ast->following[0]);
+  }
+  return SGForEach::Create(ast->collection->toStyioIR(this), std::move(vname), body);
 }
 
 StyioIR*
@@ -475,7 +619,11 @@ StyioAnalyzer::toStyioIR(IterSeqAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(InfiniteLoopAST* ast) {
-  return SGConstInt::Create(0);
+  SGBlock* b = lower_func_body(this, ast->getBody());
+  if (ast->getWhileCond()) {
+    return SGLoop::CreateWhile(ast->getWhileCond()->toStyioIR(this), b);
+  }
+  return SGLoop::CreateInfinite(b);
 }
 
 StyioIR*
@@ -485,7 +633,22 @@ StyioAnalyzer::toStyioIR(CasesAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(MatchCasesAST* ast) {
-  return SGConstInt::Create(0);
+  CasesAST* c = ast->getCases();
+  SGMatchReprKind rk = classify_cases(c);
+  StyioIR* scr = ast->getScrutinee()->toStyioIR(this);
+  std::vector<std::pair<std::int64_t, SGBlock*>> arms;
+  for (auto const& pr : c->case_list) {
+    auto* li = dynamic_cast<IntAST*>(pr.first);
+    if (!li) {
+      throw StyioNotImplemented("match arms need integer literal patterns in this milestone");
+    }
+    arms.push_back({std::stoll(li->value), lower_func_body(this, pr.second)});
+  }
+  SGBlock* def = nullptr;
+  if (c->case_default) {
+    def = lower_func_body(this, c->case_default);
+  }
+  return SGMatch::Create(scr, std::move(arms), def, rk);
 }
 
 StyioIR*

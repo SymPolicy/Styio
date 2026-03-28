@@ -326,6 +326,10 @@ reprASTType(StyioNodeType type, std::string extra) {
       output += std::string("break");
     } break;
 
+    case StyioNodeType::Continue: {
+      output += std::string("continue");
+    } break;
+
     case StyioNodeType::CondFlow_True: {
       output += std::string("only_true");
     } break;
