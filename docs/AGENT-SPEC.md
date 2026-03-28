@@ -676,6 +676,16 @@ Agents MUST NOT:
 
 ## 15. Decision Authority
 
+### Current Milestone
+
+Agents must work on the **current active milestone** and not skip ahead. See `docs/milestones/00-Milestone-Index.md` for the full roadmap. Each milestone document (`M1-Foundation.md` through `M7-MultiStream.md`) defines:
+
+- **Acceptance tests** — the FIRST thing to read; defines success
+- **Implementation tasks** — ordered by dependency, assigned to roles
+- **Completion criteria** — all tests must pass, no regressions
+
+**No milestone may break tests from a previous milestone.**
+
 ### What Agents Can Decide Independently
 
 - Implementation details within an existing design (e.g., choosing between `select` and `br`+`phi` in LLVM codegen)
