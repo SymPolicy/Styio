@@ -466,6 +466,17 @@ enum class StyioNodeType
    * Read
    */
 
+  FileResource,
+  HandleAcquire,
+  ResourceWrite,
+  ResourceRedirect,
+
+  /* M6: state ledger, $refs, intrinsics, history */
+  StateDecl,
+  StateRef,
+  HistoryProbe,
+  SeriesIntrinsic,
+
   ReadFile,
   // -----------------
 

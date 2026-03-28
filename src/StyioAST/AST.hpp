@@ -1986,6 +1986,305 @@ public:
 };
 
 /*
+  M5: @file{"path"} or @{"path"} (auto)
+*/
+class FileResourceAST : public StyioASTTraits<FileResourceAST>
+{
+  StyioAST* path_expr_ = nullptr;
+  bool auto_detect_ = false;
+
+  FileResourceAST(StyioAST* path, bool auto_det) :
+      path_expr_(path), auto_detect_(auto_det) {
+  }
+
+public:
+  static FileResourceAST* Create(StyioAST* path, bool auto_detect) {
+    return new FileResourceAST(path, auto_detect);
+  }
+
+  StyioAST* getPath() {
+    return path_expr_;
+  }
+
+  bool isAutoDetect() const {
+    return auto_detect_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::FileResource;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+class HandleAcquireAST : public StyioASTTraits<HandleAcquireAST>
+{
+  VarAST* var_ = nullptr;
+  StyioAST* resource_ = nullptr;
+
+  HandleAcquireAST(VarAST* v, StyioAST* r) :
+      var_(v), resource_(r) {
+  }
+
+public:
+  static HandleAcquireAST* Create(VarAST* v, StyioAST* r) {
+    return new HandleAcquireAST(v, r);
+  }
+
+  VarAST* getVar() {
+    return var_;
+  }
+
+  StyioAST* getResource() {
+    return resource_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::HandleAcquire;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+class ResourceWriteAST : public StyioASTTraits<ResourceWriteAST>
+{
+  StyioAST* data_ = nullptr;
+  StyioAST* resource_ = nullptr;
+
+  ResourceWriteAST(StyioAST* d, StyioAST* r) :
+      data_(d), resource_(r) {
+  }
+
+public:
+  static ResourceWriteAST* Create(StyioAST* d, StyioAST* r) {
+    return new ResourceWriteAST(d, r);
+  }
+
+  StyioAST* getData() {
+    return data_;
+  }
+
+  StyioAST* getResource() {
+    return resource_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::ResourceWrite;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+class ResourceRedirectAST : public StyioASTTraits<ResourceRedirectAST>
+{
+  StyioAST* data_ = nullptr;
+  StyioAST* resource_ = nullptr;
+
+  ResourceRedirectAST(StyioAST* d, StyioAST* r) :
+      data_(d), resource_(r) {
+  }
+
+public:
+  static ResourceRedirectAST* Create(StyioAST* d, StyioAST* r) {
+    return new ResourceRedirectAST(d, r);
+  }
+
+  StyioAST* getData() {
+    return data_;
+  }
+
+  StyioAST* getResource() {
+    return resource_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::ResourceRedirect;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+/* M6: pulse state ledger */
+class StateRefAST : public StyioASTTraits<StateRefAST>
+{
+  NameAST* name_ = nullptr;
+
+  explicit StateRefAST(NameAST* n) :
+      name_(n) {
+  }
+
+public:
+  static StateRefAST* Create(NameAST* n) {
+    return new StateRefAST(n);
+  }
+
+  NameAST* getName() const {
+    return name_;
+  }
+
+  std::string getNameStr() const {
+    return name_->getAsStr();
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::StateRef;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+  }
+};
+
+class HistoryProbeAST : public StyioASTTraits<HistoryProbeAST>
+{
+  StateRefAST* target_ = nullptr;
+  StyioAST* depth_ = nullptr;
+
+  HistoryProbeAST(StateRefAST* t, StyioAST* d) :
+      target_(t), depth_(d) {
+  }
+
+public:
+  static HistoryProbeAST* Create(StateRefAST* t, StyioAST* d) {
+    return new HistoryProbeAST(t, d);
+  }
+
+  StateRefAST* getTarget() const {
+    return target_;
+  }
+
+  StyioAST* getDepth() const {
+    return depth_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::HistoryProbe;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+  }
+};
+
+enum class SeriesIntrinsicOp
+{
+  Avg,
+  Max,
+};
+
+class SeriesIntrinsicAST : public StyioASTTraits<SeriesIntrinsicAST>
+{
+  StyioAST* base_ = nullptr;
+  SeriesIntrinsicOp op_ = SeriesIntrinsicOp::Avg;
+  StyioAST* window_ = nullptr;
+
+  SeriesIntrinsicAST(StyioAST* b, SeriesIntrinsicOp o, StyioAST* w) :
+      base_(b), op_(o), window_(w) {
+  }
+
+public:
+  static SeriesIntrinsicAST* Create(StyioAST* b, SeriesIntrinsicOp o, StyioAST* w) {
+    return new SeriesIntrinsicAST(b, o, w);
+  }
+
+  StyioAST* getBase() const {
+    return base_;
+  }
+
+  SeriesIntrinsicOp getOp() const {
+    return op_;
+  }
+
+  StyioAST* getWindow() const {
+    return window_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::SeriesIntrinsic;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+  }
+};
+
+/*
+  @[window | name = init](export = expr)
+*/
+class StateDeclAST : public StyioASTTraits<StateDeclAST>
+{
+  /* window-only header: e.g. @[3] */
+  IntAST* window_header_ = nullptr;
+  /* accumulator: @[total = 0] */
+  NameAST* acc_name_ = nullptr;
+  StyioAST* acc_init_ = nullptr;
+  /* (export = rhs) */
+  VarAST* export_var_ = nullptr;
+  StyioAST* update_expr_ = nullptr;
+
+  StateDeclAST(
+    IntAST* wh,
+    NameAST* an,
+    StyioAST* ai,
+    VarAST* ev,
+    StyioAST* upd
+  ) :
+      window_header_(wh),
+      acc_name_(an),
+      acc_init_(ai),
+      export_var_(ev),
+      update_expr_(upd) {
+  }
+
+public:
+  static StateDeclAST* Create(
+    IntAST* wh,
+    NameAST* an,
+    StyioAST* ai,
+    VarAST* ev,
+    StyioAST* upd
+  ) {
+    return new StateDeclAST(wh, an, ai, ev, upd);
+  }
+
+  IntAST* getWindowHeader() const {
+    return window_header_;
+  }
+
+  NameAST* getAccName() const {
+    return acc_name_;
+  }
+
+  StyioAST* getAccInit() const {
+    return acc_init_;
+  }
+
+  VarAST* getExportVar() const {
+    return export_var_;
+  }
+
+  StyioAST* getUpdateExpr() const {
+    return update_expr_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::StateDecl;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+/*
   PrintAST: Write to Standard Output (Print)
 */
 class PrintAST : public StyioASTTraits<PrintAST>

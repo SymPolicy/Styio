@@ -281,6 +281,29 @@ StyioAnalyzer::typeInfer(EqProbeAST* ast) {
   ast->getProbeValue()->typeInfer(this);
 }
 
+void
+StyioAnalyzer::typeInfer(FileResourceAST* ast) {
+  ast->getPath()->typeInfer(this);
+}
+
+void
+StyioAnalyzer::typeInfer(HandleAcquireAST* ast) {
+  ast->getVar()->typeInfer(this);
+  ast->getResource()->typeInfer(this);
+}
+
+void
+StyioAnalyzer::typeInfer(ResourceWriteAST* ast) {
+  ast->getData()->typeInfer(this);
+  ast->getResource()->typeInfer(this);
+}
+
+void
+StyioAnalyzer::typeInfer(ResourceRedirectAST* ast) {
+  ast->getData()->typeInfer(this);
+  ast->getResource()->typeInfer(this);
+}
+
 /*
   Int -> Int => Pass
   Int -> Float => Pass
@@ -655,6 +678,33 @@ StyioAnalyzer::typeInfer(MatchCasesAST* ast) {
 
 void
 StyioAnalyzer::typeInfer(BlockAST* ast) {
+  for (auto* s : ast->stmts) {
+    s->typeInfer(this);
+  }
+}
+
+void
+StyioAnalyzer::typeInfer(StateDeclAST* ast) {
+  if (ast->getAccInit()) {
+    ast->getAccInit()->typeInfer(this);
+  }
+  ast->getUpdateExpr()->typeInfer(this);
+}
+
+void
+StyioAnalyzer::typeInfer(StateRefAST* ast) {
+  (void)ast;
+}
+
+void
+StyioAnalyzer::typeInfer(HistoryProbeAST* ast) {
+  ast->getDepth()->typeInfer(this);
+}
+
+void
+StyioAnalyzer::typeInfer(SeriesIntrinsicAST* ast) {
+  ast->getBase()->typeInfer(this);
+  ast->getWindow()->typeInfer(this);
 }
 
 void

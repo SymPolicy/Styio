@@ -38,6 +38,11 @@ class SGReturn;
 class SGLoop;
 class SGForEach;
 class SGListLiteral;
+
+class SGStateSnapLoad;
+class SGStateHistLoad;
+class SGSeriesAvgStep;
+class SGSeriesMaxStep;
 class SGMatch;
 class SGBreak;
 class SGContinue;
@@ -48,6 +53,10 @@ class SGWaveMerge;
 class SGWaveDispatch;
 class SGGuardSelect;
 class SGEqProbe;
+
+class SGHandleAcquire;
+class SGFileLineIter;
+class SGResourceWriteToFile;
 
 // class SGIfElse;
 // class SGForLoop;

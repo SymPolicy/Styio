@@ -37,6 +37,8 @@ using std::string;
 using std::unordered_map;
 using std::vector;
 
+struct SGPulsePlan;
+
 using std::make_shared;
 using std::make_unique;
 using std::shared_ptr;
@@ -104,6 +106,10 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SGLoop,
   class SGForEach,
   class SGListLiteral,
+  class SGStateSnapLoad,
+  class SGStateHistLoad,
+  class SGSeriesAvgStep,
+  class SGSeriesMaxStep,
   class SGMatch,
   class SGBreak,
   class SGContinue,
@@ -114,6 +120,10 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SGWaveDispatch,
   class SGGuardSelect,
   class SGEqProbe,
+
+  class SGHandleAcquire,
+  class SGFileLineIter,
+  class SGResourceWriteToFile,
 
   class SGBlock,
   class SGEntry,
@@ -223,6 +233,10 @@ public:
   llvm::Type* toLLVMType(SGLoop* node);
   llvm::Type* toLLVMType(SGForEach* node);
   llvm::Type* toLLVMType(SGListLiteral* node);
+  llvm::Type* toLLVMType(SGStateSnapLoad* node);
+  llvm::Type* toLLVMType(SGStateHistLoad* node);
+  llvm::Type* toLLVMType(SGSeriesAvgStep* node);
+  llvm::Type* toLLVMType(SGSeriesMaxStep* node);
   llvm::Type* toLLVMType(SGMatch* node);
   llvm::Type* toLLVMType(SGBreak* node);
   llvm::Type* toLLVMType(SGContinue* node);
@@ -233,6 +247,10 @@ public:
   llvm::Type* toLLVMType(SGWaveDispatch* node);
   llvm::Type* toLLVMType(SGGuardSelect* node);
   llvm::Type* toLLVMType(SGEqProbe* node);
+
+  llvm::Type* toLLVMType(SGHandleAcquire* node);
+  llvm::Type* toLLVMType(SGFileLineIter* node);
+  llvm::Type* toLLVMType(SGResourceWriteToFile* node);
 
   // llvm::Type* toLLVMType(SGIfElse* node);
   // llvm::Type* toLLVMType(SGForLoop* node);
@@ -279,6 +297,10 @@ public:
   llvm::Value* toLLVMIR(SGLoop* node);
   llvm::Value* toLLVMIR(SGForEach* node);
   llvm::Value* toLLVMIR(SGListLiteral* node);
+  llvm::Value* toLLVMIR(SGStateSnapLoad* node);
+  llvm::Value* toLLVMIR(SGStateHistLoad* node);
+  llvm::Value* toLLVMIR(SGSeriesAvgStep* node);
+  llvm::Value* toLLVMIR(SGSeriesMaxStep* node);
   llvm::Value* toLLVMIR(SGMatch* node);
   llvm::Value* toLLVMIR(SGBreak* node);
   llvm::Value* toLLVMIR(SGContinue* node);
@@ -289,6 +311,10 @@ public:
   llvm::Value* toLLVMIR(SGWaveDispatch* node);
   llvm::Value* toLLVMIR(SGGuardSelect* node);
   llvm::Value* toLLVMIR(SGEqProbe* node);
+
+  llvm::Value* toLLVMIR(SGHandleAcquire* node);
+  llvm::Value* toLLVMIR(SGFileLineIter* node);
+  llvm::Value* toLLVMIR(SGResourceWriteToFile* node);
 
   // llvm::Value* toLLVMIR(SGIfElse* node);
   // llvm::Value* toLLVMIR(SGForLoop* node);
@@ -311,6 +337,26 @@ private:
 
   llvm::Value* promote_to_cstr(llvm::Value* v);
   llvm::Value* evaluate_arm_block_value(SGBlock* b, bool mixed_phi);
+
+  std::vector<std::vector<std::string>> file_handle_scope_stack_;
+
+  void push_file_handle_scope();
+
+  void pop_file_handle_scope();
+
+  void register_file_handle_for_raii(const std::string& var_name);
+
+  llvm::Value* pulse_ledger_base_ = nullptr;
+  llvm::Value* pulse_snap_base_ = nullptr;
+  const SGPulsePlan* pulse_active_plan_ = nullptr;
+  std::unordered_map<int, std::pair<llvm::Value*, const SGPulsePlan*>>
+    pulse_region_ledgers_;
+
+  llvm::Value* styio_load_i64_at_byte_ptr(llvm::Value* base, int byte_off);
+  void styio_store_i64_at_byte_ptr(llvm::Value* base, int byte_off, llvm::Value* v);
+  void pulse_copy_ledger_to_snap(llvm::Value* ledger, llvm::Value* snap, int nbytes);
+  llvm::Value* coerce_pulse_input_i64(llvm::Value* v);
+  void emit_pulse_commit_all(llvm::Value* ledger, const SGPulsePlan* plan);
 };
 
 #endif

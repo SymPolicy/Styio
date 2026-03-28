@@ -11,6 +11,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -23,6 +24,12 @@
 #include "Util.hpp"
 
 namespace {
+
+int
+alloc_pulse_region_id() {
+  static int n = 0;
+  return n++;
+}
 
 SGType*
 func_ret_to_sgtype(
@@ -154,6 +161,318 @@ classify_cases(CasesAST* c) {
     return SGMatchReprKind::ExprMixed;
   }
   return SGMatchReprKind::ExprInt;
+}
+
+bool
+stmt_may_contain_pulse_state(StyioAnalyzer* an, StyioAST* s) {
+  if (dynamic_cast<StateDeclAST*>(s)) {
+    return true;
+  }
+  if (auto* fc = dynamic_cast<FuncCallAST*>(s)) {
+    auto it = an->func_defs.find(fc->getNameAsStr());
+    if (it == an->func_defs.end()) {
+      return false;
+    }
+    if (auto* sf = dynamic_cast<SimpleFuncAST*>(it->second)) {
+      auto* blk = dynamic_cast<BlockAST*>(sf->ret_expr);
+      if (blk && blk->stmts.size() == 1 && dynamic_cast<StateDeclAST*>(blk->stmts[0])) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool
+pulse_block_has_state(StyioAnalyzer* an, BlockAST* blk) {
+  if (!blk) {
+    return false;
+  }
+  for (auto* s : blk->stmts) {
+    if (stmt_may_contain_pulse_state(an, s)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+SeriesIntrinsicAST*
+find_series_intrinsic(StyioAST* e) {
+  if (!e) {
+    return nullptr;
+  }
+  if (auto* s = dynamic_cast<SeriesIntrinsicAST*>(e)) {
+    return s;
+  }
+  if (auto* b = dynamic_cast<BinOpAST*>(e)) {
+    auto* L = find_series_intrinsic(b->LHS);
+    if (L) {
+      return L;
+    }
+    return find_series_intrinsic(b->RHS);
+  }
+  if (auto* w = dynamic_cast<WaveMergeAST*>(e)) {
+    auto* L = find_series_intrinsic(w->getCond());
+    if (L) {
+      return L;
+    }
+    L = find_series_intrinsic(w->getTrueVal());
+    if (L) {
+      return L;
+    }
+    return find_series_intrinsic(w->getFalseVal());
+  }
+  return nullptr;
+}
+
+int
+window_n_from_ast(StyioAST* w) {
+  auto* li = dynamic_cast<IntAST*>(w);
+  if (!li) {
+    throw StyioNotImplemented("window size for series intrinsic must be integer literal");
+  }
+  return static_cast<int>(std::stoll(li->value));
+}
+
+int
+slot_byte_size(const SGStateSlotDesc& d) {
+  const int n = d.win_n;
+  switch (d.kind) {
+    case SGStateSlotKind::Acc:
+      return 8;
+    case SGStateSlotKind::Track:
+      return 8 + 8 * n + 8;
+    case SGStateSlotKind::WinAvg:
+    case SGStateSlotKind::WinMax:
+      return n * 8 + 32 + n * 8 + 8;
+    default:
+      return 8;
+  }
+}
+
+void
+classify_state_slot(StateDeclAST* sd, SGStateSlotDesc& d) {
+  if (sd->getAccName()) {
+    d.kind = SGStateSlotKind::Acc;
+    d.win_n = 0;
+    return;
+  }
+  auto* si = find_series_intrinsic(sd->getUpdateExpr());
+  if (si && si->getOp() == SeriesIntrinsicOp::Avg) {
+    d.kind = SGStateSlotKind::WinAvg;
+    d.win_n = window_n_from_ast(si->getWindow());
+    return;
+  }
+  if (si && si->getOp() == SeriesIntrinsicOp::Max) {
+    d.kind = SGStateSlotKind::WinMax;
+    d.win_n = window_n_from_ast(si->getWindow());
+    return;
+  }
+  d.kind = SGStateSlotKind::Track;
+  if (!sd->getWindowHeader()) {
+    throw StyioNotImplemented("@[n] header required for non-accum state");
+  }
+  d.win_n = static_cast<int>(std::stoll(sd->getWindowHeader()->value));
+}
+
+StyioAST*
+subst_param_in_expr(StyioAST* e, const std::string& pname, StyioAST* repl) {
+  if (!e) {
+    return nullptr;
+  }
+  if (auto* id = dynamic_cast<NameAST*>(e)) {
+    if (id->getAsStr() == pname) {
+      return repl;
+    }
+    return e;
+  }
+  if (auto* b = dynamic_cast<BinOpAST*>(e)) {
+    return BinOpAST::Create(
+      b->operand,
+      subst_param_in_expr(b->LHS, pname, repl),
+      subst_param_in_expr(b->RHS, pname, repl));
+  }
+  if (auto* w = dynamic_cast<WaveMergeAST*>(e)) {
+    return WaveMergeAST::Create(
+      subst_param_in_expr(w->getCond(), pname, repl),
+      subst_param_in_expr(w->getTrueVal(), pname, repl),
+      subst_param_in_expr(w->getFalseVal(), pname, repl));
+  }
+  if (auto* h = dynamic_cast<HistoryProbeAST*>(e)) {
+    return HistoryProbeAST::Create(
+      h->getTarget(),
+      subst_param_in_expr(h->getDepth(), pname, repl));
+  }
+  if (dynamic_cast<StateRefAST*>(e)) {
+    return e;
+  }
+  if (auto* si = dynamic_cast<SeriesIntrinsicAST*>(e)) {
+    return SeriesIntrinsicAST::Create(
+      subst_param_in_expr(si->getBase(), pname, repl),
+      si->getOp(),
+      subst_param_in_expr(si->getWindow(), pname, repl));
+  }
+  return e;
+}
+
+struct PulseScratch {
+  std::vector<std::unique_ptr<StateDeclAST>> heap_decls;
+};
+
+StateDeclAST*
+resolve_state_decl_impl(StyioAnalyzer* an, StyioAST* stmt, PulseScratch* scratch) {
+  if (auto* sd = dynamic_cast<StateDeclAST*>(stmt)) {
+    return sd;
+  }
+  auto* fc = dynamic_cast<FuncCallAST*>(stmt);
+  if (!fc) {
+    return nullptr;
+  }
+  auto it = an->func_defs.find(fc->getNameAsStr());
+  if (it == an->func_defs.end()) {
+    throw StyioNotImplemented("unknown function in pulse body");
+  }
+  auto* sf = dynamic_cast<SimpleFuncAST*>(it->second);
+  if (!sf || sf->params.size() != 1 || fc->getArgList().size() != 1) {
+    throw StyioNotImplemented("only simple single-arg func->state inlining supported");
+  }
+  auto* blk = dynamic_cast<BlockAST*>(sf->ret_expr);
+  if (!blk || blk->stmts.size() != 1) {
+    throw StyioNotImplemented("inlined state func must be a single-statement block");
+  }
+  auto* sd = dynamic_cast<StateDeclAST*>(blk->stmts[0]);
+  if (!sd) {
+    throw StyioNotImplemented("inlined func body must be a state decl");
+  }
+  const std::string& pn = sf->params[0]->getName();
+  StyioAST* rep = fc->getArgList()[0];
+  StyioAST* new_rhs = subst_param_in_expr(sd->getUpdateExpr(), pn, rep);
+  auto* created = StateDeclAST::Create(
+    sd->getWindowHeader(),
+    sd->getAccName(),
+    sd->getAccInit(),
+    sd->getExportVar(),
+    new_rhs);
+  scratch->heap_decls.emplace_back(created);
+  return created;
+}
+
+StateDeclAST*
+resolve_state_decl_cached(
+  StyioAnalyzer* an,
+  StyioAST* stmt,
+  PulseScratch* scratch,
+  std::unordered_map<StyioAST*, StateDeclAST*>& cache
+) {
+  auto itc = cache.find(stmt);
+  if (itc != cache.end()) {
+    return itc->second;
+  }
+  StateDeclAST* sd = resolve_state_decl_impl(an, stmt, scratch);
+  cache[stmt] = sd;
+  return sd;
+}
+
+std::unique_ptr<SGPulsePlan>
+build_pulse_plan(
+  StyioAnalyzer* an,
+  BlockAST* blk,
+  PulseScratch* scratch,
+  std::unordered_map<StyioAST*, StateDeclAST*>& cache
+) {
+  auto plan = std::make_unique<SGPulsePlan>();
+  int off = 0;
+  int id = 0;
+  for (auto* stmt : blk->stmts) {
+    StateDeclAST* sd = resolve_state_decl_cached(an, stmt, scratch, cache);
+    if (!sd) {
+      continue;
+    }
+    SGStateSlotDesc d{};
+    d.id = id;
+    classify_state_slot(sd, d);
+    d.offset = off;
+    d.size = slot_byte_size(d);
+    off += d.size;
+    d.acc_name = sd->getAccName() ? sd->getAccName()->getAsStr() : "";
+    d.export_name = sd->getExportVar()->getNameAsStr();
+    plan->slots.push_back(d);
+    plan->commits.push_back({id, d.export_name});
+    if (not d.acc_name.empty()) {
+      plan->ref_to_slot[d.acc_name] = id;
+    }
+    plan->ref_to_slot[d.export_name] = id;
+    id += 1;
+  }
+  plan->total_bytes = off;
+  return plan;
+}
+
+StyioIR*
+lower_state_rhs(StyioAnalyzer* an, StyioAST* rhs, int slot_id) {
+  if (auto* fc = dynamic_cast<FuncCallAST*>(rhs)) {
+    if (fc->getNameAsStr() == "get_ma" && fc->getArgList().size() == 2) {
+      auto it = an->func_defs.find("get_ma");
+      if (it != an->func_defs.end()) {
+        if (auto* sf = dynamic_cast<SimpleFuncAST*>(it->second)) {
+          if (sf->params.size() == 2) {
+            auto* body = dynamic_cast<SeriesIntrinsicAST*>(sf->ret_expr);
+            if (body && body->getOp() == SeriesIntrinsicOp::Avg) {
+              an->set_active_series_slot(slot_id);
+              StyioIR* xi = fc->getArgList()[0]->toStyioIR(an);
+              an->set_active_series_slot(-1);
+              return SGSeriesAvgStep::Create(slot_id, xi);
+            }
+          }
+        }
+      }
+    }
+  }
+  an->set_active_series_slot(slot_id);
+  StyioIR* r = rhs->toStyioIR(an);
+  an->set_active_series_slot(-1);
+  return r;
+}
+
+SGFlexBind*
+lower_state_decl_to_flexbind(StyioAnalyzer* an, StateDeclAST* sd, SGPulsePlan* plan) {
+  int sid = -1;
+  for (size_t i = 0; i < plan->slots.size(); ++i) {
+    if (plan->slots[i].export_name == sd->getExportVar()->getNameAsStr()) {
+      sid = static_cast<int>(i);
+      break;
+    }
+  }
+  if (sid < 0) {
+    throw StyioNotImplemented("state slot not in plan");
+  }
+  StyioIR* rhs = lower_state_rhs(an, sd->getUpdateExpr(), sid);
+  return SGFlexBind::Create(
+    static_cast<SGVar*>(sd->getExportVar()->toStyioIR(an)),
+    rhs);
+}
+
+SGBlock*
+lower_pulse_body(
+  StyioAnalyzer* an,
+  BlockAST* blk,
+  SGPulsePlan* plan,
+  PulseScratch* scratch,
+  std::unordered_map<StyioAST*, StateDeclAST*>& cache
+) {
+  an->set_cur_pulse_plan(plan);
+  std::vector<StyioIR*> stmts;
+  for (auto* s : blk->stmts) {
+    StateDeclAST* sd = resolve_state_decl_cached(an, s, scratch, cache);
+    if (sd) {
+      stmts.push_back(lower_state_decl_to_flexbind(an, sd, plan));
+    }
+    else {
+      stmts.push_back(s->toStyioIR(an));
+    }
+  }
+  an->set_cur_pulse_plan(nullptr);
+  return SGBlock::Create(std::move(stmts));
 }
 
 }  // namespace
@@ -438,6 +757,49 @@ StyioAnalyzer::toStyioIR(EqProbeAST* ast) {
     ast->getProbeValue()->toStyioIR(this));
 }
 
+StyioIR*
+StyioAnalyzer::toStyioIR(FileResourceAST* ast) {
+  return ast->getPath()->toStyioIR(this);
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(HandleAcquireAST* ast) {
+  auto* fr = dynamic_cast<FileResourceAST*>(ast->getResource());
+  if (!fr) {
+    throw StyioNotImplemented("handle acquire needs @file{...} or @{...}");
+  }
+  return SGHandleAcquire::Create(
+    ast->getVar()->getNameAsStr(),
+    fr->getPath()->toStyioIR(this),
+    fr->isAutoDetect());
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(ResourceWriteAST* ast) {
+  auto* fr = dynamic_cast<FileResourceAST*>(ast->getResource());
+  if (!fr) {
+    throw StyioNotImplemented("<< target must be a file resource");
+  }
+  return SGResourceWriteToFile::Create(
+    ast->getData()->toStyioIR(this),
+    fr->getPath()->toStyioIR(this),
+    fr->isAutoDetect(),
+    false);
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(ResourceRedirectAST* ast) {
+  auto* fr = dynamic_cast<FileResourceAST*>(ast->getResource());
+  if (!fr) {
+    throw StyioNotImplemented("-> target must be a file resource");
+  }
+  return SGResourceWriteToFile::Create(
+    ast->getData()->toStyioIR(this),
+    fr->getPath()->toStyioIR(this),
+    fr->isAutoDetect(),
+    true);
+}
+
 /*
   Int -> Int => Pass
   Int -> Float => Pass
@@ -583,6 +945,9 @@ StyioAnalyzer::toStyioIR(AnonyFuncAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(FunctionAST* ast) {
+  int saved_hist_r = post_pulse_hist_region_;
+  SGPulsePlan* saved_hist_p = post_pulse_hist_plan_;
+  set_post_pulse_hist_context(-1, nullptr);
   std::vector<SGFuncArg*> fargs;
   for (auto* p : ast->params) {
     fargs.push_back(param_to_sgarg(p, this));
@@ -604,15 +969,20 @@ StyioAnalyzer::toStyioIR(FunctionAST* ast) {
     }
   }
   SGBlock* body = lower_func_body(this, ast->func_body);
-  return SGFunc::Create(
+  SGFunc* fn = SGFunc::Create(
     rt,
     SGResId::Create(ast->getNameAsStr()),
     std::move(fargs),
     body);
+  set_post_pulse_hist_context(saved_hist_r, saved_hist_p);
+  return fn;
 }
 
 StyioIR*
 StyioAnalyzer::toStyioIR(SimpleFuncAST* ast) {
+  int saved_hist_r = post_pulse_hist_region_;
+  SGPulsePlan* saved_hist_p = post_pulse_hist_plan_;
+  set_post_pulse_hist_context(-1, nullptr);
   std::vector<SGFuncArg*> fargs;
   for (auto* p : ast->params) {
     fargs.push_back(param_to_sgarg(p, this));
@@ -635,11 +1005,13 @@ StyioAnalyzer::toStyioIR(SimpleFuncAST* ast) {
     }
   }
   SGBlock* body = lower_func_body(this, ast->ret_expr);
-  return SGFunc::Create(
+  SGFunc* fn = SGFunc::Create(
     rt,
     SGResId::Create(ast->func_name->getAsStr()),
     std::move(fargs),
     body);
+  set_post_pulse_hist_context(saved_hist_r, saved_hist_p);
+  return fn;
 }
 
 StyioIR*
@@ -649,10 +1021,55 @@ StyioAnalyzer::toStyioIR(IteratorAST* ast) {
     vname = ast->params[0]->getName();
   }
   SGBlock* body = SGBlock::Create({});
+  std::unique_ptr<SGPulsePlan> pplan;
   if (!ast->following.empty()) {
-    body = lower_func_body(this, ast->following[0]);
+    auto* abody = dynamic_cast<BlockAST*>(ast->following[0]);
+    if (abody && pulse_block_has_state(this, abody)) {
+      PulseScratch scratch;
+      std::unordered_map<StyioAST*, StateDeclAST*> cache;
+      pplan = build_pulse_plan(this, abody, &scratch, cache);
+      body = lower_pulse_body(this, abody, pplan.get(), &scratch, cache);
+    }
+    else {
+      body = lower_func_body(this, ast->following[0]);
+    }
   }
-  return SGForEach::Create(ast->collection->toStyioIR(this), std::move(vname), body);
+  if (ast->collection->getNodeType() == StyioNodeType::FileResource) {
+    auto* fr = static_cast<FileResourceAST*>(ast->collection);
+    auto* fl = SGFileLineIter::CreateFromPath(
+      fr->getPath()->toStyioIR(this),
+      std::move(vname),
+      body);
+    if (pplan) {
+      fl->set_pulse_plan(std::move(pplan));
+      if (fl->pulse_plan && fl->pulse_plan->total_bytes > 0) {
+        fl->pulse_region_id = alloc_pulse_region_id();
+      }
+    }
+    return fl;
+  }
+  if (ast->collection->getNodeType() == StyioNodeType::Id) {
+    auto* nm = static_cast<NameAST*>(ast->collection);
+    auto* fl = SGFileLineIter::CreateFromHandle(
+      nm->getAsStr(),
+      std::move(vname),
+      body);
+    if (pplan) {
+      fl->set_pulse_plan(std::move(pplan));
+      if (fl->pulse_plan && fl->pulse_plan->total_bytes > 0) {
+        fl->pulse_region_id = alloc_pulse_region_id();
+      }
+    }
+    return fl;
+  }
+  auto* fe = SGForEach::Create(ast->collection->toStyioIR(this), std::move(vname), body);
+  if (pplan) {
+    fe->set_pulse_plan(std::move(pplan));
+    if (fe->pulse_plan && fe->pulse_plan->total_bytes > 0) {
+      fe->pulse_region_id = alloc_pulse_region_id();
+    }
+  }
+  return fe;
 }
 
 StyioIR*
@@ -672,6 +1089,59 @@ StyioAnalyzer::toStyioIR(InfiniteLoopAST* ast) {
 StyioIR*
 StyioAnalyzer::toStyioIR(CasesAST* ast) {
   return SGConstInt::Create(0);
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(StateDeclAST* ast) {
+  (void)ast;
+  return SGConstInt::Create(0);
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(StateRefAST* ast) {
+  auto* pl = cur_pulse_plan();
+  if (!pl) {
+    throw StyioNotImplemented("$state only valid inside pulse body");
+  }
+  auto it = pl->ref_to_slot.find(ast->getNameStr());
+  if (it == pl->ref_to_slot.end()) {
+    throw StyioNotImplemented("unknown state reference");
+  }
+  return SGStateSnapLoad::Create(it->second);
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(HistoryProbeAST* ast) {
+  auto* pl = cur_pulse_plan();
+  int ledger_region = -1;
+  if (!pl) {
+    pl = post_pulse_hist_plan_;
+    ledger_region = post_pulse_hist_region_;
+    if (!pl || ledger_region < 0) {
+      throw StyioNotImplemented(
+        "history probe only valid inside pulse body or after foreach/file line iter with pulse");
+    }
+  }
+  std::string nm = ast->getTarget()->getNameStr();
+  auto it = pl->ref_to_slot.find(nm);
+  if (it == pl->ref_to_slot.end()) {
+    throw StyioNotImplemented("unknown state in history probe");
+  }
+  int dep = window_n_from_ast(ast->getDepth());
+  return SGStateHistLoad::Create(it->second, dep, ledger_region);
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(SeriesIntrinsicAST* ast) {
+  int sid = active_series_slot();
+  if (sid < 0) {
+    throw StyioNotImplemented("series intrinsic needs enclosing state slot");
+  }
+  StyioIR* bx = ast->getBase()->toStyioIR(this);
+  if (ast->getOp() == SeriesIntrinsicOp::Avg) {
+    return SGSeriesAvgStep::Create(sid, bx);
+  }
+  return SGSeriesMaxStep::Create(sid, bx);
 }
 
 StyioIR*
@@ -706,10 +1176,27 @@ StyioAnalyzer::toStyioIR(BlockAST* ast) {
 StyioIR*
 StyioAnalyzer::toStyioIR(MainBlockAST* ast) {
   std::vector<StyioIR*> ir_stmts;
+  int pending_region = -1;
+  SGPulsePlan* pending_plan = nullptr;
 
   for (auto stmt : ast->getStmts()) {
-    ir_stmts.push_back(stmt->toStyioIR(this));
+    set_post_pulse_hist_context(pending_region, pending_plan);
+    StyioIR* ir = stmt->toStyioIR(this);
+    if (auto* fe = dynamic_cast<SGForEach*>(ir)) {
+      if (fe->pulse_plan && fe->pulse_plan->total_bytes > 0) {
+        pending_region = fe->pulse_region_id;
+        pending_plan = fe->pulse_plan.get();
+      }
+    }
+    else if (auto* fl = dynamic_cast<SGFileLineIter*>(ir)) {
+      if (fl->pulse_plan && fl->pulse_plan->total_bytes > 0) {
+        pending_region = fl->pulse_region_id;
+        pending_plan = fl->pulse_plan.get();
+      }
+    }
+    ir_stmts.push_back(ir);
   }
+  set_post_pulse_hist_context(-1, nullptr);
 
   return SGMainEntry::Create(ir_stmts);
 }

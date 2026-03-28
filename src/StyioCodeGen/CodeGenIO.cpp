@@ -79,6 +79,10 @@ StyioToLLVM::toLLVMIR(SIOPrint* node) {
       llvm::Value* pick = theBuilder->CreateSelect(v, tstr, fstr);
       theBuilder->CreateCall(puts_fn, {pick});
     }
+    else if (v->getType()->isIntegerTy(32)) {
+      llvm::Value* fmt = theBuilder->CreateGlobalStringPtr("%d\n", "styio_fmt_i32");
+      theBuilder->CreateCall(printf_fn, {fmt, v});
+    }
     else if (v->getType()->isIntegerTy(64)) {
       llvm::Value* sent = llvm::ConstantInt::get(
         theBuilder->getInt64Ty(),

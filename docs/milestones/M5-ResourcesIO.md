@@ -1,7 +1,7 @@
 # Milestone 5: Resources & I/O
 
 **Depends on:** M4 (Wave & Absence)  
-**Goal:** File resources (`@file{}`), handle acquisition (`<-`), reading (`>>`), writing (`<<`), and scope-based RAII cleanup work end-to-end.
+**Goal:** File resources (`@file{}`), handle acquisition (`<-`), reading (`collection >> #(line) => ...`), writing (`expr >> @file{...}`), and scope-based RAII cleanup work end-to-end.
 
 ---
 
@@ -26,7 +26,7 @@ f >> #(line) => {
 ```
 // File: tests/m5/t02_write_file.styio
 // Expected: creates /tmp/styio_out.txt containing "Hello from Styio"
-"Hello from Styio" << @file{"/tmp/styio_out.txt"}
+"Hello from Styio" >> @file{"/tmp/styio_out.txt"}
 ```
 
 ### T5.03 — Read and process (sum numbers from file)
@@ -116,9 +116,9 @@ Register these as external symbols in `ExternLib.cpp` for JIT resolution.
 **Role:** Parser Agent  
 **Action:** `identifier <- resource` produces `HandleAcquireAST(name, resource)`.
 
-### Task 5.3 — Parse `<<` as write-to-resource
+### Task 5.3 — Parse `>>` as write-to-resource
 **Role:** Parser Agent  
-**Action:** `expression << resource` produces `ResourceWriteAST(expr, resource)`.
+**Action:** `expression >> @file{...}` (or `@{...}`) produces `ResourceWriteAST(expr, resource)` when `>>` is followed by a file resource; otherwise `>>` continues to mean read/iterate as in Task 5.5.
 
 ### Task 5.4 — Parse `->` as redirect
 **Role:** Parser Agent  

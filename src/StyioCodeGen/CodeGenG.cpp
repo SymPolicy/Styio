@@ -479,19 +479,19 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
     variable = mutable_variables[varname];
   }
   else {
-    variable = theBuilder->CreateAlloca(
+    llvm::Function* F = theBuilder->GetInsertBlock()->getParent();
+    llvm::BasicBlock* ent = &F->getEntryBlock();
+    llvm::IRBuilder<> prealloc(ent, ent->getFirstInsertionPt());
+    variable = prealloc.CreateAlloca(
       node->toLLVMType(this),
       nullptr,
       varname.c_str()
     );
 
-    theBuilder->CreateStore(
-      node->value->toLLVMIR(this),
-      variable
-    );
-
     mutable_variables[varname] = variable;
   }
+
+  theBuilder->CreateStore(node->value->toLLVMIR(this), variable);
 
   return variable;
 }
@@ -700,6 +700,15 @@ StyioToLLVM::toLLVMIR(SGCall* node) {
     else if (pt->isIntegerTy() && av->getType()->isDoubleTy()) {
       av = theBuilder->CreateFPToSI(av, pt);
     }
+    else if (pt->isIntegerTy() && av->getType()->isPointerTy()) {
+      llvm::FunctionCallee conv = theModule->getOrInsertFunction(
+        "styio_cstr_to_i64",
+        llvm::FunctionType::get(theBuilder->getInt64Ty(), {llvm::PointerType::get(*theContext, 0)}, false));
+      av = theBuilder->CreateCall(conv, {av});
+      if (pt->getIntegerBitWidth() != 64) {
+        av = theBuilder->CreateIntCast(av, pt, true);
+      }
+    }
     args.push_back(av);
   }
 
@@ -713,12 +722,17 @@ StyioToLLVM::toLLVMIR(SGReturn* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGBlock* node) {
+  push_file_handle_scope();
   llvm::Value* last = nullptr;
   for (auto const& s : node->stmts) {
     last = s->toLLVMIR(this);
     if (theBuilder->GetInsertBlock()->getTerminator()) {
       break;
     }
+  }
+  llvm::BasicBlock* bcur = theBuilder->GetInsertBlock();
+  if (bcur && !bcur->getTerminator()) {
+    pop_file_handle_scope();
   }
   return last ? last : theBuilder->getInt64(0);
 }
@@ -754,6 +768,8 @@ StyioToLLVM::toLLVMIR(SGMainEntry* node) {
 
   theBuilder->SetInsertPoint(entry_block);
 
+  push_file_handle_scope();
+
   llvm::Value* last_main = nullptr;
   for (auto const& s : node->stmts) {
     if (dynamic_cast<SGFunc*>(s)) {
@@ -768,6 +784,7 @@ StyioToLLVM::toLLVMIR(SGMainEntry* node) {
 
   llvm::BasicBlock* mcur = theBuilder->GetInsertBlock();
   if (mcur && !mcur->getTerminator()) {
+    pop_file_handle_scope();
     theBuilder->CreateRet(truncate_for_main_ret(last_main));
   }
 
@@ -924,6 +941,31 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
 
   llvm::AllocaInst* idx_slot = theBuilder->CreateAlloca(i64t, nullptr, "fe_idx");
   theBuilder->CreateStore(zero, idx_slot);
+
+  llvm::AllocaInst* ledger_alloc = nullptr;
+  llvm::AllocaInst* snap_alloc = nullptr;
+  int pulse_sz = 0;
+  if (node->pulse_plan && node->pulse_plan->total_bytes > 0) {
+    pulse_sz = node->pulse_plan->total_bytes;
+    llvm::ArrayType* paty =
+      llvm::ArrayType::get(theBuilder->getInt8Ty(), static_cast<unsigned>(pulse_sz));
+    ledger_alloc = theBuilder->CreateAlloca(paty, nullptr, "pulse_ledger");
+    snap_alloc = theBuilder->CreateAlloca(paty, nullptr, "pulse_snap");
+    llvm::Type* i8p = llvm::PointerType::get(*theContext, 0);
+    llvm::Value* li8 = theBuilder->CreateBitCast(ledger_alloc, i8p);
+    llvm::Value* si8 = theBuilder->CreateBitCast(snap_alloc, i8p);
+    theBuilder->CreateMemSet(
+      li8,
+      llvm::ConstantInt::get(theBuilder->getInt8Ty(), 0),
+      llvm::ConstantInt::get(theBuilder->getInt64Ty(), pulse_sz),
+      llvm::MaybeAlign(8));
+    theBuilder->CreateMemSet(
+      si8,
+      llvm::ConstantInt::get(theBuilder->getInt8Ty(), 0),
+      llvm::ConstantInt::get(theBuilder->getInt64Ty(), pulse_sz),
+      llvm::MaybeAlign(8));
+  }
+
   theBuilder->CreateBr(hdr_bb);
 
   theBuilder->SetInsertPoint(hdr_bb);
@@ -944,7 +986,26 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
   theBuilder->CreateStore(el, vs);
   mutable_variables[node->var] = vs;
 
+  if (pulse_sz > 0) {
+    llvm::Type* i8p = llvm::PointerType::get(*theContext, 0);
+    llvm::Value* li8 = theBuilder->CreateBitCast(ledger_alloc, i8p);
+    llvm::Value* si8 = theBuilder->CreateBitCast(snap_alloc, i8p);
+    pulse_copy_ledger_to_snap(li8, si8, pulse_sz);
+    pulse_ledger_base_ = li8;
+    pulse_snap_base_ = si8;
+    pulse_active_plan_ = node->pulse_plan.get();
+  }
+
   node->body->toLLVMIR(this);
+
+  if (pulse_sz > 0) {
+    llvm::Type* i8p = llvm::PointerType::get(*theContext, 0);
+    llvm::Value* li8 = theBuilder->CreateBitCast(ledger_alloc, i8p);
+    emit_pulse_commit_all(li8, node->pulse_plan.get());
+    pulse_ledger_base_ = nullptr;
+    pulse_snap_base_ = nullptr;
+    pulse_active_plan_ = nullptr;
+  }
 
   llvm::BasicBlock* bcur = theBuilder->GetInsertBlock();
   if (bcur && !bcur->getTerminator()) {
@@ -957,6 +1018,11 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
   theBuilder->CreateBr(hdr_bb);
 
   theBuilder->SetInsertPoint(exit_bb);
+  if (pulse_sz > 0 && node->pulse_region_id >= 0) {
+    llvm::Type* i8p = llvm::PointerType::get(*theContext, 0);
+    llvm::Value* li8 = theBuilder->CreateBitCast(ledger_alloc, i8p);
+    pulse_region_ledgers_[node->pulse_region_id] = {li8, node->pulse_plan.get()};
+  }
   loop_stack_.pop_back();
   return nullptr;
 }
@@ -1084,6 +1150,198 @@ StyioToLLVM::toLLVMIR(SGEqProbe* node) {
   llvm::Value* eq = theBuilder->CreateICmpEQ(b, v);
   llvm::Value* u = theBuilder->getInt64(styio_undef_i64());
   return theBuilder->CreateSelect(eq, b, u);
+}
+
+void
+StyioToLLVM::push_file_handle_scope() {
+  file_handle_scope_stack_.emplace_back();
+}
+
+void
+StyioToLLVM::register_file_handle_for_raii(const std::string& var_name) {
+  if (!file_handle_scope_stack_.empty()) {
+    file_handle_scope_stack_.back().push_back(var_name);
+  }
+}
+
+void
+StyioToLLVM::pop_file_handle_scope() {
+  if (file_handle_scope_stack_.empty()) {
+    return;
+  }
+  llvm::FunctionCallee close_fn = theModule->getOrInsertFunction(
+    "styio_file_close",
+    llvm::FunctionType::get(
+      theBuilder->getVoidTy(),
+      {theBuilder->getInt64Ty()},
+      false));
+  for (const std::string& v : file_handle_scope_stack_.back()) {
+    auto it = mutable_variables.find(v);
+    if (it != mutable_variables.end()) {
+      llvm::AllocaInst* slot = it->second;
+      llvm::Value* h = theBuilder->CreateLoad(theBuilder->getInt64Ty(), slot);
+      theBuilder->CreateCall(close_fn, {h});
+    }
+  }
+  file_handle_scope_stack_.pop_back();
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SGHandleAcquire* node) {
+  llvm::Type* char_ptr = llvm::PointerType::get(*theContext, 0);
+  llvm::FunctionCallee open_fn = theModule->getOrInsertFunction(
+    node->is_auto ? "styio_file_open_auto" : "styio_file_open",
+    llvm::FunctionType::get(theBuilder->getInt64Ty(), {char_ptr}, false));
+  llvm::Value* path = node->path_expr->toLLVMIR(this);
+  llvm::Value* h = theBuilder->CreateCall(open_fn, {path});
+  llvm::AllocaInst* slot = theBuilder->CreateAlloca(
+    theBuilder->getInt64Ty(),
+    nullptr,
+    node->var_name.c_str());
+  theBuilder->CreateStore(h, slot);
+  mutable_variables[node->var_name] = slot;
+  register_file_handle_for_raii(node->var_name);
+  return theBuilder->getInt64(0);
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SGFileLineIter* node) {
+  llvm::Function* F = theBuilder->GetInsertBlock()->getParent();
+  llvm::Type* char_ptr = llvm::PointerType::get(*theContext, 0);
+  llvm::FunctionCallee open_fn = theModule->getOrInsertFunction(
+    "styio_file_open",
+    llvm::FunctionType::get(theBuilder->getInt64Ty(), {char_ptr}, false));
+  llvm::FunctionCallee read_fn = theModule->getOrInsertFunction(
+    "styio_file_read_line",
+    llvm::FunctionType::get(char_ptr, {theBuilder->getInt64Ty()}, false));
+
+  llvm::AllocaInst* h_slot = nullptr;
+  llvm::Value* h0 = nullptr;
+  if (node->from_path) {
+    llvm::Value* path = node->path_expr->toLLVMIR(this);
+    h0 = theBuilder->CreateCall(open_fn, {path});
+    h_slot = theBuilder->CreateAlloca(theBuilder->getInt64Ty(), nullptr, "file_iter_h");
+    theBuilder->CreateStore(h0, h_slot);
+  }
+  else {
+    auto it = mutable_variables.find(node->handle_var);
+    if (it == mutable_variables.end()) {
+      return theBuilder->getInt64(0);
+    }
+    h_slot = it->second;
+  }
+
+  llvm::BasicBlock* hdr = llvm::BasicBlock::Create(*theContext, "fline_hdr", F);
+  llvm::BasicBlock* body = llvm::BasicBlock::Create(*theContext, "fline_body", F);
+  llvm::BasicBlock* exit_bb = llvm::BasicBlock::Create(*theContext, "fline_exit", F);
+
+  llvm::AllocaInst* ledger_alloc = nullptr;
+  llvm::AllocaInst* snap_alloc = nullptr;
+  int pulse_sz = 0;
+  if (node->pulse_plan && node->pulse_plan->total_bytes > 0) {
+    pulse_sz = node->pulse_plan->total_bytes;
+    llvm::ArrayType* paty =
+      llvm::ArrayType::get(theBuilder->getInt8Ty(), static_cast<unsigned>(pulse_sz));
+    ledger_alloc = theBuilder->CreateAlloca(paty, nullptr, "pulse_ledger_f");
+    snap_alloc = theBuilder->CreateAlloca(paty, nullptr, "pulse_snap_f");
+    llvm::Type* i8p = llvm::PointerType::get(*theContext, 0);
+    llvm::Value* li8 = theBuilder->CreateBitCast(ledger_alloc, i8p);
+    llvm::Value* si8 = theBuilder->CreateBitCast(snap_alloc, i8p);
+    theBuilder->CreateMemSet(
+      li8,
+      llvm::ConstantInt::get(theBuilder->getInt8Ty(), 0),
+      llvm::ConstantInt::get(theBuilder->getInt64Ty(), pulse_sz),
+      llvm::MaybeAlign(8));
+    theBuilder->CreateMemSet(
+      si8,
+      llvm::ConstantInt::get(theBuilder->getInt8Ty(), 0),
+      llvm::ConstantInt::get(theBuilder->getInt64Ty(), pulse_sz),
+      llvm::MaybeAlign(8));
+  }
+
+  theBuilder->CreateBr(hdr);
+  theBuilder->SetInsertPoint(hdr);
+  llvm::Value* h = theBuilder->CreateLoad(theBuilder->getInt64Ty(), h_slot);
+  llvm::Value* lineptr = theBuilder->CreateCall(read_fn, {h});
+  llvm::Value* null_line = llvm::ConstantPointerNull::get(
+    llvm::cast<llvm::PointerType>(char_ptr));
+  llvm::Value* done = theBuilder->CreateICmpEQ(lineptr, null_line);
+  theBuilder->CreateCondBr(done, exit_bb, body);
+
+  theBuilder->SetInsertPoint(body);
+  llvm::AllocaInst* line_slot = theBuilder->CreateAlloca(char_ptr, nullptr, node->line_var);
+  theBuilder->CreateStore(lineptr, line_slot);
+  mutable_variables[node->line_var] = line_slot;
+
+  if (pulse_sz > 0) {
+    llvm::Type* i8p = llvm::PointerType::get(*theContext, 0);
+    llvm::Value* li8 = theBuilder->CreateBitCast(ledger_alloc, i8p);
+    llvm::Value* si8 = theBuilder->CreateBitCast(snap_alloc, i8p);
+    pulse_copy_ledger_to_snap(li8, si8, pulse_sz);
+    pulse_ledger_base_ = li8;
+    pulse_snap_base_ = si8;
+    pulse_active_plan_ = node->pulse_plan.get();
+  }
+
+  node->body->toLLVMIR(this);
+
+  if (pulse_sz > 0) {
+    llvm::Type* i8p = llvm::PointerType::get(*theContext, 0);
+    llvm::Value* li8 = theBuilder->CreateBitCast(ledger_alloc, i8p);
+    emit_pulse_commit_all(li8, node->pulse_plan.get());
+    pulse_ledger_base_ = nullptr;
+    pulse_snap_base_ = nullptr;
+    pulse_active_plan_ = nullptr;
+  }
+
+  mutable_variables.erase(node->line_var);
+  llvm::BasicBlock* b2 = theBuilder->GetInsertBlock();
+  if (b2 && !b2->getTerminator()) {
+    theBuilder->CreateBr(hdr);
+  }
+
+  theBuilder->SetInsertPoint(exit_bb);
+  if (pulse_sz > 0 && node->pulse_region_id >= 0) {
+    llvm::Type* i8p = llvm::PointerType::get(*theContext, 0);
+    llvm::Value* li8 = theBuilder->CreateBitCast(ledger_alloc, i8p);
+    pulse_region_ledgers_[node->pulse_region_id] = {li8, node->pulse_plan.get()};
+  }
+  if (node->from_path) {
+    llvm::FunctionCallee close_fn = theModule->getOrInsertFunction(
+      "styio_file_close",
+      llvm::FunctionType::get(theBuilder->getVoidTy(), {theBuilder->getInt64Ty()}, false));
+    llvm::Value* hf = theBuilder->CreateLoad(theBuilder->getInt64Ty(), h_slot);
+    theBuilder->CreateCall(close_fn, {hf});
+  }
+  return theBuilder->getInt64(0);
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SGResourceWriteToFile* node) {
+  (void)node->is_auto_path;
+  llvm::Type* char_ptr = llvm::PointerType::get(*theContext, 0);
+  llvm::FunctionCallee openw = theModule->getOrInsertFunction(
+    "styio_file_open_write",
+    llvm::FunctionType::get(theBuilder->getInt64Ty(), {char_ptr}, false));
+  llvm::FunctionCallee write_fn = theModule->getOrInsertFunction(
+    "styio_file_write_cstr",
+    llvm::FunctionType::get(
+      theBuilder->getVoidTy(),
+      {theBuilder->getInt64Ty(), char_ptr},
+      false));
+  llvm::FunctionCallee close_fn = theModule->getOrInsertFunction(
+    "styio_file_close",
+    llvm::FunctionType::get(theBuilder->getVoidTy(), {theBuilder->getInt64Ty()}, false));
+
+  llvm::Value* path = node->path_expr->toLLVMIR(this);
+  llvm::Value* h = theBuilder->CreateCall(openw, {path});
+  llvm::Value* data = node->data_expr->toLLVMIR(this);
+  if (node->promote_data_to_cstr) {
+    data = promote_to_cstr(data);
+  }
+  theBuilder->CreateCall(write_fn, {h, data});
+  theBuilder->CreateCall(close_fn, {h});
+  return theBuilder->getInt64(0);
 }
 
 llvm::Value*

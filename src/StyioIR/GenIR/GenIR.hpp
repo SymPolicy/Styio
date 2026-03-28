@@ -4,7 +4,9 @@
 
 // [C++ STL]
 #include <cstdint>
+#include <memory>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -439,12 +441,103 @@ public:
   }
 };
 
+enum class SGStateSlotKind : std::uint8_t
+{
+  Acc,
+  Track,
+  WinAvg,
+  WinMax,
+};
+
+struct SGStateSlotDesc
+{
+  SGStateSlotKind kind = SGStateSlotKind::Acc;
+  int id = 0;
+  int offset = 0;
+  int size = 0;
+  int win_n = 0;
+  std::string acc_name;
+  std::string export_name;
+};
+
+struct SGPulsePlan
+{
+  std::vector<SGStateSlotDesc> slots;
+  /* After each pulse, copy export flex var into ledger for each slot. */
+  std::vector<std::pair<int, std::string>> commits;
+  int total_bytes = 0;
+  std::unordered_map<std::string, int> ref_to_slot;
+};
+
+class SGStateSnapLoad : public StyioIRTraits<SGStateSnapLoad>
+{
+public:
+  int slot_id = 0;
+
+  explicit SGStateSnapLoad(int s) :
+      slot_id(s) {
+  }
+
+  static SGStateSnapLoad* Create(int s) {
+    return new SGStateSnapLoad(s);
+  }
+};
+
+class SGStateHistLoad : public StyioIRTraits<SGStateHistLoad>
+{
+public:
+  int slot_id = 0;
+  int depth = 1;
+  /* >=0: load from finalized pulse ledger after matching SGForEach/SGFileLineIter exit */
+  int pulse_region_id = -1;
+
+  SGStateHistLoad(int s, int d, int region = -1) :
+      slot_id(s), depth(d), pulse_region_id(region) {
+  }
+
+  static SGStateHistLoad* Create(int s, int d, int region = -1) {
+    return new SGStateHistLoad(s, d, region);
+  }
+};
+
+class SGSeriesAvgStep : public StyioIRTraits<SGSeriesAvgStep>
+{
+public:
+  int slot_id = 0;
+  StyioIR* x = nullptr;
+
+  SGSeriesAvgStep(int s, StyioIR* xi) :
+      slot_id(s), x(xi) {
+  }
+
+  static SGSeriesAvgStep* Create(int s, StyioIR* xi) {
+    return new SGSeriesAvgStep(s, xi);
+  }
+};
+
+class SGSeriesMaxStep : public StyioIRTraits<SGSeriesMaxStep>
+{
+public:
+  int slot_id = 0;
+  StyioIR* x = nullptr;
+
+  SGSeriesMaxStep(int s, StyioIR* xi) :
+      slot_id(s), x(xi) {
+  }
+
+  static SGSeriesMaxStep* Create(int s, StyioIR* xi) {
+    return new SGSeriesMaxStep(s, xi);
+  }
+};
+
 class SGForEach : public StyioIRTraits<SGForEach>
 {
 public:
   StyioIR* iterable = nullptr;
   std::string var;
   SGBlock* body = nullptr;
+  std::unique_ptr<SGPulsePlan> pulse_plan;
+  int pulse_region_id = -1;
 
   SGForEach(StyioIR* it, std::string v, SGBlock* b) :
       iterable(it), var(std::move(v)), body(b) {
@@ -452,6 +545,10 @@ public:
 
   static SGForEach* Create(StyioIR* it, std::string v, SGBlock* b) {
     return new SGForEach(it, std::move(v), b);
+  }
+
+  void set_pulse_plan(std::unique_ptr<SGPulsePlan> p) {
+    pulse_plan = std::move(p);
   }
 };
 
@@ -603,6 +700,80 @@ public:
   static SGEqProbe* Create(StyioIR* b, StyioIR* p) {
     return new SGEqProbe(b, p);
   }
+};
+
+class SGHandleAcquire : public StyioIRTraits<SGHandleAcquire>
+{
+public:
+  std::string var_name;
+  StyioIR* path_expr = nullptr;
+  bool is_auto = false;
+
+  SGHandleAcquire(std::string v, StyioIR* p, bool a) :
+      var_name(std::move(v)), path_expr(p), is_auto(a) {
+  }
+
+  static SGHandleAcquire* Create(std::string v, StyioIR* p, bool a) {
+    return new SGHandleAcquire(std::move(v), p, a);
+  }
+};
+
+class SGFileLineIter : public StyioIRTraits<SGFileLineIter>
+{
+public:
+  bool from_path = true;
+  StyioIR* path_expr = nullptr;
+  std::string handle_var;
+  std::string line_var;
+  SGBlock* body = nullptr;
+  std::unique_ptr<SGPulsePlan> pulse_plan;
+  int pulse_region_id = -1;
+
+  static SGFileLineIter* CreateFromPath(StyioIR* path, std::string line, SGBlock* b) {
+    auto* r = new SGFileLineIter();
+    r->from_path = true;
+    r->path_expr = path;
+    r->line_var = std::move(line);
+    r->body = b;
+    return r;
+  }
+
+  static SGFileLineIter* CreateFromHandle(std::string hvar, std::string line, SGBlock* b) {
+    auto* r = new SGFileLineIter();
+    r->from_path = false;
+    r->handle_var = std::move(hvar);
+    r->line_var = std::move(line);
+    r->body = b;
+    return r;
+  }
+
+  void set_pulse_plan(std::unique_ptr<SGPulsePlan> p) {
+    pulse_plan = std::move(p);
+  }
+
+private:
+  SGFileLineIter() = default;
+};
+
+class SGResourceWriteToFile : public StyioIRTraits<SGResourceWriteToFile>
+{
+public:
+  StyioIR* data_expr = nullptr;
+  StyioIR* path_expr = nullptr;
+  bool is_auto_path = false;
+  bool promote_data_to_cstr = false;
+
+  static SGResourceWriteToFile* Create(StyioIR* d, StyioIR* p, bool auto_p, bool prom) {
+    auto* x = new SGResourceWriteToFile();
+    x->data_expr = d;
+    x->path_expr = p;
+    x->is_auto_path = auto_p;
+    x->promote_data_to_cstr = prom;
+    return x;
+  }
+
+private:
+  SGResourceWriteToFile() = default;
 };
 
 #endif

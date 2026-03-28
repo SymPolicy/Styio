@@ -75,6 +75,7 @@ add_executable( styio
     src/StyioCodeGen/CodeGen.cpp
     src/StyioCodeGen/GetTypeG.cpp
     src/StyioCodeGen/CodeGenG.cpp
+    src/StyioCodeGen/CodeGenPulse.cpp
     src/StyioCodeGen/GetTypeIO.cpp
     src/StyioCodeGen/CodeGenIO.cpp
     # ExternLib

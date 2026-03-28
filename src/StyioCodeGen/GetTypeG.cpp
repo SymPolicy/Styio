@@ -167,6 +167,30 @@ StyioToLLVM::toLLVMType(SGListLiteral* node) {
 }
 
 llvm::Type*
+StyioToLLVM::toLLVMType(SGStateSnapLoad* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGStateHistLoad* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGSeriesAvgStep* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGSeriesMaxStep* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
 StyioToLLVM::toLLVMType(SGMatch* node) {
   if (node->repr_kind == SGMatchReprKind::ExprMixed) {
     return llvm::PointerType::get(*theContext, 0);
@@ -224,4 +248,22 @@ llvm::Type*
 StyioToLLVM::toLLVMType(SGEqProbe* node) {
   (void)node;
   return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGHandleAcquire* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGFileLineIter* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGResourceWriteToFile* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
 }

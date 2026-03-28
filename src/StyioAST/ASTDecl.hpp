@@ -223,7 +223,17 @@ class DBUrlAST;
 */
 class PrintAST;
 class ReadFileAST;
+
+class FileResourceAST;
+class HandleAcquireAST;
+class ResourceWriteAST;
+class ResourceRedirectAST;
 class WriteFileAST;
+
+class StateDeclAST;
+class StateRefAST;
+class HistoryProbeAST;
+class SeriesIntrinsicAST;
 
 class SimpleFuncAST;
 class TypeTupleAST;

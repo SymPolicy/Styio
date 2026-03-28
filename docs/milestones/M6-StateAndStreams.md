@@ -33,7 +33,7 @@
 
 ```
 // File: tests/m6/t03_window_avg.styio
-// Expected stdout: 3
+// Expected stdout: 4
 // Moving average of [1,2,3,4,5] with window 3: last value = (3+4+5)/3 = 4
 // But we only have 5 elements and window 3, so:
 // tick 1: @ (cold)

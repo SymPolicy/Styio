@@ -74,6 +74,16 @@ using StyioToStringVisitor = ToStringVisitor<
   class GuardSelectorAST,
   class EqProbeAST,
 
+  class FileResourceAST,
+  class HandleAcquireAST,
+  class ResourceWriteAST,
+  class ResourceRedirectAST,
+
+  class StateDeclAST,
+  class StateRefAST,
+  class HistoryProbeAST,
+  class SeriesIntrinsicAST,
+
   class AnonyFuncAST,
   class FunctionAST,
   class SimpleFuncAST,
@@ -220,6 +230,16 @@ public:
   std::string toString(GuardSelectorAST* ast, int indent = 0);
   std::string toString(EqProbeAST* ast, int indent = 0);
 
+  std::string toString(FileResourceAST* ast, int indent = 0);
+  std::string toString(HandleAcquireAST* ast, int indent = 0);
+  std::string toString(ResourceWriteAST* ast, int indent = 0);
+  std::string toString(ResourceRedirectAST* ast, int indent = 0);
+
+  std::string toString(StateDeclAST* ast, int indent = 0);
+  std::string toString(StateRefAST* ast, int indent = 0);
+  std::string toString(HistoryProbeAST* ast, int indent = 0);
+  std::string toString(SeriesIntrinsicAST* ast, int indent = 0);
+
   std::string toString(FuncCallAST* ast, int indent = 0);
 
   std::string toString(AttrAST* ast, int indent = 0);
@@ -318,6 +338,10 @@ public:
   std::string toString(SGLoop* node, int indent = 0);
   std::string toString(SGForEach* node, int indent = 0);
   std::string toString(SGListLiteral* node, int indent = 0);
+  std::string toString(SGStateSnapLoad* node, int indent = 0);
+  std::string toString(SGStateHistLoad* node, int indent = 0);
+  std::string toString(SGSeriesAvgStep* node, int indent = 0);
+  std::string toString(SGSeriesMaxStep* node, int indent = 0);
   std::string toString(SGMatch* node, int indent = 0);
   std::string toString(SGBreak* node, int indent = 0);
   std::string toString(SGContinue* node, int indent = 0);
@@ -328,6 +352,10 @@ public:
   std::string toString(SGWaveDispatch* node, int indent = 0);
   std::string toString(SGGuardSelect* node, int indent = 0);
   std::string toString(SGEqProbe* node, int indent = 0);
+
+  std::string toString(SGHandleAcquire* node, int indent = 0);
+  std::string toString(SGFileLineIter* node, int indent = 0);
+  std::string toString(SGResourceWriteToFile* node, int indent = 0);
 
   std::string toString(SIOPath* node, int indent = 0);
   std::string toString(SIOPrint* node, int indent = 0);

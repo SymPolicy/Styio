@@ -346,6 +346,38 @@ reprASTType(StyioNodeType type, std::string extra) {
       output += std::string("main");
     } break;
 
+    case StyioNodeType::FileResource: {
+      output += std::string("resource.file");
+    } break;
+
+    case StyioNodeType::HandleAcquire: {
+      output += std::string("handle.acquire");
+    } break;
+
+    case StyioNodeType::ResourceWrite: {
+      output += std::string("resource.write");
+    } break;
+
+    case StyioNodeType::ResourceRedirect: {
+      output += std::string("resource.redirect");
+    } break;
+
+    case StyioNodeType::StateDecl: {
+      output += std::string("state.decl");
+    } break;
+
+    case StyioNodeType::StateRef: {
+      output += std::string("state.ref");
+    } break;
+
+    case StyioNodeType::HistoryProbe: {
+      output += std::string("state.history");
+    } break;
+
+    case StyioNodeType::SeriesIntrinsic: {
+      output += std::string("series.intrinsic");
+    } break;
+
     default: {
       output += std::string("unknown");
     } break;

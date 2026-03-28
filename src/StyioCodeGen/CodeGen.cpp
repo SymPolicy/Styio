@@ -4,6 +4,7 @@
 
 // [Styio]
 #include "CodeGenVisitor.hpp"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Support/raw_ostream.h"
 
 void
@@ -20,6 +21,10 @@ StyioToLLVM::print_llvm_ir() {
 
 void
 StyioToLLVM::execute() {
+  if (llvm::verifyModule(*theModule, &llvm::errs())) {
+    std::cerr << "styio: LLVM module verification failed\n";
+    return;
+  }
   auto RT = theORCJIT->getMainJITDylib().createResourceTracker();
   auto TSM = llvm::orc::ThreadSafeModule(std::move(theModule), std::move(theContext));
   llvm::ExitOnError exit_on_error;

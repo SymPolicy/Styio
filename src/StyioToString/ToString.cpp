@@ -439,6 +439,66 @@ StyioRepr::toString(EqProbeAST* ast, int indent) {
          + "}";
 }
 
+std::string
+StyioRepr::toString(FileResourceAST* ast, int indent) {
+  return reprASTType(ast->getNodeType(), " ")
+         + " {\n"
+         + make_padding(indent) + "auto_detect: " + (ast->isAutoDetect() ? "true" : "false") + "\n"
+         + make_padding(indent) + "path: " + ast->getPath()->toString(this, indent + 1)
+         + "}";
+}
+
+std::string
+StyioRepr::toString(HandleAcquireAST* ast, int indent) {
+  return reprASTType(ast->getNodeType(), " ")
+         + " {\n"
+         + make_padding(indent) + "var: " + ast->getVar()->toString(this, indent + 1) + "\n"
+         + make_padding(indent) + "resource: " + ast->getResource()->toString(this, indent + 1)
+         + "}";
+}
+
+std::string
+StyioRepr::toString(ResourceWriteAST* ast, int indent) {
+  return reprASTType(ast->getNodeType(), " ")
+         + " {\n"
+         + make_padding(indent) + "data: " + ast->getData()->toString(this, indent + 1) + "\n"
+         + make_padding(indent) + "resource: " + ast->getResource()->toString(this, indent + 1)
+         + "}";
+}
+
+std::string
+StyioRepr::toString(ResourceRedirectAST* ast, int indent) {
+  return reprASTType(ast->getNodeType(), " ")
+         + " {\n"
+         + make_padding(indent) + "data: " + ast->getData()->toString(this, indent + 1) + "\n"
+         + make_padding(indent) + "resource: " + ast->getResource()->toString(this, indent + 1)
+         + "}";
+}
+
+std::string
+StyioRepr::toString(StateDeclAST* ast, int indent) {
+  (void)indent;
+  return reprASTType(ast->getNodeType(), " ") + " { }";
+}
+
+std::string
+StyioRepr::toString(StateRefAST* ast, int indent) {
+  (void)indent;
+  return reprASTType(ast->getNodeType(), " ") + " $" + ast->getNameStr();
+}
+
+std::string
+StyioRepr::toString(HistoryProbeAST* ast, int indent) {
+  (void)indent;
+  return reprASTType(ast->getNodeType(), " ") + " { }";
+}
+
+std::string
+StyioRepr::toString(SeriesIntrinsicAST* ast, int indent) {
+  (void)indent;
+  return reprASTType(ast->getNodeType(), " ") + " { }";
+}
+
 /*
   Int -> Int => Pass
   Int -> Float => Pass
@@ -1198,6 +1258,34 @@ StyioRepr::toString(SGListLiteral* node, int indent) {
 }
 
 std::string
+StyioRepr::toString(SGStateSnapLoad* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.state.snap { }";
+}
+
+std::string
+StyioRepr::toString(SGStateHistLoad* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.state.hist { }";
+}
+
+std::string
+StyioRepr::toString(SGSeriesAvgStep* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.series.avg { }";
+}
+
+std::string
+StyioRepr::toString(SGSeriesMaxStep* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.series.max { }";
+}
+
+std::string
 StyioRepr::toString(SGMatch* node, int indent) {
   (void)node;
   (void)indent;
@@ -1258,6 +1346,37 @@ StyioRepr::toString(SGEqProbe* node, int indent) {
   (void)node;
   (void)indent;
   return "styio.ir.eq_probe { }";
+}
+
+std::string
+StyioRepr::toString(SGHandleAcquire* node, int indent) {
+  std::string p = node->path_expr ? node->path_expr->toString(this, indent) : std::string("null");
+  return std::string("styio.ir.handle_acquire { ") + node->var_name + ", auto="
+         + (node->is_auto ? "1" : "0") + ", path=" + p + " }";
+}
+
+std::string
+StyioRepr::toString(SGFileLineIter* node, int indent) {
+  std::string s = "styio.ir.file_line_iter { ";
+  if (node->from_path) {
+    s += "path=" + (node->path_expr ? node->path_expr->toString(this, indent) : std::string("null"));
+  }
+  else {
+    s += "handle=" + node->handle_var;
+  }
+  s += ", line=" + node->line_var;
+  s += ", body=" + (node->body ? node->body->toString(this, indent) : std::string("{}"));
+  s += " }";
+  return s;
+}
+
+std::string
+StyioRepr::toString(SGResourceWriteToFile* node, int indent) {
+  std::string d = node->data_expr ? node->data_expr->toString(this, indent) : std::string("null");
+  std::string p = node->path_expr ? node->path_expr->toString(this, indent) : std::string("null");
+  return std::string("styio.ir.resource_write { data=") + d + ", path=" + p
+         + ", auto_path=" + (node->is_auto_path ? "1" : "0")
+         + ", promote=" + (node->promote_data_to_cstr ? "1" : "0") + " }";
 }
 
 std::string

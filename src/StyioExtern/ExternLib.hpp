@@ -7,27 +7,16 @@
 #define DLLEXPORT
 #endif
 
-#include <cstdio>
-#include <cstdlib>
-#include <iostream>
+#include <cstdint>
 
-// /// putchard - putchar that takes a double and returns 0.
-// extern "C" DLLEXPORT double putchard(double X) {
-//   std::fputc((char)X, stderr);
-//   return 0;
-// }
+extern "C" DLLEXPORT int64_t styio_file_open(const char* path);
+extern "C" DLLEXPORT int64_t styio_file_open_auto(const char* path);
+extern "C" DLLEXPORT int64_t styio_file_open_write(const char* path);
+extern "C" DLLEXPORT void styio_file_close(int64_t h);
+extern "C" DLLEXPORT const char* styio_file_read_line(int64_t h);
+extern "C" DLLEXPORT void styio_file_write_cstr(int64_t h, const char* data);
+extern "C" DLLEXPORT int64_t styio_cstr_to_i64(const char* s);
 
-// /// printd - printf that takes a double prints it as "%f\n", returning 0.
-// extern "C" DLLEXPORT double printd(double X) {
-//   std::fprintf(stderr, "%f\n", X);
-//   return 0;
-// }
+extern "C" DLLEXPORT int something();
 
-// extern "C" DLLEXPORT int where_are_we() {
-//   std::cout << "We are in C++." << std::endl;
-//   return 0;
-// }
-
-extern "C" int something();
-
-#endif // STYIO_EXTERN_LIB_H
+#endif  // STYIO_EXTERN_LIB_H

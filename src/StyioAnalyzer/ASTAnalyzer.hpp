@@ -15,6 +15,8 @@ using std::unordered_map;
 #include "../StyioIR/IRDecl.hpp"
 #include "../StyioToken/Token.hpp"
 
+struct SGPulsePlan;
+
 // Generic Visitor
 template <typename... Types>
 class AnalyzerVisitor;
@@ -81,6 +83,16 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
   class GuardSelectorAST,
   class EqProbeAST,
 
+  class FileResourceAST,
+  class HandleAcquireAST,
+  class ResourceWriteAST,
+  class ResourceRedirectAST,
+
+  class StateDeclAST,
+  class StateRefAST,
+  class HistoryProbeAST,
+  class SeriesIntrinsicAST,
+
   class AnonyFuncAST,
   class FunctionAST,
   class SimpleFuncAST,
@@ -141,10 +153,31 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
 
 class StyioAnalyzer : public StyioAnalyzerVisitor
 {
+public:
   unordered_map<string, StyioAST*> func_defs;
   unordered_map<string, StyioDataType> local_binding_types;
 
-public:
+  SGPulsePlan* cur_pulse_plan() {
+    return cur_pulse_plan_;
+  }
+
+  void set_cur_pulse_plan(SGPulsePlan* p) {
+    cur_pulse_plan_ = p;
+  }
+
+  int active_series_slot() {
+    return active_series_slot_;
+  }
+
+  void set_active_series_slot(int s) {
+    active_series_slot_ = s;
+  }
+
+  void set_post_pulse_hist_context(int region_id, SGPulsePlan* plan) {
+    post_pulse_hist_region_ = region_id;
+    post_pulse_hist_plan_ = plan;
+  }
+
   StyioAnalyzer() {}
 
   ~StyioAnalyzer() {}
@@ -193,6 +226,14 @@ public:
   void typeInfer(FallbackAST* ast);
   void typeInfer(GuardSelectorAST* ast);
   void typeInfer(EqProbeAST* ast);
+  void typeInfer(FileResourceAST* ast);
+  void typeInfer(HandleAcquireAST* ast);
+  void typeInfer(ResourceWriteAST* ast);
+  void typeInfer(ResourceRedirectAST* ast);
+  void typeInfer(StateDeclAST* ast);
+  void typeInfer(StateRefAST* ast);
+  void typeInfer(HistoryProbeAST* ast);
+  void typeInfer(SeriesIntrinsicAST* ast);
   void typeInfer(FuncCallAST* ast);
   void typeInfer(AttrAST* ast);
   void typeInfer(ListOpAST* ast);
@@ -265,6 +306,14 @@ public:
   StyioIR* toStyioIR(FallbackAST* ast);
   StyioIR* toStyioIR(GuardSelectorAST* ast);
   StyioIR* toStyioIR(EqProbeAST* ast);
+  StyioIR* toStyioIR(FileResourceAST* ast);
+  StyioIR* toStyioIR(HandleAcquireAST* ast);
+  StyioIR* toStyioIR(ResourceWriteAST* ast);
+  StyioIR* toStyioIR(ResourceRedirectAST* ast);
+  StyioIR* toStyioIR(StateDeclAST* ast);
+  StyioIR* toStyioIR(StateRefAST* ast);
+  StyioIR* toStyioIR(HistoryProbeAST* ast);
+  StyioIR* toStyioIR(SeriesIntrinsicAST* ast);
   StyioIR* toStyioIR(FuncCallAST* ast);
   StyioIR* toStyioIR(AttrAST* ast);
   StyioIR* toStyioIR(ListOpAST* ast);
@@ -293,6 +342,12 @@ public:
   StyioIR* toStyioIR(IterSeqAST* ast);
   StyioIR* toStyioIR(MatchCasesAST* ast);
   StyioIR* toStyioIR(MainBlockAST* ast);
+
+private:
+  SGPulsePlan* cur_pulse_plan_ = nullptr;
+  int active_series_slot_ = -1;
+  int post_pulse_hist_region_ = -1;
+  SGPulsePlan* post_pulse_hist_plan_ = nullptr;
 };
 
 #endif
