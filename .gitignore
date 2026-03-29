@@ -1,6 +1,9 @@
 # Build Cache
 build/
 
+# Local dev reports (scripts/dev-report.sh); 删除本行若需纳入版本库
+reports/
+
 # Visual Studio Code cache
 # .vscode/
 

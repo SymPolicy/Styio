@@ -11,6 +11,8 @@ cmake -S . -B build && cmake --build build
 ctest --test-dir build -L milestone
 ```
 
+**改完代码后的修改 + 测试报告（本地 Markdown）：** 在项目根执行 `./scripts/dev-report.sh`（可选 `--no-build`、`--note "说明"`）。每次生成带时间戳的 `reports/dev-report-*.md`，并更新同目录 `LATEST.md`（目录默认在 `.gitignore`，需要留存可拷到 `docs/history/`）。五层流水线见 [`FIVE-LAYER-PIPELINE.md`](./FIVE-LAYER-PIPELINE.md)。
+
 **约定：** 除非另表说明，**输入** 为 `tests/milestones/<mN>/<name>.styio`，**期望 stdout** 为 `tests/milestones/<mN>/expected/<name>.out`；CTest 名为 `<mN>_<name>`（例如 `m1_t01_int_arith`）。比对方式：`styio --file <input> | cmp -s - <oracle>`。
 
 **辅助数据：** `tests/milestones/m5/data/`、`tests/milestones/m7/data/` 中的文件由对应 `.styio` 通过 `@file` 等读取，不单独注册 CTest。
