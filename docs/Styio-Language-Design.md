@@ -302,7 +302,9 @@ Stream processing requires **memory across pulses**. A simple local variable res
 
 ### 8.2 State Container: `@[...]`
 
-**Window buffer** (ring buffer of raw values):
+**Superseding narrative (target syntax, not yet default in the compiler):** See [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md) for `@name : [|n|]`, top-level `:= { driver }`, and **`expr -> $name`** instead of mixing `=` into shadow updates.
+
+**Window buffer** (ring buffer of raw values) — **as implemented today**:
 
 ```
 @[5](ma5 = get_ma(prices, 5))

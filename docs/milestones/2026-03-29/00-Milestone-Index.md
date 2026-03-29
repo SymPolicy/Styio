@@ -5,6 +5,8 @@
 
 **Ambiguities:** See [`docs/Logic-Conflicts.md`](../Logic-Conflicts.md) for overloaded symbols, milestone ordering tensions, and gaps between design and the current compiler.
 
+**Resource topology (target syntax):** See [`docs/Styio-Resource-Topology.md`](../Styio-Resource-Topology.md) for `@` semantics, `[|n|]` buffers, top-level `:= { driver }`, and **`->` vs `=`** for shadows — **not yet** the default in the compiler.
+
 ---
 
 ## Overview
@@ -85,3 +87,4 @@ Multiple roles may be filled by the same agent. All agents must follow `docs/AGE
 | `M5-ResourcesIO.md` | Milestone 5: File/resource access |
 | `M6-StateAndStreams.md` | Milestone 6: State containers, intrinsics |
 | `M7-MultiStream.md` | Milestone 7: Stream sync, drivers |
+| [`../Styio-Resource-Topology.md`](../Styio-Resource-Topology.md) | **Target** resource/state topology (`@`, `[|n|]`, `:=` driver, `->` sinks) |

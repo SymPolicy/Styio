@@ -614,6 +614,9 @@ parse_after_at_common(StyioContext& context, bool file_only_resource) {
   return UndefinedLitAST::Create();
 }
 
+/* M6 state syntax: @[n](name = expr) / @[acc = i](name = expr) / @[name] << @file{...}
+ * Target design (docs/Styio-Resource-Topology.md): @name : [|n|] := { driver } at top level,
+ * expr -> $name for writes. Not implemented here — requires new tokens [| |] and grammar. */
 static StyioAST*
 parse_state_decl_after_at(StyioContext& context) {
   context.try_match_panic(StyioTokenType::TOK_LBOXBRAC);

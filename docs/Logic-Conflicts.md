@@ -48,12 +48,14 @@
 | Role | Example |
 |------|---------|
 | **Undefined value** | `@` alone |
-| **State / window decl** | `@[5](...)`, `@[total = 0](...)` |
+| **State / window decl** | `@[5](...)`, `@[total = 0](...)` **(current compiler)** |
 | **Resource** | `@file{...}`, `@{"path"}` |
 
 **Conflict:** `@` followed by `[` is **state**, but `@` followed by identifier is **resource**. A lone `@` is **undefined**. The parser must not treat `@` as “start of resource” when it is the **value** `@`.
 
 **Resolution needed:** Formal grammar ordering: `@` + not-`[` + not-ident → `UndefinedAST`; `@` + `[` → state or mistake; `@` + ident + `{`/`(` → resource.
+
+**Target design (v2):** Unify narrative under [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md): **`@name : [|n|]`** as **storage qualifier**, top-level **`ResourceDecl`** with optional **`:= { driver }`**, and **`expr -> $name`** for writes. The **running** compiler has **not** switched; M6 syntax remains canonical until a migration milestone.
 
 ---
 

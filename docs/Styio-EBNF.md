@@ -429,3 +429,51 @@ The lexer always prefers the two-character compound token over individual charac
 ### Rule 5: Break Token Contiguity
 
 `^^` followed by whitespace then `^^` produces **two separate** break tokens — which is semantically illegal. The parser must reject consecutive break tokens in the same statement.
+
+---
+
+## Appendix B: Topology v2 — Resource declarations (target; not yet in lexer/parser)
+
+**Full narrative:** [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md).
+
+This appendix only fixes **grammar shape** for tooling and future implementation. The **current** compiler still parses M6-style **`@[n](var = …)`** inside blocks.
+
+### B.1 Program and top-level resource
+
+```ebnf
+(* Target-only — optional future milestone *)
+program_v2         = { top_level_decl_v2 } EOF ;
+
+top_level_decl_v2  = resource_decl_v2
+                   | (* existing: function, schema, stmt … *) ;
+
+resource_decl_v2   = "@" identifier ":" type_v2
+                     { "," "@" identifier ":" type_v2 }
+                     [ ":=" driver_block_v2 ] ;
+
+driver_block_v2    = "{" stream_topology "}" ;
+(* stream_topology matches existing pipe: expr ">>" "#(" id ")" "=>" block *)
+```
+
+### B.2 Types (extensions)
+
+```ebnf
+type_v2            = scalar_type | bounded_buffer | (* … *) ;
+bounded_buffer     = "[|" integer "|]" ;   (* ring capacity n — new tokens [| and |] *)
+scalar_type        = "f64" | "i64" | "bool" | "string" ;
+(* infinite stream [...] and finite range [a .. b] remain as today *)
+```
+
+### B.3 State write vs assignment (strict topology mode)
+
+```ebnf
+state_write_v2     = expression "->" "$" identifier ;
+assignment_v2      = identifier "=" expression ;   (* locals only *)
+```
+
+Semantic check: if LHS is **`$name`** bound to a **resource shadow**, reject **`=`** and require **`->`**.
+
+### B.4 Lexer additions (when implemented)
+
+- **`[|`** and **`|]`** as paired delimiters for **`[|n|]`** (distinct from `[` … `]` alone).
+- Optional: validate **`|]`** only closes **`[|`**.

@@ -3,6 +3,8 @@
 **Depends on:** M5 (Resources & I/O)  
 **Goal:** State containers (`@[n]`, `@[var=init]`), shadow references (`$var`), history probes (`[<<,n]`), pulse frame lock, anonymous ledger, and compiler intrinsics (`[avg,n]`, `[max,n]`) work end-to-end. The Golden Cross strategy compiles and runs with mock data.
 
+**Design evolution:** A **target** syntax for global resources (`@name : [|n|] := { … }`, **`-> $name`** for writes) is documented in [`../../Styio-Resource-Topology.md`](../../Styio-Resource-Topology.md). It is **not** what the compiler parses today; acceptance tests below remain the **implemented** surface form.
+
 ---
 
 ## Acceptance Tests
