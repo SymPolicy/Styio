@@ -39,3 +39,12 @@ StyioToLLVM::execute() {
   int (*FP)() = ExprSymbol->getAddress().toPtr<int (*)()>();
   FP();
 }
+
+std::string
+StyioToLLVM::dump_llvm_ir() const {
+  std::string out;
+  llvm::raw_string_ostream os(out);
+  theModule->print(os, nullptr);
+  os.flush();
+  return out;
+}

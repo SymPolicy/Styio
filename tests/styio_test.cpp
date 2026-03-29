@@ -1,35 +1,28 @@
-// [C++ STL]
-#include <filesystem>
-
-// [Google Test]
 #include <gtest/gtest.h>
 
-void walkdirs() {
-  using dir_iter = std::filesystem::recursive_directory_iterator;
+#include <cstdlib>
+#include <filesystem>
+#include <string>
 
-  auto test_path = std::filesystem::current_path()/"test/example/demo";
+#include "StyioTesting/PipelineCheck.hpp"
 
-  if (std::filesystem::exists(test_path)) {
-    for (const auto& dir_entry : dir_iter(test_path)) {
-      if (std::filesystem::is_regular_file(dir_entry)) {
-        std::cout << dir_entry << std::endl;
-      }
-    }
+namespace fs = std::filesystem;
+
+#ifndef STYIO_SOURCE_DIR
+#define STYIO_SOURCE_DIR "."
+#endif
+
+#ifndef STYIO_COMPILER_EXE
+#define STYIO_COMPILER_EXE ""
+#endif
+
+TEST(StyioFiveLayerPipeline, P01_print_add) {
+  const fs::path case_dir =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "pipeline_cases" / "p01_print_add";
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
   }
-}
-
-
-int add(int a, int b) {
-  return a + b;
-}
-
-TEST(sum, simple) {
-  EXPECT_EQ(add(2, 3), 5);
-}
-
-int main(int argc, char **argv) {
-  walkdirs();
-
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
+  const std::string err = styio::testing::run_pipeline_case(case_dir.string(), runner);
+  EXPECT_EQ(err, "") << err;
 }

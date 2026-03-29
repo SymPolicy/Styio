@@ -603,6 +603,15 @@ StyioToken::getTokName(StyioTokenType type) {
     case StyioTokenType::TOK_COMMA:
       return ",";
 
+    case StyioTokenType::TOK_PLUS:
+      return "+";
+
+    case StyioTokenType::TOK_MINUS:
+      return "-";
+
+    case StyioTokenType::TOK_STAR:
+      return "*";
+
     case StyioTokenType::TOK_DOT:
       return ".";
 

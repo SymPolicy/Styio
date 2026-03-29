@@ -180,6 +180,8 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_test` | `tests/styio_test.cpp` 内用例 | `ctest --test-dir build -R styio_test` 或构建后运行 `build/styio_test`（名称以 `gtest_discover_tests` 为准） |
+| `styio_test` | `tests/styio_test.cpp`：`StyioFiveLayerPipeline` 等 | `ctest --test-dir build -L styio_pipeline` 或 `ctest --test-dir build -R StyioFiveLayerPipeline` |
 
-与里程碑 `.styio` 用例独立；实现细节见 `docs/AGENT-SPEC.md` §10。
+**五层流水线 goldens**（Lexer / AST / StyioIR / LLVM / 子进程 stdout）：权威说明见 [`FIVE-LAYER-PIPELINE.md`](./FIVE-LAYER-PIPELINE.md)；用例根目录 `tests/pipeline_cases/`。
+
+与里程碑 `.styio` 仅比对最终输出的集成测试 **互补**；历史实现细节另见 `docs/AGENT-SPEC.md` §10。

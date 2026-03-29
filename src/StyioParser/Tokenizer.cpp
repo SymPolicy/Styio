@@ -35,7 +35,7 @@ StyioTokenizer::tokenize(std::string code) {
   std::vector<StyioToken *> tokens;
   unsigned long long loc = 0; /* local position */
 
-  while (loc < code.length() - 1) {
+  while (loc < code.length()) {
     /* Spaces and Comments */
     switch (code.at(loc)) {
       case ' ': {
@@ -57,6 +57,10 @@ StyioTokenizer::tokenize(std::string code) {
 
       default: {
       } break;
+    }
+
+    if (loc >= code.length()) {
+      break;
     }
 
     // commments
@@ -518,5 +522,6 @@ StyioTokenizer::tokenize(std::string code) {
     }
   }
 
+  tokens.push_back(StyioToken::Create(StyioTokenType::TOK_EOF, ""));
   return tokens;
 }

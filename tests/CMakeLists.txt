@@ -127,8 +127,17 @@ add_executable(styio_test
 )
 target_link_libraries(
   styio_test
+  styio_core
   GTest::gtest_main
 )
+target_compile_definitions(styio_test PRIVATE
+  "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
+  "STYIO_COMPILER_EXE=\"${CMAKE_SOURCE_DIR}/styio\""
+)
+add_dependencies(styio_test styio)
 
 include(GoogleTest)
-gtest_discover_tests(styio_test)
+gtest_discover_tests(styio_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "styio_pipeline;unit"
+)

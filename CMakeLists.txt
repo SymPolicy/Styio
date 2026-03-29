@@ -36,9 +36,9 @@ message(STATUS "[Styio] Runtime: " ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 # [LLVM] Configuration
 find_package(LLVM 18.1.0 REQUIRED CONFIG)
-include_directories(${LLVM_INCLUDE_DIRS})
+# LLVM headers pollute the translation unit (e.g. cxxabi); keep them on styio_core/styio only
+# so GoogleTest and other tools can compile without LLVM on the include path.
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
-add_definitions(${LLVM_DEFINITIONS_LIST})
 
 message(STATUS "[LLVM] Include Directory: ${LLVM_INCLUDE_DIRS}")
 message(STATUS "[LLVM] Definitions: ${LLVM_DEFINITIONS_LIST}")
@@ -57,40 +57,34 @@ llvm_map_components_to_libnames(LLVM_LIBS support core irreader orcjit native)
 message(STATUS "[ICU] Using FindICU.cmake in: ${PROJECT_SOURCE_DIR}")
 find_package(ICU COMPONENTS uc i18n REQUIRED)
 
-# [Styio] Executable
-add_executable( styio 
-    src/main.cpp
-    # Utility
-    # Lexer
+set(STYIO_CORE_SOURCES
     src/StyioToken/Token.cpp
-    # Parser
     src/StyioParser/Parser.cpp
     src/StyioParser/Tokenizer.cpp
-    # ToString
     src/StyioToString/ToString.cpp
-    # StyioASTAnalyzer
     src/StyioAnalyzer/TypeInfer.cpp
     src/StyioAnalyzer/ToStyioIR.cpp
-    # StyioIR
     src/StyioCodeGen/CodeGen.cpp
     src/StyioCodeGen/GetTypeG.cpp
     src/StyioCodeGen/CodeGenG.cpp
     src/StyioCodeGen/CodeGenPulse.cpp
     src/StyioCodeGen/GetTypeIO.cpp
     src/StyioCodeGen/CodeGenIO.cpp
-    # ExternLib
     src/StyioExtern/ExternLib.cpp
+    src/StyioTesting/PipelineCheck.cpp
 )
 
-# [Styio - ICU4C] Link
-target_link_libraries(
-    styio 
-    ICU::uc ICU::i18n)
+add_library(styio_core STATIC ${STYIO_CORE_SOURCES})
+target_include_directories(styio_core PUBLIC "${CMAKE_SOURCE_DIR}/src")
+# Do not propagate LLVM headers to dependents (breaks GoogleTest / libc++abi mix).
+target_include_directories(styio_core SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
+target_compile_definitions(styio_core PRIVATE ${LLVM_DEFINITIONS_LIST})
+target_link_libraries(styio_core PUBLIC ICU::uc ICU::i18n ${LLVM_LIBS})
 
-# [Styio ~ LLVM] Link
-target_link_libraries(
-    styio 
-    ${LLVM_LIBS})
+add_executable(styio src/main.cpp)
+target_include_directories(styio SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
+target_compile_definitions(styio PRIVATE ${LLVM_DEFINITIONS_LIST})
+target_link_libraries(styio PRIVATE styio_core)
 
 # [CTest: Sub-Directory]
 enable_testing()

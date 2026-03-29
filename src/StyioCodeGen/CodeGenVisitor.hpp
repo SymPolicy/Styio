@@ -210,6 +210,9 @@ public:
   void print_llvm_ir();
   void execute();
 
+  /** Module IR without ANSI or extra banners (for golden tests). */
+  std::string dump_llvm_ir() const;
+
   /* CodeGen Get LLVM Type */
   llvm::Type* toLLVMType(SGResId* node);
   llvm::Type* toLLVMType(SGType* node);
