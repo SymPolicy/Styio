@@ -2,7 +2,7 @@
 
 **文档作用：** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`DOCUMENTATION-POLICY.md`](../DOCUMENTATION-POLICY.md)。
 
-**Last updated:** 2026-03-28
+**Last updated:** 2026-03-28（§8 M8 / Topology v2 smoke）
 
 **批量自动化（所有里程碑集成用例）：**
 
@@ -159,7 +159,20 @@ ctest --test-dir build -L milestone
 
 ---
 
-## 8. C++ 单元测试（GoogleTest）
+## 8. Topology v2 增量（M8）
+
+| CTest | Input | Output / Oracle | Automation |
+|-------|-------|-----------------|------------|
+| `m8_t01_bounded_final_bind` | `tests/milestones/m8/t01_bounded_final_bind.styio` | `tests/milestones/m8/expected/t01_bounded_final_bind.out` | `ctest --test-dir build -R '^m8_t01_bounded_final_bind$'` |
+| `m8_t02_bounded_read` | `tests/milestones/m8/t02_bounded_read.styio` | `tests/milestones/m8/expected/t02_bounded_read.out` | `ctest --test-dir build -R '^m8_t02_bounded_read$'` |
+
+**说明：** `[|n|]` 在 **final bind** 下生成 **`[n x i64]` + head**（读路径见 `CodeGenG.cpp`）；**Flex 再赋值、`#` 形参环语义** 仍不完整，见 [`docs/BoundedRing-Codegen-Adjustment.md`](../BoundedRing-Codegen-Adjustment.md)。
+
+**整组：** `ctest --test-dir build -L m8`
+
+---
+
+## 9. C++ 单元测试（GoogleTest）
 
 | 目标 | 说明 | Automation |
 |------|------|------------|

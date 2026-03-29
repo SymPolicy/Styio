@@ -162,6 +162,19 @@ public:
     return new TypeAST(type_name);
   }
 
+  /*
+    Topology v2 bounded ring [|n|] in type position (name prefix bounded_ring:n).
+    CodeGen: alloca [n x i64] + head cursor; reads return last written cell (see BoundedType.hpp).
+  */
+  static TypeAST* CreateBoundedRingBuffer(string capacity_digits) {
+    auto* t = new TypeAST();
+    t->type = StyioDataType{
+      StyioDataTypeOption::Defined,
+      std::string("bounded_ring:") + capacity_digits,
+      0};
+    return t;
+  }
+
   void setType(StyioDataType new_type) {
     this->type = new_type;
   }

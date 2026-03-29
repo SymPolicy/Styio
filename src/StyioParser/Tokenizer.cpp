@@ -433,8 +433,14 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 91
       case '[': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LBOXBRAC, "["));
-        loc += 1;
+        if (loc + 1 < code.size() && code.at(loc + 1) == '|') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::BOUNDED_BUFFER_OPEN, "[|"));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LBOXBRAC, "["));
+          loc += 1;
+        }
       } break;
 
       // 92
@@ -475,7 +481,11 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 124
       case '|': {
-        if (loc + 1 < code.size() && code.at(loc + 1) == '|') {
+        if (loc + 1 < code.size() && code.at(loc + 1) == ']') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::BOUNDED_BUFFER_CLOSE, "|]"));
+          loc += 2;
+        }
+        else if (loc + 1 < code.size() && code.at(loc + 1) == '|') {
           tokens.push_back(StyioToken::Create(StyioTokenType::LOGIC_OR, "||"));
           loc += 2;
         }

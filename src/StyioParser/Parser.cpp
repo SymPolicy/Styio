@@ -108,6 +108,7 @@ static StyioAST* parse_token_index_suffix(StyioContext& context, StyioAST* base)
 static StyioAST* parse_resource_file_atom(StyioContext& context);
 static StyioAST* parse_state_decl_after_at(StyioContext& context);
 static StyioAST* parse_state_ref_suffix(StyioContext& context, StateRefAST* sr);
+static TypeAST* parse_styio_type(StyioContext& context);
 
 StyioAST*
 parse_name_and_following_unsafe(StyioContext& context) {
@@ -419,6 +420,29 @@ parse_dtype(StyioContext& context) {
 }
 
 /*
+  Extensible type parser: scalar names (f64, i64, …) + Topology v2 [|n|].
+  Future: tuple types, @resource refs, element type parameters — branch here, not in stmt parsing.
+*/
+static TypeAST*
+parse_styio_type(StyioContext& context) {
+  context.skip();
+  if (context.check(StyioTokenType::BOUNDED_BUFFER_OPEN)) {
+    context.move_forward(1, "parse_styio_type[|");
+    context.skip();
+    if (context.cur_tok_type() != StyioTokenType::INTEGER) {
+      throw StyioSyntaxError(
+        context.mark_cur_tok("expected integer capacity in [|n|] type"));
+    }
+    std::string cap = context.cur_tok()->original;
+    context.move_forward(1, "parse_styio_type cap");
+    context.skip();
+    context.try_match_panic(StyioTokenType::BOUNDED_BUFFER_CLOSE);
+    return TypeAST::CreateBoundedRingBuffer(cap);
+  }
+  return TypeAST::Create(parse_name_as_str_unsafe(context));
+}
+
+/*
   Basic Collection
   - typed_var
   - Fill (Variable Tuple)
@@ -443,7 +467,7 @@ parse_argument(StyioContext& context) {
   if (context.check_drop(':')) {
     context.drop_white_spaces();
 
-    data_type = parse_dtype(context);
+    data_type = parse_styio_type(context);
 
     context.drop_white_spaces();
 
@@ -2682,7 +2706,10 @@ parse_hash_tag(StyioContext& context) {
   context.skip();
   if (context.match(StyioTokenType::TOK_COLON) /* : */) {
     context.skip();
-    if (context.check(StyioTokenType::NAME)) {
+    if (context.check(StyioTokenType::BOUNDED_BUFFER_OPEN)) {
+      ret_type = parse_styio_type(context);
+    }
+    else if (context.check(StyioTokenType::NAME)) {
       auto type_name = parse_name_as_str_unsafe(context);
       ret_type = TypeAST::Create(type_name);
     }
@@ -2693,6 +2720,9 @@ parse_hash_tag(StyioContext& context) {
         if (context.check(StyioTokenType::NAME)) {
           TypeAST* type_name = parse_name_as_type_unsafe(context);
           types.push_back(type_name);
+        }
+        else if (context.check(StyioTokenType::BOUNDED_BUFFER_OPEN)) {
+          types.push_back(parse_styio_type(context));
         }
       } while (context.try_match(StyioTokenType::TOK_COMMA) /* , */);
 
@@ -3196,7 +3226,7 @@ parse_stmt_or_expr(
       if (nt == StyioTokenType::TOK_COLON) {
         context.move_forward(1, "final_bind:");
         context.skip();
-        TypeAST* ty = TypeAST::Create(parse_name_as_str_unsafe(context));
+        TypeAST* ty = parse_styio_type(context);
         context.skip();
         if (not context.match(StyioTokenType::WALRUS)) {
           throw StyioSyntaxError(context.mark_cur_tok("expected := after type in binding"));

@@ -15,6 +15,7 @@
 #include "../StyioException/Exception.hpp"
 #include "../StyioIR/GenIR/GenIR.hpp"
 #include "../StyioToken/Token.hpp"
+#include "../StyioUtil/BoundedType.hpp"
 #include "../StyioUtil/Util.hpp"
 #include "CodeGenVisitor.hpp"
 
@@ -64,6 +65,25 @@ styio_undef_i64() {
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGResId* node) {
   const string& name = node->as_str();
+
+  if (bounded_ring_head_slot_.contains(name)) {
+    llvm::AllocaInst* arr = mutable_variables[name];
+    llvm::AllocaInst* headSlot = bounded_ring_head_slot_[name];
+    std::uint64_t cap = bounded_ring_capacity_[name];
+    llvm::Type* i64 = theBuilder->getInt64Ty();
+    auto* arrTy = llvm::cast<llvm::ArrayType>(arr->getAllocatedType());
+    llvm::Value* head = theBuilder->CreateLoad(i64, headSlot);
+    llvm::Value* zero = llvm::ConstantInt::get(i64, 0);
+    llvm::Value* one = llvm::ConstantInt::get(i64, 1);
+    llvm::Value* has = theBuilder->CreateICmpULT(zero, head);
+    llvm::Value* prev = theBuilder->CreateSub(head, one);
+    llvm::Value* capv = llvm::ConstantInt::get(i64, cap);
+    llvm::Value* prev_m = theBuilder->CreateURem(prev, capv);
+    llvm::Value* idx = theBuilder->CreateSelect(has, prev_m, zero);
+    llvm::Value* gep = theBuilder->CreateInBoundsGEP(arrTy, arr, {zero, idx});
+    llvm::Value* cell = theBuilder->CreateLoad(i64, gep);
+    return theBuilder->CreateSelect(has, cell, zero);
+  }
 
   if (named_values.contains(name)) {
     return named_values[name];
@@ -554,6 +574,26 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
     throw StyioNotImplemented("if a immutable variable is re-defined ...");
   }
 
+  if (auto cap = styio_bounded_ring_capacity(node->var->var_type->data_type)) {
+    llvm::Function* F = theBuilder->GetInsertBlock()->getParent();
+    llvm::BasicBlock* ent = &F->getEntryBlock();
+    llvm::IRBuilder<> prealloc(ent, ent->getFirstInsertionPt());
+    llvm::Type* i64 = theBuilder->getInt64Ty();
+    llvm::Type* arrTy = llvm::ArrayType::get(i64, *cap);
+    llvm::AllocaInst* arr = prealloc.CreateAlloca(arrTy, nullptr, varname);
+    llvm::AllocaInst* head = prealloc.CreateAlloca(i64, nullptr, varname + ".head");
+    prealloc.CreateStore(llvm::ConstantInt::get(i64, 0), head);
+    llvm::Value* val = node->value->toLLVMIR(this);
+    llvm::Value* z = llvm::ConstantInt::get(i64, 0);
+    llvm::Value* gep0 = prealloc.CreateInBoundsGEP(arrTy, arr, {z, z});
+    prealloc.CreateStore(val, gep0);
+    prealloc.CreateStore(llvm::ConstantInt::get(i64, 1), head);
+    mutable_variables[varname] = arr;
+    bounded_ring_head_slot_[varname] = head;
+    bounded_ring_capacity_[varname] = *cap;
+    return arr;
+  }
+
   llvm::AllocaInst* variable = theBuilder->CreateAlloca(
     node->toLLVMType(this),
     nullptr,
@@ -666,8 +706,12 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
 
   auto saved_mut = mutable_variables;
   auto saved_named = named_values;
+  auto saved_ring_h = bounded_ring_head_slot_;
+  auto saved_ring_c = bounded_ring_capacity_;
   mutable_variables.clear();
   named_values.clear();
+  bounded_ring_head_slot_.clear();
+  bounded_ring_capacity_.clear();
 
   llvm::BasicBlock* block = llvm::BasicBlock::Create(
     *theContext,
@@ -720,6 +764,8 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
 
   mutable_variables = std::move(saved_mut);
   named_values = std::move(saved_named);
+  bounded_ring_head_slot_ = std::move(saved_ring_h);
+  bounded_ring_capacity_ = std::move(saved_ring_c);
 }
 
 llvm::Value*

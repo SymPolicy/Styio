@@ -475,7 +475,7 @@ assignment_v2      = identifier "=" expression ;   (* locals only *)
 
 Semantic check: if LHS is **`$name`** bound to a **resource shadow**, reject **`=`** and require **`->`**.
 
-### B.4 Lexer additions (when implemented)
+### B.4 Lexer additions
 
-- **`[|`** and **`|]`** as paired delimiters for **`[|n|]`** (distinct from `[` … `]` alone).
-- Optional: validate **`|]`** only closes **`[|`**.
+- **Implemented (2026-03):** **`[|`** and **`|]`** as paired delimiters for **`[|n|]`** (`StyioTokenType::BOUNDED_BUFFER_OPEN` / `BOUNDED_BUFFER_CLOSE` in `Token.hpp`; see `Tokenizer.cpp`).
+- **Still TBD:** validate **`|]`** only closes **`[|`** (nesting / error recovery); top-level `ResourceDecl` grammar remains future work.

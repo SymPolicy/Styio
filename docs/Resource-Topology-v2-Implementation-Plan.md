@@ -2,7 +2,7 @@
 
 **文档作用：** 将 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md) 中的 **目标语法** 落实为可执行的 **分阶段重构清单**（改哪些模块、测什么、记什么日志）；**不**重复拓扑设计全文（以 Topology 为 SSOT），**不**替代 [`Logic-Conflicts.md`](./Logic-Conflicts.md) 中的冲突登记（实施中解决一项应回写该文档或注明已关闭）。
 
-**Last updated:** 2026-03-28  
+**Last updated:** 2026-03-28（环缓 CodeGen 迁移见 [`BoundedRing-Codegen-Adjustment.md`](./BoundedRing-Codegen-Adjustment.md)）  
 **Normative design:** [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)  
 **Grammar sketch:** [`Styio-EBNF.md`](./Styio-EBNF.md) Appendix B  
 **Open conflicts:** [`Logic-Conflicts.md`](./Logic-Conflicts.md)

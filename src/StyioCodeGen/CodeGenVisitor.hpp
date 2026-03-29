@@ -3,6 +3,7 @@
 #define STYIO_CODE_GEN_VISITOR_H_
 
 // [STL]
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -157,6 +158,10 @@ class StyioToLLVM : public StyioCodeGenVisitor
 
   unordered_map<string, llvm::AllocaInst*> mutable_variables; /* [FlexBind] Mutable Variables */
   unordered_map<string, llvm::Value*> named_values;  /* [FinalBind] Named Values = Immutable Variables */
+
+  /* [|n|] final-bound rings: array alloca in mutable_variables + head cursor (next write index). */
+  unordered_map<string, llvm::AllocaInst*> bounded_ring_head_slot_;
+  unordered_map<string, std::uint64_t> bounded_ring_capacity_;
 
   struct LoopFrame {
     llvm::BasicBlock* break_dest = nullptr;

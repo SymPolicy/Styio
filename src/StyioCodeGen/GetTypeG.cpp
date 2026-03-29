@@ -9,8 +9,11 @@
 #include "../StyioException/Exception.hpp"
 #include "../StyioIR/GenIR/GenIR.hpp"
 #include "../StyioToken/Token.hpp"
+#include "../StyioUtil/BoundedType.hpp"
 #include "../StyioUtil/Util.hpp"
 #include "CodeGenVisitor.hpp"
+
+#include "llvm/IR/DerivedTypes.h"
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGResId* node) {
@@ -19,6 +22,9 @@ StyioToLLVM::toLLVMType(SGResId* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGType* node) {
+  if (auto cap = styio_bounded_ring_capacity(node->data_type)) {
+    return llvm::ArrayType::get(theBuilder->getInt64Ty(), *cap);
+  }
   switch (node->data_type.option) {
     case StyioDataTypeOption::Bool:
       return theBuilder->getInt1Ty();
@@ -85,6 +91,10 @@ StyioToLLVM::toLLVMType(SGCond* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGVar* node) {
+  /* Logical (pulse) value is scalar i64; storage may be [|n|] array (see SGFinalBind alloca). */
+  if (styio_bounded_ring_capacity(node->var_type->data_type)) {
+    return theBuilder->getInt64Ty();
+  }
   return node->var_type->toLLVMType(this);
 };
 
@@ -107,7 +117,7 @@ StyioToLLVM::toLLVMType(SGFlexBind* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGFinalBind* node) {
-  return node->var->toLLVMType(this);
+  return node->var->var_type->toLLVMType(this);
 };
 
 llvm::Type*

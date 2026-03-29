@@ -153,7 +153,7 @@ Thus **visible** `@ma20 : [|2|]` may store **only the last two published MA valu
 | Item | Status |
 |------|--------|
 | `@[n](var = …)` / pulse ledger / `$` / `[avg,n]` | **Implemented** (M6 path) |
-| `@name : [|n|]` prefix syntax | **Not implemented** — parse as future work |
+| `@name : [|n|]` prefix syntax | **Partial** — `[|n|]` tokenizes and parses in **type positions** (`x : [|n|] := …`, `#` args/returns); **top-level `ResourceDecl`** not implemented |
 | Top-level-only `ResourceDecl` + `:= { driver }` | **Not implemented** |
 | Ban `$x =` for shadows in favor of `->` only | **Not implemented** — semantic rule TBD |
 | Implicit intrinsic buffers + fingerprint | **Partially** (ledger + intrinsics exist; naming may differ) |

@@ -736,6 +736,10 @@ enum class StyioTokenType
   ELLIPSIS,       // ...
   INFINITE_LIST,  // [...]
 
+  /* Topology v2: bounded ring buffer type [| n |] — paired delimiters (distinct from [ ... ]). */
+  BOUNDED_BUFFER_OPEN,   // [|
+  BOUNDED_BUFFER_CLOSE,  // |]
+
   SINGLE_SEP_LINE,  // ---
   DOUBLE_SEP_LINE,  // ===
 

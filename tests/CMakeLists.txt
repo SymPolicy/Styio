@@ -36,6 +36,7 @@ styio_stdout_golden_test(m2 "t*.styio" m2)
 styio_stdout_golden_test(m3 "t*.styio" m3)
 styio_stdout_golden_test(m4 "t*.styio" m4)
 styio_stdout_golden_test(m6 "t*.styio" m6)
+styio_stdout_golden_test(m8 "t*.styio" m8)
 
 # --- M5: stdout goldens + special file / exit-code cases ---
 add_test(

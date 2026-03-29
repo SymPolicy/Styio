@@ -798,6 +798,12 @@ StyioToken::getTokName(StyioTokenType type) {
     case StyioTokenType::INFINITE_LIST:
       return "[...]";
 
+    case StyioTokenType::BOUNDED_BUFFER_OPEN:
+      return "[|";
+
+    case StyioTokenType::BOUNDED_BUFFER_CLOSE:
+      return "|]";
+
     default:
       return "<UNKNOWN>";
   }
