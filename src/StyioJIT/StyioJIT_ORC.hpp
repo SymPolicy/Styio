@@ -59,12 +59,20 @@ public:
         { llvm::orc::ExecutorAddr::fromPtr(&styio_file_open_write), llvm::JITSymbolFlags::Callable } },
       { Mangle("styio_file_close"),
         { llvm::orc::ExecutorAddr::fromPtr(&styio_file_close), llvm::JITSymbolFlags::Callable } },
+      { Mangle("styio_file_rewind"),
+        { llvm::orc::ExecutorAddr::fromPtr(&styio_file_rewind), llvm::JITSymbolFlags::Callable } },
       { Mangle("styio_file_read_line"),
         { llvm::orc::ExecutorAddr::fromPtr(&styio_file_read_line), llvm::JITSymbolFlags::Callable } },
       { Mangle("styio_file_write_cstr"),
         { llvm::orc::ExecutorAddr::fromPtr(&styio_file_write_cstr), llvm::JITSymbolFlags::Callable } },
       { Mangle("styio_cstr_to_i64"),
         { llvm::orc::ExecutorAddr::fromPtr(&styio_cstr_to_i64), llvm::JITSymbolFlags::Callable } },
+      { Mangle("styio_read_file_i64line"),
+        { llvm::orc::ExecutorAddr::fromPtr(&styio_read_file_i64line), llvm::JITSymbolFlags::Callable } },
+      { Mangle("styio_strcat_ab"),
+        { llvm::orc::ExecutorAddr::fromPtr(&styio_strcat_ab), llvm::JITSymbolFlags::Callable } },
+      { Mangle("styio_i64_dec_cstr"),
+        { llvm::orc::ExecutorAddr::fromPtr(&styio_i64_dec_cstr), llvm::JITSymbolFlags::Callable } },
     })));
 
     // llvm::DenseSet<llvm::orc::SymbolStringPtr> AllowList({

@@ -105,6 +105,7 @@ parse_name_unsafe(StyioContext& context) {
 }
 
 static StyioAST* parse_token_index_suffix(StyioContext& context, StyioAST* base);
+static StyioAST* parse_resource_file_atom(StyioContext& context);
 static StyioAST* parse_state_decl_after_at(StyioContext& context);
 static StyioAST* parse_state_ref_suffix(StyioContext& context, StateRefAST* sr);
 
@@ -115,7 +116,7 @@ parse_name_and_following_unsafe(StyioContext& context) {
 
   StyioAST* output = name;
 
-  context.skip();
+  context.skip_spaces_no_linebreak();
   switch (context.cur_tok_type()) {
     /* + */
     case StyioTokenType::TOK_PLUS: {
@@ -617,38 +618,62 @@ static StyioAST*
 parse_state_decl_after_at(StyioContext& context) {
   context.try_match_panic(StyioTokenType::TOK_LBOXBRAC);
   context.skip();
-  IntAST* win = nullptr;
-  NameAST* accn = nullptr;
-  StyioAST* acc_init = nullptr;
   if (context.check(StyioTokenType::INTEGER)) {
-    win = parse_int(context);
-  }
-  else if (context.check(StyioTokenType::NAME)) {
-    accn = parse_name_unsafe(context);
+    IntAST* win = parse_int(context);
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_LPAREN);
+    context.skip();
+    if (not context.check(StyioTokenType::NAME)) {
+      throw StyioSyntaxError(context.mark_cur_tok("expected (export = expr) in state decl"));
+    }
+    NameAST* expn = parse_name_unsafe(context);
     context.skip();
     context.try_match_panic(StyioTokenType::TOK_EQUAL);
     context.skip();
-    acc_init = parse_expr(context);
+    StyioAST* rhs = parse_expr(context);
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_RPAREN);
+    return StateDeclAST::Create(win, nullptr, nullptr, VarAST::Create(expn), rhs);
   }
-  else {
+  if (not context.check(StyioTokenType::NAME)) {
     throw StyioSyntaxError(context.mark_cur_tok("expected window size or acc = init in @[...]"));
   }
+  NameAST* n0 = parse_name_unsafe(context);
   context.skip();
-  context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
-  context.skip();
-  context.try_match_panic(StyioTokenType::TOK_LPAREN);
-  context.skip();
-  if (not context.check(StyioTokenType::NAME)) {
-    throw StyioSyntaxError(context.mark_cur_tok("expected (export = expr) in state decl"));
+  if (context.try_match(StyioTokenType::TOK_EQUAL)) {
+    context.skip();
+    StyioAST* acc_init = parse_expr(context);
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_LPAREN);
+    context.skip();
+    if (not context.check(StyioTokenType::NAME)) {
+      throw StyioSyntaxError(context.mark_cur_tok("expected (export = expr) in state decl"));
+    }
+    NameAST* expn = parse_name_unsafe(context);
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_EQUAL);
+    context.skip();
+    StyioAST* rhs = parse_expr(context);
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_RPAREN);
+    return StateDeclAST::Create(nullptr, n0, acc_init, VarAST::Create(expn), rhs);
   }
-  NameAST* expn = parse_name_unsafe(context);
-  context.skip();
-  context.try_match_panic(StyioTokenType::TOK_EQUAL);
-  context.skip();
-  StyioAST* rhs = parse_expr(context);
-  context.skip();
-  context.try_match_panic(StyioTokenType::TOK_RPAREN);
-  return StateDeclAST::Create(win, accn, acc_init, VarAST::Create(expn), rhs);
+  if (context.try_match(StyioTokenType::TOK_RBOXBRAC)) {
+    context.skip();
+    context.try_match_panic(StyioTokenType::EXTRACTOR);
+    context.skip();
+    StyioAST* ratom = parse_resource_file_atom(context);
+    auto* fr = dynamic_cast<FileResourceAST*>(ratom);
+    if (fr == nullptr) {
+      throw StyioSyntaxError(context.mark_cur_tok("snapshot pull needs @file{...} or @{...}"));
+    }
+    return SnapshotDeclAST::Create(n0, fr);
+  }
+  throw StyioSyntaxError(context.mark_cur_tok("expected = or ] after name in @[...]"));
 }
 
 static StyioAST*
@@ -939,10 +964,12 @@ parse_arithmetic_tail_from_atom(StyioContext& context, StyioAST* output) {
     } break;
 
     case StyioTokenType::TOK_LBOXBRAC: {
-      /* Do not treat `[` after a bare numeric literal as p[avg,n] / indexing — that
-         would glue `x = 0` to the next line's `[1,2,3] >> ...` and break parsing. */
+      /* Do not treat `[` after a bare literal / bool as indexing — that would glue
+         `result = true` to the next line's `[1,2,3] >> ...` and break parsing. */
       if (output && (output->getNodeType() == StyioNodeType::Integer
-                     || output->getNodeType() == StyioNodeType::Float)) {
+                     || output->getNodeType() == StyioNodeType::Float
+                     || output->getNodeType() == StyioNodeType::Bool
+                     || output->getNodeType() == StyioNodeType::String)) {
         break;
       }
       output = parse_token_index_suffix(context, output);
@@ -969,6 +996,21 @@ static StyioAST*
 parse_arithmetic_expr(StyioContext& context) {
   context.skip();
   switch (context.cur_tok_type()) {
+    case StyioTokenType::TOK_MINUS: {
+      context.move_forward(1, "arith_unary-");
+      context.skip();
+      StyioAST* inner = parse_arithmetic_expr(context);
+      return parse_arithmetic_tail_from_atom(
+        context,
+        BinOpAST::Create(StyioOpType::Binary_Sub, IntAST::Create("0"), inner));
+    } break;
+
+    case StyioTokenType::TOK_PLUS: {
+      context.move_forward(1, "arith_unary+");
+      context.skip();
+      return parse_arithmetic_tail_from_atom(context, parse_arithmetic_expr(context));
+    } break;
+
     case StyioTokenType::TOK_DOLLAR: {
       context.move_forward(1, "arith_$");
       context.skip();
@@ -1271,6 +1313,30 @@ parse_iterator_tail(StyioContext& context, StyioAST* collection) {
 
   context.skip();
 
+  if (context.try_match(StyioTokenType::TOK_AMP)) {
+    context.skip();
+    StyioAST* collection_b = parse_fallback_expr(context);
+    context.skip();
+    if (not context.match(StyioTokenType::ITERATOR)) {
+      throw StyioSyntaxError(context.mark_cur_tok("expected >> after first stream in zip"));
+    }
+    context.skip();
+    std::vector<ParamAST*> params_b = parse_params(context);
+    context.skip();
+    if (not context.try_match(StyioTokenType::ARROW_DOUBLE_RIGHT)) {
+      throw StyioSyntaxError(context.mark_cur_tok("expected => after zip streams"));
+    }
+    context.skip();
+    StyioAST* body_ast = nullptr;
+    if (context.check(StyioTokenType::TOK_LCURBRAC)) {
+      body_ast = parse_block_only(context);
+    }
+    else {
+      body_ast = parse_stmt_or_expr(context);
+    }
+    return StreamZipAST::Create(collection, params, collection_b, params_b, body_ast);
+  }
+
   if (context.try_match(StyioTokenType::ARROW_DOUBLE_RIGHT) /* => */) {
     context.skip();
     if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
@@ -1372,6 +1438,7 @@ parse_binop_item(StyioContext& context) {
       if (id == "true" || id == "false") {
         context.move_forward(1, "binop_item_bool");
         output = BoolAST::Create(id == "true");
+        output = parse_arithmetic_tail_from_atom(context, output);
       }
       else {
         /* RHS calls: fact(n - 1) after + - * ... need `parse_name_and_following`, not name only. */
@@ -1381,14 +1448,17 @@ parse_binop_item(StyioContext& context) {
 
     case StyioTokenType::INTEGER: {
       output = parse_int(context);
+      output = parse_arithmetic_tail_from_atom(context, output);
     } break;
 
     case StyioTokenType::DECIMAL: {
       output = parse_float(context);
+      output = parse_arithmetic_tail_from_atom(context, output);
     } break;
 
     case StyioTokenType::STRING: {
       output = parse_string(context);
+      output = parse_arithmetic_tail_from_atom(context, output);
     } break;
 
     case StyioTokenType::TOK_AT: {
@@ -1397,13 +1467,38 @@ parse_binop_item(StyioContext& context) {
       output = parse_after_at_common(context, false);
     } break;
 
+    case StyioTokenType::TOK_DOLLAR: {
+      context.move_forward(1, "binop_item$");
+      context.skip();
+      if (not context.check(StyioTokenType::NAME)) {
+        throw StyioSyntaxError(context.mark_cur_tok("expected name after $ in expression"));
+      }
+      auto* sr = StateRefAST::Create(parse_name_unsafe(context));
+      output = parse_arithmetic_tail_from_atom(context, parse_state_ref_suffix(context, sr));
+    } break;
+
     case StyioTokenType::TOK_LPAREN: {
       context.move_forward(1, "binop_item(");
       context.skip();
-      output = parse_fallback_expr(context);
-      context.skip();
-      context.try_match_panic(StyioTokenType::TOK_RPAREN);
-      output = parse_arithmetic_tail_from_atom(context, output);
+      if (context.check(StyioTokenType::EXTRACTOR)) {
+        context.move_forward(1, "instant<<");
+        context.skip();
+        StyioAST* ratom = parse_resource_file_atom(context);
+        auto* fr = dynamic_cast<FileResourceAST*>(ratom);
+        if (fr == nullptr) {
+          throw StyioSyntaxError(context.mark_cur_tok("instant pull needs @file{...} or @{...}"));
+        }
+        context.skip();
+        context.try_match_panic(StyioTokenType::TOK_RPAREN);
+        output = InstantPullAST::Create(fr);
+        output = parse_arithmetic_tail_from_atom(context, output);
+      }
+      else {
+        output = parse_fallback_expr(context);
+        context.skip();
+        context.try_match_panic(StyioTokenType::TOK_RPAREN);
+        output = parse_arithmetic_tail_from_atom(context, output);
+      }
     } break;
 
     default: {
@@ -1460,7 +1555,10 @@ parse_tuple_exprs(StyioContext& context) {
 
 StyioAST*
 parse_expr(StyioContext& context) {
-  return parse_expr_postfix(context, parse_fallback_expr(context));
+  /* Allow ~> / <~ / additive tails after ||/&& (e.g. `(cond) ~> arm | @`). */
+  return parse_expr_postfix(
+    context,
+    parse_arithmetic_tail_from_atom(context, parse_fallback_expr(context)));
 }
 
 ReturnAST*
@@ -3084,6 +3182,14 @@ parse_stmt_or_expr(
           parse_resource_file_atom(context));
       }
 
+      if (nt == StyioTokenType::EXTRACTOR) {
+        context.move_forward(1, "data<<file");
+        context.skip();
+        return ResourceWriteAST::Create(
+          NameAST::Create(id),
+          parse_resource_file_atom(context));
+      }
+
       if (nt == StyioTokenType::TOK_COLON) {
         context.move_forward(1, "final_bind:");
         context.skip();
@@ -3158,7 +3264,7 @@ parse_stmt_or_expr(
       if (context.check(StyioTokenType::TOK_LPAREN)) {
         return parse_resources_after_at(context);
       }
-      return parse_after_at_common(context, false);
+      return parse_expr_postfix(context, parse_after_at_common(context, false));
     } break;
 
     /* # */

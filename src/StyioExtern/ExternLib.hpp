@@ -13,9 +13,15 @@ extern "C" DLLEXPORT int64_t styio_file_open(const char* path);
 extern "C" DLLEXPORT int64_t styio_file_open_auto(const char* path);
 extern "C" DLLEXPORT int64_t styio_file_open_write(const char* path);
 extern "C" DLLEXPORT void styio_file_close(int64_t h);
+extern "C" DLLEXPORT void styio_file_rewind(int64_t h);
 extern "C" DLLEXPORT const char* styio_file_read_line(int64_t h);
 extern "C" DLLEXPORT void styio_file_write_cstr(int64_t h, const char* data);
 extern "C" DLLEXPORT int64_t styio_cstr_to_i64(const char* s);
+
+/* M7: first line of file as integer; string concat (malloc result) */
+extern "C" DLLEXPORT int64_t styio_read_file_i64line(const char* path);
+extern "C" DLLEXPORT const char* styio_strcat_ab(const char* a, const char* b);
+extern "C" DLLEXPORT const char* styio_i64_dec_cstr(int64_t v);
 
 extern "C" DLLEXPORT int something();
 

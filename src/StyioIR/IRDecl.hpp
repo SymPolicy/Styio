@@ -56,6 +56,10 @@ class SGEqProbe;
 
 class SGHandleAcquire;
 class SGFileLineIter;
+class SGStreamZip;
+class SGSnapshotDecl;
+class SGSnapshotShadowLoad;
+class SGInstantPull;
 class SGResourceWriteToFile;
 
 // class SGIfElse;

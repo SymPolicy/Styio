@@ -972,6 +972,36 @@ StyioRepr::toString(IteratorAST* ast, int indent) {
 }
 
 std::string
+StyioRepr::toString(StreamZipAST* ast, int indent) {
+  std::string outstr = reprASTType(ast->getNodeType()) + " {\n";
+  outstr += make_padding(indent) + "a: " + ast->getCollectionA()->toString(this, indent + 1) + "\n";
+  for (auto* p : ast->getParamsA()) {
+    outstr += make_padding(indent) + p->toString(this, indent + 1) + "\n";
+  }
+  outstr += make_padding(indent) + "b: " + ast->getCollectionB()->toString(this, indent + 1) + "\n";
+  for (auto* p : ast->getParamsB()) {
+    outstr += make_padding(indent) + p->toString(this, indent + 1) + "\n";
+  }
+  if (!ast->getFollowing().empty()) {
+    outstr += ast->getFollowing()[0]->toString(this, indent + 1);
+  }
+  outstr += "\n}";
+  return outstr;
+}
+
+std::string
+StyioRepr::toString(SnapshotDeclAST* ast, int indent) {
+  return reprASTType(ast->getNodeType()) + " { " + ast->getVar()->getAsStr() + " <- "
+         + ast->getResource()->toString(this, indent + 1) + " }";
+}
+
+std::string
+StyioRepr::toString(InstantPullAST* ast, int indent) {
+  return reprASTType(ast->getNodeType()) + " { "
+         + ast->getResource()->toString(this, indent + 1) + " }";
+}
+
+std::string
 StyioRepr::toString(IterSeqAST* ast, int indent) {
   std::string outstr = reprASTType(ast->getNodeType(), " ") + "{" + "\n";
 
@@ -1371,12 +1401,38 @@ StyioRepr::toString(SGFileLineIter* node, int indent) {
 }
 
 std::string
+StyioRepr::toString(SGStreamZip* node, int indent) {
+  (void)indent;
+  return std::string("styio.ir.stream_zip { ") + node->var_a + " & " + node->var_b + " }";
+}
+
+std::string
+StyioRepr::toString(SGSnapshotDecl* node, int indent) {
+  (void)indent;
+  std::string p = node->path_expr ? node->path_expr->toString(this, indent) : std::string("null");
+  return std::string("styio.ir.snapshot_decl { ") + node->var_name + " path=" + p + " }";
+}
+
+std::string
+StyioRepr::toString(SGSnapshotShadowLoad* node, int indent) {
+  (void)indent;
+  return std::string("styio.ir.snapshot_load { ") + node->var_name + " }";
+}
+
+std::string
+StyioRepr::toString(SGInstantPull* node, int indent) {
+  std::string p = node->path_expr ? node->path_expr->toString(this, indent) : std::string("null");
+  return std::string("styio.ir.instant_pull { path=") + p + " }";
+}
+
+std::string
 StyioRepr::toString(SGResourceWriteToFile* node, int indent) {
   std::string d = node->data_expr ? node->data_expr->toString(this, indent) : std::string("null");
   std::string p = node->path_expr ? node->path_expr->toString(this, indent) : std::string("null");
   return std::string("styio.ir.resource_write { data=") + d + ", path=" + p
          + ", auto_path=" + (node->is_auto_path ? "1" : "0")
-         + ", promote=" + (node->promote_data_to_cstr ? "1" : "0") + " }";
+         + ", promote=" + (node->promote_data_to_cstr ? "1" : "0")
+         + ", nl=" + (node->append_newline ? "1" : "0") + " }";
 }
 
 std::string

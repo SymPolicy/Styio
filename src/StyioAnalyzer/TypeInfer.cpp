@@ -28,6 +28,114 @@ params_of_func_def(StyioAST* def) {
   return {};
 }
 
+namespace {
+
+StyioDataType const kStringType{
+  StyioDataTypeOption::String, "string", 0};
+
+StyioDataType
+infer_collection_elem_type(StyioAST* coll) {
+  if (auto* L = dynamic_cast<ListAST*>(coll)) {
+    auto const& els = L->getElements();
+    if (els.empty()) {
+      return StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+    }
+    if (els[0]->getNodeType() == StyioNodeType::String) {
+      return kStringType;
+    }
+    return StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+  }
+  if (coll->getNodeType() == StyioNodeType::FileResource
+      || coll->getNodeType() == StyioNodeType::Id) {
+    return StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+  }
+  return StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+}
+
+bool
+type_is_string(StyioDataType const& t) {
+  return t.option == StyioDataTypeOption::String;
+}
+
+bool
+type_is_intish(StyioDataType const& t) {
+  return t.option == StyioDataTypeOption::Integer
+    || t.option == StyioDataTypeOption::Float;
+}
+
+std::optional<bool>
+expr_is_string_hint(StyioAnalyzer* an, StyioAST* x) {
+  switch (x->getNodeType()) {
+    case StyioNodeType::String:
+      return true;
+    case StyioNodeType::Integer:
+    case StyioNodeType::Float:
+      return false;
+    case StyioNodeType::Id: {
+      auto* nm = static_cast<NameAST*>(x);
+      auto it = an->local_binding_types.find(nm->getAsStr());
+      if (it == an->local_binding_types.end()) {
+        return std::nullopt;
+      }
+      return type_is_string(it->second);
+    }
+    case StyioNodeType::BinOp: {
+      StyioDataType t = static_cast<BinOpAST*>(x)->getType();
+      if (t.isUndefined()) {
+        return std::nullopt;
+      }
+      return type_is_string(t);
+    }
+    default:
+      return std::nullopt;
+  }
+}
+
+std::optional<bool>
+expr_is_intish_hint(StyioAnalyzer* an, StyioAST* x) {
+  switch (x->getNodeType()) {
+    case StyioNodeType::Integer:
+    case StyioNodeType::Float:
+      return true;
+    case StyioNodeType::String:
+      return false;
+    case StyioNodeType::Id: {
+      auto* nm = static_cast<NameAST*>(x);
+      auto it = an->local_binding_types.find(nm->getAsStr());
+      if (it == an->local_binding_types.end()) {
+        return std::nullopt;
+      }
+      return type_is_intish(it->second);
+    }
+    case StyioNodeType::BinOp: {
+      StyioDataType t = static_cast<BinOpAST*>(x)->getType();
+      if (t.isUndefined()) {
+        return std::nullopt;
+      }
+      return !type_is_string(t);
+    }
+    default:
+      return std::nullopt;
+  }
+}
+
+bool
+infer_concat_string_add(StyioAnalyzer* an, BinOpAST* ast, StyioAST* lhs, StyioAST* rhs) {
+  std::optional<bool> ls = expr_is_string_hint(an, lhs);
+  std::optional<bool> rs = expr_is_string_hint(an, rhs);
+  std::optional<bool> li = expr_is_intish_hint(an, lhs);
+  std::optional<bool> ri = expr_is_intish_hint(an, rhs);
+  if ((ls && *ls) || (rs && *rs)) {
+    if ((ls && *ls && rs && *rs) || (ls && *ls && ri && *ri) || (rs && *rs && li && *li)) {
+      ast->setDType(kStringType);
+      return true;
+    }
+  }
+  return false;
+}
+
+}  // namespace
+
 void
 StyioAnalyzer::typeInfer(CommentAST* ast) {
 }
@@ -332,6 +440,10 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
   if (ast->getType().isUndefined()) {
     lhs->typeInfer(this);
     rhs->typeInfer(this);
+    if (op == StyioOpType::Binary_Add
+        && infer_concat_string_add(this, ast, lhs, rhs)) {
+      return;
+    }
     auto lhs_hint = lhs->getNodeType();
     auto rhs_hint = rhs->getNodeType();
 
@@ -565,7 +677,6 @@ StyioAnalyzer::typeInfer(ReturnAST* ast) {
 void
 StyioAnalyzer::typeInfer(FuncCallAST* ast) {
   if (not func_defs.contains(ast->getNameAsStr())) {
-    std::cout << "func " << ast->getNameAsStr() << " not exist" << std::endl;
     return;
   }
 
@@ -585,6 +696,18 @@ StyioAnalyzer::typeInfer(FuncCallAST* ast) {
         arg_types.push_back(static_cast<StringAST*>(arg)->getDataType());
       } break;
 
+      case StyioNodeType::Id: {
+        auto* nm = static_cast<NameAST*>(arg);
+        auto it = local_binding_types.find(nm->getAsStr());
+        if (it != local_binding_types.end()) {
+          arg_types.push_back(it->second);
+        }
+        else {
+          arg_types.push_back(
+            StyioDataType{StyioDataTypeOption::Integer, "i64", 64});
+        }
+      } break;
+
       default:
         break;
     }
@@ -593,7 +716,6 @@ StyioAnalyzer::typeInfer(FuncCallAST* ast) {
   auto func_args = params_of_func_def(func_defs[ast->getNameAsStr()]);
 
   if (arg_types.size() != func_args.size()) {
-    std::cout << "arg list not match" << std::endl;
     return;
   }
 
@@ -657,6 +779,48 @@ StyioAnalyzer::typeInfer(SimpleFuncAST* ast) {
 
 void
 StyioAnalyzer::typeInfer(IteratorAST* ast) {
+  auto saved = local_binding_types;
+  ast->collection->typeInfer(this);
+  StyioDataType et = infer_collection_elem_type(ast->collection);
+  if (!ast->params.empty()) {
+    local_binding_types[ast->params[0]->getNameAsStr()] = et;
+  }
+  for (auto* f : ast->following) {
+    f->typeInfer(this);
+  }
+  local_binding_types = std::move(saved);
+}
+
+void
+StyioAnalyzer::typeInfer(StreamZipAST* ast) {
+  auto saved = local_binding_types;
+  ast->getCollectionA()->typeInfer(this);
+  ast->getCollectionB()->typeInfer(this);
+  StyioDataType ea = infer_collection_elem_type(ast->getCollectionA());
+  StyioDataType eb = infer_collection_elem_type(ast->getCollectionB());
+  if (!ast->getParamsA().empty()) {
+    local_binding_types[ast->getParamsA()[0]->getNameAsStr()] = ea;
+  }
+  if (!ast->getParamsB().empty()) {
+    local_binding_types[ast->getParamsB()[0]->getNameAsStr()] = eb;
+  }
+  for (auto* f : ast->getFollowing()) {
+    f->typeInfer(this);
+  }
+  local_binding_types = std::move(saved);
+}
+
+void
+StyioAnalyzer::typeInfer(SnapshotDeclAST* ast) {
+  snapshot_var_names_.insert(ast->getVar()->getAsStr());
+  local_binding_types[ast->getVar()->getAsStr()] =
+    StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+  ast->getResource()->typeInfer(this);
+}
+
+void
+StyioAnalyzer::typeInfer(InstantPullAST* ast) {
+  ast->getResource()->typeInfer(this);
 }
 
 void
@@ -709,6 +873,7 @@ StyioAnalyzer::typeInfer(SeriesIntrinsicAST* ast) {
 
 void
 StyioAnalyzer::typeInfer(MainBlockAST* ast) {
+  snapshot_var_names_.clear();
   local_binding_types.clear();
   auto stmts = ast->getStmts();
   for (auto const& s : stmts) {

@@ -6,6 +6,7 @@
 #include <iostream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 using std::string;
 using std::unordered_map;
@@ -106,6 +107,9 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
   class RangeAST,
 
   class IteratorAST,
+  class StreamZipAST,
+  class SnapshotDeclAST,
+  class InstantPullAST,
   class IterSeqAST,
   class InfiniteLoopAST,
 
@@ -176,6 +180,10 @@ public:
   void set_post_pulse_hist_context(int region_id, SGPulsePlan* plan) {
     post_pulse_hist_region_ = region_id;
     post_pulse_hist_plan_ = plan;
+  }
+
+  bool is_snapshot_var(const std::string& s) const {
+    return snapshot_var_names_.find(s) != snapshot_var_names_.end();
   }
 
   StyioAnalyzer() {}
@@ -259,6 +267,9 @@ public:
   void typeInfer(SimpleFuncAST* ast);
   void typeInfer(InfiniteLoopAST* ast);
   void typeInfer(IteratorAST* ast);
+  void typeInfer(StreamZipAST* ast);
+  void typeInfer(SnapshotDeclAST* ast);
+  void typeInfer(InstantPullAST* ast);
   void typeInfer(IterSeqAST* ast);
   void typeInfer(MatchCasesAST* ast);
   void typeInfer(MainBlockAST* ast);
@@ -339,6 +350,9 @@ public:
   StyioIR* toStyioIR(SimpleFuncAST* ast);
   StyioIR* toStyioIR(InfiniteLoopAST* ast);
   StyioIR* toStyioIR(IteratorAST* ast);
+  StyioIR* toStyioIR(StreamZipAST* ast);
+  StyioIR* toStyioIR(SnapshotDeclAST* ast);
+  StyioIR* toStyioIR(InstantPullAST* ast);
   StyioIR* toStyioIR(IterSeqAST* ast);
   StyioIR* toStyioIR(MatchCasesAST* ast);
   StyioIR* toStyioIR(MainBlockAST* ast);
@@ -348,6 +362,7 @@ private:
   int active_series_slot_ = -1;
   int post_pulse_hist_region_ = -1;
   SGPulsePlan* post_pulse_hist_plan_ = nullptr;
+  std::unordered_set<std::string> snapshot_var_names_;
 };
 
 #endif

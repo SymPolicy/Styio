@@ -755,6 +755,92 @@ private:
   SGFileLineIter() = default;
 };
 
+class SGStreamZip : public StyioIRTraits<SGStreamZip>
+{
+public:
+  StyioIR* iterable_a = nullptr;
+  bool a_is_file = false;
+  std::string var_a;
+  StyioIR* iterable_b = nullptr;
+  bool b_is_file = false;
+  std::string var_b;
+  bool a_elem_string = false;
+  bool b_elem_string = false;
+  SGBlock* body = nullptr;
+  std::unique_ptr<SGPulsePlan> pulse_plan;
+  int pulse_region_id = -1;
+
+  static SGStreamZip* Create(
+    StyioIR* ia,
+    bool fa,
+    std::string va,
+    StyioIR* ib,
+    bool fb,
+    std::string vb,
+    bool astr,
+    bool bstr,
+    SGBlock* b
+  ) {
+    auto* z = new SGStreamZip();
+    z->iterable_a = ia;
+    z->a_is_file = fa;
+    z->var_a = std::move(va);
+    z->iterable_b = ib;
+    z->b_is_file = fb;
+    z->var_b = std::move(vb);
+    z->a_elem_string = astr;
+    z->b_elem_string = bstr;
+    z->body = b;
+    return z;
+  }
+
+  void set_pulse_plan(std::unique_ptr<SGPulsePlan> p) {
+    pulse_plan = std::move(p);
+  }
+};
+
+class SGSnapshotDecl : public StyioIRTraits<SGSnapshotDecl>
+{
+public:
+  std::string var_name;
+  StyioIR* path_expr = nullptr;
+
+  static SGSnapshotDecl* Create(std::string v, StyioIR* p) {
+    auto* x = new SGSnapshotDecl();
+    x->var_name = std::move(v);
+    x->path_expr = p;
+    return x;
+  }
+};
+
+class SGSnapshotShadowLoad : public StyioIRTraits<SGSnapshotShadowLoad>
+{
+public:
+  std::string var_name;
+
+  explicit SGSnapshotShadowLoad(std::string v) :
+      var_name(std::move(v)) {
+  }
+
+  static SGSnapshotShadowLoad* Create(std::string v) {
+    return new SGSnapshotShadowLoad(std::move(v));
+  }
+};
+
+class SGInstantPull : public StyioIRTraits<SGInstantPull>
+{
+public:
+  StyioIR* path_expr = nullptr;
+
+  explicit SGInstantPull(StyioIR* p) :
+      path_expr(p) {
+  }
+
+  static SGInstantPull* Create(StyioIR* p) {
+    return new SGInstantPull(p);
+  }
+};
+
 class SGResourceWriteToFile : public StyioIRTraits<SGResourceWriteToFile>
 {
 public:
@@ -762,13 +848,21 @@ public:
   StyioIR* path_expr = nullptr;
   bool is_auto_path = false;
   bool promote_data_to_cstr = false;
+  bool append_newline = false;
 
-  static SGResourceWriteToFile* Create(StyioIR* d, StyioIR* p, bool auto_p, bool prom) {
+  static SGResourceWriteToFile* Create(
+    StyioIR* d,
+    StyioIR* p,
+    bool auto_p,
+    bool prom,
+    bool append_nl = false
+  ) {
     auto* x = new SGResourceWriteToFile();
     x->data_expr = d;
     x->path_expr = p;
     x->is_auto_path = auto_p;
     x->promote_data_to_cstr = prom;
+    x->append_newline = append_nl;
     return x;
   }
 

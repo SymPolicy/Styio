@@ -33,6 +33,27 @@ foreach(M6FILE IN LISTS M6_STYIO_TESTS)
   set_tests_properties("m6_${M6NAME}" PROPERTIES LABELS "milestone;m6")
 endforeach()
 
+# Milestone 7 (multi-stream): `ctest -L m7` — stdout vs tests/m7/expected/*.out
+file(GLOB M7_STYIO_TESTS CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/m7/t*.styio")
+list(SORT M7_STYIO_TESTS)
+foreach(M7FILE IN LISTS M7_STYIO_TESTS)
+  get_filename_component(M7NAME ${M7FILE} NAME_WE)
+  if(M7NAME STREQUAL "t10_full_pipeline")
+    add_test(
+      NAME "m7_${M7NAME}"
+      COMMAND bash -c "rm -f /tmp/styio_doubled.txt && \"${CMAKE_SOURCE_DIR}/styio\" --file \"${M7FILE}\" && cmp -s /tmp/styio_doubled.txt \"${CMAKE_CURRENT_LIST_DIR}/m7/expected/${M7NAME}.out\""
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+  else()
+    add_test(
+      NAME "m7_${M7NAME}"
+      COMMAND bash -c "\"${CMAKE_SOURCE_DIR}/styio\" --file \"${M7FILE}\" | cmp -s - \"${CMAKE_CURRENT_LIST_DIR}/m7/expected/${M7NAME}.out\""
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+  endif()
+  set_tests_properties("m7_${M7NAME}" PROPERTIES LABELS "milestone;m7")
+endforeach()
+
 # Milestone 5 (resources & I/O): build `styio`, then `ctest -L m5` from `build/`
 set(STYIO_EXE "${CMAKE_SOURCE_DIR}/styio")
 

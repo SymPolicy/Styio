@@ -3362,6 +3362,122 @@ public:
   }
 };
 
+class StreamZipAST : public StyioASTTraits<StreamZipAST>
+{
+  StyioAST* collection_a_ = nullptr;
+  std::vector<ParamAST*> params_a_;
+  StyioAST* collection_b_ = nullptr;
+  std::vector<ParamAST*> params_b_;
+  std::vector<StyioAST*> following_;
+
+  StreamZipAST(
+    StyioAST* ca,
+    std::vector<ParamAST*> pa,
+    StyioAST* cb,
+    std::vector<ParamAST*> pb,
+    std::vector<StyioAST*> fol
+  ) :
+      collection_a_(ca),
+      params_a_(std::move(pa)),
+      collection_b_(cb),
+      params_b_(std::move(pb)),
+      following_(std::move(fol)) {
+  }
+
+public:
+  static StreamZipAST* Create(
+    StyioAST* ca,
+    std::vector<ParamAST*> pa,
+    StyioAST* cb,
+    std::vector<ParamAST*> pb,
+    StyioAST* body
+  ) {
+    std::vector<StyioAST*> fol;
+    fol.push_back(body);
+    return new StreamZipAST(ca, std::move(pa), cb, std::move(pb), std::move(fol));
+  }
+
+  StyioAST* getCollectionA() {
+    return collection_a_;
+  }
+  StyioAST* getCollectionB() {
+    return collection_b_;
+  }
+  std::vector<ParamAST*>& getParamsA() {
+    return params_a_;
+  }
+  std::vector<ParamAST*>& getParamsB() {
+    return params_b_;
+  }
+  std::vector<StyioAST*>& getFollowing() {
+    return following_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::StreamZip;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+class SnapshotDeclAST : public StyioASTTraits<SnapshotDeclAST>
+{
+  NameAST* var_ = nullptr;
+  FileResourceAST* resource_ = nullptr;
+
+  SnapshotDeclAST(NameAST* v, FileResourceAST* r) :
+      var_(v), resource_(r) {
+  }
+
+public:
+  static SnapshotDeclAST* Create(NameAST* v, FileResourceAST* r) {
+    return new SnapshotDeclAST(v, r);
+  }
+
+  NameAST* getVar() {
+    return var_;
+  }
+  FileResourceAST* getResource() {
+    return resource_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::SnapshotDecl;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+class InstantPullAST : public StyioASTTraits<InstantPullAST>
+{
+  FileResourceAST* resource_ = nullptr;
+
+  explicit InstantPullAST(FileResourceAST* r) :
+      resource_(r) {
+  }
+
+public:
+  static InstantPullAST* Create(FileResourceAST* r) {
+    return new InstantPullAST(r);
+  }
+
+  FileResourceAST* getResource() {
+    return resource_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::InstantPull;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+  }
+};
+
 class IterSeqAST : public IteratorAST
 {
 private:

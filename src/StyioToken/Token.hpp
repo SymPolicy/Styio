@@ -477,6 +477,11 @@ enum class StyioNodeType
   HistoryProbe,
   SeriesIntrinsic,
 
+  /* M7: multi-stream */
+  StreamZip,
+  SnapshotDecl,
+  InstantPull,
+
   ReadFile,
   // -----------------
 

@@ -235,6 +235,18 @@ reprASTType(StyioNodeType type, std::string extra) {
       output += std::string("iterator");
     } break;
 
+    case StyioNodeType::StreamZip: {
+      output += std::string("stream.zip");
+    } break;
+
+    case StyioNodeType::SnapshotDecl: {
+      output += std::string("snapshot.decl");
+    } break;
+
+    case StyioNodeType::InstantPull: {
+      output += std::string("instant.pull");
+    } break;
+
     case StyioNodeType::IterSeq: {
       output += std::string("iterator.sequence");
     } break;

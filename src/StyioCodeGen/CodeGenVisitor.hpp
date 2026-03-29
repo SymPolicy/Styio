@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -123,6 +124,10 @@ using StyioCodeGenVisitor = CodeGenVisitor<
 
   class SGHandleAcquire,
   class SGFileLineIter,
+  class SGStreamZip,
+  class SGSnapshotDecl,
+  class SGSnapshotShadowLoad,
+  class SGInstantPull,
   class SGResourceWriteToFile,
 
   class SGBlock,
@@ -250,6 +255,10 @@ public:
 
   llvm::Type* toLLVMType(SGHandleAcquire* node);
   llvm::Type* toLLVMType(SGFileLineIter* node);
+  llvm::Type* toLLVMType(SGStreamZip* node);
+  llvm::Type* toLLVMType(SGSnapshotDecl* node);
+  llvm::Type* toLLVMType(SGSnapshotShadowLoad* node);
+  llvm::Type* toLLVMType(SGInstantPull* node);
   llvm::Type* toLLVMType(SGResourceWriteToFile* node);
 
   // llvm::Type* toLLVMType(SGIfElse* node);
@@ -314,6 +323,10 @@ public:
 
   llvm::Value* toLLVMIR(SGHandleAcquire* node);
   llvm::Value* toLLVMIR(SGFileLineIter* node);
+  llvm::Value* toLLVMIR(SGStreamZip* node);
+  llvm::Value* toLLVMIR(SGSnapshotDecl* node);
+  llvm::Value* toLLVMIR(SGSnapshotShadowLoad* node);
+  llvm::Value* toLLVMIR(SGInstantPull* node);
   llvm::Value* toLLVMIR(SGResourceWriteToFile* node);
 
   // llvm::Value* toLLVMIR(SGIfElse* node);
@@ -339,6 +352,12 @@ private:
   llvm::Value* evaluate_arm_block_value(SGBlock* b, bool mixed_phi);
 
   std::vector<std::vector<std::string>> file_handle_scope_stack_;
+
+  std::vector<std::pair<std::string, StyioIR*>> snapshot_path_exprs_;
+  std::unordered_map<std::string, llvm::AllocaInst*> file_singleton_path_slots_;
+  std::unordered_set<std::string> file_singleton_raii_paths_;
+
+  void emit_snapshot_shadow_reload();
 
   void push_file_handle_scope();
 

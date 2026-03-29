@@ -263,6 +263,30 @@ StyioToLLVM::toLLVMType(SGFileLineIter* node) {
 }
 
 llvm::Type*
+StyioToLLVM::toLLVMType(SGStreamZip* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGSnapshotDecl* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGSnapshotShadowLoad* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGInstantPull* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
 StyioToLLVM::toLLVMType(SGResourceWriteToFile* node) {
   (void)node;
   return theBuilder->getVoidTy();

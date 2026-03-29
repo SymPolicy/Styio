@@ -780,11 +780,16 @@ StyioAnalyzer::toStyioIR(ResourceWriteAST* ast) {
   if (!fr) {
     throw StyioNotImplemented("<< target must be a file resource");
   }
+  StyioDataType dt = ast->getData()->getDataType();
+  bool is_str = dt.option == StyioDataTypeOption::String
+    || ast->getData()->getNodeType() == StyioNodeType::String;
+  bool prom = !is_str;
   return SGResourceWriteToFile::Create(
     ast->getData()->toStyioIR(this),
     fr->getPath()->toStyioIR(this),
     fr->isAutoDetect(),
-    false);
+    prom,
+    prom);
 }
 
 StyioIR*
@@ -797,7 +802,8 @@ StyioAnalyzer::toStyioIR(ResourceRedirectAST* ast) {
     ast->getData()->toStyioIR(this),
     fr->getPath()->toStyioIR(this),
     fr->isAutoDetect(),
-    true);
+    true,
+    false);
 }
 
 /*
@@ -1072,6 +1078,85 @@ StyioAnalyzer::toStyioIR(IteratorAST* ast) {
   return fe;
 }
 
+namespace {
+
+bool
+list_first_elem_is_string(StyioAST* coll) {
+  auto* L = dynamic_cast<ListAST*>(coll);
+  if (!L || L->getElements().empty()) {
+    return false;
+  }
+  return L->getElements()[0]->getNodeType() == StyioNodeType::String;
+}
+
+}  // namespace
+
+StyioIR*
+StyioAnalyzer::toStyioIR(StreamZipAST* ast) {
+  std::string va = "a";
+  std::string vb = "b";
+  if (!ast->getParamsA().empty()) {
+    va = ast->getParamsA()[0]->getNameAsStr();
+  }
+  if (!ast->getParamsB().empty()) {
+    vb = ast->getParamsB()[0]->getNameAsStr();
+  }
+  SGBlock* body = SGBlock::Create({});
+  std::unique_ptr<SGPulsePlan> pplan;
+  if (!ast->getFollowing().empty()) {
+    auto* abody = dynamic_cast<BlockAST*>(ast->getFollowing()[0]);
+    if (abody && pulse_block_has_state(this, abody)) {
+      PulseScratch scratch;
+      std::unordered_map<StyioAST*, StateDeclAST*> cache;
+      pplan = build_pulse_plan(this, abody, &scratch, cache);
+      body = lower_pulse_body(this, abody, pplan.get(), &scratch, cache);
+    }
+    else {
+      body = lower_func_body(this, ast->getFollowing()[0]);
+    }
+  }
+  StyioAST* ca = ast->getCollectionA();
+  StyioAST* cb = ast->getCollectionB();
+  bool fa = false;
+  bool fb = false;
+  StyioIR* ia = nullptr;
+  StyioIR* ib = nullptr;
+  if (ca->getNodeType() == StyioNodeType::FileResource) {
+    fa = true;
+    ia = static_cast<FileResourceAST*>(ca)->getPath()->toStyioIR(this);
+  }
+  else {
+    ia = ca->toStyioIR(this);
+  }
+  if (cb->getNodeType() == StyioNodeType::FileResource) {
+    fb = true;
+    ib = static_cast<FileResourceAST*>(cb)->getPath()->toStyioIR(this);
+  }
+  else {
+    ib = cb->toStyioIR(this);
+  }
+  bool astr = list_first_elem_is_string(ca);
+  bool bstr = list_first_elem_is_string(cb);
+  auto* z = SGStreamZip::Create(ia, fa, std::move(va), ib, fb, std::move(vb), astr, bstr, body);
+  if (pplan) {
+    z->set_pulse_plan(std::move(pplan));
+    if (z->pulse_plan && z->pulse_plan->total_bytes > 0) {
+      z->pulse_region_id = alloc_pulse_region_id();
+    }
+  }
+  return z;
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(SnapshotDeclAST* ast) {
+  return SGSnapshotDecl::Create(ast->getVar()->getAsStr(), ast->getResource()->getPath()->toStyioIR(this));
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(InstantPullAST* ast) {
+  return SGInstantPull::Create(ast->getResource()->getPath()->toStyioIR(this));
+}
+
 StyioIR*
 StyioAnalyzer::toStyioIR(IterSeqAST* ast) {
   return SGConstInt::Create(0);
@@ -1099,6 +1184,9 @@ StyioAnalyzer::toStyioIR(StateDeclAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(StateRefAST* ast) {
+  if (is_snapshot_var(ast->getNameStr())) {
+    return SGSnapshotShadowLoad::Create(ast->getNameStr());
+  }
   auto* pl = cur_pulse_plan();
   if (!pl) {
     throw StyioNotImplemented("$state only valid inside pulse body");
@@ -1192,6 +1280,12 @@ StyioAnalyzer::toStyioIR(MainBlockAST* ast) {
       if (fl->pulse_plan && fl->pulse_plan->total_bytes > 0) {
         pending_region = fl->pulse_region_id;
         pending_plan = fl->pulse_plan.get();
+      }
+    }
+    else if (auto* sz = dynamic_cast<SGStreamZip*>(ir)) {
+      if (sz->pulse_plan && sz->pulse_plan->total_bytes > 0) {
+        pending_region = sz->pulse_region_id;
+        pending_plan = sz->pulse_plan.get();
       }
     }
     ir_stmts.push_back(ir);

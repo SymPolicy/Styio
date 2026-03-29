@@ -128,6 +128,9 @@ class RangeAST;
   - Loop
 */
 class IteratorAST;
+class StreamZipAST;
+class SnapshotDeclAST;
+class InstantPullAST;
 class IterSeqAST; /* Iterator Sequence */
 class InfiniteLoopAST;
 

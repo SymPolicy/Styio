@@ -174,6 +174,13 @@ public:
     }
   }
 
+  /** Spaces only — do not cross newlines (so `b` and `(` on different lines are not a call). */
+  inline void skip_spaces_no_linebreak() {
+    while (cur_tok()->type == StyioTokenType::TOK_SPACE) {
+      this->move_forward(1, "skip_space_inline");
+    }
+  }
+
   /* check length of consecutive sequence of token */
   size_t check_seq_of(StyioTokenType type) {
     size_t start = this->index_of_token;

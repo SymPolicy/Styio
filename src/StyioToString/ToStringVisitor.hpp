@@ -97,6 +97,9 @@ using StyioToStringVisitor = ToStringVisitor<
   class RangeAST,
 
   class IteratorAST,
+  class StreamZipAST,
+  class SnapshotDeclAST,
+  class InstantPullAST,
   class IterSeqAST,
   class InfiniteLoopAST,
 
@@ -290,6 +293,12 @@ public:
 
   std::string toString(IteratorAST* ast, int indent = 0);
 
+  std::string toString(StreamZipAST* ast, int indent = 0);
+
+  std::string toString(SnapshotDeclAST* ast, int indent = 0);
+
+  std::string toString(InstantPullAST* ast, int indent = 0);
+
   std::string toString(IterSeqAST* ast, int indent = 0);
 
   std::string toString(MatchCasesAST* ast, int indent = 0);
@@ -355,6 +364,10 @@ public:
 
   std::string toString(SGHandleAcquire* node, int indent = 0);
   std::string toString(SGFileLineIter* node, int indent = 0);
+  std::string toString(SGStreamZip* node, int indent = 0);
+  std::string toString(SGSnapshotDecl* node, int indent = 0);
+  std::string toString(SGSnapshotShadowLoad* node, int indent = 0);
+  std::string toString(SGInstantPull* node, int indent = 0);
   std::string toString(SGResourceWriteToFile* node, int indent = 0);
 
   std::string toString(SIOPath* node, int indent = 0);
