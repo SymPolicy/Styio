@@ -578,12 +578,14 @@ The project uses a single top-level `CMakeLists.txt`. Source files are **explici
 
 ### 11.2 Dependencies
 
+**Authoritative list (versions, URLs, licenses, FindICU):** [`THIRD-PARTY.md`](./THIRD-PARTY.md).
+
 | Dependency | Version | Purpose |
 |------------|---------|---------|
-| LLVM | 18.1.0+ | IR generation, JIT, native target |
-| ICU | Latest | Unicode string handling |
-| GoogleTest | Fetched via CMake | Unit testing |
-| cxxopts | Vendored in `src/include/` | CLI argument parsing |
+| LLVM | 18.1.0+ (CMake) | IR generation, JIT, native target |
+| ICU | System + `FindICU.cmake` | Unicode (`uc`, `i18n`) |
+| GoogleTest | FetchContent zip in `tests/CMakeLists.txt` | Tests only (`styio_test`) |
+| cxxopts | Vendored `src/include/cxxopts.hpp` | CLI argument parsing |
 
 ### 11.3 Known Issues
 

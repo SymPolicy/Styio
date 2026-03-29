@@ -44,6 +44,7 @@ ctest --test-dir build -L milestone
 | 设计 / 实现冲突与待定决议 | `Logic-Conflicts.md` | 链接 |
 | M1–M7 路线图、依赖链、规格文件表 | `docs/milestones/<日期>/00-Milestone-Index.md` | **勿**在 history 等处平行维护同一张总表 |
 | 集成测试路径、`ctest` 命令 | `docs/tests/TEST-CATALOG.md` | 链接 |
+| **外部包 / 开源依赖清单**（LLVM、ICU、gtest、vendored） | [`THIRD-PARTY.md`](./THIRD-PARTY.md) | 与 `CMakeLists.txt`、`tests/CMakeLists.txt` 一致；新增依赖先更新该文件 |
 | **五层编译流水线** goldens（Lexer/IR/…） | `docs/tests/FIVE-LAYER-PIPELINE.md` | 与 `TEST-CATALOG` §9 交叉链接 |
 | 开发文档目录与维护准则（含本节） | `DOCUMENTATION-POLICY.md` | 链接 |
 | Agent 实现规程、禁止项、流水线 | `AGENT-SPEC.md` | 链接 |

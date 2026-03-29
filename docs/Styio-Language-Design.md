@@ -31,7 +31,7 @@ The name encodes the language's identity:
 - **Language:** C++20
 - **Backend:** LLVM 18+ (IRBuilder + ORC JIT)
 - **Parser Strategy:** Hand-written recursive descent, LL(n) with lookahead
-- **Dependencies:** LLVM, ICU (Unicode support)
+- **Dependencies:** LLVM, ICU，及测试用 GoogleTest、cxxopts 等 — **完整清单与许可** 见 [`THIRD-PARTY.md`](./THIRD-PARTY.md)。
 
 ---
 
