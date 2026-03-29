@@ -158,7 +158,7 @@ Thus **visible** `@ma20 : [|2|]` may store **only the last two published MA valu
 | Ban `$x =` for shadows in favor of `->` only | **Not implemented** — semantic rule TBD |
 | Implicit intrinsic buffers + fingerprint | **Partially** (ledger + intrinsics exist; naming may differ) |
 
-**Next step for compiler work:** milestone **M8** or **“Topology v2”** branch: lexer tokens `[|`, `|]`, multi-decl `,` before `:=`, semantic passes for root-only resources, and test port from `tests/m6`.
+**Next step for compiler work:** 执行清单、分阶段任务、全量修改点与风险登记见 **[`Resource-Topology-v2-Implementation-Plan.md`](./Resource-Topology-v2-Implementation-Plan.md)**（含开发过程 **history** 记录要求）。概要：milestone **M8** / **Topology v2** 分支 — lexer tokens `[|`, `|]`, multi-decl `,` before `:=`, semantic passes for root-only resources, 与 `tests/m6` 的迁移或双轨策略。
 
 ---
 

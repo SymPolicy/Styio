@@ -47,6 +47,7 @@ ctest --test-dir build -L milestone
 | 开发文档目录与维护准则（含本节） | `DOCUMENTATION-POLICY.md` | 链接 |
 | Agent 实现规程、禁止项、流水线 | `AGENT-SPEC.md` | 链接 |
 | Golden Cross **守则内嵌的宪法示例代码** | `AGENT-SPEC.md` §12.3 | 设计背景链到 `Styio-Resource-Topology.md` §8 |
+| Topology v2 **实施步骤、修改点矩阵、风险与记录规范** | `Resource-Topology-v2-Implementation-Plan.md` | `Styio-Resource-Topology.md` §9 仅状态表 + 链到本计划 |
 
 ---
 

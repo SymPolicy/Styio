@@ -648,6 +648,7 @@ Agents working on specific areas should consult:
 | Task | Primary Reference |
 |------|-------------------|
 | Adding syntax | `Styio-EBNF.md` (grammar), `Styio-Symbol-Reference.md` (tokens) |
+| Topology v2 (`@name : [|n|]`, `:= { driver }`, `expr -> $x`) | `Styio-Resource-Topology.md`, `Resource-Topology-v2-Implementation-Plan.md` (rollout + file matrix), `Logic-Conflicts.md` |
 | Implementing `@` propagation | `Styio-Language-Design.md` §3.4 (Undefined type) |
 | State containers `@[...]` / `$` | `Styio-Language-Design.md` §8 (State Management) |
 | Wave operators `<~` / `~>` | `Styio-Language-Design.md` §6 (Wave Operators) |
