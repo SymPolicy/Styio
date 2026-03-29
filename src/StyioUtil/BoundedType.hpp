@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 
 inline constexpr const char* kStyioBoundedRingPrefix = "bounded_ring:";
 
@@ -23,7 +24,8 @@ styio_bounded_ring_capacity(const StyioDataType& dt) {
   }
   try {
     std::size_t pos = 0;
-    unsigned long long v = std::stoull(n.substr(p.size()), &pos, 10);
+    const std::size_t prefix_len = std::string_view(kStyioBoundedRingPrefix).size();
+    unsigned long long v = std::stoull(n.substr(prefix_len), &pos, 10);
     if (pos == 0 || v == 0) {
       return std::nullopt;
     }

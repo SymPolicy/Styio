@@ -1072,6 +1072,17 @@ parse_arithmetic_expr(StyioContext& context) {
       return parse_arithmetic_tail_from_atom(context, output);
     } break;
 
+    /* Optional spellings: ?(cond) <~ t | f — same AST as (cond) <~ t | f (highlights wave condition). */
+    case StyioTokenType::TOK_QUEST: {
+      context.move_forward(1, "paren_cond?");
+      context.skip();
+      if (not context.check(StyioTokenType::TOK_LPAREN)) {
+        throw StyioSyntaxError(context.mark_cur_tok(
+          "Expected ( after ? — use ?(expr) for a parenthesized subexpression (e.g. wave merge condition)"));
+      }
+      return parse_tuple_exprs(context);
+    } break;
+
     case StyioTokenType::TOK_LPAREN: {
       return parse_tuple_exprs(context);
     } break;

@@ -19,7 +19,7 @@
 |------|------|
 | **内存布局** | 同名 `x` 在 LLVM 中由「单 i64 alloca」变为「数组 + head」；**IR dump、sizeof 类假设** 若存在会不一致。 |
 | **`named_values`** | 环绑 **不再** 把初值 SSA 塞进 `named_values`（避免绕过环槽）；仅依赖 `mutable_variables` + `bounded_ring_head_slot_`。 |
-| **`x = …`（FlexBind）** | **`x : [|n|] := v` 后再 `x = …`** 仍会走 Flex 的 **标量 alloca** 路径，与环表 **脱钩** —— **当前未支持**，需在 parser/语义层报错或统一 lowering（后续任务）。 |
+| **`x = …`（FlexBind）** | 凡 **`x` 曾用 `x : T := …`（final / fixed）绑定**，再在顶层或 `>>` / `&` 体内对 **`x` 做 flex（`=`）**，**类型检查阶段报错**（`TypeInfer.cpp`）；**仍禁止**依赖「另一套标量 alloca」偷偷更新环槽。 |
 | **`#(a : [|n|])` 形参** | `toLLVMType(SGVar)` 对环返回 **逻辑 i64**，形参槽为标量；与 **final bind 环存储** 不一致 —— **函数参数上的 `[|n|]` 仍视为占位/未完整**，仅保证 **顶层 final bind + 读取** 用例。 |
 | **极大 `n`** | `styio_bounded_ring_capacity` 拒绝 0；超大 `n` 可能导致栈过大 —— 后续应在语义层加 **上限**（与 ledger 设计对齐）。 |
 

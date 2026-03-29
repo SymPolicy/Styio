@@ -335,6 +335,7 @@ primary_expr       = identifier
                    | collection
                    | instant_pull
                    | '(' expression ')'
+                   | '?' '(' expression ')'        (* optional: same as parenthesized expr; convention for wave <~ condition *)
                    | block ;
 
 state_ref          = '$' identifier [ selector ] ;

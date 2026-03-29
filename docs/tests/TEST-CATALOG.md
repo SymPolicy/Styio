@@ -88,6 +88,7 @@ ctest --test-dir build -L milestone
 | CTest | Input | Output / Oracle | Automation |
 |-------|-------|-----------------|------------|
 | `m4_t01_wave_merge` | `tests/milestones/m4/t01_wave_merge.styio` | `tests/milestones/m4/expected/t01_wave_merge.out` | `ctest --test-dir build -R '^m4_t01_wave_merge$'` |
+| `m4_t16_wave_merge_question_cond` | `tests/milestones/m4/t16_wave_merge_question_cond.styio` | `tests/milestones/m4/expected/t16_wave_merge_question_cond.out` | `ctest --test-dir build -R '^m4_t16_wave_merge_question_cond$'` |
 | `m4_t02_wave_false` | `tests/milestones/m4/t02_wave_false.styio` | `tests/milestones/m4/expected/t02_wave_false.out` | `ctest --test-dir build -R '^m4_t02_wave_false$'` |
 | `m4_t03_wave_dispatch` | `tests/milestones/m4/t03_wave_dispatch.styio` | `tests/milestones/m4/expected/t03_wave_dispatch.out` | `ctest --test-dir build -R '^m4_t03_wave_dispatch$'` |
 | `m4_t04_dispatch_void` | `tests/milestones/m4/t04_dispatch_void.styio` | `tests/milestones/m4/expected/t04_dispatch_void.out` | `ctest --test-dir build -R '^m4_t04_dispatch_void$'` |
@@ -165,8 +166,11 @@ ctest --test-dir build -L milestone
 |-------|-------|-----------------|------------|
 | `m8_t01_bounded_final_bind` | `tests/milestones/m8/t01_bounded_final_bind.styio` | `tests/milestones/m8/expected/t01_bounded_final_bind.out` | `ctest --test-dir build -R '^m8_t01_bounded_final_bind$'` |
 | `m8_t02_bounded_read` | `tests/milestones/m8/t02_bounded_read.styio` | `tests/milestones/m8/expected/t02_bounded_read.out` | `ctest --test-dir build -R '^m8_t02_bounded_read$'` |
+| `m8_t14_flex_other_var_after_final_ok` | `tests/milestones/m8/t14_flex_other_var_after_final_ok.styio` | `tests/milestones/m8/expected/t14_flex_other_var_after_final_ok.out` | `ctest --test-dir build -R '^m8_t14'` |
 
-**说明：** `[|n|]` 在 **final bind** 下生成 **`[n x i64]` + head**（读路径见 `CodeGenG.cpp`）；**Flex 再赋值、`#` 形参环语义** 仍不完整，见 [`docs/BoundedRing-Codegen-Adjustment.md`](../BoundedRing-Codegen-Adjustment.md)。
+**Final 后禁止同名 Flex（语义失败用例，无 golden）：** `tests/milestones/m8/e01`–`e10`，CTest 名 `m8_err_e01_…` … `m8_err_e10_…`（标签 **`m8_semantic`**）。`ctest --test-dir build -L m8_semantic`。
+
+**说明：** `[|n|]` 在 **final bind** 下生成 **`[n x i64]` + head**；**已对 `x` 使用 `:=` 后再写 `x = …`** 在 **typeInfer** 报错；`#` 形参环语义仍不完整，见 [`docs/BoundedRing-Codegen-Adjustment.md`](../BoundedRing-Codegen-Adjustment.md)。
 
 **整组：** `ctest --test-dir build -L m8`
 

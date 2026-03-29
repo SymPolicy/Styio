@@ -38,6 +38,19 @@ styio_stdout_golden_test(m4 "t*.styio" m4)
 styio_stdout_golden_test(m6 "t*.styio" m6)
 styio_stdout_golden_test(m8 "t*.styio" m8)
 
+# M8 semantic failures: compilation must abort (e*.styio)
+file(GLOB M8_FAIL_TESTS CONFIGURE_DEPENDS "${STYIO_MS}/m8/e*.styio")
+list(SORT M8_FAIL_TESTS)
+foreach(_F IN LISTS M8_FAIL_TESTS)
+  get_filename_component(_ENAME ${_F} NAME_WE)
+  add_test(
+    NAME "m8_err_${_ENAME}"
+    COMMAND bash -c "if \"${STYIO_EXE}\" --file \"${_F}\"; then exit 1; else exit 0; fi"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  )
+  set_tests_properties("m8_err_${_ENAME}" PROPERTIES LABELS "milestone;m8;m8_semantic")
+endforeach()
+
 # --- M5: stdout goldens + special file / exit-code cases ---
 add_test(
   NAME m5_t01_read_file

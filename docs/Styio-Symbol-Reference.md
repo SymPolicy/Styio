@@ -61,7 +61,7 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | Symbol | Name | C++ Token Kind | Semantics |
 |--------|------|----------------|-----------|
 | `?=` | Pattern Match | `TOK_MATCH` | Trigger pattern matching block |
-| `?(expr)` | Guard / Valve | `TOK_QUESTION` + `(` | Conditional filter on stream pipeline |
+| `?(expr)` | Guard / Paren marker | `TOK_QUEST` + `(` | **After `[...]` infinite:** `? (expr) >>` → conditioned loop (`InfiniteLoopAST`). **In a normal `primary_expr`:** same as `(expr)`; optional style before `<~` wave merge condition. |
 | `=>` | Map / Then | `TOK_FAT_ARROW` | Connects pattern/param to result/body |
 | `^` ... `^^^^` | Break | `BREAK_TOKEN(n)` | Exit `n` levels of enclosing loops |
 | `>>` ... `>>>>` | Continue | `CONTINUE_TOKEN(n)` | Skip to next iteration, `n-1` levels up |
@@ -140,6 +140,7 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | `[<<, n]` inside brackets | History probe selector |
 | `(<< @res)` in parens | Instant pull |
 | `<~` | Wave merge (always 2-char token) |
+| `?( ... )` then `<~` | Same as `( ... ) <~`; lexer sees `?` + `(` | Parser: `TOK_QUEST` at expression start requires `(`; body matches `parse_tuple_exprs`. |
 | `~>` | Wave dispatch (always 2-char token) |
 | `^` contiguous | Break (count = number of `^`) |
 | `^^ ^^` with space | **Illegal** — two separate breaks, rejected by parser |

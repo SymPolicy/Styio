@@ -14,6 +14,7 @@
 
 // [Styio]
 #include "../StyioAST/AST.hpp"
+#include "../StyioException/Exception.hpp"
 #include "../StyioToken/Token.hpp"
 #include "Util.hpp"
 
@@ -206,6 +207,13 @@ StyioAnalyzer::typeInfer(OptKwArgAST* ast) {
 */
 void
 StyioAnalyzer::typeInfer(FlexBindAST* ast) {
+  const std::string& bound_name = ast->getNameAsStr();
+  if (fixed_assignment_names_.count(bound_name) != 0) {
+    throw StyioSyntaxError(
+      "variable `" + bound_name + "` was defined with `:=` (fixed assignment); "
+      "cannot reassign with `=` (flex bind). Use a different name.");
+  }
+
   auto var_type = ast->getVar()->getDType()->type;
 
   if (var_type.option != StyioDataTypeOption::Undefined) {
@@ -257,6 +265,7 @@ StyioAnalyzer::typeInfer(FinalBindAST* ast) {
     ast->getValue()->typeInfer(this);
   }
   local_binding_types[ast->getVar()->getNameAsStr()] = vt;
+  fixed_assignment_names_.insert(ast->getVar()->getNameAsStr());
 }
 
 void
@@ -780,6 +789,7 @@ StyioAnalyzer::typeInfer(SimpleFuncAST* ast) {
 void
 StyioAnalyzer::typeInfer(IteratorAST* ast) {
   auto saved = local_binding_types;
+  auto saved_fixed = fixed_assignment_names_;
   ast->collection->typeInfer(this);
   StyioDataType et = infer_collection_elem_type(ast->collection);
   if (!ast->params.empty()) {
@@ -789,11 +799,13 @@ StyioAnalyzer::typeInfer(IteratorAST* ast) {
     f->typeInfer(this);
   }
   local_binding_types = std::move(saved);
+  fixed_assignment_names_ = std::move(saved_fixed);
 }
 
 void
 StyioAnalyzer::typeInfer(StreamZipAST* ast) {
   auto saved = local_binding_types;
+  auto saved_fixed = fixed_assignment_names_;
   ast->getCollectionA()->typeInfer(this);
   ast->getCollectionB()->typeInfer(this);
   StyioDataType ea = infer_collection_elem_type(ast->getCollectionA());
@@ -808,6 +820,7 @@ StyioAnalyzer::typeInfer(StreamZipAST* ast) {
     f->typeInfer(this);
   }
   local_binding_types = std::move(saved);
+  fixed_assignment_names_ = std::move(saved_fixed);
 }
 
 void
@@ -875,6 +888,7 @@ void
 StyioAnalyzer::typeInfer(MainBlockAST* ast) {
   snapshot_var_names_.clear();
   local_binding_types.clear();
+  fixed_assignment_names_.clear();
   auto stmts = ast->getStmts();
   for (auto const& s : stmts) {
     s->typeInfer(this);

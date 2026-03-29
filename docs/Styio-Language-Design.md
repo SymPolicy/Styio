@@ -223,6 +223,7 @@ Wave operators replace ternary expressions and if/else chains with **directional
 
 ```
 val = (a > b) <~ a | b
+val = ?(a > b) <~ a | b   // equivalent; ? marks the Boolean condition for readability
 ```
 
 Read as: "If condition holds, wave toward `a`; otherwise fall back to `|` value `b`."

@@ -363,6 +363,8 @@ private:
   int post_pulse_hist_region_ = -1;
   SGPulsePlan* post_pulse_hist_plan_ = nullptr;
   std::unordered_set<std::string> snapshot_var_names_;
+  /* Names bound by final assignment (x : T := …); may not be reassigned via flex (=). */
+  std::unordered_set<std::string> fixed_assignment_names_;
 };
 
 #endif
