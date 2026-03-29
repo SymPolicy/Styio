@@ -1,5 +1,7 @@
 # Styio Formal Grammar (EBNF)
 
+**文档作用：** 词法与语法的 **EBNF 权威定义**；资源拓扑相关附录与叙述以 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md) 为准，语义细节以 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 为准。
+
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
 **Parser Strategy:** LL(n) Recursive Descent with Maximal Munch Lexing

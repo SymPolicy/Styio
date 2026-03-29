@@ -1,6 +1,8 @@
 # Styio — Agent Development Specification
 
-**Version:** 1.0  
+**文档作用：** 约束 AI 与人类贡献者在 **编译器实现、测试与文档交叉引用** 上的操作规程与禁止项；**语言权威语义**仍以 `Styio-Language-Design.md`、`Styio-EBNF.md` 为准。文档目录与「最小改动 / SSOT」准则见 `DOCUMENTATION-POLICY.md` §0。
+
+**Version:** 1.1  
 **Date:** 2026-03-28  
 **Authority:** This document governs all AI agents and human contributors working on the Styio compiler. Agents MUST read this file before making any changes.
 
@@ -53,6 +55,8 @@ Before making any language-level change, agents MUST read:
 - `docs/Styio-StdLib-Intrinsics.md` — Standard library algorithms
 - `docs/Styio-Resource-Driver.md` — Resource driver interface
 - `docs/Styio-Research-Innovations.md` — Research novelty points (do not break these)
+- `docs/DOCUMENTATION-POLICY.md` — Doc layout, **§0** maintenance (minimal change, three-doc SSOT), history/milestones/test-catalog rules
+- `docs/tests/TEST-CATALOG.md` — Functional test map (inputs, oracles, `ctest` commands)
 
 ---
 
@@ -68,12 +72,16 @@ Styio/
 │
 ├── docs/                       # Language design & specs (Markdown)
 │   ├── AGENT-SPEC.md           # THIS FILE
+│   ├── DOCUMENTATION-POLICY.md # History / milestones / test-doc layout (dated + automatable)
 │   ├── Styio-Language-Design.md
 │   ├── Styio-EBNF.md
 │   ├── Styio-Symbol-Reference.md
 │   ├── Styio-StdLib-Intrinsics.md
 │   ├── Styio-Resource-Driver.md
 │   ├── Styio-Research-Innovations.md
+│   ├── history/                # docs/history/YYYY-MM-DD.md — daily dev notes
+│   ├── milestones/             # docs/milestones/YYYY-MM-DD/ — frozen milestone specs
+│   ├── tests/                  # TEST-CATALOG.md — functional map to CTest + fixtures
 │   └── idea.md                 # Early design sketches
 │
 ├── src/                        # Compiler source code
@@ -534,21 +542,15 @@ Every change MUST include tests for:
 
 ### 10.2 Test File Organization
 
-Place test fixtures in the appropriate subdirectory under `tests/parsing/`:
+**Milestone acceptance tests** live under `tests/milestones/m{1..7}/`:
 
-```
-tests/parsing/
-├── wave_operators/          # <~ and ~> tests
-│   ├── 00001.styio
-│   └── 00002.styio
-├── state_containers/        # @[...] and $var tests
-│   ├── 00001.styio
-│   └── 00002.styio
-├── stream_sync/             # & (zip) and << (snapshot) tests
-...
-```
+- Source: `t*.styio`
+- **Stdout oracle:** `expected/<same_basename>.out` (compared via `styio --file … | cmp -s - …` in CMake)
+- **Registration:** `tests/CMakeLists.txt` (`add_test` + labels `milestone`, `m1`…`m7`)
 
-Naming: `NNNNN.styio` where N is a zero-padded sequential number. Use `extend_tests.py` to generate new files.
+**Human-readable index:** `docs/tests/TEST-CATALOG.md` (must list **input**, **oracle** or side-effect path, and **`ctest -R` / `-L`**). When you add a fixture, update both CMake and the catalog.
+
+**Ad-hoc parsing/scaffolding** may still use `extend_tests.py` and numbered files under `tests/parsing/` if present; do not use that layout for milestone regressions unless those tests are also wired into CTest.
 
 ### 10.3 GoogleTest
 
@@ -610,7 +612,7 @@ All documentation is Markdown. Use:
 
 ### 12.3 Code Examples in Docs
 
-When showing Styio code examples, use the canonical "Golden Cross" strategy as the reference example:
+When showing Styio code examples, use the canonical "Golden Cross" strategy as the reference example. **Design-level topology and narrative** for this pattern: [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md) §8 (SSOT for that story; this subsection keeps the **inline constitution** snippet for agents).
 
 ```
 @binance{"BTCUSDT"} >> #(p) => {
@@ -628,6 +630,14 @@ When showing Styio code examples, use the canonical "Golden Cross" strategy as t
 ```
 
 This is the "constitution" — any syntax change that breaks this example must be explicitly justified.
+
+### 12.4 Development history, milestones, and test documentation
+
+Follow `docs/DOCUMENTATION-POLICY.md` (including **§0** — minimal change, three-doc SSOT rule, doc-purpose lines):
+
+- **Progress and lessons learned:** `docs/history/YYYY-MM-DD.md` (one file per calendar day or same-day append), with **Last updated** in the header.
+- **Milestone specs:** `docs/milestones/<YYYY-MM-DD>/` (e.g. `docs/milestones/2026-03-29/00-Milestone-Index.md`).
+- **Test catalog:** `docs/tests/TEST-CATALOG.md` — group by **functional area**; each row must be reproducible with **CTest** (and document stdin/stdout/files).
 
 ---
 
@@ -678,7 +688,7 @@ Agents MUST NOT:
 
 ### Current Milestone
 
-Agents must work on the **current active milestone** and not skip ahead. See `docs/milestones/00-Milestone-Index.md` for the full roadmap. Each milestone document (`M1-Foundation.md` through `M7-MultiStream.md`) defines:
+Agents must work on the **current active milestone** and not skip ahead. See `docs/milestones/2026-03-29/00-Milestone-Index.md` (and `docs/milestones/README.md` for other dated trees) for the full roadmap. Each milestone document (`M1-Foundation.md` through `M7-MultiStream.md`) defines:
 
 - **Acceptance tests** — the FIRST thing to read; defines success
 - **Implementation tasks** — ordered by dependency, assigned to roles
@@ -715,17 +725,18 @@ If two agents propose conflicting changes to the same file:
 ## Appendix A: Quick-Start Checklist for New Agents
 
 1. Read this file (`AGENT-SPEC.md`) completely
-2. Read `Styio-Language-Design.md` for the full language picture
-3. Read `Styio-Symbol-Reference.md` to understand the symbol system
-4. Examine `src/main.cpp` to understand the pipeline flow
-5. Examine `src/StyioToken/Token.hpp` for token/node type enums
-6. Examine `src/StyioAST/AST.hpp` for the AST class pattern
-7. Run the compiler on a test file with `--all` to see all stages
-8. Make your change
-9. Run `clang-format` on modified files
-10. Verify all existing tests still pass
-11. Add new tests for your change
-12. Update documentation if your change affects language syntax or semantics
+2. Read `DOCUMENTATION-POLICY.md` and `docs/tests/TEST-CATALOG.md` for where to log work and how tests are named
+3. Read `Styio-Language-Design.md` for the full language picture
+4. Read `Styio-Symbol-Reference.md` to understand the symbol system
+5. Examine `src/main.cpp` to understand the pipeline flow
+6. Examine `src/StyioToken/Token.hpp` for token/node type enums
+7. Examine `src/StyioAST/AST.hpp` for the AST class pattern
+8. Run the compiler on a test file with `--all` to see all stages
+9. Make your change
+10. Run `clang-format` on modified files
+11. Verify all existing tests still pass (`ctest --test-dir build -L milestone` plus `styio_test` when the build allows)
+12. Add new tests for your change; register in `tests/CMakeLists.txt` and `docs/tests/TEST-CATALOG.md`
+13. Update `docs/history/YYYY-MM-DD.md` for non-trivial work; update design docs if syntax or semantics change
 
 ## Appendix B: Compilation Pipeline Debug Flags
 

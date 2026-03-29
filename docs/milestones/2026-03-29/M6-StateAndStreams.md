@@ -1,5 +1,7 @@
 # Milestone 6: State Containers, Intrinsics & Frame Lock
 
+**文档作用：** M6 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。Golden Cross **设计叙述**见 [`Styio-Resource-Topology.md`](../../Styio-Resource-Topology.md) §8。
+
 **Depends on:** M5 (Resources & I/O)  
 **Goal:** State containers (`@[n]`, `@[var=init]`), shadow references (`$var`), history probes (`[<<,n]`), pulse frame lock, anonymous ledger, and compiler intrinsics (`[avg,n]`, `[max,n]`) work end-to-end. The Golden Cross strategy compiles and runs with mock data.
 

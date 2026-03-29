@@ -1,5 +1,7 @@
 # Milestone 7: Multi-Stream Synchronization & Resource Drivers
 
+**文档作用：** M7 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。
+
 **Depends on:** M6 (State & Streams)  
 **Goal:** Stream zip (`&`), snapshot pull (`@[v] << @res`, `(<< @res)`), multi-threaded driver runtime, and a complete cross-source strategy compile and execute.
 

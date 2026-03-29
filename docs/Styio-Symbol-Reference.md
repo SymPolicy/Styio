@@ -1,5 +1,7 @@
 # Styio Symbol Reference
 
+**文档作用：** 各符号的 **lexer token 名与物理含义速查表**；完整语义与章节论证见 [`Styio-Language-Design.md`](./Styio-Language-Design.md)。实现 `enum class TokenKind` 时以本文与 EBNF 对照。
+
 **Version:** 1.0-draft  
 **Date:** 2026-03-28
 

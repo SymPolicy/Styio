@@ -4,6 +4,8 @@
 **Supersedes (narratively):** informal “parentheses around state” style `@[n](name = …)` as the *preferred* mental model for new code; the **running codebase** still uses M6-era syntax until a migration milestone.  
 **See also:** [`Styio-EBNF.md`](./Styio-EBNF.md) (Appendix: Topology v2), [`Logic-Conflicts.md`](./Logic-Conflicts.md).
 
+**文档作用：** `@` 三角色、有界缓冲、`:=` 驱动、影子写入 **`->`** 等 **目标资源拓扑** 的单一叙述；与当前编译器差异见 [`Logic-Conflicts.md`](./Logic-Conflicts.md)。Golden Cross **设计级**示例见 §8；**agent 宪法内嵌代码**仍归 [`AGENT-SPEC.md`](./AGENT-SPEC.md) §12.3。
+
 ---
 
 ## 1. Why this document exists

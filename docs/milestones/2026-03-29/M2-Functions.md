@@ -1,5 +1,7 @@
 # Milestone 2: Functions — Define, Call, Return
 
+**文档作用：** M2 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。
+
 **Depends on:** M1 (Foundation)  
 **Goal:** Users can define named functions with typed parameters, call them, and use their return values.
 

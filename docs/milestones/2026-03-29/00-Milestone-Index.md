@@ -1,7 +1,12 @@
 # Styio Development Milestones — Index
 
+**文档作用：** 本批（`2026-03-29/`）里程碑的 **总索引**：M1–M7 目标、依赖链、各 `M*.md` 路径及与设计文档的链接；**不**替代各 `M*-*.md` 中的验收细则。
+
 **Date:** 2026-03-28  
+**Last updated:** 2026-03-28  
 **Methodology:** Test-Case Driven Development. Every milestone defines its acceptance tests FIRST.
+
+**Documentation policy:** [`docs/DOCUMENTATION-POLICY.md`](../DOCUMENTATION-POLICY.md) — history by date under `docs/history/`, milestones by date under `docs/milestones/<YYYY-MM-DD>/`, test index [`docs/tests/TEST-CATALOG.md`](../tests/TEST-CATALOG.md) with automatable `ctest` commands.
 
 **Ambiguities:** See [`docs/Logic-Conflicts.md`](../Logic-Conflicts.md) for overloaded symbols, milestone ordering tensions, and gaps between design and the current compiler.
 
@@ -68,7 +73,7 @@ Each milestone builds on the previous one. No milestone may break tests from ear
 | **Parser Agent** | Recursive descent parser, AST node definitions | Parser.cpp, AST.hpp, ASTDecl.hpp |
 | **Analyzer Agent** | Type inference, semantic checks, IR lowering | TypeInfer.cpp, ToStyioIR.cpp, ASTAnalyzer.hpp |
 | **CodeGen Agent** | LLVM IR generation, JIT execution | CodeGen*.cpp, GetType*.cpp, CodeGenVisitor.hpp |
-| **Test Agent** | Write .styio test fixtures, GoogleTest cases, verify output | tests/, styio_test.cpp |
+| **Test Agent** | Write .styio test fixtures, GoogleTest cases, verify output | `tests/milestones/`, `tests/CMakeLists.txt`, `docs/tests/TEST-CATALOG.md`, `styio_test.cpp` |
 | **Doc Agent** | Keep design docs and AGENT-SPEC in sync with changes | docs/ |
 
 Multiple roles may be filled by the same agent. All agents must follow `docs/AGENT-SPEC.md`.

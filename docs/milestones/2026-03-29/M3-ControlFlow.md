@@ -1,5 +1,7 @@
 # Milestone 3: Control Flow — Match, Loops, Break, Continue
 
+**文档作用：** M3 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。
+
 **Depends on:** M2 (Functions)  
 **Goal:** Pattern matching (`?=`), infinite loops (`[...]`), conditional loops (`[...] ?(cond) >>`), break (`^^`), and continue (`>>`) work end-to-end.
 

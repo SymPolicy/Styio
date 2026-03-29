@@ -1,5 +1,7 @@
 # Styio Standard Library — Compiler Intrinsics Specification
 
+**文档作用：** 编译器内建 **`[op, n]`** 等算法的规范（行为、复杂度、`@` 处理、代码生成提示）；**不**重复语言总语义（见 `Styio-Language-Design.md`）。
+
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
 **Target Audience:** Compiler developers, LLVM CodeGen implementors, quantitative strategy researchers

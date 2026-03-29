@@ -1,5 +1,7 @@
 # Styio — Logic Conflicts & Open Resolutions
 
+**文档作用：** **唯一**记录设计文档、里程碑、编译器实现与讨论之间 **矛盾与待定决议** 的清单；**不**承担完整语言教学（见 `Styio-Language-Design.md`）。
+
 **Version:** 1.0  
 **Date:** 2026-03-28  
 **Purpose:** Single place to record contradictions between design docs, milestones, the existing compiler, and informal discussions. Resolving these is prerequisite to a coherent implementation.

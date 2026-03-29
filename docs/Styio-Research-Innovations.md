@@ -1,5 +1,7 @@
 # Styio — Research Innovation Points & Paper Roadmap
 
+**文档作用：** 论文向 **创新主张与路线图**；**不**作为语言实现或语义的规范依据（实现见 `AGENT-SPEC.md`，语义见 `Styio-Language-Design.md`）。
+
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
 **Target Venues:** PLDI, OOPSLA, POPL, EuroSys, VLDB (systems track)

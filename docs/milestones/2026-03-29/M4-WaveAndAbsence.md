@@ -1,5 +1,7 @@
 # Milestone 4: Wave Operators & Algebraic Absence
 
+**文档作用：** M4 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。
+
 **Depends on:** M3 (Control Flow)  
 **Goal:** Conditional routing (`<~`, `~>`), the `@` (Undefined) value, `@` propagation algebra, `|` fallback, and `??` diagnostic extraction work end-to-end.
 
