@@ -1,25 +1,23 @@
-# Artifact layout and locale parity / 制品布局与语言树镜像
+# 制品布局与语言树镜像
 
-### English
+**权威性：** 约定本套件的目录组织方式。`en/` 与 `zh-CN/` **相对路径与文件名一致**（镜像）。每个语言树内各有独立 **`global/`**。
 
-**Authority:** Defines kit organization. Copies under `en/` and `zh-CN/` must keep **the same relative paths and filenames** (mirror). **Global norms** live at **`en/global/`** and **`zh-CN/global/`** (duplicate content).
-
-#### Kit root / 套件根目录
+## 套件根目录
 
 ```
 templates/universal-design-dev-workflow/
-├── ENTRY.md          # Bilingual entry + bootstrap prompts / 双语入口与启动提示词
-├── README.md         # Pointer to ENTRY / 指向 ENTRY
-├── en/               # Locale tree A (mirror) / 语言树 A（镜像）
-│   └── global/       # Global conventions copy 1 / 全局规约副本一
-└── zh-CN/            # Locale tree B (mirror) / 语言树 B（镜像）
-    └── global/       # Global conventions copy 2 / 全局规约副本二
+├── ENTRY.md
+├── README.md
+├── en/
+│   └── global/
+└── zh-CN/
+    └── global/
 ```
 
-#### Within each locale folder / 每个语言根目录内
+## 本语言树内（`zh-CN/`）
 
 ```
-<locale>/
+zh-CN/
 ├── global/
 ├── README.md
 ├── WORKFLOW-MAP.md
@@ -29,21 +27,16 @@ templates/universal-design-dev-workflow/
 ├── OPEN-QUESTIONS-AND-HUMAN-INPUT.md
 ├── THIRD-PARTY.md
 ├── architecture/
-│   └── ADR.template.md
 ├── milestones/
-│   ├── README.md
-│   └── _template/
 ├── tests/
-│   └── TEST-CATALOG.template.md
 ├── history/
-│   └── *.template.md
 └── prompts/
 ```
 
-#### Stable artifact IDs / 稳定制品 ID（概念层）
+## 稳定制品 ID
 
-| ID | Typical file / 典型文件 |
-|----|-------------------------|
+| ID | 典型文件 |
+|----|----------|
 | `WORKFLOW_MAP` | `WORKFLOW-MAP.md` |
 | `DOC_POLICY` | `DOCUMENTATION-POLICY.md` |
 | `CONTRIBUTOR_SPEC` | `CONTRIBUTOR-AND-AGENT-SPEC.md` |
@@ -56,14 +49,12 @@ templates/universal-design-dev-workflow/
 | `HISTORY_DAY` | `history/YYYY-MM-DD.md` |
 | `ADR` | `architecture/ADR-NNNN-*.md` |
 
-#### Adoption patterns / 落地模式
+## 落地模式
 
-**English:** (A) Copy **either** `en/*` **or** `zh-CN/*` into `docs/`; include that tree’s `global/`. (B) Bilingual product docs: mirror both trees under `docs/en/` and `docs/zh-CN/`. (C) Keep kit as submodule; open root `ENTRY.md`.
+| 模式 | 说明 |
+|------|------|
+| A | 将 `zh-CN/`（含 `global/`）复制到产品仓 `docs/`。 |
+| B | 在产品仓并行维护 `docs/zh-CN/` 与 `docs/en/`。 |
+| C | 以子模块等形式保留套件；从根目录 `ENTRY.md` 进入。 |
 
-**简体中文：** (A) 将 **`en/` 或 `zh-CN/` 整树**复制到目标仓 `docs/`（含该树的 `global/`）。(B) 双语产品库：在 `docs/en/` 与 `docs/zh-CN/` 下镜像两棵树。(C) 套件作子模块：贡献者从根目录 `ENTRY.md` 进入。
-
-Cross-links in templates assume the **locale folder** is the doc root / 模板内链假设**语言根目录**即文档根。
-
-### 简体中文（概要）
-
-上文英文已含技术细节表与目录树；**权威英文与中文语义一致**。维护时两棵树 `en/` 与 `zh-CN/` 文件名与章节结构应保持镜像；`global/` 两份文件内容建议保持同步。
+模板内链假设**本语言根目录**即文档根。

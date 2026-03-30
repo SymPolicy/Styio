@@ -1,9 +1,3 @@
-# Prompt: WORKFLOW-MAP / 提示词：工作流地图
+# 提示词：工作流地图
 
-### English
-
-Produce a **bilingual** phased workflow (EN + 简体中文): ≥6 phases with inputs/outputs/gates; one Mermaid graph; link `global/SSOT-AND-MAINTENANCE-RULES.md`. Avoid stack-specific commands unless requested.
-
-### 简体中文
-
-生成**中英双语**阶段化工作流：至少 6 阶段，含输入/产出/门禁；一幅 Mermaid；链接 `global/SSOT-AND-MAINTENANCE-RULES.md`。除非用户要求，不写特定技术栈命令。
+生成**仅简体中文**的阶段化工作流 Markdown：至少 6 个阶段，每阶段含输入、产出、门禁；附一幅 Mermaid 制品图；链接 `global/SSOT-AND-MAINTENANCE-RULES.md`。除非用户要求，不写具体技术栈命令。

@@ -1,55 +1,44 @@
-# Open questions and human input / 开放问题与人类输入
+# 开放问题与人类输入
 
-### English
+**文档作用：** 仅收录需人决策或尚不可知项。关闭后迁入 `DOMAIN-OR-PRODUCT-SPEC.md`、ADR 或里程碑正文。
 
-**Purpose:** Track items needing people or unknowns. Move closures to domain spec, ADR, or milestones. **Last updated:** (fork). **Maintainers:** one row per question; archive when resolved.
+**Last updated：** （分叉时填写）
 
-Sections **A–E:** Product; architecture; compliance/third parties; milestones; testing/release. Section **F:** Resolved archive.
+**维护：** 每题一行；已解决条目移至 F 节并写指针。
 
-Automation hitting **BLOCKING** rows in A–E should pause dependent work and echo IDs.
+若实现依赖某条且该条为 **BLOCKING**，自动化应暂停并输出题号。
 
-### 简体中文
+## A. 产品与范围
 
-**文档作用：** 仅收录**需人决策**或**尚不可知**项；关闭后迁入域规格、ADR 或里程碑。**Last updated：** （分叉）。**维护：** 每题一行；解决后归档。
-
-**A–E 分区：** 产品与范围；架构与质量；合规与第三方；里程碑与顺序；测试与发布。**F：** 已解决归档。
-
-自动化遇 A–E 中 **BLOCKING** 且实现依赖该项时，应**暂停**并输出 ID。
-
----
-
-## A. Product and scope / A. 产品与范围
-
-| ID | Question | Owner | Due / review | Notes |
-|----|----------|-------|--------------|-------|
+| ID | 问题 | 负责人 | 复审日期 | 备注 |
+|----|------|--------|----------|------|
 | Q-001 | | | | |
 
-## B. Architecture and quality / B. 架构与质量
+## B. 架构与质量
 
-| ID | Question | Owner | Due / review | Notes |
-|----|----------|-------|--------------|-------|
+| ID | 问题 | 负责人 | 复审日期 | 备注 |
+|----|------|--------|----------|------|
 | Q-002 | | | | |
 
-## C. Compliance and third parties / C. 合规与第三方
+## C. 合规与第三方
 
-| ID | Question | Owner | Due / review | Notes |
-|----|----------|-------|--------------|-------|
+| ID | 问题 | 负责人 | 复审日期 | 备注 |
+|----|------|--------|----------|------|
 | Q-003 | | | | |
 
-## D. Milestones / D. 里程碑
+## D. 里程碑
 
-| ID | Question | Owner | Due / review | Notes |
-|----|----------|-------|--------------|-------|
+| ID | 问题 | 负责人 | 复审日期 | 备注 |
+|----|------|--------|----------|------|
 | Q-004 | | | | |
 
-## E. Testing and release / E. 测试与发布
+## E. 测试与发布
 
-| ID | Question | Owner | Due / review | Notes |
-|----|----------|-------|--------------|-------|
+| ID | 问题 | 负责人 | 复审日期 | 备注 |
+|----|------|--------|----------|------|
 | Q-005 | | | | |
 
-## F. Resolved / F. 已解决
+## F. 已解决
 
-| ID | Resolution | Date | Pointer |
-|----|------------|------|---------|
-| | | | |
+| ID | 决议摘要 | 日期 | 指针 |
+|----|----------|------|------|

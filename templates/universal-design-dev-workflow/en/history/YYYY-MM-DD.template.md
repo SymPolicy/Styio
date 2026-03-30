@@ -1,17 +1,15 @@
-# Development log / 开发记录 — YYYY-MM-DD
+# Development log — YYYY-MM-DD
 
-**Last updated / 更新：** YYYY-MM-DD
+**Last updated:** YYYY-MM-DD
 
----
+## Summary
 
-## Summary / 摘要
+## Decisions
 
-## Decisions / 决议
+## Implementation notes
 
-## Implementation notes / 实现笔记
+## Links
 
-## Links / 链接
-
-- Commits / 提交:  
-- Milestones / 里程碑:  
-- Spec / 规格:  
+- Commits:  
+- Milestones:  
+- Spec sections:  

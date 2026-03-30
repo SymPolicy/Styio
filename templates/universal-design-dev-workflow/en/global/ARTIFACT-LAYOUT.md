@@ -1,25 +1,23 @@
-# Artifact layout and locale parity / 制品布局与语言树镜像
+# Artifact layout and locale parity
 
-### English
+**Authority:** Kit organization. The `en/` and `zh-CN/` trees use the **same relative paths and filenames** (mirror). Each tree contains its own **`global/`** folder.
 
-**Authority:** Defines kit organization. Copies under `en/` and `zh-CN/` must keep **the same relative paths and filenames** (mirror). **Global norms** live at **`en/global/`** and **`zh-CN/global/`** (duplicate content).
-
-#### Kit root / 套件根目录
+## Kit root
 
 ```
 templates/universal-design-dev-workflow/
-├── ENTRY.md          # Bilingual entry + bootstrap prompts / 双语入口与启动提示词
-├── README.md         # Pointer to ENTRY / 指向 ENTRY
-├── en/               # Locale tree A (mirror) / 语言树 A（镜像）
-│   └── global/       # Global conventions copy 1 / 全局规约副本一
-└── zh-CN/            # Locale tree B (mirror) / 语言树 B（镜像）
-    └── global/       # Global conventions copy 2 / 全局规约副本二
+├── ENTRY.md
+├── README.md
+├── en/
+│   └── global/
+└── zh-CN/
+    └── global/
 ```
 
-#### Within each locale folder / 每个语言根目录内
+## Inside this locale folder (`en/`)
 
 ```
-<locale>/
+en/
 ├── global/
 ├── README.md
 ├── WORKFLOW-MAP.md
@@ -29,21 +27,16 @@ templates/universal-design-dev-workflow/
 ├── OPEN-QUESTIONS-AND-HUMAN-INPUT.md
 ├── THIRD-PARTY.md
 ├── architecture/
-│   └── ADR.template.md
 ├── milestones/
-│   ├── README.md
-│   └── _template/
 ├── tests/
-│   └── TEST-CATALOG.template.md
 ├── history/
-│   └── *.template.md
 └── prompts/
 ```
 
-#### Stable artifact IDs / 稳定制品 ID（概念层）
+## Stable artifact IDs
 
-| ID | Typical file / 典型文件 |
-|----|-------------------------|
+| ID | Typical file |
+|----|----------------|
 | `WORKFLOW_MAP` | `WORKFLOW-MAP.md` |
 | `DOC_POLICY` | `DOCUMENTATION-POLICY.md` |
 | `CONTRIBUTOR_SPEC` | `CONTRIBUTOR-AND-AGENT-SPEC.md` |
@@ -56,14 +49,12 @@ templates/universal-design-dev-workflow/
 | `HISTORY_DAY` | `history/YYYY-MM-DD.md` |
 | `ADR` | `architecture/ADR-NNNN-*.md` |
 
-#### Adoption patterns / 落地模式
+## Adoption
 
-**English:** (A) Copy **either** `en/*` **or** `zh-CN/*` into `docs/`; include that tree’s `global/`. (B) Bilingual product docs: mirror both trees under `docs/en/` and `docs/zh-CN/`. (C) Keep kit as submodule; open root `ENTRY.md`.
+| Pattern | Description |
+|---------|-------------|
+| A | Copy `en/` (with `global/`) into `docs/` in the product repo. |
+| B | Keep `docs/en/` and `docs/zh-CN/` as parallel mirrors. |
+| C | Vendor the kit; open root `ENTRY.md`. |
 
-**简体中文：** (A) 将 **`en/` 或 `zh-CN/` 整树**复制到目标仓 `docs/`（含该树的 `global/`）。(B) 双语产品库：在 `docs/en/` 与 `docs/zh-CN/` 下镜像两棵树。(C) 套件作子模块：贡献者从根目录 `ENTRY.md` 进入。
-
-Cross-links in templates assume the **locale folder** is the doc root / 模板内链假设**语言根目录**即文档根。
-
-### 简体中文（概要）
-
-上文英文已含技术细节表与目录树；**权威英文与中文语义一致**。维护时两棵树 `en/` 与 `zh-CN/` 文件名与章节结构应保持镜像；`global/` 两份文件内容建议保持同步。
+Template cross-links assume **this locale folder** is the documentation root.

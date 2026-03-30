@@ -1,33 +1,24 @@
-# ADR-NNNN: (short title) / ADR-NNNN：（短标题）
+# ADR-NNNN：（短标题）
 
-### English
+**文档作用：** 记录难逆转或强耦合的架构决策。
 
-**Purpose:** Record a costly-to-reverse decision or tight coupling. **Status:** proposed | accepted | superseded. **Date / Last updated:** YYYY-MM-DD.
+**Status：** proposed | accepted | superseded by ADR-…  
+**Date：** YYYY-MM-DD  
+**Last updated：** YYYY-MM-DD
 
-**Sections:** Context; Decision; Consequences; Alternatives (table); Links (domain, milestone, closed questions).
+## 背景
 
-### 简体中文
+## 决议
 
-**文档作用：** 记录**难逆转**或强耦合的架构决策。**Status：** proposed | accepted | superseded。**Date / Last updated：** YYYY-MM-DD。
+## 后果
 
-**章节：** Context；Decision；Consequences；Alternatives（表）；Links（域规格、里程碑、关闭的开放问题）。
+## 备选方案
 
-## Context / 背景
+| 备选 | 优点 | 缺点 | 淘汰原因 |
+|------|------|------|----------|
 
-(EN + ZH notes as needed / 中英必要时并列)
+## 链接
 
-## Decision / 决议
-
-## Consequences / 后果
-
-## Alternatives considered / 备选方案
-
-| Option | Upside | Downside | Discarded because |
-|--------|--------|----------|-------------------|
-| | | | |
-
-## Links / 链接
-
-- Domain spec / 域规格:  
-- Milestone / 里程碑:  
-- Open questions closed / 关闭的开放问题:  
+- 相关域规格章节：  
+- 相关里程碑：  
+- 由此关闭的开放问题：  

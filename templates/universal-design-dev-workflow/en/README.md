@@ -1,8 +1,6 @@
-# Design–development workflow kit / 设计—研发工作流套件
+# Design–development workflow kit
 
-### English
-
-Technology-agnostic templates in this folder. **Start:** [`../ENTRY.md`](../ENTRY.md). **Global norms:** [`./global/README.md`](./global/README.md).
+**Purpose:** Technology-agnostic templates in this folder. **Start:** [`../ENTRY.md`](../ENTRY.md). **Global norms:** [`./global/README.md`](./global/README.md).
 
 | Path | Role |
 |------|------|
@@ -19,10 +17,6 @@ Technology-agnostic templates in this folder. **Start:** [`../ENTRY.md`](../ENTR
 | [`history/`](./history/) | History templates |
 | [`prompts/`](./prompts/) | Prompts |
 
-**Adopt:** Copy this tree to `docs/` (with `global/`), fill open questions first, then use [`../ENTRY.md`](../ENTRY.md) prompts.
+**Adoption:** Copy this tree to `docs/` (including `global/`), fill open questions first, then use [`../ENTRY.md`](../ENTRY.md) prompts.
 
-### 简体中文
-
-本目录为与技术栈解耦的模板。**入口：** [`../ENTRY.md`](../ENTRY.md)。**全局规约：** [`./global/README.md`](./global/README.md)。
-
-上表列出的路径与英文相同；落地时将本树（含 `global/`）复制到目标仓 `docs/`，**先**填写开放问题，再按 [`../ENTRY.md`](../ENTRY.md) 主提示词生成域规格与里程碑。
+For the Simplified Chinese-only mirror, see [`../zh-CN/`](../zh-CN/).

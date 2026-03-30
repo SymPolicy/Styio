@@ -1,25 +1,24 @@
-# Test catalog / 测试目录
+# 测试目录
 
-### English
+**文档作用：** 将产品行为映射到可运行检查；每行须与构建或 CI 登记一致。
 
-**Purpose:** Map behaviors to runnable checks; each row mirrors CI/build registration. **Last updated:** YYYY-MM-DD.
+**Last updated：** YYYY-MM-DD
 
-**Columns:** Test id; Input; Oracle; Automation (pasteable).
+## 列说明
 
-### 简体中文
+| 列 | 含义 |
+|----|------|
+| 测试 id | 运行器或任务名 |
+| 输入 | 文件、环境、数据路径 |
+| 判据 | 期望输出、退出码、快照等 |
+| 自动化 | 贡献者可粘贴的完整命令 |
 
-**文档作用：** 行为到可运行检查的映射；每行与 CI/构建登记一致。**Last updated：** YYYY-MM-DD。
+## 功能域：（名称）
 
-**列：** 测试 id；输入；判据；自动化（可粘贴命令）。
+| 测试 id | 输入 | 判据 | 自动化 |
+|---------|------|------|--------|
 
-## Area / 功能域: (name / 名称)
+## 已知缺口
 
-| Test id | Input | Oracle | Automation |
-|---------|-------|--------|------------|
-| | | | |
-
-## Known gaps / 已知缺口
-
-| Planned id | Blocked by | Link |
-|------------|------------|------|
-| | | |
+| 计划 id | 阻塞因素 | 链接 |
+|---------|----------|------|

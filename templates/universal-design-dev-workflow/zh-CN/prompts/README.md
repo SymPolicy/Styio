@@ -1,15 +1,9 @@
-# Per-document prompts / 分文档提示词
+# 分文档提示词
 
-### English
+每个 `*.prompt.md` 用于生成或刷新**一篇**对应制品。整条工作流编排见 [`../../ENTRY.md`](../../ENTRY.md) 中的主提示词。
 
-Each `*.prompt.md` is for **one** artifact. Full orchestration: [`../../ENTRY.md`](../../ENTRY.md) master prompt.
-
-### 简体中文
-
-每个 `*.prompt.md` 对应**一篇**制品。整条工作流编排见 [`../../ENTRY.md`](../../ENTRY.md) **主提示词**。
-
-| # | Prompt | Target / 对应制品 |
-|---|--------|-------------------|
+| 编号 | 提示词文件 | 对应制品 |
+|------|------------|----------|
 | 00 | `00-kit-readme.prompt.md` | `../README.md` |
 | 01 | `01-workflow-map.prompt.md` | `../WORKFLOW-MAP.md` |
 | 02 | `02-documentation-policy.prompt.md` | `../DOCUMENTATION-POLICY.md` |
@@ -25,4 +19,4 @@ Each `*.prompt.md` is for **one** artifact. Full orchestration: [`../../ENTRY.md
 | 12 | `12-history-daily.prompt.md` | `../history/YYYY-MM-DD.template.md` |
 | 13 | `13-adr.prompt.md` | `../architecture/ADR.template.md` |
 
-Global norms / 全局规约: [`../global/`](../global/)
+全局规约：[`../global/`](../global/)

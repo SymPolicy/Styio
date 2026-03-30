@@ -1,9 +1,3 @@
-# Prompt: ADR / 提示词：架构决策
+# 提示词：架构决策 ADR
 
-### English
-
-**Bilingual** ADR: Context / Decision / Consequences / Alternatives / Links; no invented benchmarks.
-
-### 简体中文
-
-**中英双语** ADR：背景/决议/后果/备选/链接；勿虚构性能数据。
+由决策背景撰写**仅简体中文** ADR：背景、决议、后果、备选（表）、链接；勿虚构性能数据。

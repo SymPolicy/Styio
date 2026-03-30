@@ -1,48 +1,59 @@
-# SSOT and maintenance rules / SSOT 与维护规则（规范性）
+# SSOT 与维护规则（规范性）
 
-### English
+**文档作用：** 文献卫生与单一事实来源约定；本树中的 `DOCUMENTATION-POLICY.md` 须与之对齐，除非项目书面另有规定。
 
-**Purpose:** Language-independent documentation hygiene. Every `DOCUMENTATION-POLICY.md` in a locale tree should stay aligned with this file unless the project overrides in writing.
+## 「文档作用」行
 
-**Document purpose line:** Early in each file, state **why** readers open it and **what** it excludes.
+文首尽早说明：**读者为何阅读本文**、**本文不涵盖什么**。
 
-**Minimal change:** Extend sections and link before adding parallel long documents.
+## 最小改动
 
-**Three-or-more rule:** If **three or more** documents substantially repeat the same fact: (1) designate one SSOT, (2) add a new doc only if none fits, (3) deduplicate and link.
+能加链扩写则不另起平行长文。
 
-**SSOT slots (customize when forking):**
+## 「三处」去重规则
 
-| Topic | Authority | Others should |
-|-------|-----------|---------------|
-| Product/domain | `DOMAIN-OR-PRODUCT-SPEC.md` | Link; short summary only |
-| Dependencies | `THIRD-PARTY.md` | Match lockfiles/manifests |
-| Milestone batch | `milestones/<YYYY-MM-DD>/00-Milestone-Index.md` | No ad hoc duplicate tables |
-| Architecture | `architecture/ADR-NNNN-*.md` | Link only |
-| Tests | `tests/TEST-CATALOG.md` | One row per check + command |
-| Doc topology | `DOCUMENTATION-POLICY.md` | Link here |
-| Contributors | `CONTRIBUTOR-AND-AGENT-SPEC.md` | Link here |
-| Open questions | `OPEN-QUESTIONS-AND-HUMAN-INPUT.md` | Link until closed |
+若**三篇及以上**文档对同一事实作**实质性**重复：
 
-**History:** `history/YYYY-MM-DD.md`; index in `history/README.md`.  
-**Milestones:** `milestones/<YYYY-MM-DD>/`, `00-Milestone-Index.md` + `M*.md`; acceptance names `TEST-CATALOG` rows or **gap**.  
-**Test catalog:** By functional area; register in **one** CI/build manifest **and** catalog.  
-**Conflict:** If policy vs contributor spec disagree, fix **policy/indexes first**.
+1. 指定**唯一 SSOT**。  
+2. 无合适承载处再增新文。  
+3. 其余处删改重复内容，改为链接。
 
-**Optional checks:** Tests pass; `Last updated` present; catalog paths exist or marked pending.
+## SSOT 槽位（分叉时自定义）
 
-### 简体中文
+| 主题 | 权威文档 | 其他文档应 |
+|------|----------|------------|
+| 产品/域行为 | `DOMAIN-OR-PRODUCT-SPEC.md` | 链接、短摘要 |
+| 依赖 | `THIRD-PARTY.md` | 与锁文件一致 |
+| 里程碑批次 | `milestones/<YYYY-MM-DD>/00-Milestone-Index.md` | 勿随意复制总表 |
+| 架构决策 | `architecture/ADR-NNNN-*.md` | 仅链接 |
+| 测试 | `tests/TEST-CATALOG.md` | 每检查一行+命令 |
+| 文档拓扑 | `DOCUMENTATION-POLICY.md` | 链接至此 |
+| 贡献者规程 | `CONTRIBUTOR-AND-AGENT-SPEC.md` | 链接至此 |
+| 开放问题 | `OPEN-QUESTIONS-AND-HUMAN-INPUT.md` | 关闭前保持链接 |
 
-**文档作用：** 与具体自然语言无关的文献卫生规则；各语言树中的 `DOCUMENTATION-POLICY.md` 须与本文件一致，除非项目书面另有约定。
+## 历史目录
 
-**「文档作用」行：** 文首说明阅读理由与不涵盖范围。  
-**最小改动：** 能加链不加平行长文。  
-**三处去重：** 三篇及以上实质性重复同一事实时：指定唯一 SSOT；无合适承载再增新文；其余删改并链接。
+- 路径：`history/YYYY-MM-DD.md`  
+- 索引：`history/README.md`
 
-**SSOT 槽位（分叉时自定义路径）：** 见上表（与英文表一致）。
+## 里程碑目录
 
-**历史目录：** `history/YYYY-MM-DD.md`；索引 `history/README.md`。  
-**里程碑：** `milestones/<YYYY-MM-DD>/`；验收须对应 `TEST-CATALOG.md` 或标 **gap**。  
-**测试目录：** 按功能域；构建/CI 清单与目录**双登记**。  
-**冲突：** `DOCUMENTATION-POLICY.md` 与 `CONTRIBUTOR-AND-AGENT-SPEC.md` 不一致时，**先改策略与索引**。
+- 路径：`milestones/<YYYY-MM-DD>/`  
+- 文件：`00-Milestone-Index.md`、分段 `M*.md`  
+- 验收：`TEST-CATALOG.md` 有名或标 **gap**
 
-**可选校验：** 测试通过；索引含 `Last updated`；目录路径存在或标待定。
+## 测试目录
+
+- 按功能域分组。  
+- 每行：测试 id、输入、判据、自动化命令。  
+- 在**一处**构建/CI 清单与本目录**双登记**。
+
+## 策略与贡献者规程冲突
+
+若 `DOCUMENTATION-POLICY.md` 与 `CONTRIBUTOR-AND-AGENT-SPEC.md` 不一致，**先改策略与索引**。
+
+## 可选校验
+
+- 文档化测试通过。  
+- 历史/里程碑索引含 `Last updated`。  
+- `TEST-CATALOG.md` 中路径存在或标为待定。

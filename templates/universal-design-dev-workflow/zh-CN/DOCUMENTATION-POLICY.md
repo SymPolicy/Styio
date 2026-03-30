@@ -1,44 +1,53 @@
-# Documentation policy / 文档策略
+# 文档策略
 
-### English
+**文档作用：** 开发类 Markdown 的存放、**单一事实来源（SSOT）**、历史/里程碑/测试与自动化对齐。不含产品语义（见 `DOMAIN-OR-PRODUCT-SPEC.md`）。**规范依据：** [`./global/SSOT-AND-MAINTENANCE-RULES.md`](./global/SSOT-AND-MAINTENANCE-RULES.md)。
 
-**Purpose:** Where Markdown lives, how **SSOT** works, and how history, milestones, and tests align with automation—not product semantics (`DOMAIN-OR-PRODUCT-SPEC.md`). **Normative:** [`./global/SSOT-AND-MAINTENANCE-RULES.md`](./global/SSOT-AND-MAINTENANCE-RULES.md). **Last updated:** (set when forking).
+**Last updated：** （分叉时填写）
 
-**Section 0 — Principles**  
-**0.1 Purpose line:** State early why readers open the file and what it excludes.  
-**0.2 Minimal change:** Prefer extending with links.  
-**0.3 Three-or-more:** Deduplicate; one SSOT; link elsewhere.  
-**0.4 SSOT quick reference:**
+## 第 0 节 — 原则
 
-| Topic | Authority | Others should |
-|-------|-----------|---------------|
-| Product/domain | `DOMAIN-OR-PRODUCT-SPEC.md` | Link; no long repeat |
-| Dependencies | `THIRD-PARTY.md` | Match lockfiles |
-| Milestone batch | `milestones/<YYYY-MM-DD>/00-Milestone-Index.md` | No forked master table |
-| ADR | `architecture/ADR-NNNN-*.md` | Link only |
-| Tests | `tests/TEST-CATALOG.md` | One row + command |
-| Doc layout | This file | Link here |
-| Contributors | `CONTRIBUTOR-AND-AGENT-SPEC.md` | Link here |
-| Open questions | `OPEN-QUESTIONS-AND-HUMAN-INPUT.md` | Link until closed |
+**0.1 文档作用：** 文首说明阅读理由与不涵盖范围。
 
-**Section 1 — History:** `history/YYYY-MM-DD.md`; index `history/README.md`.  
-**Section 2 — Milestones:** `milestones/<YYYY-MM-DD>/`; files `00-Milestone-Index.md`, `M*.md`; acceptance in catalog or **gap**.  
-**Section 3 — Test catalog:** By area; id, input, oracle, automation; manifest + catalog.  
-**Section 4 — Contributor spec:** On conflict, update **this policy first**.  
-**Section 5 — Optional checks:** Tests pass; `Last updated`; paths real or pending.
+**0.2 最小改动：** 优先扩展章节并加链接。
 
-### 简体中文
+**0.3 三处去重：** 多篇重复时指定唯一 SSOT，其余改为链接。
 
-**文档作用：** 约定开发类 Markdown 存放、**单一事实来源**及历史/里程碑/测试与自动化对齐；**不含**产品语义（见 `DOMAIN-OR-PRODUCT-SPEC.md`）。**权威条款：** [`./global/SSOT-AND-MAINTENANCE-RULES.md`](./global/SSOT-AND-MAINTENANCE-RULES.md)。**Last updated：** （分叉时填写）。
+**0.4 SSOT 速查**
 
-**第 0 节 — 原则：** 文首「文档作用」；最小改动；三处去重；上表为 SSOT 速查（与英文表一致）。
+| 主题 | 权威文档 | 其他文档应 |
+|------|----------|------------|
+| 产品/域 | `DOMAIN-OR-PRODUCT-SPEC.md` | 链接，勿长篇复述 |
+| 依赖 | `THIRD-PARTY.md` | 与锁文件一致 |
+| 里程碑批次 | `milestones/<YYYY-MM-DD>/00-Milestone-Index.md` | 勿私设平行总表 |
+| ADR | `architecture/ADR-NNNN-*.md` | 仅链接 |
+| 测试 | `tests/TEST-CATALOG.md` | 每检查一行+命令 |
+| 文档拓扑 | 本文件 | 链接至此 |
+| 贡献者 | `CONTRIBUTOR-AND-AGENT-SPEC.md` | 链接至此 |
+| 开放问题 | `OPEN-QUESTIONS-AND-HUMAN-INPUT.md` | 关闭前移出或归档 |
 
-**第 1 节 — 历史：** `history/YYYY-MM-DD.md`；索引 `history/README.md`。
+## 第 1 节 — 历史
 
-**第 2 节 — 里程碑：** `milestones/<YYYY-MM-DD>/`；`00-Milestone-Index.md` 与各 `M*.md`；验收须进目录或标 **gap**。
+| 规则 | 说明 |
+|------|------|
+| 路径 | `history/YYYY-MM-DD.md` |
+| 索引 | `history/README.md` |
 
-**第 3 节 — 测试目录：** 按功能域；登记构建/CI 与目录双线。
+## 第 2 节 — 里程碑
 
-**第 4 节 — 贡献者规程：** 冲突时**先**更新本策略。
+| 规则 | 说明 |
+|------|------|
+| 路径 | `milestones/<YYYY-MM-DD>/` |
+| 文件 | `00-Milestone-Index.md`、`M*.md` |
+| 验收 | 须出现在 `TEST-CATALOG.md` 或标 **gap** |
 
-**第 5 节 — 可选校验：** 测试；`Last updated`；路径。
+## 第 3 节 — 测试目录
+
+按功能域；登记构建/CI 与目录双线。
+
+## 第 4 节 — 贡献者规程
+
+与 `CONTRIBUTOR-AND-AGENT-SPEC.md` 冲突时，**先**更新本策略。
+
+## 第 5 节 — 可选校验
+
+测试通过；索引含 `Last updated`；路径存在或标待定。

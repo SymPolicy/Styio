@@ -1,9 +1,3 @@
-# Prompt: 00-Milestone-Index / 提示词：批次索引
+# 提示词：批次索引 00-Milestone-Index
 
-### English
-
-**Bilingual** batch index from slices + deps + acceptance; `YYYY-MM-DD` placeholders; governance blurb.
-
-### 简体中文
-
-由垂直切片生成**中英双语** `00-Milestone-Index.md`；日期占位；治理说明。
+由垂直切片、依赖与验收设想生成**仅简体中文** `00-Milestone-Index.md`；日期文件夹用占位 `YYYY-MM-DD`；含不破坏前序验收的治理说明。

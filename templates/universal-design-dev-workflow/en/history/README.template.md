@@ -1,13 +1,9 @@
-# History index / 历史索引
+# Development history index
 
-### English
+**Purpose:** Index only—no long technical narratives (those belong in dated files). Policy: [`../DOCUMENTATION-POLICY.md`](../DOCUMENTATION-POLICY.md).
 
-**Purpose:** Index `history/*.md` only; details in dated files. Policy: [`../DOCUMENTATION-POLICY.md`](../DOCUMENTATION-POLICY.md). **Last updated:** YYYY-MM-DD.
+**Last updated:** YYYY-MM-DD
 
-### 简体中文
-
-**文档作用：** 仅索引 `history/*.md`；细节见当日文件。策略见 [`../DOCUMENTATION-POLICY.md`](../DOCUMENTATION-POLICY.md)。**Last updated：** YYYY-MM-DD。
-
-| File | Summary / 摘要 |
+| File | One-line summary |
 |------|------------------|
 | `YYYY-MM-DD.md` | |

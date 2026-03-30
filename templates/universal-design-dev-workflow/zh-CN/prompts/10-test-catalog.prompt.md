@@ -1,9 +1,3 @@
-# Prompt: TEST-CATALOG / 提示词：测试目录
+# 提示词：测试目录
 
-### English
-
-**Bilingual** catalog from ids/inputs/oracles/commands; flag path mismatches; Known gaps section.
-
-### 简体中文
-
-由测试信息生成**中英双语** `TEST-CATALOG.md`；路径不一致须指出；含「已知缺口」。
+由测试名、输入、判据、可粘贴命令生成**仅简体中文** `TEST-CATALOG.md`；与用户提供路径不一致须指出；含「已知缺口」小节。

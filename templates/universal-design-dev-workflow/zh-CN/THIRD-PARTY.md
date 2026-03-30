@@ -1,21 +1,24 @@
-# Third-party dependencies / 第三方依赖
+# 第三方依赖
 
-### English
+**文档作用：** 外部组件 SSOT：名称、版本、许可、来源、安全备注。须与锁文件及构建清单一致。
 
-**Purpose:** SSOT for external components: names, versions, licenses, provenance, security. Match lockfiles and build manifests. **Last updated:** YYYY-MM-DD.
+**Last updated：** YYYY-MM-DD
 
-**Policy:** New deps require approval path, license review, update **before** merge (`OPEN-QUESTIONS` if path unset).
+## 策略
 
-**Tables:** Direct deps; dev-only; vendored/submodule — fill Package, Version, License, Use, Source, Notes.
+新增依赖须：审批路径、许可审核，并在**合并前**更新本文（路径未定见 `OPEN-QUESTIONS-AND-HUMAN-INPUT.md`）。
 
-### 简体中文
+## 运行期依赖
 
-**文档作用：** 外部依赖 SSOT：名称、版本、许可、来源与安全备注；与锁文件及构建清单一致。**Last updated：** YYYY-MM-DD。
+| 包/项目 | 版本 | 许可 | 用途 | 来源 | 备注 |
+|---------|------|------|------|------|------|
 
-**策略：** 新增依赖须审批、许可审核、**合并前**更新本文（审批路径未定见 `OPEN-QUESTIONS`）。
+## 仅开发期依赖
 
-**表格：** 运行期依赖；仅开发依赖；Vendor/子模块——列：包、版本、许可、用途、来源、备注。
+| 包/项目 | 版本 | 许可 | 用途 | 来源 | 备注 |
+|---------|------|------|------|------|------|
 
-| Package / 包 | Version | License | Use / 用途 | Source | Notes |
-|----------------|---------|---------|------------|--------|-------|
-| | | | | | |
+## Vendor / 子模块
+
+| 仓内路径 | 上游 | 版本锁定 | 备注 |
+|----------|------|----------|------|

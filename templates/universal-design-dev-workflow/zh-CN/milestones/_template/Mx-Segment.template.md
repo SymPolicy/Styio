@@ -1,32 +1,29 @@
-# Segment Mx / 分段 Mx
+# 分段 Mx — （短标题）
 
-### English
+**文档作用：** 单一垂直切片的可执行规格；**先读验收**；任务按依赖排序。
 
-**Purpose:** Executable spec for one slice—read **acceptance** first. **Batch date / Last updated:** YYYY-MM-DD.
+**批次目录日期：** YYYY-MM-DD  
+**Last updated：** YYYY-MM-DD
 
-### 简体中文
+## 验收
 
-**文档作用：** 单一垂直切片可执行规格；**先读验收**。**批次日期 / Last updated：** YYYY-MM-DD。
-
-## Acceptance / 验收
-
-| Id | Scenario / 场景 | Input | Expected / 期望 | Automation |
-|----|------------------|-------|-----------------|------------|
+| Id | 场景 | 输入 | 期望结果 | 自动化 |
+|----|------|------|----------|--------|
 | A-01 | | | | |
 
-Mark **gap** / 标 **gap** if no automation; align `TEST-CATALOG.md`.
+无自动化或夹具处标 **gap**；与 `TEST-CATALOG.md` 对齐。
 
-## Out of scope / 非目标
+## 非目标
 
-## Implementation tasks / 实现任务
+## 实现任务
 
-## Completion criteria / 完成条件
+## 完成条件
 
-EN: Pass or defer with catalog gap + open questions when blocked; update domain spec; `history` for integration.  
-中文：通过或推迟（目录 gap + 开放问题）；更新域规格；重要集成写 `history`。
+- 验收行**通过**或**明确推迟**（目录标 gap，阻塞项写入开放问题）。  
+- 公共行为变化须反映域规格。  
+- 重要集成说明写入 `history/YYYY-MM-DD.md`。
 
-## Risks / 风险
+## 风险与缓解
 
-| Risk | Mitigation |
-|------|------------|
-| | |
+| 风险 | 缓解 |
+|------|------|

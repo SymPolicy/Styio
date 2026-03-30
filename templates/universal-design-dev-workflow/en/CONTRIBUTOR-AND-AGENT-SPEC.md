@@ -1,29 +1,42 @@
-# Contributor and automation specification / 贡献者与自动化规程
+# Contributor and automation specification
 
-### English
+**Purpose:** Rules for humans and agents: layout, workflow, tests, documentation, prohibitions. Domain: `DOMAIN-OR-PRODUCT-SPEC.md`. Topology: `DOCUMENTATION-POLICY.md`. Globals: [`./global/`](./global/).
 
-**Purpose:** Rules for humans and agents: layout, workflow, tests, docs, prohibitions. Domain: `DOMAIN-OR-PRODUCT-SPEC.md`. Topology: `DOCUMENTATION-POLICY.md`. Globals: [`./global/`](./global/). **Version / Authority:** (set when forking) / effective once adopted.
+**Version:** (set when forking)  
+**Authority:** Effective once adopted.
 
-**1. Repository overview** — Fill: languages, build, format/lint, tests, package manager.  
-**2. Layout** — `docs/` holds `global/`, policy, spec, `history/`, `milestones/`, `tests/`; plus `<source>/`, `<tests>/`, CI config.  
-**3. Change workflow** — Read domain spec + open questions; check milestone; implement + register tests; format; `history`; update SSOT.  
-**4. Coding standards** — (project fills).  
-**5. Testing** — Extend tests; don’t break without rationale; `TEST-CATALOG`.  
-**6. Documentation** — Behavior changes → domain spec; SSOT; one canonical example if used.  
-**7. Prohibited** — Unapproved deps; editing vendor/generated against policy; secrets; phantom tests; silent acceptance changes.  
-**8. Authority** — Self-serve vs human approval vs conflict resolution (project fills).  
-**Appendix** — Checklist: read policy + spec; build/test; change + catalog; history; review links.
+## 1. Repository overview
 
-### 简体中文
+Fill in: languages, build system, format/lint, test runner, package manager.
 
-**文档作用：** 约束人类与自动化代理：仓库布局、变更流程、测试、文档与禁止项。**域语义**见 `DOMAIN-OR-PRODUCT-SPEC.md`；**文档拓扑**见 `DOCUMENTATION-POLICY.md`；**全局规约**见 [`./global/`](./global/)。**Version / Authority：** （分叉时填写）/ 采纳后生效。
+## 2. Layout
 
-**1. 仓库概览** — 填写语言、构建、格式化、测试、包管理。  
-**2. 目录** — `docs/` 存 `global/`、策略与规格及 `history/`、`milestones/`、`tests/`；另有源码与测试与 CI。  
-**3. 变更流程** — 读域规格与开放问题；核对里程碑；实现并登记测试；格式化；写 `history`；更新 SSOT。  
-**4. 编码标准** — （项目填写）。  
-**5. 测试** — 行为变更扩测；不得无说明破坏检查；维护 `TEST-CATALOG`。  
-**6. 文档** — 用户可见行为变化更新域规格；遵守 SSOT；示例一处权威。  
-**7. 禁止项** — 违规依赖；违规改 vendor/生成物；密钥；无登记自称有测；擅自改验收表。  
-**8. 决策权限** — 自助/人批/冲突规则（项目填写）。  
-**附录** — 核对清单与英文相同。
+`docs/` holds `global/`, policy files, `history/`, `milestones/`, `tests/`; plus source, tests, CI config under the repo root.
+
+## 3. Change workflow
+
+Read domain spec and open questions; check milestone index; implement with registered tests; run formatters and tests; append `history/` for non-trivial work; update SSOT when contracts change.
+
+## 4. Coding standards
+
+(Project fills: format command, naming, review expectations.)
+
+## 5. Testing
+
+Extend tests for behavior changes unless an ADR or open question defers; do not break checks without rationale; update `tests/TEST-CATALOG.md`.
+
+## 6. Documentation
+
+User-visible behavior → domain spec; follow SSOT; one canonical example if used.
+
+## 7. Prohibited actions
+
+Examples: unapproved dependencies; editing vendor/generated code against policy; secrets or policy-violating binaries; phantom tests; changing acceptance without updating milestone docs.
+
+## 8. Decision authority
+
+(Project fills: self-serve vs human approval, conflict resolution.)
+
+## Appendix — New contributor checklist
+
+Read this spec and `DOCUMENTATION-POLICY.md`; read domain spec for your area; run build/tests; ship changes with tests and catalog rows; log significant work in `history/`; link SSOT sections in review.

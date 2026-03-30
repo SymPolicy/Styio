@@ -1,25 +1,24 @@
-# Test catalog / 测试目录
+# Test catalog
 
-### English
+**Purpose:** Map product behavior to runnable checks. Each row must match a registration in your build or CI pipeline.
 
-**Purpose:** Map behaviors to runnable checks; each row mirrors CI/build registration. **Last updated:** YYYY-MM-DD.
+**Last updated:** YYYY-MM-DD
 
-**Columns:** Test id; Input; Oracle; Automation (pasteable).
+## Columns
 
-### 简体中文
+| Column | Meaning |
+|--------|---------|
+| Test id | Name in the runner or job |
+| Input | Files, environment, data paths |
+| Oracle | Expected stdout file, exit code, snapshot, etc. |
+| Automation | Command contributors can paste |
 
-**文档作用：** 行为到可运行检查的映射；每行与 CI/构建登记一致。**Last updated：** YYYY-MM-DD。
-
-**列：** 测试 id；输入；判据；自动化（可粘贴命令）。
-
-## Area / 功能域: (name / 名称)
+## Functional area: (name)
 
 | Test id | Input | Oracle | Automation |
 |---------|-------|--------|------------|
-| | | | |
 
-## Known gaps / 已知缺口
+## Known gaps
 
-| Planned id | Blocked by | Link |
-|------------|------------|------|
-| | | |
+| Planned test id | Blocked by | Link |
+|-----------------|------------|------|

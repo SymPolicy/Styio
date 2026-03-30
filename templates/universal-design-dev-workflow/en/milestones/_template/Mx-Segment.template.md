@@ -1,32 +1,29 @@
-# Segment Mx / 分段 Mx
+# Segment Mx — (short title)
 
-### English
+**Purpose:** Executable specification for one vertical slice. Read **acceptance** first; tasks are ordered by dependency.
 
-**Purpose:** Executable spec for one slice—read **acceptance** first. **Batch date / Last updated:** YYYY-MM-DD.
+**Batch directory date:** YYYY-MM-DD  
+**Last updated:** YYYY-MM-DD
 
-### 简体中文
+## Acceptance
 
-**文档作用：** 单一垂直切片可执行规格；**先读验收**。**批次日期 / Last updated：** YYYY-MM-DD。
-
-## Acceptance / 验收
-
-| Id | Scenario / 场景 | Input | Expected / 期望 | Automation |
-|----|------------------|-------|-----------------|------------|
+| Id | Scenario | Input | Expected result | Automation |
+|----|----------|-------|-----------------|------------|
 | A-01 | | | | |
 
-Mark **gap** / 标 **gap** if no automation; align `TEST-CATALOG.md`.
+Mark **gap** where automation or fixtures are missing; keep `TEST-CATALOG.md` aligned.
 
-## Out of scope / 非目标
+## Out of scope
 
-## Implementation tasks / 实现任务
+## Implementation tasks
 
-## Completion criteria / 完成条件
+## Completion criteria
 
-EN: Pass or defer with catalog gap + open questions when blocked; update domain spec; `history` for integration.  
-中文：通过或推迟（目录 gap + 开放问题）；更新域规格；重要集成写 `history`。
+- All acceptance rows pass or are explicitly deferred with a catalog gap and open-question note when blocked.  
+- Update the domain spec if public behavior changes.  
+- Record significant integration work in `history/YYYY-MM-DD.md`.
 
-## Risks / 风险
+## Risks and mitigations
 
 | Risk | Mitigation |
 |------|------------|
-| | |

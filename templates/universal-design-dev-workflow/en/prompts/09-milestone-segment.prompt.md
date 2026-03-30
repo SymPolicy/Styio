@@ -1,9 +1,3 @@
-# Prompt: Mx segment / 提示词：分段规格
+# Prompt: milestone segment (Mx)
 
-### English
-
-**Bilingual** one-segment spec: Purpose, Acceptance, Out of scope, Tasks, Done, Risks; `gap` + `<test-runner>` placeholders.
-
-### 简体中文
-
-**中英双语**单分段可执行规格：验收、非目标、任务、完成条件、风险；**gap** 与命令占位。
+For one segment, write **English-only** spec: Purpose, Acceptance table, Out of scope, Implementation tasks, Completion criteria, Risks. Mark **gap** where automation is missing; use `<test-runner>` style placeholders for commands.

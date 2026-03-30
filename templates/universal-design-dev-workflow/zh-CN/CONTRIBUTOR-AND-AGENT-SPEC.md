@@ -1,29 +1,42 @@
-# Contributor and automation specification / 贡献者与自动化规程
+# 贡献者与自动化规程
 
-### English
+**文档作用：** 人类与自动化代理的共用规则：布局、流程、测试、文档与禁止项。**域语义：** `DOMAIN-OR-PRODUCT-SPEC.md`。**文档拓扑：** `DOCUMENTATION-POLICY.md`。**全局规约：** [`./global/`](./global/)。
 
-**Purpose:** Rules for humans and agents: layout, workflow, tests, docs, prohibitions. Domain: `DOMAIN-OR-PRODUCT-SPEC.md`. Topology: `DOCUMENTATION-POLICY.md`. Globals: [`./global/`](./global/). **Version / Authority:** (set when forking) / effective once adopted.
+**Version：** （分叉时填写）  
+**Authority：** 采纳后对本仓库全部变更生效。
 
-**1. Repository overview** — Fill: languages, build, format/lint, tests, package manager.  
-**2. Layout** — `docs/` holds `global/`, policy, spec, `history/`, `milestones/`, `tests/`; plus `<source>/`, `<tests>/`, CI config.  
-**3. Change workflow** — Read domain spec + open questions; check milestone; implement + register tests; format; `history`; update SSOT.  
-**4. Coding standards** — (project fills).  
-**5. Testing** — Extend tests; don’t break without rationale; `TEST-CATALOG`.  
-**6. Documentation** — Behavior changes → domain spec; SSOT; one canonical example if used.  
-**7. Prohibited** — Unapproved deps; editing vendor/generated against policy; secrets; phantom tests; silent acceptance changes.  
-**8. Authority** — Self-serve vs human approval vs conflict resolution (project fills).  
-**Appendix** — Checklist: read policy + spec; build/test; change + catalog; history; review links.
+## 1. 仓库概览
 
-### 简体中文
+填写：主要语言、构建系统、格式化/静态检查、测试入口、包管理器（如有）。
 
-**文档作用：** 约束人类与自动化代理：仓库布局、变更流程、测试、文档与禁止项。**域语义**见 `DOMAIN-OR-PRODUCT-SPEC.md`；**文档拓扑**见 `DOCUMENTATION-POLICY.md`；**全局规约**见 [`./global/`](./global/)。**Version / Authority：** （分叉时填写）/ 采纳后生效。
+## 2. 目录
 
-**1. 仓库概览** — 填写语言、构建、格式化、测试、包管理。  
-**2. 目录** — `docs/` 存 `global/`、策略与规格及 `history/`、`milestones/`、`tests/`；另有源码与测试与 CI。  
-**3. 变更流程** — 读域规格与开放问题；核对里程碑；实现并登记测试；格式化；写 `history`；更新 SSOT。  
-**4. 编码标准** — （项目填写）。  
-**5. 测试** — 行为变更扩测；不得无说明破坏检查；维护 `TEST-CATALOG`。  
-**6. 文档** — 用户可见行为变化更新域规格；遵守 SSOT；示例一处权威。  
-**7. 禁止项** — 违规依赖；违规改 vendor/生成物；密钥；无登记自称有测；擅自改验收表。  
-**8. 决策权限** — 自助/人批/冲突规则（项目填写）。  
-**附录** — 核对清单与英文相同。
+`docs/` 下放置 `global/`、策略与规格文件、`history/`、`milestones/`、`tests/`；源码、测试与 CI 配置按项目惯例放在仓根。
+
+## 3. 变更流程
+
+阅读域规格与开放问题；核对里程碑索引；带登记测试实现；运行格式化与测试；非琐碎工作写入 `history/`；公共契约变更时更新 SSOT。
+
+## 4. 编码标准
+
+（由项目填写：命令、命名、评审期望。）
+
+## 5. 测试
+
+行为变更须扩测，除非 ADR 或开放问题明确推迟；不得无说明破坏既有检查；更新 `tests/TEST-CATALOG.md`。
+
+## 6. 文档
+
+用户可见行为变化须更新域规格；遵守 SSOT；若有权威示例则只维护一处。
+
+## 7. 禁止项示例
+
+未经审批引入依赖；违规修改 vendor/生成代码；提交密钥或违规二进制；文案称有测但未登记；擅自改验收而不更新里程碑文档。
+
+## 8. 决策权限
+
+（由项目填写：自助范围、须人批事项、冲突裁决。）
+
+## 附录 — 新贡献者清单
+
+阅读本规程与 `DOCUMENTATION-POLICY.md`；阅读相关域规格；跑通构建与测试；提交时附带测试与目录行；重要工作写 `history/`；评审中链接所改 SSOT 章节。

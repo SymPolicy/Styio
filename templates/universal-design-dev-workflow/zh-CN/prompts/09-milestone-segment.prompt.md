@@ -1,9 +1,3 @@
-# Prompt: Mx segment / 提示词：分段规格
+# 提示词：里程碑分段 Mx
 
-### English
-
-**Bilingual** one-segment spec: Purpose, Acceptance, Out of scope, Tasks, Done, Risks; `gap` + `<test-runner>` placeholders.
-
-### 简体中文
-
-**中英双语**单分段可执行规格：验收、非目标、任务、完成条件、风险；**gap** 与命令占位。
+就一个分段写**仅简体中文**可执行规格：验收表、非目标、实现任务、完成条件、风险；无自动化处标 **gap**；命令用 `<test-runner>` 类占位。

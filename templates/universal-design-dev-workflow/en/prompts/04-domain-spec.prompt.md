@@ -1,9 +1,3 @@
-# Prompt: DOMAIN spec / 提示词：域规格
+# Prompt: DOMAIN-OR-PRODUCT-SPEC
 
-### English
-
-From user context, draft **bilingual** domain/product spec: glossary, invariants, interfaces, behavioral areas; TBD list (≤10) if missing facts—no invention.
-
-### 简体中文
-
-根据用户材料，起草**中英双语**域/产品规格：术语、不变量、接口、分域行为；缺事实时列「待补充」（≤10 条），**禁止编造**。
+From user context, draft **English-only** domain/product spec (sections for context, glossary, invariants, interfaces, behavioral areas). If facts are missing, add a TBD list (≤10 items)—do not invent.
