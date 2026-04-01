@@ -1,5 +1,0 @@
-// RUN: /home/Styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
-
-# f(x) >> (n) ?= 2 => >_(n)
-
-f([1, 2, 3])

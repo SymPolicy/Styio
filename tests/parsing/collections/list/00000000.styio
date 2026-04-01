@@ -1,3 +1,0 @@
-// RUN: /root/styio/styio -a -f %s | /usr/bin/FileCheck %s
-
-[0, 1, 2, 3]

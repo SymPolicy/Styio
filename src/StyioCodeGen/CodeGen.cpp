@@ -4,19 +4,23 @@
 
 // [Styio]
 #include "CodeGenVisitor.hpp"
+#include "StyioUtil/Util.hpp"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/raw_ostream.h"
 
 void
 StyioToLLVM::print_llvm_ir() {
-  std::cout << "\033[1;32mLLVM IR\033[0m" << std::endl;
+  /* Use the same LLVM stream as Module::print so banner + IR stay ordered (cout may be buffered separately). */
+  if (styio_stdout_plain()) {
+    llvm::outs() << "LLVM IR\n";
+  }
+  else {
+    llvm::outs() << "\033[1;32mLLVM IR\033[0m\n";
+  }
 
-  /* llvm ir -> stdout */
   theModule->print(llvm::outs(), nullptr);
-  /* llvm ir -> stderr */
-  // llvm_module -> print(llvm::errs(), nullptr);
-
-  std::cout << std::endl;
+  llvm::outs() << "\n";
+  llvm::outs().flush();
 }
 
 void

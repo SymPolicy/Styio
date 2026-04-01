@@ -1,3 +1,0 @@
-// RUN: /root/styio/styio --ast --file %s | /usr/bin/FileCheck %s
-
-1 * 2 + 3 * 4

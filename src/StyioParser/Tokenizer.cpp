@@ -76,6 +76,7 @@ StyioTokenizer::tokenize(std::string code) {
       }
 
       tokens.push_back(StyioToken::Create(StyioTokenType::COMMENT_LINE, literal));
+      continue;
     }
     /* comments */
     else if (code.compare(loc, 2, "/*") == 0) {
@@ -91,6 +92,7 @@ StyioTokenizer::tokenize(std::string code) {
       loc += 2;
 
       tokens.push_back(StyioToken::Create(StyioTokenType::COMMENT_CLOSED, literal));
+      continue;
     }
 
     /* varname / typename */
@@ -100,7 +102,8 @@ StyioTokenizer::tokenize(std::string code) {
       do {
         literal += code.at(loc);
         loc += 1;
-      } while (isalnum(code.at(loc)) || (code.at(loc) == '_'));
+      } while (loc < code.length()
+               && (isalnum(code.at(loc)) || (code.at(loc) == '_')));
 
       if (literal == "_") {
         tokens.push_back(StyioToken::Create(StyioTokenType::TOK_UNDLINE, "_"));
@@ -116,10 +119,10 @@ StyioTokenizer::tokenize(std::string code) {
       do {
         literal += code.at(loc);
         loc += 1;
-      } while (isdigit(code.at(loc)));
+      } while (loc < code.length() && isdigit(code.at(loc)));
 
       /* If Float: xxx.yyy */
-      if (code.at(loc) == '.' && isdigit(code.at(loc + 1))) {
+      if (loc + 1 < code.length() && code.at(loc) == '.' && isdigit(code.at(loc + 1))) {
         /* include '.' */
         literal += code.at(loc);
         loc += 1;
@@ -128,13 +131,17 @@ StyioTokenizer::tokenize(std::string code) {
         do {
           literal += code.at(loc);
           loc += 1;
-        } while (isdigit(code.at(loc)));
+        } while (loc < code.length() && isdigit(code.at(loc)));
 
         tokens.push_back(StyioToken::Create(StyioTokenType::DECIMAL, literal));
       }
       else {
         tokens.push_back(StyioToken::Create(StyioTokenType::INTEGER, literal));
       }
+    }
+
+    if (loc >= code.length()) {
+      continue;
     }
 
     switch (code.at(loc)) {
@@ -517,8 +524,12 @@ StyioTokenizer::tokenize(std::string code) {
         }
       } break;
 
-      default:
-        break;
+      default: {
+        /* Single-byte not recognized above (e.g. embedded NUL): must advance. */
+        tokens.push_back(
+          StyioToken::Create(StyioTokenType::UNKNOWN, std::string(1, code.at(loc))));
+        loc += 1;
+      } break;
     }
   }
 

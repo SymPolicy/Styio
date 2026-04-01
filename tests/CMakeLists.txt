@@ -136,8 +136,18 @@ target_compile_definitions(styio_test PRIVATE
 )
 add_dependencies(styio_test styio)
 
+add_executable(styio_security_test
+  security/styio_security_test.cpp
+)
+target_link_libraries(styio_security_test PRIVATE styio_core GTest::gtest_main)
+
 include(GoogleTest)
 gtest_discover_tests(styio_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES LABELS "styio_pipeline;unit"
+)
+
+gtest_discover_tests(styio_security_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "security;lexer;ffi"
 )

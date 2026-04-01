@@ -120,7 +120,6 @@ read_styio_file(
       text.push_back('\n');
       p += 1;
     }
-    text += EOF;
   }
   else {
     text = std::string("...");
@@ -198,13 +197,17 @@ main(
   );
 
   options.add_options()(
-    "a,all", "Show All: Styio AST, Styio IR, LLVM IR", cxxopts::value<bool>()->default_value("false")
+    "a", "Reserved (no effect).", cxxopts::value<bool>()->default_value("false")
   )(
-    "styio-ast", "Show Styio AST", cxxopts::value<bool>()->default_value("false")
+    "styio-ast", "Print AST before and after type inference (plain headers when stdout is not a tty).",
+    cxxopts::value<bool>()->default_value("false")
   )(
-    "styio-ir", "Show Styio IR", cxxopts::value<bool>()->default_value("false")
+    "styio-ir", "Print lowered Styio IR before LLVM codegen.",
+    cxxopts::value<bool>()->default_value("false")
   )(
-    "llvm-ir", "Show LLVM IR", cxxopts::value<bool>()->default_value("false")
+    "llvm-ir",
+    "Print LLVM IR for the module (before running main).",
+    cxxopts::value<bool>()->default_value("false")
   );
 
   options.add_options()(
@@ -219,8 +222,6 @@ main(
     std::cout << options.help() << std::endl;
     exit(0);
   }
-
-  bool show_all = cmlopts["all"].as<bool>();
 
   bool show_styio_ast = cmlopts["styio-ast"].as<bool>();
   bool show_styio_ir = cmlopts["styio-ir"].as<bool>();
@@ -258,35 +259,41 @@ main(
     /* Parser */
     auto styio_ast = parse_main_block(*styio_context);
 
-    if (show_all or show_styio_ast) {
-      std::cout
-        << "\033[1;32mAST\033[0m \033[31m-Original\033[0m"
-        << "\n"
-        << styio_ast->toString(&styio_repr) << "\n"
-        << std::endl;
+    if (show_styio_ast) {
+      if (styio_stdout_plain()) {
+        std::cout << "AST -Original\n";
+      }
+      else {
+        std::cout << "\033[1;32mAST\033[0m \033[31m-Original\033[0m\n";
+      }
+      std::cout << styio_ast->toString(&styio_repr) << "\n\n";
     }
 
     /* Type Inference */
     StyioAnalyzer analyzer = StyioAnalyzer();
     analyzer.typeInfer(styio_ast);
 
-    if (show_all or show_styio_ast) {
-      std::cout
-        << "\033[1;32mAST\033[0m \033[1;33m-Type-Checking\033[0m"
-        << "\n"
-        << styio_ast->toString(&styio_repr) << "\n"
-        << std::endl;
+    if (show_styio_ast) {
+      if (styio_stdout_plain()) {
+        std::cout << "AST -Type-Checking\n";
+      }
+      else {
+        std::cout << "\033[1;32mAST\033[0m \033[1;33m-Type-Checking\033[0m\n";
+      }
+      std::cout << styio_ast->toString(&styio_repr) << "\n\n";
     }
 
     /* Generate Styio IR */
     StyioIR* styio_ir = analyzer.toStyioIR(styio_ast);
 
-    if (show_all or show_styio_ir) {
-      std::cout
-        << "\033[1;32mStyio IR\033[0m \033[1;33m\033[0m"
-        << "\n"
-        << styio_ir->toString(&styio_repr) << "\n"
-        << std::endl;
+    if (show_styio_ir) {
+      if (styio_stdout_plain()) {
+        std::cout << "Styio IR\n";
+      }
+      else {
+        std::cout << "\033[1;32mStyio IR\033[0m \033[1;33m\033[0m\n";
+      }
+      std::cout << styio_ir->toString(&styio_repr) << "\n\n";
     }
 
     /* JIT Initialization */
