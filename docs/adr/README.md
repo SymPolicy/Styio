@@ -25,3 +25,4 @@
 - `ADR-0011-expr-node-raii-listop-attr.md`
 - `ADR-0012-expr-node-raii-fmtstr-typeconvert-range-sizeof.md`
 - `ADR-0013-expr-node-raii-tuple-list-set.md`
+- `ADR-0014-stmt-node-raii-return-bind.md`

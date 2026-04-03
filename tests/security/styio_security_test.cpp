@@ -468,6 +468,35 @@ TEST(StyioSecurityAstOwnership, VarTupleOwnsVarNodes) {
   EXPECT_EQ(destructed, 2);
 }
 
+TEST(StyioSecurityAstOwnership, ReturnOwnsExpr) {
+  int destructed = 0;
+  auto* stmt = ReturnAST::Create(new CountingExprAST(&destructed));
+  delete stmt;
+  EXPECT_EQ(destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, FlexBindOwnsVarAndValue) {
+  int var_destructed = 0;
+  int value_destructed = 0;
+  auto* stmt = FlexBindAST::Create(
+    new CountingVarAST(&var_destructed),
+    new CountingExprAST(&value_destructed));
+  delete stmt;
+  EXPECT_EQ(var_destructed, 1);
+  EXPECT_EQ(value_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, FinalBindOwnsVarAndValue) {
+  int var_destructed = 0;
+  int value_destructed = 0;
+  auto* stmt = FinalBindAST::Create(
+    new CountingVarAST(&var_destructed),
+    new CountingExprAST(&value_destructed));
+  delete stmt;
+  EXPECT_EQ(var_destructed, 1);
+  EXPECT_EQ(value_destructed, 1);
+}
+
 TEST(StyioSecurityRuntime, StrcatAbAllocatesWithoutPairingFree) {
   // Document: each successful call returns malloc-backed memory; generated IR
   // does not emit free today — repeated use leaks (verify with ASan).

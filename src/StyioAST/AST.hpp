@@ -626,11 +626,12 @@ public:
 
 class ReturnAST : public StyioASTTraits<ReturnAST>
 {
+  std::unique_ptr<StyioAST> expr_owner_;
   StyioAST* Expr = nullptr;
 
 public:
   ReturnAST(StyioAST* expr) :
-      Expr(expr) {
+      expr_owner_(expr), Expr(expr_owner_.get()) {
   }
 
   static ReturnAST* Create(StyioAST* expr) {
@@ -2068,12 +2069,18 @@ public:
 */
 class FlexBindAST : public StyioASTTraits<FlexBindAST>
 {
+  std::unique_ptr<VarAST> variable_owner_;
+  std::unique_ptr<StyioAST> value_owner_;
+
   VarAST* variable = nullptr;
   StyioAST* value = nullptr;
 
 public:
   FlexBindAST(VarAST* variable, StyioAST* value) :
-      variable(variable), value(value) {
+      variable_owner_(variable),
+      value_owner_(value),
+      variable(variable_owner_.get()),
+      value(value_owner_.get()) {
   }
 
   static FlexBindAST* Create(VarAST* variable, StyioAST* value) {
@@ -2106,12 +2113,18 @@ public:
 */
 class FinalBindAST : public StyioASTTraits<FinalBindAST>
 {
+  std::unique_ptr<VarAST> var_owner_;
+  std::unique_ptr<StyioAST> value_owner_;
+
   VarAST* var_name = nullptr;
   StyioAST* val_expr = nullptr;
 
 public:
   FinalBindAST(VarAST* var, StyioAST* val) :
-      var_name(var), val_expr(val) {
+      var_owner_(var),
+      value_owner_(val),
+      var_name(var_owner_.get()),
+      val_expr(value_owner_.get()) {
   }
 
   static FinalBindAST* Create(VarAST* var, StyioAST* val) {
