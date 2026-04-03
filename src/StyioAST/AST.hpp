@@ -1465,12 +1465,20 @@ public:
 
 class WaveMergeAST : public StyioASTTraits<WaveMergeAST>
 {
+  std::unique_ptr<StyioAST> cond_owner_;
+  std::unique_ptr<StyioAST> true_owner_;
+  std::unique_ptr<StyioAST> false_owner_;
   StyioAST* cond_ = nullptr;
   StyioAST* true_val_ = nullptr;
   StyioAST* false_val_ = nullptr;
 
   WaveMergeAST(StyioAST* c, StyioAST* t, StyioAST* f) :
-      cond_(c), true_val_(t), false_val_(f) {
+      cond_owner_(c),
+      true_owner_(t),
+      false_owner_(f),
+      cond_(cond_owner_.get()),
+      true_val_(true_owner_.get()),
+      false_val_(false_owner_.get()) {
   }
 
 public:
@@ -1533,11 +1541,16 @@ public:
 
 class FallbackAST : public StyioASTTraits<FallbackAST>
 {
+  std::unique_ptr<StyioAST> primary_owner_;
+  std::unique_ptr<StyioAST> alternate_owner_;
   StyioAST* primary_ = nullptr;
   StyioAST* alt_ = nullptr;
 
   FallbackAST(StyioAST* p, StyioAST* a) :
-      primary_(p), alt_(a) {
+      primary_owner_(p),
+      alternate_owner_(a),
+      primary_(primary_owner_.get()),
+      alt_(alternate_owner_.get()) {
   }
 
 public:
@@ -1563,11 +1576,16 @@ public:
 
 class GuardSelectorAST : public StyioASTTraits<GuardSelectorAST>
 {
+  std::unique_ptr<StyioAST> base_owner_;
+  std::unique_ptr<StyioAST> cond_owner_;
   StyioAST* base_ = nullptr;
   StyioAST* cond_ = nullptr;
 
   GuardSelectorAST(StyioAST* b, StyioAST* c) :
-      base_(b), cond_(c) {
+      base_owner_(b),
+      cond_owner_(c),
+      base_(base_owner_.get()),
+      cond_(cond_owner_.get()) {
   }
 
 public:
@@ -1593,11 +1611,16 @@ public:
 
 class EqProbeAST : public StyioASTTraits<EqProbeAST>
 {
+  std::unique_ptr<StyioAST> base_owner_;
+  std::unique_ptr<StyioAST> probe_owner_;
   StyioAST* base_ = nullptr;
   StyioAST* probe_val_ = nullptr;
 
   EqProbeAST(StyioAST* b, StyioAST* v) :
-      base_(b), probe_val_(v) {
+      base_owner_(b),
+      probe_owner_(v),
+      base_(base_owner_.get()),
+      probe_val_(probe_owner_.get()) {
   }
 
 public:

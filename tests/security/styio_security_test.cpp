@@ -229,6 +229,43 @@ TEST(StyioSecurityAstOwnership, CondOwnsBinaryChildExprs) {
   EXPECT_EQ(destructed, 2);
 }
 
+TEST(StyioSecurityAstOwnership, WaveMergeOwnsAllChildExprs) {
+  int destructed = 0;
+  auto* cond = new CountingExprAST(&destructed);
+  auto* on_true = new CountingExprAST(&destructed);
+  auto* on_false = new CountingExprAST(&destructed);
+  auto* expr = WaveMergeAST::Create(cond, on_true, on_false);
+  delete expr;
+  EXPECT_EQ(destructed, 3);
+}
+
+TEST(StyioSecurityAstOwnership, FallbackOwnsChildExprs) {
+  int destructed = 0;
+  auto* primary = new CountingExprAST(&destructed);
+  auto* alternate = new CountingExprAST(&destructed);
+  auto* expr = FallbackAST::Create(primary, alternate);
+  delete expr;
+  EXPECT_EQ(destructed, 2);
+}
+
+TEST(StyioSecurityAstOwnership, GuardSelectorOwnsChildExprs) {
+  int destructed = 0;
+  auto* base = new CountingExprAST(&destructed);
+  auto* cond = new CountingExprAST(&destructed);
+  auto* expr = GuardSelectorAST::Create(base, cond);
+  delete expr;
+  EXPECT_EQ(destructed, 2);
+}
+
+TEST(StyioSecurityAstOwnership, EqProbeOwnsChildExprs) {
+  int destructed = 0;
+  auto* base = new CountingExprAST(&destructed);
+  auto* probe = new CountingExprAST(&destructed);
+  auto* expr = EqProbeAST::Create(base, probe);
+  delete expr;
+  EXPECT_EQ(destructed, 2);
+}
+
 TEST(StyioSecurityRuntime, StrcatAbAllocatesWithoutPairingFree) {
   // Document: each successful call returns malloc-backed memory; generated IR
   // does not emit free today — repeated use leaks (verify with ASan).

@@ -20,3 +20,4 @@
 - `ADR-0006-session-reset-and-ast-attach-boundary.md`
 - `ADR-0007-expr-node-raii-binop-bincomp.md`
 - `ADR-0008-expr-node-raii-cond.md`
+- `ADR-0009-expr-node-raii-wave-fallback-selectors.md`
