@@ -13,11 +13,12 @@
 
 1. `CompilationSession::reset()` 作为唯一强清理边界：
    - 先释放 `IR`、`Context`、`ast_`；
-   - 再执行 AST tracked 清理兜底；
+   - 再执行 AST tracked 清理兜底（只清登记，不逐个 delete）；
    - 最后释放 token 容器。
 2. `attach_ast()` 改为非破坏性挂载，不再基于全局计数做清理。
 3. `Parser.hpp` 补齐直接依赖（`<regex>`、`AST.hpp`），保证可独立包含。
 4. 安全回归新增会话测试，断言 `reset()` 后会话状态（tokens/context/ast/ir）全部清空。
+5. `StyioAST` 的 tracked 集合定位为“观测/恢复辅助”，不承担 owning 删除职责，避免与节点内 `unique_ptr` 产生双重释放。
 
 ## Alternatives
 

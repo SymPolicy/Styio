@@ -49,12 +49,9 @@ public:
 
   static void
   destroy_all_tracked_nodes() noexcept {
-    while (!tracked_nodes_.empty()) {
-      auto it = tracked_nodes_.begin();
-      StyioAST* node = *it;
-      tracked_nodes_.erase(it);
-      delete node;
-    }
+    // Tracking is advisory only. Deleting every tracked node is unsafe once
+    // some AST families start owning child nodes via unique_ptr.
+    tracked_nodes_.clear();
   }
 
   static std::size_t
