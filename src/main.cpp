@@ -29,6 +29,7 @@
 #include "StyioAnalyzer/ASTAnalyzer.hpp"   /* StyioASTAnalyzer */
 #include "StyioCodeGen/CodeGenVisitor.hpp" /* StyioToLLVMIR Code Generator */
 #include "StyioException/Exception.hpp"
+#include "StyioExtern/ExternLib.hpp"
 #include "StyioIR/StyioIR.hpp" /* StyioIR */
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
@@ -512,7 +513,11 @@ main(
     if (show_llvm_ir) {
       generator.print_llvm_ir();
     }
+    styio_runtime_clear_error();
     generator.execute();
+    if (styio_runtime_has_error()) {
+      return styio_exit_code(StyioErrorCategory::RuntimeError);
+    }
   } catch (const StyioBaseException& ex) {
     styio_emit_diagnostic(error_format, StyioErrorCategory::RuntimeError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::RuntimeError);

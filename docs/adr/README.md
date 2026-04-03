@@ -15,3 +15,5 @@
 - `ADR-0001-checkpoint-process.md`
 - `ADR-0002-jsonl-diagnostics.md`
 - `ADR-0003-llvm-ownership-boundary.md`
+- `ADR-0004-unicode-facade.md`
+- `ADR-0005-runtime-path-compat-and-error-flag.md`

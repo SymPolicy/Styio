@@ -890,35 +890,21 @@ StyioToLLVM::promote_to_cstr(llvm::Value* v) {
     return v;
   }
 
-  llvm::FunctionCallee snprintf_fn = theModule->getOrInsertFunction(
-    "snprintf",
-    llvm::FunctionType::get(
-      theBuilder->getInt32Ty(),
-      {char_ptr, llvm::Type::getInt64Ty(*theContext), char_ptr},
-      true));
-
-  llvm::Type* a64 = llvm::ArrayType::get(theBuilder->getInt8Ty(), 64);
-  llvm::AllocaInst* buf = theBuilder->CreateAlloca(a64, nullptr, "fmtbuf");
-  llvm::Value* z32 = theBuilder->getInt32(0);
-  llvm::Value* ge0 = theBuilder->CreateInBoundsGEP(a64, buf, {z32, z32});
-
   if (v->getType()->isIntegerTy()) {
-    llvm::Value* fmt = theBuilder->CreateGlobalStringPtr("%lld", "styio_fmt_ll");
     llvm::Value* wi = v->getType()->isIntegerTy(64)
       ? v
       : theBuilder->CreateSExtOrTrunc(v, theBuilder->getInt64Ty());
-    theBuilder->CreateCall(
-      snprintf_fn,
-      {ge0, theBuilder->getInt64(63), fmt, wi});
-    return ge0;
+    llvm::FunctionCallee i64c = theModule->getOrInsertFunction(
+      "styio_i64_dec_cstr",
+      llvm::FunctionType::get(char_ptr, {theBuilder->getInt64Ty()}, false));
+    return theBuilder->CreateCall(i64c, {wi});
   }
 
   if (v->getType()->isDoubleTy()) {
-    llvm::Value* fmt = theBuilder->CreateGlobalStringPtr("%.6f", "styio_fmt_lf");
-    theBuilder->CreateCall(
-      snprintf_fn,
-      {ge0, theBuilder->getInt64(63), fmt, v});
-    return ge0;
+    llvm::FunctionCallee f64c = theModule->getOrInsertFunction(
+      "styio_f64_dec_cstr",
+      llvm::FunctionType::get(char_ptr, {theBuilder->getDoubleTy()}, false));
+    return theBuilder->CreateCall(f64c, {v});
   }
 
   return theBuilder->CreateGlobalStringPtr("", "styio_empty");

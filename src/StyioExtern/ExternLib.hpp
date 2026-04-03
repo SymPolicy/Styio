@@ -23,6 +23,9 @@ extern "C" DLLEXPORT int64_t styio_read_file_i64line(const char* path);
 extern "C" DLLEXPORT const char* styio_strcat_ab(const char* a, const char* b);
 extern "C" DLLEXPORT void styio_free_cstr(const char* s);
 extern "C" DLLEXPORT const char* styio_i64_dec_cstr(int64_t v);
+extern "C" DLLEXPORT const char* styio_f64_dec_cstr(double v);
+extern "C" DLLEXPORT int styio_runtime_has_error();
+extern "C" DLLEXPORT void styio_runtime_clear_error();
 
 extern "C" DLLEXPORT int something();
 

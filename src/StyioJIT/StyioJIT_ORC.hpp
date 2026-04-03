@@ -75,6 +75,8 @@ public:
         { llvm::orc::ExecutorAddr::fromPtr(&styio_free_cstr), llvm::JITSymbolFlags::Callable } },
       { Mangle("styio_i64_dec_cstr"),
         { llvm::orc::ExecutorAddr::fromPtr(&styio_i64_dec_cstr), llvm::JITSymbolFlags::Callable } },
+      { Mangle("styio_f64_dec_cstr"),
+        { llvm::orc::ExecutorAddr::fromPtr(&styio_f64_dec_cstr), llvm::JITSymbolFlags::Callable } },
     })));
 
     // llvm::DenseSet<llvm::orc::SymbolStringPtr> AllowList({
