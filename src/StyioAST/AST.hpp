@@ -2198,12 +2198,18 @@ public:
 */
 class ReadFileAST : public StyioASTTraits<ReadFileAST>
 {
+  std::unique_ptr<NameAST> var_owner_;
+  std::unique_ptr<StyioAST> value_owner_;
+
   NameAST* varId = nullptr;
   StyioAST* valExpr = nullptr;
 
 public:
   ReadFileAST(NameAST* var, StyioAST* val) :
-      varId(var), valExpr(val) {
+      var_owner_(var),
+      value_owner_(val),
+      varId(var_owner_.get()),
+      valExpr(value_owner_.get()) {
   }
 
   NameAST* getId() {
@@ -2228,11 +2234,14 @@ public:
 */
 class FileResourceAST : public StyioASTTraits<FileResourceAST>
 {
+  std::unique_ptr<StyioAST> path_owner_;
   StyioAST* path_expr_ = nullptr;
   bool auto_detect_ = false;
 
   FileResourceAST(StyioAST* path, bool auto_det) :
-      path_expr_(path), auto_detect_(auto_det) {
+      path_owner_(path),
+      path_expr_(path_owner_.get()),
+      auto_detect_(auto_det) {
   }
 
 public:
@@ -2259,11 +2268,17 @@ public:
 
 class HandleAcquireAST : public StyioASTTraits<HandleAcquireAST>
 {
+  std::unique_ptr<VarAST> var_owner_;
+  std::unique_ptr<StyioAST> resource_owner_;
+
   VarAST* var_ = nullptr;
   StyioAST* resource_ = nullptr;
 
   HandleAcquireAST(VarAST* v, StyioAST* r) :
-      var_(v), resource_(r) {
+      var_owner_(v),
+      resource_owner_(r),
+      var_(var_owner_.get()),
+      resource_(resource_owner_.get()) {
   }
 
 public:
@@ -2290,11 +2305,17 @@ public:
 
 class ResourceWriteAST : public StyioASTTraits<ResourceWriteAST>
 {
+  std::unique_ptr<StyioAST> data_owner_;
+  std::unique_ptr<StyioAST> resource_owner_;
+
   StyioAST* data_ = nullptr;
   StyioAST* resource_ = nullptr;
 
   ResourceWriteAST(StyioAST* d, StyioAST* r) :
-      data_(d), resource_(r) {
+      data_owner_(d),
+      resource_owner_(r),
+      data_(data_owner_.get()),
+      resource_(resource_owner_.get()) {
   }
 
 public:
@@ -2321,11 +2342,17 @@ public:
 
 class ResourceRedirectAST : public StyioASTTraits<ResourceRedirectAST>
 {
+  std::unique_ptr<StyioAST> data_owner_;
+  std::unique_ptr<StyioAST> resource_owner_;
+
   StyioAST* data_ = nullptr;
   StyioAST* resource_ = nullptr;
 
   ResourceRedirectAST(StyioAST* d, StyioAST* r) :
-      data_(d), resource_(r) {
+      data_owner_(d),
+      resource_owner_(r),
+      data_(data_owner_.get()),
+      resource_(resource_owner_.get()) {
   }
 
 public:

@@ -497,6 +497,56 @@ TEST(StyioSecurityAstOwnership, FinalBindOwnsVarAndValue) {
   EXPECT_EQ(value_destructed, 1);
 }
 
+TEST(StyioSecurityAstOwnership, ReadFileOwnsIdAndValue) {
+  int id_destructed = 0;
+  int value_destructed = 0;
+  auto* stmt =
+    new ReadFileAST(new CountingNameAST("x", &id_destructed), new CountingExprAST(&value_destructed));
+  delete stmt;
+  EXPECT_EQ(id_destructed, 1);
+  EXPECT_EQ(value_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, FileResourceOwnsPathExpr) {
+  int path_destructed = 0;
+  auto* stmt = FileResourceAST::Create(new CountingExprAST(&path_destructed), true);
+  delete stmt;
+  EXPECT_EQ(path_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, HandleAcquireOwnsVarAndResource) {
+  int var_destructed = 0;
+  int resource_destructed = 0;
+  auto* stmt = HandleAcquireAST::Create(
+    new CountingVarAST(&var_destructed),
+    new CountingExprAST(&resource_destructed));
+  delete stmt;
+  EXPECT_EQ(var_destructed, 1);
+  EXPECT_EQ(resource_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, ResourceWriteOwnsDataAndResource) {
+  int data_destructed = 0;
+  int resource_destructed = 0;
+  auto* stmt = ResourceWriteAST::Create(
+    new CountingExprAST(&data_destructed),
+    new CountingExprAST(&resource_destructed));
+  delete stmt;
+  EXPECT_EQ(data_destructed, 1);
+  EXPECT_EQ(resource_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, ResourceRedirectOwnsDataAndResource) {
+  int data_destructed = 0;
+  int resource_destructed = 0;
+  auto* stmt = ResourceRedirectAST::Create(
+    new CountingExprAST(&data_destructed),
+    new CountingExprAST(&resource_destructed));
+  delete stmt;
+  EXPECT_EQ(data_destructed, 1);
+  EXPECT_EQ(resource_destructed, 1);
+}
+
 TEST(StyioSecurityRuntime, StrcatAbAllocatesWithoutPairingFree) {
   // Document: each successful call returns malloc-backed memory; generated IR
   // does not emit free today — repeated use leaks (verify with ASan).
