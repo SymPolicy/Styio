@@ -1082,18 +1082,41 @@ public:
 /* Tuple */
 class TupleAST : public StyioASTTraits<TupleAST>
 {
+private:
+  std::vector<std::unique_ptr<StyioAST>> element_owners_;
+  std::unique_ptr<TypeAST> consistent_type_owner_;
+
+  void adopt_elements(vector<StyioAST*> elems) {
+    element_owners_.reserve(elems.size());
+    elements.clear();
+
+    for (auto* elem : elems) {
+      element_owners_.emplace_back(elem);
+      elements.push_back(element_owners_.back().get());
+    }
+  }
+
 public:
   vector<StyioAST*> elements;
 
   bool consistency = false;
-  TypeAST* consistent_type = TypeAST::Create();
+  TypeAST* consistent_type = nullptr;
 
   TupleAST(vector<StyioAST*> elems) :
-      elements(elems) {
+      consistent_type_owner_(TypeAST::Create()),
+      consistent_type(consistent_type_owner_.get()) {
+    adopt_elements(std::move(elems));
   }
 
   TupleAST(vector<VarAST*> elems) :
-      elements(elems.begin(), elems.end()) {
+      consistent_type_owner_(TypeAST::Create()),
+      consistent_type(consistent_type_owner_.get()) {
+    vector<StyioAST*> as_exprs;
+    as_exprs.reserve(elems.size());
+    for (auto* elem : elems) {
+      as_exprs.push_back(elem);
+    }
+    adopt_elements(std::move(as_exprs));
   }
 
   static TupleAST* Create(vector<StyioAST*> elems) {
@@ -1162,16 +1185,33 @@ public:
 */
 class ListAST : public StyioASTTraits<ListAST>
 {
+  std::vector<std::unique_ptr<StyioAST>> element_owners_;
+  std::unique_ptr<TypeAST> consistent_type_owner_;
+
+  void adopt_elements(vector<StyioAST*> elems) {
+    element_owners_.reserve(elems.size());
+    elements_.clear();
+
+    for (auto* elem : elems) {
+      element_owners_.emplace_back(elem);
+      elements_.push_back(element_owners_.back().get());
+    }
+  }
+
   vector<StyioAST*> elements_;
   bool consistency = false;
-  TypeAST* consistent_type = TypeAST::Create();
+  TypeAST* consistent_type = nullptr;
 
 public:
-  ListAST() {
+  ListAST() :
+      consistent_type_owner_(TypeAST::Create()),
+      consistent_type(consistent_type_owner_.get()) {
   }
 
   ListAST(vector<StyioAST*> elems) :
-      elements_(elems) {
+      consistent_type_owner_(TypeAST::Create()),
+      consistent_type(consistent_type_owner_.get()) {
+    adopt_elements(std::move(elems));
   }
 
   static ListAST* Create() {
@@ -1213,11 +1253,24 @@ public:
 
 class SetAST : public StyioASTTraits<SetAST>
 {
+  std::vector<std::unique_ptr<StyioAST>> element_owners_;
+
+  void adopt_elements(vector<StyioAST*> elems) {
+    element_owners_.reserve(elems.size());
+    elements_.clear();
+
+    for (auto* elem : elems) {
+      element_owners_.emplace_back(elem);
+      elements_.push_back(element_owners_.back().get());
+    }
+  }
+
   vector<StyioAST*> elements_;
 
 public:
   SetAST(vector<StyioAST*> elems) :
-      elements_(elems) {
+      elements_() {
+    adopt_elements(std::move(elems));
   }
 
   static SetAST* Create(vector<StyioAST*> elems) {

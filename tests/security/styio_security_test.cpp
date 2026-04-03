@@ -79,6 +79,22 @@ public:
   }
 };
 
+class CountingVarAST : public VarAST
+{
+  int* dtor_count_ = nullptr;
+
+public:
+  explicit CountingVarAST(int* dtor_count) :
+      VarAST(NameAST::Create("v")), dtor_count_(dtor_count) {
+  }
+
+  ~CountingVarAST() override {
+    if (dtor_count_ != nullptr) {
+      *dtor_count_ += 1;
+    }
+  }
+};
+
 void
 free_tokens(std::vector<StyioToken*>& tokens) {
   for (auto* t : tokens) {
@@ -410,6 +426,46 @@ TEST(StyioSecurityAstOwnership, SizeOfOwnsValueExpr) {
   auto* expr = new SizeOfAST(new CountingExprAST(&destructed));
   delete expr;
   EXPECT_EQ(destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, TupleOwnsElements) {
+  int destructed = 0;
+  auto* expr = TupleAST::Create(
+    std::vector<StyioAST*>{
+      new CountingExprAST(&destructed),
+      new CountingExprAST(&destructed)});
+  delete expr;
+  EXPECT_EQ(destructed, 2);
+}
+
+TEST(StyioSecurityAstOwnership, ListOwnsElements) {
+  int destructed = 0;
+  auto* expr = ListAST::Create(
+    std::vector<StyioAST*>{
+      new CountingExprAST(&destructed),
+      new CountingExprAST(&destructed)});
+  delete expr;
+  EXPECT_EQ(destructed, 2);
+}
+
+TEST(StyioSecurityAstOwnership, SetOwnsElements) {
+  int destructed = 0;
+  auto* expr = SetAST::Create(
+    std::vector<StyioAST*>{
+      new CountingExprAST(&destructed),
+      new CountingExprAST(&destructed)});
+  delete expr;
+  EXPECT_EQ(destructed, 2);
+}
+
+TEST(StyioSecurityAstOwnership, VarTupleOwnsVarNodes) {
+  int destructed = 0;
+  auto* expr = VarTupleAST::Create(
+    std::vector<VarAST*>{
+      new CountingVarAST(&destructed),
+      new CountingVarAST(&destructed)});
+  delete expr;
+  EXPECT_EQ(destructed, 2);
 }
 
 TEST(StyioSecurityRuntime, StrcatAbAllocatesWithoutPairingFree) {
