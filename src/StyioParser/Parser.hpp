@@ -109,6 +109,10 @@ public:
     initialize_token_lines();
   }
 
+  ~StyioContext() {
+    delete ast_repr;
+  }
+
   static StyioContext* Create(
     const string& file_name,
     const string& code_text,

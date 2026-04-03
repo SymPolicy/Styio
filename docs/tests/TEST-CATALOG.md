@@ -2,7 +2,7 @@
 
 **文档作用：** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`DOCUMENTATION-POLICY.md`](../DOCUMENTATION-POLICY.md)。
 
-**Last updated:** 2026-03-28（§8 M8 / Topology v2 smoke）
+**Last updated:** 2026-04-03（新增 §10 fuzz 测试目录与自动化入口）
 
 **批量自动化（所有里程碑集成用例）：**
 
@@ -187,3 +187,16 @@ ctest --test-dir build -L milestone
 **五层流水线 goldens**（Lexer / AST / StyioIR / LLVM / 子进程 stdout）：权威说明见 [`FIVE-LAYER-PIPELINE.md`](./FIVE-LAYER-PIPELINE.md)；用例根目录 `tests/pipeline_cases/`。
 
 与里程碑 `.styio` 仅比对最终输出的集成测试 **互补**；历史实现细节另见 `docs/AGENT-SPEC.md` §10。
+
+---
+
+## 10. Fuzz 测试（libFuzzer）
+
+| 目标 | 说明 | Automation |
+|------|------|------------|
+| `styio_fuzz_lexer` | 词法器随机输入健壮性，输入入口 `tests/fuzz/corpus/lexer` | `ctest --test-dir build -R '^fuzz_lexer_smoke$'` |
+| `styio_fuzz_parser` | parser 随机输入健壮性，输入入口 `tests/fuzz/corpus/parser` | `ctest --test-dir build -R '^fuzz_parser_smoke$'` |
+
+**构建开关：** `-DSTYIO_ENABLE_FUZZ=ON`（默认 OFF）。
+**PR 短跑：** `ctest --test-dir build -L fuzz_smoke`。
+**夜间深跑：** 见 `.github/workflows/nightly-fuzz.yml`（产物自动归档）。

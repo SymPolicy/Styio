@@ -56,6 +56,8 @@ Before making any language-level change, agents MUST read:
 - `docs/Styio-Resource-Driver.md` — Resource driver interface
 - `docs/Styio-Research-Innovations.md` — Research novelty points (do not break these)
 - `docs/DOCUMENTATION-POLICY.md` — Doc layout, **§0** maintenance (minimal change, three-doc SSOT), history/milestones/test-catalog rules
+- `docs/CHECKPOINT-WORKFLOW.md` — Interrupt-friendly checkpoint process (micro-milestones, recovery notes, ADR requirement)
+- `docs/adr/README.md` — ADR index for ownership/lifecycle/API decisions
 - `docs/tests/TEST-CATALOG.md` — Functional test map (inputs, oracles, `ctest` commands)
 
 ---

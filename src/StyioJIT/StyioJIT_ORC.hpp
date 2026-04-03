@@ -71,6 +71,8 @@ public:
         { llvm::orc::ExecutorAddr::fromPtr(&styio_read_file_i64line), llvm::JITSymbolFlags::Callable } },
       { Mangle("styio_strcat_ab"),
         { llvm::orc::ExecutorAddr::fromPtr(&styio_strcat_ab), llvm::JITSymbolFlags::Callable } },
+      { Mangle("styio_free_cstr"),
+        { llvm::orc::ExecutorAddr::fromPtr(&styio_free_cstr), llvm::JITSymbolFlags::Callable } },
       { Mangle("styio_i64_dec_cstr"),
         { llvm::orc::ExecutorAddr::fromPtr(&styio_i64_dec_cstr), llvm::JITSymbolFlags::Callable } },
     })));

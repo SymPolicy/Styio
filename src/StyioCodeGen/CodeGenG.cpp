@@ -2059,6 +2059,7 @@ StyioToLLVM::toLLVMIR(SGResourceWriteToFile* node) {
   llvm::Value* path = node->path_expr->toLLVMIR(this);
   llvm::Value* h = theBuilder->CreateCall(openw, {path});
   llvm::Value* data = node->data_expr->toLLVMIR(this);
+  bool free_after_write = false;
   if (node->promote_data_to_cstr || !data->getType()->isPointerTy()) {
     data = promote_to_cstr(data);
   }
@@ -2068,8 +2069,15 @@ StyioToLLVM::toLLVMIR(SGResourceWriteToFile* node) {
       "styio_strcat_ab",
       llvm::FunctionType::get(char_ptr, {char_ptr, char_ptr}, false));
     data = theBuilder->CreateCall(cat, {data, nl});
+    free_after_write = true;
   }
   theBuilder->CreateCall(write_fn, {h, data});
+  if (free_after_write) {
+    llvm::FunctionCallee free_fn = theModule->getOrInsertFunction(
+      "styio_free_cstr",
+      llvm::FunctionType::get(theBuilder->getVoidTy(), {char_ptr}, false));
+    theBuilder->CreateCall(free_fn, {data});
+  }
   theBuilder->CreateCall(close_fn, {h});
   return theBuilder->getInt64(0);
 }

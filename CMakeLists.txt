@@ -1,17 +1,13 @@
 cmake_minimum_required(VERSION 3.14)
 
-# [clang]
-set(CMAKE_BUILD_TYPE "Debug")
-set(CMAKE_C_COMPILER "/usr/bin/clang")
-# set(CMAKE_C_FLAGS "-Wl,-export-dynamic")
+# [Build Type]
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type" FORCE)
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
-
-set(CMAKE_LINKER "/usr/bin/lld")
-set(CMAKE_OBJDUMP "/usr/bin/llvm-objdump")
-
-# set(CMAKE_EXE_LINKER_FLAGS "-Wl,-export-dynamic")
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 # [CMake]
 set(DOWNLOAD_EXTRACT_TIMESTAMP true)
@@ -23,10 +19,9 @@ project(styio VERSION 0.0.1)
 # set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
 
 # [Styio] Build Output Directory
-set(PROJECT_BINARY_DIR "${PROJECT_SOURCE_DIR}/build")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/lib")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/lib")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
 message(STATUS "[Styio] Source: " ${PROJECT_SOURCE_DIR})
 message(STATUS "[Styio] Binary: " ${PROJECT_BINARY_DIR})

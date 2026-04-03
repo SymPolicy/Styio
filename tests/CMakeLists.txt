@@ -9,7 +9,7 @@ enable_testing()
 
 # All milestone .styio sources live under tests/milestones/{m1,m2,...}
 set(STYIO_MS "${CMAKE_CURRENT_LIST_DIR}/milestones")
-set(STYIO_EXE "${CMAKE_SOURCE_DIR}/styio")
+set(STYIO_EXE "$<TARGET_FILE:styio>")
 
 # --- Helper: stdout golden (styio --file X | cmp -s - expected/X.out) ---
 function(styio_stdout_golden_test MS_DIR TEST_GLOB LABEL)
@@ -132,7 +132,7 @@ target_link_libraries(
 )
 target_compile_definitions(styio_test PRIVATE
   "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
-  "STYIO_COMPILER_EXE=\"${CMAKE_SOURCE_DIR}/styio\""
+  "STYIO_COMPILER_EXE=\"$<TARGET_FILE:styio>\""
 )
 add_dependencies(styio_test styio)
 
@@ -151,3 +151,8 @@ gtest_discover_tests(styio_security_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES LABELS "security;lexer;ffi"
 )
+
+option(STYIO_ENABLE_FUZZ "Build libFuzzer targets" OFF)
+if(STYIO_ENABLE_FUZZ)
+  add_subdirectory(fuzz)
+endif()

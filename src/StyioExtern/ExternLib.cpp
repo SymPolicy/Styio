@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdint>
+#include <unordered_map>
 
 #include "ExternLib.hpp"
 
@@ -10,13 +11,29 @@ namespace {
 /* Alternating buffers so two consecutive reads (e.g. zip of two files) keep both lines valid. */
 thread_local char g_read_line_bufs[2][65536];
 thread_local int g_read_line_buf_which = 0;
+thread_local std::unordered_map<int64_t, FILE*> g_file_handles;
+thread_local int64_t g_next_file_handle = 1;
+
+int64_t
+stash_file(FILE* f) {
+  if (f == nullptr) {
+    return 0;
+  }
+  const int64_t h = g_next_file_handle++;
+  g_file_handles[h] = f;
+  return h;
+}
 
 FILE*
 as_file(int64_t h) {
   if (h == 0) {
     return nullptr;
   }
-  return reinterpret_cast<FILE*>(static_cast<uintptr_t>(static_cast<uint64_t>(h)));
+  auto it = g_file_handles.find(h);
+  if (it == g_file_handles.end()) {
+    return nullptr;
+  }
+  return it->second;
 }
 
 }  // namespace
@@ -25,14 +42,14 @@ extern "C" DLLEXPORT int64_t
 styio_file_open(const char* path) {
   if (path == nullptr) {
     std::fprintf(stderr, "styio: file path is null\n");
-    std::exit(1);
+    return 0;
   }
   FILE* f = std::fopen(path, "rb");
   if (f == nullptr) {
     std::fprintf(stderr, "styio: cannot open file for read: %s\n", path);
-    std::exit(1);
+    return 0;
   }
-  return static_cast<int64_t>(reinterpret_cast<uintptr_t>(f));
+  return stash_file(f);
 }
 
 extern "C" DLLEXPORT int64_t
@@ -45,22 +62,23 @@ extern "C" DLLEXPORT int64_t
 styio_file_open_write(const char* path) {
   if (path == nullptr) {
     std::fprintf(stderr, "styio: file path is null\n");
-    std::exit(1);
+    return 0;
   }
   /* Append so repeated writes in one program (e.g. per-iteration << file) accumulate. */
   FILE* f = std::fopen(path, "ab");
   if (f == nullptr) {
     std::fprintf(stderr, "styio: cannot open file for write: %s\n", path);
-    std::exit(1);
+    return 0;
   }
-  return static_cast<int64_t>(reinterpret_cast<uintptr_t>(f));
+  return stash_file(f);
 }
 
 extern "C" DLLEXPORT void
 styio_file_close(int64_t h) {
-  FILE* f = as_file(h);
-  if (f != nullptr) {
-    std::fclose(f);
+  auto it = g_file_handles.find(h);
+  if (it != g_file_handles.end() && it->second != nullptr) {
+    std::fclose(it->second);
+    g_file_handles.erase(it);
   }
 }
 
@@ -143,6 +161,14 @@ styio_strcat_ab(const char* a, const char* b) {
   std::memcpy(p, ea, na);
   std::memcpy(p + na, eb, nb + 1);
   return p;
+}
+
+extern "C" DLLEXPORT void
+styio_free_cstr(const char* s) {
+  if (s == nullptr) {
+    return;
+  }
+  std::free(const_cast<char*>(s));
 }
 
 thread_local char g_i64_dec_buf[32];

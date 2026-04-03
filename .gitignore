@@ -1,5 +1,8 @@
 # Build Cache
 build/
+styio
+styio_test
+styio_security_test
 
 # Local dev reports (scripts/dev-report.sh); 删除本行若需纳入版本库
 reports/

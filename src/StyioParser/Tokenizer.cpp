@@ -68,9 +68,9 @@ StyioTokenizer::tokenize(std::string code) {
       std::string literal = "//";
       loc += 2;
 
-      while (code.at(loc) != '\n'
-             && code.at(loc) != '\r'
-             && code.at(loc) != EOF) {
+      while (loc < code.length()
+             && code.at(loc) != '\n'
+             && code.at(loc) != '\r') {
         literal += code.at(loc);
         loc += 1;
       }
@@ -81,11 +81,16 @@ StyioTokenizer::tokenize(std::string code) {
     /* comments */
     else if (code.compare(loc, 2, "/*") == 0) {
       std::string literal = "/*";
+      const unsigned long long start = loc;
       loc += 2;
 
-      while (not(code.compare(loc, 2, "*/") == 0)) {
+      while (loc < code.length() && not(code.compare(loc, 2, "*/") == 0)) {
         literal += code.at(loc);
         loc += 1;
+      }
+      if (loc >= code.length()) {
+        throw StyioLexError(
+          "Unterminated block comment at offset " + std::to_string(start));
       }
 
       literal += "*/";
@@ -145,12 +150,6 @@ StyioTokenizer::tokenize(std::string code) {
     }
 
     switch (code.at(loc)) {
-      // -1
-      case EOF: {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_EOF, std::to_string(EOF)));
-        return tokens;
-      } break;
-
       // 33
       case '!': {
         if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
@@ -166,11 +165,16 @@ StyioTokenizer::tokenize(std::string code) {
       // 34
       case '\"': {
         std::string literal = "\"";
+        const unsigned long long start = loc;
         loc += 1;
 
-        while (code.at(loc) != '\"') {
+        while (loc < code.length() && code.at(loc) != '\"') {
           literal += code.at(loc);
           loc += 1;
+        }
+        if (loc >= code.length()) {
+          throw StyioLexError(
+            "Unterminated string literal at offset " + std::to_string(start));
         }
 
         literal += "\"";

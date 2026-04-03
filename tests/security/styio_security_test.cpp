@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "StyioException/Exception.hpp"
 #include "StyioExtern/ExternLib.hpp"
 #include "StyioParser/Tokenizer.hpp"
 
@@ -37,32 +38,30 @@ TEST(StyioSecurityLexer, EmptySourceProducesEof) {
   free_tokens(tokens);
 }
 
-TEST(StyioSecurityLexer, UnterminatedStringThrowsOutOfRange) {
-  // Lexer uses code.at(loc) without bound checks inside string literal scan.
+TEST(StyioSecurityLexer, UnterminatedStringThrowsLexError) {
+  // Unterminated string must produce a structured lexer error, not UB/crash.
   EXPECT_THROW(
     {
       auto tokens = StyioTokenizer::tokenize(R"(print "unterminated)");
       free_tokens(tokens);
     },
-    std::out_of_range);
+    StyioLexError);
 }
 
-TEST(StyioSecurityLexer, UnterminatedBlockCommentThrowsOutOfRange) {
+TEST(StyioSecurityLexer, UnterminatedBlockCommentThrowsLexError) {
   EXPECT_THROW(
     {
       auto tokens = StyioTokenizer::tokenize("a /* no closing");
       free_tokens(tokens);
     },
-    std::out_of_range);
+    StyioLexError);
 }
 
-TEST(StyioSecurityLexer, LineCommentAtEofWithoutNewlineThrowsOutOfRange) {
-  EXPECT_THROW(
-    {
-      auto tokens = StyioTokenizer::tokenize("x // eof-no-newline");
-      free_tokens(tokens);
-    },
-    std::out_of_range);
+TEST(StyioSecurityLexer, LineCommentAtEofWithoutNewlineDoesNotThrow) {
+  auto tokens = StyioTokenizer::tokenize("x // eof-no-newline");
+  ASSERT_FALSE(tokens.empty());
+  EXPECT_EQ(tokens.back()->type, StyioTokenType::TOK_EOF);
+  free_tokens(tokens);
 }
 
 TEST(StyioSecurityLexer, EmbeddedNulByteDoesNotHang) {
@@ -116,4 +115,20 @@ TEST(StyioSecurityRuntime, StrcatAbHugeInputDoesNotCrash) {
   ASSERT_NE(p, nullptr);
   EXPECT_EQ(strlen(p), 80000u);
   std::free(const_cast<char*>(p));
+}
+
+TEST(StyioSecurityRuntime, MissingFileOpenReturnsZeroHandle) {
+  const int64_t h = styio_file_open("/tmp/styio_missing_9b8fe8e2_7dfe_42ed_9ce2_4f9e587f7f6d.txt");
+  EXPECT_EQ(h, 0);
+}
+
+TEST(StyioSecurityRuntime, InvalidHandleOperationsAreSafe) {
+  styio_file_close(123456789);
+  styio_file_rewind(123456789);
+  EXPECT_EQ(styio_file_read_line(123456789), nullptr);
+}
+
+TEST(StyioSecurityRuntime, FreeCstrAcceptsNull) {
+  styio_free_cstr(nullptr);
+  SUCCEED();
 }

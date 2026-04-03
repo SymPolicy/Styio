@@ -51,6 +51,8 @@ ctest --test-dir build -L milestone
 | Golden Cross **守则内嵌的宪法示例代码** | `AGENT-SPEC.md` §12.3 | 设计背景链到 `Styio-Resource-Topology.md` §8 |
 | Topology v2 **实施步骤、修改点矩阵、风险与记录规范** | `Resource-Topology-v2-Implementation-Plan.md` | `Styio-Resource-Topology.md` §9 仅状态表 + 链到本计划 |
 | **`[|n|]` 环缓 CodeGen** 从 bootstrap 迁移的破坏面 / 测试 / 回滚 | `BoundedRing-Codegen-Adjustment.md` | 会话细节见 `history/2026-03-29.md` |
+| **Checkpoint 微里程碑执行规则**（可中断/可恢复） | `CHECKPOINT-WORKFLOW.md` | 在 `history/YYYY-MM-DD.md` 写恢复指引，不在其它文档重复流程细节 |
+| **架构决策记录（ADR）** | `docs/adr/` | 决策摘要可在 history 引用，正文仅维护于 ADR 文件 |
 
 ---
 

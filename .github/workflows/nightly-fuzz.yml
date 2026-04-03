@@ -1,0 +1,70 @@
+name: styio-nightly-fuzz
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  nightly-fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            clang-18 \
+            lld-18 \
+            llvm-18-dev \
+            libicu-dev \
+            python3
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_COMPILER=clang-18
+          -DCMAKE_CXX_COMPILER=clang++-18
+          -DLLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm
+          -DSTYIO_ENABLE_FUZZ=ON
+
+      - name: Build fuzzers
+        run: cmake --build build --target styio_fuzz_lexer styio_fuzz_parser
+
+      - name: Run deep fuzz
+        run: |
+          mkdir -p fuzz-artifacts/lexer fuzz-artifacts/parser
+          set +e
+          ./build/bin/styio_fuzz_lexer \
+            tests/fuzz/corpus/lexer \
+            -max_total_time=600 \
+            -artifact_prefix=fuzz-artifacts/lexer/ \
+            > fuzz-artifacts/lexer.log 2>&1
+          LEX_EXIT=$?
+
+          ./build/bin/styio_fuzz_parser \
+            tests/fuzz/corpus/parser \
+            -max_total_time=600 \
+            -artifact_prefix=fuzz-artifacts/parser/ \
+            > fuzz-artifacts/parser.log 2>&1
+          PARSER_EXIT=$?
+          set -e
+
+          if [ "$LEX_EXIT" -ne 0 ] || [ "$PARSER_EXIT" -ne 0 ]; then
+            echo "Fuzz target failed: lexer=$LEX_EXIT parser=$PARSER_EXIT"
+            exit 1
+          fi
+
+      - name: Upload fuzz artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-fuzz-artifacts
+          path: fuzz-artifacts/

@@ -1,0 +1,57 @@
+name: styio-ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+      - agent-dev
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            clang-18 \
+            lld-18 \
+            llvm-18-dev \
+            libicu-dev \
+            python3
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_COMPILER=clang-18
+          -DCMAKE_CXX_COMPILER=clang++-18
+          -DLLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm
+          -DSTYIO_ENABLE_FUZZ=ON
+
+      - name: Build
+        run: >
+          cmake --build build --target
+          styio styio_test styio_security_test
+          styio_fuzz_lexer styio_fuzz_parser
+
+      - name: Security tests
+        run: ctest --test-dir build -L security --output-on-failure
+
+      - name: Five-layer pipeline tests
+        run: ctest --test-dir build -L styio_pipeline --output-on-failure
+
+      - name: Milestone smoke
+        run: ctest --test-dir build -R '^m1_t01_int_arith$|^m2_t01_simple_func$' --output-on-failure
+
+      - name: Fuzz smoke
+        run: ctest --test-dir build -L fuzz_smoke --output-on-failure

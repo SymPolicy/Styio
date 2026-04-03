@@ -40,9 +40,9 @@
 | `TEST` 全名 | 验证性质 | 主要依赖 |
 |--------------|----------|----------|
 | `EmptySourceProducesEof` | 空串仍能产生以 `TOK_EOF` 结束的序列 | `StyioTokenizer::tokenize` |
-| `UnterminatedStringThrowsOutOfRange` | 未闭合 `"` 抛 `std::out_of_range`（异常为当前实现语义，非最终 UX） | 同上 |
-| `UnterminatedBlockCommentThrowsOutOfRange` | 未闭合 `/*` | 同上 |
-| `LineCommentAtEofWithoutNewlineThrowsOutOfRange` | 行注释直至缓冲区末尾且无 `\n` | 同上 |
+| `UnterminatedStringThrowsLexError` | 未闭合 `"` 抛 `StyioLexError` | 同上 |
+| `UnterminatedBlockCommentThrowsLexError` | 未闭合 `/*` 抛 `StyioLexError` | 同上 |
+| `LineCommentAtEofWithoutNewlineDoesNotThrow` | 行注释位于 EOF 且无 `\n` 时应正常结束 tokenization | 同上 |
 | `EmbeddedNulByteDoesNotHang` | 含嵌入 `NUL` 的源码须在时限内结束；`std::async` + `wait_for` | 同上 |
 | `VeryLongIdentifierCompletes` | 长度 200000 的标识符可完成 token 化 | 同上 |
 
@@ -85,7 +85,7 @@ ctest -L security
 | 标识符 `while` 边界、`switch` 前 `loc` 守卫 | `VeryLongIdentifierCompletes`、`EmbeddedNulByteDoesNotHang`（多 token 序列） |
 | 整数/浮点 digit 循环与 `.` 前瞻边界 | 由长数字场景与静态审查共同覆盖；超长纯数字可后续加专用用例 |
 
-**仍为“预期抛异常”的用例**（未闭合 `"` / `/*` / 行尾 `//`）对应 [findings.md](./findings.md) 中尚未改为结构化错误的词法路径；用例保留用于锁定“失败时不得挂死/不得假成功”的现状。
+**仍为“预期抛异常”的用例**（未闭合 `"` / `/*`）已迁移到结构化 `StyioLexError`；行尾 `//` 在 EOF 情况现为合法输入并生成 `TOK_EOF` 结尾序列。
 
 ---
 
