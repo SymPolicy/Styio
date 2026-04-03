@@ -22,3 +22,4 @@
 - `ADR-0008-expr-node-raii-cond.md`
 - `ADR-0009-expr-node-raii-wave-fallback-selectors.md`
 - `ADR-0010-expr-node-raii-func-call.md`
+- `ADR-0011-expr-node-raii-listop-attr.md`

@@ -331,6 +331,52 @@ TEST(StyioSecurityAstOwnership, FuncCallSetCalleeTakesOwnership) {
   EXPECT_EQ(name_destructed, 1);
 }
 
+TEST(StyioSecurityAstOwnership, ListOpOwnsListOnly) {
+  int list_destructed = 0;
+  auto* expr = new ListOpAST(
+    StyioNodeType::Get_Reversed,
+    new CountingExprAST(&list_destructed));
+  delete expr;
+  EXPECT_EQ(list_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, ListOpOwnsListAndSlot1) {
+  int list_destructed = 0;
+  int slot1_destructed = 0;
+  auto* expr = new ListOpAST(
+    StyioNodeType::Access_By_Index,
+    new CountingExprAST(&list_destructed),
+    new CountingExprAST(&slot1_destructed));
+  delete expr;
+  EXPECT_EQ(list_destructed, 1);
+  EXPECT_EQ(slot1_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, ListOpOwnsListSlot1AndSlot2) {
+  int list_destructed = 0;
+  int slot1_destructed = 0;
+  int slot2_destructed = 0;
+  auto* expr = new ListOpAST(
+    StyioNodeType::Insert_Item_By_Index,
+    new CountingExprAST(&list_destructed),
+    new CountingExprAST(&slot1_destructed),
+    new CountingExprAST(&slot2_destructed));
+  delete expr;
+  EXPECT_EQ(list_destructed, 1);
+  EXPECT_EQ(slot1_destructed, 1);
+  EXPECT_EQ(slot2_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, AttrOwnsBodyAndAttr) {
+  int body_destructed = 0;
+  int attr_destructed = 0;
+  auto* expr =
+    AttrAST::Create(new CountingExprAST(&body_destructed), new CountingExprAST(&attr_destructed));
+  delete expr;
+  EXPECT_EQ(body_destructed, 1);
+  EXPECT_EQ(attr_destructed, 1);
+}
+
 TEST(StyioSecurityRuntime, StrcatAbAllocatesWithoutPairingFree) {
   // Document: each successful call returns malloc-backed memory; generated IR
   // does not emit free today — repeated use leaks (verify with ASan).

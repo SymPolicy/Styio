@@ -1806,6 +1806,10 @@ public:
 
 class ListOpAST : public StyioASTTraits<ListOpAST>
 {
+  std::unique_ptr<StyioAST> list_owner_;
+  std::unique_ptr<StyioAST> slot1_owner_;
+  std::unique_ptr<StyioAST> slot2_owner_;
+
   StyioNodeType OpType;
   StyioAST* TheList = nullptr;
 
@@ -1818,7 +1822,9 @@ public:
       [<]
   */
   ListOpAST(StyioNodeType opType, StyioAST* theList) :
-      OpType(opType), TheList((theList)) {
+      list_owner_(theList),
+      OpType(opType),
+      TheList(list_owner_.get()) {
   }
 
   /*
@@ -1859,7 +1865,11 @@ public:
       [[<] -: ?^ (v0, v1, ...)]
   */
   ListOpAST(StyioNodeType opType, StyioAST* theList, StyioAST* item) :
-      OpType(opType), TheList((theList)), Slot1((item)) {
+      list_owner_(theList),
+      slot1_owner_(item),
+      OpType(opType),
+      TheList(list_owner_.get()),
+      Slot1(slot1_owner_.get()) {
   }
 
   /*
@@ -1867,7 +1877,13 @@ public:
       [+: index <- value]
   */
   ListOpAST(StyioNodeType opType, StyioAST* theList, StyioAST* index, StyioAST* value) :
-      OpType(opType), TheList((theList)), Slot1((index)), Slot2((value)) {
+      list_owner_(theList),
+      slot1_owner_(index),
+      slot2_owner_(value),
+      OpType(opType),
+      TheList(list_owner_.get()),
+      Slot1(slot1_owner_.get()),
+      Slot2(slot2_owner_.get()) {
   }
 
   StyioNodeType getOp() {
@@ -1897,6 +1913,10 @@ public:
 
 class AttrAST : public StyioASTTraits<AttrAST>
 {
+private:
+  std::unique_ptr<StyioAST> body_owner_;
+  std::unique_ptr<StyioAST> attr_owner_;
+
 public:
   StyioAST* body = nullptr;
   StyioAST* attr = nullptr;
@@ -1905,8 +1925,10 @@ public:
     StyioAST* body,
     StyioAST* attr
   ) :
-      body(body),
-      attr(attr) {
+      body_owner_(body),
+      attr_owner_(attr),
+      body(body_owner_.get()),
+      attr(attr_owner_.get()) {
   }
 
   static AttrAST* Create(StyioAST* body, StyioAST* attr) {
