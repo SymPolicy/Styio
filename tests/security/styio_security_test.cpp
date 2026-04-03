@@ -63,6 +63,22 @@ public:
   }
 };
 
+class CountingNameAST : public NameAST
+{
+  int* dtor_count_ = nullptr;
+
+public:
+  CountingNameAST(const std::string& name, int* dtor_count) :
+      NameAST(name), dtor_count_(dtor_count) {
+  }
+
+  ~CountingNameAST() override {
+    if (dtor_count_ != nullptr) {
+      *dtor_count_ += 1;
+    }
+  }
+};
+
 void
 free_tokens(std::vector<StyioToken*>& tokens) {
   for (auto* t : tokens) {
@@ -274,6 +290,45 @@ TEST(StyioSecurityAstOwnership, EqProbeOwnsChildExprs) {
   auto* expr = EqProbeAST::Create(base, probe);
   delete expr;
   EXPECT_EQ(destructed, 2);
+}
+
+TEST(StyioSecurityAstOwnership, FuncCallOwnsNameAndArgs) {
+  int name_destructed = 0;
+  int arg_destructed = 0;
+  auto* expr = FuncCallAST::Create(
+    new CountingNameAST("f", &name_destructed),
+    std::vector<StyioAST*>{
+      new CountingExprAST(&arg_destructed),
+      new CountingExprAST(&arg_destructed)});
+  delete expr;
+  EXPECT_EQ(name_destructed, 1);
+  EXPECT_EQ(arg_destructed, 2);
+}
+
+TEST(StyioSecurityAstOwnership, FuncCallOwnsCalleeNameAndArgs) {
+  int callee_destructed = 0;
+  int name_destructed = 0;
+  int arg_destructed = 0;
+  auto* expr = FuncCallAST::Create(
+    new CountingExprAST(&callee_destructed),
+    new CountingNameAST("f", &name_destructed),
+    std::vector<StyioAST*>{new CountingExprAST(&arg_destructed)});
+  delete expr;
+  EXPECT_EQ(callee_destructed, 1);
+  EXPECT_EQ(name_destructed, 1);
+  EXPECT_EQ(arg_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, FuncCallSetCalleeTakesOwnership) {
+  int callee_destructed = 0;
+  int name_destructed = 0;
+  auto* expr = FuncCallAST::Create(
+    new CountingNameAST("f", &name_destructed),
+    std::vector<StyioAST*>{});
+  expr->setFuncCallee(new CountingExprAST(&callee_destructed));
+  delete expr;
+  EXPECT_EQ(callee_destructed, 1);
+  EXPECT_EQ(name_destructed, 1);
 }
 
 TEST(StyioSecurityRuntime, StrcatAbAllocatesWithoutPairingFree) {

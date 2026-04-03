@@ -1722,6 +1722,21 @@ public:
 
 class FuncCallAST : public StyioASTTraits<FuncCallAST>
 {
+private:
+  std::unique_ptr<StyioAST> func_callee_owner_;
+  std::unique_ptr<NameAST> func_name_owner_;
+  std::vector<std::unique_ptr<StyioAST>> func_arg_owners_;
+
+  void adopt_arguments(vector<StyioAST*> arguments) {
+    func_arg_owners_.reserve(arguments.size());
+    func_args.clear();
+
+    for (auto* arg : arguments) {
+      func_arg_owners_.emplace_back(arg);
+      func_args.push_back(func_arg_owners_.back().get());
+    }
+  }
+
 public:
   StyioAST* func_callee = nullptr;
   NameAST* func_name = nullptr;
@@ -1731,8 +1746,9 @@ public:
     NameAST* func_name,
     vector<StyioAST*> arguments
   ) :
-      func_name(func_name),
-      func_args(arguments) {
+      func_name_owner_(func_name),
+      func_name(func_name_owner_.get()) {
+    adopt_arguments(std::move(arguments));
   }
 
   FuncCallAST(
@@ -1740,9 +1756,11 @@ public:
     NameAST* func_name,
     vector<StyioAST*> arguments
   ) :
-      func_callee(func_callee),
-      func_name(func_name),
-      func_args(arguments) {
+      func_callee_owner_(func_callee),
+      func_name_owner_(func_name),
+      func_callee(func_callee_owner_.get()),
+      func_name(func_name_owner_.get()) {
+    adopt_arguments(std::move(arguments));
   }
 
   static FuncCallAST* Create(
@@ -1758,6 +1776,11 @@ public:
     vector<StyioAST*> arguments
   ) {
     return new FuncCallAST(func_callee, func_name, arguments);
+  }
+
+  void setFuncCallee(StyioAST* callee) {
+    func_callee_owner_.reset(callee);
+    func_callee = func_callee_owner_.get();
   }
 
   NameAST* getFuncName() {

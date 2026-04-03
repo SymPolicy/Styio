@@ -1985,7 +1985,7 @@ parse_chain_of_call(
         return parse_chain_of_call(context, temp);
       }
       else {
-        temp->func_callee = callee;
+        temp->setFuncCallee(callee);
         return temp;
       }
     }
