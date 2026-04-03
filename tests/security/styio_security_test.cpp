@@ -377,6 +377,41 @@ TEST(StyioSecurityAstOwnership, AttrOwnsBodyAndAttr) {
   EXPECT_EQ(attr_destructed, 1);
 }
 
+TEST(StyioSecurityAstOwnership, FmtStrOwnsEmbeddedExprs) {
+  int destructed = 0;
+  auto* expr = FmtStrAST::Create(
+    {"x=", ", y="},
+    std::vector<StyioAST*>{
+      new CountingExprAST(&destructed),
+      new CountingExprAST(&destructed)});
+  delete expr;
+  EXPECT_EQ(destructed, 2);
+}
+
+TEST(StyioSecurityAstOwnership, TypeConvertOwnsValue) {
+  int destructed = 0;
+  auto* expr = TypeConvertAST::Create(new CountingExprAST(&destructed), NumPromoTy::Int_To_Float);
+  delete expr;
+  EXPECT_EQ(destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, RangeOwnsAllBoundExprs) {
+  int destructed = 0;
+  auto* expr = new RangeAST(
+    new CountingExprAST(&destructed),
+    new CountingExprAST(&destructed),
+    new CountingExprAST(&destructed));
+  delete expr;
+  EXPECT_EQ(destructed, 3);
+}
+
+TEST(StyioSecurityAstOwnership, SizeOfOwnsValueExpr) {
+  int destructed = 0;
+  auto* expr = new SizeOfAST(new CountingExprAST(&destructed));
+  delete expr;
+  EXPECT_EQ(destructed, 1);
+}
+
 TEST(StyioSecurityRuntime, StrcatAbAllocatesWithoutPairingFree) {
   // Document: each successful call returns malloc-backed memory; generated IR
   // does not emit free today — repeated use leaks (verify with ASan).

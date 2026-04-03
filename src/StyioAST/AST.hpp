@@ -850,12 +850,24 @@ public:
 */
 class FmtStrAST : public StyioASTTraits<FmtStrAST>
 {
+  std::vector<std::unique_ptr<StyioAST>> expr_owners_;
   vector<string> Fragments;
   vector<StyioAST*> Exprs;
 
+  void adopt_expressions(vector<StyioAST*> expressions) {
+    expr_owners_.reserve(expressions.size());
+    Exprs.clear();
+
+    for (auto* expr : expressions) {
+      expr_owners_.emplace_back(expr);
+      Exprs.push_back(expr_owners_.back().get());
+    }
+  }
+
 public:
   FmtStrAST(vector<string> fragments, vector<StyioAST*> expressions) :
-      Fragments(fragments), Exprs((expressions)) {
+      Fragments(fragments) {
+    adopt_expressions(std::move(expressions));
   }
 
   static FmtStrAST* Create(vector<string> fragments, vector<StyioAST*> expressions) {
@@ -881,6 +893,7 @@ public:
 
 class TypeConvertAST : public StyioASTTraits<TypeConvertAST>
 {
+  std::unique_ptr<StyioAST> value_owner_;
   StyioAST* Value = nullptr;
   NumPromoTy PromoType;
 
@@ -889,7 +902,7 @@ public:
     StyioAST* val,
     NumPromoTy promo_type
   ) :
-      Value(val), PromoType(promo_type) {
+      value_owner_(val), Value(value_owner_.get()), PromoType(promo_type) {
   }
 
   static TypeConvertAST* Create(
@@ -1229,13 +1242,22 @@ public:
 */
 class RangeAST : public StyioASTTraits<RangeAST>
 {
+  std::unique_ptr<StyioAST> start_owner_;
+  std::unique_ptr<StyioAST> end_owner_;
+  std::unique_ptr<StyioAST> step_owner_;
+
   StyioAST* StartVal = nullptr;
   StyioAST* EndVal = nullptr;
   StyioAST* StepVal = nullptr;
 
 public:
   RangeAST(StyioAST* start, StyioAST* end, StyioAST* step) :
-      StartVal((start)), EndVal((end)), StepVal((step)) {
+      start_owner_(start),
+      end_owner_(end),
+      step_owner_(step),
+      StartVal(start_owner_.get()),
+      EndVal(end_owner_.get()),
+      StepVal(step_owner_.get()) {
   }
 
   StyioAST* getStart() {
@@ -1270,13 +1292,14 @@ public:
 */
 class SizeOfAST : public StyioASTTraits<SizeOfAST>
 {
+  std::unique_ptr<StyioAST> value_owner_;
   StyioAST* Value = nullptr;
 
 public:
   SizeOfAST(
     StyioAST* value
   ) :
-      Value(value) {
+      value_owner_(value), Value(value_owner_.get()) {
   }
 
   StyioAST* getValue() {
