@@ -95,6 +95,22 @@ public:
   }
 };
 
+class CountingTypeAST : public TypeAST
+{
+  int* dtor_count_ = nullptr;
+
+public:
+  CountingTypeAST(const std::string& type_name, int* dtor_count) :
+      TypeAST(type_name), dtor_count_(dtor_count) {
+  }
+
+  ~CountingTypeAST() override {
+    if (dtor_count_ != nullptr) {
+      *dtor_count_ += 1;
+    }
+  }
+};
+
 void
 free_tokens(std::vector<StyioToken*>& tokens) {
   for (auto* t : tokens) {
@@ -545,6 +561,48 @@ TEST(StyioSecurityAstOwnership, ResourceRedirectOwnsDataAndResource) {
   delete stmt;
   EXPECT_EQ(data_destructed, 1);
   EXPECT_EQ(resource_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, VarOwnsNameTypeAndInit) {
+  int name_destructed = 0;
+  int type_destructed = 0;
+  int init_destructed = 0;
+  auto* var = new VarAST(
+    new CountingNameAST("x", &name_destructed),
+    new CountingTypeAST("i64", &type_destructed),
+    new CountingExprAST(&init_destructed));
+  delete var;
+  EXPECT_EQ(name_destructed, 1);
+  EXPECT_EQ(type_destructed, 1);
+  EXPECT_EQ(init_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, ParamOwnsNameTypeAndInit) {
+  int name_destructed = 0;
+  int type_destructed = 0;
+  int init_destructed = 0;
+  auto* param = ParamAST::Create(
+    new CountingNameAST("p", &name_destructed),
+    new CountingTypeAST("i64", &type_destructed),
+    new CountingExprAST(&init_destructed));
+  delete param;
+  EXPECT_EQ(name_destructed, 1);
+  EXPECT_EQ(type_destructed, 1);
+  EXPECT_EQ(init_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, OptArgOwnsName) {
+  int name_destructed = 0;
+  auto* node = OptArgAST::Create(new CountingNameAST("oa", &name_destructed));
+  delete node;
+  EXPECT_EQ(name_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, OptKwArgOwnsName) {
+  int name_destructed = 0;
+  auto* node = OptKwArgAST::Create(new CountingNameAST("okw", &name_destructed));
+  delete node;
+  EXPECT_EQ(name_destructed, 1);
 }
 
 TEST(StyioSecurityRuntime, StrcatAbAllocatesWithoutPairingFree) {

@@ -665,25 +665,37 @@ public:
 */
 class VarAST : public StyioASTTraits<VarAST>
 {
+private:
+  std::unique_ptr<NameAST> var_name_owner_;
+  std::unique_ptr<TypeAST> var_type_owner_;
+  std::unique_ptr<StyioAST> val_init_owner_;
+
 public:
-  NameAST* var_name = NameAST::Create(); /* Variable Name */
-  TypeAST* var_type = TypeAST::Create(); /* Variable Data Type */
+  NameAST* var_name = nullptr; /* Variable Name */
+  TypeAST* var_type = nullptr; /* Variable Data Type */
   StyioAST* val_init = nullptr;          /* Variable Initial Value */
 
   VarAST(NameAST* name) :
-      var_name(name),
-      var_type(TypeAST::Create()) {
+      var_name_owner_(name),
+      var_type_owner_(TypeAST::Create()),
+      var_name(var_name_owner_.get()),
+      var_type(var_type_owner_.get()) {
   }
 
   VarAST(NameAST* name, TypeAST* data_type) :
-      var_name(name),
-      var_type(data_type) {
+      var_name_owner_(name),
+      var_type_owner_(data_type),
+      var_name(var_name_owner_.get()),
+      var_type(var_type_owner_.get()) {
   }
 
   VarAST(NameAST* name, TypeAST* data_type, StyioAST* default_value) :
-      var_name(name),
-      var_type(data_type),
-      val_init(default_value) {
+      var_name_owner_(name),
+      var_type_owner_(data_type),
+      val_init_owner_(default_value),
+      var_name(var_name_owner_.get()),
+      var_type(var_type_owner_.get()),
+      val_init(val_init_owner_.get()) {
   }
 
   static VarAST* Create(NameAST* name) {

@@ -27,3 +27,4 @@
 - `ADR-0013-expr-node-raii-tuple-list-set.md`
 - `ADR-0014-stmt-node-raii-return-bind.md`
 - `ADR-0015-stmt-node-raii-resource-io.md`
+- `ADR-0016-stmt-node-raii-var-family.md`
