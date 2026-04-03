@@ -239,6 +239,16 @@ TEST(StyioSecurityAstOwnership, WaveMergeOwnsAllChildExprs) {
   EXPECT_EQ(destructed, 3);
 }
 
+TEST(StyioSecurityAstOwnership, WaveDispatchOwnsAllChildExprs) {
+  int destructed = 0;
+  auto* cond = new CountingExprAST(&destructed);
+  auto* on_true = new CountingExprAST(&destructed);
+  auto* on_false = new CountingExprAST(&destructed);
+  auto* expr = WaveDispatchAST::Create(cond, on_true, on_false);
+  delete expr;
+  EXPECT_EQ(destructed, 3);
+}
+
 TEST(StyioSecurityAstOwnership, FallbackOwnsChildExprs) {
   int destructed = 0;
   auto* primary = new CountingExprAST(&destructed);

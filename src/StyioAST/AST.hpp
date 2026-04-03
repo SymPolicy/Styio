@@ -1507,12 +1507,20 @@ public:
 
 class WaveDispatchAST : public StyioASTTraits<WaveDispatchAST>
 {
+  std::unique_ptr<StyioAST> cond_owner_;
+  std::unique_ptr<StyioAST> true_owner_;
+  std::unique_ptr<StyioAST> false_owner_;
   StyioAST* cond_ = nullptr;
   StyioAST* true_arm_ = nullptr;
   StyioAST* false_arm_ = nullptr;
 
   WaveDispatchAST(StyioAST* c, StyioAST* t, StyioAST* f) :
-      cond_(c), true_arm_(t), false_arm_(f) {
+      cond_owner_(c),
+      true_owner_(t),
+      false_owner_(f),
+      cond_(cond_owner_.get()),
+      true_arm_(true_owner_.get()),
+      false_arm_(false_owner_.get()) {
   }
 
 public:
