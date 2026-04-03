@@ -148,6 +148,24 @@ first_text_diff(const std::string& got, const std::string& exp, const char* arti
   }
 }
 
+void
+normalize_llvm_module_text(std::string& s) {
+  std::istringstream in(s);
+  std::string out;
+  std::string line;
+  while (std::getline(in, line)) {
+    if (line.find("target datalayout =") != std::string::npos) {
+      continue;
+    }
+    if (line.find("target triple =") != std::string::npos) {
+      continue;
+    }
+    out += line;
+    out.push_back('\n');
+  }
+  s = std::move(out);
+}
+
 } // namespace
 
 std::string
@@ -254,6 +272,8 @@ run_pipeline_case(const std::string& case_dir, const char* layer5_compiler_exe) 
     ir->toLLVMIR(&generator);
     std::string got_llvm = generator.dump_llvm_ir();
     std::string exp_llvm = read_text_file(gold / "llvm_ir.txt");
+    normalize_llvm_module_text(got_llvm);
+    normalize_llvm_module_text(exp_llvm);
     normalize_text(got_llvm);
     normalize_text(exp_llvm);
     if (got_llvm != exp_llvm) {
