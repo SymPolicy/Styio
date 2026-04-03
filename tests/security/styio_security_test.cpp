@@ -212,6 +212,23 @@ TEST(StyioSecurityAstOwnership, BinCompOwnsChildExprs) {
   EXPECT_EQ(destructed, 2);
 }
 
+TEST(StyioSecurityAstOwnership, CondOwnsUnaryChildExpr) {
+  int destructed = 0;
+  auto* value = new CountingExprAST(&destructed);
+  auto* expr = CondAST::Create(LogicType::NOT, value);
+  delete expr;
+  EXPECT_EQ(destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, CondOwnsBinaryChildExprs) {
+  int destructed = 0;
+  auto* lhs = new CountingExprAST(&destructed);
+  auto* rhs = new CountingExprAST(&destructed);
+  auto* expr = CondAST::Create(LogicType::AND, lhs, rhs);
+  delete expr;
+  EXPECT_EQ(destructed, 2);
+}
+
 TEST(StyioSecurityRuntime, StrcatAbAllocatesWithoutPairingFree) {
   // Document: each successful call returns malloc-backed memory; generated IR
   // does not emit free today — repeated use leaks (verify with ASan).

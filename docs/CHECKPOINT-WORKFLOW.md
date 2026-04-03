@@ -51,3 +51,4 @@
 - 实现规程：`AGENT-SPEC.md`
 - 文档归档策略：`DOCUMENTATION-POLICY.md`
 - 决策记录：`docs/adr/`
+- 维护执行模板：`REFACTOR-WORKFLOW-TEMPLATE.md`

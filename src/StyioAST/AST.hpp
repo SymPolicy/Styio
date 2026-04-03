@@ -1624,6 +1624,9 @@ public:
 class CondAST : public StyioASTTraits<CondAST>
 {
   LogicType LogicOp;
+  std::unique_ptr<StyioAST> value_owner_;
+  std::unique_ptr<StyioAST> lhs_owner_;
+  std::unique_ptr<StyioAST> rhs_owner_;
 
   /*
     RAW: expr
@@ -1640,11 +1643,17 @@ class CondAST : public StyioASTTraits<CondAST>
 
 public:
   CondAST(LogicType op, StyioAST* val) :
-      LogicOp(op), ValExpr(val) {
+      LogicOp(op),
+      value_owner_(val),
+      ValExpr(value_owner_.get()) {
   }
 
   CondAST(LogicType op, StyioAST* lhs, StyioAST* rhs) :
-      LogicOp(op), LhsExpr(lhs), RhsExpr(rhs) {
+      LogicOp(op),
+      lhs_owner_(lhs),
+      rhs_owner_(rhs),
+      LhsExpr(lhs_owner_.get()),
+      RhsExpr(rhs_owner_.get()) {
   }
 
   static CondAST* Create(LogicType op, StyioAST* val) {
