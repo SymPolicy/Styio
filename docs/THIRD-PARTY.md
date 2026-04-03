@@ -2,7 +2,7 @@
 
 **文档作用：** 列出本仓库 **构建期/运行期** 所依赖的全部 **外部包与开源组件**；声明 **获取方式、用途、许可** 及在仓库中的 **落地位置**。新增依赖时请同步更新本文件，并在 `DOCUMENTATION-POLICY.md` 索引中保持可发现。
 
-**Last updated:** 2026-03-29
+**Last updated:** 2026-04-03
 
 ---
 
@@ -11,12 +11,12 @@
 | 名称 | 类型 | 构建中角色 | 在仓库中的记录 / 落地 |
 |------|------|------------|------------------------|
 | **LLVM** | 系统安装 + CMake `find_package` | 编译器后端：IR、ORC JIT、原生目标 | `CMakeLists.txt`（`find_package(LLVM 18.1.0)`，`llvm_map_components_to_libnames` → `support` `core` `irreader` `orcjit` `native`） |
-| **ICU**（`uc`、`i18n`） | 系统安装 + `find_package` | Unicode / 字符串（经 `ICU::uc` `ICU::i18n` 链接） | `CMakeLists.txt`（`find_package(ICU COMPONENTS uc i18n)`）；**查找模块** 见仓库根目录 `FindICU.cmake`（源自 CMake 官方模块） |
+| **ICU**（`uc`、`i18n`） | 系统安装 + `find_package`（**可选**） | 当 `STYIO_USE_ICU=ON` 时为 `StyioUnicode` codepoint 分类与 CLI Unicode 帮助文本提供支持 | `CMakeLists.txt`（`option(STYIO_USE_ICU ...)` + `find_package(ICU COMPONENTS uc i18n)`）；查找模块见仓库根目录 `FindICU.cmake` |
 | **GoogleTest** | **FetchContent**（仅测试） | `styio_test`、五层流水线等单元/集成测试 | `tests/CMakeLists.txt`（`FetchContent_Declare(googletest URL ...)`） |
 | **cxxopts** | **随仓单头文件（vendored）** | `styio` 命令行解析 | `src/include/cxxopts.hpp`（**勿随意修改**，见 `docs/AGENT-SPEC.md`） |
 | **Clang / LLD / llvm 工具链** | 宿主页 / PATH | 当前工程 `CMakeLists.txt` 写死了编译器与链接器路径（**环境约束**，非常规 Fetch 包） | `CMakeLists.txt`：`CMAKE_CXX_COMPILER`、`CMAKE_LINKER`、`CMAKE_OBJDUMP` |
 
-**运行时：** 生成的 `styio` 可执行文件依赖 **动态链接** 的 ICU 与 LLVM 相关库（以本机 `ldd` / 发行版包为准）；JIT 执行阶段还依赖 **LLVM 已启用的原生目标**。
+**运行时：** 生成的 `styio` 可执行文件依赖 **动态链接** 的 LLVM 相关库；当 `STYIO_USE_ICU=ON` 时额外依赖 ICU（以本机 `ldd` / 发行版包为准）。JIT 执行阶段还依赖 **LLVM 已启用的原生目标**。
 
 ---
 
@@ -29,10 +29,10 @@
 - **许可：** Apache License 2.0 with LLVM Exceptions（以发行版随附为准）。
 - **官方：** https://llvm.org/
 
-### 2.2 ICU
+### 2.2 ICU（可选）
 
-- **组件：** `uc`、`i18n`（未在工程中使用 `data` 等其它组件时仍可能作为传递依赖被发行版拉出）。
-- **用途：** 与 Unicode 相关的 C API（具体调用点以 `StyioExtern`、`CodeGenIO` 等为线索检索）。
+- **组件：** `uc`、`i18n`（仅 `STYIO_USE_ICU=ON` 时要求）。
+- **用途：** 为 `StyioUnicode` 提供 Unicode codepoint 属性分类，并启用 cxxopts 的 ICU Unicode 处理分支（帮助文本宽字符长度等）。
 - **许可：** 以 unicode-org/icu 及发行版说明为准（常见为 Unicode License 与第三方组件的组合）。
 - **官方：** https://icu.unicode.org/
 
@@ -51,10 +51,10 @@
 - **官方来源（参考）：** https://github.com/jarro2783/cxxopts  
   （当前以仓内副本为准；升级时请替换整文件并更新本段版本/commit 说明若需要。）
 
-### 2.5 FindICU.cmake
+### 2.5 FindICU.cmake（仅 ICU 开启时）
 
 - **形式：** 仓库根目录 `FindICU.cmake`，与 CMake 自带的 **FindICU** 模块同源风格（文件头为 OSI-approved BSD 3-Clause）。
-- **用途：** 在 `CMakeLists.txt` 中通过 `find_package(ICU ...)` 解析 ICU；`message(STATUS "[ICU] Using FindICU.cmake in: ${PROJECT_SOURCE_DIR}")` 指向本文件。
+- **用途：** 在 `CMakeLists.txt` 中当 `STYIO_USE_ICU=ON` 时通过 `find_package(ICU ...)` 解析 ICU。
 
 ---
 

@@ -8,6 +8,18 @@ cmake -S . -B build
 cmake --build build
 ```
 
+## Optional Dependencies
+- 默认不依赖 ICU（`STYIO_USE_ICU=OFF`）。
+- 若需要启用 ICU-backed Unicode 分类（`StyioUnicode`）和 cxxopts Unicode 帮助文本，可启用：
+```bash
+cmake -S . -B build -DSTYIO_USE_ICU=ON
+cmake --build build
+```
+- 若在 macOS + Homebrew（`icu4c` 为 keg-only）环境中找不到 ICU，可加：
+```bash
+cmake -S . -B build -DSTYIO_USE_ICU=ON -DICU_ROOT=/opt/homebrew/opt/icu4c
+```
+
 # Command-Line Arguments
 ```
 ./build/bin/styio --styio-ast --styio-ir --llvm-ir --file a.styio

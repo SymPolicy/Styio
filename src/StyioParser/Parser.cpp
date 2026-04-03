@@ -905,10 +905,10 @@ StyioAST*
 parse_value_expr(StyioContext& context) {
   StyioAST* output;
 
-  if (isalpha(context.get_curr_char()) || context.check_next('_')) {
+  if (StyioUnicode::is_identifier_start(context.get_curr_char())) {
     return parse_var_name_or_value_expr(context);
   }
-  else if (isdigit(context.get_curr_char())) {
+  else if (StyioUnicode::is_digit(context.get_curr_char())) {
     return parse_int_or_float(context);
   }
   else if (context.check_next('|')) {
@@ -1750,7 +1750,7 @@ StyioAST*
 parse_iterable(StyioContext& context) {
   StyioAST* output = EmptyAST::Create();
 
-  if (isalpha(context.get_curr_char()) || context.check_next('_')) {
+  if (StyioUnicode::is_identifier_start(context.get_curr_char())) {
     output = parse_name(context);
 
     context.drop_all_spaces_comments();
@@ -1882,7 +1882,7 @@ parse_size_of(StyioContext& context) {
   // eliminate | at the start
   context.move(1);
 
-  if (isalpha(context.get_curr_char()) || context.check_next('_')) {
+  if (StyioUnicode::is_identifier_start(context.get_curr_char())) {
     StyioAST* var = parse_var_name_or_value_expr(context);
 
     // eliminate | at the end
@@ -2033,12 +2033,12 @@ parse_index_op(StyioContext& context, StyioAST* theList) {
   context.move(1);
 
   do {
-    if (isalpha(context.get_curr_char()) || context.check_next('_')) {
+    if (StyioUnicode::is_identifier_start(context.get_curr_char())) {
       output = new ListOpAST(
         StyioNodeType::Access, (theList), parse_var_name_or_value_expr(context)
       );
     }
-    else if (isdigit(context.get_curr_char())) {
+    else if (StyioUnicode::is_digit(context.get_curr_char())) {
       output = new ListOpAST(
         StyioNodeType::Access_By_Index, (theList), parse_int(context)
       );
@@ -2158,7 +2158,7 @@ parse_index_op(StyioContext& context, StyioAST* theList) {
           if (context.check_drop('^')) {
             context.drop_white_spaces();
 
-            if (isdigit(context.get_curr_char())) {
+            if (StyioUnicode::is_digit(context.get_curr_char())) {
               output = new ListOpAST(StyioNodeType::Remove_Item_By_Index, (theList), (parse_int(context)));
             }
             else {

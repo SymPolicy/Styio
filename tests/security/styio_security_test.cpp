@@ -19,6 +19,7 @@
 #include "StyioException/Exception.hpp"
 #include "StyioExtern/ExternLib.hpp"
 #include "StyioParser/Tokenizer.hpp"
+#include "StyioUnicode/Unicode.hpp"
 
 namespace {
 
@@ -92,6 +93,44 @@ TEST(StyioSecurityLexer, VeryLongIdentifierCompletes) {
   EXPECT_EQ(tokens[0]->original.size(), 200'000u);
   EXPECT_EQ(tokens[1]->type, StyioTokenType::TOK_EOF);
   free_tokens(tokens);
+}
+
+TEST(StyioSecurityUnicode, ByteClassificationIsStable) {
+  EXPECT_TRUE(StyioUnicode::is_identifier_start('a'));
+  EXPECT_TRUE(StyioUnicode::is_identifier_start('_'));
+  EXPECT_FALSE(StyioUnicode::is_identifier_start('9'));
+
+  EXPECT_TRUE(StyioUnicode::is_identifier_continue('9'));
+  EXPECT_FALSE(StyioUnicode::is_identifier_continue('-'));
+
+  EXPECT_TRUE(StyioUnicode::is_digit('7'));
+  EXPECT_TRUE(StyioUnicode::is_space(' '));
+  EXPECT_FALSE(StyioUnicode::is_space('x'));
+}
+
+TEST(StyioSecurityUnicode, DecodeUtf8CodepointBoundaries) {
+  {
+    std::string valid = "\xE4\xB8\xAD"; // U+4E2D
+    std::uint32_t cp = 0;
+    std::size_t width = 0;
+    EXPECT_TRUE(StyioUnicode::decode_utf8_codepoint(valid, 0, cp, width));
+    EXPECT_EQ(cp, 0x4E2Du);
+    EXPECT_EQ(width, 3u);
+  }
+
+  {
+    std::string overlong = "\xC0\xAF";
+    std::uint32_t cp = 0;
+    std::size_t width = 0;
+    EXPECT_FALSE(StyioUnicode::decode_utf8_codepoint(overlong, 0, cp, width));
+  }
+
+  {
+    std::string truncated = "\xF0\x9F\x92";
+    std::uint32_t cp = 0;
+    std::size_t width = 0;
+    EXPECT_FALSE(StyioUnicode::decode_utf8_codepoint(truncated, 0, cp, width));
+  }
 }
 
 TEST(StyioSecurityRuntime, StrcatAbAllocatesWithoutPairingFree) {

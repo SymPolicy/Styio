@@ -3,6 +3,7 @@
 #define STYIO_PARSER_H_
 
 #include "../StyioToken/Token.hpp"
+#include "../StyioUnicode/Unicode.hpp"
 
 using std::pair;
 using std::string;
@@ -588,7 +589,7 @@ public:
   bool find_drop(char value) {
     /* ! No Boundary Check ! */
     while (true) {
-      if (isspace(get_curr_char())) {
+      if (StyioUnicode::is_space(get_curr_char())) {
         move(1);
       }
       else if (check_next("//")) {
@@ -615,7 +616,7 @@ public:
   bool find_drop(string value) {
     /* ! No Boundary Check ! */
     while (true) {
-      if (isspace(get_curr_char())) {
+      if (StyioUnicode::is_space(get_curr_char())) {
         move(1);
       }
       else if (check_next("//")) {
@@ -687,7 +688,7 @@ public:
 
     for (size_t i = 0; i < num; i++) {
       while (true) {
-        if (isspace(code.at(tmp_pos))) {
+        if (StyioUnicode::is_space(code.at(tmp_pos))) {
           tmp_pos += 1;
         }
         else if (code.compare(tmp_pos, 2, string("//")) == 0) {
@@ -707,7 +708,7 @@ public:
           } /* warning: no boundary check */
           tmp_pos += 2;
         } /* warning: no boundary check */
-        else if (isalnum(code.at(tmp_pos)) || (code.at(tmp_pos) == '_')) {
+        else if (StyioUnicode::is_ascii_alnum(code.at(tmp_pos)) || (code.at(tmp_pos) == '_')) {
           tmp_pos += 1;
         }
         else if (code.at(tmp_pos) == EOF) {
@@ -720,9 +721,9 @@ public:
 
       /* that is: not space, not alpha, not number, not _ , and not comment*/
       while (
-        not(isspace(code.at(tmp_pos))                      /* not space */
+        not(StyioUnicode::is_space(code.at(tmp_pos))                      /* not space */
             || code.compare(tmp_pos, 2, string("/*")) != 0 /* not comment */
-            || isalnum(code.at(tmp_pos)) || (code.at(tmp_pos) == '_') /* not alpha, not number, not _ */)
+            || StyioUnicode::is_ascii_alnum(code.at(tmp_pos)) || (code.at(tmp_pos) == '_') /* not alpha, not number, not _ */)
       ) {
         offset += 1;
       }
@@ -736,7 +737,7 @@ public:
   }
 
   bool peak_isdigit(int steps) {
-    return isdigit(code.at(cur_pos + steps));
+    return StyioUnicode::is_digit(code.at(cur_pos + steps));
   }
 
   /* Drop White Spaces */
@@ -748,7 +749,7 @@ public:
 
   /* Drop Spaces */
   void drop_all_spaces() {
-    while (isspace(code.at(cur_pos))) {
+    while (StyioUnicode::is_space(code.at(cur_pos))) {
       move(1);
     }
   }
@@ -757,7 +758,7 @@ public:
   void drop_all_spaces_comments() {
     /* ! No Boundary Check ! */
     while (true) {
-      if (isspace(code.at(cur_pos))) {
+      if (StyioUnicode::is_space(code.at(cur_pos))) {
         move(1);
       }
       else if (check_next("//")) {
@@ -791,7 +792,7 @@ public:
   bool find_drop_panic(char value) {
     /* ! No Boundary Check ! */
     while (true) {
-      if (isspace(get_curr_char())) {
+      if (StyioUnicode::is_space(get_curr_char())) {
         move(1);
       }
       else if (check_next("//")) {
@@ -817,7 +818,7 @@ public:
   bool find_drop_panic(string value) {
     /* ! No Boundary Check ! */
     while (true) {
-      if (isspace(get_curr_char()))
+      if (StyioUnicode::is_space(get_curr_char()))
         move(1);
       else if (check_next("//"))
         pass_over('\n');
@@ -840,7 +841,7 @@ public:
   bool find_panic(const string& value) {
     /* ! No Boundary Check ! */
     while (true) {
-      if (isspace(get_curr_char())) {
+      if (StyioUnicode::is_space(get_curr_char())) {
         move(1);
       }
       else if (check_next("//")) {
@@ -864,17 +865,17 @@ public:
 
   /* Check isalpha or _ */
   bool check_isal_() {
-    return isalpha(code.at(cur_pos)) || (code.at(cur_pos) == '_');
+    return StyioUnicode::is_identifier_start(code.at(cur_pos));
   }
 
   /* Check isalpha or isnum or _ */
   bool check_isalnum_() {
-    return isalnum(code.at(cur_pos)) || (code.at(cur_pos) == '_');
+    return StyioUnicode::is_identifier_continue(code.at(cur_pos));
   }
 
   /* Check isdigit */
   bool check_isdigit() {
-    return isdigit(code.at(cur_pos));
+    return StyioUnicode::is_digit(code.at(cur_pos));
   }
 
   /* Tuple Operations */

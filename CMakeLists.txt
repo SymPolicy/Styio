@@ -15,6 +15,8 @@ set(DOWNLOAD_EXTRACT_TIMESTAMP true)
 # [Styio] Version
 project(styio VERSION 0.0.1)
 
+option(STYIO_USE_ICU "Enable ICU-backed Unicode handling for StyioUnicode and CLI option text" OFF)
+
 # [Styio] Module Path
 # set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
 
@@ -45,15 +47,9 @@ message(STATUS "[LLVM] Using LLVMConfig.cmake in: ${LLVM_DIR}")
 # llvm-config-18 --components
 llvm_map_components_to_libnames(LLVM_LIBS support core irreader orcjit native)
 
-# [ICU]
-# ICU Components Reference:
-# https://cmake.org/cmake/help/latest/module/FindICU.html
-# ICU components = data, i18n, io, le, lx, test, tu and uc.
-message(STATUS "[ICU] Using FindICU.cmake in: ${PROJECT_SOURCE_DIR}")
-find_package(ICU COMPONENTS uc i18n REQUIRED)
-
 set(STYIO_CORE_SOURCES
     src/StyioToken/Token.cpp
+    src/StyioUnicode/Unicode.cpp
     src/StyioParser/Parser.cpp
     src/StyioParser/Tokenizer.cpp
     src/StyioToString/ToString.cpp
@@ -74,12 +70,25 @@ target_include_directories(styio_core PUBLIC "${CMAKE_SOURCE_DIR}/src")
 # Do not propagate LLVM headers to dependents (breaks GoogleTest / libc++abi mix).
 target_include_directories(styio_core SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(styio_core PRIVATE ${LLVM_DEFINITIONS_LIST})
-target_link_libraries(styio_core PUBLIC ICU::uc ICU::i18n ${LLVM_LIBS})
+target_link_libraries(styio_core PUBLIC ${LLVM_LIBS})
 
 add_executable(styio src/main.cpp)
 target_include_directories(styio SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(styio PRIVATE ${LLVM_DEFINITIONS_LIST})
 target_link_libraries(styio PRIVATE styio_core)
+
+if(STYIO_USE_ICU)
+  # ICU Components Reference:
+  # https://cmake.org/cmake/help/latest/module/FindICU.html
+  # ICU components = data, i18n, io, le, lx, test, tu and uc.
+  message(STATUS "[ICU] Enabled via STYIO_USE_ICU=ON; using FindICU.cmake in: ${PROJECT_SOURCE_DIR}")
+  find_package(ICU COMPONENTS uc i18n REQUIRED)
+  target_link_libraries(styio_core PUBLIC ICU::uc ICU::i18n)
+  target_compile_definitions(styio_core PRIVATE STYIO_USE_ICU)
+  target_compile_definitions(styio PRIVATE CXXOPTS_USE_UNICODE)
+else()
+  message(STATUS "[ICU] Disabled (STYIO_USE_ICU=OFF). Building without ICU linkage.")
+endif()
 
 # [CTest: Sub-Directory]
 enable_testing()
