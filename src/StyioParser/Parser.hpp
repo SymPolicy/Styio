@@ -2,6 +2,9 @@
 #ifndef STYIO_PARSER_H_
 #define STYIO_PARSER_H_
 
+#include <regex>
+
+#include "../StyioAST/AST.hpp"
 #include "../StyioToken/Token.hpp"
 #include "../StyioUnicode/Unicode.hpp"
 

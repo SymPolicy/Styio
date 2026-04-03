@@ -64,9 +64,8 @@ LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     // keep fuzzing on soft failures; sanitizer handles memory safety issues
   }
 
-  if (ast != nullptr) {
-    delete ast;
-  }
+  (void)ast;
+  StyioAST::destroy_all_tracked_nodes();
   if (ctx != nullptr) {
     delete ctx;
   }

@@ -241,6 +241,7 @@ run_pipeline_case(const std::string& case_dir, const char* layer5_compiler_exe) 
       }
       delete ctx;
       delete ast;
+      StyioAST::destroy_all_tracked_nodes();
       return std::string("Layer 2 (Parser/AST typed): ")
         + first_text_diff(ast_typed, exp_ast, "ast.txt")
         + "\n(-- untyped AST for debug --)\n"
@@ -259,6 +260,7 @@ run_pipeline_case(const std::string& case_dir, const char* layer5_compiler_exe) 
       delete ctx;
       delete ast;
       delete ir;
+      StyioAST::destroy_all_tracked_nodes();
       return std::string("Layer 3 (StyioIR): ") + first_text_diff(got_ir, exp_ir, "styio_ir.txt");
     }
 
@@ -283,6 +285,7 @@ run_pipeline_case(const std::string& case_dir, const char* layer5_compiler_exe) 
       delete ctx;
       delete ast;
       delete ir;
+      StyioAST::destroy_all_tracked_nodes();
       return std::string("Layer 4 (LLVM IR): ") + first_text_diff(got_llvm, exp_llvm, "llvm_ir.txt");
     }
 
@@ -300,6 +303,7 @@ run_pipeline_case(const std::string& case_dir, const char* layer5_compiler_exe) 
         delete ctx;
         delete ast;
         delete ir;
+        StyioAST::destroy_all_tracked_nodes();
         return std::string("Layer 5 (run stdout): ")
           + first_text_diff(got_out, exp_out, "stdout.txt");
       }
@@ -311,6 +315,7 @@ run_pipeline_case(const std::string& case_dir, const char* layer5_compiler_exe) 
     delete ctx;
     delete ast;
     delete ir;
+    StyioAST::destroy_all_tracked_nodes();
     return {};
   } catch (const std::exception& ex) {
     return std::string("Pipeline error: ") + ex.what();

@@ -19,6 +19,7 @@
 #include "StyioException/Exception.hpp"
 #include "StyioExtern/ExternLib.hpp"
 #include "StyioParser/Tokenizer.hpp"
+#include "StyioSession/CompilationSession.hpp"
 #include "StyioUnicode/Unicode.hpp"
 
 namespace {
@@ -29,7 +30,6 @@ free_tokens(std::vector<StyioToken*>& tokens) {
     delete t;
   }
 }
-
 } // namespace
 
 TEST(StyioSecurityLexer, EmptySourceProducesEof) {
@@ -131,6 +131,28 @@ TEST(StyioSecurityUnicode, DecodeUtf8CodepointBoundaries) {
     std::size_t width = 0;
     EXPECT_FALSE(StyioUnicode::decode_utf8_codepoint(truncated, 0, cp, width));
   }
+}
+
+TEST(StyioSecuritySession, ResetClearsSessionState) {
+  CompilationSession session;
+  const std::string src = "x = 1\n";
+  session.adopt_tokens(StyioTokenizer::tokenize(src));
+  session.attach_context(StyioContext::Create(
+    "<security>",
+    src,
+    {{0, src.size() - 1}},
+    session.tokens(),
+    false));
+  session.attach_ast(MainBlockAST::Create({}));
+  ASSERT_FALSE(session.tokens().empty());
+  ASSERT_NE(session.context(), nullptr);
+  ASSERT_NE(session.ast(), nullptr);
+
+  session.reset();
+  EXPECT_TRUE(session.tokens().empty());
+  EXPECT_EQ(session.context(), nullptr);
+  EXPECT_EQ(session.ast(), nullptr);
+  EXPECT_EQ(session.ir(), nullptr);
 }
 
 TEST(StyioSecurityRuntime, StrcatAbAllocatesWithoutPairingFree) {

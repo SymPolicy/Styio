@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 
+#include "../StyioAST/AST.hpp"
 #include "../StyioIR/StyioIR.hpp"
 #include "../StyioParser/Parser.hpp"
 #include "../StyioToken/Token.hpp"
@@ -28,6 +29,10 @@ private:
     tokens_.clear();
   }
 
+  void clear_tracked_ast_nodes() {
+    StyioAST::destroy_all_tracked_nodes();
+  }
+
 public:
   CompilationSession() = default;
 
@@ -43,14 +48,15 @@ public:
       delete ir_;
       ir_ = nullptr;
     }
-    if (ast_ != nullptr) {
-      delete ast_;
-      ast_ = nullptr;
-    }
     if (context_ != nullptr) {
       delete context_;
       context_ = nullptr;
     }
+    if (ast_ != nullptr) {
+      delete ast_;
+      ast_ = nullptr;
+    }
+    clear_tracked_ast_nodes();
     clear_tokens();
   }
 
@@ -80,7 +86,7 @@ public:
   }
 
   MainBlockAST* attach_ast(MainBlockAST* ast) {
-    if (ast_ != nullptr) {
+    if (ast_ != nullptr && ast_ != ast) {
       delete ast_;
     }
     ast_ = ast;

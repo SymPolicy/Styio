@@ -140,6 +140,9 @@ add_executable(styio_security_test
   security/styio_security_test.cpp
 )
 target_link_libraries(styio_security_test PRIVATE styio_core GTest::gtest_main)
+# Keep LLVM headers off all tests by default; only security test needs AST/session headers.
+target_include_directories(styio_security_test SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
+target_compile_definitions(styio_security_test PRIVATE ${LLVM_DEFINITIONS_LIST})
 
 include(GoogleTest)
 gtest_discover_tests(styio_test

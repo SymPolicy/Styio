@@ -3,6 +3,9 @@
 #define STYIO_AST_H_
 
 // [C++]
+#include <cstddef>
+#include <new>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
@@ -28,6 +31,36 @@ class StyioAST
 public:
   virtual ~StyioAST() {}
 
+  static void*
+  operator new(std::size_t sz) {
+    void* mem = ::operator new(sz);
+    tracked_nodes_.insert(static_cast<StyioAST*>(mem));
+    return mem;
+  }
+
+  static void
+  operator delete(void* ptr) noexcept {
+    if (ptr != nullptr) {
+      tracked_nodes_.erase(static_cast<StyioAST*>(ptr));
+    }
+    ::operator delete(ptr);
+  }
+
+  static void
+  destroy_all_tracked_nodes() noexcept {
+    while (!tracked_nodes_.empty()) {
+      auto it = tracked_nodes_.begin();
+      StyioAST* node = *it;
+      tracked_nodes_.erase(it);
+      delete node;
+    }
+  }
+
+  static std::size_t
+  tracked_node_count() noexcept {
+    return tracked_nodes_.size();
+  }
+
   /* Type Hint */
   virtual const StyioNodeType getNodeType() const = 0;
 
@@ -41,6 +74,9 @@ public:
 
   /* Code Gen. StyioIR */
   virtual StyioIR* toStyioIR(StyioAnalyzer* visitor) = 0;
+
+private:
+  inline static thread_local std::unordered_set<StyioAST*> tracked_nodes_;
 };
 
 /* ========================================================================== */
