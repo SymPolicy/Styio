@@ -2050,8 +2050,21 @@ public:
 class ResourceAST : public StyioASTTraits<ResourceAST>
 {
 private:
+  std::vector<std::pair<std::unique_ptr<StyioAST>, std::string>> resource_owners_;
+
+  void adopt_resources(std::vector<std::pair<StyioAST*, std::string>> resources) {
+    resource_owners_.reserve(resources.size());
+    res_list.clear();
+
+    for (auto& entry : resources) {
+      resource_owners_.emplace_back(std::unique_ptr<StyioAST>(entry.first), entry.second);
+      res_list.emplace_back(resource_owners_.back().first.get(), resource_owners_.back().second);
+    }
+  }
+
   ResourceAST(std::vector<std::pair<StyioAST*, std::string>> res_list) :
-      res_list(res_list) {
+      res_list() {
+    adopt_resources(std::move(res_list));
   }
 
 public:
@@ -2178,12 +2191,28 @@ public:
 */
 class StructAST : public StyioASTTraits<StructAST>
 {
+private:
+  std::unique_ptr<NameAST> name_owner_;
+  std::vector<std::unique_ptr<ParamAST>> arg_owners_;
+
+  void adopt_args(std::vector<ParamAST*> arguments) {
+    arg_owners_.reserve(arguments.size());
+    args.clear();
+
+    for (auto* arg : arguments) {
+      arg_owners_.emplace_back(arg);
+      args.push_back(arg_owners_.back().get());
+    }
+  }
+
 public:
   NameAST* name = nullptr;
   std::vector<ParamAST*> args;
 
   StructAST(NameAST* name, std::vector<ParamAST*> arguments) :
-      name(name), args(arguments) {
+      name_owner_(name),
+      name(name_owner_.get()) {
+    adopt_args(std::move(arguments));
   }
 
   static StructAST* Create(NameAST* name, std::vector<ParamAST*> arguments) {

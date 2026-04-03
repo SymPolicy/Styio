@@ -28,3 +28,4 @@
 - `ADR-0014-stmt-node-raii-return-bind.md`
 - `ADR-0015-stmt-node-raii-resource-io.md`
 - `ADR-0016-stmt-node-raii-var-family.md`
+- `ADR-0017-stmt-node-raii-struct-resource.md`

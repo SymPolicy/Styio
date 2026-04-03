@@ -605,6 +605,29 @@ TEST(StyioSecurityAstOwnership, OptKwArgOwnsName) {
   EXPECT_EQ(name_destructed, 1);
 }
 
+TEST(StyioSecurityAstOwnership, StructOwnsNameAndParams) {
+  int struct_name_destructed = 0;
+  int param_name_destructed = 0;
+  auto* node = StructAST::Create(
+    new CountingNameAST("S", &struct_name_destructed),
+    std::vector<ParamAST*>{
+      ParamAST::Create(new CountingNameAST("p1", &param_name_destructed)),
+      ParamAST::Create(new CountingNameAST("p2", &param_name_destructed))});
+  delete node;
+  EXPECT_EQ(struct_name_destructed, 1);
+  EXPECT_EQ(param_name_destructed, 2);
+}
+
+TEST(StyioSecurityAstOwnership, ResourceOwnsEntries) {
+  int destructed = 0;
+  auto* node = ResourceAST::Create(
+    std::vector<std::pair<StyioAST*, std::string>>{
+      {new CountingExprAST(&destructed), "file"},
+      {new CountingExprAST(&destructed), "db"}});
+  delete node;
+  EXPECT_EQ(destructed, 2);
+}
+
 TEST(StyioSecurityRuntime, StrcatAbAllocatesWithoutPairingFree) {
   // Document: each successful call returns malloc-backed memory; generated IR
   // does not emit free today — repeated use leaks (verify with ASan).
