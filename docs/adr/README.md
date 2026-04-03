@@ -18,3 +18,4 @@
 - `ADR-0004-unicode-facade.md`
 - `ADR-0005-runtime-path-compat-and-error-flag.md`
 - `ADR-0006-session-reset-and-ast-attach-boundary.md`
+- `ADR-0007-expr-node-raii-binop-bincomp.md`

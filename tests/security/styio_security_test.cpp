@@ -24,6 +24,45 @@
 
 namespace {
 
+class CountingExprAST : public StyioAST
+{
+  int* dtor_count_ = nullptr;
+
+public:
+  explicit CountingExprAST(int* dtor_count) :
+      dtor_count_(dtor_count) {
+  }
+
+  ~CountingExprAST() override {
+    if (dtor_count_ != nullptr) {
+      *dtor_count_ += 1;
+    }
+  }
+
+  const StyioNodeType getNodeType() const override {
+    return StyioNodeType::None;
+  }
+
+  const StyioDataType getDataType() const override {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+
+  std::string toString(StyioRepr* visitor, int indent = 0) override {
+    (void)visitor;
+    (void)indent;
+    return "counting-expr";
+  }
+
+  void typeInfer(StyioAnalyzer* visitor) override {
+    (void)visitor;
+  }
+
+  StyioIR* toStyioIR(StyioAnalyzer* visitor) override {
+    (void)visitor;
+    return nullptr;
+  }
+};
+
 void
 free_tokens(std::vector<StyioToken*>& tokens) {
   for (auto* t : tokens) {
@@ -153,6 +192,24 @@ TEST(StyioSecuritySession, ResetClearsSessionState) {
   EXPECT_EQ(session.context(), nullptr);
   EXPECT_EQ(session.ast(), nullptr);
   EXPECT_EQ(session.ir(), nullptr);
+}
+
+TEST(StyioSecurityAstOwnership, BinOpOwnsChildExprs) {
+  int destructed = 0;
+  auto* lhs = new CountingExprAST(&destructed);
+  auto* rhs = new CountingExprAST(&destructed);
+  auto* expr = BinOpAST::Create(StyioOpType::Binary_Add, lhs, rhs);
+  delete expr;
+  EXPECT_EQ(destructed, 2);
+}
+
+TEST(StyioSecurityAstOwnership, BinCompOwnsChildExprs) {
+  int destructed = 0;
+  auto* lhs = new CountingExprAST(&destructed);
+  auto* rhs = new CountingExprAST(&destructed);
+  auto* expr = new BinCompAST(CompType::EQ, lhs, rhs);
+  delete expr;
+  EXPECT_EQ(destructed, 2);
 }
 
 TEST(StyioSecurityRuntime, StrcatAbAllocatesWithoutPairingFree) {

@@ -4,6 +4,7 @@
 
 // [C++]
 #include <cstddef>
+#include <memory>
 #include <new>
 #include <unordered_set>
 #include <variant>
@@ -1353,15 +1354,26 @@ public:
 */
 class BinOpAST : public StyioASTTraits<BinOpAST>
 {
+private:
+  std::unique_ptr<TypeAST> data_type_owner_;
+  std::unique_ptr<StyioAST> lhs_owner_;
+  std::unique_ptr<StyioAST> rhs_owner_;
+
 public:
-  TypeAST* data_type = TypeAST::Create();
+  TypeAST* data_type = nullptr;
 
   StyioOpType operand;
   StyioAST* LHS = nullptr;
   StyioAST* RHS = nullptr;
 
   BinOpAST(StyioOpType op, StyioAST* lhs, StyioAST* rhs) :
-      operand(op), LHS(lhs), RHS(rhs) {
+      data_type_owner_(TypeAST::Create()),
+      lhs_owner_(lhs),
+      rhs_owner_(rhs),
+      operand(op),
+      LHS(lhs_owner_.get()),
+      RHS(rhs_owner_.get()) {
+    data_type = data_type_owner_.get();
   }
 
   static BinOpAST* Create(StyioOpType op, StyioAST* lhs, StyioAST* rhs) {
@@ -1400,12 +1412,18 @@ public:
 class BinCompAST : public StyioASTTraits<BinCompAST>
 {
   CompType CompSign;
+  std::unique_ptr<StyioAST> lhs_owner_;
+  std::unique_ptr<StyioAST> rhs_owner_;
   StyioAST* LhsExpr = nullptr;
   StyioAST* RhsExpr = nullptr;
 
 public:
   BinCompAST(CompType sign, StyioAST* lhs, StyioAST* rhs) :
-      CompSign(sign), LhsExpr(lhs), RhsExpr(rhs) {
+      CompSign(sign),
+      lhs_owner_(lhs),
+      rhs_owner_(rhs),
+      LhsExpr(lhs_owner_.get()),
+      RhsExpr(rhs_owner_.get()) {
   }
 
   CompType getSign() {
