@@ -64,3 +64,4 @@
 - `ADR-0050-parser-hash-match-cases-subset.md`
 - `ADR-0051-parser-hash-iterator-branch-subset.md`
 - `ADR-0052-hash-iterator-crash-guard.md`
+- `ADR-0053-param-ctor-null-type-and-hash-iterator-restore.md`

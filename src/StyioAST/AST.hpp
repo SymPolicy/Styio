@@ -748,7 +748,9 @@ class ParamAST : public VarAST
 private:
   ParamAST(NameAST* name) :
       VarAST(name),
-      var_name(name) {
+      var_name(VarAST::var_name),
+      var_type(VarAST::var_type),
+      val_init(VarAST::val_init) {
   }
 
   ParamAST(
@@ -756,8 +758,9 @@ private:
     TypeAST* data_type
   ) :
       VarAST(name, data_type),
-      var_name(name),
-      var_type(data_type) {
+      var_name(VarAST::var_name),
+      var_type(VarAST::var_type),
+      val_init(VarAST::val_init) {
   }
 
   ParamAST(
@@ -766,9 +769,9 @@ private:
     StyioAST* default_value
   ) :
       VarAST(name, data_type, default_value),
-      var_name(name),
-      var_type(data_type),
-      val_init(default_value) {
+      var_name(VarAST::var_name),
+      var_type(VarAST::var_type),
+      val_init(VarAST::val_init) {
   }
 
 public:

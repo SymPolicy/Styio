@@ -2827,8 +2827,12 @@ parse_hash_tag(StyioContext& context) {
   }
   /* Iterator */
   else if (context.check(StyioTokenType::ITERATOR) /* >> */) {
-    throw StyioNotImplemented(
-      context.mark_cur_tok("hash iterator definitions are temporarily disabled (runtime crash guard)"));
+    if (params.size() != 1) {
+      throw StyioSyntaxError(context.mark_cur_tok("Confusing: The iterator (>>) can not be applied to multiple objects."));
+    }
+    NameAST* iter_collection = NameAST::Create(params[0]->getName());
+    ret_expr = parse_iterator_with_forward(context, iter_collection);
+    return FunctionAST::Create(tag_name, true, params, ret_type, ret_expr);
   }
 
   throw StyioParseError(context.mark_cur_tok("Reached the End of parse_hash_tag."));

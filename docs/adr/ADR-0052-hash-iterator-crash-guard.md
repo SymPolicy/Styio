@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-04-05
+- **Superseded by:** `ADR-0053-param-ctor-null-type-and-hash-iterator-restore.md`
 
 ## Context
 

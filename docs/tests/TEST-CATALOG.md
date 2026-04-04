@@ -2,7 +2,7 @@
 
 **文档作用：** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`DOCUMENTATION-POLICY.md`](../DOCUMENTATION-POLICY.md)。
 
-**Last updated:** 2026-04-05（补 hash `>>` iterator 定义 crash-guard 回归；更新 ParserEngine/Security 测试说明）
+**Last updated:** 2026-04-05（定位并修复 `ParamAST` 空类型崩溃；恢复 hash `>>` iterator 定义回归）
 
 **批量自动化（所有里程碑集成用例）：**
 
@@ -183,7 +183,7 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_test` | `tests/styio_test.cpp`：`StyioFiveLayerPipeline`、`StyioParserEngine`（legacy/new 在 M1 算术、typed bind、compound assign、M2 simple func 与 hash 无箭头表达式体/无赋值箭头体/`?=` match-cases 样例上一致；`# ... >> ...` hash iterator 定义路径稳定返回 `ParseError`（退出码 `3`）且不崩溃；非法引擎拒绝；`--parser-shadow-compare` 可通过 M1 核心/全量与 M2 core/full 样例；`--parser-shadow-artifact-dir` 可产出 JSONL 记录并受参数约束回归覆盖；dot-chain 边界在 `DotChainStillRejectedConsistentlyAcrossEngines` 冻结；CI 通过 `scripts/parser-shadow-suite-gate.sh` 对 M1/M2 双目录执行预算 gate 并产出各自 `summary.json`） | `ctest --test-dir build -L styio_pipeline` 或 `ctest --test-dir build -R '^StyioParserEngine\\.'` |
+| `styio_test` | `tests/styio_test.cpp`：`StyioFiveLayerPipeline`、`StyioParserEngine`（legacy/new 在 M1 算术、typed bind、compound assign、M2 simple func 与 hash 无箭头表达式体/无赋值箭头体/`?=` match-cases 样例上一致；`# ... >> ...` hash iterator 定义样例在双引擎下可执行且无崩溃（退出码 `0`，输出一致）；非法引擎拒绝；`--parser-shadow-compare` 可通过 M1 核心/全量与 M2 core/full 样例；`--parser-shadow-artifact-dir` 可产出 JSONL 记录并受参数约束回归覆盖；dot-chain 边界在 `DotChainStillRejectedConsistentlyAcrossEngines` 冻结；CI 通过 `scripts/parser-shadow-suite-gate.sh` 对 M1/M2 双目录执行预算 gate 并产出各自 `summary.json`） | `ctest --test-dir build -L styio_pipeline` 或 `ctest --test-dir build -R '^StyioParserEngine\\.'` |
 
 **五层流水线 goldens**（Lexer / AST / StyioIR / LLVM / 子进程 stdout）：权威说明见 [`FIVE-LAYER-PIPELINE.md`](./FIVE-LAYER-PIPELINE.md)；用例根目录 `tests/pipeline_cases/`。
 
@@ -222,4 +222,4 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_security_test` | `tests/security/styio_security_test.cpp`：lexer/Unicode/AST ownership/runtime，含 ParserLookahead trivia 回归、NewParserExpr 子集兼容回归（含 compare/logic/dot-call token gate）、NewParserStmt（print/flex bind/final bind/compound assign/compare/logic/simple call/dot-call/function-def-entry/hash-simple-func，含 `[|n|]`、tuple 返回类型、`=> >_(...)` 语句体、`= expr` 无箭头函数体、无赋值 `=>` 函数体、`?=` match-cases，以及 `# ... >> ...` iterator 定义稳定拒绝回归）子集回归与 Shadow fallback 回归（dot-chain） | `ctest --test-dir build -L security` |
+| `styio_security_test` | `tests/security/styio_security_test.cpp`：lexer/Unicode/AST ownership/runtime，含 ParserLookahead trivia 回归、NewParserExpr 子集兼容回归（含 compare/logic/dot-call token gate）、NewParserStmt（print/flex bind/final bind/compound assign/compare/logic/simple call/dot-call/function-def-entry/hash-simple-func，含 `[|n|]`、tuple 返回类型、`=> >_(...)` 语句体、`= expr` 无箭头函数体、无赋值 `=>` 函数体、`?=` match-cases，以及 `# ... >> ...` iterator 定义样例）子集回归与 Shadow fallback 回归（dot-chain） | `ctest --test-dir build -L security` |
