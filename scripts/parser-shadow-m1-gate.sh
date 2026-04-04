@@ -56,6 +56,20 @@ match_count="$(grep -R --include='*.jsonl' -h '"status":"match"' "$artifact_root
 mismatch_count="$(grep -R --include='*.jsonl' -h '"status":"mismatch"' "$artifact_root" | wc -l | tr -d ' ' || true)"
 shadow_error_count="$(grep -R --include='*.jsonl' -h '"status":"shadow_error"' "$artifact_root" | wc -l | tr -d ' ' || true)"
 
+summary_file="$artifact_root/summary.json"
+cat >"$summary_file" <<EOF
+{
+  "cases": $cases,
+  "runs": $total,
+  "artifacts": $jsonl_count,
+  "match": $match_count,
+  "mismatch": $mismatch_count,
+  "shadow_error": $shadow_error_count,
+  "failed_runs": $failed,
+  "passed": $([[ "$failed" -eq 0 && "$mismatch_count" -eq 0 && "$shadow_error_count" -eq 0 && "$jsonl_count" -ge "$total" ]] && echo "true" || echo "false")
+}
+EOF
+
 echo "[shadow-gate] cases=${cases} runs=${total} artifacts=${jsonl_count} match=${match_count} mismatch=${mismatch_count} shadow_error=${shadow_error_count}"
 
 if [[ "$jsonl_count" -lt "$total" ]]; then
