@@ -222,4 +222,4 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_security_test` | `tests/security/styio_security_test.cpp`：lexer/Unicode/AST ownership/runtime，含 ParserLookahead trivia 回归、NewParserExpr 子集兼容回归（含 compare/logic/dot-call token gate）、NewParserStmt（print/flex bind/final bind/compound assign/compare/logic/simple call/dot-call/function-def-entry/hash-simple-func，含 `[|n|]`、tuple 返回类型、`=> >_(...)` 语句体、`= expr` 无箭头函数体、无赋值 `=>` 函数体与 `?=` match-cases 样例）子集回归与 Shadow fallback 回归（dot-chain） | `ctest --test-dir build -L security` |
+| `styio_security_test` | `tests/security/styio_security_test.cpp`：lexer/Unicode/AST ownership/runtime，含 ParserLookahead trivia 回归、NewParserExpr 子集兼容回归（含 compare/logic/dot-call token gate）、NewParserStmt（print/flex bind/final bind/compound assign/compare/logic/simple call/dot-call/function-def-entry/hash-simple-func，含 `[|n|]`、tuple 返回类型、`=> >_(...)` 语句体、`= expr` 无箭头函数体、无赋值 `=>` 函数体、`?=` match-cases 与 `>>` iterator 分支样例）子集回归与 Shadow fallback 回归（dot-chain） | `ctest --test-dir build -L security` |

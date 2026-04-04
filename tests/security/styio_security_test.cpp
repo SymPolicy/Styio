@@ -384,6 +384,7 @@ TEST(StyioSecurityNewParserStmt, SubsetTokenGateIncludesFunctionDefTokens) {
   EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::BOUNDED_BUFFER_CLOSE));
   EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::MATCH));
   EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_UNDLINE));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::ITERATOR));
 }
 
 TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFlexBindSubsetSamples) {
@@ -460,6 +461,7 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFunctionDefSubsetSamples) {
     "# const42 : i32 => 42\n>_(const42())\n",
     "# ping => 1\n>_(ping())\n",
     "# parity(n: i32) ?={\n    0 => 0\n    _ => 1\n}\n>_(parity(0), parity(3))\n",
+    "# iter_only(x) >> (n) ?= 2 => >_(n)\n",
     "# alert := () => >_(\"ALERT\")\nalert()\n",
     "# compute := (x: i32) => {\n    y = x * 2\n    <| y\n}\n>_(compute(5))\n",
   };

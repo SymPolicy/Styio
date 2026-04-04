@@ -352,6 +352,7 @@ styio_new_parser_is_stmt_subset_token(StyioTokenType type) {
     case StyioTokenType::TOK_COLON:
     case StyioTokenType::WALRUS:
     case StyioTokenType::MATCH:
+    case StyioTokenType::ITERATOR:
     case StyioTokenType::ARROW_DOUBLE_RIGHT:
     case StyioTokenType::TOK_LCURBRAC:
     case StyioTokenType::TOK_RCURBRAC:
@@ -484,6 +485,15 @@ parse_hash_stmt_new_subset(StyioContext& context) {
       rvals.push_back(parse_expr_new_subset(context));
     } while (context.try_match(StyioTokenType::TOK_COMMA));
     return FunctionAST::Create(tag_name, true, params, ret_type, CheckEqualAST::Create(rvals));
+  }
+
+  context.skip();
+  if (context.cur_tok_type() == StyioTokenType::ITERATOR) {
+    if (params.size() != 1) {
+      throw StyioSyntaxError(
+        context.mark_cur_tok("Confusing: The iterator (>>) can not be applied to multiple objects."));
+    }
+    return FunctionAST::Create(tag_name, true, params, ret_type, parse_iterator_with_forward(context, params[0]));
   }
 
   context.skip();
