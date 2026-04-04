@@ -44,3 +44,4 @@
 - `ADR-0030-parser-shadow-artifact-recording.md`
 - `ADR-0031-parser-default-switch-gate.md`
 - `ADR-0032-parser-shadow-budget-script.md`
+- `ADR-0033-parser-compare-logic-subset-alignment.md`

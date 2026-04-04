@@ -322,6 +322,19 @@ TEST(StyioSecurityNewParserExpr, MatchesLegacyOnSubsetSamples) {
   }
 }
 
+TEST(StyioSecurityNewParserExpr, SubsetTokenGateIncludesCompareAndLogic) {
+  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::BINOP_GT));
+  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::BINOP_GE));
+  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::BINOP_LT));
+  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::BINOP_LE));
+  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::TOK_RANGBRAC));
+  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::TOK_LANGBRAC));
+  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::BINOP_EQ));
+  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::BINOP_NE));
+  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::LOGIC_AND));
+  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::LOGIC_OR));
+}
+
 TEST(StyioSecurityNewParserExpr, RejectsNonSubsetStatementToken) {
   auto tokens = StyioTokenizer::tokenize(">_ 1 + 2");
   StyioContext* ctx = StyioContext::Create(
@@ -385,6 +398,20 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnCompoundAssignSubsetSamples) {
     "m = 4\nm *= 2\n>_(m)\n",
     "q = 9\nq /= 3\n>_(q)\n",
     "r = 9\nr %= 4\n>_(r)\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+  }
+}
+
+TEST(StyioSecurityNewParserStmt, MatchesLegacyOnCompareAndLogicSubsetSamples) {
+  const std::vector<std::string> samples = {
+    "lhs = 3\nrhs = 2\n>_(lhs > rhs)\n",
+    "a = 1\nb = 1\n>_(a <= b)\n",
+    "x = 7\ny = 7\n>_(x == y)\n",
+    "ok = true\nready = false\n>_(ok && ready)\n",
+    "hot = false\ncold = true\n>_(hot || cold)\n",
   };
 
   for (const auto& src : samples) {

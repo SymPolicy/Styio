@@ -20,6 +20,8 @@ expr_prec_of(StyioTokenType type) {
     case StyioTokenType::BINOP_GE:
     case StyioTokenType::BINOP_LT:
     case StyioTokenType::BINOP_LE:
+    case StyioTokenType::TOK_RANGBRAC:
+    case StyioTokenType::TOK_LANGBRAC:
       return 40;
     case StyioTokenType::TOK_PLUS:
     case StyioTokenType::TOK_MINUS:
@@ -41,7 +43,7 @@ expr_is_right_assoc(StyioTokenType type) {
 }
 
 StyioOpType
-expr_map_op(StyioTokenType type) {
+expr_map_binop(StyioTokenType type) {
   switch (type) {
     case StyioTokenType::TOK_PLUS:
       return StyioOpType::Binary_Add;
@@ -55,24 +57,64 @@ expr_map_op(StyioTokenType type) {
       return StyioOpType::Binary_Mod;
     case StyioTokenType::BINOP_POW:
       return StyioOpType::Binary_Pow;
-    case StyioTokenType::BINOP_GT:
-      return StyioOpType::Greater_Than;
-    case StyioTokenType::BINOP_GE:
-      return StyioOpType::Greater_Than_Equal;
-    case StyioTokenType::BINOP_LT:
-      return StyioOpType::Less_Than;
-    case StyioTokenType::BINOP_LE:
-      return StyioOpType::Less_Than_Equal;
-    case StyioTokenType::BINOP_EQ:
-      return StyioOpType::Equal;
-    case StyioTokenType::BINOP_NE:
-      return StyioOpType::Not_Equal;
-    case StyioTokenType::LOGIC_AND:
-      return StyioOpType::Logic_AND;
-    case StyioTokenType::LOGIC_OR:
-      return StyioOpType::Logic_OR;
     default:
       return StyioOpType::Undefined;
+  }
+}
+
+bool
+expr_is_comp(StyioTokenType type) {
+  switch (type) {
+    case StyioTokenType::BINOP_GT:
+    case StyioTokenType::TOK_RANGBRAC:
+    case StyioTokenType::BINOP_GE:
+    case StyioTokenType::BINOP_LT:
+    case StyioTokenType::TOK_LANGBRAC:
+    case StyioTokenType::BINOP_LE:
+    case StyioTokenType::BINOP_EQ:
+    case StyioTokenType::BINOP_NE:
+      return true;
+    default:
+      return false;
+  }
+}
+
+CompType
+expr_map_comp(StyioTokenType type) {
+  switch (type) {
+    case StyioTokenType::BINOP_GT:
+    case StyioTokenType::TOK_RANGBRAC:
+      return CompType::GT;
+    case StyioTokenType::BINOP_GE:
+      return CompType::GE;
+    case StyioTokenType::BINOP_LT:
+    case StyioTokenType::TOK_LANGBRAC:
+      return CompType::LT;
+    case StyioTokenType::BINOP_LE:
+      return CompType::LE;
+    case StyioTokenType::BINOP_EQ:
+      return CompType::EQ;
+    case StyioTokenType::BINOP_NE:
+      return CompType::NE;
+    default:
+      return CompType::EQ;
+  }
+}
+
+bool
+expr_is_logic(StyioTokenType type) {
+  return type == StyioTokenType::LOGIC_AND || type == StyioTokenType::LOGIC_OR;
+}
+
+LogicType
+expr_map_logic(StyioTokenType type) {
+  switch (type) {
+    case StyioTokenType::LOGIC_AND:
+      return LogicType::AND;
+    case StyioTokenType::LOGIC_OR:
+      return LogicType::OR;
+    default:
+      return LogicType::RAW;
   }
 }
 
@@ -149,15 +191,25 @@ private:
         break;
       }
 
-      const StyioOpType op = expr_map_op(tok);
-      if (op == StyioOpType::Undefined) {
+      const bool is_comp = expr_is_comp(tok);
+      const bool is_logic = expr_is_logic(tok);
+      const StyioOpType op = expr_map_binop(tok);
+      if (!is_comp && !is_logic && op == StyioOpType::Undefined) {
         break;
       }
 
       context_.move_forward(1, "new_expr:binop");
       const int next_min = expr_is_right_assoc(tok) ? prec : (prec + 1);
       StyioAST* rhs = parse_expression(next_min);
-      lhs = BinOpAST::Create(op, lhs, rhs);
+      if (is_comp) {
+        lhs = new BinCompAST(expr_map_comp(tok), lhs, rhs);
+      }
+      else if (is_logic) {
+        lhs = CondAST::Create(expr_map_logic(tok), lhs, rhs);
+      }
+      else {
+        lhs = BinOpAST::Create(op, lhs, rhs);
+      }
     }
 
     return lhs;
@@ -195,6 +247,16 @@ styio_new_parser_is_expr_subset_token(StyioTokenType type) {
     case StyioTokenType::TOK_SLASH:
     case StyioTokenType::TOK_PERCENT:
     case StyioTokenType::BINOP_POW:
+    case StyioTokenType::BINOP_GT:
+    case StyioTokenType::BINOP_GE:
+    case StyioTokenType::BINOP_LT:
+    case StyioTokenType::BINOP_LE:
+    case StyioTokenType::TOK_RANGBRAC:
+    case StyioTokenType::TOK_LANGBRAC:
+    case StyioTokenType::BINOP_EQ:
+    case StyioTokenType::BINOP_NE:
+    case StyioTokenType::LOGIC_AND:
+    case StyioTokenType::LOGIC_OR:
       return true;
     default:
       return false;
