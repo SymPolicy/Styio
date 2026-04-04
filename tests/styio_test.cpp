@@ -1,9 +1,12 @@
 #include <gtest/gtest.h>
 
 #include <cstdlib>
+#include <chrono>
 #include <filesystem>
 #include <cstdio>
+#include <fstream>
 #include <string>
+#include <vector>
 #ifndef _WIN32
 #include <sys/wait.h>
 #endif
@@ -257,4 +260,77 @@ TEST(StyioParserEngine, ShadowCompareAcceptsM1FullSuite) {
     EXPECT_EQ(legacy_shadow.exit_code, 0) << case_name;
     EXPECT_EQ(new_shadow.exit_code, 0) << case_name;
   }
+}
+
+TEST(StyioParserEngine, ShadowCompareWritesArtifactRecordWhenDirConfigured) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t01_int_arith.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path artifact_dir = fs::temp_directory_path() / ("styio-shadow-artifacts-" + std::to_string(uniq));
+  ASSERT_TRUE(fs::create_directories(artifact_dir));
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+
+  std::vector<fs::path> jsonl_files;
+  for (const auto& entry : fs::directory_iterator(artifact_dir)) {
+    if (!entry.is_regular_file()) {
+      continue;
+    }
+    if (entry.path().extension() == ".jsonl") {
+      jsonl_files.push_back(entry.path());
+    }
+  }
+  ASSERT_EQ(jsonl_files.size(), 1U);
+
+  std::ifstream in(jsonl_files.front());
+  ASSERT_TRUE(in.is_open());
+  std::string line;
+  std::getline(in, line);
+  EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
+  EXPECT_NE(line.find("\"primary_engine\":\"new\""), std::string::npos);
+  EXPECT_NE(line.find("\"shadow_engine\":\"legacy\""), std::string::npos);
+
+  fs::remove_all(artifact_dir);
+}
+
+TEST(StyioParserEngine, ShadowArtifactDirRequiresShadowCompareFlag) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t01_int_arith.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path artifact_dir = fs::temp_directory_path() / ("styio-shadow-artifacts-" + std::to_string(uniq));
+  ASSERT_TRUE(fs::create_directories(artifact_dir));
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=legacy --parser-shadow-artifact-dir \""
+    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 6);
+  EXPECT_NE(
+    result.stdout_text.find("--parser-shadow-artifact-dir requires --parser-shadow-compare"),
+    std::string::npos);
+
+  fs::remove_all(artifact_dir);
 }

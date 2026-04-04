@@ -7,6 +7,7 @@
 // [C++ STL]
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -345,6 +346,91 @@ styio_parse_engine_to_repr(
   return false;
 }
 
+static std::string
+styio_hash_hex(const std::string& text) {
+  std::ostringstream oss;
+  oss << std::hex << std::hash<std::string> {}(text);
+  return oss.str();
+}
+
+static void
+styio_write_shadow_artifact(
+  const std::string& artifact_dir,
+  const std::string& file_path,
+  const std::string& code_text,
+  StyioParserEngine primary_engine,
+  StyioParserEngine shadow_engine,
+  const std::string& status,
+  const std::string& primary_repr,
+  const std::string& shadow_repr,
+  const std::string& shadow_error,
+  const std::string& detail
+) {
+  if (artifact_dir.empty()) {
+    return;
+  }
+
+  try {
+    std::filesystem::create_directories(artifact_dir);
+    const auto now = std::chrono::system_clock::now().time_since_epoch();
+    const long long micros = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+
+    std::filesystem::path base = std::filesystem::path(artifact_dir) / ("shadow-" + std::to_string(micros));
+    int suffix = 1;
+    while (std::filesystem::exists(base.string() + ".jsonl")) {
+      base = std::filesystem::path(artifact_dir)
+             / ("shadow-" + std::to_string(micros) + "-" + std::to_string(suffix));
+      ++suffix;
+    }
+
+    std::ofstream meta(base.string() + ".jsonl", std::ios::out | std::ios::trunc);
+    if (!meta.is_open()) {
+      return;
+    }
+    meta << "{\"status\":\"" << styio_json_escape(status)
+         << "\",\"file\":\"" << styio_json_escape(file_path)
+         << "\",\"primary_engine\":\"" << styio_parser_engine_name(primary_engine)
+         << "\",\"shadow_engine\":\"" << styio_parser_engine_name(shadow_engine)
+         << "\",\"primary_repr_hash\":\"" << styio_hash_hex(primary_repr)
+         << "\",\"shadow_repr_hash\":\"" << styio_hash_hex(shadow_repr)
+         << "\",\"primary_repr_size\":" << primary_repr.size()
+         << ",\"shadow_repr_size\":" << shadow_repr.size()
+         << ",\"shadow_error\":\"" << styio_json_escape(shadow_error)
+         << "\",\"detail\":\"" << styio_json_escape(detail)
+         << "\"}\n";
+    meta.close();
+
+    if (status == "match") {
+      return;
+    }
+
+    std::ofstream source_payload(base.string() + ".styio", std::ios::out | std::ios::trunc);
+    if (source_payload.is_open()) {
+      source_payload << code_text;
+    }
+
+    std::ofstream primary_payload(base.string() + ".primary.ast.txt", std::ios::out | std::ios::trunc);
+    if (primary_payload.is_open()) {
+      primary_payload << primary_repr;
+    }
+
+    if (!shadow_repr.empty()) {
+      std::ofstream shadow_payload(base.string() + ".shadow.ast.txt", std::ios::out | std::ios::trunc);
+      if (shadow_payload.is_open()) {
+        shadow_payload << shadow_repr;
+      }
+    }
+
+    if (!shadow_error.empty()) {
+      std::ofstream error_payload(base.string() + ".shadow.err.txt", std::ios::out | std::ios::trunc);
+      if (error_payload.is_open()) {
+        error_payload << shadow_error;
+      }
+    }
+  } catch (const std::exception&) {
+  }
+}
+
 int
 main(
   int argc,
@@ -387,6 +473,10 @@ main(
     "parser-shadow-compare",
     "When enabled, parse once with the selected parser and once with the alternate parser, then compare AST repr.",
     cxxopts::value<bool>()->default_value("false")
+  )(
+    "parser-shadow-artifact-dir",
+    "Directory to write shadow-compare artifacts (JSONL record, and payload files on mismatch/error).",
+    cxxopts::value<std::string>()->default_value("")
   );
 
   options.parse_positional({"file"});
@@ -412,6 +502,7 @@ main(
   std::string error_format = cmlopts["error-format"].as<std::string>();
   std::string parser_engine_raw = cmlopts["parser-engine"].as<std::string>();
   bool parser_shadow_compare = cmlopts["parser-shadow-compare"].as<bool>();
+  std::string parser_shadow_artifact_dir = cmlopts["parser-shadow-artifact-dir"].as<std::string>();
   StyioParserEngine parser_engine = StyioParserEngine::Legacy;
 
   if (!(error_format == "text" || error_format == "jsonl")) {
@@ -421,6 +512,11 @@ main(
 
   if (!styio_parse_parser_engine(parser_engine_raw, parser_engine)) {
     std::cerr << "[CliError] unsupported --parser-engine: " << parser_engine_raw << std::endl;
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+
+  if (!parser_shadow_artifact_dir.empty() && !parser_shadow_compare) {
+    std::cerr << "[CliError] --parser-shadow-artifact-dir requires --parser-shadow-compare" << std::endl;
     return static_cast<int>(StyioExitCode::CliError);
   }
 
@@ -505,6 +601,17 @@ main(
         StyioErrorCategory::ParseError,
         fpath,
         std::string("shadow parser failed under --parser-shadow-compare: ") + shadow_err);
+      styio_write_shadow_artifact(
+        parser_shadow_artifact_dir,
+        fpath,
+        styio_code.code_text,
+        parser_engine,
+        shadow_engine,
+        "shadow_error",
+        primary_repr,
+        shadow_repr,
+        shadow_err,
+        "shadow parser failed under --parser-shadow-compare");
       return styio_exit_code(StyioErrorCategory::ParseError);
     }
 
@@ -513,8 +620,31 @@ main(
       oss << "shadow parser mismatch: primary=" << styio_parser_engine_name(parser_engine)
           << ", shadow=" << styio_parser_engine_name(shadow_engine);
       styio_emit_diagnostic(error_format, StyioErrorCategory::ParseError, fpath, oss.str());
+      styio_write_shadow_artifact(
+        parser_shadow_artifact_dir,
+        fpath,
+        styio_code.code_text,
+        parser_engine,
+        shadow_engine,
+        "mismatch",
+        primary_repr,
+        shadow_repr,
+        "",
+        oss.str());
       return styio_exit_code(StyioErrorCategory::ParseError);
     }
+
+    styio_write_shadow_artifact(
+      parser_shadow_artifact_dir,
+      fpath,
+      styio_code.code_text,
+      parser_engine,
+      shadow_engine,
+      "match",
+      primary_repr,
+      shadow_repr,
+      "",
+      "shadow parser match");
   }
 
   if (show_styio_ast) {
