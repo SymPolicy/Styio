@@ -162,3 +162,35 @@ TEST(StyioParserEngine, ShadowCompareAcceptsM1TypedBindSample) {
   EXPECT_EQ(legacy_shadow.exit_code, 0);
   EXPECT_EQ(new_shadow.exit_code, 0);
 }
+
+TEST(StyioParserEngine, ShadowCompareAcceptsM1CoreSuite) {
+  const std::vector<std::string> files = {
+    "t01_int_arith.styio",
+    "t06_binding.styio",
+    "t07_typed_bind.styio",
+    "t09_multi_print.styio",
+  };
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  for (const auto& name : files) {
+    const fs::path input = fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / name;
+    ASSERT_TRUE(fs::exists(input)) << input.string();
+
+    const std::string cmd_legacy_shadow =
+      std::string("\"") + runner + "\" --parser-engine=legacy --parser-shadow-compare --file \""
+      + input.string() + "\" 2>/dev/null";
+    const std::string cmd_new_shadow =
+      std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --file \""
+      + input.string() + "\" 2>/dev/null";
+
+    const CommandResult legacy_shadow = run_stdout_command(cmd_legacy_shadow);
+    const CommandResult new_shadow = run_stdout_command(cmd_new_shadow);
+    EXPECT_EQ(legacy_shadow.exit_code, 0) << name;
+    EXPECT_EQ(new_shadow.exit_code, 0) << name;
+  }
+}
