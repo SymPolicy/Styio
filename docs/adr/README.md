@@ -56,3 +56,4 @@
 - `ADR-0042-parser-hash-simple-func-subset.md`
 - `ADR-0043-parser-m2-artifactized-shadow-gate.md`
 - `ADR-0044-shadow-gate-script-generalization.md`
+- `ADR-0045-parser-hash-signature-subset-alignment.md`

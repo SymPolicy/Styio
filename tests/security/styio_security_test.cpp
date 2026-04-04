@@ -380,6 +380,8 @@ TEST(StyioSecurityNewParserStmt, SubsetTokenGateIncludesFunctionDefTokens) {
   EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_LCURBRAC));
   EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_RCURBRAC));
   EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::EXTRACTOR));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::BOUNDED_BUFFER_OPEN));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::BOUNDED_BUFFER_CLOSE));
 }
 
 TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFlexBindSubsetSamples) {
@@ -450,6 +452,8 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFunctionDefSubsetSamples) {
   const std::vector<std::string> samples = {
     "# add := (a: i32, b: i32) => a + b\n>_(add(3, 4))\n",
     "# answer := () => 42\n>_(answer())\n",
+    "# pulse : [|3|] = (x: i32) => x\n>_(pulse(5))\n",
+    "# pair : (i32, [|2|]) = (a: i32, b: i32) => a + b\n>_(pair(1, 2))\n",
     "# compute := (x: i32) => {\n    y = x * 2\n    <| y\n}\n>_(compute(5))\n",
   };
 

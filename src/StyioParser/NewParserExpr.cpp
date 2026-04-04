@@ -355,6 +355,8 @@ styio_new_parser_is_stmt_subset_token(StyioTokenType type) {
     case StyioTokenType::TOK_LCURBRAC:
     case StyioTokenType::TOK_RCURBRAC:
     case StyioTokenType::EXTRACTOR:
+    case StyioTokenType::BOUNDED_BUFFER_OPEN:
+    case StyioTokenType::BOUNDED_BUFFER_CLOSE:
     case StyioTokenType::COMPOUND_ADD:
     case StyioTokenType::COMPOUND_SUB:
     case StyioTokenType::COMPOUND_MUL:
@@ -397,6 +399,53 @@ parse_print_new_subset(StyioContext& context) {
   return PrintAST::Create(exprs);
 }
 
+TypeAST*
+parse_hash_simple_type_new_subset(StyioContext& context) {
+  context.skip();
+  if (context.cur_tok_type() == StyioTokenType::BOUNDED_BUFFER_OPEN) {
+    context.move_forward(1, "new_stmt:hash_type_bounded_open");
+    context.skip();
+    if (context.cur_tok_type() != StyioTokenType::INTEGER) {
+      throw StyioSyntaxError("expected integer capacity in [|n|] return type");
+    }
+    const std::string cap = context.cur_tok()->original;
+    context.move_forward(1, "new_stmt:hash_type_bounded_cap");
+    context.skip();
+    context.try_match_panic(StyioTokenType::BOUNDED_BUFFER_CLOSE);
+    return TypeAST::CreateBoundedRingBuffer(cap);
+  }
+  if (context.cur_tok_type() != StyioTokenType::NAME) {
+    throw StyioSyntaxError("expected simple return type name in new parser subset");
+  }
+  const std::string type_name = context.cur_tok()->original;
+  context.move_forward(1, "new_stmt:hash_type_name");
+  return TypeAST::Create(type_name);
+}
+
+std::variant<TypeAST*, TypeTupleAST*>
+parse_hash_ret_type_new_subset(StyioContext& context) {
+  context.skip();
+  if (context.cur_tok_type() == StyioTokenType::TOK_LPAREN) {
+    context.move_forward(1, "new_stmt:hash_ret_tuple_open");
+    std::vector<TypeAST*> types;
+    context.skip();
+    if (context.cur_tok_type() != StyioTokenType::TOK_RPAREN) {
+      while (true) {
+        types.push_back(parse_hash_simple_type_new_subset(context));
+        context.skip();
+        if (context.cur_tok_type() == StyioTokenType::TOK_RPAREN) {
+          break;
+        }
+        context.try_match_panic(StyioTokenType::TOK_COMMA);
+        context.skip();
+      }
+    }
+    context.try_match_panic(StyioTokenType::TOK_RPAREN);
+    return TypeTupleAST::Create(types);
+  }
+  return parse_hash_simple_type_new_subset(context);
+}
+
 StyioAST*
 parse_hash_stmt_new_subset(StyioContext& context) {
   context.match_panic(StyioTokenType::TOK_HASH);
@@ -406,35 +455,38 @@ parse_hash_stmt_new_subset(StyioContext& context) {
   }
   NameAST* tag_name = parse_name_unsafe(context);
 
+  std::vector<ParamAST*> params;
   context.skip();
-  if (context.cur_tok_type() != StyioTokenType::TOK_LPAREN) {
-    throw StyioSyntaxError("expected parameter list in new parser subset hash function");
+  if (context.cur_tok_type() == StyioTokenType::TOK_LPAREN) {
+    params = parse_params(context);
   }
-  std::vector<ParamAST*> params = parse_params(context);
 
   std::variant<TypeAST*, TypeTupleAST*> ret_type = static_cast<TypeAST*>(nullptr);
   context.skip();
   if (context.cur_tok_type() == StyioTokenType::TOK_COLON) {
     context.move_forward(1, "new_stmt:hash_ret_colon");
-    context.skip();
-    if (context.cur_tok_type() != StyioTokenType::NAME) {
-      throw StyioSyntaxError("expected simple return type name in new parser subset");
-    }
-    ret_type = TypeAST::Create(context.cur_tok()->original);
-    context.move_forward(1, "new_stmt:hash_ret_type");
+    ret_type = parse_hash_ret_type_new_subset(context);
   }
 
   context.skip();
   bool is_unique = false;
+  bool saw_assign = false;
   if (context.cur_tok_type() == StyioTokenType::WALRUS) {
     is_unique = true;
+    saw_assign = true;
     context.move_forward(1, "new_stmt:hash_walrus");
   }
   else if (context.cur_tok_type() == StyioTokenType::TOK_EQUAL) {
+    saw_assign = true;
     context.move_forward(1, "new_stmt:hash_equal");
   }
-  else {
-    throw StyioSyntaxError("expected := or = in new parser subset hash function");
+  else if (!(context.cur_tok_type() == StyioTokenType::ARROW_DOUBLE_RIGHT && !params.empty())) {
+    throw StyioSyntaxError("expected :=, =, or => in new parser subset hash function");
+  }
+
+  context.skip();
+  if (saw_assign && context.cur_tok_type() == StyioTokenType::TOK_LPAREN) {
+    params = parse_params(context);
   }
 
   context.skip();
@@ -445,7 +497,7 @@ parse_hash_stmt_new_subset(StyioContext& context) {
 
   context.skip();
   if (context.cur_tok_type() == StyioTokenType::TOK_LCURBRAC) {
-    throw StyioSyntaxError("block-body hash function is not in new parser subset");
+    return FunctionAST::Create(tag_name, is_unique, params, ret_type, parse_block_with_forward(context));
   }
   StyioAST* ret_expr = parse_expr_new_subset(context);
   return SimpleFuncAST::Create(tag_name, is_unique, params, ret_type, ret_expr);
