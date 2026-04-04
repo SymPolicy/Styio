@@ -489,11 +489,8 @@ parse_hash_stmt_new_subset(StyioContext& context) {
 
   context.skip();
   if (context.cur_tok_type() == StyioTokenType::ITERATOR) {
-    if (params.size() != 1) {
-      throw StyioSyntaxError(
-        context.mark_cur_tok("Confusing: The iterator (>>) can not be applied to multiple objects."));
-    }
-    return FunctionAST::Create(tag_name, true, params, ret_type, parse_iterator_with_forward(context, params[0]));
+    throw StyioNotImplemented(
+      context.mark_cur_tok("hash iterator definitions are temporarily disabled (runtime crash guard)"));
   }
 
   context.skip();

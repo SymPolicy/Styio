@@ -2,7 +2,7 @@
 
 **文档作用：** 记录 Styio 关键架构与工程决策（为什么做、为什么不做其它方案），用于中断后快速恢复决策上下文。
 
-**Last updated:** 2026-04-04
+**Last updated:** 2026-04-05
 
 ## 约定
 
@@ -63,3 +63,4 @@
 - `ADR-0049-m2-hash-form-coverage-golden.md`
 - `ADR-0050-parser-hash-match-cases-subset.md`
 - `ADR-0051-parser-hash-iterator-branch-subset.md`
+- `ADR-0052-hash-iterator-crash-guard.md`

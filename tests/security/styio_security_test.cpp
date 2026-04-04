@@ -461,7 +461,6 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFunctionDefSubsetSamples) {
     "# const42 : i32 => 42\n>_(const42())\n",
     "# ping => 1\n>_(ping())\n",
     "# parity(n: i32) ?={\n    0 => 0\n    _ => 1\n}\n>_(parity(0), parity(3))\n",
-    "# iter_only(x) >> (n) ?= 2 => >_(n)\n",
     "# alert := () => >_(\"ALERT\")\nalert()\n",
     "# compute := (x: i32) => {\n    y = x * 2\n    <| y\n}\n>_(compute(5))\n",
   };
@@ -469,6 +468,20 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFunctionDefSubsetSamples) {
   for (const auto& src : samples) {
     EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
   }
+}
+
+TEST(StyioSecurityNewParserStmt, RejectsHashIteratorFunctionDefWithStableError) {
+  const std::string src = "# iter_only(x) >> (n) ?= 2 => >_(n)\n";
+  EXPECT_THROW(
+    {
+      (void)parse_program_to_repr(src, true);
+    },
+    StyioBaseException);
+  EXPECT_THROW(
+    {
+      (void)parse_program_to_repr(src, false);
+    },
+    StyioBaseException);
 }
 
 TEST(StyioSecurityNewParserStmt, MatchesLegacyOnDotCallSubsetSamples) {
