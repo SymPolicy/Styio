@@ -482,7 +482,7 @@ parse_hash_stmt_new_subset(StyioContext& context) {
     saw_assign = true;
     context.move_forward(1, "new_stmt:hash_equal");
   }
-  else if (!(context.cur_tok_type() == StyioTokenType::ARROW_DOUBLE_RIGHT && !params.empty())) {
+  else if (context.cur_tok_type() != StyioTokenType::ARROW_DOUBLE_RIGHT) {
     throw StyioSyntaxError("expected :=, =, or => in new parser subset hash function");
   }
 

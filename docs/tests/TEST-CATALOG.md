@@ -182,7 +182,7 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_test` | `tests/styio_test.cpp`：`StyioFiveLayerPipeline`、`StyioParserEngine`（legacy/new 在 M1 算术、typed bind、compound assign、M2 simple func 与 hash 无箭头表达式体样例上一致，非法引擎拒绝；`--parser-shadow-compare` 可通过 M1 核心/全量与 M2 core/full 样例；`--parser-shadow-artifact-dir` 可产出 JSONL 记录并受参数约束回归覆盖；dot-chain 边界在 `DotChainStillRejectedConsistentlyAcrossEngines` 冻结；CI 通过 `scripts/parser-shadow-suite-gate.sh` 对 M1/M2 双目录执行预算 gate 并产出各自 `summary.json`） | `ctest --test-dir build -L styio_pipeline` 或 `ctest --test-dir build -R '^StyioParserEngine\\.'` |
+| `styio_test` | `tests/styio_test.cpp`：`StyioFiveLayerPipeline`、`StyioParserEngine`（legacy/new 在 M1 算术、typed bind、compound assign、M2 simple func 与 hash 无箭头表达式体/无赋值箭头体样例上一致，非法引擎拒绝；`--parser-shadow-compare` 可通过 M1 核心/全量与 M2 core/full 样例；`--parser-shadow-artifact-dir` 可产出 JSONL 记录并受参数约束回归覆盖；dot-chain 边界在 `DotChainStillRejectedConsistentlyAcrossEngines` 冻结；CI 通过 `scripts/parser-shadow-suite-gate.sh` 对 M1/M2 双目录执行预算 gate 并产出各自 `summary.json`） | `ctest --test-dir build -L styio_pipeline` 或 `ctest --test-dir build -R '^StyioParserEngine\\.'` |
 
 **五层流水线 goldens**（Lexer / AST / StyioIR / LLVM / 子进程 stdout）：权威说明见 [`FIVE-LAYER-PIPELINE.md`](./FIVE-LAYER-PIPELINE.md)；用例根目录 `tests/pipeline_cases/`。
 
@@ -221,4 +221,4 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_security_test` | `tests/security/styio_security_test.cpp`：lexer/Unicode/AST ownership/runtime，含 ParserLookahead trivia 回归、NewParserExpr 子集兼容回归（含 compare/logic/dot-call token gate）、NewParserStmt（print/flex bind/final bind/compound assign/compare/logic/simple call/dot-call/function-def-entry/hash-simple-func，含 `[|n|]`、tuple 返回类型、`=> >_(...)` 语句体与 `= expr` 无箭头函数体样例）子集回归与 Shadow fallback 回归（dot-chain） | `ctest --test-dir build -L security` |
+| `styio_security_test` | `tests/security/styio_security_test.cpp`：lexer/Unicode/AST ownership/runtime，含 ParserLookahead trivia 回归、NewParserExpr 子集兼容回归（含 compare/logic/dot-call token gate）、NewParserStmt（print/flex bind/final bind/compound assign/compare/logic/simple call/dot-call/function-def-entry/hash-simple-func，含 `[|n|]`、tuple 返回类型、`=> >_(...)` 语句体、`= expr` 无箭头函数体与无赋值 `=>` 函数体样例）子集回归与 Shadow fallback 回归（dot-chain） | `ctest --test-dir build -L security` |
