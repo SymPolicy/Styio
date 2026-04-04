@@ -3485,10 +3485,17 @@ parse_main_block_new_shadow(StyioContext& context) {
     }
   }
 
-  // E.4: NewParser currently owns a small statement subset (`print` + expr stmt).
+  // E.4: NewParser currently owns a small statement subset
+  // (`print`, expr stmt, and bind subset).
   // Non-subset inputs are routed to legacy above.
   const auto saved = context.save_cursor();
-  MainBlockAST* parsed = parse_main_block_new_subset(context);
+  MainBlockAST* parsed = nullptr;
+  try {
+    parsed = parse_main_block_new_subset(context);
+  } catch (const std::exception&) {
+    context.restore_cursor(saved);
+    return parse_main_block(context);
+  }
   if (context.cur_tok_type() != StyioTokenType::TOK_EOF) {
     // Conservative rollback on trailing unsupported syntax.
     delete parsed;

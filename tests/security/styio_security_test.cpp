@@ -367,6 +367,17 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFlexBindSubsetSamples) {
   }
 }
 
+TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFinalBindSubsetSamples) {
+  const std::vector<std::string> samples = {
+    "x : i32 := 100\n>_(x)\n",
+    "price: f64 := 1 + 2\n>_(price)\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+  }
+}
+
 TEST(StyioSecurityNewParserShadow, FallsBackOnCallExpressionSequence) {
   const std::string src = "foo(1)\n";
   EXPECT_EQ(

@@ -1,5 +1,7 @@
 #include "NewParserExpr.hpp"
 
+#include <memory>
+
 #include "ParserLookahead.hpp"
 
 namespace {
@@ -227,6 +229,8 @@ styio_new_parser_is_stmt_subset_token(StyioTokenType type) {
     case StyioTokenType::PRINT:
     case StyioTokenType::TOK_COMMA:
     case StyioTokenType::TOK_EQUAL:
+    case StyioTokenType::TOK_COLON:
+    case StyioTokenType::WALRUS:
       return true;
     default:
       return false;
@@ -271,6 +275,24 @@ parse_stmt_new_subset(StyioContext& context) {
     const std::string id = context.cur_tok()->original;
     context.move_forward(1, "new_stmt:name_probe");
     context.skip();
+    if (context.cur_tok_type() == StyioTokenType::TOK_COLON) {
+      context.move_forward(1, "new_stmt:final_bind_colon");
+      context.skip();
+      if (context.cur_tok_type() != StyioTokenType::NAME) {
+        throw StyioSyntaxError("expected simple type name after ':' in new parser subset");
+      }
+      TypeAST* ty = TypeAST::Create(context.cur_tok()->original);
+      context.move_forward(1, "new_stmt:final_bind_type");
+      context.skip();
+      if (context.cur_tok_type() != StyioTokenType::WALRUS) {
+        throw StyioSyntaxError("expected ':=' after type in new parser subset");
+      }
+      context.move_forward(1, "new_stmt:final_bind_walrus");
+      context.skip();
+      return FinalBindAST::Create(
+        VarAST::Create(NameAST::Create(id), ty),
+        parse_expr_new_subset(context));
+    }
     if (context.cur_tok_type() == StyioTokenType::TOK_EQUAL) {
       context.move_forward(1, "new_stmt:flex_bind");
       context.skip();
@@ -294,13 +316,18 @@ parse_stmt_new_subset(StyioContext& context) {
 
 MainBlockAST*
 parse_main_block_new_subset(StyioContext& context) {
-  std::vector<StyioAST*> statements;
+  std::vector<std::unique_ptr<StyioAST>> statements_owned;
   while (true) {
     context.skip();
     if (context.cur_tok_type() == StyioTokenType::TOK_EOF) {
       break;
     }
-    statements.push_back(parse_stmt_new_subset(context));
+    statements_owned.emplace_back(parse_stmt_new_subset(context));
+  }
+  std::vector<StyioAST*> statements;
+  statements.reserve(statements_owned.size());
+  for (auto& owned : statements_owned) {
+    statements.push_back(owned.release());
   }
   return MainBlockAST::Create(statements);
 }
