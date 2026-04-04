@@ -51,3 +51,4 @@
 - `ADR-0037-parser-shadow-summary-artifact.md`
 - `ADR-0038-parser-dot-chain-rejection-boundary.md`
 - `ADR-0039-parser-function-def-entry-subset.md`
+- `ADR-0040-parser-m2-shadow-gate.md`
