@@ -61,8 +61,9 @@ ctest --test-dir build -L milestone
 | `m2_t07_no_params` | `tests/milestones/m2/t07_no_params.styio` | `tests/milestones/m2/expected/t07_no_params.out` | `ctest --test-dir build -R '^m2_t07_no_params$'` |
 | `m2_t09_bind_call` | `tests/milestones/m2/t09_bind_call.styio` | `tests/milestones/m2/expected/t09_bind_call.out` | `ctest --test-dir build -R '^m2_t09_bind_call$'` |
 | `m2_t10_nested` | `tests/milestones/m2/t10_nested.styio` | `tests/milestones/m2/expected/t10_nested.out` | `ctest --test-dir build -R '^m2_t10_nested$'` |
+| `m2_t11_hash_assign_and_arrow` | `tests/milestones/m2/t11_hash_assign_and_arrow.styio` | `tests/milestones/m2/expected/t11_hash_assign_and_arrow.out` | `ctest --test-dir build -R '^m2_t11_hash_assign_and_arrow$'` |
 
-**整组：** `ctest --test-dir build -L m2`（仓库中无 `t08`，与里程碑编号可能不连续。）
+**整组：** `ctest --test-dir build -L m2`（仓库中无 `t08`，与里程碑编号不连续属预期。）
 
 ---
 

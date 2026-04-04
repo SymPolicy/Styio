@@ -7,3 +7,4 @@ t06_multi_stmt: 30
 t07_no_params: 42
 t09_bind_call: 15
 t10_nested: 8
+t11_hash_assign_and_arrow: 12|42|1

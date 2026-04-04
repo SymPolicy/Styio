@@ -60,3 +60,4 @@
 - `ADR-0046-parser-hash-body-stmt-or-expr-subset.md`
 - `ADR-0047-parser-hash-assign-expression-subset.md`
 - `ADR-0048-parser-hash-arrow-no-assign-subset.md`
+- `ADR-0049-m2-hash-form-coverage-golden.md`
