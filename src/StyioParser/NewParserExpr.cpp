@@ -376,6 +376,8 @@ styio_new_parser_is_stmt_subset_start(StyioTokenType type) {
 }
 
 namespace {
+StyioAST*
+parse_stmt_new_subset(StyioContext& context);
 
 PrintAST*
 parse_print_new_subset(StyioContext& context) {
@@ -499,7 +501,7 @@ parse_hash_stmt_new_subset(StyioContext& context) {
   if (context.cur_tok_type() == StyioTokenType::TOK_LCURBRAC) {
     return FunctionAST::Create(tag_name, is_unique, params, ret_type, parse_block_with_forward(context));
   }
-  StyioAST* ret_expr = parse_expr_new_subset(context);
+  StyioAST* ret_expr = parse_stmt_new_subset(context);
   return SimpleFuncAST::Create(tag_name, is_unique, params, ret_type, ret_expr);
 }
 

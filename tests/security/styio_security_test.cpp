@@ -454,6 +454,7 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFunctionDefSubsetSamples) {
     "# answer := () => 42\n>_(answer())\n",
     "# pulse : [|3|] = (x: i32) => x\n>_(pulse(5))\n",
     "# pair : (i32, [|2|]) = (a: i32, b: i32) => a + b\n>_(pair(1, 2))\n",
+    "# alert := () => >_(\"ALERT\")\nalert()\n",
     "# compute := (x: i32) => {\n    y = x * 2\n    <| y\n}\n>_(compute(5))\n",
   };
 
