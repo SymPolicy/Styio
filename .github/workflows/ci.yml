@@ -55,8 +55,8 @@ jobs:
           mkdir -p build/parser-shadow-artifacts
           ./scripts/parser-shadow-m1-gate.sh ./build/bin/styio ./tests/milestones/m1 ./build/parser-shadow-artifacts
 
-      - name: Parser shadow gate (M2 core suite)
-        run: ctest --test-dir build -R '^StyioParserEngine.ShadowCompareAcceptsM2CoreSuite$' --output-on-failure
+      - name: Parser shadow gate (M2 full suite)
+        run: ctest --test-dir build -R '^StyioParserEngine.ShadowCompareAcceptsM2FullSuite$' --output-on-failure
 
       - name: Upload parser shadow artifacts
         if: failure()

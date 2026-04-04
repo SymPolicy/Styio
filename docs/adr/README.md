@@ -52,3 +52,4 @@
 - `ADR-0038-parser-dot-chain-rejection-boundary.md`
 - `ADR-0039-parser-function-def-entry-subset.md`
 - `ADR-0040-parser-m2-shadow-gate.md`
+- `ADR-0041-parser-m2-full-shadow-gate.md`
