@@ -58,3 +58,4 @@
 - `ADR-0044-shadow-gate-script-generalization.md`
 - `ADR-0045-parser-hash-signature-subset-alignment.md`
 - `ADR-0046-parser-hash-body-stmt-or-expr-subset.md`
+- `ADR-0047-parser-hash-assign-expression-subset.md`

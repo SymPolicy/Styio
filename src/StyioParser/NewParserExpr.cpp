@@ -492,17 +492,22 @@ parse_hash_stmt_new_subset(StyioContext& context) {
   }
 
   context.skip();
-  if (context.cur_tok_type() != StyioTokenType::ARROW_DOUBLE_RIGHT) {
-    throw StyioSyntaxError("expected => in new parser subset hash function");
-  }
-  context.move_forward(1, "new_stmt:hash_arrow");
+  if (context.cur_tok_type() == StyioTokenType::ARROW_DOUBLE_RIGHT) {
+    context.move_forward(1, "new_stmt:hash_arrow");
 
-  context.skip();
-  if (context.cur_tok_type() == StyioTokenType::TOK_LCURBRAC) {
-    return FunctionAST::Create(tag_name, is_unique, params, ret_type, parse_block_with_forward(context));
+    context.skip();
+    if (context.cur_tok_type() == StyioTokenType::TOK_LCURBRAC) {
+      return FunctionAST::Create(tag_name, is_unique, params, ret_type, parse_block_with_forward(context));
+    }
+    StyioAST* ret_expr = parse_stmt_new_subset(context);
+    return SimpleFuncAST::Create(tag_name, is_unique, params, ret_type, ret_expr);
   }
-  StyioAST* ret_expr = parse_stmt_new_subset(context);
-  return SimpleFuncAST::Create(tag_name, is_unique, params, ret_type, ret_expr);
+  if (saw_assign) {
+    context.skip();
+    StyioAST* ret_expr = parse_expr_new_subset(context);
+    return SimpleFuncAST::Create(tag_name, is_unique, params, ret_type, ret_expr);
+  }
+  throw StyioSyntaxError("expected => or expression body in new parser subset hash function");
 }
 
 StyioAST*
