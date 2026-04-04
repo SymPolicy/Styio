@@ -217,3 +217,73 @@ parse_expr_new_subset(StyioContext& context) {
   StyioExprSubsetParser parser(context);
   return parser.parse();
 }
+
+bool
+styio_new_parser_is_stmt_subset_token(StyioTokenType type) {
+  if (styio_new_parser_is_expr_subset_token(type)) {
+    return true;
+  }
+  switch (type) {
+    case StyioTokenType::PRINT:
+    case StyioTokenType::TOK_COMMA:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool
+styio_new_parser_is_stmt_subset_start(StyioTokenType type) {
+  return type == StyioTokenType::PRINT || styio_new_parser_is_expr_subset_start(type);
+}
+
+namespace {
+
+PrintAST*
+parse_print_new_subset(StyioContext& context) {
+  std::vector<StyioAST*> exprs;
+  context.match_panic(StyioTokenType::PRINT);
+  context.try_match_panic(StyioTokenType::TOK_LPAREN);
+
+  while (true) {
+    context.skip();
+    if (context.match(StyioTokenType::TOK_RPAREN)) {
+      break;
+    }
+    exprs.push_back(parse_expr_new_subset(context));
+    context.skip();
+    if (context.match(StyioTokenType::TOK_RPAREN)) {
+      break;
+    }
+    context.try_match_panic(StyioTokenType::TOK_COMMA);
+  }
+
+  return PrintAST::Create(exprs);
+}
+
+StyioAST*
+parse_stmt_new_subset(StyioContext& context) {
+  context.skip();
+  if (context.cur_tok_type() == StyioTokenType::PRINT) {
+    return parse_print_new_subset(context);
+  }
+  if (styio_new_parser_is_expr_subset_start(context.cur_tok_type())) {
+    return parse_expr_new_subset(context);
+  }
+  throw StyioSyntaxError("unexpected statement token in new parser subset");
+}
+
+} // namespace
+
+MainBlockAST*
+parse_main_block_new_subset(StyioContext& context) {
+  std::vector<StyioAST*> statements;
+  while (true) {
+    context.skip();
+    if (context.cur_tok_type() == StyioTokenType::TOK_EOF) {
+      break;
+    }
+    statements.push_back(parse_stmt_new_subset(context));
+  }
+  return MainBlockAST::Create(statements);
+}

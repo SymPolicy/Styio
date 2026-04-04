@@ -171,6 +171,33 @@ parse_expr_to_repr(const std::string& source, bool use_new_parser) {
   free_tokens(tokens);
   return out;
 }
+
+std::string
+parse_program_to_repr(const std::string& source, bool use_new_parser) {
+  auto tokens = StyioTokenizer::tokenize(source);
+  StyioContext* ctx = StyioContext::Create(
+    "<stmt-subset-test>",
+    source,
+    build_line_seps(source),
+    tokens,
+    false);
+
+  MainBlockAST* ast = use_new_parser ? parse_main_block_new_subset(*ctx) : parse_main_block(*ctx);
+  ctx->skip();
+  if (ctx->cur_tok_type() != StyioTokenType::TOK_EOF) {
+    delete ast;
+    delete ctx;
+    free_tokens(tokens);
+    throw std::runtime_error("statement parser did not consume input");
+  }
+
+  StyioRepr repr;
+  const std::string out = ast->toString(&repr);
+  delete ast;
+  delete ctx;
+  free_tokens(tokens);
+  return out;
+}
 } // namespace
 
 TEST(StyioSecurityLexer, EmptySourceProducesEof) {
@@ -286,6 +313,19 @@ TEST(StyioSecurityNewParserExpr, RejectsNonSubsetStatementToken) {
 
   delete ctx;
   free_tokens(tokens);
+}
+
+TEST(StyioSecurityNewParserStmt, MatchesLegacyOnPrintSubsetSamples) {
+  const std::vector<std::string> samples = {
+    ">_(1 + 2)\n",
+    ">_(\"x\", 1 + 2, (3 * 4))\n",
+    ">_(1 + 2)\n>_(3 + 4)\n",
+    "1 + 2\n>_(3 * 4)\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+  }
 }
 
 TEST(StyioSecurityUnicode, ByteClassificationIsStable) {

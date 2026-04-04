@@ -3451,11 +3451,11 @@ parse_main_block_new_shadow(StyioContext& context) {
   if (start >= tokens.size()) {
     return MainBlockAST::Create(vector<StyioAST*>());
   }
-  if (!styio_new_parser_is_expr_subset_start(tokens[start]->type)) {
+  if (!styio_new_parser_is_stmt_subset_start(tokens[start]->type)) {
     return parse_main_block(context);
   }
   for (size_t i = start; i < tokens.size(); ++i) {
-    if (!styio_new_parser_is_expr_subset_token(tokens[i]->type)) {
+    if (!styio_new_parser_is_stmt_subset_token(tokens[i]->type)) {
       return parse_main_block(context);
     }
     if (tokens[i]->type == StyioTokenType::TOK_EOF) {
@@ -3463,19 +3463,17 @@ parse_main_block_new_shadow(StyioContext& context) {
     }
   }
 
-  // E.3: NewParser currently owns an expression subset only.
+  // E.4: NewParser currently owns a small statement subset (`print` + expr stmt).
   // Non-subset inputs are routed to legacy above.
   const auto saved = context.save_cursor();
-  vector<StyioAST*> statements;
-  statements.push_back(parse_expr_new_subset(context));
-  context.skip();
+  MainBlockAST* parsed = parse_main_block_new_subset(context);
   if (context.cur_tok_type() != StyioTokenType::TOK_EOF) {
     // Conservative rollback on trailing unsupported syntax.
-    delete statements.back();
+    delete parsed;
     context.restore_cursor(saved);
     return parse_main_block(context);
   }
-  return MainBlockAST::Create(statements);
+  return parsed;
 }
 
 MainBlockAST*
