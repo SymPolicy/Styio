@@ -14,11 +14,14 @@
 #include <future>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "StyioException/Exception.hpp"
 #include "StyioExtern/ExternLib.hpp"
+#include "StyioParser/NewParserExpr.hpp"
 #include "StyioParser/ParserLookahead.hpp"
+#include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
 #include "StyioSession/CompilationSession.hpp"
 #include "StyioUnicode/Unicode.hpp"
@@ -118,6 +121,56 @@ free_tokens(std::vector<StyioToken*>& tokens) {
     delete t;
   }
 }
+
+std::vector<std::pair<size_t, size_t>>
+build_line_seps(const std::string& src) {
+  std::vector<std::pair<size_t, size_t>> seps;
+  size_t line_start = 0;
+  size_t line_len = 0;
+  for (size_t i = 0; i < src.size(); ++i) {
+    if (src[i] == '\n') {
+      seps.push_back(std::make_pair(line_start, line_len));
+      line_start = i + 1;
+      line_len = 0;
+    }
+    else {
+      line_len += 1;
+    }
+  }
+  if (!src.empty() && src.back() != '\n') {
+    seps.push_back(std::make_pair(line_start, line_len));
+  }
+  return seps;
+}
+
+std::string
+parse_expr_to_repr(const std::string& source, bool use_new_parser) {
+  // Parse expression prefix and stop before a non-expression sentinel token.
+  const std::string wrapped = source + " @";
+  auto tokens = StyioTokenizer::tokenize(wrapped);
+  StyioContext* ctx = StyioContext::Create(
+    "<expr-subset-test>",
+    wrapped,
+    build_line_seps(wrapped),
+    tokens,
+    false);
+
+  StyioAST* ast = use_new_parser ? parse_expr_new_subset(*ctx) : parse_expr(*ctx);
+  ctx->skip();
+  if (ctx->cur_tok_type() != StyioTokenType::TOK_AT) {
+    delete ast;
+    delete ctx;
+    free_tokens(tokens);
+    throw std::runtime_error("expression parser did not stop at sentinel");
+  }
+
+  StyioRepr repr;
+  const std::string out = ast->toString(&repr);
+  delete ast;
+  delete ctx;
+  free_tokens(tokens);
+  return out;
+}
 } // namespace
 
 TEST(StyioSecurityLexer, EmptySourceProducesEof) {
@@ -194,6 +247,44 @@ TEST(StyioSecurityParserLookahead, SkipTriviaFindsNextToken) {
 
   EXPECT_TRUE(styio_try_check_non_trivia(tokens, 0, StyioTokenType::NAME));
   EXPECT_FALSE(styio_try_check_non_trivia(tokens, 0, StyioTokenType::INTEGER));
+  free_tokens(tokens);
+}
+
+TEST(StyioSecurityNewParserExpr, MatchesLegacyOnSubsetSamples) {
+  const std::vector<std::string> samples = {
+    "1 + 2 * 3",
+    "(1 + 2) * 3",
+    "price + fee - tax",
+    "\"x\" + \"y\"",
+    "-5 + 2 ** 3",
+  };
+
+  for (const auto& src : samples) {
+    try {
+      EXPECT_EQ(parse_expr_to_repr(src, true), parse_expr_to_repr(src, false)) << src;
+    } catch (const std::exception& ex) {
+      FAIL() << "sample '" << src << "' threw: " << ex.what();
+    }
+  }
+}
+
+TEST(StyioSecurityNewParserExpr, RejectsNonSubsetStatementToken) {
+  auto tokens = StyioTokenizer::tokenize(">_ 1 + 2");
+  StyioContext* ctx = StyioContext::Create(
+    "<expr-subset-test>",
+    ">_ 1 + 2",
+    build_line_seps(">_ 1 + 2"),
+    tokens,
+    false);
+
+  EXPECT_THROW(
+    {
+      StyioAST* ast = parse_expr_new_subset(*ctx);
+      delete ast;
+    },
+    StyioSyntaxError);
+
+  delete ctx;
   free_tokens(tokens);
 }
 

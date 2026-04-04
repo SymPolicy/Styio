@@ -158,6 +158,16 @@ public:
     return tokens.at(index_of_token)->type;
   }
 
+  const std::vector<StyioToken*>&
+  get_tokens() const {
+    return tokens;
+  }
+
+  size_t
+  get_token_index() const {
+    return index_of_token;
+  }
+
   void move_forward(size_t steps = 1, std::string caller = "") {
     // std::cout << "[" << index_of_token << "] " << caller << "(`" << cur_tok()->as_str() << "`)" << ", step: " << steps << std::endl;
 

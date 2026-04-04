@@ -52,6 +52,7 @@ set(STYIO_CORE_SOURCES
     src/StyioUnicode/Unicode.cpp
     src/StyioParser/Parser.cpp
     src/StyioParser/ParserLookahead.cpp
+    src/StyioParser/NewParserExpr.cpp
     src/StyioParser/Tokenizer.cpp
     src/StyioToString/ToString.cpp
     src/StyioAnalyzer/TypeInfer.cpp

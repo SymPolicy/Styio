@@ -16,6 +16,7 @@
 #include "../StyioToken/Token.hpp"
 #include "../StyioUtil/Util.hpp"
 #include "BinExprMapper.hpp"
+#include "NewParserExpr.hpp"
 #include "Parser.hpp"
 
 using std::string;
@@ -3445,8 +3446,36 @@ styio_parser_engine_name(StyioParserEngine engine) {
 
 static MainBlockAST*
 parse_main_block_new_shadow(StyioContext& context) {
-  // Strangler checkpoint: route is present, implementation still reuses legacy parser.
-  return parse_main_block(context);
+  const auto& tokens = context.get_tokens();
+  const size_t start = styio_skip_trivia_tokens(tokens, context.get_token_index());
+  if (start >= tokens.size()) {
+    return MainBlockAST::Create(vector<StyioAST*>());
+  }
+  if (!styio_new_parser_is_expr_subset_start(tokens[start]->type)) {
+    return parse_main_block(context);
+  }
+  for (size_t i = start; i < tokens.size(); ++i) {
+    if (!styio_new_parser_is_expr_subset_token(tokens[i]->type)) {
+      return parse_main_block(context);
+    }
+    if (tokens[i]->type == StyioTokenType::TOK_EOF) {
+      break;
+    }
+  }
+
+  // E.3: NewParser currently owns an expression subset only.
+  // Non-subset inputs are routed to legacy above.
+  const auto saved = context.save_cursor();
+  vector<StyioAST*> statements;
+  statements.push_back(parse_expr_new_subset(context));
+  context.skip();
+  if (context.cur_tok_type() != StyioTokenType::TOK_EOF) {
+    // Conservative rollback on trailing unsupported syntax.
+    delete statements.back();
+    context.restore_cursor(saved);
+    return parse_main_block(context);
+  }
+  return MainBlockAST::Create(statements);
 }
 
 MainBlockAST*
