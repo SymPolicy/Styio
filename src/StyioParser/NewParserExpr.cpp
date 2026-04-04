@@ -103,6 +103,9 @@ private:
       case StyioTokenType::NAME: {
         const std::string name = context_.cur_tok()->original;
         context_.move_forward(1, "new_expr:name");
+        if (name == "true" || name == "false") {
+          return BoolAST::Create(name == "true");
+        }
         return NameAST::Create(name);
       }
       case StyioTokenType::TOK_LPAREN: {

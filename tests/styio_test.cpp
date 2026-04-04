@@ -218,3 +218,43 @@ TEST(StyioParserEngine, ShadowCompareAcceptsM1CoreSuite) {
     EXPECT_EQ(new_shadow.exit_code, 0) << name;
   }
 }
+
+TEST(StyioParserEngine, ShadowCompareAcceptsM1FullSuite) {
+  const fs::path m1_dir = fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1";
+  ASSERT_TRUE(fs::exists(m1_dir));
+
+  std::vector<fs::path> inputs;
+  for (const auto& entry : fs::directory_iterator(m1_dir)) {
+    if (!entry.is_regular_file()) {
+      continue;
+    }
+    const fs::path p = entry.path();
+    const std::string name = p.filename().string();
+    if (p.extension() == ".styio" && name.rfind("t", 0) == 0) {
+      inputs.push_back(p);
+    }
+  }
+  std::sort(inputs.begin(), inputs.end());
+  ASSERT_FALSE(inputs.empty());
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  for (const auto& input : inputs) {
+    const std::string case_name = input.filename().string();
+    const std::string cmd_legacy_shadow =
+      std::string("\"") + runner + "\" --parser-engine=legacy --parser-shadow-compare --file \""
+      + input.string() + "\" 2>/dev/null";
+    const std::string cmd_new_shadow =
+      std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --file \""
+      + input.string() + "\" 2>/dev/null";
+
+    const CommandResult legacy_shadow = run_stdout_command(cmd_legacy_shadow);
+    const CommandResult new_shadow = run_stdout_command(cmd_new_shadow);
+    EXPECT_EQ(legacy_shadow.exit_code, 0) << case_name;
+    EXPECT_EQ(new_shadow.exit_code, 0) << case_name;
+  }
+}
