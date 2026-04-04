@@ -304,6 +304,47 @@ styio_emit_diagnostic(
   std::cerr << "[" << styio_category_name(category) << "] " << message << std::endl;
 }
 
+static void
+styio_free_tokens(std::vector<StyioToken*>& tokens) {
+  for (auto* tok : tokens) {
+    delete tok;
+  }
+  tokens.clear();
+}
+
+static bool
+styio_parse_engine_to_repr(
+  const std::string& file_path,
+  const std::string& code_text,
+  const std::vector<std::pair<size_t, size_t>>& line_seps,
+  bool debug_mode,
+  StyioParserEngine engine,
+  std::string& out_repr,
+  std::string& out_error
+) {
+  std::vector<StyioToken*> tokens;
+  StyioContext* ctx = nullptr;
+  MainBlockAST* ast = nullptr;
+  try {
+    tokens = StyioTokenizer::tokenize(code_text);
+    ctx = StyioContext::Create(file_path, code_text, line_seps, tokens, debug_mode);
+    ast = parse_main_block_with_engine(*ctx, engine);
+    StyioRepr repr;
+    out_repr = ast->toString(&repr);
+    delete ast;
+    delete ctx;
+    styio_free_tokens(tokens);
+    return true;
+  } catch (const std::exception& ex) {
+    out_error = ex.what();
+  }
+
+  delete ast;
+  delete ctx;
+  styio_free_tokens(tokens);
+  return false;
+}
+
 int
 main(
   int argc,
@@ -342,6 +383,10 @@ main(
   )(
     "parser-engine", "Internal parser selector (legacy|new).",
     cxxopts::value<std::string>()->default_value("legacy")
+  )(
+    "parser-shadow-compare",
+    "When enabled, parse once with the selected parser and once with the alternate parser, then compare AST repr.",
+    cxxopts::value<bool>()->default_value("false")
   );
 
   options.parse_positional({"file"});
@@ -366,6 +411,7 @@ main(
   bool is_debug_mode = cmlopts["debug"].as<bool>();
   std::string error_format = cmlopts["error-format"].as<std::string>();
   std::string parser_engine_raw = cmlopts["parser-engine"].as<std::string>();
+  bool parser_shadow_compare = cmlopts["parser-shadow-compare"].as<bool>();
   StyioParserEngine parser_engine = StyioParserEngine::Legacy;
 
   if (!(error_format == "text" || error_format == "jsonl")) {
@@ -436,6 +482,39 @@ main(
   } catch (const std::exception& ex) {
     styio_emit_diagnostic(error_format, StyioErrorCategory::ParseError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::ParseError);
+  }
+
+  if (parser_shadow_compare) {
+    const StyioParserEngine shadow_engine =
+      parser_engine == StyioParserEngine::Legacy ? StyioParserEngine::New : StyioParserEngine::Legacy;
+    StyioRepr repr;
+    const std::string primary_repr = session.ast()->toString(&repr);
+
+    std::string shadow_repr;
+    std::string shadow_err;
+    if (!styio_parse_engine_to_repr(
+          fpath,
+          styio_code.code_text,
+          styio_code.line_seps,
+          is_debug_mode,
+          shadow_engine,
+          shadow_repr,
+          shadow_err)) {
+      styio_emit_diagnostic(
+        error_format,
+        StyioErrorCategory::ParseError,
+        fpath,
+        std::string("shadow parser failed under --parser-shadow-compare: ") + shadow_err);
+      return styio_exit_code(StyioErrorCategory::ParseError);
+    }
+
+    if (primary_repr != shadow_repr) {
+      std::ostringstream oss;
+      oss << "shadow parser mismatch: primary=" << styio_parser_engine_name(parser_engine)
+          << ", shadow=" << styio_parser_engine_name(shadow_engine);
+      styio_emit_diagnostic(error_format, StyioErrorCategory::ParseError, fpath, oss.str());
+      return styio_exit_code(StyioErrorCategory::ParseError);
+    }
   }
 
   if (show_styio_ast) {

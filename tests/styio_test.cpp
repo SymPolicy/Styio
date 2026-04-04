@@ -138,3 +138,27 @@ TEST(StyioParserEngine, UnsupportedEngineIsRejected) {
   EXPECT_NE(bad.exit_code, 0);
   EXPECT_NE(bad.stdout_text.find("unsupported --parser-engine"), std::string::npos);
 }
+
+TEST(StyioParserEngine, ShadowCompareAcceptsM1TypedBindSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t07_typed_bind.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy_shadow =
+    std::string("\"") + runner + "\" --parser-engine=legacy --parser-shadow-compare --file \""
+    + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new_shadow =
+    std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --file \""
+    + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy_shadow = run_stdout_command(cmd_legacy_shadow);
+  const CommandResult new_shadow = run_stdout_command(cmd_new_shadow);
+  EXPECT_EQ(legacy_shadow.exit_code, 0);
+  EXPECT_EQ(new_shadow.exit_code, 0);
+}

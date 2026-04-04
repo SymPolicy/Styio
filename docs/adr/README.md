@@ -38,3 +38,4 @@
 - `ADR-0024-parser-stmt-subset-print-shadow.md`
 - `ADR-0025-parser-stmt-subset-flexbind-and-call-fallback.md`
 - `ADR-0026-parser-final-bind-subset-and-safe-fallback.md`
+- `ADR-0027-parser-shadow-compare-mode.md`
