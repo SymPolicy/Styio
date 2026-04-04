@@ -170,6 +170,39 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM2SimpleFuncSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
+TEST(StyioParserEngine, LegacyAndNewMatchOnUntypedParamFunction) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-untyped-param-func-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# id = (x) => x\n";
+    out << ">_(id(7))\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  EXPECT_EQ(legacy.exit_code, 0);
+  EXPECT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+
+  fs::remove(input);
+}
+
 TEST(StyioParserEngine, LegacyAndNewMatchOnHashExprBodyWithoutArrow) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
