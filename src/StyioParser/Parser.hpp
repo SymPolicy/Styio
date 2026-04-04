@@ -7,6 +7,7 @@
 #include "../StyioAST/AST.hpp"
 #include "../StyioToken/Token.hpp"
 #include "../StyioUnicode/Unicode.hpp"
+#include "ParserLookahead.hpp"
 
 using std::pair;
 using std::string;
@@ -178,12 +179,7 @@ public:
   }
 
   inline void skip() {
-    while (cur_tok()->type == StyioTokenType::TOK_SPACE         /* white spaces */
-           || cur_tok()->type == StyioTokenType::TOK_LF         /* \n */
-           || cur_tok()->type == StyioTokenType::TOK_CR         /* \r */
-           || cur_tok()->type == StyioTokenType::COMMENT_LINE   // comments like this
-           || cur_tok()->type == StyioTokenType::COMMENT_CLOSED /* comments like this */
-    ) {
+    while (styio_is_trivia_token(cur_tok()->type)) {
       this->move_forward(1, "skip");
     }
   }
@@ -215,51 +211,7 @@ public:
   }
 
   bool try_check(StyioTokenType target) {
-    // just match
-    if (tokens.at(index_of_token)->type == target) {
-      return true;
-    }
-
-    size_t offset = 0;
-    while (index_of_token + offset < tokens.size()) {
-      switch (tokens.at(index_of_token + offset)->type) {
-        /* white spaces */
-        case StyioTokenType::TOK_SPACE: {
-          offset += 1;
-        } break;
-
-        /* \n */
-        case StyioTokenType::TOK_LF: {
-          offset += 1;
-        } break;
-
-        /* \r */
-        case StyioTokenType::TOK_CR: {
-          offset += 1;
-        } break;
-
-        // comments like this
-        case StyioTokenType::COMMENT_LINE: {
-          offset += 1;
-        } break;
-
-        /* comments like this */
-        case StyioTokenType::COMMENT_CLOSED: {
-          offset += 1;
-        } break;
-
-        default: {
-          if (tokens.at(index_of_token + offset)->type == target) {
-            return true;
-          }
-          else {
-            return false;
-          }
-        } break;
-      }
-    }
-
-    return false;
+    return styio_try_check_non_trivia(tokens, index_of_token, target);
   }
 
   bool match(StyioTokenType type) {

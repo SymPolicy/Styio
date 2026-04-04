@@ -33,3 +33,4 @@
 - `ADR-0019-soak-tiering-and-rss-guard.md`
 - `ADR-0020-soak-regression-artifact-workflow.md`
 - `ADR-0021-parser-engine-shadow-routing.md`
+- `ADR-0022-parser-lookahead-shared-utils.md`

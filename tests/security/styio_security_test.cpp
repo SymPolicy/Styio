@@ -18,6 +18,7 @@
 
 #include "StyioException/Exception.hpp"
 #include "StyioExtern/ExternLib.hpp"
+#include "StyioParser/ParserLookahead.hpp"
 #include "StyioParser/Tokenizer.hpp"
 #include "StyioSession/CompilationSession.hpp"
 #include "StyioUnicode/Unicode.hpp"
@@ -179,6 +180,20 @@ TEST(StyioSecurityLexer, VeryLongIdentifierCompletes) {
   EXPECT_EQ(tokens[0]->type, StyioTokenType::NAME);
   EXPECT_EQ(tokens[0]->original.size(), 200'000u);
   EXPECT_EQ(tokens[1]->type, StyioTokenType::TOK_EOF);
+  free_tokens(tokens);
+}
+
+TEST(StyioSecurityParserLookahead, SkipTriviaFindsNextToken) {
+  auto tokens = StyioTokenizer::tokenize("   // cmt\nfoo");
+  ASSERT_FALSE(tokens.empty());
+
+  const size_t idx = styio_skip_trivia_tokens(tokens, 0);
+  ASSERT_LT(idx, tokens.size());
+  EXPECT_EQ(tokens[idx]->type, StyioTokenType::NAME);
+  EXPECT_EQ(tokens[idx]->original, "foo");
+
+  EXPECT_TRUE(styio_try_check_non_trivia(tokens, 0, StyioTokenType::NAME));
+  EXPECT_FALSE(styio_try_check_non_trivia(tokens, 0, StyioTokenType::INTEGER));
   free_tokens(tokens);
 }
 
