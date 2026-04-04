@@ -144,15 +144,30 @@ target_link_libraries(styio_security_test PRIVATE styio_core GTest::gtest_main)
 target_include_directories(styio_security_test SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(styio_security_test PRIVATE ${LLVM_DEFINITIONS_LIST})
 
+add_executable(styio_soak_test
+  soak/styio_soak_test.cpp
+)
+target_link_libraries(styio_soak_test PRIVATE styio_core GTest::gtest_main)
+target_compile_definitions(styio_soak_test PRIVATE
+  "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
+  "STYIO_COMPILER_EXE=\"$<TARGET_FILE:styio>\""
+)
+add_dependencies(styio_soak_test styio)
+
 include(GoogleTest)
 gtest_discover_tests(styio_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-  PROPERTIES LABELS "styio_pipeline;unit"
+  PROPERTIES LABELS "styio_pipeline\\;unit"
 )
 
 gtest_discover_tests(styio_security_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-  PROPERTIES LABELS "security;lexer;ffi"
+  PROPERTIES LABELS "security\\;lexer\\;ffi"
+)
+
+gtest_discover_tests(styio_soak_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "soak\\;soak_smoke\\;single_thread"
 )
 
 option(STYIO_ENABLE_FUZZ "Build libFuzzer targets" OFF)

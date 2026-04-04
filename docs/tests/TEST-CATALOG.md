@@ -2,7 +2,7 @@
 
 **文档作用：** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`DOCUMENTATION-POLICY.md`](../DOCUMENTATION-POLICY.md)。
 
-**Last updated:** 2026-04-03（新增 §10 fuzz 测试目录与自动化入口）
+**Last updated:** 2026-04-04（新增 §11 soak 单线程压力测试目录与自动化入口）
 
 **批量自动化（所有里程碑集成用例）：**
 
@@ -200,3 +200,15 @@ ctest --test-dir build -L milestone
 **构建开关：** `-DSTYIO_ENABLE_FUZZ=ON`（默认 OFF）。
 **PR 短跑：** `ctest --test-dir build -L fuzz_smoke`。
 **夜间深跑：** 见 `.github/workflows/nightly-fuzz.yml`（产物自动归档）。
+
+---
+
+## 11. Soak 测试（单线程压力框架）
+
+| 目标 | 说明 | Automation |
+|------|------|------------|
+| `styio_soak_test` | `tests/soak/styio_soak_test.cpp`：长输入词法循环、文件句柄生命周期循环、M6 流式程序重复执行 | `ctest --test-dir build -L soak_smoke` |
+
+**构建：** `cmake --build build --target styio_soak_test`。  
+**默认档位：** smoke（PR/CI 不设置放大量环境变量）。  
+**放大量：** 通过 `STYIO_SOAK_*` 环境变量提升迭代数，详见 [`tests/soak/README.md`](../../tests/soak/README.md)。

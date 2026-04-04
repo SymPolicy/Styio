@@ -2,7 +2,7 @@
 
 **文档作用：** 记录 Styio 关键架构与工程决策（为什么做、为什么不做其它方案），用于中断后快速恢复决策上下文。
 
-**Last updated:** 2026-04-03
+**Last updated:** 2026-04-04
 
 ## 约定
 
@@ -29,3 +29,4 @@
 - `ADR-0015-stmt-node-raii-resource-io.md`
 - `ADR-0016-stmt-node-raii-var-family.md`
 - `ADR-0017-stmt-node-raii-struct-resource.md`
+- `ADR-0018-soak-single-thread-framework.md`

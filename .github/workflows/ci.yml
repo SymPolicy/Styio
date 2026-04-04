@@ -41,7 +41,7 @@ jobs:
       - name: Build
         run: >
           cmake --build build --target
-          styio styio_test styio_security_test
+          styio styio_test styio_security_test styio_soak_test
           styio_fuzz_lexer styio_fuzz_parser
 
       - name: Security tests
@@ -49,6 +49,9 @@ jobs:
 
       - name: Five-layer pipeline tests
         run: ctest --test-dir build -L styio_pipeline --output-on-failure
+
+      - name: Soak smoke tests
+        run: ctest --test-dir build -L soak_smoke --output-on-failure
 
       - name: Milestone smoke
         run: ctest --test-dir build -R '^m1_t01_int_arith$|^m2_t01_simple_func$' --output-on-failure
