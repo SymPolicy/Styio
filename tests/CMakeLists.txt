@@ -170,6 +170,43 @@ gtest_discover_tests(styio_soak_test
   PROPERTIES LABELS "soak\\;soak_smoke\\;single_thread"
 )
 
+# Nightly deep soak variants (same test binary, larger loop counts).
+add_test(
+  NAME soak_deep_tokenizer
+  COMMAND $<TARGET_FILE:styio_soak_test> --gtest_filter=StyioSoakSingleThread.TokenizerIngestionLoop
+)
+set_tests_properties(soak_deep_tokenizer PROPERTIES
+  LABELS "soak;soak_deep;single_thread"
+  ENVIRONMENT "STYIO_SOAK_LEXER_ITERS=5000;STYIO_SOAK_INGEST_LINES=4096"
+)
+
+add_test(
+  NAME soak_deep_file_lifecycle
+  COMMAND $<TARGET_FILE:styio_soak_test> --gtest_filter=StyioSoakSingleThread.FileHandleLifecycleLoop
+)
+set_tests_properties(soak_deep_file_lifecycle PROPERTIES
+  LABELS "soak;soak_deep;single_thread"
+  ENVIRONMENT "STYIO_SOAK_FILE_ITERS=12000;STYIO_SOAK_FILE_LINES=256"
+)
+
+add_test(
+  NAME soak_deep_file_rss_guard
+  COMMAND $<TARGET_FILE:styio_soak_test> --gtest_filter=StyioSoakSingleThread.FileHandleMemoryGrowthBound
+)
+set_tests_properties(soak_deep_file_rss_guard PROPERTIES
+  LABELS "soak;soak_deep;single_thread"
+  ENVIRONMENT "STYIO_SOAK_MEM_ITERS=8000;STYIO_SOAK_MEM_FILE_LINES=128;STYIO_SOAK_RSS_GROWTH_LIMIT_KIB=98304"
+)
+
+add_test(
+  NAME soak_deep_stream_program
+  COMMAND $<TARGET_FILE:styio_soak_test> --gtest_filter=StyioSoakSingleThread.StreamProgramLoop
+)
+set_tests_properties(soak_deep_stream_program PROPERTIES
+  LABELS "soak;soak_deep;single_thread"
+  ENVIRONMENT "STYIO_SOAK_STREAM_ITERS=1500"
+)
+
 option(STYIO_ENABLE_FUZZ "Build libFuzzer targets" OFF)
 if(STYIO_ENABLE_FUZZ)
   add_subdirectory(fuzz)

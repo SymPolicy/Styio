@@ -1,0 +1,51 @@
+name: styio-nightly-soak
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  nightly-soak:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            clang-18 \
+            lld-18 \
+            llvm-18-dev \
+            libicu-dev \
+            python3
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_COMPILER=clang-18
+          -DCMAKE_CXX_COMPILER=clang++-18
+          -DLLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm
+
+      - name: Build soak targets
+        run: cmake --build build --target styio styio_soak_test
+
+      - name: Run deep soak
+        run: |
+          mkdir -p soak-artifacts
+          ctest --test-dir build -L soak_deep --output-on-failure \
+            | tee soak-artifacts/ctest-soak-deep.log
+
+      - name: Upload soak artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-soak-artifacts
+          path: soak-artifacts/

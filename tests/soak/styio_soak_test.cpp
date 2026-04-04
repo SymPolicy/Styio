@@ -10,6 +10,12 @@
 #include <string>
 #include <vector>
 
+#if defined(__linux__)
+#include <unistd.h>
+#elif defined(__APPLE__)
+#include <mach/mach.h>
+#endif
+
 #include "StyioExtern/ExternLib.hpp"
 #include "StyioParser/Tokenizer.hpp"
 #include "StyioToken/Token.hpp"
@@ -80,6 +86,110 @@ capture_stdout(const std::string& cmd) {
   return out;
 }
 
+size_t
+read_rss_bytes() {
+#if defined(__linux__)
+  std::ifstream in("/proc/self/statm");
+  if (!in) {
+    return 0;
+  }
+  long total_pages = 0;
+  long resident_pages = 0;
+  in >> total_pages >> resident_pages;
+  if (!in || resident_pages <= 0) {
+    return 0;
+  }
+  const long page_size = sysconf(_SC_PAGESIZE);
+  if (page_size <= 0) {
+    return 0;
+  }
+  return static_cast<size_t>(resident_pages) * static_cast<size_t>(page_size);
+#elif defined(__APPLE__)
+  mach_task_basic_info info{};
+  mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
+  const kern_return_t rc = task_info(
+    mach_task_self(),
+    MACH_TASK_BASIC_INFO,
+    reinterpret_cast<task_info_t>(&info),
+    &count);
+  if (rc != KERN_SUCCESS) {
+    return 0;
+  }
+  return static_cast<size_t>(info.resident_size);
+#else
+  return 0;
+#endif
+}
+
+fs::path
+make_temp_line_file(const std::string& prefix, int lines) {
+  const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+  const fs::path path = fs::temp_directory_path() / (prefix + std::to_string(stamp) + ".txt");
+  std::ofstream out(path);
+  if (!out.good()) {
+    return {};
+  }
+  for (int i = 0; i < lines; ++i) {
+    out << i << "\n";
+  }
+  return path;
+}
+
+struct TempFileGuard {
+  fs::path path;
+
+  ~TempFileGuard() {
+    if (path.empty()) {
+      return;
+    }
+    std::error_code ec;
+    fs::remove(path, ec);
+  }
+};
+
+::testing::AssertionResult
+run_file_cycle(const fs::path& path, int lines, int iter) {
+  styio_runtime_clear_error();
+  const std::string raw = path.string();
+  const int64_t h = styio_file_open(raw.c_str());
+  if (h == 0) {
+    return ::testing::AssertionFailure() << "open failed, iter=" << iter;
+  }
+
+  int read_lines = 0;
+  while (const char* line = styio_file_read_line(h)) {
+    ++read_lines;
+    (void)styio_cstr_to_i64(line);
+  }
+  if (read_lines != lines) {
+    styio_file_close(h);
+    return ::testing::AssertionFailure()
+           << "line mismatch, iter=" << iter << ", got=" << read_lines
+           << ", want=" << lines;
+  }
+
+  styio_file_rewind(h);
+  const char* first = styio_file_read_line(h);
+  if (first == nullptr) {
+    styio_file_close(h);
+    return ::testing::AssertionFailure() << "rewind/read failed, iter=" << iter;
+  }
+  if (styio_cstr_to_i64(first) != 0) {
+    styio_file_close(h);
+    return ::testing::AssertionFailure()
+           << "first line mismatch, iter=" << iter
+           << ", got=" << styio_cstr_to_i64(first);
+  }
+
+  styio_file_close(h);
+  styio_file_close(h); // idempotent close
+  if (styio_runtime_has_error() != 0) {
+    return ::testing::AssertionFailure()
+           << "runtime error flag set, iter=" << iter;
+  }
+  return ::testing::AssertionSuccess();
+}
+
 } // namespace
 
 TEST(StyioSoakSingleThread, TokenizerIngestionLoop) {
@@ -111,41 +221,44 @@ TEST(StyioSoakSingleThread, FileHandleLifecycleLoop) {
   const int loops = read_env_i32("STYIO_SOAK_FILE_ITERS", 200, 1, 500000);
   const int lines = read_env_i32("STYIO_SOAK_FILE_LINES", 64, 1, 100000);
 
-  const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
-  const fs::path tmp = fs::temp_directory_path() / ("styio_soak_" + std::to_string(stamp) + ".txt");
+  TempFileGuard tmp{make_temp_line_file("styio_soak_", lines)};
+  ASSERT_FALSE(tmp.path.empty());
 
-  {
-    std::ofstream out(tmp);
-    ASSERT_TRUE(out.good());
-    for (int i = 0; i < lines; ++i) {
-      out << i << "\n";
-    }
+  for (int i = 0; i < loops; ++i) {
+    ASSERT_TRUE(run_file_cycle(tmp.path, lines, i));
+  }
+}
+
+TEST(StyioSoakSingleThread, FileHandleMemoryGrowthBound) {
+  const int loops = read_env_i32("STYIO_SOAK_MEM_ITERS", 600, 50, 500000);
+  const int lines = read_env_i32("STYIO_SOAK_MEM_FILE_LINES", 96, 8, 200000);
+  const int limit_kib =
+    read_env_i32("STYIO_SOAK_RSS_GROWTH_LIMIT_KIB", 65536, 4096, 1024 * 1024);
+
+  TempFileGuard tmp{make_temp_line_file("styio_soak_mem_", lines)};
+  ASSERT_FALSE(tmp.path.empty());
+
+  const size_t rss_before = read_rss_bytes();
+  if (rss_before == 0) {
+    GTEST_SKIP() << "rss probe unavailable on this platform";
   }
 
   for (int i = 0; i < loops; ++i) {
-    styio_runtime_clear_error();
-    const std::string path = tmp.string();
-    const int64_t h = styio_file_open(path.c_str());
-    ASSERT_NE(h, 0) << "iter=" << i;
-
-    int read_lines = 0;
-    while (const char* line = styio_file_read_line(h)) {
-      ++read_lines;
-      (void)styio_cstr_to_i64(line);
-    }
-    EXPECT_EQ(read_lines, lines) << "iter=" << i;
-
-    styio_file_rewind(h);
-    const char* first = styio_file_read_line(h);
-    ASSERT_NE(first, nullptr) << "iter=" << i;
-    EXPECT_EQ(styio_cstr_to_i64(first), 0) << "iter=" << i;
-
-    styio_file_close(h);
-    styio_file_close(h); // idempotent close
-    EXPECT_EQ(styio_runtime_has_error(), 0) << "iter=" << i;
+    ASSERT_TRUE(run_file_cycle(tmp.path, lines, i));
   }
 
-  fs::remove(tmp);
+  const size_t rss_after = read_rss_bytes();
+  if (rss_after == 0) {
+    GTEST_SKIP() << "rss probe unavailable on this platform";
+  }
+
+  const size_t growth = (rss_after > rss_before) ? (rss_after - rss_before) : 0;
+  const size_t limit_bytes = static_cast<size_t>(limit_kib) * 1024ULL;
+  EXPECT_LE(growth, limit_bytes)
+    << "rss_before=" << rss_before
+    << " rss_after=" << rss_after
+    << " growth=" << growth
+    << " limit=" << limit_bytes;
 }
 
 TEST(StyioSoakSingleThread, StreamProgramLoop) {
