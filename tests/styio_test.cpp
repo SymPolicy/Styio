@@ -334,3 +334,37 @@ TEST(StyioParserEngine, ShadowArtifactDirRequiresShadowCompareFlag) {
 
   fs::remove_all(artifact_dir);
 }
+
+TEST(StyioParserEngine, DotChainStillRejectedConsistentlyAcrossEngines) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input = fs::temp_directory_path() / ("styio-dot-chain-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "foo.bar(1).baz(2)\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=legacy --file \""
+    + input.string() + "\" 2>&1";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=new --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  EXPECT_EQ(legacy.exit_code, 3);
+  EXPECT_EQ(newer.exit_code, 3);
+  EXPECT_NE(legacy.stdout_text.find("\"category\":\"ParseError\""), std::string::npos);
+  EXPECT_NE(newer.stdout_text.find("\"category\":\"ParseError\""), std::string::npos);
+
+  fs::remove(input);
+}
