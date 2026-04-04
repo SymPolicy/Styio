@@ -2,7 +2,7 @@
 
 **文档作用：** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`DOCUMENTATION-POLICY.md`](../DOCUMENTATION-POLICY.md)。
 
-**Last updated:** 2026-04-04（新增 soak 分档：`soak_smoke` + `soak_deep`，以及 nightly soak 自动化）
+**Last updated:** 2026-04-04（新增 soak 分档、nightly 深跑与 D.5 失败最小化模板）
 
 **批量自动化（所有里程碑集成用例）：**
 
@@ -213,3 +213,4 @@ ctest --test-dir build -L milestone
 **默认档位：** smoke（PR/CI 执行 `ctest --test-dir build -L soak_smoke`）。  
 **夜间深跑：** `ctest --test-dir build -L soak_deep`（工作流见 `.github/workflows/nightly-soak.yml`，日志归档）。  
 **放大量参数：** 由 `soak_deep` 用例注入 `STYIO_SOAK_*` 环境变量，详见 [`tests/soak/README.md`](../../tests/soak/README.md)。
+**失败最小化：** `./scripts/soak-minimize.sh ...` 生成 `tests/soak/regressions/<timestamp>-<case>/`，并按 [`tests/soak/REGRESSION-TEMPLATE.md`](../../tests/soak/REGRESSION-TEMPLATE.md) 记录回归。

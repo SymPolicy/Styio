@@ -44,3 +44,22 @@ ctest --test-dir build -L soak_deep --output-on-failure
 - `STYIO_SOAK_STREAM_ITERS=1500`
 
 说明：PR/CI 默认跑 `soak_smoke`，nightly 跑 `soak_deep`。
+
+## 失败最小化与回归模板（D.5）
+
+当 `soak_deep` 失败时，先用二分脚本找最小失败阈值，再沉淀回归样本：
+
+```bash
+./scripts/soak-minimize.sh \
+  --test StyioSoakSingleThread.FileHandleMemoryGrowthBound \
+  --var STYIO_SOAK_MEM_ITERS \
+  --low 100 \
+  --high 8000 \
+  --extra-env "STYIO_SOAK_MEM_FILE_LINES=128;STYIO_SOAK_RSS_GROWTH_LIMIT_KIB=98304"
+```
+
+产物落在 `tests/soak/regressions/<timestamp>-<case>/`。
+回归记录模板见：
+
+- `tests/soak/REGRESSION-TEMPLATE.md`
+- `tests/soak/regressions/README.md`
