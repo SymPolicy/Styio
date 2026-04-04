@@ -50,8 +50,18 @@ jobs:
       - name: Five-layer pipeline tests
         run: ctest --test-dir build -L styio_pipeline --output-on-failure
 
-      - name: Parser shadow gate (M1 full suite)
-        run: ctest --test-dir build -R '^StyioParserEngine.ShadowCompareAcceptsM1FullSuite$' --output-on-failure
+      - name: Parser shadow gate (M1 full suite + artifacts)
+        run: |
+          mkdir -p build/parser-shadow-artifacts
+          ./scripts/parser-shadow-m1-gate.sh ./build/bin/styio ./tests/milestones/m1 ./build/parser-shadow-artifacts
+
+      - name: Upload parser shadow artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parser-shadow-artifacts
+          path: build/parser-shadow-artifacts
+          if-no-files-found: ignore
 
       - name: Soak smoke tests
         run: ctest --test-dir build -L soak_smoke --output-on-failure
