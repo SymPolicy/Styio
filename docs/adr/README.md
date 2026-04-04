@@ -42,3 +42,4 @@
 - `ADR-0028-parser-compound-assign-subset.md`
 - `ADR-0029-parser-shadow-full-m1-and-bool-literal-alignment.md`
 - `ADR-0030-parser-shadow-artifact-recording.md`
+- `ADR-0031-parser-default-switch-gate.md`

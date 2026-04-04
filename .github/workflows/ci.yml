@@ -50,6 +50,9 @@ jobs:
       - name: Five-layer pipeline tests
         run: ctest --test-dir build -L styio_pipeline --output-on-failure
 
+      - name: Parser shadow gate (M1 full suite)
+        run: ctest --test-dir build -R '^StyioParserEngine.ShadowCompareAcceptsM1FullSuite$' --output-on-failure
+
       - name: Soak smoke tests
         run: ctest --test-dir build -L soak_smoke --output-on-failure
 
