@@ -419,8 +419,21 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnCompareAndLogicSubsetSamples) {
   }
 }
 
-TEST(StyioSecurityNewParserShadow, FallsBackOnCallExpressionSequence) {
-  const std::string src = "foo(1)\n";
+TEST(StyioSecurityNewParserStmt, MatchesLegacyOnSimpleCallSubsetSamples) {
+  const std::vector<std::string> samples = {
+    "foo(1)\n",
+    "sum(1, 2, 3)\n",
+    "x = add(1, 2)\n>_(x)\n",
+    ">_(mul(2, 3))\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+  }
+}
+
+TEST(StyioSecurityNewParserShadow, FallsBackOnDotCallSequence) {
+  const std::string src = "foo.bar(1)\n";
   EXPECT_EQ(
     parse_program_engine_to_repr(src, StyioParserEngine::New),
     parse_program_engine_to_repr(src, StyioParserEngine::Legacy));

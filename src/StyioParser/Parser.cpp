@@ -3445,29 +3445,7 @@ styio_parser_engine_name(StyioParserEngine engine) {
 }
 
 static MainBlockAST*
-parse_main_block_new_shadow_fallback_unsafe_sequence_check(StyioContext& context) {
-  const auto& tokens = context.get_tokens();
-  size_t i = styio_skip_trivia_tokens(tokens, context.get_token_index());
-  while (i < tokens.size() && tokens[i]->type != StyioTokenType::TOK_EOF) {
-    // `name(` is currently a call expression in legacy parser; new subset
-    // does not own call syntax yet, so force fallback.
-    if (tokens[i]->type == StyioTokenType::NAME) {
-      const size_t next = styio_skip_trivia_tokens(tokens, i + 1);
-      if (next < tokens.size() && tokens[next]->type == StyioTokenType::TOK_LPAREN) {
-        return parse_main_block(context);
-      }
-    }
-    i += 1;
-  }
-  return nullptr;
-}
-
-static MainBlockAST*
 parse_main_block_new_shadow(StyioContext& context) {
-  if (MainBlockAST* legacy = parse_main_block_new_shadow_fallback_unsafe_sequence_check(context)) {
-    return legacy;
-  }
-
   const auto& tokens = context.get_tokens();
   const size_t start = styio_skip_trivia_tokens(tokens, context.get_token_index());
   if (start >= tokens.size()) {

@@ -46,3 +46,4 @@
 - `ADR-0032-parser-shadow-budget-script.md`
 - `ADR-0033-parser-compare-logic-subset-alignment.md`
 - `ADR-0034-refactor-template-shadow-gate-pattern.md`
+- `ADR-0035-parser-simple-call-subset-and-dot-fallback.md`

@@ -123,6 +123,26 @@ class StyioExprSubsetParser
 private:
   StyioContext& context_;
 
+  StyioAST* parse_call_after_name(const std::string& callee_name) {
+    context_.move_forward(1, "new_expr:call(");
+
+    std::vector<StyioAST*> args;
+    context_.skip();
+    if (context_.cur_tok_type() != StyioTokenType::TOK_RPAREN) {
+      while (true) {
+        args.push_back(parse_expression(0));
+        context_.skip();
+        if (context_.cur_tok_type() == StyioTokenType::TOK_RPAREN) {
+          break;
+        }
+        context_.try_match_panic(StyioTokenType::TOK_COMMA);
+        context_.skip();
+      }
+    }
+    context_.try_match_panic(StyioTokenType::TOK_RPAREN);
+    return FuncCallAST::Create(NameAST::Create(callee_name), args);
+  }
+
   StyioAST* parse_primary() {
     context_.skip();
 
@@ -147,6 +167,10 @@ private:
         context_.move_forward(1, "new_expr:name");
         if (name == "true" || name == "false") {
           return BoolAST::Create(name == "true");
+        }
+        context_.skip();
+        if (context_.cur_tok_type() == StyioTokenType::TOK_LPAREN) {
+          return parse_call_after_name(name);
         }
         return NameAST::Create(name);
       }
