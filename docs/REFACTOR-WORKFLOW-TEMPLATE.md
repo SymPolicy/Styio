@@ -103,3 +103,25 @@ fix: make AST tracked cleanup non-owning to avoid double free
 5. 全量基线测试
 6. ADR + history
 7. 小提交合并
+
+---
+
+## 6. 双轨重构附加模板（Shadow Gate）
+
+适用场景：`legacy/new` 并存、默认不切主行为的高风险重构。
+
+1. 加显式开关：
+   - 例如 `--<domain>-engine=legacy|new`、`--<domain>-shadow-compare`。
+2. 默认路径保持 `legacy`，`new` 仅在开关下运行。
+3. 增加工件输出参数：
+   - 例如 `--<domain>-shadow-artifact-dir`。
+4. 在 CI 设置显式 gate（不要只依赖大标签间接覆盖）：
+   - 全量样例 shadow compare 必须通过。
+5. gate 失败时自动上传工件，保证可回放。
+
+可直接复用的 Styio 命令模板：
+
+```bash
+tmp_dir="$(mktemp -d)"
+./scripts/parser-shadow-m1-gate.sh ./build/bin/styio ./tests/milestones/m1 "$tmp_dir"
+```

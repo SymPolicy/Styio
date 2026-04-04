@@ -45,3 +45,4 @@
 - `ADR-0031-parser-default-switch-gate.md`
 - `ADR-0032-parser-shadow-budget-script.md`
 - `ADR-0033-parser-compare-logic-subset-alignment.md`
+- `ADR-0034-refactor-template-shadow-gate-pattern.md`
