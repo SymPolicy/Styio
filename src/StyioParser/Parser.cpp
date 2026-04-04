@@ -3017,6 +3017,16 @@ parse_iterator_with_forward(
   IteratorAST* output = parse_iterator_only(context, collection);
 
   auto forward_following = parse_forward_as_list(context);
+  if (!forward_following.empty()
+      && (dynamic_cast<CheckEqualAST*>(forward_following.front()) != nullptr
+          || dynamic_cast<CasesAST*>(forward_following.front()) != nullptr)) {
+    throw StyioNotImplemented(
+      context.mark_cur_tok("iterator '?=' forward clauses are not supported in function definitions"));
+  }
+  if (forward_following.size() > 1) {
+    throw StyioNotImplemented(
+      context.mark_cur_tok("iterator forward chains with multiple clauses are not supported"));
+  }
 
   output->following.insert(
     output->following.end(),
