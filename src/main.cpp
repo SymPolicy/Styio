@@ -365,20 +365,17 @@ main(
 
   bool is_debug_mode = cmlopts["debug"].as<bool>();
   std::string error_format = cmlopts["error-format"].as<std::string>();
-  std::string parser_engine = cmlopts["parser-engine"].as<std::string>();
+  std::string parser_engine_raw = cmlopts["parser-engine"].as<std::string>();
+  StyioParserEngine parser_engine = StyioParserEngine::Legacy;
 
   if (!(error_format == "text" || error_format == "jsonl")) {
     std::cerr << "[CliError] unsupported --error-format: " << error_format << std::endl;
     return static_cast<int>(StyioExitCode::CliError);
   }
 
-  if (parser_engine != "legacy") {
-    styio_emit_diagnostic(
-      error_format,
-      StyioErrorCategory::RuntimeError,
-      "",
-      "parser-engine '" + parser_engine + "' is not implemented in this checkpoint; use 'legacy'");
-    return static_cast<int>(StyioExitCode::RuntimeError);
+  if (!styio_parse_parser_engine(parser_engine_raw, parser_engine)) {
+    std::cerr << "[CliError] unsupported --parser-engine: " << parser_engine_raw << std::endl;
+    return static_cast<int>(StyioExitCode::CliError);
   }
 
   std::string fpath; /* File Path */
@@ -432,7 +429,7 @@ main(
   StyioRepr styio_repr = StyioRepr();
 
   try {
-    session.attach_ast(parse_main_block(*session.context()));
+    session.attach_ast(parse_main_block_with_engine(*session.context(), parser_engine));
   } catch (const StyioBaseException& ex) {
     styio_emit_diagnostic(error_format, StyioErrorCategory::ParseError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::ParseError);

@@ -3418,3 +3418,44 @@ parse_main_block(StyioContext& context) {
 
   return MainBlockAST::Create(statements);
 }
+
+bool
+styio_parse_parser_engine(const std::string& raw, StyioParserEngine& out) {
+  if (raw == "legacy") {
+    out = StyioParserEngine::Legacy;
+    return true;
+  }
+  if (raw == "new") {
+    out = StyioParserEngine::New;
+    return true;
+  }
+  return false;
+}
+
+const char*
+styio_parser_engine_name(StyioParserEngine engine) {
+  switch (engine) {
+    case StyioParserEngine::Legacy:
+      return "legacy";
+    case StyioParserEngine::New:
+      return "new";
+  }
+  return "legacy";
+}
+
+static MainBlockAST*
+parse_main_block_new_shadow(StyioContext& context) {
+  // Strangler checkpoint: route is present, implementation still reuses legacy parser.
+  return parse_main_block(context);
+}
+
+MainBlockAST*
+parse_main_block_with_engine(StyioContext& context, StyioParserEngine engine) {
+  switch (engine) {
+    case StyioParserEngine::Legacy:
+      return parse_main_block(context);
+    case StyioParserEngine::New:
+      return parse_main_block_new_shadow(context);
+  }
+  return parse_main_block(context);
+}

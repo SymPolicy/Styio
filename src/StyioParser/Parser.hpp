@@ -24,6 +24,12 @@ using std::unique_ptr;
 class StyioContext;
 class StyioParser;
 
+enum class StyioParserEngine
+{
+  Legacy,
+  New,
+};
+
 class StyioContext
 {
 private:
@@ -1298,6 +1304,15 @@ parse_codp(StyioContext& context, CODPAST* prev_op = nullptr);
 
 MainBlockAST*
 parse_main_block(StyioContext& context);
+
+bool
+styio_parse_parser_engine(const std::string& raw, StyioParserEngine& out);
+
+const char*
+styio_parser_engine_name(StyioParserEngine engine);
+
+MainBlockAST*
+parse_main_block_with_engine(StyioContext& context, StyioParserEngine engine);
 
 StyioAST*
 parse_expr(StyioContext& context);
