@@ -54,3 +54,4 @@
 - `ADR-0040-parser-m2-shadow-gate.md`
 - `ADR-0041-parser-m2-full-shadow-gate.md`
 - `ADR-0042-parser-hash-simple-func-subset.md`
+- `ADR-0043-parser-m2-artifactized-shadow-gate.md`
