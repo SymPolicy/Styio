@@ -335,6 +335,12 @@ TEST(StyioSecurityNewParserExpr, SubsetTokenGateIncludesCompareAndLogic) {
   EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::LOGIC_OR));
 }
 
+TEST(StyioSecurityNewParserExpr, SubsetTokenGateIncludesDotCallTokens) {
+  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::TOK_LPAREN));
+  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::TOK_RPAREN));
+  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::TOK_DOT));
+}
+
 TEST(StyioSecurityNewParserExpr, RejectsNonSubsetStatementToken) {
   auto tokens = StyioTokenizer::tokenize(">_ 1 + 2");
   StyioContext* ctx = StyioContext::Create(
@@ -432,11 +438,30 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnSimpleCallSubsetSamples) {
   }
 }
 
-TEST(StyioSecurityNewParserShadow, FallsBackOnDotCallSequence) {
-  const std::string src = "foo.bar(1)\n";
-  EXPECT_EQ(
-    parse_program_engine_to_repr(src, StyioParserEngine::New),
-    parse_program_engine_to_repr(src, StyioParserEngine::Legacy));
+TEST(StyioSecurityNewParserStmt, MatchesLegacyOnDotCallSubsetSamples) {
+  const std::vector<std::string> samples = {
+    "foo.bar(1)\n",
+    "x = foo.bar(1 + 2)\n>_(x)\n",
+    ">_(foo.bar(3), 4)\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+  }
+}
+
+TEST(StyioSecurityNewParserShadow, FallsBackOnDotChainSequence) {
+  const std::string src = "foo.bar(1).baz(2)\n";
+  EXPECT_THROW(
+    {
+      (void)parse_program_engine_to_repr(src, StyioParserEngine::New);
+    },
+    StyioSyntaxError);
+  EXPECT_THROW(
+    {
+      (void)parse_program_engine_to_repr(src, StyioParserEngine::Legacy);
+    },
+    StyioSyntaxError);
 }
 
 TEST(StyioSecurityUnicode, ByteClassificationIsStable) {

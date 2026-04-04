@@ -47,3 +47,4 @@
 - `ADR-0033-parser-compare-logic-subset-alignment.md`
 - `ADR-0034-refactor-template-shadow-gate-pattern.md`
 - `ADR-0035-parser-simple-call-subset-and-dot-fallback.md`
+- `ADR-0036-parser-dot-call-subset-with-chain-fallback.md`

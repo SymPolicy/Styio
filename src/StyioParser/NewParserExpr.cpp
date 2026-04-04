@@ -123,24 +123,60 @@ class StyioExprSubsetParser
 private:
   StyioContext& context_;
 
-  StyioAST* parse_call_after_name(const std::string& callee_name) {
+  std::vector<StyioAST*> parse_call_args() {
     context_.move_forward(1, "new_expr:call(");
 
     std::vector<StyioAST*> args;
-    context_.skip();
+    context_.skip_spaces_no_linebreak();
     if (context_.cur_tok_type() != StyioTokenType::TOK_RPAREN) {
       while (true) {
         args.push_back(parse_expression(0));
-        context_.skip();
+        context_.skip_spaces_no_linebreak();
         if (context_.cur_tok_type() == StyioTokenType::TOK_RPAREN) {
           break;
         }
         context_.try_match_panic(StyioTokenType::TOK_COMMA);
-        context_.skip();
+        context_.skip_spaces_no_linebreak();
       }
     }
     context_.try_match_panic(StyioTokenType::TOK_RPAREN);
-    return FuncCallAST::Create(NameAST::Create(callee_name), args);
+    return args;
+  }
+
+  StyioAST* parse_call_after_name(const std::string& callee_name) {
+    return FuncCallAST::Create(NameAST::Create(callee_name), parse_call_args());
+  }
+
+  StyioAST* parse_dot_call_after_callee(StyioAST* callee) {
+    context_.move_forward(1, "new_expr:dot");
+    context_.skip_spaces_no_linebreak();
+    if (context_.cur_tok_type() != StyioTokenType::NAME) {
+      throw StyioSyntaxError("expected method name after '.' in new parser subset");
+    }
+    const std::string method_name = context_.cur_tok()->original;
+    context_.move_forward(1, "new_expr:dot_name");
+    context_.skip_spaces_no_linebreak();
+    if (context_.cur_tok_type() != StyioTokenType::TOK_LPAREN) {
+      throw StyioSyntaxError("expected '(' after method name in new parser subset");
+    }
+    return FuncCallAST::Create(callee, NameAST::Create(method_name), parse_call_args());
+  }
+
+  StyioAST* parse_name_family(const std::string& name) {
+    if (name == "true" || name == "false") {
+      return BoolAST::Create(name == "true");
+    }
+
+    context_.skip_spaces_no_linebreak();
+    if (context_.cur_tok_type() == StyioTokenType::TOK_LPAREN) {
+      return parse_call_after_name(name);
+    }
+
+    if (context_.cur_tok_type() == StyioTokenType::TOK_DOT) {
+      return parse_dot_call_after_callee(NameAST::Create(name));
+    }
+
+    return NameAST::Create(name);
   }
 
   StyioAST* parse_primary() {
@@ -165,14 +201,7 @@ private:
       case StyioTokenType::NAME: {
         const std::string name = context_.cur_tok()->original;
         context_.move_forward(1, "new_expr:name");
-        if (name == "true" || name == "false") {
-          return BoolAST::Create(name == "true");
-        }
-        context_.skip();
-        if (context_.cur_tok_type() == StyioTokenType::TOK_LPAREN) {
-          return parse_call_after_name(name);
-        }
-        return NameAST::Create(name);
+        return parse_name_family(name);
       }
       case StyioTokenType::TOK_LPAREN: {
         context_.move_forward(1, "new_expr:(");
@@ -265,6 +294,7 @@ styio_new_parser_is_expr_subset_token(StyioTokenType type) {
     case StyioTokenType::NAME:
     case StyioTokenType::TOK_LPAREN:
     case StyioTokenType::TOK_RPAREN:
+    case StyioTokenType::TOK_DOT:
     case StyioTokenType::TOK_PLUS:
     case StyioTokenType::TOK_MINUS:
     case StyioTokenType::TOK_STAR:
