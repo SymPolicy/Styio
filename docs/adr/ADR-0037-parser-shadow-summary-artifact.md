@@ -5,11 +5,11 @@
 
 ## Context
 
-`parser-shadow-m1-gate.sh` 已有终端统计输出与逐样例 JSONL 工件，但缺少统一机器可读汇总文件。后续若要做稳定窗口统计或跨构建聚合，需要再解析日志，成本较高。
+`parser-shadow-suite-gate.sh` 已有终端统计输出与逐样例 JSONL 工件，但缺少统一机器可读汇总文件。后续若要做稳定窗口统计或跨构建聚合，需要再解析日志，成本较高。
 
 ## Decision
 
-1. `scripts/parser-shadow-m1-gate.sh` 在 artifact 根目录额外写入 `summary.json`。
+1. `scripts/parser-shadow-suite-gate.sh` 在 artifact 根目录额外写入 `summary.json`。
 2. 汇总字段固定：
    - `cases/runs/artifacts/match/mismatch/shadow_error/failed_runs/passed`
 3. 失败判定规则保持不变，仅新增可消费摘要。
