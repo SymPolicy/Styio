@@ -61,3 +61,4 @@
 - `ADR-0047-parser-hash-assign-expression-subset.md`
 - `ADR-0048-parser-hash-arrow-no-assign-subset.md`
 - `ADR-0049-m2-hash-form-coverage-golden.md`
+- `ADR-0050-parser-hash-match-cases-subset.md`

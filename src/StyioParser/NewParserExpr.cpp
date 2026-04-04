@@ -351,9 +351,11 @@ styio_new_parser_is_stmt_subset_token(StyioTokenType type) {
     case StyioTokenType::TOK_EQUAL:
     case StyioTokenType::TOK_COLON:
     case StyioTokenType::WALRUS:
+    case StyioTokenType::MATCH:
     case StyioTokenType::ARROW_DOUBLE_RIGHT:
     case StyioTokenType::TOK_LCURBRAC:
     case StyioTokenType::TOK_RCURBRAC:
+    case StyioTokenType::TOK_UNDLINE:
     case StyioTokenType::EXTRACTOR:
     case StyioTokenType::BOUNDED_BUFFER_OPEN:
     case StyioTokenType::BOUNDED_BUFFER_CLOSE:
@@ -468,6 +470,20 @@ parse_hash_stmt_new_subset(StyioContext& context) {
   if (context.cur_tok_type() == StyioTokenType::TOK_COLON) {
     context.move_forward(1, "new_stmt:hash_ret_colon");
     ret_type = parse_hash_ret_type_new_subset(context);
+  }
+
+  context.skip();
+  if (context.cur_tok_type() == StyioTokenType::MATCH) {
+    context.move_forward(1, "new_stmt:hash_match");
+    if (context.cur_tok_type() == StyioTokenType::TOK_LCURBRAC) {
+      return FunctionAST::Create(tag_name, true, params, ret_type, parse_cases_only(context));
+    }
+
+    std::vector<StyioAST*> rvals;
+    do {
+      rvals.push_back(parse_expr_new_subset(context));
+    } while (context.try_match(StyioTokenType::TOK_COMMA));
+    return FunctionAST::Create(tag_name, true, params, ret_type, CheckEqualAST::Create(rvals));
   }
 
   context.skip();
