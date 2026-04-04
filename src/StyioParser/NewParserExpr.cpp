@@ -398,6 +398,60 @@ parse_print_new_subset(StyioContext& context) {
 }
 
 StyioAST*
+parse_hash_stmt_new_subset(StyioContext& context) {
+  context.match_panic(StyioTokenType::TOK_HASH);
+  context.skip();
+  if (context.cur_tok_type() != StyioTokenType::NAME) {
+    throw StyioSyntaxError("expected function name after # in new parser subset");
+  }
+  NameAST* tag_name = parse_name_unsafe(context);
+
+  context.skip();
+  if (context.cur_tok_type() != StyioTokenType::TOK_LPAREN) {
+    throw StyioSyntaxError("expected parameter list in new parser subset hash function");
+  }
+  std::vector<ParamAST*> params = parse_params(context);
+
+  std::variant<TypeAST*, TypeTupleAST*> ret_type = static_cast<TypeAST*>(nullptr);
+  context.skip();
+  if (context.cur_tok_type() == StyioTokenType::TOK_COLON) {
+    context.move_forward(1, "new_stmt:hash_ret_colon");
+    context.skip();
+    if (context.cur_tok_type() != StyioTokenType::NAME) {
+      throw StyioSyntaxError("expected simple return type name in new parser subset");
+    }
+    ret_type = TypeAST::Create(context.cur_tok()->original);
+    context.move_forward(1, "new_stmt:hash_ret_type");
+  }
+
+  context.skip();
+  bool is_unique = false;
+  if (context.cur_tok_type() == StyioTokenType::WALRUS) {
+    is_unique = true;
+    context.move_forward(1, "new_stmt:hash_walrus");
+  }
+  else if (context.cur_tok_type() == StyioTokenType::TOK_EQUAL) {
+    context.move_forward(1, "new_stmt:hash_equal");
+  }
+  else {
+    throw StyioSyntaxError("expected := or = in new parser subset hash function");
+  }
+
+  context.skip();
+  if (context.cur_tok_type() != StyioTokenType::ARROW_DOUBLE_RIGHT) {
+    throw StyioSyntaxError("expected => in new parser subset hash function");
+  }
+  context.move_forward(1, "new_stmt:hash_arrow");
+
+  context.skip();
+  if (context.cur_tok_type() == StyioTokenType::TOK_LCURBRAC) {
+    throw StyioSyntaxError("block-body hash function is not in new parser subset");
+  }
+  StyioAST* ret_expr = parse_expr_new_subset(context);
+  return SimpleFuncAST::Create(tag_name, is_unique, params, ret_type, ret_expr);
+}
+
+StyioAST*
 parse_stmt_new_subset(StyioContext& context) {
   context.skip();
 
@@ -463,7 +517,13 @@ parse_stmt_new_subset(StyioContext& context) {
     return parse_print_new_subset(context);
   }
   if (context.cur_tok_type() == StyioTokenType::TOK_HASH) {
-    return parse_hash_tag(context);
+    const auto saved = context.save_cursor();
+    try {
+      return parse_hash_stmt_new_subset(context);
+    } catch (const std::exception&) {
+      context.restore_cursor(saved);
+      return parse_hash_tag(context);
+    }
   }
   if (styio_new_parser_is_expr_subset_start(context.cur_tok_type())) {
     return parse_expr_new_subset(context);
