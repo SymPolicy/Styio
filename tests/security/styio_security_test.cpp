@@ -198,6 +198,33 @@ parse_program_to_repr(const std::string& source, bool use_new_parser) {
   free_tokens(tokens);
   return out;
 }
+
+std::string
+parse_program_engine_to_repr(const std::string& source, StyioParserEngine engine) {
+  auto tokens = StyioTokenizer::tokenize(source);
+  StyioContext* ctx = StyioContext::Create(
+    "<engine-shadow-test>",
+    source,
+    build_line_seps(source),
+    tokens,
+    false);
+
+  MainBlockAST* ast = parse_main_block_with_engine(*ctx, engine);
+  ctx->skip();
+  if (ctx->cur_tok_type() != StyioTokenType::TOK_EOF) {
+    delete ast;
+    delete ctx;
+    free_tokens(tokens);
+    throw std::runtime_error("engine parser did not consume input");
+  }
+
+  StyioRepr repr;
+  const std::string out = ast->toString(&repr);
+  delete ast;
+  delete ctx;
+  free_tokens(tokens);
+  return out;
+}
 } // namespace
 
 TEST(StyioSecurityLexer, EmptySourceProducesEof) {
@@ -326,6 +353,25 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnPrintSubsetSamples) {
   for (const auto& src : samples) {
     EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
   }
+}
+
+TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFlexBindSubsetSamples) {
+  const std::vector<std::string> samples = {
+    "x = 1 + 2\n>_(x)\n",
+    "price = 1 + 2 * 3\n>_(price)\n",
+    "a = 1\nb = a + 2\n>_(b)\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+  }
+}
+
+TEST(StyioSecurityNewParserShadow, FallsBackOnCallExpressionSequence) {
+  const std::string src = "foo(1)\n";
+  EXPECT_EQ(
+    parse_program_engine_to_repr(src, StyioParserEngine::New),
+    parse_program_engine_to_repr(src, StyioParserEngine::Legacy));
 }
 
 TEST(StyioSecurityUnicode, ByteClassificationIsStable) {

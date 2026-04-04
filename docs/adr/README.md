@@ -36,3 +36,4 @@
 - `ADR-0022-parser-lookahead-shared-utils.md`
 - `ADR-0023-parser-expr-subset-shadow-guard.md`
 - `ADR-0024-parser-stmt-subset-print-shadow.md`
+- `ADR-0025-parser-stmt-subset-flexbind-and-call-fallback.md`

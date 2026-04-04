@@ -226,6 +226,7 @@ styio_new_parser_is_stmt_subset_token(StyioTokenType type) {
   switch (type) {
     case StyioTokenType::PRINT:
     case StyioTokenType::TOK_COMMA:
+    case StyioTokenType::TOK_EQUAL:
       return true;
     default:
       return false;
@@ -264,6 +265,22 @@ parse_print_new_subset(StyioContext& context) {
 StyioAST*
 parse_stmt_new_subset(StyioContext& context) {
   context.skip();
+
+  if (context.cur_tok_type() == StyioTokenType::NAME) {
+    const auto saved = context.save_cursor();
+    const std::string id = context.cur_tok()->original;
+    context.move_forward(1, "new_stmt:name_probe");
+    context.skip();
+    if (context.cur_tok_type() == StyioTokenType::TOK_EQUAL) {
+      context.move_forward(1, "new_stmt:flex_bind");
+      context.skip();
+      return FlexBindAST::Create(
+        VarAST::Create(NameAST::Create(id)),
+        parse_expr_new_subset(context));
+    }
+    context.restore_cursor(saved);
+  }
+
   if (context.cur_tok_type() == StyioTokenType::PRINT) {
     return parse_print_new_subset(context);
   }
