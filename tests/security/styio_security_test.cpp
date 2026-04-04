@@ -378,6 +378,20 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFinalBindSubsetSamples) {
   }
 }
 
+TEST(StyioSecurityNewParserStmt, MatchesLegacyOnCompoundAssignSubsetSamples) {
+  const std::vector<std::string> samples = {
+    "x = 10\nx += 5\n>_(x)\n",
+    "a = 20\na -= 3\n>_(a)\n",
+    "m = 4\nm *= 2\n>_(m)\n",
+    "q = 9\nq /= 3\n>_(q)\n",
+    "r = 9\nr %= 4\n>_(r)\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+  }
+}
+
 TEST(StyioSecurityNewParserShadow, FallsBackOnCallExpressionSequence) {
   const std::string src = "foo(1)\n";
   EXPECT_EQ(

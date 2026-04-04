@@ -231,6 +231,11 @@ styio_new_parser_is_stmt_subset_token(StyioTokenType type) {
     case StyioTokenType::TOK_EQUAL:
     case StyioTokenType::TOK_COLON:
     case StyioTokenType::WALRUS:
+    case StyioTokenType::COMPOUND_ADD:
+    case StyioTokenType::COMPOUND_SUB:
+    case StyioTokenType::COMPOUND_MUL:
+    case StyioTokenType::COMPOUND_DIV:
+    case StyioTokenType::COMPOUND_MOD:
       return true;
     default:
       return false;
@@ -299,6 +304,31 @@ parse_stmt_new_subset(StyioContext& context) {
       return FlexBindAST::Create(
         VarAST::Create(NameAST::Create(id)),
         parse_expr_new_subset(context));
+    }
+    StyioOpType cop = StyioOpType::Undefined;
+    switch (context.cur_tok_type()) {
+      case StyioTokenType::COMPOUND_ADD:
+        cop = StyioOpType::Self_Add_Assign;
+        break;
+      case StyioTokenType::COMPOUND_SUB:
+        cop = StyioOpType::Self_Sub_Assign;
+        break;
+      case StyioTokenType::COMPOUND_MUL:
+        cop = StyioOpType::Self_Mul_Assign;
+        break;
+      case StyioTokenType::COMPOUND_DIV:
+        cop = StyioOpType::Self_Div_Assign;
+        break;
+      case StyioTokenType::COMPOUND_MOD:
+        cop = StyioOpType::Self_Mod_Assign;
+        break;
+      default:
+        break;
+    }
+    if (cop != StyioOpType::Undefined) {
+      context.move_forward(1, "new_stmt:compound_assign");
+      context.skip();
+      return BinOpAST::Create(cop, NameAST::Create(id), parse_expr_new_subset(context));
     }
     context.restore_cursor(saved);
   }

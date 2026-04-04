@@ -2,7 +2,7 @@
 
 **文档作用：** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`DOCUMENTATION-POLICY.md`](../DOCUMENTATION-POLICY.md)。
 
-**Last updated:** 2026-04-04（新增 soak 分档 + D.5 最小化模板，并补 ParserEngine/ParserLookahead/NewParserExpr/NewParserStmt/ShadowFallback 回归测试）
+**Last updated:** 2026-04-04（新增 soak 分档 + D.5 最小化模板，并补 ParserEngine/ParserLookahead/NewParserExpr/NewParserStmt（含 compound assign）/ShadowFallback 回归测试）
 
 **批量自动化（所有里程碑集成用例）：**
 
@@ -182,7 +182,7 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_test` | `tests/styio_test.cpp`：`StyioFiveLayerPipeline`、`StyioParserEngine`（legacy/new 在 M1 算术与 typed bind 样例上一致，非法引擎拒绝，`--parser-shadow-compare` 可通过 typed bind 与 M1 核心样例集） | `ctest --test-dir build -L styio_pipeline` 或 `ctest --test-dir build -R '^StyioParserEngine\\.'` |
+| `styio_test` | `tests/styio_test.cpp`：`StyioFiveLayerPipeline`、`StyioParserEngine`（legacy/new 在 M1 算术、typed bind、compound assign 样例上一致，非法引擎拒绝，`--parser-shadow-compare` 可通过 M1 核心样例集） | `ctest --test-dir build -L styio_pipeline` 或 `ctest --test-dir build -R '^StyioParserEngine\\.'` |
 
 **五层流水线 goldens**（Lexer / AST / StyioIR / LLVM / 子进程 stdout）：权威说明见 [`FIVE-LAYER-PIPELINE.md`](./FIVE-LAYER-PIPELINE.md)；用例根目录 `tests/pipeline_cases/`。
 
@@ -221,4 +221,4 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_security_test` | `tests/security/styio_security_test.cpp`：lexer/Unicode/AST ownership/runtime，含 ParserLookahead trivia 回归、NewParserExpr 子集兼容回归、NewParserStmt（print/flex bind/final bind）子集回归与 Shadow fallback 回归 | `ctest --test-dir build -L security` |
+| `styio_security_test` | `tests/security/styio_security_test.cpp`：lexer/Unicode/AST ownership/runtime，含 ParserLookahead trivia 回归、NewParserExpr 子集兼容回归、NewParserStmt（print/flex bind/final bind/compound assign）子集回归与 Shadow fallback 回归 | `ctest --test-dir build -L security` |
