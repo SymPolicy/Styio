@@ -50,3 +50,4 @@
 - `ADR-0036-parser-dot-call-subset-with-chain-fallback.md`
 - `ADR-0037-parser-shadow-summary-artifact.md`
 - `ADR-0038-parser-dot-chain-rejection-boundary.md`
+- `ADR-0039-parser-function-def-entry-subset.md`

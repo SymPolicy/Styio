@@ -345,11 +345,16 @@ styio_new_parser_is_stmt_subset_token(StyioTokenType type) {
     return true;
   }
   switch (type) {
+    case StyioTokenType::TOK_HASH:
     case StyioTokenType::PRINT:
     case StyioTokenType::TOK_COMMA:
     case StyioTokenType::TOK_EQUAL:
     case StyioTokenType::TOK_COLON:
     case StyioTokenType::WALRUS:
+    case StyioTokenType::ARROW_DOUBLE_RIGHT:
+    case StyioTokenType::TOK_LCURBRAC:
+    case StyioTokenType::TOK_RCURBRAC:
+    case StyioTokenType::EXTRACTOR:
     case StyioTokenType::COMPOUND_ADD:
     case StyioTokenType::COMPOUND_SUB:
     case StyioTokenType::COMPOUND_MUL:
@@ -363,7 +368,9 @@ styio_new_parser_is_stmt_subset_token(StyioTokenType type) {
 
 bool
 styio_new_parser_is_stmt_subset_start(StyioTokenType type) {
-  return type == StyioTokenType::PRINT || styio_new_parser_is_expr_subset_start(type);
+  return type == StyioTokenType::TOK_HASH
+         || type == StyioTokenType::PRINT
+         || styio_new_parser_is_expr_subset_start(type);
 }
 
 namespace {
@@ -454,6 +461,9 @@ parse_stmt_new_subset(StyioContext& context) {
 
   if (context.cur_tok_type() == StyioTokenType::PRINT) {
     return parse_print_new_subset(context);
+  }
+  if (context.cur_tok_type() == StyioTokenType::TOK_HASH) {
+    return parse_hash_tag(context);
   }
   if (styio_new_parser_is_expr_subset_start(context.cur_tok_type())) {
     return parse_expr_new_subset(context);

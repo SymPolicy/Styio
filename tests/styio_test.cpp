@@ -147,6 +147,29 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM1CompoundAssignSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
+TEST(StyioParserEngine, LegacyAndNewMatchOnM2SimpleFuncSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m2" / "t01_simple_func.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  ASSERT_EQ(legacy.exit_code, 0);
+  ASSERT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+}
+
 TEST(StyioParserEngine, UnsupportedEngineIsRejected) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t01_int_arith.styio";
@@ -259,6 +282,38 @@ TEST(StyioParserEngine, ShadowCompareAcceptsM1FullSuite) {
     const CommandResult new_shadow = run_stdout_command(cmd_new_shadow);
     EXPECT_EQ(legacy_shadow.exit_code, 0) << case_name;
     EXPECT_EQ(new_shadow.exit_code, 0) << case_name;
+  }
+}
+
+TEST(StyioParserEngine, ShadowCompareAcceptsM2CoreSuite) {
+  const std::vector<std::string> files = {
+    "t01_simple_func.styio",
+    "t02_typed_return.styio",
+    "t03_block_body.styio",
+    "t07_no_params.styio",
+  };
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  for (const auto& name : files) {
+    const fs::path input = fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m2" / name;
+    ASSERT_TRUE(fs::exists(input)) << input.string();
+
+    const std::string cmd_legacy_shadow =
+      std::string("\"") + runner + "\" --parser-engine=legacy --parser-shadow-compare --file \""
+      + input.string() + "\" 2>/dev/null";
+    const std::string cmd_new_shadow =
+      std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --file \""
+      + input.string() + "\" 2>/dev/null";
+
+    const CommandResult legacy_shadow = run_stdout_command(cmd_legacy_shadow);
+    const CommandResult new_shadow = run_stdout_command(cmd_new_shadow);
+    EXPECT_EQ(legacy_shadow.exit_code, 0) << name;
+    EXPECT_EQ(new_shadow.exit_code, 0) << name;
   }
 }
 

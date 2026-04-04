@@ -374,6 +374,14 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnPrintSubsetSamples) {
   }
 }
 
+TEST(StyioSecurityNewParserStmt, SubsetTokenGateIncludesFunctionDefTokens) {
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_HASH));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::ARROW_DOUBLE_RIGHT));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_LCURBRAC));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_RCURBRAC));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::EXTRACTOR));
+}
+
 TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFlexBindSubsetSamples) {
   const std::vector<std::string> samples = {
     "x = 1 + 2\n>_(x)\n",
@@ -431,6 +439,18 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnSimpleCallSubsetSamples) {
     "sum(1, 2, 3)\n",
     "x = add(1, 2)\n>_(x)\n",
     ">_(mul(2, 3))\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+  }
+}
+
+TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFunctionDefSubsetSamples) {
+  const std::vector<std::string> samples = {
+    "# add := (a: i32, b: i32) => a + b\n>_(add(3, 4))\n",
+    "# answer := () => 42\n>_(answer())\n",
+    "# compute := (x: i32) => {\n    y = x * 2\n    <| y\n}\n>_(compute(5))\n",
   };
 
   for (const auto& src : samples) {
