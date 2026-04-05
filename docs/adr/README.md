@@ -2,7 +2,7 @@
 
 **文档作用：** 记录 Styio 关键架构与工程决策（为什么做、为什么不做其它方案），用于中断后快速恢复决策上下文。
 
-**Last updated:** 2026-04-05
+**Last updated:** 2026-04-06
 
 ## 约定
 
@@ -74,3 +74,5 @@
 - `ADR-0060-runtime-last-error-and-top-level-diagnostic-unification.md`
 - `ADR-0061-runtime-subcode-taxonomy-freeze.md`
 - `ADR-0062-codegen-compound-assign-typeerror.md`
+- `ADR-0063-stream-zip-unsupported-source-typeerror.md`
+- `ADR-0064-retire-notimplemented-from-active-pipeline.md`

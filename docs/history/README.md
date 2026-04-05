@@ -2,12 +2,13 @@
 
 **文档作用：** **索引** `docs/history/*.md` 按日开发记录；不写具体技术细节（细节在对应日期文件中）。策略见 [`DOCUMENTATION-POLICY.md`](../DOCUMENTATION-POLICY.md) §0。
 
-**Last updated:** 2026-04-05
+**Last updated:** 2026-04-06
 
 按日期记录的实现经验与进展见本目录下 `YYYY-MM-DD.md`。新内容请 **按当天日期新建或追加**，并在文首维护 **Last updated**。
 
 | 文件 | 摘要 |
 |------|------|
+| [`2026-04-06.md`](2026-04-06.md) | F.2 收口：`SGStreamZip` 误分类修复，并完成活跃流水线（Parser/Analyzer/CodeGen）`Styio.NotImplemented` 清零与诊断回归 |
 | [`2026-04-05.md`](2026-04-05.md) | E.7 风险收口与恢复：先 guard 收敛崩溃，再定位 `ParamAST` 空类型根因并恢复 hash `>>` 定义；补 `match` 非整型 scrutinee 崩溃防线 |
 | [`2026-04-04.md`](2026-04-04.md) | D.1-D.5 Soak 闭环 + E.1/E.2 parser 双轨基础（引擎路由与共享前瞻工具） |
 | [`2026-04-03.md`](2026-04-03.md) | Checkpoint 执行：构建基线、错误模型、会话所有权空壳、CI 与 ADR 落地 |

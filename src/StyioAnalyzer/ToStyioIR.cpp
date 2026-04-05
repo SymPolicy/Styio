@@ -229,7 +229,7 @@ int
 window_n_from_ast(StyioAST* w) {
   auto* li = dynamic_cast<IntAST*>(w);
   if (!li) {
-    throw StyioNotImplemented("window size for series intrinsic must be integer literal");
+    throw StyioTypeError("window size for series intrinsic must be integer literal");
   }
   return static_cast<int>(std::stoll(li->value));
 }
@@ -270,7 +270,7 @@ classify_state_slot(StateDeclAST* sd, SGStateSlotDesc& d) {
   }
   d.kind = SGStateSlotKind::Track;
   if (!sd->getWindowHeader()) {
-    throw StyioNotImplemented("@[n] header required for non-accum state");
+    throw StyioTypeError("@[n] header required for non-accum state");
   }
   d.win_n = static_cast<int>(std::stoll(sd->getWindowHeader()->value));
 }
@@ -330,19 +330,19 @@ resolve_state_decl_impl(StyioAnalyzer* an, StyioAST* stmt, PulseScratch* scratch
   }
   auto it = an->func_defs.find(fc->getNameAsStr());
   if (it == an->func_defs.end()) {
-    throw StyioNotImplemented("unknown function in pulse body");
+    throw StyioTypeError("unknown function in pulse body");
   }
   auto* sf = dynamic_cast<SimpleFuncAST*>(it->second);
   if (!sf || sf->params.size() != 1 || fc->getArgList().size() != 1) {
-    throw StyioNotImplemented("only simple single-arg func->state inlining supported");
+    throw StyioTypeError("only simple single-arg func->state inlining supported");
   }
   auto* blk = dynamic_cast<BlockAST*>(sf->ret_expr);
   if (!blk || blk->stmts.size() != 1) {
-    throw StyioNotImplemented("inlined state func must be a single-statement block");
+    throw StyioTypeError("inlined state func must be a single-statement block");
   }
   auto* sd = dynamic_cast<StateDeclAST*>(blk->stmts[0]);
   if (!sd) {
-    throw StyioNotImplemented("inlined func body must be a state decl");
+    throw StyioTypeError("inlined func body must be a state decl");
   }
   const std::string& pn = sf->params[0]->getName();
   StyioAST* rep = fc->getArgList()[0];
@@ -444,7 +444,7 @@ lower_state_decl_to_flexbind(StyioAnalyzer* an, StateDeclAST* sd, SGPulsePlan* p
     }
   }
   if (sid < 0) {
-    throw StyioNotImplemented("state slot not in plan");
+    throw StyioTypeError("state slot not in plan");
   }
   StyioIR* rhs = lower_state_rhs(an, sd->getUpdateExpr(), sid);
   return SGFlexBind::Create(
@@ -766,7 +766,7 @@ StyioIR*
 StyioAnalyzer::toStyioIR(HandleAcquireAST* ast) {
   auto* fr = dynamic_cast<FileResourceAST*>(ast->getResource());
   if (!fr) {
-    throw StyioNotImplemented("handle acquire needs @file{...} or @{...}");
+    throw StyioTypeError("handle acquire needs @file{...} or @{...}");
   }
   return SGHandleAcquire::Create(
     ast->getVar()->getNameAsStr(),
@@ -778,7 +778,7 @@ StyioIR*
 StyioAnalyzer::toStyioIR(ResourceWriteAST* ast) {
   auto* fr = dynamic_cast<FileResourceAST*>(ast->getResource());
   if (!fr) {
-    throw StyioNotImplemented("<< target must be a file resource");
+    throw StyioTypeError("<< target must be a file resource");
   }
   StyioDataType dt = ast->getData()->getDataType();
   bool is_str = dt.option == StyioDataTypeOption::String
@@ -796,7 +796,7 @@ StyioIR*
 StyioAnalyzer::toStyioIR(ResourceRedirectAST* ast) {
   auto* fr = dynamic_cast<FileResourceAST*>(ast->getResource());
   if (!fr) {
-    throw StyioNotImplemented("-> target must be a file resource");
+    throw StyioTypeError("-> target must be a file resource");
   }
   return SGResourceWriteToFile::Create(
     ast->getData()->toStyioIR(this),
@@ -1189,11 +1189,11 @@ StyioAnalyzer::toStyioIR(StateRefAST* ast) {
   }
   auto* pl = cur_pulse_plan();
   if (!pl) {
-    throw StyioNotImplemented("$state only valid inside pulse body");
+    throw StyioTypeError("$state only valid inside pulse body");
   }
   auto it = pl->ref_to_slot.find(ast->getNameStr());
   if (it == pl->ref_to_slot.end()) {
-    throw StyioNotImplemented("unknown state reference");
+    throw StyioTypeError("unknown state reference");
   }
   return SGStateSnapLoad::Create(it->second);
 }
@@ -1206,14 +1206,14 @@ StyioAnalyzer::toStyioIR(HistoryProbeAST* ast) {
     pl = post_pulse_hist_plan_;
     ledger_region = post_pulse_hist_region_;
     if (!pl || ledger_region < 0) {
-      throw StyioNotImplemented(
+      throw StyioTypeError(
         "history probe only valid inside pulse body or after foreach/file line iter with pulse");
     }
   }
   std::string nm = ast->getTarget()->getNameStr();
   auto it = pl->ref_to_slot.find(nm);
   if (it == pl->ref_to_slot.end()) {
-    throw StyioNotImplemented("unknown state in history probe");
+    throw StyioTypeError("unknown state in history probe");
   }
   int dep = window_n_from_ast(ast->getDepth());
   return SGStateHistLoad::Create(it->second, dep, ledger_region);
@@ -1223,7 +1223,7 @@ StyioIR*
 StyioAnalyzer::toStyioIR(SeriesIntrinsicAST* ast) {
   int sid = active_series_slot();
   if (sid < 0) {
-    throw StyioNotImplemented("series intrinsic needs enclosing state slot");
+    throw StyioTypeError("series intrinsic needs enclosing state slot");
   }
   StyioIR* bx = ast->getBase()->toStyioIR(this);
   if (ast->getOp() == SeriesIntrinsicOp::Avg) {
@@ -1241,7 +1241,7 @@ StyioAnalyzer::toStyioIR(MatchCasesAST* ast) {
   for (auto const& pr : c->case_list) {
     auto* li = dynamic_cast<IntAST*>(pr.first);
     if (!li) {
-      throw StyioNotImplemented("match arms need integer literal patterns in this milestone");
+      throw StyioTypeError("match arms need integer literal patterns in this milestone");
     }
     arms.push_back({std::stoll(li->value), lower_func_body(this, pr.second)});
   }

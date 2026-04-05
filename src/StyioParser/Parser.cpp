@@ -1107,7 +1107,7 @@ parse_arithmetic_expr(StyioContext& context) {
     } break;
 
     default: {
-      throw StyioNotImplemented(context.mark_cur_tok("Unknown Expression"));
+      throw StyioParseError(context.mark_cur_tok("Unknown Expression"));
     } break;
   }
 }
@@ -2247,7 +2247,7 @@ parse_loop_or_iter(StyioContext& context, StyioAST* iterOverIt) {
   if ((iterOverIt->getNodeType()) == StyioNodeType::Infinite) {
     return InfiniteLoopAST::Create();
   }
-  throw StyioNotImplemented("parse_loop_or_iter: non-infinite iterator");
+  throw StyioParseError("parse_loop_or_iter: non-infinite iterator");
 }
 
 StyioAST*
@@ -2897,7 +2897,7 @@ parse_forward_as_list(
 
       /* ? Conditionals */
       case StyioTokenType::TOK_QUEST: {
-        throw StyioNotImplemented("parse_forward(Conditionals)");
+        throw StyioParseError("parse_forward(Conditionals)");
       } break;
 
       /* ?= Match Cases */
@@ -3020,11 +3020,11 @@ parse_iterator_with_forward(
   if (!forward_following.empty()
       && (dynamic_cast<CheckEqualAST*>(forward_following.front()) != nullptr
           || dynamic_cast<CasesAST*>(forward_following.front()) != nullptr)) {
-    throw StyioNotImplemented(
+    throw StyioParseError(
       context.mark_cur_tok("iterator '?=' forward clauses are not supported in function definitions"));
   }
   if (forward_following.size() > 1) {
-    throw StyioNotImplemented(
+    throw StyioParseError(
       context.mark_cur_tok("iterator forward chains with multiple clauses are not supported"));
   }
 

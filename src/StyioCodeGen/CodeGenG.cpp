@@ -2138,7 +2138,8 @@ StyioToLLVM::toLLVMIR(SGStreamZip* node) {
     return theBuilder->getInt64(0);
   }
 
-  throw StyioNotImplemented("unsupported stream zip lowering");
+  throw StyioTypeError(
+    "unsupported stream zip lowering (supported sources: list literal and @file stream)");
 }
 
 llvm::Value*

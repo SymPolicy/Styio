@@ -370,6 +370,10 @@ TEST(StyioParserEngine, HashIteratorMatchForwardChainReturnsParseError) {
   EXPECT_EQ(newer.exit_code, 3);
   EXPECT_NE(legacy.stdout_text.find("\"category\":\"ParseError\""), std::string::npos);
   EXPECT_NE(newer.stdout_text.find("\"category\":\"ParseError\""), std::string::npos);
+  EXPECT_NE(legacy.stdout_text.find("Styio.ParseError"), std::string::npos);
+  EXPECT_NE(newer.stdout_text.find("Styio.ParseError"), std::string::npos);
+  EXPECT_EQ(legacy.stdout_text.find("Styio.NotImplemented"), std::string::npos);
+  EXPECT_EQ(newer.stdout_text.find("Styio.NotImplemented"), std::string::npos);
 
   fs::remove(input);
 }
@@ -810,6 +814,77 @@ TEST(StyioDiagnostics, CompoundAssignOnImmutableBindingReportsTypeError) {
   EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("compound assignment requires a mutable binding"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioDiagnostics, StreamZipUnsupportedSourceReportsTypeError) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-zip-unsupported-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "a = [1, 2, 3]\n";
+    out << "a >> #(n) & [\"x\", \"y\", \"z\"] >> #(s) => {\n";
+    out << "  >_(n + \" \" + s)\n";
+    out << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4);
+  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("unsupported stream zip lowering"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioDiagnostics, SeriesIntrinsicWindowNonLiteralReportsTypeError) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-series-window-non-literal-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "[1, 2, 3] >> #(p) => {\n";
+    out << "  n = 3\n";
+    out << "  @[3](ma = p[avg, n])\n";
+    out << "  >_(ma)\n";
+    out << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4);
+  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("window size for series intrinsic must be integer literal"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("Styio.TypeError"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("Styio.NotImplemented"), std::string::npos);
 
   fs::remove(input);
 }

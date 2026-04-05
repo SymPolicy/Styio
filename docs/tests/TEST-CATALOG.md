@@ -2,7 +2,7 @@
 
 **文档作用：** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`DOCUMENTATION-POLICY.md`](../DOCUMENTATION-POLICY.md)。
 
-**Last updated:** 2026-04-05（定位并修复 `ParamAST` 空类型崩溃；恢复 hash `>>` iterator 定义；补 `?=` forward chain 稳定拒绝回归；补 `match` 非整型 scrutinee TypeError 防崩溃回归；完成 C.8 句柄表接管并补 Safety 回归；新增非法句柄 Soak 与 nightly sanitizer 门禁；统一 runtime text/jsonl 诊断出口并冻结 runtime subcode 回归；修复 codegen 复合赋值误报 RuntimeError 分类）
+**Last updated:** 2026-04-06（定位并修复 `ParamAST` 空类型崩溃；恢复 hash `>>` iterator 定义；补 `?=` forward chain 稳定拒绝回归；补 `match` 非整型 scrutinee TypeError 防崩溃回归；完成 C.8 句柄表接管并补 Safety 回归；新增非法句柄 Soak 与 nightly sanitizer 门禁；统一 runtime text/jsonl 诊断出口并冻结 runtime subcode 回归；修复 codegen 复合赋值与 stream zip 不支持来源误报 RuntimeError 分类；活跃流水线移除 `Styio.NotImplemented` 文案）
 
 **批量自动化（所有里程碑集成用例）：**
 
@@ -183,7 +183,7 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_test` | `tests/styio_test.cpp`：`StyioFiveLayerPipeline`、`StyioParserEngine`、`StyioDiagnostics`（legacy/new 在 M1 算术、typed bind、compound assign、M2 simple func 与未标注参数函数样例上一致；hash 无箭头表达式体/无赋值箭头体/`?=` match-cases 样例上一致；`# ... >> ...` hash iterator 定义样例在双引擎下可执行且无崩溃（退出码 `0`，输出一致）；`# ... >> ... ?= ... => ...` 组合链路稳定返回 `ParseError`（退出码 `3`）；`match` 非整型 scrutinee（流式 `line ?={...}`）稳定返回 `TypeError`（退出码 `4`）且不再 abort；`x : i64 := 1` 后 `x += 2` 路径稳定返回 `TypeError`（退出码 `4`，不再误报 `RuntimeError`）；非法引擎拒绝；`--parser-shadow-compare` 可通过 M1 核心/全量与 M2 core/full 样例；`--parser-shadow-artifact-dir` 可产出 JSONL 记录并受参数约束回归覆盖；dot-chain 边界在 `DotChainStillRejectedConsistentlyAcrossEngines` 冻结；runtime helper 失败在 `--error-format=jsonl` 下稳定输出 `RuntimeError/STYIO_RUNTIME`，并覆盖 `STYIO_RUNTIME_FILE_OPEN_READ|STYIO_RUNTIME_FILE_OPEN_WRITE` 子码；CI 通过 `scripts/parser-shadow-suite-gate.sh` 对 M1/M2 双目录执行预算 gate 并产出各自 `summary.json`） | `ctest --test-dir build -L styio_pipeline` 或 `ctest --test-dir build -R '^Styio(ParserEngine|Diagnostics)\\.'` |
+| `styio_test` | `tests/styio_test.cpp`：`StyioFiveLayerPipeline`、`StyioParserEngine`、`StyioDiagnostics`（legacy/new 在 M1 算术、typed bind、compound assign、M2 simple func 与未标注参数函数样例上一致；hash 无箭头表达式体/无赋值箭头体/`?=` match-cases 样例上一致；`# ... >> ...` hash iterator 定义样例在双引擎下可执行且无崩溃（退出码 `0`，输出一致）；`# ... >> ... ?= ... => ...` 组合链路稳定返回 `ParseError`（退出码 `3`）且不再出现 `Styio.NotImplemented` 前缀；`match` 非整型 scrutinee（流式 `line ?={...}`）稳定返回 `TypeError`（退出码 `4`）且不再 abort；`x : i64 := 1` 后 `x += 2` 路径稳定返回 `TypeError`（退出码 `4`，不再误报 `RuntimeError`）；`a = [1,2,3]` 参与 zip 且来源组合超出支持边界时稳定返回 `TypeError`（退出码 `4`，不再误报 `RuntimeError`）；`@[3](ma = p[avg, n])` 非字面量窗口参数稳定返回 `TypeError` 且不再出现 `Styio.NotImplemented`；非法引擎拒绝；`--parser-shadow-compare` 可通过 M1 核心/全量与 M2 core/full 样例；`--parser-shadow-artifact-dir` 可产出 JSONL 记录并受参数约束回归覆盖；dot-chain 边界在 `DotChainStillRejectedConsistentlyAcrossEngines` 冻结；runtime helper 失败在 `--error-format=jsonl` 下稳定输出 `RuntimeError/STYIO_RUNTIME`，并覆盖 `STYIO_RUNTIME_FILE_OPEN_READ|STYIO_RUNTIME_FILE_OPEN_WRITE` 子码；CI 通过 `scripts/parser-shadow-suite-gate.sh` 对 M1/M2 双目录执行预算 gate 并产出各自 `summary.json`） | `ctest --test-dir build -L styio_pipeline` 或 `ctest --test-dir build -R '^Styio(ParserEngine|Diagnostics)\\.'` |
 
 **五层流水线 goldens**（Lexer / AST / StyioIR / LLVM / 子进程 stdout）：权威说明见 [`FIVE-LAYER-PIPELINE.md`](./FIVE-LAYER-PIPELINE.md)；用例根目录 `tests/pipeline_cases/`。
 
