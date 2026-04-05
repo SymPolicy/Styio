@@ -374,6 +374,50 @@ TEST(StyioParserEngine, HashIteratorMatchForwardChainReturnsParseError) {
   fs::remove(input);
 }
 
+TEST(StyioParserEngine, PointerScrutineeMatchDoesNotAbortAndReportsRuntimeError) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input = fs::temp_directory_path() / ("styio-match-pointer-scrutinee-"
+                                                      + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "f <- @file{\"tests/m5/data/input.txt\"}\n";
+    out << "f >> #(line) => {\n";
+    out << "  line ?={\n";
+    out << "    1 => >_(1)\n";
+    out << "    _ => >_(0)\n";
+    out << "  }\n";
+    out << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=legacy --file \""
+    + input.string() + "\" 2>&1";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=new --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+
+  EXPECT_EQ(legacy.exit_code, 5);
+  EXPECT_EQ(newer.exit_code, 5);
+  EXPECT_NE(legacy.stdout_text.find("\"category\":\"RuntimeError\""), std::string::npos);
+  EXPECT_NE(newer.stdout_text.find("\"category\":\"RuntimeError\""), std::string::npos);
+  EXPECT_NE(legacy.stdout_text.find("match scrutinee must be integer-typed"), std::string::npos);
+  EXPECT_NE(newer.stdout_text.find("match scrutinee must be integer-typed"), std::string::npos);
+
+  fs::remove(input);
+}
+
 TEST(StyioParserEngine, UnsupportedEngineIsRejected) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t01_int_arith.styio";

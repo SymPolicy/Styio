@@ -2072,14 +2072,21 @@ llvm::Value*
 StyioToLLVM::toLLVMIR(SGMatch* node) {
   llvm::Function* F = theBuilder->GetInsertBlock()->getParent();
   llvm::IntegerType* i64ti = theBuilder->getInt64Ty();
+  auto coerce_match_scrutinee_to_i64 = [&](llvm::Value* v) -> llvm::Value* {
+    llvm::Type* ty = v->getType();
+    if (ty->isIntegerTy(64)) {
+      return v;
+    }
+    if (ty->isIntegerTy()) {
+      return theBuilder->CreateSExtOrTrunc(v, i64ti);
+    }
+    throw StyioNotImplemented("match scrutinee must be integer-typed");
+  };
 
   if (node->repr_kind == SGMatchReprKind::Stmt) {
     llvm::BasicBlock* merge_bb = llvm::BasicBlock::Create(*theContext, "match_merge", F);
     if (not node->int_arms.empty()) {
-      llvm::Value* sv = node->scrutinee->toLLVMIR(this);
-      if (not sv->getType()->isIntegerTy(64)) {
-        sv = theBuilder->CreateSExtOrTrunc(sv, i64ti);
-      }
+      llvm::Value* sv = coerce_match_scrutinee_to_i64(node->scrutinee->toLLVMIR(this));
       llvm::BasicBlock* def_bb = llvm::BasicBlock::Create(*theContext, "match_def", F);
       llvm::SwitchInst* sw = theBuilder->CreateSwitch(sv, def_bb, node->int_arms.size());
       for (auto const& p : node->int_arms) {
@@ -2126,10 +2133,7 @@ StyioToLLVM::toLLVMIR(SGMatch* node) {
   llvm::BasicBlock* merge_bb = llvm::BasicBlock::Create(*theContext, "mexpr_merge", F);
   llvm::PHINode* phi = llvm::PHINode::Create(merge_ty, 0, "mphi", merge_bb);
 
-  llvm::Value* sv = node->scrutinee->toLLVMIR(this);
-  if (not sv->getType()->isIntegerTy(64)) {
-    sv = theBuilder->CreateSExtOrTrunc(sv, i64ti);
-  }
+  llvm::Value* sv = coerce_match_scrutinee_to_i64(node->scrutinee->toLLVMIR(this));
 
   llvm::BasicBlock* def_bb = llvm::BasicBlock::Create(*theContext, "mexpr_def", F);
   llvm::SwitchInst* sw = theBuilder->CreateSwitch(sv, def_bb, node->int_arms.size());

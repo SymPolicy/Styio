@@ -66,3 +66,4 @@
 - `ADR-0052-hash-iterator-crash-guard.md`
 - `ADR-0053-param-ctor-null-type-and-hash-iterator-restore.md`
 - `ADR-0054-hash-iterator-match-forward-chain-guard.md`
+- `ADR-0055-match-scrutinee-integer-boundary.md`
