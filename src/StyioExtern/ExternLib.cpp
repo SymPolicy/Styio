@@ -5,18 +5,34 @@
 #include <cctype>
 #include <filesystem>
 #include <string>
-#include <unordered_map>
+#include <unordered_set>
 
 #include "ExternLib.hpp"
+#include "StyioRuntime/HandleTable.hpp"
 
 namespace {
 
 /* Alternating buffers so two consecutive reads (e.g. zip of two files) keep both lines valid. */
 thread_local char g_read_line_bufs[2][65536];
 thread_local int g_read_line_buf_which = 0;
-thread_local std::unordered_map<int64_t, FILE*> g_file_handles;
-thread_local int64_t g_next_file_handle = 1;
+thread_local StyioHandleTable g_handle_table;
+thread_local std::unordered_set<const void*> g_owned_cstr_ptrs;
 thread_local bool g_runtime_error = false;
+thread_local std::string g_runtime_error_message;
+thread_local std::string g_runtime_error_subcode;
+
+constexpr const char* kRuntimeSubcodeInvalidFileHandle = "STYIO_RUNTIME_INVALID_FILE_HANDLE";
+constexpr const char* kRuntimeSubcodeFilePathNull = "STYIO_RUNTIME_FILE_PATH_NULL";
+constexpr const char* kRuntimeSubcodeFileOpenRead = "STYIO_RUNTIME_FILE_OPEN_READ";
+constexpr const char* kRuntimeSubcodeFileOpenWrite = "STYIO_RUNTIME_FILE_OPEN_WRITE";
+
+thread_local struct HandleTableCleanup {
+  ~HandleTableCleanup() {
+    g_handle_table.release_all(
+      StyioHandleTable::HandleKind::File,
+      [](void* raw) { std::fclose(static_cast<FILE*>(raw)); });
+  }
+} g_handle_table_cleanup;
 
 std::string
 resolve_read_path(const char* path) {
@@ -59,26 +75,40 @@ resolve_read_path(const char* path) {
   return p;
 }
 
+void
+set_runtime_error_once(const char* subcode, const std::string& message) {
+  g_runtime_error = true;
+  if (g_runtime_error_message.empty()) {
+    g_runtime_error_message = message;
+    g_runtime_error_subcode = (subcode != nullptr) ? subcode : "";
+  }
+}
+
 int64_t
 stash_file(FILE* f) {
-  if (f == nullptr) {
-    return 0;
-  }
-  const int64_t h = g_next_file_handle++;
-  g_file_handles[h] = f;
-  return h;
+  return g_handle_table.acquire(StyioHandleTable::HandleKind::File, f);
 }
 
 FILE*
-as_file(int64_t h) {
+as_file(int64_t h, bool diagnose_if_missing = false) {
   if (h == 0) {
     return nullptr;
   }
-  auto it = g_file_handles.find(h);
-  if (it == g_file_handles.end()) {
-    return nullptr;
+  FILE* f = g_handle_table.lookup_as<FILE>(h, StyioHandleTable::HandleKind::File);
+  if (f == nullptr && diagnose_if_missing) {
+    set_runtime_error_once(
+      kRuntimeSubcodeInvalidFileHandle,
+      "invalid file handle: " + std::to_string(static_cast<long long>(h)));
   }
-  return it->second;
+  return f;
+}
+
+void
+close_file(void* raw) {
+  if (raw == nullptr) {
+    return;
+  }
+  std::fclose(static_cast<FILE*>(raw));
 }
 
 }  // namespace
@@ -86,15 +116,15 @@ as_file(int64_t h) {
 extern "C" DLLEXPORT int64_t
 styio_file_open(const char* path) {
   if (path == nullptr) {
-    std::fprintf(stderr, "styio: file path is null\n");
-    g_runtime_error = true;
+    set_runtime_error_once(kRuntimeSubcodeFilePathNull, "file path is null");
     return 0;
   }
   std::string resolved = resolve_read_path(path);
   FILE* f = std::fopen(resolved.c_str(), "rb");
   if (f == nullptr) {
-    std::fprintf(stderr, "styio: cannot open file for read: %s\n", path);
-    g_runtime_error = true;
+    set_runtime_error_once(
+      kRuntimeSubcodeFileOpenRead,
+      std::string("cannot open file for read: ") + path);
     return 0;
   }
   return stash_file(f);
@@ -109,15 +139,15 @@ styio_file_open_auto(const char* path) {
 extern "C" DLLEXPORT int64_t
 styio_file_open_write(const char* path) {
   if (path == nullptr) {
-    std::fprintf(stderr, "styio: file path is null\n");
-    g_runtime_error = true;
+    set_runtime_error_once(kRuntimeSubcodeFilePathNull, "file path is null");
     return 0;
   }
   /* Append so repeated writes in one program (e.g. per-iteration << file) accumulate. */
   FILE* f = std::fopen(path, "ab");
   if (f == nullptr) {
-    std::fprintf(stderr, "styio: cannot open file for write: %s\n", path);
-    g_runtime_error = true;
+    set_runtime_error_once(
+      kRuntimeSubcodeFileOpenWrite,
+      std::string("cannot open file for write: ") + path);
     return 0;
   }
   return stash_file(f);
@@ -125,16 +155,12 @@ styio_file_open_write(const char* path) {
 
 extern "C" DLLEXPORT void
 styio_file_close(int64_t h) {
-  auto it = g_file_handles.find(h);
-  if (it != g_file_handles.end() && it->second != nullptr) {
-    std::fclose(it->second);
-    g_file_handles.erase(it);
-  }
+  (void)g_handle_table.release(h, StyioHandleTable::HandleKind::File, close_file);
 }
 
 extern "C" DLLEXPORT void
 styio_file_rewind(int64_t h) {
-  FILE* f = as_file(h);
+  FILE* f = as_file(h, true);
   if (f != nullptr) {
     std::rewind(f);
   }
@@ -142,7 +168,7 @@ styio_file_rewind(int64_t h) {
 
 extern "C" DLLEXPORT const char*
 styio_file_read_line(int64_t h) {
-  FILE* f = as_file(h);
+  FILE* f = as_file(h, true);
   if (f == nullptr) {
     return nullptr;
   }
@@ -169,7 +195,7 @@ styio_cstr_to_i64(const char* s) {
 
 extern "C" DLLEXPORT void
 styio_file_write_cstr(int64_t h, const char* data) {
-  FILE* f = as_file(h);
+  FILE* f = as_file(h, true);
   if (f == nullptr || data == nullptr) {
     return;
   }
@@ -179,13 +205,15 @@ styio_file_write_cstr(int64_t h, const char* data) {
 extern "C" DLLEXPORT int64_t
 styio_read_file_i64line(const char* path) {
   if (path == nullptr) {
-    g_runtime_error = true;
+    set_runtime_error_once(kRuntimeSubcodeFilePathNull, "file path is null");
     return 0;
   }
   std::string resolved = resolve_read_path(path);
   FILE* f = std::fopen(resolved.c_str(), "rb");
   if (f == nullptr) {
-    g_runtime_error = true;
+    set_runtime_error_once(
+      kRuntimeSubcodeFileOpenRead,
+      std::string("cannot open file for read: ") + path);
     return 0;
   }
   char buf[512];
@@ -213,6 +241,7 @@ styio_strcat_ab(const char* a, const char* b) {
   }
   std::memcpy(p, ea, na);
   std::memcpy(p + na, eb, nb + 1);
+  g_owned_cstr_ptrs.insert(p);
   return p;
 }
 
@@ -221,6 +250,11 @@ styio_free_cstr(const char* s) {
   if (s == nullptr) {
     return;
   }
+  auto it = g_owned_cstr_ptrs.find(s);
+  if (it == g_owned_cstr_ptrs.end()) {
+    return;
+  }
+  g_owned_cstr_ptrs.erase(it);
   std::free(const_cast<char*>(s));
 }
 
@@ -252,9 +286,27 @@ styio_runtime_has_error() {
   return g_runtime_error ? 1 : 0;
 }
 
+extern "C" DLLEXPORT const char*
+styio_runtime_last_error() {
+  if (!g_runtime_error || g_runtime_error_message.empty()) {
+    return nullptr;
+  }
+  return g_runtime_error_message.c_str();
+}
+
+extern "C" DLLEXPORT const char*
+styio_runtime_last_error_subcode() {
+  if (!g_runtime_error || g_runtime_error_subcode.empty()) {
+    return nullptr;
+  }
+  return g_runtime_error_subcode.c_str();
+}
+
 extern "C" DLLEXPORT void
 styio_runtime_clear_error() {
   g_runtime_error = false;
+  g_runtime_error_message.clear();
+  g_runtime_error_subcode.clear();
 }
 
 extern "C" DLLEXPORT int

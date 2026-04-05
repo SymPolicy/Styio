@@ -1,0 +1,64 @@
+name: styio-nightly-sanitizers
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+jobs:
+  nightly-sanitizers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            clang-18 \
+            lld-18 \
+            llvm-18-dev \
+            libicu-dev \
+            python3
+
+      - name: Configure (ASan + UBSan)
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DCMAKE_C_COMPILER=clang-18
+          -DCMAKE_CXX_COMPILER=clang++-18
+          -DLLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm
+          -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+
+      - name: Build sanitizer targets
+        run: >
+          cmake --build build --target
+          styio styio_test styio_security_test styio_soak_test
+
+      - name: Run sanitizer gates
+        env:
+          ASAN_OPTIONS: detect_leaks=0:halt_on_error=1:abort_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: |
+          mkdir -p sanitizer-artifacts
+          ctest --test-dir build -L security --output-on-failure \
+            | tee sanitizer-artifacts/ctest-security.log
+          ctest --test-dir build -L soak_smoke --output-on-failure \
+            | tee sanitizer-artifacts/ctest-soak-smoke.log
+          ctest --test-dir build -L styio_pipeline --output-on-failure \
+            | tee sanitizer-artifacts/ctest-pipeline.log
+          ctest --test-dir build -L milestone --output-on-failure \
+            | tee sanitizer-artifacts/ctest-milestone.log
+
+      - name: Upload sanitizer artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-sanitizer-artifacts
+          path: sanitizer-artifacts/

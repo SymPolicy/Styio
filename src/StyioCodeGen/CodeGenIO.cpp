@@ -111,6 +111,7 @@ StyioToLLVM::toLLVMIR(SIOPrint* node) {
     else if (v->getType()->isPointerTy()) {
       llvm::Value* fmt = theBuilder->CreateGlobalStringPtr("%s\n", "styio_fmt_str");
       theBuilder->CreateCall(printf_fn, {fmt, v});
+      free_owned_cstr_temp_if_tracked(v);
     }
     else {
       llvm::Value* fmt = theBuilder->CreateGlobalStringPtr("%lld\n", "styio_fmt_fallback");

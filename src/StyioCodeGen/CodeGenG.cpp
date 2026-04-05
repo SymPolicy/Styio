@@ -62,6 +62,57 @@ styio_undef_i64() {
 }
 }  // namespace
 
+llvm::FunctionCallee
+StyioToLLVM::free_cstr_fn() {
+  llvm::Type* char_ptr = llvm::PointerType::get(*theContext, 0);
+  return theModule->getOrInsertFunction(
+    "styio_free_cstr",
+    llvm::FunctionType::get(theBuilder->getVoidTy(), {char_ptr}, false));
+}
+
+void
+StyioToLLVM::track_owned_cstr_temp(llvm::Value* v) {
+  if (v && v->getType()->isPointerTy()) {
+    owned_cstr_temps_.insert(v);
+  }
+}
+
+bool
+StyioToLLVM::take_owned_cstr_temp(llvm::Value* v) {
+  if (!v) {
+    return false;
+  }
+  auto it = owned_cstr_temps_.find(v);
+  if (it == owned_cstr_temps_.end()) {
+    return false;
+  }
+  owned_cstr_temps_.erase(it);
+  return true;
+}
+
+void
+StyioToLLVM::forget_owned_cstr_temp(llvm::Value* v) {
+  if (v) {
+    owned_cstr_temps_.erase(v);
+  }
+}
+
+void
+StyioToLLVM::free_cstr_if_runtime_owned(llvm::Value* v) {
+  if (!v || !v->getType()->isPointerTy()) {
+    return;
+  }
+  theBuilder->CreateCall(free_cstr_fn(), {v});
+}
+
+void
+StyioToLLVM::free_owned_cstr_temp_if_tracked(llvm::Value* v) {
+  if (!take_owned_cstr_temp(v)) {
+    return;
+  }
+  free_cstr_if_runtime_owned(v);
+}
+
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGResId* node) {
   const string& name = node->as_str();
@@ -159,7 +210,8 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
     auto* lid = static_cast<SGResId*>(node->lhs_expr);
     const std::string& varname = lid->as_str();
     if (not mutable_variables.contains(varname)) {
-      throw StyioNotImplemented("compound assignment requires a mutable binding");
+      throw StyioTypeError(
+        std::string("compound assignment requires a mutable binding: ") + varname);
     }
     llvm::AllocaInst* slot = mutable_variables[varname];
     llvm::Type* slot_ty = slot->getAllocatedType();
@@ -223,7 +275,11 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
             : theBuilder->CreateSExtOrTrunc(b, theBuilder->getInt64Ty());
           b = theBuilder->CreateCall(i64c, {bi});
         }
-        return theBuilder->CreateCall(cat, {a, b});
+        llvm::Value* out = theBuilder->CreateCall(cat, {a, b});
+        free_owned_cstr_temp_if_tracked(a);
+        free_owned_cstr_temp_if_tracked(b);
+        track_owned_cstr_temp(out);
+        return out;
       }
       if (data_type.isFloat() || l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
         if (not l_val->getType()->isDoubleTy()) {
@@ -535,14 +591,17 @@ llvm::Value*
 StyioToLLVM::toLLVMIR(SGFlexBind* node) {
   std::string varname = node->var->var_name->as_str();
   llvm::AllocaInst* variable;
+  bool is_existing_slot = false;
 
   if (named_values.contains(varname)) {
     /* ERROR */
-    throw StyioNotImplemented("if a immutable variable is re-defined ...");
+    throw StyioTypeError(
+      std::string("immutable binding cannot be reassigned with `=`: ") + varname);
   }
 
   if (mutable_variables.contains(varname)) {
     variable = mutable_variables[varname];
+    is_existing_slot = true;
   }
   else {
     llvm::Function* F = theBuilder->GetInsertBlock()->getParent();
@@ -557,7 +616,18 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
     mutable_variables[varname] = variable;
   }
 
-  theBuilder->CreateStore(node->value->toLLVMIR(this), variable);
+  llvm::Value* next_value = node->value->toLLVMIR(this);
+  const bool is_string_slot =
+    node->var->var_type->data_type.option == StyioDataTypeOption::String
+    || variable->getAllocatedType()->isPointerTy();
+
+  theBuilder->CreateStore(next_value, variable);
+  if (is_string_slot) {
+    if (!is_existing_slot) {
+      register_cstr_slot_for_raii(variable);
+    }
+    forget_owned_cstr_temp(next_value);
+  }
 
   return variable;
 }
@@ -571,7 +641,8 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
   std::string varname = node->var->var_name->as_str();
   if (named_values.contains(varname)) {
     /* ERROR */
-    throw StyioNotImplemented("if a immutable variable is re-defined ...");
+    throw StyioTypeError(
+      std::string("immutable binding cannot be redefined with `:=`: ") + varname);
   }
 
   if (auto cap = styio_bounded_ring_capacity(node->var->var_type->data_type)) {
@@ -604,6 +675,10 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
   named_values[varname] = value;
 
   theBuilder->CreateStore(value, variable);
+  if (variable->getAllocatedType()->isPointerTy()) {
+    register_cstr_slot_for_raii(variable);
+    forget_owned_cstr_temp(value);
+  }
 
   return variable;
 }
@@ -1161,6 +1236,10 @@ StyioToLLVM::toLLVMIR(SGFallback* node) {
       llvm::PointerType::get(*theContext, 0), 2, "fb_phi");
     phi->addIncoming(a, b_alt);
     phi->addIncoming(ps, b_num);
+    const bool owns_alt = take_owned_cstr_temp(a);
+    if (owns_alt) {
+      track_owned_cstr_temp(phi);
+    }
     return phi;
   }
   if (p->getType()->isIntegerTy(64) && a->getType()->isIntegerTy(64)) {
@@ -1180,7 +1259,15 @@ StyioToLLVM::toLLVMIR(SGWaveMerge* node) {
       c,
       llvm::ConstantInt::get(theBuilder->getInt64Ty(), 0, true));
   }
-  return theBuilder->CreateSelect(c, t, f);
+  llvm::Value* out = theBuilder->CreateSelect(c, t, f);
+  if (out->getType()->isPointerTy()) {
+    const bool owns_true = take_owned_cstr_temp(t);
+    const bool owns_false = take_owned_cstr_temp(f);
+    if (owns_true || owns_false) {
+      track_owned_cstr_temp(out);
+    }
+  }
+  return out;
 }
 
 llvm::Value*
@@ -1220,7 +1307,13 @@ StyioToLLVM::toLLVMIR(SGGuardSelect* node) {
       llvm::ConstantInt::get(theBuilder->getInt64Ty(), 0, true));
   }
   llvm::Value* u = theBuilder->getInt64(styio_undef_i64());
-  return theBuilder->CreateSelect(g, b, u);
+  llvm::Value* out = theBuilder->CreateSelect(g, b, u);
+  if (out->getType()->isPointerTy()) {
+    if (take_owned_cstr_temp(b)) {
+      track_owned_cstr_temp(out);
+    }
+  }
+  return out;
 }
 
 llvm::Value*
@@ -1235,12 +1328,20 @@ StyioToLLVM::toLLVMIR(SGEqProbe* node) {
 void
 StyioToLLVM::push_file_handle_scope() {
   file_handle_scope_stack_.emplace_back();
+  cstr_slot_scope_stack_.emplace_back();
 }
 
 void
 StyioToLLVM::register_file_handle_for_raii(const std::string& var_name) {
   if (!file_handle_scope_stack_.empty()) {
     file_handle_scope_stack_.back().push_back(var_name);
+  }
+}
+
+void
+StyioToLLVM::register_cstr_slot_for_raii(llvm::AllocaInst* slot) {
+  if (slot && !cstr_slot_scope_stack_.empty()) {
+    cstr_slot_scope_stack_.back().push_back(slot);
   }
 }
 
@@ -1265,6 +1366,21 @@ StyioToLLVM::pop_file_handle_scope() {
         theBuilder->CreateCall(close_fn, {h});
       }
     }
+  }
+
+  std::unordered_set<llvm::AllocaInst*> freed_cstr_slots;
+  if (!cstr_slot_scope_stack_.empty()) {
+    for (llvm::AllocaInst* slot : cstr_slot_scope_stack_.back()) {
+      if (slot == nullptr || !slot->getAllocatedType()->isPointerTy()) {
+        continue;
+      }
+      if (!freed_cstr_slots.insert(slot).second) {
+        continue;
+      }
+      llvm::Value* s = theBuilder->CreateLoad(slot->getAllocatedType(), slot);
+      free_cstr_if_runtime_owned(s);
+    }
+    cstr_slot_scope_stack_.pop_back();
   }
   file_handle_scope_stack_.pop_back();
 }
@@ -2045,7 +2161,6 @@ StyioToLLVM::toLLVMIR(SGResourceWriteToFile* node) {
   llvm::Value* path = node->path_expr->toLLVMIR(this);
   llvm::Value* h = theBuilder->CreateCall(openw, {path});
   llvm::Value* data = node->data_expr->toLLVMIR(this);
-  bool free_after_write = false;
   if (node->promote_data_to_cstr || !data->getType()->isPointerTy()) {
     data = promote_to_cstr(data);
   }
@@ -2054,16 +2169,13 @@ StyioToLLVM::toLLVMIR(SGResourceWriteToFile* node) {
     llvm::FunctionCallee cat = theModule->getOrInsertFunction(
       "styio_strcat_ab",
       llvm::FunctionType::get(char_ptr, {char_ptr, char_ptr}, false));
-    data = theBuilder->CreateCall(cat, {data, nl});
-    free_after_write = true;
+    llvm::Value* with_nl = theBuilder->CreateCall(cat, {data, nl});
+    free_owned_cstr_temp_if_tracked(data);
+    data = with_nl;
+    track_owned_cstr_temp(data);
   }
   theBuilder->CreateCall(write_fn, {h, data});
-  if (free_after_write) {
-    llvm::FunctionCallee free_fn = theModule->getOrInsertFunction(
-      "styio_free_cstr",
-      llvm::FunctionType::get(theBuilder->getVoidTy(), {char_ptr}, false));
-    theBuilder->CreateCall(free_fn, {data});
-  }
+  free_owned_cstr_temp_if_tracked(data);
   theBuilder->CreateCall(close_fn, {h});
   return theBuilder->getInt64(0);
 }
@@ -2132,6 +2244,7 @@ StyioToLLVM::toLLVMIR(SGMatch* node) {
 
   llvm::BasicBlock* merge_bb = llvm::BasicBlock::Create(*theContext, "mexpr_merge", F);
   llvm::PHINode* phi = llvm::PHINode::Create(merge_ty, 0, "mphi", merge_bb);
+  bool phi_maybe_owns_cstr = false;
 
   llvm::Value* sv = coerce_match_scrutinee_to_i64(node->scrutinee->toLLVMIR(this));
 
@@ -2147,6 +2260,9 @@ StyioToLLVM::toLLVMIR(SGMatch* node) {
     if (from && !from->getTerminator()) {
       theBuilder->CreateBr(merge_bb);
       phi->addIncoming(vv, from);
+      if (mixed && take_owned_cstr_temp(vv)) {
+        phi_maybe_owns_cstr = true;
+      }
     }
   }
 
@@ -2165,8 +2281,14 @@ StyioToLLVM::toLLVMIR(SGMatch* node) {
   if (df && !df->getTerminator()) {
     theBuilder->CreateBr(merge_bb);
     phi->addIncoming(dv, df);
+    if (mixed && take_owned_cstr_temp(dv)) {
+      phi_maybe_owns_cstr = true;
+    }
   }
 
   theBuilder->SetInsertPoint(merge_bb);
+  if (mixed && phi_maybe_owns_cstr) {
+    track_owned_cstr_temp(phi);
+  }
   return phi;
 }

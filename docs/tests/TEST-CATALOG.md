@@ -2,7 +2,7 @@
 
 **文档作用：** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`DOCUMENTATION-POLICY.md`](../DOCUMENTATION-POLICY.md)。
 
-**Last updated:** 2026-04-05（定位并修复 `ParamAST` 空类型崩溃；恢复 hash `>>` iterator 定义；补 `?=` forward chain 稳定拒绝回归；补 `match` 非整型 scrutinee TypeError 防崩溃回归）
+**Last updated:** 2026-04-05（定位并修复 `ParamAST` 空类型崩溃；恢复 hash `>>` iterator 定义；补 `?=` forward chain 稳定拒绝回归；补 `match` 非整型 scrutinee TypeError 防崩溃回归；完成 C.8 句柄表接管并补 Safety 回归；新增非法句柄 Soak 与 nightly sanitizer 门禁；统一 runtime text/jsonl 诊断出口并冻结 runtime subcode 回归；修复 codegen 复合赋值误报 RuntimeError 分类）
 
 **批量自动化（所有里程碑集成用例）：**
 
@@ -183,7 +183,7 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_test` | `tests/styio_test.cpp`：`StyioFiveLayerPipeline`、`StyioParserEngine`（legacy/new 在 M1 算术、typed bind、compound assign、M2 simple func 与未标注参数函数样例上一致；hash 无箭头表达式体/无赋值箭头体/`?=` match-cases 样例上一致；`# ... >> ...` hash iterator 定义样例在双引擎下可执行且无崩溃（退出码 `0`，输出一致）；`# ... >> ... ?= ... => ...` 组合链路稳定返回 `ParseError`（退出码 `3`）；`match` 非整型 scrutinee（流式 `line ?={...}`）稳定返回 `TypeError`（退出码 `4`）且不再 abort；非法引擎拒绝；`--parser-shadow-compare` 可通过 M1 核心/全量与 M2 core/full 样例；`--parser-shadow-artifact-dir` 可产出 JSONL 记录并受参数约束回归覆盖；dot-chain 边界在 `DotChainStillRejectedConsistentlyAcrossEngines` 冻结；CI 通过 `scripts/parser-shadow-suite-gate.sh` 对 M1/M2 双目录执行预算 gate 并产出各自 `summary.json`） | `ctest --test-dir build -L styio_pipeline` 或 `ctest --test-dir build -R '^StyioParserEngine\\.'` |
+| `styio_test` | `tests/styio_test.cpp`：`StyioFiveLayerPipeline`、`StyioParserEngine`、`StyioDiagnostics`（legacy/new 在 M1 算术、typed bind、compound assign、M2 simple func 与未标注参数函数样例上一致；hash 无箭头表达式体/无赋值箭头体/`?=` match-cases 样例上一致；`# ... >> ...` hash iterator 定义样例在双引擎下可执行且无崩溃（退出码 `0`，输出一致）；`# ... >> ... ?= ... => ...` 组合链路稳定返回 `ParseError`（退出码 `3`）；`match` 非整型 scrutinee（流式 `line ?={...}`）稳定返回 `TypeError`（退出码 `4`）且不再 abort；`x : i64 := 1` 后 `x += 2` 路径稳定返回 `TypeError`（退出码 `4`，不再误报 `RuntimeError`）；非法引擎拒绝；`--parser-shadow-compare` 可通过 M1 核心/全量与 M2 core/full 样例；`--parser-shadow-artifact-dir` 可产出 JSONL 记录并受参数约束回归覆盖；dot-chain 边界在 `DotChainStillRejectedConsistentlyAcrossEngines` 冻结；runtime helper 失败在 `--error-format=jsonl` 下稳定输出 `RuntimeError/STYIO_RUNTIME`，并覆盖 `STYIO_RUNTIME_FILE_OPEN_READ|STYIO_RUNTIME_FILE_OPEN_WRITE` 子码；CI 通过 `scripts/parser-shadow-suite-gate.sh` 对 M1/M2 双目录执行预算 gate 并产出各自 `summary.json`） | `ctest --test-dir build -L styio_pipeline` 或 `ctest --test-dir build -R '^Styio(ParserEngine|Diagnostics)\\.'` |
 
 **五层流水线 goldens**（Lexer / AST / StyioIR / LLVM / 子进程 stdout）：权威说明见 [`FIVE-LAYER-PIPELINE.md`](./FIVE-LAYER-PIPELINE.md)；用例根目录 `tests/pipeline_cases/`。
 
@@ -208,7 +208,7 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_soak_test` | `tests/soak/styio_soak_test.cpp`：长输入词法循环、文件句柄生命周期循环、RSS 增长阈值守卫、M6 流式程序重复执行 | `ctest --test-dir build -L soak_smoke` |
+| `styio_soak_test` | `tests/soak/styio_soak_test.cpp`：长输入词法循环、文件句柄生命周期循环、文件/拼接 RSS 增长阈值守卫、非法句柄高频诊断循环、M6 流式程序重复执行 | `ctest --test-dir build -L soak_smoke` |
 
 **构建：** `cmake --build build --target styio_soak_test`。  
 **默认档位：** smoke（PR/CI 执行 `ctest --test-dir build -L soak_smoke`）。  
@@ -218,8 +218,16 @@ ctest --test-dir build -L milestone
 
 ---
 
-## 12. Security 回归集（标签）
+## 12. Security/Safety 回归集（标签）
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_security_test` | `tests/security/styio_security_test.cpp`：lexer/Unicode/AST ownership/runtime，含 ParserLookahead trivia 回归、NewParserExpr 子集兼容回归（含 compare/logic/dot-call token gate）、NewParserStmt（print/flex bind/final bind/compound assign/compare/logic/simple call/dot-call/function-def-entry/hash-simple-func，含 `[|n|]`、tuple 返回类型、`=> >_(...)` 语句体、`= expr` 无箭头函数体、无赋值 `=>` 函数体、`?=` match-cases，以及 `# ... >> ...` iterator 定义样例）子集回归与 Shadow fallback 回归（dot-chain） | `ctest --test-dir build -L security` |
+| `styio_security_test` | `tests/security/styio_security_test.cpp`：lexer/Unicode/AST ownership/runtime（含 `StyioSafetyRuntime.*` 内存与 FFI 生命周期回归、`StyioSafetyHandleTable.*` 句柄表语义回归；覆盖“非法非零句柄可诊断、close 幂等、kind mismatch/stub 清理、runtime last-error 清理契约、path-null/open-read/open-write 子码稳定、first-error-wins 子码不漂移”），含 ParserLookahead trivia 回归、NewParserExpr 子集兼容回归（含 compare/logic/dot-call token gate）、NewParserStmt（print/flex bind/final bind/compound assign/compare/logic/simple call/dot-call/function-def-entry/hash-simple-func，含 `[|n|]`、tuple 返回类型、`=> >_(...)` 语句体、`= expr` 无箭头函数体、无赋值 `=>` 函数体、`?=` match-cases，以及 `# ... >> ...` iterator 定义样例）子集回归与 Shadow fallback 回归（dot-chain） | `ctest --test-dir build -L security` 或 `ctest --test-dir build -L safety` |
+
+---
+
+## 13. Sanitizer 夜间门禁
+
+| 目标 | 说明 | Automation |
+|------|------|------------|
+| `styio-nightly-sanitizers` | `.github/workflows/nightly-sanitizers.yml`：`clang-18` + `ASan/UBSan` 构建并执行 `security`、`soak_smoke`、`styio_pipeline`、`milestone` | GitHub Actions `workflow_dispatch` 或 nightly cron |

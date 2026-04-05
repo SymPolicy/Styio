@@ -290,12 +290,15 @@ styio_emit_diagnostic(
   const std::string& format,
   StyioErrorCategory category,
   const std::string& file_path,
-  const std::string& message
+  const std::string& message,
+  const std::string& subcode = ""
 ) {
   if (styio_error_jsonl_enabled(format)) {
     std::cerr
       << "{\"category\":\"" << styio_category_name(category)
       << "\",\"code\":\"" << styio_category_code(category)
+      << (subcode.empty() ? "" : "\",\"subcode\":\"")
+      << (subcode.empty() ? "" : styio_json_escape(subcode))
       << "\",\"file\":\"" << styio_json_escape(file_path)
       << "\",\"message\":\"" << styio_json_escape(message)
       << "\"}\n";
@@ -722,6 +725,14 @@ main(
     styio_runtime_clear_error();
     generator.execute();
     if (styio_runtime_has_error()) {
+      const char* runtime_err = styio_runtime_last_error();
+      const char* runtime_subcode = styio_runtime_last_error_subcode();
+      styio_emit_diagnostic(
+        error_format,
+        StyioErrorCategory::RuntimeError,
+        fpath,
+        runtime_err ? runtime_err : "runtime helper reported error",
+        runtime_subcode ? runtime_subcode : "");
       return styio_exit_code(StyioErrorCategory::RuntimeError);
     }
   } catch (const StyioTypeError& ex) {

@@ -360,10 +360,12 @@ private:
   llvm::Value* evaluate_arm_block_value(SGBlock* b, bool mixed_phi);
 
   std::vector<std::vector<std::string>> file_handle_scope_stack_;
+  std::vector<std::vector<llvm::AllocaInst*>> cstr_slot_scope_stack_;
 
   std::vector<std::pair<std::string, StyioIR*>> snapshot_path_exprs_;
   std::unordered_map<std::string, llvm::AllocaInst*> file_singleton_path_slots_;
   std::unordered_set<std::string> file_singleton_raii_paths_;
+  std::unordered_set<llvm::Value*> owned_cstr_temps_;
 
   void emit_snapshot_shadow_reload();
 
@@ -372,6 +374,14 @@ private:
   void pop_file_handle_scope();
 
   void register_file_handle_for_raii(const std::string& var_name);
+  void register_cstr_slot_for_raii(llvm::AllocaInst* slot);
+
+  llvm::FunctionCallee free_cstr_fn();
+  void track_owned_cstr_temp(llvm::Value* v);
+  bool take_owned_cstr_temp(llvm::Value* v);
+  void forget_owned_cstr_temp(llvm::Value* v);
+  void free_cstr_if_runtime_owned(llvm::Value* v);
+  void free_owned_cstr_temp_if_tracked(llvm::Value* v);
 
   llvm::Value* pulse_ledger_base_ = nullptr;
   llvm::Value* pulse_snap_base_ = nullptr;

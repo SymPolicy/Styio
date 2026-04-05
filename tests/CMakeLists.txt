@@ -162,7 +162,7 @@ gtest_discover_tests(styio_test
 
 gtest_discover_tests(styio_security_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-  PROPERTIES LABELS "security\\;lexer\\;ffi"
+  PROPERTIES LABELS "security\\;safety\\;lexer\\;ffi"
 )
 
 gtest_discover_tests(styio_soak_test
@@ -196,6 +196,24 @@ add_test(
 set_tests_properties(soak_deep_file_rss_guard PROPERTIES
   LABELS "soak;soak_deep;single_thread"
   ENVIRONMENT "STYIO_SOAK_MEM_ITERS=8000;STYIO_SOAK_MEM_FILE_LINES=128;STYIO_SOAK_RSS_GROWTH_LIMIT_KIB=98304"
+)
+
+add_test(
+  NAME soak_deep_concat_rss_guard
+  COMMAND $<TARGET_FILE:styio_soak_test> --gtest_filter=StyioSoakSingleThread.ConcatMemoryGrowthBound
+)
+set_tests_properties(soak_deep_concat_rss_guard PROPERTIES
+  LABELS "soak;soak_deep;single_thread"
+  ENVIRONMENT "STYIO_SOAK_CONCAT_ITERS=6000;STYIO_SOAK_CONCAT_CHAIN=16;STYIO_SOAK_CONCAT_SEG_BYTES=128;STYIO_SOAK_CONCAT_RSS_GROWTH_LIMIT_KIB=98304"
+)
+
+add_test(
+  NAME soak_deep_invalid_handle_diag
+  COMMAND $<TARGET_FILE:styio_soak_test> --gtest_filter=StyioSoakSingleThread.InvalidHandleDiagnosticsLoop
+)
+set_tests_properties(soak_deep_invalid_handle_diag PROPERTIES
+  LABELS "soak;soak_deep;single_thread"
+  ENVIRONMENT "STYIO_SOAK_INVALID_HANDLE_ITERS=120000"
 )
 
 add_test(

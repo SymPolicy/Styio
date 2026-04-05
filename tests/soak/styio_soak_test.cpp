@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -259,6 +260,79 @@ TEST(StyioSoakSingleThread, FileHandleMemoryGrowthBound) {
     << " rss_after=" << rss_after
     << " growth=" << growth
     << " limit=" << limit_bytes;
+}
+
+TEST(StyioSoakSingleThread, ConcatMemoryGrowthBound) {
+  const int loops = read_env_i32("STYIO_SOAK_CONCAT_ITERS", 500, 20, 500000);
+  const int chain = read_env_i32("STYIO_SOAK_CONCAT_CHAIN", 12, 2, 512);
+  const int seg_bytes = read_env_i32("STYIO_SOAK_CONCAT_SEG_BYTES", 96, 8, 65536);
+  const int limit_kib =
+    read_env_i32("STYIO_SOAK_CONCAT_RSS_GROWTH_LIMIT_KIB", 65536, 4096, 1024 * 1024);
+
+  const std::string segment(static_cast<size_t>(seg_bytes), 'x');
+  size_t produced_bytes = 0;
+
+  const size_t rss_before = read_rss_bytes();
+  if (rss_before == 0) {
+    GTEST_SKIP() << "rss probe unavailable on this platform";
+  }
+
+  for (int i = 0; i < loops; ++i) {
+    const char* cur = styio_strcat_ab("", "");
+    ASSERT_NE(cur, nullptr);
+    for (int j = 0; j < chain; ++j) {
+      const char* next = styio_strcat_ab(cur, segment.c_str());
+      ASSERT_NE(next, nullptr);
+      styio_free_cstr(cur);
+      cur = next;
+    }
+    produced_bytes += std::strlen(cur);
+    styio_free_cstr(cur);
+  }
+
+  EXPECT_GT(produced_bytes, 0U);
+
+  const size_t rss_after = read_rss_bytes();
+  if (rss_after == 0) {
+    GTEST_SKIP() << "rss probe unavailable on this platform";
+  }
+
+  const size_t growth = (rss_after > rss_before) ? (rss_after - rss_before) : 0;
+  const size_t limit_bytes = static_cast<size_t>(limit_kib) * 1024ULL;
+  EXPECT_LE(growth, limit_bytes)
+    << "rss_before=" << rss_before
+    << " rss_after=" << rss_after
+    << " growth=" << growth
+    << " limit=" << limit_bytes
+    << " loops=" << loops
+    << " chain=" << chain
+    << " seg_bytes=" << seg_bytes;
+}
+
+TEST(StyioSoakSingleThread, InvalidHandleDiagnosticsLoop) {
+  const int loops = read_env_i32("STYIO_SOAK_INVALID_HANDLE_ITERS", 2000, 1, 2000000);
+  constexpr int64_t kBaseHandle = 900000000;
+
+  for (int i = 0; i < loops; ++i) {
+    const int64_t h = kBaseHandle + static_cast<int64_t>(i);
+
+    styio_runtime_clear_error();
+    styio_file_rewind(h);
+    EXPECT_EQ(styio_runtime_has_error(), 1) << "iter=" << i;
+
+    styio_runtime_clear_error();
+    styio_file_write_cstr(h, "x");
+    EXPECT_EQ(styio_runtime_has_error(), 1) << "iter=" << i;
+
+    styio_runtime_clear_error();
+    EXPECT_EQ(styio_file_read_line(h), nullptr) << "iter=" << i;
+    EXPECT_EQ(styio_runtime_has_error(), 1) << "iter=" << i;
+
+    // Invalid close remains a safe no-op for compatibility.
+    styio_runtime_clear_error();
+    styio_file_close(h);
+    EXPECT_EQ(styio_runtime_has_error(), 0) << "iter=" << i;
+  }
 }
 
 TEST(StyioSoakSingleThread, StreamProgramLoop) {

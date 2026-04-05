@@ -23,6 +23,7 @@
 #include "StyioParser/ParserLookahead.hpp"
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
+#include "StyioRuntime/HandleTable.hpp"
 #include "StyioSession/CompilationSession.hpp"
 #include "StyioUnicode/Unicode.hpp"
 
@@ -981,41 +982,220 @@ TEST(StyioSecurityAstOwnership, ResourceOwnsEntries) {
   EXPECT_EQ(destructed, 2);
 }
 
-TEST(StyioSecurityRuntime, StrcatAbAllocatesWithoutPairingFree) {
-  // Document: each successful call returns malloc-backed memory; generated IR
-  // does not emit free today — repeated use leaks (verify with ASan).
+TEST(StyioSafetyRuntime, StrcatAbAllocatesAndSupportsPairingFree) {
   const char* p = styio_strcat_ab("a", "b");
   ASSERT_NE(p, nullptr);
   ASSERT_STREQ(p, "ab");
-  std::free(const_cast<char*>(p)); // Test harness cleanup only; JIT programs lack this.
+  styio_free_cstr(p);
 
   const char* chain = styio_strcat_ab("x", "y");
   const char* chain2 = styio_strcat_ab(chain, "z");
-  std::free(const_cast<char*>(chain));
-  std::free(const_cast<char*>(chain2));
+  styio_free_cstr(chain);
+  styio_free_cstr(chain2);
 }
 
-TEST(StyioSecurityRuntime, StrcatAbHugeInputDoesNotCrash) {
+TEST(StyioSafetyRuntime, StrcatAbHugeInputDoesNotCrash) {
   std::string a(40000, 'x');
   std::string b(40000, 'y');
   const char* p = styio_strcat_ab(a.c_str(), b.c_str());
   ASSERT_NE(p, nullptr);
   EXPECT_EQ(strlen(p), 80000u);
-  std::free(const_cast<char*>(p));
+  styio_free_cstr(p);
 }
 
-TEST(StyioSecurityRuntime, MissingFileOpenReturnsZeroHandle) {
+TEST(StyioSafetyRuntime, MissingFileOpenReturnsZeroHandle) {
+  styio_runtime_clear_error();
   const int64_t h = styio_file_open("/tmp/styio_missing_9b8fe8e2_7dfe_42ed_9ce2_4f9e587f7f6d.txt");
   EXPECT_EQ(h, 0);
+  EXPECT_EQ(styio_runtime_has_error(), 1);
+  EXPECT_STREQ(styio_runtime_last_error_subcode(), "STYIO_RUNTIME_FILE_OPEN_READ");
+  const char* msg = styio_runtime_last_error();
+  ASSERT_NE(msg, nullptr);
+  EXPECT_NE(std::strstr(msg, "cannot open file for read"), nullptr);
+  styio_runtime_clear_error();
 }
 
-TEST(StyioSecurityRuntime, InvalidHandleOperationsAreSafe) {
+TEST(StyioSafetyRuntime, NullReadPathSetsStableSubcode) {
+  styio_runtime_clear_error();
+  const int64_t h = styio_file_open(nullptr);
+  EXPECT_EQ(h, 0);
+  EXPECT_EQ(styio_runtime_has_error(), 1);
+  EXPECT_STREQ(styio_runtime_last_error_subcode(), "STYIO_RUNTIME_FILE_PATH_NULL");
+  const char* msg = styio_runtime_last_error();
+  ASSERT_NE(msg, nullptr);
+  EXPECT_NE(std::strstr(msg, "file path is null"), nullptr);
+  styio_runtime_clear_error();
+}
+
+TEST(StyioSafetyRuntime, NullWritePathSetsStableSubcode) {
+  styio_runtime_clear_error();
+  const int64_t h = styio_file_open_write(nullptr);
+  EXPECT_EQ(h, 0);
+  EXPECT_EQ(styio_runtime_has_error(), 1);
+  EXPECT_STREQ(styio_runtime_last_error_subcode(), "STYIO_RUNTIME_FILE_PATH_NULL");
+  const char* msg = styio_runtime_last_error();
+  ASSERT_NE(msg, nullptr);
+  EXPECT_NE(std::strstr(msg, "file path is null"), nullptr);
+  styio_runtime_clear_error();
+}
+
+TEST(StyioSafetyRuntime, MissingWritePathSetsStableSubcode) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const std::string path =
+    "/tmp/styio_missing_write_dir_" + std::to_string(uniq) + "/out.txt";
+
+  styio_runtime_clear_error();
+  const int64_t h = styio_file_open_write(path.c_str());
+  EXPECT_EQ(h, 0);
+  EXPECT_EQ(styio_runtime_has_error(), 1);
+  EXPECT_STREQ(styio_runtime_last_error_subcode(), "STYIO_RUNTIME_FILE_OPEN_WRITE");
+  const char* msg = styio_runtime_last_error();
+  ASSERT_NE(msg, nullptr);
+  EXPECT_NE(std::strstr(msg, "cannot open file for write"), nullptr);
+  styio_runtime_clear_error();
+}
+
+TEST(StyioSafetyRuntime, InvalidHandleOperationsAreSafe) {
+  styio_runtime_clear_error();
   styio_file_close(123456789);
   styio_file_rewind(123456789);
   EXPECT_EQ(styio_file_read_line(123456789), nullptr);
+  EXPECT_EQ(styio_runtime_has_error(), 1);
+  EXPECT_STREQ(styio_runtime_last_error_subcode(), "STYIO_RUNTIME_INVALID_FILE_HANDLE");
+  const char* msg = styio_runtime_last_error();
+  ASSERT_NE(msg, nullptr);
+  EXPECT_NE(std::strstr(msg, "invalid file handle"), nullptr);
+  styio_runtime_clear_error();
 }
 
-TEST(StyioSecurityRuntime, FreeCstrAcceptsNull) {
+TEST(StyioSafetyRuntime, FirstErrorWinsAcrossMultipleRuntimeFailures) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const std::string path =
+    "/tmp/styio_missing_runtime_first_error_" + std::to_string(uniq) + ".txt";
+
+  styio_runtime_clear_error();
+  EXPECT_EQ(styio_file_open(path.c_str()), 0);
+  ASSERT_EQ(styio_runtime_has_error(), 1);
+  ASSERT_STREQ(styio_runtime_last_error_subcode(), "STYIO_RUNTIME_FILE_OPEN_READ");
+  const char* first_msg = styio_runtime_last_error();
+  ASSERT_NE(first_msg, nullptr);
+
+  // Second error should not overwrite first-error diagnostics within one run.
+  styio_file_rewind(987654321);
+  EXPECT_STREQ(styio_runtime_last_error_subcode(), "STYIO_RUNTIME_FILE_OPEN_READ");
+  const char* msg = styio_runtime_last_error();
+  ASSERT_NE(msg, nullptr);
+  EXPECT_STREQ(msg, first_msg);
+  styio_runtime_clear_error();
+}
+
+TEST(StyioSafetyRuntime, InvalidWriteHandleSetsRuntimeError) {
+  styio_runtime_clear_error();
+  styio_file_write_cstr(345678901, "x");
+  EXPECT_EQ(styio_runtime_has_error(), 1);
+  EXPECT_STREQ(styio_runtime_last_error_subcode(), "STYIO_RUNTIME_INVALID_FILE_HANDLE");
+  const char* msg = styio_runtime_last_error();
+  ASSERT_NE(msg, nullptr);
+  EXPECT_NE(std::strstr(msg, "invalid file handle"), nullptr);
+  styio_runtime_clear_error();
+}
+
+TEST(StyioSafetyRuntime, CloseIsIdempotentAndKeepsErrorClear) {
+  styio_runtime_clear_error();
+  const int64_t h = styio_file_open("tests/m5/data/hello.txt");
+  ASSERT_NE(h, 0);
+  styio_file_close(h);
+  styio_file_close(h);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+  EXPECT_EQ(styio_runtime_last_error_subcode(), nullptr);
+  EXPECT_EQ(styio_runtime_last_error(), nullptr);
+}
+
+TEST(StyioSafetyRuntime, FreeCstrAcceptsNull) {
   styio_free_cstr(nullptr);
   SUCCEED();
+}
+
+TEST(StyioSafetyRuntime, FreeCstrIgnoresBorrowedPointer) {
+  const int64_t h = styio_file_open("tests/m5/data/hello.txt");
+  ASSERT_NE(h, 0);
+  const char* line = styio_file_read_line(h);
+  ASSERT_NE(line, nullptr);
+  styio_free_cstr(line);
+  styio_file_close(h);
+  SUCCEED();
+}
+
+TEST(StyioSafetyRuntime, ClearErrorAlsoClearsLastErrorMessage) {
+  styio_runtime_clear_error();
+  (void)styio_file_open("/tmp/styio_missing_0a2f8bd8_9a47_4e2d_b258_1de50d7f8f08.txt");
+  ASSERT_EQ(styio_runtime_has_error(), 1);
+  ASSERT_NE(styio_runtime_last_error_subcode(), nullptr);
+  ASSERT_NE(styio_runtime_last_error(), nullptr);
+  styio_runtime_clear_error();
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+  EXPECT_EQ(styio_runtime_last_error_subcode(), nullptr);
+  EXPECT_EQ(styio_runtime_last_error(), nullptr);
+}
+
+TEST(StyioSafetyHandleTable, AcquireLookupAndReleaseHonorsKind) {
+  StyioHandleTable table;
+  int payload = 42;
+  const auto id = table.acquire(StyioHandleTable::HandleKind::File, &payload);
+  ASSERT_NE(id, 0);
+  ASSERT_TRUE(table.contains(id));
+  EXPECT_EQ(table.lookup_as<int>(id, StyioHandleTable::HandleKind::File), &payload);
+  EXPECT_EQ(table.lookup_as<int>(id, StyioHandleTable::HandleKind::Resource), nullptr);
+
+  bool closer_called = false;
+  EXPECT_FALSE(table.release(
+    id,
+    StyioHandleTable::HandleKind::Resource,
+    [&](void*) { closer_called = true; }));
+  EXPECT_FALSE(closer_called);
+  EXPECT_TRUE(table.contains(id));
+
+  EXPECT_TRUE(table.release(
+    id,
+    StyioHandleTable::HandleKind::File,
+    [&](void* raw) {
+      closer_called = true;
+      EXPECT_EQ(raw, &payload);
+    }));
+  EXPECT_TRUE(closer_called);
+  EXPECT_FALSE(table.contains(id));
+  EXPECT_EQ(table.size(), 0U);
+}
+
+TEST(StyioSafetyHandleTable, ReleaseAllSkipsKindMismatchesAndDropsStubs) {
+  StyioHandleTable table;
+  int file_payload = 1;
+  int resource_payload = 2;
+
+  const auto file_id = table.acquire(StyioHandleTable::HandleKind::File, &file_payload);
+  const auto resource_id = table.acquire(StyioHandleTable::HandleKind::Resource, &resource_payload);
+  const auto stub_id = table.reserve_stub(StyioHandleTable::HandleKind::File);
+  ASSERT_NE(file_id, 0);
+  ASSERT_NE(resource_id, 0);
+  ASSERT_NE(stub_id, 0);
+  EXPECT_EQ(table.size(), 3U);
+
+  int released = 0;
+  const size_t released_count = table.release_all(
+    StyioHandleTable::HandleKind::File,
+    [&](void* raw) {
+      ++released;
+      EXPECT_EQ(raw, &file_payload);
+    });
+  EXPECT_EQ(released_count, 1U);
+  EXPECT_EQ(released, 1);
+  EXPECT_FALSE(table.contains(file_id));
+  EXPECT_FALSE(table.contains(stub_id));
+  EXPECT_TRUE(table.contains(resource_id));
+  EXPECT_EQ(table.size(), 1U);
+
+  table.invalidate(resource_id);
+  EXPECT_EQ(table.size(), 0U);
 }

@@ -67,3 +67,10 @@
 - `ADR-0053-param-ctor-null-type-and-hash-iterator-restore.md`
 - `ADR-0054-hash-iterator-match-forward-chain-guard.md`
 - `ADR-0055-match-scrutinee-integer-boundary.md`
+- `ADR-0056-owned-cstr-lifecycle-guardrail.md`
+- `ADR-0057-memory-safety-taxonomy-and-concat-soak-gate.md`
+- `ADR-0058-runtime-handle-table-takeover-and-sentinel-compat.md`
+- `ADR-0059-nightly-sanitizer-gate-and-handle-diagnostic-soak.md`
+- `ADR-0060-runtime-last-error-and-top-level-diagnostic-unification.md`
+- `ADR-0061-runtime-subcode-taxonomy-freeze.md`
+- `ADR-0062-codegen-compound-assign-typeerror.md`

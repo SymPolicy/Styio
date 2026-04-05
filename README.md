@@ -25,6 +25,23 @@ cmake -S . -B build -DSTYIO_USE_ICU=ON -DICU_ROOT=/opt/homebrew/opt/icu4c
 ./build/bin/styio --styio-ast --styio-ir --llvm-ir --file a.styio
 ```
 
+## Diagnostics
+
+- 默认：`--error-format=text`，错误输出到 `stderr`。
+- 机器可读：`--error-format=jsonl`，每条错误输出一行 JSON。
+
+```bash
+./build/bin/styio --error-format=jsonl --file tests/milestones/m5/t06_fail_fast.styio 2>&1
+```
+
+```json
+{"category":"RuntimeError","code":"STYIO_RUNTIME","subcode":"STYIO_RUNTIME_FILE_OPEN_READ","file":"...","message":"cannot open file for read: ..."}
+```
+
+- `category`：`LexError|ParseError|TypeError|RuntimeError`
+- `code`：`STYIO_LEX|STYIO_PARSE|STYIO_TYPE|STYIO_RUNTIME`
+- `subcode`：仅在细分类可用时输出（当前 runtime 子类会输出稳定 `subcode`）
+
 ### extend_tests.py
 Python script for creating test files.
 

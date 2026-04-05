@@ -24,11 +24,16 @@ extern "C" DLLEXPORT int64_t styio_cstr_to_i64(const char* s);
 extern "C" DLLEXPORT int64_t styio_read_file_i64line(const char* path);
 /* Owns heap memory; release with styio_free_cstr. */
 extern "C" DLLEXPORT const char* styio_strcat_ab(const char* a, const char* b);
+/* Safe no-op for null/non-owned pointers; frees only styio-owned cstr allocations. */
 extern "C" DLLEXPORT void styio_free_cstr(const char* s);
 /* Borrowed thread-local decimal buffers; do not free. */
 extern "C" DLLEXPORT const char* styio_i64_dec_cstr(int64_t v);
 extern "C" DLLEXPORT const char* styio_f64_dec_cstr(double v);
 extern "C" DLLEXPORT int styio_runtime_has_error();
+/* Borrowed pointer to last runtime error message; null when no runtime error is set. */
+extern "C" DLLEXPORT const char* styio_runtime_last_error();
+/* Borrowed pointer to last runtime error subcode; null when no runtime error is set. */
+extern "C" DLLEXPORT const char* styio_runtime_last_error_subcode();
 extern "C" DLLEXPORT void styio_runtime_clear_error();
 
 extern "C" DLLEXPORT int something();
