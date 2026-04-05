@@ -155,21 +155,29 @@ parse_expr_to_repr(const std::string& source, bool use_new_parser) {
     tokens,
     false);
 
-  StyioAST* ast = use_new_parser ? parse_expr_new_subset(*ctx) : parse_expr(*ctx);
-  ctx->skip();
-  if (ctx->cur_tok_type() != StyioTokenType::TOK_AT) {
+  StyioAST* ast = nullptr;
+  auto cleanup = [&]() {
     delete ast;
     delete ctx;
     free_tokens(tokens);
-    throw std::runtime_error("expression parser did not stop at sentinel");
-  }
+    StyioAST::destroy_all_tracked_nodes();
+  };
 
-  StyioRepr repr;
-  const std::string out = ast->toString(&repr);
-  delete ast;
-  delete ctx;
-  free_tokens(tokens);
-  return out;
+  try {
+    ast = use_new_parser ? parse_expr_new_subset(*ctx) : parse_expr(*ctx);
+    ctx->skip();
+    if (ctx->cur_tok_type() != StyioTokenType::TOK_AT) {
+      throw std::runtime_error("expression parser did not stop at sentinel");
+    }
+
+    StyioRepr repr;
+    const std::string out = ast->toString(&repr);
+    cleanup();
+    return out;
+  } catch (...) {
+    cleanup();
+    throw;
+  }
 }
 
 std::string
@@ -182,21 +190,29 @@ parse_program_to_repr(const std::string& source, bool use_new_parser) {
     tokens,
     false);
 
-  MainBlockAST* ast = use_new_parser ? parse_main_block_new_subset(*ctx) : parse_main_block(*ctx);
-  ctx->skip();
-  if (ctx->cur_tok_type() != StyioTokenType::TOK_EOF) {
+  MainBlockAST* ast = nullptr;
+  auto cleanup = [&]() {
     delete ast;
     delete ctx;
     free_tokens(tokens);
-    throw std::runtime_error("statement parser did not consume input");
-  }
+    StyioAST::destroy_all_tracked_nodes();
+  };
 
-  StyioRepr repr;
-  const std::string out = ast->toString(&repr);
-  delete ast;
-  delete ctx;
-  free_tokens(tokens);
-  return out;
+  try {
+    ast = use_new_parser ? parse_main_block_new_subset(*ctx) : parse_main_block(*ctx);
+    ctx->skip();
+    if (ctx->cur_tok_type() != StyioTokenType::TOK_EOF) {
+      throw std::runtime_error("statement parser did not consume input");
+    }
+
+    StyioRepr repr;
+    const std::string out = ast->toString(&repr);
+    cleanup();
+    return out;
+  } catch (...) {
+    cleanup();
+    throw;
+  }
 }
 
 std::string
@@ -209,21 +225,29 @@ parse_program_engine_to_repr(const std::string& source, StyioParserEngine engine
     tokens,
     false);
 
-  MainBlockAST* ast = parse_main_block_with_engine(*ctx, engine);
-  ctx->skip();
-  if (ctx->cur_tok_type() != StyioTokenType::TOK_EOF) {
+  MainBlockAST* ast = nullptr;
+  auto cleanup = [&]() {
     delete ast;
     delete ctx;
     free_tokens(tokens);
-    throw std::runtime_error("engine parser did not consume input");
-  }
+    StyioAST::destroy_all_tracked_nodes();
+  };
 
-  StyioRepr repr;
-  const std::string out = ast->toString(&repr);
-  delete ast;
-  delete ctx;
-  free_tokens(tokens);
-  return out;
+  try {
+    ast = parse_main_block_with_engine(*ctx, engine);
+    ctx->skip();
+    if (ctx->cur_tok_type() != StyioTokenType::TOK_EOF) {
+      throw std::runtime_error("engine parser did not consume input");
+    }
+
+    StyioRepr repr;
+    const std::string out = ast->toString(&repr);
+    cleanup();
+    return out;
+  } catch (...) {
+    cleanup();
+    throw;
+  }
 }
 } // namespace
 
@@ -469,6 +493,20 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFunctionDefSubsetSamples) {
   for (const auto& src : samples) {
     EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
   }
+}
+
+TEST(StyioSecurityNewParserStmt, RejectsHashIteratorMatchForwardChainWithStableError) {
+  const std::string src = "# iter_only(x) >> (n) ?= 2 => >_(n)\niter_only([1, 2, 3])\n";
+  EXPECT_THROW(
+    {
+      (void)parse_program_to_repr(src, true);
+    },
+    StyioBaseException);
+  EXPECT_THROW(
+    {
+      (void)parse_program_to_repr(src, false);
+    },
+    StyioBaseException);
 }
 
 TEST(StyioSecurityNewParserStmt, MatchesLegacyOnDotCallSubsetSamples) {
