@@ -374,7 +374,7 @@ TEST(StyioParserEngine, HashIteratorMatchForwardChainReturnsParseError) {
   fs::remove(input);
 }
 
-TEST(StyioParserEngine, PointerScrutineeMatchDoesNotAbortAndReportsRuntimeError) {
+TEST(StyioParserEngine, PointerScrutineeMatchDoesNotAbortAndReportsTypeError) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input = fs::temp_directory_path() / ("styio-match-pointer-scrutinee-"
@@ -408,10 +408,10 @@ TEST(StyioParserEngine, PointerScrutineeMatchDoesNotAbortAndReportsRuntimeError)
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
 
-  EXPECT_EQ(legacy.exit_code, 5);
-  EXPECT_EQ(newer.exit_code, 5);
-  EXPECT_NE(legacy.stdout_text.find("\"category\":\"RuntimeError\""), std::string::npos);
-  EXPECT_NE(newer.stdout_text.find("\"category\":\"RuntimeError\""), std::string::npos);
+  EXPECT_EQ(legacy.exit_code, 4);
+  EXPECT_EQ(newer.exit_code, 4);
+  EXPECT_NE(legacy.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(newer.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
   EXPECT_NE(legacy.stdout_text.find("match scrutinee must be integer-typed"), std::string::npos);
   EXPECT_NE(newer.stdout_text.find("match scrutinee must be integer-typed"), std::string::npos);
 

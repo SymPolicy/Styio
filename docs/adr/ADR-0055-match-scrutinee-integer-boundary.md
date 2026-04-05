@@ -13,11 +13,12 @@
 1. 在 `toLLVMIR(SGMatch*)` 内新增 `coerce_match_scrutinee_to_i64` 统一转换边界：
    - `i64`：直接使用；
    - 其它整数类型（如 `i1/i32`）：`SExtOrTrunc` 到 `i64`；
-   - 非整数类型（指针/浮点等）：抛 `StyioNotImplemented("match scrutinee must be integer-typed")`。
+   - 非整数类型（指针/浮点等）：抛 `StyioTypeError("match scrutinee must be integer-typed")`。
 2. 在 statement/expression 两条 `SGMatch` lowering 路径复用同一边界函数。
-3. 增加回归测试 `StyioParserEngine.PointerScrutineeMatchDoesNotAbortAndReportsRuntimeError`，冻结行为为：
+3. 将 codegen 阶段抛出的 `StyioTypeError` 在 CLI 主流程映射为 `TypeError`（退出码 `4`）。
+4. 增加回归测试 `StyioParserEngine.PointerScrutineeMatchDoesNotAbortAndReportsTypeError`，冻结行为为：
    - 不再 abort；
-   - 双引擎返回 `RuntimeError`（退出码 `5`）；
+   - 双引擎返回 `TypeError`（退出码 `4`）；
    - JSONL 诊断含稳定错误信息。
 
 ## Alternatives

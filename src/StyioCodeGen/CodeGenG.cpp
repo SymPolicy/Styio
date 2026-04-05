@@ -2080,7 +2080,7 @@ StyioToLLVM::toLLVMIR(SGMatch* node) {
     if (ty->isIntegerTy()) {
       return theBuilder->CreateSExtOrTrunc(v, i64ti);
     }
-    throw StyioNotImplemented("match scrutinee must be integer-typed");
+    throw StyioTypeError("match scrutinee must be integer-typed");
   };
 
   if (node->repr_kind == SGMatchReprKind::Stmt) {

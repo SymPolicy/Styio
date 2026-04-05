@@ -724,6 +724,9 @@ main(
     if (styio_runtime_has_error()) {
       return styio_exit_code(StyioErrorCategory::RuntimeError);
     }
+  } catch (const StyioTypeError& ex) {
+    styio_emit_diagnostic(error_format, StyioErrorCategory::TypeError, fpath, ex.what());
+    return styio_exit_code(StyioErrorCategory::TypeError);
   } catch (const StyioBaseException& ex) {
     styio_emit_diagnostic(error_format, StyioErrorCategory::RuntimeError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::RuntimeError);
