@@ -2,7 +2,7 @@
 
 **文档作用：** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`DOCUMENTATION-POLICY.md`](../DOCUMENTATION-POLICY.md)。
 
-**Last updated:** 2026-04-06（定位并修复 `ParamAST` 空类型崩溃；恢复 hash `>>` iterator 定义；补 `?=` forward chain 稳定拒绝回归；补 `match` 非整型 scrutinee TypeError 防崩溃回归；完成 C.8 句柄表接管并补 Safety 回归；新增非法句柄 Soak 与 nightly sanitizer 门禁；统一 runtime text/jsonl 诊断出口并冻结 runtime subcode 回归；修复 codegen 复合赋值与 stream zip 不支持来源误报 RuntimeError 分类；活跃流水线移除 `Styio.NotImplemented` 文案；修复 `?=` 无默认分支未初始化指针崩溃并补回归；补 `?= {}` 拒绝契约与 malformed 前缀 parse 防崩溃回归；fuzz smoke 接入 clang-18 链路并稳定通过；nightly fuzz 新增 case pack 回流与 `fuzz_regression_pack_smoke`；ParserContext 新增空 token EOF 降级与越界前移钳制回归；新增 `parse_path` 单字符路径与 `peak_operator` EOF 越界防护回归；补 `CasesAST/MatchCasesAST`、`PrintAST/StateRefAST/HistoryProbeAST`、`SeriesIntrinsicAST` 与 `StateDeclAST` 所有权析构回归并完成 RAII 收口；修复单参数 state helper（直返 `StateDecl`）在 pulse 体中调用时参数替换失效问题，并补 `1/3/6` 回归）
+**Last updated:** 2026-04-06（定位并修复 `ParamAST` 空类型崩溃；恢复 hash `>>` iterator 定义；补 `?=` forward chain 稳定拒绝回归；补 `match` 非整型 scrutinee TypeError 防崩溃回归；完成 C.8 句柄表接管并补 Safety 回归；新增非法句柄 Soak 与 nightly sanitizer 门禁；统一 runtime text/jsonl 诊断出口并冻结 runtime subcode 回归；修复 codegen 复合赋值与 stream zip 不支持来源误报 RuntimeError 分类；活跃流水线移除 `Styio.NotImplemented` 文案；修复 `?=` 无默认分支未初始化指针崩溃并补回归；补 `?= {}` 拒绝契约与 malformed 前缀 parse 防崩溃回归；fuzz smoke 接入 clang-18 链路并稳定通过；nightly fuzz 新增 case pack 回流与 `fuzz_regression_pack_smoke`；ParserContext 新增空 token EOF 降级与越界前移钳制回归；新增 `parse_path` 单字符路径与 `peak_operator` EOF 越界防护回归；补 `CasesAST/MatchCasesAST`、`PrintAST/StateRefAST/HistoryProbeAST`、`SeriesIntrinsicAST`、`StateDeclAST`、`TypeTupleAST` 与 `CheckEqualAST` 所有权析构回归并完成 RAII 收口；修复单参数 state helper（直返 `StateDecl`）在 pulse 体中调用时参数替换失效问题，并补 `1/3/6` 回归；新增 `StateInlineHelperProgramLoop` 与 `soak_deep_state_inline_program` 长跑门禁）
 
 **批量自动化（所有里程碑集成用例）：**
 
@@ -212,7 +212,7 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_soak_test` | `tests/soak/styio_soak_test.cpp`：长输入词法循环、文件句柄生命周期循环、文件/拼接 RSS 增长阈值守卫、非法句柄高频诊断循环、M6 流式程序重复执行 | `ctest --test-dir build -L soak_smoke` |
+| `styio_soak_test` | `tests/soak/styio_soak_test.cpp`：长输入词法循环、文件句柄生命周期循环、文件/拼接 RSS 增长阈值守卫、非法句柄高频诊断循环、M6 流式程序重复执行、单参数 state helper（直返 `StateDecl`）内联链路长跑回归（输出 `1/3/6`） | `ctest --test-dir build -L soak_smoke` |
 
 **构建：** `cmake --build build --target styio_soak_test`。  
 **默认档位：** smoke（PR/CI 执行 `ctest --test-dir build -L soak_smoke`）。  

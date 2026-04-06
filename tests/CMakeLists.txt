@@ -225,6 +225,15 @@ set_tests_properties(soak_deep_stream_program PROPERTIES
   ENVIRONMENT "STYIO_SOAK_STREAM_ITERS=1500"
 )
 
+add_test(
+  NAME soak_deep_state_inline_program
+  COMMAND $<TARGET_FILE:styio_soak_test> --gtest_filter=StyioSoakSingleThread.StateInlineHelperProgramLoop
+)
+set_tests_properties(soak_deep_state_inline_program PROPERTIES
+  LABELS "soak;soak_deep;single_thread"
+  ENVIRONMENT "STYIO_SOAK_STATE_INLINE_ITERS=1500"
+)
+
 option(STYIO_ENABLE_FUZZ "Build libFuzzer targets" OFF)
 if(STYIO_ENABLE_FUZZ)
   add_subdirectory(fuzz)

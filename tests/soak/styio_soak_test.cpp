@@ -361,3 +361,39 @@ TEST(StyioSoakSingleThread, StreamProgramLoop) {
     EXPECT_EQ(out, expected) << "iter=" << i;
   }
 }
+
+TEST(StyioSoakSingleThread, StateInlineHelperProgramLoop) {
+  const int loops = read_env_i32("STYIO_SOAK_STATE_INLINE_ITERS", 40, 1, 100000);
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+  TempFileGuard src{
+    fs::temp_directory_path() / ("styio_soak_state_inline_" + std::to_string(stamp) + ".styio")
+  };
+  {
+    std::ofstream out(src.path);
+    ASSERT_TRUE(out.good());
+    out << "# pulse = (x) => {\n";
+    out << "  @[sum = 0](out = $sum + x)\n";
+    out << "}\n";
+    out << "[1, 2, 3] >> #(v) => {\n";
+    out << "  pulse(v)\n";
+    out << "  >_(out)\n";
+    out << "}\n";
+  }
+
+  std::string expected = "1\n3\n6\n";
+  normalize_text(expected);
+
+  const std::string cmd = std::string("\"") + runner + "\" --file \"" + src.path.string() + "\" 2>/dev/null";
+  for (int i = 0; i < loops; ++i) {
+    std::string out = capture_stdout(cmd);
+    normalize_text(out);
+    EXPECT_EQ(out, expected) << "iter=" << i;
+  }
+}

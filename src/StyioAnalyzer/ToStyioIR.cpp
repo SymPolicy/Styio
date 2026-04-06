@@ -164,24 +164,42 @@ classify_cases(CasesAST* c) {
 }
 
 bool
-simple_func_returns_single_state_decl(SimpleFuncAST* sf, StateDeclAST*& out_sd) {
+body_returns_single_state_decl(StyioAST* body, StateDeclAST*& out_sd) {
   out_sd = nullptr;
-  if (sf == nullptr) {
+  if (body == nullptr) {
     return false;
   }
 
-  if (auto* sd = dynamic_cast<StateDeclAST*>(sf->ret_expr)) {
+  if (auto* sd = dynamic_cast<StateDeclAST*>(body)) {
     out_sd = sd;
     return true;
   }
 
-  auto* blk = dynamic_cast<BlockAST*>(sf->ret_expr);
+  auto* blk = dynamic_cast<BlockAST*>(body);
   if (blk == nullptr || blk->stmts.size() != 1) {
     return false;
   }
 
   out_sd = dynamic_cast<StateDeclAST*>(blk->stmts[0]);
   return out_sd != nullptr;
+}
+
+bool
+simple_func_returns_single_state_decl(SimpleFuncAST* sf, StateDeclAST*& out_sd) {
+  if (sf == nullptr) {
+    out_sd = nullptr;
+    return false;
+  }
+  return body_returns_single_state_decl(sf->ret_expr, out_sd);
+}
+
+bool
+function_ast_returns_single_state_decl(FunctionAST* fn, StateDeclAST*& out_sd) {
+  if (fn == nullptr) {
+    out_sd = nullptr;
+    return false;
+  }
+  return body_returns_single_state_decl(fn->func_body, out_sd);
 }
 
 bool
@@ -197,6 +215,12 @@ stmt_may_contain_pulse_state(StyioAnalyzer* an, StyioAST* s) {
     if (auto* sf = dynamic_cast<SimpleFuncAST*>(it->second)) {
       StateDeclAST* sd = nullptr;
       if (simple_func_returns_single_state_decl(sf, sd)) {
+        return true;
+      }
+    }
+    if (auto* fn = dynamic_cast<FunctionAST*>(it->second)) {
+      StateDeclAST* sd = nullptr;
+      if (function_ast_returns_single_state_decl(fn, sd)) {
         return true;
       }
     }
@@ -576,18 +600,34 @@ resolve_state_decl_impl(StyioAnalyzer* an, StyioAST* stmt, PulseScratch* scratch
   if (it == an->func_defs.end()) {
     throw StyioTypeError("unknown function in pulse body");
   }
-  auto* sf = dynamic_cast<SimpleFuncAST*>(it->second);
-  if (!sf || sf->params.size() != 1 || fc->getArgList().size() != 1) {
-    throw StyioTypeError("only simple single-arg func->state inlining supported");
+
+  const std::vector<ParamAST*>* params = nullptr;
+  StyioAST* body = nullptr;
+
+  if (auto* sf = dynamic_cast<SimpleFuncAST*>(it->second)) {
+    params = &sf->params;
+    body = sf->ret_expr;
   }
+  else if (auto* fn = dynamic_cast<FunctionAST*>(it->second)) {
+    params = &fn->params;
+    body = fn->func_body;
+  }
+  else {
+    throw StyioTypeError("only single-arg function->state inlining supported");
+  }
+
+  if (params == nullptr || params->size() != 1 || fc->getArgList().size() != 1) {
+    throw StyioTypeError("only single-arg function->state inlining supported");
+  }
+
   StateDeclAST* sd = nullptr;
-  if (!simple_func_returns_single_state_decl(sf, sd)) {
+  if (!body_returns_single_state_decl(body, sd)) {
     throw StyioTypeError("inlined state func must return a single state declaration");
   }
   if (!sd) {
     throw StyioTypeError("inlined func body must be a state decl");
   }
-  const std::string& pn = sf->params[0]->getName();
+  const std::string& pn = (*params)[0]->getName();
   StyioAST* rep = fc->getArgList()[0];
   StyioAST* new_rhs = subst_param_in_expr(sd->getUpdateExpr(), pn, rep);
   auto* created = StateDeclAST::Create(

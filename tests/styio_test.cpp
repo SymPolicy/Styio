@@ -961,6 +961,41 @@ TEST(StyioDiagnostics, SingleArgStateFunctionInliningUsesCallArgument) {
   fs::remove(input);
 }
 
+TEST(StyioDiagnostics, BlockStateFunctionInliningUsesCallArgument) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-state-inline-block-arg-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# pulse = (x) => {\n";
+    out << "  @[sum = 0](out = $sum + x)\n";
+    out << "}\n";
+    out << "[1, 2, 3] >> #(v) => {\n";
+    out << "  pulse(v)\n";
+    out << "  >_(out)\n";
+    out << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(result.stdout_text, "1\n3\n6\n");
+  EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
+
+  fs::remove(input);
+}
+
 TEST(StyioDiagnostics, MatchWithoutDefaultDoesNotCrash) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();

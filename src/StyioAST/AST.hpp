@@ -228,13 +228,27 @@ public:
 
 class TypeTupleAST : public StyioASTTraits<TypeTupleAST>
 {
+  std::vector<std::unique_ptr<TypeAST>> type_owners_;
+
+  void adopt_type_list(std::vector<TypeAST*> owned_types) {
+    type_owners_.clear();
+    type_list.clear();
+    type_owners_.reserve(owned_types.size());
+    type_list.reserve(owned_types.size());
+    for (auto* type : owned_types) {
+      type_owners_.emplace_back(type);
+      type_list.push_back(type_owners_.back().get());
+    }
+  }
+
 private:
   TypeTupleAST() {}
 
   TypeTupleAST(
     std::vector<TypeAST*> type_list
   ) :
-      type_list(type_list) {
+      type_list() {
+    adopt_type_list(type_list);
   }
 
 public:
@@ -3012,13 +3026,27 @@ public:
 /* Match a Value Expression to See if they equal */
 class CheckEqualAST : public StyioASTTraits<CheckEqualAST>
 {
+  std::vector<std::unique_ptr<StyioAST>> right_value_owners_;
+
+  void adopt_right_values(std::vector<StyioAST*> values) {
+    right_value_owners_.clear();
+    right_values.clear();
+    right_value_owners_.reserve(values.size());
+    right_values.reserve(values.size());
+    for (auto* value : values) {
+      right_value_owners_.emplace_back(value);
+      right_values.push_back(right_value_owners_.back().get());
+    }
+  }
+
 public:
   std::vector<StyioAST*> right_values;
 
   CheckEqualAST(
     std::vector<StyioAST*> right
   ) :
-      right_values(right) {
+      right_values() {
+    adopt_right_values(right);
   }
 
   static CheckEqualAST* Create(

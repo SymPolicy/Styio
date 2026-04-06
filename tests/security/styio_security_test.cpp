@@ -937,6 +937,16 @@ TEST(StyioSecurityAstOwnership, TupleOwnsElements) {
   EXPECT_EQ(destructed, 2);
 }
 
+TEST(StyioSecurityAstOwnership, TypeTupleOwnsTypeNodes) {
+  int destructed = 0;
+  auto* expr = TypeTupleAST::Create(
+    std::vector<TypeAST*>{
+      new CountingTypeAST("i64", &destructed),
+      new CountingTypeAST("f64", &destructed)});
+  delete expr;
+  EXPECT_EQ(destructed, 2);
+}
+
 TEST(StyioSecurityAstOwnership, ListOwnsElements) {
   int destructed = 0;
   auto* expr = ListAST::Create(
@@ -1196,6 +1206,17 @@ TEST(StyioSecurityAstOwnership, MatchCasesOwnsScrutineeAndCases) {
 
   delete node;
   EXPECT_EQ(destructed, 4);
+}
+
+TEST(StyioSecurityAstOwnership, CheckEqualOwnsRightValueExprs) {
+  int destructed = 0;
+  auto* node = CheckEqualAST::Create(std::vector<StyioAST*>{
+    new CountingExprAST(&destructed),
+    new CountingExprAST(&destructed),
+  });
+
+  delete node;
+  EXPECT_EQ(destructed, 2);
 }
 
 TEST(StyioSecurityAstOwnership, CondFlowOwnsConditionAndThenBranch) {

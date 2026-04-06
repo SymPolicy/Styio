@@ -91,3 +91,5 @@
 - `ADR-0077-print-and-state-probe-node-raii-ownership.md`
 - `ADR-0078-statedecl-raii-and-inline-substitution-clone.md`
 - `ADR-0079-state-inline-direct-return-and-clone-coverage.md`
+- `ADR-0080-state-inline-soak-loop-gate.md`
+- `ADR-0081-typetuple-checkequal-raii-ownership.md`

@@ -16,6 +16,8 @@
   - 非零非法句柄高频误用诊断循环（rewind/read/write 置错，close 保持 no-op）
 - `StyioSoakSingleThread.StreamProgramLoop`
   - M6 流式程序重复执行回归（`t02_running_max`）
+- `StyioSoakSingleThread.StateInlineHelperProgramLoop`
+  - 单参数 state helper（直返 `StateDecl`）在 pulse 体中调用的长跑回归（输出稳定 `1/3/6`）
 
 ## C ABI 指针约定
 
@@ -51,6 +53,7 @@ ctest --test-dir build -L soak_deep --output-on-failure
 - `STYIO_SOAK_CONCAT_RSS_GROWTH_LIMIT_KIB=98304`
 - `STYIO_SOAK_INVALID_HANDLE_ITERS=120000`
 - `STYIO_SOAK_STREAM_ITERS=1500`
+- `STYIO_SOAK_STATE_INLINE_ITERS=1500`
 
 说明：PR/CI 默认跑 `soak_smoke`，nightly 跑 `soak_deep`。
 
