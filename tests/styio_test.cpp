@@ -378,6 +378,45 @@ TEST(StyioParserEngine, HashIteratorMatchForwardChainReturnsParseError) {
   fs::remove(input);
 }
 
+TEST(StyioParserEngine, EmptyMatchCasesAreRejectedWithParseError) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-empty-match-cases-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "x = 1\n";
+    out << "x ?= {\n";
+    out << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=legacy --file \""
+    + input.string() + "\" 2>&1";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=new --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  EXPECT_EQ(legacy.exit_code, 3);
+  EXPECT_EQ(newer.exit_code, 3);
+  EXPECT_NE(legacy.stdout_text.find("\"category\":\"ParseError\""), std::string::npos);
+  EXPECT_NE(newer.stdout_text.find("\"category\":\"ParseError\""), std::string::npos);
+  EXPECT_EQ(legacy.stdout_text.find("Styio.NotImplemented"), std::string::npos);
+  EXPECT_EQ(newer.stdout_text.find("Styio.NotImplemented"), std::string::npos);
+
+  fs::remove(input);
+}
+
 TEST(StyioParserEngine, PointerScrutineeMatchDoesNotAbortAndReportsTypeError) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
@@ -884,6 +923,101 @@ TEST(StyioDiagnostics, SeriesIntrinsicWindowNonLiteralReportsTypeError) {
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("window size for series intrinsic must be integer literal"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("Styio.TypeError"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("Styio.NotImplemented"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioDiagnostics, SingleArgStateFunctionInliningUsesCallArgument) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-state-inline-arg-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# pulse = (x) => @[sum = 0](out = $sum + x)\n";
+    out << "[1, 2, 3] >> #(v) => {\n";
+    out << "  pulse(v)\n";
+    out << "  >_(out)\n";
+    out << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(result.stdout_text, "1\n3\n6\n");
+  EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioDiagnostics, MatchWithoutDefaultDoesNotCrash) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-match-without-default-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "x = 1\n";
+    out << "x ?= {\n";
+    out << "  1 => >_(1)\n";
+    out << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(result.stdout_text, "1\n");
+
+  fs::remove(input);
+}
+
+TEST(StyioDiagnostics, MalformedStatementPrefixReportsParseErrorWithoutCrash) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-malformed-stmt-prefix-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << " ?* {>_(1 =xx";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 3);
+  EXPECT_NE(result.stdout_text.find("\"category\":\"ParseError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("No Statement Starts With This"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("Styio.NotImplemented"), std::string::npos);
 
   fs::remove(input);

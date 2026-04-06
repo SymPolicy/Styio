@@ -278,6 +278,135 @@ TEST(StyioSecurityLexer, UnterminatedBlockCommentThrowsLexError) {
     StyioLexError);
 }
 
+TEST(StyioSecurityParserContext, EmptyTokenVectorFallsBackToEofToken) {
+  std::vector<StyioToken*> tokens;
+  StyioContext* ctx = StyioContext::Create(
+    "<empty-token-context>",
+    "",
+    {{0, 0}},
+    tokens,
+    false);
+
+  EXPECT_EQ(ctx->cur_tok_type(), StyioTokenType::TOK_EOF);
+  EXPECT_FALSE(ctx->match(StyioTokenType::NAME));
+  EXPECT_FALSE(ctx->try_match(StyioTokenType::NAME));
+  EXPECT_EQ(ctx->mark_cur_tok("empty-token-context"), "empty-token-context");
+
+  bool map_matched = false;
+  EXPECT_NO_THROW({
+    map_matched = ctx->map_match(StyioTokenType::BINOP_EQ);
+  });
+  EXPECT_FALSE(map_matched);
+
+  delete ctx;
+}
+
+TEST(StyioSecurityParserContext, MoveForwardBeyondTokenTailIsClampedToEof) {
+  auto tokens = StyioTokenizer::tokenize("x");
+  StyioContext* ctx = StyioContext::Create(
+    "<move-forward-clamp>",
+    "x",
+    {{0, 1}},
+    tokens,
+    false);
+
+  EXPECT_NO_THROW({
+    ctx->move_forward(tokens.size() + 5, "security-clamp");
+  });
+  EXPECT_EQ(ctx->cur_tok_type(), StyioTokenType::TOK_EOF);
+
+  delete ctx;
+  free_tokens(tokens);
+}
+
+TEST(StyioSecurityParserContext, CharApiAtEofReturnsSafeDefaults) {
+  std::vector<StyioToken*> tokens;
+  StyioContext* ctx = StyioContext::Create(
+    "<char-api-eof>",
+    "",
+    {},
+    tokens,
+    false);
+
+  EXPECT_FALSE(ctx->check_next('x'));
+  EXPECT_FALSE(ctx->check_next("//"));
+  EXPECT_FALSE(ctx->check_ahead(1, 'x'));
+  EXPECT_FALSE(ctx->peak_isdigit(0));
+  EXPECT_FALSE(ctx->check_isal_());
+  EXPECT_FALSE(ctx->check_isalnum_());
+  EXPECT_FALSE(ctx->check_isdigit());
+
+  EXPECT_NO_THROW({
+    ctx->drop_all_spaces();
+    ctx->drop_all_spaces_comments();
+    ctx->move_until('x');
+    ctx->move_until("abc");
+  });
+  EXPECT_EQ(ctx->cur_tok_type(), StyioTokenType::TOK_EOF);
+
+  delete ctx;
+}
+
+TEST(StyioSecurityParserContext, PeakOperatorAtEofReturnsEofWithoutThrow) {
+  std::vector<StyioToken*> tokens;
+  StyioContext* ctx = StyioContext::Create(
+    "<peak-operator-eof>",
+    "",
+    {},
+    tokens,
+    false);
+
+  std::string op;
+  EXPECT_NO_THROW({
+    op = ctx->peak_operator();
+  });
+  EXPECT_EQ(op, "EOF");
+
+  delete ctx;
+}
+
+TEST(StyioSecurityParserContext, FindDropPanicAtEofReportsSyntaxError) {
+  std::vector<StyioToken*> tokens;
+  StyioContext* ctx = StyioContext::Create(
+    "<find-drop-panic-eof>",
+    "",
+    {},
+    tokens,
+    false);
+
+  EXPECT_THROW(
+    {
+      ctx->find_drop_panic(')');
+    },
+    StyioSyntaxError);
+
+  delete ctx;
+}
+
+TEST(StyioSecurityParserPath, SingleLetterPathDoesNotThrowOutOfRange) {
+  std::vector<StyioToken*> tokens;
+  const std::string src = "\"A\"";
+  StyioContext* ctx = StyioContext::Create(
+    "<single-letter-path>",
+    src,
+    build_line_seps(src),
+    tokens,
+    false);
+
+  StyioAST* path_ast = nullptr;
+  EXPECT_NO_THROW({
+    path_ast = parse_path(*ctx);
+  });
+  ASSERT_NE(path_ast, nullptr);
+  EXPECT_EQ(path_ast->getNodeType(), StyioNodeType::LocalPath);
+  auto* local_path = dynamic_cast<ResPathAST*>(path_ast);
+  ASSERT_NE(local_path, nullptr);
+  EXPECT_EQ(local_path->getPath(), "A");
+
+  delete path_ast;
+  delete ctx;
+}
+
 TEST(StyioSecurityLexer, LineCommentAtEofWithoutNewlineDoesNotThrow) {
   auto tokens = StyioTokenizer::tokenize("x // eof-no-newline");
   ASSERT_FALSE(tokens.empty());
@@ -917,6 +1046,66 @@ TEST(StyioSecurityAstOwnership, ResourceRedirectOwnsDataAndResource) {
   EXPECT_EQ(resource_destructed, 1);
 }
 
+TEST(StyioSecurityAstOwnership, PrintOwnsExpressionList) {
+  int expr_destructed = 0;
+  auto* node = PrintAST::Create(std::vector<StyioAST*>{
+    new CountingExprAST(&expr_destructed),
+    new CountingExprAST(&expr_destructed),
+  });
+  delete node;
+  EXPECT_EQ(expr_destructed, 2);
+}
+
+TEST(StyioSecurityAstOwnership, StateRefOwnsNameNode) {
+  int name_destructed = 0;
+  auto* node = StateRefAST::Create(new CountingNameAST("state", &name_destructed));
+  delete node;
+  EXPECT_EQ(name_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, HistoryProbeOwnsTargetAndDepth) {
+  int name_destructed = 0;
+  int depth_destructed = 0;
+  auto* node = HistoryProbeAST::Create(
+    StateRefAST::Create(new CountingNameAST("state", &name_destructed)),
+    new CountingExprAST(&depth_destructed));
+  delete node;
+  EXPECT_EQ(name_destructed, 1);
+  EXPECT_EQ(depth_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, SeriesIntrinsicOwnsBaseAndWindow) {
+  int base_destructed = 0;
+  int window_destructed = 0;
+  auto* node = SeriesIntrinsicAST::Create(
+    new CountingExprAST(&base_destructed),
+    SeriesIntrinsicOp::Avg,
+    new CountingExprAST(&window_destructed));
+  delete node;
+  EXPECT_EQ(base_destructed, 1);
+  EXPECT_EQ(window_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, StateDeclOwnsAccInitExportVarAndUpdateExpr) {
+  int acc_name_destructed = 0;
+  int acc_init_destructed = 0;
+  int export_var_destructed = 0;
+  int update_expr_destructed = 0;
+
+  auto* node = StateDeclAST::Create(
+    IntAST::Create("3"),
+    new CountingNameAST("acc", &acc_name_destructed),
+    new CountingExprAST(&acc_init_destructed),
+    new CountingVarAST(&export_var_destructed),
+    new CountingExprAST(&update_expr_destructed));
+
+  delete node;
+  EXPECT_EQ(acc_name_destructed, 1);
+  EXPECT_EQ(acc_init_destructed, 1);
+  EXPECT_EQ(export_var_destructed, 1);
+  EXPECT_EQ(update_expr_destructed, 1);
+}
+
 TEST(StyioSecurityAstOwnership, VarOwnsNameTypeAndInit) {
   int name_destructed = 0;
   int type_destructed = 0;
@@ -980,6 +1169,311 @@ TEST(StyioSecurityAstOwnership, ResourceOwnsEntries) {
       {new CountingExprAST(&destructed), "db"}});
   delete node;
   EXPECT_EQ(destructed, 2);
+}
+
+TEST(StyioSecurityAstOwnership, CasesOwnsCasePairsAndDefault) {
+  int destructed = 0;
+  auto* node = CasesAST::Create(
+    std::vector<std::pair<StyioAST*, StyioAST*>>{
+      {new CountingExprAST(&destructed), new CountingExprAST(&destructed)},
+      {new CountingExprAST(&destructed), new CountingExprAST(&destructed)},
+    },
+    new CountingExprAST(&destructed));
+
+  delete node;
+  EXPECT_EQ(destructed, 5);
+}
+
+TEST(StyioSecurityAstOwnership, MatchCasesOwnsScrutineeAndCases) {
+  int destructed = 0;
+  auto* node = MatchCasesAST::make(
+    new CountingExprAST(&destructed),
+    CasesAST::Create(
+      std::vector<std::pair<StyioAST*, StyioAST*>>{
+        {new CountingExprAST(&destructed), new CountingExprAST(&destructed)},
+      },
+      new CountingExprAST(&destructed)));
+
+  delete node;
+  EXPECT_EQ(destructed, 4);
+}
+
+TEST(StyioSecurityAstOwnership, CondFlowOwnsConditionAndThenBranch) {
+  int destructed = 0;
+  auto* node = new CondFlowAST(
+    StyioNodeType::CondFlow_True,
+    CondAST::Create(LogicType::NOT, new CountingExprAST(&destructed)),
+    new CountingExprAST(&destructed));
+
+  delete node;
+  EXPECT_EQ(destructed, 2);
+}
+
+TEST(StyioSecurityAstOwnership, CondFlowOwnsConditionThenAndElseBranches) {
+  int destructed = 0;
+  auto* node = new CondFlowAST(
+    StyioNodeType::CondFlow_Both,
+    CondAST::Create(LogicType::NOT, new CountingExprAST(&destructed)),
+    new CountingExprAST(&destructed),
+    new CountingExprAST(&destructed));
+
+  delete node;
+  EXPECT_EQ(destructed, 3);
+}
+
+TEST(StyioSecurityAstOwnership, FunctionOwnsNameParamsRetTypeAndBody) {
+  int func_name_destructed = 0;
+  int param_name_destructed = 0;
+  int ret_type_destructed = 0;
+  int body_destructed = 0;
+  auto* node = FunctionAST::Create(
+    new CountingNameAST("f", &func_name_destructed),
+    false,
+    std::vector<ParamAST*>{
+      ParamAST::Create(new CountingNameAST("p1", &param_name_destructed)),
+      ParamAST::Create(new CountingNameAST("p2", &param_name_destructed)),
+    },
+    new CountingTypeAST("i64", &ret_type_destructed),
+    new CountingExprAST(&body_destructed));
+
+  delete node;
+  EXPECT_EQ(func_name_destructed, 1);
+  EXPECT_EQ(param_name_destructed, 2);
+  EXPECT_EQ(ret_type_destructed, 1);
+  EXPECT_EQ(body_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, SimpleFuncOwnsNameParamsRetTypeAndReturnExpr) {
+  int func_name_destructed = 0;
+  int param_name_destructed = 0;
+  int ret_type_destructed = 0;
+  int ret_expr_destructed = 0;
+  auto* node = SimpleFuncAST::Create(
+    new CountingNameAST("f", &func_name_destructed),
+    false,
+    std::vector<ParamAST*>{
+      ParamAST::Create(new CountingNameAST("p", &param_name_destructed)),
+    },
+    new CountingTypeAST("i64", &ret_type_destructed),
+    new CountingExprAST(&ret_expr_destructed));
+
+  delete node;
+  EXPECT_EQ(func_name_destructed, 1);
+  EXPECT_EQ(param_name_destructed, 1);
+  EXPECT_EQ(ret_type_destructed, 1);
+  EXPECT_EQ(ret_expr_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, InfiniteLoopOwnsWhileCondAndBodyNode) {
+  StyioAST::destroy_all_tracked_nodes();
+
+  int cond_destructed = 0;
+  auto* node = InfiniteLoopAST::CreateWhile(
+    new CountingExprAST(&cond_destructed),
+    BlockAST::Create({}));
+
+  delete node;
+  EXPECT_EQ(cond_destructed, 1);
+  EXPECT_EQ(StyioAST::tracked_node_count(), 0u);
+
+  StyioAST::destroy_all_tracked_nodes();
+}
+
+TEST(StyioSecurityAstOwnership, StreamZipOwnsCollectionsParamsAndBody) {
+  int collection_destructed = 0;
+  int param_name_destructed = 0;
+  int body_destructed = 0;
+  auto* node = StreamZipAST::Create(
+    new CountingExprAST(&collection_destructed),
+    std::vector<ParamAST*>{
+      ParamAST::Create(new CountingNameAST("a", &param_name_destructed)),
+    },
+    new CountingExprAST(&collection_destructed),
+    std::vector<ParamAST*>{
+      ParamAST::Create(new CountingNameAST("b", &param_name_destructed)),
+    },
+    new CountingExprAST(&body_destructed));
+
+  delete node;
+  EXPECT_EQ(collection_destructed, 2);
+  EXPECT_EQ(param_name_destructed, 2);
+  EXPECT_EQ(body_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, IteratorOwnsCollectionParamsAndFollowing) {
+  int collection_destructed = 0;
+  int param_name_destructed = 0;
+  int following_destructed = 0;
+  auto* node = IteratorAST::Create(
+    new CountingExprAST(&collection_destructed),
+    std::vector<ParamAST*>{
+      ParamAST::Create(new CountingNameAST("it", &param_name_destructed)),
+    },
+    std::vector<StyioAST*>{
+      new CountingExprAST(&following_destructed),
+    });
+
+  delete node;
+  EXPECT_EQ(collection_destructed, 1);
+  EXPECT_EQ(param_name_destructed, 1);
+  EXPECT_EQ(following_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, BlockOwnsStmtList) {
+  int stmt_destructed = 0;
+  auto* node = BlockAST::Create(
+    std::vector<StyioAST*>{
+      new CountingExprAST(&stmt_destructed),
+      new CountingExprAST(&stmt_destructed),
+    });
+
+  delete node;
+  EXPECT_EQ(stmt_destructed, 2);
+}
+
+TEST(StyioSecurityAstOwnership, MainBlockOwnsResourceAndStmtList) {
+  int destructed = 0;
+  auto* node = new MainBlockAST(
+    new CountingExprAST(&destructed),
+    std::vector<StyioAST*>{
+      new CountingExprAST(&destructed),
+      new CountingExprAST(&destructed),
+    });
+
+  delete node;
+  EXPECT_EQ(destructed, 3);
+}
+
+TEST(StyioSecurityAstOwnership, CheckIsinOwnsIterableExpr) {
+  int destructed = 0;
+  auto* node = new CheckIsinAST(new CountingExprAST(&destructed));
+
+  delete node;
+  EXPECT_EQ(destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, InfiniteOwnsStartAndIncrementExprs) {
+  int destructed = 0;
+  auto* node = new InfiniteAST(
+    new CountingExprAST(&destructed),
+    new CountingExprAST(&destructed));
+
+  delete node;
+  EXPECT_EQ(destructed, 2);
+}
+
+TEST(StyioSecurityAstOwnership, AnonyFuncOwnsArgsAndThenExpr) {
+  int var_destructed = 0;
+  int then_destructed = 0;
+  auto* node = new AnonyFuncAST(
+    VarTupleAST::Create(std::vector<VarAST*>{
+      new CountingVarAST(&var_destructed),
+    }),
+    new CountingExprAST(&then_destructed));
+
+  delete node;
+  EXPECT_EQ(var_destructed, 1);
+  EXPECT_EQ(then_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, SnapshotDeclOwnsVarAndResource) {
+  int var_destructed = 0;
+  int path_destructed = 0;
+  auto* node = SnapshotDeclAST::Create(
+    new CountingNameAST("snap", &var_destructed),
+    FileResourceAST::Create(new CountingExprAST(&path_destructed), true));
+
+  delete node;
+  EXPECT_EQ(var_destructed, 1);
+  EXPECT_EQ(path_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, InstantPullOwnsResource) {
+  int path_destructed = 0;
+  auto* node = InstantPullAST::Create(
+    FileResourceAST::Create(new CountingExprAST(&path_destructed), false));
+
+  delete node;
+  EXPECT_EQ(path_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, IterSeqOwnsHashTags) {
+  StyioAST::destroy_all_tracked_nodes();
+  int collection_destructed = 0;
+  auto* node = IterSeqAST::Create(
+    new CountingExprAST(&collection_destructed),
+    std::vector<HashTagNameAST*>{
+      HashTagNameAST::Create(std::vector<std::string>{"left"}),
+      HashTagNameAST::Create(std::vector<std::string>{"right"}),
+    });
+
+  delete node;
+  EXPECT_EQ(collection_destructed, 1);
+  EXPECT_EQ(StyioAST::tracked_node_count(), 0u);
+  StyioAST::destroy_all_tracked_nodes();
+}
+
+TEST(StyioSecurityAstOwnership, ExtractorOwnsTupleAndOperation) {
+  int tuple_destructed = 0;
+  int op_destructed = 0;
+  auto* node = ExtractorAST::Create(
+    new CountingExprAST(&tuple_destructed),
+    new CountingExprAST(&op_destructed));
+
+  delete node;
+  EXPECT_EQ(tuple_destructed, 1);
+  EXPECT_EQ(op_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, BackwardOwnsObjectParamsOperationsAndReturns) {
+  int expr_destructed = 0;
+  int var_destructed = 0;
+  auto* node = BackwardAST::Create(
+    new CountingExprAST(&expr_destructed),
+    VarTupleAST::Create(std::vector<VarAST*>{
+      new CountingVarAST(&var_destructed),
+    }),
+    std::vector<StyioAST*>{
+      new CountingExprAST(&expr_destructed),
+      new CountingExprAST(&expr_destructed),
+    },
+    std::vector<StyioAST*>{
+      new CountingExprAST(&expr_destructed),
+    });
+
+  delete node;
+  EXPECT_EQ(expr_destructed, 4);
+  EXPECT_EQ(var_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, CodpOwnsArgsAndNextChain) {
+  StyioAST::destroy_all_tracked_nodes();
+  int expr_destructed = 0;
+  auto* next = CODPAST::Create("map", std::vector<StyioAST*>{
+                                      new CountingExprAST(&expr_destructed),
+                                    });
+  auto* node = CODPAST::Create("filter", std::vector<StyioAST*>{
+                                             new CountingExprAST(&expr_destructed),
+                                             new CountingExprAST(&expr_destructed),
+                                           });
+  node->setNextOp(next);
+
+  delete node;
+  EXPECT_EQ(expr_destructed, 3);
+  EXPECT_EQ(StyioAST::tracked_node_count(), 0u);
+  StyioAST::destroy_all_tracked_nodes();
+}
+
+TEST(StyioSecurityAstOwnership, ForwardSetRetExprTakesOwnership) {
+  StyioAST::destroy_all_tracked_nodes();
+  int ret_expr_destructed = 0;
+  auto* node = new ForwardAST();
+  node->setRetExpr(new CountingExprAST(&ret_expr_destructed));
+
+  delete node;
+  EXPECT_EQ(ret_expr_destructed, 1);
+  EXPECT_EQ(StyioAST::tracked_node_count(), 0u);
+  StyioAST::destroy_all_tracked_nodes();
 }
 
 TEST(StyioSafetyRuntime, StrcatAbAllocatesAndSupportsPairingFree) {

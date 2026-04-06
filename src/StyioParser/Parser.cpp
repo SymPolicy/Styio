@@ -356,6 +356,13 @@ parse_path(StyioContext& context) {
   string text = "";
 
   while (not context.check_next('"')) {
+    if (context.get_curr_pos() >= context.get_code().size()) {
+      throw StyioSyntaxError(
+        context.label_cur_line(
+          static_cast<int>(context.get_curr_pos()),
+          "unterminated path literal: missing closing '\"'"
+        ));
+    }
     text += context.get_curr_char();
     context.move(1);
   }
@@ -366,7 +373,9 @@ parse_path(StyioContext& context) {
   if (text.starts_with("/")) {
     return ResPathAST::Create(StyioPathType::local_absolute_unix_like, text);
   }
-  else if (std::isupper(text.at(0)) && text.at(1) == ':') {
+  else if (text.size() >= 2
+           && std::isupper(static_cast<unsigned char>(text[0]))
+           && text[1] == ':') {
     return ResPathAST::Create(StyioPathType::local_absolute_windows, text);
   }
   else if (text.starts_with("http://")) {
@@ -2937,7 +2946,7 @@ BlockAST*
 parse_block_with_forward(StyioContext& context) {
   BlockAST* block = parse_block_only(context);
 
-  block->followings = parse_forward_as_list(context);
+  block->set_followings(parse_forward_as_list(context));
 
   return block;
 }
@@ -2945,7 +2954,7 @@ parse_block_with_forward(StyioContext& context) {
 CasesAST*
 parse_cases_only(StyioContext& context) {
   vector<std::pair<StyioAST*, StyioAST*>> case_pairs;
-  StyioAST* default_stmt;
+  StyioAST* default_stmt = nullptr;
 
   context.try_match_panic(StyioTokenType::TOK_LCURBRAC); /* { */
 
@@ -3009,41 +3018,42 @@ parse_cases_only(StyioContext& context) {
   }
 }
 
-IteratorAST*
+StyioAST*
 parse_iterator_with_forward(
   StyioContext& context,
   StyioAST* collection
 ) {
-  IteratorAST* output = parse_iterator_only(context, collection);
+  StyioAST* output = parse_iterator_only(context, collection);
 
   auto forward_following = parse_forward_as_list(context);
-  if (!forward_following.empty()
-      && (dynamic_cast<CheckEqualAST*>(forward_following.front()) != nullptr
-          || dynamic_cast<CasesAST*>(forward_following.front()) != nullptr)) {
-    throw StyioParseError(
-      context.mark_cur_tok("iterator '?=' forward clauses are not supported in function definitions"));
+  if (!forward_following.empty()) {
+    auto* iterator_output = dynamic_cast<IteratorAST*>(output);
+    if (iterator_output == nullptr) {
+      throw StyioParseError(
+        context.mark_cur_tok("forward clauses are only supported for plain iterators"));
+    }
+    if (dynamic_cast<CheckEqualAST*>(forward_following.front()) != nullptr
+        || dynamic_cast<CasesAST*>(forward_following.front()) != nullptr) {
+      throw StyioParseError(
+        context.mark_cur_tok("iterator '?=' forward clauses are not supported in function definitions"));
+    }
+    if (forward_following.size() > 1) {
+      throw StyioParseError(
+        context.mark_cur_tok("iterator forward chains with multiple clauses are not supported"));
+    }
+    iterator_output->append_followings(std::move(forward_following));
   }
-  if (forward_following.size() > 1) {
-    throw StyioParseError(
-      context.mark_cur_tok("iterator forward chains with multiple clauses are not supported"));
-  }
-
-  output->following.insert(
-    output->following.end(),
-    std::make_move_iterator(forward_following.begin()),
-    std::make_move_iterator(forward_following.end())
-  );
 
   return output;
 }
 
-IteratorAST*
+StyioAST*
 parse_iterator_only(
   StyioContext& context,
   StyioAST* collection
 ) {
   context.try_match_panic(StyioTokenType::ITERATOR);
-  return static_cast<IteratorAST*>(parse_iterator_tail(context, collection));
+  return parse_iterator_tail(context, collection);
 }
 
 /*
@@ -3120,7 +3130,7 @@ parse_codp(StyioContext& context, CODPAST* prev_op) {
   curr_op = CODPAST::Create(name, op_args, prev_op);
 
   if (prev_op != nullptr) {
-    prev_op->NextOp = curr_op;
+    prev_op->setNextOp(curr_op);
   }
 
   if (context.find_drop("=>")) {

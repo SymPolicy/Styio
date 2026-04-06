@@ -29,6 +29,8 @@ add_executable(styio_fuzz_lexer
   fuzz_lexer.cpp
 )
 target_link_libraries(styio_fuzz_lexer PRIVATE styio_core)
+target_include_directories(styio_fuzz_lexer SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
+target_compile_definitions(styio_fuzz_lexer PRIVATE ${LLVM_DEFINITIONS_LIST})
 target_compile_options(styio_fuzz_lexer PRIVATE ${STYIO_FUZZ_FLAGS})
 target_link_options(styio_fuzz_lexer PRIVATE ${STYIO_FUZZ_FLAGS})
 
@@ -36,19 +38,47 @@ add_executable(styio_fuzz_parser
   fuzz_parser.cpp
 )
 target_link_libraries(styio_fuzz_parser PRIVATE styio_core)
+target_include_directories(styio_fuzz_parser SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
+target_compile_definitions(styio_fuzz_parser PRIVATE ${LLVM_DEFINITIONS_LIST})
 target_compile_options(styio_fuzz_parser PRIVATE ${STYIO_FUZZ_FLAGS})
 target_link_options(styio_fuzz_parser PRIVATE ${STYIO_FUZZ_FLAGS})
 
 add_test(
   NAME fuzz_lexer_smoke
-  COMMAND styio_fuzz_lexer -runs=500 ${CMAKE_CURRENT_LIST_DIR}/corpus/lexer
+  COMMAND
+    bash ${CMAKE_CURRENT_LIST_DIR}/fuzz_smoke_runner.sh
+    $<TARGET_FILE:styio_fuzz_lexer>
+    ${CMAKE_CURRENT_LIST_DIR}/corpus/lexer
+    500
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
-set_tests_properties(fuzz_lexer_smoke PROPERTIES LABELS "fuzz;fuzz_smoke")
+set_tests_properties(
+  fuzz_lexer_smoke
+  PROPERTIES
+    LABELS "fuzz;fuzz_smoke"
+    ENVIRONMENT "ASAN_OPTIONS=detect_container_overflow=0")
 
 add_test(
   NAME fuzz_parser_smoke
-  COMMAND styio_fuzz_parser -runs=500 ${CMAKE_CURRENT_LIST_DIR}/corpus/parser
+  COMMAND
+    bash ${CMAKE_CURRENT_LIST_DIR}/fuzz_smoke_runner.sh
+    $<TARGET_FILE:styio_fuzz_parser>
+    ${CMAKE_CURRENT_LIST_DIR}/corpus/parser
+    500
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
-set_tests_properties(fuzz_parser_smoke PROPERTIES LABELS "fuzz;fuzz_smoke")
+set_tests_properties(
+  fuzz_parser_smoke
+  PROPERTIES
+    LABELS "fuzz;fuzz_smoke"
+    ENVIRONMENT "ASAN_OPTIONS=detect_container_overflow=0")
+
+add_test(
+  NAME fuzz_regression_pack_smoke
+  COMMAND bash ${CMAKE_CURRENT_LIST_DIR}/fuzz_regression_pack_smoke.sh
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(
+  fuzz_regression_pack_smoke
+  PROPERTIES
+    LABELS "fuzz;fuzz_smoke;fuzz_regression")

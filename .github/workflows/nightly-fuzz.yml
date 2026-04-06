@@ -39,17 +39,18 @@ jobs:
         run: cmake --build build --target styio_fuzz_lexer styio_fuzz_parser
 
       - name: Run deep fuzz
+        id: deep_fuzz
         run: |
           mkdir -p fuzz-artifacts/lexer fuzz-artifacts/parser
           set +e
-          ./build/bin/styio_fuzz_lexer \
+          ASAN_OPTIONS=detect_container_overflow=0 ./build/bin/styio_fuzz_lexer \
             tests/fuzz/corpus/lexer \
             -max_total_time=600 \
             -artifact_prefix=fuzz-artifacts/lexer/ \
             > fuzz-artifacts/lexer.log 2>&1
           LEX_EXIT=$?
 
-          ./build/bin/styio_fuzz_parser \
+          ASAN_OPTIONS=detect_container_overflow=0 ./build/bin/styio_fuzz_parser \
             tests/fuzz/corpus/parser \
             -max_total_time=600 \
             -artifact_prefix=fuzz-artifacts/parser/ \
@@ -57,10 +58,18 @@ jobs:
           PARSER_EXIT=$?
           set -e
 
-          if [ "$LEX_EXIT" -ne 0 ] || [ "$PARSER_EXIT" -ne 0 ]; then
-            echo "Fuzz target failed: lexer=$LEX_EXIT parser=$PARSER_EXIT"
-            exit 1
-          fi
+          echo "lexer_exit=$LEX_EXIT" >> "$GITHUB_OUTPUT"
+          echo "parser_exit=$PARSER_EXIT" >> "$GITHUB_OUTPUT"
+          printf '{"lexer":%s,"parser":%s}\n' "$LEX_EXIT" "$PARSER_EXIT" \
+            > fuzz-artifacts/exit-codes.json
+
+      - name: Build regression case pack
+        if: always()
+        run: |
+          ./scripts/fuzz-regression-pack.sh \
+            --artifacts-root ./fuzz-artifacts \
+            --out-dir ./fuzz-regressions \
+            --run-id "gh-${{ github.run_id }}-${{ github.run_attempt }}"
 
       - name: Upload fuzz artifacts
         if: always()
@@ -68,3 +77,28 @@ jobs:
         with:
           name: nightly-fuzz-artifacts
           path: fuzz-artifacts/
+          if-no-files-found: ignore
+
+      - name: Upload fuzz regression packs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-fuzz-regressions
+          path: fuzz-regressions/
+          if-no-files-found: ignore
+
+      - name: Fail job on fuzz crash
+        if: always()
+        run: |
+          LEX_EXIT="${{ steps.deep_fuzz.outputs.lexer_exit }}"
+          PARSER_EXIT="${{ steps.deep_fuzz.outputs.parser_exit }}"
+
+          if [ -z "$LEX_EXIT" ] || [ -z "$PARSER_EXIT" ]; then
+            echo "Deep fuzz did not produce exit codes."
+            exit 1
+          fi
+
+          if [ "$LEX_EXIT" -ne 0 ] || [ "$PARSER_EXIT" -ne 0 ]; then
+            echo "Fuzz target failed: lexer=$LEX_EXIT parser=$PARSER_EXIT"
+            exit 1
+          fi

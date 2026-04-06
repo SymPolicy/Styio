@@ -2,7 +2,7 @@
 
 **文档作用：** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`DOCUMENTATION-POLICY.md`](../DOCUMENTATION-POLICY.md)。
 
-**Last updated:** 2026-04-06（定位并修复 `ParamAST` 空类型崩溃；恢复 hash `>>` iterator 定义；补 `?=` forward chain 稳定拒绝回归；补 `match` 非整型 scrutinee TypeError 防崩溃回归；完成 C.8 句柄表接管并补 Safety 回归；新增非法句柄 Soak 与 nightly sanitizer 门禁；统一 runtime text/jsonl 诊断出口并冻结 runtime subcode 回归；修复 codegen 复合赋值与 stream zip 不支持来源误报 RuntimeError 分类；活跃流水线移除 `Styio.NotImplemented` 文案）
+**Last updated:** 2026-04-06（定位并修复 `ParamAST` 空类型崩溃；恢复 hash `>>` iterator 定义；补 `?=` forward chain 稳定拒绝回归；补 `match` 非整型 scrutinee TypeError 防崩溃回归；完成 C.8 句柄表接管并补 Safety 回归；新增非法句柄 Soak 与 nightly sanitizer 门禁；统一 runtime text/jsonl 诊断出口并冻结 runtime subcode 回归；修复 codegen 复合赋值与 stream zip 不支持来源误报 RuntimeError 分类；活跃流水线移除 `Styio.NotImplemented` 文案；修复 `?=` 无默认分支未初始化指针崩溃并补回归；补 `?= {}` 拒绝契约与 malformed 前缀 parse 防崩溃回归；fuzz smoke 接入 clang-18 链路并稳定通过；nightly fuzz 新增 case pack 回流与 `fuzz_regression_pack_smoke`；ParserContext 新增空 token EOF 降级与越界前移钳制回归；新增 `parse_path` 单字符路径与 `peak_operator` EOF 越界防护回归；补 `CasesAST/MatchCasesAST`、`PrintAST/StateRefAST/HistoryProbeAST`、`SeriesIntrinsicAST` 与 `StateDeclAST` 所有权析构回归并完成 RAII 收口；修复单参数 state helper（直返 `StateDecl`）在 pulse 体中调用时参数替换失效问题，并补 `1/3/6` 回归）
 
 **批量自动化（所有里程碑集成用例）：**
 
@@ -183,7 +183,7 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_test` | `tests/styio_test.cpp`：`StyioFiveLayerPipeline`、`StyioParserEngine`、`StyioDiagnostics`（legacy/new 在 M1 算术、typed bind、compound assign、M2 simple func 与未标注参数函数样例上一致；hash 无箭头表达式体/无赋值箭头体/`?=` match-cases 样例上一致；`# ... >> ...` hash iterator 定义样例在双引擎下可执行且无崩溃（退出码 `0`，输出一致）；`# ... >> ... ?= ... => ...` 组合链路稳定返回 `ParseError`（退出码 `3`）且不再出现 `Styio.NotImplemented` 前缀；`match` 非整型 scrutinee（流式 `line ?={...}`）稳定返回 `TypeError`（退出码 `4`）且不再 abort；`x : i64 := 1` 后 `x += 2` 路径稳定返回 `TypeError`（退出码 `4`，不再误报 `RuntimeError`）；`a = [1,2,3]` 参与 zip 且来源组合超出支持边界时稳定返回 `TypeError`（退出码 `4`，不再误报 `RuntimeError`）；`@[3](ma = p[avg, n])` 非字面量窗口参数稳定返回 `TypeError` 且不再出现 `Styio.NotImplemented`；非法引擎拒绝；`--parser-shadow-compare` 可通过 M1 核心/全量与 M2 core/full 样例；`--parser-shadow-artifact-dir` 可产出 JSONL 记录并受参数约束回归覆盖；dot-chain 边界在 `DotChainStillRejectedConsistentlyAcrossEngines` 冻结；runtime helper 失败在 `--error-format=jsonl` 下稳定输出 `RuntimeError/STYIO_RUNTIME`，并覆盖 `STYIO_RUNTIME_FILE_OPEN_READ|STYIO_RUNTIME_FILE_OPEN_WRITE` 子码；CI 通过 `scripts/parser-shadow-suite-gate.sh` 对 M1/M2 双目录执行预算 gate 并产出各自 `summary.json`） | `ctest --test-dir build -L styio_pipeline` 或 `ctest --test-dir build -R '^Styio(ParserEngine|Diagnostics)\\.'` |
+| `styio_test` | `tests/styio_test.cpp`：`StyioFiveLayerPipeline`、`StyioParserEngine`、`StyioDiagnostics`（legacy/new 在 M1 算术、typed bind、compound assign、M2 simple func 与未标注参数函数样例上一致；hash 无箭头表达式体/无赋值箭头体/`?=` match-cases 样例上一致；`# ... >> ...` hash iterator 定义样例在双引擎下可执行且无崩溃（退出码 `0`，输出一致）；`# ... >> ... ?= ... => ...` 组合链路稳定返回 `ParseError`（退出码 `3`）且不再出现 `Styio.NotImplemented` 前缀；`?= {}` 空 cases 当前语义稳定拒绝并返回 `ParseError`（exit `3`）；`match` 非整型 scrutinee（流式 `line ?={...}`）稳定返回 `TypeError`（退出码 `4`）且不再 abort；无默认分支 `?=`（`x = 1; x ?= { 1 => >_(1) }`）不再崩溃并保持稳定输出；malformed 语句前缀（fuzz 样本）稳定返回 `ParseError`（不再 signal 退出）；`x : i64 := 1` 后 `x += 2` 路径稳定返回 `TypeError`（退出码 `4`，不再误报 `RuntimeError`）；`a = [1,2,3]` 参与 zip 且来源组合超出支持边界时稳定返回 `TypeError`（退出码 `4`，不再误报 `RuntimeError`）；`@[3](ma = p[avg, n])` 非字面量窗口参数稳定返回 `TypeError` 且不再出现 `Styio.NotImplemented`；`# pulse = (x) => @[sum = 0](out = $sum + x)` 在 pulse 体中调用时稳定输出 `1/3/6`（参数替换生效）；非法引擎拒绝；`--parser-shadow-compare` 可通过 M1 核心/全量与 M2 core/full 样例；`--parser-shadow-artifact-dir` 可产出 JSONL 记录并受参数约束回归覆盖；dot-chain 边界在 `DotChainStillRejectedConsistentlyAcrossEngines` 冻结；runtime helper 失败在 `--error-format=jsonl` 下稳定输出 `RuntimeError/STYIO_RUNTIME`，并覆盖 `STYIO_RUNTIME_FILE_OPEN_READ|STYIO_RUNTIME_FILE_OPEN_WRITE` 子码；CI 通过 `scripts/parser-shadow-suite-gate.sh` 对 M1/M2 双目录执行预算 gate 并产出各自 `summary.json`） | `ctest --test-dir build -L styio_pipeline` 或 `ctest --test-dir build -R '^Styio(ParserEngine|Diagnostics)\\.'` |
 
 **五层流水线 goldens**（Lexer / AST / StyioIR / LLVM / 子进程 stdout）：权威说明见 [`FIVE-LAYER-PIPELINE.md`](./FIVE-LAYER-PIPELINE.md)；用例根目录 `tests/pipeline_cases/`。
 
@@ -197,10 +197,14 @@ ctest --test-dir build -L milestone
 |------|------|------------|
 | `styio_fuzz_lexer` | 词法器随机输入健壮性，输入入口 `tests/fuzz/corpus/lexer` | `ctest --test-dir build -R '^fuzz_lexer_smoke$'` |
 | `styio_fuzz_parser` | parser 随机输入健壮性，输入入口 `tests/fuzz/corpus/parser` | `ctest --test-dir build -R '^fuzz_parser_smoke$'` |
+| `fuzz_regression_pack_smoke` | `scripts/fuzz-regression-pack.sh` 回流打包链路自检（manifest/summary/corpus-backflow 生成） | `ctest --test-dir build -R '^fuzz_regression_pack_smoke$'` |
 
 **构建开关：** `-DSTYIO_ENABLE_FUZZ=ON`（默认 OFF）。
 **PR 短跑：** `ctest --test-dir build -L fuzz_smoke`。
-**夜间深跑：** 见 `.github/workflows/nightly-fuzz.yml`（产物自动归档）。
+**夜间深跑：** 见 `.github/workflows/nightly-fuzz.yml`（`fuzz-artifacts/` + `fuzz-regressions/` 双工件归档）。
+**环境注意：** 在 macOS 上本地跑 fuzz 建议使用 `clang-18` + `CMAKE_OSX_SYSROOT`；`fuzz_smoke` 已设置 `ASAN_OPTIONS=detect_container_overflow=0` 以规避 libFuzzer 运行时 container-overflow 误报噪音。
+**失败样本打包：** `./scripts/fuzz-regression-pack.sh --artifacts-root ./fuzz-artifacts --out-dir ./fuzz-regressions --run-id <id>`。
+**仓库保护：** `fuzz_lexer_smoke` / `fuzz_parser_smoke` 运行时复制临时 corpus，不直接写入 `tests/fuzz/corpus/`。
 
 ---
 
@@ -222,7 +226,7 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_security_test` | `tests/security/styio_security_test.cpp`：lexer/Unicode/AST ownership/runtime（含 `StyioSafetyRuntime.*` 内存与 FFI 生命周期回归、`StyioSafetyHandleTable.*` 句柄表语义回归；覆盖“非法非零句柄可诊断、close 幂等、kind mismatch/stub 清理、runtime last-error 清理契约、path-null/open-read/open-write 子码稳定、first-error-wins 子码不漂移”），含 ParserLookahead trivia 回归、NewParserExpr 子集兼容回归（含 compare/logic/dot-call token gate）、NewParserStmt（print/flex bind/final bind/compound assign/compare/logic/simple call/dot-call/function-def-entry/hash-simple-func，含 `[|n|]`、tuple 返回类型、`=> >_(...)` 语句体、`= expr` 无箭头函数体、无赋值 `=>` 函数体、`?=` match-cases，以及 `# ... >> ...` iterator 定义样例）子集回归与 Shadow fallback 回归（dot-chain） | `ctest --test-dir build -L security` 或 `ctest --test-dir build -L safety` |
+| `styio_security_test` | `tests/security/styio_security_test.cpp`：lexer/Unicode/AST ownership/runtime（含 `StyioSafetyRuntime.*` 内存与 FFI 生命周期回归、`StyioSafetyHandleTable.*` 句柄表语义回归；覆盖“非法非零句柄可诊断、close 幂等、kind mismatch/stub 清理、runtime last-error 清理契约、path-null/open-read/open-write 子码稳定、first-error-wins 子码不漂移”），含 `StyioSecurityParserContext.*`（空 token 向量 EOF 降级、`move_forward` 越界钳制、`peak_operator` EOF 安全返回）与 `StyioSecurityParserPath.*`（单字符路径不触发 `out_of_range`）边界回归、`StyioSecurityAstOwnership` 中 `PrintAST`/`StateRefAST`/`HistoryProbeAST`/`SeriesIntrinsicAST`/`StateDeclAST`/`CasesAST`/`MatchCasesAST`/`CondFlowAST`/`FunctionAST`/`SimpleFuncAST`/`InfiniteLoopAST`/`StreamZipAST`/`IteratorAST`/`BlockAST`/`MainBlockAST`/`CheckIsinAST`/`InfiniteAST`/`AnonyFuncAST`/`SnapshotDeclAST`/`InstantPullAST`/`IterSeqAST`/`ExtractorAST`/`BackwardAST`/`CODPAST`/`ForwardAST` 析构所有权回归、ParserLookahead trivia 回归、NewParserExpr 子集兼容回归（含 compare/logic/dot-call token gate）、NewParserStmt（print/flex bind/final bind/compound assign/compare/logic/simple call/dot-call/function-def-entry/hash-simple-func，含 `[|n|]`、tuple 返回类型、`=> >_(...)` 语句体、`= expr` 无箭头函数体、无赋值 `=>` 函数体、`?=` match-cases，以及 `# ... >> ...` iterator 定义样例）子集回归与 Shadow fallback 回归（dot-chain） | `ctest --test-dir build -L security` 或 `ctest --test-dir build -L safety` |
 
 ---
 
