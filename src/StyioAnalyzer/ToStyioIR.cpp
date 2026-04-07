@@ -544,6 +544,28 @@ clone_state_expr_with_subst(StyioAST* e, const std::string& pname, StyioAST* rep
     }
     return PrintAST::Create(std::move(exprs));
   }
+  if (auto* cases = dynamic_cast<CasesAST*>(e)) {
+    std::vector<std::pair<StyioAST*, StyioAST*>> cloned_cases;
+    cloned_cases.reserve(cases->getCases().size());
+    for (const auto& entry : cases->getCases()) {
+      cloned_cases.emplace_back(
+        clone_state_expr_with_subst(entry.first, pname, repl),
+        clone_state_expr_with_subst(entry.second, pname, repl));
+    }
+    return CasesAST::Create(
+      std::move(cloned_cases),
+      clone_state_expr_with_subst(cases->case_default, pname, repl));
+  }
+  if (auto* match = dynamic_cast<MatchCasesAST*>(e)) {
+    auto* cloned_cases =
+      dynamic_cast<CasesAST*>(clone_state_expr_with_subst(match->getCases(), pname, repl));
+    if (cloned_cases == nullptr) {
+      throw StyioTypeError("match cases clone requires CasesAST");
+    }
+    return MatchCasesAST::make(
+      clone_state_expr_with_subst(match->getScrutinee(), pname, repl),
+      cloned_cases);
+  }
   if (auto* pass = dynamic_cast<PassAST*>(e)) {
     (void)pass;
     return PassAST::Create();
@@ -575,7 +597,9 @@ clone_state_expr_with_subst(StyioAST* e, const std::string& pname, StyioAST* rep
     (void)undef;
     return UndefinedLitAST::Create();
   }
-  throw StyioTypeError("unsupported AST node in inlined state expression clone");
+  throw StyioTypeError(
+    std::string("unsupported AST node in inlined state expression clone: ")
+    + std::to_string(static_cast<int>(e->getNodeType())));
 }
 
 StyioAST*
