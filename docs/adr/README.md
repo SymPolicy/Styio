@@ -98,3 +98,10 @@
 - `ADR-0084-state-inline-infinite-clone-and-soak-gate.md`
 - `ADR-0085-parser-default-switch-to-new-with-legacy-fallback.md`
 - `ADR-0086-checkpoint-health-batch-script.md`
+- `ADR-0087-new-parser-block-control-subset.md`
+- `ADR-0088-new-parser-matchcases-postfix-subset.md`
+- `ADR-0089-new-parser-per-statement-fallback-and-route-stats.md`
+- `ADR-0090-new-parser-resource-postfix-subset.md`
+- `ADR-0091-new-parser-iterator-and-instant-pull-subset.md`
+- `ADR-0092-new-parser-at-snapshot-subset.md`
+- `ADR-0093-new-parser-at-resource-iterator-entry.md`

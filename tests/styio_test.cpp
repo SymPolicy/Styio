@@ -170,6 +170,259 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM2SimpleFuncSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
+TEST(StyioParserEngine, LegacyAndNewMatchOnM3MatchExprSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m3" / "t02_match_expr.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  ASSERT_EQ(legacy.exit_code, 0);
+  ASSERT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+}
+
+TEST(StyioParserEngine, LegacyAndNewMatchOnM5WriteFileSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m5" / "t02_write_file.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  ASSERT_EQ(legacy.exit_code, 0);
+  ASSERT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+}
+
+TEST(StyioParserEngine, LegacyAndNewMatchOnM5RedirectSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m5" / "t07_redirect.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  ASSERT_EQ(legacy.exit_code, 0);
+  ASSERT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+}
+
+TEST(StyioParserEngine, LegacyAndNewMatchOnM5ReadFileSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m5" / "t01_read_file.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  ASSERT_EQ(legacy.exit_code, 0);
+  ASSERT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+}
+
+TEST(StyioParserEngine, LegacyAndNewMatchOnM5AutoDetectSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m5" / "t05_auto_detect.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  ASSERT_EQ(legacy.exit_code, 0);
+  ASSERT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+}
+
+TEST(StyioParserEngine, LegacyAndNewMatchOnM5PipeFuncSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m5" / "t08_pipe_func.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  ASSERT_EQ(legacy.exit_code, 0);
+  ASSERT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+}
+
+TEST(StyioParserEngine, LegacyAndNewMatchOnM7InstantPullSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t04_instant_pull.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  ASSERT_EQ(legacy.exit_code, 0);
+  ASSERT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+}
+
+TEST(StyioParserEngine, LegacyAndNewMatchOnM7SnapshotSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t03_snapshot.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  ASSERT_EQ(legacy.exit_code, 0);
+  ASSERT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+}
+
+TEST(StyioParserEngine, LegacyAndNewMatchOnM7ZipFilesSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t05_zip_files.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  ASSERT_EQ(legacy.exit_code, 0);
+  ASSERT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+}
+
+TEST(StyioParserEngine, LegacyAndNewMatchOnM7ArbitrageSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t08_arbitrage.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  ASSERT_EQ(legacy.exit_code, 0);
+  ASSERT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+}
+
+TEST(StyioParserEngine, LegacyAndNewMatchOnM7FullPipelineSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t10_full_pipeline.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  ASSERT_EQ(legacy.exit_code, 0);
+  ASSERT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+}
+
 TEST(StyioParserEngine, LegacyAndNewMatchOnUntypedParamFunction) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
@@ -735,6 +988,261 @@ TEST(StyioParserEngine, ShadowCompareWritesArtifactRecordWhenDirConfigured) {
   EXPECT_NE(line.find("\"primary_engine\":\"new\""), std::string::npos);
   EXPECT_NE(line.find("\"shadow_engine\":\"legacy\""), std::string::npos);
 
+  fs::remove_all(artifact_dir);
+}
+
+TEST(StyioParserEngine, ShadowArtifactDetailCapturesPerStatementFallbackStats) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-shadow-mixed-route-" + std::to_string(uniq) + ".styio");
+  const fs::path artifact_dir =
+    fs::temp_directory_path() / ("styio-shadow-route-artifacts-" + std::to_string(uniq));
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "x = 0\n";
+    out << "[...] ?(x < 3) >> {\n";
+    out << "  x += 1\n";
+    out << "}\n";
+    out << ">_(x)\n";
+  }
+  ASSERT_TRUE(fs::create_directories(artifact_dir));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+
+  std::vector<fs::path> jsonl_files;
+  for (const auto& entry : fs::directory_iterator(artifact_dir)) {
+    if (!entry.is_regular_file() || entry.path().extension() != ".jsonl") {
+      continue;
+    }
+    jsonl_files.push_back(entry.path());
+  }
+  ASSERT_EQ(jsonl_files.size(), 1U);
+
+  std::ifstream in(jsonl_files.front());
+  ASSERT_TRUE(in.is_open());
+  std::string line;
+  std::getline(in, line);
+  EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
+  EXPECT_NE(line.find("\"primary_engine\":\"new\""), std::string::npos);
+  EXPECT_NE(line.find("primary_route=new_subset_statements="), std::string::npos);
+  EXPECT_NE(line.find("legacy_fallback_statements="), std::string::npos);
+  EXPECT_EQ(line.find("legacy_fallback_statements=0"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove_all(artifact_dir);
+}
+
+TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForResourcePostfixSubset) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path output =
+    fs::temp_directory_path() / ("styio-shadow-resource-postfix-out-" + std::to_string(uniq) + ".txt");
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-shadow-resource-postfix-" + std::to_string(uniq) + ".styio");
+  const fs::path artifact_dir =
+    fs::temp_directory_path() / ("styio-shadow-resource-artifacts-" + std::to_string(uniq));
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "\"shadow resource postfix\" >> @file{\"" << output.string() << "\"}\n";
+  }
+  ASSERT_TRUE(fs::create_directories(artifact_dir));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+
+  std::vector<fs::path> jsonl_files;
+  for (const auto& entry : fs::directory_iterator(artifact_dir)) {
+    if (!entry.is_regular_file() || entry.path().extension() != ".jsonl") {
+      continue;
+    }
+    jsonl_files.push_back(entry.path());
+  }
+  ASSERT_EQ(jsonl_files.size(), 1U);
+
+  std::ifstream in(jsonl_files.front());
+  ASSERT_TRUE(in.is_open());
+  std::string line;
+  std::getline(in, line);
+  EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
+  EXPECT_NE(line.find("primary_route=new_subset_statements=1,legacy_fallback_statements=0"), std::string::npos);
+
+  fs::remove(output);
+  fs::remove(input);
+  fs::remove_all(artifact_dir);
+}
+
+TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForIteratorSubset) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-shadow-iterator-subset-" + std::to_string(uniq) + ".styio");
+  const fs::path artifact_dir =
+    fs::temp_directory_path() / ("styio-shadow-iterator-artifacts-" + std::to_string(uniq));
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "f <- @file{\"tests/m5/data/hello.txt\"}\n";
+    out << "f >> #(line) => {\n";
+    out << "  >_(line)\n";
+    out << "}\n";
+  }
+  ASSERT_TRUE(fs::create_directories(artifact_dir));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+
+  std::vector<fs::path> jsonl_files;
+  for (const auto& entry : fs::directory_iterator(artifact_dir)) {
+    if (!entry.is_regular_file() || entry.path().extension() != ".jsonl") {
+      continue;
+    }
+    jsonl_files.push_back(entry.path());
+  }
+  ASSERT_EQ(jsonl_files.size(), 1U);
+
+  std::ifstream in(jsonl_files.front());
+  ASSERT_TRUE(in.is_open());
+  std::string line;
+  std::getline(in, line);
+  EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
+  EXPECT_NE(line.find("primary_route=new_subset_statements=2,legacy_fallback_statements=0"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove_all(artifact_dir);
+}
+
+TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForSnapshotDeclSubset) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-shadow-snapshot-subset-" + std::to_string(uniq) + ".styio");
+  const fs::path artifact_dir =
+    fs::temp_directory_path() / ("styio-shadow-snapshot-artifacts-" + std::to_string(uniq));
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@[ref_val] << @file{\"tests/m7/data/ref.txt\"}\n";
+  }
+  ASSERT_TRUE(fs::create_directories(artifact_dir));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+
+  std::vector<fs::path> jsonl_files;
+  for (const auto& entry : fs::directory_iterator(artifact_dir)) {
+    if (!entry.is_regular_file() || entry.path().extension() != ".jsonl") {
+      continue;
+    }
+    jsonl_files.push_back(entry.path());
+  }
+  ASSERT_EQ(jsonl_files.size(), 1U);
+
+  std::ifstream in(jsonl_files.front());
+  ASSERT_TRUE(in.is_open());
+  std::string line;
+  std::getline(in, line);
+  EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
+  EXPECT_NE(line.find("primary_route=new_subset_statements=1,legacy_fallback_statements=0"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove_all(artifact_dir);
+}
+
+TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForAtResourceSubset) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-shadow-at-resource-subset-" + std::to_string(uniq) + ".styio");
+  const fs::path artifact_dir =
+    fs::temp_directory_path() / ("styio-shadow-at-resource-artifacts-" + std::to_string(uniq));
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@file{\"tests/m7/data/input.txt\"} >> #(x) => {\n";
+    out << "  >_(x)\n";
+    out << "}\n";
+  }
+  ASSERT_TRUE(fs::create_directories(artifact_dir));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+
+  std::vector<fs::path> jsonl_files;
+  for (const auto& entry : fs::directory_iterator(artifact_dir)) {
+    if (!entry.is_regular_file() || entry.path().extension() != ".jsonl") {
+      continue;
+    }
+    jsonl_files.push_back(entry.path());
+  }
+  ASSERT_EQ(jsonl_files.size(), 1U);
+
+  std::ifstream in(jsonl_files.front());
+  ASSERT_TRUE(in.is_open());
+  std::string line;
+  std::getline(in, line);
+  EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
+  EXPECT_NE(line.find("primary_route=new_subset_statements=1,legacy_fallback_statements=0"), std::string::npos);
+
+  fs::remove(input);
   fs::remove_all(artifact_dir);
 }
 

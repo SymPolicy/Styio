@@ -123,6 +123,60 @@ class StyioExprSubsetParser
 private:
   StyioContext& context_;
 
+  bool has_unsupported_continuation(StyioTokenType type) const {
+    switch (type) {
+      case StyioTokenType::TOK_LBOXBRAC:
+      case StyioTokenType::TOK_PIPE:
+      case StyioTokenType::ARROW_SINGLE_LEFT:
+      case StyioTokenType::ARROW_SINGLE_RIGHT:
+      case StyioTokenType::ITERATOR:
+      case StyioTokenType::EXTRACTOR:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  StyioAST* parse_postfix(StyioAST* lhs) {
+    std::unique_ptr<StyioAST> owner(lhs);
+    while (true) {
+      context_.skip();
+      if (context_.match(StyioTokenType::MATCH)) {
+        context_.skip();
+        if (context_.cur_tok_type() != StyioTokenType::TOK_LCURBRAC) {
+          throw StyioSyntaxError(context_.mark_cur_tok("?= must be followed by {"));
+        }
+        owner.reset(MatchCasesAST::make(owner.release(), parse_cases_only(context_)));
+        continue;
+      }
+      if (context_.match(StyioTokenType::ITERATOR)) {
+        context_.skip();
+        if (context_.cur_tok_type() != StyioTokenType::TOK_AT) {
+          throw StyioSyntaxError("unsupported '>>' continuation in new parser subset");
+        }
+        owner.reset(ResourceWriteAST::Create(owner.release(), parse_resource_file_atom(context_)));
+        continue;
+      }
+      if (context_.match(StyioTokenType::ARROW_SINGLE_RIGHT)) {
+        context_.skip();
+        owner.reset(ResourceRedirectAST::Create(owner.release(), parse_resource_file_atom(context_)));
+        continue;
+      }
+      break;
+    }
+    return owner.release();
+  }
+
+  StyioAST* parse_full_expression() {
+    StyioAST* parsed = parse_postfix(parse_expression(0));
+    context_.skip();
+    if (has_unsupported_continuation(context_.cur_tok_type())) {
+      delete parsed;
+      throw StyioSyntaxError("unsupported expression continuation in new parser subset");
+    }
+    return parsed;
+  }
+
   std::vector<StyioAST*> parse_call_args() {
     context_.move_forward(1, "new_expr:call(");
 
@@ -130,7 +184,7 @@ private:
     context_.skip_spaces_no_linebreak();
     if (context_.cur_tok_type() != StyioTokenType::TOK_RPAREN) {
       while (true) {
-        args.push_back(parse_expression(0));
+        args.push_back(parse_full_expression());
         context_.skip_spaces_no_linebreak();
         if (context_.cur_tok_type() == StyioTokenType::TOK_RPAREN) {
           break;
@@ -205,7 +259,23 @@ private:
       }
       case StyioTokenType::TOK_LPAREN: {
         context_.move_forward(1, "new_expr:(");
-        StyioAST* inner = parse_expression(0);
+        context_.skip();
+        if (context_.cur_tok_type() == StyioTokenType::EXTRACTOR) {
+          context_.move_forward(1, "new_expr:instant_pull");
+          context_.skip();
+          StyioAST* ratom = parse_resource_file_atom(context_);
+          auto* fr = dynamic_cast<FileResourceAST*>(ratom);
+          if (fr == nullptr) {
+            throw StyioSyntaxError(context_.mark_cur_tok("instant pull needs @file{...} or @{...}"));
+          }
+          context_.skip();
+          if (!context_.match(StyioTokenType::TOK_RPAREN)) {
+            delete fr;
+            throw StyioSyntaxError("expected ')' after instant pull in new parser subset");
+          }
+          return InstantPullAST::Create(fr);
+        }
+        StyioAST* inner = parse_full_expression();
         context_.skip();
         if (!context_.match(StyioTokenType::TOK_RPAREN)) {
           throw StyioSyntaxError("expected ')' in new parser expression subset");
@@ -274,7 +344,7 @@ public:
   }
 
   StyioAST* parse() {
-    return parse_expression(0);
+    return parse_full_expression();
   }
 };
 
@@ -347,17 +417,24 @@ styio_new_parser_is_stmt_subset_token(StyioTokenType type) {
   switch (type) {
     case StyioTokenType::TOK_HASH:
     case StyioTokenType::PRINT:
+    case StyioTokenType::TOK_HAT:
     case StyioTokenType::TOK_COMMA:
     case StyioTokenType::TOK_EQUAL:
+    case StyioTokenType::TOK_AT:
+    case StyioTokenType::ARROW_SINGLE_LEFT:
     case StyioTokenType::TOK_COLON:
     case StyioTokenType::WALRUS:
     case StyioTokenType::MATCH:
     case StyioTokenType::ITERATOR:
     case StyioTokenType::ARROW_DOUBLE_RIGHT:
+    case StyioTokenType::TOK_LBOXBRAC:
+    case StyioTokenType::TOK_RBOXBRAC:
     case StyioTokenType::TOK_LCURBRAC:
     case StyioTokenType::TOK_RCURBRAC:
     case StyioTokenType::TOK_UNDLINE:
     case StyioTokenType::EXTRACTOR:
+    case StyioTokenType::YIELD_PIPE:
+    case StyioTokenType::ELLIPSIS:
     case StyioTokenType::BOUNDED_BUFFER_OPEN:
     case StyioTokenType::BOUNDED_BUFFER_CLOSE:
     case StyioTokenType::COMPOUND_ADD:
@@ -375,12 +452,25 @@ bool
 styio_new_parser_is_stmt_subset_start(StyioTokenType type) {
   return type == StyioTokenType::TOK_HASH
          || type == StyioTokenType::PRINT
+         || type == StyioTokenType::TOK_HAT
+         || type == StyioTokenType::TOK_AT
+         || type == StyioTokenType::TOK_LCURBRAC
+         || type == StyioTokenType::EXTRACTOR
+         || type == StyioTokenType::YIELD_PIPE
+         || type == StyioTokenType::ELLIPSIS
+         || type == StyioTokenType::ITERATOR
          || styio_new_parser_is_expr_subset_start(type);
 }
 
 namespace {
 StyioAST*
-parse_stmt_new_subset(StyioContext& context);
+parse_stmt_new_subset_impl(StyioContext& context);
+
+BlockAST*
+parse_block_only_new_subset(StyioContext& context);
+
+BlockAST*
+parse_block_with_forward_new_subset(StyioContext& context);
 
 PrintAST*
 parse_print_new_subset(StyioContext& context) {
@@ -402,6 +492,65 @@ parse_print_new_subset(StyioContext& context) {
   }
 
   return PrintAST::Create(exprs);
+}
+
+ReturnAST*
+parse_return_new_subset(StyioContext& context) {
+  context.match_panic(StyioTokenType::EXTRACTOR);
+  return ReturnAST::Create(parse_expr_new_subset(context));
+}
+
+BreakAST*
+parse_break_new_subset(StyioContext& context) {
+  unsigned depth = 0;
+  while (context.check(StyioTokenType::TOK_HAT)) {
+    depth += 1;
+    context.move_forward(1, "new_stmt:break");
+  }
+  return BreakAST::Create(depth > 0 ? depth : 1u);
+}
+
+ContinueAST*
+parse_continue_new_subset(StyioContext& context) {
+  size_t n = context.cur_tok()->original.size();
+  unsigned depth = static_cast<unsigned>(n > 1 ? n - 1 : 1);
+  context.move_forward(1, "new_stmt:continue");
+  return ContinueAST::Create(depth);
+}
+
+PassAST*
+parse_pass_new_subset(StyioContext& context) {
+  context.move_forward(1, "new_stmt:pass");
+  return PassAST::Create();
+}
+
+BlockAST*
+parse_block_only_new_subset(StyioContext& context) {
+  std::vector<std::unique_ptr<StyioAST>> statements_owned;
+  context.match_panic(StyioTokenType::TOK_LCURBRAC);
+
+  while (context.cur_tok_type() != StyioTokenType::TOK_EOF) {
+    context.skip();
+    if (context.match(StyioTokenType::TOK_RCURBRAC)) {
+      std::vector<StyioAST*> statements;
+      statements.reserve(statements_owned.size());
+      for (auto& owned : statements_owned) {
+        statements.push_back(owned.release());
+      }
+      return BlockAST::Create(std::move(statements));
+    }
+    statements_owned.emplace_back(parse_stmt_new_subset_impl(context));
+  }
+
+  context.try_match_panic(StyioTokenType::TOK_RCURBRAC);
+  return BlockAST::Create(std::vector<StyioAST*>());
+}
+
+BlockAST*
+parse_block_with_forward_new_subset(StyioContext& context) {
+  std::unique_ptr<BlockAST> block(parse_block_only_new_subset(context));
+  block->set_followings(parse_forward_as_list(context));
+  return block.release();
 }
 
 TypeAST*
@@ -524,9 +673,9 @@ parse_hash_stmt_new_subset(StyioContext& context) {
 
     context.skip();
     if (context.cur_tok_type() == StyioTokenType::TOK_LCURBRAC) {
-      return FunctionAST::Create(tag_name, is_unique, params, ret_type, parse_block_with_forward(context));
+      return FunctionAST::Create(tag_name, is_unique, params, ret_type, parse_block_with_forward_new_subset(context));
     }
-    StyioAST* ret_expr = parse_stmt_new_subset(context);
+    StyioAST* ret_expr = parse_stmt_new_subset_impl(context);
     return SimpleFuncAST::Create(tag_name, is_unique, params, ret_type, ret_expr);
   }
   if (saw_assign) {
@@ -538,7 +687,7 @@ parse_hash_stmt_new_subset(StyioContext& context) {
 }
 
 StyioAST*
-parse_stmt_new_subset(StyioContext& context) {
+parse_stmt_new_subset_impl(StyioContext& context) {
   context.skip();
 
   if (context.cur_tok_type() == StyioTokenType::NAME) {
@@ -570,6 +719,23 @@ parse_stmt_new_subset(StyioContext& context) {
       return FlexBindAST::Create(
         VarAST::Create(NameAST::Create(id)),
         parse_expr_new_subset(context));
+    }
+    if (context.cur_tok_type() == StyioTokenType::ARROW_SINGLE_LEFT) {
+      context.move_forward(1, "new_stmt:handle_acquire");
+      context.skip();
+      return HandleAcquireAST::Create(
+        VarAST::Create(NameAST::Create(id)),
+        parse_resource_file_atom(context));
+    }
+    if (context.cur_tok_type() == StyioTokenType::EXTRACTOR) {
+      context.move_forward(1, "new_stmt:resource_write");
+      context.skip();
+      return ResourceWriteAST::Create(
+        NameAST::Create(id),
+        parse_resource_file_atom(context));
+    }
+    if (context.cur_tok_type() == StyioTokenType::ITERATOR) {
+      return parse_iterator_only(context, NameAST::Create(id));
     }
     StyioOpType cop = StyioOpType::Undefined;
     switch (context.cur_tok_type()) {
@@ -611,6 +777,29 @@ parse_stmt_new_subset(StyioContext& context) {
       return parse_hash_tag(context);
     }
   }
+  if (context.cur_tok_type() == StyioTokenType::TOK_AT) {
+    return parse_at_stmt_or_expr(context);
+  }
+  if (context.cur_tok_type() == StyioTokenType::TOK_LCURBRAC) {
+    return parse_block_only_new_subset(context);
+  }
+  if (context.cur_tok_type() == StyioTokenType::EXTRACTOR) {
+    return parse_return_new_subset(context);
+  }
+  if (context.cur_tok_type() == StyioTokenType::TOK_HAT) {
+    return parse_break_new_subset(context);
+  }
+  if (context.cur_tok_type() == StyioTokenType::ITERATOR) {
+    return parse_continue_new_subset(context);
+  }
+  if (context.cur_tok_type() == StyioTokenType::YIELD_PIPE) {
+    context.move_forward(1, "new_stmt:yield_pipe");
+    context.skip();
+    return ReturnAST::Create(parse_expr_new_subset(context));
+  }
+  if (context.cur_tok_type() == StyioTokenType::ELLIPSIS) {
+    return parse_pass_new_subset(context);
+  }
   if (styio_new_parser_is_expr_subset_start(context.cur_tok_type())) {
     return parse_expr_new_subset(context);
   }
@@ -618,6 +807,11 @@ parse_stmt_new_subset(StyioContext& context) {
 }
 
 } // namespace
+
+StyioAST*
+parse_stmt_new_subset(StyioContext& context) {
+  return parse_stmt_new_subset_impl(context);
+}
 
 MainBlockAST*
 parse_main_block_new_subset(StyioContext& context) {
@@ -627,7 +821,7 @@ parse_main_block_new_subset(StyioContext& context) {
     if (context.cur_tok_type() == StyioTokenType::TOK_EOF) {
       break;
     }
-    statements_owned.emplace_back(parse_stmt_new_subset(context));
+    statements_owned.emplace_back(parse_stmt_new_subset_impl(context));
   }
   std::vector<StyioAST*> statements;
   statements.reserve(statements_owned.size());

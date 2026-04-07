@@ -531,9 +531,15 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnPrintSubsetSamples) {
 TEST(StyioSecurityNewParserStmt, SubsetTokenGateIncludesFunctionDefTokens) {
   EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_HASH));
   EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::ARROW_DOUBLE_RIGHT));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_AT));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_LBOXBRAC));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_RBOXBRAC));
   EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_LCURBRAC));
   EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_RCURBRAC));
   EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::EXTRACTOR));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_HAT));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::YIELD_PIPE));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::ELLIPSIS));
   EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::BOUNDED_BUFFER_OPEN));
   EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::BOUNDED_BUFFER_CLOSE));
   EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::MATCH));
@@ -541,11 +547,82 @@ TEST(StyioSecurityNewParserStmt, SubsetTokenGateIncludesFunctionDefTokens) {
   EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::ITERATOR));
 }
 
+TEST(StyioSecurityNewParserStmt, SubsetStartGateIncludesBlockAndControlStarters) {
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_start(StyioTokenType::TOK_AT));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_start(StyioTokenType::TOK_LCURBRAC));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_start(StyioTokenType::EXTRACTOR));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_start(StyioTokenType::TOK_HAT));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_start(StyioTokenType::YIELD_PIPE));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_start(StyioTokenType::ELLIPSIS));
+  EXPECT_TRUE(styio_new_parser_is_stmt_subset_start(StyioTokenType::ITERATOR));
+}
+
 TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFlexBindSubsetSamples) {
   const std::vector<std::string> samples = {
     "x = 1 + 2\n>_(x)\n",
     "price = 1 + 2 * 3\n>_(price)\n",
     "a = 1\nb = a + 2\n>_(b)\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+  }
+}
+
+TEST(StyioSecurityNewParserStmt, MatchesLegacyOnHandleIoSubsetSamples) {
+  const std::vector<std::string> samples = {
+    "f <- @file{\"tests/m5/data/hello.txt\"}\n",
+    "out << @file{\"/tmp/styio-new-parser-handle-io.txt\"}\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+  }
+}
+
+TEST(StyioSecurityNewParserStmt, MatchesLegacyOnResourcePostfixSubsetSamples) {
+  const std::vector<std::string> samples = {
+    "\"Hello from Styio\" >> @file{\"/tmp/styio-new-parser-resource-postfix-write.txt\"}\n",
+    "x = 42\nx -> @file{\"/tmp/styio-new-parser-resource-postfix-redirect.txt\"}\n",
+    "# write_value := () => \"payload\" >> @file{\"/tmp/styio-new-parser-resource-postfix-func.txt\"}\nwrite_value()\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+  }
+}
+
+TEST(StyioSecurityNewParserStmt, MatchesLegacyOnIteratorStmtSubsetSamples) {
+  const std::vector<std::string> samples = {
+    "f <- @file{\"tests/m5/data/hello.txt\"}\nf >> #(line) => {\n    >_(line)\n}\n",
+    "# double_it := (x: i32) => x * 2\nf <- @file{\"tests/m5/data/numbers.txt\"}\nf >> #(line) => {\n    >_(double_it(line))\n}\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+  }
+}
+
+TEST(StyioSecurityNewParserStmt, MatchesLegacyOnInstantPullSubsetSamples) {
+  const std::string src = "x = 1\nresult = x + (<< @file{\"tests/m7/data/ref50.txt\"})\n>_(result)\n";
+  EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false));
+}
+
+TEST(StyioSecurityNewParserStmt, MatchesLegacyOnSnapshotDeclSubsetSamples) {
+  const std::vector<std::string> samples = {
+    "@[ref_val] << @file{\"tests/m7/data/ref.txt\"}\n",
+    "@[3](ma = 1 + 2)\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+  }
+}
+
+TEST(StyioSecurityNewParserStmt, MatchesLegacyOnAtResourceSubsetSamples) {
+  const std::vector<std::string> samples = {
+    "@file{\"tests/m7/data/prices_a.txt\"} >> #(a) => {\n    >_(a)\n}\n",
+    "@file{\"tests/m7/data/input.txt\"} >> #(x) => {\n    result = x * 2\n    result << @file{\"/tmp/styio-new-parser-at-resource-subset.txt\"}\n}\n",
   };
 
   for (const auto& src : samples) {
@@ -618,6 +695,29 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFunctionDefSubsetSamples) {
     "# iter_only(x) >> (n) => >_(n)\niter_only(3)\n",
     "# alert := () => >_(\"ALERT\")\nalert()\n",
     "# compute := (x: i32) => {\n    y = x * 2\n    <| y\n}\n>_(compute(5))\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+  }
+}
+
+TEST(StyioSecurityNewParserStmt, MatchesLegacyOnBlockControlSubsetSamples) {
+  const std::vector<std::string> samples = {
+    "{\n    value = 1 + 2\n    <| value\n}\n",
+    "{\n    ...\n    ^\n    >>\n}\n",
+    "# outer := (x: i32) => {\n    # inner := (y: i32) => y + 1\n    <| inner(x) + inner(x + 1)\n}\n>_(outer(3))\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+  }
+}
+
+TEST(StyioSecurityNewParserStmt, MatchesLegacyOnMatchCasesSubsetSamples) {
+  const std::vector<std::string> samples = {
+    "x = 4\nlabel = x % 2 ?= {\n    0 => { <| \"even\" }\n    _ => { <| \"odd\" }\n}\n>_(label)\n",
+    "# fact := (n: i32) => {\n    n ?= {\n        0 => { <| 1 }\n        _ => { <| n * fact(n - 1) }\n    }\n}\n>_(fact(5))\n",
   };
 
   for (const auto& src : samples) {

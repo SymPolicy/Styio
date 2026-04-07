@@ -31,6 +31,12 @@ enum class StyioParserEngine
   New,
 };
 
+struct StyioParserRouteStats
+{
+  size_t new_subset_statements = 0;
+  size_t legacy_fallback_statements = 0;
+};
+
 class StyioContext
 {
 private:
@@ -1310,6 +1316,9 @@ parse_resources(StyioContext& context);
 ResourceAST*
 parse_resources_after_at(StyioContext& context);
 
+StyioAST*
+parse_resource_file_atom(StyioContext& context);
+
 /*
   parse_pipeline
 */
@@ -1398,6 +1407,12 @@ parse_block_only(StyioContext& context);
 CasesAST*
 parse_cases_only(StyioContext& context);
 
+StyioAST*
+parse_at_stmt_or_expr(StyioContext& context);
+
+StyioAST*
+parse_state_decl_after_at(StyioContext& context);
+
 /*
   >> Iterator
 */
@@ -1433,7 +1448,10 @@ const char*
 styio_parser_engine_name(StyioParserEngine engine);
 
 MainBlockAST*
-parse_main_block_with_engine(StyioContext& context, StyioParserEngine engine);
+parse_main_block_with_engine(
+  StyioContext& context,
+  StyioParserEngine engine,
+  StyioParserRouteStats* route_stats = nullptr);
 
 StyioAST*
 parse_expr(StyioContext& context);

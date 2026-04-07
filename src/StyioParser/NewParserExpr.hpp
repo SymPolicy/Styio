@@ -20,6 +20,9 @@ styio_new_parser_is_stmt_subset_start(StyioTokenType type);
 StyioAST*
 parse_expr_new_subset(StyioContext& context);
 
+StyioAST*
+parse_stmt_new_subset(StyioContext& context);
+
 MainBlockAST*
 parse_main_block_new_subset(StyioContext& context);
 

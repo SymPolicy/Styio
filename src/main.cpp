@@ -324,7 +324,8 @@ styio_parse_engine_to_repr(
   bool debug_mode,
   StyioParserEngine engine,
   std::string& out_repr,
-  std::string& out_error
+  std::string& out_error,
+  std::string* out_detail = nullptr
 ) {
   std::vector<StyioToken*> tokens;
   StyioContext* ctx = nullptr;
@@ -332,9 +333,22 @@ styio_parse_engine_to_repr(
   try {
     tokens = StyioTokenizer::tokenize(code_text);
     ctx = StyioContext::Create(file_path, code_text, line_seps, tokens, debug_mode);
-    ast = parse_main_block_with_engine(*ctx, engine);
+    StyioParserRouteStats route_stats;
+    StyioParserRouteStats* route_stats_ptr =
+      engine == StyioParserEngine::New ? &route_stats : nullptr;
+    ast = parse_main_block_with_engine(*ctx, engine, route_stats_ptr);
     StyioRepr repr;
     out_repr = ast->toString(&repr);
+    if (out_detail != nullptr) {
+      if (route_stats_ptr != nullptr) {
+        *out_detail = "new_subset_statements=" + std::to_string(route_stats.new_subset_statements)
+                      + ",legacy_fallback_statements="
+                      + std::to_string(route_stats.legacy_fallback_statements);
+      }
+      else {
+        out_detail->clear();
+      }
+    }
     delete ast;
     delete ctx;
     styio_free_tokens(tokens);
@@ -572,9 +586,19 @@ main(
   }
 
   StyioRepr styio_repr = StyioRepr();
+  std::string primary_route_detail;
+  StyioParserRouteStats primary_route_stats;
+  StyioParserRouteStats* primary_route_stats_ptr =
+    parser_engine == StyioParserEngine::New ? &primary_route_stats : nullptr;
 
   try {
-    session.attach_ast(parse_main_block_with_engine(*session.context(), parser_engine));
+    session.attach_ast(parse_main_block_with_engine(*session.context(), parser_engine, primary_route_stats_ptr));
+    if (primary_route_stats_ptr != nullptr) {
+      primary_route_detail =
+        "new_subset_statements=" + std::to_string(primary_route_stats.new_subset_statements)
+        + ",legacy_fallback_statements="
+        + std::to_string(primary_route_stats.legacy_fallback_statements);
+    }
   } catch (const StyioBaseException& ex) {
     styio_emit_diagnostic(error_format, StyioErrorCategory::ParseError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::ParseError);
@@ -591,6 +615,7 @@ main(
 
     std::string shadow_repr;
     std::string shadow_err;
+    std::string shadow_route_detail;
     if (!styio_parse_engine_to_repr(
           fpath,
           styio_code.code_text,
@@ -598,7 +623,16 @@ main(
           is_debug_mode,
           shadow_engine,
           shadow_repr,
-          shadow_err)) {
+          shadow_err,
+          &shadow_route_detail)) {
+      std::ostringstream detail;
+      detail << "shadow parser failed under --parser-shadow-compare";
+      if (!primary_route_detail.empty()) {
+        detail << "; primary_route=" << primary_route_detail;
+      }
+      if (!shadow_route_detail.empty()) {
+        detail << "; shadow_route=" << shadow_route_detail;
+      }
       styio_emit_diagnostic(
         error_format,
         StyioErrorCategory::ParseError,
@@ -614,7 +648,7 @@ main(
         primary_repr,
         shadow_repr,
         shadow_err,
-        "shadow parser failed under --parser-shadow-compare");
+        detail.str());
       return styio_exit_code(StyioErrorCategory::ParseError);
     }
 
@@ -622,6 +656,12 @@ main(
       std::ostringstream oss;
       oss << "shadow parser mismatch: primary=" << styio_parser_engine_name(parser_engine)
           << ", shadow=" << styio_parser_engine_name(shadow_engine);
+      if (!primary_route_detail.empty()) {
+        oss << "; primary_route=" << primary_route_detail;
+      }
+      if (!shadow_route_detail.empty()) {
+        oss << "; shadow_route=" << shadow_route_detail;
+      }
       styio_emit_diagnostic(error_format, StyioErrorCategory::ParseError, fpath, oss.str());
       styio_write_shadow_artifact(
         parser_shadow_artifact_dir,
@@ -637,6 +677,14 @@ main(
       return styio_exit_code(StyioErrorCategory::ParseError);
     }
 
+    std::ostringstream detail;
+    detail << "shadow parser match";
+    if (!primary_route_detail.empty()) {
+      detail << "; primary_route=" << primary_route_detail;
+    }
+    if (!shadow_route_detail.empty()) {
+      detail << "; shadow_route=" << shadow_route_detail;
+    }
     styio_write_shadow_artifact(
       parser_shadow_artifact_dir,
       fpath,
@@ -647,7 +695,7 @@ main(
       primary_repr,
       shadow_repr,
       "",
-      "shadow parser match");
+      detail.str());
   }
 
   if (show_styio_ast) {

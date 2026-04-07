@@ -106,10 +106,9 @@ parse_name_unsafe(StyioContext& context) {
 }
 
 static StyioAST* parse_token_index_suffix(StyioContext& context, StyioAST* base);
-static StyioAST* parse_resource_file_atom(StyioContext& context);
-static StyioAST* parse_state_decl_after_at(StyioContext& context);
 static StyioAST* parse_state_ref_suffix(StyioContext& context, StateRefAST* sr);
 static TypeAST* parse_styio_type(StyioContext& context);
+static StyioAST* parse_expr_postfix(StyioContext& context, StyioAST* lhs);
 
 StyioAST*
 parse_name_and_following_unsafe(StyioContext& context) {
@@ -651,7 +650,7 @@ parse_after_at_common(StyioContext& context, bool file_only_resource) {
 /* M6 state syntax: @[n](name = expr) / @[acc = i](name = expr) / @[name] << @file{...}
  * Target design (docs/Styio-Resource-Topology.md): @name : [|n|] := { driver } at top level,
  * expr -> $name for writes. Not implemented here — requires new tokens [| |] and grammar. */
-static StyioAST*
+StyioAST*
 parse_state_decl_after_at(StyioContext& context) {
   context.try_match_panic(StyioTokenType::TOK_LBOXBRAC);
   context.skip();
@@ -713,7 +712,20 @@ parse_state_decl_after_at(StyioContext& context) {
   throw StyioSyntaxError(context.mark_cur_tok("expected = or ] after name in @[...]"));
 }
 
-static StyioAST*
+StyioAST*
+parse_at_stmt_or_expr(StyioContext& context) {
+  context.move_forward(1, "stmt@");
+  context.skip();
+  if (context.check(StyioTokenType::TOK_LBOXBRAC)) {
+    return parse_state_decl_after_at(context);
+  }
+  if (context.check(StyioTokenType::TOK_LPAREN)) {
+    return parse_resources_after_at(context);
+  }
+  return parse_expr_postfix(context, parse_after_at_common(context, false));
+}
+
+StyioAST*
 parse_resource_file_atom(StyioContext& context) {
   context.skip();
   context.match_panic(StyioTokenType::TOK_AT);
@@ -3320,15 +3332,7 @@ parse_stmt_or_expr(
 
     /* @ */
     case StyioTokenType::TOK_AT: {
-      context.move_forward(1, "stmt@");
-      context.skip();
-      if (context.check(StyioTokenType::TOK_LBOXBRAC)) {
-        return parse_state_decl_after_at(context);
-      }
-      if (context.check(StyioTokenType::TOK_LPAREN)) {
-        return parse_resources_after_at(context);
-      }
-      return parse_expr_postfix(context, parse_after_at_common(context, false));
+      return parse_at_stmt_or_expr(context);
     } break;
 
     /* # */
@@ -3464,51 +3468,75 @@ styio_parser_engine_name(StyioParserEngine engine) {
 }
 
 static MainBlockAST*
-parse_main_block_new_shadow(StyioContext& context) {
-  const auto& tokens = context.get_tokens();
-  const size_t start = styio_skip_trivia_tokens(tokens, context.get_token_index());
-  if (start >= tokens.size()) {
-    return MainBlockAST::Create(vector<StyioAST*>());
-  }
-  if (!styio_new_parser_is_stmt_subset_start(tokens[start]->type)) {
-    return parse_main_block(context);
-  }
-  for (size_t i = start; i < tokens.size(); ++i) {
-    if (!styio_new_parser_is_stmt_subset_token(tokens[i]->type)) {
-      return parse_main_block(context);
-    }
-    if (tokens[i]->type == StyioTokenType::TOK_EOF) {
-      break;
-    }
+parse_main_block_new_shadow(StyioContext& context, StyioParserRouteStats* route_stats) {
+  if (route_stats != nullptr) {
+    *route_stats = StyioParserRouteStats {};
   }
 
-  // E.4: NewParser currently owns a small statement subset
-  // (`print`, expr stmt, and bind subset).
-  // Non-subset inputs are routed to legacy above.
-  const auto saved = context.save_cursor();
-  MainBlockAST* parsed = nullptr;
-  try {
-    parsed = parse_main_block_new_subset(context);
-  } catch (const std::exception&) {
-    context.restore_cursor(saved);
-    return parse_main_block(context);
+  std::vector<std::unique_ptr<StyioAST>> statements_owned;
+  while (true) {
+    context.skip();
+    if (context.cur_tok_type() == StyioTokenType::TOK_EOF) {
+      break;
+    }
+
+    StyioAST* stmt = nullptr;
+    bool parsed_with_new_subset = false;
+    const auto saved = context.save_cursor();
+    if (styio_new_parser_is_stmt_subset_start(context.cur_tok_type())) {
+      try {
+        stmt = parse_stmt_new_subset(context);
+        parsed_with_new_subset = true;
+      } catch (const std::exception&) {
+        context.restore_cursor(saved);
+      }
+    }
+
+    if (stmt == nullptr) {
+      stmt = parse_stmt_or_expr(context);
+      if (route_stats != nullptr) {
+        route_stats->legacy_fallback_statements += 1;
+      }
+    }
+    else if (route_stats != nullptr && parsed_with_new_subset) {
+      route_stats->new_subset_statements += 1;
+    }
+
+    if ((stmt->getNodeType()) == StyioNodeType::End) {
+      delete stmt;
+      break;
+    }
+    if ((stmt->getNodeType()) == StyioNodeType::Comment) {
+      delete stmt;
+      continue;
+    }
+    statements_owned.emplace_back(stmt);
   }
-  if (context.cur_tok_type() != StyioTokenType::TOK_EOF) {
-    // Conservative rollback on trailing unsupported syntax.
-    delete parsed;
-    context.restore_cursor(saved);
-    return parse_main_block(context);
+
+  std::vector<StyioAST*> statements;
+  statements.reserve(statements_owned.size());
+  for (auto& owned : statements_owned) {
+    statements.push_back(owned.release());
   }
-  return parsed;
+  return MainBlockAST::Create(statements);
 }
 
 MainBlockAST*
-parse_main_block_with_engine(StyioContext& context, StyioParserEngine engine) {
+parse_main_block_with_engine(
+  StyioContext& context,
+  StyioParserEngine engine,
+  StyioParserRouteStats* route_stats) {
   switch (engine) {
     case StyioParserEngine::Legacy:
+      if (route_stats != nullptr) {
+        *route_stats = StyioParserRouteStats {};
+      }
       return parse_main_block(context);
     case StyioParserEngine::New:
-      return parse_main_block_new_shadow(context);
+      return parse_main_block_new_shadow(context, route_stats);
+  }
+  if (route_stats != nullptr) {
+    *route_stats = StyioParserRouteStats {};
   }
   return parse_main_block(context);
 }
