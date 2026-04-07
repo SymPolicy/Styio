@@ -2,7 +2,7 @@
 
 **文档作用：** 记录 Styio 关键架构与工程决策（为什么做、为什么不做其它方案），用于中断后快速恢复决策上下文。
 
-**Last updated:** 2026-04-06
+**Last updated:** 2026-04-07
 
 ## 约定
 
@@ -95,3 +95,6 @@
 - `ADR-0081-typetuple-checkequal-raii-ownership.md`
 - `ADR-0082-state-inline-matchcases-clone-coverage.md`
 - `ADR-0083-state-inline-matchcases-soak-gate.md`
+- `ADR-0084-state-inline-infinite-clone-and-soak-gate.md`
+- `ADR-0085-parser-default-switch-to-new-with-legacy-fallback.md`
+- `ADR-0086-checkpoint-health-batch-script.md`

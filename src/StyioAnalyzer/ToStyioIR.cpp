@@ -566,6 +566,14 @@ clone_state_expr_with_subst(StyioAST* e, const std::string& pname, StyioAST* rep
       clone_state_expr_with_subst(match->getScrutinee(), pname, repl),
       cloned_cases);
   }
+  if (auto* inf = dynamic_cast<InfiniteAST*>(e)) {
+    if (inf->getType() == InfiniteType::Incremental) {
+      return new InfiniteAST(
+        clone_state_expr_with_subst(inf->getStart(), pname, repl),
+        clone_state_expr_with_subst(inf->getIncEl(), pname, repl));
+    }
+    return new InfiniteAST();
+  }
   if (auto* pass = dynamic_cast<PassAST*>(e)) {
     (void)pass;
     return PassAST::Create();

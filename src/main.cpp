@@ -471,7 +471,7 @@ main(
     cxxopts::value<std::string>()->default_value("text")
   )(
     "parser-engine", "Internal parser selector (legacy|new).",
-    cxxopts::value<std::string>()->default_value("legacy")
+    cxxopts::value<std::string>()->default_value("new")
   )(
     "parser-shadow-compare",
     "When enabled, parse once with the selected parser and once with the alternate parser, then compare AST repr.",
@@ -506,7 +506,7 @@ main(
   std::string parser_engine_raw = cmlopts["parser-engine"].as<std::string>();
   bool parser_shadow_compare = cmlopts["parser-shadow-compare"].as<bool>();
   std::string parser_shadow_artifact_dir = cmlopts["parser-shadow-artifact-dir"].as<std::string>();
-  StyioParserEngine parser_engine = StyioParserEngine::Legacy;
+  StyioParserEngine parser_engine = StyioParserEngine::New;
 
   if (!(error_format == "text" || error_format == "jsonl")) {
     std::cerr << "[CliError] unsupported --error-format: " << error_format << std::endl;

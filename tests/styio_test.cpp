@@ -479,6 +479,51 @@ TEST(StyioParserEngine, UnsupportedEngineIsRejected) {
   EXPECT_NE(bad.stdout_text.find("unsupported --parser-engine"), std::string::npos);
 }
 
+TEST(StyioParserEngine, DefaultEngineIsNewInShadowArtifact) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t01_int_arith.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const fs::path artifact_dir =
+    fs::temp_directory_path() / ("styio-shadow-default-engine-" + std::to_string(uniq));
+  fs::create_directories(artifact_dir);
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_default_shadow =
+    std::string("\"") + runner + "\" --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+  const CommandResult def = run_stdout_command(cmd_default_shadow);
+  ASSERT_EQ(def.exit_code, 0) << def.stdout_text;
+
+  bool found = false;
+  bool primary_new = false;
+  for (const auto& entry : fs::directory_iterator(artifact_dir)) {
+    if (!entry.is_regular_file() || entry.path().extension() != ".jsonl") {
+      continue;
+    }
+    found = true;
+    std::ifstream in(entry.path());
+    ASSERT_TRUE(in.is_open());
+    std::string line;
+    std::getline(in, line);
+    if (line.find("\"primary_engine\":\"new\"") != std::string::npos) {
+      primary_new = true;
+      break;
+    }
+  }
+
+  EXPECT_TRUE(found);
+  EXPECT_TRUE(primary_new);
+  fs::remove_all(artifact_dir);
+}
+
 TEST(StyioParserEngine, ShadowCompareAcceptsM1TypedBindSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t07_typed_bind.styio";
@@ -1027,6 +1072,39 @@ TEST(StyioDiagnostics, StateInlineMatchCasesFunctionUsesCallArgument) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);
   EXPECT_EQ(result.stdout_text, "10\n12\n15\n");
+  EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioDiagnostics, StateInlineInfiniteLiteralFunctionUsesCallArgument) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-state-inline-infinite-arg-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# pulse = (x) => @[sum = 0](out = [...])\n";
+    out << "[1, 2] >> #(v) => {\n";
+    out << "  pulse(v)\n";
+    out << "  >_(out)\n";
+    out << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(result.stdout_text, "0\n0\n");
   EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
 
   fs::remove(input);

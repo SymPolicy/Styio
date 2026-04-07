@@ -20,6 +20,8 @@
   - 单参数 state helper（直返 `StateDecl`）在 pulse 体中调用的长跑回归（输出稳定 `1/3/6`）
 - `StyioSoakSingleThread.StateInlineMatchCasesProgramLoop`
   - 单参数 state helper 使用 `?= { ... }` 更新表达式的长跑回归（输出稳定 `10/12/15`）
+- `StyioSoakSingleThread.StateInlineInfiniteProgramLoop`
+  - 单参数 state helper 使用 `[...]`（`InfiniteAST`）更新表达式的长跑回归（输出稳定 `0/0`）
 
 ## C ABI 指针约定
 
@@ -57,6 +59,7 @@ ctest --test-dir build -L soak_deep --output-on-failure
 - `STYIO_SOAK_STREAM_ITERS=1500`
 - `STYIO_SOAK_STATE_INLINE_ITERS=1500`
 - `STYIO_SOAK_STATE_MATCH_ITERS=1500`
+- `STYIO_SOAK_STATE_INFINITE_ITERS=1500`
 
 说明：PR/CI 默认跑 `soak_smoke`，nightly 跑 `soak_deep`。
 

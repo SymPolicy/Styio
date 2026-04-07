@@ -2,7 +2,7 @@
 
 **文档作用：** 约束 Styio 在底层重构期间的 **微里程碑拆分、可中断恢复、分支寿命与合并门槛**；不替代语言语义文档（见 `Styio-Language-Design.md` / `Styio-EBNF.md`）。
 
-**Last updated:** 2026-04-03
+**Last updated:** 2026-04-07
 
 ---
 
@@ -15,6 +15,7 @@
 5. 高风险重构默认双轨：`legacy` 稳定路径 + `new` 影子路径，默认不切主行为。
 6. 每个微里程碑必须至少包含一条“先失败后修复”的测试历史（TDD 书签）。
 7. 关键所有权/生命周期决策必须落 ADR（`docs/adr/ADR-*.md`）。
+8. 冷启动恢复时优先执行 `./scripts/checkpoint-health.sh`（可用 `--no-asan` 快速模式）。
 
 ---
 
