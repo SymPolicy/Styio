@@ -57,7 +57,7 @@ LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   try {
     tokens = StyioTokenizer::tokenize(src);
     ctx = StyioContext::Create("<fuzz>", src, line_seps, tokens, false);
-    ast = parse_main_block(*ctx);
+    ast = parse_main_block_legacy(*ctx);
   } catch (const StyioBaseException&) {
     // expected on malformed inputs
   } catch (...) {

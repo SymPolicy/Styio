@@ -122,6 +122,15 @@ foreach(M7FILE IN LISTS M7_STYIO_TESTS)
   set_tests_properties("m7_${M7NAME}" PROPERTIES LABELS "milestone;m7")
 endforeach()
 
+add_test(
+  NAME parser_shadow_gate_m7_zero_fallback
+  COMMAND bash -c "tmp_dir=\$(mktemp -d) && trap 'rm -rf \"\$tmp_dir\"' EXIT && \"${CMAKE_SOURCE_DIR}/scripts/parser-shadow-suite-gate.sh\" --require-zero-fallback \"${STYIO_EXE}\" \"${STYIO_MS}/m7\" \"\$tmp_dir\""
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(parser_shadow_gate_m7_zero_fallback PROPERTIES
+  LABELS "styio_pipeline;shadow_gate;m7"
+)
+
 add_executable(styio_test
   styio_test.cpp
 )

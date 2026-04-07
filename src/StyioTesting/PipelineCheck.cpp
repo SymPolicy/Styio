@@ -210,7 +210,7 @@ run_pipeline_case(const std::string& case_dir, const char* layer5_compiler_exe) 
 
     MainBlockAST* ast = nullptr;
     try {
-      ast = parse_main_block(*ctx);
+      ast = parse_main_block_legacy(*ctx);
     } catch (const StyioBaseException& ex) {
       for (auto* t : token_list) {
         delete t;

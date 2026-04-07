@@ -12,7 +12,13 @@
 3. 记录风险边界（所有权、生命周期、ABI、并发、持久化）。
 4. 选择迁移策略：
    - `兼容模式`：对外接口不变，内部先收敛；
-   - `双轨模式`：`legacy` + `new` 并存，默认 legacy。
+   - `双轨模式`：`legacy` + `nightly` 并存，默认 legacy。
+
+5. 建立函数命名状态位：
+   - 稳定旧实现：`*_legacy`
+   - 影子/夜间实现：`*_nightly`
+   - 双轨共享 helper：`*_latest`
+   - 正在接管、尚未满足 checkpoint 合并门槛：`*_draft`
 
 ---
 
@@ -108,11 +114,12 @@ fix: make AST tracked cleanup non-owning to avoid double free
 
 ## 6. 双轨重构附加模板（Shadow Gate）
 
-适用场景：`legacy/new` 并存、默认不切主行为的高风险重构。
+适用场景：`legacy/nightly` 并存、默认不切主行为的高风险重构。
 
 1. 加显式开关：
-   - 例如 `--<domain>-engine=legacy|new`、`--<domain>-shadow-compare`。
-2. 默认路径保持 `legacy`，`new` 仅在开关下运行。
+   - 例如 `--<domain>-engine=legacy|nightly`、`--<domain>-shadow-compare`。
+   - 如需兼容历史接口，可保留 `new -> nightly` 别名，但文档与测试统一写 `nightly`。
+2. 默认路径保持 `legacy`，`nightly` 仅在开关下运行。
 3. 增加工件输出参数：
    - 例如 `--<domain>-shadow-artifact-dir`。
 4. 在 CI 设置显式 gate（不要只依赖大标签间接覆盖）：

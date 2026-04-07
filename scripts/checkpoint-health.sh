@@ -52,7 +52,7 @@ cmake --build "$BUILD_DIR" --target styio_test styio_soak_test -j8
 
 echo "[checkpoint-health] parser default + state inline diagnostics"
 ctest --test-dir "$BUILD_DIR" \
-  -R '^Styio(ParserEngine\.DefaultEngineIsNewInShadowArtifact|Diagnostics\.(SingleArgStateFunctionInliningUsesCallArgument|BlockStateFunctionInliningUsesCallArgument|StateInlineMatchCasesFunctionUsesCallArgument|StateInlineInfiniteLiteralFunctionUsesCallArgument))$' \
+  -R '^Styio(ParserEngine\.DefaultEngineIsNightlyInShadowArtifact|Diagnostics\.(SingleArgStateFunctionInliningUsesCallArgument|BlockStateFunctionInliningUsesCallArgument|StateInlineMatchCasesFunctionUsesCallArgument|StateInlineInfiniteLiteralFunctionUsesCallArgument))$' \
   --output-on-failure
 
 echo "[checkpoint-health] soak smoke (state inline focus)"
@@ -68,6 +68,11 @@ ctest --test-dir "$BUILD_DIR" \
 echo "[checkpoint-health] pipeline + security labels"
 ctest --test-dir "$BUILD_DIR" -L styio_pipeline --output-on-failure
 ctest --test-dir "$BUILD_DIR" -L security --output-on-failure
+
+echo "[checkpoint-health] m7 parser shadow zero-fallback gate"
+ctest --test-dir "$BUILD_DIR" \
+  -R '^parser_shadow_gate_m7_zero_fallback$' \
+  --output-on-failure
 
 if [[ "$RUN_ASAN" -eq 1 ]]; then
   echo "[checkpoint-health] asan build dir: ${ASAN_BUILD_DIR}"

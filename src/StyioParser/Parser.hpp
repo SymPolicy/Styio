@@ -28,13 +28,15 @@ class StyioParser;
 enum class StyioParserEngine
 {
   Legacy,
-  New,
+  Nightly,
+  New = Nightly,
 };
 
 struct StyioParserRouteStats
 {
-  size_t new_subset_statements = 0;
+  size_t nightly_subset_statements = 0;
   size_t legacy_fallback_statements = 0;
+  size_t nightly_internal_legacy_bridges = 0;
 };
 
 class StyioContext
@@ -65,6 +67,7 @@ private:
   shared_ptr<StyioAST> ast;
   unordered_map<string, shared_ptr<StyioAST>> constants;
   unordered_map<string, shared_ptr<StyioAST>> variables;
+  StyioParserRouteStats* parser_route_stats = nullptr;
 
   bool debug_mode = false;
 
@@ -212,6 +215,23 @@ public:
   restore_cursor(std::pair<size_t, size_t> c) {
     index_of_token = c.first;
     cur_pos = c.second;
+  }
+
+  void
+  set_parser_route_stats_latest(StyioParserRouteStats* stats) {
+    parser_route_stats = stats;
+  }
+
+  StyioParserRouteStats*
+  parser_route_stats_latest() {
+    return parser_route_stats;
+  }
+
+  void
+  note_nightly_internal_legacy_bridge_latest() {
+    if (parser_route_stats != nullptr) {
+      parser_route_stats->nightly_internal_legacy_bridges += 1;
+    }
   }
 
   inline void skip() {
@@ -1304,6 +1324,9 @@ parse_value_expr(StyioContext& context);
 StyioAST*
 parse_expr(StyioContext& context);
 
+std::vector<std::string>
+parse_name_with_spaces_unsafe(StyioContext& context);
+
 StyioAST*
 parse_var_name_or_value_expr(StyioContext& context);
 
@@ -1317,7 +1340,7 @@ ResourceAST*
 parse_resources_after_at(StyioContext& context);
 
 StyioAST*
-parse_resource_file_atom(StyioContext& context);
+parse_resource_file_atom_latest(StyioContext& context);
 
 /*
   parse_pipeline
@@ -1353,7 +1376,7 @@ parse_panic(StyioContext& context);
   parse_stmt
 */
 StyioAST*
-parse_stmt_or_expr(StyioContext& context);
+parse_stmt_or_expr_legacy(StyioContext& context);
 
 /*
   parse_ext_elem
@@ -1405,19 +1428,19 @@ parse_block_only(StyioContext& context);
   ?= Match Cases
 */
 CasesAST*
-parse_cases_only(StyioContext& context);
+parse_cases_only_latest(StyioContext& context);
 
 StyioAST*
-parse_at_stmt_or_expr(StyioContext& context);
+parse_at_stmt_or_expr_latest(StyioContext& context);
 
 StyioAST*
-parse_state_decl_after_at(StyioContext& context);
+parse_state_decl_after_at_latest(StyioContext& context);
 
 /*
   >> Iterator
 */
 StyioAST*
-parse_iterator_only(StyioContext& context, StyioAST* collection);
+parse_iterator_only_latest(StyioContext& context, StyioAST* collection);
 
 /*
   parse_something_with_forward
@@ -1439,16 +1462,16 @@ CODPAST*
 parse_codp(StyioContext& context, CODPAST* prev_op = nullptr);
 
 MainBlockAST*
-parse_main_block(StyioContext& context);
+parse_main_block_legacy(StyioContext& context);
 
 bool
-styio_parse_parser_engine(const std::string& raw, StyioParserEngine& out);
+styio_parse_parser_engine_latest(const std::string& raw, StyioParserEngine& out);
 
 const char*
-styio_parser_engine_name(StyioParserEngine engine);
+styio_parser_engine_name_latest(StyioParserEngine engine);
 
 MainBlockAST*
-parse_main_block_with_engine(
+parse_main_block_with_engine_latest(
   StyioContext& context,
   StyioParserEngine engine,
   StyioParserRouteStats* route_stats = nullptr);
@@ -1501,7 +1524,7 @@ parse_tuple_operations(
   - something else after list
 */
 StyioAST*
-parse_list_exprs(StyioContext& context);
+parse_list_exprs_latest_draft(StyioContext& context);
 
 ReturnAST*
 parse_return(StyioContext& context);

@@ -9,6 +9,7 @@
 1. 文件命名：`ADR-XXXX-<slug>.md`
 2. 最小字段：`Status`、`Context`、`Decision`、`Alternatives`、`Consequences`
 3. 关键边界（所有权、ABI、诊断格式、兼容策略）必须有 ADR 再落地实现
+4. 历史 ADR 若仍写 `new parser`，自 2026-04-07 起统一解释为 `nightly parser`
 
 ## 条目
 
@@ -105,3 +106,7 @@
 - `ADR-0091-new-parser-iterator-and-instant-pull-subset.md`
 - `ADR-0092-new-parser-at-snapshot-subset.md`
 - `ADR-0093-new-parser-at-resource-iterator-entry.md`
+- `ADR-0094-refactor-function-suffix-policy.md`
+- `ADR-0095-nightly-list-start-iterator-and-statement-boundary.md`
+- `ADR-0096-m7-shadow-zero-fallback-gate.md`
+- `ADR-0097-nightly-internal-legacy-bridge-metric.md`

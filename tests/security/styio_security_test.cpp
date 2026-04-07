@@ -145,7 +145,7 @@ build_line_seps(const std::string& src) {
 }
 
 std::string
-parse_expr_to_repr(const std::string& source, bool use_new_parser) {
+parse_expr_to_repr_latest(const std::string& source, bool use_nightly_parser) {
   // Parse expression prefix and stop before a non-expression sentinel token.
   const std::string wrapped = source + " @";
   auto tokens = StyioTokenizer::tokenize(wrapped);
@@ -165,7 +165,7 @@ parse_expr_to_repr(const std::string& source, bool use_new_parser) {
   };
 
   try {
-    ast = use_new_parser ? parse_expr_new_subset(*ctx) : parse_expr(*ctx);
+    ast = use_nightly_parser ? parse_expr_subset_nightly(*ctx) : parse_expr(*ctx);
     ctx->skip();
     if (ctx->cur_tok_type() != StyioTokenType::TOK_AT) {
       throw std::runtime_error("expression parser did not stop at sentinel");
@@ -182,7 +182,7 @@ parse_expr_to_repr(const std::string& source, bool use_new_parser) {
 }
 
 std::string
-parse_program_to_repr(const std::string& source, bool use_new_parser) {
+parse_program_to_repr_latest(const std::string& source, bool use_nightly_parser) {
   auto tokens = StyioTokenizer::tokenize(source);
   StyioContext* ctx = StyioContext::Create(
     "<stmt-subset-test>",
@@ -200,7 +200,7 @@ parse_program_to_repr(const std::string& source, bool use_new_parser) {
   };
 
   try {
-    ast = use_new_parser ? parse_main_block_new_subset(*ctx) : parse_main_block(*ctx);
+    ast = use_nightly_parser ? parse_main_block_subset_nightly(*ctx) : parse_main_block_legacy(*ctx);
     ctx->skip();
     if (ctx->cur_tok_type() != StyioTokenType::TOK_EOF) {
       throw std::runtime_error("statement parser did not consume input");
@@ -217,7 +217,7 @@ parse_program_to_repr(const std::string& source, bool use_new_parser) {
 }
 
 std::string
-parse_program_engine_to_repr(const std::string& source, StyioParserEngine engine) {
+parse_program_engine_to_repr_latest(const std::string& source, StyioParserEngine engine) {
   auto tokens = StyioTokenizer::tokenize(source);
   StyioContext* ctx = StyioContext::Create(
     "<engine-shadow-test>",
@@ -235,7 +235,7 @@ parse_program_engine_to_repr(const std::string& source, StyioParserEngine engine
   };
 
   try {
-    ast = parse_main_block_with_engine(*ctx, engine);
+    ast = parse_main_block_with_engine_latest(*ctx, engine);
     ctx->skip();
     if (ctx->cur_tok_type() != StyioTokenType::TOK_EOF) {
       throw std::runtime_error("engine parser did not consume input");
@@ -458,7 +458,7 @@ TEST(StyioSecurityParserLookahead, SkipTriviaFindsNextToken) {
   free_tokens(tokens);
 }
 
-TEST(StyioSecurityNewParserExpr, MatchesLegacyOnSubsetSamples) {
+TEST(StyioSecurityNightlyParserExpr, MatchesLegacyOnSubsetSamples) {
   const std::vector<std::string> samples = {
     "1 + 2 * 3",
     "(1 + 2) * 3",
@@ -469,33 +469,33 @@ TEST(StyioSecurityNewParserExpr, MatchesLegacyOnSubsetSamples) {
 
   for (const auto& src : samples) {
     try {
-      EXPECT_EQ(parse_expr_to_repr(src, true), parse_expr_to_repr(src, false)) << src;
+      EXPECT_EQ(parse_expr_to_repr_latest(src, true), parse_expr_to_repr_latest(src, false)) << src;
     } catch (const std::exception& ex) {
       FAIL() << "sample '" << src << "' threw: " << ex.what();
     }
   }
 }
 
-TEST(StyioSecurityNewParserExpr, SubsetTokenGateIncludesCompareAndLogic) {
-  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::BINOP_GT));
-  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::BINOP_GE));
-  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::BINOP_LT));
-  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::BINOP_LE));
-  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::TOK_RANGBRAC));
-  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::TOK_LANGBRAC));
-  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::BINOP_EQ));
-  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::BINOP_NE));
-  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::LOGIC_AND));
-  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::LOGIC_OR));
+TEST(StyioSecurityNightlyParserExpr, SubsetTokenGateIncludesCompareAndLogic) {
+  EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::BINOP_GT));
+  EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::BINOP_GE));
+  EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::BINOP_LT));
+  EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::BINOP_LE));
+  EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::TOK_RANGBRAC));
+  EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::TOK_LANGBRAC));
+  EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::BINOP_EQ));
+  EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::BINOP_NE));
+  EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::LOGIC_AND));
+  EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::LOGIC_OR));
 }
 
-TEST(StyioSecurityNewParserExpr, SubsetTokenGateIncludesDotCallTokens) {
-  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::TOK_LPAREN));
-  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::TOK_RPAREN));
-  EXPECT_TRUE(styio_new_parser_is_expr_subset_token(StyioTokenType::TOK_DOT));
+TEST(StyioSecurityNightlyParserExpr, SubsetTokenGateIncludesDotCallTokens) {
+  EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::TOK_LPAREN));
+  EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::TOK_RPAREN));
+  EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::TOK_DOT));
 }
 
-TEST(StyioSecurityNewParserExpr, RejectsNonSubsetStatementToken) {
+TEST(StyioSecurityNightlyParserExpr, RejectsNonSubsetStatementToken) {
   auto tokens = StyioTokenizer::tokenize(">_ 1 + 2");
   StyioContext* ctx = StyioContext::Create(
     "<expr-subset-test>",
@@ -506,7 +506,7 @@ TEST(StyioSecurityNewParserExpr, RejectsNonSubsetStatementToken) {
 
   EXPECT_THROW(
     {
-      StyioAST* ast = parse_expr_new_subset(*ctx);
+      StyioAST* ast = parse_expr_subset_nightly(*ctx);
       delete ast;
     },
     StyioSyntaxError);
@@ -515,7 +515,7 @@ TEST(StyioSecurityNewParserExpr, RejectsNonSubsetStatementToken) {
   free_tokens(tokens);
 }
 
-TEST(StyioSecurityNewParserStmt, MatchesLegacyOnPrintSubsetSamples) {
+TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnPrintSubsetSamples) {
   const std::vector<std::string> samples = {
     ">_(1 + 2)\n",
     ">_(\"x\", 1 + 2, (3 * 4))\n",
@@ -524,40 +524,41 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnPrintSubsetSamples) {
   };
 
   for (const auto& src : samples) {
-    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
 }
 
-TEST(StyioSecurityNewParserStmt, SubsetTokenGateIncludesFunctionDefTokens) {
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_HASH));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::ARROW_DOUBLE_RIGHT));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_AT));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_LBOXBRAC));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_RBOXBRAC));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_LCURBRAC));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_RCURBRAC));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::EXTRACTOR));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_HAT));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::YIELD_PIPE));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::ELLIPSIS));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::BOUNDED_BUFFER_OPEN));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::BOUNDED_BUFFER_CLOSE));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::MATCH));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::TOK_UNDLINE));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_token(StyioTokenType::ITERATOR));
+TEST(StyioSecurityNightlyParserStmt, SubsetTokenGateIncludesFunctionDefTokens) {
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_HASH));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::ARROW_DOUBLE_RIGHT));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_AT));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_LBOXBRAC));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_RBOXBRAC));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_LCURBRAC));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_RCURBRAC));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::EXTRACTOR));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_HAT));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::YIELD_PIPE));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::ELLIPSIS));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::BOUNDED_BUFFER_OPEN));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::BOUNDED_BUFFER_CLOSE));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::MATCH));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_UNDLINE));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::ITERATOR));
 }
 
-TEST(StyioSecurityNewParserStmt, SubsetStartGateIncludesBlockAndControlStarters) {
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_start(StyioTokenType::TOK_AT));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_start(StyioTokenType::TOK_LCURBRAC));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_start(StyioTokenType::EXTRACTOR));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_start(StyioTokenType::TOK_HAT));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_start(StyioTokenType::YIELD_PIPE));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_start(StyioTokenType::ELLIPSIS));
-  EXPECT_TRUE(styio_new_parser_is_stmt_subset_start(StyioTokenType::ITERATOR));
+TEST(StyioSecurityNightlyParserStmt, SubsetStartGateIncludesBlockAndControlStarters) {
+  EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::TOK_AT));
+  EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::TOK_LCURBRAC));
+  EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::TOK_LBOXBRAC));
+  EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::EXTRACTOR));
+  EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::TOK_HAT));
+  EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::YIELD_PIPE));
+  EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::ELLIPSIS));
+  EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::ITERATOR));
 }
 
-TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFlexBindSubsetSamples) {
+TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnFlexBindSubsetSamples) {
   const std::vector<std::string> samples = {
     "x = 1 + 2\n>_(x)\n",
     "price = 1 + 2 * 3\n>_(price)\n",
@@ -565,22 +566,22 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFlexBindSubsetSamples) {
   };
 
   for (const auto& src : samples) {
-    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
 }
 
-TEST(StyioSecurityNewParserStmt, MatchesLegacyOnHandleIoSubsetSamples) {
+TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnHandleIoSubsetSamples) {
   const std::vector<std::string> samples = {
     "f <- @file{\"tests/m5/data/hello.txt\"}\n",
     "out << @file{\"/tmp/styio-new-parser-handle-io.txt\"}\n",
   };
 
   for (const auto& src : samples) {
-    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
 }
 
-TEST(StyioSecurityNewParserStmt, MatchesLegacyOnResourcePostfixSubsetSamples) {
+TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnResourcePostfixSubsetSamples) {
   const std::vector<std::string> samples = {
     "\"Hello from Styio\" >> @file{\"/tmp/styio-new-parser-resource-postfix-write.txt\"}\n",
     "x = 42\nx -> @file{\"/tmp/styio-new-parser-resource-postfix-redirect.txt\"}\n",
@@ -588,60 +589,74 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnResourcePostfixSubsetSamples) {
   };
 
   for (const auto& src : samples) {
-    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
 }
 
-TEST(StyioSecurityNewParserStmt, MatchesLegacyOnIteratorStmtSubsetSamples) {
+TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnIteratorStmtSubsetSamples) {
   const std::vector<std::string> samples = {
     "f <- @file{\"tests/m5/data/hello.txt\"}\nf >> #(line) => {\n    >_(line)\n}\n",
     "# double_it := (x: i32) => x * 2\nf <- @file{\"tests/m5/data/numbers.txt\"}\nf >> #(line) => {\n    >_(double_it(line))\n}\n",
+    "result = true\n[1, 2, 3] >> #(x) => {\n    result = result && (x > 0)\n}\n>_(result)\n",
+    "[1, 2, 3] >> #(x) => {\n    >_(x)\n}\n",
+    "[1, 2, 3] >> #(n) & [4, 5, 6] >> #(m) => {\n    >_(n + m)\n}\n",
   };
 
   for (const auto& src : samples) {
-    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
 }
 
-TEST(StyioSecurityNewParserStmt, MatchesLegacyOnInstantPullSubsetSamples) {
-  const std::string src = "x = 1\nresult = x + (<< @file{\"tests/m7/data/ref50.txt\"})\n>_(result)\n";
-  EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false));
+TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnInfiniteLoopSubsetSamples) {
+  const std::vector<std::string> samples = {
+    "x = 0\n[...] ?(x < 3) >> {\n    x += 1\n}\n>_(x)\n",
+    "[...] => {\n    >_(1)\n    ^\n}\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
+  }
 }
 
-TEST(StyioSecurityNewParserStmt, MatchesLegacyOnSnapshotDeclSubsetSamples) {
+TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnInstantPullSubsetSamples) {
+  const std::string src = "x = 1\nresult = x + (<< @file{\"tests/m7/data/ref50.txt\"})\n>_(result)\n";
+  EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false));
+}
+
+TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnSnapshotDeclSubsetSamples) {
   const std::vector<std::string> samples = {
     "@[ref_val] << @file{\"tests/m7/data/ref.txt\"}\n",
     "@[3](ma = 1 + 2)\n",
   };
 
   for (const auto& src : samples) {
-    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
 }
 
-TEST(StyioSecurityNewParserStmt, MatchesLegacyOnAtResourceSubsetSamples) {
+TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnAtResourceSubsetSamples) {
   const std::vector<std::string> samples = {
     "@file{\"tests/m7/data/prices_a.txt\"} >> #(a) => {\n    >_(a)\n}\n",
     "@file{\"tests/m7/data/input.txt\"} >> #(x) => {\n    result = x * 2\n    result << @file{\"/tmp/styio-new-parser-at-resource-subset.txt\"}\n}\n",
   };
 
   for (const auto& src : samples) {
-    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
 }
 
-TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFinalBindSubsetSamples) {
+TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnFinalBindSubsetSamples) {
   const std::vector<std::string> samples = {
     "x : i32 := 100\n>_(x)\n",
     "price: f64 := 1 + 2\n>_(price)\n",
   };
 
   for (const auto& src : samples) {
-    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
 }
 
-TEST(StyioSecurityNewParserStmt, MatchesLegacyOnCompoundAssignSubsetSamples) {
+TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnCompoundAssignSubsetSamples) {
   const std::vector<std::string> samples = {
     "x = 10\nx += 5\n>_(x)\n",
     "a = 20\na -= 3\n>_(a)\n",
@@ -651,11 +666,11 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnCompoundAssignSubsetSamples) {
   };
 
   for (const auto& src : samples) {
-    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
 }
 
-TEST(StyioSecurityNewParserStmt, MatchesLegacyOnCompareAndLogicSubsetSamples) {
+TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnCompareAndLogicSubsetSamples) {
   const std::vector<std::string> samples = {
     "lhs = 3\nrhs = 2\n>_(lhs > rhs)\n",
     "a = 1\nb = 1\n>_(a <= b)\n",
@@ -665,11 +680,11 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnCompareAndLogicSubsetSamples) {
   };
 
   for (const auto& src : samples) {
-    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
 }
 
-TEST(StyioSecurityNewParserStmt, MatchesLegacyOnSimpleCallSubsetSamples) {
+TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnSimpleCallSubsetSamples) {
   const std::vector<std::string> samples = {
     "foo(1)\n",
     "sum(1, 2, 3)\n",
@@ -678,11 +693,11 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnSimpleCallSubsetSamples) {
   };
 
   for (const auto& src : samples) {
-    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
 }
 
-TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFunctionDefSubsetSamples) {
+TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnFunctionDefSubsetSamples) {
   const std::vector<std::string> samples = {
     "# add := (a: i32, b: i32) => a + b\n>_(add(3, 4))\n",
     "# answer := () => 42\n>_(answer())\n",
@@ -698,11 +713,11 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnFunctionDefSubsetSamples) {
   };
 
   for (const auto& src : samples) {
-    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
 }
 
-TEST(StyioSecurityNewParserStmt, MatchesLegacyOnBlockControlSubsetSamples) {
+TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnBlockControlSubsetSamples) {
   const std::vector<std::string> samples = {
     "{\n    value = 1 + 2\n    <| value\n}\n",
     "{\n    ...\n    ^\n    >>\n}\n",
@@ -710,36 +725,36 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnBlockControlSubsetSamples) {
   };
 
   for (const auto& src : samples) {
-    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
 }
 
-TEST(StyioSecurityNewParserStmt, MatchesLegacyOnMatchCasesSubsetSamples) {
+TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnMatchCasesSubsetSamples) {
   const std::vector<std::string> samples = {
     "x = 4\nlabel = x % 2 ?= {\n    0 => { <| \"even\" }\n    _ => { <| \"odd\" }\n}\n>_(label)\n",
     "# fact := (n: i32) => {\n    n ?= {\n        0 => { <| 1 }\n        _ => { <| n * fact(n - 1) }\n    }\n}\n>_(fact(5))\n",
   };
 
   for (const auto& src : samples) {
-    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
 }
 
-TEST(StyioSecurityNewParserStmt, RejectsHashIteratorMatchForwardChainWithStableError) {
+TEST(StyioSecurityNightlyParserStmt, RejectsHashIteratorMatchForwardChainWithStableError) {
   const std::string src = "# iter_only(x) >> (n) ?= 2 => >_(n)\niter_only([1, 2, 3])\n";
   EXPECT_THROW(
     {
-      (void)parse_program_to_repr(src, true);
+      (void)parse_program_to_repr_latest(src, true);
     },
     StyioBaseException);
   EXPECT_THROW(
     {
-      (void)parse_program_to_repr(src, false);
+      (void)parse_program_to_repr_latest(src, false);
     },
     StyioBaseException);
 }
 
-TEST(StyioSecurityNewParserStmt, MatchesLegacyOnDotCallSubsetSamples) {
+TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnDotCallSubsetSamples) {
   const std::vector<std::string> samples = {
     "foo.bar(1)\n",
     "x = foo.bar(1 + 2)\n>_(x)\n",
@@ -747,20 +762,20 @@ TEST(StyioSecurityNewParserStmt, MatchesLegacyOnDotCallSubsetSamples) {
   };
 
   for (const auto& src : samples) {
-    EXPECT_EQ(parse_program_to_repr(src, true), parse_program_to_repr(src, false)) << src;
+    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
 }
 
-TEST(StyioSecurityNewParserShadow, FallsBackOnDotChainSequence) {
+TEST(StyioSecurityNightlyParserShadow, FallsBackOnDotChainSequence) {
   const std::string src = "foo.bar(1).baz(2)\n";
   EXPECT_THROW(
     {
-      (void)parse_program_engine_to_repr(src, StyioParserEngine::New);
+      (void)parse_program_engine_to_repr_latest(src, StyioParserEngine::Nightly);
     },
     StyioSyntaxError);
   EXPECT_THROW(
     {
-      (void)parse_program_engine_to_repr(src, StyioParserEngine::Legacy);
+      (void)parse_program_engine_to_repr_latest(src, StyioParserEngine::Legacy);
     },
     StyioSyntaxError);
 }

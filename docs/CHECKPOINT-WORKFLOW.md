@@ -12,10 +12,16 @@
 2. 每个 Checkpoint 合并前必须满足：可编译、可测试、可回滚、可读档恢复。
 3. 每个 Checkpoint 最小交付包固定为 5 项：代码、测试、文档、ADR、恢复指引。
 4. 恢复指引统一写入 `docs/history/YYYY-MM-DD.md` 的 `Checkpoint` 小节。
-5. 高风险重构默认双轨：`legacy` 稳定路径 + `new` 影子路径，默认不切主行为。
+5. 高风险重构默认双轨：`legacy` 稳定路径 + `nightly` 影子路径，默认不切主行为。
 6. 每个微里程碑必须至少包含一条“先失败后修复”的测试历史（TDD 书签）。
 7. 关键所有权/生命周期决策必须落 ADR（`docs/adr/ADR-*.md`）。
 8. 冷启动恢复时优先执行 `./scripts/checkpoint-health.sh`（可用 `--no-asan` 快速模式）。
+9. 进入双轨重构的函数必须按状态命名：
+   - `*_legacy`：稳定旧实现；
+   - `*_nightly`：新实现/影子实现；
+   - `*_latest`：legacy/nightly 共享入口或稳定公共 helper；
+   - `*_draft`：下一刀准备接管、尚未完成合并门槛的在改版本（例如 `parse_stmt_or_expr_legacy_draft`）。
+10. 历史文档里出现的 `new` 自 2026-04-07 起统一视为 `nightly`；新提交禁止再引入 `new` 作为活动命名。
 
 ---
 

@@ -78,7 +78,7 @@ TEST(StyioFiveLayerPipeline, P01_print_add) {
   EXPECT_EQ(err, "") << err;
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnM1Sample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM1Sample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t01_int_arith.styio";
   ASSERT_TRUE(fs::exists(input));
@@ -92,7 +92,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM1Sample) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -101,7 +101,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM1Sample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnM1TypedBindSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM1TypedBindSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t07_typed_bind.styio";
   ASSERT_TRUE(fs::exists(input));
@@ -115,7 +115,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM1TypedBindSample) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -124,7 +124,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM1TypedBindSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnM1CompoundAssignSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM1CompoundAssignSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t14_compound.styio";
   ASSERT_TRUE(fs::exists(input));
@@ -138,7 +138,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM1CompoundAssignSample) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -147,7 +147,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM1CompoundAssignSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnM2SimpleFuncSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM2SimpleFuncSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m2" / "t01_simple_func.styio";
   ASSERT_TRUE(fs::exists(input));
@@ -161,7 +161,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM2SimpleFuncSample) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -170,7 +170,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM2SimpleFuncSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnM3MatchExprSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM3MatchExprSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m3" / "t02_match_expr.styio";
   ASSERT_TRUE(fs::exists(input));
@@ -184,7 +184,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM3MatchExprSample) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -193,7 +193,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM3MatchExprSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnM5WriteFileSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM5WriteFileSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m5" / "t02_write_file.styio";
   ASSERT_TRUE(fs::exists(input));
@@ -207,7 +207,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM5WriteFileSample) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -216,7 +216,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM5WriteFileSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnM5RedirectSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM5RedirectSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m5" / "t07_redirect.styio";
   ASSERT_TRUE(fs::exists(input));
@@ -230,7 +230,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM5RedirectSample) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -239,7 +239,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM5RedirectSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnM5ReadFileSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM5ReadFileSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m5" / "t01_read_file.styio";
   ASSERT_TRUE(fs::exists(input));
@@ -253,7 +253,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM5ReadFileSample) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -262,7 +262,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM5ReadFileSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnM5AutoDetectSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM5AutoDetectSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m5" / "t05_auto_detect.styio";
   ASSERT_TRUE(fs::exists(input));
@@ -276,7 +276,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM5AutoDetectSample) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -285,7 +285,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM5AutoDetectSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnM5PipeFuncSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM5PipeFuncSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m5" / "t08_pipe_func.styio";
   ASSERT_TRUE(fs::exists(input));
@@ -299,7 +299,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM5PipeFuncSample) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -308,7 +308,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM5PipeFuncSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnM7InstantPullSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7InstantPullSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t04_instant_pull.styio";
   ASSERT_TRUE(fs::exists(input));
@@ -322,7 +322,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM7InstantPullSample) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -331,7 +331,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM7InstantPullSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnM7SnapshotSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7SnapshotSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t03_snapshot.styio";
   ASSERT_TRUE(fs::exists(input));
@@ -345,7 +345,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM7SnapshotSample) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -354,7 +354,53 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM7SnapshotSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnM7ZipFilesSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7ZipCollectionsSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t01_zip_collections.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  ASSERT_EQ(legacy.exit_code, 0);
+  ASSERT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+}
+
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7ZipUnequalSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t02_zip_unequal.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  ASSERT_EQ(legacy.exit_code, 0);
+  ASSERT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+}
+
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7ZipFilesSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t05_zip_files.styio";
   ASSERT_TRUE(fs::exists(input));
@@ -368,7 +414,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM7ZipFilesSample) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -377,7 +423,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM7ZipFilesSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnM7ArbitrageSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7ArbitrageSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t08_arbitrage.styio";
   ASSERT_TRUE(fs::exists(input));
@@ -391,7 +437,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM7ArbitrageSample) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -400,7 +446,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM7ArbitrageSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnM7FullPipelineSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7FullPipelineSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t10_full_pipeline.styio";
   ASSERT_TRUE(fs::exists(input));
@@ -414,7 +460,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM7FullPipelineSample) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -423,7 +469,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnM7FullPipelineSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnUntypedParamFunction) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnUntypedParamFunction) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -445,7 +491,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnUntypedParamFunction) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -456,7 +502,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnUntypedParamFunction) {
   fs::remove(input);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnHashExprBodyWithoutArrow) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnHashExprBodyWithoutArrow) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input = fs::temp_directory_path() / ("styio-hash-expr-body-" + std::to_string(uniq) + ".styio");
@@ -477,7 +523,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnHashExprBodyWithoutArrow) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -488,7 +534,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnHashExprBodyWithoutArrow) {
   fs::remove(input);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnHashArrowWithoutAssignment) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnHashArrowWithoutAssignment) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -511,7 +557,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnHashArrowWithoutAssignment) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -522,7 +568,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnHashArrowWithoutAssignment) {
   fs::remove(input);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnHashMatchCases) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnHashMatchCases) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -547,7 +593,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnHashMatchCases) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -558,7 +604,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnHashMatchCases) {
   fs::remove(input);
 }
 
-TEST(StyioParserEngine, LegacyAndNewMatchOnHashIteratorDefinition) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnHashIteratorDefinition) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -580,7 +626,7 @@ TEST(StyioParserEngine, LegacyAndNewMatchOnHashIteratorDefinition) {
   const std::string cmd_legacy =
     std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -614,7 +660,7 @@ TEST(StyioParserEngine, HashIteratorMatchForwardChainReturnsParseError) {
     std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=legacy --file \""
     + input.string() + "\" 2>&1";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=new --file \""
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
     + input.string() + "\" 2>&1";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
@@ -655,7 +701,7 @@ TEST(StyioParserEngine, EmptyMatchCasesAreRejectedWithParseError) {
     std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=legacy --file \""
     + input.string() + "\" 2>&1";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=new --file \""
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
     + input.string() + "\" 2>&1";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
@@ -698,7 +744,7 @@ TEST(StyioParserEngine, PointerScrutineeMatchDoesNotAbortAndReportsTypeError) {
     std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=legacy --file \""
     + input.string() + "\" 2>&1";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=new --file \""
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
     + input.string() + "\" 2>&1";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
@@ -732,7 +778,7 @@ TEST(StyioParserEngine, UnsupportedEngineIsRejected) {
   EXPECT_NE(bad.stdout_text.find("unsupported --parser-engine"), std::string::npos);
 }
 
-TEST(StyioParserEngine, DefaultEngineIsNewInShadowArtifact) {
+TEST(StyioParserEngine, DefaultEngineIsNightlyInShadowArtifact) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -756,7 +802,7 @@ TEST(StyioParserEngine, DefaultEngineIsNewInShadowArtifact) {
   ASSERT_EQ(def.exit_code, 0) << def.stdout_text;
 
   bool found = false;
-  bool primary_new = false;
+  bool primary_nightly = false;
   for (const auto& entry : fs::directory_iterator(artifact_dir)) {
     if (!entry.is_regular_file() || entry.path().extension() != ".jsonl") {
       continue;
@@ -766,15 +812,38 @@ TEST(StyioParserEngine, DefaultEngineIsNewInShadowArtifact) {
     ASSERT_TRUE(in.is_open());
     std::string line;
     std::getline(in, line);
-    if (line.find("\"primary_engine\":\"new\"") != std::string::npos) {
-      primary_new = true;
+    if (line.find("\"primary_engine\":\"nightly\"") != std::string::npos) {
+      primary_nightly = true;
       break;
     }
   }
 
   EXPECT_TRUE(found);
-  EXPECT_TRUE(primary_new);
+  EXPECT_TRUE(primary_nightly);
   fs::remove_all(artifact_dir);
+}
+
+TEST(StyioParserEngine, DeprecatedNewAliasMatchesNightlySample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t01_int_arith.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_alias =
+    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_nightly =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult alias = run_stdout_command(cmd_alias);
+  const CommandResult nightly = run_stdout_command(cmd_nightly);
+  ASSERT_EQ(alias.exit_code, 0);
+  ASSERT_EQ(nightly.exit_code, 0);
+  EXPECT_EQ(alias.stdout_text, nightly.stdout_text);
 }
 
 TEST(StyioParserEngine, ShadowCompareAcceptsM1TypedBindSample) {
@@ -792,7 +861,7 @@ TEST(StyioParserEngine, ShadowCompareAcceptsM1TypedBindSample) {
     std::string("\"") + runner + "\" --parser-engine=legacy --parser-shadow-compare --file \""
     + input.string() + "\" 2>/dev/null";
   const std::string cmd_new_shadow =
-    std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --file \""
+    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --file \""
     + input.string() + "\" 2>/dev/null";
 
   const CommandResult legacy_shadow = run_stdout_command(cmd_legacy_shadow);
@@ -824,7 +893,7 @@ TEST(StyioParserEngine, ShadowCompareAcceptsM1CoreSuite) {
       std::string("\"") + runner + "\" --parser-engine=legacy --parser-shadow-compare --file \""
       + input.string() + "\" 2>/dev/null";
     const std::string cmd_new_shadow =
-      std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --file \""
+      std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --file \""
       + input.string() + "\" 2>/dev/null";
 
     const CommandResult legacy_shadow = run_stdout_command(cmd_legacy_shadow);
@@ -864,7 +933,7 @@ TEST(StyioParserEngine, ShadowCompareAcceptsM1FullSuite) {
       std::string("\"") + runner + "\" --parser-engine=legacy --parser-shadow-compare --file \""
       + input.string() + "\" 2>/dev/null";
     const std::string cmd_new_shadow =
-      std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --file \""
+      std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --file \""
       + input.string() + "\" 2>/dev/null";
 
     const CommandResult legacy_shadow = run_stdout_command(cmd_legacy_shadow);
@@ -896,7 +965,7 @@ TEST(StyioParserEngine, ShadowCompareAcceptsM2CoreSuite) {
       std::string("\"") + runner + "\" --parser-engine=legacy --parser-shadow-compare --file \""
       + input.string() + "\" 2>/dev/null";
     const std::string cmd_new_shadow =
-      std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --file \""
+      std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --file \""
       + input.string() + "\" 2>/dev/null";
 
     const CommandResult legacy_shadow = run_stdout_command(cmd_legacy_shadow);
@@ -936,7 +1005,7 @@ TEST(StyioParserEngine, ShadowCompareAcceptsM2FullSuite) {
       std::string("\"") + runner + "\" --parser-engine=legacy --parser-shadow-compare --file \""
       + input.string() + "\" 2>/dev/null";
     const std::string cmd_new_shadow =
-      std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --file \""
+      std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --file \""
       + input.string() + "\" 2>/dev/null";
 
     const CommandResult legacy_shadow = run_stdout_command(cmd_legacy_shadow);
@@ -963,7 +1032,7 @@ TEST(StyioParserEngine, ShadowCompareWritesArtifactRecordWhenDirConfigured) {
   ASSERT_TRUE(fs::create_directories(artifact_dir));
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --parser-shadow-artifact-dir \""
+    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
     + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>/dev/null";
 
   const CommandResult result = run_stdout_command(cmd);
@@ -985,13 +1054,13 @@ TEST(StyioParserEngine, ShadowCompareWritesArtifactRecordWhenDirConfigured) {
   std::string line;
   std::getline(in, line);
   EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
-  EXPECT_NE(line.find("\"primary_engine\":\"new\""), std::string::npos);
+  EXPECT_NE(line.find("\"primary_engine\":\"nightly\""), std::string::npos);
   EXPECT_NE(line.find("\"shadow_engine\":\"legacy\""), std::string::npos);
 
   fs::remove_all(artifact_dir);
 }
 
-TEST(StyioParserEngine, ShadowArtifactDetailCapturesPerStatementFallbackStats) {
+TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForMixedRouteProgram) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -1017,7 +1086,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailCapturesPerStatementFallbackStats) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --parser-shadow-artifact-dir \""
+    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
     + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
@@ -1037,10 +1106,9 @@ TEST(StyioParserEngine, ShadowArtifactDetailCapturesPerStatementFallbackStats) {
   std::string line;
   std::getline(in, line);
   EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
-  EXPECT_NE(line.find("\"primary_engine\":\"new\""), std::string::npos);
-  EXPECT_NE(line.find("primary_route=new_subset_statements="), std::string::npos);
-  EXPECT_NE(line.find("legacy_fallback_statements="), std::string::npos);
-  EXPECT_EQ(line.find("legacy_fallback_statements=0"), std::string::npos);
+  EXPECT_NE(line.find("\"primary_engine\":\"nightly\""), std::string::npos);
+  EXPECT_NE(line.find("primary_route=nightly_subset_statements=3,legacy_fallback_statements=0"), std::string::npos);
+  EXPECT_NE(line.find("nightly_internal_legacy_bridges=0"), std::string::npos);
 
   fs::remove(input);
   fs::remove_all(artifact_dir);
@@ -1070,7 +1138,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForResourcePostfixS
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --parser-shadow-artifact-dir \""
+    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
     + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
@@ -1090,7 +1158,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForResourcePostfixS
   std::string line;
   std::getline(in, line);
   EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
-  EXPECT_NE(line.find("primary_route=new_subset_statements=1,legacy_fallback_statements=0"), std::string::npos);
+  EXPECT_NE(line.find("primary_route=nightly_subset_statements=1,legacy_fallback_statements=0"), std::string::npos);
 
   fs::remove(output);
   fs::remove(input);
@@ -1122,7 +1190,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForIteratorSubset) 
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --parser-shadow-artifact-dir \""
+    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
     + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
@@ -1142,7 +1210,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForIteratorSubset) 
   std::string line;
   std::getline(in, line);
   EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
-  EXPECT_NE(line.find("primary_route=new_subset_statements=2,legacy_fallback_statements=0"), std::string::npos);
+  EXPECT_NE(line.find("primary_route=nightly_subset_statements=2,legacy_fallback_statements=0"), std::string::npos);
 
   fs::remove(input);
   fs::remove_all(artifact_dir);
@@ -1170,7 +1238,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForSnapshotDeclSubs
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --parser-shadow-artifact-dir \""
+    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
     + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
@@ -1190,7 +1258,168 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForSnapshotDeclSubs
   std::string line;
   std::getline(in, line);
   EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
-  EXPECT_NE(line.find("primary_route=new_subset_statements=1,legacy_fallback_statements=0"), std::string::npos);
+  EXPECT_NE(line.find("primary_route=nightly_subset_statements=1,legacy_fallback_statements=0"), std::string::npos);
+  EXPECT_NE(line.find("nightly_internal_legacy_bridges=0"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove_all(artifact_dir);
+}
+
+TEST(StyioParserEngine, ShadowArtifactDetailTracksZeroInternalLegacyBridgesForMatchCasesSubset) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-shadow-matchcases-bridge-" + std::to_string(uniq) + ".styio");
+  const fs::path artifact_dir =
+    fs::temp_directory_path() / ("styio-shadow-matchcases-bridge-artifacts-" + std::to_string(uniq));
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "x = 4\n";
+    out << "label = x % 2 ?= {\n";
+    out << "  0 => {\n";
+    out << "    <| \"even\"\n";
+    out << "  }\n";
+    out << "  _ => {\n";
+    out << "    <| \"odd\"\n";
+    out << "  }\n";
+    out << "}\n";
+    out << ">_(label)\n";
+  }
+  ASSERT_TRUE(fs::create_directories(artifact_dir));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+
+  std::vector<fs::path> jsonl_files;
+  for (const auto& entry : fs::directory_iterator(artifact_dir)) {
+    if (!entry.is_regular_file() || entry.path().extension() != ".jsonl") {
+      continue;
+    }
+    jsonl_files.push_back(entry.path());
+  }
+  ASSERT_EQ(jsonl_files.size(), 1U);
+
+  std::ifstream in(jsonl_files.front());
+  ASSERT_TRUE(in.is_open());
+  std::string line;
+  std::getline(in, line);
+  EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
+  EXPECT_NE(line.find("primary_route=nightly_subset_statements=3,legacy_fallback_statements=0"), std::string::npos);
+  EXPECT_NE(line.find("nightly_internal_legacy_bridges=0"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove_all(artifact_dir);
+}
+
+TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForListIteratorSubset) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-shadow-list-iterator-subset-" + std::to_string(uniq) + ".styio");
+  const fs::path artifact_dir =
+    fs::temp_directory_path() / ("styio-shadow-list-iterator-artifacts-" + std::to_string(uniq));
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "[1, 2, 3] >> #(n) & [4, 5, 6] >> #(m) => {\n";
+    out << "  >_(n + m)\n";
+    out << "}\n";
+  }
+  ASSERT_TRUE(fs::create_directories(artifact_dir));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+
+  std::vector<fs::path> jsonl_files;
+  for (const auto& entry : fs::directory_iterator(artifact_dir)) {
+    if (!entry.is_regular_file() || entry.path().extension() != ".jsonl") {
+      continue;
+    }
+    jsonl_files.push_back(entry.path());
+  }
+  ASSERT_EQ(jsonl_files.size(), 1U);
+
+  std::ifstream in(jsonl_files.front());
+  ASSERT_TRUE(in.is_open());
+  std::string line;
+  std::getline(in, line);
+  EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
+  EXPECT_NE(line.find("primary_route=nightly_subset_statements=1,legacy_fallback_statements=0"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove_all(artifact_dir);
+}
+
+TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackAcrossListBoundaryAfterBind) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-shadow-list-boundary-bind-" + std::to_string(uniq) + ".styio");
+  const fs::path artifact_dir =
+    fs::temp_directory_path() / ("styio-shadow-list-boundary-bind-artifacts-" + std::to_string(uniq));
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "result = true\n";
+    out << "[1, 2, 3] >> #(x) => {\n";
+    out << "  result = result && (x > 0)\n";
+    out << "}\n";
+    out << ">_(result)\n";
+  }
+  ASSERT_TRUE(fs::create_directories(artifact_dir));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+
+  std::vector<fs::path> jsonl_files;
+  for (const auto& entry : fs::directory_iterator(artifact_dir)) {
+    if (!entry.is_regular_file() || entry.path().extension() != ".jsonl") {
+      continue;
+    }
+    jsonl_files.push_back(entry.path());
+  }
+  ASSERT_EQ(jsonl_files.size(), 1U);
+
+  std::ifstream in(jsonl_files.front());
+  ASSERT_TRUE(in.is_open());
+  std::string line;
+  std::getline(in, line);
+  EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
+  EXPECT_NE(line.find("primary_route=nightly_subset_statements=3,legacy_fallback_statements=0"), std::string::npos);
 
   fs::remove(input);
   fs::remove_all(artifact_dir);
@@ -1220,7 +1449,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForAtResourceSubset
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=new --parser-shadow-compare --parser-shadow-artifact-dir \""
+    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
     + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
@@ -1240,7 +1469,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForAtResourceSubset
   std::string line;
   std::getline(in, line);
   EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
-  EXPECT_NE(line.find("primary_route=new_subset_statements=1,legacy_fallback_statements=0"), std::string::npos);
+  EXPECT_NE(line.find("primary_route=nightly_subset_statements=1,legacy_fallback_statements=0"), std::string::npos);
 
   fs::remove(input);
   fs::remove_all(artifact_dir);
@@ -1295,7 +1524,7 @@ TEST(StyioParserEngine, DotChainStillRejectedConsistentlyAcrossEngines) {
     std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=legacy --file \""
     + input.string() + "\" 2>&1";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=new --file \""
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
     + input.string() + "\" 2>&1";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);

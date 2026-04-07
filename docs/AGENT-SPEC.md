@@ -188,7 +188,7 @@ Source (.styio)
     │
     ▼
 ┌──────────────────┐
-│  2. Parser       │  parse_main_block(StyioContext&)
+│  2. Parser       │  parse_main_block_with_engine_latest(...)
 │     (LL(n))      │  Produces: MainBlockAST*
 └──────────────────┘
     │
@@ -256,6 +256,22 @@ clang-format -i src/**/*.cpp src/**/*.hpp
 | Member variables | snake_case | `name_str`, `cur_pos`, `line_seps` |
 | Constants | UPPER_SNAKE | `TOKEN_PRECEDENCE_MAP` |
 | Template params | PascalCase | `Derived`, `Types` |
+
+### 4.2.1 Refactor Suffix Policy
+
+从 2026-04-07 起，进入双轨重构流程的函数必须显式标注状态：
+
+| 状态 | 后缀 | 说明 |
+|------|------|------|
+| 稳定旧路径 | `_legacy` | 默认稳定实现，优先保证兼容与回滚 |
+| 影子/新路径 | `_nightly` | 原 `new` 路径的新实现；`new` 仅允许作为兼容别名出现 |
+| 双轨共享 | `_latest` | `legacy`/`nightly` 都会调用的共享入口或公共 helper |
+| 在改版本 | `_draft` | 已进入改造、尚未满足 checkpoint 合并门槛的临时实现 |
+
+规则：
+- 新进入重构的函数，禁止继续使用无状态后缀名称。
+- 历史未进入重构的旧函数可暂时保留原名；一旦开始改造，首个提交就应切到上述后缀体系。
+- 文档、测试、CLI 开关统一使用 `nightly`；若保留 `new`，必须明确说明其仅为兼容别名。
 
 ### 4.3 Header Guards
 

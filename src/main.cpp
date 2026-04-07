@@ -317,7 +317,7 @@ styio_free_tokens(std::vector<StyioToken*>& tokens) {
 }
 
 static bool
-styio_parse_engine_to_repr(
+styio_parse_engine_to_repr_latest(
   const std::string& file_path,
   const std::string& code_text,
   const std::vector<std::pair<size_t, size_t>>& line_seps,
@@ -335,15 +335,17 @@ styio_parse_engine_to_repr(
     ctx = StyioContext::Create(file_path, code_text, line_seps, tokens, debug_mode);
     StyioParserRouteStats route_stats;
     StyioParserRouteStats* route_stats_ptr =
-      engine == StyioParserEngine::New ? &route_stats : nullptr;
-    ast = parse_main_block_with_engine(*ctx, engine, route_stats_ptr);
+      engine == StyioParserEngine::Nightly ? &route_stats : nullptr;
+    ast = parse_main_block_with_engine_latest(*ctx, engine, route_stats_ptr);
     StyioRepr repr;
     out_repr = ast->toString(&repr);
     if (out_detail != nullptr) {
       if (route_stats_ptr != nullptr) {
-        *out_detail = "new_subset_statements=" + std::to_string(route_stats.new_subset_statements)
+        *out_detail = "nightly_subset_statements=" + std::to_string(route_stats.nightly_subset_statements)
                       + ",legacy_fallback_statements="
-                      + std::to_string(route_stats.legacy_fallback_statements);
+                      + std::to_string(route_stats.legacy_fallback_statements)
+                      + ",nightly_internal_legacy_bridges="
+                      + std::to_string(route_stats.nightly_internal_legacy_bridges);
       }
       else {
         out_detail->clear();
@@ -371,7 +373,7 @@ styio_hash_hex(const std::string& text) {
 }
 
 static void
-styio_write_shadow_artifact(
+styio_write_shadow_artifact_latest(
   const std::string& artifact_dir,
   const std::string& file_path,
   const std::string& code_text,
@@ -406,8 +408,8 @@ styio_write_shadow_artifact(
     }
     meta << "{\"status\":\"" << styio_json_escape(status)
          << "\",\"file\":\"" << styio_json_escape(file_path)
-         << "\",\"primary_engine\":\"" << styio_parser_engine_name(primary_engine)
-         << "\",\"shadow_engine\":\"" << styio_parser_engine_name(shadow_engine)
+         << "\",\"primary_engine\":\"" << styio_parser_engine_name_latest(primary_engine)
+         << "\",\"shadow_engine\":\"" << styio_parser_engine_name_latest(shadow_engine)
          << "\",\"primary_repr_hash\":\"" << styio_hash_hex(primary_repr)
          << "\",\"shadow_repr_hash\":\"" << styio_hash_hex(shadow_repr)
          << "\",\"primary_repr_size\":" << primary_repr.size()
@@ -484,8 +486,8 @@ main(
     "error-format", "Diagnostic output format: text|jsonl",
     cxxopts::value<std::string>()->default_value("text")
   )(
-    "parser-engine", "Internal parser selector (legacy|new).",
-    cxxopts::value<std::string>()->default_value("new")
+    "parser-engine", "Internal parser selector (legacy|nightly). Accepts deprecated alias: new.",
+    cxxopts::value<std::string>()->default_value("nightly")
   )(
     "parser-shadow-compare",
     "When enabled, parse once with the selected parser and once with the alternate parser, then compare AST repr.",
@@ -520,14 +522,14 @@ main(
   std::string parser_engine_raw = cmlopts["parser-engine"].as<std::string>();
   bool parser_shadow_compare = cmlopts["parser-shadow-compare"].as<bool>();
   std::string parser_shadow_artifact_dir = cmlopts["parser-shadow-artifact-dir"].as<std::string>();
-  StyioParserEngine parser_engine = StyioParserEngine::New;
+  StyioParserEngine parser_engine = StyioParserEngine::Nightly;
 
   if (!(error_format == "text" || error_format == "jsonl")) {
     std::cerr << "[CliError] unsupported --error-format: " << error_format << std::endl;
     return static_cast<int>(StyioExitCode::CliError);
   }
 
-  if (!styio_parse_parser_engine(parser_engine_raw, parser_engine)) {
+  if (!styio_parse_parser_engine_latest(parser_engine_raw, parser_engine)) {
     std::cerr << "[CliError] unsupported --parser-engine: " << parser_engine_raw << std::endl;
     return static_cast<int>(StyioExitCode::CliError);
   }
@@ -589,15 +591,17 @@ main(
   std::string primary_route_detail;
   StyioParserRouteStats primary_route_stats;
   StyioParserRouteStats* primary_route_stats_ptr =
-    parser_engine == StyioParserEngine::New ? &primary_route_stats : nullptr;
+    parser_engine == StyioParserEngine::Nightly ? &primary_route_stats : nullptr;
 
   try {
-    session.attach_ast(parse_main_block_with_engine(*session.context(), parser_engine, primary_route_stats_ptr));
+    session.attach_ast(parse_main_block_with_engine_latest(*session.context(), parser_engine, primary_route_stats_ptr));
     if (primary_route_stats_ptr != nullptr) {
       primary_route_detail =
-        "new_subset_statements=" + std::to_string(primary_route_stats.new_subset_statements)
+        "nightly_subset_statements=" + std::to_string(primary_route_stats.nightly_subset_statements)
         + ",legacy_fallback_statements="
-        + std::to_string(primary_route_stats.legacy_fallback_statements);
+        + std::to_string(primary_route_stats.legacy_fallback_statements)
+        + ",nightly_internal_legacy_bridges="
+        + std::to_string(primary_route_stats.nightly_internal_legacy_bridges);
     }
   } catch (const StyioBaseException& ex) {
     styio_emit_diagnostic(error_format, StyioErrorCategory::ParseError, fpath, ex.what());
@@ -609,14 +613,14 @@ main(
 
   if (parser_shadow_compare) {
     const StyioParserEngine shadow_engine =
-      parser_engine == StyioParserEngine::Legacy ? StyioParserEngine::New : StyioParserEngine::Legacy;
+      parser_engine == StyioParserEngine::Legacy ? StyioParserEngine::Nightly : StyioParserEngine::Legacy;
     StyioRepr repr;
     const std::string primary_repr = session.ast()->toString(&repr);
 
     std::string shadow_repr;
     std::string shadow_err;
     std::string shadow_route_detail;
-    if (!styio_parse_engine_to_repr(
+    if (!styio_parse_engine_to_repr_latest(
           fpath,
           styio_code.code_text,
           styio_code.line_seps,
@@ -638,7 +642,7 @@ main(
         StyioErrorCategory::ParseError,
         fpath,
         std::string("shadow parser failed under --parser-shadow-compare: ") + shadow_err);
-      styio_write_shadow_artifact(
+      styio_write_shadow_artifact_latest(
         parser_shadow_artifact_dir,
         fpath,
         styio_code.code_text,
@@ -654,8 +658,8 @@ main(
 
     if (primary_repr != shadow_repr) {
       std::ostringstream oss;
-      oss << "shadow parser mismatch: primary=" << styio_parser_engine_name(parser_engine)
-          << ", shadow=" << styio_parser_engine_name(shadow_engine);
+      oss << "shadow parser mismatch: primary=" << styio_parser_engine_name_latest(parser_engine)
+          << ", shadow=" << styio_parser_engine_name_latest(shadow_engine);
       if (!primary_route_detail.empty()) {
         oss << "; primary_route=" << primary_route_detail;
       }
@@ -663,7 +667,7 @@ main(
         oss << "; shadow_route=" << shadow_route_detail;
       }
       styio_emit_diagnostic(error_format, StyioErrorCategory::ParseError, fpath, oss.str());
-      styio_write_shadow_artifact(
+      styio_write_shadow_artifact_latest(
         parser_shadow_artifact_dir,
         fpath,
         styio_code.code_text,
@@ -685,7 +689,7 @@ main(
     if (!shadow_route_detail.empty()) {
       detail << "; shadow_route=" << shadow_route_detail;
     }
-    styio_write_shadow_artifact(
+    styio_write_shadow_artifact_latest(
       parser_shadow_artifact_dir,
       fpath,
       styio_code.code_text,
