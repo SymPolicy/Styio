@@ -1,5 +1,9 @@
 # ADR-0038: Dot-Chain 保持一致拒绝边界
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0038: Dot-Chain 保持一致拒绝边界.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

@@ -1,5 +1,9 @@
 # ADR-0019: Soak 分档与 RSS 增长守卫
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0019: Soak 分档与 RSS 增长守卫.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

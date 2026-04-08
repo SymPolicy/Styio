@@ -1,5 +1,9 @@
 # ADR-0008: Expr 节点 RAII 第二段（CondAST）
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0008: Expr 节点 RAII 第二段（CondAST）.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-03
 

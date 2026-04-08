@@ -1,5 +1,9 @@
 # ADR-0116: Standard Stream Formalization, `SIOStd*` Naming, and Doc Status Boundaries
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0116: Standard Stream Formalization, `SIOStd*` Naming, and Doc Status Boundaries.
+
+**Last updated:** 2026-04-08
+
 **Status:** Accepted
 
 ## Context

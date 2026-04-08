@@ -1,5 +1,9 @@
 # ADR-0098: M7 Shadow Zero-Internal-Bridges Gate 与 Plain State Ref 子集补齐
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0098: M7 Shadow Zero-Internal-Bridges Gate 与 Plain State Ref 子集补齐.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

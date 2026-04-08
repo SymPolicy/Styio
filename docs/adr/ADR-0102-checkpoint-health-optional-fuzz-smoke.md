@@ -1,5 +1,9 @@
 # ADR-0102: Checkpoint Health 接入可选 Fuzz Smoke
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0102: Checkpoint Health 接入可选 Fuzz Smoke.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

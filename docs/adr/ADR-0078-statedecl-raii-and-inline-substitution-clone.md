@@ -1,5 +1,9 @@
 # ADR-0078: StateDecl 所有权收口与 inlining 克隆替换边界
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0078: StateDecl 所有权收口与 inlining 克隆替换边界.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-06
 

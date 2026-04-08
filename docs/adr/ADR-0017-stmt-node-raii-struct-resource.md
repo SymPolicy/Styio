@@ -1,5 +1,9 @@
 # ADR-0017: Stmt/Decl RAII 第四段（Struct/Resource 组合节点）
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0017: Stmt/Decl RAII 第四段（Struct/Resource 组合节点）.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-03
 

@@ -1,5 +1,9 @@
 # ADR-0117: Standard Stream Milestone Contract Audit
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0117: Standard Stream Milestone Contract Audit.
+
+**Last updated:** 2026-04-08
+
 ## Status
 
 Accepted

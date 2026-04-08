@@ -1,9 +1,10 @@
 # Styio Development Milestones — Index
 
-**文档作用：** 本批（`2026-03-29/`）里程碑的 **总索引**：M1–M7 目标、依赖链、各 `M*.md` 路径及与设计文档的链接；**不**替代各 `M*-*.md` 中的验收细则。
+**Purpose:** 本批（`2026-03-29/`）里程碑的 **总索引**：M1–M7 目标、依赖链、各 `M*.md` 路径及与设计文档的链接；**不**替代各 `M*-*.md` 中的验收细则。
+
+**Last updated:** 2026-03-28
 
 **Date:** 2026-03-28  
-**Last updated:** 2026-03-28  
 **Methodology:** Test-Case Driven Development. Every milestone defines its acceptance tests FIRST.
 
 **Documentation policy:** [`../../specs/DOCUMENTATION-POLICY.md`](../../specs/DOCUMENTATION-POLICY.md) — history by date under `docs/history/`, milestones by date under `docs/milestones/<YYYY-MM-DD>/`, test index [`../../assets/workflow/TEST-CATALOG.md`](../../assets/workflow/TEST-CATALOG.md) with automatable `ctest` commands.

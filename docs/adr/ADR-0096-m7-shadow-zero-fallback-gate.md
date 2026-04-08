@@ -1,5 +1,9 @@
 # ADR-0096: M7 Shadow Zero-Fallback Gate 进入 CTest 与 Checkpoint Health
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0096: M7 Shadow Zero-Fallback Gate 进入 CTest 与 Checkpoint Health.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

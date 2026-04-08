@@ -1,5 +1,9 @@
 # ADR-0087: New Parser Block/Control 子集接管 Hash Block Body
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0087: New Parser Block/Control 子集接管 Hash Block Body.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

@@ -1,5 +1,9 @@
 # ADR-0063: Stream Zip 不支持来源的错误分类收敛为 TypeError
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0063: Stream Zip 不支持来源的错误分类收敛为 TypeError.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-06
 

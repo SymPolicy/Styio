@@ -1,5 +1,9 @@
 # ADR-0028: NewParser Compound Assign 子集扩展
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0028: NewParser Compound Assign 子集扩展.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

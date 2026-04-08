@@ -1,5 +1,9 @@
 # ADR-0004: Unicode 防腐层与 ICU 隔离边界
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0004: Unicode 防腐层与 ICU 隔离边界.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-03
 

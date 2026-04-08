@@ -1,6 +1,9 @@
 # Milestone 10: stdin & Direction Validation — Standard Input and Semantic Constraints
 
-**文档作用：** M10 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。
+**Purpose:** M10 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。
+
+**Last updated:** 2026-04-08
+
 **Status:** Frozen
 
 **Depends on:** M9 (stdout & stderr)  

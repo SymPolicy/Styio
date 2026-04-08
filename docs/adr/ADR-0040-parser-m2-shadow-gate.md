@@ -1,5 +1,9 @@
 # ADR-0040: Parser M2 Core Shadow Gate 显式化
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0040: Parser M2 Core Shadow Gate 显式化.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

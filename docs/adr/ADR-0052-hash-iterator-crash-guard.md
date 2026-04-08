@@ -1,5 +1,9 @@
 # ADR-0052: Hash Iterator Definition 临时 Crash Guard
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0052: Hash Iterator Definition 临时 Crash Guard.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 - **Superseded by:** `ADR-0053-param-ctor-null-type-and-hash-iterator-restore.md`

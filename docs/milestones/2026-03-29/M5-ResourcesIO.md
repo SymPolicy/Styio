@@ -1,6 +1,8 @@
 # Milestone 5: Resources & I/O
 
-**文档作用：** M5 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。
+**Purpose:** M5 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。
+
+**Last updated:** 2026-04-08
 
 **Depends on:** M4 (Wave & Absence)  
 **Goal:** File resources (`@file{}`), handle acquisition (`<-`), reading (`collection >> #(line) => ...`), writing (`expr >> @file{...}`), and scope-based RAII cleanup work end-to-end.

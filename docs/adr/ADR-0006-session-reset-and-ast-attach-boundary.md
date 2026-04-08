@@ -1,5 +1,9 @@
 # ADR-0006: CompilationSession 清理边界与 AST 挂载约束
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0006: CompilationSession 清理边界与 AST 挂载约束.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-03
 

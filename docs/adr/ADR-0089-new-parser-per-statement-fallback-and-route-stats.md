@@ -1,5 +1,9 @@
 # ADR-0089: New Parser 主入口改为逐语句 Fallback，并记录 Route Stats
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0089: New Parser 主入口改为逐语句 Fallback，并记录 Route Stats.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

@@ -1,5 +1,9 @@
 # ADR-0112: Five-Layer Pipeline 增加 Stdin Transform Case
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0112: Five-Layer Pipeline 增加 Stdin Transform Case.
+
+**Last updated:** 2026-04-08
+
 ## Context
 
 `ADR-0111` 已把 `@stdin >> #(line) => { line >> @stdout }` 纳入 five-layer golden，确认了 stdin line iterator 与 stdout 写回的基础链路。

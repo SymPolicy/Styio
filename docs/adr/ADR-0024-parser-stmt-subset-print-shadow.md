@@ -1,5 +1,9 @@
 # ADR-0024: NewParser 语句子集第一段（print + 表达式语句）
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0024: NewParser 语句子集第一段（print + 表达式语句）.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

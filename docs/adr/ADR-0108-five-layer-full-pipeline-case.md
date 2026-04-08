@@ -1,5 +1,9 @@
 # ADR-0108: Five-Layer Pipeline 增加 Full Pipeline Case
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0108: Five-Layer Pipeline 增加 Full Pipeline Case.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-08
 

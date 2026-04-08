@@ -1,5 +1,9 @@
 # ADR-0048: NewParser Hash 支持无赋值直接箭头体
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0048: NewParser Hash 支持无赋值直接箭头体.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 

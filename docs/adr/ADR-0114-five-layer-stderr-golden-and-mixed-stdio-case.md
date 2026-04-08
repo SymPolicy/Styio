@@ -1,5 +1,9 @@
 # ADR-0114: Five-Layer Pipeline 增加 Stderr Golden 与 Mixed Stdio Case
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0114: Five-Layer Pipeline 增加 Stderr Golden 与 Mixed Stdio Case.
+
+**Last updated:** 2026-04-08
+
 ## Context
 
 在 `ADR-0111`、`ADR-0112`、`ADR-0113` 之后，five-layer pipeline 已覆盖 `@stdin` 的 echo、transform 和 instant pull，但 L5 仍只比较 `stdout.txt`。

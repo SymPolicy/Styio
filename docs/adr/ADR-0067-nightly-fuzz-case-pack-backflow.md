@@ -1,5 +1,9 @@
 # ADR-0067: Nightly fuzz 失败样本必须生成可回流的 case pack
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0067: Nightly fuzz 失败样本必须生成可回流的 case pack.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-06
 

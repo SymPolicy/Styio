@@ -1,5 +1,9 @@
 # ADR-0073: `IteratorAST` 所有权收口与 `following` 追加路径对齐
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0073: `IteratorAST` 所有权收口与 `following` 追加路径对齐.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-06
 

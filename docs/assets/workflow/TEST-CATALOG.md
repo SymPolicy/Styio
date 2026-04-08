@@ -1,8 +1,8 @@
 # Styio 测试目录（按功能域）
 
-**文档作用：** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`../../specs/DOCUMENTATION-POLICY.md`](../../specs/DOCUMENTATION-POLICY.md)。
+**Purpose:** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`../../specs/DOCUMENTATION-POLICY.md`](../../specs/DOCUMENTATION-POLICY.md)。
 
-**Last updated:** 2026-04-08（定位并修复 `ParamAST` 空类型崩溃；恢复 hash `>>` iterator 定义；补 `?=` forward chain 稳定拒绝回归；补 `match` 非整型 scrutinee TypeError 防崩溃回归；完成 C.8 句柄表接管并补 Safety 回归；新增非法句柄 Soak 与 nightly sanitizer 门禁；统一 runtime text/jsonl 诊断出口并冻结 runtime subcode 回归；修复 codegen 复合赋值与 stream zip 不支持来源误报 RuntimeError 分类；活跃流水线移除 `Styio.NotImplemented` 文案；修复 `?=` 无默认分支未初始化指针崩溃并补回归；补 `?= {}` 拒绝契约与 malformed 前缀 parse 防崩溃回归；fuzz smoke 接入 clang-18 链路并稳定通过；nightly fuzz 新增 case pack 回流与 `fuzz_regression_pack_smoke`，且 `styio_fuzz_parser` 改为同一输入覆盖 legacy/nightly 双引擎；ParserContext 新增空 token EOF 降级与越界前移钳制回归；新增 `parse_path` 单字符路径与 `peak_operator` EOF 越界防护回归；补 `CasesAST/MatchCasesAST`、`PrintAST/StateRefAST/HistoryProbeAST`、`SeriesIntrinsicAST`、`StateDeclAST`、`TypeTupleAST` 与 `CheckEqualAST` 所有权析构回归并完成 RAII 收口；修复单参数 state helper（直返 `StateDecl`）在 pulse 体中调用时参数替换失效问题，并补 `1/3/6` 回归；补 state helper 内联 `MatchCases/Cases` 与 `InfiniteAST` 克隆覆盖回归（输出 `10/12/15`、`0/0`）；新增 `StateInlineHelperProgramLoop`、`StateInlineMatchCasesProgramLoop`、`StateInlineInfiniteProgramLoop` 与对应 `soak_deep` 长跑门禁；将 parser 默认引擎切换到 `nightly` 并冻结默认主引擎契约回归；nightly parser 新增 block/control、`?={...}`、资源 postfix、`@[...]` / `@file...` 起始、`[ ... ] >> ...` list-start iterator 子集与 plain state ref `$name`，并在 shadow artifact `detail` 暴露并收敛 route stats 到 M7 零 fallback/零 internal bridge；M1/M2/M7 shadow gates 已正式纳入 CTest 与 `checkpoint-health`，M5 则通过 `shadow-expected-nonzero.txt` 接入 dual-zero gate；five-layer pipeline 的 parser 层也已对齐 nightly，并新增 `p07_instant_pull` case；新增 `nightly_internal_legacy_bridges` 指标并先收缩 iterator / match-cases / infinite-loop / forward body 的内部 legacy bridge；恢复默认 nightly 对 `M4` wave 语法的安全回退，并修正 `true >> @stdout` 的 bool literal 误判）
+**Last updated:** 2026-04-08
 
 **批量自动化（所有里程碑集成用例）：**
 
@@ -246,3 +246,15 @@ ctest --test-dir build -L milestone
 | 目标 | 说明 | Automation |
 |------|------|------------|
 | `styio-nightly-sanitizers` | `.github/workflows/nightly-sanitizers.yml`：`clang-18` + `ASan/UBSan` 构建并执行 `security`、`soak_smoke`、`styio_pipeline`、`milestone` | GitHub Actions `workflow_dispatch` 或 nightly cron |
+
+---
+
+## 14. 文档结构门禁
+
+| 目标 | 说明 | Automation |
+|------|------|------------|
+| `docs_audit` | `scripts/docs-audit.py`：校验 `docs/**/*.md` 的 `Purpose` / `Last updated` 元数据、collection-directory `README.md + INDEX.md` 入口、`docs/history` / `docs/adr` / `docs/milestones` 命名规则、相对链接有效性，以及 `scripts/docs-index.py --check` 的生成索引新鲜度 | `ctest --test-dir build -L docs` 或 `ctest --test-dir build -R '^docs_audit$'` |
+
+**生成命令：** `python3 scripts/docs-index.py --write`。  
+**本地校验：** `python3 scripts/docs-audit.py`。  
+**工作流入口：** 见 [`DOCS-MAINTENANCE-WORKFLOW.md`](./DOCS-MAINTENANCE-WORKFLOW.md)。

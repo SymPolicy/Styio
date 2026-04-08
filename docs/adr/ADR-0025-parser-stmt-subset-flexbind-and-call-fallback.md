@@ -1,5 +1,9 @@
 # ADR-0025: NewParser 语句子集第二段（FlexBind + 调用序列回退）
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0025: NewParser 语句子集第二段（FlexBind + 调用序列回退）.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

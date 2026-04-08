@@ -1,6 +1,8 @@
 # Styio 五层流水线 Goldens
 
-**文档作用：** 说明 **Lexer → Parser(AST) → StyioIR → LLVM IR → 进程 stdout** 的分层 golden 比对框架、目录约定与维护方式；与里程碑 **仅比最终 stdout** 的 `styio_stdout_golden_test` 互补。
+**Purpose:** 说明 **Lexer → Parser(AST) → StyioIR → LLVM IR → 进程 stdout** 的分层 golden 比对框架、目录约定与维护方式；与里程碑 **仅比最终 stdout** 的 `styio_stdout_golden_test` 互补。
+
+**Last updated:** 2026-04-08
 
 **实现入口：** `src/StyioTesting/PipelineCheck.cpp`（`styio::testing::run_pipeline_case`）  
 **自动化：** `styio_test`（GoogleTest，`ctest --test-dir build -L styio_pipeline`）

@@ -1,15 +1,21 @@
-# Review 文档索引
+# Review Docs
 
-**文档作用：** 索引 `docs/review/` 下的 review 发现、冲突清单与专项审查结果；不替代设计 SSOT 与实施 history。
+**Purpose:** Define the scope and naming rules for `docs/review/`; the generated file inventory lives in [INDEX.md](./INDEX.md).
 
 **Last updated:** 2026-04-08
 
-| 路径 | 用途 |
-|------|------|
-| [`Logic-Conflicts.md`](./Logic-Conflicts.md) | 设计、实现与里程碑之间的冲突清单 |
-| [`2026-03-30/README.md`](./2026-03-30/README.md) | 2026-03-30 专项 review 入口 |
+## Scope
 
-## 命名规则
+1. Store review findings, conflict lists, and dated review bundles here.
+2. Keep language SSOT in `docs/design/` and checkpoint history in `docs/history/`.
+3. Use this directory for unresolved contradictions and review-derived action items.
 
-1. 持续性冲突清单使用稳定主题名，如 `Logic-Conflicts.md`。
-2. 一次性专项 review 使用按日期分组目录，并在目录内放 `README.md` 作为入口。
+## Naming Rules
+
+1. Stable long-lived review files use descriptive topic names.
+2. One-off review bundles use dated subdirectories.
+3. Each dated review bundle should expose one entry document.
+
+## Inventory
+
+See [INDEX.md](./INDEX.md).

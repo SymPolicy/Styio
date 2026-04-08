@@ -1,5 +1,9 @@
 # ADR-0058: 运行时句柄表真实接管与 `0` 句柄兼容边界
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0058: 运行时句柄表真实接管与 `0` 句柄兼容边界.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 

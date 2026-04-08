@@ -1,6 +1,9 @@
 # Milestone 10: stdin & Direction Validation
 
-**文档作用：** M10 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。
+**Purpose:** M10 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。
+
+**Last updated:** 2026-04-08
+
 **Status:** Superseded draft
 
 此文档记录了标准流早期探索阶段的 M10 草案。冻结规格以 [`../2026-04-08/M10-Stdin.md`](../2026-04-08/M10-Stdin.md) 为准；当前实现仍保留 `>> @stdout/@stderr` compatibility shorthand，但 canonical 写法与正式 fixture 命名均以 2026-04-08 批次为准。

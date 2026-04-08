@@ -1,5 +1,9 @@
 # ADR-0088: New Parser 接管表达式 Postfix `?=` Match-Cases 子集
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0088: New Parser 接管表达式 Postfix `?=` Match-Cases 子集.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

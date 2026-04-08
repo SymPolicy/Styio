@@ -1,5 +1,9 @@
 # ADR-0077: Print/State Probe 节点所有权收口
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0077: Print/State Probe 节点所有权收口.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-06
 

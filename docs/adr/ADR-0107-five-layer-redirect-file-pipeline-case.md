@@ -1,5 +1,9 @@
 # ADR-0107: Five-Layer Pipeline 增加 Redirect/File Case
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0107: Five-Layer Pipeline 增加 Redirect/File Case.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-08
 

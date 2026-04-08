@@ -1,5 +1,9 @@
 # ADR-0090: New Parser 接管资源写入/重定向 Postfix 子集
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0090: New Parser 接管资源写入/重定向 Postfix 子集.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

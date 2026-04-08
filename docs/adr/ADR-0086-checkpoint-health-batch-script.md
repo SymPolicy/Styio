@@ -1,5 +1,9 @@
 # ADR-0086: Checkpoint Health 批量验证脚本
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0086: Checkpoint Health 批量验证脚本.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

@@ -1,6 +1,9 @@
 # Milestone 9: stdout & stderr — Standard Output and Error Streams
 
-**文档作用：** M9 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。
+**Purpose:** M9 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。
+
+**Last updated:** 2026-04-08
+
 **Status:** Frozen
 
 **Depends on:** M5 (Resources & I/O)  

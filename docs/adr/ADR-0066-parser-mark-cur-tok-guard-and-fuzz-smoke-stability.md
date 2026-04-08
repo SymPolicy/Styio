@@ -1,5 +1,9 @@
 # ADR-0066: `mark_cur_tok` 边界防护与 fuzz smoke 稳定运行约束
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0066: `mark_cur_tok` 边界防护与 fuzz smoke 稳定运行约束.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-06
 

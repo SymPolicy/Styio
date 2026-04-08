@@ -1,5 +1,9 @@
 # ADR-0012: Expr 节点 RAII 第六段（FmtStr/TypeConvert/Range/SizeOf）
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0012: Expr 节点 RAII 第六段（FmtStr/TypeConvert/Range/SizeOf）.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-03
 

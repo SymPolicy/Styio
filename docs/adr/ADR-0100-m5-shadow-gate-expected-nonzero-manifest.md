@@ -1,5 +1,9 @@
 # ADR-0100: M5 Shadow Gate 采用 Expected-Nonzero Manifest
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0100: M5 Shadow Gate 采用 Expected-Nonzero Manifest.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

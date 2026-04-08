@@ -1,5 +1,9 @@
 # ADR-0105: Five-Layer Pipeline 增加 Zip/File Stream Case
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0105: Five-Layer Pipeline 增加 Zip/File Stream Case.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

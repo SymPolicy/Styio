@@ -1,5 +1,9 @@
 # ADR-0039: NewParser 接管函数定义入口（复用 legacy 语义体）
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0039: NewParser 接管函数定义入口（复用 legacy 语义体）.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

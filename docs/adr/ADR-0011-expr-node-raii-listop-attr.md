@@ -1,5 +1,9 @@
 # ADR-0011: Expr 节点 RAII 第五段（ListOp/Attr）
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0011: Expr 节点 RAII 第五段（ListOp/Attr）.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-03
 

@@ -1,5 +1,9 @@
 # ADR-0062: CodeGen 期“不可变变量复合赋值”错误分类改为 TypeError
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0062: CodeGen 期“不可变变量复合赋值”错误分类改为 TypeError.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 

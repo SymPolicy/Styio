@@ -1,5 +1,9 @@
 # ADR-0003: LLVM 对象保持非托管边界
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0003: LLVM 对象保持非托管边界.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-03
 

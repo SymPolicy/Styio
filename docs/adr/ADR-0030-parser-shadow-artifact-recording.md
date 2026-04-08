@@ -1,5 +1,9 @@
 # ADR-0030: Parser Shadow 差异工件落盘
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0030: Parser Shadow 差异工件落盘.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

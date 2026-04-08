@@ -7,6 +7,13 @@ FetchContent_MakeAvailable(googletest)
 
 enable_testing()
 
+add_test(
+  NAME docs_audit
+  COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/docs-audit.py"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(docs_audit PROPERTIES LABELS "docs")
+
 # All milestone .styio sources live under tests/milestones/{m1,m2,...}
 set(STYIO_MS "${CMAKE_CURRENT_LIST_DIR}/milestones")
 set(STYIO_EXE "$<TARGET_FILE:styio>")

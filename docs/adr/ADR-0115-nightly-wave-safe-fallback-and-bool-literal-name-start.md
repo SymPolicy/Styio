@@ -1,5 +1,9 @@
 # ADR-0115: Nightly Wave Safe Fallback 与 Bool Literal Name-Start 修正
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0115: Nightly Wave Safe Fallback 与 Bool Literal Name-Start 修正.
+
+**Last updated:** 2026-04-08
+
 ## Context
 
 在 `ADR-0085` 将默认 parser 引擎切到 `nightly` 之后，里程碑套件暴露出两个独立问题：

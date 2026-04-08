@@ -1,6 +1,8 @@
 # Styio Resource Driver Interface Specification
 
-**文档作用：** `@protocol{…}` **资源驱动** 的 C++ 接口、生命周期与线程约定；与语言侧 `@` 语义、拓扑目标见 `Styio-Language-Design.md`、`Styio-Resource-Topology.md`。
+**Purpose:** `@protocol{…}` **资源驱动** 的 C++ 接口、生命周期与线程约定；与语言侧 `@` 语义、拓扑目标见 `Styio-Language-Design.md`、`Styio-Resource-Topology.md`。
+
+**Last updated:** 2026-04-08
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  

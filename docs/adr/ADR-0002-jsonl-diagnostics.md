@@ -1,5 +1,9 @@
 # ADR-0002: CLI 结构化错误输出采用 JSONL
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0002: CLI 结构化错误输出采用 JSONL.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-03
 

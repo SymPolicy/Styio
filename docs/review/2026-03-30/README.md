@@ -1,5 +1,9 @@
 # Styio 编译器代码审查（2026-03-30）
 
+**Purpose:** Index the 2026-03-30 review bundle and route readers to the detailed review documents.
+
+**Last updated:** 2026-04-08
+
 本目录记录对 Styio C++ 编译器前端的静态审查结论，侧重：**逻辑与 API 误用、资源与内存生命周期、边界与拒绝服务风险、CLI/测试中的命令构造安全**。
 
 详细条目见 [findings.md](./findings.md)。**词法等相关代码修复明细**见 [fixes-applied.md](./fixes-applied.md)。**安全测试子模块**（独立文档，不混入上述文件）见 [security-tests.md](./security-tests.md)。

@@ -1,5 +1,9 @@
 # ADR-0059: Nightly Sanitizer Gate 与非法句柄诊断 Soak
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0059: Nightly Sanitizer Gate 与非法句柄诊断 Soak.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 

@@ -1,8 +1,9 @@
 # Early-Ideas — 早期构思速记
 
-**文档作用：** 语言成形前的 **碎片想法与符号实验**，**非**规范；语义与文法以 [`../design/Styio-Language-Design.md`](../design/Styio-Language-Design.md)、[`../design/Styio-EBNF.md`](../design/Styio-EBNF.md) 为准。维护准则见 [`../specs/DOCUMENTATION-POLICY.md`](../specs/DOCUMENTATION-POLICY.md) §0。
+**Purpose:** 语言成形前的 **碎片想法与符号实验**，**非**规范；语义与文法以 [`../design/Styio-Language-Design.md`](../design/Styio-Language-Design.md)、[`../design/Styio-EBNF.md`](../design/Styio-EBNF.md) 为准。维护准则见 [`../specs/DOCUMENTATION-POLICY.md`](../specs/DOCUMENTATION-POLICY.md) §0。
 
-**Last updated:** 2026-04-08  
+**Last updated:** 2026-04-08
+
 **Status:** Historical notes
 
 ---

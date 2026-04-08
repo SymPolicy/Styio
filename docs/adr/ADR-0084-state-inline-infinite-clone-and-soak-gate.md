@@ -1,5 +1,9 @@
 # ADR-0084: State Inline InfiniteAST Clone 与 Soak Gate
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0084: State Inline InfiniteAST Clone 与 Soak Gate.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

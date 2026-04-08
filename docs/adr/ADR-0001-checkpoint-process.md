@@ -1,5 +1,9 @@
 # ADR-0001: Checkpoint 微里程碑工作流
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0001: Checkpoint 微里程碑工作流.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-03
 

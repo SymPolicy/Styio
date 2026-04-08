@@ -1,5 +1,9 @@
 # ADR-0016: Stmt/Decl RAII 第三段（Var/Param 家族）
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0016: Stmt/Decl RAII 第三段（Var/Param 家族）.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-03
 

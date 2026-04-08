@@ -1,5 +1,9 @@
 # ADR-0031: Parser 默认切换门槛（E.6 首段）
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0031: Parser 默认切换门槛（E.6 首段）.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

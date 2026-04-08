@@ -1,5 +1,9 @@
 # ADR-0097: Nightly Internal Legacy Bridge Metric 与 Body Helper 收缩
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0097: Nightly Internal Legacy Bridge Metric 与 Body Helper 收缩.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

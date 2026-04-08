@@ -1,5 +1,9 @@
 # ADR-0091: New Parser 接管 Name-Iterator 与 Instant Pull 子集
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0091: New Parser 接管 Name-Iterator 与 Instant Pull 子集.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

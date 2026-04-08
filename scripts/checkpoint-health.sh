@@ -86,6 +86,9 @@ BUILD_DIR="$(configure_build_dir_latest "$BUILD_DIR" "build-codex")"
 echo "[checkpoint-health] build dir: ${BUILD_DIR}"
 cmake --build "$BUILD_DIR" --target styio_test styio_soak_test -j8
 
+echo "[checkpoint-health] docs audit"
+ctest --test-dir "$BUILD_DIR" -L docs --output-on-failure
+
 echo "[checkpoint-health] parser default + state inline diagnostics"
 ctest --test-dir "$BUILD_DIR" \
   -R '^Styio(ParserEngine\.DefaultEngineIsNightlyInShadowArtifact|Diagnostics\.(SingleArgStateFunctionInliningUsesCallArgument|BlockStateFunctionInliningUsesCallArgument|StateInlineMatchCasesFunctionUsesCallArgument|StateInlineInfiniteLiteralFunctionUsesCallArgument))$' \

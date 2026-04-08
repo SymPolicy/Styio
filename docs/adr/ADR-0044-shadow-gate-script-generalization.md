@@ -1,5 +1,9 @@
 # ADR-0044: Shadow Gate 脚本通用化命名
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0044: Shadow Gate 脚本通用化命名.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

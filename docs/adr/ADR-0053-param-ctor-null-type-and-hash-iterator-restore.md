@@ -1,5 +1,9 @@
 # ADR-0053: ParamAST 构造对齐与 Hash Iterator 恢复
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0053: ParamAST 构造对齐与 Hash Iterator 恢复.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 

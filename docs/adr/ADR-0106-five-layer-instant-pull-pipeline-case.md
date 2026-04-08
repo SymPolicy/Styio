@@ -1,5 +1,9 @@
 # ADR-0106: Five-Layer Pipeline 增加 Instant Pull Case
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0106: Five-Layer Pipeline 增加 Instant Pull Case.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-08
 

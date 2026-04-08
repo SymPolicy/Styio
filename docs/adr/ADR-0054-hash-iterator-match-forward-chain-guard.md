@@ -1,5 +1,9 @@
 # ADR-0054: Hash Iterator `?=` Forward Chain 稳定拒绝
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0054: Hash Iterator `?=` Forward Chain 稳定拒绝.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 

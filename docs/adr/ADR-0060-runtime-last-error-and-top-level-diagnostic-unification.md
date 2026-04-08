@@ -1,5 +1,9 @@
 # ADR-0060: Runtime Last-Error API 与顶层诊断统一输出
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0060: Runtime Last-Error API 与顶层诊断统一输出.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 

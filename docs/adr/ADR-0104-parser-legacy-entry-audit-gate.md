@@ -1,5 +1,9 @@
 # ADR-0104: Parser Legacy Entry Audit Gate
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0104: Parser Legacy Entry Audit Gate.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

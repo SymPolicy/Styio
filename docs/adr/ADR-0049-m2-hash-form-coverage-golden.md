@@ -1,5 +1,9 @@
 # ADR-0049: 将 Hash 新覆盖形态纳入 M2 Golden 与 Shadow Gate
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0049: 将 Hash 新覆盖形态纳入 M2 Golden 与 Shadow Gate.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 

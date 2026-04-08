@@ -1,5 +1,9 @@
 # ADR-0014: Stmt/Decl RAII 第一段（Return/FlexBind/FinalBind）
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0014: Stmt/Decl RAII 第一段（Return/FlexBind/FinalBind）.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-03
 

@@ -1,5 +1,9 @@
 # ADR-0005: 运行时文件路径兼容与错误旗标
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0005: 运行时文件路径兼容与错误旗标.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-03
 

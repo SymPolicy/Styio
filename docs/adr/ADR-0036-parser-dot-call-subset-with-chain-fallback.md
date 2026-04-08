@@ -1,5 +1,9 @@
 # ADR-0036: NewParser 接管 Dot-Call 子集并保留 Chain 回退
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0036: NewParser 接管 Dot-Call 子集并保留 Chain 回退.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

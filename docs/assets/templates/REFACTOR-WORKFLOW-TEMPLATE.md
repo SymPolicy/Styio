@@ -1,5 +1,9 @@
 # 通用重构工作流模板（可复用）
 
+**Purpose:** Provide the reusable template documented in 通用重构工作流模板（可复用）.
+
+**Last updated:** 2026-04-08
+
 **用途：** 作为维护代码库时的通用执行模板。  
 **目标：** 小步可合并、可中断恢复、每步可验证、风险可回滚。
 

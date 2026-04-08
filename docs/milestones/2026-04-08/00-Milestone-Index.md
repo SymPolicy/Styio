@@ -1,9 +1,10 @@
 # Styio Development Milestones — Index (Standard Streams)
 
-**文档作用：** 本批（`2026-04-08/`）里程碑的 **总索引**：M9–M10 目标、依赖链、各 `M*.md` 路径及与设计文档的链接；**不**替代各 `M*-*.md` 中的验收细则。
+**Purpose:** 本批（`2026-04-08/`）里程碑的 **总索引**：M9–M10 目标、依赖链、各 `M*.md` 路径及与设计文档的链接；**不**替代各 `M*-*.md` 中的验收细则。
+
+**Last updated:** 2026-04-08
 
 **Date:** 2026-04-08  
-**Last updated:** 2026-04-08  
 **Status:** Frozen
 **Methodology:** Test-Case Driven Development. Every milestone defines its acceptance tests FIRST.
 

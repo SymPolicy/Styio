@@ -1,5 +1,9 @@
 # ADR-0046: NewParser Hash 非 block 函数体采用 stmt-or-expr 子集
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0046: NewParser Hash 非 block 函数体采用 stmt-or-expr 子集.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

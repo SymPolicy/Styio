@@ -1,6 +1,8 @@
 # Styio — Agent Development Specification
 
-**文档作用：** 约束 AI 与人类贡献者在 **编译器实现、测试与文档交叉引用** 上的操作规程与禁止项；**语言权威语义**仍以 `../design/Styio-Language-Design.md`、`../design/Styio-EBNF.md` 为准。文档目录与「最小改动 / SSOT」准则见 `DOCUMENTATION-POLICY.md` §0。
+**Purpose:** 约束 AI 与人类贡献者在 **编译器实现、测试与文档交叉引用** 上的操作规程与禁止项；**语言权威语义**仍以 `../design/Styio-Language-Design.md`、`../design/Styio-EBNF.md` 为准。文档目录与「最小改动 / SSOT」准则见 `DOCUMENTATION-POLICY.md` §0。
+
+**Last updated:** 2026-04-08
 
 **Version:** 1.1  
 **Date:** 2026-03-28  

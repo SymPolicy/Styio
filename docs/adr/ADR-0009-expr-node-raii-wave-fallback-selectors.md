@@ -1,5 +1,9 @@
 # ADR-0009: Expr 节点 RAII 第三段（Wave/Fallback/Selectors）
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0009: Expr 节点 RAII 第三段（Wave/Fallback/Selectors）.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-03
 

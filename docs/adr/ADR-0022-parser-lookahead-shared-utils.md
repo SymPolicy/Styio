@@ -1,5 +1,9 @@
 # ADR-0022: parser 前瞻工具共享模块
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0022: parser 前瞻工具共享模块.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

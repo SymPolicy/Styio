@@ -1,5 +1,9 @@
 # ADR-0069: `parse_path` 与 `peak_operator` 边界防护
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0069: `parse_path` 与 `peak_operator` 边界防护.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-06
 

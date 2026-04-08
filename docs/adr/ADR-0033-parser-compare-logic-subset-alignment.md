@@ -1,5 +1,9 @@
 # ADR-0033: NewParser 比较/逻辑子集接管与 AST 对齐
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0033: NewParser 比较/逻辑子集接管与 AST 对齐.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

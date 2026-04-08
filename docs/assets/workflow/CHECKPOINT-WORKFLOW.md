@@ -1,6 +1,6 @@
 # Styio 中断友好 Checkpoint 工作流
 
-**文档作用：** 约束 Styio 在底层重构期间的 **微里程碑拆分、可中断恢复、分支寿命与合并门槛**；不替代语言语义文档（见 `../../design/Styio-Language-Design.md` / `../../design/Styio-EBNF.md`）。
+**Purpose:** 约束 Styio 在底层重构期间的 **微里程碑拆分、可中断恢复、分支寿命与合并门槛**；不替代语言语义文档（见 `../../design/Styio-Language-Design.md` / `../../design/Styio-EBNF.md`）。
 
 **Last updated:** 2026-04-08
 

@@ -1,5 +1,9 @@
 # ADR-0026: NewParser FinalBind 子集与安全回退边界
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0026: NewParser FinalBind 子集与安全回退边界.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

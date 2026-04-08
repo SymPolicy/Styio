@@ -1,5 +1,9 @@
 # 2026-03-30 审查后已落地的修复明细
 
+**Purpose:** Record the fixes applied in response to the 2026-03-30 review findings.
+
+**Last updated:** 2026-04-08
+
 本文档**仅**逐项列出**编译器源码中**已修改的部分：`Tokenizer.cpp` 内的词法行为、动机与代码引用。
 
 - 静态审查待办见 [findings.md](./findings.md)。

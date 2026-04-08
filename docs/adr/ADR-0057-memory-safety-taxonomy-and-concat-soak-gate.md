@@ -1,5 +1,9 @@
 # ADR-0057: 内存安全（Safety）术语收敛与拼接 Soak 门禁
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0057: 内存安全（Safety）术语收敛与拼接 Soak 门禁.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 

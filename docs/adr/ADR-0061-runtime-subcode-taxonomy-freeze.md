@@ -1,5 +1,9 @@
 # ADR-0061: Runtime 子码（subcode）稳定化与覆盖冻结
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0061: Runtime 子码（subcode）稳定化与覆盖冻结.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 

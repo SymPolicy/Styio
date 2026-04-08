@@ -1,6 +1,6 @@
 # `[|n|]` 环缓 CodeGen：从 i64 Bootstrap 迁移的调整方案
 
-**文档作用：** 记录在 **`bounded_ring:n`** 类型上 **从「整段降级为单 i64」改为「栈上 `[n x i64]` + 写指针」** 时的 **破坏面、语义约定、测试与回滚步骤**；实现细节以代码与 [`docs/history/2026-03-29.md`](./history/2026-03-29.md) 会话为准。
+**Purpose:** 记录在 **`bounded_ring:n`** 类型上 **从「整段降级为单 i64」改为「栈上 `[n x i64]` + 写指针」** 时的 **破坏面、语义约定、测试与回滚步骤**；实现细节以代码与 [`docs/history/2026-03-29.md`](../history/2026-03-29.md) 会话为准。
 
 **Last updated:** 2026-03-28
 
@@ -65,4 +65,4 @@
 
 - 设计目标：[`../design/Styio-Resource-Topology.md`](../design/Styio-Resource-Topology.md)  
 - 总实施清单：[`Resource-Topology-v2-Implementation-Plan.md`](./Resource-Topology-v2-Implementation-Plan.md)  
-- 类型名前缀解析：[`src/StyioUtil/BoundedType.hpp`](../src/StyioUtil/BoundedType.hpp)
+- 类型名前缀解析：[`src/StyioUtil/BoundedType.hpp`](../../src/StyioUtil/BoundedType.hpp)

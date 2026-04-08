@@ -1,6 +1,6 @@
 # Styio 仓库清理与提交标准
 
-**文档作用：** 约束 Styio 仓库的本地清理、`.gitignore`、提交前检查、push 前检查、历史重写与 `force-push` 边界；不定义语言语义与功能重构步骤（见 `CHECKPOINT-WORKFLOW.md` / `../templates/REFACTOR-WORKFLOW-TEMPLATE.md`）。
+**Purpose:** 约束 Styio 仓库的本地清理、`.gitignore`、提交前检查、push 前检查、历史重写与 `force-push` 边界；不定义语言语义与功能重构步骤（见 `CHECKPOINT-WORKFLOW.md` / `../templates/REFACTOR-WORKFLOW-TEMPLATE.md`）。
 
 **Last updated:** 2026-04-08
 

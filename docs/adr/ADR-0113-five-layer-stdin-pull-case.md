@@ -1,5 +1,9 @@
 # ADR-0113: Five-Layer Pipeline 增加 Stdin Pull Case
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0113: Five-Layer Pipeline 增加 Stdin Pull Case.
+
+**Last updated:** 2026-04-08
+
 ## Context
 
 `ADR-0111` 与 `ADR-0112` 已经把 `@stdin` 的 line-iterator 路径纳入 five-layer golden，分别覆盖了“原样写回”和“block 内算术变换”。

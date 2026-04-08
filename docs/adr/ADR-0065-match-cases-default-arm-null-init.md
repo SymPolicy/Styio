@@ -1,5 +1,9 @@
 # ADR-0065: `?=` 无默认分支时 `CasesAST` 默认臂指针必须显式置空
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0065: `?=` 无默认分支时 `CasesAST` 默认臂指针必须显式置空.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-06
 

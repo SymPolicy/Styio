@@ -1,5 +1,9 @@
 # ADR-0041: Parser M2 Shadow Gate 升级为 Full Suite
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0041: Parser M2 Shadow Gate 升级为 Full Suite.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

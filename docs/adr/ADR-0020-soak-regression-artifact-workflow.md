@@ -1,5 +1,9 @@
 # ADR-0020: Soak 失败样本最小化与回归工单格式
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0020: Soak 失败样本最小化与回归工单格式.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

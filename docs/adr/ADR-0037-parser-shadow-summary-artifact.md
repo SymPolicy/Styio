@@ -1,5 +1,9 @@
 # ADR-0037: Parser Shadow Gate 增加 Summary 工件
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0037: Parser Shadow Gate 增加 Summary 工件.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

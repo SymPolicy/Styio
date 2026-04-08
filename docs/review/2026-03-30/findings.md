@@ -1,5 +1,9 @@
 # 详细发现清单
 
+**Purpose:** Record the detailed review findings for the 2026-03-30 review bundle.
+
+**Last updated:** 2026-04-08
+
 ## 1. 词法分析（`Tokenizer.cpp`）
 
 ### 1.1 `EOF` 与 `char` 混用

@@ -1,5 +1,9 @@
 # ADR-0095: Nightly Parser 接管 List-Start Iterator 入口与换行边界
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0095: Nightly Parser 接管 List-Start Iterator 入口与换行边界.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

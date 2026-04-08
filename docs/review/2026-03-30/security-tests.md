@@ -1,5 +1,9 @@
 # Styio 安全测试模块说明
 
+**Purpose:** Record the security-oriented tests and coverage notes for the 2026-03-30 review bundle.
+
+**Last updated:** 2026-04-08
+
 本文档**仅描述安全测试子模块**：源码位置、构建与运行方式、用例清单、依赖的被测符号，以及与编译器其余部分的变更对照。  
 静态审查中的待改进项、词法器代码级修复明细见同目录下的 [findings.md](./findings.md) 与 [fixes-applied.md](./fixes-applied.md)；**不与上述文档混写同一章节**。
 

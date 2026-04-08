@@ -1,5 +1,9 @@
 # ADR-0055: Match Scrutinee 整型边界与崩溃防线
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0055: Match Scrutinee 整型边界与崩溃防线.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 

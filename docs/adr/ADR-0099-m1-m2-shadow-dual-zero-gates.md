@@ -1,5 +1,9 @@
 # ADR-0099: M1/M2 Shadow Dual-Zero Gates 进入 Checkpoint Health
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0099: M1/M2 Shadow Dual-Zero Gates 进入 Checkpoint Health.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

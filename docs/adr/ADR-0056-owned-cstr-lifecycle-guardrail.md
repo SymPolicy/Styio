@@ -1,5 +1,9 @@
 # ADR-0056: `styio_strcat_ab` 所有权追踪与安全释放护栏
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0056: `styio_strcat_ab` 所有权追踪与安全释放护栏.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 

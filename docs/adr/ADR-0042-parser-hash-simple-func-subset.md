@@ -1,5 +1,9 @@
 # ADR-0042: NewParser 优先解析 Hash SimpleFunc 子集
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0042: NewParser 优先解析 Hash SimpleFunc 子集.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

@@ -1,5 +1,9 @@
 # ADR-0068: ParserContext 在 token 越界时降级为 EOF，并钳制前移步长
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0068: ParserContext 在 token 越界时降级为 EOF，并钳制前移步长.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-06
 

@@ -1,5 +1,9 @@
 # ADR-0027: Parser Shadow Compare 模式
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0027: Parser Shadow Compare 模式.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

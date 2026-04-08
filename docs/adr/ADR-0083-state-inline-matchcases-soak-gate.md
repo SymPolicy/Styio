@@ -1,5 +1,9 @@
 # ADR-0083: State Inline MatchCases Soak Gate
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0083: State Inline MatchCases Soak Gate.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

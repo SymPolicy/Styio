@@ -1,5 +1,9 @@
 # ADR-0015: Stmt/Decl RAII 第二段（资源 IO 语句节点）
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0015: Stmt/Decl RAII 第二段（资源 IO 语句节点）.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-03
 

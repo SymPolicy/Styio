@@ -1,5 +1,9 @@
 # ADR-0013: Expr 节点 RAII 第七段（Tuple/List/Set）
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0013: Expr 节点 RAII 第七段（Tuple/List/Set）.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-03
 

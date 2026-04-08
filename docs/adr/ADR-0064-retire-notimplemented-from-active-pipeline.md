@@ -1,5 +1,9 @@
 # ADR-0064: 活跃编译流水线移除 `Styio.NotImplemented` 错误类别
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0064: 活跃编译流水线移除 `Styio.NotImplemented` 错误类别.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-06
 

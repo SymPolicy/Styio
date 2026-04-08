@@ -1,5 +1,9 @@
 # ADR-0032: Parser Shadow 差异预算脚本化
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0032: Parser Shadow 差异预算脚本化.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

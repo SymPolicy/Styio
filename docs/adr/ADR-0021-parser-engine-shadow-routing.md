@@ -1,5 +1,9 @@
 # ADR-0021: ParserEngine 双轨路由与影子实现
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0021: ParserEngine 双轨路由与影子实现.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

@@ -1,9 +1,10 @@
 # Standard-Streams-Plan — Complete stdin / stdout / stderr Syntax for Styio
 
-**文档作用：** 标准流（stdin/stdout/stderr）特性的完整设计方案。正式定义将写入各 SSOT 文档（见下文「文件修改清单」）。
+**Purpose:** 标准流（stdin/stdout/stderr）特性的完整设计方案。正式定义将写入各 SSOT 文档（见下文「文件修改清单」）。
+
+**Last updated:** 2026-04-08
 
 **Date:** 2026-04-08  
-**Last updated:** 2026-04-08  
 **Status:** Historical design plan. Frozen acceptance/spec docs live in [`../milestones/2026-04-08/`](../milestones/2026-04-08/); language-level SSOT remains [`../design/Styio-Language-Design.md`](../design/Styio-Language-Design.md), [`../design/Styio-EBNF.md`](../design/Styio-EBNF.md), and [`../design/Styio-Symbol-Reference.md`](../design/Styio-Symbol-Reference.md). This plan originally explored user-authored `@stdout := ...` wrappers; the frozen implementation instead recognizes `@stdout/@stderr/@stdin` directly as standard-stream resource atoms.
 
 ---

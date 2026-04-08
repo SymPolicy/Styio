@@ -1,8 +1,9 @@
 # Resource Topology v2 — 新语法实施计划
 
-**文档作用：** 将 [`../design/Styio-Resource-Topology.md`](../design/Styio-Resource-Topology.md) 中的 **目标语法** 落实为可执行的 **分阶段重构清单**（改哪些模块、测什么、记什么日志）；**不**重复拓扑设计全文（以 Topology 为 SSOT），**不**替代 [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md) 中的冲突登记（实施中解决一项应回写该文档或注明已关闭）。
+**Purpose:** 将 [`../design/Styio-Resource-Topology.md`](../design/Styio-Resource-Topology.md) 中的 **目标语法** 落实为可执行的 **分阶段重构清单**（改哪些模块、测什么、记什么日志）；**不**重复拓扑设计全文（以 Topology 为 SSOT），**不**替代 [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md) 中的冲突登记（实施中解决一项应回写该文档或注明已关闭）。
 
-**Last updated:** 2026-03-28（环缓 CodeGen 迁移见 [`BoundedRing-Codegen-Adjustment.md`](./BoundedRing-Codegen-Adjustment.md)）  
+**Last updated:** 2026-03-28
+
 **Normative design:** [`../design/Styio-Resource-Topology.md`](../design/Styio-Resource-Topology.md)  
 **Grammar sketch:** [`../design/Styio-EBNF.md`](../design/Styio-EBNF.md) Appendix B  
 **Open conflicts:** [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md)
@@ -27,7 +28,7 @@
 
 1. **回归：** 现有 `tests/milestones/m1`–`m7` 在「兼容模式」下仍可通过（除非明确宣布 breaking 批次并批量更新 golden）。  
 2. **新测：** 至少一组 `tests/milestones/m8/`（或 `topology_v2/`）覆盖 T1–T5 的最小用例；[`docs/assets/workflow/TEST-CATALOG.md`](../assets/workflow/TEST-CATALOG.md) 与 `tests/CMakeLists.txt` 同步更新。  
-3. **文档：** 每阶段结束在 [`docs/history/YYYY-MM-DD.md`](./history/) 记 **会话日志**（见 §7）；关闭的冲突回写 `../review/Logic-Conflicts.md`。
+3. **文档：** 每阶段结束在 [`docs/history/YYYY-MM-DD.md`](../history/) 记 **会话日志**（见 §7）；关闭的冲突回写 `../review/Logic-Conflicts.md`。
 
 ---
 

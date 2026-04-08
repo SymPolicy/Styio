@@ -1,5 +1,9 @@
 # ADR-0082: State Inline 克隆补齐 MatchCases/Cases
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0082: State Inline 克隆补齐 MatchCases/Cases.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

@@ -1,5 +1,9 @@
 # ADR-0094: Refactor Function Suffix Policy (`_legacy` / `_nightly` / `_latest` / `_draft`)
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0094: Refactor Function Suffix Policy (`_legacy` / `_nightly` / `_latest` / `_draft`).
+
+**Last updated:** 2026-04-08
+
 **Status:** Accepted
 
 ## Context

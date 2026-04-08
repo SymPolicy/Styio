@@ -1,14 +1,21 @@
-# 模板资产索引
+# Template Assets
 
-**文档作用：** 索引 `docs/assets/templates/` 下的可复用模板文件，避免每轮重构重复发明交付格式。
+**Purpose:** Define the scope of reusable templates under `docs/assets/templates/`; the generated inventory lives in [INDEX.md](./INDEX.md).
 
 **Last updated:** 2026-04-08
 
-| 文件 | 用途 |
-|------|------|
-| [`REFACTOR-WORKFLOW-TEMPLATE.md`](./REFACTOR-WORKFLOW-TEMPLATE.md) | 通用重构与 checkpoint 交付模板 |
+## Scope
 
-## 命名规则
+1. Store reusable document skeletons here.
+2. Keep project-state content out of templates.
+3. Prefer updating an existing template over adding another near-duplicate template.
 
-1. 模板文件使用稳定、可复制的全大写短横线命名。
-2. 模板只描述通用骨架，不写当前分支的具体实现状态。
+## Usage Rules
+
+1. Templates should remain generic and copyable.
+2. Templates should not embed branch- or date-specific state.
+3. Template updates should preserve stable section names when possible.
+
+## Inventory
+
+See [INDEX.md](./INDEX.md).

@@ -1,5 +1,9 @@
 # ADR-0079: 单参数 state helper 内联识别修复与克隆覆盖扩展
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0079: 单参数 state helper 内联识别修复与克隆覆盖扩展.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-06
 

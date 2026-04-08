@@ -1,5 +1,9 @@
 # ADR-0101: Verification Harness 对齐 Nightly Parser
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0101: Verification Harness 对齐 Nightly Parser.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

@@ -1,5 +1,9 @@
 # ADR-0118: Nightly-First Completion Boundary for E.7 and F.3
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0118: Nightly-First Completion Boundary for E.7 and F.3.
+
+**Last updated:** 2026-04-08
+
 ## Status
 
 Accepted

@@ -1,5 +1,9 @@
 # ADR-0010: Expr 节点 RAII 第四段（FuncCall）
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0010: Expr 节点 RAII 第四段（FuncCall）.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-03
 

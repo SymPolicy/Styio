@@ -1,5 +1,9 @@
 # ADR-0093: New Parser 接管 `@file... >> ...` 资源流入口
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0093: New Parser 接管 `@file... >> ...` 资源流入口.
+
+**Last updated:** 2026-04-08
+
 - Status: Accepted
 - Date: 2026-04-07
 

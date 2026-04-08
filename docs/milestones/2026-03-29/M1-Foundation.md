@@ -1,6 +1,8 @@
 # Milestone 1: Foundation — Expressions, Print, Bindings
 
-**文档作用：** M1 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。
+**Purpose:** M1 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。
+
+**Last updated:** 2026-04-08
 
 **Depends on:** Nothing (first milestone)  
 **Goal:** A `.styio` program with integer/float arithmetic, variable bindings, and print statements executes end-to-end and produces correct output.

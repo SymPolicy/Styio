@@ -1,5 +1,9 @@
 # ADR-0045: NewParser Hash 签名子集对齐 M2 语法
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0045: NewParser Hash 签名子集对齐 M2 语法.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 

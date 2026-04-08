@@ -1,5 +1,9 @@
 # ADR-0023: NewParser 表达式子集与保守 Shadow 路由
 
+**Purpose:** Record the decision, context, alternatives, and consequences for ADR-0023: NewParser 表达式子集与保守 Shadow 路由.
+
+**Last updated:** 2026-04-08
+
 - **Status:** Accepted
 - **Date:** 2026-04-04
 
