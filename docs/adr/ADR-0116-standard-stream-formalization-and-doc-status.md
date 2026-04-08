@@ -34,7 +34,7 @@
    - `expr >> @stdin`
    两者都属于语义错误。
 6. 文档层明确分层：
-   - `docs/plans/stdin-stdout-stderr.md`：历史计划，不是 SSOT
+   - `docs/plans/Standard-Streams-Plan.md`：历史计划，不是 SSOT
    - `docs/milestones/2026-04-08/`：冻结规格
    - `docs/milestones/2026-03-29/M9-StdoutStderr.md` 与 `M10-StdinValidation.md`：标记为 `Superseded draft`
 7. `StyioRepr` 对 stdout 路径继续保留 `styio.ir.print` 文本契约，以维持既有 five-layer goldens；类名统一为 `SIOStd*` 不强制要求 debug 字符串同名。

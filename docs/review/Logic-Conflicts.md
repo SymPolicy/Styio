@@ -198,7 +198,7 @@
 
 Design settled on **`<~` / `~>`** for conditionals; `:` is **type annotation** only.
 
-**Conflict:** Older sketches (`../plans/idea.md`) may still suggest `:` for other uses. Ignore `../plans/idea.md` for semantics unless reconciled.
+**Conflict:** Older sketches (`../plans/Early-Ideas.md`) may still suggest `:` for other uses. Ignore `../plans/Early-Ideas.md` for semantics unless reconciled.
 
 ---
 

@@ -11,6 +11,20 @@
 3. 关键边界（所有权、ABI、诊断格式、兼容策略）必须有 ADR 再落地实现
 4. 历史 ADR 若仍写 `new parser`，自 2026-04-07 起统一解释为 `nightly parser`
 
+## 快速分组
+
+1. `ADR-0001` 至 `ADR-0020`：checkpoint、诊断、所有权与基础工程规则
+2. `ADR-0021` 至 `ADR-0055`：parser shadow / subset / gate 与早期 nightly 迁移
+3. `ADR-0056` 至 `ADR-0084`：runtime safety、RAII、state-inline 与 soak
+4. `ADR-0085` 至 `ADR-0100`：nightly-first、shadow gates、legacy 收口
+5. `ADR-0101` 至 `ADR-0118`：five-layer pipeline、stdio 正式化、completion boundary
+
+## 最近 ADR
+
+- `ADR-0118-nightly-first-completion-boundary.md`
+- `ADR-0117-stdio-milestone-contract-audit.md`
+- `ADR-0116-standard-stream-formalization-and-doc-status.md`
+
 ## 条目
 
 - `ADR-0001-checkpoint-process.md`

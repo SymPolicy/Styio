@@ -11,7 +11,7 @@
 
 **Ambiguities:** See [`../../review/Logic-Conflicts.md`](../../review/Logic-Conflicts.md)
 
-**Design plan:** See [`../../plans/stdin-stdout-stderr.md`](../../plans/stdin-stdout-stderr.md) for the original design rationale. It is a historical planning artifact, not the language SSOT.
+**Design plan:** See [`../../plans/Standard-Streams-Plan.md`](../../plans/Standard-Streams-Plan.md) for the original design rationale. It is a historical planning artifact, not the language SSOT.
 
 **Definitions (SSOT):** See [`../../design/Styio-Language-Design.md`](../../design/Styio-Language-Design.md) §7.7 and §11 for the authoritative definitions of `>_`, `@stdout`, `@stderr`, `@stdin`.
 

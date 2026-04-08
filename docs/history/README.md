@@ -6,6 +6,12 @@
 
 按日期记录的实现经验与进展见本目录下 `YYYY-MM-DD.md`。新内容请 **按当天日期新建或追加**，并在文首维护 **Last updated**。
 
+## 恢复顺序
+
+1. 先看最新日期文件中的 `Checkpoint` 小节。
+2. 再看 [`../assets/workflow/CHECKPOINT-WORKFLOW.md`](../assets/workflow/CHECKPOINT-WORKFLOW.md) 确认当前恢复门槛。
+3. 若涉及关键边界变更，再跳到 [`../adr/README.md`](../adr/README.md) 查对应 ADR。
+
 | 文件 | 摘要 |
 |------|------|
 | [`2026-04-08.md`](2026-04-08.md) | F.3/E.7 继续扩 five-layer pipeline：新增 `p07_instant_pull`、`p08_redirect_file`、`p09_full_pipeline`、`p10_auto_detect_read`、`p11_pipe_func`、`p12_stdin_echo`、`p13_stdin_transform`、`p14_stdin_pull`、`p15_stdin_mixed_output`，将表达式级 `(<< @file{...})`、redirect 副作用、`file iterator + bind + resource write` 组合链路、`@{...}` auto-detect 读取路径、“函数调用位于 iterator body 内”的流处理路径，以及 `@stdin` line-iterator + `@stdout` 写回、block 内算术变换链路、`(<< @stdin)` instant pull 路径与 stdout/stderr 双通道写回正式纳入 nightly-first AST/IR/LLVM/stdout/stderr golden；同日修复默认 nightly 对 `M4` wave 语法的半吞解析，改为显式安全回退到 `legacy`，并修正 NAME-led `true/false` 语句误判，恢复 `true >> @stdout` 输出契约；同时正式收口标准流文档层：统一 `SIOStd*` 命名、区分 canonical `-> @stdout/@stderr` 与 accepted shorthand `>> @stdout/@stderr`，将 2026-03-29 的 M9/M10 草案标记为 superseded，并补做 M9/M10 contract audit，明确 `(<< @stdin)` 当前冻结为 `styio_cstr_to_i64()` 标量契约、M9 不再用 format string 作为标准流里程碑验收；最后通过 ADR-0118 冻结 `E.7/F.3` 的 nightly-first 完成边界，修复 `checkpoint-health` 的冷启动 build 目录回退，并新增 `../assets/workflow/REPO-HYGIENE-COMMIT-STANDARD.md` 收口仓库清理、提交流程与大文件历史重写标准 |

@@ -80,6 +80,22 @@ ctest --test-dir build -L milestone
 | `docs/milestones/` | 按日期冻结的里程碑规格 |
 | `docs/adr/` | 架构决策记录 |
 
+### 0.7 文件命名约定
+
+1. `docs/design/`：设计级 SSOT 使用稳定、可搜索的主题名；当前约定为 `Styio-*.md`。
+2. `docs/specs/`：规范文件使用稳定、可搜索的全大写短横线命名。
+3. `docs/plans/`：计划文件必须使用描述性名称，优先 `<Topic>-Plan.md`、`<Topic>-Implementation-Plan.md`、`<Topic>-Adjustment.md`；禁止再新增 `idea.md`、`notes.md`、`misc.md` 这类泛名文件。
+4. `docs/assets/workflow/` 与 `docs/assets/templates/`：可复用资产采用稳定、可搜索的全大写短横线命名。
+5. `docs/history/`：严格使用 `YYYY-MM-DD.md`。
+6. `docs/adr/`：严格使用 `ADR-XXXX-<slug>.md`。
+7. `docs/milestones/`：目录使用 `YYYY-MM-DD/`，文件使用 `00-Milestone-Index.md` 与 `M<id>-<Topic>.md`。
+
+### 0.8 目录索引规则
+
+1. `docs/` 下的每个顶层分类目录都必须提供 `README.md` 作为入口。
+2. 目录 `README.md` 只做边界说明、索引和命名规则，不重复正文 SSOT。
+3. 新增一个顶层分类目录时，必须同步更新 `docs/README.md` 与本文件 §0.6。
+
 ---
 
 ## 1. 目标
