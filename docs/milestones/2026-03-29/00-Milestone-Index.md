@@ -6,11 +6,11 @@
 **Last updated:** 2026-03-28  
 **Methodology:** Test-Case Driven Development. Every milestone defines its acceptance tests FIRST.
 
-**Documentation policy:** [`docs/DOCUMENTATION-POLICY.md`](../DOCUMENTATION-POLICY.md) — history by date under `docs/history/`, milestones by date under `docs/milestones/<YYYY-MM-DD>/`, test index [`docs/tests/TEST-CATALOG.md`](../tests/TEST-CATALOG.md) with automatable `ctest` commands.
+**Documentation policy:** [`../../specs/DOCUMENTATION-POLICY.md`](../../specs/DOCUMENTATION-POLICY.md) — history by date under `docs/history/`, milestones by date under `docs/milestones/<YYYY-MM-DD>/`, test index [`../../assets/workflow/TEST-CATALOG.md`](../../assets/workflow/TEST-CATALOG.md) with automatable `ctest` commands.
 
-**Ambiguities:** See [`docs/Logic-Conflicts.md`](../Logic-Conflicts.md) for overloaded symbols, milestone ordering tensions, and gaps between design and the current compiler.
+**Ambiguities:** See [`../../review/Logic-Conflicts.md`](../../review/Logic-Conflicts.md) for overloaded symbols, milestone ordering tensions, and gaps between design and the current compiler.
 
-**Resource topology (target syntax):** See [`docs/Styio-Resource-Topology.md`](../Styio-Resource-Topology.md) for `@` semantics, `[|n|]` buffers, top-level `:= { driver }`, and **`->` vs `=`** for shadows — **not yet** the default in the compiler.
+**Resource topology (target syntax):** See [`../../design/Styio-Resource-Topology.md`](../../design/Styio-Resource-Topology.md) for `@` semantics, `[|n|]` buffers, top-level `:= { driver }`, and **`->` vs `=`** for shadows — **not yet** the default in the compiler.
 
 ---
 
@@ -73,10 +73,10 @@ Each milestone builds on the previous one. No milestone may break tests from ear
 | **Parser Agent** | Recursive descent parser, AST node definitions | Parser.cpp, AST.hpp, ASTDecl.hpp |
 | **Analyzer Agent** | Type inference, semantic checks, IR lowering | TypeInfer.cpp, ToStyioIR.cpp, ASTAnalyzer.hpp |
 | **CodeGen Agent** | LLVM IR generation, JIT execution | CodeGen*.cpp, GetType*.cpp, CodeGenVisitor.hpp |
-| **Test Agent** | Write .styio test fixtures, GoogleTest cases, verify output | `tests/milestones/`, `tests/CMakeLists.txt`, `docs/tests/TEST-CATALOG.md`, `styio_test.cpp` |
+| **Test Agent** | Write .styio test fixtures, GoogleTest cases, verify output | `tests/milestones/`, `tests/CMakeLists.txt`, `../../assets/workflow/TEST-CATALOG.md`, `styio_test.cpp` |
 | **Doc Agent** | Keep design docs and AGENT-SPEC in sync with changes | docs/ |
 
-Multiple roles may be filled by the same agent. All agents must follow `docs/AGENT-SPEC.md`.
+Multiple roles may be filled by the same agent. All agents must follow [`../../specs/AGENT-SPEC.md`](../../specs/AGENT-SPEC.md).
 
 ---
 
@@ -92,4 +92,4 @@ Multiple roles may be filled by the same agent. All agents must follow `docs/AGE
 | `M5-ResourcesIO.md` | Milestone 5: File/resource access |
 | `M6-StateAndStreams.md` | Milestone 6: State containers, intrinsics |
 | `M7-MultiStream.md` | Milestone 7: Stream sync, drivers |
-| [`../Styio-Resource-Topology.md`](../Styio-Resource-Topology.md) | **Target** resource/state topology (`@`, `[|n|]`, `:=` driver, `->` sinks) |
+| [`../../design/Styio-Resource-Topology.md`](../../design/Styio-Resource-Topology.md) | **Target** resource/state topology (`@`, `[|n|]`, `:=` driver, `->` sinks) |

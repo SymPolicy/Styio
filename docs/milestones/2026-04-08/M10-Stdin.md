@@ -10,11 +10,11 @@
 
 ## Definitions
 
-For full semantic definitions, see the authoritative design documents (per `DOCUMENTATION-POLICY.md` §0.4):
+For full semantic definitions, see the authoritative design documents (per `../../specs/DOCUMENTATION-POLICY.md` §0.4):
 
-- **`@stdin` resource definition, `<< ( >_ )` semantics:** [`Styio-Language-Design.md`](../../Styio-Language-Design.md) §7.7
-- **Direction constraints:** [`Styio-Language-Design.md`](../../Styio-Language-Design.md) §7.7 (Direction constraints)
-- **Formal grammar:** [`Styio-EBNF.md`](../../Styio-EBNF.md) §9.1
+- **`@stdin` resource definition, `<< ( >_ )` semantics:** [`../../design/Styio-Language-Design.md`](../../design/Styio-Language-Design.md) §7.7
+- **Direction constraints:** [`../../design/Styio-Language-Design.md`](../../design/Styio-Language-Design.md) §7.7 (Direction constraints)
+- **Formal grammar:** [`../../design/Styio-EBNF.md`](../../design/Styio-EBNF.md) §9.1
 
 ---
 

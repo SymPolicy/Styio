@@ -1,6 +1,6 @@
 # Styio — Logic Conflicts & Open Resolutions
 
-**文档作用：** **唯一**记录设计文档、里程碑、编译器实现与讨论之间 **矛盾与待定决议** 的清单；**不**承担完整语言教学（见 `Styio-Language-Design.md`）。
+**文档作用：** **唯一**记录设计文档、里程碑、编译器实现与讨论之间 **矛盾与待定决议** 的清单；**不**承担完整语言教学（见 `../design/Styio-Language-Design.md`）。
 
 **Version:** 1.0  
 **Date:** 2026-03-28  
@@ -14,7 +14,7 @@
 
 | Meaning | Context | Design reference |
 |---------|---------|-------------------|
-| **Write to sink** | `expr << @file{...}` or `expr << handle` | `Styio-Language-Design.md` §7.4 |
+| **Write to sink** | `expr << @file{...}` or `expr << handle` | `../design/Styio-Language-Design.md` §7.4 |
 | **Snapshot binding** | `@[v] << @resource` | §9.2 |
 | **Instant pull** | `(<< @resource)` as primary expression | §9.2 |
 | **History probe** | `$var[<<, n]` inside `[` `]` | §8.4, §10.5 |
@@ -27,7 +27,7 @@
 - As first token of statement vs `expr << resource` → disambiguate **return** vs **write**
 - Inside `[` after `,` as mode `<<` → history probe (not the same token stream as `EXTRACTOR` for `<<` alone — may be `[` then `<<` then `,`)
 
-**Resolution needed:** Write an explicit **disambiguation table** in `Styio-EBNF.md` for `<<` that includes **legacy `EXTRACTOR` return** vs **new write/snapshot/pull**. Decide whether return migrates to `<|` only or keeps `<<`.
+**Resolution needed:** Write an explicit **disambiguation table** in `../design/Styio-EBNF.md` for `<<` that includes **legacy `EXTRACTOR` return** vs **new write/snapshot/pull**. Decide whether return migrates to `<|` only or keeps `<<`.
 
 ---
 
@@ -37,11 +37,11 @@
 |---------|---------|
 | **Pipe / iterate** | `source >> #(x) => { ... }` |
 | **Continue** | Standalone `>>`, `>>>`, … (length ≥ 2) |
-| **Stride selector (planned)** | `[>>, n]` in `Styio-EBNF.md` / symbol reference |
+| **Stride selector (planned)** | `[>>, n]` in `../design/Styio-EBNF.md` / symbol reference |
 
 **Conflict:** `ITERATOR` in the lexer is a **run of `>`** (like `>>`, `>>>`, …). Continue uses the **same character** with “standalone statement” context. Pipe uses `>>` **after** an expression.
 
-**Resolution needed:** Parser lookahead rules in `Styio-EBNF.md` Appendix must be implemented exactly; ambiguous cases (e.g. `>>` at start of line inside a block) need examples.
+**Resolution needed:** Parser lookahead rules in `../design/Styio-EBNF.md` Appendix must be implemented exactly; ambiguous cases (e.g. `>>` at start of line inside a block) need examples.
 
 ---
 
@@ -57,7 +57,7 @@
 
 **Resolution needed:** Formal grammar ordering: `@` + not-`[` + not-ident → `UndefinedAST`; `@` + `[` → state or mistake; `@` + ident + `{`/`(` → resource.
 
-**Target design (v2):** Unify narrative under [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md): **`@name : [|n|]`** as **storage qualifier**, top-level **`ResourceDecl`** with optional **`:= { driver }`**, and **`expr -> $name`** for writes. The **running** compiler has **not** switched; M6 syntax remains canonical until a migration milestone.
+**Target design (v2):** Unify narrative under [`../design/Styio-Resource-Topology.md`](../design/Styio-Resource-Topology.md): **`@name : [|n|]`** as **storage qualifier**, top-level **`ResourceDecl`** with optional **`:= { driver }`**, and **`expr -> $name`** for writes. The **running** compiler has **not** switched; M6 syntax remains canonical until a migration milestone.
 
 ---
 
@@ -86,7 +86,7 @@
 
 **Design doc** does not define `+` for `string` with `i32`/`f64`, only arithmetic types.
 
-**Conflict:** Tests assume **overloaded `+`** or implicit `to_string`. Not specified in `Styio-Language-Design.md` or intrinsics.
+**Conflict:** Tests assume **overloaded `+`** or implicit `to_string`. Not specified in `../design/Styio-Language-Design.md` or intrinsics.
 
 **Resolution needed:** Either add a **string concatenation** rule and coercion table, or change tests to use `>_("...")` with format strings only.
 
@@ -198,7 +198,7 @@
 
 Design settled on **`<~` / `~>`** for conditionals; `:` is **type annotation** only.
 
-**Conflict:** Older sketches (`idea.md`) may still suggest `:` for other uses. Ignore `idea.md` for semantics unless reconciled.
+**Conflict:** Older sketches (`../plans/idea.md`) may still suggest `:` for other uses. Ignore `../plans/idea.md` for semantics unless reconciled.
 
 ---
 
@@ -262,7 +262,7 @@ Design settled on **`<~` / `~>`** for conditionals; `:` is **type annotation** o
 
 ## 8. Recommended Resolution Order
 
-1. **Freeze `<<` / `>>` / `@` / `&` disambiguation** — update `Styio-EBNF.md` + `Styio-Symbol-Reference.md` with the tables from §1 and §2.4.
+1. **Freeze `<<` / `>>` / `@` / `&` disambiguation** — update `../design/Styio-EBNF.md` + `../design/Styio-Symbol-Reference.md` with the tables from §1 and §2.4.
 2. **Decide string `+` and `>_@`** — update language design + fix milestone tests if needed.
 3. **Fix scoping tests (T6.03, T6.04, T6.08)** — align with ledger lifetime rules.
 4. **Re-home T5.03** — move to M6 or simplify.

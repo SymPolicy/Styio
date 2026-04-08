@@ -1,11 +1,11 @@
 # Resource Topology v2 — 新语法实施计划
 
-**文档作用：** 将 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md) 中的 **目标语法** 落实为可执行的 **分阶段重构清单**（改哪些模块、测什么、记什么日志）；**不**重复拓扑设计全文（以 Topology 为 SSOT），**不**替代 [`Logic-Conflicts.md`](./Logic-Conflicts.md) 中的冲突登记（实施中解决一项应回写该文档或注明已关闭）。
+**文档作用：** 将 [`../design/Styio-Resource-Topology.md`](../design/Styio-Resource-Topology.md) 中的 **目标语法** 落实为可执行的 **分阶段重构清单**（改哪些模块、测什么、记什么日志）；**不**重复拓扑设计全文（以 Topology 为 SSOT），**不**替代 [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md) 中的冲突登记（实施中解决一项应回写该文档或注明已关闭）。
 
 **Last updated:** 2026-03-28（环缓 CodeGen 迁移见 [`BoundedRing-Codegen-Adjustment.md`](./BoundedRing-Codegen-Adjustment.md)）  
-**Normative design:** [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)  
-**Grammar sketch:** [`Styio-EBNF.md`](./Styio-EBNF.md) Appendix B  
-**Open conflicts:** [`Logic-Conflicts.md`](./Logic-Conflicts.md)
+**Normative design:** [`../design/Styio-Resource-Topology.md`](../design/Styio-Resource-Topology.md)  
+**Grammar sketch:** [`../design/Styio-EBNF.md`](../design/Styio-EBNF.md) Appendix B  
+**Open conflicts:** [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md)
 
 ---
 
@@ -26,8 +26,8 @@
 ### 1.2 成功标准（工程）
 
 1. **回归：** 现有 `tests/milestones/m1`–`m7` 在「兼容模式」下仍可通过（除非明确宣布 breaking 批次并批量更新 golden）。  
-2. **新测：** 至少一组 `tests/milestones/m8/`（或 `topology_v2/`）覆盖 T1–T5 的最小用例；[`docs/tests/TEST-CATALOG.md`](./tests/TEST-CATALOG.md) 与 `tests/CMakeLists.txt` 同步更新。  
-3. **文档：** 每阶段结束在 [`docs/history/YYYY-MM-DD.md`](./history/) 记 **会话日志**（见 §7）；关闭的冲突回写 `Logic-Conflicts.md`。
+2. **新测：** 至少一组 `tests/milestones/m8/`（或 `topology_v2/`）覆盖 T1–T5 的最小用例；[`docs/assets/workflow/TEST-CATALOG.md`](../assets/workflow/TEST-CATALOG.md) 与 `tests/CMakeLists.txt` 同步更新。  
+3. **文档：** 每阶段结束在 [`docs/history/YYYY-MM-DD.md`](./history/) 记 **会话日志**（见 §7）；关闭的冲突回写 `../review/Logic-Conflicts.md`。
 
 ---
 
@@ -113,17 +113,17 @@
 |------|------|
 | `tests/CMakeLists.txt` | 新标签 `m8` 或 `topology_v2` |
 | `tests/milestones/...` | 新 `.styio` + `expected/*.out` |
-| `docs/tests/TEST-CATALOG.md` | 新功能域小节 |
+| `docs/assets/workflow/TEST-CATALOG.md` | 新功能域小节 |
 | `extend_tests.py` | 可选：生成脚手架 |
 
 ### 3.8 设计文档（随实现闭合）
 
 | 文档 | 动作 |
 |------|------|
-| `Styio-Resource-Topology.md` §9 | 逐项更新 **Implementation status** |
-| `Styio-EBNF.md` Appendix B | 将「target-only」改为「已实现」子集时同步 |
-| `Styio-Language-Design.md` | 与 Topology 冲突段落改为「见 Topology + 实现版本」 |
-| `Logic-Conflicts.md` | 已解决的 `@` / `->` / `<<` 条目关闭或指向新 disambiguation 节 |
+| `../design/Styio-Resource-Topology.md` §9 | 逐项更新 **Implementation status** |
+| `../design/Styio-EBNF.md` Appendix B | 将「target-only」改为「已实现」子集时同步 |
+| `../design/Styio-Language-Design.md` | 与 Topology 冲突段落改为「见 Topology + 实现版本」 |
+| `../review/Logic-Conflicts.md` | 已解决的 `@` / `->` / `<<` 条目关闭或指向新 disambiguation 节 |
 
 ---
 
@@ -143,7 +143,7 @@
 |----|------|------|
 | C1 | 同一标识在 **`@[5](x=…)`** 与 **`@x : [|5|]`** 下 IR 布局不同 | 明确 **迁移指南** 或 **双模式** lowering 映射到同一 ledger 抽象 |
 | C2 | 测试 golden **大规模变更** | 分 PR：先加 v2 测试不删 M6；再可选迁移 golden |
-| C3 | **`<<` 五义性**（Logic-Conflicts §1.1）在资源块内加剧 | 实施前写出与 `Styio-EBNF.md` 一致的 **位置表**；新代码禁止再增第六种无文档含义 |
+| C3 | **`<<` 五义性**（Logic-Conflicts §1.1）在资源块内加剧 | 实施前写出与 `../design/Styio-EBNF.md` 一致的 **位置表**；新代码禁止再增第六种无文档含义 |
 
 ### 4.3 语义与类型
 
@@ -171,7 +171,7 @@
 
 ## 5. 开发过程记录规范（强制）
 
-与 [`DOCUMENTATION-POLICY.md`](./DOCUMENTATION-POLICY.md) §0 一致，并 **额外** 要求本专题：
+与 [`../specs/DOCUMENTATION-POLICY.md`](../specs/DOCUMENTATION-POLICY.md) §0 一致，并 **额外** 要求本专题：
 
 1. **每个工作日或每个合并批次** 在 `docs/history/YYYY-MM-DD.md` 增加一小节 **`## Topology v2 / M8`**，至少包含：  
    - 本日完成的阶段（P1–P6）  

@@ -1,6 +1,6 @@
 # Styio 测试目录（按功能域）
 
-**文档作用：** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`DOCUMENTATION-POLICY.md`](../DOCUMENTATION-POLICY.md)。
+**文档作用：** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`../../specs/DOCUMENTATION-POLICY.md`](../../specs/DOCUMENTATION-POLICY.md)。
 
 **Last updated:** 2026-04-08（定位并修复 `ParamAST` 空类型崩溃；恢复 hash `>>` iterator 定义；补 `?=` forward chain 稳定拒绝回归；补 `match` 非整型 scrutinee TypeError 防崩溃回归；完成 C.8 句柄表接管并补 Safety 回归；新增非法句柄 Soak 与 nightly sanitizer 门禁；统一 runtime text/jsonl 诊断出口并冻结 runtime subcode 回归；修复 codegen 复合赋值与 stream zip 不支持来源误报 RuntimeError 分类；活跃流水线移除 `Styio.NotImplemented` 文案；修复 `?=` 无默认分支未初始化指针崩溃并补回归；补 `?= {}` 拒绝契约与 malformed 前缀 parse 防崩溃回归；fuzz smoke 接入 clang-18 链路并稳定通过；nightly fuzz 新增 case pack 回流与 `fuzz_regression_pack_smoke`，且 `styio_fuzz_parser` 改为同一输入覆盖 legacy/nightly 双引擎；ParserContext 新增空 token EOF 降级与越界前移钳制回归；新增 `parse_path` 单字符路径与 `peak_operator` EOF 越界防护回归；补 `CasesAST/MatchCasesAST`、`PrintAST/StateRefAST/HistoryProbeAST`、`SeriesIntrinsicAST`、`StateDeclAST`、`TypeTupleAST` 与 `CheckEqualAST` 所有权析构回归并完成 RAII 收口；修复单参数 state helper（直返 `StateDecl`）在 pulse 体中调用时参数替换失效问题，并补 `1/3/6` 回归；补 state helper 内联 `MatchCases/Cases` 与 `InfiniteAST` 克隆覆盖回归（输出 `10/12/15`、`0/0`）；新增 `StateInlineHelperProgramLoop`、`StateInlineMatchCasesProgramLoop`、`StateInlineInfiniteProgramLoop` 与对应 `soak_deep` 长跑门禁；将 parser 默认引擎切换到 `nightly` 并冻结默认主引擎契约回归；nightly parser 新增 block/control、`?={...}`、资源 postfix、`@[...]` / `@file...` 起始、`[ ... ] >> ...` list-start iterator 子集与 plain state ref `$name`，并在 shadow artifact `detail` 暴露并收敛 route stats 到 M7 零 fallback/零 internal bridge；M1/M2/M7 shadow gates 已正式纳入 CTest 与 `checkpoint-health`，M5 则通过 `shadow-expected-nonzero.txt` 接入 dual-zero gate；five-layer pipeline 的 parser 层也已对齐 nightly，并新增 `p07_instant_pull` case；新增 `nightly_internal_legacy_bridges` 指标并先收缩 iterator / match-cases / infinite-loop / forward body 的内部 legacy bridge；恢复默认 nightly 对 `M4` wave 语法的安全回退，并修正 `true >> @stdout` 的 bool literal 误判）
 
@@ -173,7 +173,7 @@ ctest --test-dir build -L milestone
 
 **Final 后禁止同名 Flex（语义失败用例，无 golden）：** `tests/milestones/m8/e01`–`e10`，CTest 名 `m8_err_e01_…` … `m8_err_e10_…`（标签 **`m8_semantic`**）。`ctest --test-dir build -L m8_semantic`。
 
-**说明：** `[|n|]` 在 **final bind** 下生成 **`[n x i64]` + head**；**已对 `x` 使用 `:=` 后再写 `x = …`** 在 **typeInfer** 报错；`#` 形参环语义仍不完整，见 [`docs/BoundedRing-Codegen-Adjustment.md`](../BoundedRing-Codegen-Adjustment.md)。
+**说明：** `[|n|]` 在 **final bind** 下生成 **`[n x i64]` + head**；**已对 `x` 使用 `:=` 后再写 `x = …`** 在 **typeInfer** 报错；`#` 形参环语义仍不完整，见 [`../../plans/BoundedRing-Codegen-Adjustment.md`](../../plans/BoundedRing-Codegen-Adjustment.md)。
 
 **整组：** `ctest --test-dir build -L m8`
 
@@ -189,15 +189,15 @@ ctest --test-dir build -L milestone
 
 **M1/M2 dual-zero gates：** `ctest --test-dir build -R '^parser_shadow_gate_m(1|2)_zero_fallback_and_internal_bridges$'`。两条测试都执行 `scripts/parser-shadow-suite-gate.sh --require-zero-fallback --require-zero-internal-bridges`，要求对应目录全套 shadow artifact 为 `match`，且同时满足 `legacy_fallback_statements=0` 与 `nightly_internal_legacy_bridges=0`。
 
-**M5 dual-zero gate with expected nonzero manifest：** `ctest --test-dir build -R '^parser_shadow_gate_m5_dual_zero_expected_nonzero$'`。该测试执行 `scripts/parser-shadow-suite-gate.sh --require-zero-fallback --require-zero-internal-bridges`，并读取 [`tests/milestones/m5/shadow-expected-nonzero.txt`](../../tests/milestones/m5/shadow-expected-nonzero.txt)。manifest 中样例允许非零退出，但仍必须产出 `status=match` 的 shadow artifact；当前登记 `t06_fail_fast`。
+**M5 dual-zero gate with expected nonzero manifest：** `ctest --test-dir build -R '^parser_shadow_gate_m5_dual_zero_expected_nonzero$'`。该测试执行 `scripts/parser-shadow-suite-gate.sh --require-zero-fallback --require-zero-internal-bridges`，并读取 [`tests/milestones/m5/shadow-expected-nonzero.txt`](../../../tests/milestones/m5/shadow-expected-nonzero.txt)。manifest 中样例允许非零退出，但仍必须产出 `status=match` 的 shadow artifact；当前登记 `t06_fail_fast`。
 
 **M7 zero-fallback gate：** `ctest --test-dir build -R '^parser_shadow_gate_m7_zero_fallback$'`。该测试执行 `scripts/parser-shadow-suite-gate.sh --require-zero-fallback`，要求 `tests/milestones/m7` 全套 shadow artifact 为 `match`，且 `legacy_fallback_statements=0`。
 
 **M7 zero-internal-bridges gate：** `ctest --test-dir build -R '^parser_shadow_gate_m7_zero_internal_bridges$'`。该测试执行 `scripts/parser-shadow-suite-gate.sh --require-zero-fallback --require-zero-internal-bridges`，要求 `tests/milestones/m7` 全套 shadow artifact 为 `match`，且 `nightly_internal_legacy_bridges=0`。
 
-**Parser legacy entry audit：** `ctest --test-dir build -R '^parser_legacy_entry_audit$'`。该测试执行 [`scripts/parser-legacy-entry-audit.sh`](../../scripts/parser-legacy-entry-audit.sh)，要求 `src/` 中除 parser core 外不再直接调用 `parse_main_block_legacy(...)`，并冻结 `src/StyioTesting/` 为 nightly-first，防止验证/生产路径回连 legacy。
+**Parser legacy entry audit：** `ctest --test-dir build -R '^parser_legacy_entry_audit$'`。该测试执行 [`scripts/parser-legacy-entry-audit.sh`](../../../scripts/parser-legacy-entry-audit.sh)，要求 `src/` 中除 parser core 外不再直接调用 `parse_main_block_legacy(...)`，并冻结 `src/StyioTesting/` 为 nightly-first，防止验证/生产路径回连 legacy。
 
-与里程碑 `.styio` 仅比对最终输出的集成测试 **互补**；历史实现细节另见 `docs/AGENT-SPEC.md` §10。
+与里程碑 `.styio` 仅比对最终输出的集成测试 **互补**；历史实现细节另见 [`../../specs/AGENT-SPEC.md`](../../specs/AGENT-SPEC.md) §10。
 
 ---
 
@@ -227,9 +227,9 @@ ctest --test-dir build -L milestone
 **构建：** `cmake --build build --target styio_soak_test`。  
 **默认档位：** smoke（PR/CI 执行 `ctest --test-dir build -L soak_smoke`）。  
 **夜间深跑：** `ctest --test-dir build -L soak_deep`（工作流见 `.github/workflows/nightly-soak.yml`，日志归档）。  
-**放大量参数：** 由 `soak_deep` 用例注入 `STYIO_SOAK_*` 环境变量，详见 [`tests/soak/README.md`](../../tests/soak/README.md)。  
+**放大量参数：** 由 `soak_deep` 用例注入 `STYIO_SOAK_*` 环境变量，详见 [`tests/soak/README.md`](../../../tests/soak/README.md)。  
 **恢复一键检查：** `./scripts/checkpoint-health.sh --no-asan`（含 state-inline soak deep + `styio_pipeline` + `security` + `parser_shadow_gate_m1_zero_fallback_and_internal_bridges` + `parser_shadow_gate_m2_zero_fallback_and_internal_bridges` + `parser_shadow_gate_m5_dual_zero_expected_nonzero` + `parser_shadow_gate_m7_zero_fallback` + `parser_shadow_gate_m7_zero_internal_bridges`；若检测到 `build-fuzz`，还会自动跑 `fuzz_smoke`）。默认优先尝试 `build/`，若该目录 cache 失效会自动回退到 `build-codex/`。需要显式指定时可用 `--fuzz-build-dir build-fuzz`；不想跑 fuzz 可加 `--no-fuzz`。
-**失败最小化：** `./scripts/soak-minimize.sh ...` 生成 `tests/soak/regressions/<timestamp>-<case>/`，并按 [`tests/soak/REGRESSION-TEMPLATE.md`](../../tests/soak/REGRESSION-TEMPLATE.md) 记录回归。
+**失败最小化：** `./scripts/soak-minimize.sh ...` 生成 `tests/soak/regressions/<timestamp>-<case>/`，并按 [`tests/soak/REGRESSION-TEMPLATE.md`](../../../tests/soak/REGRESSION-TEMPLATE.md) 记录回归。
 
 ---
 

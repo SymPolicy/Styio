@@ -1,8 +1,8 @@
 # Styio 中断友好 Checkpoint 工作流
 
-**文档作用：** 约束 Styio 在底层重构期间的 **微里程碑拆分、可中断恢复、分支寿命与合并门槛**；不替代语言语义文档（见 `Styio-Language-Design.md` / `Styio-EBNF.md`）。
+**文档作用：** 约束 Styio 在底层重构期间的 **微里程碑拆分、可中断恢复、分支寿命与合并门槛**；不替代语言语义文档（见 `../../design/Styio-Language-Design.md` / `../../design/Styio-EBNF.md`）。
 
-**Last updated:** 2026-04-07
+**Last updated:** 2026-04-08
 
 ---
 
@@ -24,6 +24,8 @@
 10. 历史文档里出现的 `new` 自 2026-04-07 起统一视为 `nightly`；新提交禁止再引入 `new` 作为活动命名。
 11. 双轨迁移进入收尾阶段后，默认 CLI、恢复脚本、five-layer pipeline 与主验证链路必须切到 `nightly-first`；`legacy` 只允许保留在 parser core 或显式 parity harness 中。
 12. 恢复脚本必须能自动绕开失效的 CMake cache；若默认 `build/` 不可用，自动切换到可工作的 build 目录属于 workflow 正常要求，不得要求人工先清缓存才能恢复。
+13. 每次提交与 push 前必须符合 [`REPO-HYGIENE-COMMIT-STANDARD.md`](./REPO-HYGIENE-COMMIT-STANDARD.md)：禁止提交构建产物、测试发现文件、二进制与大 blob。
+14. 若 GitHub push 因 `100MB` 限制失败，必须清理**当前待推送历史**，而不是只删除工作区文件。
 
 ---
 
@@ -56,8 +58,9 @@
 
 ## 5. 与现有文档关系
 
-- 语言语义：`Styio-Language-Design.md` / `Styio-EBNF.md`
-- 实现规程：`AGENT-SPEC.md`
-- 文档归档策略：`DOCUMENTATION-POLICY.md`
+- 语言语义：`../../design/Styio-Language-Design.md` / `../../design/Styio-EBNF.md`
+- 实现规程：`../../specs/AGENT-SPEC.md`
+- 文档归档策略：`../../specs/DOCUMENTATION-POLICY.md`
 - 决策记录：`docs/adr/`
-- 维护执行模板：`REFACTOR-WORKFLOW-TEMPLATE.md`
+- 维护执行模板：`../templates/REFACTOR-WORKFLOW-TEMPLATE.md`
+- 仓库卫生与提交标准：`REPO-HYGIENE-COMMIT-STANDARD.md`

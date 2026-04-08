@@ -1,6 +1,6 @@
 # idea.md — 早期构思速记
 
-**文档作用：** 语言成形前的 **碎片想法与符号实验**，**非**规范；语义与文法以 [`Styio-Language-Design.md`](./Styio-Language-Design.md)、[`Styio-EBNF.md`](./Styio-EBNF.md) 为准。维护准则见 [`DOCUMENTATION-POLICY.md`](./DOCUMENTATION-POLICY.md) §0。
+**文档作用：** 语言成形前的 **碎片想法与符号实验**，**非**规范；语义与文法以 [`../design/Styio-Language-Design.md`](../design/Styio-Language-Design.md)、[`../design/Styio-EBNF.md`](../design/Styio-EBNF.md) 为准。维护准则见 [`../specs/DOCUMENTATION-POLICY.md`](../specs/DOCUMENTATION-POLICY.md) §0。
 
 ---
 

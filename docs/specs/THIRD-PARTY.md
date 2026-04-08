@@ -13,7 +13,7 @@
 | **LLVM** | 系统安装 + CMake `find_package` | 编译器后端：IR、ORC JIT、原生目标 | `CMakeLists.txt`（`find_package(LLVM 18.1.0)`，`llvm_map_components_to_libnames` → `support` `core` `irreader` `orcjit` `native`） |
 | **ICU**（`uc`、`i18n`） | 系统安装 + `find_package`（**可选**） | 当 `STYIO_USE_ICU=ON` 时为 `StyioUnicode` codepoint 分类与 CLI Unicode 帮助文本提供支持 | `CMakeLists.txt`（`option(STYIO_USE_ICU ...)` + `find_package(ICU COMPONENTS uc i18n)`）；查找模块见仓库根目录 `FindICU.cmake` |
 | **GoogleTest** | **FetchContent**（仅测试） | `styio_test`、五层流水线等单元/集成测试 | `tests/CMakeLists.txt`（`FetchContent_Declare(googletest URL ...)`） |
-| **cxxopts** | **随仓单头文件（vendored）** | `styio` 命令行解析 | `src/include/cxxopts.hpp`（**勿随意修改**，见 `docs/AGENT-SPEC.md`） |
+| **cxxopts** | **随仓单头文件（vendored）** | `styio` 命令行解析 | `src/include/cxxopts.hpp`（**勿随意修改**，见 `docs/specs/AGENT-SPEC.md`） |
 | **Clang / LLD / llvm 工具链** | 宿主页 / PATH | 当前工程 `CMakeLists.txt` 写死了编译器与链接器路径（**环境约束**，非常规 Fetch 包） | `CMakeLists.txt`：`CMAKE_CXX_COMPILER`、`CMAKE_LINKER`、`CMAKE_OBJDUMP` |
 
 **运行时：** 生成的 `styio` 可执行文件依赖 **动态链接** 的 LLVM 相关库；当 `STYIO_USE_ICU=ON` 时额外依赖 ICU（以本机 `ldd` / 发行版包为准）。JIT 执行阶段还依赖 **LLVM 已启用的原生目标**。

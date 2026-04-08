@@ -13,8 +13,10 @@
 4. 选择迁移策略：
    - `兼容模式`：对外接口不变，内部先收敛；
    - `双轨模式`：`legacy` + `nightly` 并存；未切主前默认 legacy，收尾后默认 nightly-first。
+5. 先执行一次仓库卫生预检，确认不带构建产物和大文件进入本次提交：
+   - 规则见 `../workflow/REPO-HYGIENE-COMMIT-STANDARD.md`
 
-5. 建立函数命名状态位：
+6. 建立函数命名状态位：
    - 稳定旧实现：`*_legacy`
    - 影子/夜间实现：`*_nightly`
    - 双轨共享 helper：`*_latest`
@@ -59,6 +61,7 @@
 3. 是否改变了对外行为（CLI/错误码/输出格式）？
 4. 是否影响旧路径兼容（legacy、测试样例、历史数据）？
 5. 是否可一键回滚（提交粒度是否足够小）？
+6. 是否把构建产物、测试发现文件或异常大 blob 混进了本次提交？
 
 ---
 
@@ -109,6 +112,7 @@ fix: make AST tracked cleanup non-owning to avoid double free
 5. 全量基线测试
 6. ADR + history
 7. 小提交合并
+8. 提交前执行一次 repo hygiene / large blob 检查
 
 ---
 

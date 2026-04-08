@@ -7,13 +7,13 @@
 **Status:** Frozen
 **Methodology:** Test-Case Driven Development. Every milestone defines its acceptance tests FIRST.
 
-**Documentation policy:** [`docs/DOCUMENTATION-POLICY.md`](../DOCUMENTATION-POLICY.md)
+**Documentation policy:** [`../../specs/DOCUMENTATION-POLICY.md`](../../specs/DOCUMENTATION-POLICY.md)
 
-**Ambiguities:** See [`docs/Logic-Conflicts.md`](../Logic-Conflicts.md)
+**Ambiguities:** See [`../../review/Logic-Conflicts.md`](../../review/Logic-Conflicts.md)
 
-**Design plan:** See [`docs/plans/stdin-stdout-stderr.md`](../../plans/stdin-stdout-stderr.md) for the original design rationale. It is a historical planning artifact, not the language SSOT.
+**Design plan:** See [`../../plans/stdin-stdout-stderr.md`](../../plans/stdin-stdout-stderr.md) for the original design rationale. It is a historical planning artifact, not the language SSOT.
 
-**Definitions (SSOT):** See [`Styio-Language-Design.md`](../Styio-Language-Design.md) §7.7 and §11 for the authoritative definitions of `>_`, `@stdout`, `@stderr`, `@stdin`.
+**Definitions (SSOT):** See [`../../design/Styio-Language-Design.md`](../../design/Styio-Language-Design.md) §7.7 and §11 for the authoritative definitions of `>_`, `@stdout`, `@stderr`, `@stdin`.
 
 ---
 
@@ -77,7 +77,7 @@ No milestone may break tests from earlier milestones (M1-M8).
 | **Test Agent** | Write .styio test fixtures, golden outputs, CTest registration | tests/milestones/m9/, m10/, tests/CMakeLists.txt |
 | **Doc Agent** | Keep SSOTs in sync | docs/ |
 
-Multiple roles may be filled by the same agent. All agents must follow `docs/AGENT-SPEC.md`.
+Multiple roles may be filled by the same agent. All agents must follow [`../../specs/AGENT-SPEC.md`](../../specs/AGENT-SPEC.md).
 
 ---
 

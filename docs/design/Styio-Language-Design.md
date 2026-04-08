@@ -1,6 +1,6 @@
 # Styio Language Design Specification
 
-**文档作用：** Styio 语言的 **权威语义与特性说明**（正文规格）；形式文法见 [`Styio-EBNF.md`](./Styio-EBNF.md)，符号与 token 名见 [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md)，`@` **目标**拓扑见 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)，冲突与未定见 [`Logic-Conflicts.md`](./Logic-Conflicts.md)。
+**文档作用：** Styio 语言的 **权威语义与特性说明**（正文规格）；形式文法见 [`Styio-EBNF.md`](./Styio-EBNF.md)，符号与 token 名见 [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md)，`@` **目标**拓扑见 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)，冲突与未定见 [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md)。
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -31,7 +31,7 @@ The name encodes the language's identity:
 - **Language:** C++20
 - **Backend:** LLVM 18+ (IRBuilder + ORC JIT)
 - **Parser Strategy:** Hand-written recursive descent, LL(n) with lookahead
-- **Dependencies:** LLVM, ICU，及测试用 GoogleTest、cxxopts 等 — **完整清单与许可** 见 [`THIRD-PARTY.md`](./THIRD-PARTY.md)。
+- **Dependencies:** LLVM, ICU，及测试用 GoogleTest、cxxopts 等 — **完整清单与许可** 见 [`../specs/THIRD-PARTY.md`](../specs/THIRD-PARTY.md)。
 
 ---
 

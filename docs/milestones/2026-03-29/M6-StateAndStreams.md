@@ -1,11 +1,11 @@
 # Milestone 6: State Containers, Intrinsics & Frame Lock
 
-**文档作用：** M6 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。Golden Cross **设计叙述**见 [`Styio-Resource-Topology.md`](../../Styio-Resource-Topology.md) §8。
+**文档作用：** M6 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。Golden Cross **设计叙述**见 [`../../design/Styio-Resource-Topology.md`](../../design/Styio-Resource-Topology.md) §8。
 
 **Depends on:** M5 (Resources & I/O)  
 **Goal:** State containers (`@[n]`, `@[var=init]`), shadow references (`$var`), history probes (`[<<,n]`), pulse frame lock, anonymous ledger, and compiler intrinsics (`[avg,n]`, `[max,n]`) work end-to-end. The Golden Cross strategy compiles and runs with mock data.
 
-**Design evolution:** A **target** syntax for global resources (`@name : [|n|] := { … }`, **`-> $name`** for writes) is documented in [`../../Styio-Resource-Topology.md`](../../Styio-Resource-Topology.md). It is **not** what the compiler parses today; acceptance tests below remain the **implemented** surface form.
+**Design evolution:** A **target** syntax for global resources (`@name : [|n|] := { … }`, **`-> $name`** for writes) is documented in [`../../design/Styio-Resource-Topology.md`](../../design/Styio-Resource-Topology.md). It is **not** what the compiler parses today; acceptance tests below remain the **implemented** surface form.
 
 ---
 
@@ -204,11 +204,11 @@ Assign each a fixed offset in the contiguous ledger. Record in a `StateLedger` s
 
 ### Task 6.9 — Implement `[avg, n]` intrinsic
 **Role:** CodeGen Agent  
-**Action:** Inline the O(1) sliding sum algorithm from `Styio-StdLib-Intrinsics.md` §2.1. State: ring buffer + sum + cursor + count.
+**Action:** Inline the O(1) sliding sum algorithm from `../../design/Styio-StdLib-Intrinsics.md` §2.1. State: ring buffer + sum + cursor + count.
 
 ### Task 6.10 — Implement `[max, n]` intrinsic
 **Role:** CodeGen Agent  
-**Action:** Inline the monotonic deque algorithm from `Styio-StdLib-Intrinsics.md` §2.2.
+**Action:** Inline the monotonic deque algorithm from `../../design/Styio-StdLib-Intrinsics.md` §2.2.
 
 ### Task 6.11 — Test data for Golden Cross
 **Role:** Test Agent  

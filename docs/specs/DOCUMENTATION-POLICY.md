@@ -1,6 +1,6 @@
 # Styio 开发文档策略
 
-**文档作用：** 约定开发类 Markdown 的存放位置、历史与测试索引格式、**单一事实来源（SSOT）** 的引用方式，以及下文 **§0** 的维护准则；**不**定义语言语义（语义见 `Styio-Language-Design.md` 等）。
+**文档作用：** 约定开发类 Markdown 的存放位置、历史与测试索引格式、**单一事实来源（SSOT）** 的引用方式，以及下文 **§0** 的维护准则；**不**定义语言语义（语义见 `../design/Styio-Language-Design.md` 等）。
 
 **Last updated:** 2026-04-08（增补文档状态与 superseded 规则）  
 **Automation (verify doc links + test registration):** 从仓库根目录配置并运行里程碑测试：
@@ -37,21 +37,22 @@ ctest --test-dir build -L milestone
 
 | 主题 | 权威文档 | 其它文档应 |
 |------|----------|------------|
-| 语言语义与章节结构 | `Styio-Language-Design.md` | 链到章节，避免大段复述 |
-| 词法与文法 EBNF | `Styio-EBNF.md` | 链接 |
-| 符号 ↔ lexer token 名 | `Styio-Symbol-Reference.md` | 链接 |
-| `@` 拓扑目标语法、Golden Cross **设计级**叙述与示例形态 | `Styio-Resource-Topology.md`（含 §8） | 保留链接或一句摘要 |
-| 设计 / 实现冲突与待定决议 | `Logic-Conflicts.md` | 链接 |
+| 语言语义与章节结构 | `../design/Styio-Language-Design.md` | 链到章节，避免大段复述 |
+| 词法与文法 EBNF | `../design/Styio-EBNF.md` | 链接 |
+| 符号 ↔ lexer token 名 | `../design/Styio-Symbol-Reference.md` | 链接 |
+| `@` 拓扑目标语法、Golden Cross **设计级**叙述与示例形态 | `../design/Styio-Resource-Topology.md`（含 §8） | 保留链接或一句摘要 |
+| 设计 / 实现冲突与待定决议 | `../review/Logic-Conflicts.md` | 链接 |
 | M1–M7 路线图、依赖链、规格文件表 | `docs/milestones/<日期>/00-Milestone-Index.md` | **勿**在 history 等处平行维护同一张总表 |
-| 集成测试路径、`ctest` 命令 | `docs/tests/TEST-CATALOG.md` | 链接 |
+| 集成测试路径、`ctest` 命令 | `docs/assets/workflow/TEST-CATALOG.md` | 链接 |
 | **外部包 / 开源依赖清单**（LLVM、ICU、gtest、vendored） | [`THIRD-PARTY.md`](./THIRD-PARTY.md) | 与 `CMakeLists.txt`、`tests/CMakeLists.txt` 一致；新增依赖先更新该文件 |
-| **五层编译流水线** goldens（Lexer/IR/…） | `docs/tests/FIVE-LAYER-PIPELINE.md` | 与 `TEST-CATALOG` §9 交叉链接 |
+| **五层编译流水线** goldens（Lexer/IR/…） | `docs/assets/workflow/FIVE-LAYER-PIPELINE.md` | 与 `TEST-CATALOG` §9 交叉链接 |
 | 开发文档目录与维护准则（含本节） | `DOCUMENTATION-POLICY.md` | 链接 |
 | Agent 实现规程、禁止项、流水线 | `AGENT-SPEC.md` | 链接 |
-| Golden Cross **守则内嵌的宪法示例代码** | `AGENT-SPEC.md` §12.3 | 设计背景链到 `Styio-Resource-Topology.md` §8 |
-| Topology v2 **实施步骤、修改点矩阵、风险与记录规范** | `Resource-Topology-v2-Implementation-Plan.md` | `Styio-Resource-Topology.md` §9 仅状态表 + 链到本计划 |
-| **`[|n|]` 环缓 CodeGen** 从 bootstrap 迁移的破坏面 / 测试 / 回滚 | `BoundedRing-Codegen-Adjustment.md` | 会话细节见 `history/2026-03-29.md` |
-| **Checkpoint 微里程碑执行规则**（可中断/可恢复） | `CHECKPOINT-WORKFLOW.md` | 在 `history/YYYY-MM-DD.md` 写恢复指引，不在其它文档重复流程细节 |
+| Golden Cross **守则内嵌的宪法示例代码** | `AGENT-SPEC.md` §12.3 | 设计背景链到 `../design/Styio-Resource-Topology.md` §8 |
+| Topology v2 **实施步骤、修改点矩阵、风险与记录规范** | `../plans/Resource-Topology-v2-Implementation-Plan.md` | `../design/Styio-Resource-Topology.md` §9 仅状态表 + 链到本计划 |
+| **`[|n|]` 环缓 CodeGen** 从 bootstrap 迁移的破坏面 / 测试 / 回滚 | `../plans/BoundedRing-Codegen-Adjustment.md` | 会话细节见 `history/2026-03-29.md` |
+| **Checkpoint 微里程碑执行规则**（可中断/可恢复） | `../assets/workflow/CHECKPOINT-WORKFLOW.md` | 在 `history/YYYY-MM-DD.md` 写恢复指引，不在其它文档重复流程细节 |
+| **仓库清理、提交、push 与历史重写标准** | `../assets/workflow/REPO-HYGIENE-COMMIT-STANDARD.md` | 其它文档只保留入口规则与链接 |
 | **架构决策记录（ADR）** | `docs/adr/` | 决策摘要可在 history 引用，正文仅维护于 ADR 文件 |
 
 ### 0.5 文档状态与 superseded 规则
@@ -65,13 +66,27 @@ ctest --test-dir build -L milestone
    - 指向新的冻结文档路径。
 4. 当实现接受的兼容语法多于冻结示例时，SSOT 必须说明“为什么该语法仍有效”，并至少有一条自动化测试冻结该兼容行为。
 
+### 0.6 文档目录职责
+
+| 路径 | 存放内容 |
+|------|----------|
+| `docs/design/` | 语言设计、EBNF、符号表、资源/标准库等设计级 SSOT |
+| `docs/specs/` | agent / contributor 规范、文档策略、依赖规范 |
+| `docs/review/` | review 发现、设计冲突、待定决议 |
+| `docs/plans/` | 设计草案、实施计划、迁移方案；非冻结规格 |
+| `docs/assets/workflow/` | 可复用工作流、测试框架、checkpoint / hygiene 标准 |
+| `docs/assets/templates/` | 可复用模板 |
+| `docs/history/` | 按日开发历史与恢复记录 |
+| `docs/milestones/` | 按日期冻结的里程碑规格 |
+| `docs/adr/` | 架构决策记录 |
+
 ---
 
 ## 1. 目标
 
 - **历史（history）**：所有开发经验、排错记录、进展摘要按 **自然日** 写入 `docs/history/`，一天一篇或同日增量追加，禁止只写在聊天或未入库笔记里。
 - **里程碑（milestones）**：里程碑规格、验收说明按 **日期目录** 归档在 `docs/milestones/<YYYY-MM-DD>/`（例如 `docs/milestones/2026-03-29/`）。索引文件为该目录下的 `00-Milestone-Index.md`。
-- **测试说明（tests）**：面向读者的测试说明按 **功能域** 维护在 `docs/tests/TEST-CATALOG.md`，与 CMake 中的 `add_test` 一一可追溯；**必须**给出可复制的自动化命令（CTest 标签或正则）。
+- **测试说明（workflow assets）**：面向读者的测试说明按 **功能域** 维护在 `docs/assets/workflow/TEST-CATALOG.md`，与 CMake 中的 `add_test` 一一可追溯；**必须**给出可复制的自动化命令（CTest 标签或正则）。
 - **可机读元数据**：凡描述「某测试在测什么」的文档，须在文首或表格中写明 **Last updated**、**输入**、**期望输出/比对物**（golden 路径或约定临时文件），以便脚本与人工对照。
 
 ---
@@ -103,19 +118,19 @@ ctest --test-dir build -L milestone
 |------|------|
 | 目录 | 一次「里程碑冻结」或重大规划使用一个日期文件夹；其下 `M1-*.md` … `M7-*.md` 与 `00-Milestone-Index.md`。 |
 | 文首 | 写明 **Date** / **Last updated**（与目录日期可不同，但需真实）。 |
-| 与测试关系 | 验收用例名称应与 `tests/milestones/m*/t*.styio` 及 `docs/tests/TEST-CATALOG.md` 对齐；若规格中有而仓库尚无 `.styio`，须在规格与目录中标注 **gap**。 |
+| 与测试关系 | 验收用例名称应与 `tests/milestones/m*/t*.styio` 及 `docs/assets/workflow/TEST-CATALOG.md` 对齐；若规格中有而仓库尚无 `.styio`，须在规格与目录中标注 **gap**。 |
 
 索引：`docs/milestones/README.md` 指向各日期子目录。
 
 ---
 
-## 4. 测试目录 `docs/tests/TEST-CATALOG.md`
+## 4. 测试目录 `docs/assets/workflow/TEST-CATALOG.md`
 
 | 规则 | 说明 |
 |------|------|
 | 划分维度 | **按语言功能域**（与 M1–M7 主题对齐），而非仅按内部文件名。 |
 | 每条目 | 至少包含：**CTest 名**、**输入**（`.styio` 路径）、**输出/Oracle**（`expected/*.out` 或文档约定的临时文件路径）、**自动化**（`ctest -R '…'` 或 `ctest -L …`）。 |
-| 与构建一致 | 新增 `.styio` 验收测试时，必须同时更新 `tests/CMakeLists.txt`（或项目约定的单一注册处）与 `TEST-CATALOG.md`。 |
+| 与构建一致 | 新增 `.styio` 验收测试时，必须同时更新 `tests/CMakeLists.txt`（或项目约定的单一注册处）与 `../assets/workflow/TEST-CATALOG.md`。 |
 
 单条示例（字段名固定，便于将来脚本解析）：
 
@@ -127,7 +142,7 @@ ctest --test-dir build -L milestone
 
 ## 5. 与 `AGENT-SPEC.md` 的关系
 
-语言与编译器实现规范仍以 `docs/AGENT-SPEC.md` 为准；**文档存放位置、历史/里程碑/测试目录约定及 §0 维护准则** 以本文件为准。二者冲突时，先更新本策略与索引，再改 `AGENT-SPEC` 中的引用。
+语言与编译器实现规范仍以 [`AGENT-SPEC.md`](./AGENT-SPEC.md) 为准；**文档存放位置、历史/里程碑/测试目录约定及 §0 维护准则** 以本文件为准。二者冲突时，先更新本策略与索引，再改 `AGENT-SPEC` 中的引用。
 
 ---
 
@@ -137,6 +152,6 @@ CI 或本地可逐步引入：
 
 1. `ctest -L milestone` 全绿（或允许已知失败列表，但须在 `TEST-CATALOG` 标注）。
 2. `docs/history/*.md`、`docs/milestones/*/00-Milestone-Index.md` 存在且含 `Last updated` 或 `Date` 行（可用简单 grep/lint）。
-3. `TEST-CATALOG.md` 中列出的每个 `tests/milestones/...` 路径在仓库中存在。
+3. `../assets/workflow/TEST-CATALOG.md` 中列出的每个 `tests/milestones/...` 路径在仓库中存在。
 
 当前仓库的 **权威自动化入口** 为：**CMake 注册的 CTest + `styio --file`**（见 `tests/CMakeLists.txt`）。

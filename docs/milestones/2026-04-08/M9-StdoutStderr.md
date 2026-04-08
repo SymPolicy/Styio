@@ -10,13 +10,13 @@
 
 ## Definitions
 
-For full semantic definitions, see the authoritative design documents (per `DOCUMENTATION-POLICY.md` §0.4):
+For full semantic definitions, see the authoritative design documents (per `../../specs/DOCUMENTATION-POLICY.md` §0.4):
 
-- **`>_` as terminal device, `@stdout`/`@stderr` resource definitions:** [`Styio-Language-Design.md`](../../Styio-Language-Design.md) §7.7
-- **Type formatting rules, `>_` as value:** [`Styio-Language-Design.md`](../../Styio-Language-Design.md) §11.1
-- **Symbol ↔ token mapping:** [`Styio-Symbol-Reference.md`](../../Styio-Symbol-Reference.md) §1, §2
-- **`!()` channel selector:** [`Styio-Symbol-Reference.md`](../../Styio-Symbol-Reference.md) §9
-- **Formal grammar:** [`Styio-EBNF.md`](../../Styio-EBNF.md) §9.1
+- **`>_` as terminal device, `@stdout`/`@stderr` resource definitions:** [`../../design/Styio-Language-Design.md`](../../design/Styio-Language-Design.md) §7.7
+- **Type formatting rules, `>_` as value:** [`../../design/Styio-Language-Design.md`](../../design/Styio-Language-Design.md) §11.1
+- **Symbol ↔ token mapping:** [`../../design/Styio-Symbol-Reference.md`](../../design/Styio-Symbol-Reference.md) §1, §2
+- **`!()` channel selector:** [`../../design/Styio-Symbol-Reference.md`](../../design/Styio-Symbol-Reference.md) §9
+- **Formal grammar:** [`../../design/Styio-EBNF.md`](../../design/Styio-EBNF.md) §9.1
 
 ---
 

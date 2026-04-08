@@ -9,7 +9,7 @@
 
 ## Decision
 
-1. 在 `docs/REFACTOR-WORKFLOW-TEMPLATE.md` 增加 “双轨重构附加模板（Shadow Gate）”。
+1. 在 `docs/assets/templates/REFACTOR-WORKFLOW-TEMPLATE.md` 增加 “双轨重构附加模板（Shadow Gate）”。
 2. 将该模式作为后续高风险双轨改造的默认附加清单：
    - 显式引擎开关
    - 显式 shadow compare 开关

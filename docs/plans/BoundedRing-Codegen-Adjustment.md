@@ -57,12 +57,12 @@
 
 - 将 **head 推进** 挂到 **`expr -> $x`** 或专用 push 语句。  
 - **顶层 `ResourceDecl`** 与 **匿名 ledger** 合并，替换栈上数组（多函数/线程模型）。  
-- 在 **`Logic-Conflicts.md`** 中关闭「`$x =` vs `->`」相关条目时引用本节语义。
+- 在 **`../review/Logic-Conflicts.md`** 中关闭「`$x =` vs `->`」相关条目时引用本节语义。
 
 ---
 
 ## 7. SSOT 关系
 
-- 设计目标：[`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)  
+- 设计目标：[`../design/Styio-Resource-Topology.md`](../design/Styio-Resource-Topology.md)  
 - 总实施清单：[`Resource-Topology-v2-Implementation-Plan.md`](./Resource-Topology-v2-Implementation-Plan.md)  
 - 类型名前缀解析：[`src/StyioUtil/BoundedType.hpp`](../src/StyioUtil/BoundedType.hpp)

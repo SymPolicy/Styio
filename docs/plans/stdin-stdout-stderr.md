@@ -4,7 +4,7 @@
 
 **Date:** 2026-04-08  
 **Last updated:** 2026-04-08
-**Status:** Historical design plan. Frozen acceptance/spec docs live in [`docs/milestones/2026-04-08/`](../milestones/2026-04-08/); language-level SSOT remains [`Styio-Language-Design.md`](../Styio-Language-Design.md), [`Styio-EBNF.md`](../Styio-EBNF.md), and [`Styio-Symbol-Reference.md`](../Styio-Symbol-Reference.md). This plan originally explored user-authored `@stdout := ...` wrappers; the frozen implementation instead recognizes `@stdout/@stderr/@stdin` directly as standard-stream resource atoms.
+**Status:** Historical design plan. Frozen acceptance/spec docs live in [`../milestones/2026-04-08/`](../milestones/2026-04-08/); language-level SSOT remains [`../design/Styio-Language-Design.md`](../design/Styio-Language-Design.md), [`../design/Styio-EBNF.md`](../design/Styio-EBNF.md), and [`../design/Styio-Symbol-Reference.md`](../design/Styio-Symbol-Reference.md). This plan originally explored user-authored `@stdout := ...` wrappers; the frozen implementation instead recognizes `@stdout/@stderr/@stdin` directly as standard-stream resource atoms.
 
 ---
 
@@ -124,9 +124,9 @@ All files that will be created or modified, grouped by execution step.
 
 | File | Action | Changes |
 |------|--------|---------|
-| `docs/Styio-Language-Design.md` | **Modify** | §7: add §7.7 "Standard Stream Resources" — defines `>_` as terminal device, `@stdout`/`@stderr`/`@stdin` as built-in resource atoms, directionality, buffering, and current instant-pull coercion contract. §11: redefine §11.1 (`>_` as device, not just print), add §11.4 "Standard Error", add §11.5 "Standard Input", add type formatting table |
-| `docs/Styio-Symbol-Reference.md` | **Modify** | §1: add `@stdout`, `@stderr`, `@stdin` rows. §2: update `>_` entry (now "terminal device" not just "print"). §9: add `!()` channel selector entry. Clarify that standard streams are compiler-recognized atoms, not per-file wrapper definitions |
-| `docs/Styio-EBNF.md` | **Modify** | §9: document direct standard-stream usage patterns. Remove any implication that `@stdout` etc. require wrapper-definition grammar |
+| `docs/design/Styio-Language-Design.md` | **Modify** | §7: add §7.7 "Standard Stream Resources" — defines `>_` as terminal device, `@stdout`/`@stderr`/`@stdin` as built-in resource atoms, directionality, buffering, and current instant-pull coercion contract. §11: redefine §11.1 (`>_` as device, not just print), add §11.4 "Standard Error", add §11.5 "Standard Input", add type formatting table |
+| `docs/design/Styio-Symbol-Reference.md` | **Modify** | §1: add `@stdout`, `@stderr`, `@stdin` rows. §2: update `>_` entry (now "terminal device" not just "print"). §9: add `!()` channel selector entry. Clarify that standard streams are compiler-recognized atoms, not per-file wrapper definitions |
+| `docs/design/Styio-EBNF.md` | **Modify** | §9: document direct standard-stream usage patterns. Remove any implication that `@stdout` etc. require wrapper-definition grammar |
 
 ### Step 1 — Milestone documents
 
@@ -502,7 +502,7 @@ When the compiler sees `@stdout := (o) => { o -> ( >_ ) }`, it:
 
 ## 8. Execution Order
 
-1. **Step 0** — Update SSOT documents (`Styio-Language-Design.md`, `Styio-Symbol-Reference.md`, `Styio-EBNF.md`)
+1. **Step 0** — Update SSOT documents (`../design/Styio-Language-Design.md`, `../design/Styio-Symbol-Reference.md`, `../design/Styio-EBNF.md`)
 2. **Step 1** — Write milestone documents (`M9-StdoutStderr.md`, `M10-Stdin.md`, index) → **user reviews**
 3. **Step 2** — Implement M9 (stdout & stderr)
 4. **Step 3** — Implement M10 (stdin & direction validation)
