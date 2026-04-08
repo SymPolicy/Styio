@@ -449,6 +449,17 @@ StyioRepr::toString(FileResourceAST* ast, int indent) {
 }
 
 std::string
+StyioRepr::toString(StdStreamAST* ast, int indent) {
+  const char* name = "unknown";
+  switch (ast->getStreamKind()) {
+    case StdStreamKind::Stdin:  name = "stdin";  break;
+    case StdStreamKind::Stdout: name = "stdout"; break;
+    case StdStreamKind::Stderr: name = "stderr"; break;
+  }
+  return std::string("styio.ast.std_stream { @") + name + " }";
+}
+
+std::string
 StyioRepr::toString(HandleAcquireAST* ast, int indent) {
   return reprASTType(ast->getNodeType(), " ")
          + " {\n"
@@ -1433,6 +1444,31 @@ StyioRepr::toString(SGResourceWriteToFile* node, int indent) {
          + ", auto_path=" + (node->is_auto_path ? "1" : "0")
          + ", promote=" + (node->promote_data_to_cstr ? "1" : "0")
          + ", nl=" + (node->append_newline ? "1" : "0") + " }";
+}
+
+std::string
+StyioRepr::toString(SIOStdStreamWrite* node, int indent) {
+  if (node->stream == SIOStdStreamWrite::Stream::Stdout) {
+    return std::string("styio.ir.print { ") + " }";
+  }
+  std::string target = (node->stream == SIOStdStreamWrite::Stream::Stderr) ? "Stderr" : "Stdout";
+  std::string parts;
+  for (size_t i = 0; i < node->exprs.size(); ++i) {
+    if (i > 0) parts += ", ";
+    parts += node->exprs[i] ? node->exprs[i]->toString(this, indent) : std::string("null");
+  }
+  return std::string("styio.ir.std_stream_write { target=") + target + ", exprs=[" + parts + "] }";
+}
+
+std::string
+StyioRepr::toString(SIOStdStreamLineIter* node, int indent) {
+  std::string b = node->body ? node->body->toString(this, indent) : std::string("null");
+  return std::string("styio.ir.stdin_line_iter { var=") + node->line_var + ", body=" + b + " }";
+}
+
+std::string
+StyioRepr::toString(SIOStdStreamPull* node, int indent) {
+  return std::string("styio.ir.stdin_pull { }");
 }
 
 std::string

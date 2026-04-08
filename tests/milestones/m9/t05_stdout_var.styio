@@ -1,0 +1,4 @@
+// M9 / T9.05: Variable binding then stdout
+
+x = 50 + 50
+x -> @stdout

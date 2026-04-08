@@ -1,14 +1,33 @@
-# Build Cache
+# Build outputs and generated large artifacts
 build/
+build-*/
+Testing/
+cmake_test_discovery_*.json
+compile_commands.json
+
+# Local binaries / archives / debug bundles
 styio
 styio_test
 styio_security_test
+sample.ll
+output.ll
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.dSYM/
 
 # Local dev reports (scripts/dev-report.sh); 删除本行若需纳入版本库
 reports/
 
 # Visual Studio Code cache
 # .vscode/
+
+# Local scratch / editor metadata
+.kilo/
 
 # Lit
 .lit_test_times.txt
@@ -23,6 +42,14 @@ cmake_install.cmake
 
 # Xmake cache
 .xmake/
+
+# Profiling / sanitizer / fuzz leftovers
+*.profraw
+*.profdata
+*.gcda
+*.gcno
+*.log
+*.tmp
 
 # MacOS Cache
 .DS_Store

@@ -61,6 +61,9 @@ class SGSnapshotDecl;
 class SGSnapshotShadowLoad;
 class SGInstantPull;
 class SGResourceWriteToFile;
+class SIOStdStreamWrite;
+class SIOStdStreamLineIter;
+class SIOStdStreamPull;
 
 // class SGIfElse;
 // class SGForLoop;

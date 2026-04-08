@@ -1,0 +1,76 @@
+; ModuleID = 'styio'
+source_filename = "styio"
+target datalayout = "e-m:o-i64:64-i128:128-n32:64-S128"
+
+@styio_str = private unnamed_addr constant [21 x i8] c"/tmp/styio_zip_a.txt\00", align 1
+@styio_str.1 = private unnamed_addr constant [21 x i8] c"/tmp/styio_zip_b.txt\00", align 1
+@styio_print_at = private unnamed_addr constant [2 x i8] c"@\00", align 1
+@styio_fmt_i64 = private unnamed_addr constant [6 x i8] c"%lld\0A\00", align 1
+
+define i32 @main() {
+main_entry:
+  %0 = call i64 @styio_file_open(ptr @styio_str)
+  %1 = call i64 @styio_file_open(ptr @styio_str.1)
+  %zip_ff_ha = alloca i64, align 8
+  %zip_ff_hb = alloca i64, align 8
+  store i64 %0, ptr %zip_ff_ha, align 8
+  store i64 %1, ptr %zip_ff_hb, align 8
+  br label %zip_ff_hdr
+
+zip_ff_exit:                                      ; preds = %zip_ff_hdr
+  %2 = load i64, ptr %zip_ff_ha, align 8
+  call void @styio_file_close(i64 %2)
+  %3 = load i64, ptr %zip_ff_hb, align 8
+  call void @styio_file_close(i64 %3)
+  ret i32 0
+
+zip_ff_hdr:                                       ; preds = %print_done, %main_entry
+  %4 = load i64, ptr %zip_ff_ha, align 8
+  %5 = call ptr @styio_file_read_line(i64 %4)
+  %6 = load i64, ptr %zip_ff_hb, align 8
+  %7 = call ptr @styio_file_read_line(i64 %6)
+  %8 = icmp eq ptr %5, null
+  %9 = icmp eq ptr %7, null
+  %10 = or i1 %8, %9
+  br i1 %10, label %zip_ff_exit, label %zip_ff_body
+
+zip_ff_body:                                      ; preds = %zip_ff_hdr
+  %11 = call i64 @styio_cstr_to_i64(ptr %5)
+  %12 = call i64 @styio_cstr_to_i64(ptr %7)
+  %a = alloca i64, align 8
+  %b = alloca i64, align 8
+  store i64 %11, ptr %a, align 8
+  store i64 %12, ptr %b, align 8
+  %13 = load i64, ptr %a, align 8
+  %14 = load i64, ptr %b, align 8
+  %15 = icmp eq i64 %13, -9223372036854775808
+  %16 = icmp eq i64 %14, -9223372036854775808
+  %17 = or i1 %15, %16
+  %18 = sub i64 %13, %14
+  %19 = select i1 %17, i64 -9223372036854775808, i64 %18
+  %20 = icmp eq i64 %19, -9223372036854775808
+  br i1 %20, label %print_at, label %print_i64
+
+print_at:                                         ; preds = %zip_ff_body
+  %21 = call i32 @puts(ptr @styio_print_at)
+  br label %print_done
+
+print_i64:                                        ; preds = %zip_ff_body
+  %22 = call i32 (ptr, ...) @printf(ptr @styio_fmt_i64, i64 %19)
+  br label %print_done
+
+print_done:                                       ; preds = %print_i64, %print_at
+  br label %zip_ff_hdr
+}
+
+declare i64 @styio_file_open(ptr)
+
+declare ptr @styio_file_read_line(i64)
+
+declare void @styio_file_close(i64)
+
+declare i64 @styio_cstr_to_i64(ptr)
+
+declare i32 @printf(ptr, ...)
+
+declare i32 @puts(ptr)

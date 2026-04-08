@@ -24,6 +24,7 @@ ctest --test-dir build-fuzz -L fuzz_smoke --output-on-failure
 `fuzz_smoke` 已在 CTest 中注入 `ASAN_OPTIONS=detect_container_overflow=0`，用于规避当前工具链下 libFuzzer 运行时 container-overflow 误报噪音。
 同一标签下还包含 `fuzz_regression_pack_smoke`，用于验证失败样本打包与回流模板生成链路。
 `fuzz_lexer_smoke` / `fuzz_parser_smoke` 会先复制 corpus 到临时目录再执行，避免污染仓库内 `tests/fuzz/corpus/`。
+`styio_fuzz_parser` 当前会对同一输入顺序驱动 `legacy` 与 `nightly` 两条 parser 路由，不再只 fuzz legacy。
 
 ## Manual Run
 

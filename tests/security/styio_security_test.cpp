@@ -17,12 +17,14 @@
 #include <utility>
 #include <vector>
 
+#include "StyioAnalyzer/ASTAnalyzer.hpp"
 #include "StyioException/Exception.hpp"
 #include "StyioExtern/ExternLib.hpp"
 #include "StyioParser/NewParserExpr.hpp"
 #include "StyioParser/ParserLookahead.hpp"
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
+#include "StyioIR/StyioIR.hpp"
 #include "StyioRuntime/HandleTable.hpp"
 #include "StyioSession/CompilationSession.hpp"
 #include "StyioUnicode/Unicode.hpp"
@@ -245,6 +247,43 @@ parse_program_engine_to_repr_latest(const std::string& source, StyioParserEngine
     const std::string out = ast->toString(&repr);
     cleanup();
     return out;
+  } catch (...) {
+    cleanup();
+    throw;
+  }
+}
+
+void
+parse_typecheck_and_lower_program_engine_latest(const std::string& source, StyioParserEngine engine) {
+  auto tokens = StyioTokenizer::tokenize(source);
+  StyioContext* ctx = StyioContext::Create(
+    "<engine-lowering-test>",
+    source,
+    build_line_seps(source),
+    tokens,
+    false);
+
+  MainBlockAST* ast = nullptr;
+  StyioIR* ir = nullptr;
+  auto cleanup = [&]() {
+    delete ir;
+    delete ast;
+    delete ctx;
+    free_tokens(tokens);
+    StyioAST::destroy_all_tracked_nodes();
+  };
+
+  try {
+    ast = parse_main_block_with_engine_latest(*ctx, engine);
+    ctx->skip();
+    if (ctx->cur_tok_type() != StyioTokenType::TOK_EOF) {
+      throw std::runtime_error("engine lowering parser did not consume input");
+    }
+
+    StyioAnalyzer analyzer;
+    ast->typeInfer(&analyzer);
+    ir = ast->toStyioIR(&analyzer);
+    cleanup();
   } catch (...) {
     cleanup();
     throw;
@@ -643,6 +682,34 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnAtResourceSubsetSamples) {
   for (const auto& src : samples) {
     EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
+}
+
+TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnStdStreamWriteShorthandSamples) {
+  const std::vector<std::string> samples = {
+    "\"hello\" >> @stdout\n",
+    "\"error\" >> @stderr\n",
+    "@stdin >> #(line) => {\n    line >> @stdout\n}\n",
+    "@stdin >> #(line) => {\n    \"processing: \" + line >> @stderr\n}\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
+  }
+}
+
+TEST(StyioSafetyStdStream, RejectsWriteShorthandToStdinAtLowering) {
+  const std::string src = "\"hello\" >> @stdin\n";
+
+  EXPECT_THROW(
+    {
+      parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly);
+    },
+    StyioTypeError);
+  EXPECT_THROW(
+    {
+      parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Legacy);
+    },
+    StyioTypeError);
 }
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnFinalBindSubsetSamples) {

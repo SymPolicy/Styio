@@ -870,4 +870,60 @@ private:
   SGResourceWriteToFile() = default;
 };
 
+/* M9: write to stdout / stderr */
+class SIOStdStreamWrite : public StyioIRTraits<SIOStdStreamWrite>
+{
+public:
+  enum class Stream { Stdout, Stderr };
+
+  Stream stream = Stream::Stdout;
+  std::vector<StyioIR*> exprs;
+
+  static SIOStdStreamWrite* Create(Stream s, std::vector<StyioIR*> e) {
+    auto* x = new SIOStdStreamWrite();
+    x->stream = s;
+    x->exprs = std::move(e);
+    return x;
+  }
+
+private:
+  SIOStdStreamWrite() = default;
+};
+
+/* M10: read lines from stdin */
+class SIOStdStreamLineIter : public StyioIRTraits<SIOStdStreamLineIter>
+{
+public:
+  std::string line_var;
+  SGBlock* body = nullptr;
+  std::unique_ptr<SGPulsePlan> pulse_plan;
+  int pulse_region_id = -1;
+
+  static SIOStdStreamLineIter* Create(std::string line, SGBlock* b) {
+    auto* r = new SIOStdStreamLineIter();
+    r->line_var = std::move(line);
+    r->body = b;
+    return r;
+  }
+
+  void set_pulse_plan(std::unique_ptr<SGPulsePlan> p) {
+    pulse_plan = std::move(p);
+  }
+
+private:
+  SIOStdStreamLineIter() = default;
+};
+
+/* M10: single-read pull from stdin */
+class SIOStdStreamPull : public StyioIRTraits<SIOStdStreamPull>
+{
+public:
+  static SIOStdStreamPull* Create() {
+    return new SIOStdStreamPull();
+  }
+
+private:
+  SIOStdStreamPull() = default;
+};
+
 #endif

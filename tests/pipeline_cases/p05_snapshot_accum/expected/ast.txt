@@ -1,0 +1,26 @@
+styio.ast.main {
+|- styio.ast.snapshot.decl { factor <- styio.ast.resource.file  {
+    |- auto_detect: false
+    |- path: styio.ast.string { "/tmp/styio_pipeline_factor.txt" }} }
+|- styio.ast.bind.flex {
+  |- var : styio.ast.var { sum : int }
+  |- val = { 0 : int }}
+|- styio.ast.iterator {
+  |- iterable object: styio.ast.list : int [
+    |- { 1 : int }
+    |- { 2 : int }
+    |- { 3 : int }]
+  |- styio.ast.arg { x : undefined }
+  |- styio.ast.block {
+    |- styio.ast.bind.flex {
+      |- var : styio.ast.var { prod : undefined }
+      |- val = styio.ast.binop: undefined {
+        |- LHS: x
+        |- OP : <Mul>
+        |- RHS: styio.ast.state.ref  $factor}}
+    |- styio.ast.binop: int {
+      |- LHS: sum
+      |- OP : +=
+      |- RHS: prod}}}
+|- styio.ast.print {
+  |- sum}}

@@ -1078,7 +1078,18 @@ StyioAnalyzer::toStyioIR(FileResourceAST* ast) {
 }
 
 StyioIR*
+StyioAnalyzer::toStyioIR(StdStreamAST* ast) {
+  /* StdStreamAST is not lowered to its own IR node;
+     it is consumed by the parent node (ResourceWriteAST, IteratorAST, etc.). */
+  return SGConstInt::Create(0);
+}
+
+StyioIR*
 StyioAnalyzer::toStyioIR(HandleAcquireAST* ast) {
+  /* M10: reject handle acquire on standard streams. */
+  if (dynamic_cast<StdStreamAST*>(ast->getResource())) {
+    throw StyioTypeError("standard streams do not require handle acquisition; use @stdin/@stdout/@stderr directly");
+  }
   auto* fr = dynamic_cast<FileResourceAST*>(ast->getResource());
   if (!fr) {
     throw StyioTypeError("handle acquire needs @file{...} or @{...}");
@@ -1091,9 +1102,21 @@ StyioAnalyzer::toStyioIR(HandleAcquireAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(ResourceWriteAST* ast) {
+  /* M9: check for standard stream target. */
+  auto* ss = dynamic_cast<StdStreamAST*>(ast->getResource());
+  if (ss) {
+    /* M10: reject write to @stdin. */
+    if (ss->getStreamKind() == StdStreamKind::Stdin) {
+      throw StyioTypeError("@stdin is a read-only stream; cannot write to it");
+    }
+    auto stream = (ss->getStreamKind() == StdStreamKind::Stdout)
+      ? SIOStdStreamWrite::Stream::Stdout
+      : SIOStdStreamWrite::Stream::Stderr;
+    return SIOStdStreamWrite::Create(stream, {ast->getData()->toStyioIR(this)});
+  }
   auto* fr = dynamic_cast<FileResourceAST*>(ast->getResource());
   if (!fr) {
-    throw StyioTypeError("<< target must be a file resource");
+    throw StyioTypeError("<< target must be a file or standard stream resource");
   }
   StyioDataType dt = ast->getData()->getDataType();
   bool is_str = dt.option == StyioDataTypeOption::String
@@ -1109,9 +1132,20 @@ StyioAnalyzer::toStyioIR(ResourceWriteAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(ResourceRedirectAST* ast) {
+  /* M9: redirect to standard stream → SIOStdStreamWrite */
+  auto* ss = dynamic_cast<StdStreamAST*>(ast->getResource());
+  if (ss) {
+    if (ss->getStreamKind() == StdStreamKind::Stdin) {
+      throw StyioTypeError("@stdin is a read-only stream; cannot redirect to it");
+    }
+    auto stream = (ss->getStreamKind() == StdStreamKind::Stdout)
+      ? SIOStdStreamWrite::Stream::Stdout
+      : SIOStdStreamWrite::Stream::Stderr;
+    return SIOStdStreamWrite::Create(stream, {ast->getData()->toStyioIR(this)});
+  }
   auto* fr = dynamic_cast<FileResourceAST*>(ast->getResource());
   if (!fr) {
-    throw StyioTypeError("-> target must be a file resource");
+    throw StyioTypeError("-> target must be a file or standard stream resource");
   }
   return SGResourceWriteToFile::Create(
     ast->getData()->toStyioIR(this),
@@ -1217,11 +1251,12 @@ StyioAnalyzer::toStyioIR(AttrAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(PrintAST* ast) {
+  /* M9 Task 9.10: unify >_() to SIOStdStreamWrite(Stdout). */
   std::vector<StyioIR*> parts;
   for (auto* e : ast->exprs) {
     parts.push_back(e->toStyioIR(this));
   }
-  return SIOPrint::Create(parts);
+  return SIOStdStreamWrite::Create(SIOStdStreamWrite::Stream::Stdout, parts);
 }
 
 StyioIR*
@@ -1355,6 +1390,27 @@ StyioAnalyzer::toStyioIR(IteratorAST* ast) {
       body = lower_func_body(this, ast->following[0]);
     }
   }
+  /* M10: stdin line iteration. */
+  auto col_nt = ast->collection->getNodeType();
+  if (col_nt == StyioNodeType::StdinResource
+      || col_nt == StyioNodeType::StdoutResource
+      || col_nt == StyioNodeType::StderrResource) {
+    auto* ss = static_cast<StdStreamAST*>(ast->collection);
+    if (ss->getStreamKind() == StdStreamKind::Stdout) {
+      throw StyioTypeError("@stdout is a write-only stream; cannot iterate over it");
+    }
+    if (ss->getStreamKind() == StdStreamKind::Stderr) {
+      throw StyioTypeError("@stderr is a write-only stream; cannot iterate over it");
+    }
+    auto* sl = SIOStdStreamLineIter::Create(std::move(vname), body);
+    if (pplan) {
+      sl->set_pulse_plan(std::move(pplan));
+      if (sl->pulse_plan && sl->pulse_plan->total_bytes > 0) {
+        sl->pulse_region_id = alloc_pulse_region_id();
+      }
+    }
+    return sl;
+  }
   if (ast->collection->getNodeType() == StyioNodeType::FileResource) {
     auto* fr = static_cast<FileResourceAST*>(ast->collection);
     auto* fl = SGFileLineIter::CreateFromPath(
@@ -1469,7 +1525,22 @@ StyioAnalyzer::toStyioIR(SnapshotDeclAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(InstantPullAST* ast) {
-  return SGInstantPull::Create(ast->getResource()->getPath()->toStyioIR(this));
+  /* M10: stdin instant pull. */
+  auto* ss = dynamic_cast<StdStreamAST*>(ast->getResource());
+  if (ss) {
+    if (ss->getStreamKind() == StdStreamKind::Stdout) {
+      throw StyioTypeError("@stdout is a write-only stream; cannot read from it");
+    }
+    if (ss->getStreamKind() == StdStreamKind::Stderr) {
+      throw StyioTypeError("@stderr is a write-only stream; cannot read from it");
+    }
+    return SIOStdStreamPull::Create();
+  }
+  auto* fr = dynamic_cast<FileResourceAST*>(ast->getResource());
+  if (!fr) {
+    throw StyioTypeError("instant pull needs @file{...}, @{...}, or @stdin");
+  }
+  return SGInstantPull::Create(fr->getPath()->toStyioIR(this));
 }
 
 StyioIR*

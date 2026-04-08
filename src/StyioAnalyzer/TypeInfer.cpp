@@ -404,6 +404,11 @@ StyioAnalyzer::typeInfer(FileResourceAST* ast) {
 }
 
 void
+StyioAnalyzer::typeInfer(StdStreamAST* ast) {
+  /* No children to infer. */
+}
+
+void
 StyioAnalyzer::typeInfer(HandleAcquireAST* ast) {
   ast->getVar()->typeInfer(this);
   ast->getResource()->typeInfer(this);

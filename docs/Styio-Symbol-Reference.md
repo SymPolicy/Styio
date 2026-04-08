@@ -14,6 +14,9 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | Symbol | Name | C++ Token Kind | Physical Semantics |
 |--------|------|----------------|-------------------|
 | `@` | Undefined / Resource Anchor | `TOK_AT` | **Alone:** honest absence (Undefined). **Before `[`:** state container declaration. **Before identifier + `{`/`(`:** resource with protocol. |
+| `@stdout` | Standard Output | `TOK_AT` + `NAME("stdout")` | Built-in write-only stream resource (fd 1). Canonical write: `expr -> @stdout`; accepted shorthand: `expr >> @stdout`. |
+| `@stderr` | Standard Error | `TOK_AT` + `NAME("stderr")` | Built-in write-only stream resource (fd 2, unbuffered). Canonical write: `expr -> @stderr`; accepted shorthand: `expr >> @stderr`. |
+| `@stdin` | Standard Input | `TOK_AT` + `NAME("stdin")` | Built-in read-only stream resource (fd 0). Iterate via `@stdin >> #(line) => {...}`; instant pull via `(<< @stdin)`. Current instant-pull lowering keeps the scalar `cstr -> i64` contract. |
 | `$` | State Reference / Capture | `TOK_DOLLAR` | **Before identifier:** read from shadow buffer. **Before `(`:** capture list in function decl. **Before string:** format string. |
 
 ---
@@ -22,12 +25,12 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 
 | Symbol | Name | C++ Token Kind | Semantics | Example |
 |--------|------|----------------|-----------|---------|
-| `>>` | Pipe / Iterate | `TOK_PIPE` | Push pulse from source into consumer | `prices >> #(p) => { ... }` |
+| `>>` | Pipe / Iterate / Resource-Write Shorthand | `TOK_PIPE` | **Before iterator tail:** push pulse from source into consumer. **Before resource atom (`@file{...}`, `@stdout`, `@stderr`, `@stdin`)**: parse as `resource_write` shorthand. `@stdin` remains semantically read-only. | `prices >> #(p) => { ... }`, `x >> @stdout` |
 | `->` | Forward / Redirect | `TOK_ARROW_RIGHT` | Redirect data to a physical destination | `ma5 -> @database(...)` |
 | `<-` | Acquire Handle | `TOK_ARROW_LEFT` | Extract live handle from resource | `f <- @file{"data.txt"}` |
 | `<<` | Write / Shift-Back | `TOK_SHIFT_BACK` | **In `[<<, n]`:** history probe. **Standalone:** write to resource. **In `(<< @res)`:** instant pull. |
 | `<\|` | Yield / Return | `TOK_YIELD` | Push value out of block (expression return) | `<\| x * x` |
-| `>_` | I/O Buffer / Print | `TOK_IO_BUF` | Side-effect output to stdout or system buffer | `>_("hello")` |
+| `>_` | Terminal Device | `TOK_IO_BUF` | **As statement:** `>_(expr)` prints to stdout (legacy). **As value:** first-class terminal device handle; `expr -> ( >_ )` writes stdout, `!(expr) -> ( >_ )` writes stderr, `<< ( >_ )` reads stdin. | `>_("hello")`, `42 -> ( >_ )` |
 
 ---
 
@@ -115,11 +118,12 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 
 ---
 
-## 9. Diagnostic
+## 9. Diagnostic & Channel Selection
 
 | Symbol | Name | Semantics |
 |--------|------|-----------|
 | `??` | Diagnostic Extract | Extracts reason/metadata from a tainted `@` value |
+| `!(expr)` | Channel Selector | **Before `-> ( >_ )`:** selects stderr channel (fd 2) instead of stdout (fd 1). In other contexts, `!` remains logical NOT. |
 
 ---
 
@@ -131,6 +135,7 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | `@[` | State container declaration prefix |
 | `@ident{...}` | Resource with explicit protocol |
 | `@{...}` or `@(...)` | Anonymous resource (auto-detect) |
+| `@stdout`, `@stderr`, `@stdin` | Standard stream resource atom (compiler-recognized directly; no user-authored wrapper definition required) |
 | `$ident` | State reference |
 | `$(...)` | Capture list (function context) |
 | `$"..."` | Format string |

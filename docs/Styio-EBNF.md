@@ -346,7 +346,10 @@ state_ref          = '$' identifier [ selector ] ;
 ## 9. Resources
 
 ```ebnf
-resource           = '@' [ identifier ] ( '{' expression '}' | '(' expression ')' ) ;
+resource           = std_stream_resource
+                   | '@' [ identifier ] ( '{' expression '}' | '(' expression ')' ) ;
+
+std_stream_resource = '@stdout' | '@stderr' | '@stdin' ;
 ```
 
 Examples:
@@ -354,6 +357,21 @@ Examples:
 - `@file{"readme.txt"}` — explicit file
 - `@binance{"BTCUSDT"}` — exchange feed
 - `@mysql{"localhost:3306"}` — database
+
+### 9.1 Standard Stream Resources
+
+Standard streams are compiler-recognized resource atoms over the terminal device primitive
+`>_`. Unlike early planning drafts, the frozen grammar does **not** require user-authored
+binding definitions such as `@stdout := ...`.
+
+Usage patterns (reuse existing productions):
+- `expr '->' '@stdout'` / `expr '->' '@stderr'` — canonical standard-stream write via `resource_redirect`
+- `expr '>>' '@stdout'` / `expr '>>' '@stderr'` — accepted standard-stream resource-write shorthand via `resource_write`
+- `'@stdin' '>>' '#' '(' param_list ')' '=>' block` — iterate via `iterator`
+- `'(' '<<' '@stdin' ')'` — instant pull via `instant_pull`
+
+Note: `expr '>>' '@stdin'` is syntactically accepted as `resource_write`, then rejected by
+semantic checks because `@stdin` is read-only.
 
 ---
 
@@ -408,6 +426,7 @@ continue_stmt      = CONTINUE_TOKEN ;   (* >> or >>> or >>>> etc. *)
 ### Rule 1: `>>` as Pipe vs. Continue
 
 When the parser encounters `>>` (or longer `>>>`, `>>>>`, etc.):
+- If preceded by an expression and followed by `@` resource atom: **Resource-write shorthand**
 - If preceded by an expression and followed by `#(`, `{`, or an identifier: **Pipe operator**
 - If followed by newline, `;`, `}`, or another control token: **Continue statement**
 - If inside `[` brackets: **Stride selector mode**
@@ -418,6 +437,7 @@ When the parser encounters `>>` (or longer `>>>`, `>>>>`, etc.):
 - `@[`: **State container declaration**
 - `@` followed by identifier then `{` or `(`: **Resource with protocol**
 - `@{` or `@(`: **Anonymous resource**
+- `@` followed by `stdout`, `stderr`, or `stdin` (bare identifier, no `{}`/`()`): **Standard stream resource** — the lexer produces `TOK_AT` + `NAME("stdout"|"stderr"|"stdin")`, and the parser resolves it directly to a standard-stream resource atom.
 
 ### Rule 3: `$` Disambiguation
 

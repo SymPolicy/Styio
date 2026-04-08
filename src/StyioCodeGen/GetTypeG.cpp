@@ -301,3 +301,21 @@ StyioToLLVM::toLLVMType(SGResourceWriteToFile* node) {
   (void)node;
   return theBuilder->getVoidTy();
 }
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SIOStdStreamWrite* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SIOStdStreamLineIter* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SIOStdStreamPull* node) {
+  (void)node;
+  return llvm::PointerType::get(*theContext, 0);
+}

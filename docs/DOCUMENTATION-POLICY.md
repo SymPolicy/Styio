@@ -2,7 +2,7 @@
 
 **文档作用：** 约定开发类 Markdown 的存放位置、历史与测试索引格式、**单一事实来源（SSOT）** 的引用方式，以及下文 **§0** 的维护准则；**不**定义语言语义（语义见 `Styio-Language-Design.md` 等）。
 
-**Last updated:** 2026-03-28（增补 §0 维护准则与 SSOT 表）  
+**Last updated:** 2026-04-08（增补文档状态与 superseded 规则）  
 **Automation (verify doc links + test registration):** 从仓库根目录配置并运行里程碑测试：
 
 ```bash
@@ -53,6 +53,17 @@ ctest --test-dir build -L milestone
 | **`[|n|]` 环缓 CodeGen** 从 bootstrap 迁移的破坏面 / 测试 / 回滚 | `BoundedRing-Codegen-Adjustment.md` | 会话细节见 `history/2026-03-29.md` |
 | **Checkpoint 微里程碑执行规则**（可中断/可恢复） | `CHECKPOINT-WORKFLOW.md` | 在 `history/YYYY-MM-DD.md` 写恢复指引，不在其它文档重复流程细节 |
 | **架构决策记录（ADR）** | `docs/adr/` | 决策摘要可在 history 引用，正文仅维护于 ADR 文件 |
+
+### 0.5 文档状态与 superseded 规则
+
+1. `docs/plans/*.md` 是**设计/实施计划**，不是语言或验收层面的 SSOT。
+2. `docs/milestones/<YYYY-MM-DD>/` 下的文档是该批次的**冻结规格**；若后续实现保留兼容层，文档必须明确区分：
+   - **canonical**：冻结示例与推荐写法；
+   - **accepted compatibility shorthand**：实现保留、测试覆盖、但不作为首选教学写法的兼容写法。
+3. 同一功能若存在较早草案和较晚冻结批次，较早文档必须在文首显式写：
+   - `Status: Superseded draft`
+   - 指向新的冻结文档路径。
+4. 当实现接受的兼容语法多于冻结示例时，SSOT 必须说明“为什么该语法仍有效”，并至少有一条自动化测试冻结该兼容行为。
 
 ---
 

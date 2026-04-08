@@ -295,6 +295,79 @@ ma5 -> @database("redis://localhost/ma5_cache")
 
 `->` redirects a value's storage destination. The runtime asynchronously syncs to the target resource.
 
+### 7.7 Standard Stream Resources
+
+Styio models the three Unix standard streams as **compiler-recognized resource atoms** over a
+single built-in primitive `>_` (the terminal device).
+
+The current frozen grammar accepts:
+
+```
+@stdout
+@stderr
+@stdin
+```
+
+directly in source code. Unlike earlier planning drafts, users do **not** need to write
+wrapper definitions such as `@stdout := ...` before using these standard streams.
+
+**`>_` — The Terminal Device**
+
+`>_` is a first-class resource handle value representing the user's terminal. It supports:
+
+| Operation | Syntax | Unix fd | Semantics |
+|-----------|--------|---------|-----------|
+| Write | `x -> ( >_ )` | fd 1 | Write value to stdout |
+| Error write | `!(x) -> ( >_ )` | fd 2 | Write value to stderr (unbuffered) |
+| Read stream | `<< ( >_ )` | fd 0 | Extract line stream from stdin |
+
+`!()` acts as a **channel selector**: without `!`, data goes to fd 1 (stdout); with `!`,
+data goes to fd 2 (stderr). The compiler disambiguates from logical NOT by context:
+`!(expr) -> ( >_ )` is always channel-select.
+
+**@stdout** — write-only, system-default buffering (line-buffered for TTY, block-buffered for pipes).
+
+**@stderr** — write-only, **unbuffered** (immediate `fflush(stderr)` after each write).
+
+**@stdin** — read-only, iterable stream. `@stdin >> #(line) => {...}` iterates lines;
+`(<< @stdin)` performs instant pull of one line. EOF terminates iteration naturally. In the
+current frozen implementation, line-iterator exposes line strings, while instant pull still
+follows the older scalar convention and lowers through `styio_cstr_to_i64()` unless a future
+typed string path is introduced.
+
+**Write syntax:**
+
+```
+42 -> @stdout              // redirect value to stdout (action)
+"Hello" -> @stdout         // redirect string to stdout
+@stdout("Hello")           // call form (freezes for continuation)
+```
+
+Frozen milestone docs use `-> @stdout` / `-> @stderr` as the **canonical spelling**.
+The current compiler also accepts:
+
+```
+42 >> @stdout
+"Hello" >> @stdout
+"warn" >> @stderr
+```
+
+When `>>` is followed by a standard-stream resource atom (`@stdout` / `@stderr`), the parser
+builds a `resource_write` node, not a string-iteration chain. In other words, `expr >> @stdout`
+is an **accepted compatibility shorthand** for writing one whole value to the standard stream.
+Use `->` in specs and teaching material; keep `>>` only where stream-sink style is intentional.
+
+**Direction constraints:**
+
+- `@stdin` is read-only: `expr -> @stdin` and `expr >> @stdin` are semantic errors
+- `@stdout` / `@stderr` are write-only: `@stdout >> #(x) => {...}` is a semantic error
+- Standard streams need no handle acquisition: `f <- @stdout` is a semantic error
+
+**Compiler recognition:** The compiler recognizes `@stdout`, `@stderr`, `@stdin` directly at
+parse/lowering time and emits direct FFI-backed standard-stream IR (`printf`/`puts` for
+stdout, `fprintf(stderr, ...)` for stderr, `fgets(stdin)` for stdin). Both `expr -> @stdout`
+and `expr >> @stdout` currently lower to the same standard-stream IR family.
+
 ---
 
 ## 8. State Management
@@ -474,12 +547,39 @@ Only valid on state references (`$`-prefixed variables).
 
 ## 11. I/O and Side Effects
 
-### 11.1 Standard Output: `>_`
+### 11.1 Terminal Device: `>_`
+
+`>_` is the **terminal device primitive** — a first-class resource handle representing the
+user's terminal. All standard streams (`@stdout`, `@stderr`, `@stdin`) are compiler-recognized
+resource atoms over `>_`. See §7.7 for the complete resource definitions and usage patterns.
+
+**As a print statement (legacy, backward-compatible):**
 
 ```
 >_("Hello, Styio!")
 >_(variable)
 ```
+
+`>_(expr)` remains functional for backward compatibility and is internally equivalent to
+`expr -> ( >_ )`.
+
+**As a value in expressions:**
+
+```
+42 -> @stdout                        // >_ used as redirect target under the hood
+x = (<< @stdin)                      // >_ used as stream source under the hood
+```
+
+**Type formatting rules** (applies to `>_()`, `-> @stdout`, and accepted `>> @stdout` shorthand):
+
+| Type | Output format |
+|------|---------------|
+| Integer | `%lld\n` |
+| Float | `%.6f\n` |
+| Bool | `true\n` / `false\n` |
+| String | `%s\n` |
+| Char | `%c\n` |
+| `@` (Undefined) | `@\n` |
 
 ### 11.2 I/O Buffer: `>_` (stream context)
 
@@ -488,7 +588,25 @@ In stream contexts, `>_` writes to the system's buffered output channel.
 ### 11.3 Format Strings: `$`
 
 ```
->_($"Price is {p}, Volume is {v}")
+$"Price is {p}, Volume is {v}" -> @stdout
+```
+
+### 11.4 Standard Error: `@stderr`
+
+`@stderr` writes to Unix fd 2 with immediate flush. See §7.7 for definition.
+
+```
+"Error: file not found" -> @stderr
+```
+
+### 11.5 Standard Input: `@stdin`
+
+`@stdin` is a line stream from Unix fd 0. See §7.7 for definition.
+
+```
+@stdin >> #(line) => {
+  line -> @stdout
+}
 ```
 
 ---

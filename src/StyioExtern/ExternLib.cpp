@@ -309,6 +309,33 @@ styio_runtime_clear_error() {
   g_runtime_error_subcode.clear();
 }
 
+/* M9: write a C-string to stderr with trailing newline and immediate flush.
+   Null-safe (no-op for nullptr). */
+extern "C" DLLEXPORT void
+styio_stderr_write_cstr(const char* s) {
+  if (s != nullptr) {
+    std::fprintf(stderr, "%s\n", s);
+    std::fflush(stderr);
+  }
+}
+
+/* M10: read one line from stdin into a thread-local buffer.
+   Returns borrowed pointer (valid until next call on this thread).
+   Returns nullptr on EOF. Strips trailing newline/CR. */
+thread_local char g_stdin_line_buf[65536];
+
+extern "C" DLLEXPORT const char*
+styio_stdin_read_line() {
+  if (std::fgets(g_stdin_line_buf, static_cast<int>(sizeof(g_stdin_line_buf)), stdin) == nullptr) {
+    return nullptr;
+  }
+  size_t n = std::strlen(g_stdin_line_buf);
+  while (n > 0 && (g_stdin_line_buf[n - 1] == '\n' || g_stdin_line_buf[n - 1] == '\r')) {
+    g_stdin_line_buf[--n] = '\0';
+  }
+  return g_stdin_line_buf;
+}
+
 extern "C" DLLEXPORT int
 something() {
   return 0;

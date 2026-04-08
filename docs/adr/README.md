@@ -2,7 +2,7 @@
 
 **文档作用：** 记录 Styio 关键架构与工程决策（为什么做、为什么不做其它方案），用于中断后快速恢复决策上下文。
 
-**Last updated:** 2026-04-07
+**Last updated:** 2026-04-08
 
 ## 约定
 
@@ -110,3 +110,24 @@
 - `ADR-0095-nightly-list-start-iterator-and-statement-boundary.md`
 - `ADR-0096-m7-shadow-zero-fallback-gate.md`
 - `ADR-0097-nightly-internal-legacy-bridge-metric.md`
+- `ADR-0098-m7-shadow-zero-internal-bridges-gate.md`
+- `ADR-0099-m1-m2-shadow-dual-zero-gates.md`
+- `ADR-0100-m5-shadow-gate-expected-nonzero-manifest.md`
+- `ADR-0101-nightly-verification-harness-alignment.md`
+- `ADR-0102-checkpoint-health-optional-fuzz-smoke.md`
+- `ADR-0103-five-layer-snapshot-state-pipeline-case.md`
+- `ADR-0104-parser-legacy-entry-audit-gate.md`
+- `ADR-0105-five-layer-zip-file-pipeline-case.md`
+- `ADR-0106-five-layer-instant-pull-pipeline-case.md`
+- `ADR-0107-five-layer-redirect-file-pipeline-case.md`
+- `ADR-0108-five-layer-full-pipeline-case.md`
+- `ADR-0109-five-layer-auto-detect-read-case.md`
+- `ADR-0110-five-layer-pipe-func-case.md`
+- `ADR-0111-five-layer-stdin-fixture-and-echo-case.md`
+- `ADR-0112-five-layer-stdin-transform-case.md`
+- `ADR-0113-five-layer-stdin-pull-case.md`
+- `ADR-0114-five-layer-stderr-golden-and-mixed-stdio-case.md`
+- `ADR-0115-nightly-wave-safe-fallback-and-bool-literal-name-start.md`
+- `ADR-0116-standard-stream-formalization-and-doc-status.md`
+- `ADR-0117-stdio-milestone-contract-audit.md`
+- `ADR-0118-nightly-first-completion-boundary.md`

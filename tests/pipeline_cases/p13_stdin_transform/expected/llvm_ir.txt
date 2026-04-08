@@ -1,0 +1,55 @@
+; ModuleID = 'styio'
+source_filename = "styio"
+target datalayout = "e-m:o-i64:64-i128:128-n32:64-S128"
+
+@styio_print_at = private unnamed_addr constant [2 x i8] c"@\00", align 1
+@styio_fmt_i64 = private unnamed_addr constant [6 x i8] c"%lld\0A\00", align 1
+
+define i32 @main() {
+main_entry:
+  %result = alloca i64, align 8
+  br label %stdin_hdr
+
+stdin_hdr:                                        ; preds = %print_done, %main_entry
+  %0 = call ptr @styio_stdin_read_line()
+  %1 = icmp eq ptr %0, null
+  br i1 %1, label %stdin_exit, label %stdin_body
+
+stdin_body:                                       ; preds = %stdin_hdr
+  %line = alloca ptr, align 8
+  store ptr %0, ptr %line, align 8
+  %2 = load ptr, ptr %line, align 8
+  %3 = call i64 @styio_cstr_to_i64(ptr %2)
+  %4 = icmp eq i64 %3, -9223372036854775808
+  %5 = or i1 %4, false
+  %6 = mul i64 %3, 2
+  %7 = select i1 %5, i64 -9223372036854775808, i64 %6
+  store i64 %7, ptr %result, align 8
+  %8 = load i64, ptr %result, align 8
+  %9 = icmp eq i64 %8, -9223372036854775808
+  br i1 %9, label %print_at, label %print_i64
+
+stdin_exit:                                       ; preds = %stdin_hdr
+  ret i32 0
+
+print_at:                                         ; preds = %stdin_body
+  %10 = call i32 @puts(ptr @styio_print_at)
+  br label %print_done
+
+print_i64:                                        ; preds = %stdin_body
+  %11 = call i32 (ptr, ...) @printf(ptr @styio_fmt_i64, i64 %8)
+  br label %print_done
+
+print_done:                                       ; preds = %print_i64, %print_at
+  br label %stdin_hdr
+}
+
+declare ptr @styio_stdin_read_line()
+
+declare i64 @styio_cstr_to_i64(ptr)
+
+declare i32 @printf(ptr, ...)
+
+declare i32 @puts(ptr)
+
+declare void @styio_file_close(i64)

@@ -36,6 +36,12 @@ extern "C" DLLEXPORT const char* styio_runtime_last_error();
 extern "C" DLLEXPORT const char* styio_runtime_last_error_subcode();
 extern "C" DLLEXPORT void styio_runtime_clear_error();
 
+/* M9: write to stderr */
+extern "C" DLLEXPORT void styio_stderr_write_cstr(const char* s);
+
+/* M10: read one line from stdin */
+extern "C" DLLEXPORT const char* styio_stdin_read_line();
+
 extern "C" DLLEXPORT int something();
 
 #endif  // STYIO_EXTERN_LIB_H

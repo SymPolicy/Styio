@@ -2369,6 +2369,40 @@ public:
   }
 };
 
+/*
+  M9: @stdout, @stderr, @stdin
+*/
+class StdStreamAST : public StyioASTTraits<StdStreamAST>
+{
+  StdStreamKind kind_;
+
+  explicit StdStreamAST(StdStreamKind k) :
+      kind_(k) {
+  }
+
+public:
+  static StdStreamAST* Create(StdStreamKind k) {
+    return new StdStreamAST(k);
+  }
+
+  StdStreamKind getStreamKind() const {
+    return kind_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    switch (kind_) {
+      case StdStreamKind::Stdin:  return StyioNodeType::StdinResource;
+      case StdStreamKind::Stdout: return StyioNodeType::StdoutResource;
+      case StdStreamKind::Stderr: return StyioNodeType::StderrResource;
+    }
+    return StyioNodeType::StdoutResource;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
 class HandleAcquireAST : public StyioASTTraits<HandleAcquireAST>
 {
   std::unique_ptr<VarAST> var_owner_;
@@ -2434,6 +2468,16 @@ public:
     return resource_;
   }
 
+  StyioAST* release_data_latest() {
+    data_ = nullptr;
+    return data_owner_.release();
+  }
+
+  StyioAST* release_resource_latest() {
+    resource_ = nullptr;
+    return resource_owner_.release();
+  }
+
   const StyioNodeType getNodeType() const {
     return StyioNodeType::ResourceWrite;
   }
@@ -2469,6 +2513,16 @@ public:
 
   StyioAST* getResource() {
     return resource_;
+  }
+
+  StyioAST* release_data_latest() {
+    data_ = nullptr;
+    return data_owner_.release();
+  }
+
+  StyioAST* release_resource_latest() {
+    resource_ = nullptr;
+    return resource_owner_.release();
   }
 
   const StyioNodeType getNodeType() const {
@@ -4155,20 +4209,25 @@ public:
 
 class InstantPullAST : public StyioASTTraits<InstantPullAST>
 {
-  std::unique_ptr<FileResourceAST> resource_owner_;
-  FileResourceAST* resource_ = nullptr;
+  std::unique_ptr<StyioAST> resource_owner_;
+  StyioAST* resource_ = nullptr;
 
-  explicit InstantPullAST(FileResourceAST* r) :
+  explicit InstantPullAST(StyioAST* r) :
       resource_owner_(r),
       resource_(resource_owner_.get()) {
   }
 
 public:
-  static InstantPullAST* Create(FileResourceAST* r) {
+  static InstantPullAST* Create(StyioAST* r) {
     return new InstantPullAST(r);
   }
 
-  FileResourceAST* getResource() {
+  /* Legacy convenience: still accepts FileResourceAST* */
+  static InstantPullAST* Create(FileResourceAST* r) {
+    return new InstantPullAST(static_cast<StyioAST*>(r));
+  }
+
+  StyioAST* getResource() {
     return resource_;
   }
 

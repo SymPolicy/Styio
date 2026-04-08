@@ -651,6 +651,9 @@ StyioToken::getTokName(StyioTokenType type) {
     case StyioTokenType::TOK_PIPE:
       return "|";
 
+    case StyioTokenType::TOK_AMP:
+      return "&";
+
     case StyioTokenType::ELLIPSIS:
       return "...";
 

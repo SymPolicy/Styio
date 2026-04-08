@@ -482,6 +482,11 @@ enum class StyioNodeType
   SnapshotDecl,
   InstantPull,
 
+  /* M9-M10: standard streams */
+  StdinResource,
+  StdoutResource,
+  StderrResource,
+
   ReadFile,
   // -----------------
 
@@ -557,6 +562,14 @@ enum class StyioNodeType
 
   Connection,
   HashTagName
+};
+
+/* M9: standard stream direction */
+enum class StdStreamKind
+{
+  Stdin,
+  Stdout,
+  Stderr,
 };
 
 enum class InfiniteType

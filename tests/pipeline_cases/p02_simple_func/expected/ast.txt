@@ -1,0 +1,16 @@
+styio.ast.main {
+|- styio.ast.func.simple.unique {
+  |- func_name: add
+  |- params: 
+    |- styio.ast.arg { a : int }
+    |- styio.ast.arg { b : int }
+  |- ret_type: 
+  |- ret_expr: styio.ast.binop: undefined {
+    |- LHS: a
+    |- OP : <Add>
+    |- RHS: b}}
+|- styio.ast.print {
+  |- styio.ast.call {
+    |- add {
+      |- { 3 : int }
+      |- { 4 : int }}}}}

@@ -15,10 +15,12 @@ namespace testing {
  *   <case_dir>/expected/styio_ir.txt   — L3 IR (StyioRepr)
  *   <case_dir>/expected/llvm_ir.txt    — L4 LLVM module print (no banners)
  *   <case_dir>/expected/stdout.txt     — L5 program stdout (see layer5_compiler_exe)
+ *   <case_dir>/expected/stderr.txt     — optional L5 program stderr
  *
  * L5 compares the **observable** process output. In-process JIT uses `printf`, which does not
  * go through `std::cout`, so when `layer5_compiler_exe` is non-null this layer runs
- * `layer5_compiler_exe --file <case_dir>/input.styio` and diffs stdout. When null, L5 is skipped.
+ * `layer5_compiler_exe --file <case_dir>/input.styio` and diffs stdout; when `stderr.txt` exists,
+ * it diffs stderr as well. When null, L5 is skipped.
  *
  * @return Empty on success; otherwise a message naming the layer and the first mismatch.
  */

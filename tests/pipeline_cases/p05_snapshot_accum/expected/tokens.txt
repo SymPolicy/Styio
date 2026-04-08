@@ -1,0 +1,73 @@
+@	@
+[	[
+<ID>	factor
+]	]
+ 	 
+<<	<<
+ 	 
+@	@
+<ID>	file
+{	{
+<STRING>	"/tmp/styio_pipeline_factor.txt"
+}	}
+<LF>	\n
+<ID>	sum
+ 	 
+=	=
+ 	 
+<INT>	0
+<LF>	\n
+[	[
+<INT>	1
+,	,
+ 	 
+<INT>	2
+,	,
+ 	 
+<INT>	3
+]	]
+ 	 
+>>	>>
+ 	 
+#	#
+(	(
+<ID>	x
+)	)
+ 	 
+=>	=>
+ 	 
+{	{
+<LF>	\n
+ 	 
+ 	 
+ 	 
+ 	 
+<ID>	prod
+ 	 
+=	=
+ 	 
+<ID>	x
+ 	 
+*	*
+ 	 
+$	$
+<ID>	factor
+<LF>	\n
+ 	 
+ 	 
+ 	 
+ 	 
+<ID>	sum
+ 	 
++=	+=
+ 	 
+<ID>	prod
+<LF>	\n
+}	}
+<LF>	\n
+>_	>_
+(	(
+<ID>	sum
+)	)
+<LF>	\n
+<EOF>	

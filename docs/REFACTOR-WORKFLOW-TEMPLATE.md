@@ -12,7 +12,7 @@
 3. 记录风险边界（所有权、生命周期、ABI、并发、持久化）。
 4. 选择迁移策略：
    - `兼容模式`：对外接口不变，内部先收敛；
-   - `双轨模式`：`legacy` + `nightly` 并存，默认 legacy。
+   - `双轨模式`：`legacy` + `nightly` 并存；未切主前默认 legacy，收尾后默认 nightly-first。
 
 5. 建立函数命名状态位：
    - 稳定旧实现：`*_legacy`
@@ -125,6 +125,16 @@ fix: make AST tracked cleanup non-owning to avoid double free
 4. 在 CI 设置显式 gate（不要只依赖大标签间接覆盖）：
    - 全量样例 shadow compare 必须通过。
 5. gate 失败时自动上传工件，保证可回放。
+
+### 6.1 双轨收尾完成标准
+
+满足以下条件后，可把该双轨里程碑记为“完成”：
+
+1. 默认 CLI 与主验证路径已经是 `nightly-first`。
+2. `legacy` 只剩 parser core 内部或显式 parity harness，不再出现在生产/测试主入口。
+3. shadow gate 与 entry audit 全绿。
+4. five-layer pipeline 已覆盖该域的高价值链路，而不是只剩 parity/compare 测试。
+5. `checkpoint-health.sh` 能在冷启动时自动选择可工作的 build 目录并跑通主 gate。
 
 可直接复用的 Styio 命令模板：
 

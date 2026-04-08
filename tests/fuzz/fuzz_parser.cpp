@@ -40,16 +40,11 @@ free_tokens(std::vector<StyioToken*>& tokens) {
   tokens.clear();
 }
 
-} // namespace
-
-extern "C" int
-LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
-  if (data == nullptr) {
-    return 0;
-  }
-
-  std::string src(reinterpret_cast<const char*>(data), size);
-  std::vector<std::pair<size_t, size_t>> line_seps = build_line_seps(src);
+void
+fuzz_parse_with_engine_latest(
+  const std::string& src,
+  const std::vector<std::pair<size_t, size_t>>& line_seps,
+  StyioParserEngine engine) {
   std::vector<StyioToken*> tokens;
   StyioContext* ctx = nullptr;
   MainBlockAST* ast = nullptr;
@@ -57,7 +52,7 @@ LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   try {
     tokens = StyioTokenizer::tokenize(src);
     ctx = StyioContext::Create("<fuzz>", src, line_seps, tokens, false);
-    ast = parse_main_block_legacy(*ctx);
+    ast = parse_main_block_with_engine_latest(*ctx, engine, nullptr);
   } catch (const StyioBaseException&) {
     // expected on malformed inputs
   } catch (...) {
@@ -70,5 +65,19 @@ LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     delete ctx;
   }
   free_tokens(tokens);
+}
+
+} // namespace
+
+extern "C" int
+LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
+  if (data == nullptr) {
+    return 0;
+  }
+
+  std::string src(reinterpret_cast<const char*>(data), size);
+  std::vector<std::pair<size_t, size_t>> line_seps = build_line_seps(src);
+  fuzz_parse_with_engine_latest(src, line_seps, StyioParserEngine::Legacy);
+  fuzz_parse_with_engine_latest(src, line_seps, StyioParserEngine::Nightly);
   return 0;
 }

@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <cstdio>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 #ifndef _WIN32
@@ -65,11 +66,270 @@ run_stdout_command(const std::string& cmd) {
   return result;
 }
 
+std::string
+read_text_file_latest(const fs::path& path) {
+  std::ifstream in(path, std::ios::binary);
+  std::ostringstream ss;
+  ss << in.rdbuf();
+  return ss.str();
+}
+
 } // namespace
 
 TEST(StyioFiveLayerPipeline, P01_print_add) {
   const fs::path case_dir =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "pipeline_cases" / "p01_print_add";
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  const std::string err = styio::testing::run_pipeline_case(case_dir.string(), runner);
+  EXPECT_EQ(err, "") << err;
+}
+
+TEST(StyioFiveLayerPipeline, P02_simple_func) {
+  const fs::path case_dir =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "pipeline_cases" / "p02_simple_func";
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  const std::string err = styio::testing::run_pipeline_case(case_dir.string(), runner);
+  EXPECT_EQ(err, "") << err;
+}
+
+TEST(StyioFiveLayerPipeline, P03_write_file) {
+  const fs::path case_dir =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "pipeline_cases" / "p03_write_file";
+  const fs::path output_path("/tmp/styio_pipeline_out.txt");
+  const fs::path expected_output =
+    case_dir / "expected" / "output_file.txt";
+  fs::remove(output_path);
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  const std::string err = styio::testing::run_pipeline_case(case_dir.string(), runner);
+  EXPECT_EQ(err, "") << err;
+
+  ASSERT_TRUE(fs::exists(output_path));
+  EXPECT_EQ(read_text_file_latest(output_path), read_text_file_latest(expected_output));
+  fs::remove(output_path);
+}
+
+TEST(StyioFiveLayerPipeline, P04_read_file) {
+  const fs::path case_dir =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "pipeline_cases" / "p04_read_file";
+  const fs::path input_path("/tmp/styio_pipeline_in.txt");
+  const fs::path expected_input =
+    case_dir / "expected" / "input_file.txt";
+  {
+    std::ofstream out(input_path, std::ios::binary | std::ios::trunc);
+    out << read_text_file_latest(expected_input);
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  const std::string err = styio::testing::run_pipeline_case(case_dir.string(), runner);
+  EXPECT_EQ(err, "") << err;
+  fs::remove(input_path);
+}
+
+TEST(StyioFiveLayerPipeline, P05_snapshot_accum) {
+  const fs::path case_dir =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "pipeline_cases" / "p05_snapshot_accum";
+  const fs::path factor_path("/tmp/styio_pipeline_factor.txt");
+  const fs::path expected_factor =
+    case_dir / "expected" / "factor_file.txt";
+  {
+    std::ofstream out(factor_path, std::ios::binary | std::ios::trunc);
+    out << read_text_file_latest(expected_factor);
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  const std::string err = styio::testing::run_pipeline_case(case_dir.string(), runner);
+  EXPECT_EQ(err, "") << err;
+  fs::remove(factor_path);
+}
+
+TEST(StyioFiveLayerPipeline, P06_zip_files) {
+  const fs::path case_dir =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "pipeline_cases" / "p06_zip_files";
+  const fs::path input_a_path("/tmp/styio_zip_a.txt");
+  const fs::path input_b_path("/tmp/styio_zip_b.txt");
+  const fs::path expected_input_a =
+    case_dir / "expected" / "input_a.txt";
+  const fs::path expected_input_b =
+    case_dir / "expected" / "input_b.txt";
+  {
+    std::ofstream out(input_a_path, std::ios::binary | std::ios::trunc);
+    out << read_text_file_latest(expected_input_a);
+  }
+  {
+    std::ofstream out(input_b_path, std::ios::binary | std::ios::trunc);
+    out << read_text_file_latest(expected_input_b);
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  const std::string err = styio::testing::run_pipeline_case(case_dir.string(), runner);
+  EXPECT_EQ(err, "") << err;
+  fs::remove(input_a_path);
+  fs::remove(input_b_path);
+}
+
+TEST(StyioFiveLayerPipeline, P07_instant_pull) {
+  const fs::path case_dir =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "pipeline_cases" / "p07_instant_pull";
+  const fs::path input_path("/tmp/styio_pull_value.txt");
+  const fs::path expected_input =
+    case_dir / "expected" / "input_value.txt";
+  {
+    std::ofstream out(input_path, std::ios::binary | std::ios::trunc);
+    out << read_text_file_latest(expected_input);
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  const std::string err = styio::testing::run_pipeline_case(case_dir.string(), runner);
+  EXPECT_EQ(err, "") << err;
+  fs::remove(input_path);
+}
+
+TEST(StyioFiveLayerPipeline, P08_redirect_file) {
+  const fs::path case_dir =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "pipeline_cases" / "p08_redirect_file";
+  const fs::path output_path("/tmp/styio_pipeline_redirect.txt");
+  const fs::path expected_output =
+    case_dir / "expected" / "output_file.txt";
+  fs::remove(output_path);
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  const std::string err = styio::testing::run_pipeline_case(case_dir.string(), runner);
+  EXPECT_EQ(err, "") << err;
+
+  ASSERT_TRUE(fs::exists(output_path));
+  EXPECT_EQ(read_text_file_latest(output_path), read_text_file_latest(expected_output));
+  fs::remove(output_path);
+}
+
+TEST(StyioFiveLayerPipeline, P09_full_pipeline) {
+  const fs::path case_dir =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "pipeline_cases" / "p09_full_pipeline";
+  const fs::path input_path("/tmp/styio_pipeline_stream_input.txt");
+  const fs::path output_path("/tmp/styio_pipeline_stream_output.txt");
+  const fs::path expected_input =
+    case_dir / "expected" / "input_file.txt";
+  const fs::path expected_output =
+    case_dir / "expected" / "output_file.txt";
+  {
+    std::ofstream out(input_path, std::ios::binary | std::ios::trunc);
+    out << read_text_file_latest(expected_input);
+  }
+  fs::remove(output_path);
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  const std::string err = styio::testing::run_pipeline_case(case_dir.string(), runner);
+  EXPECT_EQ(err, "") << err;
+
+  ASSERT_TRUE(fs::exists(output_path));
+  EXPECT_EQ(read_text_file_latest(output_path), read_text_file_latest(expected_output));
+  fs::remove(input_path);
+  fs::remove(output_path);
+}
+
+TEST(StyioFiveLayerPipeline, P10_auto_detect_read) {
+  const fs::path case_dir =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "pipeline_cases" / "p10_auto_detect_read";
+  const fs::path input_path("/tmp/styio_pipeline_auto_input.txt");
+  const fs::path expected_input =
+    case_dir / "expected" / "input_file.txt";
+  {
+    std::ofstream out(input_path, std::ios::binary | std::ios::trunc);
+    out << read_text_file_latest(expected_input);
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  const std::string err = styio::testing::run_pipeline_case(case_dir.string(), runner);
+  EXPECT_EQ(err, "") << err;
+  fs::remove(input_path);
+}
+
+TEST(StyioFiveLayerPipeline, P11_pipe_func) {
+  const fs::path case_dir =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "pipeline_cases" / "p11_pipe_func";
+  const fs::path input_path("/tmp/styio_pipeline_numbers.txt");
+  const fs::path expected_input =
+    case_dir / "expected" / "input_file.txt";
+  {
+    std::ofstream out(input_path, std::ios::binary | std::ios::trunc);
+    out << read_text_file_latest(expected_input);
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  const std::string err = styio::testing::run_pipeline_case(case_dir.string(), runner);
+  EXPECT_EQ(err, "") << err;
+  fs::remove(input_path);
+}
+
+TEST(StyioFiveLayerPipeline, P12_stdin_echo) {
+  const fs::path case_dir =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "pipeline_cases" / "p12_stdin_echo";
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  const std::string err = styio::testing::run_pipeline_case(case_dir.string(), runner);
+  EXPECT_EQ(err, "") << err;
+}
+
+TEST(StyioFiveLayerPipeline, P13_stdin_transform) {
+  const fs::path case_dir =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "pipeline_cases" / "p13_stdin_transform";
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  const std::string err = styio::testing::run_pipeline_case(case_dir.string(), runner);
+  EXPECT_EQ(err, "") << err;
+}
+
+TEST(StyioFiveLayerPipeline, P14_stdin_pull) {
+  const fs::path case_dir =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "pipeline_cases" / "p14_stdin_pull";
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  const std::string err = styio::testing::run_pipeline_case(case_dir.string(), runner);
+  EXPECT_EQ(err, "") << err;
+}
+
+TEST(StyioFiveLayerPipeline, P15_stdin_mixed_output) {
+  const fs::path case_dir =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "pipeline_cases" / "p15_stdin_mixed_output";
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
   if (runner == nullptr || runner[0] == '\0') {
     runner = STYIO_COMPILER_EXE;
@@ -173,6 +433,52 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM2SimpleFuncSample) {
 TEST(StyioParserEngine, LegacyAndNightlyMatchOnM3MatchExprSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m3" / "t02_match_expr.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  ASSERT_EQ(legacy.exit_code, 0);
+  ASSERT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+}
+
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM4WaveMergeSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m4" / "t01_wave_merge.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  ASSERT_EQ(legacy.exit_code, 0);
+  ASSERT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+}
+
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM4WaveDispatchSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m4" / "t03_wave_dispatch.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -306,6 +612,30 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM5PipeFuncSample) {
   ASSERT_EQ(legacy.exit_code, 0);
   ASSERT_EQ(newer.exit_code, 0);
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+}
+
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnM9StdoutBoolSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m9" / "t04_stdout_bool.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  ASSERT_EQ(legacy.exit_code, 0);
+  ASSERT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+  EXPECT_EQ(newer.stdout_text, std::string("true\nfalse\n"));
 }
 
 TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7InstantPullSample) {
@@ -1368,6 +1698,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForListIteratorSubs
   std::getline(in, line);
   EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
   EXPECT_NE(line.find("primary_route=nightly_subset_statements=1,legacy_fallback_statements=0"), std::string::npos);
+  EXPECT_NE(line.find("nightly_internal_legacy_bridges=0"), std::string::npos);
 
   fs::remove(input);
   fs::remove_all(artifact_dir);

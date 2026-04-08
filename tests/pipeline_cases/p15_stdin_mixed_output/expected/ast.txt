@@ -1,0 +1,17 @@
+styio.ast.main {
+|- styio.ast.iterator {
+  |- iterable object: styio.ast.std_stream { @stdin }
+  |- styio.ast.arg { line : undefined }
+  |- styio.ast.block {
+    |- styio.ast.resource.write  {
+      |- data: styio.ast.binop: string {
+        |- LHS: styio.ast.string { "got: " }
+        |- OP : <Add>
+        |- RHS: line}
+      |- resource: styio.ast.std_stream { @stdout }}
+    |- styio.ast.resource.write  {
+      |- data: styio.ast.binop: string {
+        |- LHS: styio.ast.string { "processing: " }
+        |- OP : <Add>
+        |- RHS: line}
+      |- resource: styio.ast.std_stream { @stderr }}}}}

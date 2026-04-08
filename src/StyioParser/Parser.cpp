@@ -130,6 +130,37 @@ static StyioAST* parse_state_ref_suffix(StyioContext& context, StateRefAST* sr);
 static TypeAST* parse_styio_type(StyioContext& context);
 static StyioAST* parse_expr_postfix(StyioContext& context, StyioAST* lhs);
 
+static StyioAST*
+reassociate_add_into_resource_sink_latest_draft(
+  StyioOpType op,
+  StyioAST* lhs,
+  StyioAST* rhs
+) {
+  if (op != StyioOpType::Binary_Add) {
+    return BinOpAST::Create(op, lhs, rhs);
+  }
+
+  if (auto* write = dynamic_cast<ResourceWriteAST*>(rhs)) {
+    StyioAST* data = write->release_data_latest();
+    StyioAST* resource = write->release_resource_latest();
+    delete write;
+    return ResourceWriteAST::Create(
+      BinOpAST::Create(StyioOpType::Binary_Add, lhs, data),
+      resource);
+  }
+
+  if (auto* redirect = dynamic_cast<ResourceRedirectAST*>(rhs)) {
+    StyioAST* data = redirect->release_data_latest();
+    StyioAST* resource = redirect->release_resource_latest();
+    delete redirect;
+    return ResourceRedirectAST::Create(
+      BinOpAST::Create(StyioOpType::Binary_Add, lhs, data),
+      resource);
+  }
+
+  return BinOpAST::Create(op, lhs, rhs);
+}
+
 StyioAST*
 parse_name_and_following_unsafe(StyioContext& context) {
   auto name = NameAST::Create(context.cur_tok()->original);
@@ -195,6 +226,13 @@ parse_name_and_following_unsafe(StyioContext& context) {
 
     /* >> */
     case StyioTokenType::ITERATOR: {
+      const auto saved = context.save_cursor();
+      context.move_forward(1, "parse_name_and_following(ITERATOR_probe)");
+      context.skip();
+      if (context.check(StyioTokenType::TOK_AT)) {
+        return ResourceWriteAST::Create(name, parse_resource_file_atom_latest(context));
+      }
+      context.restore_cursor(saved);
       return parse_iterator_only_latest(context, name);
     } break;
 
@@ -657,6 +695,19 @@ parse_after_at_common(StyioContext& context, bool file_only_resource) {
     StyioAST* path = parse_braced_string_path(context);
     return FileResourceAST::Create(path, false);
   }
+  /* M9: @stdout / @stderr / @stdin */
+  if (context.check(StyioTokenType::NAME) && context.cur_tok()->original == "stdout") {
+    context.move_forward(1, "@stdout");
+    return StdStreamAST::Create(StdStreamKind::Stdout);
+  }
+  if (context.check(StyioTokenType::NAME) && context.cur_tok()->original == "stderr") {
+    context.move_forward(1, "@stderr");
+    return StdStreamAST::Create(StdStreamKind::Stderr);
+  }
+  if (context.check(StyioTokenType::NAME) && context.cur_tok()->original == "stdin") {
+    context.move_forward(1, "@stdin");
+    return StdStreamAST::Create(StdStreamKind::Stdin);
+  }
   if (context.check(StyioTokenType::TOK_LCURBRAC)) {
     StyioAST* path = parse_braced_string_path(context);
     return FileResourceAST::Create(path, true);
@@ -751,8 +802,12 @@ parse_resource_file_atom_latest(StyioContext& context) {
   context.match_panic(StyioTokenType::TOK_AT);
   context.skip();
   StyioAST* r = parse_after_at_common(context, true);
-  if (r->getNodeType() != StyioNodeType::FileResource) {
-    throw StyioSyntaxError(context.mark_cur_tok("expected @file{...} or @{...}"));
+  auto nt = r->getNodeType();
+  if (nt != StyioNodeType::FileResource
+      && nt != StyioNodeType::StdinResource
+      && nt != StyioNodeType::StdoutResource
+      && nt != StyioNodeType::StderrResource) {
+    throw StyioSyntaxError(context.mark_cur_tok("expected @file{...}, @{...}, @stdout, @stderr, or @stdin"));
   }
   return r;
 }
@@ -1466,7 +1521,9 @@ parse_expr_postfix(StyioContext& context, StyioAST* lhs) {
     }
     if (context.match(StyioTokenType::ITERATOR)) {
       context.skip();
-      /* Write: data flows into the file — `expr >> @file{...}` (@{.} allowed). */
+      /* Resource-write shorthand: `expr >> @resource`.
+         For file/auto resources this is file write; for @stdout/@stderr it is an
+         accepted standard-stream write shorthand that lowers like `expr -> @stream`. */
       if (context.check(StyioTokenType::TOK_AT)) {
         lhs = ResourceWriteAST::Create(lhs, parse_resource_file_atom_latest(context));
       }
@@ -1564,13 +1621,18 @@ parse_binop_item(StyioContext& context) {
         context.move_forward(1, "instant<<");
         context.skip();
         StyioAST* ratom = parse_resource_file_atom_latest(context);
-        auto* fr = dynamic_cast<FileResourceAST*>(ratom);
-        if (fr == nullptr) {
-          throw StyioSyntaxError(context.mark_cur_tok("instant pull needs @file{...} or @{...}"));
+        /* Accept file resources and @stdin for instant pull (M10). */
+        auto rnt = ratom->getNodeType();
+        if (rnt != StyioNodeType::FileResource
+            && rnt != StyioNodeType::StdinResource
+            && rnt != StyioNodeType::StdoutResource
+            && rnt != StyioNodeType::StderrResource) {
+          delete ratom;
+          throw StyioSyntaxError(context.mark_cur_tok("instant pull needs @file{...}, @{...}, or @stdin"));
         }
         context.skip();
         context.try_match_panic(StyioTokenType::TOK_RPAREN);
-        output = InstantPullAST::Create(fr);
+        output = InstantPullAST::Create(ratom);
         output = parse_arithmetic_tail_from_atom(context, output);
       }
       else {
@@ -2411,13 +2473,13 @@ parse_loop(StyioContext& context) {
   the outer part should know where to create binop,
   and this information comes from the internal part.
 */
-BinOpAST*
+StyioAST*
 parse_binop_rhs(
   StyioContext& context,
   StyioAST* lhs_ast,
   StyioOpType curr_token
 ) {
-  BinOpAST* output;
+  StyioAST* output;
 
   context.skip();
   StyioAST* rhs_ast = parse_binop_item(context);
@@ -2463,7 +2525,7 @@ parse_binop_rhs(
     } break;
 
     default: {
-      return BinOpAST::Create(curr_token, lhs_ast, rhs_ast);
+      return reassociate_add_into_resource_sink_latest_draft(curr_token, lhs_ast, rhs_ast);
     } break;
   }
 
@@ -2481,11 +2543,10 @@ parse_binop_rhs(
   else {
     output = parse_binop_rhs(
       context,
-      BinOpAST::Create(
+      reassociate_add_into_resource_sink_latest_draft(
         curr_token,
         lhs_ast,
-        rhs_ast
-      ),
+        rhs_ast),
       next_token
     );
   }

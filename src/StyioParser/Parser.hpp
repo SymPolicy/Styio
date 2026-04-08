@@ -1250,7 +1250,7 @@ parse_binop_item(StyioContext& context);
 /*
   parse_binop_rhs
 */
-BinOpAST*
+StyioAST*
 parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast, StyioOpType curr_tok);
 
 /*

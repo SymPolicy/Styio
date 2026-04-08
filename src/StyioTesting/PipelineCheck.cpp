@@ -1,6 +1,8 @@
 #include "StyioTesting/PipelineCheck.hpp"
 
+#include <atomic>
 #include <array>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -66,6 +68,43 @@ capture_subprocess_stdout(const std::string& cmd) {
   }
   pclose(pipe);
   return out;
+}
+
+struct SubprocessCaptureLatest
+{
+  std::string stdout_text;
+  std::string stderr_text;
+};
+
+fs::path
+make_capture_path_latest(const char* suffix) {
+  static std::atomic<unsigned long long> seq{0};
+  const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+  return fs::temp_directory_path()
+    / ("styio-pipeline-" + std::to_string(stamp) + "-" + std::to_string(seq.fetch_add(1)) + suffix);
+}
+
+SubprocessCaptureLatest
+capture_subprocess_output_latest(const std::string& cmd) {
+  const fs::path stdout_path = make_capture_path_latest(".stdout.txt");
+  const fs::path stderr_path = make_capture_path_latest(".stderr.txt");
+  const std::string wrapped =
+    "(" + cmd + ") > \"" + stdout_path.string() + "\" 2> \"" + stderr_path.string() + "\"";
+
+  (void)std::system(wrapped.c_str());
+
+  SubprocessCaptureLatest capture;
+  if (fs::exists(stdout_path)) {
+    capture.stdout_text = read_text_file(stdout_path);
+  }
+  if (fs::exists(stderr_path)) {
+    capture.stderr_text = read_text_file(stderr_path);
+  }
+
+  std::error_code ec;
+  fs::remove(stdout_path, ec);
+  fs::remove(stderr_path, ec);
+  return capture;
 }
 
 std::string
@@ -166,6 +205,11 @@ normalize_llvm_module_text(std::string& s) {
   s = std::move(out);
 }
 
+StyioParserEngine
+pipeline_parser_engine_latest() {
+  return StyioParserEngine::Nightly;
+}
+
 } // namespace
 
 std::string
@@ -210,7 +254,7 @@ run_pipeline_case(const std::string& case_dir, const char* layer5_compiler_exe) 
 
     MainBlockAST* ast = nullptr;
     try {
-      ast = parse_main_block_legacy(*ctx);
+      ast = parse_main_block_with_engine_latest(*ctx, pipeline_parser_engine_latest(), nullptr);
     } catch (const StyioBaseException& ex) {
       for (auto* t : token_list) {
         delete t;
@@ -290,9 +334,14 @@ run_pipeline_case(const std::string& case_dir, const char* layer5_compiler_exe) 
     }
 
     if (layer5_compiler_exe != nullptr && std::string(layer5_compiler_exe)[0] != '\0') {
-      const std::string cmd = std::string("\"") + layer5_compiler_exe + "\" --file \"" + input.string()
-        + "\" 2>/dev/null";
-      std::string got_out = capture_subprocess_stdout(cmd);
+      const fs::path stdin_fixture = root / "stdin.txt";
+      const fs::path stderr_fixture = gold / "stderr.txt";
+      std::string cmd = std::string("\"") + layer5_compiler_exe + "\" --file \"" + input.string() + "\"";
+      if (fs::exists(stdin_fixture)) {
+        cmd += " < \"" + stdin_fixture.string() + "\"";
+      }
+      SubprocessCaptureLatest capture = capture_subprocess_output_latest(cmd);
+      std::string got_out = capture.stdout_text;
       std::string exp_out = read_text_file(gold / "stdout.txt");
       normalize_text(got_out);
       normalize_text(exp_out);
@@ -306,6 +355,24 @@ run_pipeline_case(const std::string& case_dir, const char* layer5_compiler_exe) 
         StyioAST::destroy_all_tracked_nodes();
         return std::string("Layer 5 (run stdout): ")
           + first_text_diff(got_out, exp_out, "stdout.txt");
+      }
+
+      if (fs::exists(stderr_fixture)) {
+        std::string got_err = capture.stderr_text;
+        std::string exp_err = read_text_file(stderr_fixture);
+        normalize_text(got_err);
+        normalize_text(exp_err);
+        if (got_err != exp_err) {
+          for (auto* t : token_list) {
+            delete t;
+          }
+          delete ctx;
+          delete ast;
+          delete ir;
+          StyioAST::destroy_all_tracked_nodes();
+          return std::string("Layer 5 (run stderr): ")
+            + first_text_diff(got_err, exp_err, "stderr.txt");
+        }
       }
     }
 

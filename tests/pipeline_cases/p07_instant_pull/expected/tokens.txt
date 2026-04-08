@@ -1,0 +1,30 @@
+<ID>	x
+ 	 
+=	=
+ 	 
+<INT>	1
+<LF>	\n
+<ID>	result
+ 	 
+=	=
+ 	 
+<ID>	x
+ 	 
++	+
+ 	 
+(	(
+<<	<<
+ 	 
+@	@
+<ID>	file
+{	{
+<STRING>	"/tmp/styio_pull_value.txt"
+}	}
+)	)
+<LF>	\n
+>_	>_
+(	(
+<ID>	result
+)	)
+<LF>	\n
+<EOF>	

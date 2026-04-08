@@ -413,11 +413,21 @@ private:
     switch (type) {
       case StyioTokenType::TOK_LBOXBRAC:
         return !has_linebreak_before_current_latest_draft();
+      case StyioTokenType::WAVE_LEFT:
+      case StyioTokenType::WAVE_RIGHT:
       case StyioTokenType::TOK_PIPE:
+      case StyioTokenType::TOK_EQUAL:
+      case StyioTokenType::WALRUS:
+      case StyioTokenType::TOK_COLON:
       case StyioTokenType::ARROW_SINGLE_LEFT:
       case StyioTokenType::ARROW_SINGLE_RIGHT:
       case StyioTokenType::ITERATOR:
       case StyioTokenType::EXTRACTOR:
+      case StyioTokenType::COMPOUND_ADD:
+      case StyioTokenType::COMPOUND_SUB:
+      case StyioTokenType::COMPOUND_MUL:
+      case StyioTokenType::COMPOUND_DIV:
+      case StyioTokenType::COMPOUND_MOD:
         return true;
       default:
         return false;
@@ -441,6 +451,8 @@ private:
         if (context_.cur_tok_type() != StyioTokenType::TOK_AT) {
           throw StyioSyntaxError("unsupported '>>' continuation in nightly parser subset");
         }
+        /* Nightly subset accepts the same resource-write shorthand as legacy:
+           `expr >> @file{...}` and `expr >> @stdout/@stderr`. */
         owner.reset(ResourceWriteAST::Create(owner.release(), parse_resource_file_atom_latest(context_)));
         continue;
       }
@@ -540,6 +552,16 @@ private:
     return NameAST::Create(name);
   }
 
+  StyioAST* parse_state_ref_nightly_draft() {
+    context_.move_forward(1, "new_expr:$");
+    context_.skip();
+    if (context_.cur_tok_type() != StyioTokenType::NAME) {
+      throw StyioSyntaxError(context_.mark_cur_tok("expected name after $ in nightly parser subset"));
+    }
+    NameAST* name = parse_name_unsafe(context_);
+    return StateRefAST::Create(name);
+  }
+
   StyioAST* parse_primary() {
     context_.skip();
 
@@ -567,6 +589,9 @@ private:
         context_.move_forward(1, "new_expr:name");
         return parse_name_family(name);
       }
+      case StyioTokenType::TOK_DOLLAR: {
+        return parse_state_ref_nightly_draft();
+      }
       case StyioTokenType::TOK_LPAREN: {
         context_.move_forward(1, "new_expr:(");
         context_.skip();
@@ -574,16 +599,21 @@ private:
           context_.move_forward(1, "new_expr:instant_pull");
           context_.skip();
           StyioAST* ratom = parse_resource_file_atom_latest(context_);
-          auto* fr = dynamic_cast<FileResourceAST*>(ratom);
-          if (fr == nullptr) {
-            throw StyioSyntaxError(context_.mark_cur_tok("instant pull needs @file{...} or @{...}"));
+          /* Accept file resources and @stdin for instant pull (M10). */
+          auto rnt = ratom->getNodeType();
+          if (rnt != StyioNodeType::FileResource
+              && rnt != StyioNodeType::StdinResource
+              && rnt != StyioNodeType::StdoutResource
+              && rnt != StyioNodeType::StderrResource) {
+            delete ratom;
+            throw StyioSyntaxError(context_.mark_cur_tok("instant pull needs @file{...}, @{...}, or @stdin"));
           }
           context_.skip();
           if (!context_.match(StyioTokenType::TOK_RPAREN)) {
-            delete fr;
+            delete ratom;
             throw StyioSyntaxError("expected ')' after instant pull in nightly parser subset");
           }
-          return InstantPullAST::Create(fr);
+          return InstantPullAST::Create(ratom);
         }
         StyioAST* inner = parse_full_expression();
         context_.skip();
@@ -672,6 +702,7 @@ styio_parser_expr_subset_token_nightly(StyioTokenType type) {
     case StyioTokenType::DECIMAL:
     case StyioTokenType::STRING:
     case StyioTokenType::NAME:
+    case StyioTokenType::TOK_DOLLAR:
     case StyioTokenType::TOK_LBOXBRAC:
     case StyioTokenType::TOK_LPAREN:
     case StyioTokenType::TOK_RPAREN:
@@ -708,6 +739,7 @@ styio_parser_expr_subset_start_nightly(StyioTokenType type) {
     case StyioTokenType::DECIMAL:
     case StyioTokenType::STRING:
     case StyioTokenType::NAME:
+    case StyioTokenType::TOK_DOLLAR:
     case StyioTokenType::TOK_LBOXBRAC:
     case StyioTokenType::TOK_LPAREN:
     case StyioTokenType::TOK_PLUS:
@@ -1008,6 +1040,9 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
   if (context.cur_tok_type() == StyioTokenType::NAME) {
     const auto saved = context.save_cursor();
     const std::string id = context.cur_tok()->original;
+    if (id == "true" || id == "false") {
+      return parse_expr_subset_nightly(context);
+    }
     context.move_forward(1, "new_stmt:name_probe");
     context.skip();
     if (context.cur_tok_type() == StyioTokenType::TOK_COLON) {
@@ -1050,6 +1085,15 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
         parse_resource_file_atom_latest(context));
     }
     if (context.cur_tok_type() == StyioTokenType::ITERATOR) {
+      const auto saved_iter = context.save_cursor();
+      context.move_forward(1, "new_stmt:iterator_probe");
+      context.skip();
+      if (context.cur_tok_type() == StyioTokenType::TOK_AT) {
+        return ResourceWriteAST::Create(
+          NameAST::Create(id),
+          parse_resource_file_atom_latest(context));
+      }
+      context.restore_cursor(saved_iter);
       return parse_iterator_only_nightly_draft(context, NameAST::Create(id));
     }
     StyioOpType cop = StyioOpType::Undefined;

@@ -75,6 +75,7 @@ using StyioToStringVisitor = ToStringVisitor<
   class EqProbeAST,
 
   class FileResourceAST,
+  class StdStreamAST,
   class HandleAcquireAST,
   class ResourceWriteAST,
   class ResourceRedirectAST,
@@ -234,6 +235,7 @@ public:
   std::string toString(EqProbeAST* ast, int indent = 0);
 
   std::string toString(FileResourceAST* ast, int indent = 0);
+  std::string toString(StdStreamAST* ast, int indent = 0);
   std::string toString(HandleAcquireAST* ast, int indent = 0);
   std::string toString(ResourceWriteAST* ast, int indent = 0);
   std::string toString(ResourceRedirectAST* ast, int indent = 0);
@@ -369,6 +371,9 @@ public:
   std::string toString(SGSnapshotShadowLoad* node, int indent = 0);
   std::string toString(SGInstantPull* node, int indent = 0);
   std::string toString(SGResourceWriteToFile* node, int indent = 0);
+  std::string toString(SIOStdStreamWrite* node, int indent = 0);
+  std::string toString(SIOStdStreamLineIter* node, int indent = 0);
+  std::string toString(SIOStdStreamPull* node, int indent = 0);
 
   std::string toString(SIOPath* node, int indent = 0);
   std::string toString(SIOPrint* node, int indent = 0);

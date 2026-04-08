@@ -1,0 +1,3 @@
+// M10 / T10.10: Handle acquire on @stdin (semantic error)
+
+f <- @stdin

@@ -130,6 +130,9 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SGSnapshotShadowLoad,
   class SGInstantPull,
   class SGResourceWriteToFile,
+  class SIOStdStreamWrite,
+  class SIOStdStreamLineIter,
+  class SIOStdStreamPull,
 
   class SGBlock,
   class SGEntry,
@@ -268,6 +271,9 @@ public:
   llvm::Type* toLLVMType(SGSnapshotShadowLoad* node);
   llvm::Type* toLLVMType(SGInstantPull* node);
   llvm::Type* toLLVMType(SGResourceWriteToFile* node);
+  llvm::Type* toLLVMType(SIOStdStreamWrite* node);
+  llvm::Type* toLLVMType(SIOStdStreamLineIter* node);
+  llvm::Type* toLLVMType(SIOStdStreamPull* node);
 
   // llvm::Type* toLLVMType(SGIfElse* node);
   // llvm::Type* toLLVMType(SGForLoop* node);
@@ -336,6 +342,9 @@ public:
   llvm::Value* toLLVMIR(SGSnapshotShadowLoad* node);
   llvm::Value* toLLVMIR(SGInstantPull* node);
   llvm::Value* toLLVMIR(SGResourceWriteToFile* node);
+  llvm::Value* toLLVMIR(SIOStdStreamWrite* node);
+  llvm::Value* toLLVMIR(SIOStdStreamLineIter* node);
+  llvm::Value* toLLVMIR(SIOStdStreamPull* node);
 
   // llvm::Value* toLLVMIR(SGIfElse* node);
   // llvm::Value* toLLVMIR(SGForLoop* node);

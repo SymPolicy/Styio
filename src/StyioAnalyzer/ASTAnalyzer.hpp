@@ -85,6 +85,7 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
   class EqProbeAST,
 
   class FileResourceAST,
+  class StdStreamAST,
   class HandleAcquireAST,
   class ResourceWriteAST,
   class ResourceRedirectAST,
@@ -235,6 +236,7 @@ public:
   void typeInfer(GuardSelectorAST* ast);
   void typeInfer(EqProbeAST* ast);
   void typeInfer(FileResourceAST* ast);
+  void typeInfer(StdStreamAST* ast);
   void typeInfer(HandleAcquireAST* ast);
   void typeInfer(ResourceWriteAST* ast);
   void typeInfer(ResourceRedirectAST* ast);
@@ -318,6 +320,7 @@ public:
   StyioIR* toStyioIR(GuardSelectorAST* ast);
   StyioIR* toStyioIR(EqProbeAST* ast);
   StyioIR* toStyioIR(FileResourceAST* ast);
+  StyioIR* toStyioIR(StdStreamAST* ast);
   StyioIR* toStyioIR(HandleAcquireAST* ast);
   StyioIR* toStyioIR(ResourceWriteAST* ast);
   StyioIR* toStyioIR(ResourceRedirectAST* ast);

@@ -228,6 +228,7 @@ class PrintAST;
 class ReadFileAST;
 
 class FileResourceAST;
+class StdStreamAST;
 class HandleAcquireAST;
 class ResourceWriteAST;
 class ResourceRedirectAST;
