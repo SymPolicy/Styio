@@ -12,7 +12,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install dependencies
         run: |
@@ -73,7 +73,7 @@ jobs:
 
       - name: Upload fuzz artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: nightly-fuzz-artifacts
           path: fuzz-artifacts/
@@ -81,7 +81,7 @@ jobs:
 
       - name: Upload fuzz regression packs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: nightly-fuzz-regressions
           path: fuzz-regressions/
