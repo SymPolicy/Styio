@@ -57,6 +57,18 @@
 // [Others]
 #include "include/cxxopts.hpp" /* https://github.com/jarro2783/cxxopts */
 
+#ifndef STYIO_PROJECT_VERSION
+#define STYIO_PROJECT_VERSION "0.0.0-dev"
+#endif
+
+#ifndef STYIO_RELEASE_CHANNEL
+#define STYIO_RELEASE_CHANNEL "dev"
+#endif
+
+#ifndef STYIO_EDITION_MAX
+#define STYIO_EDITION_MAX "2026"
+#endif
+
 extern "C" void
 hello_world() {
   std::cout << "hello, world!" << std::endl;
@@ -286,6 +298,22 @@ styio_error_jsonl_enabled(const std::string& fmt) {
 }
 
 static void
+styio_emit_machine_info_json() {
+  std::cout
+    << "{\"tool\":\"styio\""
+    << ",\"compiler_version\":\"" << styio_json_escape(STYIO_PROJECT_VERSION) << "\""
+    << ",\"channel\":\"" << styio_json_escape(STYIO_RELEASE_CHANNEL) << "\""
+    << ",\"supported_contracts\":{\"compile_plan\":[]}"
+    << ",\"capabilities\":["
+    << "\"machine_info_json\","
+    << "\"single_file_entry\","
+    << "\"jsonl_diagnostics\""
+    << "]"
+    << ",\"edition_max\":\"" << styio_json_escape(STYIO_EDITION_MAX) << "\""
+    << "}\n";
+}
+
+static void
 styio_emit_diagnostic(
   const std::string& format,
   StyioErrorCategory category,
@@ -483,6 +511,9 @@ main(
   options.add_options()(
     "debug", "Debug Mode", cxxopts::value<bool>()->default_value("false")
   )(
+    "machine-info", "Emit machine-readable compiler metadata. Supported format: json",
+    cxxopts::value<std::string>()
+  )(
     "error-format", "Diagnostic output format: text|jsonl",
     cxxopts::value<std::string>()->default_value("text")
   )(
@@ -510,6 +541,16 @@ main(
 
   if (cmlopts.count("help")) {
     std::cout << options.help() << std::endl;
+    return static_cast<int>(StyioExitCode::Success);
+  }
+
+  if (cmlopts.count("machine-info")) {
+    const std::string machine_info_format = cmlopts["machine-info"].as<std::string>();
+    if (machine_info_format != "json") {
+      std::cerr << "[CliError] unsupported --machine-info format: " << machine_info_format << std::endl;
+      return static_cast<int>(StyioExitCode::CliError);
+    }
+    styio_emit_machine_info_json();
     return static_cast<int>(StyioExitCode::Success);
   }
 

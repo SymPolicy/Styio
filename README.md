@@ -1,50 +1,78 @@
 # Styio
 
-**文档作用：** 仓库入口（CLI 示例与测试脚手架脚本）；语言规格、里程碑与文档维护准则见 `docs/`（建议先读 [`docs/README.md`](docs/README.md)、[`docs/specs/DOCUMENTATION-POLICY.md`](docs/specs/DOCUMENTATION-POLICY.md) §0、[`docs/assets/workflow/CHECKPOINT-WORKFLOW.md`](docs/assets/workflow/CHECKPOINT-WORKFLOW.md) 与 [`docs/specs/AGENT-SPEC.md`](docs/specs/AGENT-SPEC.md)）。
+Styio 是一个面向流式处理、资源调度与意图表达的符号化语言。它试图用更少的自然语言关键字、更直接的符号系统和更贴近数据流/资源流的抽象，表达高性能的数据处理逻辑。
 
-## Build
-```bash
-cmake -S . -B build
-cmake --build build
-```
+当前仓库是 Styio 的主仓库，承载语言与编译器实现本体。
 
-## Optional Dependencies
-- 默认不依赖 ICU（`STYIO_USE_ICU=OFF`）。
-- 若需要启用 ICU-backed Unicode 分类（`StyioUnicode`）和 cxxopts Unicode 帮助文本，可启用：
-```bash
-cmake -S . -B build -DSTYIO_USE_ICU=ON
-cmake --build build
-```
-- 若在 macOS + Homebrew（`icu4c` 为 keg-only）环境中找不到 ICU，可加：
-```bash
-cmake -S . -B build -DSTYIO_USE_ICU=ON -DICU_ROOT=/opt/homebrew/opt/icu4c
-```
+> Status: Early stage. Styio 仍处于快速演进阶段，生态仓库多数仍在启动或补文档阶段。
 
-# Command-Line Arguments
-```
-./build/bin/styio --styio-ast --styio-ir --llvm-ir --file a.styio
-```
+## Styio 是什么
 
-## Diagnostics
+- 一门面向流、脉冲、状态和资源拓扑的语言。
+- 一套基于 LLVM 的编译器实现。
+- 一个正在形成中的生态，包括包管理、开发文档、标准环境、示例工程、可视化和编辑器扩展。
 
-- 默认：`--error-format=text`，错误输出到 `stderr`。
-- 机器可读：`--error-format=jsonl`，每条错误输出一行 JSON。
+## 快速感受
+
+如果你已经在本地构建了 `styio`，可以直接试一下这个示例：
 
 ```bash
-./build/bin/styio --error-format=jsonl --file tests/milestones/m5/t06_fail_fast.styio 2>&1
+./sample/cli_calculator.sh "1 + 2 * (3 + 4)"
 ```
 
-```json
-{"category":"RuntimeError","code":"STYIO_RUNTIME","subcode":"STYIO_RUNTIME_FILE_OPEN_READ","file":"...","message":"cannot open file for read: ..."}
+这个脚本会临时生成如下形状的 Styio 程序：
+
+```styio
+>_(1 + 2 * (3 + 4))
 ```
 
-- `category`：`LexError|ParseError|TypeError|RuntimeError`
-- `code`：`STYIO_LEX|STYIO_PARSE|STYIO_TYPE|STYIO_RUNTIME`
-- `subcode`：仅在细分类可用时输出（当前 runtime 子类会输出稳定 `subcode`）
+输出应为：
 
-### extend_tests.py
-Python script for creating test files.
+```text
+15
+```
 
+如果你想直接运行一个仓库内的基础样例：
+
+```bash
+./build/bin/styio --file tests/milestones/m1/t01_int_arith.styio
 ```
-python3 extend_tests.py
-```
+
+## 生态入口
+
+| Repository | Role |
+| --- | --- |
+| [styio-spio](https://github.com/SymPolicy/styio-spio) | 包管理器 |
+| [Unka-Malloc-doc](https://github.com/SymPolicy/Unka-Malloc-doc) | 开发者文档 |
+| [Unka-Malloc-env](https://github.com/SymPolicy/Unka-Malloc-env) | 标准开发环境 |
+| [styio-book](https://github.com/SymPolicy/styio-book) | 产品白皮书 |
+| [styio-view](https://github.com/SymPolicy/styio-view) | 可视化页面 |
+| [styio-examples](https://github.com/SymPolicy/styio-examples) | 示例工程集合 |
+| [styio-ext-vsc](https://github.com/SymPolicy/styio-ext-vsc) | VS Code 插件 |
+
+## 开发者入口
+
+如果你想做以下事情：
+
+- 构建 Styio 编译器
+- 阅读开发文档
+- 参与贡献
+- 了解测试、文档规则和开发环境
+
+请直接前往 [Unka-Malloc-doc](https://github.com/SymPolicy/Unka-Malloc-doc)。
+
+这个主仓库的 `README.md` 现在只保留用户入口信息；开发者导向内容不再放在首页展开。
+
+## 当前仓库包含什么
+
+- `src/`：Styio 编译器与 CLI 实现
+- `tests/`：里程碑、流水线、安全性与回归测试
+- `sample/`：最小样例与脚本
+- `docs/`：主仓库内部设计、规格、ADR 与历史文档
+
+## 进一步阅读
+
+- 产品与愿景： [styio-book](https://github.com/SymPolicy/styio-book)
+- 示例工程： [styio-examples](https://github.com/SymPolicy/styio-examples)
+- 编辑器支持： [styio-ext-vsc](https://github.com/SymPolicy/styio-ext-vsc)
+- 生态边界说明： [docs/specs/REPOSITORY-MAP.md](docs/specs/REPOSITORY-MAP.md)

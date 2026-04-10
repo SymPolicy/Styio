@@ -77,6 +77,11 @@ target_link_libraries(styio_core PUBLIC ${LLVM_LIBS})
 add_executable(styio src/main.cpp)
 target_include_directories(styio SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(styio PRIVATE ${LLVM_DEFINITIONS_LIST})
+target_compile_definitions(styio PRIVATE
+  "STYIO_PROJECT_VERSION=\"${PROJECT_VERSION}\""
+  "STYIO_RELEASE_CHANNEL=\"stable\""
+  "STYIO_EDITION_MAX=\"2026\""
+)
 target_link_libraries(styio PRIVATE styio_core)
 
 if(STYIO_USE_ICU)

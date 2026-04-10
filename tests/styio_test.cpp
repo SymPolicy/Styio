@@ -338,6 +338,26 @@ TEST(StyioFiveLayerPipeline, P15_stdin_mixed_output) {
   EXPECT_EQ(err, "") << err;
 }
 
+TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd = std::string("\"") + runner + "\" --machine-info=json";
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"tool\":\"styio\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"compiler_version\":\"0.0.1\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"channel\":\"stable\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"supported_contracts\":{\"compile_plan\":[]}"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"machine_info_json\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"single_file_entry\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"jsonl_diagnostics\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"edition_max\":\"2026\""), std::string::npos);
+}
+
 TEST(StyioParserEngine, LegacyAndNightlyMatchOnM1Sample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t01_int_arith.styio";

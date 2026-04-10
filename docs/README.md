@@ -2,12 +2,12 @@
 
 **Purpose:** Define the boundary of the `docs/` tree and point readers to the generated inventory in [INDEX.md](./INDEX.md); detailed file listings live in directory-level `INDEX.md` files, not here.
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-04-10
 
 ## Tree Contract
 
 1. Design-level SSOT lives in `docs/design/`.
-2. Contributor, agent, dependency, and documentation rules live in `docs/specs/`.
+2. Contributor, agent, repository-boundary, dependency, and documentation rules live in `docs/specs/`.
 3. Review findings and open conflicts live in `docs/review/`.
 4. Plans and migration drafts live in `docs/plans/`.
 5. Reusable workflows and templates live in `docs/assets/`.
@@ -16,10 +16,11 @@
 ## Entry Points
 
 1. Directory inventory: [INDEX.md](./INDEX.md)
-2. Documentation policy: [specs/DOCUMENTATION-POLICY.md](./specs/DOCUMENTATION-POLICY.md)
-3. Agent/contributor rules: [specs/AGENT-SPEC.md](./specs/AGENT-SPEC.md)
-4. Workflow assets: [assets/INDEX.md](./assets/INDEX.md)
-5. Design SSOT: [design/INDEX.md](./design/INDEX.md)
+2. Repository ecosystem map: [specs/REPOSITORY-MAP.md](./specs/REPOSITORY-MAP.md)
+3. Documentation policy: [specs/DOCUMENTATION-POLICY.md](./specs/DOCUMENTATION-POLICY.md)
+4. Agent/contributor rules: [specs/AGENT-SPEC.md](./specs/AGENT-SPEC.md)
+5. Workflow assets: [assets/INDEX.md](./assets/INDEX.md)
+6. Design SSOT: [design/INDEX.md](./design/INDEX.md)
 
 ## Maintenance Rules
 
