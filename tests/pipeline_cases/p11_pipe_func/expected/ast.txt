@@ -10,6 +10,7 @@ styio.ast.main {
     |- RHS: { 2 : int }}}
 |- styio.ast.handle.acquire  {
   |- var: styio.ast.var { f : undefined }
+  |- mode: final
   |- resource: styio.ast.resource.file  {
     |- auto_detect: false
     |- path: styio.ast.string { "/tmp/styio_pipeline_numbers.txt" }}}

@@ -3,6 +3,7 @@
 #define STYIO_AST_ANALYZER_VISITOR_H_
 
 // [STL]
+#include <cstdint>
 #include <iostream>
 #include <string>
 #include <unordered_map>
@@ -72,6 +73,7 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
 
   class FlexBindAST,
   class FinalBindAST,
+  class ParallelAssignAST,
 
   class BinCompAST,
   class CondAST,
@@ -111,6 +113,7 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
   class StreamZipAST,
   class SnapshotDeclAST,
   class InstantPullAST,
+  class TypedStdinListAST,
   class IterSeqAST,
   class InfiniteLoopAST,
 
@@ -250,6 +253,7 @@ public:
   void typeInfer(ResourceAST* ast);
   void typeInfer(FlexBindAST* ast);
   void typeInfer(FinalBindAST* ast);
+  void typeInfer(ParallelAssignAST* ast);
   void typeInfer(StructAST* ast);
   void typeInfer(ReadFileAST* ast);
   void typeInfer(PrintAST* ast);
@@ -272,6 +276,7 @@ public:
   void typeInfer(StreamZipAST* ast);
   void typeInfer(SnapshotDeclAST* ast);
   void typeInfer(InstantPullAST* ast);
+  void typeInfer(TypedStdinListAST* ast);
   void typeInfer(IterSeqAST* ast);
   void typeInfer(MatchCasesAST* ast);
   void typeInfer(MainBlockAST* ast);
@@ -334,6 +339,7 @@ public:
   StyioIR* toStyioIR(ResourceAST* ast);
   StyioIR* toStyioIR(FlexBindAST* ast);
   StyioIR* toStyioIR(FinalBindAST* ast);
+  StyioIR* toStyioIR(ParallelAssignAST* ast);
   StyioIR* toStyioIR(StructAST* ast);
   StyioIR* toStyioIR(ReadFileAST* ast);
   StyioIR* toStyioIR(PrintAST* ast);
@@ -356,11 +362,30 @@ public:
   StyioIR* toStyioIR(StreamZipAST* ast);
   StyioIR* toStyioIR(SnapshotDeclAST* ast);
   StyioIR* toStyioIR(InstantPullAST* ast);
+  StyioIR* toStyioIR(TypedStdinListAST* ast);
   StyioIR* toStyioIR(IterSeqAST* ast);
   StyioIR* toStyioIR(MatchCasesAST* ast);
   StyioIR* toStyioIR(MainBlockAST* ast);
 
 private:
+  enum class BindingValueKind : std::uint8_t {
+    Unknown = 0,
+    Bool,
+    I64,
+    F64,
+    String,
+    ListI64,
+  };
+
+  struct BindingInfo
+  {
+    bool final_slot = false;
+    bool dynamic_slot = false;
+    bool resource_value = false;
+    BindingValueKind value_kind = BindingValueKind::Unknown;
+    StyioDataType declared_type{StyioDataTypeOption::Undefined, "undefined", 0};
+  };
+
   SGPulsePlan* cur_pulse_plan_ = nullptr;
   int active_series_slot_ = -1;
   int post_pulse_hist_region_ = -1;
@@ -368,6 +393,7 @@ private:
   std::unordered_set<std::string> snapshot_var_names_;
   /* Names bound by final assignment (x : T := …); may not be reassigned via flex (=). */
   std::unordered_set<std::string> fixed_assignment_names_;
+  std::unordered_map<std::string, BindingInfo> binding_info_;
 };
 
 #endif

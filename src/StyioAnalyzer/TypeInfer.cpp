@@ -214,6 +214,114 @@ StyioAnalyzer::typeInfer(FlexBindAST* ast) {
       "cannot reassign with `=` (flex bind). Use a different name.");
   }
 
+  auto reject_plain_resource_copy = [&](StyioAST* expr) {
+    auto* src = dynamic_cast<NameAST*>(expr);
+    if (src == nullptr) {
+      return;
+    }
+    auto it = binding_info_.find(src->getAsStr());
+    if (it != binding_info_.end() && it->second.resource_value) {
+      throw StyioTypeError(
+        "resource `" + src->getAsStr()
+        + "` cannot be copied with `=`; use `<-` or `<<` to clone it");
+    }
+  };
+
+  auto expr_value_kind = [&](StyioAST* expr) -> BindingValueKind {
+    switch (expr->getNodeType()) {
+      case StyioNodeType::Bool:
+      case StyioNodeType::Condition:
+      case StyioNodeType::Compare:
+        return BindingValueKind::Bool;
+      case StyioNodeType::Integer:
+        return BindingValueKind::I64;
+      case StyioNodeType::Float:
+        return BindingValueKind::F64;
+      case StyioNodeType::String:
+        return BindingValueKind::String;
+      case StyioNodeType::TypedStdinList:
+        return BindingValueKind::ListI64;
+      case StyioNodeType::Attribute:
+      case StyioNodeType::Access_By_Index:
+        return BindingValueKind::I64;
+      case StyioNodeType::BinOp: {
+        StyioDataType ty = static_cast<BinOpAST*>(expr)->getType();
+        if (ty.option == StyioDataTypeOption::String) {
+          return BindingValueKind::String;
+        }
+        if (ty.option == StyioDataTypeOption::Float) {
+          return BindingValueKind::F64;
+        }
+        if (ty.option == StyioDataTypeOption::Bool) {
+          return BindingValueKind::Bool;
+        }
+        if (ty.option == StyioDataTypeOption::Integer) {
+          return BindingValueKind::I64;
+        }
+        return BindingValueKind::Unknown;
+      }
+      case StyioNodeType::Id: {
+        auto* nm = static_cast<NameAST*>(expr);
+        auto bit = binding_info_.find(nm->getAsStr());
+        if (bit != binding_info_.end()) {
+          return bit->second.value_kind;
+        }
+        auto tit = local_binding_types.find(nm->getAsStr());
+        if (tit == local_binding_types.end()) {
+          return BindingValueKind::Unknown;
+        }
+        if (styio_is_list_type(tit->second)) {
+          return BindingValueKind::ListI64;
+        }
+        if (tit->second.option == StyioDataTypeOption::String) {
+          return BindingValueKind::String;
+        }
+        if (tit->second.option == StyioDataTypeOption::Float) {
+          return BindingValueKind::F64;
+        }
+        if (tit->second.option == StyioDataTypeOption::Bool) {
+          return BindingValueKind::Bool;
+        }
+        if (tit->second.option == StyioDataTypeOption::Integer) {
+          return BindingValueKind::I64;
+        }
+        return BindingValueKind::Unknown;
+      }
+      default:
+        return BindingValueKind::Unknown;
+    }
+  };
+
+  auto dtype_from_kind = [&](BindingValueKind kind, StyioAST* expr) -> StyioDataType {
+    switch (kind) {
+      case BindingValueKind::Bool:
+        return StyioDataType{StyioDataTypeOption::Bool, "bool", 1};
+      case BindingValueKind::I64:
+        return StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+      case BindingValueKind::F64:
+        return StyioDataType{StyioDataTypeOption::Float, "f64", 64};
+      case BindingValueKind::String:
+        return kStringType;
+      case BindingValueKind::ListI64:
+        if (auto* typed = dynamic_cast<TypedStdinListAST*>(expr)) {
+          return typed->getDataType();
+        }
+        if (auto* nm = dynamic_cast<NameAST*>(expr)) {
+          auto bit = binding_info_.find(nm->getAsStr());
+          if (bit != binding_info_.end() && styio_is_list_type(bit->second.declared_type)) {
+            return bit->second.declared_type;
+          }
+          auto tit = local_binding_types.find(nm->getAsStr());
+          if (tit != local_binding_types.end() && styio_is_list_type(tit->second)) {
+            return tit->second;
+          }
+        }
+        return styio_make_list_type("i64");
+      default:
+        return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    }
+  };
+
   auto var_type = ast->getVar()->getDType()->type;
 
   if (var_type.option != StyioDataTypeOption::Undefined) {
@@ -253,11 +361,43 @@ StyioAnalyzer::typeInfer(FlexBindAST* ast) {
     }
   }
 
-  local_binding_types[ast->getNameAsStr()] = ast->getVar()->getDType()->type;
+  reject_plain_resource_copy(ast->getValue());
+
+  BindingValueKind kind = expr_value_kind(ast->getValue());
+  StyioDataType concrete_type = dtype_from_kind(kind, ast->getValue());
+  if (var_type.option != StyioDataTypeOption::Undefined) {
+    concrete_type = var_type;
+  }
+
+  local_binding_types[ast->getNameAsStr()] = concrete_type;
+
+  BindingInfo info;
+  auto prev = binding_info_.find(bound_name);
+  if (prev != binding_info_.end()) {
+    info = prev->second;
+  }
+  info.final_slot = false;
+  info.dynamic_slot = info.dynamic_slot || ast->getValue()->getNodeType() == StyioNodeType::TypedStdinList;
+  info.resource_value = kind == BindingValueKind::ListI64
+    && ast->getValue()->getNodeType() == StyioNodeType::TypedStdinList;
+  info.value_kind = kind;
+  info.declared_type = info.dynamic_slot
+    ? StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0}
+    : concrete_type;
+  binding_info_[bound_name] = info;
 }
 
 void
 StyioAnalyzer::typeInfer(FinalBindAST* ast) {
+  auto* rhs_name = dynamic_cast<NameAST*>(ast->getValue());
+  if (rhs_name != nullptr) {
+    auto it = binding_info_.find(rhs_name->getAsStr());
+    if (it != binding_info_.end() && it->second.resource_value) {
+      throw StyioTypeError(
+        "resource `" + rhs_name->getAsStr()
+        + "` cannot be copied with `:=`; use `<-` or `<<` to clone it");
+    }
+  }
   ast->getValue()->typeInfer(this);
   auto vt = ast->getVar()->getDType()->type;
   if (ast->getValue()->getNodeType() == StyioNodeType::BinOp) {
@@ -266,6 +406,79 @@ StyioAnalyzer::typeInfer(FinalBindAST* ast) {
   }
   local_binding_types[ast->getVar()->getNameAsStr()] = vt;
   fixed_assignment_names_.insert(ast->getVar()->getNameAsStr());
+
+  BindingInfo info;
+  info.final_slot = true;
+  info.dynamic_slot = false;
+  info.resource_value = styio_is_list_type(vt);
+  if (styio_is_list_type(vt)) {
+    info.value_kind = BindingValueKind::ListI64;
+  }
+  else if (vt.option == StyioDataTypeOption::String) {
+    info.value_kind = BindingValueKind::String;
+  }
+  else if (vt.option == StyioDataTypeOption::Float) {
+    info.value_kind = BindingValueKind::F64;
+  }
+  else if (vt.option == StyioDataTypeOption::Bool) {
+    info.value_kind = BindingValueKind::Bool;
+  }
+  else if (vt.option == StyioDataTypeOption::Integer) {
+    info.value_kind = BindingValueKind::I64;
+  }
+  else {
+    info.value_kind = BindingValueKind::Unknown;
+  }
+  info.declared_type = vt;
+  binding_info_[ast->getVar()->getNameAsStr()] = info;
+}
+
+void
+StyioAnalyzer::typeInfer(ParallelAssignAST* ast) {
+  if (ast->getLHS().size() != ast->getRHS().size()) {
+    throw StyioTypeError("parallel assignment requires the same number of LHS and RHS expressions");
+  }
+
+  for (auto* rhs : ast->getRHS()) {
+    if (auto* rhs_name = dynamic_cast<NameAST*>(rhs)) {
+      auto it = binding_info_.find(rhs_name->getAsStr());
+      if (it != binding_info_.end() && it->second.resource_value) {
+        throw StyioTypeError(
+          "resource `" + rhs_name->getAsStr()
+          + "` cannot be copied with `=`; use `<-` or `<<` to clone it");
+      }
+    }
+    rhs->typeInfer(this);
+  }
+
+  for (size_t i = 0; i < ast->getLHS().size(); ++i) {
+    StyioAST* lhs = ast->getLHS()[i];
+    if (auto* nm = dynamic_cast<NameAST*>(lhs)) {
+      auto it = binding_info_.find(nm->getAsStr());
+      if ((it != binding_info_.end() && it->second.final_slot)
+          || fixed_assignment_names_.count(nm->getAsStr()) != 0) {
+        throw StyioTypeError("parallel assignment cannot rebind final slot `" + nm->getAsStr() + "`");
+      }
+      if (it != binding_info_.end() && it->second.dynamic_slot) {
+        if (auto* rhs_name = dynamic_cast<NameAST*>(ast->getRHS()[i])) {
+          auto rit = binding_info_.find(rhs_name->getAsStr());
+          if (rit != binding_info_.end()) {
+            it->second.value_kind = rit->second.value_kind;
+            it->second.resource_value = rit->second.resource_value;
+            local_binding_types[nm->getAsStr()] = rit->second.declared_type;
+            binding_info_[nm->getAsStr()] = it->second;
+          }
+        }
+      }
+      continue;
+    }
+
+    auto* idx = dynamic_cast<ListOpAST*>(lhs);
+    if (idx == nullptr || idx->getOp() != StyioNodeType::Access_By_Index) {
+      throw StyioTypeError("parallel assignment targets must be names or indexed list elements");
+    }
+    idx->typeInfer(this);
+  }
 }
 
 void
@@ -340,6 +553,29 @@ StyioAnalyzer::typeInfer(SizeOfAST* ast) {
 
 void
 StyioAnalyzer::typeInfer(ListOpAST* ast) {
+  ast->getList()->typeInfer(this);
+  if (ast->getSlot1()) {
+    ast->getSlot1()->typeInfer(this);
+  }
+  if (ast->getSlot2()) {
+    ast->getSlot2()->typeInfer(this);
+  }
+
+  if (ast->getOp() != StyioNodeType::Access_By_Index) {
+    return;
+  }
+
+  bool list_like = ast->getList()->getNodeType() == StyioNodeType::List
+    || styio_is_list_type(ast->getList()->getDataType());
+  if (!list_like) {
+    if (auto* nm = dynamic_cast<NameAST*>(ast->getList())) {
+      auto it = binding_info_.find(nm->getAsStr());
+      list_like = it != binding_info_.end() && it->second.value_kind == BindingValueKind::ListI64;
+    }
+  }
+  if (!list_like) {
+    throw StyioTypeError("indexed access requires a list resource");
+  }
 }
 
 void
@@ -410,8 +646,53 @@ StyioAnalyzer::typeInfer(StdStreamAST* ast) {
 
 void
 StyioAnalyzer::typeInfer(HandleAcquireAST* ast) {
-  ast->getVar()->typeInfer(this);
+  const std::string name = ast->getVar()->getNameAsStr();
+  if (!ast->isFlexBind() && local_binding_types.count(name) != 0) {
+    throw StyioTypeError("final resource bind cannot redefine `" + name + "`");
+  }
+  if (ast->isFlexBind() && fixed_assignment_names_.count(name) != 0) {
+    throw StyioTypeError("resource clone cannot rebind final slot `" + name + "`");
+  }
+
   ast->getResource()->typeInfer(this);
+
+  BindingInfo info;
+  info.final_slot = !ast->isFlexBind();
+  info.dynamic_slot = ast->isFlexBind();
+  info.declared_type = StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+  info.value_kind = BindingValueKind::I64;
+
+  if (auto* typed = dynamic_cast<TypedStdinListAST*>(ast->getResource())) {
+    info.value_kind = BindingValueKind::ListI64;
+    info.resource_value = true;
+    info.declared_type = typed->getDataType();
+    local_binding_types[name] = typed->getDataType();
+    if (!ast->isFlexBind()) {
+      ast->getVar()->setDataType(typed->getDataType());
+    }
+  }
+  else if (auto* src = dynamic_cast<NameAST*>(ast->getResource())) {
+    auto it = binding_info_.find(src->getAsStr());
+    if (it == binding_info_.end() || !it->second.resource_value) {
+      throw StyioTypeError(
+        "resource clone source `" + src->getAsStr() + "` is not a cloneable resource");
+    }
+    info.value_kind = it->second.value_kind;
+    info.resource_value = it->second.resource_value;
+    info.declared_type = it->second.declared_type;
+    local_binding_types[name] = it->second.declared_type;
+    if (!ast->isFlexBind()) {
+      ast->getVar()->setDataType(it->second.declared_type);
+    }
+  }
+  else {
+    local_binding_types[name] = info.declared_type;
+  }
+
+  if (!ast->isFlexBind()) {
+    fixed_assignment_names_.insert(name);
+  }
+  binding_info_[name] = info;
 }
 
 void
@@ -740,6 +1021,26 @@ StyioAnalyzer::typeInfer(FuncCallAST* ast) {
 
 void
 StyioAnalyzer::typeInfer(AttrAST* ast) {
+  ast->body->typeInfer(this);
+  auto* attr_name = dynamic_cast<NameAST*>(ast->attr);
+  if (attr_name == nullptr) {
+    throw StyioTypeError("attribute access requires a simple name");
+  }
+  if (attr_name->getAsStr() != "length" && attr_name->getAsStr() != "size") {
+    throw StyioTypeError("only .length and .size are supported");
+  }
+
+  bool list_like = styio_is_list_type(ast->body->getDataType())
+    || ast->body->getNodeType() == StyioNodeType::List;
+  if (!list_like) {
+    if (auto* nm = dynamic_cast<NameAST*>(ast->body)) {
+      auto it = binding_info_.find(nm->getAsStr());
+      list_like = it != binding_info_.end() && it->second.value_kind == BindingValueKind::ListI64;
+    }
+  }
+  if (!list_like) {
+    throw StyioTypeError(".length/.size require a list resource");
+  }
 }
 
 void
@@ -775,6 +1076,59 @@ StyioAnalyzer::typeInfer(HashTagNameAST* ast) {
 
 void
 StyioAnalyzer::typeInfer(CondFlowAST* ast) {
+  ast->getCond()->typeInfer(this);
+  auto saved = local_binding_types;
+  auto saved_fixed = fixed_assignment_names_;
+  auto saved_bind = binding_info_;
+
+  ast->getThen()->typeInfer(this);
+  auto then_types = local_binding_types;
+  auto then_bind = binding_info_;
+
+  local_binding_types = saved;
+  fixed_assignment_names_ = saved_fixed;
+  binding_info_ = saved_bind;
+
+  if (ast->getElse() != nullptr) {
+    ast->getElse()->typeInfer(this);
+    auto else_types = local_binding_types;
+    auto else_bind = binding_info_;
+
+    local_binding_types = saved;
+    fixed_assignment_names_ = saved_fixed;
+    binding_info_ = saved_bind;
+
+    for (auto const& entry : then_bind) {
+      auto eit = else_bind.find(entry.first);
+      if (eit == else_bind.end()) {
+        continue;
+      }
+      BindingInfo merged = entry.second;
+      if (entry.second.value_kind != eit->second.value_kind
+          || entry.second.resource_value != eit->second.resource_value) {
+        merged.dynamic_slot = true;
+        merged.resource_value = false;
+        merged.value_kind = BindingValueKind::Unknown;
+        merged.declared_type = StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+      }
+      binding_info_[entry.first] = merged;
+
+      auto tit = then_types.find(entry.first);
+      auto eit_ty = else_types.find(entry.first);
+      if (tit != then_types.end() && eit_ty != else_types.end() && tit->second.equals(eit_ty->second)) {
+        local_binding_types[entry.first] = tit->second;
+      }
+      else {
+        local_binding_types[entry.first] =
+          StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+      }
+    }
+    return;
+  }
+
+  local_binding_types = saved;
+  fixed_assignment_names_ = saved_fixed;
+  binding_info_ = saved_bind;
 }
 
 void
@@ -795,6 +1149,7 @@ void
 StyioAnalyzer::typeInfer(IteratorAST* ast) {
   auto saved = local_binding_types;
   auto saved_fixed = fixed_assignment_names_;
+  auto saved_bind = binding_info_;
   ast->collection->typeInfer(this);
   StyioDataType et = infer_collection_elem_type(ast->collection);
   if (!ast->params.empty()) {
@@ -805,12 +1160,14 @@ StyioAnalyzer::typeInfer(IteratorAST* ast) {
   }
   local_binding_types = std::move(saved);
   fixed_assignment_names_ = std::move(saved_fixed);
+  binding_info_ = std::move(saved_bind);
 }
 
 void
 StyioAnalyzer::typeInfer(StreamZipAST* ast) {
   auto saved = local_binding_types;
   auto saved_fixed = fixed_assignment_names_;
+  auto saved_bind = binding_info_;
   ast->getCollectionA()->typeInfer(this);
   ast->getCollectionB()->typeInfer(this);
   StyioDataType ea = infer_collection_elem_type(ast->getCollectionA());
@@ -826,6 +1183,7 @@ StyioAnalyzer::typeInfer(StreamZipAST* ast) {
   }
   local_binding_types = std::move(saved);
   fixed_assignment_names_ = std::move(saved_fixed);
+  binding_info_ = std::move(saved_bind);
 }
 
 void
@@ -839,6 +1197,11 @@ StyioAnalyzer::typeInfer(SnapshotDeclAST* ast) {
 void
 StyioAnalyzer::typeInfer(InstantPullAST* ast) {
   ast->getResource()->typeInfer(this);
+}
+
+void
+StyioAnalyzer::typeInfer(TypedStdinListAST* ast) {
+  ast->getListType()->typeInfer(this);
 }
 
 void
@@ -894,6 +1257,7 @@ StyioAnalyzer::typeInfer(MainBlockAST* ast) {
   snapshot_var_names_.clear();
   local_binding_types.clear();
   fixed_assignment_names_.clear();
+  binding_info_.clear();
   auto stmts = ast->getStmts();
   for (auto const& s : stmts) {
     s->typeInfer(this);

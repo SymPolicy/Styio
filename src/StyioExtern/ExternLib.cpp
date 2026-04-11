@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 #include "ExternLib.hpp"
 #include "StyioRuntime/HandleTable.hpp"
@@ -25,12 +26,30 @@ constexpr const char* kRuntimeSubcodeInvalidFileHandle = "STYIO_RUNTIME_INVALID_
 constexpr const char* kRuntimeSubcodeFilePathNull = "STYIO_RUNTIME_FILE_PATH_NULL";
 constexpr const char* kRuntimeSubcodeFileOpenRead = "STYIO_RUNTIME_FILE_OPEN_READ";
 constexpr const char* kRuntimeSubcodeFileOpenWrite = "STYIO_RUNTIME_FILE_OPEN_WRITE";
+constexpr const char* kRuntimeSubcodeInvalidListHandle = "STYIO_RUNTIME_INVALID_LIST_HANDLE";
+constexpr const char* kRuntimeSubcodeListParse = "STYIO_RUNTIME_LIST_PARSE";
+constexpr const char* kRuntimeSubcodeListIndex = "STYIO_RUNTIME_LIST_INDEX";
+
+struct StyioListI64
+{
+  std::vector<int64_t> elems;
+};
+
+thread_local int64_t g_active_list_handles = 0;
 
 thread_local struct HandleTableCleanup {
   ~HandleTableCleanup() {
     g_handle_table.release_all(
       StyioHandleTable::HandleKind::File,
       [](void* raw) { std::fclose(static_cast<FILE*>(raw)); });
+    g_handle_table.release_all(
+      StyioHandleTable::HandleKind::List,
+      [](void* raw) {
+        delete static_cast<StyioListI64*>(raw);
+        if (g_active_list_handles > 0) {
+          --g_active_list_handles;
+        }
+      });
   }
 } g_handle_table_cleanup;
 
@@ -109,6 +128,106 @@ close_file(void* raw) {
     return;
   }
   std::fclose(static_cast<FILE*>(raw));
+}
+
+int64_t
+stash_list(StyioListI64* list) {
+  if (list == nullptr) {
+    return 0;
+  }
+  ++g_active_list_handles;
+  return g_handle_table.acquire(StyioHandleTable::HandleKind::List, list);
+}
+
+StyioListI64*
+as_list(int64_t h, bool diagnose_if_missing = false) {
+  if (h == 0) {
+    return nullptr;
+  }
+  auto* list = g_handle_table.lookup_as<StyioListI64>(h, StyioHandleTable::HandleKind::List);
+  if (list == nullptr && diagnose_if_missing) {
+    set_runtime_error_once(
+      kRuntimeSubcodeInvalidListHandle,
+      "invalid list handle: " + std::to_string(static_cast<long long>(h)));
+  }
+  return list;
+}
+
+void
+close_list(void* raw) {
+  if (raw == nullptr) {
+    return;
+  }
+  delete static_cast<StyioListI64*>(raw);
+  if (g_active_list_handles > 0) {
+    --g_active_list_handles;
+  }
+}
+
+void
+skip_ws(const std::string& input, size_t& pos) {
+  while (pos < input.size()
+         && std::isspace(static_cast<unsigned char>(input[pos]))) {
+    ++pos;
+  }
+}
+
+bool
+parse_i64_list_literal(const std::string& input, std::vector<int64_t>& out) {
+  size_t pos = 0;
+  skip_ws(input, pos);
+  if (pos >= input.size() || input[pos] != '[') {
+    return false;
+  }
+  ++pos;
+  skip_ws(input, pos);
+  if (pos < input.size() && input[pos] == ']') {
+    ++pos;
+    skip_ws(input, pos);
+    return pos == input.size();
+  }
+
+  while (pos < input.size()) {
+    const char* begin = input.c_str() + pos;
+    char* end = nullptr;
+    long long v = std::strtoll(begin, &end, 10);
+    if (end == begin) {
+      return false;
+    }
+    out.push_back(static_cast<int64_t>(v));
+    pos = static_cast<size_t>(end - input.c_str());
+    skip_ws(input, pos);
+    if (pos >= input.size()) {
+      return false;
+    }
+    if (input[pos] == ',') {
+      ++pos;
+      skip_ws(input, pos);
+      continue;
+    }
+    if (input[pos] == ']') {
+      ++pos;
+      skip_ws(input, pos);
+      return pos == input.size();
+    }
+    return false;
+  }
+
+  return false;
+}
+
+std::string
+read_all_stdin() {
+  std::string input;
+  char buf[4096];
+  while (true) {
+    size_t n = std::fread(buf, 1, sizeof(buf), stdin);
+    if (n == 0) {
+      break;
+    }
+    input.append(buf, n);
+  }
+  return input;
 }
 
 }  // namespace
@@ -334,6 +453,105 @@ styio_stdin_read_line() {
     g_stdin_line_buf[--n] = '\0';
   }
   return g_stdin_line_buf;
+}
+
+extern "C" DLLEXPORT int64_t
+styio_list_i64_read_stdin() {
+  std::vector<int64_t> values;
+  std::string input = read_all_stdin();
+  if (!parse_i64_list_literal(input, values)) {
+    set_runtime_error_once(
+      kRuntimeSubcodeListParse,
+      "stdin does not contain a valid Styio list literal");
+    return 0;
+  }
+  auto* list = new StyioListI64();
+  list->elems = std::move(values);
+  return stash_list(list);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_list_clone(int64_t h) {
+  StyioListI64* src = as_list(h, true);
+  if (src == nullptr) {
+    return 0;
+  }
+  auto* clone = new StyioListI64();
+  clone->elems = src->elems;
+  return stash_list(clone);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_list_len(int64_t h) {
+  StyioListI64* list = as_list(h, true);
+  if (list == nullptr) {
+    return 0;
+  }
+  return static_cast<int64_t>(list->elems.size());
+}
+
+extern "C" DLLEXPORT int64_t
+styio_list_get(int64_t h, int64_t idx) {
+  StyioListI64* list = as_list(h, true);
+  if (list == nullptr) {
+    return 0;
+  }
+  if (idx < 0 || static_cast<size_t>(idx) >= list->elems.size()) {
+    set_runtime_error_once(
+      kRuntimeSubcodeListIndex,
+      "list index out of range: " + std::to_string(static_cast<long long>(idx)));
+    return 0;
+  }
+  return list->elems[static_cast<size_t>(idx)];
+}
+
+extern "C" DLLEXPORT void
+styio_list_set(int64_t h, int64_t idx, int64_t value) {
+  StyioListI64* list = as_list(h, true);
+  if (list == nullptr) {
+    return;
+  }
+  if (idx < 0 || static_cast<size_t>(idx) >= list->elems.size()) {
+    set_runtime_error_once(
+      kRuntimeSubcodeListIndex,
+      "list index out of range: " + std::to_string(static_cast<long long>(idx)));
+    return;
+  }
+  list->elems[static_cast<size_t>(idx)] = value;
+}
+
+extern "C" DLLEXPORT const char*
+styio_list_to_cstr(int64_t h) {
+  StyioListI64* list = as_list(h, true);
+  if (list == nullptr) {
+    return nullptr;
+  }
+  std::string text = "[";
+  for (size_t i = 0; i < list->elems.size(); ++i) {
+    if (i > 0) {
+      text.push_back(',');
+    }
+    text += std::to_string(static_cast<long long>(list->elems[i]));
+  }
+  text.push_back(']');
+
+  char* p = static_cast<char*>(std::malloc(text.size() + 1));
+  if (p == nullptr) {
+    return "";
+  }
+  std::memcpy(p, text.c_str(), text.size() + 1);
+  g_owned_cstr_ptrs.insert(p);
+  return p;
+}
+
+extern "C" DLLEXPORT void
+styio_list_release(int64_t h) {
+  (void)g_handle_table.release(h, StyioHandleTable::HandleKind::List, close_list);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_list_active_count() {
+  return g_active_list_handles;
 }
 
 extern "C" DLLEXPORT int

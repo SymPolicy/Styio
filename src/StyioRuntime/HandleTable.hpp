@@ -16,7 +16,8 @@ public:
   {
     File = 0,
     Resource = 1,
-    Unknown = 2,
+    List = 2,
+    Unknown = 3,
   };
 
   struct Entry

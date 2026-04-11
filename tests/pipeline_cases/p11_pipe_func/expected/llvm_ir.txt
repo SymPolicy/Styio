@@ -18,6 +18,8 @@ double_it_entry:
   ret i64 %4
 }
 
+declare void @styio_file_close(i64)
+
 define i32 @main() {
 main_entry:
   %0 = call i64 @styio_file_open(ptr @styio_str)
@@ -70,5 +72,3 @@ declare i32 @printf(ptr, ...)
 declare i32 @puts(ptr)
 
 declare i64 @styio_cstr_to_i64(ptr)
-
-declare void @styio_file_close(i64)

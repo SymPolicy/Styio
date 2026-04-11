@@ -2239,6 +2239,59 @@ public:
   }
 };
 
+class ParallelAssignAST : public StyioASTTraits<ParallelAssignAST>
+{
+  std::vector<std::unique_ptr<StyioAST>> lhs_owners_;
+  std::vector<std::unique_ptr<StyioAST>> rhs_owners_;
+  std::vector<StyioAST*> lhs_;
+  std::vector<StyioAST*> rhs_;
+
+  static void adopt_exprs(
+    std::vector<StyioAST*> input,
+    std::vector<std::unique_ptr<StyioAST>>& owners,
+    std::vector<StyioAST*>& views
+  ) {
+    owners.clear();
+    views.clear();
+    owners.reserve(input.size());
+    views.reserve(input.size());
+    for (auto* expr : input) {
+      owners.emplace_back(expr);
+      views.push_back(owners.back().get());
+    }
+  }
+
+  ParallelAssignAST(std::vector<StyioAST*> lhs, std::vector<StyioAST*> rhs) :
+      lhs_owners_(),
+      rhs_owners_(),
+      lhs_(),
+      rhs_() {
+    adopt_exprs(std::move(lhs), lhs_owners_, lhs_);
+    adopt_exprs(std::move(rhs), rhs_owners_, rhs_);
+  }
+
+public:
+  static ParallelAssignAST* Create(std::vector<StyioAST*> lhs, std::vector<StyioAST*> rhs) {
+    return new ParallelAssignAST(std::move(lhs), std::move(rhs));
+  }
+
+  const std::vector<StyioAST*>& getLHS() const {
+    return lhs_;
+  }
+
+  const std::vector<StyioAST*>& getRHS() const {
+    return rhs_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::ParallelAssign;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
 /*
   =================
     Pipeline
@@ -2405,22 +2458,32 @@ public:
 
 class HandleAcquireAST : public StyioASTTraits<HandleAcquireAST>
 {
+public:
+  enum class BindMode
+  {
+    Final,
+    Flex,
+  };
+
+private:
   std::unique_ptr<VarAST> var_owner_;
   std::unique_ptr<StyioAST> resource_owner_;
 
   VarAST* var_ = nullptr;
   StyioAST* resource_ = nullptr;
+  BindMode bind_mode_ = BindMode::Final;
 
-  HandleAcquireAST(VarAST* v, StyioAST* r) :
+  HandleAcquireAST(VarAST* v, StyioAST* r, BindMode mode) :
       var_owner_(v),
       resource_owner_(r),
       var_(var_owner_.get()),
-      resource_(resource_owner_.get()) {
+      resource_(resource_owner_.get()),
+      bind_mode_(mode) {
   }
 
 public:
-  static HandleAcquireAST* Create(VarAST* v, StyioAST* r) {
-    return new HandleAcquireAST(v, r);
+  static HandleAcquireAST* Create(VarAST* v, StyioAST* r, BindMode mode = BindMode::Final) {
+    return new HandleAcquireAST(v, r, mode);
   }
 
   VarAST* getVar() {
@@ -2429,6 +2492,14 @@ public:
 
   StyioAST* getResource() {
     return resource_;
+  }
+
+  BindMode getBindMode() const {
+    return bind_mode_;
+  }
+
+  bool isFlexBind() const {
+    return bind_mode_ == BindMode::Flex;
   }
 
   const StyioNodeType getNodeType() const {
@@ -4237,6 +4308,34 @@ public:
 
   const StyioDataType getDataType() const {
     return StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+  }
+};
+
+class TypedStdinListAST : public StyioASTTraits<TypedStdinListAST>
+{
+  std::unique_ptr<TypeAST> list_type_owner_;
+  TypeAST* list_type_ = nullptr;
+
+  explicit TypedStdinListAST(TypeAST* t) :
+      list_type_owner_(t),
+      list_type_(list_type_owner_.get()) {
+  }
+
+public:
+  static TypedStdinListAST* Create(TypeAST* t) {
+    return new TypedStdinListAST(t);
+  }
+
+  TypeAST* getListType() {
+    return list_type_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::TypedStdinList;
+  }
+
+  const StyioDataType getDataType() const {
+    return list_type_->getDataType();
   }
 };
 

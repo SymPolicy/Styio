@@ -207,6 +207,10 @@ reprASTType(StyioNodeType type, std::string extra) {
       output += std::string("styio.ast.bind.final");
     } break;
 
+    case StyioNodeType::ParallelAssign: {
+      output += std::string("assign.parallel");
+    } break;
+
     case StyioNodeType::Block: {
       output += std::string("block");
     } break;
@@ -245,6 +249,10 @@ reprASTType(StyioNodeType type, std::string extra) {
 
     case StyioNodeType::InstantPull: {
       output += std::string("instant.pull");
+    } break;
+
+    case StyioNodeType::TypedStdinList: {
+      output += std::string("stdin.list.typed");
     } break;
 
     case StyioNodeType::IterSeq: {

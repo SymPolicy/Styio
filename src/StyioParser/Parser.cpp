@@ -127,7 +127,7 @@ parse_name_unsafe(StyioContext& context) {
 
 static StyioAST* parse_token_index_suffix(StyioContext& context, StyioAST* base);
 static StyioAST* parse_state_ref_suffix(StyioContext& context, StateRefAST* sr);
-static TypeAST* parse_styio_type(StyioContext& context);
+TypeAST* parse_styio_type(StyioContext& context);
 static StyioAST* parse_expr_postfix(StyioContext& context, StyioAST* lhs);
 
 static StyioAST*
@@ -490,7 +490,7 @@ parse_dtype(StyioContext& context) {
   Extensible type parser: scalar names (f64, i64, …) + Topology v2 [|n|].
   Future: tuple types, @resource refs, element type parameters — branch here, not in stmt parsing.
 */
-static TypeAST*
+TypeAST*
 parse_styio_type(StyioContext& context) {
   context.skip();
   if (context.check(StyioTokenType::BOUNDED_BUFFER_OPEN)) {
@@ -506,7 +506,18 @@ parse_styio_type(StyioContext& context) {
     context.try_match_panic(StyioTokenType::BOUNDED_BUFFER_CLOSE);
     return TypeAST::CreateBoundedRingBuffer(cap);
   }
-  return TypeAST::Create(parse_name_as_str_unsafe(context));
+  const std::string type_name = parse_name_as_str_unsafe(context);
+  if (type_name == "list") {
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_LBOXBRAC);
+    TypeAST* elem = parse_styio_type(context);
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
+    const std::string elem_name = elem->getTypeName();
+    delete elem;
+    return TypeAST::Create(styio_make_list_type(elem_name));
+  }
+  return TypeAST::Create(type_name);
 }
 
 /*
@@ -686,7 +697,7 @@ parse_braced_string_path(StyioContext& context) {
   return p;
 }
 
-static StyioAST*
+StyioAST*
 parse_after_at_common(StyioContext& context, bool file_only_resource) {
   context.skip();
   if (context.check(StyioTokenType::NAME) && context.cur_tok()->original == "file") {
@@ -706,6 +717,16 @@ parse_after_at_common(StyioContext& context, bool file_only_resource) {
   }
   if (context.check(StyioTokenType::NAME) && context.cur_tok()->original == "stdin") {
     context.move_forward(1, "@stdin");
+    context.skip();
+    if (context.try_match(StyioTokenType::TOK_COLON)) {
+      context.skip();
+      TypeAST* ty = parse_styio_type(context);
+      if (!styio_is_list_type(ty->getDataType())) {
+        delete ty;
+        throw StyioSyntaxError(context.mark_cur_tok("@stdin: only list[T] is supported in this slice"));
+      }
+      return TypedStdinListAST::Create(ty);
+    }
     return StdStreamAST::Create(StdStreamKind::Stdin);
   }
   if (context.check(StyioTokenType::TOK_LCURBRAC)) {
@@ -806,7 +827,8 @@ parse_resource_file_atom_latest(StyioContext& context) {
   if (nt != StyioNodeType::FileResource
       && nt != StyioNodeType::StdinResource
       && nt != StyioNodeType::StdoutResource
-      && nt != StyioNodeType::StderrResource) {
+      && nt != StyioNodeType::StderrResource
+      && nt != StyioNodeType::TypedStdinList) {
     throw StyioSyntaxError(context.mark_cur_tok("expected @file{...}, @{...}, @stdout, @stderr, or @stdin"));
   }
   return r;
@@ -1773,6 +1795,15 @@ parse_tuple_no_braces(StyioContext& context, StyioAST* first_element) {
 StyioAST*
 parse_list_exprs_latest_draft(StyioContext& context) {
   vector<StyioAST*> exprs;
+  auto parse_list_elem_expr = [&]() -> StyioAST* {
+    auto saved = context.save_cursor();
+    try {
+      return parse_expr_subset_nightly(context);
+    } catch (const std::exception&) {
+      context.restore_cursor(saved);
+      return parse_expr(context);
+    }
+  };
 
   context.move_forward(1); /* [ */
 
@@ -1784,17 +1815,33 @@ parse_list_exprs_latest_draft(StyioContext& context) {
     return new InfiniteAST();
   }
 
-  do {
+  if (context.match(StyioTokenType::TOK_RBOXBRAC) /* ] */) {
+    return ListAST::Create(exprs);
+  }
+
+  StyioAST* first_expr = parse_list_elem_expr();
+  context.skip();
+
+  if (context.match(StyioTokenType::ELLIPSIS)) {
+    context.skip();
+    StyioAST* last_expr = parse_list_elem_expr();
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
+    return new RangeAST(first_expr, last_expr, IntAST::Create("1"));
+  }
+
+  exprs.push_back(first_expr);
+
+  while (context.try_match(StyioTokenType::TOK_COMMA) /* , */) {
     context.skip();
 
     if (context.match(StyioTokenType::TOK_RBOXBRAC) /* ] */) {
       return ListAST::Create(exprs);
     }
-    else {
-      exprs.push_back(parse_expr(context));
-      context.skip();
-    }
-  } while (context.try_match(StyioTokenType::TOK_COMMA) /* , */);
+
+    exprs.push_back(parse_list_elem_expr());
+    context.skip();
+  }
 
   context.try_match_panic(StyioTokenType::TOK_RBOXBRAC); /* ] */
 

@@ -62,6 +62,7 @@ using StyioToStringVisitor = ToStringVisitor<
 
   class FlexBindAST,
   class FinalBindAST,
+  class ParallelAssignAST,
 
   class BinCompAST,
   class CondAST,
@@ -101,6 +102,7 @@ using StyioToStringVisitor = ToStringVisitor<
   class StreamZipAST,
   class SnapshotDeclAST,
   class InstantPullAST,
+  class TypedStdinListAST,
   class IterSeqAST,
   class InfiniteLoopAST,
 
@@ -257,6 +259,8 @@ public:
 
   std::string toString(FinalBindAST* ast, int indent = 0);
 
+  std::string toString(ParallelAssignAST* ast, int indent = 0);
+
   std::string toString(StructAST* ast, int indent = 0);
 
   std::string toString(ReadFileAST* ast, int indent = 0);
@@ -301,6 +305,8 @@ public:
 
   std::string toString(InstantPullAST* ast, int indent = 0);
 
+  std::string toString(TypedStdinListAST* ast, int indent = 0);
+
   std::string toString(IterSeqAST* ast, int indent = 0);
 
   std::string toString(MatchCasesAST* ast, int indent = 0);
@@ -331,6 +337,7 @@ public:
   std::string toString(SGVar* node, int indent = 0);
   std::string toString(SGFlexBind* node, int indent = 0);
   std::string toString(SGFinalBind* node, int indent = 0);
+  std::string toString(SGDynLoad* node, int indent = 0);
 
   std::string toString(SGFuncArg* node, int indent = 0);
   std::string toString(SGFunc* node, int indent = 0);
@@ -349,6 +356,8 @@ public:
   std::string toString(SGLoop* node, int indent = 0);
   std::string toString(SGForEach* node, int indent = 0);
   std::string toString(SGListLiteral* node, int indent = 0);
+  std::string toString(SGRangeFor* node, int indent = 0);
+  std::string toString(SGIf* node, int indent = 0);
   std::string toString(SGStateSnapLoad* node, int indent = 0);
   std::string toString(SGStateHistLoad* node, int indent = 0);
   std::string toString(SGSeriesAvgStep* node, int indent = 0);
@@ -370,6 +379,12 @@ public:
   std::string toString(SGSnapshotDecl* node, int indent = 0);
   std::string toString(SGSnapshotShadowLoad* node, int indent = 0);
   std::string toString(SGInstantPull* node, int indent = 0);
+  std::string toString(SGListReadStdin* node, int indent = 0);
+  std::string toString(SGListClone* node, int indent = 0);
+  std::string toString(SGListLen* node, int indent = 0);
+  std::string toString(SGListGet* node, int indent = 0);
+  std::string toString(SGListSet* node, int indent = 0);
+  std::string toString(SGListToString* node, int indent = 0);
   std::string toString(SGResourceWriteToFile* node, int indent = 0);
   std::string toString(SIOStdStreamWrite* node, int indent = 0);
   std::string toString(SIOStdStreamLineIter* node, int indent = 0);

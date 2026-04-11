@@ -28,6 +28,10 @@ styio-calc> 1 + 2 * (3 + 4)
 styio-calc> quit
 ```
 
+交互模式支持上下方向键回放历史，默认历史文件位于
+`$XDG_STATE_HOME/styio/calculator_history`，若未设置 `XDG_STATE_HOME`，则回退到
+`~/.local/state/styio/calculator_history`。
+
 也可以单次执行：
 
 ```bash

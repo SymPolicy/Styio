@@ -8,6 +8,7 @@
 // [C++ STL]
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -29,6 +30,12 @@ int
 alloc_pulse_region_id() {
   static int n = 0;
   return n++;
+}
+
+std::string
+alloc_lowering_tmp_name(const char* prefix) {
+  static int n = 0;
+  return std::string(prefix) + std::to_string(n++);
 }
 
 SGType*
@@ -97,6 +104,21 @@ stmt_has_return_tree(StyioAST* ast) {
     }
   }
   return false;
+}
+
+bool
+try_parse_int_literal_value(StyioAST* ast, std::int64_t& out) {
+  auto* lit = dynamic_cast<IntAST*>(ast);
+  if (!lit) {
+    return false;
+  }
+
+  try {
+    out = std::stoll(lit->getValue());
+    return true;
+  } catch (const std::exception&) {
+    return false;
+  }
 }
 
 void
@@ -829,6 +851,24 @@ StyioAnalyzer::toStyioIR(EmptyAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(NameAST* ast) {
+  auto it = binding_info_.find(ast->getAsStr());
+  if (it != binding_info_.end()
+      && (it->second.dynamic_slot || it->second.value_kind == BindingValueKind::ListI64)) {
+    switch (it->second.value_kind) {
+      case BindingValueKind::Bool:
+        return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::Bool);
+      case BindingValueKind::I64:
+        return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::I64);
+      case BindingValueKind::F64:
+        return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::F64);
+      case BindingValueKind::String:
+        return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::CString);
+      case BindingValueKind::ListI64:
+        return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::ListHandle);
+      default:
+        throw StyioTypeError("cannot lower dynamic slot `" + ast->getAsStr() + "` with unknown runtime kind");
+    }
+  }
   return SGResId::Create(ast->getAsStr());
 }
 
@@ -927,16 +967,62 @@ StyioAnalyzer::toStyioIR(OptKwArgAST* ast) {
 */
 StyioIR*
 StyioAnalyzer::toStyioIR(FlexBindAST* ast) {
-  return SGFlexBind::Create(
-    static_cast<SGVar*>(ast->getVar()->toStyioIR(this)), 
-    ast->getValue()->toStyioIR(this));
+  auto* var = static_cast<SGVar*>(ast->getVar()->toStyioIR(this));
+  auto it = binding_info_.find(ast->getNameAsStr());
+  if (it != binding_info_.end()) {
+    var->is_dynamic_slot = it->second.dynamic_slot || it->second.value_kind == BindingValueKind::ListI64;
+    var->is_list_slot = !it->second.dynamic_slot && it->second.value_kind == BindingValueKind::ListI64;
+  }
+  return SGFlexBind::Create(var, ast->getValue()->toStyioIR(this));
 }
 
 StyioIR*
 StyioAnalyzer::toStyioIR(FinalBindAST* ast) {
-  return SGFinalBind::Create(
-    static_cast<SGVar*>(ast->getVar()->toStyioIR(this)), 
-    ast->getValue()->toStyioIR(this));
+  auto* var = static_cast<SGVar*>(ast->getVar()->toStyioIR(this));
+  auto it = binding_info_.find(ast->getVar()->getNameAsStr());
+  if (it != binding_info_.end()) {
+    var->is_dynamic_slot = it->second.dynamic_slot || it->second.value_kind == BindingValueKind::ListI64;
+    var->is_list_slot = !it->second.dynamic_slot && it->second.value_kind == BindingValueKind::ListI64;
+  }
+  return SGFinalBind::Create(var, ast->getValue()->toStyioIR(this));
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(ParallelAssignAST* ast) {
+  std::vector<StyioIR*> stmts;
+  std::vector<std::string> tmp_names;
+  tmp_names.reserve(ast->getRHS().size());
+
+  for (auto* rhs : ast->getRHS()) {
+    std::string tmp_name = alloc_lowering_tmp_name("__styio_parallel_tmp_");
+    tmp_names.push_back(tmp_name);
+    VarAST* tmp_var = VarAST::Create(NameAST::Create(tmp_name));
+    auto* sg_var = static_cast<SGVar*>(tmp_var->toStyioIR(this));
+    stmts.push_back(SGFinalBind::Create(sg_var, rhs->toStyioIR(this)));
+  }
+
+  for (size_t i = 0; i < ast->getLHS().size(); ++i) {
+    StyioIR* rhs_val = SGResId::Create(tmp_names[i]);
+    if (auto* nm = dynamic_cast<NameAST*>(ast->getLHS()[i])) {
+      VarAST* lhs_var = VarAST::Create(NameAST::Create(nm->getAsStr()));
+      auto* sg_var = static_cast<SGVar*>(lhs_var->toStyioIR(this));
+      auto it = binding_info_.find(nm->getAsStr());
+      if (it != binding_info_.end()) {
+        sg_var->is_dynamic_slot = it->second.dynamic_slot || it->second.value_kind == BindingValueKind::ListI64;
+        sg_var->is_list_slot = !it->second.dynamic_slot && it->second.value_kind == BindingValueKind::ListI64;
+      }
+      stmts.push_back(SGFlexBind::Create(sg_var, rhs_val));
+      continue;
+    }
+
+    auto* idx = static_cast<ListOpAST*>(ast->getLHS()[i]);
+    stmts.push_back(SGListSet::Create(
+      idx->getList()->toStyioIR(this),
+      idx->getSlot1()->toStyioIR(this),
+      rhs_val));
+  }
+
+  return SGBlock::Create(std::move(stmts));
 }
 
 StyioIR*
@@ -972,7 +1058,48 @@ StyioAnalyzer::toStyioIR(ExtractorAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(RangeAST* ast) {
-  return SGConstInt::Create(0);
+  std::int64_t start = 0;
+  std::int64_t end = 0;
+  std::int64_t step = 0;
+
+  if (!try_parse_int_literal_value(ast->getStart(), start)
+      || !try_parse_int_literal_value(ast->getEnd(), end)
+      || !try_parse_int_literal_value(ast->getStep(), step)) {
+    throw StyioTypeError("range literal lowering currently requires integer literal bounds");
+  }
+
+  if (step == 0) {
+    throw StyioTypeError("range step cannot be 0");
+  }
+
+  std::vector<StyioIR*> el;
+
+  if (step > 0) {
+    for (std::int64_t cur = start; cur <= end;) {
+      el.push_back(SGConstInt::Create(std::to_string(cur)));
+      if (cur == end) {
+        break;
+      }
+      if (cur > std::numeric_limits<std::int64_t>::max() - step) {
+        throw StyioTypeError("range literal overflow");
+      }
+      cur += step;
+    }
+  }
+  else {
+    for (std::int64_t cur = start; cur >= end;) {
+      el.push_back(SGConstInt::Create(std::to_string(cur)));
+      if (cur == end) {
+        break;
+      }
+      if (cur < std::numeric_limits<std::int64_t>::min() - step) {
+        throw StyioTypeError("range literal overflow");
+      }
+      cur += step;
+    }
+  }
+
+  return SGListLiteral::Create(std::move(el));
 }
 
 StyioIR*
@@ -996,6 +1123,11 @@ StyioAnalyzer::toStyioIR(SizeOfAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(ListOpAST* ast) {
+  if (ast->getOp() == StyioNodeType::Access_By_Index) {
+    return SGListGet::Create(
+      ast->getList()->toStyioIR(this),
+      ast->getSlot1()->toStyioIR(this));
+  }
   return SGConstInt::Create(0);
 }
 
@@ -1086,6 +1218,29 @@ StyioAnalyzer::toStyioIR(StdStreamAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(HandleAcquireAST* ast) {
+  if (dynamic_cast<TypedStdinListAST*>(ast->getResource())
+      || dynamic_cast<NameAST*>(ast->getResource())) {
+    auto* var = static_cast<SGVar*>(ast->getVar()->toStyioIR(this));
+    auto it = binding_info_.find(ast->getVar()->getNameAsStr());
+    if (it != binding_info_.end()) {
+      var->is_dynamic_slot = it->second.dynamic_slot || it->second.value_kind == BindingValueKind::ListI64;
+      var->is_list_slot = !it->second.dynamic_slot && it->second.value_kind == BindingValueKind::ListI64;
+    }
+
+    StyioIR* rhs = nullptr;
+    if (auto* typed = dynamic_cast<TypedStdinListAST*>(ast->getResource())) {
+      rhs = typed->toStyioIR(this);
+    }
+    else {
+      rhs = SGListClone::Create(ast->getResource()->toStyioIR(this));
+    }
+
+    if (ast->isFlexBind()) {
+      return SGFlexBind::Create(var, rhs);
+    }
+    return SGFinalBind::Create(var, rhs);
+  }
+
   /* M10: reject handle acquire on standard streams. */
   if (dynamic_cast<StdStreamAST*>(ast->getResource())) {
     throw StyioTypeError("standard streams do not require handle acquisition; use @stdin/@stdout/@stderr directly");
@@ -1102,6 +1257,13 @@ StyioAnalyzer::toStyioIR(HandleAcquireAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(ResourceWriteAST* ast) {
+  StyioIR* data_ir = ast->getData()->toStyioIR(this);
+  if (auto* nm = dynamic_cast<NameAST*>(ast->getData())) {
+    auto it = binding_info_.find(nm->getAsStr());
+    if (it != binding_info_.end() && it->second.value_kind == BindingValueKind::ListI64) {
+      data_ir = SGListToString::Create(data_ir);
+    }
+  }
   /* M9: check for standard stream target. */
   auto* ss = dynamic_cast<StdStreamAST*>(ast->getResource());
   if (ss) {
@@ -1112,7 +1274,7 @@ StyioAnalyzer::toStyioIR(ResourceWriteAST* ast) {
     auto stream = (ss->getStreamKind() == StdStreamKind::Stdout)
       ? SIOStdStreamWrite::Stream::Stdout
       : SIOStdStreamWrite::Stream::Stderr;
-    return SIOStdStreamWrite::Create(stream, {ast->getData()->toStyioIR(this)});
+    return SIOStdStreamWrite::Create(stream, {data_ir});
   }
   auto* fr = dynamic_cast<FileResourceAST*>(ast->getResource());
   if (!fr) {
@@ -1123,7 +1285,7 @@ StyioAnalyzer::toStyioIR(ResourceWriteAST* ast) {
     || ast->getData()->getNodeType() == StyioNodeType::String;
   bool prom = !is_str;
   return SGResourceWriteToFile::Create(
-    ast->getData()->toStyioIR(this),
+    data_ir,
     fr->getPath()->toStyioIR(this),
     fr->isAutoDetect(),
     prom,
@@ -1132,6 +1294,13 @@ StyioAnalyzer::toStyioIR(ResourceWriteAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(ResourceRedirectAST* ast) {
+  StyioIR* data_ir = ast->getData()->toStyioIR(this);
+  if (auto* nm = dynamic_cast<NameAST*>(ast->getData())) {
+    auto it = binding_info_.find(nm->getAsStr());
+    if (it != binding_info_.end() && it->second.value_kind == BindingValueKind::ListI64) {
+      data_ir = SGListToString::Create(data_ir);
+    }
+  }
   /* M9: redirect to standard stream → SIOStdStreamWrite */
   auto* ss = dynamic_cast<StdStreamAST*>(ast->getResource());
   if (ss) {
@@ -1141,14 +1310,14 @@ StyioAnalyzer::toStyioIR(ResourceRedirectAST* ast) {
     auto stream = (ss->getStreamKind() == StdStreamKind::Stdout)
       ? SIOStdStreamWrite::Stream::Stdout
       : SIOStdStreamWrite::Stream::Stderr;
-    return SIOStdStreamWrite::Create(stream, {ast->getData()->toStyioIR(this)});
+    return SIOStdStreamWrite::Create(stream, {data_ir});
   }
   auto* fr = dynamic_cast<FileResourceAST*>(ast->getResource());
   if (!fr) {
     throw StyioTypeError("-> target must be a file or standard stream resource");
   }
   return SGResourceWriteToFile::Create(
-    ast->getData()->toStyioIR(this),
+    data_ir,
     fr->getPath()->toStyioIR(this),
     fr->isAutoDetect(),
     true,
@@ -1246,7 +1415,7 @@ StyioAnalyzer::toStyioIR(FuncCallAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(AttrAST* ast) {
-  return SGConstInt::Create(0);
+  return SGListLen::Create(ast->body->toStyioIR(this));
 }
 
 StyioIR*
@@ -1254,7 +1423,16 @@ StyioAnalyzer::toStyioIR(PrintAST* ast) {
   /* M9 Task 9.10: unify >_() to SIOStdStreamWrite(Stdout). */
   std::vector<StyioIR*> parts;
   for (auto* e : ast->exprs) {
-    parts.push_back(e->toStyioIR(this));
+    bool is_list = false;
+    if (auto* nm = dynamic_cast<NameAST*>(e)) {
+      auto it = binding_info_.find(nm->getAsStr());
+      is_list = it != binding_info_.end() && it->second.value_kind == BindingValueKind::ListI64;
+    }
+    if (styio_is_list_type(e->getDataType())) {
+      is_list = true;
+    }
+    StyioIR* lowered = e->toStyioIR(this);
+    parts.push_back(is_list ? static_cast<StyioIR*>(SGListToString::Create(lowered)) : lowered);
   }
   return SIOStdStreamWrite::Create(SIOStdStreamWrite::Stream::Stdout, parts);
 }
@@ -1291,7 +1469,9 @@ StyioAnalyzer::toStyioIR(HashTagNameAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(CondFlowAST* ast) {
-  return SGConstInt::Create(0);
+  SGBlock* then_block = lower_func_body(this, ast->getThen());
+  SGBlock* else_block = ast->getElse() ? lower_func_body(this, ast->getElse()) : nullptr;
+  return SGIf::Create(ast->getCond()->toStyioIR(this), then_block, else_block);
 }
 
 StyioIR*
@@ -1389,6 +1569,15 @@ StyioAnalyzer::toStyioIR(IteratorAST* ast) {
     else {
       body = lower_func_body(this, ast->following[0]);
     }
+  }
+  if (ast->collection->getNodeType() == StyioNodeType::Range) {
+    auto* rg = static_cast<RangeAST*>(ast->collection);
+    return SGRangeFor::Create(
+      rg->getStart()->toStyioIR(this),
+      rg->getEnd()->toStyioIR(this),
+      rg->getStep()->toStyioIR(this),
+      std::move(vname),
+      body);
   }
   /* M10: stdin line iteration. */
   auto col_nt = ast->collection->getNodeType();
@@ -1541,6 +1730,11 @@ StyioAnalyzer::toStyioIR(InstantPullAST* ast) {
     throw StyioTypeError("instant pull needs @file{...}, @{...}, or @stdin");
   }
   return SGInstantPull::Create(fr->getPath()->toStyioIR(this));
+}
+
+StyioIR*
+StyioAnalyzer::toStyioIR(TypedStdinListAST* ast) {
+  return SGListReadStdin::Create(styio_list_elem_type_name(ast->getDataType()));
 }
 
 StyioIR*

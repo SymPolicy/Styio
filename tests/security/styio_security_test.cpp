@@ -16,10 +16,16 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <memory>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 #include "StyioAnalyzer/ASTAnalyzer.hpp"
+#include "StyioCodeGen/CodeGenVisitor.hpp"
 #include "StyioException/Exception.hpp"
 #include "StyioExtern/ExternLib.hpp"
+#include "StyioJIT/StyioJIT_ORC.hpp"
 #include "StyioParser/NewParserExpr.hpp"
 #include "StyioParser/ParserLookahead.hpp"
 #include "StyioParser/Parser.hpp"
@@ -289,6 +295,128 @@ parse_typecheck_and_lower_program_engine_latest(const std::string& source, Styio
     throw;
   }
 }
+
+std::string
+compile_program_to_llvm_ir_engine_latest(const std::string& source, StyioParserEngine engine) {
+  auto tokens = StyioTokenizer::tokenize(source);
+  StyioContext* ctx = StyioContext::Create(
+    "<engine-llvm-test>",
+    source,
+    build_line_seps(source),
+    tokens,
+    false);
+
+  MainBlockAST* ast = nullptr;
+  StyioIR* ir = nullptr;
+  auto cleanup = [&]() {
+    delete ir;
+    delete ast;
+    delete ctx;
+    free_tokens(tokens);
+    StyioAST::destroy_all_tracked_nodes();
+  };
+
+  try {
+    ast = parse_main_block_with_engine_latest(*ctx, engine);
+    ctx->skip();
+    if (ctx->cur_tok_type() != StyioTokenType::TOK_EOF) {
+      throw std::runtime_error("engine llvm parser did not consume input");
+    }
+
+    StyioAnalyzer analyzer;
+    ast->typeInfer(&analyzer);
+    ir = ast->toStyioIR(&analyzer);
+
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
+    llvm::InitializeNativeTargetAsmParser();
+    llvm::ExitOnError exit_on_error;
+    std::unique_ptr<StyioJIT_ORC> jit = exit_on_error(StyioJIT_ORC::Create());
+    StyioToLLVM generator(std::move(jit));
+    ir->toLLVMIR(&generator);
+    std::string out = generator.dump_llvm_ir();
+    cleanup();
+    return out;
+  } catch (...) {
+    cleanup();
+    throw;
+  }
+}
+
+void
+execute_program_engine_with_stdin_latest(
+  const std::string& source,
+  StyioParserEngine engine,
+  const std::string& stdin_text
+) {
+#ifdef _WIN32
+  (void)source;
+  (void)engine;
+  (void)stdin_text;
+  GTEST_SKIP() << "stdin redirection helper is POSIX-only";
+#else
+  auto tokens = StyioTokenizer::tokenize(source);
+  StyioContext* ctx = StyioContext::Create(
+    "<engine-exec-test>",
+    source,
+    build_line_seps(source),
+    tokens,
+    false);
+
+  MainBlockAST* ast = nullptr;
+  StyioIR* ir = nullptr;
+  auto cleanup = [&]() {
+    delete ir;
+    delete ast;
+    delete ctx;
+    free_tokens(tokens);
+    StyioAST::destroy_all_tracked_nodes();
+  };
+
+  FILE* tmp = tmpfile();
+  ASSERT_NE(tmp, nullptr);
+  std::fwrite(stdin_text.data(), 1, stdin_text.size(), tmp);
+  std::rewind(tmp);
+
+  const int saved_stdin = dup(fileno(stdin));
+  ASSERT_GE(saved_stdin, 0);
+  ASSERT_EQ(dup2(fileno(tmp), fileno(stdin)), fileno(stdin));
+
+  styio_runtime_clear_error();
+
+  try {
+    ast = parse_main_block_with_engine_latest(*ctx, engine);
+    ctx->skip();
+    if (ctx->cur_tok_type() != StyioTokenType::TOK_EOF) {
+      throw std::runtime_error("engine exec parser did not consume input");
+    }
+
+    StyioAnalyzer analyzer;
+    ast->typeInfer(&analyzer);
+    ir = ast->toStyioIR(&analyzer);
+
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
+    llvm::InitializeNativeTargetAsmParser();
+    llvm::ExitOnError exit_on_error;
+    std::unique_ptr<StyioJIT_ORC> jit = exit_on_error(StyioJIT_ORC::Create());
+    StyioToLLVM generator(std::move(jit));
+    ir->toLLVMIR(&generator);
+    generator.execute();
+  } catch (...) {
+    dup2(saved_stdin, fileno(stdin));
+    close(saved_stdin);
+    std::fclose(tmp);
+    cleanup();
+    throw;
+  }
+
+  dup2(saved_stdin, fileno(stdin));
+  close(saved_stdin);
+  std::fclose(tmp);
+  cleanup();
+#endif
+}
 } // namespace
 
 TEST(StyioSecurityLexer, EmptySourceProducesEof) {
@@ -501,7 +629,6 @@ TEST(StyioSecurityNightlyParserExpr, MatchesLegacyOnSubsetSamples) {
   const std::vector<std::string> samples = {
     "1 + 2 * 3",
     "(1 + 2) * 3",
-    "price + fee - tax",
     "\"x\" + \"y\"",
     "-5 + 2 ** 3",
   };
@@ -513,6 +640,16 @@ TEST(StyioSecurityNightlyParserExpr, MatchesLegacyOnSubsetSamples) {
       FAIL() << "sample '" << src << "' threw: " << ex.what();
     }
   }
+}
+
+TEST(StyioSecurityNightlyParserExpr, UsesLeftAssociativeGroupingForEqualPrecedenceOps) {
+  const std::string repr = parse_expr_to_repr_latest("price + fee - tax", true);
+
+  EXPECT_NE(repr.find("|- LHS: styio.ast.binop: undefined"), std::string::npos);
+  EXPECT_NE(repr.find("  |- LHS: price"), std::string::npos);
+  EXPECT_NE(repr.find("  |- RHS: fee"), std::string::npos);
+  EXPECT_NE(repr.find("|- OP : <Sub>"), std::string::npos);
+  EXPECT_NE(repr.find("|- RHS: tax"), std::string::npos);
 }
 
 TEST(StyioSecurityNightlyParserExpr, SubsetTokenGateIncludesCompareAndLogic) {
@@ -532,6 +669,17 @@ TEST(StyioSecurityNightlyParserExpr, SubsetTokenGateIncludesDotCallTokens) {
   EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::TOK_LPAREN));
   EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::TOK_RPAREN));
   EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::TOK_DOT));
+}
+
+TEST(StyioSecurityNightlyParserExpr, RangeLiteralAcceptsRepeatedDotSeparator) {
+  const std::string two_dot = parse_expr_to_repr_latest("[0..3]", true);
+  const std::string three_dot = parse_expr_to_repr_latest("[0...3]", true);
+  const std::string many_dot = parse_expr_to_repr_latest("[0......3]", true);
+
+  EXPECT_NE(two_dot.find("range"), std::string::npos);
+  EXPECT_EQ(two_dot, three_dot);
+  EXPECT_EQ(two_dot, many_dot);
+  EXPECT_EQ(two_dot, parse_expr_to_repr_latest("[0..3]", false));
 }
 
 TEST(StyioSecurityNightlyParserExpr, RejectsNonSubsetStatementToken) {
@@ -618,6 +766,69 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnHandleIoSubsetSamples) {
   for (const auto& src : samples) {
     EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
+}
+
+TEST(StyioSecurityNightlyParserStmt, AcceptsBubbleSortFeatureSyntax) {
+  const std::string src =
+    "l <- @stdin: list[i32]\n"
+    "n = l.length - 1\n"
+    "[0..n] >> #(i) => {\n"
+    "  [0..n-i-1] >> #(j) => {\n"
+    "    ?(l[j] > l[j+1]) => {\n"
+    "      l[j], l[j+1] = l[j+1], l[j]\n"
+    "    }\n"
+    "  }\n"
+    "}\n";
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("stdin.list.typed"), std::string::npos);
+  EXPECT_NE(repr.find("assign.parallel"), std::string::npos);
+  EXPECT_NE(repr.find("only_true"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsDotChainAfterCall) {
+  const std::string src = "x = foo.bar(1).baz(2)\n";
+  EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsPlainResourceCopyByEqual) {
+  const std::string src =
+    "l = @stdin: list[i32]\n"
+    "l1 = l\n";
+  EXPECT_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly),
+    StyioTypeError);
+}
+
+TEST(StyioSecurityNightlySemantics, AllowsCloneFormsAndIndexedMutation) {
+  const std::string src =
+    "l <- @stdin: list[i32]\n"
+    "l1 <- l\n"
+    "l2 << l\n"
+    "l[0] = 9\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+}
+
+TEST(StyioSecurityNightlyCodegen, EmitsImmediateListReleaseForFlexReassign) {
+  const std::string src =
+    "l = @stdin: list[i32]\n"
+    "l = 7\n";
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_list_release"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyRuntime, ListHandlesAreCleanedUpAfterExecution) {
+  const std::string src =
+    "l = @stdin: list[i32]\n"
+    "l = 7\n";
+  EXPECT_NO_THROW(
+    execute_program_engine_with_stdin_latest(
+      src,
+      StyioParserEngine::Nightly,
+      "[1,2,3]\n"));
+  EXPECT_EQ(styio_list_active_count(), 0);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
 }
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnResourcePostfixSubsetSamples) {
@@ -798,13 +1009,22 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnBlockControlSubsetSamples) {
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnMatchCasesSubsetSamples) {
   const std::vector<std::string> samples = {
-    "x = 4\nlabel = x % 2 ?= {\n    0 => { <| \"even\" }\n    _ => { <| \"odd\" }\n}\n>_(label)\n",
     "# fact := (n: i32) => {\n    n ?= {\n        0 => { <| 1 }\n        _ => { <| n * fact(n - 1) }\n    }\n}\n>_(fact(5))\n",
   };
 
   for (const auto& src : samples) {
     EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
+}
+
+TEST(StyioSecurityNightlyParserStmt, AcceptsModuloSubjectBeforeMatchCases) {
+  const std::string src =
+    "x = 4\nlabel = x % 2 ?= {\n    0 => { <| \"even\" }\n    _ => { <| \"odd\" }\n}\n>_(label)\n";
+
+  const std::string nightly = parse_program_to_repr_latest(src, true);
+  const std::string legacy = parse_program_to_repr_latest(src, false);
+  EXPECT_EQ(nightly, legacy);
+  EXPECT_NE(nightly.find("label"), std::string::npos);
 }
 
 TEST(StyioSecurityNightlyParserStmt, RejectsHashIteratorMatchForwardChainWithStableError) {

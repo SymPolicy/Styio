@@ -15,6 +15,25 @@
 
 #include "llvm/IR/DerivedTypes.h"
 
+namespace {
+
+llvm::StructType*
+styio_dynamic_cell_type(llvm::LLVMContext& ctx) {
+  if (auto* existing = llvm::StructType::getTypeByName(ctx, "styio.dyncell")) {
+    return existing;
+  }
+  auto* cell = llvm::StructType::create(ctx, "styio.dyncell");
+  cell->setBody({
+    llvm::Type::getInt64Ty(ctx),
+    llvm::Type::getInt64Ty(ctx),
+    llvm::Type::getDoubleTy(ctx),
+    llvm::PointerType::get(ctx, 0),
+  });
+  return cell;
+}
+
+}  // namespace
+
 llvm::Type*
 StyioToLLVM::toLLVMType(SGResId* node) {
   return theBuilder->getInt64Ty();
@@ -34,6 +53,8 @@ StyioToLLVM::toLLVMType(SGType* node) {
       return theBuilder->getDoubleTy();
     case StyioDataTypeOption::String:
       return llvm::PointerType::get(*theContext, 0);
+    case StyioDataTypeOption::List:
+      return theBuilder->getInt64Ty();
     default:
       return theBuilder->getInt64Ty();
   }
@@ -91,6 +112,9 @@ StyioToLLVM::toLLVMType(SGCond* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGVar* node) {
+  if (node->is_dynamic_slot) {
+    return styio_dynamic_cell_type(*theContext);
+  }
   /* Logical (pulse) value is scalar i64; storage may be [|n|] array (see SGFinalBind alloca). */
   if (styio_bounded_ring_capacity(node->var_type->data_type)) {
     return theBuilder->getInt64Ty();
@@ -117,8 +141,27 @@ StyioToLLVM::toLLVMType(SGFlexBind* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGFinalBind* node) {
+  if (node->var->is_dynamic_slot) {
+    return styio_dynamic_cell_type(*theContext);
+  }
   return node->var->var_type->toLLVMType(this);
 };
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGDynLoad* node) {
+  switch (node->kind) {
+    case SGDynLoadKind::Bool:
+      return theBuilder->getInt1Ty();
+    case SGDynLoadKind::I64:
+    case SGDynLoadKind::ListHandle:
+      return theBuilder->getInt64Ty();
+    case SGDynLoadKind::F64:
+      return theBuilder->getDoubleTy();
+    case SGDynLoadKind::CString:
+      return llvm::PointerType::get(*theContext, 0);
+  }
+  return theBuilder->getInt64Ty();
+}
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGFuncArg* node) {
@@ -166,6 +209,18 @@ StyioToLLVM::toLLVMType(SGLoop* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGForEach* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGRangeFor* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGIf* node) {
   (void)node;
   return theBuilder->getVoidTy();
 }
@@ -294,6 +349,42 @@ llvm::Type*
 StyioToLLVM::toLLVMType(SGInstantPull* node) {
   (void)node;
   return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGListReadStdin* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGListClone* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGListLen* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGListGet* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGListSet* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGListToString* node) {
+  (void)node;
+  return llvm::PointerType::get(*theContext, 0);
 }
 
 llvm::Type*

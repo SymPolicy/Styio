@@ -71,6 +71,7 @@ class OptKwArgAST;
 */
 class FlexBindAST;
 class FinalBindAST;
+class ParallelAssignAST;
 
 /*
   Binary Tree:
@@ -131,6 +132,7 @@ class IteratorAST;
 class StreamZipAST;
 class SnapshotDeclAST;
 class InstantPullAST;
+class TypedStdinListAST;
 class IterSeqAST; /* Iterator Sequence */
 class InfiniteLoopAST;
 

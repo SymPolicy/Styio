@@ -1888,6 +1888,38 @@ TEST(StyioParserEngine, DotChainStillRejectedConsistentlyAcrossEngines) {
   fs::remove(input);
 }
 
+TEST(StyioParserEngine, RangeLiteralIteratesInclusivelyAndIgnoresDotCount) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input = fs::temp_directory_path() / ("styio-range-literal-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "[0..3] >> #(x) => {\n"
+        << "    >_(x)\n"
+        << "}\n"
+        << "[1......3] >> #(y) => {\n"
+        << "    >_(y)\n"
+        << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, std::string("0\n1\n2\n3\n1\n2\n3\n"));
+
+  fs::remove(input);
+}
+
 TEST(StyioDiagnostics, RuntimeHelperErrorEmitsJsonlRuntimeDiagnostic) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
@@ -2258,4 +2290,23 @@ TEST(StyioDiagnostics, MalformedStatementPrefixReportsParseErrorWithoutCrash) {
   EXPECT_EQ(result.stdout_text.find("Styio.NotImplemented"), std::string::npos);
 
   fs::remove(input);
+}
+
+TEST(StyioSamples, BubbleSortListInput) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const fs::path sample_path =
+    fs::path(STYIO_SOURCE_DIR) / "sample" / "algorithms" / "bubble_sort.styio";
+  ASSERT_TRUE(fs::exists(sample_path));
+
+  const std::string cmd =
+    std::string("printf '[5,1,4,2,8]' | \"") + runner + "\" --file \"" + sample_path.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(result.stdout_text, "[1,2,4,5,8]\n");
 }

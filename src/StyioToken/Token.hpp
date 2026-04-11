@@ -50,6 +50,29 @@ struct StyioDataType
   }
 };
 
+inline StyioDataType
+styio_make_list_type(const std::string& elem_name) {
+  return StyioDataType{
+    StyioDataTypeOption::List,
+    std::string("list[") + elem_name + "]",
+    0};
+}
+
+inline bool
+styio_is_list_type(const StyioDataType& type) {
+  return type.option == StyioDataTypeOption::List
+    || type.name.rfind("list[", 0) == 0;
+}
+
+inline std::string
+styio_list_elem_type_name(const StyioDataType& type) {
+  const std::string& name = type.name;
+  if (name.rfind("list[", 0) == 0 && !name.empty() && name.back() == ']') {
+    return name.substr(5, name.size() - 6);
+  }
+  return "i64";
+}
+
 /* Pre-defined DType Table */
 static std::unordered_map<std::string, StyioDataType> const DTypeTable = {
   {"bool", StyioDataType{StyioDataTypeOption::Bool, "bool", 1}},
@@ -428,6 +451,7 @@ enum class StyioNodeType
   MutBind,
   // :=
   FinalBind,
+  ParallelAssign,
   // -----------------
 
   /* -----------------
@@ -481,6 +505,7 @@ enum class StyioNodeType
   StreamZip,
   SnapshotDecl,
   InstantPull,
+  TypedStdinList,
 
   /* M9-M10: standard streams */
   StdinResource,

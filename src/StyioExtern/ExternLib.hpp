@@ -42,6 +42,15 @@ extern "C" DLLEXPORT void styio_stderr_write_cstr(const char* s);
 /* M10: read one line from stdin */
 extern "C" DLLEXPORT const char* styio_stdin_read_line();
 
+extern "C" DLLEXPORT int64_t styio_list_i64_read_stdin();
+extern "C" DLLEXPORT int64_t styio_list_clone(int64_t h);
+extern "C" DLLEXPORT int64_t styio_list_len(int64_t h);
+extern "C" DLLEXPORT int64_t styio_list_get(int64_t h, int64_t idx);
+extern "C" DLLEXPORT void styio_list_set(int64_t h, int64_t idx, int64_t value);
+extern "C" DLLEXPORT const char* styio_list_to_cstr(int64_t h);
+extern "C" DLLEXPORT void styio_list_release(int64_t h);
+extern "C" DLLEXPORT int64_t styio_list_active_count();
+
 extern "C" DLLEXPORT int something();
 
 #endif  // STYIO_EXTERN_LIB_H

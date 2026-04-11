@@ -131,6 +131,24 @@ StyioRepr::toString(FinalBindAST* ast, int indent) {
 }
 
 std::string
+StyioRepr::toString(ParallelAssignAST* ast, int indent) {
+  std::string out = reprASTType(ast->getNodeType(), " ") + "{\n";
+  out += make_padding(indent) + "lhs:\n";
+  for (auto* expr : ast->getLHS()) {
+    out += make_padding(indent + 1) + expr->toString(this, indent + 2) + "\n";
+  }
+  out += make_padding(indent) + "rhs:\n";
+  for (size_t i = 0; i < ast->getRHS().size(); ++i) {
+    out += make_padding(indent + 1) + ast->getRHS()[i]->toString(this, indent + 2);
+    if (i + 1 < ast->getRHS().size()) {
+      out += "\n";
+    }
+  }
+  out += "}";
+  return out;
+}
+
+std::string
 StyioRepr::toString(InfiniteAST* ast, int indent) {
   switch (ast->getType()) {
     case InfiniteType::Original: {
@@ -464,6 +482,8 @@ StyioRepr::toString(HandleAcquireAST* ast, int indent) {
   return reprASTType(ast->getNodeType(), " ")
          + " {\n"
          + make_padding(indent) + "var: " + ast->getVar()->toString(this, indent + 1) + "\n"
+         + make_padding(indent) + "mode: "
+         + (ast->isFlexBind() ? std::string("flex") : std::string("final")) + "\n"
          + make_padding(indent) + "resource: " + ast->getResource()->toString(this, indent + 1)
          + "}";
 }
@@ -1013,6 +1033,12 @@ StyioRepr::toString(InstantPullAST* ast, int indent) {
 }
 
 std::string
+StyioRepr::toString(TypedStdinListAST* ast, int indent) {
+  return reprASTType(ast->getNodeType()) + " { "
+         + ast->getListType()->toString(this, indent + 1) + " }";
+}
+
+std::string
 StyioRepr::toString(IterSeqAST* ast, int indent) {
   std::string outstr = reprASTType(ast->getNodeType(), " ") + "{" + "\n";
 
@@ -1220,6 +1246,12 @@ StyioRepr::toString(SGFinalBind* node, int indent) {
 }
 
 std::string
+StyioRepr::toString(SGDynLoad* node, int indent) {
+  (void)indent;
+  return std::string("styio.ir.dyn_load { ") + node->var_name + " }";
+}
+
+std::string
 StyioRepr::toString(SGFuncArg* node, int indent) {
   return std::string("styio.ir.func_arg { ") + " }";
 }
@@ -1289,6 +1321,29 @@ StyioRepr::toString(SGForEach* node, int indent) {
   (void)node;
   (void)indent;
   return "styio.ir.foreach { }";
+}
+
+std::string
+StyioRepr::toString(SGRangeFor* node, int indent) {
+  std::string s = "styio.ir.range_for { ";
+  s += "var=" + node->var;
+  s += ", start=" + (node->start ? node->start->toString(this, indent) : std::string("null"));
+  s += ", end=" + (node->end ? node->end->toString(this, indent) : std::string("null"));
+  s += ", step=" + (node->step ? node->step->toString(this, indent) : std::string("null"));
+  s += " }";
+  return s;
+}
+
+std::string
+StyioRepr::toString(SGIf* node, int indent) {
+  std::string s = "styio.ir.if { cond="
+    + (node->cond ? node->cond->toString(this, indent) : std::string("null"));
+  s += ", then=" + (node->then_block ? node->then_block->toString(this, indent) : std::string("null"));
+  if (node->else_block) {
+    s += ", else=" + node->else_block->toString(this, indent);
+  }
+  s += " }";
+  return s;
 }
 
 std::string
@@ -1434,6 +1489,45 @@ std::string
 StyioRepr::toString(SGInstantPull* node, int indent) {
   std::string p = node->path_expr ? node->path_expr->toString(this, indent) : std::string("null");
   return std::string("styio.ir.instant_pull { path=") + p + " }";
+}
+
+std::string
+StyioRepr::toString(SGListReadStdin* node, int indent) {
+  (void)indent;
+  return std::string("styio.ir.list_read_stdin { elem=") + node->elem_type + " }";
+}
+
+std::string
+StyioRepr::toString(SGListClone* node, int indent) {
+  return std::string("styio.ir.list_clone { src=")
+    + (node->source ? node->source->toString(this, indent) : std::string("null")) + " }";
+}
+
+std::string
+StyioRepr::toString(SGListLen* node, int indent) {
+  return std::string("styio.ir.list_len { list=")
+    + (node->list ? node->list->toString(this, indent) : std::string("null")) + " }";
+}
+
+std::string
+StyioRepr::toString(SGListGet* node, int indent) {
+  return std::string("styio.ir.list_get { list=")
+    + (node->list ? node->list->toString(this, indent) : std::string("null"))
+    + ", index=" + (node->index ? node->index->toString(this, indent) : std::string("null")) + " }";
+}
+
+std::string
+StyioRepr::toString(SGListSet* node, int indent) {
+  return std::string("styio.ir.list_set { list=")
+    + (node->list ? node->list->toString(this, indent) : std::string("null"))
+    + ", index=" + (node->index ? node->index->toString(this, indent) : std::string("null"))
+    + ", value=" + (node->value ? node->value->toString(this, indent) : std::string("null")) + " }";
+}
+
+std::string
+StyioRepr::toString(SGListToString* node, int indent) {
+  return std::string("styio.ir.list_to_string { list=")
+    + (node->list ? node->list->toString(this, indent) : std::string("null")) + " }";
 }
 
 std::string

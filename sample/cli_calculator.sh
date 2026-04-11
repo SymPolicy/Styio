@@ -3,6 +3,7 @@ set -uo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STYIO_BIN="${STYIO_BIN:-$ROOT_DIR/build/bin/styio}"
+STYIO_CALC_HISTORY_FILE="${STYIO_CALC_HISTORY_FILE:-${XDG_STATE_HOME:-$HOME/.local/state}/styio/calculator_history}"
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/styio_calc_XXXXXX")"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -19,6 +20,7 @@ Notes:
   - Supported characters are limited to digits, spaces, parentheses, decimal
     points, and the operators + - * /.
   - In interactive mode, type `exit`, `quit`, or `:q` to leave.
+  - REPL history is stored in STYIO_CALC_HISTORY_FILE.
   - Override the compiler path with STYIO_BIN if needed.
 EOF
 }
@@ -75,10 +77,19 @@ run_expr() {
 }
 
 repl() {
+  local history_dir
   local expr
+  local last_history
   local status
 
   if [[ -t 0 ]]; then
+    set -o history
+    export HISTFILE="$STYIO_CALC_HISTORY_FILE"
+    history_dir="$(dirname "$HISTFILE")"
+    mkdir -p "$history_dir"
+    touch "$HISTFILE"
+    history -r
+
     cat <<'EOF'
 Styio Calculator REPL
 Type an arithmetic expression, or `exit` to quit.
@@ -87,14 +98,14 @@ EOF
 
   while true; do
     if [[ -t 0 ]]; then
-      printf 'styio-calc> '
-    fi
-
-    if ! IFS= read -r expr; then
-      if [[ -t 0 ]]; then
+      if ! IFS= read -e -r -p 'styio-calc> ' expr; then
         printf '\n'
+        break
       fi
-      break
+    else
+      if ! IFS= read -r expr; then
+        break
+      fi
     fi
 
     if [[ -z "${expr//[[:space:]]/}" ]]; then
@@ -110,6 +121,14 @@ EOF
         continue
         ;;
     esac
+
+    if [[ -t 0 ]]; then
+      last_history="$(history 1 2>/dev/null | sed 's/^[[:space:]]*[0-9]\{1,\}[[:space:]]*//')"
+      if [[ "$last_history" != "$expr" ]]; then
+        history -s "$expr"
+        history -w
+      fi
+    fi
 
     if ! run_expr "$expr" repl; then
       status=$?

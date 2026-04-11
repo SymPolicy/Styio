@@ -21,6 +21,8 @@ add_entry:
   ret i64 %6
 }
 
+declare void @styio_file_close(i64)
+
 define i32 @main() {
 main_entry:
   %0 = call i64 @add(i64 3, i64 4)
@@ -42,5 +44,3 @@ print_done:                                       ; preds = %print_i64, %print_a
 declare i32 @printf(ptr, ...)
 
 declare i32 @puts(ptr)
-
-declare void @styio_file_close(i64)

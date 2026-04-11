@@ -18,7 +18,7 @@ styio.ast.main {
         |- LHS: x
         |- OP : <Mul>
         |- RHS: styio.ast.state.ref  $factor}}
-    |- styio.ast.binop: int {
+    |- styio.ast.binop: i64 {
       |- LHS: sum
       |- OP : +=
       |- RHS: prod}}}

@@ -242,6 +242,8 @@ public:
   SGResId* var_name;
   SGType* var_type;
   StyioIR* val_init = nullptr;
+  bool is_dynamic_slot = false;
+  bool is_list_slot = false;
 
   SGVar(SGResId* id, SGType* type) :
       var_name(id), var_type(type) {
@@ -287,6 +289,30 @@ public:
 
   static SGFinalBind* Create(SGVar* id, StyioIR* value) {
     return new SGFinalBind(id, value);
+  }
+};
+
+enum class SGDynLoadKind : std::uint8_t
+{
+  Bool,
+  I64,
+  F64,
+  CString,
+  ListHandle,
+};
+
+class SGDynLoad : public StyioIRTraits<SGDynLoad>
+{
+public:
+  std::string var_name;
+  SGDynLoadKind kind = SGDynLoadKind::I64;
+
+  SGDynLoad(std::string name, SGDynLoadKind k) :
+      var_name(std::move(name)), kind(k) {
+  }
+
+  static SGDynLoad* Create(std::string name, SGDynLoadKind kind) {
+    return new SGDynLoad(std::move(name), kind);
   }
 };
 
@@ -549,6 +575,40 @@ public:
 
   void set_pulse_plan(std::unique_ptr<SGPulsePlan> p) {
     pulse_plan = std::move(p);
+  }
+};
+
+class SGRangeFor : public StyioIRTraits<SGRangeFor>
+{
+public:
+  StyioIR* start = nullptr;
+  StyioIR* end = nullptr;
+  StyioIR* step = nullptr;
+  std::string var;
+  SGBlock* body = nullptr;
+
+  SGRangeFor(StyioIR* s, StyioIR* e, StyioIR* st, std::string v, SGBlock* b) :
+      start(s), end(e), step(st), var(std::move(v)), body(b) {
+  }
+
+  static SGRangeFor* Create(StyioIR* s, StyioIR* e, StyioIR* st, std::string v, SGBlock* b) {
+    return new SGRangeFor(s, e, st, std::move(v), b);
+  }
+};
+
+class SGIf : public StyioIRTraits<SGIf>
+{
+public:
+  StyioIR* cond = nullptr;
+  SGBlock* then_block = nullptr;
+  SGBlock* else_block = nullptr;
+
+  SGIf(StyioIR* c, SGBlock* t, SGBlock* e) :
+      cond(c), then_block(t), else_block(e) {
+  }
+
+  static SGIf* Create(StyioIR* cond, SGBlock* then_block, SGBlock* else_block = nullptr) {
+    return new SGIf(cond, then_block, else_block);
   }
 };
 
@@ -838,6 +898,93 @@ public:
 
   static SGInstantPull* Create(StyioIR* p) {
     return new SGInstantPull(p);
+  }
+};
+
+class SGListReadStdin : public StyioIRTraits<SGListReadStdin>
+{
+public:
+  std::string elem_type;
+
+  explicit SGListReadStdin(std::string elem) :
+      elem_type(std::move(elem)) {
+  }
+
+  static SGListReadStdin* Create(std::string elem_type) {
+    return new SGListReadStdin(std::move(elem_type));
+  }
+};
+
+class SGListClone : public StyioIRTraits<SGListClone>
+{
+public:
+  StyioIR* source = nullptr;
+
+  explicit SGListClone(StyioIR* src) :
+      source(src) {
+  }
+
+  static SGListClone* Create(StyioIR* src) {
+    return new SGListClone(src);
+  }
+};
+
+class SGListLen : public StyioIRTraits<SGListLen>
+{
+public:
+  StyioIR* list = nullptr;
+
+  explicit SGListLen(StyioIR* l) :
+      list(l) {
+  }
+
+  static SGListLen* Create(StyioIR* l) {
+    return new SGListLen(l);
+  }
+};
+
+class SGListGet : public StyioIRTraits<SGListGet>
+{
+public:
+  StyioIR* list = nullptr;
+  StyioIR* index = nullptr;
+
+  SGListGet(StyioIR* l, StyioIR* idx) :
+      list(l), index(idx) {
+  }
+
+  static SGListGet* Create(StyioIR* l, StyioIR* idx) {
+    return new SGListGet(l, idx);
+  }
+};
+
+class SGListSet : public StyioIRTraits<SGListSet>
+{
+public:
+  StyioIR* list = nullptr;
+  StyioIR* index = nullptr;
+  StyioIR* value = nullptr;
+
+  SGListSet(StyioIR* l, StyioIR* idx, StyioIR* v) :
+      list(l), index(idx), value(v) {
+  }
+
+  static SGListSet* Create(StyioIR* l, StyioIR* idx, StyioIR* v) {
+    return new SGListSet(l, idx, v);
+  }
+};
+
+class SGListToString : public StyioIRTraits<SGListToString>
+{
+public:
+  StyioIR* list = nullptr;
+
+  explicit SGListToString(StyioIR* l) :
+      list(l) {
+  }
+
+  static SGListToString* Create(StyioIR* l) {
+    return new SGListToString(l);
   }
 };
 

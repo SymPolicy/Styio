@@ -98,6 +98,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SGVar,
   class SGFlexBind,
   class SGFinalBind,
+  class SGDynLoad,
 
   class SGFuncArg,
   class SGFunc,
@@ -108,6 +109,8 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SGLoop,
   class SGForEach,
   class SGListLiteral,
+  class SGRangeFor,
+  class SGIf,
   class SGStateSnapLoad,
   class SGStateHistLoad,
   class SGSeriesAvgStep,
@@ -129,6 +132,12 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SGSnapshotDecl,
   class SGSnapshotShadowLoad,
   class SGInstantPull,
+  class SGListReadStdin,
+  class SGListClone,
+  class SGListLen,
+  class SGListGet,
+  class SGListSet,
+  class SGListToString,
   class SGResourceWriteToFile,
   class SIOStdStreamWrite,
   class SIOStdStreamLineIter,
@@ -165,6 +174,8 @@ class StyioToLLVM : public StyioCodeGenVisitor
   /* [|n|] final-bound rings: array alloca in mutable_variables + head cursor (next write index). */
   unordered_map<string, llvm::AllocaInst*> bounded_ring_head_slot_;
   unordered_map<string, std::uint64_t> bounded_ring_capacity_;
+  std::unordered_set<std::string> dynamic_variable_names_;
+  std::unordered_set<std::string> list_slot_names_;
 
   struct LoopFrame {
     llvm::BasicBlock* break_dest = nullptr;
@@ -239,6 +250,7 @@ public:
   llvm::Type* toLLVMType(SGVar* node);
   llvm::Type* toLLVMType(SGFlexBind* node);
   llvm::Type* toLLVMType(SGFinalBind* node);
+  llvm::Type* toLLVMType(SGDynLoad* node);
 
   llvm::Type* toLLVMType(SGFuncArg* node);
   llvm::Type* toLLVMType(SGFunc* node);
@@ -249,6 +261,8 @@ public:
   llvm::Type* toLLVMType(SGLoop* node);
   llvm::Type* toLLVMType(SGForEach* node);
   llvm::Type* toLLVMType(SGListLiteral* node);
+  llvm::Type* toLLVMType(SGRangeFor* node);
+  llvm::Type* toLLVMType(SGIf* node);
   llvm::Type* toLLVMType(SGStateSnapLoad* node);
   llvm::Type* toLLVMType(SGStateHistLoad* node);
   llvm::Type* toLLVMType(SGSeriesAvgStep* node);
@@ -270,6 +284,12 @@ public:
   llvm::Type* toLLVMType(SGSnapshotDecl* node);
   llvm::Type* toLLVMType(SGSnapshotShadowLoad* node);
   llvm::Type* toLLVMType(SGInstantPull* node);
+  llvm::Type* toLLVMType(SGListReadStdin* node);
+  llvm::Type* toLLVMType(SGListClone* node);
+  llvm::Type* toLLVMType(SGListLen* node);
+  llvm::Type* toLLVMType(SGListGet* node);
+  llvm::Type* toLLVMType(SGListSet* node);
+  llvm::Type* toLLVMType(SGListToString* node);
   llvm::Type* toLLVMType(SGResourceWriteToFile* node);
   llvm::Type* toLLVMType(SIOStdStreamWrite* node);
   llvm::Type* toLLVMType(SIOStdStreamLineIter* node);
@@ -310,6 +330,7 @@ public:
   llvm::Value* toLLVMIR(SGVar* node);
   llvm::Value* toLLVMIR(SGFlexBind* node);
   llvm::Value* toLLVMIR(SGFinalBind* node);
+  llvm::Value* toLLVMIR(SGDynLoad* node);
 
   llvm::Value* toLLVMIR(SGFuncArg* node);
   llvm::Value* toLLVMIR(SGFunc* node);
@@ -320,6 +341,8 @@ public:
   llvm::Value* toLLVMIR(SGLoop* node);
   llvm::Value* toLLVMIR(SGForEach* node);
   llvm::Value* toLLVMIR(SGListLiteral* node);
+  llvm::Value* toLLVMIR(SGRangeFor* node);
+  llvm::Value* toLLVMIR(SGIf* node);
   llvm::Value* toLLVMIR(SGStateSnapLoad* node);
   llvm::Value* toLLVMIR(SGStateHistLoad* node);
   llvm::Value* toLLVMIR(SGSeriesAvgStep* node);
@@ -341,6 +364,12 @@ public:
   llvm::Value* toLLVMIR(SGSnapshotDecl* node);
   llvm::Value* toLLVMIR(SGSnapshotShadowLoad* node);
   llvm::Value* toLLVMIR(SGInstantPull* node);
+  llvm::Value* toLLVMIR(SGListReadStdin* node);
+  llvm::Value* toLLVMIR(SGListClone* node);
+  llvm::Value* toLLVMIR(SGListLen* node);
+  llvm::Value* toLLVMIR(SGListGet* node);
+  llvm::Value* toLLVMIR(SGListSet* node);
+  llvm::Value* toLLVMIR(SGListToString* node);
   llvm::Value* toLLVMIR(SGResourceWriteToFile* node);
   llvm::Value* toLLVMIR(SIOStdStreamWrite* node);
   llvm::Value* toLLVMIR(SIOStdStreamLineIter* node);
@@ -370,6 +399,7 @@ private:
 
   std::vector<std::vector<std::string>> file_handle_scope_stack_;
   std::vector<std::vector<llvm::AllocaInst*>> cstr_slot_scope_stack_;
+  std::vector<std::vector<llvm::AllocaInst*>> dynamic_slot_scope_stack_;
 
   std::vector<std::pair<std::string, StyioIR*>> snapshot_path_exprs_;
   std::unordered_map<std::string, llvm::AllocaInst*> file_singleton_path_slots_;
@@ -384,6 +414,18 @@ private:
 
   void register_file_handle_for_raii(const std::string& var_name);
   void register_cstr_slot_for_raii(llvm::AllocaInst* slot);
+  void register_dynamic_slot_for_raii(llvm::AllocaInst* slot);
+
+  llvm::StructType* dynamic_cell_type();
+  llvm::AllocaInst* create_entry_alloca(llvm::Type* type, const std::string& name);
+  void init_dynamic_slot_undef(llvm::AllocaInst* slot);
+  void release_dynamic_slot_contents(llvm::AllocaInst* slot);
+  void store_dynamic_slot(
+    llvm::AllocaInst* slot,
+    std::int64_t tag,
+    llvm::Value* i64v,
+    llvm::Value* f64v,
+    llvm::Value* ptrv);
 
   llvm::FunctionCallee free_cstr_fn();
   void track_owned_cstr_temp(llvm::Value* v);

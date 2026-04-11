@@ -1342,6 +1342,12 @@ parse_resources_after_at(StyioContext& context);
 StyioAST*
 parse_resource_file_atom_latest(StyioContext& context);
 
+StyioAST*
+parse_after_at_common(StyioContext& context, bool file_only_resource);
+
+TypeAST*
+parse_styio_type(StyioContext& context);
+
 /*
   parse_pipeline
 */

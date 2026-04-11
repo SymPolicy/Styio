@@ -28,6 +28,7 @@ class SGCond; /* Conditional: An expression that can be evaluated to a boolean t
 class SGVar;
 class SGFlexBind;
 class SGFinalBind;
+class SGDynLoad;
 
 class SGFuncArg;
 class SGFunc;
@@ -38,6 +39,14 @@ class SGReturn;
 class SGLoop;
 class SGForEach;
 class SGListLiteral;
+class SGRangeFor;
+class SGIf;
+class SGListReadStdin;
+class SGListClone;
+class SGListLen;
+class SGListGet;
+class SGListSet;
+class SGListToString;
 
 class SGStateSnapLoad;
 class SGStateHistLoad;
