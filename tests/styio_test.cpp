@@ -3023,3 +3023,53 @@ TEST(StyioSamples, DictTypeHandleFamilies) {
 
   fs::remove(input);
 }
+
+TEST(StyioSamples, ListPredefinedOperations) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-list-ops-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "nums = [1,2]\n";
+    out << "nums.push(3)\n";
+    out << "nums.insert(0,4)\n";
+    out << "nums.pop()\n";
+    out << ">_(nums)\n";
+    out << "flags = [true,false]\n";
+    out << "flags[1] = true\n";
+    out << ">_(flags)\n";
+    out << "names = [\"Ada\"]\n";
+    out << "names.push(\"Lovelace\")\n";
+    out << "names.insert(1, \"Byron\")\n";
+    out << "names.pop()\n";
+    out << ">_(names)\n";
+    out << "bags = [[1,2]]\n";
+    out << "bags.push([3])\n";
+    out << "bags[0] = [9]\n";
+    out << ">_(bags)\n";
+    out << "maps = [dict{\"a\": 1}]\n";
+    out << "maps.insert(1, dict{\"b\": 2})\n";
+    out << "maps[0] = dict{\"c\": 3}\n";
+    out << ">_(maps)\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(
+    result.stdout_text,
+    "[4,1,2]\n[true,true]\n[\"Ada\",\"Byron\"]\n[[9],[3]]\n[{\"c\":3},{\"b\":2}]\n");
+
+  fs::remove(input);
+}

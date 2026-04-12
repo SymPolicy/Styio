@@ -822,6 +822,28 @@ TEST(StyioSecurityNightlySemantics, AllowsCloneFormsAndIndexedMutation) {
     parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
 }
 
+TEST(StyioSecurityNightlySemantics, AllowsPredefinedListOperationsAcrossRuntimeFamilies) {
+  const std::string src =
+    "nums = [1,2]\n"
+    "nums.push(3)\n"
+    "nums.insert(0,4)\n"
+    "nums.pop()\n"
+    "flags = [true,false]\n"
+    "flags[1] = true\n"
+    "names = [\"Ada\"]\n"
+    "names.push(\"Lovelace\")\n"
+    "names.insert(1, \"Byron\")\n"
+    "names.pop()\n"
+    "bags = [[1,2]]\n"
+    "bags.push([3])\n"
+    "bags[0] = [9]\n"
+    "maps = [dict{\"a\": 1}]\n"
+    "maps.insert(1, dict{\"b\": 2})\n"
+    "maps[0] = dict{\"c\": 3}\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+}
+
 TEST(StyioSecurityNightlySemantics, AllowsDictIndexingAttrsAndClone) {
   const std::string src =
     "d = dict{\"a\": 1, \"b\": 2}\n"
@@ -948,6 +970,30 @@ TEST(StyioSecurityNightlyCodegen, EmitsImmediateListReleaseForFlexReassign) {
   EXPECT_NE(llvm_ir.find("styio_list_release"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyCodegen, EmitsTypedListHelpersForMutationAndOperations) {
+  const std::string src =
+    "nums = [1,2]\n"
+    "nums.push(3)\n"
+    "nums.insert(0,4)\n"
+    "nums.pop()\n"
+    "flags = [true,false]\n"
+    "flags[1] = true\n"
+    "bags = [[1,2]]\n"
+    "bags[0] = [9]\n"
+    "maps = [dict{\"a\": 1}]\n"
+    "maps.insert(1, dict{\"b\": 2})\n"
+    "maps[0] = dict{\"c\": 3}\n";
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_list_push_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_insert_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_pop"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_set_bool"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_set_list"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_insert_dict"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_set_dict"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyCodegen, EmitsStringListCollectHelperForStdinCollectBind) {
   const std::string src =
     "lines << @stdin\n"
@@ -1014,6 +1060,19 @@ TEST(StyioSecurityNightlyRuntime, ListHandlesAreCleanedUpAfterExecution) {
       src,
       StyioParserEngine::Nightly,
       "[1,2,3]\n"));
+  EXPECT_EQ(styio_list_active_count(), 0);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioSecurityNightlyRuntime, ListLiteralHandlesAreCleanedUpAfterExecution) {
+  const std::string src =
+    "l = [1,2,3]\n"
+    "l = []\n";
+  EXPECT_NO_THROW(
+    execute_program_engine_with_stdin_latest(
+      src,
+      StyioParserEngine::Nightly,
+      ""));
   EXPECT_EQ(styio_list_active_count(), 0);
   EXPECT_EQ(styio_runtime_has_error(), 0);
 }

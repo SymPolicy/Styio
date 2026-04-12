@@ -202,6 +202,42 @@ collection_elem_is_string(StyioAnalyzer* an, StyioAST* coll) {
   return L->getElements()[0]->getNodeType() == StyioNodeType::String;
 }
 
+bool
+is_predefined_list_operation_name(const std::string& name) {
+  return name == "push" || name == "insert" || name == "pop";
+}
+
+std::string
+predefined_list_operation_runtime_name(const std::string& method, const StyioDataType& list_type) {
+  if (method == "pop") {
+    return "__styio_list_pop";
+  }
+
+  const std::string elem_name = styio_type_item_type_name(list_type);
+  const char* suffix = "i64";
+  switch (styio_value_family_from_type_name(elem_name)) {
+    case StyioValueFamily::Bool:
+      suffix = "bool";
+      break;
+    case StyioValueFamily::Float:
+      suffix = "f64";
+      break;
+    case StyioValueFamily::String:
+      suffix = "cstr";
+      break;
+    case StyioValueFamily::ListHandle:
+      suffix = "list";
+      break;
+    case StyioValueFamily::DictHandle:
+      suffix = "dict";
+      break;
+    case StyioValueFamily::Integer:
+    default:
+      break;
+  }
+  return std::string("__styio_list_") + method + "_" + suffix;
+}
+
 void
 scan_returns_for_str_int(StyioAST* ast, bool& has_str, bool& has_int) {
   if (!ast) {
@@ -1125,7 +1161,8 @@ StyioAnalyzer::toStyioIR(ParallelAssignAST* ast) {
       stmts.push_back(SGListSet::Create(
         idx->getList()->toStyioIR(this),
         idx->getSlot1()->toStyioIR(this),
-        rhs_val));
+        rhs_val,
+        styio_type_item_type_name(base_type)));
     }
   }
 
@@ -1586,6 +1623,20 @@ StyioAnalyzer::toStyioIR(ReturnAST* ast) {
 
 StyioIR*
 StyioAnalyzer::toStyioIR(FuncCallAST* ast) {
+  if (ast->func_callee != nullptr && is_predefined_list_operation_name(ast->getNameAsStr())) {
+    std::vector<StyioIR*> args;
+    args.reserve(ast->getArgList().size() + 1);
+    args.push_back(ast->func_callee->toStyioIR(this));
+    for (auto* a : ast->getArgList()) {
+      args.push_back(a->toStyioIR(this));
+    }
+    return SGCall::Create(
+      SGResId::Create(predefined_list_operation_runtime_name(
+        ast->getNameAsStr(),
+        expr_lowered_type(this, ast->func_callee))),
+      std::move(args));
+  }
+
   std::vector<StyioIR*> args;
   for (auto* a : ast->getArgList()) {
     args.push_back(a->toStyioIR(this));

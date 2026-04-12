@@ -128,6 +128,26 @@ container_value_assignable(const StyioDataType& target, const StyioDataType& act
 }
 
 bool
+is_predefined_list_operation_name(const std::string& name) {
+  return name == "push" || name == "insert" || name == "pop";
+}
+
+StyioDataType
+infer_predefined_list_operation_type(StyioAnalyzer* an, FuncCallAST* call) {
+  if (call == nullptr || call->func_callee == nullptr) {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+  if (!is_predefined_list_operation_name(call->getNameAsStr())) {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+  StyioDataType callee_type = infer_expr_type(an, call->func_callee);
+  if (!styio_is_list_type(callee_type)) {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+  return kI64Type;
+}
+
+bool
 func_param_accepts_arg(const StyioDataType& param_type, const StyioDataType& arg_type) {
   if (param_type.isUndefined() || arg_type.isUndefined()) {
     return true;
@@ -298,6 +318,10 @@ infer_expr_type(StyioAnalyzer* an, StyioAST* expr) {
     }
     case StyioNodeType::Call: {
       auto* call = static_cast<FuncCallAST*>(expr);
+      StyioDataType builtin_type = infer_predefined_list_operation_type(an, call);
+      if (!builtin_type.isUndefined()) {
+        return builtin_type;
+      }
       auto it = an->func_defs.find(call->getNameAsStr());
       if (it != an->func_defs.end()) {
         return func_ret_type_of_def(an, it->second);
@@ -504,7 +528,7 @@ StyioAnalyzer::typeInfer(FlexBindAST* ast) {
       return BindingValueKind::ListHandle;
     }
     if (expr->getNodeType() == StyioNodeType::List) {
-      return BindingValueKind::Unknown;
+      return BindingValueKind::ListHandle;
     }
     if (expr->getNodeType() == StyioNodeType::Dict) {
       return BindingValueKind::DictHandle;
@@ -730,15 +754,17 @@ StyioAnalyzer::typeInfer(ParallelAssignAST* ast) {
     }
     if (!styio_is_list_type(base_type)) {
       throw StyioTypeError(
-        "indexed assignment in this slice supports dict[string,T] or integer list targets only");
+        "indexed assignment in this slice supports dict[string,T] or list[T] targets only");
     }
     StyioDataType elem_type = styio_data_type_from_name(styio_type_item_type_name(base_type));
-    if (elem_type.option != StyioDataTypeOption::Integer) {
+    if (!styio_type_supports_runtime_list_elem(elem_type)) {
       throw StyioTypeError(
-        "indexed assignment in this slice supports dict[string,T] or integer list targets only");
+        "indexed assignment in this slice supports runtime list element families only");
     }
-    if (rhs_type.option != StyioDataTypeOption::Integer) {
-      throw StyioTypeError("indexed assignment RHS must have integer type for integer list targets");
+    if (!container_value_assignable(elem_type, rhs_type)) {
+      throw StyioTypeError(
+        "indexed assignment RHS does not match list element type `"
+        + elem_type.name + "`");
     }
   }
 }
@@ -790,23 +816,11 @@ StyioAnalyzer::typeInfer(SetAST* ast) {
 
 void
 StyioAnalyzer::typeInfer(ListAST* ast) {
-  /* if no element against the consistency, the tuple will have a type. */
-  auto elements = ast->getElements();
-
-  bool is_consistent = true;
-  StyioDataType aggregated_type = elements[0]->getDataType();
-  if (aggregated_type.isUndefined()) {
-    for (size_t i = 1; i < elements.size(); i += 1) {
-      if (not(elements[i]->getDataType()).equals(aggregated_type)) {
-        is_consistent = false;
-      }
-    }
+  for (auto* elem : ast->getElements()) {
+    elem->typeInfer(this);
   }
-
-  if (is_consistent) {
-    ast->setConsistency(is_consistent);
-    ast->setDataType(aggregated_type);
-  }
+  ast->setConsistency(true);
+  ast->setDataType(infer_list_literal_type(this, ast));
 }
 
 void
@@ -1330,6 +1344,63 @@ StyioAnalyzer::typeInfer(ReturnAST* ast) {
 
 void
 StyioAnalyzer::typeInfer(FuncCallAST* ast) {
+  if (ast->func_callee != nullptr) {
+    ast->func_callee->typeInfer(this);
+  }
+
+  if (ast->func_callee != nullptr && is_predefined_list_operation_name(ast->getNameAsStr())) {
+    for (auto* arg : ast->getArgList()) {
+      arg->typeInfer(this);
+    }
+
+    StyioDataType callee_type = infer_expr_type(this, ast->func_callee);
+    if (!styio_is_list_type(callee_type)) {
+      throw StyioTypeError(
+        "predefined list operation `" + ast->getNameAsStr() + "` requires a list[T] receiver");
+    }
+
+    StyioDataType elem_type = styio_data_type_from_name(styio_type_item_type_name(callee_type));
+    if (!styio_type_supports_runtime_list_elem(elem_type)) {
+      throw StyioTypeError(
+        "predefined list operation `" + ast->getNameAsStr()
+        + "` requires a runtime list element family");
+    }
+
+    if (ast->getNameAsStr() == "push") {
+      if (ast->getArgList().size() != 1) {
+        throw StyioTypeError("list.push(value) requires exactly one argument");
+      }
+      StyioDataType value_type = infer_expr_type(this, ast->getArgList()[0]);
+      if (!container_value_assignable(elem_type, value_type)) {
+        throw StyioTypeError(
+          "list.push(value) expects `" + elem_type.name + "`, got `" + value_type.name + "`");
+      }
+      return;
+    }
+
+    if (ast->getNameAsStr() == "insert") {
+      if (ast->getArgList().size() != 2) {
+        throw StyioTypeError("list.insert(index, value) requires exactly two arguments");
+      }
+      StyioDataType index_type = infer_expr_type(this, ast->getArgList()[0]);
+      if (index_type.option != StyioDataTypeOption::Integer) {
+        throw StyioTypeError("list.insert(index, value) requires an integer index");
+      }
+      StyioDataType value_type = infer_expr_type(this, ast->getArgList()[1]);
+      if (!container_value_assignable(elem_type, value_type)) {
+        throw StyioTypeError(
+          "list.insert(index, value) expects `" + elem_type.name + "`, got `"
+          + value_type.name + "`");
+      }
+      return;
+    }
+
+    if (!ast->getArgList().empty()) {
+      throw StyioTypeError("list.pop() does not take arguments");
+    }
+    return;
+  }
+
   auto def_it = func_defs.find(ast->getNameAsStr());
   if (def_it == func_defs.end()) {
     return;

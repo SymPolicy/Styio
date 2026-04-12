@@ -1552,7 +1552,8 @@ StyioRepr::toString(SGListSet* node, int indent) {
   return std::string("styio.ir.list_set { list=")
     + (node->list ? node->list->toString(this, indent) : std::string("null"))
     + ", index=" + (node->index ? node->index->toString(this, indent) : std::string("null"))
-    + ", value=" + (node->value ? node->value->toString(this, indent) : std::string("null")) + " }";
+    + ", value=" + (node->value ? node->value->toString(this, indent) : std::string("null"))
+    + ", type=" + node->elem_type + " }";
 }
 
 std::string
