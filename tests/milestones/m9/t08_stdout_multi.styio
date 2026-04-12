@@ -1,0 +1,5 @@
+// M9 / T9.08: Multiple types to stdout
+
+42 -> @stdout
+3.14 -> @stdout
+"Hello" -> @stdout

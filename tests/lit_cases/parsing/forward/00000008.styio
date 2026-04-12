@@ -1,0 +1,6 @@
+// RUN: %{styio} --styio-ast --file %s | FileCheck %s
+
+# step_1 (it) => it.do_this()
+# step_2 (it) => it.do_that()
+
+collection >> (i) > # step_1 > # step_2

@@ -1,9 +1,0 @@
-// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
-
-a := 0
-
-/*
-  CHECK:      Binding (Final) {
-  CHECK-NEXT: || Var: id { a }
-  CHECK-NEXT: || Val: int { 0 }}
-*/

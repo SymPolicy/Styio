@@ -81,9 +81,21 @@
     "__tree": "cpp",
     "stack": "cpp",
     "span": "cpp",
-    "semaphore": "cpp"
+    "semaphore": "cpp",
+    "unordered_set": "cpp",
+    "numbers": "cpp",
+    "print": "cpp",
+    "forward_list": "cpp",
+    "execution": "cpp",
+    "__availability": "cpp",
+    "version": "cpp",
+    "any": "cpp",
+    "future": "cpp",
+    "*.def": "cpp",
+    "filesystem": "cpp"
   },
   "C_Cpp.clang_format_fallbackStyle": "Mozilla",
   "C_Cpp.clang_format_style": "file",
-  "C_Cpp.formatting": "clangFormat"
+  "C_Cpp.formatting": "clangFormat",
+  "C_Cpp.errorSquiggles": "disabled"
 }

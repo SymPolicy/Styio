@@ -1,0 +1,14 @@
+styio.ast.main {
+|- styio.ast.iterator {
+  |- iterable object: styio.ast.std_stream { @stdin }
+  |- styio.ast.arg { line : undefined }
+  |- styio.ast.block {
+    |- styio.ast.bind.flex {
+      |- var : styio.ast.var { result : i64 }
+      |- val = styio.ast.binop: i64 {
+        |- LHS: line
+        |- OP : <Mul>
+        |- RHS: { 2 : int }}}
+    |- styio.ast.resource.write  {
+      |- data: result
+      |- resource: styio.ast.std_stream { @stdout }}}}}

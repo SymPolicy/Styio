@@ -1,0 +1,3 @@
+// M10 / T10.09: Instant pull from @stderr (semantic error)
+
+x := (<< @stderr)

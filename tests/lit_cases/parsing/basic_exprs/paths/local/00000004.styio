@@ -1,0 +1,7 @@
+// RUN: %{styio} --styio-ast --file %s | FileCheck %s
+
+@("relevant/path/to/a/file")
+
+/*
+  Check: Main
+*/

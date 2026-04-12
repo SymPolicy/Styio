@@ -1,0 +1,17 @@
+styio.ast.main {
+|- styio.ast.stream.zip {
+  |- a: styio.ast.resource.file  {
+    |- auto_detect: false
+    |- path: styio.ast.string { "/tmp/styio_zip_a.txt" }}
+  |- styio.ast.arg { a : undefined }
+  |- b: styio.ast.resource.file  {
+    |- auto_detect: false
+    |- path: styio.ast.string { "/tmp/styio_zip_b.txt" }}
+  |- styio.ast.arg { b : undefined }
+styio.ast.block {
+    |- styio.ast.print {
+      |- styio.ast.binop: i64 {
+        |- LHS: a
+        |- OP : <Sub>
+        |- RHS: b}}}
+}}

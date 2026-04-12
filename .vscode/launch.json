@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "lldb launch",
+      "program": "${workspaceFolder}/styio",
+      "args": [
+        "-a",
+        "/home/Styio/tests/parsing/forward/00000009.styio"
+      ],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

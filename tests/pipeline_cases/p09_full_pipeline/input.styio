@@ -1,0 +1,4 @@
+@file{"/tmp/styio_pipeline_stream_input.txt"} >> #(x) => {
+    result = x * 2
+    result << @file{"/tmp/styio_pipeline_stream_output.txt"}
+}

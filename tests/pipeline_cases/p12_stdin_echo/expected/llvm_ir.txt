@@ -1,0 +1,33 @@
+; ModuleID = 'styio'
+source_filename = "styio"
+target datalayout = "e-m:o-i64:64-i128:128-n32:64-S128"
+
+@styio_fmt_str = private unnamed_addr constant [4 x i8] c"%s\0A\00", align 1
+
+define i32 @main() {
+main_entry:
+  br label %stdin_hdr
+
+stdin_hdr:                                        ; preds = %stdin_body, %main_entry
+  %0 = call ptr @styio_stdin_read_line()
+  %1 = icmp eq ptr %0, null
+  br i1 %1, label %stdin_exit, label %stdin_body
+
+stdin_body:                                       ; preds = %stdin_hdr
+  %line = alloca ptr, align 8
+  store ptr %0, ptr %line, align 8
+  %2 = load ptr, ptr %line, align 8
+  %3 = call i32 (ptr, ...) @printf(ptr @styio_fmt_str, ptr %2)
+  br label %stdin_hdr
+
+stdin_exit:                                       ; preds = %stdin_hdr
+  ret i32 0
+}
+
+declare ptr @styio_stdin_read_line()
+
+declare i32 @printf(ptr, ...)
+
+declare i32 @puts(ptr)
+
+declare void @styio_file_close(i64)

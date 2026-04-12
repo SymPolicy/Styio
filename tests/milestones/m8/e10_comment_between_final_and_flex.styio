@@ -1,0 +1,3 @@
+x : i64 := 1
+// flex after final should fail
+x = 2

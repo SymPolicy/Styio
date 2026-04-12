@@ -1,0 +1,3 @@
+// M10 / T10.07: Write to @stdin (semantic error)
+
+"hello" -> @stdin

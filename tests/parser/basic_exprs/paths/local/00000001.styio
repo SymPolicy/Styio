@@ -1,7 +1,0 @@
-// RUN: /root/styio/styio -a -f %s | /usr/bin/FileCheck %s
-
-@("/absolute/path/to/a/directory/")
-
-/*
-  Check: Main
-*/
