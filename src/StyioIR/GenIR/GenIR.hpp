@@ -299,6 +299,7 @@ enum class SGDynLoadKind : std::uint8_t
   F64,
   CString,
   ListHandle,
+  DictHandle,
 };
 
 class SGDynLoad : public StyioIRTraits<SGDynLoad>
@@ -457,13 +458,35 @@ class SGListLiteral : public StyioIRTraits<SGListLiteral>
 {
 public:
   std::vector<StyioIR*> elems;
+  std::string elem_type = "i64";
 
-  explicit SGListLiteral(std::vector<StyioIR*> e) :
-      elems(std::move(e)) {
+  SGListLiteral(std::vector<StyioIR*> e, std::string et) :
+      elems(std::move(e)), elem_type(std::move(et)) {
   }
 
-  static SGListLiteral* Create(std::vector<StyioIR*> e) {
-    return new SGListLiteral(std::move(e));
+  static SGListLiteral* Create(std::vector<StyioIR*> e, std::string elem_type = "i64") {
+    return new SGListLiteral(std::move(e), std::move(elem_type));
+  }
+};
+
+class SGDictLiteral : public StyioIRTraits<SGDictLiteral>
+{
+public:
+  struct Entry
+  {
+    StyioIR* key = nullptr;
+    StyioIR* value = nullptr;
+  };
+
+  std::vector<Entry> entries;
+  std::string value_type = "i64";
+
+  SGDictLiteral(std::vector<Entry> e, std::string vt) :
+      entries(std::move(e)), value_type(std::move(vt)) {
+  }
+
+  static SGDictLiteral* Create(std::vector<Entry> e, std::string value_type = "i64") {
+    return new SGDictLiteral(std::move(e), std::move(value_type));
   }
 };
 
@@ -561,16 +584,17 @@ class SGForEach : public StyioIRTraits<SGForEach>
 public:
   StyioIR* iterable = nullptr;
   std::string var;
+  std::string elem_type = "i64";
   SGBlock* body = nullptr;
   std::unique_ptr<SGPulsePlan> pulse_plan;
   int pulse_region_id = -1;
 
-  SGForEach(StyioIR* it, std::string v, SGBlock* b) :
-      iterable(it), var(std::move(v)), body(b) {
+  SGForEach(StyioIR* it, std::string v, std::string et, SGBlock* b) :
+      iterable(it), var(std::move(v)), elem_type(std::move(et)), body(b) {
   }
 
-  static SGForEach* Create(StyioIR* it, std::string v, SGBlock* b) {
-    return new SGForEach(it, std::move(v), b);
+  static SGForEach* Create(StyioIR* it, std::string v, std::string elem_type, SGBlock* b) {
+    return new SGForEach(it, std::move(v), std::move(elem_type), b);
   }
 
   void set_pulse_plan(std::unique_ptr<SGPulsePlan> p) {
@@ -948,13 +972,14 @@ class SGListGet : public StyioIRTraits<SGListGet>
 public:
   StyioIR* list = nullptr;
   StyioIR* index = nullptr;
+  std::string elem_type = "i64";
 
-  SGListGet(StyioIR* l, StyioIR* idx) :
-      list(l), index(idx) {
+  SGListGet(StyioIR* l, StyioIR* idx, std::string elem = "i64") :
+      list(l), index(idx), elem_type(std::move(elem)) {
   }
 
-  static SGListGet* Create(StyioIR* l, StyioIR* idx) {
-    return new SGListGet(l, idx);
+  static SGListGet* Create(StyioIR* l, StyioIR* idx, std::string elem = "i64") {
+    return new SGListGet(l, idx, std::move(elem));
   }
 };
 
@@ -985,6 +1010,110 @@ public:
 
   static SGListToString* Create(StyioIR* l) {
     return new SGListToString(l);
+  }
+};
+
+class SGDictClone : public StyioIRTraits<SGDictClone>
+{
+public:
+  StyioIR* source = nullptr;
+
+  explicit SGDictClone(StyioIR* src) :
+      source(src) {
+  }
+
+  static SGDictClone* Create(StyioIR* src) {
+    return new SGDictClone(src);
+  }
+};
+
+class SGDictLen : public StyioIRTraits<SGDictLen>
+{
+public:
+  StyioIR* dict = nullptr;
+
+  explicit SGDictLen(StyioIR* d) :
+      dict(d) {
+  }
+
+  static SGDictLen* Create(StyioIR* d) {
+    return new SGDictLen(d);
+  }
+};
+
+class SGDictGet : public StyioIRTraits<SGDictGet>
+{
+public:
+  StyioIR* dict = nullptr;
+  StyioIR* key = nullptr;
+  std::string value_type = "i64";
+
+  SGDictGet(StyioIR* d, StyioIR* k, std::string vt) :
+      dict(d), key(k), value_type(std::move(vt)) {
+  }
+
+  static SGDictGet* Create(StyioIR* d, StyioIR* k, std::string value_type = "i64") {
+    return new SGDictGet(d, k, std::move(value_type));
+  }
+};
+
+class SGDictSet : public StyioIRTraits<SGDictSet>
+{
+public:
+  StyioIR* dict = nullptr;
+  StyioIR* key = nullptr;
+  StyioIR* value = nullptr;
+  std::string value_type = "i64";
+
+  SGDictSet(StyioIR* d, StyioIR* k, StyioIR* v, std::string vt) :
+      dict(d), key(k), value(v), value_type(std::move(vt)) {
+  }
+
+  static SGDictSet* Create(StyioIR* d, StyioIR* k, StyioIR* v, std::string value_type = "i64") {
+    return new SGDictSet(d, k, v, std::move(value_type));
+  }
+};
+
+class SGDictKeys : public StyioIRTraits<SGDictKeys>
+{
+public:
+  StyioIR* dict = nullptr;
+
+  explicit SGDictKeys(StyioIR* d) :
+      dict(d) {
+  }
+
+  static SGDictKeys* Create(StyioIR* d) {
+    return new SGDictKeys(d);
+  }
+};
+
+class SGDictValues : public StyioIRTraits<SGDictValues>
+{
+public:
+  StyioIR* dict = nullptr;
+  std::string value_type = "i64";
+
+  explicit SGDictValues(StyioIR* d, std::string vt) :
+      dict(d), value_type(std::move(vt)) {
+  }
+
+  static SGDictValues* Create(StyioIR* d, std::string value_type = "i64") {
+    return new SGDictValues(d, std::move(value_type));
+  }
+};
+
+class SGDictToString : public StyioIRTraits<SGDictToString>
+{
+public:
+  StyioIR* dict = nullptr;
+
+  explicit SGDictToString(StyioIR* d) :
+      dict(d) {
+  }
+
+  static SGDictToString* Create(StyioIR* d) {
+    return new SGDictToString(d);
   }
 };
 

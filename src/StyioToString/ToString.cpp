@@ -272,6 +272,29 @@ StyioRepr::toString(ListAST* ast, int indent) {
 }
 
 std::string
+StyioRepr::toString(DictAST* ast, int indent) {
+  if (ast->getEntries().empty()) {
+    return reprASTType(ast->getNodeType()) + " { }";
+  }
+
+  std::string entry_str;
+  auto const& entries = ast->getEntries();
+  for (size_t i = 0; i < entries.size(); ++i) {
+    entry_str += make_padding(indent) + "Key: "
+      + entries[i].key->toString(this, indent + 1)
+      + "\n"
+      + make_padding(indent) + "Val: "
+      + entries[i].value->toString(this, indent + 1);
+    if (i + 1 < entries.size()) {
+      entry_str += "\n";
+    }
+  }
+
+  return reprASTType(ast->getNodeType(), " : ")
+    + ast->getDataType().name + " {\n" + entry_str + "\n}";
+}
+
+std::string
 StyioRepr::toString(SizeOfAST* ast, int indent) {
   return reprASTType(ast->getNodeType()) + " { " + ast->getValue()->toString(this, indent + 1) + " }";
 }
@@ -1354,6 +1377,13 @@ StyioRepr::toString(SGListLiteral* node, int indent) {
 }
 
 std::string
+StyioRepr::toString(SGDictLiteral* node, int indent) {
+  (void)indent;
+  return std::string("styio.ir.dict_literal { entries=") + std::to_string(node->entries.size())
+    + ", value=" + node->value_type + " }";
+}
+
+std::string
 StyioRepr::toString(SGStateSnapLoad* node, int indent) {
   (void)node;
   (void)indent;
@@ -1513,7 +1543,8 @@ std::string
 StyioRepr::toString(SGListGet* node, int indent) {
   return std::string("styio.ir.list_get { list=")
     + (node->list ? node->list->toString(this, indent) : std::string("null"))
-    + ", index=" + (node->index ? node->index->toString(this, indent) : std::string("null")) + " }";
+    + ", index=" + (node->index ? node->index->toString(this, indent) : std::string("null"))
+    + ", elem=" + node->elem_type + " }";
 }
 
 std::string
@@ -1528,6 +1559,54 @@ std::string
 StyioRepr::toString(SGListToString* node, int indent) {
   return std::string("styio.ir.list_to_string { list=")
     + (node->list ? node->list->toString(this, indent) : std::string("null")) + " }";
+}
+
+std::string
+StyioRepr::toString(SGDictClone* node, int indent) {
+  return std::string("styio.ir.dict_clone { src=")
+    + (node->source ? node->source->toString(this, indent) : std::string("null")) + " }";
+}
+
+std::string
+StyioRepr::toString(SGDictLen* node, int indent) {
+  return std::string("styio.ir.dict_len { dict=")
+    + (node->dict ? node->dict->toString(this, indent) : std::string("null")) + " }";
+}
+
+std::string
+StyioRepr::toString(SGDictGet* node, int indent) {
+  return std::string("styio.ir.dict_get { dict=")
+    + (node->dict ? node->dict->toString(this, indent) : std::string("null"))
+    + ", key=" + (node->key ? node->key->toString(this, indent) : std::string("null"))
+    + ", value=" + node->value_type + " }";
+}
+
+std::string
+StyioRepr::toString(SGDictSet* node, int indent) {
+  return std::string("styio.ir.dict_set { dict=")
+    + (node->dict ? node->dict->toString(this, indent) : std::string("null"))
+    + ", key=" + (node->key ? node->key->toString(this, indent) : std::string("null"))
+    + ", value=" + (node->value ? node->value->toString(this, indent) : std::string("null"))
+    + ", type=" + node->value_type + " }";
+}
+
+std::string
+StyioRepr::toString(SGDictKeys* node, int indent) {
+  return std::string("styio.ir.dict_keys { dict=")
+    + (node->dict ? node->dict->toString(this, indent) : std::string("null")) + " }";
+}
+
+std::string
+StyioRepr::toString(SGDictValues* node, int indent) {
+  return std::string("styio.ir.dict_values { dict=")
+    + (node->dict ? node->dict->toString(this, indent) : std::string("null"))
+    + ", value=" + node->value_type + " }";
+}
+
+std::string
+StyioRepr::toString(SGDictToString* node, int indent) {
+  return std::string("styio.ir.dict_to_string { dict=")
+    + (node->dict ? node->dict->toString(this, indent) : std::string("null")) + " }";
 }
 
 std::string

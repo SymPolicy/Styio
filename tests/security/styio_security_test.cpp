@@ -785,6 +785,19 @@ TEST(StyioSecurityNightlyParserStmt, AcceptsBubbleSortFeatureSyntax) {
   EXPECT_NE(repr.find("only_true"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, AcceptsDictFeatureSyntax) {
+  const std::string src =
+    "d = dict{\"a\": 1, \"b\": 2}\n"
+    "n = d.length\n"
+    "ks = d.keys\n"
+    "vs = d.values\n"
+    "x = d[\"a\"]\n";
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.dict"), std::string::npos);
+  EXPECT_NE(repr.find("styio.ast.attr"), std::string::npos);
+  EXPECT_NE(repr.find("styio.ast.access.by_index"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, RejectsDotChainAfterCall) {
   const std::string src = "x = foo.bar(1).baz(2)\n";
   EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
@@ -809,6 +822,123 @@ TEST(StyioSecurityNightlySemantics, AllowsCloneFormsAndIndexedMutation) {
     parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
 }
 
+TEST(StyioSecurityNightlySemantics, AllowsDictIndexingAttrsAndClone) {
+  const std::string src =
+    "d = dict{\"a\": 1, \"b\": 2}\n"
+    "d[\"c\"] = 3\n"
+    "k = d.keys[0]\n"
+    "v = d.values[1]\n"
+    "d2 << d\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+}
+
+TEST(StyioSecurityNightlySemantics, AllowsScalarAndStringDictFamilies) {
+  const std::string src =
+    "flags = dict{\"ok\": true, \"ng\": false}\n"
+    "ok = flags[\"ok\"]\n"
+    "flag_values = flags.values\n"
+    "names = dict{\"first\": \"Ada\", \"last\": \"Lovelace\"}\n"
+    "last = names[\"last\"]\n"
+    "name_values = names.values\n"
+    "nums = dict{\"pi\": 3.5, \"e\": 2}\n"
+    "pi = nums[\"pi\"]\n"
+    "num_values = nums.values\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+}
+
+TEST(StyioSecurityNightlySemantics, AllowsHandleValuedDictFamilies) {
+  const std::string src =
+    "d = dict{\"nums\": [1,2,3], \"more\": [4,5]}\n"
+    "xs = d[\"nums\"]\n"
+    "vals = d.values\n"
+    "child = dict{\"left\": dict{\"x\": 1}, \"right\": dict{\"y\": 2}}\n"
+    "inner = child[\"left\"]\n"
+    "inners = child.values\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+}
+
+TEST(StyioSecurityNightlySemantics, AllowsRuntimeHandleListIteration) {
+  const std::string src =
+    "d = dict{\"nums\": [1,2,3], \"more\": [4,5]}\n"
+    "vals = d.values\n"
+    "vals >> #(xs) => {\n"
+    "  >_(xs)\n"
+    "}\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_list_get_list"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsMixedDictValueFamilies) {
+  const std::string src =
+    "d = dict{\"a\": 1, \"b\": \"two\"}\n";
+  EXPECT_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly),
+    StyioTypeError);
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsNonStringDictIndex) {
+  const std::string src =
+    "d = dict{\"a\": 1}\n"
+    "x = d[0]\n";
+  EXPECT_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly),
+    StyioTypeError);
+}
+
+TEST(StyioSecurityNightlySemantics, AllowsBoundStdinAliasIteration) {
+  const std::string src =
+    "s <- @stdin\n"
+    "s >> #(line) => {\n"
+    "  line -> @stdout\n"
+    "}\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_stdin_read_line"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, AllowsStandaloneCollectBindFromStdin) {
+  const std::string src =
+    "lines << @stdin\n"
+    "count = lines.length\n"
+    "first = lines[0]\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_list_cstr_read_stdin"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, AllowsCollectBindFromBoundStdinAlias) {
+  const std::string src =
+    "s <- @stdin\n"
+    "lines << s\n"
+    "first = lines[0]\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_list_cstr_read_stdin"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsBoundStdoutAliasIteration) {
+  const std::string src =
+    "out <- @stdout\n"
+    "out >> #(line) => {\n"
+    "  line -> @stderr\n"
+    "}\n";
+  EXPECT_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly),
+    StyioTypeError);
+}
+
 TEST(StyioSecurityNightlyCodegen, EmitsImmediateListReleaseForFlexReassign) {
   const std::string src =
     "l = @stdin: list[i32]\n"
@@ -816,6 +946,63 @@ TEST(StyioSecurityNightlyCodegen, EmitsImmediateListReleaseForFlexReassign) {
   const std::string llvm_ir =
     compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
   EXPECT_NE(llvm_ir.find("styio_list_release"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyCodegen, EmitsStringListCollectHelperForStdinCollectBind) {
+  const std::string src =
+    "lines << @stdin\n"
+    "first = lines[0]\n";
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_list_cstr_read_stdin"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyCodegen, EmitsImmediateDictReleaseForFlexReassign) {
+  const std::string src =
+    "d = dict{\"a\": 1}\n"
+    "d = 7\n";
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_dict_release"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyCodegen, EmitsTypedDictHelpersForStringAndFloatValues) {
+  const std::string src =
+    "names = dict{\"first\": \"Ada\"}\n"
+    ">_(names[\"first\"])\n"
+    "nums = dict{\"pi\": 3.5, \"e\": 2}\n"
+    ">_(nums.values)\n";
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_dict_set_cstr"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_dict_get_cstr"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_dict_values_f64"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyCodegen, EmitsHandleDictHelpersForNestedCollections) {
+  const std::string src =
+    "d = dict{\"nums\": [1,2,3], \"more\": [4,5]}\n"
+    ">_(d[\"nums\"])\n"
+    "child = dict{\"left\": dict{\"x\": 1}, \"right\": dict{\"y\": 2}}\n"
+    ">_(child.values)\n";
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_dict_set_list"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_dict_get_list"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_dict_values_dict"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyCodegen, PreservesDeclaredFunctionParamTypesAcrossStringlyCallSites) {
+  const std::string src =
+    "# double_it := (x: i64) => x * 2\n"
+    "@stdin >> #(line) => {\n"
+    "  >_(double_it(line))\n"
+    "}\n";
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("define i64 @double_it(i64 %x)"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("call i64 @double_it(i64"), std::string::npos);
+  EXPECT_EQ(llvm_ir.find("define i64 @double_it(ptr %x)"), std::string::npos);
 }
 
 TEST(StyioSecurityNightlyRuntime, ListHandlesAreCleanedUpAfterExecution) {
@@ -829,6 +1016,67 @@ TEST(StyioSecurityNightlyRuntime, ListHandlesAreCleanedUpAfterExecution) {
       "[1,2,3]\n"));
   EXPECT_EQ(styio_list_active_count(), 0);
   EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioSecurityNightlyRuntime, CollectedStringListsAreCleanedUpAfterExecution) {
+  const std::string src =
+    "lines << @stdin\n"
+    "lines = 7\n";
+  EXPECT_NO_THROW(
+    execute_program_engine_with_stdin_latest(
+      src,
+      StyioParserEngine::Nightly,
+      "alpha\nbeta\n"));
+  EXPECT_EQ(styio_list_active_count(), 0);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioSecurityNightlyRuntime, DictHandlesAreCleanedUpAfterExecution) {
+  const std::string src =
+    "d = dict{\"a\": 1}\n"
+    "d = 7\n";
+  EXPECT_NO_THROW(
+    execute_program_engine_with_stdin_latest(
+      src,
+      StyioParserEngine::Nightly,
+      ""));
+  EXPECT_EQ(styio_dict_active_count(), 0);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioSecurityNightlyRuntime, NestedHandleDictsReleaseOwnedChildrenOnOverwrite) {
+  const std::string src =
+    "d = dict{\"nums\": [1,2,3], \"more\": [4,5]}\n"
+    "d = 7\n"
+    "child = dict{\"left\": dict{\"x\": 1}, \"right\": dict{\"y\": 2}}\n"
+    "child = 8\n";
+  EXPECT_NO_THROW(
+    execute_program_engine_with_stdin_latest(
+      src,
+      StyioParserEngine::Nightly,
+      ""));
+  EXPECT_EQ(styio_list_active_count(), 0);
+  EXPECT_EQ(styio_dict_active_count(), 0);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioSecurityNightlyRuntime, InvalidNumericStringArgumentSetsRuntimeError) {
+  const std::string src =
+    "# add1 := (x: i64) => x + 1\n"
+    "@stdin >> #(line) => {\n"
+    "  >_(add1(line))\n"
+    "}\n";
+  EXPECT_NO_THROW(
+    execute_program_engine_with_stdin_latest(
+      src,
+      StyioParserEngine::Nightly,
+      "abc\n"));
+  EXPECT_EQ(styio_runtime_has_error(), 1);
+  ASSERT_NE(styio_runtime_last_error_subcode(), nullptr);
+  EXPECT_STREQ(styio_runtime_last_error_subcode(), "STYIO_RUNTIME_NUMERIC_PARSE");
+  ASSERT_NE(styio_runtime_last_error(), nullptr);
+  EXPECT_NE(std::strstr(styio_runtime_last_error(), "cannot parse integer"), nullptr);
+  styio_runtime_clear_error();
 }
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnResourcePostfixSubsetSamples) {

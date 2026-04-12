@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdlib>
+#include <cctype>
 #include <chrono>
 #include <filesystem>
 #include <cstdio>
@@ -22,6 +23,10 @@ namespace fs = std::filesystem;
 
 #ifndef STYIO_COMPILER_EXE
 #define STYIO_COMPILER_EXE ""
+#endif
+
+#ifndef STYIO_NANO_COMPILER_EXE
+#define STYIO_NANO_COMPILER_EXE ""
 #endif
 
 namespace {
@@ -72,6 +77,43 @@ read_text_file_latest(const fs::path& path) {
   std::ostringstream ss;
   ss << in.rdbuf();
   return ss.str();
+}
+
+std::string
+trim_copy_latest(const std::string& text) {
+  size_t begin = 0;
+  while (begin < text.size() && std::isspace(static_cast<unsigned char>(text[begin]))) {
+    ++begin;
+  }
+  size_t end = text.size();
+  while (end > begin && std::isspace(static_cast<unsigned char>(text[end - 1]))) {
+    --end;
+  }
+  return text.substr(begin, end - begin);
+}
+
+std::string
+sha256_file_latest(const fs::path& path) {
+  const CommandResult shasum =
+    run_stdout_command(std::string("shasum -a 256 \"") + path.string() + "\" 2>/dev/null");
+  if (shasum.exit_code == 0) {
+    std::istringstream in(shasum.stdout_text);
+    std::string digest;
+    in >> digest;
+    if (!digest.empty()) {
+      return digest;
+    }
+  }
+
+  const CommandResult sha256sum =
+    run_stdout_command(std::string("sha256sum \"") + path.string() + "\" 2>/dev/null");
+  if (sha256sum.exit_code == 0) {
+    std::istringstream in(sha256sum.stdout_text);
+    std::string digest;
+    in >> digest;
+    return digest;
+  }
+  return "";
 }
 
 } // namespace
@@ -338,6 +380,63 @@ TEST(StyioFiveLayerPipeline, P15_stdin_mixed_output) {
   EXPECT_EQ(err, "") << err;
 }
 
+TEST(StyioFiveLayerPipeline, StdinAliasAstShowsStringHandleType) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-stdin-alias-type-" + std::to_string(uniq) + ".styio");
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "s <- @stdin\n";
+    out << "s >> #(line) => {\n";
+    out << "  >_(line)\n";
+    out << "}\n";
+  }
+
+  const CommandResult result =
+    run_stdout_command(std::string("\"") + runner + "\" --parser-engine=nightly --styio-ast --file \"" + input.string() + "\"");
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("s : stdin[string]"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioFiveLayerPipeline, StandaloneCollectBindFromStdinMaterializesStringList) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-stdin-collect-" + std::to_string(uniq) + ".styio");
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "lines << @stdin\n";
+    out << ">_(lines[0])\n";
+    out << ">_(lines.length)\n";
+  }
+
+  const std::string cmd =
+    std::string("printf 'alpha\\nbeta\\n' | \"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\"";
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("alpha"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("2"), std::string::npos);
+
+  fs::remove(input);
+}
+
 TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
   if (runner == nullptr || runner[0] == '\0') {
@@ -355,7 +454,443 @@ TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   EXPECT_NE(result.stdout_text.find("\"machine_info_json\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"single_file_entry\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"jsonl_diagnostics\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"nano_package_registry_publish_v1\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"dict_impl\":{\"selected\":\"ordered-hash\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"edition_max\":\"2026\""), std::string::npos);
+}
+
+TEST(StyioDiagnostics, MachineInfoJsonReflectsCliDictImplSelection) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --machine-info=json --dict-impl=linear";
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"dict_impl\":{\"selected\":\"linear\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"source\":\"cli\""), std::string::npos);
+}
+
+TEST(StyioDiagnostics, MachineInfoJsonReflectsCliDictImplAliasSelection) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --machine-info=json --dict-impl=v1";
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"dict_impl\":{\"selected\":\"linear\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"source\":\"cli\""), std::string::npos);
+}
+
+TEST(StyioDiagnostics, MachineInfoJsonReflectsProjectConfigAndCliOverride) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path project_dir =
+    fs::temp_directory_path() / ("styio-dict-config-" + std::to_string(uniq));
+  const fs::path input = project_dir / "main.styio";
+  const fs::path config = project_dir / "styio.toml";
+  ASSERT_TRUE(fs::create_directories(project_dir));
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << ">_(1)\n";
+  }
+  {
+    std::ofstream out(config);
+    ASSERT_TRUE(out.is_open());
+    out << "[runtime]\n";
+    out << "dict_impl = \"linear\"\n";
+  }
+
+  const std::string base_cmd =
+    std::string("cd \"") + project_dir.string() + "\" && \"" + runner
+    + "\" --machine-info=json --file \"" + input.filename().string() + "\"";
+  const CommandResult project_selected = run_stdout_command(base_cmd);
+  ASSERT_EQ(project_selected.exit_code, 0) << project_selected.stdout_text;
+  EXPECT_NE(project_selected.stdout_text.find("\"dict_impl\":{\"selected\":\"linear\""), std::string::npos);
+  EXPECT_NE(project_selected.stdout_text.find("\"source\":\"project-config\""), std::string::npos);
+  EXPECT_NE(project_selected.stdout_text.find("\"config_file\":\""), std::string::npos);
+
+  const CommandResult cli_override =
+    run_stdout_command(base_cmd + " --dict-impl=ordered-hash");
+  ASSERT_EQ(cli_override.exit_code, 0) << cli_override.stdout_text;
+  EXPECT_NE(cli_override.stdout_text.find("\"dict_impl\":{\"selected\":\"ordered-hash\""), std::string::npos);
+  EXPECT_NE(cli_override.stdout_text.find("\"source\":\"cli\""), std::string::npos);
+
+  fs::remove_all(project_dir);
+}
+
+TEST(StyioNano, MachineInfoReflectsPrunedProfile) {
+  const char* runner = std::getenv("STYIO_NANO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_NANO_COMPILER_EXE;
+  }
+  if (runner == nullptr || runner[0] == '\0') {
+    GTEST_SKIP() << "styio-nano target not built";
+  }
+
+  const std::string cmd = std::string("\"") + runner + "\" --machine-info=json";
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"channel\":\"nano\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"variant\":\"nano\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"name\":\"edge-default\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"dict_impl\":{\"selected\":\"ordered-hash\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"supported\":[\"ordered-hash\"]"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\"linear\""), std::string::npos);
+}
+
+TEST(StyioNano, DisabledFlagsAndBackendsAreRejected) {
+  const char* runner = std::getenv("STYIO_NANO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_NANO_COMPILER_EXE;
+  }
+  if (runner == nullptr || runner[0] == '\0') {
+    GTEST_SKIP() << "styio-nano target not built";
+  }
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-nano-disabled-flag-" + std::to_string(uniq) + ".styio");
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << ">_(1)\n";
+  }
+
+  const CommandResult shadow_disabled =
+    run_stdout_command(std::string("\"") + runner + "\" --parser-shadow-compare --file \"" + input.string() + "\" 2>&1");
+  EXPECT_EQ(shadow_disabled.exit_code, 6);
+  EXPECT_NE(
+    shadow_disabled.stdout_text.find("disabled in this styio-nano profile"),
+    std::string::npos);
+
+  const CommandResult backend_disabled =
+    run_stdout_command(std::string("\"") + runner + "\" --dict-impl=linear --file \"" + input.string() + "\" 2>&1");
+  EXPECT_EQ(backend_disabled.exit_code, 6);
+  EXPECT_NE(backend_disabled.stdout_text.find("unsupported --dict-impl: linear"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioNanoPackage, LocalSubsetConfigMaterializesBundle) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-nano-package-local-" + std::to_string(uniq));
+  const fs::path output_dir = root / "bundle";
+  const fs::path config = root / "nano.toml";
+  ASSERT_TRUE(fs::create_directories(root));
+
+  {
+    std::ofstream out(config);
+    ASSERT_TRUE(out.is_open());
+    out << "[nano]\n";
+    out << "mode = \"local-subset\"\n";
+    out << "name = \"edge-local-test\"\n";
+    out << "output_dir = \"" << output_dir.string() << "\"\n";
+    out << "\n[nano.local]\n";
+    out << "profile = \"" << (fs::path(STYIO_SOURCE_DIR) / "configs" / "styio-nano-default.toml").string() << "\"\n";
+    out << "source_root = \"" << fs::path(STYIO_SOURCE_DIR).string() << "\"\n";
+  }
+
+  const CommandResult created =
+    run_stdout_command(std::string("\"") + runner + "\" --nano-create --nano-package-config \"" + config.string() + "\"");
+  ASSERT_EQ(created.exit_code, 0) << created.stdout_text;
+  ASSERT_TRUE(fs::exists(output_dir / "bin" / "styio-nano"));
+  ASSERT_TRUE(fs::exists(output_dir / "styio-nano.profile.toml"));
+  ASSERT_TRUE(fs::exists(output_dir / "styio_nano_profile.cmake"));
+  ASSERT_TRUE(fs::exists(output_dir / "styio-nano-package.toml"));
+  ASSERT_TRUE(fs::exists(output_dir / "build-styio-nano.sh"));
+  ASSERT_TRUE(fs::exists(output_dir / "CMakeLists.txt"));
+  ASSERT_TRUE(fs::exists(output_dir / "source-closure-manifest.txt"));
+  ASSERT_TRUE(fs::exists(output_dir / "src" / "main.cpp"));
+  EXPECT_NE(read_text_file_latest(output_dir / "styio-nano-package.toml").find("mode = \"local-subset\""), std::string::npos);
+  EXPECT_NE(read_text_file_latest(output_dir / "styio-nano-package.toml").find("version = \"0.0.1\""), std::string::npos);
+  EXPECT_NE(read_text_file_latest(output_dir / "source-closure-manifest.txt").find("src/main.cpp"), std::string::npos);
+
+  fs::remove(output_dir / "bin" / "styio-nano");
+  const CommandResult rebuilt =
+    run_stdout_command(std::string("\"") + (output_dir / "build-styio-nano.sh").string() + "\"");
+  ASSERT_EQ(rebuilt.exit_code, 0) << rebuilt.stdout_text;
+  ASSERT_TRUE(fs::exists(output_dir / "bin" / "styio-nano"));
+
+  const CommandResult packaged =
+    run_stdout_command(std::string("\"") + (output_dir / "bin" / "styio-nano").string() + "\" --machine-info=json");
+  ASSERT_EQ(packaged.exit_code, 0) << packaged.stdout_text;
+  EXPECT_NE(packaged.stdout_text.find("\"variant\":\"nano\""), std::string::npos);
+
+  fs::remove_all(root);
+}
+
+TEST(StyioNanoPackage, LocalSubsetCliMaterializesBundle) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-nano-package-cli-" + std::to_string(uniq));
+  const fs::path output_dir = root / "bundle";
+  ASSERT_TRUE(fs::create_directories(root));
+
+  const fs::path profile = fs::path(STYIO_SOURCE_DIR) / "configs" / "styio-nano-default.toml";
+  const std::string cmd =
+    std::string("\"") + runner + "\" --nano-create --nano-mode=local-subset --nano-name=edge-cli-test"
+    + " --nano-output \"" + output_dir.string() + "\""
+    + " --nano-profile \"" + profile.string() + "\""
+    + " --nano-source-root \"" + fs::path(STYIO_SOURCE_DIR).string() + "\"";
+  const CommandResult created = run_stdout_command(cmd);
+  ASSERT_EQ(created.exit_code, 0) << created.stdout_text;
+  ASSERT_TRUE(fs::exists(output_dir / "bin" / "styio-nano"));
+  EXPECT_NE(read_text_file_latest(output_dir / "styio-nano-package.toml").find("name = \"edge-cli-test\""), std::string::npos);
+
+  fs::remove_all(root);
+}
+
+TEST(StyioNanoPackage, CloudRepositoryConfigMaterializesBundle) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const char* nano_runner = std::getenv("STYIO_NANO_COMPILER_EXE");
+  if (nano_runner == nullptr || nano_runner[0] == '\0') {
+    nano_runner = STYIO_NANO_COMPILER_EXE;
+  }
+  if (nano_runner == nullptr || nano_runner[0] == '\0') {
+    GTEST_SKIP() << "styio-nano target not built";
+  }
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-nano-package-cloud-" + std::to_string(uniq));
+  const fs::path repo_dir = root / "repo";
+  const fs::path marker = repo_dir / "styio-nano-repository.json";
+  const fs::path package_root = root / "package";
+  const fs::path blob = root / "edge-cloud.tar";
+  const fs::path install_dir = root / "install";
+  const std::string package_name = "edge/default";
+  const std::string version = "0.0.1";
+  const fs::path entry =
+    repo_dir / "index" / "edge" / "default" / (version + ".json");
+  const fs::path config = root / "nano.toml";
+  ASSERT_TRUE(fs::create_directories(package_root / "bin"));
+  ASSERT_TRUE(fs::create_directories(repo_dir / "index" / "edge" / "default"));
+
+  {
+    std::error_code ec;
+    fs::copy_file(nano_runner, package_root / "bin" / "styio-nano", fs::copy_options::overwrite_existing, ec);
+    ASSERT_FALSE(ec) << ec.message();
+    fs::copy_file(
+      fs::path(STYIO_SOURCE_DIR) / "configs" / "styio-nano-default.toml",
+      package_root / "styio-nano.profile.toml",
+      fs::copy_options::overwrite_existing,
+      ec);
+    ASSERT_FALSE(ec) << ec.message();
+  }
+  {
+    std::ofstream out(package_root / "styio-nano-package.toml");
+    ASSERT_TRUE(out.is_open());
+    out << "[package]\nname = \"edge-cloud-test\"\nchannel = \"nano\"\nmode = \"cloud\"\n";
+  }
+  const CommandResult tar_created =
+    run_stdout_command(std::string("tar -cf \"") + blob.string() + "\" -C \"" + package_root.string() + "\" .");
+  ASSERT_EQ(tar_created.exit_code, 0) << tar_created.stdout_text;
+  const std::string sha256 = trim_copy_latest(sha256_file_latest(blob));
+  ASSERT_EQ(sha256.size(), 64U);
+  const fs::path blob_dest = repo_dir / "blobs" / "sha256" / sha256.substr(0, 2) / sha256.substr(2, 2) / (sha256 + ".tar");
+  ASSERT_TRUE(fs::create_directories(blob_dest.parent_path()));
+  {
+    std::error_code ec;
+    fs::copy_file(blob, blob_dest, fs::copy_options::overwrite_existing, ec);
+    ASSERT_FALSE(ec) << ec.message();
+  }
+  {
+    std::ofstream out(marker);
+    ASSERT_TRUE(out.is_open());
+    out << "{\n";
+    out << "  \"kind\": \"styio-nano-static\",\n";
+    out << "  \"schema_version\": 1\n";
+    out << "}\n";
+  }
+  {
+    std::ofstream out(entry);
+    ASSERT_TRUE(out.is_open());
+    out << "{\n";
+    out << "  \"schema_version\": 1,\n";
+    out << "  \"package\": \"" << package_name << "\",\n";
+    out << "  \"version\": \"" << version << "\",\n";
+    out << "  \"channel\": \"nano\",\n";
+    out << "  \"sha256\": \"" << sha256 << "\",\n";
+    out << "  \"size_bytes\": " << fs::file_size(blob_dest) << ",\n";
+    out << "  \"blob_path\": \"" << (fs::path("blobs") / "sha256" / sha256.substr(0, 2) / sha256.substr(2, 2) / (sha256 + ".tar")).generic_string() << "\",\n";
+    out << "  \"published_at\": \"2026-04-12T00:00:00Z\"\n";
+    out << "}\n";
+  }
+  {
+    std::ofstream out(config);
+    ASSERT_TRUE(out.is_open());
+    out << "[nano]\n";
+    out << "mode = \"cloud\"\n";
+    out << "output_dir = \"" << install_dir.string() << "\"\n";
+    out << "\n[nano.cloud]\n";
+    out << "registry = \"" << repo_dir.string() << "\"\n";
+    out << "package = \"" << package_name << "\"\n";
+    out << "version = \"" << version << "\"\n";
+  }
+
+  const CommandResult created =
+    run_stdout_command(std::string("\"") + runner + "\" --nano-create --nano-package-config \"" + config.string() + "\"");
+  ASSERT_EQ(created.exit_code, 0) << created.stdout_text;
+  ASSERT_TRUE(fs::exists(install_dir / "bin" / "styio-nano"));
+  ASSERT_TRUE(fs::exists(install_dir / "styio-nano.profile.toml"));
+  EXPECT_NE(read_text_file_latest(install_dir / "styio-nano-package.toml").find("mode = \"cloud\""), std::string::npos);
+  EXPECT_NE(read_text_file_latest(install_dir / "styio-nano-package.toml").find("package = \"edge/default\""), std::string::npos);
+  EXPECT_NE(read_text_file_latest(install_dir / "styio-nano-package.toml").find("sha256 = \""), std::string::npos);
+
+  const CommandResult packaged =
+    run_stdout_command(std::string("\"") + (install_dir / "bin" / "styio-nano").string() + "\" --machine-info=json");
+  ASSERT_EQ(packaged.exit_code, 0) << packaged.stdout_text;
+  EXPECT_NE(packaged.stdout_text.find("\"variant\":\"nano\""), std::string::npos);
+
+  fs::remove_all(root);
+}
+
+TEST(StyioNanoPackage, PublishConfigWritesRepositoryAndRoundTripsToCloudInstall) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const char* nano_runner = std::getenv("STYIO_NANO_COMPILER_EXE");
+  if (nano_runner == nullptr || nano_runner[0] == '\0') {
+    nano_runner = STYIO_NANO_COMPILER_EXE;
+  }
+  if (nano_runner == nullptr || nano_runner[0] == '\0') {
+    GTEST_SKIP() << "styio-nano target not built";
+  }
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-nano-package-publish-" + std::to_string(uniq));
+  const fs::path package_dir = root / "package";
+  const fs::path repo_dir = root / "repo";
+  const fs::path install_dir = root / "install";
+  const fs::path publish_config = root / "publish.toml";
+  const fs::path install_config = root / "install.toml";
+  const std::string package_name = "edge/default";
+  const std::string version = "0.0.2";
+  ASSERT_TRUE(fs::create_directories(package_dir / "bin"));
+
+  {
+    std::error_code ec;
+    fs::copy_file(nano_runner, package_dir / "bin" / "styio-nano", fs::copy_options::overwrite_existing, ec);
+    ASSERT_FALSE(ec) << ec.message();
+    fs::copy_file(
+      fs::path(STYIO_SOURCE_DIR) / "configs" / "styio-nano-default.toml",
+      package_dir / "styio-nano.profile.toml",
+      fs::copy_options::overwrite_existing,
+      ec);
+    ASSERT_FALSE(ec) << ec.message();
+  }
+  {
+    std::ofstream out(package_dir / "styio-nano-package.toml");
+    ASSERT_TRUE(out.is_open());
+    out << "[package]\n";
+    out << "name = \"edge-default-test\"\n";
+    out << "version = \"" << version << "\"\n";
+    out << "channel = \"nano\"\n";
+    out << "mode = \"local-subset\"\n";
+    out << "binary = \"bin/styio-nano\"\n";
+    out << "profile = \"styio-nano.profile.toml\"\n";
+  }
+  {
+    std::ofstream out(publish_config);
+    ASSERT_TRUE(out.is_open());
+    out << "[nano.publish]\n";
+    out << "package_dir = \"" << package_dir.string() << "\"\n";
+    out << "registry = \"" << repo_dir.string() << "\"\n";
+    out << "package = \"" << package_name << "\"\n";
+  }
+
+  const CommandResult published =
+    run_stdout_command(std::string("\"") + runner + "\" --nano-publish --nano-publish-config \"" + publish_config.string() + "\"");
+  ASSERT_EQ(published.exit_code, 0) << published.stdout_text;
+
+  const fs::path marker = repo_dir / "styio-nano-repository.json";
+  const fs::path entry = repo_dir / "index" / "edge" / "default" / (version + ".json");
+  ASSERT_TRUE(fs::exists(marker));
+  ASSERT_TRUE(fs::exists(entry));
+  EXPECT_NE(read_text_file_latest(entry).find("\"package\": \"" + package_name + "\""), std::string::npos);
+  EXPECT_NE(read_text_file_latest(entry).find("\"version\": \"" + version + "\""), std::string::npos);
+
+  const std::string entry_text = read_text_file_latest(entry);
+  const std::string sha_key = "\"sha256\": \"";
+  const size_t sha_pos = entry_text.find(sha_key);
+  ASSERT_NE(sha_pos, std::string::npos);
+  const size_t sha_begin = sha_pos + sha_key.size();
+  const size_t sha_end = entry_text.find('"', sha_begin);
+  ASSERT_NE(sha_end, std::string::npos);
+  const std::string sha256 = entry_text.substr(sha_begin, sha_end - sha_begin);
+  ASSERT_EQ(sha256.size(), 64U);
+  const fs::path blob_path = repo_dir / "blobs" / "sha256" / sha256.substr(0, 2) / sha256.substr(2, 2) / (sha256 + ".tar");
+  ASSERT_TRUE(fs::exists(blob_path));
+  EXPECT_EQ(trim_copy_latest(sha256_file_latest(blob_path)), sha256);
+
+  {
+    std::ofstream out(install_config);
+    ASSERT_TRUE(out.is_open());
+    out << "[nano]\n";
+    out << "mode = \"cloud\"\n";
+    out << "output_dir = \"" << install_dir.string() << "\"\n";
+    out << "\n[nano.cloud]\n";
+    out << "registry = \"" << repo_dir.string() << "\"\n";
+    out << "package = \"" << package_name << "\"\n";
+    out << "version = \"" << version << "\"\n";
+  }
+
+  const CommandResult installed =
+    run_stdout_command(std::string("\"") + runner + "\" --nano-create --nano-package-config \"" + install_config.string() + "\"");
+  ASSERT_EQ(installed.exit_code, 0) << installed.stdout_text;
+  ASSERT_TRUE(fs::exists(install_dir / "bin" / "styio-nano"));
+  EXPECT_NE(read_text_file_latest(install_dir / "styio-nano-package.toml").find("package = \"edge/default\""), std::string::npos);
+  EXPECT_NE(read_text_file_latest(install_dir / "styio-nano-package.toml").find("version = \"0.0.2\""), std::string::npos);
+
+  const CommandResult packaged =
+    run_stdout_command(std::string("\"") + (install_dir / "bin" / "styio-nano").string() + "\" --machine-info=json");
+  ASSERT_EQ(packaged.exit_code, 0) << packaged.stdout_text;
+  EXPECT_NE(packaged.stdout_text.find("\"variant\":\"nano\""), std::string::npos);
+
+  fs::remove_all(root);
 }
 
 TEST(StyioParserEngine, LegacyAndNightlyMatchOnM1Sample) {
@@ -1989,6 +2524,41 @@ TEST(StyioDiagnostics, RuntimeWriteHelperErrorEmitsJsonlRuntimeDiagnostic) {
   fs::remove(input);
 }
 
+TEST(StyioDiagnostics, InvalidNumericStdinArgumentEmitsJsonlRuntimeDiagnostic) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-runtime-numeric-parse-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# add1 := (x: i64) => x + 1\n";
+    out << "@stdin >> #(line) => {\n";
+    out << "  >_(add1(line))\n";
+    out << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("printf 'abc\\n' | \"") + runner + "\" --error-format=jsonl --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 5);
+  EXPECT_NE(result.stdout_text.find("\"category\":\"RuntimeError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_RUNTIME\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"subcode\":\"STYIO_RUNTIME_NUMERIC_PARSE\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("cannot parse integer from string"), std::string::npos);
+
+  fs::remove(input);
+}
+
 TEST(StyioDiagnostics, CompoundAssignOnImmutableBindingReportsTypeError) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
@@ -2309,4 +2879,147 @@ TEST(StyioSamples, BubbleSortListInput) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);
   EXPECT_EQ(result.stdout_text, "[1,2,4,5,8]\n");
+}
+
+TEST(StyioSamples, DictTypeBasics) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-dict-type-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "d = dict{\"a\": 1, \"b\": 2}\n";
+    out << ">_(d[\"a\"])\n";
+    out << ">_(d.length)\n";
+    out << ">_(d.keys)\n";
+    out << ">_(d.values)\n";
+    out << "d[\"c\"] = 3\n";
+    out << ">_(d)\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(result.stdout_text, "1\n2\n[\"a\",\"b\"]\n[1,2]\n{\"a\":1,\"b\":2,\"c\":3}\n");
+
+  fs::remove(input);
+}
+
+TEST(StyioSamples, DictTypeBasicsLinearImpl) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-dict-type-linear-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "d = dict{\"a\": 1, \"b\": 2}\n";
+    out << ">_(d[\"a\"])\n";
+    out << ">_(d.length)\n";
+    out << "d[\"c\"] = 3\n";
+    out << ">_(d)\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --dict-impl=linear --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(result.stdout_text, "1\n2\n{\"a\":1,\"b\":2,\"c\":3}\n");
+
+  fs::remove(input);
+}
+
+TEST(StyioSamples, DictTypeScalarFamilies) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-dict-families-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "flags = dict{\"ok\": true, \"ng\": false}\n";
+    out << ">_(flags[\"ok\"])\n";
+    out << ">_(flags.values)\n";
+    out << "names = dict{\"first\": \"Ada\", \"last\": \"Lovelace\"}\n";
+    out << ">_(names[\"last\"])\n";
+    out << ">_(names.values)\n";
+    out << "nums = dict{\"pi\": 3.5, \"e\": 2}\n";
+    out << ">_(nums[\"pi\"])\n";
+    out << ">_(nums.values)\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(
+    result.stdout_text,
+    "true\n[true,false]\nLovelace\n[\"Ada\",\"Lovelace\"]\n3.500000\n[3.500000,2.000000]\n");
+
+  fs::remove(input);
+}
+
+TEST(StyioSamples, DictTypeHandleFamilies) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-dict-handles-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "d = dict{\"nums\": [1,2,3], \"more\": [4,5]}\n";
+    out << ">_(d[\"nums\"])\n";
+    out << ">_(d.values)\n";
+    out << "child = dict{\"left\": dict{\"x\": 1}, \"right\": dict{\"y\": 2}}\n";
+    out << ">_(child[\"left\"])\n";
+    out << ">_(child.values)\n";
+    out << "vals = d.values\n";
+    out << "vals >> #(xs) => {\n";
+    out << "  >_(xs)\n";
+    out << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(
+    result.stdout_text,
+    "[1,2,3]\n[[1,2,3],[4,5]]\n{\"x\":1}\n[{\"x\":1},{\"y\":2}]\n[1,2,3]\n[4,5]\n");
+
+  fs::remove(input);
 }

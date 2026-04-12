@@ -335,6 +335,54 @@ TEST(StyioSoakSingleThread, InvalidHandleDiagnosticsLoop) {
   }
 }
 
+TEST(StyioSoakSingleThread, DictHandleLookupUpdateLoop) {
+  const int loops = read_env_i32("STYIO_SOAK_DICT_ITERS", 6, 1, 10000);
+  const int keys = read_env_i32("STYIO_SOAK_DICT_KEYS", 12000, 64, 500000);
+
+  std::vector<std::string> names;
+  names.reserve(static_cast<size_t>(keys));
+  for (int i = 0; i < keys; ++i) {
+    names.push_back("dict_key_" + std::to_string(i));
+  }
+
+  const long long expected_sum =
+    static_cast<long long>(keys - 1) * static_cast<long long>(keys) / 2LL;
+  const long long updated_sum =
+    expected_sum + 7LL * static_cast<long long>(keys);
+
+  for (int iter = 0; iter < loops; ++iter) {
+    styio_runtime_clear_error();
+    const int64_t h = styio_dict_new_i64();
+    ASSERT_NE(h, 0) << "iter=" << iter;
+
+    for (int i = 0; i < keys; ++i) {
+      styio_dict_set_i64(h, names[static_cast<size_t>(i)].c_str(), i);
+    }
+
+    ASSERT_EQ(styio_dict_len(h), keys) << "iter=" << iter;
+
+    long long sum = 0;
+    for (int i = keys - 1; i >= 0; --i) {
+      sum += static_cast<long long>(styio_dict_get_i64(h, names[static_cast<size_t>(i)].c_str()));
+    }
+    EXPECT_EQ(sum, expected_sum) << "iter=" << iter;
+
+    for (int i = 0; i < keys; ++i) {
+      styio_dict_set_i64(h, names[static_cast<size_t>(i)].c_str(), i + 7);
+    }
+
+    long long sum_after = 0;
+    for (int i = 0; i < keys; ++i) {
+      sum_after += static_cast<long long>(styio_dict_get_i64(h, names[static_cast<size_t>(i)].c_str()));
+    }
+    EXPECT_EQ(sum_after, updated_sum) << "iter=" << iter;
+
+    styio_dict_release(h);
+    EXPECT_EQ(styio_dict_active_count(), 0) << "iter=" << iter;
+    EXPECT_EQ(styio_runtime_has_error(), 0) << "iter=" << iter;
+  }
+}
+
 TEST(StyioSoakSingleThread, StreamProgramLoop) {
   const int loops = read_env_i32("STYIO_SOAK_STREAM_ITERS", 20, 1, 100000);
   const fs::path src = fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m6" / "t02_running_max.styio";

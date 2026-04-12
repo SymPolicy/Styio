@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <memory>
 #include <new>
+#include <utility>
 #include <unordered_set>
 #include <variant>
 #include <vector>
@@ -1326,6 +1327,89 @@ public:
   }
 };
 
+class DictAST : public StyioASTTraits<DictAST>
+{
+public:
+  struct EntryView
+  {
+    StyioAST* key = nullptr;
+    StyioAST* value = nullptr;
+  };
+
+private:
+  std::vector<std::unique_ptr<StyioAST>> key_owners_;
+  std::vector<std::unique_ptr<StyioAST>> value_owners_;
+  std::vector<EntryView> entries_;
+  std::unique_ptr<TypeAST> consistent_type_owner_;
+  bool consistency = false;
+  TypeAST* consistent_type = nullptr;
+
+  void adopt_entries(std::vector<std::pair<StyioAST*, StyioAST*>> entries) {
+    key_owners_.clear();
+    value_owners_.clear();
+    entries_.clear();
+    key_owners_.reserve(entries.size());
+    value_owners_.reserve(entries.size());
+    entries_.reserve(entries.size());
+
+    for (auto& entry : entries) {
+      key_owners_.emplace_back(entry.first);
+      value_owners_.emplace_back(entry.second);
+      entries_.push_back(EntryView{
+        key_owners_.back().get(),
+        value_owners_.back().get()});
+    }
+  }
+
+public:
+  DictAST() :
+      consistent_type_owner_(TypeAST::Create()),
+      consistent_type(consistent_type_owner_.get()) {
+  }
+
+  explicit DictAST(std::vector<std::pair<StyioAST*, StyioAST*>> entries) :
+      consistent_type_owner_(TypeAST::Create()),
+      consistent_type(consistent_type_owner_.get()) {
+    adopt_entries(std::move(entries));
+  }
+
+  static DictAST* Create() {
+    return new DictAST();
+  }
+
+  static DictAST* Create(std::vector<std::pair<StyioAST*, StyioAST*>> entries) {
+    return new DictAST(std::move(entries));
+  }
+
+  const std::vector<EntryView>& getEntries() {
+    return entries_;
+  }
+
+  TypeAST* getDTypeObj() {
+    return consistent_type;
+  }
+
+  void setConsistency(bool value) {
+    consistency = value;
+  }
+
+  bool isConsistent() {
+    return consistency;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::Dict;
+  }
+
+  const StyioDataType getDataType() const {
+    return consistent_type->getDataType();
+  }
+
+  void setDataType(StyioDataType type) {
+    consistent_type->setType(type);
+  }
+};
+
 class SetAST : public StyioASTTraits<SetAST>
 {
   std::vector<std::unique_ptr<StyioAST>> element_owners_;
@@ -1405,7 +1489,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    return styio_make_range_type("i64");
   }
 };
 
@@ -2418,7 +2502,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    return styio_make_file_handle_type("i64");
   }
 };
 
@@ -2452,7 +2536,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    return styio_make_std_stream_type(kind_, "string");
   }
 };
 

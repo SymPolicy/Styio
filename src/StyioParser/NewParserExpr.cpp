@@ -34,6 +34,42 @@ parse_list_expr_or_iterator_nightly_draft(StyioContext& context) {
   return collection;
 }
 
+DictAST*
+parse_dict_literal_nightly_draft(StyioContext& context) {
+  std::vector<std::pair<StyioAST*, StyioAST*>> entries;
+
+  auto parse_entry_expr = [&]() -> StyioAST* {
+    const auto saved = context.save_cursor();
+    try {
+      return parse_expr_subset_nightly(context);
+    } catch (const std::exception&) {
+      context.restore_cursor(saved);
+      return parse_expr(context);
+    }
+  };
+
+  context.try_match_panic(StyioTokenType::TOK_LCURBRAC);
+  context.skip();
+  if (context.match(StyioTokenType::TOK_RCURBRAC)) {
+    return DictAST::Create(std::move(entries));
+  }
+
+  while (true) {
+    StyioAST* key = parse_entry_expr();
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_COLON);
+    context.skip();
+    StyioAST* value = parse_entry_expr();
+    entries.push_back({key, value});
+    context.skip();
+    if (context.match(StyioTokenType::TOK_RCURBRAC)) {
+      return DictAST::Create(std::move(entries));
+    }
+    context.try_match_panic(StyioTokenType::TOK_COMMA);
+    context.skip();
+  }
+}
+
 StyioAST*
 parse_stmt_subset_with_legacy_fallback_latest_draft(StyioContext& context) {
   const auto saved = context.save_cursor();
@@ -454,8 +490,11 @@ private:
           owner.reset(FuncCallAST::Create(owner.release(), NameAST::Create(member_name), parse_call_args()));
           continue;
         }
-        if (member_name != "length" && member_name != "size") {
-          throw StyioSyntaxError("only .length and .size are supported as nightly attributes");
+        if (member_name != "length"
+            && member_name != "size"
+            && member_name != "keys"
+            && member_name != "values") {
+          throw StyioSyntaxError("only .length, .size, .keys, and .values are supported as nightly attributes");
         }
         owner.reset(AttrAST::Create(owner.release(), NameAST::Create(member_name)));
         continue;
@@ -602,6 +641,10 @@ private:
       case StyioTokenType::NAME: {
         const std::string name = context_.cur_tok()->original;
         context_.move_forward(1, "new_expr:name");
+        context_.skip_spaces_no_linebreak();
+        if (name == "dict" && context_.cur_tok_type() == StyioTokenType::TOK_LCURBRAC) {
+          return parse_dict_literal_nightly_draft(context_);
+        }
         return parse_name_family(name);
       }
       case StyioTokenType::TOK_DOLLAR: {

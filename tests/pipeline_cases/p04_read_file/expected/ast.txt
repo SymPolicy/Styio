@@ -1,6 +1,6 @@
 styio.ast.main {
 |- styio.ast.handle.acquire  {
-  |- var: styio.ast.var { f : undefined }
+  |- var: styio.ast.var { f : file[i64] }
   |- mode: final
   |- resource: styio.ast.resource.file  {
     |- auto_detect: false

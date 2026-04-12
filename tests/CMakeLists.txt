@@ -286,6 +286,12 @@ target_compile_definitions(styio_test PRIVATE
   "STYIO_COMPILER_EXE=\"$<TARGET_FILE:styio>\""
 )
 add_dependencies(styio_test styio)
+if(TARGET styio_nano)
+  target_compile_definitions(styio_test PRIVATE
+    "STYIO_NANO_COMPILER_EXE=\"$<TARGET_FILE:styio_nano>\""
+  )
+  add_dependencies(styio_test styio_nano)
+endif()
 
 add_executable(styio_security_test
   security/styio_security_test.cpp

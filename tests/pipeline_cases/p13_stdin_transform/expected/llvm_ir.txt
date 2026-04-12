@@ -20,24 +20,32 @@ stdin_body:                                       ; preds = %stdin_hdr
   store ptr %0, ptr %line, align 8
   %2 = load ptr, ptr %line, align 8
   %3 = call i64 @styio_cstr_to_i64(ptr %2)
-  %4 = icmp eq i64 %3, -9223372036854775808
-  %5 = or i1 %4, false
-  %6 = mul i64 %3, 2
-  %7 = select i1 %5, i64 -9223372036854775808, i64 %6
-  store i64 %7, ptr %result, align 8
-  %8 = load i64, ptr %result, align 8
-  %9 = icmp eq i64 %8, -9223372036854775808
-  br i1 %9, label %print_at, label %print_i64
+  %4 = call i32 @styio_runtime_has_error()
+  %5 = icmp ne i32 %4, 0
+  br i1 %5, label %runtime_fail, label %runtime_ok
 
 stdin_exit:                                       ; preds = %stdin_hdr
   ret i32 0
 
-print_at:                                         ; preds = %stdin_body
-  %10 = call i32 @puts(ptr @styio_print_at)
+runtime_fail:                                     ; preds = %stdin_body
+  ret i32 0
+
+runtime_ok:                                       ; preds = %stdin_body
+  %6 = icmp eq i64 %3, -9223372036854775808
+  %7 = or i1 %6, false
+  %8 = mul i64 %3, 2
+  %9 = select i1 %7, i64 -9223372036854775808, i64 %8
+  store i64 %9, ptr %result, align 8
+  %10 = load i64, ptr %result, align 8
+  %11 = icmp eq i64 %10, -9223372036854775808
+  br i1 %11, label %print_at, label %print_i64
+
+print_at:                                         ; preds = %runtime_ok
+  %12 = call i32 @puts(ptr @styio_print_at)
   br label %print_done
 
-print_i64:                                        ; preds = %stdin_body
-  %11 = call i32 (ptr, ...) @printf(ptr @styio_fmt_i64, i64 %8)
+print_i64:                                        ; preds = %runtime_ok
+  %13 = call i32 (ptr, ...) @printf(ptr @styio_fmt_i64, i64 %10)
   br label %print_done
 
 print_done:                                       ; preds = %print_i64, %print_at
@@ -47,6 +55,8 @@ print_done:                                       ; preds = %print_i64, %print_a
 declare ptr @styio_stdin_read_line()
 
 declare i64 @styio_cstr_to_i64(ptr)
+
+declare i32 @styio_runtime_has_error()
 
 declare i32 @printf(ptr, ...)
 

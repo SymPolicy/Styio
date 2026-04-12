@@ -2,14 +2,14 @@ styio.ast.main {
 |- styio.ast.func.simple.unique {
   |- func_name: double_it
   |- params: 
-    |- styio.ast.arg { x : i64 }
+    |- styio.ast.arg { x : i32 }
   |- ret_type: 
   |- ret_expr: styio.ast.binop: undefined {
     |- LHS: x
     |- OP : <Mul>
     |- RHS: { 2 : int }}}
 |- styio.ast.handle.acquire  {
-  |- var: styio.ast.var { f : undefined }
+  |- var: styio.ast.var { f : file[i64] }
   |- mode: final
   |- resource: styio.ast.resource.file  {
     |- auto_detect: false

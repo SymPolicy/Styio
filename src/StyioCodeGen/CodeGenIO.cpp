@@ -374,11 +374,7 @@ StyioToLLVM::toLLVMIR(SIOStdStreamPull* node) {
     "styio_stdin_read_line",
     llvm::FunctionType::get(char_ptr, {}, false));
 
-  llvm::FunctionCallee to_i64_fn = theModule->getOrInsertFunction(
-    "styio_cstr_to_i64",
-    llvm::FunctionType::get(theBuilder->getInt64Ty(), {char_ptr}, false));
-
   llvm::Value* line = theBuilder->CreateCall(read_fn, {});
   /* Convert to i64 (matches InstantPullAST's data type convention). */
-  return theBuilder->CreateCall(to_i64_fn, {line});
+  return cstr_to_i64_checked(line);
 }

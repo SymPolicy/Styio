@@ -517,6 +517,21 @@ parse_styio_type(StyioContext& context) {
     delete elem;
     return TypeAST::Create(styio_make_list_type(elem_name));
   }
+  if (type_name == "dict") {
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_LBOXBRAC);
+    TypeAST* key = parse_styio_type(context);
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_COMMA);
+    TypeAST* value = parse_styio_type(context);
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
+    const std::string key_name = key->getTypeName();
+    const std::string value_name = value->getTypeName();
+    delete key;
+    delete value;
+    return TypeAST::Create(styio_make_dict_type(key_name, value_name));
+  }
   return TypeAST::Create(type_name);
 }
 

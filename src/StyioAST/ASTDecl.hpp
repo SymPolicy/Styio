@@ -40,6 +40,7 @@ class CharAST;
 class StringAST;
 class SetAST;
 class ListAST;
+class DictAST;
 
 class StructAST;
 class TupleAST;

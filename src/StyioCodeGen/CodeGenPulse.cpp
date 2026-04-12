@@ -105,13 +105,7 @@ StyioToLLVM::pulse_copy_ledger_to_snap(
 llvm::Value*
 StyioToLLVM::coerce_pulse_input_i64(llvm::Value* v) {
   if (v->getType()->isPointerTy()) {
-    llvm::FunctionCallee conv = theModule->getOrInsertFunction(
-      "styio_cstr_to_i64",
-      llvm::FunctionType::get(
-        theBuilder->getInt64Ty(),
-        {llvm::PointerType::get(*theContext, 0)},
-        false));
-    return theBuilder->CreateCall(conv, {v});
+    return cstr_to_i64_checked(v);
   }
   return v;
 }

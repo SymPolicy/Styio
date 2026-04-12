@@ -5,6 +5,7 @@
 // [STL]
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -109,6 +110,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SGLoop,
   class SGForEach,
   class SGListLiteral,
+  class SGDictLiteral,
   class SGRangeFor,
   class SGIf,
   class SGStateSnapLoad,
@@ -138,6 +140,13 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SGListGet,
   class SGListSet,
   class SGListToString,
+  class SGDictClone,
+  class SGDictLen,
+  class SGDictGet,
+  class SGDictSet,
+  class SGDictKeys,
+  class SGDictValues,
+  class SGDictToString,
   class SGResourceWriteToFile,
   class SIOStdStreamWrite,
   class SIOStdStreamLineIter,
@@ -261,6 +270,7 @@ public:
   llvm::Type* toLLVMType(SGLoop* node);
   llvm::Type* toLLVMType(SGForEach* node);
   llvm::Type* toLLVMType(SGListLiteral* node);
+  llvm::Type* toLLVMType(SGDictLiteral* node);
   llvm::Type* toLLVMType(SGRangeFor* node);
   llvm::Type* toLLVMType(SGIf* node);
   llvm::Type* toLLVMType(SGStateSnapLoad* node);
@@ -290,6 +300,13 @@ public:
   llvm::Type* toLLVMType(SGListGet* node);
   llvm::Type* toLLVMType(SGListSet* node);
   llvm::Type* toLLVMType(SGListToString* node);
+  llvm::Type* toLLVMType(SGDictClone* node);
+  llvm::Type* toLLVMType(SGDictLen* node);
+  llvm::Type* toLLVMType(SGDictGet* node);
+  llvm::Type* toLLVMType(SGDictSet* node);
+  llvm::Type* toLLVMType(SGDictKeys* node);
+  llvm::Type* toLLVMType(SGDictValues* node);
+  llvm::Type* toLLVMType(SGDictToString* node);
   llvm::Type* toLLVMType(SGResourceWriteToFile* node);
   llvm::Type* toLLVMType(SIOStdStreamWrite* node);
   llvm::Type* toLLVMType(SIOStdStreamLineIter* node);
@@ -341,6 +358,7 @@ public:
   llvm::Value* toLLVMIR(SGLoop* node);
   llvm::Value* toLLVMIR(SGForEach* node);
   llvm::Value* toLLVMIR(SGListLiteral* node);
+  llvm::Value* toLLVMIR(SGDictLiteral* node);
   llvm::Value* toLLVMIR(SGRangeFor* node);
   llvm::Value* toLLVMIR(SGIf* node);
   llvm::Value* toLLVMIR(SGStateSnapLoad* node);
@@ -370,6 +388,13 @@ public:
   llvm::Value* toLLVMIR(SGListGet* node);
   llvm::Value* toLLVMIR(SGListSet* node);
   llvm::Value* toLLVMIR(SGListToString* node);
+  llvm::Value* toLLVMIR(SGDictClone* node);
+  llvm::Value* toLLVMIR(SGDictLen* node);
+  llvm::Value* toLLVMIR(SGDictGet* node);
+  llvm::Value* toLLVMIR(SGDictSet* node);
+  llvm::Value* toLLVMIR(SGDictKeys* node);
+  llvm::Value* toLLVMIR(SGDictValues* node);
+  llvm::Value* toLLVMIR(SGDictToString* node);
   llvm::Value* toLLVMIR(SGResourceWriteToFile* node);
   llvm::Value* toLLVMIR(SIOStdStreamWrite* node);
   llvm::Value* toLLVMIR(SIOStdStreamLineIter* node);
@@ -393,6 +418,10 @@ private:
   static void collect_sgfuncs_postorder(SGFunc* node, std::vector<SGFunc*>& out);
   llvm::Value* coerce_for_return(llvm::Value* v, llvm::Type* want_ty);
   llvm::Value* truncate_for_main_ret(llvm::Value* v);
+  llvm::Value* default_runtime_return_value(llvm::Type* ret_ty);
+  void emit_runtime_error_guard_return();
+  llvm::Value* cstr_to_i64_checked(llvm::Value* v);
+  llvm::Value* cstr_to_f64_checked(llvm::Value* v);
 
   llvm::Value* promote_to_cstr(llvm::Value* v);
   llvm::Value* evaluate_arm_block_value(SGBlock* b, bool mixed_phi);
@@ -405,6 +434,8 @@ private:
   std::unordered_map<std::string, llvm::AllocaInst*> file_singleton_path_slots_;
   std::unordered_set<std::string> file_singleton_raii_paths_;
   std::unordered_set<llvm::Value*> owned_cstr_temps_;
+  enum class TempResourceKind : std::uint8_t { List, Dict };
+  std::unordered_map<llvm::Value*, TempResourceKind> owned_resource_temps_;
 
   void emit_snapshot_shadow_reload();
 
@@ -428,11 +459,18 @@ private:
     llvm::Value* ptrv);
 
   llvm::FunctionCallee free_cstr_fn();
+  llvm::FunctionCallee list_release_fn();
+  llvm::FunctionCallee dict_release_fn();
   void track_owned_cstr_temp(llvm::Value* v);
   bool take_owned_cstr_temp(llvm::Value* v);
   void forget_owned_cstr_temp(llvm::Value* v);
   void free_cstr_if_runtime_owned(llvm::Value* v);
   void free_owned_cstr_temp_if_tracked(llvm::Value* v);
+  void track_owned_resource_temp(llvm::Value* v, TempResourceKind kind);
+  std::optional<TempResourceKind> take_owned_resource_temp(llvm::Value* v);
+  void forget_owned_resource_temp(llvm::Value* v);
+  void free_resource_if_runtime_owned(llvm::Value* v, TempResourceKind kind);
+  void free_owned_resource_temp_if_tracked(llvm::Value* v);
 
   llvm::Value* pulse_ledger_base_ = nullptr;
   llvm::Value* pulse_snap_base_ = nullptr;

@@ -54,6 +54,7 @@ StyioToLLVM::toLLVMType(SGType* node) {
     case StyioDataTypeOption::String:
       return llvm::PointerType::get(*theContext, 0);
     case StyioDataTypeOption::List:
+    case StyioDataTypeOption::Dict:
       return theBuilder->getInt64Ty();
     default:
       return theBuilder->getInt64Ty();
@@ -154,6 +155,7 @@ StyioToLLVM::toLLVMType(SGDynLoad* node) {
       return theBuilder->getInt1Ty();
     case SGDynLoadKind::I64:
     case SGDynLoadKind::ListHandle:
+    case SGDynLoadKind::DictHandle:
       return theBuilder->getInt64Ty();
     case SGDynLoadKind::F64:
       return theBuilder->getDoubleTy();
@@ -227,6 +229,12 @@ StyioToLLVM::toLLVMType(SGIf* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGListLiteral* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGDictLiteral* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
@@ -371,7 +379,16 @@ StyioToLLVM::toLLVMType(SGListLen* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGListGet* node) {
-  (void)node;
+  switch (styio_value_family_from_type_name(node->elem_type)) {
+    case StyioValueFamily::String:
+      return llvm::PointerType::get(*theContext, 0);
+    case StyioValueFamily::Float:
+      return theBuilder->getDoubleTy();
+    case StyioValueFamily::Bool:
+      return theBuilder->getInt1Ty();
+    default:
+      break;
+  }
   return theBuilder->getInt64Ty();
 }
 
@@ -383,6 +400,56 @@ StyioToLLVM::toLLVMType(SGListSet* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGListToString* node) {
+  (void)node;
+  return llvm::PointerType::get(*theContext, 0);
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGDictClone* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGDictLen* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGDictGet* node) {
+  switch (styio_value_family_from_type_name(node->value_type)) {
+    case StyioValueFamily::String:
+      return llvm::PointerType::get(*theContext, 0);
+    case StyioValueFamily::Float:
+      return theBuilder->getDoubleTy();
+    case StyioValueFamily::Bool:
+      return theBuilder->getInt1Ty();
+    default:
+      return theBuilder->getInt64Ty();
+  }
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGDictSet* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGDictKeys* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGDictValues* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGDictToString* node) {
   (void)node;
   return llvm::PointerType::get(*theContext, 0);
 }

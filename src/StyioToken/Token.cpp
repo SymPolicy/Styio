@@ -191,6 +191,10 @@ reprASTType(StyioNodeType type, std::string extra) {
       output += std::string("list");
     } break;
 
+    case StyioNodeType::Dict: {
+      output += std::string("dict");
+    } break;
+
     case StyioNodeType::Set: {
       output += std::string("set");
     } break;
@@ -551,6 +555,10 @@ reprDataTypeOption(StyioDataTypeOption option) {
 
     case StyioDataTypeOption::List: {
       return "list";
+    } break;
+
+    case StyioDataTypeOption::Dict: {
+      return "dict";
     } break;
 
     case StyioDataTypeOption::Struct: {

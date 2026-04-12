@@ -2,7 +2,7 @@
 
 **Purpose:** Define the boundary of the `docs/` tree and point readers to the generated inventory in [INDEX.md](./INDEX.md); detailed file listings live in directory-level `INDEX.md` files, not here.
 
-**Last updated:** 2026-04-10
+**Last updated:** 2026-04-12
 
 ## Tree Contract
 
@@ -10,8 +10,9 @@
 2. Contributor, agent, repository-boundary, dependency, and documentation rules live in `docs/specs/`.
 3. Review findings and open conflicts live in `docs/review/`.
 4. Plans and migration drafts live in `docs/plans/`.
-5. Reusable workflows and templates live in `docs/assets/`.
-6. Daily history, frozen milestones, and ADRs stay in their dedicated directories.
+5. Cross-repository handoff notes intended for `styio-spio` live in `docs/for_spio/`.
+6. Reusable workflows and templates live in `docs/assets/`.
+7. Daily history, frozen milestones, and ADRs stay in their dedicated directories.
 
 ## Entry Points
 

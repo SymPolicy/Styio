@@ -47,6 +47,7 @@ using StyioToStringVisitor = ToStringVisitor<
   class StringAST,
   class SetAST,
   class ListAST,
+  class DictAST,
 
   class StructAST,
   class TupleAST,
@@ -214,6 +215,7 @@ public:
   std::string toString(DBUrlAST* ast, int indent = 0);
 
   std::string toString(ListAST* ast, int indent = 0);
+  std::string toString(DictAST* ast, int indent = 0);
 
   std::string toString(TupleAST* ast, int indent = 0);
 
@@ -356,6 +358,7 @@ public:
   std::string toString(SGLoop* node, int indent = 0);
   std::string toString(SGForEach* node, int indent = 0);
   std::string toString(SGListLiteral* node, int indent = 0);
+  std::string toString(SGDictLiteral* node, int indent = 0);
   std::string toString(SGRangeFor* node, int indent = 0);
   std::string toString(SGIf* node, int indent = 0);
   std::string toString(SGStateSnapLoad* node, int indent = 0);
@@ -385,6 +388,13 @@ public:
   std::string toString(SGListGet* node, int indent = 0);
   std::string toString(SGListSet* node, int indent = 0);
   std::string toString(SGListToString* node, int indent = 0);
+  std::string toString(SGDictClone* node, int indent = 0);
+  std::string toString(SGDictLen* node, int indent = 0);
+  std::string toString(SGDictGet* node, int indent = 0);
+  std::string toString(SGDictSet* node, int indent = 0);
+  std::string toString(SGDictKeys* node, int indent = 0);
+  std::string toString(SGDictValues* node, int indent = 0);
+  std::string toString(SGDictToString* node, int indent = 0);
   std::string toString(SGResourceWriteToFile* node, int indent = 0);
   std::string toString(SIOStdStreamWrite* node, int indent = 0);
   std::string toString(SIOStdStreamLineIter* node, int indent = 0);

@@ -17,7 +17,8 @@ public:
     File = 0,
     Resource = 1,
     List = 2,
-    Unknown = 3,
+    Dict = 3,
+    Unknown = 4,
   };
 
   struct Entry

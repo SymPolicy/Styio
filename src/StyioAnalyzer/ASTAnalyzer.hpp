@@ -58,6 +58,7 @@ using StyioAnalyzerVisitor = AnalyzerVisitor<
   class StringAST,
   class SetAST,
   class ListAST,
+  class DictAST,
 
   class StructAST,
   class TupleAST,
@@ -225,6 +226,7 @@ public:
   void typeInfer(WebUrlAST* ast);
   void typeInfer(DBUrlAST* ast);
   void typeInfer(ListAST* ast);
+  void typeInfer(DictAST* ast);
   void typeInfer(TupleAST* ast);
   void typeInfer(SetAST* ast);
   void typeInfer(RangeAST* ast);
@@ -311,6 +313,7 @@ public:
   StyioIR* toStyioIR(WebUrlAST* ast);
   StyioIR* toStyioIR(DBUrlAST* ast);
   StyioIR* toStyioIR(ListAST* ast);
+  StyioIR* toStyioIR(DictAST* ast);
   StyioIR* toStyioIR(TupleAST* ast);
   StyioIR* toStyioIR(SetAST* ast);
   StyioIR* toStyioIR(RangeAST* ast);
@@ -367,14 +370,15 @@ public:
   StyioIR* toStyioIR(MatchCasesAST* ast);
   StyioIR* toStyioIR(MainBlockAST* ast);
 
-private:
+public:
   enum class BindingValueKind : std::uint8_t {
     Unknown = 0,
     Bool,
     I64,
     F64,
     String,
-    ListI64,
+    ListHandle,
+    DictHandle,
   };
 
   struct BindingInfo
@@ -386,6 +390,7 @@ private:
     StyioDataType declared_type{StyioDataTypeOption::Undefined, "undefined", 0};
   };
 
+private:
   SGPulsePlan* cur_pulse_plan_ = nullptr;
   int active_series_slot_ = -1;
   int post_pulse_hist_region_ = -1;
@@ -394,6 +399,10 @@ private:
   /* Names bound by final assignment (x : T := …); may not be reassigned via flex (=). */
   std::unordered_set<std::string> fixed_assignment_names_;
   std::unordered_map<std::string, BindingInfo> binding_info_;
+  std::unordered_set<ResourceWriteAST*> collect_bind_resource_writes_;
+  std::unordered_set<HandleAcquireAST*> collect_bind_handle_acquires_;
+  std::unordered_map<ResourceWriteAST*, StyioDataType> collect_bind_resource_write_types_;
+  std::unordered_map<HandleAcquireAST*, StyioDataType> collect_bind_handle_acquire_types_;
 };
 
 #endif
