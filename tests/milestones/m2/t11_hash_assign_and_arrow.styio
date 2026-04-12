@@ -1,0 +1,4 @@
+# mix(a: i32, b: i32) : i32 = a + b
+# const42 : i32 => 42
+# ping => 1
+>_(mix(5, 7), const42(), ping())

@@ -1,0 +1,3 @@
+// M9 / T9.12: legacy >_() backward compatibility
+>_("hello")
+>_(42)

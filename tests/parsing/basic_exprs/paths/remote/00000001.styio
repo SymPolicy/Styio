@@ -1,7 +1,0 @@
-// RUN: /root/styio/styio -a -f %s | /usr/bin/FileCheck %s
-
-@("http://example.com")
-
-/*
-  Check: Main
-*/

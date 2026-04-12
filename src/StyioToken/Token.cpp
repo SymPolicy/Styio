@@ -191,6 +191,10 @@ reprASTType(StyioNodeType type, std::string extra) {
       output += std::string("list");
     } break;
 
+    case StyioNodeType::Dict: {
+      output += std::string("dict");
+    } break;
+
     case StyioNodeType::Set: {
       output += std::string("set");
     } break;
@@ -205,6 +209,10 @@ reprASTType(StyioNodeType type, std::string extra) {
 
     case StyioNodeType::FinalBind: {
       output += std::string("styio.ast.bind.final");
+    } break;
+
+    case StyioNodeType::ParallelAssign: {
+      output += std::string("assign.parallel");
     } break;
 
     case StyioNodeType::Block: {
@@ -233,6 +241,22 @@ reprASTType(StyioNodeType type, std::string extra) {
 
     case StyioNodeType::Iterator: {
       output += std::string("iterator");
+    } break;
+
+    case StyioNodeType::StreamZip: {
+      output += std::string("stream.zip");
+    } break;
+
+    case StyioNodeType::SnapshotDecl: {
+      output += std::string("snapshot.decl");
+    } break;
+
+    case StyioNodeType::InstantPull: {
+      output += std::string("instant.pull");
+    } break;
+
+    case StyioNodeType::TypedStdinList: {
+      output += std::string("stdin.list.typed");
     } break;
 
     case StyioNodeType::IterSeq: {
@@ -326,6 +350,10 @@ reprASTType(StyioNodeType type, std::string extra) {
       output += std::string("break");
     } break;
 
+    case StyioNodeType::Continue: {
+      output += std::string("continue");
+    } break;
+
     case StyioNodeType::CondFlow_True: {
       output += std::string("only_true");
     } break;
@@ -340,6 +368,38 @@ reprASTType(StyioNodeType type, std::string extra) {
 
     case StyioNodeType::MainBlock: {
       output += std::string("main");
+    } break;
+
+    case StyioNodeType::FileResource: {
+      output += std::string("resource.file");
+    } break;
+
+    case StyioNodeType::HandleAcquire: {
+      output += std::string("handle.acquire");
+    } break;
+
+    case StyioNodeType::ResourceWrite: {
+      output += std::string("resource.write");
+    } break;
+
+    case StyioNodeType::ResourceRedirect: {
+      output += std::string("resource.redirect");
+    } break;
+
+    case StyioNodeType::StateDecl: {
+      output += std::string("state.decl");
+    } break;
+
+    case StyioNodeType::StateRef: {
+      output += std::string("state.ref");
+    } break;
+
+    case StyioNodeType::HistoryProbe: {
+      output += std::string("state.history");
+    } break;
+
+    case StyioNodeType::SeriesIntrinsic: {
+      output += std::string("series.intrinsic");
     } break;
 
     default: {
@@ -382,6 +442,9 @@ reprToken(StyioOpType token) {
 
     case StyioOpType::Self_Div_Assign:
       return "/=";
+
+    case StyioOpType::Self_Mod_Assign:
+      return "%=";
 
     default:
       return "<Undefined>";
@@ -444,6 +507,10 @@ getMaxType(StyioDataType T1, StyioDataType T2) {
     return T1;
   }
 
+  if ((T1.isInteger() && T2.isFloat()) || (T1.isFloat() && T2.isInteger())) {
+    return StyioDataType{StyioDataTypeOption::Float, "f64", 64};
+  }
+
   return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
 }
 
@@ -488,6 +555,10 @@ reprDataTypeOption(StyioDataTypeOption option) {
 
     case StyioDataTypeOption::List: {
       return "list";
+    } break;
+
+    case StyioDataTypeOption::Dict: {
+      return "dict";
     } break;
 
     case StyioDataTypeOption::Struct: {
@@ -548,6 +619,15 @@ StyioToken::getTokName(StyioTokenType type) {
     case StyioTokenType::TOK_COMMA:
       return ",";
 
+    case StyioTokenType::TOK_PLUS:
+      return "+";
+
+    case StyioTokenType::TOK_MINUS:
+      return "-";
+
+    case StyioTokenType::TOK_STAR:
+      return "*";
+
     case StyioTokenType::TOK_DOT:
       return ".";
 
@@ -586,6 +666,9 @@ StyioToken::getTokName(StyioTokenType type) {
 
     case StyioTokenType::TOK_PIPE:
       return "|";
+
+    case StyioTokenType::TOK_AMP:
+      return "&";
 
     case StyioTokenType::ELLIPSIS:
       return "...";
@@ -710,11 +793,44 @@ StyioToken::getTokName(StyioTokenType type) {
     case StyioTokenType::WALRUS:
       return ":=";
 
+    case StyioTokenType::COMPOUND_ADD:
+      return "+=";
+
+    case StyioTokenType::COMPOUND_SUB:
+      return "-=";
+
+    case StyioTokenType::COMPOUND_MUL:
+      return "*=";
+
+    case StyioTokenType::COMPOUND_DIV:
+      return "/=";
+
+    case StyioTokenType::COMPOUND_MOD:
+      return "%=";
+
+    case StyioTokenType::WAVE_LEFT:
+      return "<~";
+
+    case StyioTokenType::WAVE_RIGHT:
+      return "~>";
+
+    case StyioTokenType::DBQUESTION:
+      return "??";
+
     case StyioTokenType::MATCH:
       return "?=";
 
+    case StyioTokenType::YIELD_PIPE:
+      return "<|";
+
     case StyioTokenType::INFINITE_LIST:
       return "[...]";
+
+    case StyioTokenType::BOUNDED_BUFFER_OPEN:
+      return "[|";
+
+    case StyioTokenType::BOUNDED_BUFFER_CLOSE:
+      return "|]";
 
     default:
       return "<UNKNOWN>";

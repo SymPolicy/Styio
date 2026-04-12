@@ -7,10 +7,26 @@
 #include <string>
 #include <vector>
 
+#if defined(_WIN32)
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
+
 // inline std::string
 // make_padding(int indent, std::string endswith = "") {
 //   return std::string("|") + std::string(2 * indent, '-') + std::string("|") + endswith;
 // }
+
+/** When stdout is not a tty (e.g. piped to FileCheck), skip ANSI escapes for stable tests. */
+inline bool
+styio_stdout_plain() {
+#if defined(_WIN32)
+  return _isatty(_fileno(stdout)) == 0;
+#else
+  return !isatty(STDOUT_FILENO);
+#endif
+}
 
 inline std::string
 make_padding(int indent, std::string endswith = "") {

@@ -1,9 +1,0 @@
-// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
-
-# addi: i32 := () => {
-  => 1 + 2
-}
-
-/*
-  CHECK:
-*/

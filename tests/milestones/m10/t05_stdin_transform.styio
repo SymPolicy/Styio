@@ -1,0 +1,6 @@
+// M10 / T10.05: Stdin with transformation
+
+# double_it := (x: i64) => x * 2
+@stdin >> #(line) => {
+  double_it(line) -> @stdout
+}

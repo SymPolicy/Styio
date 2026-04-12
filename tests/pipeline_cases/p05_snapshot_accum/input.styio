@@ -1,0 +1,7 @@
+@[factor] << @file{"/tmp/styio_pipeline_factor.txt"}
+sum = 0
+[1, 2, 3] >> #(x) => {
+    prod = x * $factor
+    sum += prod
+}
+>_(sum)

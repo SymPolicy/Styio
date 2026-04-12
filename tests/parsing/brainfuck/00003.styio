@@ -1,9 +1,0 @@
-// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
-
-iloop = 0
-
-/*
-  CHECK:      Binding (Flexible) {
-  CHECK-NEXT: || Var: id { iloop }
-  CHECK-NEXT: || Val: int { 0 }}
-*/

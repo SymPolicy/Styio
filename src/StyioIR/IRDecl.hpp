@@ -28,12 +28,59 @@ class SGCond; /* Conditional: An expression that can be evaluated to a boolean t
 class SGVar;
 class SGFlexBind;
 class SGFinalBind;
+class SGDynLoad;
 
 class SGFuncArg;
 class SGFunc;
 class SGCall;
 
 class SGReturn;
+
+class SGLoop;
+class SGForEach;
+class SGListLiteral;
+class SGDictLiteral;
+class SGRangeFor;
+class SGIf;
+class SGListReadStdin;
+class SGListClone;
+class SGListLen;
+class SGListGet;
+class SGListSet;
+class SGListToString;
+class SGDictClone;
+class SGDictLen;
+class SGDictGet;
+class SGDictSet;
+class SGDictKeys;
+class SGDictValues;
+class SGDictToString;
+
+class SGStateSnapLoad;
+class SGStateHistLoad;
+class SGSeriesAvgStep;
+class SGSeriesMaxStep;
+class SGMatch;
+class SGBreak;
+class SGContinue;
+
+class SGUndef;
+class SGFallback;
+class SGWaveMerge;
+class SGWaveDispatch;
+class SGGuardSelect;
+class SGEqProbe;
+
+class SGHandleAcquire;
+class SGFileLineIter;
+class SGStreamZip;
+class SGSnapshotDecl;
+class SGSnapshotShadowLoad;
+class SGInstantPull;
+class SGResourceWriteToFile;
+class SIOStdStreamWrite;
+class SIOStdStreamLineIter;
+class SIOStdStreamPull;
 
 // class SGIfElse;
 // class SGForLoop;

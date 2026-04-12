@@ -1,9 +1,0 @@
-// RUN: /root/styio/styio %s | /usr/bin/FileCheck %s
-
-map = []
-
-/*
-  CHECK-NEXT: Binding (Flexible) {
-  CHECK-NEXT: || Var: id { map }
-  CHECK-NEXT: || Val: Empty { }}
-*/

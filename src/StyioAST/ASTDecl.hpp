@@ -40,6 +40,7 @@ class CharAST;
 class StringAST;
 class SetAST;
 class ListAST;
+class DictAST;
 
 class StructAST;
 class TupleAST;
@@ -71,6 +72,7 @@ class OptKwArgAST;
 */
 class FlexBindAST;
 class FinalBindAST;
+class ParallelAssignAST;
 
 /*
   Binary Tree:
@@ -81,6 +83,13 @@ class FinalBindAST;
 class BinCompAST;
 class CondAST;
 class BinOpAST;
+
+class UndefinedLitAST;
+class WaveMergeAST;
+class WaveDispatchAST;
+class FallbackAST;
+class GuardSelectorAST;
+class EqProbeAST;
 
 /*
   Function
@@ -121,6 +130,10 @@ class RangeAST;
   - Loop
 */
 class IteratorAST;
+class StreamZipAST;
+class SnapshotDeclAST;
+class InstantPullAST;
+class TypedStdinListAST;
 class IterSeqAST; /* Iterator Sequence */
 class InfiniteLoopAST;
 
@@ -216,7 +229,18 @@ class DBUrlAST;
 */
 class PrintAST;
 class ReadFileAST;
+
+class FileResourceAST;
+class StdStreamAST;
+class HandleAcquireAST;
+class ResourceWriteAST;
+class ResourceRedirectAST;
 class WriteFileAST;
+
+class StateDeclAST;
+class StateRefAST;
+class HistoryProbeAST;
+class SeriesIntrinsicAST;
 
 class SimpleFuncAST;
 class TypeTupleAST;

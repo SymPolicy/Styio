@@ -1,0 +1,10 @@
+// RUN: %{styio} --llvm-ir --file %s | FileCheck %s
+
+path = @("./tests/resources/salary")
+? (path.is_dir()) {
+  path.dir().walk() >> #(entry) => {
+    ? (entry.is_json()) {
+      >_ { entry.read().to_json() }
+    }
+  }
+}

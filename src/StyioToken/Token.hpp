@@ -2,6 +2,7 @@
 #ifndef STYIO_TOKEN_H_
 #define STYIO_TOKEN_H_
 
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -21,34 +22,307 @@ enum class StyioDataTypeOption
 
   Tuple,
   List,
+  Dict,
 
   Struct,
 
   Func,  // Function
 };
 
+enum class StyioHandleFamily : std::uint8_t
+{
+  None = 0,
+  List,
+  Dict,
+  Range,
+  File,
+  Stream,
+};
+
+enum class StyioTypeState : std::uint8_t
+{
+  None = 0,
+  Open,
+  Materialized,
+  Closed,
+};
+
+enum class StyioValueFamily : std::uint8_t
+{
+  Unknown = 0,
+  Bool,
+  Integer,
+  Float,
+  String,
+  ListHandle,
+  DictHandle,
+  RangeHandle,
+  FileHandle,
+  StreamHandle,
+  UserDefined,
+};
+
+enum class StyioTypeCapability : std::uint32_t
+{
+  None = 0,
+  Iterable = 1u << 0,
+  Indexable = 1u << 1,
+  Sized = 1u << 2,
+  Readable = 1u << 3,
+  Writable = 1u << 4,
+  Cloneable = 1u << 5,
+  Collectable = 1u << 6,
+};
+
+inline constexpr std::uint32_t
+styio_caps(StyioTypeCapability cap) {
+  return static_cast<std::uint32_t>(cap);
+}
+
+inline constexpr std::uint32_t
+styio_caps(StyioTypeCapability lhs, StyioTypeCapability rhs) {
+  return styio_caps(lhs) | styio_caps(rhs);
+}
+
 struct StyioDataType
 {
   StyioDataTypeOption option;
   std::string name;
   size_t num_of_bit = 0;
+  StyioHandleFamily handle_family = StyioHandleFamily::None;
+  StyioTypeState state = StyioTypeState::None;
+  std::uint32_t capabilities = 0;
+  std::string item_type_name;
+  std::string key_type_name;
+  bool has_std_stream_kind = false;
+  int std_stream_kind = -1;
+  StyioValueFamily value_family = StyioValueFamily::Unknown;
+  StyioValueFamily item_value_family = StyioValueFamily::Unknown;
+  StyioValueFamily key_value_family = StyioValueFamily::Unknown;
 
-  bool isUndefined() {
+  bool isUndefined() const {
     return option == StyioDataTypeOption::Undefined;
   }
 
-  bool isInteger() {
+  bool isInteger() const {
     return option == StyioDataTypeOption::Integer;
   }
 
-  bool isFloat() {
+  bool isFloat() const {
     return option == StyioDataTypeOption::Float;
   }
 
   bool equals(const StyioDataType other) const {
-    return option == other.option and name == other.name;
+    return option == other.option
+      && name == other.name
+      && num_of_bit == other.num_of_bit
+      && handle_family == other.handle_family
+      && state == other.state
+      && capabilities == other.capabilities
+      && item_type_name == other.item_type_name
+      && key_type_name == other.key_type_name
+      && has_std_stream_kind == other.has_std_stream_kind
+      && std_stream_kind == other.std_stream_kind
+      && value_family == other.value_family
+      && item_value_family == other.item_value_family
+      && key_value_family == other.key_value_family;
   }
 };
+
+inline StyioDataType
+styio_make_list_type(const std::string& elem_name) {
+  return StyioDataType{
+    StyioDataTypeOption::List,
+    std::string("list[") + elem_name + "]",
+    0,
+    StyioHandleFamily::List,
+    StyioTypeState::Materialized,
+    styio_caps(StyioTypeCapability::Iterable)
+      | styio_caps(StyioTypeCapability::Indexable)
+      | styio_caps(StyioTypeCapability::Sized)
+      | styio_caps(StyioTypeCapability::Cloneable)
+      | styio_caps(StyioTypeCapability::Collectable),
+    elem_name,
+    "",
+    false,
+    -1,
+    StyioValueFamily::ListHandle};
+}
+
+inline bool
+styio_is_list_type(const StyioDataType& type) {
+  return type.option == StyioDataTypeOption::List
+    || type.handle_family == StyioHandleFamily::List
+    || type.name.rfind("list[", 0) == 0;
+}
+
+inline StyioDataType
+styio_make_dict_type(const std::string& key_name, const std::string& value_name) {
+  return StyioDataType{
+    StyioDataTypeOption::Dict,
+    std::string("dict[") + key_name + "," + value_name + "]",
+    0,
+    StyioHandleFamily::Dict,
+    StyioTypeState::Materialized,
+    styio_caps(StyioTypeCapability::Indexable)
+      | styio_caps(StyioTypeCapability::Sized)
+      | styio_caps(StyioTypeCapability::Cloneable),
+    value_name,
+    key_name,
+    false,
+    -1,
+    StyioValueFamily::DictHandle};
+}
+
+inline bool
+styio_is_dict_type(const StyioDataType& type) {
+  return type.option == StyioDataTypeOption::Dict
+    || type.handle_family == StyioHandleFamily::Dict
+    || type.name.rfind("dict[", 0) == 0;
+}
+
+inline std::string
+styio_list_elem_type_name(const StyioDataType& type) {
+  const std::string& name = type.name;
+  if (name.rfind("list[", 0) == 0 && !name.empty() && name.back() == ']') {
+    return name.substr(5, name.size() - 6);
+  }
+  return "i64";
+}
+
+inline std::string
+styio_dict_key_type_name(const StyioDataType& type) {
+  if (!type.key_type_name.empty()) {
+    return type.key_type_name;
+  }
+  const std::string& name = type.name;
+  if (name.rfind("dict[", 0) == 0 && !name.empty() && name.back() == ']') {
+    const std::string inner = name.substr(5, name.size() - 6);
+    const size_t comma = inner.find(',');
+    if (comma != std::string::npos) {
+      return inner.substr(0, comma);
+    }
+  }
+  return "string";
+}
+
+inline std::string
+styio_dict_value_type_name(const StyioDataType& type) {
+  if (!type.item_type_name.empty()) {
+    return type.item_type_name;
+  }
+  const std::string& name = type.name;
+  if (name.rfind("dict[", 0) == 0 && !name.empty() && name.back() == ']') {
+    const std::string inner = name.substr(5, name.size() - 6);
+    const size_t comma = inner.find(',');
+    if (comma != std::string::npos && comma + 1 < inner.size()) {
+      return inner.substr(comma + 1);
+    }
+  }
+  return "i64";
+}
+
+inline bool
+styio_type_has_capability(
+  const StyioDataType& type,
+  StyioTypeCapability capability
+) {
+  return (type.capabilities & styio_caps(capability)) != 0;
+}
+
+inline bool
+styio_type_is_iterable(const StyioDataType& type) {
+  return styio_type_has_capability(type, StyioTypeCapability::Iterable);
+}
+
+inline bool
+styio_type_is_indexable(const StyioDataType& type) {
+  return styio_type_has_capability(type, StyioTypeCapability::Indexable);
+}
+
+inline bool
+styio_type_is_sized(const StyioDataType& type) {
+  return styio_type_has_capability(type, StyioTypeCapability::Sized);
+}
+
+inline bool
+styio_type_is_readable(const StyioDataType& type) {
+  return styio_type_has_capability(type, StyioTypeCapability::Readable);
+}
+
+inline bool
+styio_type_is_writable(const StyioDataType& type) {
+  return styio_type_has_capability(type, StyioTypeCapability::Writable);
+}
+
+inline bool
+styio_type_is_cloneable(const StyioDataType& type) {
+  return styio_type_has_capability(type, StyioTypeCapability::Cloneable);
+}
+
+inline bool
+styio_type_is_resource_handle(const StyioDataType& type) {
+  return type.handle_family != StyioHandleFamily::None
+    || styio_is_list_type(type)
+    || styio_is_dict_type(type);
+}
+
+inline StyioValueFamily
+styio_value_family_for_type(const StyioDataType& type) {
+  if (type.value_family != StyioValueFamily::Unknown) {
+    return type.value_family;
+  }
+  if (styio_is_list_type(type)) {
+    return StyioValueFamily::ListHandle;
+  }
+  if (styio_is_dict_type(type)) {
+    return StyioValueFamily::DictHandle;
+  }
+  switch (type.handle_family) {
+    case StyioHandleFamily::List:
+      return StyioValueFamily::ListHandle;
+    case StyioHandleFamily::Dict:
+      return StyioValueFamily::DictHandle;
+    case StyioHandleFamily::Range:
+      return StyioValueFamily::RangeHandle;
+    case StyioHandleFamily::File:
+      return StyioValueFamily::FileHandle;
+    case StyioHandleFamily::Stream:
+      return StyioValueFamily::StreamHandle;
+    case StyioHandleFamily::None:
+      break;
+  }
+  switch (type.option) {
+    case StyioDataTypeOption::Bool:
+      return StyioValueFamily::Bool;
+    case StyioDataTypeOption::Integer:
+      return StyioValueFamily::Integer;
+    case StyioDataTypeOption::Float:
+      return StyioValueFamily::Float;
+    case StyioDataTypeOption::String:
+      return StyioValueFamily::String;
+    case StyioDataTypeOption::Defined:
+    case StyioDataTypeOption::Struct:
+    case StyioDataTypeOption::Func:
+      return StyioValueFamily::UserDefined;
+    default:
+      return StyioValueFamily::Unknown;
+  }
+}
+
+inline std::string
+styio_type_item_type_name(const StyioDataType& type) {
+  if (!type.item_type_name.empty()) {
+    return type.item_type_name;
+  }
+  if (styio_is_list_type(type)) {
+    return styio_list_elem_type_name(type);
+  }
+  if (styio_is_dict_type(type)) {
+    return styio_dict_value_type_name(type);
+  }
+  return "i64";
+}
 
 /* Pre-defined DType Table */
 static std::unordered_map<std::string, StyioDataType> const DTypeTable = {
@@ -100,6 +374,7 @@ enum class StyioOpType
   Self_Sub_Assign,      // a -= b
   Self_Mul_Assign,      // a *= b
   Self_Div_Assign,      // a /= b
+  Self_Mod_Assign,      // a %= b
   Bitwise_NOT,          // ~ a
   Bitwise_AND,          // a & b
   Bitwise_OR,           // a | b
@@ -163,6 +438,7 @@ static std::unordered_map<StyioOpType, int> const TokenPrecedenceMap = {
   {StyioOpType::Self_Sub_Assign, 1},  // a -= b
   {StyioOpType::Self_Mul_Assign, 1},  // a *= b
   {StyioOpType::Self_Div_Assign, 1},  // a /= b
+  {StyioOpType::Self_Mod_Assign, 1},  // a %= b
 
   {StyioOpType::Undefined, 0},    // Undefined
   {StyioOpType::End_Of_File, 0},  // Undefined
@@ -201,6 +477,7 @@ static std::unordered_map<StyioOpType, std::string> const TokenStrMap = {
   {StyioOpType::Self_Sub_Assign, "-="},  // a -= b
   {StyioOpType::Self_Mul_Assign, "*="},  // a *= b
   {StyioOpType::Self_Div_Assign, "/="},  // a /= b
+  {StyioOpType::Self_Mod_Assign, "%="},  // a %= b
 };
 
 static std::unordered_map<std::string, StyioOpType> const StrTokenMap = {
@@ -236,6 +513,7 @@ static std::unordered_map<std::string, StyioOpType> const StrTokenMap = {
   {"-=", StyioOpType::Self_Sub_Assign},  // a -= b
   {"*=", StyioOpType::Self_Mul_Assign},  // a *= b
   {"/=", StyioOpType::Self_Div_Assign},  // a /= b
+  {"%=", StyioOpType::Self_Mod_Assign},  // a %= b
 };
 
 enum class StyioContextType
@@ -268,6 +546,7 @@ enum class StyioNodeType
   End,
   Pass,
   Break,
+  Continue,
   Return,
   Comment,
 
@@ -339,6 +618,7 @@ enum class StyioNodeType
   FmtStr,
   // [a0, a1, ..., an]
   List,
+  Dict,
   Tuple,
   Set,
   // [start .. end]
@@ -358,6 +638,14 @@ enum class StyioNodeType
 
   // Condition
   Condition,
+
+  // M4: undefined literal, wave ops, fallback, selectors
+  UndefLiteral,
+  WaveMerge,
+  WaveDispatch,
+  Fallback,
+  GuardSelector,
+  EqProbeSelector,
 
   // Call
   Call,
@@ -415,6 +703,7 @@ enum class StyioNodeType
   MutBind,
   // :=
   FinalBind,
+  ParallelAssign,
   // -----------------
 
   /* -----------------
@@ -452,6 +741,28 @@ enum class StyioNodeType
   /* -----------------
    * Read
    */
+
+  FileResource,
+  HandleAcquire,
+  ResourceWrite,
+  ResourceRedirect,
+
+  /* M6: state ledger, $refs, intrinsics, history */
+  StateDecl,
+  StateRef,
+  HistoryProbe,
+  SeriesIntrinsic,
+
+  /* M7: multi-stream */
+  StreamZip,
+  SnapshotDecl,
+  InstantPull,
+  TypedStdinList,
+
+  /* M9-M10: standard streams */
+  StdinResource,
+  StdoutResource,
+  StderrResource,
 
   ReadFile,
   // -----------------
@@ -529,6 +840,155 @@ enum class StyioNodeType
   Connection,
   HashTagName
 };
+
+/* M9: standard stream direction */
+enum class StdStreamKind
+{
+  Stdin,
+  Stdout,
+  Stderr,
+};
+
+inline StyioDataType
+styio_data_type_from_name(const std::string& type_name) {
+  auto it = DTypeTable.find(type_name);
+  if (it != DTypeTable.end()) {
+    return it->second;
+  }
+  if (type_name.rfind("list[", 0) == 0) {
+    return styio_make_list_type(styio_list_elem_type_name(
+      StyioDataType{StyioDataTypeOption::List, type_name, 0}));
+  }
+  if (type_name.rfind("dict[", 0) == 0) {
+    StyioDataType temp{StyioDataTypeOption::Dict, type_name, 0};
+    return styio_make_dict_type(
+      styio_dict_key_type_name(temp),
+      styio_dict_value_type_name(temp));
+  }
+  return StyioDataType{StyioDataTypeOption::Defined, type_name, 0};
+}
+
+inline StyioValueFamily
+styio_value_family_from_type_name(const std::string& type_name) {
+  return styio_value_family_for_type(styio_data_type_from_name(type_name));
+}
+
+inline StyioValueFamily
+styio_type_item_value_family(const StyioDataType& type) {
+  if (type.item_value_family != StyioValueFamily::Unknown) {
+    return type.item_value_family;
+  }
+  return styio_value_family_from_type_name(styio_type_item_type_name(type));
+}
+
+inline StyioValueFamily
+styio_dict_key_value_family(const StyioDataType& type) {
+  if (type.key_value_family != StyioValueFamily::Unknown) {
+    return type.key_value_family;
+  }
+  return styio_value_family_from_type_name(styio_dict_key_type_name(type));
+}
+
+inline bool
+styio_value_family_is_runtime_scalar(StyioValueFamily family) {
+  switch (family) {
+    case StyioValueFamily::Bool:
+    case StyioValueFamily::Integer:
+    case StyioValueFamily::Float:
+    case StyioValueFamily::String:
+      return true;
+    default:
+      return false;
+  }
+}
+
+inline bool
+styio_value_family_is_runtime_handle(StyioValueFamily family) {
+  switch (family) {
+    case StyioValueFamily::ListHandle:
+    case StyioValueFamily::DictHandle:
+      return true;
+    default:
+      return false;
+  }
+}
+
+inline bool
+styio_type_supports_runtime_list_elem(const StyioDataType& type) {
+  StyioValueFamily family = styio_value_family_for_type(type);
+  return styio_value_family_is_runtime_scalar(family)
+    || styio_value_family_is_runtime_handle(family);
+}
+
+inline bool
+styio_type_supports_runtime_dict_value(const StyioDataType& type) {
+  StyioValueFamily family = styio_value_family_for_type(type);
+  return styio_value_family_is_runtime_scalar(family)
+    || styio_value_family_is_runtime_handle(family);
+}
+
+inline StyioDataType
+styio_make_range_type(const std::string& elem_name = "i64") {
+  return StyioDataType{
+    StyioDataTypeOption::Defined,
+    std::string("range[") + elem_name + "]",
+    0,
+    StyioHandleFamily::Range,
+    StyioTypeState::Materialized,
+    styio_caps(StyioTypeCapability::Iterable),
+    elem_name,
+    "",
+    false,
+    -1,
+    StyioValueFamily::RangeHandle};
+}
+
+inline StyioDataType
+styio_make_file_handle_type(const std::string& elem_name = "i64") {
+  return StyioDataType{
+    StyioDataTypeOption::Defined,
+    std::string("file[") + elem_name + "]",
+    0,
+    StyioHandleFamily::File,
+    StyioTypeState::Open,
+    styio_caps(StyioTypeCapability::Iterable)
+      | styio_caps(StyioTypeCapability::Readable)
+      | styio_caps(StyioTypeCapability::Writable),
+    elem_name,
+    "",
+    false,
+    -1,
+    StyioValueFamily::FileHandle};
+}
+
+inline StyioDataType
+styio_make_std_stream_type(
+  StdStreamKind kind,
+  const std::string& elem_name = "string"
+) {
+  StyioDataType type{
+    StyioDataTypeOption::Defined,
+    kind == StdStreamKind::Stdin
+      ? std::string("stdin[") + elem_name + "]"
+      : (kind == StdStreamKind::Stdout
+          ? std::string("stdout[") + elem_name + "]"
+          : std::string("stderr[") + elem_name + "]"),
+    0,
+    StyioHandleFamily::Stream,
+    StyioTypeState::Open,
+    kind == StdStreamKind::Stdin
+      ? (styio_caps(StyioTypeCapability::Iterable)
+         | styio_caps(StyioTypeCapability::Readable))
+      : styio_caps(StyioTypeCapability::Writable),
+    elem_name,
+    "",
+    false,
+    -1,
+    StyioValueFamily::StreamHandle};
+  type.has_std_stream_kind = true;
+  type.std_stream_kind = static_cast<int>(kind);
+  return type;
+}
 
 enum class InfiniteType
 {
@@ -697,6 +1157,8 @@ enum class StyioTokenType
   WALRUS,  // :=
   MATCH,   // ?=
 
+  YIELD_PIPE,  // <|
+
   ARROW_DOUBLE_RIGHT,  // =>
   ARROW_DOUBLE_LEFT,   // <=
   ARROW_SINGLE_RIGHT,  // ->
@@ -705,8 +1167,22 @@ enum class StyioTokenType
   ELLIPSIS,       // ...
   INFINITE_LIST,  // [...]
 
+  /* Topology v2: bounded ring buffer type [| n |] — paired delimiters (distinct from [ ... ]). */
+  BOUNDED_BUFFER_OPEN,   // [|
+  BOUNDED_BUFFER_CLOSE,  // |]
+
   SINGLE_SEP_LINE,  // ---
   DOUBLE_SEP_LINE,  // ===
+
+  COMPOUND_ADD,  // +=
+  COMPOUND_SUB,  // -=
+  COMPOUND_MUL,  // *=
+  COMPOUND_DIV,  // /=
+  COMPOUND_MOD,  // %=
+
+  WAVE_LEFT,   // <~
+  WAVE_RIGHT,  // ~>
+  DBQUESTION,  // ??
 
   UNKNOWN,
 };

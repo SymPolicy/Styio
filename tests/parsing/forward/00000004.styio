@@ -1,3 +1,0 @@
-// RUN: /home/Styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
-
-# f(x) : (T1, T2) => do()

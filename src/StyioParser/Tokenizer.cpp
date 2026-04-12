@@ -15,6 +15,7 @@
 #include "../StyioAST/AST.hpp"
 #include "../StyioException/Exception.hpp"
 #include "../StyioToken/Token.hpp"
+#include "../StyioUnicode/Unicode.hpp"
 #include "../StyioUtil/Util.hpp"
 #include "Tokenizer.hpp"
 
@@ -35,28 +36,39 @@ StyioTokenizer::tokenize(std::string code) {
   std::vector<StyioToken *> tokens;
   unsigned long long loc = 0; /* local position */
 
-  while (loc < code.length() - 1) {
-    /* Spaces and Comments */
+  while (loc < code.length()) {
+    /* Single-char whitespace tokens are terminal for this loop turn. */
     switch (code.at(loc)) {
-      case ' ': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_SPACE, " "));
+      case ' ':
+      case '\t':
+      case '\v':
+      case '\f': {
+        tokens.push_back(
+          StyioToken::Create(StyioTokenType::TOK_SPACE, std::string(1, code.at(loc))));
         loc += 1;
-      } break;
+        continue;
+      }
 
       /* LF */
       case '\n': {
         tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LF, "\n"));
         loc += 1;
-      } break;
+        continue;
+      }
 
       /* CR */
       case '\r': {
         tokens.push_back(StyioToken::Create(StyioTokenType::TOK_CR, "\r"));
         loc += 1;
-      } break;
+        continue;
+      }
 
       default: {
       } break;
+    }
+
+    if (loc >= code.length()) {
+      break;
     }
 
     // commments
@@ -64,39 +76,47 @@ StyioTokenizer::tokenize(std::string code) {
       std::string literal = "//";
       loc += 2;
 
-      while (code.at(loc) != '\n'
-             && code.at(loc) != '\r'
-             && code.at(loc) != EOF) {
+      while (loc < code.length()
+             && code.at(loc) != '\n'
+             && code.at(loc) != '\r') {
         literal += code.at(loc);
         loc += 1;
       }
 
       tokens.push_back(StyioToken::Create(StyioTokenType::COMMENT_LINE, literal));
+      continue;
     }
     /* comments */
     else if (code.compare(loc, 2, "/*") == 0) {
       std::string literal = "/*";
+      const unsigned long long start = loc;
       loc += 2;
 
-      while (not(code.compare(loc, 2, "*/") == 0)) {
+      while (loc < code.length() && not(code.compare(loc, 2, "*/") == 0)) {
         literal += code.at(loc);
         loc += 1;
+      }
+      if (loc >= code.length()) {
+        throw StyioLexError(
+          "Unterminated block comment at offset " + std::to_string(start));
       }
 
       literal += "*/";
       loc += 2;
 
       tokens.push_back(StyioToken::Create(StyioTokenType::COMMENT_CLOSED, literal));
+      continue;
     }
 
     /* varname / typename */
-    if (isalpha(code.at(loc)) || (code.at(loc) == '_')) {
+    if (StyioUnicode::is_identifier_start(code.at(loc))) {
       std::string literal;
 
       do {
         literal += code.at(loc);
         loc += 1;
-      } while (isalnum(code.at(loc)) || (code.at(loc) == '_'));
+      } while (loc < code.length()
+               && StyioUnicode::is_identifier_continue(code.at(loc)));
 
       if (literal == "_") {
         tokens.push_back(StyioToken::Create(StyioTokenType::TOK_UNDLINE, "_"));
@@ -104,18 +124,19 @@ StyioTokenizer::tokenize(std::string code) {
       else {
         tokens.push_back(StyioToken::Create(StyioTokenType::NAME, literal));
       }
+      continue;
     }
     /* integer / float / decimal */
-    else if (isdigit(code.at(loc))) {
+    else if (StyioUnicode::is_digit(code.at(loc))) {
       std::string literal;
 
       do {
         literal += code.at(loc);
         loc += 1;
-      } while (isdigit(code.at(loc)));
+      } while (loc < code.length() && StyioUnicode::is_digit(code.at(loc)));
 
       /* If Float: xxx.yyy */
-      if (code.at(loc) == '.' && isdigit(code.at(loc + 1))) {
+      if (loc + 1 < code.length() && code.at(loc) == '.' && StyioUnicode::is_digit(code.at(loc + 1))) {
         /* include '.' */
         literal += code.at(loc);
         loc += 1;
@@ -124,36 +145,46 @@ StyioTokenizer::tokenize(std::string code) {
         do {
           literal += code.at(loc);
           loc += 1;
-        } while (isdigit(code.at(loc)));
+        } while (loc < code.length() && StyioUnicode::is_digit(code.at(loc)));
 
         tokens.push_back(StyioToken::Create(StyioTokenType::DECIMAL, literal));
       }
       else {
         tokens.push_back(StyioToken::Create(StyioTokenType::INTEGER, literal));
       }
+      continue;
+    }
+
+    if (loc >= code.length()) {
+      continue;
     }
 
     switch (code.at(loc)) {
-      // -1
-      case EOF: {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_EOF, std::to_string(EOF)));
-        return tokens;
-      } break;
-
       // 33
       case '!': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_EXCLAM, "!"));
-        loc += 1;
+        if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::BINOP_NE, "!="));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_EXCLAM, "!"));
+          loc += 1;
+        }
       } break;
 
       // 34
       case '\"': {
         std::string literal = "\"";
+        const unsigned long long start = loc;
         loc += 1;
 
-        while (code.at(loc) != '\"') {
+        while (loc < code.length() && code.at(loc) != '\"') {
           literal += code.at(loc);
           loc += 1;
+        }
+        if (loc >= code.length()) {
+          throw StyioLexError(
+            "Unterminated string literal at offset " + std::to_string(start));
         }
 
         literal += "\"";
@@ -176,14 +207,26 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 37
       case '%': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_PERCENT, "%"));
-        loc += 1;
+        if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::COMPOUND_MOD, "%="));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_PERCENT, "%"));
+          loc += 1;
+        }
       } break;
 
       // 38
       case '&': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_AMP, "&"));
-        loc += 1;
+        if (loc + 1 < code.size() && code.at(loc + 1) == '&') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::LOGIC_AND, "&&"));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_AMP, "&"));
+          loc += 1;
+        }
       } break;
 
       // 39
@@ -206,14 +249,30 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 42
       case '*': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_STAR, "*"));
-        loc += 1;
+        if (loc + 1 < code.size() && code.at(loc + 1) == '*') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::BINOP_POW, "**"));
+          loc += 2;
+        }
+        else if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::COMPOUND_MUL, "*="));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_STAR, "*"));
+          loc += 1;
+        }
       } break;
 
       // 43
       case '+': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_PLUS, "+"));
-        loc += 1;
+        if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::COMPOUND_ADD, "+="));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_PLUS, "+"));
+          loc += 1;
+        }
       } break;
 
       // 44
@@ -234,6 +293,10 @@ StyioTokenizer::tokenize(std::string code) {
           size_t count = 2 + count_consecutive(code, loc + 2, '-');
           tokens.push_back(StyioToken::Create(StyioTokenType::SINGLE_SEP_LINE, std::string(count, '-')));
           loc += count;
+        }
+        else if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::COMPOUND_SUB, "-="));
+          loc += 2;
         }
         else {
           /* - TOK_MINUS */
@@ -259,8 +322,14 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 47
       case '/': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_SLASH, "/"));
-        loc += 1;
+        if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::COMPOUND_DIV, "/="));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_SLASH, "/"));
+          loc += 1;
+        }
       } break;
 
       // 58
@@ -287,14 +356,31 @@ StyioTokenizer::tokenize(std::string code) {
         size_t count = 1 + count_consecutive(code, loc + 1, '<');
 
         if (count == 1) {
-          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LANGBRAC, "<"));
+          if (loc + 1 < code.size() && code.at(loc + 1) == '~') {
+            tokens.push_back(StyioToken::Create(StyioTokenType::WAVE_LEFT, "<~"));
+            loc += 2;
+          }
+          else if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
+            tokens.push_back(StyioToken::Create(StyioTokenType::BINOP_LE, "<="));
+            loc += 2;
+          }
+          else if (loc + 1 < code.size() && code.at(loc + 1) == '|') {
+            tokens.push_back(StyioToken::Create(StyioTokenType::YIELD_PIPE, "<|"));
+            loc += 2;
+          }
+          else if (loc + 1 < code.size() && code.at(loc + 1) == '-') {
+            tokens.push_back(StyioToken::Create(StyioTokenType::ARROW_SINGLE_LEFT, "<-"));
+            loc += 2;
+          }
+          else {
+            tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LANGBRAC, "<"));
+            loc += 1;
+          }
         }
         else {
           tokens.push_back(StyioToken::Create(StyioTokenType::EXTRACTOR, std::string(count, '<')));
+          loc += count;
         }
-
-        // anyway
-        loc += count;
       } break;
 
       // 61
@@ -337,6 +423,10 @@ StyioTokenizer::tokenize(std::string code) {
           tokens.push_back(StyioToken::Create(StyioTokenType::ITERATOR, std::string(count, '>')));
           loc += count;
         }
+        else if (loc + 1 < code.size() && code.at(loc + 1) == '=') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::BINOP_GE, ">="));
+          loc += 2;
+        }
         else {
           tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RANGBRAC, ">"));
           loc += 1;
@@ -347,6 +437,10 @@ StyioTokenizer::tokenize(std::string code) {
       case '?': {
         if (loc + 1 < code.length() && code.at(loc + 1) == '=') {
           tokens.push_back(StyioToken::Create(StyioTokenType::MATCH, "?="));
+          loc += 2;
+        }
+        else if (loc + 1 < code.length() && code.at(loc + 1) == '?') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::DBQUESTION, "??"));
           loc += 2;
         }
         else {
@@ -364,8 +458,14 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 91
       case '[': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LBOXBRAC, "["));
-        loc += 1;
+        if (loc + 1 < code.size() && code.at(loc + 1) == '|') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::BOUNDED_BUFFER_OPEN, "[|"));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LBOXBRAC, "["));
+          loc += 1;
+        }
       } break;
 
       // 92
@@ -406,8 +506,18 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 124
       case '|': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_PIPE, "|"));
-        loc += 1;
+        if (loc + 1 < code.size() && code.at(loc + 1) == ']') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::BOUNDED_BUFFER_CLOSE, "|]"));
+          loc += 2;
+        }
+        else if (loc + 1 < code.size() && code.at(loc + 1) == '|') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::LOGIC_OR, "||"));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_PIPE, "|"));
+          loc += 1;
+        }
       } break;
 
       // 125
@@ -418,14 +528,25 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 126
       case '~': {
-        tokens.push_back(StyioToken::Create(StyioTokenType::TOK_TILDE, "~"));
-        loc += 1;
+        if (loc + 1 < code.size() && code.at(loc + 1) == '>') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::WAVE_RIGHT, "~>"));
+          loc += 2;
+        }
+        else {
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_TILDE, "~"));
+          loc += 1;
+        }
       } break;
 
-      default:
-        break;
+      default: {
+        /* Single-byte not recognized above (e.g. embedded NUL): must advance. */
+        tokens.push_back(
+          StyioToken::Create(StyioTokenType::UNKNOWN, std::string(1, code.at(loc))));
+        loc += 1;
+      } break;
     }
   }
 
+  tokens.push_back(StyioToken::Create(StyioTokenType::TOK_EOF, ""));
   return tokens;
 }

@@ -1,0 +1,13 @@
+styio.ast.main {
+|- styio.ast.handle.acquire  {
+  |- var: styio.ast.var { f : file[i64] }
+  |- mode: final
+  |- resource: styio.ast.resource.file  {
+    |- auto_detect: true
+    |- path: styio.ast.string { "/tmp/styio_pipeline_auto_input.txt" }}}
+|- styio.ast.iterator {
+  |- iterable object: f
+  |- styio.ast.arg { line : undefined }
+  |- styio.ast.block {
+    |- styio.ast.print {
+      |- line}}}}

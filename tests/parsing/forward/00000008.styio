@@ -1,6 +1,0 @@
-// RUN: /home/Styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s
-
-# step_1 (it) => it.do_this()
-# step_2 (it) => it.do_that()
-
-collection >> (i) > # step_1 > # step_2
