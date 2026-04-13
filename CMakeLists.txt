@@ -177,3 +177,4 @@ endif()
 # [CTest: Sub-Directory]
 enable_testing()
 add_subdirectory(tests)
+add_subdirectory(benchmark)

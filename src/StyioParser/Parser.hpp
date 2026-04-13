@@ -35,6 +35,7 @@ enum class StyioParserEngine
 struct StyioParserRouteStats
 {
   size_t nightly_subset_statements = 0;
+  size_t nightly_declined_statements = 0;
   size_t legacy_fallback_statements = 0;
   size_t nightly_internal_legacy_bridges = 0;
 };
@@ -43,7 +44,7 @@ class StyioContext
 {
 private:
   static StyioToken* eof_fallback_token() {
-    static StyioToken* tok = StyioToken::Create(StyioTokenType::TOK_EOF, "EOF");
+    static StyioToken* tok = StyioToken::CreatePersistent(StyioTokenType::TOK_EOF, "EOF");
     return tok;
   }
 
@@ -74,10 +75,42 @@ private:
   std::vector<std::vector<std::pair<size_t, size_t>>> token_segmentation; /* offset, length */
   std::vector<std::pair<size_t, size_t>> token_coordinates;               /* row, col */
   std::vector<std::string> token_lines;                                   /* lines */
+  std::vector<size_t> token_cursor_positions;                             /* token index -> cur_pos */
+  std::vector<size_t> next_non_trivia_index;                              /* token index -> next non-trivia */
+  std::vector<size_t> next_non_space_no_linebreak_index;                  /* token index -> next non-space */
+  bool diagnostic_cache_ready = false;
 
-  StyioRepr* ast_repr = new StyioRepr();
+  StyioRepr* ast_repr = nullptr;
+
+  void initialize_token_navigation_tables() {
+    token_cursor_positions.assign(tokens.size() + 1, 0);
+    for (size_t i = 0; i < tokens.size(); i++) {
+      token_cursor_positions[i + 1] = token_cursor_positions[i] + tokens[i]->length();
+    }
+
+    next_non_trivia_index.assign(tokens.size() + 1, tokens.size());
+    next_non_space_no_linebreak_index.assign(tokens.size() + 1, tokens.size());
+
+    size_t next_non_trivia = tokens.size();
+    size_t next_non_space = tokens.size();
+    for (size_t cursor = tokens.size(); cursor > 0; cursor--) {
+      const size_t i = cursor - 1;
+      if (!styio_is_trivia_token(tokens[i]->type)) {
+        next_non_trivia = i;
+      }
+      if (tokens[i]->type != StyioTokenType::TOK_SPACE) {
+        next_non_space = i;
+      }
+      next_non_trivia_index[i] = next_non_trivia;
+      next_non_space_no_linebreak_index[i] = next_non_space;
+    }
+  }
 
   void initialize_token_coordinates_and_segmentations() {
+    token_coordinates.clear();
+    token_segmentation.clear();
+    token_coordinates.reserve(tokens.size());
+
     /* token_segmentation */
     size_t offset = 0;
     std::vector<std::pair<size_t, size_t>> seg_line;
@@ -113,6 +146,8 @@ private:
   }
 
   void initialize_token_lines() {
+    token_lines.clear();
+
     /* token_lines */
     std::string tmp_line;
     for (auto c : code) {
@@ -123,6 +158,53 @@ private:
         tmp_line.clear();
       }
     }
+  }
+
+  void ensure_diagnostic_cache() {
+    if (diagnostic_cache_ready) {
+      return;
+    }
+    initialize_token_coordinates_and_segmentations();
+    initialize_token_lines();
+    diagnostic_cache_ready = true;
+  }
+
+  void ensure_ast_repr() {
+    if (ast_repr == nullptr) {
+      ast_repr = new StyioRepr();
+    }
+  }
+
+  size_t token_cursor_position_at(size_t index) const {
+    if (index >= token_cursor_positions.size()) {
+      if (token_cursor_positions.empty()) {
+        return 0;
+      }
+      return token_cursor_positions.back();
+    }
+    return token_cursor_positions[index];
+  }
+
+  size_t next_non_trivia_from(size_t index) const {
+    if (index >= next_non_trivia_index.size()) {
+      return tokens.size();
+    }
+    return next_non_trivia_index[index];
+  }
+
+  size_t next_non_space_no_linebreak_from(size_t index) const {
+    if (index >= next_non_space_no_linebreak_index.size()) {
+      return tokens.size();
+    }
+    return next_non_space_no_linebreak_index[index];
+  }
+
+  void advance_to_token_index(size_t target) {
+    if (target > tokens.size()) {
+      target = tokens.size();
+    }
+    index_of_token = target;
+    cur_pos = token_cursor_position_at(target);
   }
 
 public:
@@ -138,8 +220,7 @@ public:
       line_seps(line_seps),
       tokens(tokens),
       debug_mode(debug_mode) {
-    initialize_token_coordinates_and_segmentations();
-    initialize_token_lines();
+    initialize_token_navigation_tables();
   }
 
   ~StyioContext() {
@@ -195,15 +276,11 @@ public:
 
   void move_forward(size_t steps = 1, std::string caller = "") {
     // std::cout << "[" << index_of_token << "] " << caller << "(`" << cur_tok()->as_str() << "`)" << ", step: " << steps << std::endl;
-
-    for (size_t i = 0; i < steps; i++) {
-      if (index_of_token >= tokens.size()) {
-        index_of_token = tokens.size();
-        return;
-      }
-      this->cur_pos += tokens[index_of_token]->length();
-      this->index_of_token += 1;
+    if (index_of_token >= tokens.size()) {
+      advance_to_token_index(tokens.size());
+      return;
     }
+    advance_to_token_index(index_of_token + steps);
   }
 
   std::pair<size_t, size_t>
@@ -235,15 +312,23 @@ public:
   }
 
   inline void skip() {
-    while (styio_is_trivia_token(cur_tok()->type)) {
-      this->move_forward(1, "skip");
+    if (index_of_token >= tokens.size()) {
+      return;
+    }
+    const size_t next = next_non_trivia_from(index_of_token);
+    if (next != index_of_token) {
+      advance_to_token_index(next);
     }
   }
 
   /** Spaces only — do not cross newlines (so `b` and `(` on different lines are not a call). */
   inline void skip_spaces_no_linebreak() {
-    while (cur_tok()->type == StyioTokenType::TOK_SPACE) {
-      this->move_forward(1, "skip_space_inline");
+    if (index_of_token >= tokens.size()) {
+      return;
+    }
+    const size_t next = next_non_space_no_linebreak_from(index_of_token);
+    if (next != index_of_token) {
+      advance_to_token_index(next);
     }
   }
 
@@ -267,7 +352,11 @@ public:
   }
 
   bool try_check(StyioTokenType target) {
-    return styio_try_check_non_trivia(tokens, index_of_token, target);
+    const size_t probe = next_non_trivia_from(index_of_token);
+    if (probe >= tokens.size()) {
+      return false;
+    }
+    return tokens[probe]->type == target;
   }
 
   bool match(StyioTokenType type) {
@@ -329,116 +418,48 @@ public:
   bool try_match(StyioTokenType target) {
     // just match
     if (index_of_token < tokens.size() && tokens[index_of_token]->type == target) {
-      move_forward(1, "try_match");
+      advance_to_token_index(index_of_token + 1);
       return true;
     }
 
-    size_t offset = 0;
-    while (index_of_token + offset < tokens.size()) {
-      switch (tokens.at(index_of_token + offset)->type) {
-        /* white spaces */
-        case StyioTokenType::TOK_SPACE: {
-          offset += 1;
-        } break;
-
-        /* \n */
-        case StyioTokenType::TOK_LF: {
-          offset += 1;
-        } break;
-
-        /* \r */
-        case StyioTokenType::TOK_CR: {
-          offset += 1;
-        } break;
-
-        // comments like this
-        case StyioTokenType::COMMENT_LINE: {
-          offset += 1;
-        } break;
-
-        /* comments like this */
-        case StyioTokenType::COMMENT_CLOSED: {
-          offset += 1;
-        } break;
-
-        default: {
-          if (tokens.at(index_of_token + offset)->type == target) {
-            move_forward(offset + 1, "try_match");
-            return true;
-          }
-          else {
-            return false;
-          }
-        } break;
-      }
+    const size_t probe = next_non_trivia_from(index_of_token);
+    if (probe < tokens.size() && tokens[probe]->type == target) {
+      advance_to_token_index(probe + 1);
+      return true;
     }
-
     return false;
   }
 
   bool try_match_panic(StyioTokenType target, std::string errmsg = "") {
     // just match
     if (index_of_token < tokens.size() && tokens[index_of_token]->type == target) {
-      move_forward(1, "try_match_panic");
+      advance_to_token_index(index_of_token + 1);
       return true;
     }
 
-    // skip spaces and match token
-    size_t offset = 0;
-    while (index_of_token + offset < tokens.size()) {
-      switch (tokens.at(index_of_token + offset)->type) {
-        /* white spaces */
-        case StyioTokenType::TOK_SPACE: {
-          offset += 1;
-        } break;
-
-        /* \n */
-        case StyioTokenType::TOK_LF: {
-          offset += 1;
-        } break;
-
-        /* \r */
-        case StyioTokenType::TOK_CR: {
-          offset += 1;
-        } break;
-
-        // comments like this
-        case StyioTokenType::COMMENT_LINE: {
-          offset += 1;
-        } break;
-
-        /* comments like this */
-        case StyioTokenType::COMMENT_CLOSED: {
-          offset += 1;
-        } break;
-
-        default: {
-          if (tokens.at(index_of_token + offset)->type == target) {
-            move_forward(offset + 1, "try_match_panic");
-            return true;
-          }
-          else {
-            if (errmsg.empty()) {
-              throw StyioSyntaxError(
-                string("try_match_panic(token)")
-                + label_cur_line(
-                  cur_pos,
-                  std::string("which is expected to be ") + StyioToken::getTokName(target)
-                )
-              );
-            }
-            else {
-              throw StyioSyntaxError(label_cur_line(cur_pos, errmsg));
-            }
-          }
-        } break;
-      }
+    const size_t probe = next_non_trivia_from(index_of_token);
+    if (probe < tokens.size() && tokens[probe]->type == target) {
+      advance_to_token_index(probe + 1);
+      return true;
     }
 
-    throw StyioParseError(label_cur_line(
-      cur_pos,
-      "try_match_panic(token): Couldn't find " + StyioToken::getTokName(target) + " until the end of the file."
-    ));
+    if (probe >= tokens.size()) {
+      throw StyioParseError(label_cur_line(
+        cur_pos,
+        "try_match_panic(token): Couldn't find " + StyioToken::getTokName(target) + " until the end of the file."
+      ));
+    }
+
+    if (errmsg.empty()) {
+      throw StyioSyntaxError(
+        string("try_match_panic(token)")
+        + label_cur_line(
+          cur_pos,
+          std::string("which is expected to be ") + StyioToken::getTokName(target)
+        )
+      );
+    }
+    throw StyioSyntaxError(label_cur_line(cur_pos, errmsg));
   }
 
   /*
@@ -593,6 +614,7 @@ public:
 
   std::string mark_cur_tok(std::string comment = "") {
     std::string result;
+    ensure_diagnostic_cache();
 
     if (index_of_token >= token_coordinates.size()) {
       return comment.empty() ? std::string("Unknown token location") : comment;
@@ -789,92 +811,6 @@ public:
     }
     size_t idx = cur_pos - back;
     return has_char_index(idx) && code[idx] == value;
-  }
-
-  /*
-    usage:
-    1. the current position is after a known operator
-    like: a + b
-             ^     right here, after +, the current position is a white space
-    2. there is a variable or a value behind the current position
-    like: 1 + 2
-             ^     this space is followed by the value of 2
-    3. the expected operator is behind that variable or value
-    like: 1 + 2 * 3
-             ^     curr_pos is a white space, the expected operator is *, which is behind 2.
-  */
-  string peak_operator(int num = 1) {
-    if (num <= 0) {
-      return "EOF";
-    }
-
-    size_t tmp_pos = cur_pos;
-    for (int i = 0; i < num; i++) {
-      while (tmp_pos < code.size()) {
-        if (StyioUnicode::is_space(code[tmp_pos])) {
-          tmp_pos += 1;
-          continue;
-        }
-
-        if (tmp_pos + 1 < code.size() && code.compare(tmp_pos, 2, "//") == 0) {
-          tmp_pos += 2;
-          while (tmp_pos < code.size() && code[tmp_pos] != '\n') {
-            tmp_pos += 1;
-          }
-          if (tmp_pos < code.size()) {
-            tmp_pos += 1;
-          }
-          continue;
-        }
-
-        if (tmp_pos + 1 < code.size() && code.compare(tmp_pos, 2, "/*") == 0) {
-          tmp_pos += 2;
-          while (tmp_pos + 1 < code.size() && code.compare(tmp_pos, 2, "*/") != 0) {
-            tmp_pos += 1;
-          }
-          if (tmp_pos + 1 < code.size() && code.compare(tmp_pos, 2, "*/") == 0) {
-            tmp_pos += 2;
-            continue;
-          }
-          return "EOF";
-        }
-
-        if (StyioUnicode::is_ascii_alnum(code[tmp_pos]) || code[tmp_pos] == '_') {
-          tmp_pos += 1;
-          continue;
-        }
-
-        break;
-      }
-
-      if (tmp_pos >= code.size()) {
-        return "EOF";
-      }
-
-      size_t op_start = tmp_pos;
-      while (tmp_pos < code.size()) {
-        if (StyioUnicode::is_space(code[tmp_pos])) {
-          break;
-        }
-        if (tmp_pos + 1 < code.size() && (code.compare(tmp_pos, 2, "/*") == 0 || code.compare(tmp_pos, 2, "//") == 0)) {
-          break;
-        }
-        if (StyioUnicode::is_ascii_alnum(code[tmp_pos]) || code[tmp_pos] == '_') {
-          break;
-        }
-        tmp_pos += 1;
-      }
-
-      if (op_start == tmp_pos) {
-        return "EOF";
-      }
-
-      if (i == num - 1) {
-        return code.substr(op_start, tmp_pos - op_start);
-      }
-    }
-
-    return "EOF";
   }
 
   bool peak_isdigit(int steps) {
@@ -1131,6 +1067,7 @@ public:
   }
 
   void show_ast(StyioAST* ast) {
+    ensure_ast_repr();
     std::cout << ast->toString(ast_repr) << std::endl;
   }
 };

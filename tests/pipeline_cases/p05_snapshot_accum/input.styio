@@ -1,4 +1,4 @@
-@[factor] << @file{"/tmp/styio_pipeline_factor.txt"}
+@[factor] << @file{"tests/pipeline_cases/p05_snapshot_accum/factor.txt"}
 sum = 0
 [1, 2, 3] >> #(x) => {
     prod = x * $factor

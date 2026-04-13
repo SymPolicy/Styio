@@ -2944,7 +2944,9 @@ styio_parse_engine_to_repr_latest(
                       + ",legacy_fallback_statements="
                       + std::to_string(route_stats.legacy_fallback_statements)
                       + ",nightly_internal_legacy_bridges="
-                      + std::to_string(route_stats.nightly_internal_legacy_bridges);
+                      + std::to_string(route_stats.nightly_internal_legacy_bridges)
+                      + ",nightly_declined_statements="
+                      + std::to_string(route_stats.nightly_declined_statements);
       }
       else {
         out_detail->clear();
@@ -3423,7 +3425,9 @@ main(
         + ",legacy_fallback_statements="
         + std::to_string(primary_route_stats.legacy_fallback_statements)
         + ",nightly_internal_legacy_bridges="
-        + std::to_string(primary_route_stats.nightly_internal_legacy_bridges);
+        + std::to_string(primary_route_stats.nightly_internal_legacy_bridges)
+        + ",nightly_declined_statements="
+        + std::to_string(primary_route_stats.nightly_declined_statements);
     }
   } catch (const StyioBaseException& ex) {
     styio_emit_diagnostic(error_format, StyioErrorCategory::ParseError, fpath, ex.what());
@@ -3537,10 +3541,13 @@ main(
   StyioAnalyzer analyzer = StyioAnalyzer();
   try {
     analyzer.typeInfer(session.ast());
+    session.mark_type_checked();
   } catch (const StyioBaseException& ex) {
+    session.mark_failed();
     styio_emit_diagnostic(error_format, StyioErrorCategory::TypeError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::TypeError);
   } catch (const std::exception& ex) {
+    session.mark_failed();
     styio_emit_diagnostic(error_format, StyioErrorCategory::TypeError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::TypeError);
   }
@@ -3558,9 +3565,11 @@ main(
   try {
     session.attach_ir(analyzer.toStyioIR(session.ast()));
   } catch (const StyioBaseException& ex) {
+    session.mark_failed();
     styio_emit_diagnostic(error_format, StyioErrorCategory::TypeError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::TypeError);
   } catch (const std::exception& ex) {
+    session.mark_failed();
     styio_emit_diagnostic(error_format, StyioErrorCategory::TypeError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::TypeError);
   }
@@ -3592,6 +3601,7 @@ main(
 
     StyioToLLVM generator = StyioToLLVM(std::move(*jit_or_err));
     session.ir()->toLLVMIR(&generator);
+    session.mark_codegen_ready();
 
     if (show_llvm_ir) {
       generator.print_llvm_ir();
@@ -3607,15 +3617,20 @@ main(
         fpath,
         runtime_err ? runtime_err : "runtime helper reported error",
         runtime_subcode ? runtime_subcode : "");
+      session.mark_failed();
       return styio_exit_code(StyioErrorCategory::RuntimeError);
     }
+    session.mark_executed();
   } catch (const StyioTypeError& ex) {
+    session.mark_failed();
     styio_emit_diagnostic(error_format, StyioErrorCategory::TypeError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::TypeError);
   } catch (const StyioBaseException& ex) {
+    session.mark_failed();
     styio_emit_diagnostic(error_format, StyioErrorCategory::RuntimeError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::RuntimeError);
   } catch (const std::exception& ex) {
+    session.mark_failed();
     styio_emit_diagnostic(error_format, StyioErrorCategory::RuntimeError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::RuntimeError);
   }

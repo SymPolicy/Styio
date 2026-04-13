@@ -514,24 +514,6 @@ TEST(StyioSecurityParserContext, CharApiAtEofReturnsSafeDefaults) {
   delete ctx;
 }
 
-TEST(StyioSecurityParserContext, PeakOperatorAtEofReturnsEofWithoutThrow) {
-  std::vector<StyioToken*> tokens;
-  StyioContext* ctx = StyioContext::Create(
-    "<peak-operator-eof>",
-    "",
-    {},
-    tokens,
-    false);
-
-  std::string op;
-  EXPECT_NO_THROW({
-    op = ctx->peak_operator();
-  });
-  EXPECT_EQ(op, "EOF");
-
-  delete ctx;
-}
-
 TEST(StyioSecurityParserContext, FindDropPanicAtEofReportsSyntaxError) {
   std::vector<StyioToken*> tokens;
   StyioContext* ctx = StyioContext::Create(
@@ -548,6 +530,60 @@ TEST(StyioSecurityParserContext, FindDropPanicAtEofReportsSyntaxError) {
     StyioSyntaxError);
 
   delete ctx;
+}
+
+TEST(StyioSecurityNightlyParserStmt, TryParseSubsetDeclinesWithoutThrowAndRestoresCursor) {
+  const std::string src = "x = 1 | 2\n";
+  auto tokens = StyioTokenizer::tokenize(src);
+  StyioContext* ctx = StyioContext::Create(
+    "<nightly-decline>",
+    src,
+    build_line_seps(src),
+    tokens,
+    false);
+
+  const auto saved = ctx->save_cursor();
+  ParseAttempt<StyioAST> attempt;
+  EXPECT_NO_THROW({
+    attempt = try_parse_stmt_subset_nightly(*ctx);
+  });
+  EXPECT_EQ(attempt.status, ParseAttemptStatus::Declined);
+  EXPECT_EQ(attempt.node, nullptr);
+  EXPECT_EQ(ctx->save_cursor(), saved);
+
+  delete ctx;
+  free_tokens(tokens);
+  StyioAST::destroy_all_tracked_nodes();
+}
+
+TEST(StyioSecurityNightlyParserStmt, TryParseSubsetFatalRestoresCursorAndCapturesError) {
+  const std::string src = "#f(x) =>\n";
+  auto tokens = StyioTokenizer::tokenize(src);
+  StyioContext* ctx = StyioContext::Create(
+    "<nightly-fatal>",
+    src,
+    build_line_seps(src),
+    tokens,
+    false);
+
+  const auto saved = ctx->save_cursor();
+  ParseAttempt<StyioAST> attempt;
+  EXPECT_NO_THROW({
+    attempt = try_parse_stmt_subset_nightly(*ctx);
+  });
+  EXPECT_EQ(attempt.status, ParseAttemptStatus::Fatal);
+  EXPECT_EQ(attempt.node, nullptr);
+  EXPECT_NE(attempt.error, nullptr);
+  EXPECT_EQ(ctx->save_cursor(), saved);
+  EXPECT_THROW(
+    {
+      std::rethrow_exception(attempt.error);
+    },
+    StyioBaseException);
+
+  delete ctx;
+  free_tokens(tokens);
+  StyioAST::destroy_all_tracked_nodes();
 }
 
 TEST(StyioSecurityParserPath, SingleLetterPathDoesNotThrowOutOfRange) {
@@ -1415,7 +1451,14 @@ TEST(StyioSecurityUnicode, DecodeUtf8CodepointBoundaries) {
 TEST(StyioSecuritySession, ResetClearsSessionState) {
   CompilationSession session;
   const std::string src = "x = 1\n";
+  EXPECT_EQ(session.phase(), CompilationPhase::Empty);
+  EXPECT_EQ(session.token_arena_bytes(), 0u);
+  EXPECT_EQ(session.ast_arena_bytes(), 0u);
+
   session.adopt_tokens(StyioTokenizer::tokenize(src));
+  EXPECT_EQ(session.phase(), CompilationPhase::Tokenized);
+  EXPECT_GT(session.token_arena_bytes(), 0u);
+
   session.attach_context(StyioContext::Create(
     "<security>",
     src,
@@ -1423,6 +1466,18 @@ TEST(StyioSecuritySession, ResetClearsSessionState) {
     session.tokens(),
     false));
   session.attach_ast(MainBlockAST::Create({}));
+  EXPECT_EQ(session.phase(), CompilationPhase::Parsed);
+  EXPECT_GT(session.ast_arena_bytes(), 0u);
+
+  session.mark_type_checked();
+  EXPECT_EQ(session.phase(), CompilationPhase::Typed);
+  session.attach_ir(nullptr);
+  EXPECT_EQ(session.phase(), CompilationPhase::Lowered);
+  session.mark_codegen_ready();
+  EXPECT_EQ(session.phase(), CompilationPhase::CodegenReady);
+  session.mark_executed();
+  EXPECT_EQ(session.phase(), CompilationPhase::Executed);
+
   ASSERT_FALSE(session.tokens().empty());
   ASSERT_NE(session.context(), nullptr);
   ASSERT_NE(session.ast(), nullptr);
@@ -1432,6 +1487,19 @@ TEST(StyioSecuritySession, ResetClearsSessionState) {
   EXPECT_EQ(session.context(), nullptr);
   EXPECT_EQ(session.ast(), nullptr);
   EXPECT_EQ(session.ir(), nullptr);
+  EXPECT_EQ(session.phase(), CompilationPhase::Empty);
+  EXPECT_EQ(session.token_arena_bytes(), 0u);
+  EXPECT_EQ(session.ast_arena_bytes(), 0u);
+}
+
+TEST(StyioSecuritySession, InvalidPhaseTransitionsAreRejected) {
+  CompilationSession session;
+  EXPECT_THROW(session.mark_type_checked(), std::logic_error);
+  EXPECT_THROW(session.attach_ir(nullptr), std::logic_error);
+
+  session.adopt_tokens(StyioTokenizer::tokenize("x = 1\n"));
+  EXPECT_THROW(session.mark_codegen_ready(), std::logic_error);
+  EXPECT_THROW(session.mark_executed(), std::logic_error);
 }
 
 TEST(StyioSecurityAstOwnership, BinOpOwnsChildExprs) {

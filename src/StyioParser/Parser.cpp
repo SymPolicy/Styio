@@ -3629,15 +3629,18 @@ parse_main_block_shadow_nightly(StyioContext& context, StyioParserRouteStats* ro
     }
 
     StyioAST* stmt = nullptr;
-    bool parsed_with_nightly_subset = false;
-    const auto saved = context.save_cursor();
-    if (styio_parser_stmt_subset_start_nightly(context.cur_tok_type())) {
-      try {
-        stmt = parse_stmt_subset_nightly(context);
-        parsed_with_nightly_subset = true;
-      } catch (const std::exception&) {
-        context.restore_cursor(saved);
+    auto attempt = try_parse_stmt_subset_nightly(context);
+    if (attempt.status == ParseAttemptStatus::Parsed) {
+      stmt = attempt.node;
+      if (route_stats != nullptr) {
+        route_stats->nightly_subset_statements += 1;
       }
+    }
+    else if (attempt.status == ParseAttemptStatus::Fatal) {
+      std::rethrow_exception(attempt.error);
+    }
+    else if (route_stats != nullptr && styio_parser_stmt_subset_start_nightly(context.cur_tok_type())) {
+      route_stats->nightly_declined_statements += 1;
     }
 
     if (stmt == nullptr) {
@@ -3645,9 +3648,6 @@ parse_main_block_shadow_nightly(StyioContext& context, StyioParserRouteStats* ro
       if (route_stats != nullptr) {
         route_stats->legacy_fallback_statements += 1;
       }
-    }
-    else if (route_stats != nullptr && parsed_with_nightly_subset) {
-      route_stats->nightly_subset_statements += 1;
     }
 
     if ((stmt->getNodeType()) == StyioNodeType::End) {

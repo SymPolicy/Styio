@@ -183,21 +183,12 @@ TEST(StyioFiveLayerPipeline, P04_read_file) {
 TEST(StyioFiveLayerPipeline, P05_snapshot_accum) {
   const fs::path case_dir =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "pipeline_cases" / "p05_snapshot_accum";
-  const fs::path factor_path("/tmp/styio_pipeline_factor.txt");
-  const fs::path expected_factor =
-    case_dir / "expected" / "factor_file.txt";
-  {
-    std::ofstream out(factor_path, std::ios::binary | std::ios::trunc);
-    out << read_text_file_latest(expected_factor);
-  }
-
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
   if (runner == nullptr || runner[0] == '\0') {
     runner = STYIO_COMPILER_EXE;
   }
   const std::string err = styio::testing::run_pipeline_case(case_dir.string(), runner);
   EXPECT_EQ(err, "") << err;
-  fs::remove(factor_path);
 }
 
 TEST(StyioFiveLayerPipeline, P06_zip_files) {

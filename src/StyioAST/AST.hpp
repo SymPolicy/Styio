@@ -15,6 +15,7 @@ using std::vector;
 
 // [Styio]
 #include "../StyioAnalyzer/ASTAnalyzer.hpp"
+#include "../StyioSession/SessionAllocation.hpp"
 #include "../StyioToString/ToStringVisitor.hpp"
 #include "../StyioToken/Token.hpp"
 #include "ASTDecl.hpp"
@@ -35,8 +36,10 @@ public:
 
   static void*
   operator new(std::size_t sz) {
-    void* mem = ::operator new(sz);
-    tracked_nodes_.insert(static_cast<StyioAST*>(mem));
+    void* mem = styio::session_alloc::allocate_ast_object(sz);
+    if (!styio::session_alloc::ast_arena_active()) {
+      tracked_nodes_.insert(static_cast<StyioAST*>(mem));
+    }
     return mem;
   }
 
@@ -45,7 +48,7 @@ public:
     if (ptr != nullptr) {
       tracked_nodes_.erase(static_cast<StyioAST*>(ptr));
     }
-    ::operator delete(ptr);
+    styio::session_alloc::free_object(ptr);
   }
 
   static void

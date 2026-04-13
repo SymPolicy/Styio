@@ -483,7 +483,7 @@ clone_var_ast(VarAST* v) {
   auto* name = NameAST::Create(v->getNameAsStr());
   auto* dtype = clone_type_for_var(v->var_type);
   if (!v->val_init) {
-    return new VarAST(name, dtype);
+    return VarAST::Create(name, dtype);
   }
   return new VarAST(name, dtype, clone_state_expr(v->val_init));
 }
@@ -504,249 +504,316 @@ clone_name_ast(NameAST* n) {
   return NameAST::Create(n->getAsStr());
 }
 
-StyioAST*
-clone_state_expr_with_subst(StyioAST* e, const std::string& pname, StyioAST* repl) {
-  if (!e) {
-    return nullptr;
-  }
-  if (auto* id = dynamic_cast<NameAST*>(e)) {
-    if (repl != nullptr && id->getAsStr() == pname) {
-      return clone_state_expr(repl);
+class StateExprCloneVisitor
+{
+  std::string pname_;
+  StyioAST* repl_;
+
+  template <typename Container>
+  std::vector<StyioAST*> clone_child_list(const Container& items) {
+    std::vector<StyioAST*> cloned;
+    cloned.reserve(items.size());
+    for (auto* item : items) {
+      cloned.push_back(clone(item));
     }
-    return NameAST::Create(id->getAsStr());
+    return cloned;
   }
-  if (auto* iv = dynamic_cast<IntAST*>(e)) {
-    return IntAST::Create(iv->value, iv->num_of_bit);
+
+  StyioAST* clone_without_subst(StyioAST* expr) {
+    StateExprCloneVisitor plain("", nullptr);
+    return plain.clone(expr);
   }
-  if (auto* fv = dynamic_cast<FloatAST*>(e)) {
-    return FloatAST::Create(fv->getValue());
-  }
-  if (auto* bv = dynamic_cast<BoolAST*>(e)) {
-    return BoolAST::Create(bv->getValue());
-  }
-  if (auto* sv = dynamic_cast<StringAST*>(e)) {
-    return StringAST::Create(sv->getValue());
-  }
-  if (auto* tv = dynamic_cast<TupleAST*>(e)) {
-    std::vector<StyioAST*> elems;
-    for (auto* item : tv->getElements()) {
-      elems.push_back(clone_state_expr_with_subst(item, pname, repl));
+
+  StyioAST* clone(NameAST* expr) {
+    if (repl_ != nullptr && expr->getAsStr() == pname_) {
+      return clone_without_subst(repl_);
     }
-    return TupleAST::Create(std::move(elems));
+    return NameAST::Create(expr->getAsStr());
   }
-  if (auto* lv = dynamic_cast<ListAST*>(e)) {
-    std::vector<StyioAST*> elems;
-    for (auto* item : lv->getElements()) {
-      elems.push_back(clone_state_expr_with_subst(item, pname, repl));
+
+  StyioAST* clone(IntAST* expr) {
+    return IntAST::Create(expr->value, expr->num_of_bit);
+  }
+
+  StyioAST* clone(FloatAST* expr) {
+    return FloatAST::Create(expr->getValue());
+  }
+
+  StyioAST* clone(BoolAST* expr) {
+    return BoolAST::Create(expr->getValue());
+  }
+
+  StyioAST* clone(StringAST* expr) {
+    return StringAST::Create(expr->getValue());
+  }
+
+  StyioAST* clone(TupleAST* expr) {
+    return TupleAST::Create(clone_child_list(expr->getElements()));
+  }
+
+  StyioAST* clone(ListAST* expr) {
+    return ListAST::Create(clone_child_list(expr->getElements()));
+  }
+
+  StyioAST* clone(SetAST* expr) {
+    return SetAST::Create(clone_child_list(expr->getElements()));
+  }
+
+  StyioAST* clone(BinOpAST* expr) {
+    return BinOpAST::Create(expr->operand, clone(expr->LHS), clone(expr->RHS));
+  }
+
+  StyioAST* clone(BinCompAST* expr) {
+    return new BinCompAST(expr->getSign(), clone(expr->getLHS()), clone(expr->getRHS()));
+  }
+
+  StyioAST* clone(CondAST* expr) {
+    if (expr->getLHS() != nullptr && expr->getRHS() != nullptr) {
+      return CondAST::Create(expr->getSign(), clone(expr->getLHS()), clone(expr->getRHS()));
     }
-    return ListAST::Create(std::move(elems));
+    return CondAST::Create(expr->getSign(), clone(expr->getValue()));
   }
-  if (auto* sv = dynamic_cast<SetAST*>(e)) {
-    std::vector<StyioAST*> elems;
-    for (auto* item : sv->getElements()) {
-      elems.push_back(clone_state_expr_with_subst(item, pname, repl));
-    }
-    return SetAST::Create(std::move(elems));
-  }
-  if (auto* b = dynamic_cast<BinOpAST*>(e)) {
-    return BinOpAST::Create(
-      b->operand,
-      clone_state_expr_with_subst(b->LHS, pname, repl),
-      clone_state_expr_with_subst(b->RHS, pname, repl));
-  }
-  if (auto* c = dynamic_cast<BinCompAST*>(e)) {
-    return new BinCompAST(
-      c->getSign(),
-      clone_state_expr_with_subst(c->getLHS(), pname, repl),
-      clone_state_expr_with_subst(c->getRHS(), pname, repl));
-  }
-  if (auto* c = dynamic_cast<CondAST*>(e)) {
-    if (c->getLHS() && c->getRHS()) {
-      return CondAST::Create(
-        c->getSign(),
-        clone_state_expr_with_subst(c->getLHS(), pname, repl),
-        clone_state_expr_with_subst(c->getRHS(), pname, repl));
-    }
-    return CondAST::Create(
-      c->getSign(),
-      clone_state_expr_with_subst(c->getValue(), pname, repl));
-  }
-  if (auto* w = dynamic_cast<WaveMergeAST*>(e)) {
+
+  StyioAST* clone(WaveMergeAST* expr) {
     return WaveMergeAST::Create(
-      clone_state_expr_with_subst(w->getCond(), pname, repl),
-      clone_state_expr_with_subst(w->getTrueVal(), pname, repl),
-      clone_state_expr_with_subst(w->getFalseVal(), pname, repl));
+      clone(expr->getCond()),
+      clone(expr->getTrueVal()),
+      clone(expr->getFalseVal()));
   }
-  if (auto* w = dynamic_cast<WaveDispatchAST*>(e)) {
+
+  StyioAST* clone(WaveDispatchAST* expr) {
     return WaveDispatchAST::Create(
-      clone_state_expr_with_subst(w->getCond(), pname, repl),
-      clone_state_expr_with_subst(w->getTrueArm(), pname, repl),
-      clone_state_expr_with_subst(w->getFalseArm(), pname, repl));
+      clone(expr->getCond()),
+      clone(expr->getTrueArm()),
+      clone(expr->getFalseArm()));
   }
-  if (auto* f = dynamic_cast<FallbackAST*>(e)) {
-    return FallbackAST::Create(
-      clone_state_expr_with_subst(f->getPrimary(), pname, repl),
-      clone_state_expr_with_subst(f->getAlternate(), pname, repl));
+
+  StyioAST* clone(FallbackAST* expr) {
+    return FallbackAST::Create(clone(expr->getPrimary()), clone(expr->getAlternate()));
   }
-  if (auto* fmt = dynamic_cast<FmtStrAST*>(e)) {
-    std::vector<StyioAST*> exprs;
-    for (auto* expr : fmt->getExprs()) {
-      exprs.push_back(clone_state_expr_with_subst(expr, pname, repl));
+
+  StyioAST* clone(FmtStrAST* expr) {
+    return FmtStrAST::Create(expr->getFragments(), clone_child_list(expr->getExprs()));
+  }
+
+  StyioAST* clone(GuardSelectorAST* expr) {
+    return GuardSelectorAST::Create(clone(expr->getBase()), clone(expr->getCond()));
+  }
+
+  StyioAST* clone(EqProbeAST* expr) {
+    return EqProbeAST::Create(clone(expr->getBase()), clone(expr->getProbeValue()));
+  }
+
+  StyioAST* clone(RangeAST* expr) {
+    return new RangeAST(clone(expr->getStart()), clone(expr->getEnd()), clone(expr->getStep()));
+  }
+
+  StyioAST* clone(TypeConvertAST* expr) {
+    return TypeConvertAST::Create(clone(expr->getValue()), expr->getPromoTy());
+  }
+
+  StyioAST* clone(ListOpAST* expr) {
+    if (expr->getSlot1() != nullptr && expr->getSlot2() != nullptr) {
+      return new ListOpAST(expr->getOp(), clone(expr->getList()), clone(expr->getSlot1()), clone(expr->getSlot2()));
     }
-    return FmtStrAST::Create(fmt->getFragments(), std::move(exprs));
-  }
-  if (auto* g = dynamic_cast<GuardSelectorAST*>(e)) {
-    return GuardSelectorAST::Create(
-      clone_state_expr_with_subst(g->getBase(), pname, repl),
-      clone_state_expr_with_subst(g->getCond(), pname, repl));
-  }
-  if (auto* q = dynamic_cast<EqProbeAST*>(e)) {
-    return EqProbeAST::Create(
-      clone_state_expr_with_subst(q->getBase(), pname, repl),
-      clone_state_expr_with_subst(q->getProbeValue(), pname, repl));
-  }
-  if (auto* r = dynamic_cast<RangeAST*>(e)) {
-    return new RangeAST(
-      clone_state_expr_with_subst(r->getStart(), pname, repl),
-      clone_state_expr_with_subst(r->getEnd(), pname, repl),
-      clone_state_expr_with_subst(r->getStep(), pname, repl));
-  }
-  if (auto* cv = dynamic_cast<TypeConvertAST*>(e)) {
-    return TypeConvertAST::Create(
-      clone_state_expr_with_subst(cv->getValue(), pname, repl),
-      cv->getPromoTy());
-  }
-  if (auto* lo = dynamic_cast<ListOpAST*>(e)) {
-    if (lo->getSlot1() && lo->getSlot2()) {
-      return new ListOpAST(
-        lo->getOp(),
-        clone_state_expr_with_subst(lo->getList(), pname, repl),
-        clone_state_expr_with_subst(lo->getSlot1(), pname, repl),
-        clone_state_expr_with_subst(lo->getSlot2(), pname, repl));
+    if (expr->getSlot1() != nullptr) {
+      return new ListOpAST(expr->getOp(), clone(expr->getList()), clone(expr->getSlot1()));
     }
-    if (lo->getSlot1()) {
-      return new ListOpAST(
-        lo->getOp(),
-        clone_state_expr_with_subst(lo->getList(), pname, repl),
-        clone_state_expr_with_subst(lo->getSlot1(), pname, repl));
-    }
-    return new ListOpAST(
-      lo->getOp(),
-      clone_state_expr_with_subst(lo->getList(), pname, repl));
+    return new ListOpAST(expr->getOp(), clone(expr->getList()));
   }
-  if (auto* fc = dynamic_cast<FuncCallAST*>(e)) {
-    std::vector<StyioAST*> args;
-    for (auto* arg : fc->getArgList()) {
-      args.push_back(clone_state_expr_with_subst(arg, pname, repl));
+
+  StyioAST* clone(FuncCallAST* expr) {
+    std::vector<StyioAST*> args = clone_child_list(expr->getArgList());
+    if (expr->func_callee != nullptr) {
+      return FuncCallAST::Create(clone(expr->func_callee), NameAST::Create(expr->getNameAsStr()), std::move(args));
     }
-    if (fc->func_callee != nullptr) {
-      return FuncCallAST::Create(
-        clone_state_expr_with_subst(fc->func_callee, pname, repl),
-        NameAST::Create(fc->getNameAsStr()),
-        std::move(args));
-    }
-    return FuncCallAST::Create(
-      NameAST::Create(fc->getNameAsStr()),
-      std::move(args));
+    return FuncCallAST::Create(NameAST::Create(expr->getNameAsStr()), std::move(args));
   }
-  if (auto* attr = dynamic_cast<AttrAST*>(e)) {
-    return AttrAST::Create(
-      clone_state_expr_with_subst(attr->body, pname, repl),
-      clone_state_expr_with_subst(attr->attr, pname, repl));
+
+  StyioAST* clone(AttrAST* expr) {
+    return AttrAST::Create(clone(expr->body), clone(expr->attr));
   }
-  if (auto* h = dynamic_cast<HistoryProbeAST*>(e)) {
-    auto* tgt =
-      dynamic_cast<StateRefAST*>(clone_state_expr_with_subst(h->getTarget(), pname, repl));
-    if (tgt == nullptr) {
+
+  StyioAST* clone(HistoryProbeAST* expr) {
+    StyioAST* cloned_target = clone(expr->getTarget());
+    if (cloned_target == nullptr || cloned_target->getNodeType() != StyioNodeType::StateRef) {
       throw StyioTypeError("history probe target must remain state reference");
     }
-    return HistoryProbeAST::Create(
-      tgt,
-      clone_state_expr_with_subst(h->getDepth(), pname, repl));
+    return HistoryProbeAST::Create(static_cast<StateRefAST*>(cloned_target), clone(expr->getDepth()));
   }
-  if (auto* sr = dynamic_cast<StateRefAST*>(e)) {
-    return StateRefAST::Create(NameAST::Create(sr->getNameStr()));
+
+  StyioAST* clone(StateRefAST* expr) {
+    return StateRefAST::Create(NameAST::Create(expr->getNameStr()));
   }
-  if (auto* si = dynamic_cast<SeriesIntrinsicAST*>(e)) {
-    return SeriesIntrinsicAST::Create(
-      clone_state_expr_with_subst(si->getBase(), pname, repl),
-      si->getOp(),
-      clone_state_expr_with_subst(si->getWindow(), pname, repl));
+
+  StyioAST* clone(SeriesIntrinsicAST* expr) {
+    return SeriesIntrinsicAST::Create(clone(expr->getBase()), expr->getOp(), clone(expr->getWindow()));
   }
-  if (auto* ret = dynamic_cast<ReturnAST*>(e)) {
-    return ReturnAST::Create(clone_state_expr_with_subst(ret->getExpr(), pname, repl));
+
+  StyioAST* clone(ReturnAST* expr) {
+    return ReturnAST::Create(clone(expr->getExpr()));
   }
-  if (auto* p = dynamic_cast<PrintAST*>(e)) {
-    std::vector<StyioAST*> exprs;
-    for (auto* expr : p->exprs) {
-      exprs.push_back(clone_state_expr_with_subst(expr, pname, repl));
-    }
-    return PrintAST::Create(std::move(exprs));
+
+  StyioAST* clone(PrintAST* expr) {
+    return PrintAST::Create(clone_child_list(expr->exprs));
   }
-  if (auto* cases = dynamic_cast<CasesAST*>(e)) {
+
+  StyioAST* clone(CasesAST* expr) {
     std::vector<std::pair<StyioAST*, StyioAST*>> cloned_cases;
-    cloned_cases.reserve(cases->getCases().size());
-    for (const auto& entry : cases->getCases()) {
-      cloned_cases.emplace_back(
-        clone_state_expr_with_subst(entry.first, pname, repl),
-        clone_state_expr_with_subst(entry.second, pname, repl));
+    cloned_cases.reserve(expr->getCases().size());
+    for (const auto& entry : expr->getCases()) {
+      cloned_cases.emplace_back(clone(entry.first), clone(entry.second));
     }
-    return CasesAST::Create(
-      std::move(cloned_cases),
-      clone_state_expr_with_subst(cases->case_default, pname, repl));
+    return CasesAST::Create(std::move(cloned_cases), clone(expr->case_default));
   }
-  if (auto* match = dynamic_cast<MatchCasesAST*>(e)) {
-    auto* cloned_cases =
-      dynamic_cast<CasesAST*>(clone_state_expr_with_subst(match->getCases(), pname, repl));
-    if (cloned_cases == nullptr) {
+
+  StyioAST* clone(MatchCasesAST* expr) {
+    StyioAST* cloned_cases = clone(expr->getCases());
+    if (cloned_cases == nullptr || cloned_cases->getNodeType() != StyioNodeType::Cases) {
       throw StyioTypeError("match cases clone requires CasesAST");
     }
-    return MatchCasesAST::make(
-      clone_state_expr_with_subst(match->getScrutinee(), pname, repl),
-      cloned_cases);
+    return MatchCasesAST::make(clone(expr->getScrutinee()), static_cast<CasesAST*>(cloned_cases));
   }
-  if (auto* inf = dynamic_cast<InfiniteAST*>(e)) {
-    if (inf->getType() == InfiniteType::Incremental) {
-      return new InfiniteAST(
-        clone_state_expr_with_subst(inf->getStart(), pname, repl),
-        clone_state_expr_with_subst(inf->getIncEl(), pname, repl));
+
+  StyioAST* clone(InfiniteAST* expr) {
+    if (expr->getType() == InfiniteType::Incremental) {
+      return new InfiniteAST(clone(expr->getStart()), clone(expr->getIncEl()));
     }
     return new InfiniteAST();
   }
-  if (auto* pass = dynamic_cast<PassAST*>(e)) {
-    (void)pass;
+
+  StyioAST* clone(PassAST*) {
     return PassAST::Create();
   }
-  if (auto* brk = dynamic_cast<BreakAST*>(e)) {
-    return BreakAST::Create(brk->getDepth());
-  }
-  if (auto* cont = dynamic_cast<ContinueAST*>(e)) {
-    return ContinueAST::Create(cont->getDepth());
-  }
-  if (auto* blk = dynamic_cast<BlockAST*>(e)) {
-    std::vector<StyioAST*> stmts;
-    std::vector<StyioAST*> followings;
-    stmts.reserve(blk->stmts.size());
-    followings.reserve(blk->followings.size());
 
-    for (auto* stmt : blk->stmts) {
-      stmts.push_back(clone_state_expr_with_subst(stmt, pname, repl));
-    }
-    for (auto* following : blk->followings) {
-      followings.push_back(clone_state_expr_with_subst(following, pname, repl));
-    }
+  StyioAST* clone(BreakAST* expr) {
+    return BreakAST::Create(expr->getDepth());
+  }
 
+  StyioAST* clone(ContinueAST* expr) {
+    return ContinueAST::Create(expr->getDepth());
+  }
+
+  StyioAST* clone(BlockAST* expr) {
+    std::vector<StyioAST*> stmts = clone_child_list(expr->stmts);
+    std::vector<StyioAST*> followings = clone_child_list(expr->followings);
     auto* cloned_blk = BlockAST::Create(std::move(stmts));
     cloned_blk->set_followings(std::move(followings));
     return cloned_blk;
   }
-  if (auto* undef = dynamic_cast<UndefinedLitAST*>(e)) {
-    (void)undef;
+
+  StyioAST* clone(UndefinedLitAST*) {
     return UndefinedLitAST::Create();
   }
-  throw StyioTypeError(
-    std::string("unsupported AST node in inlined state expression clone: ")
-    + std::to_string(static_cast<int>(e->getNodeType())));
+
+public:
+  StateExprCloneVisitor(const std::string& pname, StyioAST* repl) :
+      pname_(pname),
+      repl_(repl) {
+  }
+
+  StyioAST* clone(StyioAST* expr) {
+    if (expr == nullptr) {
+      return nullptr;
+    }
+
+    switch (expr->getNodeType()) {
+      case StyioNodeType::Id:
+        return clone(static_cast<NameAST*>(expr));
+      case StyioNodeType::Integer:
+        return clone(static_cast<IntAST*>(expr));
+      case StyioNodeType::Float:
+        return clone(static_cast<FloatAST*>(expr));
+      case StyioNodeType::Bool:
+        return clone(static_cast<BoolAST*>(expr));
+      case StyioNodeType::String:
+        return clone(static_cast<StringAST*>(expr));
+      case StyioNodeType::Tuple:
+        return clone(static_cast<TupleAST*>(expr));
+      case StyioNodeType::List:
+        return clone(static_cast<ListAST*>(expr));
+      case StyioNodeType::Set:
+        return clone(static_cast<SetAST*>(expr));
+      case StyioNodeType::BinOp:
+        return clone(static_cast<BinOpAST*>(expr));
+      case StyioNodeType::Compare:
+        return clone(static_cast<BinCompAST*>(expr));
+      case StyioNodeType::Condition:
+        return clone(static_cast<CondAST*>(expr));
+      case StyioNodeType::WaveMerge:
+        return clone(static_cast<WaveMergeAST*>(expr));
+      case StyioNodeType::WaveDispatch:
+        return clone(static_cast<WaveDispatchAST*>(expr));
+      case StyioNodeType::Fallback:
+        return clone(static_cast<FallbackAST*>(expr));
+      case StyioNodeType::FmtStr:
+        return clone(static_cast<FmtStrAST*>(expr));
+      case StyioNodeType::GuardSelector:
+        return clone(static_cast<GuardSelectorAST*>(expr));
+      case StyioNodeType::EqProbeSelector:
+        return clone(static_cast<EqProbeAST*>(expr));
+      case StyioNodeType::Range:
+        return clone(static_cast<RangeAST*>(expr));
+      case StyioNodeType::NumConvert:
+        return clone(static_cast<TypeConvertAST*>(expr));
+      case StyioNodeType::Access:
+      case StyioNodeType::Access_By_Index:
+      case StyioNodeType::Access_By_Name:
+      case StyioNodeType::Get_Index_By_Value:
+      case StyioNodeType::Get_Indices_By_Many_Values:
+      case StyioNodeType::Append_Value:
+      case StyioNodeType::Insert_Item_By_Index:
+      case StyioNodeType::Remove_Last_Item:
+      case StyioNodeType::Remove_Item_By_Index:
+      case StyioNodeType::Remove_Items_By_Many_Indices:
+      case StyioNodeType::Remove_Item_By_Value:
+      case StyioNodeType::Remove_Items_By_Many_Values:
+      case StyioNodeType::Get_Reversed:
+      case StyioNodeType::Get_Index_By_Item_From_Right:
+        return clone(static_cast<ListOpAST*>(expr));
+      case StyioNodeType::Call:
+        return clone(static_cast<FuncCallAST*>(expr));
+      case StyioNodeType::Attribute:
+        return clone(static_cast<AttrAST*>(expr));
+      case StyioNodeType::HistoryProbe:
+        return clone(static_cast<HistoryProbeAST*>(expr));
+      case StyioNodeType::StateRef:
+        return clone(static_cast<StateRefAST*>(expr));
+      case StyioNodeType::SeriesIntrinsic:
+        return clone(static_cast<SeriesIntrinsicAST*>(expr));
+      case StyioNodeType::Return:
+        return clone(static_cast<ReturnAST*>(expr));
+      case StyioNodeType::Print:
+        return clone(static_cast<PrintAST*>(expr));
+      case StyioNodeType::Cases:
+        return clone(static_cast<CasesAST*>(expr));
+      case StyioNodeType::MatchCases:
+        return clone(static_cast<MatchCasesAST*>(expr));
+      case StyioNodeType::Infinite:
+        return clone(static_cast<InfiniteAST*>(expr));
+      case StyioNodeType::Pass:
+        return clone(static_cast<PassAST*>(expr));
+      case StyioNodeType::Break:
+        return clone(static_cast<BreakAST*>(expr));
+      case StyioNodeType::Continue:
+        return clone(static_cast<ContinueAST*>(expr));
+      case StyioNodeType::Block:
+        return clone(static_cast<BlockAST*>(expr));
+      case StyioNodeType::UndefLiteral:
+        return clone(static_cast<UndefinedLitAST*>(expr));
+      default:
+        break;
+    }
+
+    throw StyioTypeError(
+      std::string("unsupported AST node in inlined state expression clone: ")
+      + std::to_string(static_cast<int>(expr->getNodeType())));
+  }
+};
+
+StyioAST*
+clone_state_expr_with_subst(StyioAST* e, const std::string& pname, StyioAST* repl) {
+  return StateExprCloneVisitor(pname, repl).clone(e);
 }
 
 StyioAST*
