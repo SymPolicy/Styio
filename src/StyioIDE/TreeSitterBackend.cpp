@@ -1,5 +1,6 @@
 #include "TreeSitterBackend.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <string>
 #include <unordered_set>
@@ -13,6 +14,13 @@ extern "C" const TSLanguage* tree_sitter_styio(void);
 namespace styio::ide {
 
 namespace {
+
+struct IncrementalEdit
+{
+  std::size_t start = 0;
+  std::size_t old_end = 0;
+  std::size_t new_end = 0;
+};
 
 bool
 contains_newline(const std::string& text, TextRange range) {
@@ -64,6 +72,82 @@ append_unique_diagnostic(
 }
 
 #ifdef STYIO_HAS_TREE_SITTER
+
+IncrementalEdit
+compute_incremental_edit(const std::string& previous_text, const std::string& current_text) {
+  IncrementalEdit edit;
+  const std::size_t max_prefix = std::min(previous_text.size(), current_text.size());
+  while (edit.start < max_prefix && previous_text[edit.start] == current_text[edit.start]) {
+    edit.start += 1;
+  }
+
+  std::size_t previous_suffix = previous_text.size();
+  std::size_t current_suffix = current_text.size();
+  while (previous_suffix > edit.start
+         && current_suffix > edit.start
+         && previous_text[previous_suffix - 1] == current_text[current_suffix - 1]) {
+    previous_suffix -= 1;
+    current_suffix -= 1;
+  }
+
+  edit.old_end = previous_suffix;
+  edit.new_end = current_suffix;
+  return edit;
+}
+
+TSPoint
+point_from_offset(const TextBuffer& buffer, std::size_t offset) {
+  const Position pos = buffer.position_at(offset);
+  return TSPoint{
+    static_cast<uint32_t>(pos.line),
+    static_cast<uint32_t>(pos.character)};
+}
+
+std::shared_ptr<void>
+make_tree_handle(TSTree* tree) {
+  return std::shared_ptr<void>(
+    tree,
+    [](void* raw)
+    {
+      if (raw != nullptr) {
+        ts_tree_delete(static_cast<TSTree*>(raw));
+      }
+    });
+}
+
+TSTree*
+prepare_incremental_tree(
+  const std::shared_ptr<void>& previous_tree,
+  const std::string& previous_text,
+  const DocumentSnapshot& snapshot,
+  bool& reused_previous_tree
+) {
+  reused_previous_tree = false;
+  if (!previous_tree || previous_text.empty()) {
+    return nullptr;
+  }
+
+  TSTree* incremental_tree = ts_tree_copy(static_cast<const TSTree*>(previous_tree.get()));
+  if (incremental_tree == nullptr) {
+    return nullptr;
+  }
+
+  const IncrementalEdit edit = compute_incremental_edit(previous_text, snapshot.buffer.text());
+  if (edit.start != edit.old_end || edit.start != edit.new_end) {
+    const TextBuffer previous_buffer(previous_text);
+    TSInputEdit input_edit;
+    input_edit.start_byte = static_cast<uint32_t>(edit.start);
+    input_edit.old_end_byte = static_cast<uint32_t>(edit.old_end);
+    input_edit.new_end_byte = static_cast<uint32_t>(edit.new_end);
+    input_edit.start_point = point_from_offset(previous_buffer, edit.start);
+    input_edit.old_end_point = point_from_offset(previous_buffer, edit.old_end);
+    input_edit.new_end_point = point_from_offset(snapshot.buffer, edit.new_end);
+    ts_tree_edit(incremental_tree, &input_edit);
+  }
+
+  reused_previous_tree = true;
+  return incremental_tree;
+}
 
 std::size_t
 append_tree_sitter_node(
@@ -121,7 +205,11 @@ append_tree_sitter_node(
 }  // namespace
 
 std::optional<TreeSitterParseResult>
-parse_with_tree_sitter(const DocumentSnapshot& snapshot) {
+parse_with_tree_sitter(
+  const DocumentSnapshot& snapshot,
+  const std::shared_ptr<void>& previous_tree,
+  const std::string& previous_text
+) {
 #ifdef STYIO_HAS_TREE_SITTER
   TreeSitterParseResult result;
 
@@ -136,11 +224,16 @@ parse_with_tree_sitter(const DocumentSnapshot& snapshot) {
     return std::nullopt;
   }
 
+  bool reused_previous_tree = false;
+  TSTree* incremental_tree = prepare_incremental_tree(previous_tree, previous_text, snapshot, reused_previous_tree);
   TSTree* tree = ts_parser_parse_string(
     parser,
-    nullptr,
+    incremental_tree,
     snapshot.buffer.text().c_str(),
     static_cast<uint32_t>(snapshot.buffer.text().size()));
+  if (incremental_tree != nullptr) {
+    ts_tree_delete(incremental_tree);
+  }
   ts_parser_delete(parser);
 
   if (tree == nullptr) {
@@ -162,10 +255,13 @@ parse_with_tree_sitter(const DocumentSnapshot& snapshot) {
     diag_seen,
     result.folding_ranges);
 
-  ts_tree_delete(tree);
+  result.tree = make_tree_handle(tree);
+  result.reused_previous_tree = reused_previous_tree;
   return result;
 #else
   (void)snapshot;
+  (void)previous_tree;
+  (void)previous_text;
   return std::nullopt;
 #endif
 }

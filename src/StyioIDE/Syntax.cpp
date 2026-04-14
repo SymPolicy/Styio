@@ -651,10 +651,21 @@ SyntaxParser::parse(const DocumentSnapshot& snapshot) const {
     cursor += token.lexeme.size();
   }
 
-  if (const auto tree_sitter_result = parse_with_tree_sitter(snapshot); tree_sitter_result.has_value()) {
+  const auto cache_it = incremental_cache_.find(snapshot.path);
+  const std::shared_ptr<void> previous_tree =
+    cache_it != incremental_cache_.end() ? cache_it->second.backend_tree : std::shared_ptr<void>{};
+  const std::string previous_text =
+    cache_it != incremental_cache_.end() ? cache_it->second.text : std::string{};
+
+  if (const auto tree_sitter_result = parse_with_tree_sitter(snapshot, previous_tree, previous_text); tree_sitter_result.has_value()) {
     syntax.backend = SyntaxBackendKind::TreeSitter;
+    syntax.reused_incremental_tree = tree_sitter_result->reused_previous_tree;
     syntax.nodes = tree_sitter_result->nodes;
     syntax.folding_ranges = tree_sitter_result->folding_ranges;
+    incremental_cache_[snapshot.path] = IncrementalCacheEntry{
+      snapshot.snapshot_id,
+      snapshot.buffer.text(),
+      tree_sitter_result->tree};
     for (const auto& range : syntax.folding_ranges) {
       folding_keys.insert(std::to_string(range.range.start) + ":" + std::to_string(range.range.end));
     }
@@ -728,6 +739,11 @@ SyntaxParser::parse(const DocumentSnapshot& snapshot) const {
 
   syntax.diagnostics = std::move(diagnostics);
   return syntax;
+}
+
+void
+SyntaxParser::drop_cached_file(const std::string& path) const {
+  incremental_cache_.erase(path);
 }
 
 }  // namespace styio::ide

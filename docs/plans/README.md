@@ -2,13 +2,14 @@
 
 **Purpose:** Define the scope and naming rules for `docs/plans/`; the generated file inventory lives in [INDEX.md](./INDEX.md).
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-04-15
 
 ## Scope
 
 1. Store implementation plans, migration plans, and early drafts here.
 2. These files are not language or acceptance SSOT.
 3. When a plan is superseded by a frozen milestone or design document, mark that state explicitly.
+4. Tradeoff order for plans still follows [../specs/PRINCIPLES-AND-OBJECTIVES.md](../specs/PRINCIPLES-AND-OBJECTIVES.md).
 
 ## Naming Rules
 

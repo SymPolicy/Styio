@@ -18,7 +18,9 @@ python3 scripts/docs-audit.py
 
 1. Syntax/LSP only: `ctest --test-dir build-codex --output-on-failure -L 'ide|lsp'`
 2. One IDE unit test: `ctest --test-dir build-codex --output-on-failure -R 'StyioSyntaxParser.UsesTreeSitterBackendWhenAvailable'`
-3. Service integration test: `ctest --test-dir build-codex --output-on-failure -R 'StyioIdeService.DocumentSymbolsHoverDefinitionAndCompletion'`
+3. Incremental syntax reuse: `ctest --test-dir build-codex --output-on-failure -R 'StyioSyntaxParser.ReusesIncrementalTreeForSubsequentParses'`
+4. Recovery-mode semantic bridge: `ctest --test-dir build-codex --output-on-failure -R 'StyioSemanticBridge.RecoversNightlyParseForLaterStatements'`
+5. Service integration test: `ctest --test-dir build-codex --output-on-failure -R 'StyioIdeService.DocumentSymbolsHoverDefinitionAndCompletion'`
 
 ## Expected Outcomes
 

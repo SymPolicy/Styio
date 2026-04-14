@@ -7,7 +7,7 @@
 ## Targets
 
 1. `styio_frontend_core`: tokenizer, Nightly LL parser, AST, analyzer, and semantic bridge.
-2. `styio_ide_core`: VFS, syntax snapshot, HIR, semdb, index, diagnostics, and IDE DTOs.
+2. `styio_ide_core`: VFS, incremental syntax snapshot, HIR, semdb, index, diagnostics, and IDE DTOs.
 3. `styio_lspd`: stdio-based LSP 3.17 server for editor integration.
 
 ## Prerequisites
@@ -45,6 +45,12 @@ Useful target sets:
 ```
 
 The server uses stdio JSON-RPC. Your IDE host is expected to launch it as a long-lived local process.
+
+## Current Parsing Behavior
+
+1. Edit-time syntax goes through Tree-sitter when `STYIO_ENABLE_TREE_SITTER=ON`.
+2. `SyntaxParser` reuses the previous Tree-sitter tree for the same file path and applies a single incremental edit before reparsing.
+3. Semantic analysis uses the Nightly parser in `ParseMode::Recovery`, so malformed statements emit diagnostics but do not necessarily abort the rest of the file.
 
 ## Regenerate The Grammar
 

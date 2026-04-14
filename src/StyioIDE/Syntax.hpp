@@ -4,6 +4,7 @@
 #define STYIO_IDE_SYNTAX_HPP_
 
 #include <cstddef>
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -60,6 +61,7 @@ struct SyntaxSnapshot
   std::string path;
   TextBuffer buffer;
   SyntaxBackendKind backend = SyntaxBackendKind::Tolerant;
+  bool reused_incremental_tree = false;
   std::vector<SyntaxToken> tokens;
   std::vector<SyntaxNode> nodes;
   std::vector<Diagnostic> diagnostics;
@@ -80,8 +82,19 @@ struct SyntaxSnapshot
 
 class SyntaxParser
 {
+private:
+  struct IncrementalCacheEntry
+  {
+    SnapshotId snapshot_id = 0;
+    std::string text;
+    std::shared_ptr<void> backend_tree;
+  };
+
+  mutable std::unordered_map<std::string, IncrementalCacheEntry> incremental_cache_;
+
 public:
   SyntaxSnapshot parse(const DocumentSnapshot& snapshot) const;
+  void drop_cached_file(const std::string& path) const;
 };
 
 }  // namespace styio::ide

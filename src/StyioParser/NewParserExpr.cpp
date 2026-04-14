@@ -1,5 +1,6 @@
 #include "NewParserExpr.hpp"
 
+#include <algorithm>
 #include <memory>
 
 #include "ParserLookahead.hpp"
@@ -19,6 +20,35 @@ StyioAST*
 parse_expr_subset_allowing_follow_latest(
   StyioContext& context,
   std::initializer_list<StyioTokenType> allowed_follow);
+
+std::string
+nightly_recovery_message_latest() {
+  try {
+    throw;
+  } catch (const StyioBaseException& ex) {
+    return ex.what();
+  } catch (const std::exception& ex) {
+    return ex.what();
+  } catch (...) {
+    return "unknown nightly parser failure";
+  }
+}
+
+bool
+nightly_handle_recovery_latest(
+  StyioContext& context,
+  std::pair<size_t, size_t> statement_start,
+  const std::string& message
+) {
+  if (!context.is_recovery_mode()) {
+    return false;
+  }
+
+  const size_t end = std::max(statement_start.second + 1, context.current_token_end_pos());
+  context.record_parse_diagnostic(statement_start.second, end, message);
+  context.recover_to_statement_boundary(statement_start.first);
+  return true;
+}
 
 struct TokenProbeLatest
 {
@@ -1404,7 +1434,14 @@ parse_block_only_subset_nightly(StyioContext& context) {
       }
       return BlockAST::Create(std::move(statements));
     }
-    statements_owned.emplace_back(parse_stmt_subset_impl_nightly(context));
+    const auto statement_start = context.save_cursor();
+    try {
+      statements_owned.emplace_back(parse_stmt_subset_impl_nightly(context));
+    } catch (...) {
+      if (!nightly_handle_recovery_latest(context, statement_start, nightly_recovery_message_latest())) {
+        throw;
+      }
+    }
   }
 
   context.try_match_panic(StyioTokenType::TOK_RCURBRAC);
@@ -1800,7 +1837,14 @@ parse_main_block_subset_nightly(StyioContext& context) {
     if (context.cur_tok_type() == StyioTokenType::TOK_EOF) {
       break;
     }
-    statements_owned.emplace_back(parse_stmt_subset_impl_nightly(context));
+    const auto statement_start = context.save_cursor();
+    try {
+      statements_owned.emplace_back(parse_stmt_subset_impl_nightly(context));
+    } catch (...) {
+      if (!nightly_handle_recovery_latest(context, statement_start, nightly_recovery_message_latest())) {
+        throw;
+      }
+    }
   }
   std::vector<StyioAST*> statements;
   statements.reserve(statements_owned.size());

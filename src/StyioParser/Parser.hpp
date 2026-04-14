@@ -2,6 +2,7 @@
 #ifndef STYIO_PARSER_H_
 #define STYIO_PARSER_H_
 
+#include <algorithm>
 #include <regex>
 
 #include "../StyioAST/AST.hpp"
@@ -32,12 +33,25 @@ enum class StyioParserEngine
   New = Nightly,
 };
 
+enum class StyioParseMode
+{
+  Strict,
+  Recovery,
+};
+
 struct StyioParserRouteStats
 {
   size_t nightly_subset_statements = 0;
   size_t nightly_declined_statements = 0;
   size_t legacy_fallback_statements = 0;
   size_t nightly_internal_legacy_bridges = 0;
+};
+
+struct StyioParseDiagnostic
+{
+  size_t start = 0;
+  size_t end = 0;
+  std::string message;
 };
 
 class StyioContext
@@ -69,6 +83,8 @@ private:
   unordered_map<string, shared_ptr<StyioAST>> constants;
   unordered_map<string, shared_ptr<StyioAST>> variables;
   StyioParserRouteStats* parser_route_stats = nullptr;
+  StyioParseMode parse_mode_ = StyioParseMode::Strict;
+  std::vector<StyioParseDiagnostic> parse_diagnostics_;
 
   bool debug_mode = false;
 
@@ -207,6 +223,50 @@ private:
     cur_pos = token_cursor_position_at(target);
   }
 
+  struct TokenNesting
+  {
+    int paren = 0;
+    int bracket = 0;
+    int brace = 0;
+    int bounded = 0;
+  };
+
+  TokenNesting token_nesting_before(size_t index) const {
+    TokenNesting nesting;
+    const size_t limit = std::min(index, tokens.size());
+    for (size_t i = 0; i < limit; ++i) {
+      switch (tokens[i]->type) {
+        case StyioTokenType::TOK_LPAREN:
+          nesting.paren += 1;
+          break;
+        case StyioTokenType::TOK_RPAREN:
+          nesting.paren = std::max(0, nesting.paren - 1);
+          break;
+        case StyioTokenType::TOK_LBOXBRAC:
+          nesting.bracket += 1;
+          break;
+        case StyioTokenType::TOK_RBOXBRAC:
+          nesting.bracket = std::max(0, nesting.bracket - 1);
+          break;
+        case StyioTokenType::TOK_LCURBRAC:
+          nesting.brace += 1;
+          break;
+        case StyioTokenType::TOK_RCURBRAC:
+          nesting.brace = std::max(0, nesting.brace - 1);
+          break;
+        case StyioTokenType::BOUNDED_BUFFER_OPEN:
+          nesting.bounded += 1;
+          break;
+        case StyioTokenType::BOUNDED_BUFFER_CLOSE:
+          nesting.bounded = std::max(0, nesting.bounded - 1);
+          break;
+        default:
+          break;
+      }
+    }
+    return nesting;
+  }
+
 public:
   StyioContext(
     const string& file_name,
@@ -292,6 +352,125 @@ public:
   restore_cursor(std::pair<size_t, size_t> c) {
     index_of_token = c.first;
     cur_pos = c.second;
+  }
+
+  void
+  set_parse_mode(StyioParseMode mode) {
+    parse_mode_ = mode;
+  }
+
+  StyioParseMode
+  parse_mode() const {
+    return parse_mode_;
+  }
+
+  bool
+  is_recovery_mode() const {
+    return parse_mode_ == StyioParseMode::Recovery;
+  }
+
+  void
+  clear_parse_diagnostics() {
+    parse_diagnostics_.clear();
+  }
+
+  const std::vector<StyioParseDiagnostic>&
+  parse_diagnostics() const {
+    return parse_diagnostics_;
+  }
+
+  size_t
+  current_token_end_pos() const {
+    if (index_of_token >= tokens.size()) {
+      return token_cursor_position_at(tokens.size());
+    }
+    return token_cursor_position_at(index_of_token + 1);
+  }
+
+  void
+  record_parse_diagnostic(size_t start, size_t end, std::string message) {
+    if (end < start) {
+      end = start;
+    }
+    if (end == start) {
+      end += 1;
+    }
+    parse_diagnostics_.push_back(StyioParseDiagnostic{
+      start,
+      end,
+      std::move(message)});
+  }
+
+  bool
+  recover_to_statement_boundary(size_t statement_start_index) {
+    const TokenNesting base = token_nesting_before(statement_start_index);
+    TokenNesting nesting = base;
+    size_t scan = std::max(statement_start_index, index_of_token);
+
+    while (scan < tokens.size()) {
+      const StyioTokenType type = tokens[scan]->type;
+
+      if (type == StyioTokenType::TOK_RCURBRAC
+          && nesting.paren == base.paren
+          && nesting.bracket == base.bracket
+          && nesting.bounded == base.bounded
+          && nesting.brace == base.brace) {
+        advance_to_token_index(scan);
+        return false;
+      }
+
+      if ((type == StyioTokenType::TOK_LF || type == StyioTokenType::TOK_CR)
+          && nesting.paren == base.paren
+          && nesting.bracket == base.bracket
+          && nesting.bounded == base.bounded
+          && nesting.brace == base.brace) {
+        advance_to_token_index(scan + 1);
+        skip();
+        return true;
+      }
+
+      switch (type) {
+        case StyioTokenType::TOK_LPAREN:
+          nesting.paren += 1;
+          break;
+        case StyioTokenType::TOK_RPAREN:
+          nesting.paren = std::max(base.paren, nesting.paren - 1);
+          break;
+        case StyioTokenType::TOK_LBOXBRAC:
+          nesting.bracket += 1;
+          break;
+        case StyioTokenType::TOK_RBOXBRAC:
+          nesting.bracket = std::max(base.bracket, nesting.bracket - 1);
+          break;
+        case StyioTokenType::TOK_LCURBRAC:
+          nesting.brace += 1;
+          break;
+        case StyioTokenType::TOK_RCURBRAC:
+          nesting.brace = std::max(base.brace, nesting.brace - 1);
+          if (nesting.paren == base.paren
+              && nesting.bracket == base.bracket
+              && nesting.bounded == base.bounded
+              && nesting.brace == base.brace) {
+            advance_to_token_index(scan + 1);
+            skip();
+            return true;
+          }
+          break;
+        case StyioTokenType::BOUNDED_BUFFER_OPEN:
+          nesting.bounded += 1;
+          break;
+        case StyioTokenType::BOUNDED_BUFFER_CLOSE:
+          nesting.bounded = std::max(base.bounded, nesting.bounded - 1);
+          break;
+        default:
+          break;
+      }
+
+      scan += 1;
+    }
+
+    advance_to_token_index(tokens.size());
+    return false;
   }
 
   void
@@ -1417,7 +1596,8 @@ MainBlockAST*
 parse_main_block_with_engine_latest(
   StyioContext& context,
   StyioParserEngine engine,
-  StyioParserRouteStats* route_stats = nullptr);
+  StyioParserRouteStats* route_stats = nullptr,
+  StyioParseMode mode = StyioParseMode::Strict);
 
 StyioAST*
 parse_expr(StyioContext& context);

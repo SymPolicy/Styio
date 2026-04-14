@@ -2,7 +2,7 @@
 
 **Purpose:** Define where development Markdown belongs, how SSOT references work, and how `docs/` metadata, indexes, and maintenance gates are enforced; language semantics still live in `../design/Styio-Language-Design.md` and related design documents.
 
-**Last updated:** 2026-04-10
+**Last updated:** 2026-04-15
 
 **Automation (verify doc links + test registration):** 从仓库根目录配置并运行里程碑测试：
 
@@ -19,7 +19,19 @@ ctest --test-dir build -L milestone
 
 ### 0.1 Top-Level `Purpose`
 
-Every `docs/**/*.md` file must expose a top-level **`Purpose:`** line near the title. The line should say when the reader should use the document and, when relevant, what the document does **not** own. Do not add new `文档作用：` metadata; `Purpose:` is the only accepted metadata key.
+Every `docs/**/*.md` file must expose top-level purpose metadata near the title. The accepted forms are:
+
+- a single-line `**Purpose:** ...` metadata line; or
+- for bilingual documents, an `[EN] Purpose: ...` line followed by a translated line such as `[CN] 目标：...`.
+
+The purpose metadata should say when the reader should use the document and, when relevant, what the document does **not** own. Do not add new standalone metadata keys such as `文档作用：` outside the bilingual form above.
+
+### 0.1.1 Top-Level `Last updated`
+
+Every `docs/**/*.md` file must expose machine-readable update metadata near the title. The accepted forms are:
+
+- a single-line `**Last updated:** YYYY-MM-DD`; or
+- for bilingual documents, an `[EN] Last updated: YYYY-MM-DD` line followed by a translated line such as `[CN] 更新日期：YYYY-MM-DD`.
 
 ### 0.2 最小改动原则
 
@@ -47,12 +59,15 @@ Every `docs/**/*.md` file must expose a top-level **`Purpose:`** line near the t
 | 集成测试路径、`ctest` 命令 | `docs/assets/workflow/TEST-CATALOG.md` | 链接 |
 | **外部包 / 开源依赖清单**（LLVM、ICU、gtest、vendored） | [`THIRD-PARTY.md`](./THIRD-PARTY.md) | 与 `CMakeLists.txt`、`tests/CMakeLists.txt` 一致；新增依赖先更新该文件 |
 | **官方仓库生态、角色边界与文档归属** | [`REPOSITORY-MAP.md`](./REPOSITORY-MAP.md) | 其它文档只链接，不重复维护仓库总表 |
+| **项目级原则与目标**（规划 / 设计 / 开发 / 测试 / 审核的优先级） | [`PRINCIPLES-AND-OBJECTIVES.md`](./PRINCIPLES-AND-OBJECTIVES.md) | 其它文档引用，不平行重写项目级优先级与重写边界 |
+| **默认冷启动摘要 / 当前仓库状态** | [`../rollups/CURRENT-STATE.md`](../rollups/CURRENT-STATE.md) | 先读本文件，再跳到 owning SSOT |
+| **时效性文档压缩经验** | [`../rollups/HISTORICAL-LESSONS.md`](../rollups/HISTORICAL-LESSONS.md) | 其它文档只保留引用，不重复写逐日流水账 |
 | **五层编译流水线** goldens（Lexer/IR/…） | `docs/assets/workflow/FIVE-LAYER-PIPELINE.md` | 与 `TEST-CATALOG` §9 交叉链接 |
 | 开发文档目录与维护准则（含本节） | `DOCUMENTATION-POLICY.md` | 链接 |
 | Agent 实现规程、禁止项、流水线 | `AGENT-SPEC.md` | 链接 |
 | Golden Cross **守则内嵌的宪法示例代码** | `AGENT-SPEC.md` §12.3 | 设计背景链到 `../design/Styio-Resource-Topology.md` §8 |
 | Topology v2 **实施步骤、修改点矩阵、风险与记录规范** | `../plans/Resource-Topology-v2-Implementation-Plan.md` | `../design/Styio-Resource-Topology.md` §9 仅状态表 + 链到本计划 |
-| **`[|n|]` 环缓 CodeGen** 从 bootstrap 迁移的破坏面 / 测试 / 回滚 | `../plans/BoundedRing-Codegen-Adjustment.md` | 会话细节见 `history/2026-03-29.md` |
+| **`[|n|]` 环缓 CodeGen** 从 bootstrap 迁移的破坏面 / 测试 / 回滚 | `../plans/BoundedRing-Codegen-Adjustment.md` | 会话细节见 `../archive/history/2026-03-29.md`；冷启动摘要见 `../rollups/HISTORICAL-LESSONS.md` |
 | **Checkpoint 微里程碑执行规则**（可中断/可恢复） | `../assets/workflow/CHECKPOINT-WORKFLOW.md` | 在 `history/YYYY-MM-DD.md` 写恢复指引，不在其它文档重复流程细节 |
 | **仓库清理、提交、push 与历史重写标准** | `../assets/workflow/REPO-HYGIENE-COMMIT-STANDARD.md` | 其它文档只保留入口规则与链接 |
 | **文档元数据、生成索引与审计流程** | `../assets/workflow/DOCS-MAINTENANCE-WORKFLOW.md` | 其它文档只保留入口规则与链接 |
@@ -80,6 +95,8 @@ Every `docs/**/*.md` file must expose a top-level **`Purpose:`** line near the t
 | `docs/for-ide/` | IDE 集成、LSP 调用、嵌入方式与 edit-time 语法层使用说明 |
 | `docs/assets/workflow/` | 可复用工作流、测试框架、checkpoint / hygiene 标准 |
 | `docs/assets/templates/` | 可复用模板 |
+| `docs/rollups/` | 压缩后的 active 摘要；默认冷启动先读这里 |
+| `docs/archive/` | 已归纳过的 raw 文档与 provenance ledger；非默认阅读入口 |
 | `docs/history/` | 按日开发历史与恢复记录 |
 | `docs/milestones/` | 按日期冻结的里程碑规格 |
 | `docs/adr/` | 架构决策记录 |
@@ -109,6 +126,52 @@ Every `docs/**/*.md` file must expose a top-level **`Purpose:`** line near the t
 2. Generated indexes must not be hand-maintained.
 3. Structural validation runs through `python3 scripts/docs-audit.py`, `ctest --test-dir build -L docs`, and the `checkpoint-health` workflow.
 4. A docs-tree change is not complete until the generated indexes and docs audit both pass.
+
+### 0.10 Repo-Wide Markdown Manifest
+
+`scripts/docs-audit.py` also owns the repository-wide Markdown inventory used to answer two questions:
+
+1. Which Markdown files are **valid repository documents** and should stay discoverable?
+2. Which Markdown files are **invalid or out-of-scope** and should be reviewed for deletion, relocation, or de-tracking?
+
+The default manifest source is **worktree Markdown that is tracked or unignored**. This keeps newly added docs visible before `git add`, while still excluding ignored build output and local report directories. Use `--source git` when you want strictly tracked files only, and `--source filesystem` only when you intentionally want to inspect ignored local build output, generated reports, or other Markdown currently present in the worktree.
+
+Approved repository-document locations are:
+
+- root `README.md`
+- `docs/**/*.md`
+- `benchmark/**/*.md` except generated run outputs such as `benchmark/reports/<run-id>/summary.md`
+- `templates/**/*.md`
+- `grammar/tree-sitter-styio/README.md`
+- `tests/**/README.md` and approved test templates such as `tests/**/REGRESSION-TEMPLATE.md`
+
+Inventory commands:
+
+```bash
+python3 scripts/docs-audit.py --manifest valid --format tree
+python3 scripts/docs-audit.py --manifest valid --format json --output /tmp/styio-docs.json
+python3 scripts/docs-audit.py --manifest invalid --format list
+python3 scripts/docs-audit.py --manifest invalid --format list --source filesystem
+```
+
+Manifest exports also include text-volume statistics for the selected document set:
+
+- `character_count` uses the raw character length of each Markdown file.
+- `word_count` uses a repository-local approximation rule: each Han character counts as 1, each contiguous ASCII word counts as 1, and each non-whitespace symbol counts as 1.
+
+### 0.11 Time-Sensitive Doc Compression And Archive Lifecycle
+
+1. First-wave time-sensitive families are:
+   - `docs/history/*.md`
+   - dated review bundles under `docs/review/<YYYY-MM-DD>/`
+2. `docs/rollups/` is the active compression layer. It keeps concise summaries such as current state and historical lessons, and should be read before raw history or archive docs.
+3. `docs/archive/` is the provenance layer. Archive paths mirror the original `docs/` path after removing the leading `docs/`.
+4. The JSON source of truth is `docs/archive/ARCHIVE-MANIFEST.json`; the human-facing generated view is `docs/archive/ARCHIVE-LEDGER.md`.
+5. `python3 scripts/docs-lifecycle.py mark ...` records that a raw doc has been summarized into active docs. If it falls outside the keep window, its status becomes `pending_archive`.
+6. `python3 scripts/docs-lifecycle.py cleanup ...` is the only supported way to move pending raw docs into `docs/archive/`.
+7. Archived raw docs keep their original text. Provenance, targets, and status must live in the manifest/ledger rather than being injected back into the archived raw file body.
+8. `python3 scripts/docs-lifecycle.py validate` is a required gate. `docs-audit.py` calls it automatically.
+9. Relative-link freshness is enforced for active docs. Archived raw provenance docs may retain historical relative links and are not rewritten for link normalization.
 
 ---
 
@@ -182,7 +245,9 @@ CI 或本地可逐步引入：
 
 1. `ctest -L milestone` 全绿（或允许已知失败列表，但须在 `TEST-CATALOG` 标注）。
 2. `python3 scripts/docs-index.py --check` 必须通过，确保 collection-directory `INDEX.md` 未过期。
-3. `python3 scripts/docs-audit.py` 必须通过，确保 `Purpose` / `Last updated` / 命名 / 链接 / 目录入口都符合规则。
-4. `../assets/workflow/TEST-CATALOG.md` 中列出的每个 `tests/milestones/...` 路径在仓库中存在。
+3. `python3 scripts/docs-lifecycle.py validate` 必须通过，确保 rollup/archive manifest、ledger、keep-window 与路径映射一致。
+4. `python3 scripts/docs-audit.py` 必须通过，确保 `Purpose` / `Last updated` / 命名 / 链接 / 目录入口都符合规则，并串联 lifecycle gate。
+5. `python3 scripts/docs-audit.py --manifest invalid --format list` 是仓库级 Markdown 清理清单；需要排查本地生成物时改用 `--source filesystem`。
+6. `../assets/workflow/TEST-CATALOG.md` 中列出的每个 `tests/milestones/...` 路径在仓库中存在。
 
 当前仓库的 **权威自动化入口** 为：**CMake 注册的 CTest + `styio --file`**（见 `tests/CMakeLists.txt`）。

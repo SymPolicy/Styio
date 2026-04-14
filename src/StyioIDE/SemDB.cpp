@@ -141,6 +141,7 @@ SemanticDB::build_snapshot(const std::string& path) {
 void
 SemanticDB::drop_open_file(const std::string& path) {
   open_file_index_.erase(path);
+  syntax_parser_.drop_cached_file(path);
 }
 
 std::vector<Diagnostic>

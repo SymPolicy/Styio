@@ -1,8 +1,8 @@
 # Styio 测试目录（按功能域）
 
-**Purpose:** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`../../specs/DOCUMENTATION-POLICY.md`](../../specs/DOCUMENTATION-POLICY.md)。
+**Purpose:** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`../../specs/DOCUMENTATION-POLICY.md`](../../specs/DOCUMENTATION-POLICY.md)，项目级优先级顺序见 [`../../specs/PRINCIPLES-AND-OBJECTIVES.md`](../../specs/PRINCIPLES-AND-OBJECTIVES.md)。
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-04-15
 
 **批量自动化（所有里程碑集成用例）：**
 
@@ -253,8 +253,11 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `docs_audit` | `scripts/docs-audit.py`：校验 `docs/**/*.md` 的 `Purpose` / `Last updated` 元数据、collection-directory `README.md + INDEX.md` 入口、`docs/history` / `docs/adr` / `docs/milestones` 命名规则、相对链接有效性，以及 `scripts/docs-index.py --check` 的生成索引新鲜度 | `ctest --test-dir build -L docs` 或 `ctest --test-dir build -R '^docs_audit$'` |
+| `docs_audit` | `scripts/docs-audit.py`：无参模式校验 `docs/**/*.md` 的 `Purpose` / `Last updated` 元数据、collection-directory `README.md + INDEX.md` 入口、`docs/history` / `docs/adr` / `docs/milestones` 命名规则、active doc 相对链接有效性，以及 `scripts/docs-index.py --check` 与 `scripts/docs-lifecycle.py validate` 的门禁状态；`--manifest valid/invalid` 模式负责仓库级 Markdown 清单、树形输出、JSON 导出与无效文档审查 | `ctest --test-dir build -L docs` 或 `ctest --test-dir build -R '^docs_audit$'` |
 
 **生成命令：** `python3 scripts/docs-index.py --write`。  
-**本地校验：** `python3 scripts/docs-audit.py`。  
+**本地校验：** `python3 scripts/docs-lifecycle.py validate && python3 scripts/docs-audit.py`。  
+**生命周期候选：** `python3 scripts/docs-lifecycle.py candidates --family all --format tree`。  
+**仓库级文档清单：** `python3 scripts/docs-audit.py --manifest valid --format tree`（默认扫描 tracked + unignored worktree Markdown）。  
+**无效文档清单：** `python3 scripts/docs-audit.py --manifest invalid --format list`（仅看已跟踪文件时加 `--source git`；排查本地生成物时加 `--source filesystem`）。  
 **工作流入口：** 见 [`DOCS-MAINTENANCE-WORKFLOW.md`](./DOCS-MAINTENANCE-WORKFLOW.md)。

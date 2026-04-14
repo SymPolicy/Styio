@@ -2,10 +2,12 @@
 
 **Purpose:** Single place to record contradictions between design docs, milestones, the existing compiler, and informal discussions. Resolving these is prerequisite to a coherent implementation.
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-04-15
 
 **Version:** 1.0  
 **Date:** 2026-03-28  
+
+**Priority order for resolution:** [`../specs/PRINCIPLES-AND-OBJECTIVES.md`](../specs/PRINCIPLES-AND-OBJECTIVES.md)
 
 ---
 

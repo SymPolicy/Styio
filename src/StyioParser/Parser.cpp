@@ -40,6 +40,52 @@ struct ParserRouteStatsScopeLatestDraft
   }
 };
 
+struct ParseModeScopeLatestDraft
+{
+  StyioContext& context;
+  StyioParseMode previous;
+
+  ParseModeScopeLatestDraft(StyioContext& context, StyioParseMode current) :
+      context(context),
+      previous(context.parse_mode()) {
+    context.set_parse_mode(current);
+    context.clear_parse_diagnostics();
+  }
+
+  ~ParseModeScopeLatestDraft() {
+    context.set_parse_mode(previous);
+  }
+};
+
+std::string
+parser_recovery_message_latest() {
+  try {
+    throw;
+  } catch (const StyioBaseException& ex) {
+    return ex.what();
+  } catch (const std::exception& ex) {
+    return ex.what();
+  } catch (...) {
+    return "unknown parser failure";
+  }
+}
+
+bool
+parser_handle_recovery_latest(
+  StyioContext& context,
+  std::pair<size_t, size_t> statement_start,
+  const std::string& message
+) {
+  if (!context.is_recovery_mode()) {
+    return false;
+  }
+
+  const size_t end = std::max(statement_start.second + 1, context.current_token_end_pos());
+  context.record_parse_diagnostic(statement_start.second, end, message);
+  context.recover_to_statement_boundary(statement_start.first);
+  return true;
+}
+
 } // namespace
 
 void
@@ -3556,7 +3602,14 @@ parse_block_only(StyioContext& context) {
       return BlockAST::Create(std::move(stmts));
     }
     else {
-      stmts.push_back(parse_stmt_or_expr_legacy(context));
+      const auto statement_start = context.save_cursor();
+      try {
+        stmts.push_back(parse_stmt_or_expr_legacy(context));
+      } catch (...) {
+        if (!parser_handle_recovery_latest(context, statement_start, parser_recovery_message_latest())) {
+          throw;
+        }
+      }
     }
   }
 
@@ -3570,7 +3623,16 @@ parse_main_block_legacy(StyioContext& context) {
   vector<StyioAST*> statements;
 
   while (true) {
-    StyioAST* stmt = parse_stmt_or_expr_legacy(context);
+    const auto statement_start = context.save_cursor();
+    StyioAST* stmt = nullptr;
+    try {
+      stmt = parse_stmt_or_expr_legacy(context);
+    } catch (...) {
+      if (parser_handle_recovery_latest(context, statement_start, parser_recovery_message_latest())) {
+        continue;
+      }
+      throw;
+    }
 
     if ((stmt->getNodeType()) == StyioNodeType::End) {
       break;
@@ -3628,26 +3690,34 @@ parse_main_block_shadow_nightly(StyioContext& context, StyioParserRouteStats* ro
       break;
     }
 
+    const auto statement_start = context.save_cursor();
     StyioAST* stmt = nullptr;
-    auto attempt = try_parse_stmt_subset_nightly(context);
-    if (attempt.status == ParseAttemptStatus::Parsed) {
-      stmt = attempt.node;
-      if (route_stats != nullptr) {
-        route_stats->nightly_subset_statements += 1;
+    try {
+      auto attempt = try_parse_stmt_subset_nightly(context);
+      if (attempt.status == ParseAttemptStatus::Parsed) {
+        stmt = attempt.node;
+        if (route_stats != nullptr) {
+          route_stats->nightly_subset_statements += 1;
+        }
       }
-    }
-    else if (attempt.status == ParseAttemptStatus::Fatal) {
-      std::rethrow_exception(attempt.error);
-    }
-    else if (route_stats != nullptr && styio_parser_stmt_subset_start_nightly(context.cur_tok_type())) {
-      route_stats->nightly_declined_statements += 1;
-    }
+      else if (attempt.status == ParseAttemptStatus::Fatal) {
+        std::rethrow_exception(attempt.error);
+      }
+      else if (route_stats != nullptr && styio_parser_stmt_subset_start_nightly(context.cur_tok_type())) {
+        route_stats->nightly_declined_statements += 1;
+      }
 
-    if (stmt == nullptr) {
-      stmt = parse_stmt_or_expr_legacy(context);
-      if (route_stats != nullptr) {
-        route_stats->legacy_fallback_statements += 1;
+      if (stmt == nullptr) {
+        stmt = parse_stmt_or_expr_legacy(context);
+        if (route_stats != nullptr) {
+          route_stats->legacy_fallback_statements += 1;
+        }
       }
+    } catch (...) {
+      if (parser_handle_recovery_latest(context, statement_start, parser_recovery_message_latest())) {
+        continue;
+      }
+      throw;
     }
 
     if ((stmt->getNodeType()) == StyioNodeType::End) {
@@ -3673,7 +3743,9 @@ MainBlockAST*
 parse_main_block_with_engine_latest(
   StyioContext& context,
   StyioParserEngine engine,
-  StyioParserRouteStats* route_stats) {
+  StyioParserRouteStats* route_stats,
+  StyioParseMode mode) {
+  ParseModeScopeLatestDraft parse_mode_scope(context, mode);
   switch (engine) {
     case StyioParserEngine::Legacy:
       if (route_stats != nullptr) {

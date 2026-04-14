@@ -67,6 +67,8 @@ The returned `SyntaxSnapshot` exposes:
 1. `tokens`
 2. `nodes`
 3. `diagnostics`
+4. `backend`
+5. `reused_incremental_tree`
 4. `matching_tokens`
 5. `folding_ranges`
 6. `position_kind_at`
@@ -77,9 +79,32 @@ The returned `SyntaxSnapshot` exposes:
 11. `node_path_at`
 12. `node_at_offset`
 
+`reused_incremental_tree` is `true` when the same `SyntaxParser` instance successfully reused an earlier Tree-sitter tree for the same document path.
+
+## Semantic Bridge Only
+
+Use `styio::ide::analyze_document` when you want Nightly semantic facts without the full IDE service.
+
+```cpp
+#include "StyioIDE/CompilerBridge.hpp"
+
+auto summary = styio::ide::analyze_document("memory://sample.styio", source_text);
+if (summary.used_recovery) {
+  // The parse continued past at least one malformed statement.
+}
+```
+
+`SemanticSummary` currently reports:
+
+1. `parse_success`
+2. `used_recovery`
+3. `diagnostics`
+4. `inferred_types`
+5. `function_signatures`
+
 ## Layer Boundaries
 
 1. `SyntaxParser` owns edit-time CST and tolerant token spans.
-2. Nightly parser + analyzer remain the semantic truth for `SemanticSummary`.
+2. Nightly parser + analyzer remain the semantic truth for `SemanticSummary`, with `ParseMode::Recovery` enabled for IDE usage.
 3. `HirBuilder` lowers syntax plus semantic summary into the IDE-facing HIR.
 4. `IdeService` is the recommended stable boundary for application code.

@@ -14,6 +14,7 @@ namespace styio::ide {
 struct SemanticSummary
 {
   bool parse_success = false;
+  bool used_recovery = false;
   std::vector<Diagnostic> diagnostics;
   std::unordered_map<std::string, std::string> inferred_types;
   std::unordered_map<std::string, std::string> function_signatures;

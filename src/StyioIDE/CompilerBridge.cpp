@@ -1,5 +1,6 @@
 #include "CompilerBridge.hpp"
 
+#include <algorithm>
 #include <sstream>
 #include <variant>
 
@@ -107,19 +108,49 @@ analyze_document(const std::string& path, const std::string& text) {
     tokens = StyioTokenizer::tokenize(text);
     TextBuffer buffer(text);
     context = StyioContext::Create(path, text, buffer.build_line_seps(), tokens, false);
-    ast = parse_main_block_with_engine_latest(*context, StyioParserEngine::Nightly, nullptr);
-    StyioAnalyzer analyzer;
-    ast->typeInfer(&analyzer);
-    summary.parse_success = true;
+    ast = parse_main_block_with_engine_latest(
+      *context,
+      StyioParserEngine::Nightly,
+      nullptr,
+      StyioParseMode::Recovery);
+    summary.parse_success = ast != nullptr;
+    summary.used_recovery = !context->parse_diagnostics().empty();
 
-    for (const auto& entry : analyzer.local_binding_types) {
-      summary.inferred_types[entry.first] = type_name_from_type(entry.second);
+    for (const auto& diagnostic : context->parse_diagnostics()) {
+      summary.diagnostics.push_back(Diagnostic{
+        TextRange{diagnostic.start, std::min(diagnostic.end, text.size())},
+        DiagnosticSeverity::Error,
+        "semantic",
+        diagnostic.message});
     }
 
-    for (const auto& entry : analyzer.func_defs) {
-      const std::string signature = signature_for_function(entry.second);
-      if (!signature.empty()) {
-        summary.function_signatures[entry.first] = signature;
+    StyioAnalyzer analyzer;
+    if (ast != nullptr) {
+      try {
+        ast->typeInfer(&analyzer);
+      } catch (const StyioBaseException& ex) {
+        summary.diagnostics.push_back(Diagnostic{
+          TextRange{0, text.size()},
+          DiagnosticSeverity::Error,
+          "semantic",
+          ex.what()});
+      } catch (const std::exception& ex) {
+        summary.diagnostics.push_back(Diagnostic{
+          TextRange{0, text.size()},
+          DiagnosticSeverity::Error,
+          "semantic",
+          ex.what()});
+      }
+
+      for (const auto& entry : analyzer.local_binding_types) {
+        summary.inferred_types[entry.first] = type_name_from_type(entry.second);
+      }
+
+      for (const auto& entry : analyzer.func_defs) {
+        const std::string signature = signature_for_function(entry.second);
+        if (!signature.empty()) {
+          summary.function_signatures[entry.first] = signature;
+        }
       }
     }
   } catch (const StyioBaseException& ex) {

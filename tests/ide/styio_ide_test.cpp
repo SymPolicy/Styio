@@ -5,6 +5,7 @@
 #include <fstream>
 #include <string>
 
+#include "StyioIDE/CompilerBridge.hpp"
 #include "StyioIDE/Service.hpp"
 #include "StyioIDE/Syntax.hpp"
 #include "StyioLSP/Server.hpp"
@@ -96,6 +97,59 @@ TEST(StyioSyntaxParser, UsesTreeSitterBackendWhenAvailable) {
 
   EXPECT_FALSE(syntax.folding_ranges.empty());
   EXPECT_TRUE(syntax.diagnostics.empty());
+}
+
+TEST(StyioSyntaxParser, ReusesIncrementalTreeForSubsequentParses) {
+  styio::ide::SyntaxParser parser;
+
+  styio::ide::DocumentSnapshot first_snapshot;
+  first_snapshot.file_id = 9;
+  first_snapshot.snapshot_id = 1;
+  first_snapshot.path = make_temp_dir() + "/incremental_sample.styio";
+  first_snapshot.version = 1;
+  first_snapshot.buffer = styio::ide::TextBuffer{
+    "# add := (a: i32, b: i32) => {\n"
+    "  value: i32 := a + b\n"
+    "  <| value\n"
+    "}\n"};
+
+  const auto first = parser.parse(first_snapshot);
+  EXPECT_FALSE(first.reused_incremental_tree);
+
+  styio::ide::DocumentSnapshot second_snapshot = first_snapshot;
+  second_snapshot.snapshot_id = 2;
+  second_snapshot.version = 2;
+  second_snapshot.buffer = styio::ide::TextBuffer{
+    "# add := (a: i32, b: i32) => {\n"
+    "  value: i32 := a + b + 1\n"
+    "  <| value\n"
+    "}\n"};
+
+  const auto second = parser.parse(second_snapshot);
+
+#ifdef STYIO_HAS_TREE_SITTER
+  EXPECT_TRUE(second.reused_incremental_tree);
+#else
+  EXPECT_FALSE(second.reused_incremental_tree);
+#endif
+}
+
+TEST(StyioSemanticBridge, RecoversNightlyParseForLaterStatements) {
+  const std::string source =
+    "# broken := (a: i32, b: i32) => {\n"
+    "  value: i32 := a +\n"
+    "}\n"
+    "# stable := (x: i32, y: i32) => x + y\n"
+    "result: i32 := stable(1, 2)\n";
+
+  const auto summary = styio::ide::analyze_document("memory://recovery_sample.styio", source);
+  EXPECT_TRUE(summary.parse_success);
+  EXPECT_TRUE(summary.used_recovery);
+  EXPECT_FALSE(summary.diagnostics.empty());
+
+  const auto it = summary.function_signatures.find("stable");
+  ASSERT_NE(it, summary.function_signatures.end());
+  EXPECT_NE(it->second.find("stable"), std::string::npos);
 }
 
 TEST(StyioLspServer, HandlesInitializeOpenAndCompletion) {

@@ -45,6 +45,12 @@ The current completion pipeline is:
 
 `cursor -> VFS snapshot -> syntax position kind -> HIR + semdb -> builtin/index merge -> ranked completion items`
 
+## Diagnostics Semantics
+
+1. Syntax diagnostics come from the edit-time syntax snapshot and include Tree-sitter error nodes plus tolerant token mismatches.
+2. Semantic diagnostics come from the Nightly parser/analyzer bridge.
+3. In recovery mode, malformed statements are reported while later statements in the same file can still contribute hover, completion, and symbol data.
+
 ## Current Limits
 
 1. The server is local-only and single-workspace for now.
