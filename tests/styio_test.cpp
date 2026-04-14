@@ -2041,6 +2041,51 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForResourcePostfixS
   fs::remove_all(artifact_dir);
 }
 
+TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForRedirectMilestone) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m5" / "t07_redirect.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path artifact_dir =
+    fs::temp_directory_path() / ("styio-shadow-redirect-artifacts-" + std::to_string(uniq));
+  ASSERT_TRUE(fs::create_directories(artifact_dir));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+
+  std::vector<fs::path> jsonl_files;
+  for (const auto& entry : fs::directory_iterator(artifact_dir)) {
+    if (!entry.is_regular_file() || entry.path().extension() != ".jsonl") {
+      continue;
+    }
+    jsonl_files.push_back(entry.path());
+  }
+  ASSERT_EQ(jsonl_files.size(), 1U);
+
+  std::ifstream in(jsonl_files.front());
+  ASSERT_TRUE(in.is_open());
+  std::string line;
+  std::getline(in, line);
+  EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
+  EXPECT_NE(line.find("\"primary_engine\":\"nightly\""), std::string::npos);
+  EXPECT_NE(line.find("legacy_fallback_statements=0"), std::string::npos);
+  EXPECT_NE(line.find("nightly_internal_legacy_bridges=0"), std::string::npos);
+
+  fs::remove_all(artifact_dir);
+}
+
 TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForIteratorSubset) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
@@ -2349,6 +2394,51 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForAtResourceSubset
   EXPECT_NE(line.find("primary_route=nightly_subset_statements=1,legacy_fallback_statements=0"), std::string::npos);
 
   fs::remove(input);
+  fs::remove_all(artifact_dir);
+}
+
+TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForArbitrageMilestone) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t08_arbitrage.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path artifact_dir =
+    fs::temp_directory_path() / ("styio-shadow-arbitrage-artifacts-" + std::to_string(uniq));
+  ASSERT_TRUE(fs::create_directories(artifact_dir));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+
+  std::vector<fs::path> jsonl_files;
+  for (const auto& entry : fs::directory_iterator(artifact_dir)) {
+    if (!entry.is_regular_file() || entry.path().extension() != ".jsonl") {
+      continue;
+    }
+    jsonl_files.push_back(entry.path());
+  }
+  ASSERT_EQ(jsonl_files.size(), 1U);
+
+  std::ifstream in(jsonl_files.front());
+  ASSERT_TRUE(in.is_open());
+  std::string line;
+  std::getline(in, line);
+  EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
+  EXPECT_NE(line.find("\"primary_engine\":\"nightly\""), std::string::npos);
+  EXPECT_NE(line.find("legacy_fallback_statements=0"), std::string::npos);
+  EXPECT_NE(line.find("nightly_internal_legacy_bridges=0"), std::string::npos);
+
   fs::remove_all(artifact_dir);
 }
 

@@ -11,8 +11,9 @@
 3. Review findings and open conflicts live in `docs/review/`.
 4. Plans and migration drafts live in `docs/plans/`.
 5. Cross-repository handoff notes intended for `styio-spio` live in `docs/for_spio/`.
-6. Reusable workflows and templates live in `docs/assets/`.
-7. Daily history, frozen milestones, and ADRs stay in their dedicated directories.
+6. IDE integration, embedding, and LSP usage material lives in `docs/for-ide/`.
+7. Reusable workflows and templates live in `docs/assets/`.
+8. Daily history, frozen milestones, and ADRs stay in their dedicated directories.
 
 ## Entry Points
 
@@ -22,6 +23,7 @@
 4. Agent/contributor rules: [specs/AGENT-SPEC.md](./specs/AGENT-SPEC.md)
 5. Workflow assets: [assets/INDEX.md](./assets/INDEX.md)
 6. Design SSOT: [design/INDEX.md](./design/INDEX.md)
+7. IDE integration docs: [for-ide/INDEX.md](./for-ide/INDEX.md)
 
 ## Maintenance Rules
 

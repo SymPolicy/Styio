@@ -25,7 +25,7 @@
 6. `Execute`
    - CLI / JIT 执行
 
-当前仓库里，第 1 到 5 层已经能稳定在进程内分段计时，见 [benchmark/styio_soak_test.cpp]($HOME/DevSpace/Unka-Malloc/styio/benchmark/styio_soak_test.cpp:296)；第 6 层已有标准化 CLI workload matrix，见 [benchmark/styio_soak_test.cpp]($HOME/DevSpace/Unka-Malloc/styio/benchmark/styio_soak_test.cpp:1022)。
+当前仓库里，第 1 到 5 层已经能稳定在进程内分段计时，见 [benchmark/styio_soak_test.cpp]($HOME/DevSpace/Unka-Malloc/styio/benchmark/styio_soak_test.cpp:296)；第 6 层已有标准化 CLI workload matrix 和 error-path matrix，见 [benchmark/styio_soak_test.cpp]($HOME/DevSpace/Unka-Malloc/styio/benchmark/styio_soak_test.cpp:1390) 与同文件内的 `CompilerErrorPathBenchmarksReport`。
 
 ## 模块切面视角
 
@@ -65,6 +65,9 @@
 - `Full-stack matrix`
   - 覆盖 CLI 从 parser 到 execute 的总墙钟时间
   - 覆盖 `Scalar / Bindings / Functions / ControlFlow / Collections / Resources / Streams / StateAndSeries / Topology`
+- `Error-path matrix`
+  - 覆盖 `lex / parse / type / runtime` 失败路径
+  - 当前覆盖 `lex.unterminated_block_comment`、`parse.empty_match_cases`、`type.final_then_flex_i64`、`runtime.read_missing_file`
 - `FFI / runtime helpers`
   - 文件句柄、拼接、字典、非法句柄
 - `CLI long-run`
@@ -73,12 +76,14 @@
 
 ### 缺失
 
-- `Error-path` 基本没测
-  - parse error、type error、runtime error 的成本没有基准
 - `规模 sweep` 还没系统化
   - 当前 matrix 已覆盖模块切面，但还没有 `small / medium / large` 三档参数族
 - `模块微基准` 还不够细
-  - 第一批热点切面已经独立拆组，但还没有扩到 `bindings/topology/resources error-path` 的更细颗粒度
+  - 第一批热点切面已经独立拆组，但还没有扩到 `bindings/topology/resources` 等更细颗粒度
+- `Error-path` 还不够细
+  - 当前只冻结了 4 条代表性失败路径，尚未扩到 `bindings/resources/stdin/stdout` 的更多错误子码
+- `基准产物比较` 还缺少自动 diff
+  - 现在已有 `results.json / benchmarks.csv / summary.md` 归档，但还没有 baseline-vs-head 的自动比较器
 
 ## 建议的 benchmark 分类
 
@@ -141,12 +146,17 @@
 
 单独冻结失败路径成本：
 
-- `parse_error.malformed_stmt_prefix`
-- `parse_error.hash_match_chain`
-- `type_error.non_integral_match_scrutinee`
-- `type_error.unsupported_zip_sources`
-- `runtime_error.file_open_read`
-- `runtime_error.file_open_write`
+- `lex.unterminated_block_comment`
+- `parse.empty_match_cases`
+- `type.final_then_flex_i64`
+- `runtime.read_missing_file`
+
+下一批继续补：
+
+- `parse.hash_iterator_match_forward_chain`
+- `type.unsupported_zip_sources`
+- `runtime.write_to_stdin`
+- `runtime.read_from_stdout`
 
 ## 规模维度
 
@@ -179,10 +189,14 @@
    - `CompilerMicroBenchmarksReport` 已覆盖 `lexer / parser / type / lower / llvm` 热点切面
 3. 已完成 full CLI benchmark 组
    - `FullStackWorkloadMatrixReport` 冻结 end-to-end wall-clock
-4. 下一批优先项
+4. 已完成第一批 error-path benchmark 组
+   - `CompilerErrorPathBenchmarksReport` 冻结 `lex / parse / type / runtime` 代表性失败路径的 wall-clock、退出码和诊断码
+5. 已完成 benchmark 结果归档
+   - `benchmark/perf-route.sh` 现在会生成 `metadata.tsv / sections.tsv / results.json / benchmarks.csv / summary.md`
+6. 下一批优先项
    - 新增 `small / medium / large` 规模 sweep
-   - 新增 error-path benchmark 组
-   - 增加 benchmark catalog 自动校验
+   - 扩 error-path benchmark 子类
+   - 增加 benchmark catalog / baseline diff 自动校验
 
 ## 评估标准
 

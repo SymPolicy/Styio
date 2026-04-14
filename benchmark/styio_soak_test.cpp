@@ -327,6 +327,31 @@ struct MicroBenchResult
   size_t rss_after = 0;
 };
 
+enum class ErrorBenchCategory
+{
+  Lex,
+  Parse,
+  Type,
+  Runtime,
+};
+
+struct ErrorBenchSpec
+{
+  std::string name;
+  ErrorBenchCategory category = ErrorBenchCategory::Parse;
+  CompilerWorkload workload;
+  int expected_exit_code = 0;
+  std::string expected_diag_code;
+};
+
+struct ErrorBenchResult
+{
+  std::string error;
+  std::chrono::nanoseconds wall {};
+  int loops_completed = 0;
+  size_t avg_diag_bytes = 0;
+};
+
 const char*
 micro_focus_name(MicroBenchFocus focus) {
   switch (focus) {
@@ -342,6 +367,21 @@ micro_focus_name(MicroBenchFocus focus) {
       return "llvm";
   }
   return "unknown";
+}
+
+const char*
+error_category_name(ErrorBenchCategory category) {
+  switch (category) {
+    case ErrorBenchCategory::Lex:
+      return "lex";
+    case ErrorBenchCategory::Parse:
+      return "parse";
+    case ErrorBenchCategory::Type:
+      return "type";
+    case ErrorBenchCategory::Runtime:
+      return "runtime";
+  }
+  return "runtime";
 }
 
 std::string
@@ -537,6 +577,65 @@ build_micro_bench_specs() {
       "llvm.state_ir",
       MicroBenchFocus::LLVM,
       make_state_inline_workload("state_pulse_inline_llvm"),
+    },
+  };
+}
+
+std::vector<ErrorBenchSpec>
+build_error_bench_specs() {
+  const fs::path root = fs::path(STYIO_SOURCE_DIR);
+  return {
+    {
+      "lex.unterminated_block_comment",
+      ErrorBenchCategory::Lex,
+      make_inline_workload(
+        "ErrorPaths",
+        "lex_unterminated_block_comment",
+        "a /* no closing",
+        "",
+        "",
+        false),
+      2,
+      "STYIO_LEX",
+    },
+    {
+      "parse.empty_match_cases",
+      ErrorBenchCategory::Parse,
+      make_inline_workload(
+        "ErrorPaths",
+        "parse_empty_match_cases",
+        "x = 1\nx ?= {\n}\n",
+        "",
+        "",
+        false),
+      3,
+      "STYIO_PARSE",
+    },
+    {
+      "type.final_then_flex_i64",
+      ErrorBenchCategory::Type,
+      load_workload_fixture(
+        "ErrorPaths",
+        "type_final_then_flex_i64",
+        root / "tests" / "milestones" / "m8" / "e01_final_then_flex_i64.styio",
+        fs::path(),
+        fs::path(),
+        false),
+      4,
+      "STYIO_TYPE",
+    },
+    {
+      "runtime.read_missing_file",
+      ErrorBenchCategory::Runtime,
+      load_workload_fixture(
+        "ErrorPaths",
+        "runtime_read_missing_file",
+        root / "tests" / "milestones" / "m5" / "t06_fail_fast.styio",
+        fs::path(),
+        fs::path(),
+        false),
+      5,
+      "STYIO_RUNTIME",
     },
   };
 }
@@ -981,6 +1080,63 @@ run_micro_bench(const MicroBenchSpec& spec, int loops) {
   return result;
 }
 
+ErrorBenchResult
+run_error_bench(
+  const ErrorBenchSpec& spec,
+  int loops,
+  const std::string& runner
+) {
+  ErrorBenchResult result;
+  TempFileGuard source_guard;
+  const fs::path source_path = materialize_source_path(spec.workload, source_guard);
+  if (source_path.empty()) {
+    result.error = "failed to materialize source file";
+    return result;
+  }
+
+  size_t total_diag_bytes = 0;
+  const std::string expected_diag =
+    "\"code\":\"" + spec.expected_diag_code + "\"";
+
+  for (int i = 0; i < loops; ++i) {
+    std::string cmd =
+      shell_quote(runner) + " --error-format jsonl --file "
+      + shell_quote(source_path.string()) + " 2>&1 >/dev/null";
+
+    const auto t0 = std::chrono::steady_clock::now();
+    CommandCapture capture = run_command_capture_stdout(cmd);
+    const auto t1 = std::chrono::steady_clock::now();
+
+    if (capture.raw_status == -1) {
+      result.error = "failed to spawn compiler";
+      return result;
+    }
+    if (capture.exit_code != spec.expected_exit_code) {
+      result.error =
+        "unexpected exit code on iter=" + std::to_string(i)
+        + " expected=" + std::to_string(spec.expected_exit_code)
+        + " got=" + std::to_string(capture.exit_code)
+        + " diag=" + capture.stdout_text;
+      return result;
+    }
+    if (capture.stdout_text.find(expected_diag) == std::string::npos) {
+      result.error =
+        "missing diagnostic code on iter=" + std::to_string(i)
+        + " expected=" + spec.expected_diag_code
+        + " diag=" + capture.stdout_text;
+      return result;
+    }
+
+    result.wall += std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0);
+    result.loops_completed += 1;
+    total_diag_bytes += capture.stdout_text.size();
+  }
+
+  result.avg_diag_bytes =
+    loops > 0 ? (total_diag_bytes / static_cast<size_t>(loops)) : 0;
+  return result;
+}
+
 void
 print_full_stack_bench(
   const CompilerWorkload& workload,
@@ -1023,6 +1179,29 @@ print_micro_bench(
     << " avg_token_arena_kib=" << (static_cast<double>(result.avg_token_arena_bytes) / 1024.0)
     << " avg_ast_arena_kib=" << (static_cast<double>(result.avg_ast_arena_bytes) / 1024.0)
     << " rss_growth_kib=" << (static_cast<double>(rss_growth) / 1024.0)
+    << "\n";
+}
+
+void
+print_error_bench(
+  const ErrorBenchSpec& spec,
+  int loops,
+  const ErrorBenchResult& result
+) {
+  const double per_iter_us =
+    loops > 0
+      ? static_cast<double>(result.wall.count()) / (1000.0 * static_cast<double>(loops))
+      : 0.0;
+
+  std::cout
+    << "[error-bench] category=" << error_category_name(spec.category)
+    << " name=" << spec.name
+    << " label=" << spec.workload.src.label
+    << " loops=" << loops
+    << " error_us=" << per_iter_us
+    << " exit_code=" << spec.expected_exit_code
+    << " diagnostic_code=" << spec.expected_diag_code
+    << " avg_diag_bytes=" << result.avg_diag_bytes
     << "\n";
 }
 
@@ -1424,5 +1603,26 @@ TEST(StyioSoakSingleThread, CompilerMicroBenchmarksReport) {
     const MicroBenchResult result = run_micro_bench(spec, loops);
     ASSERT_TRUE(result.error.empty()) << spec.name << ": " << result.error;
     print_micro_bench(spec, loops, result);
+  }
+}
+
+TEST(StyioSoakSingleThread, CompilerErrorPathBenchmarksReport) {
+  const int loops = read_env_i32("STYIO_SOAK_ERROR_BENCH_ITERS", 0, 0, 100000);
+  if (loops == 0) {
+    GTEST_SKIP() << "set STYIO_SOAK_ERROR_BENCH_ITERS to run opt-in compiler error-path benchmarks";
+  }
+
+  const std::string runner = compiler_runner_path();
+  ASSERT_FALSE(runner.empty());
+
+  const std::vector<ErrorBenchSpec> specs = build_error_bench_specs();
+  ASSERT_FALSE(specs.empty());
+
+  for (const ErrorBenchSpec& spec : specs) {
+    ASSERT_FALSE(spec.workload.src.code.empty()) << spec.name;
+    const ErrorBenchResult result = run_error_bench(spec, loops, runner);
+    ASSERT_TRUE(result.error.empty()) << spec.name << ": " << result.error;
+    ASSERT_EQ(result.loops_completed, loops) << spec.name;
+    print_error_bench(spec, loops, result);
   }
 }

@@ -77,6 +77,7 @@ Every `docs/**/*.md` file must expose a top-level **`Purpose:`** line near the t
 | `docs/specs/` | agent / contributor 规范、文档策略、依赖规范 |
 | `docs/review/` | review 发现、设计冲突、待定决议 |
 | `docs/plans/` | 设计草案、实施计划、迁移方案；非冻结规格 |
+| `docs/for-ide/` | IDE 集成、LSP 调用、嵌入方式与 edit-time 语法层使用说明 |
 | `docs/assets/workflow/` | 可复用工作流、测试框架、checkpoint / hygiene 标准 |
 | `docs/assets/templates/` | 可复用模板 |
 | `docs/history/` | 按日开发历史与恢复记录 |

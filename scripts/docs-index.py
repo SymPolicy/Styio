@@ -10,13 +10,14 @@ from pathlib import Path
 from typing import Iterable, List, Optional
 
 ROOT = Path(__file__).resolve().parents[1]
-TODAY = "2026-04-08"
+TODAY = "2026-04-14"
 COLLECTION_DIRS = [
     Path("docs"),
     Path("docs/design"),
     Path("docs/specs"),
     Path("docs/review"),
     Path("docs/plans"),
+    Path("docs/for-ide"),
     Path("docs/for_spio"),
     Path("docs/assets"),
     Path("docs/assets/workflow"),
@@ -32,6 +33,7 @@ INDEX_META = {
     "docs/specs": ("Specs Index", "Provide the generated inventory for `docs/specs/`; document boundaries and naming rules live in [README.md](./README.md)."),
     "docs/review": ("Review Index", "Provide the generated inventory for `docs/review/`; document boundaries and naming rules live in [README.md](./README.md)."),
     "docs/plans": ("Plans Index", "Provide the generated inventory for `docs/plans/`; document boundaries and naming rules live in [README.md](./README.md)."),
+    "docs/for-ide": ("For IDE Index", "Provide the generated inventory for `docs/for-ide/`; IDE embedding, LSP usage, and edit-time parser guidance live in [README.md](./README.md)."),
     "docs/for_spio": ("For Spio Index", "Provide the generated inventory for `docs/for_spio/`; handoff boundaries and coordination rules for `styio-spio` live in [README.md](./README.md)."),
     "docs/assets": ("Assets Index", "Provide the generated inventory for `docs/assets/`; asset boundaries and reuse rules live in [README.md](./README.md)."),
     "docs/assets/workflow": ("Workflow Assets Index", "Provide the generated inventory for `docs/assets/workflow/`; workflow boundaries and reuse rules live in [README.md](./README.md)."),

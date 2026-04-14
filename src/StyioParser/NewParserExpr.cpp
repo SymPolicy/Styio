@@ -9,6 +9,9 @@ namespace {
 BlockAST*
 parse_block_only_subset_nightly(StyioContext& context);
 
+PrintAST*
+parse_print_nightly(StyioContext& context);
+
 StyioAST*
 parse_hash_stmt_nightly(StyioContext& context);
 
@@ -73,6 +76,7 @@ scan_subset_route_tokens_latest(
   int paren_depth = 0;
   int box_depth = 0;
   int brace_depth = 0;
+  int pending_wave_pipe_count = 0;
   bool saw_non_trivia = false;
 
   while (cursor < tokens.size()) {
@@ -83,6 +87,12 @@ scan_subset_route_tokens_latest(
     if (styio_is_trivia_token(type)) {
       cursor += 1;
       continue;
+    }
+    if (type == StyioTokenType::TOK_PIPE) {
+      if (pending_wave_pipe_count == 0) {
+        return false;
+      }
+      pending_wave_pipe_count -= 1;
     }
     if (!allowed(type)) {
       return false;
@@ -118,6 +128,9 @@ scan_subset_route_tokens_latest(
           return false;
         }
         brace_depth -= 1;
+        break;
+      case StyioTokenType::WAVE_RIGHT:
+        pending_wave_pipe_count += 1;
         break;
       default:
         break;
@@ -814,6 +827,24 @@ class StyioExprSubsetParser
 private:
   StyioContext& context_;
 
+  StyioAST* parse_wave_dispatch_arm_with_allowed_follow(
+    std::initializer_list<StyioTokenType> allowed_follow) {
+    context_.skip();
+    switch (context_.cur_tok_type()) {
+      case StyioTokenType::TOK_AT:
+        context_.move_forward(1, "new_expr:dispatch_arm@");
+        return UndefinedLitAST::Create();
+      case StyioTokenType::PRINT:
+        return parse_print_nightly(context_);
+      case StyioTokenType::TOK_LCURBRAC:
+        return parse_block_only_subset_nightly(context_);
+      default: {
+        StyioExprSubsetParser nested(context_);
+        return nested.parse_with_allowed_follow(allowed_follow);
+      }
+    }
+  }
+
   bool has_linebreak_before_current_latest_draft() const {
     const auto& tokens = context_.get_tokens();
     size_t idx = context_.get_token_index();
@@ -912,6 +943,19 @@ private:
       if (allow_extended_continuations && context_.match(StyioTokenType::ARROW_SINGLE_RIGHT)) {
         context_.skip();
         owner.reset(ResourceRedirectAST::Create(owner.release(), parse_resource_file_atom_latest(context_)));
+        continue;
+      }
+      if (allow_extended_continuations && context_.match(StyioTokenType::WAVE_RIGHT)) {
+        context_.skip();
+        StyioAST* true_arm =
+          parse_wave_dispatch_arm_with_allowed_follow({StyioTokenType::TOK_PIPE});
+        context_.skip();
+        if (!context_.match(StyioTokenType::TOK_PIPE)) {
+          throw StyioSyntaxError(context_.mark_cur_tok("Expected | after ~> true arm"));
+        }
+        context_.skip();
+        StyioAST* false_arm = parse_wave_dispatch_arm_with_allowed_follow({});
+        owner.reset(WaveDispatchAST::Create(owner.release(), true_arm, false_arm));
         continue;
       }
       if (allow_extended_continuations && owner && owner->getNodeType() == StyioNodeType::Infinite) {
@@ -1238,11 +1282,14 @@ styio_parser_stmt_subset_token_nightly(StyioTokenType type) {
     case StyioTokenType::TOK_EQUAL:
     case StyioTokenType::TOK_AT:
     case StyioTokenType::ARROW_SINGLE_LEFT:
+    case StyioTokenType::ARROW_SINGLE_RIGHT:
     case StyioTokenType::TOK_COLON:
     case StyioTokenType::WALRUS:
     case StyioTokenType::MATCH:
     case StyioTokenType::ITERATOR:
     case StyioTokenType::ARROW_DOUBLE_RIGHT:
+    case StyioTokenType::WAVE_RIGHT:
+    case StyioTokenType::TOK_PIPE:
     case StyioTokenType::TOK_LBOXBRAC:
     case StyioTokenType::TOK_RBOXBRAC:
     case StyioTokenType::TOK_LCURBRAC:

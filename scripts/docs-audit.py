@@ -16,6 +16,7 @@ COLLECTION_DIRS = [
     DOCS / "specs",
     DOCS / "review",
     DOCS / "plans",
+    DOCS / "for-ide",
     DOCS / "assets",
     DOCS / "assets" / "workflow",
     DOCS / "assets" / "templates",

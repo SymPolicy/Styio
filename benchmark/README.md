@@ -15,7 +15,9 @@
 - `CMakeLists.txt`
   - `styio_soak_test` 目标与 `soak_deep_*` CTest 注入
 - `perf-route.sh`
-  - 一键性能路线
+  - 一键性能路线 + 结果归档
+- `perf-report.py`
+  - 解析原始日志并生成 `json/csv/markdown` 摘要
 - `parser-shadow-suite-gate.sh`
   - parser shadow gate 脚本
 - `soak-minimize.sh`
@@ -26,6 +28,8 @@
   - 按编译阶段与模块切面的 benchmark 覆盖矩阵
 - `regressions/`
   - 最小化失败工件目录
+- `reports/`
+  - 本地 benchmark 运行产物目录（默认不入库）
 
 ## 路线
 
@@ -52,6 +56,7 @@
 - compiler stage benchmark matrix（`tokenize/parse/type/lower/llvm_ir`）
 - compiler micro benchmark matrix（`lexer/parser/type/lower/llvm` 热点切面）
 - full-stack workload matrix（CLI wall-clock）
+- compiler error-path benchmark matrix（`lex/parse/type/runtime` 失败路径）
 - parser engine 回归
 - pipeline guard rail
 - parser/security guard rail
@@ -60,6 +65,27 @@
 - 可选 `soak_deep`
 
 覆盖设计与补强方向见 [COVERAGE-MATRIX.md]($HOME/DevSpace/Unka-Malloc/styio/benchmark/COVERAGE-MATRIX.md:1)。
+
+每次运行默认会把产物写到 `benchmark/reports/<timestamp>/`，包括：
+
+- `metadata.tsv`
+- `sections.tsv`
+- `logs/*.log`
+- `results.json`
+- `benchmarks.csv`
+- `summary.md`
+
+也可以显式指定：
+
+```bash
+./benchmark/perf-route.sh \
+  --phase-iters 5000 \
+  --micro-iters 5000 \
+  --execute-iters 20 \
+  --error-iters 50 \
+  --label baseline \
+  --out-dir benchmark/reports/first-full-baseline
+```
 
 ## Compiler Stage Benchmark
 
@@ -113,6 +139,33 @@ STYIO_SOAK_EXECUTE_BENCH_ITERS=20 \
 - `cli_wall_us`
 
 [`benchmark/perf-route.sh`]($HOME/DevSpace/Unka-Malloc/styio/benchmark/perf-route.sh:1) 默认会一起执行；如果不传 `--execute-iters`，脚本会根据 `--phase-iters` 自动推导一个较小的执行迭代数。
+
+## Compiler Error-Path Benchmarks
+
+这是 opt-in benchmark，用来冻结失败路径的诊断成本，并验证错误类别和退出码保持稳定：
+
+```bash
+STYIO_SOAK_ERROR_BENCH_ITERS=50 \
+./build/bin/styio_soak_test \
+  --gtest_filter=StyioSoakSingleThread.CompilerErrorPathBenchmarksReport
+```
+
+当前第一批 error-path benchmark 覆盖：
+
+- `lex.unterminated_block_comment`
+- `parse.empty_match_cases`
+- `type.final_then_flex_i64`
+- `runtime.read_missing_file`
+
+核心输出字段：
+
+- `category`
+- `error_us`
+- `exit_code`
+- `diagnostic_code`
+- `avg_diag_bytes`
+
+[`benchmark/perf-route.sh`]($HOME/DevSpace/Unka-Malloc/styio/benchmark/perf-route.sh:1) 默认也会跑这一组；如果不传 `--error-iters`，脚本会根据 `--phase-iters` 自动推导一个较小但稳定的失败路径迭代数。
 
 ## Compiler Micro Benchmarks
 
@@ -183,6 +236,8 @@ Opt-in benchmark：
   - 编译器微基准 matrix，输出 `lexer/parser/type/lower/llvm` 热点切面的单次耗时与 arena/RSS 指标
 - `StyioSoakSingleThread.FullStackWorkloadMatrixReport`
   - CLI end-to-end matrix benchmark，输出模块切面的单次墙钟耗时
+- `StyioSoakSingleThread.CompilerErrorPathBenchmarksReport`
+  - CLI 失败路径 matrix benchmark，输出 `lex/parse/type/runtime` 诊断的单次墙钟耗时、退出码与诊断码
 
 ## C ABI 指针约定
 

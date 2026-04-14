@@ -2,6 +2,7 @@ include(FetchContent)
 FetchContent_Declare(
   googletest
   URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+  DOWNLOAD_EXTRACT_TIMESTAMP true
 )
 FetchContent_MakeAvailable(googletest)
 
@@ -301,6 +302,17 @@ target_link_libraries(styio_security_test PRIVATE styio_core GTest::gtest_main)
 target_include_directories(styio_security_test SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(styio_security_test PRIVATE ${LLVM_DEFINITIONS_LIST})
 
+add_executable(styio_ide_test
+  ide/styio_ide_test.cpp
+  "${CMAKE_SOURCE_DIR}/src/StyioLSP/Server.cpp"
+)
+target_link_libraries(styio_ide_test PRIVATE styio_ide_core GTest::gtest_main ${LLVM_LIBS})
+target_include_directories(styio_ide_test SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
+target_compile_definitions(styio_ide_test PRIVATE ${LLVM_DEFINITIONS_LIST})
+if(STYIO_ENABLE_TREE_SITTER)
+  target_compile_definitions(styio_ide_test PRIVATE STYIO_HAS_TREE_SITTER)
+endif()
+
 include(GoogleTest)
 gtest_discover_tests(styio_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
@@ -310,6 +322,11 @@ gtest_discover_tests(styio_test
 gtest_discover_tests(styio_security_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES LABELS "security\\;safety\\;lexer\\;ffi"
+)
+
+gtest_discover_tests(styio_ide_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "ide\\;lsp\\;unit"
 )
 
 option(STYIO_ENABLE_FUZZ "Build libFuzzer targets" OFF)

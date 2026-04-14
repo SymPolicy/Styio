@@ -755,6 +755,7 @@ TEST(StyioSecurityNightlyParserStmt, SubsetTokenGateIncludesFunctionDefTokens) {
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_HASH));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::ARROW_DOUBLE_RIGHT));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_AT));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::ARROW_SINGLE_RIGHT));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_LBOXBRAC));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_RBOXBRAC));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_LCURBRAC));
@@ -768,6 +769,8 @@ TEST(StyioSecurityNightlyParserStmt, SubsetTokenGateIncludesFunctionDefTokens) {
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::MATCH));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_UNDLINE));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::ITERATOR));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::WAVE_RIGHT));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_PIPE));
 }
 
 TEST(StyioSecurityNightlyParserStmt, SubsetStartGateIncludesBlockAndControlStarters) {
@@ -1236,6 +1239,28 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnAtResourceSubsetSamples) {
   for (const auto& src : samples) {
     EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
+}
+
+TEST(StyioSecurityNightlyParserShadow, MatchesLegacyOnRedirectRouteSample) {
+  const std::string src =
+    "x = 42\n"
+    "x -> @file{\"/tmp/styio-nightly-parser-shadow-redirect.txt\"}\n";
+
+  EXPECT_EQ(
+    parse_program_engine_to_repr_latest(src, StyioParserEngine::Nightly),
+    parse_program_engine_to_repr_latest(src, StyioParserEngine::Legacy));
+}
+
+TEST(StyioSecurityNightlyParserShadow, MatchesLegacyOnArbitrageWaveDispatchRouteSample) {
+  const std::string src =
+    "@file{\"tests/m7/data/exchange_a.txt\"} >> #(a) & @file{\"tests/m7/data/exchange_b.txt\"} >> #(b) => {\n"
+    "  gap = a - b\n"
+    "  (gap > 5 || gap < -5) ~> >_(\"Arb: \" + gap) | @\n"
+    "}\n";
+
+  EXPECT_EQ(
+    parse_program_engine_to_repr_latest(src, StyioParserEngine::Nightly),
+    parse_program_engine_to_repr_latest(src, StyioParserEngine::Legacy));
 }
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnStdStreamWriteShorthandSamples) {
