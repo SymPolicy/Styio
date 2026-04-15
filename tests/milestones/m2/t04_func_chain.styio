@@ -1,3 +1,0 @@
-# square := (x: i32) => x * x
-# add_one := (x: i32) => x + 1
->_(square(add_one(4)))

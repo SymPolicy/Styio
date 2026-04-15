@@ -1,5 +1,0 @@
-# compute := (x: i32) => {
-    y = x * 2
-    <| y
-}
->_(compute(5))

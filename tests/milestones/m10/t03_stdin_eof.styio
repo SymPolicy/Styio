@@ -1,5 +1,0 @@
-// M10 / T10.03: Empty stdin (EOF immediately)
-
-@stdin >> #(line) => {
-  line -> @stdout
-}

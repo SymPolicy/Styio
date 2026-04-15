@@ -1,9 +1,0 @@
-[nano]
-mode = "cloud"
-name = "edge-default-cloud"
-output_dir = "dist/styio-nano-cloud"
-
-[nano.cloud]
-registry = "https://packages.example.invalid/styio-nano"
-package = "edge-default"
-version = "0.0.1"

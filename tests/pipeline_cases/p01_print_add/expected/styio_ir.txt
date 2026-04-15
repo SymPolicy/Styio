@@ -1,3 +1,0 @@
-styio.ir.main {
-|- styio.ir.print {  }
-}

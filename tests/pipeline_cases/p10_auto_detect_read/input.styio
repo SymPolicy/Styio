@@ -1,4 +1,0 @@
-f <- @{"/tmp/styio_pipeline_auto_input.txt"}
-f >> #(line) => {
->_(line)
-}

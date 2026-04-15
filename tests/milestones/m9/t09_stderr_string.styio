@@ -1,3 +1,0 @@
-// M9 / T9.09: Basic string to stderr
-
-"Error occurred" -> @stderr

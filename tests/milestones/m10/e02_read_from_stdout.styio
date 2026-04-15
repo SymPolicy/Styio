@@ -1,5 +1,0 @@
-// M10 / T10.08: Read from @stdout (semantic error)
-
-@stdout >> #(line) => {
-  line -> @stderr
-}

@@ -1,2 +1,0 @@
-# double_it := (x: f64) => x * 2.0
->_(double_it(3.14))

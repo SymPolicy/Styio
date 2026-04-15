@@ -1,6 +1,0 @@
-# calc := (a: i32, b: i32) => {
-    sum = a + b
-    product = a * b
-    <| sum + product
-}
->_(calc(5, 5))

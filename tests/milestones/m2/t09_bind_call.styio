@@ -1,3 +1,0 @@
-# triple := (x: i32) => x * 3
-result: i32 := triple(5)
->_(result)

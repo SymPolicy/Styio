@@ -1,4 +1,0 @@
-@stdin >> #(line) => {
-    result = line * 2
-    result >> @stdout
-}

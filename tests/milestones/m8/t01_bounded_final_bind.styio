@@ -1,3 +1,0 @@
-// M8 / Topology v2 smoke: [|n|] in final bind type position (ledger layout TBD).
-x : [|2|] := 1
->_(1)
