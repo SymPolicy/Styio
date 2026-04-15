@@ -38,6 +38,22 @@ Useful target sets:
 2. Full compiler + IDE: `cmake --build build-codex --target styio styio_lspd -j4`
 3. IDE tests only: `cmake --build build-codex --target styio_ide_test -j4`
 
+## Prune Old Build Directories
+
+Preview which build directories would be removed while keeping the newest three:
+
+```bash
+scripts/cleanup-builds.sh
+```
+
+Apply the cleanup:
+
+```bash
+scripts/cleanup-builds.sh --apply
+```
+
+The script only touches repo-root directories named `build` or `build-*`, and sorts them by modification time.
+
 ## Run The LSP Daemon
 
 ```bash
