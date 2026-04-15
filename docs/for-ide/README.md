@@ -13,7 +13,7 @@
 
 ## Naming Rules
 
-1. Use task-shaped filenames such as `BUILD.md`, `LSP.md`, `CXX-API.md`, and `TESTING.md`.
+1. Use task_shaped filenames such as `BUILD.md`, `LSP.md`, `CXX-API.md`, and `TESTING.md`.
 2. Keep one document per integration path rather than mixing build, protocol, and grammar topics.
 3. When a workflow changes, update the owning page here and regenerate [INDEX.md](./INDEX.md).
 

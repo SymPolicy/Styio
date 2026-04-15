@@ -217,7 +217,7 @@ Because the synchronization mode is known at compile time, the code generator pr
 
 ### Evaluation Criteria
 
-Benchmark a cross-exchange arbitrage strategy that combines a 100Hz price feed with a 1Hz risk-factor feed. Compare latency percentiles (p50, p99, p99.9) across:
+Benchmark a cross-exchange arbitrage strategy that combines a 100Hz price feed with a 1Hz risk_factor feed. Compare latency percentiles (p50, p99, p99.9) across:
 - Styio with `&` (zip mode)
 - Styio with `$` snapshot mode
 - Equivalent Flink `CoProcessFunction`

@@ -5,13 +5,13 @@
 ```bash
 cmake -S . -B build-fuzz \
   -DSTYIO_ENABLE_FUZZ=ON \
-  -DCMAKE_C_COMPILER=/opt/homebrew/opt/llvm@18/bin/clang \
-  -DCMAKE_CXX_COMPILER=/opt/homebrew/opt/llvm@18/bin/clang++ \
+  -DCMAKE_C_COMPILER=<homebrew-prefix>/opt/llvm@18/bin/clang \
+  -DCMAKE_CXX_COMPILER=<homebrew-prefix>/opt/llvm@18/bin/clang++ \
   -DCMAKE_OSX_SYSROOT="$(xcrun --show-sdk-path)" \
   -DCMAKE_CXX_FLAGS='-stdlib=libc++' \
   -DCMAKE_EXE_LINKER_FLAGS='-stdlib=libc++' \
-  -DLLVM_DIR=/opt/homebrew/opt/llvm@18/lib/cmake/llvm \
-  -DCMAKE_PREFIX_PATH='/opt/homebrew/opt/llvm@18;/opt/homebrew/opt/icu4c@78'
+  -DLLVM_DIR=<homebrew-prefix>/opt/llvm@18/lib/cmake/llvm \
+  -DCMAKE_PREFIX_PATH='<homebrew-prefix>/opt/llvm@18;<homebrew-prefix>/opt/icu4c@78'
 cmake --build build-fuzz --target styio_fuzz_lexer styio_fuzz_parser
 ```
 

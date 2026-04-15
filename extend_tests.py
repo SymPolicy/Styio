@@ -24,11 +24,11 @@ def extend_tests(dir_path, n=10):
     fnames = [f'{dir_path}/{pad_with_zeros(i)}.styio' for i in range(latest+1, latest+n+1)]
     for fn in fnames:
       if "parsing" in fn:
-        create_file(fn, r"// RUN: /home/Styio/styio --styio-ast --file %s | /usr/bin/FileCheck %s")
+        create_file(fn, r"// RUN: <user-home>/styio --styio-ast --file %s | /usr/bin/FileCheck %s")
       elif "lowering" in fn:
-        create_file(fn, r"// RUN: /home/Styio/styio --styio-ir --file %s | /usr/bin/FileCheck %s")
+        create_file(fn, r"// RUN: <user-home>/styio --styio-ir --file %s | /usr/bin/FileCheck %s")
       elif "codegen" in fn:
-        create_file(fn, r"// RUN: /home/Styio/styio --llvm-ir --file %s | /usr/bin/FileCheck %s")
+        create_file(fn, r"// RUN: <user-home>/styio --llvm-ir --file %s | /usr/bin/FileCheck %s")
       else:
         create_file(fn, r"")
   else:
@@ -41,4 +41,4 @@ if __name__ == "__main__":
   # for dir_name in os.listdir(tests_path):
   #   print(f"{file_path}/{dir_name}")
   #   print(os.path.isdir(f"{file_path}/{dir_name}"))
-  extend_tests("/home/Styio/tests/parsing/forward", 5)
+  extend_tests("<user-home>/tests/parsing/forward", 5)
