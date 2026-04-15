@@ -1,0 +1,15 @@
+  /*
+    Danger!
+    when entering parse_filling(), 
+    the cur_char must be (
+    this line will drop the next 1 character anyway!
+  */
+  move_to_the_next_char(code, cur_char);
+
+  /*
+    Danger!
+    when entering parse_print(), 
+    the following symbol must be >_
+    this line will drop the next 2 characters anyway!
+  */
+  move_forward(code, cur_char, 2);

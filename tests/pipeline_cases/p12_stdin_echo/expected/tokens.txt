@@ -1,0 +1,28 @@
+@	@
+<ID>	stdin
+ 	 
+>>	>>
+ 	 
+#	#
+(	(
+<ID>	line
+)	)
+ 	 
+=>	=>
+ 	 
+{	{
+<LF>	\n
+ 	 
+ 	 
+ 	 
+ 	 
+<ID>	line
+ 	 
+>>	>>
+ 	 
+@	@
+<ID>	stdout
+<LF>	\n
+}	}
+<LF>	\n
+<EOF>	

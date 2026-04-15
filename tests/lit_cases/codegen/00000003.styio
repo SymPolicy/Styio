@@ -1,0 +1,5 @@
+// RUN: %{styio} --llvm-ir --file %s | FileCheck %s
+
+# f := (a, b) => a + b
+
+f(1, 2)

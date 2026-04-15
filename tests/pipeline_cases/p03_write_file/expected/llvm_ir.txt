@@ -1,0 +1,20 @@
+; ModuleID = 'styio'
+source_filename = "styio"
+target datalayout = "e-m:o-i64:64-i128:128-n32:64-S128"
+
+@styio_str = private unnamed_addr constant [28 x i8] c"/tmp/styio_pipeline_out.txt\00", align 1
+@styio_str.1 = private unnamed_addr constant [17 x i8] c"Hello from Styio\00", align 1
+
+define i32 @main() {
+main_entry:
+  %0 = call i64 @styio_file_open_write(ptr @styio_str)
+  call void @styio_file_write_cstr(i64 %0, ptr @styio_str.1)
+  call void @styio_file_close(i64 %0)
+  ret i32 0
+}
+
+declare i64 @styio_file_open_write(ptr)
+
+declare void @styio_file_write_cstr(i64, ptr)
+
+declare void @styio_file_close(i64)

@@ -1,0 +1,47 @@
+@	@
+<ID>	stdin
+ 	 
+>>	>>
+ 	 
+#	#
+(	(
+<ID>	line
+)	)
+ 	 
+=>	=>
+ 	 
+{	{
+<LF>	\n
+ 	 
+ 	 
+ 	 
+ 	 
+<STRING>	"got: "
+ 	 
++	+
+ 	 
+<ID>	line
+ 	 
+>>	>>
+ 	 
+@	@
+<ID>	stdout
+<LF>	\n
+ 	 
+ 	 
+ 	 
+ 	 
+<STRING>	"processing: "
+ 	 
++	+
+ 	 
+<ID>	line
+ 	 
+>>	>>
+ 	 
+@	@
+<ID>	stderr
+<LF>	\n
+}	}
+<LF>	\n
+<EOF>	

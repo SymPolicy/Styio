@@ -1,0 +1,4 @@
+@file{"tests/m7/data/exchange_a.txt"} >> #(a) & @file{"tests/m7/data/exchange_b.txt"} >> #(b) => {
+    gap = a - b
+    (gap > 5 || gap < -5) ~> >_("Arb: " + gap) | @
+}

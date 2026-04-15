@@ -1,41 +1,72 @@
-# Prerequisites
-*.d
+# Build outputs and generated large artifacts
+build/
+build-*/
+Testing/
+cmake_test_discovery_*.json
+compile_commands.json
 
-# Compiled Object files
-*.slo
-*.lo
+# Local binaries / archives / debug bundles
+styio
+styio_test
+styio_security_test
+sample.ll
+output.ll
 *.o
 *.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Linker files
-*.ilk
-
-# Debugger Files
-*.pdb
-
-# Compiled Dynamic libraries
+*.a
 *.so
 *.dylib
 *.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
 *.exe
-*.out
-*.app
+*.dSYM/
 
-# debug information files
-*.dwo
+# Local dev reports (scripts/dev-report.sh); 删除本行若需纳入版本库
+reports/
+benchmark/reports/*
+!benchmark/reports/
+!benchmark/reports/README.md
+
+# Visual Studio Code cache
+.vscode/
+
+# Local IDE / agent metadata
+.cursor/
+.idea/
+.clangd/
+.cache/
+__pycache__/
+
+# Local scratch / editor metadata
+.kilo/
+
+# Lit
+.lit_test_times.txt
+*.script
+*.styio.script
+
+# CMake cache
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+
+# Xmake cache
+.xmake/
+
+# Profiling / sanitizer / fuzz leftovers
+*.profraw
+*.profdata
+*.gcda
+*.gcno
+*.log
+*.tmp
+
+# CI/local artifact staging
+fuzz-artifacts/
+sanitizer-artifacts/
+soak-artifacts/
+parser-shadow-artifacts/
+parser-shadow-artifacts-*/
+
+# MacOS Cache
+.DS_Store

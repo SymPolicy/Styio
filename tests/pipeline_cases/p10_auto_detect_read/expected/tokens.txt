@@ -1,0 +1,30 @@
+<ID>	f
+ 	 
+<-	<-
+ 	 
+@	@
+{	{
+<STRING>	"/tmp/styio_pipeline_auto_input.txt"
+}	}
+<LF>	\n
+<ID>	f
+ 	 
+>>	>>
+ 	 
+#	#
+(	(
+<ID>	line
+)	)
+ 	 
+=>	=>
+ 	 
+{	{
+<LF>	\n
+>_	>_
+(	(
+<ID>	line
+)	)
+<LF>	\n
+}	}
+<LF>	\n
+<EOF>	

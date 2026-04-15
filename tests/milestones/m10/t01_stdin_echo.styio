@@ -1,0 +1,5 @@
+// M10 / T10.01: Read lines from stdin (echo)
+
+@stdin >> #(line) => {
+  line -> @stdout
+}
