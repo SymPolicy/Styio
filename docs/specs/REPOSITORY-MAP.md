@@ -1,0 +1,106 @@
+# Styio Repository Map
+
+**Purpose:** 记录 Styio 官方仓库生态、各仓库的预期职责边界、以及文档应当落在哪个仓库；本文件用于说明“谁负责什么”，**不**负责追踪实时开发进度、版本发布状态或逐仓库完成度。
+
+**Last updated:** 2026-04-10
+
+---
+
+## 1. 使用方式
+
+当你需要回答以下问题时，先看本文件：
+
+- Styio 官方现在有哪些仓库。
+- 当前 `styio` 主仓库和周边配件仓库分别负责什么。
+- 某类文档应该写在主仓库还是配件仓库。
+- 多个仓库文档描述不一致时，应该优先相信哪里。
+
+如果你关心的是语言语义、编译器行为或测试验收，请继续回到：
+
+- [`../design/Styio-Language-Design.md`](../design/Styio-Language-Design.md)
+- [`../design/Styio-EBNF.md`](../design/Styio-EBNF.md)
+- [`./DOCUMENTATION-POLICY.md`](./DOCUMENTATION-POLICY.md)
+
+如果你关心的是这些配件仓库应该先补什么、按什么顺序启动，请看：
+
+- [`../plans/Styio-Ecosystem-Bootstrap-Plan.md`](../plans/Styio-Ecosystem-Bootstrap-Plan.md)
+
+---
+
+## 2. 总体说明
+
+Styio 当前采用“主仓库 + 配件仓库”的生态结构：
+
+- `styio` 是主仓库，承载语言、编译器、CLI、测试与主文档。
+- 其余仓库是围绕包管理、开发环境、产品文档、示例、编辑器扩展和可视化等方向展开的配件仓库。
+- 除非某个配件仓库已明确建立并持续维护自己的权威边界，否则默认仍以 `styio` 主仓库中的设计与规格文档为准。
+
+当前项目共识是：**除主仓库外，绝大多数配件仓库仍应被视为“待建设”或“信息可能滞后”的状态。** 因此，本文件优先解决“仓库角色识别”和“文档归属”，而不是给出实时状态看板。
+
+---
+
+## 3. 官方仓库清单
+
+| Repository | Role | Owns What | Does Not Own |
+|------------|------|-----------|--------------|
+| [`styio`](../../README.md) | 主语言与编译器仓库 | 语言设计、形式文法、编译器实现、CLI、测试、主文档入口 | 包管理器、编辑器插件、产品白皮书、示例工程生态 |
+| [`styio-spio`](https://github.com/SymPolicy/styio-spio) | 包管理器 | 包格式、包解析/安装/发布、依赖解析、仓库源协议 | Styio 核心语言语义与编译器实现 |
+| [`Unka-Malloc-doc`](https://github.com/SymPolicy/Unka-Malloc-doc) | 开发者文档仓库 | 跨仓库开发手册、搭建流程、协作说明、外部开发者上手指南 | 语言权威语义、编译器测试验收、产品白皮书 |
+| [`Unka-Malloc-env`](https://github.com/SymPolicy/Unka-Malloc-env) | 标准开发环境 | devcontainer、toolchain bootstrap、统一环境脚本、CI/本地环境约定 | 语言设计、产品定义、示例工程内容 |
+| [`styio-book`](https://github.com/SymPolicy/styio-book) | 产品白皮书 | 产品愿景、定位、理念叙事、对外说明材料 | 编译器行为细节、测试接受标准、工程实现规范 |
+| [`styio-view`](https://github.com/SymPolicy/styio-view) | 可视化页面 | 项目展示页、可视化控制台、交互式说明与演示界面 | 编译器主实现、语言 SSOT、包管理规则 |
+| [`styio-examples`](https://github.com/SymPolicy/styio-examples) | 示例工程集合 | 可运行样例、模板项目、最佳实践示例 | 语言规范正文、编译器验收标准 |
+| [`styio-ext-vsc`](https://github.com/SymPolicy/styio-ext-vsc) | VS Code 插件 | 语法高亮、片段、编辑器交互、未来可能的语言服务集成 | 语言语义权威定义、编译器主行为 |
+
+---
+
+## 4. 文档归属边界
+
+### 4.1 仍然应该写在 `styio` 主仓库中的内容
+
+- 语言语义、词法、文法、符号系统。
+- 编译器前端、类型系统、IR、CodeGen、CLI 行为。
+- 自动化测试、golden、里程碑冻结规格与验收路径。
+- 贡献规范、agent 规则、文档维护策略。
+- 与主编译器实现直接绑定的设计冲突、ADR、历史记录。
+
+### 4.2 应该放到配件仓库自身的内容
+
+- 包管理器命令、配置格式、包源协议与解析策略。
+- 标准开发环境的镜像、依赖安装脚本、环境 bootstrap。
+- VS Code 插件的命令、设置项、快捷键、发布说明。
+- 可视化页面的前端交互、部署方式、页面信息架构。
+- 示例工程的 README、项目模板、脚手架说明。
+- 产品白皮书与对外叙述材料。
+
+### 4.3 可以双向链接，但不要双写的内容
+
+- `Unka-Malloc-doc` 可以解释如何开发 `styio`，但不应重新定义语言语义。
+- `styio-examples` 可以展示语法如何使用，但不应维护另一份语言规范。
+- `styio-ext-vsc` 可以说明编辑器如何支持 Styio，但不应给出独立的语法真相版本。
+- `styio-book` 可以叙述“为什么需要 Styio”，但不应替代编译器与设计文档的技术定义。
+
+---
+
+## 5. 冲突时的优先级
+
+当多个仓库的内容不一致时，按以下顺序处理：
+
+1. **语言与语义问题**：优先以 `styio/docs/design/` 为准。
+2. **文档规则、贡献流程、依赖边界**：优先以 `styio/docs/specs/` 为准。
+3. **实现是否已接受某行为**：优先看 `styio` 主仓库中的源码与 `tests/`。
+4. **配件仓库自己的实现细节**：由该配件仓库自身文档负责，但不得反向覆盖 `styio` 主仓库的语言 SSOT。
+
+这意味着：
+
+- 配件仓库可以拥有自己的局部权威。
+- 但它们不能覆盖 `styio` 主仓库对语言、编译器和验收行为的定义。
+
+---
+
+## 6. 维护规则
+
+1. 新增、重命名、归档 Styio 官方仓库时，先更新本文件，再更新根目录 [`../../README.md`](../../README.md) 的生态列表。
+2. 如果某个配件仓库开始承担稳定、可持续维护的文档权威边界，应同时更新 [`./DOCUMENTATION-POLICY.md`](./DOCUMENTATION-POLICY.md) 的 SSOT 表。
+3. 如果某个仓库仍只处于占位或严重滞后状态，可以在其自身仓库中写状态说明，但不要在主仓库里维护实时进度表。
+4. 本文件记录的是“结构与边界”，不是项目管理看板；不要把逐周进度、issue 清单、燃尽信息写进来。

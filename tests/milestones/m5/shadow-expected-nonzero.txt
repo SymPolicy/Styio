@@ -1,0 +1,3 @@
+# Cases in this suite that are expected to exit nonzero while still producing
+# valid shadow artifacts. The gate still requires shadow status=match.
+t06_fail_fast

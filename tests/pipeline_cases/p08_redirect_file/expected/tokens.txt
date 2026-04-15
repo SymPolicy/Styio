@@ -1,0 +1,17 @@
+<ID>	x
+ 	 
+=	=
+ 	 
+<INT>	42
+<LF>	\n
+<ID>	x
+ 	 
+->	->
+ 	 
+@	@
+<ID>	file
+{	{
+<STRING>	"/tmp/styio_pipeline_redirect.txt"
+}	}
+<LF>	\n
+<EOF>	

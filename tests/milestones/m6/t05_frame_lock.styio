@@ -1,0 +1,8 @@
+result = true
+[1, 2, 3] >> #(x) => {
+    @[val = 0](v = $val + x)
+    a = $val
+    b = $val
+    result = result && (a == b)
+}
+>_(result)

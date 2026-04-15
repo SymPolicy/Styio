@@ -1,0 +1,4 @@
+// M9 / T9.11: Mixed stdout and stderr
+
+"OK" -> @stdout
+"Warning" -> @stderr

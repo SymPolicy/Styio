@@ -1,0 +1,25 @@
+; ModuleID = 'styio'
+source_filename = "styio"
+target datalayout = "e-m:o-i64:64-i128:128-n32:64-S128"
+
+@styio_str = private unnamed_addr constant [33 x i8] c"/tmp/styio_pipeline_redirect.txt\00", align 1
+
+define i32 @main() {
+main_entry:
+  %x = alloca i64, align 8
+  store i64 42, ptr %x, align 8
+  %0 = call i64 @styio_file_open_write(ptr @styio_str)
+  %1 = load i64, ptr %x, align 8
+  %2 = call ptr @styio_i64_dec_cstr(i64 %1)
+  call void @styio_file_write_cstr(i64 %0, ptr %2)
+  call void @styio_file_close(i64 %0)
+  ret i32 0
+}
+
+declare i64 @styio_file_open_write(ptr)
+
+declare void @styio_file_write_cstr(i64, ptr)
+
+declare void @styio_file_close(i64)
+
+declare ptr @styio_i64_dec_cstr(i64)

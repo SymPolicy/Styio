@@ -1,0 +1,4 @@
+f <- @file{"/tmp/styio_pipeline_in.txt"}
+f >> #(line) => {
+>_(line)
+}

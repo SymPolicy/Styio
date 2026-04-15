@@ -1,0 +1,7 @@
+// RUN: %{styio} --styio-ast --file %s | FileCheck %s
+
+@(
+  "file_1": a,
+  "file_2": b,
+  "file_3": c,
+)

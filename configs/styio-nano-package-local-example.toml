@@ -1,0 +1,8 @@
+[nano]
+mode = "local-subset"
+name = "edge-default-local"
+output_dir = "dist/styio-nano-local"
+
+[nano.local]
+profile = "configs/styio-nano-default.toml"
+source_root = "."

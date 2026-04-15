@@ -1,0 +1,3 @@
+styio.ir.main {
+|- styio.ir.stdin_line_iter { var=line, body=styio.ir.block {  } }
+}
