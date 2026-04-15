@@ -72,6 +72,7 @@
 ```bash
 git status --short
 git diff --cached --name-only
+python3 scripts/repo-hygiene-gate.py --mode staged
 ```
 
 必须满足：
@@ -92,6 +93,12 @@ git diff --cached --name-only \
 ---
 
 ## 5. Push 前检查
+
+推荐先运行仓库门禁：
+
+```bash
+python3 scripts/repo-hygiene-gate.py --mode push
+```
 
 ### 5.1 大文件检查
 
@@ -205,6 +212,18 @@ fix: <行为修复>
 3. `@{u}..HEAD` 不含可疑大 blob，尤其没有 `>= 100MB` 文件。
 4. `.gitignore` 已覆盖本次引入的所有新生成产物。
 5. 对应测试或恢复脚本已跑通。
+
+仓库提供了配套自动化：
+
+```bash
+./scripts/install-repo-hygiene-hooks.sh
+```
+
+安装后：
+
+1. `pre-commit` 会检查暂存区路径、二进制与本机产物。
+2. `pre-push` 会检查待推送历史里的禁止路径和大 blob。
+3. GitHub Actions `repo-hygiene` 会在 `push` / `pull_request` 上重复执行同样的门禁。
 
 ---
 

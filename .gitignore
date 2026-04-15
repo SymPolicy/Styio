@@ -27,7 +27,14 @@ benchmark/reports/*
 !benchmark/reports/README.md
 
 # Visual Studio Code cache
-# .vscode/
+.vscode/
+
+# Local IDE / agent metadata
+.cursor/
+.idea/
+.clangd/
+.cache/
+__pycache__/
 
 # Local scratch / editor metadata
 .kilo/
@@ -53,6 +60,13 @@ cmake_install.cmake
 *.gcno
 *.log
 *.tmp
+
+# CI/local artifact staging
+fuzz-artifacts/
+sanitizer-artifacts/
+soak-artifacts/
+parser-shadow-artifacts/
+parser-shadow-artifacts-*/
 
 # MacOS Cache
 .DS_Store
