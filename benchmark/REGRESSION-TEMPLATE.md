@@ -25,11 +25,11 @@ ctest --test-dir build -R '^soak_deep_...$' --output-on-failure
 
 ## 3. Minimization Record
 
-- Source artifact directory: `tests/soak/regressions/<timestamp>-<case>/`
+- Source artifact directory: `benchmark/regressions/<timestamp>-<case>/`
 - Minimization command:
 
 ```bash
-./scripts/soak-minimize.sh \
+./benchmark/soak-minimize.sh \
   --test <gtest-filter> \
   --var <iteration-env-var> \
   --low <n> \

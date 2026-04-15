@@ -1,6 +1,6 @@
 # `[|n|]` 环缓 CodeGen：从 i64 Bootstrap 迁移的调整方案
 
-**Purpose:** 记录在 **`bounded_ring:n`** 类型上 **从「整段降级为单 i64」改为「栈上 `[n x i64]` + 写指针」** 时的 **破坏面、语义约定、测试与回滚步骤**；实现细节以代码与 [`docs/history/2026-03-29.md`](../history/2026-03-29.md) 会话为准。
+**Purpose:** 记录在 **`bounded_ring:n`** 类型上 **从「整段降级为单 i64」改为「栈上 `[n x i64]` + 写指针」** 时的 **破坏面、语义约定、测试与回滚步骤**；冷启动摘要见 [`../rollups/HISTORICAL-LESSONS.md`](../rollups/HISTORICAL-LESSONS.md)，精确会话原文见 [`../archive/history/2026-03-29.md`](../archive/history/2026-03-29.md)。
 
 **Last updated:** 2026-03-28
 

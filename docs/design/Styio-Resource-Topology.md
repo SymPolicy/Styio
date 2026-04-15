@@ -168,4 +168,5 @@ Thus **visible** `@ma20 : [|2|]` may store **only the last two published MA valu
 
 - Internal: [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md) §1.3 `@` roles  
 - Milestones: [`../milestones/2026-03-29/M6-StateAndStreams.md`](../milestones/2026-03-29/M6-StateAndStreams.md)  
-- History: [`../history/2026-03-29.md`](../history/2026-03-29.md)
+- History summary: [`../rollups/HISTORICAL-LESSONS.md`](../rollups/HISTORICAL-LESSONS.md)
+- Archived session detail: [`../archive/history/2026-03-29.md`](../archive/history/2026-03-29.md)

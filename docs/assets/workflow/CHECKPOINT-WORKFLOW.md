@@ -1,8 +1,8 @@
 # Styio 中断友好 Checkpoint 工作流
 
-**Purpose:** 约束 Styio 在底层重构期间的 **微里程碑拆分、可中断恢复、分支寿命与合并门槛**；不替代语言语义文档（见 `../../design/Styio-Language-Design.md` / `../../design/Styio-EBNF.md`）。
+**Purpose:** 约束 Styio 在底层重构期间的 **微里程碑拆分、可中断恢复、分支寿命与合并门槛**；不替代语言语义文档（见 `../../design/Styio-Language-Design.md` / `../../design/Styio-EBNF.md`），也不重写项目级优先级顺序（见 `../../specs/PRINCIPLES-AND-OBJECTIVES.md`）。
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-04-15
 
 ---
 
@@ -59,6 +59,7 @@
 ## 5. 与现有文档关系
 
 - 语言语义：`../../design/Styio-Language-Design.md` / `../../design/Styio-EBNF.md`
+- 项目原则与目标：`../../specs/PRINCIPLES-AND-OBJECTIVES.md`
 - 实现规程：`../../specs/AGENT-SPEC.md`
 - 文档归档策略：`../../specs/DOCUMENTATION-POLICY.md`
 - 决策记录：`docs/adr/`

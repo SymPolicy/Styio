@@ -3,9 +3,12 @@
 #define STYIO_TOKEN_H_
 
 #include <cstdint>
+#include <new>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "../StyioSession/SessionAllocation.hpp"
 
 enum class StyioDataTypeOption
 {
@@ -1201,8 +1204,23 @@ public:
   StyioTokenType type;
   std::string original;
 
+  static void*
+  operator new(std::size_t sz) {
+    return styio::session_alloc::allocate_token_object(sz);
+  }
+
+  static void
+  operator delete(void* ptr) noexcept {
+    styio::session_alloc::free_object(ptr);
+  }
+
   static StyioToken* Create(StyioTokenType token_type, std::string original_string) {
     return new StyioToken(token_type, original_string);
+  }
+
+  static StyioToken* CreatePersistent(StyioTokenType token_type, std::string original_string) {
+    void* mem = ::operator new(sizeof(StyioToken));
+    return ::new(mem) StyioToken(token_type, original_string);
   }
 
   static std::string getTokName(StyioTokenType type);
