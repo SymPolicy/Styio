@@ -1,6 +1,6 @@
 # IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan
 
-**Purpose:** 定义 Styio IDE 子系统从当前 MVP 形态推进到接近 rust-analyzer 级补全与语义能力的完整路线图。该文件路径保持稳定，但自 2026-04-15 起，范围已从单纯的 M11/M12 基础设施扩展为 M11-M19 总计划。冻结验收目标见 [`../milestones/2026-04-15/`](../milestones/2026-04-15/)，IDE 使用方式见 [`../for-ide/README.md`](../for-ide/README.md)。
+**Purpose:** Define the full roadmap for evolving the Styio IDE subsystem from its current MVP shape toward mature IDE-grade completion and semantic tooling. This roadmap is explicitly benchmarked against at least three established language toolchains rather than a single Rust reference point. This file path remains stable, but as of 2026-04-15 its scope has expanded from the original M11/M12 infrastructure slice into the full M11-M19 plan. Frozen acceptance targets live in [`../milestones/2026-04-15/`](../milestones/2026-04-15/), and IDE integration usage lives in [`../for-ide/README.md`](../for-ide/README.md).
 
 **Last updated:** 2026-04-15
 
@@ -13,7 +13,7 @@
 
 ## 1. Goal
 
-The immediate goal is not just to make the IDE core incremental. The actual target is to close the largest structural gaps between the current Styio IDE subsystem and rust-analyzer-like tooling:
+The immediate goal is not just to make the IDE core incremental. The actual target is to close the largest structural gaps between the current Styio IDE subsystem and mature language IDE toolchains:
 
 1. true multi-edit incremental syntax updates
 2. explicit query-shaped semantic caches
@@ -23,6 +23,18 @@ The immediate goal is not just to make the IDE core incremental. The actual targ
 6. completion driven by syntax context, scope, receiver type, and ranking policy
 7. workspace-scale symbol/reference index
 8. background runtime controls, cancellation, and performance gates
+
+This roadmap is intentionally benchmarked against at least three external toolchain families:
+
+1. C++: `clang` / `clangd`
+2. Python: CPython PEG parser plus `parso` / `pyright`-style edit-time tooling
+3. Rust: `rustc` / `rust-analyzer`
+
+The goal is not to clone any one toolchain exactly. The goal is to adopt the strongest proven ideas from all three:
+
+- C++ contributes compiler-truth reuse, background indexing, and workspace navigation discipline
+- Python contributes tolerant edit-time parsing and best-effort semantic service under broken code
+- Rust contributes query-driven semantics, stable intermediate representations, and high-quality completion architecture
 
 This plan freezes the implementation order for milestones `M11-M19`.
 
@@ -56,7 +68,7 @@ Consequence:
 
 - unaffected items are harder to preserve across edits
 - local shadowing/import resolution rules are harder to make precise
-- receiver-sensitive/member-aware completion quality stalls below rust-analyzer expectations
+- receiver-sensitive/member-aware completion quality still trails the baseline set by mature C++, Python, and Rust IDE stacks
 
 ### 2.3 Runtime and quality gaps
 
@@ -88,6 +100,14 @@ These decisions are fixed for the entire roadmap:
 | Indexing | Open-file state, background index, and persistent index remain distinct layers |
 | Runtime | Foreground latency has priority over background indexing and maintenance work |
 
+Comparative baseline that remains in scope across the roadmap:
+
+| Toolchain family | Reference tools | Styio lesson to adopt |
+|------|----------|----------|
+| C++ | `clang`, `clangd` | Reuse compiler truth where possible; separate open-file and background index responsibilities |
+| Python | CPython PEG parser, `parso`, `pyright` | Keep edit-time parsing tolerant and semantic service best-effort under incomplete code |
+| Rust | `rustc`, `rust-analyzer` | Use query-shaped semantics, stable intermediate forms, and completion built on semantic context rather than token guesses |
+
 ---
 
 ## 4. Pre-Implementation Decision Checklist
@@ -113,7 +133,37 @@ Any change to one of these decisions after implementation starts should update t
 
 ---
 
-## 5. Delivery Strategy
+## 5. Decision Freeze Order
+
+Not every decision above must be resolved immediately. The roadmap only needs the decisions that unblock the next stage to be frozen now.
+
+| Priority | Decide When | Decision Areas | Why This Timing Is Correct |
+|------|----------|----------|----------|
+| `Now` | Before resuming implementation of `M11` | LSP document sync contract; internal text coordinate model; delta normalization and coalescing | These three decisions define the edit pipeline shape. Without them, `Server`, `IdeService`, `VFS`, `SyntaxParser`, and Tree-sitter reuse all risk immediate rework |
+| `Next gate` | Before `M13` starts, but not required to begin `M11/M12` | Snapshot and semantic ID stability | `M11/M12` can land with document/snapshot IDs only. Stable semantic IDs become critical only once HIR identity enters the system |
+| `Stage B gate` | Before `M14` starts | Module and import model; builtin and capability metadata source | Resolver and scope-graph work needs one coherent ownership model for files, imports, and builtins. Earlier milestones can proceed without freezing every semantic edge case |
+| `Stage B gate` | Before `M15` starts | IDE type-system scope for v1 | Type inference work expands rapidly if the supported type surface is left open-ended. This decision should be frozen right before inference-query work begins |
+| `Stage C gate` | Before `M16` starts | Completion ranking policy | Completion infrastructure can exist earlier, but completion quality and regression tests become unstable unless ranking is frozen before the upgrade milestone |
+| `Stage C gate` | Before `M17` starts | Index freshness model | Workspace index merge rules only matter once open-file, background, and persistent layers are all active |
+| `Stage D gate` | Before `M18` starts | Runtime scheduling model; diagnostic merge and dedup policy | Cancellation, debounce, and diagnostic publication semantics should be designed together, not improvised while runtime hardening is already underway |
+| `Final gate` | Before `M19` starts | Performance measurement contract | The performance gates should be measured against a frozen harness and corpus, but they do not need to block earlier architectural work |
+
+Recommended execution order for actual decision-making sessions:
+
+1. Freeze the three `Now` decisions and then resume `M11`.
+2. Freeze semantic ID stability before opening `M13`.
+3. Freeze module/import and builtin metadata rules before opening `M14`.
+4. Freeze IDE type-system scope before opening `M15`.
+5. Freeze completion ranking before opening `M16`.
+6. Freeze index freshness before opening `M17`.
+7. Freeze runtime and diagnostic merge behavior before opening `M18`.
+8. Freeze benchmark harness details before opening `M19`.
+
+If a later-stage decision is pulled earlier for convenience, the plan should still preserve the same dependency direction.
+
+---
+
+## 6. Delivery Strategy
 
 The roadmap is intentionally staged. Each stage only starts once the previous one stabilizes.
 
@@ -160,7 +210,7 @@ Purpose:
 
 ---
 
-## 6. Milestone Roadmap
+## 7. Milestone Roadmap
 
 ### 5.1 M11 — Multi-Edit Incremental Syntax
 
@@ -326,7 +376,7 @@ Key outputs:
 
 ---
 
-## 7. Dependency Order
+## 8. Dependency Order
 
 The implementation order is fixed:
 
@@ -345,7 +395,7 @@ Do not reorder this sequence without updating this plan first and then revising 
 
 ---
 
-## 8. Required Public Shapes
+## 9. Required Public Shapes
 
 The following internal/public boundaries remain fixed across the roadmap:
 
@@ -385,7 +435,7 @@ Required query families by the end of this plan:
 
 ---
 
-## 9. Out of Scope
+## 10. Out of Scope
 
 Still out of scope for this roadmap:
 
@@ -399,7 +449,7 @@ Those may be planned later, but only after the current roadmap is complete.
 
 ---
 
-## 10. Test and Performance Gates
+## 11. Test and Performance Gates
 
 Each milestone has its own frozen acceptance, but the roadmap is not complete unless these top-level gates hold by M19:
 
