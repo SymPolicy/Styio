@@ -1,0 +1,9 @@
+// RUN: %{styio} --styio-ast --file %s | FileCheck %s
+
+map = []
+
+/*
+  CHECK-NEXT: Binding (Flexible) {
+  CHECK-NEXT: || Var: id { map }
+  CHECK-NEXT: || Val: Empty { }}
+*/

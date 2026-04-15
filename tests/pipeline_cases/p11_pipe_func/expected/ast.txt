@@ -1,0 +1,24 @@
+styio.ast.main {
+|- styio.ast.func.simple.unique {
+  |- func_name: double_it
+  |- params: 
+    |- styio.ast.arg { x : i32 }
+  |- ret_type: 
+  |- ret_expr: styio.ast.binop: undefined {
+    |- LHS: x
+    |- OP : <Mul>
+    |- RHS: { 2 : int }}}
+|- styio.ast.handle.acquire  {
+  |- var: styio.ast.var { f : file[i64] }
+  |- mode: final
+  |- resource: styio.ast.resource.file  {
+    |- auto_detect: false
+    |- path: styio.ast.string { "/tmp/styio_pipeline_numbers.txt" }}}
+|- styio.ast.iterator {
+  |- iterable object: f
+  |- styio.ast.arg { line : undefined }
+  |- styio.ast.block {
+    |- styio.ast.print {
+      |- styio.ast.call {
+        |- double_it {
+          |- line}}}}}}

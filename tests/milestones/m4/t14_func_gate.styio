@@ -1,0 +1,4 @@
+// M4: nullary gate (string params to user funcs are not fully lowered yet; see TypeInfer/ SGResId).
+# alert := () => >_("ALERT")
+is_critical = true
+(is_critical) ~> alert() | @

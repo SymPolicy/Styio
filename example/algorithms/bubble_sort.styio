@@ -1,0 +1,27 @@
+l <- @stdin: list[i32]
+
+n = l.length - 1 /* n is the last index of the list */
+
+[0..n] >> #(i) => {
+    [0..n-i-1] >> #(j) => {
+        ?(l[j] > l[j+1]) => {
+            l[j], l[j+1] = l[j+1], l[j]
+        }
+    }
+}
+
+>_(l)
+
+/*
+1. `@stdin: list[i32]` is derived from `@stdin: type`, where type is a literal word, which means the input string will be forced to parse as a list. 
+2. `l <- @stdin: list[i32]` means bind the input list to the variable `l` as a resource, `l` cannot be assigned again in the following code, and it will be typed as `list`.
+3. `l = @stdin: list[i32]` means a flexible assignment, `l` can be assigned again in the following code, and it will be typed as `any`. 
+    3.1 `l = @stdin: list[i32]; l1 = l` is not accepted, because a resource can only be copied by `<<` or `<-`.
+    3.2 `l = @stdin: list[i32]; l1 := l` is not accepted, because a resource can only be copied by `<<` or `<-`.
+    3.3 `l <- @stdin: list[i32]; l1 <- l` is accepted, which creates a copy of `l` and assigns it to `l1`, `l` is still a resource.
+    3.4 `l <- @stdin: list[i32]; l1 << l` is accepted, which creates a copy of `l` and assigns it to `l1`, `l` is still a resource.
+    3.5 in the life cycle of `l`, `l` must be bound to a resource or a value. Any operation that may cause `l` to be released from a binding will cause a compile error.
+5. `l.length` is a property of the list, it returns the length of the list. `list.length`, `list.size` are all valid.
+6. `[0..n]` is a range, it means a list of integers from 0 to n, inclusive.
+7. `l[j], l[j+1] = l[j+1], l[j]` the swap must be implemented.
+*/

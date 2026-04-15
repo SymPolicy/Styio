@@ -1,0 +1,61 @@
+l = @stdin: list[i32] // [1, 2]
+
+/* concatenate */
+
+l = l + [3] // concatenate two lists
+
+>_(l) // [1, 2, 3]
+
+/* arithmetic */
+
+l = l + 1 // add 1 to each element
+
+>_(l) // [2, 3, 4]
+
+l = l * 2 // multiply each element by 2
+
+>_(l) // [4, 6, 8]
+
+/* slicing */
+
+>_(l[1:]) // [6, 8]
+
+>_(l[0:1]) // [4, 6]
+
+l = [] // empty the list, the original list must be released in memory instantly.
+
+>_(l) // []
+
+/* insert */
+
+l[^0 <- 1] // insert an element at the beginning
+
+>_(l) // [1]
+
+l[^1 <- 2] // insert an element at the beginning
+
+>_(l) // [2, 1]
+
+l.insert(0, 3) // insert an element at the beginning
+
+>_(l) // [3, 2, 1]
+
+/* pop */
+
+l[^| -> @] // pop out the last element
+
+>_(l) // [3, 2]
+
+l.pop() // pop out the last element
+
+>_(l) // [3]
+
+/* push */
+
+l[^| <- 2] // push an element to the end
+
+>_(l) // [3, 2]
+
+l.push(1) // push an element to the end
+
+>_(l) // [3, 2, 1]

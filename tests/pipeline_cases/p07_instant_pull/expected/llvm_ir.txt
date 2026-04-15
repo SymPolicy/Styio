@@ -1,0 +1,44 @@
+; ModuleID = 'styio'
+source_filename = "styio"
+target datalayout = "e-m:o-i64:64-i128:128-n32:64-S128"
+
+@styio_str = private unnamed_addr constant [26 x i8] c"/tmp/styio_pull_value.txt\00", align 1
+@styio_print_at = private unnamed_addr constant [2 x i8] c"@\00", align 1
+@styio_fmt_i64 = private unnamed_addr constant [6 x i8] c"%lld\0A\00", align 1
+
+define i32 @main() {
+main_entry:
+  %result = alloca i64, align 8
+  %x = alloca i64, align 8
+  store i64 1, ptr %x, align 8
+  %0 = load i64, ptr %x, align 8
+  %1 = call i64 @styio_read_file_i64line(ptr @styio_str)
+  %2 = icmp eq i64 %0, -9223372036854775808
+  %3 = icmp eq i64 %1, -9223372036854775808
+  %4 = or i1 %2, %3
+  %5 = add i64 %0, %1
+  %6 = select i1 %4, i64 -9223372036854775808, i64 %5
+  store i64 %6, ptr %result, align 8
+  %7 = load i64, ptr %result, align 8
+  %8 = icmp eq i64 %7, -9223372036854775808
+  br i1 %8, label %print_at, label %print_i64
+
+print_at:                                         ; preds = %main_entry
+  %9 = call i32 @puts(ptr @styio_print_at)
+  br label %print_done
+
+print_i64:                                        ; preds = %main_entry
+  %10 = call i32 (ptr, ...) @printf(ptr @styio_fmt_i64, i64 %7)
+  br label %print_done
+
+print_done:                                       ; preds = %print_i64, %print_at
+  ret i32 0
+}
+
+declare i64 @styio_read_file_i64line(ptr)
+
+declare i32 @printf(ptr, ...)
+
+declare i32 @puts(ptr)
+
+declare void @styio_file_close(i64)

@@ -1,0 +1,4 @@
+styio.ir.main {
+|- styio.ir.flex_bind {  }
+|- styio.ir.resource_write { data=styio.ir.id { x }, path=styio.ir.string { /tmp/styio_pipeline_redirect.txt }, auto_path=0, promote=1, nl=0 }
+}

@@ -1,0 +1,29 @@
+; ModuleID = 'styio'
+source_filename = "styio"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+
+@styio_print_at = private unnamed_addr constant [2 x i8] c"@\00", align 1
+@styio_fmt_i64 = private unnamed_addr constant [6 x i8] c"%lld\0A\00", align 1
+
+define i32 @main() {
+main_entry:
+  br i1 false, label %print_at, label %print_i64
+
+print_at:                                         ; preds = %main_entry
+  %0 = call i32 @puts(ptr @styio_print_at)
+  br label %print_done
+
+print_i64:                                        ; preds = %main_entry
+  %1 = call i32 (ptr, ...) @printf(ptr @styio_fmt_i64, i64 10)
+  br label %print_done
+
+print_done:                                       ; preds = %print_i64, %print_at
+  ret i32 0
+}
+
+declare i32 @printf(ptr, ...)
+
+declare i32 @puts(ptr)
+
+declare void @styio_file_close(i64)
+
