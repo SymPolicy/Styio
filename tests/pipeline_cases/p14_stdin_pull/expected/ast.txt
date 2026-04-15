@@ -1,0 +1,6 @@
+styio.ast.main {
+|- styio.ast.bind.flex {
+  |- var : styio.ast.var { x : undefined }
+  |- val = styio.ast.instant.pull { styio.ast.std_stream { @stdin } }}
+|- styio.ast.print {
+  |- x}}

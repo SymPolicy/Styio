@@ -1,0 +1,5 @@
+// M9 / T9.06 compatibility alias: canonical fixture is t06_stdout_concat.styio
+// Kept so existing CTest/build directories do not retain a broken stale path.
+
+x = 10
+"x=" + x -> @stdout

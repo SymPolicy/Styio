@@ -1,0 +1,5 @@
+// RUN: %{styio} --llvm-ir --file %s | FileCheck %s
+
+a, b = 1, 2
+
+c = a + b

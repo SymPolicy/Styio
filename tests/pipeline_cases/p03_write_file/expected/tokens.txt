@@ -1,0 +1,11 @@
+<STRING>	"Hello from Styio"
+ 	 
+>>	>>
+ 	 
+@	@
+<ID>	file
+{	{
+<STRING>	"/tmp/styio_pipeline_out.txt"
+}	}
+<LF>	\n
+<EOF>	

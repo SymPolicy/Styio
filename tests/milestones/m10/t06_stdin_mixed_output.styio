@@ -1,0 +1,6 @@
+// M10 / T10.06: Stdin to stdout and stderr
+
+@stdin >> #(line) => {
+  "out: " + line >> @stdout
+  "err: " + line >> @stderr
+}

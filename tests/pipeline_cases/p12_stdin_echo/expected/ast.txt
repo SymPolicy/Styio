@@ -1,0 +1,8 @@
+styio.ast.main {
+|- styio.ast.iterator {
+  |- iterable object: styio.ast.std_stream { @stdin }
+  |- styio.ast.arg { line : undefined }
+  |- styio.ast.block {
+    |- styio.ast.resource.write  {
+      |- data: line
+      |- resource: styio.ast.std_stream { @stdout }}}}}

@@ -1,0 +1,3 @@
+styio.ir.main {
+|- styio.ir.file_line_iter { path=styio.ir.string { /tmp/styio_pipeline_stream_input.txt }, line=x, body=styio.ir.block {  } }
+}
