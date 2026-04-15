@@ -1,0 +1,8 @@
+@[ref] << @file{"tests/m7/data/ref42.txt"}
+result = true
+[1, 2, 3] >> #(x) => {
+    a = $ref
+    b = $ref
+    result = result && (a == b)
+}
+>_(result)

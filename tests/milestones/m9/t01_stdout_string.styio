@@ -1,0 +1,3 @@
+// M9 / T9.01: Basic string to stdout
+
+"Hello, Styio!" -> @stdout

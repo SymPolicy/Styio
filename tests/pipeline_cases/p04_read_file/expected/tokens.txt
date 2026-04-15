@@ -1,0 +1,31 @@
+<ID>	f
+ 	 
+<-	<-
+ 	 
+@	@
+<ID>	file
+{	{
+<STRING>	"/tmp/styio_pipeline_in.txt"
+}	}
+<LF>	\n
+<ID>	f
+ 	 
+>>	>>
+ 	 
+#	#
+(	(
+<ID>	line
+)	)
+ 	 
+=>	=>
+ 	 
+{	{
+<LF>	\n
+>_	>_
+(	(
+<ID>	line
+)	)
+<LF>	\n
+}	}
+<LF>	\n
+<EOF>	

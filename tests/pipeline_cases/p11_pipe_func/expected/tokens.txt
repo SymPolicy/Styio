@@ -1,0 +1,59 @@
+#	#
+ 	 
+<ID>	double_it
+ 	 
+:=	:=
+ 	 
+(	(
+<ID>	x
+:	:
+ 	 
+<ID>	i32
+)	)
+ 	 
+=>	=>
+ 	 
+<ID>	x
+ 	 
+*	*
+ 	 
+<INT>	2
+<LF>	\n
+<ID>	f
+ 	 
+<-	<-
+ 	 
+@	@
+<ID>	file
+{	{
+<STRING>	"/tmp/styio_pipeline_numbers.txt"
+}	}
+<LF>	\n
+<ID>	f
+ 	 
+>>	>>
+ 	 
+#	#
+(	(
+<ID>	line
+)	)
+ 	 
+=>	=>
+ 	 
+{	{
+<LF>	\n
+ 	 
+ 	 
+ 	 
+ 	 
+>_	>_
+(	(
+<ID>	double_it
+(	(
+<ID>	line
+)	)
+)	)
+<LF>	\n
+}	}
+<LF>	\n
+<EOF>	

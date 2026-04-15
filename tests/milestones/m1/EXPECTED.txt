@@ -1,0 +1,22 @@
+M1 acceptance output (stdout only; compiler uses printf("%.6f") for floats).
+
+t01: 10
+t02: 14
+t03: 20
+t04: 3.140000
+t05: 5.500000
+t06: 42
+t07: 100
+t08: Hello, Styio!
+t09: three lines 10 / 20 / 30
+t10: 1
+t11: true
+t12: true
+t13: -5
+t14: 15
+t15: 3
+t16: 3.333333
+t17: 8
+t18: false
+t19: 6
+t20: 42 then 3.140000 then Hello

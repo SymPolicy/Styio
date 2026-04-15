@@ -1,0 +1,7 @@
+# Relative paths that are explicitly allowed to bypass repo hygiene checks.
+# Keep this file as small as possible. One path per line.
+#
+# Examples:
+# docs/assets/logo.svg
+# tests/fixtures/binary-sample.bin
+glob:tests/fuzz/corpus/*

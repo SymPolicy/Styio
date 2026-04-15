@@ -1,0 +1,10 @@
+// RUN: %{styio} --styio-ast --file %s | FileCheck %s
+
+[0..10][][][]
+
+/*
+  CHECK:      Range {
+  CHECK-NEXT: || Start: int { 0 }
+  CHECK-NEXT: || End  : int { 10 }
+  CHECK-NEXT: || Step : int { 1 }}
+*/

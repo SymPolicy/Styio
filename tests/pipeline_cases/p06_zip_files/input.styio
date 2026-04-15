@@ -1,0 +1,3 @@
+@file{"/tmp/styio_zip_a.txt"} >> #(a) & @file{"/tmp/styio_zip_b.txt"} >> #(b) => {
+    >_(a - b)
+}

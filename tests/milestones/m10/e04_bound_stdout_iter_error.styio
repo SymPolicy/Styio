@@ -1,0 +1,6 @@
+// M10 / T10.10: Bound stdout alias cannot be iterated
+
+out <- @stdout
+out >> #(line) => {
+  line -> @stderr
+}

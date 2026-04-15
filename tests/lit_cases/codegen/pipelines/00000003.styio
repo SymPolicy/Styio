@@ -1,0 +1,5 @@
+// RUN: %{styio} --llvm-ir --file %s | FileCheck %s
+
+@("./tests/resources/salary") 
+  >> #(data: json)
+  => print
