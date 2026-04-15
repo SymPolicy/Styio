@@ -1,0 +1,6 @@
+// M10 / T10.04: Multiple instant pulls (current scalar contract)
+
+a = (<< @stdin)
+b = (<< @stdin)
+a -> @stdout
+b -> @stdout

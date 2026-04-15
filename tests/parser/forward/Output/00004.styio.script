@@ -1,1 +1,0 @@
-set -o pipefail;{ : 'RUN: at line 1';   /root/styio/styio /root/Styio/tests/parser/forward/00004.styio | /usr/bin/FileCheck /root/Styio/tests/parser/forward/00004.styio; }

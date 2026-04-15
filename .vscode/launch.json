@@ -6,7 +6,10 @@
       "request": "launch",
       "name": "lldb launch",
       "program": "${workspaceFolder}/styio",
-      "args": [],
+      "args": [
+        "-a",
+        "/home/Styio/tests/parsing/forward/00000009.styio"
+      ],
       "cwd": "${workspaceFolder}"
     }
   ]

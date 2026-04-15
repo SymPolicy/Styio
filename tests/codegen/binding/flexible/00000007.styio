@@ -1,5 +1,0 @@
-// RUN: /root/styio/styio --ir --file %s | /usr/bin/FileCheck %s
-
-a, b = 1, 2
-
-c = a + b

@@ -1,0 +1,3 @@
+styio.ir.main {
+|- styio.ir.resource_write { data=styio.ir.string { Hello from Styio }, path=styio.ir.string { /tmp/styio_pipeline_out.txt }, auto_path=0, promote=0, nl=0 }
+}

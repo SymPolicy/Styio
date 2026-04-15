@@ -5,639 +5,446 @@
 #include "Token.hpp"
 
 std::string
-reprDataType(StyioDataType dtype) {
-  switch (dtype) {
-    case StyioDataType::undefined:
-      return std::string("undefined");
-
-    case StyioDataType::i32:
-      return std::string("i32");
-
-    case StyioDataType::i64:
-      return std::string("i64");
-
-    case StyioDataType::f64:
-      return std::string("f64");
-
-    default:
-      return std::string("default data type");
-  }
-}
-
-std::string
-reprNodeType(StyioNodeHint type, std::string extra) {
-  std::string output = "";
+reprASTType(StyioNodeType type, std::string extra) {
+  std::string output = "styio.ast.";
 
   switch (type) {
-    case StyioNodeHint::True: {
-      auto name = std::string("True");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::False: {
-      auto name = std::string("False");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::None: {
-      auto name = std::string("None");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Empty: {
-      auto name = std::string("Empty");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Id: {
-      auto name = std::string("id");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Variable: {
-      auto name = std::string("var");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Arg: {
-      auto name = std::string("Arg");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Int: {
-      auto name = std::string("int");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Float: {
-      auto name = std::string("float");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Char: {
-      auto name = std::string("char");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::String: {
-      auto name = std::string("String");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::NumConvert: {
-      auto name = std::string("Convert");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::FmtStr: {
-      auto name = std::string("FmtStr");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::LocalPath: {
-      auto name = std::string("Path");
-
-      output = std::string(name);
+    case StyioNodeType::True: {
+      output += std::string("true");
     } break;
 
-    case StyioNodeHint::RemotePath: {
-      auto name = std::string("Addr");
-
-      output = std::string(name);
+    case StyioNodeType::False: {
+      output += std::string("false");
     } break;
 
-    case StyioNodeHint::WebUrl: {
-      auto name = std::string("URL");
-
-      output = std::string(name);
+    case StyioNodeType::None: {
+      output += std::string("none");
     } break;
 
-    case StyioNodeHint::DBUrl: {
-      auto name = std::string("URL (Database)");
-
-      output = std::string(name);
+    case StyioNodeType::Empty: {
+      output += std::string("empty");
     } break;
 
-    case StyioNodeHint::ExtPack: {
-      auto name = std::string("Package");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::VarTuple: {
-      auto name = std::string("Fill");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Condition: {
-      auto name = std::string("Condition");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::SizeOf: {
-      auto name = std::string("SizeOf");
-
-      output = std::string(name);
+    case StyioNodeType::Id: {
+      output += std::string("name");
     } break;
 
-    case StyioNodeHint::BinOp: {
-      auto name = std::string("BinOp");
-
-      output = std::string(name);
+    case StyioNodeType::DType: {
+      output += std::string("type");
     } break;
 
-    case StyioNodeHint::Print: {
-      auto name = std::string("Print");
-
-      output = std::string(name);
+    case StyioNodeType::TypeTuple: {
+      output += std::string("types");
     } break;
 
-    case StyioNodeHint::ReadFile: {
-      auto name = std::string("Read File");
-
-      output = std::string(name);
+    case StyioNodeType::Variable: {
+      output += std::string("var");
     } break;
 
-    case StyioNodeHint::Call: {
-      auto name = std::string("Call");
-
-      output = std::string(name);
+    case StyioNodeType::Param: {
+      output += std::string("arg");
     } break;
 
-    case StyioNodeHint::Access: {
-      auto name = std::string("Access");
+    case StyioNodeType::Integer: {
+      auto name = std::string("styio.ast.int");
 
-      output = std::string(name);
+      output += std::string("");
     } break;
 
-    case StyioNodeHint::Access_By_Name: {
-      auto name = std::string("Access by Name");
-
-      output = std::string(name);
+    case StyioNodeType::Float: {
+      output += std::string("float");
     } break;
 
-    case StyioNodeHint::Access_By_Index: {
-      auto name = std::string("Access by Index");
-
-      output = std::string(name);
+    case StyioNodeType::Char: {
+      output += std::string("char");
     } break;
 
-    case StyioNodeHint::Get_Index_By_Value: {
-      auto name = std::string("Get Index by Value");
-
-      output = std::string(name);
+    case StyioNodeType::String: {
+      output += std::string("string");
     } break;
 
-    case StyioNodeHint::Get_Indices_By_Many_Values: {
-      auto name = std::string("Get Indices by Many Value");
-
-      output = std::string(name);
+    case StyioNodeType::NumConvert: {
+      output += std::string("convert");
     } break;
 
-    case StyioNodeHint::Append_Value: {
-      auto name = std::string("Append");
+    case StyioNodeType::FmtStr: {
+      output += std::string("fmtstr");
+    } break;
+
+    case StyioNodeType::LocalPath: {
+      output += std::string("path");
+    } break;
+
+    case StyioNodeType::RemotePath: {
+      output += std::string("addr");
+    } break;
+
+    case StyioNodeType::WebUrl: {
+      output += std::string("url");
+    } break;
+
+    case StyioNodeType::DBUrl: {
+      output += std::string("url.database");
+    } break;
+
+    case StyioNodeType::ExtPack: {
+      output += std::string("package");
+    } break;
+
+    case StyioNodeType::Parameters: {
+      output += std::string("vars");
+    } break;
+
+    case StyioNodeType::Condition: {
+      output += std::string("cond");
+    } break;
+
+    case StyioNodeType::SizeOf: {
+      output += std::string("sizeof");
+    } break;
+
+    case StyioNodeType::BinOp: {
+      output += std::string("binop");
+    } break;
+
+    case StyioNodeType::Print: {
+      output += std::string("print");
+    } break;
+
+    case StyioNodeType::ReadFile: {
+      output += std::string("read.file");
+    } break;
+
+    case StyioNodeType::Call: {
+      output += std::string("call");
+    } break;
+
+    case StyioNodeType::Attribute: {
+      output += std::string("attr");
+    } break;
+
+    case StyioNodeType::Access: {
+      output += std::string("access");
+    } break;
+
+    case StyioNodeType::Access_By_Name: {
+      output += std::string("access.by_name");
+    } break;
+
+    case StyioNodeType::Access_By_Index: {
+      output += std::string("access.by_index");
+    } break;
+
+    case StyioNodeType::Get_Index_By_Value: {
+      output += std::string("get_index.by_value");
+    } break;
+
+    case StyioNodeType::Get_Indices_By_Many_Values: {
+      output += std::string("get_indices.by_values");
+    } break;
+
+    case StyioNodeType::Append_Value: {
+      output += std::string("append");
+    } break;
+
+    case StyioNodeType::Insert_Item_By_Index: {
+      output += std::string("insert.by_index");
+    } break;
+
+    case StyioNodeType::Remove_Item_By_Index: {
+      output += std::string("remove.by_index");
+    } break;
+
+    case StyioNodeType::Remove_Items_By_Many_Indices: {
+      output += std::string("remove.by_indices");
+    } break;
+
+    case StyioNodeType::Remove_Item_By_Value: {
+      output += std::string("remove.by_value");
+    } break;
+
+    case StyioNodeType::Remove_Items_By_Many_Values: {
+      output += std::string("remove.by_values");
+    } break;
 
-      output = std::string(name);
-    }
+    case StyioNodeType::Get_Reversed: {
+      output += std::string("reversed");
+    } break;
 
-    break;
+    case StyioNodeType::Get_Index_By_Item_From_Right: {
+      output += std::string("get_index.by_item_backward");
+    } break;
 
-    case StyioNodeHint::Insert_Item_By_Index: {
-      auto name = std::string("Insert by Index");
+    case StyioNodeType::Return: {
+      output += std::string("return");
+    } break;
 
-      output = std::string(name);
-    }
+    case StyioNodeType::Range: {
+      output += std::string("range");
+    } break;
 
-    break;
+    case StyioNodeType::Tuple: {
+      output += std::string("tuple");
+    } break;
 
-    case StyioNodeHint::Remove_Item_By_Index: {
-      auto name = std::string("Remove by Index");
+    case StyioNodeType::List: {
+      output += std::string("list");
+    } break;
 
-      output = std::string(name);
-    }
+    case StyioNodeType::Dict: {
+      output += std::string("dict");
+    } break;
 
-    break;
+    case StyioNodeType::Set: {
+      output += std::string("set");
+    } break;
 
-    case StyioNodeHint::Remove_Items_By_Many_Indices: {
-      auto name = std::string("Remove by Many Indices");
+    case StyioNodeType::Resources: {
+      output += std::string("resources");
+    } break;
 
-      output = std::string(name);
-    }
+    case StyioNodeType::MutBind: {
+      output += std::string("bind.flex");
+    } break;
 
-    break;
+    case StyioNodeType::FinalBind: {
+      output += std::string("styio.ast.bind.final");
+    } break;
 
-    case StyioNodeHint::Remove_Item_By_Value: {
-      auto name = std::string("Remove by Value");
+    case StyioNodeType::ParallelAssign: {
+      output += std::string("assign.parallel");
+    } break;
 
-      output = std::string(name);
-    }
+    case StyioNodeType::Block: {
+      output += std::string("block");
+    } break;
 
-    break;
+    case StyioNodeType::Cases: {
+      output += std::string("cases");
+    } break;
 
-    case StyioNodeHint::Remove_Items_By_Many_Values: {
-      auto name = std::string("Remove by Many Values");
+    case StyioNodeType::Func: {
+      output += std::string("func");
+    } break;
 
-      output = std::string(name);
-    }
+    case StyioNodeType::SimpleFunc: {
+      output += std::string("func.simple");
+    } break;
 
-    break;
+    case StyioNodeType::Struct: {
+      output += std::string("struct");
+    } break;
 
-    case StyioNodeHint::Get_Reversed: {
-      auto name = std::string("Reversed");
+    case StyioNodeType::Loop: {
+      output += std::string("loop");
+    } break;
 
-      output = std::string(name);
-    }
+    case StyioNodeType::Iterator: {
+      output += std::string("iterator");
+    } break;
 
-    break;
+    case StyioNodeType::StreamZip: {
+      output += std::string("stream.zip");
+    } break;
 
-    case StyioNodeHint::Get_Index_By_Item_From_Right: {
-      auto name = std::string("Get Index by Item (From Right)");
+    case StyioNodeType::SnapshotDecl: {
+      output += std::string("snapshot.decl");
+    } break;
 
-      output = std::string(name);
-    }
+    case StyioNodeType::InstantPull: {
+      output += std::string("instant.pull");
+    } break;
 
-    break;
+    case StyioNodeType::TypedStdinList: {
+      output += std::string("stdin.list.typed");
+    } break;
 
-    case StyioNodeHint::Return: {
-      auto name = std::string("Return");
+    case StyioNodeType::IterSeq: {
+      output += std::string("iterator.sequence");
+    } break;
 
-      output = std::string(name);
-    }
 
-    break;
+    case StyioNodeType::CheckEq: {
+      output += std::string("check.equal");
+    } break;
 
-    case StyioNodeHint::Range: {
-      auto name = std::string("Range");
+    case StyioNodeType::CheckIsin: {
+      output += std::string("check.isin");
+    } break;
 
-      output = std::string(name);
-    }
+    case StyioNodeType::HashTagName: {
+      output += std::string("hash_tag");
+    } break;
 
-    break;
+    case StyioNodeType::TupleOperation: {
+      output += std::string("tuple.op");
+    } break;
 
-    case StyioNodeHint::Tuple: {
-      auto name = std::string("tuple");
+    case StyioNodeType::Forward: {
+      output += std::string("forward.run");
+    } break;
 
-      output = std::string(name);
-    }
+    case StyioNodeType::If_Equal_To_Forward: {
+      output += std::string("forward.check.equal");
+    } break;
 
-    break;
+    case StyioNodeType::If_Is_In_Forward: {
+      output += std::string("forward.check.isin");
+    } break;
 
-    case StyioNodeHint::List: {
-      auto name = std::string("list");
+    case StyioNodeType::Cases_Forward: {
+      output += std::string("forward.cases");
+    } break;
 
-      output = std::string(name);
-    }
+    case StyioNodeType::If_True_Forward: {
+      output += std::string("forward.only_true");
+    } break;
 
-    break;
+    case StyioNodeType::If_False_Forward: {
+      output += std::string("forward.only_false");
+    } break;
 
-    case StyioNodeHint::Set: {
-      auto name = std::string("hashset");
+    case StyioNodeType::Fill_Forward: {
+      output += std::string("forward.fill.run");
+    } break;
 
-      output = std::string(name);
-    }
+    case StyioNodeType::Fill_If_Equal_To_Forward: {
+      output += std::string("fill.check.equal");
+    } break;
 
-    break;
+    case StyioNodeType::Fill_If_Is_in_Forward: {
+      output += std::string("fill.check.isin");
+    } break;
 
-    case StyioNodeHint::Resources: {
-      auto name = std::string("Resources");
+    case StyioNodeType::Fill_Cases_Forward: {
+      output += std::string("fill.cases");
+    } break;
 
-      output = std::string(name);
-    }
+    case StyioNodeType::Fill_If_True_Forward: {
+      output += std::string("fill.only_true");
+    } break;
 
-    break;
+    case StyioNodeType::Fill_If_False_Forward: {
+      output += std::string("fill.only_false");
+    } break;
 
-    case StyioNodeHint::MutBind: {
-      output = std::string("Binding (Flexible)");
-    }
+    case StyioNodeType::Backward: {
+      output += std::string("backward");
+    } break;
 
-    break;
+    case StyioNodeType::Chain_Of_Data_Processing: {
+      output += std::string("chain_of_data_processing");
+    } break;
 
-    case StyioNodeHint::FinalBind: {
-      output = std::string("Binding (Final)");
-    }
+    
 
-    break;
+    case StyioNodeType::TypedVar: {
+      output += std::string("var");
+    } break;
 
-    case StyioNodeHint::Block: {
-      auto name = std::string("Block");
+    case StyioNodeType::Pass: {
+      output += std::string("do_nothing");
+    } break;
 
-      output = std::string(name);
-    }
+    case StyioNodeType::Break: {
+      output += std::string("break");
+    } break;
 
-    break;
+    case StyioNodeType::Continue: {
+      output += std::string("continue");
+    } break;
 
-    case StyioNodeHint::Cases: {
-      auto name = std::string("Cases");
+    case StyioNodeType::CondFlow_True: {
+      output += std::string("only_true");
+    } break;
 
-      output = std::string(name);
-    }
+    case StyioNodeType::CondFlow_False: {
+      output += std::string("only_false");
+    } break;
 
-    break;
+    case StyioNodeType::CondFlow_Both: {
+      output += std::string("if_else");
+    } break;
 
-    case StyioNodeHint::Func: {
-      auto name = std::string("Function");
+    case StyioNodeType::MainBlock: {
+      output += std::string("main");
+    } break;
 
-      output = std::string(name);
-    }
+    case StyioNodeType::FileResource: {
+      output += std::string("resource.file");
+    } break;
 
-    break;
+    case StyioNodeType::HandleAcquire: {
+      output += std::string("handle.acquire");
+    } break;
 
-    case StyioNodeHint::Struct: {
-      auto name = std::string("Struct");
+    case StyioNodeType::ResourceWrite: {
+      output += std::string("resource.write");
+    } break;
 
-      output = std::string(name);
-    }
+    case StyioNodeType::ResourceRedirect: {
+      output += std::string("resource.redirect");
+    } break;
 
-    break;
+    case StyioNodeType::StateDecl: {
+      output += std::string("state.decl");
+    } break;
 
-    case StyioNodeHint::Loop: {
-      auto name = std::string("Loop");
+    case StyioNodeType::StateRef: {
+      output += std::string("state.ref");
+    } break;
 
-      output = std::string(name);
-    }
+    case StyioNodeType::HistoryProbe: {
+      output += std::string("state.history");
+    } break;
 
-    break;
+    case StyioNodeType::SeriesIntrinsic: {
+      output += std::string("series.intrinsic");
+    } break;
 
-    case StyioNodeHint::Iterator: {
-      auto name = std::string("Iterator");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::CheckEq: {
-      auto name = std::string("Equal To?");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::CheckIsin: {
-      auto name = std::string("Is In?");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::FromTo: {
-      auto name = std::string("Transfer");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Forward: {
-      auto name = std::string("Forward (Run)");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::If_Equal_To_Forward: {
-      auto name = std::string("Forward (If Equal -> Run)");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::If_Is_In_Forward: {
-      auto name = std::string("Forward (If Is In -> Run)");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Cases_Forward: {
-      auto name = std::string("Forward (Cases)");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::If_True_Forward: {
-      auto name = std::string("Forward (If True -> Run)");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::If_False_Forward: {
-      auto name = std::string("Forward (If False -> Run)");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Fill_Forward: {
-      auto name = std::string("Forward (Fill -> Run)");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Fill_If_Equal_To_Forward: {
-      auto name = std::string("Forward (Fill -> If Equal -> Run)");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Fill_If_Is_in_Forward: {
-      auto name = std::string("Forward (Fill -> If Is In -> Run)");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Fill_Cases_Forward: {
-      auto name = std::string("Forward (Fill -> Cases)");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Fill_If_True_Forward: {
-      auto name = std::string("Forward (Fill -> If True -> Run)");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Fill_If_False_Forward: {
-      auto name = std::string("Forward (Fill -> If False -> Run)");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::DType: {
-      auto name = std::string("type");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::TypedVar: {
-      auto name = std::string("Var");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Pass: {
-      auto name = std::string("Do Nothing");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::Break: {
-      auto name = std::string("Break");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::CondFlow_True: {
-      auto name = std::string("Conditionals (Only True)");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::CondFlow_False: {
-      auto name = std::string("Conditionals (Only False)");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::CondFlow_Both: {
-      auto name = std::string("Conditionals (True & False)");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    case StyioNodeHint::MainBlock: {
-      auto name = std::string("Main");
-
-      output = std::string(name);
-    }
-
-    break;
-
-    default:
-      output = std::string("!{UnknownAST}");
-
-      break;
+    default: {
+      output += std::string("unknown");
+    } break;
   }
 
   return output + extra;
 }
 
 std::string
-reprToken(TokenKind token) {
+reprToken(StyioOpType token) {
   switch (token) {
-    case TokenKind::Binary_Add:
+    case StyioOpType::Binary_Add:
       return "<Add>";
 
-    case TokenKind::Binary_Sub:
+    case StyioOpType::Binary_Sub:
       return "<Sub>";
 
-    case TokenKind::Binary_Mul:
+    case StyioOpType::Binary_Mul:
       return "<Mul>";
 
-    case TokenKind::Binary_Div:
+    case StyioOpType::Binary_Div:
       return "<Div>";
 
-    case TokenKind::Binary_Pow:
+    case StyioOpType::Binary_Pow:
       return "<Pow>";
 
-    case TokenKind::Binary_Mod:
+    case StyioOpType::Binary_Mod:
       return "<Mod>";
 
-    case TokenKind::Self_Add_Assign:
+    case StyioOpType::Self_Add_Assign:
       return "+=";
 
-    case TokenKind::Self_Sub_Assign:
+    case StyioOpType::Self_Sub_Assign:
       return "-=";
 
-    case TokenKind::Self_Mul_Assign:
+    case StyioOpType::Self_Mul_Assign:
       return "*=";
 
-    case TokenKind::Self_Div_Assign:
+    case StyioOpType::Self_Div_Assign:
       return "/=";
+
+    case StyioOpType::Self_Mod_Assign:
+      return "%=";
 
     default:
       return "<Undefined>";
@@ -694,261 +501,364 @@ reprToken(CompType token) {
   }
 }
 
+StyioDataType
+getMaxType(StyioDataType T1, StyioDataType T2) {
+  if (T1.option == T2.option) {
+    return T1;
+  }
+
+  if ((T1.isInteger() && T2.isFloat()) || (T1.isFloat() && T2.isInteger())) {
+    return StyioDataType{StyioDataTypeOption::Float, "f64", 64};
+  }
+
+  return StyioDataType{StyioDataTypeOption::Undefined, "Undefined", 0};
+}
+
 std::string
-reprToken(StyioToken token) {
-  switch (token) {
-    case StyioToken::TOK_SPACE:
+reprDataTypeOption(StyioDataTypeOption option) {
+  switch (option) {
+    case StyioDataTypeOption::Undefined: {
+      return "undefined";
+    } break;
+
+    case StyioDataTypeOption::Defined: {
+      return "defined";
+    } break;
+
+    case StyioDataTypeOption::Bool: {
+      return "bool";
+    } break;
+
+    case StyioDataTypeOption::Integer: {
+      return "int";
+    } break;
+
+    case StyioDataTypeOption::Float: {
+      return "float";
+    } break;
+
+    case StyioDataTypeOption::Decimal: {
+      return "decimal";
+    } break;
+
+    case StyioDataTypeOption::Char: {
+      return "char";
+    } break;
+
+    case StyioDataTypeOption::String: {
+      return "string";
+    } break;
+
+    case StyioDataTypeOption::Tuple: {
+      return "tuple";
+    } break;
+
+    case StyioDataTypeOption::List: {
+      return "list";
+    } break;
+
+    case StyioDataTypeOption::Dict: {
+      return "dict";
+    } break;
+
+    case StyioDataTypeOption::Struct: {
+      return "struct";
+    } break;
+
+    case StyioDataTypeOption::Func: {
+      return "func";
+    } break;
+
+    default: {
+      return "unknown";
+    } break;
+  }
+};
+
+/*
+  =========================
+
+  StyioToken Implementation
+
+  =========================
+*/
+
+std::string
+StyioToken::getTokName(StyioTokenType type) {
+  switch (type) {
+    case StyioTokenType::TOK_SPACE:
       return " ";
 
-    case StyioToken::TOK_CR:
+    case StyioTokenType::TOK_CR:
       return "<CR>";
 
-    case StyioToken::TOK_LF:
+    case StyioTokenType::TOK_LF:
       return "<LF>";
 
-    case StyioToken::TOK_EOF:
+    case StyioTokenType::TOK_EOF:
       return "<EOF>";
 
-    case StyioToken::TOK_ID:
+    case StyioTokenType::NAME:
       return "<ID>";
 
-    case StyioToken::TOK_INT:
+    case StyioTokenType::INTEGER:
       return "<INT>";
 
-    case StyioToken::TOK_FLOAT:
+    case StyioTokenType::DECIMAL:
       return "<FLOAT>";
 
-    case StyioToken::TOK_STRING:
+    case StyioTokenType::STRING:
       return "<STRING>";
 
-    case StyioToken::TOK_COMMA:
+    case StyioTokenType::COMMENT_LINE:
+      return "// COMMENT ";
+
+    case StyioTokenType::COMMENT_CLOSED:
+      return "/* COMMENT */";
+
+    case StyioTokenType::TOK_COMMA:
       return ",";
 
-    case StyioToken::TOK_DOT:
+    case StyioTokenType::TOK_PLUS:
+      return "+";
+
+    case StyioTokenType::TOK_MINUS:
+      return "-";
+
+    case StyioTokenType::TOK_STAR:
+      return "*";
+
+    case StyioTokenType::TOK_DOT:
       return ".";
 
-    case StyioToken::TOK_COLON:
+    case StyioTokenType::TOK_COLON:
       return ":";
 
-    case StyioToken::TOK_TILDE:
+    case StyioTokenType::TOK_TILDE:
       return "~";
 
-    case StyioToken::TOK_EXCLAM:
+    case StyioTokenType::TOK_EXCLAM:
       return "!";
 
-    case StyioToken::TOK_AT:
+    case StyioTokenType::TOK_AT:
       return "@";
 
-    case StyioToken::TOK_HASH:
+    case StyioTokenType::TOK_HASH:
       return "#";
 
-    case StyioToken::TOK_DOLLAR:
+    case StyioTokenType::TOK_DOLLAR:
       return "$";
 
-    case StyioToken::TOK_PERCENT:
+    case StyioTokenType::TOK_PERCENT:
       return "%";
 
-    case StyioToken::TOK_HAT:
+    case StyioTokenType::TOK_HAT:
       return "^";
 
-    case StyioToken::TOK_CHECK:
+    case StyioTokenType::TOK_QUEST:
       return "?";
 
-    case StyioToken::TOK_SLASH:
+    case StyioTokenType::TOK_SLASH:
       return "/";
 
-    case StyioToken::TOK_BSLASH:
+    case StyioTokenType::TOK_BACKSLASH:
       return "\\";
 
-    case StyioToken::TOK_PIPE:
+    case StyioTokenType::TOK_PIPE:
       return "|";
 
-    case StyioToken::TOK_ELLIPSIS:
+    case StyioTokenType::TOK_AMP:
+      return "&";
+
+    case StyioTokenType::ELLIPSIS:
       return "...";
 
-    case StyioToken::TOK_SQUOTE:
+    case StyioTokenType::TOK_SQUOTE:
       return "'";
 
-    case StyioToken::TOK_DQUOTE:
+    case StyioTokenType::TOK_DQUOTE:
       return "\"";
 
-    case StyioToken::TOK_BQUOTE:
+    case StyioTokenType::TOK_BQUOTE:
       return "`";
 
-    case StyioToken::TOK_LPAREN:
+    case StyioTokenType::TOK_LPAREN:
       return "(";
 
-    case StyioToken::TOK_RPAREN:
+    case StyioTokenType::TOK_RPAREN:
       return ")";
 
-    case StyioToken::TOK_LBOXBRAC:
+    case StyioTokenType::TOK_LBOXBRAC:
       return "[";
 
-    case StyioToken::TOK_RBOXBRAC:
+    case StyioTokenType::TOK_RBOXBRAC:
       return "]";
 
-    case StyioToken::TOK_LCURBRAC:
+    case StyioTokenType::TOK_LCURBRAC:
       return "{";
 
-    case StyioToken::TOK_RCURBRAC:
+    case StyioTokenType::TOK_RCURBRAC:
       return "}";
 
-    case StyioToken::TOK_LANGBRAC:
+    case StyioTokenType::TOK_EQUAL:
+      return "=";
+
+    case StyioTokenType::TOK_LANGBRAC:
       return "<";
 
-    case StyioToken::TOK_RANGBRAC:
+    case StyioTokenType::TOK_RANGBRAC:
       return ">";
 
-    case StyioToken::TOK_NOT:
+    case StyioTokenType::LOGIC_NOT:
       return "<NOT>";
 
-    case StyioToken::TOK_AND:
+    case StyioTokenType::LOGIC_AND:
       return "<AND>";
 
-    case StyioToken::TOK_OR:
+    case StyioTokenType::LOGIC_OR:
       return "<OR>";
 
-    case StyioToken::TOK_XOR:
+    case StyioTokenType::LOGIC_XOR:
       return "<XOR>";
 
-    case StyioToken::TOK_BITAND:
+    case StyioTokenType::BINOP_BITAND:
       return "<BIT_AND>";
 
-    case StyioToken::TOK_BITOR:
+    case StyioTokenType::BINOP_BITOR:
       return "<BIT_OR>";
 
-    case StyioToken::TOK_BITXOR:
+    case StyioTokenType::BINOP_BITXOR:
       return "<BIT_XOR>";
 
-    case StyioToken::TOK_LSHIFT:
+    case StyioTokenType::EXTRACTOR:
       return "<<";
 
-    case StyioToken::TOK_RSHIFT:
+    case StyioTokenType::ITERATOR:
       return ">>";
 
-    case StyioToken::TOK_NEG:
+    case StyioTokenType::PRINT:
+      return ">_";
+
+    case StyioTokenType::UNARY_NEG:
       return "<NEG>";
 
-    case StyioToken::TOK_ADD:
+    case StyioTokenType::BINOP_ADD:
       return "<ADD>";
 
-    case StyioToken::TOK_SUB:
+    case StyioTokenType::BINOP_SUB:
       return "<SUB>";
 
-    case StyioToken::TOK_MUL:
+    case StyioTokenType::BINOP_MUL:
       return "<MUL>";
 
-    case StyioToken::TOK_DIV:
+    case StyioTokenType::BINOP_DIV:
       return "<DIV>";
 
-    case StyioToken::TOK_MOD:
+    case StyioTokenType::BINOP_MOD:
       return "<MOD>";
 
-    case StyioToken::TOK_POW:
+    case StyioTokenType::BINOP_POW:
       return "<POW>";
 
-    case StyioToken::TOK_GT:
+    case StyioTokenType::BINOP_GT:
       return "<GT>";
 
-    case StyioToken::TOK_GE:
+    case StyioTokenType::BINOP_GE:
       return "<GE>";
 
-    case StyioToken::TOK_LT:
+    case StyioTokenType::BINOP_LT:
       return "<LT>";
 
-    case StyioToken::TOK_LE:
+    case StyioTokenType::BINOP_LE:
       return "<LE>";
 
-    case StyioToken::TOK_EQ:
+    case StyioTokenType::BINOP_EQ:
       return "<EQ>";
 
-    case StyioToken::TOK_NE:
+    case StyioTokenType::BINOP_NE:
       return "<NE>";
 
-    case StyioToken::TOK_RARROW:
+    case StyioTokenType::ARROW_DOUBLE_RIGHT:
+      return "=>";
+
+    case StyioTokenType::ARROW_DOUBLE_LEFT:
+      return "<=";
+
+    case StyioTokenType::ARROW_SINGLE_RIGHT:
       return "->";
 
-    case StyioToken::TOK_LARROW:
+    case StyioTokenType::ARROW_SINGLE_LEFT:
       return "<-";
 
-    case StyioToken::TOK_WALRUS:
+    case StyioTokenType::WALRUS:
       return ":=";
 
-    case StyioToken::TOK_MATCH:
+    case StyioTokenType::COMPOUND_ADD:
+      return "+=";
+
+    case StyioTokenType::COMPOUND_SUB:
+      return "-=";
+
+    case StyioTokenType::COMPOUND_MUL:
+      return "*=";
+
+    case StyioTokenType::COMPOUND_DIV:
+      return "/=";
+
+    case StyioTokenType::COMPOUND_MOD:
+      return "%=";
+
+    case StyioTokenType::WAVE_LEFT:
+      return "<~";
+
+    case StyioTokenType::WAVE_RIGHT:
+      return "~>";
+
+    case StyioTokenType::DBQUESTION:
+      return "??";
+
+    case StyioTokenType::MATCH:
       return "?=";
 
-    case StyioToken::TOK_INFINITE_LIST:
+    case StyioTokenType::YIELD_PIPE:
+      return "<|";
+
+    case StyioTokenType::INFINITE_LIST:
       return "[...]";
+
+    case StyioTokenType::BOUNDED_BUFFER_OPEN:
+      return "[|";
+
+    case StyioTokenType::BOUNDED_BUFFER_CLOSE:
+      return "|]";
 
     default:
       return "<UNKNOWN>";
   }
 };
 
-bool
-isSignedIntTy(StyioDataType T) {
-  return (
-    T == StyioDataType::i1
-    || T == StyioDataType::i8
-    || T == StyioDataType::i16
-    || T == StyioDataType::i32
-    || T == StyioDataType::i64
-    || T == StyioDataType::i128
-  );
+size_t
+StyioToken::length() {
+  return original.length();
 }
 
-bool
-isFloatType(StyioDataType T) {
-  return (
-    T == StyioDataType::f32
-    || T == StyioDataType::f64
-  );
-}
-
-StyioDataType
-getMaxType(StyioDataType T1, StyioDataType T2) {
-  if (T1 == T2) {
-    return T1;
+std::string
+StyioToken::as_str() {
+  if (type == StyioTokenType::TOK_LF) {
+    return "<LF>";
   }
-  /* max(int, int) */
-  else if (isSignedIntTy(T1) && isSignedIntTy(T2)) {
-    if (T1 < T2) {
-      return T2;
-    }
-    else {
-      return T1;
-    }
+  else if (type == StyioTokenType::TOK_SPACE) {
+    return "<SPACE>";
   }
-  /* max(float, float) */
-  else if (isFloatType(T1) && isFloatType(T2)) {
-    if (T1 < T2) {
-      return T2;
-    }
-    else {
-      return T1;
-    }
+  else if (type == StyioTokenType::NAME
+           || type == StyioTokenType::INTEGER
+           || type == StyioTokenType::DECIMAL) {
+    return getTokName(this->type) + " = " + this->original;
   }
-  else if ((T1 == StyioDataType::i32 && T2 == StyioDataType::f64)
-    || (T1 == StyioDataType::f64 && T2 == StyioDataType::i32)) {
-    return StyioDataType::f64;
-  } 
-  else if ((T1 == StyioDataType::i1 && T2 == StyioDataType::f64)
-    || (T1 == StyioDataType::i8 && T2 == StyioDataType::f64)
-    || (T1 == StyioDataType::i16 && T2 == StyioDataType::f64)) {
-    return StyioDataType::f64;
+  else if (type == StyioTokenType::STRING) {
+    return "\"" + this->original + "\"";
   }
-  else if ((T1 == StyioDataType::f64 && T2 == StyioDataType::i1)
-    || (T1 == StyioDataType::f64 && T2 == StyioDataType::i8)
-    || (T1 == StyioDataType::f64 && T2 == StyioDataType::i16)) {
-    return StyioDataType::f64;
+  else {
+    return getTokName(this->type);
   }
-  else if ((T1 == StyioDataType::i64 && T2 == StyioDataType::f32)
-    || (T1 == StyioDataType::f32 && T2 == StyioDataType::i64)) {
-    return StyioDataType::f64;
-  }
-  else if (T1 == StyioDataType::undefined || T2 == StyioDataType::undefined) {
-    return StyioDataType::undefined;
-  }
-
-  return StyioDataType::undefined;
 }

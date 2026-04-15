@@ -47,43 +47,72 @@ using StyioToStringVisitor = ToStringVisitor<
   class StringAST,
   class SetAST,
   class ListAST,
+  class DictAST,
 
   class StructAST,
   class TupleAST,
 
   class NameAST,
-  class DTypeAST,
+  class TypeAST,
+  class TypeTupleAST,
 
   class VarAST,
-  class ArgAST,
+  class ParamAST,
   class OptArgAST,
   class OptKwArgAST,
 
   class FlexBindAST,
   class FinalBindAST,
+  class ParallelAssignAST,
 
   class BinCompAST,
   class CondAST,
   class BinOpAST,
 
-  class AnonyFuncAST,
-  class FuncAST,
+  class UndefinedLitAST,
+  class WaveMergeAST,
+  class WaveDispatchAST,
+  class FallbackAST,
+  class GuardSelectorAST,
+  class EqProbeAST,
 
-  class CallAST,
+  class FileResourceAST,
+  class StdStreamAST,
+  class HandleAcquireAST,
+  class ResourceWriteAST,
+  class ResourceRedirectAST,
+
+  class StateDeclAST,
+  class StateRefAST,
+  class HistoryProbeAST,
+  class SeriesIntrinsicAST,
+
+  class AnonyFuncAST,
+  class FunctionAST,
+  class SimpleFuncAST,
+
+  class FuncCallAST,
+  class AttrAST,
 
   class SizeOfAST,
   class TypeConvertAST,
   class ListOpAST,
   class RangeAST,
 
-  class IterAST,
-  class LoopAST,
+  class IteratorAST,
+  class StreamZipAST,
+  class SnapshotDeclAST,
+  class InstantPullAST,
+  class TypedStdinListAST,
+  class IterSeqAST,
+  class InfiniteLoopAST,
 
   class CondFlowAST,
 
   class EOFAST,
   class PassAST,
   class BreakAST,
+  class ContinueAST,
   class ReturnAST,
 
   class CasesAST,
@@ -98,16 +127,22 @@ using StyioToStringVisitor = ToStringVisitor<
 
   class VarTupleAST,
 
+  class ExtractorAST,
+
   class ForwardAST,
-  class CheckEqAST,
+  class BackwardAST,
+
+  class CheckEqualAST,
   class CheckIsinAST,
-  class FromToAST,
+  class HashTagNameAST,
+
+  class CODPAST,
 
   class FmtStrAST,
 
   class ResourceAST,
 
-  class LocalPathAST,
+  class ResPathAST,
   class RemotePathAST,
   class WebUrlAST,
   class DBUrlAST,
@@ -135,6 +170,7 @@ public:
   std::string toString(PassAST* ast, int indent = 0);
 
   std::string toString(BreakAST* ast, int indent = 0);
+  std::string toString(ContinueAST* ast, int indent = 0);
 
   std::string toString(ReturnAST* ast, int indent = 0);
 
@@ -144,7 +180,7 @@ public:
 
   std::string toString(VarAST* ast, int indent = 0);
 
-  std::string toString(ArgAST* ast, int indent = 0);
+  std::string toString(ParamAST* ast, int indent = 0);
 
   std::string toString(OptArgAST* ast, int indent = 0);
 
@@ -152,7 +188,11 @@ public:
 
   std::string toString(VarTupleAST* ast, int indent = 0);
 
-  std::string toString(DTypeAST* ast, int indent = 0);
+  std::string toString(ExtractorAST* ast, int indent = 0);
+
+  std::string toString(TypeAST* ast, int indent = 0);
+
+  std::string toString(TypeTupleAST* ast, int indent = 0);
 
   std::string toString(IntAST* ast, int indent = 0);
 
@@ -166,7 +206,7 @@ public:
 
   std::string toString(FmtStrAST* ast, int indent = 0);
 
-  std::string toString(LocalPathAST* ast, int indent = 0);
+  std::string toString(ResPathAST* ast, int indent = 0);
 
   std::string toString(RemotePathAST* ast, int indent = 0);
 
@@ -175,6 +215,7 @@ public:
   std::string toString(DBUrlAST* ast, int indent = 0);
 
   std::string toString(ListAST* ast, int indent = 0);
+  std::string toString(DictAST* ast, int indent = 0);
 
   std::string toString(TupleAST* ast, int indent = 0);
 
@@ -190,7 +231,27 @@ public:
 
   std::string toString(CondAST* ast, int indent = 0);
 
-  std::string toString(CallAST* ast, int indent = 0);
+  std::string toString(UndefinedLitAST* ast, int indent = 0);
+  std::string toString(WaveMergeAST* ast, int indent = 0);
+  std::string toString(WaveDispatchAST* ast, int indent = 0);
+  std::string toString(FallbackAST* ast, int indent = 0);
+  std::string toString(GuardSelectorAST* ast, int indent = 0);
+  std::string toString(EqProbeAST* ast, int indent = 0);
+
+  std::string toString(FileResourceAST* ast, int indent = 0);
+  std::string toString(StdStreamAST* ast, int indent = 0);
+  std::string toString(HandleAcquireAST* ast, int indent = 0);
+  std::string toString(ResourceWriteAST* ast, int indent = 0);
+  std::string toString(ResourceRedirectAST* ast, int indent = 0);
+
+  std::string toString(StateDeclAST* ast, int indent = 0);
+  std::string toString(StateRefAST* ast, int indent = 0);
+  std::string toString(HistoryProbeAST* ast, int indent = 0);
+  std::string toString(SeriesIntrinsicAST* ast, int indent = 0);
+
+  std::string toString(FuncCallAST* ast, int indent = 0);
+
+  std::string toString(AttrAST* ast, int indent = 0);
 
   std::string toString(ListOpAST* ast, int indent = 0);
 
@@ -199,6 +260,8 @@ public:
   std::string toString(FlexBindAST* ast, int indent = 0);
 
   std::string toString(FinalBindAST* ast, int indent = 0);
+
+  std::string toString(ParallelAssignAST* ast, int indent = 0);
 
   std::string toString(StructAST* ast, int indent = 0);
 
@@ -214,29 +277,132 @@ public:
 
   std::string toString(CondFlowAST* ast, int indent = 0);
 
-  std::string toString(CheckEqAST* ast, int indent = 0);
+  std::string toString(CheckEqualAST* ast, int indent = 0);
 
   std::string toString(CheckIsinAST* ast, int indent = 0);
 
-  std::string toString(FromToAST* ast, int indent = 0);
+  std::string toString(HashTagNameAST* ast, int indent = 0);
 
   std::string toString(ForwardAST* ast, int indent = 0);
+
+  std::string toString(BackwardAST* ast, int indent = 0);
+
+  std::string toString(CODPAST* ast, int indent = 0);
 
   std::string toString(InfiniteAST* ast, int indent = 0);
 
   std::string toString(AnonyFuncAST* ast, int indent = 0);
 
-  std::string toString(FuncAST* ast, int indent = 0);
+  std::string toString(FunctionAST* ast, int indent = 0);
 
-  std::string toString(LoopAST* ast, int indent = 0);
+  std::string toString(SimpleFuncAST* ast, int indent = 0);
 
-  std::string toString(IterAST* ast, int indent = 0);
+  std::string toString(InfiniteLoopAST* ast, int indent = 0);
+
+  std::string toString(IteratorAST* ast, int indent = 0);
+
+  std::string toString(StreamZipAST* ast, int indent = 0);
+
+  std::string toString(SnapshotDeclAST* ast, int indent = 0);
+
+  std::string toString(InstantPullAST* ast, int indent = 0);
+
+  std::string toString(TypedStdinListAST* ast, int indent = 0);
+
+  std::string toString(IterSeqAST* ast, int indent = 0);
 
   std::string toString(MatchCasesAST* ast, int indent = 0);
 
   std::string toString(MainBlockAST* ast, int indent = 0);
 
   /* styio.ir.toString() */
+
+  std::string toString(SGResId* node, int indent = 0);
+  std::string toString(SGType* node, int indent = 0);
+  
+  std::string toString(SGConstBool* node, int indent = 0);
+
+  std::string toString(SGConstInt* node, int indent = 0);
+  std::string toString(SGConstFloat* node, int indent = 0);
+
+  std::string toString(SGConstChar* node, int indent = 0);
+  std::string toString(SGConstString* node, int indent = 0);
+  std::string toString(SGFormatString* node, int indent = 0);
+  
+  std::string toString(SGStruct* node, int indent = 0);
+
+  std::string toString(SGCast* node, int indent = 0);
+
+  std::string toString(SGBinOp* node, int indent = 0);
+  std::string toString(SGCond* node, int indent = 0);
+
+  std::string toString(SGVar* node, int indent = 0);
+  std::string toString(SGFlexBind* node, int indent = 0);
+  std::string toString(SGFinalBind* node, int indent = 0);
+  std::string toString(SGDynLoad* node, int indent = 0);
+
+  std::string toString(SGFuncArg* node, int indent = 0);
+  std::string toString(SGFunc* node, int indent = 0);
+  std::string toString(SGCall* node, int indent = 0);
+
+  std::string toString(SGReturn* node, int indent = 0);
+
+  // std::string toString(SGIfElse* node, int indent = 0);
+  // std::string toString(SGForLoop* node, int indent = 0);
+  // std::string toString(SGWhileLoop* node, int indent = 0);
+
+  std::string toString(SGBlock* node, int indent = 0);
+  std::string toString(SGEntry* node, int indent = 0);
+  std::string toString(SGMainEntry* node, int indent = 0);
+
+  std::string toString(SGLoop* node, int indent = 0);
+  std::string toString(SGForEach* node, int indent = 0);
+  std::string toString(SGListLiteral* node, int indent = 0);
+  std::string toString(SGDictLiteral* node, int indent = 0);
+  std::string toString(SGRangeFor* node, int indent = 0);
+  std::string toString(SGIf* node, int indent = 0);
+  std::string toString(SGStateSnapLoad* node, int indent = 0);
+  std::string toString(SGStateHistLoad* node, int indent = 0);
+  std::string toString(SGSeriesAvgStep* node, int indent = 0);
+  std::string toString(SGSeriesMaxStep* node, int indent = 0);
+  std::string toString(SGMatch* node, int indent = 0);
+  std::string toString(SGBreak* node, int indent = 0);
+  std::string toString(SGContinue* node, int indent = 0);
+
+  std::string toString(SGUndef* node, int indent = 0);
+  std::string toString(SGFallback* node, int indent = 0);
+  std::string toString(SGWaveMerge* node, int indent = 0);
+  std::string toString(SGWaveDispatch* node, int indent = 0);
+  std::string toString(SGGuardSelect* node, int indent = 0);
+  std::string toString(SGEqProbe* node, int indent = 0);
+
+  std::string toString(SGHandleAcquire* node, int indent = 0);
+  std::string toString(SGFileLineIter* node, int indent = 0);
+  std::string toString(SGStreamZip* node, int indent = 0);
+  std::string toString(SGSnapshotDecl* node, int indent = 0);
+  std::string toString(SGSnapshotShadowLoad* node, int indent = 0);
+  std::string toString(SGInstantPull* node, int indent = 0);
+  std::string toString(SGListReadStdin* node, int indent = 0);
+  std::string toString(SGListClone* node, int indent = 0);
+  std::string toString(SGListLen* node, int indent = 0);
+  std::string toString(SGListGet* node, int indent = 0);
+  std::string toString(SGListSet* node, int indent = 0);
+  std::string toString(SGListToString* node, int indent = 0);
+  std::string toString(SGDictClone* node, int indent = 0);
+  std::string toString(SGDictLen* node, int indent = 0);
+  std::string toString(SGDictGet* node, int indent = 0);
+  std::string toString(SGDictSet* node, int indent = 0);
+  std::string toString(SGDictKeys* node, int indent = 0);
+  std::string toString(SGDictValues* node, int indent = 0);
+  std::string toString(SGDictToString* node, int indent = 0);
+  std::string toString(SGResourceWriteToFile* node, int indent = 0);
+  std::string toString(SIOStdStreamWrite* node, int indent = 0);
+  std::string toString(SIOStdStreamLineIter* node, int indent = 0);
+  std::string toString(SIOStdStreamPull* node, int indent = 0);
+
+  std::string toString(SIOPath* node, int indent = 0);
+  std::string toString(SIOPrint* node, int indent = 0);
+  std::string toString(SIORead* node, int indent = 0);
 };
 
 #endif  // STYIO_TO_STRING_VISITOR_H_

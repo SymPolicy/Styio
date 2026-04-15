@@ -40,6 +40,7 @@ class CharAST;
 class StringAST;
 class SetAST;
 class ListAST;
+class DictAST;
 
 class StructAST;
 class TupleAST;
@@ -50,7 +51,7 @@ class TupleAST;
   - DType (Data Type)
 */
 class NameAST;
-class DTypeAST;
+class TypeAST;
 
 /*
   Variable Types:
@@ -60,7 +61,7 @@ class DTypeAST;
   - OptKwArg (Optional Function Arguments)
 */
 class VarAST;
-class ArgAST;
+class ParamAST;
 class OptArgAST;
 class OptKwArgAST;
 
@@ -71,6 +72,7 @@ class OptKwArgAST;
 */
 class FlexBindAST;
 class FinalBindAST;
+class ParallelAssignAST;
 
 /*
   Binary Tree:
@@ -82,6 +84,13 @@ class BinCompAST;
 class CondAST;
 class BinOpAST;
 
+class UndefinedLitAST;
+class WaveMergeAST;
+class WaveDispatchAST;
+class FallbackAST;
+class GuardSelectorAST;
+class EqProbeAST;
+
 /*
   Function
   - Anonymous Function
@@ -90,9 +99,11 @@ class BinOpAST;
   - Call
 */
 class AnonyFuncAST;
-class FuncAST;
+class FunctionAST;
 
-class CallAST;
+class FuncCallAST;
+
+class AttrAST;
 
 /*
   Methods:
@@ -118,8 +129,13 @@ class RangeAST;
   - Iter (Iterator)
   - Loop
 */
-class IterAST;
-class LoopAST;
+class IteratorAST;
+class StreamZipAST;
+class SnapshotDeclAST;
+class InstantPullAST;
+class TypedStdinListAST;
+class IterSeqAST; /* Iterator Sequence */
+class InfiniteLoopAST;
 
 /*
   Control Flow
@@ -173,10 +189,15 @@ class InfiniteAST;
 */
 class VarTupleAST;
 
+class ExtractorAST;
+
 class ForwardAST;
-class CheckEqAST;
+class BackwardAST;
+
+class CODPAST;
+class CheckEqualAST;
 class CheckIsinAST;
-class FromToAST;
+class HashTagNameAST;
 
 /*
   Features:
@@ -195,7 +216,7 @@ class FmtStrAST;
 */
 class ResourceAST;
 
-class LocalPathAST;
+class ResPathAST;
 class RemotePathAST;
 class WebUrlAST;
 class DBUrlAST;
@@ -208,6 +229,22 @@ class DBUrlAST;
 */
 class PrintAST;
 class ReadFileAST;
+
+class FileResourceAST;
+class StdStreamAST;
+class HandleAcquireAST;
+class ResourceWriteAST;
+class ResourceRedirectAST;
 class WriteFileAST;
+
+class StateDeclAST;
+class StateRefAST;
+class HistoryProbeAST;
+class SeriesIntrinsicAST;
+
+class SimpleFuncAST;
+class TypeTupleAST;
+
+
 
 #endif

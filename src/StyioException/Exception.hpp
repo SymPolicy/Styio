@@ -2,6 +2,9 @@
 #ifndef STYIO_EXCEPTION_H_
 #define STYIO_EXCEPTION_H_
 
+#include <exception>
+#include <string>
+
 class StyioBaseException : public std::exception
 {
 private:
@@ -34,10 +37,10 @@ public:
     std::string meta_info,
     std::string msg
   ) :
-      message("\n" + meta_info + "\nStyio.SyntaxError: " + msg + "\n") {}
+      message("\n" + meta_info + "\nStyio.SyntaxError:\n" + msg + "\n") {}
 
   StyioSyntaxError(std::string msg) :
-      message("\nStyio.SyntaxError: " + msg) {}
+      message("\nStyio.SyntaxError:\n" + msg) {}
 
   ~StyioSyntaxError() throw() {}
 
@@ -56,9 +59,47 @@ public:
       message("\nStyio.ParseError: Undefined.") {}
 
   StyioParseError(std::string msg) :
-      message("\nStyio.ParseError: " + msg) {}
+      message("\nStyio.ParseError:\n" + msg) {}
 
   ~StyioParseError() throw() {}
+
+  virtual const char* what() const throw() {
+    return message.c_str();
+  }
+};
+
+class StyioLexError : public StyioBaseException
+{
+private:
+  std::string message;
+
+public:
+  StyioLexError() :
+      message("\nStyio.LexError: Undefined.") {}
+
+  StyioLexError(std::string msg) :
+      message("\nStyio.LexError:\n" + msg) {}
+
+  ~StyioLexError() throw() {}
+
+  virtual const char* what() const throw() {
+    return message.c_str();
+  }
+};
+
+class StyioTypeError : public StyioBaseException
+{
+private:
+  std::string message;
+
+public:
+  StyioTypeError() :
+      message("\nStyio.TypeError: Undefined.") {}
+
+  StyioTypeError(std::string msg) :
+      message("\nStyio.TypeError:\n" + msg) {}
+
+  ~StyioTypeError() throw() {}
 
   virtual const char* what() const throw() {
     return message.c_str();
@@ -75,7 +116,7 @@ public:
       message("\nStyio.NotImplemented: Undefined.") {}
 
   StyioNotImplemented(std::string msg) :
-      message("\nStyio.NotImplemented: " + msg) {}
+      message("\nStyio.NotImplemented:\n" + msg) {}
 
   ~StyioNotImplemented() throw() {}
 

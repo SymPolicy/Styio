@@ -1,0 +1,3 @@
+x = 3
+result = x[?=, 3]
+>_(result)
