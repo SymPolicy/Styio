@@ -1,0 +1,23 @@
+M3 acceptance output (stdout only).
+
+t01_match: one
+t02_match_expr: even
+t03_match_default: unknown
+t04_factorial: 120
+t05_for_each:
+1
+2
+3
+t06_inf_break: 5
+t07_while: 10
+t08_multi_break: done
+t09_continue:
+1
+3
+5
+t10_fizzbuzz:
+1
+2
+Fizz
+4
+Buzz

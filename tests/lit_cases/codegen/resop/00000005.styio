@@ -1,0 +1,9 @@
+// RUN: %{styio} --llvm-ir --file %s | FileCheck %s
+
+buf, len 
+  << @("a.json") 
+    => #(a)
+    => { a.read() -> $buf }
+    => { a.size() -> $len }
+
+>_ (buf, len)

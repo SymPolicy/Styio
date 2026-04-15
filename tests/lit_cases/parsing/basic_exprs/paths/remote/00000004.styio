@@ -1,0 +1,7 @@
+// RUN: %{styio} --styio-ast --file %s | FileCheck %s
+
+@("192.168.0.0:8080")
+
+/*
+  Check: Main
+*/

@@ -1,0 +1,4 @@
+// M9 / T9.04: Boolean to stdout
+
+true -> @stdout
+false -> @stdout

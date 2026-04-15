@@ -1,0 +1,5 @@
+a = @
+b = a + 1
+c = b * 2
+result = c | "safe"
+>_(result)

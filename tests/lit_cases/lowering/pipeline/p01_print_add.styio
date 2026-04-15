@@ -1,0 +1,10 @@
+// RUN: %{styio} --styio-ir --file %s | FileCheck %s
+>_(3+7)
+/*
+CHECK-LABEL: Styio IR
+CHECK-NEXT: styio.ir.main {
+CHECK-NEXT: |- styio.ir.print {  }
+CHECK-NEXT: }
+CHECK-EMPTY:
+CHECK-NEXT: 10
+*/

@@ -1,0 +1,3 @@
+// RUN: %{styio} --styio-ast --file %s | FileCheck %s
+
+ConstTuple := ( 1, 2, 3 )
