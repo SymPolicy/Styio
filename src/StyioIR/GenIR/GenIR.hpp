@@ -989,13 +989,14 @@ public:
   StyioIR* list = nullptr;
   StyioIR* index = nullptr;
   StyioIR* value = nullptr;
+  std::string elem_type = "i64";
 
-  SGListSet(StyioIR* l, StyioIR* idx, StyioIR* v) :
-      list(l), index(idx), value(v) {
+  SGListSet(StyioIR* l, StyioIR* idx, StyioIR* v, std::string elem = "i64") :
+      list(l), index(idx), value(v), elem_type(std::move(elem)) {
   }
 
-  static SGListSet* Create(StyioIR* l, StyioIR* idx, StyioIR* v) {
-    return new SGListSet(l, idx, v);
+  static SGListSet* Create(StyioIR* l, StyioIR* idx, StyioIR* v, std::string elem_type = "i64") {
+    return new SGListSet(l, idx, v, std::move(elem_type));
   }
 };
 

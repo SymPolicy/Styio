@@ -1348,7 +1348,142 @@ StyioToLLVM::toLLVMIR(SGFunc* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGCall* node) {
-  llvm::Function* callee = theModule->getFunction(node->func_name->as_str());
+  std::string fname = node->func_name->as_str();
+  auto builtin_list_family_from_suffix = [&](const std::string& suffix) -> StyioValueFamily {
+    if (suffix == "bool") {
+      return StyioValueFamily::Bool;
+    }
+    if (suffix == "f64") {
+      return StyioValueFamily::Float;
+    }
+    if (suffix == "cstr") {
+      return StyioValueFamily::String;
+    }
+    if (suffix == "list") {
+      return StyioValueFamily::ListHandle;
+    }
+    if (suffix == "dict") {
+      return StyioValueFamily::DictHandle;
+    }
+    return StyioValueFamily::Integer;
+  };
+  auto builtin_list_value_type = [&](StyioValueFamily family) -> llvm::Type* {
+    if (family == StyioValueFamily::Float) {
+      return theBuilder->getDoubleTy();
+    }
+    if (family == StyioValueFamily::String) {
+      return llvm::PointerType::get(*theContext, 0);
+    }
+    return theBuilder->getInt64Ty();
+  };
+  auto coerce_builtin_list_value = [&](llvm::Value* raw, StyioValueFamily family) -> llvm::Value* {
+    llvm::Value* value = raw;
+    if (family == StyioValueFamily::String) {
+      if (!value->getType()->isPointerTy()) {
+        value = llvm::ConstantPointerNull::get(llvm::PointerType::get(*theContext, 0));
+      }
+      return value;
+    }
+    if (family == StyioValueFamily::Float) {
+      if (!value->getType()->isDoubleTy()) {
+        if (value->getType()->isIntegerTy()) {
+          value = theBuilder->CreateSIToFP(value, theBuilder->getDoubleTy());
+        }
+        else {
+          value = llvm::ConstantFP::get(theBuilder->getDoubleTy(), 0.0);
+        }
+      }
+      return value;
+    }
+    if (value->getType()->isIntegerTy(1)) {
+      return theBuilder->CreateZExt(value, theBuilder->getInt64Ty());
+    }
+    if (!value->getType()->isIntegerTy(64)) {
+      return theBuilder->CreateSExtOrTrunc(value, theBuilder->getInt64Ty());
+    }
+    return value;
+  };
+
+  if (fname == "__styio_list_pop") {
+    if (node->func_args.size() != 1) {
+      return theBuilder->getInt64(0);
+    }
+    llvm::FunctionCallee pop_fn = theModule->getOrInsertFunction(
+      "styio_list_pop",
+      llvm::FunctionType::get(theBuilder->getVoidTy(), {theBuilder->getInt64Ty()}, false));
+    llvm::Value* list_raw = node->func_args[0]->toLLVMIR(this);
+    llvm::Value* list = list_raw;
+    if (!list->getType()->isIntegerTy(64)) {
+      list = theBuilder->CreateSExtOrTrunc(list, theBuilder->getInt64Ty());
+    }
+    theBuilder->CreateCall(pop_fn, {list});
+    free_owned_resource_temp_if_tracked(list_raw);
+    return theBuilder->getInt64(0);
+  }
+
+  bool is_builtin_list_push = false;
+  bool is_builtin_list_insert = false;
+  std::string builtin_suffix;
+  if (fname.rfind("__styio_list_push_", 0) == 0) {
+    is_builtin_list_push = true;
+    builtin_suffix = fname.substr(std::string("__styio_list_push_").size());
+  }
+  else if (fname.rfind("__styio_list_insert_", 0) == 0) {
+    is_builtin_list_insert = true;
+    builtin_suffix = fname.substr(std::string("__styio_list_insert_").size());
+  }
+  if (is_builtin_list_push || is_builtin_list_insert) {
+    const bool has_index = is_builtin_list_insert;
+    const size_t expected_args = has_index ? 3 : 2;
+    if (node->func_args.size() != expected_args) {
+      return theBuilder->getInt64(0);
+    }
+
+    StyioValueFamily value_family = builtin_list_family_from_suffix(builtin_suffix);
+    llvm::Type* value_type = builtin_list_value_type(value_family);
+    llvm::FunctionCallee list_fn = theModule->getOrInsertFunction(
+      std::string(has_index ? "styio_list_insert_" : "styio_list_push_") + builtin_suffix,
+      llvm::FunctionType::get(
+        theBuilder->getVoidTy(),
+        has_index
+          ? std::vector<llvm::Type*>{theBuilder->getInt64Ty(), theBuilder->getInt64Ty(), value_type}
+          : std::vector<llvm::Type*>{theBuilder->getInt64Ty(), value_type},
+        false));
+
+    llvm::Value* list_raw = node->func_args[0]->toLLVMIR(this);
+    llvm::Value* list = list_raw;
+    if (!list->getType()->isIntegerTy(64)) {
+      list = theBuilder->CreateSExtOrTrunc(list, theBuilder->getInt64Ty());
+    }
+
+    llvm::Value* index = nullptr;
+    if (has_index) {
+      index = node->func_args[1]->toLLVMIR(this);
+      if (!index->getType()->isIntegerTy(64)) {
+        index = theBuilder->CreateSExtOrTrunc(index, theBuilder->getInt64Ty());
+      }
+    }
+
+    llvm::Value* value_raw = node->func_args[has_index ? 2 : 1]->toLLVMIR(this);
+    llvm::Value* value = coerce_builtin_list_value(value_raw, value_family);
+    if (has_index) {
+      theBuilder->CreateCall(list_fn, {list, index, value});
+    }
+    else {
+      theBuilder->CreateCall(list_fn, {list, value});
+    }
+    if (value_family == StyioValueFamily::String) {
+      free_owned_cstr_temp_if_tracked(value_raw);
+    }
+    else if (value_family == StyioValueFamily::ListHandle
+             || value_family == StyioValueFamily::DictHandle) {
+      free_owned_resource_temp_if_tracked(value_raw);
+    }
+    free_owned_resource_temp_if_tracked(list_raw);
+    return theBuilder->getInt64(0);
+  }
+
+  llvm::Function* callee = theModule->getFunction(fname);
   if (!callee) {
     return theBuilder->getInt64(0);
   }
@@ -2598,29 +2733,80 @@ StyioToLLVM::toLLVMIR(SGListGet* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGListSet* node) {
+  StyioValueFamily value_family = styio_value_family_from_type_name(node->elem_type);
+  llvm::Type* set_value_type = theBuilder->getInt64Ty();
+  const char* set_name = "styio_list_set";
+  switch (value_family) {
+    case StyioValueFamily::Bool:
+      set_name = "styio_list_set_bool";
+      break;
+    case StyioValueFamily::Float:
+      set_name = "styio_list_set_f64";
+      set_value_type = theBuilder->getDoubleTy();
+      break;
+    case StyioValueFamily::String:
+      set_name = "styio_list_set_cstr";
+      set_value_type = llvm::PointerType::get(*theContext, 0);
+      break;
+    case StyioValueFamily::ListHandle:
+      set_name = "styio_list_set_list";
+      break;
+    case StyioValueFamily::DictHandle:
+      set_name = "styio_list_set_dict";
+      break;
+    case StyioValueFamily::Integer:
+    default:
+      break;
+  }
   llvm::FunctionCallee set_fn = theModule->getOrInsertFunction(
-    "styio_list_set",
+    set_name,
     llvm::FunctionType::get(
       theBuilder->getVoidTy(),
-      {theBuilder->getInt64Ty(), theBuilder->getInt64Ty(), theBuilder->getInt64Ty()},
+      {theBuilder->getInt64Ty(), theBuilder->getInt64Ty(), set_value_type},
       false));
-  llvm::Value* list = node->list->toLLVMIR(this);
+  llvm::Value* list_raw = node->list->toLLVMIR(this);
+  llvm::Value* list = list_raw;
   llvm::Value* idx = node->index->toLLVMIR(this);
-  llvm::Value* value = node->value->toLLVMIR(this);
+  llvm::Value* value_raw = node->value->toLLVMIR(this);
+  llvm::Value* value = value_raw;
   if (!list->getType()->isIntegerTy(64)) {
     list = theBuilder->CreateSExtOrTrunc(list, theBuilder->getInt64Ty());
   }
   if (!idx->getType()->isIntegerTy(64)) {
     idx = theBuilder->CreateSExtOrTrunc(idx, theBuilder->getInt64Ty());
   }
-  if (value->getType()->isIntegerTy(1)) {
-    value = theBuilder->CreateZExt(value, theBuilder->getInt64Ty());
+  if (value_family == StyioValueFamily::String) {
+    if (!value->getType()->isPointerTy()) {
+      value = llvm::ConstantPointerNull::get(llvm::PointerType::get(*theContext, 0));
+    }
   }
-  else if (!value->getType()->isIntegerTy(64)) {
-    value = theBuilder->CreateSExtOrTrunc(value, theBuilder->getInt64Ty());
+  else if (value_family == StyioValueFamily::Float) {
+    if (!value->getType()->isDoubleTy()) {
+      if (value->getType()->isIntegerTy()) {
+        value = theBuilder->CreateSIToFP(value, theBuilder->getDoubleTy());
+      }
+      else {
+        value = llvm::ConstantFP::get(theBuilder->getDoubleTy(), 0.0);
+      }
+    }
+  }
+  else {
+    if (value->getType()->isIntegerTy(1)) {
+      value = theBuilder->CreateZExt(value, theBuilder->getInt64Ty());
+    }
+    else if (!value->getType()->isIntegerTy(64)) {
+      value = theBuilder->CreateSExtOrTrunc(value, theBuilder->getInt64Ty());
+    }
   }
   theBuilder->CreateCall(set_fn, {list, idx, value});
-  free_owned_resource_temp_if_tracked(list);
+  if (value_family == StyioValueFamily::String) {
+    free_owned_cstr_temp_if_tracked(value_raw);
+  }
+  else if (value_family == StyioValueFamily::ListHandle
+           || value_family == StyioValueFamily::DictHandle) {
+    free_owned_resource_temp_if_tracked(value_raw);
+  }
+  free_owned_resource_temp_if_tracked(list_raw);
   return nullptr;
 }
 

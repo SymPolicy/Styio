@@ -514,24 +514,6 @@ TEST(StyioSecurityParserContext, CharApiAtEofReturnsSafeDefaults) {
   delete ctx;
 }
 
-TEST(StyioSecurityParserContext, PeakOperatorAtEofReturnsEofWithoutThrow) {
-  std::vector<StyioToken*> tokens;
-  StyioContext* ctx = StyioContext::Create(
-    "<peak-operator-eof>",
-    "",
-    {},
-    tokens,
-    false);
-
-  std::string op;
-  EXPECT_NO_THROW({
-    op = ctx->peak_operator();
-  });
-  EXPECT_EQ(op, "EOF");
-
-  delete ctx;
-}
-
 TEST(StyioSecurityParserContext, FindDropPanicAtEofReportsSyntaxError) {
   std::vector<StyioToken*> tokens;
   StyioContext* ctx = StyioContext::Create(
@@ -548,6 +530,60 @@ TEST(StyioSecurityParserContext, FindDropPanicAtEofReportsSyntaxError) {
     StyioSyntaxError);
 
   delete ctx;
+}
+
+TEST(StyioSecurityNightlyParserStmt, TryParseSubsetDeclinesWithoutThrowAndRestoresCursor) {
+  const std::string src = "x = 1 | 2\n";
+  auto tokens = StyioTokenizer::tokenize(src);
+  StyioContext* ctx = StyioContext::Create(
+    "<nightly-decline>",
+    src,
+    build_line_seps(src),
+    tokens,
+    false);
+
+  const auto saved = ctx->save_cursor();
+  ParseAttempt<StyioAST> attempt;
+  EXPECT_NO_THROW({
+    attempt = try_parse_stmt_subset_nightly(*ctx);
+  });
+  EXPECT_EQ(attempt.status, ParseAttemptStatus::Declined);
+  EXPECT_EQ(attempt.node, nullptr);
+  EXPECT_EQ(ctx->save_cursor(), saved);
+
+  delete ctx;
+  free_tokens(tokens);
+  StyioAST::destroy_all_tracked_nodes();
+}
+
+TEST(StyioSecurityNightlyParserStmt, TryParseSubsetFatalRestoresCursorAndCapturesError) {
+  const std::string src = "#f(x) =>\n";
+  auto tokens = StyioTokenizer::tokenize(src);
+  StyioContext* ctx = StyioContext::Create(
+    "<nightly-fatal>",
+    src,
+    build_line_seps(src),
+    tokens,
+    false);
+
+  const auto saved = ctx->save_cursor();
+  ParseAttempt<StyioAST> attempt;
+  EXPECT_NO_THROW({
+    attempt = try_parse_stmt_subset_nightly(*ctx);
+  });
+  EXPECT_EQ(attempt.status, ParseAttemptStatus::Fatal);
+  EXPECT_EQ(attempt.node, nullptr);
+  EXPECT_NE(attempt.error, nullptr);
+  EXPECT_EQ(ctx->save_cursor(), saved);
+  EXPECT_THROW(
+    {
+      std::rethrow_exception(attempt.error);
+    },
+    StyioBaseException);
+
+  delete ctx;
+  free_tokens(tokens);
+  StyioAST::destroy_all_tracked_nodes();
 }
 
 TEST(StyioSecurityParserPath, SingleLetterPathDoesNotThrowOutOfRange) {
@@ -719,6 +755,7 @@ TEST(StyioSecurityNightlyParserStmt, SubsetTokenGateIncludesFunctionDefTokens) {
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_HASH));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::ARROW_DOUBLE_RIGHT));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_AT));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::ARROW_SINGLE_RIGHT));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_LBOXBRAC));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_RBOXBRAC));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_LCURBRAC));
@@ -732,6 +769,8 @@ TEST(StyioSecurityNightlyParserStmt, SubsetTokenGateIncludesFunctionDefTokens) {
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::MATCH));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_UNDLINE));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::ITERATOR));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::WAVE_RIGHT));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_PIPE));
 }
 
 TEST(StyioSecurityNightlyParserStmt, SubsetStartGateIncludesBlockAndControlStarters) {
@@ -818,6 +857,28 @@ TEST(StyioSecurityNightlySemantics, AllowsCloneFormsAndIndexedMutation) {
     "l1 <- l\n"
     "l2 << l\n"
     "l[0] = 9\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+}
+
+TEST(StyioSecurityNightlySemantics, AllowsPredefinedListOperationsAcrossRuntimeFamilies) {
+  const std::string src =
+    "nums = [1,2]\n"
+    "nums.push(3)\n"
+    "nums.insert(0,4)\n"
+    "nums.pop()\n"
+    "flags = [true,false]\n"
+    "flags[1] = true\n"
+    "names = [\"Ada\"]\n"
+    "names.push(\"Lovelace\")\n"
+    "names.insert(1, \"Byron\")\n"
+    "names.pop()\n"
+    "bags = [[1,2]]\n"
+    "bags.push([3])\n"
+    "bags[0] = [9]\n"
+    "maps = [dict{\"a\": 1}]\n"
+    "maps.insert(1, dict{\"b\": 2})\n"
+    "maps[0] = dict{\"c\": 3}\n";
   EXPECT_NO_THROW(
     parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
 }
@@ -948,6 +1009,30 @@ TEST(StyioSecurityNightlyCodegen, EmitsImmediateListReleaseForFlexReassign) {
   EXPECT_NE(llvm_ir.find("styio_list_release"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyCodegen, EmitsTypedListHelpersForMutationAndOperations) {
+  const std::string src =
+    "nums = [1,2]\n"
+    "nums.push(3)\n"
+    "nums.insert(0,4)\n"
+    "nums.pop()\n"
+    "flags = [true,false]\n"
+    "flags[1] = true\n"
+    "bags = [[1,2]]\n"
+    "bags[0] = [9]\n"
+    "maps = [dict{\"a\": 1}]\n"
+    "maps.insert(1, dict{\"b\": 2})\n"
+    "maps[0] = dict{\"c\": 3}\n";
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_list_push_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_insert_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_pop"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_set_bool"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_set_list"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_insert_dict"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_set_dict"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyCodegen, EmitsStringListCollectHelperForStdinCollectBind) {
   const std::string src =
     "lines << @stdin\n"
@@ -1014,6 +1099,19 @@ TEST(StyioSecurityNightlyRuntime, ListHandlesAreCleanedUpAfterExecution) {
       src,
       StyioParserEngine::Nightly,
       "[1,2,3]\n"));
+  EXPECT_EQ(styio_list_active_count(), 0);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioSecurityNightlyRuntime, ListLiteralHandlesAreCleanedUpAfterExecution) {
+  const std::string src =
+    "l = [1,2,3]\n"
+    "l = []\n";
+  EXPECT_NO_THROW(
+    execute_program_engine_with_stdin_latest(
+      src,
+      StyioParserEngine::Nightly,
+      ""));
   EXPECT_EQ(styio_list_active_count(), 0);
   EXPECT_EQ(styio_runtime_has_error(), 0);
 }
@@ -1141,6 +1239,28 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnAtResourceSubsetSamples) {
   for (const auto& src : samples) {
     EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
+}
+
+TEST(StyioSecurityNightlyParserShadow, MatchesLegacyOnRedirectRouteSample) {
+  const std::string src =
+    "x = 42\n"
+    "x -> @file{\"/tmp/styio-nightly-parser-shadow-redirect.txt\"}\n";
+
+  EXPECT_EQ(
+    parse_program_engine_to_repr_latest(src, StyioParserEngine::Nightly),
+    parse_program_engine_to_repr_latest(src, StyioParserEngine::Legacy));
+}
+
+TEST(StyioSecurityNightlyParserShadow, MatchesLegacyOnArbitrageWaveDispatchRouteSample) {
+  const std::string src =
+    "@file{\"tests/m7/data/exchange_a.txt\"} >> #(a) & @file{\"tests/m7/data/exchange_b.txt\"} >> #(b) => {\n"
+    "  gap = a - b\n"
+    "  (gap > 5 || gap < -5) ~> >_(\"Arb: \" + gap) | @\n"
+    "}\n";
+
+  EXPECT_EQ(
+    parse_program_engine_to_repr_latest(src, StyioParserEngine::Nightly),
+    parse_program_engine_to_repr_latest(src, StyioParserEngine::Legacy));
 }
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnStdStreamWriteShorthandSamples) {
@@ -1356,7 +1476,14 @@ TEST(StyioSecurityUnicode, DecodeUtf8CodepointBoundaries) {
 TEST(StyioSecuritySession, ResetClearsSessionState) {
   CompilationSession session;
   const std::string src = "x = 1\n";
+  EXPECT_EQ(session.phase(), CompilationPhase::Empty);
+  EXPECT_EQ(session.token_arena_bytes(), 0u);
+  EXPECT_EQ(session.ast_arena_bytes(), 0u);
+
   session.adopt_tokens(StyioTokenizer::tokenize(src));
+  EXPECT_EQ(session.phase(), CompilationPhase::Tokenized);
+  EXPECT_GT(session.token_arena_bytes(), 0u);
+
   session.attach_context(StyioContext::Create(
     "<security>",
     src,
@@ -1364,6 +1491,18 @@ TEST(StyioSecuritySession, ResetClearsSessionState) {
     session.tokens(),
     false));
   session.attach_ast(MainBlockAST::Create({}));
+  EXPECT_EQ(session.phase(), CompilationPhase::Parsed);
+  EXPECT_GT(session.ast_arena_bytes(), 0u);
+
+  session.mark_type_checked();
+  EXPECT_EQ(session.phase(), CompilationPhase::Typed);
+  session.attach_ir(nullptr);
+  EXPECT_EQ(session.phase(), CompilationPhase::Lowered);
+  session.mark_codegen_ready();
+  EXPECT_EQ(session.phase(), CompilationPhase::CodegenReady);
+  session.mark_executed();
+  EXPECT_EQ(session.phase(), CompilationPhase::Executed);
+
   ASSERT_FALSE(session.tokens().empty());
   ASSERT_NE(session.context(), nullptr);
   ASSERT_NE(session.ast(), nullptr);
@@ -1373,6 +1512,19 @@ TEST(StyioSecuritySession, ResetClearsSessionState) {
   EXPECT_EQ(session.context(), nullptr);
   EXPECT_EQ(session.ast(), nullptr);
   EXPECT_EQ(session.ir(), nullptr);
+  EXPECT_EQ(session.phase(), CompilationPhase::Empty);
+  EXPECT_EQ(session.token_arena_bytes(), 0u);
+  EXPECT_EQ(session.ast_arena_bytes(), 0u);
+}
+
+TEST(StyioSecuritySession, InvalidPhaseTransitionsAreRejected) {
+  CompilationSession session;
+  EXPECT_THROW(session.mark_type_checked(), std::logic_error);
+  EXPECT_THROW(session.attach_ir(nullptr), std::logic_error);
+
+  session.adopt_tokens(StyioTokenizer::tokenize("x = 1\n"));
+  EXPECT_THROW(session.mark_codegen_ready(), std::logic_error);
+  EXPECT_THROW(session.mark_executed(), std::logic_error);
 }
 
 TEST(StyioSecurityAstOwnership, BinOpOwnsChildExprs) {

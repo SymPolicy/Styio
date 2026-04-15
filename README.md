@@ -81,6 +81,8 @@ styio-calc> quit
 
 这个主仓库的 `README.md` 现在只保留用户入口信息；开发者导向内容不再放在首页展开。
 
+如果你想先理解 Styio 的项目级优先级、重构边界与净室重写许可，请看 [docs/specs/PRINCIPLES-AND-OBJECTIVES.md](docs/specs/PRINCIPLES-AND-OBJECTIVES.md)。
+
 ## 当前仓库包含什么
 
 - `src/`：Styio 编译器与 CLI 实现
@@ -94,3 +96,4 @@ styio-calc> quit
 - 示例工程： [styio-examples](https://github.com/SymPolicy/styio-examples)
 - 编辑器支持： [styio-ext-vsc](https://github.com/SymPolicy/styio-ext-vsc)
 - 生态边界说明： [docs/specs/REPOSITORY-MAP.md](docs/specs/REPOSITORY-MAP.md)
+- 项目原则与目标： [docs/specs/PRINCIPLES-AND-OBJECTIVES.md](docs/specs/PRINCIPLES-AND-OBJECTIVES.md)

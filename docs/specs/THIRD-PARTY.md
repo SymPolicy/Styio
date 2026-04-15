@@ -2,7 +2,7 @@
 
 **Purpose:** 列出本仓库 **构建期/运行期** 所依赖的全部 **外部包与开源组件**；声明 **获取方式、用途、许可** 及在仓库中的 **落地位置**。新增依赖时请同步更新本文件，并在 `DOCUMENTATION-POLICY.md` 索引中保持可发现。
 
-**Last updated:** 2026-04-03
+**Last updated:** 2026-04-14
 
 ---
 
@@ -12,6 +12,7 @@
 |------|------|------------|------------------------|
 | **LLVM** | 系统安装 + CMake `find_package` | 编译器后端：IR、ORC JIT、原生目标 | `CMakeLists.txt`（`find_package(LLVM 18.1.0)`，`llvm_map_components_to_libnames` → `support` `core` `irreader` `orcjit` `native`） |
 | **ICU**（`uc`、`i18n`） | 系统安装 + `find_package`（**可选**） | 当 `STYIO_USE_ICU=ON` 时为 `StyioUnicode` codepoint 分类与 CLI Unicode 帮助文本提供支持 | `CMakeLists.txt`（`option(STYIO_USE_ICU ...)` + `find_package(ICU COMPONENTS uc i18n)`）；查找模块见仓库根目录 `FindICU.cmake` |
+| **Tree-sitter runtime** | **FetchContent**（IDE 语法层） | `styio_ide_core` 的 edit-time CST、错误节点和 folding 结构 | `CMakeLists.txt`（`option(STYIO_ENABLE_TREE_SITTER ...)` + `FetchContent_Declare(tree_sitter_runtime ...)`）；Styio grammar 位于 `grammar/tree-sitter-styio/` |
 | **GoogleTest** | **FetchContent**（仅测试） | `styio_test`、五层流水线等单元/集成测试 | `tests/CMakeLists.txt`（`FetchContent_Declare(googletest URL ...)`） |
 | **cxxopts** | **随仓单头文件（vendored）** | `styio` 命令行解析 | `src/include/cxxopts.hpp`（**勿随意修改**，见 `docs/specs/AGENT-SPEC.md`） |
 | **Clang / LLD / llvm 工具链** | 宿主页 / PATH | 当前工程 `CMakeLists.txt` 写死了编译器与链接器路径（**环境约束**，非常规 Fetch 包） | `CMakeLists.txt`：`CMAKE_CXX_COMPILER`、`CMAKE_LINKER`、`CMAKE_OBJDUMP` |
@@ -44,14 +45,22 @@
 - **许可：** BSD 3-Clause（GoogleTest 项目默认）。
 - **官方：** https://github.com/google/googletest
 
-### 2.4 cxxopts
+### 2.4 Tree-sitter runtime
+
+- **获取：** CMake `FetchContent`，固定 Git tag：`v0.26.8`
+- **范围：** `styio_ide_core` 与 `styio_lspd` 的 edit-time syntax backend；关闭方式为 `-DSTYIO_ENABLE_TREE_SITTER=OFF`
+- **用途：** 生成 `SyntaxSnapshot` 的 CST、错误节点、folding 结构；不替代 Nightly 语义 parser
+- **许可：** MIT License（以 upstream 仓库随附许可为准）
+- **官方：** https://github.com/tree-sitter/tree-sitter
+
+### 2.5 cxxopts
 
 - **形式：** 单头文件 `src/include/cxxopts.hpp`，随仓库分发（vendored）。
 - **版权信息：** 文件头注明 Copyright (c) 2014-2022 Jarryd Beck，**MIT License**。
 - **官方来源（参考）：** https://github.com/jarro2783/cxxopts  
   （当前以仓内副本为准；升级时请替换整文件并更新本段版本/commit 说明若需要。）
 
-### 2.5 FindICU.cmake（仅 ICU 开启时）
+### 2.6 FindICU.cmake（仅 ICU 开启时）
 
 - **形式：** 仓库根目录 `FindICU.cmake`，与 CMake 自带的 **FindICU** 模块同源风格（文件头为 OSI-approved BSD 3-Clause）。
 - **用途：** 在 `CMakeLists.txt` 中当 `STYIO_USE_ICU=ON` 时通过 `find_package(ICU ...)` 解析 ICU。

@@ -11,6 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # [CMake]
 set(DOWNLOAD_EXTRACT_TIMESTAMP true)
+include(FetchContent)
 
 # [Styio] Version
 project(styio VERSION 0.0.1)
@@ -18,8 +19,69 @@ project(styio VERSION 0.0.1)
 option(STYIO_USE_ICU "Enable ICU-backed Unicode handling for StyioUnicode and CLI option text" OFF)
 option(STYIO_BUILD_NANO "Build the profile-pruned styio-nano compiler target" ON)
 option(STYIO_NANO_OPTIMIZE_FOR_SIZE "Compile styio-nano with size-oriented optimization flags when supported" ON)
+option(STYIO_ENABLE_TREE_SITTER "Enable the generated Tree-sitter syntax backend for styio_ide_core" ON)
 set(STYIO_NANO_PROFILE "${CMAKE_SOURCE_DIR}/configs/styio-nano-default.toml" CACHE FILEPATH
     "Path to the styio-nano profile TOML used to configure the styio-nano target")
+
+if(STYIO_ENABLE_TREE_SITTER)
+  if(POLICY CMP0169)
+    cmake_policy(SET CMP0169 OLD)
+  endif()
+
+  if(NOT EXISTS "${CMAKE_SOURCE_DIR}/grammar/tree-sitter-styio/src/parser.c")
+    message(FATAL_ERROR
+      "Tree-sitter grammar sources are missing. Run `npx --yes tree-sitter-cli@0.26.8 generate` "
+      "in grammar/tree-sitter-styio or configure with -DSTYIO_ENABLE_TREE_SITTER=OFF.")
+  endif()
+
+  FetchContent_Declare(
+    tree_sitter_runtime
+    GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter.git
+    GIT_TAG v0.26.8
+    GIT_SHALLOW TRUE
+  )
+  FetchContent_GetProperties(tree_sitter_runtime)
+  if(NOT tree_sitter_runtime_POPULATED)
+    FetchContent_Populate(tree_sitter_runtime)
+  endif()
+
+  file(GLOB STYIO_TREE_SITTER_RUNTIME_SOURCES CONFIGURE_DEPENDS
+    "${tree_sitter_runtime_SOURCE_DIR}/lib/src/*.c"
+  )
+  list(REMOVE_ITEM STYIO_TREE_SITTER_RUNTIME_SOURCES
+    "${tree_sitter_runtime_SOURCE_DIR}/lib/src/lib.c"
+  )
+
+  add_library(styio_tree_sitter_runtime STATIC ${STYIO_TREE_SITTER_RUNTIME_SOURCES})
+  target_include_directories(styio_tree_sitter_runtime
+    PUBLIC "${tree_sitter_runtime_SOURCE_DIR}/lib/include"
+    PRIVATE "${tree_sitter_runtime_SOURCE_DIR}/lib/src"
+            "${tree_sitter_runtime_SOURCE_DIR}/lib/src/wasm"
+  )
+  target_compile_definitions(styio_tree_sitter_runtime PRIVATE
+    _POSIX_C_SOURCE=200112L
+    _DEFAULT_SOURCE
+    _BSD_SOURCE
+    _DARWIN_C_SOURCE
+  )
+  set_target_properties(styio_tree_sitter_runtime PROPERTIES
+    C_STANDARD 11
+    C_STANDARD_REQUIRED ON
+    POSITION_INDEPENDENT_CODE ON
+  )
+
+  set_source_files_properties(
+    "${CMAKE_SOURCE_DIR}/grammar/tree-sitter-styio/src/parser.c"
+    PROPERTIES LANGUAGE C
+  )
+  add_library(styio_tree_sitter_styio STATIC
+    "${CMAKE_SOURCE_DIR}/grammar/tree-sitter-styio/src/parser.c"
+  )
+  target_include_directories(styio_tree_sitter_styio
+    PUBLIC "${CMAKE_SOURCE_DIR}/grammar/tree-sitter-styio/src"
+  )
+  target_link_libraries(styio_tree_sitter_styio PUBLIC styio_tree_sitter_runtime)
+endif()
 
 # [Styio] Module Path
 # set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
@@ -61,6 +123,26 @@ set(STYIO_SHARED_CORE_SOURCES
     src/StyioToString/ToString.cpp
     src/StyioAnalyzer/TypeInfer.cpp
     src/StyioAnalyzer/ToStyioIR.cpp
+)
+
+set(STYIO_FRONTEND_SOURCES
+    ${STYIO_SHARED_CORE_SOURCES}
+)
+
+set(STYIO_IDE_SOURCES
+    src/StyioIDE/Common.cpp
+    src/StyioIDE/VFS.cpp
+    src/StyioIDE/CompilerBridge.cpp
+    src/StyioIDE/Syntax.cpp
+    src/StyioIDE/TreeSitterBackend.cpp
+    src/StyioIDE/HIR.cpp
+    src/StyioIDE/Project.cpp
+    src/StyioIDE/Index.cpp
+    src/StyioIDE/SemDB.cpp
+    src/StyioIDE/Service.cpp
+)
+
+set(STYIO_CODEGEN_SOURCES
     src/StyioCodeGen/CodeGen.cpp
     src/StyioCodeGen/GetTypeG.cpp
     src/StyioCodeGen/CodeGenG.cpp
@@ -75,16 +157,38 @@ set(STYIO_FULL_ONLY_SOURCES
 )
 
 set(STYIO_CORE_SOURCES
-    ${STYIO_SHARED_CORE_SOURCES}
+    ${STYIO_CODEGEN_SOURCES}
     ${STYIO_FULL_ONLY_SOURCES}
 )
 
+add_library(styio_frontend_core STATIC ${STYIO_FRONTEND_SOURCES})
+target_include_directories(styio_frontend_core PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_include_directories(styio_frontend_core SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
+target_compile_definitions(styio_frontend_core PRIVATE ${LLVM_DEFINITIONS_LIST})
+target_link_libraries(styio_frontend_core PUBLIC ${LLVM_LIBS})
+
 add_library(styio_core STATIC ${STYIO_CORE_SOURCES})
 target_include_directories(styio_core PUBLIC "${CMAKE_SOURCE_DIR}/src")
-# Do not propagate LLVM headers to dependents (breaks GoogleTest / libc++abi mix).
 target_include_directories(styio_core SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(styio_core PRIVATE ${LLVM_DEFINITIONS_LIST})
-target_link_libraries(styio_core PUBLIC ${LLVM_LIBS})
+target_link_libraries(styio_core PUBLIC styio_frontend_core ${LLVM_LIBS})
+
+add_library(styio_ide_core STATIC ${STYIO_IDE_SOURCES})
+target_include_directories(styio_ide_core PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_include_directories(styio_ide_core SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
+target_compile_definitions(styio_ide_core PRIVATE ${LLVM_DEFINITIONS_LIST})
+target_link_libraries(styio_ide_core PUBLIC styio_frontend_core ${LLVM_LIBS})
+if(STYIO_ENABLE_TREE_SITTER)
+  target_include_directories(styio_ide_core PRIVATE
+    "${tree_sitter_runtime_SOURCE_DIR}/lib/include"
+    "${CMAKE_SOURCE_DIR}/grammar/tree-sitter-styio/src"
+  )
+  target_compile_definitions(styio_ide_core PRIVATE STYIO_HAS_TREE_SITTER)
+  target_link_libraries(styio_ide_core PUBLIC
+    styio_tree_sitter_runtime
+    styio_tree_sitter_styio
+  )
+endif()
 
 add_executable(styio src/main.cpp)
 target_include_directories(styio SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
@@ -96,6 +200,14 @@ target_compile_definitions(styio PRIVATE
   "STYIO_LLVM_DIR=\"${LLVM_DIR}\""
 )
 target_link_libraries(styio PRIVATE styio_core)
+
+add_executable(styio_lspd
+  src/StyioLSP/Server.cpp
+  src/StyioLSP/main.cpp
+)
+target_include_directories(styio_lspd SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
+target_compile_definitions(styio_lspd PRIVATE ${LLVM_DEFINITIONS_LIST})
+target_link_libraries(styio_lspd PRIVATE styio_ide_core ${LLVM_LIBS})
 
 if(STYIO_BUILD_NANO)
   find_package(Python3 COMPONENTS Interpreter REQUIRED)
@@ -118,7 +230,7 @@ if(STYIO_BUILD_NANO)
   endif()
   include("${STYIO_NANO_PROFILE_CMAKE}")
 
-  set(STYIO_NANO_CORE_SOURCES ${STYIO_SHARED_CORE_SOURCES})
+  set(STYIO_NANO_CORE_SOURCES ${STYIO_FRONTEND_SOURCES} ${STYIO_CODEGEN_SOURCES})
   if(STYIO_NANO_INCLUDE_PIPELINE_CHECK)
     list(APPEND STYIO_NANO_CORE_SOURCES ${STYIO_FULL_ONLY_SOURCES})
   endif()
@@ -162,8 +274,12 @@ if(STYIO_USE_ICU)
   # ICU components = data, i18n, io, le, lx, test, tu and uc.
   message(STATUS "[ICU] Enabled via STYIO_USE_ICU=ON; using FindICU.cmake in: ${PROJECT_SOURCE_DIR}")
   find_package(ICU COMPONENTS uc i18n REQUIRED)
+  target_link_libraries(styio_frontend_core PUBLIC ICU::uc ICU::i18n)
+  target_compile_definitions(styio_frontend_core PRIVATE STYIO_USE_ICU)
   target_link_libraries(styio_core PUBLIC ICU::uc ICU::i18n)
   target_compile_definitions(styio_core PRIVATE STYIO_USE_ICU)
+  target_link_libraries(styio_ide_core PUBLIC ICU::uc ICU::i18n)
+  target_compile_definitions(styio_ide_core PRIVATE STYIO_USE_ICU)
   target_compile_definitions(styio PRIVATE CXXOPTS_USE_UNICODE)
   if(STYIO_BUILD_NANO)
     target_link_libraries(styio_nano_core PUBLIC ICU::uc ICU::i18n)
@@ -177,3 +293,4 @@ endif()
 # [CTest: Sub-Directory]
 enable_testing()
 add_subdirectory(tests)
+add_subdirectory(benchmark)
