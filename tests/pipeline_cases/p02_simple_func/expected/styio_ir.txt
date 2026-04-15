@@ -1,0 +1,4 @@
+styio.ir.main {
+|- styio.ir.func {  }
+|- styio.ir.print {  }
+}

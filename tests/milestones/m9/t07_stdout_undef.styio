@@ -1,0 +1,4 @@
+// M9 / T9.07: Undefined (@) to stdout
+
+x = @
+x -> @stdout

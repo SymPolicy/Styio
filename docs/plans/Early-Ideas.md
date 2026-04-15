@@ -1,0 +1,86 @@
+# Early-Ideas — 早期构思速记
+
+**Purpose:** 语言成形前的 **碎片想法与符号实验**，**非**规范；语义与文法以 [`../design/Styio-Language-Design.md`](../design/Styio-Language-Design.md)、[`../design/Styio-EBNF.md`](../design/Styio-EBNF.md) 为准。维护准则见 [`../specs/DOCUMENTATION-POLICY.md`](../specs/DOCUMENTATION-POLICY.md) §0。
+
+**Last updated:** 2026-04-08
+
+**Status:** Historical notes
+
+---
+
+### 1. Cases with Conditionals
+```
+case | A | B | C |:
+  // Support Conditionals in Cases
+```
+
+### 2. Check Non Null When Initialization
+(Make Sure "A" is Initialized with a Value)
+```
+  a: T = <~>
+```
+
+### 3. 2 ways of finding unique functions:
+```
+  1. inferenced by back-end
+  2. labeled by user
+```
+
+### 4. Some New Symbols
+```
+<!: "Error">
+<?: "Nullable">
+<~: "Non-Null">
+```
+
+### 5. Iterators
+Iterator Sequence
+```
+  list >> # step 1 > # step 2 
+
+  // step 1 context includes (i)
+  // step 2 context includes (i, ret of step 1)
+  // and so on ...
+```
+
+Iterator After Iterator
+```
+  list 
+    >> (i: tuple) 
+    ?? (i.size() == 2)
+    >> (j: element) 
+    => >_(j)
+```
+
+Commen Iterator
+```
+  list >> (i) => >_(i)
+```
+
+### 6. Func Name with Spaces
+This works:
+```
+# do something () => {}
+
+list >> # do something /* equals do_something */
+```
+And this works:
+```
+# do_something () => {}
+# do_something_else () => {}
+
+list >> # do something /* equals do_something */
+  > # do something else /* equals do_something_else */
+```
+And this works:
+```
+# do something () => {}
+
+do_something()
+```
+But this doesn't work:
+```
+# do something () => {}
+
+object.do something()
+```

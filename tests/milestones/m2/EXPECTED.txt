@@ -1,0 +1,10 @@
+t01_simple_func: 7
+t02_typed_return: 6
+t03_block_body: 10
+t04_func_chain: 25
+t05_float_func: 6.280000
+t06_multi_stmt: 30
+t07_no_params: 42
+t09_bind_call: 15
+t10_nested: 8
+t11_hash_assign_and_arrow: 12|42|1

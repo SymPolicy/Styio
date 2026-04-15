@@ -1,0 +1,48 @@
+@	@
+<ID>	file
+{	{
+<STRING>	"/tmp/styio_pipeline_stream_input.txt"
+}	}
+ 	 
+>>	>>
+ 	 
+#	#
+(	(
+<ID>	x
+)	)
+ 	 
+=>	=>
+ 	 
+{	{
+<LF>	\n
+ 	 
+ 	 
+ 	 
+ 	 
+<ID>	result
+ 	 
+=	=
+ 	 
+<ID>	x
+ 	 
+*	*
+ 	 
+<INT>	2
+<LF>	\n
+ 	 
+ 	 
+ 	 
+ 	 
+<ID>	result
+ 	 
+<<	<<
+ 	 
+@	@
+<ID>	file
+{	{
+<STRING>	"/tmp/styio_pipeline_stream_output.txt"
+}	}
+<LF>	\n
+}	}
+<LF>	\n
+<EOF>	

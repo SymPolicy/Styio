@@ -1,0 +1,5 @@
+# double_it := (x: i32) => x * 2
+f <- @file{"/tmp/styio_pipeline_numbers.txt"}
+f >> #(line) => {
+    >_(double_it(line))
+}

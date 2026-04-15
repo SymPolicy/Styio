@@ -1,0 +1,6 @@
+[nano.publish]
+package_dir = "dist/styio-nano-local"
+registry = "dist/styio-nano-repo"
+package = "edge/default"
+version = "0.0.1"
+channel = "nano"
