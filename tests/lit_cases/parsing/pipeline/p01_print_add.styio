@@ -1,0 +1,13 @@
+// RUN: %{styio} --styio-ast --file %s | FileCheck %s
+>_(3+7)
+/*
+CHECK-LABEL: AST -Type-Checking
+CHECK-NEXT: styio.ast.main {
+CHECK-NEXT: |- styio.ast.print {
+CHECK-NEXT:   |- styio.ast.binop: int {
+CHECK-NEXT:     |- LHS: { 3 : int }
+CHECK-NEXT:     |- OP : <Add>
+CHECK-NEXT:     |- RHS: { 7 : int }}}}
+CHECK-EMPTY:
+CHECK-NEXT: 10
+*/

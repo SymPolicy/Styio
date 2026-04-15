@@ -1,0 +1,4 @@
+styio.ir.main {
+|- styio.ir.handle_acquire { f, auto=0, path=styio.ir.string { /tmp/styio_pipeline_in.txt } }
+|- styio.ir.file_line_iter { handle=f, line=line, body=styio.ir.block {  } }
+}

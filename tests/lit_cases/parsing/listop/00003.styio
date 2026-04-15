@@ -1,0 +1,9 @@
+// RUN: %{styio} --styio-ast --file %s | FileCheck %s
+
+dict["k"]
+
+/*
+  CHECK:      Access by Name {
+  CHECK-NEXT: || id { dict }
+  CHECK-NEXT: || Name : String { "k" }}
+*/

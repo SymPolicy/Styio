@@ -1,0 +1,5 @@
+// RUN: %{styio} --llvm-ir --file %s | FileCheck %s
+
+@("a.json") -> <- @("b.json")
+
+@("a.json").switch(@("b.json"))

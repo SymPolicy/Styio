@@ -1,0 +1,4 @@
+// M9 / T9.06: Concatenated formatted output to stdout
+
+x = 10
+"x=" + x -> @stdout

@@ -1,0 +1,14 @@
+[0..10] >> n => {
+  path = $"data_{n}.csv"
+
+  @(path) >> line => {
+    >_(line['id'])
+  }
+}
+
+path = "data.csv"
+column = 'id'
+
+@(path)[column] 
+|> unique
+|> count

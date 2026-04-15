@@ -1,0 +1,48 @@
+@	@
+<ID>	file
+{	{
+<STRING>	"/tmp/styio_zip_a.txt"
+}	}
+ 	 
+>>	>>
+ 	 
+#	#
+(	(
+<ID>	a
+)	)
+ 	 
+&	&
+ 	 
+@	@
+<ID>	file
+{	{
+<STRING>	"/tmp/styio_zip_b.txt"
+}	}
+ 	 
+>>	>>
+ 	 
+#	#
+(	(
+<ID>	b
+)	)
+ 	 
+=>	=>
+ 	 
+{	{
+<LF>	\n
+ 	 
+ 	 
+ 	 
+ 	 
+>_	>_
+(	(
+<ID>	a
+ 	 
+-	-
+ 	 
+<ID>	b
+)	)
+<LF>	\n
+}	}
+<LF>	\n
+<EOF>	

@@ -1,0 +1,4 @@
+{
+    f <- @file{"tests/m5/data/hello.txt"}
+    f >> #(line) => { >_(line) }
+}

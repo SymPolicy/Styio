@@ -1,0 +1,16 @@
+{
+  "grammars": [
+    {
+      "name": "styio",
+      "camelcase": "Styio",
+      "scope": "source.styio",
+      "path": ".",
+      "file-types": ["styio"]
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "Tree-sitter grammar scaffold for Styio edit-time parsing"
+  }
+}

@@ -1,0 +1,4 @@
+// M10 / T10.02: Instant pull from stdin (current scalar contract)
+
+value = (<< @stdin)
+value -> @stdout
