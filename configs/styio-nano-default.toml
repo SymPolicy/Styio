@@ -1,0 +1,17 @@
+[profile]
+name = "edge-default"
+
+[compiler]
+machine_info = true
+debug_cli = false
+ast_dump_cli = false
+styio_ir_dump_cli = false
+llvm_ir_dump_cli = false
+legacy_parser = false
+parser_shadow_compare = false
+
+[build]
+include_pipeline_check = false
+
+[runtime]
+dict_backends = ["ordered-hash"]

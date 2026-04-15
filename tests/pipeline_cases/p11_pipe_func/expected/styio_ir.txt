@@ -1,0 +1,5 @@
+styio.ir.main {
+|- styio.ir.func {  }
+|- styio.ir.handle_acquire { f, auto=0, path=styio.ir.string { /tmp/styio_pipeline_numbers.txt } }
+|- styio.ir.file_line_iter { handle=f, line=line, body=styio.ir.block {  } }
+}

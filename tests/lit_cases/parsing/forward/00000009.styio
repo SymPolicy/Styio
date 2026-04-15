@@ -1,0 +1,5 @@
+// RUN: %{styio} --styio-ast --file %s | FileCheck %s
+
+# f(x) >> (n) ?= 2 => >_(n)
+
+f([1, 2, 3])

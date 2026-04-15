@@ -1,0 +1,14 @@
+styio.ast.main {
+|- styio.ast.bind.flex {
+  |- var : styio.ast.var { x : int }
+  |- val = { 1 : int }}
+|- styio.ast.bind.flex {
+  |- var : styio.ast.var { result : undefined }
+  |- val = styio.ast.binop: undefined {
+    |- LHS: x
+    |- OP : <Add>
+    |- RHS: styio.ast.instant.pull { styio.ast.resource.file  {
+        |- auto_detect: false
+        |- path: styio.ast.string { "/tmp/styio_pull_value.txt" }} }}}
+|- styio.ast.print {
+  |- result}}

@@ -1,0 +1,6 @@
+styio.ast.main {
+|- styio.ast.resource.write  {
+  |- data: styio.ast.string { "Hello from Styio" }
+  |- resource: styio.ast.resource.file  {
+    |- auto_detect: false
+    |- path: styio.ast.string { "/tmp/styio_pipeline_out.txt" }}}}
