@@ -6,17 +6,23 @@ import os
 import re
 import sys
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Iterable, List, Optional
 
 ROOT = Path(__file__).resolve().parents[1]
-TODAY = "2026-04-08"
+TODAY = date.today().isoformat()
 COLLECTION_DIRS = [
     Path("docs"),
+    Path("docs/rollups"),
+    Path("docs/archive"),
+    Path("docs/archive/history"),
+    Path("docs/archive/review"),
     Path("docs/design"),
     Path("docs/specs"),
     Path("docs/review"),
     Path("docs/plans"),
+    Path("docs/for-ide"),
     Path("docs/for_spio"),
     Path("docs/assets"),
     Path("docs/assets/workflow"),
@@ -28,10 +34,15 @@ COLLECTION_DIRS = [
 
 INDEX_META = {
     "docs": ("Docs Index", "Provide the generated inventory for `docs/`; directory boundaries and maintenance rules live in [README.md](./README.md)."),
+    "docs/rollups": ("Rollups Index", "Provide the generated inventory for `docs/rollups/`; compressed active summaries and default loading order live in [README.md](./README.md)."),
+    "docs/archive": ("Archive Index", "Provide the generated inventory for `docs/archive/`; provenance rules and archive lifecycle boundaries live in [README.md](./README.md)."),
+    "docs/archive/history": ("Archive History Index", "Provide the generated inventory for `docs/archive/history/`; archived raw history snapshots live in [README.md](./README.md)."),
+    "docs/archive/review": ("Archive Review Index", "Provide the generated inventory for `docs/archive/review/`; archived dated review bundles live in [README.md](./README.md)."),
     "docs/design": ("Design Index", "Provide the generated inventory for `docs/design/`; document boundaries and naming rules live in [README.md](./README.md)."),
     "docs/specs": ("Specs Index", "Provide the generated inventory for `docs/specs/`; document boundaries and naming rules live in [README.md](./README.md)."),
     "docs/review": ("Review Index", "Provide the generated inventory for `docs/review/`; document boundaries and naming rules live in [README.md](./README.md)."),
     "docs/plans": ("Plans Index", "Provide the generated inventory for `docs/plans/`; document boundaries and naming rules live in [README.md](./README.md)."),
+    "docs/for-ide": ("For IDE Index", "Provide the generated inventory for `docs/for-ide/`; IDE embedding, LSP usage, and edit-time parser guidance live in [README.md](./README.md)."),
     "docs/for_spio": ("For Spio Index", "Provide the generated inventory for `docs/for_spio/`; handoff boundaries and coordination rules for `styio-spio` live in [README.md](./README.md)."),
     "docs/assets": ("Assets Index", "Provide the generated inventory for `docs/assets/`; asset boundaries and reuse rules live in [README.md](./README.md)."),
     "docs/assets/workflow": ("Workflow Assets Index", "Provide the generated inventory for `docs/assets/workflow/`; workflow boundaries and reuse rules live in [README.md](./README.md)."),
@@ -42,8 +53,8 @@ INDEX_META = {
 }
 
 TITLE_RE = re.compile(r"^#\s+(.+?)\s*$", re.M)
-PURPOSE_RE = re.compile(r"^\*\*Purpose:\*\*\s+(.+?)\s*$", re.M)
-LAST_UPDATED_RE = re.compile(r"^\*\*Last updated:\*\*\s+([0-9]{4}-[0-9]{2}-[0-9]{2})\s*$", re.M)
+PURPOSE_RE = re.compile(r"^(?:\*\*Purpose:\*\*|\[EN\] Purpose:)\s+(.+?)\s*$", re.M)
+LAST_UPDATED_RE = re.compile(r"^(?:\*\*Last updated:\*\*|\[EN\] Last updated:)\s+([0-9]{4}-[0-9]{2}-[0-9]{2})\s*$", re.M)
 LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 
 
@@ -117,7 +128,7 @@ def choose_dir_summary_source(path: Path) -> Optional[Path]:
 
 def child_sort_key(base: Path, path: Path):
     name = path.name
-    if base.as_posix() in {"docs/history", "docs/milestones"}:
+    if base.as_posix() in {"docs/history", "docs/milestones", "docs/archive/history", "docs/archive/review"}:
         return (0 if path.is_dir() else 1, -int(re.sub(r"[^0-9]", "", name) or 0), name)
     if base.as_posix() == "docs/adr":
         return (0 if path.is_dir() else 1, name)

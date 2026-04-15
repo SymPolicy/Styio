@@ -3,7 +3,7 @@
 This directory stores minimized failing soak cases produced by:
 
 ```bash
-./scripts/soak-minimize.sh ...
+./benchmark/soak-minimize.sh ...
 ```
 
 Each case folder contains:

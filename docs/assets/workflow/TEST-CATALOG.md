@@ -1,8 +1,8 @@
 # Styio 测试目录（按功能域）
 
-**Purpose:** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`../../specs/DOCUMENTATION-POLICY.md`](../../specs/DOCUMENTATION-POLICY.md)。
+**Purpose:** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`../../specs/DOCUMENTATION-POLICY.md`](../../specs/DOCUMENTATION-POLICY.md)，项目级优先级顺序见 [`../../specs/PRINCIPLES-AND-OBJECTIVES.md`](../../specs/PRINCIPLES-AND-OBJECTIVES.md)。
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-04-15
 
 **批量自动化（所有里程碑集成用例）：**
 
@@ -183,17 +183,17 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_test` | `tests/styio_test.cpp`：`StyioFiveLayerPipeline`、`StyioParserEngine`、`StyioDiagnostics`（five-layer pipeline 的 L2 parser 已固定走 nightly，当前 cases 为 `p01_print_add`、`p02_simple_func`、`p03_write_file`、`p04_read_file`、`p05_snapshot_accum`、`p06_zip_files`、`p07_instant_pull`、`p08_redirect_file`、`p09_full_pipeline`、`p10_auto_detect_read`、`p11_pipe_func`、`p12_stdin_echo`、`p13_stdin_transform`、`p14_stdin_pull`、`p15_stdin_mixed_output`；其中 `p03_write_file` 额外断言 `/tmp/styio_pipeline_out.txt` 的副作用文件内容，`p04_read_file` 会在运行前准备 `/tmp/styio_pipeline_in.txt` 以覆盖文件读取 + iterator body，`p05_snapshot_accum` 会在运行前准备 `/tmp/styio_pipeline_factor.txt` 以覆盖 snapshot decl + state ref + iterator block + compound accumulation，`p06_zip_files` 会在运行前准备 `/tmp/styio_zip_a.txt` 和 `/tmp/styio_zip_b.txt` 以覆盖 file iterator + stream zip + arithmetic print，`p07_instant_pull` 会在运行前准备 `/tmp/styio_pull_value.txt` 以覆盖表达式级 `instant pull`，`p08_redirect_file` 则会断言 `/tmp/styio_pipeline_redirect.txt` 的 redirect 副作用内容，`p09_full_pipeline` 则会同时准备 `/tmp/styio_pipeline_stream_input.txt` 与断言 `/tmp/styio_pipeline_stream_output.txt`，覆盖 file iterator + bind + resource write 的组合链路，`p10_auto_detect_read` 会在运行前准备 `/tmp/styio_pipeline_auto_input.txt`，覆盖 `@{...}` auto-detect 读取 + iterator body，`p11_pipe_func` 会在运行前准备 `/tmp/styio_pipeline_numbers.txt`，覆盖函数定义 + file iterator + iterator body 内 call，`p12_stdin_echo` 使用 case 根目录 `stdin.txt` fixture，覆盖 `@stdin` line-iterator + `@stdout` write shorthand（`line >> @stdout`），`p13_stdin_transform` 也使用 case 根目录 `stdin.txt` fixture，覆盖 `@stdin` line-iterator + block 内算术 bind + `@stdout` write shorthand，`p14_stdin_pull` 使用 case 根目录 `stdin.txt` fixture，覆盖表达式级 `(<< @stdin)` + print，并冻结当前 `styio_cstr_to_i64()` 的标量 lowering 契约，`p15_stdin_mixed_output` 使用 case 根目录 `stdin.txt` fixture 与 `expected/stderr.txt`，覆盖 `@stdin` line-iterator + stdout/stderr 双通道 write shorthand；legacy/nightly 在 M1 算术、typed bind、compound assign、M2 simple func、M3 `t02_match_expr`、M5 `t01_read_file` / `t02_write_file` / `t05_auto_detect` / `t07_redirect` / `t08_pipe_func`、M7 `t01_zip_collections` / `t02_zip_unequal` / `t03_snapshot` / `t04_instant_pull` / `t05_zip_files` / `t08_arbitrage` / `t10_full_pipeline` 与未标注参数函数样例上一致；hash 无箭头表达式体/无赋值箭头体/`?=` match-cases 样例上一致；`# ... >> ...` hash iterator 定义样例在双引擎下可执行且无崩溃（退出码 `0`，输出一致）；`# ... >> ... ?= ... => ...` 组合链路稳定返回 `ParseError`（退出码 `3`）且不再出现 `Styio.NotImplemented` 前缀；`?= {}` 空 cases 当前语义稳定拒绝并返回 `ParseError`（exit `3`）；`match` 非整型 scrutinee（流式 `line ?={...}`）稳定返回 `TypeError`（退出码 `4`）且不再 abort；无默认分支 `?=`（`x = 1; x ?= { 1 => >_(1) }`）不再崩溃并保持稳定输出；malformed 语句前缀（fuzz 样本）稳定返回 `ParseError`（不再 signal 退出）；`x : i64 := 1` 后 `x += 2` 路径稳定返回 `TypeError`（退出码 `4`，不再误报 `RuntimeError`）；`a = [1,2,3]` 参与 zip 且来源组合超出支持边界时稳定返回 `TypeError`（退出码 `4`，不再误报 `RuntimeError`）；`@[3](ma = p[avg, n])` 非字面量窗口参数稳定返回 `TypeError` 且不再出现 `Styio.NotImplemented`；`# pulse = (x) => @[sum = 0](out = $sum + x)` 在 pulse 体中调用时稳定输出 `1/3/6`（参数替换生效）；`# pulse = (x) => @[sum = 0](out = x ?= {...})` 在 pulse 体中调用时稳定输出 `10/12/15`（`MatchCases/Cases` 克隆可用）；`# pulse = (x) => @[sum = 0](out = [...])` 在 pulse 体中调用时稳定输出 `0/0`（`InfiniteAST` 克隆可用）；默认 parser 引擎为 `nightly`（`DefaultEngineIsNightlyInShadowArtifact` 冻结契约），同时保留 `--parser-engine=new` 作为兼容别名，且可通过 `--parser-engine=legacy` 回退；非法引擎拒绝；`--parser-shadow-compare` 可通过 M1 核心/全量、M2 core/full、M5 资源/iterator 样例，以及 M7 zip-collections / zip-unequal / snapshot / instant-pull / at-resource 样例；混合程序下 shadow artifact `detail` 会记录 `primary_route=nightly_subset_statements=...,legacy_fallback_statements=...,nightly_internal_legacy_bridges=...`，并分别通过 mixed-route、match-cases、资源 postfix、name-led iterator、`@[...]` snapshot decl、`@file... >> ...` 资源流、`[ ... ] >> ...` list-start iterator 与“绑定后换行起 list”样例冻结零回退或零 internal bridge；`--parser-shadow-artifact-dir` 可产出 JSONL 记录并受参数约束回归覆盖；dot-chain 边界在 `DotChainStillRejectedConsistentlyAcrossEngines` 冻结；runtime helper 失败在 `--error-format=jsonl` 下稳定输出 `RuntimeError/STYIO_RUNTIME`，并覆盖 `STYIO_RUNTIME_FILE_OPEN_READ|STYIO_RUNTIME_FILE_OPEN_WRITE` 子码；CI 通过 `scripts/parser-shadow-suite-gate.sh` 对 M1/M2/M5/M7 目录执行 gate 并产出 `summary.json`） | `ctest --test-dir build -L styio_pipeline` 或 `ctest --test-dir build -R '^Styio(ParserEngine|Diagnostics)\\.'` |
+| `styio_test` | `tests/styio_test.cpp`：覆盖 `StyioFiveLayerPipeline`、`StyioParserEngine`、`StyioDiagnostics`。five-layer pipeline 当前冻结 `p01` 到 `p15`；其中 `p05_snapshot_accum` 已改为仓库内 fixture `tests/pipeline_cases/p05_snapshot_accum/factor.txt`，不再依赖 `/tmp/styio_pipeline_factor.txt`。parser 侧继续冻结 nightly/legacy 一致性、shadow artifact detail、资源 postfix、iterator、snapshot decl、match-cases、dot-chain 边界，以及 state-inline 的 `1/3/6`、`10/12/15`、`0/0` 三条长链语义。权威细节见 [`FIVE-LAYER-PIPELINE.md`](./FIVE-LAYER-PIPELINE.md) 与 [`benchmark/parser-shadow-suite-gate.sh`](../../../benchmark/parser-shadow-suite-gate.sh)。 | `ctest --test-dir build -L styio_pipeline` 或 `ctest --test-dir build -R '^Styio(ParserEngine|Diagnostics)\\.'` |
 
 **五层流水线 goldens**（Lexer / AST / StyioIR / LLVM / 子进程 stdout）：权威说明见 [`FIVE-LAYER-PIPELINE.md`](./FIVE-LAYER-PIPELINE.md)；用例根目录 `tests/pipeline_cases/`。
 
-**M1/M2 dual-zero gates：** `ctest --test-dir build -R '^parser_shadow_gate_m(1|2)_zero_fallback_and_internal_bridges$'`。两条测试都执行 `scripts/parser-shadow-suite-gate.sh --require-zero-fallback --require-zero-internal-bridges`，要求对应目录全套 shadow artifact 为 `match`，且同时满足 `legacy_fallback_statements=0` 与 `nightly_internal_legacy_bridges=0`。
+**M1/M2 dual-zero gates：** `ctest --test-dir build -R '^parser_shadow_gate_m(1|2)_zero_fallback_and_internal_bridges$'`。两条测试都执行 `benchmark/parser-shadow-suite-gate.sh --require-zero-fallback --require-zero-internal-bridges`，要求对应目录全套 shadow artifact 为 `match`，且同时满足 `legacy_fallback_statements=0` 与 `nightly_internal_legacy_bridges=0`。
 
-**M5 dual-zero gate with expected nonzero manifest：** `ctest --test-dir build -R '^parser_shadow_gate_m5_dual_zero_expected_nonzero$'`。该测试执行 `scripts/parser-shadow-suite-gate.sh --require-zero-fallback --require-zero-internal-bridges`，并读取 [`tests/milestones/m5/shadow-expected-nonzero.txt`](../../../tests/milestones/m5/shadow-expected-nonzero.txt)。manifest 中样例允许非零退出，但仍必须产出 `status=match` 的 shadow artifact；当前登记 `t06_fail_fast`。
+**M5 dual-zero gate with expected nonzero manifest：** `ctest --test-dir build -R '^parser_shadow_gate_m5_dual_zero_expected_nonzero$'`。该测试执行 `benchmark/parser-shadow-suite-gate.sh --require-zero-fallback --require-zero-internal-bridges`，并读取 [`tests/milestones/m5/shadow-expected-nonzero.txt`](../../../tests/milestones/m5/shadow-expected-nonzero.txt)。manifest 中样例允许非零退出，但仍必须产出 `status=match` 的 shadow artifact；当前登记 `t06_fail_fast`。
 
-**M7 zero-fallback gate：** `ctest --test-dir build -R '^parser_shadow_gate_m7_zero_fallback$'`。该测试执行 `scripts/parser-shadow-suite-gate.sh --require-zero-fallback`，要求 `tests/milestones/m7` 全套 shadow artifact 为 `match`，且 `legacy_fallback_statements=0`。
+**M7 zero-fallback gate：** `ctest --test-dir build -R '^parser_shadow_gate_m7_zero_fallback$'`。该测试执行 `benchmark/parser-shadow-suite-gate.sh --require-zero-fallback`，要求 `tests/milestones/m7` 全套 shadow artifact 为 `match`，且 `legacy_fallback_statements=0`。
 
-**M7 zero-internal-bridges gate：** `ctest --test-dir build -R '^parser_shadow_gate_m7_zero_internal_bridges$'`。该测试执行 `scripts/parser-shadow-suite-gate.sh --require-zero-fallback --require-zero-internal-bridges`，要求 `tests/milestones/m7` 全套 shadow artifact 为 `match`，且 `nightly_internal_legacy_bridges=0`。
+**M7 zero-internal-bridges gate：** `ctest --test-dir build -R '^parser_shadow_gate_m7_zero_internal_bridges$'`。该测试执行 `benchmark/parser-shadow-suite-gate.sh --require-zero-fallback --require-zero-internal-bridges`，要求 `tests/milestones/m7` 全套 shadow artifact 为 `match`，且 `nightly_internal_legacy_bridges=0`。
 
 **Parser legacy entry audit：** `ctest --test-dir build -R '^parser_legacy_entry_audit$'`。该测试执行 [`scripts/parser-legacy-entry-audit.sh`](../../../scripts/parser-legacy-entry-audit.sh)，要求 `src/` 中除 parser core 外不再直接调用 `parse_main_block_legacy(...)`，并冻结 `src/StyioTesting/` 为 nightly-first，防止验证/生产路径回连 legacy。
 
@@ -222,14 +222,14 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_soak_test` | `tests/soak/styio_soak_test.cpp`：长输入词法循环、文件句柄生命周期循环、文件/拼接 RSS 增长阈值守卫、非法句柄高频诊断循环、M6 流式程序重复执行、单参数 state helper（直返 `StateDecl`）内联链路长跑回归（输出 `1/3/6`）、state helper `MatchCases/Cases` 内联链路长跑回归（输出 `10/12/15`）、state helper `InfiniteAST` 内联链路长跑回归（输出 `0/0`） | `ctest --test-dir build -L soak_smoke` |
+| `styio_soak_test` | `benchmark/styio_soak_test.cpp`：包含常驻 smoke/soak 回归、compiler stage benchmark matrix、compiler micro benchmark matrix 与 full-stack workload matrix。权威 workload、环境变量与运行路线统一见 [`benchmark/README.md`](../../../benchmark/README.md)。 | `ctest --test-dir build -L soak_smoke` |
 
 **构建：** `cmake --build build --target styio_soak_test`。  
 **默认档位：** smoke（PR/CI 执行 `ctest --test-dir build -L soak_smoke`）。  
 **夜间深跑：** `ctest --test-dir build -L soak_deep`（工作流见 `.github/workflows/nightly-soak.yml`，日志归档）。  
-**放大量参数：** 由 `soak_deep` 用例注入 `STYIO_SOAK_*` 环境变量，详见 [`tests/soak/README.md`](../../../tests/soak/README.md)。  
+**放大量参数：** 由 `soak_deep` 用例注入 `STYIO_SOAK_*` 环境变量，详见 [`benchmark/README.md`](../../../benchmark/README.md)。  
 **恢复一键检查：** `./scripts/checkpoint-health.sh --no-asan`（含 state-inline soak deep + `styio_pipeline` + `security` + `parser_shadow_gate_m1_zero_fallback_and_internal_bridges` + `parser_shadow_gate_m2_zero_fallback_and_internal_bridges` + `parser_shadow_gate_m5_dual_zero_expected_nonzero` + `parser_shadow_gate_m7_zero_fallback` + `parser_shadow_gate_m7_zero_internal_bridges`；若检测到 `build-fuzz`，还会自动跑 `fuzz_smoke`）。默认优先尝试 `build/`，若该目录 cache 失效会自动回退到 `build-codex/`。需要显式指定时可用 `--fuzz-build-dir build-fuzz`；不想跑 fuzz 可加 `--no-fuzz`。
-**失败最小化：** `./scripts/soak-minimize.sh ...` 生成 `tests/soak/regressions/<timestamp>-<case>/`，并按 [`tests/soak/REGRESSION-TEMPLATE.md`](../../../tests/soak/REGRESSION-TEMPLATE.md) 记录回归。
+**失败最小化：** `./benchmark/soak-minimize.sh ...` 生成 `benchmark/regressions/<timestamp>-<case>/`，并按 [`benchmark/REGRESSION-TEMPLATE.md`](../../../benchmark/REGRESSION-TEMPLATE.md) 记录回归。
 
 ---
 
@@ -237,7 +237,7 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_security_test` | `tests/security/styio_security_test.cpp`：lexer/Unicode/AST ownership/runtime（含 `StyioSafetyRuntime.*` 内存与 FFI 生命周期回归、`StyioSafetyHandleTable.*` 句柄表语义回归；覆盖“非法非零句柄可诊断、close 幂等、kind mismatch/stub 清理、runtime last-error 清理契约、path-null/open-read/open-write 子码稳定、first-error-wins 子码不漂移”），含 `StyioSecurityParserContext.*`（空 token 向量 EOF 降级、`move_forward` 越界钳制、`peak_operator` EOF 安全返回）与 `StyioSecurityParserPath.*`（单字符路径不触发 `out_of_range`）边界回归、`StyioSecurityAstOwnership` 中 `PrintAST`/`StateRefAST`/`HistoryProbeAST`/`SeriesIntrinsicAST`/`StateDeclAST`/`CasesAST`/`MatchCasesAST`/`CondFlowAST`/`FunctionAST`/`SimpleFuncAST`/`InfiniteLoopAST`/`StreamZipAST`/`IteratorAST`/`BlockAST`/`MainBlockAST`/`CheckIsinAST`/`InfiniteAST`/`AnonyFuncAST`/`SnapshotDeclAST`/`InstantPullAST`/`IterSeqAST`/`ExtractorAST`/`BackwardAST`/`CODPAST`/`ForwardAST` 析构所有权回归、ParserLookahead trivia 回归、nightly parser expr 子集兼容回归（实现位于 `NewParserExpr.*`，含 compare/logic/dot-call token gate、表达式 postfix `?={...}`、资源 postfix `>> @file{...}` / `-> @file{...}`、instant pull `(<< @file{...})`、`[ ... ]` list-start / infinite collection atom 与换行边界）、nightly parser stmt（print/flex bind/final bind/compound assign/compare/logic/simple call/dot-call/function-def-entry/hash-simple-func，含 `[|n|]`、tuple 返回类型、`=> >_(...)` 语句体、`= expr` 无箭头函数体、无赋值 `=>` 函数体、`?=` match-cases、standalone block/control 子集 `{}`/`<<`/`^`/`>>`/`...`/`|>`、`@[...]` snapshot/state-decl 起始、`@file{...}` / `@{...}` 资源流起始、name-led iterator 语句、list-start iterator 语句、`InfiniteAST` loop body 语句，以及 `# ... >> ...` iterator 定义样例）子集回归与 Shadow fallback 回归（dot-chain） | `ctest --test-dir build -L security` 或 `ctest --test-dir build -L safety` |
+| `styio_security_test` | `tests/security/styio_security_test.cpp`：覆盖 lexer/Unicode、AST ownership、runtime helper、handle table、ParserContext EOF/越界钳制、字符级 API 安全默认值、parser path 边界、nightly parser expr/stmt 子集兼容与 shadow fallback 稳定性。这里主要盯住“崩溃/越界/错误子码漂移/所有权回归”四类风险。 | `ctest --test-dir build -L security` 或 `ctest --test-dir build -L safety` |
 
 ---
 
@@ -253,8 +253,11 @@ ctest --test-dir build -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `docs_audit` | `scripts/docs-audit.py`：校验 `docs/**/*.md` 的 `Purpose` / `Last updated` 元数据、collection-directory `README.md + INDEX.md` 入口、`docs/history` / `docs/adr` / `docs/milestones` 命名规则、相对链接有效性，以及 `scripts/docs-index.py --check` 的生成索引新鲜度 | `ctest --test-dir build -L docs` 或 `ctest --test-dir build -R '^docs_audit$'` |
+| `docs_audit` | `scripts/docs-audit.py`：无参模式校验 `docs/**/*.md` 的 `Purpose` / `Last updated` 元数据、collection-directory `README.md + INDEX.md` 入口、`docs/history` / `docs/adr` / `docs/milestones` 命名规则、active doc 相对链接有效性，以及 `scripts/docs-index.py --check` 与 `scripts/docs-lifecycle.py validate` 的门禁状态；`--manifest valid/invalid` 模式负责仓库级 Markdown 清单、树形输出、JSON 导出与无效文档审查 | `ctest --test-dir build -L docs` 或 `ctest --test-dir build -R '^docs_audit$'` |
 
 **生成命令：** `python3 scripts/docs-index.py --write`。  
-**本地校验：** `python3 scripts/docs-audit.py`。  
+**本地校验：** `python3 scripts/docs-lifecycle.py validate && python3 scripts/docs-audit.py`。  
+**生命周期候选：** `python3 scripts/docs-lifecycle.py candidates --family all --format tree`。  
+**仓库级文档清单：** `python3 scripts/docs-audit.py --manifest valid --format tree`（默认扫描 tracked + unignored worktree Markdown）。  
+**无效文档清单：** `python3 scripts/docs-audit.py --manifest invalid --format list`（仅看已跟踪文件时加 `--source git`；排查本地生成物时加 `--source filesystem`）。  
 **工作流入口：** 见 [`DOCS-MAINTENANCE-WORKFLOW.md`](./DOCS-MAINTENANCE-WORKFLOW.md)。

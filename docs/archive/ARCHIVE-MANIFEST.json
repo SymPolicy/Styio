@@ -1,0 +1,177 @@
+{
+  "version": 1,
+  "last_updated": "2026-04-15",
+  "archive_root": "docs/archive",
+  "rollup_root": "docs/rollups",
+  "keep_window": {
+    "history": 1,
+    "dated_review": 1,
+    "superseded_milestone": 0
+  },
+  "entries": [
+    {
+      "source_path": "docs/history/2026-04-14.md",
+      "family": "history",
+      "status": "summarized_active",
+      "archive_path": "docs/archive/history/2026-04-14.md",
+      "theme": "benchmark-route-and-current-baseline",
+      "value": "Captured the benchmark route/report structure and the final all-green rerun that defines the current baseline before the next milestone wave.",
+      "targets": [
+        "docs/rollups/CURRENT-STATE.md",
+        "docs/rollups/HISTORICAL-LESSONS.md"
+      ]
+    },
+    {
+      "source_path": "docs/history/2026-04-08.md",
+      "family": "history",
+      "status": "archived",
+      "archive_path": "docs/archive/history/2026-04-08.md",
+      "theme": "stdio-and-five-layer-formalization",
+      "value": "Captured the stdio contract audit, five-layer pipeline goldens, and docs workflow formalization that current gates still rely on.",
+      "targets": [
+        "docs/rollups/HISTORICAL-LESSONS.md",
+        "docs/rollups/CURRENT-STATE.md",
+        "docs/assets/workflow/DOCS-MAINTENANCE-WORKFLOW.md"
+      ],
+      "archived_at": "2026-04-15"
+    },
+    {
+      "source_path": "docs/history/2026-04-07.md",
+      "family": "history",
+      "status": "archived",
+      "archive_path": "docs/archive/history/2026-04-07.md",
+      "theme": "nightly-parser-cutover-and-gates",
+      "value": "Captured nightly parser cutover, zero-fallback gates, soak coverage, and checkpoint-health expectations for keeping the new parser primary.",
+      "targets": [
+        "docs/rollups/HISTORICAL-LESSONS.md",
+        "docs/rollups/CURRENT-STATE.md"
+      ],
+      "archived_at": "2026-04-15"
+    },
+    {
+      "source_path": "docs/history/2026-04-06.md",
+      "family": "history",
+      "status": "archived",
+      "archive_path": "docs/archive/history/2026-04-06.md",
+      "theme": "active-pipeline-hardening",
+      "value": "Captured the retirement of active NotImplemented paths, tighter error classification, and runtime/parser cleanup needed for the all-green baseline.",
+      "targets": [
+        "docs/rollups/HISTORICAL-LESSONS.md",
+        "docs/rollups/CURRENT-STATE.md"
+      ],
+      "archived_at": "2026-04-15"
+    },
+    {
+      "source_path": "docs/history/2026-04-05.md",
+      "family": "history",
+      "status": "archived",
+      "archive_path": "docs/archive/history/2026-04-05.md",
+      "theme": "runtime-hardening-and-handle-table",
+      "value": "Captured ownership fixes, handle-table takeover, invalid-handle diagnostics, and the runtime hardening expectations that now define the baseline.",
+      "targets": [
+        "docs/rollups/HISTORICAL-LESSONS.md",
+        "docs/rollups/CURRENT-STATE.md"
+      ],
+      "archived_at": "2026-04-15"
+    },
+    {
+      "source_path": "docs/history/2026-04-04.md",
+      "family": "history",
+      "status": "archived",
+      "archive_path": "docs/archive/history/2026-04-04.md",
+      "theme": "parser-subset-takeover-and-shadow-gates",
+      "value": "Captured the parser subset takeover, shadow-gate strategy, and evidence discipline for cutting the bootstrap parser out of the hot path.",
+      "targets": [
+        "docs/rollups/HISTORICAL-LESSONS.md",
+        "docs/rollups/CURRENT-STATE.md"
+      ],
+      "archived_at": "2026-04-15"
+    },
+    {
+      "source_path": "docs/history/2026-04-03.md",
+      "family": "history",
+      "status": "archived",
+      "archive_path": "docs/archive/history/2026-04-03.md",
+      "theme": "session-foundation-and-unicode-facade",
+      "value": "Captured the compiler-session baseline, CI and fuzz hardening, structured error work, and the Unicode facade that stabilized M1-M8.",
+      "targets": [
+        "docs/rollups/HISTORICAL-LESSONS.md",
+        "docs/rollups/CURRENT-STATE.md"
+      ],
+      "archived_at": "2026-04-15"
+    },
+    {
+      "source_path": "docs/history/2026-03-29.md",
+      "family": "history",
+      "status": "archived",
+      "archive_path": "docs/archive/history/2026-03-29.md",
+      "theme": "milestone-foundation-and-bounded-ring-migration",
+      "value": "Captured M1-M7 implementation lessons, topology-v2 status, and the bounded-ring codegen migration boundary that later docs now summarize.",
+      "targets": [
+        "docs/rollups/HISTORICAL-LESSONS.md",
+        "docs/plans/BoundedRing-Codegen-Adjustment.md"
+      ],
+      "archived_at": "2026-04-15"
+    },
+    {
+      "source_path": "docs/history/2026-03-28.md",
+      "family": "history",
+      "status": "archived",
+      "archive_path": "docs/archive/history/2026-03-28.md",
+      "theme": "docs-policy-and-topology-bootstrap",
+      "value": "Captured the shift to docs SSOT discipline, test registration expectations, and the first topology-v2 planning boundary.",
+      "targets": [
+        "docs/rollups/HISTORICAL-LESSONS.md"
+      ],
+      "archived_at": "2026-04-15"
+    },
+    {
+      "source_path": "docs/review/2026-03-30/README.md",
+      "family": "dated_review",
+      "status": "summarized_active",
+      "archive_path": "docs/archive/review/2026-03-30/README.md",
+      "theme": "review-bundle-index",
+      "value": "Defines the dated review bundle scope and keeps the security/static-review entry point discoverable while the raw bundle remains active.",
+      "targets": [
+        "docs/rollups/HISTORICAL-LESSONS.md",
+        "docs/review/README.md"
+      ]
+    },
+    {
+      "source_path": "docs/review/2026-03-30/findings.md",
+      "family": "dated_review",
+      "status": "summarized_active",
+      "archive_path": "docs/archive/review/2026-03-30/findings.md",
+      "theme": "security-review-findings",
+      "value": "Captures the front-end security and correctness findings that still explain several hardened boundaries in parser, runtime, and FFI layers.",
+      "targets": [
+        "docs/rollups/HISTORICAL-LESSONS.md",
+        "docs/review/Logic-Conflicts.md"
+      ]
+    },
+    {
+      "source_path": "docs/review/2026-03-30/fixes-applied.md",
+      "family": "dated_review",
+      "status": "summarized_active",
+      "archive_path": "docs/archive/review/2026-03-30/fixes-applied.md",
+      "theme": "security-review-fixes",
+      "value": "Captures which review findings were already closed and where the codebase hardened its front-end, shell, and lifecycle behavior.",
+      "targets": [
+        "docs/rollups/HISTORICAL-LESSONS.md",
+        "docs/review/Logic-Conflicts.md"
+      ]
+    },
+    {
+      "source_path": "docs/review/2026-03-30/security-tests.md",
+      "family": "dated_review",
+      "status": "summarized_active",
+      "archive_path": "docs/archive/review/2026-03-30/security-tests.md",
+      "theme": "security-test-module",
+      "value": "Captures the dedicated security regression module that keeps the dated review findings tied to executable coverage.",
+      "targets": [
+        "docs/rollups/HISTORICAL-LESSONS.md",
+        "docs/assets/workflow/TEST-CATALOG.md"
+      ]
+    }
+  ]
+}

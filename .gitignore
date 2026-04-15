@@ -22,6 +22,9 @@ output.ll
 
 # Local dev reports (scripts/dev-report.sh); 删除本行若需纳入版本库
 reports/
+benchmark/reports/*
+!benchmark/reports/
+!benchmark/reports/README.md
 
 # Visual Studio Code cache
 # .vscode/

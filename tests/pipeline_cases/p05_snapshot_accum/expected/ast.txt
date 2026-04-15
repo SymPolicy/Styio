@@ -1,12 +1,12 @@
 styio.ast.main {
 |- styio.ast.snapshot.decl { factor <- styio.ast.resource.file  {
     |- auto_detect: false
-    |- path: styio.ast.string { "/tmp/styio_pipeline_factor.txt" }} }
+    |- path: styio.ast.string { "tests/pipeline_cases/p05_snapshot_accum/factor.txt" }} }
 |- styio.ast.bind.flex {
   |- var : styio.ast.var { sum : int }
   |- val = { 0 : int }}
 |- styio.ast.iterator {
-  |- iterable object: styio.ast.list : int [
+  |- iterable object: styio.ast.list : list[int] [
     |- { 1 : int }
     |- { 2 : int }
     |- { 3 : int }]

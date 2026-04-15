@@ -1,5 +1,5 @@
 styio.ir.main {
-|- styio.ir.snapshot_decl { factor path=styio.ir.string { /tmp/styio_pipeline_factor.txt } }
+|- styio.ir.snapshot_decl { factor path=styio.ir.string { tests/pipeline_cases/p05_snapshot_accum/factor.txt } }
 |- styio.ir.flex_bind {  }
 |- styio.ir.foreach { }
 |- styio.ir.print {  }

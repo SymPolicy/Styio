@@ -2,7 +2,7 @@
 
 **Purpose:** 约束 AI 与人类贡献者在 **编译器实现、测试与文档交叉引用** 上的操作规程与禁止项；**语言权威语义**仍以 `../design/Styio-Language-Design.md`、`../design/Styio-EBNF.md` 为准。文档目录与「最小改动 / SSOT」准则见 `DOCUMENTATION-POLICY.md` §0。
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-04-15
 
 **Version:** 1.1  
 **Date:** 2026-03-28  
@@ -58,6 +58,7 @@ Before making any language-level change, agents MUST read:
 - `../design/Styio-Resource-Driver.md` — Resource driver interface
 - `../design/Styio-Research-Innovations.md` — Research novelty points (do not break these)
 - `./DOCUMENTATION-POLICY.md` — Doc layout, **§0** maintenance (minimal change, three-doc SSOT), history/milestones/test-catalog rules
+- `./PRINCIPLES-AND-OBJECTIVES.md` — Project-wide priority order, rewrite boundary, and lifecycle objectives
 - `../assets/workflow/CHECKPOINT-WORKFLOW.md` — Interrupt-friendly checkpoint process (micro-milestones, recovery notes, ADR requirement)
 - `../adr/README.md` — ADR index for ownership/lifecycle/API decisions
 - `../assets/workflow/TEST-CATALOG.md` — Functional test map (inputs, oracles, `ctest` commands)

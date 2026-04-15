@@ -1452,6 +1452,42 @@ styio_list_cstr_read_stdin() {
   return stash_list(list);
 }
 
+bool
+check_list_index(size_t size, int64_t idx, bool allow_end = false) {
+  if (idx < 0) {
+    set_runtime_error_once(
+      kRuntimeSubcodeListIndex,
+      "list index out of range: " + std::to_string(static_cast<long long>(idx)));
+    return false;
+  }
+  const size_t pos = static_cast<size_t>(idx);
+  if ((allow_end && pos > size) || (!allow_end && pos >= size)) {
+    set_runtime_error_once(
+      kRuntimeSubcodeListIndex,
+      "list index out of range: " + std::to_string(static_cast<long long>(idx)));
+    return false;
+  }
+  return true;
+}
+
+template <typename ListT, typename ValueT>
+void
+list_insert_value(ListT* list, int64_t idx, ValueT&& value) {
+  if (list == nullptr || !check_list_index(list->elems.size(), idx, true)) {
+    return;
+  }
+  list->elems.insert(list->elems.begin() + static_cast<size_t>(idx), std::forward<ValueT>(value));
+}
+
+template <typename ListT, typename ValueT>
+void
+list_set_value(ListT* list, int64_t idx, ValueT&& value) {
+  if (list == nullptr || !check_list_index(list->elems.size(), idx, false)) {
+    return;
+  }
+  list->elems[static_cast<size_t>(idx)] = std::forward<ValueT>(value);
+}
+
 extern "C" DLLEXPORT int64_t
 styio_list_new_bool() {
   return stash_list(new StyioListBool());
@@ -1530,6 +1566,60 @@ styio_list_push_dict(int64_t h, int64_t value) {
   }
 }
 
+extern "C" DLLEXPORT void
+styio_list_insert_bool(int64_t h, int64_t idx, int64_t value) {
+  StyioListBool* list = as_list_bool(h, true);
+  if (list != nullptr) {
+    list_insert_value(list, idx, value != 0 ? 1 : 0);
+  }
+}
+
+extern "C" DLLEXPORT void
+styio_list_insert_i64(int64_t h, int64_t idx, int64_t value) {
+  StyioListI64* list = as_list_i64(h, true);
+  if (list != nullptr) {
+    list_insert_value(list, idx, value);
+  }
+}
+
+extern "C" DLLEXPORT void
+styio_list_insert_f64(int64_t h, int64_t idx, double value) {
+  StyioListF64* list = as_list_f64(h, true);
+  if (list != nullptr) {
+    list_insert_value(list, idx, value);
+  }
+}
+
+extern "C" DLLEXPORT void
+styio_list_insert_cstr(int64_t h, int64_t idx, const char* value) {
+  StyioListString* list = as_list_string(h, true);
+  if (list != nullptr) {
+    list_insert_value(list, idx, value == nullptr ? std::string() : std::string(value));
+  }
+}
+
+extern "C" DLLEXPORT void
+styio_list_insert_list(int64_t h, int64_t idx, int64_t value) {
+  StyioListListHandle* list = as_list_list_handle(h, true);
+  if (list == nullptr || !check_list_index(list->elems.size(), idx, true)) {
+    return;
+  }
+  list->elems.insert(
+    list->elems.begin() + static_cast<size_t>(idx),
+    clone_list_handle_value(value));
+}
+
+extern "C" DLLEXPORT void
+styio_list_insert_dict(int64_t h, int64_t idx, int64_t value) {
+  StyioListDictHandle* list = as_list_dict_handle(h, true);
+  if (list == nullptr || !check_list_index(list->elems.size(), idx, true)) {
+    return;
+  }
+  list->elems.insert(
+    list->elems.begin() + static_cast<size_t>(idx),
+    clone_dict_handle_value(value));
+}
+
 extern "C" DLLEXPORT int64_t
 styio_list_clone(int64_t h) {
   return clone_list_handle_value(h);
@@ -1565,10 +1655,7 @@ styio_list_get_bool(int64_t h, int64_t idx) {
   if (list == nullptr) {
     return 0;
   }
-  if (idx < 0 || static_cast<size_t>(idx) >= list->elems.size()) {
-    set_runtime_error_once(
-      kRuntimeSubcodeListIndex,
-      "list index out of range: " + std::to_string(static_cast<long long>(idx)));
+  if (!check_list_index(list->elems.size(), idx, false)) {
     return 0;
   }
   return list->elems[static_cast<size_t>(idx)] != 0 ? 1 : 0;
@@ -1580,10 +1667,7 @@ styio_list_get(int64_t h, int64_t idx) {
   if (list == nullptr) {
     return 0;
   }
-  if (idx < 0 || static_cast<size_t>(idx) >= list->elems.size()) {
-    set_runtime_error_once(
-      kRuntimeSubcodeListIndex,
-      "list index out of range: " + std::to_string(static_cast<long long>(idx)));
+  if (!check_list_index(list->elems.size(), idx, false)) {
     return 0;
   }
   return list->elems[static_cast<size_t>(idx)];
@@ -1595,10 +1679,7 @@ styio_list_get_f64(int64_t h, int64_t idx) {
   if (list == nullptr) {
     return 0.0;
   }
-  if (idx < 0 || static_cast<size_t>(idx) >= list->elems.size()) {
-    set_runtime_error_once(
-      kRuntimeSubcodeListIndex,
-      "list index out of range: " + std::to_string(static_cast<long long>(idx)));
+  if (!check_list_index(list->elems.size(), idx, false)) {
     return 0.0;
   }
   return list->elems[static_cast<size_t>(idx)];
@@ -1610,10 +1691,7 @@ styio_list_get_cstr(int64_t h, int64_t idx) {
   if (list == nullptr) {
     return nullptr;
   }
-  if (idx < 0 || static_cast<size_t>(idx) >= list->elems.size()) {
-    set_runtime_error_once(
-      kRuntimeSubcodeListIndex,
-      "list index out of range: " + std::to_string(static_cast<long long>(idx)));
+  if (!check_list_index(list->elems.size(), idx, false)) {
     return nullptr;
   }
   return copy_to_owned_cstr(list->elems[static_cast<size_t>(idx)]);
@@ -1625,10 +1703,7 @@ styio_list_get_list(int64_t h, int64_t idx) {
   if (list == nullptr) {
     return 0;
   }
-  if (idx < 0 || static_cast<size_t>(idx) >= list->elems.size()) {
-    set_runtime_error_once(
-      kRuntimeSubcodeListIndex,
-      "list index out of range: " + std::to_string(static_cast<long long>(idx)));
+  if (!check_list_index(list->elems.size(), idx, false)) {
     return 0;
   }
   return clone_list_handle_value(list->elems[static_cast<size_t>(idx)]);
@@ -1640,28 +1715,132 @@ styio_list_get_dict(int64_t h, int64_t idx) {
   if (list == nullptr) {
     return 0;
   }
-  if (idx < 0 || static_cast<size_t>(idx) >= list->elems.size()) {
-    set_runtime_error_once(
-      kRuntimeSubcodeListIndex,
-      "list index out of range: " + std::to_string(static_cast<long long>(idx)));
+  if (!check_list_index(list->elems.size(), idx, false)) {
     return 0;
   }
   return clone_dict_handle_value(list->elems[static_cast<size_t>(idx)]);
 }
 
 extern "C" DLLEXPORT void
+styio_list_set_bool(int64_t h, int64_t idx, int64_t value) {
+  StyioListBool* list = as_list_bool(h, true);
+  if (list != nullptr) {
+    list_set_value(list, idx, value != 0 ? 1 : 0);
+  }
+}
+
+extern "C" DLLEXPORT void
 styio_list_set(int64_t h, int64_t idx, int64_t value) {
   StyioListI64* list = as_list_i64(h, true);
+  if (list != nullptr) {
+    list_set_value(list, idx, value);
+  }
+}
+
+extern "C" DLLEXPORT void
+styio_list_set_f64(int64_t h, int64_t idx, double value) {
+  StyioListF64* list = as_list_f64(h, true);
+  if (list != nullptr) {
+    list_set_value(list, idx, value);
+  }
+}
+
+extern "C" DLLEXPORT void
+styio_list_set_cstr(int64_t h, int64_t idx, const char* value) {
+  StyioListString* list = as_list_string(h, true);
+  if (list != nullptr) {
+    list_set_value(list, idx, value == nullptr ? std::string() : std::string(value));
+  }
+}
+
+extern "C" DLLEXPORT void
+styio_list_set_list(int64_t h, int64_t idx, int64_t value) {
+  StyioListListHandle* list = as_list_list_handle(h, true);
+  if (list == nullptr || !check_list_index(list->elems.size(), idx, false)) {
+    return;
+  }
+  const size_t pos = static_cast<size_t>(idx);
+  int64_t stored = clone_list_handle_value(value);
+  (void)g_handle_table.release(list->elems[pos], StyioHandleTable::HandleKind::List, close_list);
+  list->elems[pos] = stored;
+}
+
+extern "C" DLLEXPORT void
+styio_list_set_dict(int64_t h, int64_t idx, int64_t value) {
+  StyioListDictHandle* list = as_list_dict_handle(h, true);
+  if (list == nullptr || !check_list_index(list->elems.size(), idx, false)) {
+    return;
+  }
+  const size_t pos = static_cast<size_t>(idx);
+  int64_t stored = clone_dict_handle_value(value);
+  (void)g_handle_table.release(list->elems[pos], StyioHandleTable::HandleKind::Dict, close_dict);
+  list->elems[pos] = stored;
+}
+
+extern "C" DLLEXPORT void
+styio_list_pop(int64_t h) {
+  StyioListBase* list = as_list_base(h, true);
   if (list == nullptr) {
     return;
   }
-  if (idx < 0 || static_cast<size_t>(idx) >= list->elems.size()) {
-    set_runtime_error_once(
-      kRuntimeSubcodeListIndex,
-      "list index out of range: " + std::to_string(static_cast<long long>(idx)));
-    return;
+  bool popped = false;
+  switch (list->elem_kind) {
+    case StyioListElemKind::Bool: {
+      auto* values = static_cast<StyioListBool*>(list);
+      if (values->elems.empty()) {
+        break;
+      }
+      values->elems.pop_back();
+      popped = true;
+    } break;
+    case StyioListElemKind::I64: {
+      auto* values = static_cast<StyioListI64*>(list);
+      if (values->elems.empty()) {
+        break;
+      }
+      values->elems.pop_back();
+      popped = true;
+    } break;
+    case StyioListElemKind::F64: {
+      auto* values = static_cast<StyioListF64*>(list);
+      if (values->elems.empty()) {
+        break;
+      }
+      values->elems.pop_back();
+      popped = true;
+    } break;
+    case StyioListElemKind::String: {
+      auto* values = static_cast<StyioListString*>(list);
+      if (values->elems.empty()) {
+        break;
+      }
+      values->elems.pop_back();
+      popped = true;
+    } break;
+    case StyioListElemKind::ListHandle: {
+      auto* values = static_cast<StyioListListHandle*>(list);
+      if (values->elems.empty()) {
+        break;
+      }
+      int64_t removed = values->elems.back();
+      values->elems.pop_back();
+      (void)g_handle_table.release(removed, StyioHandleTable::HandleKind::List, close_list);
+      popped = true;
+    } break;
+    case StyioListElemKind::DictHandle: {
+      auto* values = static_cast<StyioListDictHandle*>(list);
+      if (values->elems.empty()) {
+        break;
+      }
+      int64_t removed = values->elems.back();
+      values->elems.pop_back();
+      (void)g_handle_table.release(removed, StyioHandleTable::HandleKind::Dict, close_dict);
+      popped = true;
+    } break;
   }
-  list->elems[static_cast<size_t>(idx)] = value;
+  if (!popped) {
+    set_runtime_error_once(kRuntimeSubcodeListIndex, "list pop on empty list");
+  }
 }
 
 extern "C" DLLEXPORT const char*

@@ -56,12 +56,12 @@ jobs:
       - name: Parser shadow gate (M1 full suite + artifacts)
         run: |
           mkdir -p build/parser-shadow-artifacts
-          ./scripts/parser-shadow-suite-gate.sh ./build/bin/styio ./tests/milestones/m1 ./build/parser-shadow-artifacts
+          ./benchmark/parser-shadow-suite-gate.sh ./build/bin/styio ./tests/milestones/m1 ./build/parser-shadow-artifacts
 
       - name: Parser shadow gate (M2 full suite + artifacts)
         run: |
           mkdir -p build/parser-shadow-artifacts-m2
-          ./scripts/parser-shadow-suite-gate.sh ./build/bin/styio ./tests/milestones/m2 ./build/parser-shadow-artifacts-m2
+          ./benchmark/parser-shadow-suite-gate.sh ./build/bin/styio ./tests/milestones/m2 ./build/parser-shadow-artifacts-m2
 
       - name: Upload parser shadow artifacts
         if: failure()
