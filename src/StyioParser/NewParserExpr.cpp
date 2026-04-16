@@ -50,6 +50,49 @@ nightly_handle_recovery_latest(
   return true;
 }
 
+bool
+matches_legacy_string_list_import_nightly_latest(StyioContext& context) {
+  const auto& tokens = context.get_tokens();
+  std::size_t cursor = context.get_token_index();
+  if (cursor >= tokens.size() || tokens[cursor]->type != StyioTokenType::TOK_LBOXBRAC) {
+    return false;
+  }
+
+  cursor += 1;
+  while (cursor < tokens.size() && styio_is_trivia_token(tokens[cursor]->type)) {
+    cursor += 1;
+  }
+  if (cursor >= tokens.size() || tokens[cursor]->type != StyioTokenType::STRING) {
+    return false;
+  }
+
+  while (cursor < tokens.size()) {
+    cursor += 1;
+    while (cursor < tokens.size() && styio_is_trivia_token(tokens[cursor]->type)) {
+      cursor += 1;
+    }
+    if (cursor >= tokens.size()) {
+      return false;
+    }
+    if (tokens[cursor]->type == StyioTokenType::TOK_RBOXBRAC) {
+      return true;
+    }
+    if (tokens[cursor]->type != StyioTokenType::TOK_COMMA) {
+      return false;
+    }
+
+    cursor += 1;
+    while (cursor < tokens.size() && styio_is_trivia_token(tokens[cursor]->type)) {
+      cursor += 1;
+    }
+    if (cursor >= tokens.size() || tokens[cursor]->type != StyioTokenType::STRING) {
+      return false;
+    }
+  }
+
+  return false;
+}
+
 struct TokenProbeLatest
 {
   const std::vector<StyioToken*>& tokens;
@@ -1839,6 +1882,10 @@ parse_main_block_subset_nightly(StyioContext& context) {
     }
     const auto statement_start = context.save_cursor();
     try {
+      if (matches_legacy_string_list_import_nightly_latest(context)) {
+        throw StyioSyntaxError(
+          context.mark_cur_tok("legacy import syntax [\"pkg\"] is deprecated; use @import { pkg }"));
+      }
       statements_owned.emplace_back(parse_stmt_subset_impl_nightly(context));
     } catch (...) {
       if (!nightly_handle_recovery_latest(context, statement_start, nightly_recovery_message_latest())) {

@@ -2951,7 +2951,7 @@ TEST(StyioSamples, BubbleSortListInput) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const fs::path sample_path =
-    fs::path(STYIO_SOURCE_DIR) / "sample" / "algorithms" / "bubble_sort.styio";
+    fs::path(STYIO_SOURCE_DIR) / "example" / "algorithms" / "bubble_sort.styio";
   ASSERT_TRUE(fs::exists(sample_path));
 
   const std::string cmd =

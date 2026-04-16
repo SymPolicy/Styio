@@ -2,9 +2,9 @@
 
 **Purpose:** M17 验收测试与任务分解；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md) 和 [`../../plans/IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md`](../../plans/IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md)。
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-04-16
 
-**Status:** Planned frozen acceptance batch
+**Status:** Implemented
 
 **Depends on:** M16 (completion engine upgrade)  
 **Goal:** 把现有索引升级成真正的 workspace 级层次：打开文件热索引、后台索引和持久化索引必须分层，workspace symbol、cross-file definition、references 不能只靠当前打开文件状态。
@@ -21,6 +21,29 @@ This milestone freezes:
 4. merge policy across these layers
 
 Foreground IDE behavior may prefer fresh open-file state over background or persistent data, but the merge rules must be explicit.
+
+## Implementation Notes
+
+M17 implements the workspace index as three explicit layers:
+
+1. `OpenFileIndex` stores fresh unsaved state for currently open buffers.
+2. `BackgroundIndex` stores indexed symbols and references from workspace files on disk.
+3. `PersistentIndex` stores top-level symbol metadata under a workspace-scoped cache directory and can warm symbol search after restart.
+
+Merge policy:
+
+1. open-file data wins over background data for the same path
+2. background data wins over persistent data for the same path
+3. persistent data is used only where no fresher open/background layer owns that path
+4. duplicate symbols/references are normalized by path and range
+5. explicit import failures remain unresolved; workspace-index fallback is only used when the file has no explicit import constraint
+
+Consumers:
+
+1. `workspace_symbols` reads merged open/background/persistent symbols.
+2. cross-file definition can resolve unique workspace-indexed symbols when no explicit import constrains the file.
+3. references merge precise open-file resolution with background-indexed reference hits.
+4. persistent symbol data survives a new service instance and is overridden once the same path is opened.
 
 ---
 

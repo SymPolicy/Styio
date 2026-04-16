@@ -1,8 +1,8 @@
 # Styio — Resource Topology & `@` Semantics (Design Spec v2)
 
-**Purpose:** `@` 三角色、有界缓冲、`:=` 驱动、影子写入 **`->`** 等 **目标资源拓扑** 的单一叙述；与当前编译器差异见 [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md)。Golden Cross **设计级**示例见 §8；**agent 宪法内嵌代码**仍归 [`../specs/AGENT-SPEC.md`](../specs/AGENT-SPEC.md) §12.3。
+**Purpose:** `@` 的资源/状态拓扑三角色、有界缓冲、`:=` 驱动、影子写入 **`->`** 等 **目标资源拓扑** 的单一叙述；模块导入语法见 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 与 [`Styio-EBNF.md`](./Styio-EBNF.md)。与当前编译器差异见 [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md)。Golden Cross **设计级**示例见 §8；**agent 宪法内嵌代码**仍归 [`../specs/AGENT-SPEC.md`](../specs/AGENT-SPEC.md) §12.3。
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-04-16
 
 **Status:** Target language design — **not fully implemented** in the current compiler.  
 **Supersedes (narratively):** informal “parentheses around state” style `@[n](name = …)` as the *preferred* mental model for new code; the **running codebase** still uses M6-era syntax until a migration milestone.  
@@ -20,9 +20,11 @@ A design review concluded that **global, persistent state** must not *look* like
 
 ---
 
-## 2. The three roles of `@`
+## 2. The topology-relevant roles of `@`
 
 `@` is overloaded but shares one idea: **anything that is not the current tick’s lone pulse** — absence, external drivers, or remembered state — is **anchored** with `@`.
+
+The running compiler also reserves top-level `@import { ... }` as a module declaration. That fourth role is real, but it is not part of the resource-topology model owned by this document.
 
 | Role | Meaning | Typical surface form |
 |------|---------|------------------------|
@@ -30,7 +32,7 @@ A design review concluded that **global, persistent state** must not *look* like
 | **B. Resource anchor** | External driver / file / exchange handle | `@file{…}`, `@binance{…}`, `<< @resource` |
 | **C. State container** | Persistent memory (ring buffer, accumulator, snapshot slot) | `@name : type`, optional `:= { driver }` |
 
-**Lexer/parser rule:** distinguish `@` + not-`[` + not-ident → **undefined**; `@` + `[` → state or type; `@` + ident + `{`/`(` → resource per existing rules.
+**Lexer/parser rule:** distinguish `@` + `import` + `{` → top-level import declaration; `@` + not-`[` + not-ident → **undefined**; `@` + `[` → state or type; `@` + ident + `{`/`(` → resource per existing rules.
 
 ---
 
@@ -160,6 +162,8 @@ Thus **visible** `@ma20 : [|2|]` may store **only the last two published MA valu
 | Ban `$x =` for shadows in favor of `->` only | **Not implemented** — semantic rule TBD |
 | Implicit intrinsic buffers + fingerprint | **Partially** (ledger + intrinsics exist; naming may differ) |
 
+**Current bounded-ring implementation note:** the partial `[|n|]` path currently freezes only the **final-bind** bounded-ring shape. `x : [|n|] := v` lowers to `[n x i64] + head`, reads return the most recently written slot, same-name `x = ...` after final bind is rejected, and `#(a : [|n|])` parameter semantics remain incomplete. This is current implementation status, not the target Topology v2 contract.
+
 **Next step for compiler work:** 执行清单、分阶段任务、全量修改点与风险登记见 **[`../plans/Resource-Topology-v2-Implementation-Plan.md`](../plans/Resource-Topology-v2-Implementation-Plan.md)**（含开发过程 **history** 记录要求）。概要：milestone **M8** / **Topology v2** 分支 — lexer tokens `[|`, `|]`, multi-decl `,` before `:=`, semantic passes for root-only resources, 与 `tests/m6` 的迁移或双轨策略。
 
 ---
@@ -167,6 +171,6 @@ Thus **visible** `@ma20 : [|2|]` may store **only the last two published MA valu
 ## 10. References
 
 - Internal: [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md) §1.3 `@` roles  
-- Milestones: [`../milestones/2026-03-29/M6-StateAndStreams.md`](../milestones/2026-03-29/M6-StateAndStreams.md)  
-- History summary: [`../rollups/HISTORICAL-LESSONS.md`](../rollups/HISTORICAL-LESSONS.md)
-- Archived session detail: [`../archive/history/2026-03-29.md`](../archive/history/2026-03-29.md)
+- Milestones provenance: [`../archive/milestones/2026-03-29/M6-StateAndStreams.md`](../archive/milestones/2026-03-29/M6-StateAndStreams.md)  
+- Test coverage: [`../assets/workflow/TEST-CATALOG.md`](../assets/workflow/TEST-CATALOG.md)
+- Maintainer workflow: [`../teams/CODEGEN-RUNTIME-RUNBOOK.md`](../teams/CODEGEN-RUNTIME-RUNBOOK.md)

@@ -2,7 +2,7 @@
 
 **Purpose:** 约束 Styio 仓库的本地清理、`.gitignore`、提交前检查、push 前检查、历史重写与 `force-push` 边界；不定义语言语义与功能重构步骤（见 `CHECKPOINT-WORKFLOW.md` / `../templates/REFACTOR-WORKFLOW-TEMPLATE.md`）。
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-04-16
 
 ---
 
@@ -75,6 +75,12 @@ git diff --cached --name-only
 python3 scripts/repo-hygiene-gate.py --mode staged
 ```
 
+统一入口（含 docs/runbook/checkpoint floor）：
+
+```bash
+./scripts/delivery-gate.sh --mode checkpoint
+```
+
 必须满足：
 
 1. 暂存区只包含本次 checkpoint 的目标改动。
@@ -98,6 +104,12 @@ git diff --cached --name-only \
 
 ```bash
 python3 scripts/repo-hygiene-gate.py --mode push
+```
+
+统一入口：
+
+```bash
+./scripts/delivery-gate.sh --mode push --base origin/main
 ```
 
 ### 5.1 大文件检查

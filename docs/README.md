@@ -8,14 +8,15 @@
 
 1. Design-level SSOT lives in `docs/design/`.
 2. Contributor, agent, repository-boundary, dependency, and documentation rules live in `docs/specs/`.
-3. Review findings and open conflicts live in `docs/review/`.
-4. Plans and migration drafts live in `docs/plans/`.
-5. Cross-repository handoff notes intended for `styio-spio` live in `docs/for_spio/`.
-6. IDE integration, embedding, and LSP usage material lives in `docs/for-ide/`.
-7. Reusable workflows and templates live in `docs/assets/`.
-8. Compressed active summaries live in `docs/rollups/`.
-9. Archived raw provenance lives in `docs/archive/`.
-10. Daily history, frozen milestones, and ADRs stay in their dedicated directories.
+3. Team daily-work runbooks live in `docs/teams/`.
+4. Review findings and open conflicts live in `docs/review/`.
+5. Plans and migration drafts live in `docs/plans/`.
+6. Cross-repository handoff notes intended for `styio-spio` live in `docs/for_spio/`.
+7. IDE integration, embedding, and LSP usage material lives in `docs/for-ide/`.
+8. Reusable workflows and templates live in `docs/assets/`.
+9. Compressed active summaries live in `docs/rollups/`.
+10. Archived raw provenance lives in `docs/archive/`.
+11. Daily history, frozen milestones, and ADRs stay in their dedicated directories.
 
 ## Entry Points
 
@@ -24,11 +25,12 @@
 3. Documentation policy: [specs/DOCUMENTATION-POLICY.md](./specs/DOCUMENTATION-POLICY.md)
 4. Agent/contributor rules: [specs/AGENT-SPEC.md](./specs/AGENT-SPEC.md)
 5. Project principles and objectives: [specs/PRINCIPLES-AND-OBJECTIVES.md](./specs/PRINCIPLES-AND-OBJECTIVES.md)
-6. Current-state rollups: [rollups/INDEX.md](./rollups/INDEX.md)
-7. Workflow assets: [assets/INDEX.md](./assets/INDEX.md)
-8. Design SSOT: [design/INDEX.md](./design/INDEX.md)
-9. IDE integration docs: [for-ide/INDEX.md](./for-ide/INDEX.md)
-10. Archived provenance: [archive/INDEX.md](./archive/INDEX.md)
+6. Team daily runbooks: [teams/INDEX.md](./teams/INDEX.md)
+7. Current-state rollups: [rollups/INDEX.md](./rollups/INDEX.md)
+8. Workflow assets: [assets/INDEX.md](./assets/INDEX.md)
+9. Design SSOT: [design/INDEX.md](./design/INDEX.md)
+10. IDE integration docs: [for-ide/INDEX.md](./for-ide/INDEX.md)
+11. Archived provenance: [archive/INDEX.md](./archive/INDEX.md)
 
 ## Default Read Order
 

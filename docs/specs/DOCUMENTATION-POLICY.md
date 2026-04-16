@@ -2,7 +2,7 @@
 
 **Purpose:** Define where development Markdown belongs, how SSOT references work, and how `docs/` metadata, indexes, and maintenance gates are enforced; language semantics still live in `../design/Styio-Language-Design.md` and related design documents.
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-04-16
 
 **Automation (verify doc links + test registration):** 从仓库根目录配置并运行里程碑测试：
 
@@ -59,30 +59,35 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 | 集成测试路径、`ctest` 命令 | `docs/assets/workflow/TEST-CATALOG.md` | 链接 |
 | **外部包 / 开源依赖清单**（LLVM、ICU、gtest、vendored） | [`THIRD-PARTY.md`](./THIRD-PARTY.md) | 与 `CMakeLists.txt`、`tests/CMakeLists.txt` 一致；新增依赖先更新该文件 |
 | **官方仓库生态、角色边界与文档归属** | [`REPOSITORY-MAP.md`](./REPOSITORY-MAP.md) | 其它文档只链接，不重复维护仓库总表 |
+| **团队日常工作入口、review 协作矩阵与维护者 runbook** | [`../teams/COORDINATION-RUNBOOK.md`](../teams/COORDINATION-RUNBOOK.md) | 团队文档只做日常入口，语言/测试/仓库边界仍链接 owning SSOT |
 | **项目级原则与目标**（规划 / 设计 / 开发 / 测试 / 审核的优先级） | [`PRINCIPLES-AND-OBJECTIVES.md`](./PRINCIPLES-AND-OBJECTIVES.md) | 其它文档引用，不平行重写项目级优先级与重写边界 |
 | **默认冷启动摘要 / 当前仓库状态** | [`../rollups/CURRENT-STATE.md`](../rollups/CURRENT-STATE.md) | 先读本文件，再跳到 owning SSOT |
-| **时效性文档压缩经验** | [`../rollups/HISTORICAL-LESSONS.md`](../rollups/HISTORICAL-LESSONS.md) | 其它文档只保留引用，不重复写逐日流水账 |
 | **五层编译流水线** goldens（Lexer/IR/…） | `docs/assets/workflow/FIVE-LAYER-PIPELINE.md` | 与 `TEST-CATALOG` §9 交叉链接 |
 | 开发文档目录与维护准则（含本节） | `DOCUMENTATION-POLICY.md` | 链接 |
 | Agent 实现规程、禁止项、流水线 | `AGENT-SPEC.md` | 链接 |
 | Golden Cross **守则内嵌的宪法示例代码** | `AGENT-SPEC.md` §12.3 | 设计背景链到 `../design/Styio-Resource-Topology.md` §8 |
 | Topology v2 **实施步骤、修改点矩阵、风险与记录规范** | `../plans/Resource-Topology-v2-Implementation-Plan.md` | `../design/Styio-Resource-Topology.md` §9 仅状态表 + 链到本计划 |
-| **`[|n|]` 环缓 CodeGen** 从 bootstrap 迁移的破坏面 / 测试 / 回滚 | `../plans/BoundedRing-Codegen-Adjustment.md` | 会话细节见 `../archive/history/2026-03-29.md`；冷启动摘要见 `../rollups/HISTORICAL-LESSONS.md` |
+| **`[|n|]` 环缓当前实现约定** | `../design/Styio-Resource-Topology.md`、`../assets/workflow/TEST-CATALOG.md` | 当前行为与测试从这里进入；历史计划进入 archive |
 | **Checkpoint 微里程碑执行规则**（可中断/可恢复） | `../assets/workflow/CHECKPOINT-WORKFLOW.md` | 在 `history/YYYY-MM-DD.md` 写恢复指引，不在其它文档重复流程细节 |
+| **统一交付门禁**（common delivery floor） | `../assets/workflow/DELIVERY-GATE.md` | 先过 common floor，再按协调 runbook 叠加域专属 cutover gate |
 | **仓库清理、提交、push 与历史重写标准** | `../assets/workflow/REPO-HYGIENE-COMMIT-STANDARD.md` | 其它文档只保留入口规则与链接 |
 | **文档元数据、生成索引与审计流程** | `../assets/workflow/DOCS-MAINTENANCE-WORKFLOW.md` | 其它文档只保留入口规则与链接 |
-| **架构决策记录（ADR）** | `docs/adr/` | 决策摘要可在 history 引用，正文仅维护于 ADR 文件 |
+| **团队 runbook 维护交付门禁** | `../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md` | `docs-audit.py` 串联该门禁；团队文档只链接门禁说明与模板 |
+| **团队 runbook 标准格式** | `../assets/templates/TEAM-RUNBOOK-TEMPLATE.md` | 普通团队 runbook 必须使用该 H2 结构；协调者 runbook 的特殊结构由门禁说明列明 |
+| **架构决策 provenance（非活跃 SSOT）** | `docs/adr/`、`docs/archive/adr/` | 活跃规则必须提升到 owning SSOT；ADR 只保留决策过程与审计价值 |
 
 ### 0.5 文档状态与 superseded 规则
 
-1. `docs/plans/*.md` 是**设计/实施计划**，不是语言或验收层面的 SSOT。
-2. `docs/milestones/<YYYY-MM-DD>/` 下的文档是该批次的**冻结规格**；若后续实现保留兼容层，文档必须明确区分：
+1. 活跃维护知识默认只应留在 `docs/design/`、`docs/specs/`、`docs/teams/`、`docs/assets/workflow/`、当前 `docs/rollups/` 摘要，以及仍在推进中的当前计划/里程碑批次。
+2. `docs/plans/*.md` 是**设计/实施计划**，不是语言或验收层面的 SSOT；当计划的稳定结论已经吸收到活跃文档后，计划应移动到 `docs/archive/plans/`。
+3. `docs/milestones/<YYYY-MM-DD>/` 下的文档是当前仍在推进或仍需直接对照的**冻结规格批次**；被吸收的历史批次应移动到 `docs/archive/milestones/`。若后续实现保留兼容层，文档必须明确区分：
    - **canonical**：冻结示例与推荐写法；
    - **accepted compatibility shorthand**：实现保留、测试覆盖、但不作为首选教学写法的兼容写法。
-3. 同一功能若存在较早草案和较晚冻结批次，较早文档必须在文首显式写：
+4. 同一功能若存在较早草案和较晚冻结批次，较早文档必须在文首显式写：
    - `Status: Superseded draft`
    - 指向新的冻结文档路径。
-4. 当实现接受的兼容语法多于冻结示例时，SSOT 必须说明“为什么该语法仍有效”，并至少有一条自动化测试冻结该兼容行为。
+5. ADR、history 和 archive 默认都是 **provenance layer**，不是第二天继续开发的前置输入。当前仍有效的设计意图、维护规则、测试门禁、团队边界和交接方式，必须提升到活跃文档。
+6. 当实现接受的兼容语法多于冻结示例时，SSOT 必须说明“为什么该语法仍有效”，并至少有一条自动化测试冻结该兼容行为。
 
 ### 0.6 文档目录职责
 
@@ -90,26 +95,29 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 |------|----------|
 | `docs/design/` | 语言设计、EBNF、符号表、资源/标准库等设计级 SSOT |
 | `docs/specs/` | agent / contributor 规范、文档策略、依赖规范 |
+| `docs/teams/` | 团队日常 runbook、review 协作矩阵、跨团队维护入口；不替代语言、测试或仓库边界 SSOT |
 | `docs/review/` | review 发现、设计冲突、待定决议 |
-| `docs/plans/` | 设计草案、实施计划、迁移方案；非冻结规格 |
+| `docs/plans/` | 当前仍在执行的设计草案、实施计划、迁移方案；已吸收/已完成项移入 `docs/archive/plans/` |
 | `docs/for-ide/` | IDE 集成、LSP 调用、嵌入方式与 edit-time 语法层使用说明 |
 | `docs/assets/workflow/` | 可复用工作流、测试框架、checkpoint / hygiene 标准 |
 | `docs/assets/templates/` | 可复用模板 |
 | `docs/rollups/` | 压缩后的 active 摘要；默认冷启动先读这里 |
-| `docs/archive/` | 已归纳过的 raw 文档与 provenance ledger；非默认阅读入口 |
-| `docs/history/` | 按日开发历史与恢复记录 |
-| `docs/milestones/` | 按日期冻结的里程碑规格 |
-| `docs/adr/` | 架构决策记录 |
+| `docs/archive/` | 集中化管理的 provenance 层：已归纳 raw 文档、吸收后的历史 milestone/plan/ADR，以及 archive ledger；非默认阅读入口 |
+| `docs/history/` | 按日开发历史与恢复记录；原始执行轨迹，不是活跃 SSOT |
+| `docs/milestones/` | 当前仍活跃的按日期冻结里程碑规格批次 |
+| `docs/adr/` | 尚未吸收到主文档或仍需单独审计追溯的决策记录；吸收后应移入 `docs/archive/adr/` |
 
 ### 0.7 文件命名约定
 
 1. `docs/design/`：设计级 SSOT 使用稳定、可搜索的主题名；当前约定为 `Styio-*.md`。
 2. `docs/specs/`：规范文件使用稳定、可搜索的全大写短横线命名。
-3. `docs/plans/`：计划文件必须使用描述性名称，优先 `<Topic>-Plan.md`、`<Topic>-Implementation-Plan.md`、`<Topic>-Adjustment.md`；禁止再新增 `idea.md`、`notes.md`、`misc.md` 这类泛名文件。
-4. `docs/assets/workflow/` 与 `docs/assets/templates/`：可复用资产采用稳定、可搜索的全大写短横线命名。
-5. `docs/history/`：严格使用 `YYYY-MM-DD.md`。
-6. `docs/adr/`：严格使用 `ADR-XXXX-<slug>.md`。
-7. `docs/milestones/`：目录使用 `YYYY-MM-DD/`，文件使用 `00-Milestone-Index.md` 与 `M<id>-<Topic>.md`。
+3. `docs/teams/`：团队日常入口使用 `<TEAM>-RUNBOOK.md`；跨团队协调入口固定为 `COORDINATION-RUNBOOK.md`；集合统计固定为 `DOC-STATS.md`。
+   普通团队 runbook 必须遵守 `docs/assets/templates/TEAM-RUNBOOK-TEMPLATE.md` 的 H1、`Purpose`、`Last updated`、H2 顺序；交付门禁输出必须指向模板和门禁说明，而不是只要求维护者阅读脚本源码。
+4. `docs/plans/`：计划文件必须使用描述性名称，优先 `<Topic>-Plan.md`、`<Topic>-Implementation-Plan.md`、`<Topic>-Adjustment.md`；禁止再新增 `idea.md`、`notes.md`、`misc.md` 这类泛名文件。
+5. `docs/assets/workflow/` 与 `docs/assets/templates/`：可复用资产采用稳定、可搜索的全大写短横线命名。
+6. `docs/history/`：严格使用 `YYYY-MM-DD.md`。
+7. `docs/adr/`：严格使用 `ADR-XXXX-<slug>.md`。
+8. `docs/milestones/`：目录使用 `YYYY-MM-DD/`，文件使用 `00-Milestone-Index.md` 与 `M<id>-<Topic>.md`。
 
 ### 0.8 Directory Entry Rules
 

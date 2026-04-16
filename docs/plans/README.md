@@ -1,14 +1,14 @@
 # Plans Docs
 
-**Purpose:** Define the scope and naming rules for `docs/plans/`; the generated file inventory lives in [INDEX.md](./INDEX.md).
+**Purpose:** Define the scope and naming rules for active implementation plans under `docs/plans/`; absorbed or superseded plans move to `docs/archive/plans/`, and the generated file inventory lives in [INDEX.md](./INDEX.md).
 
 **Last updated:** 2026-04-15
 
 ## Scope
 
-1. Store implementation plans, migration plans, and early drafts here.
+1. Store only active implementation plans, migration plans, and still-open drafts here.
 2. These files are not language or acceptance SSOT.
-3. When a plan is superseded by a frozen milestone or design document, mark that state explicitly.
+3. When a plan is superseded or its durable knowledge has been absorbed into active docs, move it to `docs/archive/plans/`.
 4. Tradeoff order for plans still follows [../specs/PRINCIPLES-AND-OBJECTIVES.md](../specs/PRINCIPLES-AND-OBJECTIVES.md).
 
 ## Naming Rules
