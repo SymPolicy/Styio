@@ -33,6 +33,8 @@ private:
 
 public:
   std::vector<OutboundMessage> handle(llvm::json::Object request);
+  std::vector<OutboundMessage> drain_runtime();
+  const styio::ide::RuntimeCounters& runtime_counters() const;
   void run(std::istream& input, std::ostream& output);
 };
 

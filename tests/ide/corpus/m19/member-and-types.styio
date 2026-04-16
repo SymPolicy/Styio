@@ -1,0 +1,2 @@
+items: list[i32] := [1, 2, 3]
+count: i32 := items.len

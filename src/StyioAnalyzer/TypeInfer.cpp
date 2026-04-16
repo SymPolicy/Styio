@@ -1081,17 +1081,32 @@ StyioAnalyzer::typeInfer(BinOpAST* ast) {
   auto rhs = ast->getRHS();
   auto op = ast->getOp();
 
+  if (lhs == nullptr || rhs == nullptr) {
+    if (lhs != nullptr) {
+      lhs->typeInfer(this);
+    }
+    if (rhs != nullptr) {
+      rhs->typeInfer(this);
+    }
+    ast->setDType(StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0});
+    return;
+  }
+
   if (op == StyioOpType::Self_Add_Assign || op == StyioOpType::Self_Sub_Assign
       || op == StyioOpType::Self_Mul_Assign || op == StyioOpType::Self_Div_Assign
       || op == StyioOpType::Self_Mod_Assign) {
     rhs->typeInfer(this);
-    auto* nm = static_cast<NameAST*>(lhs);
-    auto it = local_binding_types.find(nm->getAsStr());
-    if (it != local_binding_types.end()) {
-      ast->setDType(it->second);
-    }
-    else {
-      ast->setDType(StyioDataType{StyioDataTypeOption::Integer, "i64", 64});
+    if (lhs->getNodeType() == StyioNodeType::Id) {
+      auto* nm = static_cast<NameAST*>(lhs);
+      auto it = local_binding_types.find(nm->getAsStr());
+      if (it != local_binding_types.end()) {
+        ast->setDType(it->second);
+      }
+      else {
+        ast->setDType(StyioDataType{StyioDataTypeOption::Integer, "i64", 64});
+      }
+    } else {
+      ast->setDType(StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0});
     }
     return;
   }

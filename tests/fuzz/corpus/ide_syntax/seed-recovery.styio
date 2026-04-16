@@ -1,0 +1,2 @@
+# broken := (x: i32) => {
+value: i32 := broken(1)

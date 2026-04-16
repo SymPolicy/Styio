@@ -2,7 +2,7 @@
 
 **Purpose:** Styio 语言的 **权威语义与特性说明**（正文规格）；形式文法见 [`Styio-EBNF.md`](./Styio-EBNF.md)，符号与 token 名见 [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md)，`@` **目标**拓扑见 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)，冲突与未定见 [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md)。
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-04-16
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -102,9 +102,40 @@ In debug builds, `@` carries metadata (reason code, source location) enabling ro
 
 ---
 
-## 4. Functions
+## 4. Module Imports
 
-### 4.1 Definition Syntax
+Styio uses explicit top-level imports to declare module dependencies across `.styio` files.
+
+### 4.1 Import Declaration
+
+```text
+@import { styio/mod, styio.mod; core }
+```
+
+Rules:
+
+- `@import` is only valid at file top level.
+- `/` is the native package and module path separator.
+- `.` is accepted as a compatibility spelling and is normalized to slash form internally.
+- A single import item must not mix `.` and `/`.
+- `,` and `;` are equivalent separators between import items.
+- Empty import lists, trailing separators, and the legacy leading string-list form such as `["pkg"]` are syntax errors.
+
+### 4.2 Resolution Semantics
+
+Each import item creates one explicit import fact for the current file. The IDE and HIR layers expose these facts in canonical slash form, so `styio.mod` and `styio/mod` both resolve as `styio/mod` internally.
+
+Import resolution remains explicit:
+
+- bare package paths are resolved through the project-aware import lookup rules
+- `.styio` is tried when the import candidate does not already name a Styio file
+- unresolved imports stay unresolved instead of binding to unrelated same-text symbols elsewhere in the workspace
+
+---
+
+## 5. Functions
+
+### 5.1 Definition Syntax
 
 Functions are declared with `#`:
 
@@ -115,7 +146,7 @@ Functions are declared with `#`:
 # add : i32 = (a: i32, b: i32) => a + b  // with return type
 ```
 
-### 4.2 Anonymous Closures
+### 5.2 Anonymous Closures
 
 Used within stream pipes:
 
@@ -125,7 +156,7 @@ prices >> #(p) => { <| p * 2 }
 
 `#(p)` binds the current pulse to the local name `p`.
 
-### 4.3 Context Capture with `$(...)`
+### 5.3 Context Capture with `$(...)`
 
 Functions can explicitly capture external variables by reference:
 
@@ -137,11 +168,11 @@ The `$(...)` list declares a **reactive binding** — the function re-evaluates 
 
 ---
 
-## 5. Control Flow
+## 6. Control Flow
 
 Styio's control flow is entirely **symbol-driven** and **expression-oriented**.
 
-### 5.1 Pattern Matching: `?=`
+### 6.1 Pattern Matching: `?=`
 
 ```
 x ?= {
@@ -156,7 +187,7 @@ x ?= {
 - `_` — wildcard / default branch
 - `<|` — yield (explicit return from block)
 
-### 5.2 Infinite Loop
+### 6.2 Infinite Loop
 
 ```
 [...] => { /* body */ }
@@ -164,7 +195,7 @@ x ?= {
 
 `[...]` is an infinite pulse generator. The closure executes indefinitely.
 
-### 5.3 Conditional Loop (While-equivalent)
+### 6.3 Conditional Loop (While-equivalent)
 
 ```
 [...] ?(expr) >> { /* body */ }
@@ -174,7 +205,7 @@ x ?= {
 - `?(expr)` — guard / valve: only passes pulses when `expr` is truthy
 - `>>` — pipe into closure
 
-### 5.4 Collection Iteration (For-each-equivalent)
+### 6.4 Collection Iteration (For-each-equivalent)
 
 ```
 [1, 2, 3] >> #(item) => { /* body */ }
@@ -182,7 +213,7 @@ x ?= {
 
 The collection becomes a finite pulse source. Each element is bound to `item`.
 
-### 5.5 Break: `^^^^` (Variable Length)
+### 6.5 Break: `^^^^` (Variable Length)
 
 ```
 ^^^^    // break out of 4 nested loops
@@ -195,7 +226,7 @@ Rules:
 - `^^ ^^` is **illegal** — the compiler rejects it
 - Depth exceeding current loop nesting produces a compile-time error
 
-### 5.6 Continue: `>>` (Variable Length, ≥2)
+### 6.6 Continue: `>>` (Variable Length, ≥2)
 
 ```
 >>      // skip current iteration (1 level)
@@ -205,7 +236,7 @@ Rules:
 
 The base continue is 2 characters (`>>`). Each additional `>` skips one more nesting level. Context distinguishes continue from pipe: continue appears as a **standalone statement** (not connecting source to consumer).
 
-### 5.7 Yield / Return: `<|`
+### 6.7 Yield / Return: `<|`
 
 ```
 # square := (x) => { <| x * x }
@@ -217,11 +248,11 @@ When multiple branches yield (e.g., in `?=`), the compiler generates LLVM `phi` 
 
 ---
 
-## 6. Wave Operators: Conditional Routing
+## 7. Wave Operators: Conditional Routing
 
 Wave operators replace ternary expressions and if/else chains with **directional logic flow**.
 
-### 6.1 Conditional Merge: `<~`
+### 7.1 Conditional Merge: `<~`
 
 ```
 val = (a > b) <~ a | b
@@ -230,7 +261,7 @@ val = ?(a > b) <~ a | b   // equivalent; ? marks the Boolean condition for reada
 
 Read as: "If condition holds, wave toward `a`; otherwise fall back to `|` value `b`."
 
-### 6.2 Conditional Dispatch: `~>`
+### 7.2 Conditional Dispatch: `~>`
 
 ```
 (signal) ~> order_logic(p) | @
@@ -238,7 +269,7 @@ Read as: "If condition holds, wave toward `a`; otherwise fall back to `|` value 
 
 Read as: "If signal is truthy, dispatch pulse to `order_logic`; otherwise route to `@` (void)."
 
-### 6.3 Visual Semantics
+### 7.3 Visual Semantics
 
 | Symbol | Direction | Meaning |
 |--------|-----------|---------|
@@ -248,9 +279,9 @@ Read as: "If signal is truthy, dispatch pulse to `order_logic`; otherwise route 
 
 ---
 
-## 7. Resource System
+## 8. Resource System
 
-### 7.1 Resource Identifiers: `@`
+### 8.1 Resource Identifiers: `@`
 
 Resources are accessed via the `@` prefix:
 
@@ -265,7 +296,7 @@ Resources are accessed via the `@` prefix:
 - `@{...}` or `@(...)` without prefix → runtime probes via plugin dictionary
 - `@protocol{...}` with prefix → compile-time static dispatch (zero overhead)
 
-### 7.2 Handle Acquisition: `<-`
+### 8.2 Handle Acquisition: `<-`
 
 ```
 f <- @file{"readme.txt"}
@@ -273,23 +304,23 @@ f <- @file{"readme.txt"}
 
 `<-` extracts a live handle (file descriptor, socket, cursor) from a resource.
 
-### 7.3 Reading: `>>`
+### 8.3 Reading: `>>`
 
 ```
 f >> #(chunk: [byte; 4096]) => { buf += chunk }
 ```
 
-### 7.4 Writing: `<<`
+### 8.4 Writing: `<<`
 
 ```
 "Hello Styio" << f
 ```
 
-### 7.5 Lifecycle: Scope-based RAII
+### 8.5 Lifecycle: Scope-based RAII
 
 Resources are automatically released when their enclosing scope ends. The compiler inserts cleanup code at every exit path (including `^^` breaks and `<|` returns).
 
-### 7.6 Persistence via Redirection: `->`
+### 8.6 Persistence via Redirection: `->`
 
 ```
 ma5 -> @database("redis://localhost/ma5_cache")
@@ -297,7 +328,7 @@ ma5 -> @database("redis://localhost/ma5_cache")
 
 `->` redirects a value's storage destination. The runtime asynchronously syncs to the target resource.
 
-### 7.7 Standard Stream Resources
+### 8.7 Standard Stream Resources
 
 Styio models the three Unix standard streams as **compiler-recognized resource atoms** over a
 single built-in primitive `>_` (the terminal device).
@@ -372,13 +403,13 @@ and `expr >> @stdout` currently lower to the same standard-stream IR family.
 
 ---
 
-## 8. State Management
+## 9. State Management
 
-### 8.1 The Problem
+### 9.1 The Problem
 
 Stream processing requires **memory across pulses**. A simple local variable resets every frame. Styio solves this with explicit state containers.
 
-### 8.2 State Container: `@[...]`
+### 9.2 State Container: `@[...]`
 
 **Superseding narrative (target syntax, not yet default in the compiler):** See [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md) for `@name : [|n|]`, top-level `:= { driver }`, and **`expr -> $name`** instead of mixing `=` into shadow updates.
 
@@ -398,7 +429,7 @@ Allocates a ring buffer of length 5. The variable `ma5` is computed each frame a
 
 Allocates a single persistent scalar initialized to `0.0`. Updated every frame.
 
-### 8.3 Shadow Reference: `$`
+### 9.3 Shadow Reference: `$`
 
 `$var` accesses a declared state container:
 
@@ -410,7 +441,7 @@ $total        // current accumulator value
 
 The `$` prefix is **mandatory** when referencing stateful variables. Without `@[...]` declaration, using `$var` is a compile error.
 
-### 8.4 History Probe: `[<<, n]`
+### 9.4 History Probe: `[<<, n]`
 
 ```
 $ma5[<<, 1]    // previous frame's ma5
@@ -419,7 +450,7 @@ $ma5[<<, 5]    // 5 frames ago
 
 Only valid on `$`-prefixed state references. The compiler verifies that the declared buffer length ≥ `n`.
 
-### 8.5 Pulse Frame Lock
+### 9.5 Pulse Frame Lock
 
 **Core invariant:** Within a single pulse frame (one execution of the closure), all `$var` reads return the **same snapshot value**, regardless of how many times they appear in the expression.
 
@@ -431,7 +462,7 @@ This prevents non-deterministic "time-tearing" when external feeds update mid-co
 
 **Hot pull exception:** `(<< @resource)` bypasses frame lock, performing a live read.
 
-### 8.6 Anonymous Ledger (Implicit Hoisting)
+### 9.6 Anonymous Ledger (Implicit Hoisting)
 
 Developers may freely scatter `@[...]` declarations anywhere in their code. The compiler automatically:
 
@@ -441,7 +472,7 @@ Developers may freely scatter `@[...]` declarations anywhere in their code. The 
 
 This provides "write messy, compile clean" ergonomics. A `styio audit --fix` tool can rewrite source to move declarations to file headers.
 
-### 8.7 Schema (Explicit Ledger)
+### 9.7 Schema (Explicit Ledger)
 
 For large systems, explicit schemas provide full control:
 
@@ -457,9 +488,9 @@ Local variables can mount to schema slots for cross-flow sharing, instant serial
 
 ---
 
-## 9. Stream Synchronization
+## 10. Stream Synchronization
 
-### 9.1 Aligned Sync (Zip): `&`
+### 10.1 Aligned Sync (Zip): `&`
 
 ```
 @binance >> #(p) & @okx >> #(p_okx) => {
@@ -475,7 +506,7 @@ Optional tolerance window:
 @binance >> #(p) &[5ms] @okx >> #(p_okx) => { ... }
 ```
 
-### 9.2 Snapshot Pull: `<< @resource`
+### 10.2 Snapshot Pull: `<< @resource`
 
 ```
 @binance >> #(p) => {
@@ -492,7 +523,7 @@ Inline instant pull (no state declaration, live read):
 gap = p - (<< @okx{"BTC"})
 ```
 
-### 9.3 Synchronization Summary
+### 10.3 Synchronization Summary
 
 | Mode | Syntax | Trigger | Use Case |
 |------|--------|---------|----------|
@@ -502,11 +533,11 @@ gap = p - (<< @okx{"BTC"})
 
 ---
 
-## 10. Selector Operators: `[mode, arg]`
+## 11. Selector Operators: `[mode, arg]`
 
 Square brackets serve as a **contextual transformer**, not just an indexer.
 
-### 10.1 Static Indexing and Slicing
+### 11.1 Static Indexing and Slicing
 
 ```
 a[0]        // element at index 0
@@ -515,19 +546,19 @@ a[0..5]     // slice: indices 0 to 4
 a[2...]     // slice: index 2 to end
 ```
 
-### 10.2 Guard Selector: `[?, cond]`
+### 11.2 Guard Selector: `[?, cond]`
 
 ```
 price[?, volume > 1000]    // returns price if condition holds, else @
 ```
 
-### 10.3 Equality Probe: `[?=, val]`
+### 11.3 Equality Probe: `[?=, val]`
 
 ```
 a[?=, 3]    // returns a if a == 3, else @
 ```
 
-### 10.4 Plugin Operators: `[op, n]`
+### 11.4 Plugin Operators: `[op, n]`
 
 ```
 prices[avg, 20]    // 20-period moving average (compiler intrinsic)
@@ -537,7 +568,7 @@ prices[std, 20]    // 20-period standard deviation
 
 These are **compiler intrinsics** — the compiler inlines optimized algorithms (O(1) sliding sum, monotonic queue, Welford's algorithm) directly into the generated code.
 
-### 10.5 History Probe: `[<<, n]`
+### 11.5 History Probe: `[<<, n]`
 
 ```
 $ma5[<<, 1]    // previous value of ma5 state
@@ -547,9 +578,9 @@ Only valid on state references (`$`-prefixed variables).
 
 ---
 
-## 11. I/O and Side Effects
+## 12. I/O and Side Effects
 
-### 11.1 Terminal Device: `>_`
+### 12.1 Terminal Device: `>_`
 
 `>_` is the **terminal device primitive** — a first-class resource handle representing the
 user's terminal. All standard streams (`@stdout`, `@stderr`, `@stdin`) are compiler-recognized
@@ -583,17 +614,17 @@ x = (<< @stdin)                      // >_ used as stream source under the hood
 | Char | `%c\n` |
 | `@` (Undefined) | `@\n` |
 
-### 11.2 I/O Buffer: `>_` (stream context)
+### 12.2 I/O Buffer: `>_` (stream context)
 
 In stream contexts, `>_` writes to the system's buffered output channel.
 
-### 11.3 Format Strings: `$`
+### 12.3 Format Strings: `$`
 
 ```
 $"Price is {p}, Volume is {v}" -> @stdout
 ```
 
-### 11.4 Standard Error: `@stderr`
+### 12.4 Standard Error: `@stderr`
 
 `@stderr` writes to Unix fd 2 with immediate flush. See §7.7 for definition.
 
@@ -601,7 +632,7 @@ $"Price is {p}, Volume is {v}" -> @stdout
 "Error: file not found" -> @stderr
 ```
 
-### 11.5 Standard Input: `@stdin`
+### 12.5 Standard Input: `@stdin`
 
 `@stdin` is a line stream from Unix fd 0. See §7.7 for definition.
 
@@ -613,17 +644,17 @@ $"Price is {p}, Volume is {v}" -> @stdout
 
 ---
 
-## 12. Error Handling Philosophy
+## 13. Error Handling Philosophy
 
-### 12.1 Fail-Fast for Structural Errors
+### 13.1 Fail-Fast for Structural Errors
 
 If a resource schema mismatch is detected (e.g., accessing a non-existent database column), the program terminates immediately at connection time — **before** the first data pulse. No silent degradation.
 
-### 12.2 Algebraic Propagation for Data Errors
+### 13.2 Algebraic Propagation for Data Errors
 
 Missing data within a stream becomes `@`, which propagates through all downstream computations. The pipeline naturally "goes silent" rather than producing incorrect results.
 
-### 12.3 Diagnostic Tracing
+### 13.3 Diagnostic Tracing
 
 In debug mode, `@` values carry tainted metadata:
 
@@ -633,7 +664,7 @@ last_signal ?? reason    // "DataSource(@binance) timeout at 14:22:05.123"
 
 The `??` operator extracts the diagnostic context from a tainted `@`.
 
-### 12.4 Guard-based Recovery
+### 13.4 Guard-based Recovery
 
 ```
 safe_price = price | $last_valid_price    // fallback if price is @
@@ -643,23 +674,23 @@ The `|` operator provides a fallback value when the left side is `@`.
 
 ---
 
-## 13. Compilation Modes
+## 14. Compilation Modes
 
-### 13.1 Development Mode (JIT)
+### 14.1 Development Mode (JIT)
 
 - Full standard library loaded
 - AI-assisted protocol probing enabled
 - LLVM ORC JIT for instant execution
 - Diagnostic tainting active
 
-### 13.2 Strict Mode (AOT, `styio build --strict`)
+### 14.2 Strict Mode (AOT, `styio build --strict`)
 
 - All types must be explicitly annotated
 - All resource protocols must be specified
 - Intent-aware dead code elimination
 - Output: minimal native binary or WebAssembly module
 
-### 13.3 Audit Mode (`styio audit --fix`)
+### 14.3 Audit Mode (`styio audit --fix`)
 
 - Scans scattered `@[...]` declarations
 - Generates explicit `schema` block at file header
