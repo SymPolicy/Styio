@@ -113,6 +113,7 @@ esac
 REPO_CMD=(python3 scripts/repo-hygiene-gate.py)
 TEAM_DOCS_CMD=(python3 scripts/team-docs-gate.py)
 DOCS_AUDIT_CMD=(python3 scripts/docs-audit.py)
+ECOSYSTEM_CLI_DOCS_CMD=(python3 scripts/ecosystem-cli-doc-gate.py)
 HEALTH_CMD=(./scripts/checkpoint-health.sh)
 
 if [[ "$MODE" == "checkpoint" ]]; then
@@ -160,6 +161,7 @@ log "mode: ${MODE}"
 run_cmd "${REPO_CMD[@]}"
 run_cmd "${TEAM_DOCS_CMD[@]}"
 run_cmd "${DOCS_AUDIT_CMD[@]}"
+run_cmd "${ECOSYSTEM_CLI_DOCS_CMD[@]}"
 
 if [[ "$RUN_HEALTH" -eq 1 ]]; then
   run_cmd "${HEALTH_CMD[@]}"

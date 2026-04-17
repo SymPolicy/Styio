@@ -31,6 +31,7 @@
 9. Design SSOT: [design/INDEX.md](./design/INDEX.md)
 10. IDE integration docs: [for-ide/INDEX.md](./for-ide/INDEX.md)
 11. Archived provenance: [archive/INDEX.md](./archive/INDEX.md)
+12. File-governance alignment plan: [plans/Styio-Ecosystem-File-Governance-Alignment-Plan.md](./plans/Styio-Ecosystem-File-Governance-Alignment-Plan.md)
 
 ## Default Read Order
 

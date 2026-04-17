@@ -344,7 +344,7 @@ static std::unordered_map<std::string, StyioDataType> const DTypeTable = {
   {"float", StyioDataType{StyioDataTypeOption::Float, "f32", 32}},
   {"double", StyioDataType{StyioDataTypeOption::Float, "f64", 64}},
 
-  {"f32", StyioDataType{StyioDataTypeOption::Float, "f64", 32}},
+  {"f32", StyioDataType{StyioDataTypeOption::Float, "f32", 32}},
   {"f64", StyioDataType{StyioDataTypeOption::Float, "f64", 64}},
 
   {"char", StyioDataType{StyioDataTypeOption::Char, "char", 0}},

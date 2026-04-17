@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-04-17
 
 ## Mission
 
@@ -29,6 +29,7 @@ Key handoff document:
 3. Keep `--machine-info` capability output aligned with actual behavior.
 4. Treat nano static repository layout as a contract; update handoff docs when it changes.
 5. Keep package-manager responsibilities out of the compiler unless they are bootstrap validation.
+6. When compile-plan or diagnostics behavior changes, keep the `styio-spio` / `styio-view` coordinator mirror and handoff docs aligned in the same checkpoint.
 
 ## Change Classes
 
@@ -51,6 +52,7 @@ When package behavior changes:
 ```bash
 cmake --build build --target styio styio_nano
 ctest --test-dir build -L styio_pipeline
+python3 scripts/ecosystem-cli-doc-gate.py
 python3 scripts/docs-audit.py
 ```
 

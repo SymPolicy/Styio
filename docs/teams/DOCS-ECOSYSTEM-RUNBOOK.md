@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-04-16
+**Last updated:** 2026-04-17
 
 ## Mission
 
@@ -39,6 +39,7 @@ Key SSOTs:
 6. Run the team runbook maintenance gate before delivery so source/test/docs folder changes cannot land without the mapped runbook update or required runbook format.
 7. Use archive lifecycle tooling for raw history/review compression rather than manually moving provenance.
 8. Use the unified delivery gate for docs/process deliveries so hygiene, runbook maintenance, and docs audit stay coupled.
+9. Keep the ecosystem CLI contract mirror and cross-repo doc gate aligned whenever `styio-spio` or `styio-view` handoff docs change.
 
 ## Change Classes
 
@@ -54,6 +55,7 @@ Documentation gates:
 python3 scripts/docs-index.py --write
 python3 scripts/team-docs-gate.py
 python3 scripts/docs-lifecycle.py validate
+python3 scripts/ecosystem-cli-doc-gate.py
 python3 scripts/docs-audit.py
 ```
 
