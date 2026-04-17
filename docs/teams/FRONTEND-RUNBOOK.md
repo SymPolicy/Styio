@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of Styio tokenization, parsing, Unicode handling, and legacy/nightly parser migration; this file links to language and test SSOTs instead of redefining grammar.
 
-**Last updated:** 2026-04-16
+**Last updated:** 2026-04-17
 
 ## Mission
 
@@ -32,6 +32,7 @@ Build and test targets:
 3. Make lexer and parser changes in the smallest parse subset possible.
 4. Add or update a failing fixture before changing accepted behavior.
 5. Update [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) when adding milestone or parser acceptance coverage.
+6. When token or primitive spelling tables change, add a focused regression so public token names do not drift silently.
 
 ## Change Classes
 

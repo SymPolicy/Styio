@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the compressed default read-in for the current repository state so future agents can orient themselves from active docs first; raw history, archived milestones/plans, and provenance docs are optional background, not required maintenance input.
 
-**Last updated:** 2026-04-16
+**Last updated:** 2026-04-17
 
 ## Default Read Order
 
@@ -24,6 +24,7 @@
 2. Language/runtime acceptance is frozen through M1-M10. For standard streams, canonical writes are `expr -> @stdout/@stderr`, `expr >> @stdout/@stderr` remains accepted compatibility shorthand, and `(<< @stdin)` currently stays on the numeric instant-pull contract.
 3. The active parser/toolchain baseline is nightly-first rather than legacy-first. Shadow zero-fallback and five-layer pipeline coverage are part of the normal correctness story, not optional side tests.
 4. Repository docs now distinguish active maintenance docs (`design/specs/teams/assets/workflow/current rollups`), optional raw windows (`docs/history/`, `docs/review/`), and archived provenance (`docs/archive/`).
+5. File governance is now on the shared three-repo baseline: root `.gitignore` freezes the common ignore floor, `docs/**` and `tests/**` temp/build-style tracked fixtures use explicit negate rules, and `scripts/repo-hygiene-gate.py` checks both the patterns and the key governance doc links.
 
 ## Current Development Front
 
@@ -34,10 +35,11 @@
 
 ## Active Gates
 
-1. Docs structure: `python3 scripts/docs-index.py --write`, `python3 scripts/docs-audit.py`, `python3 scripts/docs-lifecycle.py validate`
-2. Core correctness: `ctest --test-dir build -L milestone`, `ctest --test-dir build -L styio_pipeline`, `ctest --test-dir build -L security`
-3. Parser migration health: shadow gate / zero-fallback / zero-internal-bridges flows described in [`../assets/workflow/TEST-CATALOG.md`](../assets/workflow/TEST-CATALOG.md)
-4. Benchmark/perf workflow: `benchmark/perf-route.sh` plus structured local reports; compare `results.json` / `benchmarks.csv`, not terminal screenshots
+1. File/docs governance floor: `python3 scripts/repo-hygiene-gate.py --mode tracked`, `python3 scripts/team-docs-gate.py`, `python3 scripts/docs-index.py --write`, `python3 scripts/docs-audit.py`, `python3 scripts/docs-lifecycle.py validate`
+2. Common delivery floor: `./scripts/delivery-gate.sh --mode checkpoint` or `./scripts/delivery-gate.sh --mode push --base <ref>`
+3. Core correctness: `ctest --test-dir build -L milestone`, `ctest --test-dir build -L styio_pipeline`, `ctest --test-dir build -L security`
+4. Parser migration health: shadow gate / zero-fallback / zero-internal-bridges flows described in [`../assets/workflow/TEST-CATALOG.md`](../assets/workflow/TEST-CATALOG.md)
+5. Benchmark/perf workflow: `benchmark/perf-route.sh` plus structured local reports; compare `results.json` / `benchmarks.csv`, not terminal screenshots
 
 ## Optional Provenance
 
@@ -50,3 +52,4 @@
 2. The deepest remaining implementation debt is now summarized in [`./NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md): parser subset gaps, sema/lowering placeholders, incomplete M7 stream closure, `spio` compile-plan handoff, and IDE stdio runtime drain.
 3. The IDE batch is specified but not fully closed; stable semantic identity, fine-grained caches, and runtime scheduling discipline are still active work.
 4. Benchmarking is now structured, but meaningful comparisons still depend on keeping parser shadow/five-layer gates green alongside the perf route.
+5. Shared ignore/fixture governance is only frozen for current tracked roots; any future repro root outside `docs/**` or `tests/**` still needs explicit negate rules before files land.

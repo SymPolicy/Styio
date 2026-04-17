@@ -2,7 +2,7 @@
 
 **Purpose:** 约束 Styio 仓库的本地清理、`.gitignore`、提交前检查、push 前检查、历史重写与 `force-push` 边界；不定义语言语义与功能重构步骤（见 `CHECKPOINT-WORKFLOW.md` / `../templates/REFACTOR-WORKFLOW-TEMPLATE.md`）。
 
-**Last updated:** 2026-04-16
+**Last updated:** 2026-04-17
 
 ---
 
@@ -62,6 +62,9 @@
    - 先补 `.gitignore`
    - 再执行 `git rm --cached <path>` 或 `git rm -r --cached <dir>`
 3. `.gitignore` 规则不得误伤仓库真实源码/样例目录；例如文件名 `sample` 和目录 `sample/` 必须区分。
+4. 共享基线至少保留这些精确模式：`.DS_Store`、`.cursor/`、`.idea/`、`.clangd/`、`.cache/`、`__pycache__/`、`.pytest_cache/`、`.mypy_cache/`、`.ruff_cache/`、`.venv/`、`venv/`、`node_modules/`、`build/`、`build-*/`、`tmp/`、`*.tmp`、`*.log`。
+5. 任何需要入库的 temp/build 风格 fixture，必须显式反忽略；当前冻结写法是 `docs/**` 与 `tests/**` 下的 `build/`、`build-*/`、`tmp/`、`*.tmp`、`*.log` negate 规则。
+6. `python3 scripts/repo-hygiene-gate.py --mode tracked` 会显式检查这些 required patterns 和 fixture negate 规则，不能只改文档不改根 `.gitignore`。
 
 ---
 
@@ -223,7 +226,8 @@ fix: <行为修复>
 2. 暂存区里没有禁止提交的生成产物。
 3. `@{u}..HEAD` 不含可疑大 blob，尤其没有 `>= 100MB` 文件。
 4. `.gitignore` 已覆盖本次引入的所有新生成产物。
-5. 对应测试或恢复脚本已跑通。
+5. 若本次引入了 temp/build 风格 fixture，已同批补显式 negate rule，且 `python3 scripts/repo-hygiene-gate.py --mode tracked` 通过。
+6. 对应测试或恢复脚本已跑通。
 
 仓库提供了配套自动化：
 

@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily coordination entrypoint for Styio maintainers and tech leads; this file routes ownership, review, escalation, checkpoint, and cutover decisions to existing SSOTs instead of redefining them.
 
-**Last updated:** 2026-04-16
+**Last updated:** 2026-04-17
 
 ## Mission
 
@@ -15,6 +15,8 @@ Authoritative references:
 3. Repository boundaries: [../specs/REPOSITORY-MAP.md](../specs/REPOSITORY-MAP.md)
 4. Test catalog: [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md)
 5. Checkpoint workflow: [../assets/workflow/CHECKPOINT-WORKFLOW.md](../assets/workflow/CHECKPOINT-WORKFLOW.md)
+6. Cross-repo program plan: [../plans/Styio-Ecosystem-Delivery-Master-Plan.md](../plans/Styio-Ecosystem-Delivery-Master-Plan.md)
+7. File-governance alignment plan: [../plans/Styio-Ecosystem-File-Governance-Alignment-Plan.md](../plans/Styio-Ecosystem-File-Governance-Alignment-Plan.md)
 
 ## Module Map
 
@@ -76,7 +78,9 @@ Any high-risk cross-team work must stay checkpoint-sized:
 2. Ship code, tests, docs, ADR when needed, and `docs/history/YYYY-MM-DD.md` recovery notes together.
 3. Keep fallback or shadow routes explicit when replacing parser, analyzer, runtime, CLI, or IDE behavior.
 4. Update the affected team runbook before delivery whenever mapped owned files changed.
-5. Run the smallest team gate first, then `./scripts/delivery-gate.sh --mode checkpoint` for common delivery floor. Use `--mode push --base <ref>` before branch delivery. Keep `./scripts/checkpoint-health.sh` as the inner recovery gate.
+5. If a checkpoint changes cross-repo milestone IDs, repo exits, or shared cutover rules, update the authoritative ecosystem plan, mirror plans, and affected handoff docs in the same batch.
+6. If a checkpoint changes docs tree topology, index-generation rules, archive/rollup lifecycle, ignore-policy baseline, or tracked-fixture negate rules, update the file-governance alignment plan and affected docs/runbook owners in the same batch.
+7. Run the smallest team gate first, then `./scripts/delivery-gate.sh --mode checkpoint` for common delivery floor. Use `--mode push --base <ref>` before branch delivery. Keep `./scripts/checkpoint-health.sh` as the inner recovery gate.
 
 ## Release / Cutover Gates
 

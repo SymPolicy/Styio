@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-04-16
+**Last updated:** 2026-04-17
 
 ## Mission
 
@@ -28,6 +28,7 @@ Primary paths:
 3. Register every new automated test in CMake.
 4. Update [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) when adding or changing acceptance tests.
 5. Keep generated or temporary outputs out of the repository unless the test framework explicitly treats them as goldens.
+6. Treat compile-plan negative-path coverage and machine-readable diagnostics as contract evidence, not optional smoke coverage.
 
 ## Change Classes
 
