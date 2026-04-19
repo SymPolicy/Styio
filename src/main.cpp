@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
@@ -2857,14 +2858,26 @@ styio_emit_machine_info_json(const StyioDictImplSelectionLatest& dict_impl_selec
 #else
     << "[1]"
 #endif
-    << ",\"runtime_events\":[]}"
+    << ",\"runtime_events\":"
+#if STYIO_NANO_BUILD
+    << "[]"
+#else
+    << "[1]"
+#endif
+    << "}"
     << ",\"supported_contract_versions\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"compile_plan\":"
 #if STYIO_NANO_BUILD
     << "[]"
 #else
     << "[1]"
 #endif
-    << ",\"runtime_events\":[]}"
+    << ",\"runtime_events\":"
+#if STYIO_NANO_BUILD
+    << "[]"
+#else
+    << "[1]"
+#endif
+    << "}"
     << ",\"supported_adapter_modes\":[\"cli\"]"
     << ",\"feature_flags\":{\"single_file_entry\":true"
     << ",\"jsonl_diagnostics\":true"
@@ -2880,7 +2893,13 @@ styio_emit_machine_info_json(const StyioDictImplSelectionLatest& dict_impl_selec
 #else
     << "true"
 #endif
-    << ",\"runtime_event_stream\":false}"
+    << ",\"runtime_event_stream\":"
+#if STYIO_NANO_BUILD
+    << "false"
+#else
+    << "true"
+#endif
+    << "}"
     << ",\"capabilities\":["
     << "\"machine_info_json\","
     << "\"single_file_entry\","
@@ -2938,6 +2957,17 @@ struct StyioDiagnosticSinkLatest
 
 static StyioDiagnosticSinkLatest g_styio_diagnostic_sink_latest;
 
+struct StyioRuntimeEventSinkLatest
+{
+  bool enabled = false;
+  std::filesystem::path path;
+  std::string session_id;
+  std::uint64_t next_sequence = 1;
+};
+
+static StyioRuntimeEventSinkLatest g_styio_runtime_event_sink_latest;
+static std::atomic<unsigned long long> g_styio_runtime_event_session_counter_latest{1};
+
 static std::string
 styio_render_diagnostic_jsonl_latest(
   StyioErrorCategory category,
@@ -2961,6 +2991,149 @@ styio_render_diagnostic_jsonl_latest(
 static void
 styio_clear_diagnostic_sink_latest() {
   g_styio_diagnostic_sink_latest = StyioDiagnosticSinkLatest{};
+}
+
+static std::string
+styio_make_runtime_session_id_latest() {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const auto micros =
+    std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const auto ordinal = g_styio_runtime_event_session_counter_latest.fetch_add(1);
+  return "styio-session-" + std::to_string(micros) + "-" + std::to_string(ordinal);
+}
+
+static void
+styio_clear_runtime_event_sink_latest() {
+  g_styio_runtime_event_sink_latest = StyioRuntimeEventSinkLatest{};
+}
+
+static bool
+styio_append_text_file_latest(
+  const std::filesystem::path& path,
+  const std::string& text,
+  std::string& error_message
+);
+
+static void
+styio_set_runtime_event_sink_latest(const std::filesystem::path& build_root) {
+  g_styio_runtime_event_sink_latest.enabled = !build_root.empty();
+  g_styio_runtime_event_sink_latest.path = build_root / "runtime-events.jsonl";
+  g_styio_runtime_event_sink_latest.session_id = styio_make_runtime_session_id_latest();
+  g_styio_runtime_event_sink_latest.next_sequence = 1;
+}
+
+static void
+styio_emit_runtime_event_latest(
+  const std::string& event_kind,
+  const std::string& origin,
+  const std::string& payload_json = "{}"
+) {
+  if (!g_styio_runtime_event_sink_latest.enabled) {
+    return;
+  }
+
+  std::ostringstream out;
+  out << "{\"schema_version\":1"
+      << ",\"session_id\":\"" << styio_json_escape(g_styio_runtime_event_sink_latest.session_id) << "\""
+      << ",\"sequence\":" << g_styio_runtime_event_sink_latest.next_sequence++
+      << ",\"timestamp\":\"" << styio_json_escape(styio_now_utc_iso8601_latest()) << "\""
+      << ",\"eventKind\":\"" << styio_json_escape(event_kind) << "\""
+      << ",\"origin\":\"" << styio_json_escape(origin) << "\""
+      << ",\"payload\":" << payload_json
+      << "}";
+
+  const std::string event_line = out.str() + "\n";
+  std::string sink_error;
+  (void)styio_append_text_file_latest(
+    g_styio_runtime_event_sink_latest.path,
+    event_line,
+    sink_error);
+}
+
+static void
+styio_runtime_log_sink_latest(const char* stream, const char* message) {
+  if (!g_styio_runtime_event_sink_latest.enabled || stream == nullptr || message == nullptr) {
+    return;
+  }
+
+  std::ostringstream payload;
+  payload << "{\"stream\":\"" << styio_json_escape(stream)
+          << "\",\"message\":\"" << styio_json_escape(message)
+          << "\"}";
+  styio_emit_runtime_event_latest(
+    "log.emitted",
+    "styio.runtime",
+    payload.str());
+}
+
+static const char*
+styio_runtime_phase_name_latest(CompilationPhase phase) {
+  switch (phase) {
+    case CompilationPhase::Empty:
+      return "empty";
+    case CompilationPhase::Tokenized:
+      return "tokenized";
+    case CompilationPhase::Parsed:
+      return "parsed";
+    case CompilationPhase::Typed:
+      return "typed";
+    case CompilationPhase::Lowered:
+      return "lowered";
+    case CompilationPhase::CodegenReady:
+      return "codegen_ready";
+    case CompilationPhase::Executed:
+      return "executed";
+    case CompilationPhase::Failed:
+      return "failed";
+  }
+  return "unknown";
+}
+
+static void
+styio_emit_runtime_phase_transition_latest(
+  CompilationPhase from_phase,
+  CompilationPhase to_phase,
+  const char* operation,
+  const std::string& file_path,
+  const std::string* intent
+) {
+  if (!g_styio_runtime_event_sink_latest.enabled || from_phase == to_phase) {
+    return;
+  }
+
+  std::ostringstream transition_payload;
+  transition_payload << "{\"from\":\""
+                     << styio_json_escape(styio_runtime_phase_name_latest(from_phase))
+                     << "\",\"to\":\""
+                     << styio_json_escape(styio_runtime_phase_name_latest(to_phase))
+                     << "\",\"operation\":\""
+                     << styio_json_escape(operation != nullptr ? operation : "")
+                     << "\",\"file\":\""
+                     << styio_json_escape(file_path)
+                     << "\"";
+  if (intent != nullptr) {
+    transition_payload << ",\"intent\":\"" << styio_json_escape(*intent) << "\"";
+  }
+  transition_payload << "}";
+  styio_emit_runtime_event_latest(
+    "transition.fired",
+    "styio.session",
+    transition_payload.str());
+
+  std::ostringstream state_payload;
+  state_payload << "{\"phase\":\""
+                << styio_json_escape(styio_runtime_phase_name_latest(to_phase))
+                << "\",\"file\":\""
+                << styio_json_escape(file_path)
+                << "\"";
+  if (intent != nullptr) {
+    state_payload << ",\"intent\":\"" << styio_json_escape(*intent) << "\"";
+  }
+  state_payload << "}";
+  styio_emit_runtime_event_latest(
+    "state.changed",
+    "styio.session",
+    state_payload.str());
 }
 
 static void
@@ -3112,6 +3285,10 @@ styio_emit_diagnostic(
   const std::string jsonl_line =
     styio_render_diagnostic_jsonl_latest(category, file_path, message, subcode);
   styio_append_diagnostic_to_sink_latest(jsonl_line);
+  styio_emit_runtime_event_latest(
+    "diagnostic.emitted",
+    "styio.diagnostics",
+    jsonl_line);
 
   if (styio_error_jsonl_enabled(format)) {
     std::cerr << jsonl_line << "\n";
@@ -3139,6 +3316,69 @@ struct StyioCompilePlanRequestLatest
   bool emit_styio_ir = false;
   bool emit_llvm_ir = false;
 };
+
+static std::string
+styio_compile_plan_unit_id_latest(const StyioCompilePlanRequestLatest& request) {
+  std::string unit_id = request.entry_package_id;
+  if (!request.entry_target_kind.empty()) {
+    if (!unit_id.empty()) {
+      unit_id += "::";
+    }
+    unit_id += request.entry_target_kind;
+  }
+  if (!request.entry_target_name.empty()) {
+    if (!unit_id.empty()) {
+      unit_id += ":";
+    }
+    unit_id += request.entry_target_name;
+  }
+  if (unit_id.empty()) {
+    unit_id = request.entry_file.string();
+  }
+  return unit_id;
+}
+
+static std::string
+styio_render_compile_plan_unit_payload_latest(
+  const StyioCompilePlanRequestLatest& request,
+  const std::string& intent,
+  const bool* success = nullptr,
+  const bool* executed = nullptr,
+  const CompilationPhase* final_phase = nullptr
+) {
+  std::ostringstream payload;
+  payload << "{\"unit_id\":\""
+          << styio_json_escape(styio_compile_plan_unit_id_latest(request))
+          << "\",\"package_id\":\""
+          << styio_json_escape(request.entry_package_id)
+          << "\",\"target_kind\":\""
+          << styio_json_escape(request.entry_target_kind)
+          << "\",\"target_name\":\""
+          << styio_json_escape(request.entry_target_name)
+          << "\",\"intent\":\""
+          << styio_json_escape(intent)
+          << "\",\"file\":\""
+          << styio_json_escape(request.entry_file.string())
+          << "\"";
+  if (request.entry_target_kind == "test" || intent == "test") {
+    payload << ",\"test_name\":\""
+            << styio_json_escape(request.entry_target_name)
+            << "\"";
+  }
+  if (success != nullptr) {
+    payload << ",\"success\":" << (*success ? "true" : "false");
+  }
+  if (executed != nullptr) {
+    payload << ",\"executed\":" << (*executed ? "true" : "false");
+  }
+  if (final_phase != nullptr) {
+    payload << ",\"final_phase\":\""
+            << styio_json_escape(styio_runtime_phase_name_latest(*final_phase))
+            << "\"";
+  }
+  payload << "}";
+  return payload.str();
+}
 
 static bool
 styio_read_text_file_latest(
@@ -3281,6 +3521,7 @@ styio_write_compile_plan_receipt_latest(
   const StyioCompilePlanRequestLatest& request,
   const std::vector<std::filesystem::path>& artifacts,
   const std::string& dict_impl_name,
+  const std::string& session_id,
   bool executed,
   long long wall_time_ms,
   std::string& error_message
@@ -3293,6 +3534,7 @@ styio_write_compile_plan_receipt_latest(
           << ",\"channel\":\"" << styio_json_escape(STYIO_RELEASE_CHANNEL) << "\""
           << ",\"plan_version\":" << request.plan_version
           << ",\"intent\":\"" << styio_json_escape(request.intent) << "\""
+          << ",\"session_id\":\"" << styio_json_escape(session_id) << "\""
           << ",\"executed\":" << (executed ? "true" : "false")
           << ",\"wall_time_ms\":" << wall_time_ms
           << ",\"generated_at\":\"" << styio_json_escape(styio_now_utc_iso8601_latest()) << "\""
@@ -3303,7 +3545,10 @@ styio_write_compile_plan_receipt_latest(
           << "\",\"file\":\"" << styio_json_escape(request.entry_file.string()) << "\"}"
           << ",\"outputs\":{\"build_root\":\"" << styio_json_escape(request.build_root.string())
           << "\",\"artifact_dir\":\"" << styio_json_escape(request.artifact_dir.string())
-          << "\",\"diag_dir\":\"" << styio_json_escape(request.diag_dir.string()) << "\"}"
+          << "\",\"diag_dir\":\"" << styio_json_escape(request.diag_dir.string()) << "\""
+          << ",\"runtime_events_path\":\""
+          << styio_json_escape((request.build_root / "runtime-events.jsonl").string())
+          << "\"}"
           << ",\"artifacts\":[";
   for (size_t i = 0; i < artifacts.size(); ++i) {
     if (i > 0) {
@@ -3977,10 +4222,106 @@ main(
         "cannot create compile-plan artifact_dir: " + compile_plan_request->artifact_dir.string());
       return styio_exit_code(StyioErrorCategory::RuntimeError);
     }
+    styio_set_runtime_event_sink_latest(compile_plan_request->build_root);
+    if (!styio_ensure_text_file_exists_latest(
+          compile_plan_request->build_root / "runtime-events.jsonl",
+          sink_error)) {
+      styio_emit_diagnostic(
+        error_format,
+        StyioErrorCategory::RuntimeError,
+        fpath,
+        sink_error);
+      return styio_exit_code(StyioErrorCategory::RuntimeError);
+    }
+    {
+      std::ostringstream payload;
+      payload << "{\"intent\":\"" << styio_json_escape(compile_plan_request->intent)
+              << "\",\"file\":\"" << styio_json_escape(fpath) << "\"}";
+      styio_emit_runtime_event_latest(
+        "compile.started",
+        "styio.compile-plan",
+        payload.str());
+      styio_emit_runtime_event_latest(
+        "unit.entered",
+        "styio.compile-plan",
+        styio_render_compile_plan_unit_payload_latest(
+          *compile_plan_request,
+          compile_plan_request->intent));
+    }
   }
+
+  bool compile_plan_runtime_success = false;
+  bool compile_plan_runtime_executed = false;
+  bool compile_plan_test_runtime_started = false;
+  struct StyioCompilePlanRuntimeEventScopeLatest
+  {
+    bool active = false;
+    const StyioCompilePlanRequestLatest* request = nullptr;
+    const std::string* file_path = nullptr;
+    const std::string* intent = nullptr;
+    bool* executed = nullptr;
+    bool* success = nullptr;
+    const CompilationPhase* final_phase = nullptr;
+
+    ~StyioCompilePlanRuntimeEventScopeLatest() {
+      if (!active || !g_styio_runtime_event_sink_latest.enabled) {
+        return;
+      }
+
+      if (request != nullptr && intent != nullptr) {
+        styio_emit_runtime_event_latest(
+          "unit.exited",
+          "styio.compile-plan",
+          styio_render_compile_plan_unit_payload_latest(
+            *request,
+            *intent,
+            success,
+            executed,
+            final_phase));
+      }
+
+      std::ostringstream payload;
+      payload << "{\"intent\":\""
+              << styio_json_escape(intent != nullptr ? *intent : "")
+              << "\",\"file\":\""
+              << styio_json_escape(file_path != nullptr ? *file_path : "")
+              << "\",\"executed\":"
+              << ((executed != nullptr && *executed) ? "true" : "false");
+      if (final_phase != nullptr) {
+        payload << ",\"final_phase\":\""
+                << styio_json_escape(styio_runtime_phase_name_latest(*final_phase))
+                << "\"";
+      }
+      payload << "}";
+      styio_emit_runtime_event_latest(
+        success != nullptr && *success ? "compile.finished" : "compile.failed",
+        "styio.compile-plan",
+        payload.str());
+      styio_clear_runtime_event_sink_latest();
+    }
+  } compile_plan_runtime_scope;
+  CompilationPhase compile_plan_final_phase = CompilationPhase::Empty;
+  compile_plan_runtime_scope.active = compile_plan_request.has_value();
+  compile_plan_runtime_scope.request =
+    compile_plan_request.has_value() ? &*compile_plan_request : nullptr;
+  compile_plan_runtime_scope.file_path = &fpath;
+  compile_plan_runtime_scope.intent =
+    compile_plan_request.has_value() ? &compile_plan_request->intent : nullptr;
+  compile_plan_runtime_scope.executed = &compile_plan_runtime_executed;
+  compile_plan_runtime_scope.success = &compile_plan_runtime_success;
+  compile_plan_runtime_scope.final_phase = &compile_plan_final_phase;
 
   auto styio_code = read_styio_file(fpath);
   if (!styio_code.ok) {
+    if (compile_plan_request.has_value()) {
+      compile_plan_final_phase = CompilationPhase::Failed;
+      styio_emit_runtime_phase_transition_latest(
+        CompilationPhase::Empty,
+        compile_plan_final_phase,
+        "read_source",
+        fpath,
+        &compile_plan_request->intent);
+    }
     styio_emit_diagnostic(
       error_format,
       StyioErrorCategory::RuntimeError,
@@ -3998,15 +4339,36 @@ main(
   (void)handle_table;
 
   CompilationSession session;
+  compile_plan_final_phase = session.phase();
   const auto compile_started_at = std::chrono::steady_clock::now();
   std::vector<std::filesystem::path> compile_plan_artifacts;
   const std::string compile_plan_artifact_stem =
     compile_plan_request.has_value()
       ? styio_compile_plan_artifact_stem_latest(*compile_plan_request)
       : std::string();
+  const auto emit_compile_plan_session_transition =
+    [&](CompilationPhase previous_phase, const char* operation) {
+      compile_plan_final_phase = session.phase();
+      if (!compile_plan_request.has_value()) {
+        return;
+      }
+      styio_emit_runtime_phase_transition_latest(
+        previous_phase,
+        compile_plan_final_phase,
+        operation,
+        fpath,
+        &compile_plan_request->intent);
+    };
+  const auto mark_failed_with_runtime_transition = [&](const char* operation) {
+    const CompilationPhase previous_phase = session.phase();
+    session.mark_failed();
+    emit_compile_plan_session_transition(previous_phase, operation);
+  };
 
   try {
+    const CompilationPhase previous_phase = session.phase();
     session.adopt_tokens(StyioTokenizer::tokenize(styio_code.code_text));
+    emit_compile_plan_session_transition(previous_phase, "adopt_tokens");
   } catch (const StyioLexError& ex) {
     styio_emit_diagnostic(error_format, StyioErrorCategory::LexError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::LexError);
@@ -4034,7 +4396,9 @@ main(
     parser_engine == StyioParserEngine::Nightly ? &primary_route_stats : nullptr;
 
   try {
+    const CompilationPhase previous_phase = session.phase();
     session.attach_ast(parse_main_block_with_engine_latest(*session.context(), parser_engine, primary_route_stats_ptr));
+    emit_compile_plan_session_transition(previous_phase, "attach_ast");
     if (primary_route_stats_ptr != nullptr) {
       primary_route_detail =
         "nightly_subset_statements=" + std::to_string(primary_route_stats.nightly_subset_statements)
@@ -4168,13 +4532,15 @@ main(
   StyioAnalyzer analyzer = StyioAnalyzer();
   try {
     analyzer.typeInfer(session.ast());
+    const CompilationPhase previous_phase = session.phase();
     session.mark_type_checked();
+    emit_compile_plan_session_transition(previous_phase, "mark_type_checked");
   } catch (const StyioBaseException& ex) {
-    session.mark_failed();
+    mark_failed_with_runtime_transition("mark_failed");
     styio_emit_diagnostic(error_format, StyioErrorCategory::TypeError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::TypeError);
   } catch (const std::exception& ex) {
-    session.mark_failed();
+    mark_failed_with_runtime_transition("mark_failed");
     styio_emit_diagnostic(error_format, StyioErrorCategory::TypeError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::TypeError);
   }
@@ -4201,13 +4567,15 @@ main(
   }
 
   try {
+    const CompilationPhase previous_phase = session.phase();
     session.attach_ir(analyzer.toStyioIR(session.ast()));
+    emit_compile_plan_session_transition(previous_phase, "attach_ir");
   } catch (const StyioBaseException& ex) {
-    session.mark_failed();
+    mark_failed_with_runtime_transition("mark_failed");
     styio_emit_diagnostic(error_format, StyioErrorCategory::TypeError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::TypeError);
   } catch (const std::exception& ex) {
-    session.mark_failed();
+    mark_failed_with_runtime_transition("mark_failed");
     styio_emit_diagnostic(error_format, StyioErrorCategory::TypeError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::TypeError);
   }
@@ -4250,7 +4618,9 @@ main(
 
     StyioToLLVM generator = StyioToLLVM(std::move(*jit_or_err));
     session.ir()->toLLVMIR(&generator);
+    const CompilationPhase previous_phase = session.phase();
     session.mark_codegen_ready();
+    emit_compile_plan_session_transition(previous_phase, "mark_codegen_ready");
     const std::string llvm_ir_text = generator.dump_llvm_ir();
 
     if (compile_plan_request.has_value()) {
@@ -4271,8 +4641,73 @@ main(
       !compile_plan_request.has_value()
       || (compile_plan_request->intent != "build" && compile_plan_request->intent != "check");
     if (should_execute) {
+      if (compile_plan_request.has_value()) {
+        if (compile_plan_request->intent == "test") {
+          styio_emit_runtime_event_latest(
+            "unit.test.started",
+            "styio.tests",
+            styio_render_compile_plan_unit_payload_latest(
+              *compile_plan_request,
+              compile_plan_request->intent));
+          compile_plan_test_runtime_started = true;
+        }
+        std::ostringstream payload;
+        payload << "{\"intent\":\"" << styio_json_escape(compile_plan_request->intent)
+                << "\",\"file\":\"" << styio_json_escape(fpath) << "\"}";
+        styio_emit_runtime_event_latest(
+          "run.started",
+          "styio.runtime",
+          payload.str());
+        std::ostringstream thread_payload;
+        thread_payload << "{\"thread_id\":\"main\""
+                       << ",\"role\":\"entry\""
+                       << ",\"intent\":\"" << styio_json_escape(compile_plan_request->intent)
+                       << "\",\"file\":\"" << styio_json_escape(fpath)
+                       << "\"}";
+        styio_emit_runtime_event_latest(
+          "thread.spawned",
+          "styio.runtime",
+          thread_payload.str());
+      }
       styio_runtime_clear_error();
+      styio_runtime_set_log_sink(styio_runtime_log_sink_latest);
       generator.execute();
+      styio_runtime_set_log_sink(nullptr);
+      compile_plan_runtime_executed = true;
+      if (compile_plan_request.has_value()) {
+        const bool execution_success = !styio_runtime_has_error();
+        std::ostringstream thread_payload;
+        thread_payload << "{\"thread_id\":\"main\""
+                       << ",\"role\":\"entry\""
+                       << ",\"success\":"
+                       << (execution_success ? "true" : "false")
+                       << "}";
+        styio_emit_runtime_event_latest(
+          "thread.exited",
+          "styio.runtime",
+          thread_payload.str());
+        if (compile_plan_request->intent == "test") {
+          styio_emit_runtime_event_latest(
+            "unit.test.finished",
+            "styio.tests",
+            styio_render_compile_plan_unit_payload_latest(
+              *compile_plan_request,
+              compile_plan_request->intent,
+              &execution_success,
+              &compile_plan_runtime_executed));
+          compile_plan_test_runtime_started = false;
+        }
+        std::ostringstream payload;
+        payload << "{\"intent\":\"" << styio_json_escape(compile_plan_request->intent)
+                << "\",\"file\":\"" << styio_json_escape(fpath) << "\""
+                << ",\"success\":"
+                << (execution_success ? "true" : "false")
+                << "}";
+        styio_emit_runtime_event_latest(
+          "run.finished",
+          "styio.runtime",
+          payload.str());
+      }
       if (styio_runtime_has_error()) {
         const char* runtime_err = styio_runtime_last_error();
         const char* runtime_subcode = styio_runtime_last_error_subcode();
@@ -4282,21 +4717,62 @@ main(
           fpath,
           runtime_err ? runtime_err : "runtime helper reported error",
           runtime_subcode ? runtime_subcode : "");
-        session.mark_failed();
+        mark_failed_with_runtime_transition("mark_failed");
         return styio_exit_code(StyioErrorCategory::RuntimeError);
       }
+      const CompilationPhase previous_phase = session.phase();
       session.mark_executed();
+      emit_compile_plan_session_transition(previous_phase, "mark_executed");
     }
   } catch (const StyioTypeError& ex) {
-    session.mark_failed();
+    styio_runtime_set_log_sink(nullptr);
+    if (compile_plan_test_runtime_started && compile_plan_request.has_value()) {
+      const bool test_success = false;
+        styio_emit_runtime_event_latest(
+          "unit.test.finished",
+          "styio.tests",
+          styio_render_compile_plan_unit_payload_latest(
+            *compile_plan_request,
+            compile_plan_request->intent,
+            &test_success,
+            &compile_plan_runtime_executed));
+      compile_plan_test_runtime_started = false;
+    }
+    mark_failed_with_runtime_transition("mark_failed");
     styio_emit_diagnostic(error_format, StyioErrorCategory::TypeError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::TypeError);
   } catch (const StyioBaseException& ex) {
-    session.mark_failed();
+    styio_runtime_set_log_sink(nullptr);
+    if (compile_plan_test_runtime_started && compile_plan_request.has_value()) {
+      const bool test_success = false;
+        styio_emit_runtime_event_latest(
+          "unit.test.finished",
+          "styio.tests",
+          styio_render_compile_plan_unit_payload_latest(
+            *compile_plan_request,
+            compile_plan_request->intent,
+            &test_success,
+            &compile_plan_runtime_executed));
+      compile_plan_test_runtime_started = false;
+    }
+    mark_failed_with_runtime_transition("mark_failed");
     styio_emit_diagnostic(error_format, StyioErrorCategory::RuntimeError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::RuntimeError);
   } catch (const std::exception& ex) {
-    session.mark_failed();
+    styio_runtime_set_log_sink(nullptr);
+    if (compile_plan_test_runtime_started && compile_plan_request.has_value()) {
+      const bool test_success = false;
+        styio_emit_runtime_event_latest(
+          "unit.test.finished",
+          "styio.tests",
+          styio_render_compile_plan_unit_payload_latest(
+            *compile_plan_request,
+            compile_plan_request->intent,
+            &test_success,
+            &compile_plan_runtime_executed));
+      compile_plan_test_runtime_started = false;
+    }
+    mark_failed_with_runtime_transition("mark_failed");
     styio_emit_diagnostic(error_format, StyioErrorCategory::RuntimeError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::RuntimeError);
   }
@@ -4311,12 +4787,14 @@ main(
           *compile_plan_request,
           compile_plan_artifacts,
           dict_impl_selection.impl_name,
+          g_styio_runtime_event_sink_latest.session_id,
           session.phase() == CompilationPhase::Executed,
           wall_time_ms,
           artifact_error)) {
       styio_emit_diagnostic(error_format, StyioErrorCategory::RuntimeError, fpath, artifact_error);
       return styio_exit_code(StyioErrorCategory::RuntimeError);
     }
+    compile_plan_runtime_success = true;
   }
 
   return static_cast<int>(StyioExitCode::Success);

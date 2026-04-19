@@ -63,26 +63,28 @@ StyioToLLVM::toLLVMIR(SIOPath* node) {
 llvm::Value*
 StyioToLLVM::toLLVMIR(SIOPrint* node) {
   llvm::Type* char_ptr = llvm::PointerType::get(*theContext, 0);
-  llvm::FunctionCallee printf_fn = theModule->getOrInsertFunction(
-    "printf",
-    llvm::FunctionType::get(theBuilder->getInt32Ty(), char_ptr, true));
-
-  llvm::FunctionCallee puts_fn = theModule->getOrInsertFunction(
-    "puts",
-    llvm::FunctionType::get(theBuilder->getInt32Ty(), char_ptr, false));
+  llvm::FunctionCallee stdout_fn = theModule->getOrInsertFunction(
+    "styio_stdout_write_cstr",
+    llvm::FunctionType::get(theBuilder->getVoidTy(), {char_ptr}, false));
+  llvm::FunctionCallee i64_cstr_fn = theModule->getOrInsertFunction(
+    "styio_i64_dec_cstr",
+    llvm::FunctionType::get(char_ptr, {theBuilder->getInt64Ty()}, false));
+  llvm::FunctionCallee f64_cstr_fn = theModule->getOrInsertFunction(
+    "styio_f64_dec_cstr",
+    llvm::FunctionType::get(char_ptr, {theBuilder->getDoubleTy()}, false));
 
   for (StyioIR* part : node->expr) {
     llvm::Value* v = part->toLLVMIR(this);
+    llvm::Value* cstr = nullptr;
 
     if (v->getType()->isIntegerTy(1)) {
       llvm::Value* tstr = theBuilder->CreateGlobalStringPtr("true", "styio_true_nl");
       llvm::Value* fstr = theBuilder->CreateGlobalStringPtr("false", "styio_false_nl");
-      llvm::Value* pick = theBuilder->CreateSelect(v, tstr, fstr);
-      theBuilder->CreateCall(puts_fn, {pick});
+      cstr = theBuilder->CreateSelect(v, tstr, fstr);
     }
     else if (v->getType()->isIntegerTy(32)) {
-      llvm::Value* fmt = theBuilder->CreateGlobalStringPtr("%d\n", "styio_fmt_i32");
-      theBuilder->CreateCall(printf_fn, {fmt, v});
+      llvm::Value* ext = theBuilder->CreateSExt(v, theBuilder->getInt64Ty());
+      cstr = theBuilder->CreateCall(i64_cstr_fn, {ext});
     }
     else if (v->getType()->isIntegerTy(64)) {
       llvm::Value* sent = llvm::ConstantInt::get(
@@ -97,27 +99,33 @@ StyioToLLVM::toLLVMIR(SIOPrint* node) {
       theBuilder->CreateCondBr(isU, b_at, b_num);
       theBuilder->SetInsertPoint(b_at);
       llvm::Value* ats = theBuilder->CreateGlobalStringPtr("@", "styio_print_at");
-      theBuilder->CreateCall(puts_fn, {ats});
+      theBuilder->CreateCall(stdout_fn, {ats});
       theBuilder->CreateBr(b_done);
       theBuilder->SetInsertPoint(b_num);
-      llvm::Value* fmt = theBuilder->CreateGlobalStringPtr("%lld\n", "styio_fmt_i64");
-      theBuilder->CreateCall(printf_fn, {fmt, v});
+      llvm::Value* num_cstr = theBuilder->CreateCall(i64_cstr_fn, {v});
+      theBuilder->CreateCall(stdout_fn, {num_cstr});
       theBuilder->CreateBr(b_done);
       theBuilder->SetInsertPoint(b_done);
     }
     else if (v->getType()->isDoubleTy()) {
-      llvm::Value* fmt = theBuilder->CreateGlobalStringPtr("%.6f\n", "styio_fmt_f64");
-      theBuilder->CreateCall(printf_fn, {fmt, v});
+      cstr = theBuilder->CreateCall(f64_cstr_fn, {v});
     }
     else if (v->getType()->isPointerTy()) {
-      llvm::Value* fmt = theBuilder->CreateGlobalStringPtr("%s\n", "styio_fmt_str");
-      theBuilder->CreateCall(printf_fn, {fmt, v});
-      free_owned_cstr_temp_if_tracked(v);
+      cstr = v;
     }
     else {
-      llvm::Value* fmt = theBuilder->CreateGlobalStringPtr("%lld\n", "styio_fmt_fallback");
       llvm::Value* as_i64 = theBuilder->CreatePtrToInt(v, theBuilder->getInt64Ty());
-      theBuilder->CreateCall(printf_fn, {fmt, as_i64});
+      cstr = theBuilder->CreateCall(i64_cstr_fn, {as_i64});
+    }
+
+    if (cstr != nullptr) {
+      theBuilder->CreateCall(stdout_fn, {cstr});
+      if (v->getType()->isPointerTy()) {
+        free_owned_cstr_temp_if_tracked(v);
+      }
+    }
+    else if (v->getType()->isPointerTy()) {
+      free_owned_cstr_temp_if_tracked(v);
     }
   }
 
@@ -138,26 +146,28 @@ StyioToLLVM::toLLVMIR(SIOStdStreamWrite* node) {
 
   if (node->stream == SIOStdStreamWrite::Stream::Stdout) {
     /* ---- STDOUT: replicate SIOPrint six-type-branch pattern ---- */
-    llvm::FunctionCallee printf_fn = theModule->getOrInsertFunction(
-      "printf",
-      llvm::FunctionType::get(theBuilder->getInt32Ty(), char_ptr, true));
-
-    llvm::FunctionCallee puts_fn = theModule->getOrInsertFunction(
-      "puts",
-      llvm::FunctionType::get(theBuilder->getInt32Ty(), char_ptr, false));
+    llvm::FunctionCallee stdout_fn = theModule->getOrInsertFunction(
+      "styio_stdout_write_cstr",
+      llvm::FunctionType::get(theBuilder->getVoidTy(), {char_ptr}, false));
+    llvm::FunctionCallee i64_cstr_fn = theModule->getOrInsertFunction(
+      "styio_i64_dec_cstr",
+      llvm::FunctionType::get(char_ptr, {theBuilder->getInt64Ty()}, false));
+    llvm::FunctionCallee f64_cstr_fn = theModule->getOrInsertFunction(
+      "styio_f64_dec_cstr",
+      llvm::FunctionType::get(char_ptr, {theBuilder->getDoubleTy()}, false));
 
     for (StyioIR* part : node->exprs) {
       llvm::Value* v = part->toLLVMIR(this);
+      llvm::Value* cstr = nullptr;
 
       if (v->getType()->isIntegerTy(1)) {
         llvm::Value* tstr = theBuilder->CreateGlobalStringPtr("true", "styio_true_nl");
         llvm::Value* fstr = theBuilder->CreateGlobalStringPtr("false", "styio_false_nl");
-        llvm::Value* pick = theBuilder->CreateSelect(v, tstr, fstr);
-        theBuilder->CreateCall(puts_fn, {pick});
+        cstr = theBuilder->CreateSelect(v, tstr, fstr);
       }
       else if (v->getType()->isIntegerTy(32)) {
-        llvm::Value* fmt = theBuilder->CreateGlobalStringPtr("%d\n", "styio_fmt_i32");
-        theBuilder->CreateCall(printf_fn, {fmt, v});
+        llvm::Value* ext = theBuilder->CreateSExt(v, theBuilder->getInt64Ty());
+        cstr = theBuilder->CreateCall(i64_cstr_fn, {ext});
       }
       else if (v->getType()->isIntegerTy(64)) {
         llvm::Value* sent = llvm::ConstantInt::get(
@@ -172,27 +182,33 @@ StyioToLLVM::toLLVMIR(SIOStdStreamWrite* node) {
         theBuilder->CreateCondBr(isU, b_at, b_num);
         theBuilder->SetInsertPoint(b_at);
         llvm::Value* ats = theBuilder->CreateGlobalStringPtr("@", "styio_print_at");
-        theBuilder->CreateCall(puts_fn, {ats});
+        theBuilder->CreateCall(stdout_fn, {ats});
         theBuilder->CreateBr(b_done);
         theBuilder->SetInsertPoint(b_num);
-        llvm::Value* fmt = theBuilder->CreateGlobalStringPtr("%lld\n", "styio_fmt_i64");
-        theBuilder->CreateCall(printf_fn, {fmt, v});
+        llvm::Value* num_cstr = theBuilder->CreateCall(i64_cstr_fn, {v});
+        theBuilder->CreateCall(stdout_fn, {num_cstr});
         theBuilder->CreateBr(b_done);
         theBuilder->SetInsertPoint(b_done);
       }
       else if (v->getType()->isDoubleTy()) {
-        llvm::Value* fmt = theBuilder->CreateGlobalStringPtr("%.6f\n", "styio_fmt_f64");
-        theBuilder->CreateCall(printf_fn, {fmt, v});
+        cstr = theBuilder->CreateCall(f64_cstr_fn, {v});
       }
       else if (v->getType()->isPointerTy()) {
-        llvm::Value* fmt = theBuilder->CreateGlobalStringPtr("%s\n", "styio_fmt_str");
-        theBuilder->CreateCall(printf_fn, {fmt, v});
-        free_owned_cstr_temp_if_tracked(v);
+        cstr = v;
       }
       else {
-        llvm::Value* fmt = theBuilder->CreateGlobalStringPtr("%lld\n", "styio_fmt_fallback");
         llvm::Value* as_i64 = theBuilder->CreatePtrToInt(v, theBuilder->getInt64Ty());
-        theBuilder->CreateCall(printf_fn, {fmt, as_i64});
+        cstr = theBuilder->CreateCall(i64_cstr_fn, {as_i64});
+      }
+
+      if (cstr != nullptr) {
+        theBuilder->CreateCall(stdout_fn, {cstr});
+        if (v->getType()->isPointerTy()) {
+          free_owned_cstr_temp_if_tracked(v);
+        }
+      }
+      else if (v->getType()->isPointerTy()) {
+        free_owned_cstr_temp_if_tracked(v);
       }
     }
   }
