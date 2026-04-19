@@ -29,11 +29,12 @@ Primary paths:
 4. Update [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) when adding or changing acceptance tests.
 5. Keep generated or temporary outputs out of the repository unless the test framework explicitly treats them as goldens.
 6. Treat compile-plan negative-path coverage and machine-readable diagnostics as contract evidence, not optional smoke coverage.
+7. When compile-plan artifacts grow, add assertions for receipt fields and auxiliary artifacts such as `runtime-events.jsonl`, not just exit codes.
 
 ## Change Classes
 
 1. Small: new fixture for already accepted behavior, expected-output fix, or test naming cleanup. Run targeted test.
-2. Medium: new milestone area, five-layer case, security regression, or parser shadow gate update. Update docs and run affected labels.
+2. Medium: new milestone area, five-layer case, security regression, parser shadow gate update, or compile-plan artifact assertion expansion. Update docs and run affected labels.
 3. High: new test framework, changed oracle policy, fuzz corpus backflow, or checkpoint-health gate change. Use checkpoint workflow and add ADR if the gate becomes required.
 
 ## Required Gates

@@ -39,6 +39,8 @@ styio --machine-info=json
 3. `supported_adapter_modes`
 4. `feature_flags`
 5. `supported_contracts.compile_plan:[1]`
+6. `supported_contracts.runtime_events:[1]`
+7. `feature_flags.runtime_event_stream:true`
 
 Owner / consumer docs:
 
@@ -56,9 +58,11 @@ styio --compile-plan <path>
 当前跨仓必须保持一致的要点：
 
 1. `build/check/run/test` 都走 compile-plan v1
-2. 成功路径在 `build_root / artifact_dir / diag_dir` 内写出 receipt、产物和 `diagnostics.jsonl`
+2. 成功路径在 `build_root / artifact_dir / diag_dir` 内写出 receipt、产物、`diagnostics.jsonl` 和 `build_root/runtime-events.jsonl`
 3. invalid plan / CLI conflict 也返回 machine-readable `CliError`
-4. `styio` 继续作为 receipt / diagnostics 的真相源
+4. `receipt.json` 现在包含 `session_id` 与 `outputs.runtime_events_path`
+5. `runtime-events.jsonl` 当前至少发布 `compile.* / run.* / thread.* / unit.* / unit.test.* / state.* / transition.fired / log.emitted / diagnostic.emitted`
+6. `styio` 继续作为 receipt / diagnostics / runtime event artifact 的真相源
 
 Owner / consumer docs:
 
@@ -82,6 +86,7 @@ spio machine-info --json
 3. `supported_contracts.toolchain_state:[1]`
 4. `supported_contracts.workflow_success_payloads:[1]`
 5. `supported_adapter_modes:[cli]`
+6. `feature_flags.runtime_event_payload:true`
 
 Owner / consumer docs:
 
@@ -150,7 +155,10 @@ spio --json test --manifest-path <path> ...
 3. `receipt_path`
 4. parsed `receipt`
 5. `diagnostics_path`
-6. captured `stdout / stderr`
+6. `runtime_events_path`
+7. `runtime_session_id`
+8. parsed `runtime_events`
+9. captured `stdout / stderr`
 
 Owner / consumer docs:
 

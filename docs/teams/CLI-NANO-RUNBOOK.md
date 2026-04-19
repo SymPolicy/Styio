@@ -30,11 +30,12 @@ Key handoff document:
 4. Treat nano static repository layout as a contract; update handoff docs when it changes.
 5. Keep package-manager responsibilities out of the compiler unless they are bootstrap validation.
 6. When compile-plan or diagnostics behavior changes, keep the `styio-spio` / `styio-view` coordinator mirror and handoff docs aligned in the same checkpoint.
+7. When runtime event artifacts change, keep `supported_contracts.runtime_events`, `feature_flags.runtime_event_stream`, `receipt.json`, and `build_root/runtime-events.jsonl` aligned in the same checkpoint.
 
 ## Change Classes
 
 1. Small: help text, config parsing cleanup, or non-contract local path fix. Run targeted CLI or nano tests.
-2. Medium: CLI option, diagnostic format, exit code, nano profile, or machine-info capability change. Update tests and docs.
+2. Medium: CLI option, diagnostic format, exit code, nano profile, machine-info capability, or runtime event artifact change. Update tests and docs.
 3. High: nano package layout, publish/consume validation, or compiler/package-manager responsibility split. Use checkpoint workflow and review the `styio-spio` handoff.
 
 ## Required Gates

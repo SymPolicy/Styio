@@ -40,11 +40,12 @@ Key SSOTs:
 7. Use archive lifecycle tooling for raw history/review compression rather than manually moving provenance.
 8. Use the unified delivery gate for docs/process deliveries so hygiene, runbook maintenance, and docs audit stay coupled.
 9. Keep the ecosystem CLI contract mirror and cross-repo doc gate aligned whenever `styio-spio` or `styio-view` handoff docs change.
+10. When a compiler-side machine contract grows, update the owner SSOT and both consumer handoff docs in the same checkpoint instead of leaving one side on preview wording.
 
 ## Change Classes
 
 1. Small: typo, link fix, or local README wording. Run docs audit.
-2. Medium: new docs collection, generated index config, SSOT table change, or external handoff doc. Update policy and run generated-index checks.
+2. Medium: new docs collection, generated index config, SSOT table change, external handoff doc, or CLI/runtime contract matrix update. Update policy and run generated-index checks.
 3. High: repository boundary, archive lifecycle, docs audit rule, or ecosystem ownership change. Use checkpoint workflow and coordinate affected implementation teams.
 
 ## Required Gates
