@@ -10,6 +10,4 @@
 
 | Path | Entry | Summary |
 |------|-------|---------|
-| `2026-03-29/` | [Styio Development Milestones — Index](./2026-03-29/00-Milestone-Index.md) | 本批（2026-03-29/）里程碑的 总索引：M1–M7 目标、依赖链、各 M*.md 路径及与设计文档的链接；不替代各 M*-*.md 中的验收细则。 |
-| `2026-04-08/` | [Styio Development Milestones — Index (Standard Streams)](./2026-04-08/00-Milestone-Index.md) | 本批（2026-04-08/）里程碑的 总索引：M9–M10 目标、依赖链、各 M*.md 路径及与设计文档的链接；不替代各 M*-*.md 中的验收细则。 |
 | `2026-04-15/` | [Styio Development Milestones — Index (IDE Roadmap)](./2026-04-15/00-Milestone-Index.md) | 本批（2026-04-15/）里程碑的总索引：M11–M19 的目标、依赖链、文件路径与验收边界；它们全部派生自 ../../plans/IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md 中定义的总路线图。 |

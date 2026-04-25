@@ -2,9 +2,9 @@
 
 **Purpose:** M19 验收测试与任务分解；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md) 和 [`../../plans/IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md`](../../plans/IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md)。
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-04-16
 
-**Status:** Planned frozen acceptance batch
+**Status:** Implemented
 
 **Depends on:** M18 (IDE runtime)  
 **Goal:** 在扩功能之前先收口质量。语法漂移、模糊输入、LSP transcript 和性能回归都要进入持续校验；未过门槛时不得继续扩 IDE 功能面。
@@ -114,3 +114,17 @@ M19 is complete when:
 1. T19.01-T19.04 pass
 2. parser drift, fuzz stability, and latency gates are frozen and automated
 3. further IDE feature expansion requires a new plan or an explicit waiver
+
+---
+
+## Implementation Notes
+
+Implemented in `tests/ide/styio_ide_test.cpp`, `tests/ide/corpus/m19/`, `tests/fuzz/`, `scripts/ide-perf-gate.sh`, `scripts/ide-fuzz-gate.sh`, and `scripts/ide-quality-gate.sh`.
+
+Key closure behavior:
+
+1. `StyioSyntaxDrift.CorpusMatchesApprovedEnvelope` freezes a representative corpus and compares token boundaries, statement starts, block shape, and approved Nightly recovery exceptions against the Tree-sitter-backed syntax layer.
+2. `StyioIdePerf.EnforcesFrozenLatencyBudgets` remains present in the normal unit binary but skips non-Release builds; the frozen latency budget is enforced through `scripts/ide-perf-gate.sh` with a dedicated Release configuration.
+3. `tests/fuzz/CMakeLists.txt` now builds `styio_fuzz_ide_syntax`, `styio_fuzz_ide_completion`, and `styio_fuzz_ide_lsp_sync`, and aggregates them under `styio_fuzz_suite` plus the smoke test `StyioFuzzTargets.SyntaxCompletionAndLspSyncRemainStable`.
+4. `scripts/ide-fuzz-gate.sh` configures the Clang/libFuzzer build, reuses an already-populated local Tree-sitter runtime checkout when offline, and runs the frozen `fuzz_smoke` label.
+5. `scripts/ide-quality-gate.sh` is the aggregate frozen gate: IDE/LSP regressions, docs hygiene, Release perf, and fuzz smoke all run unless an explicit `--waiver` is supplied for a skipped frozen gate.

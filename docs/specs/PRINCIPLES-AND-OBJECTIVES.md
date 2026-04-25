@@ -4,9 +4,9 @@
 
 [CN] 目标：定义 Styio 在规划、设计、开发、测试与审核中的项目级原则与目标；当取舍理由或文档发生冲突时，本文件定义 Styio 的优先级顺序与重写边界。
 
-[EN] Last updated: 2026-04-15
+[EN] Last updated: 2026-04-16
 
-[CN] 更新日期：2026-04-15
+[CN] 更新日期：2026-04-16
 
 [EN] Status: Active project-governance SSOT
 
@@ -33,6 +33,7 @@
 | 5 | 证据高于直觉 | 凡是涉及正确性、性能、安全性和行为变化的重要主张，都需要测试、基准、诊断和文档更新来支撑。 |
 | 6 | 审核应服务长期项目价值 | 只要更符合 Styio 的优先级，大规模删除、替换、不兼容变更甚至重写，都可能是正确的审核结论；“改动太大”本身不是充分反对理由。 |
 | 7 | 可恢复性管理风险，不限制目标 | Checkpoint、ADR、history 和分阶段 rollout 的存在，是为了让大胆变更可执行、可审计，而不是为了逼迫项目保持保守。 |
+| 8 | 可维护性必须随改动同步增长 | 项目规模越大，越不能允许知识只存在于个人记忆、聊天记录或偶然代码结构里。凡是改变团队负责目录、工作流、接口、测试门禁或交接方式的改动，都必须同步更新对应文档；交付门禁应阻止“代码变了但维护知识没有留下”的腐化。 |
 
 ### [CN] 全流程指令
 
@@ -43,7 +44,7 @@
 | 开发 | 可以采用分阶段迁移、双轨路由或推倒重来。不要仅仅为了避免重构痛苦而保留偶然形成的复杂结构。 |
 | 测试 | 既要证明行为正确，也要在相关场景下证明性能与安全目标。回归套件应保护战略目标，而不只是保护既有怪异行为。 |
 | 审核 | 应判断变更是否让 Styio 更接近其目标。如果变更能够实质改善 Styio，那么“破坏性太大”“改动太多”“会破坏兼容性”都不足以单独构成否决理由。 |
-| 文档 | 必须显式承认这套优先级。局部文档只要讨论取舍，就应引用本文件，而不是重新定义项目级优先级。 |
+| 文档 | 必须显式承认这套优先级。局部文档只要讨论取舍，就应引用本文件，而不是重新定义项目级优先级。任何触及团队负责目录或交付流程的改动，都必须维护对应 runbook、统计或 SSOT 链接，并通过自动化门禁验证。 |
 
 ### [CN] 项目目标
 
@@ -54,6 +55,7 @@
 | 3 | 在不改变优先级排序的前提下提升易用性 | 通过改进语法、诊断、工具链、IDE 支持和文档质量来持续提升易用性。 |
 | 4 | 让设计、实现、测试、审核和文档收敛成一个系统 | 避免漂移成多套平行真相。 |
 | 5 | 保留执行大规模架构变更的能力 | 在不丢失可审计性和恢复纪律的前提下，允许破坏兼容性的迁移和净室重写。 |
+| 6 | 让项目越大越容易维护 | 每次交付都应让下一位维护者更容易理解责任边界、验证路径和恢复方式；不得把增长后的复杂度留给未来维护者用猜测补齐。 |
 
 ### [CN] 与其他文档的关系
 
@@ -82,6 +84,7 @@
 | 5 | Proof outranks intuition | Important claims about correctness, performance, safety, and behavior need tests, benchmarks, diagnostics, and documentation updates. |
 | 6 | Review should serve long-term project value | A correct review may approve large-scale deletion, replacement, incompatibility, or rewrite when those moves better serve Styio's priorities; "too disruptive" alone is not a sufficient objection. |
 | 7 | Recoverability manages risk, not ambition | Checkpoints, ADRs, history logs, and phased rollout exist to make bold changes executable and auditable, not to force the project to stay conservative. |
+| 8 | Maintainability must grow with every change | As the project grows, knowledge must not live only in personal memory, chat logs, or accidental code structure. Any change that affects a team-owned folder, workflow, interface, test gate, or handoff path must update the corresponding documentation; delivery gates should block code changes whose maintenance knowledge was not recorded. |
 
 ### [EN] Lifecycle Directives
 
@@ -92,7 +95,7 @@
 | Development | Implementation may use phased migration, dual-track routing, or clean-slate replacement. Do not preserve accidental complexity merely to avoid refactoring pain. |
 | Testing | Tests must prove both behavioral correctness and, where relevant, the intended performance and safety properties. Regression suites should protect strategic goals, not only existing quirks. |
 | Review | Reviews should ask whether a change moves Styio closer to its objectives. "Too disruptive", "too large", or "breaks compatibility" is not a sufficient objection if the change materially improves Styio. |
-| Documentation | Documents must make the priority order explicit. When a local document discusses tradeoffs, it should reference this file instead of redefining project-wide priorities. |
+| Documentation | Documents must make the priority order explicit. When a local document discusses tradeoffs, it should reference this file instead of redefining project-wide priorities. Any change that touches team-owned folders or delivery workflows must maintain the corresponding runbook, stats, or SSOT link and pass the automated gate. |
 
 ### [EN] Project Objectives
 
@@ -103,6 +106,7 @@
 | 3 | Increase ease of use without changing the priority order | Improve syntax, diagnostics, tooling, IDE support, and documentation quality without sacrificing the performance-first ordering. |
 | 4 | Keep the project converging toward one coherent system | Design, implementation, tests, reviews, and documentation should not drift into parallel truths. |
 | 5 | Preserve the ability to execute large architectural change | Compatibility-breaking migration and clean-room rewrite remain valid options as long as auditability and recovery discipline are preserved. |
+| 6 | Make the project easier to maintain as it grows | Each delivery should leave the next maintainer with clearer ownership boundaries, verification paths, and recovery instructions; growth must not push hidden complexity onto future maintainers. |
 
 ### [EN] Relationship To Other Documents
 

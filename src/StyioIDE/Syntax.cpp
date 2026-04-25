@@ -478,8 +478,24 @@ SyntaxSnapshot::position_kind_at(std::size_t offset) const {
   const auto next = next_non_trivia_index(offset);
   const ScopeId depth = scope_hint_at(offset);
 
+  auto significant_before_token = [&](std::size_t index) -> std::optional<std::size_t>
+  {
+    while (index > 0) {
+      index -= 1;
+      if (!tokens[index].is_trivia() && tokens[index].type != StyioTokenType::TOK_EOF) {
+        return index;
+      }
+    }
+    return std::nullopt;
+  };
+
   if (prev.has_value()) {
-    const StyioTokenType prev_type = tokens[*prev].type;
+    std::optional<std::size_t> context_token = prev;
+    if (tokens[*prev].type == StyioTokenType::NAME && tokens[*prev].range.start < offset) {
+      context_token = significant_before_token(*prev);
+    }
+
+    const StyioTokenType prev_type = context_token.has_value() ? tokens[*context_token].type : tokens[*prev].type;
     if (prev_type == StyioTokenType::TOK_DOT) {
       return PositionKind::MemberAccess;
     }

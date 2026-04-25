@@ -1,0 +1,5 @@
+# broken := (a: i32, b: i32) => {
+  value: i32 := a +
+}
+# stable := (x: i32, y: i32) => x + y
+result: i32 := stable(1, 2)

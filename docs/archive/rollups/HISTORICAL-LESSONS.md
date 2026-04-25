@@ -1,6 +1,6 @@
 # Styio Historical Lessons
 
-**Purpose:** Compress the first-wave dated history and review material into a few durable themes that future agents can load before opening raw archived docs.
+**Purpose:** Compress the first-wave dated history and review material into a few durable themes that future agents can consult as optional provenance after reading active docs; this file is not required maintenance input when current SSOTs and runbooks are sufficient.
 
 **Last updated:** 2026-04-15
 
