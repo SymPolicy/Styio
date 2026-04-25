@@ -5,8 +5,9 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/delivery-gate.sh [options]
 
-Run the common Styio delivery floor by composing repository hygiene, team
-runbook maintenance, docs audit, and checkpoint health into one entrypoint.
+Run the common Styio delivery floor by composing repository hygiene, runtime
+surface alignment, team runbook maintenance, docs audit, and checkpoint health
+into one entrypoint.
 
 Options:
   --mode <checkpoint|push>  Delivery mode (default: checkpoint)
@@ -111,6 +112,7 @@ case "$MODE" in
 esac
 
 REPO_CMD=(python3 scripts/repo-hygiene-gate.py)
+RUNTIME_SURFACE_CMD=(python3 scripts/runtime-surface-gate.py)
 TEAM_DOCS_CMD=(python3 scripts/team-docs-gate.py)
 DOCS_AUDIT_CMD=(python3 scripts/docs-audit.py)
 ECOSYSTEM_CLI_DOCS_CMD=(python3 scripts/ecosystem-cli-doc-gate.py)
@@ -159,6 +161,7 @@ fi
 
 log "mode: ${MODE}"
 run_cmd "${REPO_CMD[@]}"
+run_cmd "${RUNTIME_SURFACE_CMD[@]}"
 run_cmd "${TEAM_DOCS_CMD[@]}"
 run_cmd "${DOCS_AUDIT_CMD[@]}"
 run_cmd "${ECOSYSTEM_CLI_DOCS_CMD[@]}"

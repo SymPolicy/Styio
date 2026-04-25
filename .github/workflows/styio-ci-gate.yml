@@ -85,6 +85,10 @@ jobs:
           fi
           python3 scripts/repo-hygiene-gate.py --mode push --range "$RANGE"
 
+      - name: Check runtime export and ORC registration surface
+        working-directory: styio-nightly
+        run: python3 scripts/runtime-surface-gate.py
+
       - name: Install dependencies
         run: |
           sudo apt-get update

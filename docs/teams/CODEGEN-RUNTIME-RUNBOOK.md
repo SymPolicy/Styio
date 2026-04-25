@@ -23,6 +23,7 @@ Related docs:
 1. [../design/Styio-Handle-Capability-Type-System.md](../design/Styio-Handle-Capability-Type-System.md)
 2. [../design/Styio-StdLib-Intrinsics.md](../design/Styio-StdLib-Intrinsics.md)
 3. [../assets/workflow/FIVE-LAYER-PIPELINE.md](../assets/workflow/FIVE-LAYER-PIPELINE.md)
+4. [../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md](../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md)
 
 ## Daily Workflow
 
@@ -35,6 +36,7 @@ Related docs:
 7. Treat `runtime-events.jsonl` as a published artifact: changes to `compile.* / run.* / thread.* / unit.* / unit.test.* / state.* / transition.fired / log.emitted / diagnostic.emitted` require same-checkpoint tests and consumer doc updates.
 8. Keep `stdout/stderr` helper hooks lossless: runtime log replay may enrich the artifact stream, but must not change observable program output semantics.
 9. Keep the ORC JIT symbol registry aligned with the full `src/StyioExtern/ExternLib.hpp` export surface and every runtime helper that codegen emits; when a new `getOrInsertFunction("styio_*")` call or extern export appears, update `src/StyioJIT/StyioJIT_ORC.hpp` in the same delivery.
+10. Treat `python3 scripts/runtime-surface-gate.py` as the static blocker for syntax/runtime deliveries; do not rely on manual review to spot a missing export or ORC registration.
 
 ## Change Classes
 
@@ -47,6 +49,7 @@ Related docs:
 Minimum local commands:
 
 ```bash
+python3 scripts/runtime-surface-gate.py
 ctest --test-dir build -L styio_pipeline
 ctest --test-dir build -L security
 ctest --test-dir build -L milestone
