@@ -54,6 +54,7 @@ TEAM_RULES: tuple[TeamRule, ...] = (
             "src/StyioJIT/",
             "src/StyioExtern/",
             "src/StyioRuntime/",
+            "scripts/runtime-surface-gate.py",
         ),
     ),
     TeamRule(

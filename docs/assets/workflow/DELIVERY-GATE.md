@@ -2,7 +2,7 @@
 
 **Purpose:** Define the common delivery-floor entrypoint for Styio so contributors can run repository hygiene, team-runbook maintenance, docs audit, and checkpoint health through one command before checkpoint merge or branch delivery.
 
-**Last updated:** 2026-04-16
+**Last updated:** 2026-04-26
 
 ## Goal
 
@@ -33,16 +33,18 @@ Docs/process-only delivery:
 `checkpoint` mode composes:
 
 1. `python3 scripts/repo-hygiene-gate.py --mode staged`
-2. `python3 scripts/team-docs-gate.py --mode staged`
-3. `python3 scripts/docs-audit.py`
-4. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`
+2. `python3 scripts/runtime-surface-gate.py`
+3. `python3 scripts/team-docs-gate.py --mode staged`
+4. `python3 scripts/docs-audit.py`
+5. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`
 
 `push` mode composes:
 
 1. `python3 scripts/repo-hygiene-gate.py --mode push`
-2. `python3 scripts/team-docs-gate.py --base <ref>` where `<ref>` comes from `--base` or the branch upstream
-3. `python3 scripts/docs-audit.py`
-4. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`
+2. `python3 scripts/runtime-surface-gate.py`
+3. `python3 scripts/team-docs-gate.py --base <ref>` where `<ref>` comes from `--base` or the branch upstream
+4. `python3 scripts/docs-audit.py`
+5. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`
 
 ## Options
 
@@ -73,6 +75,8 @@ You still need the domain-specific gates from [../../teams/COORDINATION-RUNBOOK.
 3. runtime or handle contracts
 4. CLI / nano contracts
 5. IDE / LSP public surface
+
+Syntax additions that reach lowering or runtime helpers must also follow [SYNTAX-ADDITION-WORKFLOW.md](./SYNTAX-ADDITION-WORKFLOW.md).
 
 ## When To Use Which Entry
 
