@@ -198,6 +198,7 @@ normalize_llvm_module_text(std::string& s) {
   static const std::regex i64_to_cstr(R"(^\s*(%\d+)\s*=\s*call ptr @styio_i64_dec_cstr\(i64 (.+)\)$)");
   static const std::regex f64_to_cstr(R"(^\s*(%\d+)\s*=\s*call ptr @styio_f64_dec_cstr\(double (.+)\)$)");
   static const std::regex stdout_write(R"(^\s*call void @styio_stdout_write_cstr\(ptr (.+)\)$)");
+  static const std::regex ssa_temp(R"(%\d+)");
 
   std::istringstream in(s);
   std::string out;
@@ -221,35 +222,33 @@ normalize_llvm_module_text(std::string& s) {
     if (line.find("target triple =") != std::string::npos) {
       continue;
     }
+    const std::string trimmed = trim(line);
+    if (trimmed.empty()) {
+      continue;
+    }
     if (line.find("@styio_fmt_i64 =") != std::string::npos) {
       continue;
     }
     if (line.find("@styio_fmt_str =") != std::string::npos) {
       continue;
     }
-    if (line == "declare i32 @printf(ptr, ...)") {
-      continue;
-    }
-    if (line == "declare i32 @puts(ptr)") {
-      continue;
-    }
-    if (line == "declare void @styio_stdout_write_cstr(ptr)") {
-      continue;
-    }
-    if (line == "declare ptr @styio_i64_dec_cstr(i64)") {
-      continue;
-    }
-    if (line == "declare ptr @styio_f64_dec_cstr(double)") {
+    if (trimmed.rfind("declare ", 0) == 0) {
       continue;
     }
 
     std::smatch match;
     if (std::regex_match(line, match, printf_i64)) {
-      out += "  ; STYIO_STDOUT_I64 " + trim(match[1].str()) + "\n";
+      out += std::regex_replace(
+        "  ; STYIO_STDOUT_I64 " + trim(match[1].str()) + "\n",
+        ssa_temp,
+        "%tmp");
       continue;
     }
     if (std::regex_match(line, match, printf_str)) {
-      out += "  ; STYIO_STDOUT_CSTR " + trim(match[1].str()) + "\n";
+      out += std::regex_replace(
+        "  ; STYIO_STDOUT_CSTR " + trim(match[1].str()) + "\n",
+        ssa_temp,
+        "%tmp");
       continue;
     }
     if (std::regex_match(line, match, puts_at)) {
@@ -257,13 +256,17 @@ normalize_llvm_module_text(std::string& s) {
       continue;
     }
     if (std::regex_match(line, match, i64_to_cstr)) {
-      pending_stdout_canonical[match[1].str()] =
-        "  ; STYIO_STDOUT_I64 " + trim(match[2].str()) + "\n";
+      pending_stdout_canonical[match[1].str()] = std::regex_replace(
+        "  ; STYIO_STDOUT_I64 " + trim(match[2].str()) + "\n",
+        ssa_temp,
+        "%tmp");
       continue;
     }
     if (std::regex_match(line, match, f64_to_cstr)) {
-      pending_stdout_canonical[match[1].str()] =
-        "  ; STYIO_STDOUT_F64 " + trim(match[2].str()) + "\n";
+      pending_stdout_canonical[match[1].str()] = std::regex_replace(
+        "  ; STYIO_STDOUT_F64 " + trim(match[2].str()) + "\n",
+        ssa_temp,
+        "%tmp");
       continue;
     }
     if (std::regex_match(line, match, stdout_write)) {
@@ -276,12 +279,15 @@ normalize_llvm_module_text(std::string& s) {
         pending_stdout_canonical.erase(it);
       }
       else {
-        out += "  ; STYIO_STDOUT_CSTR " + arg + "\n";
+        out += std::regex_replace(
+          "  ; STYIO_STDOUT_CSTR " + arg + "\n",
+          ssa_temp,
+          "%tmp");
       }
       continue;
     }
 
-    out += line;
+    out += std::regex_replace(line, ssa_temp, "%tmp");
     out.push_back('\n');
   }
   s = std::move(out);
