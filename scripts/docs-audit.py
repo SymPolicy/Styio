@@ -20,6 +20,7 @@ COLLECTION_DIRS = [
     DOCS / "archive" / "review",
     DOCS / "design",
     DOCS / "specs",
+    DOCS / "teams",
     DOCS / "review",
     DOCS / "plans",
     DOCS / "for-ide",
@@ -568,6 +569,18 @@ def check_lifecycle(errors: List[str]) -> None:
         errors.append(f"docs lifecycle validation failed: {detail}")
 
 
+def check_team_docs_gate(errors: List[str]) -> None:
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/team-docs-gate.py")],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout).strip()
+        errors.append(f"team docs gate failed: {detail}")
+
+
 def run_audit() -> int:
     errors: List[str] = []
     check_collection_dirs(errors)
@@ -576,6 +589,7 @@ def run_audit() -> int:
     check_links(errors)
     check_generated_indexes(errors)
     check_lifecycle(errors)
+    check_team_docs_gate(errors)
 
     if errors:
         print("docs audit failed:", file=sys.stderr)

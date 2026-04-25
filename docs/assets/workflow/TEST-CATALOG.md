@@ -2,7 +2,7 @@
 
 **Purpose:** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`../../specs/DOCUMENTATION-POLICY.md`](../../specs/DOCUMENTATION-POLICY.md)，项目级优先级顺序见 [`../../specs/PRINCIPLES-AND-OBJECTIVES.md`](../../specs/PRINCIPLES-AND-OBJECTIVES.md)。
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-04-16
 
 **批量自动化（所有里程碑集成用例）：**
 
@@ -173,7 +173,7 @@ ctest --test-dir build -L milestone
 
 **Final 后禁止同名 Flex（语义失败用例，无 golden）：** `tests/milestones/m8/e01`–`e10`，CTest 名 `m8_err_e01_…` … `m8_err_e10_…`（标签 **`m8_semantic`**）。`ctest --test-dir build -L m8_semantic`。
 
-**说明：** `[|n|]` 在 **final bind** 下生成 **`[n x i64]` + head**；**已对 `x` 使用 `:=` 后再写 `x = …`** 在 **typeInfer** 报错；`#` 形参环语义仍不完整，见 [`../../plans/BoundedRing-Codegen-Adjustment.md`](../../plans/BoundedRing-Codegen-Adjustment.md)。
+**说明：** `[|n|]` 在 **final bind** 下生成 **`[n x i64]` + head**；**已对 `x` 使用 `:=` 后再写 `x = …`** 在 **typeInfer** 报错；`#` 形参环语义仍不完整。当前维护约定见 [`../../design/Styio-Resource-Topology.md`](../../design/Styio-Resource-Topology.md) 的实现状态与 [`../../teams/CODEGEN-RUNTIME-RUNBOOK.md`](../../teams/CODEGEN-RUNTIME-RUNBOOK.md)。
 
 **整组：** `ctest --test-dir build -L m8`
 
@@ -212,7 +212,7 @@ ctest --test-dir build -L milestone
 **构建开关：** `-DSTYIO_ENABLE_FUZZ=ON`（默认 OFF）。
 **PR 短跑：** `ctest --test-dir build-fuzz -L fuzz_smoke`。
 **夜间深跑：** 见 `.github/workflows/nightly-fuzz.yml`（`fuzz-artifacts/` + `fuzz-regressions/` 双工件归档）。
-**环境注意：** 在 macOS 上本地跑 fuzz 建议使用 `clang-18` + `CMAKE_OSX_SYSROOT`；`fuzz_smoke` 已设置 `ASAN_OPTIONS=detect_container_overflow=0` 以规避 libFuzzer 运行时 container-overflow 误报噪音。
+**环境注意：** 在 macOS 上本地跑 fuzz 建议使用 `clang-18` + `CMAKE_OSX_SYSROOT`；`fuzz_smoke` 现在走独立 corpus-replay smoke binaries，避免把 libFuzzer 入口启动差异混进 PR 级门禁；同时保留 `ASAN_OPTIONS=detect_container_overflow=0` 以兼容现有 libFuzzer/toolchain 噪音控制。
 **失败样本打包：** `./scripts/fuzz-regression-pack.sh --artifacts-root ./fuzz-artifacts --out-dir ./fuzz-regressions --run-id <id>`。
 **仓库保护：** `fuzz_lexer_smoke` / `fuzz_parser_smoke` 运行时复制临时 corpus，不直接写入 `tests/fuzz/corpus/`。
 
@@ -260,4 +260,5 @@ ctest --test-dir build -L milestone
 **生命周期候选：** `python3 scripts/docs-lifecycle.py candidates --family all --format tree`。  
 **仓库级文档清单：** `python3 scripts/docs-audit.py --manifest valid --format tree`（默认扫描 tracked + unignored worktree Markdown）。  
 **无效文档清单：** `python3 scripts/docs-audit.py --manifest invalid --format list`（仅看已跟踪文件时加 `--source git`；排查本地生成物时加 `--source filesystem`）。  
+**统一交付入口：** `./scripts/delivery-gate.sh --mode checkpoint`；分支交付用 `./scripts/delivery-gate.sh --mode push --base <ref>`。该脚本会串起 hygiene、team-docs、docs-audit 和 fast checkpoint-health；更高层 cutover 仍按 [`../../teams/COORDINATION-RUNBOOK.md`](../../teams/COORDINATION-RUNBOOK.md) 补域专属 gate。  
 **工作流入口：** 见 [`DOCS-MAINTENANCE-WORKFLOW.md`](./DOCS-MAINTENANCE-WORKFLOW.md)。

@@ -25,6 +25,7 @@ thread_local std::unordered_set<const void*> g_owned_cstr_ptrs;
 thread_local bool g_runtime_error = false;
 thread_local std::string g_runtime_error_message;
 thread_local std::string g_runtime_error_subcode;
+thread_local StyioRuntimeLogSink g_runtime_log_sink = nullptr;
 
 constexpr const char* kRuntimeSubcodeInvalidFileHandle = "STYIO_RUNTIME_INVALID_FILE_HANDLE";
 constexpr const char* kRuntimeSubcodeFilePathNull = "STYIO_RUNTIME_FILE_PATH_NULL";
@@ -1396,6 +1397,24 @@ styio_runtime_clear_error() {
   g_runtime_error_subcode.clear();
 }
 
+extern "C" DLLEXPORT void
+styio_runtime_set_log_sink(StyioRuntimeLogSink sink) {
+  g_runtime_log_sink = sink;
+}
+
+/* M9+: write a C-string to stdout with trailing newline and immediate flush.
+   Null-safe (no-op for nullptr). */
+extern "C" DLLEXPORT void
+styio_stdout_write_cstr(const char* s) {
+  if (s != nullptr) {
+    std::fprintf(stdout, "%s\n", s);
+    std::fflush(stdout);
+    if (g_runtime_log_sink != nullptr) {
+      g_runtime_log_sink("stdout", s);
+    }
+  }
+}
+
 /* M9: write a C-string to stderr with trailing newline and immediate flush.
    Null-safe (no-op for nullptr). */
 extern "C" DLLEXPORT void
@@ -1403,6 +1422,9 @@ styio_stderr_write_cstr(const char* s) {
   if (s != nullptr) {
     std::fprintf(stderr, "%s\n", s);
     std::fflush(stderr);
+    if (g_runtime_log_sink != nullptr) {
+      g_runtime_log_sink("stderr", s);
+    }
   }
 }
 

@@ -1,0 +1,4 @@
+# outer := (x: i32) => {
+  x
+}
+value: i32 := outer(2)

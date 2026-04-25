@@ -2,9 +2,9 @@
 
 **Purpose:** M18 验收测试与任务分解；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md) 和 [`../../plans/IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md`](../../plans/IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md)。
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-04-16
 
-**Status:** Planned frozen acceptance batch
+**Status:** Implemented
 
 **Depends on:** M17 (workspace index)  
 **Goal:** IDE 守护进程必须具备真实运行时能力：请求取消、诊断 debounce、前后台任务优先级和版本守卫都要明确，否则再好的语义层也会被运行时噪音拖垮。
@@ -116,3 +116,20 @@ M18 is complete when:
 1. T18.01-T18.04 pass
 2. stale work is dropped instead of surfacing to the user
 3. foreground latency is protected from background maintenance
+
+---
+
+## Implementation Notes
+
+Implemented in `src/StyioIDE/Service.*`, `src/StyioIDE/SemDB.*`, and `src/StyioLSP/Server.*`.
+
+Key runtime behavior:
+
+1. `didOpen` / `didChange` now publish syntax diagnostics immediately and queue a debounced semantic diagnostic publication for the latest visible snapshot.
+2. `IdeService::drain_semantic_diagnostics()` publishes the last visible full diagnostic set and drops stale pending work by snapshot/version guard.
+3. Foreground queries can run through `ForegroundRequestTicket`; stale or canceled tickets return no result and increment runtime counters.
+4. `$/cancelRequest` is accepted by the LSP server and maps to the same request-cancellation state.
+5. Background reindex work is explicitly queued through `schedule_background_index_refresh()` and stepped through `run_background_tasks()`, while foreground requests record yield/preemption when work is pending.
+6. `RuntimeCounters` records stale drops, canceled requests, semantic debounce runs, background queue activity, and coarse latency aggregates.
+
+Open-file workspace index freshness remains correct under the new debounce model: dirty open buffers are lazily refreshed into `OpenFileIndex` before workspace-symbol and cross-file-definition queries.

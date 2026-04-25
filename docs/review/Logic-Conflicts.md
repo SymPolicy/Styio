@@ -2,7 +2,7 @@
 
 **Purpose:** Single place to record contradictions between design docs, milestones, the existing compiler, and informal discussions. Resolving these is prerequisite to a coherent implementation.
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-04-16
 
 **Version:** 1.0  
 **Date:** 2026-03-28  
@@ -48,17 +48,20 @@
 
 ---
 
-### 1.3 `@` — Three Roles
+### 1.3 `@` — Four Roles
 
 | Role | Example |
 |------|---------|
 | **Undefined value** | `@` alone |
 | **State / window decl** | `@[5](...)`, `@[total = 0](...)` **(current compiler)** |
 | **Resource** | `@file{...}`, `@{"path"}` |
+| **Import declaration** | `@import { styio/mod, styio.mod }` |
 
-**Conflict:** `@` followed by `[` is **state**, but `@` followed by identifier is **resource**. A lone `@` is **undefined**. The parser must not treat `@` as “start of resource” when it is the **value** `@`.
+**Conflict:** `@` followed by `[` is **state**, `@import { ... }` is now a **top-level import declaration**, but `@` followed by identifier in other contexts is still **resource/undefined territory**. A lone `@` is **undefined**. The parser must not treat `@` as “start of resource” when it is the **value** `@`, and must not allow `@import` to silently degrade into resource syntax.
 
-**Resolution needed:** Formal grammar ordering: `@` + not-`[` + not-ident → `UndefinedAST`; `@` + `[` → state or mistake; `@` + ident + `{`/`(` → resource.
+**Current compiler rule:** `@import { ... }` is reserved at **file top level**. `/` is native inside import paths, `.` remains accepted compatibility syntax, and the parser canonicalizes import paths to slash form internally. Mixed `/` and `.` inside one import item are rejected.
+
+**Remaining resolution needed:** Formal grammar ordering should now make `@import { ... }` explicit before generic `@` identifier handling: `@` + `[` → state; `@` + `import` + `{` → import decl; `@` + not-`[` + not-ident → `UndefinedAST`; `@` + ident + `{`/`(` → resource.
 
 **Target design (v2):** Unify narrative under [`../design/Styio-Resource-Topology.md`](../design/Styio-Resource-Topology.md): **`@name : [|n|]`** as **storage qualifier**, top-level **`ResourceDecl`** with optional **`:= { driver }`**, and **`expr -> $name`** for writes. The **running** compiler has **not** switched; M6 syntax remains canonical until a migration milestone.
 

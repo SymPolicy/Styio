@@ -9,6 +9,20 @@ namespace styio::ide {
 
 namespace {
 
+SymbolKind
+symbol_kind_from_string(const std::string& kind) {
+  if (kind == "function") {
+    return SymbolKind::Function;
+  }
+  if (kind == "parameter") {
+    return SymbolKind::Parameter;
+  }
+  if (kind == "builtin") {
+    return SymbolKind::Builtin;
+  }
+  return SymbolKind::Variable;
+}
+
 std::vector<IndexedSymbol>
 query_symbols_impl(
   const std::unordered_map<std::string, std::vector<IndexedSymbol>>& symbols_by_file,
@@ -18,6 +32,22 @@ query_symbols_impl(
   for (const auto& file_entry : symbols_by_file) {
     for (const auto& symbol : file_entry.second) {
       if (query.empty() || symbol.name.find(query) != std::string::npos) {
+        results.push_back(symbol);
+      }
+    }
+  }
+  return results;
+}
+
+std::vector<IndexedSymbol>
+query_symbols_exact_impl(
+  const std::unordered_map<std::string, std::vector<IndexedSymbol>>& symbols_by_file,
+  const std::string& name
+) {
+  std::vector<IndexedSymbol> results;
+  for (const auto& file_entry : symbols_by_file) {
+    for (const auto& symbol : file_entry.second) {
+      if (symbol.name == name) {
         results.push_back(symbol);
       }
     }
@@ -41,12 +71,26 @@ query_references_impl(
   return results;
 }
 
+template <typename Map>
+std::vector<std::string>
+indexed_paths_impl(const Map& map) {
+  std::vector<std::string> paths;
+  paths.reserve(map.size());
+  for (const auto& entry : map) {
+    paths.push_back(entry.first);
+  }
+  return paths;
+}
+
 }  // namespace
 
 void
 OpenFileIndex::update(const std::string& path, const HirModule& module) {
   std::vector<IndexedSymbol> symbols;
   for (const auto& symbol : module.symbols) {
+    if (symbol.scope_id != 0) {
+      continue;
+    }
     symbols.push_back(IndexedSymbol{
       path,
       symbol.name,
@@ -75,15 +119,28 @@ OpenFileIndex::query_symbols(const std::string& query) const {
   return query_symbols_impl(symbols_by_file_, query);
 }
 
+std::vector<IndexedSymbol>
+OpenFileIndex::query_symbols_exact(const std::string& name) const {
+  return query_symbols_exact_impl(symbols_by_file_, name);
+}
+
 std::vector<IndexedReference>
 OpenFileIndex::query_references(const std::string& name) const {
   return query_references_impl(references_by_file_, name);
+}
+
+std::vector<std::string>
+OpenFileIndex::indexed_paths() const {
+  return indexed_paths_impl(symbols_by_file_);
 }
 
 void
 BackgroundIndex::update(const std::string& path, const HirModule& module) {
   std::vector<IndexedSymbol> symbols;
   for (const auto& symbol : module.symbols) {
+    if (symbol.scope_id != 0) {
+      continue;
+    }
     symbols.push_back(IndexedSymbol{
       path,
       symbol.name,
@@ -101,14 +158,30 @@ BackgroundIndex::update(const std::string& path, const HirModule& module) {
   references_by_file_[path] = std::move(references);
 }
 
+void
+BackgroundIndex::erase(const std::string& path) {
+  symbols_by_file_.erase(path);
+  references_by_file_.erase(path);
+}
+
 std::vector<IndexedSymbol>
 BackgroundIndex::query_symbols(const std::string& query) const {
   return query_symbols_impl(symbols_by_file_, query);
 }
 
+std::vector<IndexedSymbol>
+BackgroundIndex::query_symbols_exact(const std::string& name) const {
+  return query_symbols_exact_impl(symbols_by_file_, name);
+}
+
 std::vector<IndexedReference>
 BackgroundIndex::query_references(const std::string& name) const {
   return query_references_impl(references_by_file_, name);
+}
+
+std::vector<std::string>
+BackgroundIndex::indexed_paths() const {
+  return indexed_paths_impl(symbols_by_file_);
 }
 
 PersistentIndex::PersistentIndex(std::string cache_root) :
@@ -181,6 +254,9 @@ PersistentIndex::load_symbols() const {
     }
     if (auto detail = object->getString("detail")) {
       symbol.detail = std::string(*detail);
+    }
+    if (auto kind = object->getString("kind")) {
+      symbol.kind = symbol_kind_from_string(std::string(*kind));
     }
     symbol.range.start = static_cast<std::size_t>(object->getInteger("range_start").value_or(0));
     symbol.range.end = static_cast<std::size_t>(object->getInteger("range_end").value_or(0));

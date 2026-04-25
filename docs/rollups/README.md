@@ -1,6 +1,6 @@
 # Docs Rollups
 
-**Purpose:** Define the scope of compressed active summaries under `docs/rollups/`; the generated inventory lives in [INDEX.md](./INDEX.md).
+**Purpose:** Define the scope of compressed active summaries under `docs/rollups/`; these files are the first stop for active repository state, while history and archive stay optional provenance only.
 
 **Last updated:** 2026-04-15
 
@@ -13,8 +13,8 @@
 ## Default Load Order
 
 1. Read [CURRENT-STATE.md](./CURRENT-STATE.md) first.
-2. Jump from there to the owning SSOT in `../design/`, `../specs/`, `../review/`, or current milestone docs.
-3. Read the newest raw entry in `../history/INDEX.md` or the newest active dated review bundle only if current-state detail is still insufficient.
+2. Jump from there to the owning SSOT in `../design/`, `../specs/`, `../teams/`, `../assets/workflow/`, or the current active milestone/plan docs.
+3. Read the newest raw entry in `../history/INDEX.md` or the newest active dated review bundle only if active docs are still insufficient.
 4. Read `../archive/` only when exact historical wording or provenance trace is required.
 
 ## Inventory

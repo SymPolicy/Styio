@@ -2,7 +2,7 @@
 
 **Purpose:** Define the full roadmap for evolving the Styio IDE subsystem from its current MVP shape toward mature IDE-grade completion and semantic tooling. This roadmap is explicitly benchmarked against at least three established language toolchains rather than a single Rust reference point. This file path remains stable, but as of 2026-04-15 its scope has expanded from the original M11/M12 infrastructure slice into the full M11-M19 plan. Frozen acceptance targets live in [`../milestones/2026-04-15/`](../milestones/2026-04-15/), and IDE integration usage lives in [`../for-ide/README.md`](../for-ide/README.md).
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-04-16
 
 **Date:** 2026-04-15  
 **Status:** Active implementation plan. Frozen acceptance documents live in [`../milestones/2026-04-15/`](../milestones/2026-04-15/).  
@@ -129,6 +129,12 @@ The roadmap is clear enough to implement, but these decisions should be frozen b
 | Diagnostic merge and dedup policy | How syntax diagnostics, recovery diagnostics, and semantic diagnostics are combined | Publish syntax diagnostics immediately; semantic diagnostics are delayed; duplicate ranges/messages from recovery and semantic layers are deduplicated before publish | Before `M18` | Users will otherwise see duplicated or flickering diagnostics, especially under recovery mode |
 | Performance measurement contract | How the roadmap’s latency budgets are measured and enforced | Freeze benchmark corpora, warm/hot conditions, and the measurement harness before gating M19 | Before `M19` | Latency budgets are meaningless if every run uses different inputs, cache states, or machine assumptions |
 
+As of 2026-04-15, the `M11` `Now` decisions are frozen as:
+
+1. LSP document synchronization uses incremental sync as the primary path; full sync remains only a compatibility fallback and is not optimized in this roadmap slice. Ranged `textDocument/didChange.contentChanges` must be forwarded to VFS in original LSP order.
+2. The LSP boundary still accepts UTF-16 `line/character`; once inside `StyioIDE`, positions are immediately converted to canonical UTF-8 byte offsets. Styio's custom frontend editor may use its own coordinate model, but the LSP adapter must map into the same internal byte-offset path.
+3. Multi-edit deltas preserve original LSP order and are normalized one by one against the current working text; invalid ranges, unsafe normalization, or untrusted incremental state trigger full-document resynchronization rather than preserving a partially applied intermediate state.
+
 Any change to one of these decisions after implementation starts should update this plan first, then revise the affected milestone acceptance documents.
 
 ---
@@ -248,6 +254,8 @@ Key outputs:
 - explicit query families
 - cache instrumentation and invalidation rules
 
+Implementation note (2026-04-15): M12 now resolves `SemanticDB` file-level and offset-level requests through explicit query caches keyed by `FileId` plus `SnapshotId`, with `OffsetKey` adding the requested byte offset. Snapshot changes evict that file's query state, and close-file handling also drops open-file cache state.
+
 ### 5.3 M13 — Stable HIR and Item Identity
 
 Frozen acceptance:
@@ -265,6 +273,8 @@ Key outputs:
 - canonical `ModuleId`, `ItemId`, `ScopeId`, `TypeId`, `SymbolId`
 - AST-to-HIR lowering for functions, imports, locals, blocks, and resources
 - stable identity rules for unchanged items
+
+Implementation note (2026-04-15): M13 now extracts `SemanticSummary::items` from the Nightly AST/analyzer bridge and lowers them into `HirModule::items`. `SemanticDB` retains a per-file `HirIdentityStore`, so same-name top-level items keep `ItemId`s across body edits while M12 query results still invalidate by snapshot.
 
 ### 5.4 M14 — Name Resolution and Scope Graph
 
@@ -284,6 +294,8 @@ Key outputs:
 - import and builtin resolver
 - symbol-to-definition/reference mapping
 
+Implementation note (2026-04-15): M14 now resolves names through HIR scopes first, then current-file top-level items, explicit project imports, and the IDE builtin registry. Definition, hover, references, and imported completion consume the resolver target instead of name-only matching; missing imports stay unresolved.
+
 ### 5.5 M15 — Type Inference Queries
 
 Frozen acceptance:
@@ -301,6 +313,8 @@ Key outputs:
 - per-item inference queries
 - body hashes or equivalent invalidation keys
 - receiver type and expected-type data consumable by completion and hover
+
+Implementation note (2026-04-16): M15 now adds IDE-side type signature, type body, receiver type, and expected type queries in `SemanticDB`. Signature/body caches are keyed by stable HIR item identity plus signature/body fingerprints, so unchanged function bodies can hit across snapshot changes. `CompletionContext` and hover consume direct member receiver types and direct call-site expected parameter types; unsupported sites return no typed fact.
 
 ### 5.6 M16 — Completion Engine Upgrade
 
@@ -320,6 +334,8 @@ Key outputs:
 - receiver-aware/member-aware ranking
 - type-position and call-site filtering
 
+Implementation note (2026-04-16): M16 now applies a deterministic completion policy in `SemanticDB`: type/member positions filter candidate shape, visible locals and params outrank same-file top-levels, same-file top-levels outrank imports, imports outrank builtins, builtins outrank keywords, and snippets remain last. Member completion uses receiver capability metadata, and call-site completion boosts candidates whose type matches the expected parameter type while keeping recovery-mode completion best-effort.
+
 ### 5.7 M17 — Workspace Index
 
 Frozen acceptance:
@@ -337,6 +353,8 @@ Key outputs:
 - index schemas and merge policy
 - background indexing queue
 - persisted symbol/reference store
+
+Implementation note (2026-04-16): M17 now uses explicit open-file, background, and persistent index layers. Open buffers override background and persistent entries for the same path; background entries override persistent entries; persistent symbol metadata can warm a later service instance. Workspace symbols, cross-file definition fallback, and references consume the merged layers, while explicit import failures stay unresolved instead of falling through to the workspace index.
 
 ### 5.8 M18 — IDE Runtime
 
@@ -356,6 +374,8 @@ Key outputs:
 - background task scheduling and priorities
 - runtime counters and latency instrumentation
 
+Implementation note (2026-04-16): M18 now routes foreground completion/hover/definition/references through snapshot/version guards, accepts explicit cancellation, and splits diagnostics into immediate syntax publication plus debounced semantic publication. Background reindex work is queued separately from foreground requests, runtime counters record stale drops/cancellation/debounce activity, and dirty open-file index entries are refreshed lazily before workspace-symbol and cross-file-definition queries.
+
 ### 5.9 M19 — Quality and Performance Closure
 
 Frozen acceptance:
@@ -373,6 +393,8 @@ Key outputs:
 - syntax/semantic drift corpus
 - fuzz targets for syntax, completion, and LSP sync
 - benchmark and regression harness
+
+Implementation note (2026-04-16): M19 now freezes an IDE drift corpus under `tests/ide/corpus/m19`, adds IDE syntax/completion/LSP-sync fuzz targets under `tests/fuzz/` and the aggregate `styio_fuzz_suite`, and wires Release perf plus fuzz smoke into `scripts/ide-perf-gate.sh`, `scripts/ide-fuzz-gate.sh`, and `scripts/ide-quality-gate.sh`. The frozen latency budget remains enforced in the Release perf harness, while Debug IDE/LSP regression runs keep the perf test present but skipped to avoid non-actionable budget failures.
 
 ---
 

@@ -2,9 +2,9 @@
 
 **Purpose:** M14 验收测试与任务分解；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md) 和 [`../../plans/IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md`](../../plans/IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md)。
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-04-16
 
-**Status:** Planned frozen acceptance batch
+**Status:** Implemented in current working tree
 
 **Depends on:** M13 (stable HIR and item identity)  
 **Goal:** 定义、引用和补全必须建立在真实的作用域图和名字解析之上，而不是纯文本匹配。局部遮蔽、导入、内建符号和跨文件解析都要统一进同一套规则。
@@ -20,6 +20,20 @@ This milestone freezes:
 3. symbol-to-definition binding usable by definition/reference/hover paths
 
 This milestone does not yet require per-item type inference reuse. That belongs to M15.
+
+---
+
+## Implemented Rules
+
+M14 uses these project-level rules:
+
+1. one `.styio` source file maps to one primary module (`ModuleId = FileId`)
+2. import facts come from top-level `@import { ... }` syntax through `ExtPackAST`; slash paths are native, dot paths normalize to slash form, and the old leading string-list import spelling is rejected
+3. relative imports (`./` and `../`) resolve from the importing file directory; bare imports resolve under the project root; `.styio` is tried when the import has no Styio extension
+4. name resolution priority is local/parameter scope, outer lexical scopes, current-file top-level, explicit imports, then builtins
+5. missing imports and unresolved names stay unresolved and do not bind to unrelated same-text identifiers
+6. builtin symbols live in one IDE registry consumed by resolver, hover, and completion
+7. definition, hover, references, and imported completion consume resolver output before returning results
 
 ---
 
@@ -108,6 +122,8 @@ M14 is not complete unless:
 1. hot definition on a 5k-line open file stays within `p95 <= 80ms`
 2. reference lookup does not fall back to text scan when resolver data is available
 
+Implementation note (2026-04-15): CI coverage currently enforces the structural gate: references walk HIR/resolver targets and no longer use name-only index lookup when resolver data is available. The quantitative `p95 <= 80ms` harness is tracked with the M19 benchmark milestone.
+
 ---
 
 ## Completion Criteria
@@ -117,3 +133,5 @@ M14 is complete when:
 1. T14.01-T14.04 pass
 2. definition/reference/hover consume resolver output
 3. lexical shadowing and import behavior are explicit and tested
+
+Implementation note (2026-04-15): `tests/ide/styio_ide_test.cpp` now includes `StyioNameResolver.LocalBindingsShadowImportsAndGlobals`, `StyioNameResolver.ResolvesImportsAcrossFiles`, `StyioIdeService.ReferencesUseScopeAwareResolution`, and `StyioIdeService.DefinitionAndHoverUseResolvedSymbols`.
