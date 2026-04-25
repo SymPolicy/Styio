@@ -179,7 +179,15 @@ def render_index(base: Path) -> str:
     entries = build_entries(base)
     dir_entries = [e for e in entries if e.is_dir]
     file_entries = [e for e in entries if not e.is_dir]
-    updated = max((e.last_updated for e in entries), default=TODAY)
+    if entries:
+        updated = max(e.last_updated for e in entries)
+    else:
+        updated = TODAY
+        for candidate_name in ("README.md", "00-Milestone-Index.md", "INDEX.md"):
+            candidate = base / candidate_name
+            if candidate.exists():
+                updated = extract_last_updated(candidate)
+                break
 
     lines = [
         f"# {title}",

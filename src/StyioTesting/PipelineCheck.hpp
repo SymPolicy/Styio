@@ -17,10 +17,12 @@ namespace testing {
  *   <case_dir>/expected/stdout.txt     — L5 program stdout (see layer5_compiler_exe)
  *   <case_dir>/expected/stderr.txt     — optional L5 program stderr
  *
- * L5 compares the **observable** process output. In-process JIT uses `printf`, which does not
- * go through `std::cout`, so when `layer5_compiler_exe` is non-null this layer runs
- * `layer5_compiler_exe --file <case_dir>/input.styio` and diffs stdout; when `stderr.txt` exists,
- * it diffs stderr as well. When null, L5 is skipped.
+ * L4 canonicalizes the legacy `printf/puts` stdout lowering and the current
+ * `styio_stdout_write_cstr` runtime-helper lowering into the same semantic form before comparing
+ * LLVM IR goldens, so output implementation details do not create false-red pipeline failures.
+ * L5 compares the **observable** process output by running
+ * `layer5_compiler_exe --file <case_dir>/input.styio` and diffing stdout; when `stderr.txt`
+ * exists, it diffs stderr as well. When `layer5_compiler_exe` is null, L5 is skipped.
  *
  * @return Empty on success; otherwise a message naming the layer and the first mismatch.
  */

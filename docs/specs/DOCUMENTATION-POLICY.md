@@ -70,6 +70,8 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 | **`[|n|]` 环缓当前实现约定** | `../design/Styio-Resource-Topology.md`、`../assets/workflow/TEST-CATALOG.md` | 当前行为与测试从这里进入；历史计划进入 archive |
 | **Checkpoint 微里程碑执行规则**（可中断/可恢复） | `../assets/workflow/CHECKPOINT-WORKFLOW.md` | 在 `history/YYYY-MM-DD.md` 写恢复指引，不在其它文档重复流程细节 |
 | **统一交付门禁**（common delivery floor） | `../assets/workflow/DELIVERY-GATE.md` | 先过 common floor，再按协调 runbook 叠加域专属 cutover gate |
+| **新语法添加工作流**（含 runtime helper / ORC 注册对齐） | `../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md` | 前端、Codegen/Runtime、测试与 docs 只保留入口规则与链接 |
+| **工作流调度与分离原则** | `../assets/workflow/WORKFLOW-ORCHESTRATION.md` | 新增 workflow / gate 前必须先查该表；工具调用顺序由 `scripts/workflow-scheduler.py` 固化 |
 | **仓库清理、提交、push 与历史重写标准** | `../assets/workflow/REPO-HYGIENE-COMMIT-STANDARD.md` | 其它文档只保留入口规则与链接 |
 | **文档元数据、生成索引与审计流程** | `../assets/workflow/DOCS-MAINTENANCE-WORKFLOW.md` | 其它文档只保留入口规则与链接 |
 | **团队 runbook 维护交付门禁** | `../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md` | `docs-audit.py` 串联该门禁；团队文档只链接门禁说明与模板 |
