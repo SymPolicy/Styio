@@ -34,10 +34,7 @@ jobs:
           fi
 
           case "$TARGET_LANE" in
-            ai-dev)
-              ECOSYSTEM_REF="ai-dev"
-              ;;
-            nightly|stable|main)
+            ai-dev|nightly|stable|main)
               ECOSYSTEM_REF="nightly"
               ;;
             *)
