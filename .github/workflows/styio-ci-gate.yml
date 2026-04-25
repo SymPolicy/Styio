@@ -23,16 +23,43 @@ jobs:
           fetch-depth: 0
           path: styio-nightly
 
+      - name: Resolve ecosystem lane
+        id: lane
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            TARGET_LANE="${{ github.base_ref }}"
+          else
+            TARGET_LANE="${{ github.ref_name }}"
+          fi
+
+          case "$TARGET_LANE" in
+            ai-dev)
+              ECOSYSTEM_REF="ai-dev"
+              ;;
+            nightly|stable|main)
+              ECOSYSTEM_REF="nightly"
+              ;;
+            *)
+              ECOSYSTEM_REF="nightly"
+              ;;
+          esac
+
+          echo "target_lane=$TARGET_LANE" >> "$GITHUB_OUTPUT"
+          echo "ecosystem_ref=$ECOSYSTEM_REF" >> "$GITHUB_OUTPUT"
+
       - name: Check out styio-spio sibling repository
         uses: actions/checkout@v5
         with:
           repository: styio-org/styio-spio
+          ref: ${{ steps.lane.outputs.ecosystem_ref }}
           path: styio-spio
 
       - name: Check out styio-view sibling repository
         uses: actions/checkout@v5
         with:
           repository: styio-org/styio-view
+          ref: ${{ steps.lane.outputs.ecosystem_ref }}
           path: styio-view
 
       - name: Set up Python
