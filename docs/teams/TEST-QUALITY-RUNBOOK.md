@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-04-17
+**Last updated:** 2026-04-26
 
 ## Mission
 
@@ -30,6 +30,8 @@ Primary paths:
 5. Keep generated or temporary outputs out of the repository unless the test framework explicitly treats them as goldens.
 6. Treat compile-plan negative-path coverage and machine-readable diagnostics as contract evidence, not optional smoke coverage.
 7. When compile-plan artifacts grow, add assertions for receipt fields and auxiliary artifacts such as `runtime-events.jsonl`, not just exit codes.
+8. Keep five-layer Layer 4 LLVM goldens semantic, not implementation-bound: when stdout lowering moves between legacy `printf/puts` and runtime helpers such as `styio_stdout_write_cstr`, or when LLVM stops printing unused `declare` lines and renumbers transient `%<n>` temporaries, update the pipeline canonicalization before touching large golden sets.
+9. Treat workflow scheduler tests as gate-level regression coverage; changes to scheduler profiles, phase ordering, or registry validation must update `tests/workflow_scheduler_test.py`.
 
 ## Change Classes
 
@@ -59,6 +61,7 @@ ctest --test-dir build-fuzz -L fuzz_smoke
 Docs and recovery:
 
 ```bash
+python3 tests/workflow_scheduler_test.py
 python3 scripts/team-docs-gate.py
 python3 scripts/docs-audit.py
 ./scripts/checkpoint-health.sh --no-asan

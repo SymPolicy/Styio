@@ -54,6 +54,7 @@ TEAM_RULES: tuple[TeamRule, ...] = (
             "src/StyioJIT/",
             "src/StyioExtern/",
             "src/StyioRuntime/",
+            "scripts/runtime-surface-gate.py",
         ),
     ),
     TeamRule(
@@ -97,6 +98,7 @@ TEAM_RULES: tuple[TeamRule, ...] = (
             "tests/",
             "src/StyioTesting/",
             "extend_tests.py",
+            "tests/workflow_scheduler_test.py",
             "scripts/parser-shadow-m1-gate.sh",
             "scripts/parser-shadow-suite-gate.sh",
             "scripts/fuzz-regression-pack.sh",
@@ -123,6 +125,7 @@ TEAM_RULES: tuple[TeamRule, ...] = (
             "scripts/docs-audit.py",
             "scripts/docs-lifecycle.py",
             "scripts/delivery-gate.sh",
+            "scripts/workflow-scheduler.py",
             "scripts/team-docs-gate.py",
         ),
     ),

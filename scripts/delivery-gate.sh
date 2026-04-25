@@ -5,8 +5,8 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/delivery-gate.sh [options]
 
-Run the common Styio delivery floor by composing repository hygiene, team
-runbook maintenance, docs audit, and checkpoint health into one entrypoint.
+Run the common Styio delivery floor through the workflow scheduler, then run
+checkpoint health when requested.
 
 Options:
   --mode <checkpoint|push>  Delivery mode (default: checkpoint)
@@ -110,19 +110,15 @@ case "$MODE" in
     ;;
 esac
 
-REPO_CMD=(python3 scripts/repo-hygiene-gate.py)
-TEAM_DOCS_CMD=(python3 scripts/team-docs-gate.py)
-DOCS_AUDIT_CMD=(python3 scripts/docs-audit.py)
-ECOSYSTEM_CLI_DOCS_CMD=(python3 scripts/ecosystem-cli-doc-gate.py)
+SCHEDULER_CMD=(python3 scripts/workflow-scheduler.py run)
 HEALTH_CMD=(./scripts/checkpoint-health.sh)
 
 if [[ "$MODE" == "checkpoint" ]]; then
-  REPO_CMD+=(--mode staged)
-  TEAM_DOCS_CMD+=(--mode staged)
+  SCHEDULER_CMD+=(--profile delivery-checkpoint)
 else
-  REPO_CMD+=(--mode push)
+  SCHEDULER_CMD+=(--profile delivery-push)
   if [[ -n "$REV_RANGE" ]]; then
-    REPO_CMD+=(--range "$REV_RANGE")
+    SCHEDULER_CMD+=(--range "$REV_RANGE")
   fi
 
   if [[ -z "$BASE_REF" ]]; then
@@ -134,11 +130,12 @@ else
     exit 2
   fi
 
-  TEAM_DOCS_CMD+=(--base "$BASE_REF")
+  SCHEDULER_CMD+=(--base "$BASE_REF")
 fi
 
 if [[ -n "$BASE_REF" && "$MODE" == "checkpoint" ]]; then
-  TEAM_DOCS_CMD=(python3 scripts/team-docs-gate.py --base "$BASE_REF")
+  echo "checkpoint mode does not accept --base; use --mode push for branch checks" >&2
+  exit 2
 fi
 
 if [[ -n "$BUILD_DIR" ]]; then
@@ -158,10 +155,7 @@ if [[ "$RUN_FUZZ" -eq 0 ]]; then
 fi
 
 log "mode: ${MODE}"
-run_cmd "${REPO_CMD[@]}"
-run_cmd "${TEAM_DOCS_CMD[@]}"
-run_cmd "${DOCS_AUDIT_CMD[@]}"
-run_cmd "${ECOSYSTEM_CLI_DOCS_CMD[@]}"
+run_cmd "${SCHEDULER_CMD[@]}"
 
 if [[ "$RUN_HEALTH" -eq 1 ]]; then
   run_cmd "${HEALTH_CMD[@]}"
