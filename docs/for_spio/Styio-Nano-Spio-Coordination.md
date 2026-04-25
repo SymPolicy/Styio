@@ -2,7 +2,7 @@
 
 **Purpose:** 从 `styio` 主仓库视角，冻结当前 `styio-nano` 的包产出、静态仓库布局、bootstrap 用法与后续交接边界，供 `styio-spio` 后续接管远端分发、安装、缓存与项目级生命周期时使用；本文件描述的是 `styio` 侧 handoff contract，不替代 `styio-spio` 仓库内自己的 SSOT。
 
-**Last updated:** 2026-04-12
+**Last updated:** 2026-04-17
 
 **Related docs:**
 - [`Styio Ecosystem Bootstrap Plan`](../plans/Styio-Ecosystem-Bootstrap-Plan.md)
@@ -252,6 +252,41 @@ blob 内容是一个 tar 包，解开后必须能解析出 package root，并且
 - `spio` 不需要复制 package-local CMake 生成逻辑
 - `spio` 只需要编排 `styio` 已提供的 producer / verifier 接口
 
+### 6.3 `styio` 侧交接完成清单
+
+这个仓库对 `spio` 的“已完成工作”不应理解成“完整包管理系统已经完成”，而应理解成：
+
+- `styio` 是否已经把 **producer / verifier contract** 交付完整
+- `spio` 是否已经能在**不复制编译器内部逻辑**的前提下消费这些 contract
+
+当前 `styio` 侧 checklist 如下：
+
+| Checklist item | Owner | Status in `styio` | Evidence |
+|----------------|-------|-------------------|----------|
+| `--machine-info=json` 暴露稳定 handshake 与 nano package capability | `styio` | Completed | `src/main.cpp`, `StyioDiagnostics.MachineInfoJsonReportsStableHandshakeFields`, `StyioNano.MachineInfoReflectsPrunedProfile` |
+| `--nano-create --nano-mode=local-subset` 能 materialize nano 包并写出 receipt / closure / build helper | `styio` | Completed | `StyioNanoPackage.LocalSubsetConfigMaterializesBundle`, `StyioNanoPackage.LocalSubsetCliMaterializesBundle` |
+| materialized package 能在包内重建 `bin/styio-nano` | `styio` | Completed | `StyioNanoPackage.LocalSubsetConfigMaterializesBundle` |
+| `--nano-publish` 能写入静态仓库 marker / index / blob | `styio` | Completed | `StyioNanoPackage.PublishConfigWritesRepositoryAndRoundTripsToCloudInstall` |
+| `--nano-create --nano-mode=cloud` 能从静态仓库 consume 并安装 nano 包 | `styio` | Completed | `StyioNanoPackage.CloudRepositoryConfigMaterializesBundle`, `StyioNanoPackage.PublishConfigWritesRepositoryAndRoundTripsToCloudInstall` |
+| 静态仓库 consume 路径会执行 marker / index / sha256 / size / package-root 最小校验 | `styio` | Completed | 本文 §3.4 contract；consume roundtrip 覆盖见 `StyioNanoPackage.CloudRepositoryConfigMaterializesBundle` |
+| receipt 默认字段可驱动 publish 默认 package/version/channel 解析 | `styio` | Completed | 本文 §4 contract；publish roundtrip 覆盖见 `StyioNanoPackage.PublishConfigWritesRepositoryAndRoundTripsToCloudInstall` |
+| `spio` 可只编排现有 producer / verifier 接口，而无需复制 closure/CMake 逻辑 | `styio` contract for `spio` | Completed | 本文 §6.1-§6.2；接口入口为 `--machine-info=json` / `--nano-create` / `--nano-publish` |
+| 远端 registry source、cache、pin、vendor、install/use/search UX | `spio` | Out of scope for this repo | `docs/specs/REPOSITORY-MAP.md`, 本文 §5.2 |
+| 完整 registry service protocol（channel index、latest alias、listing API、auth/signing/trust） | `spio` | Out of scope for this repo | 本文 §7.1 |
+| `spio build/check/run/test` 所需 compile-plan live handoff | `styio` | Completed baseline | 本文 §7.2；`StyioDiagnostics.CompilePlan*` |
+| 比 source closure 更细粒度的最小闭包优化 | `styio` | Pending | 本文 §7.3 |
+
+因此，这个仓库目前已经完成的是：
+
+- `spio` 所需的 **static nano package contract**
+- `spio` 可调用的 **producer / verifier CLI surface**
+
+这个仓库尚未完成、也不应该在这里伪装完成的是：
+
+- `spio` 自身的完整 package-manager lifecycle
+- 远端 registry/service 语义
+- 函数级或更细粒度的 closure 极限裁剪
+
 ---
 
 ## 7. 仍然缺少、需要后续联动的部分
@@ -280,9 +315,23 @@ blob 内容是一个 tar 包，解开后必须能解析出 package root，并且
 
 ### 7.2 compile-plan live handoff
 
-`spio build/run/test` 若要真正走 live path，仍需要 `styio` 发布更稳定的 compile-plan consumer / producer 边界。
+这部分现在已经进入 **baseline live** 状态：
 
-这部分与 nano package workflow 相关，但不是同一个 contract，不能混在一起。
+- `--machine-info=json` 会公开 `supported_contracts.compile_plan:[1]`
+- `styio --compile-plan <path>` 会消费 versioned plan，并支持 `build` / `check` / `run` / `test`
+- compile-plan 执行会在约定的 `outputs.build_root` / `artifact_dir` / `diag_dir` 内写出 receipt、编译产物和 `diagnostics.jsonl`
+- 若 plan 非法或 `--compile-plan` 与其它入口参数冲突，只要能解析到 `outputs.diag_dir`，也会把 `STYIO_CLI` 诊断写入该目录；stderr 同样保持 machine-readable JSONL
+
+因此，`spio build/check/run/test` 已经可以真正走 live path，而不需要复制编译器内部逻辑。
+
+但这部分与 nano package workflow 相关，却不是同一个 contract，不能混在一起。
+
+当前仍需继续收紧的是：
+
+- 更宽的 compatibility edge / malformed-input 矩阵覆盖
+  当前已覆盖的负路径包括 invalid JSON、invalid intent、CLI conflict、generated_by mismatch、unsupported target kind、absolute-path guard 和 missing-outputs stderr fallback
+- contract 字段稳定性与文档同步
+- 在不扩张 package-manager scope 的前提下持续维护 producer boundary
 
 ### 7.3 更细粒度的 closure 剪裁
 
@@ -308,6 +357,8 @@ blob 内容是一个 tar 包，解开后必须能解析出 package root，并且
 - machine-info capability 稳定
 
 当前状态：已基本完成。
+
+更精确地说：按 §6.3 的 `styio` 侧 checklist，**static nano contract 与 compile-plan live handoff baseline 已完成**；后续项集中在更细粒度 closure 收缩与 compile-plan edge hardening，而不是 package-manager UX 本身。
 
 ### Phase B: `spio` 接管本地 lifecycle
 
@@ -351,5 +402,12 @@ blob 内容是一个 tar 包，解开后必须能解析出 package root，并且
 - 不复制 `styio` 的 nano package producer 逻辑
 - 直接消费当前静态仓库 contract
 - 在 `spio` 仓库内定义更高层的远端 lifecycle 与 UX
+
+如果问题是“本仓库是否已经完成了它该完成的那部分 package-manager handoff 工作”，答案是：
+
+- 对 **static nano package contract** 而言：**已完成**
+- 对 **完整 package-manager system** 而言：**不属于本仓库完成条件**
+- 对 **compile-plan live handoff baseline** 而言：**已完成**
+- 对 **更细粒度 closure / compile-plan edge hardening** 而言：**仍待后续补完**
 
 这就是当前阶段的 handoff 边界。

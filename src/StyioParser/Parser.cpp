@@ -171,6 +171,135 @@ parse_name_unsafe(StyioContext& context) {
   return ret_val;
 }
 
+static bool
+is_import_list_separator_latest(StyioTokenType type) {
+  return type == StyioTokenType::TOK_COMMA
+    || type == StyioTokenType::TOK_SEMICOLON;
+}
+
+static bool
+is_import_path_separator_latest(StyioTokenType type) {
+  return type == StyioTokenType::TOK_SLASH
+    || type == StyioTokenType::TOK_DOT;
+}
+
+static bool
+matches_legacy_string_list_import_latest(StyioContext& context) {
+  const auto& tokens = context.get_tokens();
+  std::size_t cursor = context.get_token_index();
+  if (cursor >= tokens.size() || tokens[cursor]->type != StyioTokenType::TOK_LBOXBRAC) {
+    return false;
+  }
+
+  cursor += 1;
+  while (cursor < tokens.size() && styio_is_trivia_token(tokens[cursor]->type)) {
+    cursor += 1;
+  }
+  if (cursor >= tokens.size() || tokens[cursor]->type != StyioTokenType::STRING) {
+    return false;
+  }
+
+  while (cursor < tokens.size()) {
+    cursor += 1;
+    while (cursor < tokens.size() && styio_is_trivia_token(tokens[cursor]->type)) {
+      cursor += 1;
+    }
+    if (cursor >= tokens.size()) {
+      return false;
+    }
+    if (tokens[cursor]->type == StyioTokenType::TOK_RBOXBRAC) {
+      return true;
+    }
+    if (tokens[cursor]->type != StyioTokenType::TOK_COMMA) {
+      return false;
+    }
+
+    cursor += 1;
+    while (cursor < tokens.size() && styio_is_trivia_token(tokens[cursor]->type)) {
+      cursor += 1;
+    }
+    if (cursor >= tokens.size() || tokens[cursor]->type != StyioTokenType::STRING) {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+static std::string
+parse_import_path_item_latest(StyioContext& context) {
+  context.skip();
+  if (context.cur_tok_type() != StyioTokenType::NAME) {
+    throw StyioSyntaxError(context.mark_cur_tok("expected package path segment in @import"));
+  }
+
+  std::string canonical = context.cur_tok()->original;
+  context.move_forward(1, "@import path segment");
+  context.skip();
+
+  std::optional<StyioTokenType> separator_type;
+  while (is_import_path_separator_latest(context.cur_tok_type())) {
+    const StyioTokenType current_separator = context.cur_tok_type();
+    if (separator_type.has_value() && *separator_type != current_separator) {
+      throw StyioSyntaxError(context.mark_cur_tok("cannot mix / and . inside one @import item"));
+    }
+    separator_type = current_separator;
+    context.move_forward(1, "@import path separator");
+    context.skip();
+
+    if (context.cur_tok_type() != StyioTokenType::NAME) {
+      throw StyioSyntaxError(context.mark_cur_tok("expected package path segment after separator in @import"));
+    }
+
+    canonical += "/";
+    canonical += context.cur_tok()->original;
+    context.move_forward(1, "@import path segment");
+    context.skip();
+  }
+
+  return canonical;
+}
+
+static ExtPackAST*
+parse_import_decl_after_at_latest(StyioContext& context) {
+  if (!context.is_root_statement_position()) {
+    throw StyioSyntaxError(context.mark_cur_tok("@import is only allowed at file top level"));
+  }
+
+  if (context.cur_tok_type() != StyioTokenType::NAME || context.cur_tok()->original != "import") {
+    throw StyioSyntaxError(context.mark_cur_tok("expected import after @"));
+  }
+
+  context.move_forward(1, "@import");
+  context.skip();
+  context.try_match_panic(StyioTokenType::TOK_LCURBRAC);
+  context.skip();
+
+  if (context.cur_tok_type() == StyioTokenType::TOK_RCURBRAC) {
+    throw StyioSyntaxError(context.mark_cur_tok("@import requires at least one package path"));
+  }
+
+  std::vector<std::string> paths;
+  while (true) {
+    paths.push_back(parse_import_path_item_latest(context));
+    if (context.cur_tok_type() == StyioTokenType::TOK_RCURBRAC) {
+      break;
+    }
+    if (!is_import_list_separator_latest(context.cur_tok_type())) {
+      throw StyioSyntaxError(context.mark_cur_tok("expected , or ; between @import items"));
+    }
+
+    context.move_forward(1, "@import list separator");
+    context.skip();
+    if (context.cur_tok_type() == StyioTokenType::TOK_RCURBRAC) {
+      throw StyioSyntaxError(context.mark_cur_tok("expected package path after @import separator"));
+    }
+  }
+
+  context.try_match_panic(StyioTokenType::TOK_RCURBRAC);
+  return new ExtPackAST(paths);
+}
+
 static StyioAST* parse_token_index_suffix(StyioContext& context, StyioAST* base);
 static StyioAST* parse_state_ref_suffix(StyioContext& context, StateRefAST* sr);
 TypeAST* parse_styio_type(StyioContext& context);
@@ -869,6 +998,9 @@ StyioAST*
 parse_at_stmt_or_expr_latest(StyioContext& context) {
   context.move_forward(1, "stmt@");
   context.skip();
+  if (context.check(StyioTokenType::NAME) && context.cur_tok()->original == "import") {
+    return parse_import_decl_after_at_latest(context);
+  }
   if (context.check(StyioTokenType::TOK_LBOXBRAC)) {
     return parse_state_decl_after_at_latest(context);
   }
@@ -3626,6 +3758,10 @@ parse_main_block_legacy(StyioContext& context) {
     const auto statement_start = context.save_cursor();
     StyioAST* stmt = nullptr;
     try {
+      if (matches_legacy_string_list_import_latest(context)) {
+        throw StyioSyntaxError(
+          context.mark_cur_tok("legacy import syntax [\"pkg\"] is deprecated; use @import { pkg }"));
+      }
       stmt = parse_stmt_or_expr_legacy(context);
     } catch (...) {
       if (parser_handle_recovery_latest(context, statement_start, parser_recovery_message_latest())) {
@@ -3693,6 +3829,10 @@ parse_main_block_shadow_nightly(StyioContext& context, StyioParserRouteStats* ro
     const auto statement_start = context.save_cursor();
     StyioAST* stmt = nullptr;
     try {
+      if (matches_legacy_string_list_import_latest(context)) {
+        throw StyioSyntaxError(
+          context.mark_cur_tok("legacy import syntax [\"pkg\"] is deprecated; use @import { pkg }"));
+      }
       auto attempt = try_parse_stmt_subset_nightly(context);
       if (attempt.status == ParseAttemptStatus::Parsed) {
         stmt = attempt.node;

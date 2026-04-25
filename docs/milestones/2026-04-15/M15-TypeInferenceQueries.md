@@ -2,9 +2,9 @@
 
 **Purpose:** M15 验收测试与任务分解；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md) 和 [`../../plans/IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md`](../../plans/IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md)。
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-04-16
 
-**Status:** Planned frozen acceptance batch
+**Status:** Implemented
 
 **Depends on:** M14 (name resolution and scope graph)  
 **Goal:** 把类型推断从“文件级重算”拆到 item/query 级别。函数签名、函数体和接收者类型要能独立缓存，改单个函数体时不应让整文件推断失效。
@@ -20,6 +20,31 @@ This milestone freezes:
 3. receiver and expected-type results consumable by hover/completion
 
 The invalidation key may be a subtree hash, body version, or equivalent stable item-local fingerprint, but the behavior must be tested.
+
+## Implementation Notes
+
+M15 is implemented as an IDE-side query layer over the existing analyzer bridge. The core analyzer still provides semantic truth for signatures and inferred binding types; `SemanticDB` shapes that data into cacheable item and typed-site queries.
+
+Implemented query boundaries:
+
+1. `type_signature_at(file, offset)` returns the stable HIR item id, identity key, signature fingerprint, detail string, return type, and parameter facts.
+2. `type_body_at(file, offset)` is cached by item id, signature fingerprint, and body fingerprint, so unchanged function bodies can be reused across snapshots.
+3. `receiver_type_at(file, offset)` resolves direct member receiver expressions such as `items.len`.
+4. `expected_type_at(file, offset)` resolves direct call-site argument expectations from the callee signature and argument index.
+
+Invalidation rules:
+
+1. file/snapshot queries still invalidate on each document snapshot
+2. typed-site offset queries invalidate with the snapshot
+3. item-level signature/body caches intentionally survive snapshot transitions and are keyed by stable HIR item identity plus fingerprints
+4. hash-style function signatures use the range before `=>`; body fingerprints use the range after `=>`
+5. unresolved or unsupported inference sites return an empty result instead of inventing type facts
+
+IDE consumers:
+
+1. `CompletionContext` now carries `receiver_type_name`, `expected_type_name`, `expected_param_name`, and `argument_index`.
+2. `IdeService::completion_context` exposes the typed context to in-process hosts.
+3. Hover includes receiver and expected-type annotations when the corresponding typed-site query succeeds.
 
 ---
 

@@ -1,6 +1,6 @@
 # Build outputs and generated large artifacts
-build/
-build-*/
+/build/
+/build-*/
 Testing/
 cmake_test_discovery_*.json
 compile_commands.json
@@ -27,14 +27,30 @@ benchmark/reports/*
 !benchmark/reports/README.md
 
 # Visual Studio Code cache
-.vscode/
+/.vscode/
 
 # Local IDE / agent metadata
 .cursor/
+/.idea/
+/.clangd/
+/.cache/
+/__pycache__/
+/.pytest_cache/
+/.mypy_cache/
+/.ruff_cache/
+/.venv/
+/venv/
+node_modules/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.cache/
+node_modules/
 .idea/
 .clangd/
-.cache/
-__pycache__/
 
 # Local scratch / editor metadata
 .kilo/
@@ -58,8 +74,14 @@ cmake_install.cmake
 *.profdata
 *.gcda
 *.gcno
+/*.log
+/*.tmp
+/tmp/
 *.log
 *.tmp
+tmp/
+build/
+build-*/
 
 # CI/local artifact staging
 fuzz-artifacts/
@@ -70,3 +92,21 @@ parser-shadow-artifacts-*/
 
 # MacOS Cache
 .DS_Store
+
+# Shared cross-repo tracked-fixture negate rules
+!docs/**/build/
+!docs/**/build/**
+!docs/**/build-*/
+!docs/**/build-*/**
+!docs/**/tmp/
+!docs/**/tmp/**
+!docs/**/*.tmp
+!docs/**/*.log
+!tests/**/build/
+!tests/**/build/**
+!tests/**/build-*/
+!tests/**/build-*/**
+!tests/**/tmp/
+!tests/**/tmp/**
+!tests/**/*.tmp
+!tests/**/*.log

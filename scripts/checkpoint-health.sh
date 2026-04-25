@@ -24,7 +24,7 @@ configure_build_dir_latest() {
   local requested="$1"
   local fallback="$2"
 
-  if cmake -S . -B "$requested"; then
+  if cmake -S . -B "$requested" >&2; then
     printf '%s\n' "$requested"
     return 0
   fi
@@ -34,7 +34,9 @@ configure_build_dir_latest() {
   fi
 
   echo "[checkpoint-health] build dir ${requested} unusable; falling back to ${fallback}" >&2
-  cmake -S . -B "$fallback" >&2
+  if ! cmake -S . -B "$fallback" >&2; then
+    return 1
+  fi
   printf '%s\n' "$fallback"
 }
 
@@ -84,7 +86,7 @@ done
 
 BUILD_DIR="$(configure_build_dir_latest "$BUILD_DIR" "build-codex")"
 echo "[checkpoint-health] build dir: ${BUILD_DIR}"
-cmake --build "$BUILD_DIR" --target styio_test styio_soak_test -j8
+cmake --build "$BUILD_DIR" --target styio_test styio_security_test styio_soak_test -j8
 
 echo "[checkpoint-health] docs audit"
 ctest --test-dir "$BUILD_DIR" -L docs --output-on-failure
@@ -135,13 +137,13 @@ ctest --test-dir "$BUILD_DIR" \
 
 if [[ "$RUN_FUZZ" == "1" ]]; then
   echo "[checkpoint-health] fuzz build dir: ${FUZZ_BUILD_DIR}"
-  cmake --build "$FUZZ_BUILD_DIR" --target styio_fuzz_lexer styio_fuzz_parser -j8
+  cmake --build "$FUZZ_BUILD_DIR" --target styio_fuzz_suite -j8
   echo "[checkpoint-health] fuzz smoke"
   ctest --test-dir "$FUZZ_BUILD_DIR" -L fuzz_smoke --output-on-failure
 elif [[ "$RUN_FUZZ" == "auto" ]]; then
   if fuzz_build_has_ctest_latest "$FUZZ_BUILD_DIR"; then
     echo "[checkpoint-health] fuzz build dir: ${FUZZ_BUILD_DIR}"
-    cmake --build "$FUZZ_BUILD_DIR" --target styio_fuzz_lexer styio_fuzz_parser -j8
+    cmake --build "$FUZZ_BUILD_DIR" --target styio_fuzz_suite -j8
     echo "[checkpoint-health] fuzz smoke"
     ctest --test-dir "$FUZZ_BUILD_DIR" -L fuzz_smoke --output-on-failure
   else

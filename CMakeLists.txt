@@ -28,6 +28,23 @@ if(STYIO_ENABLE_TREE_SITTER)
     cmake_policy(SET CMP0169 OLD)
   endif()
 
+  if(NOT DEFINED FETCHCONTENT_SOURCE_DIR_TREE_SITTER_RUNTIME OR
+     NOT EXISTS "${FETCHCONTENT_SOURCE_DIR_TREE_SITTER_RUNTIME}/lib/include")
+    set(_STYIO_TREE_SITTER_SOURCE_CANDIDATES
+      "${CMAKE_BINARY_DIR}/_deps/tree_sitter_runtime-src"
+      "${CMAKE_SOURCE_DIR}/build-codex/_deps/tree_sitter_runtime-src"
+      "${CMAKE_SOURCE_DIR}/build-ide-perf/_deps/tree_sitter_runtime-src"
+      "${CMAKE_SOURCE_DIR}/build-fuzz/_deps/tree_sitter_runtime-src"
+    )
+    foreach(_candidate IN LISTS _STYIO_TREE_SITTER_SOURCE_CANDIDATES)
+      if(EXISTS "${_candidate}/lib/include")
+        set(FETCHCONTENT_SOURCE_DIR_TREE_SITTER_RUNTIME "${_candidate}" CACHE PATH
+          "Local tree-sitter runtime source directory reused for offline configure" FORCE)
+        break()
+      endif()
+    endforeach()
+  endif()
+
   if(NOT EXISTS "${CMAKE_SOURCE_DIR}/grammar/tree-sitter-styio/src/parser.c")
     message(FATAL_ERROR
       "Tree-sitter grammar sources are missing. Run `npx --yes tree-sitter-cli@0.26.8 generate` "
