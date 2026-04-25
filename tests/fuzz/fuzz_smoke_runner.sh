@@ -26,4 +26,4 @@ TMP_CORPUS="$TMP_DIR/corpus"
 mkdir -p "$TMP_CORPUS"
 cp -R "$CORPUS_DIR"/. "$TMP_CORPUS"/
 
-"$TARGET_BIN" -runs="$RUNS" "$TMP_CORPUS"
+"$TARGET_BIN" "$TMP_CORPUS" "$RUNS"

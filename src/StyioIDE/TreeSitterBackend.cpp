@@ -95,12 +95,34 @@ compute_incremental_edit(const std::string& previous_text, const std::string& cu
   return edit;
 }
 
+std::string
+apply_text_edit(const std::string& text, const TextEdit& edit) {
+  std::string result = text;
+  result.replace(edit.range.start, edit.range.length(), edit.replacement);
+  return result;
+}
+
 TSPoint
 point_from_offset(const TextBuffer& buffer, std::size_t offset) {
   const Position pos = buffer.position_at(offset);
   return TSPoint{
     static_cast<uint32_t>(pos.line),
     static_cast<uint32_t>(pos.character)};
+}
+
+void
+apply_tree_edit(TSTree* tree, const std::string& before_text, const TextEdit& edit, const std::string& after_text) {
+  const TextBuffer before_buffer(before_text);
+  const TextBuffer after_buffer(after_text);
+
+  TSInputEdit input_edit;
+  input_edit.start_byte = static_cast<uint32_t>(edit.range.start);
+  input_edit.old_end_byte = static_cast<uint32_t>(edit.range.end);
+  input_edit.new_end_byte = static_cast<uint32_t>(edit.range.start + edit.replacement.size());
+  input_edit.start_point = point_from_offset(before_buffer, edit.range.start);
+  input_edit.old_end_point = point_from_offset(before_buffer, edit.range.end);
+  input_edit.new_end_point = point_from_offset(after_buffer, edit.range.start + edit.replacement.size());
+  ts_tree_edit(tree, &input_edit);
 }
 
 std::shared_ptr<void>
@@ -123,7 +145,7 @@ prepare_incremental_tree(
   bool& reused_previous_tree
 ) {
   reused_previous_tree = false;
-  if (!previous_tree || previous_text.empty()) {
+  if (!previous_tree || previous_text.empty() || snapshot.from_full_sync || snapshot.needs_full_resync) {
     return nullptr;
   }
 
@@ -132,17 +154,29 @@ prepare_incremental_tree(
     return nullptr;
   }
 
-  const IncrementalEdit edit = compute_incremental_edit(previous_text, snapshot.buffer.text());
-  if (edit.start != edit.old_end || edit.start != edit.new_end) {
-    const TextBuffer previous_buffer(previous_text);
-    TSInputEdit input_edit;
-    input_edit.start_byte = static_cast<uint32_t>(edit.start);
-    input_edit.old_end_byte = static_cast<uint32_t>(edit.old_end);
-    input_edit.new_end_byte = static_cast<uint32_t>(edit.new_end);
-    input_edit.start_point = point_from_offset(previous_buffer, edit.start);
-    input_edit.old_end_point = point_from_offset(previous_buffer, edit.old_end);
-    input_edit.new_end_point = point_from_offset(snapshot.buffer, edit.new_end);
-    ts_tree_edit(incremental_tree, &input_edit);
+  if (!snapshot.applied_edits.empty()) {
+    std::string working_text = previous_text;
+    for (const auto& edit : snapshot.applied_edits) {
+      if (edit.range.start > edit.range.end || edit.range.end > working_text.size()) {
+        ts_tree_delete(incremental_tree);
+        return nullptr;
+      }
+      const std::string next_text = apply_text_edit(working_text, edit);
+      apply_tree_edit(incremental_tree, working_text, edit, next_text);
+      working_text = next_text;
+    }
+    if (working_text != snapshot.buffer.text()) {
+      ts_tree_delete(incremental_tree);
+      return nullptr;
+    }
+  } else {
+    const IncrementalEdit edit = compute_incremental_edit(previous_text, snapshot.buffer.text());
+    if (edit.start != edit.old_end || edit.start != edit.new_end) {
+      const TextEdit text_edit{
+        TextRange{edit.start, edit.old_end},
+        snapshot.buffer.text().substr(edit.start, edit.new_end - edit.start)};
+      apply_tree_edit(incremental_tree, previous_text, text_edit, snapshot.buffer.text());
+    }
   }
 
   reused_previous_tree = true;

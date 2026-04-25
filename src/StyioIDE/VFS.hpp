@@ -21,6 +21,19 @@ struct DocumentSnapshot
   DocumentVersion version = 0;
   TextBuffer buffer;
   bool is_open = false;
+  bool from_full_sync = false;
+  bool needs_full_resync = false;
+  std::vector<TextEdit> applied_edits;
+  std::string resync_reason;
+};
+
+struct DocumentUpdateResult
+{
+  std::shared_ptr<const DocumentSnapshot> snapshot;
+  bool applied_incremental = false;
+  bool used_full_sync = false;
+  bool needs_full_resync = false;
+  std::string message;
 };
 
 class VirtualFileSystem
@@ -34,6 +47,10 @@ private:
     bool is_open = false;
     std::string path;
     TextBuffer buffer;
+    bool from_full_sync = false;
+    bool needs_full_resync = false;
+    std::vector<TextEdit> applied_edits;
+    std::string resync_reason;
   };
 
   FileId next_file_id_ = 1;
@@ -47,6 +64,7 @@ private:
 public:
   std::shared_ptr<const DocumentSnapshot> open(const std::string& path, std::string text, DocumentVersion version);
   std::shared_ptr<const DocumentSnapshot> update(const std::string& path, std::string text, DocumentVersion version);
+  DocumentUpdateResult update(const std::string& path, const DocumentDelta& delta, DocumentVersion version);
   void close(const std::string& path);
 
   std::shared_ptr<const DocumentSnapshot> snapshot_for(const std::string& path);

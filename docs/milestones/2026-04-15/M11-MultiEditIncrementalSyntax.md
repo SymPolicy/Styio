@@ -24,6 +24,9 @@ This milestone freezes the following boundary:
 1. LSP incremental edits are ordered and preserved.
 2. VFS is the canonical owner of text application.
 3. Tree-sitter receives structured edit deltas, not just reconstructed whole-text diffs.
+4. Full-document synchronization is a correctness fallback, not an optimized path.
+5. LSP UTF-16 positions are converted at the protocol boundary; internal IDE layers use canonical UTF-8 byte offsets.
+6. Invalid or unsafe incremental ranges trigger full-document resynchronization rather than retaining partially applied edits.
 
 ---
 
@@ -62,7 +65,7 @@ Scenario:
 Acceptance:
 
 - the resulting text is correct
-- invalid ranges are rejected or surfaced deterministically
+- invalid ranges request full-document resynchronization or surface an equivalent deterministic resync path
 
 ### T11.03 — Tree-sitter reuses prior tree across multi-edit delta
 

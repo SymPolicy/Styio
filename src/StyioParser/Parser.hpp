@@ -387,6 +387,15 @@ public:
     return token_cursor_position_at(index_of_token + 1);
   }
 
+  bool
+  is_root_statement_position() const {
+    const TokenNesting nesting = token_nesting_before(index_of_token);
+    return nesting.paren == 0
+      && nesting.bracket == 0
+      && nesting.brace == 0
+      && nesting.bounded == 0;
+  }
+
   void
   record_parse_diagnostic(size_t start, size_t end, std::string message) {
     if (end < start) {

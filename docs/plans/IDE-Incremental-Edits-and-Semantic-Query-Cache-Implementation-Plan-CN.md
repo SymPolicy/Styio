@@ -2,7 +2,7 @@
 
 **Purpose:** 这是 [`IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md`](./IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md) 的中文镜像版本，用于定义 Styio IDE 子系统从当前 MVP 形态推进到成熟 IDE 级补全与语义能力的完整路线图。该路线图明确要求至少对标 3 套成熟语言工具链，而不是只参考 Rust 一条线；冻结验收目标见 [`../milestones/2026-04-15/`](../milestones/2026-04-15/)，IDE 使用方式见 [`../for-ide/README.md`](../for-ide/README.md)。
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-04-16
 
 **Date:** 2026-04-15  
 **Status:** 活跃实施计划。冻结验收文档位于 [`../milestones/2026-04-15/`](../milestones/2026-04-15/)。  
@@ -129,6 +129,12 @@
 | diagnostic 合并与去重策略 | syntax diagnostics、recovery diagnostics 和 semantic diagnostics 如何组合 | syntax diagnostics 立即发布；semantic diagnostics 延后；recovery 与 semantic 层重复的 range/message 在发布前去重 | 在 `M18` 前 | 否则用户会看到重复或闪烁的 diagnostics，尤其是在 recovery mode 下 |
 | 性能测量契约 | 路线图中的延迟预算如何测量和执行 | 在 `M19` 前冻结 benchmark corpus、warm/hot 条件和测量 harness | 在 `M19` 前 | 如果每次测量都用不同输入、缓存状态或机器假设，性能预算就没有意义 |
 
+截至 2026-04-15，`M11` 的 `Now` 决策已经冻结为：
+
+1. LSP 文档同步以增量同步为主路径；全量同步只作为兼容 fallback，暂不优化。带 range 的 `textDocument/didChange.contentChanges` 必须按 LSP 原始顺序传入 VFS。
+2. LSP 边界继续接收 UTF-16 `line/character`；进入 `StyioIDE` 内部后立即转换成统一的 UTF-8 byte offset。Styio 定制前端编辑器可以使用自己的坐标模型，但 LSP 适配层必须映射到同一条内部 byte-offset 路径。
+3. 多 edit delta 保留 LSP 原始顺序，并基于当前工作文本逐条规范化；遇到非法 range、无法安全规范化或增量状态不可信时，走全量重同步，不保留部分应用后的中间状态。
+
 一旦实现启动后，这些决策如果要改，必须先更新本计划，再回写受影响的 milestone 验收文档。
 
 ---
@@ -248,6 +254,8 @@
 - 显式 query 家族
 - cache instrumentation 和 invalidation rules
 
+实现记录（2026-04-15）：M12 已将 `SemanticDB` 的文件级和 offset 级请求改为显式 query cache；文件级 key 为 `FileId + SnapshotId`，offset 级 key 额外包含请求 byte offset。snapshot 变化只清理该文件的 query state，关闭文件也会清理 open-file cache state。
+
 ### 7.3 M13 — Stable HIR and Item Identity
 
 冻结验收：
@@ -265,6 +273,8 @@
 - canonical `ModuleId`、`ItemId`、`ScopeId`、`TypeId`、`SymbolId`
 - 函数、import、local、block、resource 的 AST-to-HIR lowering
 - 未改动 item 的稳定身份规则
+
+实现记录（2026-04-15）：M13 已从 Nightly AST/analyzer bridge 抽取 `SemanticSummary::items`，并 lower 到 `HirModule::items`。`SemanticDB` 保留 per-file `HirIdentityStore`，因此同名顶层 item 在 body 编辑后保留 `ItemId`；M12 query 结果仍然按 snapshot 失效。
 
 ### 7.4 M14 — Name Resolution and Scope Graph
 
@@ -284,6 +294,8 @@
 - import 和 builtin resolver
 - symbol 到 definition/reference 的映射
 
+实现记录（2026-04-15）：M14 现在先通过 HIR scope 解析名字，再查当前文件顶层 item、显式 project import 和 IDE builtin registry。Definition、hover、references 和 imported completion 消费 resolver target，不再使用 name-only matching；缺失 import 保持 unresolved。
+
 ### 7.5 M15 — Type Inference Queries
 
 冻结验收：
@@ -301,6 +313,8 @@
 - per-item inference queries
 - body hash 或等价 invalidation key
 - 可被 completion 和 hover 消费的 receiver type / expected type 数据
+
+实现记录（2026-04-16）：M15 已在 `SemanticDB` 增加 IDE 侧的 type signature、type body、receiver type 和 expected type queries。签名/函数体缓存以稳定 HIR item identity 加 signature/body fingerprints 为 key，因此未变化的函数体能跨 snapshot 命中。`CompletionContext` 和 hover 消费直接 member receiver type 与直接调用点 expected parameter type；暂不支持的站点返回空 typed fact。
 
 ### 7.6 M16 — Completion Engine Upgrade
 
@@ -320,6 +334,8 @@
 - receiver-aware/member-aware ranking
 - type position 和 call-site filtering
 
+实现记录（2026-04-16）：M16 已在 `SemanticDB` 落地确定性的 completion 策略：type/member 位置过滤候选形状，可见 local/param 高于同文件顶层，同文件顶层高于 import，import 高于 builtin，builtin 高于 keyword，snippet 最后。Member completion 使用 receiver capability 元数据；call-site completion 会提升类型匹配 expected parameter type 的候选，同时保持 recovery mode 下的 best-effort completion。
+
 ### 7.7 M17 — Workspace Index
 
 冻结验收：
@@ -337,6 +353,8 @@
 - index schema 和 merge policy
 - background indexing queue
 - 持久化 symbol/reference store
+
+实现记录（2026-04-16）：M17 已使用显式的 open-file、background 和 persistent 三层索引。打开缓冲区会覆盖同一路径的 background/persistent entry；background 覆盖 persistent；persistent symbol metadata 可以 warm 后续 service 实例。Workspace symbols、跨文件 definition fallback 和 references 都消费合并层；显式 import 失败仍保持 unresolved，不会落到 workspace index 兜底。
 
 ### 7.8 M18 — IDE Runtime
 
@@ -356,6 +374,8 @@
 - 后台任务调度与优先级
 - runtime counters 和 latency instrumentation
 
+实现记录（2026-04-16）：M18 现已将前台 completion / hover / definition / references 绑定到 snapshot/version guard，并支持显式 cancellation。Diagnostics 被拆成“立即发布的 syntax diagnostics”与“debounce 后发布的 semantic diagnostics”；background reindex 工作通过独立队列调度；runtime counters 记录 stale drop、cancellation、debounce 与后台队列活动；dirty 的 open-file index 会在 workspace symbol 与跨文件 definition 查询前做懒刷新。
+
 ### 7.9 M19 — Quality and Performance Closure
 
 冻结验收：
@@ -373,6 +393,8 @@
 - syntax/semantic drift corpus
 - syntax、completion 和 LSP sync 的 fuzz target
 - benchmark 和回归 harness
+
+实现记录（2026-04-16）：M19 已冻结 `tests/ide/corpus/m19` 下的 IDE drift corpus，补齐 `tests/fuzz/` 中的 syntax/completion/LSP sync IDE fuzz target 与聚合目标 `styio_fuzz_suite`，并通过 `scripts/ide-perf-gate.sh`、`scripts/ide-fuzz-gate.sh`、`scripts/ide-quality-gate.sh` 将 Release perf 与 fuzz smoke 固化成门禁。冻结的延迟预算在 Release perf harness 中强制执行；Debug IDE/LSP 回归里则保留该 perf case，但默认跳过，以避免非行动性的预算误报。
 
 ---
 

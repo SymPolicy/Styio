@@ -1,15 +1,16 @@
 # Milestone Docs
 
-**Purpose:** Define the scope and naming rules for `docs/milestones/`; the generated inventory lives in [INDEX.md](./INDEX.md).
+**Purpose:** Define the scope and naming rules for active milestone batches under `docs/milestones/`; absorbed historical batches move to `docs/archive/milestones/`, and the generated inventory lives in [INDEX.md](./INDEX.md).
 
 **Last updated:** 2026-04-15
 
 ## Scope
 
-1. Store frozen milestone batches by date directory.
+1. Store active or still-directly-relevant frozen milestone batches by date directory.
 2. Keep active design drafts in `docs/plans/`.
 3. Keep day-by-day execution notes in `docs/history/`.
-4. Acceptance freezes still inherit the project-level priorities in [../specs/PRINCIPLES-AND-OBJECTIVES.md](../specs/PRINCIPLES-AND-OBJECTIVES.md).
+4. Move absorbed historical milestone batches to `docs/archive/milestones/`.
+5. Acceptance freezes still inherit the project-level priorities in [../specs/PRINCIPLES-AND-OBJECTIVES.md](../specs/PRINCIPLES-AND-OBJECTIVES.md).
 
 ## Naming Rules
 

@@ -2,7 +2,7 @@
 
 **Purpose:** Define how IDE hosts should launch and talk to `styio_lspd`, and record the currently supported request and notification surface.
 
-**Last updated:** 2026-04-14
+**Last updated:** 2026-04-16
 
 ## Transport
 
@@ -24,6 +24,7 @@
 10. `workspace/symbol`
 11. `textDocument/semanticTokens/full`
 12. `textDocument/publishDiagnostics` notification
+13. `$/cancelRequest`
 
 ## Startup Sequence
 
@@ -43,16 +44,34 @@
 
 The current completion pipeline is:
 
-`cursor -> VFS snapshot -> syntax position kind -> HIR + semdb -> builtin/index merge -> ranked completion items`
+`cursor -> VFS snapshot -> syntax position kind -> HIR + semdb -> typed context -> builtin/index merge -> ranked completion items`
+
+Typed context currently covers direct member receivers and direct call-site argument expectations. LSP clients consume this through completion and hover behavior; the lower-level C++ `IdeService::completion_context` API exposes the raw context for in-process hosts.
+
+Completion ordering follows the IDE policy: visible locals and parameters, same-file top-level symbols, imports, builtins, keywords, then snippets. Type/member positions filter by candidate shape, and member completion is receiver-aware for the builtin capability set.
+
+Explicit imports come from top-level `@import { ... }` declarations. Source accepts both native slash paths (`styio/mod`) and compatibility dot paths (`styio.mod`), but semantic import facts are canonicalized to slash form before completion, definition, hover, and references consume them. Failed explicit imports stay unresolved instead of falling through to unrelated workspace symbols.
+
+`workspace/symbol` reads the merged workspace index. Unsaved open buffers have priority over background-indexed disk files, and background entries have priority over persisted warm-start entries.
+
+## Document Sync Contract
+
+1. Incremental `textDocument/didChange` is the primary path.
+2. Ranged `contentChanges` are applied in the original LSP order.
+3. Full-document sync remains a compatibility fallback and is not optimized in the current M11 slice.
+4. LSP UTF-16 `line/character` positions are converted at the server boundary; internal IDE layers use UTF-8 byte offsets.
+5. Invalid or unsafe incremental ranges trigger full-document resynchronization rather than preserving partially applied edits.
 
 ## Diagnostics Semantics
 
-1. Syntax diagnostics come from the edit-time syntax snapshot and include Tree-sitter error nodes plus tolerant token mismatches.
-2. Semantic diagnostics come from the Nightly parser/analyzer bridge.
-3. In recovery mode, malformed statements are reported while later statements in the same file can still contribute hover, completion, and symbol data.
+1. `didOpen` / `didChange` publish syntax diagnostics immediately from the edit-time syntax snapshot.
+2. Semantic diagnostics come from the Nightly parser/analyzer bridge and are queued behind a debounce boundary.
+3. Debounced semantic publication replaces the earlier syntax-only list with the full merged diagnostic set for the latest visible snapshot.
+4. Stale semantic runs are dropped by snapshot/version guards instead of being published.
+5. In recovery mode, malformed statements are reported while later statements in the same file can still contribute hover, completion, and symbol data.
 
 ## Current Limits
 
 1. The server is local-only and single-workspace for now.
 2. `rename`, `codeAction`, and `inlayHint` are intentionally not implemented yet.
-3. Diagnostics are currently recomputed on open/change without a debounce worker.
+3. Debounced semantic publication is currently driven by the in-process runtime drain hook; the stdio loop still has minimal idle-time scheduling.

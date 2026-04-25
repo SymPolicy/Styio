@@ -17,6 +17,7 @@ using DocumentVersion = std::int64_t;
 using SnapshotId = std::uint64_t;
 using ProjectId = std::uint32_t;
 using ModuleId = std::uint32_t;
+using ItemId = std::uint32_t;
 using SymbolId = std::uint32_t;
 using ScopeId = std::uint32_t;
 using TypeId = std::uint32_t;
@@ -39,6 +40,21 @@ struct TextRange
   std::size_t length() const {
     return end >= start ? end - start : 0;
   }
+};
+
+struct TextEdit
+{
+  TextRange range;
+  std::string replacement;
+};
+
+struct DocumentDelta
+{
+  bool is_full_sync = false;
+  bool requires_full_resync = false;
+  std::string full_text;
+  std::vector<TextEdit> edits;
+  std::string resync_reason;
 };
 
 enum class PositionKind
@@ -115,6 +131,10 @@ struct CompletionContext
   std::vector<std::string> expected_categories;
   ScopeId scope_id = 0;
   TypeId receiver_type_id = 0;
+  std::string receiver_type_name;
+  std::string expected_type_name;
+  std::string expected_param_name;
+  std::size_t argument_index = 0;
 };
 
 struct CompletionItem
@@ -125,6 +145,7 @@ struct CompletionItem
   std::string detail;
   int sort_score = 0;
   CompletionSource source = CompletionSource::Local;
+  std::string type_name;
 };
 
 struct DocumentSymbol
