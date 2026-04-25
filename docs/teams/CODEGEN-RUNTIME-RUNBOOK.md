@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-04-17
+**Last updated:** 2026-04-26
 
 ## Mission
 
@@ -34,6 +34,7 @@ Related docs:
 6. Preserve the current partial `[|n|]` bounded-ring contract until an explicit M8/Topology checkpoint changes it: final-bind lowers to `[n x i64] + head`, reads return the latest slot, same-name flex after final bind is rejected, and function-parameter ring semantics remain incomplete.
 7. Treat `runtime-events.jsonl` as a published artifact: changes to `compile.* / run.* / thread.* / unit.* / unit.test.* / state.* / transition.fired / log.emitted / diagnostic.emitted` require same-checkpoint tests and consumer doc updates.
 8. Keep `stdout/stderr` helper hooks lossless: runtime log replay may enrich the artifact stream, but must not change observable program output semantics.
+9. Keep the ORC JIT symbol registry aligned with every runtime helper that codegen emits; when a new `getOrInsertFunction("styio_*")` call appears, update the allowlist in `src/StyioJIT/StyioJIT_ORC.hpp` in the same delivery.
 
 ## Change Classes
 
