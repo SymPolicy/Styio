@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-04-17
+**Last updated:** 2026-04-26
 
 ## Mission
 
@@ -41,6 +41,8 @@ Key SSOTs:
 8. Use the unified delivery gate for docs/process deliveries so hygiene, runbook maintenance, and docs audit stay coupled.
 9. Keep the ecosystem CLI contract mirror and cross-repo doc gate aligned whenever `styio-spio` or `styio-view` handoff docs change.
 10. When a compiler-side machine contract grows, update the owner SSOT and both consumer handoff docs in the same checkpoint instead of leaving one side on preview wording.
+11. Keep generated `INDEX.md` files deterministic for empty collections by deriving fallback timestamps from collection metadata instead of local wall-clock date.
+12. When CI validates sibling ecosystem repositories, map the checked-out branch to the current promotion lane so `ai-dev` stays isolated and `nightly/stable/main` validate against the `nightly` ecosystem baseline.
 
 ## Change Classes
 
