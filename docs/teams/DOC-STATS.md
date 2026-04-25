@@ -26,7 +26,7 @@ python3 scripts/docs-audit.py --manifest valid --format json --output /tmp/styio
 | Team | Document | Word count | Character count |
 |------|----------|------------|-----------------|
 | CLI / Nano | [CLI-NANO-RUNBOOK.md](./CLI-NANO-RUNBOOK.md) | 762 | 3,231 |
-| Codegen / Runtime | [CODEGEN-RUNTIME-RUNBOOK.md](./CODEGEN-RUNTIME-RUNBOOK.md) | 952 | 4,052 |
+| Codegen / Runtime | [CODEGEN-RUNTIME-RUNBOOK.md](./CODEGEN-RUNTIME-RUNBOOK.md) | 966 | 4,112 |
 | Coordination | [COORDINATION-RUNBOOK.md](./COORDINATION-RUNBOOK.md) | 2,045 | 7,639 |
 | Docs / Ecosystem | [DOCS-ECOSYSTEM-RUNBOOK.md](./DOCS-ECOSYSTEM-RUNBOOK.md) | 1,042 | 4,536 |
 | Frontend | [FRONTEND-RUNBOOK.md](./FRONTEND-RUNBOOK.md) | 894 | 3,691 |
@@ -35,7 +35,7 @@ python3 scripts/docs-audit.py --manifest valid --format json --output /tmp/styio
 | Performance / Stability | [PERF-STABILITY-RUNBOOK.md](./PERF-STABILITY-RUNBOOK.md) | 661 | 2,843 |
 | Sema / IR | [SEMA-IR-RUNBOOK.md](./SEMA-IR-RUNBOOK.md) | 675 | 2,847 |
 | Test Quality | [TEST-QUALITY-RUNBOOK.md](./TEST-QUALITY-RUNBOOK.md) | 1,006 | 3,952 |
-| **Total** | Team runbooks only | **9,343** | **38,072** |
+| **Total** | Team runbooks only | **9,357** | **38,132** |
 
 ## Support File Size
 
