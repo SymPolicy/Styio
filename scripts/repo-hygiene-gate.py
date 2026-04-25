@@ -83,6 +83,52 @@ FORBIDDEN_GLOBS = [
 ALWAYS_ALLOWED = {
     "benchmark/reports/README.md",
 }
+REQUIRED_GITIGNORE_PATTERNS = [
+    ".DS_Store",
+    ".cursor/",
+    ".idea/",
+    ".clangd/",
+    ".cache/",
+    "__pycache__/",
+    ".pytest_cache/",
+    ".mypy_cache/",
+    ".ruff_cache/",
+    ".venv/",
+    "venv/",
+    "node_modules/",
+    "build/",
+    "build-*/",
+    "tmp/",
+    "*.tmp",
+    "*.log",
+    "!docs/**/build/",
+    "!docs/**/build/**",
+    "!docs/**/build-*/",
+    "!docs/**/build-*/**",
+    "!docs/**/tmp/",
+    "!docs/**/tmp/**",
+    "!docs/**/*.tmp",
+    "!docs/**/*.log",
+    "!tests/**/build/",
+    "!tests/**/build/**",
+    "!tests/**/build-*/",
+    "!tests/**/build-*/**",
+    "!tests/**/tmp/",
+    "!tests/**/tmp/**",
+    "!tests/**/*.tmp",
+    "!tests/**/*.log",
+]
+REQUIRED_DOC_REFERENCES = {
+    Path("docs/README.md"): [
+        "scripts/docs-index.py",
+        "scripts/docs-lifecycle.py",
+        "scripts/docs-audit.py",
+    ],
+    Path("docs/assets/workflow/REPO-HYGIENE-COMMIT-STANDARD.md"): [
+        "scripts/repo-hygiene-gate.py",
+        "scripts/delivery-gate.sh",
+    ],
+}
 
 
 def run_git(repo_root: Path, *args: str, check: bool = True) -> str:
@@ -263,6 +309,37 @@ def history_violations(repo_root: Path, rev_range: str, max_bytes: int, allowlis
     return sorted(set(problems))
 
 
+def gitignore_pattern_violations(repo_root: Path) -> list[str]:
+    gitignore = repo_root / ".gitignore"
+    if not gitignore.exists():
+        return [".gitignore is missing"]
+
+    patterns = {
+        line.strip()
+        for line in gitignore.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+    problems: list[str] = []
+    for required in REQUIRED_GITIGNORE_PATTERNS:
+        if required not in patterns:
+            problems.append(f".gitignore must include: {required}")
+    return problems
+
+
+def doc_reference_violations(repo_root: Path) -> list[str]:
+    problems: list[str] = []
+    for relative_path, needles in REQUIRED_DOC_REFERENCES.items():
+        path = repo_root / relative_path
+        if not path.exists():
+            problems.append(f"required documentation file is missing: {relative_path.as_posix()}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for needle in needles:
+            if needle not in text:
+                problems.append(f"{relative_path.as_posix()} must document {needle}")
+    return problems
+
+
 def upstream_range(repo_root: Path) -> str:
     probe = subprocess.run(
         ["git", "-C", str(repo_root), "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
@@ -312,6 +389,9 @@ def main() -> int:
     if args.mode == "push":
         rev_range = args.rev_range or upstream_range(repo_root)
         problems = history_violations(repo_root, rev_range, args.max_file_bytes, allowlist)
+        problems.extend(gitignore_pattern_violations(repo_root))
+        problems.extend(doc_reference_violations(repo_root))
+        problems = sorted(set(problems))
         return print_report(f"push range {rev_range}", problems)
 
     files = staged_files(repo_root) if args.mode == "staged" else tracked_files(repo_root)
@@ -323,6 +403,8 @@ def main() -> int:
     problems.extend(path_violations(files, allowlist))
     problems.extend(size_violations(repo_root, files, args.max_file_bytes, allowlist))
     problems.extend(binary_violations(repo_root, files, allowlist))
+    problems.extend(gitignore_pattern_violations(repo_root))
+    problems.extend(doc_reference_violations(repo_root))
     problems = sorted(set(problems))
     return print_report(args.mode, problems)
 

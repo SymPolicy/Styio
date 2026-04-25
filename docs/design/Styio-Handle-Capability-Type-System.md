@@ -5,7 +5,7 @@
 **Last updated:** 2026-04-12
 
 **Status:** Target design — not fully implemented in the current compiler.  
-**See also:** [`Styio-Language-Design.md`](./Styio-Language-Design.md), [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md), [`../plans/Standard-Streams-Plan.md`](../plans/Standard-Streams-Plan.md), [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md).
+**See also:** [`Styio-Language-Design.md`](./Styio-Language-Design.md), [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md), [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md).
 
 ---
 

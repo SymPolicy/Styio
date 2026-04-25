@@ -2,9 +2,9 @@
 
 **Purpose:** M16 验收测试与任务分解；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md) 和 [`../../plans/IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md`](../../plans/IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md)。
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-04-16
 
-**Status:** Planned frozen acceptance batch
+**Status:** Implemented
 
 **Depends on:** M15 (type inference queries)  
 **Goal:** 把补全从“能给结果”升级到“有质量的结果”。语法位置、作用域、接收者类型、参数上下文和排序策略都要进入同一条 completion pipeline。
@@ -19,6 +19,24 @@ This milestone freezes these completion dimensions:
 2. scope-aware ranking across locals, imports, builtins, keywords, snippets
 3. receiver-aware member completion and call-site expected-type filtering
 4. best-effort completion under syntax errors
+
+## Implementation Notes
+
+M16 is implemented in the IDE completion query path. Completion now builds candidates from HIR symbols, explicit imports, and the builtin metadata table, then filters and ranks them with syntax and type context.
+
+Implemented rules:
+
+1. type positions only accept type-shaped completion items
+2. member positions only accept property-shaped completion items
+3. visible locals and parameters outrank same-file top-level symbols
+4. same-file top-level symbols outrank imports
+5. imports outrank builtins, builtins outrank keywords, and keywords outrank snippets
+6. duplicate labels keep the highest-scoring visible candidate, so shadowed globals/imports do not outrank the local binding
+7. direct member completion filters builtin properties by receiver capability
+8. direct call arguments boost candidates whose type matches the expected parameter type
+9. syntax errors keep the best-effort completion path open through tolerant syntax and recovery semantic facts
+
+Current capability coverage is conservative: list-like receivers expose `len`, `first`, and `last`; dict-like receivers expose `len`, `keys`, and `values`; strings expose `len`.
 
 ---
 

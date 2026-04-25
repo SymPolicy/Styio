@@ -2,7 +2,7 @@
 
 **Purpose:** 约束 Styio 在底层重构期间的 **微里程碑拆分、可中断恢复、分支寿命与合并门槛**；不替代语言语义文档（见 `../../design/Styio-Language-Design.md` / `../../design/Styio-EBNF.md`），也不重写项目级优先级顺序（见 `../../specs/PRINCIPLES-AND-OBJECTIVES.md`）。
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-04-16
 
 ---
 
@@ -26,6 +26,7 @@
 12. 恢复脚本必须能自动绕开失效的 CMake cache；若默认 `build/` 不可用，自动切换到可工作的 build 目录属于 workflow 正常要求，不得要求人工先清缓存才能恢复。
 13. 每次提交与 push 前必须符合 [`REPO-HYGIENE-COMMIT-STANDARD.md`](./REPO-HYGIENE-COMMIT-STANDARD.md)：禁止提交构建产物、测试发现文件、二进制与大 blob。
 14. 若 GitHub push 因 `100MB` 限制失败，必须清理**当前待推送历史**，而不是只删除工作区文件。
+15. Checkpoint 交付默认走统一入口 [`DELIVERY-GATE.md`](./DELIVERY-GATE.md)；`checkpoint-health.sh` 继续作为内部恢复/验证 gate，而不是唯一交付 gate。
 
 ---
 
@@ -65,3 +66,4 @@
 - 决策记录：`docs/adr/`
 - 维护执行模板：`../templates/REFACTOR-WORKFLOW-TEMPLATE.md`
 - 仓库卫生与提交标准：`REPO-HYGIENE-COMMIT-STANDARD.md`
+- 统一交付门禁：`DELIVERY-GATE.md`

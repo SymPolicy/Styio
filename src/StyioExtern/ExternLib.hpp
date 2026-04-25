@@ -36,7 +36,11 @@ extern "C" DLLEXPORT const char* styio_runtime_last_error();
 /* Borrowed pointer to last runtime error subcode; null when no runtime error is set. */
 extern "C" DLLEXPORT const char* styio_runtime_last_error_subcode();
 extern "C" DLLEXPORT void styio_runtime_clear_error();
+using StyioRuntimeLogSink = void (*)(const char* stream, const char* message);
+extern "C" DLLEXPORT void styio_runtime_set_log_sink(StyioRuntimeLogSink sink);
 
+/* M9+: write to stdout / stderr */
+extern "C" DLLEXPORT void styio_stdout_write_cstr(const char* s);
 /* M9: write to stderr */
 extern "C" DLLEXPORT void styio_stderr_write_cstr(const char* s);
 

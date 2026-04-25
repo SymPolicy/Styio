@@ -40,7 +40,9 @@ public:
   void erase(const std::string& path);
 
   std::vector<IndexedSymbol> query_symbols(const std::string& query) const;
+  std::vector<IndexedSymbol> query_symbols_exact(const std::string& name) const;
   std::vector<IndexedReference> query_references(const std::string& name) const;
+  std::vector<std::string> indexed_paths() const;
 };
 
 class BackgroundIndex
@@ -51,8 +53,11 @@ private:
 
 public:
   void update(const std::string& path, const HirModule& module);
+  void erase(const std::string& path);
   std::vector<IndexedSymbol> query_symbols(const std::string& query) const;
+  std::vector<IndexedSymbol> query_symbols_exact(const std::string& name) const;
   std::vector<IndexedReference> query_references(const std::string& name) const;
+  std::vector<std::string> indexed_paths() const;
 };
 
 class PersistentIndex
