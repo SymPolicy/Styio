@@ -15,39 +15,44 @@ Run this workflow whenever a change does at least one of the following:
 
 ## Mandatory Flow
 
-1. Update the language SSOT first:
-   - `docs/design/Styio-Language-Design.md`
-   - `docs/design/Styio-EBNF.md`
-   - `docs/design/Styio-Symbol-Reference.md`
-2. Update the frontend surface in the same checkpoint:
-   - `src/StyioToken/`
-   - `src/StyioParser/`
-   - parser-facing fixtures and milestone coverage
-3. If AST or semantic meaning changes, update:
-   - `src/StyioAST/`
-   - `src/StyioAnalyzer/`
-   - `src/StyioIR/`
-4. If lowering adds or renames runtime helper calls, update all three runtime surfaces together:
-   - codegen call sites under `src/StyioCodeGen/`
-   - export declarations/definitions in `src/StyioExtern/ExternLib.hpp` and `src/StyioExtern/ExternLib.cpp`
-   - ORC symbol registration in `src/StyioJIT/StyioJIT_ORC.hpp`
-5. Add or refresh tests for the accepted behavior:
-   - milestone / parser fixtures
-   - five-layer pipeline coverage when lowering or runtime behavior changes
-   - security / soak coverage when runtime contracts change
-6. Run the runtime registration gate before delivery:
+| Step | Owner | Required Surface | Evidence | Boundary |
+|------|-------|------------------|----------|----------|
+| 1 | Docs / Language owner | `docs/design/Styio-Language-Design.md`, `docs/design/Styio-EBNF.md`, `docs/design/Styio-Symbol-Reference.md` | Language SSOT diff | Defines accepted syntax only; does not redefine tests or runtime policy. |
+| 2 | Frontend | `src/StyioToken/`, `src/StyioParser/`, parser fixtures | Parser or milestone regression | Implements acceptance only; does not encode semantic/runtime ownership. |
+| 3 | Sema / IR | `src/StyioAST/`, `src/StyioAnalyzer/`, `src/StyioIR/` | IR or analyzer test evidence | Defines meaning and IR shape; does not own LLVM helper registration. |
+| 4 | Codegen / Runtime | `src/StyioCodeGen/`, `src/StyioExtern/ExternLib.hpp`, `src/StyioExtern/ExternLib.cpp`, `src/StyioJIT/StyioJIT_ORC.hpp` | `python3 scripts/runtime-surface-gate.py` | Keeps helper calls, exports, implementations, and ORC registrations aligned. |
+| 5 | Test Quality | `tests/`, `docs/assets/workflow/TEST-CATALOG.md`, five-layer goldens | `ctest` label or parser shadow evidence | Records behavior evidence; does not redefine language semantics. |
+| 6 | Docs / Ecosystem | Workflow/runbook docs and generated indexes | `python3 scripts/workflow-scheduler.py check` and docs gates | Keeps workflow discoverability and ownership boundaries current. |
+| 7 | Delivery owner | Scheduler profile and delivery floor | `python3 scripts/workflow-scheduler.py run --profile syntax-local` or `./scripts/delivery-gate.sh --mode checkpoint` | Executes the registered chain; does not introduce ad hoc gate order. |
+
+## Required Gates
+
+Run the runtime registration gate before delivery:
 
 ```bash
 python3 scripts/runtime-surface-gate.py
 ```
 
-7. Run the common delivery floor:
+Run the workflow scheduler check so new workflow docs and tools cannot bypass registration:
+
+```bash
+python3 scripts/workflow-scheduler.py check
+python3 tests/workflow_scheduler_test.py
+```
+
+Run the local syntax profile:
+
+```bash
+python3 scripts/workflow-scheduler.py run --profile syntax-local
+```
+
+Run the common delivery floor:
 
 ```bash
 ./scripts/delivery-gate.sh --mode checkpoint
 ```
 
-8. Update owner runbooks and workflow docs in the same delivery whenever the syntax change introduces a new delivery requirement or runtime-registration rule.
+Update owner runbooks and workflow docs in the same delivery whenever the syntax change introduces a new delivery requirement or runtime-registration rule.
 
 ## Hard Blockers
 

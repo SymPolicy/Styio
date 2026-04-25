@@ -1,12 +1,12 @@
 # Styio Unified Delivery Gate
 
-**Purpose:** Define the common delivery-floor entrypoint for Styio so contributors can run repository hygiene, team-runbook maintenance, docs audit, and checkpoint health through one command before checkpoint merge or branch delivery.
+**Purpose:** Define the common delivery-floor entrypoint for Styio so contributors run the registered scheduler profile and checkpoint health through one command before checkpoint merge or branch delivery.
 
 **Last updated:** 2026-04-26
 
 ## Goal
 
-`checkpoint-health.sh` is the inner recovery/test gate, but a real delivery also needs repository hygiene and docs/runbook discipline. This workflow defines the shared floor that must run before a checkpoint merges or a branch is handed off.
+`checkpoint-health.sh` is the inner recovery/test gate, but a real delivery also needs repository hygiene and docs/runbook discipline. This workflow defines the shared floor that must run before a checkpoint merges or a branch is handed off. Tool ownership, ordering, and separation are registered in [WORKFLOW-ORCHESTRATION.md](./WORKFLOW-ORCHESTRATION.md).
 
 ## Command
 
@@ -32,19 +32,15 @@ Docs/process-only delivery:
 
 `checkpoint` mode composes:
 
-1. `python3 scripts/repo-hygiene-gate.py --mode staged`
-2. `python3 scripts/runtime-surface-gate.py`
-3. `python3 scripts/team-docs-gate.py --mode staged`
-4. `python3 scripts/docs-audit.py`
-5. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`
+1. `python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint`
+2. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`
 
 `push` mode composes:
 
-1. `python3 scripts/repo-hygiene-gate.py --mode push`
-2. `python3 scripts/runtime-surface-gate.py`
-3. `python3 scripts/team-docs-gate.py --base <ref>` where `<ref>` comes from `--base` or the branch upstream
-4. `python3 scripts/docs-audit.py`
-5. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`
+1. `python3 scripts/workflow-scheduler.py run --profile delivery-push --base <ref> --range <range>`
+2. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`
+
+The scheduler expands those profiles into repository hygiene, runtime-surface alignment, team-runbook maintenance, docs audit, and ecosystem CLI doc checks in registered phase order.
 
 ## Options
 

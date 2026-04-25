@@ -44,6 +44,7 @@ Key SSOTs:
 11. Keep generated `INDEX.md` files deterministic for empty collections by deriving fallback timestamps from collection metadata instead of local wall-clock date.
 12. When CI validates sibling ecosystem repositories, use the downstream `nightly` branch as the shared ecosystem baseline; `ai-dev` remains a writable staging lane in the upstream repo, but cross-repository contract checks still validate against the downstream delivery lane.
 13. When syntax-delivery rules change, update the workflow asset, gate scripts, and delivery entrypoints in the same checkpoint; workflow-only prose is not enough.
+14. Keep `docs/assets/workflow/WORKFLOW-ORCHESTRATION.md` and `scripts/workflow-scheduler.py` as the registry for workflow separation; new workflow assets must be registered and pass scheduler validation before delivery.
 
 ## Change Classes
 
@@ -57,6 +58,7 @@ Documentation gates:
 
 ```bash
 python3 scripts/docs-index.py --write
+python3 scripts/workflow-scheduler.py check
 python3 scripts/team-docs-gate.py
 python3 scripts/docs-lifecycle.py validate
 python3 scripts/ecosystem-cli-doc-gate.py

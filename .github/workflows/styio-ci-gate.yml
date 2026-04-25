@@ -64,30 +64,17 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Check tracked tree
-        working-directory: styio-nightly
-        run: python3 scripts/repo-hygiene-gate.py --mode tracked
-
-      - name: Check ecosystem CLI doc consistency
-        working-directory: styio-nightly
-        run: python3 scripts/ecosystem-cli-doc-gate.py --require-workspace --json
-
-      - name: Check incoming history range
+      - name: Run workflow scheduler prebuild chain
         shell: bash
         working-directory: styio-nightly
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
-          elif [[ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]]; then
-            RANGE="HEAD"
-          else
-            RANGE="${{ github.event.before }}..${{ github.sha }}"
-          fi
-          python3 scripts/repo-hygiene-gate.py --mode push --range "$RANGE"
-
-      - name: Check runtime export and ORC registration surface
-        working-directory: styio-nightly
-        run: python3 scripts/runtime-surface-gate.py
+          python3 scripts/workflow-scheduler.py run --profile ci-prebuild
 
       - name: Install dependencies
         run: |
