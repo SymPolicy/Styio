@@ -807,6 +807,39 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnHandleIoSubsetSamples) {
   }
 }
 
+TEST(StyioSecurityNightlyParserStmt, AcceptsAtImportSyntaxWithCanonicalSlashPaths) {
+  const std::string src =
+    "@import { styio.mod; tools/helpers, core }\n";
+
+  const std::string nightly = parse_program_to_repr_latest(src, true);
+  const std::string legacy = parse_program_to_repr_latest(src, false);
+  EXPECT_EQ(nightly, legacy);
+  EXPECT_NE(nightly.find("styio/mod"), std::string::npos);
+  EXPECT_NE(nightly.find("tools/helpers"), std::string::npos);
+  EXPECT_NE(nightly.find("core"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsMixedSeparatorsInsideAtImportItem) {
+  const std::string src = "@import { styio/mod.sub }\n";
+  EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
+  EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError);
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsAtImportOutsideTopLevel) {
+  const std::string src =
+    "# use := () => {\n"
+    "  @import { styio/mod }\n"
+    "}\n";
+  EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
+  EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError);
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsLegacyStringListImportSyntax) {
+  const std::string src = "[\"math\"]\n";
+  EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
+  EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError);
+}
+
 TEST(StyioSecurityNightlyParserStmt, AcceptsBubbleSortFeatureSyntax) {
   const std::string src =
     "l <- @stdin: list[i32]\n"

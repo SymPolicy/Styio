@@ -2,7 +2,7 @@
 
 **Purpose:** 约束 AI 与人类贡献者在 **编译器实现、测试与文档交叉引用** 上的操作规程与禁止项；**语言权威语义**仍以 `../design/Styio-Language-Design.md`、`../design/Styio-EBNF.md` 为准。文档目录与「最小改动 / SSOT」准则见 `DOCUMENTATION-POLICY.md` §0。
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-04-16
 
 **Version:** 1.1  
 **Date:** 2026-03-28  
@@ -60,6 +60,7 @@ Before making any language-level change, agents MUST read:
 - `./DOCUMENTATION-POLICY.md` — Doc layout, **§0** maintenance (minimal change, three-doc SSOT), history/milestones/test-catalog rules
 - `./PRINCIPLES-AND-OBJECTIVES.md` — Project-wide priority order, rewrite boundary, and lifecycle objectives
 - `../assets/workflow/CHECKPOINT-WORKFLOW.md` — Interrupt-friendly checkpoint process (micro-milestones, recovery notes, ADR requirement)
+- `../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md` — Delivery gate requiring mapped team runbooks to be updated and kept in the documented template shape when owned folders change
 - `../adr/README.md` — ADR index for ownership/lifecycle/API decisions
 - `../assets/workflow/TEST-CATALOG.md` — Functional test map (inputs, oracles, `ctest` commands)
 - `../README.md` — Docs taxonomy and directory entrypoints
@@ -668,8 +669,10 @@ This is the "constitution" — any syntax change that breaks this example must b
 Follow `./DOCUMENTATION-POLICY.md` (including **§0** — minimal change, three-doc SSOT rule, doc-purpose lines):
 
 - **Progress and lessons learned:** `docs/history/YYYY-MM-DD.md` (one file per calendar day or same-day append), with **Last updated** in the header.
-- **Milestone specs:** `docs/milestones/<YYYY-MM-DD>/` (e.g. `docs/milestones/2026-03-29/00-Milestone-Index.md`).
+- **Milestone specs:** active acceptance batches stay under `docs/milestones/<YYYY-MM-DD>/`; absorbed historical batches move to `docs/archive/milestones/<YYYY-MM-DD>/`.
 - **Test catalog:** `../assets/workflow/TEST-CATALOG.md` — group by **functional area**; each row must be reproducible with **CTest** (and document stdin/stdout/files).
+- **Team runbooks:** `../teams/<TEAM>-RUNBOOK.md` — every delivery that changes a mapped team-owned folder must update the corresponding runbook when the ownership surface, workflow, gates, handoff, or recovery knowledge changes. Ordinary team runbooks must follow `../assets/templates/TEAM-RUNBOOK-TEMPLATE.md`; the enforcement entrypoint is `../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md` and `python3 scripts/team-docs-gate.py`.
+- **Runbook statistics:** `../teams/DOC-STATS.md` — refresh this file in the same delivery when any team runbook or `COORDINATION-RUNBOOK.md` changes.
 
 ---
 
@@ -721,7 +724,7 @@ Agents MUST NOT:
 
 ### Current Milestone
 
-Agents must work on the **current active milestone** and not skip ahead. See `docs/milestones/2026-03-29/00-Milestone-Index.md` (and `docs/milestones/README.md` for other dated trees) for the full roadmap. Each milestone document (`M1-Foundation.md` through `M7-MultiStream.md`) defines:
+Agents must work on the **current active front** and not skip ahead. Start from `docs/rollups/CURRENT-STATE.md`, then follow the active milestone batch under `docs/milestones/` plus the active checkpoint/plan docs it points to. Historical milestone batches under `docs/archive/milestones/` are provenance only, not the default maintenance input. Each active milestone document defines:
 
 - **Acceptance tests** — the FIRST thing to read; defines success
 - **Implementation tasks** — ordered by dependency, assigned to roles
@@ -769,7 +772,9 @@ If two agents propose conflicting changes to the same file:
 10. Run `clang-format` on modified files
 11. Verify all existing tests still pass (`ctest --test-dir build -L milestone` plus `styio_test` when the build allows)
 12. Add new tests for your change; register in `tests/CMakeLists.txt` and `../assets/workflow/TEST-CATALOG.md`
-13. Update `docs/history/YYYY-MM-DD.md` for non-trivial work; update design docs if syntax or semantics change
+13. Update the mapped team runbook using `../assets/templates/TEAM-RUNBOOK-TEMPLATE.md` and refresh `../teams/DOC-STATS.md` when the change affects owned folders or team maintenance knowledge
+14. Update `docs/history/YYYY-MM-DD.md` for non-trivial work; update design docs if syntax or semantics change
+15. Run `python3 scripts/team-docs-gate.py` and `python3 scripts/docs-audit.py` before delivery
 
 ## Appendix B: Compilation Pipeline Debug Flags
 

@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 #include <filesystem>
+#include <functional>
 
 namespace styio::ide {
 
@@ -18,6 +19,7 @@ Project::set_root(const std::string& root_path) {
   } else {
     cache_root_ = (std::filesystem::temp_directory_path() / "styio-ide-cache").string();
   }
+  cache_root_ = (std::filesystem::path(cache_root_) / std::to_string(std::hash<std::string>{}(root_path_))).string();
 
   scan_workspace();
 }

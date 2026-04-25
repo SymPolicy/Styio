@@ -2,26 +2,194 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <sstream>
 
 namespace styio::lsp {
 
 namespace {
 
+std::size_t
+utf8_sequence_length(unsigned char lead) {
+  if ((lead & 0x80u) == 0) {
+    return 1;
+  }
+  if ((lead & 0xE0u) == 0xC0u) {
+    return 2;
+  }
+  if ((lead & 0xF0u) == 0xE0u) {
+    return 3;
+  }
+  if ((lead & 0xF8u) == 0xF0u) {
+    return 4;
+  }
+  return 1;
+}
+
+std::size_t
+utf16_units_for_utf8_lead(unsigned char lead) {
+  return utf8_sequence_length(lead) == 4 ? 2 : 1;
+}
+
+std::size_t
+utf16_units_between(const std::string& text, std::size_t start, std::size_t end) {
+  std::size_t units = 0;
+  std::size_t cursor = start;
+  while (cursor < end && cursor < text.size()) {
+    const std::size_t length = std::min(utf8_sequence_length(static_cast<unsigned char>(text[cursor])), text.size() - cursor);
+    units += utf16_units_for_utf8_lead(static_cast<unsigned char>(text[cursor]));
+    cursor += length;
+  }
+  return units;
+}
+
+std::optional<std::pair<std::size_t, std::size_t>>
+line_bounds(const std::string& text, std::size_t line) {
+  std::size_t start = 0;
+  std::size_t current_line = 0;
+  while (current_line < line) {
+    const std::size_t newline = text.find('\n', start);
+    if (newline == std::string::npos) {
+      return std::nullopt;
+    }
+    start = newline + 1;
+    current_line += 1;
+  }
+
+  std::size_t end = text.find('\n', start);
+  if (end == std::string::npos) {
+    end = text.size();
+  }
+  if (end > start && text[end - 1] == '\r') {
+    end -= 1;
+  }
+  return std::make_pair(start, end);
+}
+
+std::optional<std::size_t>
+offset_at_lsp_position(const styio::ide::TextBuffer& buffer, const llvm::json::Object& position) {
+  const std::size_t line = static_cast<std::size_t>(position.getInteger("line").value_or(-1));
+  const std::size_t target_units = static_cast<std::size_t>(position.getInteger("character").value_or(-1));
+  const std::string& text = buffer.text();
+  const auto bounds = line_bounds(text, line);
+  if (!bounds.has_value()) {
+    return std::nullopt;
+  }
+
+  std::size_t units = 0;
+  std::size_t cursor = bounds->first;
+  while (cursor < bounds->second) {
+    if (units == target_units) {
+      return cursor;
+    }
+    const unsigned char lead = static_cast<unsigned char>(text[cursor]);
+    const std::size_t length = std::min(utf8_sequence_length(lead), text.size() - cursor);
+    const std::size_t char_units = utf16_units_for_utf8_lead(lead);
+    if (units + char_units > target_units) {
+      return std::nullopt;
+    }
+    units += char_units;
+    cursor += length;
+  }
+
+  if (units == target_units) {
+    return bounds->second;
+  }
+  return std::nullopt;
+}
+
+std::optional<styio::ide::TextRange>
+range_from_lsp_range(const styio::ide::TextBuffer& buffer, const llvm::json::Object& range) {
+  const auto* start = range.getObject("start");
+  const auto* end = range.getObject("end");
+  if (start == nullptr || end == nullptr) {
+    return std::nullopt;
+  }
+  const auto start_offset = offset_at_lsp_position(buffer, *start);
+  const auto end_offset = offset_at_lsp_position(buffer, *end);
+  if (!start_offset.has_value() || !end_offset.has_value() || *start_offset > *end_offset) {
+    return std::nullopt;
+  }
+  return styio::ide::TextRange{*start_offset, *end_offset};
+}
+
+styio::ide::Position
+position_at_lsp_offset(const styio::ide::TextBuffer& buffer, std::size_t offset) {
+  const styio::ide::Position byte_position = buffer.position_at(offset);
+  const std::size_t line_start = buffer.offset_at(styio::ide::Position{byte_position.line, 0});
+  return styio::ide::Position{
+    byte_position.line,
+    utf16_units_between(buffer.text(), line_start, offset)};
+}
+
 llvm::json::Object
 to_lsp_range(const styio::ide::TextBuffer& buffer, styio::ide::TextRange range) {
-  const styio::ide::Position start = buffer.position_at(range.start);
-  const styio::ide::Position end = buffer.position_at(range.end);
+  const styio::ide::Position start = position_at_lsp_offset(buffer, range.start);
+  const styio::ide::Position end = position_at_lsp_offset(buffer, range.end);
   return llvm::json::Object{
     {"start", llvm::json::Object{{"line", static_cast<std::int64_t>(start.line)}, {"character", static_cast<std::int64_t>(start.character)}}},
     {"end", llvm::json::Object{{"line", static_cast<std::int64_t>(end.line)}, {"character", static_cast<std::int64_t>(end.character)}}}};
 }
 
 styio::ide::Position
-from_lsp_position(const llvm::json::Object& position) {
-  return styio::ide::Position{
-    static_cast<std::size_t>(position.getInteger("line").value_or(0)),
-    static_cast<std::size_t>(position.getInteger("character").value_or(0))};
+internal_position_from_lsp_position(const styio::ide::TextBuffer& buffer, const llvm::json::Object& position) {
+  const auto offset = offset_at_lsp_position(buffer, position);
+  return buffer.position_at(offset.value_or(buffer.size()));
+}
+
+styio::ide::DocumentDelta
+document_delta_from_lsp_changes(
+  const styio::ide::TextBuffer& initial_buffer,
+  const llvm::json::Array& changes
+) {
+  styio::ide::DocumentDelta delta;
+  std::string working_text = initial_buffer.text();
+  std::vector<styio::ide::TextEdit> edits;
+
+  for (const auto& change_value : changes) {
+    const auto* change = change_value.getAsObject();
+    if (change == nullptr) {
+      delta.requires_full_resync = true;
+      delta.resync_reason = "malformed content change";
+      break;
+    }
+
+    const std::string replacement = std::string(change->getString("text").value_or(""));
+    const auto* range = change->getObject("range");
+    if (range == nullptr) {
+      delta.is_full_sync = true;
+      working_text = replacement;
+      edits.clear();
+      continue;
+    }
+
+    const styio::ide::TextBuffer working_buffer(working_text);
+    const auto text_range = range_from_lsp_range(working_buffer, *range);
+    if (!text_range.has_value()) {
+      delta.requires_full_resync = true;
+      delta.resync_reason = "invalid incremental edit range";
+      break;
+    }
+
+    styio::ide::TextEdit edit{*text_range, replacement};
+    if (delta.is_full_sync) {
+      working_text.replace(edit.range.start, edit.range.length(), edit.replacement);
+      continue;
+    }
+    edits.push_back(edit);
+    working_text.replace(edit.range.start, edit.range.length(), edit.replacement);
+  }
+
+  if (delta.requires_full_resync) {
+    delta.is_full_sync = false;
+    delta.full_text.clear();
+    delta.edits.clear();
+  } else if (delta.is_full_sync) {
+    delta.full_text = std::move(working_text);
+  } else {
+    delta.edits = std::move(edits);
+  }
+  return delta;
 }
 
 llvm::json::Value
@@ -95,6 +263,20 @@ read_message_body(std::istream& input) {
   return body;
 }
 
+std::optional<std::uint64_t>
+request_id_from_json(const llvm::json::Value& value) {
+  if (auto integer = value.getAsInteger()) {
+    return static_cast<std::uint64_t>(*integer);
+  }
+  if (auto text = value.getAsString()) {
+    const std::string request_id(*text);
+    if (!request_id.empty() && std::all_of(request_id.begin(), request_id.end(), [](unsigned char ch) { return std::isdigit(ch) != 0; })) {
+      return static_cast<std::uint64_t>(std::stoull(request_id));
+    }
+  }
+  return std::nullopt;
+}
+
 }  // namespace
 
 llvm::json::Object
@@ -123,6 +305,7 @@ Server::handle(llvm::json::Object request) {
   std::vector<OutboundMessage> output;
   const std::string method = std::string(request.getString("method").value_or(""));
   const llvm::json::Value* id = request.get("id");
+  const auto numeric_id = id == nullptr ? std::nullopt : request_id_from_json(*id);
   const llvm::json::Object* params = request.getObject("params");
 
   auto respond = [&](llvm::json::Value result)
@@ -150,7 +333,7 @@ Server::handle(llvm::json::Object request) {
 
     respond(llvm::json::Object{
       {"capabilities", llvm::json::Object{
-         {"textDocumentSync", llvm::json::Object{{"openClose", true}, {"change", 1}}},
+         {"textDocumentSync", llvm::json::Object{{"openClose", true}, {"change", 2}}},
          {"completionProvider", llvm::json::Object{}},
          {"hoverProvider", true},
          {"definitionProvider", true},
@@ -160,6 +343,18 @@ Server::handle(llvm::json::Object request) {
          {"semanticTokensProvider", llvm::json::Object{
             {"legend", llvm::json::Object{{"tokenTypes", std::move(semantic_token_types)}, {"tokenModifiers", llvm::json::Array{}}}},
             {"full", true}}}}}});
+    return output;
+  }
+
+  if (method == "$/cancelRequest") {
+    if (params != nullptr) {
+      const llvm::json::Value* cancel_id = params->get("id");
+      if (cancel_id != nullptr) {
+        if (const auto numeric_cancel_id = request_id_from_json(*cancel_id); numeric_cancel_id.has_value()) {
+          service_.cancel_request(*numeric_cancel_id);
+        }
+      }
+    }
     return output;
   }
 
@@ -188,11 +383,11 @@ Server::handle(llvm::json::Object request) {
     const auto* changes = params->getArray("contentChanges");
     if (text_document != nullptr && changes != nullptr && !changes->empty()) {
       const std::string uri = std::string(text_document->getString("uri").value_or(""));
-      const auto* first_change = (*changes)[0].getAsObject();
-      const std::string text = first_change != nullptr ? std::string(first_change->getString("text").value_or("")) : "";
+      const auto current_snapshot = service_.snapshot_for_uri(uri);
+      const styio::ide::DocumentDelta delta = document_delta_from_lsp_changes(current_snapshot->buffer, *changes);
       const auto diagnostics = service_.did_change(
         uri,
-        text,
+        delta,
         static_cast<styio::ide::DocumentVersion>(text_document->getInteger("version").value_or(0)));
       const auto snapshot = service_.snapshot_for_uri(uri);
       output.push_back(OutboundMessage{make_diagnostic_notification(uri, snapshot->buffer, diagnostics), true});
@@ -213,9 +408,14 @@ Server::handle(llvm::json::Object request) {
     const auto* position = params->getObject("position");
     llvm::json::Array items;
     if (text_document != nullptr && position != nullptr) {
+      const std::string uri = std::string(text_document->getString("uri").value_or(""));
+      const auto snapshot = service_.snapshot_for_uri(uri);
+      const auto ticket = numeric_id.has_value()
+        ? service_.begin_foreground_request(uri, styio::ide::RuntimeRequestKind::Completion, *numeric_id)
+        : service_.begin_foreground_request(uri, styio::ide::RuntimeRequestKind::Completion);
       for (const auto& item : service_.completion(
-             std::string(text_document->getString("uri").value_or("")),
-             from_lsp_position(*position))) {
+             ticket,
+             internal_position_from_lsp_position(snapshot->buffer, *position))) {
         items.push_back(llvm::json::Object{
           {"label", item.label},
           {"kind", completion_kind_value(item.kind)},
@@ -232,13 +432,17 @@ Server::handle(llvm::json::Object request) {
     const auto* text_document = params->getObject("textDocument");
     const auto* position = params->getObject("position");
     if (text_document != nullptr && position != nullptr) {
+      const std::string uri = std::string(text_document->getString("uri").value_or(""));
+      const auto snapshot = service_.snapshot_for_uri(uri);
+      const auto ticket = numeric_id.has_value()
+        ? service_.begin_foreground_request(uri, styio::ide::RuntimeRequestKind::Hover, *numeric_id)
+        : service_.begin_foreground_request(uri, styio::ide::RuntimeRequestKind::Hover);
       const auto hover = service_.hover(
-        std::string(text_document->getString("uri").value_or("")),
-        from_lsp_position(*position));
+        ticket,
+        internal_position_from_lsp_position(snapshot->buffer, *position));
       if (hover.has_value()) {
         llvm::json::Object result{{"contents", hover->contents}};
         if (hover->range.has_value()) {
-          const auto snapshot = service_.snapshot_for_uri(std::string(text_document->getString("uri").value_or("")));
           result["range"] = to_lsp_range(snapshot->buffer, *hover->range);
         }
         respond(std::move(result));
@@ -257,10 +461,23 @@ Server::handle(llvm::json::Object request) {
     llvm::json::Array locations;
     if (text_document != nullptr && position != nullptr) {
       const std::string uri = std::string(text_document->getString("uri").value_or(""));
-      const styio::ide::Position pos = from_lsp_position(*position);
+      const auto snapshot = service_.snapshot_for_uri(uri);
+      const styio::ide::Position pos = internal_position_from_lsp_position(snapshot->buffer, *position);
+      const auto ticket = numeric_id.has_value()
+        ? service_.begin_foreground_request(
+            uri,
+            method == "textDocument/definition"
+              ? styio::ide::RuntimeRequestKind::Definition
+              : styio::ide::RuntimeRequestKind::References,
+            *numeric_id)
+        : service_.begin_foreground_request(
+            uri,
+            method == "textDocument/definition"
+              ? styio::ide::RuntimeRequestKind::Definition
+              : styio::ide::RuntimeRequestKind::References);
       const auto results = method == "textDocument/definition"
-        ? service_.definition(uri, pos)
-        : service_.references(uri, pos);
+        ? service_.definition(ticket, pos)
+        : service_.references(ticket, pos);
       for (const auto& location : results) {
         const auto snapshot = service_.snapshot_for_uri(styio::ide::uri_from_path(location.path));
         locations.push_back(llvm::json::Object{
@@ -321,6 +538,28 @@ Server::handle(llvm::json::Object request) {
 
   respond(llvm::json::Value(nullptr));
   return output;
+}
+
+std::vector<OutboundMessage>
+Server::drain_runtime() {
+  std::vector<OutboundMessage> output;
+  for (auto publication : service_.drain_semantic_diagnostics()) {
+    if (publication.snapshot == nullptr) {
+      continue;
+    }
+    output.push_back(OutboundMessage{
+      make_diagnostic_notification(
+        styio::ide::uri_from_path(publication.snapshot->path),
+        publication.snapshot->buffer,
+        publication.diagnostics),
+      true});
+  }
+  return output;
+}
+
+const styio::ide::RuntimeCounters&
+Server::runtime_counters() const {
+  return service_.runtime_counters();
 }
 
 void

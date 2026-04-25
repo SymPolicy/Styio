@@ -4,7 +4,7 @@
 
 **Last updated:** 2026-04-15
 
-**Status:** Planned frozen acceptance batch
+**Status:** Implemented
 
 **Depends on:** M11 (multi-edit incremental syntax)  
 **Goal:** `SemanticDB` must stop treating semantic work as one coarse `IdeSnapshot` rebuild. File-level and offset-level IDE requests should be served through explicit queries with clear cache keys and invalidation rules.
@@ -37,6 +37,19 @@ Cache keys are frozen as:
 FileVersionKey(FileId, SnapshotId)
 OffsetKey(FileId, SnapshotId, offset)
 ```
+
+## Frozen Implementation Decisions
+
+1. M12 implements same-snapshot query caching only. It does not introduce item-level dependency tracking or persistent semantic cache reuse.
+2. File-level query caches are keyed by `FileVersionKey(FileId, SnapshotId)`.
+3. Offset-level query caches are keyed by `OffsetKey(FileId, SnapshotId, offset)`.
+4. A snapshot transition invalidates the changed file's query state. Unrelated open files are not invalidated in M12.
+5. `didClose` / `SemanticDB::drop_open_file` clears open-file query state and the Tree-sitter incremental tree for that file.
+6. Cache instrumentation is internal hit/miss counters exposed through `SemanticDB::query_stats()` for tests and diagnostics; it is not an LSP-facing telemetry API.
+
+## Implemented Surface
+
+M12 is implemented in [../../../src/StyioIDE/SemDB.hpp](../../../src/StyioIDE/SemDB.hpp) and [../../../src/StyioIDE/SemDB.cpp](../../../src/StyioIDE/SemDB.cpp). `build_snapshot(path)` remains a compatibility facade, but it now composes `IdeSnapshot` from query results instead of acting as the primary cache boundary.
 
 ---
 

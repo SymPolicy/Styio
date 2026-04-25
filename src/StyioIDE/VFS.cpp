@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <utility>
 
 namespace styio::ide {
 
@@ -39,6 +40,10 @@ VirtualFileSystem::make_snapshot(const DocumentState& state) const {
   snapshot->version = state.version;
   snapshot->buffer = state.buffer;
   snapshot->is_open = state.is_open;
+  snapshot->from_full_sync = state.from_full_sync;
+  snapshot->needs_full_resync = state.needs_full_resync;
+  snapshot->applied_edits = state.applied_edits;
+  snapshot->resync_reason = state.resync_reason;
   return snapshot;
 }
 
@@ -48,6 +53,10 @@ VirtualFileSystem::open(const std::string& path, std::string text, DocumentVersi
   state.snapshot_id = next_snapshot_id_++;
   state.version = version;
   state.is_open = true;
+  state.from_full_sync = true;
+  state.needs_full_resync = false;
+  state.applied_edits.clear();
+  state.resync_reason.clear();
   state.buffer.reset(std::move(text));
   return make_snapshot(state);
 }
@@ -58,8 +67,84 @@ VirtualFileSystem::update(const std::string& path, std::string text, DocumentVer
   state.snapshot_id = next_snapshot_id_++;
   state.version = version;
   state.is_open = true;
+  state.from_full_sync = true;
+  state.needs_full_resync = false;
+  state.applied_edits.clear();
+  state.resync_reason.clear();
   state.buffer.reset(std::move(text));
   return make_snapshot(state);
+}
+
+DocumentUpdateResult
+VirtualFileSystem::update(const std::string& path, const DocumentDelta& delta, DocumentVersion version) {
+  DocumentState& state = ensure_document(path);
+
+  if (delta.requires_full_resync) {
+    state.snapshot_id = next_snapshot_id_++;
+    state.version = version;
+    state.is_open = true;
+    state.from_full_sync = false;
+    state.needs_full_resync = true;
+    state.applied_edits.clear();
+    state.resync_reason = delta.resync_reason.empty() ? "invalid incremental edit range" : delta.resync_reason;
+    return DocumentUpdateResult{
+      make_snapshot(state),
+      false,
+      false,
+      true,
+      state.resync_reason};
+  }
+
+  if (delta.is_full_sync) {
+    auto snapshot = update(path, delta.full_text, version);
+    return DocumentUpdateResult{
+      snapshot,
+      false,
+      true,
+      false,
+      ""};
+  }
+
+  std::string working_text = state.buffer.text();
+  std::vector<TextEdit> applied_edits;
+  applied_edits.reserve(delta.edits.size());
+
+  for (const auto& edit : delta.edits) {
+    if (edit.range.start > edit.range.end || edit.range.end > working_text.size()) {
+      state.snapshot_id = next_snapshot_id_++;
+      state.version = version;
+      state.is_open = true;
+      state.from_full_sync = false;
+      state.needs_full_resync = true;
+      state.applied_edits.clear();
+      state.resync_reason = "invalid incremental edit range";
+      return DocumentUpdateResult{
+        make_snapshot(state),
+        false,
+        false,
+        true,
+        state.resync_reason};
+    }
+
+    applied_edits.push_back(edit);
+    working_text.replace(edit.range.start, edit.range.length(), edit.replacement);
+  }
+
+  state.snapshot_id = next_snapshot_id_++;
+  state.version = version;
+  state.is_open = true;
+  state.from_full_sync = false;
+  state.needs_full_resync = false;
+  state.applied_edits = std::move(applied_edits);
+  state.resync_reason.clear();
+  state.buffer.reset(std::move(working_text));
+
+  return DocumentUpdateResult{
+    make_snapshot(state),
+    true,
+    false,
+    false,
+    ""};
 }
 
 void
@@ -81,6 +166,10 @@ VirtualFileSystem::snapshot_for(const std::string& path) {
     contents << input.rdbuf();
     state.buffer.reset(contents.str());
     state.snapshot_id = next_snapshot_id_++;
+    state.from_full_sync = true;
+    state.needs_full_resync = false;
+    state.applied_edits.clear();
+    state.resync_reason.clear();
   }
   return make_snapshot(state);
 }

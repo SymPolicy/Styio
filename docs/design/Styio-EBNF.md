@@ -2,7 +2,7 @@
 
 **Purpose:** 词法与语法的 **EBNF 权威定义**；资源拓扑相关附录与叙述以 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md) 为准，语义细节以 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 为准。
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-04-16
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -149,7 +149,10 @@ block_comment      = '/*' { any_char } '*/' ;
 ## 3. Program Structure
 
 ```ebnf
-program            = { statement } EOF ;
+program            = { top_level_statement } EOF ;
+
+top_level_statement = import_declaration
+                    | statement ;
 
 statement          = declaration
                    | assignment
@@ -163,7 +166,27 @@ statement          = declaration
 
 ## 4. Declarations
 
-### 4.1 Function Declaration
+### 4.1 Import Declaration
+
+```ebnf
+import_declaration = '@' 'import' '{'
+                     import_path { import_separator import_path }
+                     '}' ;
+
+import_separator  = ',' | ';' ;
+
+import_path       = identifier { '/' identifier }
+                  | identifier { '.' identifier } ;
+```
+
+Notes:
+
+1. `@import` is only valid at file top level.
+2. `/` is the native package/module path spelling.
+3. `.` is accepted compatibility syntax and is normalized to slash form internally.
+4. One import item must not mix `/` and `.`.
+
+### 4.2 Function Declaration
 
 ```ebnf
 declaration        = '#' identifier
@@ -184,7 +207,7 @@ type_annotation    = 'i8' | 'i16' | 'i32' | 'i64' | 'i128'
                    | identifier ;
 ```
 
-### 4.2 Schema Declaration
+### 4.3 Schema Declaration
 
 ```ebnf
 schema_def         = '#' identifier ':=' 'schema' '{'

@@ -1,0 +1,7 @@
+# classify := (n: i32) => {
+  n % 2 ?= {
+    0 => { <| "even" }
+    _ => { <| "odd" }
+  }
+}
+label: string := classify(2)

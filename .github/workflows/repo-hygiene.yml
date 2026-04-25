@@ -13,6 +13,19 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          path: styio-nightly
+
+      - name: Check out styio-spio sibling repository
+        uses: actions/checkout@v5
+        with:
+          repository: styio-org/styio-spio
+          path: styio-spio
+
+      - name: Check out styio-view sibling repository
+        uses: actions/checkout@v5
+        with:
+          repository: styio-org/styio-view
+          path: styio-view
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -20,10 +33,16 @@ jobs:
           python-version: "3.12"
 
       - name: Check tracked tree
+        working-directory: styio-nightly
         run: python3 scripts/repo-hygiene-gate.py --mode tracked
+
+      - name: Check ecosystem CLI doc consistency
+        working-directory: styio-nightly
+        run: python3 scripts/ecosystem-cli-doc-gate.py --require-workspace --json
 
       - name: Check incoming history range
         shell: bash
+        working-directory: styio-nightly
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"

@@ -1,0 +1,5 @@
+# outer := (x: i32) => {
+  # inner := (y: i32) => y + x
+  inner(1)
+}
+value: i32 := outer(2)
