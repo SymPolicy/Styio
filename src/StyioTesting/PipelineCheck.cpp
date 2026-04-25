@@ -11,6 +11,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -189,9 +190,30 @@ first_text_diff(const std::string& got, const std::string& exp, const char* arti
 
 void
 normalize_llvm_module_text(std::string& s) {
+  static const std::regex printf_i64(
+    R"(^\s*(?:%\d+\s*=\s*)?call i32 \(ptr, \.\.\.\) @printf\(ptr @styio_fmt_i64, i64 (.+)\)$)");
+  static const std::regex printf_str(
+    R"(^\s*(?:%\d+\s*=\s*)?call i32 \(ptr, \.\.\.\) @printf\(ptr @styio_fmt_str, ptr (.+)\)$)");
+  static const std::regex puts_at(R"(^\s*(?:%\d+\s*=\s*)?call i32 @puts\(ptr @styio_print_at\)$)");
+  static const std::regex i64_to_cstr(R"(^\s*(%\d+)\s*=\s*call ptr @styio_i64_dec_cstr\(i64 (.+)\)$)");
+  static const std::regex f64_to_cstr(R"(^\s*(%\d+)\s*=\s*call ptr @styio_f64_dec_cstr\(double (.+)\)$)");
+  static const std::regex stdout_write(R"(^\s*call void @styio_stdout_write_cstr\(ptr (.+)\)$)");
+
   std::istringstream in(s);
   std::string out;
   std::string line;
+  std::unordered_map<std::string, std::string> pending_stdout_canonical;
+  auto trim = [](const std::string& value) {
+    size_t begin = 0;
+    while (begin < value.size() && std::isspace(static_cast<unsigned char>(value[begin]))) {
+      ++begin;
+    }
+    size_t end = value.size();
+    while (end > begin && std::isspace(static_cast<unsigned char>(value[end - 1]))) {
+      --end;
+    }
+    return value.substr(begin, end - begin);
+  };
   while (std::getline(in, line)) {
     if (line.find("target datalayout =") != std::string::npos) {
       continue;
@@ -199,6 +221,66 @@ normalize_llvm_module_text(std::string& s) {
     if (line.find("target triple =") != std::string::npos) {
       continue;
     }
+    if (line.find("@styio_fmt_i64 =") != std::string::npos) {
+      continue;
+    }
+    if (line.find("@styio_fmt_str =") != std::string::npos) {
+      continue;
+    }
+    if (line == "declare i32 @printf(ptr, ...)") {
+      continue;
+    }
+    if (line == "declare i32 @puts(ptr)") {
+      continue;
+    }
+    if (line == "declare void @styio_stdout_write_cstr(ptr)") {
+      continue;
+    }
+    if (line == "declare ptr @styio_i64_dec_cstr(i64)") {
+      continue;
+    }
+    if (line == "declare ptr @styio_f64_dec_cstr(double)") {
+      continue;
+    }
+
+    std::smatch match;
+    if (std::regex_match(line, match, printf_i64)) {
+      out += "  ; STYIO_STDOUT_I64 " + trim(match[1].str()) + "\n";
+      continue;
+    }
+    if (std::regex_match(line, match, printf_str)) {
+      out += "  ; STYIO_STDOUT_CSTR " + trim(match[1].str()) + "\n";
+      continue;
+    }
+    if (std::regex_match(line, match, puts_at)) {
+      out += "  ; STYIO_STDOUT_AT\n";
+      continue;
+    }
+    if (std::regex_match(line, match, i64_to_cstr)) {
+      pending_stdout_canonical[match[1].str()] =
+        "  ; STYIO_STDOUT_I64 " + trim(match[2].str()) + "\n";
+      continue;
+    }
+    if (std::regex_match(line, match, f64_to_cstr)) {
+      pending_stdout_canonical[match[1].str()] =
+        "  ; STYIO_STDOUT_F64 " + trim(match[2].str()) + "\n";
+      continue;
+    }
+    if (std::regex_match(line, match, stdout_write)) {
+      const std::string arg = trim(match[1].str());
+      if (arg == "@styio_print_at") {
+        out += "  ; STYIO_STDOUT_AT\n";
+      }
+      else if (auto it = pending_stdout_canonical.find(arg); it != pending_stdout_canonical.end()) {
+        out += it->second;
+        pending_stdout_canonical.erase(it);
+      }
+      else {
+        out += "  ; STYIO_STDOUT_CSTR " + arg + "\n";
+      }
+      continue;
+    }
+
     out += line;
     out.push_back('\n');
   }
