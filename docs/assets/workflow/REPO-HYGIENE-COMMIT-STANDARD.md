@@ -239,7 +239,7 @@ fix: <行为修复>
 
 1. `pre-commit` 会检查暂存区路径、二进制与本机产物。
 2. `pre-push` 会检查待推送历史里的禁止路径和大 blob。
-3. GitHub Actions `repo-hygiene` 会在 `push` / `pull_request` 上重复执行同样的门禁。
+3. GitHub Actions `styio-ci-gate` 会在受管分支的 `push` 与所有 `pull_request` 上重复执行同样的门禁。
 
 ---
 

@@ -2,7 +2,7 @@
 
 **Purpose:** Define the scope of reusable workflow documents under `docs/assets/workflow/`; the generated inventory lives in [INDEX.md](./INDEX.md).
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-04-26
 
 ## Scope
 
@@ -16,6 +16,7 @@
 2. Pair workflow changes with verification commands or gates.
 3. Keep workflow assets discoverable from `docs/specs/DOCUMENTATION-POLICY.md`.
 4. Workflow assets must not redefine project-wide priorities; link to [../../specs/PRINCIPLES-AND-OBJECTIVES.md](../../specs/PRINCIPLES-AND-OBJECTIVES.md) when tradeoffs matter.
+5. Register every active workflow asset and runnable gate in [WORKFLOW-ORCHESTRATION.md](./WORKFLOW-ORCHESTRATION.md) through `scripts/workflow-scheduler.py`.
 
 ## Inventory
 
