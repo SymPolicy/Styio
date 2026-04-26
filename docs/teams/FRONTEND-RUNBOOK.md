@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of Styio tokenization, parsing, Unicode handling, and legacy/nightly parser migration; this file links to language and test SSOTs instead of redefining grammar.
 
-**Last updated:** 2026-04-17
+**Last updated:** 2026-04-26
 
 ## Mission
 
@@ -33,6 +33,7 @@ Build and test targets:
 4. Add or update a failing fixture before changing accepted behavior.
 5. Update [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) when adding milestone or parser acceptance coverage.
 6. When token or primitive spelling tables change, add a focused regression so public token names do not drift silently.
+7. When accepted syntax reaches lowering or runtime helpers, follow [../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md](../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md) and do not stop at parser-only green status.
 
 ## Change Classes
 
@@ -64,12 +65,19 @@ For checkpoint-grade validation:
 ./scripts/checkpoint-health.sh --no-asan
 ```
 
+When syntax delivery adds or renames runtime helper calls:
+
+```bash
+python3 scripts/runtime-surface-gate.py
+```
+
 ## Cross-Team Dependencies
 
 1. Sema / IR must review changes that alter AST shape, node ownership, or parse-mode recovery output.
 2. Test Quality must review new parser acceptance fixtures, shadow gate changes, and fuzz regression samples.
 3. IDE / LSP and Grammar must review changes that affect edit-time syntax assumptions or public diagnostics.
-4. Docs / Ecosystem must review changes to language SSOT links or parser migration workflow docs.
+4. Codegen / Runtime must review syntax changes that add, rename, or reroute `styio_*` runtime helpers.
+5. Docs / Ecosystem must review changes to language SSOT links or parser migration workflow docs.
 
 ## Handoff / Recovery
 
