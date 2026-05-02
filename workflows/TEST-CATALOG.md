@@ -261,5 +261,5 @@ ctest --test-dir build/default -L milestone
 **生命周期候选：** `python3 scripts/docs-lifecycle.py candidates --family all --format tree`。
 **仓库级文档清单：** `python3 scripts/docs-audit.py --manifest valid --format tree`（默认扫描 tracked + unignored worktree Markdown）。
 **无效文档清单：** `python3 scripts/docs-audit.py --manifest invalid --format list`（仅看已跟踪文件时加 `--source git`；排查本地生成物时加 `--source filesystem`）。
-**统一交付入口：** `./scripts/delivery-gate.sh --mode checkpoint`；分支交付用 `./scripts/delivery-gate.sh --mode push --base <ref>`。该脚本会串起 hygiene、team-docs、docs-audit 和 fast checkpoint-health；更高层 cutover 仍按 [`../docs/teams/COORDINATION-RUNBOOK.md`](../docs/teams/COORDINATION-RUNBOOK.md) 补域专属 gate。
+**统一交付入口：** `./scripts/delivery-gate.sh`。默认 auto 模式会串起 worktree hygiene、PR-range hygiene、team-docs、docs-audit、external audit 和 fast checkpoint-health；更高层 cutover 仍按 [`../docs/teams/COORDINATION-RUNBOOK.md`](../docs/teams/COORDINATION-RUNBOOK.md) 补域专属 gate。
 **工作流入口：** 见 [`DOCS-MAINTENANCE-WORKFLOW.md`](./DOCS-MAINTENANCE-WORKFLOW.md)。

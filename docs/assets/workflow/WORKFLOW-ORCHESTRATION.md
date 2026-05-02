@@ -2,7 +2,7 @@
 
 **Purpose:** Define the registered workflow documents, tool responsibilities, ordering rules, and scheduler entrypoints that keep Styio delivery workflows separated and executable.
 
-**Last updated:** 2026-05-01
+**Last updated:** 2026-05-02
 
 ## Separation Rules
 
@@ -45,6 +45,7 @@ Current registered table:
 | Tool | `repo-hygiene-push` | 10 | Docs / Ecosystem | Reject forbidden artifacts introduced by the incoming revision range. | `python3 scripts/repo-hygiene-gate.py --mode push --range {range}` |
 | Tool | `repo-hygiene-staged` | 10 | Docs / Ecosystem | Reject forbidden staged artifacts before checkpoint delivery. | `python3 scripts/repo-hygiene-gate.py --mode staged` |
 | Tool | `repo-hygiene-tracked` | 10 | Docs / Ecosystem | Reject forbidden tracked artifacts and repository cleanliness drift. | `python3 scripts/repo-hygiene-gate.py --mode tracked` |
+| Tool | `repo-hygiene-worktree` | 10 | Docs / Ecosystem | Reject forbidden worktree artifacts before local delivery. | `python3 scripts/repo-hygiene-gate.py --mode worktree` |
 | Tool | `runtime-surface` | 20 | Codegen / Runtime | Keep codegen helper calls, ExternLib exports, implementations, and ORC registrations aligned. | `python3 scripts/runtime-surface-gate.py` |
 | Tool | `team-docs-base` | 30 | Docs / Ecosystem | Require runbook updates for branch changes against a base ref. | `python3 scripts/team-docs-gate.py --base {base}` |
 | Tool | `team-docs-staged` | 30 | Docs / Ecosystem | Require runbook updates for staged checkpoint changes. | `python3 scripts/team-docs-gate.py --mode staged` |
@@ -58,7 +59,8 @@ Current registered table:
 | Profile | Scope | Ordered Call Chain |
 |---------|-------|--------------------|
 | `syntax-local` | Local syntax-change worktree verification. | scheduler check -> scheduler tests -> tracked hygiene -> runtime surface -> team docs -> docs audit -> ecosystem CLI docs |
-| `delivery-checkpoint` | Process gates before checkpoint health. | staged hygiene -> runtime surface -> staged team docs -> docs audit -> ecosystem CLI docs |
+| `delivery-checkpoint` | Worktree process gates before checkpoint health. | worktree hygiene -> runtime surface -> worktree team docs -> docs audit -> ecosystem CLI docs |
+| `delivery-staged` | Staged-index process gates for commit hooks and staged handoff. | staged hygiene -> runtime surface -> staged team docs -> docs audit -> ecosystem CLI docs |
 | `delivery-push` | Branch handoff against a base ref. | push hygiene -> runtime surface -> base team docs -> docs audit -> ecosystem CLI docs |
 | `ci-prebuild` | GitHub Actions prebuild checks before compile/test. | scheduler check -> scheduler tests -> tracked hygiene -> incoming history hygiene -> runtime surface -> base team docs -> workspace ecosystem CLI docs |
 

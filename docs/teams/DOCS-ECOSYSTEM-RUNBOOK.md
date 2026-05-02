@@ -42,7 +42,7 @@ Key SSOTs:
 7. Keep repository-level bootstrap/build entrypoints under `docs/BUILD-AND-DEV-ENV.md`, and push subsystem-only details back down into the owning docs collection instead of overloading `README.md` or `docs/external/for-ide/`.
 8. Run the team runbook maintenance gate before delivery so source/test/docs folder changes cannot land without the mapped runbook update or required runbook format.
 9. Use archive lifecycle tooling for raw history/review compression rather than manually moving provenance.
-10. Use the unified delivery gate for docs/process deliveries so hygiene, runbook maintenance, and docs audit stay coupled.
+10. Use the default unified delivery gate for docs/process deliveries so worktree hygiene, branch-range hygiene, runbook maintenance, docs audit, and external audit stay coupled behind one command.
 11. Keep the ecosystem CLI contract mirror and cross-repo doc gate aligned whenever `styio-spio` or `styio-view` handoff docs change.
 12. When a compiler-side machine contract grows, update the owner SSOT and both consumer handoff docs in the same checkpoint instead of leaving one side on preview wording.
 13. Keep generated `INDEX.md` files deterministic for empty collections by deriving fallback timestamps from collection metadata instead of local wall-clock date.
@@ -99,7 +99,7 @@ python3 scripts/docs-audit.py
 Unified docs/process delivery floor:
 
 ```bash
-./scripts/delivery-gate.sh --mode checkpoint --skip-health
+./scripts/delivery-gate.sh --skip-health
 ```
 
 Optional inventory commands:

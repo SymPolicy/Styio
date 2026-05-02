@@ -6,13 +6,16 @@ usage() {
 Usage: scripts/delivery-gate.sh [options]
 
 Run the common Styio delivery floor through the workflow scheduler, then run
-checkpoint health when requested.
+external audit and checkpoint health when requested.
 
 Options:
-  --mode <checkpoint|push>  Delivery mode (default: checkpoint)
+  --mode <auto|checkpoint|staged|push>
+                            Delivery mode (default: auto)
   --base <ref>              Base ref for team-docs-gate branch checks
   --range <rev-range>       Explicit revision range for repo-hygiene push mode
   --skip-health             Skip checkpoint-health (docs/process-only deliveries)
+  --skip-audit              Skip external audit gate
+  --audit-bin <path>        Explicit audit executable
   --with-asan               Include the ASan/UBSan leg in checkpoint-health
   --with-fuzz               Include the fuzz-smoke leg in checkpoint-health
   --build-dir <dir>         Forwarded to checkpoint-health
@@ -35,13 +38,149 @@ default_upstream_base() {
   git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true
 }
 
+current_branch() {
+  git branch --show-current 2>/dev/null || true
+}
+
+ref_exists() {
+  git rev-parse --verify --quiet "$1^{commit}" >/dev/null
+}
+
+has_worktree_changes() {
+  [[ -n "$(git status --porcelain=v1 --untracked-files=all)" ]]
+}
+
+rev_count() {
+  git rev-list --count "$1" 2>/dev/null || echo 0
+}
+
+origin_repo_name() {
+  local url path
+  url="$(git remote get-url origin 2>/dev/null || true)"
+  [[ -n "$url" ]] || return 1
+  case "$url" in
+    git@github.com:*)
+      path="${url#git@github.com:}"
+      ;;
+    https://github.com/*)
+      path="${url#https://github.com/}"
+      ;;
+    http://github.com/*)
+      path="${url#http://github.com/}"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+  path="${path%.git}"
+  [[ "$path" == */* ]] || return 1
+  echo "$path"
+}
+
+github_parent_repo() {
+  local repo parent
+  command -v gh >/dev/null 2>&1 || return 1
+  repo="$(origin_repo_name)" || return 1
+  parent="$(
+    gh repo view "$repo" --json parent --jq '.parent | if . == null then "" else .owner.login + "/" + .name end' 2>/dev/null || true
+  )"
+  [[ -n "$parent" ]] || return 1
+  echo "$parent"
+}
+
+fetch_github_parent_base() {
+  local branch parent ref
+  branch="$1"
+  [[ -n "$branch" ]] || return 1
+  parent="$(github_parent_repo)" || return 1
+  ref="refs/delivery-base/${parent/\//-}/${branch}"
+  if git fetch --no-tags "https://github.com/${parent}.git" "+refs/heads/${branch}:${ref}" >/dev/null 2>&1; then
+    echo "$ref"
+    return 0
+  fi
+  return 1
+}
+
+resolve_delivery_base() {
+  local branch configured parent_ref upstream_ref upstream_branch
+  configured="${BASE_REF:-${STYIO_DELIVERY_BASE:-${STYIO_TEAM_DOC_GATE_BASE:-}}}"
+  if [[ -n "$configured" ]]; then
+    echo "$configured"
+    return 0
+  fi
+
+  branch="$(current_branch)"
+  if [[ -n "$branch" ]]; then
+    upstream_ref="refs/remotes/upstream/${branch}"
+    if ref_exists "$upstream_ref"; then
+      echo "$upstream_ref"
+      return 0
+    fi
+    parent_ref="$(fetch_github_parent_base "$branch" || true)"
+    if [[ -n "$parent_ref" ]]; then
+      echo "$parent_ref"
+      return 0
+    fi
+  fi
+
+  upstream_branch="$(default_upstream_base)"
+  if [[ -n "$upstream_branch" ]]; then
+    echo "$upstream_branch"
+    return 0
+  fi
+  return 1
+}
+
+resolve_audit_bin() {
+  if [[ -n "$AUDIT_BIN" ]]; then
+    echo "$AUDIT_BIN"
+    return 0
+  fi
+  if [[ -n "${STYIO_AUDIT_BIN:-}" ]]; then
+    echo "$STYIO_AUDIT_BIN"
+    return 0
+  fi
+  if [[ -e <user-home>/SymPolicy/audit/bin/audit ]]; then
+    echo <user-home>/SymPolicy/audit/bin/audit
+    return 0
+  fi
+  if command -v audit >/dev/null 2>&1; then
+    command -v audit
+    return 0
+  fi
+  return 1
+}
+
+run_audit_gate() {
+  local audit_bin
+  audit_bin="$(resolve_audit_bin || true)"
+  if [[ -z "$audit_bin" ]]; then
+    echo "audit executable not found; set --audit-bin, STYIO_AUDIT_BIN, or use --skip-audit" >&2
+    exit 2
+  fi
+  if [[ -x "$audit_bin" ]]; then
+    run_cmd "$audit_bin" gate --repo . --project styio
+  else
+    run_cmd python3 "$audit_bin" gate --repo . --project styio
+  fi
+}
+
+run_scheduler_profile() {
+  local profile
+  profile="$1"
+  shift
+  run_cmd python3 scripts/workflow-scheduler.py run --profile "$profile" "$@"
+}
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-MODE="checkpoint"
+MODE="auto"
 BASE_REF=""
-REV_RANGE=""
+REV_RANGE="${STYIO_DELIVERY_RANGE:-}"
 RUN_HEALTH=1
+RUN_AUDIT=1
+AUDIT_BIN=""
 RUN_ASAN=0
 RUN_FUZZ=0
 BUILD_DIR=""
@@ -65,6 +204,14 @@ while [[ $# -gt 0 ]]; do
     --skip-health)
       RUN_HEALTH=0
       shift
+      ;;
+    --skip-audit)
+      RUN_AUDIT=0
+      shift
+      ;;
+    --audit-bin)
+      AUDIT_BIN="$2"
+      shift 2
       ;;
     --with-asan)
       RUN_ASAN=1
@@ -101,7 +248,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$MODE" in
-  checkpoint|push)
+  auto|checkpoint|staged|push)
     ;;
   *)
     echo "Unsupported mode: $MODE" >&2
@@ -110,33 +257,7 @@ case "$MODE" in
     ;;
 esac
 
-SCHEDULER_CMD=(python3 scripts/workflow-scheduler.py run)
 HEALTH_CMD=(./scripts/checkpoint-health.sh)
-
-if [[ "$MODE" == "checkpoint" ]]; then
-  SCHEDULER_CMD+=(--profile delivery-checkpoint)
-else
-  SCHEDULER_CMD+=(--profile delivery-push)
-  if [[ -n "$REV_RANGE" ]]; then
-    SCHEDULER_CMD+=(--range "$REV_RANGE")
-  fi
-
-  if [[ -z "$BASE_REF" ]]; then
-    BASE_REF="$(default_upstream_base)"
-  fi
-
-  if [[ -z "$BASE_REF" ]]; then
-    echo "push mode requires --base <ref> or a configured upstream branch for team-docs-gate" >&2
-    exit 2
-  fi
-
-  SCHEDULER_CMD+=(--base "$BASE_REF")
-fi
-
-if [[ -n "$BASE_REF" && "$MODE" == "checkpoint" ]]; then
-  echo "checkpoint mode does not accept --base; use --mode push for branch checks" >&2
-  exit 2
-fi
 
 if [[ -n "$BUILD_DIR" ]]; then
   HEALTH_CMD+=(--build-dir "$BUILD_DIR")
@@ -155,7 +276,65 @@ if [[ "$RUN_FUZZ" -eq 0 ]]; then
 fi
 
 log "mode: ${MODE}"
-run_cmd "${SCHEDULER_CMD[@]}"
+
+case "$MODE" in
+  auto)
+    if has_worktree_changes; then
+      run_scheduler_profile delivery-checkpoint
+    else
+      log "worktree: nothing to check"
+    fi
+
+    if [[ -z "$BASE_REF" ]]; then
+      BASE_REF="$(resolve_delivery_base || true)"
+    fi
+    if [[ -z "$BASE_REF" ]]; then
+      echo "auto mode could not infer a delivery base; set --base <ref> or STYIO_DELIVERY_BASE" >&2
+      exit 2
+    fi
+    if [[ "$(rev_count "${BASE_REF}..HEAD")" -gt 0 ]]; then
+      if [[ -z "$REV_RANGE" ]]; then
+        REV_RANGE="${BASE_REF}..HEAD"
+      fi
+      run_scheduler_profile delivery-push --base "$BASE_REF" --range "$REV_RANGE"
+    else
+      log "push range ${BASE_REF}..HEAD: nothing to check"
+    fi
+    ;;
+  checkpoint)
+    if [[ -n "$BASE_REF" || -n "$REV_RANGE" ]]; then
+      echo "checkpoint mode does not accept --base or --range; use --mode push for branch checks" >&2
+      exit 2
+    fi
+    run_scheduler_profile delivery-checkpoint
+    ;;
+  staged)
+    if [[ -n "$BASE_REF" || -n "$REV_RANGE" ]]; then
+      echo "staged mode does not accept --base or --range; use --mode push for branch checks" >&2
+      exit 2
+    fi
+    run_scheduler_profile delivery-staged
+    ;;
+  push)
+    if [[ -z "$BASE_REF" ]]; then
+      BASE_REF="$(resolve_delivery_base || true)"
+    fi
+    if [[ -z "$BASE_REF" ]]; then
+      echo "push mode requires --base <ref> or an inferable upstream/parent branch" >&2
+      exit 2
+    fi
+    if [[ -z "$REV_RANGE" ]]; then
+      REV_RANGE="${BASE_REF}..HEAD"
+    fi
+    run_scheduler_profile delivery-push --base "$BASE_REF" --range "$REV_RANGE"
+    ;;
+esac
+
+if [[ "$RUN_AUDIT" -eq 1 ]]; then
+  run_audit_gate
+else
+  log "audit skipped"
+fi
 
 if [[ "$RUN_HEALTH" -eq 1 ]]; then
   run_cmd "${HEALTH_CMD[@]}"

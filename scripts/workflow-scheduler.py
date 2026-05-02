@@ -53,6 +53,13 @@ TOOLS: tuple[Tool, ...] = (
         ("python3", "tests/workflow_scheduler_test.py"),
     ),
     Tool(
+        "repo-hygiene-worktree",
+        10,
+        "Docs / Ecosystem",
+        "Reject forbidden worktree artifacts before local delivery.",
+        ("python3", "scripts/repo-hygiene-gate.py", "--mode", "worktree"),
+    ),
+    Tool(
         "repo-hygiene-tracked",
         10,
         "Docs / Ecosystem",
@@ -228,7 +235,18 @@ WORKFLOW_DOCS: tuple[WorkflowDoc, ...] = (
 PROFILES: tuple[Profile, ...] = (
     Profile(
         "delivery-checkpoint",
-        "Common process gates for checkpoint delivery before optional checkpoint-health.",
+        "Common worktree process gates for checkpoint delivery before optional checkpoint-health.",
+        (
+            "repo-hygiene-worktree",
+            "runtime-surface",
+            "team-docs-worktree",
+            "docs-audit",
+            "ecosystem-cli-docs",
+        ),
+    ),
+    Profile(
+        "delivery-staged",
+        "Common staged-index process gates for commit hooks and staged handoff.",
         (
             "repo-hygiene-staged",
             "runtime-surface",

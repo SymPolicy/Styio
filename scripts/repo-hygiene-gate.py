@@ -191,6 +191,29 @@ def staged_files(repo_root: Path) -> list[str]:
     return [line for line in out.splitlines() if line]
 
 
+def worktree_files(repo_root: Path) -> list[str]:
+    out = run_git(
+        repo_root,
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=all",
+    )
+    paths: list[str] = []
+    for line in out.splitlines():
+        if not line:
+            continue
+        status = line[:2].strip()
+        if status == "D":
+            continue
+        raw = line[3:]
+        if " -> " in raw:
+            raw = raw.split(" -> ", 1)[1]
+        raw = raw.strip().strip('"')
+        if raw:
+            paths.append(raw)
+    return sorted(set(paths))
+
+
 def tracked_files(repo_root: Path) -> list[str]:
     out = run_git(repo_root, "ls-files")
     return [line for line in out.splitlines() if line]
@@ -368,7 +391,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Styio repository hygiene gate")
     parser.add_argument(
         "--mode",
-        choices=("staged", "tracked", "push"),
+        choices=("worktree", "staged", "tracked", "push"),
         default="staged",
         help="What to validate",
     )
@@ -396,7 +419,12 @@ def main() -> int:
         problems = sorted(set(problems))
         return print_report(f"push range {rev_range}", problems)
 
-    files = staged_files(repo_root) if args.mode == "staged" else tracked_files(repo_root)
+    if args.mode == "worktree":
+        files = worktree_files(repo_root)
+    elif args.mode == "staged":
+        files = staged_files(repo_root)
+    else:
+        files = tracked_files(repo_root)
     if not files:
         print(f"[repo-hygiene] {args.mode}: nothing to check")
         return 0
