@@ -169,7 +169,21 @@ run_scheduler_profile() {
   local profile
   profile="$1"
   shift
-  run_cmd python3 scripts/workflow-scheduler.py run --profile "$profile" "$@"
+  case "$profile" in
+    delivery-checkpoint)
+      run_cmd python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint "$@"
+      ;;
+    delivery-staged)
+      run_cmd python3 scripts/workflow-scheduler.py run --profile delivery-staged "$@"
+      ;;
+    delivery-push)
+      run_cmd python3 scripts/workflow-scheduler.py run --profile delivery-push "$@"
+      ;;
+    *)
+      echo "Unsupported scheduler profile: $profile" >&2
+      exit 2
+      ;;
+  esac
 }
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
