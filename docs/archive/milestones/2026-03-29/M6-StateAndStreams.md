@@ -2,7 +2,13 @@
 
 **Purpose:** M6 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。Golden Cross **设计叙述**见 [`../../design/Styio-Resource-Topology.md`](../../design/Styio-Resource-Topology.md) §8。
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-04-24
+
+**2026-04-24 revision:** This archived M6 draft contains superseded history and
+absence examples. Active milestone tests no longer keep `$state[<<, n]` history
+probe fixtures or cold-start fixtures that count bare `@` values. Future history
+access must re-enter through a revised selector/state-topology fixture; removed
+old fixtures are not retained under `tests/milestones/`.
 
 **Depends on:** M5 (Resources & I/O)  
 **Goal:** State containers (`@[n]`, `@[var=init]`), shadow references (`$var`), history probes (`[<<,n]`), pulse frame lock, anonymous ledger, and compiler intrinsics (`[avg,n]`, `[max,n]`) work end-to-end. The Golden Cross strategy compiles and runs with mock data.

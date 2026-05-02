@@ -1,0 +1,9 @@
+// M11 / T11.02: C++ source compiled in @extern(c++), exported with C ABI, and called through JIT
+
+@export { fast_square }
+@extern(c++) => {
+#include <vector>
+extern "C" int fast_square(int x) { std::vector<int> v; v.push_back(x); return v[0] * v[0]; }
+}
+
+>_(fast_square(7))

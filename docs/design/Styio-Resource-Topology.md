@@ -28,11 +28,11 @@ The running compiler also reserves top-level `@import { ... }` as a module decla
 
 | Role | Meaning | Typical surface form |
 |------|---------|------------------------|
-| **A. Honest missing** | Algebraic absence (`@` propagates through ops; wave arms can “do nothing”) | lone `@`, `expr \| @`, `(cond) ~> … \| @` |
+| **A. Honest missing** | Runtime absence (`@` in diagnostics/formatting) | absence from resources/intrinsics; no active source-level bare `@` |
 | **B. Resource anchor** | External driver / file / exchange handle | `@file{…}`, `@binance{…}`, `<< @resource` |
 | **C. State container** | Persistent memory (ring buffer, accumulator, snapshot slot) | `@name : type`, optional `:= { driver }` |
 
-**Lexer/parser rule:** distinguish `@` + `import` + `{` → top-level import declaration; `@` + not-`[` + not-ident → **undefined**; `@` + `[` → state or type; `@` + ident + `{`/`(` → resource per existing rules.
+**Lexer/parser rule:** distinguish `@` + `import` + `{` → top-level import declaration; `@` + `[` → state or type; `@` + ident + `{`/`(` → resource per existing rules. General bare-`@` expression literals, including old `| @` no-op arms, were retired from active milestones on 2026-04-24.
 
 ---
 
@@ -142,8 +142,11 @@ Thus **visible** `@ma20 : [|2|]` may store **only the last two published MA valu
     # get_ma := (src, n) => src[avg, n]
     get_ma(p, 5)  -> $ma5
     get_ma(p, 20) -> $ma20
-    is_golden = ($ma5 > $ma20) && ($ma5[<<, 1] <= $ma20[<<, 1])
-    (is_golden) ~> order_logic(p) | @
+    // History comparison waits for a revised selector; old $state[<<, n] is retired.
+    is_golden = $ma5 > $ma20
+    ?(is_golden) => {
+      order_logic(p)
+    }
   }
 }
 ```

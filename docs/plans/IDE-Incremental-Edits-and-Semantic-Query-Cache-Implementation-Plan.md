@@ -1,13 +1,13 @@
 # IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan
 
-**Purpose:** Define the full roadmap for evolving the Styio IDE subsystem from its current MVP shape toward mature IDE-grade completion and semantic tooling. This roadmap is explicitly benchmarked against at least three established language toolchains rather than a single Rust reference point. This file path remains stable, but as of 2026-04-15 its scope has expanded from the original M11/M12 infrastructure slice into the full M11-M19 plan. Frozen acceptance targets live in [`../milestones/2026-04-15/`](../milestones/2026-04-15/), and IDE integration usage lives in [`../for-ide/README.md`](../for-ide/README.md).
+**Purpose:** Define the full roadmap for evolving the Styio IDE subsystem from its current MVP shape toward mature IDE-grade completion and semantic tooling. This roadmap is explicitly benchmarked against at least three established language toolchains rather than a single Rust reference point. This file path remains stable, but as of 2026-04-15 its scope has expanded from the original M11/M12 infrastructure slice into the full M11-M19 plan. Frozen acceptance targets live in [`../milestones/2026-04-15/`](../milestones/2026-04-15/), and IDE integration usage lives in [`../external/for-ide/README.md`](../external/for-ide/README.md).
 
 **Last updated:** 2026-04-16
 
 **Date:** 2026-04-15  
 **Status:** Active implementation plan. Frozen acceptance documents live in [`../milestones/2026-04-15/`](../milestones/2026-04-15/).  
 **Depends on:** Existing IDE/LSP foundation, Tree-sitter backend integration, Nightly `ParseMode::Recovery`, and current `styio_ide_core`/`styio_lspd` build targets.  
-**Related docs:** [`../for-ide/BUILD.md`](../for-ide/BUILD.md), [`../for-ide/TREE-SITTER.md`](../for-ide/TREE-SITTER.md), [`../for-ide/CXX-API.md`](../for-ide/CXX-API.md), [`../specs/DOCUMENTATION-POLICY.md`](../specs/DOCUMENTATION-POLICY.md)
+**Related docs:** [`../external/for-ide/BUILD.md`](../external/for-ide/BUILD.md), [`../external/for-ide/TREE-SITTER.md`](../external/for-ide/TREE-SITTER.md), [`../external/for-ide/CXX-API.md`](../external/for-ide/CXX-API.md), [`../specs/DOCUMENTATION-POLICY.md`](../specs/DOCUMENTATION-POLICY.md)
 
 ---
 

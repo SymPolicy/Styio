@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the repository-local Tree-sitter grammar and edit-time syntax backend contract.
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-05-01
 
 ## Mission
 
@@ -17,15 +17,17 @@ Primary paths:
 3. `grammar/tree-sitter-styio/src/grammar.json`
 4. `grammar/tree-sitter-styio/src/node-types.json`
 5. `src/StyioIDE/TreeSitterBackend.*`
-6. [../for-ide/TREE-SITTER.md](../for-ide/TREE-SITTER.md)
+6. [../external/for-ide/TREE-SITTER.md](../external/for-ide/TREE-SITTER.md)
 
 ## Daily Workflow
 
-1. Check [../for-ide/TREE-SITTER.md](../for-ide/TREE-SITTER.md) and `grammar/tree-sitter-styio/README.md`.
+1. Check [../external/for-ide/TREE-SITTER.md](../external/for-ide/TREE-SITTER.md) and `grammar/tree-sitter-styio/README.md`.
 2. Edit `grammar.js` for grammar source changes.
 3. Regenerate artifacts from `grammar/tree-sitter-styio/`.
 4. Review generated diffs for suspicious broad churn.
 5. Run IDE tests with `STYIO_ENABLE_TREE_SITTER=ON`; when relevant, also configure with it OFF to preserve tolerant fallback.
+6. For token repetitions such as `^...`, keep edit-time recognition tolerant while following the language SSOT for semantics; caret count is not a Tree-sitter-owned break-depth contract.
+7. When conditional-loop syntax changes, keep compiler parser tests, [../design/Styio-EBNF.md](../design/Styio-EBNF.md), language design docs, and symbol reference aligned; the active form is `[...] >> ?(condition) => { ... }`.
 
 ## Change Classes
 
@@ -45,9 +47,9 @@ npx --yes tree-sitter-cli@0.26.8 generate
 Build and test:
 
 ```bash
-cmake -S . -B build -DSTYIO_ENABLE_TREE_SITTER=ON
-cmake --build build --target styio_ide_test styio_lspd
-ctest --test-dir build -L ide
+cmake -S . -B build/default -DSTYIO_ENABLE_TREE_SITTER=ON
+cmake --build build/default --target styio_ide_test styio_lspd
+ctest --test-dir build/default -L ide
 ```
 
 Fallback check when adapter behavior changes:
@@ -63,7 +65,7 @@ ctest --test-dir build-no-tree-sitter -L ide
 1. IDE / LSP must review every syntax snapshot or adapter behavior change.
 2. Frontend must review grammar changes that claim alignment with compiler parser behavior.
 3. Test Quality must review IDE regression coverage for error recovery and incremental reuse.
-4. Docs / Ecosystem must review `docs/for-ide/` updates.
+4. Docs / Ecosystem must review `docs/external/for-ide/` updates.
 
 ## Handoff / Recovery
 

@@ -1,6 +1,6 @@
 ; ModuleID = 'styio'
 source_filename = "styio"
-target datalayout = "e-m:o-i64:64-i128:128-n32:64-S128"
+target datalayout = "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128"
 
 @styio_str = private unnamed_addr constant [33 x i8] c"/tmp/styio_pipeline_redirect.txt\00", align 1
 

@@ -30,8 +30,8 @@ Technology stack:
 
 Internal components:
 
-- `StyioAST`, `StyioAnalyzer`, `StyioIR`, and `StyioCodeGen` compiler pipeline.
-- `StyioRuntime` and `StyioExtern` runtime and external resource layer.
+- `StyioAST`, `StyioSema`, `StyioLowering`, `StyioIR`, and `StyioCodeGen` compiler pipeline.
+- `StyioRuntime`, `StyioExtern`, and `StyioNative` runtime, built-in extern helper, and C/C++ native interop layers.
 - `StyioIDE` and `StyioLSP` editor-facing workspace services.
 - `StyioParser` parser route and shadow comparison pipeline.
 - Security, pipeline, fuzz, benchmark, and checkpoint gate suites.

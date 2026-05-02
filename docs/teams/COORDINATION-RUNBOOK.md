@@ -59,7 +59,7 @@ flowchart TB
 2. Type or IR changes require Sema / IR, Codegen / Runtime, and Test Quality review.
 3. Runtime handles, extern symbols, or JIT behavior require Codegen / Runtime, Perf / Stability, and Test Quality review.
 4. CLI diagnostics or nano package changes require CLI / Nano and Docs / Ecosystem review; add Codegen / Runtime when runtime capability output changes.
-5. IDE public API or LSP surface changes require IDE / LSP, Grammar when syntax behavior changes, and Docs / Ecosystem for `docs/for-ide/`.
+5. IDE public API or LSP surface changes require IDE / LSP, Grammar when syntax behavior changes, and Docs / Ecosystem for `docs/external/for-ide/`.
 6. Documentation structure changes require Docs / Ecosystem review and must preserve generated-index and audit gates.
 
 ## Escalation Rules
@@ -92,8 +92,8 @@ The unified delivery floor is additive, not a replacement. Run `./scripts/delive
 | IR shape accepted by codegen | Five-layer cases for affected stages plus milestone or unit coverage |
 | Runtime or handle contract | Security tests, soak smoke, relevant benchmark route |
 | CLI diagnostic or exit-code contract | CLI-focused unit/milestone cases and docs update |
-| Nano package contract | Nano tests in `styio_test`, [../for_spio/Styio-Nano-Spio-Coordination.md](../for_spio/Styio-Nano-Spio-Coordination.md) review |
-| LSP or IDE API surface | `styio_ide_test`, [../for-ide/INDEX.md](../for-ide/INDEX.md) update, syntax grammar gate when applicable |
+| Nano package contract | Nano tests in `styio_test`, [../external/for-spio/Styio-Nano-Spio-Coordination.md](../external/for-spio/Styio-Nano-Spio-Coordination.md) review |
+| LSP or IDE API surface | `styio_ide_test`, [../external/for-ide/INDEX.md](../external/for-ide/INDEX.md) update, syntax grammar gate when applicable |
 | Documentation collection shape | `./scripts/delivery-gate.sh --mode checkpoint --skip-health` |
 
 ## Handoff / Recovery

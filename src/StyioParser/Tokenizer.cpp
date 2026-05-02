@@ -1,5 +1,6 @@
 // [C++ STL]
 #include <algorithm>
+#include <cctype>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
@@ -18,6 +19,227 @@
 #include "../StyioUnicode/Unicode.hpp"
 #include "../StyioUtil/Util.hpp"
 #include "Tokenizer.hpp"
+
+namespace {
+
+bool
+styio_tokenizer_is_trivia(StyioTokenType type) {
+  switch (type) {
+    case StyioTokenType::TOK_SPACE:
+    case StyioTokenType::TOK_LF:
+    case StyioTokenType::TOK_CR:
+    case StyioTokenType::COMMENT_LINE:
+    case StyioTokenType::COMMENT_CLOSED:
+      return true;
+    default:
+      return false;
+  }
+}
+
+std::optional<size_t>
+styio_prev_non_trivia_index(const std::vector<StyioToken*>& tokens, size_t before) {
+  while (before > 0) {
+    before -= 1;
+    if (!styio_tokenizer_is_trivia(tokens[before]->type)) {
+      return before;
+    }
+  }
+  return std::nullopt;
+}
+
+bool
+styio_recent_tokens_open_native_extern_body(const std::vector<StyioToken*>& tokens) {
+  auto cur = styio_prev_non_trivia_index(tokens, tokens.size());
+  if (!cur || tokens[*cur]->type != StyioTokenType::ARROW_DOUBLE_RIGHT) {
+    return false;
+  }
+
+  cur = styio_prev_non_trivia_index(tokens, *cur);
+  if (!cur || tokens[*cur]->type != StyioTokenType::TOK_RPAREN) {
+    return false;
+  }
+
+  cur = styio_prev_non_trivia_index(tokens, *cur);
+  if (!cur) {
+    return false;
+  }
+
+  bool is_cpp_abi = false;
+  if (tokens[*cur]->type == StyioTokenType::TOK_PLUS) {
+    cur = styio_prev_non_trivia_index(tokens, *cur);
+    if (!cur || tokens[*cur]->type != StyioTokenType::TOK_PLUS) {
+      return false;
+    }
+    is_cpp_abi = true;
+    cur = styio_prev_non_trivia_index(tokens, *cur);
+  }
+
+  if (!cur || tokens[*cur]->type != StyioTokenType::NAME) {
+    return false;
+  }
+  std::string abi = tokens[*cur]->original;
+  std::transform(
+    abi.begin(),
+    abi.end(),
+    abi.begin(),
+    [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  if (abi != "c") {
+    return false;
+  }
+
+  cur = styio_prev_non_trivia_index(tokens, *cur);
+  if (!cur || tokens[*cur]->type != StyioTokenType::TOK_LPAREN) {
+    return false;
+  }
+
+  cur = styio_prev_non_trivia_index(tokens, *cur);
+  if (!cur || tokens[*cur]->type != StyioTokenType::NAME || tokens[*cur]->original != "extern") {
+    return false;
+  }
+
+  cur = styio_prev_non_trivia_index(tokens, *cur);
+  return cur && tokens[*cur]->type == StyioTokenType::TOK_AT && (is_cpp_abi || abi == "c");
+}
+
+bool
+styio_try_scan_raw_string_literal_end(const std::string& code, size_t start, size_t& end) {
+  std::string prefix;
+  if (code.compare(start, 3, "u8R") == 0) {
+    prefix = "u8R";
+  }
+  else if (code.compare(start, 2, "uR") == 0
+           || code.compare(start, 2, "UR") == 0
+           || code.compare(start, 2, "LR") == 0) {
+    prefix = code.substr(start, 2);
+  }
+  else if (code.compare(start, 1, "R") == 0) {
+    prefix = "R";
+  }
+  else {
+    return false;
+  }
+
+  const size_t quote_pos = start + prefix.size();
+  if (quote_pos >= code.size() || code[quote_pos] != '"') {
+    return false;
+  }
+
+  const size_t open_paren = code.find('(', quote_pos + 1);
+  if (open_paren == std::string::npos) {
+    return false;
+  }
+
+  const std::string delimiter = code.substr(quote_pos + 1, open_paren - quote_pos - 1);
+  const std::string close_marker = ")" + delimiter + "\"";
+  const size_t close_pos = code.find(close_marker, open_paren + 1);
+  if (close_pos == std::string::npos) {
+    return false;
+  }
+
+  end = close_pos + close_marker.size();
+  return true;
+}
+
+size_t
+styio_scan_native_extern_body_end(const std::string& code, size_t body_start) {
+  enum class Mode { Normal, LineComment, BlockComment, StringLiteral, CharLiteral };
+  Mode mode = Mode::Normal;
+  bool escaped = false;
+  int brace_depth = 1;
+  size_t loc = body_start;
+
+  while (loc < code.size()) {
+    const char ch = code[loc];
+    const char next = loc + 1 < code.size() ? code[loc + 1] : '\0';
+
+    switch (mode) {
+      case Mode::Normal: {
+        size_t raw_end = 0;
+        if (styio_try_scan_raw_string_literal_end(code, loc, raw_end)) {
+          loc = raw_end;
+          continue;
+        }
+        if (ch == '/' && next == '/') {
+          mode = Mode::LineComment;
+          loc += 2;
+          continue;
+        }
+        if (ch == '/' && next == '*') {
+          mode = Mode::BlockComment;
+          loc += 2;
+          continue;
+        }
+        if (ch == '"') {
+          mode = Mode::StringLiteral;
+          escaped = false;
+          loc += 1;
+          continue;
+        }
+        if (ch == '\'') {
+          mode = Mode::CharLiteral;
+          escaped = false;
+          loc += 1;
+          continue;
+        }
+        if (ch == '{') {
+          brace_depth += 1;
+        }
+        else if (ch == '}') {
+          brace_depth -= 1;
+          if (brace_depth == 0) {
+            return loc;
+          }
+        }
+        loc += 1;
+        break;
+      }
+      case Mode::LineComment:
+        if (ch == '\n' || ch == '\r') {
+          mode = Mode::Normal;
+        }
+        loc += 1;
+        break;
+      case Mode::BlockComment:
+        if (ch == '*' && next == '/') {
+          mode = Mode::Normal;
+          loc += 2;
+        }
+        else {
+          loc += 1;
+        }
+        break;
+      case Mode::StringLiteral:
+        if (escaped) {
+          escaped = false;
+        }
+        else if (ch == '\\') {
+          escaped = true;
+        }
+        else if (ch == '"') {
+          mode = Mode::Normal;
+        }
+        loc += 1;
+        break;
+      case Mode::CharLiteral:
+        if (escaped) {
+          escaped = false;
+        }
+        else if (ch == '\\') {
+          escaped = true;
+        }
+        else if (ch == '\'') {
+          mode = Mode::Normal;
+        }
+        loc += 1;
+        break;
+    }
+  }
+
+  throw StyioLexError(
+    "Unterminated native @extern block at offset " + std::to_string(body_start));
+}
+
+}  // namespace
 
 size_t
 count_consecutive(const std::string &text, size_t start, char target) {
@@ -500,13 +722,32 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 123
       case '{': {
+        const bool is_native_extern_body =
+          styio_recent_tokens_open_native_extern_body(tokens);
         tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LCURBRAC, "{"));
         loc += 1;
+        if (is_native_extern_body) {
+          const size_t body_start = loc;
+          const size_t body_end = styio_scan_native_extern_body_end(code, body_start);
+          tokens.push_back(StyioToken::Create(
+            StyioTokenType::NATIVE_EXTERN_BODY,
+            code.substr(body_start, body_end - body_start)));
+          tokens.push_back(StyioToken::Create(StyioTokenType::TOK_RCURBRAC, "}"));
+          loc = body_end + 1;
+        }
       } break;
 
       // 124
       case '|': {
-        if (loc + 1 < code.size() && code.at(loc + 1) == ']') {
+        if (loc + 2 < code.size() && code.at(loc + 1) == '<' && code.at(loc + 2) == '|') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::RETURN_PIPE, "|<|"));
+          loc += 3;
+        }
+        else if (loc + 1 < code.size() && code.at(loc + 1) == ';') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::PIPE_SEMICOLON, "|;"));
+          loc += 2;
+        }
+        else if (loc + 1 < code.size() && code.at(loc + 1) == ']') {
           tokens.push_back(StyioToken::Create(StyioTokenType::BOUNDED_BUFFER_CLOSE, "|]"));
           loc += 2;
         }

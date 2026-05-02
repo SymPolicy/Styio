@@ -1,0 +1,14 @@
+values <- @stdin: list[i32]
+
+n = values.length
+
+?(n > 1) => {
+    previous = values[0]
+    [1..n-1] >> #(i) => {
+        current = values[i]
+        values[i] = current - previous
+        previous = current
+    }
+}
+
+>_(values)

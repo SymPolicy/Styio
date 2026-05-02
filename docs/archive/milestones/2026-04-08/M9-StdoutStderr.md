@@ -2,7 +2,12 @@
 
 **Purpose:** M9 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-04-24
+
+**2026-04-24 revision:** The previous `t07_stdout_undef` fixture used the retired
+general bare `@` literal. It has been removed from active milestone tests rather
+than kept as an expected failure. M9 continues to cover scalar/string/bool stdout,
+stderr, mixed-stream output, and legacy `>_()` compatibility.
 
 **Status:** Frozen
 

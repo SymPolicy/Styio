@@ -2,7 +2,15 @@
 
 **Purpose:** M4 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-04-24
+
+**2026-04-24 revision:** This archived M4 draft contains superseded syntax. Active
+milestone tests no longer keep fixtures for source-level bare `@` (`x = @`,
+`x + @`, `true && @`, `(cond) ~> sink | @`), postfix guard selectors
+(`x[?, cond]`), or postfix equality probes (`x[?=, val]`). New code should use
+resource/intrinsic-produced absence, `?(cond) => { ... }` for no-op-else effects,
+`?(cond) <~ value | fallback` for value selection, and `?=` match blocks. Removed
+fixtures are not retained under `tests/milestones/`.
 
 **Depends on:** M3 (Control Flow)  
 **Goal:** Conditional routing (`<~`, `~>`), the `@` (Undefined) value, `@` propagation algebra, `|` fallback, and `??` diagnostic extraction work end-to-end.

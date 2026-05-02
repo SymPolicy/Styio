@@ -265,6 +265,14 @@ IdeService::run_background_tasks(std::size_t budget) {
   return completed;
 }
 
+RuntimeIdleResult
+IdeService::run_idle_tasks(std::size_t background_budget, std::size_t semantic_budget) {
+  RuntimeIdleResult result;
+  result.semantic_publications = drain_semantic_diagnostics(semantic_budget);
+  result.background_tasks_completed = run_background_tasks(background_budget);
+  return result;
+}
+
 std::size_t
 IdeService::pending_semantic_diagnostic_count() const {
   return pending_semantic_paths_.size();

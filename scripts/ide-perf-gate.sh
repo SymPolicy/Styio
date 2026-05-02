@@ -6,7 +6,7 @@ usage() {
 Usage: scripts/ide-perf-gate.sh [options]
 
 Options:
-  --build-dir <dir>   Release perf build dir (default: build-ide-perf)
+  --build-dir <dir>   Release perf build dir (default: build/ide-perf)
   --skip-configure    Reuse the existing build dir without re-running CMake configure
   -h, --help          Show help
 
@@ -38,8 +38,8 @@ find_tree_sitter_runtime_source() {
 
   for candidate in \
     "$ROOT/$BUILD_DIR/_deps/tree_sitter_runtime-src" \
-    "$ROOT/build-codex/_deps/tree_sitter_runtime-src" \
-    "$ROOT/build-fuzz/_deps/tree_sitter_runtime-src"; do
+    "$ROOT/build/default/_deps/tree_sitter_runtime-src" \
+    "$ROOT/build/fuzz/_deps/tree_sitter_runtime-src"; do
     if [[ -d "$candidate/lib/include" ]]; then
       printf '%s\n' "$candidate"
       return 0
@@ -69,8 +69,8 @@ find_googletest_source() {
 
   for candidate in \
     "$ROOT/$BUILD_DIR/_deps/googletest-src" \
-    "$ROOT/build-codex/_deps/googletest-src" \
-    "$ROOT/build-fuzz/_deps/googletest-src"; do
+    "$ROOT/build/default/_deps/googletest-src" \
+    "$ROOT/build/fuzz/_deps/googletest-src"; do
     if [[ -f "$candidate/CMakeLists.txt" ]]; then
       printf '%s\n' "$candidate"
       return 0
@@ -90,7 +90,7 @@ find_googletest_source() {
 }
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUILD_DIR="build-ide-perf"
+BUILD_DIR="build/ide-perf"
 SKIP_CONFIGURE=0
 
 while [[ $# -gt 0 ]]; do

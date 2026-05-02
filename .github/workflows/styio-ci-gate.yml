@@ -91,7 +91,7 @@ jobs:
       - name: Configure
         working-directory: styio-nightly
         run: >
-          cmake -S . -B build -G Ninja
+          cmake -S . -B build/ci -G Ninja
           -DCMAKE_BUILD_TYPE=Debug
           -DCMAKE_C_COMPILER=clang-18
           -DCMAKE_CXX_COMPILER=clang++-18
@@ -101,33 +101,33 @@ jobs:
       - name: Build
         working-directory: styio-nightly
         run: >
-          cmake --build build --target
+          cmake --build build/ci --target
           styio styio_test styio_security_test styio_soak_test
           styio_fuzz_lexer styio_fuzz_parser
 
       - name: Docs audit
         working-directory: styio-nightly
-        run: ctest --test-dir build -L docs --output-on-failure
+        run: ctest --test-dir build/ci -L docs --output-on-failure
 
       - name: Security tests
         working-directory: styio-nightly
-        run: ctest --test-dir build -L security --output-on-failure
+        run: ctest --test-dir build/ci -L security --output-on-failure
 
       - name: Five-layer pipeline tests
         working-directory: styio-nightly
-        run: ctest --test-dir build -L styio_pipeline --output-on-failure
+        run: ctest --test-dir build/ci -L styio_pipeline --output-on-failure
 
       - name: Parser shadow gate (M1 full suite + artifacts)
         working-directory: styio-nightly
         run: |
-          mkdir -p build/parser-shadow-artifacts
-          ./benchmark/parser-shadow-suite-gate.sh ./build/bin/styio ./tests/milestones/m1 ./build/parser-shadow-artifacts
+          mkdir -p build/ci/parser-shadow-artifacts
+          ./benchmark/parser-shadow-suite-gate.sh ./build/ci/bin/styio ./tests/milestones/m1 ./build/ci/parser-shadow-artifacts
 
       - name: Parser shadow gate (M2 full suite + artifacts)
         working-directory: styio-nightly
         run: |
-          mkdir -p build/parser-shadow-artifacts-m2
-          ./benchmark/parser-shadow-suite-gate.sh ./build/bin/styio ./tests/milestones/m2 ./build/parser-shadow-artifacts-m2
+          mkdir -p build/ci/parser-shadow-artifacts-m2
+          ./benchmark/parser-shadow-suite-gate.sh ./build/ci/bin/styio ./tests/milestones/m2 ./build/ci/parser-shadow-artifacts-m2
 
       - name: Upload parser shadow artifacts
         if: failure()
@@ -135,18 +135,18 @@ jobs:
         with:
           name: parser-shadow-artifacts
           path: |
-            styio-nightly/build/parser-shadow-artifacts
-            styio-nightly/build/parser-shadow-artifacts-m2
+            styio-nightly/build/ci/parser-shadow-artifacts
+            styio-nightly/build/ci/parser-shadow-artifacts-m2
           if-no-files-found: ignore
 
       - name: Soak smoke tests
         working-directory: styio-nightly
-        run: ctest --test-dir build -L soak_smoke --output-on-failure
+        run: ctest --test-dir build/ci -L soak_smoke --output-on-failure
 
       - name: Milestone smoke
         working-directory: styio-nightly
-        run: ctest --test-dir build -R '^m1_t01_int_arith$|^m2_t01_simple_func$' --output-on-failure
+        run: ctest --test-dir build/ci -R '^m1_t01_int_arith$|^m2_t01_simple_func$' --output-on-failure
 
       - name: Fuzz smoke
         working-directory: styio-nightly
-        run: ctest --test-dir build -L fuzz_smoke --output-on-failure
+        run: ctest --test-dir build/ci -L fuzz_smoke --output-on-failure

@@ -1,0 +1,34 @@
+[skill]
+name = "styio-syntax-change"
+display_name = "Styio Syntax Change"
+description = "Use when adding, changing, or reserving Styio syntax, operators, tokens, grammar, parser behavior, IDE highlighting, semantic lowering, or syntax-facing docs/tests in styio-nightly."
+last_updated = "2026-04-23"
+
+workflow = [
+  "state accepted syntax shape with one or two executable examples",
+  "check references/syntax-change-surface.md",
+  "update token definitions and both tokenizers before parser behavior",
+  "update legacy and nightly parser paths together",
+  "add semantic/type/IR behavior or fail closed",
+  "update compact syntax docs, EBNF, symbol reference, language design, and affected team runbooks",
+  "add focused lexer/parser/security tests plus runtime smoke",
+  "run gates from workflows/ADD-SYNTAX-WITH-SKILLS.toml",
+]
+
+constraints = [
+  "prefer existing parser helpers and AST shapes",
+  "hide internal sentinel names behind typed errors",
+  "do not let postfix/infix syntax consume the next statement across a line break unless explicitly designed",
+  "treat docs and tests as part of the syntax change",
+]
+
+completion_report = [
+  "accepted forms and reserved forms",
+  "supported lowering vs fail-closed paths",
+  "docs updated",
+  "tests and gates run",
+]
+
+references = [
+  "references/syntax-change-surface.md",
+]

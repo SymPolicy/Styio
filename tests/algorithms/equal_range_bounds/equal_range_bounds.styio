@@ -1,0 +1,35 @@
+values <- @stdin: list[i32]
+
+lower = -1
+upper = -1
+
+?(values.length > 0) => {
+    target = values[0]
+    count = values.length - 1
+
+    low = 0
+    high = count
+    [...] >> ?(low < high) => {
+        mid = (low + high) / 2
+        ?(values[mid + 1] < target) => {
+            low = mid + 1
+        } | {
+            high = mid
+        }
+    }
+    lower = low
+
+    low = 0
+    high = count
+    [...] >> ?(low < high) => {
+        mid = (low + high) / 2
+        ?(target < values[mid + 1]) => {
+            high = mid
+        } | {
+            low = mid + 1
+        }
+    }
+    upper = low
+}
+
+>_(lower, upper)

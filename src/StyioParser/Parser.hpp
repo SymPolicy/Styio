@@ -1467,6 +1467,12 @@ parse_resources_after_at(StyioContext& context);
 StyioAST*
 parse_resource_file_atom_latest(StyioContext& context);
 
+bool
+parse_terminal_handle_latest(StyioContext& context);
+
+StyioAST*
+parse_resource_target_latest(StyioContext& context, StdStreamKind terminal_kind = StdStreamKind::Stdout);
+
 StyioAST*
 parse_after_at_common(StyioContext& context, bool file_only_resource);
 

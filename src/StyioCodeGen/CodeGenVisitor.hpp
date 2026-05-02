@@ -15,6 +15,7 @@
 // [Styio]
 #include "../StyioIR/IRDecl.hpp"
 #include "../StyioJIT/StyioJIT_ORC.hpp"
+#include "../StyioNative/NativeInterop.hpp"
 
 // [LLVM]
 #include "llvm/Analysis/CGSCCPassManager.h" /* CGSCCAnalysisManager */
@@ -104,13 +105,15 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SGFuncArg,
   class SGFunc,
   class SGCall,
+  class SGExportDecl,
+  class SGExternBlock,
 
   class SGReturn,
 
   class SGLoop,
   class SGForEach,
-  class SGListLiteral,
-  class SGDictLiteral,
+  class SCListLiteral,
+  class SCDictLiteral,
   class SGRangeFor,
   class SGIf,
   class SGStateSnapLoad,
@@ -128,26 +131,26 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SGGuardSelect,
   class SGEqProbe,
 
-  class SGHandleAcquire,
-  class SGFileLineIter,
-  class SGStreamZip,
+  class SIOHandleAcquire,
+  class SIOFileLineIter,
+  class SIOStreamZip,
   class SGSnapshotDecl,
   class SGSnapshotShadowLoad,
-  class SGInstantPull,
-  class SGListReadStdin,
-  class SGListClone,
-  class SGListLen,
-  class SGListGet,
-  class SGListSet,
-  class SGListToString,
-  class SGDictClone,
-  class SGDictLen,
-  class SGDictGet,
-  class SGDictSet,
-  class SGDictKeys,
-  class SGDictValues,
-  class SGDictToString,
-  class SGResourceWriteToFile,
+  class SIOInstantPull,
+  class SIOListReadStdin,
+  class SCListClone,
+  class SCListLen,
+  class SCListGet,
+  class SCListSet,
+  class SCListToString,
+  class SCDictClone,
+  class SCDictLen,
+  class SCDictGet,
+  class SCDictSet,
+  class SCDictKeys,
+  class SCDictValues,
+  class SCDictToString,
+  class SIOResourceWriteToFile,
   class SIOStdStreamWrite,
   class SIOStdStreamLineIter,
   class SIOStdStreamPull,
@@ -224,7 +227,11 @@ public:
     thePB.crossRegisterProxies(*theLAM, *theFAM, *theCGAM, *theMAM);
   }
 
-  ~StyioToLLVM() {}
+  ~StyioToLLVM() {
+    for (void* handle : native_library_handles_) {
+      styio::native::close_loaded_block(handle);
+    }
+  }
 
   static StyioToLLVM* Create(std::unique_ptr<StyioJIT_ORC> styio_jit) {
     return new StyioToLLVM(std::move(styio_jit));
@@ -264,13 +271,15 @@ public:
   llvm::Type* toLLVMType(SGFuncArg* node);
   llvm::Type* toLLVMType(SGFunc* node);
   llvm::Type* toLLVMType(SGCall* node);
+  llvm::Type* toLLVMType(SGExportDecl* node);
+  llvm::Type* toLLVMType(SGExternBlock* node);
 
   llvm::Type* toLLVMType(SGReturn* node);
 
   llvm::Type* toLLVMType(SGLoop* node);
   llvm::Type* toLLVMType(SGForEach* node);
-  llvm::Type* toLLVMType(SGListLiteral* node);
-  llvm::Type* toLLVMType(SGDictLiteral* node);
+  llvm::Type* toLLVMType(SCListLiteral* node);
+  llvm::Type* toLLVMType(SCDictLiteral* node);
   llvm::Type* toLLVMType(SGRangeFor* node);
   llvm::Type* toLLVMType(SGIf* node);
   llvm::Type* toLLVMType(SGStateSnapLoad* node);
@@ -288,26 +297,26 @@ public:
   llvm::Type* toLLVMType(SGGuardSelect* node);
   llvm::Type* toLLVMType(SGEqProbe* node);
 
-  llvm::Type* toLLVMType(SGHandleAcquire* node);
-  llvm::Type* toLLVMType(SGFileLineIter* node);
-  llvm::Type* toLLVMType(SGStreamZip* node);
+  llvm::Type* toLLVMType(SIOHandleAcquire* node);
+  llvm::Type* toLLVMType(SIOFileLineIter* node);
+  llvm::Type* toLLVMType(SIOStreamZip* node);
   llvm::Type* toLLVMType(SGSnapshotDecl* node);
   llvm::Type* toLLVMType(SGSnapshotShadowLoad* node);
-  llvm::Type* toLLVMType(SGInstantPull* node);
-  llvm::Type* toLLVMType(SGListReadStdin* node);
-  llvm::Type* toLLVMType(SGListClone* node);
-  llvm::Type* toLLVMType(SGListLen* node);
-  llvm::Type* toLLVMType(SGListGet* node);
-  llvm::Type* toLLVMType(SGListSet* node);
-  llvm::Type* toLLVMType(SGListToString* node);
-  llvm::Type* toLLVMType(SGDictClone* node);
-  llvm::Type* toLLVMType(SGDictLen* node);
-  llvm::Type* toLLVMType(SGDictGet* node);
-  llvm::Type* toLLVMType(SGDictSet* node);
-  llvm::Type* toLLVMType(SGDictKeys* node);
-  llvm::Type* toLLVMType(SGDictValues* node);
-  llvm::Type* toLLVMType(SGDictToString* node);
-  llvm::Type* toLLVMType(SGResourceWriteToFile* node);
+  llvm::Type* toLLVMType(SIOInstantPull* node);
+  llvm::Type* toLLVMType(SIOListReadStdin* node);
+  llvm::Type* toLLVMType(SCListClone* node);
+  llvm::Type* toLLVMType(SCListLen* node);
+  llvm::Type* toLLVMType(SCListGet* node);
+  llvm::Type* toLLVMType(SCListSet* node);
+  llvm::Type* toLLVMType(SCListToString* node);
+  llvm::Type* toLLVMType(SCDictClone* node);
+  llvm::Type* toLLVMType(SCDictLen* node);
+  llvm::Type* toLLVMType(SCDictGet* node);
+  llvm::Type* toLLVMType(SCDictSet* node);
+  llvm::Type* toLLVMType(SCDictKeys* node);
+  llvm::Type* toLLVMType(SCDictValues* node);
+  llvm::Type* toLLVMType(SCDictToString* node);
+  llvm::Type* toLLVMType(SIOResourceWriteToFile* node);
   llvm::Type* toLLVMType(SIOStdStreamWrite* node);
   llvm::Type* toLLVMType(SIOStdStreamLineIter* node);
   llvm::Type* toLLVMType(SIOStdStreamPull* node);
@@ -352,13 +361,15 @@ public:
   llvm::Value* toLLVMIR(SGFuncArg* node);
   llvm::Value* toLLVMIR(SGFunc* node);
   llvm::Value* toLLVMIR(SGCall* node);
+  llvm::Value* toLLVMIR(SGExportDecl* node);
+  llvm::Value* toLLVMIR(SGExternBlock* node);
 
   llvm::Value* toLLVMIR(SGReturn* node);
 
   llvm::Value* toLLVMIR(SGLoop* node);
   llvm::Value* toLLVMIR(SGForEach* node);
-  llvm::Value* toLLVMIR(SGListLiteral* node);
-  llvm::Value* toLLVMIR(SGDictLiteral* node);
+  llvm::Value* toLLVMIR(SCListLiteral* node);
+  llvm::Value* toLLVMIR(SCDictLiteral* node);
   llvm::Value* toLLVMIR(SGRangeFor* node);
   llvm::Value* toLLVMIR(SGIf* node);
   llvm::Value* toLLVMIR(SGStateSnapLoad* node);
@@ -376,26 +387,26 @@ public:
   llvm::Value* toLLVMIR(SGGuardSelect* node);
   llvm::Value* toLLVMIR(SGEqProbe* node);
 
-  llvm::Value* toLLVMIR(SGHandleAcquire* node);
-  llvm::Value* toLLVMIR(SGFileLineIter* node);
-  llvm::Value* toLLVMIR(SGStreamZip* node);
+  llvm::Value* toLLVMIR(SIOHandleAcquire* node);
+  llvm::Value* toLLVMIR(SIOFileLineIter* node);
+  llvm::Value* toLLVMIR(SIOStreamZip* node);
   llvm::Value* toLLVMIR(SGSnapshotDecl* node);
   llvm::Value* toLLVMIR(SGSnapshotShadowLoad* node);
-  llvm::Value* toLLVMIR(SGInstantPull* node);
-  llvm::Value* toLLVMIR(SGListReadStdin* node);
-  llvm::Value* toLLVMIR(SGListClone* node);
-  llvm::Value* toLLVMIR(SGListLen* node);
-  llvm::Value* toLLVMIR(SGListGet* node);
-  llvm::Value* toLLVMIR(SGListSet* node);
-  llvm::Value* toLLVMIR(SGListToString* node);
-  llvm::Value* toLLVMIR(SGDictClone* node);
-  llvm::Value* toLLVMIR(SGDictLen* node);
-  llvm::Value* toLLVMIR(SGDictGet* node);
-  llvm::Value* toLLVMIR(SGDictSet* node);
-  llvm::Value* toLLVMIR(SGDictKeys* node);
-  llvm::Value* toLLVMIR(SGDictValues* node);
-  llvm::Value* toLLVMIR(SGDictToString* node);
-  llvm::Value* toLLVMIR(SGResourceWriteToFile* node);
+  llvm::Value* toLLVMIR(SIOInstantPull* node);
+  llvm::Value* toLLVMIR(SIOListReadStdin* node);
+  llvm::Value* toLLVMIR(SCListClone* node);
+  llvm::Value* toLLVMIR(SCListLen* node);
+  llvm::Value* toLLVMIR(SCListGet* node);
+  llvm::Value* toLLVMIR(SCListSet* node);
+  llvm::Value* toLLVMIR(SCListToString* node);
+  llvm::Value* toLLVMIR(SCDictClone* node);
+  llvm::Value* toLLVMIR(SCDictLen* node);
+  llvm::Value* toLLVMIR(SCDictGet* node);
+  llvm::Value* toLLVMIR(SCDictSet* node);
+  llvm::Value* toLLVMIR(SCDictKeys* node);
+  llvm::Value* toLLVMIR(SCDictValues* node);
+  llvm::Value* toLLVMIR(SCDictToString* node);
+  llvm::Value* toLLVMIR(SIOResourceWriteToFile* node);
   llvm::Value* toLLVMIR(SIOStdStreamWrite* node);
   llvm::Value* toLLVMIR(SIOStdStreamLineIter* node);
   llvm::Value* toLLVMIR(SIOStdStreamPull* node);
@@ -413,9 +424,13 @@ public:
   llvm::Value* toLLVMIR(SIORead* node);
 
 private:
+  std::vector<void*> native_library_handles_;
+
   void declare_sgfunc(SGFunc* node);
   void define_sgfunc_body(SGFunc* node);
   static void collect_sgfuncs_postorder(SGFunc* node, std::vector<SGFunc*>& out);
+  llvm::Type* native_c_type_to_llvm(const styio::native::CType& type);
+  void declare_native_extern_block(SGExternBlock* node, const std::vector<std::string>& export_symbols);
   llvm::Value* coerce_for_return(llvm::Value* v, llvm::Type* want_ty);
   llvm::Value* truncate_for_main_ret(llvm::Value* v);
   llvm::Value* default_runtime_return_value(llvm::Type* ret_ty);

@@ -2,7 +2,7 @@
 
 **Purpose:** `@protocol{…}` **资源驱动** 的 C++ 接口、生命周期与线程约定；与语言侧 `@` 语义、拓扑目标见 `Styio-Language-Design.md`、`Styio-Resource-Topology.md`。
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-04-24
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -213,7 +213,10 @@ Each source driver's `start_pump` runs on a **dedicated I/O thread**. The `emit_
 
 ### 6.3 Snapshot Pulls
 
-For `(<< @resource)` (instant pull), the runtime maintains a **shadow slot** per driver. The driver's pump thread atomically updates this slot. The compute thread reads it without locking (atomic load).
+For `(<- @resource)` (immediate pull), the runtime maintains a **shadow slot** per driver. The
+driver's pump thread atomically updates this slot. The compute thread reads it without locking
+(atomic load). Older `(<< @resource)` wording is a compatibility spelling and should not be used
+in new design text.
 
 ---
 

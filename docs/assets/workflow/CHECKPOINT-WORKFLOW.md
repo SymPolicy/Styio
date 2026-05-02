@@ -23,7 +23,7 @@
    - `*_draft`：下一刀准备接管、尚未完成合并门槛的在改版本（例如 `parse_stmt_or_expr_legacy_draft`）。
 10. 历史文档里出现的 `new` 自 2026-04-07 起统一视为 `nightly`；新提交禁止再引入 `new` 作为活动命名。
 11. 双轨迁移进入收尾阶段后，默认 CLI、恢复脚本、five-layer pipeline 与主验证链路必须切到 `nightly-first`；`legacy` 只允许保留在 parser core 或显式 parity harness 中。
-12. 恢复脚本必须能自动绕开失效的 CMake cache；若默认 `build/` 不可用，自动切换到可工作的 build 目录属于 workflow 正常要求，不得要求人工先清缓存才能恢复。
+12. 恢复脚本必须能重新配置请求的 CMake build 目录；默认本地变体是 `build/default/`，需要切换时显式传 `--build-dir build/<variant>`，不得把 configure 日志混进后续 build/ctest 的目录值。
 13. 每次提交与 push 前必须符合 [`REPO-HYGIENE-COMMIT-STANDARD.md`](./REPO-HYGIENE-COMMIT-STANDARD.md)：禁止提交构建产物、测试发现文件、二进制与大 blob。
 14. 若 GitHub push 因 `100MB` 限制失败，必须清理**当前待推送历史**，而不是只删除工作区文件。
 15. Checkpoint 交付默认走统一入口 [`DELIVERY-GATE.md`](./DELIVERY-GATE.md)；`checkpoint-health.sh` 继续作为内部恢复/验证 gate，而不是唯一交付 gate。

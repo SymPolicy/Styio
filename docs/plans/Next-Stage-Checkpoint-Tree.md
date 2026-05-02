@@ -2,7 +2,7 @@
 
 **Purpose:** Convert the active repository-wide gap ledger into a milestone-compatible execution tree of checkpoint-sized work items. This file is an implementation sequencing document, not an acceptance SSOT.
 
-**Last updated:** 2026-04-16
+**Last updated:** 2026-04-22
 
 **Primary state summary:** [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md)  
 **Coordination runbook:** [../teams/COORDINATION-RUNBOOK.md](../teams/COORDINATION-RUNBOOK.md)  
@@ -77,15 +77,14 @@ The current stage is not one linear track. It needs four coordinated axes:
     - targeted unit coverage for any changed nodes,
     - docs update in the gap ledger if the inventory changes priority.
 
-- `CP-A0.2` `Debt-M8`
+- `CP-A0.2` `Debt-M8` — **Closed 2026-04-21**
   - Goal: fix the visible `f32 -> f64` dtype table bug before broader type-system work.
   - Owners: Frontend, Sema / IR, Test Quality.
   - Deliverables:
     - dtype mapping fix,
     - focused regression test.
   - Minimum gate:
-    - affected unit or milestone tests,
-    - no parser/type regression in nearby float cases.
+    - closed by `StyioTypes.F32BuiltinMappingUsesF32InternalName` and `StyioTypes.GetMaxTypeNumericPromotionByBitWidth`.
 
 #### A1. M7 stream and zip closure
 
@@ -134,15 +133,14 @@ The current stage is not one linear track. It needs four coordinated axes:
     - design and plan doc alignment,
     - no contradiction left open between topology docs and implementation plan.
 
-- `CP-A2.2` `Debt-M8`
+- `CP-A2.2` `Debt-M8` — **Closed 2026-04-21**
   - Goal: wire positive M8 smoke coverage into the milestone matrix once the acceptance slice is frozen.
   - Owners: Test Quality, Frontend, Sema / IR.
   - Deliverables:
     - registered positive fixtures,
     - synchronized test catalog.
   - Minimum gate:
-    - `ctest -L milestone`,
-    - docs audit.
+    - closed by `styio_stdout_golden_test(m8 "t*.styio" m8)` registration plus passing `m8_t01_bounded_final_bind`, `m8_t02_bounded_read`, and `m8_t14_flex_other_var_after_final_ok`.
 
 - `CP-A2.3` `Debt-M8`
   - Goal: implement the first real Topology v2 slice only after `CP-A2.1` freezes the scope.
@@ -165,19 +163,18 @@ The current stage is not one linear track. It needs four coordinated axes:
     - stdio runtime drain integration,
     - regression tests for delayed semantic publication.
   - Minimum gate:
-    - `ctest --test-dir build-codex -L ide`,
-    - `docs/for-ide/` update,
+    - `ctest --test-dir build/default -L ide`,
+    - `docs/external/for-ide/` update,
     - docs audit.
 
-- `CP-B0.2` `M18`
+- `CP-B0.2` `M18` — **Closed 2026-04-22**
   - Goal: freeze idle-time scheduling behavior around runtime drain, debounce, and stale-work discard.
   - Owners: IDE / LSP, Perf / Stability.
   - Deliverables:
     - explicit scheduling contract,
     - runtime counters or tests that prove publication order and stale-work dropping.
   - Minimum gate:
-    - IDE runtime tests,
-    - relevant perf or runtime smoke where touched.
+    - closed by `ctest --test-dir build/default -L ide --output-on-failure`, including `StyioLspRuntime.RuntimeDrainCanBeBudgetedForScheduling`, `StyioLspRuntime.IdleSliceDrainsSemanticBeforeBackgroundWork`, and `StyioLspRuntime.RunAdvancesBackgroundWorkAsRequestDrivenFallback`.
 
 #### B1. Surface expansion policy
 
@@ -263,15 +260,14 @@ The current stage is not one linear track. It needs four coordinated axes:
     - `ctest -L milestone`,
     - docs audit.
 
-- `CP-D0.2` `Infra-TestMatrix`
+- `CP-D0.2` `Infra-TestMatrix` — **Closed by `CP-A2.2` on 2026-04-21**
   - Goal: wire M8 positive-path coverage into normal automation once the semantics are frozen.
   - Owners: Test Quality, Frontend, Sema / IR.
   - Deliverables:
     - `tests/CMakeLists.txt` registration,
     - updated workflow catalog.
   - Minimum gate:
-    - `ctest -L milestone`,
-    - docs audit.
+    - closed by the same M8 positive registration and targeted CTest evidence as `CP-A2.2`.
 
 #### D1. Cross-stream contract coverage
 
@@ -474,7 +470,7 @@ Expected deliverables from IDE / LSP:
 
 1. exact before/after publication behavior,
 2. LSP transcript or unit regression coverage,
-3. update to `docs/for-ide/` when public host behavior changes,
+3. update to `docs/external/for-ide/` when public host behavior changes,
 4. explicit note when a feature stays intentionally deferred.
 
 IDE / LSP should not ship alone when:
@@ -639,12 +635,12 @@ Docs / Ecosystem should block a checkpoint when:
 | Team | Primary checkpoints | Required support checkpoints | Must approve before merge |
 |------|---------------------|------------------------------|---------------------------|
 | Coordination owner | all wave planning | all cross-team checkpoints | any checkpoint lacking ID/tag/runbook/history |
-| Frontend | `CP-A0.2`, `CP-A1.1`, `CP-A2.1`, `CP-A2.3` | `CP-D0.1`, `CP-D0.2` | parser route, token, AST-construction changes |
-| Sema / IR | `CP-A0.1`, `CP-A1.1`, `CP-A1.2`, `CP-A2.3` | `CP-A0.2`, `CP-D0.1`, `CP-D0.2` | type, lowering, IR-shape changes |
+| Frontend | `CP-A1.1`, `CP-A2.1`, `CP-A2.3` | `CP-D0.1` | parser route, token, AST-construction changes |
+| Sema / IR | `CP-A0.1`, `CP-A1.1`, `CP-A1.2`, `CP-A2.3` | `CP-D0.1` | type, lowering, IR-shape changes |
 | Codegen / Runtime | `CP-A1.2` and co-own runtime slices | `CP-A1.1`, `CP-A2.3`, `CP-C0.2` | LLVM/runtime contract changes |
 | IDE / LSP | `CP-B0.1`, `CP-B0.2`, `CP-B1.1`, `CP-B1.2` | parser/sema checkpoints affecting IDE semantics | LSP surface or runtime scheduling changes |
 | CLI / Nano | `CP-C0.1`, `CP-C0.2`, `CP-C1.1`, `CP-C1.2` | runtime-capability and handoff-doc checkpoints | machine-info, nano contract, bridge boundary changes |
-| Test Quality | `CP-D0.1`, `CP-D0.2`, `CP-D1.1`, `CP-D1.2` | every implementation checkpoint | oracle, registration, or gate policy changes |
+| Test Quality | `CP-D0.1`, `CP-D1.1`, `CP-D1.2` | every implementation checkpoint | oracle, registration, or gate policy changes |
 | Perf / Stability | `CP-B1.2` and co-own `CP-B0.2` | `CP-A1.2` and hot-path runtime work | perf threshold or required gate changes |
 | Docs / Ecosystem | co-own `CP-A2.1`, `CP-B1.1`, `CP-C0.1`, `CP-C1.2` | every public-doc or boundary checkpoint | SSOT, lifecycle, or repo-boundary changes |
 
@@ -653,15 +649,15 @@ Docs / Ecosystem should block a checkpoint when:
 | ID | Primary tag | Stream | Depends on | Primary owners | Target length | Exit gate |
 |----|-------------|--------|------------|----------------|---------------|-----------|
 | `CP-A0.1` | `Debt-M7` / `Debt-M8` | Sema placeholder census | none | Sema / IR, Codegen / Runtime, Test Quality | 1-2 days | targeted tests + docs sync |
-| `CP-A0.2` | `Debt-M8` | `f32` bug fix | none | Frontend, Sema / IR, Test Quality | <1 day | focused regression |
+| `CP-A0.2` | `Debt-M8` | `f32` bug fix | none | Frontend, Sema / IR, Test Quality | Closed 2026-04-21 | `StyioTypes.*` focused regression |
 | `CP-A1.1` | `Debt-M7` | `IterSeqAST` end-to-end slice | `CP-A0.1` recommended | Frontend, Sema / IR, Codegen / Runtime | 1-3 days | M7 slice tests + five-layer |
 | `CP-A1.2` | `Debt-M7` | zip source-matrix expansion | `CP-A1.1` | Codegen / Runtime, Sema / IR, Test Quality | 1-3 days | M7 + runtime/security tests |
 | `CP-A1.3` | `Debt-M7` | M7 doc/test reconciliation | `CP-A1.1` and `CP-A1.2` partial | Frontend, Sema / IR, Docs / Ecosystem, Test Quality | 1 day | milestone tests + docs audit |
 | `CP-A2.1` | `Debt-M8` | Topology v2 scope freeze | none | Frontend, Sema / IR, Docs / Ecosystem | 1 day | docs alignment |
-| `CP-A2.2` | `Debt-M8` | M8 positive matrix | `CP-A2.1` | Test Quality, Frontend, Sema / IR | 1 day | milestone tests |
+| `CP-A2.2` | `Debt-M8` | M8 positive matrix | `CP-A2.1` | Test Quality, Frontend, Sema / IR | Closed 2026-04-21 | targeted M8 milestone tests |
 | `CP-A2.3` | `Debt-M8` | first Topology v2 implementation slice | `CP-A2.1` | Frontend, Sema / IR, Codegen / Runtime, Test Quality | 1-3 days | milestone tests + docs/ADR |
-| `CP-B0.1` | `M18` | stdio semantic drain | none | IDE / LSP | 1-2 days | `ctest -L ide` + docs |
-| `CP-B0.2` | `M18` | runtime scheduling freeze | `CP-B0.1` | IDE / LSP, Perf / Stability | 1-2 days | IDE runtime tests |
+| `CP-B0.1` | `M18` | stdio semantic drain | none | IDE / LSP | Closed 2026-04-21 | `ctest -L ide` + `StyioLspServer.RunDrainsRuntimeDiagnostics` |
+| `CP-B0.2` | `M18` | runtime scheduling freeze | `CP-B0.1` | IDE / LSP, Perf / Stability | Closed 2026-04-22 | `ctest -L ide`, `StyioLspRuntime.RuntimeDrainCanBeBudgetedForScheduling`, `StyioLspRuntime.IdleSliceDrainsSemanticBeforeBackgroundWork`, `StyioLspRuntime.RunAdvancesBackgroundWorkAsRequestDrivenFallback` |
 | `CP-B1.1` | `M18` / `M19` | feature-surface freeze | none | IDE / LSP, Docs / Ecosystem | <1 day | docs audit |
 | `CP-B1.2` | `M19` | perf gate clarity | none | IDE / LSP, Perf / Stability | <1 day | docs audit or Release perf |
 | `CP-C0.1` | `Bridge-SPIO` | compile-plan contract definition | none | CLI / Nano, Docs / Ecosystem, `styio-spio` coordination | 1-2 days | docs + diagnostics tests |
@@ -669,7 +665,7 @@ Docs / Ecosystem should block a checkpoint when:
 | `CP-C1.1` | `Bridge-SPIO` | nano negative-path suite | none | CLI / Nano, Test Quality | 1-2 days | targeted nano tests |
 | `CP-C1.2` | `Bridge-SPIO` | local/static publish boundary hardening | `CP-C0.1` recommended | CLI / Nano, Docs / Ecosystem | <1 day | docs/CLI checks |
 | `CP-D0.1` | `Infra-TestMatrix` | M6 catalog reconciliation | none | Test Quality, Frontend, Sema / IR | <1 day | milestone tests + docs |
-| `CP-D0.2` | `Infra-TestMatrix` | M8 positive registration | `CP-A2.1` | Test Quality, Frontend, Sema / IR | <1 day | milestone tests + docs |
+| `CP-D0.2` | `Infra-TestMatrix` | M8 positive registration | `CP-A2.1` | Test Quality, Frontend, Sema / IR | Closed by `CP-A2.2` | targeted M8 milestone tests |
 | `CP-D1.1` | `Bridge-SPIO` | contract-edge release gate | `CP-C1.1` | Test Quality, CLI / Nano | <1 day | targeted nano tests |
 | `CP-D1.2` | `Debt-M7` / `M18` | no uncovered closure work | ongoing | Test Quality + module owners | ongoing | per-checkpoint tests |
 
@@ -678,15 +674,14 @@ Docs / Ecosystem should block a checkpoint when:
 ### Wave 1: control and truth alignment
 
 1. `CP-A0.1` placeholder census
-2. `CP-A0.2` `f32` bug fix
-3. `CP-B0.1` stdio semantic drain
-4. `CP-C0.1` compile-plan contract definition
-5. `CP-D0.1` M6 catalog reconciliation
+2. `CP-B0.1` stdio semantic drain (closed 2026-04-21)
+3. `CP-C0.1` compile-plan contract definition
+4. `CP-D0.1` M6 catalog reconciliation
 
 ### Wave 2: first real closure slices
 
 1. `CP-A1.1` `IterSeqAST` end-to-end
-2. `CP-B0.2` IDE runtime scheduling freeze
+2. `CP-B0.2` IDE runtime scheduling freeze (closed 2026-04-22)
 3. `CP-C0.2` machine-info compile-plan exposure
 4. `CP-C1.1` nano negative-path suite
 
@@ -695,8 +690,7 @@ Docs / Ecosystem should block a checkpoint when:
 1. `CP-A1.2` zip matrix expansion
 2. `CP-A1.3` M7 doc/test reconciliation
 3. `CP-A2.1` Topology v2 scope freeze
-4. `CP-D0.2` M8 positive registration
-5. `CP-D1.1` contract-edge release gate
+4. `CP-D1.1` contract-edge release gate
 
 ### Wave 4: next syntax/runtime migration wave
 

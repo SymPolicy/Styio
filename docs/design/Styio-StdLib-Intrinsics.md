@@ -187,17 +187,13 @@ buy_signal = cross_over($ma5, $ma20)
 sell_signal = cross_under($ma5, $ma20)
 ```
 
-**Expansion:** The compiler desugars these into native Styio:
+**2026-04-24 revision:** `cross_over(a, b)` and `cross_under(a, b)` wait for the
+revised history selector. The old `a[<<, 1]` spelling is retired from active
+syntax and must not be used in new milestone fixtures.
 
-```
-// cross_over(a, b) expands to:
-(a > b) && (a[<<, 1] <= b[<<, 1])
-
-// cross_under(a, b) expands to:
-(a < b) && (a[<<, 1] >= b[<<, 1])
-```
-
-**Requirement:** Both `a` and `b` must be `$`-prefixed state references (they need history). If either operand lacks `[<<, 1]` capability, the compiler emits an error.
+**Requirement:** Both `a` and `b` must be `$`-prefixed state references once the
+revised history selector lands. Do not reintroduce the old `[<<, 1]` spelling in
+active tests.
 
 **Output:** Strict `bool` — never `@`.
 
@@ -260,7 +256,9 @@ On new value x:
 **Syntax:**
 
 ```
-(is_valid(p)) ~> process(p) | @
+?(is_valid(p)) => {
+    process(p)
+}
 ```
 
 **LLVM IR:** Single `icmp` or metadata flag test. Emits `i1` (boolean).
@@ -304,13 +302,13 @@ These are not intrinsics per se but common patterns enabled by `@[var = init]`.
 ### 5.2 Running Maximum
 
 ```
-@[max_p = 0.0](high_price = (p > $max_p) <~ p | $max_p)
+@[max_p = 0.0](high_price = ?(p > $max_p) => p | $max_p)
 ```
 
 ### 5.3 Running Count
 
 ```
-@[count = 0](break_times = (signal) <~ $count + 1 | $count)
+@[count = 0](break_times = ?(signal) => $count + 1 | $count)
 ```
 
 ### 5.4 VWAP (Volume-Weighted Average Price)
@@ -330,7 +328,9 @@ These interact with the resource driver layer.
 ### 6.1 Order Dispatch
 
 ```
-(signal) ~> @order{"Limit", price, qty}
+?(signal) => {
+    @order{"Limit", price, qty}
+}
 ```
 
 Compiles to an **async non-blocking** call to the trade execution driver. Must not block the pulse clock.
@@ -338,7 +338,9 @@ Compiles to an **async non-blocking** call to the trade execution driver. Must n
 ### 6.2 State Snapshot
 
 ```
-(time == 15:00) ~> GlobalState.snapshot() | @
+?(time == 15:00) => {
+    GlobalState.snapshot()
+}
 ```
 
 Triggers `mmap`-based or copy-on-write serialization of the entire state ledger to disk.
@@ -356,9 +358,9 @@ For window operations over `@[n]` buffers where `n > 8`, the generated LLVM loop
 
 ### 7.2 Branch Prediction
 
-For wave operators (`<~`, `~>`):
+For guard conditionals:
 - Prefer LLVM `select` instruction over `br` + `phi` when both branches are pure expressions
-- Use `br` only when branches have side effects (e.g., `~>` dispatching to different drivers)
+- Use `br` only when branches have side effects, such as dispatching to different resource drivers
 
 ### 7.3 Memory Layout
 

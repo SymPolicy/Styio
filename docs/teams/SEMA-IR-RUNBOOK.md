@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of AST lifecycle, semantic analysis, type inference, StyioIR lowering, string representation, and compilation session ownership.
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-05-01
 
 ## Mission
 
@@ -13,10 +13,11 @@ Own the compiler middle layer from parsed AST to StyioIR and stable textual repr
 Primary paths:
 
 1. `src/StyioAST/`
-2. `src/StyioAnalyzer/`
-3. `src/StyioIR/`
-4. `src/StyioToString/`
-5. `src/StyioSession/`
+2. `src/StyioSema/`
+3. `src/StyioLowering/`
+4. `src/StyioIR/`
+5. `src/StyioToString/`
+6. `src/StyioSession/`
 
 High-value docs:
 
@@ -28,9 +29,18 @@ High-value docs:
 
 1. Start from the language or capability SSOT for the feature.
 2. Identify the AST node, type-inference rule, lowering rule, and IR node together before editing.
-3. Keep ownership/view changes small and covered by safety or security tests.
-4. Update five-layer goldens when AST or StyioIR textual shape intentionally changes.
-5. Coordinate with Codegen / Runtime before changing IR consumed by LLVM emission.
+3. Keep `StyioSemaContext` responsible for type inference/state and `AstToStyioIRLowerer` responsible for AST-to-IR conversion; the legacy `StyioAnalyzer` name is compatibility only.
+4. Keep ownership/view changes small and covered by safety or security tests.
+5. Update five-layer goldens when AST or StyioIR textual shape intentionally changes.
+6. Coordinate with Codegen / Runtime before changing IR consumed by LLVM emission.
+7. Keep semantic lowering fail-closed: unknown user calls, user-call arity mismatches, unsupported AST nodes, and missing type slots must produce typed diagnostics or covered lowering rules, not `SGConstInt(0)` placeholders.
+8. When adding or repairing AST nodes such as `SizeOf`, prove the full lifecycle: owned child expression, writable inferred type slot, typed inference result, and StyioIR lowering shape.
+9. When parser syntax can represent one-shot continuations before lowering exists, emit explicit semantic errors instead of letting internal resume names leak as unknown user functions.
+10. For terminal-handle and standard-stream iterable writes (`>> [>_]`, `>> @stdout`, `>> @stderr`), keep semantic checks stricter than `->`: require an iterable text-serializable type, reject scalar strings, and route explicit `string.lines()` through `list[string]` lowering.
+11. Keep GenIR domain ownership physical as well as nominal: default/general nodes belong in `src/StyioIR/GenIR/SGIR.hpp`, IO/file/std-stream/network/filesystem nodes in `SIOIR.hpp`, and List/Dictionary/future Matrix collection nodes in `SCIR.hpp`. `GenIR.hpp` is a compatibility aggregator, not the primary place for new nodes.
+12. Normalize break depth at the AST and IR boundary. `BreakAST` and `SGBreak` may keep compatibility constructors, but their semantic depth is always 1 and lowering must not preserve historical multi-level counts.
+13. Native `@extern` declarations must have a real middle-layer lifecycle: parse only top-level exported signatures, expose callable names to type inference, lower `@export` and `@extern` to explicit SG nodes, and reject unknown native calls before codegen. Do not inspect or reinterpret native function bodies.
+14. `InfiniteLoopAST` must type-check its guard and body before lowering; conditional loop guards are bool-only, so non-bool values must fail in sema rather than reaching LLVM codegen.
 
 ## Change Classes
 
@@ -43,15 +53,15 @@ High-value docs:
 Minimum local commands:
 
 ```bash
-ctest --test-dir build -L milestone
-ctest --test-dir build -L styio_pipeline
-ctest --test-dir build -L security
+ctest --test-dir build/default -L milestone
+ctest --test-dir build/default -L styio_pipeline
+ctest --test-dir build/default -L security
 ```
 
 When AST or IR text changes:
 
 ```bash
-STYIO_PIPELINE_DUMP_FULL=1 ctest --test-dir build -L styio_pipeline --output-on-failure
+STYIO_PIPELINE_DUMP_FULL=1 ctest --test-dir build/default -L styio_pipeline --output-on-failure
 ```
 
 For checkpoint-grade validation:
@@ -76,3 +86,4 @@ Record unfinished middle-layer work with:
 3. Expected repr or IR text delta.
 4. Failing five-layer layer, if any.
 5. Whether Codegen has already been adapted.
+6. Remaining unsupported-lowering handlers and the negative matrix needed to retire placeholder fallback safely.

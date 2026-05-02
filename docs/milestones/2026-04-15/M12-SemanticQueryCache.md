@@ -6,7 +6,7 @@
 
 **Status:** Implemented
 
-**Depends on:** M11 (multi-edit incremental syntax)  
+**Depends on:** M11 (multi-edit incremental syntax)
 **Goal:** `SemanticDB` must stop treating semantic work as one coarse `IdeSnapshot` rebuild. File-level and offset-level IDE requests should be served through explicit queries with clear cache keys and invalidation rules.
 
 ---
@@ -57,7 +57,7 @@ M12 is implemented in [../../../src/StyioIDE/SemDB.hpp](../../../src/StyioIDE/Se
 
 ### T12.01 — File query cache is reused within one snapshot
 
-**Target:** new SemDB unit test  
+**Target:** new SemDB unit test
 **Suggested name:** `StyioSemanticDb.ReusesFileQueriesWithinSnapshot`
 
 Scenario:
@@ -73,7 +73,7 @@ Acceptance:
 
 ### T12.02 — Offset query cache is reused within one snapshot
 
-**Target:** new SemDB unit test  
+**Target:** new SemDB unit test
 **Suggested name:** `StyioSemanticDb.ReusesOffsetQueriesWithinSnapshot`
 
 Scenario:
@@ -88,7 +88,7 @@ Acceptance:
 
 ### T12.03 — New snapshot invalidates prior file and offset queries
 
-**Target:** new SemDB unit test  
+**Target:** new SemDB unit test
 **Suggested name:** `StyioSemanticDb.InvalidatesQueriesAcrossSnapshots`
 
 Scenario:
@@ -104,7 +104,7 @@ Acceptance:
 
 ### T12.04 — Closing a file drops open-file query state
 
-**Target:** new SemDB unit test  
+**Target:** new SemDB unit test
 **Suggested name:** `StyioSemanticDb.DropsOpenFileQueryStateOnClose`
 
 Acceptance:
@@ -125,51 +125,51 @@ Required existing tests:
 ## Implementation Tasks
 
 ### Task 12.1 — Define query keys and cache containers
-**Role:** Semantic Agent  
-**Files:** `src/StyioIDE/SemDB.*`  
-**Action:** Introduce file-level and offset-level cache key types plus explicit cache maps per query family.  
+**Role:** Semantic Agent
+**Files:** `src/StyioIDE/SemDB.*`
+**Action:** Introduce file-level and offset-level cache key types plus explicit cache maps per query family.
 **Verify:** Build succeeds.
 
 ### Task 12.2 — Split syntax/semantic/HIR file queries
-**Role:** Semantic Agent  
-**Files:** `src/StyioIDE/SemDB.*`, `src/StyioIDE/CompilerBridge.*`, `src/StyioIDE/HIR.*`  
-**Action:** Refactor coarse snapshot recomputation into independently resolved file queries.  
+**Role:** Semantic Agent
+**Files:** `src/StyioIDE/SemDB.*`, `src/StyioIDE/CompilerBridge.*`, `src/StyioIDE/HIR.*`
+**Action:** Refactor coarse snapshot recomputation into independently resolved file queries.
 **Verify:** T12.01 passes.
 
 ### Task 12.3 — Split document symbols and semantic tokens into query consumers
-**Role:** Semantic Agent  
-**Files:** `src/StyioIDE/SemDB.*`  
-**Action:** Make `document_symbols` and `semantic_tokens` depend on file queries instead of recomputing the whole snapshot.  
+**Role:** Semantic Agent
+**Files:** `src/StyioIDE/SemDB.*`
+**Action:** Make `document_symbols` and `semantic_tokens` depend on file queries instead of recomputing the whole snapshot.
 **Verify:** T12.01 passes for both query kinds.
 
 ### Task 12.4 — Split hover/completion/definition/references into offset queries
-**Role:** Semantic Agent  
-**Files:** `src/StyioIDE/SemDB.*`, `src/StyioIDE/Service.*`  
-**Action:** Cache offset-based results per `(FileId, SnapshotId, offset)`.  
+**Role:** Semantic Agent
+**Files:** `src/StyioIDE/SemDB.*`, `src/StyioIDE/Service.*`
+**Action:** Cache offset-based results per `(FileId, SnapshotId, offset)`.
 **Verify:** T12.02 passes.
 
 ### Task 12.5 — Implement invalidation and close-file eviction
-**Role:** Semantic Agent  
-**Files:** `src/StyioIDE/SemDB.*`  
-**Action:** Drop all file and offset query caches for a file when its snapshot changes or the file is closed.  
+**Role:** Semantic Agent
+**Files:** `src/StyioIDE/SemDB.*`
+**Action:** Drop all file and offset query caches for a file when its snapshot changes or the file is closed.
 **Verify:** T12.03 and T12.04 pass.
 
 ### Task 12.6 — Add instrumentation for cache hits and misses
-**Role:** Semantic Agent  
-**Files:** `src/StyioIDE/SemDB.*`, tests if needed  
-**Action:** Expose counters or test hooks proving whether a request hit cache or rebuilt data.  
+**Role:** Semantic Agent
+**Files:** `src/StyioIDE/SemDB.*`, tests if needed
+**Action:** Expose counters or test hooks proving whether a request hit cache or rebuilt data.
 **Verify:** T12.01–T12.04 can assert real reuse instead of only identical outputs.
 
 ### Task 12.7 — Keep `build_snapshot(path)` as migration façade
-**Role:** Semantic Agent  
-**Files:** `src/StyioIDE/SemDB.*`  
-**Action:** Preserve current callers while internally composing an `IdeSnapshot` from query results.  
+**Role:** Semantic Agent
+**Files:** `src/StyioIDE/SemDB.*`
+**Action:** Preserve current callers while internally composing an `IdeSnapshot` from query results.
 **Verify:** T12.05 passes.
 
 ### Task 12.8 — Update docs
-**Role:** Doc Agent  
-**Files:** `docs/for-ide/*.md`, `docs/plans/*.md`, `docs/milestones/2026-04-15/*.md`  
-**Action:** Document query boundaries, cache keys, and invalidation semantics.  
+**Role:** Doc Agent
+**Files:** `docs/external/for-ide/*.md`, `docs/plans/*.md`, `docs/milestones/2026-04-15/*.md`
+**Action:** Document query boundaries, cache keys, and invalidation semantics.
 **Verify:** `python3 scripts/docs-audit.py` passes.
 
 ---

@@ -6,7 +6,7 @@
 
 **Status:** Implemented
 
-**Depends on:** M12 (semantic query cache)  
+**Depends on:** M12 (semantic query cache)
 **Goal:** IDE 语义层必须从“可用的抽取结果”升级到“稳定的 HIR 真相”。顶层项、作用域和局部绑定要拥有稳定身份，IDE 功能不再直接依赖 token 启发式。
 
 ---
@@ -43,7 +43,7 @@ M13 is implemented in [../../../src/StyioIDE/CompilerBridge.hpp](../../../src/St
 
 ### T13.01 — HIR contains stable top-level items
 
-**Target:** new HIR unit test  
+**Target:** new HIR unit test
 **Suggested name:** `StyioHirBuilder.BuildsStableTopLevelItems`
 
 Acceptance:
@@ -55,7 +55,7 @@ Acceptance:
 
 ### T13.02 — Unaffected items keep identity across edits
 
-**Target:** new HIR incremental test  
+**Target:** new HIR incremental test
 **Suggested name:** `StyioHirBuilder.RetainsUnaffectedItemIdentityAcrossEdits`
 
 Scenario:
@@ -71,7 +71,7 @@ Acceptance:
 
 ### T13.03 — Block scopes and local bindings are represented explicitly
 
-**Target:** new HIR unit test  
+**Target:** new HIR unit test
 **Suggested name:** `StyioHirBuilder.ModelsNestedScopesAndBindings`
 
 Acceptance:
@@ -82,7 +82,7 @@ Acceptance:
 
 ### T13.04 — IDE consumers use HIR-backed summaries
 
-**Target:** new IDE service regression  
+**Target:** new IDE service regression
 **Suggested name:** `StyioIdeService.UsesHirBackedDocumentSymbolsAndDefinition`
 
 Acceptance:
@@ -95,39 +95,39 @@ Acceptance:
 ## Implementation Tasks
 
 ### Task 13.1 — Define stable semantic IDs
-**Role:** Semantic Agent  
-**Files:** `src/StyioIDE/HIR.*`, related shared IDE headers  
-**Action:** Introduce canonical ID types and equality/hash behavior.  
+**Role:** Semantic Agent
+**Files:** `src/StyioIDE/HIR.*`, related shared IDE headers
+**Action:** Introduce canonical ID types and equality/hash behavior.
 **Verify:** Build succeeds.
 
 ### Task 13.2 — Lower AST/semantic truth into HIR
-**Role:** Semantic Agent  
-**Files:** `src/StyioIDE/HIR.*`, `src/StyioIDE/CompilerBridge.*`  
-**Action:** Replace token-driven summaries with explicit lowering from parser/analyzer output.  
+**Role:** Semantic Agent
+**Files:** `src/StyioIDE/HIR.*`, `src/StyioIDE/CompilerBridge.*`
+**Action:** Replace token-driven summaries with explicit lowering from parser/analyzer output.
 **Verify:** T13.01 passes.
 
 ### Task 13.3 — Preserve unaffected item identity
-**Role:** Semantic Agent  
-**Files:** `src/StyioIDE/HIR.*`, `src/StyioIDE/SemDB.*`  
-**Action:** Define and implement identity retention rules for unchanged top-level items.  
+**Role:** Semantic Agent
+**Files:** `src/StyioIDE/HIR.*`, `src/StyioIDE/SemDB.*`
+**Action:** Define and implement identity retention rules for unchanged top-level items.
 **Verify:** T13.02 passes.
 
 ### Task 13.4 — Add scope-bearing locals and blocks
-**Role:** Semantic Agent  
-**Files:** `src/StyioIDE/HIR.*`  
-**Action:** Materialize block scopes, params, and locals explicitly in HIR.  
+**Role:** Semantic Agent
+**Files:** `src/StyioIDE/HIR.*`
+**Action:** Materialize block scopes, params, and locals explicitly in HIR.
 **Verify:** T13.03 passes.
 
 ### Task 13.5 — Switch IDE summaries to HIR consumers
-**Role:** IDE Agent  
-**Files:** `src/StyioIDE/SemDB.*`, `src/StyioIDE/Service.*`  
-**Action:** Make document-symbol and definition paths use HIR-backed data.  
+**Role:** IDE Agent
+**Files:** `src/StyioIDE/SemDB.*`, `src/StyioIDE/Service.*`
+**Action:** Make document-symbol and definition paths use HIR-backed data.
 **Verify:** T13.04 passes.
 
 ### Task 13.6 — Update docs
-**Role:** Doc Agent  
-**Files:** `docs/for-ide/*.md`, `docs/plans/*.md`, `docs/milestones/2026-04-15/*.md`  
-**Action:** Document HIR shapes and identity rules.  
+**Role:** Doc Agent
+**Files:** `docs/external/for-ide/*.md`, `docs/plans/*.md`, `docs/milestones/2026-04-15/*.md`
+**Action:** Document HIR shapes and identity rules.
 **Verify:** `python3 scripts/docs-audit.py` passes.
 
 ---
