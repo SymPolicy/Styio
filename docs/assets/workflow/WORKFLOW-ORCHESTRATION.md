@@ -2,7 +2,7 @@
 
 **Purpose:** Define the registered workflow documents, tool responsibilities, ordering rules, and scheduler entrypoints that keep Styio delivery workflows separated and executable.
 
-**Last updated:** 2026-04-26
+**Last updated:** 2026-05-01
 
 ## Separation Rules
 
@@ -26,13 +26,20 @@ Current registered table:
 |------|-----|-------|-------|----------------|----------------|
 | Workflow | `workflow-orchestration` | 5 | docs | Tool registry, workflow separation, profile ordering, and scheduler usage. | `docs/assets/workflow/WORKFLOW-ORCHESTRATION.md` |
 | Workflow | `repo-hygiene` | 10 | docs | Repository cleanliness, commit, push, and history rewriting standards. | `docs/assets/workflow/REPO-HYGIENE-COMMIT-STANDARD.md` |
+| Workflow | `add-repo-file` | 15 | docs | Repository file creation with metadata, indexes, ownership, and gates. | `docs/assets/workflow/ADD-REPO-FILE.md` |
+| Workflow | `change-bootstrap-env` | 20 | docs | Bootstrap environment dependency, version, path, and documentation changes. | `docs/assets/workflow/CHANGE-BOOTSTRAP-ENV.md` |
+| Workflow | `add-resource-identifier` | 25 | docs | Resource identifier syntax, capability, lifecycle, and fail-closed rollout. | `docs/assets/workflow/ADD-RESOURCE-IDENTIFIER.md` |
+| Workflow | `correct-syntax-contract` | 25 | docs | Syntax-contract correction from minimal repro through parser/Sema boundary, SSOT docs, and gates. | `docs/assets/workflow/CORRECT-SYNTAX-CONTRACT.md` |
+| Workflow | `promote-nightly-parser-subset` | 25 | docs | Nightly parser subset promotion with parity, fallback, and error-boundary tests. | `docs/assets/workflow/PROMOTE-NIGHTLY-PARSER-SUBSET.md` |
 | Workflow | `syntax-addition` | 25 | docs | Ordered syntax-change chain from language SSOT through runtime registration. | `docs/assets/workflow/SYNTAX-ADDITION-WORKFLOW.md` |
 | Workflow | `docs-maintenance` | 30 | docs | Documentation metadata, generated indexes, and archive lifecycle. | `docs/assets/workflow/DOCS-MAINTENANCE-WORKFLOW.md` |
 | Workflow | `team-runbook-maintenance` | 30 | docs | Team runbook ownership and update requirements for touched surfaces. | `docs/assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md` |
+| Workflow | `docs-gate` | 35 | docs | Common docs/process gate entrypoint and composition boundary. | `docs/assets/workflow/DOCS-GATE.md` |
 | Workflow | `five-layer-pipeline` | 45 | docs | Layered compiler golden coverage from lexer through runtime output. | `docs/assets/workflow/FIVE-LAYER-PIPELINE.md` |
 | Workflow | `test-catalog` | 45 | docs | Named test inventory, fixtures, labels, and automation evidence. | `docs/assets/workflow/TEST-CATALOG.md` |
 | Workflow | `checkpoint` | 50 | docs | Recovery-oriented checkpoint sizing and interruption handling. | `docs/assets/workflow/CHECKPOINT-WORKFLOW.md` |
 | Workflow | `delivery-gate` | 60 | docs | Common delivery-floor entrypoint and health-gate handoff. | `docs/assets/workflow/DELIVERY-GATE.md` |
+| Workflow | `checkpoint-health` | 70 | docs | Repository build/test health entrypoint for checkpoint delivery. | `docs/assets/workflow/CHECKPOINT-HEALTH.md` |
 | Tool | `workflow-scheduler-check` | 5 | Docs / Ecosystem | Validate workflow registry, separation, ordering, and discoverability. | `python3 scripts/workflow-scheduler.py check` |
 | Tool | `workflow-scheduler-tests` | 6 | Test Quality | Run scheduler unit tests for range resolution and registry invariants. | `python3 tests/workflow_scheduler_test.py` |
 | Tool | `repo-hygiene-push` | 10 | Docs / Ecosystem | Reject forbidden artifacts introduced by the incoming revision range. | `python3 scripts/repo-hygiene-gate.py --mode push --range {range}` |

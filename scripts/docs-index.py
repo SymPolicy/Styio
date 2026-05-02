@@ -5,54 +5,18 @@ import argparse
 import os
 import re
 import sys
+import tomllib
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Iterable, List, Optional
 
+from docs_config import collection_dirs, collection_index_meta
+
 ROOT = Path(__file__).resolve().parents[1]
 TODAY = date.today().isoformat()
-COLLECTION_DIRS = [
-    Path("docs"),
-    Path("docs/rollups"),
-    Path("docs/archive"),
-    Path("docs/archive/history"),
-    Path("docs/archive/review"),
-    Path("docs/design"),
-    Path("docs/specs"),
-    Path("docs/teams"),
-    Path("docs/review"),
-    Path("docs/plans"),
-    Path("docs/for-ide"),
-    Path("docs/for_spio"),
-    Path("docs/assets"),
-    Path("docs/assets/workflow"),
-    Path("docs/assets/templates"),
-    Path("docs/adr"),
-    Path("docs/history"),
-    Path("docs/milestones"),
-]
-
-INDEX_META = {
-    "docs": ("Docs Index", "Provide the generated inventory for `docs/`; directory boundaries and maintenance rules live in [README.md](./README.md)."),
-    "docs/rollups": ("Rollups Index", "Provide the generated inventory for `docs/rollups/`; compressed active summaries and default loading order live in [README.md](./README.md)."),
-    "docs/archive": ("Archive Index", "Provide the generated inventory for `docs/archive/`; provenance rules and archive lifecycle boundaries live in [README.md](./README.md)."),
-    "docs/archive/history": ("Archive History Index", "Provide the generated inventory for `docs/archive/history/`; archived raw history snapshots live in [README.md](./README.md)."),
-    "docs/archive/review": ("Archive Review Index", "Provide the generated inventory for `docs/archive/review/`; archived dated review bundles live in [README.md](./README.md)."),
-    "docs/design": ("Design Index", "Provide the generated inventory for `docs/design/`; document boundaries and naming rules live in [README.md](./README.md)."),
-    "docs/specs": ("Specs Index", "Provide the generated inventory for `docs/specs/`; document boundaries and naming rules live in [README.md](./README.md)."),
-    "docs/teams": ("Teams Index", "Provide the generated inventory for `docs/teams/`; team daily-work boundaries and runbook rules live in [README.md](./README.md)."),
-    "docs/review": ("Review Index", "Provide the generated inventory for `docs/review/`; document boundaries and naming rules live in [README.md](./README.md)."),
-    "docs/plans": ("Plans Index", "Provide the generated inventory for `docs/plans/`; document boundaries and naming rules live in [README.md](./README.md)."),
-    "docs/for-ide": ("For IDE Index", "Provide the generated inventory for `docs/for-ide/`; IDE embedding, LSP usage, and edit-time parser guidance live in [README.md](./README.md)."),
-    "docs/for_spio": ("For Spio Index", "Provide the generated inventory for `docs/for_spio/`; handoff boundaries and coordination rules for `styio-spio` live in [README.md](./README.md)."),
-    "docs/assets": ("Assets Index", "Provide the generated inventory for `docs/assets/`; asset boundaries and reuse rules live in [README.md](./README.md)."),
-    "docs/assets/workflow": ("Workflow Assets Index", "Provide the generated inventory for `docs/assets/workflow/`; workflow boundaries and reuse rules live in [README.md](./README.md)."),
-    "docs/assets/templates": ("Template Assets Index", "Provide the generated inventory for `docs/assets/templates/`; template boundaries and reuse rules live in [README.md](./README.md)."),
-    "docs/adr": ("ADR Index", "Provide the generated inventory for `docs/adr/`; decision-record conventions live in [README.md](./README.md)."),
-    "docs/history": ("History Index", "Provide the generated inventory for `docs/history/`; recovery rules live in [README.md](./README.md)."),
-    "docs/milestones": ("Milestones Index", "Provide the generated inventory for `docs/milestones/`; freeze-batch rules live in [README.md](./README.md)."),
-}
+COLLECTION_DIRS = collection_dirs()
+INDEX_META = collection_index_meta()
 
 TITLE_RE = re.compile(r"^#\s+(.+?)\s*$", re.M)
 PURPOSE_RE = re.compile(r"^(?:\*\*Purpose:\*\*|\[EN\] Purpose:)\s+(.+?)\s*$", re.M)
@@ -74,7 +38,30 @@ def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def read_toml(path: Path) -> dict:
+    return tomllib.loads(read_text(path))
+
+
+def toml_scalar(data: dict, *keys: str) -> Optional[str]:
+    for key in keys:
+        value: object = data
+        for part in key.split("."):
+            if not isinstance(value, dict) or part not in value:
+                value = None
+                break
+            value = value[part]
+        if isinstance(value, str) and value.strip():
+            return value
+    return None
+
+
 def extract_title(path: Path) -> str:
+    if path.suffix == ".toml":
+        data = read_toml(path)
+        return compact_plain(
+            toml_scalar(data, "title", "workflow.title", "skill.display_name", "skill.name", "interface.display_name", "id")
+            or path.stem
+        )
     match = TITLE_RE.search(read_text(path))
     if not match:
         return path.stem
@@ -82,13 +69,29 @@ def extract_title(path: Path) -> str:
 
 
 def extract_purpose(path: Path) -> str:
-    match = PURPOSE_RE.search(read_text(path))
+    text = read_text(path)
+    if path.suffix == ".toml":
+        data = tomllib.loads(text)
+        return compact_plain(
+            toml_scalar(data, "purpose", "description", "workflow.purpose", "skill.description", "interface.short_description")
+            or f"Inventory entry for `{path.name}`."
+        )
+    match = PURPOSE_RE.search(text)
     if not match:
+        frontmatter = re.search(r"^---\n(.*?)\n---", text, flags=re.S)
+        if frontmatter:
+            desc = re.search(r"^description:\s+(.+?)\s*$", frontmatter.group(1), flags=re.M)
+            if desc:
+                return compact_plain(desc.group(1).strip().strip("\"'"))
         return f"Inventory entry for `{path.name}`."
     return compact_plain(match.group(1))
 
 
 def extract_last_updated(path: Path) -> str:
+    if path.suffix == ".toml":
+        value = toml_scalar(read_toml(path), "last_updated", "workflow.last_updated", "skill.last_updated")
+        if value:
+            return value
     match = LAST_UPDATED_RE.search(read_text(path))
     if match:
         return match.group(1)
@@ -113,7 +116,7 @@ def rel_link(from_dir: Path, target: Path) -> str:
 
 
 def choose_dir_entry(path: Path) -> Optional[Path]:
-    for name in ("INDEX.md", "README.md", "00-Milestone-Index.md"):
+    for name in ("INDEX.md", "README.md", "00-Milestone-Index.md", "skill.toml", "workflow.toml"):
         candidate = path / name
         if candidate.exists():
             return candidate
@@ -121,7 +124,7 @@ def choose_dir_entry(path: Path) -> Optional[Path]:
 
 
 def choose_dir_summary_source(path: Path) -> Optional[Path]:
-    for name in ("README.md", "INDEX.md", "00-Milestone-Index.md"):
+    for name in ("README.md", "INDEX.md", "00-Milestone-Index.md", "skill.toml", "workflow.toml"):
         candidate = path / name
         if candidate.exists():
             return candidate
@@ -153,7 +156,7 @@ def build_entries(base: Path) -> List[Entry]:
             last_updated = extract_last_updated(summary_source)
             entries.append(Entry(rel_path, link_target, label, summary, True, last_updated))
             continue
-        if child.suffix != ".md":
+        if child.suffix not in {".md", ".toml"}:
             continue
         rel_path = child.name
         link_target = rel_link(base, child)
@@ -213,7 +216,7 @@ def render_index(base: Path) -> str:
 
 def write_indexes(check: bool) -> int:
     failures: List[str] = []
-    for rel_dir in COLLECTION_DIRS:
+    for rel_dir in sorted(COLLECTION_DIRS, key=lambda path: len(path.parts), reverse=True):
         base = ROOT / rel_dir
         index_path = base / "INDEX.md"
         expected = render_index(base)

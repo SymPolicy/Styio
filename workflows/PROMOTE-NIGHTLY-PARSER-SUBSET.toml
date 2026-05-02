@@ -1,0 +1,37 @@
+id = "promote-nightly-parser-subset"
+title = "Promote Nightly Parser Subset"
+purpose = "Move a grammar slice into the nightly parser while keeping legacy parity and shadow gates intact."
+last_updated = "2026-04-23"
+doc = "PROMOTE-NIGHTLY-PARSER-SUBSET.md"
+skill = "skills/styio-parser-subset/skill.toml"
+
+steps = [
+  "freeze representative source samples and expected legacy behavior",
+  "extend token/start gates before parser consumption",
+  "implement nightly expr or stmt parsing with existing helpers",
+  "preserve line-boundary and statement-boundary behavior",
+  "add AST repr parity, fallback budget, and error-boundary tests",
+]
+
+required_evidence = [
+  "legacy and nightly AST repr match for accepted samples",
+  "rejected samples fail with stable parser or semantic errors",
+  "shadow route stats do not regress the fallback budget",
+  "parser entry audit still passes",
+]
+
+gates = [
+  "cmake --build build/default --target styio_security_test styio -j2",
+  "ctest --test-dir build/default -R ^StyioParserEngine\\. --output-on-failure",
+  "ctest --test-dir build/default -R ^parser_shadow_gate_ --output-on-failure",
+  "ctest --test-dir build/default -R ^parser_legacy_entry_audit$ --output-on-failure",
+  "git diff --check",
+]
+
+[handoff]
+report = [
+  "accepted samples",
+  "rejected samples",
+  "fallback/internal-bridge budget",
+  "changed parser surfaces",
+]

@@ -184,6 +184,18 @@ StyioToLLVM::toLLVMType(SGCall* node) {
 };
 
 llvm::Type*
+StyioToLLVM::toLLVMType(SGExportDecl* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+};
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGExternBlock* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+};
+
+llvm::Type*
 StyioToLLVM::toLLVMType(SGReturn* node) {
   return theBuilder->getInt64Ty();
 };
@@ -228,13 +240,13 @@ StyioToLLVM::toLLVMType(SGIf* node) {
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGListLiteral* node) {
+StyioToLLVM::toLLVMType(SCListLiteral* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGDictLiteral* node) {
+StyioToLLVM::toLLVMType(SCDictLiteral* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
@@ -324,19 +336,19 @@ StyioToLLVM::toLLVMType(SGEqProbe* node) {
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGHandleAcquire* node) {
+StyioToLLVM::toLLVMType(SIOHandleAcquire* node) {
   (void)node;
   return theBuilder->getVoidTy();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGFileLineIter* node) {
+StyioToLLVM::toLLVMType(SIOFileLineIter* node) {
   (void)node;
   return theBuilder->getVoidTy();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGStreamZip* node) {
+StyioToLLVM::toLLVMType(SIOStreamZip* node) {
   (void)node;
   return theBuilder->getVoidTy();
 }
@@ -354,31 +366,31 @@ StyioToLLVM::toLLVMType(SGSnapshotShadowLoad* node) {
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGInstantPull* node) {
+StyioToLLVM::toLLVMType(SIOInstantPull* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGListReadStdin* node) {
+StyioToLLVM::toLLVMType(SIOListReadStdin* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGListClone* node) {
+StyioToLLVM::toLLVMType(SCListClone* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGListLen* node) {
+StyioToLLVM::toLLVMType(SCListLen* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGListGet* node) {
+StyioToLLVM::toLLVMType(SCListGet* node) {
   switch (styio_value_family_from_type_name(node->elem_type)) {
     case StyioValueFamily::String:
       return llvm::PointerType::get(*theContext, 0);
@@ -393,31 +405,31 @@ StyioToLLVM::toLLVMType(SGListGet* node) {
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGListSet* node) {
+StyioToLLVM::toLLVMType(SCListSet* node) {
   (void)node;
   return theBuilder->getVoidTy();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGListToString* node) {
+StyioToLLVM::toLLVMType(SCListToString* node) {
   (void)node;
   return llvm::PointerType::get(*theContext, 0);
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGDictClone* node) {
+StyioToLLVM::toLLVMType(SCDictClone* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGDictLen* node) {
+StyioToLLVM::toLLVMType(SCDictLen* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGDictGet* node) {
+StyioToLLVM::toLLVMType(SCDictGet* node) {
   switch (styio_value_family_from_type_name(node->value_type)) {
     case StyioValueFamily::String:
       return llvm::PointerType::get(*theContext, 0);
@@ -431,31 +443,31 @@ StyioToLLVM::toLLVMType(SGDictGet* node) {
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGDictSet* node) {
+StyioToLLVM::toLLVMType(SCDictSet* node) {
   (void)node;
   return theBuilder->getVoidTy();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGDictKeys* node) {
+StyioToLLVM::toLLVMType(SCDictKeys* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGDictValues* node) {
+StyioToLLVM::toLLVMType(SCDictValues* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGDictToString* node) {
+StyioToLLVM::toLLVMType(SCDictToString* node) {
   (void)node;
   return llvm::PointerType::get(*theContext, 0);
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGResourceWriteToFile* node) {
+StyioToLLVM::toLLVMType(SIOResourceWriteToFile* node) {
   (void)node;
   return theBuilder->getVoidTy();
 }

@@ -14,7 +14,7 @@
 using std::vector;
 
 // [Styio]
-#include "../StyioAnalyzer/ASTAnalyzer.hpp"
+#include "../StyioLowering/AstToStyioIRLowerer.hpp"
 #include "../StyioSession/SessionAllocation.hpp"
 #include "../StyioToString/ToStringVisitor.hpp"
 #include "../StyioToken/Token.hpp"
@@ -72,10 +72,10 @@ public:
   virtual std::string toString(StyioRepr* visitor, int indent = 0) = 0;
 
   /* Type Inference */
-  virtual void typeInfer(StyioAnalyzer* visitor) = 0;
+  virtual void typeInfer(StyioSemaContext* visitor) = 0;
 
   /* Code Gen. StyioIR */
-  virtual StyioIR* toStyioIR(StyioAnalyzer* visitor) = 0;
+  virtual StyioIR* toStyioIR(AstToStyioIRLowerer* visitor) = 0;
 
 private:
   inline static thread_local std::unordered_set<StyioAST*> tracked_nodes_;
@@ -94,11 +94,11 @@ public:
     return visitor->toString(static_cast<Derived*>(this), indent);
   }
 
-  void typeInfer(StyioAnalyzer* visitor) override {
+  void typeInfer(StyioSemaContext* visitor) override {
     visitor->typeInfer(static_cast<Derived*>(this));
   }
 
-  StyioIR* toStyioIR(StyioAnalyzer* visitor) override {
+  StyioIR* toStyioIR(AstToStyioIRLowerer* visitor) override {
     return visitor->toStyioIR(static_cast<Derived*>(this));
   }
 };
@@ -622,7 +622,8 @@ class BreakAST : public StyioASTTraits<BreakAST>
 
 public:
   explicit BreakAST(unsigned d = 1) :
-      depth_(d) {
+      depth_(1) {
+    (void)d;
   }
 
   static BreakAST* Create(unsigned d = 1) {
@@ -1508,13 +1509,17 @@ public:
 class SizeOfAST : public StyioASTTraits<SizeOfAST>
 {
   std::unique_ptr<StyioAST> value_owner_;
+  std::unique_ptr<TypeAST> size_type_owner_;
   StyioAST* Value = nullptr;
+  TypeAST* size_type = nullptr;
 
 public:
   SizeOfAST(
     StyioAST* value
   ) :
       value_owner_(value), Value(value_owner_.get()) {
+    size_type_owner_.reset(TypeAST::Create());
+    size_type = size_type_owner_.get();
   }
 
   StyioAST* getValue() {
@@ -1526,7 +1531,11 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    return size_type->getDataType();
+  }
+
+  void setDataType(StyioDataType type) {
+    size_type->setType(type);
   }
 };
 
@@ -1976,6 +1985,9 @@ private:
   }
 
 public:
+  static constexpr const char* OneShotContinuationResumeName = "__styio_resume_oneshot";
+  static constexpr const char* CallableApplyName = "__styio_resume_oneshot";
+
   StyioAST* func_callee = nullptr;
   NameAST* func_name = nullptr;
   vector<StyioAST*> func_args;
@@ -2016,9 +2028,29 @@ public:
     return new FuncCallAST(func_callee, func_name, arguments);
   }
 
+  static FuncCallAST* CreateCallable(
+    StyioAST* func_callee,
+    vector<StyioAST*> arguments
+  ) {
+    return new FuncCallAST(
+      func_callee,
+      NameAST::Create(CallableApplyName),
+      arguments);
+  }
+
   void setFuncCallee(StyioAST* callee) {
     func_callee_owner_.reset(callee);
     func_callee = func_callee_owner_.get();
+  }
+
+  bool isCallableApply() const {
+    return isOneShotContinuationResume();
+  }
+
+  bool isOneShotContinuationResume() const {
+    return func_callee != nullptr
+           && func_name != nullptr
+           && func_name->getAsStr() == OneShotContinuationResumeName;
   }
 
   NameAST* getFuncName() {
@@ -2515,9 +2547,11 @@ public:
 class StdStreamAST : public StyioASTTraits<StdStreamAST>
 {
   StdStreamKind kind_;
+  bool terminal_handle_ = false;
 
-  explicit StdStreamAST(StdStreamKind k) :
-      kind_(k) {
+  explicit StdStreamAST(StdStreamKind k, bool terminal_handle = false) :
+      kind_(k),
+      terminal_handle_(terminal_handle) {
   }
 
 public:
@@ -2525,8 +2559,16 @@ public:
     return new StdStreamAST(k);
   }
 
+  static StdStreamAST* CreateTerminalHandle(StdStreamKind k) {
+    return new StdStreamAST(k, true);
+  }
+
   StdStreamKind getStreamKind() const {
     return kind_;
+  }
+
+  bool isTerminalHandle() const {
+    return terminal_handle_;
   }
 
   const StyioNodeType getNodeType() const {
@@ -2951,6 +2993,64 @@ public:
 
   const StyioNodeType getNodeType() const {
     return StyioNodeType::ExtPack;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+class ExportDeclAST : public StyioASTTraits<ExportDeclAST>
+{
+  vector<string> Symbols;
+
+public:
+  explicit ExportDeclAST(vector<string> symbols) :
+      Symbols(std::move(symbols)) {
+  }
+
+  static ExportDeclAST* Create(vector<string> symbols) {
+    return new ExportDeclAST(std::move(symbols));
+  }
+
+  const vector<string>& getSymbols() const {
+    return Symbols;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::ExportDecl;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+class ExternBlockAST : public StyioASTTraits<ExternBlockAST>
+{
+  string Abi;
+  string Body;
+
+public:
+  ExternBlockAST(string abi, string body) :
+      Abi(std::move(abi)),
+      Body(std::move(body)) {
+  }
+
+  static ExternBlockAST* Create(string abi, string body) {
+    return new ExternBlockAST(std::move(abi), std::move(body));
+  }
+
+  const string& getAbi() const {
+    return Abi;
+  }
+
+  const string& getBody() const {
+    return Body;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::ExternBlock;
   }
 
   const StyioDataType getDataType() const {
@@ -4089,7 +4189,7 @@ public:
 */
 
 /*
-  Infinite / while loop: [...] => { } or [...] ?(cond) >> { }
+  Infinite / while loop: [...] => { } or [...] >> ?(cond) => { }
 */
 class InfiniteLoopAST : public StyioASTTraits<InfiniteLoopAST>
 {

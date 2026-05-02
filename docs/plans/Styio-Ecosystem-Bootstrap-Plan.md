@@ -2,7 +2,7 @@
 
 **Purpose:** 为 Styio 的配件仓库提供统一的**启动蓝图**与**最小交付清单**，明确每个仓库第一阶段至少要补哪些文档、目录和能力；本文件是执行计划，**不是**语言语义、编译器行为或任一配件仓库的长期 SSOT。
 
-**Last updated:** 2026-04-10
+**Last updated:** 2026-04-24
 
 **Repository boundary SSOT:** [`../specs/REPOSITORY-MAP.md`](../specs/REPOSITORY-MAP.md)  
 **Docs policy:** [`../specs/DOCUMENTATION-POLICY.md`](../specs/DOCUMENTATION-POLICY.md)  
@@ -35,7 +35,9 @@
 - `Unka-Malloc-env`
 - `styio-book`
 - `styio-view`
-- `styio-examples`
+- `styio-platform`
+- `audit`
+- `styio-example`
 - `styio-ext-vsc`
 
 ### 2.2 本计划不覆盖
@@ -145,9 +147,51 @@ Phase 1：
 Phase 2：
 
 - 一个最小本地包安装流程。
-- 一个最小 `styio-examples` 集成示例。
+- 一个最小 `styio-example` 集成示例。
 
-### 5.2 `Unka-Malloc-doc`
+### 5.2 `styio-platform`
+
+目标：为 hosted product 与平台级整合保留清楚入口，避免平台职责散落到编译器、包管理器或前端仓库。
+
+Phase 0：
+
+- `README.md` 说明它是平台整合入口，不是编译器或包管理器实现。
+- 明确当前是否仅为占位或 bootstrap 状态。
+- 链接回 `Styio`、`styio-spio` 和 `styio-view` 的职责边界。
+
+Phase 1：
+
+- `docs/platform-scope.md`：平台 owns / does not own。
+- `docs/hosted-surface.md`：hosted product surface 的初始信息架构。
+- `docs/cross-repo-contracts.md`：需要消费哪些 compiler/package/frontend 合同。
+
+Phase 2：
+
+- 一个可打开的最小平台入口或 mock console。
+- 一份验证说明，证明它没有复制语言语义或包管理规则。
+
+### 5.3 `audit`
+
+目标：集中维护外部审计框架和 Styio 专用审计模块，让代码审查规则可复用、可运行、可升级。
+
+Phase 0：
+
+- `README.md` 说明它是审计工具/规则仓库，不是当前仓库源码的一部分。
+- 明确默认模块、`for-styio` 模块和调用方式。
+- 链接回主仓库的 code audit checklist。
+
+Phase 1：
+
+- `docs/module-layout.md`：审计模块目录和规则命名约定。
+- `docs/run-against-styio.md`：如何对 Styio worktree 执行审计。
+- `docs/report-format.md`：审计输出如何进入主仓库 issue/docs/worktree。
+
+Phase 2：
+
+- 一个最小 CLI 或脚本入口可以扫描 Styio worktree。
+- 至少一组 default + for-styio 规则样例。
+
+### 5.4 `Unka-Malloc-doc`
 
 目标：承接跨仓库开发说明，而不是替代主仓库设计文档。
 
@@ -168,7 +212,7 @@ Phase 2：
 - 跨仓库开发流程图。
 - 一份面向外部贡献者的完整 onboarding 路径。
 
-### 5.3 `Unka-Malloc-env`
+### 5.5 `Unka-Malloc-env`
 
 目标：提供可复用、可验证的标准开发环境。
 
@@ -188,7 +232,7 @@ Phase 2：
 - 一条命令拉起 Styio 主仓库开发环境。
 - CI 或本地脚本验证环境完整性。
 
-### 5.4 `styio-book`
+### 5.6 `styio-book`
 
 目标：承载产品叙事与白皮书，而不是工程实现规范。
 
@@ -209,7 +253,7 @@ Phase 2：
 - 一版可连续阅读的白皮书草稿。
 - 与 `styio-view` 的展示内容保持基础一致。
 
-### 5.5 `styio-view`
+### 5.7 `styio-view`
 
 目标：提供对外展示和可视化承载，不与主仓库争夺技术权威。
 
@@ -229,7 +273,7 @@ Phase 2：
 - 一个可部署的首页。
 - 至少一个可视化 Styio 示例或编译链展示页面。
 
-### 5.6 `styio-examples`
+### 5.8 `styio-example`
 
 目标：集中管理“可运行示例”，避免主仓库把所有教学案例长期塞在 `tests/` 和 `sample/` 中。
 
@@ -249,7 +293,7 @@ Phase 2：
 - 提供至少 3 个可直接运行的 canonical examples。
 - 尝试与 `styio-spio` 的未来包结构兼容。
 
-### 5.7 `styio-ext-vsc`
+### 5.9 `styio-ext-vsc`
 
 目标：先做编辑器接入层，再视情况扩展为语言服务或调试能力。
 
@@ -309,11 +353,13 @@ Phase 2：
 
 1. `Unka-Malloc-doc`
 2. `Unka-Malloc-env`
-3. `styio-examples`
+3. `styio-example`
 4. `styio-ext-vsc`
-5. `styio-spio`
-6. `styio-view`
-7. `styio-book`
+5. `audit`
+6. `styio-spio`
+7. `styio-view`
+8. `styio-platform`
+9. `styio-book`
 
 原因：
 

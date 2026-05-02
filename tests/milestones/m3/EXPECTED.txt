@@ -10,7 +10,7 @@ t05_for_each:
 3
 t06_inf_break: 5
 t07_while: 10
-t08_multi_break: done
+t08_multi_break: 0\ndone
 t09_continue:
 1
 3

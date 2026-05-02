@@ -2,7 +2,7 @@
 
 **Purpose:** 作为三仓协调镜像，冻结 `styio-nightly`、`styio-spio`、`styio-view` 当前 active internal CLI contract 集合，并给跨仓文档一致性 gate 提供固定对照面。
 
-**Last updated:** 2026-04-17
+**Last updated:** 2026-04-20
 
 ## 1. Rules
 
@@ -20,6 +20,7 @@
 3. `styio` 的 compiler-side internal CLI contract 固定为：
    - `styio --machine-info=json`
    - `styio --compile-plan <path>`
+   - `styio --source-build-info=json`
 4. 任何 active internal CLI contract 变更，必须在同一 checkpoint 内同步更新三仓文档与 gate manifest。
 
 ## 2. `styio` -> `spio` / `view`
@@ -44,8 +45,8 @@ styio --machine-info=json
 
 Owner / consumer docs:
 
-1. `styio-spio/docs/styio/Styio-External-Interface-Requirement-Spec.md`
-2. `styio-view/docs/for-styio/Styio-Compile-Run-Contract.md`
+1. `styio-spio/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md`
+2. `styio-view/docs/external/for-styio/Styio-Compile-Run-Contract.md`
 
 ### 2.2 `styio --compile-plan <path>`
 
@@ -66,8 +67,32 @@ styio --compile-plan <path>
 
 Owner / consumer docs:
 
-1. `styio-spio/docs/styio/Styio-External-Interface-Requirement-Spec.md`
-2. `styio-view/docs/for-styio/Styio-Compile-Run-Contract.md`
+1. `styio-spio/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md`
+2. `styio-view/docs/external/for-styio/Styio-Compile-Run-Contract.md`
+
+### 2.3 `styio --source-build-info=json`
+
+Canonical form:
+
+```text
+styio --source-build-info=json
+```
+
+当前跨仓必须保持一致的要点：
+
+1. official source origin 固定为 `https://github.com/SymPolicy/Styio.git`
+2. `stable` 和 `nightly` 通道映射到同名源码分支
+3. official controlled source graph 当前冻结为 `compiler_core / std_symbols / runtime / macro_prelude`
+4. 当前唯一官方 build mode 是 `minimal`
+5. current helper entry is `scripts/source-build-minimal.sh`
+6. compile-plan `profile.build_mode` 缺失时默认回落到 `minimal`，显式值当前也只允许 `minimal`
+7. default symbol layer 的单一真相源当前是 `src/StyioParser/SymbolRegistry.cpp`
+8. `--source-build-info=json` 只描述 source-build contract，不替代 binary 通道的 `--machine-info=json`
+
+Owner / consumer docs:
+
+1. `styio-nightly/docs/external/for-spio/Styio-Nano-Spio-Coordination.md`
+2. `styio-spio/docs/governance/Spio-CLI-Contract.md`
 
 ## 3. `spio` -> `view`
 
@@ -91,7 +116,7 @@ spio machine-info --json
 Owner / consumer docs:
 
 1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/for-spio/Spio-Toolchain-And-Registry-State.md`
+2. `styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md`
 
 ### 3.2 `spio project-graph --manifest-path <path> --json`
 
@@ -113,7 +138,7 @@ spio project-graph --manifest-path <path> --json
 Owner / consumer docs:
 
 1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/for-spio/Spio-Project-Graph-Contract.md`
+2. `styio-view/docs/external/for-spio/Spio-Project-Graph-Contract.md`
 
 ### 3.3 `spio tool status --manifest-path <path> --json`
 
@@ -136,7 +161,7 @@ spio tool status --manifest-path <path> --json
 Owner / consumer docs:
 
 1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/for-spio/Spio-Toolchain-And-Registry-State.md`
+2. `styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md`
 
 ### 3.4 `spio --json build/run/test`
 
@@ -163,7 +188,7 @@ spio --json test --manifest-path <path> ...
 Owner / consumer docs:
 
 1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/for-spio/Spio-Workflow-Success-Payloads.md`
+2. `styio-view/docs/external/for-spio/Spio-Workflow-Success-Payloads.md`
 
 ### 3.5 `spio --json fetch/vendor/pack/publish`
 
@@ -187,8 +212,8 @@ spio --json publish --manifest-path <path> --registry <path-or-url>
 Owner / consumer docs:
 
 1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/for-spio/Spio-Workflow-Success-Payloads.md`
-3. `styio-view/docs/for-spio/Spio-Toolchain-And-Registry-State.md`
+2. `styio-view/docs/external/for-spio/Spio-Workflow-Success-Payloads.md`
+3. `styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md`
 
 ### 3.6 `spio --json tool install/use/pin`
 
@@ -210,5 +235,5 @@ spio --json tool pin --clear --manifest-path <path>
 Owner / consumer docs:
 
 1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/for-spio/Spio-Workflow-Success-Payloads.md`
-3. `styio-view/docs/for-spio/Spio-Toolchain-And-Registry-State.md`
+2. `styio-view/docs/external/for-spio/Spio-Workflow-Success-Payloads.md`
+3. `styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md`

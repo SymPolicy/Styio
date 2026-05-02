@@ -492,11 +492,80 @@ TEST(StyioDiagnostics, MachineInfoJsonReflectsCliDictImplAliasSelection) {
   EXPECT_NE(result.stdout_text.find("\"source\":\"cli\""), std::string::npos);
 }
 
+TEST(StyioDiagnostics, SourceBuildInfoJsonReportsOfficialSourceLayoutFields) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd = std::string("\"") + runner + "\" --source-build-info=json";
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"contract\": \"source-build-info\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"source_layout_version\": 1"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"official_source_origin\": \"https://github.com/SymPolicy/Styio.git\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"name\": \"stable\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"branch\": \"stable\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"name\": \"nightly\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"branch\": \"nightly\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"supported_build_modes\": ["), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"compile_plan_profile_contract\": {"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"path\": \"profile.build_mode\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"default_build_mode\": \"minimal\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"minimal\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"helper_script\": \"scripts/source-build-minimal.sh\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"cmake_target\": \"styio\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"id\": \"std_symbols\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"styio_symbol_core\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"id\": \"runtime\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"styio_runtime_core\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"id\": \"macro_prelude\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"path\": \"src/StyioParser/SymbolRegistry.cpp\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"macro_like_symbols\": ["), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"match\""), std::string::npos);
+}
+
+TEST(StyioDiagnostics, SourceBuildMinimalHelperScriptPrintsCompilerPath) {
+  const fs::path helper = fs::path(STYIO_SOURCE_DIR) / "scripts" / "source-build-minimal.sh";
+  ASSERT_TRUE(fs::exists(helper));
+
+  const std::string cmd = std::string("bash \"") + helper.string() + "\" --help";
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("source-build"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("scripts/source-build-minimal.sh"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("builds only the `styio` target"), std::string::npos);
+}
+
 TEST(StyioTypes, F32BuiltinMappingUsesF32InternalName) {
   const StyioDataType f32 = styio_data_type_from_name("f32");
   EXPECT_EQ(f32.option, StyioDataTypeOption::Float);
   EXPECT_EQ(f32.name, "f32");
   EXPECT_EQ(f32.num_of_bit, static_cast<size_t>(32));
+}
+
+TEST(StyioTypes, GetMaxTypeNumericPromotionByBitWidth) {
+  const StyioDataType f32 = styio_data_type_from_name("f32");
+  const StyioDataType f64 = styio_data_type_from_name("f64");
+  const StyioDataType i32 = styio_data_type_from_name("i32");
+  const StyioDataType i64 = styio_data_type_from_name("i64");
+  const StyioDataType i128 = styio_data_type_from_name("i128");
+
+  EXPECT_EQ(getMaxType(f32, i32).name, "f32");
+  EXPECT_EQ(getMaxType(i32, f32).name, "f32");
+  EXPECT_EQ(getMaxType(f64, i32).name, "f64");
+  EXPECT_EQ(getMaxType(f32, i64).name, "f64");
+  EXPECT_EQ(getMaxType(f32, f64).name, "f64");
+  EXPECT_EQ(getMaxType(i32, i64).name, "i64");
+
+  const StyioDataType untyped_int{StyioDataTypeOption::Integer, "int", 0};
+  EXPECT_EQ(getMaxType(untyped_int, untyped_int).name, "int");
+
+  const StyioDataType promoted = getMaxType(f32, i128);
+  EXPECT_EQ(promoted.option, StyioDataTypeOption::Float);
+  EXPECT_EQ(promoted.name, "f64");
+  EXPECT_EQ(promoted.num_of_bit, static_cast<size_t>(64));
 }
 
 TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
@@ -533,7 +602,7 @@ TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
       << "    \"file\": \"" << source.string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
-      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
@@ -561,9 +630,11 @@ TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
   ASSERT_TRUE(fs::exists(build_root / "runtime-events.jsonl"));
   const std::string receipt = read_text_file_latest(build_root / "receipt.json");
   const std::string runtime_events = read_text_file_latest(build_root / "runtime-events.jsonl");
+  EXPECT_NE(receipt.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(receipt.find("\"executed\":false"), std::string::npos);
   EXPECT_NE(receipt.find("\"session_id\":\""), std::string::npos);
   EXPECT_NE(receipt.find("\"runtime_events_path\":\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"compile.started\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.exited\""), std::string::npos);
@@ -613,7 +684,7 @@ TEST(StyioDiagnostics, CompilePlanCheckWritesArtifactsWithoutExecutingEntry) {
       << "    \"file\": \"" << source.string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
-      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
@@ -642,8 +713,10 @@ TEST(StyioDiagnostics, CompilePlanCheckWritesArtifactsWithoutExecutingEntry) {
   const std::string receipt = read_text_file_latest(build_root / "receipt.json");
   const std::string runtime_events = read_text_file_latest(build_root / "runtime-events.jsonl");
   EXPECT_NE(receipt.find("\"intent\":\"check\""), std::string::npos);
+  EXPECT_NE(receipt.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(receipt.find("\"executed\":false"), std::string::npos);
   EXPECT_NE(receipt.find("\"session_id\":\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"compile.started\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.exited\""), std::string::npos);
@@ -693,7 +766,7 @@ TEST(StyioDiagnostics, CompilePlanRunExecutesAndWritesReceiptAndRequestedArtifac
       << "    \"file\": \"" << source.string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
-      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
@@ -724,8 +797,10 @@ TEST(StyioDiagnostics, CompilePlanRunExecutesAndWritesReceiptAndRequestedArtifac
   ASSERT_TRUE(fs::exists(build_root / "runtime-events.jsonl"));
   const std::string receipt = read_text_file_latest(build_root / "receipt.json");
   const std::string runtime_events = read_text_file_latest(build_root / "runtime-events.jsonl");
+  EXPECT_NE(receipt.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(receipt.find("\"executed\":true"), std::string::npos);
   EXPECT_NE(receipt.find("\"session_id\":\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"compile.started\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.exited\""), std::string::npos);
@@ -779,7 +854,7 @@ TEST(StyioDiagnostics, CompilePlanTestExecutesAndPublishesUnitTestRuntimeEvents)
       << "    \"file\": \"" << source.string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
-      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
@@ -808,7 +883,9 @@ TEST(StyioDiagnostics, CompilePlanTestExecutesAndPublishesUnitTestRuntimeEvents)
   const std::string receipt = read_text_file_latest(build_root / "receipt.json");
   const std::string runtime_events = read_text_file_latest(build_root / "runtime-events.jsonl");
   EXPECT_NE(receipt.find("\"intent\":\"test\""), std::string::npos);
+  EXPECT_NE(receipt.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(receipt.find("\"executed\":true"), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.test.started\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.test.finished\""), std::string::npos);
@@ -960,6 +1037,77 @@ TEST(StyioDiagnostics, CompilePlanInvalidIntentReportsCliDiagnosticAndWritesDiag
   EXPECT_NE(diagnostics.find("\"code\":\"STYIO_CLI\""), std::string::npos);
   EXPECT_NE(diagnostics.find("\"subcode\":\"compile_plan_invalid\""), std::string::npos);
   EXPECT_NE(diagnostics.find("unsupported compile-plan intent: ship"), std::string::npos);
+
+  fs::remove_all(root);
+}
+
+TEST(StyioDiagnostics, CompilePlanInvalidBuildModeReportsCliDiagnosticAndWritesDiagDir) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-compile-plan-invalid-build-mode-" + std::to_string(uniq));
+  const fs::path source = root / "src" / "main.styio";
+  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path artifact_dir = build_root / "artifacts";
+  const fs::path diag_dir = build_root / "diag";
+  const fs::path plan_path = build_root / "plan.json";
+  ASSERT_TRUE(fs::create_directories(source.parent_path()));
+  ASSERT_TRUE(fs::create_directories(build_root));
+
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << ">_(\"compile-plan-invalid-build-mode\")\n";
+  }
+  {
+    std::ofstream out(plan_path);
+    ASSERT_TRUE(out.is_open());
+    out
+      << "{\n"
+      << "  \"plan_version\": 1,\n"
+      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"intent\": \"build\",\n"
+      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"entry\": {\n"
+      << "    \"package_id\": \"demo/app@0.1.0\",\n"
+      << "    \"target_kind\": \"bin\",\n"
+      << "    \"target_name\": \"demo-invalid-build-mode\",\n"
+      << "    \"file\": \"" << source.string() << "\"\n"
+      << "  },\n"
+      << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"full\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
+      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"outputs\": {\n"
+      << "    \"build_root\": \"" << build_root.string() << "\",\n"
+      << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
+      << "    \"diag_dir\": \"" << diag_dir.string() << "\"\n"
+      << "  },\n"
+      << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
+      << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const CommandResult result =
+    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+  EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"category\":\"CliError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"subcode\":\"compile_plan_invalid\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("unsupported compile-plan profile.build_mode: full"), std::string::npos);
+
+  const fs::path diag_path = diag_dir / "diagnostics.jsonl";
+  ASSERT_TRUE(fs::exists(diag_path));
+  const std::string diagnostics = read_text_file_latest(diag_path);
+  EXPECT_NE(diagnostics.find("\"category\":\"CliError\""), std::string::npos);
+  EXPECT_NE(diagnostics.find("\"code\":\"STYIO_CLI\""), std::string::npos);
+  EXPECT_NE(diagnostics.find("\"subcode\":\"compile_plan_invalid\""), std::string::npos);
+  EXPECT_NE(diagnostics.find("unsupported compile-plan profile.build_mode: full"), std::string::npos);
 
   fs::remove_all(root);
 }
@@ -3154,7 +3302,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForMixedRouteProgra
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
     out << "x = 0\n";
-    out << "[...] ?(x < 3) >> {\n";
+    out << "[...] >> ?(x < 3) => {\n";
     out << "  x += 1\n";
     out << "}\n";
     out << ">_(x)\n";
@@ -4143,7 +4291,7 @@ TEST(StyioDiagnostics, MalformedStatementPrefixReportsParseErrorWithoutCrash) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 3);
   EXPECT_NE(result.stdout_text.find("\"category\":\"ParseError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("No Statement Starts With This"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("which is expected to be ("), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("Styio.NotImplemented"), std::string::npos);
 
   fs::remove(input);

@@ -1,0 +1,47 @@
+id = "add-repo-file"
+title = "Add Repo File"
+purpose = "Add a repository file with the required indexes, metadata, gates, and ownership updates."
+last_updated = "2026-04-23"
+doc = "ADD-REPO-FILE.md"
+skill = "skills/styio-file-onboarding/skill.toml"
+
+steps = [
+  "classify the new file",
+  "apply naming and metadata rules",
+  "update indexes, registries, catalogs, and gates",
+  "add or update the smallest useful test",
+  "run the narrow gate and relevant repo gate",
+]
+
+file_classes = [
+  "source",
+  "test",
+  "script",
+  "doc",
+  "workflow",
+  "skill",
+  "config",
+  "fixture",
+]
+
+required_evidence = [
+  "file path and class",
+  "registry or index touched, or why none is needed",
+  "test or gate that would fail if incomplete",
+  "git diff --check result",
+]
+
+gates = [
+  "python3 scripts/docs-index.py --check",
+  "python3 scripts/docs-audit.py",
+  "python3 scripts/repo-hygiene-gate.py --mode tracked",
+  "git diff --check",
+]
+
+[handoff]
+report = [
+  "file class",
+  "touched registries",
+  "gates run",
+  "deferred broader test, if any",
+]

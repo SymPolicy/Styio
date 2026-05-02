@@ -1,0 +1,31 @@
+[skill]
+name = "styio-env-bootstrap"
+display_name = "Styio Env Bootstrap"
+description = "Use when changing the development environment bootstrap script, baseline tool versions, dependency installation, or bootstrap documentation."
+last_updated = "2026-04-23"
+
+workflow = [
+  "classify the change as dependency, version baseline, path, or documentation",
+  "check references/env-bootstrap-surface.md",
+  "keep bootstrap dependency-only",
+  "update help text and docs together",
+  "test without installing packages when possible",
+  "run gates from workflows/CHANGE-BOOTSTRAP-ENV.toml",
+]
+
+constraints = [
+  "bootstrap must not configure, build, test, commit, or push",
+  "prefer non-invasive tests over package installation in CI",
+  "document host assumptions explicitly",
+]
+
+completion_report = [
+  "dependency or baseline changed",
+  "host assumptions",
+  "test used",
+  "gates run",
+]
+
+references = [
+  "references/env-bootstrap-surface.md",
+]

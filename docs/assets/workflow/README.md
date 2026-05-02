@@ -2,7 +2,7 @@
 
 **Purpose:** Define the scope of reusable workflow documents under `docs/assets/workflow/`; the generated inventory lives in [INDEX.md](./INDEX.md).
 
-**Last updated:** 2026-04-26
+**Last updated:** 2026-05-01
 
 ## Scope
 
@@ -11,6 +11,8 @@
 3. Workflow changes should be reflected in automation and validation entry points.
 
 ## Usage Rules
+
+Agents must inspect this directory and read the applicable workflow before editing implementation. For syntax disputes, parser/Sema mismatch, EBNF drift, or accepted/rejected spelling questions, start with [CORRECT-SYNTAX-CONTRACT.md](./CORRECT-SYNTAX-CONTRACT.md).
 
 1. Add a workflow asset only if multiple checkpoints or contributors will reuse it.
 2. Pair workflow changes with verification commands or gates.

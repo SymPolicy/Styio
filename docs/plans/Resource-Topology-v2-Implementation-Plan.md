@@ -84,7 +84,7 @@
 
 **必做机械工作：** `AST.hpp` 新类 → `ASTDecl.hpp` visitor 声明 → **所有** visitor 实现文件（`TypeInfer`、`ToStyioIR`、`CodeGen*`、`ToString`、可能的 `ASTAnalyzer`）注册，避免 AGENT-SPEC 禁止的「半注册」。
 
-### 3.4 语义 `src/StyioAnalyzer/`
+### 3.4 语义与 Lowering `src/StyioSema/` / `src/StyioLowering/`
 
 | 文件 | 修改内容 |
 |------|----------|

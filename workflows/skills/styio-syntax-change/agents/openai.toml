@@ -1,0 +1,7 @@
+[interface]
+display_name = "Styio Syntax Change"
+short_description = "Change Styio syntax safely."
+default_prompt = "Use $styio-syntax-change to change Styio syntax with parser, docs, tests, and gates aligned."
+
+[policy]
+allow_implicit_invocation = true

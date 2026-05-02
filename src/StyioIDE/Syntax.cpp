@@ -138,8 +138,18 @@ tokenize_tolerant(const std::string& text, std::vector<Diagnostic>& diagnostics)
       return i + 1 < text.size() && text.compare(i, 2, token) == 0;
     };
 
+    const auto maybe_three = [&](const char* token) -> bool
+    {
+      return i + 2 < text.size() && text.compare(i, 3, token) == 0;
+    };
+
     if (i + 2 < text.size() && text.compare(i, 3, "...") == 0) {
       push(StyioTokenType::ELLIPSIS, "...");
+      i += 3;
+      continue;
+    }
+    if (maybe_three("|<|")) {
+      push(StyioTokenType::RETURN_PIPE, "|<|");
       i += 3;
       continue;
     }
@@ -253,6 +263,11 @@ tokenize_tolerant(const std::string& text, std::vector<Diagnostic>& diagnostics)
       i += 2;
       continue;
     }
+    if (maybe_two("|;")) {
+      push(StyioTokenType::PIPE_SEMICOLON, "|;");
+      i += 2;
+      continue;
+    }
     if (maybe_two("<~")) {
       push(StyioTokenType::WAVE_LEFT, "<~");
       i += 2;
@@ -299,6 +314,9 @@ tokenize_tolerant(const std::string& text, std::vector<Diagnostic>& diagnostics)
         break;
       case ',':
         push(StyioTokenType::TOK_COMMA, ",");
+        break;
+      case ';':
+        push(StyioTokenType::TOK_SEMICOLON, ";");
         break;
       case '.':
         push(StyioTokenType::TOK_DOT, ".");

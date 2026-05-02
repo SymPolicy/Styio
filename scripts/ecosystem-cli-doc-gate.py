@@ -44,7 +44,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-spio/docs/styio/Styio-External-Interface-Requirement-Spec.md",
+                "styio-spio/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md",
                 (
                     "### 2.1 `styio --machine-info=json`",
                     "`active_integration_phase`",
@@ -54,7 +54,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-view/docs/for-styio/Styio-Compile-Run-Contract.md",
+                "styio-view/docs/external/for-styio/Styio-Compile-Run-Contract.md",
                 (
                     "`styio --machine-info=json`",
                     "`supported_contract_versions`",
@@ -79,7 +79,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-spio/docs/styio/Styio-External-Interface-Requirement-Spec.md",
+                "styio-spio/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md",
                 (
                     "### 2.2 `styio --compile-plan <path>`",
                     "- `check`",
@@ -88,12 +88,39 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-view/docs/for-styio/Styio-Compile-Run-Contract.md",
+                "styio-view/docs/external/for-styio/Styio-Compile-Run-Contract.md",
                 (
                     "`styio --compile-plan <path>`",
                     "`build/check/run/test` 都走同一条 compile-plan v1 入口",
                     "`diagnostics.jsonl`",
                     "`CliError`",
+                ),
+            ),
+        ),
+    ),
+    ContractRule(
+        key="styio.source_build",
+        summary="styio source-build metadata stays aligned for spio build",
+        docs=(
+            DocRule(
+                "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+                (
+                    "### 2.3 `styio --source-build-info=json`",
+                    "`https://github.com/SymPolicy/Styio.git`",
+                    "`compiler_core / std_symbols / runtime / macro_prelude`",
+                    "`minimal`",
+                    "`scripts/source-build-minimal.sh`",
+                    "`src/StyioParser/SymbolRegistry.cpp`",
+                ),
+            ),
+            DocRule(
+                "styio-spio/docs/governance/Spio-CLI-Contract.md",
+                (
+                    "`https://github.com/SymPolicy/Styio.git`",
+                    "`stable` and `nightly` to the same-named source branches",
+                    "`spio build minimal`",
+                    "`spio-toolchain.lock`",
+                    "source-build mode bypasses the published binary compatibility matrix",
                 ),
             ),
         ),
@@ -121,7 +148,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-view/docs/for-spio/Spio-Toolchain-And-Registry-State.md",
+                "styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md",
                 (
                     "`spio machine-info --json`",
                     "`spio project-graph --json`",
@@ -152,7 +179,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-view/docs/for-spio/Spio-Project-Graph-Contract.md",
+                "styio-view/docs/external/for-spio/Spio-Project-Graph-Contract.md",
                 (
                     "`spio project-graph --manifest-path <path> --json`",
                     "`project_graph v1`",
@@ -187,7 +214,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-view/docs/for-spio/Spio-Toolchain-And-Registry-State.md",
+                "styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md",
                 (
                     "`spio tool status --json`",
                     "`toolchain_state v1`",
@@ -222,7 +249,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-view/docs/for-spio/Spio-Workflow-Success-Payloads.md",
+                "styio-view/docs/external/for-spio/Spio-Workflow-Success-Payloads.md",
                 (
                     "spio --json build --manifest-path <path> ...",
                     "`workflow_success_payloads v1`",
@@ -256,7 +283,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-view/docs/for-spio/Spio-Workflow-Success-Payloads.md",
+                "styio-view/docs/external/for-spio/Spio-Workflow-Success-Payloads.md",
                 (
                     "spio --json fetch --manifest-path <path> ...",
                     "spio --json tool install --styio-bin <path>",
@@ -264,7 +291,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-view/docs/for-spio/Spio-Toolchain-And-Registry-State.md",
+                "styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md",
                 (
                     "`spio --json fetch --manifest-path <path>`",
                     "`spio --json pack --manifest-path <path>`",

@@ -122,6 +122,8 @@ using StyioToStringVisitor = ToStringVisitor<
   class MainBlockAST,
 
   class ExtPackAST,
+  class ExportDeclAST,
+  class ExternBlockAST,
 
   class InfiniteAST,
 
@@ -270,6 +272,8 @@ public:
   std::string toString(PrintAST* ast, int indent = 0);
 
   std::string toString(ExtPackAST* ast, int indent = 0);
+  std::string toString(ExportDeclAST* ast, int indent = 0);
+  std::string toString(ExternBlockAST* ast, int indent = 0);
 
   std::string toString(BlockAST* ast, int indent = 0);
 
@@ -344,6 +348,8 @@ public:
   std::string toString(SGFuncArg* node, int indent = 0);
   std::string toString(SGFunc* node, int indent = 0);
   std::string toString(SGCall* node, int indent = 0);
+  std::string toString(SGExportDecl* node, int indent = 0);
+  std::string toString(SGExternBlock* node, int indent = 0);
 
   std::string toString(SGReturn* node, int indent = 0);
 
@@ -357,8 +363,8 @@ public:
 
   std::string toString(SGLoop* node, int indent = 0);
   std::string toString(SGForEach* node, int indent = 0);
-  std::string toString(SGListLiteral* node, int indent = 0);
-  std::string toString(SGDictLiteral* node, int indent = 0);
+  std::string toString(SCListLiteral* node, int indent = 0);
+  std::string toString(SCDictLiteral* node, int indent = 0);
   std::string toString(SGRangeFor* node, int indent = 0);
   std::string toString(SGIf* node, int indent = 0);
   std::string toString(SGStateSnapLoad* node, int indent = 0);
@@ -376,26 +382,26 @@ public:
   std::string toString(SGGuardSelect* node, int indent = 0);
   std::string toString(SGEqProbe* node, int indent = 0);
 
-  std::string toString(SGHandleAcquire* node, int indent = 0);
-  std::string toString(SGFileLineIter* node, int indent = 0);
-  std::string toString(SGStreamZip* node, int indent = 0);
+  std::string toString(SIOHandleAcquire* node, int indent = 0);
+  std::string toString(SIOFileLineIter* node, int indent = 0);
+  std::string toString(SIOStreamZip* node, int indent = 0);
   std::string toString(SGSnapshotDecl* node, int indent = 0);
   std::string toString(SGSnapshotShadowLoad* node, int indent = 0);
-  std::string toString(SGInstantPull* node, int indent = 0);
-  std::string toString(SGListReadStdin* node, int indent = 0);
-  std::string toString(SGListClone* node, int indent = 0);
-  std::string toString(SGListLen* node, int indent = 0);
-  std::string toString(SGListGet* node, int indent = 0);
-  std::string toString(SGListSet* node, int indent = 0);
-  std::string toString(SGListToString* node, int indent = 0);
-  std::string toString(SGDictClone* node, int indent = 0);
-  std::string toString(SGDictLen* node, int indent = 0);
-  std::string toString(SGDictGet* node, int indent = 0);
-  std::string toString(SGDictSet* node, int indent = 0);
-  std::string toString(SGDictKeys* node, int indent = 0);
-  std::string toString(SGDictValues* node, int indent = 0);
-  std::string toString(SGDictToString* node, int indent = 0);
-  std::string toString(SGResourceWriteToFile* node, int indent = 0);
+  std::string toString(SIOInstantPull* node, int indent = 0);
+  std::string toString(SIOListReadStdin* node, int indent = 0);
+  std::string toString(SCListClone* node, int indent = 0);
+  std::string toString(SCListLen* node, int indent = 0);
+  std::string toString(SCListGet* node, int indent = 0);
+  std::string toString(SCListSet* node, int indent = 0);
+  std::string toString(SCListToString* node, int indent = 0);
+  std::string toString(SCDictClone* node, int indent = 0);
+  std::string toString(SCDictLen* node, int indent = 0);
+  std::string toString(SCDictGet* node, int indent = 0);
+  std::string toString(SCDictSet* node, int indent = 0);
+  std::string toString(SCDictKeys* node, int indent = 0);
+  std::string toString(SCDictValues* node, int indent = 0);
+  std::string toString(SCDictToString* node, int indent = 0);
+  std::string toString(SIOResourceWriteToFile* node, int indent = 0);
   std::string toString(SIOStdStreamWrite* node, int indent = 0);
   std::string toString(SIOStdStreamLineIter* node, int indent = 0);
   std::string toString(SIOStdStreamPull* node, int indent = 0);

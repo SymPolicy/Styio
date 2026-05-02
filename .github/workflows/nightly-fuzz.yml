@@ -28,7 +28,7 @@ jobs:
 
       - name: Configure
         run: >
-          cmake -S . -B build -G Ninja
+          cmake -S . -B build/fuzz -G Ninja
           -DCMAKE_BUILD_TYPE=Debug
           -DCMAKE_C_COMPILER=clang-18
           -DCMAKE_CXX_COMPILER=clang++-18
@@ -36,21 +36,21 @@ jobs:
           -DSTYIO_ENABLE_FUZZ=ON
 
       - name: Build fuzzers
-        run: cmake --build build --target styio_fuzz_lexer styio_fuzz_parser
+        run: cmake --build build/fuzz --target styio_fuzz_lexer styio_fuzz_parser
 
       - name: Run deep fuzz
         id: deep_fuzz
         run: |
           mkdir -p fuzz-artifacts/lexer fuzz-artifacts/parser
           set +e
-          ASAN_OPTIONS=detect_container_overflow=0 ./build/bin/styio_fuzz_lexer \
+          ASAN_OPTIONS=detect_container_overflow=0 ./build/fuzz/bin/styio_fuzz_lexer \
             tests/fuzz/corpus/lexer \
             -max_total_time=600 \
             -artifact_prefix=fuzz-artifacts/lexer/ \
             > fuzz-artifacts/lexer.log 2>&1
           LEX_EXIT=$?
 
-          ASAN_OPTIONS=detect_container_overflow=0 ./build/bin/styio_fuzz_parser \
+          ASAN_OPTIONS=detect_container_overflow=0 ./build/fuzz/bin/styio_fuzz_parser \
             tests/fuzz/corpus/parser \
             -max_total_time=600 \
             -artifact_prefix=fuzz-artifacts/parser/ \

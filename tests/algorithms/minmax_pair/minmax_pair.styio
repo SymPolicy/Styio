@@ -1,0 +1,23 @@
+values <- @stdin: list[i32]
+
+min_value = -1
+max_value = -1
+n = values.length
+
+?(n > 0) => {
+    min_value = values[0]
+    max_value = values[0]
+
+    ?(n > 1) => {
+        [1..n-1] >> #(i) => {
+            ?(values[i] < min_value) => {
+                min_value = values[i]
+            }
+            ?(values[i] > max_value) => {
+                max_value = values[i]
+            }
+        }
+    }
+}
+
+>_(min_value, max_value)

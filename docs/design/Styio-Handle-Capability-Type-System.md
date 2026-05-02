@@ -2,7 +2,7 @@
 
 **Purpose:** 为 Styio 的资源值、`@stdin/@stdout`、`<<`、可迭代对象、以及默认失败处理建立统一的设计级类型系统；该文档定义目标模型，不等同于当前实现。
 
-**Last updated:** 2026-04-12
+**Last updated:** 2026-04-24
 
 **Status:** Target design — not fully implemented in the current compiler.  
 **See also:** [`Styio-Language-Design.md`](./Styio-Language-Design.md), [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md), [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md).
@@ -245,14 +245,17 @@ Given a left side `L` and right side `R`:
 4. If `L` is an unbound identifier in definition position, `L << R` means:
    create a default collector for `R`, then drain `R` into it.
 
-So in the target design:
+So in the target design, `<<` can still model generic iterable drainage, but stdin keeps a
+more explicit surface:
 
-- `a <- @stdin`
-  means `a` is bound to the raw stream handle.
-- `a << @stdin`
-  means collect the input stream into a default container, one item at a time.
+- `@stdin >> #(line) => { ... }`
+  means iterate terminal input one line at a time.
+- `value = (<- @stdin)`
+  means perform a one-shot immediate pull from stdin.
 
-If `@stdin` yields lines, then `a << @stdin` defaults to `list[string]`.
+Do not use `a << @stdin` or `lines << @stdin` as the current stdin design spelling. If a
+program needs a materialized list of stdin lines, collect explicitly inside the iterator body or
+use a future named typed-read API.
 
 ### 8.2 Relationship with cloning
 

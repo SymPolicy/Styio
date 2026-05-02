@@ -6,7 +6,7 @@
 
 **Status:** Implemented
 
-**Depends on:** M17 (workspace index)  
+**Depends on:** M17 (workspace index)
 **Goal:** IDE 守护进程必须具备真实运行时能力：请求取消、诊断 debounce、前后台任务优先级和版本守卫都要明确，否则再好的语义层也会被运行时噪音拖垮。
 
 ---
@@ -26,7 +26,7 @@ This milestone freezes:
 
 ### T18.01 — Stale completion results are dropped after a newer snapshot arrives
 
-**Target:** new LSP/runtime transcript  
+**Target:** new LSP/runtime transcript
 **Suggested name:** `StyioLspRuntime.DropsStaleCompletionResponses`
 
 Acceptance:
@@ -36,7 +36,7 @@ Acceptance:
 
 ### T18.02 — Semantic diagnostics are debounced
 
-**Target:** new runtime test  
+**Target:** new runtime test
 **Suggested name:** `StyioLspRuntime.DebouncesSemanticDiagnostics`
 
 Acceptance:
@@ -46,7 +46,7 @@ Acceptance:
 
 ### T18.03 — Background indexing yields to foreground requests
 
-**Target:** new runtime/index test  
+**Target:** new runtime/index test
 **Suggested name:** `StyioLspRuntime.BackgroundIndexYieldsToForegroundRequests`
 
 Acceptance:
@@ -56,7 +56,7 @@ Acceptance:
 
 ### T18.04 — Cancellation propagates through query consumers
 
-**Target:** new runtime semantic test  
+**Target:** new runtime semantic test
 **Suggested name:** `StyioLspRuntime.CancellationPropagatesThroughSemanticQueries`
 
 Acceptance:
@@ -69,33 +69,33 @@ Acceptance:
 ## Implementation Tasks
 
 ### Task 18.1 — Add request/version guards
-**Role:** Runtime Agent  
-**Files:** `src/StyioLSP/Server.cpp`, `src/StyioIDE/Service.*`  
-**Action:** Tie foreground requests to snapshot/version guards so stale results can be dropped.  
+**Role:** Runtime Agent
+**Files:** `src/StyioLSP/Server.cpp`, `src/StyioIDE/Service.*`
+**Action:** Tie foreground requests to snapshot/version guards so stale results can be dropped.
 **Verify:** Build succeeds.
 
 ### Task 18.2 — Add semantic diagnostics debounce
-**Role:** Runtime Agent  
-**Files:** `src/StyioIDE/Service.*`, runtime helpers as needed  
-**Action:** Separate immediate syntax diagnostics from delayed semantic diagnostics.  
+**Role:** Runtime Agent
+**Files:** `src/StyioIDE/Service.*`, runtime helpers as needed
+**Action:** Separate immediate syntax diagnostics from delayed semantic diagnostics.
 **Verify:** T18.02 passes.
 
 ### Task 18.3 — Add task classes and scheduling priorities
-**Role:** Runtime Agent  
-**Files:** `src/StyioIDE/Service.*`, index/runtime helpers  
-**Action:** Prioritize visible-document work over indexing and maintenance work.  
+**Role:** Runtime Agent
+**Files:** `src/StyioIDE/Service.*`, index/runtime helpers
+**Action:** Prioritize visible-document work over indexing and maintenance work.
 **Verify:** T18.03 passes.
 
 ### Task 18.4 — Propagate cancellation
-**Role:** Runtime Agent  
-**Files:** `src/StyioIDE/SemDB.*`, `src/StyioIDE/Index.*`, `src/StyioIDE/Service.*`  
-**Action:** Let long-running query/index tasks observe cancellation or snapshot obsolescence.  
+**Role:** Runtime Agent
+**Files:** `src/StyioIDE/SemDB.*`, `src/StyioIDE/Index.*`, `src/StyioIDE/Service.*`
+**Action:** Let long-running query/index tasks observe cancellation or snapshot obsolescence.
 **Verify:** T18.01 and T18.04 pass.
 
 ### Task 18.5 — Update docs
-**Role:** Doc Agent  
-**Files:** `docs/for-ide/*.md`, `docs/plans/*.md`, `docs/milestones/2026-04-15/*.md`  
-**Action:** Document runtime scheduling, debounce, and cancellation semantics.  
+**Role:** Doc Agent
+**Files:** `docs/external/for-ide/*.md`, `docs/plans/*.md`, `docs/milestones/2026-04-15/*.md`
+**Action:** Document runtime scheduling, debounce, and cancellation semantics.
 **Verify:** `python3 scripts/docs-audit.py` passes.
 
 ---

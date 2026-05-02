@@ -1,0 +1,25 @@
+values <- @stdin: list[i32]
+
+answer = 0
+
+?(values.length > 1) => {
+    lhs_len = values[0]
+    rhs_len = values[1]
+    rhs_start = 2 + lhs_len
+    required = 2 + lhs_len + rhs_len
+
+    ?(lhs_len == rhs_len) => {
+        ?(values.length >= required) => {
+            answer = 1
+            ?(lhs_len > 0) => {
+                [0..lhs_len-1] >> #(i) => {
+                    ?(values[2 + i] != values[rhs_start + i]) => {
+                        answer = 0
+                    }
+                }
+            }
+        }
+    }
+}
+
+>_(answer)

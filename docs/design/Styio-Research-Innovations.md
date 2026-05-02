@@ -106,16 +106,16 @@ Missing data is pervasive in real-world streams (network drops, sensor failures,
 
 ### Styio's Contribution
 
-Styio introduces `@` as a **first-class algebraic absence value** that:
+Styio introduces runtime `@` as an **algebraic absence value** that:
 
-- Propagates through **all** types (not just float): `"hello" + @ = @`, `true && @ = @`
+- Propagates through supported value families as runtime absence, not as a user-authored bare source literal
 - Costs zero bytes in the happy path (represented as a metadata flag bit, not a wrapper type)
 - Carries **diagnostic metadata** in debug mode (reason code, source location)
 - Can be intercepted at any point via `|` (fallback) or `??` (diagnostic extract)
 
 **Formal algebra:**
 
-For any binary operation \(\oplus\) and values \(a, b\):
+For any supported binary operation \(\oplus\), values \(a, b\), and runtime absence \(@\):
 
 \[a \oplus @ = @\]
 \[@ \oplus b = @\]

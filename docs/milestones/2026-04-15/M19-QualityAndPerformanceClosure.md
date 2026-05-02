@@ -6,7 +6,7 @@
 
 **Status:** Implemented
 
-**Depends on:** M18 (IDE runtime)  
+**Depends on:** M18 (IDE runtime)
 **Goal:** 在扩功能之前先收口质量。语法漂移、模糊输入、LSP transcript 和性能回归都要进入持续校验；未过门槛时不得继续扩 IDE 功能面。
 
 ---
@@ -26,7 +26,7 @@ This milestone freezes:
 
 ### T19.01 — Syntax drift corpus stays within the approved envelope
 
-**Target:** new corpus/drift suite  
+**Target:** new corpus/drift suite
 **Suggested name:** `StyioSyntaxDrift.CorpusMatchesApprovedEnvelope`
 
 Acceptance:
@@ -36,7 +36,7 @@ Acceptance:
 
 ### T19.02 — Fuzz targets do not crash or hang
 
-**Target:** new fuzz CI entry points  
+**Target:** new fuzz CI entry points
 **Suggested name:** `StyioFuzzTargets.SyntaxCompletionAndLspSyncRemainStable`
 
 Acceptance:
@@ -45,7 +45,7 @@ Acceptance:
 
 ### T19.03 — Performance harness enforces latency budgets
 
-**Target:** new perf harness  
+**Target:** new perf harness
 **Suggested name:** `StyioIdePerf.EnforcesFrozenLatencyBudgets`
 
 Acceptance:
@@ -65,33 +65,33 @@ Required regression surface:
 ## Implementation Tasks
 
 ### Task 19.1 — Freeze syntax drift corpus
-**Role:** Quality Agent  
-**Files:** `tests/ide/`, corpus locations as needed  
-**Action:** Build and maintain a representative syntax corpus compared across both parser layers.  
+**Role:** Quality Agent
+**Files:** `tests/ide/`, corpus locations as needed
+**Action:** Build and maintain a representative syntax corpus compared across both parser layers.
 **Verify:** T19.01 passes.
 
 ### Task 19.2 — Add fuzz targets
-**Role:** Quality Agent  
-**Files:** fuzz target directories and build glue as needed  
-**Action:** Add fuzz entry points for syntax, completion, and LSP sync/document updates.  
+**Role:** Quality Agent
+**Files:** fuzz target directories and build glue as needed
+**Action:** Add fuzz entry points for syntax, completion, and LSP sync/document updates.
 **Verify:** T19.02 passes.
 
 ### Task 19.3 — Add performance harness and reporting
-**Role:** Quality Agent  
-**Files:** performance test harness locations, IDE runtime instrumentation  
-**Action:** Make the core latency budgets reproducible and reportable.  
+**Role:** Quality Agent
+**Files:** performance test harness locations, IDE runtime instrumentation
+**Action:** Make the core latency budgets reproducible and reportable.
 **Verify:** T19.03 passes.
 
 ### Task 19.4 — Block uncontrolled scope growth
-**Role:** Quality Agent  
-**Files:** CI scripts, docs, or test glue as needed  
-**Action:** Ensure new IDE feature work cannot bypass frozen performance gates without a documented waiver.  
+**Role:** Quality Agent
+**Files:** CI scripts, docs, or test glue as needed
+**Action:** Ensure new IDE feature work cannot bypass frozen performance gates without a documented waiver.
 **Verify:** T19.04 passes.
 
 ### Task 19.5 — Update docs
-**Role:** Doc Agent  
-**Files:** `docs/for-ide/*.md`, `docs/plans/*.md`, `docs/milestones/2026-04-15/*.md`  
-**Action:** Document quality gates, corpora, fuzz targets, and benchmark commands.  
+**Role:** Doc Agent
+**Files:** `docs/external/for-ide/*.md`, `docs/plans/*.md`, `docs/milestones/2026-04-15/*.md`
+**Action:** Document quality gates, corpora, fuzz targets, and benchmark commands.
 **Verify:** `python3 scripts/docs-audit.py` passes.
 
 ---

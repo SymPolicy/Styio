@@ -1,4 +1,6 @@
 # Build outputs and generated large artifacts
+# New local variants belong under /build/<variant>; /build-* stays ignored
+# only to keep legacy root build directories out of the index.
 /build/
 /build-*/
 Testing/
@@ -94,6 +96,7 @@ parser-shadow-artifacts-*/
 .DS_Store
 
 # Shared cross-repo tracked-fixture negate rules
+docs/audit/defects/
 !docs/**/build/
 !docs/**/build/**
 !docs/**/build-*/

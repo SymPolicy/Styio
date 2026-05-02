@@ -6,7 +6,7 @@
 
 **Status:** Implemented
 
-**Depends on:** M14 (name resolution and scope graph)  
+**Depends on:** M14 (name resolution and scope graph)
 **Goal:** 把类型推断从“文件级重算”拆到 item/query 级别。函数签名、函数体和接收者类型要能独立缓存，改单个函数体时不应让整文件推断失效。
 
 ---
@@ -52,7 +52,7 @@ IDE consumers:
 
 ### T15.01 — Signature and body inference are separate queries
 
-**Target:** new inference cache test  
+**Target:** new inference cache test
 **Suggested name:** `StyioTypeInference.SeparatesSignatureAndBodyQueries`
 
 Acceptance:
@@ -62,7 +62,7 @@ Acceptance:
 
 ### T15.02 — Editing one function body does not invalidate unrelated function inference
 
-**Target:** new incremental inference test  
+**Target:** new incremental inference test
 **Suggested name:** `StyioTypeInference.InvalidatesOnlyEditedFunctionBody`
 
 Acceptance:
@@ -72,7 +72,7 @@ Acceptance:
 
 ### T15.03 — Member receiver types are available to IDE consumers
 
-**Target:** new IDE semantic test  
+**Target:** new IDE semantic test
 **Suggested name:** `StyioIdeService.ExposesReceiverTypesForMembers`
 
 Acceptance:
@@ -82,7 +82,7 @@ Acceptance:
 
 ### T15.04 — Call-site expected types are available
 
-**Target:** new IDE semantic test  
+**Target:** new IDE semantic test
 **Suggested name:** `StyioIdeService.ExposesCallSiteExpectedTypes`
 
 Acceptance:
@@ -95,33 +95,33 @@ Acceptance:
 ## Implementation Tasks
 
 ### Task 15.1 — Define item-level inference query keys
-**Role:** Semantic Agent  
-**Files:** `src/StyioIDE/SemDB.*`, `src/StyioIDE/HIR.*`  
-**Action:** Add query keys for signatures, bodies, and typed expression sites.  
+**Role:** Semantic Agent
+**Files:** `src/StyioIDE/SemDB.*`, `src/StyioIDE/HIR.*`
+**Action:** Add query keys for signatures, bodies, and typed expression sites.
 **Verify:** Build succeeds.
 
 ### Task 15.2 — Split signature inference from body inference
-**Role:** Semantic Agent  
-**Files:** `src/StyioIDE/CompilerBridge.*`, `src/StyioIDE/SemDB.*`  
-**Action:** Refactor inference entry points so body work no longer dominates every typed request.  
+**Role:** Semantic Agent
+**Files:** `src/StyioIDE/CompilerBridge.*`, `src/StyioIDE/SemDB.*`
+**Action:** Refactor inference entry points so body work no longer dominates every typed request.
 **Verify:** T15.01 passes.
 
 ### Task 15.3 — Add item-local invalidation
-**Role:** Semantic Agent  
-**Files:** `src/StyioIDE/SemDB.*`  
-**Action:** Invalidate only the changed item body wherever dependency rules permit.  
+**Role:** Semantic Agent
+**Files:** `src/StyioIDE/SemDB.*`
+**Action:** Invalidate only the changed item body wherever dependency rules permit.
 **Verify:** T15.02 passes.
 
 ### Task 15.4 — Surface receiver and expected-type data
-**Role:** IDE Agent  
-**Files:** `src/StyioIDE/SemDB.*`, `src/StyioIDE/Service.*`  
-**Action:** Thread typed context into hover and completion.  
+**Role:** IDE Agent
+**Files:** `src/StyioIDE/SemDB.*`, `src/StyioIDE/Service.*`
+**Action:** Thread typed context into hover and completion.
 **Verify:** T15.03 and T15.04 pass.
 
 ### Task 15.5 — Update docs
-**Role:** Doc Agent  
-**Files:** `docs/for-ide/*.md`, `docs/plans/*.md`, `docs/milestones/2026-04-15/*.md`  
-**Action:** Document inference query boundaries and invalidation rules.  
+**Role:** Doc Agent
+**Files:** `docs/external/for-ide/*.md`, `docs/plans/*.md`, `docs/milestones/2026-04-15/*.md`
+**Action:** Document inference query boundaries and invalidation rules.
 **Verify:** `python3 scripts/docs-audit.py` passes.
 
 ---

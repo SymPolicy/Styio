@@ -74,7 +74,7 @@
 6. `docs/archive/`
 7. `docs/rollups/` 或等价 active-summary 层
 8. `docs/review/`
-9. `docs/assets/` / `docs/operations/` / `docs/contracts/` / `docs/for-*`
+9. `docs/assets/` / `docs/operations/` / `docs/contracts/` / `docs/external/for-*`
 
 允许仓库保留自身主题模块，但不允许职责混叠到无法判断“谁拥有哪类事实”。
 
