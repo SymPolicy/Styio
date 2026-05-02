@@ -4459,6 +4459,93 @@ TEST(StyioSamples, DictTypeHandleFamilies) {
   fs::remove(input);
 }
 
+TEST(StyioSamples, MatrixTypeNestedListLiteral) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-matrix-type-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "m: matrix = [[1,0],[0,1]]\n";
+    out << ">_(m)\n";
+    out << ">_(m[0])\n";
+    out << ">_(m[1][1])\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(result.stdout_text, "[[1,0],[0,1]]\n[1,0]\n1\n");
+
+  fs::remove(input);
+}
+
+TEST(StyioSamples, MatrixOperationsAndIntrinsics) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-matrix-ops-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "a: matrix = [[1,2],[3,4]]\n";
+    out << "b: matrix = [[5,6],[7,8]]\n";
+    out << ">_(a + b)\n";
+    out << ">_(a * b)\n";
+    out << ">_(mat_hadamard(a,b))\n";
+    out << ">_(transpose(a))\n";
+    out << ">_(mat_identity_i64(2))\n";
+    out << "z = mat_zeros_i64(2,2)\n";
+    out << "ok = mat_set(z,0,1,9)\n";
+    out << ">_(z)\n";
+    out << ">_(dot(a,b))\n";
+    out << ">_(mat_sum(a))\n";
+    out << ">_(norm(a))\n";
+    out << ">_(mat_shape(a))\n";
+    out << ">_(mat_rows(a))\n";
+    out << ">_(mat_cols(a))\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(
+    result.stdout_text,
+    "[[6,8],[10,12]]\n"
+    "[[19,22],[43,50]]\n"
+    "[[5,12],[21,32]]\n"
+    "[[1,3],[2,4]]\n"
+    "[[1,0],[0,1]]\n"
+    "[[0,9],[0,0]]\n"
+    "70\n"
+    "10\n"
+    "5.477226\n"
+    "[2,2]\n"
+    "2\n"
+    "2\n");
+
+  fs::remove(input);
+}
+
 TEST(StyioSamples, ListPredefinedOperations) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();

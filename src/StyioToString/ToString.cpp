@@ -1424,6 +1424,36 @@ StyioRepr::toString(SCDictLiteral* node, int indent) {
 }
 
 std::string
+StyioRepr::toString(SCMatrixLiteral* node, int indent) {
+  (void)indent;
+  return std::string("styio.ir.matrix_literal { elems=") + std::to_string(node->elems.size())
+    + ", elem=" + node->elem_type
+    + ", rows=" + std::to_string(node->rows)
+    + ", cols=" + std::to_string(node->cols) + " }";
+}
+
+std::string
+StyioRepr::toString(SCMatrixGet* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.matrix_get { }";
+}
+
+std::string
+StyioRepr::toString(SCMatrixRow* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.matrix_row { }";
+}
+
+std::string
+StyioRepr::toString(SCMatrixToString* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.matrix_to_string { }";
+}
+
+std::string
 StyioRepr::toString(SGStateSnapLoad* node, int indent) {
   (void)node;
   (void)indent;

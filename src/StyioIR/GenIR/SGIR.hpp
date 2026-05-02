@@ -210,13 +210,42 @@ public:
   StyioIR* lhs_expr;
   StyioIR* rhs_expr;
   StyioOpType operand;
+  StyioDataType lhs_type{StyioDataTypeOption::Undefined, "undefined", 0};
+  StyioDataType rhs_type{StyioDataTypeOption::Undefined, "undefined", 0};
 
   SGBinOp(StyioIR* lhs, StyioIR* rhs, StyioOpType op, SGType* data_type) :
       lhs_expr(std::move(lhs)), rhs_expr(std::move(rhs)), operand(op), data_type(std::move(data_type)) {
   }
 
+  SGBinOp(
+    StyioIR* lhs,
+    StyioIR* rhs,
+    StyioOpType op,
+    SGType* data_type,
+    StyioDataType lhs_data_type,
+    StyioDataType rhs_data_type
+  ) :
+      lhs_expr(std::move(lhs)),
+      rhs_expr(std::move(rhs)),
+      operand(op),
+      data_type(std::move(data_type)),
+      lhs_type(std::move(lhs_data_type)),
+      rhs_type(std::move(rhs_data_type)) {
+  }
+
   static SGBinOp* Create(StyioIR* lhs, StyioIR* rhs, StyioOpType op, SGType* data_type) {
     return new SGBinOp(lhs, rhs, op, data_type);
+  }
+
+  static SGBinOp* Create(
+    StyioIR* lhs,
+    StyioIR* rhs,
+    StyioOpType op,
+    SGType* data_type,
+    StyioDataType lhs_data_type,
+    StyioDataType rhs_data_type
+  ) {
+    return new SGBinOp(lhs, rhs, op, data_type, std::move(lhs_data_type), std::move(rhs_data_type));
   }
 };
 

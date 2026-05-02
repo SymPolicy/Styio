@@ -365,6 +365,10 @@ public:
   std::string toString(SGForEach* node, int indent = 0);
   std::string toString(SCListLiteral* node, int indent = 0);
   std::string toString(SCDictLiteral* node, int indent = 0);
+  std::string toString(SCMatrixLiteral* node, int indent = 0);
+  std::string toString(SCMatrixGet* node, int indent = 0);
+  std::string toString(SCMatrixRow* node, int indent = 0);
+  std::string toString(SCMatrixToString* node, int indent = 0);
   std::string toString(SGRangeFor* node, int indent = 0);
   std::string toString(SGIf* node, int indent = 0);
   std::string toString(SGStateSnapLoad* node, int indent = 0);

@@ -2,7 +2,7 @@
 
 **Purpose:** 词法与语法的 **EBNF 权威定义**；资源拓扑相关附录与叙述以 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md) 为准，语义细节以 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 为准。
 
-**Last updated:** 2026-05-01
+**Last updated:** 2026-05-03
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -210,6 +210,7 @@ param              = identifier [ ':' type_annotation ] ;
 type_annotation    = 'i8' | 'i16' | 'i32' | 'i64' | 'i128'
                    | 'f32' | 'f64'
                    | 'bool' | 'char' | 'string' | 'byte'
+                   | 'matrix'
                    | identifier ;
 ```
 
@@ -448,6 +449,8 @@ tuple_literal      = '(' expression ',' expression { ',' expression } ')' ;
 
 range_literal      = expression '..' expression [ '..' expression ] ;
 ```
+
+`matrix` annotations reuse nested `list_literal` syntax as their source form. A binding such as `m: matrix = [[1,0],[0,1]]` triggers rectangular numeric row validation in the typed context and lowers to a matrix handle; untyped nested list literals remain ordinary lists. Matrix operations such as `matmul(a,b)`, `transpose(m)`, `mat_shape(m)`, and `mat_set(m,r,c,v)` are ordinary identifier calls at the grammar level and are recognized by semantic analysis.
 
 ---
 

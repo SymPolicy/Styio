@@ -114,6 +114,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SGForEach,
   class SCListLiteral,
   class SCDictLiteral,
+  class SCMatrixLiteral,
   class SGRangeFor,
   class SGIf,
   class SGStateSnapLoad,
@@ -143,6 +144,9 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SCListGet,
   class SCListSet,
   class SCListToString,
+  class SCMatrixGet,
+  class SCMatrixRow,
+  class SCMatrixToString,
   class SCDictClone,
   class SCDictLen,
   class SCDictGet,
@@ -280,6 +284,7 @@ public:
   llvm::Type* toLLVMType(SGForEach* node);
   llvm::Type* toLLVMType(SCListLiteral* node);
   llvm::Type* toLLVMType(SCDictLiteral* node);
+  llvm::Type* toLLVMType(SCMatrixLiteral* node);
   llvm::Type* toLLVMType(SGRangeFor* node);
   llvm::Type* toLLVMType(SGIf* node);
   llvm::Type* toLLVMType(SGStateSnapLoad* node);
@@ -309,6 +314,9 @@ public:
   llvm::Type* toLLVMType(SCListGet* node);
   llvm::Type* toLLVMType(SCListSet* node);
   llvm::Type* toLLVMType(SCListToString* node);
+  llvm::Type* toLLVMType(SCMatrixGet* node);
+  llvm::Type* toLLVMType(SCMatrixRow* node);
+  llvm::Type* toLLVMType(SCMatrixToString* node);
   llvm::Type* toLLVMType(SCDictClone* node);
   llvm::Type* toLLVMType(SCDictLen* node);
   llvm::Type* toLLVMType(SCDictGet* node);
@@ -370,6 +378,7 @@ public:
   llvm::Value* toLLVMIR(SGForEach* node);
   llvm::Value* toLLVMIR(SCListLiteral* node);
   llvm::Value* toLLVMIR(SCDictLiteral* node);
+  llvm::Value* toLLVMIR(SCMatrixLiteral* node);
   llvm::Value* toLLVMIR(SGRangeFor* node);
   llvm::Value* toLLVMIR(SGIf* node);
   llvm::Value* toLLVMIR(SGStateSnapLoad* node);
@@ -399,6 +408,9 @@ public:
   llvm::Value* toLLVMIR(SCListGet* node);
   llvm::Value* toLLVMIR(SCListSet* node);
   llvm::Value* toLLVMIR(SCListToString* node);
+  llvm::Value* toLLVMIR(SCMatrixGet* node);
+  llvm::Value* toLLVMIR(SCMatrixRow* node);
+  llvm::Value* toLLVMIR(SCMatrixToString* node);
   llvm::Value* toLLVMIR(SCDictClone* node);
   llvm::Value* toLLVMIR(SCDictLen* node);
   llvm::Value* toLLVMIR(SCDictGet* node);
@@ -449,7 +461,7 @@ private:
   std::unordered_map<std::string, llvm::AllocaInst*> file_singleton_path_slots_;
   std::unordered_set<std::string> file_singleton_raii_paths_;
   std::unordered_set<llvm::Value*> owned_cstr_temps_;
-  enum class TempResourceKind : std::uint8_t { List, Dict };
+  enum class TempResourceKind : std::uint8_t { List, Dict, Matrix };
   std::unordered_map<llvm::Value*, TempResourceKind> owned_resource_temps_;
 
   void emit_snapshot_shadow_reload();
@@ -476,6 +488,7 @@ private:
   llvm::FunctionCallee free_cstr_fn();
   llvm::FunctionCallee list_release_fn();
   llvm::FunctionCallee dict_release_fn();
+  llvm::FunctionCallee matrix_release_fn();
   void track_owned_cstr_temp(llvm::Value* v);
   bool take_owned_cstr_temp(llvm::Value* v);
   void forget_owned_cstr_temp(llvm::Value* v);

@@ -2,7 +2,7 @@
 
 **Purpose:** Styio 语言的 **权威语义与特性说明**（正文规格）；形式文法见 [`Styio-EBNF.md`](./Styio-EBNF.md)，符号与 token 名见 [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md)，`@` **目标**拓扑见 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)，冲突与未定见 [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md)。
 
-**Last updated:** 2026-04-24
+**Last updated:** 2026-05-03
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -87,8 +87,44 @@ Types are annotated with `:` on both parameters and return values:
 - `add : f32` — return type is `f32`
 - `a: f32` — parameter type
 - `:` always binds a **type** to its left-hand identifier
+- `m: matrix = [[1,0],[0,1]]` — explicit matrix context accepts a nested list source form, checks that all rows are non-empty, rectangular, and numeric, and lowers the value to a matrix handle; untyped nested lists remain ordinary lists
 
-### 3.4 Runtime Absence: `@`
+### 3.4 Matrix Values
+
+`matrix` is a typed numeric collection, not a universal nested-list mode. The parser keeps
+`[[...], [...]]` as an ordinary list literal unless the surrounding type context explicitly says
+`matrix`; this avoids paying rectangular-shape checks for every nested list expression.
+
+```styio
+m: matrix = [[1,0],[0,1]]
+```
+
+Matrix binding rules:
+
+- rows must be non-empty and rectangular
+- elements must be numeric, with mixed integer/float values promoted to `f64`
+- statically known dimensions are preserved in the inferred type
+- shape mismatches are semantic errors before lowering
+- `m[row][col]` reads one element, while `m[row]` materializes a list row
+
+Matrix operators and functions:
+
+| Surface | Meaning |
+|---------|---------|
+| `a + b`, `a - b` | element-wise matrix add/subtract; shapes must match |
+| `a * b` | matrix multiply when both operands are matrices |
+| `a * scalar`, `scalar * a` | scalar multiplication |
+| `mat_add`, `mat_sub`, `mat_hadamard`, `matmul` | explicit matrix arithmetic helpers |
+| `transpose`, `dot`, `norm`, `mat_sum` | common numeric reductions/transforms |
+| `mat_zeros`, `mat_zeros_i64`, `mat_identity`, `mat_identity_i64` | constructors |
+| `mat_shape`, `mat_rows`, `mat_cols`, `mat_get`, `mat_set`, `mat_clone` | shape, access, mutation, and copy helpers |
+
+The current runtime representation is a flat row-major matrix handle with element-kind-specific
+helpers for `i64` and `f64`. Small statically shaped same-type operations may lower directly to
+LLVM loads/stores over the flat backing store; dynamic, mixed-kind, or larger operations route
+through the runtime helper surface registered in ORC.
+
+### 3.5 Runtime Absence: `@`
 
 `@` represents **honest absence** at runtime and in diagnostics. It is not `null`, not `0`, not `NaN` — it is the explicit admission that data does not exist.
 
