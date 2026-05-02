@@ -5,7 +5,7 @@
 /* Styio IR Base */
 class StyioIR;
 
-/* General IRs */
+/* SG = Styio General. Default/general IR nodes. */
 class SGResId;
 class SGType;
 
@@ -33,28 +33,15 @@ class SGDynLoad;
 class SGFuncArg;
 class SGFunc;
 class SGCall;
+class SGExportDecl;
+class SGExternBlock;
 
 class SGReturn;
 
 class SGLoop;
 class SGForEach;
-class SGListLiteral;
-class SGDictLiteral;
 class SGRangeFor;
 class SGIf;
-class SGListReadStdin;
-class SGListClone;
-class SGListLen;
-class SGListGet;
-class SGListSet;
-class SGListToString;
-class SGDictClone;
-class SGDictLen;
-class SGDictGet;
-class SGDictSet;
-class SGDictKeys;
-class SGDictValues;
-class SGDictToString;
 
 class SGStateSnapLoad;
 class SGStateHistLoad;
@@ -71,16 +58,37 @@ class SGWaveDispatch;
 class SGGuardSelect;
 class SGEqProbe;
 
-class SGHandleAcquire;
-class SGFileLineIter;
-class SGStreamZip;
 class SGSnapshotDecl;
 class SGSnapshotShadowLoad;
-class SGInstantPull;
-class SGResourceWriteToFile;
+
+/* SIO = Styio Input/Output. Files, standard streams, stdin/stdout/stderr,
+   future network, and filesystem IO nodes. */
+class SIOHandleAcquire;
+class SIOFileLineIter;
+class SIOStreamZip;
+class SIOInstantPull;
+class SIOListReadStdin;
+class SIOResourceWriteToFile;
 class SIOStdStreamWrite;
 class SIOStdStreamLineIter;
 class SIOStdStreamPull;
+
+/* SC = Styio Collection. List, dictionary, and future data structures
+   such as matrix. */
+class SCListLiteral;
+class SCDictLiteral;
+class SCListClone;
+class SCListLen;
+class SCListGet;
+class SCListSet;
+class SCListToString;
+class SCDictClone;
+class SCDictLen;
+class SCDictGet;
+class SCDictSet;
+class SCDictKeys;
+class SCDictValues;
+class SCDictToString;
 
 // class SGIfElse;
 // class SGForLoop;

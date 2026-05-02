@@ -8,7 +8,7 @@
 **Status:** Planned frozen acceptance batch  
 **Methodology:** Test-Case Driven Development. Freeze acceptance before implementation; implementation is complete only when the corresponding tests and performance gates pass.  
 **Documentation policy:** [`../../specs/DOCUMENTATION-POLICY.md`](../../specs/DOCUMENTATION-POLICY.md)  
-**IDE user docs:** [`../../for-ide/README.md`](../../for-ide/README.md)
+**IDE user docs:** [`../../external/for-ide/README.md`](../../external/for-ide/README.md)
 
 ---
 
@@ -68,7 +68,7 @@ The sequence is fixed by the plan. If the roadmap changes, update the plan first
 | **Syntax Agent** | Tree-sitter multi-edit reuse and syntax fallback hierarchy | `src/StyioIDE/Syntax.*`, `src/StyioIDE/TreeSitterBackend.*` |
 | **Semantic Agent** | Query decomposition, cache keys, dependency graph, invalidation | `src/StyioIDE/SemDB.*`, `src/StyioIDE/CompilerBridge.*`, `src/StyioIDE/HIR.*` |
 | **Test Agent** | LSP transcripts, VFS/Syntax/SemDB unit tests, regression coverage | `tests/ide/`, `tests/CMakeLists.txt` |
-| **Doc Agent** | Keep `docs/plans/`, `docs/milestones/`, and `docs/for-ide/` aligned | `docs/` |
+| **Doc Agent** | Keep `docs/plans/`, `docs/milestones/`, and `docs/external/for-ide/` aligned | `docs/` |
 
 ---
 

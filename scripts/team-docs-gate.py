@@ -66,7 +66,8 @@ TEAM_RULES: tuple[TeamRule, ...] = (
             "src/StyioConfig/",
             "configs/",
             "scripts/gen-styio-nano-profile.py",
-            "docs/for_spio/",
+            "scripts/source-build-minimal.sh",
+            "docs/external/for-spio/",
         ),
     ),
     TeamRule(
@@ -76,7 +77,7 @@ TEAM_RULES: tuple[TeamRule, ...] = (
         (
             "src/StyioIDE/",
             "src/StyioLSP/",
-            "docs/for-ide/",
+            "docs/external/for-ide/",
             "tests/ide/",
         ),
     ),
@@ -120,9 +121,12 @@ TEAM_RULES: tuple[TeamRule, ...] = (
         (
             "README.md",
             "docs/",
+            "workflows/",
             "templates/",
             "scripts/docs-index.py",
             "scripts/docs-audit.py",
+            "scripts/docs-scaffold.py",
+            "scripts/docs_config.py",
             "scripts/docs-lifecycle.py",
             "scripts/delivery-gate.sh",
             "scripts/workflow-scheduler.py",
@@ -145,7 +149,7 @@ TEAM_RUNBOOKS = {
 }
 DOC_STATS = Path("docs/teams/DOC-STATS.md")
 TEMPLATE_DOC = Path("docs/assets/templates/TEAM-RUNBOOK-TEMPLATE.md")
-GATE_DOC = Path("docs/assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md")
+GATE_DOC = Path("workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md")
 
 TEAM_REQUIRED_HEADINGS: tuple[str, ...] = (
     "Mission",

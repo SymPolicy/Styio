@@ -49,6 +49,7 @@ extern "C" DLLEXPORT const char* styio_stdin_read_line();
 
 extern "C" DLLEXPORT int64_t styio_list_i64_read_stdin();
 extern "C" DLLEXPORT int64_t styio_list_cstr_read_stdin();
+extern "C" DLLEXPORT int64_t styio_string_lines(const char* text);
 extern "C" DLLEXPORT int64_t styio_list_new_bool();
 extern "C" DLLEXPORT int64_t styio_list_new_i64();
 extern "C" DLLEXPORT int64_t styio_list_new_f64();

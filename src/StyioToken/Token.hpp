@@ -608,6 +608,8 @@ enum class StyioNodeType
 
   // Package
   ExtPack,
+  ExportDecl,
+  ExternBlock,
 
   // -----------------
 
@@ -1127,6 +1129,7 @@ enum class StyioTokenType
   STRING,         // "string"
   COMMENT_LINE,   //
   COMMENT_CLOSED, /* */
+  NATIVE_EXTERN_BODY,
 
   BINOP_BITAND,  // &
   BINOP_BITOR,   // |
@@ -1160,7 +1163,9 @@ enum class StyioTokenType
   WALRUS,  // :=
   MATCH,   // ?=
 
-  YIELD_PIPE,  // <|
+  YIELD_PIPE,         // <|
+  RETURN_PIPE,        // |<|
+  PIPE_SEMICOLON,     // |;
 
   ARROW_DOUBLE_RIGHT,  // =>
   ARROW_DOUBLE_LEFT,   // <=

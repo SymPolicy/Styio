@@ -6,7 +6,7 @@
 #include <variant>
 
 #include "../StyioAST/AST.hpp"
-#include "../StyioAnalyzer/ASTAnalyzer.hpp"
+#include "../StyioLowering/AstToStyioIRLowerer.hpp"
 #include "../StyioException/Exception.hpp"
 #include "../StyioParser/Parser.hpp"
 #include "../StyioParser/Tokenizer.hpp"
@@ -351,7 +351,7 @@ analyze_document(const std::string& path, const std::string& text) {
         diagnostic.message});
     }
 
-    StyioAnalyzer analyzer;
+    AstToStyioIRLowerer analyzer;
     if (ast != nullptr) {
       try {
         ast->typeInfer(&analyzer);

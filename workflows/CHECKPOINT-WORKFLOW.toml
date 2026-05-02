@@ -1,0 +1,21 @@
+id = "checkpoint-workflow"
+title = "Checkpoint Workflow"
+purpose = "Constrain micro-checkpoint split, recovery, branch lifetime, and merge gates."
+last_updated = "2026-04-16"
+doc = "CHECKPOINT-WORKFLOW.md"
+
+required_package = [
+  "code",
+  "tests",
+  "docs",
+  "ADR",
+  "recovery note",
+]
+
+rules = [
+  "single branch lifetime is at most 72 hours",
+  "checkpoint must be buildable, testable, revertable, and recoverable",
+  "high-risk refactors use legacy plus nightly shadow paths",
+  "cold recovery starts from scripts/checkpoint-health.sh",
+  "delivery goes through DELIVERY-GATE.toml",
+]

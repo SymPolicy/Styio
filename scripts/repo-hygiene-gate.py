@@ -76,6 +76,7 @@ FORBIDDEN_GLOBS = [
     "sample.ll",
     "sanitizer-artifacts/*",
     "soak-artifacts/*",
+    "docs/audit/defects/*",
     "styio",
     "styio_security_test",
     "styio_test",
@@ -101,6 +102,7 @@ REQUIRED_GITIGNORE_PATTERNS = [
     "tmp/",
     "*.tmp",
     "*.log",
+    "docs/audit/defects/",
     "!docs/**/build/",
     "!docs/**/build/**",
     "!docs/**/build-*/",
@@ -124,7 +126,7 @@ REQUIRED_DOC_REFERENCES = {
         "scripts/docs-lifecycle.py",
         "scripts/docs-audit.py",
     ],
-    Path("docs/assets/workflow/REPO-HYGIENE-COMMIT-STANDARD.md"): [
+    Path("workflows/REPO-HYGIENE-COMMIT-STANDARD.md"): [
         "scripts/repo-hygiene-gate.py",
         "scripts/delivery-gate.sh",
     ],

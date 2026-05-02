@@ -1,0 +1,25 @@
+id = "docs-maintenance"
+title = "Docs Maintenance Workflow"
+purpose = "Maintain docs metadata, generated indexes, archive lifecycle state, and structural validation."
+last_updated = "2026-04-23"
+doc = "DOCS-MAINTENANCE-WORKFLOW.md"
+
+commands = [
+  "python3 scripts/docs-scaffold.py --help",
+  "python3 scripts/docs-index.py --write",
+  "python3 scripts/docs-lifecycle.py validate",
+  "python3 scripts/docs-audit.py",
+  "python3 scripts/docs-lifecycle.py candidates --family all --format tree",
+  "python3 scripts/docs-audit.py --manifest valid --format tree",
+  "python3 scripts/docs-audit.py --manifest invalid --format list",
+  "ctest --test-dir build/default -L docs --output-on-failure",
+  "./scripts/checkpoint-health.sh --no-asan --no-fuzz",
+]
+
+steps = [
+  "scaffold new docs files or collection directories",
+  "edit docs or move files",
+  "regenerate indexes",
+  "validate lifecycle",
+  "run audit",
+]

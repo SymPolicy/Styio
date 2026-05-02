@@ -1,0 +1,17 @@
+id = "docs-gate"
+title = "Docs Gate"
+purpose = "Define the common docs/process gate entrypoint for styio-nightly."
+last_updated = "2026-04-19"
+doc = "DOCS-GATE.md"
+
+commands = [
+  "./scripts/docs-gate.sh",
+  "./scripts/docs-gate.sh --mode staged",
+  "./scripts/docs-gate.sh --mode push --base origin/main",
+]
+
+checks = [
+  "team docs gate",
+  "docs audit",
+  "ecosystem CLI contract consistency",
+]

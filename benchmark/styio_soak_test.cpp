@@ -20,7 +20,7 @@
 #include <mach/mach.h>
 #endif
 
-#include "StyioAnalyzer/ASTAnalyzer.hpp"
+#include "StyioLowering/AstToStyioIRLowerer.hpp"
 #include "StyioCodeGen/CodeGenVisitor.hpp"
 #include "StyioExtern/ExternLib.hpp"
 #include "StyioException/Exception.hpp"
@@ -679,7 +679,7 @@ run_compiler_stage_bench(const CompilerWorkload& workload, int loops) {
         nullptr));
       const auto t2 = std::chrono::steady_clock::now();
 
-      StyioAnalyzer analyzer;
+      AstToStyioIRLowerer analyzer;
       analyzer.typeInfer(session.ast());
       session.mark_type_checked();
       const auto t3 = std::chrono::steady_clock::now();
@@ -1026,7 +1026,7 @@ run_micro_bench(const MicroBenchSpec& spec, int loops) {
         continue;
       }
 
-      StyioAnalyzer analyzer;
+      AstToStyioIRLowerer analyzer;
       analyzer.typeInfer(session.ast());
       session.mark_type_checked();
       const auto t3 = std::chrono::steady_clock::now();

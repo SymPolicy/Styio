@@ -1,0 +1,39 @@
+id = "add-resource-identifier"
+title = "Add Resource Identifier"
+purpose = "Add or change a Styio resource identifier without drifting syntax, lifecycle, docs, and tests."
+last_updated = "2026-04-23"
+doc = "ADD-RESOURCE-IDENTIFIER.md"
+skill = "skills/styio-resource-identifier-change/skill.toml"
+
+steps = [
+  "define the resource as @name := { ... }",
+  "record capability, direction, ownership, lifetime, and close/error behavior",
+  "update resource syntax and lifecycle docs",
+  "update parser, analyzer, runtime, or config surfaces as needed",
+  "add positive and fail-closed tests",
+]
+
+required_evidence = [
+  "built-in symbol definition",
+  "capability and lifetime statement",
+  "parser or analyzer coverage",
+  "runtime or fail-closed coverage",
+  "resource identifier SSOT updated",
+]
+
+gates = [
+  "cmake --build build/default --target styio_security_test styio -j2",
+  "ctest --test-dir build/default -L security --output-on-failure",
+  "python3 scripts/docs-index.py --check",
+  "python3 scripts/docs-audit.py",
+  "git diff --check",
+]
+
+[handoff]
+report = [
+  "accepted identifiers",
+  "reserved identifiers",
+  "lifecycle behavior",
+  "tests",
+  "unsupported paths",
+]

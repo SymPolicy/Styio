@@ -55,9 +55,9 @@ Forwarded build-path options:
 ```bash
 ./scripts/delivery-gate.sh \
   --mode checkpoint \
-  --build-dir build-codex \
-  --asan-build-dir build-asan-ubsan \
-  --fuzz-build-dir build-fuzz
+  --build-dir build/default \
+  --asan-build-dir build/asan-ubsan \
+  --fuzz-build-dir build/fuzz
 ```
 
 ## Scope Boundary

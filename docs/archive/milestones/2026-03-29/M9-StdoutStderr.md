@@ -2,7 +2,12 @@
 
 **Purpose:** M9 **验收测试与任务分解**；路线图与依赖见 [`00-Milestone-Index.md`](./00-Milestone-Index.md)。
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-04-24
+
+**2026-04-24 revision:** The early undefined-output case using a general bare `@`
+literal is superseded. Active M9 tests no longer include `t07_stdout_undef`; stdout
+and stderr coverage now tracks concrete scalar/string/bool values plus accepted
+standard-stream spellings.
 
 **Status:** Superseded draft
 

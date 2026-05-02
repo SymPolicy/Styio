@@ -2,7 +2,7 @@
 
 **Purpose:** 词法与语法的 **EBNF 权威定义**；资源拓扑相关附录与叙述以 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md) 为准，语义细节以 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 为准。
 
-**Last updated:** 2026-04-16
+**Last updated:** 2026-05-01
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -60,7 +60,7 @@ TOK_DOLLAR         = '$' ;
 TOK_ARROW_RIGHT    = '->' ;
 TOK_ARROW_LEFT     = '<-' ;
 
-(* Wave operators *)
+(* Reserved wave tokens: tokenized for future use, rejected by parser today. *)
 TOK_WAVE_LEFT      = '<~' ;
 TOK_WAVE_RIGHT     = '~>' ;
 
@@ -69,6 +69,8 @@ TOK_MATCH          = '?=' ;
 
 (* Yield / Return *)
 TOK_YIELD          = '<|' ;
+TOK_INLINE_RETURN  = '|<|' ;
+TOK_PIPE_SEMI      = '|;' ;
 
 (* Pipe *)
 TOK_PIPE           = '>>' ;
@@ -130,10 +132,11 @@ TOK_DBQUESTION     = '??' ;
 
 ### 2.4 Variable-Length Tokens
 
-These tokens are measured by counting contiguous repetitions:
+These tokens use contiguous repetitions. Break keeps the spelling flexible but does
+not assign semantic depth to the count.
 
 ```ebnf
-BREAK_TOKEN        = '^' { '^' } ;           (* length >= 1, contiguous *)
+BREAK_TOKEN        = '^' { '^' } ;           (* length >= 1, contiguous, depth = 1 *)
 CONTINUE_TOKEN     = '>' '>' { '>' } ;       (* length >= 2, contiguous, standalone context *)
 ```
 
@@ -149,7 +152,9 @@ block_comment      = '/*' { any_char } '*/' ;
 ## 3. Program Structure
 
 ```ebnf
-program            = { top_level_statement } EOF ;
+program            = { top_level_statement [ statement_sep ] } EOF ;
+
+statement_sep      = ';' | '|;' ;
 
 top_level_statement = import_declaration
                     | statement ;
@@ -157,6 +162,7 @@ top_level_statement = import_declaration
 statement          = declaration
                    | assignment
                    | state_declaration
+                   | conditional_stmt
                    | flow_pipeline
                    | expression_stmt
                    | schema_def ;
@@ -243,7 +249,12 @@ state_param        = integer                          (* window buffer: @[5] *)
 ## 7. Flow Pipelines
 
 ```ebnf
-flow_pipeline      = stream_source [ guard ] '>>' consumer ;
+conditional_stmt   = guard '=>' ( block | expression ) [ '|' block ] ;
+
+flow_pipeline      = stream_source '>>' consumer
+                   | conditional_loop ;
+
+conditional_loop   = infinite_gen '>>' guard '=>' ( block | expression ) ;
 
 stream_source      = infinite_gen
                    | collection
@@ -259,10 +270,15 @@ consumer           = [ closure_sig ] '=>' ( block | expression )
 
 closure_sig        = '#' '(' [ param_list ] ')' ;
 
-block              = '{' { statement } [ yield_expr ] '}' ;
+block              = '{' { statement [ statement_sep ] } [ yield_expr [ statement_sep ] ] '}' ;
 
-yield_expr         = '<|' expression ;
+yield_expr         = '<|' expression
+                   | '|<|' expression ;
 ```
+
+`stream_source guard '>>' consumer` is intentionally not part of the grammar.
+Conditional infinite loops use `[...] >> ?(condition) => { ... }`, so
+`[...] ?(condition) >> { ... }` is rejected before type checking.
 
 ### 7.1 Stream Zip (Aligned Sync)
 
@@ -279,10 +295,12 @@ zip_pipeline       = stream_source '>>' closure_sig
 snapshot_decl      = '@' '[' identifier ']' '<<' resource ;
 ```
 
-### 7.3 Instant Pull
+### 7.3 Immediate Pull
 
 ```ebnf
-instant_pull       = '(' '<<' resource ')' ;
+instant_pull       = '(' '<-' resource ')' ;
+
+legacy_instant_pull = '(' '<<' resource ')' ;  (* compatibility only; do not use in new design text *)
 ```
 
 ---
@@ -303,18 +321,21 @@ instant_pull       = '(' '<<' resource ')' ;
 | 8 | `&&` | Left |
 | 9 | `\|\|` | Left |
 | 10 | `>>`, `?=` | Left |
-| 11 | `<~`, `~>` | Right |
-| 12 | `<\|` | Right |
-| 13 | `\|` (fallback) | Left |
-| 14 | `??` (diagnostic) | Left |
-| 15 (lowest) | `=`, `+=`, etc. | Right |
+| 11 | `<\|` | Left |
+| 12 | `\|` (fallback) | Left |
+| 13 | `??` (diagnostic) | Left |
+| 14 (lowest) | `=`, `+=`, etc. | Right |
 
 ### 8.2 Expression Grammar
 
 ```ebnf
-expression         = wave_expr ;
+expression         = apply_expr ;
 
-wave_expr          = logic_or_expr [ ( '<~' | '~>' ) logic_or_expr '|' logic_or_expr ] ;
+apply_expr         = conditional_value_expr { '<|' conditional_value_expr } ;  (* left associative; one-shot continuation resume when lhs is captured *)
+
+conditional_value_expr
+                   = guard '=>' logic_or_expr '|' logic_or_expr
+                   | logic_or_expr ;
 
 logic_or_expr      = logic_and_expr { '||' logic_and_expr } ;
 
@@ -336,8 +357,11 @@ unary_expr         = ( '!' | '-' ) unary_expr
 postfix_expr       = primary_expr { selector | call | member_access } ;
 
 selector           = '[' [ selector_mode ',' ] expression_list ']' ;
-selector_mode      = '?' | '?=' | '<<' | 'avg' | 'max' | 'min' | 'std' | 'rsi'
+selector_mode      = 'avg' | 'max' | 'min' | 'std' | 'rsi'
                    | identifier ;
+
+(* Retired from active syntax on 2026-04-24: '[?, cond]', '[?=, val]', and
+   '$state[<<, n]'. Historical milestone docs may mention them as provenance. *)
 
 call               = '(' [ expression_list ] ')' ;
 
@@ -359,8 +383,9 @@ primary_expr       = identifier
                    | resource
                    | collection
                    | instant_pull
+                   | legacy_instant_pull
                    | '(' expression ')'
-                   | '?' '(' expression ')'        (* optional: same as parenthesized expr; convention for wave <~ condition *)
+                   | '?' '(' expression ')'        (* guard condition prefix; followed by => for value selection *)
                    | block ;
 
 state_ref          = '$' identifier [ selector ] ;
@@ -391,9 +416,21 @@ binding definitions such as `@stdout := ...`.
 
 Usage patterns (reuse existing productions):
 - `expr '->' '@stdout'` / `expr '->' '@stderr'` — canonical standard-stream write via `resource_redirect`
-- `expr '>>' '@stdout'` / `expr '>>' '@stderr'` — accepted standard-stream resource-write shorthand via `resource_write`
+- `iterable_expr '>>' '@stdout'` / `iterable_expr '>>' '@stderr'` — standard-stream iterable write via `resource_write`
+- `iterable_expr '>>' terminal_handle` — terminal-handle resource-write shorthand; semantic checks require an iterable, text-serializable value
+- `string_expr '.lines()' '>>' terminal_handle` — explicit newline split before terminal-handle iterable write
 - `'@stdin' '>>' '#' '(' param_list ')' '=>' block` — iterate via `iterator`
-- `'(' '<<' '@stdin' ')'` — instant pull via `instant_pull`
+- `'@stdin' ':=' '{' '<|' terminal_handle '}'` — symbolic stdin definition shorthand (`<|[>_]` or `<|(>_)`)
+- `'@stdin' ':=' '{' '<|' '<-' terminal_handle '}'` — symbolic stdin definition expanded form
+- `'(' '<-' '@stdin' ')'` — immediate pull via `instant_pull`
+- `'(' '<<' '@stdin' ')'` — legacy compatibility pull via `legacy_instant_pull`
+
+```ebnf
+terminal_handle    = '[' '>_' ']'
+                   | '(' '>_' ')' ;  (* compatibility terminal-device spelling *)
+
+string_lines       = expression '.' 'lines' '(' ')' ;
+```
 
 Note: `expr '>>' '@stdin'` is syntactically accepted as `resource_write`, then rejected by
 semantic checks because `@stdin` is read-only.
@@ -440,7 +477,7 @@ collection_pattern = '[' { pattern { ',' pattern } } ']'
 ## 12. Control Flow Statements
 
 ```ebnf
-break_stmt         = BREAK_TOKEN ;      (* ^ or ^^ or ^^^ etc. *)
+break_stmt         = BREAK_TOKEN ;      (* ^ or ^^ or ^^^ etc.; always nearest loop *)
 continue_stmt      = CONTINUE_TOKEN ;   (* >> or >>> or >>>> etc. *)
 ```
 
@@ -458,7 +495,7 @@ When the parser encounters `>>` (or longer `>>>`, `>>>>`, etc.):
 
 ### Rule 2: `@` Disambiguation
 
-- `@` alone (not followed by `[`, identifier, `{`, `(`): **Undefined value**
+- `@` alone as a source expression: **retired**. Use resource/intrinsic-produced absence; active milestone fixtures must not author bare `@` directly.
 - `@[`: **State container declaration**
 - `@` followed by identifier then `{` or `(`: **Resource with protocol**
 - `@{` or `@(`: **Anonymous resource**
@@ -472,7 +509,7 @@ When the parser encounters `>>` (or longer `>>>`, `>>>>`, etc.):
 
 ### Rule 4: `<~` / `~>` vs. `<` / `~` / `>`
 
-The lexer always prefers the two-character compound token over individual characters (maximal munch). `<~` is always tokenized as a single `TOK_WAVE_LEFT`.
+The lexer always prefers the two-character compound token over individual characters (maximal munch). `<~` is always tokenized as a single `TOK_WAVE_LEFT`, and `~>` is always tokenized as `TOK_WAVE_RIGHT`. Both tokens are reserved and have no active grammar production; the parser rejects them with a reserved-symbol diagnostic.
 
 ### Rule 5: Break Token Contiguity
 

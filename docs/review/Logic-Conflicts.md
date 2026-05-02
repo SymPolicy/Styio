@@ -192,17 +192,17 @@
 
 ### 5.1 “No Void” vs Side Effects
 
-**§2.3** says everything is expression-oriented; **§6** uses `~> order_logic(p) | @` where branches are **effects**.
+**§2.3** says everything is expression-oriented; older drafts used wave-dispatch branches that were **effects**.
 
 **Conflict:** Strict “no void” is incompatible with **effect-only** branches unless they are typed as a unit / `@` / sentinel.
 
-**Resolution:** Clarify: **expression-oriented** applies to **value-producing** control flow; **effect expressions** return `@` or `()`-like sentinel at type level.
+**Resolution:** The active grammar uses `?(cond) => { ... } | { ... }` for effectful block control and `?(cond) => value | fallback` for value selection. Expression-oriented constraints apply to value-producing control flow; effect blocks return `@` or a `()`-like sentinel at type level.
 
 ---
 
 ### 5.2 `:` for Types vs Ternary-Style (Historical)
 
-Design settled on **`<~` / `~>`** for conditionals; `:` is **type annotation** only.
+Design settled on **`?(cond) => value | fallback`** and **`?(cond) => { ... } | { ... }`** for conditionals; `:` is **type annotation** only. `<~` and `~>` are reserved tokens with no active user-level semantics.
 
 **Conflict:** Older sketches (`../plans/Early-Ideas.md`) may still suggest `:` for other uses. Ignore `../plans/Early-Ideas.md` for semantics unless reconciled.
 

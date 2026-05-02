@@ -32,7 +32,7 @@
  	 
 <ID>	result
  	 
->>	>>
+->	->
  	 
 @	@
 <ID>	stdout

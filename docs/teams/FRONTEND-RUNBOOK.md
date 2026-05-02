@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of Styio tokenization, parsing, Unicode handling, and legacy/nightly parser migration; this file links to language and test SSOTs instead of redefining grammar.
 
-**Last updated:** 2026-04-26
+**Last updated:** 2026-05-01
 
 ## Mission
 
@@ -34,6 +34,8 @@ Build and test targets:
 5. Update [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) when adding milestone or parser acceptance coverage.
 6. When token or primitive spelling tables change, add a focused regression so public token names do not drift silently.
 7. When accepted syntax reaches lowering or runtime helpers, follow [../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md](../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md) and do not stop at parser-only green status.
+8. Conditional infinite loops use `[...] >> ?(cond) => { ... }`; reject the older `[...] ?(cond) >> { ... }` spelling in both legacy and nightly parser routes.
+9. Keep negative numeric literals as literal atoms in both parser routes; `-1 + 2` must parse as `(-1) + 2`, not `0 - (1 + 2)`.
 
 ## Change Classes
 
@@ -46,17 +48,17 @@ Build and test targets:
 Minimum local commands:
 
 ```bash
-ctest --test-dir build -L milestone
-ctest --test-dir build -R '^StyioParserEngine\.'
-ctest --test-dir build -R '^parser_shadow_gate_'
+ctest --test-dir build/default -L milestone
+ctest --test-dir build/default -R '^StyioParserEngine\.'
+ctest --test-dir build/default -R '^parser_shadow_gate_'
 ```
 
 When touching fuzz-sensitive boundaries:
 
 ```bash
-cmake -S . -B build-fuzz -DSTYIO_ENABLE_FUZZ=ON
-cmake --build build-fuzz --target styio_fuzz_lexer styio_fuzz_parser
-ctest --test-dir build-fuzz -L fuzz_smoke
+cmake -S . -B build/fuzz -DSTYIO_ENABLE_FUZZ=ON
+cmake --build build/fuzz --target styio_fuzz_lexer styio_fuzz_parser
+ctest --test-dir build/fuzz -L fuzz_smoke
 ```
 
 For checkpoint-grade validation:

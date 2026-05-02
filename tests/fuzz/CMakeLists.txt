@@ -37,8 +37,7 @@ add_executable(styio_fuzz_lexer
   fuzz_lexer.cpp
 )
 target_link_libraries(styio_fuzz_lexer PRIVATE styio_core)
-target_include_directories(styio_fuzz_lexer SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(styio_fuzz_lexer PRIVATE ${LLVM_DEFINITIONS_LIST})
+styio_apply_llvm_compile_settings(styio_fuzz_lexer)
 target_compile_options(styio_fuzz_lexer PRIVATE ${STYIO_FUZZ_FLAGS})
 target_link_options(styio_fuzz_lexer PRIVATE ${STYIO_FUZZ_FLAGS})
 
@@ -47,15 +46,13 @@ add_executable(styio_fuzz_lexer_smoke
   fuzz_lexer.cpp
 )
 target_link_libraries(styio_fuzz_lexer_smoke PRIVATE styio_core)
-target_include_directories(styio_fuzz_lexer_smoke SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(styio_fuzz_lexer_smoke PRIVATE ${LLVM_DEFINITIONS_LIST})
+styio_apply_llvm_compile_settings(styio_fuzz_lexer_smoke)
 
 add_executable(styio_fuzz_parser
   fuzz_parser.cpp
 )
 target_link_libraries(styio_fuzz_parser PRIVATE styio_core)
-target_include_directories(styio_fuzz_parser SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(styio_fuzz_parser PRIVATE ${LLVM_DEFINITIONS_LIST})
+styio_apply_llvm_compile_settings(styio_fuzz_parser)
 target_compile_options(styio_fuzz_parser PRIVATE ${STYIO_FUZZ_FLAGS})
 target_link_options(styio_fuzz_parser PRIVATE ${STYIO_FUZZ_FLAGS})
 
@@ -64,15 +61,13 @@ add_executable(styio_fuzz_parser_smoke
   fuzz_parser.cpp
 )
 target_link_libraries(styio_fuzz_parser_smoke PRIVATE styio_core)
-target_include_directories(styio_fuzz_parser_smoke SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(styio_fuzz_parser_smoke PRIVATE ${LLVM_DEFINITIONS_LIST})
+styio_apply_llvm_compile_settings(styio_fuzz_parser_smoke)
 
 add_executable(styio_fuzz_ide_syntax
   fuzz_ide_syntax.cpp
 )
 target_link_libraries(styio_fuzz_ide_syntax PRIVATE styio_ide_core ${LLVM_LIBS})
-target_include_directories(styio_fuzz_ide_syntax SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(styio_fuzz_ide_syntax PRIVATE ${LLVM_DEFINITIONS_LIST})
+styio_apply_llvm_compile_settings(styio_fuzz_ide_syntax)
 target_compile_options(styio_fuzz_ide_syntax PRIVATE ${STYIO_FUZZ_FLAGS})
 target_link_options(styio_fuzz_ide_syntax PRIVATE ${STYIO_FUZZ_FLAGS})
 
@@ -81,15 +76,13 @@ add_executable(styio_fuzz_ide_syntax_smoke
   fuzz_ide_syntax.cpp
 )
 target_link_libraries(styio_fuzz_ide_syntax_smoke PRIVATE styio_ide_core ${LLVM_LIBS})
-target_include_directories(styio_fuzz_ide_syntax_smoke SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(styio_fuzz_ide_syntax_smoke PRIVATE ${LLVM_DEFINITIONS_LIST})
+styio_apply_llvm_compile_settings(styio_fuzz_ide_syntax_smoke)
 
 add_executable(styio_fuzz_ide_completion
   fuzz_ide_completion.cpp
 )
 target_link_libraries(styio_fuzz_ide_completion PRIVATE styio_ide_core ${LLVM_LIBS})
-target_include_directories(styio_fuzz_ide_completion SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(styio_fuzz_ide_completion PRIVATE ${LLVM_DEFINITIONS_LIST})
+styio_apply_llvm_compile_settings(styio_fuzz_ide_completion)
 target_compile_options(styio_fuzz_ide_completion PRIVATE ${STYIO_FUZZ_FLAGS})
 target_link_options(styio_fuzz_ide_completion PRIVATE ${STYIO_FUZZ_FLAGS})
 
@@ -98,16 +91,14 @@ add_executable(styio_fuzz_ide_completion_smoke
   fuzz_ide_completion.cpp
 )
 target_link_libraries(styio_fuzz_ide_completion_smoke PRIVATE styio_ide_core ${LLVM_LIBS})
-target_include_directories(styio_fuzz_ide_completion_smoke SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(styio_fuzz_ide_completion_smoke PRIVATE ${LLVM_DEFINITIONS_LIST})
+styio_apply_llvm_compile_settings(styio_fuzz_ide_completion_smoke)
 
 add_executable(styio_fuzz_ide_lsp_sync
   fuzz_ide_lsp_sync.cpp
   "${CMAKE_SOURCE_DIR}/src/StyioLSP/Server.cpp"
 )
 target_link_libraries(styio_fuzz_ide_lsp_sync PRIVATE styio_ide_core ${LLVM_LIBS})
-target_include_directories(styio_fuzz_ide_lsp_sync SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(styio_fuzz_ide_lsp_sync PRIVATE ${LLVM_DEFINITIONS_LIST})
+styio_apply_llvm_compile_settings(styio_fuzz_ide_lsp_sync)
 target_compile_options(styio_fuzz_ide_lsp_sync PRIVATE ${STYIO_FUZZ_FLAGS})
 target_link_options(styio_fuzz_ide_lsp_sync PRIVATE ${STYIO_FUZZ_FLAGS})
 
@@ -117,8 +108,7 @@ add_executable(styio_fuzz_ide_lsp_sync_smoke
   "${CMAKE_SOURCE_DIR}/src/StyioLSP/Server.cpp"
 )
 target_link_libraries(styio_fuzz_ide_lsp_sync_smoke PRIVATE styio_ide_core ${LLVM_LIBS})
-target_include_directories(styio_fuzz_ide_lsp_sync_smoke SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(styio_fuzz_ide_lsp_sync_smoke PRIVATE ${LLVM_DEFINITIONS_LIST})
+styio_apply_llvm_compile_settings(styio_fuzz_ide_lsp_sync_smoke)
 
 add_custom_target(styio_fuzz_suite
   DEPENDS
