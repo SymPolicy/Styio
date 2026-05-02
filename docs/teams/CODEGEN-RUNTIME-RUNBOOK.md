@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-04-26
+**Last updated:** 2026-04-30
 
 ## Mission
 
@@ -37,6 +37,7 @@ Related docs:
 8. Keep `stdout/stderr` helper hooks lossless: runtime log replay may enrich the artifact stream, but must not change observable program output semantics.
 9. Keep the ORC JIT symbol registry aligned with the full `src/StyioExtern/ExternLib.hpp` export surface and every runtime helper that codegen emits; when a new `getOrInsertFunction("styio_*")` call or extern export appears, update `src/StyioJIT/StyioJIT_ORC.hpp` in the same delivery.
 10. Treat `python3 scripts/runtime-surface-gate.py` as the static blocker for syntax/runtime deliveries; do not rely on manual review to spot a missing export or ORC registration.
+11. Keep native extern JIT registration intact when resolving upstream merges: `StyioJIT_ORC::defineAbsoluteSymbol` is the bridge used by `StyioCodeGen` to expose compiled C/C++ extern blocks to ORC, and it must stay aligned with native interop tests.
 
 ## Change Classes
 
@@ -50,22 +51,22 @@ Minimum local commands:
 
 ```bash
 python3 scripts/runtime-surface-gate.py
-ctest --test-dir build -L styio_pipeline
-ctest --test-dir build -L security
-ctest --test-dir build -L milestone
+ctest --test-dir build/default -L styio_pipeline
+ctest --test-dir build/default -L security
+ctest --test-dir build/default -L milestone
 ```
 
 Runtime stability:
 
 ```bash
-ctest --test-dir build -L soak_smoke
+ctest --test-dir build/default -L soak_smoke
 ./benchmark/perf-route.sh --quick
 ```
 
 For deeper runtime or allocation work:
 
 ```bash
-ctest --test-dir build -L soak_deep
+ctest --test-dir build/default -L soak_deep
 ./benchmark/perf-route.sh --phase-iters 5000 --micro-iters 5000 --execute-iters 20
 ```
 

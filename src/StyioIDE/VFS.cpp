@@ -160,16 +160,19 @@ VirtualFileSystem::close(const std::string& path) {
 std::shared_ptr<const DocumentSnapshot>
 VirtualFileSystem::snapshot_for(const std::string& path) {
   DocumentState& state = ensure_document(path);
-  if (!state.is_open && state.buffer.empty()) {
+  if (!state.is_open) {
     std::ifstream input(state.path);
     std::ostringstream contents;
     contents << input.rdbuf();
-    state.buffer.reset(contents.str());
-    state.snapshot_id = next_snapshot_id_++;
-    state.from_full_sync = true;
-    state.needs_full_resync = false;
-    state.applied_edits.clear();
-    state.resync_reason.clear();
+    const std::string disk_text = contents.str();
+    if (state.buffer.text() != disk_text) {
+      state.buffer.reset(disk_text);
+      state.snapshot_id = next_snapshot_id_++;
+      state.from_full_sync = true;
+      state.needs_full_resync = false;
+      state.applied_edits.clear();
+      state.resync_reason.clear();
+    }
   }
   return make_snapshot(state);
 }

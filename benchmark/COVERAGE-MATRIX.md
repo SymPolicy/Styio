@@ -17,9 +17,9 @@
 2. `Parse`
    - `parse_main_block_with_engine_latest(...)`
 3. `TypeInfer`
-   - `StyioAnalyzer::typeInfer(...)`
+   - `StyioSemaContext::typeInfer(...)`
 4. `StyioIR Lower`
-   - `StyioAnalyzer::toStyioIR(...)`
+   - `AstToStyioIRLowerer::toStyioIR(...)`
 5. `LLVM IR Gen`
    - `StyioToLLVM::toLLVMIR(...)` + `dump_llvm_ir()`
 6. `Execute`

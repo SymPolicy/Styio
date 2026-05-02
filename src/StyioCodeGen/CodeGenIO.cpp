@@ -302,7 +302,7 @@ StyioToLLVM::toLLVMIR(SIOStdStreamLineIter* node) {
   llvm::BasicBlock* body_bb = llvm::BasicBlock::Create(*theContext, "stdin_body", F);
   llvm::BasicBlock* exit_bb = llvm::BasicBlock::Create(*theContext, "stdin_exit", F);
 
-  /* Pulse plan setup (same pattern as SGFileLineIter). */
+  /* Pulse plan setup (same pattern as SIOFileLineIter). */
   llvm::AllocaInst* ledger_alloc = nullptr;
   llvm::AllocaInst* snap_alloc = nullptr;
   int pulse_sz = 0;

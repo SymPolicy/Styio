@@ -1,0 +1,32 @@
+[skill]
+name = "styio-parser-subset"
+display_name = "Styio Parser Subset"
+description = "Use when moving syntax coverage into the nightly parser, changing parser token gates, shadow parity, fallback budgets, or parser route statistics."
+last_updated = "2026-04-23"
+
+workflow = [
+  "freeze accepted and rejected samples before parser edits",
+  "check references/parser-subset-surface.md",
+  "update token/start gates before consuming syntax",
+  "update nightly parser paths using existing helpers",
+  "compare AST repr with legacy for accepted samples",
+  "preserve fallback and internal-bridge budgets",
+  "run gates from workflows/PROMOTE-NIGHTLY-PARSER-SUBSET.toml",
+]
+
+constraints = [
+  "do not let expression parsing consume the next statement across line breaks unless explicitly designed",
+  "do not hide legacy fallback regressions behind passing runtime output",
+  "keep parser errors stable for rejected samples",
+]
+
+completion_report = [
+  "accepted samples",
+  "rejected samples",
+  "fallback/internal-bridge result",
+  "tests and gates run",
+]
+
+references = [
+  "references/parser-subset-surface.md",
+]

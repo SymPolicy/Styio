@@ -34,6 +34,7 @@ private:
 public:
   std::vector<OutboundMessage> handle(llvm::json::Object request);
   std::vector<OutboundMessage> drain_runtime();
+  std::vector<OutboundMessage> drain_runtime(std::size_t max_documents);
   const styio::ide::RuntimeCounters& runtime_counters() const;
   void run(std::istream& input, std::ostream& output);
 };

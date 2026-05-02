@@ -1,0 +1,31 @@
+[skill]
+name = "styio-resource-identifier-change"
+display_name = "Styio Resource Identifier Change"
+description = "Use when adding or changing `@name` resource identifiers, built-in resource symbols, capabilities, lifetimes, or resource syntax docs/tests."
+last_updated = "2026-04-23"
+
+workflow = [
+  "write the built-in symbol definition as @name := { ... }",
+  "check references/resource-identifier-surface.md",
+  "record capability, direction, ownership, lifetime, close, and error behavior",
+  "update syntax and lifecycle docs before implementation details drift",
+  "add parser/analyzer/runtime coverage or typed fail-closed coverage",
+  "run gates from workflows/ADD-RESOURCE-IDENTIFIER.toml",
+]
+
+constraints = [
+  "do not introduce an identifier without lifecycle semantics",
+  "prefer fail-closed diagnostics over partially lowered resources",
+  "keep symbol definitions compact and machine-readable",
+]
+
+completion_report = [
+  "identifier definitions",
+  "lifecycle behavior",
+  "docs updated",
+  "tests and gates run",
+]
+
+references = [
+  "references/resource-identifier-surface.md",
+]

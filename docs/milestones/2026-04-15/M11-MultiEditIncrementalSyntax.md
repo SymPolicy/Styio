@@ -6,7 +6,7 @@
 
 **Status:** Planned frozen acceptance batch
 
-**Depends on:** Existing Tree-sitter syntax backend and `styio_lspd` document sync  
+**Depends on:** Existing Tree-sitter syntax backend and `styio_lspd` document sync
 **Goal:** `textDocument/didChange` must preserve ordered incremental edits, VFS must apply them canonically, and `SyntaxParser` must reuse Tree-sitter state across multi-edit deltas without regressing current IDE APIs.
 
 ---
@@ -16,8 +16,8 @@
 For implementation sequencing and non-acceptance details, see:
 
 - [`../../plans/IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md`](../../plans/IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md)
-- [`../../for-ide/TREE-SITTER.md`](../../for-ide/TREE-SITTER.md)
-- [`../../for-ide/LSP.md`](../../for-ide/LSP.md)
+- [`../../external/for-ide/TREE-SITTER.md`](../../external/for-ide/TREE-SITTER.md)
+- [`../../external/for-ide/LSP.md`](../../external/for-ide/LSP.md)
 
 This milestone freezes the following boundary:
 
@@ -36,7 +36,7 @@ The concrete GoogleTest / transcript names below are part of the frozen acceptan
 
 ### T11.01 — LSP multi-change transcript applies edits in order
 
-**Target:** new IDE/LSP test  
+**Target:** new IDE/LSP test
 **Suggested name:** `StyioLspServer.AppliesMultipleIncrementalChangesInOrder`
 
 Scenario:
@@ -53,7 +53,7 @@ Acceptance:
 
 ### T11.02 — VFS sequential range edits produce correct text
 
-**Target:** new VFS unit test  
+**Target:** new VFS unit test
 **Suggested name:** `StyioVfs.AppliesSequentialTextEdits`
 
 Scenario:
@@ -69,7 +69,7 @@ Acceptance:
 
 ### T11.03 — Tree-sitter reuses prior tree across multi-edit delta
 
-**Target:** new syntax test  
+**Target:** new syntax test
 **Suggested name:** `StyioSyntaxParser.ReusesIncrementalTreeAcrossMultiEditDelta`
 
 Scenario:
@@ -86,7 +86,7 @@ Acceptance:
 
 ### T11.04 — Multi-edit result matches full parse
 
-**Target:** new syntax equivalence test  
+**Target:** new syntax equivalence test
 **Suggested name:** `StyioSyntaxParser.MultiEditIncrementalMatchesFullParse`
 
 Scenario:
@@ -114,39 +114,39 @@ Required existing tests:
 ## Implementation Tasks
 
 ### Task 11.1 — Add structured text edit types
-**Role:** IDE Agent  
-**Files:** `src/StyioIDE/Common.*`, `src/StyioIDE/VFS.*`  
-**Action:** Define `TextEdit` and `DocumentDelta`-style internal types used by VFS and syntax layers.  
+**Role:** IDE Agent
+**Files:** `src/StyioIDE/Common.*`, `src/StyioIDE/VFS.*`
+**Action:** Define `TextEdit` and `DocumentDelta`-style internal types used by VFS and syntax layers.
 **Verify:** Build succeeds.
 
 ### Task 11.2 — Parse ordered LSP content changes
-**Role:** LSP Agent  
-**Files:** `src/StyioLSP/Server.cpp`, `src/StyioIDE/Service.*`  
-**Action:** Parse all `contentChanges`, including `range`-based changes, and forward them to the IDE service without collapsing to one text blob.  
+**Role:** LSP Agent
+**Files:** `src/StyioLSP/Server.cpp`, `src/StyioIDE/Service.*`
+**Action:** Parse all `contentChanges`, including `range`-based changes, and forward them to the IDE service without collapsing to one text blob.
 **Verify:** T11.01 passes.
 
 ### Task 11.3 — Teach VFS to apply edit sequences
-**Role:** VFS Agent  
-**Files:** `src/StyioIDE/VFS.*`  
-**Action:** Apply ordered edits against canonical text and expose the resulting snapshot transition.  
+**Role:** VFS Agent
+**Files:** `src/StyioIDE/VFS.*`
+**Action:** Apply ordered edits against canonical text and expose the resulting snapshot transition.
 **Verify:** T11.02 passes.
 
 ### Task 11.4 — Upgrade Tree-sitter backend to structured multi-edit reuse
-**Role:** Syntax Agent  
-**Files:** `src/StyioIDE/Syntax.*`, `src/StyioIDE/TreeSitterBackend.*`  
-**Action:** Apply each edit via `ts_tree_edit`, then reparse once against final text. Preserve existing fallback hierarchy.  
+**Role:** Syntax Agent
+**Files:** `src/StyioIDE/Syntax.*`, `src/StyioIDE/TreeSitterBackend.*`
+**Action:** Apply each edit via `ts_tree_edit`, then reparse once against final text. Preserve existing fallback hierarchy.
 **Verify:** T11.03 and T11.04 pass.
 
 ### Task 11.5 — Keep current IDE contracts stable
-**Role:** Syntax Agent  
-**Files:** `src/StyioIDE/Syntax.*`, `src/StyioIDE/SemDB.*`  
-**Action:** Maintain current `SyntaxSnapshot`-level API and diagnostics flow while adding delta-aware parsing.  
+**Role:** Syntax Agent
+**Files:** `src/StyioIDE/Syntax.*`, `src/StyioIDE/SemDB.*`
+**Action:** Maintain current `SyntaxSnapshot`-level API and diagnostics flow while adding delta-aware parsing.
 **Verify:** T11.05 passes.
 
 ### Task 11.6 — Update docs
-**Role:** Doc Agent  
-**Files:** `docs/for-ide/*.md`, `docs/plans/*.md`, `docs/milestones/2026-04-15/*.md`  
-**Action:** Record the multi-edit data flow and verification commands.  
+**Role:** Doc Agent
+**Files:** `docs/external/for-ide/*.md`, `docs/plans/*.md`, `docs/milestones/2026-04-15/*.md`
+**Action:** Record the multi-edit data flow and verification commands.
 **Verify:** `python3 scripts/docs-audit.py` passes.
 
 ---

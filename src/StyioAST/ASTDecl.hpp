@@ -143,7 +143,7 @@ class InfiniteLoopAST;
 
   - End-Of-Line
   - `pass` ..........
-  - `break` ^^^^^^^^^
+  - `break` ^... (nearest loop)
   - `continue` >>>>>>
   - `return` <<<<<<<<
 */
@@ -176,6 +176,8 @@ class MainBlockAST;
   - ExtPack
 */
 class ExtPackAST;
+class ExportDeclAST;
+class ExternBlockAST;
 
 /*
   Conceptions:

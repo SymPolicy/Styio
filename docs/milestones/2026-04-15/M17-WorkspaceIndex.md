@@ -6,7 +6,7 @@
 
 **Status:** Implemented
 
-**Depends on:** M16 (completion engine upgrade)  
+**Depends on:** M16 (completion engine upgrade)
 **Goal:** 把现有索引升级成真正的 workspace 级层次：打开文件热索引、后台索引和持久化索引必须分层，workspace symbol、cross-file definition、references 不能只靠当前打开文件状态。
 
 ---
@@ -51,7 +51,7 @@ Consumers:
 
 ### T17.01 — Workspace symbol searches indexed files beyond the open set
 
-**Target:** new index integration test  
+**Target:** new index integration test
 **Suggested name:** `StyioWorkspaceIndex.WorkspaceSymbolSearchIncludesBackgroundIndexedFiles`
 
 Acceptance:
@@ -61,7 +61,7 @@ Acceptance:
 
 ### T17.02 — Cross-file definition uses indexed symbol ownership
 
-**Target:** new definition/index test  
+**Target:** new definition/index test
 **Suggested name:** `StyioIdeService.DefinitionUsesWorkspaceIndexAcrossFiles`
 
 Acceptance:
@@ -71,7 +71,7 @@ Acceptance:
 
 ### T17.03 — References merge open-file and background results
 
-**Target:** new references/index test  
+**Target:** new references/index test
 **Suggested name:** `StyioIdeService.ReferencesMergeOpenFileAndBackgroundIndex`
 
 Acceptance:
@@ -81,7 +81,7 @@ Acceptance:
 
 ### T17.04 — Persistent index can warm a new session
 
-**Target:** new persistence test  
+**Target:** new persistence test
 **Suggested name:** `StyioWorkspaceIndex.PersistentIndexWarmsNewSession`
 
 Acceptance:
@@ -94,33 +94,33 @@ Acceptance:
 ## Implementation Tasks
 
 ### Task 17.1 — Define index schemas and merge rules
-**Role:** Index Agent  
-**Files:** `src/StyioIDE/Index.*`, `src/StyioIDE/SemDB.*`  
-**Action:** Freeze layer responsibilities and merge precedence.  
+**Role:** Index Agent
+**Files:** `src/StyioIDE/Index.*`, `src/StyioIDE/SemDB.*`
+**Action:** Freeze layer responsibilities and merge precedence.
 **Verify:** Build succeeds.
 
 ### Task 17.2 — Build background indexing pipeline
-**Role:** Index Agent  
-**Files:** `src/StyioIDE/Index.*`, runtime helpers as needed  
-**Action:** Index workspace files off the foreground path.  
+**Role:** Index Agent
+**Files:** `src/StyioIDE/Index.*`, runtime helpers as needed
+**Action:** Index workspace files off the foreground path.
 **Verify:** T17.01 passes.
 
 ### Task 17.3 — Integrate indexed lookups into definition/references/workspace symbol
-**Role:** IDE Agent  
-**Files:** `src/StyioIDE/SemDB.*`, `src/StyioIDE/Service.*`  
-**Action:** Make navigation/search consume merged index results.  
+**Role:** IDE Agent
+**Files:** `src/StyioIDE/SemDB.*`, `src/StyioIDE/Service.*`
+**Action:** Make navigation/search consume merged index results.
 **Verify:** T17.02 and T17.03 pass.
 
 ### Task 17.4 — Persist and reload index state
-**Role:** Index Agent  
-**Files:** `src/StyioIDE/Index.*`  
-**Action:** Store and warm symbol/reference metadata between sessions.  
+**Role:** Index Agent
+**Files:** `src/StyioIDE/Index.*`
+**Action:** Store and warm symbol/reference metadata between sessions.
 **Verify:** T17.04 passes.
 
 ### Task 17.5 — Update docs
-**Role:** Doc Agent  
-**Files:** `docs/for-ide/*.md`, `docs/plans/*.md`, `docs/milestones/2026-04-15/*.md`  
-**Action:** Document layer boundaries and persistence behavior.  
+**Role:** Doc Agent
+**Files:** `docs/external/for-ide/*.md`, `docs/plans/*.md`, `docs/milestones/2026-04-15/*.md`
+**Action:** Document layer boundaries and persistence behavior.
 **Verify:** `python3 scripts/docs-audit.py` passes.
 
 ---

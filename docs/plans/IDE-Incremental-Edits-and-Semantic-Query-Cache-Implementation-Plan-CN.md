@@ -1,13 +1,13 @@
 # IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan-CN
 
-**Purpose:** 这是 [`IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md`](./IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md) 的中文镜像版本，用于定义 Styio IDE 子系统从当前 MVP 形态推进到成熟 IDE 级补全与语义能力的完整路线图。该路线图明确要求至少对标 3 套成熟语言工具链，而不是只参考 Rust 一条线；冻结验收目标见 [`../milestones/2026-04-15/`](../milestones/2026-04-15/)，IDE 使用方式见 [`../for-ide/README.md`](../for-ide/README.md)。
+**Purpose:** 这是 [`IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md`](./IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md) 的中文镜像版本，用于定义 Styio IDE 子系统从当前 MVP 形态推进到成熟 IDE 级补全与语义能力的完整路线图。该路线图明确要求至少对标 3 套成熟语言工具链，而不是只参考 Rust 一条线；冻结验收目标见 [`../milestones/2026-04-15/`](../milestones/2026-04-15/)，IDE 使用方式见 [`../external/for-ide/README.md`](../external/for-ide/README.md)。
 
 **Last updated:** 2026-04-16
 
 **Date:** 2026-04-15  
 **Status:** 活跃实施计划。冻结验收文档位于 [`../milestones/2026-04-15/`](../milestones/2026-04-15/)。  
 **Depends on:** 现有 IDE/LSP 基础、Tree-sitter backend 集成、Nightly `ParseMode::Recovery`，以及当前 `styio_ide_core` / `styio_lspd` 构建目标。  
-**Related docs:** [`./IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md`](./IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md), [`../for-ide/BUILD.md`](../for-ide/BUILD.md), [`../for-ide/TREE-SITTER.md`](../for-ide/TREE-SITTER.md), [`../for-ide/CXX-API.md`](../for-ide/CXX-API.md), [`../specs/DOCUMENTATION-POLICY.md`](../specs/DOCUMENTATION-POLICY.md)
+**Related docs:** [`./IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md`](./IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md), [`../external/for-ide/BUILD.md`](../external/for-ide/BUILD.md), [`../external/for-ide/TREE-SITTER.md`](../external/for-ide/TREE-SITTER.md), [`../external/for-ide/CXX-API.md`](../external/for-ide/CXX-API.md), [`../specs/DOCUMENTATION-POLICY.md`](../specs/DOCUMENTATION-POLICY.md)
 
 ---
 

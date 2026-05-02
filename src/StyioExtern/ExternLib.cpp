@@ -1474,6 +1474,35 @@ styio_list_cstr_read_stdin() {
   return stash_list(list);
 }
 
+extern "C" DLLEXPORT int64_t
+styio_string_lines(const char* text) {
+  auto* list = new StyioListString();
+  if (text == nullptr || text[0] == '\0') {
+    return stash_list(list);
+  }
+
+  std::string current;
+  bool ended_with_separator = false;
+  for (size_t i = 0; text[i] != '\0'; ++i) {
+    char ch = text[i];
+    if (ch == '\n' || ch == '\r') {
+      list->elems.push_back(current);
+      current.clear();
+      ended_with_separator = true;
+      if (ch == '\r' && text[i + 1] == '\n') {
+        ++i;
+      }
+      continue;
+    }
+    current.push_back(ch);
+    ended_with_separator = false;
+  }
+  if (!ended_with_separator) {
+    list->elems.push_back(current);
+  }
+  return stash_list(list);
+}
+
 bool
 check_list_index(size_t size, int64_t idx, bool allow_end = false) {
   if (idx < 0) {

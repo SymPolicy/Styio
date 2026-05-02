@@ -1,0 +1,38 @@
+id = "change-bootstrap-env"
+title = "Change Bootstrap Env"
+purpose = "Change environment dependency bootstrap behavior without turning bootstrap into build or delivery automation."
+last_updated = "2026-04-23"
+doc = "CHANGE-BOOTSTRAP-ENV.md"
+skill = "skills/styio-env-bootstrap/skill.toml"
+
+steps = [
+  "classify the change as dependency, version baseline, path, or documentation",
+  "keep bootstrap limited to dependency preparation",
+  "update docs/BUILD-AND-DEV-ENV.md and standard baseline text",
+  "add or update a non-invasive test",
+  "run syntax, docs, and workflow gates",
+]
+
+required_evidence = [
+  "dependency or baseline changed",
+  "bootstrap scope remains dependency-only",
+  "help text and docs agree",
+  "test avoids mutating host package state",
+]
+
+gates = [
+  "bash -n scripts/bootstrap-dev-env.sh",
+  "ctest --test-dir build/default -R ^bootstrap_dev_env_dependency_scope$ --output-on-failure",
+  "python3 scripts/docs-index.py --check",
+  "python3 scripts/docs-audit.py",
+  "git diff --check",
+]
+
+[handoff]
+report = [
+  "changed dependencies",
+  "host assumptions",
+  "exports",
+  "tests",
+  "anything not installed by bootstrap",
+]
