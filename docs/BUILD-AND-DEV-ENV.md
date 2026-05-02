@@ -80,13 +80,13 @@ Run repo docs validation:
 
 ```bash
 ./scripts/docs-gate.sh
-./scripts/delivery-gate.sh --mode checkpoint --skip-health
+./scripts/delivery-gate.sh --skip-health
 ```
 
 Run the full checkpoint delivery floor:
 
 ```bash
-./scripts/delivery-gate.sh --mode checkpoint
+./scripts/delivery-gate.sh
 ```
 
 ## Subsystem-Specific Follow-Ups
