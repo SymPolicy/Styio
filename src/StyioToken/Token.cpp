@@ -588,6 +588,10 @@ reprDataTypeOption(StyioDataTypeOption option) {
       return "dict";
     } break;
 
+    case StyioDataTypeOption::Matrix: {
+      return "matrix";
+    } break;
+
     case StyioDataTypeOption::Struct: {
       return "struct";
     } break;

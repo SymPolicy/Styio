@@ -1868,15 +1868,23 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
       context.skip();
       TypeAST* ty = parse_styio_type(context);
       context.skip();
-      if (context.cur_tok_type() != StyioTokenType::WALRUS) {
-        throw StyioSyntaxError("expected ':=' after type in nightly parser subset");
+      if (context.cur_tok_type() == StyioTokenType::WALRUS) {
+        context.move_forward(1, "new_stmt:final_bind_walrus");
+        context.skip();
+        return FinalBindAST::Create(
+          VarAST::Create(NameAST::Create(id), ty),
+          parse_expr_subset_nightly(context)
+        );
       }
-      context.move_forward(1, "new_stmt:final_bind_walrus");
-      context.skip();
-      return FinalBindAST::Create(
-        VarAST::Create(NameAST::Create(id), ty),
-        parse_expr_subset_nightly(context)
-      );
+      if (context.cur_tok_type() == StyioTokenType::TOK_EQUAL) {
+        context.move_forward(1, "new_stmt:typed_flex_bind_equal");
+        context.skip();
+        return FlexBindAST::Create(
+          VarAST::Create(NameAST::Create(id), ty),
+          parse_expr_subset_nightly(context)
+        );
+      }
+      throw StyioSyntaxError("expected '=' or ':=' after type in nightly parser subset");
     }
     if (context.cur_tok_type() == StyioTokenType::TOK_EQUAL) {
       context.move_forward(1, "new_stmt:flex_bind");

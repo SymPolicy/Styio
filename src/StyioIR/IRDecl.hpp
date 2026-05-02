@@ -77,11 +77,15 @@ class SIOStdStreamPull;
    such as matrix. */
 class SCListLiteral;
 class SCDictLiteral;
+class SCMatrixLiteral;
 class SCListClone;
 class SCListLen;
 class SCListGet;
 class SCListSet;
 class SCListToString;
+class SCMatrixGet;
+class SCMatrixRow;
+class SCMatrixToString;
 class SCDictClone;
 class SCDictLen;
 class SCDictGet;

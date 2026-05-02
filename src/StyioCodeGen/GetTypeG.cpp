@@ -55,6 +55,7 @@ StyioToLLVM::toLLVMType(SGType* node) {
       return llvm::PointerType::get(*theContext, 0);
     case StyioDataTypeOption::List:
     case StyioDataTypeOption::Dict:
+    case StyioDataTypeOption::Matrix:
       return theBuilder->getInt64Ty();
     default:
       return theBuilder->getInt64Ty();
@@ -252,6 +253,12 @@ StyioToLLVM::toLLVMType(SCDictLiteral* node) {
 }
 
 llvm::Type*
+StyioToLLVM::toLLVMType(SCMatrixLiteral* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
 StyioToLLVM::toLLVMType(SGStateSnapLoad* node) {
   (void)node;
   return theBuilder->getInt64Ty();
@@ -412,6 +419,26 @@ StyioToLLVM::toLLVMType(SCListSet* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SCListToString* node) {
+  (void)node;
+  return llvm::PointerType::get(*theContext, 0);
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SCMatrixGet* node) {
+  if (styio_value_family_from_type_name(node->elem_type) == StyioValueFamily::Float) {
+    return theBuilder->getDoubleTy();
+  }
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SCMatrixRow* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SCMatrixToString* node) {
   (void)node;
   return llvm::PointerType::get(*theContext, 0);
 }

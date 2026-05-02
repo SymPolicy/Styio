@@ -73,11 +73,362 @@ infer_list_literal_type(StyioSemaContext* an, ListAST* list) {
   return styio_make_list_type(elem_type.name);
 }
 
+struct MatrixLiteralInfo
+{
+  StyioDataType elem_type{StyioDataTypeOption::Integer, "i64", 64};
+  size_t rows = 0;
+  size_t cols = 0;
+};
+
 bool
 type_is_numeric_family(const StyioDataType& type) {
   StyioValueFamily family = styio_value_family_for_type(type);
   return family == StyioValueFamily::Integer
     || family == StyioValueFamily::Float;
+}
+
+StyioDataType
+merge_matrix_elem_types(StyioDataType current, StyioDataType next) {
+  if (current.isUndefined()) {
+    return next;
+  }
+  if (next.isUndefined()) {
+    return current;
+  }
+  if (!type_is_numeric_family(current) || !type_is_numeric_family(next)) {
+    throw StyioTypeError("matrix elements must be numeric scalar values");
+  }
+  if (current.equals(next)) {
+    return current;
+  }
+  if (current.option == StyioDataTypeOption::Float
+      || next.option == StyioDataTypeOption::Float) {
+    return kF64Type;
+  }
+  return kI64Type;
+}
+
+MatrixLiteralInfo
+infer_matrix_literal_info(StyioSemaContext* an, StyioAST* expr) {
+  auto* outer = dynamic_cast<ListAST*>(expr);
+  if (outer == nullptr) {
+    throw StyioTypeError("matrix binding requires a nested list literal");
+  }
+
+  auto const& rows = outer->getElements();
+  if (rows.empty()) {
+    throw StyioTypeError("matrix literal requires at least one row");
+  }
+
+  MatrixLiteralInfo info;
+  info.rows = rows.size();
+  StyioDataType elem_type{StyioDataTypeOption::Undefined, "undefined", 0};
+
+  for (size_t row_index = 0; row_index < rows.size(); ++row_index) {
+    auto* row = dynamic_cast<ListAST*>(rows[row_index]);
+    if (row == nullptr) {
+      throw StyioTypeError("matrix rows must be list literals");
+    }
+    auto const& cells = row->getElements();
+    if (cells.empty()) {
+      throw StyioTypeError("matrix rows must not be empty");
+    }
+    if (row_index == 0) {
+      info.cols = cells.size();
+    }
+    else if (cells.size() != info.cols) {
+      throw StyioTypeError("matrix rows must have consistent length");
+    }
+
+    for (auto* cell : cells) {
+      StyioDataType cell_type = infer_expr_type(an, cell);
+      if (cell_type.isUndefined()) {
+        cell_type = kI64Type;
+      }
+      elem_type = merge_matrix_elem_types(elem_type, cell_type);
+    }
+  }
+
+  if (elem_type.isUndefined()) {
+    elem_type = kI64Type;
+  }
+  info.elem_type = elem_type;
+  return info;
+}
+
+bool
+container_value_assignable(const StyioDataType& target, const StyioDataType& actual);
+
+bool
+is_matrix_intrinsic_name(const std::string& name) {
+  return name == "mat_zeros"
+    || name == "mat_zeros_i64"
+    || name == "mat_identity"
+    || name == "mat_identity_i64"
+    || name == "mat_shape"
+    || name == "mat_rows"
+    || name == "mat_cols"
+    || name == "mat_get"
+    || name == "mat_set"
+    || name == "mat_clone"
+    || name == "mat_add"
+    || name == "mat_sub"
+    || name == "mat_scale"
+    || name == "mat_hadamard"
+    || name == "matmul"
+    || name == "transpose"
+    || name == "dot"
+    || name == "mat_sum"
+    || name == "norm";
+}
+
+std::optional<int64_t>
+static_i64_literal(StyioAST* ast) {
+  auto* i = dynamic_cast<IntAST*>(ast);
+  if (i == nullptr) {
+    return std::nullopt;
+  }
+  try {
+    return std::stoll(i->getValue());
+  }
+  catch (...) {
+    return std::nullopt;
+  }
+}
+
+StyioDataType
+matrix_elem_type(const StyioDataType& matrix_type) {
+  return styio_data_type_from_name(styio_matrix_elem_type_name(matrix_type));
+}
+
+StyioDataType
+merge_numeric_elem_type(const StyioDataType& lhs, const StyioDataType& rhs) {
+  if (!type_is_numeric_family(lhs) || !type_is_numeric_family(rhs)) {
+    throw StyioTypeError("matrix operations require numeric scalar element types");
+  }
+  if (lhs.option == StyioDataTypeOption::Float || rhs.option == StyioDataTypeOption::Float) {
+    return kF64Type;
+  }
+  return kI64Type;
+}
+
+void
+require_matrix_arg(const std::string& name, const StyioDataType& type) {
+  if (!styio_is_matrix_type(type)) {
+    throw StyioTypeError("matrix intrinsic `" + name + "` requires matrix argument(s)");
+  }
+}
+
+void
+require_integer_arg(const std::string& name, const StyioDataType& type) {
+  if (type.option != StyioDataTypeOption::Integer) {
+    throw StyioTypeError("matrix intrinsic `" + name + "` requires integer dimension/index argument(s)");
+  }
+}
+
+void
+require_same_matrix_shape(const StyioDataType& lhs, const StyioDataType& rhs) {
+  size_t lr = styio_matrix_row_count(lhs);
+  size_t lc = styio_matrix_col_count(lhs);
+  size_t rr = styio_matrix_row_count(rhs);
+  size_t rc = styio_matrix_col_count(rhs);
+  if (lr != 0 && lc != 0 && rr != 0 && rc != 0 && (lr != rr || lc != rc)) {
+    throw StyioTypeError("matrix shapes must match");
+  }
+}
+
+void
+require_matmul_compatible(const StyioDataType& lhs, const StyioDataType& rhs) {
+  size_t lc = styio_matrix_col_count(lhs);
+  size_t rr = styio_matrix_row_count(rhs);
+  if (lc != 0 && rr != 0 && lc != rr) {
+    throw StyioTypeError("matrix multiplication requires lhs columns to equal rhs rows");
+  }
+}
+
+StyioDataType
+matrix_binary_result(
+  const StyioDataType& lhs,
+  const StyioDataType& rhs,
+  StyioOpType op
+) {
+  const bool lhs_matrix = styio_is_matrix_type(lhs);
+  const bool rhs_matrix = styio_is_matrix_type(rhs);
+  if (!lhs_matrix && !rhs_matrix) {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+  if (op == StyioOpType::Binary_Mul && lhs_matrix != rhs_matrix) {
+    const StyioDataType& matrix_type = lhs_matrix ? lhs : rhs;
+    const StyioDataType& scalar_type = lhs_matrix ? rhs : lhs;
+    if (!type_is_numeric_family(scalar_type)) {
+      throw StyioTypeError("matrix scalar multiplication requires a numeric scalar");
+    }
+    StyioDataType elem = merge_numeric_elem_type(matrix_elem_type(matrix_type), scalar_type);
+    return styio_make_matrix_type(
+      elem.name,
+      styio_matrix_row_count(matrix_type),
+      styio_matrix_col_count(matrix_type));
+  }
+  if (!lhs_matrix || !rhs_matrix) {
+    throw StyioTypeError("matrix addition/subtraction require matrix operands");
+  }
+  StyioDataType elem = merge_numeric_elem_type(matrix_elem_type(lhs), matrix_elem_type(rhs));
+  if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub) {
+    require_same_matrix_shape(lhs, rhs);
+    return styio_make_matrix_type(
+      elem.name,
+      styio_matrix_row_count(lhs),
+      styio_matrix_col_count(lhs));
+  }
+  if (op == StyioOpType::Binary_Mul) {
+    require_matmul_compatible(lhs, rhs);
+    return styio_make_matrix_type(
+      elem.name,
+      styio_matrix_row_count(lhs),
+      styio_matrix_col_count(rhs));
+  }
+  throw StyioTypeError("unsupported matrix operator");
+}
+
+StyioDataType
+infer_matrix_intrinsic_type(StyioSemaContext* an, FuncCallAST* call) {
+  if (call == nullptr || call->func_callee != nullptr) {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+  const std::string name = call->getNameAsStr();
+  if (!is_matrix_intrinsic_name(name)) {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+
+  std::vector<StyioDataType> args;
+  for (auto* arg : call->getArgList()) {
+    args.push_back(infer_expr_type(an, arg));
+  }
+
+  auto require_count = [&](size_t n) {
+    if (args.size() != n) {
+      throw StyioTypeError(
+        "matrix intrinsic `" + name + "` expects " + std::to_string(n)
+        + " argument(s), got " + std::to_string(args.size()));
+    }
+  };
+
+  if (name == "mat_zeros" || name == "mat_zeros_i64") {
+    require_count(2);
+    require_integer_arg(name, args[0]);
+    require_integer_arg(name, args[1]);
+    size_t rows = 0;
+    size_t cols = 0;
+    if (auto r = static_i64_literal(call->getArgList()[0]); r.has_value() && *r > 0) {
+      rows = static_cast<size_t>(*r);
+    }
+    if (auto c = static_i64_literal(call->getArgList()[1]); c.has_value() && *c > 0) {
+      cols = static_cast<size_t>(*c);
+    }
+    return styio_make_matrix_type(name == "mat_zeros_i64" ? "i64" : "f64", rows, cols);
+  }
+
+  if (name == "mat_identity" || name == "mat_identity_i64") {
+    require_count(1);
+    require_integer_arg(name, args[0]);
+    size_t n = 0;
+    if (auto v = static_i64_literal(call->getArgList()[0]); v.has_value() && *v > 0) {
+      n = static_cast<size_t>(*v);
+    }
+    return styio_make_matrix_type(name == "mat_identity_i64" ? "i64" : "f64", n, n);
+  }
+
+  if (name == "mat_rows" || name == "mat_cols") {
+    require_count(1);
+    require_matrix_arg(name, args[0]);
+    return kI64Type;
+  }
+  if (name == "mat_shape") {
+    require_count(1);
+    require_matrix_arg(name, args[0]);
+    return styio_make_list_type("i64");
+  }
+  if (name == "mat_get") {
+    require_count(3);
+    require_matrix_arg(name, args[0]);
+    require_integer_arg(name, args[1]);
+    require_integer_arg(name, args[2]);
+    return matrix_elem_type(args[0]);
+  }
+  if (name == "mat_set") {
+    require_count(4);
+    require_matrix_arg(name, args[0]);
+    require_integer_arg(name, args[1]);
+    require_integer_arg(name, args[2]);
+    if (!container_value_assignable(matrix_elem_type(args[0]), args[3])) {
+      throw StyioTypeError("mat_set value does not match matrix element type");
+    }
+    return kI64Type;
+  }
+  if (name == "mat_clone" || name == "transpose") {
+    require_count(1);
+    require_matrix_arg(name, args[0]);
+    if (name == "transpose") {
+      return styio_make_matrix_type(
+        styio_matrix_elem_type_name(args[0]),
+        styio_matrix_col_count(args[0]),
+        styio_matrix_row_count(args[0]));
+    }
+    return args[0];
+  }
+  if (name == "mat_add" || name == "mat_sub" || name == "mat_hadamard") {
+    require_count(2);
+    require_matrix_arg(name, args[0]);
+    require_matrix_arg(name, args[1]);
+    require_same_matrix_shape(args[0], args[1]);
+    StyioDataType elem = merge_numeric_elem_type(matrix_elem_type(args[0]), matrix_elem_type(args[1]));
+    return styio_make_matrix_type(
+      elem.name,
+      styio_matrix_row_count(args[0]),
+      styio_matrix_col_count(args[0]));
+  }
+  if (name == "mat_scale") {
+    require_count(2);
+    require_matrix_arg(name, args[0]);
+    if (!type_is_numeric_family(args[1])) {
+      throw StyioTypeError("mat_scale requires a numeric scalar");
+    }
+    StyioDataType elem = merge_numeric_elem_type(matrix_elem_type(args[0]), args[1]);
+    return styio_make_matrix_type(
+      elem.name,
+      styio_matrix_row_count(args[0]),
+      styio_matrix_col_count(args[0]));
+  }
+  if (name == "matmul") {
+    require_count(2);
+    require_matrix_arg(name, args[0]);
+    require_matrix_arg(name, args[1]);
+    require_matmul_compatible(args[0], args[1]);
+    StyioDataType elem = merge_numeric_elem_type(matrix_elem_type(args[0]), matrix_elem_type(args[1]));
+    return styio_make_matrix_type(
+      elem.name,
+      styio_matrix_row_count(args[0]),
+      styio_matrix_col_count(args[1]));
+  }
+  if (name == "dot") {
+    require_count(2);
+    require_matrix_arg(name, args[0]);
+    require_matrix_arg(name, args[1]);
+    require_same_matrix_shape(args[0], args[1]);
+    return merge_numeric_elem_type(matrix_elem_type(args[0]), matrix_elem_type(args[1]));
+  }
+  if (name == "mat_sum") {
+    require_count(1);
+    require_matrix_arg(name, args[0]);
+    return matrix_elem_type(args[0]);
+  }
+  if (name == "norm") {
+    require_count(1);
+    require_matrix_arg(name, args[0]);
+    return kF64Type;
+  }
+
+  return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
 }
 
 StyioDataType
@@ -386,6 +737,10 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
       if (!builtin_type.isUndefined()) {
         return builtin_type;
       }
+      builtin_type = infer_matrix_intrinsic_type(an, call);
+      if (!builtin_type.isUndefined()) {
+        return builtin_type;
+      }
       auto it = an->func_defs.find(call->getNameAsStr());
       if (it != an->func_defs.end()) {
         return func_ret_type_of_def(an, it->second);
@@ -471,6 +826,8 @@ binding_value_kind_for_type(const StyioDataType& type) {
       return StyioSemaContext::BindingValueKind::ListHandle;
     case StyioValueFamily::DictHandle:
       return StyioSemaContext::BindingValueKind::DictHandle;
+    case StyioValueFamily::MatrixHandle:
+      return StyioSemaContext::BindingValueKind::MatrixHandle;
     case StyioValueFamily::String:
       return StyioSemaContext::BindingValueKind::String;
     case StyioValueFamily::Float:
@@ -651,11 +1008,32 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
 
   if (var_type.option != StyioDataTypeOption::Undefined) {
     if (ast->getValue()->getNodeType() == StyioNodeType::BinOp) {
-      static_cast<BinOpAST*>(ast->getValue())->setDType(var_type);
+      if (!styio_is_matrix_type(var_type)) {
+        static_cast<BinOpAST*>(ast->getValue())->setDType(var_type);
+      }
     }
   }
 
   ast->getValue()->typeInfer(this);
+
+  if (styio_is_matrix_type(var_type)) {
+    if (dynamic_cast<ListAST*>(ast->getValue()) != nullptr) {
+      MatrixLiteralInfo matrix = infer_matrix_literal_info(this, ast->getValue());
+      var_type = styio_make_matrix_type(matrix.elem_type.name, matrix.rows, matrix.cols);
+      static_cast<ListAST*>(ast->getValue())->setDataType(var_type);
+    }
+    else {
+      StyioDataType rhs_type = infer_expr_type(this, ast->getValue());
+      require_matrix_arg("matrix binding", rhs_type);
+      if (styio_matrix_row_count(var_type) == 0 && styio_matrix_col_count(var_type) == 0) {
+        var_type = rhs_type;
+      }
+      else {
+        require_same_matrix_shape(var_type, rhs_type);
+      }
+    }
+    ast->getVar()->setDataType(var_type);
+  }
 
   if (var_type.option == StyioDataTypeOption::Undefined) {
     switch (ast->getValue()->getNodeType()) {
@@ -698,10 +1076,13 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
       "resource handles must be bound with `<-`; use `<- @...` for files and standard streams");
   }
 
-  BindingValueKind kind = expr_value_kind(ast->getValue());
   StyioDataType concrete_type = inferred_rhs_type;
   if (var_type.option != StyioDataTypeOption::Undefined) {
     concrete_type = var_type;
+  }
+  BindingValueKind kind = expr_value_kind(ast->getValue());
+  if (styio_is_matrix_type(concrete_type)) {
+    kind = BindingValueKind::MatrixHandle;
   }
 
   local_binding_types[ast->getNameAsStr()] = concrete_type;
@@ -716,8 +1097,12 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
     || ast->getValue()->getNodeType() == StyioNodeType::TypedStdinList
     || kind == BindingValueKind::ListHandle
     || kind == BindingValueKind::DictHandle;
+  if (kind == BindingValueKind::MatrixHandle) {
+    info.dynamic_slot = false;
+  }
   info.resource_value = kind == BindingValueKind::ListHandle
-    || kind == BindingValueKind::DictHandle;
+    || kind == BindingValueKind::DictHandle
+    || kind == BindingValueKind::MatrixHandle;
   info.value_kind = kind;
   info.declared_type = info.dynamic_slot
     ? StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0}
@@ -738,9 +1123,29 @@ StyioSemaContext::typeInfer(FinalBindAST* ast) {
   }
   ast->getValue()->typeInfer(this);
   auto vt = ast->getVar()->getDType()->type;
+  if (styio_is_matrix_type(vt)) {
+    if (dynamic_cast<ListAST*>(ast->getValue()) != nullptr) {
+      MatrixLiteralInfo matrix = infer_matrix_literal_info(this, ast->getValue());
+      vt = styio_make_matrix_type(matrix.elem_type.name, matrix.rows, matrix.cols);
+      static_cast<ListAST*>(ast->getValue())->setDataType(vt);
+    }
+    else {
+      StyioDataType rhs_type = infer_expr_type(this, ast->getValue());
+      require_matrix_arg("matrix binding", rhs_type);
+      if (styio_matrix_row_count(vt) == 0 && styio_matrix_col_count(vt) == 0) {
+        vt = rhs_type;
+      }
+      else {
+        require_same_matrix_shape(vt, rhs_type);
+      }
+    }
+    ast->getVar()->setDataType(vt);
+  }
   if (ast->getValue()->getNodeType() == StyioNodeType::BinOp) {
-    static_cast<BinOpAST*>(ast->getValue())->setDType(vt);
-    ast->getValue()->typeInfer(this);
+    if (!styio_is_matrix_type(vt)) {
+      static_cast<BinOpAST*>(ast->getValue())->setDType(vt);
+      ast->getValue()->typeInfer(this);
+    }
   }
   local_binding_types[ast->getVar()->getNameAsStr()] = vt;
   fixed_assignment_names_.insert(ast->getVar()->getNameAsStr());
@@ -757,9 +1162,11 @@ StyioSemaContext::typeInfer(FinalBindAST* ast) {
     || ast->getValue()->getNodeType() == StyioNodeType::Dict
     || rhs_kind == BindingValueKind::ListHandle
     || rhs_kind == BindingValueKind::DictHandle
+    || rhs_kind == BindingValueKind::MatrixHandle
     || (rhs_info != binding_info_.end()
         && (rhs_info->second.value_kind == BindingValueKind::ListHandle
-            || rhs_info->second.value_kind == BindingValueKind::DictHandle));
+            || rhs_info->second.value_kind == BindingValueKind::DictHandle
+            || rhs_info->second.value_kind == BindingValueKind::MatrixHandle));
   info.resource_value = runtime_resource;
   if (ast->getValue()->getNodeType() == StyioNodeType::Dict) {
     info.value_kind = BindingValueKind::DictHandle;
@@ -769,6 +1176,9 @@ StyioSemaContext::typeInfer(FinalBindAST* ast) {
       ast->getValue()->getNodeType() == StyioNodeType::TypedStdinList
         ? BindingValueKind::ListHandle
         : (rhs_info != binding_info_.end() ? rhs_info->second.value_kind : rhs_kind);
+    if (styio_is_matrix_type(vt)) {
+      info.value_kind = BindingValueKind::MatrixHandle;
+    }
   }
   else if (vt.option == StyioDataTypeOption::String) {
     info.value_kind = BindingValueKind::String;
@@ -1229,6 +1639,17 @@ StyioSemaContext::typeInfer(BinOpAST* ast) {
   if (ast->getType().isUndefined()) {
     lhs->typeInfer(this);
     rhs->typeInfer(this);
+    StyioDataType lhs_type = infer_expr_type(this, lhs);
+    StyioDataType rhs_type = infer_expr_type(this, rhs);
+    if (styio_is_matrix_type(lhs_type) || styio_is_matrix_type(rhs_type)) {
+      if (op != StyioOpType::Binary_Add
+          && op != StyioOpType::Binary_Sub
+          && op != StyioOpType::Binary_Mul) {
+        throw StyioTypeError("unsupported matrix operator");
+      }
+      ast->setDType(matrix_binary_result(lhs_type, rhs_type, op));
+      return;
+    }
     if (op == StyioOpType::Binary_Add
         && infer_concat_string_add(this, ast, lhs, rhs)) {
       return;
@@ -1571,6 +1992,14 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
     throw StyioTypeError(
       "one-shot continuation resume `<|` requires continuation lowering; "
       "captured continuations must be resumed or discontinued exactly once");
+  }
+
+  if (ast->func_callee == nullptr && is_matrix_intrinsic_name(ast->getNameAsStr())) {
+    for (auto* arg : ast->getArgList()) {
+      arg->typeInfer(this);
+    }
+    (void)infer_matrix_intrinsic_type(this, ast);
+    return;
   }
 
   auto def_it = func_defs.find(ast->getNameAsStr());

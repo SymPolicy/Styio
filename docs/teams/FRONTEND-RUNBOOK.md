@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of Styio tokenization, parsing, Unicode handling, and legacy/nightly parser migration; this file links to language and test SSOTs instead of redefining grammar.
 
-**Last updated:** 2026-05-01
+**Last updated:** 2026-05-03
 
 ## Mission
 
@@ -36,6 +36,7 @@ Build and test targets:
 7. When accepted syntax reaches lowering or runtime helpers, follow [../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md](../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md) and do not stop at parser-only green status.
 8. Conditional infinite loops use `[...] >> ?(cond) => { ... }`; reject the older `[...] ?(cond) >> { ... }` spelling in both legacy and nightly parser routes.
 9. Keep negative numeric literals as literal atoms in both parser routes; `-1 + 2` must parse as `(-1) + 2`, not `0 - (1 + 2)`.
+10. When a type annotation admits a collection-shaped literal, keep the parser change context-triggered, such as `m: matrix = [[...], [...]]`, and leave untyped nested list literals on the ordinary list path.
 
 ## Change Classes
 

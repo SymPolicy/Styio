@@ -18,7 +18,8 @@ public:
     Resource = 1,
     List = 2,
     Dict = 3,
-    Unknown = 4,
+    Matrix = 4,
+    Unknown = 5,
   };
 
   struct Entry

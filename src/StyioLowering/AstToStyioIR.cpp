@@ -176,6 +176,9 @@ bound_type_of(AstToStyioIRLowerer* an, StyioAST* expr) {
 }
 
 StyioDataType
+matrix_intrinsic_lowered_type(AstToStyioIRLowerer* an, FuncCallAST* call);
+
+StyioDataType
 expr_lowered_type(AstToStyioIRLowerer* an, StyioAST* expr) {
   if (auto bound = bound_type_of(an, expr)) {
     return *bound;
@@ -198,6 +201,16 @@ expr_lowered_type(AstToStyioIRLowerer* an, StyioAST* expr) {
       if (callee_type.option == StyioDataTypeOption::String) {
         return styio_make_list_type("string");
       }
+    }
+    StyioDataType matrix_type = matrix_intrinsic_lowered_type(an, call);
+    if (!matrix_type.isUndefined()) {
+      return matrix_type;
+    }
+  }
+  if (auto* bin = dynamic_cast<BinOpAST*>(expr)) {
+    StyioDataType t = bin->getType();
+    if (!t.isUndefined()) {
+      return t;
     }
   }
   if (auto* access = dynamic_cast<ListOpAST*>(expr)) {
@@ -228,6 +241,196 @@ expr_is_dict_like(AstToStyioIRLowerer* an, StyioAST* expr) {
     return true;
   }
   return false;
+}
+
+bool
+expr_is_matrix_like(AstToStyioIRLowerer* an, StyioAST* expr) {
+  return styio_is_matrix_type(expr_lowered_type(an, expr));
+}
+
+bool
+is_matrix_intrinsic_name(const std::string& name) {
+  return name == "mat_zeros"
+    || name == "mat_zeros_i64"
+    || name == "mat_identity"
+    || name == "mat_identity_i64"
+    || name == "mat_shape"
+    || name == "mat_rows"
+    || name == "mat_cols"
+    || name == "mat_get"
+    || name == "mat_set"
+    || name == "mat_clone"
+    || name == "mat_add"
+    || name == "mat_sub"
+    || name == "mat_scale"
+    || name == "mat_hadamard"
+    || name == "matmul"
+    || name == "transpose"
+    || name == "dot"
+    || name == "mat_sum"
+    || name == "norm";
+}
+
+StyioDataType
+matrix_intrinsic_lowered_type(AstToStyioIRLowerer* an, FuncCallAST* call) {
+  if (call == nullptr || call->func_callee != nullptr || !is_matrix_intrinsic_name(call->getNameAsStr())) {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+  const std::string name = call->getNameAsStr();
+  auto arg_type = [&](size_t i) {
+    return i < call->getArgList().size()
+      ? expr_lowered_type(an, call->getArgList()[i])
+      : StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  };
+  auto elem = [&](const StyioDataType& type) {
+    return styio_data_type_from_name(styio_matrix_elem_type_name(type));
+  };
+  auto merge_elem = [&](const StyioDataType& a, const StyioDataType& b) {
+    return (a.option == StyioDataTypeOption::Float || b.option == StyioDataTypeOption::Float)
+      ? std::string("f64")
+      : std::string("i64");
+  };
+  auto int_lit = [&](size_t i) -> size_t {
+    if (i >= call->getArgList().size()) {
+      return 0;
+    }
+    auto* lit = dynamic_cast<IntAST*>(call->getArgList()[i]);
+    if (lit == nullptr) {
+      return 0;
+    }
+    try {
+      long long v = std::stoll(lit->getValue());
+      return v > 0 ? static_cast<size_t>(v) : 0;
+    }
+    catch (...) {
+      return 0;
+    }
+  };
+
+  if (name == "mat_zeros" || name == "mat_zeros_i64") {
+    return styio_make_matrix_type(name == "mat_zeros_i64" ? "i64" : "f64", int_lit(0), int_lit(1));
+  }
+  if (name == "mat_identity" || name == "mat_identity_i64") {
+    size_t n = int_lit(0);
+    return styio_make_matrix_type(name == "mat_identity_i64" ? "i64" : "f64", n, n);
+  }
+  if (name == "mat_shape") {
+    return styio_make_list_type("i64");
+  }
+  if (name == "mat_rows" || name == "mat_cols" || name == "mat_set") {
+    return StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+  }
+  if (name == "mat_get") {
+    return elem(arg_type(0));
+  }
+  if (name == "mat_clone") {
+    return arg_type(0);
+  }
+  if (name == "transpose") {
+    StyioDataType m = arg_type(0);
+    return styio_make_matrix_type(
+      styio_matrix_elem_type_name(m),
+      styio_matrix_col_count(m),
+      styio_matrix_row_count(m));
+  }
+  if (name == "mat_add" || name == "mat_sub" || name == "mat_hadamard") {
+    StyioDataType a = arg_type(0);
+    StyioDataType b = arg_type(1);
+    return styio_make_matrix_type(
+      merge_elem(elem(a), elem(b)),
+      styio_matrix_row_count(a),
+      styio_matrix_col_count(a));
+  }
+  if (name == "mat_scale") {
+    StyioDataType m = arg_type(0);
+    return styio_make_matrix_type(
+      merge_elem(elem(m), arg_type(1)),
+      styio_matrix_row_count(m),
+      styio_matrix_col_count(m));
+  }
+  if (name == "matmul") {
+    StyioDataType a = arg_type(0);
+    StyioDataType b = arg_type(1);
+    return styio_make_matrix_type(
+      merge_elem(elem(a), elem(b)),
+      styio_matrix_row_count(a),
+      styio_matrix_col_count(b));
+  }
+  if (name == "dot" || name == "mat_sum") {
+    StyioDataType t = name == "dot"
+      ? styio_data_type_from_name(merge_elem(elem(arg_type(0)), elem(arg_type(1))))
+      : elem(arg_type(0));
+    return t;
+  }
+  if (name == "norm") {
+    return StyioDataType{StyioDataTypeOption::Float, "f64", 64};
+  }
+  return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+}
+
+std::string
+matrix_suffix_for_type(const StyioDataType& type) {
+  return styio_value_family_for_type(styio_data_type_from_name(styio_matrix_elem_type_name(type)))
+      == StyioValueFamily::Float
+    ? "f64"
+    : "i64";
+}
+
+std::string
+matrix_suffix_for_scalar_type(const StyioDataType& type) {
+  return styio_value_family_for_type(type) == StyioValueFamily::Float ? "f64" : "i64";
+}
+
+std::string
+matrix_intrinsic_runtime_name(AstToStyioIRLowerer* an, FuncCallAST* call) {
+  const std::string name = call->getNameAsStr();
+  StyioDataType result_type = expr_lowered_type(an, call);
+  auto arg_type = [&](size_t i) {
+    return i < call->getArgList().size()
+      ? expr_lowered_type(an, call->getArgList()[i])
+      : StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  };
+
+  if (name == "mat_zeros") {
+    return "__styio_matrix_new_f64";
+  }
+  if (name == "mat_zeros_i64") {
+    return "__styio_matrix_new_i64";
+  }
+  if (name == "mat_identity") {
+    return "__styio_matrix_identity_f64";
+  }
+  if (name == "mat_identity_i64") {
+    return "__styio_matrix_identity_i64";
+  }
+  if (name == "mat_shape" || name == "mat_rows" || name == "mat_cols") {
+    return "__styio_matrix_" + name.substr(4);
+  }
+  if (name == "norm") {
+    return "__styio_matrix_norm";
+  }
+  if (name == "mat_get" || name == "mat_set") {
+    return "__styio_matrix_" + name.substr(4) + "_" + matrix_suffix_for_type(arg_type(0));
+  }
+  if (name == "mat_clone") {
+    return "__styio_matrix_clone_" + matrix_suffix_for_type(result_type);
+  }
+  if (name == "mat_add" || name == "mat_sub" || name == "mat_scale" || name == "mat_hadamard") {
+    return "__styio_matrix_" + name.substr(4) + "_" + matrix_suffix_for_type(result_type);
+  }
+  if (name == "matmul") {
+    return "__styio_matrix_matmul_" + matrix_suffix_for_type(result_type);
+  }
+  if (name == "transpose") {
+    return "__styio_matrix_transpose_" + matrix_suffix_for_type(result_type);
+  }
+  if (name == "dot") {
+    return "__styio_matrix_dot_" + matrix_suffix_for_scalar_type(result_type);
+  }
+  if (name == "mat_sum") {
+    return "__styio_matrix_sum_" + matrix_suffix_for_scalar_type(result_type);
+  }
+  return name;
 }
 
 bool
@@ -1369,11 +1572,28 @@ AstToStyioIRLowerer::toStyioIR(SetAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ListAST* ast) {
+  StyioDataType list_type = expr_lowered_type(this, ast);
+  if (styio_is_matrix_type(list_type)) {
+    std::vector<StyioIR*> flat;
+    for (auto* row_expr : ast->getElements()) {
+      auto* row = dynamic_cast<ListAST*>(row_expr);
+      if (row == nullptr) {
+        throw StyioTypeError("matrix literal rows must be list literals");
+      }
+      for (auto* cell : row->getElements()) {
+        flat.push_back(cell->toStyioIR(this));
+      }
+    }
+    return SCMatrixLiteral::Create(
+      std::move(flat),
+      styio_matrix_elem_type_name(list_type),
+      styio_matrix_row_count(list_type),
+      styio_matrix_col_count(list_type));
+  }
   std::vector<StyioIR*> el;
   for (auto* e : ast->getElements()) {
     el.push_back(e->toStyioIR(this));
   }
-  StyioDataType list_type = expr_lowered_type(this, ast);
   return SCListLiteral::Create(std::move(el), styio_type_item_type_name(list_type));
 }
 
@@ -1411,7 +1631,27 @@ AstToStyioIRLowerer::toStyioIR(SizeOfAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ListOpAST* ast) {
+  if (ast->getOp() == StyioNodeType::Access_By_Index) {
+    if (auto* row_access = dynamic_cast<ListOpAST*>(ast->getList())) {
+      if (row_access->getOp() == StyioNodeType::Access_By_Index) {
+        StyioDataType matrix_type = expr_lowered_type(this, row_access->getList());
+        if (styio_is_matrix_type(matrix_type)) {
+          return SCMatrixGet::Create(
+            row_access->getList()->toStyioIR(this),
+            row_access->getSlot1()->toStyioIR(this),
+            ast->getSlot1()->toStyioIR(this),
+            styio_matrix_elem_type_name(matrix_type));
+        }
+      }
+    }
+  }
   StyioDataType base_type = expr_lowered_type(this, ast->getList());
+  if (styio_is_matrix_type(base_type) && ast->getOp() == StyioNodeType::Access_By_Index) {
+    return SCMatrixRow::Create(
+      ast->getList()->toStyioIR(this),
+      ast->getSlot1()->toStyioIR(this),
+      styio_matrix_elem_type_name(base_type));
+  }
   if (styio_is_dict_type(base_type)
       && (ast->getOp() == StyioNodeType::Access_By_Index
           || ast->getOp() == StyioNodeType::Access_By_Name)) {
@@ -1682,7 +1922,9 @@ AstToStyioIRLowerer::toStyioIR(BinOpAST* ast) {
     ast->LHS->toStyioIR(this),
     ast->RHS->toStyioIR(this),
     ast->operand,
-    static_cast<SGType*>(ast->data_type->toStyioIR(this)));
+    static_cast<SGType*>(ast->data_type->toStyioIR(this)),
+    expr_lowered_type(this, ast->LHS),
+    expr_lowered_type(this, ast->RHS));
 }
 
 StyioIR*
@@ -1792,6 +2034,16 @@ AstToStyioIRLowerer::toStyioIR(FuncCallAST* ast) {
       "captured continuations must be resumed or discontinued exactly once");
   }
 
+  if (ast->func_callee == nullptr && is_matrix_intrinsic_name(ast->getNameAsStr())) {
+    std::vector<StyioIR*> args;
+    for (auto* a : ast->getArgList()) {
+      args.push_back(a->toStyioIR(this));
+    }
+    return SGCall::Create(
+      SGResId::Create(matrix_intrinsic_runtime_name(this, ast)),
+      std::move(args));
+  }
+
   auto def_it = func_defs.find(ast->getNameAsStr());
   if (def_it == func_defs.end()) {
     if (native_func_defs.find(ast->getNameAsStr()) != native_func_defs.end()) {
@@ -1851,11 +2103,13 @@ AstToStyioIRLowerer::toStyioIR(PrintAST* ast) {
   for (auto* e : ast->exprs) {
     StyioIR* lowered = e->toStyioIR(this);
     parts.push_back(
-      expr_is_list_like(this, e)
-        ? static_cast<StyioIR*>(SCListToString::Create(lowered))
-        : (expr_is_dict_like(this, e)
-            ? static_cast<StyioIR*>(SCDictToString::Create(lowered))
-            : lowered));
+      expr_is_matrix_like(this, e)
+        ? static_cast<StyioIR*>(SCMatrixToString::Create(lowered))
+        : (expr_is_list_like(this, e)
+            ? static_cast<StyioIR*>(SCListToString::Create(lowered))
+            : (expr_is_dict_like(this, e)
+                ? static_cast<StyioIR*>(SCDictToString::Create(lowered))
+                : lowered)));
   }
   return SIOStdStreamWrite::Create(SIOStdStreamWrite::Stream::Stdout, parts);
 }

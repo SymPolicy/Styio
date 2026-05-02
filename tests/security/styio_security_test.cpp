@@ -1530,6 +1530,76 @@ TEST(StyioSecurityNightlySemantics, AllowsRuntimeHandleListIteration) {
   EXPECT_NE(llvm_ir.find("styio_list_get_list"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlySemantics, AllowsMatrixTypedNestedListLiteral) {
+  const std::string src =
+    "m: matrix = [[1,0],[0,1]]\n"
+    "row = m[0]\n"
+    "cell = m[1][1]\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_matrix_new_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_set_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_row_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_get_i64"), std::string::npos);
+  EXPECT_EQ(llvm_ir.find("styio_list_new_list"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsRaggedMatrixTypedNestedListLiteral) {
+  const std::string src =
+    "m: matrix = [[1,0],[1]]\n";
+  EXPECT_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly),
+    StyioTypeError
+  );
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsStaticMatrixShapeMismatch) {
+  const std::string src =
+    "a: matrix = [[1,2],[3,4]]\n"
+    "b: matrix = [[1,2]]\n"
+    "c = a + b\n";
+  EXPECT_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly),
+    StyioTypeError
+  );
+}
+
+TEST(StyioSecurityNightlySemantics, InlinesSmallStaticMatrixMultiply) {
+  const std::string src =
+    "a: matrix = [[1,2],[3,4]]\n"
+    "b: matrix = [[5,6],[7,8]]\n"
+    "c = a * b\n";
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_matrix_data_i64"), std::string::npos);
+  EXPECT_EQ(llvm_ir.find("styio_matrix_matmul_i64"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, LowersMatrixIntrinsicFunctions) {
+  const std::string src =
+    "a: matrix = [[1,2],[3,4]]\n"
+    "b: matrix = [[5,6],[7,8]]\n"
+    "h = mat_hadamard(a,b)\n"
+    "t = transpose(a)\n"
+    "d = dot(a,b)\n";
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_matrix_hadamard_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_transpose_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_dot_i64"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, LeavesRaggedUntypedNestedListAsList) {
+  const std::string src =
+    "rows = [[1,0],[1]]\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+}
+
 TEST(StyioSecurityNightlySemantics, RejectsMixedDictValueFamilies) {
   const std::string src =
     "d = dict{\"a\": 1, \"b\": \"two\"}\n";

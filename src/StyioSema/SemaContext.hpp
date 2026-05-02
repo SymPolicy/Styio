@@ -305,6 +305,7 @@ public:
     String,
     ListHandle,
     DictHandle,
+    MatrixHandle,
   };
 
   struct BindingInfo
