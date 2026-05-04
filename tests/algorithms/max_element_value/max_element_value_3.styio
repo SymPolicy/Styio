@@ -1,0 +1,26 @@
+values <- @stdin: list[i32]
+
+answer = -1
+
+n = values.length
+
+n ?= {
+    (n == 0) => {
+        /* empty */
+    }
+
+    (n == 1) => {
+        answer = values[0]
+    }
+
+    _______ => {
+        answer = values[0]
+        [1..n-1] >> #(i) => {
+            ?(values[i] > answer) => {
+                answer = values[i]
+            }
+        }
+    }
+}
+
+>_(answer)

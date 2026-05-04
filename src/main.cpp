@@ -1943,6 +1943,7 @@ styio_nano_source_roots_latest(bool include_pipeline_check) {
     "src/StyioToString/ToString.cpp",
     "src/StyioSema/TypeInfer.cpp",
     "src/StyioLowering/AstToStyioIR.cpp",
+    "src/StyioLowering/StyioIROptimizer.cpp",
     "src/StyioCodeGen/CodeGen.cpp",
     "src/StyioCodeGen/GetTypeG.cpp",
     "src/StyioCodeGen/CodeGenG.cpp",

@@ -91,6 +91,23 @@ parser_handle_recovery_latest(
   return true;
 }
 
+bool
+is_all_underscore_identifier_latest(const std::string& text) {
+  return !text.empty()
+    && std::all_of(text.begin(), text.end(), [](unsigned char ch) { return ch == '_'; });
+}
+
+bool
+is_default_case_wildcard_latest(StyioContext& context) {
+  if (context.cur_tok_type() == StyioTokenType::TOK_UNDLINE) {
+    return true;
+  }
+  if (context.cur_tok_type() != StyioTokenType::NAME) {
+    return false;
+  }
+  return is_all_underscore_identifier_latest(context.cur_tok()->original);
+}
+
 }  // namespace
 
 void
@@ -3674,7 +3691,8 @@ parse_cases_only_latest(StyioContext& context) {
 
   while (not context.match(StyioTokenType::TOK_RCURBRAC) /* } */) {
     context.skip();
-    if (context.match(StyioTokenType::TOK_UNDLINE) /* _ */) {
+    if (is_default_case_wildcard_latest(context) /* _ */) {
+      context.move_forward(1, "legacy_cases:default_wildcard");
       context.skip();
       if (context.match(StyioTokenType::ARROW_DOUBLE_RIGHT) /* => */) {
         context.skip();

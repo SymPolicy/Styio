@@ -2868,20 +2868,22 @@ StyioToLLVM::pop_file_handle_scope() {
   if (file_handle_scope_stack_.empty()) {
     return;
   }
-  llvm::FunctionCallee close_fn = theModule->getOrInsertFunction(
-    "styio_file_close",
-    llvm::FunctionType::get(
-      theBuilder->getVoidTy(),
-      {theBuilder->getInt64Ty()},
-      false));
-  std::unordered_set<llvm::AllocaInst*> closed_slots;
-  for (const std::string& v : file_handle_scope_stack_.back()) {
-    auto it = mutable_variables.find(v);
-    if (it != mutable_variables.end()) {
-      llvm::AllocaInst* slot = it->second;
-      if (closed_slots.insert(slot).second) {
-        llvm::Value* h = theBuilder->CreateLoad(theBuilder->getInt64Ty(), slot);
-        theBuilder->CreateCall(close_fn, {h});
+  if (!file_handle_scope_stack_.back().empty()) {
+    llvm::FunctionCallee close_fn = theModule->getOrInsertFunction(
+      "styio_file_close",
+      llvm::FunctionType::get(
+        theBuilder->getVoidTy(),
+        {theBuilder->getInt64Ty()},
+        false));
+    std::unordered_set<llvm::AllocaInst*> closed_slots;
+    for (const std::string& v : file_handle_scope_stack_.back()) {
+      auto it = mutable_variables.find(v);
+      if (it != mutable_variables.end()) {
+        llvm::AllocaInst* slot = it->second;
+        if (closed_slots.insert(slot).second) {
+          llvm::Value* h = theBuilder->CreateLoad(theBuilder->getInt64Ty(), slot);
+          theBuilder->CreateCall(close_fn, {h});
+        }
       }
     }
   }

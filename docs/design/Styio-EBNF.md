@@ -2,7 +2,7 @@
 
 **Purpose:** 词法与语法的 **EBNF 权威定义**；资源拓扑相关附录与叙述以 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md) 为准，语义细节以 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 为准。
 
-**Last updated:** 2026-05-03
+**Last updated:** 2026-05-04
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -163,6 +163,7 @@ statement          = declaration
                    | assignment
                    | state_declaration
                    | conditional_stmt
+                   | match_bind_expr
                    | flow_pipeline
                    | expression_stmt
                    | schema_def ;
@@ -459,21 +460,37 @@ range_literal      = expression '..' expression [ '..' expression ] ;
 ```ebnf
 match_expr         = expression '?=' match_body ;
 
+match_bind_expr    = '#(' identifier '=' expression ')' '?=' match_body ;
+
 match_body         = '{' { match_arm } [ default_arm ] '}' ;
 
 match_arm          = pattern '=>' ( block | expression ) ;
 
-default_arm        = '_' '=>' ( block | expression ) ;
+default_arm        = wildcard '=>' ( block | expression ) ;
+
+wildcard           = '_' | underscore_identifier ;
 
 pattern            = int_literal
+                   | guarded_int_pattern
                    | float_literal
                    | string_literal
                    | identifier
                    | collection_pattern ;
 
+guarded_int_pattern = '(' identifier '==' int_literal ')'
+                    | '(' int_literal '==' identifier ')' ;
+
+underscore_identifier = '_' '_' { '_' } ;
+
 collection_pattern = '[' { pattern { ',' pattern } } ']'
                    | '(' { pattern { ',' pattern } } ')' ;
 ```
+
+`#(name = expr) ?= { ... }` binds the scrutinee once and matches the bound
+name. Integer literal arms and guarded integer equality arms such as `(n == 1)`
+are canonicalized to the same match arm value when the guard references the
+match scrutinee. Source spellings that are semantically equivalent converge in
+the StyioIR optimizer before LLVM codegen.
 
 ---
 

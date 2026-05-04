@@ -19,6 +19,7 @@
 #include "../StyioIR/IOIR/IOIR.hpp"
 #include "../StyioException/Exception.hpp"
 #include "../StyioToken/Token.hpp"
+#include "StyioIROptimizer.hpp"
 
 namespace {
 
@@ -152,6 +153,43 @@ try_parse_int_literal_value(StyioAST* ast, std::int64_t& out) {
   } catch (const std::exception&) {
     return false;
   }
+}
+
+bool
+is_name_ast(StyioAST* ast, const std::string& name) {
+  auto* nm = dynamic_cast<NameAST*>(ast);
+  return nm != nullptr && nm->getAsStr() == name;
+}
+
+std::optional<std::int64_t>
+match_case_pattern_value_for_name(StyioAST* pattern, const std::string* scrutinee_name) {
+  std::int64_t literal = 0;
+  if (try_parse_int_literal_value(pattern, literal)) {
+    return literal;
+  }
+
+  auto* cmp = dynamic_cast<BinCompAST*>(pattern);
+  if (scrutinee_name == nullptr || cmp == nullptr || cmp->getSign() != CompType::EQ) {
+    return std::nullopt;
+  }
+
+  if (is_name_ast(cmp->getLHS(), *scrutinee_name)
+      && try_parse_int_literal_value(cmp->getRHS(), literal)) {
+    return literal;
+  }
+  if (is_name_ast(cmp->getRHS(), *scrutinee_name)
+      && try_parse_int_literal_value(cmp->getLHS(), literal)) {
+    return literal;
+  }
+
+  return std::nullopt;
+}
+
+std::optional<std::int64_t>
+match_case_pattern_value(StyioAST* pattern, StyioAST* scrutinee) {
+  auto* scrutinee_name = dynamic_cast<NameAST*>(scrutinee);
+  const std::string* name = scrutinee_name != nullptr ? &scrutinee_name->getAsStr() : nullptr;
+  return match_case_pattern_value_for_name(pattern, name);
 }
 
 std::optional<StdStreamKind>
@@ -2540,11 +2578,11 @@ AstToStyioIRLowerer::toStyioIR(MatchCasesAST* ast) {
   StyioIR* scr = ast->getScrutinee()->toStyioIR(this);
   std::vector<std::pair<std::int64_t, SGBlock*>> arms;
   for (auto const& pr : c->case_list) {
-    auto* li = dynamic_cast<IntAST*>(pr.first);
-    if (!li) {
+    std::optional<std::int64_t> arm_value = match_case_pattern_value(pr.first, ast->getScrutinee());
+    if (!arm_value.has_value()) {
       throw StyioTypeError("match arms need integer literal patterns in this milestone");
     }
-    arms.push_back({std::stoll(li->value), lower_func_body(this, pr.second)});
+    arms.push_back({*arm_value, lower_func_body(this, pr.second)});
   }
   SGBlock* def = nullptr;
   if (c->case_default) {
@@ -2559,7 +2597,7 @@ AstToStyioIRLowerer::toStyioIR(BlockAST* ast) {
   for (auto* s : ast->stmts) {
     ir_stmts.push_back(s->toStyioIR(this));
   }
-  return SGBlock::Create(ir_stmts);
+  return styio::lowering::optimize_styio_ir(SGBlock::Create(std::move(ir_stmts)));
 }
 
 StyioIR*
@@ -2604,5 +2642,5 @@ AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
   }
   set_post_pulse_hist_context(-1, nullptr);
 
-  return SGMainEntry::Create(ir_stmts);
+  return styio::lowering::optimize_styio_ir(SGMainEntry::Create(std::move(ir_stmts)));
 }
