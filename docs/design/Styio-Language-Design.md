@@ -2,7 +2,7 @@
 
 **Purpose:** Styio 语言的 **权威语义与特性说明**（正文规格）；形式文法见 [`Styio-EBNF.md`](./Styio-EBNF.md)，符号与 token 名见 [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md)，`@` **目标**拓扑见 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)，冲突与未定见 [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md)。
 
-**Last updated:** 2026-05-03
+**Last updated:** 2026-05-04
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -226,8 +226,24 @@ x ?= {
 
 - `?=` — match operator (condition probe)
 - `=>` — pattern-to-result mapping
-- `_` — wildcard / default branch
+- `_` or an all-underscore identifier such as `_______` — wildcard / default branch
 - `<|` — yield (explicit return from block)
+
+The binding form matches a scrutinee while exposing it to every arm:
+
+```
+#(n = values.length) ?= {
+    0 => { /* empty */ }
+    1 => { answer = values[0] }
+    _ => { /* n is available here */ }
+}
+```
+
+For integer match lowering, literal arms (`1 => ...`) and guarded equality arms
+that compare the scrutinee to an integer (`(n == 1) => ...`) are semantically
+the same arm. AST lowering emits ordinary StyioIR, then the StyioIR optimizer
+canonicalizes equivalent match shapes before LLVM codegen so accepted source
+spellings can produce identical switch-shaped LLVM IR.
 
 ### 6.2 Infinite Loop
 

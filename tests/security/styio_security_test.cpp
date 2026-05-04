@@ -1530,6 +1530,111 @@ TEST(StyioSecurityNightlySemantics, AllowsRuntimeHandleListIteration) {
   EXPECT_NE(llvm_ir.find("styio_list_get_list"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlySemantics, MaxElementMatchFormsGenerateEquivalentLlvm) {
+  const std::string hash_let_match =
+    "values <- @stdin: list[i32]\n"
+    "answer = -1\n"
+    "#(n = values.length) ?= {\n"
+    "  0 => { /* empty */ }\n"
+    "  1 => { answer = values[0] }\n"
+    "  _ => {\n"
+    "    answer = values[0]\n"
+    "    [1..n-1] >> #(i) => {\n"
+    "      ?(values[i] > answer) => { answer = values[i] }\n"
+    "    }\n"
+    "  }\n"
+    "}\n"
+    ">_(answer)\n";
+  const std::string scrutinee_rebind =
+    "values <- @stdin: list[i32]\n"
+    "answer = -1\n"
+    "values.length ?= {\n"
+    "  0 => { /* empty */ }\n"
+    "  1 => { answer = values[0] }\n"
+    "  _ => {\n"
+    "    answer = values[0]\n"
+    "    n = values.length\n"
+    "    [1..n-1] >> #(i) => {\n"
+    "      ?(values[i] > answer) => { answer = values[i] }\n"
+    "    }\n"
+    "  }\n"
+    "}\n"
+    ">_(answer)\n";
+  const std::string guarded_cases =
+    "values <- @stdin: list[i32]\n"
+    "answer = -1\n"
+    "n = values.length\n"
+    "n ?= {\n"
+    "  (n == 0) => { /* empty */ }\n"
+    "  (n == 1) => { answer = values[0] }\n"
+    "  _______ => {\n"
+    "    answer = values[0]\n"
+    "    [1..n-1] >> #(i) => {\n"
+    "      ?(values[i] > answer) => { answer = values[i] }\n"
+    "    }\n"
+    "  }\n"
+    "}\n"
+    ">_(answer)\n";
+
+  const std::string expected =
+    compile_program_to_llvm_ir_engine_latest(hash_let_match, StyioParserEngine::Nightly);
+  EXPECT_EQ(
+    compile_program_to_llvm_ir_engine_latest(scrutinee_rebind, StyioParserEngine::Nightly),
+    expected
+  );
+  EXPECT_EQ(
+    compile_program_to_llvm_ir_engine_latest(guarded_cases, StyioParserEngine::Nightly),
+    expected
+  );
+  EXPECT_NE(expected.find("switch i64"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, PureArithmeticMatchFormsGenerateEquivalentLlvm) {
+  const std::string hash_let_match =
+    "seed = 1\n"
+    "answer = 0\n"
+    "#(n = seed + 1) ?= {\n"
+    "  1 => { answer = 11 }\n"
+    "  2 => { answer = 22 }\n"
+    "  _ => { answer = n }\n"
+    "}\n"
+    ">_(answer)\n";
+  const std::string scrutinee_rebind =
+    "seed = 1\n"
+    "answer = 0\n"
+    "seed + 1 ?= {\n"
+    "  1 => { answer = 11 }\n"
+    "  2 => { answer = 22 }\n"
+    "  _ => {\n"
+    "    n = seed + 1\n"
+    "    answer = n\n"
+    "  }\n"
+    "}\n"
+    ">_(answer)\n";
+  const std::string guarded_cases =
+    "seed = 1\n"
+    "answer = 0\n"
+    "n = seed + 1\n"
+    "n ?= {\n"
+    "  (n == 1) => { answer = 11 }\n"
+    "  (2 == n) => { answer = 22 }\n"
+    "  _______ => { answer = n }\n"
+    "}\n"
+    ">_(answer)\n";
+
+  const std::string expected =
+    compile_program_to_llvm_ir_engine_latest(hash_let_match, StyioParserEngine::Nightly);
+  EXPECT_EQ(
+    compile_program_to_llvm_ir_engine_latest(scrutinee_rebind, StyioParserEngine::Nightly),
+    expected
+  );
+  EXPECT_EQ(
+    compile_program_to_llvm_ir_engine_latest(guarded_cases, StyioParserEngine::Nightly),
+    expected
+  );
+  EXPECT_NE(expected.find("switch i64"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlySemantics, AllowsMatrixTypedNestedListLiteral) {
   const std::string src =
     "m: matrix = [[1,0],[0,1]]\n"
