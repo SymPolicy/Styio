@@ -19,7 +19,8 @@ public:
     List = 2,
     Dict = 3,
     Matrix = 4,
-    Unknown = 5,
+    Task = 5,
+    Unknown = 6,
   };
 
   struct Entry

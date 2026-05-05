@@ -15,6 +15,16 @@ gtest_discover_tests(styio_soak_test
   PROPERTIES LABELS "benchmark\\;soak\\;soak_smoke\\;single_thread"
 )
 
+add_executable(styio_task_scheduler_perf_test
+  styio_task_scheduler_perf_test.cpp
+)
+target_link_libraries(styio_task_scheduler_perf_test PRIVATE styio_core GTest::gtest_main)
+styio_apply_llvm_compile_settings(styio_task_scheduler_perf_test)
+gtest_discover_tests(styio_task_scheduler_perf_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "benchmark\\;task_runtime\\;performance"
+)
+
 # Nightly deep soak variants (same test binary, larger loop counts).
 add_test(
   NAME soak_deep_tokenizer

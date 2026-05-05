@@ -43,6 +43,21 @@ is_default_case_wildcard_latest(StyioContext& context) {
   return is_all_underscore_identifier_latest(context.cur_tok()->original);
 }
 
+StyioAST*
+make_default_value_for_decl_latest(const StyioDataType& type) {
+  switch (type.option) {
+    case StyioDataTypeOption::Bool:
+      return BoolAST::Create(false);
+    case StyioDataTypeOption::Float:
+      return FloatAST::Create("0.0");
+    case StyioDataTypeOption::String:
+      return StringAST::Create("\"\"");
+    case StyioDataTypeOption::Integer:
+    default:
+      return IntAST::Create("0");
+  }
+}
+
 std::string
 nightly_recovery_message_latest() {
   try {
@@ -1247,6 +1262,15 @@ private:
       }
       if (allow_extended_continuations && context_.match(StyioTokenType::ARROW_SINGLE_RIGHT)) {
         context_.skip();
+        if (context_.cur_tok_type() == StyioTokenType::NAME) {
+          const std::string target_name = context_.cur_tok()->original;
+          context_.move_forward(1, "new_expr:flow_bind_target");
+          owner.reset(FlowBindAST::Create(
+            owner.release(),
+            VarAST::Create(NameAST::Create(target_name)),
+            false));
+          continue;
+        }
         owner.reset(ResourceRedirectAST::Create(owner.release(), parse_resource_target_latest(context_)));
         continue;
       }
@@ -1388,6 +1412,14 @@ private:
       }
       case StyioTokenType::TOK_AT: {
         return parse_resource_file_atom_latest(context_);
+      }
+      case StyioTokenType::TASK_LAUNCH: {
+        context_.move_forward(1, "new_expr:task_launch");
+        context_.skip();
+        if (context_.cur_tok_type() != StyioTokenType::TOK_LCURBRAC) {
+          throw StyioSyntaxError(context_.mark_cur_tok("||> must be followed by a task block"));
+        }
+        return TaskBlockAST::Create(parse_block_only_subset_nightly(context_));
       }
       case StyioTokenType::NAME: {
         const std::string name = context_.cur_tok()->original;
@@ -1606,6 +1638,7 @@ styio_parser_expr_subset_token_nightly(StyioTokenType type) {
     case StyioTokenType::LOGIC_AND:
     case StyioTokenType::LOGIC_OR:
     case StyioTokenType::YIELD_PIPE:
+    case StyioTokenType::TASK_LAUNCH:
       return true;
     default:
       return false;
@@ -1625,6 +1658,7 @@ styio_parser_expr_subset_start_nightly(StyioTokenType type) {
     case StyioTokenType::TOK_LPAREN:
     case StyioTokenType::TOK_PLUS:
     case StyioTokenType::TOK_MINUS:
+    case StyioTokenType::TASK_LAUNCH:
       return true;
     default:
       return false;
@@ -1659,6 +1693,7 @@ styio_parser_stmt_subset_token_nightly(StyioTokenType type) {
     case StyioTokenType::ITERATOR:
     case StyioTokenType::ARROW_DOUBLE_RIGHT:
     case StyioTokenType::TOK_PIPE:
+    case StyioTokenType::TASK_LAUNCH:
     case StyioTokenType::TOK_LBOXBRAC:
     case StyioTokenType::TOK_RBOXBRAC:
     case StyioTokenType::TOK_LCURBRAC:
@@ -2017,16 +2052,19 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
           parse_expr_subset_nightly(context)
         );
       }
-      if (context.cur_tok_type() == StyioTokenType::TOK_EQUAL) {
-        context.move_forward(1, "new_stmt:typed_flex_bind_equal");
-        context.skip();
-        return FlexBindAST::Create(
-          VarAST::Create(NameAST::Create(id), ty),
-          parse_expr_subset_nightly(context)
-        );
-      }
-      throw StyioSyntaxError("expected '=' or ':=' after type in nightly parser subset");
-    }
+	      if (context.cur_tok_type() == StyioTokenType::TOK_EQUAL) {
+	        context.move_forward(1, "new_stmt:typed_flex_bind_equal");
+	        context.skip();
+	        return FlexBindAST::Create(
+	          VarAST::Create(NameAST::Create(id), ty),
+	          parse_expr_subset_nightly(context)
+	        );
+	      }
+	      return FlexBindAST::Create(
+	        VarAST::Create(NameAST::Create(id), ty),
+	        make_default_value_for_decl_latest(ty->getDataType())
+	      );
+	    }
     if (context.cur_tok_type() == StyioTokenType::TOK_EQUAL) {
       context.move_forward(1, "new_stmt:flex_bind");
       context.skip();

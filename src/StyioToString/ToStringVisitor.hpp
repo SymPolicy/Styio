@@ -104,6 +104,8 @@ using StyioToStringVisitor = ToStringVisitor<
   class SnapshotDeclAST,
   class InstantPullAST,
   class TypedStdinListAST,
+  class TaskBlockAST,
+  class FlowBindAST,
   class IterSeqAST,
   class InfiniteLoopAST,
 
@@ -313,6 +315,10 @@ public:
 
   std::string toString(TypedStdinListAST* ast, int indent = 0);
 
+  std::string toString(TaskBlockAST* ast, int indent = 0);
+
+  std::string toString(FlowBindAST* ast, int indent = 0);
+
   std::string toString(IterSeqAST* ast, int indent = 0);
 
   std::string toString(MatchCasesAST* ast, int indent = 0);
@@ -409,6 +415,8 @@ public:
   std::string toString(SIOStdStreamWrite* node, int indent = 0);
   std::string toString(SIOStdStreamLineIter* node, int indent = 0);
   std::string toString(SIOStdStreamPull* node, int indent = 0);
+  std::string toString(SIOTaskCreate* node, int indent = 0);
+  std::string toString(SIOFlowBind* node, int indent = 0);
 
   std::string toString(SIOPath* node, int indent = 0);
   std::string toString(SIOPrint* node, int indent = 0);

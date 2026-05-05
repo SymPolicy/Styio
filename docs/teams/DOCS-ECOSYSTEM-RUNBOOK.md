@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-05-04
+**Last updated:** 2026-05-05
 
 ## Mission
 
@@ -79,6 +79,7 @@ Key SSOTs:
 44. Keep CMake build output conventions under `build/<variant>` across scripts, GitHub Actions, workflow docs, and external handoff docs; root `build-*` directories are legacy generated artifacts only and should not be introduced by new commands.
 45. When a typed syntax addition changes design SSOTs and test catalogs together, keep the docs update concise: record the accepted source form, point catalog entries to evidence coverage, refresh generated indexes, and update team stats in the same delivery.
 46. When source spellings are declared canonically equivalent, keep the ADR, design SSOT, workflow mirror, and test catalog aligned while leaving behavior ownership in parser, Sema / IR, Codegen / Runtime, and Test Quality runbooks.
+47. When a milestone test catalog changes for new resource-management syntax, update only the evidence index there and keep lifecycle rules in the owning team runbooks; then refresh `DOC-STATS.md` before rerunning the team-docs gate.
 
 ## Change Classes
 

@@ -395,6 +395,14 @@ reprASTType(StyioNodeType type, std::string extra) {
       output += std::string("resource.redirect");
     } break;
 
+    case StyioNodeType::TaskBlock: {
+      output += std::string("task.block");
+    } break;
+
+    case StyioNodeType::FlowBind: {
+      output += std::string("flow.bind");
+    } break;
+
     case StyioNodeType::StateDecl: {
       output += std::string("state.decl");
     } break;
@@ -862,6 +870,9 @@ StyioToken::getTokName(StyioTokenType type) {
 
     case StyioTokenType::PIPE_SEMICOLON:
       return "|;";
+
+    case StyioTokenType::TASK_LAUNCH:
+      return "||>";
 
     case StyioTokenType::INFINITE_LIST:
       return "[...]";

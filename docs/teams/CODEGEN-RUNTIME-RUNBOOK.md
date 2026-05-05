@@ -41,6 +41,7 @@ Related docs:
 12. Matrix runtime helpers own the flat row-major storage contract. When adding or changing matrix lowering, keep `ExternLib.hpp`, `ExternLib.cpp`, `HandleTable.hpp`, ORC registrations, direct-data helpers, release paths, and security/codegen tests in the same checkpoint.
 13. Empty lexical scopes must not emit unused runtime declarations; exact LLVM IR comparison tests protect StyioIR optimizer canonicalization from backend-only drift.
 14. Matrix/list/dict/string runtime resources stored in dynamic slots must release through the same RAII path on overwrite, normal scope exit, and runtime-error early return. Any new runtime guard that emits `ret` must first run active scope cleanup.
+15. Task resources are scheduled runtime handles. Keep `styio_task_*_spawn`, worker-pool state, `HandleKind::Task`, dynamic-slot release, ORC registrations, and task pull codegen in one checkpoint; `||>` lowering must emit a private task function plus scheduler submission, not an eager scalar handle that can escape scope cleanup.
 
 ## Change Classes
 

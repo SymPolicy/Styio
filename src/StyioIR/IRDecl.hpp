@@ -72,6 +72,8 @@ class SIOResourceWriteToFile;
 class SIOStdStreamWrite;
 class SIOStdStreamLineIter;
 class SIOStdStreamPull;
+class SIOTaskCreate;
+class SIOFlowBind;
 
 /* SC = Styio Collection. List, dictionary, and future data structures
    such as matrix. */

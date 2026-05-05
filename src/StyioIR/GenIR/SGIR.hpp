@@ -330,6 +330,7 @@ enum class SGDynLoadKind : std::uint8_t
   ListHandle,
   DictHandle,
   MatrixHandle,
+  TaskHandle,
 };
 
 class SGDynLoad : public StyioIRTraits<SGDynLoad>

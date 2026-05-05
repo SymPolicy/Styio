@@ -219,4 +219,47 @@ private:
   SIOStdStreamPull() = default;
 };
 
+class SIOTaskCreate : public StyioIRTraits<SIOTaskCreate>
+{
+public:
+  SGBlock* body = nullptr;
+  StyioDataType result_type{StyioDataTypeOption::Integer, "i64", 64};
+
+  static SIOTaskCreate* Create(SGBlock* b, StyioDataType result) {
+    auto* x = new SIOTaskCreate();
+    x->body = b;
+    x->result_type = std::move(result);
+    return x;
+  }
+
+private:
+  SIOTaskCreate() = default;
+};
+
+class SIOFlowBind : public StyioIRTraits<SIOFlowBind>
+{
+public:
+  StyioIR* source_expr = nullptr;
+  std::string target_name;
+  StyioDataType result_type{StyioDataTypeOption::Integer, "i64", 64};
+  bool source_is_task = false;
+
+  static SIOFlowBind* Create(
+    StyioIR* source,
+    std::string target,
+    StyioDataType result,
+    bool task_source
+  ) {
+    auto* x = new SIOFlowBind();
+    x->source_expr = source;
+    x->target_name = std::move(target);
+    x->result_type = std::move(result);
+    x->source_is_task = task_source;
+    return x;
+  }
+
+private:
+  SIOFlowBind() = default;
+};
+
 #endif

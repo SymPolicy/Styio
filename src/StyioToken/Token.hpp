@@ -42,6 +42,7 @@ enum class StyioHandleFamily : std::uint8_t
   Range,
   File,
   Stream,
+  Task,
 };
 
 enum class StyioTypeState : std::uint8_t
@@ -49,6 +50,10 @@ enum class StyioTypeState : std::uint8_t
   None = 0,
   Open,
   Materialized,
+  Pending,
+  Ready,
+  Done,
+  Cancelled,
   Closed,
 };
 
@@ -65,6 +70,7 @@ enum class StyioValueFamily : std::uint8_t
   RangeHandle,
   FileHandle,
   StreamHandle,
+  TaskHandle,
   UserDefined,
 };
 
@@ -78,6 +84,11 @@ enum class StyioTypeCapability : std::uint32_t
   Writable = 1u << 4,
   Cloneable = 1u << 5,
   Collectable = 1u << 6,
+  Pull = 1u << 7,
+  Push = 1u << 8,
+  Close = 1u << 9,
+  Send = 1u << 10,
+  Sync = 1u << 11,
 };
 
 inline constexpr std::uint32_t
@@ -407,6 +418,8 @@ styio_value_family_for_type(const StyioDataType& type) {
       return StyioValueFamily::FileHandle;
     case StyioHandleFamily::Stream:
       return StyioValueFamily::StreamHandle;
+    case StyioHandleFamily::Task:
+      return StyioValueFamily::TaskHandle;
     case StyioHandleFamily::None:
       break;
   }
@@ -873,6 +886,8 @@ enum class StyioNodeType
   HandleAcquire,
   ResourceWrite,
   ResourceRedirect,
+  TaskBlock,
+  FlowBind,
 
   /* M6: state ledger, $refs, intrinsics, history */
   StateDecl,
@@ -999,12 +1014,57 @@ styio_data_type_from_name(const std::string& type_name) {
       styio_matrix_row_count(temp),
       styio_matrix_col_count(temp));
   }
+  if (type_name.rfind("task[", 0) == 0 && type_name.size() >= 6 && type_name.back() == ']') {
+    std::string elem = type_name.substr(5, type_name.size() - 6);
+    if (elem.empty()) {
+      elem = "unit";
+    }
+    return StyioDataType{
+      StyioDataTypeOption::Defined,
+      type_name,
+      0,
+      StyioHandleFamily::Task,
+      StyioTypeState::Pending,
+      styio_caps(StyioTypeCapability::Pull)
+        | styio_caps(StyioTypeCapability::Close)
+        | styio_caps(StyioTypeCapability::Send),
+      elem,
+      "",
+      false,
+      -1,
+      StyioValueFamily::TaskHandle,
+      styio_value_family_for_type(styio_data_type_from_name(elem))};
+  }
   return StyioDataType{StyioDataTypeOption::Defined, type_name, 0};
 }
 
 inline StyioValueFamily
 styio_value_family_from_type_name(const std::string& type_name) {
   return styio_value_family_for_type(styio_data_type_from_name(type_name));
+}
+
+inline StyioDataType
+styio_make_task_type(const std::string& result_name = "unit") {
+  return StyioDataType{
+    StyioDataTypeOption::Defined,
+    std::string("task[") + result_name + "]",
+    0,
+    StyioHandleFamily::Task,
+    StyioTypeState::Pending,
+    styio_caps(StyioTypeCapability::Pull)
+      | styio_caps(StyioTypeCapability::Close)
+      | styio_caps(StyioTypeCapability::Send),
+    result_name,
+    "",
+    false,
+    -1,
+    StyioValueFamily::TaskHandle,
+    styio_value_family_from_type_name(result_name)};
+}
+
+inline std::string
+styio_task_result_type_name(const StyioDataType& type) {
+  return type.item_type_name.empty() ? "unit" : type.item_type_name;
 }
 
 inline StyioValueFamily
@@ -1296,6 +1356,7 @@ enum class StyioTokenType
   YIELD_PIPE,         // <|
   RETURN_PIPE,        // |<|
   PIPE_SEMICOLON,     // |;
+  TASK_LAUNCH,        // ||>
 
   ARROW_DOUBLE_RIGHT,  // =>
   ARROW_DOUBLE_LEFT,   // <=

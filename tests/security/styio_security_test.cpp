@@ -3367,6 +3367,30 @@ TEST(StyioSecurityAstOwnership, InstantPullOwnsResource) {
   EXPECT_EQ(path_destructed, 1);
 }
 
+TEST(StyioSecurityAstOwnership, TaskBlockOwnsBody) {
+  int stmt_destructed = 0;
+  auto* node = TaskBlockAST::Create(
+    BlockAST::Create(std::vector<StyioAST*>{
+      new CountingExprAST(&stmt_destructed),
+    })
+  );
+
+  delete node;
+  EXPECT_EQ(stmt_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, FlowBindOwnsSourceAndTarget) {
+  int source_destructed = 0;
+  int target_destructed = 0;
+  auto* node = FlowBindAST::Create(
+    new CountingExprAST(&source_destructed),
+    new CountingVarAST(&target_destructed));
+
+  delete node;
+  EXPECT_EQ(source_destructed, 1);
+  EXPECT_EQ(target_destructed, 1);
+}
+
 TEST(StyioSecurityAstOwnership, IterSeqOwnsHashTags) {
   StyioAST::destroy_all_tracked_nodes();
   int collection_destructed = 0;

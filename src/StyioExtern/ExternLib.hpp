@@ -47,6 +47,19 @@ extern "C" DLLEXPORT void styio_stderr_write_cstr(const char* s);
 /* M10: read one line from stdin */
 extern "C" DLLEXPORT const char* styio_stdin_read_line();
 
+extern "C" DLLEXPORT int64_t styio_task_i64_ready(int64_t value);
+extern "C" DLLEXPORT int64_t styio_task_f64_ready(double value);
+extern "C" DLLEXPORT int64_t styio_task_cstr_ready(const char* value);
+extern "C" DLLEXPORT int64_t styio_task_i64_spawn(int64_t (*fn)(void*), void* ctx);
+extern "C" DLLEXPORT int64_t styio_task_f64_spawn(double (*fn)(void*), void* ctx);
+extern "C" DLLEXPORT int64_t styio_task_cstr_spawn(const char* (*fn)(void*), void* ctx);
+extern "C" DLLEXPORT int64_t styio_task_i64_pull(int64_t h);
+extern "C" DLLEXPORT double styio_task_f64_pull(int64_t h);
+extern "C" DLLEXPORT const char* styio_task_cstr_pull(int64_t h);
+extern "C" DLLEXPORT void styio_task_release(int64_t h);
+extern "C" DLLEXPORT int64_t styio_task_active_count();
+extern "C" DLLEXPORT int64_t styio_task_worker_count();
+
 extern "C" DLLEXPORT int64_t styio_list_i64_read_stdin();
 extern "C" DLLEXPORT int64_t styio_list_cstr_read_stdin();
 extern "C" DLLEXPORT int64_t styio_string_lines(const char* text);

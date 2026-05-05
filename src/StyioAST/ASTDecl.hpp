@@ -134,6 +134,8 @@ class StreamZipAST;
 class SnapshotDeclAST;
 class InstantPullAST;
 class TypedStdinListAST;
+class TaskBlockAST;
+class FlowBindAST;
 class IterSeqAST; /* Iterator Sequence */
 class InfiniteLoopAST;
 
