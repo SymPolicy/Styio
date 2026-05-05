@@ -42,6 +42,10 @@ set(_needles
   "\"token_histogram\""
   "\"parser_route\""
   "\"nightly_subset_statements\""
+  "\"async_scheduler\""
+  "\"spawned_tasks\""
+  "\"completed_tasks\""
+  "\"fast_ready_pulls\""
 )
 
 foreach(_needle IN LISTS _needles)

@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <utility>
-#include <unordered_map>
+#include <vector>
 
 class StyioHandleTable
 {
@@ -31,28 +31,74 @@ public:
   };
 
 private:
-  std::unordered_map<HandleId, Entry> entries_;
-  HandleId next_handle_ = 1;
+  std::vector<Entry> entries_;
+  std::vector<HandleId> free_handles_;
+
+  static bool is_indexable(HandleId id) {
+    return id > 0;
+  }
+
+  Entry* entry_for(HandleId id) {
+    if (!is_indexable(id)) {
+      return nullptr;
+    }
+    const std::size_t index = static_cast<std::size_t>(id - 1);
+    if (index >= entries_.size()) {
+      return nullptr;
+    }
+    return &entries_[index];
+  }
+
+  const Entry* entry_for(HandleId id) const {
+    if (!is_indexable(id)) {
+      return nullptr;
+    }
+    const std::size_t index = static_cast<std::size_t>(id - 1);
+    if (index >= entries_.size()) {
+      return nullptr;
+    }
+    return &entries_[index];
+  }
+
+  static bool occupied(const Entry& entry) {
+    return entry.kind != HandleKind::Unknown;
+  }
+
+  void recycle_handle(HandleId id, Entry* entry) {
+    if (entry == nullptr || !occupied(*entry)) {
+      return;
+    }
+    *entry = Entry{};
+    free_handles_.push_back(id);
+  }
 
 public:
   HandleId acquire(HandleKind kind, void* ptr) {
     if (ptr == nullptr) {
       return 0;
     }
-    const HandleId id = next_handle_++;
-    entries_[id] = Entry{kind, ptr, true};
+    HandleId id = 0;
+    if (!free_handles_.empty()) {
+      id = free_handles_.back();
+      free_handles_.pop_back();
+      entries_[static_cast<std::size_t>(id - 1)] = Entry{kind, ptr, true};
+    }
+    else {
+      entries_.push_back(Entry{kind, ptr, true});
+      id = static_cast<HandleId>(entries_.size());
+    }
     return id;
   }
 
   void* lookup(HandleId id, HandleKind expected_kind = HandleKind::Unknown) const {
-    auto it = entries_.find(id);
-    if (it == entries_.end() || !it->second.valid) {
+    const Entry* entry = entry_for(id);
+    if (entry == nullptr || !entry->valid) {
       return nullptr;
     }
-    if (expected_kind != HandleKind::Unknown && it->second.kind != expected_kind) {
+    if (expected_kind != HandleKind::Unknown && entry->kind != expected_kind) {
       return nullptr;
     }
-    return it->second.ptr;
+    return entry->ptr;
   }
 
   template <typename T>
@@ -62,15 +108,15 @@ public:
 
   template <typename Closer>
   bool release(HandleId id, HandleKind expected_kind, Closer&& closer) {
-    auto it = entries_.find(id);
-    if (it == entries_.end() || !it->second.valid) {
+    Entry* entry = entry_for(id);
+    if (entry == nullptr || !entry->valid) {
       return false;
     }
-    if (expected_kind != HandleKind::Unknown && it->second.kind != expected_kind) {
+    if (expected_kind != HandleKind::Unknown && entry->kind != expected_kind) {
       return false;
     }
-    void* raw = it->second.ptr;
-    entries_.erase(it);
+    void* raw = entry->ptr;
+    recycle_handle(id, entry);
     if (raw != nullptr) {
       std::forward<Closer>(closer)(raw);
     }
@@ -84,17 +130,20 @@ public:
   template <typename Closer>
   size_t release_all(HandleKind expected_kind, Closer&& closer) {
     size_t released = 0;
-    for (auto it = entries_.begin(); it != entries_.end();) {
-      if (!it->second.valid) {
-        it = entries_.erase(it);
+    for (std::size_t index = 0; index < entries_.size(); ++index) {
+      Entry& entry = entries_[index];
+      if (!occupied(entry)) {
         continue;
       }
-      if (expected_kind != HandleKind::Unknown && it->second.kind != expected_kind) {
-        ++it;
+      if (expected_kind != HandleKind::Unknown && entry.kind != expected_kind) {
         continue;
       }
-      void* raw = it->second.ptr;
-      it = entries_.erase(it);
+      if (!entry.valid) {
+        recycle_handle(static_cast<HandleId>(index + 1), &entry);
+        continue;
+      }
+      void* raw = entry.ptr;
+      recycle_handle(static_cast<HandleId>(index + 1), &entry);
       if (raw != nullptr) {
         std::forward<Closer>(closer)(raw);
       }
@@ -104,24 +153,36 @@ public:
   }
 
   HandleId reserve_stub(HandleKind kind) {
-    const HandleId id = next_handle_++;
-    entries_[id] = Entry{kind, nullptr, false};
+    HandleId id = 0;
+    if (!free_handles_.empty()) {
+      id = free_handles_.back();
+      free_handles_.pop_back();
+      entries_[static_cast<std::size_t>(id - 1)] = Entry{kind, nullptr, false};
+    }
+    else {
+      entries_.push_back(Entry{kind, nullptr, false});
+      id = static_cast<HandleId>(entries_.size());
+    }
     return id;
   }
 
   bool contains(HandleId id) const {
-    return entries_.find(id) != entries_.end();
+    const Entry* entry = entry_for(id);
+    return entry != nullptr && occupied(*entry);
   }
 
   void invalidate(HandleId id) {
-    auto it = entries_.find(id);
-    if (it != entries_.end()) {
-      entries_.erase(it);
-    }
+    recycle_handle(id, entry_for(id));
   }
 
   size_t size() const {
-    return entries_.size();
+    size_t count = 0;
+    for (const Entry& entry : entries_) {
+      if (occupied(entry)) {
+        ++count;
+      }
+    }
+    return count;
   }
 };
 

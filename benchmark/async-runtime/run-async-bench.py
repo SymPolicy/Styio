@@ -17,9 +17,10 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_STYIO_BUILD_DIR = "build/async-runtime-release"
 DEFAULT_TASKS = 4
 DEFAULT_SLEEP_MS = 160
-DEFAULT_NOOP_TASKS = 10000
+DEFAULT_NOOP_TASKS = 100000
 DEFAULT_WORKERS = 4
 
 
@@ -697,7 +698,52 @@ def unavailable(language: str, runtime: str, reason: str) -> dict[str, Any]:
     return {"language": language, "runtime": runtime, "status": "unavailable", "reason": reason}
 
 
+def cmake_cache_value(build_dir: Path, key: str) -> str | None:
+    cache = build_dir / "CMakeCache.txt"
+    if not cache.exists():
+        return None
+    prefix = f"{key}:"
+    for line in cache.read_text(encoding="utf-8", errors="replace").splitlines():
+        if line.startswith(prefix) and "=" in line:
+            return line.split("=", 1)[1].strip()
+    return None
+
+
+def relative_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
+def ensure_styio_release_build(build_dir: Path) -> str | None:
+    cache = build_dir / "CMakeCache.txt"
+    if cache.exists():
+        home = cmake_cache_value(build_dir, "CMAKE_HOME_DIRECTORY")
+        if home and Path(home).resolve() != ROOT.resolve():
+            return f"{relative_path(build_dir)} points at {home}, not {ROOT}"
+        build_type = cmake_cache_value(build_dir, "CMAKE_BUILD_TYPE")
+        if build_type and build_type != "Release":
+            return (
+                f"{relative_path(build_dir)} is CMAKE_BUILD_TYPE={build_type}; "
+                "use a Release build directory for async runtime benchmarks"
+            )
+        if build_type == "Release":
+            return None
+
+    build_dir.mkdir(parents=True, exist_ok=True)
+    proc = run(
+        ["cmake", "-S", str(ROOT), "-B", str(build_dir), "-DCMAKE_BUILD_TYPE=Release"],
+        cwd=ROOT,
+        timeout=300,
+    )
+    if proc.returncode != 0:
+        return proc.stderr.strip() or proc.stdout.strip()
+    return None
+
+
 def run_cpp(work_dir: Path, args: argparse.Namespace) -> dict[str, Any]:
+    work_dir.mkdir(parents=True, exist_ok=True)
     compiler = shutil.which(os.environ.get("CXX", "")) if os.environ.get("CXX") else None
     compiler = compiler or shutil.which("g++") or shutil.which("clang++")
     if not compiler:
@@ -715,6 +761,7 @@ def run_cpp(work_dir: Path, args: argparse.Namespace) -> dict[str, Any]:
 
 
 def run_go(work_dir: Path, toolchain_dir: Path, args: argparse.Namespace) -> dict[str, Any]:
+    work_dir.mkdir(parents=True, exist_ok=True)
     go = None
     if args.bootstrap_toolchains:
         local = bootstrap_go(toolchain_dir)
@@ -736,6 +783,7 @@ def run_go(work_dir: Path, toolchain_dir: Path, args: argparse.Namespace) -> dic
 
 
 def run_rust(work_dir: Path, toolchain_dir: Path, args: argparse.Namespace) -> dict[str, Any]:
+    work_dir.mkdir(parents=True, exist_ok=True)
     env = None
     cargo = None
     rustc = None
@@ -814,6 +862,9 @@ def parse_styio_perf(stdout: str, args: argparse.Namespace) -> dict[str, Any]:
 
 
 def run_styio(build_dir: Path, args: argparse.Namespace) -> dict[str, Any]:
+    configure_error = ensure_styio_release_build(build_dir)
+    if configure_error:
+        return unavailable("styio", "styio_task_scheduler", configure_error)
     proc = run(["cmake", "--build", str(build_dir), "--target", "styio_task_scheduler_perf_test", "-j2"], cwd=ROOT, timeout=300)
     if proc.returncode != 0:
         return unavailable("styio", "styio_task_scheduler", proc.stderr.strip())
@@ -827,7 +878,74 @@ def run_styio(build_dir: Path, args: argparse.Namespace) -> dict[str, Any]:
     if proc.returncode != 0:
         return unavailable("styio", "styio_task_scheduler", proc.stderr.strip() or proc.stdout.strip())
     result = parse_styio_perf(proc.stdout, args)
-    result["toolchain"] = "repo runtime target"
+    build_type = cmake_cache_value(build_dir, "CMAKE_BUILD_TYPE") or "Release"
+    compiler = cmake_cache_value(build_dir, "CMAKE_CXX_COMPILER") or "C++ compiler"
+    result["toolchain"] = f"repo runtime target ({build_type}; {Path(compiler).name})"
+    return result
+
+
+def median(values: list[float]) -> float:
+    ordered = sorted(values)
+    if not ordered:
+        return 0.0
+    mid = len(ordered) // 2
+    if len(ordered) % 2 == 1:
+        return ordered[mid]
+    return (ordered[mid - 1] + ordered[mid]) / 2.0
+
+
+def median_number(samples: list[dict[str, Any]], workload: str, metric: str) -> float:
+    return median([
+        float(sample[workload][metric])
+        for sample in samples
+        if sample.get("status") == "ok" and workload in sample and metric in sample[workload]
+    ])
+
+
+def summarize_ok_samples(samples: list[dict[str, Any]]) -> dict[str, Any]:
+    ok_samples = [sample for sample in samples if sample.get("status") == "ok"]
+    if not ok_samples:
+        result = dict(samples[-1]) if samples else unavailable("unknown", "unknown", "no samples")
+        result["samples"] = samples
+        return result
+    base = ok_samples[0]
+    sleep_parallel_ms = median_number(ok_samples, "sleep", "parallel_ms")
+    sleep_sequential_ms = median_number(ok_samples, "sleep", "sequential_ms")
+    noop_total_us = median_number(ok_samples, "noop", "total_us")
+    noop_per_task_us = median_number(ok_samples, "noop", "per_task_us")
+    summary = {
+        "language": base.get("language", ""),
+        "runtime": base.get("runtime", ""),
+        "status": "ok",
+        "workers": base.get("workers", 0),
+        "toolchain": base.get("toolchain", ""),
+        "sample_count": len(ok_samples),
+        "sleep": {
+            "tasks": base.get("sleep", {}).get("tasks", 0),
+            "sleep_ms": base.get("sleep", {}).get("sleep_ms", 0),
+            "sequential_ms": sleep_sequential_ms,
+            "parallel_ms": sleep_parallel_ms,
+            "speedup": sleep_sequential_ms / sleep_parallel_ms if sleep_parallel_ms > 0 else 0.0,
+        },
+        "noop": {
+            "tasks": base.get("noop", {}).get("tasks", 0),
+            "total_us": noop_total_us,
+            "per_task_us": noop_per_task_us,
+        },
+        "samples": ok_samples,
+    }
+    return summary
+
+
+def run_repeated(name: str, repeats: int, run_once) -> dict[str, Any]:
+    samples: list[dict[str, Any]] = []
+    for index in range(repeats):
+        sample = run_once(index)
+        samples.append(sample)
+    result = summarize_ok_samples(samples)
+    result["repeat_policy"] = "median"
+    result["requested_repeats"] = repeats
+    print(f"{name} samples=" + ",".join(str(sample.get("status", "")) for sample in samples))
     return result
 
 
@@ -846,6 +964,11 @@ def flatten_rows(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
             payload = result.get(workload, {})
             for metric, value in payload.items():
                 rows.append({**base, "workload": workload, "metric": metric, "value": value})
+        payload = result.get("relative_performance", {})
+        for metric, value in payload.items():
+            rows.append({**base, "workload": "relative", "metric": metric, "value": value})
+        if result.get("sample_count") is not None:
+            rows.append({**base, "workload": "summary", "metric": "sample_count", "value": result["sample_count"]})
     return rows
 
 
@@ -857,7 +980,55 @@ def fmt(value: Any) -> str:
     return str(value)
 
 
+def fmt_ratio(value: Any) -> str:
+    if value is None:
+        return ""
+    return f"{float(value):.2f}x"
+
+
+def add_relative_performance(results: list[dict[str, Any]]) -> None:
+    sleep_scores = [
+        float(result["sleep"]["speedup"])
+        for result in results
+        if result.get("status") == "ok" and result.get("sleep", {}).get("speedup", 0) > 0
+    ]
+    noop_scores = [
+        float(result["noop"]["per_task_us"])
+        for result in results
+        if result.get("status") == "ok" and result.get("noop", {}).get("per_task_us", 0) > 0
+    ]
+    best_sleep = max(sleep_scores) if sleep_scores else None
+    best_noop = min(noop_scores) if noop_scores else None
+    cpp_result = next(
+        (
+            result
+            for result in results
+            if result.get("status") == "ok"
+            and result.get("runtime") == "cpp_stackless_coroutine"
+        ),
+        None,
+    )
+    cpp_sleep_speedup = float(cpp_result["sleep"]["speedup"]) if cpp_result else None
+    cpp_noop_per_task = float(cpp_result["noop"]["per_task_us"]) if cpp_result else None
+    for result in results:
+        relative: dict[str, float] = {}
+        if result.get("status") == "ok":
+            sleep = result.get("sleep", {})
+            noop = result.get("noop", {})
+            if best_sleep and sleep.get("speedup", 0) > 0:
+                relative["sleep_speedup"] = float(sleep["speedup"]) / best_sleep
+            if best_noop and noop.get("per_task_us", 0) > 0:
+                relative["noop_fanout"] = best_noop / float(noop["per_task_us"])
+            if cpp_sleep_speedup and sleep.get("speedup", 0) > 0:
+                relative["sleep_vs_cpp_stackless"] = float(sleep["speedup"]) / cpp_sleep_speedup
+            if cpp_noop_per_task and noop.get("per_task_us", 0) > 0:
+                relative["noop_vs_cpp_stackless"] = cpp_noop_per_task / float(noop["per_task_us"])
+        if relative:
+            result["relative_performance"] = relative
+
+
 def write_report(out_dir: Path, metadata: dict[str, Any], results: list[dict[str, Any]]) -> None:
+    add_relative_performance(results)
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     (out_dir / "results.json").write_text(json.dumps({"metadata": metadata, "results": results}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -873,13 +1044,15 @@ def write_report(out_dir: Path, metadata: dict[str, Any], results: list[dict[str
         f"- Run ID: `{metadata['run_id']}`",
         f"- Host: `{metadata['host']}`",
         f"- Tasks: `{metadata['tasks']}` sleep tasks x `{metadata['sleep_ms']}ms`, `{metadata['noop_tasks']}` no-op tasks, `{metadata['workers']}` workers/procs",
+        f"- Repeats: `{metadata['repeats']}` per runtime, reported values are medians",
         "",
-        "| Language | Runtime | Status | Sleep seq ms | Sleep parallel ms | Speedup | Noop total us | Noop us/task | Toolchain / reason |",
-        "|---|---|---|---:|---:|---:|---:|---:|---|",
+        "| Language | Runtime | Status | Samples | Sleep seq ms | Sleep parallel ms | Speedup | Sleep perf | Noop total us | Noop us/task | Noop perf | Toolchain / reason |",
+        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|",
     ]
     for result in results:
         sleep = result.get("sleep", {})
         noop = result.get("noop", {})
+        relative = result.get("relative_performance", {})
         reason = result.get("toolchain") if result.get("status") == "ok" else result.get("reason", "")
         lines.append(
             "| "
@@ -888,11 +1061,14 @@ def write_report(out_dir: Path, metadata: dict[str, Any], results: list[dict[str
                     str(result.get("language", "")),
                     str(result.get("runtime", "")),
                     str(result.get("status", "")),
+                    fmt(result.get("sample_count")),
                     fmt(sleep.get("sequential_ms")),
                     fmt(sleep.get("parallel_ms")),
                     fmt(sleep.get("speedup")),
+                    fmt_ratio(relative.get("sleep_speedup")),
                     fmt(noop.get("total_us")),
                     fmt(noop.get("per_task_us")),
+                    fmt_ratio(relative.get("noop_fanout")),
                     str(reason).replace("|", "\\|"),
                 ]
             )
@@ -905,28 +1081,46 @@ def write_report(out_dir: Path, metadata: dict[str, Any], results: list[dict[str
             "",
             "- `sleep` measures whether the runtime actually overlaps blocked tasks; speedup near the worker count indicates real scheduling instead of eager evaluation.",
             "- `noop` measures submit/wait/release overhead for a large fanout of trivial tasks.",
+            "- `Samples` records successful repeats; all table metrics are median values to avoid single-run microbenchmark noise.",
+            "- `Sleep perf` and `Noop perf` normalize each workload independently; the best runtime is `1.00x`, and the others show their relative performance against that best result.",
             "- C++ uses C++20 stackless coroutine frames with `co_await` and a small scheduler, Go uses goroutines with `GOMAXPROCS`, Rust uses Tokio's multi-thread runtime, and Styio uses the repository task scheduler target.",
             "- `--bootstrap-toolchains` installs missing Go/Rust toolchains under the build directory; this keeps comparison runs reproducible on machines without system Go or Rust.",
             "",
         ]
     )
+    styio_result = next((result for result in results if result.get("runtime") == "styio_task_scheduler" and result.get("status") == "ok"), None)
+    cpp_result = next((result for result in results if result.get("runtime") == "cpp_stackless_coroutine" and result.get("status") == "ok"), None)
+    if styio_result and cpp_result:
+        styio_relative = styio_result.get("relative_performance", {})
+        lines.extend(
+            [
+                "## C++ Stackless Parity",
+                "",
+                f"- Styio no-op vs C++ stackless coroutine: `{fmt_ratio(styio_relative.get('noop_vs_cpp_stackless'))}` (`{fmt(styio_result['noop'].get('per_task_us'))}` us/task vs `{fmt(cpp_result['noop'].get('per_task_us'))}` us/task).",
+                f"- Styio sleep overlap vs C++ stackless coroutine: `{fmt_ratio(styio_relative.get('sleep_vs_cpp_stackless'))}` (`{fmt(styio_result['sleep'].get('speedup'))}` speedup vs `{fmt(cpp_result['sleep'].get('speedup'))}`).",
+                "",
+            ]
+        )
     (out_dir / "summary.md").write_text("\n".join(lines), encoding="utf-8")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run Styio async runtime benchmarks against C++ stackless coroutine, Go goroutine, and Rust Tokio baselines.")
-    parser.add_argument("--build-dir", default="build", help="CMake build directory for Styio runtime target.")
+    parser.add_argument("--build-dir", default=DEFAULT_STYIO_BUILD_DIR, help="Release CMake build directory for Styio runtime target.")
     parser.add_argument("--out-dir", default="", help="Output directory. Defaults to benchmark/async-runtime/reports/<run-id>.")
     parser.add_argument("--tasks", type=int, default=DEFAULT_TASKS)
     parser.add_argument("--sleep-ms", type=int, default=DEFAULT_SLEEP_MS)
     parser.add_argument("--noop-tasks", type=int, default=DEFAULT_NOOP_TASKS)
     parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
+    parser.add_argument("--repeats", type=int, default=5, help="Run each runtime this many times and report medians.")
     parser.add_argument("--bootstrap-toolchains", action="store_true", help="Install missing Go/Rust toolchains under the build directory.")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.repeats < 1:
+        raise SystemExit("--repeats must be >= 1")
     run_id = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "-async-runtime"
     out_dir = Path(args.out_dir) if args.out_dir else ROOT / "benchmark" / "async-runtime" / "reports" / run_id
     if not out_dir.is_absolute():
@@ -942,13 +1136,14 @@ def main() -> int:
         "sleep_ms": args.sleep_ms,
         "noop_tasks": args.noop_tasks,
         "workers": args.workers,
+        "repeats": args.repeats,
         "bootstrap_toolchains": args.bootstrap_toolchains,
     }
     results = [
-        run_styio(ROOT / args.build_dir, args),
-        run_cpp(work_dir, args),
-        run_go(work_dir, toolchain_dir, args),
-        run_rust(work_dir, toolchain_dir, args),
+        run_repeated("styio", args.repeats, lambda index: run_styio(ROOT / args.build_dir, args)),
+        run_repeated("cpp", args.repeats, lambda index: run_cpp(work_dir / f"cpp-{index}", args)),
+        run_repeated("go", args.repeats, lambda index: run_go(work_dir / f"go-{index}", toolchain_dir, args)),
+        run_repeated("rust", args.repeats, lambda index: run_rust(work_dir / f"rust-{index}", toolchain_dir, args)),
     ]
     write_report(out_dir, metadata, results)
     print(out_dir)

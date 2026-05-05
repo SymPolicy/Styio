@@ -50,6 +50,7 @@ Primary paths:
 24. Syntax aliases that claim canonical equivalence need both runtime equivalence and exact lowered or LLVM IR comparison where the backend contract is part of the claim; include at least one non-example-shaped case so optimizer coverage cannot be a one-off source rewrite.
 25. Internal resource declarations need parser coverage for the prelude source file plus negative tests for undeclared local names and not-allowed hidden pseudo-primitives such as `file(path)`.
 26. Task_resource syntax needs both positive stdout goldens and semantic negatives: cover `answer <- job`, `job -> answer -> @stdout`, string and numeric results, undeclared flow targets, and double-pull rejection in the same milestone registration.
+27. Async scheduler profiler changes must keep `styio_profiler_frontend_smoke` on a task_using fixture and assert the JSON keys that prove scheduler counters are wired, not just that a profile file exists.
 
 ## Change Classes
 

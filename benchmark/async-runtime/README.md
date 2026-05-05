@@ -12,18 +12,20 @@ The route compares the same two workloads across:
 ## Workloads
 
 1. `sleep`: four `160ms` blocked tasks. This proves whether a runtime overlaps blocked work. A speedup near the worker count means the implementation is truly scheduled rather than eager.
-2. `noop`: ten thousand trivial tasks. This exposes submit, wake, wait, and release overhead.
+2. `noop`: one hundred thousand trivial tasks. This exposes submit, wake, wait, and release overhead while reducing single-run timer noise.
 
 ## Run
 
 ```bash
 benchmark/async-runtime/run-async-bench.py \
-  --build-dir build \
   --bootstrap-toolchains \
+  --repeats 5 \
   --out-dir benchmark/async-runtime/reports/<run-id>
 ```
 
-`--bootstrap-toolchains` installs missing Go and Rust toolchains under `build/async-runtime-toolchains`; that directory is a local build artifact and is not tracked.
+The script uses `build/async-runtime-release` by default and configures it as a CMake `Release` build when needed. It refuses to use a non-Release Styio build directory for runtime comparisons because the C++ baseline is built with `-O3`.
+
+`--bootstrap-toolchains` installs missing Go and Rust toolchains under the benchmark build directory; that directory is a local build artifact and is not tracked.
 
 The report directory contains:
 
@@ -32,4 +34,6 @@ The report directory contains:
 - `benchmarks.csv`
 - `summary.md`
 
-The generated temporary C++/Go/Rust sources and binaries live under `build/async-runtime-work/<run-id>`, not inside the report.
+`summary.md` includes normalized `Sleep perf` and `Noop perf` columns. Each workload is normalized independently: the best runtime is `1.00x`, and the others show their relative score against that best result. It also includes a C++ stackless coroutine parity section for Styio. The default route runs each runtime five times and reports medians; `results.json` keeps the successful samples for debugging noisy microbenchmarks.
+
+The generated temporary C++/Go/Rust sources and binaries live under `build/async-runtime-release/async-runtime-work/<run-id>`, not inside the report.

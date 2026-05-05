@@ -22,7 +22,7 @@ add_test(
   NAME styio_profiler_frontend_smoke
   COMMAND "${CMAKE_COMMAND}"
           "-DSTYIO_BIN=${STYIO_EXE}"
-          "-DSTYIO_SOURCE=${STYIO_MS}/m1/t01_int_arith.styio"
+          "-DSTYIO_SOURCE=${STYIO_MS}/m12/t04_task_capture_i64.styio"
           "-DSTYIO_PROFILE_OUT=${CMAKE_BINARY_DIR}/profiler/styio-profiler-smoke.json"
           -P "${CMAKE_CURRENT_LIST_DIR}/cmake/styio_profiler_smoke.cmake"
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"

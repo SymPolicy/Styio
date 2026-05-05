@@ -59,6 +59,27 @@ extern "C" DLLEXPORT const char* styio_task_cstr_pull(int64_t h);
 extern "C" DLLEXPORT void styio_task_release(int64_t h);
 extern "C" DLLEXPORT int64_t styio_task_active_count();
 extern "C" DLLEXPORT int64_t styio_task_worker_count();
+struct StyioTaskSchedulerProfileSnapshot
+{
+  int64_t enabled;
+  int64_t worker_count;
+  int64_t active_tasks;
+  int64_t ready_tasks;
+  int64_t spawned_tasks;
+  int64_t enqueued_tasks;
+  int64_t started_tasks;
+  int64_t completed_tasks;
+  int64_t pulled_tasks;
+  int64_t released_tasks;
+  int64_t fast_ready_pulls;
+  int64_t blocking_pulls;
+  int64_t failed_pulls;
+  int64_t invalid_pulls;
+  int64_t max_queue_depth;
+};
+extern "C" DLLEXPORT void styio_task_scheduler_profile_reset();
+extern "C" DLLEXPORT void styio_task_scheduler_profile_enable(int enabled);
+extern "C" DLLEXPORT void styio_task_scheduler_profile_snapshot(StyioTaskSchedulerProfileSnapshot* out);
 
 extern "C" DLLEXPORT int64_t styio_list_i64_read_stdin();
 extern "C" DLLEXPORT int64_t styio_list_cstr_read_stdin();
