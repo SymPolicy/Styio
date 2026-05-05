@@ -3808,6 +3808,8 @@ main(
     "f,file", "Take the given source file.", cxxopts::value<std::string>()
   )(
     "h,help", "Show All Command-Line Options"
+  )(
+    "version", "Show Styio compiler version"
   );
 
   options.add_options()(
@@ -3969,6 +3971,11 @@ main(
 
   if (cmlopts.count("help")) {
     std::cout << options.help() << std::endl;
+    return static_cast<int>(StyioExitCode::Success);
+  }
+
+  if (cmlopts.count("version")) {
+    std::cout << "styio " << STYIO_PROJECT_VERSION << std::endl;
     return static_cast<int>(StyioExitCode::Success);
   }
 
