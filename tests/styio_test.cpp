@@ -462,6 +462,19 @@ TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   EXPECT_NE(result.stdout_text.find("\"edition_max\":\"2026\""), std::string::npos);
 }
 
+TEST(StyioDiagnostics, VersionPrintsCompilerVersion) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd = std::string("\"") + runner + "\" --version";
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "styio 0.0.1\n");
+}
+
 TEST(StyioDiagnostics, MachineInfoJsonReflectsCliDictImplSelection) {
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
   if (runner == nullptr || runner[0] == '\0') {
