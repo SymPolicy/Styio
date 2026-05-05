@@ -26,6 +26,9 @@ MILESTONE_DIR_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 MILESTONE_FILE_RE = re.compile(r"^(00-Milestone-Index|M[0-9]+-[A-Za-z0-9-]+)\.md$")
 BENCHMARK_REPORT_SUMMARY_RE = re.compile(r"^benchmark/reports/[^/]+/summary\.md$")
 APPROVED_TEST_DOC_NAMES = {"README.md", "REGRESSION-TEMPLATE.md"}
+PARAM_RESOURCE_PSEUDO_DEF_RE = re.compile(r"@[A-Za-z_][A-Za-z0-9_]*\s*[\{\(][^\n`]*\s*:=")
+FILE_PATH_PSEUDO_PRIMITIVE_RE = re.compile(r"\bfile\s*\(\s*path\s*\)")
+RESOURCE_PSEUDO_DEF_NEGATION_RE = re.compile(r"\b(do not|don't|must not|never|not|invalid|forbid|forbidden|reject|rejected)\b", re.I)
 
 
 @dataclass(frozen=True)
@@ -604,6 +607,28 @@ def check_workflow_toml(errors: List[str]) -> None:
                 errors.append(f"missing skill.toml: {skill_dir.relative_to(ROOT)}")
 
 
+def check_resource_identifier_governance(errors: List[str]) -> None:
+    search_roots = [DOCS, ROOT / "workflows"]
+    suffixes = {".md", ".toml"}
+    for search_root in search_roots:
+        if not search_root.exists():
+            continue
+        for path in sorted(p for p in search_root.rglob("*") if p.is_file() and p.suffix in suffixes):
+            if is_archive_doc(path):
+                continue
+            for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                if PARAM_RESOURCE_PSEUDO_DEF_RE.search(line) and not RESOURCE_PSEUDO_DEF_NEGATION_RE.search(line):
+                    errors.append(
+                        "parameterized resource expressions are not declaration heads: "
+                        f"{path.relative_to(ROOT)}:{line_no}"
+                    )
+                if FILE_PATH_PSEUDO_PRIMITIVE_RE.search(line) and not RESOURCE_PSEUDO_DEF_NEGATION_RE.search(line):
+                    errors.append(
+                        "file(path) is not an allowed Styio resource primitive: "
+                        f"{path.relative_to(ROOT)}:{line_no}"
+                    )
+
+
 def run_audit() -> int:
     errors: List[str] = []
     check_collection_dirs(errors)
@@ -614,6 +639,7 @@ def run_audit() -> int:
     check_lifecycle(errors)
     check_team_docs_gate(errors)
     check_workflow_toml(errors)
+    check_resource_identifier_governance(errors)
 
     if errors:
         print("docs audit failed:", file=sys.stderr)

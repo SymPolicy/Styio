@@ -24,6 +24,7 @@ The current compiler already lowers StyioIR to LLVM IR and resolves runtime help
 6. Cache native shared objects under the user cache directory (`STYIO_NATIVE_CACHE_DIR`, `XDG_CACHE_HOME`, or `$HOME/.cache`) and keep loaded modules in a process-local module cache. `STYIO_NATIVE_CACHE=0` disables disk caching, but the process-local cache may still keep already loaded modules alive for the process lifetime.
 7. Use `@export { ... }` as the current checkpoint's explicit native symbol filter. When present, only matching native functions become callable from Styio.
 8. Require C++ blocks to expose callable Styio-facing symbols with `extern "C"` so the ABI stays stable and does not depend on C++ name mangling.
+9. Treat `@extern` as trusted native interop, not as a sandbox boundary. Hosts that execute untrusted Styio source must disable this surface or run it inside an external sandbox; the compiler must not present inline C/C++ as memory-safe user code.
 
 ## Alternatives
 
@@ -51,3 +52,4 @@ Negative:
 2. Native block compilation depends on a working clang+LLVM bundle or a working local C/C++ compiler fallback.
 3. The first execution of a new native block still pays the native compiler and linker cost.
 4. Package-manager graph resolution and external library package fetching remain separate follow-up work.
+5. `@extern` can execute arbitrary native code with the host process privileges. This is acceptable only for trusted packages and local toolchain workflows.

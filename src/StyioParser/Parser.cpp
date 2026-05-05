@@ -1210,76 +1210,233 @@ parse_state_decl_after_at_latest(StyioContext& context) {
   throw StyioSyntaxError(context.mark_cur_tok("expected = or ] after name in @[...]"));
 }
 
+static std::vector<ParamAST*>
+parse_internal_resource_params_latest(StyioContext& context) {
+  std::vector<ParamAST*> params;
+  context.try_match_panic(StyioTokenType::TOK_HASH);
+  context.skip();
+  context.try_match_panic(StyioTokenType::TOK_LPAREN);
+  context.skip();
+  if (!context.check(StyioTokenType::TOK_RPAREN)) {
+    while (true) {
+      if (!context.check(StyioTokenType::NAME)) {
+        throw StyioSyntaxError(context.mark_cur_tok("resource declaration parameter needs a name"));
+      }
+      NameAST* var_name = parse_name_unsafe(context);
+      context.skip();
+      if (context.try_match(StyioTokenType::TOK_COLON)) {
+        context.skip();
+        params.push_back(ParamAST::Create(var_name, parse_styio_type(context)));
+      }
+      else {
+        params.push_back(ParamAST::Create(var_name));
+      }
+      context.skip();
+      if (!context.try_match(StyioTokenType::TOK_COMMA)) {
+        break;
+      }
+      context.skip();
+    }
+  }
+  context.try_match_panic(StyioTokenType::TOK_RPAREN);
+  return params;
+}
+
+static ResourceAST*
+make_internal_resource_decl_marker_latest(
+  const std::string& resource_name,
+  TypeAST* resource_type
+) {
+  const std::string type_name = resource_type == nullptr ? std::string("") : resource_type->getTypeName();
+  delete resource_type;
+  std::vector<std::pair<StyioAST*, std::string>> resources;
+  resources.emplace_back(NameAST::Create(resource_name), type_name);
+  return ResourceAST::Create(std::move(resources));
+}
+
+static bool
+file_resource_decl_body_calls_file_path_latest(StyioContext& context) {
+  const auto& tokens = context.get_tokens();
+  const size_t start = context.get_token_index();
+  int brace_depth = 0;
+
+  for (size_t i = start; i < tokens.size(); ++i) {
+    const auto type = tokens[i]->type;
+    if (type == StyioTokenType::TOK_LCURBRAC) {
+      ++brace_depth;
+      continue;
+    }
+    if (type == StyioTokenType::TOK_RCURBRAC) {
+      --brace_depth;
+      if (brace_depth <= 0) {
+        return false;
+      }
+      continue;
+    }
+    if (brace_depth <= 0 || styio_is_trivia_token(type)) {
+      continue;
+    }
+    if (type == StyioTokenType::NAME && tokens[i]->original == "file") {
+      size_t next = i + 1;
+      while (next < tokens.size() && styio_is_trivia_token(tokens[next]->type)) {
+        ++next;
+      }
+      if (next < tokens.size() && tokens[next]->type == StyioTokenType::TOK_LPAREN) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+static bool
+internal_resource_decl_body_is_placeholder_latest(const BlockAST* body) {
+  return body != nullptr
+    && body->stmts.size() == 1
+    && body->stmts[0] != nullptr
+    && (body->stmts[0]->getNodeType() == StyioNodeType::UndefLiteral
+        || body->stmts[0]->getNodeType() == StyioNodeType::Pass);
+}
+
+static void
+parse_internal_standard_stream_decl_body_latest(
+  StyioContext& context,
+  const std::string& stream_name,
+  const std::vector<ParamAST*>& params
+) {
+  auto parse_symbolic_terminal = [&]()
+  {
+    if (!parse_terminal_handle_latest(context)) {
+      throw StyioSyntaxError(context.mark_cur_tok("expected terminal handle [>_] or (>_)"));
+    }
+  };
+
+  context.try_match_panic(StyioTokenType::TOK_LCURBRAC);
+  context.skip();
+  if (stream_name == "stdin") {
+    if (!params.empty()) {
+      throw StyioSyntaxError(context.mark_cur_tok("@stdin declaration expects zero parameters"));
+    }
+    context.try_match_panic(StyioTokenType::YIELD_PIPE);
+    context.skip();
+    if (context.try_match(StyioTokenType::ARROW_SINGLE_LEFT)) {
+      context.skip();
+    }
+    parse_symbolic_terminal();
+  }
+  else if (stream_name == "stdout") {
+    if (params.size() != 1) {
+      throw StyioSyntaxError(context.mark_cur_tok("@stdout declaration expects one parameter"));
+    }
+    if (!context.check(StyioTokenType::NAME)) {
+      throw StyioSyntaxError(context.mark_cur_tok("@stdout declaration body expects its declared value name"));
+    }
+    if (context.cur_tok()->original != params[0]->getName()) {
+      throw StyioSyntaxError(context.mark_cur_tok("@stdout declaration body uses an undeclared value name"));
+    }
+    context.move_forward(1, "std_stream_decl_stdout_arg");
+    context.skip();
+    if (!context.try_match(StyioTokenType::ITERATOR)
+        && !context.try_match(StyioTokenType::ARROW_SINGLE_RIGHT)) {
+      throw StyioSyntaxError(context.mark_cur_tok("@stdout declaration expects >> or ->"));
+    }
+    context.skip();
+    parse_symbolic_terminal();
+  }
+  else {
+    if (params.size() != 1) {
+      throw StyioSyntaxError(context.mark_cur_tok("@stderr declaration expects one parameter"));
+    }
+    context.try_match_panic(StyioTokenType::TOK_EXCLAM);
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_LPAREN);
+    context.skip();
+    if (!context.check(StyioTokenType::NAME)) {
+      throw StyioSyntaxError(context.mark_cur_tok("@stderr declaration body expects its declared value name"));
+    }
+    if (context.cur_tok()->original != params[0]->getName()) {
+      throw StyioSyntaxError(context.mark_cur_tok("@stderr declaration body uses an undeclared value name"));
+    }
+    context.move_forward(1, "std_stream_decl_stderr_arg");
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_RPAREN);
+    context.skip();
+    if (!context.try_match(StyioTokenType::ITERATOR)
+        && !context.try_match(StyioTokenType::ARROW_SINGLE_RIGHT)) {
+      throw StyioSyntaxError(context.mark_cur_tok("@stderr declaration expects >> or ->"));
+    }
+    context.skip();
+    parse_symbolic_terminal();
+  }
+  context.skip();
+  context.try_match_panic(StyioTokenType::TOK_RCURBRAC);
+}
+
+static ResourceAST*
+parse_internal_resource_decl_after_at_latest(StyioContext& context) {
+  if (!context.check(StyioTokenType::NAME)) {
+    throw StyioSyntaxError(context.mark_cur_tok("resource declaration needs a name after @"));
+  }
+
+  const std::string resource_name = parse_name_as_str_unsafe(context);
+  context.skip();
+
+  TypeAST* resource_type = nullptr;
+  if (context.try_match(StyioTokenType::TOK_COLON)) {
+    context.skip();
+    resource_type = parse_styio_type(context);
+    context.skip();
+  }
+
+  context.try_match_panic(StyioTokenType::WALRUS);
+  context.skip();
+  std::vector<ParamAST*> params = parse_internal_resource_params_latest(context);
+  context.skip();
+  context.try_match_panic(StyioTokenType::ARROW_DOUBLE_RIGHT);
+  context.skip();
+
+  const bool standard_stream_name =
+    resource_name == "stdin" || resource_name == "stdout" || resource_name == "stderr";
+
+  if (standard_stream_name) {
+    parse_internal_standard_stream_decl_body_latest(context, resource_name, params);
+    return make_internal_resource_decl_marker_latest(resource_name, resource_type);
+  }
+
+  if (resource_name == "file" && resource_type == nullptr) {
+    throw StyioSyntaxError(context.mark_cur_tok("@file declaration needs a resource type"));
+  }
+  if (resource_name == "file" && file_resource_decl_body_calls_file_path_latest(context)) {
+    delete resource_type;
+    throw StyioSyntaxError(context.mark_cur_tok("@file declaration must be written in Styio; file(path) is not an allowed primitive"));
+  }
+
+  std::unique_ptr<BlockAST> body(parse_block_only(context));
+  if (resource_name == "file") {
+    if (!internal_resource_decl_body_is_placeholder_latest(body.get())) {
+      delete resource_type;
+      throw StyioSyntaxError(context.mark_cur_tok("@file declaration currently accepts only `{ ... }` until typed resource body lowering is implemented"));
+    }
+    return make_internal_resource_decl_marker_latest(resource_name, resource_type);
+  }
+
+  delete resource_type;
+  throw StyioSyntaxError(context.mark_cur_tok("unsupported internal resource declaration"));
+}
+
 StyioAST*
 parse_at_stmt_or_expr_latest(StyioContext& context) {
   context.move_forward(1, "stmt@");
   context.skip();
   if (context.check(StyioTokenType::NAME)) {
-    const std::string stream_name = context.cur_tok()->original;
-    const bool standard_stream_name =
-      stream_name == "stdin" || stream_name == "stdout" || stream_name == "stderr";
-    if (standard_stream_name) {
-      auto saved_stream = context.save_cursor();
-      context.move_forward(1, "std_stream_symbolic_probe");
-      context.skip();
-      if (context.check(StyioTokenType::WALRUS)) {
-        context.move_forward(1, "std_stream_symbolic:=");
-        context.skip();
-        auto parse_symbolic_terminal = [&]()
-        {
-          if (!parse_terminal_handle_latest(context)) {
-            throw StyioSyntaxError(context.mark_cur_tok("expected terminal handle [>_] or (>_)"));
-          }
-        };
-
-        context.try_match_panic(StyioTokenType::TOK_LCURBRAC);
-        context.skip();
-        if (stream_name == "stdin") {
-          context.try_match_panic(StyioTokenType::YIELD_PIPE);
-          context.skip();
-          if (context.try_match(StyioTokenType::ARROW_SINGLE_LEFT)) {
-            context.skip();
-          }
-          parse_symbolic_terminal();
-        }
-        else if (stream_name == "stdout") {
-          if (!context.check(StyioTokenType::NAME)) {
-            throw StyioSyntaxError(context.mark_cur_tok("@stdout symbolic definition expects a value name"));
-          }
-          context.move_forward(1, "std_stream_symbolic_stdout_arg");
-          context.skip();
-          if (!context.try_match(StyioTokenType::ITERATOR)
-              && !context.try_match(StyioTokenType::ARROW_SINGLE_RIGHT)) {
-            throw StyioSyntaxError(context.mark_cur_tok("@stdout symbolic definition expects >> or ->"));
-          }
-          context.skip();
-          parse_symbolic_terminal();
-        }
-        else {
-          context.try_match_panic(StyioTokenType::TOK_EXCLAM);
-          context.skip();
-          context.try_match_panic(StyioTokenType::TOK_LPAREN);
-          context.skip();
-          if (!context.check(StyioTokenType::NAME)) {
-            throw StyioSyntaxError(context.mark_cur_tok("@stderr symbolic definition expects a value name"));
-          }
-          context.move_forward(1, "std_stream_symbolic_stderr_arg");
-          context.skip();
-          context.try_match_panic(StyioTokenType::TOK_RPAREN);
-          context.skip();
-          if (!context.try_match(StyioTokenType::ITERATOR)
-              && !context.try_match(StyioTokenType::ARROW_SINGLE_RIGHT)) {
-            throw StyioSyntaxError(context.mark_cur_tok("@stderr symbolic definition expects >> or ->"));
-          }
-          context.skip();
-          parse_symbolic_terminal();
-        }
-        context.skip();
-        context.try_match_panic(StyioTokenType::TOK_RCURBRAC);
-        return PassAST::Create();
-      }
-      context.restore_cursor(saved_stream);
+    auto saved_resource_decl = context.save_cursor();
+    context.move_forward(1, "resource_decl_probe");
+    context.skip();
+    if (context.check(StyioTokenType::TOK_COLON) || context.check(StyioTokenType::WALRUS)) {
+      context.restore_cursor(saved_resource_decl);
+      return parse_internal_resource_decl_after_at_latest(context);
     }
+    context.restore_cursor(saved_resource_decl);
   }
   if (context.check(StyioTokenType::NAME) && context.cur_tok()->original == "import") {
     return parse_import_decl_after_at_latest(context);

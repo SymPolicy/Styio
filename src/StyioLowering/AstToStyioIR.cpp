@@ -1329,7 +1329,8 @@ AstToStyioIRLowerer::toStyioIR(NameAST* ast) {
   if (it != binding_info_.end()
       && (it->second.dynamic_slot
           || it->second.value_kind == BindingValueKind::ListHandle
-          || it->second.value_kind == BindingValueKind::DictHandle)) {
+          || it->second.value_kind == BindingValueKind::DictHandle
+          || it->second.value_kind == BindingValueKind::MatrixHandle)) {
     switch (it->second.value_kind) {
       case BindingValueKind::Bool:
         return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::Bool);
@@ -1343,6 +1344,8 @@ AstToStyioIRLowerer::toStyioIR(NameAST* ast) {
         return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::ListHandle);
       case BindingValueKind::DictHandle:
         return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::DictHandle);
+      case BindingValueKind::MatrixHandle:
+        return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::MatrixHandle);
       default:
         throw StyioTypeError("cannot lower dynamic slot `" + ast->getAsStr() + "` with unknown runtime kind");
     }
@@ -1450,7 +1453,8 @@ AstToStyioIRLowerer::toStyioIR(FlexBindAST* ast) {
   if (it != binding_info_.end()) {
     var->is_dynamic_slot = it->second.dynamic_slot
       || it->second.value_kind == BindingValueKind::ListHandle
-      || it->second.value_kind == BindingValueKind::DictHandle;
+      || it->second.value_kind == BindingValueKind::DictHandle
+      || it->second.value_kind == BindingValueKind::MatrixHandle;
     var->is_list_slot = !it->second.dynamic_slot
       && it->second.value_kind == BindingValueKind::ListHandle;
   }
@@ -1464,7 +1468,8 @@ AstToStyioIRLowerer::toStyioIR(FinalBindAST* ast) {
   if (it != binding_info_.end()) {
     var->is_dynamic_slot = it->second.dynamic_slot
       || it->second.value_kind == BindingValueKind::ListHandle
-      || it->second.value_kind == BindingValueKind::DictHandle;
+      || it->second.value_kind == BindingValueKind::DictHandle
+      || it->second.value_kind == BindingValueKind::MatrixHandle;
     var->is_list_slot = !it->second.dynamic_slot
       && it->second.value_kind == BindingValueKind::ListHandle;
   }
@@ -1494,7 +1499,8 @@ AstToStyioIRLowerer::toStyioIR(ParallelAssignAST* ast) {
       if (it != binding_info_.end()) {
         sg_var->is_dynamic_slot = it->second.dynamic_slot
           || it->second.value_kind == BindingValueKind::ListHandle
-          || it->second.value_kind == BindingValueKind::DictHandle;
+          || it->second.value_kind == BindingValueKind::DictHandle
+          || it->second.value_kind == BindingValueKind::MatrixHandle;
         sg_var->is_list_slot = !it->second.dynamic_slot
           && it->second.value_kind == BindingValueKind::ListHandle;
       }

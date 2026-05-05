@@ -47,6 +47,7 @@ Primary paths:
 21. Put C++ reference equivalence cases under `tests/algorithms/<case>/`; keep the C++ oracle, Styio program, and per-case random-input test driver in that directory, with only shared runner code under `tests/algorithms/.common/`.
 22. When post-push CI reports five-layer typed-AST or diagnostic expectation drift, rebuild the local test binary before trusting a prior pass, reproduce the exact failing CTest filters, then update only the stale golden or stable diagnostic fragment.
 23. Syntax aliases that claim canonical equivalence need both runtime equivalence and exact lowered or LLVM IR comparison where the backend contract is part of the claim; include at least one non-example-shaped case so optimizer coverage cannot be a one-off source rewrite.
+24. Internal resource declarations need parser coverage for the prelude source file plus negative tests for undeclared local names and not-allowed hidden pseudo-primitives such as `file(path)`.
 
 ## Change Classes
 

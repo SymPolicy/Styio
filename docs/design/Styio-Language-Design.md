@@ -417,8 +417,9 @@ The current frozen grammar accepts:
 @stdin
 ```
 
-directly in source code. Unlike earlier planning drafts, users do **not** need to write
-wrapper definitions such as `@stdout := ...` before using these standard streams.
+directly in source code. Users do not need to repeat the internal prelude declarations before
+using these standard streams. The declarations still exist as Styio source in the resource prelude
+rather than as a C++ resource-name registry.
 
 **`>_` — The Terminal Device**
 
@@ -449,18 +450,18 @@ or `string.lines() >> [>_]` / `string.lines() >> @stdout` when newline splitting
 
 **@stderr** — write-only, **unbuffered** (immediate `fflush(stderr)` after each write).
 
-**@stdin** — read-only, iterable stream. The canonical symbolic definitions are:
+**@stdin** — read-only, iterable stream. The canonical internal declarations are:
 
 ```styio
-@stdin := { <|[>_] }
-@stdin := { <|(>_) }
-@stdin := { <| <- [>_] }
-@stdin := { <| <- (>_) }  // compatibility terminal-device spelling
+@ stdin := #() => { <|[>_] }
+@ stdin := #() => { <|(>_) }
+@ stdin := #() => { <| <- [>_] }
+@ stdin := #() => { <| <- (>_) }  // compatibility terminal-device spelling
 ```
 
-`<|(>_)` is a call-like shorthand for the same symbolic definition: `<|` supplies the exported
-value and `(>_)` is the terminal-device argument. `[>_]` replaces the earlier `| >_ |` spelling
-to avoid a `|>` visual/tokenization ambiguity. `@stdin >> #(line) => {...}` iterates lines.
+`<|(>_)` is a call-like shorthand: `<|` supplies the exported value and `(>_)` is the
+terminal-device argument. `[>_]` replaces the earlier `| >_ |` spelling to avoid a `|>`
+visual/tokenization ambiguity. `@stdin >> #(line) => {...}` iterates lines.
 EOF terminates iteration naturally. New design text should not use `<<` for stdin reads or
 `lines << @stdin` for implicit collection; collect explicitly inside the iterator body or through
 a named typed-read API. Older frozen docs and implementations accepted `(<< @stdin)` as instant
@@ -492,7 +493,7 @@ stream-sink style is intentional.
 
 - `@stdin` is read-only: `expr -> @stdin` and `expr >> @stdin` are semantic errors
 - `@stdout` / `@stderr` are write-only: `@stdout >> #(x) => {...}` is a semantic error
-- Standard streams need no user-authored wrapper declarations; `f <- @stdout` is a semantic error
+- Standard streams need no repeated user-authored declarations; `f <- @stdout` is a semantic error
 
 **Compiler recognition:** The compiler recognizes `@stdout`, `@stderr`, `@stdin` directly at
 parse/lowering time and emits direct FFI-backed standard-stream IR (`printf`/`puts` for

@@ -1,24 +1,31 @@
 id = "add-resource-identifier"
 title = "Add Resource Identifier"
 purpose = "Add or change a Styio resource identifier without drifting syntax, lifecycle, docs, and tests."
-last_updated = "2026-04-23"
+last_updated = "2026-05-04"
 doc = "ADD-RESOURCE-IDENTIFIER.md"
 skill = "skills/styio-resource-identifier-change/skill.toml"
 
 steps = [
-  "define the resource as @name := { ... }",
-  "record capability, direction, ownership, lifetime, and close/error behavior",
-  "update resource syntax and lifecycle docs",
-  "update parser, analyzer, runtime, or config surfaces as needed",
+  "add or update the internal Styio resource declaration",
+  "record accepted source forms, capability, direction, ownership, lifetime, and close/error behavior",
+  "update resource syntax, prelude source, and lifecycle docs",
+  "update parser, analyzer, runtime, or config substrate surfaces as needed",
   "add positive and fail-closed tests",
 ]
 
 required_evidence = [
-  "built-in symbol definition",
+  "internal Styio resource declaration and accepted source forms",
   "capability and lifetime statement",
   "parser or analyzer coverage",
   "runtime or fail-closed coverage",
   "resource identifier SSOT updated",
+]
+
+constraints = [
+  "parameterized resource expressions are not declaration heads",
+  "do not document or implement @name{arg} := { ... } forms",
+  "do not introduce file(path) or other hidden pseudo-primitives",
+  "C++ may provide substrate behavior but must not be the resource definition source of truth",
 ]
 
 gates = [
@@ -32,6 +39,7 @@ gates = [
 [handoff]
 report = [
   "accepted identifiers",
+  "internal declaration",
   "reserved identifiers",
   "lifecycle behavior",
   "tests",

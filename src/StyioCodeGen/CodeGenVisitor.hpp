@@ -453,6 +453,7 @@ private:
   llvm::Value* promote_to_cstr(llvm::Value* v);
   llvm::Value* evaluate_arm_block_value(SGBlock* b, bool mixed_phi);
 
+  enum class TempResourceKind : std::uint8_t { List, Dict, Matrix };
   std::vector<std::vector<std::string>> file_handle_scope_stack_;
   std::vector<std::vector<llvm::AllocaInst*>> cstr_slot_scope_stack_;
   std::vector<std::vector<llvm::AllocaInst*>> dynamic_slot_scope_stack_;
@@ -461,7 +462,6 @@ private:
   std::unordered_map<std::string, llvm::AllocaInst*> file_singleton_path_slots_;
   std::unordered_set<std::string> file_singleton_raii_paths_;
   std::unordered_set<llvm::Value*> owned_cstr_temps_;
-  enum class TempResourceKind : std::uint8_t { List, Dict, Matrix };
   std::unordered_map<llvm::Value*, TempResourceKind> owned_resource_temps_;
 
   void emit_snapshot_shadow_reload();
@@ -499,6 +499,7 @@ private:
   void forget_owned_resource_temp(llvm::Value* v);
   void free_resource_if_runtime_owned(llvm::Value* v, TempResourceKind kind);
   void free_owned_resource_temp_if_tracked(llvm::Value* v);
+  void emit_active_scope_cleanup();
 
   llvm::Value* pulse_ledger_base_ = nullptr;
   llvm::Value* pulse_snap_base_ = nullptr;

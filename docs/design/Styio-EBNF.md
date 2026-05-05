@@ -402,6 +402,8 @@ resource           = std_stream_resource
                    | '@' [ identifier ] ( '{' expression '}' | '(' expression ')' ) ;
 
 std_stream_resource = '@stdout' | '@stderr' | '@stdin' ;
+
+resource_decl      = '@' identifier [ ':' type ] ':=' '#' '(' [ param_list ] ')' '=>' block ;
 ```
 
 Examples:
@@ -413,8 +415,8 @@ Examples:
 ### 9.1 Standard Stream Resources
 
 Standard streams are compiler-recognized resource atoms over the terminal device primitive
-`>_`. Unlike early planning drafts, the frozen grammar does **not** require user-authored
-binding definitions such as `@stdout := ...`.
+`>_`. User programs may use `@stdout`, `@stderr`, and `@stdin` directly; internally, these
+resources are still governed by Styio prelude declarations rather than by a C++ name registry.
 
 Usage patterns (reuse existing productions):
 - `expr '->' '@stdout'` / `expr '->' '@stderr'` — canonical standard-stream write via `resource_redirect`
@@ -422,8 +424,9 @@ Usage patterns (reuse existing productions):
 - `iterable_expr '>>' terminal_handle` — terminal-handle resource-write shorthand; semantic checks require an iterable, text-serializable value
 - `string_expr '.lines()' '>>' terminal_handle` — explicit newline split before terminal-handle iterable write
 - `'@stdin' '>>' '#' '(' param_list ')' '=>' block` — iterate via `iterator`
-- `'@stdin' ':=' '{' '<|' terminal_handle '}'` — symbolic stdin definition shorthand (`<|[>_]` or `<|(>_)`)
-- `'@stdin' ':=' '{' '<|' '<-' terminal_handle '}'` — symbolic stdin definition expanded form
+- `'@' 'stdin' ':=' '#' '(' ')' '=>' '{' '<|' terminal_handle '}'` — internal stdin declaration shorthand (`<|[>_]` or `<|(>_)`)
+- `'@' 'stdin' ':=' '#' '(' ')' '=>' '{' '<|' '<-' terminal_handle '}'` — internal stdin declaration expanded form
+- `'@' 'file' ':' 'ftype' ':=' '#' '(' identifier ')' '=>' block` — internal file resource declaration; the body must not call `file(path)`
 - `'(' '<-' '@stdin' ')'` — immediate pull via `instant_pull`
 - `'(' '<<' '@stdin' ')'` — legacy compatibility pull via `legacy_instant_pull`
 
@@ -537,16 +540,17 @@ The lexer always prefers the two-character compound token over individual charac
 
 ---
 
-## Appendix B: Topology v2 — Resource declarations (target; not yet in lexer/parser)
+## Appendix B: Topology v2 — Resource declarations
 
 **Full narrative:** [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md).
 
-This appendix only fixes **grammar shape** for tooling and future implementation. The **current** compiler still parses M6-style **`@[n](var = …)`** inside blocks.
+This appendix fixes the broader topology grammar. The current compiler now accepts single-resource
+internal declarations of the form `@ name [: type] := #(args) => { ... }`; multi-resource topology
+binding and full shadow-state semantics remain future work.
 
 ### B.1 Program and top-level resource
 
 ```ebnf
-(* Target-only — optional future milestone *)
 program_v2         = { top_level_decl_v2 } EOF ;
 
 top_level_decl_v2  = resource_decl_v2
