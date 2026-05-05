@@ -3,7 +3,7 @@
     "bootstrap_toolchains": true,
     "host": "linux-aarch64",
     "noop_tasks": 10000,
-    "run_id": "20260505T041640Z-async-runtime",
+    "run_id": "20260505T051134Z-async-runtime",
     "sleep_ms": 160,
     "tasks": 4,
     "workers": 4
@@ -12,16 +12,16 @@
     {
       "language": "styio",
       "noop": {
-        "per_task_us": 1.1411,
+        "per_task_us": 1.3815,
         "tasks": 10000,
-        "total_us": 11411
+        "total_us": 13815
       },
       "runtime": "styio_task_scheduler",
       "sleep": {
-        "parallel_ms": 166,
-        "sequential_ms": 653,
+        "parallel_ms": 161,
+        "sequential_ms": 647,
         "sleep_ms": 160,
-        "speedup": 3.93373,
+        "speedup": 4.01863,
         "tasks": 4
       },
       "status": "ok",
@@ -31,17 +31,17 @@
     {
       "language": "cpp",
       "noop": {
-        "per_task_us": 1.3658,
+        "per_task_us": 0.9836,
         "sum": 10000,
         "tasks": 10000,
-        "total_us": 13658
+        "total_us": 9836
       },
-      "runtime": "cpp_thread_pool",
+      "runtime": "cpp_stackless_coroutine",
       "sleep": {
-        "parallel_ms": 164,
+        "parallel_ms": 160,
         "sequential_ms": 646,
         "sleep_ms": 160,
-        "speedup": 3.93902,
+        "speedup": 4.0375,
         "sum": 4,
         "tasks": 4
       },
@@ -52,17 +52,17 @@
     {
       "language": "go",
       "noop": {
-        "per_task_us": 0.3771,
+        "per_task_us": 0.4621,
         "sum": 10000,
         "tasks": 10000,
-        "total_us": 3771
+        "total_us": 4621
       },
       "runtime": "goroutine",
       "sleep": {
         "parallel_ms": 160,
-        "sequential_ms": 651,
+        "sequential_ms": 642,
         "sleep_ms": 160,
-        "speedup": 4.06875,
+        "speedup": 4.0125,
         "sum": 4,
         "tasks": 4
       },
@@ -73,22 +73,22 @@
     {
       "language": "rust",
       "noop": {
-        "per_task_us": 0.3115,
+        "per_task_us": 0.2979,
         "sum": 10000,
         "tasks": 10000,
-        "total_us": 3115
+        "total_us": 2979
       },
-      "runtime": "rust_std_worker_pool",
+      "runtime": "tokio_multi_thread",
       "sleep": {
-        "parallel_ms": 162,
-        "sequential_ms": 655,
+        "parallel_ms": 165,
+        "sequential_ms": 648,
         "sleep_ms": 160,
-        "speedup": 4.04320987654321,
+        "speedup": 3.9272727272727272,
         "sum": 4,
         "tasks": 4
       },
       "status": "ok",
-      "toolchain": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "toolchain": "rustc 1.95.0 (59807616e 2026-04-14); cargo 1.95.0 (f2d3ce0bd 2026-03-21); tokio 1.52.2",
       "workers": 4
     }
   ]
