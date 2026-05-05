@@ -2,7 +2,7 @@
 
 **Purpose:** Add or change a Styio resource identifier without drifting syntax, lifecycle, docs, and tests.
 
-**Last updated:** 2026-04-23
+**Last updated:** 2026-05-04
 
 **TOML:** [ADD-RESOURCE-IDENTIFIER.toml](./ADD-RESOURCE-IDENTIFIER.toml) is the machine-readable workflow definition.
 
@@ -12,19 +12,26 @@ Use [styio-resource-identifier-change/skill.toml](./skills/styio-resource-identi
 
 ## Workflow
 
-1. Define the resource as a compact built-in symbol, for example `@stdin := { ... }`.
-2. Record capability, direction, ownership, lifetime, and close/error behavior.
-3. Update syntax docs and lifecycle docs before implementation details drift.
-4. Update parser, analyzer, runtime, or config surfaces only where the identifier needs behavior.
+1. Add or update the internal Styio declaration, for example
+   `@ name : type := #(args) => { body }`.
+2. Record accepted source forms, capability, direction, ownership, lifetime, and close/error behavior.
+3. Update syntax docs, prelude source, and lifecycle docs before implementation details drift.
+4. Update parser, analyzer, runtime, or config surfaces only where the declaration needs substrate behavior.
 5. Add positive and fail-closed tests.
 
 ## Required Evidence
 
-1. Built-in symbol definition.
+1. Internal Styio resource declaration and accepted source forms.
 2. Capability and lifetime statement.
 3. Parser or analyzer coverage.
 4. Runtime or fail-closed coverage.
 5. Docs updated in the resource identifier SSOT.
+
+## Constraints
+
+Parameterized resource expressions are not declaration heads. Invalid example:
+`@name{arg} := { ... }`. Do not introduce hidden pseudo-primitives such as `file(path)`; resources
+must be defined in Styio prelude source, with C++ limited to parser/runtime substrate behavior.
 
 ## Gates
 
@@ -38,4 +45,5 @@ git diff --check
 
 ## Handoff
 
-Report accepted identifiers, reserved identifiers, lifecycle behavior, tests, and unsupported paths.
+Report the internal declaration, accepted identifiers, reserved identifiers, lifecycle behavior,
+tests, and unsupported paths.

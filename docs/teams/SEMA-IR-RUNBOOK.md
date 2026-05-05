@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of AST lifecycle, semantic analysis, type inference, StyioIR lowering, string representation, and compilation session ownership.
 
-**Last updated:** 2026-05-04
+**Last updated:** 2026-05-05
 
 ## Mission
 
@@ -43,6 +43,7 @@ High-value docs:
 14. `InfiniteLoopAST` must type-check its guard and body before lowering; conditional loop guards are bool-only, so non-bool values must fail in sema rather than reaching LLVM codegen.
 15. Matrix typed literals and intrinsics must carry element kind and static shape through Sema into IR. Reject ragged rows, nonnumeric elements, add/sub shape mismatches, and invalid matmul dimensions before lowering; lower `m[row]`, `m[row][col]`, arithmetic operators, and `mat_*` intrinsics to explicit collection IR instead of placeholder constants.
 16. Match lowering must emit ordinary `SGMatch` shape and leave sequence-aware equivalence rewrites to `StyioIROptimizer`; do not hard-code source examples such as `.length` / `.size` in AST lowering. Syntax aliases are not equivalent until StyioIR structure, side-effect safety, and tests prove it.
+17. Runtime resource bindings must keep value-family identity through Sema and lowering. Matrix handles are dynamic slot values just like list and dict handles; name loads must lower through the matching `SGDynLoadKind` instead of reusing stale SSA handles.
 
 ## Change Classes
 

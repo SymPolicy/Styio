@@ -1096,10 +1096,8 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
   info.dynamic_slot = info.dynamic_slot
     || ast->getValue()->getNodeType() == StyioNodeType::TypedStdinList
     || kind == BindingValueKind::ListHandle
-    || kind == BindingValueKind::DictHandle;
-  if (kind == BindingValueKind::MatrixHandle) {
-    info.dynamic_slot = false;
-  }
+    || kind == BindingValueKind::DictHandle
+    || kind == BindingValueKind::MatrixHandle;
   info.resource_value = kind == BindingValueKind::ListHandle
     || kind == BindingValueKind::DictHandle
     || kind == BindingValueKind::MatrixHandle;
@@ -1156,7 +1154,6 @@ StyioSemaContext::typeInfer(FinalBindAST* ast) {
   BindingValueKind rhs_kind = binding_value_kind_for_type(infer_expr_type(this, ast->getValue()));
   BindingInfo info;
   info.final_slot = true;
-  info.dynamic_slot = false;
   const bool runtime_resource =
     ast->getValue()->getNodeType() == StyioNodeType::TypedStdinList
     || ast->getValue()->getNodeType() == StyioNodeType::Dict
@@ -1167,6 +1164,7 @@ StyioSemaContext::typeInfer(FinalBindAST* ast) {
         && (rhs_info->second.value_kind == BindingValueKind::ListHandle
             || rhs_info->second.value_kind == BindingValueKind::DictHandle
             || rhs_info->second.value_kind == BindingValueKind::MatrixHandle));
+  info.dynamic_slot = runtime_resource;
   info.resource_value = runtime_resource;
   if (ast->getValue()->getNodeType() == StyioNodeType::Dict) {
     info.value_kind = BindingValueKind::DictHandle;

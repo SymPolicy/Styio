@@ -522,6 +522,7 @@ TEST(StyioDiagnostics, SourceBuildInfoJsonReportsOfficialSourceLayoutFields) {
   EXPECT_NE(result.stdout_text.find("\"styio_runtime_core\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"id\": \"macro_prelude\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"path\": \"src/StyioParser/SymbolRegistry.cpp\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"src/StyioPrelude/resources.styio\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"macro_like_symbols\": ["), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"match\""), std::string::npos);
 }

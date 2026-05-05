@@ -157,6 +157,7 @@ StyioToLLVM::toLLVMType(SGDynLoad* node) {
     case SGDynLoadKind::I64:
     case SGDynLoadKind::ListHandle:
     case SGDynLoadKind::DictHandle:
+    case SGDynLoadKind::MatrixHandle:
       return theBuilder->getInt64Ty();
     case SGDynLoadKind::F64:
       return theBuilder->getDoubleTy();

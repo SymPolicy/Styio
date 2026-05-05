@@ -24,6 +24,10 @@
 #include <unistd.h>
 #endif
 
+#ifndef STYIO_SOURCE_DIR
+#define STYIO_SOURCE_DIR "."
+#endif
+
 #include "StyioCodeGen/CodeGenVisitor.hpp"
 #include "StyioException/Exception.hpp"
 #include "StyioExtern/ExternLib.hpp"
@@ -990,25 +994,59 @@ TEST(StyioSecurityNightlyParserStmt, ParsesTerminalHandleReturnShorthands) {
   }
 }
 
-TEST(StyioSecurityNightlyParserStmt, ParsesStandardStreamSymbolicDefinitions) {
+TEST(StyioSecurityNightlyParserStmt, ParsesInternalResourceDefinitions) {
   const std::string src =
-    "@stdout := { xs >> [>_] }\n"
-    "@stdout := { x -> [>_] }\n"
-    "@stdout := { xs >> (>_) }\n"
-    "@stdout := { x -> (>_) }\n"
-    "@stderr := { !(xs) >> [>_] }\n"
-    "@stderr := { !(x) -> [>_] }\n"
-    "@stderr := { !(xs) >> (>_) }\n"
-    "@stderr := { !(x) -> (>_) }\n"
-    "@stdin := { <|[>_] }\n"
-    "@stdin := { <|(>_) }\n"
-    "@stdin := { <| <- [>_] }\n"
-    "@stdin := { <| <- (>_) }\n";
+    "@ stdout := #(xs) => { xs >> [>_] }\n"
+    "@ stdout := #(x) => { x -> [>_] }\n"
+    "@ stdout := #(xs) => { xs >> (>_) }\n"
+    "@ stdout := #(x) => { x -> (>_) }\n"
+    "@ stderr := #(xs) => { !(xs) >> [>_] }\n"
+    "@ stderr := #(x) => { !(x) -> [>_] }\n"
+    "@ stderr := #(xs) => { !(xs) >> (>_) }\n"
+    "@ stderr := #(x) => { !(x) -> (>_) }\n"
+    "@ stdin := #() => { <|[>_] }\n"
+    "@ stdin := #() => { <|(>_) }\n"
+    "@ stdin := #() => { <| <- [>_] }\n"
+    "@ stdin := #() => { <| <- (>_) }\n"
+    "@ file : ftype := #(path) => { ... }\n";
 
   EXPECT_NO_THROW((void)parse_program_to_repr_latest(src, true));
   EXPECT_NO_THROW(
     parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
   );
+}
+
+TEST(StyioSecurityNightlyParserStmt, ParsesResourcePreludeSourceFile) {
+  const auto prelude =
+    std::filesystem::path(STYIO_SOURCE_DIR) / "src" / "StyioPrelude" / "resources.styio";
+  std::ifstream in(prelude);
+  ASSERT_TRUE(in.good()) << prelude;
+  const std::string src(
+    (std::istreambuf_iterator<char>(in)),
+    std::istreambuf_iterator<char>()
+  );
+
+  EXPECT_NO_THROW((void)parse_program_to_repr_latest(src, true));
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsParameterizedResourcePseudoDefinitions) {
+  const std::vector<std::string> samples = {
+    "@file{\"/tmp/styio-invalid-resource-definition.txt\"} := { file(path) }\n",
+    "@{\"/tmp/styio-invalid-resource-definition.txt\"} := @file{\"/tmp/styio-invalid-resource-definition.txt\"}\n",
+    "@ file := #(path) => { file(path) }\n",
+    "@ file : ftype := #(path) => { file(path) }\n",
+    "@ file : ftype := #(path) => { path }\n",
+    "@ socket : ftype := #(path) => { ... }\n",
+    "@ stdout := { xs >> [>_] }\n",
+    "@ stderr := #(xs) => { !(x) >> [>_] }\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_THROW((void)parse_program_to_repr_latest(src, true), StyioSyntaxError) << src;
+  }
 }
 
 TEST(StyioSecurityNightlyParserStmt, ParsesGenericFunctionTypeAnnotations) {
@@ -1740,7 +1778,7 @@ TEST(StyioSecurityNightlySemantics, AllowsBoundStdinAliasIteration) {
 
 TEST(StyioSecurityNightlySemantics, SymbolicStdinDefinitionCanPrecedeIteration) {
   const std::string src =
-    "@stdin := { <|[>_] }\n"
+    "@ stdin := #() => { <|[>_] }\n"
     "@stdin >> #(line) => {\n"
     "  line -> [>_]\n"
     "}\n";
@@ -2075,6 +2113,57 @@ TEST(StyioSecurityNightlyRuntime, DictHandlesAreCleanedUpAfterExecution) {
   );
   EXPECT_EQ(styio_dict_active_count(), 0);
   EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioSecurityNightlyRuntime, MatrixFinalBindHandlesStayLiveUntilScopeExit) {
+  const std::string src =
+    "m: matrix := [[1,2],[3,4]]\n"
+    "n = m + m\n"
+    "q = m + m\n"
+    ">_(q[0][0])\n";
+
+  EXPECT_NO_THROW(
+    execute_program_engine_with_stdin_latest(
+      src,
+      StyioParserEngine::Nightly,
+      ""
+    )
+  );
+  EXPECT_EQ(styio_matrix_active_count(), 0);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioSecurityNightlyRuntime, MatrixHandlesAreCleanedUpAfterOverwriteAndExecution) {
+  const std::string src =
+    "m: matrix = [[1,2],[3,4]]\n"
+    "m = m + m\n";
+
+  EXPECT_NO_THROW(
+    execute_program_engine_with_stdin_latest(
+      src,
+      StyioParserEngine::Nightly,
+      ""
+    )
+  );
+  EXPECT_EQ(styio_matrix_active_count(), 0);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioSecurityNightlyRuntime, RuntimeErrorReturnCleansMatrixHandles) {
+  const std::string src =
+    "m: matrix = [[1,2],[3,4]]\n"
+    ">_(m[9][0])\n";
+
+  EXPECT_NO_THROW(
+    execute_program_engine_with_stdin_latest(
+      src,
+      StyioParserEngine::Nightly,
+      ""
+    )
+  );
+  EXPECT_EQ(styio_matrix_active_count(), 0);
+  EXPECT_EQ(styio_runtime_has_error(), 1);
+  styio_runtime_clear_error();
 }
 
 TEST(StyioSecurityNightlyRuntime, NestedHandleDictsReleaseOwnedChildrenOnOverwrite) {
