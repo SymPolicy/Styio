@@ -58,6 +58,7 @@ styio_stdout_golden_test(m4 "t*.styio" m4)
 styio_stdout_golden_test(m6 "t*.styio" m6)
 styio_stdout_golden_test(m8 "t*.styio" m8)
 styio_stdout_golden_test(m11 "t*.styio" m11)
+styio_stdout_golden_test(m12 "t*.styio" m12)
 
 # --- M9: stdout golden tests (t01-t08, t12 via golden helper; stderr/mixed tests individually) ---
 styio_stdout_golden_test(m9 "t01_*.styio" m9)
@@ -147,6 +148,19 @@ foreach(_F IN LISTS M10_FAIL_TESTS)
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   )
   set_tests_properties("m10_err_${_ENAME}" PROPERTIES LABELS "milestone;m10;m10_semantic")
+endforeach()
+
+# M12 task_resource semantic failures: compilation must abort (e*.styio)
+file(GLOB M12_FAIL_TESTS CONFIGURE_DEPENDS "${STYIO_MS}/m12/e*.styio")
+list(SORT M12_FAIL_TESTS)
+foreach(_F IN LISTS M12_FAIL_TESTS)
+  get_filename_component(_ENAME ${_F} NAME_WE)
+  add_test(
+    NAME "m12_err_${_ENAME}"
+    COMMAND bash -c "if \"${STYIO_EXE}\" --file \"${_F}\"; then exit 1; else exit 0; fi"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  )
+  set_tests_properties("m12_err_${_ENAME}" PROPERTIES LABELS "milestone;m12;m12_semantic")
 endforeach()
 
 # M8 semantic failures: compilation must abort (e*.styio)

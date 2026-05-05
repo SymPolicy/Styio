@@ -82,6 +82,19 @@ public:
     add_symbol("styio_stderr_write_cstr", &styio_stderr_write_cstr);
     add_symbol("styio_stdin_read_line", &styio_stdin_read_line);
 
+    add_symbol("styio_task_i64_ready", &styio_task_i64_ready);
+    add_symbol("styio_task_f64_ready", &styio_task_f64_ready);
+    add_symbol("styio_task_cstr_ready", &styio_task_cstr_ready);
+    add_symbol("styio_task_i64_spawn", &styio_task_i64_spawn);
+    add_symbol("styio_task_f64_spawn", &styio_task_f64_spawn);
+    add_symbol("styio_task_cstr_spawn", &styio_task_cstr_spawn);
+    add_symbol("styio_task_i64_pull", &styio_task_i64_pull);
+    add_symbol("styio_task_f64_pull", &styio_task_f64_pull);
+    add_symbol("styio_task_cstr_pull", &styio_task_cstr_pull);
+    add_symbol("styio_task_release", &styio_task_release);
+    add_symbol("styio_task_active_count", &styio_task_active_count);
+    add_symbol("styio_task_worker_count", &styio_task_worker_count);
+
     add_symbol("styio_list_i64_read_stdin", &styio_list_i64_read_stdin);
     add_symbol("styio_list_cstr_read_stdin", &styio_list_cstr_read_stdin);
     add_symbol("styio_string_lines", &styio_string_lines);

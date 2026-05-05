@@ -1,0 +1,95 @@
+{
+  "metadata": {
+    "bootstrap_toolchains": true,
+    "host": "linux-aarch64",
+    "noop_tasks": 10000,
+    "run_id": "20260505T041640Z-async-runtime",
+    "sleep_ms": 160,
+    "tasks": 4,
+    "workers": 4
+  },
+  "results": [
+    {
+      "language": "styio",
+      "noop": {
+        "per_task_us": 1.1411,
+        "tasks": 10000,
+        "total_us": 11411
+      },
+      "runtime": "styio_task_scheduler",
+      "sleep": {
+        "parallel_ms": 166,
+        "sequential_ms": 653,
+        "sleep_ms": 160,
+        "speedup": 3.93373,
+        "tasks": 4
+      },
+      "status": "ok",
+      "toolchain": "repo runtime target",
+      "workers": 4
+    },
+    {
+      "language": "cpp",
+      "noop": {
+        "per_task_us": 1.3658,
+        "sum": 10000,
+        "tasks": 10000,
+        "total_us": 13658
+      },
+      "runtime": "cpp_thread_pool",
+      "sleep": {
+        "parallel_ms": 164,
+        "sequential_ms": 646,
+        "sleep_ms": 160,
+        "speedup": 3.93902,
+        "sum": 4,
+        "tasks": 4
+      },
+      "status": "ok",
+      "toolchain": "Debian clang version 18.1.8 (18+b1)",
+      "workers": 4
+    },
+    {
+      "language": "go",
+      "noop": {
+        "per_task_us": 0.3771,
+        "sum": 10000,
+        "tasks": 10000,
+        "total_us": 3771
+      },
+      "runtime": "goroutine",
+      "sleep": {
+        "parallel_ms": 160,
+        "sequential_ms": 651,
+        "sleep_ms": 160,
+        "speedup": 4.06875,
+        "sum": 4,
+        "tasks": 4
+      },
+      "status": "ok",
+      "toolchain": "go version go1.26.2 linux/arm64",
+      "workers": 4
+    },
+    {
+      "language": "rust",
+      "noop": {
+        "per_task_us": 0.3115,
+        "sum": 10000,
+        "tasks": 10000,
+        "total_us": 3115
+      },
+      "runtime": "rust_std_worker_pool",
+      "sleep": {
+        "parallel_ms": 162,
+        "sequential_ms": 655,
+        "sleep_ms": 160,
+        "speedup": 4.04320987654321,
+        "sum": 4,
+        "tasks": 4
+      },
+      "status": "ok",
+      "toolchain": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "workers": 4
+    }
+  ]
+}

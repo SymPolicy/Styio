@@ -44,6 +44,7 @@ High-value docs:
 15. Matrix typed literals and intrinsics must carry element kind and static shape through Sema into IR. Reject ragged rows, nonnumeric elements, add/sub shape mismatches, and invalid matmul dimensions before lowering; lower `m[row]`, `m[row][col]`, arithmetic operators, and `mat_*` intrinsics to explicit collection IR instead of placeholder constants.
 16. Match lowering must emit ordinary `SGMatch` shape and leave sequence-aware equivalence rewrites to `StyioIROptimizer`; do not hard-code source examples such as `.length` / `.size` in AST lowering. Syntax aliases are not equivalent until StyioIR structure, side-effect safety, and tests prove it.
 17. Runtime resource bindings must keep value-family identity through Sema and lowering. Matrix handles are dynamic slot values just like list and dict handles; name loads must lower through the matching `SGDynLoadKind` instead of reusing stale SSA handles.
+18. Task resource bindings follow the same value-family rule: `TaskBlockAST` must infer `task[T]`, `FlowBindAST` must require a predeclared mutable target, and task names may be pulled once before lowering to `SIOTaskCreate` plus `SIOFlowBind`. Free scalar references inside `||>` are captured into the task context; local binds inside the task body must not inflate that context.
 
 ## Change Classes
 

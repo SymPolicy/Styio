@@ -158,6 +158,7 @@ StyioToLLVM::toLLVMType(SGDynLoad* node) {
     case SGDynLoadKind::ListHandle:
     case SGDynLoadKind::DictHandle:
     case SGDynLoadKind::MatrixHandle:
+    case SGDynLoadKind::TaskHandle:
       return theBuilder->getInt64Ty();
     case SGDynLoadKind::F64:
       return theBuilder->getDoubleTy();
@@ -516,4 +517,28 @@ llvm::Type*
 StyioToLLVM::toLLVMType(SIOStdStreamPull* node) {
   (void)node;
   return llvm::PointerType::get(*theContext, 0);
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SIOTaskCreate* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SIOFlowBind* node) {
+  switch (node->result_type.option) {
+    case StyioDataTypeOption::Bool:
+      return theBuilder->getInt1Ty();
+    case StyioDataTypeOption::Float:
+      return theBuilder->getDoubleTy();
+    case StyioDataTypeOption::String:
+      return llvm::PointerType::get(*theContext, 0);
+    case StyioDataTypeOption::Integer:
+    case StyioDataTypeOption::List:
+    case StyioDataTypeOption::Dict:
+    case StyioDataTypeOption::Matrix:
+    default:
+      return theBuilder->getInt64Ty();
+  }
 }

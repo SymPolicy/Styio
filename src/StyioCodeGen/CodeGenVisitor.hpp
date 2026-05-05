@@ -158,6 +158,8 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SIOStdStreamWrite,
   class SIOStdStreamLineIter,
   class SIOStdStreamPull,
+  class SIOTaskCreate,
+  class SIOFlowBind,
 
   class SGBlock,
   class SGEntry,
@@ -328,6 +330,8 @@ public:
   llvm::Type* toLLVMType(SIOStdStreamWrite* node);
   llvm::Type* toLLVMType(SIOStdStreamLineIter* node);
   llvm::Type* toLLVMType(SIOStdStreamPull* node);
+  llvm::Type* toLLVMType(SIOTaskCreate* node);
+  llvm::Type* toLLVMType(SIOFlowBind* node);
 
   // llvm::Type* toLLVMType(SGIfElse* node);
   // llvm::Type* toLLVMType(SGForLoop* node);
@@ -422,6 +426,8 @@ public:
   llvm::Value* toLLVMIR(SIOStdStreamWrite* node);
   llvm::Value* toLLVMIR(SIOStdStreamLineIter* node);
   llvm::Value* toLLVMIR(SIOStdStreamPull* node);
+  llvm::Value* toLLVMIR(SIOTaskCreate* node);
+  llvm::Value* toLLVMIR(SIOFlowBind* node);
 
   // llvm::Value* toLLVMIR(SGIfElse* node);
   // llvm::Value* toLLVMIR(SGForLoop* node);
@@ -463,6 +469,7 @@ private:
   std::unordered_set<std::string> file_singleton_raii_paths_;
   std::unordered_set<llvm::Value*> owned_cstr_temps_;
   std::unordered_map<llvm::Value*, TempResourceKind> owned_resource_temps_;
+  std::uint64_t task_function_counter_ = 0;
 
   void emit_snapshot_shadow_reload();
 
@@ -489,6 +496,7 @@ private:
   llvm::FunctionCallee list_release_fn();
   llvm::FunctionCallee dict_release_fn();
   llvm::FunctionCallee matrix_release_fn();
+  llvm::FunctionCallee task_release_fn();
   void track_owned_cstr_temp(llvm::Value* v);
   bool take_owned_cstr_temp(llvm::Value* v);
   void forget_owned_cstr_temp(llvm::Value* v);

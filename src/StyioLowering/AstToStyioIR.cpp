@@ -1330,7 +1330,8 @@ AstToStyioIRLowerer::toStyioIR(NameAST* ast) {
       && (it->second.dynamic_slot
           || it->second.value_kind == BindingValueKind::ListHandle
           || it->second.value_kind == BindingValueKind::DictHandle
-          || it->second.value_kind == BindingValueKind::MatrixHandle)) {
+          || it->second.value_kind == BindingValueKind::MatrixHandle
+          || it->second.value_kind == BindingValueKind::TaskHandle)) {
     switch (it->second.value_kind) {
       case BindingValueKind::Bool:
         return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::Bool);
@@ -1346,6 +1347,8 @@ AstToStyioIRLowerer::toStyioIR(NameAST* ast) {
         return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::DictHandle);
       case BindingValueKind::MatrixHandle:
         return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::MatrixHandle);
+      case BindingValueKind::TaskHandle:
+        return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::TaskHandle);
       default:
         throw StyioTypeError("cannot lower dynamic slot `" + ast->getAsStr() + "` with unknown runtime kind");
     }
@@ -1454,7 +1457,8 @@ AstToStyioIRLowerer::toStyioIR(FlexBindAST* ast) {
     var->is_dynamic_slot = it->second.dynamic_slot
       || it->second.value_kind == BindingValueKind::ListHandle
       || it->second.value_kind == BindingValueKind::DictHandle
-      || it->second.value_kind == BindingValueKind::MatrixHandle;
+      || it->second.value_kind == BindingValueKind::MatrixHandle
+      || it->second.value_kind == BindingValueKind::TaskHandle;
     var->is_list_slot = !it->second.dynamic_slot
       && it->second.value_kind == BindingValueKind::ListHandle;
   }
@@ -1469,7 +1473,8 @@ AstToStyioIRLowerer::toStyioIR(FinalBindAST* ast) {
     var->is_dynamic_slot = it->second.dynamic_slot
       || it->second.value_kind == BindingValueKind::ListHandle
       || it->second.value_kind == BindingValueKind::DictHandle
-      || it->second.value_kind == BindingValueKind::MatrixHandle;
+      || it->second.value_kind == BindingValueKind::MatrixHandle
+      || it->second.value_kind == BindingValueKind::TaskHandle;
     var->is_list_slot = !it->second.dynamic_slot
       && it->second.value_kind == BindingValueKind::ListHandle;
   }
@@ -1500,7 +1505,8 @@ AstToStyioIRLowerer::toStyioIR(ParallelAssignAST* ast) {
         sg_var->is_dynamic_slot = it->second.dynamic_slot
           || it->second.value_kind == BindingValueKind::ListHandle
           || it->second.value_kind == BindingValueKind::DictHandle
-          || it->second.value_kind == BindingValueKind::MatrixHandle;
+          || it->second.value_kind == BindingValueKind::MatrixHandle
+          || it->second.value_kind == BindingValueKind::TaskHandle;
         sg_var->is_list_slot = !it->second.dynamic_slot
           && it->second.value_kind == BindingValueKind::ListHandle;
       }
@@ -1800,6 +1806,20 @@ AstToStyioIRLowerer::toStyioIR(StdStreamAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(HandleAcquireAST* ast) {
+  if (auto* task_name = dynamic_cast<NameAST*>(ast->getResource())) {
+    auto source_type = bound_type_of(this, task_name);
+    if (source_type.has_value() && source_type->handle_family == StyioHandleFamily::Task) {
+      StyioDataType result_type = styio_data_type_from_name(styio_task_result_type_name(*source_type));
+      if (result_type.name == "unit") {
+        result_type = StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+      }
+      return SIOFlowBind::Create(
+        task_name->toStyioIR(this),
+        ast->getVar()->getNameAsStr(),
+        result_type,
+        true);
+    }
+  }
   if (collect_bind_handle_acquires_.count(ast) != 0) {
     StyioDataType collected_type = styio_make_list_type("string");
     auto type_it = collect_bind_handle_acquire_types_.find(ast);
@@ -2500,6 +2520,34 @@ AstToStyioIRLowerer::toStyioIR(InstantPullAST* ast) {
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(TypedStdinListAST* ast) {
   return SIOListReadStdin::Create(styio_list_elem_type_name(ast->getDataType()));
+}
+
+StyioIR*
+AstToStyioIRLowerer::toStyioIR(TaskBlockAST* ast) {
+  auto* body = static_cast<SGBlock*>(ast->getBody()->toStyioIR(this));
+  StyioDataType result_type = ast->getResultType();
+  if (result_type.isUndefined()) {
+    result_type = StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+  }
+  return SIOTaskCreate::Create(body, result_type);
+}
+
+StyioIR*
+AstToStyioIRLowerer::toStyioIR(FlowBindAST* ast) {
+  StyioDataType source_type = expr_lowered_type(this, ast->getSource());
+  StyioDataType result_type = ast->getResultType();
+  bool source_is_task = source_type.handle_family == StyioHandleFamily::Task;
+  if (source_is_task && result_type.isUndefined()) {
+    result_type = styio_data_type_from_name(styio_task_result_type_name(source_type));
+  }
+  if (result_type.isUndefined()) {
+    result_type = source_type;
+  }
+  return SIOFlowBind::Create(
+    ast->getSource()->toStyioIR(this),
+    ast->getTargetNameAsStr(),
+    result_type,
+    source_is_task);
 }
 
 StyioIR*
