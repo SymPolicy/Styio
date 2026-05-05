@@ -85,6 +85,14 @@
 #define STYIO_LLVM_DIR ""
 #endif
 
+#ifndef STYIO_CMAKE_C_COMPILER
+#define STYIO_CMAKE_C_COMPILER ""
+#endif
+
+#ifndef STYIO_CMAKE_CXX_COMPILER
+#define STYIO_CMAKE_CXX_COMPILER ""
+#endif
+
 extern "C" void
 hello_world() {
   std::cout << "hello, world!" << std::endl;
@@ -2211,9 +2219,23 @@ styio_build_nano_package_latest(
   std::string& error_message
 ) {
   const std::filesystem::path build_dir = output_dir / ".nano-build";
+  std::string compiler_args;
+  if (const char* cc = std::getenv("CC"); cc == nullptr || cc[0] == '\0') {
+    if (std::string(STYIO_CMAKE_C_COMPILER).empty() == false) {
+      compiler_args += " -DCMAKE_C_COMPILER="
+        + styio_shell_quote_latest(STYIO_CMAKE_C_COMPILER);
+    }
+  }
+  if (const char* cxx = std::getenv("CXX"); cxx == nullptr || cxx[0] == '\0') {
+    if (std::string(STYIO_CMAKE_CXX_COMPILER).empty() == false) {
+      compiler_args += " -DCMAKE_CXX_COMPILER="
+        + styio_shell_quote_latest(STYIO_CMAKE_CXX_COMPILER);
+    }
+  }
   const std::string configure_cmd =
     "cmake -S " + styio_shell_quote_latest(output_dir.string())
-    + " -B " + styio_shell_quote_latest(build_dir.string());
+    + " -B " + styio_shell_quote_latest(build_dir.string())
+    + compiler_args;
   if (!styio_run_shell_command_latest(configure_cmd, "styio-nano package configure", error_message)) {
     return false;
   }
@@ -2671,7 +2693,14 @@ styio_materialize_local_nano_package_latest(
     "set -euo pipefail\n"
     "script_dir=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n"
     "build_dir=\"${1:-$script_dir/build}\"\n"
-    "cmake -S \"$script_dir\" -B \"$build_dir\"\n"
+    "cmake_args=()\n"
+    "if [[ -z \"${CC:-}\" && -n \"" + std::string(STYIO_CMAKE_C_COMPILER) + "\" ]]; then\n"
+    "  cmake_args+=(\"-DCMAKE_C_COMPILER=" + std::string(STYIO_CMAKE_C_COMPILER) + "\")\n"
+    "fi\n"
+    "if [[ -z \"${CXX:-}\" && -n \"" + std::string(STYIO_CMAKE_CXX_COMPILER) + "\" ]]; then\n"
+    "  cmake_args+=(\"-DCMAKE_CXX_COMPILER=" + std::string(STYIO_CMAKE_CXX_COMPILER) + "\")\n"
+    "fi\n"
+    "cmake -S \"$script_dir\" -B \"$build_dir\" \"${cmake_args[@]}\"\n"
     "cmake --build \"$build_dir\" --parallel --target styio_nano\n"
     "cp \"$build_dir/bin/" + styio_nano_binary_filename_latest() + "\" \"$script_dir/bin/" + styio_nano_binary_filename_latest() + "\"\n";
   if (!styio_write_text_file_latest(helper_dest, helper_script, error_message)) {
@@ -4208,13 +4237,13 @@ main(
   {
     styio::profiler::FrontendProfiler* profiler = nullptr;
     bool* async_scheduler_profile_recorded = nullptr;
-    decltype(record_async_scheduler_profile)* record_async_scheduler_profile = nullptr;
+    decltype(record_async_scheduler_profile)* record_async_scheduler_profile_fn = nullptr;
 
     ~StyioFrontendProfilerFlushLatest() {
       if (async_scheduler_profile_recorded != nullptr
           && !*async_scheduler_profile_recorded
-          && record_async_scheduler_profile != nullptr) {
-        (*record_async_scheduler_profile)();
+          && record_async_scheduler_profile_fn != nullptr) {
+        (*record_async_scheduler_profile_fn)();
       }
       if (profiler == nullptr || !profiler->enabled() || profiler->written()) {
         return;
