@@ -39,6 +39,7 @@ High-value docs:
 9. Use LLVM XRay when benchmark deltas need C++ function-level attribution and `perf` is unavailable. Build an instrumented profile with `-fxray-instrument -fxray-instruction-threshold=1`, run with `XRAY_OPTIONS='patch_premain=true xray_mode=xray-basic xray_logfile_base=/tmp/styio-xray'`, then inspect with `llvm-xray account -instr_map=<instrumented-styio> -sort=sum -sortorder=dsc -top=30`. Treat XRay output as native profiler evidence, not Styio frontend attribution or release latency, because instrumentation inflates wall time.
 10. Keep benchmark phase names aligned with the compiler middle-layer split: type inference maps to `StyioSemaContext`, and StyioIR lowering maps to `AstToStyioIRLowerer`.
 11. Async runtime comparisons must target the selected peer runtimes: C++20 stackless coroutine, Go goroutine, and Rust Tokio. Do not replace them with generic thread pools when producing Styio task scheduler evidence.
+12. Async runtime reports must include normalized per-workload performance columns. The best runtime for each workload is `1.00x`; lower scores show relative performance against that best result. Use median samples, not single runs, when comparing no-op fanout.
 
 ## Change Classes
 
@@ -65,10 +66,12 @@ Async runtime comparison:
 
 ```bash
 benchmark/async-runtime/run-async-bench.py \
-  --build-dir build \
   --bootstrap-toolchains \
+  --repeats 5 \
   --out-dir benchmark/async-runtime/reports/<run-id>
 ```
+
+The async comparison script defaults to `build/async-runtime-release`, configures that directory as CMake `Release` when needed, and rejects non-Release Styio build caches for cross-runtime performance reports.
 
 Deep stability:
 

@@ -94,6 +94,9 @@ public:
     add_symbol("styio_task_release", &styio_task_release);
     add_symbol("styio_task_active_count", &styio_task_active_count);
     add_symbol("styio_task_worker_count", &styio_task_worker_count);
+    add_symbol("styio_task_scheduler_profile_reset", &styio_task_scheduler_profile_reset);
+    add_symbol("styio_task_scheduler_profile_enable", &styio_task_scheduler_profile_enable);
+    add_symbol("styio_task_scheduler_profile_snapshot", &styio_task_scheduler_profile_snapshot);
 
     add_symbol("styio_list_i64_read_stdin", &styio_list_i64_read_stdin);
     add_symbol("styio_list_cstr_read_stdin", &styio_list_cstr_read_stdin);
