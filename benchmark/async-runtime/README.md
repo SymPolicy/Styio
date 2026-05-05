@@ -5,9 +5,9 @@ This directory contains the cross-runtime async benchmark route for the Styio ta
 The route compares the same two workloads across:
 
 - `styio_task_scheduler`: the repository runtime target.
-- `cpp_thread_pool`: a C++20 fixed worker pool.
+- `cpp_stackless_coroutine`: a C++20 stackless coroutine scheduler built with coroutine frames and `co_await`.
 - `goroutine`: Go goroutines with `GOMAXPROCS` pinned to the worker count.
-- `rust_std_worker_pool`: a Rust standard-library worker pool.
+- `tokio_multi_thread`: Rust Tokio's multi-thread runtime.
 
 ## Workloads
 

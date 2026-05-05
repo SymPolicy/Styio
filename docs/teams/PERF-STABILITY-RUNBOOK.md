@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of benchmark routes, soak tests, performance reports, regression templates, and stability guardrails.
 
-**Last updated:** 2026-04-30
+**Last updated:** 2026-05-05
 
 ## Mission
 
@@ -17,8 +17,9 @@ Primary paths:
 3. `benchmark/perf-route.sh`
 4. `benchmark/perf-report.py`
 5. `benchmark/COVERAGE-MATRIX.md`
-6. `benchmark/REGRESSION-TEMPLATE.md`
-7. `src/StyioProfiler/`
+6. `benchmark/async-runtime/`
+7. `benchmark/REGRESSION-TEMPLATE.md`
+8. `src/StyioProfiler/`
 
 High-value docs:
 
@@ -37,6 +38,7 @@ High-value docs:
 8. For Styio-language frontend attribution, run `styio --profile-frontend --profile-out <report.json> --file <case.styio>` first. The report is `styio-profiler` JSON scoped to Styio phases such as source read, tokenize, parser context creation, parse, type inference, and Styio IR lowering, plus token histogram and parser-route counters.
 9. Use LLVM XRay when benchmark deltas need C++ function-level attribution and `perf` is unavailable. Build an instrumented profile with `-fxray-instrument -fxray-instruction-threshold=1`, run with `XRAY_OPTIONS='patch_premain=true xray_mode=xray-basic xray_logfile_base=/tmp/styio-xray'`, then inspect with `llvm-xray account -instr_map=<instrumented-styio> -sort=sum -sortorder=dsc -top=30`. Treat XRay output as native profiler evidence, not Styio frontend attribution or release latency, because instrumentation inflates wall time.
 10. Keep benchmark phase names aligned with the compiler middle-layer split: type inference maps to `StyioSemaContext`, and StyioIR lowering maps to `AstToStyioIRLowerer`.
+11. Async runtime comparisons must target the selected peer runtimes: C++20 stackless coroutine, Go goroutine, and Rust Tokio. Do not replace them with generic thread pools when producing Styio task scheduler evidence.
 
 ## Change Classes
 
@@ -57,6 +59,15 @@ Focused benchmark route:
 
 ```bash
 ./benchmark/perf-route.sh --phase-iters 5000 --micro-iters 5000 --execute-iters 20
+```
+
+Async runtime comparison:
+
+```bash
+benchmark/async-runtime/run-async-bench.py \
+  --build-dir build \
+  --bootstrap-toolchains \
+  --out-dir benchmark/async-runtime/reports/<run-id>
 ```
 
 Deep stability:

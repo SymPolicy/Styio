@@ -26,72 +26,278 @@ DEFAULT_WORKERS = 4
 CPP_SOURCE = r'''
 #include <chrono>
 #include <condition_variable>
+#include <coroutine>
+#include <atomic>
 #include <cstdint>
 #include <cstdlib>
-#include <functional>
-#include <future>
+#include <exception>
 #include <iostream>
+#include <memory>
 #include <mutex>
 #include <queue>
-#include <string>
+#include <stdexcept>
 #include <thread>
+#include <utility>
 #include <vector>
 
 using Clock = std::chrono::steady_clock;
 
-class ThreadPool {
+class CoroutineScheduler {
 public:
-  explicit ThreadPool(int worker_count) {
+  explicit CoroutineScheduler(int worker_count) {
     for (int i = 0; i < worker_count; ++i) {
       workers_.emplace_back([this]() { worker_loop(); });
     }
+    timer_ = std::thread([this]() { timer_loop(); });
   }
 
-  ~ThreadPool() {
+  ~CoroutineScheduler() {
+    stopping_.store(true);
     {
-      std::lock_guard<std::mutex> lock(mu_);
-      stopping_ = true;
+      std::lock_guard<std::mutex> lock(ready_mu_);
     }
-    cv_.notify_all();
+    ready_cv_.notify_all();
+    {
+      std::lock_guard<std::mutex> lock(timer_mu_);
+    }
+    timer_cv_.notify_all();
     for (auto& worker : workers_) {
-      worker.join();
+      if (worker.joinable()) {
+        worker.join();
+      }
+    }
+    if (timer_.joinable()) {
+      timer_.join();
     }
   }
 
-  std::future<int64_t> submit(std::function<int64_t()> fn) {
-    auto task = std::make_shared<std::packaged_task<int64_t()>>(std::move(fn));
-    auto fut = task_>get_future();
-    {
-      std::lock_guard<std::mutex> lock(mu_);
-      queue_.push([task]() { (*task)(); });
+  void schedule(std::coroutine_handle<> handle) {
+    if (handle.done()) {
+      return;
     }
-    cv_.notify_one();
-    return fut;
+    {
+      std::lock_guard<std::mutex> lock(ready_mu_);
+      ready_.push(handle);
+    }
+    ready_cv_.notify_one();
+  }
+
+  void schedule_after(std::coroutine_handle<> handle, std::chrono::milliseconds delay) {
+    const auto due = Clock::now() + delay;
+    {
+      std::lock_guard<std::mutex> lock(timer_mu_);
+      timers_.push(TimerItem{due, handle, next_timer_sequence_++});
+    }
+    timer_cv_.notify_one();
   }
 
 private:
-  std::mutex mu_;
-  std::condition_variable cv_;
-  std::queue<std::function<void()>> queue_;
+  struct TimerItem {
+    Clock::time_point due;
+    std::coroutine_handle<> handle;
+    uint64_t sequence;
+  };
+
+  struct TimerCompare {
+    bool operator()(const TimerItem& lhs, const TimerItem& rhs) const {
+      if (lhs.due == rhs.due) {
+        return lhs.sequence > rhs.sequence;
+      }
+      return lhs.due > rhs.due;
+    }
+  };
+
+  std::mutex ready_mu_;
+  std::condition_variable ready_cv_;
+  std::queue<std::coroutine_handle<>> ready_;
+  std::mutex timer_mu_;
+  std::condition_variable timer_cv_;
+  std::priority_queue<TimerItem, std::vector<TimerItem>, TimerCompare> timers_;
   std::vector<std::thread> workers_;
-  bool stopping_ = false;
+  std::thread timer_;
+  std::atomic<bool> stopping_{false};
+  uint64_t next_timer_sequence_ = 0;
 
   void worker_loop() {
     for (;;) {
-      std::function<void()> job;
+      std::coroutine_handle<> handle;
       {
-        std::unique_lock<std::mutex> lock(mu_);
-        cv_.wait(lock, [this]() { return stopping_ || !queue_.empty(); });
-        if (stopping_ && queue_.empty()) {
+        std::unique_lock<std::mutex> lock(ready_mu_);
+        ready_cv_.wait(lock, [this]() { return stopping_.load() || !ready_.empty(); });
+        if (ready_.empty()) {
+          if (stopping_.load()) {
+            return;
+          }
+          continue;
+        }
+        handle = ready_.front();
+        ready_.pop();
+      }
+      if (!handle.done()) {
+        handle.resume();
+      }
+    }
+  }
+
+  void timer_loop() {
+    std::unique_lock<std::mutex> lock(timer_mu_);
+    for (;;) {
+      if (stopping_.load()) {
+        return;
+      }
+      if (timers_.empty()) {
+        timer_cv_.wait(lock, [this]() { return stopping_.load() || !timers_.empty(); });
+        continue;
+      }
+      const auto due = timers_.top().due;
+      timer_cv_.wait_until(lock, due, [this, due]() {
+        return stopping_.load() || timers_.empty() || timers_.top().due < due;
+      });
+      if (stopping_.load()) {
+        return;
+      }
+      const auto now = Clock::now();
+      while (!timers_.empty() && timers_.top().due <= now) {
+        const auto item = timers_.top();
+        timers_.pop();
+        lock.unlock();
+        schedule(item.handle);
+        lock.lock();
+        if (stopping_.load()) {
           return;
         }
-        job = std::move(queue_.front());
-        queue_.pop();
       }
-      job();
     }
   }
 };
+
+struct SleepAwaitable {
+  CoroutineScheduler& scheduler;
+  std::chrono::milliseconds delay;
+
+  bool await_ready() const noexcept {
+    return delay.count() <= 0;
+  }
+
+  void await_suspend(std::coroutine_handle<> handle) const {
+    scheduler.schedule_after(handle, delay);
+  }
+
+  void await_resume() const noexcept {}
+};
+
+class Task {
+public:
+  struct State {
+    std::mutex mu;
+    std::condition_variable cv;
+    bool done = false;
+    int64_t value = 0;
+    std::exception_ptr exception;
+  };
+
+  struct promise_type {
+    std::shared_ptr<State> state = std::make_shared<State>();
+
+    Task get_return_object() {
+      return Task{std::coroutine_handle<promise_type>::from_promise(*this), state};
+    }
+
+    std::suspend_always initial_suspend() noexcept {
+      return {};
+    }
+
+    struct FinalAwaiter {
+      bool await_ready() noexcept {
+        return false;
+      }
+
+      void await_suspend(std::coroutine_handle<promise_type> handle) noexcept {
+        auto state = handle.promise().state;
+        {
+          std::lock_guard<std::mutex> lock(state->mu);
+          state->done = true;
+        }
+        state->cv.notify_one();
+      }
+
+      void await_resume() noexcept {}
+    };
+
+    FinalAwaiter final_suspend() noexcept {
+      return {};
+    }
+
+    void return_value(int64_t value) noexcept {
+      state->value = value;
+    }
+
+    void unhandled_exception() noexcept {
+      state->exception = std::current_exception();
+    }
+  };
+
+  Task(Task&& other) noexcept : handle_(std::exchange(other.handle_, {})), state_(std::move(other.state_)) {}
+
+  Task& operator=(Task&& other) noexcept {
+    if (this != &other) {
+      destroy();
+      handle_ = std::exchange(other.handle_, {});
+      state_ = std::move(other.state_);
+    }
+    return *this;
+  }
+
+  Task(const Task&) = delete;
+  Task& operator=(const Task&) = delete;
+
+  ~Task() {
+    destroy();
+  }
+
+  void start(CoroutineScheduler& scheduler) {
+    if (!handle_) {
+      throw std::logic_error("coroutine task already consumed");
+    }
+    scheduler.schedule(handle_);
+  }
+
+  int64_t get() {
+    std::unique_lock<std::mutex> lock(state_->mu);
+    state_->cv.wait(lock, [this]() { return state_->done; });
+    const auto value = state_->value;
+    const auto exception = state_->exception;
+    lock.unlock();
+    destroy();
+    if (exception) {
+      std::rethrow_exception(exception);
+    }
+    return value;
+  }
+
+private:
+  Task(std::coroutine_handle<promise_type> handle, std::shared_ptr<State> state)
+      : handle_(handle), state_(std::move(state)) {}
+
+  void destroy() {
+    if (handle_) {
+      handle_.destroy();
+      handle_ = {};
+    }
+  }
+
+  std::coroutine_handle<promise_type> handle_;
+  std::shared_ptr<State> state_;
+};
+
+Task sleep_task(CoroutineScheduler& scheduler, int sleep_ms) {
+  co_await SleepAwaitable{scheduler, std::chrono::milliseconds(sleep_ms)};
+  co_return 1;
+}
+
+Task noop_task() {
+  co_return 1;
+}
 
 long long elapsed_ms(Clock::time_point start, Clock::time_point end) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -113,37 +319,36 @@ int main(int argc, char** argv) {
   }
   auto seq_ms = elapsed_ms(seq_start, Clock::now());
 
-  ThreadPool pool(workers);
-  std::vector<std::future<int64_t>> sleep_futures;
-  sleep_futures.reserve(tasks);
+  CoroutineScheduler scheduler(workers);
+  std::vector<Task> sleep_tasks;
+  sleep_tasks.reserve(tasks);
   auto par_start = Clock::now();
   for (int i = 0; i < tasks; ++i) {
-    sleep_futures.push_back(pool.submit([sleep_ms]() {
-      std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
-      return int64_t{1};
-    }));
+    sleep_tasks.push_back(sleep_task(scheduler, sleep_ms));
+    sleep_tasks.back().start(scheduler);
   }
   int64_t sleep_sum = 0;
-  for (auto& future : sleep_futures) {
-    sleep_sum += future.get();
+  for (auto& task : sleep_tasks) {
+    sleep_sum += task.get();
   }
   auto par_ms = elapsed_ms(par_start, Clock::now());
 
-  std::vector<std::future<int64_t>> noop_futures;
-  noop_futures.reserve(noop_tasks);
+  std::vector<Task> noop_tasks_vec;
+  noop_tasks_vec.reserve(noop_tasks);
   auto noop_start = Clock::now();
   for (int i = 0; i < noop_tasks; ++i) {
-    noop_futures.push_back(pool.submit([]() { return int64_t{1}; }));
+    noop_tasks_vec.push_back(noop_task());
+    noop_tasks_vec.back().start(scheduler);
   }
   int64_t noop_sum = 0;
-  for (auto& future : noop_futures) {
-    noop_sum += future.get();
+  for (auto& task : noop_tasks_vec) {
+    noop_sum += task.get();
   }
   auto noop_us = elapsed_us(noop_start, Clock::now());
 
   std::cout << "{"
             << "\"language\":\"cpp\","
-            << "\"runtime\":\"cpp_thread_pool\","
+            << "\"runtime\":\"cpp_stackless_coroutine\","
             << "\"status\":\"ok\","
             << "\"workers\":" << workers << ","
             << "\"sleep\":{\"tasks\":" << tasks
@@ -171,6 +376,7 @@ import (
   "runtime"
   "strconv"
   "sync"
+  "sync/atomic"
   "time"
 )
 
@@ -197,16 +403,13 @@ func main() {
 
   parStart := time.Now()
   var wg sync.WaitGroup
-  var mu sync.Mutex
   sleepSum := int64(0)
   wg.Add(tasks)
   for i := 0; i < tasks; i++ {
     go func() {
       defer wg.Done()
       time.Sleep(time.Duration(sleepMs) * time.Millisecond)
-      mu.Lock()
-      sleepSum++
-      mu.Unlock()
+      atomic.AddInt64(&sleepSum, 1)
     }()
   }
   wg.Wait()
@@ -218,9 +421,7 @@ func main() {
   for i := 0; i < noopTasks; i++ {
     go func() {
       defer wg.Done()
-      mu.Lock()
-      noopSum++
-      mu.Unlock()
+      atomic.AddInt64(&noopSum, 1)
     }()
   }
   wg.Wait()
@@ -265,78 +466,47 @@ func main() {
 
 RUST_SOURCE = r'''
 use std::env;
-use std::sync::{Arc, Condvar, Mutex};
-use std::sync::mpsc::{self, Sender};
-use std::thread;
 use std::time::{Duration, Instant};
+use tokio::runtime::Builder;
 
-enum Message {
-    Sleep(u64, Arc<(Mutex<i64>, Condvar)>),
-    Noop(Arc<(Mutex<i64>, Condvar)>),
-    Stop,
-}
-
-struct Pool {
-    tx: Sender<Message>,
-    workers: Vec<thread::JoinHandle<()>>,
-}
-
-impl Pool {
-    fn new(worker_count: usize) -> Self {
-        let (tx, rx) = mpsc::channel::<Message>();
-        let rx = Arc::new(Mutex::new(rx));
-        let mut workers = Vec::with_capacity(worker_count);
-        for _ in 0..worker_count {
-            let rx = Arc::clone(&rx);
-            workers.push(thread::spawn(move || loop {
-                let msg = {
-                    let guard = rx.lock().unwrap();
-                    guard.recv().unwrap()
-                };
-                match msg {
-                    Message::Sleep(ms, done) => {
-                        thread::sleep(Duration::from_millis(ms));
-                        let (lock, cv) = &*done;
-                        let mut count = lock.lock().unwrap();
-                        *count += 1;
-                        cv.notify_one();
-                    }
-                    Message::Noop(done) => {
-                        let (lock, cv) = &*done;
-                        let mut count = lock.lock().unwrap();
-                        *count += 1;
-                        cv.notify_one();
-                    }
-                    Message::Stop => break,
-                }
-            }));
-        }
-        Self { tx, workers }
+async fn run_benchmark(tasks: usize, sleep_ms: u64, noop_tasks: usize, workers: usize) {
+    let seq_start = Instant::now();
+    for _ in 0..tasks {
+        tokio::time::sleep(Duration::from_millis(sleep_ms)).await;
     }
+    let seq_ms = seq_start.elapsed().as_millis();
 
-    fn submit(&self, msg: Message) {
-        self.tx.send(msg).unwrap();
+    let mut sleep_handles = Vec::with_capacity(tasks);
+    let par_start = Instant::now();
+    for _ in 0..tasks {
+        sleep_handles.push(tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(sleep_ms)).await;
+            1_i64
+        }));
     }
-}
+    let mut sleep_sum = 0_i64;
+    for handle in sleep_handles {
+        sleep_sum += handle.await.unwrap();
+    }
+    let par_ms = par_start.elapsed().as_millis();
 
-impl Drop for Pool {
-    fn drop(&mut self) {
-        for _ in 0..self.workers.len() {
-            let _ = self.tx.send(Message::Stop);
-        }
-        while let Some(worker) = self.workers.pop() {
-            let _ = worker.join();
-        }
+    let mut noop_handles = Vec::with_capacity(noop_tasks);
+    let noop_start = Instant::now();
+    for _ in 0..noop_tasks {
+        noop_handles.push(tokio::spawn(async { 1_i64 }));
     }
-}
+    let mut noop_sum = 0_i64;
+    for handle in noop_handles {
+        noop_sum += handle.await.unwrap();
+    }
+    let noop_us = noop_start.elapsed().as_micros();
 
-fn wait_count(done: &Arc<(Mutex<i64>, Condvar)>, target: i64) -> i64 {
-    let (lock, cv) = &**done;
-    let mut count = lock.lock().unwrap();
-    while *count < target {
-        count = cv.wait(count).unwrap();
-    }
-    *count
+    let speedup = if par_ms > 0 { seq_ms as f64 / par_ms as f64 } else { 0.0 };
+    let per_task = if noop_tasks > 0 { noop_us as f64 / noop_tasks as f64 } else { 0.0 };
+    println!(
+        "{{\"language\":\"rust\",\"runtime\":\"tokio_multi_thread\",\"status\":\"ok\",\"workers\":{},\"sleep\":{{\"tasks\":{},\"sleep_ms\":{},\"sequential_ms\":{},\"parallel_ms\":{},\"speedup\":{},\"sum\":{}}},\"noop\":{{\"tasks\":{},\"total_us\":{},\"per_task_us\":{},\"sum\":{}}}}}",
+        workers, tasks, sleep_ms, seq_ms, par_ms, speedup, sleep_sum, noop_tasks, noop_us, per_task, noop_sum
+    );
 }
 
 fn main() {
@@ -345,36 +515,12 @@ fn main() {
     let sleep_ms: u64 = args[2].parse().unwrap();
     let noop_tasks: usize = args[3].parse().unwrap();
     let workers: usize = args[4].parse().unwrap();
-
-    let seq_start = Instant::now();
-    for _ in 0..tasks {
-        thread::sleep(Duration::from_millis(sleep_ms));
-    }
-    let seq_ms = seq_start.elapsed().as_millis();
-
-    let pool = Pool::new(workers);
-    let sleep_done = Arc::new((Mutex::new(0_i64), Condvar::new()));
-    let par_start = Instant::now();
-    for _ in 0..tasks {
-        pool.submit(Message::Sleep(sleep_ms, Arc::clone(&sleep_done)));
-    }
-    let sleep_sum = wait_count(&sleep_done, tasks as i64);
-    let par_ms = par_start.elapsed().as_millis();
-
-    let noop_done = Arc::new((Mutex::new(0_i64), Condvar::new()));
-    let noop_start = Instant::now();
-    for _ in 0..noop_tasks {
-        pool.submit(Message::Noop(Arc::clone(&noop_done)));
-    }
-    let noop_sum = wait_count(&noop_done, noop_tasks as i64);
-    let noop_us = noop_start.elapsed().as_micros();
-
-    let speedup = if par_ms > 0 { seq_ms as f64 / par_ms as f64 } else { 0.0 };
-    let per_task = if noop_tasks > 0 { noop_us as f64 / noop_tasks as f64 } else { 0.0 };
-    println!(
-        "{{\"language\":\"rust\",\"runtime\":\"rust_std_worker_pool\",\"status\":\"ok\",\"workers\":{},\"sleep\":{{\"tasks\":{},\"sleep_ms\":{},\"sequential_ms\":{},\"parallel_ms\":{},\"speedup\":{},\"sum\":{}}},\"noop\":{{\"tasks\":{},\"total_us\":{},\"per_task_us\":{},\"sum\":{}}}}}",
-        workers, tasks, sleep_ms, seq_ms, par_ms, speedup, sleep_sum, noop_tasks, noop_us, per_task, noop_sum
-    );
+    let runtime = Builder::new_multi_thread()
+        .worker_threads(workers)
+        .enable_time()
+        .build()
+        .unwrap();
+    runtime.block_on(run_benchmark(tasks, sleep_ms, noop_tasks, workers));
 }
 '''
 
@@ -429,6 +575,47 @@ def local_rustc(toolchain_dir: Path) -> Path | None:
     if rustc.exists():
         return rustc
     return None
+
+
+def local_cargo(toolchain_dir: Path) -> Path | None:
+    cargo = toolchain_dir / "cargo" / "bin" / "cargo"
+    return cargo if cargo.exists() else None
+
+
+def rust_env(toolchain_dir: Path) -> dict[str, str]:
+    env = os.environ.copy()
+    env["CARGO_HOME"] = str(toolchain_dir / "cargo")
+    env["RUSTUP_HOME"] = str(toolchain_dir / "rustup")
+    cargo_bin = toolchain_dir / "cargo" / "bin"
+    env["PATH"] = f"{cargo_bin}{os.pathsep}{env.get('PATH', '')}"
+    return env
+
+
+def command_version_with_env(cmd: str, env: dict[str, str] | None = None) -> str:
+    try:
+        proc = run([cmd, "--version"], cwd=ROOT, env=env, timeout=20)
+    except Exception:
+        return ""
+    return (proc.stdout or proc.stderr).splitlines()[0] if (proc.stdout or proc.stderr) else ""
+
+
+def cargo_lock_version(lock_path: Path, package: str) -> str:
+    if not lock_path.exists():
+        return ""
+    current: dict[str, str] = {}
+    for raw_line in lock_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if line == "[[package]]":
+            if current.get("name") == package:
+                return current.get("version", "")
+            current = {}
+            continue
+        if "=" in line:
+            key, value = line.split("=", 1)
+            current[key.strip()] = value.strip().strip('"')
+    if current.get("name") == package:
+        return current.get("version", "")
+    return ""
 
 
 def download(url: str, dest: Path) -> None:
@@ -514,13 +701,13 @@ def run_cpp(work_dir: Path, args: argparse.Namespace) -> dict[str, Any]:
     compiler = shutil.which(os.environ.get("CXX", "")) if os.environ.get("CXX") else None
     compiler = compiler or shutil.which("g++") or shutil.which("clang++")
     if not compiler:
-        return unavailable("cpp", "cpp_thread_pool", "C++ compiler not found")
+        return unavailable("cpp", "cpp_stackless_coroutine", "C++ compiler not found")
     src = work_dir / "async_bench.cpp"
     exe = work_dir / "async_bench_cpp"
     src.write_text(CPP_SOURCE, encoding="utf-8")
     proc = run([compiler, "-O3", "-std=c++20", "-pthread", str(src), "-o", str(exe)], cwd=ROOT, timeout=120)
     if proc.returncode != 0:
-        return unavailable("cpp", "cpp_thread_pool", proc.stderr.strip())
+        return unavailable("cpp", "cpp_stackless_coroutine", proc.stderr.strip())
     proc = run([str(exe), str(args.tasks), str(args.sleep_ms), str(args.noop_tasks), str(args.workers)], cwd=ROOT, timeout=120)
     result = json_from_stdout(proc)
     result["toolchain"] = command_version(compiler)
@@ -549,22 +736,49 @@ def run_go(work_dir: Path, toolchain_dir: Path, args: argparse.Namespace) -> dic
 
 
 def run_rust(work_dir: Path, toolchain_dir: Path, args: argparse.Namespace) -> dict[str, Any]:
+    env = None
+    cargo = None
     rustc = None
     if args.bootstrap_toolchains:
-        local = bootstrap_rustc(toolchain_dir)
-        rustc = str(local) if local else None
+        bootstrap_rustc(toolchain_dir)
+        local = local_cargo(toolchain_dir)
+        cargo = str(local) if local else None
+        rust_local = local_rustc(toolchain_dir)
+        rustc = str(rust_local) if rust_local else None
+        env = rust_env(toolchain_dir) if cargo else None
+    cargo = cargo or shutil.which("cargo")
     rustc = rustc or shutil.which("rustc")
-    if not rustc:
-        return unavailable("rust", "rust_std_worker_pool", "rustc toolchain not found")
-    src = work_dir / "async_bench.rs"
-    exe = work_dir / "async_bench_rust"
-    src.write_text(RUST_SOURCE, encoding="utf-8")
-    proc = run([rustc, "-O", str(src), "-o", str(exe)], cwd=ROOT, timeout=180)
+    if not cargo:
+        return unavailable("rust", "tokio_multi_thread", "cargo toolchain not found")
+    crate_dir = work_dir / "rust_tokio"
+    src_dir = crate_dir / "src"
+    src_dir.mkdir(parents=True, exist_ok=True)
+    (crate_dir / "Cargo.toml").write_text(
+        "\n".join(
+            [
+                "[package]",
+                'name = "async_bench_tokio"',
+                'version = "0.1.0"',
+                'edition = "2021"',
+                "",
+                "[dependencies]",
+                'tokio = { version = "1", features = ["rt-multi-thread", "time"] }',
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (src_dir / "main.rs").write_text(RUST_SOURCE, encoding="utf-8")
+    proc = run([cargo, "build", "--release", "--manifest-path", str(crate_dir / "Cargo.toml")], cwd=ROOT, env=env, timeout=600)
     if proc.returncode != 0:
-        return unavailable("rust", "rust_std_worker_pool", proc.stderr.strip())
+        return unavailable("rust", "tokio_multi_thread", proc.stderr.strip())
+    exe = crate_dir / "target" / "release" / "async_bench_tokio"
     proc = run([str(exe), str(args.tasks), str(args.sleep_ms), str(args.noop_tasks), str(args.workers)], cwd=ROOT, timeout=120)
     result = json_from_stdout(proc)
-    result["toolchain"] = command_version(rustc)
+    rust_version = command_version_with_env(rustc, env) if rustc else ""
+    cargo_version = command_version_with_env(cargo, env)
+    tokio_version = cargo_lock_version(crate_dir / "Cargo.lock", "tokio")
+    result["toolchain"] = "; ".join(part for part in [rust_version, cargo_version, f"tokio {tokio_version}" if tokio_version else "tokio 1"] if part)
     return result
 
 
@@ -649,7 +863,7 @@ def write_report(out_dir: Path, metadata: dict[str, Any], results: list[dict[str
     (out_dir / "results.json").write_text(json.dumps({"metadata": metadata, "results": results}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     with (out_dir / "benchmarks.csv").open("w", encoding="utf-8", newline="") as handle:
         fieldnames = ["language", "runtime", "status", "workload", "metric", "value"]
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         writer.writerows(flatten_rows(results))
 
@@ -691,7 +905,7 @@ def write_report(out_dir: Path, metadata: dict[str, Any], results: list[dict[str
             "",
             "- `sleep` measures whether the runtime actually overlaps blocked tasks; speedup near the worker count indicates real scheduling instead of eager evaluation.",
             "- `noop` measures submit/wait/release overhead for a large fanout of trivial tasks.",
-            "- C++ uses a fixed worker pool, Go uses goroutines with `GOMAXPROCS`, Rust uses a standard-library worker pool, and Styio uses the repository task scheduler target.",
+            "- C++ uses C++20 stackless coroutine frames with `co_await` and a small scheduler, Go uses goroutines with `GOMAXPROCS`, Rust uses Tokio's multi-thread runtime, and Styio uses the repository task scheduler target.",
             "- `--bootstrap-toolchains` installs missing Go/Rust toolchains under the build directory; this keeps comparison runs reproducible on machines without system Go or Rust.",
             "",
         ]
@@ -700,7 +914,7 @@ def write_report(out_dir: Path, metadata: dict[str, Any], results: list[dict[str
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run Styio async runtime benchmarks against C++, Go, and Rust baselines.")
+    parser = argparse.ArgumentParser(description="Run Styio async runtime benchmarks against C++ stackless coroutine, Go goroutine, and Rust Tokio baselines.")
     parser.add_argument("--build-dir", default="build", help="CMake build directory for Styio runtime target.")
     parser.add_argument("--out-dir", default="", help="Output directory. Defaults to benchmark/async-runtime/reports/<run-id>.")
     parser.add_argument("--tasks", type=int, default=DEFAULT_TASKS)
