@@ -1,10 +1,21 @@
 {
   "metadata": {
     "bootstrap_toolchains": true,
+    "case": "baseline",
+    "case_description": "median performance comparison against C++ stackless coroutine, goroutine, and Tokio",
+    "framework": "pytest-compatible black-box runner",
     "host": "linux-aarch64",
+    "interface": "subprocess",
     "noop_tasks": 100000,
     "repeats": 5,
-    "run_id": "20260505T061441Z-async-runtime",
+    "required_runtimes": [],
+    "run_id": "20260505T074418Z-async-runtime",
+    "runtimes": [
+      "styio",
+      "cpp",
+      "go",
+      "rust"
+    ],
     "sleep_ms": 160,
     "tasks": 4,
     "workers": 4
@@ -13,34 +24,92 @@
     {
       "language": "styio",
       "noop": {
-        "per_task_us": 0.48984,
+        "per_task_us": 0.54123,
         "tasks": 100000,
-        "total_us": 48984.0
+        "total_us": 54123.0
       },
       "relative_performance": {
-        "noop_fanout": 0.717254613751429,
-        "noop_vs_cpp_stackless": 1.0529968969459416,
-        "sleep_speedup": 0.975609756097561,
-        "sleep_vs_cpp_stackless": 0.9817073170731707
+        "noop_fanout": 0.614489219001164,
+        "noop_vs_cpp_stackless": 1.0919017792805277,
+        "sleep_speedup": 0.9879518072289157,
+        "sleep_vs_cpp_stackless": 0.9954842130281368
       },
       "repeat_policy": "median",
       "requested_repeats": 5,
       "runtime": "styio_task_scheduler",
+      "runtime_key": "styio",
       "sample_count": 5,
       "samples": [
         {
           "language": "styio",
           "noop": {
-            "per_task_us": 0.48984,
+            "per_task_us": 0.53221,
             "tasks": 100000,
-            "total_us": 48984
+            "total_us": 53221
+          },
+          "runtime": "styio_task_scheduler",
+          "sleep": {
+            "parallel_ms": 166,
+            "sequential_ms": 665,
+            "sleep_ms": 160,
+            "speedup": 4.00602,
+            "tasks": 4
+          },
+          "status": "ok",
+          "toolchain": "repo runtime target (Release; clang++-18)",
+          "workers": 4
+        },
+        {
+          "language": "styio",
+          "noop": {
+            "per_task_us": 0.5629,
+            "tasks": 100000,
+            "total_us": 56290
           },
           "runtime": "styio_task_scheduler",
           "sleep": {
             "parallel_ms": 162,
+            "sequential_ms": 659,
+            "sleep_ms": 160,
+            "speedup": 4.0679,
+            "tasks": 4
+          },
+          "status": "ok",
+          "toolchain": "repo runtime target (Release; clang++-18)",
+          "workers": 4
+        },
+        {
+          "language": "styio",
+          "noop": {
+            "per_task_us": 0.54123,
+            "tasks": 100000,
+            "total_us": 54123
+          },
+          "runtime": "styio_task_scheduler",
+          "sleep": {
+            "parallel_ms": 167,
+            "sequential_ms": 665,
+            "sleep_ms": 160,
+            "speedup": 3.98204,
+            "tasks": 4
+          },
+          "status": "ok",
+          "toolchain": "repo runtime target (Release; clang++-18)",
+          "workers": 4
+        },
+        {
+          "language": "styio",
+          "noop": {
+            "per_task_us": 0.49656,
+            "tasks": 100000,
+            "total_us": 49656
+          },
+          "runtime": "styio_task_scheduler",
+          "sleep": {
+            "parallel_ms": 166,
             "sequential_ms": 655,
             "sleep_ms": 160,
-            "speedup": 4.04321,
+            "speedup": 3.94578,
             "tasks": 4
           },
           "status": "ok",
@@ -50,73 +119,16 @@
         {
           "language": "styio",
           "noop": {
-            "per_task_us": 0.45357,
+            "per_task_us": 0.55537,
             "tasks": 100000,
-            "total_us": 45357
+            "total_us": 55537
           },
           "runtime": "styio_task_scheduler",
           "sleep": {
-            "parallel_ms": 163,
-            "sequential_ms": 645,
+            "parallel_ms": 170,
+            "sequential_ms": 660,
             "sleep_ms": 160,
-            "speedup": 3.95706,
-            "tasks": 4
-          },
-          "status": "ok",
-          "toolchain": "repo runtime target (Release; clang++-18)",
-          "workers": 4
-        },
-        {
-          "language": "styio",
-          "noop": {
-            "per_task_us": 0.5066,
-            "tasks": 100000,
-            "total_us": 50660
-          },
-          "runtime": "styio_task_scheduler",
-          "sleep": {
-            "parallel_ms": 165,
-            "sequential_ms": 641,
-            "sleep_ms": 160,
-            "speedup": 3.88485,
-            "tasks": 4
-          },
-          "status": "ok",
-          "toolchain": "repo runtime target (Release; clang++-18)",
-          "workers": 4
-        },
-        {
-          "language": "styio",
-          "noop": {
-            "per_task_us": 0.45978,
-            "tasks": 100000,
-            "total_us": 45978
-          },
-          "runtime": "styio_task_scheduler",
-          "sleep": {
-            "parallel_ms": 164,
-            "sequential_ms": 649,
-            "sleep_ms": 160,
-            "speedup": 3.95732,
-            "tasks": 4
-          },
-          "status": "ok",
-          "toolchain": "repo runtime target (Release; clang++-18)",
-          "workers": 4
-        },
-        {
-          "language": "styio",
-          "noop": {
-            "per_task_us": 0.57134,
-            "tasks": 100000,
-            "total_us": 57134
-          },
-          "runtime": "styio_task_scheduler",
-          "sleep": {
-            "parallel_ms": 165,
-            "sequential_ms": 649,
-            "sleep_ms": 160,
-            "speedup": 3.93333,
+            "speedup": 3.88235,
             "tasks": 4
           },
           "status": "ok",
@@ -125,10 +137,10 @@
         }
       ],
       "sleep": {
-        "parallel_ms": 164.0,
-        "sequential_ms": 649.0,
+        "parallel_ms": 166.0,
+        "sequential_ms": 660.0,
         "sleep_ms": 160,
-        "speedup": 3.957317073170732,
+        "speedup": 3.9759036144578315,
         "tasks": 4
       },
       "status": "ok",
@@ -138,35 +150,36 @@
     {
       "language": "cpp",
       "noop": {
-        "per_task_us": 0.5158,
+        "per_task_us": 0.59097,
         "tasks": 100000,
-        "total_us": 51580.0
+        "total_us": 59097.0
       },
       "relative_performance": {
-        "noop_fanout": 0.681155486622722,
+        "noop_fanout": 0.5627696837402913,
         "noop_vs_cpp_stackless": 1.0,
-        "sleep_speedup": 0.9937888198757764,
+        "sleep_speedup": 0.9924334251606979,
         "sleep_vs_cpp_stackless": 1.0
       },
       "repeat_policy": "median",
       "requested_repeats": 5,
       "runtime": "cpp_stackless_coroutine",
+      "runtime_key": "cpp",
       "sample_count": 5,
       "samples": [
         {
           "language": "cpp",
           "noop": {
-            "per_task_us": 0.5158,
+            "per_task_us": 0.60574,
             "sum": 100000,
             "tasks": 100000,
-            "total_us": 51580
+            "total_us": 60574
           },
           "runtime": "cpp_stackless_coroutine",
           "sleep": {
-            "parallel_ms": 161,
-            "sequential_ms": 648,
+            "parallel_ms": 170,
+            "sequential_ms": 660,
             "sleep_ms": 160,
-            "speedup": 4.02484,
+            "speedup": 3.88235,
             "sum": 4,
             "tasks": 4
           },
@@ -177,17 +190,17 @@
         {
           "language": "cpp",
           "noop": {
-            "per_task_us": 0.59382,
+            "per_task_us": 0.6043,
             "sum": 100000,
             "tasks": 100000,
-            "total_us": 59382
+            "total_us": 60430
           },
           "runtime": "cpp_stackless_coroutine",
           "sleep": {
-            "parallel_ms": 161,
-            "sequential_ms": 650,
+            "parallel_ms": 169,
+            "sequential_ms": 666,
             "sleep_ms": 160,
-            "speedup": 4.03727,
+            "speedup": 3.94083,
             "sum": 4,
             "tasks": 4
           },
@@ -198,38 +211,17 @@
         {
           "language": "cpp",
           "noop": {
-            "per_task_us": 0.51039,
+            "per_task_us": 0.59097,
             "sum": 100000,
             "tasks": 100000,
-            "total_us": 51039
-          },
-          "runtime": "cpp_stackless_coroutine",
-          "sleep": {
-            "parallel_ms": 161,
-            "sequential_ms": 649,
-            "sleep_ms": 160,
-            "speedup": 4.03106,
-            "sum": 4,
-            "tasks": 4
-          },
-          "status": "ok",
-          "toolchain": "Debian clang version 18.1.8 (18+b1)",
-          "workers": 4
-        },
-        {
-          "language": "cpp",
-          "noop": {
-            "per_task_us": 0.53936,
-            "sum": 100000,
-            "tasks": 100000,
-            "total_us": 53936
+            "total_us": 59097
           },
           "runtime": "cpp_stackless_coroutine",
           "sleep": {
             "parallel_ms": 164,
-            "sequential_ms": 652,
+            "sequential_ms": 659,
             "sleep_ms": 160,
-            "speedup": 3.97561,
+            "speedup": 4.01829,
             "sum": 4,
             "tasks": 4
           },
@@ -240,17 +232,38 @@
         {
           "language": "cpp",
           "noop": {
-            "per_task_us": 0.4099,
+            "per_task_us": 0.58696,
             "sum": 100000,
             "tasks": 100000,
-            "total_us": 40990
+            "total_us": 58696
           },
           "runtime": "cpp_stackless_coroutine",
           "sleep": {
-            "parallel_ms": 161,
-            "sequential_ms": 649,
+            "parallel_ms": 165,
+            "sequential_ms": 652,
             "sleep_ms": 160,
-            "speedup": 4.03106,
+            "speedup": 3.95152,
+            "sum": 4,
+            "tasks": 4
+          },
+          "status": "ok",
+          "toolchain": "Debian clang version 18.1.8 (18+b1)",
+          "workers": 4
+        },
+        {
+          "language": "cpp",
+          "noop": {
+            "per_task_us": 0.58444,
+            "sum": 100000,
+            "tasks": 100000,
+            "total_us": 58444
+          },
+          "runtime": "cpp_stackless_coroutine",
+          "sleep": {
+            "parallel_ms": 162,
+            "sequential_ms": 652,
+            "sleep_ms": 160,
+            "speedup": 4.02469,
             "sum": 4,
             "tasks": 4
           },
@@ -260,10 +273,10 @@
         }
       ],
       "sleep": {
-        "parallel_ms": 161.0,
-        "sequential_ms": 649.0,
+        "parallel_ms": 165.0,
+        "sequential_ms": 659.0,
         "sleep_ms": 160,
-        "speedup": 4.031055900621118,
+        "speedup": 3.993939393939394,
         "tasks": 4
       },
       "status": "ok",
@@ -273,77 +286,36 @@
     {
       "language": "go",
       "noop": {
-        "per_task_us": 0.35224,
+        "per_task_us": 0.33258,
         "tasks": 100000,
-        "total_us": 35224.0
+        "total_us": 33258.0
       },
       "relative_performance": {
-        "noop_fanout": 0.9974449239155121,
-        "noop_vs_cpp_stackless": 1.4643424937542586,
+        "noop_fanout": 1.0,
+        "noop_vs_cpp_stackless": 1.776925852426484,
         "sleep_speedup": 1.0,
-        "sleep_vs_cpp_stackless": 1.00625
+        "sleep_vs_cpp_stackless": 1.0076242644065287
       },
       "repeat_policy": "median",
       "requested_repeats": 5,
       "runtime": "goroutine",
+      "runtime_key": "go",
       "sample_count": 5,
       "samples": [
         {
           "language": "go",
           "noop": {
-            "per_task_us": 0.35224,
+            "per_task_us": 0.33714,
             "sum": 100000,
             "tasks": 100000,
-            "total_us": 35224
-          },
-          "runtime": "goroutine",
-          "sleep": {
-            "parallel_ms": 161,
-            "sequential_ms": 645,
-            "sleep_ms": 160,
-            "speedup": 4.0062111801242235,
-            "sum": 4,
-            "tasks": 4
-          },
-          "status": "ok",
-          "toolchain": "go version go1.26.2 linux/arm64",
-          "workers": 4
-        },
-        {
-          "language": "go",
-          "noop": {
-            "per_task_us": 0.30453,
-            "sum": 100000,
-            "tasks": 100000,
-            "total_us": 30453
-          },
-          "runtime": "goroutine",
-          "sleep": {
-            "parallel_ms": 160,
-            "sequential_ms": 656,
-            "sleep_ms": 160,
-            "speedup": 4.1,
-            "sum": 4,
-            "tasks": 4
-          },
-          "status": "ok",
-          "toolchain": "go version go1.26.2 linux/arm64",
-          "workers": 4
-        },
-        {
-          "language": "go",
-          "noop": {
-            "per_task_us": 0.32018,
-            "sum": 100000,
-            "tasks": 100000,
-            "total_us": 32018
+            "total_us": 33714
           },
           "runtime": "goroutine",
           "sleep": {
             "parallel_ms": 165,
-            "sequential_ms": 649,
+            "sequential_ms": 672,
             "sleep_ms": 160,
-            "speedup": 3.933333333333333,
+            "speedup": 4.072727272727272,
             "sum": 4,
             "tasks": 4
           },
@@ -354,17 +326,17 @@
         {
           "language": "go",
           "noop": {
-            "per_task_us": 0.37553,
+            "per_task_us": 0.34391,
             "sum": 100000,
             "tasks": 100000,
-            "total_us": 37553
+            "total_us": 34391
           },
           "runtime": "goroutine",
           "sleep": {
             "parallel_ms": 160,
-            "sequential_ms": 645,
+            "sequential_ms": 654,
             "sleep_ms": 160,
-            "speedup": 4.03125,
+            "speedup": 4.0875,
             "sum": 4,
             "tasks": 4
           },
@@ -375,17 +347,59 @@
         {
           "language": "go",
           "noop": {
-            "per_task_us": 0.39002,
+            "per_task_us": 0.2766,
             "sum": 100000,
             "tasks": 100000,
-            "total_us": 39002
+            "total_us": 27660
+          },
+          "runtime": "goroutine",
+          "sleep": {
+            "parallel_ms": 165,
+            "sequential_ms": 660,
+            "sleep_ms": 160,
+            "speedup": 4,
+            "sum": 4,
+            "tasks": 4
+          },
+          "status": "ok",
+          "toolchain": "go version go1.26.2 linux/arm64",
+          "workers": 4
+        },
+        {
+          "language": "go",
+          "noop": {
+            "per_task_us": 0.33258,
+            "sum": 100000,
+            "tasks": 100000,
+            "total_us": 33258
           },
           "runtime": "goroutine",
           "sleep": {
             "parallel_ms": 160,
-            "sequential_ms": 652,
+            "sequential_ms": 667,
             "sleep_ms": 160,
-            "speedup": 4.075,
+            "speedup": 4.16875,
+            "sum": 4,
+            "tasks": 4
+          },
+          "status": "ok",
+          "toolchain": "go version go1.26.2 linux/arm64",
+          "workers": 4
+        },
+        {
+          "language": "go",
+          "noop": {
+            "per_task_us": 0.313,
+            "sum": 100000,
+            "tasks": 100000,
+            "total_us": 31300
+          },
+          "runtime": "goroutine",
+          "sleep": {
+            "parallel_ms": 164,
+            "sequential_ms": 659,
+            "sleep_ms": 160,
+            "speedup": 4.0182926829268295,
             "sum": 4,
             "tasks": 4
           },
@@ -395,10 +409,10 @@
         }
       ],
       "sleep": {
-        "parallel_ms": 160.0,
-        "sequential_ms": 649.0,
+        "parallel_ms": 164.0,
+        "sequential_ms": 660.0,
         "sleep_ms": 160,
-        "speedup": 4.05625,
+        "speedup": 4.024390243902439,
         "tasks": 4
       },
       "status": "ok",
@@ -408,35 +422,36 @@
     {
       "language": "rust",
       "noop": {
-        "per_task_us": 0.35134,
+        "per_task_us": 0.36107,
         "tasks": 100000,
-        "total_us": 35134.0
+        "total_us": 36107.0
       },
       "relative_performance": {
-        "noop_fanout": 1.0,
-        "noop_vs_cpp_stackless": 1.468093584561963,
-        "sleep_speedup": 0.9815950920245399,
-        "sleep_vs_cpp_stackless": 0.9877300613496932
+        "noop_fanout": 0.9210956324258454,
+        "noop_vs_cpp_stackless": 1.6367186418146065,
+        "sleep_speedup": 0.9985127347090538,
+        "sleep_vs_cpp_stackless": 1.0061256598117616
       },
       "repeat_policy": "median",
       "requested_repeats": 5,
       "runtime": "tokio_multi_thread",
+      "runtime_key": "rust",
       "sample_count": 5,
       "samples": [
         {
           "language": "rust",
           "noop": {
-            "per_task_us": 0.38367,
+            "per_task_us": 0.35435,
             "sum": 100000,
             "tasks": 100000,
-            "total_us": 38367
+            "total_us": 35435
           },
           "runtime": "tokio_multi_thread",
           "sleep": {
             "parallel_ms": 161,
-            "sequential_ms": 645,
+            "sequential_ms": 664,
             "sleep_ms": 160,
-            "speedup": 4.0062111801242235,
+            "speedup": 4.124223602484472,
             "sum": 4,
             "tasks": 4
           },
@@ -447,59 +462,17 @@
         {
           "language": "rust",
           "noop": {
-            "per_task_us": 0.25536,
+            "per_task_us": 0.36887,
             "sum": 100000,
             "tasks": 100000,
-            "total_us": 25536
-          },
-          "runtime": "tokio_multi_thread",
-          "sleep": {
-            "parallel_ms": 163,
-            "sequential_ms": 650,
-            "sleep_ms": 160,
-            "speedup": 3.9877300613496933,
-            "sum": 4,
-            "tasks": 4
-          },
-          "status": "ok",
-          "toolchain": "rustc 1.95.0 (59807616e 2026-04-14); cargo 1.95.0 (f2d3ce0bd 2026-03-21); tokio 1.52.2",
-          "workers": 4
-        },
-        {
-          "language": "rust",
-          "noop": {
-            "per_task_us": 0.38655,
-            "sum": 100000,
-            "tasks": 100000,
-            "total_us": 38655
-          },
-          "runtime": "tokio_multi_thread",
-          "sleep": {
-            "parallel_ms": 165,
-            "sequential_ms": 651,
-            "sleep_ms": 160,
-            "speedup": 3.9454545454545453,
-            "sum": 4,
-            "tasks": 4
-          },
-          "status": "ok",
-          "toolchain": "rustc 1.95.0 (59807616e 2026-04-14); cargo 1.95.0 (f2d3ce0bd 2026-03-21); tokio 1.52.2",
-          "workers": 4
-        },
-        {
-          "language": "rust",
-          "noop": {
-            "per_task_us": 0.35134,
-            "sum": 100000,
-            "tasks": 100000,
-            "total_us": 35134
+            "total_us": 36887
           },
           "runtime": "tokio_multi_thread",
           "sleep": {
             "parallel_ms": 164,
-            "sequential_ms": 648,
+            "sequential_ms": 664,
             "sleep_ms": 160,
-            "speedup": 3.951219512195122,
+            "speedup": 4.048780487804878,
             "sum": 4,
             "tasks": 4
           },
@@ -510,17 +483,59 @@
         {
           "language": "rust",
           "noop": {
-            "per_task_us": 0.33783,
+            "per_task_us": 0.34712,
             "sum": 100000,
             "tasks": 100000,
-            "total_us": 33783
+            "total_us": 34712
           },
           "runtime": "tokio_multi_thread",
           "sleep": {
-            "parallel_ms": 162,
+            "parallel_ms": 165,
             "sequential_ms": 649,
             "sleep_ms": 160,
-            "speedup": 4.006172839506172,
+            "speedup": 3.933333333333333,
+            "sum": 4,
+            "tasks": 4
+          },
+          "status": "ok",
+          "toolchain": "rustc 1.95.0 (59807616e 2026-04-14); cargo 1.95.0 (f2d3ce0bd 2026-03-21); tokio 1.52.2",
+          "workers": 4
+        },
+        {
+          "language": "rust",
+          "noop": {
+            "per_task_us": 0.38883,
+            "sum": 100000,
+            "tasks": 100000,
+            "total_us": 38883
+          },
+          "runtime": "tokio_multi_thread",
+          "sleep": {
+            "parallel_ms": 163,
+            "sequential_ms": 651,
+            "sleep_ms": 160,
+            "speedup": 3.9938650306748467,
+            "sum": 4,
+            "tasks": 4
+          },
+          "status": "ok",
+          "toolchain": "rustc 1.95.0 (59807616e 2026-04-14); cargo 1.95.0 (f2d3ce0bd 2026-03-21); tokio 1.52.2",
+          "workers": 4
+        },
+        {
+          "language": "rust",
+          "noop": {
+            "per_task_us": 0.36107,
+            "sum": 100000,
+            "tasks": 100000,
+            "total_us": 36107
+          },
+          "runtime": "tokio_multi_thread",
+          "sleep": {
+            "parallel_ms": 161,
+            "sequential_ms": 655,
+            "sleep_ms": 160,
+            "speedup": 4.068322981366459,
             "sum": 4,
             "tasks": 4
           },
@@ -531,9 +546,9 @@
       ],
       "sleep": {
         "parallel_ms": 163.0,
-        "sequential_ms": 649.0,
+        "sequential_ms": 655.0,
         "sleep_ms": 160,
-        "speedup": 3.98159509202454,
+        "speedup": 4.0184049079754605,
         "tasks": 4
       },
       "status": "ok",

@@ -14,18 +14,57 @@ The route compares the same two workloads across:
 1. `sleep`: four `160ms` blocked tasks. This proves whether a runtime overlaps blocked work. A speedup near the worker count means the implementation is truly scheduled rather than eager.
 2. `noop`: one hundred thousand trivial tasks. This exposes submit, wake, wait, and release overhead while reducing single-run timer noise.
 
+## Framework Shape
+
+The async route follows the black-box structure used for multi-language parity testing:
+
+- `pytest` owns the lightweight test contract in `test_async_runtime_blackbox.py`.
+- `run-async-bench.py` owns process startup, runtime selection, repeated samples, and report generation.
+- Each implementation is treated as an external runtime selected by `--runtime`; the pytest smoke path requires only `styio` and `cpp` so it does not need Go/Rust toolchain bootstrap.
+- The report contract is JSON/CSV/Markdown, so deeper tooling can consume it without depending on GoogleTest, `go test`, or `cargo test` as the unified entrypoint.
+
+Testcontainers, Docker Compose, k6, and ghz are reserved for future service-shaped async benchmarks. This route is a local scheduler benchmark, so subprocess black-box execution is the right boundary today.
+
 ## Run
+
+Smoke contract:
+
+```bash
+python3 -m pytest benchmark/async-runtime/test_async_runtime_blackbox.py
+```
+
+Focused subprocess smoke without pytest:
 
 ```bash
 benchmark/async-runtime/run-async-bench.py \
+  --case smoke \
+  --runtime styio \
+  --runtime cpp \
+  --require-runtime styio \
+  --require-runtime cpp \
+  --out-dir benchmark/async-runtime/reports/<run-id>
+```
+
+Full baseline comparison:
+
+```bash
+benchmark/async-runtime/run-async-bench.py \
+  --case baseline \
   --bootstrap-toolchains \
   --repeats 5 \
   --out-dir benchmark/async-runtime/reports/<run-id>
 ```
 
-The script uses `build/async-runtime-release` by default and configures it as a CMake `Release` build when needed. It refuses to use a non-Release Styio build directory for runtime comparisons because the C++ baseline is built with `-O3`.
+The script uses `build/async-runtime-release` by default and configures it as a CMake `Release` build when needed. It refuses to use a non-Release Styio build directory for runtime comparisons because the C++ baseline is built with `-O3`. Styio builds and the generated C++ stackless coroutine baseline prefer Clang, which is the standard compiler for this repository.
 
 `--bootstrap-toolchains` installs missing Go and Rust toolchains under the benchmark build directory; that directory is a local build artifact and is not tracked.
+
+Presets:
+
+- `--case smoke`: small `styio`/`cpp` contract route suitable for pytest.
+- `--case baseline`: default comparable report across the selected runtimes.
+- `--case stress`: larger fanout route for scheduler regression investigation.
+- `--case custom`: use explicit `--tasks`, `--sleep-ms`, `--noop-tasks`, `--workers`, and `--repeats` values.
 
 The report directory contains:
 
