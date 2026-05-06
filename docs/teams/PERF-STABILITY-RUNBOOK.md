@@ -40,6 +40,7 @@ High-value docs:
 10. Keep benchmark phase names aligned with the compiler middle-layer split: type inference maps to `StyioSemaContext`, and StyioIR lowering maps to `AstToStyioIRLowerer`.
 11. Async runtime comparisons must target the selected peer runtimes: C++20 stackless coroutine, Go goroutine, and Rust Tokio. Do not replace them with generic thread pools when producing Styio task scheduler evidence.
 12. Async runtime reports must include normalized per-workload performance columns. The best runtime for each workload is `1.00x`; lower scores show relative performance against that best result. Use median samples, not single runs, when comparing no-op fanout.
+13. Async runtime framework checks use pytest as the black-box contract runner over `benchmark/async-runtime/run-async-bench.py`; keep runtime selection explicit with `--runtime` and promote only JSON/CSV/Markdown report outputs as evidence.
 
 ## Change Classes
 
@@ -65,7 +66,10 @@ Focused benchmark route:
 Async runtime comparison:
 
 ```bash
+python3 -m pytest benchmark/async-runtime/test_async_runtime_blackbox.py
+
 benchmark/async-runtime/run-async-bench.py \
+  --case baseline \
   --bootstrap-toolchains \
   --repeats 5 \
   --out-dir benchmark/async-runtime/reports/<run-id>

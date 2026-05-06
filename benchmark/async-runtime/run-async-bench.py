@@ -9,9 +9,11 @@ import platform
 import shutil
 import stat
 import subprocess
+import sys
 import tarfile
 import time
 import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +24,47 @@ DEFAULT_TASKS = 4
 DEFAULT_SLEEP_MS = 160
 DEFAULT_NOOP_TASKS = 100000
 DEFAULT_WORKERS = 4
+DEFAULT_REPEATS = 5
+DEFAULT_CASE = "baseline"
+RUNTIME_CHOICES = ("styio", "cpp", "go", "rust")
+
+
+@dataclass(frozen=True)
+class BenchmarkCase:
+    tasks: int
+    sleep_ms: int
+    noop_tasks: int
+    workers: int
+    repeats: int
+    description: str
+
+
+BENCHMARK_CASES = {
+    "smoke": BenchmarkCase(
+        tasks=2,
+        sleep_ms=20,
+        noop_tasks=1000,
+        workers=2,
+        repeats=1,
+        description="quick black-box contract check for local and CI smoke runs",
+    ),
+    "baseline": BenchmarkCase(
+        tasks=DEFAULT_TASKS,
+        sleep_ms=DEFAULT_SLEEP_MS,
+        noop_tasks=DEFAULT_NOOP_TASKS,
+        workers=DEFAULT_WORKERS,
+        repeats=DEFAULT_REPEATS,
+        description="median performance comparison against C++ stackless coroutine, goroutine, and Tokio",
+    ),
+    "stress": BenchmarkCase(
+        tasks=8,
+        sleep_ms=160,
+        noop_tasks=200000,
+        workers=4,
+        repeats=7,
+        description="higher fanout comparison for scheduler regression investigation",
+    ),
+}
 
 
 CPP_SOURCE = r'''
@@ -600,6 +643,32 @@ def command_version_with_env(cmd: str, env: dict[str, str] | None = None) -> str
     return (proc.stdout or proc.stderr).splitlines()[0] if (proc.stdout or proc.stderr) else ""
 
 
+def preferred_clang_tool(name: str) -> str | None:
+    numbered = shutil.which(f"{name}-18")
+    return numbered or shutil.which(name)
+
+
+def clang_cmake_env() -> tuple[dict[str, str], str | None]:
+    env = os.environ.copy()
+    if not env.get("CC"):
+        clang = preferred_clang_tool("clang")
+        if not clang:
+            return env, "Styio standard builds require clang; clang was not found"
+        env["CC"] = clang
+    if not env.get("CXX"):
+        clangxx = preferred_clang_tool("clang++")
+        if not clangxx:
+            return env, "Styio standard builds require clang++; clang++ was not found"
+        env["CXX"] = clangxx
+    return env, None
+
+
+def is_clang_cxx(compiler: str | None) -> bool:
+    if not compiler:
+        return False
+    return "clang++" in Path(compiler).name or Path(compiler).name == "clang-cl"
+
+
 def cargo_lock_version(lock_path: Path, package: str) -> str:
     if not lock_path.exists():
         return ""
@@ -728,13 +797,23 @@ def ensure_styio_release_build(build_dir: Path) -> str | None:
                 f"{relative_path(build_dir)} is CMAKE_BUILD_TYPE={build_type}; "
                 "use a Release build directory for async runtime benchmarks"
             )
+        compiler = cmake_cache_value(build_dir, "CMAKE_CXX_COMPILER")
+        if compiler and not is_clang_cxx(compiler):
+            return (
+                f"{relative_path(build_dir)} uses CMAKE_CXX_COMPILER={compiler}; "
+                "Styio standard async runtime benchmarks require a Clang build directory"
+            )
         if build_type == "Release":
             return None
 
     build_dir.mkdir(parents=True, exist_ok=True)
+    env, clang_error = clang_cmake_env()
+    if clang_error:
+        return clang_error
     proc = run(
         ["cmake", "-S", str(ROOT), "-B", str(build_dir), "-DCMAKE_BUILD_TYPE=Release"],
         cwd=ROOT,
+        env=env,
         timeout=300,
     )
     if proc.returncode != 0:
@@ -745,7 +824,7 @@ def ensure_styio_release_build(build_dir: Path) -> str | None:
 def run_cpp(work_dir: Path, args: argparse.Namespace) -> dict[str, Any]:
     work_dir.mkdir(parents=True, exist_ok=True)
     compiler = shutil.which(os.environ.get("CXX", "")) if os.environ.get("CXX") else None
-    compiler = compiler or shutil.which("g++") or shutil.which("clang++")
+    compiler = compiler or preferred_clang_tool("clang++") or shutil.which("g++")
     if not compiler:
         return unavailable("cpp", "cpp_stackless_coroutine", "C++ compiler not found")
     src = work_dir / "async_bench.cpp"
@@ -841,8 +920,8 @@ def parse_styio_perf(stdout: str, args: argparse.Namespace) -> dict[str, Any]:
         if line.startswith("styio_task_scheduler_perf "):
             data = dict(token.split("=", 1) for token in line.split()[1:] if "=" in token)
             result["sleep"] = {
-                "tasks": args.tasks,
-                "sleep_ms": args.sleep_ms,
+                "tasks": int(data.get("tasks", args.tasks)),
+                "sleep_ms": int(data.get("sleep_ms", args.sleep_ms)),
                 "sequential_ms": int(data["sequential_ms"]),
                 "parallel_ms": int(data["parallel_ms"]),
                 "speedup": float(data["speedup"]),
@@ -873,6 +952,8 @@ def run_styio(build_dir: Path, args: argparse.Namespace) -> dict[str, Any]:
         return unavailable("styio", "styio_task_scheduler", f"{exe} not found")
     env = os.environ.copy()
     env["STYIO_TASK_THREADS"] = str(args.workers)
+    env["STYIO_TASK_SLEEP_COUNT"] = str(args.tasks)
+    env["STYIO_TASK_SLEEP_MS"] = str(args.sleep_ms)
     env["STYIO_TASK_NOOP_COUNT"] = str(args.noop_tasks)
     proc = run([str(exe), "--gtest_filter=StyioTaskSchedulerPerf.*"], cwd=ROOT, env=env, timeout=180)
     if proc.returncode != 0:
@@ -1043,6 +1124,10 @@ def write_report(out_dir: Path, metadata: dict[str, Any], results: list[dict[str
         "",
         f"- Run ID: `{metadata['run_id']}`",
         f"- Host: `{metadata['host']}`",
+        f"- Case: `{metadata['case']}` ({metadata['case_description']})",
+        f"- Harness: `{metadata['framework']}` over `{metadata['interface']}`",
+        f"- Runtimes: `{', '.join(metadata['runtimes'])}`",
+        f"- Required runtimes: `{', '.join(metadata['required_runtimes']) if metadata['required_runtimes'] else 'none'}`",
         f"- Tasks: `{metadata['tasks']}` sleep tasks x `{metadata['sleep_ms']}ms`, `{metadata['noop_tasks']}` no-op tasks, `{metadata['workers']}` workers/procs",
         f"- Repeats: `{metadata['repeats']}` per runtime, reported values are medians",
         "",
@@ -1083,7 +1168,8 @@ def write_report(out_dir: Path, metadata: dict[str, Any], results: list[dict[str
             "- `noop` measures submit/wait/release overhead for a large fanout of trivial tasks.",
             "- `Samples` records successful repeats; all table metrics are median values to avoid single-run microbenchmark noise.",
             "- `Sleep perf` and `Noop perf` normalize each workload independently; the best runtime is `1.00x`, and the others show their relative performance against that best result.",
-            "- C++ uses C++20 stackless coroutine frames with `co_await` and a small scheduler, Go uses goroutines with `GOMAXPROCS`, Rust uses Tokio's multi-thread runtime, and Styio uses the repository task scheduler target.",
+            "- The runner is intentionally pytest-compatible: each runtime is a subprocess black box, and pytest can assert the generated JSON/CSV contract without embedding language-specific unit-test frameworks.",
+            "- C++ uses C++20 stackless coroutine frames with `co_await` and a small scheduler built with Clang by default, Go uses goroutines with `GOMAXPROCS`, Rust uses Tokio's multi-thread runtime, and Styio uses the repository task scheduler target.",
             "- `--bootstrap-toolchains` installs missing Go/Rust toolchains under the build directory; this keeps comparison runs reproducible on machines without system Go or Rust.",
             "",
         ]
@@ -1108,19 +1194,72 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run Styio async runtime benchmarks against C++ stackless coroutine, Go goroutine, and Rust Tokio baselines.")
     parser.add_argument("--build-dir", default=DEFAULT_STYIO_BUILD_DIR, help="Release CMake build directory for Styio runtime target.")
     parser.add_argument("--out-dir", default="", help="Output directory. Defaults to benchmark/async-runtime/reports/<run-id>.")
-    parser.add_argument("--tasks", type=int, default=DEFAULT_TASKS)
-    parser.add_argument("--sleep-ms", type=int, default=DEFAULT_SLEEP_MS)
-    parser.add_argument("--noop-tasks", type=int, default=DEFAULT_NOOP_TASKS)
-    parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
-    parser.add_argument("--repeats", type=int, default=5, help="Run each runtime this many times and report medians.")
+    parser.add_argument("--case", choices=[*BENCHMARK_CASES.keys(), "custom"], default=DEFAULT_CASE, help="Benchmark case preset. Use custom with explicit sizing flags.")
+    parser.add_argument("--tasks", type=int, default=None)
+    parser.add_argument("--sleep-ms", type=int, default=None)
+    parser.add_argument("--noop-tasks", type=int, default=None)
+    parser.add_argument("--workers", type=int, default=None)
+    parser.add_argument("--repeats", type=int, default=None, help="Run each runtime this many times and report medians.")
+    parser.add_argument("--runtime", action="append", choices=RUNTIME_CHOICES, dest="runtimes", help="Runtime to run. Repeat to select multiple runtimes. Defaults to all.")
+    parser.add_argument("--require-runtime", action="append", choices=RUNTIME_CHOICES, default=[], dest="required_runtimes", help="Fail the route if this runtime is unavailable or reports a failed status. Repeat as needed.")
     parser.add_argument("--bootstrap-toolchains", action="store_true", help="Install missing Go/Rust toolchains under the build directory.")
-    return parser.parse_args()
+    args = parser.parse_args()
+    resolve_benchmark_args(args)
+    return args
+
+
+def unique_preserving_order(values: list[str] | tuple[str, ...]) -> list[str]:
+    seen: set[str] = set()
+    unique: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        unique.append(value)
+    return unique
+
+
+def resolve_benchmark_args(args: argparse.Namespace) -> None:
+    case = BENCHMARK_CASES[DEFAULT_CASE] if args.case == "custom" else BENCHMARK_CASES[args.case]
+    args.case_description = "custom sizing over the baseline benchmark contract" if args.case == "custom" else case.description
+    args.tasks = args.tasks if args.tasks is not None else case.tasks
+    args.sleep_ms = args.sleep_ms if args.sleep_ms is not None else case.sleep_ms
+    args.noop_tasks = args.noop_tasks if args.noop_tasks is not None else case.noop_tasks
+    args.workers = args.workers if args.workers is not None else case.workers
+    args.repeats = args.repeats if args.repeats is not None else case.repeats
+    args.runtimes = unique_preserving_order(args.runtimes or RUNTIME_CHOICES)
+    args.required_runtimes = unique_preserving_order(args.required_runtimes)
+    if args.tasks < 1:
+        raise SystemExit("--tasks must be >= 1")
+    if args.sleep_ms < 0:
+        raise SystemExit("--sleep-ms must be >= 0")
+    if args.noop_tasks < 1:
+        raise SystemExit("--noop-tasks must be >= 1")
+    if args.workers < 1:
+        raise SystemExit("--workers must be >= 1")
+    if args.repeats < 1:
+        raise SystemExit("--repeats must be >= 1")
+    missing_required = [runtime for runtime in args.required_runtimes if runtime not in args.runtimes]
+    if missing_required:
+        raise SystemExit("--require-runtime must also be selected with --runtime: " + ", ".join(missing_required))
+
+
+def required_runtime_failures(results: list[dict[str, Any]], required_runtimes: list[str]) -> list[str]:
+    by_key = {result.get("runtime_key", ""): result for result in results}
+    failures: list[str] = []
+    for runtime in required_runtimes:
+        result = by_key.get(runtime)
+        if not result:
+            failures.append(f"{runtime}: not selected")
+            continue
+        if result.get("status") != "ok":
+            reason = result.get("reason") or f"status={result.get('status', '')}"
+            failures.append(f"{runtime}: {reason}")
+    return failures
 
 
 def main() -> int:
     args = parse_args()
-    if args.repeats < 1:
-        raise SystemExit("--repeats must be >= 1")
     run_id = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "-async-runtime"
     out_dir = Path(args.out_dir) if args.out_dir else ROOT / "benchmark" / "async-runtime" / "reports" / run_id
     if not out_dir.is_absolute():
@@ -1132,6 +1271,12 @@ def main() -> int:
     metadata = {
         "run_id": run_id,
         "host": host_tag(),
+        "framework": "pytest-compatible black-box runner",
+        "interface": "subprocess",
+        "case": args.case,
+        "case_description": args.case_description,
+        "runtimes": args.runtimes,
+        "required_runtimes": args.required_runtimes,
         "tasks": args.tasks,
         "sleep_ms": args.sleep_ms,
         "noop_tasks": args.noop_tasks,
@@ -1139,16 +1284,26 @@ def main() -> int:
         "repeats": args.repeats,
         "bootstrap_toolchains": args.bootstrap_toolchains,
     }
-    results = [
-        run_repeated("styio", args.repeats, lambda index: run_styio(ROOT / args.build_dir, args)),
-        run_repeated("cpp", args.repeats, lambda index: run_cpp(work_dir / f"cpp-{index}", args)),
-        run_repeated("go", args.repeats, lambda index: run_go(work_dir / f"go-{index}", toolchain_dir, args)),
-        run_repeated("rust", args.repeats, lambda index: run_rust(work_dir / f"rust-{index}", toolchain_dir, args)),
-    ]
+    runners = {
+        "styio": lambda: run_repeated("styio", args.repeats, lambda index: run_styio(ROOT / args.build_dir, args)),
+        "cpp": lambda: run_repeated("cpp", args.repeats, lambda index: run_cpp(work_dir / f"cpp-{index}", args)),
+        "go": lambda: run_repeated("go", args.repeats, lambda index: run_go(work_dir / f"go-{index}", toolchain_dir, args)),
+        "rust": lambda: run_repeated("rust", args.repeats, lambda index: run_rust(work_dir / f"rust-{index}", toolchain_dir, args)),
+    }
+    results = []
+    for runtime_key in args.runtimes:
+        result = runners[runtime_key]()
+        result["runtime_key"] = runtime_key
+        results.append(result)
     write_report(out_dir, metadata, results)
     print(out_dir)
     for result in results:
-        print(f"{result.get('language')} {result.get('runtime')} {result.get('status')}")
+        print(f"{result.get('runtime_key')} {result.get('language')} {result.get('runtime')} {result.get('status')}")
+    failures = required_runtime_failures(results, args.required_runtimes)
+    if failures:
+        for failure in failures:
+            print(f"required runtime failed: {failure}", file=sys.stderr)
+        return 2
     return 0
 
 
