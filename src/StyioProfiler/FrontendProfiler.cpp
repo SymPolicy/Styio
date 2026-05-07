@@ -125,6 +125,7 @@ FrontendProfiler::enable(
   counters_.clear();
   token_histogram_.clear();
   parser_route_ = ParserRouteRecord {};
+  async_scheduler_ = AsyncSchedulerRecord {};
 }
 
 bool
@@ -192,6 +193,45 @@ FrontendProfiler::set_parser_route_stats(
   parser_route_.nightly_declined_statements = nightly_declined_statements;
   parser_route_.legacy_fallback_statements = legacy_fallback_statements;
   parser_route_.nightly_internal_legacy_bridges = nightly_internal_legacy_bridges;
+}
+
+void
+FrontendProfiler::set_async_scheduler_stats(
+  std::int64_t enabled,
+  std::int64_t worker_count,
+  std::int64_t active_tasks,
+  std::int64_t ready_tasks,
+  std::int64_t spawned_tasks,
+  std::int64_t enqueued_tasks,
+  std::int64_t started_tasks,
+  std::int64_t completed_tasks,
+  std::int64_t pulled_tasks,
+  std::int64_t released_tasks,
+  std::int64_t fast_ready_pulls,
+  std::int64_t blocking_pulls,
+  std::int64_t failed_pulls,
+  std::int64_t invalid_pulls,
+  std::int64_t max_queue_depth
+) {
+  if (!enabled_) {
+    return;
+  }
+  async_scheduler_.present = true;
+  async_scheduler_.enabled = enabled;
+  async_scheduler_.worker_count = worker_count;
+  async_scheduler_.active_tasks = active_tasks;
+  async_scheduler_.ready_tasks = ready_tasks;
+  async_scheduler_.spawned_tasks = spawned_tasks;
+  async_scheduler_.enqueued_tasks = enqueued_tasks;
+  async_scheduler_.started_tasks = started_tasks;
+  async_scheduler_.completed_tasks = completed_tasks;
+  async_scheduler_.pulled_tasks = pulled_tasks;
+  async_scheduler_.released_tasks = released_tasks;
+  async_scheduler_.fast_ready_pulls = fast_ready_pulls;
+  async_scheduler_.blocking_pulls = blocking_pulls;
+  async_scheduler_.failed_pulls = failed_pulls;
+  async_scheduler_.invalid_pulls = invalid_pulls;
+  async_scheduler_.max_queue_depth = max_queue_depth;
 }
 
 void
@@ -271,6 +311,31 @@ FrontendProfiler::to_json() const {
         << ", \"legacy_fallback_statements\": " << parser_route_.legacy_fallback_statements
         << ", \"nightly_internal_legacy_bridges\": "
         << parser_route_.nightly_internal_legacy_bridges
+        << "}\n";
+  }
+  else {
+    out << "null\n";
+  }
+  out << ",\n";
+
+  out << "  \"async_scheduler\": ";
+  if (async_scheduler_.present) {
+    out << "{"
+        << "\"enabled\": " << async_scheduler_.enabled
+        << ", \"worker_count\": " << async_scheduler_.worker_count
+        << ", \"active_tasks\": " << async_scheduler_.active_tasks
+        << ", \"ready_tasks\": " << async_scheduler_.ready_tasks
+        << ", \"spawned_tasks\": " << async_scheduler_.spawned_tasks
+        << ", \"enqueued_tasks\": " << async_scheduler_.enqueued_tasks
+        << ", \"started_tasks\": " << async_scheduler_.started_tasks
+        << ", \"completed_tasks\": " << async_scheduler_.completed_tasks
+        << ", \"pulled_tasks\": " << async_scheduler_.pulled_tasks
+        << ", \"released_tasks\": " << async_scheduler_.released_tasks
+        << ", \"fast_ready_pulls\": " << async_scheduler_.fast_ready_pulls
+        << ", \"blocking_pulls\": " << async_scheduler_.blocking_pulls
+        << ", \"failed_pulls\": " << async_scheduler_.failed_pulls
+        << ", \"invalid_pulls\": " << async_scheduler_.invalid_pulls
+        << ", \"max_queue_depth\": " << async_scheduler_.max_queue_depth
         << "}\n";
   }
   else {

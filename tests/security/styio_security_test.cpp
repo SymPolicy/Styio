@@ -24,6 +24,10 @@
 #include <unistd.h>
 #endif
 
+#ifndef STYIO_SOURCE_DIR
+#define STYIO_SOURCE_DIR "."
+#endif
+
 #include "StyioCodeGen/CodeGenVisitor.hpp"
 #include "StyioException/Exception.hpp"
 #include "StyioExtern/ExternLib.hpp"
@@ -990,25 +994,59 @@ TEST(StyioSecurityNightlyParserStmt, ParsesTerminalHandleReturnShorthands) {
   }
 }
 
-TEST(StyioSecurityNightlyParserStmt, ParsesStandardStreamSymbolicDefinitions) {
+TEST(StyioSecurityNightlyParserStmt, ParsesInternalResourceDefinitions) {
   const std::string src =
-    "@stdout := { xs >> [>_] }\n"
-    "@stdout := { x -> [>_] }\n"
-    "@stdout := { xs >> (>_) }\n"
-    "@stdout := { x -> (>_) }\n"
-    "@stderr := { !(xs) >> [>_] }\n"
-    "@stderr := { !(x) -> [>_] }\n"
-    "@stderr := { !(xs) >> (>_) }\n"
-    "@stderr := { !(x) -> (>_) }\n"
-    "@stdin := { <|[>_] }\n"
-    "@stdin := { <|(>_) }\n"
-    "@stdin := { <| <- [>_] }\n"
-    "@stdin := { <| <- (>_) }\n";
+    "@ stdout := #(xs) => { xs >> [>_] }\n"
+    "@ stdout := #(x) => { x -> [>_] }\n"
+    "@ stdout := #(xs) => { xs >> (>_) }\n"
+    "@ stdout := #(x) => { x -> (>_) }\n"
+    "@ stderr := #(xs) => { !(xs) >> [>_] }\n"
+    "@ stderr := #(x) => { !(x) -> [>_] }\n"
+    "@ stderr := #(xs) => { !(xs) >> (>_) }\n"
+    "@ stderr := #(x) => { !(x) -> (>_) }\n"
+    "@ stdin := #() => { <|[>_] }\n"
+    "@ stdin := #() => { <|(>_) }\n"
+    "@ stdin := #() => { <| <- [>_] }\n"
+    "@ stdin := #() => { <| <- (>_) }\n"
+    "@ file : ftype := #(path) => { ... }\n";
 
   EXPECT_NO_THROW((void)parse_program_to_repr_latest(src, true));
   EXPECT_NO_THROW(
     parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
   );
+}
+
+TEST(StyioSecurityNightlyParserStmt, ParsesResourcePreludeSourceFile) {
+  const auto prelude =
+    std::filesystem::path(STYIO_SOURCE_DIR) / "src" / "StyioPrelude" / "resources.styio";
+  std::ifstream in(prelude);
+  ASSERT_TRUE(in.good()) << prelude;
+  const std::string src(
+    (std::istreambuf_iterator<char>(in)),
+    std::istreambuf_iterator<char>()
+  );
+
+  EXPECT_NO_THROW((void)parse_program_to_repr_latest(src, true));
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsParameterizedResourcePseudoDefinitions) {
+  const std::vector<std::string> samples = {
+    "@file{\"/tmp/styio-invalid-resource-definition.txt\"} := { file(path) }\n",
+    "@{\"/tmp/styio-invalid-resource-definition.txt\"} := @file{\"/tmp/styio-invalid-resource-definition.txt\"}\n",
+    "@ file := #(path) => { file(path) }\n",
+    "@ file : ftype := #(path) => { file(path) }\n",
+    "@ file : ftype := #(path) => { path }\n",
+    "@ socket : ftype := #(path) => { ... }\n",
+    "@ stdout := { xs >> [>_] }\n",
+    "@ stderr := #(xs) => { !(x) >> [>_] }\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_THROW((void)parse_program_to_repr_latest(src, true), StyioSyntaxError) << src;
+  }
 }
 
 TEST(StyioSecurityNightlyParserStmt, ParsesGenericFunctionTypeAnnotations) {
@@ -1530,6 +1568,181 @@ TEST(StyioSecurityNightlySemantics, AllowsRuntimeHandleListIteration) {
   EXPECT_NE(llvm_ir.find("styio_list_get_list"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlySemantics, MaxElementMatchFormsGenerateEquivalentLlvm) {
+  const std::string hash_let_match =
+    "values <- @stdin: list[i32]\n"
+    "answer = -1\n"
+    "#(n = values.length) ?= {\n"
+    "  0 => { /* empty */ }\n"
+    "  1 => { answer = values[0] }\n"
+    "  _ => {\n"
+    "    answer = values[0]\n"
+    "    [1..n-1] >> #(i) => {\n"
+    "      ?(values[i] > answer) => { answer = values[i] }\n"
+    "    }\n"
+    "  }\n"
+    "}\n"
+    ">_(answer)\n";
+  const std::string scrutinee_rebind =
+    "values <- @stdin: list[i32]\n"
+    "answer = -1\n"
+    "values.length ?= {\n"
+    "  0 => { /* empty */ }\n"
+    "  1 => { answer = values[0] }\n"
+    "  _ => {\n"
+    "    answer = values[0]\n"
+    "    n = values.length\n"
+    "    [1..n-1] >> #(i) => {\n"
+    "      ?(values[i] > answer) => { answer = values[i] }\n"
+    "    }\n"
+    "  }\n"
+    "}\n"
+    ">_(answer)\n";
+  const std::string guarded_cases =
+    "values <- @stdin: list[i32]\n"
+    "answer = -1\n"
+    "n = values.length\n"
+    "n ?= {\n"
+    "  (n == 0) => { /* empty */ }\n"
+    "  (n == 1) => { answer = values[0] }\n"
+    "  _______ => {\n"
+    "    answer = values[0]\n"
+    "    [1..n-1] >> #(i) => {\n"
+    "      ?(values[i] > answer) => { answer = values[i] }\n"
+    "    }\n"
+    "  }\n"
+    "}\n"
+    ">_(answer)\n";
+
+  const std::string expected =
+    compile_program_to_llvm_ir_engine_latest(hash_let_match, StyioParserEngine::Nightly);
+  EXPECT_EQ(
+    compile_program_to_llvm_ir_engine_latest(scrutinee_rebind, StyioParserEngine::Nightly),
+    expected
+  );
+  EXPECT_EQ(
+    compile_program_to_llvm_ir_engine_latest(guarded_cases, StyioParserEngine::Nightly),
+    expected
+  );
+  EXPECT_NE(expected.find("switch i64"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, PureArithmeticMatchFormsGenerateEquivalentLlvm) {
+  const std::string hash_let_match =
+    "seed = 1\n"
+    "answer = 0\n"
+    "#(n = seed + 1) ?= {\n"
+    "  1 => { answer = 11 }\n"
+    "  2 => { answer = 22 }\n"
+    "  _ => { answer = n }\n"
+    "}\n"
+    ">_(answer)\n";
+  const std::string scrutinee_rebind =
+    "seed = 1\n"
+    "answer = 0\n"
+    "seed + 1 ?= {\n"
+    "  1 => { answer = 11 }\n"
+    "  2 => { answer = 22 }\n"
+    "  _ => {\n"
+    "    n = seed + 1\n"
+    "    answer = n\n"
+    "  }\n"
+    "}\n"
+    ">_(answer)\n";
+  const std::string guarded_cases =
+    "seed = 1\n"
+    "answer = 0\n"
+    "n = seed + 1\n"
+    "n ?= {\n"
+    "  (n == 1) => { answer = 11 }\n"
+    "  (2 == n) => { answer = 22 }\n"
+    "  _______ => { answer = n }\n"
+    "}\n"
+    ">_(answer)\n";
+
+  const std::string expected =
+    compile_program_to_llvm_ir_engine_latest(hash_let_match, StyioParserEngine::Nightly);
+  EXPECT_EQ(
+    compile_program_to_llvm_ir_engine_latest(scrutinee_rebind, StyioParserEngine::Nightly),
+    expected
+  );
+  EXPECT_EQ(
+    compile_program_to_llvm_ir_engine_latest(guarded_cases, StyioParserEngine::Nightly),
+    expected
+  );
+  EXPECT_NE(expected.find("switch i64"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, AllowsMatrixTypedNestedListLiteral) {
+  const std::string src =
+    "m: matrix = [[1,0],[0,1]]\n"
+    "row = m[0]\n"
+    "cell = m[1][1]\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_matrix_new_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_set_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_row_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_get_i64"), std::string::npos);
+  EXPECT_EQ(llvm_ir.find("styio_list_new_list"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsRaggedMatrixTypedNestedListLiteral) {
+  const std::string src =
+    "m: matrix = [[1,0],[1]]\n";
+  EXPECT_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly),
+    StyioTypeError
+  );
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsStaticMatrixShapeMismatch) {
+  const std::string src =
+    "a: matrix = [[1,2],[3,4]]\n"
+    "b: matrix = [[1,2]]\n"
+    "c = a + b\n";
+  EXPECT_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly),
+    StyioTypeError
+  );
+}
+
+TEST(StyioSecurityNightlySemantics, InlinesSmallStaticMatrixMultiply) {
+  const std::string src =
+    "a: matrix = [[1,2],[3,4]]\n"
+    "b: matrix = [[5,6],[7,8]]\n"
+    "c = a * b\n";
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_matrix_data_i64"), std::string::npos);
+  EXPECT_EQ(llvm_ir.find("styio_matrix_matmul_i64"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, LowersMatrixIntrinsicFunctions) {
+  const std::string src =
+    "a: matrix = [[1,2],[3,4]]\n"
+    "b: matrix = [[5,6],[7,8]]\n"
+    "h = mat_hadamard(a,b)\n"
+    "t = transpose(a)\n"
+    "d = dot(a,b)\n";
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_matrix_hadamard_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_transpose_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_dot_i64"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, LeavesRaggedUntypedNestedListAsList) {
+  const std::string src =
+    "rows = [[1,0],[1]]\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+}
+
 TEST(StyioSecurityNightlySemantics, RejectsMixedDictValueFamilies) {
   const std::string src =
     "d = dict{\"a\": 1, \"b\": \"two\"}\n";
@@ -1565,7 +1778,7 @@ TEST(StyioSecurityNightlySemantics, AllowsBoundStdinAliasIteration) {
 
 TEST(StyioSecurityNightlySemantics, SymbolicStdinDefinitionCanPrecedeIteration) {
   const std::string src =
-    "@stdin := { <|[>_] }\n"
+    "@ stdin := #() => { <|[>_] }\n"
     "@stdin >> #(line) => {\n"
     "  line -> [>_]\n"
     "}\n";
@@ -1900,6 +2113,57 @@ TEST(StyioSecurityNightlyRuntime, DictHandlesAreCleanedUpAfterExecution) {
   );
   EXPECT_EQ(styio_dict_active_count(), 0);
   EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioSecurityNightlyRuntime, MatrixFinalBindHandlesStayLiveUntilScopeExit) {
+  const std::string src =
+    "m: matrix := [[1,2],[3,4]]\n"
+    "n = m + m\n"
+    "q = m + m\n"
+    ">_(q[0][0])\n";
+
+  EXPECT_NO_THROW(
+    execute_program_engine_with_stdin_latest(
+      src,
+      StyioParserEngine::Nightly,
+      ""
+    )
+  );
+  EXPECT_EQ(styio_matrix_active_count(), 0);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioSecurityNightlyRuntime, MatrixHandlesAreCleanedUpAfterOverwriteAndExecution) {
+  const std::string src =
+    "m: matrix = [[1,2],[3,4]]\n"
+    "m = m + m\n";
+
+  EXPECT_NO_THROW(
+    execute_program_engine_with_stdin_latest(
+      src,
+      StyioParserEngine::Nightly,
+      ""
+    )
+  );
+  EXPECT_EQ(styio_matrix_active_count(), 0);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioSecurityNightlyRuntime, RuntimeErrorReturnCleansMatrixHandles) {
+  const std::string src =
+    "m: matrix = [[1,2],[3,4]]\n"
+    ">_(m[9][0])\n";
+
+  EXPECT_NO_THROW(
+    execute_program_engine_with_stdin_latest(
+      src,
+      StyioParserEngine::Nightly,
+      ""
+    )
+  );
+  EXPECT_EQ(styio_matrix_active_count(), 0);
+  EXPECT_EQ(styio_runtime_has_error(), 1);
+  styio_runtime_clear_error();
 }
 
 TEST(StyioSecurityNightlyRuntime, NestedHandleDictsReleaseOwnedChildrenOnOverwrite) {
@@ -3101,6 +3365,30 @@ TEST(StyioSecurityAstOwnership, InstantPullOwnsResource) {
 
   delete node;
   EXPECT_EQ(path_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, TaskBlockOwnsBody) {
+  int stmt_destructed = 0;
+  auto* node = TaskBlockAST::Create(
+    BlockAST::Create(std::vector<StyioAST*>{
+      new CountingExprAST(&stmt_destructed),
+    })
+  );
+
+  delete node;
+  EXPECT_EQ(stmt_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, FlowBindOwnsSourceAndTarget) {
+  int source_destructed = 0;
+  int target_destructed = 0;
+  auto* node = FlowBindAST::Create(
+    new CountingExprAST(&source_destructed),
+    new CountingVarAST(&target_destructed));
+
+  delete node;
+  EXPECT_EQ(source_destructed, 1);
+  EXPECT_EQ(target_destructed, 1);
 }
 
 TEST(StyioSecurityAstOwnership, IterSeqOwnsHashTags) {

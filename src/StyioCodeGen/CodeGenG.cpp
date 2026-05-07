@@ -86,6 +86,8 @@ enum StyioDynTag : std::int64_t
   STYIO_DYN_CSTR = 4,
   STYIO_DYN_LIST = 5,
   STYIO_DYN_DICT = 6,
+  STYIO_DYN_MATRIX = 7,
+  STYIO_DYN_TASK = 8,
 };
 
 bool
@@ -130,6 +132,43 @@ ir_yields_dict_handle(StyioIR* value) {
   }
   return false;
 }
+
+bool
+ir_yields_matrix_handle(StyioIR* value) {
+  if (dynamic_cast<SCMatrixLiteral*>(value)) {
+    return true;
+  }
+  if (auto* load = dynamic_cast<SGDynLoad*>(value)) {
+    return load->kind == SGDynLoadKind::MatrixHandle;
+  }
+  if (auto* bin = dynamic_cast<SGBinOp*>(value)) {
+    return styio_is_matrix_type(bin->data_type->data_type);
+  }
+  if (auto* call = dynamic_cast<SGCall*>(value)) {
+    std::string name = call->func_name != nullptr ? call->func_name->as_str() : "";
+    return name.rfind("__styio_matrix_new_", 0) == 0
+      || name.rfind("__styio_matrix_identity_", 0) == 0
+      || name.rfind("__styio_matrix_clone_", 0) == 0
+      || name.rfind("__styio_matrix_add_", 0) == 0
+      || name.rfind("__styio_matrix_sub_", 0) == 0
+      || name.rfind("__styio_matrix_hadamard_", 0) == 0
+      || name.rfind("__styio_matrix_matmul_", 0) == 0
+      || name.rfind("__styio_matrix_scale_", 0) == 0
+      || name.rfind("__styio_matrix_transpose_", 0) == 0;
+  }
+  return false;
+}
+
+bool
+ir_yields_task_handle(StyioIR* value) {
+  if (dynamic_cast<SIOTaskCreate*>(value)) {
+    return true;
+  }
+  if (auto* load = dynamic_cast<SGDynLoad*>(value)) {
+    return load->kind == SGDynLoadKind::TaskHandle;
+  }
+  return false;
+}
 }  // namespace
 
 llvm::FunctionCallee
@@ -151,6 +190,20 @@ llvm::FunctionCallee
 StyioToLLVM::dict_release_fn() {
   return theModule->getOrInsertFunction(
     "styio_dict_release",
+    llvm::FunctionType::get(theBuilder->getVoidTy(), {theBuilder->getInt64Ty()}, false));
+}
+
+llvm::FunctionCallee
+StyioToLLVM::matrix_release_fn() {
+  return theModule->getOrInsertFunction(
+    "styio_matrix_release",
+    llvm::FunctionType::get(theBuilder->getVoidTy(), {theBuilder->getInt64Ty()}, false));
+}
+
+llvm::FunctionCallee
+StyioToLLVM::task_release_fn() {
+  return theModule->getOrInsertFunction(
+    "styio_task_release",
     llvm::FunctionType::get(theBuilder->getVoidTy(), {theBuilder->getInt64Ty()}, false));
 }
 
@@ -237,6 +290,9 @@ StyioToLLVM::free_resource_if_runtime_owned(llvm::Value* v, TempResourceKind kin
       break;
     case TempResourceKind::Dict:
       theBuilder->CreateCall(dict_release_fn(), {v});
+      break;
+    case TempResourceKind::Matrix:
+      theBuilder->CreateCall(matrix_release_fn(), {v});
       break;
   }
 }
@@ -325,10 +381,13 @@ StyioToLLVM::release_dynamic_slot_contents(llvm::AllocaInst* slot) {
   llvm::BasicBlock* cstr_bb = llvm::BasicBlock::Create(*theContext, "dynrel_cstr", F);
   llvm::BasicBlock* list_bb = llvm::BasicBlock::Create(*theContext, "dynrel_list", F);
   llvm::BasicBlock* dict_bb = llvm::BasicBlock::Create(*theContext, "dynrel_dict", F);
+  llvm::BasicBlock* matrix_bb = llvm::BasicBlock::Create(*theContext, "dynrel_matrix", F);
 
   llvm::Value* is_cstr = theBuilder->CreateICmpEQ(tag, theBuilder->getInt64(STYIO_DYN_CSTR));
   llvm::Value* is_list = theBuilder->CreateICmpEQ(tag, theBuilder->getInt64(STYIO_DYN_LIST));
   llvm::Value* is_dict = theBuilder->CreateICmpEQ(tag, theBuilder->getInt64(STYIO_DYN_DICT));
+  llvm::Value* is_matrix = theBuilder->CreateICmpEQ(tag, theBuilder->getInt64(STYIO_DYN_MATRIX));
+  llvm::Value* is_task = theBuilder->CreateICmpEQ(tag, theBuilder->getInt64(STYIO_DYN_TASK));
   theBuilder->CreateCondBr(is_cstr, cstr_bb, list_bb);
 
   theBuilder->SetInsertPoint(cstr_bb);
@@ -347,11 +406,30 @@ StyioToLLVM::release_dynamic_slot_contents(llvm::AllocaInst* slot) {
 
   theBuilder->SetInsertPoint(dict_bb);
   llvm::BasicBlock* dict_release_bb = llvm::BasicBlock::Create(*theContext, "dynrel_dict_do", F);
-  theBuilder->CreateCondBr(is_dict, dict_release_bb, done_bb);
+  theBuilder->CreateCondBr(is_dict, dict_release_bb, matrix_bb);
 
   theBuilder->SetInsertPoint(dict_release_bb);
   llvm::Value* dict_handle = theBuilder->CreateLoad(theBuilder->getInt64Ty(), i64_gep);
   theBuilder->CreateCall(dict_release_fn(), {dict_handle});
+  theBuilder->CreateBr(done_bb);
+
+  theBuilder->SetInsertPoint(matrix_bb);
+  llvm::BasicBlock* matrix_release_bb = llvm::BasicBlock::Create(*theContext, "dynrel_matrix_do", F);
+  llvm::BasicBlock* task_bb = llvm::BasicBlock::Create(*theContext, "dynrel_task", F);
+  theBuilder->CreateCondBr(is_matrix, matrix_release_bb, task_bb);
+
+  theBuilder->SetInsertPoint(matrix_release_bb);
+  llvm::Value* matrix_handle = theBuilder->CreateLoad(theBuilder->getInt64Ty(), i64_gep);
+  theBuilder->CreateCall(matrix_release_fn(), {matrix_handle});
+  theBuilder->CreateBr(done_bb);
+
+  theBuilder->SetInsertPoint(task_bb);
+  llvm::BasicBlock* task_release_bb = llvm::BasicBlock::Create(*theContext, "dynrel_task_do", F);
+  theBuilder->CreateCondBr(is_task, task_release_bb, done_bb);
+
+  theBuilder->SetInsertPoint(task_release_bb);
+  llvm::Value* task_handle = theBuilder->CreateLoad(theBuilder->getInt64Ty(), i64_gep);
+  theBuilder->CreateCall(task_release_fn(), {task_handle});
   theBuilder->CreateBr(done_bb);
 
   theBuilder->SetInsertPoint(done_bb);
@@ -412,6 +490,8 @@ StyioToLLVM::toLLVMIR(SGDynLoad* node) {
       case SGDynLoadKind::I64:
       case SGDynLoadKind::ListHandle:
       case SGDynLoadKind::DictHandle:
+      case SGDynLoadKind::MatrixHandle:
+      case SGDynLoadKind::TaskHandle:
         return theBuilder->getInt64(0);
     }
   }
@@ -431,6 +511,8 @@ StyioToLLVM::toLLVMIR(SGDynLoad* node) {
     case SGDynLoadKind::I64:
     case SGDynLoadKind::ListHandle:
     case SGDynLoadKind::DictHandle:
+    case SGDynLoadKind::MatrixHandle:
+    case SGDynLoadKind::TaskHandle:
       return theBuilder->CreateLoad(theBuilder->getInt64Ty(), i64_gep);
     case SGDynLoadKind::F64:
       return theBuilder->CreateLoad(theBuilder->getDoubleTy(), f64_gep);
@@ -544,6 +626,169 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
   llvm::Value* l_val = node->lhs_expr->toLLVMIR(this);
   llvm::Value* r_val = node->rhs_expr->toLLVMIR(this);
   llvm::Value* const styioUndef = theBuilder->getInt64(styio_undef_i64());
+
+  if (styio_is_matrix_type(data_type)) {
+    const bool lhs_matrix = styio_is_matrix_type(node->lhs_type);
+    const bool rhs_matrix = styio_is_matrix_type(node->rhs_type);
+    const bool result_f64 =
+      styio_value_family_from_type_name(styio_matrix_elem_type_name(data_type))
+      == StyioValueFamily::Float;
+    auto matrix_suffix = [&](const StyioDataType& type) {
+      return styio_value_family_from_type_name(styio_matrix_elem_type_name(type))
+          == StyioValueFamily::Float
+        ? std::string("f64")
+        : std::string("i64");
+    };
+    auto coerce_i64 = [&](llvm::Value* v) -> llvm::Value* {
+      if (v->getType()->isIntegerTy(64)) {
+        return v;
+      }
+      if (v->getType()->isDoubleTy()) {
+        return theBuilder->CreateFPToSI(v, theBuilder->getInt64Ty());
+      }
+      return v->getType()->isIntegerTy()
+        ? theBuilder->CreateSExtOrTrunc(v, theBuilder->getInt64Ty())
+        : theBuilder->getInt64(0);
+    };
+    auto coerce_f64 = [&](llvm::Value* v) -> llvm::Value* {
+      if (v->getType()->isDoubleTy()) {
+        return v;
+      }
+      return v->getType()->isIntegerTy()
+        ? theBuilder->CreateSIToFP(v, theBuilder->getDoubleTy())
+        : llvm::ConstantFP::get(theBuilder->getDoubleTy(), 0.0);
+    };
+    auto matrix_helper_call = [&](const std::string& name, std::vector<llvm::Value*> args) -> llvm::Value* {
+      std::vector<llvm::Type*> tys;
+      tys.reserve(args.size());
+      for (llvm::Value* arg : args) {
+        tys.push_back(arg->getType()->isDoubleTy() ? theBuilder->getDoubleTy() : theBuilder->getInt64Ty());
+      }
+      llvm::FunctionCallee fn = theModule->getOrInsertFunction(
+        name,
+        llvm::FunctionType::get(theBuilder->getInt64Ty(), tys, false));
+      llvm::Value* out = theBuilder->CreateCall(fn, args);
+      track_owned_resource_temp(out, TempResourceKind::Matrix);
+      return out;
+    };
+    auto emit_inline_matrix_binary = [&]() -> llvm::Value* {
+      if (!lhs_matrix || !rhs_matrix) {
+        return nullptr;
+      }
+      const size_t rows = styio_matrix_row_count(data_type);
+      const size_t cols = styio_matrix_col_count(data_type);
+      const size_t lhs_cols = styio_matrix_col_count(node->lhs_type);
+      if (rows == 0 || cols == 0 || rows > 4 || cols > 4 || lhs_cols > 4) {
+        return nullptr;
+      }
+      if (matrix_suffix(node->lhs_type) != matrix_suffix(data_type)
+          || matrix_suffix(node->rhs_type) != matrix_suffix(data_type)) {
+        return nullptr;
+      }
+      if (node->operand != StyioOpType::Binary_Add
+          && node->operand != StyioOpType::Binary_Sub
+          && node->operand != StyioOpType::Binary_Mul) {
+        return nullptr;
+      }
+      llvm::Type* elem_ty = result_f64 ? theBuilder->getDoubleTy() : theBuilder->getInt64Ty();
+      std::string suffix = result_f64 ? "f64" : "i64";
+      llvm::FunctionCallee new_fn = theModule->getOrInsertFunction(
+        "styio_matrix_new_" + suffix,
+        llvm::FunctionType::get(
+          theBuilder->getInt64Ty(),
+          {theBuilder->getInt64Ty(), theBuilder->getInt64Ty()},
+          false));
+      llvm::FunctionCallee data_fn = theModule->getOrInsertFunction(
+        "styio_matrix_data_" + suffix,
+        llvm::FunctionType::get(
+          llvm::PointerType::get(*theContext, 0),
+          {theBuilder->getInt64Ty()},
+          false));
+      llvm::Value* out = theBuilder->CreateCall(
+        new_fn,
+        {theBuilder->getInt64(static_cast<std::int64_t>(rows)),
+         theBuilder->getInt64(static_cast<std::int64_t>(cols))});
+      emit_runtime_error_guard_return();
+      llvm::Value* lhs_ptr = theBuilder->CreateCall(data_fn, {coerce_i64(l_val)});
+      llvm::Value* rhs_ptr = theBuilder->CreateCall(data_fn, {coerce_i64(r_val)});
+      llvm::Value* out_ptr = theBuilder->CreateCall(data_fn, {out});
+      emit_runtime_error_guard_return();
+      auto load_at = [&](llvm::Value* ptr, size_t index) -> llvm::Value* {
+        llvm::Value* gep = theBuilder->CreateInBoundsGEP(
+          elem_ty,
+          ptr,
+          theBuilder->getInt64(static_cast<std::int64_t>(index)));
+        return theBuilder->CreateLoad(elem_ty, gep);
+      };
+      auto store_at = [&](size_t index, llvm::Value* value) {
+        llvm::Value* gep = theBuilder->CreateInBoundsGEP(
+          elem_ty,
+          out_ptr,
+          theBuilder->getInt64(static_cast<std::int64_t>(index)));
+        theBuilder->CreateStore(value, gep);
+      };
+      if (node->operand == StyioOpType::Binary_Add || node->operand == StyioOpType::Binary_Sub) {
+        for (size_t i = 0; i < rows * cols; ++i) {
+          llvm::Value* a = load_at(lhs_ptr, i);
+          llvm::Value* b = load_at(rhs_ptr, i);
+          llvm::Value* v = node->operand == StyioOpType::Binary_Add
+            ? (result_f64 ? theBuilder->CreateFAdd(a, b) : theBuilder->CreateAdd(a, b))
+            : (result_f64 ? theBuilder->CreateFSub(a, b) : theBuilder->CreateSub(a, b));
+          store_at(i, v);
+        }
+      }
+      else {
+        for (size_t r = 0; r < rows; ++r) {
+          for (size_t c = 0; c < cols; ++c) {
+            llvm::Value* sum = result_f64
+              ? static_cast<llvm::Value*>(llvm::ConstantFP::get(elem_ty, 0.0))
+              : static_cast<llvm::Value*>(theBuilder->getInt64(0));
+            for (size_t k = 0; k < lhs_cols; ++k) {
+              llvm::Value* a = load_at(lhs_ptr, r * lhs_cols + k);
+              llvm::Value* b = load_at(rhs_ptr, k * cols + c);
+              llvm::Value* prod = result_f64
+                ? theBuilder->CreateFMul(a, b)
+                : theBuilder->CreateMul(a, b);
+              sum = result_f64
+                ? theBuilder->CreateFAdd(sum, prod)
+                : theBuilder->CreateAdd(sum, prod);
+            }
+            store_at(r * cols + c, sum);
+          }
+        }
+      }
+      free_owned_resource_temp_if_tracked(l_val);
+      free_owned_resource_temp_if_tracked(r_val);
+      track_owned_resource_temp(out, TempResourceKind::Matrix);
+      return out;
+    };
+    if (llvm::Value* out = emit_inline_matrix_binary()) {
+      return out;
+    }
+    std::string suffix = result_f64 ? "f64" : "i64";
+    if (lhs_matrix && rhs_matrix) {
+      const char* op_name = node->operand == StyioOpType::Binary_Add
+        ? "add"
+        : (node->operand == StyioOpType::Binary_Sub ? "sub" : "matmul");
+      llvm::Value* out = matrix_helper_call(
+        std::string("styio_matrix_") + op_name + "_" + suffix,
+        {coerce_i64(l_val), coerce_i64(r_val)});
+      free_owned_resource_temp_if_tracked(l_val);
+      free_owned_resource_temp_if_tracked(r_val);
+      emit_runtime_error_guard_return();
+      return out;
+    }
+    if (node->operand == StyioOpType::Binary_Mul && (lhs_matrix || rhs_matrix)) {
+      llvm::Value* matrix = lhs_matrix ? l_val : r_val;
+      llvm::Value* scalar = lhs_matrix ? r_val : l_val;
+      llvm::Value* out = result_f64
+        ? matrix_helper_call("styio_matrix_scale_f64", {coerce_i64(matrix), coerce_f64(scalar)})
+        : matrix_helper_call("styio_matrix_scale_i64", {coerce_i64(matrix), coerce_i64(scalar)});
+      free_owned_resource_temp_if_tracked(matrix);
+      emit_runtime_error_guard_return();
+      return out;
+    }
+  }
 
   switch (node->operand) {
     case StyioOpType::Binary_Add: {
@@ -943,6 +1188,14 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
       tag = STYIO_DYN_DICT;
       i64v = next_value;
     }
+    else if (ir_yields_matrix_handle(node->value)) {
+      tag = STYIO_DYN_MATRIX;
+      i64v = next_value;
+    }
+    else if (ir_yields_task_handle(node->value)) {
+      tag = STYIO_DYN_TASK;
+      i64v = next_value;
+    }
     else if (next_value->getType()->isPointerTy()) {
       tag = STYIO_DYN_CSTR;
       ptrv = next_value;
@@ -967,7 +1220,8 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
     if (tag == STYIO_DYN_CSTR) {
       forget_owned_cstr_temp(next_value);
     }
-    if (tag == STYIO_DYN_LIST || tag == STYIO_DYN_DICT) {
+    if (tag == STYIO_DYN_LIST || tag == STYIO_DYN_DICT || tag == STYIO_DYN_MATRIX
+        || tag == STYIO_DYN_TASK) {
       forget_owned_resource_temp(next_value);
     }
     return variable;
@@ -1036,6 +1290,14 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
       tag = STYIO_DYN_DICT;
       i64v = value;
     }
+    else if (ir_yields_matrix_handle(node->value)) {
+      tag = STYIO_DYN_MATRIX;
+      i64v = value;
+    }
+    else if (ir_yields_task_handle(node->value)) {
+      tag = STYIO_DYN_TASK;
+      i64v = value;
+    }
     else if (value->getType()->isPointerTy()) {
       tag = STYIO_DYN_CSTR;
       ptrv = value;
@@ -1057,7 +1319,8 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
     if (tag == STYIO_DYN_CSTR) {
       forget_owned_cstr_temp(value);
     }
-    if (tag == STYIO_DYN_LIST || tag == STYIO_DYN_DICT) {
+    if (tag == STYIO_DYN_LIST || tag == STYIO_DYN_DICT || tag == STYIO_DYN_MATRIX
+        || tag == STYIO_DYN_TASK) {
       forget_owned_resource_temp(value);
     }
     mutable_variables[varname] = variable;
@@ -1300,6 +1563,7 @@ StyioToLLVM::emit_runtime_error_guard_return() {
   theBuilder->CreateCondBr(bad, abort_bb, cont_bb);
 
   theBuilder->SetInsertPoint(abort_bb);
+  emit_active_scope_cleanup();
   llvm::Type* ret_ty = fn->getReturnType();
   if (ret_ty->isVoidTy()) {
     theBuilder->CreateRetVoid();
@@ -1587,6 +1851,122 @@ StyioToLLVM::toLLVMIR(SGCall* node) {
     }
     free_owned_resource_temp_if_tracked(list_raw);
     return theBuilder->getInt64(0);
+  }
+
+  if (fname.rfind("__styio_matrix_", 0) == 0) {
+    std::string runtime_name = fname.substr(2);
+    llvm::Type* i64 = theBuilder->getInt64Ty();
+    llvm::Type* f64 = theBuilder->getDoubleTy();
+    auto coerce_i64 = [&](llvm::Value* v) -> llvm::Value* {
+      if (v->getType()->isIntegerTy(64)) {
+        return v;
+      }
+      if (v->getType()->isDoubleTy()) {
+        return theBuilder->CreateFPToSI(v, i64);
+      }
+      if (v->getType()->isIntegerTy()) {
+        return theBuilder->CreateSExtOrTrunc(v, i64);
+      }
+      return theBuilder->getInt64(0);
+    };
+    auto coerce_f64 = [&](llvm::Value* v) -> llvm::Value* {
+      if (v->getType()->isDoubleTy()) {
+        return v;
+      }
+      if (v->getType()->isIntegerTy()) {
+        return theBuilder->CreateSIToFP(v, f64);
+      }
+      return llvm::ConstantFP::get(f64, 0.0);
+    };
+    auto emit_call = [&](llvm::Type* ret_ty, std::vector<llvm::Type*> params) -> llvm::Value* {
+      if (node->func_args.size() != params.size()) {
+        throw StyioTypeError(
+          "matrix runtime helper `" + runtime_name + "` expects "
+          + std::to_string(params.size()) + " argument(s), got "
+          + std::to_string(node->func_args.size()));
+      }
+      llvm::FunctionCallee fn = theModule->getOrInsertFunction(
+        runtime_name,
+        llvm::FunctionType::get(ret_ty, params, false));
+      std::vector<llvm::Value*> args;
+      args.reserve(params.size());
+      for (size_t i = 0; i < params.size(); ++i) {
+        llvm::Value* raw = node->func_args[i]->toLLVMIR(this);
+        args.push_back(params[i]->isDoubleTy() ? coerce_f64(raw) : coerce_i64(raw));
+      }
+      return theBuilder->CreateCall(fn, args);
+    };
+    auto matrix_result = [&](llvm::Value* out) -> llvm::Value* {
+      track_owned_resource_temp(out, TempResourceKind::Matrix);
+      return out;
+    };
+    auto list_result = [&](llvm::Value* out) -> llvm::Value* {
+      track_owned_resource_temp(out, TempResourceKind::List);
+      return out;
+    };
+
+    if (runtime_name == "styio_matrix_new_i64"
+        || runtime_name == "styio_matrix_new_f64") {
+      return matrix_result(emit_call(i64, {i64, i64}));
+    }
+    if (runtime_name == "styio_matrix_identity_i64"
+        || runtime_name == "styio_matrix_identity_f64"
+        || runtime_name == "styio_matrix_clone_i64"
+        || runtime_name == "styio_matrix_clone_f64"
+        || runtime_name == "styio_matrix_transpose_i64"
+        || runtime_name == "styio_matrix_transpose_f64") {
+      return matrix_result(emit_call(i64, {i64}));
+    }
+    if (runtime_name == "styio_matrix_rows"
+        || runtime_name == "styio_matrix_cols") {
+      return emit_call(i64, {i64});
+    }
+    if (runtime_name == "styio_matrix_shape") {
+      return list_result(emit_call(i64, {i64}));
+    }
+    if (runtime_name == "styio_matrix_get_i64") {
+      return emit_call(i64, {i64, i64, i64});
+    }
+    if (runtime_name == "styio_matrix_get_f64") {
+      return emit_call(f64, {i64, i64, i64});
+    }
+    if (runtime_name == "styio_matrix_set_i64") {
+      emit_call(theBuilder->getVoidTy(), {i64, i64, i64, i64});
+      return theBuilder->getInt64(0);
+    }
+    if (runtime_name == "styio_matrix_set_f64") {
+      emit_call(theBuilder->getVoidTy(), {i64, i64, i64, f64});
+      return theBuilder->getInt64(0);
+    }
+    if (runtime_name == "styio_matrix_add_i64"
+        || runtime_name == "styio_matrix_add_f64"
+        || runtime_name == "styio_matrix_sub_i64"
+        || runtime_name == "styio_matrix_sub_f64"
+        || runtime_name == "styio_matrix_hadamard_i64"
+        || runtime_name == "styio_matrix_hadamard_f64"
+        || runtime_name == "styio_matrix_matmul_i64"
+        || runtime_name == "styio_matrix_matmul_f64") {
+      return matrix_result(emit_call(i64, {i64, i64}));
+    }
+    if (runtime_name == "styio_matrix_scale_i64") {
+      return matrix_result(emit_call(i64, {i64, i64}));
+    }
+    if (runtime_name == "styio_matrix_scale_f64") {
+      return matrix_result(emit_call(i64, {i64, f64}));
+    }
+    if (runtime_name == "styio_matrix_dot_i64") {
+      return emit_call(i64, {i64, i64});
+    }
+    if (runtime_name == "styio_matrix_dot_f64") {
+      return emit_call(f64, {i64, i64});
+    }
+    if (runtime_name == "styio_matrix_sum_i64") {
+      return emit_call(i64, {i64});
+    }
+    if (runtime_name == "styio_matrix_sum_f64"
+        || runtime_name == "styio_matrix_norm") {
+      return emit_call(f64, {i64});
+    }
   }
 
   llvm::Function* callee = theModule->getFunction(fname);
@@ -2260,6 +2640,54 @@ StyioToLLVM::toLLVMIR(SCListLiteral* node) {
 }
 
 llvm::Value*
+StyioToLLVM::toLLVMIR(SCMatrixLiteral* node) {
+  const bool is_f64 = styio_value_family_from_type_name(node->elem_type) == StyioValueFamily::Float;
+  const char* new_name = is_f64 ? "styio_matrix_new_f64" : "styio_matrix_new_i64";
+  const char* set_name = is_f64 ? "styio_matrix_set_f64" : "styio_matrix_set_i64";
+  llvm::Type* value_type = is_f64 ? theBuilder->getDoubleTy() : theBuilder->getInt64Ty();
+  llvm::FunctionCallee new_fn = theModule->getOrInsertFunction(
+    new_name,
+    llvm::FunctionType::get(
+      theBuilder->getInt64Ty(),
+      {theBuilder->getInt64Ty(), theBuilder->getInt64Ty()},
+      false));
+  llvm::FunctionCallee set_fn = theModule->getOrInsertFunction(
+    set_name,
+    llvm::FunctionType::get(
+      theBuilder->getVoidTy(),
+      {theBuilder->getInt64Ty(), theBuilder->getInt64Ty(), theBuilder->getInt64Ty(), value_type},
+      false));
+  llvm::Value* matrix = theBuilder->CreateCall(
+    new_fn,
+    {theBuilder->getInt64(static_cast<std::int64_t>(node->rows)),
+     theBuilder->getInt64(static_cast<std::int64_t>(node->cols))});
+  emit_runtime_error_guard_return();
+  for (size_t i = 0; i < node->elems.size(); ++i) {
+    llvm::Value* value = node->elems[i]->toLLVMIR(this);
+    if (is_f64) {
+      if (!value->getType()->isDoubleTy()) {
+        value = value->getType()->isIntegerTy()
+          ? theBuilder->CreateSIToFP(value, theBuilder->getDoubleTy())
+          : llvm::ConstantFP::get(theBuilder->getDoubleTy(), 0.0);
+      }
+    }
+    else if (!value->getType()->isIntegerTy(64)) {
+      value = value->getType()->isIntegerTy(1)
+        ? theBuilder->CreateZExt(value, theBuilder->getInt64Ty())
+        : theBuilder->CreateSExtOrTrunc(value, theBuilder->getInt64Ty());
+    }
+    theBuilder->CreateCall(
+      set_fn,
+      {matrix,
+       theBuilder->getInt64(static_cast<std::int64_t>(i / node->cols)),
+       theBuilder->getInt64(static_cast<std::int64_t>(i % node->cols)),
+       value});
+  }
+  track_owned_resource_temp(matrix, TempResourceKind::Matrix);
+  return matrix;
+}
+
+llvm::Value*
 StyioToLLVM::toLLVMIR(SCDictLiteral* node) {
   StyioValueFamily value_family = styio_value_family_from_type_name(node->value_type);
   const char* new_name = "styio_dict_new_i64";
@@ -2509,24 +2937,86 @@ StyioToLLVM::register_dynamic_slot_for_raii(llvm::AllocaInst* slot) {
 }
 
 void
+StyioToLLVM::emit_active_scope_cleanup() {
+  std::unordered_set<llvm::AllocaInst*> closed_file_slots;
+  if (!file_handle_scope_stack_.empty()) {
+    llvm::FunctionCallee close_fn = theModule->getOrInsertFunction(
+      "styio_file_close",
+      llvm::FunctionType::get(
+        theBuilder->getVoidTy(),
+        {theBuilder->getInt64Ty()},
+        false));
+    for (auto scope_it = file_handle_scope_stack_.rbegin();
+         scope_it != file_handle_scope_stack_.rend();
+         ++scope_it) {
+      for (const std::string& v : *scope_it) {
+        auto it = mutable_variables.find(v);
+        if (it == mutable_variables.end()) {
+          continue;
+        }
+        llvm::AllocaInst* slot = it->second;
+        if (!closed_file_slots.insert(slot).second) {
+          continue;
+        }
+        llvm::Value* h = theBuilder->CreateLoad(theBuilder->getInt64Ty(), slot);
+        theBuilder->CreateCall(close_fn, {h});
+      }
+    }
+  }
+
+  std::unordered_set<llvm::AllocaInst*> freed_cstr_slots;
+  for (auto scope_it = cstr_slot_scope_stack_.rbegin();
+       scope_it != cstr_slot_scope_stack_.rend();
+       ++scope_it) {
+    for (llvm::AllocaInst* slot : *scope_it) {
+      if (slot == nullptr || !slot->getAllocatedType()->isPointerTy()) {
+        continue;
+      }
+      if (!freed_cstr_slots.insert(slot).second) {
+        continue;
+      }
+      llvm::Value* s = theBuilder->CreateLoad(slot->getAllocatedType(), slot);
+      free_cstr_if_runtime_owned(s);
+    }
+  }
+
+  std::unordered_set<llvm::AllocaInst*> released_dynamic_slots;
+  for (auto scope_it = dynamic_slot_scope_stack_.rbegin();
+       scope_it != dynamic_slot_scope_stack_.rend();
+       ++scope_it) {
+    for (llvm::AllocaInst* slot : *scope_it) {
+      if (slot == nullptr) {
+        continue;
+      }
+      if (!released_dynamic_slots.insert(slot).second) {
+        continue;
+      }
+      release_dynamic_slot_contents(slot);
+    }
+  }
+}
+
+void
 StyioToLLVM::pop_file_handle_scope() {
   if (file_handle_scope_stack_.empty()) {
     return;
   }
-  llvm::FunctionCallee close_fn = theModule->getOrInsertFunction(
-    "styio_file_close",
-    llvm::FunctionType::get(
-      theBuilder->getVoidTy(),
-      {theBuilder->getInt64Ty()},
-      false));
-  std::unordered_set<llvm::AllocaInst*> closed_slots;
-  for (const std::string& v : file_handle_scope_stack_.back()) {
-    auto it = mutable_variables.find(v);
-    if (it != mutable_variables.end()) {
-      llvm::AllocaInst* slot = it->second;
-      if (closed_slots.insert(slot).second) {
-        llvm::Value* h = theBuilder->CreateLoad(theBuilder->getInt64Ty(), slot);
-        theBuilder->CreateCall(close_fn, {h});
+  if (!file_handle_scope_stack_.back().empty()) {
+    llvm::FunctionCallee close_fn = theModule->getOrInsertFunction(
+      "styio_file_close",
+      llvm::FunctionType::get(
+        theBuilder->getVoidTy(),
+        {theBuilder->getInt64Ty()},
+        false));
+    std::unordered_set<llvm::AllocaInst*> closed_slots;
+    for (const std::string& v : file_handle_scope_stack_.back()) {
+      auto it = mutable_variables.find(v);
+      if (it != mutable_variables.end()) {
+        llvm::AllocaInst* slot = it->second;
+        if (closed_slots.insert(slot).second) {
+          llvm::Value* h = theBuilder->CreateLoad(theBuilder->getInt64Ty(), slot);
+          theBuilder->CreateCall(close_fn, {h});
+        }
       }
     }
   }
@@ -2969,6 +3459,74 @@ StyioToLLVM::toLLVMIR(SCListToString* node) {
   }
   llvm::Value* out = theBuilder->CreateCall(str_fn, {list});
   free_owned_resource_temp_if_tracked(list);
+  track_owned_cstr_temp(out);
+  return out;
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SCMatrixGet* node) {
+  const bool is_f64 = styio_value_family_from_type_name(node->elem_type) == StyioValueFamily::Float;
+  llvm::FunctionCallee get_fn = theModule->getOrInsertFunction(
+    is_f64 ? "styio_matrix_get_f64" : "styio_matrix_get_i64",
+    llvm::FunctionType::get(
+      is_f64 ? theBuilder->getDoubleTy() : theBuilder->getInt64Ty(),
+      {theBuilder->getInt64Ty(), theBuilder->getInt64Ty(), theBuilder->getInt64Ty()},
+      false));
+  llvm::Value* matrix = node->matrix->toLLVMIR(this);
+  llvm::Value* row = node->row->toLLVMIR(this);
+  llvm::Value* col = node->col->toLLVMIR(this);
+  if (!matrix->getType()->isIntegerTy(64)) {
+    matrix = theBuilder->CreateSExtOrTrunc(matrix, theBuilder->getInt64Ty());
+  }
+  if (!row->getType()->isIntegerTy(64)) {
+    row = theBuilder->CreateSExtOrTrunc(row, theBuilder->getInt64Ty());
+  }
+  if (!col->getType()->isIntegerTy(64)) {
+    col = theBuilder->CreateSExtOrTrunc(col, theBuilder->getInt64Ty());
+  }
+  llvm::Value* out = theBuilder->CreateCall(get_fn, {matrix, row, col});
+  free_owned_resource_temp_if_tracked(matrix);
+  emit_runtime_error_guard_return();
+  return out;
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SCMatrixRow* node) {
+  const bool is_f64 = styio_value_family_from_type_name(node->elem_type) == StyioValueFamily::Float;
+  llvm::FunctionCallee row_fn = theModule->getOrInsertFunction(
+    is_f64 ? "styio_matrix_row_f64" : "styio_matrix_row_i64",
+    llvm::FunctionType::get(
+      theBuilder->getInt64Ty(),
+      {theBuilder->getInt64Ty(), theBuilder->getInt64Ty()},
+      false));
+  llvm::Value* matrix = node->matrix->toLLVMIR(this);
+  llvm::Value* row = node->row->toLLVMIR(this);
+  if (!matrix->getType()->isIntegerTy(64)) {
+    matrix = theBuilder->CreateSExtOrTrunc(matrix, theBuilder->getInt64Ty());
+  }
+  if (!row->getType()->isIntegerTy(64)) {
+    row = theBuilder->CreateSExtOrTrunc(row, theBuilder->getInt64Ty());
+  }
+  llvm::Value* out = theBuilder->CreateCall(row_fn, {matrix, row});
+  free_owned_resource_temp_if_tracked(matrix);
+  emit_runtime_error_guard_return();
+  track_owned_resource_temp(out, TempResourceKind::List);
+  return out;
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SCMatrixToString* node) {
+  llvm::Type* char_ptr = llvm::PointerType::get(*theContext, 0);
+  llvm::FunctionCallee str_fn = theModule->getOrInsertFunction(
+    "styio_matrix_to_cstr",
+    llvm::FunctionType::get(char_ptr, {theBuilder->getInt64Ty()}, false));
+  llvm::Value* matrix = node->matrix->toLLVMIR(this);
+  if (!matrix->getType()->isIntegerTy(64)) {
+    matrix = theBuilder->CreateSExtOrTrunc(matrix, theBuilder->getInt64Ty());
+  }
+  llvm::Value* out = theBuilder->CreateCall(str_fn, {matrix});
+  free_owned_resource_temp_if_tracked(matrix);
+  emit_runtime_error_guard_return();
   track_owned_cstr_temp(out);
   return out;
 }

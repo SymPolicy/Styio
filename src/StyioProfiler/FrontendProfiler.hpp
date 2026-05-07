@@ -46,6 +46,22 @@ public:
     std::uint64_t nightly_declined_statements,
     std::uint64_t legacy_fallback_statements,
     std::uint64_t nightly_internal_legacy_bridges);
+  void set_async_scheduler_stats(
+    std::int64_t enabled,
+    std::int64_t worker_count,
+    std::int64_t active_tasks,
+    std::int64_t ready_tasks,
+    std::int64_t spawned_tasks,
+    std::int64_t enqueued_tasks,
+    std::int64_t started_tasks,
+    std::int64_t completed_tasks,
+    std::int64_t pulled_tasks,
+    std::int64_t released_tasks,
+    std::int64_t fast_ready_pulls,
+    std::int64_t blocking_pulls,
+    std::int64_t failed_pulls,
+    std::int64_t invalid_pulls,
+    std::int64_t max_queue_depth);
   void add_counter(std::string name, std::int64_t value);
   void mark_status(std::string status, std::string detail = std::string());
 
@@ -70,6 +86,26 @@ private:
     std::uint64_t nightly_internal_legacy_bridges = 0;
   };
 
+  struct AsyncSchedulerRecord
+  {
+    bool present = false;
+    std::int64_t enabled = 0;
+    std::int64_t worker_count = 0;
+    std::int64_t active_tasks = 0;
+    std::int64_t ready_tasks = 0;
+    std::int64_t spawned_tasks = 0;
+    std::int64_t enqueued_tasks = 0;
+    std::int64_t started_tasks = 0;
+    std::int64_t completed_tasks = 0;
+    std::int64_t pulled_tasks = 0;
+    std::int64_t released_tasks = 0;
+    std::int64_t fast_ready_pulls = 0;
+    std::int64_t blocking_pulls = 0;
+    std::int64_t failed_pulls = 0;
+    std::int64_t invalid_pulls = 0;
+    std::int64_t max_queue_depth = 0;
+  };
+
   bool enabled_ = false;
   bool written_ = false;
   std::string file_path_;
@@ -83,6 +119,7 @@ private:
   std::map<std::string, std::int64_t> counters_;
   std::map<std::string, std::uint64_t> token_histogram_;
   ParserRouteRecord parser_route_;
+  AsyncSchedulerRecord async_scheduler_;
 };
 
 } // namespace styio::profiler

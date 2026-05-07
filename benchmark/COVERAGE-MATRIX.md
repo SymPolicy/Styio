@@ -65,6 +65,9 @@
 - `Full-stack matrix`
   - 覆盖 CLI 从 parser 到 execute 的总墙钟时间
   - 覆盖 `Scalar / Bindings / Functions / ControlFlow / Collections / Resources / Streams / StateAndSeries / Topology`
+- `Async runtime matrix`
+  - 覆盖 `Styio task scheduler / C++ stackless coroutine / Go goroutine / Rust Tokio`
+  - 当前冻结 `sleep` 阻塞任务并发收敛与 `noop` fanout 调度开销，报告入口为 `benchmark/async-runtime/run-async-bench.py`
 - `Error-path matrix`
   - 覆盖 `lex / parse / type / runtime` 失败路径
   - 当前覆盖 `lex.unterminated_block_comment`、`parse.empty_match_cases`、`type.final_then_flex_i64`、`runtime.read_missing_file`
@@ -193,7 +196,9 @@
    - `CompilerErrorPathBenchmarksReport` 冻结 `lex / parse / type / runtime` 代表性失败路径的 wall-clock、退出码和诊断码
 5. 已完成 benchmark 结果归档
    - `benchmark/perf-route.sh` 现在会生成 `metadata.tsv / sections.tsv / results.json / benchmarks.csv / summary.md`
-6. 下一批优先项
+6. 已完成异步运行时横向基准
+   - `benchmark/async-runtime/run-async-bench.py` 生成 Styio / C++ stackless coroutine / Go goroutine / Rust Tokio 对比报告，并支持在 `build/async-runtime-toolchains` 下本地 bootstrap Go/Rust
+7. 下一批优先项
    - 新增 `small / medium / large` 规模 sweep
    - 扩 error-path benchmark 子类
    - 增加 benchmark catalog / baseline diff 自动校验

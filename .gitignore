@@ -27,6 +27,9 @@ reports/
 benchmark/reports/*
 !benchmark/reports/
 !benchmark/reports/README.md
+!benchmark/async-runtime/
+!benchmark/async-runtime/reports/
+!benchmark/async-runtime/reports/**
 
 # Visual Studio Code cache
 /.vscode/

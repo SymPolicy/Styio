@@ -1,44 +1,57 @@
 # Resource Identifiers
 
-**Purpose:** Define the current Styio resource identifier design surface as compact built-in symbolic definitions.
+**Purpose:** Define the current Styio resource identifier design surface as internal Styio resource declarations.
 
-**Last updated:** 2026-04-24
+**Last updated:** 2026-05-04
 
-These are compiler built-ins, not user-authored wrapper declarations.
+Resource identifiers are defined in Styio source, not by a C++ name registry. C++ may provide
+lexer/parser support and runtime substrates such as terminal handles or file descriptors, but
+new resources must enter through an internal Styio declaration of this form:
 
 ```styio
-@stdout := { xs >> [>_] }
-@stderr := { !(xs) >> [>_] }
-
-@stdin  := { <|[>_] }
-@stdin  := { <|(>_) }
-@stdin  := { <| <- [>_] }
-
-// Scalar and compatibility terminal-device spellings.
-@stdout := { x -> [>_] }
-@stderr := { !(x) -> [>_] }
-@stdout := { xs >> (>_) }
-@stderr := { !(xs) >> (>_) }
-@stdout := { x -> (>_) }
-@stderr := { !(x) -> (>_) }
-@stdin  := { <| <- (>_) }
-
-@file{path} := { file(path) }
-@{path}     := @file{path}
-
-@stdin: list[T] := { read_as<list[T]>(@stdin) }
+@ name : type := #(args) => { body }
 ```
 
-| Identifier | Direction |
-|------------|-----------|
-| `@stdin` | read |
-| `@stdout` | write |
-| `@stderr` | write |
-| `@file{path}` | read/write |
-| `@{path}` | read/write |
-| `@stdin: list[T]` | read |
+The `#(...)` parameter list is mandatory whenever the declaration body uses local names. This is
+the local-variable rule: a declaration body must not use an unbound name just because the name is
+visually obvious.
 
-`[>_]` is the canonical terminal-handle spelling inside symbolic standard-stream definitions.
+Current standard-resource definitions live in [resources.styio](../../../src/StyioPrelude/resources.styio):
+
+```styio
+@ stdout := #(xs) => { xs >> [>_] }
+@ stderr := #(xs) => { !(xs) >> [>_] }
+
+@ stdin := #() => { <|[>_] }
+@ stdin := #() => { <|(>_) }
+@ stdin := #() => { <| <- [>_] }
+
+// Scalar and compatibility terminal-device spellings.
+@ stdout := #(x) => { x -> [>_] }
+@ stderr := #(x) => { !(x) -> [>_] }
+@ stdout := #(xs) => { xs >> (>_) }
+@ stderr := #(xs) => { !(xs) >> (>_) }
+@ stdout := #(x) => { x -> (>_) }
+@ stderr := #(x) => { !(x) -> (>_) }
+@ stdin := #() => { <| <- (>_) }
+
+@ file : ftype := #(path) => { ... }
+```
+
+`@ file` deliberately does not use `file(path)`. That spelling was never an allowed Styio
+primitive and must not be introduced as a hidden C++ escape hatch. The current implementation still
+lowers `@file{"path"}` and `@{"path"}` through the existing file runtime substrate, but the
+resource identity is governed by the Styio declaration above.
+
+| Identifier | Definition form | Direction |
+|------------|-----------------|-----------|
+| `@ stdin` | `@ stdin := #() => { ... }` | read |
+| `@ stdout` | `@ stdout := #(x-or-xs) => { ... }` | write |
+| `@ stderr` | `@ stderr := #(x-or-xs) => { ... }` | write |
+| `@ file` | `@ file : ftype := #(path) => { ... }` | read/write |
+| `@stdin: list[T]` | typed ingestion adapter over `@ stdin` | read |
+
+`[>_]` is the canonical terminal-handle spelling inside standard-stream definitions.
 `<|(>_)` is the call-like compatibility shorthand that treats `<|` as the return/export form and
 `(>_)` as its terminal-device argument. `@stdin` is consumed as an iterable stream through
 `@stdin >> #(line) => { ... }`; older `<< (>_)` wording is not the design spelling for stdin

@@ -2,7 +2,7 @@
 
 **Purpose:** 词法与语法的 **EBNF 权威定义**；资源拓扑相关附录与叙述以 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md) 为准，语义细节以 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 为准。
 
-**Last updated:** 2026-05-01
+**Last updated:** 2026-05-04
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -163,6 +163,7 @@ statement          = declaration
                    | assignment
                    | state_declaration
                    | conditional_stmt
+                   | match_bind_expr
                    | flow_pipeline
                    | expression_stmt
                    | schema_def ;
@@ -210,6 +211,7 @@ param              = identifier [ ':' type_annotation ] ;
 type_annotation    = 'i8' | 'i16' | 'i32' | 'i64' | 'i128'
                    | 'f32' | 'f64'
                    | 'bool' | 'char' | 'string' | 'byte'
+                   | 'matrix'
                    | identifier ;
 ```
 
@@ -400,6 +402,8 @@ resource           = std_stream_resource
                    | '@' [ identifier ] ( '{' expression '}' | '(' expression ')' ) ;
 
 std_stream_resource = '@stdout' | '@stderr' | '@stdin' ;
+
+resource_decl      = '@' identifier [ ':' type ] ':=' '#' '(' [ param_list ] ')' '=>' block ;
 ```
 
 Examples:
@@ -411,8 +415,8 @@ Examples:
 ### 9.1 Standard Stream Resources
 
 Standard streams are compiler-recognized resource atoms over the terminal device primitive
-`>_`. Unlike early planning drafts, the frozen grammar does **not** require user-authored
-binding definitions such as `@stdout := ...`.
+`>_`. User programs may use `@stdout`, `@stderr`, and `@stdin` directly; internally, these
+resources are still governed by Styio prelude declarations rather than by a C++ name registry.
 
 Usage patterns (reuse existing productions):
 - `expr '->' '@stdout'` / `expr '->' '@stderr'` — canonical standard-stream write via `resource_redirect`
@@ -420,8 +424,9 @@ Usage patterns (reuse existing productions):
 - `iterable_expr '>>' terminal_handle` — terminal-handle resource-write shorthand; semantic checks require an iterable, text-serializable value
 - `string_expr '.lines()' '>>' terminal_handle` — explicit newline split before terminal-handle iterable write
 - `'@stdin' '>>' '#' '(' param_list ')' '=>' block` — iterate via `iterator`
-- `'@stdin' ':=' '{' '<|' terminal_handle '}'` — symbolic stdin definition shorthand (`<|[>_]` or `<|(>_)`)
-- `'@stdin' ':=' '{' '<|' '<-' terminal_handle '}'` — symbolic stdin definition expanded form
+- `'@' 'stdin' ':=' '#' '(' ')' '=>' '{' '<|' terminal_handle '}'` — internal stdin declaration shorthand (`<|[>_]` or `<|(>_)`)
+- `'@' 'stdin' ':=' '#' '(' ')' '=>' '{' '<|' '<-' terminal_handle '}'` — internal stdin declaration expanded form
+- `'@' 'file' ':' 'ftype' ':=' '#' '(' identifier ')' '=>' block` — internal file resource declaration; the body must not call `file(path)`
 - `'(' '<-' '@stdin' ')'` — immediate pull via `instant_pull`
 - `'(' '<<' '@stdin' ')'` — legacy compatibility pull via `legacy_instant_pull`
 
@@ -449,6 +454,8 @@ tuple_literal      = '(' expression ',' expression { ',' expression } ')' ;
 range_literal      = expression '..' expression [ '..' expression ] ;
 ```
 
+`matrix` annotations reuse nested `list_literal` syntax as their source form. A binding such as `m: matrix = [[1,0],[0,1]]` triggers rectangular numeric row validation in the typed context and lowers to a matrix handle; untyped nested list literals remain ordinary lists. Matrix operations such as `matmul(a,b)`, `transpose(m)`, `mat_shape(m)`, and `mat_set(m,r,c,v)` are ordinary identifier calls at the grammar level and are recognized by semantic analysis.
+
 ---
 
 ## 11. Pattern Matching
@@ -456,21 +463,37 @@ range_literal      = expression '..' expression [ '..' expression ] ;
 ```ebnf
 match_expr         = expression '?=' match_body ;
 
+match_bind_expr    = '#(' identifier '=' expression ')' '?=' match_body ;
+
 match_body         = '{' { match_arm } [ default_arm ] '}' ;
 
 match_arm          = pattern '=>' ( block | expression ) ;
 
-default_arm        = '_' '=>' ( block | expression ) ;
+default_arm        = wildcard '=>' ( block | expression ) ;
+
+wildcard           = '_' | underscore_identifier ;
 
 pattern            = int_literal
+                   | guarded_int_pattern
                    | float_literal
                    | string_literal
                    | identifier
                    | collection_pattern ;
 
+guarded_int_pattern = '(' identifier '==' int_literal ')'
+                    | '(' int_literal '==' identifier ')' ;
+
+underscore_identifier = '_' '_' { '_' } ;
+
 collection_pattern = '[' { pattern { ',' pattern } } ']'
                    | '(' { pattern { ',' pattern } } ')' ;
 ```
+
+`#(name = expr) ?= { ... }` binds the scrutinee once and matches the bound
+name. Integer literal arms and guarded integer equality arms such as `(n == 1)`
+are canonicalized to the same match arm value when the guard references the
+match scrutinee. Source spellings that are semantically equivalent converge in
+the StyioIR optimizer before LLVM codegen.
 
 ---
 
@@ -517,16 +540,17 @@ The lexer always prefers the two-character compound token over individual charac
 
 ---
 
-## Appendix B: Topology v2 — Resource declarations (target; not yet in lexer/parser)
+## Appendix B: Topology v2 — Resource declarations
 
 **Full narrative:** [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md).
 
-This appendix only fixes **grammar shape** for tooling and future implementation. The **current** compiler still parses M6-style **`@[n](var = …)`** inside blocks.
+This appendix fixes the broader topology grammar. The current compiler now accepts single-resource
+internal declarations of the form `@ name [: type] := #(args) => { ... }`; multi-resource topology
+binding and full shadow-state semantics remain future work.
 
 ### B.1 Program and top-level resource
 
 ```ebnf
-(* Target-only — optional future milestone *)
 program_v2         = { top_level_decl_v2 } EOF ;
 
 top_level_decl_v2  = resource_decl_v2

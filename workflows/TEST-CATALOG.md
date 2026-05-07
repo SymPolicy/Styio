@@ -2,7 +2,7 @@
 
 **Purpose:** 将 **里程碑集成测试** 按功能域映射到 **输入 `.styio`、golden/副作用路径与 `ctest` 命令**；权威自动化入口见 `tests/CMakeLists.txt`。维护规则见 [`../docs/specs/DOCUMENTATION-POLICY.md`](../docs/specs/DOCUMENTATION-POLICY.md)，项目级优先级顺序见 [`../docs/specs/PRINCIPLES-AND-OBJECTIVES.md`](../docs/specs/PRINCIPLES-AND-OBJECTIVES.md)。
 
-**Last updated:** 2026-04-16
+**Last updated:** 2026-05-04
 
 **批量自动化（所有里程碑集成用例）：**
 
@@ -183,7 +183,8 @@ ctest --test-dir build/default -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_test` | `tests/styio_test.cpp`：覆盖 `StyioFiveLayerPipeline`、`StyioParserEngine`、`StyioDiagnostics`。five-layer pipeline 当前冻结 `p01` 到 `p15`；其中 `p05_snapshot_accum` 已改为仓库内 fixture `tests/pipeline_cases/p05_snapshot_accum/factor.txt`，不再依赖 `/tmp/styio_pipeline_factor.txt`。parser 侧继续冻结 nightly/legacy 一致性、shadow artifact detail、资源 postfix、iterator、snapshot decl、match-cases、dot-chain 边界，以及 state-inline 的 `1/3/6`、`10/12/15`、`0/0` 三条长链语义。权威细节见 [`FIVE-LAYER-PIPELINE.md`](./FIVE-LAYER-PIPELINE.md) 与 [`benchmark/parser-shadow-suite-gate.sh`](../benchmark/parser-shadow-suite-gate.sh)。 | `ctest --test-dir build/default -L styio_pipeline` 或 `ctest --test-dir build/default -R '^Styio(ParserEngine|Diagnostics)\\.'` |
+| `styio_test` | `tests/styio_test.cpp`：覆盖 `StyioFiveLayerPipeline`、`StyioParserEngine`、`StyioDiagnostics` 与 source-build controlled component metadata。five-layer pipeline 当前冻结 `p01` 到 `p15`；其中 `p05_snapshot_accum` 已改为仓库内 fixture `tests/pipeline_cases/p05_snapshot_accum/factor.txt`，不再依赖 `/tmp/styio_pipeline_factor.txt`。parser 侧继续冻结 nightly/legacy 一致性、shadow artifact detail、资源 postfix、internal resource declaration prelude、iterator、snapshot decl、match-cases、dot-chain 边界、matrix typed literal runtime smoke、matrix operators/intrinsics，以及 state-inline 的 `1/3/6`、`10/12/15`、`0/0` 三条长链语义。权威细节见 [`FIVE-LAYER-PIPELINE.md`](./FIVE-LAYER-PIPELINE.md) 与 [`benchmark/parser-shadow-suite-gate.sh`](../benchmark/parser-shadow-suite-gate.sh)。 | `ctest --test-dir build/default -L styio_pipeline` 或 `ctest --test-dir build/default -R '^Styio(ParserEngine|Diagnostics)\\.'` |
+| `styio_algorithm_equivalence_test` | `tests/algorithms/<case>/`：C++ reference equivalence tests。每个算法目录独立保存 `reference.cpp` / `reference.hpp`、Styio 实现和 `test.cpp` 随机输入驱动；`max_element_value` 同时运行三种已接受 match 源码拼写，同一输入分别跑 C++ reference 与 Styio 程序并逐字节比较 stdout。 | `ctest --test-dir build/default -L algorithm_equivalence` 或 `ctest --test-dir build/default -R '^StyioCppReferenceEquivalence\\.'` |
 
 **五层流水线 goldens**（Lexer / AST / StyioIR / LLVM / 子进程 stdout）：权威说明见 [`FIVE-LAYER-PIPELINE.md`](./FIVE-LAYER-PIPELINE.md)；用例根目录 `tests/pipeline_cases/`。
 
@@ -237,7 +238,7 @@ ctest --test-dir build/default -L milestone
 
 | 目标 | 说明 | Automation |
 |------|------|------------|
-| `styio_security_test` | `tests/security/styio_security_test.cpp`：覆盖 lexer/Unicode、AST ownership、runtime helper、handle table、ParserContext EOF/越界钳制、字符级 API 安全默认值、parser path 边界、nightly parser expr/stmt 子集兼容与 shadow fallback 稳定性。这里主要盯住“崩溃/越界/错误子码漂移/所有权回归”四类风险。 | `ctest --test-dir build/default -L security` 或 `ctest --test-dir build/default -L safety` |
+| `styio_security_test` | `tests/security/styio_security_test.cpp`：覆盖 lexer/Unicode、AST ownership、runtime helper、handle table、ParserContext EOF/越界钳制、字符级 API 安全默认值、parser path 边界、nightly parser expr/stmt 子集兼容、generic function type annotations、matrix typed nested-list validation、flat matrix runtime lowering、small static matrix optimization、matrix intrinsic lowering、internal resource declaration prelude、max-element match 语法精确 LLVM IR 等价性、pure arithmetic match optimizer 等价性与 shadow fallback 稳定性。这里主要盯住“崩溃/越界/错误子码漂移/所有权回归”四类风险。 | `ctest --test-dir build/default -L security` 或 `ctest --test-dir build/default -L safety` |
 
 ---
 
@@ -261,5 +262,5 @@ ctest --test-dir build/default -L milestone
 **生命周期候选：** `python3 scripts/docs-lifecycle.py candidates --family all --format tree`。
 **仓库级文档清单：** `python3 scripts/docs-audit.py --manifest valid --format tree`（默认扫描 tracked + unignored worktree Markdown）。
 **无效文档清单：** `python3 scripts/docs-audit.py --manifest invalid --format list`（仅看已跟踪文件时加 `--source git`；排查本地生成物时加 `--source filesystem`）。
-**统一交付入口：** `./scripts/delivery-gate.sh --mode checkpoint`；分支交付用 `./scripts/delivery-gate.sh --mode push --base <ref>`。该脚本会串起 hygiene、team-docs、docs-audit 和 fast checkpoint-health；更高层 cutover 仍按 [`../docs/teams/COORDINATION-RUNBOOK.md`](../docs/teams/COORDINATION-RUNBOOK.md) 补域专属 gate。
+**统一交付入口：** `./scripts/delivery-gate.sh`。默认 auto 模式会串起 worktree hygiene、PR-range hygiene、team-docs、docs-audit、external audit 和 fast checkpoint-health；更高层 cutover 仍按 [`../docs/teams/COORDINATION-RUNBOOK.md`](../docs/teams/COORDINATION-RUNBOOK.md) 补域专属 gate。
 **工作流入口：** 见 [`DOCS-MAINTENANCE-WORKFLOW.md`](./DOCS-MAINTENANCE-WORKFLOW.md)。

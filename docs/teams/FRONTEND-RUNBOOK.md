@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of Styio tokenization, parsing, Unicode handling, and legacy/nightly parser migration; this file links to language and test SSOTs instead of redefining grammar.
 
-**Last updated:** 2026-05-01
+**Last updated:** 2026-05-05
 
 ## Mission
 
@@ -36,6 +36,10 @@ Build and test targets:
 7. When accepted syntax reaches lowering or runtime helpers, follow [../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md](../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md) and do not stop at parser-only green status.
 8. Conditional infinite loops use `[...] >> ?(cond) => { ... }`; reject the older `[...] ?(cond) >> { ... }` spelling in both legacy and nightly parser routes.
 9. Keep negative numeric literals as literal atoms in both parser routes; `-1 + 2` must parse as `(-1) + 2`, not `0 - (1 + 2)`.
+10. When a type annotation admits a collection-shaped literal, keep the parser change context-triggered, such as `m: matrix = [[...], [...]]`, and leave untyped nested list literals on the ordinary list path.
+11. Match syntax surfaces such as `#(name = expr) ?=`, all-underscore default wildcards, and guarded integer arms need route-gate coverage in both parser routes before lowering claims semantic equivalence.
+12. Internal resource declarations use `@ name [: type] := #(args) => { ... }`; parser changes must enforce explicit parameters before body-name use and reject hidden pseudo-primitives such as `file(path)`.
+13. Task launch and pull syntax is symbol-only: `||> { ... }` constructs a task block, `answer <- job` pulls a declared task result into an already declared local, and `job -> answer -> @stdout` parses the first arrow as a flow bind only when the target is a plain name rather than an `@` resource.
 
 ## Change Classes
 

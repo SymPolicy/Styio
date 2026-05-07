@@ -45,6 +45,28 @@ public:
   }
 };
 
+class SCMatrixLiteral : public StyioIRTraits<SCMatrixLiteral>
+{
+public:
+  std::vector<StyioIR*> elems;
+  std::string elem_type = "i64";
+  size_t rows = 0;
+  size_t cols = 0;
+
+  SCMatrixLiteral(std::vector<StyioIR*> e, std::string et, size_t r, size_t c) :
+      elems(std::move(e)), elem_type(std::move(et)), rows(r), cols(c) {
+  }
+
+  static SCMatrixLiteral* Create(
+    std::vector<StyioIR*> e,
+    std::string elem_type,
+    size_t rows,
+    size_t cols
+  ) {
+    return new SCMatrixLiteral(std::move(e), std::move(elem_type), rows, cols);
+  }
+};
+
 class SCListClone : public StyioIRTraits<SCListClone>
 {
 public:
@@ -117,6 +139,53 @@ public:
 
   static SCListToString* Create(StyioIR* l) {
     return new SCListToString(l);
+  }
+};
+
+class SCMatrixGet : public StyioIRTraits<SCMatrixGet>
+{
+public:
+  StyioIR* matrix = nullptr;
+  StyioIR* row = nullptr;
+  StyioIR* col = nullptr;
+  std::string elem_type = "i64";
+
+  SCMatrixGet(StyioIR* m, StyioIR* r, StyioIR* c, std::string et) :
+      matrix(m), row(r), col(c), elem_type(std::move(et)) {
+  }
+
+  static SCMatrixGet* Create(StyioIR* m, StyioIR* r, StyioIR* c, std::string elem_type) {
+    return new SCMatrixGet(m, r, c, std::move(elem_type));
+  }
+};
+
+class SCMatrixRow : public StyioIRTraits<SCMatrixRow>
+{
+public:
+  StyioIR* matrix = nullptr;
+  StyioIR* row = nullptr;
+  std::string elem_type = "i64";
+
+  SCMatrixRow(StyioIR* m, StyioIR* r, std::string et) :
+      matrix(m), row(r), elem_type(std::move(et)) {
+  }
+
+  static SCMatrixRow* Create(StyioIR* m, StyioIR* r, std::string elem_type) {
+    return new SCMatrixRow(m, r, std::move(elem_type));
+  }
+};
+
+class SCMatrixToString : public StyioIRTraits<SCMatrixToString>
+{
+public:
+  StyioIR* matrix = nullptr;
+
+  explicit SCMatrixToString(StyioIR* m) :
+      matrix(m) {
+  }
+
+  static SCMatrixToString* Create(StyioIR* m) {
+    return new SCMatrixToString(m);
   }
 };
 

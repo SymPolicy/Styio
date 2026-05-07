@@ -85,6 +85,14 @@
 #define STYIO_LLVM_DIR ""
 #endif
 
+#ifndef STYIO_CMAKE_C_COMPILER
+#define STYIO_CMAKE_C_COMPILER ""
+#endif
+
+#ifndef STYIO_CMAKE_CXX_COMPILER
+#define STYIO_CMAKE_CXX_COMPILER ""
+#endif
+
 extern "C" void
 hello_world() {
   std::cout << "hello, world!" << std::endl;
@@ -1943,6 +1951,7 @@ styio_nano_source_roots_latest(bool include_pipeline_check) {
     "src/StyioToString/ToString.cpp",
     "src/StyioSema/TypeInfer.cpp",
     "src/StyioLowering/AstToStyioIR.cpp",
+    "src/StyioLowering/StyioIROptimizer.cpp",
     "src/StyioCodeGen/CodeGen.cpp",
     "src/StyioCodeGen/GetTypeG.cpp",
     "src/StyioCodeGen/CodeGenG.cpp",
@@ -2210,9 +2219,23 @@ styio_build_nano_package_latest(
   std::string& error_message
 ) {
   const std::filesystem::path build_dir = output_dir / ".nano-build";
+  std::string compiler_args;
+  if (const char* cc = std::getenv("CC"); cc == nullptr || cc[0] == '\0') {
+    if (std::string(STYIO_CMAKE_C_COMPILER).empty() == false) {
+      compiler_args += " -DCMAKE_C_COMPILER="
+        + styio_shell_quote_latest(STYIO_CMAKE_C_COMPILER);
+    }
+  }
+  if (const char* cxx = std::getenv("CXX"); cxx == nullptr || cxx[0] == '\0') {
+    if (std::string(STYIO_CMAKE_CXX_COMPILER).empty() == false) {
+      compiler_args += " -DCMAKE_CXX_COMPILER="
+        + styio_shell_quote_latest(STYIO_CMAKE_CXX_COMPILER);
+    }
+  }
   const std::string configure_cmd =
     "cmake -S " + styio_shell_quote_latest(output_dir.string())
-    + " -B " + styio_shell_quote_latest(build_dir.string());
+    + " -B " + styio_shell_quote_latest(build_dir.string())
+    + compiler_args;
   if (!styio_run_shell_command_latest(configure_cmd, "styio-nano package configure", error_message)) {
     return false;
   }
@@ -2670,7 +2693,14 @@ styio_materialize_local_nano_package_latest(
     "set -euo pipefail\n"
     "script_dir=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n"
     "build_dir=\"${1:-$script_dir/build}\"\n"
-    "cmake -S \"$script_dir\" -B \"$build_dir\"\n"
+    "cmake_args=()\n"
+    "if [[ -z \"${CC:-}\" && -n \"" + std::string(STYIO_CMAKE_C_COMPILER) + "\" ]]; then\n"
+    "  cmake_args+=(\"-DCMAKE_C_COMPILER=" + std::string(STYIO_CMAKE_C_COMPILER) + "\")\n"
+    "fi\n"
+    "if [[ -z \"${CXX:-}\" && -n \"" + std::string(STYIO_CMAKE_CXX_COMPILER) + "\" ]]; then\n"
+    "  cmake_args+=(\"-DCMAKE_CXX_COMPILER=" + std::string(STYIO_CMAKE_CXX_COMPILER) + "\")\n"
+    "fi\n"
+    "cmake -S \"$script_dir\" -B \"$build_dir\" \"${cmake_args[@]}\"\n"
     "cmake --build \"$build_dir\" --parallel --target styio_nano\n"
     "cp \"$build_dir/bin/" + styio_nano_binary_filename_latest() + "\" \"$script_dir/bin/" + styio_nano_binary_filename_latest() + "\"\n";
   if (!styio_write_text_file_latest(helper_dest, helper_script, error_message)) {
@@ -3778,6 +3808,8 @@ main(
     "f,file", "Take the given source file.", cxxopts::value<std::string>()
   )(
     "h,help", "Show All Command-Line Options"
+  )(
+    "version", "Show Styio compiler version"
   );
 
   options.add_options()(
@@ -3939,6 +3971,11 @@ main(
 
   if (cmlopts.count("help")) {
     std::cout << options.help() << std::endl;
+    return static_cast<int>(StyioExitCode::Success);
+  }
+
+  if (cmlopts.count("version")) {
+    std::cout << "styio " << STYIO_PROJECT_VERSION << std::endl;
     return static_cast<int>(StyioExitCode::Success);
   }
 
@@ -4172,13 +4209,49 @@ main(
     frontend_profiler.add_counter(
       "compile_plan",
       compile_plan_request.has_value() ? 1 : 0);
+    styio_task_scheduler_profile_reset();
+    styio_task_scheduler_profile_enable(1);
   }
+
+  bool async_scheduler_profile_recorded = false;
+  const auto record_async_scheduler_profile = [&]() {
+    if (!profile_frontend || async_scheduler_profile_recorded) {
+      return;
+    }
+    StyioTaskSchedulerProfileSnapshot snapshot {};
+    styio_task_scheduler_profile_snapshot(&snapshot);
+    frontend_profiler.set_async_scheduler_stats(
+      snapshot.enabled,
+      snapshot.worker_count,
+      snapshot.active_tasks,
+      snapshot.ready_tasks,
+      snapshot.spawned_tasks,
+      snapshot.enqueued_tasks,
+      snapshot.started_tasks,
+      snapshot.completed_tasks,
+      snapshot.pulled_tasks,
+      snapshot.released_tasks,
+      snapshot.fast_ready_pulls,
+      snapshot.blocking_pulls,
+      snapshot.failed_pulls,
+      snapshot.invalid_pulls,
+      snapshot.max_queue_depth);
+    styio_task_scheduler_profile_enable(0);
+    async_scheduler_profile_recorded = true;
+  };
 
   struct StyioFrontendProfilerFlushLatest
   {
     styio::profiler::FrontendProfiler* profiler = nullptr;
+    bool* async_scheduler_profile_recorded = nullptr;
+    decltype(record_async_scheduler_profile)* record_async_scheduler_profile_fn = nullptr;
 
     ~StyioFrontendProfilerFlushLatest() {
+      if (async_scheduler_profile_recorded != nullptr
+          && !*async_scheduler_profile_recorded
+          && record_async_scheduler_profile_fn != nullptr) {
+        (*record_async_scheduler_profile_fn)();
+      }
       if (profiler == nullptr || !profiler->enabled() || profiler->written()) {
         return;
       }
@@ -4187,7 +4260,7 @@ main(
         std::cerr << "[ProfileWarning] " << profile_error << std::endl;
       }
     }
-  } frontend_profiler_flush {&frontend_profiler};
+  } frontend_profiler_flush {&frontend_profiler, &async_scheduler_profile_recorded, &record_async_scheduler_profile};
 
   if (compile_plan_request.has_value()) {
     std::error_code ec;

@@ -45,6 +45,8 @@ target_compile_definitions(styio PRIVATE
   "STYIO_RELEASE_CHANNEL=\"stable\""
   "STYIO_EDITION_MAX=\"2026\""
   "STYIO_LLVM_DIR=\"${LLVM_DIR}\""
+  "STYIO_CMAKE_C_COMPILER=\"${CMAKE_C_COMPILER}\""
+  "STYIO_CMAKE_CXX_COMPILER=\"${CMAKE_CXX_COMPILER}\""
 )
 target_link_libraries(styio PRIVATE styio_core styio_cli_contract_core)
 install(TARGETS styio RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT Runtime)
@@ -80,6 +82,8 @@ if(STYIO_BUILD_NANO)
     "STYIO_RELEASE_CHANNEL=\"nano\""
     "STYIO_EDITION_MAX=\"2026\""
     "STYIO_LLVM_DIR=\"${LLVM_DIR}\""
+    "STYIO_CMAKE_C_COMPILER=\"${CMAKE_C_COMPILER}\""
+    "STYIO_CMAKE_CXX_COMPILER=\"${CMAKE_CXX_COMPILER}\""
   )
   target_link_libraries(styio_nano PRIVATE styio_nano_core)
   install(TARGETS styio_nano RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT Runtime)

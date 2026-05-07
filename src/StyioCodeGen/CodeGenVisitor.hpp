@@ -114,6 +114,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SGForEach,
   class SCListLiteral,
   class SCDictLiteral,
+  class SCMatrixLiteral,
   class SGRangeFor,
   class SGIf,
   class SGStateSnapLoad,
@@ -143,6 +144,9 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SCListGet,
   class SCListSet,
   class SCListToString,
+  class SCMatrixGet,
+  class SCMatrixRow,
+  class SCMatrixToString,
   class SCDictClone,
   class SCDictLen,
   class SCDictGet,
@@ -154,6 +158,8 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SIOStdStreamWrite,
   class SIOStdStreamLineIter,
   class SIOStdStreamPull,
+  class SIOTaskCreate,
+  class SIOFlowBind,
 
   class SGBlock,
   class SGEntry,
@@ -280,6 +286,7 @@ public:
   llvm::Type* toLLVMType(SGForEach* node);
   llvm::Type* toLLVMType(SCListLiteral* node);
   llvm::Type* toLLVMType(SCDictLiteral* node);
+  llvm::Type* toLLVMType(SCMatrixLiteral* node);
   llvm::Type* toLLVMType(SGRangeFor* node);
   llvm::Type* toLLVMType(SGIf* node);
   llvm::Type* toLLVMType(SGStateSnapLoad* node);
@@ -309,6 +316,9 @@ public:
   llvm::Type* toLLVMType(SCListGet* node);
   llvm::Type* toLLVMType(SCListSet* node);
   llvm::Type* toLLVMType(SCListToString* node);
+  llvm::Type* toLLVMType(SCMatrixGet* node);
+  llvm::Type* toLLVMType(SCMatrixRow* node);
+  llvm::Type* toLLVMType(SCMatrixToString* node);
   llvm::Type* toLLVMType(SCDictClone* node);
   llvm::Type* toLLVMType(SCDictLen* node);
   llvm::Type* toLLVMType(SCDictGet* node);
@@ -320,6 +330,8 @@ public:
   llvm::Type* toLLVMType(SIOStdStreamWrite* node);
   llvm::Type* toLLVMType(SIOStdStreamLineIter* node);
   llvm::Type* toLLVMType(SIOStdStreamPull* node);
+  llvm::Type* toLLVMType(SIOTaskCreate* node);
+  llvm::Type* toLLVMType(SIOFlowBind* node);
 
   // llvm::Type* toLLVMType(SGIfElse* node);
   // llvm::Type* toLLVMType(SGForLoop* node);
@@ -370,6 +382,7 @@ public:
   llvm::Value* toLLVMIR(SGForEach* node);
   llvm::Value* toLLVMIR(SCListLiteral* node);
   llvm::Value* toLLVMIR(SCDictLiteral* node);
+  llvm::Value* toLLVMIR(SCMatrixLiteral* node);
   llvm::Value* toLLVMIR(SGRangeFor* node);
   llvm::Value* toLLVMIR(SGIf* node);
   llvm::Value* toLLVMIR(SGStateSnapLoad* node);
@@ -399,6 +412,9 @@ public:
   llvm::Value* toLLVMIR(SCListGet* node);
   llvm::Value* toLLVMIR(SCListSet* node);
   llvm::Value* toLLVMIR(SCListToString* node);
+  llvm::Value* toLLVMIR(SCMatrixGet* node);
+  llvm::Value* toLLVMIR(SCMatrixRow* node);
+  llvm::Value* toLLVMIR(SCMatrixToString* node);
   llvm::Value* toLLVMIR(SCDictClone* node);
   llvm::Value* toLLVMIR(SCDictLen* node);
   llvm::Value* toLLVMIR(SCDictGet* node);
@@ -410,6 +426,8 @@ public:
   llvm::Value* toLLVMIR(SIOStdStreamWrite* node);
   llvm::Value* toLLVMIR(SIOStdStreamLineIter* node);
   llvm::Value* toLLVMIR(SIOStdStreamPull* node);
+  llvm::Value* toLLVMIR(SIOTaskCreate* node);
+  llvm::Value* toLLVMIR(SIOFlowBind* node);
 
   // llvm::Value* toLLVMIR(SGIfElse* node);
   // llvm::Value* toLLVMIR(SGForLoop* node);
@@ -441,6 +459,7 @@ private:
   llvm::Value* promote_to_cstr(llvm::Value* v);
   llvm::Value* evaluate_arm_block_value(SGBlock* b, bool mixed_phi);
 
+  enum class TempResourceKind : std::uint8_t { List, Dict, Matrix };
   std::vector<std::vector<std::string>> file_handle_scope_stack_;
   std::vector<std::vector<llvm::AllocaInst*>> cstr_slot_scope_stack_;
   std::vector<std::vector<llvm::AllocaInst*>> dynamic_slot_scope_stack_;
@@ -449,8 +468,8 @@ private:
   std::unordered_map<std::string, llvm::AllocaInst*> file_singleton_path_slots_;
   std::unordered_set<std::string> file_singleton_raii_paths_;
   std::unordered_set<llvm::Value*> owned_cstr_temps_;
-  enum class TempResourceKind : std::uint8_t { List, Dict };
   std::unordered_map<llvm::Value*, TempResourceKind> owned_resource_temps_;
+  std::uint64_t task_function_counter_ = 0;
 
   void emit_snapshot_shadow_reload();
 
@@ -476,6 +495,8 @@ private:
   llvm::FunctionCallee free_cstr_fn();
   llvm::FunctionCallee list_release_fn();
   llvm::FunctionCallee dict_release_fn();
+  llvm::FunctionCallee matrix_release_fn();
+  llvm::FunctionCallee task_release_fn();
   void track_owned_cstr_temp(llvm::Value* v);
   bool take_owned_cstr_temp(llvm::Value* v);
   void forget_owned_cstr_temp(llvm::Value* v);
@@ -486,6 +507,7 @@ private:
   void forget_owned_resource_temp(llvm::Value* v);
   void free_resource_if_runtime_owned(llvm::Value* v, TempResourceKind kind);
   void free_owned_resource_temp_if_tracked(llvm::Value* v);
+  void emit_active_scope_cleanup();
 
   llvm::Value* pulse_ledger_base_ = nullptr;
   llvm::Value* pulse_snap_base_ = nullptr;

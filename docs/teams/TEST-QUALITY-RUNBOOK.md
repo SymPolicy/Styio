@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-05-01
+**Last updated:** 2026-05-05
 
 ## Mission
 
@@ -33,18 +33,24 @@ Primary paths:
 7. When compile-plan artifacts grow, add assertions for receipt fields and auxiliary artifacts such as `runtime-events.jsonl`, not just exit codes.
 8. Keep five-layer Layer 4 LLVM goldens semantic, not implementation-bound: when stdout lowering moves between legacy `printf/puts` and runtime helpers such as `styio_stdout_write_cstr`, or when LLVM stops printing unused `declare` lines and renumbers transient `%<n>` temporaries, update the pipeline canonicalization before touching large golden sets.
 9. Treat workflow scheduler tests as gate-level regression coverage; changes to scheduler profiles, phase ordering, or registry validation must update `tests/workflow_scheduler_test.py`.
-10. When compiler handoff contracts grow, add or update regression coverage for both `--machine-info=json` and `--source-build-info=json` so `spio`-facing metadata cannot drift silently.
-11. When the compiler-side source-build helper changes, keep a lightweight regression on `scripts/source-build-minimal.sh --help` or an equivalent smoke path so the published helper entry does not silently rot.
-12. When a coverage gap is marked closed, make the CTest registration, catalog entry, and exact passing command visible in the owning ledger or checkpoint document.
-13. New syntax surfaces need focused lexer/parser coverage plus the smallest runtime smoke that proves any supported lowering path.
-14. When standard-stream syntax changes, include both parser-only shorthand coverage and a runtime stdin/stdout smoke so symbolic declarations cannot parse while the executable path stays broken.
-15. When generic/container function type annotations change, cover both parser-route acceptance and a lowering/codegen case for the smallest supported runtime family, so `list[T]` or `dict[K,V]` annotations cannot parse while call lowering regresses.
-16. When control-flow spellings change, keep milestone stdout goldens and security/codegen regressions together: `^...` must prove nearest-loop behavior, and nested `<| expr` returns must prove they exit the enclosing function.
-17. When a syntax revision retires old milestone syntax, delete the active `.styio` fixture and golden instead of marking it expected-red. Then remove the `TEST-CATALOG` row, add a revision note to the milestone/design docs, and rerun the affected label plus `ctest -L milestone`.
-18. Native interop acceptance must include parser-only top-level guards and executable milestone goldens that prove C/C++ source is compiled, linked, loaded, and called through the JIT.
-19. When tests create custom AST nodes or compiler-stage visitors, use the split visitor signatures: `typeInfer(StyioSemaContext*)` and `toStyioIR(AstToStyioIRLowerer*)`.
-20. Put C++ reference equivalence cases under `tests/algorithms/<case>/`; keep the C++ oracle, Styio program, and per-case random-input test driver in that directory, with only shared runner code under `tests/algorithms/.common/`.
-21. When post-push CI reports five-layer typed-AST or diagnostic expectation drift, rebuild the local test binary before trusting a prior pass, reproduce the exact failing CTest filters, then update only the stale golden or stable diagnostic fragment.
+10. Treat `StyioTaskSchedulerPerf.SleepTasksRunConcurrently` as the M12 task_runtime performance sentinel. It must compare against an in-process sequential baseline rather than a fixed absolute timeout so CI variance does not hide loss of concurrency.
+11. When compiler handoff contracts grow, add or update regression coverage for both `--machine-info=json` and `--source-build-info=json` so `spio`-facing metadata cannot drift silently.
+12. When the compiler-side source-build helper changes, keep a lightweight regression on `scripts/source-build-minimal.sh --help` or an equivalent smoke path so the published helper entry does not silently rot.
+13. When a coverage gap is marked closed, make the CTest registration, catalog entry, and exact passing command visible in the owning ledger or checkpoint document.
+14. New syntax surfaces need focused lexer/parser coverage plus the smallest runtime smoke that proves any supported lowering path.
+15. When standard-stream syntax changes, include both parser-only shorthand coverage and a runtime stdin/stdout smoke so symbolic declarations cannot parse while the executable path stays broken.
+16. When generic/container function type annotations change, cover both parser-route acceptance and a lowering/codegen case for the smallest supported runtime family, so `list[T]` or `dict[K,V]` annotations cannot parse while call lowering regresses.
+17. When a collection annotation adds contextual validation, pair the positive runtime smoke with a negative semantic test and an untyped-control case proving ordinary nested lists keep their prior behavior.
+18. When control-flow spellings change, keep milestone stdout goldens and security/codegen regressions together: `^...` must prove nearest-loop behavior, and nested `<| expr` returns must prove they exit the enclosing function.
+19. When a syntax revision retires old milestone syntax, delete the active `.styio` fixture and golden instead of marking it expected-red. Then remove the `TEST-CATALOG` row, add a revision note to the milestone/design docs, and rerun the affected label plus `ctest -L milestone`.
+20. Native interop acceptance must include parser-only top-level guards and executable milestone goldens that prove C/C++ source is compiled, linked, loaded, and called through the JIT.
+21. When tests create custom AST nodes or compiler-stage visitors, use the split visitor signatures: `typeInfer(StyioSemaContext*)` and `toStyioIR(AstToStyioIRLowerer*)`.
+22. Put C++ reference equivalence cases under `tests/algorithms/<case>/`; keep the C++ oracle, Styio program, and per-case random-input test driver in that directory, with only shared runner code under `tests/algorithms/.common/`.
+23. When post-push CI reports five-layer typed-AST or diagnostic expectation drift, rebuild the local test binary before trusting a prior pass, reproduce the exact failing CTest filters, then update only the stale golden or stable diagnostic fragment.
+24. Syntax aliases that claim canonical equivalence need both runtime equivalence and exact lowered or LLVM IR comparison where the backend contract is part of the claim; include at least one non-example-shaped case so optimizer coverage cannot be a one-off source rewrite.
+25. Internal resource declarations need parser coverage for the prelude source file plus negative tests for undeclared local names and not-allowed hidden pseudo-primitives such as `file(path)`.
+26. Task_resource syntax needs both positive stdout goldens and semantic negatives: cover `answer <- job`, `job -> answer -> @stdout`, string and numeric results, undeclared flow targets, and double-pull rejection in the same milestone registration.
+27. Async scheduler profiler changes must keep `styio_profiler_frontend_smoke` on a task_using fixture and assert the JSON keys that prove scheduler counters are wired, not just that a profile file exists.
 
 ## Change Classes
 

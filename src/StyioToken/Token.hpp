@@ -26,6 +26,7 @@ enum class StyioDataTypeOption
   Tuple,
   List,
   Dict,
+  Matrix,
 
   Struct,
 
@@ -37,9 +38,11 @@ enum class StyioHandleFamily : std::uint8_t
   None = 0,
   List,
   Dict,
+  Matrix,
   Range,
   File,
   Stream,
+  Task,
 };
 
 enum class StyioTypeState : std::uint8_t
@@ -47,6 +50,10 @@ enum class StyioTypeState : std::uint8_t
   None = 0,
   Open,
   Materialized,
+  Pending,
+  Ready,
+  Done,
+  Cancelled,
   Closed,
 };
 
@@ -59,9 +66,11 @@ enum class StyioValueFamily : std::uint8_t
   String,
   ListHandle,
   DictHandle,
+  MatrixHandle,
   RangeHandle,
   FileHandle,
   StreamHandle,
+  TaskHandle,
   UserDefined,
 };
 
@@ -75,6 +84,11 @@ enum class StyioTypeCapability : std::uint32_t
   Writable = 1u << 4,
   Cloneable = 1u << 5,
   Collectable = 1u << 6,
+  Pull = 1u << 7,
+  Push = 1u << 8,
+  Close = 1u << 9,
+  Send = 1u << 10,
+  Sync = 1u << 11,
 };
 
 inline constexpr std::uint32_t
@@ -184,6 +198,14 @@ styio_is_dict_type(const StyioDataType& type) {
     || type.name.rfind("dict[", 0) == 0;
 }
 
+inline bool
+styio_is_matrix_type(const StyioDataType& type) {
+  return type.option == StyioDataTypeOption::Matrix
+    || type.handle_family == StyioHandleFamily::Matrix
+    || type.name == "matrix"
+    || type.name.rfind("matrix[", 0) == 0;
+}
+
 inline std::string
 styio_list_elem_type_name(const StyioDataType& type) {
   const std::string& name = type.name;
@@ -191,6 +213,77 @@ styio_list_elem_type_name(const StyioDataType& type) {
     return name.substr(5, name.size() - 6);
   }
   return "i64";
+}
+
+inline std::string
+styio_matrix_elem_type_name(const StyioDataType& type) {
+  if (!type.key_type_name.empty()) {
+    return type.key_type_name;
+  }
+  const std::string& name = type.name;
+  if (name.rfind("matrix[", 0) == 0 && !name.empty() && name.back() == ']') {
+    const std::string inner = name.substr(7, name.size() - 8);
+    const size_t comma = inner.find(',');
+    if (comma != std::string::npos) {
+      return inner.substr(0, comma);
+    }
+    if (!inner.empty()) {
+      return inner;
+    }
+  }
+  return "i64";
+}
+
+inline size_t
+styio_matrix_row_count(const StyioDataType& type) {
+  if (!styio_is_matrix_type(type)) {
+    return 0;
+  }
+  const std::string& name = type.name;
+  if (name.rfind("matrix[", 0) != 0 || name.empty() || name.back() != ']') {
+    return 0;
+  }
+  const std::string inner = name.substr(7, name.size() - 8);
+  const size_t first = inner.find(',');
+  if (first == std::string::npos) {
+    return 0;
+  }
+  const size_t second = inner.find(',', first + 1);
+  if (second == std::string::npos || second <= first + 1) {
+    return 0;
+  }
+  try {
+    return static_cast<size_t>(std::stoull(inner.substr(first + 1, second - first - 1)));
+  }
+  catch (...) {
+    return 0;
+  }
+}
+
+inline size_t
+styio_matrix_col_count(const StyioDataType& type) {
+  if (!styio_is_matrix_type(type)) {
+    return 0;
+  }
+  const std::string& name = type.name;
+  if (name.rfind("matrix[", 0) != 0 || name.empty() || name.back() != ']') {
+    return 0;
+  }
+  const std::string inner = name.substr(7, name.size() - 8);
+  const size_t first = inner.find(',');
+  if (first == std::string::npos) {
+    return 0;
+  }
+  const size_t second = inner.find(',', first + 1);
+  if (second == std::string::npos || second + 1 >= inner.size()) {
+    return 0;
+  }
+  try {
+    return static_cast<size_t>(std::stoull(inner.substr(second + 1)));
+  }
+  catch (...) {
+    return 0;
+  }
 }
 
 inline std::string
@@ -223,6 +316,36 @@ styio_dict_value_type_name(const StyioDataType& type) {
     }
   }
   return "i64";
+}
+
+inline StyioDataType
+styio_make_matrix_type(
+  const std::string& elem_name = "i64",
+  size_t rows = 0,
+  size_t cols = 0
+) {
+  std::string type_name = std::string("matrix[") + elem_name;
+  if (rows != 0 || cols != 0) {
+    type_name += "," + std::to_string(rows) + "," + std::to_string(cols);
+  }
+  type_name += "]";
+  return StyioDataType{
+    StyioDataTypeOption::Matrix,
+    type_name,
+    0,
+    StyioHandleFamily::Matrix,
+    StyioTypeState::Materialized,
+    styio_caps(StyioTypeCapability::Iterable)
+      | styio_caps(StyioTypeCapability::Indexable)
+      | styio_caps(StyioTypeCapability::Sized)
+      | styio_caps(StyioTypeCapability::Cloneable)
+      | styio_caps(StyioTypeCapability::Collectable),
+    styio_make_list_type(elem_name).name,
+    elem_name,
+    false,
+    -1,
+    StyioValueFamily::MatrixHandle,
+    StyioValueFamily::ListHandle};
 }
 
 inline bool
@@ -267,7 +390,8 @@ inline bool
 styio_type_is_resource_handle(const StyioDataType& type) {
   return type.handle_family != StyioHandleFamily::None
     || styio_is_list_type(type)
-    || styio_is_dict_type(type);
+    || styio_is_dict_type(type)
+    || styio_is_matrix_type(type);
 }
 
 inline StyioValueFamily
@@ -286,12 +410,16 @@ styio_value_family_for_type(const StyioDataType& type) {
       return StyioValueFamily::ListHandle;
     case StyioHandleFamily::Dict:
       return StyioValueFamily::DictHandle;
+    case StyioHandleFamily::Matrix:
+      return StyioValueFamily::MatrixHandle;
     case StyioHandleFamily::Range:
       return StyioValueFamily::RangeHandle;
     case StyioHandleFamily::File:
       return StyioValueFamily::FileHandle;
     case StyioHandleFamily::Stream:
       return StyioValueFamily::StreamHandle;
+    case StyioHandleFamily::Task:
+      return StyioValueFamily::TaskHandle;
     case StyioHandleFamily::None:
       break;
   }
@@ -304,6 +432,8 @@ styio_value_family_for_type(const StyioDataType& type) {
       return StyioValueFamily::Float;
     case StyioDataTypeOption::String:
       return StyioValueFamily::String;
+    case StyioDataTypeOption::Matrix:
+      return StyioValueFamily::MatrixHandle;
     case StyioDataTypeOption::Defined:
     case StyioDataTypeOption::Struct:
     case StyioDataTypeOption::Func:
@@ -317,6 +447,9 @@ inline std::string
 styio_type_item_type_name(const StyioDataType& type) {
   if (!type.item_type_name.empty()) {
     return type.item_type_name;
+  }
+  if (styio_is_matrix_type(type)) {
+    return styio_make_list_type(styio_matrix_elem_type_name(type)).name;
   }
   if (styio_is_list_type(type)) {
     return styio_list_elem_type_name(type);
@@ -351,6 +484,8 @@ static std::unordered_map<std::string, StyioDataType> const DTypeTable = {
 
   {"string", StyioDataType{StyioDataTypeOption::String, "string", 0}},
   {"str", StyioDataType{StyioDataTypeOption::String, "string", 0}},
+
+  {"matrix", styio_make_matrix_type("i64")},
 };
 
 StyioDataType getMaxType(StyioDataType T1, StyioDataType T2);
@@ -751,6 +886,8 @@ enum class StyioNodeType
   HandleAcquire,
   ResourceWrite,
   ResourceRedirect,
+  TaskBlock,
+  FlowBind,
 
   /* M6: state ledger, $refs, intrinsics, history */
   StateDecl,
@@ -870,12 +1007,64 @@ styio_data_type_from_name(const std::string& type_name) {
       styio_dict_key_type_name(temp),
       styio_dict_value_type_name(temp));
   }
+  if (type_name == "matrix" || type_name.rfind("matrix[", 0) == 0) {
+    StyioDataType temp{StyioDataTypeOption::Matrix, type_name, 0};
+    return styio_make_matrix_type(
+      styio_matrix_elem_type_name(temp),
+      styio_matrix_row_count(temp),
+      styio_matrix_col_count(temp));
+  }
+  if (type_name.rfind("task[", 0) == 0 && type_name.size() >= 6 && type_name.back() == ']') {
+    std::string elem = type_name.substr(5, type_name.size() - 6);
+    if (elem.empty()) {
+      elem = "unit";
+    }
+    return StyioDataType{
+      StyioDataTypeOption::Defined,
+      type_name,
+      0,
+      StyioHandleFamily::Task,
+      StyioTypeState::Pending,
+      styio_caps(StyioTypeCapability::Pull)
+        | styio_caps(StyioTypeCapability::Close)
+        | styio_caps(StyioTypeCapability::Send),
+      elem,
+      "",
+      false,
+      -1,
+      StyioValueFamily::TaskHandle,
+      styio_value_family_for_type(styio_data_type_from_name(elem))};
+  }
   return StyioDataType{StyioDataTypeOption::Defined, type_name, 0};
 }
 
 inline StyioValueFamily
 styio_value_family_from_type_name(const std::string& type_name) {
   return styio_value_family_for_type(styio_data_type_from_name(type_name));
+}
+
+inline StyioDataType
+styio_make_task_type(const std::string& result_name = "unit") {
+  return StyioDataType{
+    StyioDataTypeOption::Defined,
+    std::string("task[") + result_name + "]",
+    0,
+    StyioHandleFamily::Task,
+    StyioTypeState::Pending,
+    styio_caps(StyioTypeCapability::Pull)
+      | styio_caps(StyioTypeCapability::Close)
+      | styio_caps(StyioTypeCapability::Send),
+    result_name,
+    "",
+    false,
+    -1,
+    StyioValueFamily::TaskHandle,
+    styio_value_family_from_type_name(result_name)};
+}
+
+inline std::string
+styio_task_result_type_name(const StyioDataType& type) {
+  return type.item_type_name.empty() ? "unit" : type.item_type_name;
 }
 
 inline StyioValueFamily
@@ -912,6 +1101,7 @@ styio_value_family_is_runtime_handle(StyioValueFamily family) {
   switch (family) {
     case StyioValueFamily::ListHandle:
     case StyioValueFamily::DictHandle:
+    case StyioValueFamily::MatrixHandle:
       return true;
     default:
       return false;
@@ -1166,6 +1356,7 @@ enum class StyioTokenType
   YIELD_PIPE,         // <|
   RETURN_PIPE,        // |<|
   PIPE_SEMICOLON,     // |;
+  TASK_LAUNCH,        // ||>
 
   ARROW_DOUBLE_RIGHT,  // =>
   ARROW_DOUBLE_LEFT,   // <=

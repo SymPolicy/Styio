@@ -17,6 +17,7 @@ set(STYIO_FRONTEND_SEMA_IR_SOURCES
   StyioToString/ToString.cpp
   StyioSema/TypeInfer.cpp
   StyioLowering/AstToStyioIR.cpp
+  StyioLowering/StyioIROptimizer.cpp
 )
 
 set(STYIO_FRONTEND_SOURCES

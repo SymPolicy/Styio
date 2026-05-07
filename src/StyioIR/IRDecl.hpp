@@ -72,16 +72,22 @@ class SIOResourceWriteToFile;
 class SIOStdStreamWrite;
 class SIOStdStreamLineIter;
 class SIOStdStreamPull;
+class SIOTaskCreate;
+class SIOFlowBind;
 
 /* SC = Styio Collection. List, dictionary, and future data structures
    such as matrix. */
 class SCListLiteral;
 class SCDictLiteral;
+class SCMatrixLiteral;
 class SCListClone;
 class SCListLen;
 class SCListGet;
 class SCListSet;
 class SCListToString;
+class SCMatrixGet;
+class SCMatrixRow;
+class SCMatrixToString;
 class SCDictClone;
 class SCDictLen;
 class SCDictGet;

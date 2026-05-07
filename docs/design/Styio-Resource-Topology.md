@@ -59,6 +59,16 @@ The running compiler also reserves top-level `@import { ... }` as a module decla
 }
 ```
 
+Internal resource prelude declarations use the function-body form:
+
+```text
+@ name : Type := #(args) => { body }
+```
+
+This form is the source of truth for built-in resource identity. Runtime code may provide the
+substrate that the body lowers to, but it must not introduce the resource through an ungoverned
+C++ registry entry.
+
 - **`@name : [|n|]`** — declare a **named global resource** with a **bounded** buffer type.
 - **`:= { … }`** — bind **one shared driver** (the stream graph) that **feeds** those resources.
 - **Inside the driver:** data enters shadow containers with **`expr -> $name`**, not **`$name = expr`** (see §5).
@@ -160,8 +170,8 @@ Thus **visible** `@ma20 : [|2|]` may store **only the last two published MA valu
 | Item | Status |
 |------|--------|
 | `@[n](var = …)` / pulse ledger / `$` / `[avg,n]` | **Implemented** (M6 path) |
-| `@name : [|n|]` prefix syntax | **Partial** — `[|n|]` tokenizes and parses in **type positions** (`x : [|n|] := …`, `#` args/returns); **top-level `ResourceDecl`** not implemented |
-| Top-level-only `ResourceDecl` + `:= { driver }` | **Not implemented** |
+| `@name : [|n|]` prefix syntax | **Partial** — `[|n|]` tokenizes and parses in **type positions** (`x : [|n|] := …`, `#` args/returns); single-resource internal prelude declarations parse, while full topology declarations are incomplete |
+| Top-level-only `ResourceDecl` + `:= { driver }` | **Partial** — `@ name [: type] := #(args) => { ... }` parses for internal prelude resources; multi-resource driver binding is not implemented |
 | Ban `$x =` for shadows in favor of `->` only | **Not implemented** — semantic rule TBD |
 | Implicit intrinsic buffers + fingerprint | **Partially** (ledger + intrinsics exist; naming may differ) |
 
