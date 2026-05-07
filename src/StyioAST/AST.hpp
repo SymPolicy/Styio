@@ -4498,6 +4498,101 @@ public:
   }
 };
 
+class TaskBlockAST : public StyioASTTraits<TaskBlockAST>
+{
+  std::unique_ptr<BlockAST> body_owner_;
+  BlockAST* body_ = nullptr;
+  StyioDataType result_type_{StyioDataTypeOption::Undefined, "undefined", 0};
+
+  explicit TaskBlockAST(BlockAST* body) :
+      body_owner_(body),
+      body_(body_owner_.get()) {
+  }
+
+public:
+  static TaskBlockAST* Create(BlockAST* body) {
+    return new TaskBlockAST(body);
+  }
+
+  BlockAST* getBody() {
+    return body_;
+  }
+
+  void setResultType(StyioDataType type) {
+    result_type_ = std::move(type);
+  }
+
+  const StyioDataType& getResultType() const {
+    return result_type_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::TaskBlock;
+  }
+
+  const StyioDataType getDataType() const {
+    if (result_type_.option == StyioDataTypeOption::Undefined) {
+      return styio_make_task_type("unit");
+    }
+    return styio_make_task_type(result_type_.name);
+  }
+};
+
+class FlowBindAST : public StyioASTTraits<FlowBindAST>
+{
+  std::unique_ptr<StyioAST> source_owner_;
+  std::unique_ptr<VarAST> target_owner_;
+  StyioAST* source_ = nullptr;
+  VarAST* target_ = nullptr;
+  bool pull_direction_ = false;
+  StyioDataType result_type_{StyioDataTypeOption::Undefined, "undefined", 0};
+
+  FlowBindAST(StyioAST* source, VarAST* target, bool pull_direction) :
+      source_owner_(source),
+      target_owner_(target),
+      source_(source_owner_.get()),
+      target_(target_owner_.get()),
+      pull_direction_(pull_direction) {
+  }
+
+public:
+  static FlowBindAST* Create(StyioAST* source, VarAST* target, bool pull_direction = false) {
+    return new FlowBindAST(source, target, pull_direction);
+  }
+
+  StyioAST* getSource() {
+    return source_;
+  }
+
+  VarAST* getTarget() {
+    return target_;
+  }
+
+  bool isPullDirection() const {
+    return pull_direction_;
+  }
+
+  const std::string& getTargetNameAsStr() {
+    return target_->getNameAsStr();
+  }
+
+  void setResultType(StyioDataType type) {
+    result_type_ = std::move(type);
+  }
+
+  const StyioDataType& getResultType() const {
+    return result_type_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::FlowBind;
+  }
+
+  const StyioDataType getDataType() const {
+    return result_type_;
+  }
+};
+
 class TypedStdinListAST : public StyioASTTraits<TypedStdinListAST>
 {
   std::unique_ptr<TypeAST> list_type_owner_;

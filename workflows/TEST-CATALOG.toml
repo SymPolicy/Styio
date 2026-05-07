@@ -1,7 +1,7 @@
 id = "test-catalog"
 title = "Styio Test Catalog"
 purpose = "Map milestone and feature-domain tests to inputs, goldens, side effects, and CTest commands."
-last_updated = "2026-04-16"
+last_updated = "2026-05-04"
 doc = "TEST-CATALOG.md"
 
 primary_command = "ctest --test-dir build/default -L milestone"
@@ -13,6 +13,7 @@ domains = [
   "M4 waves",
   "M5 resources",
   "M7 synchronization",
+  "algorithm equivalence",
   "security",
   "five-layer pipeline",
   "soak",

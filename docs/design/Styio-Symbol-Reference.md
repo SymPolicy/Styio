@@ -18,7 +18,7 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | `@` | Undefined / Resource Anchor | `TOK_AT` | **Alone:** honest absence (Undefined). **Before `[`:** state container declaration. **Before identifier + `{`/`(`:** resource with protocol. |
 | `@stdout` | Standard Output | `TOK_AT` + `NAME("stdout")` | Built-in write-only stream resource (fd 1). Scalar write: `expr -> @stdout`; iterable write: `items >> @stdout`. |
 | `@stderr` | Standard Error | `TOK_AT` + `NAME("stderr")` | Built-in write-only stream resource (fd 2, unbuffered). Scalar write: `expr -> @stderr`; iterable write: `items >> @stderr`. |
-| `@stdin` | Standard Input | `TOK_AT` + `NAME("stdin")` | Built-in read-only stream resource (fd 0). Iterate via `@stdin >> #(line) => {...}`. Symbolic definition forms include `{ <\|[>_] }`, `{ <\|(>_) }`, and expanded `{ <\| <- [>_] }`. Legacy `(<< @stdin)` is compatibility-only, not canonical design spelling. |
+| `@stdin` | Standard Input | `TOK_AT` + `NAME("stdin")` | Built-in read-only stream resource (fd 0). Iterate via `@stdin >> #(line) => {...}`. Internal declaration forms use `@ stdin := #() => { ... }` with `{ <\|[>_] }`, `{ <\|(>_) }`, and expanded `{ <\| <- [>_] }`. Legacy `(<< @stdin)` is compatibility-only, not canonical design spelling. |
 | `$` | State Reference / Capture | `TOK_DOLLAR` | **Before identifier:** read from shadow buffer. **Before `(`:** capture list in function decl. **Before string:** format string. |
 
 ---
@@ -139,7 +139,7 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | `@[` | State container declaration prefix |
 | `@ident{...}` | Resource with explicit protocol |
 | `@{...}` or `@(...)` | Anonymous resource (auto-detect) |
-| `@stdout`, `@stderr`, `@stdin` | Standard stream resource atom (compiler-recognized directly; no user-authored wrapper definition required) |
+| `@stdout`, `@stderr`, `@stdin` | Standard stream resource atom; direct user use is backed by internal Styio prelude declarations |
 | `$ident` | State reference |
 | `$(...)` | Capture list (function context) |
 | `$"..."` | Format string |

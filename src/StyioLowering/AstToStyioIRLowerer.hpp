@@ -87,6 +87,8 @@ public:
   StyioIR* toStyioIR(SnapshotDeclAST* ast) override;
   StyioIR* toStyioIR(InstantPullAST* ast) override;
   StyioIR* toStyioIR(TypedStdinListAST* ast) override;
+  StyioIR* toStyioIR(TaskBlockAST* ast) override;
+  StyioIR* toStyioIR(FlowBindAST* ast) override;
   StyioIR* toStyioIR(IterSeqAST* ast) override;
   StyioIR* toStyioIR(InfiniteLoopAST* ast) override;
   StyioIR* toStyioIR(CasesAST* ast) override;

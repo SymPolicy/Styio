@@ -18,6 +18,8 @@
   - 一键性能路线 + 结果归档
 - `perf-report.py`
   - 解析原始日志并生成 `json/csv/markdown` 摘要
+- `async-runtime/`
+  - Styio task scheduler 与 C++ / Go / Rust 的异步运行时横向基准框架
 - `parser-shadow-suite-gate.sh`
   - parser shadow gate 脚本
 - `soak-minimize.sh`
@@ -238,6 +240,8 @@ Opt-in benchmark：
   - CLI end-to-end matrix benchmark，输出模块切面的单次墙钟耗时
 - `StyioSoakSingleThread.CompilerErrorPathBenchmarksReport`
   - CLI 失败路径 matrix benchmark，输出 `lex/parse/type/runtime` 诊断的单次墙钟耗时、退出码与诊断码
+- `benchmark/async-runtime/run-async-bench.py`
+  - 异步运行时横向基准，输出 Styio / C++ / Go / Rust 在 `sleep` 并发收敛与 `noop` fanout 开销上的 JSON、CSV 与 Markdown 报告
 
 ## C ABI 指针约定
 

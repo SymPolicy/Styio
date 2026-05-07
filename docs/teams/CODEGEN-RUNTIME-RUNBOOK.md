@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-04-30
+**Last updated:** 2026-05-05
 
 ## Mission
 
@@ -38,6 +38,11 @@ Related docs:
 9. Keep the ORC JIT symbol registry aligned with the full `src/StyioExtern/ExternLib.hpp` export surface and every runtime helper that codegen emits; when a new `getOrInsertFunction("styio_*")` call or extern export appears, update `src/StyioJIT/StyioJIT_ORC.hpp` in the same delivery.
 10. Treat `python3 scripts/runtime-surface-gate.py` as the static blocker for syntax/runtime deliveries; do not rely on manual review to spot a missing export or ORC registration.
 11. Keep native extern JIT registration intact when resolving upstream merges: `StyioJIT_ORC::defineAbsoluteSymbol` is the bridge used by `StyioCodeGen` to expose compiled C/C++ extern blocks to ORC, and it must stay aligned with native interop tests.
+12. Matrix runtime helpers own the flat row-major storage contract. When adding or changing matrix lowering, keep `ExternLib.hpp`, `ExternLib.cpp`, `HandleTable.hpp`, ORC registrations, direct-data helpers, release paths, and security/codegen tests in the same checkpoint.
+13. Empty lexical scopes must not emit unused runtime declarations; exact LLVM IR comparison tests protect StyioIR optimizer canonicalization from backend-only drift.
+14. Matrix/list/dict/string runtime resources stored in dynamic slots must release through the same RAII path on overwrite, normal scope exit, and runtime-error early return. Any new runtime guard that emits `ret` must first run active scope cleanup.
+15. Task resources are scheduled runtime handles. Keep `styio_task_*_spawn`, worker-pool state, `HandleKind::Task`, dynamic-slot release, ORC registrations, and task pull codegen in one checkpoint; `||>` lowering must emit a private task function plus scheduler submission, not an eager scalar handle that can escape scope cleanup.
+16. Async scheduler profiling must stay opt-in: disabled runs should avoid per-task counter writes, enabled runs should expose spawn/enqueue/start/complete/pull/release and queue-depth counters through `--profile-frontend`, and task readiness should use the scheduler's low-overhead atomic wait path instead of per-task condition variables.
 
 ## Change Classes
 

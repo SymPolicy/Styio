@@ -2,7 +2,7 @@
 
 **Purpose:** 为 Styio 的资源值、`@stdin/@stdout`、`<<`、可迭代对象、以及默认失败处理建立统一的设计级类型系统；该文档定义目标模型，不等同于当前实现。
 
-**Last updated:** 2026-04-24
+**Last updated:** 2026-05-03
 
 **Status:** Target design — not fully implemented in the current compiler.  
 **See also:** [`Styio-Language-Design.md`](./Styio-Language-Design.md), [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md), [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md).
@@ -58,6 +58,7 @@ Examples:
 - `@stdin : Handle<fd, string, {pull, iter}, open>`
 - `@stdout : Handle<fd, string, {push}, open>`
 - `list[i32] : Handle<ptr, i32, {iter, push, index, sized, collect}, materialized>`
+- `matrix[f64] : Handle<matrix, f64, {index, sized, clone, close}, materialized>`
 - `range[i64] : Handle<imm, i64, {iter}, materialized>`
 
 This notation is **design-level**, not fixed user syntax. The important part is the separation of concerns.
@@ -217,7 +218,20 @@ Lists are materialized containers:
 list[T] : Handle<ptr, T, {iter, push, index, sized, collect, clone}, materialized>
 ```
 
-### 7.4 `range[T]`
+### 7.4 `matrix[T]`
+
+Matrices are materialized numeric containers backed by a flat row-major runtime handle:
+
+```text
+matrix[T] : Handle<matrix, T, {index, sized, clone, close}, materialized>
+```
+
+Typed bindings such as `m: matrix = [[...], [...]]` use nested list syntax as the source form, but
+the typed context validates rectangular numeric rows and lowers to a matrix handle instead of a
+list-of-lists handle. The static type carries element kind plus row/column facts when dimensions
+are known, so Sema can reject incompatible `+`, `-`, `*`, and intrinsic calls before CodeGen.
+
+### 7.5 `range[T]`
 
 Ranges are iterable but not necessarily indexable:
 

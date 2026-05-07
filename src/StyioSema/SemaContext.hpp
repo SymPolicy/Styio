@@ -116,6 +116,8 @@ using StyioSemaLoweringVisitor = AnalyzerVisitor<
   class SnapshotDeclAST,
   class InstantPullAST,
   class TypedStdinListAST,
+  class TaskBlockAST,
+  class FlowBindAST,
   class IterSeqAST,
   class InfiniteLoopAST,
 
@@ -291,6 +293,8 @@ public:
   void typeInfer(SnapshotDeclAST* ast) override;
   void typeInfer(InstantPullAST* ast) override;
   void typeInfer(TypedStdinListAST* ast) override;
+  void typeInfer(TaskBlockAST* ast) override;
+  void typeInfer(FlowBindAST* ast) override;
   void typeInfer(IterSeqAST* ast) override;
   void typeInfer(MatchCasesAST* ast) override;
   void typeInfer(MainBlockAST* ast) override;
@@ -305,6 +309,8 @@ public:
     String,
     ListHandle,
     DictHandle,
+    MatrixHandle,
+    TaskHandle,
   };
 
   struct BindingInfo
@@ -329,6 +335,7 @@ protected:
   std::unordered_set<HandleAcquireAST*> collect_bind_handle_acquires_;
   std::unordered_map<ResourceWriteAST*, StyioDataType> collect_bind_resource_write_types_;
   std::unordered_map<HandleAcquireAST*, StyioDataType> collect_bind_handle_acquire_types_;
+  std::unordered_set<std::string> consumed_task_names_;
 };
 
 #endif

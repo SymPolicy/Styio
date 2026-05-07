@@ -530,6 +530,24 @@ StyioRepr::toString(ResourceRedirectAST* ast, int indent) {
 }
 
 std::string
+StyioRepr::toString(TaskBlockAST* ast, int indent) {
+  return reprASTType(ast->getNodeType(), " ")
+         + " {\n"
+         + make_padding(indent) + "body: "
+         + (ast->getBody() ? ast->getBody()->toString(this, indent + 1) : std::string("null"))
+         + "}";
+}
+
+std::string
+StyioRepr::toString(FlowBindAST* ast, int indent) {
+  return reprASTType(ast->getNodeType(), " ")
+         + " {\n"
+         + make_padding(indent) + "source: " + ast->getSource()->toString(this, indent + 1) + "\n"
+         + make_padding(indent) + "target: " + ast->getTarget()->toString(this, indent + 1)
+         + "}";
+}
+
+std::string
 StyioRepr::toString(StateDeclAST* ast, int indent) {
   (void)indent;
   return reprASTType(ast->getNodeType(), " ") + " { }";
@@ -1424,6 +1442,36 @@ StyioRepr::toString(SCDictLiteral* node, int indent) {
 }
 
 std::string
+StyioRepr::toString(SCMatrixLiteral* node, int indent) {
+  (void)indent;
+  return std::string("styio.ir.matrix_literal { elems=") + std::to_string(node->elems.size())
+    + ", elem=" + node->elem_type
+    + ", rows=" + std::to_string(node->rows)
+    + ", cols=" + std::to_string(node->cols) + " }";
+}
+
+std::string
+StyioRepr::toString(SCMatrixGet* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.matrix_get { }";
+}
+
+std::string
+StyioRepr::toString(SCMatrixRow* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.matrix_row { }";
+}
+
+std::string
+StyioRepr::toString(SCMatrixToString* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.matrix_to_string { }";
+}
+
+std::string
 StyioRepr::toString(SGStateSnapLoad* node, int indent) {
   (void)node;
   (void)indent;
@@ -1683,6 +1731,23 @@ StyioRepr::toString(SIOStdStreamLineIter* node, int indent) {
 std::string
 StyioRepr::toString(SIOStdStreamPull* node, int indent) {
   return std::string("styio.ir.stdin_pull { }");
+}
+
+std::string
+StyioRepr::toString(SIOTaskCreate* node, int indent) {
+  return std::string("styio.ir.task_create { result=") + node->result_type.name
+         + ", body="
+         + (node->body ? node->body->toString(this, indent) : std::string("null"))
+         + " }";
+}
+
+std::string
+StyioRepr::toString(SIOFlowBind* node, int indent) {
+  return std::string("styio.ir.flow_bind { target=") + node->target_name
+         + ", task=" + (node->source_is_task ? "true" : "false")
+         + ", source="
+         + (node->source_expr ? node->source_expr->toString(this, indent) : std::string("null"))
+         + " }";
 }
 
 std::string

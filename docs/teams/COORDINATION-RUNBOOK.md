@@ -80,7 +80,7 @@ Any high-risk cross-team work must stay checkpoint-sized:
 4. Update the affected team runbook before delivery whenever mapped owned files changed.
 5. If a checkpoint changes cross-repo milestone IDs, repo exits, or shared cutover rules, update the authoritative ecosystem plan, mirror plans, and affected handoff docs in the same batch.
 6. If a checkpoint changes docs tree topology, index-generation rules, archive/rollup lifecycle, ignore-policy baseline, or tracked-fixture negate rules, update the file-governance alignment plan and affected docs/runbook owners in the same batch.
-7. Run the smallest team gate first, then `./scripts/delivery-gate.sh --mode checkpoint` for common delivery floor. Use `--mode push --base <ref>` before branch delivery. Keep `./scripts/checkpoint-health.sh` as the inner recovery gate.
+7. Run the smallest team gate first, then `./scripts/delivery-gate.sh` for the common auto delivery floor. Pass `--base <ref>` only when auto cannot infer the intended branch delivery base. Keep `./scripts/checkpoint-health.sh` as the inner recovery gate.
 
 ## Release / Cutover Gates
 
@@ -94,7 +94,7 @@ The unified delivery floor is additive, not a replacement. Run `./scripts/delive
 | CLI diagnostic or exit-code contract | CLI-focused unit/milestone cases and docs update |
 | Nano package contract | Nano tests in `styio_test`, [../external/for-spio/Styio-Nano-Spio-Coordination.md](../external/for-spio/Styio-Nano-Spio-Coordination.md) review |
 | LSP or IDE API surface | `styio_ide_test`, [../external/for-ide/INDEX.md](../external/for-ide/INDEX.md) update, syntax grammar gate when applicable |
-| Documentation collection shape | `./scripts/delivery-gate.sh --mode checkpoint --skip-health` |
+| Documentation collection shape | `./scripts/delivery-gate.sh --skip-health` |
 
 ## Handoff / Recovery
 

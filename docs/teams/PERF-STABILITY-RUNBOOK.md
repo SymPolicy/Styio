@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of benchmark routes, soak tests, performance reports, regression templates, and stability guardrails.
 
-**Last updated:** 2026-04-30
+**Last updated:** 2026-05-05
 
 ## Mission
 
@@ -17,8 +17,9 @@ Primary paths:
 3. `benchmark/perf-route.sh`
 4. `benchmark/perf-report.py`
 5. `benchmark/COVERAGE-MATRIX.md`
-6. `benchmark/REGRESSION-TEMPLATE.md`
-7. `src/StyioProfiler/`
+6. `benchmark/async-runtime/`
+7. `benchmark/REGRESSION-TEMPLATE.md`
+8. `src/StyioProfiler/`
 
 High-value docs:
 
@@ -33,9 +34,13 @@ High-value docs:
 4. Minimize soak failures before handing them to implementation owners.
 5. Keep deep routes out of routine PR gates unless they protect an active high-risk change.
 6. When native `@extern` performance changes, measure both first-run compile cost and cached repeated-run cost. Cache results are only comparable when `STYIO_NATIVE_CACHE_DIR`, compiler command, and source hash inputs are controlled.
-7. For Styio-language frontend attribution, run `styio --profile-frontend --profile-out <report.json> --file <case.styio>` first. The report is `styio-profiler` JSON scoped to Styio phases such as source read, tokenize, parser context creation, parse, type inference, and Styio IR lowering, plus token histogram and parser-route counters.
-8. Use LLVM XRay when benchmark deltas need C++ function-level attribution and `perf` is unavailable. Build an instrumented profile with `-fxray-instrument -fxray-instruction-threshold=1`, run with `XRAY_OPTIONS='patch_premain=true xray_mode=xray-basic xray_logfile_base=/tmp/styio-xray'`, then inspect with `llvm-xray account -instr_map=<instrumented-styio> -sort=sum -sortorder=dsc -top=30`. Treat XRay output as native profiler evidence, not Styio frontend attribution or release latency, because instrumentation inflates wall time.
-9. Keep benchmark phase names aligned with the compiler middle-layer split: type inference maps to `StyioSemaContext`, and StyioIR lowering maps to `AstToStyioIRLowerer`.
+7. Task scheduler changes need a wall-clock concurrency proof. Keep `StyioTaskSchedulerPerf.SleepTasksRunConcurrently` green and record the sequential/concurrent ratio when changing `styio_task_*_spawn`, worker-count selection, blocking pull, or task handle release.
+8. For Styio-language frontend attribution, run `styio --profile-frontend --profile-out <report.json> --file <case.styio>` first. The report is `styio-profiler` JSON scoped to Styio phases such as source read, tokenize, parser context creation, parse, type inference, and Styio IR lowering, plus token histogram and parser-route counters.
+9. Use LLVM XRay when benchmark deltas need C++ function-level attribution and `perf` is unavailable. Build an instrumented profile with `-fxray-instrument -fxray-instruction-threshold=1`, run with `XRAY_OPTIONS='patch_premain=true xray_mode=xray-basic xray_logfile_base=/tmp/styio-xray'`, then inspect with `llvm-xray account -instr_map=<instrumented-styio> -sort=sum -sortorder=dsc -top=30`. Treat XRay output as native profiler evidence, not Styio frontend attribution or release latency, because instrumentation inflates wall time.
+10. Keep benchmark phase names aligned with the compiler middle-layer split: type inference maps to `StyioSemaContext`, and StyioIR lowering maps to `AstToStyioIRLowerer`.
+11. Async runtime comparisons must target the selected peer runtimes: C++20 stackless coroutine, Go goroutine, and Rust Tokio. Do not replace them with generic thread pools when producing Styio task scheduler evidence.
+12. Async runtime reports must include normalized per-workload performance columns. The best runtime for each workload is `1.00x`; lower scores show relative performance against that best result. Use median samples, not single runs, when comparing no-op fanout.
+13. Async runtime framework checks use pytest as the black-box contract runner over `benchmark/async-runtime/run-async-bench.py`; keep runtime selection explicit with `--runtime` and promote only JSON/CSV/Markdown report outputs as evidence.
 
 ## Change Classes
 
@@ -57,6 +62,20 @@ Focused benchmark route:
 ```bash
 ./benchmark/perf-route.sh --phase-iters 5000 --micro-iters 5000 --execute-iters 20
 ```
+
+Async runtime comparison:
+
+```bash
+python3 -m pytest benchmark/async-runtime/test_async_runtime_blackbox.py
+
+benchmark/async-runtime/run-async-bench.py \
+  --case baseline \
+  --bootstrap-toolchains \
+  --repeats 5 \
+  --out-dir benchmark/async-runtime/reports/<run-id>
+```
+
+The async comparison script defaults to `build/async-runtime-release`, configures that directory as CMake `Release` when needed, and rejects non-Release Styio build caches for cross-runtime performance reports.
 
 Deep stability:
 

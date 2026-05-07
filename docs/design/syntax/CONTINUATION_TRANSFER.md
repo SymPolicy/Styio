@@ -2,7 +2,7 @@
 
 **Purpose:** Define the compact syntax and one-shot lifecycle for continuation transfer.
 
-**Last updated:** 2026-04-24
+**Last updated:** 2026-05-04
 
 ```styio
 f <| a        := f(a)
@@ -27,21 +27,20 @@ k <| a       := resume k with a
 | `|>` | reserved |
 | `|<-` | reserved |
 
-Resource definition shorthand:
+Standard-stream declaration forms:
 
 ```styio
-@stdin := { <|[>_] }
-@stdin := { <|(>_) }
-@stdin := { <| <- [>_] }
-@stdin := { <| <- (>_) }  // compatibility terminal-device spelling
+@ stdin := #() => { <|[>_] }
+@ stdin := #() => { <|(>_) }
+@ stdin := #() => { <| <- [>_] }
+@ stdin := #() => { <| <- (>_) }  // compatibility terminal-device spelling
 ```
 
-Inside symbolic standard-stream definitions, `<|` marks the value exported from the definition
-block. The compact stdin form `<|[>_]` is shorthand for the expanded pull-return form
-`<| <- [>_]`. The call-like form `<|(>_)` is also accepted at the design level: it reads as
-`<|` returning/exporting the terminal device argument. The bracketed terminal handle `[>_]`
-replaces the earlier `| >_ |` spelling to avoid a `|>` visual/tokenization ambiguity; `(>_)`
-remains a compatibility spelling.
+These are internal Styio resource declarations. `<|` marks the value exported from the declaration
+body. The compact stdin form `<|[>_]` is shorthand for the expanded pull-return form
+`<| <- [>_]`. The call-like form `<|(>_)` reads as `<|` returning/exporting the terminal device
+argument. The bracketed terminal handle `[>_]` replaces the earlier `| >_ |` spelling to avoid a
+`|>` visual/tokenization ambiguity; `(>_)` remains a compatibility spelling.
 
 Lifecycle:
 
