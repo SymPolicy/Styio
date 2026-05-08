@@ -489,6 +489,7 @@ static StyioAST* parse_token_index_suffix(StyioContext& context, StyioAST* base)
 static StyioAST* parse_state_ref_suffix(StyioContext& context, StateRefAST* sr);
 TypeAST* parse_styio_type(StyioContext& context);
 static StyioAST* parse_expr_postfix(StyioContext& context, StyioAST* lhs);
+static ResourceRefAST* parse_resource_ref_after_at_latest(StyioContext& context);
 
 static StyioAST*
 reassociate_add_into_resource_sink_latest_draft(
@@ -1232,72 +1233,17 @@ parse_after_at_common(StyioContext& context, bool file_only_resource) {
   if (not file_only_resource && context.check(StyioTokenType::TOK_LPAREN)) {
     return parse_resources_after_at(context);
   }
+  if (not file_only_resource && context.check(StyioTokenType::NAME)) {
+    return parse_resource_ref_after_at_latest(context);
+  }
   return UndefinedLitAST::Create();
 }
 
-/* M6 state syntax: @[n](name = expr) / @[acc = i](name = expr) / @[name] << @file(...)
- * Target design (docs/design/Styio-Resource-Topology.md): @name : T|n| := { driver } at top level,
- * expr -> @name for sink writes. */
 StyioAST*
 parse_state_decl_after_at_latest(StyioContext& context) {
-  context.try_match_panic(StyioTokenType::TOK_LBOXBRAC);
-  context.skip();
-  if (context.check(StyioTokenType::INTEGER)) {
-    IntAST* win = parse_int(context);
-    context.skip();
-    context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
-    context.skip();
-    context.try_match_panic(StyioTokenType::TOK_LPAREN);
-    context.skip();
-    if (not context.check(StyioTokenType::NAME)) {
-      throw StyioSyntaxError(context.mark_cur_tok("expected (export = expr) in state decl"));
-    }
-    NameAST* expn = parse_name_unsafe(context);
-    context.skip();
-    context.try_match_panic(StyioTokenType::TOK_EQUAL);
-    context.skip();
-    StyioAST* rhs = parse_expr(context);
-    context.skip();
-    context.try_match_panic(StyioTokenType::TOK_RPAREN);
-    return StateDeclAST::Create(win, nullptr, nullptr, VarAST::Create(expn), rhs);
-  }
-  if (not context.check(StyioTokenType::NAME)) {
-    throw StyioSyntaxError(context.mark_cur_tok("expected window size or acc = init in @[...]"));
-  }
-  NameAST* n0 = parse_name_unsafe(context);
-  context.skip();
-  if (context.try_match(StyioTokenType::TOK_EQUAL)) {
-    context.skip();
-    StyioAST* acc_init = parse_expr(context);
-    context.skip();
-    context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
-    context.skip();
-    context.try_match_panic(StyioTokenType::TOK_LPAREN);
-    context.skip();
-    if (not context.check(StyioTokenType::NAME)) {
-      throw StyioSyntaxError(context.mark_cur_tok("expected (export = expr) in state decl"));
-    }
-    NameAST* expn = parse_name_unsafe(context);
-    context.skip();
-    context.try_match_panic(StyioTokenType::TOK_EQUAL);
-    context.skip();
-    StyioAST* rhs = parse_expr(context);
-    context.skip();
-    context.try_match_panic(StyioTokenType::TOK_RPAREN);
-    return StateDeclAST::Create(nullptr, n0, acc_init, VarAST::Create(expn), rhs);
-  }
-  if (context.try_match(StyioTokenType::TOK_RBOXBRAC)) {
-    context.skip();
-    context.try_match_panic(StyioTokenType::EXTRACTOR);
-    context.skip();
-    StyioAST* ratom = parse_resource_file_atom_latest(context);
-    auto* fr = dynamic_cast<FileResourceAST*>(ratom);
-    if (fr == nullptr) {
-      throw StyioSyntaxError(context.mark_cur_tok("snapshot pull needs @file(...) or @{...}"));
-    }
-    return SnapshotDeclAST::Create(n0, fr);
-  }
-  throw StyioSyntaxError(context.mark_cur_tok("expected = or ] after name in @[...]"));
+  throw StyioSyntaxError(context.mark_cur_tok(
+    "legacy M6 @[...] syntax is retired; use top-level @name : T|..n| resources, "
+    "expr -> @name writes, and @name[-1] selectors"));
 }
 
 static std::vector<ParamAST*>
@@ -2051,6 +1997,9 @@ parse_arithmetic_tail_from_atom(StyioContext& context, StyioAST* output) {
       ));
 
     case StyioTokenType::TOK_LBOXBRAC: {
+      if (has_linebreak_before_current_token_latest(context)) {
+        break;
+      }
       /* Do not treat `[` after a bare literal / bool as indexing — that would glue
          `result = true` to the next line's `[1,2,3] >> ...` and break parsing. */
       if (output && (output->getNodeType() == StyioNodeType::Integer || output->getNodeType() == StyioNodeType::Float || output->getNodeType() == StyioNodeType::Bool || output->getNodeType() == StyioNodeType::String)) {
@@ -2126,13 +2075,8 @@ parse_arithmetic_expr(StyioContext& context) {
     } break;
 
     case StyioTokenType::TOK_DOLLAR: {
-      context.move_forward(1, "arith_$");
-      context.skip();
-      if (not context.check(StyioTokenType::NAME)) {
-        throw StyioSyntaxError(context.mark_cur_tok("expected name after $"));
-      }
-      auto* sr = StateRefAST::Create(parse_name_unsafe(context));
-      return parse_arithmetic_tail_from_atom(context, parse_state_ref_suffix(context, sr));
+      throw StyioSyntaxError(context.mark_cur_tok(
+        "legacy M6 $state syntax is retired; use @name[-1] resource selectors"));
     } break;
 
     case StyioTokenType::NAME: {
@@ -2164,6 +2108,26 @@ parse_arithmetic_expr(StyioContext& context) {
     } break;
 
     case StyioTokenType::TOK_LPAREN: {
+      const auto saved = context.save_cursor();
+      context.move_forward(1, "arith(");
+      context.skip();
+      if (context.check(StyioTokenType::EXTRACTOR)) {
+        context.move_forward(1, "instant<<");
+        context.skip();
+        StyioAST* ratom = parse_resource_file_atom_latest(context);
+        auto rnt = ratom->getNodeType();
+        if (rnt != StyioNodeType::FileResource
+            && rnt != StyioNodeType::StdinResource
+            && rnt != StyioNodeType::StdoutResource
+            && rnt != StyioNodeType::StderrResource) {
+          delete ratom;
+          throw StyioSyntaxError(context.mark_cur_tok("instant pull needs @file(...), @{...}, or @stdin"));
+        }
+        context.skip();
+        context.try_match_panic(StyioTokenType::TOK_RPAREN);
+        return InstantPullAST::Create(ratom);
+      }
+      context.restore_cursor(saved);
       return parse_tuple_exprs(context);
     } break;
 
@@ -2329,7 +2293,7 @@ parse_token_index_suffix(StyioContext& context, StyioAST* base) {
 
   if (auto* sr = dynamic_cast<StateRefAST*>(base)) {
     if (context.check(StyioTokenType::EXTRACTOR)) {
-      context.move_forward(1, "state_hist[<<");
+      context.move_forward(1, "retired_state_history_selector");
       context.skip();
       context.try_match_panic(StyioTokenType::TOK_COMMA);
       context.skip();
@@ -2625,13 +2589,8 @@ parse_binop_item(StyioContext& context) {
     } break;
 
     case StyioTokenType::TOK_DOLLAR: {
-      context.move_forward(1, "binop_item$");
-      context.skip();
-      if (not context.check(StyioTokenType::NAME)) {
-        throw StyioSyntaxError(context.mark_cur_tok("expected name after $ in expression"));
-      }
-      auto* sr = StateRefAST::Create(parse_name_unsafe(context));
-      output = parse_arithmetic_tail_from_atom(context, parse_state_ref_suffix(context, sr));
+      throw StyioSyntaxError(context.mark_cur_tok(
+        "legacy M6 $state syntax is retired; use @name[-1] resource selectors"));
     } break;
 
     case StyioTokenType::TOK_LPAREN: {

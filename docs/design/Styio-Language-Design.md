@@ -598,16 +598,22 @@ l1 << l
 
 Copying an already-bound resource as `l1 <- l` is rejected; use `l1 << l`.
 
-### 9.5 Legacy M6 State Containers
+### 9.5 Retired M6 State Containers
 
-The implemented M6 surface still accepts forms such as:
+The old M6 surface used forms such as `@[...]` declarations and `$state`
+shadow reads. Active code must use resource objects:
 
 ```styio
-@[5](ma5 = get_ma(prices, 5))
-@[total = 0.0](total_vol = $total + volumes)
+@ma5 : f64|..5|
+get_ma(prices, 5) -> @ma5
+
+@total_vol : f64|..1|
+next_total = @total_vol[-1] + volumes
+next_total -> @total_vol
 ```
 
-These remain implementation/provenance syntax until migration. New design text should use the resource-object spelling above instead of `@[...]` and `$state`.
+The compiler rejects the old spelling with a migration diagnostic. Archived
+milestone and ADR files may still mention it as provenance.
 
 ### 9.6 Retired History Probe: `[<<, n]`
 
@@ -643,8 +649,8 @@ Optional tolerance window:
 ```
 
 The explicit `<<` copy makes the snapshot boundary visible. Older M6 examples used
-`@[p_okx] << @okx` plus `$p_okx`; new topology text should prefer resource-object
-or snapshot-object reads such as `p_okx[-1]`.
+snapshot declarations plus `$` shadow reads; new topology text should prefer
+resource-object or snapshot-object reads such as `p_okx[-1]`.
 
 Inline immediate pull (no state declaration, live read):
 
@@ -804,7 +810,7 @@ The `??` operator extracts the diagnostic context from a tainted `@`.
 ### 13.4 Guard-based Recovery
 
 ```
-safe_price = price | $last_valid_price    // fallback if price carries runtime absence
+safe_price = price | @last_valid_price[-1]    // fallback if price carries runtime absence
 ```
 
 The `|` operator provides a fallback value when the left side carries runtime absence.
@@ -829,7 +835,7 @@ The `|` operator provides a fallback value when the left side carries runtime ab
 
 ### 14.3 Audit Mode (`styio audit --fix`)
 
-- Scans legacy scattered `@[...]` declarations and target `@name : Type` resources
+- Scans retired state syntax as migration diagnostics and target `@name : Type` resources
 - Generates explicit `schema` block at file header
 - Reformats source according to Styio style guide
 
@@ -860,13 +866,13 @@ The current C++ compiler implementation already has a rich token system, parser,
 
 2. **`@` overload risk:** `@` remains overloaded as a resource prefix, state prefix, standard-stream prefix, and runtime absence marker. Source-level bare `@` has been retired from active syntax to reduce ambiguity.
 
-3. **Legacy migration:** `@[n](var = expr)` and `@[var = init](expr)` remain implemented M6 syntax. The target surface is `@name : Type|n|` / `@name : Type|..n|` plus resource-object selectors.
+3. **Legacy migration:** `@[n](var = expr)`, `@[var = init](expr)`, `$state`, and `$state[<<, n]` are retired parser errors. The active surface is `@name : Type|n|` / `@name : Type|..n|` plus resource-object selectors.
 
 4. **Cross-platform builds:** The current CMakeLists.txt hardcodes Linux paths. Windows and macOS support need platform-conditional toolchain detection.
 
 ### A.3 Performance Considerations
 
 The **Pulse Frame Lock** design is elegant but may introduce measurable overhead in ultra-high-frequency scenarios (>100k ticks/sec). Consider:
-- A compile-time optimization that detects when frame lock is unnecessary (single `$var` read, no aliasing)
+- A compile-time optimization that detects when frame lock is unnecessary (single resource-snapshot read, no aliasing)
 - An `unsafe` annotation to opt out of frame lock for latency-critical inner loops
 - Hardware-level atomic snapshot using `LOCK CMPXCHG` or ARM `LDXR/STXR` for multi-threaded shadow updates

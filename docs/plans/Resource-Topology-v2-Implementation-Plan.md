@@ -18,12 +18,12 @@
 |---|------|----------|------------------------|
 | T1 | 类型后缀 **`T|n|`**、**`T|..n|`**、**`T..` / `T...`** | Topology §3, EBNF B.2 | 待实现 |
 | T1b | 类型参数 **`list[T]`**、**`dict[K, V]`** 与类型规则 **`__ : TypePattern := TypeExpr`** | Topology §3, EBNF B.3 | 待实现 |
-| T2 | 顶层 **`ResourceDecl`**：`@id : Type { , @id : Type } [ := DriverBlock ]` | Topology §4, EBNF B.1 | 顶层无专用资源声明；`@`+`[` 走 `parse_state_decl_after_at`（块内 M6） |
+| T2 | 顶层 **`ResourceDecl`**：`@id : Type { , @id : Type } [ := DriverBlock ]` | Topology §4, EBNF B.1 | 顶层资源声明已接入；`@`+`[` 现为 retired 负例 |
 | T3 | **`DriverBlock`** 内保留现有 `StreamTopology`（`>>` / `#()` 等） | Topology §4 | 已有管道解析，需接到新顶层节点下 |
 | T4 | 语句 **`expr -> @name`**（写入资源 sink） | Topology §5, EBNF B.4 | `->` 已用于 M5 redirect；需与资源 sink 统一语义 |
 | T5 | 语义：裸 **`@name`** 是资源对象，最新值必须写 **`@name[-1]`** | Topology §5-§6 | 当前赋值/读取路径未区分资源对象 vs scalar |
 | T6 | 语义：**顶层以外** 禁止无迁移路径的 `@name : …`（Topology §4 Forbidden） | Topology §4 | 未实现 |
-| T7 | 与 M6 **`@[n](…)`** 的 **共存或迁移** 策略（向后兼容窗口） | Topology §9, Logic-Conflicts §1.3 | M6 为现行 canonical |
+| T7 | 与 M6 **`@[n](…)`** 的 **退休 / 迁移** 策略 | Topology §9, Logic-Conflicts §1.3 | legacy spelling 已转为负例 |
 
 ### 1.2 成功标准（工程）
 
@@ -71,7 +71,7 @@
 | **`parse_type`**（或等价） | 扩展以消费 `list[T]` / `dict[K,V]`、tuple、类型长度后缀、无限重复后缀 |
 | **`parse_type_rewrite_decl`** | 解析 `__ : TypePattern := TypeExpr`，占位符为两个及以上 `_` |
 | **`parse_stmt_or_expr` / 语句** | 识别 **`expression TOK_ARROW_RIGHT @ Identifier`**（资源 sink 写入） |
-| **`parse_state_decl_after_at`** | 保留 M6 路径；与顶层 `@id :` 的 **FIRST 集分离**（避免把 `@ma5 : f64|..2|` 误切入旧状态声明） |
+| **`parse_state_decl_after_at`** | 作为 retired 诊断入口保留；命中 `@[` 直接报迁移错误 |
 
 **注意：** 查阅现有 `->` 是否已映射为 `TOK_ARROW_RIGHT` 或与 `>>` 冲突；Logic-Conflicts §1.2 `>>` 与 continue 已有 disambiguation，新语句不得破坏。
 
@@ -140,12 +140,12 @@
 | L2 | **dot-run** 同时用于 range、selector、type repetition | 两个及以上点统一 token；由 parser 上下文分派 |
 | L3 | **`->` 双字符** 与 `>` 比较符、`-` 负号 | 沿用现有 maximal munch；新语句形态用 lookahead 确认 `@name` sink |
 
-### 4.2 与现行 M6/M7 共存
+### 4.2 M6/M7 迁移收口
 
 | ID | 风险 | 缓解 |
 |----|------|------|
-| C1 | 同一标识在 **`@[5](x=...)`** 与 **`@x : T|5|`** 下 IR 布局不同 | 明确 **迁移指南** 或 **双模式** lowering 映射到同一 ledger 抽象 |
-| C2 | 测试 golden **大规模变更** | 分 PR：先加 v2 测试不删 M6；再可选迁移 golden |
+| C1 | 旧 state spelling 与 **`@x : T|5|`** 下 IR 布局不同 | 旧 spelling 已转为 parser 负例；v2 lowering 映射到当前资源槽 / ledger 抽象 |
+| C2 | 测试 golden **大规模变更** | M6 正例已迁移到 v2；旧 spelling 通过 `m6_err_*` 负例覆盖 |
 | C3 | **`<<` 五义性**（Logic-Conflicts §1.1）在资源块内加剧 | 实施前写出与 `../design/Styio-EBNF.md` 一致的 **位置表**；新代码禁止再增第六种无文档含义 |
 
 ### 4.3 语义与类型
@@ -202,7 +202,7 @@
 
 | 议题 | 选项 | 影响 |
 |------|------|------|
-| M6 语法废弃时间表 | 永久双轨 / 废弃期 + warning / 立即 breaking | 测试与文档工作量 |
+| M6 语法废弃时间表 | 已选择 breaking retirement | 旧拼写进入负例测试，活跃 fixture 迁移到 v2 |
 | `<<` 作为 return 是否迁移 | 保留 `<<` / 迁至 `<|` | Lexer + 全测试 |
 | `->` 在 M5 文件重定向与 v2 影子写入 | 同一 AST 节点 / 分两节点 | Parser 与 TypeInfer |
 
@@ -210,7 +210,7 @@
 
 ## 8. 参考：Parser 现状锚点（便于检索）
 
-- `parse_state_decl_after_at`：`Parser.cpp`（M6 `@`+`[` 路径）  
+- `parse_state_decl_after_at`：`Parser.cpp`（retired `@`+`[` 诊断入口）
 - `TOK_AT` 在 `parse_stmt_or_expr` 的分支：`Parser.cpp`（需与顶层 `@Identifier` 区分）  
 - `StateDeclAST`：`AST.hpp`（字段：window、acc、export、update）
 

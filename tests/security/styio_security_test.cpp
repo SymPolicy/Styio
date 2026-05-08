@@ -2305,14 +2305,17 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnInstantPullSubsetSamples) {
   EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false));
 }
 
-TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnSnapshotDeclSubsetSamples) {
+TEST(StyioSecurityNightlyParserStmt, RejectsRetiredLegacyStateAndSnapshotSyntax) {
   const std::vector<std::string> samples = {
     "@[ref_val] << @file(\"tests/m7/data/ref.txt\")\n",
     "@[3](ma = 1 + 2)\n",
+    "$state\n",
+    "$state[<<, 1]\n",
   };
 
   for (const auto& src : samples) {
-    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
+    EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError) << src;
+    EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError) << src;
   }
 }
 

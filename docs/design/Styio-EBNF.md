@@ -282,14 +282,15 @@ assign_op          = '=' | '+=' | '-=' | '*=' | '/=' | ':=' ;
 
 ---
 
-## 6. Legacy State Declarations (M6)
+## 6. Retired State Declarations (M6)
 
-The `@[...]` form remains documented as the implemented M6 surface, not the
-Topology v2 target. New topology design uses `@name : Type` resource
-declarations and resource-object selectors.
+The `@[...]` form is retired active syntax. It is shown here only as historical
+grammar so migration diagnostics can name it precisely. New topology code uses
+`@name : Type` resource declarations, `expr -> @name` writes, and
+resource-object selectors.
 
 ```ebnf
-state_declaration  = '@' '[' state_param ']' '(' assignment ')' ;
+retired_state_decl = '@' '[' state_param ']' '(' assignment ')' ;
 
 state_param        = integer                          (* window buffer: @[5] *)
                    | identifier '=' expression ;      (* scalar accumulator: @[total = 0] *)
@@ -592,7 +593,7 @@ When the parser encounters `>>` (or longer `>>>`, `>>>>`, etc.):
 ### Rule 2: `@` Disambiguation
 
 - `@` alone as a source expression: **retired**. Use resource/intrinsic-produced absence; active milestone fixtures must not author bare `@` directly.
-- `@[`: **Legacy M6 state container declaration**
+- `@[`: **Retired M6 state container declaration; parse error**
 - `@` followed by identifier then `:`: **Topology v2 resource declaration**
 - `@` followed by identifier then `(`: **Resource with explicit protocol**
 - `@` followed by identifier then `{`: **Invalid for explicit resources; use `@name(...)`**
@@ -601,7 +602,7 @@ When the parser encounters `>>` (or longer `>>>`, `>>>>`, etc.):
 
 ### Rule 3: `$` Disambiguation
 
-- `$` followed by identifier: **Legacy M6 state reference**
+- `$` followed by identifier: **Retired M6 state reference; parse error**
 - `$` followed by `(`: **Capture list** (only valid in function declaration context)
 - `$` followed by string literal: **Format string**
 

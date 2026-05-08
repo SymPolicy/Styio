@@ -3,7 +3,6 @@ source_filename = "styio"
 target datalayout = "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128"
 
 @styio_str = private unnamed_addr constant [51 x i8] c"tests/pipeline_cases/p05_snapshot_accum/factor.txt\00", align 1
-@styio_str.1 = private unnamed_addr constant [51 x i8] c"tests/pipeline_cases/p05_snapshot_accum/factor.txt\00", align 1
 @styio_print_at = private unnamed_addr constant [2 x i8] c"@\00", align 1
 
 define i32 @main() {
@@ -44,28 +43,26 @@ foreach_rt_body:                                  ; preds = %foreach_rt_hdr
   %11 = call i64 @styio_list_get(i64 %10, i64 %9)
   %x = alloca i64, align 8
   store i64 %11, ptr %x, align 8
-  %12 = call i64 @styio_read_file_i64line(ptr @styio_str.1)
-  store i64 %12, ptr %factor, align 8
-  %13 = load i64, ptr %x, align 8
-  %14 = load i64, ptr %factor, align 8
+  %12 = load i64, ptr %x, align 8
+  %13 = load i64, ptr %factor, align 8
+  %14 = icmp eq i64 %12, -9223372036854775808
   %15 = icmp eq i64 %13, -9223372036854775808
-  %16 = icmp eq i64 %14, -9223372036854775808
-  %17 = or i1 %15, %16
-  %18 = mul i64 %13, %14
-  %19 = select i1 %17, i64 -9223372036854775808, i64 %18
-  store i64 %19, ptr %prod, align 8
-  %20 = load i64, ptr %sum, align 8
-  %21 = load i64, ptr %prod, align 8
-  %22 = load i64, ptr %sum, align 8
-  %23 = load i64, ptr %prod, align 8
-  %24 = add i64 %22, %23
-  store i64 %24, ptr %sum, align 8
+  %16 = or i1 %14, %15
+  %17 = mul i64 %12, %13
+  %18 = select i1 %16, i64 -9223372036854775808, i64 %17
+  store i64 %18, ptr %prod, align 8
+  %19 = load i64, ptr %sum, align 8
+  %20 = load i64, ptr %prod, align 8
+  %21 = load i64, ptr %sum, align 8
+  %22 = load i64, ptr %prod, align 8
+  %23 = add i64 %21, %22
+  store i64 %23, ptr %sum, align 8
   br label %foreach_rt_step
 
 foreach_rt_step:                                  ; preds = %foreach_rt_body
-  %25 = load i64, ptr %fe_idx, align 8
-  %26 = add i64 %25, 1
-  store i64 %26, ptr %fe_idx, align 8
+  %24 = load i64, ptr %fe_idx, align 8
+  %25 = add i64 %24, 1
+  store i64 %25, ptr %fe_idx, align 8
   br label %foreach_rt_hdr
 
 print_at:                                         ; preds = %foreach_rt_exit
@@ -73,8 +70,8 @@ print_at:                                         ; preds = %foreach_rt_exit
   br label %print_done
 
 print_i64:                                        ; preds = %foreach_rt_exit
-  %27 = call ptr @styio_i64_dec_cstr(i64 %3)
-  call void @styio_stdout_write_cstr(ptr %27)
+  %26 = call ptr @styio_i64_dec_cstr(i64 %3)
+  call void @styio_stdout_write_cstr(ptr %26)
   br label %print_done
 
 print_done:                                       ; preds = %print_i64, %print_at
@@ -90,8 +87,6 @@ declare i64 @styio_list_get(i64, i64)
 declare i64 @styio_list_new_i64()
 
 declare void @styio_list_push_i64(i64, i64)
-
-declare void @styio_file_close(i64)
 
 declare void @styio_list_release(i64)
 

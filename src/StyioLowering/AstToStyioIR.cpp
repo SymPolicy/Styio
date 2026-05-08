@@ -989,7 +989,7 @@ classify_state_slot(StateDeclAST* sd, SGStateSlotDesc& d) {
   }
   d.kind = SGStateSlotKind::Track;
   if (!sd->getWindowHeader()) {
-    throw StyioTypeError("@[n] header required for non-accum state");
+    throw StyioTypeError("retired state window header required for non-accum internal state");
   }
   d.win_n = static_cast<int>(std::stoll(sd->getWindowHeader()->value));
 }
@@ -2956,7 +2956,7 @@ AstToStyioIRLowerer::toStyioIR(StateRefAST* ast) {
   }
   auto* pl = cur_pulse_plan();
   if (!pl) {
-    throw StyioTypeError("$state only valid inside pulse body");
+    throw StyioTypeError("retired state reference only valid inside pulse body");
   }
   auto it = pl->ref_to_slot.find(ast->getNameStr());
   if (it == pl->ref_to_slot.end()) {

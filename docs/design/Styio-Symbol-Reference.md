@@ -148,13 +148,13 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | Input | Resolution |
 |-------|------------|
 | `@` alone | Retired source-level undefined value |
-| `@[` | Legacy M6 state container declaration prefix |
+| `@[` | Retired M6 state container declaration prefix; parse error |
 | `@ident : Type` | Topology v2 resource declaration |
 | `@ident(...)` | Resource with explicit protocol |
 | `@ident{...}` | Invalid explicit-resource spelling |
 | `@{...}` or `@(...)` | Anonymous resource (auto-detect) |
 | `@stdout`, `@stderr`, `@stdin` | Standard stream resource atom; direct user use is backed by internal Styio prelude declarations |
-| `$ident` | Legacy M6 state reference |
+| `$ident` | Retired M6 state reference; parse error |
 | `$(...)` | Capture list (function context) |
 | `$"..."` | Format string |
 | `>>` after expr, before `#`/`{`/ident | Pipe operator |
@@ -183,8 +183,8 @@ Styio has ~40 distinct symbolic constructs. This is comparable to APL/J but with
 - **`>` family:** `>`, `>>`, `>>>`, `>=`, `>_`, `~>` (reserved)
 - **`<` family:** `<`, `<<`, `<=`, `<-`, `<|`, `<~` (reserved), `<:`
 - **`|` family:** `|`, `||`, `|]`, `|<|`, `|;`
-- **`@` family:** `@`, `@[` (legacy), `@ident(...)`, `@ident : Type`
-- **`$` family:** `$var` (legacy), `$(...)`, `$"..."`
+- **`@` family:** `@`, `@[` (retired), `@ident(...)`, `@ident : Type`
+- **`$` family:** `$var` (retired), `$(...)`, `$"..."`
 - **`?` family:** `?`, `?=`, `?(...)`, `??`
 
 The lexer should process these families using a **trie-based dispatch** after reading the first character. This avoids the combinatorial explosion of a flat switch-case.

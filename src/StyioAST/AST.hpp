@@ -2972,9 +2972,7 @@ public:
   }
 };
 
-/*
-  @[window | name = init](export = expr)
-*/
+/* Internal retired-state ledger node kept for lowering and ownership tests. */
 class StateDeclAST : public StyioASTTraits<StateDeclAST>
 {
   std::unique_ptr<IntAST> window_header_owner_;
@@ -2983,9 +2981,9 @@ class StateDeclAST : public StyioASTTraits<StateDeclAST>
   std::unique_ptr<VarAST> export_var_owner_;
   std::unique_ptr<StyioAST> update_expr_owner_;
 
-  /* window-only header: e.g. @[3] */
+  /* window-only retired-state header */
   IntAST* window_header_ = nullptr;
-  /* accumulator: @[total = 0] */
+  /* accumulator retired-state header */
   NameAST* acc_name_ = nullptr;
   StyioAST* acc_init_ = nullptr;
   /* (export = rhs) */

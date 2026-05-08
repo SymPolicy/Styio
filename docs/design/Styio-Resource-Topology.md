@@ -4,8 +4,8 @@
 
 **Last updated:** 2026-05-09
 
-**Status:** Target language design plus current compiler-owned RTG validation. The source syntax below is the Topology v2 target and is not fully implemented in the current compiler.
-**Supersedes (narratively):** M6 `@[n](name = ...)`, `$state[<<, n]`, and `$state` shadow reads as the preferred mental model for new code. The running compiler still carries compatibility paths until a migration milestone.
+**Status:** Topology v2 source syntax plus current compiler-owned RTG validation.
+**Supersedes:** M6 `@[n](name = ...)`, `$state[<<, n]`, and `$state` shadow reads. The running compiler now rejects those spellings; they remain only in archived provenance and negative migration tests.
 **See also:** [`Styio-EBNF.md`](./Styio-EBNF.md) (Appendix: Topology v2), [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md).
 
 ---
@@ -33,7 +33,7 @@ The running compiler also reserves top-level `@import { ... }` as a module decla
 | **B. Resource anchor** | External driver / file / exchange handle | `@file(...)`, `@binance(...)`, `@stdin` |
 | **C. Named resource object** | Persistent resource, sequence, stream, snapshot slot, or topology output | `@price : f64|..10| := { ... }` |
 
-**Parser rule:** `@ import { ... }` is an import declaration; `@ident ( ... )` is an explicit resource atom; `@ident { ... }` is invalid for explicit resources; `@ident : Type` is a resource declaration. Legacy `@[...]` is compatibility syntax, not the v2 target.
+**Parser rule:** `@ import { ... }` is an import declaration; `@ident ( ... )` is an explicit resource atom; `@ident { ... }` is invalid for explicit resources; `@ident : Type` is a resource declaration. Retired `@[...]` is a parse error; use top-level `@name : Type`, `expr -> @name`, and `@name[-1]` selectors.
 
 ---
 
@@ -221,16 +221,16 @@ The example uses `|..2|` because it needs the previous and latest published valu
 
 | Item | Status |
 |------|--------|
-| M6 `@[n](var = ...)`, pulse ledger, `$` refs, `[avg,n]` | **Implemented** on the legacy path |
-| `@name : Type|n|`, `@name : Type|..n|`, `T..` / `T...` | **Target syntax**; not fully implemented |
-| Type parameters as `list[T]` / `dict[K, V]` | **Target syntax**; parser/type migration TBD |
-| `__ : TypePattern := TypeExpr` type rewrite rules | **Target syntax**; semantic pass TBD |
+| M6 `@[n](var = ...)`, pulse ledger, `$` refs | **Retired**; active tests use negative migration fixtures |
+| `@name : Type|n|`, `@name : Type|..n|`, `T..` / `T...` | **Implemented for v2 resource declarations and selectors covered by milestone tests** |
+| Type parameters as `list[T]` / `dict[K, V]` | **Implemented for v2 type-shape normalization covered by tests** |
+| `__ : TypePattern := TypeExpr` type rewrite rules | **Implemented for type-position rewrite coverage** |
 | Top-level multi-resource `@a : T, @b : U := { driver }` | **Target syntax**; current compiler only has partial internal prelude resource declarations |
 | `expr -> @resource` as topology sink write | **Partially covered** by existing redirect/resource-write surfaces; strict topology semantics TBD |
-| Resource object selectors `@price[-1]`, `@price[-3..]`, `@price[...]` | **Target syntax**; old `$state[<<, n]` is retired |
+| Resource object selectors `@price[-1]`, `@price[-3..]`, `@price[...]` | **Implemented for v2 resource reads; old `$state[<<, n]` is retired** |
 | Compiler-owned resource topology graph (RTG) | **Implemented for current resource AST surfaces** |
 
-**Current RTG implementation note:** RTG is an internal compiler safety layer, not a new source-level syntax contract. It validates resource AST nodes and edges before lowering, including standard streams, handle acquire, writes, redirects, iterators, zip, snapshots, instant pulls, M6 hidden ledgers, task resources, ownership, mutation, commit, failure-domain, and backpressure relationships.
+**Current RTG implementation note:** RTG is an internal compiler safety layer, not a new source-level syntax contract. It validates resource AST nodes and edges before lowering, including standard streams, handle acquire, writes, redirects, iterators, zip, snapshots, instant pulls, hidden intrinsic ledgers, task resources, ownership, mutation, commit, failure-domain, and backpressure relationships.
 
 **Next compiler-work note:** [`../plans/Resource-Topology-v2-Implementation-Plan.md`](../plans/Resource-Topology-v2-Implementation-Plan.md) tracks the parser/type migration to the new `Type|n|` / `Type|..n|` / `T..` source syntax.
 

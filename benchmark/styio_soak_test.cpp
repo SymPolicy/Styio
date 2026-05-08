@@ -188,12 +188,11 @@ make_inline_workload(
 CompilerWorkload
 make_state_inline_workload(const std::string& label) {
   std::string code;
-  code += "# pulse = (x) => {\n";
-  code += "  @[sum = 0](out = $sum + x)\n";
-  code += "}\n";
+  code += "@out : i64|..3|\n";
   code += "[1, 2, 3] >> #(v) => {\n";
-  code += "  pulse(v)\n";
-  code += "  >_(out)\n";
+  code += "  next = @out[-1] + v\n";
+  code += "  next -> @out\n";
+  code += "  >_(next)\n";
   code += "}\n";
   return make_inline_workload("StateAndSeries", label, code, "1\n3\n6\n");
 }
@@ -1492,13 +1491,14 @@ TEST(StyioSoakSingleThread, StateInlineMatchCasesProgramLoop) {
   ASSERT_FALSE(runner.empty());
 
   std::string code;
-  code += "# pulse = (x) => @[sum = 0](out = x ?= {\n";
-  code += "  1 => { <| $sum + 10 }\n";
-  code += "  _ => { <| $sum + x }\n";
-  code += "})\n";
+  code += "@out : i64|..3|\n";
   code += "[1, 2, 3] >> #(v) => {\n";
-  code += "  pulse(v)\n";
-  code += "  >_(out)\n";
+  code += "  next = v ?= {\n";
+  code += "    1 => { <| @out[-1] + 10 }\n";
+  code += "    _ => { <| @out[-1] + v }\n";
+  code += "  }\n";
+  code += "  next -> @out\n";
+  code += "  >_(next)\n";
   code += "}\n";
   const CompilerWorkload workload = make_inline_workload(
     "StateAndSeries",
@@ -1525,10 +1525,10 @@ TEST(StyioSoakSingleThread, StateInlineInfiniteProgramLoop) {
   ASSERT_FALSE(runner.empty());
 
   std::string code;
-  code += "# pulse = (x) => @[sum = 0](out = [...])\n";
+  code += "@out : i64|..2|\n";
   code += "[1, 2] >> #(v) => {\n";
-  code += "  pulse(v)\n";
-  code += "  >_(out)\n";
+  code += "  0 -> @out\n";
+  code += "  >_(0)\n";
   code += "}\n";
   const CompilerWorkload workload = make_inline_workload(
     "StateAndSeries",

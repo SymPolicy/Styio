@@ -1,4 +1,6 @@
+@sum : i64|..3|
 [1, 2, 3] >> #(x) => {
-    @[total = 0](sum = $total + x)
+    next = @sum[-1] + x
+    next -> @sum
 }
->_(sum)
+>_(@sum[-1])

@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-05-08
+**Last updated:** 2026-05-09
 
 ## Mission
 
@@ -82,6 +82,7 @@ Key SSOTs:
 47. When a milestone test catalog changes for new resource-management syntax, update only the evidence index there and keep lifecycle rules in the owning team runbooks; then refresh `DOC-STATS.md` before rerunning the team-docs gate.
 48. Keep the Styio / `styio-benchmark` boundary explicit: Styio docs may describe probes and compatibility wrappers, but benchmark workloads, runners, baselines, reports, and regression records must point to `styio-benchmark`.
 49. When compiler-owned resource topology code changes, keep the design SSOT, test catalog, Sema / IR runbook, Test Quality runbook, and `DOC-STATS.md` aligned in the same delivery so source, evidence, and ownership do not drift.
+50. When retired syntax is removed from active compiler examples, keep active design docs, EBNF, symbol reference, language design, standard-library notes, implementation plans, and test catalogs aligned on the same retired/negative-test wording.
 
 ## Change Classes
 
