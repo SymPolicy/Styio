@@ -2,35 +2,36 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of benchmark routes, soak tests, performance reports, regression templates, and stability guardrails.
 
-**Last updated:** 2026-05-05
+**Last updated:** 2026-05-08
 
 ## Mission
 
-Own performance and long-run stability evidence. This team protects benchmark coverage, soak tiers, RSS guardrails, error-path cost tracking, report comparability, and minimized regression artifacts. It does not accept behavior changes without the implementation and Test Quality owners.
+Own Styio's performance probe surface and long-run stability evidence. Canonical benchmark workloads, runners, reports, baselines, and cross-runtime comparisons live in `styio-benchmark`. This team protects the Styio-side probes, ABI, soak tiers, RSS guardrails, and handoff to the external benchmark repository. It does not accept behavior changes without the implementation and Test Quality owners.
 
 ## Owned Surface
 
 Primary paths:
 
-1. `benchmark/`
+1. `benchmark/CMakeLists.txt`
 2. `benchmark/styio_soak_test.cpp`
-3. `benchmark/perf-route.sh`
-4. `benchmark/perf-report.py`
-5. `benchmark/COVERAGE-MATRIX.md`
-6. `benchmark/async-runtime/`
-7. `benchmark/REGRESSION-TEMPLATE.md`
-8. `src/StyioProfiler/`
+3. `benchmark/styio_task_scheduler_perf_test.cpp`
+4. `benchmark/perf-route.sh`
+5. `benchmark/perf-report.py`
+6. `benchmark/soak-minimize.sh`
+7. `src/StyioProfiler/`
 
 High-value docs:
 
 1. [../design/performance-testing.md](../design/performance-testing.md)
 2. [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md)
+3. `styio-benchmark/README.md`
+4. `styio-benchmark/docs/COVERAGE-MATRIX.md`
 
 ## Daily Workflow
 
 1. Decide whether the question is compile-stage, micro hotspot, full-stack wall time, error-path, or soak stability.
-2. Use structured outputs under `benchmark/reports/<run-id>/`; compare `results.json` or `benchmarks.csv`, not screenshots.
-3. Keep benchmark workloads representative and tied to `benchmark/COVERAGE-MATRIX.md`.
+2. Use structured outputs under `styio-benchmark/reports/<run-id>/`; compare `results.json` or `benchmarks.csv`, not screenshots.
+3. Keep benchmark workloads representative and tied to `styio-benchmark/docs/COVERAGE-MATRIX.md`.
 4. Minimize soak failures before handing them to implementation owners.
 5. Keep deep routes out of routine PR gates unless they protect an active high-risk change.
 6. When native `@extern` performance changes, measure both first-run compile cost and cached repeated-run cost. Cache results are only comparable when `STYIO_NATIVE_CACHE_DIR`, compiler command, and source hash inputs are controlled.
@@ -40,7 +41,8 @@ High-value docs:
 10. Keep benchmark phase names aligned with the compiler middle-layer split: type inference maps to `StyioSemaContext`, and StyioIR lowering maps to `AstToStyioIRLowerer`.
 11. Async runtime comparisons must target the selected peer runtimes: C++20 stackless coroutine, Go goroutine, and Rust Tokio. Do not replace them with generic thread pools when producing Styio task scheduler evidence.
 12. Async runtime reports must include normalized per-workload performance columns. The best runtime for each workload is `1.00x`; lower scores show relative performance against that best result. Use median samples, not single runs, when comparing no-op fanout.
-13. Async runtime framework checks use pytest as the black-box contract runner over `benchmark/async-runtime/run-async-bench.py`; keep runtime selection explicit with `--runtime` and promote only JSON/CSV/Markdown report outputs as evidence.
+13. Async runtime framework checks use pytest as the black-box contract runner over `styio-benchmark/async-runtime/run-async-bench.py`; keep runtime selection explicit with `--runtime` and promote only JSON/CSV/Markdown report outputs as evidence.
+14. Native C++ comparisons must run from `styio-benchmark/native-cpp/` across the three standard routes: `full-cli`, `cached-jit`, and `runtime-only`. Use one generated input per workload and report both raw throughput and normalized relative performance. The fastest measured implementation per route is `1.00x`; routes without a real implementation must be marked `unsupported`, not approximated by another route.
 
 ## Change Classes
 
@@ -53,35 +55,53 @@ High-value docs:
 Quick route:
 
 ```bash
-./benchmark/perf-route.sh --quick
+STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark ./benchmark/perf-route.sh --quick
 ctest --test-dir build/default -L soak_smoke
 ```
 
 Focused benchmark route:
 
 ```bash
-./benchmark/perf-route.sh --phase-iters 5000 --micro-iters 5000 --execute-iters 20
+STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
+  ./benchmark/perf-route.sh --phase-iters 5000 --micro-iters 5000 --execute-iters 20
 ```
 
 Async runtime comparison:
 
 ```bash
-python3 -m pytest benchmark/async-runtime/test_async_runtime_blackbox.py
+cd /path/to/styio-benchmark
+python3 -m pytest async-runtime/test_async_runtime_blackbox.py
 
-benchmark/async-runtime/run-async-bench.py \
+async-runtime/run-async-bench.py \
+  --styio-root /path/to/styio \
   --case baseline \
   --bootstrap-toolchains \
   --repeats 5 \
-  --out-dir benchmark/async-runtime/reports/<run-id>
+  --out-dir async-runtime/reports/<run-id>
 ```
 
 The async comparison script defaults to `build/async-runtime-release`, configures that directory as CMake `Release` when needed, and rejects non-Release Styio build caches for cross-runtime performance reports.
+
+Native C++ comparison:
+
+```bash
+cd /path/to/styio-benchmark
+native-cpp/run-native-cpp-bench.py \
+  --styio-root /path/to/styio \
+  --routes all \
+  --line-count 100000 \
+  --line-bytes 48 \
+  --repeats 5 \
+  --out-dir reports/native-cpp-stdin-echo
+```
+
+Use this route when changing standard stream lowering, resource pipe codegen, CLI execution, output helper behavior, JIT caching, or runtime helper behavior. `full-cli` intentionally includes Styio frontend and JIT cost. `cached-jit` remains `unsupported` until Styio exposes a reusable compiled/JIT artifact execution contract. `runtime-only` currently compares native C++ against a C++ harness that calls Styio runtime helpers directly, so it isolates helper cost without pretending to be generated Styio code.
 
 Deep stability:
 
 ```bash
 ctest --test-dir build/default -L soak_deep
-./benchmark/soak-minimize.sh --help
+STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark ./benchmark/soak-minimize.sh --help
 ```
 
 `styio_soak_test` 若需要包含 LLVM 支持库头，必须通过共享的 `styio_apply_llvm_compile_settings(...)` helper 注入 LLVM include path，使其以 `-idirafter` 形式落在标准库头之后；不要直接给 benchmark 目标加 `SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS}`，否则 Debian + libstdc++ 会命中错误的 `cxxabi.h`。

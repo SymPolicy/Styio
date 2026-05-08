@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-05-05
+**Last updated:** 2026-05-08
 
 ## Mission
 
@@ -43,6 +43,7 @@ Related docs:
 14. Matrix/list/dict/string runtime resources stored in dynamic slots must release through the same RAII path on overwrite, normal scope exit, and runtime-error early return. Any new runtime guard that emits `ret` must first run active scope cleanup.
 15. Task resources are scheduled runtime handles. Keep `styio_task_*_spawn`, worker-pool state, `HandleKind::Task`, dynamic-slot release, ORC registrations, and task pull codegen in one checkpoint; `||>` lowering must emit a private task function plus scheduler submission, not an eager scalar handle that can escape scope cleanup.
 16. Async scheduler profiling must stay opt-in: disabled runs should avoid per-task counter writes, enabled runs should expose spawn/enqueue/start/complete/pull/release and queue-depth counters through `--profile-frontend`, and task readiness should use the scheduler's low-overhead atomic wait path instead of per-task condition variables.
+17. Function and match-branch result semantics come from explicit `SGReturn` nodes emitted by lowering for final expression tails. If a lowered function body has no terminator, LLVM codegen must return the runtime default value rather than reusing the last emitted temporary from a statement tail.
 
 ## Change Classes
 
@@ -65,14 +66,15 @@ Runtime stability:
 
 ```bash
 ctest --test-dir build/default -L soak_smoke
-./benchmark/perf-route.sh --quick
+STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark ./benchmark/perf-route.sh --quick
 ```
 
 For deeper runtime or allocation work:
 
 ```bash
 ctest --test-dir build/default -L soak_deep
-./benchmark/perf-route.sh --phase-iters 5000 --micro-iters 5000 --execute-iters 20
+STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
+  ./benchmark/perf-route.sh --phase-iters 5000 --micro-iters 5000 --execute-iters 20
 ```
 
 ## Cross-Team Dependencies

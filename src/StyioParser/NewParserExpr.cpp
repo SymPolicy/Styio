@@ -1955,6 +1955,30 @@ parse_hash_stmt_nightly(StyioContext& context) {
   }
 
   context.skip();
+  if (saw_assign && context.cur_tok_type() == StyioTokenType::MATCH) {
+    if (params.size() != 1) {
+      throw StyioSyntaxError(
+        context.mark_cur_tok("function match sugar requires exactly one parameter")
+      );
+    }
+    const std::string scrutinee_name = params[0]->getName();
+    context.move_forward(1, "new_stmt:hash_assign_match");
+    context.skip();
+    if (context.cur_tok_type() != StyioTokenType::TOK_LCURBRAC) {
+      throw StyioSyntaxError(
+        context.mark_cur_tok("expected case block after function match sugar ?=")
+      );
+    }
+    return FunctionAST::Create(
+      tag_name,
+      is_unique,
+      params,
+      ret_type,
+      MatchCasesAST::make(NameAST::Create(scrutinee_name), parse_cases_only_nightly_draft(context))
+    );
+  }
+
+  context.skip();
   if (context.cur_tok_type() == StyioTokenType::ARROW_DOUBLE_RIGHT) {
     context.move_forward(1, "new_stmt:hash_arrow");
 

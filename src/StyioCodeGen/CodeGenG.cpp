@@ -1501,6 +1501,14 @@ StyioToLLVM::coerce_for_return(llvm::Value* v, llvm::Type* want_ty) {
   if (want_ty->isIntegerTy(64) && v->getType()->isIntegerTy(1)) {
     return theBuilder->CreateZExt(v, want_ty);
   }
+  if (want_ty->isIntegerTy(1) && v->getType()->isIntegerTy()) {
+    return theBuilder->CreateICmpNE(
+      v,
+      llvm::ConstantInt::get(llvm::cast<llvm::IntegerType>(v->getType()), 0));
+  }
+  if (want_ty->isIntegerTy(1) && v->getType()->isFloatingPointTy()) {
+    return theBuilder->CreateFCmpONE(v, llvm::ConstantFP::get(v->getType(), 0.0));
+  }
   return v;
 }
 
@@ -1647,14 +1655,13 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
     mutable_variables[std::string(arg.getName())] = slot;
   }
 
-  llvm::Value* last = nullptr;
   for (auto* stmt : node->func_block->stmts) {
     if (dynamic_cast<SGFunc*>(stmt)) {
       stmt->toLLVMIR(this);
       continue;
     }
 
-    last = stmt->toLLVMIR(this);
+    stmt->toLLVMIR(this);
     if (theBuilder->GetInsertBlock()->getTerminator()) {
       break;
     }
@@ -1663,20 +1670,8 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
   if (cur && !cur->getTerminator()) {
     llvm::Type* rt = node->ret_type->toLLVMType(this);
-    if (!last) {
-      if (rt->isFloatingPointTy()) {
-        last = llvm::ConstantFP::get(rt, 0.0);
-      }
-      else {
-        last = llvm::ConstantInt::get(rt, 0);
-      }
-    }
-    else {
-      last = coerce_for_return(last, rt);
-    }
-
     pop_file_handle_scope();
-    theBuilder->CreateRet(last);
+    theBuilder->CreateRet(default_runtime_return_value(rt));
   }
 
   mutable_variables = std::move(saved_mut);
@@ -2032,7 +2027,20 @@ StyioToLLVM::toLLVMIR(SGExternBlock* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGReturn* node) {
-  return theBuilder->CreateRet(node->expr->toLLVMIR(this));
+  llvm::Value* v = node->expr->toLLVMIR(this);
+  llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
+  if (cur == nullptr || cur->getTerminator() != nullptr) {
+    return v;
+  }
+  llvm::Function* fn = cur->getParent();
+  if (fn == nullptr || fn->getReturnType()->isVoidTy()) {
+    return theBuilder->CreateRetVoid();
+  }
+  llvm::Value* ret = coerce_for_return(v, fn->getReturnType());
+  if (ret == nullptr) {
+    ret = default_runtime_return_value(fn->getReturnType());
+  }
+  return theBuilder->CreateRet(ret);
 }
 
 llvm::Value*
@@ -4358,9 +4366,12 @@ StyioToLLVM::toLLVMIR(SGMatch* node) {
   }
 
   bool mixed = node->repr_kind == SGMatchReprKind::ExprMixed;
+  bool as_float = node->repr_kind == SGMatchReprKind::ExprFloat;
   llvm::Type* merge_ty = mixed
     ? static_cast<llvm::Type*>(llvm::PointerType::get(*theContext, 0))
-    : static_cast<llvm::Type*>(llvm::Type::getInt64Ty(*theContext));
+    : (as_float
+        ? static_cast<llvm::Type*>(llvm::Type::getDoubleTy(*theContext))
+        : static_cast<llvm::Type*>(llvm::Type::getInt64Ty(*theContext)));
 
   if (node->int_arms.empty()) {
     return evaluate_arm_block_value(node->default_arm, mixed);
@@ -4380,6 +4391,9 @@ StyioToLLVM::toLLVMIR(SGMatch* node) {
     sw->addCase(llvm::ConstantInt::get(i64ti, p.first), cbb);
     theBuilder->SetInsertPoint(cbb);
     llvm::Value* vv = evaluate_arm_block_value(p.second, mixed);
+    if (!mixed) {
+      vv = coerce_for_return(vv, merge_ty);
+    }
     llvm::BasicBlock* from = theBuilder->GetInsertBlock();
     if (from && !from->getTerminator()) {
       theBuilder->CreateBr(merge_bb);
@@ -4396,10 +4410,15 @@ StyioToLLVM::toLLVMIR(SGMatch* node) {
     dv = evaluate_arm_block_value(node->default_arm, mixed);
   }
   else {
-    dv = llvm::ConstantInt::get(i64ti, 0);
+    dv = as_float
+      ? static_cast<llvm::Value*>(llvm::ConstantFP::get(merge_ty, 0.0))
+      : static_cast<llvm::Value*>(llvm::ConstantInt::get(i64ti, 0));
     if (mixed) {
       dv = promote_to_cstr(dv);
     }
+  }
+  if (!mixed) {
+    dv = coerce_for_return(dv, merge_ty);
   }
   llvm::BasicBlock* df = theBuilder->GetInsertBlock();
   if (df && !df->getTerminator()) {

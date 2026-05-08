@@ -29,6 +29,26 @@ alloc_pulse_region_id() {
   return n++;
 }
 
+StyioDataType
+lowering_bool_type() {
+  return StyioDataType{StyioDataTypeOption::Bool, "bool", 1};
+}
+
+StyioDataType
+lowering_i64_type() {
+  return StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+}
+
+StyioDataType
+lowering_f64_type() {
+  return StyioDataType{StyioDataTypeOption::Float, "f64", 64};
+}
+
+StyioDataType
+lowering_string_type() {
+  return StyioDataType{StyioDataTypeOption::String, "string", 0};
+}
+
 std::string
 alloc_lowering_tmp_name(const char* prefix) {
   static int n = 0;
@@ -52,37 +72,151 @@ func_ret_to_sgtype(
   AstToStyioIRLowerer* an
 ) {
   if (ret_type.valueless_by_exception()) {
-    return SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64});
+    return SGType::Create(lowering_i64_type());
   }
   if (std::holds_alternative<TypeTupleAST*>(ret_type)) {
-    return SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64});
+    return SGType::Create(lowering_i64_type());
   }
   TypeAST* t = std::get<TypeAST*>(ret_type);
   if (!t || t->getDataType().option == StyioDataTypeOption::Undefined) {
-    return SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64});
+    return SGType::Create(lowering_i64_type());
   }
   return static_cast<SGType*>(t->toStyioIR(an));
+}
+
+bool
+func_ret_is_unspecified(const std::variant<TypeAST*, TypeTupleAST*>& ret_type) {
+  if (ret_type.valueless_by_exception() || std::holds_alternative<TypeTupleAST*>(ret_type)) {
+    return false;
+  }
+  TypeAST* t = std::get<TypeAST*>(ret_type);
+  return t == nullptr || t->getDataType().option == StyioDataTypeOption::Undefined;
+}
+
+StyioDataType
+param_data_type(ParamAST* p) {
+  if (!p || !p->var_type || p->var_type->getDataType().option == StyioDataTypeOption::Undefined) {
+    return lowering_i64_type();
+  }
+  return p->var_type->getDataType();
 }
 
 SGFuncArg*
 param_to_sgarg(ParamAST* p, AstToStyioIRLowerer* an) {
   StyioDataTypeOption opty = p->var_type->getDataType().option;
   SGType* ty = (opty == StyioDataTypeOption::Undefined)
-    ? SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64})
+    ? SGType::Create(lowering_i64_type())
     : static_cast<SGType*>(p->var_type->toStyioIR(an));
   return SGFuncArg::Create(p->getName(), ty);
 }
 
+bool ast_has_tail_value(StyioAST* ast);
+
+bool
+ast_is_statement_only_tail(StyioAST* ast) {
+  if (!ast) {
+    return true;
+  }
+  switch (ast->getNodeType()) {
+    case StyioNodeType::Pass:
+    case StyioNodeType::Break:
+    case StyioNodeType::Continue:
+    case StyioNodeType::Comment:
+    case StyioNodeType::Empty:
+    case StyioNodeType::EmptyBlock:
+    case StyioNodeType::Resources:
+    case StyioNodeType::MutBind:
+    case StyioNodeType::FinalBind:
+    case StyioNodeType::ParallelAssign:
+    case StyioNodeType::Func:
+    case StyioNodeType::SimpleFunc:
+    case StyioNodeType::Struct:
+    case StyioNodeType::Infinite:
+    case StyioNodeType::Loop:
+    case StyioNodeType::Iterator:
+    case StyioNodeType::IterSeq:
+    case StyioNodeType::HandleAcquire:
+    case StyioNodeType::ResourceWrite:
+    case StyioNodeType::ResourceRedirect:
+    case StyioNodeType::FlowBind:
+    case StyioNodeType::StateDecl:
+    case StyioNodeType::StreamZip:
+    case StyioNodeType::SnapshotDecl:
+    case StyioNodeType::Print:
+    case StyioNodeType::ReadFile:
+    case StyioNodeType::Forward:
+    case StyioNodeType::Cases:
+    case StyioNodeType::MainBlock:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool
+ast_can_be_implicit_tail_value(StyioAST* ast) {
+  if (!ast || ast->getNodeType() == StyioNodeType::Return) {
+    return false;
+  }
+  if (auto* blk = dynamic_cast<BlockAST*>(ast)) {
+    return !blk->stmts.empty() && ast_has_tail_value(blk->stmts.back());
+  }
+  if (auto* m = dynamic_cast<MatchCasesAST*>(ast)) {
+    CasesAST* c = m->getCases();
+    for (auto const& pr : c->case_list) {
+      if (ast_has_tail_value(pr.second)) {
+        return true;
+      }
+    }
+    return ast_has_tail_value(c->case_default);
+  }
+  return !ast_is_statement_only_tail(ast);
+}
+
+bool
+ast_has_tail_value(StyioAST* ast) {
+  if (!ast) {
+    return false;
+  }
+  if (ast->getNodeType() == StyioNodeType::Return) {
+    return true;
+  }
+  return ast_can_be_implicit_tail_value(ast);
+}
+
 SGBlock*
-lower_func_body(AstToStyioIRLowerer* an, StyioAST* body) {
+lower_func_body(AstToStyioIRLowerer* an, StyioAST* body, bool implicit_tail_value = false);
+
+StyioIR*
+lower_tail_stmt(AstToStyioIRLowerer* an, StyioAST* stmt) {
+  if (!stmt || stmt->getNodeType() == StyioNodeType::Return) {
+    return stmt ? stmt->toStyioIR(an) : SGConstInt::Create(0);
+  }
+  if (auto* blk = dynamic_cast<BlockAST*>(stmt)) {
+    return lower_func_body(an, blk, true);
+  }
+  if (ast_can_be_implicit_tail_value(stmt)) {
+    return SGReturn::Create(stmt->toStyioIR(an));
+  }
+  return stmt->toStyioIR(an);
+}
+
+SGBlock*
+lower_func_body(AstToStyioIRLowerer* an, StyioAST* body, bool implicit_tail_value) {
   if (!body) {
     return SGBlock::Create({});
   }
   if (auto* blk = dynamic_cast<BlockAST*>(body)) {
-    return static_cast<SGBlock*>(blk->toStyioIR(an));
+    std::vector<StyioIR*> stmts;
+    stmts.reserve(blk->stmts.size());
+    for (size_t i = 0; i < blk->stmts.size(); ++i) {
+      const bool tail = implicit_tail_value && i + 1 == blk->stmts.size();
+      stmts.push_back(tail ? lower_tail_stmt(an, blk->stmts[i]) : blk->stmts[i]->toStyioIR(an));
+    }
+    return static_cast<SGBlock*>(styio::lowering::optimize_styio_ir(SGBlock::Create(std::move(stmts))));
   }
   std::vector<StyioIR*> one;
-  one.push_back(body->toStyioIR(an));
+  one.push_back(implicit_tail_value ? lower_tail_stmt(an, body) : body->toStyioIR(an));
   return SGBlock::Create(std::move(one));
 }
 
@@ -104,10 +238,10 @@ register_direct_local_function_defs(AstToStyioIRLowerer* an, StyioAST* body) {
 }
 
 SGBlock*
-lower_func_body_with_local_defs(AstToStyioIRLowerer* an, StyioAST* body) {
+lower_func_body_with_local_defs(AstToStyioIRLowerer* an, StyioAST* body, bool implicit_tail_value = false) {
   auto saved_defs = an->func_defs;
   register_direct_local_function_defs(an, body);
-  SGBlock* lowered = lower_func_body(an, body);
+  SGBlock* lowered = lower_func_body(an, body, implicit_tail_value);
   an->func_defs = std::move(saved_defs);
   return lowered;
 }
@@ -118,6 +252,9 @@ stmt_has_return_tree(StyioAST* ast) {
     return false;
   }
   if (ast->getNodeType() == StyioNodeType::Return) {
+    return true;
+  }
+  if (ast_can_be_implicit_tail_value(ast)) {
     return true;
   }
   if (ast->getNodeType() == StyioNodeType::MatchCases) {
@@ -250,6 +387,22 @@ expr_lowered_type(AstToStyioIRLowerer* an, StyioAST* expr) {
     if (!t.isUndefined()) {
       return t;
     }
+    StyioDataType lt = expr_lowered_type(an, bin->getLHS());
+    StyioDataType rt = expr_lowered_type(an, bin->getRHS());
+    if (lt.option == StyioDataTypeOption::String || rt.option == StyioDataTypeOption::String) {
+      if (bin->getOp() == StyioOpType::Binary_Add) {
+        return lowering_string_type();
+      }
+    }
+    if (lt.option == StyioDataTypeOption::Float || rt.option == StyioDataTypeOption::Float) {
+      return lowering_f64_type();
+    }
+    if (lt.option == StyioDataTypeOption::Integer || rt.option == StyioDataTypeOption::Integer) {
+      return lowering_i64_type();
+    }
+    if (lt.option == StyioDataTypeOption::Bool && rt.option == StyioDataTypeOption::Bool) {
+      return lowering_bool_type();
+    }
   }
   if (auto* access = dynamic_cast<ListOpAST*>(expr)) {
     StyioDataType base_type = expr_lowered_type(an, access->getList());
@@ -261,6 +414,58 @@ expr_lowered_type(AstToStyioIRLowerer* an, StyioAST* expr) {
     }
   }
   return expr->getDataType();
+}
+
+StyioDataType
+merge_tail_value_type(const StyioDataType& a, const StyioDataType& b) {
+  if (a.isUndefined()) {
+    return b;
+  }
+  if (b.isUndefined()) {
+    return a;
+  }
+  if (a.option == StyioDataTypeOption::String || b.option == StyioDataTypeOption::String) {
+    return lowering_string_type();
+  }
+  if (a.option == StyioDataTypeOption::Float || b.option == StyioDataTypeOption::Float) {
+    return lowering_f64_type();
+  }
+  if (a.option == StyioDataTypeOption::Integer || b.option == StyioDataTypeOption::Integer) {
+    return lowering_i64_type();
+  }
+  if (a.option == StyioDataTypeOption::Bool && b.option == StyioDataTypeOption::Bool) {
+    return lowering_bool_type();
+  }
+  return a;
+}
+
+StyioDataType
+infer_tail_value_type(AstToStyioIRLowerer* an, StyioAST* ast) {
+  if (!ast) {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+  if (auto* ret = dynamic_cast<ReturnAST*>(ast)) {
+    return expr_lowered_type(an, ret->getExpr());
+  }
+  if (auto* blk = dynamic_cast<BlockAST*>(ast)) {
+    if (blk->stmts.empty()) {
+      return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    }
+    return infer_tail_value_type(an, blk->stmts.back());
+  }
+  if (auto* m = dynamic_cast<MatchCasesAST*>(ast)) {
+    CasesAST* c = m->getCases();
+    StyioDataType merged{StyioDataTypeOption::Undefined, "undefined", 0};
+    for (auto const& pr : c->case_list) {
+      merged = merge_tail_value_type(merged, infer_tail_value_type(an, pr.second));
+    }
+    merged = merge_tail_value_type(merged, infer_tail_value_type(an, c->case_default));
+    return merged;
+  }
+  if (ast_can_be_implicit_tail_value(ast)) {
+    return expr_lowered_type(an, ast);
+  }
+  return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
 }
 
 bool
@@ -527,15 +732,38 @@ predefined_list_operation_runtime_name(const std::string& method, const StyioDat
   return std::string("__styio_list_") + method + "_" + suffix;
 }
 
+bool
+ast_value_mentions_float(StyioAST* ast) {
+  if (!ast) {
+    return false;
+  }
+  if (ast->getNodeType() == StyioNodeType::Float) {
+    return true;
+  }
+  if (auto* bin = dynamic_cast<BinOpAST*>(ast)) {
+    StyioDataType t = bin->getType();
+    return t.option == StyioDataTypeOption::Float
+      || ast_value_mentions_float(bin->getLHS())
+      || ast_value_mentions_float(bin->getRHS());
+  }
+  return false;
+}
+
 void
-scan_returns_for_str_int(StyioAST* ast, bool& has_str, bool& has_int) {
+scan_returns_for_value_kinds(StyioAST* ast, bool& has_str, bool& has_int, bool& has_float) {
   if (!ast) {
     return;
   }
-  if (ast->getNodeType() == StyioNodeType::Return) {
-    StyioAST* e = static_cast<ReturnAST*>(ast)->getExpr();
+  auto scan_value = [&](StyioAST* e)
+  {
+    if (!e) {
+      return;
+    }
     if (e->getNodeType() == StyioNodeType::String) {
       has_str = true;
+    }
+    else if (ast_value_mentions_float(e)) {
+      has_float = true;
     }
     else if (e->getNodeType() == StyioNodeType::Integer) {
       has_int = true;
@@ -543,21 +771,34 @@ scan_returns_for_str_int(StyioAST* ast, bool& has_str, bool& has_int) {
     else {
       has_int = true;
     }
+  };
+  if (ast->getNodeType() == StyioNodeType::Return) {
+    scan_value(static_cast<ReturnAST*>(ast)->getExpr());
     return;
   }
   if (ast->getNodeType() == StyioNodeType::MatchCases) {
     auto* m = static_cast<MatchCasesAST*>(ast);
     CasesAST* c = m->getCases();
     for (auto const& pr : c->case_list) {
-      scan_returns_for_str_int(pr.second, has_str, has_int);
+      scan_returns_for_value_kinds(pr.second, has_str, has_int, has_float);
     }
-    scan_returns_for_str_int(c->case_default, has_str, has_int);
+    scan_returns_for_value_kinds(c->case_default, has_str, has_int, has_float);
     return;
   }
   if (auto* b = dynamic_cast<BlockAST*>(ast)) {
     for (auto* s : b->stmts) {
-      scan_returns_for_str_int(s, has_str, has_int);
+      scan_returns_for_value_kinds(s, has_str, has_int, has_float);
     }
+    if (!b->stmts.empty()) {
+      StyioAST* tail = b->stmts.back();
+      if (tail->getNodeType() != StyioNodeType::Return && ast_can_be_implicit_tail_value(tail)) {
+        scan_returns_for_value_kinds(tail, has_str, has_int, has_float);
+      }
+    }
+    return;
+  }
+  if (ast_can_be_implicit_tail_value(ast)) {
+    scan_value(ast);
   }
 }
 
@@ -577,16 +818,20 @@ classify_cases(CasesAST* c) {
   }
   bool hs = false;
   bool hi = false;
+  bool hf = false;
   for (auto const& pr : c->case_list) {
-    scan_returns_for_str_int(pr.second, hs, hi);
+    scan_returns_for_value_kinds(pr.second, hs, hi, hf);
   }
-  scan_returns_for_str_int(c->case_default, hs, hi);
-  if (hs && hi) {
+  scan_returns_for_value_kinds(c->case_default, hs, hi, hf);
+  if (hs && (hi || hf)) {
     return SGMatchReprKind::ExprMixed;
   }
   if (hs) {
     /* All arms yield strings (or only strings detected): phi must be i8* */
     return SGMatchReprKind::ExprMixed;
+  }
+  if (hf) {
+    return SGMatchReprKind::ExprFloat;
   }
   return SGMatchReprKind::ExprInt;
 }
@@ -2225,27 +2470,44 @@ AstToStyioIRLowerer::toStyioIR(FunctionAST* ast) {
   int saved_hist_r = post_pulse_hist_region_;
   SGPulsePlan* saved_hist_p = post_pulse_hist_plan_;
   set_post_pulse_hist_context(-1, nullptr);
+  auto saved_local_types = local_binding_types;
   std::vector<SGFuncArg*> fargs;
   for (auto* p : ast->params) {
+    local_binding_types[p->getName()] = param_data_type(p);
     fargs.push_back(param_to_sgarg(p, this));
   }
   SGType* rt = func_ret_to_sgtype(ast->ret_type, this);
+  if (func_ret_is_unspecified(ast->ret_type)) {
+    StyioDataType inferred_ret = infer_tail_value_type(this, ast->func_body);
+    if (!inferred_ret.isUndefined()) {
+      rt = SGType::Create(inferred_ret);
+    }
+  }
   if (auto* blk = dynamic_cast<BlockAST*>(ast->func_body)) {
     if (blk->stmts.size() == 1 && blk->stmts[0]->getNodeType() == StyioNodeType::MatchCases) {
       auto* mc = static_cast<MatchCasesAST*>(blk->stmts[0]);
       CasesAST* c = mc->getCases();
       bool hs = false;
       bool hi = false;
+      bool hf = false;
       for (auto const& pr : c->case_list) {
-        scan_returns_for_str_int(pr.second, hs, hi);
+        scan_returns_for_value_kinds(pr.second, hs, hi, hf);
       }
-      scan_returns_for_str_int(c->case_default, hs, hi);
+      scan_returns_for_value_kinds(c->case_default, hs, hi, hf);
       if (hs) {
         rt = SGType::Create(StyioDataType{StyioDataTypeOption::String, "string", 0});
       }
     }
   }
-  SGBlock* body = lower_func_body_with_local_defs(this, ast->func_body);
+  SGBlock* body = nullptr;
+  try {
+    body = lower_func_body_with_local_defs(this, ast->func_body, true);
+  } catch (...) {
+    local_binding_types = std::move(saved_local_types);
+    set_post_pulse_hist_context(saved_hist_r, saved_hist_p);
+    throw;
+  }
+  local_binding_types = std::move(saved_local_types);
   SGFunc* fn = SGFunc::Create(
     rt,
     SGResId::Create(ast->getNameAsStr()),
@@ -2260,28 +2522,45 @@ AstToStyioIRLowerer::toStyioIR(SimpleFuncAST* ast) {
   int saved_hist_r = post_pulse_hist_region_;
   SGPulsePlan* saved_hist_p = post_pulse_hist_plan_;
   set_post_pulse_hist_context(-1, nullptr);
+  auto saved_local_types = local_binding_types;
   std::vector<SGFuncArg*> fargs;
   for (auto* p : ast->params) {
+    local_binding_types[p->getName()] = param_data_type(p);
     fargs.push_back(param_to_sgarg(p, this));
   }
   SGType* rt = func_ret_to_sgtype(ast->ret_type, this);
+  if (func_ret_is_unspecified(ast->ret_type)) {
+    StyioDataType inferred_ret = infer_tail_value_type(this, ast->ret_expr);
+    if (!inferred_ret.isUndefined()) {
+      rt = SGType::Create(inferred_ret);
+    }
+  }
   if (auto* blk = dynamic_cast<BlockAST*>(ast->ret_expr)) {
     if (blk->stmts.size() == 1 && blk->stmts[0]->getNodeType() == StyioNodeType::MatchCases) {
       auto* mc = static_cast<MatchCasesAST*>(blk->stmts[0]);
       CasesAST* c = mc->getCases();
       bool hs = false;
       bool hi = false;
+      bool hf = false;
       for (auto const& pr : c->case_list) {
-        scan_returns_for_str_int(pr.second, hs, hi);
+        scan_returns_for_value_kinds(pr.second, hs, hi, hf);
       }
-      scan_returns_for_str_int(c->case_default, hs, hi);
+      scan_returns_for_value_kinds(c->case_default, hs, hi, hf);
       if (hs) {
         /* Any <| "..." arm: LLVM return must be i8* (and may mix with snprintf ints). */
         rt = SGType::Create(StyioDataType{StyioDataTypeOption::String, "string", 0});
       }
     }
   }
-  SGBlock* body = lower_func_body_with_local_defs(this, ast->ret_expr);
+  SGBlock* body = nullptr;
+  try {
+    body = lower_func_body_with_local_defs(this, ast->ret_expr, true);
+  } catch (...) {
+    local_binding_types = std::move(saved_local_types);
+    set_post_pulse_hist_context(saved_hist_r, saved_hist_p);
+    throw;
+  }
+  local_binding_types = std::move(saved_local_types);
   SGFunc* fn = SGFunc::Create(
     rt,
     SGResId::Create(ast->func_name->getAsStr()),
@@ -2636,11 +2915,11 @@ AstToStyioIRLowerer::toStyioIR(MatchCasesAST* ast) {
     if (!arm_value.has_value()) {
       throw StyioTypeError("match arms need integer literal patterns in this milestone");
     }
-    arms.push_back({*arm_value, lower_func_body(this, pr.second)});
+    arms.push_back({*arm_value, lower_func_body(this, pr.second, true)});
   }
   SGBlock* def = nullptr;
   if (c->case_default) {
-    def = lower_func_body(this, c->case_default);
+    def = lower_func_body(this, c->case_default, true);
   }
   return SGMatch::Create(scr, std::move(arms), def, rk);
 }

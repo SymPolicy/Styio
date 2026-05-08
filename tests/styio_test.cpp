@@ -4280,6 +4280,63 @@ TEST(StyioDiagnostics, MatchWithoutDefaultDoesNotCrash) {
   fs::remove(input);
 }
 
+TEST(StyioDiagnostics, FunctionMatchSugarAndTailExpressionsReturnValues) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-function-match-tail-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# fib := (n: i32) ?= {\n";
+    out << "  0 => 0\n";
+    out << "  1 => 1\n";
+    out << "  _ => fib(n - 1) + fib(n - 2)\n";
+    out << "}\n";
+    out << "# block_tail := (n: i32) => {\n";
+    out << "  x = n + 1\n";
+    out << "  x\n";
+    out << "}\n";
+    out << "# branch_block_tail := (n: i32) ?= {\n";
+    out << "  0 => {\n";
+    out << "    base = 40\n";
+    out << "    base + 2\n";
+    out << "  }\n";
+    out << "  _ => n + 10\n";
+    out << "}\n";
+    out << "# float_match_tail := (n: i32) ?= {\n";
+    out << "  0 => 1.5\n";
+    out << "  _ => n + 2.5\n";
+    out << "}\n";
+    out << "# stmt_tail := () => {\n";
+    out << "  x = 7\n";
+    out << "}\n";
+    out << ">_(fib(6))\n";
+    out << ">_(block_tail(4))\n";
+    out << ">_(branch_block_tail(0))\n";
+    out << ">_(branch_block_tail(5))\n";
+    out << ">_(float_match_tail(0))\n";
+    out << ">_(float_match_tail(3))\n";
+    out << ">_(stmt_tail())\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(result.stdout_text, "8\n5\n42\n15\n1.500000\n5.500000\n0\n");
+
+  fs::remove(input);
+}
+
 TEST(StyioDiagnostics, MalformedStatementPrefixReportsParseErrorWithoutCrash) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();

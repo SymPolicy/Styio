@@ -12,10 +12,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # [CMake]
 set(DOWNLOAD_EXTRACT_TIMESTAMP true)
 include(FetchContent)
-include(GNUInstallDirs)
 
 # [Styio] Version
 project(styio VERSION 0.0.1)
+include(GNUInstallDirs)
 
 list(APPEND CMAKE_MODULE_PATH
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake"

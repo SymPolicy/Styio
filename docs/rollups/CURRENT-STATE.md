@@ -39,7 +39,7 @@
 2. Common delivery floor: `./scripts/delivery-gate.sh` (default safe auto mode; pass `--base <ref>` only when the intended branch/promotion base cannot be inferred)
 3. Core correctness: `ctest --test-dir build -L milestone`, `ctest --test-dir build -L styio_pipeline`, `ctest --test-dir build -L security`
 4. Parser migration health: shadow gate / zero-fallback / zero-internal-bridges flows described in [`../assets/workflow/TEST-CATALOG.md`](../assets/workflow/TEST-CATALOG.md)
-5. Benchmark/perf workflow: `benchmark/perf-route.sh` plus structured local reports; compare `results.json` / `benchmarks.csv`, not terminal screenshots
+5. Benchmark/perf workflow: `styio-benchmark/tools/perf-route.sh --styio-root <styio-checkout>` plus structured reports in `styio-benchmark`; Styio keeps only probes and compatibility wrappers
 
 ## Optional Provenance
 

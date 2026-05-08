@@ -151,7 +151,7 @@ Approved repository-document locations are:
 
 - root `README.md`
 - `docs/**/*.md`
-- `benchmark/**/*.md` except generated run outputs such as `benchmark/reports/<run-id>/summary.md`
+- `benchmark/**/*.md` only for Styio probe/adaptor documentation; benchmark workloads, reports, baselines, and regression records belong in `styio-benchmark`
 - `templates/**/*.md`
 - `grammar/tree-sitter-styio/README.md`
 - `tests/**/README.md` and approved test templates such as `tests/**/REGRESSION-TEMPLATE.md`

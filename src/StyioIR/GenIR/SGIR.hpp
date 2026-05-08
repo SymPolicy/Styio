@@ -665,6 +665,7 @@ enum class SGMatchReprKind
 {
   Stmt,
   ExprInt,
+  ExprFloat,
   ExprMixed,
 };
 
