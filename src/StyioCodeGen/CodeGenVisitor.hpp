@@ -192,6 +192,8 @@ class StyioToLLVM : public StyioCodeGenVisitor
   /* [|n|] final-bound rings: array alloca in mutable_variables + head cursor (next write index). */
   unordered_map<string, llvm::AllocaInst*> bounded_ring_head_slot_;
   unordered_map<string, std::uint64_t> bounded_ring_capacity_;
+  unordered_map<string, llvm::AllocaInst*> bounded_ring_pending_slot_;
+  unordered_map<string, llvm::AllocaInst*> bounded_ring_pending_count_slot_;
   std::unordered_set<std::string> dynamic_variable_names_;
   std::unordered_set<std::string> list_slot_names_;
 
@@ -520,6 +522,8 @@ private:
   void pulse_copy_ledger_to_snap(llvm::Value* ledger, llvm::Value* snap, int nbytes);
   llvm::Value* coerce_pulse_input_i64(llvm::Value* v);
   void emit_pulse_commit_all(llvm::Value* ledger, const SGPulsePlan* plan);
+  void emit_bounded_ring_pending_commit(const std::string& name);
+  void emit_bounded_ring_pending_commits();
 };
 
 #endif

@@ -1,8 +1,8 @@
 @	@
 <ID>	file
-{	{
+(	(
 <STRING>	"/tmp/styio_zip_a.txt"
-}	}
+)	)
  	 
 >>	>>
  	 
@@ -15,9 +15,9 @@
  	 
 @	@
 <ID>	file
-{	{
+(	(
 <STRING>	"/tmp/styio_zip_b.txt"
-}	}
+)	)
  	 
 >>	>>
  	 

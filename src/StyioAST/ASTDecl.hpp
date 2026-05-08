@@ -135,6 +135,7 @@ class SnapshotDeclAST;
 class InstantPullAST;
 class TypedStdinListAST;
 class TaskBlockAST;
+class TaskGroupLaunchAST;
 class FlowBindAST;
 class IterSeqAST; /* Iterator Sequence */
 class InfiniteLoopAST;
@@ -219,6 +220,8 @@ class FmtStrAST;
   - DBUrl
 */
 class ResourceAST;
+class ResourceDeclAST;
+class ResourceRefAST;
 
 class ResPathAST;
 class RemotePathAST;

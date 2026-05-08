@@ -18,6 +18,7 @@
 #include "../StyioIR/GenIR/GenIR.hpp"
 #include "../StyioIR/IOIR/IOIR.hpp"
 #include "../StyioException/Exception.hpp"
+#include "../StyioResourceTopology/ResourceTopology.hpp"
 #include "../StyioToken/Token.hpp"
 #include "StyioIROptimizer.hpp"
 
@@ -2123,13 +2124,19 @@ AstToStyioIRLowerer::toStyioIR(HandleAcquireAST* ast) {
   }
   auto* fr = dynamic_cast<FileResourceAST*>(ast->getResource());
   if (!fr) {
-    throw StyioTypeError("handle acquire needs @file{...} or @{...}");
+    throw StyioTypeError("handle acquire needs @file(...) or @{...}");
   }
   return SIOHandleAcquire::Create(
     ast->getVar()->getNameAsStr(),
     fr->getPath()->toStyioIR(this),
     fr->isAutoDetect());
 }
+
+static StyioDataType
+resource_storage_type_latest(const StyioDataType& resource_type);
+
+static StyioIR*
+zero_value_for_type_latest(const StyioDataType& type);
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ResourceWriteAST* ast) {
@@ -2160,6 +2167,14 @@ AstToStyioIRLowerer::toStyioIR(ResourceWriteAST* ast) {
   }
   else if (expr_is_dict_like(this, ast->getData())) {
     data_ir = SCDictToString::Create(data_ir);
+  }
+  if (auto* logical = dynamic_cast<ResourceRefAST*>(ast->getResource())) {
+    StyioDataType resource_type = resource_binding_types_[logical->getNameStr()];
+    StyioDataType storage_type = resource_storage_type_latest(resource_type);
+    return SGFlexBind::Create(
+      SGVar::Create(SGResId::Create(logical->getNameStr()), SGType::Create(storage_type)),
+      data_ir,
+      true);
   }
   /* M9: check for standard stream target. */
   auto* ss = dynamic_cast<StdStreamAST*>(ast->getResource());
@@ -2197,6 +2212,14 @@ AstToStyioIRLowerer::toStyioIR(ResourceRedirectAST* ast) {
   }
   else if (expr_is_dict_like(this, ast->getData())) {
     data_ir = SCDictToString::Create(data_ir);
+  }
+  if (auto* logical = dynamic_cast<ResourceRefAST*>(ast->getResource())) {
+    StyioDataType resource_type = resource_binding_types_[logical->getNameStr()];
+    StyioDataType storage_type = resource_storage_type_latest(resource_type);
+    return SGFlexBind::Create(
+      SGVar::Create(SGResId::Create(logical->getNameStr()), SGType::Create(storage_type)),
+      data_ir,
+      true);
   }
   /* M9: redirect to standard stream → SIOStdStreamWrite */
   auto* ss = dynamic_cast<StdStreamAST*>(ast->getResource());
@@ -2244,6 +2267,60 @@ AstToStyioIRLowerer::toStyioIR(FmtStrAST* ast) {
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ResourceAST* ast) {
   return SGConstInt::Create(0);
+}
+
+static StyioDataType
+resource_storage_type_latest(const StyioDataType& resource_type) {
+  StyioDataType value_type = styio_topology_resource_value_type(resource_type);
+  if (value_type.option == StyioDataTypeOption::Integer
+      && resource_type.resource_shape_bound > 0
+      && (resource_type.resource_shape == StyioResourceShapeKind::Fixed
+          || resource_type.resource_shape == StyioResourceShapeKind::Recent)) {
+    return StyioDataType{
+      StyioDataTypeOption::Defined,
+      std::string("bounded_ring:") + std::to_string(resource_type.resource_shape_bound),
+      0};
+  }
+  return value_type;
+}
+
+static StyioIR*
+zero_value_for_type_latest(const StyioDataType& type) {
+  if (type.option == StyioDataTypeOption::Float) {
+    return SGConstFloat::Create("0.0");
+  }
+  if (type.option == StyioDataTypeOption::String) {
+    return SGConstString::Create("");
+  }
+  return SGConstInt::Create(0);
+}
+
+StyioIR*
+AstToStyioIRLowerer::toStyioIR(ResourceDeclAST* ast) {
+  std::vector<StyioIR*> stmts;
+  for (const auto& slot : ast->getSlots()) {
+    const std::string name = slot.name->getAsStr();
+    StyioDataType resource_type = styio_normalize_resource_decl_type(slot.type->getDataType());
+    auto it = resource_binding_types_.find(name);
+    if (it != resource_binding_types_.end()) {
+      resource_type = it->second;
+    }
+    StyioDataType storage_type = resource_storage_type_latest(resource_type);
+    auto* var = SGVar::Create(SGResId::Create(name), SGType::Create(storage_type));
+    stmts.push_back(SGFinalBind::Create(var, zero_value_for_type_latest(storage_type)));
+  }
+  if (ast->getDriver() != nullptr) {
+    stmts.push_back(ast->getDriver()->toStyioIR(this));
+  }
+  return SGBlock::Create(std::move(stmts));
+}
+
+StyioIR*
+AstToStyioIRLowerer::toStyioIR(ResourceRefAST* ast) {
+  if (ast->getSelectorKind() == ResourceSelectorKind::Offset) {
+    return SGResId::CreateHistory(ast->getNameStr(), ast->getSelectorOffset());
+  }
+  return SGResId::Create(ast->getNameStr());
 }
 
 StyioIR*
@@ -2791,7 +2868,7 @@ AstToStyioIRLowerer::toStyioIR(InstantPullAST* ast) {
   }
   auto* fr = dynamic_cast<FileResourceAST*>(ast->getResource());
   if (!fr) {
-    throw StyioTypeError("instant pull needs @file{...}, @{...}, or @stdin");
+    throw StyioTypeError("instant pull needs @file(...), @{...}, or @stdin");
   }
   return SIOInstantPull::Create(fr->getPath()->toStyioIR(this));
 }
@@ -2812,7 +2889,22 @@ AstToStyioIRLowerer::toStyioIR(TaskBlockAST* ast) {
 }
 
 StyioIR*
+AstToStyioIRLowerer::toStyioIR(TaskGroupLaunchAST* ast) {
+  std::vector<StyioIR*> stmts;
+  stmts.reserve(ast->getEntries().size());
+  for (auto* entry : ast->getEntries()) {
+    stmts.push_back(entry->toStyioIR(this));
+  }
+  return SGEntry::Create(std::move(stmts));
+}
+
+StyioIR*
 AstToStyioIRLowerer::toStyioIR(FlowBindAST* ast) {
+  if (ast->getSource() == nullptr) {
+    throw StyioTypeError(
+      "bare continuation freeze `?| ->` requires continuation lowering; "
+      "captured continuations must be resumed or discontinued exactly once");
+  }
   StyioDataType source_type = expr_lowered_type(this, ast->getSource());
   StyioDataType result_type = ast->getResultType();
   bool source_is_task = source_type.handle_family == StyioHandleFamily::Task;
@@ -2822,11 +2914,14 @@ AstToStyioIRLowerer::toStyioIR(FlowBindAST* ast) {
   if (result_type.isUndefined()) {
     result_type = source_type;
   }
+  StyioIR* fallback = ast->hasFallback() ? ast->getFallback()->toStyioIR(this) : nullptr;
   return SIOFlowBind::Create(
     ast->getSource()->toStyioIR(this),
     ast->getTargetNameAsStr(),
     result_type,
-    source_is_task);
+    source_is_task,
+    fallback,
+    ast->isAwaitBind());
 }
 
 StyioIR*
@@ -2935,6 +3030,8 @@ AstToStyioIRLowerer::toStyioIR(BlockAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
+  styio::resource_topology::validate_or_throw(ast, "lowering-resource-topology");
+
   std::vector<StyioIR*> ir_stmts;
   int pending_region = -1;
   SGPulsePlan* pending_plan = nullptr;

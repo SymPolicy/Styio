@@ -240,21 +240,27 @@ class SIOFlowBind : public StyioIRTraits<SIOFlowBind>
 {
 public:
   StyioIR* source_expr = nullptr;
+  StyioIR* fallback_expr = nullptr;
   std::string target_name;
   StyioDataType result_type{StyioDataTypeOption::Integer, "i64", 64};
   bool source_is_task = false;
+  bool await_bind = false;
 
   static SIOFlowBind* Create(
     StyioIR* source,
     std::string target,
     StyioDataType result,
-    bool task_source
+    bool task_source,
+    StyioIR* fallback = nullptr,
+    bool is_await = false
   ) {
     auto* x = new SIOFlowBind();
     x->source_expr = source;
+    x->fallback_expr = fallback;
     x->target_name = std::move(target);
     x->result_type = std::move(result);
     x->source_is_task = task_source;
+    x->await_bind = is_await;
     return x;
   }
 

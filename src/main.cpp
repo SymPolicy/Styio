@@ -1948,6 +1948,7 @@ styio_nano_source_roots_latest(bool include_pipeline_check) {
     "src/StyioProfiler/FrontendProfiler.cpp",
     "src/StyioNative/NativeInterop.cpp",
     "src/StyioNative/NativeToolchainConfig.hpp.in",
+    "src/StyioResourceTopology/ResourceTopology.cpp",
     "src/StyioToString/ToString.cpp",
     "src/StyioSema/TypeInfer.cpp",
     "src/StyioLowering/AstToStyioIR.cpp",

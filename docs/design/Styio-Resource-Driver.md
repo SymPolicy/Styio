@@ -1,6 +1,6 @@
 # Styio Resource Driver Interface Specification
 
-**Purpose:** `@protocol{…}` **资源驱动** 的 C++ 接口、生命周期与线程约定；与语言侧 `@` 语义、拓扑目标见 `Styio-Language-Design.md`、`Styio-Resource-Topology.md`。
+**Purpose:** `@protocol(...)` **资源驱动** 的 C++ 接口、生命周期与线程约定；与语言侧 `@` 语义、拓扑目标见 `Styio-Language-Design.md`、`Styio-Resource-Topology.md`。
 
 **Last updated:** 2026-04-24
 
@@ -12,7 +12,7 @@
 
 ## 1. Overview
 
-In Styio, the `@` prefix opens a portal to the external world — files, databases, network feeds, hardware sensors. Every `@protocol{...}` expression is backed by a **Resource Driver**: a C++ plugin that implements a standardized interface.
+In Styio, the `@` prefix opens a portal to the external world — files, databases, network feeds, hardware sensors. Every `@protocol(...)` expression is backed by a **Resource Driver**: a C++ plugin that implements a standardized interface.
 
 The driver system is the bridge between Styio's **intent-aware compiler** and the physical reality of I/O.
 
@@ -107,7 +107,7 @@ class MySensorDriver : public IStyioDriver {
 STYIO_REGISTER_DRIVER("my_sensor", MySensorDriver);
 ```
 
-After registration, users can write `@my_sensor{"config"}` in Styio code.
+After registration, users can write `@my_sensor("config")` in Styio code.
 
 ---
 
@@ -120,7 +120,7 @@ This is Styio's signature optimization. The compiler analyzes the user's code to
 **User code:**
 
 ```
-@mysql{"localhost:3306/trades"} >> #(row) => {
+@mysql("localhost:3306/trades") >> #(row) => {
     >_($"Price: {row["price"]}, Time: {row["timestamp"]}")
 }
 ```
@@ -162,32 +162,32 @@ This catches structural errors (e.g., column renamed, table dropped) **before th
 
 | Protocol | Resource Syntax | Data Model |
 |----------|----------------|------------|
-| `file` | `@file{"path.csv"}` | Line-by-line or chunked byte stream |
-| `csv` | `@csv{"data.csv"}` | Parsed rows with named columns |
-| `json` | `@json{"data.json"}` | Streaming JSON parser (SAX-style) |
-| `parquet` | `@parquet{"data.parquet"}` | Columnar read with predicate pushdown |
-| `mysql` | `@mysql{"host:port/db"}` | Row cursor with field projection |
-| `redis` | `@redis{"host:port/key"}` | Pub/Sub or key-value polling |
-| `kafka` | `@kafka{"broker/topic"}` | Consumer group with offset management |
-| `binance` | `@binance{"BTCUSDT"}` | WebSocket market data stream |
-| `http` | `@http{"https://api.example.com"}` | HTTP GET/POST with response parsing |
+| `file` | `@file("path.csv")` | Line-by-line or chunked byte stream |
+| `csv` | `@csv("data.csv")` | Parsed rows with named columns |
+| `json` | `@json("data.json")` | Streaming JSON parser (SAX-style) |
+| `parquet` | `@parquet("data.parquet")` | Columnar read with predicate pushdown |
+| `mysql` | `@mysql("host:port/db")` | Row cursor with field projection |
+| `redis` | `@redis("host:port/key")` | Pub/Sub or key-value polling |
+| `kafka` | `@kafka("broker/topic")` | Consumer group with offset management |
+| `binance` | `@binance("BTCUSDT")` | WebSocket market data stream |
+| `http` | `@http("https://api.example.com")` | HTTP GET/POST with response parsing |
 
 ### 5.2 Sink Drivers (receive data from `<<` or `->`)
 
 | Protocol | Resource Syntax | Write Model |
 |----------|----------------|-------------|
-| `file` | `@file{"output.txt"}` | Buffered sequential write |
-| `database` | `@database{"redis://..."}` | Key-value upsert or INSERT |
-| `influxdb` | `@influxdb{"host:port/db"}` | Time-series point write |
-| `alert` | `@alert{"webhook_url"}` | HTTP POST notification |
-| `ui` | `@ui{"chart_name"}` | Real-time visualization feed |
+| `file` | `@file("output.txt")` | Buffered sequential write |
+| `database` | `@database("redis://...")` | Key-value upsert or INSERT |
+| `influxdb` | `@influxdb("host:port/db")` | Time-series point write |
+| `alert` | `@alert("webhook_url")` | HTTP POST notification |
+| `ui` | `@ui("chart_name")` | Real-time visualization feed |
 
 ### 5.3 Bidirectional Drivers
 
 Some drivers support both `>>` and `<<`:
 
 ```
-db <- @mysql{"localhost:3306/trades"}
+db <- @mysql("localhost:3306/trades")
 db >> #(row) => { ... }        // read
 "new_row_data" << db           // write
 ```
@@ -222,7 +222,7 @@ in new design text.
 
 ## 7. Resource Singleton Rule
 
-The runtime enforces a **singleton constraint**: regardless of how many times `@binance{"BTCUSDT"}` appears in code, only **one** physical WebSocket connection is established. All references share the same driver instance.
+The runtime enforces a **singleton constraint**: regardless of how many times `@binance("BTCUSDT")` appears in code, only **one** physical WebSocket connection is established. All references share the same driver instance.
 
 The compiler detects duplicate resource identifiers during analysis and merges them.
 
@@ -299,7 +299,7 @@ For the "thick library, thin artifact" model:
 - **Production (strict build):** Only the drivers referenced in code are statically linked into the final binary via LTO
 
 This requires the build system to:
-1. Scan the AST for all `@protocol{...}` references
+1. Scan the AST for all `@protocol(...)` references
 2. Resolve each protocol to a driver source file
 3. Include only those files in the link step
 

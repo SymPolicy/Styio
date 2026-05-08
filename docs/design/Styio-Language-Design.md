@@ -2,7 +2,7 @@
 
 **Purpose:** Styio 语言的 **权威语义与特性说明**（正文规格）；形式文法见 [`Styio-EBNF.md`](./Styio-EBNF.md)，符号与 token 名见 [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md)，`@` **目标**拓扑见 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)，冲突与未定见 [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md)。
 
-**Last updated:** 2026-05-04
+**Last updated:** 2026-05-09
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -304,17 +304,38 @@ The base continue is 2 characters (`>>`). Each additional `>` skips one more nes
 
 `<|` pushes a value out of the current block. When used in control flow that is part of an assignment, it produces the value for the enclosing expression.
 
-In expression position, `<|` applies a value to a callable/continuation from left to right:
-
-```
-make_discount <| 100 <| 150 == make_discount(100)(150)
-```
+In expression position, `<|` applies one value to a callable/continuation. Chained
+apply-pipe examples are not canonical while continuation lowering remains pending.
 
 Captured continuations follow the OCaml-style one-shot discipline: a suspended continuation must be resumed or discontinued exactly once. Resuming it consumes it; resuming it again is an error. While suspended, it keeps captured scope data and resources alive until resume/discontinue unwinds the frame.
 
 For compressed one-line blocks, `|<| value |;` is the inline return spelling. `|>` and `|<-` remain reserved.
 
 When multiple branches yield (e.g., in `?=`), the compiler generates LLVM `phi` nodes at the merge point.
+
+### 6.8 Tasks and Await: `||>` / `?|`
+
+`||> { ... }` constructs one scheduled task. `||> [ name := { ... } ... ]`
+launches a group of independent task blocks and binds each name to its task handle.
+
+```styio
+||> [
+    price := { <| fetch_price() }
+    risk  := { <| calc_risk() }
+]
+
+?| price -> p: f64
+?| risk -> r: f64 | 0.0
+```
+
+`?| task -> value: T` awaits or pulls a task/future handle and declares `value`
+with type `T`. `?| task -> value: T | fallback` evaluates `fallback` only when
+the task pull reports runtime failure or absence. The fallback separator is the
+ordinary `|`; `??` remains diagnostic extraction, not async fallback syntax.
+
+`?| -> value: T` is reserved as the bare "freeze here" continuation point. The
+parser accepts the shape, but semantic analysis currently fails closed until
+first-class continuation lowering can guarantee one-shot resume/discontinue.
 
 ---
 
@@ -362,19 +383,19 @@ Resources are accessed via the `@` prefix:
 
 ```
 @("localhost:8080")          // auto-detect protocol
-@file{"readme.txt"}          // explicit file protocol
-@mysql{"localhost:3306"}     // explicit MySQL protocol
-@binance{"BTCUSDT"}         // exchange data feed
+@file("readme.txt")          // explicit file protocol
+@mysql("localhost:3306")     // explicit MySQL protocol
+@binance("BTCUSDT")         // exchange data feed
 ```
 
 **Protocol resolution:**
 - `@{...}` or `@(...)` without prefix → runtime probes via plugin dictionary
-- `@protocol{...}` with prefix → compile-time static dispatch (zero overhead)
+- `@protocol(...)` with prefix → compile-time static dispatch (zero overhead)
 
 ### 8.2 Handle Acquisition: `<-`
 
 ```
-f <- @file{"readme.txt"}
+f <- @file("readme.txt")
 ```
 
 `<-` extracts a live handle (file descriptor, socket, cursor) from a resource.
@@ -509,78 +530,88 @@ the `>>` route requiring text-serializable iterable input before lowering.
 
 Stream processing requires **memory across pulses**. A simple local variable resets every frame. Styio solves this with explicit state containers.
 
-### 9.2 State Container: `@[...]`
+### 9.2 Resource Object State
 
-**Superseding narrative (target syntax, not yet default in the compiler):** See [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md) for `@name : [|n|]`, top-level `:= { driver }`, and **`expr -> $name`** instead of mixing `=` into shadow updates.
+Topology v2 treats named state as a resource object:
 
-**Window buffer** (ring buffer of raw values) — **as implemented today**:
-
+```styio
+@price : f64|..10| := { ... }
 ```
+
+Bare `@price` is the resource object itself. It is not the latest scalar value.
+
+```styio
+latest = @price[-1]
+prev   = @price[-2]
+recent = @price[-3..]
+all    = @price[...]
+```
+
+`T|n|` means exact length; `T|..n|` means a recent-window resource that keeps the latest `n` values. Unbounded repetition is written with a type suffix:
+
+```styio
+i64|10|     // ten i64 values
+f64|..10|   // latest ten f64 values
+i64..       // unbounded i64 sequence
+i64...      // same as i64..
+```
+
+### 9.3 Type-Level Collection Sugar
+
+Collection types are ordinary type-position forms:
+
+```styio
+__ : list[T] := T..
+__ : string := char..
+__ : dict[K, V] := (K, V)..
+```
+
+Examples:
+
+```styio
+@input : i64|10| := ...
+@meta  : dict[string, string] := ...
+@pairs : (string, string)|2| := ...
+@price : f64|..10| := ...
+@log   : string := ...
+@logs  : list[string] := ...
+```
+
+`list[i64]|10|` is not the canonical spelling for ten integers; it normalizes to `i64|10|`. Prefer the direct length form.
+
+### 9.4 Resource Flow and Copy
+
+```styio
+expr -> @price
+@price >> #(x) => { ... }
+snapshot << @price[...]
+```
+
+`->` writes a produced value into a resource sink. `>>` iterates the resource object. `<<` makes an explicit copy or snapshot.
+
+Resource acquisition uses `<-` only at resource-entry boundaries:
+
+```styio
+l <- @stdin: list[i32]
+l1 << l
+```
+
+Copying an already-bound resource as `l1 <- l` is rejected; use `l1 << l`.
+
+### 9.5 Legacy M6 State Containers
+
+The implemented M6 surface still accepts forms such as:
+
+```styio
 @[5](ma5 = get_ma(prices, 5))
-```
-
-Allocates a ring buffer of length 5. The variable `ma5` is computed each frame and stored.
-
-**Scalar accumulator** (scan/fold state):
-
-```
 @[total = 0.0](total_vol = $total + volumes)
 ```
 
-Allocates a single persistent scalar initialized to `0.0`. Updated every frame.
+These remain implementation/provenance syntax until migration. New design text should use the resource-object spelling above instead of `@[...]` and `$state`.
 
-### 9.3 Shadow Reference: `$`
+### 9.6 Retired History Probe: `[<<, n]`
 
-`$var` accesses a declared state container:
-
-```
-$ma5          // current value of the ma5 state
-$total        // current accumulator value
-```
-
-The `$` prefix is **mandatory** when referencing stateful variables. Without `@[...]` declaration, using `$var` is a compile error.
-
-### 9.4 Retired History Probe: `[<<, n]`
-
-The `$state[<<, n]` spelling belonged to the old M6 history-probe draft and is
-not active syntax. Future history access must be introduced through a revised
-state-topology fixture instead of reviving this selector.
-
-### 9.5 Pulse Frame Lock
-
-**Core invariant:** Within a single pulse frame (one execution of the closure), all `$var` reads return the **same snapshot value**, regardless of how many times they appear in the expression.
-
-```
-result = $ma5 * $ma5    // guaranteed: both reads return identical values
-```
-
-This prevents non-deterministic "time-tearing" when external feeds update mid-computation.
-
-**Hot pull exception:** `(<< @resource)` bypasses frame lock, performing a live read.
-
-### 9.6 Anonymous Ledger (Implicit Hoisting)
-
-Developers may freely scatter `@[...]` declarations anywhere in their code. The compiler automatically:
-
-1. Extracts all state declarations via **implicit hoisting**
-2. Allocates them in a **contiguous memory region** (the anonymous ledger)
-3. Redirects all `$var` references to fixed offsets within this region
-
-This provides "write messy, compile clean" ergonomics. A `styio audit --fix` tool can rewrite source to move declarations to file headers.
-
-### 9.7 Schema (Explicit Ledger)
-
-For large systems, explicit schemas provide full control:
-
-```
-# GlobalState := schema {
-    @[1024] price_history
-    @pulse  total_count
-    @meta   strategy_id
-}
-```
-
-Local variables can mount to schema slots for cross-flow sharing, instant serialization, and hot-restart state recovery.
+The `$state[<<, n]` spelling belonged to the old M6 history-probe draft and is not active syntax.
 
 ---
 
@@ -606,17 +637,19 @@ Optional tolerance window:
 
 ```
 @binance >> #(p) => {
-    @[p_okx] << @okx{"BTC"}
-    gap = p - $p_okx
+    p_okx << @okx("BTC")
+    gap = p - p_okx[-1]
 }
 ```
 
-The `@[p_okx] << @okx` declaration establishes a **background listener**. The main flow (`@binance`) drives execution; `$p_okx` provides the latest available snapshot from OKX. Frame lock applies to `$p_okx`.
+The explicit `<<` copy makes the snapshot boundary visible. Older M6 examples used
+`@[p_okx] << @okx` plus `$p_okx`; new topology text should prefer resource-object
+or snapshot-object reads such as `p_okx[-1]`.
 
 Inline immediate pull (no state declaration, live read):
 
 ```
-gap = p - (<- @okx{"BTC"})
+gap = p - (<- @okx("BTC"))
 ```
 
 ### 10.3 Synchronization Summary
@@ -624,7 +657,7 @@ gap = p - (<- @okx{"BTC"})
 | Mode | Syntax | Trigger | Use Case |
 |------|--------|---------|----------|
 | Zip | `A >> #(a) & B >> #(b)` | Both arrive | Atomic cross-exchange arbitrage |
-| Snapshot | `@[v] << @res` + `$v` | Main flow only | Cross-frequency reference |
+| Snapshot | `v << @res` + `v[-1]` | Main flow only | Cross-frequency reference |
 | Immediate Pull | `(<- @res)` | On-demand | One-shot live sampling |
 
 ---
@@ -637,10 +670,17 @@ Square brackets serve as a **contextual transformer**, not just an indexer.
 
 ```
 a[0]        // element at index 0
-a[-1]       // last element (only for arrays in memory)
-a[0..5]     // slice: indices 0 to 4
-a[2...]     // slice: index 2 to end
+a[-1]       // last element / latest committed value
+a[0..5]     // slice from 0 to 5
+a[2..]      // slice from index 2 to end
+a[..5]      // slice from start to index 5
+a[..]       // all values
+a[...]      // all values
 ```
+
+Two or more dots are equivalent in selectors: `a[0..5]`, `a[0...5]`,
+and `a[0.....5]` use the same range separator. A single dot remains
+member access, as in `a.length`.
 
 ### 11.2 Retired Guard Selector: `[?, cond]`
 
@@ -789,7 +829,7 @@ The `|` operator provides a fallback value when the left side carries runtime ab
 
 ### 14.3 Audit Mode (`styio audit --fix`)
 
-- Scans scattered `@[...]` declarations
+- Scans legacy scattered `@[...]` declarations and target `@name : Type` resources
 - Generates explicit `schema` block at file header
 - Reformats source according to Styio style guide
 
@@ -802,16 +842,16 @@ The `|` operator provides a fallback value when the left side carries runtime ab
 The current C++ compiler implementation already has a rich token system, parser, AST, IR, and LLVM codegen. However, significant features from the Gemini design discussion are not yet implemented:
 
 - **Reserved wave tokens** (`<~`, `~>`) already exist at the lexer level but have no active grammar production
-- **State containers** (`@[len]`, `$var`) require a new state analysis pass
+- **Target resource objects** (`@name : Type`, `@name[-1]`, `@name[...]`) require a new state/resource analysis pass
 - **Pulse Frame Lock** needs runtime infrastructure in the JIT executor
 - **Cross-stream sync** (`&`, `<< @res`) requires a concurrency model in the IR
 
 **Recommended implementation order:**
 1. Keep `?(cond) => value | fallback` and `?(cond) => { ... } | { ... }` as the active guard forms
-2. Extend the Lexer with new token types for `@[`, `$`
-3. Add AST nodes: `StateDeclNode`, `StateRefNode`, `StreamZipNode`
-4. Implement state hoisting in the analyzer (anonymous ledger)
-5. Extend LLVM codegen for state containers (stack-allocated ring buffers)
+2. Extend the parser/type system for `Type|n|`, `Type|..n|`, `Type..`, and `list[T]`
+3. Add AST nodes for target resource declarations, resource selectors, and stream zip
+4. Implement resource hoisting in the analyzer
+5. Extend LLVM codegen for fixed-length and recent-window resource storage
 6. Add concurrency primitives for stream synchronization
 
 ### A.2 Open Design Questions
@@ -820,7 +860,7 @@ The current C++ compiler implementation already has a rich token system, parser,
 
 2. **`@` overload risk:** `@` remains overloaded as a resource prefix, state prefix, standard-stream prefix, and runtime absence marker. Source-level bare `@` has been retired from active syntax to reduce ambiguity.
 
-3. **Scan vs. Window unification:** Both `@[n](var = expr)` (window) and `@[var = init](expr)` (scan/accumulator) use the `@[...]` syntax. The compiler must distinguish them by whether the bracket contains a number (window size) or an assignment (accumulator init). This is parseable but should be clearly specified.
+3. **Legacy migration:** `@[n](var = expr)` and `@[var = init](expr)` remain implemented M6 syntax. The target surface is `@name : Type|n|` / `@name : Type|..n|` plus resource-object selectors.
 
 4. **Cross-platform builds:** The current CMakeLists.txt hardcodes Linux paths. Windows and macOS support need platform-conditional toolchain detection.
 

@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-05-05
+**Last updated:** 2026-05-08
 
 ## Mission
 
@@ -48,6 +48,7 @@ Key handoff document:
 16. When internal prelude source files such as `src/StyioPrelude/resources.styio` become part of compiler behavior, include them in `--source-build-info=json` controlled components and the matching diagnostics regression.
 17. When `--profile-frontend` grows runtime-side records, keep the CLI flush hook in `src/main.cpp` paired with a profiler smoke that proves the emitted JSON includes the new section.
 18. Keep `--nano-create` clean-room local-subset builds on the same Clang CMake compiler pair used to build Styio unless `CC` or `CXX` is explicitly set by the caller; generated `build-styio-nano.sh` must preserve that override rule.
+19. When Sema / IR gains a new required implementation directory such as `src/StyioResourceTopology/`, add its `.cpp` seed to `styio_nano_source_roots_latest(...)` so local-subset nano packages link in a clean-room bundle.
 
 ## Change Classes
 

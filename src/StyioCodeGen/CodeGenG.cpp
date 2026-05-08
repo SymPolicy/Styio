@@ -448,9 +448,12 @@ StyioToLLVM::toLLVMIR(SGResId* node) {
     auto* arrTy = llvm::cast<llvm::ArrayType>(arr->getAllocatedType());
     llvm::Value* head = theBuilder->CreateLoad(i64, headSlot);
     llvm::Value* zero = llvm::ConstantInt::get(i64, 0);
-    llvm::Value* one = llvm::ConstantInt::get(i64, 1);
-    llvm::Value* has = theBuilder->CreateICmpULT(zero, head);
-    llvm::Value* prev = theBuilder->CreateSub(head, one);
+    const int depth = node->has_history_selector && node->history_offset < 0
+      ? -node->history_offset
+      : 1;
+    llvm::Value* depthv = llvm::ConstantInt::get(i64, static_cast<std::uint64_t>(depth));
+    llvm::Value* has = theBuilder->CreateICmpUGE(head, depthv);
+    llvm::Value* prev = theBuilder->CreateSub(head, depthv);
     llvm::Value* capv = llvm::ConstantInt::get(i64, cap);
     llvm::Value* prev_m = theBuilder->CreateURem(prev, capv);
     llvm::Value* idx = theBuilder->CreateSelect(has, prev_m, zero);
@@ -1141,6 +1144,91 @@ StyioToLLVM::toLLVMIR(SGVar* node) {
   return output;
 }
 
+void
+StyioToLLVM::emit_bounded_ring_pending_commit(const std::string& name) {
+  auto arr_it = mutable_variables.find(name);
+  auto head_it = bounded_ring_head_slot_.find(name);
+  auto cap_it = bounded_ring_capacity_.find(name);
+  auto pending_it = bounded_ring_pending_slot_.find(name);
+  auto count_it = bounded_ring_pending_count_slot_.find(name);
+  if (arr_it == mutable_variables.end()
+      || head_it == bounded_ring_head_slot_.end()
+      || cap_it == bounded_ring_capacity_.end()
+      || pending_it == bounded_ring_pending_slot_.end()
+      || count_it == bounded_ring_pending_count_slot_.end()) {
+    return;
+  }
+
+  llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
+  if (cur == nullptr || cur->getTerminator() != nullptr) {
+    return;
+  }
+
+  llvm::Function* F = cur->getParent();
+  llvm::Type* i64 = theBuilder->getInt64Ty();
+  llvm::Value* zero = llvm::ConstantInt::get(i64, 0);
+  llvm::Value* one = llvm::ConstantInt::get(i64, 1);
+  llvm::Value* capv = llvm::ConstantInt::get(i64, cap_it->second);
+  llvm::AllocaInst* pending_count_slot = count_it->second;
+  llvm::Value* pending_count = theBuilder->CreateLoad(i64, pending_count_slot);
+  llvm::Value* over_cap = theBuilder->CreateICmpUGT(pending_count, capv);
+  llvm::Value* start = theBuilder->CreateSelect(
+    over_cap,
+    theBuilder->CreateSub(pending_count, capv),
+    zero);
+  llvm::AllocaInst* idx_slot = theBuilder->CreateAlloca(i64, nullptr, name + ".pending.commit.i");
+  theBuilder->CreateStore(start, idx_slot);
+
+  llvm::BasicBlock* hdr_bb = llvm::BasicBlock::Create(*theContext, "resource_commit_hdr", F);
+  llvm::BasicBlock* body_bb = llvm::BasicBlock::Create(*theContext, "resource_commit_body", F);
+  llvm::BasicBlock* done_bb = llvm::BasicBlock::Create(*theContext, "resource_commit_done", F);
+  theBuilder->CreateBr(hdr_bb);
+
+  theBuilder->SetInsertPoint(hdr_bb);
+  llvm::Value* i = theBuilder->CreateLoad(i64, idx_slot);
+  llvm::Value* more = theBuilder->CreateICmpULT(i, pending_count);
+  theBuilder->CreateCondBr(more, body_bb, done_bb);
+
+  theBuilder->SetInsertPoint(body_bb);
+  auto* ring_ty = llvm::cast<llvm::ArrayType>(arr_it->second->getAllocatedType());
+  auto* pending_ty = llvm::cast<llvm::ArrayType>(pending_it->second->getAllocatedType());
+  llvm::Value* pending_idx = theBuilder->CreateURem(i, capv);
+  llvm::Value* pending_gep = theBuilder->CreateInBoundsGEP(
+    pending_ty,
+    pending_it->second,
+    {zero, pending_idx});
+  llvm::Value* value = theBuilder->CreateLoad(i64, pending_gep);
+  llvm::Value* head = theBuilder->CreateLoad(i64, head_it->second);
+  llvm::Value* ring_idx = theBuilder->CreateURem(head, capv);
+  llvm::Value* ring_gep = theBuilder->CreateInBoundsGEP(
+    ring_ty,
+    arr_it->second,
+    {zero, ring_idx});
+  theBuilder->CreateStore(value, ring_gep);
+  theBuilder->CreateStore(theBuilder->CreateAdd(head, one), head_it->second);
+  theBuilder->CreateStore(theBuilder->CreateAdd(i, one), idx_slot);
+  theBuilder->CreateBr(hdr_bb);
+
+  theBuilder->SetInsertPoint(done_bb);
+  theBuilder->CreateStore(zero, pending_count_slot);
+}
+
+void
+StyioToLLVM::emit_bounded_ring_pending_commits() {
+  std::vector<std::string> names;
+  names.reserve(bounded_ring_pending_count_slot_.size());
+  for (const auto& kv : bounded_ring_pending_count_slot_) {
+    names.push_back(kv.first);
+  }
+  for (const std::string& name : names) {
+    emit_bounded_ring_pending_commit(name);
+    llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
+    if (cur == nullptr || cur->getTerminator() != nullptr) {
+      break;
+    }
+  }
+}
+
 /*
   FlexBind
 
@@ -1159,6 +1247,41 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
     /* ERROR */
     throw StyioTypeError(
       std::string("immutable binding cannot be reassigned with `=`: ") + varname);
+  }
+
+  if (bounded_ring_head_slot_.contains(varname)) {
+    llvm::AllocaInst* arr = mutable_variables[varname];
+    std::uint64_t cap = bounded_ring_capacity_[varname];
+    llvm::Type* i64 = theBuilder->getInt64Ty();
+    llvm::Value* zero = llvm::ConstantInt::get(i64, 0);
+    llvm::Value* next_value = node->value->toLLVMIR(this);
+    if (node->pending_resource_write
+        && bounded_ring_pending_slot_.contains(varname)
+        && bounded_ring_pending_count_slot_.contains(varname)) {
+      llvm::AllocaInst* pending = bounded_ring_pending_slot_[varname];
+      llvm::AllocaInst* pending_count_slot = bounded_ring_pending_count_slot_[varname];
+      auto* pending_ty = llvm::cast<llvm::ArrayType>(pending->getAllocatedType());
+      llvm::Value* pending_count = theBuilder->CreateLoad(i64, pending_count_slot);
+      llvm::Value* idx = theBuilder->CreateURem(
+        pending_count,
+        llvm::ConstantInt::get(i64, cap));
+      llvm::Value* gep = theBuilder->CreateInBoundsGEP(pending_ty, pending, {zero, idx});
+      theBuilder->CreateStore(next_value, gep);
+      theBuilder->CreateStore(
+        theBuilder->CreateAdd(pending_count, llvm::ConstantInt::get(i64, 1)),
+        pending_count_slot);
+      return pending;
+    }
+
+    llvm::AllocaInst* headSlot = bounded_ring_head_slot_[varname];
+    auto* arrTy = llvm::cast<llvm::ArrayType>(arr->getAllocatedType());
+    llvm::Value* head = theBuilder->CreateLoad(i64, headSlot);
+    llvm::Value* idx = theBuilder->CreateURem(head, llvm::ConstantInt::get(i64, cap));
+    llvm::Value* gep = theBuilder->CreateInBoundsGEP(arrTy, arr, {zero, idx});
+    theBuilder->CreateStore(next_value, gep);
+    llvm::Value* next_head = theBuilder->CreateAdd(head, llvm::ConstantInt::get(i64, 1));
+    theBuilder->CreateStore(next_head, headSlot);
+    return arr;
   }
 
   if (node->var->is_dynamic_slot) {
@@ -1337,7 +1460,10 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
     llvm::Type* arrTy = llvm::ArrayType::get(i64, *cap);
     llvm::AllocaInst* arr = prealloc.CreateAlloca(arrTy, nullptr, varname);
     llvm::AllocaInst* head = prealloc.CreateAlloca(i64, nullptr, varname + ".head");
+    llvm::AllocaInst* pending = prealloc.CreateAlloca(arrTy, nullptr, varname + ".pending");
+    llvm::AllocaInst* pending_count = prealloc.CreateAlloca(i64, nullptr, varname + ".pending.count");
     prealloc.CreateStore(llvm::ConstantInt::get(i64, 0), head);
+    prealloc.CreateStore(llvm::ConstantInt::get(i64, 0), pending_count);
     llvm::Value* val = node->value->toLLVMIR(this);
     llvm::Value* z = llvm::ConstantInt::get(i64, 0);
     llvm::Value* gep0 = prealloc.CreateInBoundsGEP(arrTy, arr, {z, z});
@@ -1346,6 +1472,8 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
     mutable_variables[varname] = arr;
     bounded_ring_head_slot_[varname] = head;
     bounded_ring_capacity_[varname] = *cap;
+    bounded_ring_pending_slot_[varname] = pending;
+    bounded_ring_pending_count_slot_[varname] = pending_count;
     return arr;
   }
 
@@ -1631,10 +1759,14 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   auto saved_named = named_values;
   auto saved_ring_h = bounded_ring_head_slot_;
   auto saved_ring_c = bounded_ring_capacity_;
+  auto saved_ring_pending = bounded_ring_pending_slot_;
+  auto saved_ring_pending_count = bounded_ring_pending_count_slot_;
   mutable_variables.clear();
   named_values.clear();
   bounded_ring_head_slot_.clear();
   bounded_ring_capacity_.clear();
+  bounded_ring_pending_slot_.clear();
+  bounded_ring_pending_count_slot_.clear();
 
   llvm::BasicBlock* block = llvm::BasicBlock::Create(
     *theContext,
@@ -1678,6 +1810,8 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   named_values = std::move(saved_named);
   bounded_ring_head_slot_ = std::move(saved_ring_h);
   bounded_ring_capacity_ = std::move(saved_ring_c);
+  bounded_ring_pending_slot_ = std::move(saved_ring_pending);
+  bounded_ring_pending_count_slot_ = std::move(saved_ring_pending_count);
 }
 
 llvm::Value*
@@ -2062,7 +2196,14 @@ StyioToLLVM::toLLVMIR(SGBlock* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGEntry* node) {
-  return theBuilder->getInt64(0);
+  llvm::Value* last = nullptr;
+  for (auto* stmt : node->stmts) {
+    last = stmt->toLLVMIR(this);
+    if (theBuilder->GetInsertBlock()->getTerminator()) {
+      break;
+    }
+  }
+  return last ? last : theBuilder->getInt64(0);
 }
 
 llvm::Value*
@@ -2120,6 +2261,7 @@ StyioToLLVM::toLLVMIR(SGMainEntry* node) {
 
   llvm::BasicBlock* mcur = theBuilder->GetInsertBlock();
   if (mcur && !mcur->getTerminator()) {
+    emit_bounded_ring_pending_commits();
     pop_file_handle_scope();
     theBuilder->CreateRet(truncate_for_main_ret(last_main));
   }
@@ -2194,6 +2336,7 @@ StyioToLLVM::toLLVMIR(SGLoop* node) {
     loop_stack_.push_back(LoopFrame{exit_bb, body_bb});
     theBuilder->SetInsertPoint(body_bb);
     node->body->toLLVMIR(this);
+    emit_bounded_ring_pending_commits();
     llvm::BasicBlock* bcur = theBuilder->GetInsertBlock();
     if (bcur && !bcur->getTerminator()) {
       theBuilder->CreateBr(body_bb);
@@ -2217,6 +2360,7 @@ StyioToLLVM::toLLVMIR(SGLoop* node) {
   loop_stack_.push_back(LoopFrame{exit_bb, cond_bb});
   theBuilder->SetInsertPoint(body_bb);
   node->body->toLLVMIR(this);
+  emit_bounded_ring_pending_commits();
   llvm::BasicBlock* b2 = theBuilder->GetInsertBlock();
   if (b2 && !b2->getTerminator()) {
     theBuilder->CreateBr(cond_bb);
@@ -2279,6 +2423,7 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
       pulse_snap_base_ = nullptr;
       pulse_active_plan_ = nullptr;
     }
+    emit_bounded_ring_pending_commits();
   };
 
   auto finish_pulse_region = [&]() {
@@ -2512,6 +2657,7 @@ StyioToLLVM::toLLVMIR(SGRangeFor* node) {
   theBuilder->CreateStore(cur, vs);
   mutable_variables[node->var] = vs;
   node->body->toLLVMIR(this);
+  emit_bounded_ring_pending_commits();
   llvm::BasicBlock* bcur = theBuilder->GetInsertBlock();
   if (bcur && !bcur->getTerminator()) {
     theBuilder->CreateBr(step_bb);
@@ -3225,6 +3371,7 @@ StyioToLLVM::toLLVMIR(SIOFileLineIter* node) {
     pulse_snap_base_ = nullptr;
     pulse_active_plan_ = nullptr;
   }
+  emit_bounded_ring_pending_commits();
 
   mutable_variables.erase(node->line_var);
   llvm::BasicBlock* b2 = theBuilder->GetInsertBlock();
@@ -3815,6 +3962,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
       pulse_snap_base_ = nullptr;
       pulse_active_plan_ = nullptr;
     }
+    emit_bounded_ring_pending_commits();
   };
 
   auto finish_zip = [&]() {

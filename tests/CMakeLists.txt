@@ -402,6 +402,12 @@ target_link_libraries(styio_security_test PRIVATE styio_core GTest::gtest_main)
 # library on Debian/libstdc++.
 styio_apply_llvm_compile_settings(styio_security_test)
 
+add_executable(styio_resource_topology_test
+  resource_topology_test.cpp
+)
+target_link_libraries(styio_resource_topology_test PRIVATE styio_core GTest::gtest_main)
+styio_apply_llvm_compile_settings(styio_resource_topology_test)
+
 add_executable(styio_ide_test
   ide/styio_ide_test.cpp
   "${CMAKE_SOURCE_DIR}/src/StyioLSP/Server.cpp"
@@ -426,6 +432,11 @@ gtest_discover_tests(styio_algorithm_equivalence_test
 gtest_discover_tests(styio_security_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES LABELS "security\\;safety\\;lexer\\;ffi"
+)
+
+gtest_discover_tests(styio_resource_topology_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "styio_pipeline\\;resource_topology\\;topology_v2\\;safety\\;unit"
 )
 
 gtest_discover_tests(styio_ide_test

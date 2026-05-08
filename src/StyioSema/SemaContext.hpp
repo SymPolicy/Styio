@@ -117,6 +117,7 @@ using StyioSemaLoweringVisitor = AnalyzerVisitor<
   class InstantPullAST,
   class TypedStdinListAST,
   class TaskBlockAST,
+  class TaskGroupLaunchAST,
   class FlowBindAST,
   class IterSeqAST,
   class InfiniteLoopAST,
@@ -156,6 +157,8 @@ using StyioSemaLoweringVisitor = AnalyzerVisitor<
   class FmtStrAST,
 
   class ResourceAST,
+  class ResourceDeclAST,
+  class ResourceRefAST,
 
   class ResPathAST,
   class RemotePathAST,
@@ -265,6 +268,8 @@ public:
   void typeInfer(AttrAST* ast) override;
   void typeInfer(ListOpAST* ast) override;
   void typeInfer(ResourceAST* ast) override;
+  void typeInfer(ResourceDeclAST* ast) override;
+  void typeInfer(ResourceRefAST* ast) override;
   void typeInfer(FlexBindAST* ast) override;
   void typeInfer(FinalBindAST* ast) override;
   void typeInfer(ParallelAssignAST* ast) override;
@@ -294,6 +299,7 @@ public:
   void typeInfer(InstantPullAST* ast) override;
   void typeInfer(TypedStdinListAST* ast) override;
   void typeInfer(TaskBlockAST* ast) override;
+  void typeInfer(TaskGroupLaunchAST* ast) override;
   void typeInfer(FlowBindAST* ast) override;
   void typeInfer(IterSeqAST* ast) override;
   void typeInfer(MatchCasesAST* ast) override;
@@ -331,6 +337,7 @@ protected:
   /* Names bound by final assignment (x : T := …); may not be reassigned via flex (=). */
   std::unordered_set<std::string> fixed_assignment_names_;
   std::unordered_map<std::string, BindingInfo> binding_info_;
+  std::unordered_map<std::string, StyioDataType> resource_binding_types_;
   std::unordered_set<ResourceWriteAST*> collect_bind_resource_writes_;
   std::unordered_set<HandleAcquireAST*> collect_bind_handle_acquires_;
   std::unordered_map<ResourceWriteAST*, StyioDataType> collect_bind_resource_write_types_;

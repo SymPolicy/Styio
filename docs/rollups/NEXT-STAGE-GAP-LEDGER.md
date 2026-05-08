@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the active, evidence-based phase summary for repository-wide unfinished work so maintainers can split the next stage into checkpoint-sized, multi-team deliveries without creating parallel truths.
 
-**Last updated:** 2026-04-22
+**Last updated:** 2026-05-09
 
 **Status:** Active collaboration ledger. This file distinguishes:
 
@@ -53,7 +53,7 @@
 | Gap | Severity | Current evidence | Owning teams | Next checkpoint intent |
 |-----|----------|------------------|--------------|------------------------|
 | Nightly expression parser remains a constrained subset | High | Unsupported continuation guard and explicit rejections such as dot-chain-after-call still exist in [src/StyioParser/NewParserExpr.cpp](../../src/StyioParser/NewParserExpr.cpp) | Frontend, Test Quality | Convert unsupported paths into explicit checkpoint queue; each removed rejection must ship with parity tests and shadow gate evidence |
-| Topology v2 resource declaration syntax is still not the running compiler path | High | Parser comment still marks top-level `@name : [|n|] := { driver }` and `expr -> $name` as not implemented in [src/StyioParser/Parser.cpp](../../src/StyioParser/Parser.cpp); design doc still marks top-level `ResourceDecl` and shadow-write rule as not implemented in [../design/Styio-Resource-Topology.md](../design/Styio-Resource-Topology.md) | Frontend, Sema / IR, Docs / Ecosystem | Treat Topology v2 as a dedicated migration milestone, not an incidental syntax tweak |
+| Topology v2 resource declaration syntax is still not the running compiler path | High | Target design now uses `@name : Type|n|`, `@name : Type|..n|`, `T..` / `T...`, `list[T]`, and `expr -> @name`; the compiler still needs the parser/type migration tracked by [../design/Styio-Resource-Topology.md](../design/Styio-Resource-Topology.md) | Frontend, Sema / IR, Docs / Ecosystem | Treat Topology v2 as a dedicated migration milestone, not an incidental syntax tweak |
 | Handle / capability / failure-type unification is still target design rather than active compiler behavior | Medium | Design doc explicitly says the model is not fully implemented and lists current ad hoc special cases in [../design/Styio-Handle-Capability-Type-System.md](../design/Styio-Handle-Capability-Type-System.md) | Frontend, Sema / IR, Codegen / Runtime | Decide whether next stage closes this model or deliberately continues with local special-case patches |
 
 ### 5.2 Sema / IR

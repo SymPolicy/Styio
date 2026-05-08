@@ -2969,7 +2969,7 @@ TEST(StyioParserEngine, PointerScrutineeMatchDoesNotAbortAndReportsTypeError) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "f <- @file{\"tests/m5/data/input.txt\"}\n";
+    out << "f <- @file(\"tests/m5/data/input.txt\")\n";
     out << "f >> #(line) => {\n";
     out << "  line ?={\n";
     out << "    1 => >_(1)\n";
@@ -3371,7 +3371,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForResourcePostfixS
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "\"shadow resource postfix\" >> @file{\"" << output.string() << "\"}\n";
+    out << "\"shadow resource postfix\" >> @file(\"" << output.string() << "\")\n";
   }
   ASSERT_TRUE(fs::create_directories(artifact_dir));
 
@@ -3465,7 +3465,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForIteratorSubset) 
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "f <- @file{\"tests/m5/data/hello.txt\"}\n";
+    out << "f <- @file(\"tests/m5/data/hello.txt\")\n";
     out << "f >> #(line) => {\n";
     out << "  >_(line)\n";
     out << "}\n";
@@ -3516,7 +3516,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForSnapshotDeclSubs
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "@[ref_val] << @file{\"tests/m7/data/ref.txt\"}\n";
+    out << "@[ref_val] << @file(\"tests/m7/data/ref.txt\")\n";
   }
   ASSERT_TRUE(fs::create_directories(artifact_dir));
 
@@ -3726,7 +3726,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForAtResourceSubset
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "@file{\"tests/m7/data/input.txt\"} >> #(x) => {\n";
+    out << "@file(\"tests/m7/data/input.txt\") >> #(x) => {\n";
     out << "  >_(x)\n";
     out << "}\n";
   }
@@ -3913,9 +3913,9 @@ TEST(StyioDiagnostics, RuntimeHelperErrorEmitsJsonlRuntimeDiagnostic) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "f <- @file{\"/tmp/styio_missing_runtime_diag_"
+    out << "f <- @file(\"/tmp/styio_missing_runtime_diag_"
         << uniq
-        << ".txt\"}\n";
+        << ".txt\")\n";
   }
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -3949,7 +3949,7 @@ TEST(StyioDiagnostics, RuntimeWriteHelperErrorEmitsJsonlRuntimeDiagnostic) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "\"x\" >> @file{\"" << missing_target.string() << "\"}\n";
+    out << "\"x\" >> @file(\"" << missing_target.string() << "\")\n";
   }
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -4245,6 +4245,40 @@ TEST(StyioDiagnostics, StateInlineInfiniteLiteralFunctionUsesCallArgument) {
   EXPECT_EQ(result.exit_code, 0);
   EXPECT_EQ(result.stdout_text, "0\n0\n");
   EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioTopologyV2, LogicalResourceWritesCommitAtPulseEnd) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-topology-v2-lazy-commit-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@x : i64|2|\n";
+    out << "[1, 2] >> #(v) => {\n";
+    out << "  v -> @x\n";
+    out << "  >_(@x[-1])\n";
+    out << "}\n";
+    out << ">_(@x[-2])\n";
+    out << ">_(@x[-1])\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "0\n1\n1\n2\n");
 
   fs::remove(input);
 }

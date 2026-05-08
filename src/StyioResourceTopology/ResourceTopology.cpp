@@ -1,0 +1,1127 @@
+#include "ResourceTopology.hpp"
+
+#include <algorithm>
+#include <limits>
+#include <sstream>
+#include <stdexcept>
+#include <unordered_map>
+#include <unordered_set>
+
+#include "../StyioAST/AST.hpp"
+#include "../StyioException/Exception.hpp"
+
+namespace styio::resource_topology {
+namespace {
+
+constexpr std::size_t kNoNode = std::numeric_limits<std::size_t>::max();
+
+StyioDataType
+undefined_type() {
+  return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+}
+
+Capability
+capabilities_from_type(const StyioDataType& type) {
+  Capability caps = Capability::None;
+  if (styio_type_has_capability(type, StyioTypeCapability::Readable)
+      || styio_type_has_capability(type, StyioTypeCapability::Pull)) {
+    caps |= Capability::Pull;
+  }
+  if (styio_type_has_capability(type, StyioTypeCapability::Iterable)) {
+    caps |= Capability::Iter;
+  }
+  if (styio_type_has_capability(type, StyioTypeCapability::Writable)
+      || styio_type_has_capability(type, StyioTypeCapability::Push)) {
+    caps |= Capability::Push;
+  }
+  if (styio_type_has_capability(type, StyioTypeCapability::Close)) {
+    caps |= Capability::Close;
+  }
+  if (styio_type_has_capability(type, StyioTypeCapability::Cloneable)) {
+    caps |= Capability::Clone;
+  }
+  if (type.handle_family == StyioHandleFamily::Task) {
+    caps |= Capability::Task;
+  }
+  if (type.handle_family == StyioHandleFamily::File) {
+    caps |= Capability::Pull | Capability::Iter | Capability::Push | Capability::Close;
+  }
+  if (styio_is_topology_resource_type(type)) {
+    caps |= Capability::Pull | Capability::Push | Capability::Iter | Capability::Checkpoint;
+  }
+  return caps;
+}
+
+TypeState
+state_from_type(const StyioDataType& type) {
+  switch (type.state) {
+    case StyioTypeState::Open:
+      return TypeState::Open;
+    case StyioTypeState::Materialized:
+      return TypeState::Materialized;
+    case StyioTypeState::Ready:
+    case StyioTypeState::Done:
+      return TypeState::Ready;
+    case StyioTypeState::Closed:
+      return TypeState::Closed;
+    default:
+      return TypeState::Unknown;
+  }
+}
+
+std::string
+std_stream_label(StdStreamKind kind) {
+  switch (kind) {
+    case StdStreamKind::Stdin:
+      return "@stdin";
+    case StdStreamKind::Stdout:
+      return "@stdout";
+    case StdStreamKind::Stderr:
+      return "@stderr";
+  }
+  return "@stream";
+}
+
+std::string
+file_label(FileResourceAST* ast) {
+  if (ast == nullptr || ast->getPath() == nullptr) {
+    return "@file(<null>)";
+  }
+  if (auto* s = dynamic_cast<StringAST*>(ast->getPath())) {
+    return ast->isAutoDetect()
+      ? std::string("@{") + s->getValue() + "}"
+      : std::string("@file(") + s->getValue() + ")";
+  }
+  return ast->isAutoDetect() ? "@{<expr>}" : "@file(<expr>)";
+}
+
+std::string
+state_slot_label(StateDeclAST* ast) {
+  if (ast == nullptr) {
+    return "state:<null>";
+  }
+  if (ast->getExportVar() != nullptr) {
+    return std::string("state:") + ast->getExportVar()->getNameAsStr();
+  }
+  if (ast->getAccName() != nullptr) {
+    return std::string("state:") + ast->getAccName()->getAsStr();
+  }
+  return "state:<anonymous>";
+}
+
+bool
+int_ast_positive(IntAST* ast) {
+  if (ast == nullptr) {
+    return false;
+  }
+  try {
+    return std::stoll(ast->getValue()) > 0;
+  } catch (...) {
+    return false;
+  }
+}
+
+class Builder
+{
+  BuildOptions options_;
+  BuildResult result_;
+  std::unordered_map<const StyioAST*, std::size_t> ast_nodes_;
+  std::unordered_map<std::string, std::size_t> binding_nodes_;
+  std::unordered_map<std::string, StyioDataType> binding_types_;
+  std::unordered_map<std::string, std::size_t> handle_bindings_;
+  std::unordered_map<std::string, std::size_t> resource_nodes_;
+  std::unordered_map<std::string, std::size_t> state_slots_;
+  std::unordered_map<std::string, std::size_t> task_bindings_;
+  std::unordered_set<std::string> consumed_tasks_;
+
+  struct Context
+  {
+    std::size_t owner = kNoNode;
+    bool in_state_decl = false;
+    bool top_level_resource_scope = false;
+  };
+
+public:
+  explicit Builder(BuildOptions options) :
+      options_(std::move(options)) {
+  }
+
+  BuildResult build(MainBlockAST* ast) {
+    const std::size_t program = result_.graph.add_node(
+      NodeKind::Program,
+      "program",
+      Capability::None,
+      TypeState::Ready,
+      ast);
+    if (ast == nullptr) {
+      error("main block is null", nullptr);
+      return std::move(result_);
+    }
+    Context ctx{program, false, true};
+    for (auto* stmt : ast->getStmts()) {
+      visit(stmt, ctx);
+    }
+    finalize();
+    return std::move(result_);
+  }
+
+  BuildResult build(BlockAST* ast) {
+    const std::size_t block = result_.graph.add_node(
+      NodeKind::StreamOp,
+      "block",
+      Capability::None,
+      TypeState::Ready,
+      ast);
+    if (ast == nullptr) {
+      error("block is null", nullptr);
+      return std::move(result_);
+    }
+    Context ctx{block, false, false};
+    for (auto* stmt : ast->stmts) {
+      visit(stmt, ctx);
+    }
+    finalize();
+    return std::move(result_);
+  }
+
+private:
+  void error(std::string msg, const StyioAST* source) {
+    result_.report.errors.push_back(ValidationError{
+      options_.phase + ": " + std::move(msg),
+      source});
+  }
+
+  std::size_t add_ast_node(
+    StyioAST* ast,
+    NodeKind kind,
+    std::string label,
+    Capability caps,
+    TypeState state,
+    Context ctx
+  ) {
+    if (ast != nullptr) {
+      auto found = ast_nodes_.find(ast);
+      if (found != ast_nodes_.end()) {
+        return found->second;
+      }
+    }
+    const std::size_t id = result_.graph.add_node(kind, std::move(label), caps, state, ast);
+    if (ast != nullptr) {
+      ast_nodes_[ast] = id;
+    }
+    if (ctx.owner != kNoNode && id != ctx.owner) {
+      result_.graph.add_edge(EdgeKind::Ownership, ctx.owner, id);
+    }
+    return id;
+  }
+
+  StyioDataType type_hint(StyioAST* ast) const {
+    if (ast == nullptr) {
+      return undefined_type();
+    }
+
+    if (auto* name = dynamic_cast<NameAST*>(ast)) {
+      auto hit = binding_types_.find(name->getAsStr());
+      if (hit != binding_types_.end()) {
+        return hit->second;
+      }
+      return ast->getDataType();
+    }
+
+    if (auto* attr = dynamic_cast<AttrAST*>(ast)) {
+      auto* attr_name = dynamic_cast<NameAST*>(attr->attr);
+      if (attr_name == nullptr) {
+        return undefined_type();
+      }
+      const StyioDataType base = type_hint(attr->body);
+      if ((attr_name->getAsStr() == "length" || attr_name->getAsStr() == "size")
+          && styio_type_is_sized(base)) {
+        return StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+      }
+      if (attr_name->getAsStr() == "keys" && styio_is_dict_type(base)) {
+        return styio_make_list_type(styio_dict_key_type_name(base));
+      }
+      if (attr_name->getAsStr() == "values" && styio_is_dict_type(base)) {
+        return styio_make_list_type(styio_dict_value_type_name(base));
+      }
+      return ast->getDataType();
+    }
+
+    if (auto* access = dynamic_cast<ListOpAST*>(ast)) {
+      const StyioDataType base = type_hint(access->getList());
+      if (access->getOp() == StyioNodeType::Access_By_Name && styio_is_dict_type(base)) {
+        return styio_data_type_from_name(styio_dict_value_type_name(base));
+      }
+      if (access->getOp() == StyioNodeType::Access_By_Index
+          && (styio_is_list_type(base) || styio_is_dict_type(base))) {
+        return styio_data_type_from_name(styio_type_item_type_name(base));
+      }
+      return ast->getDataType();
+    }
+
+    if (auto* call = dynamic_cast<FuncCallAST*>(ast)) {
+      if (call->func_callee != nullptr && call->getNameAsStr() == "lines") {
+        const StyioDataType callee = type_hint(call->func_callee);
+        if (callee.option == StyioDataTypeOption::String) {
+          return styio_make_list_type("string");
+        }
+      }
+      if (call->func_callee != nullptr
+          && (call->getNameAsStr() == "push"
+              || call->getNameAsStr() == "insert"
+              || call->getNameAsStr() == "pop")) {
+        return StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+      }
+      return ast->getDataType();
+    }
+
+    return ast->getDataType();
+  }
+
+  std::size_t add_value(StyioAST* ast, std::string label, Context ctx) {
+    const StyioDataType type = type_hint(ast);
+    return add_ast_node(
+      ast,
+      NodeKind::Value,
+      std::move(label),
+      capabilities_from_type(type),
+      state_from_type(type),
+      ctx);
+  }
+
+  void record_binding(const std::string& name, std::size_t node, const StyioDataType& type) {
+    if (name.empty() || node == kNoNode) {
+      return;
+    }
+    binding_nodes_[name] = node;
+    binding_types_[name] = type;
+  }
+
+  void require_cap(std::size_t node_id, Capability cap, const std::string& msg, const StyioAST* source) {
+    if (node_id == kNoNode) {
+      error(msg + " (missing node)", source);
+      return;
+    }
+    const Node& node = result_.graph.node(node_id);
+    if (!has_capability(node.capabilities, cap)) {
+      error(msg + ": " + node.label, source);
+    }
+  }
+
+  void own_if_close(std::size_t owner, std::size_t resource) {
+    if (owner == kNoNode || resource == kNoNode) {
+      return;
+    }
+    if (has_capability(result_.graph.node(resource).capabilities, Capability::Close)) {
+      result_.graph.add_edge(EdgeKind::Ownership, owner, resource, "close-owner");
+    }
+  }
+
+  std::size_t visit(StyioAST* ast, Context ctx) {
+    if (ast == nullptr) {
+      return kNoNode;
+    }
+
+    if (auto* f = dynamic_cast<FileResourceAST*>(ast)) {
+      return add_ast_node(
+        ast,
+        NodeKind::DriverSource,
+        file_label(f),
+        Capability::Pull | Capability::Iter | Capability::Push | Capability::Close,
+        TypeState::Declared,
+        ctx);
+    }
+
+    if (auto* s = dynamic_cast<StdStreamAST*>(ast)) {
+      Capability caps = Capability::None;
+      if (s->getStreamKind() == StdStreamKind::Stdin) {
+        caps = Capability::Pull | Capability::Iter;
+      }
+      else {
+        caps = Capability::Push;
+      }
+      return add_ast_node(ast, NodeKind::DriverSource, std_stream_label(s->getStreamKind()), caps, TypeState::Open, ctx);
+    }
+
+    if (auto* decl = dynamic_cast<ResourceDeclAST*>(ast)) {
+      if (!ctx.top_level_resource_scope) {
+        error("resource declarations are top-level only", ast);
+      }
+      std::size_t last = kNoNode;
+      for (const auto& slot : decl->getSlots()) {
+        StyioDataType type = styio_normalize_resource_decl_type(slot.type->getDataType());
+        const std::size_t node = add_ast_node(
+          ast,
+          NodeKind::StateSlot,
+          std::string("resource:@") + slot.name->getAsStr(),
+          capabilities_from_type(type),
+          TypeState::Declared,
+          ctx);
+        resource_nodes_[slot.name->getAsStr()] = node;
+        record_binding(std::string("@") + slot.name->getAsStr(), node, type);
+        last = node;
+      }
+      if (decl->getDriver() != nullptr) {
+        visit(decl->getDriver(), Context{last == kNoNode ? ctx.owner : last, ctx.in_state_decl, false});
+      }
+      return last;
+    }
+
+    if (auto* ref = dynamic_cast<ResourceRefAST*>(ast)) {
+      auto hit = resource_nodes_.find(ref->getNameStr());
+      if (hit == resource_nodes_.end()) {
+        error("unknown resource: @" + ref->getNameStr(), ast);
+        return add_value(ast, "resource-ref:@" + ref->getNameStr(), ctx);
+      }
+      const std::size_t resource = hit->second;
+      if (ref->isWholeResource()) {
+        result_.graph.add_edge(EdgeKind::Borrow, ctx.owner, resource, "resource-ref");
+        return resource;
+      }
+      require_cap(resource, Capability::Pull, "resource selector needs read capability", ast);
+      require_cap(resource, Capability::Checkpoint, "resource selector needs snapshot capability", ast);
+      const std::size_t value = add_ast_node(
+        ast,
+        NodeKind::Value,
+        std::string("resource-select:@") + ref->getNameStr(),
+        Capability::None,
+        TypeState::Ready,
+        ctx);
+      result_.graph.add_edge(EdgeKind::Flow, resource, value, "committed-snapshot-read");
+      result_.graph.add_edge(EdgeKind::Borrow, value, resource, "selector-borrow");
+      return value;
+    }
+
+    if (auto* name = dynamic_cast<NameAST*>(ast)) {
+      auto hit = handle_bindings_.find(name->getAsStr());
+      if (hit != handle_bindings_.end()) {
+        result_.graph.add_edge(EdgeKind::Borrow, ctx.owner, hit->second, "name-ref");
+        return hit->second;
+      }
+      hit = state_slots_.find(name->getAsStr());
+      if (hit != state_slots_.end()) {
+        result_.graph.add_edge(EdgeKind::Borrow, ctx.owner, hit->second, "state-ref");
+        return hit->second;
+      }
+      hit = task_bindings_.find(name->getAsStr());
+      if (hit != task_bindings_.end()) {
+        result_.graph.add_edge(EdgeKind::Borrow, ctx.owner, hit->second, "task_ref");
+        return hit->second;
+      }
+      hit = binding_nodes_.find(name->getAsStr());
+      if (hit != binding_nodes_.end()) {
+        result_.graph.add_edge(EdgeKind::Borrow, ctx.owner, hit->second, "binding-ref");
+        return hit->second;
+      }
+      return add_value(ast, std::string("value:") + name->getAsStr(), ctx);
+    }
+
+    if (auto* acq = dynamic_cast<HandleAcquireAST*>(ast)) {
+      const std::size_t source = visit(acq->getResource(), Context{kNoNode, ctx.in_state_decl});
+      StyioDataType binding_type = acq->getVar()->getDType()->getDataType();
+      if (binding_type.isUndefined()) {
+        binding_type = type_hint(acq->getResource());
+      }
+      if (acq->isFlexBind()) {
+        if (auto* stream = dynamic_cast<StdStreamAST*>(acq->getResource())) {
+          if (stream->getStreamKind() == StdStreamKind::Stdin) {
+            binding_type = styio_make_list_type("string");
+          }
+        }
+      }
+      const std::size_t handle = add_ast_node(
+        ast,
+        NodeKind::Handle,
+        std::string("handle:") + acq->getVar()->getNameAsStr(),
+        capabilities_from_type(binding_type),
+        state_from_type(binding_type),
+        ctx);
+      if (source != kNoNode) {
+        result_.graph.add_edge(EdgeKind::Ownership, handle, source, "acquire");
+        result_.graph.add_edge(EdgeKind::Mutation, handle, source, "open");
+      }
+      handle_bindings_[acq->getVar()->getNameAsStr()] = handle;
+      record_binding(acq->getVar()->getNameAsStr(), handle, binding_type);
+      return handle;
+    }
+
+    if (auto* wr = dynamic_cast<ResourceWriteAST*>(ast)) {
+      const std::size_t resource = visit(wr->getResource(), Context{kNoNode, ctx.in_state_decl});
+      if (auto* target_name = dynamic_cast<NameAST*>(wr->getData())) {
+        if (auto* stream = dynamic_cast<StdStreamAST*>(wr->getResource())) {
+          if (stream->getStreamKind() == StdStreamKind::Stdin
+              && binding_nodes_.find(target_name->getAsStr()) == binding_nodes_.end()) {
+            const StyioDataType collected_type = styio_make_list_type("string");
+            const std::size_t binding = add_ast_node(
+              ast,
+              NodeKind::StateSlot,
+              std::string("collect:stdin:") + target_name->getAsStr(),
+              capabilities_from_type(collected_type),
+              state_from_type(collected_type),
+              ctx);
+            if (resource != kNoNode) {
+              result_.graph.add_edge(EdgeKind::Flow, resource, binding, "stdin-collect");
+              result_.graph.add_edge(EdgeKind::Mutation, binding, resource, "collect-read");
+              result_.graph.add_edge(EdgeKind::Backpressure, binding, resource, "collect-pressure");
+            }
+            record_binding(target_name->getAsStr(), binding, collected_type);
+            return binding;
+          }
+        }
+      }
+      const std::size_t sink = add_ast_node(
+        ast,
+        NodeKind::Sink,
+        "sink:resource_write",
+        Capability::None,
+        TypeState::Ready,
+        ctx);
+      const std::size_t data = visit(wr->getData(), Context{sink, ctx.in_state_decl});
+      require_cap(resource, Capability::Push, "write target must have push capability", wr->getResource());
+      if (data != kNoNode) {
+        result_.graph.add_edge(EdgeKind::Flow, data, sink, "write-data");
+      }
+      if (resource != kNoNode) {
+        const bool logical = dynamic_cast<ResourceRefAST*>(wr->getResource()) != nullptr;
+        result_.graph.add_edge(EdgeKind::Commit, sink, resource, logical ? "pending-write-commit" : "write-commit");
+        result_.graph.add_edge(EdgeKind::Mutation, sink, resource, logical ? "pending-write" : "write");
+        result_.graph.add_edge(EdgeKind::Backpressure, sink, resource, "write-pressure");
+        own_if_close(sink, resource);
+      }
+      return sink;
+    }
+
+    if (auto* redir = dynamic_cast<ResourceRedirectAST*>(ast)) {
+      const std::size_t resource = visit(redir->getResource(), Context{kNoNode, ctx.in_state_decl});
+      const std::size_t sink = add_ast_node(
+        ast,
+        NodeKind::Sink,
+        "sink:resource_redirect",
+        Capability::None,
+        TypeState::Ready,
+        ctx);
+      const std::size_t data = visit(redir->getData(), Context{sink, ctx.in_state_decl});
+      require_cap(resource, Capability::Push, "redirect target must have push capability", redir->getResource());
+      if (data != kNoNode) {
+        result_.graph.add_edge(EdgeKind::Flow, data, sink, "redirect-data");
+      }
+      if (resource != kNoNode) {
+        const bool logical = dynamic_cast<ResourceRefAST*>(redir->getResource()) != nullptr;
+        result_.graph.add_edge(EdgeKind::Commit, sink, resource, logical ? "pending-write-commit" : "redirect-commit");
+        result_.graph.add_edge(EdgeKind::Mutation, sink, resource, logical ? "pending-write" : "redirect");
+        result_.graph.add_edge(EdgeKind::Backpressure, sink, resource, "redirect-pressure");
+        own_if_close(sink, resource);
+      }
+      return sink;
+    }
+
+    if (auto* iter = dynamic_cast<IteratorAST*>(ast)) {
+      const std::size_t collection = visit(iter->collection, Context{kNoNode, ctx.in_state_decl});
+      const std::size_t op = add_ast_node(
+        ast,
+        NodeKind::StreamOp,
+        "stream:iterator",
+        Capability::None,
+        TypeState::Ready,
+        ctx);
+      require_cap(collection, Capability::Iter, "iterator source must have iter capability", iter->collection);
+      if (collection != kNoNode) {
+        result_.graph.add_edge(EdgeKind::Flow, collection, op, "iterate");
+        result_.graph.add_edge(EdgeKind::Backpressure, op, collection, "iterator-pressure");
+        own_if_close(op, collection);
+      }
+      for (auto* next : iter->following) {
+        const std::size_t child = visit(next, Context{op, ctx.in_state_decl});
+        if (child != kNoNode) {
+          result_.graph.add_edge(EdgeKind::Flow, op, child, "iterator-body");
+        }
+      }
+      return op;
+    }
+
+    if (auto* zip = dynamic_cast<StreamZipAST*>(ast)) {
+      const std::size_t a = visit(zip->getCollectionA(), Context{kNoNode, ctx.in_state_decl});
+      const std::size_t b = visit(zip->getCollectionB(), Context{kNoNode, ctx.in_state_decl});
+      const std::size_t op = add_ast_node(
+        ast,
+        NodeKind::StreamOp,
+        "stream:zip",
+        Capability::None,
+        TypeState::Ready,
+        ctx);
+      require_cap(a, Capability::Iter, "zip lhs must have iter capability", zip->getCollectionA());
+      require_cap(b, Capability::Iter, "zip rhs must have iter capability", zip->getCollectionB());
+      if (a != kNoNode) {
+        result_.graph.add_edge(EdgeKind::Flow, a, op, "zip-a");
+        result_.graph.add_edge(EdgeKind::Backpressure, op, a, "zip-a-pressure");
+        own_if_close(op, a);
+      }
+      if (b != kNoNode) {
+        result_.graph.add_edge(EdgeKind::Flow, b, op, "zip-b");
+        result_.graph.add_edge(EdgeKind::Backpressure, op, b, "zip-b-pressure");
+        own_if_close(op, b);
+      }
+      for (auto* next : zip->getFollowing()) {
+        const std::size_t child = visit(next, Context{op, ctx.in_state_decl});
+        if (child != kNoNode) {
+          result_.graph.add_edge(EdgeKind::Flow, op, child, "zip-body");
+        }
+      }
+      return op;
+    }
+
+    if (auto* snap = dynamic_cast<SnapshotDeclAST*>(ast)) {
+      const std::size_t resource = visit(snap->getResource(), Context{kNoNode, ctx.in_state_decl});
+      const std::size_t state = add_ast_node(
+        ast,
+        NodeKind::StateSlot,
+        std::string("snapshot:") + snap->getVar()->getAsStr(),
+        Capability::StateRead | Capability::StateWrite,
+        TypeState::Ready,
+        ctx);
+      state_slots_[snap->getVar()->getAsStr()] = state;
+      require_cap(resource, Capability::Pull, "snapshot source must have pull capability", snap->getResource());
+      if (resource != kNoNode) {
+        result_.graph.add_edge(EdgeKind::Flow, resource, state, "snapshot");
+        result_.graph.add_edge(EdgeKind::Mutation, state, resource, "snapshot-read");
+        own_if_close(state, resource);
+      }
+      return state;
+    }
+
+    if (auto* pull = dynamic_cast<InstantPullAST*>(ast)) {
+      const std::size_t resource = visit(pull->getResource(), Context{kNoNode, ctx.in_state_decl});
+      const std::size_t value = add_ast_node(ast, NodeKind::Value, "value:instant_pull", Capability::None, TypeState::Ready, ctx);
+      require_cap(resource, Capability::Pull, "instant pull source must have pull capability", pull->getResource());
+      if (resource != kNoNode) {
+        result_.graph.add_edge(EdgeKind::Flow, resource, value, "instant-pull");
+        result_.graph.add_edge(EdgeKind::Mutation, value, resource, "pull");
+        own_if_close(value, resource);
+      }
+      return value;
+    }
+
+    if (auto* sd = dynamic_cast<StateDeclAST*>(ast)) {
+      const std::size_t state = add_ast_node(
+        ast,
+        NodeKind::StateSlot,
+        state_slot_label(sd),
+        Capability::StateRead | Capability::StateWrite | Capability::Pull | Capability::Push,
+        TypeState::Ready,
+        ctx);
+      if (sd->getExportVar() != nullptr) {
+        state_slots_[sd->getExportVar()->getNameAsStr()] = state;
+      }
+      if (sd->getAccName() != nullptr) {
+        state_slots_[sd->getAccName()->getAsStr()] = state;
+      }
+      if (sd->getWindowHeader() != nullptr) {
+        if (!int_ast_positive(sd->getWindowHeader())) {
+          error("state window must be a positive integer", sd->getWindowHeader());
+        }
+        const std::size_t ledger = result_.graph.add_node(
+          NodeKind::HiddenLedger,
+          "hidden-ledger:window",
+          Capability::StateRead | Capability::StateWrite,
+          TypeState::Ready,
+          sd->getWindowHeader());
+        result_.graph.add_edge(EdgeKind::Ownership, state, ledger, "state-window");
+      }
+      Context state_ctx{state, true};
+      if (sd->getAccInit() != nullptr) {
+        const std::size_t init = visit(sd->getAccInit(), state_ctx);
+        if (init != kNoNode) {
+          result_.graph.add_edge(EdgeKind::Flow, init, state, "state-init");
+        }
+      }
+      const std::size_t update = visit(sd->getUpdateExpr(), state_ctx);
+      if (update != kNoNode) {
+        result_.graph.add_edge(EdgeKind::Mutation, state, update, "state-update");
+      }
+      return state;
+    }
+
+    if (auto* series = dynamic_cast<SeriesIntrinsicAST*>(ast)) {
+      if (options_.validate_series_scope && !ctx.in_state_decl) {
+        error("series intrinsic must be owned by a state declaration", ast);
+      }
+      const std::size_t ledger = add_ast_node(
+        ast,
+        NodeKind::HiddenLedger,
+        "hidden-ledger:series",
+        Capability::StateRead | Capability::StateWrite,
+        TypeState::Ready,
+        ctx);
+      const std::size_t base = visit(series->getBase(), Context{ledger, ctx.in_state_decl});
+      const std::size_t window = visit(series->getWindow(), Context{ledger, ctx.in_state_decl});
+      if (auto* win_int = dynamic_cast<IntAST*>(series->getWindow())) {
+        if (!int_ast_positive(win_int)) {
+          error("series intrinsic window must be a positive integer", win_int);
+        }
+      }
+      if (base != kNoNode) {
+        result_.graph.add_edge(EdgeKind::Flow, base, ledger, "series-base");
+      }
+      if (window != kNoNode) {
+        result_.graph.add_edge(EdgeKind::Intent, window, ledger, "series-window");
+      }
+      return ledger;
+    }
+
+    if (auto* task = dynamic_cast<TaskBlockAST*>(ast)) {
+      const std::size_t node = add_ast_node(
+        ast,
+        NodeKind::Task,
+        "task:block",
+        Capability::Task | Capability::Close,
+        TypeState::Ready,
+        ctx);
+      const std::size_t failure = result_.graph.add_node(
+        NodeKind::FailureDomain,
+        "failure-domain:task",
+        Capability::None,
+        TypeState::Ready,
+        task);
+      result_.graph.add_edge(EdgeKind::Failure, node, failure, "task_failure");
+      visit(task_>getBody(), Context{node, ctx.in_state_decl});
+      return node;
+    }
+
+    if (auto* group = dynamic_cast<TaskGroupLaunchAST*>(ast)) {
+      const std::size_t node = add_ast_node(
+        ast,
+        NodeKind::Task,
+        "task:group",
+        Capability::Task,
+        TypeState::Ready,
+        ctx);
+      for (auto* entry : group->getEntries()) {
+        visit(entry, Context{node, ctx.in_state_decl});
+      }
+      return node;
+    }
+
+    if (auto* flow = dynamic_cast<FlowBindAST*>(ast)) {
+      const std::size_t source = visit(flow->getSource(), Context{kNoNode, ctx.in_state_decl});
+      const std::size_t sink = add_ast_node(
+        ast,
+        NodeKind::Sink,
+        std::string("sink:flow_bind:") + flow->getTargetNameAsStr(),
+        Capability::None,
+        TypeState::Ready,
+        ctx);
+      if (source != kNoNode) {
+        result_.graph.add_edge(EdgeKind::Flow, source, sink, "flow-bind");
+      }
+      return sink;
+    }
+
+    if (auto* block = dynamic_cast<BlockAST*>(ast)) {
+      const std::size_t block_node = add_ast_node(ast, NodeKind::StreamOp, "block", Capability::None, TypeState::Ready, ctx);
+      for (auto* stmt : block->stmts) {
+        visit(stmt, Context{block_node, ctx.in_state_decl});
+      }
+      for (auto* following : block->followings) {
+        visit(following, Context{block_node, ctx.in_state_decl});
+      }
+      return block_node;
+    }
+
+    if (auto* print = dynamic_cast<PrintAST*>(ast)) {
+      const std::size_t sink = add_ast_node(ast, NodeKind::Sink, "sink:stdout_print", Capability::None, TypeState::Ready, ctx);
+      for (auto* expr : print->exprs) {
+        const std::size_t value = visit(expr, Context{sink, ctx.in_state_decl});
+        if (value != kNoNode) {
+          result_.graph.add_edge(EdgeKind::Flow, value, sink, "print");
+        }
+      }
+      return sink;
+    }
+
+    if (auto* var = dynamic_cast<VarAST*>(ast)) {
+      if (var->val_init != nullptr) {
+        return visit(var->val_init, ctx);
+      }
+      return add_value(ast, std::string("var:") + var->getNameAsStr(), ctx);
+    }
+
+    if (auto* flex = dynamic_cast<FlexBindAST*>(ast)) {
+      const std::size_t value = visit(flex->getValue(), ctx);
+      StyioDataType binding_type = flex->getVar()->getDType()->getDataType();
+      if (binding_type.isUndefined()) {
+        binding_type = type_hint(flex->getValue());
+      }
+      const std::size_t binding = add_ast_node(
+        ast,
+        NodeKind::Value,
+        std::string("binding:") + flex->getNameAsStr(),
+        capabilities_from_type(binding_type),
+        state_from_type(binding_type),
+        ctx);
+      if (value != kNoNode) {
+        result_.graph.add_edge(EdgeKind::Flow, value, binding, "flex-bind");
+      }
+      record_binding(flex->getNameAsStr(), binding, binding_type);
+      if (value != kNoNode && result_.graph.node(value).kind == NodeKind::Task) {
+        task_bindings_[flex->getNameAsStr()] = value;
+      }
+      return binding;
+    }
+
+    if (auto* final_bind = dynamic_cast<FinalBindAST*>(ast)) {
+      const std::size_t value = visit(final_bind->getValue(), ctx);
+      StyioDataType binding_type = final_bind->getVar()->getDType()->getDataType();
+      if (binding_type.isUndefined()) {
+        binding_type = type_hint(final_bind->getValue());
+      }
+      const std::size_t binding = add_ast_node(
+        ast,
+        NodeKind::Value,
+        std::string("binding:") + final_bind->getName(),
+        capabilities_from_type(binding_type),
+        state_from_type(binding_type),
+        ctx);
+      if (value != kNoNode) {
+        result_.graph.add_edge(EdgeKind::Flow, value, binding, "final-bind");
+      }
+      record_binding(final_bind->getName(), binding, binding_type);
+      if (value != kNoNode && result_.graph.node(value).kind == NodeKind::Task) {
+        task_bindings_[final_bind->getName()] = value;
+      }
+      return binding;
+    }
+
+    if (auto* par = dynamic_cast<ParallelAssignAST*>(ast)) {
+      std::size_t last = kNoNode;
+      for (auto* rhs : par->getRHS()) {
+        last = visit(rhs, ctx);
+      }
+      return last;
+    }
+
+    if (auto* bin = dynamic_cast<BinOpAST*>(ast)) {
+      const std::size_t node = add_value(ast, "value:binop", ctx);
+      visit(bin->getLHS(), Context{node, ctx.in_state_decl});
+      visit(bin->getRHS(), Context{node, ctx.in_state_decl});
+      return node;
+    }
+
+    if (auto* cmp = dynamic_cast<BinCompAST*>(ast)) {
+      const std::size_t node = add_value(ast, "value:compare", ctx);
+      visit(cmp->getLHS(), Context{node, ctx.in_state_decl});
+      visit(cmp->getRHS(), Context{node, ctx.in_state_decl});
+      return node;
+    }
+
+    if (auto* cond = dynamic_cast<CondAST*>(ast)) {
+      const std::size_t node = add_value(ast, "value:condition", ctx);
+      visit(cond->getValue(), Context{node, ctx.in_state_decl});
+      visit(cond->getLHS(), Context{node, ctx.in_state_decl});
+      visit(cond->getRHS(), Context{node, ctx.in_state_decl});
+      return node;
+    }
+
+    if (auto* call = dynamic_cast<FuncCallAST*>(ast)) {
+      const std::size_t node = add_value(ast, std::string("value:call:") + call->getNameAsStr(), ctx);
+      if (call->func_callee != nullptr) {
+        visit(call->func_callee, Context{node, ctx.in_state_decl});
+      }
+      for (auto* arg : call->getArgList()) {
+        visit(arg, Context{node, ctx.in_state_decl});
+      }
+      return node;
+    }
+
+    if (auto* attr = dynamic_cast<AttrAST*>(ast)) {
+      const std::size_t node = add_value(ast, "value:attr", ctx);
+      visit(attr->body, Context{node, ctx.in_state_decl});
+      visit(attr->attr, Context{node, ctx.in_state_decl});
+      return node;
+    }
+
+    if (auto* list_op = dynamic_cast<ListOpAST*>(ast)) {
+      const std::size_t node = add_value(ast, "value:listop", ctx);
+      visit(list_op->getList(), Context{node, ctx.in_state_decl});
+      visit(list_op->getSlot1(), Context{node, ctx.in_state_decl});
+      visit(list_op->getSlot2(), Context{node, ctx.in_state_decl});
+      return node;
+    }
+
+    if (auto* list = dynamic_cast<ListAST*>(ast)) {
+      const std::size_t node = add_value(ast, "value:list", ctx);
+      for (auto* element : list->getElements()) {
+        visit(element, Context{node, ctx.in_state_decl});
+      }
+      return node;
+    }
+
+    if (auto* tuple = dynamic_cast<TupleAST*>(ast)) {
+      const std::size_t node = add_value(ast, "value:tuple", ctx);
+      for (auto* element : tuple->getElements()) {
+        visit(element, Context{node, ctx.in_state_decl});
+      }
+      return node;
+    }
+
+    if (auto* set = dynamic_cast<SetAST*>(ast)) {
+      const std::size_t node = add_value(ast, "value:set", ctx);
+      for (auto* element : set->getElements()) {
+        visit(element, Context{node, ctx.in_state_decl});
+      }
+      return node;
+    }
+
+    if (auto* dict = dynamic_cast<DictAST*>(ast)) {
+      const std::size_t node = add_value(ast, "value:dict", ctx);
+      for (const auto& entry : dict->getEntries()) {
+        visit(entry.key, Context{node, ctx.in_state_decl});
+        visit(entry.value, Context{node, ctx.in_state_decl});
+      }
+      return node;
+    }
+
+    if (auto* fallback = dynamic_cast<FallbackAST*>(ast)) {
+      const std::size_t node = add_value(ast, "value:fallback", ctx);
+      visit(fallback->getPrimary(), Context{node, ctx.in_state_decl});
+      visit(fallback->getAlternate(), Context{node, ctx.in_state_decl});
+      return node;
+    }
+
+    if (auto* guard = dynamic_cast<GuardSelectorAST*>(ast)) {
+      const std::size_t node = add_value(ast, "value:guard", ctx);
+      visit(guard->getBase(), Context{node, ctx.in_state_decl});
+      visit(guard->getCond(), Context{node, ctx.in_state_decl});
+      return node;
+    }
+
+    if (auto* probe = dynamic_cast<EqProbeAST*>(ast)) {
+      const std::size_t node = add_value(ast, "value:eq_probe", ctx);
+      visit(probe->getBase(), Context{node, ctx.in_state_decl});
+      visit(probe->getProbeValue(), Context{node, ctx.in_state_decl});
+      return node;
+    }
+
+    if (auto* wave = dynamic_cast<WaveMergeAST*>(ast)) {
+      const std::size_t node = add_value(ast, "value:wave_merge", ctx);
+      visit(wave->getCond(), Context{node, ctx.in_state_decl});
+      visit(wave->getTrueVal(), Context{node, ctx.in_state_decl});
+      visit(wave->getFalseVal(), Context{node, ctx.in_state_decl});
+      return node;
+    }
+
+    if (auto* dispatch = dynamic_cast<WaveDispatchAST*>(ast)) {
+      const std::size_t node = add_value(ast, "value:wave_dispatch", ctx);
+      visit(dispatch->getCond(), Context{node, ctx.in_state_decl});
+      visit(dispatch->getTrueArm(), Context{node, ctx.in_state_decl});
+      visit(dispatch->getFalseArm(), Context{node, ctx.in_state_decl});
+      return node;
+    }
+
+    return add_value(ast, std::string("value:") + reprASTType(ast->getNodeType()), ctx);
+  }
+
+  void finalize() {
+    if (!options_.require_close_owner) {
+      return;
+    }
+    std::unordered_map<std::size_t, std::size_t> close_owner_count;
+    for (const auto& edge : result_.graph.edges()) {
+      if (edge.kind == EdgeKind::Ownership) {
+        close_owner_count[edge.to] += 1;
+      }
+    }
+    for (const auto& node : result_.graph.nodes()) {
+      if (has_capability(node.capabilities, Capability::Close)
+          && close_owner_count[node.id] == 0) {
+        error("close-capable resource has no owner: " + node.label, node.source);
+      }
+    }
+  }
+};
+
+} // namespace
+
+std::size_t
+Graph::add_node(
+  NodeKind kind,
+  std::string label,
+  Capability capabilities,
+  TypeState state,
+  const StyioAST* source
+) {
+  const std::size_t id = nodes_.size();
+  nodes_.push_back(Node{id, kind, std::move(label), capabilities, state, source});
+  return id;
+}
+
+void
+Graph::add_edge(EdgeKind kind, std::size_t from, std::size_t to, std::string label) {
+  if (from == kNoNode || to == kNoNode) {
+    return;
+  }
+  edges_.push_back(Edge{kind, from, to, std::move(label)});
+}
+
+const Node&
+Graph::node(std::size_t id) const {
+  if (id >= nodes_.size()) {
+    throw std::out_of_range("resource topology node id out of range");
+  }
+  return nodes_[id];
+}
+
+std::size_t
+Graph::node_count(NodeKind kind) const {
+  return static_cast<std::size_t>(
+    std::count_if(nodes_.begin(), nodes_.end(), [kind](const Node& n) {
+      return n.kind == kind;
+    }));
+}
+
+std::size_t
+Graph::edge_count(EdgeKind kind) const {
+  return static_cast<std::size_t>(
+    std::count_if(edges_.begin(), edges_.end(), [kind](const Edge& e) {
+      return e.kind == kind;
+    }));
+}
+
+std::string
+Graph::debug_string() const {
+  std::ostringstream out;
+  out << "nodes=" << nodes_.size() << " edges=" << edges_.size();
+  for (const auto& node : nodes_) {
+    out << "\nnode " << node.id << " " << to_string(node.kind)
+        << " " << node.label << " caps=" << to_string(node.capabilities)
+        << " state=" << to_string(node.state);
+  }
+  for (const auto& edge : edges_) {
+    out << "\nedge " << edge.from << " -> " << edge.to << " "
+        << to_string(edge.kind);
+    if (!edge.label.empty()) {
+      out << " " << edge.label;
+    }
+  }
+  return out.str();
+}
+
+std::string
+ValidationReport::message() const {
+  std::ostringstream out;
+  for (std::size_t i = 0; i < errors.size(); ++i) {
+    if (i != 0) {
+      out << "\n";
+    }
+    out << errors[i].message;
+  }
+  return out.str();
+}
+
+BuildResult
+build(MainBlockAST* ast, BuildOptions options) {
+  return Builder(std::move(options)).build(ast);
+}
+
+BuildResult
+build(BlockAST* ast, BuildOptions options) {
+  return Builder(std::move(options)).build(ast);
+}
+
+void
+validate_or_throw(MainBlockAST* ast, std::string phase) {
+  BuildOptions options;
+  options.phase = std::move(phase);
+  BuildResult result = build(ast, options);
+  if (!result.report.ok()) {
+    throw StyioTypeError(result.report.message());
+  }
+}
+
+void
+validate_or_throw(BlockAST* ast, std::string phase) {
+  BuildOptions options;
+  options.phase = std::move(phase);
+  BuildResult result = build(ast, options);
+  if (!result.report.ok()) {
+    throw StyioTypeError(result.report.message());
+  }
+}
+
+std::string
+to_string(NodeKind kind) {
+  switch (kind) {
+    case NodeKind::Program: return "Program";
+    case NodeKind::DriverSource: return "DriverSource";
+    case NodeKind::Handle: return "Handle";
+    case NodeKind::StreamOp: return "StreamOp";
+    case NodeKind::StateSlot: return "StateSlot";
+    case NodeKind::HiddenLedger: return "HiddenLedger";
+    case NodeKind::Sink: return "Sink";
+    case NodeKind::Task: return "Task";
+    case NodeKind::FailureDomain: return "FailureDomain";
+    case NodeKind::Value: return "Value";
+  }
+  return "UnknownNode";
+}
+
+std::string
+to_string(EdgeKind kind) {
+  switch (kind) {
+    case EdgeKind::Flow: return "Flow";
+    case EdgeKind::Intent: return "Intent";
+    case EdgeKind::Ownership: return "Ownership";
+    case EdgeKind::Borrow: return "Borrow";
+    case EdgeKind::Mutation: return "Mutation";
+    case EdgeKind::Backpressure: return "Backpressure";
+    case EdgeKind::Commit: return "Commit";
+    case EdgeKind::Failure: return "Failure";
+    case EdgeKind::Placement: return "Placement";
+  }
+  return "UnknownEdge";
+}
+
+std::string
+to_string(TypeState state) {
+  switch (state) {
+    case TypeState::Unknown: return "Unknown";
+    case TypeState::Declared: return "Declared";
+    case TypeState::Open: return "Open";
+    case TypeState::Eof: return "Eof";
+    case TypeState::Closed: return "Closed";
+    case TypeState::Materialized: return "Materialized";
+    case TypeState::Ready: return "Ready";
+  }
+  return "UnknownState";
+}
+
+std::string
+to_string(Capability capabilities) {
+  if (capabilities == Capability::None) {
+    return "none";
+  }
+  std::vector<std::string> parts;
+  auto push_if = [&](Capability cap, const char* name) {
+    if (has_capability(capabilities, cap)) {
+      parts.emplace_back(name);
+    }
+  };
+  push_if(Capability::Pull, "pull");
+  push_if(Capability::Iter, "iter");
+  push_if(Capability::Push, "push");
+  push_if(Capability::Close, "close");
+  push_if(Capability::Clone, "clone");
+  push_if(Capability::Checkpoint, "checkpoint");
+  push_if(Capability::Task, "task");
+  push_if(Capability::StateRead, "state-read");
+  push_if(Capability::StateWrite, "state-write");
+  std::ostringstream out;
+  for (std::size_t i = 0; i < parts.size(); ++i) {
+    if (i != 0) {
+      out << "|";
+    }
+    out << parts[i];
+  }
+  return out.str();
+}
+
+} // namespace styio::resource_topology

@@ -657,7 +657,11 @@ StyioTokenizer::tokenize(std::string code) {
 
       // 63
       case '?': {
-        if (loc + 1 < code.length() && code.at(loc + 1) == '=') {
+        if (loc + 1 < code.length() && code.at(loc + 1) == '|') {
+          tokens.push_back(StyioToken::Create(StyioTokenType::AWAIT_PIPE, "?|"));
+          loc += 2;
+        }
+        else if (loc + 1 < code.length() && code.at(loc + 1) == '=') {
           tokens.push_back(StyioToken::Create(StyioTokenType::MATCH, "?="));
           loc += 2;
         }

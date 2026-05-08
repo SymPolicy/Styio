@@ -1,4 +1,4 @@
-@[factor] << @file{"tests/m7/data/factor.txt"}
+@[factor] << @file("tests/m7/data/factor.txt")
 sum = 0
 [1, 2, 3] >> #(x) => {
     prod = x * $factor

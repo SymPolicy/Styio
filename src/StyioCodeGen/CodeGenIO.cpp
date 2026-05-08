@@ -537,6 +537,7 @@ StyioToLLVM::toLLVMIR(SIOStdStreamLineIter* node) {
     pulse_snap_base_ = nullptr;
     pulse_active_plan_ = nullptr;
   }
+  emit_bounded_ring_pending_commits();
 
   mutable_variables.erase(node->line_var);
   llvm::BasicBlock* b2 = theBuilder->GetInsertBlock();
@@ -673,6 +674,8 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   auto saved_named = named_values;
   auto saved_ring_h = bounded_ring_head_slot_;
   auto saved_ring_c = bounded_ring_capacity_;
+  auto saved_ring_pending = bounded_ring_pending_slot_;
+  auto saved_ring_pending_count = bounded_ring_pending_count_slot_;
   auto saved_dyn_names = dynamic_variable_names_;
   auto saved_list_names = list_slot_names_;
   auto saved_file_scopes = file_handle_scope_stack_;
@@ -685,6 +688,8 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   named_values.clear();
   bounded_ring_head_slot_.clear();
   bounded_ring_capacity_.clear();
+  bounded_ring_pending_slot_.clear();
+  bounded_ring_pending_count_slot_.clear();
   dynamic_variable_names_.clear();
   list_slot_names_.clear();
   file_handle_scope_stack_.clear();
@@ -764,6 +769,8 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   named_values = std::move(saved_named);
   bounded_ring_head_slot_ = std::move(saved_ring_h);
   bounded_ring_capacity_ = std::move(saved_ring_c);
+  bounded_ring_pending_slot_ = std::move(saved_ring_pending);
+  bounded_ring_pending_count_slot_ = std::move(saved_ring_pending_count);
   dynamic_variable_names_ = std::move(saved_dyn_names);
   list_slot_names_ = std::move(saved_list_names);
   file_handle_scope_stack_ = std::move(saved_file_scopes);
@@ -794,6 +801,37 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SIOFlowBind* node) {
+  auto coerce_value_to_type = [&](llvm::Value* input, llvm::Type* want) -> llvm::Value*
+  {
+    if (input == nullptr || want == nullptr || input->getType() == want) {
+      return input;
+    }
+    llvm::Type* have = input->getType();
+    if (want->isIntegerTy(1) && have->isIntegerTy()) {
+      return theBuilder->CreateICmpNE(input, llvm::ConstantInt::get(have, 0));
+    }
+    if (want->isIntegerTy(64) && have->isIntegerTy(1)) {
+      return theBuilder->CreateZExt(input, want);
+    }
+    if (want->isIntegerTy() && have->isIntegerTy()) {
+      return theBuilder->CreateSExtOrTrunc(input, want);
+    }
+    if (want->isDoubleTy() && have->isIntegerTy()) {
+      llvm::Value* widened = input;
+      if (have->isIntegerTy(1)) {
+        widened = theBuilder->CreateZExt(input, theBuilder->getInt64Ty());
+      }
+      return theBuilder->CreateSIToFP(widened, want);
+    }
+    if (want->isIntegerTy() && have->isDoubleTy()) {
+      return theBuilder->CreateFPToSI(input, want);
+    }
+    if (want->isPointerTy() && have->isIntegerTy()) {
+      return promote_to_cstr(input);
+    }
+    return input;
+  };
+
   llvm::Value* value = node->source_expr != nullptr
     ? node->source_expr->toLLVMIR(this)
     : theBuilder->getInt64(0);
@@ -820,6 +858,43 @@ StyioToLLVM::toLLVMIR(SIOFlowBind* node) {
       if (node->result_type.option == StyioDataTypeOption::Bool) {
         value = theBuilder->CreateICmpNE(value, theBuilder->getInt64(0));
       }
+    }
+    if (node->fallback_expr != nullptr) {
+      llvm::Function* fn = theBuilder->GetInsertBlock()->getParent();
+      llvm::FunctionCallee has_error = theModule->getOrInsertFunction(
+        "styio_runtime_has_error",
+        llvm::FunctionType::get(theBuilder->getInt32Ty(), false));
+      llvm::FunctionCallee clear_error = theModule->getOrInsertFunction(
+        "styio_runtime_clear_error",
+        llvm::FunctionType::get(theBuilder->getVoidTy(), false));
+      llvm::Value* has_err = theBuilder->CreateCall(has_error, {});
+      llvm::Value* bad = theBuilder->CreateICmpNE(has_err, theBuilder->getInt32(0));
+
+      llvm::BasicBlock* fallback_bb = llvm::BasicBlock::Create(*theContext, "await_fallback", fn);
+      llvm::BasicBlock* success_bb = llvm::BasicBlock::Create(*theContext, "await_success", fn);
+      llvm::BasicBlock* merge_bb = llvm::BasicBlock::Create(*theContext, "await_merge", fn);
+      theBuilder->CreateCondBr(bad, fallback_bb, success_bb);
+
+      theBuilder->SetInsertPoint(success_bb);
+      llvm::Value* success_value = value;
+      theBuilder->CreateBr(merge_bb);
+      success_bb = theBuilder->GetInsertBlock();
+
+      theBuilder->SetInsertPoint(fallback_bb);
+      theBuilder->CreateCall(clear_error, {});
+      llvm::Value* fallback_value = node->fallback_expr->toLLVMIR(this);
+      fallback_value = coerce_value_to_type(fallback_value, success_value->getType());
+      theBuilder->CreateBr(merge_bb);
+      fallback_bb = theBuilder->GetInsertBlock();
+
+      theBuilder->SetInsertPoint(merge_bb);
+      llvm::PHINode* phi = theBuilder->CreatePHI(success_value->getType(), 2, "await_value");
+      phi->addIncoming(success_value, success_bb);
+      phi->addIncoming(fallback_value, fallback_bb);
+      value = phi;
+    }
+    else {
+      emit_runtime_error_guard_return();
     }
   }
 

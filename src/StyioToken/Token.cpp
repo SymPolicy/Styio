@@ -383,6 +383,14 @@ reprASTType(StyioNodeType type, std::string extra) {
       output += std::string("resource.file");
     } break;
 
+    case StyioNodeType::ResourceDecl: {
+      output += std::string("resource.decl");
+    } break;
+
+    case StyioNodeType::ResourceRef: {
+      output += std::string("resource.ref");
+    } break;
+
     case StyioNodeType::HandleAcquire: {
       output += std::string("handle.acquire");
     } break;
@@ -397,6 +405,10 @@ reprASTType(StyioNodeType type, std::string extra) {
 
     case StyioNodeType::TaskBlock: {
       output += std::string("task.block");
+    } break;
+
+    case StyioNodeType::TaskGroupLaunch: {
+      output += std::string("task.group");
     } break;
 
     case StyioNodeType::FlowBind: {
@@ -867,6 +879,9 @@ StyioToken::getTokName(StyioTokenType type) {
 
     case StyioTokenType::RETURN_PIPE:
       return "|<|";
+
+    case StyioTokenType::AWAIT_PIPE:
+      return "?|";
 
     case StyioTokenType::PIPE_SEMICOLON:
       return "|;";

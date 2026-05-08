@@ -2,7 +2,7 @@
 
 **Purpose:** 编译器内建 **`[op, n]`** 等算法的规范（行为、复杂度、`@` 处理、代码生成提示）；**不**重复语言总语义（见 `Styio-Language-Design.md`）。
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-05-09
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -329,7 +329,7 @@ These interact with the resource driver layer.
 
 ```
 ?(signal) => {
-    @order{"Limit", price, qty}
+    @order("Limit", price, qty)
 }
 ```
 
@@ -351,7 +351,8 @@ Triggers `mmap`-based or copy-on-write serialization of the entire state ledger 
 
 ### 7.1 Auto-Vectorization
 
-For window operations over `@[n]` buffers where `n > 8`, the generated LLVM loop must:
+For window operations over Topology v2 recent-window resources such as `@x : T|..n|`
+where `n > 8`, the generated LLVM loop must:
 - Avoid loop-carried dependencies where possible
 - Use `<n x float>` vector types when the operation is element-wise
 - Emit `llvm.vector.reduce.*` intrinsics for reductions

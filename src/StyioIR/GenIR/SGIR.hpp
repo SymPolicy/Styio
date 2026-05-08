@@ -30,8 +30,13 @@ private:
   std::string id;
 
 public:
-  SGResId(std::string id) :
-      id(id) {
+  bool has_history_selector = false;
+  int history_offset = 0;
+
+  SGResId(std::string id, bool has_history_selector = false, int history_offset = 0) :
+      id(id),
+      has_history_selector(has_history_selector),
+      history_offset(history_offset) {
   }
 
   static SGResId* Create() {
@@ -40,6 +45,10 @@ public:
 
   static SGResId* Create(std::string id) {
     return new SGResId(id);
+  }
+
+  static SGResId* CreateHistory(std::string id, int offset) {
+    return new SGResId(id, true, offset);
   }
 
   const std::string& as_str() {
@@ -296,13 +305,14 @@ class SGFlexBind : public StyioIRTraits<SGFlexBind>
 public:
   SGVar* var;
   StyioIR* value;
+  bool pending_resource_write = false;
 
-  SGFlexBind(SGVar* var, StyioIR* value) :
-      var(var), value(value) {
+  SGFlexBind(SGVar* var, StyioIR* value, bool pending = false) :
+      var(var), value(value), pending_resource_write(pending) {
   }
 
-  static SGFlexBind* Create(SGVar* id, StyioIR* value) {
-    return new SGFlexBind(id, value);
+  static SGFlexBind* Create(SGVar* id, StyioIR* value, bool pending = false) {
+    return new SGFlexBind(id, value, pending);
   }
 };
 
