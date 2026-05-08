@@ -289,6 +289,9 @@ StyioToLLVM::toLLVMType(SGMatch* node) {
   if (node->repr_kind == SGMatchReprKind::ExprMixed) {
     return llvm::PointerType::get(*theContext, 0);
   }
+  if (node->repr_kind == SGMatchReprKind::ExprFloat) {
+    return theBuilder->getDoubleTy();
+  }
   return theBuilder->getInt64Ty();
 }
 

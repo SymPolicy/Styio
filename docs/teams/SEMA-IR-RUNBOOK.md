@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of AST lifecycle, semantic analysis, type inference, StyioIR lowering, string representation, and compilation session ownership.
 
-**Last updated:** 2026-05-05
+**Last updated:** 2026-05-08
 
 ## Mission
 
@@ -45,6 +45,7 @@ High-value docs:
 16. Match lowering must emit ordinary `SGMatch` shape and leave sequence-aware equivalence rewrites to `StyioIROptimizer`; do not hard-code source examples such as `.length` / `.size` in AST lowering. Syntax aliases are not equivalent until StyioIR structure, side-effect safety, and tests prove it.
 17. Runtime resource bindings must keep value-family identity through Sema and lowering. Matrix handles are dynamic slot values just like list and dict handles; name loads must lower through the matching `SGDynLoadKind` instead of reusing stale SSA handles.
 18. Task resource bindings follow the same value-family rule: `TaskBlockAST` must infer `task[T]`, `FlowBindAST` must require a predeclared mutable target, and task names may be pulled once before lowering to `SIOTaskCreate` plus `SIOFlowBind`. Free scalar references inside `||>` are captured into the task context; local binds inside the task body must not inflate that context.
+19. Match expression result kinds must preserve scalar families through IR. If tail expressions can yield `f64`, the `SGMatchReprKind` and lowering classifier must carry a float result kind instead of silently collapsing the branch value to `i64`.
 
 ## Change Classes
 
