@@ -17,6 +17,7 @@
 #include "../StyioAST/AST.hpp"
 #include "../StyioException/Exception.hpp"
 #include "../StyioNative/NativeInterop.hpp"
+#include "../StyioResourceTopology/ResourceTopology.hpp"
 #include "../StyioToken/Token.hpp"
 
 static std::vector<ParamAST*>
@@ -996,6 +997,13 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
   }
 
   auto reject_plain_resource_copy = [&](StyioAST* expr) {
+    if (auto* ref = dynamic_cast<ResourceRefAST*>(expr)) {
+      if (ref->isWholeResource()) {
+        throw StyioTypeError(
+          "resource `" + ref->getNameStr()
+          + "` cannot be copied with `=`; use `<<` to clone it");
+      }
+    }
     auto* src = dynamic_cast<NameAST*>(expr);
     if (src == nullptr) {
       return;
@@ -1153,6 +1161,13 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
 
 void
 StyioSemaContext::typeInfer(FinalBindAST* ast) {
+  if (auto* rhs_resource = dynamic_cast<ResourceRefAST*>(ast->getValue())) {
+    if (rhs_resource->isWholeResource()) {
+      throw StyioTypeError(
+        "resource `" + rhs_resource->getNameStr()
+        + "` cannot be copied with `:=`; use `<<` to clone it");
+    }
+  }
   auto* rhs_name = dynamic_cast<NameAST*>(ast->getValue());
   if (rhs_name != nullptr) {
     auto it = binding_info_.find(rhs_name->getAsStr());
@@ -1938,6 +1953,45 @@ StyioSemaContext::typeInfer(ResourceAST* ast) {
 }
 
 void
+StyioSemaContext::typeInfer(ResourceDeclAST* ast) {
+  for (const auto& slot : ast->getSlots()) {
+    const std::string name = slot.name->getAsStr();
+    StyioDataType declared = styio_normalize_resource_decl_type(slot.type->getDataType());
+    if (resource_binding_types_.count(name) != 0) {
+      throw StyioTypeError("resource `" + name + "` is already declared");
+    }
+    resource_binding_types_[name] = declared;
+  }
+  if (ast->getDriver() != nullptr) {
+    ast->getDriver()->typeInfer(this);
+  }
+}
+
+void
+StyioSemaContext::typeInfer(ResourceRefAST* ast) {
+  auto it = resource_binding_types_.find(ast->getNameStr());
+  if (it == resource_binding_types_.end()) {
+    throw StyioTypeError("unknown resource `" + ast->getNameStr() + "`");
+  }
+  StyioDataType resource_type = it->second;
+  if (ast->isWholeResource()) {
+    ast->setDataType(resource_type);
+    return;
+  }
+  if (!styio_type_is_readable(resource_type)) {
+    throw StyioTypeError("resource `" + ast->getNameStr() + "` does not have read capability");
+  }
+  if (!styio_type_is_indexable(resource_type)) {
+    throw StyioTypeError("resource `" + ast->getNameStr() + "` is not indexable");
+  }
+  if (ast->getSelectorKind() == ResourceSelectorKind::SnapshotAll
+      && resource_type.resource_shape == StyioResourceShapeKind::Scalar) {
+    throw StyioTypeError("resource `" + ast->getNameStr() + "` does not support snapshot selection");
+  }
+  ast->setDataType(styio_topology_resource_value_type(resource_type));
+}
+
+void
 StyioSemaContext::typeInfer(ResPathAST* ast) {
 }
 
@@ -2345,18 +2399,44 @@ StyioSemaContext::typeInfer(TaskBlockAST* ast) {
 }
 
 void
+StyioSemaContext::typeInfer(TaskGroupLaunchAST* ast) {
+  for (auto* entry : ast->getEntries()) {
+    entry->typeInfer(this);
+  }
+}
+
+void
 StyioSemaContext::typeInfer(FlowBindAST* ast) {
+  if (ast->getSource() == nullptr) {
+    if (ast->hasFallback()) {
+      throw StyioTypeError("bare continuation freeze `?| ->` does not accept fallback");
+    }
+    throw StyioTypeError(
+      "bare continuation freeze `?| ->` requires continuation lowering; "
+      "captured continuations must be resumed or discontinued exactly once");
+  }
   ast->getSource()->typeInfer(this);
+  if (ast->hasFallback()) {
+    ast->getFallback()->typeInfer(this);
+  }
   const std::string target = ast->getTargetNameAsStr();
-  if (local_binding_types.count(target) == 0 && binding_info_.count(target) == 0) {
+  const bool target_exists =
+    local_binding_types.count(target) != 0 || binding_info_.count(target) != 0;
+  if (ast->declaresTarget() && target_exists) {
+    throw StyioTypeError("await target `" + target + "` is already declared");
+  }
+  if (!ast->declaresTarget() && !target_exists) {
     throw StyioTypeError("flow bind target `" + target + "` must be declared before use");
   }
-  if (fixed_assignment_names_.count(target) != 0) {
+  if (!ast->declaresTarget() && fixed_assignment_names_.count(target) != 0) {
     throw StyioTypeError("flow bind target `" + target + "` is final and cannot be reassigned");
   }
 
   StyioDataType source_type = infer_expr_type(this, ast->getSource());
   StyioDataType result_type = source_type;
+  if (ast->isAwaitBind() && source_type.handle_family != StyioHandleFamily::Task) {
+    throw StyioTypeError("await source for `?|` must be a task/future handle");
+  }
   if (source_type.handle_family == StyioHandleFamily::Task) {
     if (auto* task_name = dynamic_cast<NameAST*>(ast->getSource())) {
       if (consumed_task_names_.count(task_name->getAsStr()) != 0) {
@@ -2367,15 +2447,41 @@ StyioSemaContext::typeInfer(FlowBindAST* ast) {
     result_type = task_result_type_from_task_type(source_type);
   }
 
-  StyioDataType target_type = local_binding_types.count(target) != 0
-    ? local_binding_types[target]
-    : binding_info_[target].declared_type;
+  StyioDataType target_type = ast->declaresTarget()
+    ? ast->getTarget()->getDType()->type
+    : (local_binding_types.count(target) != 0
+        ? local_binding_types[target]
+        : binding_info_[target].declared_type);
+  if (target_type.isUndefined()) {
+    target_type = result_type;
+    ast->getTarget()->setDataType(target_type);
+  }
   if (!target_type.isUndefined() && !container_value_assignable(target_type, result_type)) {
     throw StyioTypeError(
       "flow bind target `" + target + "` expects " + target_type.name
       + ", got " + result_type.name);
   }
-  ast->setResultType(result_type);
+  if (ast->hasFallback()) {
+    StyioDataType fallback_type = infer_expr_type(this, ast->getFallback());
+    if (!target_type.isUndefined() && !container_value_assignable(target_type, fallback_type)) {
+      throw StyioTypeError(
+        "await fallback for `" + target + "` expects " + target_type.name
+        + ", got " + fallback_type.name);
+    }
+  }
+  ast->setResultType(target_type.isUndefined() ? result_type : target_type);
+
+  if (ast->declaresTarget()) {
+    local_binding_types[target] = ast->getResultType();
+
+    BindingInfo info;
+    info.final_slot = false;
+    info.dynamic_slot = false;
+    info.resource_value = false;
+    info.value_kind = binding_value_kind_for_type(ast->getResultType());
+    info.declared_type = ast->getResultType();
+    binding_info_[target] = info;
+  }
 }
 
 void
@@ -2408,6 +2514,9 @@ StyioSemaContext::typeInfer(MatchCasesAST* ast) {
 void
 StyioSemaContext::typeInfer(BlockAST* ast) {
   for (auto* s : ast->stmts) {
+    if (dynamic_cast<ResourceDeclAST*>(s) != nullptr) {
+      throw StyioTypeError("resource declarations are top-level only");
+    }
     s->typeInfer(this);
   }
 }
@@ -2444,6 +2553,7 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
   local_binding_types.clear();
   fixed_assignment_names_.clear();
   binding_info_.clear();
+  resource_binding_types_.clear();
   collect_bind_resource_writes_.clear();
   collect_bind_handle_acquires_.clear();
   collect_bind_resource_write_types_.clear();
@@ -2487,4 +2597,5 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
   for (auto const& s : stmts) {
     s->typeInfer(this);
   }
+  styio::resource_topology::validate_or_throw(ast, "sema-resource-topology");
 }

@@ -56,6 +56,8 @@ public:
   StyioIR* toStyioIR(BinOpAST* ast) override;
   StyioIR* toStyioIR(FmtStrAST* ast) override;
   StyioIR* toStyioIR(ResourceAST* ast) override;
+  StyioIR* toStyioIR(ResourceDeclAST* ast) override;
+  StyioIR* toStyioIR(ResourceRefAST* ast) override;
   StyioIR* toStyioIR(ResPathAST* ast) override;
   StyioIR* toStyioIR(RemotePathAST* ast) override;
   StyioIR* toStyioIR(WebUrlAST* ast) override;
@@ -88,6 +90,7 @@ public:
   StyioIR* toStyioIR(InstantPullAST* ast) override;
   StyioIR* toStyioIR(TypedStdinListAST* ast) override;
   StyioIR* toStyioIR(TaskBlockAST* ast) override;
+  StyioIR* toStyioIR(TaskGroupLaunchAST* ast) override;
   StyioIR* toStyioIR(FlowBindAST* ast) override;
   StyioIR* toStyioIR(IterSeqAST* ast) override;
   StyioIR* toStyioIR(InfiniteLoopAST* ast) override;

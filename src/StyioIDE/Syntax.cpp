@@ -283,6 +283,11 @@ tokenize_tolerant(const std::string& text, std::vector<Diagnostic>& diagnostics)
       i += 2;
       continue;
     }
+    if (maybe_two("?|")) {
+      push(StyioTokenType::AWAIT_PIPE, "?|");
+      i += 2;
+      continue;
+    }
 
     switch (ch) {
       case '#':

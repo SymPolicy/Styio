@@ -6,8 +6,6 @@
 
 ```styio
 f <| a        := f(a)
-f <| a <| b  := f(a)(b)
-f(a)(b)      := (f(a)) <| b
 
 k : cont[A -> B, oneshot]
 k <| a       := resume k with a

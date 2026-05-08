@@ -2,7 +2,7 @@
 
 **Purpose:** Single place to record contradictions between design docs, milestones, the existing compiler, and informal discussions. Resolving these is prerequisite to a coherent implementation.
 
-**Last updated:** 2026-04-16
+**Last updated:** 2026-05-09
 
 **Version:** 1.0  
 **Date:** 2026-03-28  
@@ -17,7 +17,7 @@
 
 | Meaning | Context | Design reference |
 |---------|---------|-------------------|
-| **Write to sink** | `expr << @file{...}` or `expr << handle` | `../design/Styio-Language-Design.md` §7.4 |
+| **Write to sink** | `expr << @file(...)` or `expr << handle` | `../design/Styio-Language-Design.md` §7.4 |
 | **Snapshot binding** | `@[v] << @resource` | §9.2 |
 | **Instant pull** | `(<< @resource)` as primary expression | §9.2 |
 | **History probe** | `$var[<<, n]` inside `[` `]` | §8.4, §10.5 |
@@ -54,7 +54,7 @@
 |------|---------|
 | **Undefined value** | `@` alone |
 | **State / window decl** | `@[5](...)`, `@[total = 0](...)` **(current compiler)** |
-| **Resource** | `@file{...}`, `@{"path"}` |
+| **Resource** | `@file(...)`, `@{"path"}` |
 | **Import declaration** | `@import { styio/mod, styio.mod }` |
 
 **Conflict:** `@` followed by `[` is **state**, `@import { ... }` is now a **top-level import declaration**, but `@` followed by identifier in other contexts is still **resource/undefined territory**. A lone `@` is **undefined**. The parser must not treat `@` as “start of resource” when it is the **value** `@`, and must not allow `@import` to silently degrade into resource syntax.
@@ -63,7 +63,7 @@
 
 **Remaining resolution needed:** Formal grammar ordering should now make `@import { ... }` explicit before generic `@` identifier handling: `@` + `[` → state; `@` + `import` + `{` → import decl; `@` + not-`[` + not-ident → `UndefinedAST`; `@` + ident + `{`/`(` → resource.
 
-**Target design (v2):** Unify narrative under [`../design/Styio-Resource-Topology.md`](../design/Styio-Resource-Topology.md): **`@name : [|n|]`** as **storage qualifier**, top-level **`ResourceDecl`** with optional **`:= { driver }`**, and **`expr -> $name`** for writes. The **running** compiler has **not** switched; M6 syntax remains canonical until a migration milestone.
+**Target design (v2):** Unify narrative under [`../design/Styio-Resource-Topology.md`](../design/Styio-Resource-Topology.md): **`@name : Type|n|`** for exact length, **`@name : Type|..n|`** for recent-window resources, **`T..` / `T...`** for unbounded repetition, top-level **`ResourceDecl`** with optional **`:= { driver }`**, and **`expr -> @name`** for topology sink writes. The **running** compiler has **not** switched; M6 syntax remains canonical until a migration milestone.
 
 ---
 

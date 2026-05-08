@@ -26,6 +26,12 @@ parse_expr_subset_allowing_follow_latest(
   std::initializer_list<StyioTokenType> allowed_follow
 );
 
+StyioAST*
+parse_expr_core_allowing_follow_latest(
+  StyioContext& context,
+  std::initializer_list<StyioTokenType> allowed_follow
+);
+
 bool
 is_all_underscore_identifier_latest(const std::string& text) {
   return !text.empty()
@@ -212,7 +218,8 @@ scan_subset_route_tokens_latest(
   const std::vector<StyioToken*>& tokens,
   size_t start,
   AllowedFn allowed,
-  StopFn should_stop
+  StopFn should_stop,
+  bool allow_single_pipe = false
 ) {
   size_t cursor = styio_skip_trivia_tokens(tokens, start);
   int paren_depth = 0;
@@ -229,7 +236,7 @@ scan_subset_route_tokens_latest(
       cursor += 1;
       continue;
     }
-    if (type == StyioTokenType::TOK_PIPE) {
+    if (type == StyioTokenType::TOK_PIPE && !allow_single_pipe) {
       return false;
     }
     if (!allowed(type)) {
@@ -464,6 +471,7 @@ stmt_subset_route_supported_latest(const StyioContext& context) {
     return can_route_hash_let_match_nightly_latest(context)
       || can_route_hash_stmt_nightly_latest(context);
   }
+  const bool allow_single_pipe = start_type == StyioTokenType::AWAIT_PIPE;
 
   return scan_subset_route_tokens_latest(
     tokens,
@@ -485,7 +493,8 @@ stmt_subset_route_supported_latest(const StyioContext& context) {
              || type == StyioTokenType::TOK_CR
              || is_statement_separator_nightly_latest(type)
              || type == StyioTokenType::TOK_RCURBRAC;
-    }
+    },
+    allow_single_pipe
   );
 }
 
@@ -1411,7 +1420,7 @@ private:
         return parse_list_expr_or_iterator_nightly_draft(context_);
       }
       case StyioTokenType::TOK_AT: {
-        return parse_resource_file_atom_latest(context_);
+        return parse_at_stmt_or_expr_latest(context_);
       }
       case StyioTokenType::TASK_LAUNCH: {
         context_.move_forward(1, "new_expr:task_launch");
@@ -1449,7 +1458,7 @@ private:
               && rnt != StyioNodeType::StdoutResource
               && rnt != StyioNodeType::StderrResource) {
             delete ratom;
-            throw StyioSyntaxError(context_.mark_cur_tok("immediate pull needs @file{...}, @{...}, or @stdin"));
+            throw StyioSyntaxError(context_.mark_cur_tok("immediate pull needs @file(...), @{...}, or @stdin"));
           }
           context_.skip();
           if (!context_.match(StyioTokenType::TOK_RPAREN)) {
@@ -1469,7 +1478,7 @@ private:
               && rnt != StyioNodeType::StdoutResource
               && rnt != StyioNodeType::StderrResource) {
             delete ratom;
-            throw StyioSyntaxError(context_.mark_cur_tok("instant pull needs @file{...}, @{...}, or @stdin"));
+            throw StyioSyntaxError(context_.mark_cur_tok("instant pull needs @file(...), @{...}, or @stdin"));
           }
           context_.skip();
           if (!context_.match(StyioTokenType::TOK_RPAREN)) {
@@ -1584,6 +1593,22 @@ public:
     }
     return parsed;
   }
+
+  StyioAST* parse_core_with_allowed_follow(std::initializer_list<StyioTokenType> allowed_follow) {
+    StyioAST* parsed = parse_expression(0);
+    context_.skip_spaces_no_linebreak();
+    const StyioTokenType follow = context_.cur_tok_type();
+    for (auto allowed : allowed_follow) {
+      if (follow == allowed) {
+        return parsed;
+      }
+    }
+    if (has_unsupported_continuation_latest_draft(follow)) {
+      delete parsed;
+      throw StyioSyntaxError("unsupported expression continuation in nightly parser subset");
+    }
+    return parsed;
+  }
 };
 
 StyioAST*
@@ -1593,6 +1618,15 @@ parse_expr_subset_allowing_follow_latest(
 ) {
   StyioExprSubsetParser parser(context);
   return parser.parse_with_allowed_follow(allowed_follow);
+}
+
+StyioAST*
+parse_expr_core_allowing_follow_latest(
+  StyioContext& context,
+  std::initializer_list<StyioTokenType> allowed_follow
+) {
+  StyioExprSubsetParser parser(context);
+  return parser.parse_core_with_allowed_follow(allowed_follow);
 }
 
 }  // namespace
@@ -1702,6 +1736,7 @@ styio_parser_stmt_subset_token_nightly(StyioTokenType type) {
     case StyioTokenType::EXTRACTOR:
     case StyioTokenType::YIELD_PIPE:
     case StyioTokenType::RETURN_PIPE:
+    case StyioTokenType::AWAIT_PIPE:
     case StyioTokenType::PIPE_SEMICOLON:
     case StyioTokenType::ELLIPSIS:
     case StyioTokenType::BOUNDED_BUFFER_OPEN:
@@ -1729,6 +1764,7 @@ styio_parser_stmt_subset_start_nightly(StyioTokenType type) {
          || type == StyioTokenType::EXTRACTOR
          || type == StyioTokenType::YIELD_PIPE
          || type == StyioTokenType::RETURN_PIPE
+         || type == StyioTokenType::AWAIT_PIPE
          || type == StyioTokenType::ELLIPSIS
          || type == StyioTokenType::ITERATOR
          || styio_parser_expr_subset_start_nightly(type);
@@ -1741,6 +1777,97 @@ parse_stmt_subset_impl_nightly(StyioContext& context);
 
 BlockAST*
 parse_block_only_subset_nightly(StyioContext& context);
+
+StyioAST*
+parse_await_bind_stmt_nightly(StyioContext& context) {
+  context.match_panic(StyioTokenType::AWAIT_PIPE);
+  context.skip();
+  StyioAST* source = nullptr;
+  if (context.cur_tok_type() != StyioTokenType::ARROW_SINGLE_RIGHT) {
+    source = parse_expr_core_allowing_follow_latest(
+      context,
+      {StyioTokenType::ARROW_SINGLE_RIGHT});
+  }
+  context.skip();
+  context.try_match_panic(StyioTokenType::ARROW_SINGLE_RIGHT);
+  context.skip();
+  if (context.cur_tok_type() != StyioTokenType::NAME) {
+    throw StyioSyntaxError(context.mark_cur_tok("expected await target name after ?| source ->"));
+  }
+  NameAST* target_name = parse_name_unsafe(context);
+  context.skip();
+  if (context.cur_tok_type() != StyioTokenType::TOK_COLON) {
+    throw StyioSyntaxError(context.mark_cur_tok("await target must declare a type: ?| source -> name: T"));
+  }
+  context.move_forward(1, "new_stmt:await_target_colon");
+  context.skip();
+  TypeAST* target_type = parse_styio_type(context);
+  context.skip();
+  StyioAST* fallback = nullptr;
+  if (context.cur_tok_type() == StyioTokenType::TOK_PIPE) {
+    if (source == nullptr) {
+      throw StyioSyntaxError("bare continuation freeze `?| -> name: T` does not accept fallback");
+    }
+    context.move_forward(1, "new_stmt:await_fallback");
+    context.skip();
+    fallback = parse_expr_subset_nightly(context);
+  }
+  return FlowBindAST::CreateAwait(
+    source,
+    VarAST::Create(target_name, target_type),
+    fallback);
+}
+
+StyioAST*
+parse_task_group_launch_nightly(StyioContext& context) {
+  context.match_panic(StyioTokenType::TASK_LAUNCH);
+  context.skip();
+  context.try_match_panic(StyioTokenType::TOK_LBOXBRAC);
+  std::vector<StyioAST*> stmts;
+  while (true) {
+    context.skip();
+    while (context.cur_tok_type() == StyioTokenType::TOK_SEMICOLON
+           || context.cur_tok_type() == StyioTokenType::PIPE_SEMICOLON
+           || context.cur_tok_type() == StyioTokenType::TOK_COMMA) {
+      context.move_forward(1, "new_stmt:task_group_sep");
+      context.skip();
+    }
+    if (context.cur_tok_type() == StyioTokenType::TOK_RBOXBRAC) {
+      context.move_forward(1, "new_stmt:task_group_close");
+      break;
+    }
+    if (context.cur_tok_type() != StyioTokenType::NAME) {
+      throw StyioSyntaxError(context.mark_cur_tok("expected task name in ||> [ ... ] group"));
+    }
+    NameAST* task_name = parse_name_unsafe(context);
+    context.skip();
+    const bool final_bind = context.cur_tok_type() == StyioTokenType::WALRUS;
+    if (final_bind) {
+      context.move_forward(1, "new_stmt:task_group_walrus");
+    }
+    else if (context.cur_tok_type() == StyioTokenType::TOK_EQUAL) {
+      context.move_forward(1, "new_stmt:task_group_equal");
+    }
+    else {
+      throw StyioSyntaxError(context.mark_cur_tok("expected := or = after task name in ||> group"));
+    }
+    context.skip();
+    if (context.cur_tok_type() != StyioTokenType::TOK_LCURBRAC) {
+      throw StyioSyntaxError(context.mark_cur_tok("task group entry must use a task block body"));
+    }
+    auto* task = TaskBlockAST::Create(parse_block_only_subset_nightly(context));
+    if (final_bind) {
+      stmts.push_back(FinalBindAST::Create(VarAST::Create(task_name), task));
+    }
+    else {
+      stmts.push_back(FlexBindAST::Create(VarAST::Create(task_name), task));
+    }
+  }
+  if (stmts.empty()) {
+    throw StyioSyntaxError("task group ||> [ ... ] must contain at least one task");
+  }
+  return TaskGroupLaunchAST::Create(std::move(stmts));
+}
 
 BlockAST*
 parse_block_with_forward_subset_nightly(StyioContext& context);
@@ -1788,7 +1915,7 @@ parse_return_value_nightly(StyioContext& context) {
         && rnt != StyioNodeType::StdoutResource
         && rnt != StyioNodeType::StderrResource) {
       delete ratom;
-      throw StyioSyntaxError(context.mark_cur_tok("return pull needs @file{...}, @{...}, @stdin, or [>_]"));
+      throw StyioSyntaxError(context.mark_cur_tok("return pull needs @file(...), @{...}, @stdin, or [>_]"));
     }
     return InstantPullAST::Create(ratom);
   }
@@ -2180,6 +2307,19 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
 
   if (context.cur_tok_type() == StyioTokenType::PRINT) {
     return parse_print_nightly(context);
+  }
+  if (context.cur_tok_type() == StyioTokenType::AWAIT_PIPE) {
+    return parse_await_bind_stmt_nightly(context);
+  }
+  if (context.cur_tok_type() == StyioTokenType::TASK_LAUNCH) {
+    const auto saved = context.save_cursor();
+    context.move_forward(1, "new_stmt:task_group_probe");
+    context.skip();
+    if (context.cur_tok_type() == StyioTokenType::TOK_LBOXBRAC) {
+      context.restore_cursor(saved);
+      return parse_task_group_launch_nightly(context);
+    }
+    context.restore_cursor(saved);
   }
   if (context.cur_tok_type() == StyioTokenType::TOK_HASH) {
     auto let_match_attempt = try_parse_hash_let_match_nightly_latest(context);

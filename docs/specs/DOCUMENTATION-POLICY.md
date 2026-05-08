@@ -67,7 +67,6 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 | Agent 实现规程、禁止项、流水线 | `AGENT-SPEC.md` | 链接 |
 | Golden Cross **守则内嵌的宪法示例代码** | `AGENT-SPEC.md` §12.3 | 设计背景链到 `../design/Styio-Resource-Topology.md` §8 |
 | Topology v2 **实施步骤、修改点矩阵、风险与记录规范** | `../plans/Resource-Topology-v2-Implementation-Plan.md` | `../design/Styio-Resource-Topology.md` §9 仅状态表 + 链到本计划 |
-| **`[|n|]` 环缓当前实现约定** | `../design/Styio-Resource-Topology.md`、`../assets/workflow/TEST-CATALOG.md` | 当前行为与测试从这里进入；历史计划进入 archive |
 | **Checkpoint 微里程碑执行规则**（可中断/可恢复） | `../assets/workflow/CHECKPOINT-WORKFLOW.md` | 在 `history/YYYY-MM-DD.md` 写恢复指引，不在其它文档重复流程细节 |
 | **统一交付门禁**（common delivery floor） | `../assets/workflow/DELIVERY-GATE.md` | 先过 common floor，再按协调 runbook 叠加域专属 cutover gate |
 | **新语法添加工作流**（含 runtime helper / ORC 注册对齐） | `../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md` | 前端、Codegen/Runtime、测试与 docs 只保留入口规则与链接 |

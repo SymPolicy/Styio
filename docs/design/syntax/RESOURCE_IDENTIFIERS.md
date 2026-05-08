@@ -40,7 +40,7 @@ Current standard-resource definitions live in [resources.styio](../../../src/Sty
 
 `@ file` deliberately does not use `file(path)`. That spelling was never an allowed Styio
 primitive and must not be introduced as a hidden C++ escape hatch. The current implementation still
-lowers `@file{"path"}` and `@{"path"}` through the existing file runtime substrate, but the
+lowers `@file("path")` and `@{"path"}` through the existing file runtime substrate, but the
 resource identity is governed by the Styio declaration above.
 
 | Identifier | Definition form | Direction |
@@ -62,4 +62,4 @@ reads.
 string must not use `>>`; write it with `->` or split it explicitly with
 `text.lines() >> [>_]` / `text.lines() >> @stdout`.
 
-Target-only driver identifiers such as `@mysql{...}`, `@http{...}`, and `@kafka{...}` are not part of this current surface.
+Target-only driver identifiers such as `@mysql(...)`, `@http(...)`, and `@kafka(...)` are not part of this current surface.

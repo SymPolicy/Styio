@@ -2,7 +2,7 @@
 
 **Purpose:** 约束 AI 与人类贡献者在 **编译器实现、测试与文档交叉引用** 上的操作规程与禁止项；**语言权威语义**仍以 `../design/Styio-Language-Design.md`、`../design/Styio-EBNF.md` 为准。文档目录与「最小改动 / SSOT」准则见 `DOCUMENTATION-POLICY.md` §0。
 
-**Last updated:** 2026-04-28
+**Last updated:** 2026-05-09
 
 **Version:** 1.1  
 **Date:** 2026-03-28  
@@ -633,24 +633,25 @@ All documentation is Markdown. Use:
 When showing Styio code examples, use the canonical "Golden Cross" strategy as the reference example. **Design-level topology and narrative** for this pattern: [`../design/Styio-Resource-Topology.md`](../design/Styio-Resource-Topology.md) §8 (SSOT for that story; this subsection keeps the **inline constitution** snippet for agents).
 
 ```
-@binance{"BTCUSDT"} >> #(p) => {
-    # get_ma := (src, n) => src[avg, n]
+@ma5 : f64|..2|, @ma20 : f64|..2| := {
+    @binance("BTCUSDT") >> #(p) => {
+        p[avg, 5]  -> @ma5
+        p[avg, 20] -> @ma20
 
-    @[5 ](ma5  = get_ma(p, 5 ))
-    @[20](ma20 = get_ma(p, 20))
+        is_golden =
+            @ma5[-2] <= @ma20[-2] &&
+            @ma5[-1] >  @ma20[-1]
 
-    // History comparison waits for the revised selector; old $state[<<, n] is retired.
-    is_golden = $ma5 > $ma20
+        # order_logic := (price) => { >_ ("Buy at: " + price) }
 
-    # order_logic := (price) => { >_ ("Buy at: " + price) }
-
-    ?(is_golden) => {
-        order_logic(p)
+        ?(is_golden) => {
+            order_logic(p)
+        }
     }
 }
 ```
 
-This is the "constitution" — any syntax change that breaks this example must be explicitly justified. The 2026-04-24 revision removed the old `$state[<<, n]` history selector and source-level bare `@` no-op arm from this active example.
+This is the "constitution" — any syntax change that breaks this example must be explicitly justified. The 2026-05-09 revision moved the active example to `Type|..n|` resources, `expr -> @name` sink writes, and resource selectors such as `@ma5[-1]`.
 
 ### 12.4 Development history, milestones, and test documentation
 
@@ -671,7 +672,7 @@ Agents working on specific areas should consult:
 | Task | Primary Reference |
 |------|-------------------|
 | Adding syntax | `../design/Styio-EBNF.md` (grammar), `../design/Styio-Symbol-Reference.md` (tokens) |
-| Topology v2 (`@name : [|n|]`, `:= { driver }`, `expr -> $x`) | `../design/Styio-Resource-Topology.md`, `../plans/Resource-Topology-v2-Implementation-Plan.md` (rollout + file matrix), `../review/Logic-Conflicts.md` |
+| Topology v2 (`@name : Type|n|`, `@name : Type|..n|`, `T..`, `expr -> @name`) | `../design/Styio-Resource-Topology.md`, `../plans/Resource-Topology-v2-Implementation-Plan.md` (rollout + file matrix), `../review/Logic-Conflicts.md` |
 | Implementing `@` propagation | `../design/Styio-Language-Design.md` §3.4 (Undefined type) |
 | State containers `@[...]` / `$` | `../design/Styio-Language-Design.md` §8 (State Management) |
 | Reserved wave tokens `<~` / `~>` | `../design/Styio-Symbol-Reference.md` §3 (reserved tokens) |

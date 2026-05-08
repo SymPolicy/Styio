@@ -1,4 +1,4 @@
-@[ref_val] << @file{"tests/m7/data/ref.txt"}
+@[ref_val] << @file("tests/m7/data/ref.txt")
 [1, 2, 3] >> #(x) => {
     y = x + $ref_val
     >_(y)

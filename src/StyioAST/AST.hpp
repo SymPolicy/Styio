@@ -2264,6 +2264,127 @@ public:
   }
 };
 
+enum class ResourceSelectorKind
+{
+  Whole,
+  Offset,
+  SliceFrom,
+  SnapshotAll,
+};
+
+class ResourceDeclAST : public StyioASTTraits<ResourceDeclAST>
+{
+public:
+  struct Slot
+  {
+    NameAST* name = nullptr;
+    TypeAST* type = nullptr;
+  };
+
+private:
+  std::vector<std::pair<std::unique_ptr<NameAST>, std::unique_ptr<TypeAST>>> slot_owners_;
+  std::vector<Slot> slots_;
+  std::unique_ptr<BlockAST> driver_owner_;
+  BlockAST* driver_ = nullptr;
+
+  void adopt_slots(std::vector<std::pair<NameAST*, TypeAST*>> owned_slots) {
+    slot_owners_.clear();
+    slots_.clear();
+    slot_owners_.reserve(owned_slots.size());
+    slots_.reserve(owned_slots.size());
+    for (auto& entry : owned_slots) {
+      slot_owners_.emplace_back(
+        std::unique_ptr<NameAST>(entry.first),
+        std::unique_ptr<TypeAST>(entry.second));
+      slots_.push_back(Slot{slot_owners_.back().first.get(), slot_owners_.back().second.get()});
+    }
+  }
+
+  ResourceDeclAST(std::vector<std::pair<NameAST*, TypeAST*>> slots, BlockAST* driver) :
+      driver_owner_(driver),
+      driver_(driver_owner_.get()) {
+    adopt_slots(std::move(slots));
+  }
+
+public:
+  static ResourceDeclAST* Create(std::vector<std::pair<NameAST*, TypeAST*>> slots, BlockAST* driver = nullptr) {
+    return new ResourceDeclAST(std::move(slots), driver);
+  }
+
+  const std::vector<Slot>& getSlots() const {
+    return slots_;
+  }
+
+  BlockAST* getDriver() const {
+    return driver_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::ResourceDecl;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+class ResourceRefAST : public StyioASTTraits<ResourceRefAST>
+{
+  std::unique_ptr<NameAST> name_owner_;
+  NameAST* name_ = nullptr;
+  ResourceSelectorKind selector_ = ResourceSelectorKind::Whole;
+  int selector_offset_ = 0;
+  StyioDataType data_type_{StyioDataTypeOption::Undefined, "undefined", 0};
+
+  ResourceRefAST(NameAST* name, ResourceSelectorKind selector, int selector_offset) :
+      name_owner_(name),
+      name_(name_owner_.get()),
+      selector_(selector),
+      selector_offset_(selector_offset) {
+  }
+
+public:
+  static ResourceRefAST* Create(NameAST* name) {
+    return new ResourceRefAST(name, ResourceSelectorKind::Whole, 0);
+  }
+
+  static ResourceRefAST* CreateSelector(NameAST* name, ResourceSelectorKind selector, int selector_offset = 0) {
+    return new ResourceRefAST(name, selector, selector_offset);
+  }
+
+  NameAST* getName() const {
+    return name_;
+  }
+
+  std::string getNameStr() const {
+    return name_ == nullptr ? std::string() : name_->getAsStr();
+  }
+
+  ResourceSelectorKind getSelectorKind() const {
+    return selector_;
+  }
+
+  int getSelectorOffset() const {
+    return selector_offset_;
+  }
+
+  bool isWholeResource() const {
+    return selector_ == ResourceSelectorKind::Whole;
+  }
+
+  void setDataType(StyioDataType type) {
+    data_type_ = std::move(type);
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::ResourceRef;
+  }
+
+  const StyioDataType getDataType() const {
+    return data_type_;
+  }
+};
+
 /*
   =================
     Statement: Variable Assignment (Variable-Value Binding)
@@ -2505,7 +2626,7 @@ public:
 };
 
 /*
-  M5: @file{"path"} or @{"path"} (auto)
+  M5: @file("path") or @{"path"} (auto)
 */
 class FileResourceAST : public StyioASTTraits<FileResourceAST>
 {
@@ -4538,26 +4659,77 @@ public:
   }
 };
 
+class TaskGroupLaunchAST : public StyioASTTraits<TaskGroupLaunchAST>
+{
+  std::vector<std::unique_ptr<StyioAST>> entry_owners_;
+  std::vector<StyioAST*> entries_;
+
+  explicit TaskGroupLaunchAST(std::vector<StyioAST*> entries) {
+    entry_owners_.reserve(entries.size());
+    entries_.reserve(entries.size());
+    for (auto* entry : entries) {
+      entry_owners_.emplace_back(entry);
+      entries_.push_back(entry_owners_.back().get());
+    }
+  }
+
+public:
+  static TaskGroupLaunchAST* Create(std::vector<StyioAST*> entries) {
+    return new TaskGroupLaunchAST(std::move(entries));
+  }
+
+  const std::vector<StyioAST*>& getEntries() const {
+    return entries_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::TaskGroupLaunch;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
 class FlowBindAST : public StyioASTTraits<FlowBindAST>
 {
   std::unique_ptr<StyioAST> source_owner_;
   std::unique_ptr<VarAST> target_owner_;
+  std::unique_ptr<StyioAST> fallback_owner_;
   StyioAST* source_ = nullptr;
   VarAST* target_ = nullptr;
+  StyioAST* fallback_ = nullptr;
   bool pull_direction_ = false;
+  bool declare_target_ = false;
+  bool await_bind_ = false;
   StyioDataType result_type_{StyioDataTypeOption::Undefined, "undefined", 0};
 
-  FlowBindAST(StyioAST* source, VarAST* target, bool pull_direction) :
+  FlowBindAST(
+    StyioAST* source,
+    VarAST* target,
+    bool pull_direction,
+    bool declare_target,
+    bool await_bind,
+    StyioAST* fallback = nullptr
+  ) :
       source_owner_(source),
       target_owner_(target),
+      fallback_owner_(fallback),
       source_(source_owner_.get()),
       target_(target_owner_.get()),
-      pull_direction_(pull_direction) {
+      fallback_(fallback_owner_.get()),
+      pull_direction_(pull_direction),
+      declare_target_(declare_target),
+      await_bind_(await_bind) {
   }
 
 public:
   static FlowBindAST* Create(StyioAST* source, VarAST* target, bool pull_direction = false) {
-    return new FlowBindAST(source, target, pull_direction);
+    return new FlowBindAST(source, target, pull_direction, false, false);
+  }
+
+  static FlowBindAST* CreateAwait(StyioAST* source, VarAST* target, StyioAST* fallback = nullptr) {
+    return new FlowBindAST(source, target, false, true, true, fallback);
   }
 
   StyioAST* getSource() {
@@ -4570,6 +4742,22 @@ public:
 
   bool isPullDirection() const {
     return pull_direction_;
+  }
+
+  bool declaresTarget() const {
+    return declare_target_;
+  }
+
+  bool isAwaitBind() const {
+    return await_bind_;
+  }
+
+  bool hasFallback() const {
+    return fallback_ != nullptr;
+  }
+
+  StyioAST* getFallback() {
+    return fallback_;
   }
 
   const std::string& getTargetNameAsStr() {

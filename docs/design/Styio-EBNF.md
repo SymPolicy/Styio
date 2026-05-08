@@ -2,7 +2,7 @@
 
 **Purpose:** 词法与语法的 **EBNF 权威定义**；资源拓扑相关附录与叙述以 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md) 为准，语义细节以 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 为准。
 
-**Last updated:** 2026-05-04
+**Last updated:** 2026-05-09
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -74,6 +74,8 @@ TOK_PIPE_SEMI      = '|;' ;
 
 (* Pipe *)
 TOK_PIPE           = '>>' ;
+TOK_TASK_LAUNCH    = '||>' ;
+TOK_AWAIT_PIPE     = '?|' ;
 
 (* IO buffer *)
 TOK_IO_BUF         = '>_' ;
@@ -81,14 +83,15 @@ TOK_IO_BUF         = '>_' ;
 (* Binding *)
 TOK_BIND           = ':=' ;
 
-(* Shift-back (history probe prefix inside [...]) *)
+(* Resource copy / legacy shift-back *)
 TOK_SHIFT_BACK     = '<<' ;
 
 (* Hash (function definition prefix) *)
 TOK_HASH           = '#' ;
 
-(* Ellipsis (infinite generator) *)
-TOK_ELLIPSIS       = '...' ;
+(* Dot run: two or more dots. '..', '...', and longer runs are normalized
+   by context as range separators or type repetition suffixes. *)
+TOK_DOT_RUN        = '..' { '.' } ;
 
 (* Standard operators *)
 TOK_PLUS           = '+' ;
@@ -157,12 +160,15 @@ program            = { top_level_statement [ statement_sep ] } EOF ;
 statement_sep      = ';' | '|;' ;
 
 top_level_statement = import_declaration
+                    | type_rewrite_decl
                     | statement ;
 
 statement          = declaration
                    | assignment
                    | state_declaration
                    | conditional_stmt
+                   | await_stmt
+                   | task_group_launch
                    | match_bind_expr
                    | flow_pipeline
                    | expression_stmt
@@ -208,14 +214,53 @@ function_body      = '(' [ param_list ] ')' [ '=>' ] ( block | expression ) ;
 param_list         = param { ',' param } ;
 param              = identifier [ ':' type_annotation ] ;
 
-type_annotation    = 'i8' | 'i16' | 'i32' | 'i64' | 'i128'
+type_annotation    = type_expr ;
+
+type_expr          = type_primary { type_suffix } ;
+
+type_primary       = scalar_type
+                   | identifier [ '[' type_arg_list ']' ]
+                   | tuple_type ;
+
+scalar_type        = 'i8' | 'i16' | 'i32' | 'i64' | 'i128'
                    | 'f32' | 'f64'
                    | 'bool' | 'char' | 'string' | 'byte'
-                   | 'matrix'
-                   | identifier ;
+                   | 'matrix' ;
+
+type_arg_list      = type_expr { ',' type_expr } ;
+
+tuple_type         = '(' type_expr ',' type_expr { ',' type_expr } ')' ;
+
+type_suffix        = fixed_length_suffix
+                   | recent_length_suffix
+                   | infinite_repeat_suffix ;
+
+fixed_length_suffix = '|' expression '|' ;       (* T|n| *)
+
+recent_length_suffix = '|' dot_run expression '|' ;  (* T|..n| *)
+
+infinite_repeat_suffix = dot_run ;               (* T.., T..., T..... *)
+
+dot_run            = '..' { '.' } ;              (* length >= 2 *)
 ```
 
-### 4.3 Schema Declaration
+### 4.3 Type Rewrite Declaration
+
+```ebnf
+type_rewrite_decl  = type_placeholder ':' type_expr ':=' type_expr ;
+
+type_placeholder   = '__' { '_' } ;              (* two or more underscores *)
+```
+
+Examples:
+
+```styio
+__ : list[T] := T..
+__ : string := char..
+__ : dict[K, V] := (K, V)..
+```
+
+### 4.4 Schema Declaration
 
 ```ebnf
 schema_def         = '#' identifier ':=' 'schema' '{'
@@ -237,7 +282,11 @@ assign_op          = '=' | '+=' | '-=' | '*=' | '/=' | ':=' ;
 
 ---
 
-## 6. State Declarations
+## 6. Legacy State Declarations (M6)
+
+The `@[...]` form remains documented as the implemented M6 surface, not the
+Topology v2 target. New topology design uses `@name : Type` resource
+declarations and resource-object selectors.
 
 ```ebnf
 state_declaration  = '@' '[' state_param ']' '(' assignment ')' ;
@@ -263,7 +312,7 @@ stream_source      = infinite_gen
                    | resource
                    | identifier ;
 
-infinite_gen       = '[' '...' ']' ;
+infinite_gen       = '[' dot_run ']' ;
 
 guard              = '?' '(' expression ')' ;
 
@@ -304,6 +353,23 @@ instant_pull       = '(' '<-' resource ')' ;
 
 legacy_instant_pull = '(' '<<' resource ')' ;  (* compatibility only; do not use in new design text *)
 ```
+
+### 7.4 Tasks and Await
+
+```ebnf
+task_expr          = '||>' block ;
+
+task_group_launch  = '||>' '[' task_group_entry { statement_sep task_group_entry } ']' ;
+
+task_group_entry   = identifier ( ':=' | '=' ) block ;
+
+await_stmt         = '?|' [ expression ] '->' identifier ':' type_annotation
+                     [ '|' expression ] ;
+```
+
+`await_stmt` without a source (`?| -> name: T`) is reserved for bare continuation
+freeze. The parser accepts it, but current semantic analysis rejects it until
+continuation lowering can enforce one-shot resume/discontinue.
 
 ---
 
@@ -358,7 +424,13 @@ unary_expr         = ( '!' | '-' ) unary_expr
 
 postfix_expr       = primary_expr { selector | call | member_access } ;
 
-selector           = '[' [ selector_mode ',' ] expression_list ']' ;
+selector           = '[' selector_body ']' ;
+
+selector_body      = dot_run                         (* x[..], x[...] *)
+                   | expression dot_run [ expression ]  (* x[a..], x[a..b] *)
+                   | dot_run expression              (* x[..b] *)
+                   | [ selector_mode ',' ] expression_list ;
+
 selector_mode      = 'avg' | 'max' | 'min' | 'std' | 'rsi'
                    | identifier ;
 
@@ -381,7 +453,7 @@ primary_expr       = identifier
                    | float_literal
                    | string_literal
                    | 'true' | 'false'
-                   | '@'                           (* Undefined *)
+                   | '@'                           (* retired source-level undefined *)
                    | resource
                    | collection
                    | instant_pull
@@ -390,7 +462,7 @@ primary_expr       = identifier
                    | '?' '(' expression ')'        (* guard condition prefix; followed by => for value selection *)
                    | block ;
 
-state_ref          = '$' identifier [ selector ] ;
+state_ref          = '$' identifier [ selector ] ;  (* legacy M6 state reference *)
 ```
 
 ---
@@ -399,18 +471,19 @@ state_ref          = '$' identifier [ selector ] ;
 
 ```ebnf
 resource           = std_stream_resource
-                   | '@' [ identifier ] ( '{' expression '}' | '(' expression ')' ) ;
+                   | '@' identifier '(' expression ')'
+                   | '@' ( '{' expression '}' | '(' expression ')' ) ;
 
 std_stream_resource = '@stdout' | '@stderr' | '@stdin' ;
 
-resource_decl      = '@' identifier [ ':' type ] ':=' '#' '(' [ param_list ] ')' '=>' block ;
+resource_decl      = '@' identifier [ ':' type_annotation ] ':=' '#' '(' [ param_list ] ')' '=>' block ;
 ```
 
 Examples:
 - `@("localhost:8080")` — auto-detect
-- `@file{"readme.txt"}` — explicit file
-- `@binance{"BTCUSDT"}` — exchange feed
-- `@mysql{"localhost:3306"}` — database
+- `@file("readme.txt")` — explicit file
+- `@binance("BTCUSDT")` — exchange feed
+- `@mysql("localhost:3306")` — database
 
 ### 9.1 Standard Stream Resources
 
@@ -519,14 +592,16 @@ When the parser encounters `>>` (or longer `>>>`, `>>>>`, etc.):
 ### Rule 2: `@` Disambiguation
 
 - `@` alone as a source expression: **retired**. Use resource/intrinsic-produced absence; active milestone fixtures must not author bare `@` directly.
-- `@[`: **State container declaration**
-- `@` followed by identifier then `{` or `(`: **Resource with protocol**
+- `@[`: **Legacy M6 state container declaration**
+- `@` followed by identifier then `:`: **Topology v2 resource declaration**
+- `@` followed by identifier then `(`: **Resource with explicit protocol**
+- `@` followed by identifier then `{`: **Invalid for explicit resources; use `@name(...)`**
 - `@{` or `@(`: **Anonymous resource**
 - `@` followed by `stdout`, `stderr`, or `stdin` (bare identifier, no `{}`/`()`): **Standard stream resource** — the lexer produces `TOK_AT` + `NAME("stdout"|"stderr"|"stdin")`, and the parser resolves it directly to a standard-stream resource atom.
 
 ### Rule 3: `$` Disambiguation
 
-- `$` followed by identifier: **State reference**
+- `$` followed by identifier: **Legacy M6 state reference**
 - `$` followed by `(`: **Capture list** (only valid in function declaration context)
 - `$` followed by string literal: **Format string**
 
@@ -545,8 +620,8 @@ The lexer always prefers the two-character compound token over individual charac
 **Full narrative:** [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md).
 
 This appendix fixes the broader topology grammar. The current compiler now accepts single-resource
-internal declarations of the form `@ name [: type] := #(args) => { ... }`; multi-resource topology
-binding and full shadow-state semantics remain future work.
+internal declarations of the form `@ name [: type] := #(args) => { ... }`; the v2 user-facing
+resource declaration, length suffixes, and resource-object selectors remain target work.
 
 ### B.1 Program and top-level resource
 
@@ -567,22 +642,48 @@ driver_block_v2    = "{" stream_topology "}" ;
 ### B.2 Types (extensions)
 
 ```ebnf
-type_v2            = scalar_type | bounded_buffer | (* … *) ;
-bounded_buffer     = "[|" integer "|]" ;   (* ring capacity n — new tokens [| and |] *)
-scalar_type        = "f64" | "i64" | "bool" | "string" ;
-(* infinite stream [...] and finite range [a .. b] remain as today *)
+type_v2            = type_primary { type_suffix } ;
+
+type_primary       = scalar_type
+                   | identifier "[" type_arg_list "]"
+                   | "(" type_v2 "," type_v2 { "," type_v2 } ")" ;
+
+type_arg_list      = type_v2 { "," type_v2 } ;
+
+type_suffix        = "|" expression "|"            (* T|n| exact length *)
+                   | "|" dot_run expression "|"    (* T|..n| recent n *)
+                   | dot_run ;                     (* T.. / T... infinite repetition *)
+
+dot_run            = ".." { "." } ;                (* two or more dots normalize *)
+
+scalar_type        = "f64" | "i64" | "bool" | "char" | "string" ;
 ```
 
-### B.3 State write vs assignment (strict topology mode)
+### B.3 Type rewrite rules
 
 ```ebnf
-state_write_v2     = expression "->" "$" identifier ;
+type_rewrite_v2    = type_placeholder ":" type_v2 ":=" type_v2 ;
+type_placeholder   = "__" { "_" } ;
+```
+
+Examples:
+
+```styio
+__ : list[T] := T..
+__ : string := char..
+__ : dict[K, V] := (K, V)..
+```
+
+### B.4 Resource write vs assignment (strict topology mode)
+
+```ebnf
+resource_write_v2  = expression "->" "@" identifier ;
 assignment_v2      = identifier "=" expression ;   (* locals only *)
 ```
 
-Semantic check: if LHS is **`$name`** bound to a **resource shadow**, reject **`=`** and require **`->`**.
+Semantic check: a topology sink write must use `expr -> @name`. A bare `@name` expression is
+the resource object itself; latest-value reads must use a selector such as `@name[-1]`.
 
-### B.4 Lexer additions
+### B.5 Lexer additions
 
-- **Implemented (2026-03):** **`[|`** and **`|]`** as paired delimiters for **`[|n|]`** (`StyioTokenType::BOUNDED_BUFFER_OPEN` / `BOUNDED_BUFFER_CLOSE` in `Token.hpp`; see `Tokenizer.cpp`).
-- **Still TBD:** validate **`|]`** only closes **`[|`** (nesting / error recovery); top-level `ResourceDecl` grammar remains future work.
+- **Target:** dot runs of length >= 2 normalize in range, selector, and type-repetition contexts: `..`, `...`, and longer runs are equivalent separators.
