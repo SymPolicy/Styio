@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of AST lifecycle, semantic analysis, type inference, StyioIR lowering, string representation, and compilation session ownership.
 
-**Last updated:** 2026-05-08
+**Last updated:** 2026-05-09
 
 ## Mission
 
@@ -50,6 +50,7 @@ High-value docs:
 18. Task resource bindings follow the same value-family rule: `TaskBlockAST` must infer `task[T]`. Ordinary `FlowBindAST` still requires a predeclared mutable target, while `?| job -> answer: T | fallback` declares the await target and consumes the task/future handle once before lowering to `SIOTaskCreate` plus `SIOFlowBind`. Bare `?| -> answer: T` must fail closed until continuation lowering can guarantee one-shot resume/discontinue. Free scalar references inside `||>` are captured into the task context; local binds inside the task body must not inflate that context.
 19. Match expression result kinds must preserve scalar families through IR. If tail expressions can yield `f64`, the `SGMatchReprKind` and lowering classifier must carry a float result kind instead of silently collapsing the branch value to `i64`.
 20. Resource topology graph validation is part of the Sema-to-Lowering boundary. Changes to file resources, standard streams, handles, state slots, hidden ledgers, stream ops, or task resources must update `src/StyioResourceTopology/` before lowering can accept the new shape.
+21. Retired state AST nodes may remain as internal ledger/lowering structures and ownership-test fixtures, but source syntax must enter through Topology v2 resources. User-facing diagnostics should point to `@name : Type`, `expr -> @name`, and `@name[-1]`, not to the old M6 spelling.
 
 ## Change Classes
 

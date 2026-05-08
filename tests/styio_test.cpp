@@ -3516,7 +3516,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForSnapshotDeclSubs
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "@[ref_val] << @file(\"tests/m7/data/ref.txt\")\n";
+    out << "ref_val = (<< @file(\"tests/m7/data/ref.txt\"))\n";
   }
   ASSERT_TRUE(fs::create_directories(artifact_dir));
 
@@ -4075,7 +4075,7 @@ TEST(StyioDiagnostics, StreamZipUnsupportedSourceReportsTypeError) {
   fs::remove(input);
 }
 
-TEST(StyioDiagnostics, SeriesIntrinsicWindowNonLiteralReportsTypeError) {
+TEST(StyioDiagnostics, RetiredLegacyStateDeclReportsParseError) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -4085,9 +4085,7 @@ TEST(StyioDiagnostics, SeriesIntrinsicWindowNonLiteralReportsTypeError) {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
     out << "[1, 2, 3] >> #(p) => {\n";
-    out << "  n = 3\n";
-    out << "  @[3](ma = p[avg, n])\n";
-    out << "  >_(ma)\n";
+    out << "  @[3](ma = p)\n";
     out << "}\n";
   }
 
@@ -4102,11 +4100,9 @@ TEST(StyioDiagnostics, SeriesIntrinsicWindowNonLiteralReportsTypeError) {
     + input.string() + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
-  EXPECT_EQ(result.exit_code, 4);
-  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("window size for series intrinsic must be integer literal"), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("Styio.TypeError"), std::string::npos);
+  EXPECT_EQ(result.exit_code, 3);
+  EXPECT_NE(result.stdout_text.find("\"category\":\"ParseError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("legacy M6 @[...] syntax is retired"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("Styio.NotImplemented"), std::string::npos);
 
   fs::remove(input);
@@ -4121,10 +4117,11 @@ TEST(StyioDiagnostics, SingleArgStateFunctionInliningUsesCallArgument) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "# pulse = (x) => @[sum = 0](out = $sum + x)\n";
+    out << "@out : i64|..3|\n";
     out << "[1, 2, 3] >> #(v) => {\n";
-    out << "  pulse(v)\n";
-    out << "  >_(out)\n";
+    out << "  next = @out[-1] + v\n";
+    out << "  next -> @out\n";
+    out << "  >_(next)\n";
     out << "}\n";
   }
 
@@ -4154,12 +4151,11 @@ TEST(StyioDiagnostics, BlockStateFunctionInliningUsesCallArgument) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "# pulse = (x) => {\n";
-    out << "  @[sum = 0](out = $sum + x)\n";
-    out << "}\n";
+    out << "@out : i64|..3|\n";
     out << "[1, 2, 3] >> #(v) => {\n";
-    out << "  pulse(v)\n";
-    out << "  >_(out)\n";
+    out << "  next = @out[-1] + v\n";
+    out << "  next -> @out\n";
+    out << "  >_(next)\n";
     out << "}\n";
   }
 
@@ -4189,13 +4185,14 @@ TEST(StyioDiagnostics, StateInlineMatchCasesFunctionUsesCallArgument) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "# pulse = (x) => @[sum = 0](out = x ?= {\n";
-    out << "  1 => { <| $sum + 10 }\n";
-    out << "  _ => { <| $sum + x }\n";
-    out << "})\n";
+    out << "@out : i64|..3|\n";
     out << "[1, 2, 3] >> #(v) => {\n";
-    out << "  pulse(v)\n";
-    out << "  >_(out)\n";
+    out << "  next = v ?= {\n";
+    out << "    1 => { <| @out[-1] + 10 }\n";
+    out << "    _ => { <| @out[-1] + v }\n";
+    out << "  }\n";
+    out << "  next -> @out\n";
+    out << "  >_(next)\n";
     out << "}\n";
   }
 
@@ -4225,10 +4222,10 @@ TEST(StyioDiagnostics, StateInlineInfiniteLiteralFunctionUsesCallArgument) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "# pulse = (x) => @[sum = 0](out = [...])\n";
+    out << "@out : i64|..2|\n";
     out << "[1, 2] >> #(v) => {\n";
-    out << "  pulse(v)\n";
-    out << "  >_(out)\n";
+    out << "  0 -> @out\n";
+    out << "  >_(0)\n";
     out << "}\n";
   }
 

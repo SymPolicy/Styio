@@ -1,14 +1,13 @@
-@	@
-[	[
 <ID>	factor
-]	]
- 	 
+=	=
+(	(
 <<	<<
  	 
 @	@
 <ID>	file
 (	(
 <STRING>	"tests/pipeline_cases/p05_snapshot_accum/factor.txt"
+)	)
 )	)
 <LF>	\n
 <ID>	sum
@@ -50,7 +49,6 @@
  	 
 *	*
  	 
-$	$
 <ID>	factor
 <LF>	\n
  	 

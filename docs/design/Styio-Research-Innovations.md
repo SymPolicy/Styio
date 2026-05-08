@@ -68,13 +68,13 @@ In asynchronous stream systems, reading a shared variable twice in the same comp
 
 ### Styio's Contribution
 
-Styio introduces **pulse frame locking**: when a primary stream (`>>`) triggers a closure, all declared shadow variables (`$var`) are atomically captured at the frame boundary. Within the closure, `$var` is immutable — a compile-time guarantee.
+Styio introduces **pulse frame locking**: when a primary stream (`>>`) triggers a closure, committed resource snapshots such as `@price[-1]` are captured at the frame boundary. Within the closure, repeated reads observe the same committed value — a compile-time guarantee.
 
 **Formal invariant:**
 
 For a closure \(C\) triggered by pulse \(p_t\) at time \(t\):
 
-\[\forall \text{ reads } r_1, r_2 \text{ of } \$v \text{ within } C: r_1 = r_2\]
+\[\forall \text{ reads } r_1, r_2 \text{ of } @v[-1] \text{ within } C: r_1 = r_2\]
 
 **Implementation:**
 
@@ -151,11 +151,11 @@ Stream processing requires persistent state (accumulators, buffers, counters). I
 
 ### Styio's Contribution
 
-Styio's `@[...]` syntax lets developers declare state **locally** (next to the logic that uses it), while the compiler **globally optimizes** the memory layout:
+Styio's Topology v2 syntax lets developers declare resources **at the top level** while keeping reads and writes close to the logic that uses them. The compiler still globally optimizes the memory layout:
 
-1. **Implicit hoisting:** All `@[...]` declarations are extracted during analysis
+1. **Explicit resource table:** Top-level `@name : Type|..n|` declarations establish durable slots during analysis
 2. **Contiguous allocation:** Hoisted states are packed into a single memory block (the "anonymous ledger")
-3. **Offset rewriting:** All `$var` references are compiled to `base_ptr + constant_offset`
+3. **Offset rewriting:** Resource selectors such as `@name[-1]` compile to `base_ptr + constant_offset`
 
 **Formal model:**
 
@@ -202,7 +202,7 @@ Most systems offer this choice only at the API level (e.g., Flink's `connect().p
 Styio encodes synchronization mode **directly in the AST** via two distinct syntactic constructs:
 
 1. **Zip (`&`):** `A >> #(a) & B >> #(b) => { ... }` — generates synchronized barrier code
-2. **Snapshot (`@[v] << @res` + `$v`):** Generates async shadow update + atomic read
+2. **Snapshot (`snapshot << @res[...]` or `ref = (<< @res)`):** Generates async shadow update + atomic read
 
 Because the synchronization mode is known at compile time, the code generator produces fundamentally different LLVM IR:
 

@@ -163,6 +163,19 @@ foreach(_F IN LISTS M12_FAIL_TESTS)
   set_tests_properties("m12_err_${_ENAME}" PROPERTIES LABELS "milestone;m12;m12_semantic")
 endforeach()
 
+# M6 retired legacy state/snapshot syntax: compilation must abort (e*.styio)
+file(GLOB M6_FAIL_TESTS CONFIGURE_DEPENDS "${STYIO_MS}/m6/e*.styio")
+list(SORT M6_FAIL_TESTS)
+foreach(_F IN LISTS M6_FAIL_TESTS)
+  get_filename_component(_ENAME ${_F} NAME_WE)
+  add_test(
+    NAME "m6_err_${_ENAME}"
+    COMMAND bash -c "if \"${STYIO_EXE}\" --file \"${_F}\"; then exit 1; else exit 0; fi"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  )
+  set_tests_properties("m6_err_${_ENAME}" PROPERTIES LABELS "milestone;m6;m6_semantic")
+endforeach()
+
 # M8 semantic failures: compilation must abort (e*.styio)
 file(GLOB M8_FAIL_TESTS CONFIGURE_DEPENDS "${STYIO_MS}/m8/e*.styio")
 list(SORT M8_FAIL_TESTS)

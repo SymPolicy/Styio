@@ -1,7 +1,9 @@
 styio.ast.main {
-|- styio.ast.snapshot.decl { factor <- styio.ast.resource.file  {
-    |- auto_detect: false
-    |- path: styio.ast.string { "tests/pipeline_cases/p05_snapshot_accum/factor.txt" }} }
+|- styio.ast.bind.flex {
+  |- var : styio.ast.var { factor : undefined }
+  |- val = styio.ast.instant.pull { styio.ast.resource.file  {
+      |- auto_detect: false
+      |- path: styio.ast.string { "tests/pipeline_cases/p05_snapshot_accum/factor.txt" }} }}
 |- styio.ast.bind.flex {
   |- var : styio.ast.var { sum : int }
   |- val = { 0 : int }}
@@ -17,7 +19,7 @@ styio.ast.main {
       |- val = styio.ast.binop: i64 {
         |- LHS: x
         |- OP : <Mul>
-        |- RHS: styio.ast.state.ref  $factor}}
+        |- RHS: factor}}
     |- styio.ast.binop: int {
       |- LHS: sum
       |- OP : +=

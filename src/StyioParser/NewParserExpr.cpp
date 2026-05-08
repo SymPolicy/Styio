@@ -1379,13 +1379,8 @@ private:
   }
 
   StyioAST* parse_state_ref_nightly_draft() {
-    context_.move_forward(1, "new_expr:$");
-    context_.skip();
-    if (context_.cur_tok_type() != StyioTokenType::NAME) {
-      throw StyioSyntaxError(context_.mark_cur_tok("expected name after $ in nightly parser subset"));
-    }
-    NameAST* name = parse_name_unsafe(context_);
-    return StateRefAST::Create(name);
+    throw StyioSyntaxError(context_.mark_cur_tok(
+      "legacy M6 $state syntax is retired; use @name[-1] resource selectors"));
   }
 
   StyioAST* parse_primary() {
