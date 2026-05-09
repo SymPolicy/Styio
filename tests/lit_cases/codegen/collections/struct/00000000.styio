@@ -1,9 +1,0 @@
-// RUN: %{styio} --llvm-ir %s | FileCheck %s
-
-Node = {
-  name : string,
-  val : int,
-
-  prev : Node,
-  next : Node,
-}

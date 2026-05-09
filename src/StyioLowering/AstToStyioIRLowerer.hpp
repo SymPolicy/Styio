@@ -53,9 +53,16 @@ public:
   StyioIR* toStyioIR(HandleAcquireAST* ast) override;
   StyioIR* toStyioIR(ResourceWriteAST* ast) override;
   StyioIR* toStyioIR(ResourceRedirectAST* ast) override;
+  StyioIR* lowerResourceSinkWriteLatest(StyioAST* data, StyioAST* resource, bool redirect_mode);
   StyioIR* toStyioIR(BinOpAST* ast) override;
   StyioIR* toStyioIR(FmtStrAST* ast) override;
   StyioIR* toStyioIR(ResourceAST* ast) override;
+  StyioIR* toStyioIR(EmptyResourceAST* ast) override;
+  StyioIR* toStyioIR(ResourceReceiverAST* ast) override;
+  StyioIR* toStyioIR(ResourceMethodDefAST* ast) override;
+  StyioIR* toStyioIR(ResourceOrderAST* ast) override;
+  StyioIR* toStyioIR(ResourceDeclAST* ast) override;
+  StyioIR* toStyioIR(ResourceRefAST* ast) override;
   StyioIR* toStyioIR(ResPathAST* ast) override;
   StyioIR* toStyioIR(RemotePathAST* ast) override;
   StyioIR* toStyioIR(WebUrlAST* ast) override;
@@ -86,8 +93,8 @@ public:
   StyioIR* toStyioIR(StreamZipAST* ast) override;
   StyioIR* toStyioIR(SnapshotDeclAST* ast) override;
   StyioIR* toStyioIR(InstantPullAST* ast) override;
-  StyioIR* toStyioIR(TypedStdinListAST* ast) override;
   StyioIR* toStyioIR(TaskBlockAST* ast) override;
+  StyioIR* toStyioIR(TaskGroupLaunchAST* ast) override;
   StyioIR* toStyioIR(FlowBindAST* ast) override;
   StyioIR* toStyioIR(IterSeqAST* ast) override;
   StyioIR* toStyioIR(InfiniteLoopAST* ast) override;
@@ -99,6 +106,12 @@ public:
   StyioIR* toStyioIR(MatchCasesAST* ast) override;
   StyioIR* toStyioIR(BlockAST* ast) override;
   StyioIR* toStyioIR(MainBlockAST* ast) override;
+  StyioAST* resolveResourceReceiverExprLatest(StyioAST* expr) const;
+
+private:
+  std::unordered_map<std::string, FileResourceAST*> file_resource_bindings_;
+  std::unordered_map<std::string, std::unordered_map<std::string, ResourceMethodDefAST*>> resource_method_body_defs_;
+  std::unordered_map<std::string, StyioAST*> resource_receiver_expr_bindings_;
 };
 
 using StyioAnalyzer = AstToStyioIRLowerer;

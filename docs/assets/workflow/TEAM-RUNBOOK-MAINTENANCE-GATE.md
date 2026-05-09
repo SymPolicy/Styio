@@ -64,7 +64,7 @@ Gate failures print the missing, duplicate, extra, or out-of-order section and p
 
 | Team doc | Watched paths |
 |----------|---------------|
-| `FRONTEND-RUNBOOK.md` | `src/StyioToken/`, `src/StyioUnicode/`, `src/StyioParser/`, `src/Deprecated/` |
+| `FRONTEND-RUNBOOK.md` | `src/StyioToken/`, `src/StyioUnicode/`, `src/StyioParser/`, archived parser history |
 | `SEMA-IR-RUNBOOK.md` | `src/StyioAST/`, `src/StyioSema/`, `src/StyioLowering/`, `src/StyioIR/`, `src/StyioToString/`, `src/StyioSession/` |
 | `CODEGEN-RUNTIME-RUNBOOK.md` | `src/StyioCodeGen/`, `src/StyioJIT/`, `src/StyioExtern/`, `src/StyioRuntime/` |
 | `CLI-NANO-RUNBOOK.md` | `src/main.cpp`, `src/StyioConfig/`, `configs/`, `scripts/gen-styio-nano-profile.py`, `docs/external/for-spio/` |

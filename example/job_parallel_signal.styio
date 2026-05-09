@@ -1,0 +1,14 @@
+price_a, price_b <- @stdin : (f64, f64)
+
+||> [
+    spread_job := { <| price_a - price_b }
+    midpoint_job := { <| (price_a + price_b) / 2.0 }
+]
+
+?| spread_job -> spread: f64 | 0.0
+?| midpoint_job -> midpoint: f64 | 0.0
+
+?(spread > 5.0 || spread < -5.0) => {
+    signal = ("parallel signal: spread=" + spread) + ", midpoint=" + midpoint
+    signal -> @stdout
+}

@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the repository-local Tree-sitter grammar and edit-time syntax backend contract.
 
-**Last updated:** 2026-05-01
+**Last updated:** 2026-05-09
 
 ## Mission
 
@@ -28,6 +28,7 @@ Primary paths:
 5. Run IDE tests with `STYIO_ENABLE_TREE_SITTER=ON`; when relevant, also configure with it OFF to preserve tolerant fallback.
 6. For token repetitions such as `^...`, keep edit-time recognition tolerant while following the language SSOT for semantics; caret count is not a Tree-sitter-owned break-depth contract.
 7. When conditional-loop syntax changes, keep compiler parser tests, [../design/Styio-EBNF.md](../design/Styio-EBNF.md), language design docs, and symbol reference aligned; the active form is `[...] >> ?(condition) => { ... }`.
+8. Generated support headers may be edited only for repository-public wording cleanup or regenerated artifact hygiene; keep those edits narrow and rerun grammar/IDE gates when behavior changes.
 
 ## Change Classes
 
@@ -63,7 +64,7 @@ ctest --test-dir build-no-tree-sitter -L ide
 ## Cross-Team Dependencies
 
 1. IDE / LSP must review every syntax snapshot or adapter behavior change.
-2. Frontend must review grammar changes that claim alignment with compiler parser behavior.
+2. Frontend must review grammar changes that assert alignment with compiler parser behavior.
 3. Test Quality must review IDE regression coverage for error recovery and incremental reuse.
 4. Docs / Ecosystem must review `docs/external/for-ide/` updates.
 

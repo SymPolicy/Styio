@@ -539,12 +539,34 @@ StyioRepr::toString(TaskBlockAST* ast, int indent) {
 }
 
 std::string
+StyioRepr::toString(TaskGroupLaunchAST* ast, int indent) {
+  std::string out;
+  const auto& entries = ast->getEntries();
+  for (size_t i = 0; i < entries.size(); ++i) {
+    out += make_padding(indent) + entries[i]->toString(this, indent + 1);
+    if (i + 1 < entries.size()) {
+      out += "\n";
+    }
+  }
+  return reprASTType(ast->getNodeType(), " ") + "{\n" + out + "}";
+}
+
+std::string
 StyioRepr::toString(FlowBindAST* ast, int indent) {
-  return reprASTType(ast->getNodeType(), " ")
-         + " {\n"
-         + make_padding(indent) + "source: " + ast->getSource()->toString(this, indent + 1) + "\n"
-         + make_padding(indent) + "target: " + ast->getTarget()->toString(this, indent + 1)
-         + "}";
+  std::string out = reprASTType(ast->getNodeType(), " ")
+    + " {\n"
+    + make_padding(indent) + "source: "
+    + (ast->getSource() ? ast->getSource()->toString(this, indent + 1) : std::string("freeze")) + "\n"
+    + make_padding(indent) + "target: " + ast->getTarget()->toString(this, indent + 1);
+  if (ast->isAwaitBind()) {
+    out += "\n" + make_padding(indent) + "await: true";
+  }
+  if (ast->hasFallback()) {
+    out += "\n" + make_padding(indent) + "fallback: "
+      + ast->getFallback()->toString(this, indent + 1);
+  }
+  out += "}";
+  return out;
 }
 
 std::string
@@ -619,6 +641,89 @@ StyioRepr::toString(ResourceAST* ast, int indent) {
   }
 
   return reprASTType(ast->getNodeType(), " ") + "{\n" + var_str + "}";
+}
+
+std::string
+StyioRepr::toString(EmptyResourceAST* ast, int indent) {
+  (void)indent;
+  return reprASTType(ast->getNodeType(), " ") + "{ @() }";
+}
+
+std::string
+StyioRepr::toString(ResourceReceiverAST* ast, int indent) {
+  (void)indent;
+  return reprASTType(ast->getNodeType(), " ") + "{ @" + ast->getFamilyName() + " }";
+}
+
+std::string
+StyioRepr::toString(ResourceMethodDefAST* ast, int indent) {
+  std::string body;
+  if (ast->getBody() != nullptr) {
+    body = "\n" + ast->getBody()->toString(this, indent + 1);
+  }
+  return reprASTType(ast->getNodeType(), " ") + "{ @"
+    + ast->getFamilyName() + "::" + ast->getMethodName()
+    + (ast->isFinalBinding() ? " :=" : " =")
+    + (ast->isProperty() ? " property" : " method")
+    + body + " }";
+}
+
+std::string
+StyioRepr::toString(ResourceOrderAST* ast, int indent) {
+  std::string before = ast->getBefore() == nullptr
+    ? "<null>"
+    : ast->getBefore()->toString(this, indent + 1);
+  std::string after = ast->getAfter() == nullptr
+    ? "<null>"
+    : ast->getAfter()->toString(this, indent + 1);
+  return reprASTType(ast->getNodeType(), " ") + "{\n"
+    + make_padding(indent + 1) + before + "\n"
+    + make_padding(indent + 1) + "=>\n"
+    + make_padding(indent + 1) + after + "\n"
+    + make_padding(indent) + "}";
+}
+
+std::string
+StyioRepr::toString(ResourceDeclAST* ast, int indent) {
+  string var_str;
+  const auto& slots = ast->getSlots();
+  for (int i = 0; i < static_cast<int>(slots.size()); i++) {
+    var_str += make_padding(indent) + "@"
+      + slots[i].name->getAsStr()
+      + " : "
+      + slots[i].type->getTypeName();
+    if (i < static_cast<int>(slots.size()) - 1) {
+      var_str += "\n";
+    }
+  }
+  if (ast->getDriver() != nullptr) {
+    if (!var_str.empty()) {
+      var_str += "\n";
+    }
+    var_str += make_padding(indent) + "driver: "
+      + ast->getDriver()->toString(this, indent + 1);
+  }
+  return reprASTType(ast->getNodeType(), " ") + "{\n" + var_str + "}";
+}
+
+std::string
+StyioRepr::toString(ResourceRefAST* ast, int indent) {
+  std::string selector;
+  switch (ast->getSelectorKind()) {
+    case ResourceSelectorKind::Whole:
+      break;
+    case ResourceSelectorKind::Offset:
+      selector = "[" + std::to_string(ast->getSelectorOffset()) + "]";
+      break;
+    case ResourceSelectorKind::SliceFrom:
+      selector = "[" + std::to_string(ast->getSelectorOffset()) + "..]";
+      break;
+    case ResourceSelectorKind::SnapshotAll:
+      selector = "[...]";
+      break;
+  }
+  return reprASTType(ast->getNodeType(), " ") + "{ @"
+    + ast->getNameStr() + selector + " }";
 }
 
 std::string
@@ -1089,14 +1194,14 @@ StyioRepr::toString(SnapshotDeclAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(InstantPullAST* ast, int indent) {
+  const StyioDataType type = ast->getDataType();
+  if (type.option == StyioDataTypeOption::Integer && type.name == "i64") {
+    return reprASTType(ast->getNodeType()) + " { "
+           + ast->getResource()->toString(this, indent + 1) + " }";
+  }
   return reprASTType(ast->getNodeType()) + " { "
-         + ast->getResource()->toString(this, indent + 1) + " }";
-}
-
-std::string
-StyioRepr::toString(TypedStdinListAST* ast, int indent) {
-  return reprASTType(ast->getNodeType()) + " { "
-         + ast->getListType()->toString(this, indent + 1) + " }";
+         + ast->getResource()->toString(this, indent + 1)
+         + " : " + type.name + " }";
 }
 
 std::string
@@ -1374,7 +1479,16 @@ StyioRepr::toString(SGBlock* node, int indent) {
 
 std::string
 StyioRepr::toString(SGEntry* node, int indent) {
-  return std::string("styio.ir.entry { ") + " }";
+  if (node->stmts.empty()) {
+    return "styio.ir.entry { }";
+  }
+
+  std::string stmtstr;
+  for (size_t i = 0; i < node->stmts.size(); i++) {
+    stmtstr += make_padding(indent) + node->stmts.at(i)->toString(this, indent + 1) + "\n";
+  }
+
+  return std::string("styio.ir.entry {\n") + stmtstr + "}";
 }
 
 std::string
@@ -1570,6 +1684,16 @@ StyioRepr::toString(SIOHandleAcquire* node, int indent) {
 }
 
 std::string
+StyioRepr::toString(SIOHandleRelease* node, int indent) {
+  if (node->from_path) {
+    std::string p = node->path_expr ? node->path_expr->toString(this, indent) : std::string("null");
+    return std::string("styio.ir.handle_release { path=") + p
+           + ", auto=" + (node->is_auto ? "1" : "0") + " }";
+  }
+  return std::string("styio.ir.handle_release { ") + node->var_name + " }";
+}
+
+std::string
 StyioRepr::toString(SIOFileLineIter* node, int indent) {
   std::string s = "styio.ir.file_line_iter { ";
   if (node->from_path) {
@@ -1730,7 +1854,7 @@ StyioRepr::toString(SIOStdStreamLineIter* node, int indent) {
 
 std::string
 StyioRepr::toString(SIOStdStreamPull* node, int indent) {
-  return std::string("styio.ir.stdin_pull { }");
+  return std::string("styio.ir.stdin_pull { type=") + node->result_type.name + " }";
 }
 
 std::string
@@ -1745,8 +1869,11 @@ std::string
 StyioRepr::toString(SIOFlowBind* node, int indent) {
   return std::string("styio.ir.flow_bind { target=") + node->target_name
          + ", task=" + (node->source_is_task ? "true" : "false")
+         + ", await=" + (node->await_bind ? "true" : "false")
          + ", source="
          + (node->source_expr ? node->source_expr->toString(this, indent) : std::string("null"))
+         + ", fallback="
+         + (node->fallback_expr ? node->fallback_expr->toString(this, indent) : std::string("null"))
          + " }";
 }
 

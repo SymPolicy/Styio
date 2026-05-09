@@ -103,8 +103,8 @@ using StyioToStringVisitor = ToStringVisitor<
   class StreamZipAST,
   class SnapshotDeclAST,
   class InstantPullAST,
-  class TypedStdinListAST,
   class TaskBlockAST,
+  class TaskGroupLaunchAST,
   class FlowBindAST,
   class IterSeqAST,
   class InfiniteLoopAST,
@@ -145,6 +145,12 @@ using StyioToStringVisitor = ToStringVisitor<
   class FmtStrAST,
 
   class ResourceAST,
+  class EmptyResourceAST,
+  class ResourceReceiverAST,
+  class ResourceMethodDefAST,
+  class ResourceOrderAST,
+  class ResourceDeclAST,
+  class ResourceRefAST,
 
   class ResPathAST,
   class RemotePathAST,
@@ -260,6 +266,12 @@ public:
   std::string toString(ListOpAST* ast, int indent = 0);
 
   std::string toString(ResourceAST* ast, int indent = 0);
+  std::string toString(EmptyResourceAST* ast, int indent = 0);
+  std::string toString(ResourceReceiverAST* ast, int indent = 0);
+  std::string toString(ResourceMethodDefAST* ast, int indent = 0);
+  std::string toString(ResourceOrderAST* ast, int indent = 0);
+  std::string toString(ResourceDeclAST* ast, int indent = 0);
+  std::string toString(ResourceRefAST* ast, int indent = 0);
 
   std::string toString(FlexBindAST* ast, int indent = 0);
 
@@ -313,9 +325,9 @@ public:
 
   std::string toString(InstantPullAST* ast, int indent = 0);
 
-  std::string toString(TypedStdinListAST* ast, int indent = 0);
-
   std::string toString(TaskBlockAST* ast, int indent = 0);
+
+  std::string toString(TaskGroupLaunchAST* ast, int indent = 0);
 
   std::string toString(FlowBindAST* ast, int indent = 0);
 
@@ -393,6 +405,7 @@ public:
   std::string toString(SGEqProbe* node, int indent = 0);
 
   std::string toString(SIOHandleAcquire* node, int indent = 0);
+  std::string toString(SIOHandleRelease* node, int indent = 0);
   std::string toString(SIOFileLineIter* node, int indent = 0);
   std::string toString(SIOStreamZip* node, int indent = 0);
   std::string toString(SGSnapshotDecl* node, int indent = 0);

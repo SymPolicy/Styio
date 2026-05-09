@@ -264,10 +264,6 @@ reprASTType(StyioNodeType type, std::string extra) {
       output += std::string("instant.pull");
     } break;
 
-    case StyioNodeType::TypedStdinList: {
-      output += std::string("stdin.list.typed");
-    } break;
-
     case StyioNodeType::IterSeq: {
       output += std::string("iterator.sequence");
     } break;
@@ -383,6 +379,30 @@ reprASTType(StyioNodeType type, std::string extra) {
       output += std::string("resource.file");
     } break;
 
+    case StyioNodeType::EmptyResource: {
+      output += std::string("resource.empty");
+    } break;
+
+    case StyioNodeType::ResourceReceiver: {
+      output += std::string("resource.receiver");
+    } break;
+
+    case StyioNodeType::ResourceMethodDef: {
+      output += std::string("resource.method.def");
+    } break;
+
+    case StyioNodeType::ResourceOrder: {
+      output += std::string("resource.order");
+    } break;
+
+    case StyioNodeType::ResourceDecl: {
+      output += std::string("resource.decl");
+    } break;
+
+    case StyioNodeType::ResourceRef: {
+      output += std::string("resource.ref");
+    } break;
+
     case StyioNodeType::HandleAcquire: {
       output += std::string("handle.acquire");
     } break;
@@ -397,6 +417,10 @@ reprASTType(StyioNodeType type, std::string extra) {
 
     case StyioNodeType::TaskBlock: {
       output += std::string("task.block");
+    } break;
+
+    case StyioNodeType::TaskGroupLaunch: {
+      output += std::string("task.group");
     } break;
 
     case StyioNodeType::FlowBind: {
@@ -867,6 +891,9 @@ StyioToken::getTokName(StyioTokenType type) {
 
     case StyioTokenType::RETURN_PIPE:
       return "|<|";
+
+    case StyioTokenType::AWAIT_PIPE:
+      return "?|";
 
     case StyioTokenType::PIPE_SEMICOLON:
       return "|;";

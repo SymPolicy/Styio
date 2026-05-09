@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of Styio tokenization, parsing, Unicode handling, and legacy/nightly parser migration; this file links to language and test SSOTs instead of redefining grammar.
 
-**Last updated:** 2026-05-05
+**Last updated:** 2026-05-09
 
 ## Mission
 
@@ -15,7 +15,7 @@ Primary paths:
 1. `src/StyioToken/`
 2. `src/StyioUnicode/`
 3. `src/StyioParser/`
-4. `src/Deprecated/` only as migration reference
+4. Git history only when a deleted parser snapshot is needed for migration reference
 5. Parser-facing tests under `tests/milestones/`, `tests/fuzz/`, and parser shadow gates
 
 Build and test targets:
@@ -28,7 +28,7 @@ Build and test targets:
 ## Daily Workflow
 
 1. Read [../design/Styio-EBNF.md](../design/Styio-EBNF.md), [../design/Styio-Symbol-Reference.md](../design/Styio-Symbol-Reference.md), and relevant language sections before changing syntax.
-2. Check [../rollups/CURRENT-STATE.md](../rollups/CURRENT-STATE.md), [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md), and the parser gate sections in [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) when touching legacy/nightly paths; use [../archive/rollups/HISTORICAL-LESSONS.md](../archive/rollups/HISTORICAL-LESSONS.md) only if active docs are still insufficient.
+2. Check [../rollups/CURRENT-STATE.md](../rollups/CURRENT-STATE.md), [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md), and the parser gate sections in [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) when touching legacy/nightly paths; use Git history only if active docs are still insufficient.
 3. Make lexer and parser changes in the smallest parse subset possible.
 4. Add or update a failing fixture before changing accepted behavior.
 5. Update [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) when adding milestone or parser acceptance coverage.
@@ -37,9 +37,13 @@ Build and test targets:
 8. Conditional infinite loops use `[...] >> ?(cond) => { ... }`; reject the older `[...] ?(cond) >> { ... }` spelling in both legacy and nightly parser routes.
 9. Keep negative numeric literals as literal atoms in both parser routes; `-1 + 2` must parse as `(-1) + 2`, not `0 - (1 + 2)`.
 10. When a type annotation admits a collection-shaped literal, keep the parser change context-triggered, such as `m: matrix = [[...], [...]]`, and leave untyped nested list literals on the ordinary list path.
-11. Match syntax surfaces such as `#(name = expr) ?=`, all-underscore default wildcards, and guarded integer arms need route-gate coverage in both parser routes before lowering claims semantic equivalence.
+11. Match syntax surfaces such as `#(name = expr) ?=`, all-underscore default wildcards, and guarded integer arms need route-gate coverage in both parser routes before lowering asserts semantic equivalence.
 12. Internal resource declarations use `@ name [: type] := #(args) => { ... }`; parser changes must enforce explicit parameters before body-name use and reject hidden pseudo-primitives such as `file(path)`.
-13. Task launch and pull syntax is symbol-only: `||> { ... }` constructs a task block, `answer <- job` pulls a declared task result into an already declared local, and `job -> answer -> @stdout` parses the first arrow as a flow bind only when the target is a plain name rather than an `@` resource.
+13. Task launch and await syntax is symbol-only: `||> { ... }` constructs one task block, `||> [ t1 := { ... } t2 := { ... } ]` launches a task group, and `?| job -> answer: T | fallback` awaits a task/future handle into a newly declared local. Bare `?| -> answer: T` is a reserved continuation freeze shape and must remain fail-closed until continuation lowering exists.
+14. Function-level match sugar `# name := (single_param: T) ?= { ... }` is parser-local normalization only: require exactly one parameter and construct the same `MatchCasesAST(NameAST(param), cases)` body that explicit match syntax would feed to lowering.
+15. Retired M6 state families are parser errors. Keep `@name : Type`, `expr -> @name`, `@name[-1]`, and standalone `(<< @file(...))` expression routes green in both parser routes where shadow compatibility still applies, and do not let postfix parsing cross a line break into the next statement.
+16. Resource method syntax is parser-owned but sema-resolved: accept `@file::name = ...`, `@file::name := ...`, compatible `@file.name = ...` definitions, `@("path")` file-resource expressions, `@()` empty-resource sinks, and expression postfix calls such as `@("path").close()`. Inside a resource method body, bare `@file` and postfix forms such as `@file.dispose()` are the receiver instance for that method family, not a constructor.
+17. Typed stdin pull syntax is one parser route: `name[, name...] <- @stdin : T-or-(T, ...)`. Scalar pulls and single-target collection pulls such as `xs <- @stdin : list[i64]` must both lower through typed `InstantPull`.
 
 ## Change Classes
 

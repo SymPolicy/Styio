@@ -32,8 +32,7 @@ endif()
 FetchContent_Declare(
   tree_sitter_runtime
   GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter.git
-  GIT_TAG v0.26.8
-  GIT_SHALLOW TRUE
+  GIT_TAG cd5b087cd9f45ca6d93ab1954f6b7c8534f324d2
 )
 FetchContent_GetProperties(tree_sitter_runtime)
 if(NOT tree_sitter_runtime_POPULATED)

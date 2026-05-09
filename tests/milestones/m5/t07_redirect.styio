@@ -1,2 +1,2 @@
 x = 42
-x -> @file{"/tmp/styio_val.txt"}
+x -> @file("/tmp/styio_val.txt")

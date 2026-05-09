@@ -4,9 +4,9 @@
  	 
 @	@
 <ID>	file
-{	{
+(	(
 <STRING>	"/tmp/styio_pipeline_in.txt"
-}	}
+)	)
 <LF>	\n
 <ID>	f
  	 

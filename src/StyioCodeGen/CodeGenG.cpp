@@ -16,6 +16,8 @@
 #include "../StyioIR/GenIR/GenIR.hpp"
 #include "../StyioToken/Token.hpp"
 #include "../StyioUtil/BoundedType.hpp"
+#include "../StyioUtil/DynamicValue.hpp"
+#include "../StyioUtil/IOIntrinsics.hpp"
 #include "../StyioUtil/Util.hpp"
 #include "CodeGenVisitor.hpp"
 
@@ -77,19 +79,6 @@ styio_dynamic_cell_type(llvm::LLVMContext& ctx) {
   return cell;
 }
 
-enum StyioDynTag : std::int64_t
-{
-  STYIO_DYN_UNDEF = 0,
-  STYIO_DYN_BOOL = 1,
-  STYIO_DYN_I64 = 2,
-  STYIO_DYN_F64 = 3,
-  STYIO_DYN_CSTR = 4,
-  STYIO_DYN_LIST = 5,
-  STYIO_DYN_DICT = 6,
-  STYIO_DYN_MATRIX = 7,
-  STYIO_DYN_TASK = 8,
-};
-
 bool
 ir_yields_list_handle(StyioIR* value) {
   if (dynamic_cast<SCListLiteral*>(value)
@@ -98,6 +87,9 @@ ir_yields_list_handle(StyioIR* value) {
       || dynamic_cast<SCDictKeys*>(value)
       || dynamic_cast<SCDictValues*>(value)) {
     return true;
+  }
+  if (auto* pull = dynamic_cast<SIOStdStreamPull*>(value)) {
+    return styio_is_list_type(pull->result_type);
   }
   if (auto* load = dynamic_cast<SGDynLoad*>(value)) {
     return load->kind == SGDynLoadKind::ListHandle;
@@ -170,6 +162,98 @@ ir_yields_task_handle(StyioIR* value) {
   return false;
 }
 }  // namespace
+
+StyioToLLVM::DynamicSlotPayload
+StyioToLLVM::dynamic_slot_payload_for_value(StyioIR* source, llvm::Value* value) {
+  DynamicSlotPayload payload;
+  payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Undef);
+
+  if (ir_yields_list_handle(source)) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::List);
+    payload.i64v = value;
+  }
+  else if (ir_yields_dict_handle(source)) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Dict);
+    payload.i64v = value;
+  }
+  else if (ir_yields_matrix_handle(source)) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Matrix);
+    payload.i64v = value;
+  }
+  else if (ir_yields_task_handle(source)) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Task);
+    payload.i64v = value;
+  }
+  else if (value->getType()->isPointerTy()) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::CStr);
+    payload.ptrv = value;
+  }
+  else if (value->getType()->isDoubleTy()) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::F64);
+    payload.f64v = value;
+  }
+  else if (value->getType()->isIntegerTy(1)) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Bool);
+    payload.i64v = value;
+  }
+  else if (value->getType()->isIntegerTy()) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::I64);
+    payload.i64v = value;
+  }
+
+  return payload;
+}
+
+StyioToLLVM::DynamicSlotPayload
+StyioToLLVM::dynamic_slot_payload_for_type(const StyioDataType& type, llvm::Value* value) {
+  DynamicSlotPayload payload;
+  payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Undef);
+
+  if (styio_is_list_type(type)) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::List);
+    payload.i64v = value;
+  }
+  else if (styio_is_dict_type(type)) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Dict);
+    payload.i64v = value;
+  }
+  else if (styio_is_matrix_type(type)) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Matrix);
+    payload.i64v = value;
+  }
+  else if (type.handle_family == StyioHandleFamily::Task) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Task);
+    payload.i64v = value;
+  }
+  else if (type.option == StyioDataTypeOption::String) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::CStr);
+    payload.ptrv = value;
+  }
+  else if (type.option == StyioDataTypeOption::Float) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::F64);
+    payload.f64v = value;
+  }
+  else if (type.option == StyioDataTypeOption::Bool) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Bool);
+    payload.i64v = value;
+  }
+  else if (type.option == StyioDataTypeOption::Integer) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::I64);
+    payload.i64v = value;
+  }
+
+  return payload;
+}
+
+void
+StyioToLLVM::forget_dynamic_slot_payload_ownership(llvm::Value* value, std::int64_t tag) {
+  if (tag == styio_dynamic_tag_value(StyioDynamicTag::CStr)) {
+    forget_owned_cstr_temp(value);
+  }
+  if (styio_dynamic_tag_is_owned_resource(tag)) {
+    forget_owned_resource_temp(value);
+  }
+}
 
 llvm::FunctionCallee
 StyioToLLVM::free_cstr_fn() {
@@ -342,6 +426,9 @@ StyioToLLVM::store_dynamic_slot(
     i64_val = theBuilder->CreateZExt(i64_val, theBuilder->getInt64Ty());
   }
   else if (!i64_val->getType()->isIntegerTy(64)) {
+    if (!i64_val->getType()->isIntegerTy()) {
+      throw StyioTypeError("dynamic slot integer field received a non-integer value");
+    }
     i64_val = theBuilder->CreateSExtOrTrunc(i64_val, theBuilder->getInt64Ty());
   }
   if (!f64_val->getType()->isDoubleTy()) {
@@ -349,11 +436,11 @@ StyioToLLVM::store_dynamic_slot(
       f64_val = theBuilder->CreateSIToFP(f64_val, theBuilder->getDoubleTy());
     }
     else {
-      f64_val = llvm::ConstantFP::get(theBuilder->getDoubleTy(), 0.0);
+      throw StyioTypeError("dynamic slot floating field received a non-numeric value");
     }
   }
   if (!ptr_val->getType()->isPointerTy()) {
-    ptr_val = llvm::ConstantPointerNull::get(llvm::PointerType::get(*theContext, 0));
+    throw StyioTypeError("dynamic slot pointer field received a non-pointer value");
   }
 
   theBuilder->CreateStore(llvm::ConstantInt::get(theBuilder->getInt64Ty(), tag), tag_gep);
@@ -364,7 +451,7 @@ StyioToLLVM::store_dynamic_slot(
 
 void
 StyioToLLVM::init_dynamic_slot_undef(llvm::AllocaInst* slot) {
-  store_dynamic_slot(slot, STYIO_DYN_UNDEF, nullptr, nullptr, nullptr);
+  store_dynamic_slot(slot, styio_dynamic_tag_value(StyioDynamicTag::Undef), nullptr, nullptr, nullptr);
 }
 
 void
@@ -383,11 +470,16 @@ StyioToLLVM::release_dynamic_slot_contents(llvm::AllocaInst* slot) {
   llvm::BasicBlock* dict_bb = llvm::BasicBlock::Create(*theContext, "dynrel_dict", F);
   llvm::BasicBlock* matrix_bb = llvm::BasicBlock::Create(*theContext, "dynrel_matrix", F);
 
-  llvm::Value* is_cstr = theBuilder->CreateICmpEQ(tag, theBuilder->getInt64(STYIO_DYN_CSTR));
-  llvm::Value* is_list = theBuilder->CreateICmpEQ(tag, theBuilder->getInt64(STYIO_DYN_LIST));
-  llvm::Value* is_dict = theBuilder->CreateICmpEQ(tag, theBuilder->getInt64(STYIO_DYN_DICT));
-  llvm::Value* is_matrix = theBuilder->CreateICmpEQ(tag, theBuilder->getInt64(STYIO_DYN_MATRIX));
-  llvm::Value* is_task = theBuilder->CreateICmpEQ(tag, theBuilder->getInt64(STYIO_DYN_TASK));
+  llvm::Value* is_cstr = theBuilder->CreateICmpEQ(
+    tag, theBuilder->getInt64(styio_dynamic_tag_value(StyioDynamicTag::CStr)));
+  llvm::Value* is_list = theBuilder->CreateICmpEQ(
+    tag, theBuilder->getInt64(styio_dynamic_tag_value(StyioDynamicTag::List)));
+  llvm::Value* is_dict = theBuilder->CreateICmpEQ(
+    tag, theBuilder->getInt64(styio_dynamic_tag_value(StyioDynamicTag::Dict)));
+  llvm::Value* is_matrix = theBuilder->CreateICmpEQ(
+    tag, theBuilder->getInt64(styio_dynamic_tag_value(StyioDynamicTag::Matrix)));
+  llvm::Value* is_task = theBuilder->CreateICmpEQ(
+    tag, theBuilder->getInt64(styio_dynamic_tag_value(StyioDynamicTag::Task)));
   theBuilder->CreateCondBr(is_cstr, cstr_bb, list_bb);
 
   theBuilder->SetInsertPoint(cstr_bb);
@@ -448,9 +540,12 @@ StyioToLLVM::toLLVMIR(SGResId* node) {
     auto* arrTy = llvm::cast<llvm::ArrayType>(arr->getAllocatedType());
     llvm::Value* head = theBuilder->CreateLoad(i64, headSlot);
     llvm::Value* zero = llvm::ConstantInt::get(i64, 0);
-    llvm::Value* one = llvm::ConstantInt::get(i64, 1);
-    llvm::Value* has = theBuilder->CreateICmpULT(zero, head);
-    llvm::Value* prev = theBuilder->CreateSub(head, one);
+    const int depth = node->has_history_selector && node->history_offset < 0
+      ? -node->history_offset
+      : 1;
+    llvm::Value* depthv = llvm::ConstantInt::get(i64, static_cast<std::uint64_t>(depth));
+    llvm::Value* has = theBuilder->CreateICmpUGE(head, depthv);
+    llvm::Value* prev = theBuilder->CreateSub(head, depthv);
     llvm::Value* capv = llvm::ConstantInt::get(i64, cap);
     llvm::Value* prev_m = theBuilder->CreateURem(prev, capv);
     llvm::Value* idx = theBuilder->CreateSelect(has, prev_m, zero);
@@ -793,25 +888,16 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
   switch (node->operand) {
     case StyioOpType::Binary_Add: {
       if (data_type.option == StyioDataTypeOption::String) {
-        llvm::FunctionCallee i64c = theModule->getOrInsertFunction(
-          "styio_i64_dec_cstr",
-          llvm::FunctionType::get(char_ptr_ty, {theBuilder->getInt64Ty()}, false));
         llvm::FunctionCallee cat = theModule->getOrInsertFunction(
           "styio_strcat_ab",
           llvm::FunctionType::get(char_ptr_ty, {char_ptr_ty, char_ptr_ty}, false));
         llvm::Value* a = l_val;
         llvm::Value* b = r_val;
         if (!a->getType()->isPointerTy()) {
-          llvm::Value* ai = a->getType()->isIntegerTy(64)
-            ? a
-            : theBuilder->CreateSExtOrTrunc(a, theBuilder->getInt64Ty());
-          a = theBuilder->CreateCall(i64c, {ai});
+          a = promote_to_cstr(a);
         }
         if (!b->getType()->isPointerTy()) {
-          llvm::Value* bi = b->getType()->isIntegerTy(64)
-            ? b
-            : theBuilder->CreateSExtOrTrunc(b, theBuilder->getInt64Ty());
-          b = theBuilder->CreateCall(i64c, {bi});
+          b = promote_to_cstr(b);
         }
         llvm::Value* out = theBuilder->CreateCall(cat, {a, b});
         free_owned_cstr_temp_if_tracked(a);
@@ -1141,6 +1227,91 @@ StyioToLLVM::toLLVMIR(SGVar* node) {
   return output;
 }
 
+void
+StyioToLLVM::emit_bounded_ring_pending_commit(const std::string& name) {
+  auto arr_it = mutable_variables.find(name);
+  auto head_it = bounded_ring_head_slot_.find(name);
+  auto cap_it = bounded_ring_capacity_.find(name);
+  auto pending_it = bounded_ring_pending_slot_.find(name);
+  auto count_it = bounded_ring_pending_count_slot_.find(name);
+  if (arr_it == mutable_variables.end()
+      || head_it == bounded_ring_head_slot_.end()
+      || cap_it == bounded_ring_capacity_.end()
+      || pending_it == bounded_ring_pending_slot_.end()
+      || count_it == bounded_ring_pending_count_slot_.end()) {
+    return;
+  }
+
+  llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
+  if (cur == nullptr || cur->getTerminator() != nullptr) {
+    return;
+  }
+
+  llvm::Function* F = cur->getParent();
+  llvm::Type* i64 = theBuilder->getInt64Ty();
+  llvm::Value* zero = llvm::ConstantInt::get(i64, 0);
+  llvm::Value* one = llvm::ConstantInt::get(i64, 1);
+  llvm::Value* capv = llvm::ConstantInt::get(i64, cap_it->second);
+  llvm::AllocaInst* pending_count_slot = count_it->second;
+  llvm::Value* pending_count = theBuilder->CreateLoad(i64, pending_count_slot);
+  llvm::Value* over_cap = theBuilder->CreateICmpUGT(pending_count, capv);
+  llvm::Value* start = theBuilder->CreateSelect(
+    over_cap,
+    theBuilder->CreateSub(pending_count, capv),
+    zero);
+  llvm::AllocaInst* idx_slot = theBuilder->CreateAlloca(i64, nullptr, name + ".pending.commit.i");
+  theBuilder->CreateStore(start, idx_slot);
+
+  llvm::BasicBlock* hdr_bb = llvm::BasicBlock::Create(*theContext, "resource_commit_hdr", F);
+  llvm::BasicBlock* body_bb = llvm::BasicBlock::Create(*theContext, "resource_commit_body", F);
+  llvm::BasicBlock* done_bb = llvm::BasicBlock::Create(*theContext, "resource_commit_done", F);
+  theBuilder->CreateBr(hdr_bb);
+
+  theBuilder->SetInsertPoint(hdr_bb);
+  llvm::Value* i = theBuilder->CreateLoad(i64, idx_slot);
+  llvm::Value* more = theBuilder->CreateICmpULT(i, pending_count);
+  theBuilder->CreateCondBr(more, body_bb, done_bb);
+
+  theBuilder->SetInsertPoint(body_bb);
+  auto* ring_ty = llvm::cast<llvm::ArrayType>(arr_it->second->getAllocatedType());
+  auto* pending_ty = llvm::cast<llvm::ArrayType>(pending_it->second->getAllocatedType());
+  llvm::Value* pending_idx = theBuilder->CreateURem(i, capv);
+  llvm::Value* pending_gep = theBuilder->CreateInBoundsGEP(
+    pending_ty,
+    pending_it->second,
+    {zero, pending_idx});
+  llvm::Value* value = theBuilder->CreateLoad(i64, pending_gep);
+  llvm::Value* head = theBuilder->CreateLoad(i64, head_it->second);
+  llvm::Value* ring_idx = theBuilder->CreateURem(head, capv);
+  llvm::Value* ring_gep = theBuilder->CreateInBoundsGEP(
+    ring_ty,
+    arr_it->second,
+    {zero, ring_idx});
+  theBuilder->CreateStore(value, ring_gep);
+  theBuilder->CreateStore(theBuilder->CreateAdd(head, one), head_it->second);
+  theBuilder->CreateStore(theBuilder->CreateAdd(i, one), idx_slot);
+  theBuilder->CreateBr(hdr_bb);
+
+  theBuilder->SetInsertPoint(done_bb);
+  theBuilder->CreateStore(zero, pending_count_slot);
+}
+
+void
+StyioToLLVM::emit_bounded_ring_pending_commits() {
+  std::vector<std::string> names;
+  names.reserve(bounded_ring_pending_count_slot_.size());
+  for (const auto& kv : bounded_ring_pending_count_slot_) {
+    names.push_back(kv.first);
+  }
+  for (const std::string& name : names) {
+    emit_bounded_ring_pending_commit(name);
+    llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
+    if (cur == nullptr || cur->getTerminator() != nullptr) {
+      break;
+    }
+  }
+}
+
 /*
   FlexBind
 
@@ -1161,6 +1332,41 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
       std::string("immutable binding cannot be reassigned with `=`: ") + varname);
   }
 
+  if (bounded_ring_head_slot_.contains(varname)) {
+    llvm::AllocaInst* arr = mutable_variables[varname];
+    std::uint64_t cap = bounded_ring_capacity_[varname];
+    llvm::Type* i64 = theBuilder->getInt64Ty();
+    llvm::Value* zero = llvm::ConstantInt::get(i64, 0);
+    llvm::Value* next_value = node->value->toLLVMIR(this);
+    if (node->pending_resource_write
+        && bounded_ring_pending_slot_.contains(varname)
+        && bounded_ring_pending_count_slot_.contains(varname)) {
+      llvm::AllocaInst* pending = bounded_ring_pending_slot_[varname];
+      llvm::AllocaInst* pending_count_slot = bounded_ring_pending_count_slot_[varname];
+      auto* pending_ty = llvm::cast<llvm::ArrayType>(pending->getAllocatedType());
+      llvm::Value* pending_count = theBuilder->CreateLoad(i64, pending_count_slot);
+      llvm::Value* idx = theBuilder->CreateURem(
+        pending_count,
+        llvm::ConstantInt::get(i64, cap));
+      llvm::Value* gep = theBuilder->CreateInBoundsGEP(pending_ty, pending, {zero, idx});
+      theBuilder->CreateStore(next_value, gep);
+      theBuilder->CreateStore(
+        theBuilder->CreateAdd(pending_count, llvm::ConstantInt::get(i64, 1)),
+        pending_count_slot);
+      return pending;
+    }
+
+    llvm::AllocaInst* headSlot = bounded_ring_head_slot_[varname];
+    auto* arrTy = llvm::cast<llvm::ArrayType>(arr->getAllocatedType());
+    llvm::Value* head = theBuilder->CreateLoad(i64, headSlot);
+    llvm::Value* idx = theBuilder->CreateURem(head, llvm::ConstantInt::get(i64, cap));
+    llvm::Value* gep = theBuilder->CreateInBoundsGEP(arrTy, arr, {zero, idx});
+    theBuilder->CreateStore(next_value, gep);
+    llvm::Value* next_head = theBuilder->CreateAdd(head, llvm::ConstantInt::get(i64, 1));
+    theBuilder->CreateStore(next_head, headSlot);
+    return arr;
+  }
+
   if (node->var->is_dynamic_slot) {
     if (mutable_variables.contains(varname)) {
       variable = mutable_variables[varname];
@@ -1175,55 +1381,13 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
     }
 
     llvm::Value* next_value = node->value->toLLVMIR(this);
-    std::int64_t tag = STYIO_DYN_UNDEF;
-    llvm::Value* i64v = nullptr;
-    llvm::Value* f64v = nullptr;
-    llvm::Value* ptrv = nullptr;
-
-    if (ir_yields_list_handle(node->value)) {
-      tag = STYIO_DYN_LIST;
-      i64v = next_value;
-    }
-    else if (ir_yields_dict_handle(node->value)) {
-      tag = STYIO_DYN_DICT;
-      i64v = next_value;
-    }
-    else if (ir_yields_matrix_handle(node->value)) {
-      tag = STYIO_DYN_MATRIX;
-      i64v = next_value;
-    }
-    else if (ir_yields_task_handle(node->value)) {
-      tag = STYIO_DYN_TASK;
-      i64v = next_value;
-    }
-    else if (next_value->getType()->isPointerTy()) {
-      tag = STYIO_DYN_CSTR;
-      ptrv = next_value;
-    }
-    else if (next_value->getType()->isDoubleTy()) {
-      tag = STYIO_DYN_F64;
-      f64v = next_value;
-    }
-    else if (next_value->getType()->isIntegerTy(1)) {
-      tag = STYIO_DYN_BOOL;
-      i64v = next_value;
-    }
-    else if (next_value->getType()->isIntegerTy()) {
-      tag = STYIO_DYN_I64;
-      i64v = next_value;
-    }
+    DynamicSlotPayload payload = dynamic_slot_payload_for_value(node->value, next_value);
 
     if (is_existing_slot) {
       release_dynamic_slot_contents(variable);
     }
-    store_dynamic_slot(variable, tag, i64v, f64v, ptrv);
-    if (tag == STYIO_DYN_CSTR) {
-      forget_owned_cstr_temp(next_value);
-    }
-    if (tag == STYIO_DYN_LIST || tag == STYIO_DYN_DICT || tag == STYIO_DYN_MATRIX
-        || tag == STYIO_DYN_TASK) {
-      forget_owned_resource_temp(next_value);
-    }
+    store_dynamic_slot(variable, payload.tag, payload.i64v, payload.f64v, payload.ptrv);
+    forget_dynamic_slot_payload_ownership(next_value, payload.tag);
     return variable;
   }
 
@@ -1277,52 +1441,10 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
     llvm::AllocaInst* variable = create_entry_alloca(dynamic_cell_type(), varname);
     init_dynamic_slot_undef(variable);
     llvm::Value* value = node->value->toLLVMIR(this);
-    std::int64_t tag = STYIO_DYN_UNDEF;
-    llvm::Value* i64v = nullptr;
-    llvm::Value* f64v = nullptr;
-    llvm::Value* ptrv = nullptr;
+    DynamicSlotPayload payload = dynamic_slot_payload_for_value(node->value, value);
 
-    if (ir_yields_list_handle(node->value)) {
-      tag = STYIO_DYN_LIST;
-      i64v = value;
-    }
-    else if (ir_yields_dict_handle(node->value)) {
-      tag = STYIO_DYN_DICT;
-      i64v = value;
-    }
-    else if (ir_yields_matrix_handle(node->value)) {
-      tag = STYIO_DYN_MATRIX;
-      i64v = value;
-    }
-    else if (ir_yields_task_handle(node->value)) {
-      tag = STYIO_DYN_TASK;
-      i64v = value;
-    }
-    else if (value->getType()->isPointerTy()) {
-      tag = STYIO_DYN_CSTR;
-      ptrv = value;
-    }
-    else if (value->getType()->isDoubleTy()) {
-      tag = STYIO_DYN_F64;
-      f64v = value;
-    }
-    else if (value->getType()->isIntegerTy(1)) {
-      tag = STYIO_DYN_BOOL;
-      i64v = value;
-    }
-    else if (value->getType()->isIntegerTy()) {
-      tag = STYIO_DYN_I64;
-      i64v = value;
-    }
-
-    store_dynamic_slot(variable, tag, i64v, f64v, ptrv);
-    if (tag == STYIO_DYN_CSTR) {
-      forget_owned_cstr_temp(value);
-    }
-    if (tag == STYIO_DYN_LIST || tag == STYIO_DYN_DICT || tag == STYIO_DYN_MATRIX
-        || tag == STYIO_DYN_TASK) {
-      forget_owned_resource_temp(value);
-    }
+    store_dynamic_slot(variable, payload.tag, payload.i64v, payload.f64v, payload.ptrv);
+    forget_dynamic_slot_payload_ownership(value, payload.tag);
     mutable_variables[varname] = variable;
     dynamic_variable_names_.insert(varname);
     register_dynamic_slot_for_raii(variable);
@@ -1337,7 +1459,10 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
     llvm::Type* arrTy = llvm::ArrayType::get(i64, *cap);
     llvm::AllocaInst* arr = prealloc.CreateAlloca(arrTy, nullptr, varname);
     llvm::AllocaInst* head = prealloc.CreateAlloca(i64, nullptr, varname + ".head");
+    llvm::AllocaInst* pending = prealloc.CreateAlloca(arrTy, nullptr, varname + ".pending");
+    llvm::AllocaInst* pending_count = prealloc.CreateAlloca(i64, nullptr, varname + ".pending.count");
     prealloc.CreateStore(llvm::ConstantInt::get(i64, 0), head);
+    prealloc.CreateStore(llvm::ConstantInt::get(i64, 0), pending_count);
     llvm::Value* val = node->value->toLLVMIR(this);
     llvm::Value* z = llvm::ConstantInt::get(i64, 0);
     llvm::Value* gep0 = prealloc.CreateInBoundsGEP(arrTy, arr, {z, z});
@@ -1346,6 +1471,8 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
     mutable_variables[varname] = arr;
     bounded_ring_head_slot_[varname] = head;
     bounded_ring_capacity_[varname] = *cap;
+    bounded_ring_pending_slot_[varname] = pending;
+    bounded_ring_pending_count_slot_[varname] = pending_count;
     return arr;
   }
 
@@ -1501,6 +1628,14 @@ StyioToLLVM::coerce_for_return(llvm::Value* v, llvm::Type* want_ty) {
   if (want_ty->isIntegerTy(64) && v->getType()->isIntegerTy(1)) {
     return theBuilder->CreateZExt(v, want_ty);
   }
+  if (want_ty->isIntegerTy(1) && v->getType()->isIntegerTy()) {
+    return theBuilder->CreateICmpNE(
+      v,
+      llvm::ConstantInt::get(llvm::cast<llvm::IntegerType>(v->getType()), 0));
+  }
+  if (want_ty->isIntegerTy(1) && v->getType()->isFloatingPointTy()) {
+    return theBuilder->CreateFCmpONE(v, llvm::ConstantFP::get(v->getType(), 0.0));
+  }
   return v;
 }
 
@@ -1623,10 +1758,14 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   auto saved_named = named_values;
   auto saved_ring_h = bounded_ring_head_slot_;
   auto saved_ring_c = bounded_ring_capacity_;
+  auto saved_ring_pending = bounded_ring_pending_slot_;
+  auto saved_ring_pending_count = bounded_ring_pending_count_slot_;
   mutable_variables.clear();
   named_values.clear();
   bounded_ring_head_slot_.clear();
   bounded_ring_capacity_.clear();
+  bounded_ring_pending_slot_.clear();
+  bounded_ring_pending_count_slot_.clear();
 
   llvm::BasicBlock* block = llvm::BasicBlock::Create(
     *theContext,
@@ -1647,14 +1786,13 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
     mutable_variables[std::string(arg.getName())] = slot;
   }
 
-  llvm::Value* last = nullptr;
   for (auto* stmt : node->func_block->stmts) {
     if (dynamic_cast<SGFunc*>(stmt)) {
       stmt->toLLVMIR(this);
       continue;
     }
 
-    last = stmt->toLLVMIR(this);
+    stmt->toLLVMIR(this);
     if (theBuilder->GetInsertBlock()->getTerminator()) {
       break;
     }
@@ -1663,26 +1801,16 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
   if (cur && !cur->getTerminator()) {
     llvm::Type* rt = node->ret_type->toLLVMType(this);
-    if (!last) {
-      if (rt->isFloatingPointTy()) {
-        last = llvm::ConstantFP::get(rt, 0.0);
-      }
-      else {
-        last = llvm::ConstantInt::get(rt, 0);
-      }
-    }
-    else {
-      last = coerce_for_return(last, rt);
-    }
-
     pop_file_handle_scope();
-    theBuilder->CreateRet(last);
+    theBuilder->CreateRet(default_runtime_return_value(rt));
   }
 
   mutable_variables = std::move(saved_mut);
   named_values = std::move(saved_named);
   bounded_ring_head_slot_ = std::move(saved_ring_h);
   bounded_ring_capacity_ = std::move(saved_ring_c);
+  bounded_ring_pending_slot_ = std::move(saved_ring_pending);
+  bounded_ring_pending_count_slot_ = std::move(saved_ring_pending_count);
 }
 
 llvm::Value*
@@ -2032,7 +2160,20 @@ StyioToLLVM::toLLVMIR(SGExternBlock* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGReturn* node) {
-  return theBuilder->CreateRet(node->expr->toLLVMIR(this));
+  llvm::Value* v = node->expr->toLLVMIR(this);
+  llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
+  if (cur == nullptr || cur->getTerminator() != nullptr) {
+    return v;
+  }
+  llvm::Function* fn = cur->getParent();
+  if (fn == nullptr || fn->getReturnType()->isVoidTy()) {
+    return theBuilder->CreateRetVoid();
+  }
+  llvm::Value* ret = coerce_for_return(v, fn->getReturnType());
+  if (ret == nullptr) {
+    ret = default_runtime_return_value(fn->getReturnType());
+  }
+  return theBuilder->CreateRet(ret);
 }
 
 llvm::Value*
@@ -2054,7 +2195,14 @@ StyioToLLVM::toLLVMIR(SGBlock* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGEntry* node) {
-  return theBuilder->getInt64(0);
+  llvm::Value* last = nullptr;
+  for (auto* stmt : node->stmts) {
+    last = stmt->toLLVMIR(this);
+    if (theBuilder->GetInsertBlock()->getTerminator()) {
+      break;
+    }
+  }
+  return last ? last : theBuilder->getInt64(0);
 }
 
 llvm::Value*
@@ -2112,6 +2260,7 @@ StyioToLLVM::toLLVMIR(SGMainEntry* node) {
 
   llvm::BasicBlock* mcur = theBuilder->GetInsertBlock();
   if (mcur && !mcur->getTerminator()) {
+    emit_bounded_ring_pending_commits();
     pop_file_handle_scope();
     theBuilder->CreateRet(truncate_for_main_ret(last_main));
   }
@@ -2186,6 +2335,7 @@ StyioToLLVM::toLLVMIR(SGLoop* node) {
     loop_stack_.push_back(LoopFrame{exit_bb, body_bb});
     theBuilder->SetInsertPoint(body_bb);
     node->body->toLLVMIR(this);
+    emit_bounded_ring_pending_commits();
     llvm::BasicBlock* bcur = theBuilder->GetInsertBlock();
     if (bcur && !bcur->getTerminator()) {
       theBuilder->CreateBr(body_bb);
@@ -2209,6 +2359,7 @@ StyioToLLVM::toLLVMIR(SGLoop* node) {
   loop_stack_.push_back(LoopFrame{exit_bb, cond_bb});
   theBuilder->SetInsertPoint(body_bb);
   node->body->toLLVMIR(this);
+  emit_bounded_ring_pending_commits();
   llvm::BasicBlock* b2 = theBuilder->GetInsertBlock();
   if (b2 && !b2->getTerminator()) {
     theBuilder->CreateBr(cond_bb);
@@ -2271,6 +2422,7 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
       pulse_snap_base_ = nullptr;
       pulse_active_plan_ = nullptr;
     }
+    emit_bounded_ring_pending_commits();
   };
 
   auto finish_pulse_region = [&]() {
@@ -2504,6 +2656,7 @@ StyioToLLVM::toLLVMIR(SGRangeFor* node) {
   theBuilder->CreateStore(cur, vs);
   mutable_variables[node->var] = vs;
   node->body->toLLVMIR(this);
+  emit_bounded_ring_pending_commits();
   llvm::BasicBlock* bcur = theBuilder->GetInsertBlock();
   if (bcur && !bcur->getTerminator()) {
     theBuilder->CreateBr(step_bb);
@@ -3217,6 +3370,7 @@ StyioToLLVM::toLLVMIR(SIOFileLineIter* node) {
     pulse_snap_base_ = nullptr;
     pulse_active_plan_ = nullptr;
   }
+  emit_bounded_ring_pending_commits();
 
   mutable_variables.erase(node->line_var);
   llvm::BasicBlock* b2 = theBuilder->GetInsertBlock();
@@ -3238,6 +3392,46 @@ StyioToLLVM::toLLVMIR(SIOFileLineIter* node) {
     theBuilder->CreateCall(close_fn, {hf});
   }
   return theBuilder->getInt64(0);
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SIOHandleRelease* node) {
+  llvm::FunctionCallee close_fn = theModule->getOrInsertFunction(
+    "styio_file_close",
+    llvm::FunctionType::get(
+      theBuilder->getVoidTy(),
+      {theBuilder->getInt64Ty()},
+      false));
+  auto close_slot = [&](llvm::AllocaInst* slot) -> llvm::Value* {
+    llvm::Value* h = theBuilder->CreateLoad(theBuilder->getInt64Ty(), slot);
+    theBuilder->CreateCall(close_fn, {h});
+    theBuilder->CreateStore(theBuilder->getInt64(0), slot);
+    return theBuilder->getInt64(0);
+  };
+
+  if (node->from_path) {
+    std::string pkey = path_key_from_path_ir(node->path_expr);
+    if (!pkey.empty()) {
+      auto sit = file_singleton_path_slots_.find(pkey);
+      if (sit != file_singleton_path_slots_.end()) {
+        return close_slot(sit->second);
+      }
+    }
+    llvm::Type* char_ptr = llvm::PointerType::get(*theContext, 0);
+    llvm::FunctionCallee open_fn = theModule->getOrInsertFunction(
+      node->is_auto ? "styio_file_open_auto" : "styio_file_open",
+      llvm::FunctionType::get(theBuilder->getInt64Ty(), {char_ptr}, false));
+    llvm::Value* path = node->path_expr->toLLVMIR(this);
+    llvm::Value* h = theBuilder->CreateCall(open_fn, {path});
+    theBuilder->CreateCall(close_fn, {h});
+    return theBuilder->getInt64(0);
+  }
+
+  auto it = mutable_variables.find(node->var_name);
+  if (it == mutable_variables.end()) {
+    return theBuilder->getInt64(0);
+  }
+  return close_slot(it->second);
 }
 
 llvm::Value*
@@ -3277,9 +3471,7 @@ StyioToLLVM::toLLVMIR(SIOInstantPull* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SIOListReadStdin* node) {
-  const char* read_name = node->elem_type == "string"
-    ? "styio_list_cstr_read_stdin"
-    : "styio_list_i64_read_stdin";
+  const char* read_name = styio_stdin_list_read_intrinsic_name_for_elem(node->elem_type);
   llvm::FunctionCallee read_fn = theModule->getOrInsertFunction(
     read_name,
     llvm::FunctionType::get(theBuilder->getInt64Ty(), {}, false));
@@ -3807,6 +3999,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
       pulse_snap_base_ = nullptr;
       pulse_active_plan_ = nullptr;
     }
+    emit_bounded_ring_pending_commits();
   };
 
   auto finish_zip = [&]() {
@@ -4358,9 +4551,12 @@ StyioToLLVM::toLLVMIR(SGMatch* node) {
   }
 
   bool mixed = node->repr_kind == SGMatchReprKind::ExprMixed;
+  bool as_float = node->repr_kind == SGMatchReprKind::ExprFloat;
   llvm::Type* merge_ty = mixed
     ? static_cast<llvm::Type*>(llvm::PointerType::get(*theContext, 0))
-    : static_cast<llvm::Type*>(llvm::Type::getInt64Ty(*theContext));
+    : (as_float
+        ? static_cast<llvm::Type*>(llvm::Type::getDoubleTy(*theContext))
+        : static_cast<llvm::Type*>(llvm::Type::getInt64Ty(*theContext)));
 
   if (node->int_arms.empty()) {
     return evaluate_arm_block_value(node->default_arm, mixed);
@@ -4380,6 +4576,9 @@ StyioToLLVM::toLLVMIR(SGMatch* node) {
     sw->addCase(llvm::ConstantInt::get(i64ti, p.first), cbb);
     theBuilder->SetInsertPoint(cbb);
     llvm::Value* vv = evaluate_arm_block_value(p.second, mixed);
+    if (!mixed) {
+      vv = coerce_for_return(vv, merge_ty);
+    }
     llvm::BasicBlock* from = theBuilder->GetInsertBlock();
     if (from && !from->getTerminator()) {
       theBuilder->CreateBr(merge_bb);
@@ -4396,10 +4595,15 @@ StyioToLLVM::toLLVMIR(SGMatch* node) {
     dv = evaluate_arm_block_value(node->default_arm, mixed);
   }
   else {
-    dv = llvm::ConstantInt::get(i64ti, 0);
+    dv = as_float
+      ? static_cast<llvm::Value*>(llvm::ConstantFP::get(merge_ty, 0.0))
+      : static_cast<llvm::Value*>(llvm::ConstantInt::get(i64ti, 0));
     if (mixed) {
       dv = promote_to_cstr(dv);
     }
+  }
+  if (!mixed) {
+    dv = coerce_for_return(dv, merge_ty);
   }
   llvm::BasicBlock* df = theBuilder->GetInsertBlock();
   if (df && !df->getTerminator()) {

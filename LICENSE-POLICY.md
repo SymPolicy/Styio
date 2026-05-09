@@ -2,7 +2,7 @@
 
 **Purpose:** Record the source-license boundary enforced by `audit`.
 
-**Last updated:** 2026-04-24
+**Last updated:** 2026-05-09
 
 `styio` / `styio-nightly` is an Apache-2.0 source project. The accepted SPDX identifier is `Apache-2.0`.
 

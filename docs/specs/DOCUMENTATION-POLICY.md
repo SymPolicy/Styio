@@ -54,8 +54,8 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 | 词法与文法 EBNF | `../design/Styio-EBNF.md` | 链接 |
 | 符号 ↔ lexer token 名 | `../design/Styio-Symbol-Reference.md` | 链接 |
 | `@` 拓扑目标语法、Golden Cross **设计级**叙述与示例形态 | `../design/Styio-Resource-Topology.md`（含 §8） | 保留链接或一句摘要 |
-| 设计 / 实现冲突与待定决议 | `../review/Logic-Conflicts.md` | 链接 |
-| M1–M7 路线图、依赖链、规格文件表 | `docs/milestones/<日期>/00-Milestone-Index.md` | **勿**在 history 等处平行维护同一张总表 |
+| 当前实现缺口与跨团队排期 | `../rollups/NEXT-STAGE-GAP-LEDGER.md` | 链接，不另建平行 backlog |
+| 当前冻结里程碑批次 | `docs/milestones/<日期>/00-Milestone-Index.md`（仅在当前树存在时） | **勿**在 history 等处平行维护同一张总表 |
 | 集成测试路径、`ctest` 命令 | `docs/assets/workflow/TEST-CATALOG.md` | 链接 |
 | **外部包 / 开源依赖清单**（LLVM、ICU、gtest、vendored） | [`THIRD-PARTY.md`](./THIRD-PARTY.md) | 与 `CMakeLists.txt`、`tests/CMakeLists.txt` 一致；新增依赖先更新该文件 |
 | **官方仓库生态、角色边界与文档归属** | [`REPOSITORY-MAP.md`](./REPOSITORY-MAP.md) | 其它文档只链接，不重复维护仓库总表 |
@@ -66,8 +66,7 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 | 开发文档目录与维护准则（含本节） | `DOCUMENTATION-POLICY.md` | 链接 |
 | Agent 实现规程、禁止项、流水线 | `AGENT-SPEC.md` | 链接 |
 | Golden Cross **守则内嵌的宪法示例代码** | `AGENT-SPEC.md` §12.3 | 设计背景链到 `../design/Styio-Resource-Topology.md` §8 |
-| Topology v2 **实施步骤、修改点矩阵、风险与记录规范** | `../plans/Resource-Topology-v2-Implementation-Plan.md` | `../design/Styio-Resource-Topology.md` §9 仅状态表 + 链到本计划 |
-| **`[|n|]` 环缓当前实现约定** | `../design/Styio-Resource-Topology.md`、`../assets/workflow/TEST-CATALOG.md` | 当前行为与测试从这里进入；历史计划进入 archive |
+| Topology v2 **设计、实现状态与迁移入口** | `../design/Styio-Resource-Topology.md` + `../rollups/NEXT-STAGE-GAP-LEDGER.md` | 不保留平行长计划 |
 | **Checkpoint 微里程碑执行规则**（可中断/可恢复） | `../assets/workflow/CHECKPOINT-WORKFLOW.md` | 在 `history/YYYY-MM-DD.md` 写恢复指引，不在其它文档重复流程细节 |
 | **统一交付门禁**（common delivery floor） | `../assets/workflow/DELIVERY-GATE.md` | 先过 common floor，再按协调 runbook 叠加域专属 cutover gate |
 | **新语法添加工作流**（含 runtime helper / ORC 注册对齐） | `../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md` | 前端、Codegen/Runtime、测试与 docs 只保留入口规则与链接 |
@@ -77,19 +76,19 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 | **文档元数据、生成索引与审计流程** | `../assets/workflow/DOCS-MAINTENANCE-WORKFLOW.md` | 其它文档只保留入口规则与链接 |
 | **团队 runbook 维护交付门禁** | `../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md` | `docs-audit.py` 串联该门禁；团队文档只链接门禁说明与模板 |
 | **团队 runbook 标准格式** | `../assets/templates/TEAM-RUNBOOK-TEMPLATE.md` | 普通团队 runbook 必须使用该 H2 结构；协调者 runbook 的特殊结构由门禁说明列明 |
-| **架构决策 provenance（非活跃 SSOT）** | `docs/adr/`、`docs/archive/adr/` | 活跃规则必须提升到 owning SSOT；ADR 只保留决策过程与审计价值 |
+| **架构决策 provenance（非活跃 SSOT）** | `docs/adr/IMPLEMENTED-DECISIONS.md`、Git history | 活跃规则必须提升到 owning SSOT；旧 ADR 全文不保留在当前树 |
 
 ### 0.5 文档状态与 superseded 规则
 
-1. 活跃维护知识默认只应留在 `docs/design/`、`docs/specs/`、`docs/teams/`、`docs/assets/workflow/`、当前 `docs/rollups/` 摘要，以及仍在推进中的当前计划/里程碑批次。
-2. `docs/plans/*.md` 是**设计/实施计划**，不是语言或验收层面的 SSOT；当计划的稳定结论已经吸收到活跃文档后，计划应移动到 `docs/archive/plans/`。
-3. `docs/milestones/<YYYY-MM-DD>/` 下的文档是当前仍在推进或仍需直接对照的**冻结规格批次**；被吸收的历史批次应移动到 `docs/archive/milestones/`。若后续实现保留兼容层，文档必须明确区分：
+1. 活跃维护知识默认只应留在 `docs/design/`、`docs/specs/`、`docs/teams/`、`docs/assets/workflow/`、当前 `docs/rollups/` 摘要，以及仍在推进中的短计划或当前里程碑批次。
+2. `docs/plans/*.md` 是**设计/实施计划**，不是语言或验收层面的 SSOT；当计划的稳定结论已经吸收到活跃文档后，计划应从当前树删除，确需追溯时使用 Git 历史。
+3. `docs/milestones/<YYYY-MM-DD>/` 下的文档是当前仍在推进或仍需直接对照的**冻结规格批次**；被吸收的历史批次应从当前树删除，确需追溯时使用 Git 历史。若后续实现保留兼容层，文档必须明确区分：
    - **canonical**：冻结示例与推荐写法；
    - **accepted compatibility shorthand**：实现保留、测试覆盖、但不作为首选教学写法的兼容写法。
 4. 同一功能若存在较早草案和较晚冻结批次，较早文档必须在文首显式写：
    - `Status: Superseded draft`
    - 指向新的冻结文档路径。
-5. ADR、history 和 archive 默认都是 **provenance layer**，不是第二天继续开发的前置输入。当前仍有效的设计意图、维护规则、测试门禁、团队边界和交接方式，必须提升到活跃文档。
+5. ADR、history、archive 和 Git history 默认都是 **provenance layer**，不是第二天继续开发的前置输入。当前仍有效的设计意图、维护规则、测试门禁、团队边界和交接方式，必须提升到活跃文档。
 6. 当实现接受的兼容语法多于冻结示例时，SSOT 必须说明“为什么该语法仍有效”，并至少有一条自动化测试冻结该兼容行为。
 
 ### 0.6 文档目录职责
@@ -99,16 +98,16 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 | `docs/design/` | 语言设计、EBNF、符号表、资源/标准库等设计级 SSOT |
 | `docs/specs/` | agent / contributor 规范、文档策略、依赖规范 |
 | `docs/teams/` | 团队日常 runbook、review 协作矩阵、跨团队维护入口；不替代语言、测试或仓库边界 SSOT |
-| `docs/review/` | review 发现、设计冲突、待定决议 |
-| `docs/plans/` | 当前仍在执行的设计草案、实施计划、迁移方案；已吸收/已完成项移入 `docs/archive/plans/` |
+| `docs/review/` | review 发现、设计冲突、待定决议；不保留已归纳的旧 dated bundle |
+| `docs/plans/` | 当前仍在执行的设计草案、实施计划、迁移方案；已吸收/已完成项从当前树删除并依赖 Git 历史追溯 |
 | `docs/for-ide/` | IDE 集成、LSP 调用、嵌入方式与 edit-time 语法层使用说明 |
 | `docs/assets/workflow/` | 可复用工作流、测试框架、checkpoint / hygiene 标准 |
 | `docs/assets/templates/` | 可复用模板 |
 | `docs/rollups/` | 压缩后的 active 摘要；默认冷启动先读这里 |
-| `docs/archive/` | 集中化管理的 provenance 层：已归纳 raw 文档、吸收后的历史 milestone/plan/ADR，以及 archive ledger；非默认阅读入口 |
-| `docs/history/` | 按日开发历史与恢复记录；原始执行轨迹，不是活跃 SSOT |
+| `docs/archive/` | 最小 lifecycle metadata 壳；不保留旧语法目录、旧示例、旧 source、历史 milestone/plan/rollup 快照 |
+| `docs/history/` | 恢复入口；默认不保留 raw dated checkpoint，精确历史文本使用 Git history |
 | `docs/milestones/` | 当前仍活跃的按日期冻结里程碑规格批次 |
-| `docs/adr/` | 尚未吸收到主文档或仍需单独审计追溯的决策记录；吸收后应移入 `docs/archive/adr/` |
+| `docs/adr/` | 尚未吸收到主文档或仍需单独审计追溯的决策记录；吸收后的旧文本依赖 Git history 追溯 |
 
 ### 0.7 文件命名约定
 
@@ -151,7 +150,7 @@ Approved repository-document locations are:
 
 - root `README.md`
 - `docs/**/*.md`
-- `benchmark/**/*.md` except generated run outputs such as `benchmark/reports/<run-id>/summary.md`
+- `benchmark/**/*.md` only for Styio probe/adaptor documentation; benchmark workloads, reports, baselines, and regression records belong in `styio-benchmark`
 - `templates/**/*.md`
 - `grammar/tree-sitter-styio/README.md`
 - `tests/**/README.md` and approved test templates such as `tests/**/REGRESSION-TEMPLATE.md`
@@ -175,14 +174,22 @@ Manifest exports also include text-volume statistics for the selected document s
 1. First-wave time-sensitive families are:
    - `docs/history/*.md`
    - dated review bundles under `docs/review/<YYYY-MM-DD>/`
-2. `docs/rollups/` is the active compression layer. It keeps concise summaries such as current state and historical lessons, and should be read before raw history or archive docs.
-3. `docs/archive/` is the provenance layer. Archive paths mirror the original `docs/` path after removing the leading `docs/`.
+2. `docs/rollups/` is the active compression layer. It keeps concise current summaries and should be read before Git history or archive lifecycle metadata.
+3. `docs/archive/` is a minimal lifecycle metadata shell, not a retention area for old syntax catalogs, archived examples, old source snapshots, old plans, old rollups, or absorbed milestone batches.
 4. The JSON source of truth is `docs/archive/ARCHIVE-MANIFEST.json`; the human-facing generated view is `docs/archive/ARCHIVE-LEDGER.md`.
-5. `python3 scripts/docs-lifecycle.py mark ...` records that a raw doc has been summarized into active docs. If it falls outside the keep window, its status becomes `pending_archive`.
-6. `python3 scripts/docs-lifecycle.py cleanup ...` is the only supported way to move pending raw docs into `docs/archive/`.
-7. Archived raw docs keep their original text. Provenance, targets, and status must live in the manifest/ledger rather than being injected back into the archived raw file body.
+5. `python3 scripts/docs-lifecycle.py mark ...` records that a raw doc has been summarized into active docs. With the default zero keep window, its status becomes `pending_archive`.
+6. `python3 scripts/docs-lifecycle.py cleanup ...` removes pending raw docs from active history/review locations after their durable value has been promoted.
+7. Exact old raw text is recovered from Git history. Provenance, targets, and status must live in the manifest/ledger rather than being injected back into old raw file bodies.
 8. `python3 scripts/docs-lifecycle.py validate` is a required gate. `docs-audit.py` calls it automatically.
-9. Relative-link freshness is enforced for active docs. Archived raw provenance docs may retain historical relative links and are not rewritten for link normalization.
+9. Relative-link freshness is enforced for active docs. Historical prose recovered from Git history is not an active-doc link-normalization target.
+
+### 0.12 Public Wording Discipline
+
+1. Repository documentation must stay concise, rigorous, and evidence-scoped.
+2. Do not speculate about companies, organizations, individuals, projects, products, or their capabilities.
+3. External systems may be named only as cited references, integration targets, or measured baselines with reproducible evidence.
+4. Avoid absolute marketing superlatives and unsupported superiority language. Use neutral terms such as "reference", "baseline", "measured result", or "implementation target".
+5. Performance, safety, resource-management, and maturity statements must point to compiler tests, `styio-benchmark` reports, audit records, or primary source references.
 
 ---
 

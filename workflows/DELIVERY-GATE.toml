@@ -8,6 +8,7 @@ commands = [
   "./scripts/delivery-gate.sh",
   "./scripts/delivery-gate.sh --skip-health",
   "./scripts/delivery-gate.sh --mode push --base origin/main --range origin/main..HEAD",
+  "./scripts/delivery-gate.sh --mode release",
 ]
 
 delegates = [

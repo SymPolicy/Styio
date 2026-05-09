@@ -588,6 +588,27 @@ TEST(StyioSecurityParserContext, MoveForwardBeyondTokenTailIsClampedToEof) {
   free_tokens(tokens);
 }
 
+TEST(StyioSecurityParserContext, TokenMapMatchesSingleRightArrow) {
+  std::vector<StyioToken*> tokens{
+    StyioToken::Create(StyioTokenType::TOK_MINUS, "-"),
+    StyioToken::Create(StyioTokenType::TOK_RANGBRAC, ">"),
+    StyioToken::Create(StyioTokenType::TOK_EOF, "")
+  };
+  StyioContext* ctx = StyioContext::Create(
+    "<map-match-arrow>",
+    "->",
+    {{0, 0}},
+    tokens,
+    false
+  );
+
+  EXPECT_TRUE(ctx->map_match(StyioTokenType::ARROW_SINGLE_RIGHT));
+  EXPECT_EQ(ctx->cur_tok_type(), StyioTokenType::TOK_EOF);
+
+  delete ctx;
+  free_tokens(tokens);
+}
+
 TEST(StyioSecurityParserContext, CharApiAtEofReturnsSafeDefaults) {
   std::vector<StyioToken*> tokens;
   StyioContext* ctx = StyioContext::Create(
@@ -770,6 +791,24 @@ TEST(StyioSecurityLexer, TokenizesInlineReturnAndPipeSemicolon) {
   free_tokens(tokens);
 }
 
+TEST(StyioSecurityLexer, TokenizesAwaitPipe) {
+  auto tokens = StyioTokenizer::tokenize("?| job -> value: i64 | 0");
+  ASSERT_GE(tokens.size(), 12u);
+  EXPECT_EQ(tokens[0]->type, StyioTokenType::AWAIT_PIPE);
+  EXPECT_EQ(tokens[0]->original, "?|");
+  EXPECT_EQ(tokens[4]->type, StyioTokenType::ARROW_SINGLE_RIGHT);
+
+  bool saw_fallback_pipe = false;
+  for (auto* token : tokens) {
+    if (token->type == StyioTokenType::TOK_PIPE) {
+      saw_fallback_pipe = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(saw_fallback_pipe);
+  free_tokens(tokens);
+}
+
 TEST(StyioSecurityLexer, TokenizesTerminalHandleShorthands) {
   auto bracket_tokens = StyioTokenizer::tokenize("<|[>_]");
   ASSERT_GE(bracket_tokens.size(), 5u);
@@ -843,26 +882,6 @@ TEST(StyioSecurityNightlyParserExpr, UsesLeftAssociativeGroupingForEqualPreceden
   EXPECT_NE(repr.find("  |- RHS: fee"), std::string::npos);
   EXPECT_NE(repr.find("|- OP : <Sub>"), std::string::npos);
   EXPECT_NE(repr.find("|- RHS: tax"), std::string::npos);
-}
-
-TEST(StyioSecurityNightlyParserExpr, ApplyPipeMatchesCurriedCallShape) {
-  const std::string pipe_repr =
-    parse_expr_to_repr_latest("make_discount <| 100 <| 150", true);
-  const std::string call_repr =
-    parse_expr_to_repr_latest("make_discount(100)(150)", true);
-
-  EXPECT_EQ(pipe_repr, call_repr);
-  EXPECT_NE(pipe_repr.find(FuncCallAST::CallableApplyName), std::string::npos);
-}
-
-TEST(StyioSecurityLegacyParserExpr, ApplyPipeMatchesCurriedCallShape) {
-  const std::string pipe_repr =
-    parse_expr_to_repr_latest("make_discount <| 100 <| 150", false);
-  const std::string call_repr =
-    parse_expr_to_repr_latest("make_discount(100)(150)", false);
-
-  EXPECT_EQ(pipe_repr, call_repr);
-  EXPECT_NE(pipe_repr.find(FuncCallAST::CallableApplyName), std::string::npos);
 }
 
 TEST(StyioSecurityNightlyParserExpr, SubsetTokenGateIncludesCompareAndLogic) {
@@ -944,6 +963,7 @@ TEST(StyioSecurityNightlyParserStmt, SubsetTokenGateIncludesFunctionDefTokens) {
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_HAT));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::YIELD_PIPE));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::RETURN_PIPE));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::AWAIT_PIPE));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::PIPE_SEMICOLON));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_SEMICOLON));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::ELLIPSIS));
@@ -965,6 +985,7 @@ TEST(StyioSecurityNightlyParserStmt, SubsetStartGateIncludesBlockAndControlStart
   EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::TOK_HAT));
   EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::YIELD_PIPE));
   EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::RETURN_PIPE));
+  EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::AWAIT_PIPE));
   EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::ELLIPSIS));
   EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::ITERATOR));
 }
@@ -977,6 +998,25 @@ TEST(StyioSecurityNightlyParserStmt, ParsesInlineReturnAndStatementSeparators) {
 
   EXPECT_NE(repr.find("styio.ast.return"), std::string::npos);
   EXPECT_NE(repr.find("discount"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, ParsesTaskGroupAndAwaitBindings) {
+  const std::string src =
+    "||> [\n"
+    "  t1 := { <| 41 }\n"
+    "  t2 := { <| 1 }\n"
+    "]\n"
+    "?| t1 -> a: i64\n"
+    "?| t2 -> b: i64 | 0\n"
+    ">_(a + b)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_task_i64_spawn"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_task_i64_pull"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_runtime_clear_error"), std::string::npos);
 }
 
 TEST(StyioSecurityNightlyParserStmt, ParsesTerminalHandleReturnShorthands) {
@@ -1034,8 +1074,8 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourcePreludeSourceFile) {
 
 TEST(StyioSecurityNightlyParserStmt, RejectsParameterizedResourcePseudoDefinitions) {
   const std::vector<std::string> samples = {
-    "@file{\"/tmp/styio-invalid-resource-definition.txt\"} := { file(path) }\n",
-    "@{\"/tmp/styio-invalid-resource-definition.txt\"} := @file{\"/tmp/styio-invalid-resource-definition.txt\"}\n",
+    "@file(\"/tmp/styio-invalid-resource-definition.txt\") := { file(path) }\n",
+    "@{\"/tmp/styio-invalid-resource-definition.txt\"} := @file(\"/tmp/styio-invalid-resource-definition.txt\")\n",
     "@ file := #(path) => { file(path) }\n",
     "@ file : ftype := #(path) => { file(path) }\n",
     "@ file : ftype := #(path) => { path }\n",
@@ -1081,13 +1121,19 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnFlexBindSubsetSamples) {
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnHandleIoSubsetSamples) {
   const std::vector<std::string> samples = {
-    "f <- @file{\"tests/m5/data/hello.txt\"}\n",
-    "out << @file{\"/tmp/styio-new-parser-handle-io.txt\"}\n",
+    "f <- @file(\"tests/m5/data/hello.txt\")\n",
+    "out << @file(\"/tmp/styio-new-parser-handle-io.txt\")\n",
   };
 
   for (const auto& src : samples) {
     EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsBracedExplicitFileResource) {
+  const std::string src = "f <- @file{\"tests/m5/data/hello.txt\"}\n";
+  EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
+  EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError);
 }
 
 TEST(StyioSecurityNightlyParserStmt, AcceptsAtImportSyntaxWithCanonicalSlashPaths) {
@@ -1354,9 +1400,23 @@ TEST(StyioSecurityNightlyParserStmt, AcceptsBubbleSortFeatureSyntax) {
     "  }\n"
     "}\n";
   const std::string repr = parse_program_to_repr_latest(src, true);
-  EXPECT_NE(repr.find("stdin.list.typed"), std::string::npos);
   EXPECT_NE(repr.find("assign.parallel"), std::string::npos);
   EXPECT_NE(repr.find("only_true"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, TypedStdinPullFormsShareInstantPullAst) {
+  const std::string list_src =
+    "xs <- @stdin : list[i32]\n";
+  const std::string tuple_src =
+    "a, b <- @stdin : (f64, f64)\n";
+  const std::string list_repr = parse_program_to_repr_latest(list_src, true);
+  const std::string tuple_repr = parse_program_to_repr_latest(tuple_src, true);
+  EXPECT_NE(list_repr.find("instant.pull"), std::string::npos);
+  EXPECT_NE(list_repr.find("list[i32]"), std::string::npos);
+  EXPECT_EQ(list_repr.find("stdin.list.typed"), std::string::npos);
+  EXPECT_NE(tuple_repr.find("instant.pull"), std::string::npos);
+  EXPECT_NE(tuple_repr.find("f64"), std::string::npos);
+  EXPECT_EQ(tuple_repr.find("stdin.list.typed"), std::string::npos);
 }
 
 TEST(StyioSecurityNightlyParserStmt, AcceptsGuardFallbackBlockSyntax) {
@@ -1453,6 +1513,21 @@ TEST(StyioSecurityNightlySemantics, RejectsOneShotContinuationResumeBeforeLoweri
       EXPECT_NE(msg.find("one-shot continuation resume"), std::string::npos) << msg;
       EXPECT_NE(msg.find("exactly once"), std::string::npos) << msg;
     }
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsBareAwaitFreezeBeforeContinuationLowering) {
+  const std::string src =
+    "?| -> input: i64\n"
+    ">_(input)\n";
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected bare continuation freeze lowering error";
+  }
+  catch (const StyioTypeError& ex) {
+    const std::string msg = ex.what();
+    EXPECT_NE(msg.find("bare continuation freeze"), std::string::npos) << msg;
+    EXPECT_NE(msg.find("continuation lowering"), std::string::npos) << msg;
   }
 }
 
@@ -2207,9 +2282,9 @@ TEST(StyioSecurityNightlyRuntime, InvalidNumericStringArgumentSetsRuntimeError) 
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnResourcePostfixSubsetSamples) {
   const std::vector<std::string> samples = {
-    "\"Hello from Styio\" >> @file{\"/tmp/styio-new-parser-resource-postfix-write.txt\"}\n",
-    "x = 42\nx -> @file{\"/tmp/styio-new-parser-resource-postfix-redirect.txt\"}\n",
-    "# write_value := () => \"payload\" >> @file{\"/tmp/styio-new-parser-resource-postfix-func.txt\"}\nwrite_value()\n",
+    "\"Hello from Styio\" >> @file(\"/tmp/styio-new-parser-resource-postfix-write.txt\")\n",
+    "x = 42\nx -> @file(\"/tmp/styio-new-parser-resource-postfix-redirect.txt\")\n",
+    "# write_value := () => \"payload\" >> @file(\"/tmp/styio-new-parser-resource-postfix-func.txt\")\nwrite_value()\n",
   };
 
   for (const auto& src : samples) {
@@ -2219,8 +2294,8 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnResourcePostfixSubsetSamples
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnIteratorStmtSubsetSamples) {
   const std::vector<std::string> samples = {
-    "f <- @file{\"tests/m5/data/hello.txt\"}\nf >> #(line) => {\n    >_(line)\n}\n",
-    "# double_it := (x: i32) => x * 2\nf <- @file{\"tests/m5/data/numbers.txt\"}\nf >> #(line) => {\n    >_(double_it(line))\n}\n",
+    "f <- @file(\"tests/m5/data/hello.txt\")\nf >> #(line) => {\n    >_(line)\n}\n",
+    "# double_it := (x: i32) => x * 2\nf <- @file(\"tests/m5/data/numbers.txt\")\nf >> #(line) => {\n    >_(double_it(line))\n}\n",
     "result = true\n[1, 2, 3] >> #(x) => {\n    result = result && (x > 0)\n}\n>_(result)\n",
     "[1, 2, 3] >> #(x) => {\n    >_(x)\n}\n",
     "[1, 2, 3] >> #(n) & [4, 5, 6] >> #(m) => {\n    >_(n + m)\n}\n",
@@ -2261,25 +2336,28 @@ TEST(StyioSecurityNightlySemantics, RejectsNonBoolConditionalLoopGuard) {
 }
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnInstantPullSubsetSamples) {
-  const std::string src = "x = 1\nresult = x + (<< @file{\"tests/m7/data/ref50.txt\"})\n>_(result)\n";
+  const std::string src = "x = 1\nresult = x + (<< @file(\"tests/m7/data/ref50.txt\"))\n>_(result)\n";
   EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false));
 }
 
-TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnSnapshotDeclSubsetSamples) {
+TEST(StyioSecurityNightlyParserStmt, RejectsRetiredLegacyStateAndSnapshotSyntax) {
   const std::vector<std::string> samples = {
-    "@[ref_val] << @file{\"tests/m7/data/ref.txt\"}\n",
+    "@[ref_val] << @file(\"tests/m7/data/ref.txt\")\n",
     "@[3](ma = 1 + 2)\n",
+    "$state\n",
+    "$state[<<, 1]\n",
   };
 
   for (const auto& src : samples) {
-    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
+    EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError) << src;
+    EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError) << src;
   }
 }
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnAtResourceSubsetSamples) {
   const std::vector<std::string> samples = {
-    "@file{\"tests/m7/data/prices_a.txt\"} >> #(a) => {\n    >_(a)\n}\n",
-    "@file{\"tests/m7/data/input.txt\"} >> #(x) => {\n    result = x * 2\n    result << @file{\"/tmp/styio-new-parser-at-resource-subset.txt\"}\n}\n",
+    "@file(\"tests/m7/data/prices_a.txt\") >> #(a) => {\n    >_(a)\n}\n",
+    "@file(\"tests/m7/data/input.txt\") >> #(x) => {\n    result = x * 2\n    result << @file(\"/tmp/styio-new-parser-at-resource-subset.txt\")\n}\n",
   };
 
   for (const auto& src : samples) {
@@ -2290,7 +2368,7 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnAtResourceSubsetSamples) {
 TEST(StyioSecurityNightlyParserShadow, MatchesLegacyOnRedirectRouteSample) {
   const std::string src =
     "x = 42\n"
-    "x -> @file{\"/tmp/styio-nightly-parser-shadow-redirect.txt\"}\n";
+    "x -> @file(\"/tmp/styio-nightly-parser-shadow-redirect.txt\")\n";
 
   EXPECT_EQ(
     parse_program_engine_to_repr_latest(src, StyioParserEngine::Nightly),
@@ -2300,7 +2378,7 @@ TEST(StyioSecurityNightlyParserShadow, MatchesLegacyOnRedirectRouteSample) {
 
 TEST(StyioSecurityNightlyParserShadow, MatchesLegacyOnArbitrageGuardRouteSample) {
   const std::string src =
-    "@file{\"tests/m7/data/exchange_a.txt\"} >> #(a) & @file{\"tests/m7/data/exchange_b.txt\"} >> #(b) => {\n"
+    "@file(\"tests/m7/data/exchange_a.txt\") >> #(a) & @file(\"tests/m7/data/exchange_b.txt\") >> #(b) => {\n"
     "  gap = a - b\n"
     "  ?(gap > 5 || gap < -5) => { >_(\"Arb: \" + gap) }\n"
     "}\n";
@@ -2357,6 +2435,44 @@ TEST(StyioSafetyStdStream, RejectsWriteShorthandToStdinAtLowering) {
     {
       parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Legacy);
     },
+    StyioTypeError
+  );
+}
+
+TEST(StyioSecurityTopologyV2, ParsesAndLowersTopLevelResourceDeclWriteAndRead) {
+  const std::string src =
+    "@x : i64|2|\n"
+    "1 -> @x\n"
+    ">_(@x[-1])\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+}
+
+TEST(StyioSecurityTopologyV2, RejectsLocalResourceDeclarationsWithStableDiagnostic) {
+  const std::string src =
+    "{\n"
+    "  @x : i64|2|\n"
+    "}\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected local resource declaration rejection";
+  }
+  catch (const StyioTypeError& ex) {
+    EXPECT_NE(std::string(ex.what()).find("resource declarations are top-level only"), std::string::npos)
+      << ex.what();
+  }
+}
+
+TEST(StyioSecurityTopologyV2, RejectsImplicitWholeResourceCopy) {
+  const std::string src =
+    "@x : i64|2|\n"
+    "copy = @x\n";
+
+  EXPECT_THROW(
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly),
     StyioTypeError
   );
 }
@@ -3377,6 +3493,17 @@ TEST(StyioSecurityAstOwnership, TaskBlockOwnsBody) {
 
   delete node;
   EXPECT_EQ(stmt_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, TaskGroupLaunchOwnsEntries) {
+  int entry_destructed = 0;
+  auto* node = TaskGroupLaunchAST::Create(std::vector<StyioAST*>{
+    new CountingExprAST(&entry_destructed),
+    new CountingExprAST(&entry_destructed),
+  });
+
+  delete node;
+  EXPECT_EQ(entry_destructed, 2);
 }
 
 TEST(StyioSecurityAstOwnership, FlowBindOwnsSourceAndTarget) {

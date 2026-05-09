@@ -115,8 +115,8 @@ using StyioSemaLoweringVisitor = AnalyzerVisitor<
   class StreamZipAST,
   class SnapshotDeclAST,
   class InstantPullAST,
-  class TypedStdinListAST,
   class TaskBlockAST,
+  class TaskGroupLaunchAST,
   class FlowBindAST,
   class IterSeqAST,
   class InfiniteLoopAST,
@@ -156,6 +156,12 @@ using StyioSemaLoweringVisitor = AnalyzerVisitor<
   class FmtStrAST,
 
   class ResourceAST,
+  class EmptyResourceAST,
+  class ResourceReceiverAST,
+  class ResourceMethodDefAST,
+  class ResourceOrderAST,
+  class ResourceDeclAST,
+  class ResourceRefAST,
 
   class ResPathAST,
   class RemotePathAST,
@@ -265,6 +271,12 @@ public:
   void typeInfer(AttrAST* ast) override;
   void typeInfer(ListOpAST* ast) override;
   void typeInfer(ResourceAST* ast) override;
+  void typeInfer(EmptyResourceAST* ast) override;
+  void typeInfer(ResourceReceiverAST* ast) override;
+  void typeInfer(ResourceMethodDefAST* ast) override;
+  void typeInfer(ResourceOrderAST* ast) override;
+  void typeInfer(ResourceDeclAST* ast) override;
+  void typeInfer(ResourceRefAST* ast) override;
   void typeInfer(FlexBindAST* ast) override;
   void typeInfer(FinalBindAST* ast) override;
   void typeInfer(ParallelAssignAST* ast) override;
@@ -292,8 +304,8 @@ public:
   void typeInfer(StreamZipAST* ast) override;
   void typeInfer(SnapshotDeclAST* ast) override;
   void typeInfer(InstantPullAST* ast) override;
-  void typeInfer(TypedStdinListAST* ast) override;
   void typeInfer(TaskBlockAST* ast) override;
+  void typeInfer(TaskGroupLaunchAST* ast) override;
   void typeInfer(FlowBindAST* ast) override;
   void typeInfer(IterSeqAST* ast) override;
   void typeInfer(MatchCasesAST* ast) override;
@@ -322,6 +334,28 @@ public:
     StyioDataType declared_type{StyioDataTypeOption::Undefined, "undefined", 0};
   };
 
+  struct ResourceMethodInfo
+  {
+    bool final_binding = false;
+    bool consuming = false;
+    bool property = false;
+    std::size_t param_count = 0;
+  };
+
+  const ResourceMethodInfo* find_resource_method(
+    const std::string& family,
+    const std::string& method) const {
+    auto family_it = resource_method_defs_.find(family);
+    if (family_it == resource_method_defs_.end()) {
+      return nullptr;
+    }
+    auto method_it = family_it->second.find(method);
+    if (method_it == family_it->second.end()) {
+      return nullptr;
+    }
+    return &method_it->second;
+  }
+
 protected:
   SGPulsePlan* cur_pulse_plan_ = nullptr;
   int active_series_slot_ = -1;
@@ -331,11 +365,17 @@ protected:
   /* Names bound by final assignment (x : T := …); may not be reassigned via flex (=). */
   std::unordered_set<std::string> fixed_assignment_names_;
   std::unordered_map<std::string, BindingInfo> binding_info_;
+  std::unordered_map<std::string, std::unordered_map<std::string, ResourceMethodInfo>> resource_method_defs_;
+  std::unordered_map<std::string, StyioDataType> resource_binding_types_;
   std::unordered_set<ResourceWriteAST*> collect_bind_resource_writes_;
   std::unordered_set<HandleAcquireAST*> collect_bind_handle_acquires_;
   std::unordered_map<ResourceWriteAST*, StyioDataType> collect_bind_resource_write_types_;
   std::unordered_map<HandleAcquireAST*, StyioDataType> collect_bind_handle_acquire_types_;
   std::unordered_set<std::string> consumed_task_names_;
+  std::unordered_set<std::string> consumed_resource_names_;
+  std::unordered_set<std::string> owned_resource_names_;
+  std::vector<std::unordered_set<std::string>> task_outer_resource_names_stack_;
+  std::string active_resource_receiver_family_;
 };
 
 #endif

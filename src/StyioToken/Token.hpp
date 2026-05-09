@@ -57,6 +57,16 @@ enum class StyioTypeState : std::uint8_t
   Closed,
 };
 
+enum class StyioResourceShapeKind : std::uint8_t
+{
+  None = 0,
+  Scalar,
+  Fixed,
+  Recent,
+  Sequence,
+  TupleSequence,
+};
+
 enum class StyioValueFamily : std::uint8_t
 {
   Unknown = 0,
@@ -116,6 +126,10 @@ struct StyioDataType
   StyioValueFamily value_family = StyioValueFamily::Unknown;
   StyioValueFamily item_value_family = StyioValueFamily::Unknown;
   StyioValueFamily key_value_family = StyioValueFamily::Unknown;
+  bool is_resource_type = false;
+  std::string resource_value_type_name;
+  StyioResourceShapeKind resource_shape = StyioResourceShapeKind::None;
+  std::size_t resource_shape_bound = 0;
 
   bool isUndefined() const {
     return option == StyioDataTypeOption::Undefined;
@@ -142,9 +156,21 @@ struct StyioDataType
       && std_stream_kind == other.std_stream_kind
       && value_family == other.value_family
       && item_value_family == other.item_value_family
-      && key_value_family == other.key_value_family;
+      && key_value_family == other.key_value_family
+      && is_resource_type == other.is_resource_type
+      && resource_value_type_name == other.resource_value_type_name
+      && resource_shape == other.resource_shape
+      && resource_shape_bound == other.resource_shape_bound;
   }
 };
+
+inline bool styio_is_list_type(const StyioDataType& type);
+inline bool styio_is_dict_type(const StyioDataType& type);
+inline std::string styio_list_elem_type_name(const StyioDataType& type);
+inline std::string styio_dict_key_type_name(const StyioDataType& type);
+inline std::string styio_dict_value_type_name(const StyioDataType& type);
+inline StyioValueFamily styio_value_family_for_type(const StyioDataType& type);
+inline StyioDataType styio_data_type_from_name(const std::string& type_name);
 
 inline StyioDataType
 styio_make_list_type(const std::string& elem_name) {
@@ -189,6 +215,104 @@ styio_make_dict_type(const std::string& key_name, const std::string& value_name)
     false,
     -1,
     StyioValueFamily::DictHandle};
+}
+
+inline StyioDataType
+styio_make_topology_sequence_type(const std::string& elem_name) {
+  StyioDataType type = styio_make_list_type(elem_name);
+  type.name = elem_name + "..";
+  type.resource_value_type_name = elem_name;
+  type.resource_shape = StyioResourceShapeKind::Sequence;
+  return type;
+}
+
+inline StyioDataType
+styio_make_topology_resource_type(
+  StyioDataType value_type,
+  StyioResourceShapeKind shape,
+  std::size_t bound = 0
+) {
+  const std::string value_name = value_type.name;
+  std::string shape_suffix;
+  switch (shape) {
+    case StyioResourceShapeKind::Fixed:
+      shape_suffix = "|" + std::to_string(bound) + "|";
+      break;
+    case StyioResourceShapeKind::Recent:
+      shape_suffix = "|.." + std::to_string(bound) + "|";
+      break;
+    case StyioResourceShapeKind::Sequence:
+      shape_suffix = "..";
+      break;
+    case StyioResourceShapeKind::TupleSequence:
+      shape_suffix = "..";
+      break;
+    case StyioResourceShapeKind::Scalar:
+    case StyioResourceShapeKind::None:
+      break;
+  }
+
+  StyioDataType type{
+    StyioDataTypeOption::Defined,
+    std::string("resource[") + value_name + shape_suffix + "]",
+    value_type.num_of_bit,
+    StyioHandleFamily::None,
+    StyioTypeState::Open,
+    styio_caps(StyioTypeCapability::Readable)
+      | styio_caps(StyioTypeCapability::Writable)
+      | styio_caps(StyioTypeCapability::Iterable)
+      | styio_caps(StyioTypeCapability::Indexable)
+      | styio_caps(StyioTypeCapability::Cloneable),
+    value_name,
+    "",
+    false,
+    -1,
+    StyioValueFamily::UserDefined,
+    styio_value_family_for_type(value_type)};
+  type.is_resource_type = true;
+  type.resource_value_type_name = value_name;
+  type.resource_shape = shape == StyioResourceShapeKind::None
+    ? StyioResourceShapeKind::Scalar
+    : shape;
+  type.resource_shape_bound = bound;
+  return type;
+}
+
+inline bool
+styio_is_topology_resource_type(const StyioDataType& type) {
+  return type.is_resource_type;
+}
+
+inline StyioDataType
+styio_topology_resource_value_type(const StyioDataType& type) {
+  if (!type.resource_value_type_name.empty()) {
+    return styio_data_type_from_name(type.resource_value_type_name);
+  }
+  if (!type.item_type_name.empty()) {
+    return styio_data_type_from_name(type.item_type_name);
+  }
+  return StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+}
+
+inline StyioDataType
+styio_normalize_resource_decl_type(const StyioDataType& raw) {
+  if (styio_is_topology_resource_type(raw)) {
+    return raw;
+  }
+  if (styio_is_list_type(raw)) {
+    return styio_make_topology_resource_type(
+      styio_data_type_from_name(styio_list_elem_type_name(raw)),
+      StyioResourceShapeKind::Sequence);
+  }
+  if (styio_is_dict_type(raw)) {
+    return styio_make_topology_resource_type(
+      StyioDataType{
+        StyioDataTypeOption::Tuple,
+        std::string("(") + styio_dict_key_type_name(raw) + "," + styio_dict_value_type_name(raw) + ")",
+        0},
+      StyioResourceShapeKind::TupleSequence);
+  }
+  return styio_make_topology_resource_type(raw, StyioResourceShapeKind::Scalar);
 }
 
 inline bool
@@ -883,10 +1007,17 @@ enum class StyioNodeType
    */
 
   FileResource,
+  EmptyResource,
+  ResourceReceiver,
+  ResourceMethodDef,
+  ResourceOrder,
+  ResourceDecl,
+  ResourceRef,
   HandleAcquire,
   ResourceWrite,
   ResourceRedirect,
   TaskBlock,
+  TaskGroupLaunch,
   FlowBind,
 
   /* M6: state ledger, $refs, intrinsics, history */
@@ -899,7 +1030,6 @@ enum class StyioNodeType
   StreamZip,
   SnapshotDecl,
   InstantPull,
-  TypedStdinList,
 
   /* M9-M10: standard streams */
   StdinResource,
@@ -1355,6 +1485,7 @@ enum class StyioTokenType
 
   YIELD_PIPE,         // <|
   RETURN_PIPE,        // |<|
+  AWAIT_PIPE,         // ?|
   PIPE_SEMICOLON,     // |;
   TASK_LAUNCH,        // ||>
 
@@ -1443,7 +1574,7 @@ static std::unordered_map<StyioTokenType, std::vector<StyioTokenType> > const
      }
     },
     // ->
-    {StyioTokenType::ARROW_SINGLE_LEFT,
+    {StyioTokenType::ARROW_SINGLE_RIGHT,
      std::vector<StyioTokenType>{
        StyioTokenType::TOK_MINUS,
        StyioTokenType::TOK_RANGBRAC

@@ -5,7 +5,7 @@
 **Last updated:** 2026-05-03
 
 **Status:** Target design — not fully implemented in the current compiler.  
-**See also:** [`Styio-Language-Design.md`](./Styio-Language-Design.md), [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md), [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md).
+**See also:** [`Styio-Language-Design.md`](./Styio-Language-Design.md), [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md), [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md).
 
 ---
 
@@ -19,7 +19,7 @@ The current compiler mixes three different concerns:
 
 This leads to ad hoc special cases:
 
-- `@stdin` and `@stdin: list[T]` currently take different AST paths.
+- Historically, scalar and list-shaped `@stdin : T` pulls drifted into separate implementation paths; current work keeps typed stdin ingestion on one `InstantPullAST` path before type-directed lowering.
 - Iteration is dispatched partly by `NodeType`, not by a unified type protocol.
 - `<<` currently behaves differently depending on parser shape instead of a single type-directed rule.
 
@@ -33,7 +33,7 @@ This document defines a target design that unifies these cases.
 2. Distinguish **iterable** from **non-iterable** statically.
 3. Make `<<` mean one thing: **feed items into the left side one by one**.
 4. Preserve Styio’s resource flavor: values behave like OS handles with protocol state.
-5. Avoid Rust-style surface `unwrap`; failed operations should still be typed, but default handling should abort with diagnostics.
+5. Avoid mandatory user-visible `unwrap`; failed operations should still be typed, but default handling should abort with diagnostics.
 6. Support destructive update safely for unique resources and materialized collections.
 
 ---
@@ -425,7 +425,7 @@ Where:
 - `shared` may read and iterate if the resource protocol allows shared iteration
 - `pure` may inspect metadata but may not change resource state
 
-This can later refine the current final/flex binding metadata without exposing a large Rust-like borrow calculus to users.
+This can later refine the current final/flex binding metadata without exposing a large borrow calculus to users.
 
 ---
 
@@ -486,7 +486,7 @@ Add internal `Result` / `Step` modeling and a default fail-fast handler.
 
 ## 16. Explicit non-goals for v1
 
-1. Full Rust-style borrow syntax.
+1. Full user-visible borrow syntax.
 2. User-visible `unwrap` as a mandatory language pattern.
 3. Python-style universal object dictionary semantics.
 4. General structural duck typing for all user types.

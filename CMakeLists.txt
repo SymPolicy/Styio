@@ -12,10 +12,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # [CMake]
 set(DOWNLOAD_EXTRACT_TIMESTAMP true)
 include(FetchContent)
-include(GNUInstallDirs)
 
 # [Styio] Version
 project(styio VERSION 0.0.1)
+include(GNUInstallDirs)
 
 list(APPEND CMAKE_MODULE_PATH
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
@@ -28,7 +28,7 @@ option(STYIO_NANO_OPTIMIZE_FOR_SIZE "Compile styio-nano with size-oriented optim
 option(STYIO_ENABLE_TREE_SITTER "Enable the generated Tree-sitter syntax backend for styio_ide_core" ON)
 option(STYIO_INSTALL_NATIVE_TOOLCHAIN
        "Install a clang+LLVM bundle next to styio so @extern(c/c++) works without user compiler configuration"
-       ON)
+       OFF)
 set(STYIO_NATIVE_TOOLCHAIN_MODE "auto" CACHE STRING
     "Native @extern compiler resolution: auto, bundled, or system")
 set_property(CACHE STYIO_NATIVE_TOOLCHAIN_MODE PROPERTY STRINGS auto bundled system)
@@ -79,3 +79,27 @@ include(StyioGoogleTest)
 
 add_subdirectory(tests)
 add_subdirectory(benchmark)
+
+install(
+  FILES
+    "${CMAKE_SOURCE_DIR}/LICENSE"
+    "${CMAKE_SOURCE_DIR}/NOTICE"
+    "${CMAKE_SOURCE_DIR}/README.md"
+    "${CMAKE_SOURCE_DIR}/README_zh.md"
+    "${CMAKE_SOURCE_DIR}/CHANGELOG.md"
+    "${CMAKE_SOURCE_DIR}/RELEASE-POLICY.md"
+    "${CMAKE_SOURCE_DIR}/DEPENDENCY-USAGE.md"
+  DESTINATION "${CMAKE_INSTALL_DOCDIR}"
+  COMPONENT Runtime
+)
+
+install(
+  DIRECTORY "${CMAKE_SOURCE_DIR}/example/"
+  DESTINATION "${CMAKE_INSTALL_DOCDIR}/examples"
+  COMPONENT Runtime
+  FILES_MATCHING
+    PATTERN "*.styio"
+    PATTERN "*.sh"
+    PATTERN "*.out"
+    PATTERN "README.md"
+)

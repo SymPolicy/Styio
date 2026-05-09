@@ -2,7 +2,7 @@
 
 **Purpose:** 编译器内建 **`[op, n]`** 等算法的规范（行为、复杂度、`@` 处理、代码生成提示）；**不**重复语言总语义（见 `Styio-Language-Design.md`）。
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-05-09
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -183,17 +183,17 @@ These produce **boolean** streams for trading logic.
 **Syntax:**
 
 ```
-buy_signal = cross_over($ma5, $ma20)
-sell_signal = cross_under($ma5, $ma20)
+buy_signal = cross_over(@ma5[-1], @ma20[-1])
+sell_signal = cross_under(@ma5[-1], @ma20[-1])
 ```
 
 **2026-04-24 revision:** `cross_over(a, b)` and `cross_under(a, b)` wait for the
-revised history selector. The old `a[<<, 1]` spelling is retired from active
-syntax and must not be used in new milestone fixtures.
+revised history selector. Retired history-probe spellings must not be used in
+new milestone fixtures.
 
-**Requirement:** Both `a` and `b` must be `$`-prefixed state references once the
-revised history selector lands. Do not reintroduce the old `[<<, 1]` spelling in
-active tests.
+**Requirement:** Both `a` and `b` should be values read from resource-object
+selectors such as `@ma5[-1]`. Do not reintroduce retired state/history probe
+families in active tests.
 
 **Output:** Strict `bool` — never `@`.
 
@@ -270,7 +270,7 @@ On new value x:
 **Syntax:**
 
 ```
-safe = price | $last_valid
+safe = price | @last_valid[-1]
 ```
 
 **LLVM IR:** Compiles to a single `select` instruction (no branch, no phi node). If left operand's undefined flag is set, return right operand.
@@ -291,32 +291,45 @@ msg = last_result ?? reason
 
 ## 5. Accumulator Patterns (Scan)
 
-These are not intrinsics per se but common patterns enabled by `@[var = init]`.
+These are not intrinsics per se but common patterns enabled by Topology v2
+resource declarations and writes.
 
 ### 5.1 Running Sum
 
 ```
-@[total = 0.0](total_vol = $total + volume)
+@total_vol : f64|..1|
+next_total = @total_vol[-1] + volume
+next_total -> @total_vol
 ```
 
 ### 5.2 Running Maximum
 
 ```
-@[max_p = 0.0](high_price = ?(p > $max_p) => p | $max_p)
+@high_price : f64|..1|
+prev_high = @high_price[-1]
+next_high = ?(p > prev_high) => p | prev_high
+next_high -> @high_price
 ```
 
 ### 5.3 Running Count
 
 ```
-@[count = 0](break_times = ?(signal) => $count + 1 | $count)
+@break_times : i64|..1|
+prev_count = @break_times[-1]
+next_count = ?(signal) => prev_count + 1 | prev_count
+next_count -> @break_times
 ```
 
 ### 5.4 VWAP (Volume-Weighted Average Price)
 
 ```
-@[sum_pv = 0.0](total_pv = $sum_pv + (price * volume))
-@[sum_vol = 0.0](total_vol = $sum_vol + volume)
-vwap = total_pv / total_vol
+@total_pv : f64|..1|
+@total_vol : f64|..1|
+next_pv = @total_pv[-1] + (price * volume)
+next_vol = @total_vol[-1] + volume
+next_pv -> @total_pv
+next_vol -> @total_vol
+vwap = next_pv / next_vol
 ```
 
 ---
@@ -329,7 +342,7 @@ These interact with the resource driver layer.
 
 ```
 ?(signal) => {
-    @order{"Limit", price, qty}
+    @order("Limit", price, qty)
 }
 ```
 
@@ -351,7 +364,8 @@ Triggers `mmap`-based or copy-on-write serialization of the entire state ledger 
 
 ### 7.1 Auto-Vectorization
 
-For window operations over `@[n]` buffers where `n > 8`, the generated LLVM loop must:
+For window operations over Topology v2 recent-window resources such as `@x : T|..n|`
+where `n > 8`, the generated LLVM loop must:
 - Avoid loop-carried dependencies where possible
 - Use `<n x float>` vector types when the operation is element-wise
 - Emit `llvm.vector.reduce.*` intrinsics for reductions
@@ -370,7 +384,7 @@ State containers in the anonymous ledger must be allocated in a **single contigu
 [Ring_MA5 (5*f64)] [Ring_MA20 (20*f64)] [Scalar_total (f64)] [Scalar_count (i64)] ...
 ```
 
-Base address is stored in a single pointer. All `$var` accesses compile to `base_ptr + constant_offset`, enabling the CPU prefetcher to work effectively.
+Base address is stored in a single pointer. Resource selector reads compile to `base_ptr + constant_offset`, enabling the CPU prefetcher to work effectively.
 
 ---
 

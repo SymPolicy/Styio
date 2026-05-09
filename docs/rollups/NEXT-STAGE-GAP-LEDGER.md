@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the active, evidence-based phase summary for repository-wide unfinished work so maintainers can split the next stage into checkpoint-sized, multi-team deliveries without creating parallel truths.
 
-**Last updated:** 2026-04-22
+**Last updated:** 2026-05-09
 
 **Status:** Active collaboration ledger. This file distinguishes:
 
@@ -13,10 +13,9 @@
 ## 1. How to Use This Ledger
 
 1. Start from [CURRENT-STATE.md](./CURRENT-STATE.md), then use this file to decide next-stage ownership and sequencing.
-2. For checkpoint-sized execution planning, use [../plans/Next-Stage-Checkpoint-Tree.md](../plans/Next-Stage-Checkpoint-Tree.md).
-3. Treat each gap below as a coordination item, not as a free-form backlog note. Every implementation checkpoint should point back to one or more ledger items.
-4. When a gap changes status, update this file, the owning runbook, and the relevant SSOT or handoff document in the same checkpoint.
-5. Do not use this file to redefine language semantics, package-manager product scope, or IDE public behavior. Those still belong to the owning SSOTs.
+2. Treat each gap below as a coordination item, not as a free-form backlog note. Every implementation checkpoint should point back to one or more ledger items.
+3. When a gap changes status, update this file, the owning runbook, and the relevant SSOT or handoff document in the same checkpoint.
+4. Do not use this file to redefine language semantics, package-manager product scope, or IDE public behavior. Those still belong to the owning SSOTs.
 
 ## 2. Current Baseline That Is Real
 
@@ -35,7 +34,7 @@
 | Codegen / Runtime | Multi-stream zip and stream-driver combinations are only partially lowered | M7 remains incomplete end-to-end |
 | CLI / Nano | Bootstrap nano contract exists; full package lifecycle does not | Keep `styio` limited to compiler contracts and handoff surfaces |
 | IDE / LSP | Core semantic services exist, but stdio runtime drain and several LSP methods are still absent | Close operational gaps before expanding host-facing promises |
-| Tests / Quality | Core suites exist and M8 positive smoke coverage is now in the milestone matrix, but M6 catalog alignment and negative-path package coverage still have holes | Coverage closure must run in parallel with implementation closure |
+| Tests / Quality | Core suites exist, M6 active acceptance now uses Topology v2 syntax, and resource-topology safety coverage is registered, but negative-path package and next-stage migration coverage still need expansion | Coverage closure must run in parallel with implementation closure |
 
 ## 4. Responsibility Split: `styio` vs `styio-spio`
 
@@ -53,8 +52,8 @@
 | Gap | Severity | Current evidence | Owning teams | Next checkpoint intent |
 |-----|----------|------------------|--------------|------------------------|
 | Nightly expression parser remains a constrained subset | High | Unsupported continuation guard and explicit rejections such as dot-chain-after-call still exist in [src/StyioParser/NewParserExpr.cpp](../../src/StyioParser/NewParserExpr.cpp) | Frontend, Test Quality | Convert unsupported paths into explicit checkpoint queue; each removed rejection must ship with parity tests and shadow gate evidence |
-| Topology v2 resource declaration syntax is still not the running compiler path | High | Parser comment still marks top-level `@name : [|n|] := { driver }` and `expr -> $name` as not implemented in [src/StyioParser/Parser.cpp](../../src/StyioParser/Parser.cpp); design doc still marks top-level `ResourceDecl` and shadow-write rule as not implemented in [../design/Styio-Resource-Topology.md](../design/Styio-Resource-Topology.md) | Frontend, Sema / IR, Docs / Ecosystem | Treat Topology v2 as a dedicated migration milestone, not an incidental syntax tweak |
-| Handle / capability / failure-type unification is still target design rather than active compiler behavior | Medium | Design doc explicitly says the model is not fully implemented and lists current ad hoc special cases in [../design/Styio-Handle-Capability-Type-System.md](../design/Styio-Handle-Capability-Type-System.md) | Frontend, Sema / IR, Codegen / Runtime | Decide whether next stage closes this model or deliberately continues with local special-case patches |
+| Topology v2 resource declaration syntax is still not the running compiler path | High | Target design now uses `@name : Type|n|`, `@name : Type|..n|`, `T..` / `T...`, `list[T]`, and `expr -> @name`; the compiler still needs the parser/type migration tracked by [../design/Styio-Resource-Topology.md](../design/Styio-Resource-Topology.md) | Frontend, Sema / IR, Docs / Ecosystem | Treat Topology v2 as a dedicated migration milestone, not an incidental syntax tweak |
+| Handle / capability / failure-type unification is still target design rather than active compiler behavior | Medium | Design doc explicitly says the model is not fully implemented and keeps remaining capability/protocol special cases in [../design/Styio-Handle-Capability-Type-System.md](../design/Styio-Handle-Capability-Type-System.md); typed stdin ingestion is no longer evidence of an active AST split | Frontend, Sema / IR, Codegen / Runtime | Decide whether next stage closes this model or deliberately continues with local special-case patches |
 
 ### 5.2 Sema / IR
 
@@ -86,13 +85,13 @@
 | Gap | Severity | Current evidence | Owning teams | Next checkpoint intent |
 |-----|----------|------------------|--------------|------------------------|
 | LSP surface is still intentionally incomplete | Medium | Current limits still list local-only, single-workspace behavior and missing `rename`, `codeAction`, and `inlayHint` in [../external/for-ide/LSP.md](../external/for-ide/LSP.md); server capabilities stop at completion/hover/definition/references/symbols/semantic tokens in [src/StyioLSP/Server.cpp](../../src/StyioLSP/Server.cpp) | IDE / LSP, Docs / Ecosystem | Expand the surface only after runtime drain and semantic identity paths remain stable under tests |
-| Perf budget enforcement is split between unit and dedicated Release harnesses | Low | `StyioIdePerf.EnforcesFrozenLatencyBudgets` skips non-Release runs in [tests/ide/styio_ide_test.cpp](../../tests/ide/styio_ide_test.cpp), and M19 documents the dedicated perf harness in [../milestones/2026-04-15/M19-QualityAndPerformanceClosure.md](../milestones/2026-04-15/M19-QualityAndPerformanceClosure.md) | IDE / LSP, Perf / Stability | Preserve the dedicated Release gate, but keep the distinction visible so teams do not mistake Debug green for perf closure |
+| Perf budget enforcement is split between unit and dedicated Release harnesses | Low | `StyioIdePerf.EnforcesFrozenLatencyBudgets` skips non-Release runs in [tests/ide/styio_ide_test.cpp](../../tests/ide/styio_ide_test.cpp), with operational guidance in [../teams/PERF-STABILITY-RUNBOOK.md](../teams/PERF-STABILITY-RUNBOOK.md) | IDE / LSP, Perf / Stability | Preserve the dedicated Release gate, but keep the distinction visible so teams do not mistake Debug green for perf closure |
 
 ### 5.6 Tests / Quality / Perf
 
 | Gap | Severity | Current evidence | Owning teams | Next checkpoint intent |
 |-----|----------|------------------|--------------|------------------------|
-| Published M6 test catalog still names missing cases | Medium | Test catalog still records missing `t07`-`t10` style M6 coverage in [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) | Test Quality, Frontend, Sema / IR | Either add the missing fixtures or remove obsolete references so acceptance and catalog stay aligned |
+| Next-stage migration tests need to stay tied to active syntax | Medium | [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) now treats M6 positive coverage as Topology v2 resource syntax and keeps retired state-family spellings only as negative migration diagnostics | Test Quality, Frontend, Sema / IR | Add new positive coverage only for active syntax; keep retired spellings in negative tests with stable migration diagnostics |
 | Package and contract negative-path testing still lags behind implementation branches | Medium | Nano create/publish guards, marker parsing, and blob verification are present in code but not closed by matching test density | Test Quality, CLI / Nano | Treat contract-edge coverage as release-blocking for any future nano handoff changes |
 | Broadened ignore baselines can still hide future tracked repro fixtures outside the frozen negate roots | Low | Root ignore rules now absorb cache, `tmp/`, `build-*`, and `*.tmp` / `*.log` style paths in [../../.gitignore](../../.gitignore), but `docs/**` and `tests/**` now have explicit negate rules and are checked by [../../scripts/repo-hygiene-gate.py](../../scripts/repo-hygiene-gate.py) | Docs / Ecosystem, Test Quality | Keep the shared ignore baseline, extend explicit negate rules before adding new tracked repro roots outside `docs/**` or `tests/**`, and do not rely on review memory alone |
 
@@ -105,7 +104,19 @@
 | `stdio semantic drain request-loop integration` | `Server::run()` now drains runtime diagnostics on each request and `styio_ide_test` asserts the serialized loop output matches `handle + drain_runtime()` (`StyioLspServer.RunDrainsRuntimeDiagnostics`) | `ctest --test-dir build-codex --tests-regex 'StyioLspServer.RunDrainsRuntimeDiagnostics' --output-on-failure` passed on 2026-04-21 |
 | `CP-B0.2 runtime scheduling freeze` | Request-loop runtime diagnostics are budgeted in `Server::run()` (`kRuntimeDrainBudgetPerLoop = 1`), `IdeService::run_idle_tasks()` drains semantic diagnostics before budgeted background work, and stale/late updates are dropped by snapshot-version sequencing in `IdeService` | `ctest --test-dir build-codex -L ide --tests-regex 'StyioLspRuntime.RuntimeDrainCanBeBudgetedForScheduling|StyioLspRuntime.IdleSliceDrainsSemanticBeforeBackgroundWork|StyioLspRuntime.RunAdvancesBackgroundWorkAsRequestDrivenFallback|StyioLspServer.RunDrainsRuntimeDiagnostics' --output-on-failure` passed on 2026-04-22 |
 
-## 6. Next-Stage Workstream Queue
+## 6. Next-Stage Execution Entry
+
+Start the next stage from checkpoint-sized implementation slices. Do not recreate the deleted long-form plan files; each slice should update this ledger, the owning runbook, the design SSOT if semantics change, and the smallest matching tests.
+
+| Checkpoint | First output | Owner path | Required proof |
+|------------|--------------|------------|----------------|
+| P0 | Inventory active Sema/lowering placeholders by AST family and classify each as dead syntax, intentional no-op, or implementation debt | W1 / Sema / IR | Focused inventory diff plus `python3 scripts/docs-audit.py` |
+| P1 | Retire one placeholder cluster by implementing real lowering or fail-closed diagnostics | W1 / Sema / IR + Codegen / Runtime | Targeted unit tests, affected `styio_pipeline` cases, and `security` when diagnostics or ownership change |
+| P2 | Carry one M7 stream/zip source combination through parser, sema, lowering, runtime, and tests | W2 / Frontend + Sema / IR + Codegen / Runtime | M7 milestone case, five-layer evidence, and parser shadow gates |
+| P3 | Advance one Topology v2 compiler slice without adding legacy syntax back | W6 / Frontend + Sema / IR + Test Quality | Resource-topology unit tests, active-syntax docs update, and migration diagnostics when retired syntax is touched |
+| P4 | Route resource/task pressure evidence through `styio-benchmark` while keeping Styio-side probes stable | Perf / Stability + Test Quality | `styio-benchmark` report path or documented handoff plus Styio probe gate |
+
+## 7. Next-Stage Workstream Queue
 
 The next stage should not be a single monolithic rewrite. Use checkpoint-sized workstreams that map to team ownership and hard gates.
 
@@ -116,9 +127,9 @@ The next stage should not be a single monolithic rewrite. Use checkpoint-sized w
 | W4 | Harden the delivered `compile_plan` producer contract for `spio` handoff | CLI / Nano, Docs / Ecosystem, `styio-spio` coordination | None | `StyioDiagnostics.*` coverage, handoff doc update, docs audit |
 | W5 | Complete nano negative-path coverage and contract hardening | CLI / Nano, Test Quality | W4 not required | nano-focused unit tests plus docs audit |
 | W6 | Re-open Topology v2 only as a dedicated migration track | Frontend, Sema / IR, Docs / Ecosystem, Test Quality | W1 strongly recommended | milestone acceptance, design doc update, ADR when ownership/lifecycle semantics change |
-| W7 | Close remaining milestone catalog gaps | Test Quality with affected module owners | Parallel with W1-W6 | `ctest -L milestone`, catalog/doc sync, no orphan fixtures |
+| W7 | Keep milestone catalog and migration diagnostics aligned with active syntax | Test Quality with affected module owners | Parallel with W1-W6 | `ctest -L milestone`, catalog/doc sync, no orphan fixtures |
 
-## 7. Rules for Scalable Team Execution
+## 8. Rules for Scalable Team Execution
 
 1. Keep checkpoints 1-3 days wide, consistent with [../assets/workflow/CHECKPOINT-WORKFLOW.md](../assets/workflow/CHECKPOINT-WORKFLOW.md).
 2. Route every checkpoint through the owning runbook in [../teams/COORDINATION-RUNBOOK.md](../teams/COORDINATION-RUNBOOK.md); do not leave cross-team review implicit.
@@ -127,7 +138,7 @@ The next stage should not be a single monolithic rewrite. Use checkpoint-sized w
 5. Do not remove parser fallback or compatibility routes without the shadow/five-layer gates that already protect the nightly-first baseline.
 6. When a gap is closed, update this ledger, the owning SSOT, the relevant runbook or handoff doc, and the smallest matching tests in the same merge unit.
 
-## 8. Immediate Stage Conclusion
+## 9. Immediate Stage Conclusion
 
 1. The repository is not “unfinished everywhere”; it already has a real nightly-first baseline, a real IDE core, and a real nano bootstrap contract.
 2. The deepest unfinished work is concentrated in compiler completion debt: parser subset gaps, sema/type/lowering placeholders, M7 runtime closure, and Topology v2 migration debt.
