@@ -369,6 +369,19 @@ TEST(StyioResourceTopology, FileWriteAndCloseMethodsLowerToIO) {
   EXPECT_NE(ir.find("styio.ir.handle_release"), std::string::npos) << ir;
 }
 
+TEST(StyioResourceTopology, NonConsumingCloseOverrideDoesNotLowerRelease) {
+  const std::string src =
+    "@file::close = () => { 0 }\n"
+    "log := @(\"log.txt\")\n"
+    "log.close()\n"
+    "log.path\n";
+
+  std::string ir = lower_nightly_ir(src);
+
+  EXPECT_NE(ir.find("styio.ir.handle_acquire"), std::string::npos) << ir;
+  EXPECT_EQ(ir.find("styio.ir.handle_release"), std::string::npos) << ir;
+}
+
 TEST(StyioResourceTopology, HandleTableReleaseAllClosesAndRecyclesSlots) {
   StyioHandleTable table;
   int closed = 0;

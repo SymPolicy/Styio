@@ -2501,7 +2501,14 @@ AstToStyioIRLowerer::toStyioIR(FuncCallAST* ast) {
         || receiver_type.handle_family == StyioHandleFamily::Stream
         || styio_is_topology_resource_type(receiver_type)) {
       if (receiver_type.handle_family == StyioHandleFamily::File) {
-        if (is_destroy_method_name_latest(ast->getNameAsStr())) {
+        bool consuming_method = false;
+        auto family_it = resource_method_defs_.find("file");
+        if (family_it != resource_method_defs_.end()) {
+          auto method_it = family_it->second.find(ast->getNameAsStr());
+          consuming_method = method_it != family_it->second.end()
+            && method_it->second.consuming;
+        }
+        if (is_destroy_method_name_latest(ast->getNameAsStr()) && consuming_method) {
           return lower_file_release_latest(this, ast->func_callee);
         }
         if (ast->getNameAsStr() == "write" && ast->getArgList().size() == 1) {
