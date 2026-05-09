@@ -50,6 +50,8 @@ Key handoff document:
 18. Keep `--nano-create` clean-room local-subset builds on the same Clang CMake compiler pair used to build Styio unless `CC` or `CXX` is explicitly set by the caller; generated `build-styio-nano.sh` must preserve that override rule.
 19. When Sema / IR gains a new required implementation directory such as `src/StyioResourceTopology/`, add its `.cpp` seed to `styio_nano_source_roots_latest(...)` so local-subset nano packages link in a clean-room bundle.
 20. Keep `styio build <file_path> -o <artifact_name>` aligned with the native executable artifact contract: it must not execute the entry program during build, must reuse the compile-plan `intent=build` frontend path, and must link the Styio runtime helper surface into the produced executable.
+21. Remove unused CLI debug helpers instead of leaving ad hoc public symbols or stdout probes in `src/main.cpp`; command-visible diagnostics should go through the existing CLI error and option paths.
+22. Keep clean-room nano package builds resource-bounded by default. `STYIO_NANO_BUILD_JOBS` may raise the build parallelism on larger machines, but generated helpers should not default to unbounded `--parallel`.
 
 ## Change Classes
 

@@ -26,6 +26,24 @@ MILESTONE_DIR_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 MILESTONE_FILE_RE = re.compile(r"^(00-Milestone-Index|M[0-9]+-[A-Za-z0-9-]+)\.md$")
 BENCHMARK_REPORT_SUMMARY_RE = re.compile(r"^benchmark/reports/[^/]+/summary\.md$")
 APPROVED_TEST_DOC_NAMES = {"README.md", "REGRESSION-TEMPLATE.md"}
+APPROVED_ROOT_MARKDOWN = {
+    "CHANGELOG.md",
+    "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md",
+    "DEPENDENCY-USAGE.md",
+    "LICENSE-POLICY.md",
+    "README.md",
+    "README_zh.md",
+    "RELEASE-POLICY.md",
+    "SECURITY.md",
+    "SUPPORT.md",
+}
+APPROVED_GITHUB_MARKDOWN = {
+    ".github/PULL_REQUEST_TEMPLATE.md",
+}
+APPROVED_EXAMPLE_MARKDOWN = {
+    "example/README.md",
+}
 PARAM_RESOURCE_PSEUDO_DEF_RE = re.compile(r"@[A-Za-z_][A-Za-z0-9_]*\s*[\{\(][^\n`]*\s*:=")
 FILE_PATH_PSEUDO_PRIMITIVE_RE = re.compile(r"\bfile\s*\(\s*path\s*\)")
 RESOURCE_PSEUDO_DEF_NEGATION_RE = re.compile(r"\b(do not|don't|must not|never|not|invalid|forbid|forbidden|reject|rejected)\b", re.I)
@@ -42,6 +60,7 @@ PUBLIC_WORDING_FORBIDDEN_PATTERNS = (
     (re.compile(r"\bclaim(?:s|ed|ing)?\b", re.I), "public-claim wording"),
     (re.compile(r"\bperformance\s+claims\b", re.I), "unsupported public-claim wording"),
     (re.compile(r"\bbenchmark(?:ed|ing)\s+against\b", re.I), "external-comparison wording without evidence scope"),
+    (re.compile(r"\bR" r"ust[- ]equivalent\b|\bR" r"ust\s+equivalence\b|R" r"ust\s*等价", re.I), "unsupported language-equivalence wording"),
     (re.compile(r"宣称|声称"), "public-claim wording"),
     (re.compile(r"对标|最快|最佳|最好|最强|领先|世界级|一流"), "unsupported public-positioning wording"),
 )
@@ -173,8 +192,12 @@ def classify_markdown(path: Path) -> ManifestEntry:
     rel = path.as_posix()
     character_count, word_count = measure_markdown(path)
 
-    if rel == "README.md":
-        return ManifestEntry(path, "valid", "repository root entry document", character_count, word_count)
+    if rel in APPROVED_ROOT_MARKDOWN:
+        return ManifestEntry(path, "valid", "approved repository root community document", character_count, word_count)
+    if rel in APPROVED_GITHUB_MARKDOWN:
+        return ManifestEntry(path, "valid", "approved GitHub community template", character_count, word_count)
+    if rel in APPROVED_EXAMPLE_MARKDOWN:
+        return ManifestEntry(path, "valid", "approved runnable example documentation", character_count, word_count)
     if BENCHMARK_REPORT_SUMMARY_RE.match(rel):
         return ManifestEntry(
             path,

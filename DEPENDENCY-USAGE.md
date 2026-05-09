@@ -2,7 +2,7 @@
 
 **Purpose:** Record dependency authorization boundaries for `styio` / `styio-nightly`.
 
-**Last updated:** 2026-04-24
+**Last updated:** 2026-05-09
 
 `styio` / `styio-nightly` is an Apache-2.0 compiler/runtime source project. Its current build, test, docs, and fixture dependency boundary is:
 
@@ -10,7 +10,7 @@
 - LLVM integration, `tree_sitter_runtime`, GitHub Actions, `Python3`, and Bash scripts are external build, parser, CI, and automation surfaces.
 - `ICU` is an optional Unicode support dependency enabled through CMake configuration and must remain bounded to the documented Unicode/runtime surface.
 - `googletest` is a test-only dependency and must remain outside runtime and shipped compiler artifacts.
-- Rust, JavaScript, TypeScript, Zig, Nix, and Bazel surfaces are fixture/tooling surfaces unless separately promoted with explicit manifest evidence.
+- JavaScript, TypeScript, Zig, Nix, Bazel, and other language/tooling surfaces are fixture surfaces unless separately promoted with explicit manifest evidence.
 - Repository workflows may invoke system tools such as `git`, `cmake`, shell utilities, and configured compiler/runtime tools through explicit process boundaries.
 
 Named manifest dependencies currently in scope:

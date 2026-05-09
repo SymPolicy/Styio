@@ -15,7 +15,7 @@ Primary paths:
 1. `src/StyioToken/`
 2. `src/StyioUnicode/`
 3. `src/StyioParser/`
-4. `src/Deprecated/` only as migration reference
+4. `docs/archive/source/Deprecated/` only as migration reference
 5. Parser-facing tests under `tests/milestones/`, `tests/fuzz/`, and parser shadow gates
 
 Build and test targets:

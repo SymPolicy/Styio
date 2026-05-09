@@ -42,7 +42,7 @@ add_executable(styio main.cpp)
 styio_configure_binary_target(styio)
 target_compile_definitions(styio PRIVATE
   "STYIO_PROJECT_VERSION=\"${PROJECT_VERSION}\""
-  "STYIO_RELEASE_CHANNEL=\"stable\""
+  "STYIO_RELEASE_CHANNEL=\"nightly\""
   "STYIO_EDITION_MAX=\"2026\""
   "STYIO_LLVM_DIR=\"${LLVM_DIR}\""
   "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""

@@ -112,11 +112,6 @@ is_default_case_wildcard_latest(StyioContext& context) {
 
 }  // namespace
 
-void
-here() {
-  std::cout << "here" << std::endl;
-}
-
 bool
 styio_is_bool_literal_name_latest(const std::string& name) {
   return name == "true" || name == "false";

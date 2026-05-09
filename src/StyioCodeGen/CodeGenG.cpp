@@ -426,6 +426,9 @@ StyioToLLVM::store_dynamic_slot(
     i64_val = theBuilder->CreateZExt(i64_val, theBuilder->getInt64Ty());
   }
   else if (!i64_val->getType()->isIntegerTy(64)) {
+    if (!i64_val->getType()->isIntegerTy()) {
+      throw StyioTypeError("dynamic slot integer field received a non-integer value");
+    }
     i64_val = theBuilder->CreateSExtOrTrunc(i64_val, theBuilder->getInt64Ty());
   }
   if (!f64_val->getType()->isDoubleTy()) {
@@ -433,11 +436,11 @@ StyioToLLVM::store_dynamic_slot(
       f64_val = theBuilder->CreateSIToFP(f64_val, theBuilder->getDoubleTy());
     }
     else {
-      f64_val = llvm::ConstantFP::get(theBuilder->getDoubleTy(), 0.0);
+      throw StyioTypeError("dynamic slot floating field received a non-numeric value");
     }
   }
   if (!ptr_val->getType()->isPointerTy()) {
-    ptr_val = llvm::ConstantPointerNull::get(llvm::PointerType::get(*theContext, 0));
+    throw StyioTypeError("dynamic slot pointer field received a non-pointer value");
   }
 
   theBuilder->CreateStore(llvm::ConstantInt::get(theBuilder->getInt64Ty(), tag), tag_gep);

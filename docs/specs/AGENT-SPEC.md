@@ -163,30 +163,16 @@ Styio/
 │   ├── StyioUtil/              # Shared utilities
 │   │   └── Util.hpp
 │   │
-│   └── Deprecated/             # Old code kept for reference (DO NOT USE)
-│       ├── Parser_Deprecated.cpp
-│       ├── GetTypeImpl.cpp
-│       ├── CodeGenImpl.cpp
-│       └── CodeGenVisitor.hpp
 │
 └── tests/                      # Test suite
     ├── CMakeLists.txt           # GoogleTest setup
     ├── styio_test.cpp           # GoogleTest C++ tests
-    ├── parsing/                 # .styio fixture files organized by feature
-    │   ├── basic_exprs/
-    │   ├── binding/
-    │   ├── binop/
-    │   ├── boolean/
-    │   ├── brainfuck/
-    │   ├── collections/
-    │   ├── fmtstr/
-    │   ├── forward/
-    │   ├── func/
-    │   ├── listop/
-    │   ├── print/
-    │   └── resources/
-    ├── type_checking/           # Type system test fixtures
-    └── tpc-h/                   # TPC-H benchmark fixtures
+    ├── milestones/              # CTest-registered language milestone fixtures
+    ├── algorithms/              # Styio/C++ algorithm equivalence fixtures
+    ├── fuzz/                    # Fuzz targets, corpus, and smoke harnesses
+    ├── ide/                     # IDE and LSP tests
+    ├── security/                # Security and safety tests
+    └── cmake/                   # CTest helper scripts
 ```
 
 ---
@@ -695,7 +681,7 @@ Agents MUST NOT:
 
 4. **Modify vendored files.** `src/include/cxxopts.hpp` is third-party. Do not edit it.
 
-5. **Use `Deprecated/` code.** The `src/Deprecated/` directory is archived reference only. Do not include, call, or copy from it.
+5. **Use archived implementation code.** Historical implementation snapshots under `docs/archive/source/Deprecated/` are reference-only. Do not include, call, or copy from them.
 
 6. **Skip visitor registration.** Every new AST node MUST be added to ALL visitor template lists. Partial registration causes hard-to-debug template errors.
 

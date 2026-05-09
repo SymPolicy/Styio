@@ -136,7 +136,7 @@ node_arch() {
 }
 
 install_node() {
-  local arch version archive url workdir
+  local arch version archive url checksum_url workdir
 
   if command -v node >/dev/null 2>&1; then
     version="$(node --version 2>/dev/null || true)"
@@ -149,11 +149,14 @@ install_node() {
   arch="$(node_arch)"
   archive="node-v${NODE_STANDARD_VERSION}-linux-${arch}.tar.xz"
   url="https://nodejs.org/dist/v${NODE_STANDARD_VERSION}/${archive}"
+  checksum_url="https://nodejs.org/dist/v${NODE_STANDARD_VERSION}/SHASUMS256.txt"
   workdir="$(mktemp -d)"
   trap 'rm -rf "$workdir"' RETURN
 
   log "installing official Node.js v$NODE_STANDARD_VERSION into $NODE_INSTALL_ROOT"
   wget -qO "$workdir/$archive" "$url"
+  wget -qO "$workdir/SHASUMS256.txt" "$checksum_url"
+  (cd "$workdir" && grep -F "  $archive" SHASUMS256.txt | sha256sum -c -)
   as_root mkdir -p "$NODE_INSTALL_ROOT"
   as_root rm -rf "$NODE_INSTALL_ROOT/node-v${NODE_STANDARD_VERSION}-linux-${arch}"
   as_root tar -xJf "$workdir/$archive" -C "$NODE_INSTALL_ROOT"

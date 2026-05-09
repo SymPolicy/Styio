@@ -441,7 +441,7 @@ TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"tool\":\"styio\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"compiler_version\":\"0.0.1\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"channel\":\"stable\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"channel\":\"nightly\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"active_integration_phase\":\"compile-plan-live\""), std::string::npos);
   EXPECT_NE(
     result.stdout_text.find("\"supported_contracts\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"compile_plan\":[1],\"runtime_events\":[1]}"),

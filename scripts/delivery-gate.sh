@@ -9,7 +9,7 @@ Run the common Styio delivery floor through the workflow scheduler, then run
 external audit and checkpoint health when requested.
 
 Options:
-  --mode <auto|checkpoint|staged|push>
+  --mode <auto|checkpoint|staged|push|release>
                             Delivery mode (default: auto)
   --base <ref>              Base ref for team-docs-gate branch checks
   --range <rev-range>       Explicit revision range for repo-hygiene push mode
@@ -262,7 +262,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$MODE" in
-  auto|checkpoint|staged|push)
+  auto|checkpoint|staged|push|release)
     ;;
   *)
     echo "Unsupported mode: $MODE" >&2
@@ -270,6 +270,11 @@ case "$MODE" in
     exit 2
     ;;
 esac
+
+if [[ "$MODE" == "release" ]]; then
+  RUN_ASAN=1
+  RUN_FUZZ=1
+fi
 
 HEALTH_CMD=(./scripts/checkpoint-health.sh)
 
@@ -341,6 +346,13 @@ case "$MODE" in
       REV_RANGE="${BASE_REF}..HEAD"
     fi
     run_scheduler_profile delivery-push --base "$BASE_REF" --range "$REV_RANGE"
+    ;;
+  release)
+    if [[ -n "$BASE_REF" || -n "$REV_RANGE" ]]; then
+      echo "release mode does not accept --base or --range; run push mode separately for branch checks" >&2
+      exit 2
+    fi
+    run_scheduler_profile delivery-checkpoint
     ;;
 esac
 

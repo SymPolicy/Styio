@@ -28,13 +28,13 @@
 
 1. C++：`clang` / `clangd`
 2. Python：CPython PEG parser 加 `parso` / `pyright` 风格编辑态工具
-3. Rust：`rustc` / `rust-analyzer`
+3. query-based compiler / IDE tooling
 
 目标不是照搬其中任何一套，而是吸收三者已有文档和实现中可验证的做法：
 
 - C++ 提供“复用编译器真相”、后台索引和工作区导航分层
 - Python 提供容错编辑态解析，以及在残缺代码下继续工作的 best-effort 语义服务
-- Rust 提供 query 驱动语义、稳定中间层表示和高质量补全架构
+- query-based compiler tooling 提供稳定语义事实，以及建立在语义上下文上的补全架构
 
 本计划冻结 `M11-M19` 的实现顺序。
 
@@ -68,7 +68,7 @@
 
 - 未受影响的 item 更难在编辑后保留身份
 - 局部遮蔽和 import 解析规则更难精确实现
-- 基于接收者类型和成员能力的补全质量仍落后于成熟的 C++、Python、Rust IDE 工具链基线
+- 基于接收者类型和成员能力的补全质量仍需要更强的仓库内证据和 fixture
 
 ### 2.3 运行时和质量缺口
 
@@ -106,7 +106,7 @@
 |------|----------|----------|
 | C++ | `clang`, `clangd` | 尽量复用编译器真相，并明确区分 open-file index 和 background index 职责 |
 | Python | CPython PEG parser, `parso`, `pyright` | 保持编辑态解析容错，并让语义服务在不完整代码下继续 best-effort 工作 |
-| Rust | `rustc`, `rust-analyzer` | 使用 query 形状的语义层、稳定中间表示，以及建立在语义上下文上的补全而不是 token 猜测 |
+| Query-based compiler tooling | semantic query engines and IDE caches | 使用 query 形状的语义层、稳定中间表示，以及建立在语义上下文上的补全而不是 token 猜测 |
 
 ---
 

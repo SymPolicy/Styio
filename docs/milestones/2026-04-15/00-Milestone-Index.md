@@ -20,7 +20,7 @@ The roadmap uses three external toolchain families as design references:
 
 1. C++: `clang` / `clangd`
 2. Python: CPython PEG parser plus `parso` / `pyright`-style edit-time tooling
-3. Rust: `rustc` / `rust-analyzer`
+3. Query-based compiler and IDE tooling
 
 The milestones are grouped into four stages:
 
