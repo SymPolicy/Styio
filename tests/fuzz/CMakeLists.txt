@@ -6,7 +6,8 @@ include(CheckCXXSourceCompiles)
 set(_OLD_REQ_FLAGS "${CMAKE_REQUIRED_FLAGS}")
 set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -fsanitize=fuzzer,address,undefined")
 check_cxx_source_compiles(
-  "int main() { return 0; }"
+  "#include <cstddef>
+extern \"C\" int LLVMFuzzerTestOneInput(const unsigned char*, std::size_t) { return 0; }"
   STYIO_HAVE_LIBFUZZER_RUNTIME)
 set(CMAKE_REQUIRED_FLAGS "${_OLD_REQ_FLAGS}")
 
