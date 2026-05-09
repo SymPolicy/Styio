@@ -1731,7 +1731,6 @@ parse_at_stmt_or_expr_latest(StyioContext& context) {
       context.move_forward(1, "resource_method_receiver");
       context.skip();
       if (!context.check(StyioTokenType::TOK_LPAREN)
-          && !context.check(StyioTokenType::TOK_DOT)
           && !context.check(StyioTokenType::TOK_COLON)) {
         return parse_expr_postfix(context, ResourceReceiverAST::Create(family));
       }
@@ -2684,6 +2683,10 @@ parse_expr_postfix(StyioContext& context, StyioAST* lhs) {
     }
     if (context.match(StyioTokenType::TOK_DOT) && !has_linebreak_before_current_token_latest(context)) {
       context.skip();
+      if (dynamic_cast<FuncCallAST*>(lhs) != nullptr
+          || dynamic_cast<AttrAST*>(lhs) != nullptr) {
+        throw StyioSyntaxError(context.mark_cur_tok("dot-chain calls are not supported"));
+      }
       if (!context.check(StyioTokenType::NAME)) {
         throw StyioSyntaxError(context.mark_cur_tok("expected name after ."));
       }
