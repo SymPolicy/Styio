@@ -382,6 +382,24 @@ TEST(StyioResourceTopology, NonConsumingCloseOverrideDoesNotLowerRelease) {
   EXPECT_EQ(ir.find("styio.ir.handle_release"), std::string::npos) << ir;
 }
 
+TEST(StyioResourceTopology, ResourceMethodInfersTransitiveConsume) {
+  const std::string src =
+    "@file::dispose = () => { @file -> @() }\n"
+    "@file::close = () => { @file.dispose() }\n"
+    "log := @(\"log.txt\")\n"
+    "log.close()\n"
+    "log.path\n";
+
+  try {
+    typecheck_nightly(src);
+    FAIL() << "expected transitive use-after-destroy";
+  }
+  catch (const StyioTypeError& ex) {
+    EXPECT_NE(std::string(ex.what()).find("use-after-destroy"), std::string::npos)
+      << ex.what();
+  }
+}
+
 TEST(StyioResourceTopology, HandleTableReleaseAllClosesAndRecyclesSlots) {
   StyioHandleTable table;
   int closed = 0;

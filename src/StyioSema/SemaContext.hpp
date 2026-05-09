@@ -344,6 +344,20 @@ public:
     std::size_t param_count = 0;
   };
 
+  const ResourceMethodInfo* find_resource_method(
+    const std::string& family,
+    const std::string& method) const {
+    auto family_it = resource_method_defs_.find(family);
+    if (family_it == resource_method_defs_.end()) {
+      return nullptr;
+    }
+    auto method_it = family_it->second.find(method);
+    if (method_it == family_it->second.end()) {
+      return nullptr;
+    }
+    return &method_it->second;
+  }
+
 protected:
   SGPulsePlan* cur_pulse_plan_ = nullptr;
   int active_series_slot_ = -1;

@@ -870,7 +870,7 @@ resource_family_for_expr(StyioSemaContext* an, StyioAST* expr) {
 }
 
 bool
-body_consumes_receiver(StyioAST* ast, const std::string& family) {
+body_consumes_receiver(StyioSemaContext* an, StyioAST* ast, const std::string& family) {
   if (ast == nullptr) {
     return false;
   }
@@ -880,44 +880,52 @@ body_consumes_receiver(StyioAST* ast, const std::string& family) {
         && dynamic_cast<EmptyResourceAST*>(redirect->getResource()) != nullptr) {
       return true;
     }
-    return body_consumes_receiver(redirect->getData(), family)
-      || body_consumes_receiver(redirect->getResource(), family);
+    return body_consumes_receiver(an, redirect->getData(), family)
+      || body_consumes_receiver(an, redirect->getResource(), family);
   }
   if (auto* write = dynamic_cast<ResourceWriteAST*>(ast)) {
-    return body_consumes_receiver(write->getData(), family)
-      || body_consumes_receiver(write->getResource(), family);
+    return body_consumes_receiver(an, write->getData(), family)
+      || body_consumes_receiver(an, write->getResource(), family);
   }
   if (auto* block = dynamic_cast<BlockAST*>(ast)) {
     for (auto* stmt : block->stmts) {
-      if (body_consumes_receiver(stmt, family)) {
+      if (body_consumes_receiver(an, stmt, family)) {
         return true;
       }
     }
     for (auto* following : block->followings) {
-      if (body_consumes_receiver(following, family)) {
+      if (body_consumes_receiver(an, following, family)) {
         return true;
       }
     }
     return false;
   }
   if (auto* call = dynamic_cast<FuncCallAST*>(ast)) {
-    if (body_consumes_receiver(call->func_callee, family)) {
+    if (auto* receiver = dynamic_cast<ResourceReceiverAST*>(call->func_callee)) {
+      if (receiver->getFamilyName() == family) {
+        const auto* method = an->find_resource_method(family, call->getNameAsStr());
+        if (method != nullptr && method->consuming) {
+          return true;
+        }
+      }
+    }
+    if (body_consumes_receiver(an, call->func_callee, family)) {
       return true;
     }
     for (auto* arg : call->getArgList()) {
-      if (body_consumes_receiver(arg, family)) {
+      if (body_consumes_receiver(an, arg, family)) {
         return true;
       }
     }
     return false;
   }
   if (auto* bin = dynamic_cast<BinOpAST*>(ast)) {
-    return body_consumes_receiver(bin->getLHS(), family)
-      || body_consumes_receiver(bin->getRHS(), family);
+    return body_consumes_receiver(an, bin->getLHS(), family)
+      || body_consumes_receiver(an, bin->getRHS(), family);
   }
   if (auto* attr = dynamic_cast<AttrAST*>(ast)) {
-    return body_consumes_receiver(attr->body, family)
-      || body_consumes_receiver(attr->attr, family);
+    return body_consumes_receiver(an, attr->body, family)
+      || body_consumes_receiver(an, attr->attr, family);
   }
   return false;
 }
@@ -2162,7 +2170,7 @@ StyioSemaContext::typeInfer(ResourceMethodDefAST* ast) {
   info.property = ast->isProperty();
   info.param_count = ast->getParams().size();
   info.consuming = !ast->isProperty()
-    && body_consumes_receiver(ast->getBody(), ast->getFamilyName());
+    && body_consumes_receiver(this, ast->getBody(), ast->getFamilyName());
   methods[ast->getMethodName()] = info;
 
   const std::string saved_receiver = active_resource_receiver_family_;
