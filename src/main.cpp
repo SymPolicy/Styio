@@ -98,11 +98,6 @@
 #define STYIO_CMAKE_CXX_COMPILER ""
 #endif
 
-extern "C" void
-hello_world() {
-  std::cout << "hello, world!" << std::endl;
-}
-
 struct tmp_code_wrap
 {
   bool ok = false;
@@ -110,12 +105,6 @@ struct tmp_code_wrap
   std::string code_text;
   std::vector<std::pair<size_t, size_t>> line_seps;
 };
-
-void
-show_cwd() {
-  std::filesystem::path cwd = std::filesystem::current_path();
-  std::cout << cwd.string() << std::endl;
-}
 
 /*
   linenum_map:
@@ -2219,6 +2208,20 @@ styio_write_nano_package_cmakelists_latest(
   return styio_write_text_file_latest(output_dir / "CMakeLists.txt", cmake.str(), error_message);
 }
 
+static std::string
+styio_nano_build_jobs_latest() {
+  const char* raw = std::getenv("STYIO_NANO_BUILD_JOBS");
+  if (raw != nullptr && raw[0] != '\0') {
+    std::string value(raw);
+    const bool all_digits =
+      std::all_of(value.begin(), value.end(), [](unsigned char ch) { return std::isdigit(ch) != 0; });
+    if (all_digits && value != "0") {
+      return value;
+    }
+  }
+  return "2";
+}
+
 static bool
 styio_build_nano_package_latest(
   const std::filesystem::path& output_dir,
@@ -2246,8 +2249,11 @@ styio_build_nano_package_latest(
     return false;
   }
 
+  const std::string build_jobs = styio_nano_build_jobs_latest();
   const std::string build_cmd =
-    "cmake --build " + styio_shell_quote_latest(build_dir.string()) + " --parallel --target styio_nano";
+    "cmake --build " + styio_shell_quote_latest(build_dir.string())
+    + " --parallel " + build_jobs
+    + " --target styio_nano";
   if (!styio_run_shell_command_latest(build_cmd, "styio-nano package build", error_message)) {
     return false;
   }
@@ -2699,6 +2705,7 @@ styio_materialize_local_nano_package_latest(
     "set -euo pipefail\n"
     "script_dir=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n"
     "build_dir=\"${1:-$script_dir/build}\"\n"
+    ": \"${STYIO_NANO_BUILD_JOBS:=2}\"\n"
     "cmake_args=()\n"
     "if [[ -z \"${CC:-}\" && -n \"" + std::string(STYIO_CMAKE_C_COMPILER) + "\" ]]; then\n"
     "  cmake_args+=(\"-DCMAKE_C_COMPILER=" + std::string(STYIO_CMAKE_C_COMPILER) + "\")\n"
@@ -2707,7 +2714,7 @@ styio_materialize_local_nano_package_latest(
     "  cmake_args+=(\"-DCMAKE_CXX_COMPILER=" + std::string(STYIO_CMAKE_CXX_COMPILER) + "\")\n"
     "fi\n"
     "cmake -S \"$script_dir\" -B \"$build_dir\" \"${cmake_args[@]}\"\n"
-    "cmake --build \"$build_dir\" --parallel --target styio_nano\n"
+    "cmake --build \"$build_dir\" --parallel \"$STYIO_NANO_BUILD_JOBS\" --target styio_nano\n"
     "cp \"$build_dir/bin/" + styio_nano_binary_filename_latest() + "\" \"$script_dir/bin/" + styio_nano_binary_filename_latest() + "\"\n";
   if (!styio_write_text_file_latest(helper_dest, helper_script, error_message)) {
     return false;

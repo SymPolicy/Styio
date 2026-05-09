@@ -22,7 +22,7 @@ F.2 收敛前，活跃路径（Parser / Analyzer / CodeGen）中仍存在 `Styio
    - `Parser.cpp` 统一改为 `StyioParseError`；
    - `ToStyioIR.cpp` 统一改为 `StyioTypeError`；
    - `CodeGenG.cpp` 已在 F.2.0/F.2.1 改为 `StyioTypeError`。
-2. `StyioNotImplemented` 仅保留给 `src/Deprecated/` 历史路径，不再用于当前执行链路。
+2. `StyioNotImplemented` 仅保留给 `docs/archive/source/Deprecated/` 历史路径，不再用于当前执行链路。
 3. 补诊断回归，显式断言关键路径不再出现 `Styio.NotImplemented` 文本。
 
 ## Alternatives

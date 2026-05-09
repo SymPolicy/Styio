@@ -243,23 +243,22 @@ then maps them onto resource topology instead of copying another language's surf
 
 | Industry practice | Source model | Styio decision |
 |-------------------|--------------|----------------|
-| Single owner plus invalidation after move/consume | Rust ownership and borrowing: one owner, automatic drop at scope end, and compile-time rejection of invalid references | Logical resources are move-only by default; consuming methods invalidate the receiver immediately; `<<` is the explicit copy/clone entry |
+| Single owner plus invalidation after move/consume | Affine resource ownership: one active owner, automatic drop at scope end, and compile-time rejection of invalid references | Logical resources are move-only by default; consuming methods invalidate the receiver immediately; `<<` is the explicit copy/clone entry |
 | Automatic cleanup at scope exit | C++ RAII and resource handles; C# `using`; Java try-with-resources; Python `with` | Owned close-capable resources receive compiler-owned scope-exit drop edges. User code may call `.close()`, but language safety does not depend on remembering it |
 | Deterministic cleanup order | Java/C# multi-resource cleanup and Go `defer` use deterministic cleanup ordering | Styio must keep scope-exit drops deterministic. When multiple owned resources are in one scope, later acquisitions release before earlier acquisitions unless RTG establishes a stricter dependency |
 | Explicit method contract for cleanup | Java `AutoCloseable`, C# `IDisposable`, Python context manager protocol | Resource methods are resolved statically. Unknown methods, property-as-method calls, wrong arity, and final-binding overrides are compile errors |
 | Exception/error behavior is part of the resource contract | Java suppressed close exceptions; C# disposal through `try/finally`; Python `__exit__` receives exception state | First stage keeps drop failure as a runtime diagnostic. The language contract must document whether cleanup failures are primary, suppressed, or aggregated before stating full failure-safety |
-| Concurrent mutation must be visible to the type/checking layer | Rust borrow rules and Pony reference capabilities prevent unsafe simultaneous access patterns | RTG rejects unordered exclusive resource borrows unless an explicit `=>` happens-before edge orders the accesses. Task bodies may borrow outer resources but cannot consume them |
+| Concurrent mutation must be visible to the type/checking layer | Static alias-control and reference-capability systems prevent unsafe simultaneous access patterns | RTG rejects unordered exclusive resource borrows unless an explicit `=>` happens-before edge orders the accesses. Task bodies may borrow outer resources but cannot consume them |
 | Dynamic convenience is acceptable only below a static safety boundary | Python/Go make cleanup easy but rely more on runtime discipline | Styio may keep convenient `@("path").close()` calls, but consuming status must be known from the method table before lowering |
 
 Source anchors used for this reference map:
 
-1. Rust ownership and borrowing: <https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html>, <https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html>
-2. C++ Core Guidelines resource management: <https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines?lang=en#Rr-raii>
-3. Java try-with-resources and `AutoCloseable`: <https://docs.oracle.com/javase/tutorial/essential/exceptions/tryResourceClose.html>
-4. C# `using` and `IDisposable`: <https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/using>
-5. Python `with` statement and context managers: <https://docs.python.org/3/reference/compound_stmts.html#the-with-statement>
-6. Go `defer`: <https://go.dev/blog/defer-panic-and-recover>
-7. Pony reference capabilities: <https://www.ponylang.io/learn/reference-capabilities/>, <https://tutorial.ponylang.io/reference-capabilities/guarantees.html>
+1. C++ Core Guidelines resource management: <https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines?lang=en#Rr-raii>
+2. Java try-with-resources and `AutoCloseable`: <https://docs.oracle.com/javase/tutorial/essential/exceptions/tryResourceClose.html>
+3. C# `using` and `IDisposable`: <https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/using>
+4. Python `with` statement and context managers: <https://docs.python.org/3/reference/compound_stmts.html#the-with-statement>
+5. Go `defer`: <https://go.dev/blog/defer-panic-and-recover>
+6. Pony reference capabilities: <https://www.ponylang.io/learn/reference-capabilities/>, <https://tutorial.ponylang.io/reference-capabilities/guarantees.html>
 
 ## 11. Public wording boundary
 

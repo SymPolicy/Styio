@@ -87,6 +87,9 @@ Key SSOTs:
 52. Public resource-management statements must cite primary language or platform sources and map each borrowed practice to Styio's actual compiler evidence. Keep the wording at "modern resource-management language" unless formal proof, async/task stress evidence, and driver-family validation justify a stronger statement.
 53. Keep public wording concise and evidence-scoped. Do not speculate about companies, organizations, individuals, projects, products, or their capabilities; do not use absolute marketing superlatives or unsupported superiority language in repository docs.
 54. README showcase examples must point to repository-local Styio source that can be run from the repository root, and the documented command/output pair must be verified before publication.
+55. Root community files such as `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, and release-policy documents are approved public docs only when `scripts/docs-audit.py` classifies them explicitly and their wording stays evidence-scoped.
+56. Active `example/` and `tests/` directories must not carry non-runnable language drafts. Move drafts to `docs/archive/` and keep active README links pointed at CTest-covered examples.
+57. Do not describe Styio as equivalent to another language's resource model. State the exact compiler evidence Styio has, then list external practices only as references.
 
 ## Change Classes
 

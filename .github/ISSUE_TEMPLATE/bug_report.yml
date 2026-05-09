@@ -1,0 +1,32 @@
+name: Bug report
+description: Report a reproducible compiler, CLI, test, or documentation problem.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Include the command, input, and smallest source file or fixture.
+      render: bash
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Commit or branch
+      placeholder: nightly at <commit>
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation tried
+      description: List any local gates or CTest labels you ran.

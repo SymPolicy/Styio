@@ -62,7 +62,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.13.5"
 
       - name: Run workflow scheduler prebuild chain
         shell: bash
@@ -83,6 +83,7 @@ jobs:
             cmake \
             ninja-build \
             clang-18 \
+            libclang-rt-18-dev \
             lld-18 \
             llvm-18-dev \
             libicu-dev \
@@ -102,8 +103,9 @@ jobs:
         working-directory: styio-nightly
         run: >
           cmake --build build/ci --target
-          styio styio_test styio_security_test styio_soak_test
-          styio_fuzz_lexer styio_fuzz_parser
+          styio styio_test styio_algorithm_equivalence_test
+          styio_security_test styio_resource_topology_test styio_ide_test
+          styio_soak_test styio_fuzz_suite
 
       - name: Docs audit
         working-directory: styio-nightly

@@ -2,7 +2,7 @@
 set -uo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-STYIO_BIN="${STYIO_BIN:-$ROOT_DIR/build/bin/styio}"
+STYIO_BIN="${STYIO_BIN:-$ROOT_DIR/build/default/bin/styio}"
 STYIO_CALC_HISTORY_FILE="${STYIO_CALC_HISTORY_FILE:-${XDG_STATE_HOME:-$HOME/.local/state}/styio/calculator_history}"
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/styio_calc_XXXXXX")"
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -10,9 +10,9 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 usage() {
   cat <<'EOF'
 Usage:
-  ./sample/cli_calculator.sh
-  ./sample/cli_calculator.sh "1 + 2 * (3 + 4)"
-  ./sample/cli_calculator.sh --interactive
+  ./example/cli_calculator.sh
+  ./example/cli_calculator.sh "1 + 2 * (3 + 4)"
+  ./example/cli_calculator.sh --interactive
 
 Notes:
   - This wrapper delegates expression parsing to the Styio compiler itself.
@@ -59,7 +59,7 @@ run_expr() {
     return $?
   fi
 
-  printf '>_(%s)\n' "$expr" > "$program_file"
+  printf '(%s) -> @stdout\n' "$expr" > "$program_file"
   if ! output="$("$STYIO_BIN" --file "$program_file" 2>&1)"; then
     status=$?
     printf '%s\n' "$output" >&2

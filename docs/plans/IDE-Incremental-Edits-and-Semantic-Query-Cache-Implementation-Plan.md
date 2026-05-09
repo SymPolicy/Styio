@@ -28,13 +28,13 @@ This roadmap uses three external toolchain families as design references:
 
 1. C++: `clang` / `clangd`
 2. Python: CPython PEG parser plus `parso` / `pyright`-style edit-time tooling
-3. Rust: `rustc` / `rust-analyzer`
+3. Query-based compiler and IDE tooling
 
 The goal is not to clone any one toolchain exactly. The goal is to adopt documented implementation patterns from all three:
 
 - C++ contributes compiler-truth reuse, background indexing, and workspace navigation discipline
 - Python contributes tolerant edit-time parsing and best-effort semantic service under broken code
-- Rust contributes query-driven semantics, stable intermediate representations, and high-quality completion architecture
+- Query-based compiler tooling contributes stable semantic facts and completion built on semantic context rather than token guesses
 
 This plan freezes the implementation order for milestones `M11-M19`.
 
@@ -68,7 +68,7 @@ Consequence:
 
 - unaffected items are harder to preserve across edits
 - local shadowing/import resolution rules are harder to make precise
-- receiver-sensitive/member-aware completion quality still trails the baseline set by mature C++, Python, and Rust IDE stacks
+- receiver-sensitive/member-aware completion quality still needs stronger repository-local evidence and fixtures
 
 ### 2.3 Runtime and quality gaps
 
@@ -106,7 +106,7 @@ Reference list that remains in scope across the roadmap:
 |------|----------|----------|
 | C++ | `clang`, `clangd` | Reuse compiler truth where possible; separate open-file and background index responsibilities |
 | Python | CPython PEG parser, `parso`, `pyright` | Keep edit-time parsing tolerant and semantic service best-effort under incomplete code |
-| Rust | `rustc`, `rust-analyzer` | Use query-shaped semantics, stable intermediate forms, and completion built on semantic context rather than token guesses |
+| Query-based compiler tooling | semantic query engines and IDE caches | Use query-shaped semantics, stable intermediate forms, and completion built on semantic context rather than token guesses |
 
 ---
 

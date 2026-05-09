@@ -2,7 +2,7 @@
 
 **Purpose:** Define the common delivery-floor entrypoint for Styio so contributors run local, branch, audit, and checkpoint health checks through one safe auto command before checkpoint merge or branch delivery.
 
-**Last updated:** 2026-05-02
+**Last updated:** 2026-05-09
 
 ## Goal
 
@@ -36,6 +36,12 @@ Explicit branch delivery floor:
 ./scripts/delivery-gate.sh --mode push --base origin/main --range origin/main..HEAD
 ```
 
+Release-candidate local floor:
+
+```bash
+./scripts/delivery-gate.sh --mode release
+```
+
 ## What It Runs
 
 `auto` mode composes:
@@ -56,6 +62,12 @@ Explicit branch delivery floor:
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-push --base <ref> --range <range>`
 2. `audit gate --repo . --project styio`
 3. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`
+
+`release` mode composes:
+
+1. `python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint`
+2. `audit gate --repo . --project styio`
+3. `./scripts/checkpoint-health.sh` with ASan/UBSan and fuzz smoke enabled
 
 The scheduler expands those profiles into repository hygiene, runtime-surface alignment, team-runbook maintenance, docs audit, and ecosystem CLI doc checks in registered phase order.
 
@@ -95,3 +107,4 @@ Syntax additions that reach lowering or runtime helpers must also follow [SYNTAX
 1. During recovery or cold-start verification, run [CHECKPOINT-WORKFLOW.md](./CHECKPOINT-WORKFLOW.md)'s inner recovery command: `./scripts/checkpoint-health.sh`.
 2. Before merging a checkpoint-sized delivery, run `./scripts/delivery-gate.sh`.
 3. Before pushing or handing off a branch, run `./scripts/delivery-gate.sh`; pass `--base <ref>` only when auto cannot infer the intended delivery base.
+4. Before tagging or packaging, run `./scripts/delivery-gate.sh --mode release` and keep the output with the release record.

@@ -1,12 +1,5 @@
 if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_custom_target(styio_fuzz_lexer)
-  add_custom_target(styio_fuzz_parser)
-  add_custom_target(styio_fuzz_ide_syntax)
-  add_custom_target(styio_fuzz_ide_completion)
-  add_custom_target(styio_fuzz_ide_lsp_sync)
-  add_custom_target(styio_fuzz_suite)
-  message(WARNING "STYIO_ENABLE_FUZZ is ON, but compiler is not Clang. Skipping fuzz targets.")
-  return()
+  message(FATAL_ERROR "STYIO_ENABLE_FUZZ=ON requires a Clang compiler with libFuzzer support.")
 endif()
 
 include(CheckCXXSourceCompiles)
@@ -18,14 +11,7 @@ check_cxx_source_compiles(
 set(CMAKE_REQUIRED_FLAGS "${_OLD_REQ_FLAGS}")
 
 if(NOT STYIO_HAVE_LIBFUZZER_RUNTIME)
-  add_custom_target(styio_fuzz_lexer)
-  add_custom_target(styio_fuzz_parser)
-  add_custom_target(styio_fuzz_ide_syntax)
-  add_custom_target(styio_fuzz_ide_completion)
-  add_custom_target(styio_fuzz_ide_lsp_sync)
-  add_custom_target(styio_fuzz_suite)
-  message(WARNING "STYIO_ENABLE_FUZZ is ON, but libFuzzer runtime is unavailable with this toolchain. Skipping fuzz targets.")
-  return()
+  message(FATAL_ERROR "STYIO_ENABLE_FUZZ=ON requires libFuzzer runtime support. Install the matching compiler-rt package, for example libclang-rt-18-dev on Ubuntu 24.04.")
 endif()
 
 set(STYIO_FUZZ_FLAGS

@@ -584,8 +584,6 @@ public:
       }
       for (size_t i = 0; i < tok_seq.size(); i++) {
         if (tok_seq.at(i) != tokens[index_of_token + i]->type) {
-          std::cout << "map match " << StyioToken::getTokName(tok_seq.at(i)) << " not equal "
-                    << StyioToken::getTokName(tokens[index_of_token + i]->type) << std::endl;
           is_same = false;
         }
       }
