@@ -16,7 +16,7 @@
 
 This batch is the frozen acceptance layer for the current IDE roadmap. It is intentionally broader than the first infrastructure slice, because the target is not just "incremental parsing works" but "Styio can approach mature IDE-grade semantic tooling without losing control of latency or correctness".
 
-The roadmap is explicitly benchmarked against at least three external toolchain families:
+The roadmap uses three external toolchain families as design references:
 
 1. C++: `clang` / `clangd`
 2. Python: CPython PEG parser plus `parso` / `pyright`-style edit-time tooling

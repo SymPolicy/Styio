@@ -104,7 +104,7 @@ set_tests_properties(m10_t01_stdin_echo PROPERTIES LABELS "milestone;m10")
 
 add_test(
   NAME styio_build_native_executable_stdin_echo
-  COMMAND bash -c "rm -f \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" && \"${STYIO_EXE}\" build \"${STYIO_MS}/m10/t01_stdin_echo.styio\" -o \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" && test -x \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" && cat \"${STYIO_MS}/m10/data/echo_input.txt\" | \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" | cmp -s - \"${STYIO_MS}/m10/expected/t01_stdin_echo.out\""
+  COMMAND bash -c "rm -f \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo.profile.json\" && \"${STYIO_EXE}\" build \"${STYIO_MS}/m10/t01_stdin_echo.styio\" -o \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" && test -x \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" && cat \"${STYIO_MS}/m10/data/echo_input.txt\" | STYIO_NATIVE_PROFILE_OUT=\"${CMAKE_BINARY_DIR}/styio-native-stdin-echo.profile.json\" \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" | cmp -s - \"${STYIO_MS}/m10/expected/t01_stdin_echo.out\" && grep -q '\"tool\": \"styio-native-profiler\"' \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo.profile.json\" && grep -q '\"name\": \"execute\"' \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo.profile.json\""
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 set_tests_properties(styio_build_native_executable_stdin_echo PROPERTIES

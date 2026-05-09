@@ -541,7 +541,7 @@ The intrinsic's state (ring buffer, accumulator, deque) must be allocated as par
 
 ### Step 4: Implement Inline CodeGen
 
-Generate LLVM IR that performs the algorithm directly — no function calls. The generated code must be equivalent to hand-optimized C++.
+Generate LLVM IR that performs the algorithm directly without helper calls. Record benchmark evidence before making performance statements about the generated path.
 
 ---
 

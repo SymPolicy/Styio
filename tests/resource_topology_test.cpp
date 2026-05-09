@@ -112,6 +112,17 @@ std::string lower_nightly_ir(const std::string& src) {
   }
 }
 
+void expect_type_error_contains(const std::string& src, const std::string& needle) {
+  try {
+    typecheck_nightly(src);
+    FAIL() << "expected type error containing `" << needle << "`";
+  }
+  catch (const StyioTypeError& ex) {
+    EXPECT_NE(std::string(ex.what()).find(needle), std::string::npos)
+      << ex.what();
+  }
+}
+
 } // namespace
 
 TEST(StyioResourceTopology, FileWriteOwnsCloseCapableSource) {
@@ -316,14 +327,7 @@ TEST(StyioResourceTopology, ResourceMethodCallConsumesReceiverStatically) {
     "log.close()\n"
     "log.path\n";
 
-  try {
-    typecheck_nightly(src);
-    FAIL() << "expected use-after-destroy";
-  }
-  catch (const StyioTypeError& ex) {
-    EXPECT_NE(std::string(ex.what()).find("use-after-destroy"), std::string::npos)
-      << ex.what();
-  }
+  expect_type_error_contains(src, "use-after-destroy");
 }
 
 TEST(StyioResourceTopology, UnknownResourceMethodIsCompileError) {
@@ -331,14 +335,43 @@ TEST(StyioResourceTopology, UnknownResourceMethodIsCompileError) {
     "log := @(\"log.txt\")\n"
     "log.nope()\n";
 
-  try {
-    typecheck_nightly(src);
-    FAIL() << "expected unresolved resource method";
-  }
-  catch (const StyioTypeError& ex) {
-    EXPECT_NE(std::string(ex.what()).find("resource method cannot be resolved"), std::string::npos)
-      << ex.what();
-  }
+  expect_type_error_contains(src, "resource method cannot be resolved");
+}
+
+TEST(StyioResourceTopology, FinalResourceMethodCannotBeOverridden) {
+  const std::string src =
+    "@file::close := () => { @file -> @() }\n"
+    "@file::close = () => { 0 }\n"
+    "log := @(\"log.txt\")\n";
+
+  expect_type_error_contains(src, "final and cannot be overridden");
+}
+
+TEST(StyioResourceTopology, ResourcePropertyCannotBeCalled) {
+  const std::string src =
+    "log := @(\"log.txt\")\n"
+    "log.path()\n";
+
+  expect_type_error_contains(src, "resource property @file::path is not callable");
+}
+
+TEST(StyioResourceTopology, ResourceMethodArityMismatchIsCompileError) {
+  const std::string src =
+    "@file::flush = (mode: i64) => { 0 }\n"
+    "log := @(\"log.txt\")\n"
+    "log.flush()\n";
+
+  expect_type_error_contains(src, "expects 1 argument(s), got 0");
+}
+
+TEST(StyioResourceTopology, RepeatedConsumingMethodCallIsUseAfterDestroy) {
+  const std::string src =
+    "@file::close = () => { @file -> @() }\n"
+    "log := @(\"log.txt\")\n"
+    "log.close()\n"
+    "log.close()\n";
+
+  expect_type_error_contains(src, "use-after-destroy");
 }
 
 TEST(StyioResourceTopology, TaskCannotConsumeOuterResource) {
@@ -346,14 +379,7 @@ TEST(StyioResourceTopology, TaskCannotConsumeOuterResource) {
     "log := @(\"log.txt\")\n"
     "job = ||> { log.close() }\n";
 
-  try {
-    typecheck_nightly(src);
-    FAIL() << "expected task outer-resource consume rejection";
-  }
-  catch (const StyioTypeError& ex) {
-    EXPECT_NE(std::string(ex.what()).find("task cannot consume outer resource"), std::string::npos)
-      << ex.what();
-  }
+  expect_type_error_contains(src, "task cannot consume outer resource");
 }
 
 TEST(StyioResourceTopology, FileWriteAndCloseMethodsLowerToIO) {
@@ -390,14 +416,7 @@ TEST(StyioResourceTopology, ResourceMethodInfersTransitiveConsume) {
     "log.close()\n"
     "log.path\n";
 
-  try {
-    typecheck_nightly(src);
-    FAIL() << "expected transitive use-after-destroy";
-  }
-  catch (const StyioTypeError& ex) {
-    EXPECT_NE(std::string(ex.what()).find("use-after-destroy"), std::string::npos)
-      << ex.what();
-  }
+  expect_type_error_contains(src, "use-after-destroy");
 }
 
 TEST(StyioResourceTopology, HandleTableReleaseAllClosesAndRecyclesSlots) {

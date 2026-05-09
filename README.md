@@ -61,7 +61,7 @@ Styio's syntax is built to make complex stateful logic feel intuitive. The follo
 
 ## 🚀 Quick Start
 
-The fastest way to experience Styio is through our interactive CLI calculator, which leverages the actual compiler engine to parse and execute expressions.
+Use the interactive CLI calculator to try Styio with the same compiler engine that parses and executes expressions.
 
 ```bash
 # 1. Clone the repository
@@ -103,7 +103,7 @@ The compiler-side baseline is live, and we are rapidly expanding the surrounding
 | 💻 **[`Unka-Malloc-env`](https://github.com/SymPolicy/Unka-Malloc-env)** | Standardized dev environments & toolchains | 🟢 Active |
 | 🔌 **[`styio-ext-vsc`](https://github.com/SymPolicy/styio-ext-vsc)** | Official VS Code extension | 🟢 Active |
 | ☁️ **[`styio-platform`](https://github.com/SymPolicy/styio-platform)** | Platform products & hosted surface integration | 🟡 Bootstrap |
-| 💡 **[`styio-example`](https://github.com/SymPolicy/styio-example)** | Example projects & best practices | 🟡 Bootstrap |
+| 💡 **[`styio-example`](https://github.com/SymPolicy/styio-example)** | Example projects & reusable patterns | 🟡 Bootstrap |
 
 ## 📖 Further Reading
 

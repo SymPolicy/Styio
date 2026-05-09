@@ -246,11 +246,11 @@ Design settled on **`?(cond) => value | fallback`** and **`?(cond) => { ... } | 
 
 ---
 
-## 7. Research Claims vs Engineering Cost
+## 7. Research Statements vs Engineering Cost
 
 ### 7.1 Pulse Frame Lock vs Performance
 
-**Research doc** claims O(k) snapshot per pulse.  
+**Research doc** states O(k) snapshot per pulse.
 **Critique** (Gemini / design notes): at extreme tick rates, k-wide snapshot may hurt.
 
 **Conflict:** Not a logical contradiction but a **performance assumption** to validate with benchmarks.
@@ -281,6 +281,6 @@ Design settled on **`?(cond) => value | fallback`** and **`?(cond) => { ... } | 
 
 - **Before changing grammar:** Check §1–§3 for clashes.
 - **Before adding a test:** Ensure types and scoping are defined (§2–§3).
-- **Before claiming a milestone done:** Resolve or explicitly **defer** every conflict that touches that milestone’s tests.
+- **Before marking a milestone done:** Resolve or explicitly **defer** every conflict that touches that milestone’s tests.
 
 When a conflict is **resolved**, add a dated note under that subsection or remove it and point to the canonical spec section.

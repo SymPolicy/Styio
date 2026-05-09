@@ -1,6 +1,6 @@
 # IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan
 
-**Purpose:** Define the full roadmap for evolving the Styio IDE subsystem from its current MVP shape toward mature IDE-grade completion and semantic tooling. This roadmap is explicitly benchmarked against at least three established language toolchains rather than a single Rust reference point. This file path remains stable, but as of 2026-04-15 its scope has expanded from the original M11/M12 infrastructure slice into the full M11-M19 plan. Frozen acceptance targets live in [`../milestones/2026-04-15/`](../milestones/2026-04-15/), and IDE integration usage lives in [`../external/for-ide/README.md`](../external/for-ide/README.md).
+**Purpose:** Define the full roadmap for evolving the Styio IDE subsystem from its current MVP shape toward mature IDE-grade completion and semantic tooling. This roadmap uses several established language toolchains as design references rather than one implementation family. This file path remains stable, but as of 2026-04-15 its scope has expanded from the original M11/M12 infrastructure slice into the full M11-M19 plan. Frozen acceptance targets live in [`../milestones/2026-04-15/`](../milestones/2026-04-15/), and IDE integration usage lives in [`../external/for-ide/README.md`](../external/for-ide/README.md).
 
 **Last updated:** 2026-04-16
 
@@ -24,13 +24,13 @@ The immediate goal is not just to make the IDE core incremental. The actual targ
 7. workspace-scale symbol/reference index
 8. background runtime controls, cancellation, and performance gates
 
-This roadmap is intentionally benchmarked against at least three external toolchain families:
+This roadmap uses three external toolchain families as design references:
 
 1. C++: `clang` / `clangd`
 2. Python: CPython PEG parser plus `parso` / `pyright`-style edit-time tooling
 3. Rust: `rustc` / `rust-analyzer`
 
-The goal is not to clone any one toolchain exactly. The goal is to adopt the strongest proven ideas from all three:
+The goal is not to clone any one toolchain exactly. The goal is to adopt documented implementation patterns from all three:
 
 - C++ contributes compiler-truth reuse, background indexing, and workspace navigation discipline
 - Python contributes tolerant edit-time parsing and best-effort semantic service under broken code
@@ -100,7 +100,7 @@ These decisions are fixed for the entire roadmap:
 | Indexing | Open-file state, background index, and persistent index remain distinct layers |
 | Runtime | Foreground latency has priority over background indexing and maintenance work |
 
-Comparative baseline that remains in scope across the roadmap:
+Reference list that remains in scope across the roadmap:
 
 | Toolchain family | Reference tools | Styio lesson to adopt |
 |------|----------|----------|

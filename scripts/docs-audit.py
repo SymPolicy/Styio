@@ -29,6 +29,22 @@ APPROVED_TEST_DOC_NAMES = {"README.md", "REGRESSION-TEMPLATE.md"}
 PARAM_RESOURCE_PSEUDO_DEF_RE = re.compile(r"@[A-Za-z_][A-Za-z0-9_]*\s*[\{\(][^\n`]*\s*:=")
 FILE_PATH_PSEUDO_PRIMITIVE_RE = re.compile(r"\bfile\s*\(\s*path\s*\)")
 RESOURCE_PSEUDO_DEF_NEGATION_RE = re.compile(r"\b(do not|don't|must not|never|not|invalid|forbid|forbidden|reject|rejected)\b", re.I)
+PUBLIC_WORDING_FORBIDDEN_PATTERNS = (
+    (re.compile(r"\bfastest\b", re.I), "absolute speed superlative"),
+    (re.compile(r"\bbest\s+practices\b", re.I), "absolute practice superlative"),
+    (re.compile(r"\bbest[- ]in[- ]class\b", re.I), "unsupported superiority wording"),
+    (re.compile(r"\bworld[- ]class\b", re.I), "unsupported superiority wording"),
+    (re.compile(r"\bindustry[- ]leading\b", re.I), "unsupported superiority wording"),
+    (re.compile(r"\bstrongest\b", re.I), "unsupported superiority wording"),
+    (re.compile(r"\boptimal\b", re.I), "unsupported superiority wording"),
+    (re.compile(r"\bgenuinely\s+novel\b", re.I), "unsupported novelty wording"),
+    (re.compile(r"\bfully\s+functional\b", re.I), "over-broad maturity wording"),
+    (re.compile(r"\bclaim(?:s|ed|ing)?\b", re.I), "public-claim wording"),
+    (re.compile(r"\bperformance\s+claims\b", re.I), "unsupported public-claim wording"),
+    (re.compile(r"\bbenchmark(?:ed|ing)\s+against\b", re.I), "external-comparison wording without evidence scope"),
+    (re.compile(r"宣称|声称"), "public-claim wording"),
+    (re.compile(r"对标|最快|最佳|最好|最强|领先|世界级|一流"), "unsupported public-positioning wording"),
+)
 
 
 @dataclass(frozen=True)
@@ -629,6 +645,21 @@ def check_resource_identifier_governance(errors: List[str]) -> None:
                     )
 
 
+def check_public_wording(errors: List[str]) -> None:
+    for entry in collect_manifest("worktree"):
+        if entry.status != "valid":
+            continue
+        path = ROOT / entry.path
+        text = strip_code_fences(path.read_text(encoding="utf-8"))
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            for pattern, reason in PUBLIC_WORDING_FORBIDDEN_PATTERNS:
+                if pattern.search(line):
+                    errors.append(
+                        "public documentation wording is not evidence-scoped "
+                        f"({reason}): {entry.rel_path}:{line_no}"
+                    )
+
+
 def run_audit() -> int:
     errors: List[str] = []
     check_collection_dirs(errors)
@@ -640,6 +671,7 @@ def run_audit() -> int:
     check_team_docs_gate(errors)
     check_workflow_toml(errors)
     check_resource_identifier_governance(errors)
+    check_public_wording(errors)
 
     if errors:
         print("docs audit failed:", file=sys.stderr)
