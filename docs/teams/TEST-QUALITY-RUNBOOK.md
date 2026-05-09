@@ -54,7 +54,7 @@ Primary paths:
 28. Rust-style statement/expression semantics need one runtime smoke that covers function match sugar, a block final expression returning from a function, a match-arm final expression returning from a branch, and a statement-only tail returning the default value.
 29. Resource-topology safety tests live in `tests/resource_topology_test.cpp`. They must cover capability rejection, close-capable ownership, stream backpressure edges, hidden-ledger scope, and handle-table release/recycle before a resource lifecycle change is considered accepted.
 30. M6 retirement coverage keeps positive milestone fixtures on Topology v2 syntax and preserves old `@[...]`, `$state`, and `$state[<<, n]` spellings only as registered negative tests with stable migration diagnostics.
-31. Resource method tests must cover static method resolution, consuming receiver invalidation, task outer-resource consume rejection, explicit `=>` ordering for exclusive borrows, and lowering evidence for file `write`/`close` methods before the topology model is considered regression-covered.
+31. Resource method tests must cover static method resolution, consuming receiver invalidation, non-consuming overrides that must not lower to release, task outer-resource consume rejection, explicit `=>` ordering for exclusive borrows, and lowering evidence for file `write`/`close` methods before the topology model is considered regression-covered.
 
 ## Change Classes
 
