@@ -16,7 +16,6 @@ Authoritative references:
 4. Test catalog: [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md)
 5. Checkpoint workflow: [../assets/workflow/CHECKPOINT-WORKFLOW.md](../assets/workflow/CHECKPOINT-WORKFLOW.md)
 6. Cross-repo program plan: [../plans/Styio-Ecosystem-Delivery-Master-Plan.md](../plans/Styio-Ecosystem-Delivery-Master-Plan.md)
-7. File-governance alignment plan: [../plans/Styio-Ecosystem-File-Governance-Alignment-Plan.md](../plans/Styio-Ecosystem-File-Governance-Alignment-Plan.md)
 
 ## Module Map
 
@@ -64,7 +63,7 @@ flowchart TB
 
 ## Escalation Rules
 
-1. Language meaning conflict: use [../design/INDEX.md](../design/INDEX.md), then open or update [../review/Logic-Conflicts.md](../review/Logic-Conflicts.md) if unresolved.
+1. Language meaning conflict: use [../design/INDEX.md](../design/INDEX.md), then update the owning design doc and [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md) if follow-up remains.
 2. Test acceptance conflict: use [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) and [../assets/workflow/FIVE-LAYER-PIPELINE.md](../assets/workflow/FIVE-LAYER-PIPELINE.md).
 3. Repository ownership conflict: use [../specs/REPOSITORY-MAP.md](../specs/REPOSITORY-MAP.md).
 4. Workflow or checkpoint conflict: use [../assets/workflow/CHECKPOINT-WORKFLOW.md](../assets/workflow/CHECKPOINT-WORKFLOW.md).
@@ -75,11 +74,11 @@ flowchart TB
 Any high-risk cross-team work must stay checkpoint-sized:
 
 1. Target a 1-3 day mergeable unit.
-2. Ship code, tests, docs, ADR when needed, and `docs/history/YYYY-MM-DD.md` recovery notes together.
+2. Ship code, tests, docs, temporary ADR when needed, and any active recovery note together.
 3. Keep fallback or shadow routes explicit when replacing parser, analyzer, runtime, CLI, or IDE behavior.
 4. Update the affected team runbook before delivery whenever mapped owned files changed.
-5. If a checkpoint changes cross-repo milestone IDs, repo exits, or shared cutover rules, update the authoritative ecosystem plan, mirror plans, and affected handoff docs in the same batch.
-6. If a checkpoint changes docs tree topology, index-generation rules, archive/rollup lifecycle, ignore-policy baseline, or tracked-fixture negate rules, update the file-governance alignment plan and affected docs/runbook owners in the same batch.
+5. If a checkpoint changes cross-repo milestone IDs, repo exits, or shared cutover rules, update the authoritative ecosystem plan and affected handoff docs in the same batch.
+6. If a checkpoint changes docs tree topology, index-generation rules, archive/rollup lifecycle, ignore-policy baseline, or tracked-fixture negate rules, update the documentation policy and affected docs/runbook owners in the same batch.
 7. Run the smallest team gate first, then `./scripts/delivery-gate.sh` for the common auto delivery floor. Pass `--base <ref>` only when auto cannot infer the intended branch delivery base. Keep `./scripts/checkpoint-health.sh` as the inner recovery gate.
 
 ## Release / Cutover Gates

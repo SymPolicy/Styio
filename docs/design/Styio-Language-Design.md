@@ -1,6 +1,6 @@
 # Styio Language Design Specification
 
-**Purpose:** Styio 语言的 **权威语义与特性说明**（正文规格）；形式文法见 [`Styio-EBNF.md`](./Styio-EBNF.md)，符号与 token 名见 [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md)，`@` **目标**拓扑见 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)，冲突与未定见 [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md)。
+**Purpose:** Styio 语言的 **权威语义与特性说明**（正文规格）；形式文法见 [`Styio-EBNF.md`](./Styio-EBNF.md)，符号与 token 名见 [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md)，`@` **目标**拓扑见 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)，当前实现缺口见 [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md)。
 
 **Last updated:** 2026-05-09
 
@@ -598,10 +598,10 @@ l1 << l
 
 Copying an already-bound resource as `l1 <- l` is rejected; use `l1 << l`.
 
-### 9.5 Retired M6 State Containers
+### 9.5 Retired M6 State Families
 
-The old M6 surface used forms such as `@[...]` declarations and `$state`
-shadow reads. Active code must use resource objects:
+The old M6 state-declaration and shadow-read families are retired parser errors. Active code must
+use resource objects:
 
 ```styio
 @ma5 : f64|..5|
@@ -612,12 +612,12 @@ next_total = @total_vol[-1] + volumes
 next_total -> @total_vol
 ```
 
-The compiler rejects the old spelling with a migration diagnostic. Archived
-milestone and ADR files may still mention it as provenance.
+The compiler rejects retired state-family spellings with migration diagnostics. Exact old wording
+is recoverable from Git history when needed.
 
-### 9.6 Retired History Probe: `[<<, n]`
+### 9.6 Retired History Probe Family
 
-The `$state[<<, n]` spelling belonged to the old M6 history-probe draft and is not active syntax.
+The old M6 history-probe selector family is not active syntax.
 
 ---
 
@@ -648,8 +648,7 @@ Optional tolerance window:
 }
 ```
 
-The explicit `<<` copy makes the snapshot boundary visible. Older M6 examples used
-snapshot declarations plus `$` shadow reads; new topology text should prefer
+The explicit `<<` copy makes the snapshot boundary visible. New topology text should prefer
 resource-object or snapshot-object reads such as `p_okx[-1]`.
 
 Inline immediate pull (no state declaration, live read):
@@ -709,13 +708,12 @@ prices[std, 20]    // 20-period standard deviation
 
 These are **compiler intrinsics** — the compiler inlines optimized algorithms (O(1) sliding sum, monotonic queue, Welford's algorithm) directly into the generated code.
 
-### 11.5 Retired History Probe: `[<<, n]`
+### 11.5 Retired History Probe Family
 
-The `$state[<<, n]` postfix history selector is not an active milestone syntax.
-Future history access must re-enter with a revised selector or state-topology
-fixture instead of reusing the old M6 spelling.
+The old M6 postfix history selector family is not active milestone syntax. Future history access
+must use resource selectors or a revised state-topology fixture.
 
-Historical examples remain provenance only in archived milestone docs.
+Historical examples remain provenance only in Git history.
 
 ---
 
@@ -866,7 +864,7 @@ The current C++ compiler implementation already has a rich token system, parser,
 
 2. **`@` overload risk:** `@` remains overloaded as a resource prefix, state prefix, standard-stream prefix, and runtime absence marker. Source-level bare `@` has been retired from active syntax to reduce ambiguity.
 
-3. **Legacy migration:** `@[n](var = expr)`, `@[var = init](expr)`, `$state`, and `$state[<<, n]` are retired parser errors. The active surface is `@name : Type|n|` / `@name : Type|..n|` plus resource-object selectors.
+3. **Legacy migration:** retired M6 state families are parser errors. The active surface is `@name : Type|n|` / `@name : Type|..n|` plus resource-object selectors.
 
 4. **Cross-platform builds:** The current CMakeLists.txt hardcodes Linux paths. Windows and macOS support need platform-conditional toolchain detection.
 

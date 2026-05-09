@@ -15,11 +15,11 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 
 | Symbol | Name | C++ Token Kind | Physical Semantics |
 |--------|------|----------------|-------------------|
-| `@` | Resource Anchor | `TOK_AT` | **Before identifier + `:`:** Topology v2 resource declaration. **Before identifier + `(`:** resource with protocol. **Before `[`:** legacy M6 state container declaration. Source-level bare `@` is retired. |
+| `@` | Resource Anchor | `TOK_AT` | **Before identifier + `:`:** Topology v2 resource declaration. **Before identifier + `(`:** resource with protocol. **Before `()` / `{...}`:** anonymous or empty resource. **Before `[`:** retired M6 prefix, parse error. Source-level bare `@` is not an authoring form. |
 | `@stdout` | Standard Output | `TOK_AT` + `NAME("stdout")` | Built-in write-only stream resource (fd 1). Scalar write: `expr -> @stdout`; iterable write: `items >> @stdout`. |
 | `@stderr` | Standard Error | `TOK_AT` + `NAME("stderr")` | Built-in write-only stream resource (fd 2, unbuffered). Scalar write: `expr -> @stderr`; iterable write: `items >> @stderr`. |
 | `@stdin` | Standard Input | `TOK_AT` + `NAME("stdin")` | Built-in read-only stream resource (fd 0). Iterate via `@stdin >> #(line) => {...}`. Internal declaration forms use `@ stdin := #() => { ... }` with `{ <\|[>_] }`, `{ <\|(>_) }`, and expanded `{ <\| <- [>_] }`. Legacy `(<< @stdin)` is compatibility-only, not canonical design spelling. |
-| `$` | Legacy State / Capture | `TOK_DOLLAR` | **Before identifier:** legacy M6 state reference. **Before `(`:** capture list in function decl. **Before string:** format string. New topology text reads resources through `@name[...]`. |
+| `$` | Capture / Format Prefix | `TOK_DOLLAR` | **Before `(`:** capture list in function declaration context. **Before string:** format string. **Before identifier:** retired M6 state reference, parse error. New topology text reads resources through `@name[...]`. |
 
 ---
 
@@ -32,7 +32,7 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | `?\|` | Await / Freeze | `AWAIT_PIPE` | **With source:** await or pull a task/future handle into a newly declared typed local, with optional `\| fallback` on runtime failure or absence. **Without source:** reserved bare continuation freeze; parsed but fail-closed until continuation lowering lands. | `?\| job -> value: i64`, `?\| job -> value: i64 \| 0`, `?\| -> input: i64` |
 | `->` | Forward / Redirect / Resource Sink | `TOK_ARROW_RIGHT` | Redirect data to a physical destination or flow a produced value into a named resource sink | `ma5 -> @database(...)`, `price -> @prices` |
 | `<-` | Acquire / Pull | `TOK_ARROW_LEFT` | Extract or acquire from a resource; used in expanded stdin symbolic definition as `<\| <- [>_]`. | `f <- @file("data.txt")` |
-| `<<` | Copy / Extract / Legacy Shift-Back | `TOK_SHIFT_BACK` | Explicit resource copy or snapshot, e.g. `snapshot << @price[...]`. **Retired in `[<<, n]`:** old history probe spelling. **Legacy `(<< @res)`:** compatibility instant pull only. |
+| `<<` | Copy / Snapshot / Compatibility Pull | `TOK_SHIFT_BACK` | Explicit resource copy or snapshot, e.g. `snapshot << @price[...]`. Retired history-probe selector families remain rejected. **`(<< @res)`:** compatibility instant pull only. |
 | `<\|` | Return / One-Shot Apply | `YIELD_PIPE` | **Statement start:** return value from block. **Infix:** left-associative one-shot resume/apply; `f <\| a <\| b == f(a)(b)`. | `<\| x * x`, `f <\| 1` |
 | `\|<\|` | Inline Return | `RETURN_PIPE` | One-line return form, ended by `\|;`. | `...; \|<\| result \|;` |
 | `\|;` | Statement Separator | `PIPE_SEMICOLON` | Explicit separator for compressed one-line blocks. | `x = 1; \|<\| x \|;` |
@@ -61,7 +61,7 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | `x[..]` / `x[...]` | All Selector | Postfix on sliceable value/resource | Select all currently enumerable values |
 | `[?, cond]` | Retired Predicate Guard | Inactive old milestone syntax | Use `?(cond) => value \| fallback` or `?(cond) => { ... }` |
 | `[?=, val]` | Retired Equality Probe | Inactive old milestone syntax | Use `?=` match blocks |
-| `[<<, n]` | Retired History Probe | Inactive old milestone syntax | Use resource-object selectors such as `@price[-1]` and `@price[-3..]` |
+| Retired history-probe selector | Retired History Probe | Inactive old milestone syntax | Use resource-object selectors such as `@price[-1]` and `@price[-3..]` |
 | `[avg, n]` | Moving Average | Postfix on stream | Compiler intrinsic: O(1) sliding sum |
 | `[max, n]` | Rolling Maximum | Postfix on stream | Compiler intrinsic: monotonic queue |
 | `[min, n]` | Rolling Minimum | Postfix on stream | Compiler intrinsic: monotonic queue |
@@ -148,19 +148,18 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | Input | Resolution |
 |-------|------------|
 | `@` alone | Retired source-level undefined value |
-| `@[` | Retired M6 state container declaration prefix; parse error |
 | `@ident : Type` | Topology v2 resource declaration |
 | `@ident(...)` | Resource with explicit protocol |
 | `@ident{...}` | Invalid explicit-resource spelling |
 | `@{...}` or `@(...)` | Anonymous resource (auto-detect) |
 | `@stdout`, `@stderr`, `@stdin` | Standard stream resource atom; direct user use is backed by internal Styio prelude declarations |
-| `$ident` | Retired M6 state reference; parse error |
+| `$` followed by identifier | Retired M6 state reference family; parse error |
 | `$(...)` | Capture list (function context) |
 | `$"..."` | Format string |
 | `>>` after expr, before `#`/`{`/ident | Pipe operator |
 | `>>` as standalone statement | Continue (1 level) |
 | `>>>` standalone | Continue (2 levels) |
-| `[<<, n]` inside brackets | Retired history probe selector; use `@name[-1]`, `@name[-3..]`, or `@name[...]` |
+| Retired history-probe selector family inside brackets | Use `@name[-1]`, `@name[-3..]`, or `@name[...]` |
 | `list[T]` in type position | Type argument list |
 | `x[i]` / `x[a..b]` after indexable value | Index or slice selector |
 | `T..` / `T...` in type position | Infinite repetition type suffix |
@@ -174,17 +173,17 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 
 ---
 
-## Appendix: Consultant's Notes
+## Appendix: Implementation Notes
 
 ### Symbol Density Mitigation
 
-Styio has ~40 distinct symbolic constructs. This is comparable to APL/J but with clearer visual grouping due to the "family" structure:
+Styio has many symbolic constructs, so symbol docs group them by leading-character family:
 
 - **`>` family:** `>`, `>>`, `>>>`, `>=`, `>_`, `~>` (reserved)
 - **`<` family:** `<`, `<<`, `<=`, `<-`, `<|`, `<~` (reserved), `<:`
 - **`|` family:** `|`, `||`, `|]`, `|<|`, `|;`
-- **`@` family:** `@`, `@[` (retired), `@ident(...)`, `@ident : Type`
-- **`$` family:** `$var` (retired), `$(...)`, `$"..."`
+- **`@` family:** resource declarations, resource atoms, anonymous resources, and retired state-family prefixes
+- **`$` family:** capture lists, format strings, and retired state-reference prefixes
 - **`?` family:** `?`, `?=`, `?(...)`, `??`
 
 The lexer should process these families using a **trie-based dispatch** after reading the first character. This avoids the combinatorial explosion of a flat switch-case.
@@ -196,8 +195,6 @@ The existing `StyioOpType` enum should be extended with:
 ```cpp
 TOK_WAVE_LEFT,       // <~ reserved
 TOK_WAVE_RIGHT,      // ~> reserved
-TOK_AT_BRACKET,      // @[
-TOK_DOLLAR_IDENT,    // $identifier
 TOK_DOLLAR_PAREN,    // $(
 TOK_DOLLAR_STRING,   // $"..."
 TOK_DBQUESTION,      // ??

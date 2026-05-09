@@ -21,10 +21,6 @@
 - [`../design/Styio-EBNF.md`](../design/Styio-EBNF.md)
 - [`./DOCUMENTATION-POLICY.md`](./DOCUMENTATION-POLICY.md)
 
-如果你关心的是这些配件仓库应该先补什么、按什么顺序启动，请看：
-
-- [`../plans/Styio-Ecosystem-Bootstrap-Plan.md`](../plans/Styio-Ecosystem-Bootstrap-Plan.md)
-
 如果你关心的是三仓如何并行推进、谁拥有哪类合同，请看：
 
 - [`./ECOSYSTEM-REPO-SPLIT-AND-PARALLEL-DEV.md`](./ECOSYSTEM-REPO-SPLIT-AND-PARALLEL-DEV.md)

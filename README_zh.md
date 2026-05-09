@@ -59,7 +59,7 @@ printf '[3, 1, 2]\n' | build/default/bin/styio --file example/algorithms/bubble_
 STYIO_BIN=build/default/bin/styio ./example/cli_calculator.sh "1 + 2 * (3 + 4)"
 ```
 
-`example/` 目录只保留当前可运行并由 CTest 覆盖的示例；暂未实现的语言草稿归档在 `docs/archive/`。
+`example/` 目录只保留当前可运行并由 CTest 覆盖的示例；暂未实现的语言草稿在稳定规则提升到文档后不保留在当前树。
 
 ## 仓库边界
 

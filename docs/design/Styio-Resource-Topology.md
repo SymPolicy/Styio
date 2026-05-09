@@ -1,12 +1,12 @@
 # Styio — Resource Topology & `@` Semantics (Design Spec v2)
 
-**Purpose:** `@` 资源定义、类型长度后缀、资源读取/复制/迭代、以及资源拓扑安全检查的设计级单一叙述；模块导入语法见 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 与 [`Styio-EBNF.md`](./Styio-EBNF.md)。与当前编译器差异见 [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md)。
+**Purpose:** `@` 资源定义、类型长度后缀、资源读取/复制/迭代、以及资源拓扑安全检查的设计级单一叙述；模块导入语法见 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 与 [`Styio-EBNF.md`](./Styio-EBNF.md)。与当前编译器差异见 [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md)。
 
 **Last updated:** 2026-05-09
 
 **Status:** Topology v2 source syntax plus current compiler-owned RTG validation.
-**Supersedes:** M6 `@[n](name = ...)`, `$state[<<, n]`, and `$state` shadow reads. The running compiler now rejects those spellings; they remain only in archived provenance and negative migration tests.
-**See also:** [`Styio-EBNF.md`](./Styio-EBNF.md) (Appendix: Topology v2), [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md).
+**Supersedes:** retired M6 state containers, history probes, and shadow reads. The running compiler rejects those families; exact old spellings are recoverable from Git history and remain covered only by negative migration tests.
+**See also:** [`Styio-EBNF.md`](./Styio-EBNF.md) (Appendix: Topology v2), [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md).
 
 ---
 
@@ -33,7 +33,7 @@ The running compiler also reserves top-level `@import { ... }` as a module decla
 | **B. Resource anchor** | External driver / file / exchange handle | `@file(...)`, `@binance(...)`, `@stdin` |
 | **C. Named resource object** | Persistent resource, sequence, stream, snapshot slot, or topology output | `@price : f64|..10| := { ... }` |
 
-**Parser rule:** `@ import { ... }` is an import declaration; `@ident ( ... )` is an explicit resource atom; `@ident { ... }` is invalid for explicit resources; `@ident : Type` is a resource declaration. Retired `@[...]` is a parse error; use top-level `@name : Type`, `expr -> @name`, and `@name[-1]` selectors.
+**Parser rule:** `@ import { ... }` is an import declaration; `@ident ( ... )` is an explicit resource atom; `@ident { ... }` is invalid for explicit resources; `@ident : Type` is a resource declaration. Retired state-container prefixes are parse errors; use top-level `@name : Type`, `expr -> @name`, and `@name[-1]` selectors.
 
 ---
 
@@ -221,18 +221,18 @@ The example uses `|..2|` because it needs the previous and latest published valu
 
 | Item | Status |
 |------|--------|
-| M6 `@[n](var = ...)`, pulse ledger, `$` refs | **Retired**; active tests use negative migration fixtures |
+| Retired M6 state family | **Retired**; active tests use negative migration fixtures |
 | `@name : Type|n|`, `@name : Type|..n|`, `T..` / `T...` | **Implemented for v2 resource declarations and selectors covered by milestone tests** |
 | Type parameters as `list[T]` / `dict[K, V]` | **Implemented for v2 type-shape normalization covered by tests** |
 | `__ : TypePattern := TypeExpr` type rewrite rules | **Implemented for type-position rewrite coverage** |
 | Top-level multi-resource `@a : T, @b : U := { driver }` | **Target syntax**; current compiler only has partial internal prelude resource declarations |
 | `expr -> @resource` as topology sink write | **Partially covered** by existing redirect/resource-write surfaces; strict topology semantics TBD |
-| Resource object selectors `@price[-1]`, `@price[-3..]`, `@price[...]` | **Implemented for v2 resource reads; old `$state[<<, n]` is retired** |
+| Resource object selectors `@price[-1]`, `@price[-3..]`, `@price[...]` | **Implemented for v2 resource reads; retired state-history probes stay rejected** |
 | Compiler-owned resource topology graph (RTG) | **Implemented for current resource AST surfaces** |
 
 **Current RTG implementation note:** RTG is an internal compiler safety layer, not a new source-level syntax contract. It validates resource AST nodes and edges before lowering, including standard streams, handle acquire, writes, redirects, iterators, zip, snapshots, instant pulls, hidden intrinsic ledgers, task resources, ownership, mutation, commit, failure-domain, and backpressure relationships.
 
-**Next compiler-work note:** [`../plans/Resource-Topology-v2-Implementation-Plan.md`](../plans/Resource-Topology-v2-Implementation-Plan.md) tracks the parser/type migration to the new `Type|n|` / `Type|..n|` / `T..` source syntax.
+**Next compiler-work note:** [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md) tracks the remaining parser/type/lowering migration work for this design.
 
 ---
 
@@ -282,7 +282,7 @@ Statements that require more evidence before publication:
 
 ## 12. References
 
-- Internal: [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md) §1.3 `@` roles
-- Milestones provenance: [`../archive/milestones/2026-03-29/M6-StateAndStreams.md`](../archive/milestones/2026-03-29/M6-StateAndStreams.md)
+- Current implementation gaps: [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md)
+- Historical provenance: Git history for retired wording when exact old text is required
 - Test coverage: [`../assets/workflow/TEST-CATALOG.md`](../assets/workflow/TEST-CATALOG.md)
 - Maintainer workflow: [`../teams/CODEGEN-RUNTIME-RUNBOOK.md`](../teams/CODEGEN-RUNTIME-RUNBOOK.md)

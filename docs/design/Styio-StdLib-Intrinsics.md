@@ -188,12 +188,12 @@ sell_signal = cross_under(@ma5[-1], @ma20[-1])
 ```
 
 **2026-04-24 revision:** `cross_over(a, b)` and `cross_under(a, b)` wait for the
-revised history selector. The old `a[<<, 1]` spelling is retired from active
-syntax and must not be used in new milestone fixtures.
+revised history selector. Retired history-probe spellings must not be used in
+new milestone fixtures.
 
 **Requirement:** Both `a` and `b` should be values read from resource-object
-selectors such as `@ma5[-1]`. Do not reintroduce `$state` or the old
-`[<<, 1]` spelling in active tests.
+selectors such as `@ma5[-1]`. Do not reintroduce retired state/history probe
+families in active tests.
 
 **Output:** Strict `bool` — never `@`.
 

@@ -321,7 +321,7 @@ Group includes with section comments:
 
 ## 5. How to Add a New Token
 
-When the language design introduces a new symbol (e.g., `??`, `<:`, `@[`):
+When the language design introduces a new symbol (e.g., `??`, `<:`, `||>`):
 
 ### Step 1: Define Token Type
 
@@ -358,8 +358,8 @@ Add an entry to `StyioNodeType` in `src/StyioToken/Token.hpp`:
 
 ```cpp
 ExampleExpr,    // replace with the new AST concept
-StateDeclExpr,  // @[...] state container declaration
-StateRefExpr,   // $var shadow variable reference
+ResourceDeclExpr,  // @name : Type resource declaration
+ResourceMethodExpr,  // @file::name resource-family member
 ```
 
 ### Step 2: Forward-Declare
@@ -643,8 +643,9 @@ This is the "constitution" — any syntax change that breaks this example must b
 
 Follow `./DOCUMENTATION-POLICY.md` (including **§0** — minimal change, three-doc SSOT rule, doc-purpose lines):
 
-- **Progress and lessons learned:** `docs/history/YYYY-MM-DD.md` (one file per calendar day or same-day append), with **Last updated** in the header.
-- **Milestone specs:** active acceptance batches stay under `docs/milestones/<YYYY-MM-DD>/`; absorbed historical batches move to `docs/archive/milestones/<YYYY-MM-DD>/`.
+- **Progress and lessons learned:** durable lessons must be promoted into active rollups, SSOTs, or runbooks; raw dated checkpoint text is recovered from Git history when needed.
+- **Milestone specs:** active acceptance batches stay under `docs/milestones/<YYYY-MM-DD>/`; absorbed batches are removed from the current tree after durable rules move into active docs.
+- **Implemented decisions:** `../adr/IMPLEMENTED-DECISIONS.md` keeps a compressed provenance summary; exact old ADR wording comes from Git history.
 - **Test catalog:** `../assets/workflow/TEST-CATALOG.md` — group by **functional area**; each row must be reproducible with **CTest** (and document stdin/stdout/files).
 - **Team runbooks:** `../teams/<TEAM>-RUNBOOK.md` — every delivery that changes a mapped team-owned folder must update the corresponding runbook when the ownership surface, workflow, gates, handoff, or recovery knowledge changes. Ordinary team runbooks must follow `../assets/templates/TEAM-RUNBOOK-TEMPLATE.md`; the enforcement entrypoint is `../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md` and `python3 scripts/team-docs-gate.py`.
 - **Runbook statistics:** `../teams/DOC-STATS.md` — refresh this file in the same delivery when any team runbook or `COORDINATION-RUNBOOK.md` changes.
@@ -658,9 +659,9 @@ Agents working on specific areas should consult:
 | Task | Primary Reference |
 |------|-------------------|
 | Adding syntax | `../design/Styio-EBNF.md` (grammar), `../design/Styio-Symbol-Reference.md` (tokens) |
-| Topology v2 (`@name : Type|n|`, `@name : Type|..n|`, `T..`, `expr -> @name`) | `../design/Styio-Resource-Topology.md`, `../plans/Resource-Topology-v2-Implementation-Plan.md` (rollout + file matrix), `../review/Logic-Conflicts.md` |
+| Active syntax map | `../design/syntax/ACTIVE-SYNTAX.md` (compact authoring surface) |
+| Topology v2 (`@name : Type|n|`, `@name : Type|..n|`, `T..`, `expr -> @name`) | `../design/Styio-Resource-Topology.md`, `../design/syntax/ACTIVE-SYNTAX.md`, `../rollups/NEXT-STAGE-GAP-LEDGER.md` |
 | Implementing `@` propagation | `../design/Styio-Language-Design.md` §3.4 (Undefined type) |
-| State containers `@[...]` / `$` | `../design/Styio-Language-Design.md` §8 (State Management) |
 | Reserved wave tokens `<~` / `~>` | `../design/Styio-Symbol-Reference.md` §3 (reserved tokens) |
 | Stream sync `&` / `<<` | `../design/Styio-Language-Design.md` §9 (Stream Synchronization) |
 | Intrinsic algorithms | `../design/Styio-StdLib-Intrinsics.md` (all algorithms with pseudocode) |
@@ -681,7 +682,7 @@ Agents MUST NOT:
 
 4. **Modify vendored files.** `src/include/cxxopts.hpp` is third-party. Do not edit it.
 
-5. **Use archived implementation code.** Historical implementation snapshots under `docs/archive/source/Deprecated/` are reference-only. Do not include, call, or copy from them.
+5. **Use historical implementation code.** Historical implementation snapshots from Git history are reference-only. Do not include, call, or copy from them without promoting the current rule through the active implementation path.
 
 6. **Skip visitor registration.** Every new AST node MUST be added to ALL visitor template lists. Partial registration causes hard-to-debug template errors.
 
@@ -699,7 +700,7 @@ Agents MUST NOT:
 
 ### Current Milestone
 
-Agents must work on the **current active front** and not skip ahead. Start from `docs/rollups/CURRENT-STATE.md`, then follow the active milestone batch under `docs/milestones/` plus the active checkpoint/plan docs it points to. Historical milestone batches under `docs/archive/milestones/` are provenance only, not the default maintenance input. Each active milestone document defines:
+Agents must work on the **current active front** and not skip ahead. Start from `docs/rollups/CURRENT-STATE.md`, then follow the active milestone batch under `docs/milestones/` plus the active checkpoint/plan docs it points to. Historical milestone batches live in Git history and are provenance only, not the default maintenance input. Each active milestone document defines:
 
 - **Acceptance tests** — the FIRST thing to read; defines success
 - **Implementation tasks** — ordered by dependency, assigned to roles
@@ -778,10 +779,9 @@ Features from the design documents and their current implementation state:
 | Collections (list, tuple, set) | §10 | ✅ | ✅ | ✅ | Partial | Partial | Partial | **In Progress** |
 | Format strings (`$"..."`) | §11.3 | ✅ | ✅ | ✅ | Partial | Partial | — | **In Progress** |
 | Reserved wave tokens (`<~`, `~>`) | §3 reserved tokens | ✅ | Rejects active use | — | — | — | — | **Reserved** |
-| State containers (`@[...]`) | §8.2 | — | — | — | — | — | — | **Not Started** |
-| Shadow references (`$var`) | §8.3 | — | — | — | — | — | — | **Not Started** |
-| History probe (`[<<, n]`) | §8.4 | — | — | — | — | — | — | **Not Started** |
-| Pulse Frame Lock | §8.5 | — | — | — | — | — | — | **Not Started** |
+| Retired M6 state families | §8.2 | — | Rejects active use | — | — | — | — | **Retired** |
+| Resource topology selectors | §8.4 | ✅ | ✅ | Partial | Partial | Partial | Partial | **In Progress** |
+| Pulse Frame Lock | §8.5 | — | — | — | Partial | Partial | — | **In Progress** |
 | Break (`^...`) | §5.5 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
 | Continue (`>>>`) | §5.6 | — | — | — | — | — | — | **Not Started** |
 | Stream Zip (`&`) | §9.1 | — | — | — | — | — | — | **Not Started** |

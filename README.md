@@ -72,7 +72,8 @@ STYIO_BIN=build/default/bin/styio ./example/cli_calculator.sh "1 + 2 * (3 + 4)"
 ```
 
 The active examples under `example/` are covered by CTest. Draft language ideas
-that do not currently run live under `docs/archive/`.
+that do not currently run should stay out of the active tree after their durable
+rules are promoted into docs.
 
 ## Project Boundaries
 

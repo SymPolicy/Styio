@@ -16,27 +16,22 @@ The `#(...)` parameter list is mandatory whenever the declaration body uses loca
 the local-variable rule: a declaration body must not use an unbound name just because the name is
 visually obvious.
 
-Current standard-resource definitions live in [resources.styio](../../../src/StyioPrelude/resources.styio):
+Canonical standard-resource definitions live in [resources.styio](../../../src/StyioPrelude/resources.styio):
 
 ```styio
 @ stdout := #(xs) => { xs >> [>_] }
 @ stderr := #(xs) => { !(xs) >> [>_] }
 
 @ stdin := #() => { <|[>_] }
-@ stdin := #() => { <|(>_) }
 @ stdin := #() => { <| <- [>_] }
-
-// Scalar and compatibility terminal-device spellings.
 @ stdout := #(x) => { x -> [>_] }
 @ stderr := #(x) => { !(x) -> [>_] }
-@ stdout := #(xs) => { xs >> (>_) }
-@ stderr := #(xs) => { !(xs) >> (>_) }
-@ stdout := #(x) => { x -> (>_) }
-@ stderr := #(x) => { !(x) -> (>_) }
-@ stdin := #() => { <| <- (>_) }
 
 @ file : ftype := #(path) => { ... }
 ```
+
+`resources.styio` may also contain compatibility aliases needed by existing parser/runtime
+surfaces. Those aliases are implementation compatibility, not the default authoring surface.
 
 `@ file` deliberately does not use `file(path)`. That spelling was never an allowed Styio
 primitive and must not be introduced as a hidden C++ escape hatch. The current implementation still
@@ -51,11 +46,9 @@ resource identity is governed by the Styio declaration above.
 | `@ file` | `@ file : ftype := #(path) => { ... }` | read/write |
 | `@stdin: list[T]` | typed ingestion adapter over `@ stdin` | read |
 
-`[>_]` is the canonical terminal-handle spelling inside standard-stream definitions.
-`<|(>_)` is the call-like compatibility shorthand that treats `<|` as the return/export form and
-`(>_)` as its terminal-device argument. `@stdin` is consumed as an iterable stream through
-`@stdin >> #(line) => { ... }`; older `<< (>_)` wording is not the design spelling for stdin
-reads.
+`[>_]` is the canonical terminal-handle spelling inside standard-stream definitions. `@stdin` is
+consumed as an iterable stream through `@stdin >> #(line) => { ... }`; immediate pulls use
+`(<- @stdin)` or typed pull declarations such as `a, b <- @stdin : (f64, f64)`.
 
 `value -> [>_]` and `value -> @stdout` write scalar/text output. `items >> [>_]` and
 `items >> @stdout` are only for iterable values whose items can be text-serialized. A plain
