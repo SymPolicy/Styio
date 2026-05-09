@@ -1,16 +1,11 @@
-# Soak Regression Artifacts
+# Soak Regression Boundary
 
-This directory stores minimized failing soak cases produced by:
+Durable soak regression artifacts belong in `styio-benchmark/regressions/`.
+This Styio directory remains only as a local scratch location for compatibility
+flows.
 
 ```bash
-./benchmark/soak-minimize.sh ...
+STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark ./benchmark/soak-minimize.sh ...
 ```
 
-Each case folder contains:
-
-- `CASE.md`: context and follow-up checklist
-- `env.txt`: minimized environment snapshot
-- `repro.sh`: one-command local replay
-- `*.log`: failure outputs captured during minimization
-
-When a regression is fixed, keep the artifact folder and link the fix commit in `CASE.md`.
+Do not commit generated regression case folders under the Styio repository.

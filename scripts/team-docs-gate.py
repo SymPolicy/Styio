@@ -40,9 +40,13 @@ TEAM_RULES: tuple[TeamRule, ...] = (
         (
             "src/StyioAST/",
             "src/StyioAnalyzer/",
+            "src/StyioSema/",
+            "src/StyioLowering/",
             "src/StyioIR/",
+            "src/StyioResourceTopology/",
             "src/StyioToString/",
             "src/StyioSession/",
+            "src/cmake/StyioFrontendSources.cmake",
         ),
     ),
     TeamRule(

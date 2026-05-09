@@ -289,6 +289,9 @@ StyioToLLVM::toLLVMType(SGMatch* node) {
   if (node->repr_kind == SGMatchReprKind::ExprMixed) {
     return llvm::PointerType::get(*theContext, 0);
   }
+  if (node->repr_kind == SGMatchReprKind::ExprFloat) {
+    return theBuilder->getDoubleTy();
+  }
   return theBuilder->getInt64Ty();
 }
 
@@ -346,6 +349,12 @@ StyioToLLVM::toLLVMType(SGEqProbe* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SIOHandleAcquire* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SIOHandleRelease* node) {
   (void)node;
   return theBuilder->getVoidTy();
 }
@@ -515,8 +524,18 @@ StyioToLLVM::toLLVMType(SIOStdStreamLineIter* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SIOStdStreamPull* node) {
-  (void)node;
-  return llvm::PointerType::get(*theContext, 0);
+  if (styio_is_list_type(node->result_type)) {
+    return theBuilder->getInt64Ty();
+  }
+  switch (node->result_type.option) {
+    case StyioDataTypeOption::Float:
+      return theBuilder->getDoubleTy();
+    case StyioDataTypeOption::String:
+      return llvm::PointerType::get(*theContext, 0);
+    case StyioDataTypeOption::Integer:
+    default:
+      return theBuilder->getInt64Ty();
+  }
 }
 
 llvm::Type*

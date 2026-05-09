@@ -1,4 +1,4 @@
-@file{"tests/m7/data/input.txt"} >> #(x) => {
+@file("tests/m7/data/input.txt") >> #(x) => {
     result = x * 2
-    result << @file{"/tmp/styio_doubled.txt"}
+    result << @file("/tmp/styio_doubled.txt")
 }

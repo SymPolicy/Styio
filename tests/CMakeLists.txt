@@ -19,6 +19,34 @@ set(STYIO_MS "${CMAKE_CURRENT_LIST_DIR}/milestones")
 set(STYIO_EXE "$<TARGET_FILE:styio>")
 
 add_test(
+  NAME readme_glimpse_job_parallel_signal
+  COMMAND bash -c "printf '101\\n94\\n' | \"${STYIO_EXE}\" --file \"${CMAKE_SOURCE_DIR}/example/job_parallel_signal.styio\" | cmp -s - \"${CMAKE_SOURCE_DIR}/example/expected/job_parallel_signal.out\""
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(readme_glimpse_job_parallel_signal PROPERTIES LABELS "docs;example;styio_pipeline")
+
+add_test(
+  NAME example_hello_world
+  COMMAND bash -c "\"${STYIO_EXE}\" --file \"${CMAKE_SOURCE_DIR}/example/hello_world.styio\" | cmp -s - \"${CMAKE_SOURCE_DIR}/example/expected/hello_world.out\""
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(example_hello_world PROPERTIES LABELS "example;styio_pipeline")
+
+add_test(
+  NAME example_bubble_sort
+  COMMAND bash -c "printf '[3, 1, 2]\\n' | \"${STYIO_EXE}\" --file \"${CMAKE_SOURCE_DIR}/example/algorithms/bubble_sort.styio\" | cmp -s - \"${CMAKE_SOURCE_DIR}/example/expected/bubble_sort.out\""
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(example_bubble_sort PROPERTIES LABELS "example;styio_pipeline;algorithm_equivalence")
+
+add_test(
+  NAME example_cli_calculator
+  COMMAND bash -c "STYIO_BIN=\"${STYIO_EXE}\" \"${CMAKE_SOURCE_DIR}/example/cli_calculator.sh\" '1 + 2 * (3 + 4)' | cmp -s - \"${CMAKE_SOURCE_DIR}/example/expected/cli_calculator.out\""
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(example_cli_calculator PROPERTIES LABELS "example;styio_pipeline")
+
+add_test(
   NAME styio_profiler_frontend_smoke
   COMMAND "${CMAKE_COMMAND}"
           "-DSTYIO_BIN=${STYIO_EXE}"
@@ -39,8 +67,7 @@ function(styio_stdout_golden_test MS_DIR TEST_GLOB LABEL)
     get_filename_component(_NAME ${_F} NAME_WE)
     set(_EXP "${STYIO_MS}/${MS_DIR}/expected/${_NAME}.out")
     if(NOT EXISTS "${_EXP}")
-      message(WARNING "Missing golden: ${_EXP} (skip ${_NAME})")
-      continue()
+      message(FATAL_ERROR "Missing golden: ${_EXP} (required by ${_NAME})")
     endif()
     add_test(
       NAME "${MS_DIR}_${_NAME}"
@@ -48,6 +75,24 @@ function(styio_stdout_golden_test MS_DIR TEST_GLOB LABEL)
       WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     )
     set_tests_properties("${MS_DIR}_${_NAME}" PROPERTIES LABELS "milestone;${LABEL}")
+  endforeach()
+endfunction()
+
+function(styio_stderr_failure_golden_test MS_DIR LABEL)
+  file(GLOB _STYIO_FAIL_FILES CONFIGURE_DEPENDS "${STYIO_MS}/${MS_DIR}/e*.styio")
+  list(SORT _STYIO_FAIL_FILES)
+  foreach(_F IN LISTS _STYIO_FAIL_FILES)
+    get_filename_component(_ENAME ${_F} NAME_WE)
+    set(_EXP "${STYIO_MS}/${MS_DIR}/expected/${_ENAME}.err")
+    if(NOT EXISTS "${_EXP}")
+      message(FATAL_ERROR "Missing diagnostic golden: ${_EXP} (required by ${_ENAME})")
+    endif()
+    add_test(
+      NAME "${MS_DIR}_err_${_ENAME}"
+      COMMAND bash -c "tmp_err=\"${CMAKE_BINARY_DIR}/${MS_DIR}_${_ENAME}.stderr.tmp\"; tmp_out=\"${CMAKE_BINARY_DIR}/${MS_DIR}_${_ENAME}.stdout.tmp\"; if \"${STYIO_EXE}\" --file \"${_F}\" >\"\$tmp_out\" 2>\"\$tmp_err\"; then cat \"\$tmp_out\"; cat \"\$tmp_err\" >&2; exit 1; fi; grep -Fq -- \"$(cat \"${_EXP}\")\" \"\$tmp_err\""
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+    set_tests_properties("${MS_DIR}_err_${_ENAME}" PROPERTIES LABELS "milestone;${LABEL};${LABEL}_semantic")
   endforeach()
 endfunction()
 
@@ -67,7 +112,6 @@ styio_stdout_golden_test(m9 "t03_*.styio" m9)
 styio_stdout_golden_test(m9 "t04_*.styio" m9)
 styio_stdout_golden_test(m9 "t05_*.styio" m9)
 styio_stdout_golden_test(m9 "t06_*.styio" m9)
-styio_stdout_golden_test(m9 "t07_*.styio" m9)
 styio_stdout_golden_test(m9 "t08_*.styio" m9)
 styio_stdout_golden_test(m9 "t12_*.styio" m9)
 
@@ -101,6 +145,15 @@ add_test(
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 set_tests_properties(m10_t01_stdin_echo PROPERTIES LABELS "milestone;m10")
+
+add_test(
+  NAME styio_build_native_executable_stdin_echo
+  COMMAND bash -c "rm -f \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo.profile.json\" && \"${STYIO_EXE}\" build \"${STYIO_MS}/m10/t01_stdin_echo.styio\" -o \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" && test -x \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" && cat \"${STYIO_MS}/m10/data/echo_input.txt\" | STYIO_NATIVE_PROFILE_OUT=\"${CMAKE_BINARY_DIR}/styio-native-stdin-echo.profile.json\" \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" | cmp -s - \"${STYIO_MS}/m10/expected/t01_stdin_echo.out\" && grep -q '\"tool\": \"styio-native-profiler\"' \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo.profile.json\" && grep -q '\"name\": \"execute\"' \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo.profile.json\""
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(styio_build_native_executable_stdin_echo PROPERTIES
+  LABELS "native_artifact;milestone;m10"
+)
 
 add_test(
   NAME m10_t02_stdin_pull
@@ -137,44 +190,25 @@ add_test(
 )
 set_tests_properties(m10_t06_stdin_mixed_output PROPERTIES LABELS "milestone;m10")
 
-# M10 semantic failures: compilation must abort (e*.styio)
-file(GLOB M10_FAIL_TESTS CONFIGURE_DEPENDS "${STYIO_MS}/m10/e*.styio")
-list(SORT M10_FAIL_TESTS)
-foreach(_F IN LISTS M10_FAIL_TESTS)
-  get_filename_component(_ENAME ${_F} NAME_WE)
-  add_test(
-    NAME "m10_err_${_ENAME}"
-    COMMAND bash -c "if \"${STYIO_EXE}\" --file \"${_F}\"; then exit 1; else exit 0; fi"
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-  )
-  set_tests_properties("m10_err_${_ENAME}" PROPERTIES LABELS "milestone;m10;m10_semantic")
-endforeach()
+add_test(
+  NAME m10_t07_stdin_typed_tuple_pull
+  COMMAND bash -c "cat \"${STYIO_MS}/m10/data/typed_tuple_input.txt\" | \"${STYIO_EXE}\" --file \"${STYIO_MS}/m10/t07_stdin_typed_tuple_pull.styio\" | cmp -s - \"${STYIO_MS}/m10/expected/t07_stdin_typed_tuple_pull.out\""
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(m10_t07_stdin_typed_tuple_pull PROPERTIES LABELS "milestone;m10")
 
-# M12 task_resource semantic failures: compilation must abort (e*.styio)
-file(GLOB M12_FAIL_TESTS CONFIGURE_DEPENDS "${STYIO_MS}/m12/e*.styio")
-list(SORT M12_FAIL_TESTS)
-foreach(_F IN LISTS M12_FAIL_TESTS)
-  get_filename_component(_ENAME ${_F} NAME_WE)
-  add_test(
-    NAME "m12_err_${_ENAME}"
-    COMMAND bash -c "if \"${STYIO_EXE}\" --file \"${_F}\"; then exit 1; else exit 0; fi"
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-  )
-  set_tests_properties("m12_err_${_ENAME}" PROPERTIES LABELS "milestone;m12;m12_semantic")
-endforeach()
+add_test(
+  NAME m10_t08_stdin_typed_f64_list_pull
+  COMMAND bash -c "cat \"${STYIO_MS}/m10/data/typed_f64_list_input.txt\" | \"${STYIO_EXE}\" --file \"${STYIO_MS}/m10/t08_stdin_typed_f64_list_pull.styio\" | cmp -s - \"${STYIO_MS}/m10/expected/t08_stdin_typed_f64_list_pull.out\""
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(m10_t08_stdin_typed_f64_list_pull PROPERTIES LABELS "milestone;m10")
 
-# M8 semantic failures: compilation must abort (e*.styio)
-file(GLOB M8_FAIL_TESTS CONFIGURE_DEPENDS "${STYIO_MS}/m8/e*.styio")
-list(SORT M8_FAIL_TESTS)
-foreach(_F IN LISTS M8_FAIL_TESTS)
-  get_filename_component(_ENAME ${_F} NAME_WE)
-  add_test(
-    NAME "m8_err_${_ENAME}"
-    COMMAND bash -c "if \"${STYIO_EXE}\" --file \"${_F}\"; then exit 1; else exit 0; fi"
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-  )
-  set_tests_properties("m8_err_${_ENAME}" PROPERTIES LABELS "milestone;m8;m8_semantic")
-endforeach()
+# Semantic failure tests must check the diagnostic contract, not only nonzero exit.
+styio_stderr_failure_golden_test(m10 m10)
+styio_stderr_failure_golden_test(m12 m12)
+styio_stderr_failure_golden_test(m6 m6)
+styio_stderr_failure_golden_test(m8 m8)
 
 # --- M5: stdout goldens + special file / exit-code cases ---
 add_test(
@@ -402,6 +436,12 @@ target_link_libraries(styio_security_test PRIVATE styio_core GTest::gtest_main)
 # library on Debian/libstdc++.
 styio_apply_llvm_compile_settings(styio_security_test)
 
+add_executable(styio_resource_topology_test
+  resource_topology_test.cpp
+)
+target_link_libraries(styio_resource_topology_test PRIVATE styio_core GTest::gtest_main)
+styio_apply_llvm_compile_settings(styio_resource_topology_test)
+
 add_executable(styio_ide_test
   ide/styio_ide_test.cpp
   "${CMAKE_SOURCE_DIR}/src/StyioLSP/Server.cpp"
@@ -426,6 +466,11 @@ gtest_discover_tests(styio_algorithm_equivalence_test
 gtest_discover_tests(styio_security_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES LABELS "security\\;safety\\;lexer\\;ffi"
+)
+
+gtest_discover_tests(styio_resource_topology_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "styio_pipeline\\;resource_topology\\;topology_v2\\;safety\\;unit"
 )
 
 gtest_discover_tests(styio_ide_test

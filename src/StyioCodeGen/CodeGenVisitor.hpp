@@ -133,6 +133,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SGEqProbe,
 
   class SIOHandleAcquire,
+  class SIOHandleRelease,
   class SIOFileLineIter,
   class SIOStreamZip,
   class SGSnapshotDecl,
@@ -192,6 +193,8 @@ class StyioToLLVM : public StyioCodeGenVisitor
   /* [|n|] final-bound rings: array alloca in mutable_variables + head cursor (next write index). */
   unordered_map<string, llvm::AllocaInst*> bounded_ring_head_slot_;
   unordered_map<string, std::uint64_t> bounded_ring_capacity_;
+  unordered_map<string, llvm::AllocaInst*> bounded_ring_pending_slot_;
+  unordered_map<string, llvm::AllocaInst*> bounded_ring_pending_count_slot_;
   std::unordered_set<std::string> dynamic_variable_names_;
   std::unordered_set<std::string> list_slot_names_;
 
@@ -305,6 +308,7 @@ public:
   llvm::Type* toLLVMType(SGEqProbe* node);
 
   llvm::Type* toLLVMType(SIOHandleAcquire* node);
+  llvm::Type* toLLVMType(SIOHandleRelease* node);
   llvm::Type* toLLVMType(SIOFileLineIter* node);
   llvm::Type* toLLVMType(SIOStreamZip* node);
   llvm::Type* toLLVMType(SGSnapshotDecl* node);
@@ -401,6 +405,7 @@ public:
   llvm::Value* toLLVMIR(SGEqProbe* node);
 
   llvm::Value* toLLVMIR(SIOHandleAcquire* node);
+  llvm::Value* toLLVMIR(SIOHandleRelease* node);
   llvm::Value* toLLVMIR(SIOFileLineIter* node);
   llvm::Value* toLLVMIR(SIOStreamZip* node);
   llvm::Value* toLLVMIR(SGSnapshotDecl* node);
@@ -491,6 +496,19 @@ private:
     llvm::Value* i64v,
     llvm::Value* f64v,
     llvm::Value* ptrv);
+  struct DynamicSlotPayload {
+    std::int64_t tag = 0;
+    llvm::Value* i64v = nullptr;
+    llvm::Value* f64v = nullptr;
+    llvm::Value* ptrv = nullptr;
+  };
+  DynamicSlotPayload dynamic_slot_payload_for_value(StyioIR* source, llvm::Value* value);
+  DynamicSlotPayload dynamic_slot_payload_for_type(const StyioDataType& type, llvm::Value* value);
+  void forget_dynamic_slot_payload_ownership(llvm::Value* value, std::int64_t tag);
+  void emit_std_stream_write_parts(
+    const std::vector<StyioIR*>& parts,
+    const char* write_intrinsic,
+    const char* label_prefix);
 
   llvm::FunctionCallee free_cstr_fn();
   llvm::FunctionCallee list_release_fn();
@@ -520,6 +538,8 @@ private:
   void pulse_copy_ledger_to_snap(llvm::Value* ledger, llvm::Value* snap, int nbytes);
   llvm::Value* coerce_pulse_input_i64(llvm::Value* v);
   void emit_pulse_commit_all(llvm::Value* ledger, const SGPulsePlan* plan);
+  void emit_bounded_ring_pending_commit(const std::string& name);
+  void emit_bounded_ring_pending_commits();
 };
 
 #endif

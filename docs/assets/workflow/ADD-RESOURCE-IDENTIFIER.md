@@ -16,7 +16,7 @@ Canonical workflow: [../../../workflows/ADD-RESOURCE-IDENTIFIER.md](../../../wor
 5. Add positive and fail-closed tests.
 
 Parameterized resource expressions are not declaration heads. Invalid example:
-`@name{arg} := { ... }`. Do not introduce hidden pseudo-primitives such as `file(path)`.
+`@name(arg) := { ... }`. Do not introduce hidden pseudo-primitives such as `file(path)`.
 
 ## Gates
 

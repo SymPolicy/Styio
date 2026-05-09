@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-05-05
+**Last updated:** 2026-05-09
 
 ## Mission
 
@@ -32,7 +32,7 @@ Related docs:
 3. Treat diagnostic code, exit code, and runtime error category changes as public behavior.
 4. Update security, five-layer, and soak coverage before accepting a runtime contract change.
 5. Use benchmark routes for hot paths, not terminal timing impressions.
-6. Preserve the current partial `[|n|]` bounded-ring contract until an explicit M8/Topology checkpoint changes it: final-bind lowers to `[n x i64] + head`, reads return the latest slot, same-name flex after final bind is rejected, and function-parameter ring semantics remain incomplete.
+6. Preserve the current legacy bounded final-bind compatibility contract until an explicit M8/Topology checkpoint changes it: final-bind lowers to `[n x i64] + head`, reads return the latest slot, same-name flex after final bind is rejected, and function-parameter ring semantics remain incomplete.
 7. Treat `runtime-events.jsonl` as a published artifact: changes to `compile.* / run.* / thread.* / unit.* / unit.test.* / state.* / transition.fired / log.emitted / diagnostic.emitted` require same-checkpoint tests and consumer doc updates.
 8. Keep `stdout/stderr` helper hooks lossless: runtime log replay may enrich the artifact stream, but must not change observable program output semantics.
 9. Keep the ORC JIT symbol registry aligned with the full `src/StyioExtern/ExternLib.hpp` export surface and every runtime helper that codegen emits; when a new `getOrInsertFunction("styio_*")` call or extern export appears, update `src/StyioJIT/StyioJIT_ORC.hpp` in the same delivery.
@@ -41,8 +41,12 @@ Related docs:
 12. Matrix runtime helpers own the flat row-major storage contract. When adding or changing matrix lowering, keep `ExternLib.hpp`, `ExternLib.cpp`, `HandleTable.hpp`, ORC registrations, direct-data helpers, release paths, and security/codegen tests in the same checkpoint.
 13. Empty lexical scopes must not emit unused runtime declarations; exact LLVM IR comparison tests protect StyioIR optimizer canonicalization from backend-only drift.
 14. Matrix/list/dict/string runtime resources stored in dynamic slots must release through the same RAII path on overwrite, normal scope exit, and runtime-error early return. Any new runtime guard that emits `ret` must first run active scope cleanup.
-15. Task resources are scheduled runtime handles. Keep `styio_task_*_spawn`, worker-pool state, `HandleKind::Task`, dynamic-slot release, ORC registrations, and task pull codegen in one checkpoint; `||>` lowering must emit a private task function plus scheduler submission, not an eager scalar handle that can escape scope cleanup.
+15. Task resources are scheduled runtime handles. Keep `styio_task_*_spawn`, worker-pool state, `HandleKind::Task`, dynamic-slot release, ORC registrations, and task pull codegen in one checkpoint; `||>` lowering must emit a private task function plus scheduler submission, not an eager scalar handle that can escape scope cleanup. `?| task -> value: T | fallback` uses the same task pull path, clears runtime task errors before evaluating fallback, and without fallback must propagate the runtime error guard.
 16. Async scheduler profiling must stay opt-in: disabled runs should avoid per-task counter writes, enabled runs should expose spawn/enqueue/start/complete/pull/release and queue-depth counters through `--profile-frontend`, and task readiness should use the scheduler's low-overhead atomic wait path instead of per-task condition variables.
+17. Function and match-branch result semantics come from explicit `SGReturn` nodes emitted by lowering for final expression tails. If a lowered function body has no terminator, LLVM codegen must return the runtime default value rather than reusing the last emitted temporary from a statement tail.
+18. File-resource destroy lowering must use explicit handle release IR. `SIOHandleRelease` should call `styio_file_close`, clear named handle slots to zero so scope-exit cleanup is idempotent, and preserve `@("path").close()` direct-path behavior without bypassing runtime diagnostics.
+19. Typed stdin pulls lower from `InstantPull` to `SIOStdStreamPull::result_type` for scalar i64/f64/string and typed list pulls. Untyped collect-bind stdin may still use `SIOListReadStdin`. String pulls must clone the borrowed stdin buffer before binding, and `list[f64]` stdin pulls must use the f64 list reader rather than falling through to i64 parsing. String concatenation should route non-string operands through `promote_to_cstr` so f64 formatting uses the same runtime decimal helper as other output paths.
+20. Dynamic-slot stores must fail closed on mismatched LLVM value families. Do not replace invalid integer, floating, or pointer fields with zero/null sentinels unless the IR node explicitly represents an undefined value.
 
 ## Change Classes
 
@@ -65,14 +69,15 @@ Runtime stability:
 
 ```bash
 ctest --test-dir build/default -L soak_smoke
-./benchmark/perf-route.sh --quick
+STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark ./benchmark/perf-route.sh --quick
 ```
 
 For deeper runtime or allocation work:
 
 ```bash
 ctest --test-dir build/default -L soak_deep
-./benchmark/perf-route.sh --phase-iters 5000 --micro-iters 5000 --execute-iters 20
+STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
+  ./benchmark/perf-route.sh --phase-iters 5000 --micro-iters 5000 --execute-iters 20
 ```
 
 ## Cross-Team Dependencies

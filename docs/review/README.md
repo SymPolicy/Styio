@@ -1,23 +1,22 @@
 # Review Docs
 
-**Purpose:** Define the scope and naming rules for `docs/review/`; the generated file inventory lives in [INDEX.md](./INDEX.md).
+**Purpose:** Define the minimal current-tree review policy: keep only still-active review findings, move durable rules into owning SSOTs, and recover old review prose from Git history.
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-05-09
 
 ## Scope
 
-1. Store unresolved review findings, conflict lists, and only the recent raw dated review bundles here.
-2. Fold reusable lessons into `../rollups/` and archive older raw dated bundles in `../archive/review/`.
-3. Keep language SSOT in `docs/design/` and checkpoint history in `docs/history/`.
-4. Use this directory for unresolved contradictions and review-derived action items.
+1. Store unresolved review findings here only while they need direct follow-up.
+2. Fold reusable lessons into `../rollups/` and owning active SSOTs.
+3. Keep language SSOT in `docs/design/`.
+4. Do not use this directory as a parallel syntax, design, or checkpoint-history SSOT.
 5. Resolve tradeoff disputes under [../specs/PRINCIPLES-AND-OBJECTIVES.md](../specs/PRINCIPLES-AND-OBJECTIVES.md).
 
 ## Naming Rules
 
 1. Stable long-lived review files use descriptive topic names.
-2. One-off review bundles use dated subdirectories.
-3. Each dated review bundle should expose one entry document.
-4. Only the newest keep-window bundle stays active once it has been summarized; older bundles move to `../archive/review/`.
+2. One-off review bundles should not be retained in the current tree after their actionable findings are resolved or promoted.
+3. Use Git history when exact old dated review wording is required.
 
 ## Inventory
 

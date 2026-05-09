@@ -133,8 +133,8 @@ class IteratorAST;
 class StreamZipAST;
 class SnapshotDeclAST;
 class InstantPullAST;
-class TypedStdinListAST;
 class TaskBlockAST;
+class TaskGroupLaunchAST;
 class FlowBindAST;
 class IterSeqAST; /* Iterator Sequence */
 class InfiniteLoopAST;
@@ -219,6 +219,12 @@ class FmtStrAST;
   - DBUrl
 */
 class ResourceAST;
+class EmptyResourceAST;
+class ResourceReceiverAST;
+class ResourceMethodDefAST;
+class ResourceOrderAST;
+class ResourceDeclAST;
+class ResourceRefAST;
 
 class ResPathAST;
 class RemotePathAST;

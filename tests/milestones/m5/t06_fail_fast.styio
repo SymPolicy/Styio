@@ -1,1 +1,1 @@
-f <- @file{"nonexistent.txt"}
+f <- @file("nonexistent.txt")

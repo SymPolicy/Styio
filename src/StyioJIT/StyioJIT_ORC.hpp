@@ -99,6 +99,7 @@ public:
     add_symbol("styio_task_scheduler_profile_snapshot", &styio_task_scheduler_profile_snapshot);
 
     add_symbol("styio_list_i64_read_stdin", &styio_list_i64_read_stdin);
+    add_symbol("styio_list_f64_read_stdin", &styio_list_f64_read_stdin);
     add_symbol("styio_list_cstr_read_stdin", &styio_list_cstr_read_stdin);
     add_symbol("styio_string_lines", &styio_string_lines);
     add_symbol("styio_list_new_bool", &styio_list_new_bool);

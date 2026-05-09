@@ -6,8 +6,6 @@
 
 ```styio
 f <| a        := f(a)
-f <| a <| b  := f(a)(b)
-f(a)(b)      := (f(a)) <| b
 
 k : cont[A -> B, oneshot]
 k <| a       := resume k with a
@@ -31,16 +29,14 @@ Standard-stream declaration forms:
 
 ```styio
 @ stdin := #() => { <|[>_] }
-@ stdin := #() => { <|(>_) }
 @ stdin := #() => { <| <- [>_] }
-@ stdin := #() => { <| <- (>_) }  // compatibility terminal-device spelling
 ```
 
 These are internal Styio resource declarations. `<|` marks the value exported from the declaration
 body. The compact stdin form `<|[>_]` is shorthand for the expanded pull-return form
-`<| <- [>_]`. The call-like form `<|(>_)` reads as `<|` returning/exporting the terminal device
-argument. The bracketed terminal handle `[>_]` replaces the earlier `| >_ |` spelling to avoid a
-`|>` visual/tokenization ambiguity; `(>_)` remains a compatibility spelling.
+`<| <- [>_]`. The bracketed terminal handle `[>_]` avoids a `|>` visual/tokenization ambiguity.
+Compatibility terminal-handle aliases may remain in the prelude, but new syntax docs should use
+the bracketed form.
 
 Lifecycle:
 

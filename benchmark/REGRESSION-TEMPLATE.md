@@ -1,64 +1,11 @@
-# Soak Regression Template
+# Benchmark Regression Template Boundary
 
-- **Failure Date:** YYYY-MM-DD
-- **Detected By:** local / CI / nightly
-- **Related Test:** `StyioSoakSingleThread.*` or `soak_deep_*`
-- **Owner:** @owner
+The canonical benchmark regression template lives in:
 
-## 1. Symptom
-
-- Expected:
-- Actual:
-- Exit code / signal:
-
-## 2. Reproduction
-
-```bash
-# Minimal reproducible command
-ctest --test-dir build -R '^soak_deep_...$' --output-on-failure
+```text
+styio-benchmark/docs/REGRESSION-TEMPLATE.md
 ```
 
-- Environment variables:
-  - `STYIO_SOAK_*`:
-  - Sanitizer options (if any):
-- Platform / compiler:
-
-## 3. Minimization Record
-
-- Source artifact directory: `benchmark/regressions/<timestamp>-<case>/`
-- Minimization command:
-
-```bash
-./benchmark/soak-minimize.sh \
-  --test <gtest-filter> \
-  --var <iteration-env-var> \
-  --low <n> \
-  --high <n> \
-  --extra-env "K=V;K2=V2"
-```
-
-- Min failing threshold:
-- Notes about monotonic assumption validity:
-
-## 4. Root Cause
-
-- Subsystem:
-- Trigger path:
-- Why previous tests missed it:
-
-## 5. Fix
-
-- Fix PR/commit:
-- Behavior change summary:
-- Risk/tradeoff:
-
-## 6. Regression Coverage
-
-- Added/updated tests:
-- CTest command used for verification:
-- CI run link / artifact:
-
-## 7. Follow-ups
-
-1. 
-2. 
+Use this Styio path only as a compatibility pointer. New benchmark regression
+artifacts and durable reports must be created in `styio-benchmark`, with the
+target Styio checkout passed through `--styio-root`.

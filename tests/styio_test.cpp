@@ -441,7 +441,7 @@ TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"tool\":\"styio\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"compiler_version\":\"0.0.1\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"channel\":\"stable\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"channel\":\"nightly\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"active_integration_phase\":\"compile-plan-live\""), std::string::npos);
   EXPECT_NE(
     result.stdout_text.find("\"supported_contracts\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"compile_plan\":[1],\"runtime_events\":[1]}"),
@@ -2969,7 +2969,7 @@ TEST(StyioParserEngine, PointerScrutineeMatchDoesNotAbortAndReportsTypeError) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "f <- @file{\"tests/m5/data/input.txt\"}\n";
+    out << "f <- @file(\"tests/m5/data/input.txt\")\n";
     out << "f >> #(line) => {\n";
     out << "  line ?={\n";
     out << "    1 => >_(1)\n";
@@ -3371,7 +3371,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForResourcePostfixS
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "\"shadow resource postfix\" >> @file{\"" << output.string() << "\"}\n";
+    out << "\"shadow resource postfix\" >> @file(\"" << output.string() << "\")\n";
   }
   ASSERT_TRUE(fs::create_directories(artifact_dir));
 
@@ -3465,7 +3465,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForIteratorSubset) 
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "f <- @file{\"tests/m5/data/hello.txt\"}\n";
+    out << "f <- @file(\"tests/m5/data/hello.txt\")\n";
     out << "f >> #(line) => {\n";
     out << "  >_(line)\n";
     out << "}\n";
@@ -3516,7 +3516,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForSnapshotDeclSubs
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "@[ref_val] << @file{\"tests/m7/data/ref.txt\"}\n";
+    out << "ref_val = (<< @file(\"tests/m7/data/ref.txt\"))\n";
   }
   ASSERT_TRUE(fs::create_directories(artifact_dir));
 
@@ -3726,7 +3726,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForAtResourceSubset
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "@file{\"tests/m7/data/input.txt\"} >> #(x) => {\n";
+    out << "@file(\"tests/m7/data/input.txt\") >> #(x) => {\n";
     out << "  >_(x)\n";
     out << "}\n";
   }
@@ -3913,9 +3913,9 @@ TEST(StyioDiagnostics, RuntimeHelperErrorEmitsJsonlRuntimeDiagnostic) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "f <- @file{\"/tmp/styio_missing_runtime_diag_"
+    out << "f <- @file(\"/tmp/styio_missing_runtime_diag_"
         << uniq
-        << ".txt\"}\n";
+        << ".txt\")\n";
   }
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -3949,7 +3949,7 @@ TEST(StyioDiagnostics, RuntimeWriteHelperErrorEmitsJsonlRuntimeDiagnostic) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "\"x\" >> @file{\"" << missing_target.string() << "\"}\n";
+    out << "\"x\" >> @file(\"" << missing_target.string() << "\")\n";
   }
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -4075,7 +4075,7 @@ TEST(StyioDiagnostics, StreamZipUnsupportedSourceReportsTypeError) {
   fs::remove(input);
 }
 
-TEST(StyioDiagnostics, SeriesIntrinsicWindowNonLiteralReportsTypeError) {
+TEST(StyioDiagnostics, RetiredLegacyStateDeclReportsParseError) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -4085,9 +4085,7 @@ TEST(StyioDiagnostics, SeriesIntrinsicWindowNonLiteralReportsTypeError) {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
     out << "[1, 2, 3] >> #(p) => {\n";
-    out << "  n = 3\n";
-    out << "  @[3](ma = p[avg, n])\n";
-    out << "  >_(ma)\n";
+    out << "  @[3](ma = p)\n";
     out << "}\n";
   }
 
@@ -4102,11 +4100,9 @@ TEST(StyioDiagnostics, SeriesIntrinsicWindowNonLiteralReportsTypeError) {
     + input.string() + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
-  EXPECT_EQ(result.exit_code, 4);
-  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("window size for series intrinsic must be integer literal"), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("Styio.TypeError"), std::string::npos);
+  EXPECT_EQ(result.exit_code, 3);
+  EXPECT_NE(result.stdout_text.find("\"category\":\"ParseError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("legacy M6 @[...] syntax is retired"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("Styio.NotImplemented"), std::string::npos);
 
   fs::remove(input);
@@ -4121,10 +4117,11 @@ TEST(StyioDiagnostics, SingleArgStateFunctionInliningUsesCallArgument) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "# pulse = (x) => @[sum = 0](out = $sum + x)\n";
+    out << "@out : i64|..3|\n";
     out << "[1, 2, 3] >> #(v) => {\n";
-    out << "  pulse(v)\n";
-    out << "  >_(out)\n";
+    out << "  next = @out[-1] + v\n";
+    out << "  next -> @out\n";
+    out << "  >_(next)\n";
     out << "}\n";
   }
 
@@ -4154,12 +4151,11 @@ TEST(StyioDiagnostics, BlockStateFunctionInliningUsesCallArgument) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "# pulse = (x) => {\n";
-    out << "  @[sum = 0](out = $sum + x)\n";
-    out << "}\n";
+    out << "@out : i64|..3|\n";
     out << "[1, 2, 3] >> #(v) => {\n";
-    out << "  pulse(v)\n";
-    out << "  >_(out)\n";
+    out << "  next = @out[-1] + v\n";
+    out << "  next -> @out\n";
+    out << "  >_(next)\n";
     out << "}\n";
   }
 
@@ -4189,13 +4185,14 @@ TEST(StyioDiagnostics, StateInlineMatchCasesFunctionUsesCallArgument) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "# pulse = (x) => @[sum = 0](out = x ?= {\n";
-    out << "  1 => { <| $sum + 10 }\n";
-    out << "  _ => { <| $sum + x }\n";
-    out << "})\n";
+    out << "@out : i64|..3|\n";
     out << "[1, 2, 3] >> #(v) => {\n";
-    out << "  pulse(v)\n";
-    out << "  >_(out)\n";
+    out << "  next = v ?= {\n";
+    out << "    1 => { <| @out[-1] + 10 }\n";
+    out << "    _ => { <| @out[-1] + v }\n";
+    out << "  }\n";
+    out << "  next -> @out\n";
+    out << "  >_(next)\n";
     out << "}\n";
   }
 
@@ -4225,10 +4222,10 @@ TEST(StyioDiagnostics, StateInlineInfiniteLiteralFunctionUsesCallArgument) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "# pulse = (x) => @[sum = 0](out = [...])\n";
+    out << "@out : i64|..2|\n";
     out << "[1, 2] >> #(v) => {\n";
-    out << "  pulse(v)\n";
-    out << "  >_(out)\n";
+    out << "  0 -> @out\n";
+    out << "  >_(0)\n";
     out << "}\n";
   }
 
@@ -4245,6 +4242,40 @@ TEST(StyioDiagnostics, StateInlineInfiniteLiteralFunctionUsesCallArgument) {
   EXPECT_EQ(result.exit_code, 0);
   EXPECT_EQ(result.stdout_text, "0\n0\n");
   EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioTopologyV2, LogicalResourceWritesCommitAtPulseEnd) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-topology-v2-lazy-commit-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@x : i64|2|\n";
+    out << "[1, 2] >> #(v) => {\n";
+    out << "  v -> @x\n";
+    out << "  >_(@x[-1])\n";
+    out << "}\n";
+    out << ">_(@x[-2])\n";
+    out << ">_(@x[-1])\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "0\n1\n1\n2\n");
 
   fs::remove(input);
 }
@@ -4276,6 +4307,63 @@ TEST(StyioDiagnostics, MatchWithoutDefaultDoesNotCrash) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);
   EXPECT_EQ(result.stdout_text, "1\n");
+
+  fs::remove(input);
+}
+
+TEST(StyioDiagnostics, FunctionMatchSugarAndTailExpressionsReturnValues) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-function-match-tail-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# fib := (n: i32) ?= {\n";
+    out << "  0 => 0\n";
+    out << "  1 => 1\n";
+    out << "  _ => fib(n - 1) + fib(n - 2)\n";
+    out << "}\n";
+    out << "# block_tail := (n: i32) => {\n";
+    out << "  x = n + 1\n";
+    out << "  x\n";
+    out << "}\n";
+    out << "# branch_block_tail := (n: i32) ?= {\n";
+    out << "  0 => {\n";
+    out << "    base = 40\n";
+    out << "    base + 2\n";
+    out << "  }\n";
+    out << "  _ => n + 10\n";
+    out << "}\n";
+    out << "# float_match_tail := (n: i32) ?= {\n";
+    out << "  0 => 1.5\n";
+    out << "  _ => n + 2.5\n";
+    out << "}\n";
+    out << "# stmt_tail := () => {\n";
+    out << "  x = 7\n";
+    out << "}\n";
+    out << ">_(fib(6))\n";
+    out << ">_(block_tail(4))\n";
+    out << ">_(branch_block_tail(0))\n";
+    out << ">_(branch_block_tail(5))\n";
+    out << ">_(float_match_tail(0))\n";
+    out << ">_(float_match_tail(3))\n";
+    out << ">_(stmt_tail())\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(result.stdout_text, "8\n5\n42\n15\n1.500000\n5.500000\n0\n");
 
   fs::remove(input);
 }

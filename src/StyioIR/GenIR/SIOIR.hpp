@@ -25,6 +25,33 @@ public:
   }
 };
 
+class SIOHandleRelease : public StyioIRTraits<SIOHandleRelease>
+{
+public:
+  std::string var_name;
+  StyioIR* path_expr = nullptr;
+  bool is_auto = false;
+  bool from_path = false;
+
+  static SIOHandleRelease* CreateFromVar(std::string v) {
+    auto* x = new SIOHandleRelease();
+    x->var_name = std::move(v);
+    x->from_path = false;
+    return x;
+  }
+
+  static SIOHandleRelease* CreateFromPath(StyioIR* p, bool a) {
+    auto* x = new SIOHandleRelease();
+    x->path_expr = p;
+    x->is_auto = a;
+    x->from_path = true;
+    return x;
+  }
+
+private:
+  SIOHandleRelease() = default;
+};
+
 class SIOFileLineIter : public StyioIRTraits<SIOFileLineIter>
 {
 public:
@@ -211,12 +238,21 @@ private:
 class SIOStdStreamPull : public StyioIRTraits<SIOStdStreamPull>
 {
 public:
+  StyioDataType result_type{StyioDataTypeOption::Integer, "i64", 64};
+
   static SIOStdStreamPull* Create() {
     return new SIOStdStreamPull();
   }
 
-private:
+  static SIOStdStreamPull* Create(StyioDataType result_type) {
+    return new SIOStdStreamPull(std::move(result_type));
+  }
+
   SIOStdStreamPull() = default;
+
+  explicit SIOStdStreamPull(StyioDataType result_type) :
+      result_type(std::move(result_type)) {
+  }
 };
 
 class SIOTaskCreate : public StyioIRTraits<SIOTaskCreate>
@@ -240,21 +276,27 @@ class SIOFlowBind : public StyioIRTraits<SIOFlowBind>
 {
 public:
   StyioIR* source_expr = nullptr;
+  StyioIR* fallback_expr = nullptr;
   std::string target_name;
   StyioDataType result_type{StyioDataTypeOption::Integer, "i64", 64};
   bool source_is_task = false;
+  bool await_bind = false;
 
   static SIOFlowBind* Create(
     StyioIR* source,
     std::string target,
     StyioDataType result,
-    bool task_source
+    bool task_source,
+    StyioIR* fallback = nullptr,
+    bool is_await = false
   ) {
     auto* x = new SIOFlowBind();
     x->source_expr = source;
+    x->fallback_expr = fallback;
     x->target_name = std::move(target);
     x->result_type = std::move(result);
     x->source_is_task = task_source;
+    x->await_bind = is_await;
     return x;
   }
 

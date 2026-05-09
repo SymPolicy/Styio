@@ -21,10 +21,6 @@
 - [`../design/Styio-EBNF.md`](../design/Styio-EBNF.md)
 - [`./DOCUMENTATION-POLICY.md`](./DOCUMENTATION-POLICY.md)
 
-如果你关心的是这些配件仓库应该先补什么、按什么顺序启动，请看：
-
-- [`../plans/Styio-Ecosystem-Bootstrap-Plan.md`](../plans/Styio-Ecosystem-Bootstrap-Plan.md)
-
 如果你关心的是三仓如何并行推进、谁拥有哪类合同，请看：
 
 - [`./ECOSYSTEM-REPO-SPLIT-AND-PARALLEL-DEV.md`](./ECOSYSTEM-REPO-SPLIT-AND-PARALLEL-DEV.md)
@@ -59,7 +55,7 @@ issue 状态和发布进度不在本文件维护。
 | [`Unka-Malloc-env`](https://github.com/SymPolicy/Unka-Malloc-env) | 标准开发环境 | devcontainer、toolchain bootstrap、统一环境脚本、CI/本地环境约定 | 语言设计、产品定义、示例工程内容 |
 | [`styio-book`](https://github.com/SymPolicy/styio-book) | 产品白皮书 | 产品愿景、定位、理念叙事、对外说明材料 | 编译器行为细节、测试接受标准、工程实现规范 |
 | [`styio-view`](https://github.com/SymPolicy/styio-view) | 面向用户的编辑与运行视图前端 | 用户界面、编辑器壳层、运行视窗、面向人的工作区与交互；通过 adapter 消费工具链后端 | 编译器主实现、语言 SSOT、包管理规则、仓库/云平台后端语义 |
-| [`styio-example`](https://github.com/SymPolicy/styio-example) | 示例工程集合 | 可运行样例、模板项目、最佳实践示例 | 语言规范正文、编译器验收标准 |
+| [`styio-example`](https://github.com/SymPolicy/styio-example) | 示例工程集合 | 可运行样例、模板项目、可复用示例模式 | 语言规范正文、编译器验收标准 |
 | [`styio-ext-vsc`](https://github.com/SymPolicy/styio-ext-vsc) | VS Code 插件 | 语法高亮、片段、编辑器交互、未来可能的语言服务集成 | 语言语义权威定义、编译器主行为 |
 | [`styio-deprecated`](https://github.com/SymPolicy/styio-deprecated) | 旧实现历史归档 | 历史代码、迁移参照、考古材料 | 当前语言语义、当前测试验收、活跃开发入口 |
 

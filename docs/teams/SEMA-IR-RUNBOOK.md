@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of AST lifecycle, semantic analysis, type inference, StyioIR lowering, string representation, and compilation session ownership.
 
-**Last updated:** 2026-05-05
+**Last updated:** 2026-05-09
 
 ## Mission
 
@@ -18,12 +18,15 @@ Primary paths:
 4. `src/StyioIR/`
 5. `src/StyioToString/`
 6. `src/StyioSession/`
+7. `src/StyioResourceTopology/`
+8. `src/cmake/StyioFrontendSources.cmake`
 
 High-value docs:
 
 1. [../design/Styio-Language-Design.md](../design/Styio-Language-Design.md)
 2. [../design/Styio-Handle-Capability-Type-System.md](../design/Styio-Handle-Capability-Type-System.md)
 3. [../assets/workflow/FIVE-LAYER-PIPELINE.md](../assets/workflow/FIVE-LAYER-PIPELINE.md)
+4. [../design/Styio-Resource-Topology.md](../design/Styio-Resource-Topology.md)
 
 ## Daily Workflow
 
@@ -44,7 +47,13 @@ High-value docs:
 15. Matrix typed literals and intrinsics must carry element kind and static shape through Sema into IR. Reject ragged rows, nonnumeric elements, add/sub shape mismatches, and invalid matmul dimensions before lowering; lower `m[row]`, `m[row][col]`, arithmetic operators, and `mat_*` intrinsics to explicit collection IR instead of placeholder constants.
 16. Match lowering must emit ordinary `SGMatch` shape and leave sequence-aware equivalence rewrites to `StyioIROptimizer`; do not hard-code source examples such as `.length` / `.size` in AST lowering. Syntax aliases are not equivalent until StyioIR structure, side-effect safety, and tests prove it.
 17. Runtime resource bindings must keep value-family identity through Sema and lowering. Matrix handles are dynamic slot values just like list and dict handles; name loads must lower through the matching `SGDynLoadKind` instead of reusing stale SSA handles.
-18. Task resource bindings follow the same value-family rule: `TaskBlockAST` must infer `task[T]`, `FlowBindAST` must require a predeclared mutable target, and task names may be pulled once before lowering to `SIOTaskCreate` plus `SIOFlowBind`. Free scalar references inside `||>` are captured into the task context; local binds inside the task body must not inflate that context.
+18. Task resource bindings follow the same value-family rule: `TaskBlockAST` must infer `task[T]`. Ordinary `FlowBindAST` still requires a predeclared mutable target, while `?| job -> answer: T | fallback` declares the await target and consumes the task/future handle once before lowering to `SIOTaskCreate` plus `SIOFlowBind`. Bare `?| -> answer: T` must fail closed until continuation lowering can guarantee one-shot resume/discontinue. Free scalar references inside `||>` are captured into the task context; local binds inside the task body must not inflate that context.
+19. Match expression result kinds must preserve scalar families through IR. If tail expressions can yield `f64`, the `SGMatchReprKind` and lowering classifier must carry a float result kind instead of silently collapsing the branch value to `i64`.
+20. Resource topology graph validation is part of the Sema-to-Lowering boundary. Changes to file resources, standard streams, handles, state slots, hidden ledgers, stream ops, or task resources must update `src/StyioResourceTopology/` before lowering can accept the new shape.
+21. Retired state AST nodes may remain as internal ledger/lowering structures and ownership-test fixtures, but source syntax must enter through Topology v2 resources. User-facing diagnostics should point to `@name : Type`, `expr -> @name`, and `@name[-1]`, not to the old M6 spelling.
+22. Resource method semantics must resolve statically before lowering: unknown methods are compile errors, consuming methods such as close/drop/destroy invalidate the receiver immediately, and transitive calls from one receiver method to another consuming method must inherit consuming status. `resource -> @()` is the intrinsic destroy sink, scope exit adds automatic drop edges for close-capable owned resources, and task bodies may borrow outer resources but must not consume them. Lowering must consult the resolved method table's consuming flag so user overrides are not treated as destroy operations by name alone. Unordered named task or block bodies that take exclusive access to the same resource must be rejected unless an explicit `=>` happens-before edge orders them.
+23. `InstantPullAST` carries the result type for typed stdin pulls. Keep scalar and typed `list[T]` stdin pulls on the same AST and `SIOStdStreamPull` path, reject unsupported stdin list element families in sema, and infer `ReturnAST` expressions before deriving `task[T]` so f64 task bodies do not collapse to i64 handles.
+24. Built-in method names such as list `push/insert/pop`, string `lines`, and resource `write/close/drop/destroy` must be classified through `StyioUtil/BuiltinMethods.hpp`; sema, lowering, and topology must not keep independent string lists.
 
 ## Change Classes
 
@@ -60,6 +69,7 @@ Minimum local commands:
 ctest --test-dir build/default -L milestone
 ctest --test-dir build/default -L styio_pipeline
 ctest --test-dir build/default -L security
+ctest --test-dir build/default -L resource_topology
 ```
 
 When AST or IR text changes:
