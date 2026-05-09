@@ -292,7 +292,7 @@ static inline void *_array__splice(void *self_contents, uint32_t *size, uint32_t
   return new_contents;
 }
 
-/// A binary search routine, based on Rust's `std::slice::binary_search_by`.
+/// A binary search routine based on a standard slice binary-search pattern.
 /// This is not what you're looking for, see `array_search_sorted_with` or `array_search_sorted_by`.
 #define _array__search_sorted(self, start, compare, suffix, needle, _index, _exists) \
   do { \

@@ -1,0 +1,4 @@
+xs <- @stdin : list[f64]
+
+xs.length -> @stdout
+xs[1] -> @stdout

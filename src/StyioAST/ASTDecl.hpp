@@ -133,7 +133,9 @@ class IteratorAST;
 class StreamZipAST;
 class SnapshotDeclAST;
 class InstantPullAST;
-class TypedStdinListAST;
+class TaskBlockAST;
+class TaskGroupLaunchAST;
+class FlowBindAST;
 class IterSeqAST; /* Iterator Sequence */
 class InfiniteLoopAST;
 
@@ -143,7 +145,7 @@ class InfiniteLoopAST;
 
   - End-Of-Line
   - `pass` ..........
-  - `break` ^^^^^^^^^
+  - `break` ^... (nearest loop)
   - `continue` >>>>>>
   - `return` <<<<<<<<
 */
@@ -176,6 +178,8 @@ class MainBlockAST;
   - ExtPack
 */
 class ExtPackAST;
+class ExportDeclAST;
+class ExternBlockAST;
 
 /*
   Conceptions:
@@ -215,6 +219,12 @@ class FmtStrAST;
   - DBUrl
 */
 class ResourceAST;
+class EmptyResourceAST;
+class ResourceReceiverAST;
+class ResourceMethodDefAST;
+class ResourceOrderAST;
+class ResourceDeclAST;
+class ResourceRefAST;
 
 class ResPathAST;
 class RemotePathAST;

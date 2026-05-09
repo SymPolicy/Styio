@@ -6,7 +6,7 @@
 
 ## Scope
 
-1. `docs/assets/workflow/` stores reusable process and verification documents.
+1. `docs/assets/workflow/` mirrors reusable process and verification documents now surfaced at root `workflows/`.
 2. `docs/assets/templates/` stores reusable document skeletons.
 3. Do not store date-specific implementation history in this subtree.
 

@@ -2,7 +2,7 @@
 # 在仓库根目录生成「Git 变更摘要 + CTest 结果」Markdown 报告。
 # 用法：
 #   ./scripts/dev-report.sh              # 尝试编译后跑 milestone + styio_pipeline
-#   ./scripts/dev-report.sh --no-build   # 不编译，仅基于当前 build/
+#   ./scripts/dev-report.sh --no-build   # 不编译，仅基于当前 build/default/
 #   ./scripts/dev-report.sh --note "理由"  # 报告顶部附加说明
 set -euo pipefail
 
@@ -43,7 +43,7 @@ TS_FILE="$(date -u +"%Y-%m-%dT%H-%M-%SZ")"
 OUT="$REPORT_DIR/dev-report-${TS_FILE}.md"
 LATEST="$REPORT_DIR/LATEST.md"
 
-BUILD_DIR="$ROOT/build"
+BUILD_DIR="$ROOT/build/default"
 
 {
   echo "# Styio 修改与测试报告"
@@ -89,10 +89,10 @@ BUILD_DIR="$ROOT/build"
   echo
   if [[ "$DO_BUILD" -eq 1 ]]; then
     if [[ ! -d "$BUILD_DIR" ]]; then
-      echo "运行: \`cmake -S . -B build\`（创建 build 目录）"
+      echo "运行: \`cmake -S . -B build/default\`（创建 build/default 目录）"
       cmake -S "$ROOT" -B "$BUILD_DIR" 2>&1 || true
     fi
-    echo "运行: \`cmake --build build -j\$(nproc)\`（目标: styio styio_test）"
+    echo "运行: \`cmake --build build/default -j\$(nproc)\`（目标: styio styio_test）"
     if cmake --build "$BUILD_DIR" -j"$(nproc 2>/dev/null || echo 4)" --target styio styio_test 2>&1; then
       echo "**结果:** 成功"
     else
@@ -106,7 +106,7 @@ BUILD_DIR="$ROOT/build"
   echo "## 3. 测试 (CTest)"
   echo
   if [[ ! -f "$BUILD_DIR/CTestTestfile.cmake" ]]; then
-    echo "未找到 \`build/CTestTestfile.cmake\`。请先 \`cmake -S . -B build\` 并配置测试。"
+    echo "未找到 \`build/default/CTestTestfile.cmake\`。请先 \`cmake -S . -B build/default\` 并配置测试。"
   else
     echo "### 标签 \`milestone\`"
     echo '```'

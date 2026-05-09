@@ -5,6 +5,7 @@
 /*                                   */
 
 // [C++ STL]
+#include <array>
 #include <algorithm>
 #include <atomic>
 #include <cctype>
@@ -19,10 +20,13 @@
 #include <list>
 #include <map>
 #include <memory>
+#include <optional>
+#include <random>
 #include <regex>
 #include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
@@ -31,14 +35,17 @@
 
 // [Styio]
 #include "StyioAST/AST.hpp"
-#include "StyioAnalyzer/ASTAnalyzer.hpp"   /* StyioASTAnalyzer */
+#include "StyioLowering/AstToStyioIRLowerer.hpp"
 #include "StyioCodeGen/CodeGenVisitor.hpp" /* StyioToLLVMIR Code Generator */
 #include "StyioException/Exception.hpp"
 #include "StyioExtern/ExternLib.hpp"
 #include "StyioIR/StyioIR.hpp" /* StyioIR */
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
+#include "StyioProfiler/FrontendProfiler.hpp"
+#include "StyioConfig/CompilePlanContract.hpp"
 #include "StyioConfig/NanoProfile.hpp"
+#include "StyioConfig/SourceBuildInfo.hpp"
 #include "StyioRuntime/HandleTable.hpp"
 #include "StyioSession/CompilationSession.hpp"
 #include "StyioToString/ToStringVisitor.hpp" /* StyioRepr */
@@ -79,10 +86,17 @@
 #define STYIO_LLVM_DIR ""
 #endif
 
-extern "C" void
-hello_world() {
-  std::cout << "hello, world!" << std::endl;
-}
+#ifndef STYIO_SOURCE_DIR
+#define STYIO_SOURCE_DIR ""
+#endif
+
+#ifndef STYIO_CMAKE_C_COMPILER
+#define STYIO_CMAKE_C_COMPILER ""
+#endif
+
+#ifndef STYIO_CMAKE_CXX_COMPILER
+#define STYIO_CMAKE_CXX_COMPILER ""
+#endif
 
 struct tmp_code_wrap
 {
@@ -91,12 +105,6 @@ struct tmp_code_wrap
   std::string code_text;
   std::vector<std::pair<size_t, size_t>> line_seps;
 };
-
-void
-show_cwd() {
-  std::filesystem::path cwd = std::filesystem::current_path();
-  std::cout << cwd.string() << std::endl;
-}
 
 /*
   linenum_map:
@@ -333,82 +341,122 @@ styio_arg_matches_latest(const char* raw, const char* long_name, const char* sho
   return false;
 }
 
+enum class StyioNanoOptionCategoryLatest {
+  CompilePlan,
+  SourceBuildInfo,
+  NanoPackaging,
+  MachineInfo,
+  Debug,
+  StyioAst,
+  StyioIr,
+  LlvmIr,
+  ParserEngine,
+  ParserShadowCompare,
+};
+
+struct StyioNanoOptionSpecLatest {
+  StyioNanoOptionCategoryLatest category;
+  const char* long_name;
+};
+
+static std::optional<StyioNanoOptionCategoryLatest>
+styio_parse_nano_option_category_latest(const char* raw) {
+  static constexpr std::array<StyioNanoOptionSpecLatest, 26> kOptions = {{
+      {StyioNanoOptionCategoryLatest::CompilePlan, "--compile-plan"},
+      {StyioNanoOptionCategoryLatest::SourceBuildInfo, "--source-build-info"},
+      {StyioNanoOptionCategoryLatest::NanoPackaging, "--nano-create"},
+      {StyioNanoOptionCategoryLatest::NanoPackaging, "--nano-publish"},
+      {StyioNanoOptionCategoryLatest::NanoPackaging, "--nano-package-config"},
+      {StyioNanoOptionCategoryLatest::NanoPackaging, "--nano-publish-config"},
+      {StyioNanoOptionCategoryLatest::NanoPackaging, "--nano-mode"},
+      {StyioNanoOptionCategoryLatest::NanoPackaging, "--nano-output"},
+      {StyioNanoOptionCategoryLatest::NanoPackaging, "--nano-name"},
+      {StyioNanoOptionCategoryLatest::NanoPackaging, "--nano-profile"},
+      {StyioNanoOptionCategoryLatest::NanoPackaging, "--nano-binary"},
+      {StyioNanoOptionCategoryLatest::NanoPackaging, "--nano-source-root"},
+      {StyioNanoOptionCategoryLatest::NanoPackaging, "--nano-package-dir"},
+      {StyioNanoOptionCategoryLatest::NanoPackaging, "--nano-channel"},
+      {StyioNanoOptionCategoryLatest::NanoPackaging, "--nano-manifest"},
+      {StyioNanoOptionCategoryLatest::NanoPackaging, "--nano-registry"},
+      {StyioNanoOptionCategoryLatest::NanoPackaging, "--nano-package"},
+      {StyioNanoOptionCategoryLatest::NanoPackaging, "--nano-version"},
+      {StyioNanoOptionCategoryLatest::MachineInfo, "--machine-info"},
+      {StyioNanoOptionCategoryLatest::Debug, "--debug"},
+      {StyioNanoOptionCategoryLatest::StyioAst, "--styio-ast"},
+      {StyioNanoOptionCategoryLatest::StyioIr, "--styio-ir"},
+      {StyioNanoOptionCategoryLatest::LlvmIr, "--llvm-ir"},
+      {StyioNanoOptionCategoryLatest::ParserEngine, "--parser-engine"},
+      {StyioNanoOptionCategoryLatest::ParserShadowCompare, "--parser-shadow-compare"},
+      {StyioNanoOptionCategoryLatest::ParserShadowCompare, "--parser-shadow-artifact-dir"},
+  }};
+
+  for (const auto& option : kOptions) {
+    if (styio_arg_matches_latest(raw, option.long_name)) {
+      return option.category;
+    }
+  }
+  return std::nullopt;
+}
+
 static std::string
 styio_nano_disabled_option_latest(int argc, char* argv[]) {
 #if STYIO_NANO_BUILD
   for (int i = 1; i < argc; ++i) {
-    if (styio_arg_matches_latest(argv[i], "--compile-plan")) {
-      return "compile-plan consumer is only available in the full styio compiler";
+    const auto category = styio_parse_nano_option_category_latest(argv[i]);
+    if (!category.has_value()) {
+      continue;
     }
-    if (styio_arg_matches_latest(argv[i], "--nano-create")
-        || styio_arg_matches_latest(argv[i], "--nano-publish")
-        || styio_arg_matches_latest(argv[i], "--nano-package-config")
-        || styio_arg_matches_latest(argv[i], "--nano-publish-config")
-        || styio_arg_matches_latest(argv[i], "--nano-mode")
-        || styio_arg_matches_latest(argv[i], "--nano-output")
-        || styio_arg_matches_latest(argv[i], "--nano-name")
-        || styio_arg_matches_latest(argv[i], "--nano-profile")
-        || styio_arg_matches_latest(argv[i], "--nano-binary")
-        || styio_arg_matches_latest(argv[i], "--nano-source-root")
-        || styio_arg_matches_latest(argv[i], "--nano-package-dir")
-        || styio_arg_matches_latest(argv[i], "--nano-channel")
-        || styio_arg_matches_latest(argv[i], "--nano-manifest")
-        || styio_arg_matches_latest(argv[i], "--nano-registry")
-        || styio_arg_matches_latest(argv[i], "--nano-package")
-        || styio_arg_matches_latest(argv[i], "--nano-version")) {
-      return "styio-nano packaging commands are only available in the full styio compiler";
-    }
-  }
+    switch (*category) {
+      case StyioNanoOptionCategoryLatest::CompilePlan:
+        return "compile-plan consumer is only available in the full styio compiler";
+      case StyioNanoOptionCategoryLatest::SourceBuildInfo:
+        return "source-build metadata is only available in the full styio compiler";
+      case StyioNanoOptionCategoryLatest::NanoPackaging:
+        return "styio-nano packaging commands are only available in the full styio compiler";
+      case StyioNanoOptionCategoryLatest::MachineInfo:
 #if !STYIO_NANO_ENABLE_MACHINE_INFO
-  for (int i = 1; i < argc; ++i) {
-    if (styio_arg_matches_latest(argv[i], "--machine-info")) {
-      return "--machine-info is disabled in this styio-nano profile";
-    }
-  }
+        return "--machine-info is disabled in this styio-nano profile";
+#else
+        break;
 #endif
+      case StyioNanoOptionCategoryLatest::Debug:
 #if !STYIO_NANO_ENABLE_DEBUG_CLI
-  for (int i = 1; i < argc; ++i) {
-    if (styio_arg_matches_latest(argv[i], "--debug")) {
-      return "--debug is disabled in this styio-nano profile";
-    }
-  }
+        return "--debug is disabled in this styio-nano profile";
+#else
+        break;
 #endif
+      case StyioNanoOptionCategoryLatest::StyioAst:
 #if !STYIO_NANO_ENABLE_AST_DUMP_CLI
-  for (int i = 1; i < argc; ++i) {
-    if (styio_arg_matches_latest(argv[i], "--styio-ast")) {
-      return "--styio-ast is disabled in this styio-nano profile";
-    }
-  }
+        return "--styio-ast is disabled in this styio-nano profile";
+#else
+        break;
 #endif
+      case StyioNanoOptionCategoryLatest::StyioIr:
 #if !STYIO_NANO_ENABLE_STYIO_IR_DUMP_CLI
-  for (int i = 1; i < argc; ++i) {
-    if (styio_arg_matches_latest(argv[i], "--styio-ir")) {
-      return "--styio-ir is disabled in this styio-nano profile";
-    }
-  }
+        return "--styio-ir is disabled in this styio-nano profile";
+#else
+        break;
 #endif
+      case StyioNanoOptionCategoryLatest::LlvmIr:
 #if !STYIO_NANO_ENABLE_LLVM_IR_DUMP_CLI
-  for (int i = 1; i < argc; ++i) {
-    if (styio_arg_matches_latest(argv[i], "--llvm-ir")) {
-      return "--llvm-ir is disabled in this styio-nano profile";
-    }
-  }
+        return "--llvm-ir is disabled in this styio-nano profile";
+#else
+        break;
 #endif
+      case StyioNanoOptionCategoryLatest::ParserEngine:
 #if !STYIO_NANO_ENABLE_LEGACY_PARSER
-  for (int i = 1; i < argc; ++i) {
-    if (styio_arg_matches_latest(argv[i], "--parser-engine")) {
-      return "--parser-engine is disabled in this styio-nano profile";
-    }
-  }
+        return "--parser-engine is disabled in this styio-nano profile";
+#else
+        break;
 #endif
+      case StyioNanoOptionCategoryLatest::ParserShadowCompare:
 #if !STYIO_NANO_ENABLE_PARSER_SHADOW_COMPARE
-  for (int i = 1; i < argc; ++i) {
-    if (styio_arg_matches_latest(argv[i], "--parser-shadow-compare")
-        || styio_arg_matches_latest(argv[i], "--parser-shadow-artifact-dir")) {
-      return "parser shadow compare options are disabled in this styio-nano profile";
+        return "parser shadow compare options are disabled in this styio-nano profile";
+#else
+        break;
+#endif
     }
   }
-#endif
 #endif
   return "";
 }
@@ -601,6 +649,274 @@ styio_parse_config_scalar_latest(
   return true;
 }
 
+// Keep config section/key normalization centralized so the parser loops stay linear.
+enum class StyioProjectConfigSectionLatest {
+  RootOrRuntime,
+  Dict,
+  Other,
+};
+
+enum class StyioProjectConfigFieldLatest {
+  None,
+  DictImpl,
+};
+
+enum class StyioNanoPackageConfigSectionLatest {
+  RootOrNano,
+  NanoLocal,
+  NanoCloud,
+  Other,
+};
+
+enum class StyioNanoPackageConfigFieldLatest {
+  None,
+  Mode,
+  OutputDir,
+  PackageName,
+  Profile,
+  Binary,
+  SourceRoot,
+  Manifest,
+  Registry,
+  RegistryPackage,
+  RegistryVersion,
+};
+
+enum class StyioNanoPublishConfigSectionLatest {
+  Publish,
+  Other,
+};
+
+enum class StyioNanoPublishFieldLatest {
+  None,
+  PackageDir,
+  Registry,
+  Package,
+  Version,
+  Channel,
+};
+
+enum class StyioNanoManifestSectionLatest {
+  PackageRoot,
+  Artifact,
+  Other,
+};
+
+enum class StyioNanoManifestFieldLatest {
+  None,
+  PackageName,
+  Version,
+  Channel,
+  Binary,
+  Profile,
+};
+
+template <typename Enum>
+struct StyioNamedEnumSpecLatest {
+  std::string_view name;
+  Enum value;
+};
+
+template <typename Enum, size_t N>
+static std::optional<Enum>
+styio_lookup_named_enum_latest(
+  std::string_view raw_name,
+  const std::array<StyioNamedEnumSpecLatest<Enum>, N>& specs
+) {
+  const auto it = std::find_if(
+    specs.begin(),
+    specs.end(),
+    [raw_name](const StyioNamedEnumSpecLatest<Enum>& spec) {
+      return spec.name == raw_name;
+    });
+  if (it == specs.end()) {
+    return std::nullopt;
+  }
+  return it->value;
+}
+
+static StyioProjectConfigSectionLatest
+styio_parse_project_config_section_latest(const std::string& raw_section) {
+  static constexpr std::array<StyioNamedEnumSpecLatest<StyioProjectConfigSectionLatest>, 4> kSections = {{
+      {"", StyioProjectConfigSectionLatest::RootOrRuntime},
+      {"runtime", StyioProjectConfigSectionLatest::RootOrRuntime},
+      {"dict", StyioProjectConfigSectionLatest::Dict},
+      {"dictionary", StyioProjectConfigSectionLatest::Dict},
+  }};
+  return styio_lookup_named_enum_latest(raw_section, kSections)
+    .value_or(StyioProjectConfigSectionLatest::Other);
+}
+
+static StyioProjectConfigFieldLatest
+styio_parse_project_config_field_latest(
+  StyioProjectConfigSectionLatest section,
+  const std::string& key
+) {
+  switch (section) {
+    case StyioProjectConfigSectionLatest::RootOrRuntime: {
+      static constexpr std::array<StyioNamedEnumSpecLatest<StyioProjectConfigFieldLatest>, 2> kFields = {{
+          {"dict_impl", StyioProjectConfigFieldLatest::DictImpl},
+          {"dictionary_impl", StyioProjectConfigFieldLatest::DictImpl},
+      }};
+      return styio_lookup_named_enum_latest(key, kFields)
+        .value_or(StyioProjectConfigFieldLatest::None);
+    }
+    case StyioProjectConfigSectionLatest::Dict: {
+      static constexpr std::array<StyioNamedEnumSpecLatest<StyioProjectConfigFieldLatest>, 1> kFields = {{
+          {"impl", StyioProjectConfigFieldLatest::DictImpl},
+      }};
+      return styio_lookup_named_enum_latest(key, kFields)
+        .value_or(StyioProjectConfigFieldLatest::None);
+    }
+    case StyioProjectConfigSectionLatest::Other:
+      break;
+  }
+  return StyioProjectConfigFieldLatest::None;
+}
+
+static StyioNanoPackageConfigSectionLatest
+styio_parse_nano_package_config_section_latest(const std::string& raw_section) {
+  static constexpr std::array<StyioNamedEnumSpecLatest<StyioNanoPackageConfigSectionLatest>, 4> kSections = {{
+      {"", StyioNanoPackageConfigSectionLatest::RootOrNano},
+      {"nano", StyioNanoPackageConfigSectionLatest::RootOrNano},
+      {"nano.local", StyioNanoPackageConfigSectionLatest::NanoLocal},
+      {"nano.cloud", StyioNanoPackageConfigSectionLatest::NanoCloud},
+  }};
+  return styio_lookup_named_enum_latest(raw_section, kSections)
+    .value_or(StyioNanoPackageConfigSectionLatest::Other);
+}
+
+static StyioNanoPackageConfigFieldLatest
+styio_parse_nano_package_config_field_latest(
+  StyioNanoPackageConfigSectionLatest section,
+  const std::string& key
+) {
+  switch (section) {
+    case StyioNanoPackageConfigSectionLatest::RootOrNano: {
+      static constexpr std::array<StyioNamedEnumSpecLatest<StyioNanoPackageConfigFieldLatest>, 8> kFields = {{
+          {"mode", StyioNanoPackageConfigFieldLatest::Mode},
+          {"output_dir", StyioNanoPackageConfigFieldLatest::OutputDir},
+          {"output", StyioNanoPackageConfigFieldLatest::OutputDir},
+          {"name", StyioNanoPackageConfigFieldLatest::PackageName},
+          {"package_name", StyioNanoPackageConfigFieldLatest::PackageName},
+          {"profile", StyioNanoPackageConfigFieldLatest::Profile},
+          {"binary", StyioNanoPackageConfigFieldLatest::Binary},
+          {"source_root", StyioNanoPackageConfigFieldLatest::SourceRoot},
+      }};
+      const auto field = styio_lookup_named_enum_latest(key, kFields);
+      if (field.has_value()) {
+        return *field;
+      }
+      if (key == "manifest") {
+        return StyioNanoPackageConfigFieldLatest::Manifest;
+      }
+      return StyioNanoPackageConfigFieldLatest::None;
+    }
+    case StyioNanoPackageConfigSectionLatest::NanoLocal: {
+      static constexpr std::array<StyioNamedEnumSpecLatest<StyioNanoPackageConfigFieldLatest>, 3> kFields = {{
+          {"profile", StyioNanoPackageConfigFieldLatest::Profile},
+          {"binary", StyioNanoPackageConfigFieldLatest::Binary},
+          {"source_root", StyioNanoPackageConfigFieldLatest::SourceRoot},
+      }};
+      return styio_lookup_named_enum_latest(key, kFields)
+        .value_or(StyioNanoPackageConfigFieldLatest::None);
+    }
+    case StyioNanoPackageConfigSectionLatest::NanoCloud: {
+      static constexpr std::array<StyioNamedEnumSpecLatest<StyioNanoPackageConfigFieldLatest>, 4> kFields = {{
+          {"manifest", StyioNanoPackageConfigFieldLatest::Manifest},
+          {"registry", StyioNanoPackageConfigFieldLatest::Registry},
+          {"package", StyioNanoPackageConfigFieldLatest::RegistryPackage},
+          {"version", StyioNanoPackageConfigFieldLatest::RegistryVersion},
+      }};
+      return styio_lookup_named_enum_latest(key, kFields)
+        .value_or(StyioNanoPackageConfigFieldLatest::None);
+    }
+    case StyioNanoPackageConfigSectionLatest::Other:
+      break;
+  }
+  return StyioNanoPackageConfigFieldLatest::None;
+}
+
+static StyioNanoPublishConfigSectionLatest
+styio_parse_nano_publish_config_section_latest(const std::string& raw_section) {
+  static constexpr std::array<StyioNamedEnumSpecLatest<StyioNanoPublishConfigSectionLatest>, 2> kSections = {{
+      {"nano.publish", StyioNanoPublishConfigSectionLatest::Publish},
+      {"publish", StyioNanoPublishConfigSectionLatest::Publish},
+  }};
+  return styio_lookup_named_enum_latest(raw_section, kSections)
+    .value_or(StyioNanoPublishConfigSectionLatest::Other);
+}
+
+static StyioNanoPublishFieldLatest
+styio_parse_nano_publish_field_latest(
+  StyioNanoPublishConfigSectionLatest section,
+  const std::string& key
+) {
+  switch (section) {
+    case StyioNanoPublishConfigSectionLatest::Publish: {
+      static constexpr std::array<StyioNamedEnumSpecLatest<StyioNanoPublishFieldLatest>, 6> kFields = {{
+          {"package_dir", StyioNanoPublishFieldLatest::PackageDir},
+          {"package_root", StyioNanoPublishFieldLatest::PackageDir},
+          {"registry", StyioNanoPublishFieldLatest::Registry},
+          {"package", StyioNanoPublishFieldLatest::Package},
+          {"version", StyioNanoPublishFieldLatest::Version},
+          {"channel", StyioNanoPublishFieldLatest::Channel},
+      }};
+      return styio_lookup_named_enum_latest(key, kFields)
+        .value_or(StyioNanoPublishFieldLatest::None);
+    }
+    case StyioNanoPublishConfigSectionLatest::Other:
+      break;
+  }
+  return StyioNanoPublishFieldLatest::None;
+}
+
+static StyioNanoManifestSectionLatest
+styio_parse_nano_manifest_section_latest(const std::string& raw_section) {
+  static constexpr std::array<StyioNamedEnumSpecLatest<StyioNanoManifestSectionLatest>, 3> kSections = {{
+      {"", StyioNanoManifestSectionLatest::PackageRoot},
+      {"package", StyioNanoManifestSectionLatest::PackageRoot},
+      {"artifact", StyioNanoManifestSectionLatest::Artifact},
+  }};
+  return styio_lookup_named_enum_latest(raw_section, kSections)
+    .value_or(StyioNanoManifestSectionLatest::Other);
+}
+
+static StyioNanoManifestFieldLatest
+styio_parse_nano_manifest_field_latest(
+  StyioNanoManifestSectionLatest section,
+  const std::string& key
+) {
+  switch (section) {
+    case StyioNanoManifestSectionLatest::PackageRoot: {
+      static constexpr std::array<StyioNamedEnumSpecLatest<StyioNanoManifestFieldLatest>, 7> kFields = {{
+          {"name", StyioNanoManifestFieldLatest::PackageName},
+          {"version", StyioNanoManifestFieldLatest::Version},
+          {"channel", StyioNanoManifestFieldLatest::Channel},
+          {"binary", StyioNanoManifestFieldLatest::Binary},
+          {"binary_ref", StyioNanoManifestFieldLatest::Binary},
+          {"profile", StyioNanoManifestFieldLatest::Profile},
+          {"profile_ref", StyioNanoManifestFieldLatest::Profile},
+      }};
+      return styio_lookup_named_enum_latest(key, kFields)
+        .value_or(StyioNanoManifestFieldLatest::None);
+    }
+    case StyioNanoManifestSectionLatest::Artifact: {
+      static constexpr std::array<StyioNamedEnumSpecLatest<StyioNanoManifestFieldLatest>, 4> kFields = {{
+          {"binary", StyioNanoManifestFieldLatest::Binary},
+          {"binary_url", StyioNanoManifestFieldLatest::Binary},
+          {"profile", StyioNanoManifestFieldLatest::Profile},
+          {"profile_url", StyioNanoManifestFieldLatest::Profile},
+      }};
+      return styio_lookup_named_enum_latest(key, kFields)
+        .value_or(StyioNanoManifestFieldLatest::None);
+    }
+    case StyioNanoManifestSectionLatest::Other:
+      break;
+  }
+  return StyioNanoManifestFieldLatest::None;
+}
+
 static bool
 styio_parse_project_config_latest(
   const std::filesystem::path& config_path,
@@ -639,14 +955,11 @@ styio_parse_project_config_latest(
     const std::string key = styio_trim_copy_latest(stripped.substr(0, eq));
     const std::string raw_value = stripped.substr(eq + 1);
 
-    bool interested = false;
-    if (section.empty() || section == "runtime") {
-      interested = key == "dict_impl" || key == "dictionary_impl";
-    }
-    else if (section == "dict" || section == "dictionary") {
-      interested = key == "impl";
-    }
-    if (!interested) {
+    const auto field = styio_parse_project_config_field_latest(
+      styio_parse_project_config_section_latest(section),
+      key
+    );
+    if (field == StyioProjectConfigFieldLatest::None) {
       continue;
     }
 
@@ -1022,88 +1335,11 @@ styio_parse_nano_package_config_latest(
 
     const std::string key = styio_trim_copy_latest(stripped.substr(0, eq));
     const std::string raw_value = stripped.substr(eq + 1);
-    bool interested = false;
-
-    enum class NanoConfigField
-    {
-      None,
-      Mode,
-      OutputDir,
-      PackageName,
-      Profile,
-      Binary,
-      SourceRoot,
-      Manifest,
-      Registry,
-      RegistryPackage,
-      RegistryVersion,
-    };
-
-    NanoConfigField field = NanoConfigField::None;
-    if (section.empty() || section == "nano") {
-      if (key == "mode") {
-        interested = true;
-        field = NanoConfigField::Mode;
-      }
-      else if (key == "output_dir" || key == "output") {
-        interested = true;
-        field = NanoConfigField::OutputDir;
-      }
-      else if (key == "name" || key == "package_name") {
-        interested = true;
-        field = NanoConfigField::PackageName;
-      }
-      else if (key == "profile") {
-        interested = true;
-        field = NanoConfigField::Profile;
-      }
-      else if (key == "binary") {
-        interested = true;
-        field = NanoConfigField::Binary;
-      }
-      else if (key == "source_root") {
-        interested = true;
-        field = NanoConfigField::SourceRoot;
-      }
-      else if (key == "manifest") {
-        interested = true;
-        field = NanoConfigField::Manifest;
-      }
-    }
-    else if (section == "nano.local") {
-      if (key == "profile") {
-        interested = true;
-        field = NanoConfigField::Profile;
-      }
-      else if (key == "binary") {
-        interested = true;
-        field = NanoConfigField::Binary;
-      }
-      else if (key == "source_root") {
-        interested = true;
-        field = NanoConfigField::SourceRoot;
-      }
-    }
-    else if (section == "nano.cloud") {
-      if (key == "manifest") {
-        interested = true;
-        field = NanoConfigField::Manifest;
-      }
-      else if (key == "registry") {
-        interested = true;
-        field = NanoConfigField::Registry;
-      }
-      else if (key == "package") {
-        interested = true;
-        field = NanoConfigField::RegistryPackage;
-      }
-      else if (key == "version") {
-        interested = true;
-        field = NanoConfigField::RegistryVersion;
-      }
-    }
-
-    if (!interested) {
+    const auto field = styio_parse_nano_package_config_field_latest(
+      styio_parse_nano_package_config_section_latest(section),
+      key
+    );
+    if (field == StyioNanoPackageConfigFieldLatest::None) {
       continue;
     }
 
@@ -1116,47 +1352,47 @@ styio_parse_nano_package_config_latest(
     }
 
     switch (field) {
-      case NanoConfigField::Mode:
+      case StyioNanoPackageConfigFieldLatest::Mode:
         out_config.has_mode = true;
         out_config.mode_raw = parsed_value;
         break;
-      case NanoConfigField::OutputDir:
+      case StyioNanoPackageConfigFieldLatest::OutputDir:
         out_config.has_output_dir = true;
         out_config.output_dir_raw = parsed_value;
         break;
-      case NanoConfigField::PackageName:
+      case StyioNanoPackageConfigFieldLatest::PackageName:
         out_config.has_package_name = true;
         out_config.package_name = parsed_value;
         break;
-      case NanoConfigField::Profile:
+      case StyioNanoPackageConfigFieldLatest::Profile:
         out_config.has_profile = true;
         out_config.profile_raw = parsed_value;
         break;
-      case NanoConfigField::Binary:
+      case StyioNanoPackageConfigFieldLatest::Binary:
         out_config.has_binary = true;
         out_config.binary_raw = parsed_value;
         break;
-      case NanoConfigField::SourceRoot:
+      case StyioNanoPackageConfigFieldLatest::SourceRoot:
         out_config.has_source_root = true;
         out_config.source_root_raw = parsed_value;
         break;
-      case NanoConfigField::Manifest:
+      case StyioNanoPackageConfigFieldLatest::Manifest:
         out_config.has_manifest = true;
         out_config.manifest_raw = parsed_value;
         break;
-      case NanoConfigField::Registry:
+      case StyioNanoPackageConfigFieldLatest::Registry:
         out_config.has_registry = true;
         out_config.registry_raw = parsed_value;
         break;
-      case NanoConfigField::RegistryPackage:
+      case StyioNanoPackageConfigFieldLatest::RegistryPackage:
         out_config.has_registry_package = true;
         out_config.registry_package_raw = parsed_value;
         break;
-      case NanoConfigField::RegistryVersion:
+      case StyioNanoPackageConfigFieldLatest::RegistryVersion:
         out_config.has_registry_version = true;
         out_config.registry_version_raw = parsed_value;
         break;
-      case NanoConfigField::None:
+      case StyioNanoPackageConfigFieldLatest::None:
         break;
     }
   }
@@ -1203,43 +1439,11 @@ styio_parse_nano_publish_config_latest(
 
     const std::string key = styio_trim_copy_latest(stripped.substr(0, eq));
     const std::string raw_value = stripped.substr(eq + 1);
-    bool interested = false;
-
-    enum class NanoPublishField
-    {
-      None,
-      PackageDir,
-      Registry,
-      Package,
-      Version,
-      Channel,
-    };
-
-    NanoPublishField field = NanoPublishField::None;
-    if (section == "nano.publish" || section == "publish") {
-      if (key == "package_dir" || key == "package_root") {
-        interested = true;
-        field = NanoPublishField::PackageDir;
-      }
-      else if (key == "registry") {
-        interested = true;
-        field = NanoPublishField::Registry;
-      }
-      else if (key == "package") {
-        interested = true;
-        field = NanoPublishField::Package;
-      }
-      else if (key == "version") {
-        interested = true;
-        field = NanoPublishField::Version;
-      }
-      else if (key == "channel") {
-        interested = true;
-        field = NanoPublishField::Channel;
-      }
-    }
-
-    if (!interested) {
+    const auto field = styio_parse_nano_publish_field_latest(
+      styio_parse_nano_publish_config_section_latest(section),
+      key
+    );
+    if (field == StyioNanoPublishFieldLatest::None) {
       continue;
     }
 
@@ -1252,27 +1456,27 @@ styio_parse_nano_publish_config_latest(
     }
 
     switch (field) {
-      case NanoPublishField::PackageDir:
+      case StyioNanoPublishFieldLatest::PackageDir:
         out_config.has_package_dir = true;
         out_config.package_dir_raw = parsed_value;
         break;
-      case NanoPublishField::Registry:
+      case StyioNanoPublishFieldLatest::Registry:
         out_config.has_registry = true;
         out_config.registry_raw = parsed_value;
         break;
-      case NanoPublishField::Package:
+      case StyioNanoPublishFieldLatest::Package:
         out_config.has_registry_package = true;
         out_config.registry_package_raw = parsed_value;
         break;
-      case NanoPublishField::Version:
+      case StyioNanoPublishFieldLatest::Version:
         out_config.has_registry_version = true;
         out_config.registry_version_raw = parsed_value;
         break;
-      case NanoPublishField::Channel:
+      case StyioNanoPublishFieldLatest::Channel:
         out_config.has_channel = true;
         out_config.channel_raw = parsed_value;
         break;
-      case NanoPublishField::None:
+      case StyioNanoPublishFieldLatest::None:
         break;
     }
   }
@@ -1319,53 +1523,11 @@ styio_parse_nano_package_manifest_latest(
 
     const std::string key = styio_trim_copy_latest(stripped.substr(0, eq));
     const std::string raw_value = stripped.substr(eq + 1);
-    bool interested = false;
-
-    enum class NanoManifestField
-    {
-      None,
-      PackageName,
-      Version,
-      Channel,
-      Binary,
-      Profile,
-    };
-
-    NanoManifestField field = NanoManifestField::None;
-    if (section.empty() || section == "package") {
-      if (key == "name") {
-        interested = true;
-        field = NanoManifestField::PackageName;
-      }
-      else if (key == "version") {
-        interested = true;
-        field = NanoManifestField::Version;
-      }
-      else if (key == "channel") {
-        interested = true;
-        field = NanoManifestField::Channel;
-      }
-      else if (key == "binary" || key == "binary_ref") {
-        interested = true;
-        field = NanoManifestField::Binary;
-      }
-      else if (key == "profile" || key == "profile_ref") {
-        interested = true;
-        field = NanoManifestField::Profile;
-      }
-    }
-    else if (section == "artifact") {
-      if (key == "binary" || key == "binary_url") {
-        interested = true;
-        field = NanoManifestField::Binary;
-      }
-      else if (key == "profile" || key == "profile_url") {
-        interested = true;
-        field = NanoManifestField::Profile;
-      }
-    }
-
-    if (!interested) {
+    const auto field = styio_parse_nano_manifest_field_latest(
+      styio_parse_nano_manifest_section_latest(section),
+      key
+    );
+    if (field == StyioNanoManifestFieldLatest::None) {
       continue;
     }
 
@@ -1378,22 +1540,22 @@ styio_parse_nano_package_manifest_latest(
     }
 
     switch (field) {
-      case NanoManifestField::PackageName:
+      case StyioNanoManifestFieldLatest::PackageName:
         out_manifest.package_name = parsed_value;
         break;
-      case NanoManifestField::Version:
+      case StyioNanoManifestFieldLatest::Version:
         out_manifest.version = parsed_value;
         break;
-      case NanoManifestField::Channel:
+      case StyioNanoManifestFieldLatest::Channel:
         out_manifest.channel = parsed_value;
         break;
-      case NanoManifestField::Binary:
+      case StyioNanoManifestFieldLatest::Binary:
         out_manifest.binary_ref = parsed_value;
         break;
-      case NanoManifestField::Profile:
+      case StyioNanoManifestFieldLatest::Profile:
         out_manifest.profile_ref = parsed_value;
         break;
-      case NanoManifestField::None:
+      case StyioNanoManifestFieldLatest::None:
         break;
     }
   }
@@ -1777,9 +1939,14 @@ styio_nano_source_roots_latest(bool include_pipeline_check) {
     "src/StyioParser/ParserLookahead.cpp",
     "src/StyioParser/NewParserExpr.cpp",
     "src/StyioParser/Tokenizer.cpp",
+    "src/StyioProfiler/FrontendProfiler.cpp",
+    "src/StyioNative/NativeInterop.cpp",
+    "src/StyioNative/NativeToolchainConfig.hpp.in",
+    "src/StyioResourceTopology/ResourceTopology.cpp",
     "src/StyioToString/ToString.cpp",
-    "src/StyioAnalyzer/TypeInfer.cpp",
-    "src/StyioAnalyzer/ToStyioIR.cpp",
+    "src/StyioSema/TypeInfer.cpp",
+    "src/StyioLowering/AstToStyioIR.cpp",
+    "src/StyioLowering/StyioIROptimizer.cpp",
     "src/StyioCodeGen/CodeGen.cpp",
     "src/StyioCodeGen/GetTypeG.cpp",
     "src/StyioCodeGen/CodeGenG.cpp",
@@ -1866,11 +2033,16 @@ styio_collect_nano_closure_files_latest(
       const std::string include_target = match[1].str();
       std::string include_relpath;
       if (!styio_resolve_local_include_relpath_latest(source_root, relpath, include_target, include_relpath)) {
-        if (include_target.rfind("llvm/", 0) == 0) {
+        if (include_target == "StyioNative/NativeToolchainConfig.hpp") {
+          include_relpath = "src/StyioNative/NativeToolchainConfig.hpp.in";
+        }
+        else if (include_target.rfind("llvm/", 0) == 0) {
           continue;
         }
-        error_message = "failed to resolve local include '" + include_target + "' from " + relpath;
-        return false;
+        else {
+          error_message = "failed to resolve local include '" + include_target + "' from " + relpath;
+          return false;
+        }
       }
       if (out_files.find(include_relpath) == out_files.end()) {
         worklist.push_back(include_relpath);
@@ -1962,7 +2134,7 @@ styio_write_nano_package_cmakelists_latest(
   }
 
   std::ostringstream cmake;
-  cmake << "cmake_minimum_required(VERSION 3.14)\n";
+  cmake << "cmake_minimum_required(VERSION 3.20)\n";
   cmake << "project(styio_nano_subset VERSION " << STYIO_PROJECT_VERSION << ")\n\n";
   cmake << "set(CMAKE_CXX_STANDARD 20)\n";
   cmake << "set(CMAKE_CXX_STANDARD_REQUIRED ON)\n";
@@ -1971,6 +2143,24 @@ styio_write_nano_package_cmakelists_latest(
   cmake << "set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY \"${CMAKE_BINARY_DIR}/lib\")\n";
   cmake << "set(CMAKE_LIBRARY_OUTPUT_DIRECTORY \"${CMAKE_BINARY_DIR}/lib\")\n";
   cmake << "set(CMAKE_RUNTIME_OUTPUT_DIRECTORY \"${CMAKE_BINARY_DIR}/bin\")\n\n";
+  cmake << "set(STYIO_NATIVE_TOOLCHAIN_MODE \"auto\" CACHE STRING ";
+  cmake << "\"Native @extern compiler resolution: auto, bundled, or system\")\n";
+  cmake << "set_property(CACHE STYIO_NATIVE_TOOLCHAIN_MODE PROPERTY STRINGS auto bundled system)\n";
+  cmake << "set(STYIO_NATIVE_TOOLCHAIN_ROOT \"\" CACHE PATH ";
+  cmake << "\"Optional clang+LLVM toolchain root used by native @extern blocks\")\n";
+  cmake << "set(STYIO_NATIVE_TOOLCHAIN_RELATIVE_DIR \"native-toolchain\" CACHE STRING ";
+  cmake << "\"Relative clang+LLVM bundle directory searched next to the styio executable\")\n";
+  cmake << "string(TOLOWER \"${STYIO_NATIVE_TOOLCHAIN_MODE}\" STYIO_NATIVE_TOOLCHAIN_MODE_NORMALIZED)\n";
+  cmake << "if(NOT STYIO_NATIVE_TOOLCHAIN_MODE_NORMALIZED MATCHES \"^(auto|bundled|system)$\")\n";
+  cmake << "  message(FATAL_ERROR \"STYIO_NATIVE_TOOLCHAIN_MODE must be one of: auto, bundled, system\")\n";
+  cmake << "endif()\n";
+  cmake << "set(STYIO_NATIVE_TOOLCHAIN_MODE \"${STYIO_NATIVE_TOOLCHAIN_MODE_NORMALIZED}\" CACHE STRING ";
+  cmake << "\"Native @extern compiler resolution: auto, bundled, or system\" FORCE)\n";
+  cmake << "configure_file(\n";
+  cmake << "  \"${CMAKE_SOURCE_DIR}/src/StyioNative/NativeToolchainConfig.hpp.in\"\n";
+  cmake << "  \"${CMAKE_BINARY_DIR}/generated/StyioNative/NativeToolchainConfig.hpp\"\n";
+  cmake << "  @ONLY\n";
+  cmake << ")\n\n";
   cmake << "if(NOT DEFINED LLVM_DIR AND NOT \"$ENV{LLVM_DIR}\" STREQUAL \"\")\n";
   cmake << "  set(LLVM_DIR \"$ENV{LLVM_DIR}\")\n";
   cmake << "endif()\n";
@@ -1994,13 +2184,15 @@ styio_write_nano_package_cmakelists_latest(
   cmake << ")\n\n";
   cmake << "add_executable(styio_nano ${STYIO_NANO_CPP_SOURCES})\n";
   cmake << "set_target_properties(styio_nano PROPERTIES OUTPUT_NAME \"" << styio_nano_binary_filename_latest() << "\")\n";
-  cmake << "target_include_directories(styio_nano PUBLIC \"${CMAKE_SOURCE_DIR}/src\")\n";
-  cmake << "target_include_directories(styio_nano SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})\n";
+  cmake << "target_include_directories(styio_nano PUBLIC \"${CMAKE_SOURCE_DIR}/src\" \"${CMAKE_BINARY_DIR}/generated\")\n";
+  cmake << "foreach(_llvm_include_dir IN LISTS LLVM_INCLUDE_DIRS)\n";
+  cmake << "  target_compile_options(styio_nano PRIVATE \"SHELL:-idirafter ${_llvm_include_dir}\")\n";
+  cmake << "endforeach()\n";
   cmake << "target_compile_definitions(styio_nano PRIVATE ${LLVM_DEFINITIONS_LIST} ${STYIO_NANO_COMPILE_DEFINITIONS} ";
   cmake << "\"STYIO_PROJECT_VERSION=\\\"" << STYIO_PROJECT_VERSION << "\\\"\" ";
   cmake << "\"STYIO_RELEASE_CHANNEL=\\\"nano\\\"\" ";
   cmake << "\"STYIO_EDITION_MAX=\\\"" << STYIO_EDITION_MAX << "\\\"\")\n";
-  cmake << "target_link_libraries(styio_nano PRIVATE ${STYIO_NANO_LLVM_LINK_LIBS})\n\n";
+  cmake << "target_link_libraries(styio_nano PRIVATE ${STYIO_NANO_LLVM_LINK_LIBS} ${CMAKE_DL_LIBS})\n\n";
   cmake << "if(CMAKE_CXX_COMPILER_ID MATCHES \"Clang|GNU|AppleClang\")\n";
   cmake << "  target_compile_options(styio_nano PRIVATE -Os)\n";
   cmake << "elseif(MSVC)\n";
@@ -2016,21 +2208,52 @@ styio_write_nano_package_cmakelists_latest(
   return styio_write_text_file_latest(output_dir / "CMakeLists.txt", cmake.str(), error_message);
 }
 
+static std::string
+styio_nano_build_jobs_latest() {
+  const char* raw = std::getenv("STYIO_NANO_BUILD_JOBS");
+  if (raw != nullptr && raw[0] != '\0') {
+    std::string value(raw);
+    const bool all_digits =
+      std::all_of(value.begin(), value.end(), [](unsigned char ch) { return std::isdigit(ch) != 0; });
+    if (all_digits && value != "0") {
+      return value;
+    }
+  }
+  return "2";
+}
+
 static bool
 styio_build_nano_package_latest(
   const std::filesystem::path& output_dir,
   std::string& error_message
 ) {
   const std::filesystem::path build_dir = output_dir / ".nano-build";
+  std::string compiler_args;
+  if (const char* cc = std::getenv("CC"); cc == nullptr || cc[0] == '\0') {
+    if (std::string(STYIO_CMAKE_C_COMPILER).empty() == false) {
+      compiler_args += " -DCMAKE_C_COMPILER="
+        + styio_shell_quote_latest(STYIO_CMAKE_C_COMPILER);
+    }
+  }
+  if (const char* cxx = std::getenv("CXX"); cxx == nullptr || cxx[0] == '\0') {
+    if (std::string(STYIO_CMAKE_CXX_COMPILER).empty() == false) {
+      compiler_args += " -DCMAKE_CXX_COMPILER="
+        + styio_shell_quote_latest(STYIO_CMAKE_CXX_COMPILER);
+    }
+  }
   const std::string configure_cmd =
     "cmake -S " + styio_shell_quote_latest(output_dir.string())
-    + " -B " + styio_shell_quote_latest(build_dir.string());
+    + " -B " + styio_shell_quote_latest(build_dir.string())
+    + compiler_args;
   if (!styio_run_shell_command_latest(configure_cmd, "styio-nano package configure", error_message)) {
     return false;
   }
 
+  const std::string build_jobs = styio_nano_build_jobs_latest();
   const std::string build_cmd =
-    "cmake --build " + styio_shell_quote_latest(build_dir.string()) + " --parallel --target styio_nano";
+    "cmake --build " + styio_shell_quote_latest(build_dir.string())
+    + " --parallel " + build_jobs
+    + " --target styio_nano";
   if (!styio_run_shell_command_latest(build_cmd, "styio-nano package build", error_message)) {
     return false;
   }
@@ -2482,8 +2705,16 @@ styio_materialize_local_nano_package_latest(
     "set -euo pipefail\n"
     "script_dir=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n"
     "build_dir=\"${1:-$script_dir/build}\"\n"
-    "cmake -S \"$script_dir\" -B \"$build_dir\"\n"
-    "cmake --build \"$build_dir\" --parallel --target styio_nano\n"
+    ": \"${STYIO_NANO_BUILD_JOBS:=2}\"\n"
+    "cmake_args=()\n"
+    "if [[ -z \"${CC:-}\" && -n \"" + std::string(STYIO_CMAKE_C_COMPILER) + "\" ]]; then\n"
+    "  cmake_args+=(\"-DCMAKE_C_COMPILER=" + std::string(STYIO_CMAKE_C_COMPILER) + "\")\n"
+    "fi\n"
+    "if [[ -z \"${CXX:-}\" && -n \"" + std::string(STYIO_CMAKE_CXX_COMPILER) + "\" ]]; then\n"
+    "  cmake_args+=(\"-DCMAKE_CXX_COMPILER=" + std::string(STYIO_CMAKE_CXX_COMPILER) + "\")\n"
+    "fi\n"
+    "cmake -S \"$script_dir\" -B \"$build_dir\" \"${cmake_args[@]}\"\n"
+    "cmake --build \"$build_dir\" --parallel \"$STYIO_NANO_BUILD_JOBS\" --target styio_nano\n"
     "cp \"$build_dir/bin/" + styio_nano_binary_filename_latest() + "\" \"$script_dir/bin/" + styio_nano_binary_filename_latest() + "\"\n";
   if (!styio_write_text_file_latest(helper_dest, helper_script, error_message)) {
     return false;
@@ -2949,6 +3180,16 @@ styio_emit_machine_info_json(const StyioDictImplSelectionLatest& dict_impl_selec
     << "}\n";
 }
 
+static void
+styio_emit_source_build_info_json() {
+  const styio::config::SourceBuildInfoOptions options{
+    STYIO_PROJECT_VERSION,
+    STYIO_RELEASE_CHANNEL,
+    STYIO_EDITION_MAX,
+  };
+  std::cout << styio::config::source_build_info_json(options) << std::endl;
+}
+
 struct StyioDiagnosticSinkLatest
 {
   bool enabled = false;
@@ -3222,38 +3463,7 @@ styio_probe_compile_plan_diag_dir_latest(
   const std::filesystem::path& plan_path,
   std::filesystem::path& out_diag_dir
 ) {
-  std::string plan_text;
-  std::string error_message;
-  if (!styio_read_text_file_latest(plan_path, plan_text, error_message)) {
-    return false;
-  }
-
-  llvm::Expected<llvm::json::Value> parsed = llvm::json::parse(plan_text);
-  if (!parsed) {
-    return false;
-  }
-  const llvm::json::Object* root = parsed->getAsObject();
-  if (root == nullptr) {
-    return false;
-  }
-
-  const llvm::json::Object* outputs = root->getObject("outputs");
-  if (outputs == nullptr) {
-    return false;
-  }
-
-  const auto diag_dir = outputs->getString("diag_dir");
-  if (!diag_dir.has_value() || diag_dir->empty()) {
-    return false;
-  }
-
-  const std::filesystem::path candidate{std::string(*diag_dir)};
-  if (!candidate.is_absolute()) {
-    return false;
-  }
-
-  out_diag_dir = candidate;
-  return true;
+  return styio::config::probe_compile_plan_diag_dir(plan_path, out_diag_dir);
 }
 
 static int
@@ -3298,24 +3508,7 @@ styio_emit_diagnostic(
   std::cerr << "[" << styio_category_name(category) << "] " << message << std::endl;
 }
 
-struct StyioCompilePlanRequestLatest
-{
-  std::filesystem::path plan_path;
-  int plan_version = 0;
-  std::string intent;
-  std::filesystem::path workspace_root;
-  std::string entry_package_id;
-  std::string entry_target_kind;
-  std::string entry_target_name;
-  std::filesystem::path entry_file;
-  std::filesystem::path build_root;
-  std::filesystem::path artifact_dir;
-  std::filesystem::path diag_dir;
-  std::string error_format = "text";
-  bool emit_ast = false;
-  bool emit_styio_ir = false;
-  bool emit_llvm_ir = false;
-};
+using StyioCompilePlanRequestLatest = styio::config::CompilePlanRequest;
 
 static std::string
 styio_compile_plan_unit_id_latest(const StyioCompilePlanRequestLatest& request) {
@@ -3357,6 +3550,8 @@ styio_render_compile_plan_unit_payload_latest(
           << styio_json_escape(request.entry_target_name)
           << "\",\"intent\":\""
           << styio_json_escape(intent)
+          << "\",\"build_mode\":\""
+          << styio_json_escape(request.build_mode)
           << "\",\"file\":\""
           << styio_json_escape(request.entry_file.string())
           << "\"";
@@ -3386,103 +3581,6 @@ styio_read_text_file_latest(
   std::string& out_text,
   std::string& error_message
 );
-
-static bool
-styio_json_require_string_latest(
-  const llvm::json::Object& obj,
-  const char* key,
-  std::string& out_value,
-  std::string& error_message
-) {
-  const auto raw = obj.getString(key);
-  if (!raw.has_value() || raw->empty()) {
-    error_message = std::string("compile-plan is missing required string field: ") + key;
-    return false;
-  }
-  out_value = std::string(*raw);
-  return true;
-}
-
-static bool
-styio_json_require_integer_latest(
-  const llvm::json::Object& obj,
-  const char* key,
-  std::int64_t& out_value,
-  std::string& error_message
-) {
-  const auto raw = obj.getInteger(key);
-  if (!raw.has_value()) {
-    error_message = std::string("compile-plan is missing required integer field: ") + key;
-    return false;
-  }
-  out_value = *raw;
-  return true;
-}
-
-static bool
-styio_json_require_bool_latest(
-  const llvm::json::Object& obj,
-  const char* key,
-  bool& out_value,
-  std::string& error_message
-) {
-  auto raw = obj.getBoolean(key);
-  if (!raw.has_value()) {
-    error_message = std::string("compile-plan is missing required boolean field: ") + key;
-    return false;
-  }
-  out_value = *raw;
-  return true;
-}
-
-static bool
-styio_json_require_object_latest(
-  const llvm::json::Object& obj,
-  const char* key,
-  const llvm::json::Object*& out_value,
-  std::string& error_message
-) {
-  out_value = obj.getObject(key);
-  if (out_value == nullptr) {
-    error_message = std::string("compile-plan is missing required object field: ") + key;
-    return false;
-  }
-  return true;
-}
-
-static bool
-styio_json_require_array_latest(
-  const llvm::json::Object& obj,
-  const char* key,
-  const llvm::json::Array*& out_value,
-  std::string& error_message
-) {
-  out_value = obj.getArray(key);
-  if (out_value == nullptr) {
-    error_message = std::string("compile-plan is missing required array field: ") + key;
-    return false;
-  }
-  return true;
-}
-
-static bool
-styio_compile_plan_require_absolute_path_latest(
-  const llvm::json::Object& obj,
-  const char* key,
-  std::filesystem::path& out_value,
-  std::string& error_message
-) {
-  std::string raw_value;
-  if (!styio_json_require_string_latest(obj, key, raw_value, error_message)) {
-    return false;
-  }
-  out_value = std::filesystem::path(raw_value);
-  if (!out_value.is_absolute()) {
-    error_message = std::string("compile-plan path must be absolute: ") + key;
-    return false;
-  }
-  return true;
-}
 
 static std::string
 styio_compile_plan_artifact_stem_latest(const StyioCompilePlanRequestLatest& request) {
@@ -3534,6 +3632,7 @@ styio_write_compile_plan_receipt_latest(
           << ",\"channel\":\"" << styio_json_escape(STYIO_RELEASE_CHANNEL) << "\""
           << ",\"plan_version\":" << request.plan_version
           << ",\"intent\":\"" << styio_json_escape(request.intent) << "\""
+          << ",\"build_mode\":\"" << styio_json_escape(request.build_mode) << "\""
           << ",\"session_id\":\"" << styio_json_escape(session_id) << "\""
           << ",\"executed\":" << (executed ? "true" : "false")
           << ",\"wall_time_ms\":" << wall_time_ms
@@ -3564,118 +3663,519 @@ styio_write_compile_plan_receipt_latest(
     error_message);
 }
 
+struct StyioNativeBuildArgsLatest
+{
+  std::filesystem::path input;
+  std::filesystem::path output;
+  bool help = false;
+};
+
+static void
+styio_print_native_build_usage_latest(std::ostream& out) {
+  out << "Usage: styio build <file_path> -o <artifact_name>\n"
+      << "\n"
+      << "Build a Styio source file into a native executable artifact.\n"
+      << "\n"
+      << "Options:\n"
+      << "  -o, --output <path>  Native executable output path\n"
+      << "  -h, --help           Show this help\n";
+}
+
 static bool
-styio_parse_compile_plan_latest(
-  const std::filesystem::path& plan_path,
-  StyioCompilePlanRequestLatest& out_request,
+styio_parse_native_build_args_latest(
+  int argc,
+  char* argv[],
+  StyioNativeBuildArgsLatest& out_args,
   std::string& error_message
 ) {
-  std::string plan_text;
-  if (!styio_read_text_file_latest(plan_path, plan_text, error_message)) {
-    return false;
+  for (int i = 2; i < argc; ++i) {
+    const std::string arg = argv[i] != nullptr ? argv[i] : "";
+    if (arg == "-h" || arg == "--help") {
+      out_args.help = true;
+      return true;
+    }
+    if (arg == "-o" || arg == "--output") {
+      if (i + 1 >= argc || argv[i + 1] == nullptr || argv[i + 1][0] == '\0') {
+        error_message = "styio build requires a path after " + arg;
+        return false;
+      }
+      out_args.output = argv[++i];
+      continue;
+    }
+    if (!arg.empty() && arg[0] == '-') {
+      error_message = "unsupported styio build option: " + arg;
+      return false;
+    }
+    if (!out_args.input.empty()) {
+      error_message = "styio build accepts exactly one input file";
+      return false;
+    }
+    out_args.input = arg;
   }
 
-  llvm::Expected<llvm::json::Value> parsed = llvm::json::parse(plan_text);
-  if (!parsed) {
-    error_message = "compile-plan is not valid JSON: " + llvm::toString(parsed.takeError());
+  if (out_args.input.empty()) {
+    error_message = "styio build requires an input file";
     return false;
   }
-  const llvm::json::Object* root = parsed->getAsObject();
-  if (root == nullptr) {
-    error_message = "compile-plan must be a JSON object";
+  if (out_args.output.empty()) {
+    error_message = "styio build requires -o <artifact_name>";
     return false;
   }
-
-  const llvm::json::Object* generated_by = nullptr;
-  const llvm::json::Object* entry = nullptr;
-  const llvm::json::Object* toolchain = nullptr;
-  const llvm::json::Object* profile = nullptr;
-  const llvm::json::Object* resolution = nullptr;
-  const llvm::json::Object* outputs = nullptr;
-  const llvm::json::Object* emit = nullptr;
-  const llvm::json::Array* packages = nullptr;
-  std::int64_t plan_version = 0;
-
-  if (!styio_json_require_integer_latest(*root, "plan_version", plan_version, error_message)
-      || !styio_json_require_object_latest(*root, "generated_by", generated_by, error_message)
-      || !styio_json_require_string_latest(*root, "intent", out_request.intent, error_message)
-      || !styio_compile_plan_require_absolute_path_latest(*root, "workspace_root", out_request.workspace_root, error_message)
-      || !styio_json_require_object_latest(*root, "entry", entry, error_message)
-      || !styio_json_require_object_latest(*root, "toolchain", toolchain, error_message)
-      || !styio_json_require_object_latest(*root, "profile", profile, error_message)
-      || !styio_json_require_array_latest(*root, "packages", packages, error_message)
-      || !styio_json_require_object_latest(*root, "resolution", resolution, error_message)
-      || !styio_json_require_object_latest(*root, "outputs", outputs, error_message)
-      || !styio_json_require_object_latest(*root, "emit", emit, error_message)) {
-    return false;
-  }
-
-  (void)toolchain;
-  (void)profile;
-  (void)resolution;
-
-  if (plan_version != 1) {
-    error_message = "unsupported compile-plan version: " + std::to_string(plan_version);
-    return false;
-  }
-  out_request.plan_version = static_cast<int>(plan_version);
-  out_request.plan_path = plan_path;
-
-  std::string generated_by_tool;
-  std::string generated_by_version;
-  if (!styio_json_require_string_latest(*generated_by, "tool", generated_by_tool, error_message)
-      || !styio_json_require_string_latest(*generated_by, "version", generated_by_version, error_message)) {
-    return false;
-  }
-  (void)generated_by_version;
-  if (generated_by_tool != "spio") {
-    error_message = "compile-plan generated_by.tool must equal \"spio\"";
-    return false;
-  }
-
-  if (!(out_request.intent == "build"
-        || out_request.intent == "check"
-        || out_request.intent == "run"
-        || out_request.intent == "test")) {
-    error_message = "unsupported compile-plan intent: " + out_request.intent;
-    return false;
-  }
-  if (packages->empty()) {
-    error_message = "compile-plan packages array must not be empty";
-    return false;
-  }
-
-  if (!styio_json_require_string_latest(*entry, "package_id", out_request.entry_package_id, error_message)
-      || !styio_json_require_string_latest(*entry, "target_kind", out_request.entry_target_kind, error_message)
-      || !styio_json_require_string_latest(*entry, "target_name", out_request.entry_target_name, error_message)
-      || !styio_compile_plan_require_absolute_path_latest(*entry, "file", out_request.entry_file, error_message)) {
-    return false;
-  }
-  if (!(out_request.entry_target_kind == "lib"
-        || out_request.entry_target_kind == "bin"
-        || out_request.entry_target_kind == "test")) {
-    error_message = "unsupported compile-plan entry.target_kind: " + out_request.entry_target_kind;
-    return false;
-  }
-
-  if (!styio_compile_plan_require_absolute_path_latest(*outputs, "build_root", out_request.build_root, error_message)
-      || !styio_compile_plan_require_absolute_path_latest(*outputs, "artifact_dir", out_request.artifact_dir, error_message)
-      || !styio_compile_plan_require_absolute_path_latest(*outputs, "diag_dir", out_request.diag_dir, error_message)) {
-    return false;
-  }
-
-  if (!styio_json_require_string_latest(*emit, "error_format", out_request.error_format, error_message)
-      || !styio_json_require_bool_latest(*emit, "ast", out_request.emit_ast, error_message)
-      || !styio_json_require_bool_latest(*emit, "styio_ir", out_request.emit_styio_ir, error_message)
-      || !styio_json_require_bool_latest(*emit, "llvm_ir", out_request.emit_llvm_ir, error_message)) {
-    return false;
-  }
-  if (!(out_request.error_format == "text" || out_request.error_format == "jsonl")) {
-    error_message = "unsupported compile-plan emit.error_format: " + out_request.error_format;
-    return false;
-  }
-
   return true;
+}
+
+static std::filesystem::path
+styio_resolve_current_executable_latest(const char* argv0) {
+  std::error_code ec;
+  std::filesystem::path self = std::filesystem::read_symlink("/proc/self/exe", ec);
+  if (!ec && !self.empty()) {
+    return self;
+  }
+  if (argv0 != nullptr && argv0[0] != '\0') {
+    return styio_absolute_path_latest(std::filesystem::path(argv0));
+  }
+  return {};
+}
+
+static bool
+styio_path_has_runtime_source_latest(const std::filesystem::path& source_root) {
+  if (source_root.empty()) {
+    return false;
+  }
+  std::error_code ec;
+  return std::filesystem::is_regular_file(
+    source_root / "src" / "StyioExtern" / "ExternLib.cpp",
+    ec);
+}
+
+static std::filesystem::path
+styio_resolve_source_root_latest(const std::filesystem::path& self_exe) {
+  const std::filesystem::path configured_root(STYIO_SOURCE_DIR);
+  if (styio_path_has_runtime_source_latest(configured_root)) {
+    return configured_root;
+  }
+
+  std::filesystem::path cur = self_exe;
+  if (std::filesystem::is_regular_file(cur)) {
+    cur = cur.parent_path();
+  }
+  while (!cur.empty()) {
+    if (styio_path_has_runtime_source_latest(cur)) {
+      return cur;
+    }
+    const std::filesystem::path parent = cur.parent_path();
+    if (parent == cur) {
+      break;
+    }
+    cur = parent;
+  }
+  return {};
+}
+
+static std::filesystem::path
+styio_create_native_build_temp_root_latest(std::string& error_message) {
+  std::error_code ec;
+  const std::filesystem::path base = std::filesystem::temp_directory_path(ec);
+  if (ec) {
+    error_message = "cannot resolve temporary directory: " + ec.message();
+    return {};
+  }
+
+  std::uint64_t seed =
+    static_cast<std::uint64_t>(
+      std::chrono::steady_clock::now().time_since_epoch().count());
+  try {
+    std::random_device rd;
+    seed ^= (static_cast<std::uint64_t>(rd()) << 32);
+    seed ^= static_cast<std::uint64_t>(rd());
+  }
+  catch (...) {
+    seed ^= static_cast<std::uint64_t>(std::time(nullptr));
+  }
+
+  std::mt19937_64 rng(seed);
+  for (int attempt = 0; attempt < 128; ++attempt) {
+    const std::filesystem::path candidate =
+      base / ("styio-native-build-" + std::to_string(rng()));
+    ec.clear();
+    if (std::filesystem::create_directory(candidate, ec)) {
+      std::filesystem::permissions(
+        candidate,
+        std::filesystem::perms::owner_all,
+        std::filesystem::perm_options::replace,
+        ec);
+      if (ec) {
+        std::error_code remove_ec;
+        std::filesystem::remove(candidate, remove_ec);
+        error_message = "cannot secure native build temp directory: "
+          + candidate.string() + ": " + ec.message();
+        return {};
+      }
+      return candidate;
+    }
+    std::error_code exists_ec;
+    const bool already_exists = std::filesystem::exists(candidate, exists_ec);
+    if (ec && !already_exists) {
+      error_message = "cannot create native build temp directory: "
+        + candidate.string() + ": " + ec.message();
+      return {};
+    }
+  }
+
+  error_message = "cannot allocate a unique native build temp directory";
+  return {};
+}
+
+static std::string
+styio_native_build_compiler_latest() {
+  const char* env_compiler = std::getenv("STYIO_NATIVE_CXX");
+  if (env_compiler != nullptr && env_compiler[0] != '\0') {
+    return env_compiler;
+  }
+  if (std::string(STYIO_CMAKE_CXX_COMPILER).empty()) {
+    return "clang++";
+  }
+  return STYIO_CMAKE_CXX_COMPILER;
+}
+
+static bool
+styio_native_build_write_compile_plan_latest(
+  const std::filesystem::path& plan_path,
+  const std::filesystem::path& input_path,
+  const std::filesystem::path& build_root,
+  const std::filesystem::path& artifact_dir,
+  const std::filesystem::path& diag_dir,
+  std::string& error_message
+) {
+  std::ostringstream plan;
+  plan
+    << "{\n"
+    << "  \"plan_version\": 1,\n"
+    << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \""
+    << styio_json_escape(STYIO_PROJECT_VERSION) << "\"},\n"
+    << "  \"intent\": \"build\",\n"
+    << "  \"workspace_root\": \"" << styio_json_escape(input_path.parent_path().string()) << "\",\n"
+    << "  \"entry\": {\n"
+    << "    \"package_id\": \"styio/native-build@0\",\n"
+    << "    \"target_kind\": \"bin\",\n"
+    << "    \"target_name\": \"artifact\",\n"
+    << "    \"file\": \"" << styio_json_escape(input_path.string()) << "\"\n"
+    << "  },\n"
+    << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
+    << "  \"profile\": {\"name\": \"native\", \"build_mode\": \"minimal\", \"opt_level\": 3, \"debug\": false, \"lto\": false},\n"
+    << "  \"packages\": [{\"id\": \"styio/native-build@0\"}],\n"
+    << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"styio/native-build@0\"]},\n"
+    << "  \"outputs\": {\n"
+    << "    \"build_root\": \"" << styio_json_escape(build_root.string()) << "\",\n"
+    << "    \"artifact_dir\": \"" << styio_json_escape(artifact_dir.string()) << "\",\n"
+    << "    \"diag_dir\": \"" << styio_json_escape(diag_dir.string()) << "\"\n"
+    << "  },\n"
+    << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": true}\n"
+    << "}\n";
+  return styio_write_text_file_latest(plan_path, plan.str(), error_message);
+}
+
+static bool
+styio_native_build_write_wrapper_latest(
+  const std::filesystem::path& wrapper_path,
+  std::string& error_message
+) {
+  const std::string wrapper = R"cpp(
+#include <chrono>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+
+extern "C" int styio_user_main();
+extern "C" int styio_runtime_has_error();
+extern "C" const char* styio_runtime_last_error();
+extern "C" const char* styio_runtime_last_error_subcode();
+extern "C" void styio_runtime_clear_error();
+
+static long long styio_profile_ns_between(
+  std::chrono::steady_clock::time_point started,
+  std::chrono::steady_clock::time_point ended
+) {
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(ended - started).count();
+}
+
+static void styio_profile_write(
+  const char* path,
+  const char* status,
+  const char* const* phase_names,
+  const long long* phase_durations,
+  int phase_count,
+  long long total_duration_ns
+) {
+  if (path == nullptr || path[0] == '\0') {
+    return;
+  }
+  std::ofstream out(path, std::ios::out | std::ios::trunc);
+  if (!out.is_open()) {
+    return;
+  }
+  out << "{\n"
+      << "  \"schema_version\": 1,\n"
+      << "  \"tool\": \"styio-native-profiler\",\n"
+      << "  \"scope\": \"native_artifact\",\n"
+      << "  \"status\": \"" << status << "\",\n"
+      << "  \"total_duration_ns\": " << total_duration_ns << ",\n"
+      << "  \"phases\": [";
+  for (int i = 0; i < phase_count; ++i) {
+    out << (i == 0 ? "\n" : ",\n")
+        << "    {\"name\": \"" << phase_names[i]
+        << "\", \"duration_ns\": " << phase_durations[i] << "}";
+  }
+  if (phase_count > 0) {
+    out << "\n  ";
+  }
+  out << "]\n"
+      << "}\n";
+}
+
+int main() {
+  const auto profile_started = std::chrono::steady_clock::now();
+  const char* profile_out = std::getenv("STYIO_NATIVE_PROFILE_OUT");
+  const char* phase_names[3] = {};
+  long long phase_durations[3] = {};
+  int phase_count = 0;
+
+  auto phase_started = std::chrono::steady_clock::now();
+  styio_runtime_clear_error();
+  phase_names[phase_count] = "runtime_init";
+  phase_durations[phase_count] = styio_profile_ns_between(
+    phase_started,
+    std::chrono::steady_clock::now());
+  phase_count += 1;
+
+  phase_started = std::chrono::steady_clock::now();
+  const int code = styio_user_main();
+  phase_names[phase_count] = "execute";
+  phase_durations[phase_count] = styio_profile_ns_between(
+    phase_started,
+    std::chrono::steady_clock::now());
+  phase_count += 1;
+
+  phase_started = std::chrono::steady_clock::now();
+  const bool has_error = styio_runtime_has_error();
+  const char* message = has_error ? styio_runtime_last_error() : nullptr;
+  const char* subcode = has_error ? styio_runtime_last_error_subcode() : nullptr;
+  phase_names[phase_count] = "runtime_check";
+  phase_durations[phase_count] = styio_profile_ns_between(
+    phase_started,
+    std::chrono::steady_clock::now());
+  phase_count += 1;
+
+  styio_profile_write(
+    profile_out,
+    has_error ? "runtime_error" : "success",
+    phase_names,
+    phase_durations,
+    phase_count,
+    styio_profile_ns_between(profile_started, std::chrono::steady_clock::now()));
+
+  if (has_error) {
+    std::cerr << "[RuntimeError] " << (message != nullptr ? message : "runtime helper reported error");
+    if (subcode != nullptr && subcode[0] != '\0') {
+      std::cerr << " [" << subcode << "]";
+    }
+    std::cerr << std::endl;
+    return 5;
+  }
+  return code;
+}
+)cpp";
+  return styio_write_text_file_latest(wrapper_path, wrapper, error_message);
+}
+
+static bool
+styio_native_build_prepare_ir_latest(
+  const std::filesystem::path& compile_plan_ir_path,
+  const std::filesystem::path& native_ir_path,
+  std::string& error_message
+) {
+  std::string ir_text;
+  if (!styio_read_text_file_latest(compile_plan_ir_path, ir_text, error_message)) {
+    return false;
+  }
+  const std::string needle = "define i32 @main(";
+  const std::string replacement = "define i32 @styio_user_main(";
+  const size_t pos = ir_text.find(needle);
+  if (pos == std::string::npos) {
+    error_message = "generated LLVM IR does not define `main`";
+    return false;
+  }
+  ir_text.replace(pos, needle.size(), replacement);
+  return styio_write_text_file_latest(native_ir_path, ir_text, error_message);
+}
+
+static std::string
+styio_native_build_read_log_latest(const std::filesystem::path& path) {
+  std::string text;
+  std::string error;
+  if (!styio_read_text_file_latest(path, text, error)) {
+    return "";
+  }
+  return text;
+}
+
+static int
+styio_native_build_cli_latest(int argc, char* argv[]) {
+#if STYIO_NANO_BUILD
+  (void)argc;
+  (void)argv;
+  std::cerr << "[CliError] styio build is disabled in styio-nano" << std::endl;
+  return static_cast<int>(StyioExitCode::CliError);
+#else
+  StyioNativeBuildArgsLatest args;
+  std::string error_message;
+  if (!styio_parse_native_build_args_latest(argc, argv, args, error_message)) {
+    std::cerr << "[CliError] " << error_message << std::endl;
+    styio_print_native_build_usage_latest(std::cerr);
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+  if (args.help) {
+    styio_print_native_build_usage_latest(std::cout);
+    return static_cast<int>(StyioExitCode::Success);
+  }
+
+  const std::filesystem::path input_path = styio_absolute_path_latest(args.input);
+  const std::filesystem::path output_path = styio_absolute_path_latest(args.output);
+  std::error_code ec;
+  if (!std::filesystem::is_regular_file(input_path, ec)) {
+    std::cerr << "[CliError] input file not found: " << input_path.string() << std::endl;
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+  if (!output_path.parent_path().empty()) {
+    std::filesystem::create_directories(output_path.parent_path(), ec);
+    if (ec) {
+      std::cerr << "[CliError] cannot create output directory: "
+                << output_path.parent_path().string() << ": " << ec.message() << std::endl;
+      return static_cast<int>(StyioExitCode::CliError);
+    }
+  }
+
+  const std::filesystem::path self_exe = styio_resolve_current_executable_latest(argv[0]);
+  if (self_exe.empty()) {
+    std::cerr << "[CliError] cannot resolve current styio executable" << std::endl;
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+  const std::filesystem::path source_root = styio_resolve_source_root_latest(self_exe);
+  if (source_root.empty()) {
+    std::cerr << "[CliError] cannot locate Styio source root for native runtime linking" << std::endl;
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+
+  const std::filesystem::path tmp_root =
+    styio_create_native_build_temp_root_latest(error_message);
+  if (tmp_root.empty()) {
+    std::cerr << "[CliError] " << error_message << std::endl;
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+  const std::filesystem::path build_root = tmp_root / "build";
+  const std::filesystem::path artifact_dir = build_root / "artifacts";
+  const std::filesystem::path diag_dir = build_root / "diag";
+  const std::filesystem::path plan_path = build_root / "plan.json";
+  const std::filesystem::path frontend_stdout = build_root / "frontend.stdout";
+  const std::filesystem::path frontend_stderr = build_root / "frontend.stderr";
+  const std::filesystem::path native_ir_path = build_root / "artifact.native.ll";
+  const std::filesystem::path wrapper_path = build_root / "artifact.wrapper.cpp";
+  const std::filesystem::path native_compile_log = build_root / "native-compile.log";
+
+  std::filesystem::create_directories(build_root, ec);
+  if (ec) {
+    std::cerr << "[CliError] cannot create native build temp directory: "
+              << build_root.string() << ": " << ec.message() << std::endl;
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+
+  auto cleanup = [&]() {
+    std::error_code cleanup_ec;
+    std::filesystem::remove_all(tmp_root, cleanup_ec);
+  };
+
+  if (!styio_native_build_write_compile_plan_latest(
+        plan_path,
+        input_path,
+        build_root,
+        artifact_dir,
+        diag_dir,
+        error_message)) {
+    std::cerr << "[CliError] " << error_message << std::endl;
+    cleanup();
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+
+  const std::string frontend_cmd =
+    styio_shell_quote_latest(self_exe.string())
+    + " --compile-plan " + styio_shell_quote_latest(plan_path.string())
+    + " > " + styio_shell_quote_latest(frontend_stdout.string())
+    + " 2> " + styio_shell_quote_latest(frontend_stderr.string());
+  if (std::system(frontend_cmd.c_str()) != 0) {
+    std::cerr << "[RuntimeError] styio build frontend compilation failed";
+    const std::string stderr_text = styio_native_build_read_log_latest(frontend_stderr);
+    const std::string stdout_text = styio_native_build_read_log_latest(frontend_stdout);
+    if (!stderr_text.empty()) {
+      std::cerr << "\n" << stderr_text;
+    }
+    if (!stdout_text.empty()) {
+      std::cerr << "\n" << stdout_text;
+    }
+    cleanup();
+    return static_cast<int>(StyioExitCode::RuntimeError);
+  }
+
+  const std::filesystem::path compile_plan_ir_path = artifact_dir / "artifact.llvm.ir";
+  if (!styio_native_build_prepare_ir_latest(compile_plan_ir_path, native_ir_path, error_message)) {
+    std::cerr << "[RuntimeError] " << error_message << std::endl;
+    cleanup();
+    return static_cast<int>(StyioExitCode::RuntimeError);
+  }
+  if (!styio_native_build_write_wrapper_latest(wrapper_path, error_message)) {
+    std::cerr << "[RuntimeError] " << error_message << std::endl;
+    cleanup();
+    return static_cast<int>(StyioExitCode::RuntimeError);
+  }
+
+  const std::filesystem::path runtime_src = source_root / "src" / "StyioExtern" / "ExternLib.cpp";
+  const std::filesystem::path include_dir = source_root / "src";
+  const std::string cxx = styio_native_build_compiler_latest();
+  const std::string native_cmd =
+    styio_shell_quote_latest(cxx)
+    + " -std=c++20 -O3 -DNDEBUG -Wno-override-module"
+    + " " + styio_shell_quote_latest(native_ir_path.string())
+    + " " + styio_shell_quote_latest(wrapper_path.string())
+    + " " + styio_shell_quote_latest(runtime_src.string())
+    + " -I " + styio_shell_quote_latest(include_dir.string())
+    + " -o " + styio_shell_quote_latest(output_path.string())
+    + " -ldl -pthread"
+    + " > " + styio_shell_quote_latest(native_compile_log.string())
+    + " 2>&1";
+  if (std::system(native_cmd.c_str()) != 0) {
+    std::cerr << "[RuntimeError] native executable link failed";
+    const std::string log_text = styio_native_build_read_log_latest(native_compile_log);
+    if (!log_text.empty()) {
+      std::cerr << "\n" << log_text;
+    }
+    cleanup();
+    return static_cast<int>(StyioExitCode::RuntimeError);
+  }
+  if (!std::filesystem::is_regular_file(output_path, ec)) {
+    std::cerr << "[RuntimeError] native executable was not produced: "
+              << output_path.string() << std::endl;
+    cleanup();
+    return static_cast<int>(StyioExitCode::RuntimeError);
+  }
+  std::filesystem::permissions(
+    output_path,
+    std::filesystem::perms::owner_exec
+      | std::filesystem::perms::group_exec
+      | std::filesystem::perms::others_exec,
+    std::filesystem::perm_options::add,
+    ec);
+  cleanup();
+  return static_cast<int>(StyioExitCode::Success);
+#endif
 }
 
 static void
@@ -3827,6 +4327,10 @@ main(
   int argc,
   char* argv[]
 ) {
+  if (argc >= 2 && argv[1] != nullptr && std::string(argv[1]) == "build") {
+    return styio_native_build_cli_latest(argc, argv);
+  }
+
   cxxopts::Options options("styio", "Styio Compiler");
 
   // styio example.styio
@@ -3836,6 +4340,8 @@ main(
     "f,file", "Take the given source file.", cxxopts::value<std::string>()
   )(
     "h,help", "Show All Command-Line Options"
+  )(
+    "version", "Show Styio compiler version"
   );
 
   options.add_options()(
@@ -3870,12 +4376,24 @@ main(
   )(
     "error-format", "Diagnostic output format: text|jsonl",
     cxxopts::value<std::string>()->default_value("text")
+  )(
+    "profile-frontend",
+    "Write a styio-profiler JSON report for Styio front-end phases.",
+    cxxopts::value<bool>()->default_value("false")
+  )(
+    "profile-out",
+    "Path for --profile-frontend JSON output. Defaults to <source>.profile.json.",
+    cxxopts::value<std::string>()
   );
 
 #if !STYIO_NANO_BUILD
   options.add_options()(
     "compile-plan",
     "Read a versioned compile-plan JSON and treat it as the full compiler request envelope.",
+    cxxopts::value<std::string>()
+  )(
+    "source-build-info",
+    "Emit machine-readable source-build metadata for spio build. Supported format: json",
     cxxopts::value<std::string>()
   )(
     "nano-create",
@@ -3988,6 +4506,11 @@ main(
     return static_cast<int>(StyioExitCode::Success);
   }
 
+  if (cmlopts.count("version")) {
+    std::cout << "styio " << STYIO_PROJECT_VERSION << std::endl;
+    return static_cast<int>(StyioExitCode::Success);
+  }
+
   if (const std::string disabled = styio_nano_disabled_option_latest(argc, argv); !disabled.empty()) {
     std::cerr << "[CliError] " << disabled << std::endl;
     return static_cast<int>(StyioExitCode::CliError);
@@ -4076,7 +4599,7 @@ main(
     }
     StyioCompilePlanRequestLatest parsed_request;
     std::string compile_plan_error;
-    if (!styio_parse_compile_plan_latest(
+    if (!styio::config::parse_compile_plan(
           compile_plan_path,
           parsed_request,
           compile_plan_error)) {
@@ -4121,6 +4644,18 @@ main(
   }
 #endif
 
+#if !STYIO_NANO_BUILD
+  if (cmlopts.count("source-build-info")) {
+    const std::string source_build_info_format = cmlopts["source-build-info"].as<std::string>();
+    if (source_build_info_format != "json") {
+      std::cerr << "[CliError] unsupported --source-build-info format: " << source_build_info_format << std::endl;
+      return static_cast<int>(StyioExitCode::CliError);
+    }
+    styio_emit_source_build_info_json();
+    return static_cast<int>(StyioExitCode::Success);
+  }
+#endif
+
 #if STYIO_NANO_ENABLE_AST_DUMP_CLI
   bool show_styio_ast = cmlopts["styio-ast"].as<bool>();
 #else
@@ -4157,6 +4692,15 @@ main(
   }
 #endif
 
+  const bool profile_frontend = cmlopts["profile-frontend"].as<bool>();
+  const bool profile_out_specified = cmlopts.count("profile-out") > 0;
+  const std::string profile_out =
+    profile_out_specified ? cmlopts["profile-out"].as<std::string>() : std::string();
+  if (profile_out_specified && !profile_frontend) {
+    std::cerr << "[CliError] --profile-out requires --profile-frontend" << std::endl;
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+
 #if STYIO_NANO_ENABLE_PARSER_SHADOW_COMPARE
   bool parser_shadow_compare = cmlopts["parser-shadow-compare"].as<bool>();
   std::string parser_shadow_artifact_dir = cmlopts["parser-shadow-artifact-dir"].as<std::string>();
@@ -4177,8 +4721,78 @@ main(
   }
 
   if (fpath.empty()) {
+    if (profile_frontend) {
+      std::cerr << "[CliError] --profile-frontend requires --file or --compile-plan" << std::endl;
+      return static_cast<int>(StyioExitCode::CliError);
+    }
     return static_cast<int>(StyioExitCode::Success);
   }
+
+  styio::profiler::FrontendProfiler frontend_profiler;
+  if (profile_frontend) {
+    const std::string resolved_profile_out =
+      profile_out.empty()
+        ? styio::profiler::FrontendProfiler::default_output_path_for_source(fpath)
+        : profile_out;
+    frontend_profiler.enable(
+      fpath,
+      styio_parser_engine_name_latest(parser_engine),
+      resolved_profile_out);
+    frontend_profiler.add_counter(
+      "compile_plan",
+      compile_plan_request.has_value() ? 1 : 0);
+    styio_task_scheduler_profile_reset();
+    styio_task_scheduler_profile_enable(1);
+  }
+
+  bool async_scheduler_profile_recorded = false;
+  const auto record_async_scheduler_profile = [&]() {
+    if (!profile_frontend || async_scheduler_profile_recorded) {
+      return;
+    }
+    StyioTaskSchedulerProfileSnapshot snapshot {};
+    styio_task_scheduler_profile_snapshot(&snapshot);
+    frontend_profiler.set_async_scheduler_stats(
+      snapshot.enabled,
+      snapshot.worker_count,
+      snapshot.active_tasks,
+      snapshot.ready_tasks,
+      snapshot.spawned_tasks,
+      snapshot.enqueued_tasks,
+      snapshot.started_tasks,
+      snapshot.completed_tasks,
+      snapshot.pulled_tasks,
+      snapshot.released_tasks,
+      snapshot.fast_ready_pulls,
+      snapshot.blocking_pulls,
+      snapshot.failed_pulls,
+      snapshot.invalid_pulls,
+      snapshot.max_queue_depth);
+    styio_task_scheduler_profile_enable(0);
+    async_scheduler_profile_recorded = true;
+  };
+
+  struct StyioFrontendProfilerFlushLatest
+  {
+    styio::profiler::FrontendProfiler* profiler = nullptr;
+    bool* async_scheduler_profile_recorded = nullptr;
+    decltype(record_async_scheduler_profile)* record_async_scheduler_profile_fn = nullptr;
+
+    ~StyioFrontendProfilerFlushLatest() {
+      if (async_scheduler_profile_recorded != nullptr
+          && !*async_scheduler_profile_recorded
+          && record_async_scheduler_profile_fn != nullptr) {
+        (*record_async_scheduler_profile_fn)();
+      }
+      if (profiler == nullptr || !profiler->enabled() || profiler->written()) {
+        return;
+      }
+      std::string profile_error;
+      if (!profiler->write(&profile_error)) {
+        std::cerr << "[ProfileWarning] " << profile_error << std::endl;
+      }
+    }
+  } frontend_profiler_flush {&frontend_profiler, &async_scheduler_profile_recorded, &record_async_scheduler_profile};
 
   if (compile_plan_request.has_value()) {
     std::error_code ec;
@@ -4236,6 +4850,7 @@ main(
     {
       std::ostringstream payload;
       payload << "{\"intent\":\"" << styio_json_escape(compile_plan_request->intent)
+              << "\",\"build_mode\":\"" << styio_json_escape(compile_plan_request->build_mode)
               << "\",\"file\":\"" << styio_json_escape(fpath) << "\"}";
       styio_emit_runtime_event_latest(
         "compile.started",
@@ -4283,7 +4898,10 @@ main(
       std::ostringstream payload;
       payload << "{\"intent\":\""
               << styio_json_escape(intent != nullptr ? *intent : "")
-              << "\",\"file\":\""
+              << "\",\"build_mode\":\""
+              << styio_json_escape(
+                   request != nullptr ? request->build_mode : std::string("minimal"))
+               << "\",\"file\":\""
               << styio_json_escape(file_path != nullptr ? *file_path : "")
               << "\",\"executed\":"
               << ((executed != nullptr && *executed) ? "true" : "false");
@@ -4311,7 +4929,13 @@ main(
   compile_plan_runtime_scope.success = &compile_plan_runtime_success;
   compile_plan_runtime_scope.final_phase = &compile_plan_final_phase;
 
-  auto styio_code = read_styio_file(fpath);
+  auto styio_code = [&]() {
+    auto profile_phase = frontend_profiler.phase("read_source");
+    return read_styio_file(fpath);
+  }();
+  frontend_profiler.set_source_summary(
+    static_cast<std::uint64_t>(styio_code.code_text.size()),
+    static_cast<std::uint64_t>(styio_code.line_seps.size()));
   if (!styio_code.ok) {
     if (compile_plan_request.has_value()) {
       compile_plan_final_phase = CompilationPhase::Failed;
@@ -4367,7 +4991,11 @@ main(
 
   try {
     const CompilationPhase previous_phase = session.phase();
-    session.adopt_tokens(StyioTokenizer::tokenize(styio_code.code_text));
+    {
+      auto profile_phase = frontend_profiler.phase("tokenize");
+      session.adopt_tokens(StyioTokenizer::tokenize(styio_code.code_text));
+    }
+    frontend_profiler.set_token_histogram(session.tokens());
     emit_compile_plan_session_transition(previous_phase, "adopt_tokens");
   } catch (const StyioLexError& ex) {
     styio_emit_diagnostic(error_format, StyioErrorCategory::LexError, fpath, ex.what());
@@ -4377,13 +5005,16 @@ main(
     return styio_exit_code(StyioErrorCategory::LexError);
   }
 
-  session.attach_context(StyioContext::Create(
-    fpath,
-    styio_code.code_text,
-    styio_code.line_seps,
-    session.tokens(),
-    is_debug_mode /* is debug mode */
-  ));
+  {
+    auto profile_phase = frontend_profiler.phase("create_context");
+    session.attach_context(StyioContext::Create(
+      fpath,
+      styio_code.code_text,
+      styio_code.line_seps,
+      session.tokens(),
+      is_debug_mode /* is debug mode */
+    ));
+  }
 
   if (is_debug_mode) {
     show_tokens(session.tokens());
@@ -4397,9 +5028,17 @@ main(
 
   try {
     const CompilationPhase previous_phase = session.phase();
-    session.attach_ast(parse_main_block_with_engine_latest(*session.context(), parser_engine, primary_route_stats_ptr));
+    {
+      auto profile_phase = frontend_profiler.phase("parse");
+      session.attach_ast(parse_main_block_with_engine_latest(*session.context(), parser_engine, primary_route_stats_ptr));
+    }
     emit_compile_plan_session_transition(previous_phase, "attach_ast");
     if (primary_route_stats_ptr != nullptr) {
+      frontend_profiler.set_parser_route_stats(
+        static_cast<std::uint64_t>(primary_route_stats.nightly_subset_statements),
+        static_cast<std::uint64_t>(primary_route_stats.nightly_declined_statements),
+        static_cast<std::uint64_t>(primary_route_stats.legacy_fallback_statements),
+        static_cast<std::uint64_t>(primary_route_stats.nightly_internal_legacy_bridges));
       primary_route_detail =
         "nightly_subset_statements=" + std::to_string(primary_route_stats.nightly_subset_statements)
         + ",legacy_fallback_statements="
@@ -4529,9 +5168,12 @@ main(
     compile_plan_artifacts.push_back(ast_path);
   }
 
-  StyioAnalyzer analyzer = StyioAnalyzer();
+  AstToStyioIRLowerer analyzer = AstToStyioIRLowerer();
   try {
-    analyzer.typeInfer(session.ast());
+    {
+      auto profile_phase = frontend_profiler.phase("type_infer");
+      analyzer.typeInfer(session.ast());
+    }
     const CompilationPhase previous_phase = session.phase();
     session.mark_type_checked();
     emit_compile_plan_session_transition(previous_phase, "mark_type_checked");
@@ -4568,8 +5210,12 @@ main(
 
   try {
     const CompilationPhase previous_phase = session.phase();
-    session.attach_ir(analyzer.toStyioIR(session.ast()));
+    {
+      auto profile_phase = frontend_profiler.phase("lower_styio_ir");
+      session.attach_ir(analyzer.toStyioIR(session.ast()));
+    }
     emit_compile_plan_session_transition(previous_phase, "attach_ir");
+    frontend_profiler.mark_status("frontend_complete");
   } catch (const StyioBaseException& ex) {
     mark_failed_with_runtime_transition("mark_failed");
     styio_emit_diagnostic(error_format, StyioErrorCategory::TypeError, fpath, ex.what());
@@ -4602,28 +5248,39 @@ main(
   }
 
   try {
-    llvm::InitializeNativeTarget();
-    llvm::InitializeNativeTargetAsmPrinter();
-    llvm::InitializeNativeTargetAsmParser();
+    std::unique_ptr<StyioJIT_ORC> jit;
+    {
+      auto profile_phase = frontend_profiler.phase("runtime_init");
+      llvm::InitializeNativeTarget();
+      llvm::InitializeNativeTargetAsmPrinter();
+      llvm::InitializeNativeTargetAsmParser();
 
-    auto jit_or_err = StyioJIT_ORC::Create();
-    if (!jit_or_err) {
-      std::string emsg;
-      llvm::handleAllErrors(
-        jit_or_err.takeError(),
-        [&](const llvm::ErrorInfoBase& e) { emsg = e.message(); });
-      styio_emit_diagnostic(error_format, StyioErrorCategory::RuntimeError, fpath, emsg);
-      return styio_exit_code(StyioErrorCategory::RuntimeError);
+      auto jit_or_err = StyioJIT_ORC::Create();
+      if (!jit_or_err) {
+        std::string emsg;
+        llvm::handleAllErrors(
+          jit_or_err.takeError(),
+          [&](const llvm::ErrorInfoBase& e) { emsg = e.message(); });
+        styio_emit_diagnostic(error_format, StyioErrorCategory::RuntimeError, fpath, emsg);
+        return styio_exit_code(StyioErrorCategory::RuntimeError);
+      }
+      jit = std::move(*jit_or_err);
     }
 
-    StyioToLLVM generator = StyioToLLVM(std::move(*jit_or_err));
-    session.ir()->toLLVMIR(&generator);
-    const CompilationPhase previous_phase = session.phase();
-    session.mark_codegen_ready();
-    emit_compile_plan_session_transition(previous_phase, "mark_codegen_ready");
-    const std::string llvm_ir_text = generator.dump_llvm_ir();
+    std::unique_ptr<StyioToLLVM> generator;
+    std::string llvm_ir_text;
+    {
+      auto profile_phase = frontend_profiler.phase("llvm_ir");
+      generator = std::make_unique<StyioToLLVM>(std::move(jit));
+      session.ir()->toLLVMIR(generator.get());
+      const CompilationPhase previous_phase = session.phase();
+      session.mark_codegen_ready();
+      emit_compile_plan_session_transition(previous_phase, "mark_codegen_ready");
+      llvm_ir_text = generator->dump_llvm_ir();
+    }
 
     if (compile_plan_request.has_value()) {
+      auto profile_phase = frontend_profiler.phase("artifact_emit");
       std::string artifact_error;
       const std::filesystem::path llvm_ir_path =
         compile_plan_request->artifact_dir / (compile_plan_artifact_stem + ".llvm.ir");
@@ -4635,12 +5292,14 @@ main(
     }
 
     if (show_llvm_ir) {
-      generator.print_llvm_ir();
+      auto profile_phase = frontend_profiler.phase("artifact_emit");
+      generator->print_llvm_ir();
     }
     const bool should_execute =
       !compile_plan_request.has_value()
       || (compile_plan_request->intent != "build" && compile_plan_request->intent != "check");
     if (should_execute) {
+      auto profile_phase = frontend_profiler.phase("execute");
       if (compile_plan_request.has_value()) {
         if (compile_plan_request->intent == "test") {
           styio_emit_runtime_event_latest(
@@ -4671,7 +5330,7 @@ main(
       }
       styio_runtime_clear_error();
       styio_runtime_set_log_sink(styio_runtime_log_sink_latest);
-      generator.execute();
+      generator->execute();
       styio_runtime_set_log_sink(nullptr);
       compile_plan_runtime_executed = true;
       if (compile_plan_request.has_value()) {
@@ -4797,5 +5456,6 @@ main(
     compile_plan_runtime_success = true;
   }
 
+  frontend_profiler.mark_status("success");
   return static_cast<int>(StyioExitCode::Success);
 }

@@ -53,6 +53,13 @@ TOOLS: tuple[Tool, ...] = (
         ("python3", "tests/workflow_scheduler_test.py"),
     ),
     Tool(
+        "repo-hygiene-worktree",
+        10,
+        "Docs / Ecosystem",
+        "Reject forbidden worktree artifacts before local delivery.",
+        ("python3", "scripts/repo-hygiene-gate.py", "--mode", "worktree"),
+    ),
+    Tool(
         "repo-hygiene-tracked",
         10,
         "Docs / Ecosystem",
@@ -127,6 +134,36 @@ TOOLS: tuple[Tool, ...] = (
 
 WORKFLOW_DOCS: tuple[WorkflowDoc, ...] = (
     WorkflowDoc(
+        "add-repo-file",
+        "docs/assets/workflow/ADD-REPO-FILE.md",
+        15,
+        "Repository file creation with metadata, indexes, ownership, and gates.",
+    ),
+    WorkflowDoc(
+        "add-resource-identifier",
+        "docs/assets/workflow/ADD-RESOURCE-IDENTIFIER.md",
+        25,
+        "Resource identifier syntax, capability, lifecycle, and fail-closed rollout.",
+    ),
+    WorkflowDoc(
+        "correct-syntax-contract",
+        "docs/assets/workflow/CORRECT-SYNTAX-CONTRACT.md",
+        25,
+        "Syntax-contract correction from minimal repro through parser/Sema boundary, SSOT docs, and gates.",
+    ),
+    WorkflowDoc(
+        "change-bootstrap-env",
+        "docs/assets/workflow/CHANGE-BOOTSTRAP-ENV.md",
+        20,
+        "Bootstrap environment dependency, version, path, and documentation changes.",
+    ),
+    WorkflowDoc(
+        "checkpoint-health",
+        "docs/assets/workflow/CHECKPOINT-HEALTH.md",
+        70,
+        "Repository build/test health entrypoint for checkpoint delivery.",
+    ),
+    WorkflowDoc(
         "checkpoint",
         "docs/assets/workflow/CHECKPOINT-WORKFLOW.md",
         50,
@@ -145,6 +182,12 @@ WORKFLOW_DOCS: tuple[WorkflowDoc, ...] = (
         "Documentation metadata, generated indexes, and archive lifecycle.",
     ),
     WorkflowDoc(
+        "docs-gate",
+        "docs/assets/workflow/DOCS-GATE.md",
+        35,
+        "Common docs/process gate entrypoint and composition boundary.",
+    ),
+    WorkflowDoc(
         "five-layer-pipeline",
         "docs/assets/workflow/FIVE-LAYER-PIPELINE.md",
         45,
@@ -155,6 +198,12 @@ WORKFLOW_DOCS: tuple[WorkflowDoc, ...] = (
         "docs/assets/workflow/REPO-HYGIENE-COMMIT-STANDARD.md",
         10,
         "Repository cleanliness, commit, push, and history rewriting standards.",
+    ),
+    WorkflowDoc(
+        "promote-nightly-parser-subset",
+        "docs/assets/workflow/PROMOTE-NIGHTLY-PARSER-SUBSET.md",
+        25,
+        "Nightly parser subset promotion with parity, fallback, and error-boundary tests.",
     ),
     WorkflowDoc(
         "syntax-addition",
@@ -186,7 +235,18 @@ WORKFLOW_DOCS: tuple[WorkflowDoc, ...] = (
 PROFILES: tuple[Profile, ...] = (
     Profile(
         "delivery-checkpoint",
-        "Common process gates for checkpoint delivery before optional checkpoint-health.",
+        "Common worktree process gates for checkpoint delivery before optional checkpoint-health.",
+        (
+            "repo-hygiene-worktree",
+            "runtime-surface",
+            "team-docs-worktree",
+            "docs-audit",
+            "ecosystem-cli-docs",
+        ),
+    ),
+    Profile(
+        "delivery-staged",
+        "Common staged-index process gates for commit hooks and staged handoff.",
         (
             "repo-hygiene-staged",
             "runtime-surface",

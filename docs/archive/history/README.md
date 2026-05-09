@@ -1,19 +1,19 @@
 # Archive History Docs
 
-**Purpose:** Define the scope of archived raw history snapshots under `docs/archive/history/`; the generated inventory lives in [INDEX.md](./INDEX.md).
+**Purpose:** Keep the generated entrypoint for `docs/archive/history/`; archived raw history snapshots are no longer retained in the current tree.
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-05-09
 
 ## Scope
 
-1. Store older daily history docs after their useful content has been summarized into active docs.
-2. Keep the newest raw history window in `../../history/`.
-3. Use `../../rollups/` first for default loading and `../ARCHIVE-LEDGER.md` for provenance lookup.
+1. Keep this directory available for generated index tooling.
+2. Keep durable lessons in `../../rollups/` and owning active SSOTs.
+3. Use Git history when exact old checkpoint wording is required.
 
 ## Notes
 
-1. Archived history files retain their original text and relative link layout.
-2. Link freshness inside archived raw snapshots is not treated as an active-doc maintenance gate.
+1. Do not add historical syntax examples here.
+2. Link freshness for historical text is handled by Git history, not by active docs gates.
 
 ## Inventory
 

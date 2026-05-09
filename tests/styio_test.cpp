@@ -441,7 +441,7 @@ TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"tool\":\"styio\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"compiler_version\":\"0.0.1\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"channel\":\"stable\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"channel\":\"nightly\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"active_integration_phase\":\"compile-plan-live\""), std::string::npos);
   EXPECT_NE(
     result.stdout_text.find("\"supported_contracts\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"compile_plan\":[1],\"runtime_events\":[1]}"),
@@ -460,6 +460,19 @@ TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   EXPECT_NE(result.stdout_text.find("\"nano_package_registry_publish_v1\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"dict_impl\":{\"selected\":\"ordered-hash\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"edition_max\":\"2026\""), std::string::npos);
+}
+
+TEST(StyioDiagnostics, VersionPrintsCompilerVersion) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd = std::string("\"") + runner + "\" --version";
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "styio 0.0.1\n");
 }
 
 TEST(StyioDiagnostics, MachineInfoJsonReflectsCliDictImplSelection) {
@@ -492,11 +505,81 @@ TEST(StyioDiagnostics, MachineInfoJsonReflectsCliDictImplAliasSelection) {
   EXPECT_NE(result.stdout_text.find("\"source\":\"cli\""), std::string::npos);
 }
 
+TEST(StyioDiagnostics, SourceBuildInfoJsonReportsOfficialSourceLayoutFields) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd = std::string("\"") + runner + "\" --source-build-info=json";
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"contract\": \"source-build-info\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"source_layout_version\": 1"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"official_source_origin\": \"https://github.com/SymPolicy/Styio.git\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"name\": \"stable\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"branch\": \"stable\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"name\": \"nightly\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"branch\": \"nightly\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"supported_build_modes\": ["), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"compile_plan_profile_contract\": {"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"path\": \"profile.build_mode\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"default_build_mode\": \"minimal\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"minimal\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"helper_script\": \"scripts/source-build-minimal.sh\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"cmake_target\": \"styio\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"id\": \"std_symbols\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"styio_symbol_core\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"id\": \"runtime\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"styio_runtime_core\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"id\": \"macro_prelude\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"path\": \"src/StyioParser/SymbolRegistry.cpp\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"src/StyioPrelude/resources.styio\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"macro_like_symbols\": ["), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"match\""), std::string::npos);
+}
+
+TEST(StyioDiagnostics, SourceBuildMinimalHelperScriptPrintsCompilerPath) {
+  const fs::path helper = fs::path(STYIO_SOURCE_DIR) / "scripts" / "source-build-minimal.sh";
+  ASSERT_TRUE(fs::exists(helper));
+
+  const std::string cmd = std::string("bash \"") + helper.string() + "\" --help";
+  const CommandResult result = run_stdout_command(cmd);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("source-build"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("scripts/source-build-minimal.sh"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("builds only the `styio` target"), std::string::npos);
+}
+
 TEST(StyioTypes, F32BuiltinMappingUsesF32InternalName) {
   const StyioDataType f32 = styio_data_type_from_name("f32");
   EXPECT_EQ(f32.option, StyioDataTypeOption::Float);
   EXPECT_EQ(f32.name, "f32");
   EXPECT_EQ(f32.num_of_bit, static_cast<size_t>(32));
+}
+
+TEST(StyioTypes, GetMaxTypeNumericPromotionByBitWidth) {
+  const StyioDataType f32 = styio_data_type_from_name("f32");
+  const StyioDataType f64 = styio_data_type_from_name("f64");
+  const StyioDataType i32 = styio_data_type_from_name("i32");
+  const StyioDataType i64 = styio_data_type_from_name("i64");
+  const StyioDataType i128 = styio_data_type_from_name("i128");
+
+  EXPECT_EQ(getMaxType(f32, i32).name, "f32");
+  EXPECT_EQ(getMaxType(i32, f32).name, "f32");
+  EXPECT_EQ(getMaxType(f64, i32).name, "f64");
+  EXPECT_EQ(getMaxType(f32, i64).name, "f64");
+  EXPECT_EQ(getMaxType(f32, f64).name, "f64");
+  EXPECT_EQ(getMaxType(i32, i64).name, "i64");
+
+  const StyioDataType untyped_int{StyioDataTypeOption::Integer, "int", 0};
+  EXPECT_EQ(getMaxType(untyped_int, untyped_int).name, "int");
+
+  const StyioDataType promoted = getMaxType(f32, i128);
+  EXPECT_EQ(promoted.option, StyioDataTypeOption::Float);
+  EXPECT_EQ(promoted.name, "f64");
+  EXPECT_EQ(promoted.num_of_bit, static_cast<size_t>(64));
 }
 
 TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
@@ -533,7 +616,7 @@ TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
       << "    \"file\": \"" << source.string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
-      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
@@ -561,9 +644,11 @@ TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
   ASSERT_TRUE(fs::exists(build_root / "runtime-events.jsonl"));
   const std::string receipt = read_text_file_latest(build_root / "receipt.json");
   const std::string runtime_events = read_text_file_latest(build_root / "runtime-events.jsonl");
+  EXPECT_NE(receipt.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(receipt.find("\"executed\":false"), std::string::npos);
   EXPECT_NE(receipt.find("\"session_id\":\""), std::string::npos);
   EXPECT_NE(receipt.find("\"runtime_events_path\":\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"compile.started\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.exited\""), std::string::npos);
@@ -613,7 +698,7 @@ TEST(StyioDiagnostics, CompilePlanCheckWritesArtifactsWithoutExecutingEntry) {
       << "    \"file\": \"" << source.string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
-      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
@@ -642,8 +727,10 @@ TEST(StyioDiagnostics, CompilePlanCheckWritesArtifactsWithoutExecutingEntry) {
   const std::string receipt = read_text_file_latest(build_root / "receipt.json");
   const std::string runtime_events = read_text_file_latest(build_root / "runtime-events.jsonl");
   EXPECT_NE(receipt.find("\"intent\":\"check\""), std::string::npos);
+  EXPECT_NE(receipt.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(receipt.find("\"executed\":false"), std::string::npos);
   EXPECT_NE(receipt.find("\"session_id\":\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"compile.started\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.exited\""), std::string::npos);
@@ -693,7 +780,7 @@ TEST(StyioDiagnostics, CompilePlanRunExecutesAndWritesReceiptAndRequestedArtifac
       << "    \"file\": \"" << source.string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
-      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
@@ -724,8 +811,10 @@ TEST(StyioDiagnostics, CompilePlanRunExecutesAndWritesReceiptAndRequestedArtifac
   ASSERT_TRUE(fs::exists(build_root / "runtime-events.jsonl"));
   const std::string receipt = read_text_file_latest(build_root / "receipt.json");
   const std::string runtime_events = read_text_file_latest(build_root / "runtime-events.jsonl");
+  EXPECT_NE(receipt.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(receipt.find("\"executed\":true"), std::string::npos);
   EXPECT_NE(receipt.find("\"session_id\":\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"compile.started\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.exited\""), std::string::npos);
@@ -779,7 +868,7 @@ TEST(StyioDiagnostics, CompilePlanTestExecutesAndPublishesUnitTestRuntimeEvents)
       << "    \"file\": \"" << source.string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
-      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
@@ -808,7 +897,9 @@ TEST(StyioDiagnostics, CompilePlanTestExecutesAndPublishesUnitTestRuntimeEvents)
   const std::string receipt = read_text_file_latest(build_root / "receipt.json");
   const std::string runtime_events = read_text_file_latest(build_root / "runtime-events.jsonl");
   EXPECT_NE(receipt.find("\"intent\":\"test\""), std::string::npos);
+  EXPECT_NE(receipt.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(receipt.find("\"executed\":true"), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.test.started\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.test.finished\""), std::string::npos);
@@ -960,6 +1051,77 @@ TEST(StyioDiagnostics, CompilePlanInvalidIntentReportsCliDiagnosticAndWritesDiag
   EXPECT_NE(diagnostics.find("\"code\":\"STYIO_CLI\""), std::string::npos);
   EXPECT_NE(diagnostics.find("\"subcode\":\"compile_plan_invalid\""), std::string::npos);
   EXPECT_NE(diagnostics.find("unsupported compile-plan intent: ship"), std::string::npos);
+
+  fs::remove_all(root);
+}
+
+TEST(StyioDiagnostics, CompilePlanInvalidBuildModeReportsCliDiagnosticAndWritesDiagDir) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-compile-plan-invalid-build-mode-" + std::to_string(uniq));
+  const fs::path source = root / "src" / "main.styio";
+  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path artifact_dir = build_root / "artifacts";
+  const fs::path diag_dir = build_root / "diag";
+  const fs::path plan_path = build_root / "plan.json";
+  ASSERT_TRUE(fs::create_directories(source.parent_path()));
+  ASSERT_TRUE(fs::create_directories(build_root));
+
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << ">_(\"compile-plan-invalid-build-mode\")\n";
+  }
+  {
+    std::ofstream out(plan_path);
+    ASSERT_TRUE(out.is_open());
+    out
+      << "{\n"
+      << "  \"plan_version\": 1,\n"
+      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"intent\": \"build\",\n"
+      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"entry\": {\n"
+      << "    \"package_id\": \"demo/app@0.1.0\",\n"
+      << "    \"target_kind\": \"bin\",\n"
+      << "    \"target_name\": \"demo-invalid-build-mode\",\n"
+      << "    \"file\": \"" << source.string() << "\"\n"
+      << "  },\n"
+      << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"full\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
+      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"outputs\": {\n"
+      << "    \"build_root\": \"" << build_root.string() << "\",\n"
+      << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
+      << "    \"diag_dir\": \"" << diag_dir.string() << "\"\n"
+      << "  },\n"
+      << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
+      << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const CommandResult result =
+    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+  EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"category\":\"CliError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"subcode\":\"compile_plan_invalid\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("unsupported compile-plan profile.build_mode: full"), std::string::npos);
+
+  const fs::path diag_path = diag_dir / "diagnostics.jsonl";
+  ASSERT_TRUE(fs::exists(diag_path));
+  const std::string diagnostics = read_text_file_latest(diag_path);
+  EXPECT_NE(diagnostics.find("\"category\":\"CliError\""), std::string::npos);
+  EXPECT_NE(diagnostics.find("\"code\":\"STYIO_CLI\""), std::string::npos);
+  EXPECT_NE(diagnostics.find("\"subcode\":\"compile_plan_invalid\""), std::string::npos);
+  EXPECT_NE(diagnostics.find("unsupported compile-plan profile.build_mode: full"), std::string::npos);
 
   fs::remove_all(root);
 }
@@ -2807,7 +2969,7 @@ TEST(StyioParserEngine, PointerScrutineeMatchDoesNotAbortAndReportsTypeError) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "f <- @file{\"tests/m5/data/input.txt\"}\n";
+    out << "f <- @file(\"tests/m5/data/input.txt\")\n";
     out << "f >> #(line) => {\n";
     out << "  line ?={\n";
     out << "    1 => >_(1)\n";
@@ -3154,7 +3316,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForMixedRouteProgra
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
     out << "x = 0\n";
-    out << "[...] ?(x < 3) >> {\n";
+    out << "[...] >> ?(x < 3) => {\n";
     out << "  x += 1\n";
     out << "}\n";
     out << ">_(x)\n";
@@ -3209,7 +3371,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForResourcePostfixS
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "\"shadow resource postfix\" >> @file{\"" << output.string() << "\"}\n";
+    out << "\"shadow resource postfix\" >> @file(\"" << output.string() << "\")\n";
   }
   ASSERT_TRUE(fs::create_directories(artifact_dir));
 
@@ -3303,7 +3465,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForIteratorSubset) 
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "f <- @file{\"tests/m5/data/hello.txt\"}\n";
+    out << "f <- @file(\"tests/m5/data/hello.txt\")\n";
     out << "f >> #(line) => {\n";
     out << "  >_(line)\n";
     out << "}\n";
@@ -3354,7 +3516,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForSnapshotDeclSubs
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "@[ref_val] << @file{\"tests/m7/data/ref.txt\"}\n";
+    out << "ref_val = (<< @file(\"tests/m7/data/ref.txt\"))\n";
   }
   ASSERT_TRUE(fs::create_directories(artifact_dir));
 
@@ -3564,7 +3726,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForAtResourceSubset
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "@file{\"tests/m7/data/input.txt\"} >> #(x) => {\n";
+    out << "@file(\"tests/m7/data/input.txt\") >> #(x) => {\n";
     out << "  >_(x)\n";
     out << "}\n";
   }
@@ -3751,9 +3913,9 @@ TEST(StyioDiagnostics, RuntimeHelperErrorEmitsJsonlRuntimeDiagnostic) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "f <- @file{\"/tmp/styio_missing_runtime_diag_"
+    out << "f <- @file(\"/tmp/styio_missing_runtime_diag_"
         << uniq
-        << ".txt\"}\n";
+        << ".txt\")\n";
   }
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -3787,7 +3949,7 @@ TEST(StyioDiagnostics, RuntimeWriteHelperErrorEmitsJsonlRuntimeDiagnostic) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "\"x\" >> @file{\"" << missing_target.string() << "\"}\n";
+    out << "\"x\" >> @file(\"" << missing_target.string() << "\")\n";
   }
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -3913,7 +4075,7 @@ TEST(StyioDiagnostics, StreamZipUnsupportedSourceReportsTypeError) {
   fs::remove(input);
 }
 
-TEST(StyioDiagnostics, SeriesIntrinsicWindowNonLiteralReportsTypeError) {
+TEST(StyioDiagnostics, RetiredLegacyStateDeclReportsParseError) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -3923,9 +4085,7 @@ TEST(StyioDiagnostics, SeriesIntrinsicWindowNonLiteralReportsTypeError) {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
     out << "[1, 2, 3] >> #(p) => {\n";
-    out << "  n = 3\n";
-    out << "  @[3](ma = p[avg, n])\n";
-    out << "  >_(ma)\n";
+    out << "  @[3](ma = p)\n";
     out << "}\n";
   }
 
@@ -3940,11 +4100,9 @@ TEST(StyioDiagnostics, SeriesIntrinsicWindowNonLiteralReportsTypeError) {
     + input.string() + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
-  EXPECT_EQ(result.exit_code, 4);
-  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("window size for series intrinsic must be integer literal"), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("Styio.TypeError"), std::string::npos);
+  EXPECT_EQ(result.exit_code, 3);
+  EXPECT_NE(result.stdout_text.find("\"category\":\"ParseError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("legacy M6 @[...] syntax is retired"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("Styio.NotImplemented"), std::string::npos);
 
   fs::remove(input);
@@ -3959,10 +4117,11 @@ TEST(StyioDiagnostics, SingleArgStateFunctionInliningUsesCallArgument) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "# pulse = (x) => @[sum = 0](out = $sum + x)\n";
+    out << "@out : i64|..3|\n";
     out << "[1, 2, 3] >> #(v) => {\n";
-    out << "  pulse(v)\n";
-    out << "  >_(out)\n";
+    out << "  next = @out[-1] + v\n";
+    out << "  next -> @out\n";
+    out << "  >_(next)\n";
     out << "}\n";
   }
 
@@ -3992,12 +4151,11 @@ TEST(StyioDiagnostics, BlockStateFunctionInliningUsesCallArgument) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "# pulse = (x) => {\n";
-    out << "  @[sum = 0](out = $sum + x)\n";
-    out << "}\n";
+    out << "@out : i64|..3|\n";
     out << "[1, 2, 3] >> #(v) => {\n";
-    out << "  pulse(v)\n";
-    out << "  >_(out)\n";
+    out << "  next = @out[-1] + v\n";
+    out << "  next -> @out\n";
+    out << "  >_(next)\n";
     out << "}\n";
   }
 
@@ -4027,13 +4185,14 @@ TEST(StyioDiagnostics, StateInlineMatchCasesFunctionUsesCallArgument) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "# pulse = (x) => @[sum = 0](out = x ?= {\n";
-    out << "  1 => { <| $sum + 10 }\n";
-    out << "  _ => { <| $sum + x }\n";
-    out << "})\n";
+    out << "@out : i64|..3|\n";
     out << "[1, 2, 3] >> #(v) => {\n";
-    out << "  pulse(v)\n";
-    out << "  >_(out)\n";
+    out << "  next = v ?= {\n";
+    out << "    1 => { <| @out[-1] + 10 }\n";
+    out << "    _ => { <| @out[-1] + v }\n";
+    out << "  }\n";
+    out << "  next -> @out\n";
+    out << "  >_(next)\n";
     out << "}\n";
   }
 
@@ -4063,10 +4222,10 @@ TEST(StyioDiagnostics, StateInlineInfiniteLiteralFunctionUsesCallArgument) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "# pulse = (x) => @[sum = 0](out = [...])\n";
+    out << "@out : i64|..2|\n";
     out << "[1, 2] >> #(v) => {\n";
-    out << "  pulse(v)\n";
-    out << "  >_(out)\n";
+    out << "  0 -> @out\n";
+    out << "  >_(0)\n";
     out << "}\n";
   }
 
@@ -4083,6 +4242,40 @@ TEST(StyioDiagnostics, StateInlineInfiniteLiteralFunctionUsesCallArgument) {
   EXPECT_EQ(result.exit_code, 0);
   EXPECT_EQ(result.stdout_text, "0\n0\n");
   EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioTopologyV2, LogicalResourceWritesCommitAtPulseEnd) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-topology-v2-lazy-commit-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@x : i64|2|\n";
+    out << "[1, 2] >> #(v) => {\n";
+    out << "  v -> @x\n";
+    out << "  >_(@x[-1])\n";
+    out << "}\n";
+    out << ">_(@x[-2])\n";
+    out << ">_(@x[-1])\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "0\n1\n1\n2\n");
 
   fs::remove(input);
 }
@@ -4118,6 +4311,63 @@ TEST(StyioDiagnostics, MatchWithoutDefaultDoesNotCrash) {
   fs::remove(input);
 }
 
+TEST(StyioDiagnostics, FunctionMatchSugarAndTailExpressionsReturnValues) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-function-match-tail-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# fib := (n: i32) ?= {\n";
+    out << "  0 => 0\n";
+    out << "  1 => 1\n";
+    out << "  _ => fib(n - 1) + fib(n - 2)\n";
+    out << "}\n";
+    out << "# block_tail := (n: i32) => {\n";
+    out << "  x = n + 1\n";
+    out << "  x\n";
+    out << "}\n";
+    out << "# branch_block_tail := (n: i32) ?= {\n";
+    out << "  0 => {\n";
+    out << "    base = 40\n";
+    out << "    base + 2\n";
+    out << "  }\n";
+    out << "  _ => n + 10\n";
+    out << "}\n";
+    out << "# float_match_tail := (n: i32) ?= {\n";
+    out << "  0 => 1.5\n";
+    out << "  _ => n + 2.5\n";
+    out << "}\n";
+    out << "# stmt_tail := () => {\n";
+    out << "  x = 7\n";
+    out << "}\n";
+    out << ">_(fib(6))\n";
+    out << ">_(block_tail(4))\n";
+    out << ">_(branch_block_tail(0))\n";
+    out << ">_(branch_block_tail(5))\n";
+    out << ">_(float_match_tail(0))\n";
+    out << ">_(float_match_tail(3))\n";
+    out << ">_(stmt_tail())\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(result.stdout_text, "8\n5\n42\n15\n1.500000\n5.500000\n0\n");
+
+  fs::remove(input);
+}
+
 TEST(StyioDiagnostics, MalformedStatementPrefixReportsParseErrorWithoutCrash) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
@@ -4143,7 +4393,7 @@ TEST(StyioDiagnostics, MalformedStatementPrefixReportsParseErrorWithoutCrash) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 3);
   EXPECT_NE(result.stdout_text.find("\"category\":\"ParseError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("No Statement Starts With This"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("which is expected to be ("), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("Styio.NotImplemented"), std::string::npos);
 
   fs::remove(input);
@@ -4307,6 +4557,93 @@ TEST(StyioSamples, DictTypeHandleFamilies) {
   EXPECT_EQ(
     result.stdout_text,
     "[1,2,3]\n[[1,2,3],[4,5]]\n{\"x\":1}\n[{\"x\":1},{\"y\":2}]\n[1,2,3]\n[4,5]\n");
+
+  fs::remove(input);
+}
+
+TEST(StyioSamples, MatrixTypeNestedListLiteral) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-matrix-type-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "m: matrix = [[1,0],[0,1]]\n";
+    out << ">_(m)\n";
+    out << ">_(m[0])\n";
+    out << ">_(m[1][1])\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(result.stdout_text, "[[1,0],[0,1]]\n[1,0]\n1\n");
+
+  fs::remove(input);
+}
+
+TEST(StyioSamples, MatrixOperationsAndIntrinsics) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-matrix-ops-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "a: matrix = [[1,2],[3,4]]\n";
+    out << "b: matrix = [[5,6],[7,8]]\n";
+    out << ">_(a + b)\n";
+    out << ">_(a * b)\n";
+    out << ">_(mat_hadamard(a,b))\n";
+    out << ">_(transpose(a))\n";
+    out << ">_(mat_identity_i64(2))\n";
+    out << "z = mat_zeros_i64(2,2)\n";
+    out << "ok = mat_set(z,0,1,9)\n";
+    out << ">_(z)\n";
+    out << ">_(dot(a,b))\n";
+    out << ">_(mat_sum(a))\n";
+    out << ">_(norm(a))\n";
+    out << ">_(mat_shape(a))\n";
+    out << ">_(mat_rows(a))\n";
+    out << ">_(mat_cols(a))\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(
+    result.stdout_text,
+    "[[6,8],[10,12]]\n"
+    "[[19,22],[43,50]]\n"
+    "[[5,12],[21,32]]\n"
+    "[[1,3],[2,4]]\n"
+    "[[1,0],[0,1]]\n"
+    "[[0,9],[0,0]]\n"
+    "70\n"
+    "10\n"
+    "5.477226\n"
+    "[2,2]\n"
+    "2\n"
+    "2\n");
 
   fs::remove(input);
 }

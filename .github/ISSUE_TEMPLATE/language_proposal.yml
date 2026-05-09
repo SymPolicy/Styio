@@ -1,0 +1,27 @@
+name: Language proposal
+description: Propose a language, parser, sema, or resource-topology change.
+title: "[language] "
+labels: ["language"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user-visible behavior or implementation boundary needs to change?
+    validations:
+      required: true
+  - type: textarea
+    id: syntax
+    attributes:
+      label: Proposed syntax or semantics
+      description: Include examples and migration notes when applicable.
+      render: styio
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Required tests
+      description: Which parser, sema, lowering, pipeline, or docs gates should cover it?
+    validations:
+      required: true

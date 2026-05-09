@@ -84,9 +84,9 @@
 
 ### 复现命令
 ```bash
-cmake -S . -B build
-cmake --build build --target <targets>
-ctest --test-dir build -L <label> --output-on-failure
+cmake -S . -B build/default
+cmake --build build/default --target <targets>
+ctest --test-dir build/default -L <label> --output-on-failure
 ```
 ```
 
@@ -148,5 +148,5 @@ fix: make AST tracked cleanup non-owning to avoid double free
 
 ```bash
 tmp_dir="$(mktemp -d)"
-./benchmark/parser-shadow-suite-gate.sh ./build/bin/styio ./tests/milestones/m1 "$tmp_dir"
+./benchmark/parser-shadow-suite-gate.sh ./build/default/bin/styio ./tests/milestones/m1 "$tmp_dir"
 ```

@@ -1,19 +1,19 @@
 # Archive Review Docs
 
-**Purpose:** Define the scope of archived dated review bundles under `docs/archive/review/`; the generated inventory lives in [INDEX.md](./INDEX.md).
+**Purpose:** Keep the generated entrypoint for `docs/archive/review/`; archived dated review bundles are no longer retained in the current tree.
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-05-09
 
 ## Scope
 
-1. Store dated review bundles after their actionable content has been summarized into active docs.
-2. Keep unresolved long-lived conflicts in `../../review/Logic-Conflicts.md`.
-3. Use `../../rollups/` first for compressed guidance and `../ARCHIVE-LEDGER.md` for provenance lookup.
+1. Keep this directory available for generated index tooling.
+2. Promote unresolved long-lived conflicts into the owning active design doc or `../../rollups/NEXT-STAGE-GAP-LEDGER.md`.
+3. Use Git history when exact old review-bundle wording is required.
 
 ## Notes
 
-1. Archived review bundles preserve their original wording for traceability.
-2. Active review bundles remain in `../../review/` while they are still inside the keep window.
+1. Do not add dated historical review bundles here unless an active policy reopens archive retention.
+2. Promote still-actionable findings into active review or owner SSOT docs instead.
 
 ## Inventory
 

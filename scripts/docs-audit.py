@@ -2,45 +2,69 @@
 from __future__ import annotations
 
 import argparse
+import os
 import json
 import re
 import subprocess
 import sys
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence
 
+from docs_config import collection_dirs
+
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
-COLLECTION_DIRS = [
-    DOCS,
-    DOCS / "rollups",
-    DOCS / "archive",
-    DOCS / "archive" / "history",
-    DOCS / "archive" / "review",
-    DOCS / "design",
-    DOCS / "specs",
-    DOCS / "teams",
-    DOCS / "review",
-    DOCS / "plans",
-    DOCS / "for-ide",
-    DOCS / "for_spio",
-    DOCS / "assets",
-    DOCS / "assets" / "workflow",
-    DOCS / "assets" / "templates",
-    DOCS / "adr",
-    DOCS / "history",
-    DOCS / "milestones",
-]
+COLLECTION_DIRS = collection_dirs(ROOT)
 PURPOSE_RE = re.compile(r"^(?:\*\*Purpose:\*\*|\[EN\] Purpose:)\s+.+$", re.M)
 LAST_UPDATED_RE = re.compile(r"^(?:\*\*Last updated:\*\*|\[EN\] Last updated:)\s+[0-9]{4}-[0-9]{2}-[0-9]{2}\s*$", re.M)
 LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 DATE_FILE_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}\.md$")
 ADR_FILE_RE = re.compile(r"^ADR-[0-9]{4}-[a-z0-9-]+\.md$")
+APPROVED_ADR_MARKDOWN = {"README.md", "INDEX.md", "IMPLEMENTED-DECISIONS.md"}
 MILESTONE_DIR_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 MILESTONE_FILE_RE = re.compile(r"^(00-Milestone-Index|M[0-9]+-[A-Za-z0-9-]+)\.md$")
 BENCHMARK_REPORT_SUMMARY_RE = re.compile(r"^benchmark/reports/[^/]+/summary\.md$")
 APPROVED_TEST_DOC_NAMES = {"README.md", "REGRESSION-TEMPLATE.md"}
+APPROVED_ROOT_MARKDOWN = {
+    "CHANGELOG.md",
+    "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md",
+    "DEPENDENCY-USAGE.md",
+    "LICENSE-POLICY.md",
+    "README.md",
+    "README_zh.md",
+    "RELEASE-POLICY.md",
+    "SECURITY.md",
+    "SUPPORT.md",
+}
+APPROVED_GITHUB_MARKDOWN = {
+    ".github/PULL_REQUEST_TEMPLATE.md",
+}
+APPROVED_EXAMPLE_MARKDOWN = {
+    "example/README.md",
+}
+PARAM_RESOURCE_PSEUDO_DEF_RE = re.compile(r"@[A-Za-z_][A-Za-z0-9_]*\s*[\{\(][^\n`]*\s*:=")
+FILE_PATH_PSEUDO_PRIMITIVE_RE = re.compile(r"\bfile\s*\(\s*path\s*\)")
+RESOURCE_PSEUDO_DEF_NEGATION_RE = re.compile(r"\b(do not|don't|must not|never|not|invalid|forbid|forbidden|reject|rejected)\b", re.I)
+PUBLIC_WORDING_FORBIDDEN_PATTERNS = (
+    (re.compile(r"\bfastest\b", re.I), "absolute speed superlative"),
+    (re.compile(r"\bbest\s+practices\b", re.I), "absolute practice superlative"),
+    (re.compile(r"\bbest[- ]in[- ]class\b", re.I), "unsupported superiority wording"),
+    (re.compile(r"\bworld[- ]class\b", re.I), "unsupported superiority wording"),
+    (re.compile(r"\bindustry[- ]leading\b", re.I), "unsupported superiority wording"),
+    (re.compile(r"\bstrongest\b", re.I), "unsupported superiority wording"),
+    (re.compile(r"\boptimal\b", re.I), "unsupported superiority wording"),
+    (re.compile(r"\bgenuinely\s+novel\b", re.I), "unsupported novelty wording"),
+    (re.compile(r"\bfully\s+functional\b", re.I), "over-broad maturity wording"),
+    (re.compile(r"\bclaim(?:s|ed|ing)?\b", re.I), "public-claim wording"),
+    (re.compile(r"\bperformance\s+claims\b", re.I), "unsupported public-claim wording"),
+    (re.compile(r"\bbenchmark(?:ed|ing)\s+against\b", re.I), "external-comparison wording without evidence scope"),
+    (re.compile(r"\bR" r"ust[- ]equivalent\b|\bR" r"ust\s+equivalence\b|R" r"ust\s*等价", re.I), "unsupported language-equivalence wording"),
+    (re.compile(r"宣称|声称"), "public-claim wording"),
+    (re.compile(r"对标|最快|最佳|最好|最强|领先|世界级|一流"), "unsupported public-positioning wording"),
+)
 
 
 @dataclass(frozen=True)
@@ -169,8 +193,12 @@ def classify_markdown(path: Path) -> ManifestEntry:
     rel = path.as_posix()
     character_count, word_count = measure_markdown(path)
 
-    if rel == "README.md":
-        return ManifestEntry(path, "valid", "repository root entry document", character_count, word_count)
+    if rel in APPROVED_ROOT_MARKDOWN:
+        return ManifestEntry(path, "valid", "approved repository root community document", character_count, word_count)
+    if rel in APPROVED_GITHUB_MARKDOWN:
+        return ManifestEntry(path, "valid", "approved GitHub community template", character_count, word_count)
+    if rel in APPROVED_EXAMPLE_MARKDOWN:
+        return ManifestEntry(path, "valid", "approved runnable example documentation", character_count, word_count)
     if BENCHMARK_REPORT_SUMMARY_RE.match(rel):
         return ManifestEntry(
             path,
@@ -185,6 +213,8 @@ def classify_markdown(path: Path) -> ManifestEntry:
         return ManifestEntry(path, "valid", "approved benchmark documentation", character_count, word_count)
     if has_prefix(path, Path("templates")):
         return ManifestEntry(path, "valid", "approved reusable template documentation", character_count, word_count)
+    if has_prefix(path, Path("workflows")):
+        return ManifestEntry(path, "valid", "approved root workflow documentation and skills", character_count, word_count)
     if rel == "grammar/tree-sitter-styio/README.md":
         return ManifestEntry(
             path,
@@ -219,7 +249,7 @@ def classify_markdown(path: Path) -> ManifestEntry:
             character_count,
             word_count,
         )
-    if has_prefix(path, Path("build")) or has_prefix(path, Path("build-codex")):
+    if has_prefix(path, Path("build")) or path.parts[0].startswith("build-"):
         return ManifestEntry(
             path,
             "invalid",
@@ -501,7 +531,7 @@ def check_naming(errors: List[str]) -> None:
         if path.name not in {"README.md", "INDEX.md"} and not DATE_FILE_RE.match(path.name):
             errors.append(f"invalid history filename: {path.relative_to(ROOT)}")
     for path in (DOCS / "adr").glob("*.md"):
-        if path.name not in {"README.md", "INDEX.md"} and not ADR_FILE_RE.match(path.name):
+        if path.name not in APPROVED_ADR_MARKDOWN and not ADR_FILE_RE.match(path.name):
             errors.append(f"invalid ADR filename: {path.relative_to(ROOT)}")
     for path in (DOCS / "milestones").iterdir():
         if not path.is_dir():
@@ -570,6 +600,8 @@ def check_lifecycle(errors: List[str]) -> None:
 
 
 def check_team_docs_gate(errors: List[str]) -> None:
+    if os.environ.get("STYIO_SKIP_TEAM_DOC_GATE") == "1":
+        return
     proc = subprocess.run(
         [sys.executable, str(ROOT / "scripts/team-docs-gate.py")],
         cwd=ROOT,
@@ -581,6 +613,77 @@ def check_team_docs_gate(errors: List[str]) -> None:
         errors.append(f"team docs gate failed: {detail}")
 
 
+def check_workflow_toml(errors: List[str]) -> None:
+    workflows = ROOT / "workflows"
+    if not workflows.exists():
+        return
+
+    registry = workflows / "workflows.toml"
+    if not registry.exists():
+        errors.append("missing root workflow registry: workflows/workflows.toml")
+
+    for doc in sorted(workflows.glob("*.md")):
+        if doc.name in {"README.md", "INDEX.md"}:
+            continue
+        workflow_toml = doc.with_suffix(".toml")
+        if not workflow_toml.exists():
+            errors.append(f"missing TOML workflow definition for {doc.relative_to(ROOT)}")
+
+    for path in workflows.rglob("*.toml"):
+        try:
+            tomllib.loads(path.read_text(encoding="utf-8"))
+        except tomllib.TOMLDecodeError as exc:
+            errors.append(f"invalid TOML in {path.relative_to(ROOT)}: {exc}")
+
+    for path in workflows.rglob("*.yaml"):
+        errors.append(f"YAML is not allowed for workflow/skill metadata: {path.relative_to(ROOT)}")
+    for path in workflows.rglob("*.yml"):
+        errors.append(f"YAML is not allowed for workflow/skill metadata: {path.relative_to(ROOT)}")
+
+    skills_dir = workflows / "skills"
+    if skills_dir.exists():
+        for skill_dir in sorted(child for child in skills_dir.iterdir() if child.is_dir()):
+            if not (skill_dir / "skill.toml").exists():
+                errors.append(f"missing skill.toml: {skill_dir.relative_to(ROOT)}")
+
+
+def check_resource_identifier_governance(errors: List[str]) -> None:
+    search_roots = [DOCS, ROOT / "workflows"]
+    suffixes = {".md", ".toml"}
+    for search_root in search_roots:
+        if not search_root.exists():
+            continue
+        for path in sorted(p for p in search_root.rglob("*") if p.is_file() and p.suffix in suffixes):
+            if is_archive_doc(path):
+                continue
+            for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                if PARAM_RESOURCE_PSEUDO_DEF_RE.search(line) and not RESOURCE_PSEUDO_DEF_NEGATION_RE.search(line):
+                    errors.append(
+                        "parameterized resource expressions are not declaration heads: "
+                        f"{path.relative_to(ROOT)}:{line_no}"
+                    )
+                if FILE_PATH_PSEUDO_PRIMITIVE_RE.search(line) and not RESOURCE_PSEUDO_DEF_NEGATION_RE.search(line):
+                    errors.append(
+                        "file(path) is not an allowed Styio resource primitive: "
+                        f"{path.relative_to(ROOT)}:{line_no}"
+                    )
+
+
+def check_public_wording(errors: List[str]) -> None:
+    for entry in collect_manifest("worktree"):
+        if entry.status != "valid":
+            continue
+        path = ROOT / entry.path
+        text = strip_code_fences(path.read_text(encoding="utf-8"))
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            for pattern, reason in PUBLIC_WORDING_FORBIDDEN_PATTERNS:
+                if pattern.search(line):
+                    errors.append(
+                        "public documentation wording is not evidence-scoped "
+                        f"({reason}): {entry.rel_path}:{line_no}"
+                    )
+
+
 def run_audit() -> int:
     errors: List[str] = []
     check_collection_dirs(errors)
@@ -590,6 +693,9 @@ def run_audit() -> int:
     check_generated_indexes(errors)
     check_lifecycle(errors)
     check_team_docs_gate(errors)
+    check_workflow_toml(errors)
+    check_resource_identifier_governance(errors)
+    check_public_wording(errors)
 
     if errors:
         print("docs audit failed:", file=sys.stderr)

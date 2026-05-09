@@ -1,8 +1,8 @@
 @	@
 <ID>	file
-{	{
+(	(
 <STRING>	"/tmp/styio_pipeline_stream_input.txt"
-}	}
+)	)
  	 
 >>	>>
  	 
@@ -39,9 +39,9 @@
  	 
 @	@
 <ID>	file
-{	{
+(	(
 <STRING>	"/tmp/styio_pipeline_stream_output.txt"
-}	}
+)	)
 <LF>	\n
 }	}
 <LF>	\n

@@ -17,9 +17,9 @@
  	 
 @	@
 <ID>	file
-{	{
+(	(
 <STRING>	"/tmp/styio_pull_value.txt"
-}	}
+)	)
 )	)
 <LF>	\n
 >_	>_
