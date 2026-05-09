@@ -21,6 +21,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <random>
 #include <regex>
 #include <set>
 #include <sstream>
@@ -83,6 +84,10 @@
 
 #ifndef STYIO_LLVM_DIR
 #define STYIO_LLVM_DIR ""
+#endif
+
+#ifndef STYIO_SOURCE_DIR
+#define STYIO_SOURCE_DIR ""
 #endif
 
 #ifndef STYIO_CMAKE_C_COMPILER
@@ -3651,6 +3656,441 @@ styio_write_compile_plan_receipt_latest(
     error_message);
 }
 
+struct StyioNativeBuildArgsLatest
+{
+  std::filesystem::path input;
+  std::filesystem::path output;
+  bool help = false;
+};
+
+static void
+styio_print_native_build_usage_latest(std::ostream& out) {
+  out << "Usage: styio build <file_path> -o <artifact_name>\n"
+      << "\n"
+      << "Build a Styio source file into a native executable artifact.\n"
+      << "\n"
+      << "Options:\n"
+      << "  -o, --output <path>  Native executable output path\n"
+      << "  -h, --help           Show this help\n";
+}
+
+static bool
+styio_parse_native_build_args_latest(
+  int argc,
+  char* argv[],
+  StyioNativeBuildArgsLatest& out_args,
+  std::string& error_message
+) {
+  for (int i = 2; i < argc; ++i) {
+    const std::string arg = argv[i] != nullptr ? argv[i] : "";
+    if (arg == "-h" || arg == "--help") {
+      out_args.help = true;
+      return true;
+    }
+    if (arg == "-o" || arg == "--output") {
+      if (i + 1 >= argc || argv[i + 1] == nullptr || argv[i + 1][0] == '\0') {
+        error_message = "styio build requires a path after " + arg;
+        return false;
+      }
+      out_args.output = argv[++i];
+      continue;
+    }
+    if (!arg.empty() && arg[0] == '-') {
+      error_message = "unsupported styio build option: " + arg;
+      return false;
+    }
+    if (!out_args.input.empty()) {
+      error_message = "styio build accepts exactly one input file";
+      return false;
+    }
+    out_args.input = arg;
+  }
+
+  if (out_args.input.empty()) {
+    error_message = "styio build requires an input file";
+    return false;
+  }
+  if (out_args.output.empty()) {
+    error_message = "styio build requires -o <artifact_name>";
+    return false;
+  }
+  return true;
+}
+
+static std::filesystem::path
+styio_resolve_current_executable_latest(const char* argv0) {
+  std::error_code ec;
+  std::filesystem::path self = std::filesystem::read_symlink("/proc/self/exe", ec);
+  if (!ec && !self.empty()) {
+    return self;
+  }
+  if (argv0 != nullptr && argv0[0] != '\0') {
+    return styio_absolute_path_latest(std::filesystem::path(argv0));
+  }
+  return {};
+}
+
+static bool
+styio_path_has_runtime_source_latest(const std::filesystem::path& source_root) {
+  if (source_root.empty()) {
+    return false;
+  }
+  std::error_code ec;
+  return std::filesystem::is_regular_file(
+    source_root / "src" / "StyioExtern" / "ExternLib.cpp",
+    ec);
+}
+
+static std::filesystem::path
+styio_resolve_source_root_latest(const std::filesystem::path& self_exe) {
+  const std::filesystem::path configured_root(STYIO_SOURCE_DIR);
+  if (styio_path_has_runtime_source_latest(configured_root)) {
+    return configured_root;
+  }
+
+  std::filesystem::path cur = self_exe;
+  if (std::filesystem::is_regular_file(cur)) {
+    cur = cur.parent_path();
+  }
+  while (!cur.empty()) {
+    if (styio_path_has_runtime_source_latest(cur)) {
+      return cur;
+    }
+    const std::filesystem::path parent = cur.parent_path();
+    if (parent == cur) {
+      break;
+    }
+    cur = parent;
+  }
+  return {};
+}
+
+static std::filesystem::path
+styio_create_native_build_temp_root_latest(std::string& error_message) {
+  std::error_code ec;
+  const std::filesystem::path base = std::filesystem::temp_directory_path(ec);
+  if (ec) {
+    error_message = "cannot resolve temporary directory: " + ec.message();
+    return {};
+  }
+
+  std::uint64_t seed =
+    static_cast<std::uint64_t>(
+      std::chrono::steady_clock::now().time_since_epoch().count());
+  try {
+    std::random_device rd;
+    seed ^= (static_cast<std::uint64_t>(rd()) << 32);
+    seed ^= static_cast<std::uint64_t>(rd());
+  }
+  catch (...) {
+    seed ^= static_cast<std::uint64_t>(std::time(nullptr));
+  }
+
+  std::mt19937_64 rng(seed);
+  for (int attempt = 0; attempt < 128; ++attempt) {
+    const std::filesystem::path candidate =
+      base / ("styio-native-build-" + std::to_string(rng()));
+    ec.clear();
+    if (std::filesystem::create_directory(candidate, ec)) {
+      std::filesystem::permissions(
+        candidate,
+        std::filesystem::perms::owner_all,
+        std::filesystem::perm_options::replace,
+        ec);
+      if (ec) {
+        std::error_code remove_ec;
+        std::filesystem::remove(candidate, remove_ec);
+        error_message = "cannot secure native build temp directory: "
+          + candidate.string() + ": " + ec.message();
+        return {};
+      }
+      return candidate;
+    }
+    std::error_code exists_ec;
+    const bool already_exists = std::filesystem::exists(candidate, exists_ec);
+    if (ec && !already_exists) {
+      error_message = "cannot create native build temp directory: "
+        + candidate.string() + ": " + ec.message();
+      return {};
+    }
+  }
+
+  error_message = "cannot allocate a unique native build temp directory";
+  return {};
+}
+
+static std::string
+styio_native_build_compiler_latest() {
+  const char* env_compiler = std::getenv("STYIO_NATIVE_CXX");
+  if (env_compiler != nullptr && env_compiler[0] != '\0') {
+    return env_compiler;
+  }
+  if (std::string(STYIO_CMAKE_CXX_COMPILER).empty()) {
+    return "clang++";
+  }
+  return STYIO_CMAKE_CXX_COMPILER;
+}
+
+static bool
+styio_native_build_write_compile_plan_latest(
+  const std::filesystem::path& plan_path,
+  const std::filesystem::path& input_path,
+  const std::filesystem::path& build_root,
+  const std::filesystem::path& artifact_dir,
+  const std::filesystem::path& diag_dir,
+  std::string& error_message
+) {
+  std::ostringstream plan;
+  plan
+    << "{\n"
+    << "  \"plan_version\": 1,\n"
+    << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \""
+    << styio_json_escape(STYIO_PROJECT_VERSION) << "\"},\n"
+    << "  \"intent\": \"build\",\n"
+    << "  \"workspace_root\": \"" << styio_json_escape(input_path.parent_path().string()) << "\",\n"
+    << "  \"entry\": {\n"
+    << "    \"package_id\": \"styio/native-build@0\",\n"
+    << "    \"target_kind\": \"bin\",\n"
+    << "    \"target_name\": \"artifact\",\n"
+    << "    \"file\": \"" << styio_json_escape(input_path.string()) << "\"\n"
+    << "  },\n"
+    << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
+    << "  \"profile\": {\"name\": \"native\", \"build_mode\": \"minimal\", \"opt_level\": 3, \"debug\": false, \"lto\": false},\n"
+    << "  \"packages\": [{\"id\": \"styio/native-build@0\"}],\n"
+    << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"styio/native-build@0\"]},\n"
+    << "  \"outputs\": {\n"
+    << "    \"build_root\": \"" << styio_json_escape(build_root.string()) << "\",\n"
+    << "    \"artifact_dir\": \"" << styio_json_escape(artifact_dir.string()) << "\",\n"
+    << "    \"diag_dir\": \"" << styio_json_escape(diag_dir.string()) << "\"\n"
+    << "  },\n"
+    << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": true}\n"
+    << "}\n";
+  return styio_write_text_file_latest(plan_path, plan.str(), error_message);
+}
+
+static bool
+styio_native_build_write_wrapper_latest(
+  const std::filesystem::path& wrapper_path,
+  std::string& error_message
+) {
+  const std::string wrapper = R"cpp(
+#include <iostream>
+
+extern "C" int styio_user_main();
+extern "C" int styio_runtime_has_error();
+extern "C" const char* styio_runtime_last_error();
+extern "C" const char* styio_runtime_last_error_subcode();
+extern "C" void styio_runtime_clear_error();
+
+int main() {
+  styio_runtime_clear_error();
+  const int code = styio_user_main();
+  if (styio_runtime_has_error()) {
+    const char* message = styio_runtime_last_error();
+    const char* subcode = styio_runtime_last_error_subcode();
+    std::cerr << "[RuntimeError] " << (message != nullptr ? message : "runtime helper reported error");
+    if (subcode != nullptr && subcode[0] != '\0') {
+      std::cerr << " [" << subcode << "]";
+    }
+    std::cerr << std::endl;
+    return 5;
+  }
+  return code;
+}
+)cpp";
+  return styio_write_text_file_latest(wrapper_path, wrapper, error_message);
+}
+
+static bool
+styio_native_build_prepare_ir_latest(
+  const std::filesystem::path& compile_plan_ir_path,
+  const std::filesystem::path& native_ir_path,
+  std::string& error_message
+) {
+  std::string ir_text;
+  if (!styio_read_text_file_latest(compile_plan_ir_path, ir_text, error_message)) {
+    return false;
+  }
+  const std::string needle = "define i32 @main(";
+  const std::string replacement = "define i32 @styio_user_main(";
+  const size_t pos = ir_text.find(needle);
+  if (pos == std::string::npos) {
+    error_message = "generated LLVM IR does not define `main`";
+    return false;
+  }
+  ir_text.replace(pos, needle.size(), replacement);
+  return styio_write_text_file_latest(native_ir_path, ir_text, error_message);
+}
+
+static std::string
+styio_native_build_read_log_latest(const std::filesystem::path& path) {
+  std::string text;
+  std::string error;
+  if (!styio_read_text_file_latest(path, text, error)) {
+    return "";
+  }
+  return text;
+}
+
+static int
+styio_native_build_cli_latest(int argc, char* argv[]) {
+#if STYIO_NANO_BUILD
+  (void)argc;
+  (void)argv;
+  std::cerr << "[CliError] styio build is disabled in styio-nano" << std::endl;
+  return static_cast<int>(StyioExitCode::CliError);
+#else
+  StyioNativeBuildArgsLatest args;
+  std::string error_message;
+  if (!styio_parse_native_build_args_latest(argc, argv, args, error_message)) {
+    std::cerr << "[CliError] " << error_message << std::endl;
+    styio_print_native_build_usage_latest(std::cerr);
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+  if (args.help) {
+    styio_print_native_build_usage_latest(std::cout);
+    return static_cast<int>(StyioExitCode::Success);
+  }
+
+  const std::filesystem::path input_path = styio_absolute_path_latest(args.input);
+  const std::filesystem::path output_path = styio_absolute_path_latest(args.output);
+  std::error_code ec;
+  if (!std::filesystem::is_regular_file(input_path, ec)) {
+    std::cerr << "[CliError] input file not found: " << input_path.string() << std::endl;
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+  if (!output_path.parent_path().empty()) {
+    std::filesystem::create_directories(output_path.parent_path(), ec);
+    if (ec) {
+      std::cerr << "[CliError] cannot create output directory: "
+                << output_path.parent_path().string() << ": " << ec.message() << std::endl;
+      return static_cast<int>(StyioExitCode::CliError);
+    }
+  }
+
+  const std::filesystem::path self_exe = styio_resolve_current_executable_latest(argv[0]);
+  if (self_exe.empty()) {
+    std::cerr << "[CliError] cannot resolve current styio executable" << std::endl;
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+  const std::filesystem::path source_root = styio_resolve_source_root_latest(self_exe);
+  if (source_root.empty()) {
+    std::cerr << "[CliError] cannot locate Styio source root for native runtime linking" << std::endl;
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+
+  const std::filesystem::path tmp_root =
+    styio_create_native_build_temp_root_latest(error_message);
+  if (tmp_root.empty()) {
+    std::cerr << "[CliError] " << error_message << std::endl;
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+  const std::filesystem::path build_root = tmp_root / "build";
+  const std::filesystem::path artifact_dir = build_root / "artifacts";
+  const std::filesystem::path diag_dir = build_root / "diag";
+  const std::filesystem::path plan_path = build_root / "plan.json";
+  const std::filesystem::path frontend_stdout = build_root / "frontend.stdout";
+  const std::filesystem::path frontend_stderr = build_root / "frontend.stderr";
+  const std::filesystem::path native_ir_path = build_root / "artifact.native.ll";
+  const std::filesystem::path wrapper_path = build_root / "artifact.wrapper.cpp";
+  const std::filesystem::path native_compile_log = build_root / "native-compile.log";
+
+  std::filesystem::create_directories(build_root, ec);
+  if (ec) {
+    std::cerr << "[CliError] cannot create native build temp directory: "
+              << build_root.string() << ": " << ec.message() << std::endl;
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+
+  auto cleanup = [&]() {
+    std::error_code cleanup_ec;
+    std::filesystem::remove_all(tmp_root, cleanup_ec);
+  };
+
+  if (!styio_native_build_write_compile_plan_latest(
+        plan_path,
+        input_path,
+        build_root,
+        artifact_dir,
+        diag_dir,
+        error_message)) {
+    std::cerr << "[CliError] " << error_message << std::endl;
+    cleanup();
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+
+  const std::string frontend_cmd =
+    styio_shell_quote_latest(self_exe.string())
+    + " --compile-plan " + styio_shell_quote_latest(plan_path.string())
+    + " > " + styio_shell_quote_latest(frontend_stdout.string())
+    + " 2> " + styio_shell_quote_latest(frontend_stderr.string());
+  if (std::system(frontend_cmd.c_str()) != 0) {
+    std::cerr << "[RuntimeError] styio build frontend compilation failed";
+    const std::string stderr_text = styio_native_build_read_log_latest(frontend_stderr);
+    const std::string stdout_text = styio_native_build_read_log_latest(frontend_stdout);
+    if (!stderr_text.empty()) {
+      std::cerr << "\n" << stderr_text;
+    }
+    if (!stdout_text.empty()) {
+      std::cerr << "\n" << stdout_text;
+    }
+    cleanup();
+    return static_cast<int>(StyioExitCode::RuntimeError);
+  }
+
+  const std::filesystem::path compile_plan_ir_path = artifact_dir / "artifact.llvm.ir";
+  if (!styio_native_build_prepare_ir_latest(compile_plan_ir_path, native_ir_path, error_message)) {
+    std::cerr << "[RuntimeError] " << error_message << std::endl;
+    cleanup();
+    return static_cast<int>(StyioExitCode::RuntimeError);
+  }
+  if (!styio_native_build_write_wrapper_latest(wrapper_path, error_message)) {
+    std::cerr << "[RuntimeError] " << error_message << std::endl;
+    cleanup();
+    return static_cast<int>(StyioExitCode::RuntimeError);
+  }
+
+  const std::filesystem::path runtime_src = source_root / "src" / "StyioExtern" / "ExternLib.cpp";
+  const std::filesystem::path include_dir = source_root / "src";
+  const std::string cxx = styio_native_build_compiler_latest();
+  const std::string native_cmd =
+    styio_shell_quote_latest(cxx)
+    + " -std=c++20 -O3 -DNDEBUG -Wno-override-module"
+    + " " + styio_shell_quote_latest(native_ir_path.string())
+    + " " + styio_shell_quote_latest(wrapper_path.string())
+    + " " + styio_shell_quote_latest(runtime_src.string())
+    + " -I " + styio_shell_quote_latest(include_dir.string())
+    + " -o " + styio_shell_quote_latest(output_path.string())
+    + " -ldl -pthread"
+    + " > " + styio_shell_quote_latest(native_compile_log.string())
+    + " 2>&1";
+  if (std::system(native_cmd.c_str()) != 0) {
+    std::cerr << "[RuntimeError] native executable link failed";
+    const std::string log_text = styio_native_build_read_log_latest(native_compile_log);
+    if (!log_text.empty()) {
+      std::cerr << "\n" << log_text;
+    }
+    cleanup();
+    return static_cast<int>(StyioExitCode::RuntimeError);
+  }
+  if (!std::filesystem::is_regular_file(output_path, ec)) {
+    std::cerr << "[RuntimeError] native executable was not produced: "
+              << output_path.string() << std::endl;
+    cleanup();
+    return static_cast<int>(StyioExitCode::RuntimeError);
+  }
+  std::filesystem::permissions(
+    output_path,
+    std::filesystem::perms::owner_exec
+      | std::filesystem::perms::group_exec
+      | std::filesystem::perms::others_exec,
+    std::filesystem::perm_options::add,
+    ec);
+  cleanup();
+  return static_cast<int>(StyioExitCode::Success);
+#endif
+}
+
 static void
 styio_free_tokens(std::vector<StyioToken*>& tokens) {
   for (auto* tok : tokens) {
@@ -3800,6 +4240,10 @@ main(
   int argc,
   char* argv[]
 ) {
+  if (argc >= 2 && argv[1] != nullptr && std::string(argv[1]) == "build") {
+    return styio_native_build_cli_latest(argc, argv);
+  }
+
   cxxopts::Options options("styio", "Styio Compiler");
 
   // styio example.styio
