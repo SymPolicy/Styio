@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -24,7 +23,6 @@ MARKDOWN_LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 FAMILY_ORDER = {
     "history": 0,
     "dated_review": 1,
-    "superseded_milestone": 2,
 }
 ALLOWED_STATUSES = {"active", "summarized_active", "pending_archive", "archived"}
 ACTIVE_FAMILIES = {"history", "dated_review"}
@@ -87,9 +85,8 @@ def default_manifest() -> Dict[str, object]:
         "archive_root": "docs/archive",
         "rollup_root": "docs/rollups",
         "keep_window": {
-            "history": 1,
-            "dated_review": 1,
-            "superseded_milestone": 0,
+            "history": 0,
+            "dated_review": 0,
         },
         "entries": [],
     }
@@ -166,10 +163,6 @@ def date_for_source(family: str, source_path: Path) -> str | None:
         if len(source_path.parts) >= 3 and DATE_RE.match(source_path.parts[2]):
             return source_path.parts[2]
         return None
-    if family == "superseded_milestone":
-        if len(source_path.parts) >= 3 and DATE_RE.match(source_path.parts[2]):
-            return source_path.parts[2]
-        return None
     return None
 
 
@@ -179,10 +172,6 @@ def family_for_source(source_path: Path) -> str | None:
         return "history"
     if len(parts) >= 4 and parts[:2] == ("docs", "review") and DATE_RE.match(parts[2]) and source_path.suffix == ".md":
         return "dated_review"
-    if len(parts) >= 4 and parts[:2] == ("docs", "milestones") and DATE_RE.match(parts[2]) and source_path.suffix == ".md":
-        text = repo_abspath(source_path).read_text(encoding="utf-8") if repo_abspath(source_path).exists() else ""
-        if "**Status:** Superseded draft" in text:
-            return "superseded_milestone"
     return None
 
 
@@ -191,8 +180,6 @@ def archive_path_for(source_path: Path, family: str) -> Path:
         return Path("docs/archive/history") / source_path.name
     if family == "dated_review":
         return Path("docs/archive/review") / Path(*source_path.parts[2:])
-    if family == "superseded_milestone":
-        return Path("docs/archive/milestones") / Path(*source_path.parts[2:])
     raise ValueError(f"unsupported family for archive mapping: {family}")
 
 
@@ -248,10 +235,6 @@ def keep_set_for_family(family: str, manifest: Dict[str, object]) -> set[str]:
             for path in dated_review_sources()
             if len(path.parts) >= 3 and path.parts[2] in keep_dates
         }
-    if family == "superseded_milestone":
-        keep = int(keep_window.get("superseded_milestone", 0))
-        if keep <= 0:
-            return set()
     return set()
 
 
@@ -270,9 +253,9 @@ def ledger_text(manifest: Dict[str, object]) -> str:
         "",
         "## Rules",
         "",
-        "1. `archived` means the active raw source has been moved under `docs/archive/` without content rewriting.",
-        "2. `summarized_active` means the raw source still stays in the active tree because it is within the keep window, but its key value has already been folded into active docs.",
-        "3. Provenance lives here; `docs/rollups/*.md` stays concise and does not list source files inline.",
+        "1. `archived` means the active raw source has been removed from the current tree after its durable value was promoted; exact old text remains available through Git history.",
+        "2. `summarized_active` means the raw source still stays in the active tree by explicit exception, but its key value has already been folded into active docs.",
+        "3. Lifecycle provenance lives here; `docs/rollups/*.md` stays concise and does not list source files inline.",
         "",
         "## Entries",
         "",
@@ -604,7 +587,7 @@ def run_cleanup(args: argparse.Namespace) -> int:
         if entry.status == "pending_archive" and (args.family == "all" or entry.family == args.family)
     ]
     if not pending:
-        print("nothing to archive")
+        print("nothing to clean")
         return 0
 
     link_conflicts = find_direct_links_to_sources(pending)
@@ -629,9 +612,8 @@ def run_cleanup(args: argparse.Namespace) -> int:
         if not source_abs.exists():
             raise RuntimeError(f"pending source is missing before cleanup: {entry.source_path}")
         if archive_abs.exists():
-            raise RuntimeError(f"archive target already exists: {entry.archive_path}")
-        archive_abs.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(source_abs), str(archive_abs))
+            raise RuntimeError(f"archive target already exists under the no-retained-archive policy: {entry.archive_path}")
+        source_abs.unlink()
         remove_empty_parents(source_abs.parent, DOCS)
         updated.append(
             LifecycleEntry(
@@ -651,7 +633,7 @@ def run_cleanup(args: argparse.Namespace) -> int:
     save_manifest(manifest)
     write_ledger(manifest)
     write_indexes()
-    print(f"archived {len(pending)} source docs")
+    print(f"removed {len(pending)} source docs")
     return 0
 
 
@@ -717,8 +699,8 @@ def run_validate(args: argparse.Namespace) -> int:
         if entry.status == "archived":
             if source_abs.exists():
                 errors.append(f"archived entry source still exists: {entry.source_path}")
-            if not archive_abs.exists():
-                errors.append(f"archived entry archive target missing: {entry.archive_path}")
+            if archive_abs.exists():
+                errors.append(f"archived entry target should not exist under the no-retained-archive policy: {entry.archive_path}")
             if entry.archived_at is None:
                 errors.append(f"archived entry missing archived_at: {entry.source_path}")
         elif entry.status in {"pending_archive", "summarized_active", "active"}:
@@ -768,7 +750,7 @@ def build_parser() -> argparse.ArgumentParser:
     mark.add_argument("--target", action="append", required=True)
     mark.set_defaults(func=run_mark)
 
-    cleanup = subparsers.add_parser("cleanup", help="Archive pending sources once they are safe to move.")
+    cleanup = subparsers.add_parser("cleanup", help="Remove pending sources once they are safe to drop from the current tree.")
     cleanup.add_argument("--family", choices=["history", "dated_review", "all"], required=True)
     cleanup.set_defaults(func=run_cleanup)
 

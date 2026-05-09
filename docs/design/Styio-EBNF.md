@@ -83,7 +83,7 @@ TOK_IO_BUF         = '>_' ;
 (* Binding *)
 TOK_BIND           = ':=' ;
 
-(* Resource copy / legacy shift-back *)
+(* Resource copy / compatibility pull *)
 TOK_SHIFT_BACK     = '<<' ;
 
 (* Hash (function definition prefix) *)
@@ -161,14 +161,17 @@ statement_sep      = ';' | '|;' ;
 
 top_level_statement = import_declaration
                     | type_rewrite_decl
+                    | resource_slot_decl
+                    | internal_resource_decl
+                    | resource_member_decl
                     | statement ;
 
 statement          = declaration
                    | assignment
-                   | state_declaration
                    | conditional_stmt
                    | await_stmt
                    | task_group_launch
+                   | resource_order_stmt
                    | match_bind_expr
                    | flow_pipeline
                    | expression_stmt
@@ -284,17 +287,9 @@ assign_op          = '=' | '+=' | '-=' | '*=' | '/=' | ':=' ;
 
 ## 6. Retired State Declarations (M6)
 
-The `@[...]` form is retired active syntax. It is shown here only as historical
-grammar so migration diagnostics can name it precisely. New topology code uses
-`@name : Type` resource declarations, `expr -> @name` writes, and
-resource-object selectors.
-
-```ebnf
-retired_state_decl = '@' '[' state_param ']' '(' assignment ')' ;
-
-state_param        = integer                          (* window buffer: @[5] *)
-                   | identifier '=' expression ;      (* scalar accumulator: @[total = 0] *)
-```
+Retired M6 state containers and state references are not active grammar productions. The parser
+rejects the retired prefixes with migration diagnostics. New topology code uses `@name : Type`
+resource declarations, `expr -> @name` writes, and resource-object selectors.
 
 ---
 
@@ -366,6 +361,8 @@ task_group_entry   = identifier ( ':=' | '=' ) block ;
 
 await_stmt         = '?|' [ expression ] '->' identifier ':' type_annotation
                      [ '|' expression ] ;
+
+resource_order_stmt = identifier '=>' identifier ;
 ```
 
 `await_stmt` without a source (`?| -> name: T`) is reserved for bare continuation
@@ -435,8 +432,7 @@ selector_body      = dot_run                         (* x[..], x[...] *)
 selector_mode      = 'avg' | 'max' | 'min' | 'std' | 'rsi'
                    | identifier ;
 
-(* Retired from active syntax on 2026-04-24: '[?, cond]', '[?=, val]', and
-   '$state[<<, n]'. Historical milestone docs may mention them as provenance. *)
+(* Retired selector families are parser errors outside registered negative tests. *)
 
 call               = '(' [ expression_list ] ')' ;
 
@@ -449,12 +445,10 @@ expression_list    = expression { ',' expression } ;
 
 ```ebnf
 primary_expr       = identifier
-                   | state_ref
                    | int_literal
                    | float_literal
                    | string_literal
                    | 'true' | 'false'
-                   | '@'                           (* retired source-level undefined *)
                    | resource
                    | collection
                    | instant_pull
@@ -462,8 +456,6 @@ primary_expr       = identifier
                    | '(' expression ')'
                    | '?' '(' expression ')'        (* guard condition prefix; followed by => for value selection *)
                    | block ;
-
-state_ref          = '$' identifier [ selector ] ;  (* legacy M6 state reference *)
 ```
 
 ---
@@ -473,18 +465,34 @@ state_ref          = '$' identifier [ selector ] ;  (* legacy M6 state reference
 ```ebnf
 resource           = std_stream_resource
                    | '@' identifier '(' expression ')'
-                   | '@' ( '{' expression '}' | '(' expression ')' ) ;
+                   | '@' '{' expression '}'
+                   | '@' '(' [ expression ] ')' ;
 
 std_stream_resource = '@stdout' | '@stderr' | '@stdin' ;
 
-resource_decl      = '@' identifier [ ':' type_annotation ] ':=' '#' '(' [ param_list ] ')' '=>' block ;
+resource_slot_decl  = '@' identifier ':' type_annotation
+                      { ',' '@' identifier ':' type_annotation }
+                      [ ':=' driver_block ] ;
+
+driver_block        = '{' flow_pipeline '}' ;
+
+internal_resource_decl = '@' identifier [ ':' type_annotation ] ':=' '#' '(' [ param_list ] ')' '=>' block ;
+
+resource_member_decl = '@' identifier resource_member_selector ( '=' | ':=' )
+                       ( function_body | expression ) ;
+
+resource_member_selector = '::' identifier
+                         | '.' identifier ;
 ```
 
 Examples:
+- `@price : f64|..10|` — top-level resource slot
 - `@("localhost:8080")` — auto-detect
+- `@()` — empty resource / destroy sink
 - `@file("readme.txt")` — explicit file
 - `@binance("BTCUSDT")` — exchange feed
 - `@mysql("localhost:3306")` — database
+- `@file::close = () => { @file -> @() }` — mutable resource-family method
 
 ### 9.1 Standard Stream Resources
 
@@ -502,7 +510,7 @@ Usage patterns (reuse existing productions):
 - `'@' 'stdin' ':=' '#' '(' ')' '=>' '{' '<|' '<-' terminal_handle '}'` — internal stdin declaration expanded form
 - `'@' 'file' ':' 'ftype' ':=' '#' '(' identifier ')' '=>' block` — internal file resource declaration; the body must not call `file(path)`
 - `'(' '<-' '@stdin' ')'` — immediate pull via `instant_pull`
-- `'(' '<<' '@stdin' ')'` — legacy compatibility pull via `legacy_instant_pull`
+- `'(' '<<' '@stdin' ')'` — compatibility pull via `legacy_instant_pull`
 - `identifier (',' identifier)* '<-' '@stdin' ':' (type | '(' type (',' type)* ')')` — typed stdin pull; scalar, tuple, and single-target `list[T]` forms share the same `instant_pull` AST entry.
 
 ```ebnf
@@ -593,12 +601,12 @@ When the parser encounters `>>` (or longer `>>>`, `>>>>`, etc.):
 
 ### Rule 2: `@` Disambiguation
 
-- `@` alone as a source expression: **retired**. Use resource/intrinsic-produced absence; active milestone fixtures must not author bare `@` directly.
-- `@[`: **Retired M6 state container declaration; parse error**
+- `@` alone as a source expression: **parse error**. Use resource/intrinsic-produced absence; active milestone fixtures must not author bare `@` directly.
+- `@` followed by `[` : **retired M6 state-container family; parse error**
 - `@` followed by identifier then `:`: **Topology v2 resource declaration**
 - `@` followed by identifier then `(`: **Resource with explicit protocol**
 - `@` followed by identifier then `{`: **Invalid for explicit resources; use `@name(...)`**
-- `@{` or `@(`: **Anonymous resource**
+- `@{` or `@(`: **Anonymous resource**; `@()` is the empty resource / destroy sink
 - `@` followed by `stdout`, `stderr`, or `stdin` (bare identifier, no `{}`/`()`): **Standard stream resource** — the lexer produces `TOK_AT` + `NAME("stdout"|"stderr"|"stdin")`, and the parser resolves it directly to a standard-stream resource atom.
 
 ### Rule 3: `$` Disambiguation
@@ -621,9 +629,9 @@ The lexer always prefers the two-character compound token over individual charac
 
 **Full narrative:** [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md).
 
-This appendix fixes the broader topology grammar. The current compiler now accepts single-resource
-internal declarations of the form `@ name [: type] := #(args) => { ... }`; the v2 user-facing
-resource declaration, length suffixes, and resource-object selectors remain target work.
+This appendix records the topology grammar surface that is now folded into the main EBNF above.
+The resource-topology design document owns semantic details such as capability inference,
+pending writes, move-only checks, consuming methods, and commit boundaries.
 
 ### B.1 Program and top-level resource
 

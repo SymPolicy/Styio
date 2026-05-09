@@ -10,5 +10,5 @@
 
 | Path | Entry | Summary |
 |------|-------|---------|
-| `CURRENT-STATE.md` | [Styio Current State](./CURRENT-STATE.md) | Provide the compressed default read-in for the current repository state so future agents can orient themselves from active docs first; raw history, archived milestones/plans, and provenance docs are optional background, not required maintenance input. |
+| `CURRENT-STATE.md` | [Styio Current State](./CURRENT-STATE.md) | Provide the compressed default read-in for the current repository state so future agents can orient themselves from active docs first; Git history and minimal lifecycle provenance are optional background, not required maintenance input. |
 | `NEXT-STAGE-GAP-LEDGER.md` | [Next-Stage Gap Ledger](./NEXT-STAGE-GAP-LEDGER.md) | Provide the active, evidence-based phase summary for repository-wide unfinished work so maintainers can split the next stage into checkpoint-sized, multi-team deliveries without creating parallel truths. |

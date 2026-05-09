@@ -5,7 +5,6 @@
 **Last updated:** 2026-04-20
 
 **Related docs:**
-- [`Styio Ecosystem Bootstrap Plan`](../../plans/Styio-Ecosystem-Bootstrap-Plan.md)
 - [`Styio Handle, Capability, and Failure Type System`](../../design/Styio-Handle-Capability-Type-System.md)
 
 ---

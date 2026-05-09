@@ -10,7 +10,7 @@
 
 | Path | Entry | Summary |
 |------|-------|---------|
-| `syntax/` | [Syntax Design Index](./syntax/INDEX.md) | Define the scope and naming rules for compact syntax reference pages under docs/design/syntax/; the generated inventory lives in INDEX.md. |
+| `syntax/` | [Syntax Design Index](./syntax/INDEX.md) | Define the compact active-syntax entrypoints under docs/design/syntax/; generated inventory lives in INDEX.md, while full grammar, tokens, and semantics stay in owner documents. |
 
 ## Files
 
@@ -19,9 +19,9 @@
 | `performance-testing.md` | [Styio Performance Testing Route](./performance-testing.md) | Provide a lightweight pointer from docs/design/ to the external benchmark workflow, without duplicating the benchmark SSOT. |
 | `Styio-EBNF.md` | [Styio Formal Grammar (EBNF)](./Styio-EBNF.md) | 词法与语法的 EBNF 权威定义；资源拓扑相关附录与叙述以 Styio-Resource-Topology.md 为准，语义细节以 Styio-Language-Design.md 为准。 |
 | `Styio-Handle-Capability-Type-System.md` | [Styio Handle, Capability, and Failure Type System](./Styio-Handle-Capability-Type-System.md) | 为 Styio 的资源值、@stdin/@stdout、<<、可迭代对象、以及默认失败处理建立统一的设计级类型系统；该文档定义目标模型，不等同于当前实现。 |
-| `Styio-Language-Design.md` | [Styio Language Design Specification](./Styio-Language-Design.md) | Styio 语言的 权威语义与特性说明（正文规格）；形式文法见 Styio-EBNF.md，符号与 token 名见 Styio-Symbol-Reference.md，@ 目标拓扑见 Styio-Resource-Topology.md，冲突与未定见 ../review/Logic-Conflicts.md。 |
+| `Styio-Language-Design.md` | [Styio Language Design Specification](./Styio-Language-Design.md) | Styio 语言的 权威语义与特性说明（正文规格）；形式文法见 Styio-EBNF.md，符号与 token 名见 Styio-Symbol-Reference.md，@ 目标拓扑见 Styio-Resource-Topology.md，当前实现缺口见 ../rollups/NEXT-STAGE-GAP-LEDGER.md。 |
 | `Styio-Research-Innovations.md` | [Styio — Research Innovation Points & Paper Roadmap](./Styio-Research-Innovations.md) | 论文向研究假设与证据清单；不作为语言实现或语义的规范依据（实现见 ../specs/AGENT-SPEC.md，语义见 Styio-Language-Design.md），也不作为产品、性能或外部系统比较声明。 |
 | `Styio-Resource-Driver.md` | [Styio Resource Driver Interface Specification](./Styio-Resource-Driver.md) | @protocol(...) 资源驱动 的 C++ 接口、生命周期与线程约定；与语言侧 @ 语义、拓扑目标见 Styio-Language-Design.md、Styio-Resource-Topology.md。 |
-| `Styio-Resource-Topology.md` | [Styio — Resource Topology & @ Semantics (Design Spec v2)](./Styio-Resource-Topology.md) | @ 资源定义、类型长度后缀、资源读取/复制/迭代、以及资源拓扑安全检查的设计级单一叙述；模块导入语法见 Styio-Language-Design.md 与 Styio-EBNF.md。与当前编译器差异见 ../review/Logic-Conflicts.md。 |
+| `Styio-Resource-Topology.md` | [Styio — Resource Topology & @ Semantics (Design Spec v2)](./Styio-Resource-Topology.md) | @ 资源定义、类型长度后缀、资源读取/复制/迭代、以及资源拓扑安全检查的设计级单一叙述；模块导入语法见 Styio-Language-Design.md 与 Styio-EBNF.md。与当前编译器差异见 ../rollups/NEXT-STAGE-GAP-LEDGER.md。 |
 | `Styio-StdLib-Intrinsics.md` | [Styio Standard Library — Compiler Intrinsics Specification](./Styio-StdLib-Intrinsics.md) | 编译器内建 [op, n] 等算法的规范（行为、复杂度、@ 处理、代码生成提示）；不重复语言总语义（见 Styio-Language-Design.md）。 |
 | `Styio-Symbol-Reference.md` | [Styio Symbol Reference](./Styio-Symbol-Reference.md) | 各符号的 lexer token 名与物理含义速查表；完整语义与章节论证见 Styio-Language-Design.md。实现 enum class TokenKind 时以本文与 EBNF 对照。 |

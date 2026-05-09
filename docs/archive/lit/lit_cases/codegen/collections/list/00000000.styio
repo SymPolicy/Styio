@@ -1,3 +1,0 @@
-// RUN: %{styio} --llvm-ir %s | FileCheck %s
-
-a = [1, 2, 3]
