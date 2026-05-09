@@ -16,6 +16,8 @@
 #include "../StyioIR/GenIR/GenIR.hpp"
 #include "../StyioToken/Token.hpp"
 #include "../StyioUtil/BoundedType.hpp"
+#include "../StyioUtil/DynamicValue.hpp"
+#include "../StyioUtil/IOIntrinsics.hpp"
 #include "../StyioUtil/Util.hpp"
 #include "CodeGenVisitor.hpp"
 
@@ -77,19 +79,6 @@ styio_dynamic_cell_type(llvm::LLVMContext& ctx) {
   return cell;
 }
 
-enum StyioDynTag : std::int64_t
-{
-  STYIO_DYN_UNDEF = 0,
-  STYIO_DYN_BOOL = 1,
-  STYIO_DYN_I64 = 2,
-  STYIO_DYN_F64 = 3,
-  STYIO_DYN_CSTR = 4,
-  STYIO_DYN_LIST = 5,
-  STYIO_DYN_DICT = 6,
-  STYIO_DYN_MATRIX = 7,
-  STYIO_DYN_TASK = 8,
-};
-
 bool
 ir_yields_list_handle(StyioIR* value) {
   if (dynamic_cast<SCListLiteral*>(value)
@@ -98,6 +87,9 @@ ir_yields_list_handle(StyioIR* value) {
       || dynamic_cast<SCDictKeys*>(value)
       || dynamic_cast<SCDictValues*>(value)) {
     return true;
+  }
+  if (auto* pull = dynamic_cast<SIOStdStreamPull*>(value)) {
+    return styio_is_list_type(pull->result_type);
   }
   if (auto* load = dynamic_cast<SGDynLoad*>(value)) {
     return load->kind == SGDynLoadKind::ListHandle;
@@ -170,6 +162,98 @@ ir_yields_task_handle(StyioIR* value) {
   return false;
 }
 }  // namespace
+
+StyioToLLVM::DynamicSlotPayload
+StyioToLLVM::dynamic_slot_payload_for_value(StyioIR* source, llvm::Value* value) {
+  DynamicSlotPayload payload;
+  payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Undef);
+
+  if (ir_yields_list_handle(source)) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::List);
+    payload.i64v = value;
+  }
+  else if (ir_yields_dict_handle(source)) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Dict);
+    payload.i64v = value;
+  }
+  else if (ir_yields_matrix_handle(source)) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Matrix);
+    payload.i64v = value;
+  }
+  else if (ir_yields_task_handle(source)) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Task);
+    payload.i64v = value;
+  }
+  else if (value->getType()->isPointerTy()) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::CStr);
+    payload.ptrv = value;
+  }
+  else if (value->getType()->isDoubleTy()) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::F64);
+    payload.f64v = value;
+  }
+  else if (value->getType()->isIntegerTy(1)) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Bool);
+    payload.i64v = value;
+  }
+  else if (value->getType()->isIntegerTy()) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::I64);
+    payload.i64v = value;
+  }
+
+  return payload;
+}
+
+StyioToLLVM::DynamicSlotPayload
+StyioToLLVM::dynamic_slot_payload_for_type(const StyioDataType& type, llvm::Value* value) {
+  DynamicSlotPayload payload;
+  payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Undef);
+
+  if (styio_is_list_type(type)) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::List);
+    payload.i64v = value;
+  }
+  else if (styio_is_dict_type(type)) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Dict);
+    payload.i64v = value;
+  }
+  else if (styio_is_matrix_type(type)) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Matrix);
+    payload.i64v = value;
+  }
+  else if (type.handle_family == StyioHandleFamily::Task) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Task);
+    payload.i64v = value;
+  }
+  else if (type.option == StyioDataTypeOption::String) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::CStr);
+    payload.ptrv = value;
+  }
+  else if (type.option == StyioDataTypeOption::Float) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::F64);
+    payload.f64v = value;
+  }
+  else if (type.option == StyioDataTypeOption::Bool) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::Bool);
+    payload.i64v = value;
+  }
+  else if (type.option == StyioDataTypeOption::Integer) {
+    payload.tag = styio_dynamic_tag_value(StyioDynamicTag::I64);
+    payload.i64v = value;
+  }
+
+  return payload;
+}
+
+void
+StyioToLLVM::forget_dynamic_slot_payload_ownership(llvm::Value* value, std::int64_t tag) {
+  if (tag == styio_dynamic_tag_value(StyioDynamicTag::CStr)) {
+    forget_owned_cstr_temp(value);
+  }
+  if (styio_dynamic_tag_is_owned_resource(tag)) {
+    forget_owned_resource_temp(value);
+  }
+}
 
 llvm::FunctionCallee
 StyioToLLVM::free_cstr_fn() {
@@ -364,7 +448,7 @@ StyioToLLVM::store_dynamic_slot(
 
 void
 StyioToLLVM::init_dynamic_slot_undef(llvm::AllocaInst* slot) {
-  store_dynamic_slot(slot, STYIO_DYN_UNDEF, nullptr, nullptr, nullptr);
+  store_dynamic_slot(slot, styio_dynamic_tag_value(StyioDynamicTag::Undef), nullptr, nullptr, nullptr);
 }
 
 void
@@ -383,11 +467,16 @@ StyioToLLVM::release_dynamic_slot_contents(llvm::AllocaInst* slot) {
   llvm::BasicBlock* dict_bb = llvm::BasicBlock::Create(*theContext, "dynrel_dict", F);
   llvm::BasicBlock* matrix_bb = llvm::BasicBlock::Create(*theContext, "dynrel_matrix", F);
 
-  llvm::Value* is_cstr = theBuilder->CreateICmpEQ(tag, theBuilder->getInt64(STYIO_DYN_CSTR));
-  llvm::Value* is_list = theBuilder->CreateICmpEQ(tag, theBuilder->getInt64(STYIO_DYN_LIST));
-  llvm::Value* is_dict = theBuilder->CreateICmpEQ(tag, theBuilder->getInt64(STYIO_DYN_DICT));
-  llvm::Value* is_matrix = theBuilder->CreateICmpEQ(tag, theBuilder->getInt64(STYIO_DYN_MATRIX));
-  llvm::Value* is_task = theBuilder->CreateICmpEQ(tag, theBuilder->getInt64(STYIO_DYN_TASK));
+  llvm::Value* is_cstr = theBuilder->CreateICmpEQ(
+    tag, theBuilder->getInt64(styio_dynamic_tag_value(StyioDynamicTag::CStr)));
+  llvm::Value* is_list = theBuilder->CreateICmpEQ(
+    tag, theBuilder->getInt64(styio_dynamic_tag_value(StyioDynamicTag::List)));
+  llvm::Value* is_dict = theBuilder->CreateICmpEQ(
+    tag, theBuilder->getInt64(styio_dynamic_tag_value(StyioDynamicTag::Dict)));
+  llvm::Value* is_matrix = theBuilder->CreateICmpEQ(
+    tag, theBuilder->getInt64(styio_dynamic_tag_value(StyioDynamicTag::Matrix)));
+  llvm::Value* is_task = theBuilder->CreateICmpEQ(
+    tag, theBuilder->getInt64(styio_dynamic_tag_value(StyioDynamicTag::Task)));
   theBuilder->CreateCondBr(is_cstr, cstr_bb, list_bb);
 
   theBuilder->SetInsertPoint(cstr_bb);
@@ -796,25 +885,16 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
   switch (node->operand) {
     case StyioOpType::Binary_Add: {
       if (data_type.option == StyioDataTypeOption::String) {
-        llvm::FunctionCallee i64c = theModule->getOrInsertFunction(
-          "styio_i64_dec_cstr",
-          llvm::FunctionType::get(char_ptr_ty, {theBuilder->getInt64Ty()}, false));
         llvm::FunctionCallee cat = theModule->getOrInsertFunction(
           "styio_strcat_ab",
           llvm::FunctionType::get(char_ptr_ty, {char_ptr_ty, char_ptr_ty}, false));
         llvm::Value* a = l_val;
         llvm::Value* b = r_val;
         if (!a->getType()->isPointerTy()) {
-          llvm::Value* ai = a->getType()->isIntegerTy(64)
-            ? a
-            : theBuilder->CreateSExtOrTrunc(a, theBuilder->getInt64Ty());
-          a = theBuilder->CreateCall(i64c, {ai});
+          a = promote_to_cstr(a);
         }
         if (!b->getType()->isPointerTy()) {
-          llvm::Value* bi = b->getType()->isIntegerTy(64)
-            ? b
-            : theBuilder->CreateSExtOrTrunc(b, theBuilder->getInt64Ty());
-          b = theBuilder->CreateCall(i64c, {bi});
+          b = promote_to_cstr(b);
         }
         llvm::Value* out = theBuilder->CreateCall(cat, {a, b});
         free_owned_cstr_temp_if_tracked(a);
@@ -1298,55 +1378,13 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
     }
 
     llvm::Value* next_value = node->value->toLLVMIR(this);
-    std::int64_t tag = STYIO_DYN_UNDEF;
-    llvm::Value* i64v = nullptr;
-    llvm::Value* f64v = nullptr;
-    llvm::Value* ptrv = nullptr;
-
-    if (ir_yields_list_handle(node->value)) {
-      tag = STYIO_DYN_LIST;
-      i64v = next_value;
-    }
-    else if (ir_yields_dict_handle(node->value)) {
-      tag = STYIO_DYN_DICT;
-      i64v = next_value;
-    }
-    else if (ir_yields_matrix_handle(node->value)) {
-      tag = STYIO_DYN_MATRIX;
-      i64v = next_value;
-    }
-    else if (ir_yields_task_handle(node->value)) {
-      tag = STYIO_DYN_TASK;
-      i64v = next_value;
-    }
-    else if (next_value->getType()->isPointerTy()) {
-      tag = STYIO_DYN_CSTR;
-      ptrv = next_value;
-    }
-    else if (next_value->getType()->isDoubleTy()) {
-      tag = STYIO_DYN_F64;
-      f64v = next_value;
-    }
-    else if (next_value->getType()->isIntegerTy(1)) {
-      tag = STYIO_DYN_BOOL;
-      i64v = next_value;
-    }
-    else if (next_value->getType()->isIntegerTy()) {
-      tag = STYIO_DYN_I64;
-      i64v = next_value;
-    }
+    DynamicSlotPayload payload = dynamic_slot_payload_for_value(node->value, next_value);
 
     if (is_existing_slot) {
       release_dynamic_slot_contents(variable);
     }
-    store_dynamic_slot(variable, tag, i64v, f64v, ptrv);
-    if (tag == STYIO_DYN_CSTR) {
-      forget_owned_cstr_temp(next_value);
-    }
-    if (tag == STYIO_DYN_LIST || tag == STYIO_DYN_DICT || tag == STYIO_DYN_MATRIX
-        || tag == STYIO_DYN_TASK) {
-      forget_owned_resource_temp(next_value);
-    }
+    store_dynamic_slot(variable, payload.tag, payload.i64v, payload.f64v, payload.ptrv);
+    forget_dynamic_slot_payload_ownership(next_value, payload.tag);
     return variable;
   }
 
@@ -1400,52 +1438,10 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
     llvm::AllocaInst* variable = create_entry_alloca(dynamic_cell_type(), varname);
     init_dynamic_slot_undef(variable);
     llvm::Value* value = node->value->toLLVMIR(this);
-    std::int64_t tag = STYIO_DYN_UNDEF;
-    llvm::Value* i64v = nullptr;
-    llvm::Value* f64v = nullptr;
-    llvm::Value* ptrv = nullptr;
+    DynamicSlotPayload payload = dynamic_slot_payload_for_value(node->value, value);
 
-    if (ir_yields_list_handle(node->value)) {
-      tag = STYIO_DYN_LIST;
-      i64v = value;
-    }
-    else if (ir_yields_dict_handle(node->value)) {
-      tag = STYIO_DYN_DICT;
-      i64v = value;
-    }
-    else if (ir_yields_matrix_handle(node->value)) {
-      tag = STYIO_DYN_MATRIX;
-      i64v = value;
-    }
-    else if (ir_yields_task_handle(node->value)) {
-      tag = STYIO_DYN_TASK;
-      i64v = value;
-    }
-    else if (value->getType()->isPointerTy()) {
-      tag = STYIO_DYN_CSTR;
-      ptrv = value;
-    }
-    else if (value->getType()->isDoubleTy()) {
-      tag = STYIO_DYN_F64;
-      f64v = value;
-    }
-    else if (value->getType()->isIntegerTy(1)) {
-      tag = STYIO_DYN_BOOL;
-      i64v = value;
-    }
-    else if (value->getType()->isIntegerTy()) {
-      tag = STYIO_DYN_I64;
-      i64v = value;
-    }
-
-    store_dynamic_slot(variable, tag, i64v, f64v, ptrv);
-    if (tag == STYIO_DYN_CSTR) {
-      forget_owned_cstr_temp(value);
-    }
-    if (tag == STYIO_DYN_LIST || tag == STYIO_DYN_DICT || tag == STYIO_DYN_MATRIX
-        || tag == STYIO_DYN_TASK) {
-      forget_owned_resource_temp(value);
-    }
+    store_dynamic_slot(variable, payload.tag, payload.i64v, payload.f64v, payload.ptrv);
+    forget_dynamic_slot_payload_ownership(value, payload.tag);
     mutable_variables[varname] = variable;
     dynamic_variable_names_.insert(varname);
     register_dynamic_slot_for_raii(variable);
@@ -3472,9 +3468,7 @@ StyioToLLVM::toLLVMIR(SIOInstantPull* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SIOListReadStdin* node) {
-  const char* read_name = node->elem_type == "string"
-    ? "styio_list_cstr_read_stdin"
-    : "styio_list_i64_read_stdin";
+  const char* read_name = styio_stdin_list_read_intrinsic_name_for_elem(node->elem_type);
   llvm::FunctionCallee read_fn = theModule->getOrInsertFunction(
     read_name,
     llvm::FunctionType::get(theBuilder->getInt64Ty(), {}, false));

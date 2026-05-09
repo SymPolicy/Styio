@@ -1030,7 +1030,6 @@ enum class StyioNodeType
   StreamZip,
   SnapshotDecl,
   InstantPull,
-  TypedStdinList,
 
   /* M9-M10: standard streams */
   StdinResource,
@@ -1575,7 +1574,7 @@ static std::unordered_map<StyioTokenType, std::vector<StyioTokenType> > const
      }
     },
     // ->
-    {StyioTokenType::ARROW_SINGLE_LEFT,
+    {StyioTokenType::ARROW_SINGLE_RIGHT,
      std::vector<StyioTokenType>{
        StyioTokenType::TOK_MINUS,
        StyioTokenType::TOK_RANGBRAC

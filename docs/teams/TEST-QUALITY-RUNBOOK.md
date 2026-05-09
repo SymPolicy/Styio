@@ -56,6 +56,7 @@ Primary paths:
 30. M6 retirement coverage keeps positive milestone fixtures on Topology v2 syntax and preserves old `@[...]`, `$state`, and `$state[<<, n]` spellings only as registered negative tests with stable migration diagnostics.
 31. Native executable artifact coverage must build through `styio build <file_path> -o <artifact_name>`, assert the produced file is executable, and run the artifact against an existing golden so the test proves both artifact creation and runtime behavior.
 32. Resource method tests must cover static method resolution, consuming receiver invalidation, transitive consuming method calls, final binding override rejection, property-as-method rejection, method arity rejection, repeated consuming call rejection, non-consuming overrides that must not lower to release, task outer-resource consume rejection, explicit `=>` ordering for exclusive borrows, and lowering evidence for file `write`/`close` methods before the topology model is considered regression-covered.
+33. README showcase examples that are wired into CTest must run repository-local Styio source from the repository root and compare stdout against a checked-in golden, so public examples cannot drift away from executable compiler behavior.
 
 ## Change Classes
 

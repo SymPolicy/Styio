@@ -395,6 +395,30 @@ TEST(StyioResourceTopology, FileWriteAndCloseMethodsLowerToIO) {
   EXPECT_NE(ir.find("styio.ir.handle_release"), std::string::npos) << ir;
 }
 
+TEST(StyioResourceTopology, UserDefinedConsumingMethodLowersByInliningBody) {
+  const std::string src =
+    "@file::close = () => { @file -> @() }\n"
+    "log := @(\"log.txt\")\n"
+    "log.close()\n";
+
+  std::string ir = lower_nightly_ir(src);
+
+  EXPECT_NE(ir.find("styio.ir.handle_acquire"), std::string::npos) << ir;
+  EXPECT_NE(ir.find("styio.ir.handle_release"), std::string::npos) << ir;
+}
+
+TEST(StyioResourceTopology, UserDefinedResourceMethodArgumentsInlineIntoBody) {
+  const std::string src =
+    "@file::emit = (text: string) => { @file.write(text) }\n"
+    "log := @(\"log.txt\")\n"
+    "log.emit(\"a\")\n";
+
+  std::string ir = lower_nightly_ir(src);
+
+  EXPECT_NE(ir.find("styio.ir.handle_acquire"), std::string::npos) << ir;
+  EXPECT_NE(ir.find("styio.ir.resource_write"), std::string::npos) << ir;
+}
+
 TEST(StyioResourceTopology, NonConsumingCloseOverrideDoesNotLowerRelease) {
   const std::string src =
     "@file::close = () => { 0 }\n"

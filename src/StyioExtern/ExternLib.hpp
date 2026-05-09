@@ -82,6 +82,7 @@ extern "C" DLLEXPORT void styio_task_scheduler_profile_enable(int enabled);
 extern "C" DLLEXPORT void styio_task_scheduler_profile_snapshot(StyioTaskSchedulerProfileSnapshot* out);
 
 extern "C" DLLEXPORT int64_t styio_list_i64_read_stdin();
+extern "C" DLLEXPORT int64_t styio_list_f64_read_stdin();
 extern "C" DLLEXPORT int64_t styio_list_cstr_read_stdin();
 extern "C" DLLEXPORT int64_t styio_string_lines(const char* text);
 extern "C" DLLEXPORT int64_t styio_list_new_bool();

@@ -18,6 +18,7 @@ using std::vector;
 #include "../StyioSession/SessionAllocation.hpp"
 #include "../StyioToString/ToStringVisitor.hpp"
 #include "../StyioToken/Token.hpp"
+#include "../StyioUtil/ResourceNames.hpp"
 #include "ASTDecl.hpp"
 
 // [LLVM]
@@ -2302,16 +2303,16 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    if (family_ == "file") {
+    if (styio_is_file_resource_family_name(family_)) {
       return styio_make_file_handle_type("i64");
     }
-    if (family_ == "stdin") {
+    if (styio_is_stdin_resource_family_name(family_)) {
       return styio_make_std_stream_type(StdStreamKind::Stdin, "string");
     }
-    if (family_ == "stdout") {
+    if (styio_is_stdout_resource_family_name(family_)) {
       return styio_make_std_stream_type(StdStreamKind::Stdout, "string");
     }
-    if (family_ == "stderr") {
+    if (styio_is_stderr_resource_family_name(family_)) {
       return styio_make_std_stream_type(StdStreamKind::Stderr, "string");
     }
     return StyioDataType{StyioDataTypeOption::Defined, "resource-family:" + family_, 0};
@@ -4762,15 +4763,24 @@ class InstantPullAST : public StyioASTTraits<InstantPullAST>
 {
   std::unique_ptr<StyioAST> resource_owner_;
   StyioAST* resource_ = nullptr;
+  StyioDataType result_type_{StyioDataTypeOption::Integer, "i64", 64};
 
-  explicit InstantPullAST(StyioAST* r) :
+  explicit InstantPullAST(
+    StyioAST* r,
+    StyioDataType result_type = StyioDataType{StyioDataTypeOption::Integer, "i64", 64}
+  ) :
       resource_owner_(r),
-      resource_(resource_owner_.get()) {
+      resource_(resource_owner_.get()),
+      result_type_(std::move(result_type)) {
   }
 
 public:
   static InstantPullAST* Create(StyioAST* r) {
     return new InstantPullAST(r);
+  }
+
+  static InstantPullAST* Create(StyioAST* r, StyioDataType result_type) {
+    return new InstantPullAST(r, std::move(result_type));
   }
 
   /* Legacy convenience: still accepts FileResourceAST* */
@@ -4787,7 +4797,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+    return result_type_;
   }
 };
 
@@ -4950,34 +4960,6 @@ public:
 
   const StyioDataType getDataType() const {
     return result_type_;
-  }
-};
-
-class TypedStdinListAST : public StyioASTTraits<TypedStdinListAST>
-{
-  std::unique_ptr<TypeAST> list_type_owner_;
-  TypeAST* list_type_ = nullptr;
-
-  explicit TypedStdinListAST(TypeAST* t) :
-      list_type_owner_(t),
-      list_type_(list_type_owner_.get()) {
-  }
-
-public:
-  static TypedStdinListAST* Create(TypeAST* t) {
-    return new TypedStdinListAST(t);
-  }
-
-  TypeAST* getListType() {
-    return list_type_;
-  }
-
-  const StyioNodeType getNodeType() const {
-    return StyioNodeType::TypedStdinList;
-  }
-
-  const StyioDataType getDataType() const {
-    return list_type_->getDataType();
   }
 };
 

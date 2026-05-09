@@ -503,6 +503,7 @@ Usage patterns (reuse existing productions):
 - `'@' 'file' ':' 'ftype' ':=' '#' '(' identifier ')' '=>' block` — internal file resource declaration; the body must not call `file(path)`
 - `'(' '<-' '@stdin' ')'` — immediate pull via `instant_pull`
 - `'(' '<<' '@stdin' ')'` — legacy compatibility pull via `legacy_instant_pull`
+- `identifier (',' identifier)* '<-' '@stdin' ':' (type | '(' type (',' type)* ')')` — typed stdin pull; scalar, tuple, and single-target `list[T]` forms share the same `instant_pull` AST entry.
 
 ```ebnf
 terminal_handle    = '[' '>_' ']'

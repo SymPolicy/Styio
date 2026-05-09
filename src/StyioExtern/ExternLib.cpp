@@ -1421,6 +1421,50 @@ parse_i64_list_literal(const std::string& input, std::vector<int64_t>& out) {
   return false;
 }
 
+bool
+parse_f64_list_literal(const std::string& input, std::vector<double>& out) {
+  size_t pos = 0;
+  skip_ws(input, pos);
+  if (pos >= input.size() || input[pos] != '[') {
+    return false;
+  }
+  ++pos;
+  skip_ws(input, pos);
+  if (pos < input.size() && input[pos] == ']') {
+    ++pos;
+    skip_ws(input, pos);
+    return pos == input.size();
+  }
+
+  while (pos < input.size()) {
+    const char* begin = input.c_str() + pos;
+    char* end = nullptr;
+    double v = std::strtod(begin, &end);
+    if (end == begin || !std::isfinite(v)) {
+      return false;
+    }
+    out.push_back(v);
+    pos = static_cast<size_t>(end - input.c_str());
+    skip_ws(input, pos);
+    if (pos >= input.size()) {
+      return false;
+    }
+    if (input[pos] == ',') {
+      ++pos;
+      skip_ws(input, pos);
+      continue;
+    }
+    if (input[pos] == ']') {
+      ++pos;
+      skip_ws(input, pos);
+      return pos == input.size();
+    }
+    return false;
+  }
+
+  return false;
+}
+
 std::string
 read_all_stdin() {
   std::string input;
@@ -2185,6 +2229,21 @@ styio_list_i64_read_stdin() {
     return 0;
   }
   auto* list = new StyioListI64();
+  list->elems = std::move(values);
+  return stash_list(list);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_list_f64_read_stdin() {
+  std::vector<double> values;
+  std::string input = read_all_stdin();
+  if (!parse_f64_list_literal(input, values)) {
+    set_runtime_error_once(
+      kRuntimeSubcodeListParse,
+      "stdin does not contain a valid Styio f64 list literal");
+    return 0;
+  }
+  auto* list = new StyioListF64();
   list->elems = std::move(values);
   return stash_list(list);
 }
