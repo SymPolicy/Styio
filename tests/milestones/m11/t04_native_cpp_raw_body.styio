@@ -1,0 +1,17 @@
+// M11 / T11.04: @extern(C++) body is handed to clang as a raw source slice
+
+@export { raw_macro }
+@extern(C++) => {
+#define STYIO_RAW_TWICE(x) \
+  ((x) * 2)
+
+extern "C" int raw_macro(int x) {
+  const char* escaped = "brace } and escaped \" quote";
+  const char* raw = R"styio({ raw braces stay inside clang input })styio";
+  (void)escaped;
+  (void)raw;
+  return STYIO_RAW_TWICE(x);
+}
+}
+
+>_(raw_macro(5))

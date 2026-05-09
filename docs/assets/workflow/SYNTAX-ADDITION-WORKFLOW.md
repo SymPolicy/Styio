@@ -23,7 +23,7 @@ Run this workflow whenever a change does at least one of the following:
 | 4 | Codegen / Runtime | `src/StyioCodeGen/`, `src/StyioExtern/ExternLib.hpp`, `src/StyioExtern/ExternLib.cpp`, `src/StyioJIT/StyioJIT_ORC.hpp` | `python3 scripts/runtime-surface-gate.py` | Keeps helper calls, exports, implementations, and ORC registrations aligned. |
 | 5 | Test Quality | `tests/`, `docs/assets/workflow/TEST-CATALOG.md`, five-layer goldens | `ctest` label or parser shadow evidence | Records behavior evidence; does not redefine language semantics. |
 | 6 | Docs / Ecosystem | Workflow/runbook docs and generated indexes | `python3 scripts/workflow-scheduler.py check` and docs gates | Keeps workflow discoverability and ownership boundaries current. |
-| 7 | Delivery owner | Scheduler profile and delivery floor | `python3 scripts/workflow-scheduler.py run --profile syntax-local` or `./scripts/delivery-gate.sh --mode checkpoint` | Executes the registered chain; does not introduce ad hoc gate order. |
+| 7 | Delivery owner | Scheduler profile and delivery floor | `python3 scripts/workflow-scheduler.py run --profile syntax-local` or `./scripts/delivery-gate.sh` | Executes the registered chain; does not introduce ad hoc gate order. |
 
 ## Required Gates
 
@@ -49,7 +49,7 @@ python3 scripts/workflow-scheduler.py run --profile syntax-local
 Run the common delivery floor:
 
 ```bash
-./scripts/delivery-gate.sh --mode checkpoint
+./scripts/delivery-gate.sh
 ```
 
 Update owner runbooks and workflow docs in the same delivery whenever the syntax change introduces a new delivery requirement or runtime-registration rule.

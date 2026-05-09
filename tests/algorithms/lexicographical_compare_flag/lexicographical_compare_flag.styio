@@ -1,0 +1,41 @@
+values <- @stdin: list[i32]
+
+answer = 0
+
+?(values.length > 1) => {
+    lhs_len = values[0]
+    rhs_len = values[1]
+    rhs_start = 2 + lhs_len
+    required = 2 + lhs_len + rhs_len
+
+    ?(values.length >= required) => {
+        decided = 0
+        limit = lhs_len
+        ?(rhs_len < limit) => {
+            limit = rhs_len
+        }
+
+        ?(limit > 0) => {
+            [0..limit-1] >> #(i) => {
+                ?(decided == 0) => {
+                    ?(values[2 + i] < values[rhs_start + i]) => {
+                        answer = 1
+                        decided = 1
+                    }
+                    ?(values[2 + i] > values[rhs_start + i]) => {
+                        answer = 0
+                        decided = 1
+                    }
+                }
+            }
+        }
+
+        ?(decided == 0) => {
+            ?(lhs_len < rhs_len) => {
+                answer = 1
+            }
+        }
+    }
+}
+
+>_(answer)

@@ -1,0 +1,30 @@
+[skill]
+name = "styio-file-onboarding"
+display_name = "Styio File Onboarding"
+description = "Use when adding tracked files or directories so indexes, registries, metadata, tests, and repo hygiene gates stay aligned."
+last_updated = "2026-04-23"
+
+workflow = [
+  "classify the file before editing",
+  "check references/file-onboarding-surface.md",
+  "update generated indexes or registries for the file class",
+  "add the smallest gate or test that protects the file class",
+  "run gates from workflows/ADD-REPO-FILE.toml",
+]
+
+constraints = [
+  "do not add files without checking whether a generated index must change",
+  "do not bypass TOML metadata for workflow or skill files",
+  "do not stage unrelated files as part of onboarding",
+]
+
+completion_report = [
+  "new paths",
+  "file class",
+  "registries updated",
+  "gates run",
+]
+
+references = [
+  "references/file-onboarding-surface.md",
+]

@@ -82,8 +82,26 @@ public:
     add_symbol("styio_stderr_write_cstr", &styio_stderr_write_cstr);
     add_symbol("styio_stdin_read_line", &styio_stdin_read_line);
 
+    add_symbol("styio_task_i64_ready", &styio_task_i64_ready);
+    add_symbol("styio_task_f64_ready", &styio_task_f64_ready);
+    add_symbol("styio_task_cstr_ready", &styio_task_cstr_ready);
+    add_symbol("styio_task_i64_spawn", &styio_task_i64_spawn);
+    add_symbol("styio_task_f64_spawn", &styio_task_f64_spawn);
+    add_symbol("styio_task_cstr_spawn", &styio_task_cstr_spawn);
+    add_symbol("styio_task_i64_pull", &styio_task_i64_pull);
+    add_symbol("styio_task_f64_pull", &styio_task_f64_pull);
+    add_symbol("styio_task_cstr_pull", &styio_task_cstr_pull);
+    add_symbol("styio_task_release", &styio_task_release);
+    add_symbol("styio_task_active_count", &styio_task_active_count);
+    add_symbol("styio_task_worker_count", &styio_task_worker_count);
+    add_symbol("styio_task_scheduler_profile_reset", &styio_task_scheduler_profile_reset);
+    add_symbol("styio_task_scheduler_profile_enable", &styio_task_scheduler_profile_enable);
+    add_symbol("styio_task_scheduler_profile_snapshot", &styio_task_scheduler_profile_snapshot);
+
     add_symbol("styio_list_i64_read_stdin", &styio_list_i64_read_stdin);
+    add_symbol("styio_list_f64_read_stdin", &styio_list_f64_read_stdin);
     add_symbol("styio_list_cstr_read_stdin", &styio_list_cstr_read_stdin);
+    add_symbol("styio_string_lines", &styio_string_lines);
     add_symbol("styio_list_new_bool", &styio_list_new_bool);
     add_symbol("styio_list_new_i64", &styio_list_new_i64);
     add_symbol("styio_list_new_f64", &styio_list_new_f64);
@@ -120,6 +138,44 @@ public:
     add_symbol("styio_list_to_cstr", &styio_list_to_cstr);
     add_symbol("styio_list_release", &styio_list_release);
     add_symbol("styio_list_active_count", &styio_list_active_count);
+
+    add_symbol("styio_matrix_new_i64", &styio_matrix_new_i64);
+    add_symbol("styio_matrix_new_f64", &styio_matrix_new_f64);
+    add_symbol("styio_matrix_identity_i64", &styio_matrix_identity_i64);
+    add_symbol("styio_matrix_identity_f64", &styio_matrix_identity_f64);
+    add_symbol("styio_matrix_clone_i64", &styio_matrix_clone_i64);
+    add_symbol("styio_matrix_clone_f64", &styio_matrix_clone_f64);
+    add_symbol("styio_matrix_rows", &styio_matrix_rows);
+    add_symbol("styio_matrix_cols", &styio_matrix_cols);
+    add_symbol("styio_matrix_shape", &styio_matrix_shape);
+    add_symbol("styio_matrix_get_i64", &styio_matrix_get_i64);
+    add_symbol("styio_matrix_get_f64", &styio_matrix_get_f64);
+    add_symbol("styio_matrix_set_i64", &styio_matrix_set_i64);
+    add_symbol("styio_matrix_set_f64", &styio_matrix_set_f64);
+    add_symbol("styio_matrix_row_i64", &styio_matrix_row_i64);
+    add_symbol("styio_matrix_row_f64", &styio_matrix_row_f64);
+    add_symbol("styio_matrix_add_i64", &styio_matrix_add_i64);
+    add_symbol("styio_matrix_add_f64", &styio_matrix_add_f64);
+    add_symbol("styio_matrix_sub_i64", &styio_matrix_sub_i64);
+    add_symbol("styio_matrix_sub_f64", &styio_matrix_sub_f64);
+    add_symbol("styio_matrix_hadamard_i64", &styio_matrix_hadamard_i64);
+    add_symbol("styio_matrix_hadamard_f64", &styio_matrix_hadamard_f64);
+    add_symbol("styio_matrix_matmul_i64", &styio_matrix_matmul_i64);
+    add_symbol("styio_matrix_matmul_f64", &styio_matrix_matmul_f64);
+    add_symbol("styio_matrix_scale_i64", &styio_matrix_scale_i64);
+    add_symbol("styio_matrix_scale_f64", &styio_matrix_scale_f64);
+    add_symbol("styio_matrix_transpose_i64", &styio_matrix_transpose_i64);
+    add_symbol("styio_matrix_transpose_f64", &styio_matrix_transpose_f64);
+    add_symbol("styio_matrix_dot_i64", &styio_matrix_dot_i64);
+    add_symbol("styio_matrix_dot_f64", &styio_matrix_dot_f64);
+    add_symbol("styio_matrix_sum_i64", &styio_matrix_sum_i64);
+    add_symbol("styio_matrix_sum_f64", &styio_matrix_sum_f64);
+    add_symbol("styio_matrix_norm", &styio_matrix_norm);
+    add_symbol("styio_matrix_data_i64", &styio_matrix_data_i64);
+    add_symbol("styio_matrix_data_f64", &styio_matrix_data_f64);
+    add_symbol("styio_matrix_to_cstr", &styio_matrix_to_cstr);
+    add_symbol("styio_matrix_release", &styio_matrix_release);
+    add_symbol("styio_matrix_active_count", &styio_matrix_active_count);
 
     add_symbol("styio_dict_new_bool", &styio_dict_new_bool);
     add_symbol("styio_dict_new_i64", &styio_dict_new_i64);
@@ -208,6 +264,15 @@ public:
     if (!RT)
       RT = MainJD.getDefaultResourceTracker();
     return CompileLayer.add(RT, std::move(TSM));
+  }
+
+  llvm::Error defineAbsoluteSymbol(llvm::StringRef Name, void* address) {
+    llvm::orc::SymbolMap symbols;
+    symbols[Mangle(Name)] = {
+      llvm::orc::ExecutorAddr::fromPtr(address),
+      llvm::JITSymbolFlags::Callable,
+    };
+    return MainJD.define(llvm::orc::absoluteSymbols(std::move(symbols)));
   }
 
   llvm::Expected<llvm::orc::ExecutorSymbolDef> lookup(llvm::StringRef Name) {

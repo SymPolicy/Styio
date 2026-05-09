@@ -1,8 +1,6 @@
 ; ModuleID = 'styio'
 source_filename = "styio"
-target datalayout = "e-m:o-i64:64-i128:128-n32:64-S128"
-
-@styio_fmt_str = private unnamed_addr constant [4 x i8] c"%s\0A\00", align 1
+target datalayout = "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128"
 
 define i32 @main() {
 main_entry:
@@ -17,7 +15,7 @@ stdin_body:                                       ; preds = %stdin_hdr
   %line = alloca ptr, align 8
   store ptr %0, ptr %line, align 8
   %2 = load ptr, ptr %line, align 8
-  %3 = call i32 (ptr, ...) @printf(ptr @styio_fmt_str, ptr %2)
+  call void @styio_stdout_write_cstr(ptr %2)
   br label %stdin_hdr
 
 stdin_exit:                                       ; preds = %stdin_hdr
@@ -26,8 +24,10 @@ stdin_exit:                                       ; preds = %stdin_hdr
 
 declare ptr @styio_stdin_read_line()
 
-declare i32 @printf(ptr, ...)
+declare void @styio_stdout_write_cstr(ptr)
 
-declare i32 @puts(ptr)
+declare ptr @styio_i64_dec_cstr(i64)
+
+declare ptr @styio_f64_dec_cstr(double)
 
 declare void @styio_file_close(i64)

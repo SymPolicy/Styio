@@ -2,7 +2,7 @@
 
 **Purpose:** 列出本仓库 **构建期/运行期** 所依赖的全部 **外部包与开源组件**；声明 **获取方式、用途、许可** 及在仓库中的 **落地位置**。新增依赖时请同步更新本文件，并在 `DOCUMENTATION-POLICY.md` 索引中保持可发现。
 
-**Last updated:** 2026-04-14
+**Last updated:** 2026-04-19
 
 ---
 
@@ -10,12 +10,12 @@
 
 | 名称 | 类型 | 构建中角色 | 在仓库中的记录 / 落地 |
 |------|------|------------|------------------------|
-| **LLVM** | 系统安装 + CMake `find_package` | 编译器后端：IR、ORC JIT、原生目标 | `CMakeLists.txt`（`find_package(LLVM 18.1.0)`，`llvm_map_components_to_libnames` → `support` `core` `irreader` `orcjit` `native`） |
-| **ICU**（`uc`、`i18n`） | 系统安装 + `find_package`（**可选**） | 当 `STYIO_USE_ICU=ON` 时为 `StyioUnicode` codepoint 分类与 CLI Unicode 帮助文本提供支持 | `CMakeLists.txt`（`option(STYIO_USE_ICU ...)` + `find_package(ICU COMPONENTS uc i18n)`）；查找模块见仓库根目录 `FindICU.cmake` |
-| **Tree-sitter runtime** | **FetchContent**（IDE 语法层） | `styio_ide_core` 的 edit-time CST、错误节点和 folding 结构 | `CMakeLists.txt`（`option(STYIO_ENABLE_TREE_SITTER ...)` + `FetchContent_Declare(tree_sitter_runtime ...)`）；Styio grammar 位于 `grammar/tree-sitter-styio/` |
-| **GoogleTest** | **FetchContent**（仅测试） | `styio_test`、五层流水线等单元/集成测试 | `tests/CMakeLists.txt`（`FetchContent_Declare(googletest URL ...)`） |
+| **LLVM** | 系统安装 + CMake `find_package` | 编译器后端：IR、ORC JIT、原生目标 | `cmake/StyioLLVM.cmake`（`find_package(LLVM 18.1.0)`，`llvm_map_components_to_libnames` → `support` `core` `irreader` `orcjit` `native`） |
+| **ICU**（`uc`、`i18n`） | 系统安装 + `find_package`（**可选**） | 当 `STYIO_USE_ICU=ON` 时为 `StyioUnicode` codepoint 分类与 CLI Unicode 帮助文本提供支持 | `cmake/StyioICU.cmake`（`find_package(ICU COMPONENTS uc i18n)`）；查找模块沿 `CMAKE_MODULE_PATH` 解析，仓库根仍保留 `FindICU.cmake` |
+| **Tree-sitter runtime** | **FetchContent**（IDE 语法层） | `styio_ide_core` 的 edit-time CST、错误节点和 folding 结构 | `cmake/StyioTreeSitter.cmake`（`option(STYIO_ENABLE_TREE_SITTER ...)` + `FetchContent_Declare(tree_sitter_runtime ...)`）；Styio grammar 位于 `grammar/tree-sitter-styio/` |
+| **GoogleTest** | **FetchContent**（仅测试） | `styio_test`、五层流水线、benchmark soak tests 等单元/集成验证 | `cmake/StyioGoogleTest.cmake`（共享 `googletest` 初始化），由 `tests/CMakeLists.txt` / `benchmark/CMakeLists.txt` 消费 |
 | **cxxopts** | **随仓单头文件（vendored）** | `styio` 命令行解析 | `src/include/cxxopts.hpp`（**勿随意修改**，见 `docs/specs/AGENT-SPEC.md`） |
-| **Clang / LLD / llvm 工具链** | 宿主页 / PATH | 当前工程 `CMakeLists.txt` 写死了编译器与链接器路径（**环境约束**，非常规 Fetch 包） | `CMakeLists.txt`：`CMAKE_CXX_COMPILER`、`CMAKE_LINKER`、`CMAKE_OBJDUMP` |
+| **Clang / LLD / llvm 工具链** | 宿主页 / PATH | 宿主 C/C++ 编译、链接与 LLVM 工具链能力（**环境约束**，非常规 Fetch 包） | 由本机 toolchain / PATH / CMake toolchain file 提供；仓库本身不通过 FetchContent 管理 |
 
 **运行时：** 生成的 `styio` 可执行文件依赖 **动态链接** 的 LLVM 相关库；当 `STYIO_USE_ICU=ON` 时额外依赖 ICU（以本机 `ldd` / 发行版包为准）。JIT 执行阶段还依赖 **LLVM 已启用的原生目标**。
 
@@ -63,7 +63,7 @@
 ### 2.6 FindICU.cmake（仅 ICU 开启时）
 
 - **形式：** 仓库根目录 `FindICU.cmake`，与 CMake 自带的 **FindICU** 模块同源风格（文件头为 OSI-approved BSD 3-Clause）。
-- **用途：** 在 `CMakeLists.txt` 中当 `STYIO_USE_ICU=ON` 时通过 `find_package(ICU ...)` 解析 ICU。
+- **用途：** 当 `cmake/StyioICU.cmake` 执行 `find_package(ICU ...)` 时，可作为仓库本地模块路径上的候选实现。
 
 ---
 

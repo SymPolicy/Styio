@@ -19,6 +19,7 @@
 #include "StyioException/Exception.hpp"
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
+#include "llvm/Support/FormatVariadic.h"
 
 namespace {
 
@@ -82,6 +83,25 @@ lsp_range(int start_line, int start_character, int end_line, int end_character) 
   return llvm::json::Object{
     {"start", lsp_position(start_line, start_character)},
     {"end", lsp_position(end_line, end_character)}};
+}
+
+std::string
+lsp_frame(const llvm::json::Object& object) {
+  llvm::json::Object value = object;
+  const std::string body = llvm::formatv("{0}", llvm::json::Value(std::move(value))).str();
+  return "Content-Length: " + std::to_string(body.size()) + "\r\n\r\n" + body;
+}
+
+std::string
+lsp_messages_to_text(const std::vector<styio::lsp::OutboundMessage>& messages) {
+  std::string output;
+  for (const auto& message : messages) {
+    llvm::json::Object value = message.payload;
+    const std::string body = llvm::formatv("{0}", llvm::json::Value(std::move(value))).str();
+    output += "Content-Length: " + std::to_string(body.size()) + "\r\n\r\n";
+    output += body;
+  }
+  return output;
 }
 
 bool
@@ -1337,7 +1357,7 @@ TEST(StyioIdeService, ReferencesMergeOpenFileAndBackgroundIndex) {
   EXPECT_TRUE(has_location(references, open_user_path, open_user_source.find("indexed_target")));
 }
 
-TEST(StyioWorkspaceIndex, PersistentIndexWarmsNewSession) {
+TEST(StyioWorkspaceIndex, PersistentIndexClearsDeletedSymbolsOnNewSession) {
   const std::string root = make_temp_project_dir("m17_persistent_index");
   const std::string path = (std::filesystem::path(root) / "persisted.styio").string();
   const std::string source = "# persisted_symbol := (x: i32) => x\n";
@@ -1352,12 +1372,30 @@ TEST(StyioWorkspaceIndex, PersistentIndexWarmsNewSession) {
   std::filesystem::remove(path);
   styio::ide::IdeService warmed_service;
   warmed_service.initialize(styio::ide::uri_from_path(root));
-  EXPECT_TRUE(has_indexed_symbol(warmed_service.workspace_symbols("persisted_symbol"), "persisted_symbol", path));
+  EXPECT_FALSE(has_indexed_symbol(warmed_service.workspace_symbols("persisted_symbol"), "persisted_symbol", path));
 
   const std::string uri = styio::ide::uri_from_path(path);
   warmed_service.did_open(uri, "# live_symbol := (x: i32) => x\n", 2);
-  EXPECT_FALSE(has_indexed_symbol(warmed_service.workspace_symbols("persisted_symbol"), "persisted_symbol", path));
   EXPECT_TRUE(has_indexed_symbol(warmed_service.workspace_symbols("live_symbol"), "live_symbol", path));
+}
+
+TEST(StyioWorkspaceIndex, ClosedFileRefreshesFromDiskBeforeBackgroundIndexing) {
+  const std::string root = make_temp_project_dir("m17_closed_file_refresh");
+  const std::string path = (std::filesystem::path(root) / "refresh.styio").string();
+  write_text_file(path, "# old_symbol := (x: i32) => x\n");
+
+  styio::ide::IdeService service;
+  service.initialize(styio::ide::uri_from_path(root));
+  ASSERT_TRUE(has_indexed_symbol(service.workspace_symbols("old_symbol"), "old_symbol", path));
+
+  write_text_file(path, "# new_symbol := (x: i32) => x\n");
+  service.schedule_background_index_refresh();
+  ASSERT_GT(service.pending_background_task_count(), 0u);
+  EXPECT_EQ(service.run_background_tasks(1), 1u);
+
+  const auto symbols = service.workspace_symbols("new_symbol");
+  EXPECT_FALSE(has_indexed_symbol(symbols, "old_symbol", path));
+  EXPECT_TRUE(has_indexed_symbol(symbols, "new_symbol", path));
 }
 
 TEST(StyioSemanticDb, ReusesFileQueriesWithinSnapshot) {
@@ -1369,6 +1407,7 @@ TEST(StyioSemanticDb, ReusesFileQueriesWithinSnapshot) {
     "# add := (a: i32, b: i32) => a + b\n"
     "result: i32 := add(1, 2)\n";
 
+  write_text_file(path, source);
   vfs.open(path, source, 1);
   semdb.reset_query_stats();
 
@@ -1495,6 +1534,7 @@ TEST(StyioSemanticDb, DropsOpenFileQueryStateOnClose) {
     "# add := (a: i32, b: i32) => a + b\n"
     "result: i32 := add(1, 2)\n";
 
+  write_text_file(path, source);
   vfs.open(path, source, 1);
   semdb.reset_query_stats();
 
@@ -1585,6 +1625,38 @@ TEST(StyioLspServer, HandlesInitializeOpenAndCompletion) {
     }
   }
   EXPECT_TRUE(found_add);
+}
+
+TEST(StyioLspServer, SkipsMalformedFramesAndHandlesLargeStringIds) {
+  styio::lsp::Server server;
+  const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());
+  const std::string uri = temp_uri("server_malformed_frame.styio");
+
+  const llvm::json::Object initialize_request{
+    {"jsonrpc", "2.0"},
+    {"id", "9999999999999999999999999999999999999999"},
+    {"method", "initialize"},
+    {"params", llvm::json::Object{{"rootUri", root_uri}}}};
+
+  std::string input_text = "Content-Length: not-a-number\r\n\r\n";
+  input_text += lsp_frame(initialize_request);
+
+  std::istringstream input(input_text);
+  std::ostringstream output;
+  server.run(input, output);
+
+  EXPECT_NE(output.str().find("\"capabilities\""), std::string::npos);
+
+  auto open_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didOpen"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{
+          {"uri", uri},
+          {"version", 1},
+          {"text", "# add := (a: i32, b: i32) => a + b\nresult: i32 := ad\n"}}}}}});
+  ASSERT_EQ(open_messages.size(), 1u);
+  EXPECT_EQ(open_messages[0].payload.getString("method").value_or(""), "textDocument/publishDiagnostics");
 }
 
 TEST(StyioLspServer, AppliesMultipleIncrementalChangesInOrder) {
@@ -1741,6 +1813,164 @@ TEST(StyioLspRuntime, DebouncesSemanticDiagnostics) {
   EXPECT_EQ(server.runtime_counters().semantic_diagnostic_debounces, 3u);
 }
 
+TEST(StyioLspRuntime, RuntimeDrainCanBeBudgetedForScheduling) {
+  styio::ide::IdeService service;
+  service.initialize(styio::ide::uri_from_path(make_temp_dir()));
+
+  const std::string uri_a = temp_uri("runtime_schedule_a.styio");
+  const std::string uri_b = temp_uri("runtime_schedule_b.styio");
+  service.did_open(
+    uri_a,
+    "# add := (a: i32, b: i32) => a + b\n"
+    "result: i32 := add(1, 2)\n",
+    1);
+  service.did_open(
+    uri_b,
+    "# other := (x: i32) => x\n"
+    "result: i32 := other(1)\n",
+    1);
+
+  auto first_batch = service.drain_semantic_diagnostics(1);
+  ASSERT_EQ(first_batch.size(), 1u);
+  EXPECT_EQ(first_batch.front().snapshot->path, styio::ide::path_from_uri(uri_a));
+
+  auto second_batch = service.drain_semantic_diagnostics(1);
+  ASSERT_EQ(second_batch.size(), 1u);
+  EXPECT_EQ(second_batch.front().snapshot->path, styio::ide::path_from_uri(uri_b));
+
+  EXPECT_EQ(service.drain_semantic_diagnostics(1).size(), 0u);
+
+  service.did_change(
+    uri_a,
+    "# add := (a: i32, b: i32) => a +\n"
+    "result: i32 := add(1, 2)\n",
+    2);
+  service.did_change(
+    uri_a,
+    "# sum := (a: i32, b: i32) => a + b\n"
+    "result: i32 := sum(1, 2)\n",
+    3);
+
+  auto refreshed = service.drain_semantic_diagnostics(1);
+  ASSERT_EQ(refreshed.size(), 1u);
+  EXPECT_EQ(refreshed.front().snapshot->version, 3u);
+  EXPECT_EQ(service.runtime_counters().stale_request_drops, 0u);
+}
+
+TEST(StyioLspServer, RunDrainsRuntimeDiagnostics) {
+  styio::lsp::Server reference_server;
+  styio::lsp::Server run_server;
+  const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());
+  const std::string uri = temp_uri("runtime_run_loop.styio");
+
+  const std::vector<llvm::json::Object> requests = {
+    llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"id", 1},
+      {"method", "initialize"},
+      {"params", llvm::json::Object{{"rootUri", root_uri}}}},
+    llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"method", "textDocument/didOpen"},
+      {"params", llvm::json::Object{
+         {"textDocument", llvm::json::Object{
+           {"uri", uri},
+           {"version", 1},
+           {"text", "# add := (a: i32, b: i32) => a + b\nresult: i32 := add(1, 2)\n"}}}}}},
+    llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"method", "textDocument/didChange"},
+      {"params", llvm::json::Object{
+         {"textDocument", llvm::json::Object{{"uri", uri}, {"version", 2}}},
+         {"contentChanges", llvm::json::Array{
+           llvm::json::Object{{"text", "# add := (a: i32, b: i32) => {\nresult: i32 := add(1, 2)\n"}}}}}}},
+    llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"method", "textDocument/didChange"},
+      {"params", llvm::json::Object{
+         {"textDocument", llvm::json::Object{{"uri", uri}, {"version", 3}}},
+         {"contentChanges", llvm::json::Array{
+           llvm::json::Object{{"text", "# add := (a: i32, b: i32) => a +\nresult: i32 := add(1, 2)\n"}}}}}}},
+    llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"method", "textDocument/didChange"},
+      {"params", llvm::json::Object{
+         {"textDocument", llvm::json::Object{{"uri", uri}, {"version", 4}}},
+         {"contentChanges", llvm::json::Array{
+           llvm::json::Object{{"text", "# sum := (a: i32, b: i32) => a + b\nresult: i32 := sum(1, 2)\n"}}}}}}}
+  };
+
+  std::vector<styio::lsp::OutboundMessage> expected_messages;
+  for (const auto& request : requests) {
+    for (const auto& message : reference_server.handle(llvm::json::Object(request))) {
+      expected_messages.push_back(message);
+    }
+    for (const auto& message : reference_server.drain_runtime()) {
+      expected_messages.push_back(message);
+    }
+  }
+
+  std::string transport_input;
+  for (const auto& request : requests) {
+    transport_input += lsp_frame(request);
+  }
+
+  std::istringstream input(transport_input);
+  std::ostringstream output;
+  run_server.run(input, output);
+
+  EXPECT_EQ(output.str(), lsp_messages_to_text(expected_messages));
+}
+
+TEST(StyioLspRuntime, RunAdvancesBackgroundWorkAsRequestDrivenFallback) {
+  styio::lsp::Server server;
+  const std::string root = make_temp_project_dir("m18_request_driven_background");
+  write_text_file((std::filesystem::path(root) / "lib_bg.styio").string(), "# lib_bg := (x: i32) => x\n");
+  write_text_file((std::filesystem::path(root) / "other_bg.styio").string(), "# other_bg := (x: i32) => x\n");
+
+  const std::string uri = temp_uri("runtime_request_driven_fallback.styio");
+  const std::vector<llvm::json::Object> requests = {
+    llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"id", 1},
+      {"method", "initialize"},
+      {"params", llvm::json::Object{{"rootUri", styio::ide::uri_from_path(root)}}}},
+    llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"method", "textDocument/didOpen"},
+      {"params", llvm::json::Object{
+         {"textDocument", llvm::json::Object{
+           {"uri", uri},
+           {"version", 1},
+           {"text", "# local := (x: i32) => x\nresult: i32 := lo\n"}}}}}},
+    llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"method", "workspace/didChangeWatchedFiles"},
+      {"params", llvm::json::Object{{"changes", llvm::json::Array{}}}}},
+    llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"id", 2},
+      {"method", "textDocument/completion"},
+      {"params", llvm::json::Object{
+         {"textDocument", llvm::json::Object{{"uri", uri}}},
+         {"position", llvm::json::Object{{"line", 1}, {"character", 16}}}}}}
+  };
+
+  std::string transport_input;
+  for (const auto& request : requests) {
+    transport_input += lsp_frame(request);
+  }
+
+  std::istringstream input(transport_input);
+  std::ostringstream output;
+  server.run(input, output);
+
+  EXPECT_NE(output.str().find("\"id\":2"), std::string::npos);
+  EXPECT_NE(output.str().find("local"), std::string::npos);
+  EXPECT_EQ(server.runtime_counters().foreground_yield_events, 1u);
+  EXPECT_EQ(server.runtime_counters().background_tasks_completed, 2u);
+}
+
 TEST(StyioLspRuntime, BackgroundIndexYieldsToForegroundRequests) {
   const std::string root = make_temp_project_dir("m18_background");
   write_text_file((std::filesystem::path(root) / "lib.styio").string(), "# lib_add := (a: i32, b: i32) => a + b\n");
@@ -1768,6 +1998,39 @@ TEST(StyioLspRuntime, BackgroundIndexYieldsToForegroundRequests) {
   EXPECT_EQ(service.runtime_counters().foreground_yield_events, 1u);
 
   EXPECT_EQ(service.run_background_tasks(1), 1u);
+  EXPECT_EQ(service.runtime_counters().background_tasks_completed, 1u);
+}
+
+TEST(StyioLspRuntime, IdleSliceDrainsSemanticBeforeBackgroundWork) {
+  const std::string root = make_temp_project_dir("m18_idle_slice");
+  const auto background_path = std::filesystem::path(root) / "background.styio";
+  write_text_file(background_path.string(), "# background := (x: i32) => x\n");
+
+  styio::ide::IdeService service;
+  service.initialize(styio::ide::uri_from_path(root));
+
+  const std::string uri = styio::ide::uri_from_path((std::filesystem::path(root) / "main.styio").string());
+  service.did_open(
+    uri,
+    "# add := (a: i32, b: i32) => a + b\n"
+    "result: i32 := add(1, 2)\n",
+    1);
+  service.schedule_background_index_refresh();
+
+  ASSERT_EQ(service.pending_semantic_diagnostic_count(), 1u);
+  ASSERT_GT(service.pending_background_task_count(), 0u);
+
+  const auto completion = service.completion(uri, styio::ide::Position{1, 16});
+  EXPECT_TRUE(has_completion_label(completion, "add"));
+  EXPECT_GT(service.pending_background_task_count(), 0u);
+  EXPECT_EQ(service.runtime_counters().background_tasks_completed, 0u);
+
+  const auto idle = service.run_idle_tasks(1);
+  ASSERT_EQ(idle.semantic_publications.size(), 1u);
+  EXPECT_EQ(idle.semantic_publications[0].snapshot->version, 1);
+  EXPECT_EQ(idle.background_tasks_completed, 1u);
+  EXPECT_EQ(service.pending_semantic_diagnostic_count(), 0u);
+  EXPECT_EQ(service.runtime_counters().semantic_diagnostic_runs, 1u);
   EXPECT_EQ(service.runtime_counters().background_tasks_completed, 1u);
 }
 

@@ -1,4 +1,6 @@
+@price : i64|..3|
 [1, 2, 3, 4, 5] >> #(p) => {
-    @[3](ma = p[avg, 3])
+    p -> @price
 }
+ma = (@price[-1] + @price[-2] + @price[-3]) / 3
 >_(ma)

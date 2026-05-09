@@ -1,0 +1,20 @@
+values <- @stdin: list[i32]
+
+answer = -1
+
+?(values.length > 0) => {
+    target = values[0]
+    count = values.length - 1
+
+    ?(count > 0) => {
+        [0..count-1] >> #(i) => {
+            ?(answer < 0) => {
+                ?(values[i + 1] == target) => {
+                    answer = i
+                }
+            }
+        }
+    }
+}
+
+>_(answer)

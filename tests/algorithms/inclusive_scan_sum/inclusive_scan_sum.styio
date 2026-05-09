@@ -1,0 +1,11 @@
+values <- @stdin: list[i32]
+
+n = values.length
+
+?(n > 1) => {
+    [1..n-1] >> #(i) => {
+        values[i] = values[i] + values[i - 1]
+    }
+}
+
+>_(values)

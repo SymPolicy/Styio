@@ -6,7 +6,7 @@ usage() {
 Usage: scripts/ide-fuzz-gate.sh [options]
 
 Options:
-  --build-dir <dir>   Fuzz build dir (default: build-fuzz)
+  --build-dir <dir>   Fuzz build dir (default: build/fuzz)
   --skip-configure    Reuse the existing build dir without re-running CMake configure
   -h, --help          Show help
 
@@ -38,8 +38,8 @@ find_tree_sitter_runtime_source() {
 
   for candidate in \
     "$ROOT/$BUILD_DIR/_deps/tree_sitter_runtime-src" \
-    "$ROOT/build-codex/_deps/tree_sitter_runtime-src" \
-    "$ROOT/build-ide-perf/_deps/tree_sitter_runtime-src"; do
+    "$ROOT/build/default/_deps/tree_sitter_runtime-src" \
+    "$ROOT/build/ide-perf/_deps/tree_sitter_runtime-src"; do
     if [[ -d "$candidate/lib/include" ]]; then
       printf '%s\n' "$candidate"
       return 0
@@ -69,8 +69,8 @@ find_googletest_source() {
 
   for candidate in \
     "$ROOT/$BUILD_DIR/_deps/googletest-src" \
-    "$ROOT/build-codex/_deps/googletest-src" \
-    "$ROOT/build-ide-perf/_deps/googletest-src"; do
+    "$ROOT/build/default/_deps/googletest-src" \
+    "$ROOT/build/ide-perf/_deps/googletest-src"; do
     if [[ -f "$candidate/CMakeLists.txt" ]]; then
       printf '%s\n' "$candidate"
       return 0
@@ -112,7 +112,7 @@ find_llvm_prefix() {
 }
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUILD_DIR="build-fuzz"
+BUILD_DIR="build/fuzz"
 SKIP_CONFIGURE=0
 
 while [[ $# -gt 0 ]]; do

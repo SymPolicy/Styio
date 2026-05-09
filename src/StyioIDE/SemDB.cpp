@@ -1,5 +1,7 @@
 #include "SemDB.hpp"
 
+#include "StyioParser/SymbolRegistry.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
@@ -21,6 +23,26 @@ struct BuiltinSymbol
   CompletionSource source = CompletionSource::Builtin;
 };
 
+CompletionItemKind
+completion_kind_for_registry_entry(const styio::symbols::RegistryEntry& entry) {
+  switch (entry.surface) {
+    case styio::symbols::RegistrySurface::Type:
+      return CompletionItemKind::Type;
+    case styio::symbols::RegistrySurface::Member:
+      return CompletionItemKind::Property;
+    case styio::symbols::RegistrySurface::Value:
+      return CompletionItemKind::Keyword;
+  }
+  return CompletionItemKind::Keyword;
+}
+
+CompletionSource
+completion_source_for_registry_entry(const styio::symbols::RegistryEntry& entry) {
+  return entry.origin == styio::symbols::RegistryOrigin::Macro
+    ? CompletionSource::Keyword
+    : CompletionSource::Builtin;
+}
+
 bool
 starts_with_prefix(const std::string& candidate, const std::string& prefix) {
   if (prefix.empty()) {
@@ -34,36 +56,22 @@ starts_with_prefix(const std::string& candidate, const std::string& prefix) {
 
 const std::vector<BuiltinSymbol>&
 builtin_symbols() {
-  static const std::vector<BuiltinSymbol> symbols = {
-    {"bool", CompletionItemKind::Type, SymbolKind::Builtin, "type", "bool", CompletionSource::Builtin},
-    {"int", CompletionItemKind::Type, SymbolKind::Builtin, "type", "int", CompletionSource::Builtin},
-    {"long", CompletionItemKind::Type, SymbolKind::Builtin, "type", "long", CompletionSource::Builtin},
-    {"i1", CompletionItemKind::Type, SymbolKind::Builtin, "type", "i1", CompletionSource::Builtin},
-    {"i8", CompletionItemKind::Type, SymbolKind::Builtin, "type", "i8", CompletionSource::Builtin},
-    {"i16", CompletionItemKind::Type, SymbolKind::Builtin, "type", "i16", CompletionSource::Builtin},
-    {"i32", CompletionItemKind::Type, SymbolKind::Builtin, "type", "i32", CompletionSource::Builtin},
-    {"i64", CompletionItemKind::Type, SymbolKind::Builtin, "type", "i64", CompletionSource::Builtin},
-    {"i128", CompletionItemKind::Type, SymbolKind::Builtin, "type", "i128", CompletionSource::Builtin},
-    {"float", CompletionItemKind::Type, SymbolKind::Builtin, "type", "float", CompletionSource::Builtin},
-    {"double", CompletionItemKind::Type, SymbolKind::Builtin, "type", "double", CompletionSource::Builtin},
-    {"f32", CompletionItemKind::Type, SymbolKind::Builtin, "type", "f32", CompletionSource::Builtin},
-    {"f64", CompletionItemKind::Type, SymbolKind::Builtin, "type", "f64", CompletionSource::Builtin},
-    {"char", CompletionItemKind::Type, SymbolKind::Builtin, "type", "char", CompletionSource::Builtin},
-    {"string", CompletionItemKind::Type, SymbolKind::Builtin, "type", "string", CompletionSource::Builtin},
-    {"str", CompletionItemKind::Type, SymbolKind::Builtin, "type", "str", CompletionSource::Builtin},
-    {"stdin", CompletionItemKind::Keyword, SymbolKind::Builtin, "standard input stream", "", CompletionSource::Builtin},
-    {"stdout", CompletionItemKind::Keyword, SymbolKind::Builtin, "standard output stream", "", CompletionSource::Builtin},
-    {"stderr", CompletionItemKind::Keyword, SymbolKind::Builtin, "standard error stream", "", CompletionSource::Builtin},
-    {"file", CompletionItemKind::Keyword, SymbolKind::Builtin, "file resource", "", CompletionSource::Builtin},
-    {"true", CompletionItemKind::Keyword, SymbolKind::Builtin, "boolean literal", "bool", CompletionSource::Builtin},
-    {"false", CompletionItemKind::Keyword, SymbolKind::Builtin, "boolean literal", "bool", CompletionSource::Builtin},
-    {"match", CompletionItemKind::Keyword, SymbolKind::Builtin, "match expression", "", CompletionSource::Keyword},
-    {"len", CompletionItemKind::Property, SymbolKind::Builtin, "member", "", CompletionSource::Builtin},
-    {"first", CompletionItemKind::Property, SymbolKind::Builtin, "member", "", CompletionSource::Builtin},
-    {"last", CompletionItemKind::Property, SymbolKind::Builtin, "member", "", CompletionSource::Builtin},
-    {"keys", CompletionItemKind::Property, SymbolKind::Builtin, "member", "", CompletionSource::Builtin},
-    {"values", CompletionItemKind::Property, SymbolKind::Builtin, "member", "", CompletionSource::Builtin},
-  };
+  static const std::vector<BuiltinSymbol> symbols = []()
+  {
+    std::vector<BuiltinSymbol> builtins;
+    builtins.reserve(styio::symbols::default_symbol_registry().size());
+    for (const auto& entry : styio::symbols::default_symbol_registry()) {
+      builtins.push_back(BuiltinSymbol{
+        entry.name,
+        completion_kind_for_registry_entry(entry),
+        SymbolKind::Builtin,
+        entry.detail,
+        entry.type_name,
+        completion_source_for_registry_entry(entry),
+      });
+    }
+    return builtins;
+  }();
   return symbols;
 }
 
@@ -642,9 +650,7 @@ SemanticDB::index_workspace() {
         symbol.detail.empty() ? symbol.type_name : symbol.detail});
     }
   }
-  if (!persisted.empty()) {
-    persistent_index_.save_symbols(persisted);
-  }
+  persistent_index_.save_symbols(persisted);
 }
 
 void

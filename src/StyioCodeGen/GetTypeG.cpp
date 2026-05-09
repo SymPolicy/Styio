@@ -55,6 +55,7 @@ StyioToLLVM::toLLVMType(SGType* node) {
       return llvm::PointerType::get(*theContext, 0);
     case StyioDataTypeOption::List:
     case StyioDataTypeOption::Dict:
+    case StyioDataTypeOption::Matrix:
       return theBuilder->getInt64Ty();
     default:
       return theBuilder->getInt64Ty();
@@ -156,6 +157,8 @@ StyioToLLVM::toLLVMType(SGDynLoad* node) {
     case SGDynLoadKind::I64:
     case SGDynLoadKind::ListHandle:
     case SGDynLoadKind::DictHandle:
+    case SGDynLoadKind::MatrixHandle:
+    case SGDynLoadKind::TaskHandle:
       return theBuilder->getInt64Ty();
     case SGDynLoadKind::F64:
       return theBuilder->getDoubleTy();
@@ -180,6 +183,18 @@ StyioToLLVM::toLLVMType(SGCall* node) {
   if (llvm::Function* f = theModule->getFunction(node->func_name->as_str())) {
     return f->getReturnType();
   }
+  return theBuilder->getInt64Ty();
+};
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGExportDecl* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+};
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGExternBlock* node) {
+  (void)node;
   return theBuilder->getInt64Ty();
 };
 
@@ -228,13 +243,19 @@ StyioToLLVM::toLLVMType(SGIf* node) {
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGListLiteral* node) {
+StyioToLLVM::toLLVMType(SCListLiteral* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGDictLiteral* node) {
+StyioToLLVM::toLLVMType(SCDictLiteral* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SCMatrixLiteral* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
@@ -267,6 +288,9 @@ llvm::Type*
 StyioToLLVM::toLLVMType(SGMatch* node) {
   if (node->repr_kind == SGMatchReprKind::ExprMixed) {
     return llvm::PointerType::get(*theContext, 0);
+  }
+  if (node->repr_kind == SGMatchReprKind::ExprFloat) {
+    return theBuilder->getDoubleTy();
   }
   return theBuilder->getInt64Ty();
 }
@@ -324,19 +348,25 @@ StyioToLLVM::toLLVMType(SGEqProbe* node) {
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGHandleAcquire* node) {
+StyioToLLVM::toLLVMType(SIOHandleAcquire* node) {
   (void)node;
   return theBuilder->getVoidTy();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGFileLineIter* node) {
+StyioToLLVM::toLLVMType(SIOHandleRelease* node) {
   (void)node;
   return theBuilder->getVoidTy();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGStreamZip* node) {
+StyioToLLVM::toLLVMType(SIOFileLineIter* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SIOStreamZip* node) {
   (void)node;
   return theBuilder->getVoidTy();
 }
@@ -354,31 +384,31 @@ StyioToLLVM::toLLVMType(SGSnapshotShadowLoad* node) {
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGInstantPull* node) {
+StyioToLLVM::toLLVMType(SIOInstantPull* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGListReadStdin* node) {
+StyioToLLVM::toLLVMType(SIOListReadStdin* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGListClone* node) {
+StyioToLLVM::toLLVMType(SCListClone* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGListLen* node) {
+StyioToLLVM::toLLVMType(SCListLen* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGListGet* node) {
+StyioToLLVM::toLLVMType(SCListGet* node) {
   switch (styio_value_family_from_type_name(node->elem_type)) {
     case StyioValueFamily::String:
       return llvm::PointerType::get(*theContext, 0);
@@ -393,31 +423,51 @@ StyioToLLVM::toLLVMType(SGListGet* node) {
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGListSet* node) {
+StyioToLLVM::toLLVMType(SCListSet* node) {
   (void)node;
   return theBuilder->getVoidTy();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGListToString* node) {
+StyioToLLVM::toLLVMType(SCListToString* node) {
   (void)node;
   return llvm::PointerType::get(*theContext, 0);
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGDictClone* node) {
+StyioToLLVM::toLLVMType(SCMatrixGet* node) {
+  if (styio_value_family_from_type_name(node->elem_type) == StyioValueFamily::Float) {
+    return theBuilder->getDoubleTy();
+  }
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SCMatrixRow* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGDictLen* node) {
+StyioToLLVM::toLLVMType(SCMatrixToString* node) {
+  (void)node;
+  return llvm::PointerType::get(*theContext, 0);
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SCDictClone* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGDictGet* node) {
+StyioToLLVM::toLLVMType(SCDictLen* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SCDictGet* node) {
   switch (styio_value_family_from_type_name(node->value_type)) {
     case StyioValueFamily::String:
       return llvm::PointerType::get(*theContext, 0);
@@ -431,31 +481,31 @@ StyioToLLVM::toLLVMType(SGDictGet* node) {
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGDictSet* node) {
+StyioToLLVM::toLLVMType(SCDictSet* node) {
   (void)node;
   return theBuilder->getVoidTy();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGDictKeys* node) {
+StyioToLLVM::toLLVMType(SCDictKeys* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGDictValues* node) {
+StyioToLLVM::toLLVMType(SCDictValues* node) {
   (void)node;
   return theBuilder->getInt64Ty();
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGDictToString* node) {
+StyioToLLVM::toLLVMType(SCDictToString* node) {
   (void)node;
   return llvm::PointerType::get(*theContext, 0);
 }
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGResourceWriteToFile* node) {
+StyioToLLVM::toLLVMType(SIOResourceWriteToFile* node) {
   (void)node;
   return theBuilder->getVoidTy();
 }
@@ -474,6 +524,40 @@ StyioToLLVM::toLLVMType(SIOStdStreamLineIter* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SIOStdStreamPull* node) {
+  if (styio_is_list_type(node->result_type)) {
+    return theBuilder->getInt64Ty();
+  }
+  switch (node->result_type.option) {
+    case StyioDataTypeOption::Float:
+      return theBuilder->getDoubleTy();
+    case StyioDataTypeOption::String:
+      return llvm::PointerType::get(*theContext, 0);
+    case StyioDataTypeOption::Integer:
+    default:
+      return theBuilder->getInt64Ty();
+  }
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SIOTaskCreate* node) {
   (void)node;
-  return llvm::PointerType::get(*theContext, 0);
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SIOFlowBind* node) {
+  switch (node->result_type.option) {
+    case StyioDataTypeOption::Bool:
+      return theBuilder->getInt1Ty();
+    case StyioDataTypeOption::Float:
+      return theBuilder->getDoubleTy();
+    case StyioDataTypeOption::String:
+      return llvm::PointerType::get(*theContext, 0);
+    case StyioDataTypeOption::Integer:
+    case StyioDataTypeOption::List:
+    case StyioDataTypeOption::Dict:
+    case StyioDataTypeOption::Matrix:
+    default:
+      return theBuilder->getInt64Ty();
+  }
 }

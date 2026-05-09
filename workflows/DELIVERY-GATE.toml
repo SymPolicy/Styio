@@ -1,0 +1,19 @@
+id = "delivery-gate"
+title = "Styio Unified Delivery Gate"
+purpose = "Define the common delivery-floor entrypoint for local, branch, audit, and checkpoint health checks."
+last_updated = "2026-05-02"
+doc = "DELIVERY-GATE.md"
+
+commands = [
+  "./scripts/delivery-gate.sh",
+  "./scripts/delivery-gate.sh --skip-health",
+  "./scripts/delivery-gate.sh --mode push --base origin/main --range origin/main..HEAD",
+  "./scripts/delivery-gate.sh --mode release",
+]
+
+delegates = [
+  "repo hygiene",
+  "workflow scheduler",
+  "external audit",
+  "checkpoint health",
+]

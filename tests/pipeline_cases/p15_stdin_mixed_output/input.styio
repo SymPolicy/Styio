@@ -1,4 +1,4 @@
 @stdin >> #(line) => {
-    "got: " + line >> @stdout
-    "processing: " + line >> @stderr
+    "got: " + line -> @stdout
+    "processing: " + line -> @stderr
 }
