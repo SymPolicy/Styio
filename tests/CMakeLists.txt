@@ -103,6 +103,15 @@ add_test(
 set_tests_properties(m10_t01_stdin_echo PROPERTIES LABELS "milestone;m10")
 
 add_test(
+  NAME styio_build_native_executable_stdin_echo
+  COMMAND bash -c "rm -f \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" && \"${STYIO_EXE}\" build \"${STYIO_MS}/m10/t01_stdin_echo.styio\" -o \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" && test -x \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" && cat \"${STYIO_MS}/m10/data/echo_input.txt\" | \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" | cmp -s - \"${STYIO_MS}/m10/expected/t01_stdin_echo.out\""
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(styio_build_native_executable_stdin_echo PROPERTIES
+  LABELS "native_artifact;milestone;m10"
+)
+
+add_test(
   NAME m10_t02_stdin_pull
   COMMAND bash -c "cat \"${STYIO_MS}/m10/data/pull_input.txt\" | \"${STYIO_EXE}\" --file \"${STYIO_MS}/m10/t02_stdin_pull.styio\" | cmp -s - \"${STYIO_MS}/m10/expected/t02_stdin_pull.out\""
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"

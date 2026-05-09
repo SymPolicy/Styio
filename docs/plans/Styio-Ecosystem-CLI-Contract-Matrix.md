@@ -94,6 +94,27 @@ Owner / consumer docs:
 1. `styio-nightly/docs/external/for-spio/Styio-Nano-Spio-Coordination.md`
 2. `styio-spio/docs/governance/Spio-CLI-Contract.md`
 
+### 2.4 `styio build <file_path> -o <artifact_name>`
+
+Canonical form:
+
+```text
+styio build file_path -o artifact_name
+```
+
+当前必须保持一致的要点：
+
+1. 输出产物是当前平台可直接执行的 native executable
+2. `build` 阶段不执行 Styio entry program
+3. 源文件先走现有 compile-plan `intent=build` 前端路径生成 LLVM IR
+4. native executable 链接 Styio runtime helper surface，因此运行期错误仍按 Styio runtime error contract 返回
+5. 该命令服务 benchmark `native-artifact` 路线，不替代 `--compile-plan <path>` 的生态构建合同
+
+Owner / consumer docs:
+
+1. `styio-benchmark/warm-process` 和 `styio-benchmark/polyglot` route 文档
+2. `styio-nightly/tests/CMakeLists.txt` 的 `styio_build_native_executable_stdin_echo`
+
 ## 3. `spio` -> `view`
 
 ### 3.1 `spio machine-info --json`

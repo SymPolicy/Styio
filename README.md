@@ -109,6 +109,13 @@ The compiler-side baseline is live, and we are rapidly expanding the surrounding
 
 Dive deeper into the design, specifications, and architecture of Styio:
 
+也可以把单个 Styio 源文件编译成本机可执行文件：
+
+```bash
+./build/bin/styio build tests/milestones/m10/t01_stdin_echo.styio -o /tmp/styio-stdin-echo
+cat tests/milestones/m10/data/echo_input.txt | /tmp/styio-stdin-echo
+```
+
 *   **[Project Principles & Goals](docs/specs/PRINCIPLES-AND-OBJECTIVES.md)**
 *   **[Repository Ecosystem Map](docs/specs/REPOSITORY-MAP.md)**
 *   **[Parallel Development Specs](docs/specs/ECOSYSTEM-REPO-SPLIT-AND-PARALLEL-DEV.md)**
