@@ -6,9 +6,9 @@ usage() {
 Usage: scripts/ide-quality-gate.sh [options]
 
 Options:
-  --build-dir <dir>        Main IDE build dir (default: build-codex)
-  --perf-build-dir <dir>   Release perf build dir (default: build-ide-perf)
-  --fuzz-build-dir <dir>   Fuzz build dir (default: build-fuzz)
+  --build-dir <dir>        Main IDE build dir (default: build/default)
+  --perf-build-dir <dir>   Release perf build dir (default: build/ide-perf)
+  --fuzz-build-dir <dir>   Fuzz build dir (default: build/fuzz)
   --skip-build             Skip rebuilding the main IDE targets
   --skip-perf              Skip the release perf gate (requires --waiver)
   --skip-fuzz              Skip fuzz smoke (requires --waiver)
@@ -36,9 +36,9 @@ detect_jobs() {
 }
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUILD_DIR="build-codex"
-PERF_BUILD_DIR="build-ide-perf"
-FUZZ_BUILD_DIR="build-fuzz"
+BUILD_DIR="build/default"
+PERF_BUILD_DIR="build/ide-perf"
+FUZZ_BUILD_DIR="build/fuzz"
 SKIP_BUILD=0
 SKIP_PERF=0
 SKIP_FUZZ=0

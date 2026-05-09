@@ -45,6 +45,12 @@ struct DiagnosticPublication
   bool includes_semantic = false;
 };
 
+struct RuntimeIdleResult
+{
+  std::vector<DiagnosticPublication> semantic_publications;
+  std::size_t background_tasks_completed = 0;
+};
+
 struct RuntimeLatencyStats
 {
   std::uint64_t count = 0;
@@ -126,6 +132,9 @@ public:
   std::vector<DiagnosticPublication> drain_semantic_diagnostics(std::size_t max_documents = static_cast<std::size_t>(-1));
   void schedule_background_index_refresh();
   std::size_t run_background_tasks(std::size_t budget = 1);
+  RuntimeIdleResult run_idle_tasks(
+    std::size_t background_budget = 1,
+    std::size_t semantic_budget = static_cast<std::size_t>(-1));
   std::size_t pending_semantic_diagnostic_count() const;
   std::size_t pending_background_task_count() const;
   const RuntimeCounters& runtime_counters() const;

@@ -6,12 +6,13 @@ usage() {
 Usage: scripts/cleanup-builds.sh [options]
 
 Options:
-  --keep <count>  Keep the newest <count> build directories (default: 3)
+  --keep <count>  Keep the newest <count> build variants (default: 3)
   --apply         Delete old build directories. Without this flag, only print a dry run.
   -h, --help      Show this help
 
 Notes:
-  - Matches build directories in the repo root named "build" or "build-*".
+  - Matches build variant directories under "build/".
+  - Also matches legacy repo-root "build-*" directories so they can be retired.
   - Sorts by directory modification time, newest first.
 USAGE
 }
@@ -84,7 +85,14 @@ declare -a entries=()
 while IFS= read -r -d '' dir; do
   rel="${dir#$ROOT/}"
   entries+=("$(stat_mtime "$dir")"$'\t'"$rel")
-done < <(find "$ROOT" -mindepth 1 -maxdepth 1 -type d \( -name 'build' -o -name 'build-*' \) -print0)
+done < <(
+  {
+    if [[ -d "$ROOT/build" ]]; then
+      find "$ROOT/build" -mindepth 1 -maxdepth 1 -type d -print0
+    fi
+    find "$ROOT" -mindepth 1 -maxdepth 1 -type d -name 'build-*' -print0
+  }
+)
 
 if [[ ${#entries[@]} -eq 0 ]]; then
   echo "[cleanup-builds] no build directories found under $ROOT"

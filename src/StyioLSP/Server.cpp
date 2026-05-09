@@ -3,11 +3,23 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <exception>
 #include <sstream>
 
 namespace styio::lsp {
 
 namespace {
+
+constexpr std::size_t kRuntimeDrainBudgetPerLoop = 1;
+constexpr std::size_t kBackgroundWorkBudgetPerLoop = 1;
+constexpr std::size_t kMaxContentLength = 16 * 1024 * 1024;
+
+enum class MessageReadStatus
+{
+  Message,
+  Skip,
+  End,
+};
 
 std::size_t
 utf8_sequence_length(unsigned char lead) {
@@ -235,11 +247,33 @@ write_message(std::ostream& output, const llvm::json::Object& payload) {
   output.flush();
 }
 
-std::optional<std::string>
+struct MessageReadResult
+{
+  MessageReadStatus status = MessageReadStatus::End;
+  std::string body;
+};
+
+bool
+discard_bytes(std::istream& input, std::size_t count) {
+  char buffer[4096];
+  while (count > 0) {
+    const std::size_t chunk = std::min(count, sizeof(buffer));
+    input.read(buffer, static_cast<std::streamsize>(chunk));
+    if (static_cast<std::size_t>(input.gcount()) != chunk) {
+      return false;
+    }
+    count -= chunk;
+  }
+  return true;
+}
+
+MessageReadResult
 read_message_body(std::istream& input) {
   std::string line;
   std::size_t content_length = 0;
+  bool saw_header = false;
   while (std::getline(input, line)) {
+    saw_header = true;
     if (!line.empty() && line.back() == '\r') {
       line.pop_back();
     }
@@ -250,28 +284,55 @@ read_message_body(std::istream& input) {
     if (line.rfind(k_header, 0) == 0) {
       std::string value = line.substr(std::char_traits<char>::length(k_header));
       value.erase(std::remove_if(value.begin(), value.end(), [](unsigned char ch) { return std::isspace(ch) != 0; }), value.end());
-      content_length = static_cast<std::size_t>(std::stoul(value));
+      if (value.empty() || !std::all_of(value.begin(), value.end(), [](unsigned char ch) { return std::isdigit(ch) != 0; })) {
+        return MessageReadResult{MessageReadStatus::Skip, {}};
+      }
+      try {
+        content_length = static_cast<std::size_t>(std::stoull(value));
+      } catch (const std::exception&) {
+        return MessageReadResult{MessageReadStatus::Skip, {}};
+      }
+      if (content_length > kMaxContentLength) {
+        if (!discard_bytes(input, content_length)) {
+          return MessageReadResult{MessageReadStatus::End, {}};
+        }
+        return MessageReadResult{MessageReadStatus::Skip, {}};
+      }
     }
   }
 
+  if (!saw_header) {
+    return MessageReadResult{MessageReadStatus::End, {}};
+  }
+
   if (content_length == 0) {
-    return std::nullopt;
+    return MessageReadResult{MessageReadStatus::Skip, {}};
   }
 
   std::string body(content_length, '\0');
   input.read(body.data(), static_cast<std::streamsize>(content_length));
-  return body;
+  if (static_cast<std::size_t>(input.gcount()) != content_length) {
+    return MessageReadResult{MessageReadStatus::End, {}};
+  }
+  return MessageReadResult{MessageReadStatus::Message, std::move(body)};
 }
 
 std::optional<std::uint64_t>
 request_id_from_json(const llvm::json::Value& value) {
   if (auto integer = value.getAsInteger()) {
+    if (*integer < 0) {
+      return std::nullopt;
+    }
     return static_cast<std::uint64_t>(*integer);
   }
   if (auto text = value.getAsString()) {
     const std::string request_id(*text);
     if (!request_id.empty() && std::all_of(request_id.begin(), request_id.end(), [](unsigned char ch) { return std::isdigit(ch) != 0; })) {
-      return static_cast<std::uint64_t>(std::stoull(request_id));
+      try {
+        return static_cast<std::uint64_t>(std::stoull(request_id));
+      } catch (const std::exception&) {
+        return std::nullopt;
+      }
     }
   }
   return std::nullopt;
@@ -355,6 +416,11 @@ Server::handle(llvm::json::Object request) {
         }
       }
     }
+    return output;
+  }
+
+  if (method == "workspace/didChangeWatchedFiles") {
+    service_.schedule_background_index_refresh();
     return output;
   }
 
@@ -542,8 +608,13 @@ Server::handle(llvm::json::Object request) {
 
 std::vector<OutboundMessage>
 Server::drain_runtime() {
+  return drain_runtime(static_cast<std::size_t>(-1));
+}
+
+std::vector<OutboundMessage>
+Server::drain_runtime(std::size_t max_documents) {
   std::vector<OutboundMessage> output;
-  for (auto publication : service_.drain_semantic_diagnostics()) {
+  for (auto publication : service_.drain_semantic_diagnostics(max_documents)) {
     if (publication.snapshot == nullptr) {
       continue;
     }
@@ -565,12 +636,15 @@ Server::runtime_counters() const {
 void
 Server::run(std::istream& input, std::ostream& output) {
   while (true) {
-    const auto body = read_message_body(input);
-    if (!body.has_value()) {
+    const auto message = read_message_body(input);
+    if (message.status == MessageReadStatus::End) {
       break;
     }
+    if (message.status == MessageReadStatus::Skip) {
+      continue;
+    }
 
-    llvm::Expected<llvm::json::Value> parsed = llvm::json::parse(*body);
+    llvm::Expected<llvm::json::Value> parsed = llvm::json::parse(message.body);
     if (!parsed) {
       continue;
     }
@@ -582,6 +656,15 @@ Server::run(std::istream& input, std::ostream& output) {
 
     for (const auto& message : handle(std::move(*object))) {
       write_message(output, message.payload);
+    }
+
+    for (const auto& message : drain_runtime(kRuntimeDrainBudgetPerLoop)) {
+      write_message(output, message.payload);
+    }
+
+    if (service_.pending_background_task_count() > 0 &&
+        service_.pending_semantic_diagnostic_count() == 0) {
+      service_.run_background_tasks(kBackgroundWorkBudgetPerLoop);
     }
   }
 }

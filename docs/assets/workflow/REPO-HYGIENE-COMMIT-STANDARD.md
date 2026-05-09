@@ -75,13 +75,13 @@
 ```bash
 git status --short
 git diff --cached --name-only
-python3 scripts/repo-hygiene-gate.py --mode staged
+./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit
 ```
 
 统一入口（含 docs/runbook/checkpoint floor）：
 
 ```bash
-./scripts/delivery-gate.sh --mode checkpoint
+./scripts/delivery-gate.sh
 ```
 
 必须满足：
@@ -106,13 +106,13 @@ git diff --cached --name-only \
 推荐先运行仓库门禁：
 
 ```bash
-python3 scripts/repo-hygiene-gate.py --mode push
+./scripts/delivery-gate.sh --skip-health
 ```
 
 统一入口：
 
 ```bash
-./scripts/delivery-gate.sh --mode push --base origin/main
+./scripts/delivery-gate.sh
 ```
 
 ### 5.1 大文件检查
@@ -237,8 +237,8 @@ fix: <行为修复>
 
 安装后：
 
-1. `pre-commit` 会检查暂存区路径、二进制与本机产物。
-2. `pre-push` 会检查待推送历史里的禁止路径和大 blob。
+1. `pre-commit` 会通过 `./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit` 检查暂存区路径、二进制、本机产物、runtime surface 和 staged docs/runbook 责任。
+2. `pre-push` 会通过 `./scripts/delivery-gate.sh --mode push --skip-health` 检查待推送历史里的禁止路径、大 blob、docs/runbook 分支责任和 external audit。
 3. GitHub Actions `styio-ci-gate` 会在受管分支的 `push` 与所有 `pull_request` 上重复执行同样的门禁。
 
 ---

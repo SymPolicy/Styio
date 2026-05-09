@@ -3,13 +3,13 @@ styio.ast.main {
   |- iterable object: styio.ast.std_stream { @stdin }
   |- styio.ast.arg { line : undefined }
   |- styio.ast.block {
-    |- styio.ast.resource.write  {
+    |- styio.ast.resource.redirect  {
       |- data: styio.ast.binop: string {
         |- LHS: styio.ast.string { "got: " }
         |- OP : <Add>
         |- RHS: line}
       |- resource: styio.ast.std_stream { @stdout }}
-    |- styio.ast.resource.write  {
+    |- styio.ast.resource.redirect  {
       |- data: styio.ast.binop: string {
         |- LHS: styio.ast.string { "processing: " }
         |- OP : <Add>

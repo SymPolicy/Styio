@@ -584,8 +584,6 @@ public:
       }
       for (size_t i = 0; i < tok_seq.size(); i++) {
         if (tok_seq.at(i) != tokens[index_of_token + i]->type) {
-          std::cout << "map match " << StyioToken::getTokName(tok_seq.at(i)) << " not equal "
-                    << StyioToken::getTokName(tokens[index_of_token + i]->type) << std::endl;
           is_same = false;
         }
       }
@@ -1468,10 +1466,61 @@ StyioAST*
 parse_resource_file_atom_latest(StyioContext& context);
 
 StyioAST*
+parse_instant_pull_resource_atom_latest(StyioContext& context, const std::string& diagnostic);
+
+StyioAST*
+parse_parenthesized_instant_pull_latest(
+  StyioContext& context,
+  StyioTokenType prefix,
+  const std::string& diagnostic,
+  const std::string& close_diagnostic);
+
+bool
+parse_terminal_handle_latest(StyioContext& context);
+
+StyioAST*
+parse_resource_target_latest(StyioContext& context, StdStreamKind terminal_kind = StdStreamKind::Stdout);
+
+StyioAST*
+try_parse_resource_write_tail_latest(StyioContext& context, StyioAST* data);
+
+StyioAST*
+parse_resource_extractor_write_tail_latest(StyioContext& context, StyioAST* data);
+
+StyioAST*
+parse_resource_redirect_tail_latest(StyioContext& context, StyioAST* data);
+
+struct StyioDoubleRightContinuationOps
+{
+  InfiniteLoopAST* (*parse_infinite_after_arrow)(StyioContext& context) = nullptr;
+  StyioAST* (*parse_iterator_tail_after_arrow)(StyioContext& context, StyioAST* collection) = nullptr;
+  const char* unsupported_message = "unsupported '>>' continuation";
+};
+
+StyioAST*
+parse_double_right_continuation_latest(
+  StyioContext& context,
+  StyioAST* lhs,
+  const StyioDoubleRightContinuationOps& ops
+);
+
+StyioAST*
 parse_after_at_common(StyioContext& context, bool file_only_resource);
 
 TypeAST*
 parse_styio_type(StyioContext& context);
+
+bool
+styio_is_bool_literal_name_latest(const std::string& name);
+
+StyioOpType
+styio_compound_assign_op_latest(StyioTokenType type);
+
+StyioAST*
+try_parse_typed_stdin_pull_bind_latest(
+  StyioContext& context,
+  std::vector<std::string> target_names
+);
 
 /*
   parse_pipeline

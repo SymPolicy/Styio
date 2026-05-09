@@ -2,10 +2,10 @@
 
 **Purpose:** 为 Styio 的资源值、`@stdin/@stdout`、`<<`、可迭代对象、以及默认失败处理建立统一的设计级类型系统；该文档定义目标模型，不等同于当前实现。
 
-**Last updated:** 2026-04-12
+**Last updated:** 2026-05-03
 
 **Status:** Target design — not fully implemented in the current compiler.  
-**See also:** [`Styio-Language-Design.md`](./Styio-Language-Design.md), [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md), [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md).
+**See also:** [`Styio-Language-Design.md`](./Styio-Language-Design.md), [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md), [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md).
 
 ---
 
@@ -19,7 +19,7 @@ The current compiler mixes three different concerns:
 
 This leads to ad hoc special cases:
 
-- `@stdin` and `@stdin: list[T]` currently take different AST paths.
+- Historically, scalar and list-shaped `@stdin : T` pulls drifted into separate implementation paths; current work keeps typed stdin ingestion on one `InstantPullAST` path before type-directed lowering.
 - Iteration is dispatched partly by `NodeType`, not by a unified type protocol.
 - `<<` currently behaves differently depending on parser shape instead of a single type-directed rule.
 
@@ -33,7 +33,7 @@ This document defines a target design that unifies these cases.
 2. Distinguish **iterable** from **non-iterable** statically.
 3. Make `<<` mean one thing: **feed items into the left side one by one**.
 4. Preserve Styio’s resource flavor: values behave like OS handles with protocol state.
-5. Avoid Rust-style surface `unwrap`; failed operations should still be typed, but default handling should abort with diagnostics.
+5. Avoid mandatory user-visible `unwrap`; failed operations should still be typed, but default handling should abort with diagnostics.
 6. Support destructive update safely for unique resources and materialized collections.
 
 ---
@@ -58,6 +58,7 @@ Examples:
 - `@stdin : Handle<fd, string, {pull, iter}, open>`
 - `@stdout : Handle<fd, string, {push}, open>`
 - `list[i32] : Handle<ptr, i32, {iter, push, index, sized, collect}, materialized>`
+- `matrix[f64] : Handle<matrix, f64, {index, sized, clone, close}, materialized>`
 - `range[i64] : Handle<imm, i64, {iter}, materialized>`
 
 This notation is **design-level**, not fixed user syntax. The important part is the separation of concerns.
@@ -217,7 +218,20 @@ Lists are materialized containers:
 list[T] : Handle<ptr, T, {iter, push, index, sized, collect, clone}, materialized>
 ```
 
-### 7.4 `range[T]`
+### 7.4 `matrix[T]`
+
+Matrices are materialized numeric containers backed by a flat row-major runtime handle:
+
+```text
+matrix[T] : Handle<matrix, T, {index, sized, clone, close}, materialized>
+```
+
+Typed bindings such as `m: matrix = [[...], [...]]` use nested list syntax as the source form, but
+the typed context validates rectangular numeric rows and lowers to a matrix handle instead of a
+list-of-lists handle. The static type carries element kind plus row/column facts when dimensions
+are known, so Sema can reject incompatible `+`, `-`, `*`, and intrinsic calls before CodeGen.
+
+### 7.5 `range[T]`
 
 Ranges are iterable but not necessarily indexable:
 
@@ -245,14 +259,17 @@ Given a left side `L` and right side `R`:
 4. If `L` is an unbound identifier in definition position, `L << R` means:
    create a default collector for `R`, then drain `R` into it.
 
-So in the target design:
+So in the target design, `<<` can still model generic iterable drainage, but stdin keeps a
+more explicit surface:
 
-- `a <- @stdin`
-  means `a` is bound to the raw stream handle.
-- `a << @stdin`
-  means collect the input stream into a default container, one item at a time.
+- `@stdin >> #(line) => { ... }`
+  means iterate terminal input one line at a time.
+- `value = (<- @stdin)`
+  means perform a one-shot immediate pull from stdin.
 
-If `@stdin` yields lines, then `a << @stdin` defaults to `list[string]`.
+Do not use `a << @stdin` or `lines << @stdin` as the current stdin design spelling. If a
+program needs a materialized list of stdin lines, collect explicitly inside the iterator body or
+use a future named typed-read API.
 
 ### 8.2 Relationship with cloning
 
@@ -408,7 +425,7 @@ Where:
 - `shared` may read and iterate if the resource protocol allows shared iteration
 - `pure` may inspect metadata but may not change resource state
 
-This can later refine the current final/flex binding metadata without exposing a large Rust-like borrow calculus to users.
+This can later refine the current final/flex binding metadata without exposing a large borrow calculus to users.
 
 ---
 
@@ -469,7 +486,7 @@ Add internal `Result` / `Step` modeling and a default fail-fast handler.
 
 ## 16. Explicit non-goals for v1
 
-1. Full Rust-style borrow syntax.
+1. Full user-visible borrow syntax.
 2. User-visible `unwrap` as a mandatory language pattern.
 3. Python-style universal object dictionary semantics.
 4. General structural duck typing for all user types.

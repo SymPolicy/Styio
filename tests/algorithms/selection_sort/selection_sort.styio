@@ -1,0 +1,19 @@
+l <- @stdin: list[i32]
+
+n = l.length
+
+?(n > 1) => {
+    [0..n-2] >> #(i) => {
+        min = i
+        [i+1..n-1] >> #(j) => {
+            ?(l[j] < l[min]) => {
+                min = j
+            }
+        }
+        ?(min != i) => {
+            l[i], l[min] = l[min], l[i]
+        }
+    }
+}
+
+>_(l)

@@ -1,0 +1,23 @@
+values <- @stdin: list[i32]
+
+answer = -1
+
+?(values.length > 0) => {
+    target = values[0]
+    count = values.length - 1
+    low = 0
+    high = count
+
+    [...] >> ?(low < high) => {
+        mid = (low + high) / 2
+        ?(target < values[mid + 1]) => {
+            high = mid
+        } | {
+            low = mid + 1
+        }
+    }
+
+    answer = low
+}
+
+>_(answer)

@@ -1,0 +1,16 @@
+id = "five-layer-pipeline"
+title = "Styio Five Layer Pipeline"
+purpose = "Define Lexer to Parser(AST) to StyioIR to LLVM IR to stdout golden comparison."
+last_updated = "2026-04-08"
+doc = "FIVE-LAYER-PIPELINE.md"
+
+layers = [
+  "tokens",
+  "ast",
+  "styio_ir",
+  "llvm_ir",
+  "stdout",
+]
+
+command = "ctest --test-dir build/default -L styio_pipeline"
+case_root = "tests/pipeline_cases"

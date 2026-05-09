@@ -1,4 +1,7 @@
+@maxv : i64|..5|
 [3, 1, 5, 2, 4] >> #(x) => {
-    @[max_val = 0](high = (x > $max_val) <~ x | $max_val)
+    prev = @maxv[-1]
+    next = ?(x > prev) => x | prev
+    next -> @maxv
 }
->_(high)
+>_(@maxv[-1])

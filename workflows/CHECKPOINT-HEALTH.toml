@@ -1,0 +1,16 @@
+id = "checkpoint-health"
+title = "Checkpoint Health"
+purpose = "Define the repository-wide build/test health entrypoint for styio-nightly."
+last_updated = "2026-04-19"
+doc = "CHECKPOINT-HEALTH.md"
+
+commands = [
+  "./scripts/checkpoint-health.sh",
+  "./scripts/checkpoint-health.sh --no-asan --no-fuzz",
+]
+
+checks = [
+  "configure or reuse normal build directory",
+  "build required compiler and test targets",
+  "run compiler labels and parser/security verification",
+]

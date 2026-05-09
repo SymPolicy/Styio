@@ -1,0 +1,21 @@
+id = "team-runbook-maintenance-gate"
+title = "Team Runbook Maintenance Gate"
+purpose = "Require docs/teams runbooks to stay updated and shaped when owned folders change."
+last_updated = "2026-04-16"
+doc = "TEAM-RUNBOOK-MAINTENANCE-GATE.md"
+
+commands = [
+  "python3 scripts/team-docs-gate.py",
+  "python3 scripts/team-docs-gate.py --mode staged",
+  "python3 scripts/team-docs-gate.py --base origin/main",
+]
+
+required_headings = [
+  "Mission",
+  "Owned Surface",
+  "Daily Workflow",
+  "Change Classes",
+  "Required Gates",
+  "Cross-Team Dependencies",
+  "Handoff / Recovery",
+]

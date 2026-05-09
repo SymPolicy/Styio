@@ -1,99 +1,91 @@
 # Styio
 
-Styio 是一个面向流式处理、资源调度与意图表达的符号化语言。它试图用更少的自然语言关键字、更直接的符号系统和更贴近数据流/资源流的抽象，表达高性能的数据处理逻辑。
+**Styio is an experimental symbolic language for stream processing, resource
+topology, and intent-oriented execution.**
 
-当前仓库是 Styio 的主仓库，承载语言与编译器实现本体。
+[![CI](https://img.shields.io/github/actions/workflow/status/styio-org/styio-nightly/styio-ci-gate.yml?branch=nightly&style=flat-square&logo=github&label=ci)](https://github.com/styio-org/styio-nightly/actions/workflows/styio-ci-gate.yml)
+[![License](https://img.shields.io/github/license/styio-org/styio-nightly?style=flat-square)](https://github.com/styio-org/styio-nightly/blob/nightly/LICENSE)
 
-> Status: Early stage. Styio 仍处于快速演进阶段，生态仓库多数仍在启动或补文档阶段。
+[Simplified Chinese](README_zh.md) | [Build guide](docs/BUILD-AND-DEV-ENV.md) | [Repository docs](docs/README.md) | [Examples](example/README.md)
 
-## Styio 是什么
+This repository carries the nightly compiler, CLI, resource-topology runtime
+model, tests, and repository-local documentation. It is intended for source
+builds and active development. Public binary release artifacts are not part of
+this branch contract.
 
-- 一门面向流、脉冲、状态和资源拓扑的语言。
-- 一套基于 LLVM 的编译器实现。
-- 一个正在形成中的生态，包括包管理、开发文档、标准环境、示例工程、可视化和编辑器扩展。
+## A Glimpse of Styio
 
-## 快速感受
-
-如果你已经在本地构建了 `styio`，可以直接试一下这个示例：
-
-```bash
-./example/cli_calculator.sh
-```
-
-进入交互模式后可以直接输入表达式：
-
-```text
-styio-calc> 1 + 2 * (3 + 4)
-= 15
-styio-calc> quit
-```
-
-交互模式支持上下方向键回放历史，默认历史文件位于
-`$XDG_STATE_HOME/styio/calculator_history`，若未设置 `XDG_STATE_HOME`，则回退到
-`~/.local/state/styio/calculator_history`。
-
-也可以单次执行：
-
-```bash
-./example/cli_calculator.sh "1 + 2 * (3 + 4)"
-```
-
-这个脚本会临时生成如下形状的 Styio 程序：
+This runnable example reads two prices from `@stdin`, starts two independent
+jobs, awaits both results, and writes one combined signal.
 
 ```styio
->_(1 + 2 * (3 + 4))
+price_a, price_b <- @stdin : (f64, f64)
+
+||> [
+    spread_job := { <| price_a - price_b }
+    midpoint_job := { <| (price_a + price_b) / 2.0 }
+]
+
+?| spread_job -> spread: f64 | 0.0
+?| midpoint_job -> midpoint: f64 | 0.0
+
+?(spread > 5.0 || spread < -5.0) => {
+    signal = ("parallel signal: spread=" + spread) + ", midpoint=" + midpoint
+    signal -> @stdout
+}
 ```
 
-输出应为：
-
-```text
-15
-```
-
-如果你想直接运行一个仓库内的基础样例：
+Run it from the repository root after building `styio`:
 
 ```bash
-./build/bin/styio --file tests/milestones/m1/t01_int_arith.styio
+printf '101\n94\n' | build/default/bin/styio --file example/job_parallel_signal.styio
 ```
 
-## 生态入口
+Expected output:
 
-| Repository | Role |
-| --- | --- |
-| [styio-spio](https://github.com/SymPolicy/styio-spio) | 包管理器 |
-| [Unka-Malloc-doc](https://github.com/SymPolicy/Unka-Malloc-doc) | 开发者文档 |
-| [Unka-Malloc-env](https://github.com/SymPolicy/Unka-Malloc-env) | 标准开发环境 |
-| [styio-book](https://github.com/SymPolicy/styio-book) | 产品白皮书 |
-| [styio-view](https://github.com/SymPolicy/styio-view) | 可视化页面 |
-| [styio-examples](https://github.com/SymPolicy/styio-examples) | 示例工程集合 |
-| [styio-ext-vsc](https://github.com/SymPolicy/styio-ext-vsc) | VS Code 插件 |
+```text
+parallel signal: spread=7.000000, midpoint=97.500000
+```
 
-## 开发者入口
+## Build From Source
 
-如果你想做以下事情：
+Install the documented dependencies, configure the default build directory, and
+run the main local gates:
 
-- 构建 Styio 编译器
-- 阅读开发文档
-- 参与贡献
-- 了解测试、文档规则和开发环境
+```bash
+scripts/bootstrap-dev-env.sh --help
+cmake -S . -B build/default -DCMAKE_BUILD_TYPE=Debug
+cmake --build build/default --target styio styio_test styio_security_test styio_resource_topology_test -j"$(nproc)"
+ctest --test-dir build/default -L security --output-on-failure
+ctest --test-dir build/default -L styio_pipeline --output-on-failure
+```
 
-请直接前往 [Unka-Malloc-doc](https://github.com/SymPolicy/Unka-Malloc-doc)。
+For the full environment contract, see
+[docs/BUILD-AND-DEV-ENV.md](docs/BUILD-AND-DEV-ENV.md).
 
-这个主仓库的 `README.md` 现在只保留用户入口信息；开发者导向内容不再放在首页展开。
+## Useful Examples
 
-如果你想先理解 Styio 的项目级优先级、重构边界与净室重写许可，请看 [docs/specs/PRINCIPLES-AND-OBJECTIVES.md](docs/specs/PRINCIPLES-AND-OBJECTIVES.md)。
+```bash
+build/default/bin/styio --file example/hello_world.styio
+printf '[3, 1, 2]\n' | build/default/bin/styio --file example/algorithms/bubble_sort.styio
+STYIO_BIN=build/default/bin/styio ./example/cli_calculator.sh "1 + 2 * (3 + 4)"
+```
 
-## 当前仓库包含什么
+The active examples under `example/` are covered by CTest. Draft language ideas
+that do not currently run should stay out of the active tree after their durable
+rules are promoted into docs.
 
-- `src/`：Styio 编译器与 CLI 实现
-- `tests/`：里程碑、流水线、安全性与回归测试
-- `example/`：最小样例与脚本
-- `docs/`：主仓库内部设计、规格、ADR 与历史文档
+## Project Boundaries
 
-## 进一步阅读
+Styio is developed alongside related repositories, but this repository owns the
+compiler, language tests, resource-topology semantics, and CLI contracts. Package
+management, hosted services, and visual tooling are maintained in separate
+repositories and should not be treated as implemented by this checkout unless a
+local contract says so.
 
-- 产品与愿景： [styio-book](https://github.com/SymPolicy/styio-book)
-- 示例工程： [styio-examples](https://github.com/SymPolicy/styio-examples)
-- 编辑器支持： [styio-ext-vsc](https://github.com/SymPolicy/styio-ext-vsc)
-- 生态边界说明： [docs/specs/REPOSITORY-MAP.md](docs/specs/REPOSITORY-MAP.md)
-- 项目原则与目标： [docs/specs/PRINCIPLES-AND-OBJECTIVES.md](docs/specs/PRINCIPLES-AND-OBJECTIVES.md)
+## Contributing And Security
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and
+[SUPPORT.md](SUPPORT.md) before filing issues or proposing changes. Release and
+dependency rules are tracked in [RELEASE-POLICY.md](RELEASE-POLICY.md) and
+[DEPENDENCY-USAGE.md](DEPENDENCY-USAGE.md).

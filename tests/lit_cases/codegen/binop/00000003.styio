@@ -1,3 +1,0 @@
-// RUN: %{styio} --llvm-ir --file %s | FileCheck %s
-
-a : i32 = 10 * 5

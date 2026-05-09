@@ -1,0 +1,5 @@
+job = ||> {
+    <| 1
+}
+
+job -> answer -> @stdout
