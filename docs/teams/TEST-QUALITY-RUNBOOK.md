@@ -59,6 +59,7 @@ Primary paths:
 33. README showcase examples that are wired into CTest must run repository-local Styio source from the repository root and compare stdout against a checked-in golden, so public examples cannot drift away from executable compiler behavior.
 34. Semantic negative tests must assert a stable diagnostic fragment from `tests/milestones/<milestone>/expected/*.err`; a nonzero exit code alone is not enough evidence.
 35. Lit/FileCheck-style fixture trees belong under active `tests/` only when they are registered in CTest and have real check lines. Otherwise archive them until a live runner owns them.
+36. LibFuzzer runtime probes must compile a minimal `LLVMFuzzerTestOneInput` entrypoint. Do not probe `-fsanitize=fuzzer` with a custom `main`, because the sanitizer runtime provides `main` and the check will fail for the wrong reason.
 
 ## Change Classes
 
