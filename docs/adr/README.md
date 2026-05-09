@@ -1,22 +1,22 @@
 # ADR Docs
 
-**Purpose:** Define the conventions and scope for active, not-yet-absorbed decision records under `docs/adr/`; absorbed ADRs belong in `docs/archive/adr/`, and the generated inventory lives in [INDEX.md](./INDEX.md).
+**Purpose:** Define the minimal current-tree ADR policy: implemented decisions are compressed, active rules live in owning SSOTs, and exact old decision text is recovered from Git history.
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-05-09
 
 ## Scope
 
-1. Store architecture and workflow decisions here only while their decision record still needs to stay directly discoverable.
-2. Keep execution logs and recovery notes in `docs/history/`.
-3. Use ADRs for ownership, lifecycle, compatibility, and workflow-boundary decisions.
-4. Once the durable rule has been lifted into active design/spec/runbook/workflow docs, move the ADR to `docs/archive/adr/`.
+1. Store a standalone ADR here only while the decision still needs direct review.
+2. Compress implemented decisions into [IMPLEMENTED-DECISIONS.md](./IMPLEMENTED-DECISIONS.md) after the durable rule moves into its owning active document.
+3. Do not keep one-file-per-decision history in the current tree after implementation.
+4. Use Git history for exact old wording.
 
 ## Conventions
 
-1. Filenames use `ADR-XXXX-<slug>.md`.
-2. Each ADR should include `Status`, `Context`, `Decision`, `Alternatives`, and `Consequences`.
-3. Historical references to `new parser` map to `nightly parser` after 2026-04-07.
-4. ADRs are never the default maintenance input when an active owning SSOT already exists.
+1. Temporary ADR filenames use `ADR-XXXX-<slug>.md`.
+2. Each temporary ADR should include `Status`, `Context`, `Decision`, `Alternatives`, and `Consequences`.
+3. ADRs are never the default maintenance input when an active owning SSOT already exists.
+4. Keep this directory small; long-lived knowledge belongs in design, spec, workflow, team, test, or rollup docs.
 
 ## Inventory
 

@@ -1,0 +1,9 @@
+base = 41
+answer: i64
+
+job = ||> {
+    <| base + 1
+}
+
+answer <- job
+answer -> @stdout

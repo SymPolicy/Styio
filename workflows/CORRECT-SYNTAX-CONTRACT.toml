@@ -1,0 +1,73 @@
+id = "correct-syntax-contract"
+title = "Correct Syntax Contract"
+purpose = "Correct a Styio syntax contract when compiler behavior, tests, and language specification disagree."
+last_updated = "2026-05-01"
+doc = "CORRECT-SYNTAX-CONTRACT.md"
+
+triggers = [
+  "a syntax form parses but should be impossible by design",
+  "an expected spelling falls through to the wrong parse or type error",
+  "parser behavior, Sema behavior, EBNF, symbol reference, and examples disagree",
+  "the answer depends on an exact compiler diagnostic",
+]
+
+steps = [
+  "reproduce current behavior with the smallest .styio sample",
+  "capture the compiler stage and exact diagnostic",
+  "freeze accepted and rejected spellings before editing",
+  "inspect lexer, legacy parser, nightly parser, AST, Sema, lowering, docs, and tests",
+  "decide parser-vs-Sema rejection boundary",
+  "implement the narrowest change while preserving existing AST and visitor architecture",
+  "add positive and negative tests",
+  "update EBNF, language design, symbol reference, runbooks, test catalog, and generated indexes as relevant",
+  "re-run the disputed sample and record the diagnostic",
+  "run focused tests, docs gates, and diff checks",
+]
+
+contract_surfaces = [
+  "lexer/token names",
+  "legacy parser",
+  "nightly parser",
+  "AST node shape and visitor path",
+  "Sema/type inference",
+  "lowering/runtime",
+  "EBNF",
+  "language design",
+  "symbol reference",
+  "examples",
+  "positive and negative tests",
+]
+
+required_evidence = [
+  "minimal reproduction",
+  "exact compiler diagnostic and exit stage",
+  "positive coverage for accepted syntax",
+  "negative parser coverage for grammar-impossible syntax",
+  "negative Sema coverage for syntactically valid but semantically invalid forms",
+  "runtime or reference-equivalence coverage when output semantics change",
+  "EBNF and syntax docs updated",
+  "owning runbooks and DOC-STATS refreshed when docs gates require them",
+]
+
+gates = [
+  "cmake --build build/default --target styio styio_test styio_security_test -j2",
+  "ctest --test-dir build/default -R <focused syntax/security/runtime regex> --output-on-failure",
+  "python3 scripts/docs-index.py --check",
+  "python3 scripts/team-docs-gate.py",
+  "python3 scripts/docs-audit.py",
+  "git diff --check",
+]
+
+[rejection_boundary]
+grammar_impossible = "parser diagnostic"
+syntactically_valid_semantically_invalid = "Sema/type diagnostic"
+
+[handoff]
+report = [
+  "rejected spelling and reason",
+  "accepted spelling and grammar rule",
+  "exact compiler diagnostic",
+  "language-standard files changed",
+  "focused tests and docs gates",
+  "remaining parser-route, IDE grammar, or lowering work",
+]

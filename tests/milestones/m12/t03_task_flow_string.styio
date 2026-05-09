@@ -1,0 +1,8 @@
+answer: string
+
+job = ||> {
+    <| "ready"
+}
+
+answer <- job
+answer -> @stdout

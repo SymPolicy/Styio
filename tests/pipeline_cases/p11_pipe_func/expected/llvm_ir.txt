@@ -1,10 +1,9 @@
 ; ModuleID = 'styio'
 source_filename = "styio"
-target datalayout = "e-m:o-i64:64-i128:128-n32:64-S128"
+target datalayout = "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128"
 
 @styio_str = private unnamed_addr constant [32 x i8] c"/tmp/styio_pipeline_numbers.txt\00", align 1
 @styio_print_at = private unnamed_addr constant [2 x i8] c"@\00", align 1
-@styio_fmt_i64 = private unnamed_addr constant [6 x i8] c"%lld\0A\00", align 1
 
 define i64 @double_it(i64 %x) {
 double_it_entry:
@@ -50,27 +49,32 @@ fline_exit:                                       ; preds = %fline_hdr
   ret i32 0
 
 runtime_fail:                                     ; preds = %fline_body
+  %10 = load i64, ptr %f, align 8
+  call void @styio_file_close(i64 %10)
   ret i32 0
 
 runtime_ok:                                       ; preds = %fline_body
-  %10 = call i64 @double_it(i64 %6)
-  %11 = call i32 @styio_runtime_has_error()
-  %12 = icmp ne i32 %11, 0
-  br i1 %12, label %runtime_fail1, label %runtime_ok2
+  %11 = call i64 @double_it(i64 %6)
+  %12 = call i32 @styio_runtime_has_error()
+  %13 = icmp ne i32 %12, 0
+  br i1 %13, label %runtime_fail1, label %runtime_ok2
 
 runtime_fail1:                                    ; preds = %runtime_ok
+  %14 = load i64, ptr %f, align 8
+  call void @styio_file_close(i64 %14)
   ret i32 0
 
 runtime_ok2:                                      ; preds = %runtime_ok
-  %13 = icmp eq i64 %10, -9223372036854775808
-  br i1 %13, label %print_at, label %print_i64
+  %15 = icmp eq i64 %11, -9223372036854775808
+  br i1 %15, label %print_at, label %print_i64
 
 print_at:                                         ; preds = %runtime_ok2
-  %14 = call i32 @puts(ptr @styio_print_at)
+  call void @styio_stdout_write_cstr(ptr @styio_print_at)
   br label %print_done
 
 print_i64:                                        ; preds = %runtime_ok2
-  %15 = call i32 (ptr, ...) @printf(ptr @styio_fmt_i64, i64 %10)
+  %16 = call ptr @styio_i64_dec_cstr(i64 %11)
+  call void @styio_stdout_write_cstr(ptr %16)
   br label %print_done
 
 print_done:                                       ; preds = %print_i64, %print_at
@@ -83,9 +87,11 @@ declare ptr @styio_file_read_line(i64)
 
 declare void @styio_file_rewind(i64)
 
-declare i32 @printf(ptr, ...)
+declare void @styio_stdout_write_cstr(ptr)
 
-declare i32 @puts(ptr)
+declare ptr @styio_i64_dec_cstr(i64)
+
+declare ptr @styio_f64_dec_cstr(double)
 
 declare i64 @styio_cstr_to_i64(ptr)
 

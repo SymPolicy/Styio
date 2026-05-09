@@ -1,2 +1,0 @@
-// RUN: %{styio} --llvm-ir --file %s | FileCheck %s
-

@@ -1,0 +1,9 @@
+message = "captured"
+answer: string
+
+job = ||> {
+    <| message
+}
+
+answer <- job
+answer -> @stdout

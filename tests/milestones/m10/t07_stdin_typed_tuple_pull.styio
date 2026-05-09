@@ -1,0 +1,7 @@
+price_a, price_b <- @stdin : (f64, f64)
+
+spread = price_a - price_b
+midpoint = (price_a + price_b) / 2.0
+
+spread -> @stdout
+midpoint -> @stdout

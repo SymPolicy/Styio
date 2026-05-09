@@ -26,12 +26,12 @@ Technology stack:
 - Tree-sitter grammar and parser shadow tooling.
 - Python and Bash repository gates, docs automation, fuzz and benchmark scripts.
 - GitHub Actions workflow automation.
-- Rust, JavaScript, TypeScript, Zig, Nix, and Bazel fixture/tooling surfaces present in the repository.
+- JavaScript, TypeScript, Zig, Nix, Bazel, and other fixture/tooling surfaces present in the repository.
 
 Internal components:
 
-- `StyioAST`, `StyioAnalyzer`, `StyioIR`, and `StyioCodeGen` compiler pipeline.
-- `StyioRuntime` and `StyioExtern` runtime and external resource layer.
+- `StyioAST`, `StyioSema`, `StyioLowering`, `StyioIR`, and `StyioCodeGen` compiler pipeline.
+- `StyioRuntime`, `StyioExtern`, and `StyioNative` runtime, built-in extern helper, and C/C++ native interop layers.
 - `StyioIDE` and `StyioLSP` editor-facing workspace services.
 - `StyioParser` parser route and shadow comparison pipeline.
 - Security, pipeline, fuzz, benchmark, and checkpoint gate suites.
@@ -45,7 +45,7 @@ Open-source and external components:
 - GitHub Actions.
 - Python standard library tooling.
 - Bash shell tooling.
-- Fixture-only Rust, JavaScript, TypeScript, Zig, Nix, and Bazel ecosystems requiring per-manifest evidence when promoted.
+- Fixture-only JavaScript, TypeScript, Zig, Nix, Bazel, and other ecosystems requiring per-manifest evidence when promoted.
 
 Dependency manifest surfaces:
 

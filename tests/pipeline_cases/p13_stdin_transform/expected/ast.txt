@@ -9,6 +9,6 @@ styio.ast.main {
         |- LHS: line
         |- OP : <Mul>
         |- RHS: { 2 : int }}}
-    |- styio.ast.resource.write  {
+    |- styio.ast.resource.redirect  {
       |- data: result
       |- resource: styio.ast.std_stream { @stdout }}}}}

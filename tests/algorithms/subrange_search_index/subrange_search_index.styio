@@ -1,0 +1,37 @@
+values <- @stdin: list[i32]
+
+answer = -1
+
+?(values.length > 1) => {
+    hay_len = values[0]
+    needle_len = values[1]
+    needle_start = 2 + hay_len
+    required = 2 + hay_len + needle_len
+
+    ?(values.length >= required) => {
+        ?(needle_len == 0) => {
+            answer = 0
+        }
+
+        ?(needle_len > 0) => {
+            ?(hay_len >= needle_len) => {
+                last_start = hay_len - needle_len
+                [0..last_start] >> #(i) => {
+                    ?(answer < 0) => {
+                        matched = 1
+                        [0..needle_len-1] >> #(j) => {
+                            ?(values[2 + i + j] != values[needle_start + j]) => {
+                                matched = 0
+                            }
+                        }
+                        ?(matched == 1) => {
+                            answer = i
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+>_(answer)

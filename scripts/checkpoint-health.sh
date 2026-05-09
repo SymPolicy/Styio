@@ -6,9 +6,9 @@ usage() {
 Usage: scripts/checkpoint-health.sh [options]
 
 Options:
-  --build-dir <dir>       CMake build dir for normal tests (default: build)
-  --asan-build-dir <dir>  CMake build dir for ASan/UBSan tests (default: build-asan-ubsan)
-  --fuzz-build-dir <dir>  CMake build dir for fuzz smoke (default: auto-detect build-fuzz)
+  --build-dir <dir>       CMake build dir for normal tests (default: build/default)
+  --asan-build-dir <dir>  CMake build dir for ASan/UBSan tests (default: build/asan-ubsan)
+  --fuzz-build-dir <dir>  CMake build dir for fuzz smoke (default: auto-detect build/fuzz)
   --no-asan               Skip ASan/UBSan verification
   --no-fuzz               Skip fuzz smoke verification
   -h, --help              Show this help
@@ -40,12 +40,26 @@ configure_build_dir_latest() {
   printf '%s\n' "$fallback"
 }
 
+configure_asan_build_dir_latest() {
+  local requested="$1"
+  if [[ -f "$requested/CMakeCache.txt" ]]; then
+    printf '%s\n' "$requested"
+    return 0
+  fi
+
+  cmake -S . -B "$requested" \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DCMAKE_C_FLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' \
+    -DCMAKE_CXX_FLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' >&2
+  printf '%s\n' "$requested"
+}
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-BUILD_DIR="build"
-ASAN_BUILD_DIR="build-asan-ubsan"
-FUZZ_BUILD_DIR="build-fuzz"
+BUILD_DIR="build/default"
+ASAN_BUILD_DIR="build/asan-ubsan"
+FUZZ_BUILD_DIR="build/fuzz"
 RUN_ASAN=1
 RUN_FUZZ="auto"
 
@@ -84,9 +98,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-BUILD_DIR="$(configure_build_dir_latest "$BUILD_DIR" "build-codex")"
+BUILD_DIR="$(configure_build_dir_latest "$BUILD_DIR" "build/default")"
 echo "[checkpoint-health] build dir: ${BUILD_DIR}"
-cmake --build "$BUILD_DIR" --target styio_test styio_security_test styio_soak_test -j8
+cmake --build "$BUILD_DIR" --target styio_test styio_security_test styio_soak_test styio_ide_test -j8
 
 echo "[checkpoint-health] docs audit"
 ctest --test-dir "$BUILD_DIR" -L docs --output-on-failure
@@ -109,6 +123,11 @@ ctest --test-dir "$BUILD_DIR" \
 echo "[checkpoint-health] pipeline + security labels"
 ctest --test-dir "$BUILD_DIR" -L styio_pipeline --output-on-failure
 ctest --test-dir "$BUILD_DIR" -L security --output-on-failure
+
+echo "[checkpoint-health] IDE/LSP runtime scheduling"
+ctest --test-dir "$BUILD_DIR" \
+  -R '^StyioLsp(Server|Runtime)\.(RunDrainsRuntimeDiagnostics|RuntimeDrainCanBeBudgetedForScheduling)$' \
+  --output-on-failure
 
 echo "[checkpoint-health] parser legacy entry audit"
 ctest --test-dir "$BUILD_DIR" \
@@ -152,6 +171,7 @@ elif [[ "$RUN_FUZZ" == "auto" ]]; then
 fi
 
 if [[ "$RUN_ASAN" -eq 1 ]]; then
+  ASAN_BUILD_DIR="$(configure_asan_build_dir_latest "$ASAN_BUILD_DIR")"
   echo "[checkpoint-health] asan build dir: ${ASAN_BUILD_DIR}"
   cmake --build "$ASAN_BUILD_DIR" --target styio_test -j8
   ASAN_OPTIONS='detect_leaks=0:halt_on_error=1:abort_on_error=1' \

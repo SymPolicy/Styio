@@ -1,8 +1,9 @@
+@val : i64|..3|
 result = true
 [1, 2, 3] >> #(x) => {
-    @[val = 0](v = $val + x)
-    a = $val
-    b = $val
+    x -> @val
+    a = @val[-1]
+    b = @val[-1]
     result = result && (a == b)
 }
 >_(result)

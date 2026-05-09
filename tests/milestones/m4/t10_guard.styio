@@ -1,3 +1,0 @@
-x = 3
-result = x[?, x > 5]
->_(result)

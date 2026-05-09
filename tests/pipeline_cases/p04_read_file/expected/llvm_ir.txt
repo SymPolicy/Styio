@@ -1,9 +1,8 @@
 ; ModuleID = 'styio'
 source_filename = "styio"
-target datalayout = "e-m:o-i64:64-i128:128-n32:64-S128"
+target datalayout = "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128"
 
 @styio_str = private unnamed_addr constant [27 x i8] c"/tmp/styio_pipeline_in.txt\00", align 1
-@styio_fmt_str = private unnamed_addr constant [4 x i8] c"%s\0A\00", align 1
 
 define i32 @main() {
 main_entry:
@@ -24,12 +23,12 @@ fline_body:                                       ; preds = %fline_hdr
   %line = alloca ptr, align 8
   store ptr %3, ptr %line, align 8
   %5 = load ptr, ptr %line, align 8
-  %6 = call i32 (ptr, ...) @printf(ptr @styio_fmt_str, ptr %5)
+  call void @styio_stdout_write_cstr(ptr %5)
   br label %fline_hdr
 
 fline_exit:                                       ; preds = %fline_hdr
-  %7 = load i64, ptr %f, align 8
-  call void @styio_file_close(i64 %7)
+  %6 = load i64, ptr %f, align 8
+  call void @styio_file_close(i64 %6)
   ret i32 0
 }
 
@@ -39,8 +38,10 @@ declare ptr @styio_file_read_line(i64)
 
 declare void @styio_file_rewind(i64)
 
-declare i32 @printf(ptr, ...)
+declare void @styio_stdout_write_cstr(ptr)
 
-declare i32 @puts(ptr)
+declare ptr @styio_i64_dec_cstr(i64)
+
+declare ptr @styio_f64_dec_cstr(double)
 
 declare void @styio_file_close(i64)

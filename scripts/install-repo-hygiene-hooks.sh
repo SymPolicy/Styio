@@ -15,14 +15,14 @@ cat >"$HOOK_DIR/pre-commit" <<'HOOK'
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
-exec "$ROOT/scripts/repo-hygiene-gate.py" --mode staged
+exec "$ROOT/scripts/delivery-gate.sh" --mode staged --skip-health --skip-audit
 HOOK
 
 cat >"$HOOK_DIR/pre-push" <<'HOOK'
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
-exec "$ROOT/scripts/repo-hygiene-gate.py" --mode push
+exec "$ROOT/scripts/delivery-gate.sh" --mode push --skip-health
 HOOK
 
 chmod +x "$HOOK_DIR/pre-commit" "$HOOK_DIR/pre-push"

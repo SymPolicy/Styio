@@ -9,33 +9,76 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
-#include <cstring>
 #include <cstdlib>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <future>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
-#include <memory>
 #ifndef _WIN32
+#include <sys/stat.h>
 #include <unistd.h>
 #endif
 
-#include "StyioAnalyzer/ASTAnalyzer.hpp"
+#ifndef STYIO_SOURCE_DIR
+#define STYIO_SOURCE_DIR "."
+#endif
+
 #include "StyioCodeGen/CodeGenVisitor.hpp"
 #include "StyioException/Exception.hpp"
 #include "StyioExtern/ExternLib.hpp"
-#include "StyioJIT/StyioJIT_ORC.hpp"
-#include "StyioParser/NewParserExpr.hpp"
-#include "StyioParser/ParserLookahead.hpp"
-#include "StyioParser/Parser.hpp"
-#include "StyioParser/Tokenizer.hpp"
+#include "StyioIR/GenIR/GenIR.hpp"
 #include "StyioIR/StyioIR.hpp"
+#include "StyioJIT/StyioJIT_ORC.hpp"
+#include "StyioLowering/AstToStyioIRLowerer.hpp"
+#include "StyioNative/NativeInterop.hpp"
+#include "StyioParser/NewParserExpr.hpp"
+#include "StyioParser/Parser.hpp"
+#include "StyioParser/ParserLookahead.hpp"
+#include "StyioParser/Tokenizer.hpp"
 #include "StyioRuntime/HandleTable.hpp"
 #include "StyioSession/CompilationSession.hpp"
 #include "StyioUnicode/Unicode.hpp"
 
-namespace {
+namespace
+{
+
+class EnvSnapshot
+{
+  std::string name_;
+  bool had_value_ = false;
+  std::string old_value_;
+
+public:
+  explicit EnvSnapshot(std::string name) :
+      name_(std::move(name)) {
+    if (const char* existing = std::getenv(name_.c_str())) {
+      had_value_ = true;
+      old_value_ = existing;
+    }
+  }
+
+  ~EnvSnapshot() {
+    if (had_value_) {
+      setenv(name_.c_str(), old_value_.c_str(), 1);
+    }
+    else {
+      unsetenv(name_.c_str());
+    }
+  }
+
+  void set(const std::string& value) {
+    setenv(name_.c_str(), value.c_str(), 1);
+  }
+
+  void unset() {
+    unsetenv(name_.c_str());
+  }
+};
 
 class CountingExprAST : public StyioAST
 {
@@ -66,11 +109,11 @@ public:
     return "counting-expr";
   }
 
-  void typeInfer(StyioAnalyzer* visitor) override {
+  void typeInfer(StyioSemaContext* visitor) override {
     (void)visitor;
   }
 
-  StyioIR* toStyioIR(StyioAnalyzer* visitor) override {
+  StyioIR* toStyioIR(AstToStyioIRLowerer* visitor) override {
     (void)visitor;
     return nullptr;
   }
@@ -162,10 +205,12 @@ parse_expr_to_repr_latest(const std::string& source, bool use_nightly_parser) {
     wrapped,
     build_line_seps(wrapped),
     tokens,
-    false);
+    false
+  );
 
   StyioAST* ast = nullptr;
-  auto cleanup = [&]() {
+  auto cleanup = [&]()
+  {
     delete ast;
     delete ctx;
     free_tokens(tokens);
@@ -183,7 +228,8 @@ parse_expr_to_repr_latest(const std::string& source, bool use_nightly_parser) {
     const std::string out = ast->toString(&repr);
     cleanup();
     return out;
-  } catch (...) {
+  }
+  catch (...) {
     cleanup();
     throw;
   }
@@ -197,10 +243,12 @@ parse_program_to_repr_latest(const std::string& source, bool use_nightly_parser)
     source,
     build_line_seps(source),
     tokens,
-    false);
+    false
+  );
 
   MainBlockAST* ast = nullptr;
-  auto cleanup = [&]() {
+  auto cleanup = [&]()
+  {
     delete ast;
     delete ctx;
     free_tokens(tokens);
@@ -218,7 +266,8 @@ parse_program_to_repr_latest(const std::string& source, bool use_nightly_parser)
     const std::string out = ast->toString(&repr);
     cleanup();
     return out;
-  } catch (...) {
+  }
+  catch (...) {
     cleanup();
     throw;
   }
@@ -232,10 +281,12 @@ parse_program_engine_to_repr_latest(const std::string& source, StyioParserEngine
     source,
     build_line_seps(source),
     tokens,
-    false);
+    false
+  );
 
   MainBlockAST* ast = nullptr;
-  auto cleanup = [&]() {
+  auto cleanup = [&]()
+  {
     delete ast;
     delete ctx;
     free_tokens(tokens);
@@ -253,7 +304,8 @@ parse_program_engine_to_repr_latest(const std::string& source, StyioParserEngine
     const std::string out = ast->toString(&repr);
     cleanup();
     return out;
-  } catch (...) {
+  }
+  catch (...) {
     cleanup();
     throw;
   }
@@ -267,11 +319,13 @@ parse_typecheck_and_lower_program_engine_latest(const std::string& source, Styio
     source,
     build_line_seps(source),
     tokens,
-    false);
+    false
+  );
 
   MainBlockAST* ast = nullptr;
   StyioIR* ir = nullptr;
-  auto cleanup = [&]() {
+  auto cleanup = [&]()
+  {
     delete ir;
     delete ast;
     delete ctx;
@@ -286,11 +340,49 @@ parse_typecheck_and_lower_program_engine_latest(const std::string& source, Styio
       throw std::runtime_error("engine lowering parser did not consume input");
     }
 
-    StyioAnalyzer analyzer;
+    AstToStyioIRLowerer analyzer;
     ast->typeInfer(&analyzer);
     ir = ast->toStyioIR(&analyzer);
     cleanup();
-  } catch (...) {
+  }
+  catch (...) {
+    cleanup();
+    throw;
+  }
+}
+
+void
+parse_typecheck_program_engine_latest(const std::string& source, StyioParserEngine engine) {
+  auto tokens = StyioTokenizer::tokenize(source);
+  StyioContext* ctx = StyioContext::Create(
+    "<engine-typecheck-test>",
+    source,
+    build_line_seps(source),
+    tokens,
+    false
+  );
+
+  MainBlockAST* ast = nullptr;
+  auto cleanup = [&]()
+  {
+    delete ast;
+    delete ctx;
+    free_tokens(tokens);
+    StyioAST::destroy_all_tracked_nodes();
+  };
+
+  try {
+    ast = parse_main_block_with_engine_latest(*ctx, engine);
+    ctx->skip();
+    if (ctx->cur_tok_type() != StyioTokenType::TOK_EOF) {
+      throw std::runtime_error("engine typecheck parser did not consume input");
+    }
+
+    AstToStyioIRLowerer analyzer;
+    ast->typeInfer(&analyzer);
+    cleanup();
+  }
+  catch (...) {
     cleanup();
     throw;
   }
@@ -304,11 +396,13 @@ compile_program_to_llvm_ir_engine_latest(const std::string& source, StyioParserE
     source,
     build_line_seps(source),
     tokens,
-    false);
+    false
+  );
 
   MainBlockAST* ast = nullptr;
   StyioIR* ir = nullptr;
-  auto cleanup = [&]() {
+  auto cleanup = [&]()
+  {
     delete ir;
     delete ast;
     delete ctx;
@@ -323,7 +417,7 @@ compile_program_to_llvm_ir_engine_latest(const std::string& source, StyioParserE
       throw std::runtime_error("engine llvm parser did not consume input");
     }
 
-    StyioAnalyzer analyzer;
+    AstToStyioIRLowerer analyzer;
     ast->typeInfer(&analyzer);
     ir = ast->toStyioIR(&analyzer);
 
@@ -337,7 +431,8 @@ compile_program_to_llvm_ir_engine_latest(const std::string& source, StyioParserE
     std::string out = generator.dump_llvm_ir();
     cleanup();
     return out;
-  } catch (...) {
+  }
+  catch (...) {
     cleanup();
     throw;
   }
@@ -361,11 +456,13 @@ execute_program_engine_with_stdin_latest(
     source,
     build_line_seps(source),
     tokens,
-    false);
+    false
+  );
 
   MainBlockAST* ast = nullptr;
   StyioIR* ir = nullptr;
-  auto cleanup = [&]() {
+  auto cleanup = [&]()
+  {
     delete ir;
     delete ast;
     delete ctx;
@@ -391,7 +488,7 @@ execute_program_engine_with_stdin_latest(
       throw std::runtime_error("engine exec parser did not consume input");
     }
 
-    StyioAnalyzer analyzer;
+    AstToStyioIRLowerer analyzer;
     ast->typeInfer(&analyzer);
     ir = ast->toStyioIR(&analyzer);
 
@@ -403,7 +500,8 @@ execute_program_engine_with_stdin_latest(
     StyioToLLVM generator(std::move(jit));
     ir->toLLVMIR(&generator);
     generator.execute();
-  } catch (...) {
+  }
+  catch (...) {
     dup2(saved_stdin, fileno(stdin));
     close(saved_stdin);
     std::fclose(tmp);
@@ -417,7 +515,7 @@ execute_program_engine_with_stdin_latest(
   cleanup();
 #endif
 }
-} // namespace
+}  // namespace
 
 TEST(StyioSecurityLexer, EmptySourceProducesEof) {
   auto tokens = StyioTokenizer::tokenize("");
@@ -433,7 +531,8 @@ TEST(StyioSecurityLexer, UnterminatedStringThrowsLexError) {
       auto tokens = StyioTokenizer::tokenize(R"(print "unterminated)");
       free_tokens(tokens);
     },
-    StyioLexError);
+    StyioLexError
+  );
 }
 
 TEST(StyioSecurityLexer, UnterminatedBlockCommentThrowsLexError) {
@@ -442,7 +541,8 @@ TEST(StyioSecurityLexer, UnterminatedBlockCommentThrowsLexError) {
       auto tokens = StyioTokenizer::tokenize("a /* no closing");
       free_tokens(tokens);
     },
-    StyioLexError);
+    StyioLexError
+  );
 }
 
 TEST(StyioSecurityParserContext, EmptyTokenVectorFallsBackToEofToken) {
@@ -452,7 +552,8 @@ TEST(StyioSecurityParserContext, EmptyTokenVectorFallsBackToEofToken) {
     "",
     {{0, 0}},
     tokens,
-    false);
+    false
+  );
 
   EXPECT_EQ(ctx->cur_tok_type(), StyioTokenType::TOK_EOF);
   EXPECT_FALSE(ctx->match(StyioTokenType::NAME));
@@ -475,11 +576,33 @@ TEST(StyioSecurityParserContext, MoveForwardBeyondTokenTailIsClampedToEof) {
     "x",
     {{0, 1}},
     tokens,
-    false);
+    false
+  );
 
   EXPECT_NO_THROW({
     ctx->move_forward(tokens.size() + 5, "security-clamp");
   });
+  EXPECT_EQ(ctx->cur_tok_type(), StyioTokenType::TOK_EOF);
+
+  delete ctx;
+  free_tokens(tokens);
+}
+
+TEST(StyioSecurityParserContext, TokenMapMatchesSingleRightArrow) {
+  std::vector<StyioToken*> tokens{
+    StyioToken::Create(StyioTokenType::TOK_MINUS, "-"),
+    StyioToken::Create(StyioTokenType::TOK_RANGBRAC, ">"),
+    StyioToken::Create(StyioTokenType::TOK_EOF, "")
+  };
+  StyioContext* ctx = StyioContext::Create(
+    "<map-match-arrow>",
+    "->",
+    {{0, 0}},
+    tokens,
+    false
+  );
+
+  EXPECT_TRUE(ctx->map_match(StyioTokenType::ARROW_SINGLE_RIGHT));
   EXPECT_EQ(ctx->cur_tok_type(), StyioTokenType::TOK_EOF);
 
   delete ctx;
@@ -493,7 +616,8 @@ TEST(StyioSecurityParserContext, CharApiAtEofReturnsSafeDefaults) {
     "",
     {},
     tokens,
-    false);
+    false
+  );
 
   EXPECT_FALSE(ctx->check_next('x'));
   EXPECT_FALSE(ctx->check_next("//"));
@@ -521,13 +645,15 @@ TEST(StyioSecurityParserContext, FindDropPanicAtEofReportsSyntaxError) {
     "",
     {},
     tokens,
-    false);
+    false
+  );
 
   EXPECT_THROW(
     {
       ctx->find_drop_panic(')');
     },
-    StyioSyntaxError);
+    StyioSyntaxError
+  );
 
   delete ctx;
 }
@@ -540,7 +666,8 @@ TEST(StyioSecurityNightlyParserStmt, TryParseSubsetDeclinesWithoutThrowAndRestor
     src,
     build_line_seps(src),
     tokens,
-    false);
+    false
+  );
 
   const auto saved = ctx->save_cursor();
   ParseAttempt<StyioAST> attempt;
@@ -564,7 +691,8 @@ TEST(StyioSecurityNightlyParserStmt, TryParseSubsetFatalRestoresCursorAndCapture
     src,
     build_line_seps(src),
     tokens,
-    false);
+    false
+  );
 
   const auto saved = ctx->save_cursor();
   ParseAttempt<StyioAST> attempt;
@@ -579,7 +707,8 @@ TEST(StyioSecurityNightlyParserStmt, TryParseSubsetFatalRestoresCursorAndCapture
     {
       std::rethrow_exception(attempt.error);
     },
-    StyioBaseException);
+    StyioBaseException
+  );
 
   delete ctx;
   free_tokens(tokens);
@@ -594,7 +723,8 @@ TEST(StyioSecurityParserPath, SingleLetterPathDoesNotThrowOutOfRange) {
     src,
     build_line_seps(src),
     tokens,
-    false);
+    false
+  );
 
   StyioAST* path_ast = nullptr;
   EXPECT_NO_THROW({
@@ -624,9 +754,10 @@ TEST(StyioSecurityLexer, EmbeddedNulByteDoesNotHang) {
   src.push_back('\0');
   src += 'b';
 
-  auto fut = std::async(std::launch::async, [&src] {
-    return StyioTokenizer::tokenize(src);
-  });
+  auto fut = std::async(std::launch::async, [&src]
+                        {
+                          return StyioTokenizer::tokenize(src);
+                        });
   const auto deadline = std::chrono::milliseconds(800);
   ASSERT_EQ(fut.wait_for(deadline), std::future_status::ready)
     << "Lexer should finish; hung input likely stuck on embedded NUL (loc not advanced).";
@@ -645,6 +776,57 @@ TEST(StyioSecurityLexer, VeryLongIdentifierCompletes) {
   EXPECT_EQ(tokens[0]->original.size(), 200'000u);
   EXPECT_EQ(tokens[1]->type, StyioTokenType::TOK_EOF);
   free_tokens(tokens);
+}
+
+TEST(StyioSecurityLexer, TokenizesInlineReturnAndPipeSemicolon) {
+  auto tokens = StyioTokenizer::tokenize("|<| result |;");
+  ASSERT_GE(tokens.size(), 6u);
+  EXPECT_EQ(tokens[0]->type, StyioTokenType::RETURN_PIPE);
+  EXPECT_EQ(tokens[0]->original, "|<|");
+  EXPECT_EQ(tokens[2]->type, StyioTokenType::NAME);
+  EXPECT_EQ(tokens[2]->original, "result");
+  EXPECT_EQ(tokens[4]->type, StyioTokenType::PIPE_SEMICOLON);
+  EXPECT_EQ(tokens[4]->original, "|;");
+  EXPECT_EQ(tokens.back()->type, StyioTokenType::TOK_EOF);
+  free_tokens(tokens);
+}
+
+TEST(StyioSecurityLexer, TokenizesAwaitPipe) {
+  auto tokens = StyioTokenizer::tokenize("?| job -> value: i64 | 0");
+  ASSERT_GE(tokens.size(), 12u);
+  EXPECT_EQ(tokens[0]->type, StyioTokenType::AWAIT_PIPE);
+  EXPECT_EQ(tokens[0]->original, "?|");
+  EXPECT_EQ(tokens[4]->type, StyioTokenType::ARROW_SINGLE_RIGHT);
+
+  bool saw_fallback_pipe = false;
+  for (auto* token : tokens) {
+    if (token->type == StyioTokenType::TOK_PIPE) {
+      saw_fallback_pipe = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(saw_fallback_pipe);
+  free_tokens(tokens);
+}
+
+TEST(StyioSecurityLexer, TokenizesTerminalHandleShorthands) {
+  auto bracket_tokens = StyioTokenizer::tokenize("<|[>_]");
+  ASSERT_GE(bracket_tokens.size(), 5u);
+  EXPECT_EQ(bracket_tokens[0]->type, StyioTokenType::YIELD_PIPE);
+  EXPECT_EQ(bracket_tokens[1]->type, StyioTokenType::TOK_LBOXBRAC);
+  EXPECT_EQ(bracket_tokens[2]->type, StyioTokenType::PRINT);
+  EXPECT_EQ(bracket_tokens[3]->type, StyioTokenType::TOK_RBOXBRAC);
+  EXPECT_EQ(bracket_tokens.back()->type, StyioTokenType::TOK_EOF);
+  free_tokens(bracket_tokens);
+
+  auto paren_tokens = StyioTokenizer::tokenize("<|(>_)");
+  ASSERT_GE(paren_tokens.size(), 5u);
+  EXPECT_EQ(paren_tokens[0]->type, StyioTokenType::YIELD_PIPE);
+  EXPECT_EQ(paren_tokens[1]->type, StyioTokenType::TOK_LPAREN);
+  EXPECT_EQ(paren_tokens[2]->type, StyioTokenType::PRINT);
+  EXPECT_EQ(paren_tokens[3]->type, StyioTokenType::TOK_RPAREN);
+  EXPECT_EQ(paren_tokens.back()->type, StyioTokenType::TOK_EOF);
+  free_tokens(paren_tokens);
 }
 
 TEST(StyioSecurityParserLookahead, SkipTriviaFindsNextToken) {
@@ -672,9 +854,23 @@ TEST(StyioSecurityNightlyParserExpr, MatchesLegacyOnSubsetSamples) {
   for (const auto& src : samples) {
     try {
       EXPECT_EQ(parse_expr_to_repr_latest(src, true), parse_expr_to_repr_latest(src, false)) << src;
-    } catch (const std::exception& ex) {
+    }
+    catch (const std::exception& ex) {
       FAIL() << "sample '" << src << "' threw: " << ex.what();
     }
+  }
+}
+
+TEST(StyioSecurityNightlyParserExpr, NegativeNumericLiteralsAreAtoms) {
+  for (const bool use_nightly_parser : {false, true}) {
+    const std::string int_repr = parse_expr_to_repr_latest("-1 + 2", use_nightly_parser);
+    EXPECT_NE(int_repr.find("{ -1 : int }"), std::string::npos);
+    EXPECT_NE(int_repr.find("|- OP : <Add>"), std::string::npos);
+    EXPECT_EQ(int_repr.find("|- OP : <Sub>"), std::string::npos);
+
+    const std::string float_repr = parse_expr_to_repr_latest("-1.5", use_nightly_parser);
+    EXPECT_NE(float_repr.find("{ -1.5 : Float }"), std::string::npos);
+    EXPECT_EQ(float_repr.find("styio.ast.binop"), std::string::npos);
   }
 }
 
@@ -699,6 +895,7 @@ TEST(StyioSecurityNightlyParserExpr, SubsetTokenGateIncludesCompareAndLogic) {
   EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::BINOP_NE));
   EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::LOGIC_AND));
   EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::LOGIC_OR));
+  EXPECT_TRUE(styio_parser_expr_subset_token_nightly(StyioTokenType::YIELD_PIPE));
 }
 
 TEST(StyioSecurityNightlyParserExpr, SubsetTokenGateIncludesDotCallTokens) {
@@ -725,14 +922,16 @@ TEST(StyioSecurityNightlyParserExpr, RejectsNonSubsetStatementToken) {
     ">_ 1 + 2",
     build_line_seps(">_ 1 + 2"),
     tokens,
-    false);
+    false
+  );
 
   EXPECT_THROW(
     {
       StyioAST* ast = parse_expr_subset_nightly(*ctx);
       delete ast;
     },
-    StyioSyntaxError);
+    StyioSyntaxError
+  );
 
   delete ctx;
   free_tokens(tokens);
@@ -763,13 +962,18 @@ TEST(StyioSecurityNightlyParserStmt, SubsetTokenGateIncludesFunctionDefTokens) {
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::EXTRACTOR));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_HAT));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::YIELD_PIPE));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::RETURN_PIPE));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::AWAIT_PIPE));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::PIPE_SEMICOLON));
+  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_SEMICOLON));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::ELLIPSIS));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::BOUNDED_BUFFER_OPEN));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::BOUNDED_BUFFER_CLOSE));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::MATCH));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_UNDLINE));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::ITERATOR));
-  EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::WAVE_RIGHT));
+  EXPECT_FALSE(styio_parser_stmt_subset_token_nightly(StyioTokenType::WAVE_LEFT));
+  EXPECT_FALSE(styio_parser_stmt_subset_token_nightly(StyioTokenType::WAVE_RIGHT));
   EXPECT_TRUE(styio_parser_stmt_subset_token_nightly(StyioTokenType::TOK_PIPE));
 }
 
@@ -780,8 +984,127 @@ TEST(StyioSecurityNightlyParserStmt, SubsetStartGateIncludesBlockAndControlStart
   EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::EXTRACTOR));
   EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::TOK_HAT));
   EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::YIELD_PIPE));
+  EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::RETURN_PIPE));
+  EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::AWAIT_PIPE));
   EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::ELLIPSIS));
   EXPECT_TRUE(styio_parser_stmt_subset_start_nightly(StyioTokenType::ITERATOR));
+}
+
+TEST(StyioSecurityNightlyParserStmt, ParsesInlineReturnAndStatementSeparators) {
+  const std::string src =
+    "# discount := (base: i32) => { fee = base / 10; |<| base - fee |; }\n"
+    ">_(discount <| 100)\n";
+  const std::string repr = parse_program_to_repr_latest(src, true);
+
+  EXPECT_NE(repr.find("styio.ast.return"), std::string::npos);
+  EXPECT_NE(repr.find("discount"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, ParsesTaskGroupAndAwaitBindings) {
+  const std::string src =
+    "||> [\n"
+    "  t1 := { <| 41 }\n"
+    "  t2 := { <| 1 }\n"
+    "]\n"
+    "?| t1 -> a: i64\n"
+    "?| t2 -> b: i64 | 0\n"
+    ">_(a + b)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_task_i64_spawn"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_task_i64_pull"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_runtime_clear_error"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, ParsesTerminalHandleReturnShorthands) {
+  const std::vector<std::string> samples = {
+    "# stdin_a := () => { <|[>_] }\n",
+    "# stdin_b := () => { <|(>_) }\n",
+    "# stdin_c := () => { <| <- [>_] }\n",
+    "# stdin_d := () => { <| <- (>_) }\n",
+  };
+
+  for (const auto& src : samples) {
+    const std::string repr = parse_program_to_repr_latest(src, true);
+    EXPECT_NE(repr.find("styio.ast.return"), std::string::npos) << src;
+    EXPECT_NE(repr.find("@stdin"), std::string::npos) << src;
+  }
+}
+
+TEST(StyioSecurityNightlyParserStmt, ParsesInternalResourceDefinitions) {
+  const std::string src =
+    "@ stdout := #(xs) => { xs >> [>_] }\n"
+    "@ stdout := #(x) => { x -> [>_] }\n"
+    "@ stdout := #(xs) => { xs >> (>_) }\n"
+    "@ stdout := #(x) => { x -> (>_) }\n"
+    "@ stderr := #(xs) => { !(xs) >> [>_] }\n"
+    "@ stderr := #(x) => { !(x) -> [>_] }\n"
+    "@ stderr := #(xs) => { !(xs) >> (>_) }\n"
+    "@ stderr := #(x) => { !(x) -> (>_) }\n"
+    "@ stdin := #() => { <|[>_] }\n"
+    "@ stdin := #() => { <|(>_) }\n"
+    "@ stdin := #() => { <| <- [>_] }\n"
+    "@ stdin := #() => { <| <- (>_) }\n"
+    "@ file : ftype := #(path) => { ... }\n";
+
+  EXPECT_NO_THROW((void)parse_program_to_repr_latest(src, true));
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+}
+
+TEST(StyioSecurityNightlyParserStmt, ParsesResourcePreludeSourceFile) {
+  const auto prelude =
+    std::filesystem::path(STYIO_SOURCE_DIR) / "src" / "StyioPrelude" / "resources.styio";
+  std::ifstream in(prelude);
+  ASSERT_TRUE(in.good()) << prelude;
+  const std::string src(
+    (std::istreambuf_iterator<char>(in)),
+    std::istreambuf_iterator<char>()
+  );
+
+  EXPECT_NO_THROW((void)parse_program_to_repr_latest(src, true));
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsParameterizedResourcePseudoDefinitions) {
+  const std::vector<std::string> samples = {
+    "@file(\"/tmp/styio-invalid-resource-definition.txt\") := { file(path) }\n",
+    "@{\"/tmp/styio-invalid-resource-definition.txt\"} := @file(\"/tmp/styio-invalid-resource-definition.txt\")\n",
+    "@ file := #(path) => { file(path) }\n",
+    "@ file : ftype := #(path) => { file(path) }\n",
+    "@ file : ftype := #(path) => { path }\n",
+    "@ socket : ftype := #(path) => { ... }\n",
+    "@ stdout := { xs >> [>_] }\n",
+    "@ stderr := #(xs) => { !(x) >> [>_] }\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_THROW((void)parse_program_to_repr_latest(src, true), StyioSyntaxError) << src;
+  }
+}
+
+TEST(StyioSecurityNightlyParserStmt, ParsesGenericFunctionTypeAnnotations) {
+  const std::string src =
+    "# first : i64 := (xs: list[i64]) => xs[0]\n"
+    "# lookup : i64 := (table: dict[string, i64], key: string) => table[key]\n"
+    "# identity_list : list[i64] := (xs: list[i64]) => {\n"
+    "  n = xs.length\n"
+    "  <| xs\n"
+    "}\n";
+
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("list[i64]"), std::string::npos);
+  EXPECT_NE(repr.find("dict[string,i64]"), std::string::npos);
+
+  const std::string engine_repr =
+    parse_program_engine_to_repr_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(engine_repr.find("styio.ast.attr { xs.length }"), std::string::npos);
 }
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnFlexBindSubsetSamples) {
@@ -798,13 +1121,19 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnFlexBindSubsetSamples) {
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnHandleIoSubsetSamples) {
   const std::vector<std::string> samples = {
-    "f <- @file{\"tests/m5/data/hello.txt\"}\n",
-    "out << @file{\"/tmp/styio-new-parser-handle-io.txt\"}\n",
+    "f <- @file(\"tests/m5/data/hello.txt\")\n",
+    "out << @file(\"/tmp/styio-new-parser-handle-io.txt\")\n",
   };
 
   for (const auto& src : samples) {
     EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
   }
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsBracedExplicitFileResource) {
+  const std::string src = "f <- @file{\"tests/m5/data/hello.txt\"}\n";
+  EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
+  EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError);
 }
 
 TEST(StyioSecurityNightlyParserStmt, AcceptsAtImportSyntaxWithCanonicalSlashPaths) {
@@ -817,6 +1146,48 @@ TEST(StyioSecurityNightlyParserStmt, AcceptsAtImportSyntaxWithCanonicalSlashPath
   EXPECT_NE(nightly.find("styio/mod"), std::string::npos);
   EXPECT_NE(nightly.find("tools/helpers"), std::string::npos);
   EXPECT_NE(nightly.find("core"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, AcceptsAtExportSyntax) {
+  const std::string src =
+    "@export { fast_add; native/math }\n";
+
+  const std::string nightly = parse_program_to_repr_latest(src, true);
+  const std::string legacy = parse_program_to_repr_latest(src, false);
+  EXPECT_EQ(nightly, legacy);
+  EXPECT_NE(nightly.find("styio.ast.export"), std::string::npos);
+  EXPECT_NE(nightly.find("fast_add"), std::string::npos);
+  EXPECT_NE(nightly.find("native/math"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, AcceptsAtExternCBlockSyntax) {
+  const std::string src =
+    "@extern(c) => {\n"
+    "  int fast_add(int a, int b);\n"
+    "  double fast_dot(double* a, double* b, long n);\n"
+    "}\n";
+
+  const std::string nightly = parse_program_to_repr_latest(src, true);
+  const std::string legacy = parse_program_to_repr_latest(src, false);
+  EXPECT_EQ(nightly, legacy);
+  EXPECT_NE(nightly.find("styio.ast.extern"), std::string::npos);
+  EXPECT_NE(nightly.find("abi: c"), std::string::npos);
+  EXPECT_NE(nightly.find("fast_add"), std::string::npos);
+  EXPECT_NE(nightly.find("fast_dot"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, AcceptsAtExternCPlusPlusBlockSyntax) {
+  const std::string src =
+    "@extern(C++) => {\n"
+    "  extern \"C\" int fast_square(int x) { return x * x; }\n"
+    "}\n";
+
+  const std::string nightly = parse_program_to_repr_latest(src, true);
+  const std::string legacy = parse_program_to_repr_latest(src, false);
+  EXPECT_EQ(nightly, legacy);
+  EXPECT_NE(nightly.find("styio.ast.extern"), std::string::npos);
+  EXPECT_NE(nightly.find("abi: c++"), std::string::npos);
+  EXPECT_NE(nightly.find("fast_square"), std::string::npos);
 }
 
 TEST(StyioSecurityNightlyParserStmt, RejectsMixedSeparatorsInsideAtImportItem) {
@@ -832,6 +1203,183 @@ TEST(StyioSecurityNightlyParserStmt, RejectsAtImportOutsideTopLevel) {
     "}\n";
   EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
   EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError);
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsAtExportOutsideTopLevel) {
+  const std::string src =
+    "# use := () => {\n"
+    "  @export { fast_add }\n"
+    "}\n";
+  EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
+  EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError);
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsAtExternOutsideTopLevel) {
+  const std::string src =
+    "# use := () => {\n"
+    "  @extern(c) => { int fast_add(int a, int b); }\n"
+    "}\n";
+  EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
+  EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError);
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsUnsupportedExternAbi) {
+  const std::string src =
+    "@extern(rust) => { int fast_add(int a, int b); }\n";
+  EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
+  EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError);
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsDeprecatedExternCppAbiSpelling) {
+  const std::string src =
+    "@extern(cpp) => { int fast_add(int a, int b); }\n";
+  EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
+  EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError);
+}
+
+TEST(StyioSecurityNativeToolchain, EnvCompilerOverridesBundledMode) {
+  EnvSnapshot cxx("STYIO_NATIVE_CXX");
+  EnvSnapshot mode("STYIO_NATIVE_TOOLCHAIN_MODE");
+  EnvSnapshot root("STYIO_NATIVE_TOOLCHAIN_ROOT");
+  cxx.set("/tmp/styio-explicit-clang++");
+  mode.set("bundled");
+  root.set("/tmp/styio-missing-toolchain-root");
+
+  const auto resolved = styio::native::resolve_compiler_for_abi("c++");
+  EXPECT_EQ(resolved.command, "/tmp/styio-explicit-clang++");
+  EXPECT_EQ(resolved.source, "env:STYIO_NATIVE_CXX");
+}
+
+TEST(StyioSecurityNativeToolchain, BundledModeFindsClangPlusPlusUnderToolchainRoot) {
+  EnvSnapshot cxx("STYIO_NATIVE_CXX");
+  EnvSnapshot mode("STYIO_NATIVE_TOOLCHAIN_MODE");
+  EnvSnapshot root_env("STYIO_NATIVE_TOOLCHAIN_ROOT");
+  cxx.unset();
+  mode.set("bundled");
+
+  const auto root =
+    std::filesystem::temp_directory_path()
+    / ("styio-native-toolchain-test-" + std::to_string(static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count())));
+  const auto bin = root / "bin";
+  const auto clangxx = bin / "clang++";
+  std::filesystem::remove_all(root);
+  std::filesystem::create_directories(bin);
+  {
+    std::ofstream out(clangxx);
+    out << "#!/bin/sh\nexit 0\n";
+  }
+#ifndef _WIN32
+  chmod(clangxx.c_str(), 0755);
+#endif
+  root_env.set(root.string());
+
+  const auto resolved = styio::native::resolve_compiler_for_abi("c++");
+  EXPECT_EQ(resolved.command, clangxx.string());
+  EXPECT_EQ(resolved.source, "bundled-clang");
+
+  std::filesystem::remove_all(root);
+}
+
+TEST(StyioSecurityNativeToolchain, SystemModeSkipsBundledClangSearch) {
+  EnvSnapshot cxx("STYIO_NATIVE_CXX");
+  EnvSnapshot mode("STYIO_NATIVE_TOOLCHAIN_MODE");
+  EnvSnapshot root_env("STYIO_NATIVE_TOOLCHAIN_ROOT");
+  cxx.unset();
+  mode.set("system");
+  root_env.set("/tmp/styio-ignored-toolchain-root");
+
+  const auto resolved = styio::native::resolve_compiler_for_abi("c++");
+  EXPECT_EQ(resolved.command, "c++");
+  EXPECT_EQ(resolved.source, "system");
+}
+
+TEST(StyioSecurityNativeToolchain, EnvCompilerCommandIsShellQuoted) {
+  EnvSnapshot cc("STYIO_NATIVE_CC");
+  EnvSnapshot mode("STYIO_NATIVE_TOOLCHAIN_MODE");
+  EnvSnapshot root_env("STYIO_NATIVE_TOOLCHAIN_ROOT");
+  const auto root =
+    std::filesystem::temp_directory_path()
+    / ("styio-native-injection-test-" + std::to_string(static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count())));
+  const auto marker = root / "injected-marker";
+  std::filesystem::remove_all(root);
+  std::filesystem::create_directories(root);
+  cc.set("/bin/false; touch " + marker.string() + "; #");
+  mode.set("system");
+  root_env.unset();
+
+  std::filesystem::remove(marker);
+  EXPECT_THROW(
+    styio::native::compile_and_load_block(
+      "c",
+      "int fast_add(void) { return 1; }",
+      {}
+    ),
+    StyioTypeError
+  );
+  EXPECT_FALSE(std::filesystem::exists(marker));
+  std::filesystem::remove_all(root);
+}
+
+TEST(StyioSecurityNativeToolchain, NativeSourceCacheAvoidsRepeatedCompilerInvocation) {
+  EnvSnapshot cc("STYIO_NATIVE_CC");
+  EnvSnapshot mode("STYIO_NATIVE_TOOLCHAIN_MODE");
+  EnvSnapshot root_env("STYIO_NATIVE_TOOLCHAIN_ROOT");
+  EnvSnapshot cache_dir_env("STYIO_NATIVE_CACHE_DIR");
+  EnvSnapshot cache_mode("STYIO_NATIVE_CACHE");
+  const auto root =
+    std::filesystem::temp_directory_path()
+    / ("styio-native-cache-test-" + std::to_string(static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count())));
+  const auto wrapper = root / "cc-wrapper.sh";
+  const auto counter = root / "compiler-count";
+  const auto cache_dir = root / "cache";
+  std::filesystem::remove_all(root);
+  std::filesystem::create_directories(root);
+  {
+    std::ofstream out(wrapper);
+    out << "#!/bin/sh\n"
+        << "count_file='" << counter.string() << "'\n"
+        << "if [ -f \"$count_file\" ]; then n=$(cat \"$count_file\"); else n=0; fi\n"
+        << "n=$((n + 1))\n"
+        << "printf '%s\\n' \"$n\" > \"$count_file\"\n"
+        << "exec cc \"$@\"\n";
+  }
+#ifndef _WIN32
+  chmod(wrapper.c_str(), 0755);
+#endif
+
+  cc.set(wrapper.string());
+  mode.set("system");
+  root_env.unset();
+  cache_dir_env.set(cache_dir.string());
+  cache_mode.unset();
+
+  const std::string body =
+    "int cached_add(int a, int b) { return a + b; }\n"
+    "int cached_sub(int a, int b) { return a - b; }\n";
+
+  auto read_counter = [&]()
+  {
+    std::ifstream in(counter);
+    int value = 0;
+    in >> value;
+    return value;
+  };
+
+  auto first = styio::native::compile_and_load_block("c", body, {"cached_add"});
+  ASSERT_EQ(first.symbols.size(), 1U);
+  auto* add = reinterpret_cast<int (*)(int, int)>(first.symbols[0].address);
+  ASSERT_NE(add, nullptr);
+  EXPECT_EQ(add(20, 22), 42);
+  EXPECT_EQ(read_counter(), 1);
+
+  auto second = styio::native::compile_and_load_block("c", body, {"cached_sub"});
+  ASSERT_EQ(second.symbols.size(), 1U);
+  auto* sub = reinterpret_cast<int (*)(int, int)>(second.symbols[0].address);
+  ASSERT_NE(sub, nullptr);
+  EXPECT_EQ(sub(50, 8), 42);
+  EXPECT_EQ(read_counter(), 1);
+
+  std::filesystem::remove_all(root);
 }
 
 TEST(StyioSecurityNightlyParserStmt, RejectsLegacyStringListImportSyntax) {
@@ -852,9 +1400,61 @@ TEST(StyioSecurityNightlyParserStmt, AcceptsBubbleSortFeatureSyntax) {
     "  }\n"
     "}\n";
   const std::string repr = parse_program_to_repr_latest(src, true);
-  EXPECT_NE(repr.find("stdin.list.typed"), std::string::npos);
   EXPECT_NE(repr.find("assign.parallel"), std::string::npos);
   EXPECT_NE(repr.find("only_true"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, TypedStdinPullFormsShareInstantPullAst) {
+  const std::string list_src =
+    "xs <- @stdin : list[i32]\n";
+  const std::string tuple_src =
+    "a, b <- @stdin : (f64, f64)\n";
+  const std::string list_repr = parse_program_to_repr_latest(list_src, true);
+  const std::string tuple_repr = parse_program_to_repr_latest(tuple_src, true);
+  EXPECT_NE(list_repr.find("instant.pull"), std::string::npos);
+  EXPECT_NE(list_repr.find("list[i32]"), std::string::npos);
+  EXPECT_EQ(list_repr.find("stdin.list.typed"), std::string::npos);
+  EXPECT_NE(tuple_repr.find("instant.pull"), std::string::npos);
+  EXPECT_NE(tuple_repr.find("f64"), std::string::npos);
+  EXPECT_EQ(tuple_repr.find("stdin.list.typed"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, AcceptsGuardFallbackBlockSyntax) {
+  const std::string src =
+    "x = 0\n"
+    "?(x < 1) => {\n"
+    "  x = 1\n"
+    "} | {\n"
+    "  x = 2\n"
+    "}\n";
+
+  const std::string nightly = parse_program_to_repr_latest(src, true);
+  const std::string legacy = parse_program_to_repr_latest(src, false);
+  EXPECT_EQ(nightly, legacy);
+  EXPECT_NE(nightly.find("if_else"), std::string::npos);
+  EXPECT_NE(nightly.find("Else:"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsGuardFallbackWithoutBlock) {
+  const std::string src =
+    "x = 0\n"
+    "?(x < 1) => {\n"
+    "  x = 1\n"
+    "} | x = 2\n";
+
+  EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
+  EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError);
+}
+
+TEST(StyioSecurityNightlyParserStmt, AcceptsGuardValueExpressionSyntax) {
+  const std::string src =
+    "x = ?(1 < 2) => 10 | 20\n"
+    "y = ?(x > 10) => x + 1 | x - 1\n"
+    ">_(y)\n";
+
+  EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false));
+  EXPECT_NO_THROW(parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  EXPECT_NO_THROW(parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Legacy));
 }
 
 TEST(StyioSecurityNightlyParserStmt, AcceptsDictFeatureSyntax) {
@@ -875,13 +1475,82 @@ TEST(StyioSecurityNightlyParserStmt, RejectsDotChainAfterCall) {
   EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
 }
 
+TEST(StyioSecurityNightlySemantics, RejectsUnknownFunctionDuringTypecheck) {
+  const std::string src = "x = missing(1)\n";
+  EXPECT_THROW(
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly),
+    StyioTypeError
+  );
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsUserFunctionArityMismatchDuringTypecheck) {
+  const std::vector<std::string> samples = {
+    "# add := (a: i32, b: i32) => a + b\nx = add(1)\n",
+    "# add := (a: i32, b: i32) => a + b\nx = add(1, 2, 3)\n",
+  };
+
+  for (const auto& src : samples) {
+    EXPECT_THROW(
+      parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly),
+      StyioTypeError
+    ) << src;
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsOneShotContinuationResumeBeforeLowering) {
+  const std::vector<std::string> samples = {
+    "# id := (x: i32) => x\nx = id <| 1 <| 2\n",
+    "# id := (x: i32) => x\nx = id(1)(2)\n",
+  };
+
+  for (const auto& src : samples) {
+    try {
+      parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+      FAIL() << "expected one-shot continuation lowering error for " << src;
+    }
+    catch (const StyioTypeError& ex) {
+      const std::string msg = ex.what();
+      EXPECT_NE(msg.find("one-shot continuation resume"), std::string::npos) << msg;
+      EXPECT_NE(msg.find("exactly once"), std::string::npos) << msg;
+    }
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsBareAwaitFreezeBeforeContinuationLowering) {
+  const std::string src =
+    "?| -> input: i64\n"
+    ">_(input)\n";
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected bare continuation freeze lowering error";
+  }
+  catch (const StyioTypeError& ex) {
+    const std::string msg = ex.what();
+    EXPECT_NE(msg.find("bare continuation freeze"), std::string::npos) << msg;
+    EXPECT_NE(msg.find("continuation lowering"), std::string::npos) << msg;
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, AllowsDirectNestedFunctionCallsDuringLowering) {
+  const std::string src =
+    "# outer := (x: i32) => {\n"
+    "  # inner := (y: i32) => y + 1\n"
+    "  <| inner(x) + inner(x + 1)\n"
+    "}\n"
+    ">_(outer(3))\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+}
+
 TEST(StyioSecurityNightlySemantics, RejectsPlainResourceCopyByEqual) {
   const std::string src =
     "l = @stdin: list[i32]\n"
     "l1 = l\n";
   EXPECT_THROW(
     parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly),
-    StyioTypeError);
+    StyioTypeError
+  );
 }
 
 TEST(StyioSecurityNightlySemantics, AllowsCloneFormsAndIndexedMutation) {
@@ -891,7 +1560,8 @@ TEST(StyioSecurityNightlySemantics, AllowsCloneFormsAndIndexedMutation) {
     "l2 << l\n"
     "l[0] = 9\n";
   EXPECT_NO_THROW(
-    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
 }
 
 TEST(StyioSecurityNightlySemantics, AllowsPredefinedListOperationsAcrossRuntimeFamilies) {
@@ -913,7 +1583,8 @@ TEST(StyioSecurityNightlySemantics, AllowsPredefinedListOperationsAcrossRuntimeF
     "maps.insert(1, dict{\"b\": 2})\n"
     "maps[0] = dict{\"c\": 3}\n";
   EXPECT_NO_THROW(
-    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
 }
 
 TEST(StyioSecurityNightlySemantics, AllowsDictIndexingAttrsAndClone) {
@@ -924,7 +1595,8 @@ TEST(StyioSecurityNightlySemantics, AllowsDictIndexingAttrsAndClone) {
     "v = d.values[1]\n"
     "d2 << d\n";
   EXPECT_NO_THROW(
-    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
 }
 
 TEST(StyioSecurityNightlySemantics, AllowsScalarAndStringDictFamilies) {
@@ -939,7 +1611,8 @@ TEST(StyioSecurityNightlySemantics, AllowsScalarAndStringDictFamilies) {
     "pi = nums[\"pi\"]\n"
     "num_values = nums.values\n";
   EXPECT_NO_THROW(
-    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
 }
 
 TEST(StyioSecurityNightlySemantics, AllowsHandleValuedDictFamilies) {
@@ -951,7 +1624,8 @@ TEST(StyioSecurityNightlySemantics, AllowsHandleValuedDictFamilies) {
     "inner = child[\"left\"]\n"
     "inners = child.values\n";
   EXPECT_NO_THROW(
-    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
 }
 
 TEST(StyioSecurityNightlySemantics, AllowsRuntimeHandleListIteration) {
@@ -962,10 +1636,186 @@ TEST(StyioSecurityNightlySemantics, AllowsRuntimeHandleListIteration) {
     "  >_(xs)\n"
     "}\n";
   EXPECT_NO_THROW(
-    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
   const std::string llvm_ir =
     compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
   EXPECT_NE(llvm_ir.find("styio_list_get_list"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, MaxElementMatchFormsGenerateEquivalentLlvm) {
+  const std::string hash_let_match =
+    "values <- @stdin: list[i32]\n"
+    "answer = -1\n"
+    "#(n = values.length) ?= {\n"
+    "  0 => { /* empty */ }\n"
+    "  1 => { answer = values[0] }\n"
+    "  _ => {\n"
+    "    answer = values[0]\n"
+    "    [1..n-1] >> #(i) => {\n"
+    "      ?(values[i] > answer) => { answer = values[i] }\n"
+    "    }\n"
+    "  }\n"
+    "}\n"
+    ">_(answer)\n";
+  const std::string scrutinee_rebind =
+    "values <- @stdin: list[i32]\n"
+    "answer = -1\n"
+    "values.length ?= {\n"
+    "  0 => { /* empty */ }\n"
+    "  1 => { answer = values[0] }\n"
+    "  _ => {\n"
+    "    answer = values[0]\n"
+    "    n = values.length\n"
+    "    [1..n-1] >> #(i) => {\n"
+    "      ?(values[i] > answer) => { answer = values[i] }\n"
+    "    }\n"
+    "  }\n"
+    "}\n"
+    ">_(answer)\n";
+  const std::string guarded_cases =
+    "values <- @stdin: list[i32]\n"
+    "answer = -1\n"
+    "n = values.length\n"
+    "n ?= {\n"
+    "  (n == 0) => { /* empty */ }\n"
+    "  (n == 1) => { answer = values[0] }\n"
+    "  _______ => {\n"
+    "    answer = values[0]\n"
+    "    [1..n-1] >> #(i) => {\n"
+    "      ?(values[i] > answer) => { answer = values[i] }\n"
+    "    }\n"
+    "  }\n"
+    "}\n"
+    ">_(answer)\n";
+
+  const std::string expected =
+    compile_program_to_llvm_ir_engine_latest(hash_let_match, StyioParserEngine::Nightly);
+  EXPECT_EQ(
+    compile_program_to_llvm_ir_engine_latest(scrutinee_rebind, StyioParserEngine::Nightly),
+    expected
+  );
+  EXPECT_EQ(
+    compile_program_to_llvm_ir_engine_latest(guarded_cases, StyioParserEngine::Nightly),
+    expected
+  );
+  EXPECT_NE(expected.find("switch i64"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, PureArithmeticMatchFormsGenerateEquivalentLlvm) {
+  const std::string hash_let_match =
+    "seed = 1\n"
+    "answer = 0\n"
+    "#(n = seed + 1) ?= {\n"
+    "  1 => { answer = 11 }\n"
+    "  2 => { answer = 22 }\n"
+    "  _ => { answer = n }\n"
+    "}\n"
+    ">_(answer)\n";
+  const std::string scrutinee_rebind =
+    "seed = 1\n"
+    "answer = 0\n"
+    "seed + 1 ?= {\n"
+    "  1 => { answer = 11 }\n"
+    "  2 => { answer = 22 }\n"
+    "  _ => {\n"
+    "    n = seed + 1\n"
+    "    answer = n\n"
+    "  }\n"
+    "}\n"
+    ">_(answer)\n";
+  const std::string guarded_cases =
+    "seed = 1\n"
+    "answer = 0\n"
+    "n = seed + 1\n"
+    "n ?= {\n"
+    "  (n == 1) => { answer = 11 }\n"
+    "  (2 == n) => { answer = 22 }\n"
+    "  _______ => { answer = n }\n"
+    "}\n"
+    ">_(answer)\n";
+
+  const std::string expected =
+    compile_program_to_llvm_ir_engine_latest(hash_let_match, StyioParserEngine::Nightly);
+  EXPECT_EQ(
+    compile_program_to_llvm_ir_engine_latest(scrutinee_rebind, StyioParserEngine::Nightly),
+    expected
+  );
+  EXPECT_EQ(
+    compile_program_to_llvm_ir_engine_latest(guarded_cases, StyioParserEngine::Nightly),
+    expected
+  );
+  EXPECT_NE(expected.find("switch i64"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, AllowsMatrixTypedNestedListLiteral) {
+  const std::string src =
+    "m: matrix = [[1,0],[0,1]]\n"
+    "row = m[0]\n"
+    "cell = m[1][1]\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_matrix_new_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_set_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_row_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_get_i64"), std::string::npos);
+  EXPECT_EQ(llvm_ir.find("styio_list_new_list"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsRaggedMatrixTypedNestedListLiteral) {
+  const std::string src =
+    "m: matrix = [[1,0],[1]]\n";
+  EXPECT_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly),
+    StyioTypeError
+  );
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsStaticMatrixShapeMismatch) {
+  const std::string src =
+    "a: matrix = [[1,2],[3,4]]\n"
+    "b: matrix = [[1,2]]\n"
+    "c = a + b\n";
+  EXPECT_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly),
+    StyioTypeError
+  );
+}
+
+TEST(StyioSecurityNightlySemantics, InlinesSmallStaticMatrixMultiply) {
+  const std::string src =
+    "a: matrix = [[1,2],[3,4]]\n"
+    "b: matrix = [[5,6],[7,8]]\n"
+    "c = a * b\n";
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_matrix_data_i64"), std::string::npos);
+  EXPECT_EQ(llvm_ir.find("styio_matrix_matmul_i64"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, LowersMatrixIntrinsicFunctions) {
+  const std::string src =
+    "a: matrix = [[1,2],[3,4]]\n"
+    "b: matrix = [[5,6],[7,8]]\n"
+    "h = mat_hadamard(a,b)\n"
+    "t = transpose(a)\n"
+    "d = dot(a,b)\n";
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_matrix_hadamard_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_transpose_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_dot_i64"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, LeavesRaggedUntypedNestedListAsList) {
+  const std::string src =
+    "rows = [[1,0],[1]]\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
 }
 
 TEST(StyioSecurityNightlySemantics, RejectsMixedDictValueFamilies) {
@@ -973,7 +1823,8 @@ TEST(StyioSecurityNightlySemantics, RejectsMixedDictValueFamilies) {
     "d = dict{\"a\": 1, \"b\": \"two\"}\n";
   EXPECT_THROW(
     parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly),
-    StyioTypeError);
+    StyioTypeError
+  );
 }
 
 TEST(StyioSecurityNightlySemantics, RejectsNonStringDictIndex) {
@@ -982,7 +1833,8 @@ TEST(StyioSecurityNightlySemantics, RejectsNonStringDictIndex) {
     "x = d[0]\n";
   EXPECT_THROW(
     parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly),
-    StyioTypeError);
+    StyioTypeError
+  );
 }
 
 TEST(StyioSecurityNightlySemantics, AllowsBoundStdinAliasIteration) {
@@ -992,10 +1844,86 @@ TEST(StyioSecurityNightlySemantics, AllowsBoundStdinAliasIteration) {
     "  line -> @stdout\n"
     "}\n";
   EXPECT_NO_THROW(
-    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
   const std::string llvm_ir =
     compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
   EXPECT_NE(llvm_ir.find("styio_stdin_read_line"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, SymbolicStdinDefinitionCanPrecedeIteration) {
+  const std::string src =
+    "@ stdin := #() => { <|[>_] }\n"
+    "@stdin >> #(line) => {\n"
+    "  line -> [>_]\n"
+    "}\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_stdin_read_line"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_stdout_write"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, ImmediatePullUsesArrowLeftSpelling) {
+  const std::string src =
+    "value = (<- @stdin)\n"
+    "value -> [>_]\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_stdin_read_line"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, StringLinesCanFeedTerminalHandleIteratorWrite) {
+  const std::string src =
+    "text = \"alpha\nbeta\"\n"
+    "text.lines() >> [>_]\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_string_lines"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_to_cstr"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_stdout_write"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, TerminalHandleIteratorWriteRejectsScalarString) {
+  const std::string src =
+    "text = \"alpha\"\n"
+    "text >> [>_]\n";
+  EXPECT_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly),
+    StyioTypeError
+  );
+}
+
+TEST(StyioSecurityNightlySemantics, StringLinesCanFeedStdoutResourceIteratorWrite) {
+  const std::string src =
+    "text = \"alpha\nbeta\"\n"
+    "text.lines() >> @stdout\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_string_lines"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_to_cstr"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_stdout_write"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, StdoutResourceIteratorWriteRejectsScalarString) {
+  const std::string src =
+    "text = \"alpha\"\n"
+    "text >> @stdout\n";
+  EXPECT_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly),
+    StyioTypeError
+  );
 }
 
 TEST(StyioSecurityNightlySemantics, AllowsStandaloneCollectBindFromStdin) {
@@ -1004,7 +1932,8 @@ TEST(StyioSecurityNightlySemantics, AllowsStandaloneCollectBindFromStdin) {
     "count = lines.length\n"
     "first = lines[0]\n";
   EXPECT_NO_THROW(
-    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
   const std::string llvm_ir =
     compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
   EXPECT_NE(llvm_ir.find("styio_list_cstr_read_stdin"), std::string::npos);
@@ -1016,7 +1945,8 @@ TEST(StyioSecurityNightlySemantics, AllowsCollectBindFromBoundStdinAlias) {
     "lines << s\n"
     "first = lines[0]\n";
   EXPECT_NO_THROW(
-    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
   const std::string llvm_ir =
     compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
   EXPECT_NE(llvm_ir.find("styio_list_cstr_read_stdin"), std::string::npos);
@@ -1030,7 +1960,8 @@ TEST(StyioSecurityNightlySemantics, RejectsBoundStdoutAliasIteration) {
     "}\n";
   EXPECT_THROW(
     parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly),
-    StyioTypeError);
+    StyioTypeError
+  );
 }
 
 TEST(StyioSecurityNightlyCodegen, EmitsImmediateListReleaseForFlexReassign) {
@@ -1040,6 +1971,46 @@ TEST(StyioSecurityNightlyCodegen, EmitsImmediateListReleaseForFlexReassign) {
   const std::string llvm_ir =
     compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
   EXPECT_NE(llvm_ir.find("styio_list_release"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyCodegen, UnknownSgCallFailsClosed) {
+  llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmPrinter();
+  llvm::InitializeNativeTargetAsmParser();
+  llvm::ExitOnError exit_on_error;
+  std::unique_ptr<StyioJIT_ORC> jit = exit_on_error(StyioJIT_ORC::Create());
+  StyioToLLVM generator(std::move(jit));
+
+  auto* call = SGCall::Create(SGResId::Create("missing"), {});
+  EXPECT_THROW(call->toLLVMIR(&generator), StyioTypeError);
+  delete call;
+}
+
+TEST(StyioSecurityNightlyCodegen, SgCallArityMismatchFailsBeforeLlvmEmission) {
+  llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmPrinter();
+  llvm::InitializeNativeTargetAsmParser();
+  llvm::ExitOnError exit_on_error;
+  std::unique_ptr<StyioJIT_ORC> jit = exit_on_error(StyioJIT_ORC::Create());
+  StyioToLLVM generator(std::move(jit));
+
+  auto* fn = SGFunc::Create(
+    SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64}),
+    SGResId::Create("add2"),
+    std::vector<SGFuncArg*>{
+      SGFuncArg::Create("a", SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64})),
+      SGFuncArg::Create("b", SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64}))
+    },
+    SGBlock::Create(std::vector<StyioIR*>{SGConstInt::Create(0)})
+  );
+  auto* call = SGCall::Create(
+    SGResId::Create("add2"),
+    std::vector<StyioIR*>{SGConstInt::Create(1)}
+  );
+  auto* entry = SGMainEntry::Create(std::vector<StyioIR*>{fn, call});
+
+  EXPECT_THROW(entry->toLLVMIR(&generator), StyioTypeError);
+  delete entry;
 }
 
 TEST(StyioSecurityNightlyCodegen, EmitsTypedListHelpersForMutationAndOperations) {
@@ -1123,6 +2094,42 @@ TEST(StyioSecurityNightlyCodegen, PreservesDeclaredFunctionParamTypesAcrossStrin
   EXPECT_EQ(llvm_ir.find("define i64 @double_it(ptr %x)"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyCodegen, LowersGenericListFunctionParamTypes) {
+  const std::string src =
+    "# first : i64 := (xs: list[i64]) => xs[0]\n"
+    ">_(first([1, 2, 3]))\n";
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("define i64 @first(i64 %xs)"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("call i64 @styio_list_get"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("call i64 @first(i64"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyCodegen, NestedLoopDirectReturnExitsEnclosingFunction) {
+  const std::string src =
+    "# two_sum : list[i64] := (nums: list[i64], target: i64) => {\n"
+    "  n = nums.length - 1\n"
+    "  [0..n] >> #(i) => {\n"
+    "    [i+1..n] >> #(j) => {\n"
+    "      ?(nums[i] + nums[j] == target) => {\n"
+    "        <| [i, j]\n"
+    "      }\n"
+    "    }\n"
+    "  }\n"
+    "  <| [-1, -1]\n"
+    "}\n"
+    "ans = two_sum([2, 7, 11, 15], 9)\n"
+    "ans[0] -> [>_]\n"
+    "ans[1] -> [>_]\n";
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("define i64 @two_sum(i64 %nums, i64 %target)"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("call i64 @styio_list_get"), std::string::npos);
+  const auto nested_then = llvm_ir.find("styif_then");
+  ASSERT_NE(nested_then, std::string::npos);
+  EXPECT_NE(llvm_ir.find("ret i64", nested_then), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyRuntime, ListHandlesAreCleanedUpAfterExecution) {
   const std::string src =
     "l = @stdin: list[i32]\n"
@@ -1131,7 +2138,9 @@ TEST(StyioSecurityNightlyRuntime, ListHandlesAreCleanedUpAfterExecution) {
     execute_program_engine_with_stdin_latest(
       src,
       StyioParserEngine::Nightly,
-      "[1,2,3]\n"));
+      "[1,2,3]\n"
+    )
+  );
   EXPECT_EQ(styio_list_active_count(), 0);
   EXPECT_EQ(styio_runtime_has_error(), 0);
 }
@@ -1144,7 +2153,9 @@ TEST(StyioSecurityNightlyRuntime, ListLiteralHandlesAreCleanedUpAfterExecution) 
     execute_program_engine_with_stdin_latest(
       src,
       StyioParserEngine::Nightly,
-      ""));
+      ""
+    )
+  );
   EXPECT_EQ(styio_list_active_count(), 0);
   EXPECT_EQ(styio_runtime_has_error(), 0);
 }
@@ -1157,7 +2168,9 @@ TEST(StyioSecurityNightlyRuntime, CollectedStringListsAreCleanedUpAfterExecution
     execute_program_engine_with_stdin_latest(
       src,
       StyioParserEngine::Nightly,
-      "alpha\nbeta\n"));
+      "alpha\nbeta\n"
+    )
+  );
   EXPECT_EQ(styio_list_active_count(), 0);
   EXPECT_EQ(styio_runtime_has_error(), 0);
 }
@@ -1170,9 +2183,62 @@ TEST(StyioSecurityNightlyRuntime, DictHandlesAreCleanedUpAfterExecution) {
     execute_program_engine_with_stdin_latest(
       src,
       StyioParserEngine::Nightly,
-      ""));
+      ""
+    )
+  );
   EXPECT_EQ(styio_dict_active_count(), 0);
   EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioSecurityNightlyRuntime, MatrixFinalBindHandlesStayLiveUntilScopeExit) {
+  const std::string src =
+    "m: matrix := [[1,2],[3,4]]\n"
+    "n = m + m\n"
+    "q = m + m\n"
+    ">_(q[0][0])\n";
+
+  EXPECT_NO_THROW(
+    execute_program_engine_with_stdin_latest(
+      src,
+      StyioParserEngine::Nightly,
+      ""
+    )
+  );
+  EXPECT_EQ(styio_matrix_active_count(), 0);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioSecurityNightlyRuntime, MatrixHandlesAreCleanedUpAfterOverwriteAndExecution) {
+  const std::string src =
+    "m: matrix = [[1,2],[3,4]]\n"
+    "m = m + m\n";
+
+  EXPECT_NO_THROW(
+    execute_program_engine_with_stdin_latest(
+      src,
+      StyioParserEngine::Nightly,
+      ""
+    )
+  );
+  EXPECT_EQ(styio_matrix_active_count(), 0);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioSecurityNightlyRuntime, RuntimeErrorReturnCleansMatrixHandles) {
+  const std::string src =
+    "m: matrix = [[1,2],[3,4]]\n"
+    ">_(m[9][0])\n";
+
+  EXPECT_NO_THROW(
+    execute_program_engine_with_stdin_latest(
+      src,
+      StyioParserEngine::Nightly,
+      ""
+    )
+  );
+  EXPECT_EQ(styio_matrix_active_count(), 0);
+  EXPECT_EQ(styio_runtime_has_error(), 1);
+  styio_runtime_clear_error();
 }
 
 TEST(StyioSecurityNightlyRuntime, NestedHandleDictsReleaseOwnedChildrenOnOverwrite) {
@@ -1185,7 +2251,9 @@ TEST(StyioSecurityNightlyRuntime, NestedHandleDictsReleaseOwnedChildrenOnOverwri
     execute_program_engine_with_stdin_latest(
       src,
       StyioParserEngine::Nightly,
-      ""));
+      ""
+    )
+  );
   EXPECT_EQ(styio_list_active_count(), 0);
   EXPECT_EQ(styio_dict_active_count(), 0);
   EXPECT_EQ(styio_runtime_has_error(), 0);
@@ -1201,7 +2269,9 @@ TEST(StyioSecurityNightlyRuntime, InvalidNumericStringArgumentSetsRuntimeError) 
     execute_program_engine_with_stdin_latest(
       src,
       StyioParserEngine::Nightly,
-      "abc\n"));
+      "abc\n"
+    )
+  );
   EXPECT_EQ(styio_runtime_has_error(), 1);
   ASSERT_NE(styio_runtime_last_error_subcode(), nullptr);
   EXPECT_STREQ(styio_runtime_last_error_subcode(), "STYIO_RUNTIME_NUMERIC_PARSE");
@@ -1212,9 +2282,9 @@ TEST(StyioSecurityNightlyRuntime, InvalidNumericStringArgumentSetsRuntimeError) 
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnResourcePostfixSubsetSamples) {
   const std::vector<std::string> samples = {
-    "\"Hello from Styio\" >> @file{\"/tmp/styio-new-parser-resource-postfix-write.txt\"}\n",
-    "x = 42\nx -> @file{\"/tmp/styio-new-parser-resource-postfix-redirect.txt\"}\n",
-    "# write_value := () => \"payload\" >> @file{\"/tmp/styio-new-parser-resource-postfix-func.txt\"}\nwrite_value()\n",
+    "\"Hello from Styio\" >> @file(\"/tmp/styio-new-parser-resource-postfix-write.txt\")\n",
+    "x = 42\nx -> @file(\"/tmp/styio-new-parser-resource-postfix-redirect.txt\")\n",
+    "# write_value := () => \"payload\" >> @file(\"/tmp/styio-new-parser-resource-postfix-func.txt\")\nwrite_value()\n",
   };
 
   for (const auto& src : samples) {
@@ -1224,8 +2294,8 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnResourcePostfixSubsetSamples
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnIteratorStmtSubsetSamples) {
   const std::vector<std::string> samples = {
-    "f <- @file{\"tests/m5/data/hello.txt\"}\nf >> #(line) => {\n    >_(line)\n}\n",
-    "# double_it := (x: i32) => x * 2\nf <- @file{\"tests/m5/data/numbers.txt\"}\nf >> #(line) => {\n    >_(double_it(line))\n}\n",
+    "f <- @file(\"tests/m5/data/hello.txt\")\nf >> #(line) => {\n    >_(line)\n}\n",
+    "# double_it := (x: i32) => x * 2\nf <- @file(\"tests/m5/data/numbers.txt\")\nf >> #(line) => {\n    >_(double_it(line))\n}\n",
     "result = true\n[1, 2, 3] >> #(x) => {\n    result = result && (x > 0)\n}\n>_(result)\n",
     "[1, 2, 3] >> #(x) => {\n    >_(x)\n}\n",
     "[1, 2, 3] >> #(n) & [4, 5, 6] >> #(m) => {\n    >_(n + m)\n}\n",
@@ -1238,7 +2308,7 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnIteratorStmtSubsetSamples) {
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnInfiniteLoopSubsetSamples) {
   const std::vector<std::string> samples = {
-    "x = 0\n[...] ?(x < 3) >> {\n    x += 1\n}\n>_(x)\n",
+    "x = 0\n[...] >> ?(x < 3) => {\n    x += 1\n}\n>_(x)\n",
     "[...] => {\n    >_(1)\n    ^\n}\n",
   };
 
@@ -1247,26 +2317,47 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnInfiniteLoopSubsetSamples) {
   }
 }
 
+TEST(StyioSecurityNightlyParserStmt, RejectsOldConditionalLoopSyntax) {
+  const std::string src = "x = 0\n[...] ?(x < 3) >> {\n  x += 1\n}\n";
+  EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
+  EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError);
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsNonBoolConditionalLoopGuard) {
+  const std::string src = "[...] >> ?(\"not_bool\") => {\n  ^\n}\n";
+  EXPECT_THROW(
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly),
+    StyioTypeError
+  );
+  EXPECT_THROW(
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Legacy),
+    StyioTypeError
+  );
+}
+
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnInstantPullSubsetSamples) {
-  const std::string src = "x = 1\nresult = x + (<< @file{\"tests/m7/data/ref50.txt\"})\n>_(result)\n";
+  const std::string src = "x = 1\nresult = x + (<< @file(\"tests/m7/data/ref50.txt\"))\n>_(result)\n";
   EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false));
 }
 
-TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnSnapshotDeclSubsetSamples) {
+TEST(StyioSecurityNightlyParserStmt, RejectsRetiredLegacyStateAndSnapshotSyntax) {
   const std::vector<std::string> samples = {
-    "@[ref_val] << @file{\"tests/m7/data/ref.txt\"}\n",
+    "@[ref_val] << @file(\"tests/m7/data/ref.txt\")\n",
     "@[3](ma = 1 + 2)\n",
+    "$state\n",
+    "$state[<<, 1]\n",
   };
 
   for (const auto& src : samples) {
-    EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
+    EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError) << src;
+    EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError) << src;
   }
 }
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnAtResourceSubsetSamples) {
   const std::vector<std::string> samples = {
-    "@file{\"tests/m7/data/prices_a.txt\"} >> #(a) => {\n    >_(a)\n}\n",
-    "@file{\"tests/m7/data/input.txt\"} >> #(x) => {\n    result = x * 2\n    result << @file{\"/tmp/styio-new-parser-at-resource-subset.txt\"}\n}\n",
+    "@file(\"tests/m7/data/prices_a.txt\") >> #(a) => {\n    >_(a)\n}\n",
+    "@file(\"tests/m7/data/input.txt\") >> #(x) => {\n    result = x * 2\n    result << @file(\"/tmp/styio-new-parser-at-resource-subset.txt\")\n}\n",
   };
 
   for (const auto& src : samples) {
@@ -1277,31 +2368,53 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnAtResourceSubsetSamples) {
 TEST(StyioSecurityNightlyParserShadow, MatchesLegacyOnRedirectRouteSample) {
   const std::string src =
     "x = 42\n"
-    "x -> @file{\"/tmp/styio-nightly-parser-shadow-redirect.txt\"}\n";
+    "x -> @file(\"/tmp/styio-nightly-parser-shadow-redirect.txt\")\n";
 
   EXPECT_EQ(
     parse_program_engine_to_repr_latest(src, StyioParserEngine::Nightly),
-    parse_program_engine_to_repr_latest(src, StyioParserEngine::Legacy));
+    parse_program_engine_to_repr_latest(src, StyioParserEngine::Legacy)
+  );
 }
 
-TEST(StyioSecurityNightlyParserShadow, MatchesLegacyOnArbitrageWaveDispatchRouteSample) {
+TEST(StyioSecurityNightlyParserShadow, MatchesLegacyOnArbitrageGuardRouteSample) {
   const std::string src =
-    "@file{\"tests/m7/data/exchange_a.txt\"} >> #(a) & @file{\"tests/m7/data/exchange_b.txt\"} >> #(b) => {\n"
+    "@file(\"tests/m7/data/exchange_a.txt\") >> #(a) & @file(\"tests/m7/data/exchange_b.txt\") >> #(b) => {\n"
     "  gap = a - b\n"
-    "  (gap > 5 || gap < -5) ~> >_(\"Arb: \" + gap) | @\n"
+    "  ?(gap > 5 || gap < -5) => { >_(\"Arb: \" + gap) }\n"
     "}\n";
 
   EXPECT_EQ(
     parse_program_engine_to_repr_latest(src, StyioParserEngine::Nightly),
-    parse_program_engine_to_repr_latest(src, StyioParserEngine::Legacy));
+    parse_program_engine_to_repr_latest(src, StyioParserEngine::Legacy)
+  );
+}
+
+TEST(StyioSecurityNightlyParserShadow, RejectsRetiredWaveOperatorSyntax) {
+  const std::vector<std::string> samples = {
+    "x = (1 < 2) <~ 1 | 0\n",
+    "x = ?(1 < 2) <~ 1 | 0\n",
+    "(1 < 2) ~> >_(1) | @\n",
+  };
+
+  for (const auto& src : samples) {
+    for (const auto engine : {StyioParserEngine::Nightly, StyioParserEngine::Legacy}) {
+      try {
+        (void)parse_program_engine_to_repr_latest(src, engine);
+        FAIL() << "expected retired wave syntax to be rejected: " << src;
+      }
+      catch (const StyioSyntaxError& ex) {
+        EXPECT_NE(std::string(ex.what()).find("reserved"), std::string::npos) << src;
+      }
+    }
+  }
 }
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnStdStreamWriteShorthandSamples) {
   const std::vector<std::string> samples = {
-    "\"hello\" >> @stdout\n",
-    "\"error\" >> @stderr\n",
-    "@stdin >> #(line) => {\n    line >> @stdout\n}\n",
-    "@stdin >> #(line) => {\n    \"processing: \" + line >> @stderr\n}\n",
+    "items = [\"hello\"]\nitems >> @stdout\n",
+    "items = [\"error\"]\nitems >> @stderr\n",
+    "@stdin >> #(line) => {\n    items = [line]\n    items >> @stdout\n}\n",
+    "@stdin >> #(line) => {\n    items = [\"processing: \" + line]\n    items >> @stderr\n}\n",
   };
 
   for (const auto& src : samples) {
@@ -1316,12 +2429,52 @@ TEST(StyioSafetyStdStream, RejectsWriteShorthandToStdinAtLowering) {
     {
       parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly);
     },
-    StyioTypeError);
+    StyioTypeError
+  );
   EXPECT_THROW(
     {
       parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Legacy);
     },
-    StyioTypeError);
+    StyioTypeError
+  );
+}
+
+TEST(StyioSecurityTopologyV2, ParsesAndLowersTopLevelResourceDeclWriteAndRead) {
+  const std::string src =
+    "@x : i64|2|\n"
+    "1 -> @x\n"
+    ">_(@x[-1])\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+}
+
+TEST(StyioSecurityTopologyV2, RejectsLocalResourceDeclarationsWithStableDiagnostic) {
+  const std::string src =
+    "{\n"
+    "  @x : i64|2|\n"
+    "}\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected local resource declaration rejection";
+  }
+  catch (const StyioTypeError& ex) {
+    EXPECT_NE(std::string(ex.what()).find("resource declarations are top-level only"), std::string::npos)
+      << ex.what();
+  }
+}
+
+TEST(StyioSecurityTopologyV2, RejectsImplicitWholeResourceCopy) {
+  const std::string src =
+    "@x : i64|2|\n"
+    "copy = @x\n";
+
+  EXPECT_THROW(
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly),
+    StyioTypeError
+  );
 }
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnFinalBindSubsetSamples) {
@@ -1434,12 +2587,14 @@ TEST(StyioSecurityNightlyParserStmt, RejectsHashIteratorMatchForwardChainWithSta
     {
       (void)parse_program_to_repr_latest(src, true);
     },
-    StyioBaseException);
+    StyioBaseException
+  );
   EXPECT_THROW(
     {
       (void)parse_program_to_repr_latest(src, false);
     },
-    StyioBaseException);
+    StyioBaseException
+  );
 }
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnDotCallSubsetSamples) {
@@ -1460,12 +2615,14 @@ TEST(StyioSecurityNightlyParserShadow, FallsBackOnDotChainSequence) {
     {
       (void)parse_program_engine_to_repr_latest(src, StyioParserEngine::Nightly);
     },
-    StyioSyntaxError);
+    StyioSyntaxError
+  );
   EXPECT_THROW(
     {
       (void)parse_program_engine_to_repr_latest(src, StyioParserEngine::Legacy);
     },
-    StyioSyntaxError);
+    StyioSyntaxError
+  );
 }
 
 TEST(StyioSecurityUnicode, ByteClassificationIsStable) {
@@ -1483,7 +2640,7 @@ TEST(StyioSecurityUnicode, ByteClassificationIsStable) {
 
 TEST(StyioSecurityUnicode, DecodeUtf8CodepointBoundaries) {
   {
-    std::string valid = "\xE4\xB8\xAD"; // U+4E2D
+    std::string valid = "\xE4\xB8\xAD";  // U+4E2D
     std::uint32_t cp = 0;
     std::size_t width = 0;
     EXPECT_TRUE(StyioUnicode::decode_utf8_codepoint(valid, 0, cp, width));
@@ -1522,7 +2679,8 @@ TEST(StyioSecuritySession, ResetClearsSessionState) {
     src,
     {{0, src.size() - 1}},
     session.tokens(),
-    false));
+    false
+  ));
   session.attach_ast(MainBlockAST::Create({}));
   EXPECT_EQ(session.phase(), CompilationPhase::Parsed);
   EXPECT_GT(session.ast_arena_bytes(), 0u);
@@ -1649,7 +2807,9 @@ TEST(StyioSecurityAstOwnership, FuncCallOwnsNameAndArgs) {
     new CountingNameAST("f", &name_destructed),
     std::vector<StyioAST*>{
       new CountingExprAST(&arg_destructed),
-      new CountingExprAST(&arg_destructed)});
+      new CountingExprAST(&arg_destructed)
+    }
+  );
   delete expr;
   EXPECT_EQ(name_destructed, 1);
   EXPECT_EQ(arg_destructed, 2);
@@ -1662,7 +2822,8 @@ TEST(StyioSecurityAstOwnership, FuncCallOwnsCalleeNameAndArgs) {
   auto* expr = FuncCallAST::Create(
     new CountingExprAST(&callee_destructed),
     new CountingNameAST("f", &name_destructed),
-    std::vector<StyioAST*>{new CountingExprAST(&arg_destructed)});
+    std::vector<StyioAST*>{new CountingExprAST(&arg_destructed)}
+  );
   delete expr;
   EXPECT_EQ(callee_destructed, 1);
   EXPECT_EQ(name_destructed, 1);
@@ -1674,7 +2835,8 @@ TEST(StyioSecurityAstOwnership, FuncCallSetCalleeTakesOwnership) {
   int name_destructed = 0;
   auto* expr = FuncCallAST::Create(
     new CountingNameAST("f", &name_destructed),
-    std::vector<StyioAST*>{});
+    std::vector<StyioAST*>{}
+  );
   expr->setFuncCallee(new CountingExprAST(&callee_destructed));
   delete expr;
   EXPECT_EQ(callee_destructed, 1);
@@ -1685,7 +2847,8 @@ TEST(StyioSecurityAstOwnership, ListOpOwnsListOnly) {
   int list_destructed = 0;
   auto* expr = new ListOpAST(
     StyioNodeType::Get_Reversed,
-    new CountingExprAST(&list_destructed));
+    new CountingExprAST(&list_destructed)
+  );
   delete expr;
   EXPECT_EQ(list_destructed, 1);
 }
@@ -1696,7 +2859,8 @@ TEST(StyioSecurityAstOwnership, ListOpOwnsListAndSlot1) {
   auto* expr = new ListOpAST(
     StyioNodeType::Access_By_Index,
     new CountingExprAST(&list_destructed),
-    new CountingExprAST(&slot1_destructed));
+    new CountingExprAST(&slot1_destructed)
+  );
   delete expr;
   EXPECT_EQ(list_destructed, 1);
   EXPECT_EQ(slot1_destructed, 1);
@@ -1710,7 +2874,8 @@ TEST(StyioSecurityAstOwnership, ListOpOwnsListSlot1AndSlot2) {
     StyioNodeType::Insert_Item_By_Index,
     new CountingExprAST(&list_destructed),
     new CountingExprAST(&slot1_destructed),
-    new CountingExprAST(&slot2_destructed));
+    new CountingExprAST(&slot2_destructed)
+  );
   delete expr;
   EXPECT_EQ(list_destructed, 1);
   EXPECT_EQ(slot1_destructed, 1);
@@ -1733,7 +2898,9 @@ TEST(StyioSecurityAstOwnership, FmtStrOwnsEmbeddedExprs) {
     {"x=", ", y="},
     std::vector<StyioAST*>{
       new CountingExprAST(&destructed),
-      new CountingExprAST(&destructed)});
+      new CountingExprAST(&destructed)
+    }
+  );
   delete expr;
   EXPECT_EQ(destructed, 2);
 }
@@ -1750,7 +2917,8 @@ TEST(StyioSecurityAstOwnership, RangeOwnsAllBoundExprs) {
   auto* expr = new RangeAST(
     new CountingExprAST(&destructed),
     new CountingExprAST(&destructed),
-    new CountingExprAST(&destructed));
+    new CountingExprAST(&destructed)
+  );
   delete expr;
   EXPECT_EQ(destructed, 3);
 }
@@ -1762,12 +2930,36 @@ TEST(StyioSecurityAstOwnership, SizeOfOwnsValueExpr) {
   EXPECT_EQ(destructed, 1);
 }
 
+TEST(StyioSecurityAstOwnership, SizeOfLowersListLength) {
+  auto* list = ListAST::Create(
+    std::vector<StyioAST*>{
+      IntAST::Create("1"),
+      IntAST::Create("2"),
+      IntAST::Create("3")
+    }
+  );
+  auto* expr = new SizeOfAST(list);
+
+  AstToStyioIRLowerer analyzer;
+  expr->typeInfer(&analyzer);
+  EXPECT_EQ(expr->getDataType().option, StyioDataTypeOption::Integer);
+  EXPECT_EQ(expr->getDataType().name, "i64");
+
+  StyioIR* ir = expr->toStyioIR(&analyzer);
+  EXPECT_NE(dynamic_cast<SCListLen*>(ir), nullptr);
+
+  delete ir;
+  delete expr;
+}
+
 TEST(StyioSecurityAstOwnership, TupleOwnsElements) {
   int destructed = 0;
   auto* expr = TupleAST::Create(
     std::vector<StyioAST*>{
       new CountingExprAST(&destructed),
-      new CountingExprAST(&destructed)});
+      new CountingExprAST(&destructed)
+    }
+  );
   delete expr;
   EXPECT_EQ(destructed, 2);
 }
@@ -1777,7 +2969,9 @@ TEST(StyioSecurityAstOwnership, TypeTupleOwnsTypeNodes) {
   auto* expr = TypeTupleAST::Create(
     std::vector<TypeAST*>{
       new CountingTypeAST("i64", &destructed),
-      new CountingTypeAST("f64", &destructed)});
+      new CountingTypeAST("f64", &destructed)
+    }
+  );
   delete expr;
   EXPECT_EQ(destructed, 2);
 }
@@ -1787,7 +2981,9 @@ TEST(StyioSecurityAstOwnership, ListOwnsElements) {
   auto* expr = ListAST::Create(
     std::vector<StyioAST*>{
       new CountingExprAST(&destructed),
-      new CountingExprAST(&destructed)});
+      new CountingExprAST(&destructed)
+    }
+  );
   delete expr;
   EXPECT_EQ(destructed, 2);
 }
@@ -1797,7 +2993,9 @@ TEST(StyioSecurityAstOwnership, SetOwnsElements) {
   auto* expr = SetAST::Create(
     std::vector<StyioAST*>{
       new CountingExprAST(&destructed),
-      new CountingExprAST(&destructed)});
+      new CountingExprAST(&destructed)
+    }
+  );
   delete expr;
   EXPECT_EQ(destructed, 2);
 }
@@ -1807,7 +3005,9 @@ TEST(StyioSecurityAstOwnership, VarTupleOwnsVarNodes) {
   auto* expr = VarTupleAST::Create(
     std::vector<VarAST*>{
       new CountingVarAST(&destructed),
-      new CountingVarAST(&destructed)});
+      new CountingVarAST(&destructed)
+    }
+  );
   delete expr;
   EXPECT_EQ(destructed, 2);
 }
@@ -1824,7 +3024,8 @@ TEST(StyioSecurityAstOwnership, FlexBindOwnsVarAndValue) {
   int value_destructed = 0;
   auto* stmt = FlexBindAST::Create(
     new CountingVarAST(&var_destructed),
-    new CountingExprAST(&value_destructed));
+    new CountingExprAST(&value_destructed)
+  );
   delete stmt;
   EXPECT_EQ(var_destructed, 1);
   EXPECT_EQ(value_destructed, 1);
@@ -1835,7 +3036,8 @@ TEST(StyioSecurityAstOwnership, FinalBindOwnsVarAndValue) {
   int value_destructed = 0;
   auto* stmt = FinalBindAST::Create(
     new CountingVarAST(&var_destructed),
-    new CountingExprAST(&value_destructed));
+    new CountingExprAST(&value_destructed)
+  );
   delete stmt;
   EXPECT_EQ(var_destructed, 1);
   EXPECT_EQ(value_destructed, 1);
@@ -1863,7 +3065,8 @@ TEST(StyioSecurityAstOwnership, HandleAcquireOwnsVarAndResource) {
   int resource_destructed = 0;
   auto* stmt = HandleAcquireAST::Create(
     new CountingVarAST(&var_destructed),
-    new CountingExprAST(&resource_destructed));
+    new CountingExprAST(&resource_destructed)
+  );
   delete stmt;
   EXPECT_EQ(var_destructed, 1);
   EXPECT_EQ(resource_destructed, 1);
@@ -1874,7 +3077,8 @@ TEST(StyioSecurityAstOwnership, ResourceWriteOwnsDataAndResource) {
   int resource_destructed = 0;
   auto* stmt = ResourceWriteAST::Create(
     new CountingExprAST(&data_destructed),
-    new CountingExprAST(&resource_destructed));
+    new CountingExprAST(&resource_destructed)
+  );
   delete stmt;
   EXPECT_EQ(data_destructed, 1);
   EXPECT_EQ(resource_destructed, 1);
@@ -1885,7 +3089,8 @@ TEST(StyioSecurityAstOwnership, ResourceRedirectOwnsDataAndResource) {
   int resource_destructed = 0;
   auto* stmt = ResourceRedirectAST::Create(
     new CountingExprAST(&data_destructed),
-    new CountingExprAST(&resource_destructed));
+    new CountingExprAST(&resource_destructed)
+  );
   delete stmt;
   EXPECT_EQ(data_destructed, 1);
   EXPECT_EQ(resource_destructed, 1);
@@ -1913,7 +3118,8 @@ TEST(StyioSecurityAstOwnership, HistoryProbeOwnsTargetAndDepth) {
   int depth_destructed = 0;
   auto* node = HistoryProbeAST::Create(
     StateRefAST::Create(new CountingNameAST("state", &name_destructed)),
-    new CountingExprAST(&depth_destructed));
+    new CountingExprAST(&depth_destructed)
+  );
   delete node;
   EXPECT_EQ(name_destructed, 1);
   EXPECT_EQ(depth_destructed, 1);
@@ -1925,7 +3131,8 @@ TEST(StyioSecurityAstOwnership, SeriesIntrinsicOwnsBaseAndWindow) {
   auto* node = SeriesIntrinsicAST::Create(
     new CountingExprAST(&base_destructed),
     SeriesIntrinsicOp::Avg,
-    new CountingExprAST(&window_destructed));
+    new CountingExprAST(&window_destructed)
+  );
   delete node;
   EXPECT_EQ(base_destructed, 1);
   EXPECT_EQ(window_destructed, 1);
@@ -1942,7 +3149,8 @@ TEST(StyioSecurityAstOwnership, StateDeclOwnsAccInitExportVarAndUpdateExpr) {
     new CountingNameAST("acc", &acc_name_destructed),
     new CountingExprAST(&acc_init_destructed),
     new CountingVarAST(&export_var_destructed),
-    new CountingExprAST(&update_expr_destructed));
+    new CountingExprAST(&update_expr_destructed)
+  );
 
   delete node;
   EXPECT_EQ(acc_name_destructed, 1);
@@ -1958,7 +3166,8 @@ TEST(StyioSecurityAstOwnership, VarOwnsNameTypeAndInit) {
   auto* var = new VarAST(
     new CountingNameAST("x", &name_destructed),
     new CountingTypeAST("i64", &type_destructed),
-    new CountingExprAST(&init_destructed));
+    new CountingExprAST(&init_destructed)
+  );
   delete var;
   EXPECT_EQ(name_destructed, 1);
   EXPECT_EQ(type_destructed, 1);
@@ -1972,7 +3181,8 @@ TEST(StyioSecurityAstOwnership, ParamOwnsNameTypeAndInit) {
   auto* param = ParamAST::Create(
     new CountingNameAST("p", &name_destructed),
     new CountingTypeAST("i64", &type_destructed),
-    new CountingExprAST(&init_destructed));
+    new CountingExprAST(&init_destructed)
+  );
   delete param;
   EXPECT_EQ(name_destructed, 1);
   EXPECT_EQ(type_destructed, 1);
@@ -2000,7 +3210,9 @@ TEST(StyioSecurityAstOwnership, StructOwnsNameAndParams) {
     new CountingNameAST("S", &struct_name_destructed),
     std::vector<ParamAST*>{
       ParamAST::Create(new CountingNameAST("p1", &param_name_destructed)),
-      ParamAST::Create(new CountingNameAST("p2", &param_name_destructed))});
+      ParamAST::Create(new CountingNameAST("p2", &param_name_destructed))
+    }
+  );
   delete node;
   EXPECT_EQ(struct_name_destructed, 1);
   EXPECT_EQ(param_name_destructed, 2);
@@ -2011,7 +3223,9 @@ TEST(StyioSecurityAstOwnership, ResourceOwnsEntries) {
   auto* node = ResourceAST::Create(
     std::vector<std::pair<StyioAST*, std::string>>{
       {new CountingExprAST(&destructed), "file"},
-      {new CountingExprAST(&destructed), "db"}});
+      {new CountingExprAST(&destructed), "db"}
+    }
+  );
   delete node;
   EXPECT_EQ(destructed, 2);
 }
@@ -2023,7 +3237,8 @@ TEST(StyioSecurityAstOwnership, CasesOwnsCasePairsAndDefault) {
       {new CountingExprAST(&destructed), new CountingExprAST(&destructed)},
       {new CountingExprAST(&destructed), new CountingExprAST(&destructed)},
     },
-    new CountingExprAST(&destructed));
+    new CountingExprAST(&destructed)
+  );
 
   delete node;
   EXPECT_EQ(destructed, 5);
@@ -2037,7 +3252,9 @@ TEST(StyioSecurityAstOwnership, MatchCasesOwnsScrutineeAndCases) {
       std::vector<std::pair<StyioAST*, StyioAST*>>{
         {new CountingExprAST(&destructed), new CountingExprAST(&destructed)},
       },
-      new CountingExprAST(&destructed)));
+      new CountingExprAST(&destructed)
+    )
+  );
 
   delete node;
   EXPECT_EQ(destructed, 4);
@@ -2059,7 +3276,8 @@ TEST(StyioSecurityAstOwnership, CondFlowOwnsConditionAndThenBranch) {
   auto* node = new CondFlowAST(
     StyioNodeType::CondFlow_True,
     CondAST::Create(LogicType::NOT, new CountingExprAST(&destructed)),
-    new CountingExprAST(&destructed));
+    new CountingExprAST(&destructed)
+  );
 
   delete node;
   EXPECT_EQ(destructed, 2);
@@ -2071,7 +3289,8 @@ TEST(StyioSecurityAstOwnership, CondFlowOwnsConditionThenAndElseBranches) {
     StyioNodeType::CondFlow_Both,
     CondAST::Create(LogicType::NOT, new CountingExprAST(&destructed)),
     new CountingExprAST(&destructed),
-    new CountingExprAST(&destructed));
+    new CountingExprAST(&destructed)
+  );
 
   delete node;
   EXPECT_EQ(destructed, 3);
@@ -2090,7 +3309,8 @@ TEST(StyioSecurityAstOwnership, FunctionOwnsNameParamsRetTypeAndBody) {
       ParamAST::Create(new CountingNameAST("p2", &param_name_destructed)),
     },
     new CountingTypeAST("i64", &ret_type_destructed),
-    new CountingExprAST(&body_destructed));
+    new CountingExprAST(&body_destructed)
+  );
 
   delete node;
   EXPECT_EQ(func_name_destructed, 1);
@@ -2111,7 +3331,8 @@ TEST(StyioSecurityAstOwnership, SimpleFuncOwnsNameParamsRetTypeAndReturnExpr) {
       ParamAST::Create(new CountingNameAST("p", &param_name_destructed)),
     },
     new CountingTypeAST("i64", &ret_type_destructed),
-    new CountingExprAST(&ret_expr_destructed));
+    new CountingExprAST(&ret_expr_destructed)
+  );
 
   delete node;
   EXPECT_EQ(func_name_destructed, 1);
@@ -2126,7 +3347,8 @@ TEST(StyioSecurityAstOwnership, InfiniteLoopOwnsWhileCondAndBodyNode) {
   int cond_destructed = 0;
   auto* node = InfiniteLoopAST::CreateWhile(
     new CountingExprAST(&cond_destructed),
-    BlockAST::Create({}));
+    BlockAST::Create({})
+  );
 
   delete node;
   EXPECT_EQ(cond_destructed, 1);
@@ -2148,7 +3370,8 @@ TEST(StyioSecurityAstOwnership, StreamZipOwnsCollectionsParamsAndBody) {
     std::vector<ParamAST*>{
       ParamAST::Create(new CountingNameAST("b", &param_name_destructed)),
     },
-    new CountingExprAST(&body_destructed));
+    new CountingExprAST(&body_destructed)
+  );
 
   delete node;
   EXPECT_EQ(collection_destructed, 2);
@@ -2167,7 +3390,8 @@ TEST(StyioSecurityAstOwnership, IteratorOwnsCollectionParamsAndFollowing) {
     },
     std::vector<StyioAST*>{
       new CountingExprAST(&following_destructed),
-    });
+    }
+  );
 
   delete node;
   EXPECT_EQ(collection_destructed, 1);
@@ -2181,7 +3405,8 @@ TEST(StyioSecurityAstOwnership, BlockOwnsStmtList) {
     std::vector<StyioAST*>{
       new CountingExprAST(&stmt_destructed),
       new CountingExprAST(&stmt_destructed),
-    });
+    }
+  );
 
   delete node;
   EXPECT_EQ(stmt_destructed, 2);
@@ -2194,7 +3419,8 @@ TEST(StyioSecurityAstOwnership, MainBlockOwnsResourceAndStmtList) {
     std::vector<StyioAST*>{
       new CountingExprAST(&destructed),
       new CountingExprAST(&destructed),
-    });
+    }
+  );
 
   delete node;
   EXPECT_EQ(destructed, 3);
@@ -2212,7 +3438,8 @@ TEST(StyioSecurityAstOwnership, InfiniteOwnsStartAndIncrementExprs) {
   int destructed = 0;
   auto* node = new InfiniteAST(
     new CountingExprAST(&destructed),
-    new CountingExprAST(&destructed));
+    new CountingExprAST(&destructed)
+  );
 
   delete node;
   EXPECT_EQ(destructed, 2);
@@ -2225,7 +3452,8 @@ TEST(StyioSecurityAstOwnership, AnonyFuncOwnsArgsAndThenExpr) {
     VarTupleAST::Create(std::vector<VarAST*>{
       new CountingVarAST(&var_destructed),
     }),
-    new CountingExprAST(&then_destructed));
+    new CountingExprAST(&then_destructed)
+  );
 
   delete node;
   EXPECT_EQ(var_destructed, 1);
@@ -2237,7 +3465,8 @@ TEST(StyioSecurityAstOwnership, SnapshotDeclOwnsVarAndResource) {
   int path_destructed = 0;
   auto* node = SnapshotDeclAST::Create(
     new CountingNameAST("snap", &var_destructed),
-    FileResourceAST::Create(new CountingExprAST(&path_destructed), true));
+    FileResourceAST::Create(new CountingExprAST(&path_destructed), true)
+  );
 
   delete node;
   EXPECT_EQ(var_destructed, 1);
@@ -2247,10 +3476,46 @@ TEST(StyioSecurityAstOwnership, SnapshotDeclOwnsVarAndResource) {
 TEST(StyioSecurityAstOwnership, InstantPullOwnsResource) {
   int path_destructed = 0;
   auto* node = InstantPullAST::Create(
-    FileResourceAST::Create(new CountingExprAST(&path_destructed), false));
+    FileResourceAST::Create(new CountingExprAST(&path_destructed), false)
+  );
 
   delete node;
   EXPECT_EQ(path_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, TaskBlockOwnsBody) {
+  int stmt_destructed = 0;
+  auto* node = TaskBlockAST::Create(
+    BlockAST::Create(std::vector<StyioAST*>{
+      new CountingExprAST(&stmt_destructed),
+    })
+  );
+
+  delete node;
+  EXPECT_EQ(stmt_destructed, 1);
+}
+
+TEST(StyioSecurityAstOwnership, TaskGroupLaunchOwnsEntries) {
+  int entry_destructed = 0;
+  auto* node = TaskGroupLaunchAST::Create(std::vector<StyioAST*>{
+    new CountingExprAST(&entry_destructed),
+    new CountingExprAST(&entry_destructed),
+  });
+
+  delete node;
+  EXPECT_EQ(entry_destructed, 2);
+}
+
+TEST(StyioSecurityAstOwnership, FlowBindOwnsSourceAndTarget) {
+  int source_destructed = 0;
+  int target_destructed = 0;
+  auto* node = FlowBindAST::Create(
+    new CountingExprAST(&source_destructed),
+    new CountingVarAST(&target_destructed));
+
+  delete node;
+  EXPECT_EQ(source_destructed, 1);
+  EXPECT_EQ(target_destructed, 1);
 }
 
 TEST(StyioSecurityAstOwnership, IterSeqOwnsHashTags) {
@@ -2261,7 +3526,8 @@ TEST(StyioSecurityAstOwnership, IterSeqOwnsHashTags) {
     std::vector<HashTagNameAST*>{
       HashTagNameAST::Create(std::vector<std::string>{"left"}),
       HashTagNameAST::Create(std::vector<std::string>{"right"}),
-    });
+    }
+  );
 
   delete node;
   EXPECT_EQ(collection_destructed, 1);
@@ -2274,7 +3540,8 @@ TEST(StyioSecurityAstOwnership, ExtractorOwnsTupleAndOperation) {
   int op_destructed = 0;
   auto* node = ExtractorAST::Create(
     new CountingExprAST(&tuple_destructed),
-    new CountingExprAST(&op_destructed));
+    new CountingExprAST(&op_destructed)
+  );
 
   delete node;
   EXPECT_EQ(tuple_destructed, 1);
@@ -2295,7 +3562,8 @@ TEST(StyioSecurityAstOwnership, BackwardOwnsObjectParamsOperationsAndReturns) {
     },
     std::vector<StyioAST*>{
       new CountingExprAST(&expr_destructed),
-    });
+    }
+  );
 
   delete node;
   EXPECT_EQ(expr_destructed, 4);
@@ -2306,12 +3574,12 @@ TEST(StyioSecurityAstOwnership, CodpOwnsArgsAndNextChain) {
   StyioAST::destroy_all_tracked_nodes();
   int expr_destructed = 0;
   auto* next = CODPAST::Create("map", std::vector<StyioAST*>{
-                                      new CountingExprAST(&expr_destructed),
-                                    });
+                                        new CountingExprAST(&expr_destructed),
+                                      });
   auto* node = CODPAST::Create("filter", std::vector<StyioAST*>{
-                                             new CountingExprAST(&expr_destructed),
-                                             new CountingExprAST(&expr_destructed),
-                                           });
+                                           new CountingExprAST(&expr_destructed),
+                                           new CountingExprAST(&expr_destructed),
+                                         });
   node->setNextOp(next);
 
   delete node;
@@ -2503,17 +3771,23 @@ TEST(StyioSafetyHandleTable, AcquireLookupAndReleaseHonorsKind) {
   EXPECT_FALSE(table.release(
     id,
     StyioHandleTable::HandleKind::Resource,
-    [&](void*) { closer_called = true; }));
+    [&](void*)
+    {
+      closer_called = true;
+    }
+  ));
   EXPECT_FALSE(closer_called);
   EXPECT_TRUE(table.contains(id));
 
   EXPECT_TRUE(table.release(
     id,
     StyioHandleTable::HandleKind::File,
-    [&](void* raw) {
+    [&](void* raw)
+    {
       closer_called = true;
       EXPECT_EQ(raw, &payload);
-    }));
+    }
+  ));
   EXPECT_TRUE(closer_called);
   EXPECT_FALSE(table.contains(id));
   EXPECT_EQ(table.size(), 0U);
@@ -2535,10 +3809,12 @@ TEST(StyioSafetyHandleTable, ReleaseAllSkipsKindMismatchesAndDropsStubs) {
   int released = 0;
   const size_t released_count = table.release_all(
     StyioHandleTable::HandleKind::File,
-    [&](void* raw) {
+    [&](void* raw)
+    {
       ++released;
       EXPECT_EQ(raw, &file_payload);
-    });
+    }
+  );
   EXPECT_EQ(released_count, 1U);
   EXPECT_EQ(released, 1);
   EXPECT_FALSE(table.contains(file_id));

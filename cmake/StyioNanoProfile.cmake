@@ -1,0 +1,27 @@
+if(NOT STYIO_BUILD_NANO)
+  return()
+endif()
+
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+
+set(STYIO_NANO_GENERATED_DIR "${CMAKE_BINARY_DIR}/generated")
+set(STYIO_NANO_PROFILE_CMAKE "${STYIO_NANO_GENERATED_DIR}/styio_nano_profile.cmake")
+
+file(MAKE_DIRECTORY "${STYIO_NANO_GENERATED_DIR}")
+execute_process(
+  COMMAND
+    "${Python3_EXECUTABLE}"
+    "${CMAKE_SOURCE_DIR}/scripts/gen-styio-nano-profile.py"
+    --input "${STYIO_NANO_PROFILE}"
+    --cmake-out "${STYIO_NANO_PROFILE_CMAKE}"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  RESULT_VARIABLE STYIO_NANO_PROFILE_RESULT
+  OUTPUT_VARIABLE STYIO_NANO_PROFILE_STDOUT
+  ERROR_VARIABLE STYIO_NANO_PROFILE_STDERR
+)
+
+if(NOT STYIO_NANO_PROFILE_RESULT EQUAL 0)
+  message(FATAL_ERROR "Failed to generate styio-nano profile from ${STYIO_NANO_PROFILE}: ${STYIO_NANO_PROFILE_STDERR}")
+endif()
+
+include("${STYIO_NANO_PROFILE_CMAKE}")

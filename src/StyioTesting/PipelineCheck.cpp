@@ -16,7 +16,7 @@
 #include <vector>
 
 #include "StyioAST/AST.hpp"
-#include "StyioAnalyzer/ASTAnalyzer.hpp"
+#include "StyioLowering/AstToStyioIRLowerer.hpp"
 #include "StyioCodeGen/CodeGenVisitor.hpp"
 #include "StyioException/Exception.hpp"
 #include "StyioIR/StyioIR.hpp"
@@ -360,7 +360,7 @@ run_pipeline_case(const std::string& case_dir, const char* layer5_compiler_exe) 
     StyioRepr repr;
     const std::string ast_pre = ast->toString(&repr);
 
-    StyioAnalyzer analyzer;
+    AstToStyioIRLowerer analyzer;
     analyzer.typeInfer(ast);
     std::string ast_typed = ast->toString(&repr);
 

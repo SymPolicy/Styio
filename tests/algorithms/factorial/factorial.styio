@@ -1,0 +1,12 @@
+values <- @stdin: list[i32]
+
+n = values[0]
+answer = 1
+
+?(n > 1) => {
+    [2..n] >> #(i) => {
+        answer = answer * i
+    }
+}
+
+>_(answer)
