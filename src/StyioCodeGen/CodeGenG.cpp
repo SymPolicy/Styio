@@ -3396,6 +3396,46 @@ StyioToLLVM::toLLVMIR(SIOFileLineIter* node) {
 }
 
 llvm::Value*
+StyioToLLVM::toLLVMIR(SIOHandleRelease* node) {
+  llvm::FunctionCallee close_fn = theModule->getOrInsertFunction(
+    "styio_file_close",
+    llvm::FunctionType::get(
+      theBuilder->getVoidTy(),
+      {theBuilder->getInt64Ty()},
+      false));
+  auto close_slot = [&](llvm::AllocaInst* slot) -> llvm::Value* {
+    llvm::Value* h = theBuilder->CreateLoad(theBuilder->getInt64Ty(), slot);
+    theBuilder->CreateCall(close_fn, {h});
+    theBuilder->CreateStore(theBuilder->getInt64(0), slot);
+    return theBuilder->getInt64(0);
+  };
+
+  if (node->from_path) {
+    std::string pkey = path_key_from_path_ir(node->path_expr);
+    if (!pkey.empty()) {
+      auto sit = file_singleton_path_slots_.find(pkey);
+      if (sit != file_singleton_path_slots_.end()) {
+        return close_slot(sit->second);
+      }
+    }
+    llvm::Type* char_ptr = llvm::PointerType::get(*theContext, 0);
+    llvm::FunctionCallee open_fn = theModule->getOrInsertFunction(
+      node->is_auto ? "styio_file_open_auto" : "styio_file_open",
+      llvm::FunctionType::get(theBuilder->getInt64Ty(), {char_ptr}, false));
+    llvm::Value* path = node->path_expr->toLLVMIR(this);
+    llvm::Value* h = theBuilder->CreateCall(open_fn, {path});
+    theBuilder->CreateCall(close_fn, {h});
+    return theBuilder->getInt64(0);
+  }
+
+  auto it = mutable_variables.find(node->var_name);
+  if (it == mutable_variables.end()) {
+    return theBuilder->getInt64(0);
+  }
+  return close_slot(it->second);
+}
+
+llvm::Value*
 StyioToLLVM::toLLVMIR(SGSnapshotDecl* node) {
   llvm::AllocaInst* slot = theBuilder->CreateAlloca(
     theBuilder->getInt64Ty(), nullptr, node->var_name.c_str());

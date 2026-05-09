@@ -69,6 +69,7 @@ enum class EdgeKind : std::uint8_t
   Mutation,
   Backpressure,
   Commit,
+  HappensBefore,
   Failure,
   Placement,
 };

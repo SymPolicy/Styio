@@ -64,6 +64,7 @@ class SGSnapshotShadowLoad;
 /* SIO = Styio Input/Output. Files, standard streams, stdin/stdout/stderr,
    future network, and filesystem IO nodes. */
 class SIOHandleAcquire;
+class SIOHandleRelease;
 class SIOFileLineIter;
 class SIOStreamZip;
 class SIOInstantPull;

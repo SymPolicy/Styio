@@ -491,6 +491,22 @@ TypeAST* parse_styio_type(StyioContext& context);
 static StyioAST* parse_expr_postfix(StyioContext& context, StyioAST* lhs);
 static ResourceRefAST* parse_resource_ref_after_at_latest(StyioContext& context);
 
+static thread_local std::string g_resource_method_receiver_family_latest;
+
+struct ResourceMethodReceiverScopeLatest
+{
+  std::string previous;
+
+  explicit ResourceMethodReceiverScopeLatest(std::string family) :
+      previous(std::move(g_resource_method_receiver_family_latest)) {
+    g_resource_method_receiver_family_latest = std::move(family);
+  }
+
+  ~ResourceMethodReceiverScopeLatest() {
+    g_resource_method_receiver_family_latest = std::move(previous);
+  }
+};
+
 static StyioAST*
 reassociate_add_into_resource_sink_latest_draft(
   StyioOpType op,
@@ -1230,8 +1246,23 @@ parse_after_at_common(StyioContext& context, bool file_only_resource) {
     StyioAST* path = parse_braced_string_path(context);
     return FileResourceAST::Create(path, true);
   }
-  if (not file_only_resource && context.check(StyioTokenType::TOK_LPAREN)) {
-    return parse_resources_after_at(context);
+  if (context.check(StyioTokenType::TOK_LPAREN)) {
+    const auto saved = context.save_cursor();
+    context.move_forward(1, "@(");
+    context.skip();
+    if (context.try_match(StyioTokenType::TOK_RPAREN)) {
+      return EmptyResourceAST::Create();
+    }
+    if (context.check(StyioTokenType::STRING)) {
+      StyioAST* path = parse_string(context);
+      context.skip();
+      context.try_match_panic(StyioTokenType::TOK_RPAREN);
+      return FileResourceAST::Create(path, true);
+    }
+    context.restore_cursor(saved);
+    if (not file_only_resource) {
+      return parse_resources_after_at(context);
+    }
   }
   if (not file_only_resource && context.check(StyioTokenType::NAME)) {
     return parse_resource_ref_after_at_latest(context);
@@ -1525,6 +1556,114 @@ parse_resource_decl_v2_after_at_latest(StyioContext& context) {
   return ResourceDeclAST::Create(std::move(slots), driver);
 }
 
+static bool
+parse_resource_method_route_after_at_latest(StyioContext& context) {
+  const auto saved = context.save_cursor();
+  bool routes = false;
+  try {
+    if (!context.check(StyioTokenType::NAME)) {
+      context.restore_cursor(saved);
+      return false;
+    }
+    context.move_forward(1, "resource_method_route_family");
+    context.skip();
+    bool has_separator = false;
+    if (context.try_match(StyioTokenType::TOK_DOT)) {
+      has_separator = true;
+    }
+    else if (context.try_match(StyioTokenType::TOK_COLON)) {
+      context.skip();
+      if (context.try_match(StyioTokenType::TOK_COLON)) {
+        has_separator = true;
+      }
+    }
+    if (!has_separator) {
+      context.restore_cursor(saved);
+      return false;
+    }
+    context.skip();
+    if (!context.check(StyioTokenType::NAME)) {
+      context.restore_cursor(saved);
+      return false;
+    }
+    context.move_forward(1, "resource_method_route_name");
+    context.skip();
+    routes = context.check(StyioTokenType::TOK_EQUAL)
+      || context.check(StyioTokenType::WALRUS);
+  }
+  catch (...) {
+    context.restore_cursor(saved);
+    throw;
+  }
+  context.restore_cursor(saved);
+  return routes;
+}
+
+static ResourceMethodDefAST*
+parse_resource_method_def_after_at_latest(StyioContext& context) {
+  if (!context.check(StyioTokenType::NAME)) {
+    throw StyioSyntaxError(context.mark_cur_tok("resource method definition needs a family name after @"));
+  }
+  const std::string family = parse_name_as_str_unsafe(context);
+  context.skip();
+  bool ok_separator = false;
+  if (context.try_match(StyioTokenType::TOK_DOT)) {
+    ok_separator = true;
+  }
+  else if (context.try_match(StyioTokenType::TOK_COLON)) {
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_COLON);
+    ok_separator = true;
+  }
+  if (!ok_separator) {
+    throw StyioSyntaxError(context.mark_cur_tok("resource method definition needs . or :: after resource family"));
+  }
+  context.skip();
+  if (!context.check(StyioTokenType::NAME)) {
+    throw StyioSyntaxError(context.mark_cur_tok("resource method definition needs a method name"));
+  }
+  const std::string method = parse_name_as_str_unsafe(context);
+  context.skip();
+  bool final_binding = false;
+  if (context.try_match(StyioTokenType::WALRUS)) {
+    final_binding = true;
+  }
+  else {
+    context.try_match_panic(StyioTokenType::TOK_EQUAL);
+  }
+  context.skip();
+
+  std::vector<ParamAST*> params;
+  bool property = true;
+  StyioAST* body = nullptr;
+  if (context.check(StyioTokenType::TOK_LPAREN)) {
+    property = false;
+    params = parse_params(context);
+    context.skip();
+    context.try_match_panic(StyioTokenType::ARROW_DOUBLE_RIGHT);
+    context.skip();
+    ResourceMethodReceiverScopeLatest receiver_scope(family);
+    if (context.check(StyioTokenType::TOK_LCURBRAC)) {
+      body = parse_block_only(context);
+    }
+    else {
+      body = parse_stmt_or_expr_legacy(context);
+    }
+  }
+  else {
+    ResourceMethodReceiverScopeLatest receiver_scope(family);
+    body = parse_expr(context);
+  }
+
+  return ResourceMethodDefAST::Create(
+    family,
+    method,
+    final_binding,
+    property,
+    std::move(params),
+    body);
+}
+
 static int
 parse_resource_selector_offset_latest(StyioContext& context) {
   int sign = 1;
@@ -1582,6 +1721,22 @@ parse_at_stmt_or_expr_latest(StyioContext& context) {
   context.move_forward(1, "stmt@");
   context.skip();
   if (context.check(StyioTokenType::NAME)) {
+    if (parse_resource_method_route_after_at_latest(context)) {
+      return parse_resource_method_def_after_at_latest(context);
+    }
+    if (!g_resource_method_receiver_family_latest.empty()
+        && context.cur_tok()->original == g_resource_method_receiver_family_latest) {
+      const auto receiver_saved = context.save_cursor();
+      const std::string family = context.cur_tok()->original;
+      context.move_forward(1, "resource_method_receiver");
+      context.skip();
+      if (!context.check(StyioTokenType::TOK_LPAREN)
+          && !context.check(StyioTokenType::TOK_DOT)
+          && !context.check(StyioTokenType::TOK_COLON)) {
+        return parse_expr_postfix(context, ResourceReceiverAST::Create(family));
+      }
+      context.restore_cursor(receiver_saved);
+    }
     auto saved_resource_decl = context.save_cursor();
     const std::string probe_name = context.cur_tok()->original;
     const bool builtin_resource_name =
@@ -1615,7 +1770,7 @@ parse_at_stmt_or_expr_latest(StyioContext& context) {
     return parse_state_decl_after_at_latest(context);
   }
   if (context.check(StyioTokenType::TOK_LPAREN)) {
-    return parse_resources_after_at(context);
+    return parse_expr_postfix(context, parse_after_at_common(context, false));
   }
   if (context.check(StyioTokenType::NAME)
       && context.cur_tok()->original != "file"
@@ -1695,8 +1850,9 @@ parse_resource_target_latest(StyioContext& context, StdStreamKind terminal_kind)
       && nt != StyioNodeType::StdinResource
       && nt != StyioNodeType::StdoutResource
       && nt != StyioNodeType::StderrResource
+      && nt != StyioNodeType::EmptyResource
       && nt != StyioNodeType::TypedStdinList) {
-    throw StyioSyntaxError(context.mark_cur_tok("expected @file(...), @{...}, @stdout, @stderr, @stdin, or @resource"));
+    throw StyioSyntaxError(context.mark_cur_tok("expected @file(...), @{...}, @(\"...\"), @(), @stdout, @stderr, @stdin, or @resource"));
   }
   return r;
 }
@@ -2524,6 +2680,21 @@ parse_expr_postfix(StyioContext& context, StyioAST* lhs) {
     if (context.match(StyioTokenType::ARROW_SINGLE_RIGHT)) {
       context.skip();
       lhs = ResourceRedirectAST::Create(lhs, parse_resource_target_latest(context));
+      continue;
+    }
+    if (context.match(StyioTokenType::TOK_DOT) && !has_linebreak_before_current_token_latest(context)) {
+      context.skip();
+      if (!context.check(StyioTokenType::NAME)) {
+        throw StyioSyntaxError(context.mark_cur_tok("expected name after ."));
+      }
+      NameAST* member = parse_name_unsafe(context);
+      context.skip_spaces_no_linebreak();
+      if (context.check(StyioTokenType::TOK_LPAREN)) {
+        lhs = parse_call(context, member, lhs);
+      }
+      else {
+        lhs = AttrAST::Create(lhs, member);
+      }
       continue;
     }
     if (context.check(StyioTokenType::TOK_LPAREN) && !has_linebreak_before_current_token_latest(context)) {
@@ -4330,6 +4501,24 @@ parse_stmt_or_expr_legacy(
         context.move_forward(1, "flex_bind=");
         return FlexBindAST::Create(
           VarAST::Create(NameAST::Create(id)),
+          parse_expr(context)
+        );
+      }
+
+      if (nt == StyioTokenType::WALRUS) {
+        context.move_forward(1, "final_bind:=");
+        context.skip();
+        return FinalBindAST::Create(
+          VarAST::Create(NameAST::Create(id)),
+          parse_expr(context)
+        );
+      }
+
+      if (nt == StyioTokenType::ARROW_DOUBLE_RIGHT) {
+        context.move_forward(1, "resource_order=>");
+        context.skip();
+        return ResourceOrderAST::Create(
+          NameAST::Create(id),
           parse_expr(context)
         );
       }

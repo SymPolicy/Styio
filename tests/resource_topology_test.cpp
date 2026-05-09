@@ -7,8 +7,13 @@
 
 #include "StyioAST/AST.hpp"
 #include "StyioException/Exception.hpp"
+#include "StyioIR/StyioIR.hpp"
+#include "StyioLowering/AstToStyioIRLowerer.hpp"
+#include "StyioParser/Parser.hpp"
+#include "StyioParser/Tokenizer.hpp"
 #include "StyioResourceTopology/ResourceTopology.hpp"
 #include "StyioRuntime/HandleTable.hpp"
+#include "StyioToString/ToStringVisitor.hpp"
 
 namespace rt = styio::resource_topology;
 
@@ -17,6 +22,94 @@ namespace {
 std::unique_ptr<MainBlockAST>
 program(std::vector<StyioAST*> stmts) {
   return std::unique_ptr<MainBlockAST>(MainBlockAST::Create(std::move(stmts)));
+}
+
+std::vector<std::pair<size_t, size_t>>
+line_seps(const std::string& src) {
+  std::vector<std::pair<size_t, size_t>> seps;
+  size_t line_start = 0;
+  size_t line_len = 0;
+  for (size_t i = 0; i < src.size(); ++i) {
+    if (src[i] == '\n') {
+      seps.emplace_back(line_start, line_len);
+      line_start = i + 1;
+      line_len = 0;
+    }
+    else {
+      line_len += 1;
+    }
+  }
+  if (!src.empty() && src.back() != '\n') {
+    seps.emplace_back(line_start, line_len);
+  }
+  return seps;
+}
+
+void free_tokens(std::vector<StyioToken*>& tokens) {
+  for (auto* token : tokens) {
+    delete token;
+  }
+  tokens.clear();
+}
+
+void typecheck_nightly(const std::string& src) {
+  auto tokens = StyioTokenizer::tokenize(src);
+  StyioContext* ctx = StyioContext::Create(
+    "<resource-topology-test>",
+    src,
+    line_seps(src),
+    tokens,
+    false);
+  MainBlockAST* ast = nullptr;
+  auto cleanup = [&]()
+  {
+    delete ast;
+    delete ctx;
+    free_tokens(tokens);
+    StyioAST::destroy_all_tracked_nodes();
+  };
+  try {
+    ast = parse_main_block_with_engine_latest(*ctx, StyioParserEngine::Nightly);
+    AstToStyioIRLowerer analyzer;
+    ast->typeInfer(&analyzer);
+    cleanup();
+  }
+  catch (...) {
+    cleanup();
+    throw;
+  }
+}
+
+std::string lower_nightly_ir(const std::string& src) {
+  auto tokens = StyioTokenizer::tokenize(src);
+  StyioContext* ctx = StyioContext::Create(
+    "<resource-topology-lowering-test>",
+    src,
+    line_seps(src),
+    tokens,
+    false);
+  MainBlockAST* ast = nullptr;
+  auto cleanup = [&]()
+  {
+    delete ast;
+    delete ctx;
+    free_tokens(tokens);
+    StyioAST::destroy_all_tracked_nodes();
+  };
+  try {
+    ast = parse_main_block_with_engine_latest(*ctx, StyioParserEngine::Nightly);
+    AstToStyioIRLowerer analyzer;
+    ast->typeInfer(&analyzer);
+    StyioIR* ir = ast->toStyioIR(&analyzer);
+    StyioRepr repr;
+    std::string out = ir->toString(&repr);
+    cleanup();
+    return out;
+  }
+  catch (...) {
+    cleanup();
+    throw;
+  }
 }
 
 } // namespace
@@ -138,6 +231,142 @@ TEST(StyioResourceTopology, RejectsLocalTopologyV2ResourceDecl) {
   ASSERT_FALSE(result.report.ok());
   EXPECT_NE(result.report.message().find("resource declarations are top-level only"), std::string::npos)
     << result.report.message();
+}
+
+TEST(StyioResourceTopology, EmptyResourceDestroySinkConsumesWithoutScopeDrop) {
+  auto root = program({
+    ResourceRedirectAST::Create(
+      FileResourceAST::Create(StringAST::Create("/tmp/styio-rtg-destroy.txt"), false),
+      EmptyResourceAST::Create()),
+  });
+
+  rt::BuildResult result = rt::build(root.get());
+
+  EXPECT_TRUE(result.report.ok()) << result.report.message();
+  EXPECT_NE(result.graph.debug_string().find("destroy"), std::string::npos)
+    << result.graph.debug_string();
+  EXPECT_EQ(result.graph.debug_string().find("scope-exit-drop"), std::string::npos)
+    << result.graph.debug_string();
+}
+
+TEST(StyioResourceTopology, RejectsUnorderedExclusiveResourceBorrowsAcrossBlocks) {
+  auto root = program({
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("log")),
+      FileResourceAST::Create(StringAST::Create("/tmp/styio-rtg-log.txt"), true)),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("t1")),
+      BlockAST::Create({
+        FuncCallAST::Create(
+          NameAST::Create("log"),
+          NameAST::Create("write"),
+          {StringAST::Create("a")}),
+      })),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("t2")),
+      BlockAST::Create({
+        FuncCallAST::Create(
+          NameAST::Create("log"),
+          NameAST::Create("write"),
+          {StringAST::Create("b")}),
+      })),
+  });
+
+  rt::BuildResult result = rt::build(root.get());
+
+  ASSERT_FALSE(result.report.ok());
+  EXPECT_NE(result.report.message().find("unordered exclusive resource borrow"), std::string::npos)
+    << result.report.message();
+}
+
+TEST(StyioResourceTopology, AllowsOrderedExclusiveResourceBorrowsAcrossBlocks) {
+  auto root = program({
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("log")),
+      FileResourceAST::Create(StringAST::Create("/tmp/styio-rtg-log.txt"), true)),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("t1")),
+      BlockAST::Create({
+        FuncCallAST::Create(
+          NameAST::Create("log"),
+          NameAST::Create("write"),
+          {StringAST::Create("a")}),
+      })),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("t2")),
+      BlockAST::Create({
+        FuncCallAST::Create(
+          NameAST::Create("log"),
+          NameAST::Create("write"),
+          {StringAST::Create("b")}),
+      })),
+    ResourceOrderAST::Create(NameAST::Create("t1"), NameAST::Create("t2")),
+  });
+
+  rt::BuildResult result = rt::build(root.get());
+
+  EXPECT_TRUE(result.report.ok()) << result.report.message();
+  EXPECT_GE(result.graph.edge_count(rt::EdgeKind::HappensBefore), 1u);
+}
+
+TEST(StyioResourceTopology, ResourceMethodCallConsumesReceiverStatically) {
+  const std::string src =
+    "@file::close = () => { @file -> @() }\n"
+    "log := @(\"log.txt\")\n"
+    "log.close()\n"
+    "log.path\n";
+
+  try {
+    typecheck_nightly(src);
+    FAIL() << "expected use-after-destroy";
+  }
+  catch (const StyioTypeError& ex) {
+    EXPECT_NE(std::string(ex.what()).find("use-after-destroy"), std::string::npos)
+      << ex.what();
+  }
+}
+
+TEST(StyioResourceTopology, UnknownResourceMethodIsCompileError) {
+  const std::string src =
+    "log := @(\"log.txt\")\n"
+    "log.nope()\n";
+
+  try {
+    typecheck_nightly(src);
+    FAIL() << "expected unresolved resource method";
+  }
+  catch (const StyioTypeError& ex) {
+    EXPECT_NE(std::string(ex.what()).find("resource method cannot be resolved"), std::string::npos)
+      << ex.what();
+  }
+}
+
+TEST(StyioResourceTopology, TaskCannotConsumeOuterResource) {
+  const std::string src =
+    "log := @(\"log.txt\")\n"
+    "job = ||> { log.close() }\n";
+
+  try {
+    typecheck_nightly(src);
+    FAIL() << "expected task outer-resource consume rejection";
+  }
+  catch (const StyioTypeError& ex) {
+    EXPECT_NE(std::string(ex.what()).find("task cannot consume outer resource"), std::string::npos)
+      << ex.what();
+  }
+}
+
+TEST(StyioResourceTopology, FileWriteAndCloseMethodsLowerToIO) {
+  const std::string src =
+    "log := @(\"log.txt\")\n"
+    "log.write(\"a\")\n"
+    "log.close()\n";
+
+  std::string ir = lower_nightly_ir(src);
+
+  EXPECT_NE(ir.find("styio.ir.handle_acquire"), std::string::npos) << ir;
+  EXPECT_NE(ir.find("styio.ir.resource_write"), std::string::npos) << ir;
+  EXPECT_NE(ir.find("styio.ir.handle_release"), std::string::npos) << ir;
 }
 
 TEST(StyioResourceTopology, HandleTableReleaseAllClosesAndRecyclesSlots) {

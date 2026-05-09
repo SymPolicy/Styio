@@ -644,6 +644,46 @@ StyioRepr::toString(ResourceAST* ast, int indent) {
 }
 
 std::string
+StyioRepr::toString(EmptyResourceAST* ast, int indent) {
+  (void)indent;
+  return reprASTType(ast->getNodeType(), " ") + "{ @() }";
+}
+
+std::string
+StyioRepr::toString(ResourceReceiverAST* ast, int indent) {
+  (void)indent;
+  return reprASTType(ast->getNodeType(), " ") + "{ @" + ast->getFamilyName() + " }";
+}
+
+std::string
+StyioRepr::toString(ResourceMethodDefAST* ast, int indent) {
+  std::string body;
+  if (ast->getBody() != nullptr) {
+    body = "\n" + ast->getBody()->toString(this, indent + 1);
+  }
+  return reprASTType(ast->getNodeType(), " ") + "{ @"
+    + ast->getFamilyName() + "::" + ast->getMethodName()
+    + (ast->isFinalBinding() ? " :=" : " =")
+    + (ast->isProperty() ? " property" : " method")
+    + body + " }";
+}
+
+std::string
+StyioRepr::toString(ResourceOrderAST* ast, int indent) {
+  std::string before = ast->getBefore() == nullptr
+    ? "<null>"
+    : ast->getBefore()->toString(this, indent + 1);
+  std::string after = ast->getAfter() == nullptr
+    ? "<null>"
+    : ast->getAfter()->toString(this, indent + 1);
+  return reprASTType(ast->getNodeType(), " ") + "{\n"
+    + make_padding(indent + 1) + before + "\n"
+    + make_padding(indent + 1) + "=>\n"
+    + make_padding(indent + 1) + after + "\n"
+    + make_padding(indent) + "}";
+}
+
+std::string
 StyioRepr::toString(ResourceDeclAST* ast, int indent) {
   string var_str;
   const auto& slots = ast->getSlots();
@@ -1641,6 +1681,16 @@ StyioRepr::toString(SIOHandleAcquire* node, int indent) {
   std::string p = node->path_expr ? node->path_expr->toString(this, indent) : std::string("null");
   return std::string("styio.ir.handle_acquire { ") + node->var_name + ", auto="
          + (node->is_auto ? "1" : "0") + ", path=" + p + " }";
+}
+
+std::string
+StyioRepr::toString(SIOHandleRelease* node, int indent) {
+  if (node->from_path) {
+    std::string p = node->path_expr ? node->path_expr->toString(this, indent) : std::string("null");
+    return std::string("styio.ir.handle_release { path=") + p
+           + ", auto=" + (node->is_auto ? "1" : "0") + " }";
+  }
+  return std::string("styio.ir.handle_release { ") + node->var_name + " }";
 }
 
 std::string

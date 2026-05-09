@@ -1213,12 +1213,6 @@ private:
           owner.reset(FuncCallAST::Create(owner.release(), NameAST::Create(member_name), parse_call_args()));
           continue;
         }
-        if (member_name != "length"
-            && member_name != "size"
-            && member_name != "keys"
-            && member_name != "values") {
-          throw StyioSyntaxError("only .length, .size, .keys, and .values are supported as nightly attributes");
-        }
         owner.reset(AttrAST::Create(owner.release(), NameAST::Create(member_name)));
         continue;
       }
@@ -2211,6 +2205,22 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
 	        make_default_value_for_decl_latest(ty->getDataType())
 	      );
 	    }
+    if (context.cur_tok_type() == StyioTokenType::WALRUS) {
+      context.move_forward(1, "new_stmt:untyped_final_bind");
+      context.skip();
+      return FinalBindAST::Create(
+        VarAST::Create(NameAST::Create(id)),
+        parse_expr_subset_nightly(context)
+      );
+    }
+    if (context.cur_tok_type() == StyioTokenType::ARROW_DOUBLE_RIGHT) {
+      context.move_forward(1, "new_stmt:resource_order");
+      context.skip();
+      return ResourceOrderAST::Create(
+        NameAST::Create(id),
+        parse_expr_subset_nightly(context)
+      );
+    }
     if (context.cur_tok_type() == StyioTokenType::TOK_EQUAL) {
       context.move_forward(1, "new_stmt:flex_bind");
       context.skip();

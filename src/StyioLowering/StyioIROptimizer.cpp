@@ -723,6 +723,10 @@ private:
       acquire->path_expr = optimize(acquire->path_expr);
       return;
     }
+    if (auto* release = dynamic_cast<SIOHandleRelease*>(ir)) {
+      release->path_expr = optimize(release->path_expr);
+      return;
+    }
     if (auto* iter = dynamic_cast<SIOFileLineIter*>(ir)) {
       iter->path_expr = optimize(iter->path_expr);
       optimize_block(iter->body);
