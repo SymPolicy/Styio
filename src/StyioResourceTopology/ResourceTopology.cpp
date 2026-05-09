@@ -132,7 +132,20 @@ class Builder
   std::unordered_map<std::string, std::size_t> resource_nodes_;
   std::unordered_map<std::string, std::size_t> state_slots_;
   std::unordered_map<std::string, std::size_t> task_bindings_;
+  std::unordered_map<std::string, std::size_t> block_bindings_;
   std::unordered_set<std::string> consumed_tasks_;
+  std::unordered_set<std::size_t> destroyed_resources_;
+  std::unordered_set<std::size_t> unordered_execution_nodes_;
+
+  struct ResourceAccess
+  {
+    std::size_t resource = kNoNode;
+    std::size_t owner = kNoNode;
+    bool exclusive = false;
+    const StyioAST* source = nullptr;
+    std::string label;
+  };
+  std::vector<ResourceAccess> resource_accesses_;
 
   struct Context
   {
@@ -317,6 +330,68 @@ private:
     }
   }
 
+  void record_access(
+    std::size_t resource,
+    std::size_t owner,
+    bool exclusive,
+    const StyioAST* source,
+    std::string label
+  ) {
+    if (resource == kNoNode) {
+      return;
+    }
+    resource_accesses_.push_back(ResourceAccess{
+      resource,
+      owner == kNoNode ? 0 : owner,
+      exclusive,
+      source,
+      std::move(label)});
+  }
+
+  std::size_t named_execution_node(StyioAST* ast) const {
+    if (auto* name = dynamic_cast<NameAST*>(ast)) {
+      const std::string key = name->getAsStr();
+      auto bit = block_bindings_.find(key);
+      if (bit != block_bindings_.end()) {
+        return bit->second;
+      }
+      auto tit = task_bindings_.find(key);
+      if (tit != task_bindings_.end()) {
+        return tit->second;
+      }
+      auto hit = binding_nodes_.find(key);
+      if (hit != binding_nodes_.end()) {
+        return hit->second;
+      }
+    }
+    return kNoNode;
+  }
+
+  bool happens_before(std::size_t before, std::size_t after) const {
+    if (before == kNoNode || after == kNoNode || before == after) {
+      return before == after;
+    }
+    std::vector<std::size_t> stack{before};
+    std::unordered_set<std::size_t> seen;
+    while (!stack.empty()) {
+      const std::size_t cur = stack.back();
+      stack.pop_back();
+      if (!seen.insert(cur).second) {
+        continue;
+      }
+      for (const auto& edge : result_.graph.edges()) {
+        if (edge.kind != EdgeKind::HappensBefore || edge.from != cur) {
+          continue;
+        }
+        if (edge.to == after) {
+          return true;
+        }
+        stack.push_back(edge.to);
+      }
+    }
+    return false;
+  }
+
   std::size_t visit(StyioAST* ast, Context ctx) {
     if (ast == nullptr) {
       return kNoNode;
@@ -341,6 +416,60 @@ private:
         caps = Capability::Push;
       }
       return add_ast_node(ast, NodeKind::DriverSource, std_stream_label(s->getStreamKind()), caps, TypeState::Open, ctx);
+    }
+
+    if (dynamic_cast<EmptyResourceAST*>(ast) != nullptr) {
+      return add_ast_node(
+        ast,
+        NodeKind::Sink,
+        "@()",
+        Capability::None,
+        TypeState::Closed,
+        ctx);
+    }
+
+    if (auto* receiver = dynamic_cast<ResourceReceiverAST*>(ast)) {
+      Capability caps = Capability::Pull | Capability::Iter | Capability::Push | Capability::Close;
+      if (receiver->getFamilyName() == "stdin") {
+        caps = Capability::Pull | Capability::Iter;
+      }
+      else if (receiver->getFamilyName() == "stdout" || receiver->getFamilyName() == "stderr") {
+        caps = Capability::Push;
+      }
+      return add_ast_node(
+        ast,
+        NodeKind::Handle,
+        std::string("receiver:@") + receiver->getFamilyName(),
+        caps,
+        TypeState::Open,
+        ctx);
+    }
+
+    if (auto* method = dynamic_cast<ResourceMethodDefAST*>(ast)) {
+      const std::size_t node = add_ast_node(
+        ast,
+        NodeKind::Value,
+        std::string("resource-method:@") + method->getFamilyName() + "::" + method->getMethodName(),
+        Capability::None,
+        TypeState::Ready,
+        ctx);
+      if (method->getBody() != nullptr) {
+        visit(method->getBody(), Context{node, ctx.in_state_decl, false});
+      }
+      return node;
+    }
+
+    if (auto* order = dynamic_cast<ResourceOrderAST*>(ast)) {
+      std::size_t before = named_execution_node(order->getBefore());
+      if (before == kNoNode) {
+        before = visit(order->getBefore(), ctx);
+      }
+      std::size_t after = named_execution_node(order->getAfter());
+      if (after == kNoNode) {
+        after = visit(order->getAfter(), ctx);
+      }
+      result_.graph.add_edge(EdgeKind::HappensBefore, before, after, "sequence");
+      return after;
     }
 
     if (auto* decl = dynamic_cast<ResourceDeclAST*>(ast)) {
@@ -376,6 +505,7 @@ private:
       const std::size_t resource = hit->second;
       if (ref->isWholeResource()) {
         result_.graph.add_edge(EdgeKind::Borrow, ctx.owner, resource, "resource-ref");
+        record_access(resource, ctx.owner, false, ast, "resource-ref");
         return resource;
       }
       require_cap(resource, Capability::Pull, "resource selector needs read capability", ast);
@@ -389,6 +519,7 @@ private:
         ctx);
       result_.graph.add_edge(EdgeKind::Flow, resource, value, "committed-snapshot-read");
       result_.graph.add_edge(EdgeKind::Borrow, value, resource, "selector-borrow");
+      record_access(resource, ctx.owner, false, ast, "selector-read");
       return value;
     }
 
@@ -396,6 +527,7 @@ private:
       auto hit = handle_bindings_.find(name->getAsStr());
       if (hit != handle_bindings_.end()) {
         result_.graph.add_edge(EdgeKind::Borrow, ctx.owner, hit->second, "name-ref");
+        record_access(hit->second, ctx.owner, false, ast, "name-ref");
         return hit->second;
       }
       hit = state_slots_.find(name->getAsStr());
@@ -486,6 +618,7 @@ private:
         result_.graph.add_edge(EdgeKind::Commit, sink, resource, logical ? "pending-write-commit" : "write-commit");
         result_.graph.add_edge(EdgeKind::Mutation, sink, resource, logical ? "pending-write" : "write");
         result_.graph.add_edge(EdgeKind::Backpressure, sink, resource, "write-pressure");
+        record_access(resource, ctx.owner, true, ast, "write");
         own_if_close(sink, resource);
       }
       return sink;
@@ -501,6 +634,15 @@ private:
         TypeState::Ready,
         ctx);
       const std::size_t data = visit(redir->getData(), Context{sink, ctx.in_state_decl});
+      if (dynamic_cast<EmptyResourceAST*>(redir->getResource()) != nullptr) {
+        if (data != kNoNode) {
+          result_.graph.add_edge(EdgeKind::Mutation, sink, data, "destroy");
+          result_.graph.add_edge(EdgeKind::Commit, sink, data, "destroy-commit");
+          record_access(data, ctx.owner, true, ast, "destroy");
+          destroyed_resources_.insert(data);
+        }
+        return sink;
+      }
       require_cap(resource, Capability::Push, "redirect target must have push capability", redir->getResource());
       if (data != kNoNode) {
         result_.graph.add_edge(EdgeKind::Flow, data, sink, "redirect-data");
@@ -510,6 +652,7 @@ private:
         result_.graph.add_edge(EdgeKind::Commit, sink, resource, logical ? "pending-write-commit" : "redirect-commit");
         result_.graph.add_edge(EdgeKind::Mutation, sink, resource, logical ? "pending-write" : "redirect");
         result_.graph.add_edge(EdgeKind::Backpressure, sink, resource, "redirect-pressure");
+        record_access(resource, ctx.owner, true, ast, "redirect");
         own_if_close(sink, resource);
       }
       return sink;
@@ -528,6 +671,7 @@ private:
       if (collection != kNoNode) {
         result_.graph.add_edge(EdgeKind::Flow, collection, op, "iterate");
         result_.graph.add_edge(EdgeKind::Backpressure, op, collection, "iterator-pressure");
+        record_access(collection, ctx.owner, false, ast, "iterate");
         own_if_close(op, collection);
       }
       for (auto* next : iter->following) {
@@ -554,11 +698,13 @@ private:
       if (a != kNoNode) {
         result_.graph.add_edge(EdgeKind::Flow, a, op, "zip-a");
         result_.graph.add_edge(EdgeKind::Backpressure, op, a, "zip-a-pressure");
+        record_access(a, ctx.owner, false, ast, "zip-a");
         own_if_close(op, a);
       }
       if (b != kNoNode) {
         result_.graph.add_edge(EdgeKind::Flow, b, op, "zip-b");
         result_.graph.add_edge(EdgeKind::Backpressure, op, b, "zip-b-pressure");
+        record_access(b, ctx.owner, false, ast, "zip-b");
         own_if_close(op, b);
       }
       for (auto* next : zip->getFollowing()) {
@@ -584,6 +730,7 @@ private:
       if (resource != kNoNode) {
         result_.graph.add_edge(EdgeKind::Flow, resource, state, "snapshot");
         result_.graph.add_edge(EdgeKind::Mutation, state, resource, "snapshot-read");
+        record_access(resource, ctx.owner, false, ast, "snapshot");
         own_if_close(state, resource);
       }
       return state;
@@ -596,6 +743,7 @@ private:
       if (resource != kNoNode) {
         result_.graph.add_edge(EdgeKind::Flow, resource, value, "instant-pull");
         result_.graph.add_edge(EdgeKind::Mutation, value, resource, "pull");
+        record_access(resource, ctx.owner, false, ast, "pull");
         own_if_close(value, resource);
       }
       return value;
@@ -764,6 +912,15 @@ private:
       record_binding(flex->getNameAsStr(), binding, binding_type);
       if (value != kNoNode && result_.graph.node(value).kind == NodeKind::Task) {
         task_bindings_[flex->getNameAsStr()] = value;
+        unordered_execution_nodes_.insert(value);
+      }
+      if (value != kNoNode && result_.graph.node(value).kind == NodeKind::StreamOp) {
+        block_bindings_[flex->getNameAsStr()] = value;
+        unordered_execution_nodes_.insert(value);
+      }
+      if (value != kNoNode
+          && has_capability(result_.graph.node(value).capabilities, Capability::Close)) {
+        handle_bindings_[flex->getNameAsStr()] = value;
       }
       return binding;
     }
@@ -787,6 +944,15 @@ private:
       record_binding(final_bind->getName(), binding, binding_type);
       if (value != kNoNode && result_.graph.node(value).kind == NodeKind::Task) {
         task_bindings_[final_bind->getName()] = value;
+        unordered_execution_nodes_.insert(value);
+      }
+      if (value != kNoNode && result_.graph.node(value).kind == NodeKind::StreamOp) {
+        block_bindings_[final_bind->getName()] = value;
+        unordered_execution_nodes_.insert(value);
+      }
+      if (value != kNoNode
+          && has_capability(result_.graph.node(value).capabilities, Capability::Close)) {
+        handle_bindings_[final_bind->getName()] = value;
       }
       return binding;
     }
@@ -824,7 +990,29 @@ private:
     if (auto* call = dynamic_cast<FuncCallAST*>(ast)) {
       const std::size_t node = add_value(ast, std::string("value:call:") + call->getNameAsStr(), ctx);
       if (call->func_callee != nullptr) {
-        visit(call->func_callee, Context{node, ctx.in_state_decl});
+        const std::size_t receiver = visit(call->func_callee, Context{ctx.owner, ctx.in_state_decl});
+        if (receiver != kNoNode) {
+          const bool resource_like =
+            has_capability(result_.graph.node(receiver).capabilities, Capability::Pull)
+            || has_capability(result_.graph.node(receiver).capabilities, Capability::Push)
+            || has_capability(result_.graph.node(receiver).capabilities, Capability::Close);
+          if (resource_like) {
+            const bool consuming =
+              call->getNameAsStr() == "close"
+              || call->getNameAsStr() == "drop"
+              || call->getNameAsStr() == "destroy";
+            const bool exclusive = consuming || call->getNameAsStr() == "write";
+            result_.graph.add_edge(
+              exclusive ? EdgeKind::Mutation : EdgeKind::Borrow,
+              node,
+              receiver,
+              std::string("resource-method:") + call->getNameAsStr());
+            record_access(receiver, ctx.owner, exclusive, ast, call->getNameAsStr());
+            if (consuming) {
+              destroyed_resources_.insert(receiver);
+            }
+          }
+        }
       }
       for (auto* arg : call->getArgList()) {
         visit(arg, Context{node, ctx.in_state_decl});
@@ -921,6 +1109,56 @@ private:
   }
 
   void finalize() {
+    for (std::size_t i = 0; i < resource_accesses_.size(); ++i) {
+      for (std::size_t j = i + 1; j < resource_accesses_.size(); ++j) {
+        const auto& a = resource_accesses_[i];
+        const auto& b = resource_accesses_[j];
+        if (a.resource != b.resource) {
+          continue;
+        }
+        if (!a.exclusive && !b.exclusive) {
+          continue;
+        }
+        if (a.owner == b.owner) {
+          continue;
+        }
+        if (unordered_execution_nodes_.count(a.owner) == 0
+            || unordered_execution_nodes_.count(b.owner) == 0) {
+          continue;
+        }
+        if (happens_before(a.owner, b.owner) || happens_before(b.owner, a.owner)) {
+          continue;
+        }
+        error(
+          "unordered exclusive resource borrow: "
+            + result_.graph.node(a.resource).label
+            + " via " + a.label + " and " + b.label,
+          a.source != nullptr ? a.source : b.source);
+      }
+    }
+
+    std::vector<std::size_t> scope_drop_nodes;
+    for (auto it = result_.graph.nodes().rbegin(); it != result_.graph.nodes().rend(); ++it) {
+      const Node& node = *it;
+      if (!has_capability(node.capabilities, Capability::Close)
+          || destroyed_resources_.count(node.id) != 0) {
+        continue;
+      }
+      scope_drop_nodes.push_back(node.id);
+    }
+    if (!scope_drop_nodes.empty()) {
+      const std::size_t destroy_sink = result_.graph.add_node(
+        NodeKind::Sink,
+        "@()",
+        Capability::None,
+        TypeState::Closed,
+        nullptr);
+      for (std::size_t node_id : scope_drop_nodes) {
+        result_.graph.add_edge(EdgeKind::Mutation, node_id, destroy_sink, "scope-exit-drop");
+        result_.graph.add_edge(EdgeKind::Commit, node_id, destroy_sink, "scope-exit-drop-commit");
+      }
+    }
+
     if (!options_.require_close_owner) {
       return;
     }
@@ -1074,6 +1312,7 @@ to_string(EdgeKind kind) {
     case EdgeKind::Mutation: return "Mutation";
     case EdgeKind::Backpressure: return "Backpressure";
     case EdgeKind::Commit: return "Commit";
+    case EdgeKind::HappensBefore: return "HappensBefore";
     case EdgeKind::Failure: return "Failure";
     case EdgeKind::Placement: return "Placement";
   }

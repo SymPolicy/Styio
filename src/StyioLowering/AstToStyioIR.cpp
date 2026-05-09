@@ -1697,6 +1697,16 @@ AstToStyioIRLowerer::toStyioIR(OptKwArgAST* ast) {
 */
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(FlexBindAST* ast) {
+  if (auto* fr = dynamic_cast<FileResourceAST*>(ast->getValue())) {
+    file_resource_bindings_[ast->getNameAsStr()] = fr;
+    return SIOHandleAcquire::Create(
+      ast->getNameAsStr(),
+      fr->getPath()->toStyioIR(this),
+      fr->isAutoDetect());
+  }
+  if (dynamic_cast<StdStreamAST*>(ast->getValue()) != nullptr) {
+    return SGConstInt::Create(0);
+  }
   auto* var = static_cast<SGVar*>(ast->getVar()->toStyioIR(this));
   auto it = binding_info_.find(ast->getNameAsStr());
   if (it != binding_info_.end()) {
@@ -1713,6 +1723,16 @@ AstToStyioIRLowerer::toStyioIR(FlexBindAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(FinalBindAST* ast) {
+  if (auto* fr = dynamic_cast<FileResourceAST*>(ast->getValue())) {
+    file_resource_bindings_[ast->getName()] = fr;
+    return SIOHandleAcquire::Create(
+      ast->getName(),
+      fr->getPath()->toStyioIR(this),
+      fr->isAutoDetect());
+  }
+  if (dynamic_cast<StdStreamAST*>(ast->getValue()) != nullptr) {
+    return SGConstInt::Create(0);
+  }
   auto* var = static_cast<SGVar*>(ast->getVar()->toStyioIR(this));
   auto it = binding_info_.find(ast->getVar()->getNameAsStr());
   if (it != binding_info_.end()) {
@@ -2126,6 +2146,7 @@ AstToStyioIRLowerer::toStyioIR(HandleAcquireAST* ast) {
   if (!fr) {
     throw StyioTypeError("handle acquire needs @file(...) or @{...}");
   }
+  file_resource_bindings_[ast->getVar()->getNameAsStr()] = fr;
   return SIOHandleAcquire::Create(
     ast->getVar()->getNameAsStr(),
     fr->getPath()->toStyioIR(this),
@@ -2204,8 +2225,29 @@ AstToStyioIRLowerer::toStyioIR(ResourceWriteAST* ast) {
     prom);
 }
 
+static bool
+is_destroy_method_name_latest(const std::string& name) {
+  return name == "close" || name == "drop" || name == "destroy";
+}
+
+static StyioIR*
+lower_file_release_latest(AstToStyioIRLowerer* an, StyioAST* expr) {
+  if (auto* name = dynamic_cast<NameAST*>(expr)) {
+    return SIOHandleRelease::CreateFromVar(name->getAsStr());
+  }
+  if (auto* fr = dynamic_cast<FileResourceAST*>(expr)) {
+    return SIOHandleRelease::CreateFromPath(
+      fr->getPath()->toStyioIR(an),
+      fr->isAutoDetect());
+  }
+  return SGConstInt::Create(0);
+}
+
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ResourceRedirectAST* ast) {
+  if (dynamic_cast<EmptyResourceAST*>(ast->getResource()) != nullptr) {
+    return lower_file_release_latest(this, ast->getData());
+  }
   StyioIR* data_ir = ast->getData()->toStyioIR(this);
   if (expr_is_list_like(this, ast->getData())) {
     data_ir = SCListToString::Create(data_ir);
@@ -2266,6 +2308,29 @@ AstToStyioIRLowerer::toStyioIR(FmtStrAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ResourceAST* ast) {
+  return SGConstInt::Create(0);
+}
+
+StyioIR*
+AstToStyioIRLowerer::toStyioIR(EmptyResourceAST* ast) {
+  (void)ast;
+  return SGConstInt::Create(0);
+}
+
+StyioIR*
+AstToStyioIRLowerer::toStyioIR(ResourceReceiverAST* ast) {
+  return SGResId::Create(ast->getFamilyName());
+}
+
+StyioIR*
+AstToStyioIRLowerer::toStyioIR(ResourceMethodDefAST* ast) {
+  (void)ast;
+  return SGConstInt::Create(0);
+}
+
+StyioIR*
+AstToStyioIRLowerer::toStyioIR(ResourceOrderAST* ast) {
+  (void)ast;
   return SGConstInt::Create(0);
 }
 
@@ -2430,6 +2495,44 @@ AstToStyioIRLowerer::toStyioIR(FuncCallAST* ast) {
       std::move(args));
   }
 
+  if (ast->func_callee != nullptr) {
+    StyioDataType receiver_type = expr_lowered_type(this, ast->func_callee);
+    if (receiver_type.handle_family == StyioHandleFamily::File
+        || receiver_type.handle_family == StyioHandleFamily::Stream
+        || styio_is_topology_resource_type(receiver_type)) {
+      if (receiver_type.handle_family == StyioHandleFamily::File) {
+        if (is_destroy_method_name_latest(ast->getNameAsStr())) {
+          return lower_file_release_latest(this, ast->func_callee);
+        }
+        if (ast->getNameAsStr() == "write" && ast->getArgList().size() == 1) {
+          FileResourceAST* fr = dynamic_cast<FileResourceAST*>(ast->func_callee);
+          if (fr == nullptr) {
+            if (auto* name = dynamic_cast<NameAST*>(ast->func_callee)) {
+              auto fit = file_resource_bindings_.find(name->getAsStr());
+              if (fit != file_resource_bindings_.end()) {
+                fr = fit->second;
+              }
+            }
+          }
+          if (fr != nullptr) {
+            StyioAST* data = ast->getArgList().front();
+            StyioIR* data_ir = data->toStyioIR(this);
+            StyioDataType dt = data->getDataType();
+            bool is_str = dt.option == StyioDataTypeOption::String
+              || data->getNodeType() == StyioNodeType::String;
+            return SIOResourceWriteToFile::Create(
+              data_ir,
+              fr->getPath()->toStyioIR(this),
+              fr->isAutoDetect(),
+              !is_str,
+              false);
+          }
+        }
+      }
+      return SGConstInt::Create(0);
+    }
+  }
+
   auto def_it = func_defs.find(ast->getNameAsStr());
   if (def_it == func_defs.end()) {
     if (native_func_defs.find(ast->getNameAsStr()) != native_func_defs.end()) {
@@ -2475,6 +2578,19 @@ AstToStyioIRLowerer::toStyioIR(AttrAST* ast) {
     return SCDictValues::Create(
       ast->body->toStyioIR(this),
       styio_dict_value_type_name(body_type));
+  }
+  if (body_type.handle_family == StyioHandleFamily::File
+      && attr_name->getAsStr() == "path") {
+    if (auto* fr = dynamic_cast<FileResourceAST*>(ast->body)) {
+      return fr->getPath()->toStyioIR(this);
+    }
+    if (auto* name = dynamic_cast<NameAST*>(ast->body)) {
+      auto fit = file_resource_bindings_.find(name->getAsStr());
+      if (fit != file_resource_bindings_.end()) {
+        return fit->second->getPath()->toStyioIR(this);
+      }
+    }
+    return SGConstString::Create("");
   }
   if (styio_is_dict_type(body_type)) {
     return SCDictLen::Create(ast->body->toStyioIR(this));
@@ -3037,6 +3153,7 @@ AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
   SGPulsePlan* pending_plan = nullptr;
 
   func_defs.clear();
+  file_resource_bindings_.clear();
   for (auto* stmt : ast->getStmts()) {
     if (auto* f = dynamic_cast<FunctionAST*>(stmt)) {
       func_defs[f->getNameAsStr()] = f;

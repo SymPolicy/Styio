@@ -48,6 +48,9 @@ StyioDataType const kStringType{
 StyioDataType
 infer_expr_type(StyioSemaContext* an, StyioAST* expr);
 
+std::string
+resource_family_for_type(const StyioDataType& type);
+
 StyioDataType
 infer_list_literal_type(StyioSemaContext* an, ListAST* list) {
   auto const& els = list->getElements();
@@ -676,6 +679,9 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
     case StyioNodeType::StdoutResource:
     case StyioNodeType::StderrResource:
     case StyioNodeType::FileResource:
+    case StyioNodeType::EmptyResource:
+    case StyioNodeType::ResourceReceiver:
+    case StyioNodeType::ResourceRef:
     case StyioNodeType::InstantPull:
     case StyioNodeType::TaskBlock:
       return expr->getDataType();
@@ -693,6 +699,10 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
       }
       if (attr_name->getAsStr() == "values" && styio_is_dict_type(base_type)) {
         return styio_make_list_type(styio_dict_value_type_name(base_type));
+      }
+      if (resource_family_for_type(base_type) == "file"
+          && attr_name->getAsStr() == "path") {
+        return kStringType;
       }
       return kI64Type;
     }
@@ -801,6 +811,113 @@ type_is_text_serializable_iterable(StyioDataType const& t) {
   }
   if (t.handle_family == StyioHandleFamily::Range) {
     return styio_value_family_is_runtime_scalar(styio_type_item_value_family(t));
+  }
+  return false;
+}
+
+std::string
+resource_family_for_type(const StyioDataType& type) {
+  if (type.handle_family == StyioHandleFamily::File) {
+    return "file";
+  }
+  if (type.handle_family == StyioHandleFamily::Stream && type.has_std_stream_kind) {
+    switch (static_cast<StdStreamKind>(type.std_stream_kind)) {
+      case StdStreamKind::Stdin:
+        return "stdin";
+      case StdStreamKind::Stdout:
+        return "stdout";
+      case StdStreamKind::Stderr:
+        return "stderr";
+    }
+  }
+  if (styio_is_topology_resource_type(type)) {
+    return "resource";
+  }
+  return "";
+}
+
+std::string
+resource_family_for_expr(StyioSemaContext* an, StyioAST* expr) {
+  if (expr == nullptr) {
+    return "";
+  }
+  if (dynamic_cast<FileResourceAST*>(expr) != nullptr) {
+    return "file";
+  }
+  if (auto* stream = dynamic_cast<StdStreamAST*>(expr)) {
+    switch (stream->getStreamKind()) {
+      case StdStreamKind::Stdin:
+        return "stdin";
+      case StdStreamKind::Stdout:
+        return "stdout";
+      case StdStreamKind::Stderr:
+        return "stderr";
+    }
+  }
+  if (auto* receiver = dynamic_cast<ResourceReceiverAST*>(expr)) {
+    return receiver->getFamilyName();
+  }
+  if (dynamic_cast<ResourceRefAST*>(expr) != nullptr) {
+    return "resource";
+  }
+  if (auto* name = dynamic_cast<NameAST*>(expr)) {
+    auto it = an->local_binding_types.find(name->getAsStr());
+    if (it != an->local_binding_types.end()) {
+      return resource_family_for_type(it->second);
+    }
+  }
+  return resource_family_for_type(infer_expr_type(an, expr));
+}
+
+bool
+body_consumes_receiver(StyioAST* ast, const std::string& family) {
+  if (ast == nullptr) {
+    return false;
+  }
+  if (auto* redirect = dynamic_cast<ResourceRedirectAST*>(ast)) {
+    auto* receiver = dynamic_cast<ResourceReceiverAST*>(redirect->getData());
+    if (receiver != nullptr && receiver->getFamilyName() == family
+        && dynamic_cast<EmptyResourceAST*>(redirect->getResource()) != nullptr) {
+      return true;
+    }
+    return body_consumes_receiver(redirect->getData(), family)
+      || body_consumes_receiver(redirect->getResource(), family);
+  }
+  if (auto* write = dynamic_cast<ResourceWriteAST*>(ast)) {
+    return body_consumes_receiver(write->getData(), family)
+      || body_consumes_receiver(write->getResource(), family);
+  }
+  if (auto* block = dynamic_cast<BlockAST*>(ast)) {
+    for (auto* stmt : block->stmts) {
+      if (body_consumes_receiver(stmt, family)) {
+        return true;
+      }
+    }
+    for (auto* following : block->followings) {
+      if (body_consumes_receiver(following, family)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  if (auto* call = dynamic_cast<FuncCallAST*>(ast)) {
+    if (body_consumes_receiver(call->func_callee, family)) {
+      return true;
+    }
+    for (auto* arg : call->getArgList()) {
+      if (body_consumes_receiver(arg, family)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  if (auto* bin = dynamic_cast<BinOpAST*>(ast)) {
+    return body_consumes_receiver(bin->getLHS(), family)
+      || body_consumes_receiver(bin->getRHS(), family);
+  }
+  if (auto* attr = dynamic_cast<AttrAST*>(ast)) {
+    return body_consumes_receiver(attr->body, family)
+      || body_consumes_receiver(attr->attr, family);
   }
   return false;
 }
@@ -933,6 +1050,9 @@ StyioSemaContext::typeInfer(EmptyAST* ast) {
 
 void
 StyioSemaContext::typeInfer(NameAST* ast) {
+  if (consumed_resource_names_.count(ast->getAsStr()) != 0) {
+    throw StyioTypeError("use-after-destroy: resource `" + ast->getAsStr() + "` was already destroyed");
+  }
 }
 
 void
@@ -1116,10 +1236,21 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
 
   reject_plain_resource_copy(ast->getValue());
   StyioDataType inferred_rhs_type = infer_expr_type(this, ast->getValue());
+  const bool direct_resource_construct =
+    dynamic_cast<FileResourceAST*>(ast->getValue()) != nullptr
+    || dynamic_cast<StdStreamAST*>(ast->getValue()) != nullptr
+    || dynamic_cast<ResourceReceiverAST*>(ast->getValue()) != nullptr;
   if (inferred_rhs_type.handle_family == StyioHandleFamily::File
       || inferred_rhs_type.handle_family == StyioHandleFamily::Stream) {
+    if (!direct_resource_construct) {
+      throw StyioTypeError(
+        "resource handles must be bound with `<-`; use `<- @...` for files and standard streams");
+    }
+  }
+
+  if (dynamic_cast<EmptyResourceAST*>(ast->getValue()) != nullptr) {
     throw StyioTypeError(
-      "resource handles must be bound with `<-`; use `<- @...` for files and standard streams");
+      "@() is a destroy sink and cannot be bound as a resource value");
   }
 
   StyioDataType concrete_type = inferred_rhs_type;
@@ -1148,15 +1279,23 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
     || kind == BindingValueKind::DictHandle
     || kind == BindingValueKind::MatrixHandle
     || kind == BindingValueKind::TaskHandle;
+  const bool external_resource_value =
+    concrete_type.handle_family == StyioHandleFamily::File
+    || concrete_type.handle_family == StyioHandleFamily::Stream
+    || styio_is_topology_resource_type(concrete_type);
   info.resource_value = kind == BindingValueKind::ListHandle
     || kind == BindingValueKind::DictHandle
     || kind == BindingValueKind::MatrixHandle
-    || kind == BindingValueKind::TaskHandle;
+    || kind == BindingValueKind::TaskHandle
+    || external_resource_value;
   info.value_kind = kind;
-  info.declared_type = info.dynamic_slot
+  info.declared_type = (info.dynamic_slot && !external_resource_value)
     ? StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0}
     : concrete_type;
   binding_info_[bound_name] = info;
+  if (info.resource_value) {
+    owned_resource_names_.insert(bound_name);
+  }
 }
 
 void
@@ -1222,10 +1361,15 @@ StyioSemaContext::typeInfer(FinalBindAST* ast) {
   const bool runtime_resource =
     ast->getValue()->getNodeType() == StyioNodeType::TypedStdinList
     || ast->getValue()->getNodeType() == StyioNodeType::Dict
+    || dynamic_cast<FileResourceAST*>(ast->getValue()) != nullptr
+    || dynamic_cast<StdStreamAST*>(ast->getValue()) != nullptr
+    || dynamic_cast<ResourceReceiverAST*>(ast->getValue()) != nullptr
     || rhs_kind == BindingValueKind::ListHandle
     || rhs_kind == BindingValueKind::DictHandle
     || rhs_kind == BindingValueKind::MatrixHandle
     || rhs_kind == BindingValueKind::TaskHandle
+    || styio_type_is_resource_handle(vt)
+    || styio_is_topology_resource_type(vt)
     || (rhs_info != binding_info_.end()
         && (rhs_info->second.value_kind == BindingValueKind::ListHandle
             || rhs_info->second.value_kind == BindingValueKind::DictHandle
@@ -1262,6 +1406,9 @@ StyioSemaContext::typeInfer(FinalBindAST* ast) {
   }
   info.declared_type = vt;
   binding_info_[ast->getVar()->getNameAsStr()] = info;
+  if (info.resource_value) {
+    owned_resource_names_.insert(ast->getVar()->getNameAsStr());
+  }
 }
 
 void
@@ -1634,11 +1781,17 @@ StyioSemaContext::typeInfer(HandleAcquireAST* ast) {
     fixed_assignment_names_.insert(name);
   }
   binding_info_[name] = info;
+  if (info.resource_value) {
+    owned_resource_names_.insert(name);
+  }
 }
 
 void
 StyioSemaContext::typeInfer(ResourceWriteAST* ast) {
   ast->getResource()->typeInfer(this);
+  if (dynamic_cast<EmptyResourceAST*>(ast->getResource()) != nullptr) {
+    throw StyioTypeError("@() is a destroy sink; use `resource -> @()` to destroy");
+  }
   auto* target_name = dynamic_cast<NameAST*>(ast->getData());
   StyioDataType resource_type = infer_expr_type(this, ast->getResource());
   if (target_name != nullptr
@@ -1680,6 +1833,33 @@ void
 StyioSemaContext::typeInfer(ResourceRedirectAST* ast) {
   ast->getData()->typeInfer(this);
   ast->getResource()->typeInfer(this);
+  if (dynamic_cast<EmptyResourceAST*>(ast->getResource()) != nullptr) {
+    if (auto* name = dynamic_cast<NameAST*>(ast->getData())) {
+      const std::string resource_name = name->getAsStr();
+      auto it = binding_info_.find(resource_name);
+      if (it == binding_info_.end() || !it->second.resource_value) {
+        throw StyioTypeError("@() destroy source must be a resource");
+      }
+      if (!task_outer_resource_names_stack_.empty()
+          && task_outer_resource_names_stack_.back().count(resource_name) != 0) {
+        throw StyioTypeError("task cannot consume outer resource `" + resource_name + "`");
+      }
+      if (consumed_resource_names_.count(resource_name) != 0) {
+        throw StyioTypeError("double destroy: resource `" + resource_name + "` was already destroyed");
+      }
+      consumed_resource_names_.insert(resource_name);
+      return;
+    }
+    StyioDataType data_type = infer_expr_type(this, ast->getData());
+    if (dynamic_cast<FileResourceAST*>(ast->getData()) == nullptr
+        && dynamic_cast<ResourceReceiverAST*>(ast->getData()) == nullptr
+        && dynamic_cast<ResourceRefAST*>(ast->getData()) == nullptr
+        && !styio_type_is_resource_handle(data_type)
+        && !styio_is_topology_resource_type(data_type)) {
+      throw StyioTypeError("@() destroy source must be a resource");
+    }
+    return;
+  }
   StyioDataType resource_type = infer_expr_type(this, ast->getResource());
   if (!styio_type_is_writable(resource_type)) {
     throw StyioTypeError("redirect target must be a writable resource");
@@ -1953,6 +2133,57 @@ StyioSemaContext::typeInfer(ResourceAST* ast) {
 }
 
 void
+StyioSemaContext::typeInfer(EmptyResourceAST* ast) {
+  (void)ast;
+}
+
+void
+StyioSemaContext::typeInfer(ResourceReceiverAST* ast) {
+  if (!active_resource_receiver_family_.empty()
+      && ast->getFamilyName() != active_resource_receiver_family_) {
+    throw StyioTypeError(
+      "resource receiver @" + ast->getFamilyName()
+      + " is not the active receiver @" + active_resource_receiver_family_);
+  }
+}
+
+void
+StyioSemaContext::typeInfer(ResourceMethodDefAST* ast) {
+  auto& methods = resource_method_defs_[ast->getFamilyName()];
+  auto existing = methods.find(ast->getMethodName());
+  if (existing != methods.end() && existing->second.final_binding) {
+    throw StyioTypeError(
+      "resource method @" + ast->getFamilyName() + "::" + ast->getMethodName()
+      + " is final and cannot be overridden");
+  }
+
+  ResourceMethodInfo info;
+  info.final_binding = ast->isFinalBinding();
+  info.property = ast->isProperty();
+  info.param_count = ast->getParams().size();
+  info.consuming = !ast->isProperty()
+    && body_consumes_receiver(ast->getBody(), ast->getFamilyName());
+  methods[ast->getMethodName()] = info;
+
+  const std::string saved_receiver = active_resource_receiver_family_;
+  active_resource_receiver_family_ = ast->getFamilyName();
+  if (ast->getBody() != nullptr) {
+    ast->getBody()->typeInfer(this);
+  }
+  active_resource_receiver_family_ = saved_receiver;
+}
+
+void
+StyioSemaContext::typeInfer(ResourceOrderAST* ast) {
+  if (ast->getBefore() != nullptr) {
+    ast->getBefore()->typeInfer(this);
+  }
+  if (ast->getAfter() != nullptr) {
+    ast->getAfter()->typeInfer(this);
+  }
+}
+
+void
 StyioSemaContext::typeInfer(ResourceDeclAST* ast) {
   for (const auto& slot : ast->getSlots()) {
     const std::string name = slot.name->getAsStr();
@@ -2117,6 +2348,49 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
     return;
   }
 
+  if (ast->func_callee != nullptr) {
+    const std::string family = resource_family_for_expr(this, ast->func_callee);
+    if (!family.empty()) {
+      vector<StyioDataType> arg_types;
+      for (auto* arg : ast->getArgList()) {
+        arg->typeInfer(this);
+        arg_types.push_back(infer_expr_type(this, arg));
+      }
+      auto family_it = resource_method_defs_.find(family);
+      if (family_it == resource_method_defs_.end()
+          || family_it->second.find(ast->getNameAsStr()) == family_it->second.end()) {
+        throw StyioTypeError(
+          "resource method cannot be resolved: @" + family + "::" + ast->getNameAsStr());
+      }
+      const ResourceMethodInfo& method = family_it->second[ast->getNameAsStr()];
+      if (method.property) {
+        throw StyioTypeError(
+          "resource property @" + family + "::" + ast->getNameAsStr()
+          + " is not callable");
+      }
+      if (arg_types.size() != method.param_count) {
+        throw StyioTypeError(
+          "resource method @" + family + "::" + ast->getNameAsStr()
+          + " expects " + std::to_string(method.param_count)
+          + " argument(s), got " + std::to_string(arg_types.size()));
+      }
+      if (method.consuming) {
+        if (auto* receiver_name = dynamic_cast<NameAST*>(ast->func_callee)) {
+          const std::string resource_name = receiver_name->getAsStr();
+          if (!task_outer_resource_names_stack_.empty()
+              && task_outer_resource_names_stack_.back().count(resource_name) != 0) {
+            throw StyioTypeError("task cannot consume outer resource `" + resource_name + "`");
+          }
+          if (consumed_resource_names_.count(resource_name) != 0) {
+            throw StyioTypeError("double destroy: resource `" + resource_name + "` was already destroyed");
+          }
+          consumed_resource_names_.insert(resource_name);
+        }
+      }
+      return;
+    }
+  }
+
   if (ast->isCallableApply()) {
     throw StyioTypeError(
       "one-shot continuation resume `<|` requires continuation lowering; "
@@ -2202,6 +2476,18 @@ StyioSemaContext::typeInfer(AttrAST* ast) {
   if ((attr_name->getAsStr() == "keys" || attr_name->getAsStr() == "values")
       && styio_is_dict_type(body_type)) {
     return;
+  }
+  const std::string family = resource_family_for_expr(this, ast->body);
+  if (!family.empty()) {
+    auto family_it = resource_method_defs_.find(family);
+    if (family_it != resource_method_defs_.end()) {
+      auto method_it = family_it->second.find(attr_name->getAsStr());
+      if (method_it != family_it->second.end() && method_it->second.property) {
+        return;
+      }
+    }
+    throw StyioTypeError(
+      "resource method cannot be resolved: @" + family + "::" + attr_name->getAsStr());
   }
   throw StyioTypeError("only .length, .size, .keys, and .values are supported");
 }
@@ -2387,15 +2673,21 @@ StyioSemaContext::typeInfer(TaskBlockAST* ast) {
   auto saved_fixed = fixed_assignment_names_;
   auto saved_bind = binding_info_;
   auto saved_consumed = consumed_task_names_;
+  auto saved_consumed_resources = consumed_resource_names_;
+  auto saved_owned_resources = owned_resource_names_;
 
+  task_outer_resource_names_stack_.push_back(owned_resource_names_);
   ast->getBody()->typeInfer(this);
   StyioDataType result_type = infer_task_block_result_type(this, ast->getBody());
   ast->setResultType(result_type);
+  task_outer_resource_names_stack_.pop_back();
 
   local_binding_types = std::move(saved_types);
   fixed_assignment_names_ = std::move(saved_fixed);
   binding_info_ = std::move(saved_bind);
   consumed_task_names_ = std::move(saved_consumed);
+  consumed_resource_names_ = std::move(saved_consumed_resources);
+  owned_resource_names_ = std::move(saved_owned_resources);
 }
 
 void
@@ -2553,12 +2845,20 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
   local_binding_types.clear();
   fixed_assignment_names_.clear();
   binding_info_.clear();
+  resource_method_defs_.clear();
+  resource_method_defs_["file"]["close"] = ResourceMethodInfo{false, true, false, 0};
+  resource_method_defs_["file"]["write"] = ResourceMethodInfo{false, false, false, 1};
+  resource_method_defs_["file"]["path"] = ResourceMethodInfo{false, false, true, 0};
   resource_binding_types_.clear();
   collect_bind_resource_writes_.clear();
   collect_bind_handle_acquires_.clear();
   collect_bind_resource_write_types_.clear();
   collect_bind_handle_acquire_types_.clear();
   consumed_task_names_.clear();
+  consumed_resource_names_.clear();
+  owned_resource_names_.clear();
+  task_outer_resource_names_stack_.clear();
+  active_resource_receiver_family_.clear();
   auto stmts = ast->getStmts();
   std::vector<std::string> exported_symbols;
   for (auto const& s : stmts) {
@@ -2593,8 +2893,14 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
         native_func_defs[sig.name] = std::move(native_type);
       }
     }
+    if (auto* method = dynamic_cast<ResourceMethodDefAST*>(s)) {
+      method->typeInfer(this);
+    }
   }
   for (auto const& s : stmts) {
+    if (dynamic_cast<ResourceMethodDefAST*>(s) != nullptr) {
+      continue;
+    }
     s->typeInfer(this);
   }
   styio::resource_topology::validate_or_throw(ast, "sema-resource-topology");

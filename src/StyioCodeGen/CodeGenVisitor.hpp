@@ -133,6 +133,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SGEqProbe,
 
   class SIOHandleAcquire,
+  class SIOHandleRelease,
   class SIOFileLineIter,
   class SIOStreamZip,
   class SGSnapshotDecl,
@@ -307,6 +308,7 @@ public:
   llvm::Type* toLLVMType(SGEqProbe* node);
 
   llvm::Type* toLLVMType(SIOHandleAcquire* node);
+  llvm::Type* toLLVMType(SIOHandleRelease* node);
   llvm::Type* toLLVMType(SIOFileLineIter* node);
   llvm::Type* toLLVMType(SIOStreamZip* node);
   llvm::Type* toLLVMType(SGSnapshotDecl* node);
@@ -403,6 +405,7 @@ public:
   llvm::Value* toLLVMIR(SGEqProbe* node);
 
   llvm::Value* toLLVMIR(SIOHandleAcquire* node);
+  llvm::Value* toLLVMIR(SIOHandleRelease* node);
   llvm::Value* toLLVMIR(SIOFileLineIter* node);
   llvm::Value* toLLVMIR(SIOStreamZip* node);
   llvm::Value* toLLVMIR(SGSnapshotDecl* node);

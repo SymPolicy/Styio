@@ -56,6 +56,10 @@ public:
   StyioIR* toStyioIR(BinOpAST* ast) override;
   StyioIR* toStyioIR(FmtStrAST* ast) override;
   StyioIR* toStyioIR(ResourceAST* ast) override;
+  StyioIR* toStyioIR(EmptyResourceAST* ast) override;
+  StyioIR* toStyioIR(ResourceReceiverAST* ast) override;
+  StyioIR* toStyioIR(ResourceMethodDefAST* ast) override;
+  StyioIR* toStyioIR(ResourceOrderAST* ast) override;
   StyioIR* toStyioIR(ResourceDeclAST* ast) override;
   StyioIR* toStyioIR(ResourceRefAST* ast) override;
   StyioIR* toStyioIR(ResPathAST* ast) override;
@@ -102,6 +106,9 @@ public:
   StyioIR* toStyioIR(MatchCasesAST* ast) override;
   StyioIR* toStyioIR(BlockAST* ast) override;
   StyioIR* toStyioIR(MainBlockAST* ast) override;
+
+private:
+  std::unordered_map<std::string, FileResourceAST*> file_resource_bindings_;
 };
 
 using StyioAnalyzer = AstToStyioIRLowerer;

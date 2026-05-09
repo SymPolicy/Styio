@@ -261,7 +261,8 @@ styio_make_topology_resource_type(
     styio_caps(StyioTypeCapability::Readable)
       | styio_caps(StyioTypeCapability::Writable)
       | styio_caps(StyioTypeCapability::Iterable)
-      | styio_caps(StyioTypeCapability::Indexable),
+      | styio_caps(StyioTypeCapability::Indexable)
+      | styio_caps(StyioTypeCapability::Cloneable),
     value_name,
     "",
     false,
@@ -1006,6 +1007,10 @@ enum class StyioNodeType
    */
 
   FileResource,
+  EmptyResource,
+  ResourceReceiver,
+  ResourceMethodDef,
+  ResourceOrder,
   ResourceDecl,
   ResourceRef,
   HandleAcquire,

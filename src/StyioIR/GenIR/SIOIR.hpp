@@ -25,6 +25,33 @@ public:
   }
 };
 
+class SIOHandleRelease : public StyioIRTraits<SIOHandleRelease>
+{
+public:
+  std::string var_name;
+  StyioIR* path_expr = nullptr;
+  bool is_auto = false;
+  bool from_path = false;
+
+  static SIOHandleRelease* CreateFromVar(std::string v) {
+    auto* x = new SIOHandleRelease();
+    x->var_name = std::move(v);
+    x->from_path = false;
+    return x;
+  }
+
+  static SIOHandleRelease* CreateFromPath(StyioIR* p, bool a) {
+    auto* x = new SIOHandleRelease();
+    x->path_expr = p;
+    x->is_auto = a;
+    x->from_path = true;
+    return x;
+  }
+
+private:
+  SIOHandleRelease() = default;
+};
+
 class SIOFileLineIter : public StyioIRTraits<SIOFileLineIter>
 {
 public:

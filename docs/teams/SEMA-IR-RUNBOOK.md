@@ -51,6 +51,7 @@ High-value docs:
 19. Match expression result kinds must preserve scalar families through IR. If tail expressions can yield `f64`, the `SGMatchReprKind` and lowering classifier must carry a float result kind instead of silently collapsing the branch value to `i64`.
 20. Resource topology graph validation is part of the Sema-to-Lowering boundary. Changes to file resources, standard streams, handles, state slots, hidden ledgers, stream ops, or task resources must update `src/StyioResourceTopology/` before lowering can accept the new shape.
 21. Retired state AST nodes may remain as internal ledger/lowering structures and ownership-test fixtures, but source syntax must enter through Topology v2 resources. User-facing diagnostics should point to `@name : Type`, `expr -> @name`, and `@name[-1]`, not to the old M6 spelling.
+22. Resource method semantics must resolve statically before lowering: unknown methods are compile errors, consuming methods such as close/drop/destroy invalidate the receiver immediately, `resource -> @()` is the intrinsic destroy sink, scope exit adds automatic drop edges for close-capable owned resources, and task bodies may borrow outer resources but must not consume them. Unordered named task or block bodies that take exclusive access to the same resource must be rejected unless an explicit `=>` happens-before edge orders them.
 
 ## Change Classes
 

@@ -2264,6 +2264,180 @@ public:
   }
 };
 
+class EmptyResourceAST : public StyioASTTraits<EmptyResourceAST>
+{
+public:
+  static EmptyResourceAST* Create() {
+    return new EmptyResourceAST();
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::EmptyResource;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Defined, "empty-resource", 0};
+  }
+};
+
+class ResourceReceiverAST : public StyioASTTraits<ResourceReceiverAST>
+{
+  std::string family_;
+
+  explicit ResourceReceiverAST(std::string family) :
+      family_(std::move(family)) {
+  }
+
+public:
+  static ResourceReceiverAST* Create(std::string family) {
+    return new ResourceReceiverAST(std::move(family));
+  }
+
+  const std::string& getFamilyName() const {
+    return family_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::ResourceReceiver;
+  }
+
+  const StyioDataType getDataType() const {
+    if (family_ == "file") {
+      return styio_make_file_handle_type("i64");
+    }
+    if (family_ == "stdin") {
+      return styio_make_std_stream_type(StdStreamKind::Stdin, "string");
+    }
+    if (family_ == "stdout") {
+      return styio_make_std_stream_type(StdStreamKind::Stdout, "string");
+    }
+    if (family_ == "stderr") {
+      return styio_make_std_stream_type(StdStreamKind::Stderr, "string");
+    }
+    return StyioDataType{StyioDataTypeOption::Defined, "resource-family:" + family_, 0};
+  }
+};
+
+class ResourceMethodDefAST : public StyioASTTraits<ResourceMethodDefAST>
+{
+  std::string family_;
+  std::string method_;
+  bool final_binding_ = false;
+  bool property_ = false;
+  std::vector<std::unique_ptr<ParamAST>> param_owners_;
+  std::vector<ParamAST*> params_;
+  std::unique_ptr<StyioAST> body_owner_;
+  StyioAST* body_ = nullptr;
+
+  ResourceMethodDefAST(
+    std::string family,
+    std::string method,
+    bool final_binding,
+    bool property,
+    std::vector<ParamAST*> params,
+    StyioAST* body
+  ) :
+      family_(std::move(family)),
+      method_(std::move(method)),
+      final_binding_(final_binding),
+      property_(property),
+      body_owner_(body),
+      body_(body_owner_.get()) {
+    param_owners_.reserve(params.size());
+    params_.reserve(params.size());
+    for (auto* param : params) {
+      param_owners_.emplace_back(param);
+      params_.push_back(param_owners_.back().get());
+    }
+  }
+
+public:
+  static ResourceMethodDefAST* Create(
+    std::string family,
+    std::string method,
+    bool final_binding,
+    bool property,
+    std::vector<ParamAST*> params,
+    StyioAST* body
+  ) {
+    return new ResourceMethodDefAST(
+      std::move(family),
+      std::move(method),
+      final_binding,
+      property,
+      std::move(params),
+      body);
+  }
+
+  const std::string& getFamilyName() const {
+    return family_;
+  }
+
+  const std::string& getMethodName() const {
+    return method_;
+  }
+
+  bool isFinalBinding() const {
+    return final_binding_;
+  }
+
+  bool isProperty() const {
+    return property_;
+  }
+
+  const std::vector<ParamAST*>& getParams() const {
+    return params_;
+  }
+
+  StyioAST* getBody() const {
+    return body_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::ResourceMethodDef;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
+class ResourceOrderAST : public StyioASTTraits<ResourceOrderAST>
+{
+  std::unique_ptr<StyioAST> before_owner_;
+  std::unique_ptr<StyioAST> after_owner_;
+  StyioAST* before_ = nullptr;
+  StyioAST* after_ = nullptr;
+
+  ResourceOrderAST(StyioAST* before, StyioAST* after) :
+      before_owner_(before),
+      after_owner_(after),
+      before_(before_owner_.get()),
+      after_(after_owner_.get()) {
+  }
+
+public:
+  static ResourceOrderAST* Create(StyioAST* before, StyioAST* after) {
+    return new ResourceOrderAST(before, after);
+  }
+
+  StyioAST* getBefore() const {
+    return before_;
+  }
+
+  StyioAST* getAfter() const {
+    return after_;
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::ResourceOrder;
+  }
+
+  const StyioDataType getDataType() const {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+};
+
 enum class ResourceSelectorKind
 {
   Whole,

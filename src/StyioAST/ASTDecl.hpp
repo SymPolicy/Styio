@@ -220,6 +220,10 @@ class FmtStrAST;
   - DBUrl
 */
 class ResourceAST;
+class EmptyResourceAST;
+class ResourceReceiverAST;
+class ResourceMethodDefAST;
+class ResourceOrderAST;
 class ResourceDeclAST;
 class ResourceRefAST;
 

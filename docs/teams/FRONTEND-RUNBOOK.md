@@ -42,6 +42,7 @@ Build and test targets:
 13. Task launch and await syntax is symbol-only: `||> { ... }` constructs one task block, `||> [ t1 := { ... } t2 := { ... } ]` launches a task group, and `?| job -> answer: T | fallback` awaits a task/future handle into a newly declared local. Bare `?| -> answer: T` is a reserved continuation freeze shape and must remain fail-closed until continuation lowering exists.
 14. Function-level match sugar `# name := (single_param: T) ?= { ... }` is parser-local normalization only: require exactly one parameter and construct the same `MatchCasesAST(NameAST(param), cases)` body that explicit match syntax would feed to lowering.
 15. M6 state spellings `@[...]`, `$state`, and `$state[<<, n]` are retired parser errors. Keep `@name : Type`, `expr -> @name`, `@name[-1]`, and standalone `(<< @file(...))` expression routes green in both parser routes where shadow compatibility still applies, and do not let postfix parsing cross a line break into the next statement.
+16. Resource method syntax is parser-owned but sema-resolved: accept `@file::name = ...`, `@file::name := ...`, compatible `@file.name = ...` definitions, `@("path")` file-resource expressions, `@()` empty-resource sinks, and expression postfix calls such as `@("path").close()`. Inside a resource method body, bare `@file` is the receiver instance for that method family, not a constructor.
 
 ## Change Classes
 

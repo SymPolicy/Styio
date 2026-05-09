@@ -383,6 +383,22 @@ reprASTType(StyioNodeType type, std::string extra) {
       output += std::string("resource.file");
     } break;
 
+    case StyioNodeType::EmptyResource: {
+      output += std::string("resource.empty");
+    } break;
+
+    case StyioNodeType::ResourceReceiver: {
+      output += std::string("resource.receiver");
+    } break;
+
+    case StyioNodeType::ResourceMethodDef: {
+      output += std::string("resource.method.def");
+    } break;
+
+    case StyioNodeType::ResourceOrder: {
+      output += std::string("resource.order");
+    } break;
+
     case StyioNodeType::ResourceDecl: {
       output += std::string("resource.decl");
     } break;

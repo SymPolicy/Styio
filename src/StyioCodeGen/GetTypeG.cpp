@@ -354,6 +354,12 @@ StyioToLLVM::toLLVMType(SIOHandleAcquire* node) {
 }
 
 llvm::Type*
+StyioToLLVM::toLLVMType(SIOHandleRelease* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}
+
+llvm::Type*
 StyioToLLVM::toLLVMType(SIOFileLineIter* node) {
   (void)node;
   return theBuilder->getVoidTy();
