@@ -49,7 +49,7 @@ The language follows a "write less, get convenience; write more, get speed" mode
 - Omit type annotations → compiler infers defaults (`i32` for integers, `f64` for floats)
 - Add explicit types → compiler generates optimized, specialized instructions
 - Omit resource protocol → runtime probes automatically
-- Specify protocol (e.g., `@file`, `@mysql`) → zero-overhead static dispatch
+- Specify protocol (e.g., `@file`, `@mysql`) → static dispatch without runtime probing
 
 ### 2.3 Expression-Oriented
 

@@ -496,6 +496,19 @@ private:
     llvm::Value* i64v,
     llvm::Value* f64v,
     llvm::Value* ptrv);
+  struct DynamicSlotPayload {
+    std::int64_t tag = 0;
+    llvm::Value* i64v = nullptr;
+    llvm::Value* f64v = nullptr;
+    llvm::Value* ptrv = nullptr;
+  };
+  DynamicSlotPayload dynamic_slot_payload_for_value(StyioIR* source, llvm::Value* value);
+  DynamicSlotPayload dynamic_slot_payload_for_type(const StyioDataType& type, llvm::Value* value);
+  void forget_dynamic_slot_payload_ownership(llvm::Value* value, std::int64_t tag);
+  void emit_std_stream_write_parts(
+    const std::vector<StyioIR*>& parts,
+    const char* write_intrinsic,
+    const char* label_prefix);
 
   llvm::FunctionCallee free_cstr_fn();
   llvm::FunctionCallee list_release_fn();

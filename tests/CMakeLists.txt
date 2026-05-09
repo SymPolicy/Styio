@@ -19,6 +19,13 @@ set(STYIO_MS "${CMAKE_CURRENT_LIST_DIR}/milestones")
 set(STYIO_EXE "$<TARGET_FILE:styio>")
 
 add_test(
+  NAME readme_glimpse_job_parallel_signal
+  COMMAND bash -c "printf '101\\n94\\n' | \"${STYIO_EXE}\" --file \"${CMAKE_SOURCE_DIR}/example/job_parallel_signal.styio\" | cmp -s - \"${CMAKE_SOURCE_DIR}/example/expected/job_parallel_signal.out\""
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(readme_glimpse_job_parallel_signal PROPERTIES LABELS "docs;example;styio_pipeline")
+
+add_test(
   NAME styio_profiler_frontend_smoke
   COMMAND "${CMAKE_COMMAND}"
           "-DSTYIO_BIN=${STYIO_EXE}"
@@ -145,6 +152,20 @@ add_test(
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 set_tests_properties(m10_t06_stdin_mixed_output PROPERTIES LABELS "milestone;m10")
+
+add_test(
+  NAME m10_t07_stdin_typed_tuple_pull
+  COMMAND bash -c "cat \"${STYIO_MS}/m10/data/typed_tuple_input.txt\" | \"${STYIO_EXE}\" --file \"${STYIO_MS}/m10/t07_stdin_typed_tuple_pull.styio\" | cmp -s - \"${STYIO_MS}/m10/expected/t07_stdin_typed_tuple_pull.out\""
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(m10_t07_stdin_typed_tuple_pull PROPERTIES LABELS "milestone;m10")
+
+add_test(
+  NAME m10_t08_stdin_typed_f64_list_pull
+  COMMAND bash -c "cat \"${STYIO_MS}/m10/data/typed_f64_list_input.txt\" | \"${STYIO_EXE}\" --file \"${STYIO_MS}/m10/t08_stdin_typed_f64_list_pull.styio\" | cmp -s - \"${STYIO_MS}/m10/expected/t08_stdin_typed_f64_list_pull.out\""
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(m10_t08_stdin_typed_f64_list_pull PROPERTIES LABELS "milestone;m10")
 
 # M10 semantic failures: compilation must abort (e*.styio)
 file(GLOB M10_FAIL_TESTS CONFIGURE_DEPENDS "${STYIO_MS}/m10/e*.styio")

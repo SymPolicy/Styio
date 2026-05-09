@@ -238,12 +238,21 @@ private:
 class SIOStdStreamPull : public StyioIRTraits<SIOStdStreamPull>
 {
 public:
+  StyioDataType result_type{StyioDataTypeOption::Integer, "i64", 64};
+
   static SIOStdStreamPull* Create() {
     return new SIOStdStreamPull();
   }
 
-private:
+  static SIOStdStreamPull* Create(StyioDataType result_type) {
+    return new SIOStdStreamPull(std::move(result_type));
+  }
+
   SIOStdStreamPull() = default;
+
+  explicit SIOStdStreamPull(StyioDataType result_type) :
+      result_type(std::move(result_type)) {
+  }
 };
 
 class SIOTaskCreate : public StyioIRTraits<SIOTaskCreate>

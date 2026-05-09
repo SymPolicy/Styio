@@ -133,7 +133,6 @@ class IteratorAST;
 class StreamZipAST;
 class SnapshotDeclAST;
 class InstantPullAST;
-class TypedStdinListAST;
 class TaskBlockAST;
 class TaskGroupLaunchAST;
 class FlowBindAST;

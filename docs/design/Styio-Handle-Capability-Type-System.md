@@ -19,7 +19,7 @@ The current compiler mixes three different concerns:
 
 This leads to ad hoc special cases:
 
-- `@stdin` and `@stdin: list[T]` currently take different AST paths.
+- Historically, scalar and list-shaped `@stdin : T` pulls drifted into separate implementation paths; current work keeps typed stdin ingestion on one `InstantPullAST` path before type-directed lowering.
 - Iteration is dispatched partly by `NodeType`, not by a unified type protocol.
 - `<<` currently behaves differently depending on parser shape instead of a single type-directed rule.
 

@@ -264,10 +264,6 @@ reprASTType(StyioNodeType type, std::string extra) {
       output += std::string("instant.pull");
     } break;
 
-    case StyioNodeType::TypedStdinList: {
-      output += std::string("stdin.list.typed");
-    } break;
-
     case StyioNodeType::IterSeq: {
       output += std::string("iterator.sequence");
     } break;

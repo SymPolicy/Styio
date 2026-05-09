@@ -13,7 +13,7 @@ n = l.length - 1 /* n is the last index of the list */
 >_(l)
 
 /*
-1. `@stdin: list[i32]` is derived from `@stdin: type`, where type is a literal word, which means the input string will be forced to parse as a list. 
+1. `@stdin : list[i32]` is typed stdin ingestion. The type annotation is parsed as a TypeExpr, and the input is parsed as a list literal with that element family.
 2. `l <- @stdin: list[i32]` means bind the input list to the variable `l` as a resource, `l` cannot be assigned again in the following code, and it will be typed as `list`.
 3. `l = @stdin: list[i32]` means a flexible assignment, `l` can be assigned again in the following code, and it will be typed as `any`. 
     3.1 `l = @stdin: list[i32]; l1 = l` is not accepted, because a resource can only be copied by `<<`, and cannot be referenced twice.

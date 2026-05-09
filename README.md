@@ -16,7 +16,7 @@
 
 ---
 
-> **Styio** is a high-performance, symbolic programming language engineered from the ground up for modern data flows. By stripping away verbose natural language keywords and introducing direct, math-like symbolic abstractions, Styio allows you to express complex stream pipelines and resource topologies with unprecedented clarity. Powered by an **LLVM-based backend**, it delivers native performance for the most demanding execution environments.
+> **Styio** is a symbolic programming language for stream processing, resource scheduling, and intent expression. It uses compact symbols for data flow and resource topology, with an LLVM-based backend for native execution paths.
 
 ## ✨ Why Styio?
 
@@ -24,58 +24,48 @@
 | :--- | :--- |
 | 🌊 **Stream & Pulse Oriented** | First-class primitives for continuous data streams, discrete pulses, state mutations, and resource topologies. |
 | 🔣 **Pure Symbolic Abstraction** | Minimizes keyword boilerplate in favor of expressive data flow. Styio relies on a direct symbolic system (`:=`, `->`, `>>`, `?=`) that visually aligns with actual data and resource flows. |
-| ⚡ **Bare-Metal Performance** | Compiles to highly optimized machine code via the LLVM infrastructure, leveraging JIT compilation for zero-overhead execution. |
-| 🧩 **Holistic Ecosystem** | Designed alongside **Spio** (package manager) and **Styio-view** (visualizer) for a seamless, end-to-end developer experience. |
+| ⚡ **LLVM-backed Execution** | Lowers compiler-accepted programs through the LLVM infrastructure and JIT execution path. |
+| 🧩 **Ecosystem Interfaces** | Developed alongside **Spio** (package manager) and **Styio-view** (visualizer), with repository contracts documented in this project. |
 
 ## 🪄 A Glimpse of Styio
 
-Styio's syntax is built to make complex stateful logic feel intuitive. The following **"Golden Cross"** example represents the constitution of Styio's language design: defining a resource, processing streams, managing state, and triggering intent.
+The example below is a runnable parallel-job signal. It reads two prices from `@stdin`, launches two independent jobs, awaits their results, and combines them into one output event.
 
 ```styio
-// 1. Declare persistent top-level resources with historical bounds
-@ma5 : f64|..5|
-@ma20 : f64|..20|
+price_a, price_b <- @stdin : (f64, f64)
 
-// 2. Monitor a continuous market data stream
-@market{"ASSET_X"} >> #(p) => {
-    
-    # get_ma := (src, n) => src[avg, n]
+||> [
+    spread_job := { <| price_a - price_b }
+    midpoint_job := { <| (price_a + price_b) / 2.0 }
+]
 
-    // 3. Write into resource sinks directly
-    get_ma(p, 5)  -> @ma5
-    get_ma(p, 20) -> @ma20
+?| spread_job -> spread: f64 | 0.0
+?| midpoint_job -> midpoint: f64 | 0.0
 
-    // 4. Symbolic condition: check for a golden cross using historical selectors
-    is_golden = cross_over(@ma5[-1], @ma20[-1])
-
-    // Define the execution intent
-    # order_logic := (price) => { >_ ("Buy at: " + price) }
-
-    // 5. Guarded wave execution block
-    ?(is_golden) => {
-        order_logic(p)
-    }
+?(spread > 5.0 || spread < -5.0) => {
+    signal = ("parallel signal: spread=" + spread) + ", midpoint=" + midpoint
+    signal -> @stdout
 }
 ```
-*Notice the absence of traditional keywords. Every symbol dictates the exact flow of data and execution.*
+
+Run it from the repository root:
+
+```bash
+printf '101\n94\n' | build/default/bin/styio --file example/job_parallel_signal.styio
+```
+
+Expected output:
+
+```text
+parallel signal: spread=7.000000, midpoint=97.500000
+```
 
 ## 🚀 Quick Start
 
-Use the interactive CLI calculator to try Styio with the same compiler engine that parses and executes expressions.
-
 ```bash
-# 1. Clone the repository
-git clone https://github.com/SymPolicy/Styio.git
-cd Styio
-
-# 2. Run the interactive calculator
-./example/cli_calculator.sh
-```
-
-```text
-styio-calc> 1 + 2 * (3 + 4)
-= 15
-styio-calc> quit
+curl -fsSL https://styio.io/tools/spio/install-spio.sh | sh -s -- --base-url https://styio.io
+spio install styio@latest --prebuilt-only
+styio --version
 ```
 
 ## 🛠️ Building & Development
@@ -94,15 +84,15 @@ The compiler-side baseline is live, and we are rapidly expanding the surrounding
 
 | Repository | Ecosystem Role | Status |
 | :--- | :--- | :--- |
-| ⚙️ **[`Styio`](https://github.com/SymPolicy/Styio)** | **Core language, compiler, CLI, and SSOT** *(This repo)* | 🟢 Active |
+| ⚙️ **[`styio`](https://github.com/SymPolicy/Styio)** | **Core language, compiler, CLI, and SSOT** *(This repo)* | 🟢 Active |
 | 📦 **[`styio-spio`](https://github.com/SymPolicy/styio-spio)** | Official package manager & cloud registry backend | 🟢 Active |
 | 🖥️ **[`styio-view`](https://github.com/SymPolicy/styio-view)** | User-facing visual execution & editor UI | 🟢 Active |
+| ☁️ **[`styio-platform`](https://github.com/SymPolicy/styio-platform)** | Platform products & hosted surface integration | 🟡 Bootstrap |
 | 📖 **[`styio-book`](https://github.com/SymPolicy/styio-book)** | Product vision & whitepaper | 🟢 Active |
-| 🛠️ **[`Unka-Malloc-doc`](https://github.com/SymPolicy/Unka-Malloc-doc)** | Cross-repository developer guides & workflow docs | 🟢 Active |
 | 🛡️ **[`audit`](https://github.com/SymPolicy/audit)** | Centralized audit framework & security modules | 🟢 Active |
+| 🛠️ **[`Unka-Malloc-doc`](https://github.com/SymPolicy/Unka-Malloc-doc)** | Cross-repository developer guides & workflow docs | 🟢 Active |
 | 💻 **[`Unka-Malloc-env`](https://github.com/SymPolicy/Unka-Malloc-env)** | Standardized dev environments & toolchains | 🟢 Active |
 | 🔌 **[`styio-ext-vsc`](https://github.com/SymPolicy/styio-ext-vsc)** | Official VS Code extension | 🟢 Active |
-| ☁️ **[`styio-platform`](https://github.com/SymPolicy/styio-platform)** | Platform products & hosted surface integration | 🟡 Bootstrap |
 | 💡 **[`styio-example`](https://github.com/SymPolicy/styio-example)** | Example projects & reusable patterns | 🟡 Bootstrap |
 
 ## 📖 Further Reading

@@ -1194,14 +1194,14 @@ StyioRepr::toString(SnapshotDeclAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(InstantPullAST* ast, int indent) {
+  const StyioDataType type = ast->getDataType();
+  if (type.option == StyioDataTypeOption::Integer && type.name == "i64") {
+    return reprASTType(ast->getNodeType()) + " { "
+           + ast->getResource()->toString(this, indent + 1) + " }";
+  }
   return reprASTType(ast->getNodeType()) + " { "
-         + ast->getResource()->toString(this, indent + 1) + " }";
-}
-
-std::string
-StyioRepr::toString(TypedStdinListAST* ast, int indent) {
-  return reprASTType(ast->getNodeType()) + " { "
-         + ast->getListType()->toString(this, indent + 1) + " }";
+         + ast->getResource()->toString(this, indent + 1)
+         + " : " + type.name + " }";
 }
 
 std::string
@@ -1854,7 +1854,7 @@ StyioRepr::toString(SIOStdStreamLineIter* node, int indent) {
 
 std::string
 StyioRepr::toString(SIOStdStreamPull* node, int indent) {
-  return std::string("styio.ir.stdin_pull { }");
+  return std::string("styio.ir.stdin_pull { type=") + node->result_type.name + " }";
 }
 
 std::string

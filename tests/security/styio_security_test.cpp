@@ -588,6 +588,27 @@ TEST(StyioSecurityParserContext, MoveForwardBeyondTokenTailIsClampedToEof) {
   free_tokens(tokens);
 }
 
+TEST(StyioSecurityParserContext, TokenMapMatchesSingleRightArrow) {
+  std::vector<StyioToken*> tokens{
+    StyioToken::Create(StyioTokenType::TOK_MINUS, "-"),
+    StyioToken::Create(StyioTokenType::TOK_RANGBRAC, ">"),
+    StyioToken::Create(StyioTokenType::TOK_EOF, "")
+  };
+  StyioContext* ctx = StyioContext::Create(
+    "<map-match-arrow>",
+    "->",
+    {{0, 0}},
+    tokens,
+    false
+  );
+
+  EXPECT_TRUE(ctx->map_match(StyioTokenType::ARROW_SINGLE_RIGHT));
+  EXPECT_EQ(ctx->cur_tok_type(), StyioTokenType::TOK_EOF);
+
+  delete ctx;
+  free_tokens(tokens);
+}
+
 TEST(StyioSecurityParserContext, CharApiAtEofReturnsSafeDefaults) {
   std::vector<StyioToken*> tokens;
   StyioContext* ctx = StyioContext::Create(
@@ -1379,9 +1400,23 @@ TEST(StyioSecurityNightlyParserStmt, AcceptsBubbleSortFeatureSyntax) {
     "  }\n"
     "}\n";
   const std::string repr = parse_program_to_repr_latest(src, true);
-  EXPECT_NE(repr.find("stdin.list.typed"), std::string::npos);
   EXPECT_NE(repr.find("assign.parallel"), std::string::npos);
   EXPECT_NE(repr.find("only_true"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, TypedStdinPullFormsShareInstantPullAst) {
+  const std::string list_src =
+    "xs <- @stdin : list[i32]\n";
+  const std::string tuple_src =
+    "a, b <- @stdin : (f64, f64)\n";
+  const std::string list_repr = parse_program_to_repr_latest(list_src, true);
+  const std::string tuple_repr = parse_program_to_repr_latest(tuple_src, true);
+  EXPECT_NE(list_repr.find("instant.pull"), std::string::npos);
+  EXPECT_NE(list_repr.find("list[i32]"), std::string::npos);
+  EXPECT_EQ(list_repr.find("stdin.list.typed"), std::string::npos);
+  EXPECT_NE(tuple_repr.find("instant.pull"), std::string::npos);
+  EXPECT_NE(tuple_repr.find("f64"), std::string::npos);
+  EXPECT_EQ(tuple_repr.find("stdin.list.typed"), std::string::npos);
 }
 
 TEST(StyioSecurityNightlyParserStmt, AcceptsGuardFallbackBlockSyntax) {

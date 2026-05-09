@@ -103,7 +103,6 @@ using StyioToStringVisitor = ToStringVisitor<
   class StreamZipAST,
   class SnapshotDeclAST,
   class InstantPullAST,
-  class TypedStdinListAST,
   class TaskBlockAST,
   class TaskGroupLaunchAST,
   class FlowBindAST,
@@ -325,8 +324,6 @@ public:
   std::string toString(SnapshotDeclAST* ast, int indent = 0);
 
   std::string toString(InstantPullAST* ast, int indent = 0);
-
-  std::string toString(TypedStdinListAST* ast, int indent = 0);
 
   std::string toString(TaskBlockAST* ast, int indent = 0);
 

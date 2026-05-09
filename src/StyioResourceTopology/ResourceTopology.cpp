@@ -9,6 +9,8 @@
 
 #include "../StyioAST/AST.hpp"
 #include "../StyioException/Exception.hpp"
+#include "../StyioUtil/BuiltinMethods.hpp"
+#include "../StyioUtil/ResourceNames.hpp"
 
 namespace styio::resource_topology {
 namespace {
@@ -71,15 +73,7 @@ state_from_type(const StyioDataType& type) {
 
 std::string
 std_stream_label(StdStreamKind kind) {
-  switch (kind) {
-    case StdStreamKind::Stdin:
-      return "@stdin";
-    case StdStreamKind::Stdout:
-      return "@stdout";
-    case StdStreamKind::Stderr:
-      return "@stderr";
-  }
-  return "@stream";
+  return styio_std_stream_resource_label(kind);
 }
 
 std::string
@@ -133,6 +127,13 @@ class Builder
   std::unordered_map<std::string, std::size_t> state_slots_;
   std::unordered_map<std::string, std::size_t> task_bindings_;
   std::unordered_map<std::string, std::size_t> block_bindings_;
+  struct ResourceMethodInfo
+  {
+    bool consuming = false;
+    bool property = false;
+    std::size_t param_count = 0;
+  };
+  std::unordered_map<std::string, std::unordered_map<std::string, ResourceMethodInfo>> resource_methods_;
   std::unordered_set<std::string> consumed_tasks_;
   std::unordered_set<std::size_t> destroyed_resources_;
   std::unordered_set<std::size_t> unordered_execution_nodes_;
@@ -157,6 +158,13 @@ class Builder
 public:
   explicit Builder(BuildOptions options) :
       options_(std::move(options)) {
+    for (const auto& method : styio_builtin_resource_methods_latest()) {
+      resource_methods_[method.family][method.method] = ResourceMethodInfo{
+        method.consuming,
+        method.property,
+        method.param_count,
+      };
+    }
   }
 
   BuildResult build(MainBlockAST* ast) {
@@ -273,16 +281,16 @@ private:
     }
 
     if (auto* call = dynamic_cast<FuncCallAST*>(ast)) {
-      if (call->func_callee != nullptr && call->getNameAsStr() == "lines") {
+      const StyioBuiltinMethodKind builtin_method = styio_builtin_method_kind(call->getNameAsStr());
+      if (call->func_callee != nullptr
+          && builtin_method == StyioBuiltinMethodKind::StringLines) {
         const StyioDataType callee = type_hint(call->func_callee);
         if (callee.option == StyioDataTypeOption::String) {
           return styio_make_list_type("string");
         }
       }
       if (call->func_callee != nullptr
-          && (call->getNameAsStr() == "push"
-              || call->getNameAsStr() == "insert"
-              || call->getNameAsStr() == "pop")) {
+          && styio_is_predefined_list_operation_kind(builtin_method)) {
         return StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
       }
       return ast->getDataType();
@@ -392,6 +400,144 @@ private:
     return false;
   }
 
+  std::string resource_family_for_expr(StyioAST* expr) const {
+    if (expr == nullptr) {
+      return "";
+    }
+    if (dynamic_cast<FileResourceAST*>(expr) != nullptr) {
+      return "file";
+    }
+    if (auto* stream = dynamic_cast<StdStreamAST*>(expr)) {
+      return styio_std_stream_family_name(stream->getStreamKind());
+    }
+    if (auto* receiver = dynamic_cast<ResourceReceiverAST*>(expr)) {
+      return receiver->getFamilyName();
+    }
+    if (dynamic_cast<ResourceRefAST*>(expr) != nullptr) {
+      return "resource";
+    }
+    const StyioDataType type = type_hint(expr);
+    switch (type.handle_family) {
+      case StyioHandleFamily::File:
+        return "file";
+      case StyioHandleFamily::Stream:
+        if (type.has_std_stream_kind) {
+          return styio_std_stream_family_name(static_cast<StdStreamKind>(type.std_stream_kind));
+        }
+        return "stream";
+      default:
+        break;
+    }
+    if (styio_is_topology_resource_type(type)) {
+      return "resource";
+    }
+    return "";
+  }
+
+  const ResourceMethodInfo* find_resource_method(const std::string& family, const std::string& method) const {
+    auto family_it = resource_methods_.find(family);
+    if (family_it == resource_methods_.end()) {
+      return nullptr;
+    }
+    auto method_it = family_it->second.find(method);
+    if (method_it == family_it->second.end()) {
+      return nullptr;
+    }
+    return &method_it->second;
+  }
+
+  bool resource_method_body_consumes_receiver(StyioAST* ast, const std::string& family) const {
+    if (ast == nullptr) {
+      return false;
+    }
+    if (auto* redirect = dynamic_cast<ResourceRedirectAST*>(ast)) {
+      auto* receiver = dynamic_cast<ResourceReceiverAST*>(redirect->getData());
+      if (receiver != nullptr && receiver->getFamilyName() == family
+          && dynamic_cast<EmptyResourceAST*>(redirect->getResource()) != nullptr) {
+        return true;
+      }
+      return resource_method_body_consumes_receiver(redirect->getData(), family)
+        || resource_method_body_consumes_receiver(redirect->getResource(), family);
+    }
+    if (auto* call = dynamic_cast<FuncCallAST*>(ast)) {
+      auto* receiver = dynamic_cast<ResourceReceiverAST*>(call->func_callee);
+      if (receiver != nullptr && receiver->getFamilyName() == family) {
+        const ResourceMethodInfo* info = find_resource_method(family, call->getNameAsStr());
+        if (info != nullptr && info->consuming) {
+          return true;
+        }
+      }
+      for (auto* arg : call->getArgList()) {
+        if (resource_method_body_consumes_receiver(arg, family)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    if (auto* block = dynamic_cast<BlockAST*>(ast)) {
+      for (auto* stmt : block->stmts) {
+        if (resource_method_body_consumes_receiver(stmt, family)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    if (auto* bin = dynamic_cast<BinOpAST*>(ast)) {
+      return resource_method_body_consumes_receiver(bin->LHS, family)
+        || resource_method_body_consumes_receiver(bin->RHS, family);
+    }
+    if (auto* cond = dynamic_cast<CondAST*>(ast)) {
+      return resource_method_body_consumes_receiver(cond->getValue(), family)
+        || resource_method_body_consumes_receiver(cond->getLHS(), family)
+        || resource_method_body_consumes_receiver(cond->getRHS(), family);
+    }
+    return false;
+  }
+
+  std::size_t visit_resource_sink_write(
+    StyioAST* ast,
+    StyioAST* data_expr,
+    StyioAST* resource_expr,
+    Context ctx,
+    const char* sink_label,
+    const char* data_edge_label,
+    const char* commit_label,
+    const char* mutation_label,
+    const char* cap_msg,
+    const char* access_label
+  ) {
+    const std::size_t resource = visit(resource_expr, Context{kNoNode, ctx.in_state_decl});
+    const std::size_t sink = add_ast_node(
+      ast,
+      NodeKind::Sink,
+      sink_label,
+      Capability::None,
+      TypeState::Ready,
+      ctx);
+    const std::size_t data = visit(data_expr, Context{sink, ctx.in_state_decl});
+    require_cap(resource, Capability::Push, cap_msg, resource_expr);
+    if (data != kNoNode) {
+      result_.graph.add_edge(EdgeKind::Flow, data, sink, data_edge_label);
+    }
+    if (resource != kNoNode) {
+      const bool logical = dynamic_cast<ResourceRefAST*>(resource_expr) != nullptr;
+      result_.graph.add_edge(
+        EdgeKind::Commit,
+        sink,
+        resource,
+        logical ? "pending-write-commit" : commit_label);
+      result_.graph.add_edge(
+        EdgeKind::Mutation,
+        sink,
+        resource,
+        logical ? "pending-write" : mutation_label);
+      result_.graph.add_edge(EdgeKind::Backpressure, sink, resource, "write-pressure");
+      record_access(resource, ctx.owner, true, ast, access_label);
+      own_if_close(sink, resource);
+    }
+    return sink;
+  }
+
   std::size_t visit(StyioAST* ast, Context ctx) {
     if (ast == nullptr) {
       return kNoNode;
@@ -430,10 +576,11 @@ private:
 
     if (auto* receiver = dynamic_cast<ResourceReceiverAST*>(ast)) {
       Capability caps = Capability::Pull | Capability::Iter | Capability::Push | Capability::Close;
-      if (receiver->getFamilyName() == "stdin") {
+      if (styio_is_stdin_resource_family_name(receiver->getFamilyName())) {
         caps = Capability::Pull | Capability::Iter;
       }
-      else if (receiver->getFamilyName() == "stdout" || receiver->getFamilyName() == "stderr") {
+      else if (styio_is_stdout_resource_family_name(receiver->getFamilyName())
+               || styio_is_stderr_resource_family_name(receiver->getFamilyName())) {
         caps = Capability::Push;
       }
       return add_ast_node(
@@ -446,6 +593,12 @@ private:
     }
 
     if (auto* method = dynamic_cast<ResourceMethodDefAST*>(ast)) {
+      resource_methods_[method->getFamilyName()][method->getMethodName()] = ResourceMethodInfo{
+        !method->isProperty()
+          && resource_method_body_consumes_receiver(method->getBody(), method->getFamilyName()),
+        method->isProperty(),
+        method->getParams().size(),
+      };
       const std::size_t node = add_ast_node(
         ast,
         NodeKind::Value,
@@ -578,11 +731,11 @@ private:
     }
 
     if (auto* wr = dynamic_cast<ResourceWriteAST*>(ast)) {
-      const std::size_t resource = visit(wr->getResource(), Context{kNoNode, ctx.in_state_decl});
       if (auto* target_name = dynamic_cast<NameAST*>(wr->getData())) {
         if (auto* stream = dynamic_cast<StdStreamAST*>(wr->getResource())) {
           if (stream->getStreamKind() == StdStreamKind::Stdin
               && binding_nodes_.find(target_name->getAsStr()) == binding_nodes_.end()) {
+            const std::size_t resource = visit(wr->getResource(), Context{kNoNode, ctx.in_state_decl});
             const StyioDataType collected_type = styio_make_list_type("string");
             const std::size_t binding = add_ast_node(
               ast,
@@ -601,40 +754,29 @@ private:
           }
         }
       }
-      const std::size_t sink = add_ast_node(
+      return visit_resource_sink_write(
         ast,
-        NodeKind::Sink,
+        wr->getData(),
+        wr->getResource(),
+        ctx,
         "sink:resource_write",
-        Capability::None,
-        TypeState::Ready,
-        ctx);
-      const std::size_t data = visit(wr->getData(), Context{sink, ctx.in_state_decl});
-      require_cap(resource, Capability::Push, "write target must have push capability", wr->getResource());
-      if (data != kNoNode) {
-        result_.graph.add_edge(EdgeKind::Flow, data, sink, "write-data");
-      }
-      if (resource != kNoNode) {
-        const bool logical = dynamic_cast<ResourceRefAST*>(wr->getResource()) != nullptr;
-        result_.graph.add_edge(EdgeKind::Commit, sink, resource, logical ? "pending-write-commit" : "write-commit");
-        result_.graph.add_edge(EdgeKind::Mutation, sink, resource, logical ? "pending-write" : "write");
-        result_.graph.add_edge(EdgeKind::Backpressure, sink, resource, "write-pressure");
-        record_access(resource, ctx.owner, true, ast, "write");
-        own_if_close(sink, resource);
-      }
-      return sink;
+        "write-data",
+        "write-commit",
+        "write",
+        "write target must have push capability",
+        "write");
     }
 
     if (auto* redir = dynamic_cast<ResourceRedirectAST*>(ast)) {
-      const std::size_t resource = visit(redir->getResource(), Context{kNoNode, ctx.in_state_decl});
-      const std::size_t sink = add_ast_node(
-        ast,
-        NodeKind::Sink,
-        "sink:resource_redirect",
-        Capability::None,
-        TypeState::Ready,
-        ctx);
-      const std::size_t data = visit(redir->getData(), Context{sink, ctx.in_state_decl});
       if (dynamic_cast<EmptyResourceAST*>(redir->getResource()) != nullptr) {
+        const std::size_t sink = add_ast_node(
+          ast,
+          NodeKind::Sink,
+          "sink:resource_redirect",
+          Capability::None,
+          TypeState::Ready,
+          ctx);
+        const std::size_t data = visit(redir->getData(), Context{sink, ctx.in_state_decl});
         if (data != kNoNode) {
           result_.graph.add_edge(EdgeKind::Mutation, sink, data, "destroy");
           result_.graph.add_edge(EdgeKind::Commit, sink, data, "destroy-commit");
@@ -643,19 +785,17 @@ private:
         }
         return sink;
       }
-      require_cap(resource, Capability::Push, "redirect target must have push capability", redir->getResource());
-      if (data != kNoNode) {
-        result_.graph.add_edge(EdgeKind::Flow, data, sink, "redirect-data");
-      }
-      if (resource != kNoNode) {
-        const bool logical = dynamic_cast<ResourceRefAST*>(redir->getResource()) != nullptr;
-        result_.graph.add_edge(EdgeKind::Commit, sink, resource, logical ? "pending-write-commit" : "redirect-commit");
-        result_.graph.add_edge(EdgeKind::Mutation, sink, resource, logical ? "pending-write" : "redirect");
-        result_.graph.add_edge(EdgeKind::Backpressure, sink, resource, "redirect-pressure");
-        record_access(resource, ctx.owner, true, ast, "redirect");
-        own_if_close(sink, resource);
-      }
-      return sink;
+      return visit_resource_sink_write(
+        ast,
+        redir->getData(),
+        redir->getResource(),
+        ctx,
+        "sink:resource_redirect",
+        "redirect-data",
+        "redirect-commit",
+        "redirect",
+        "redirect target must have push capability",
+        "redirect");
     }
 
     if (auto* iter = dynamic_cast<IteratorAST*>(ast)) {
@@ -997,11 +1137,14 @@ private:
             || has_capability(result_.graph.node(receiver).capabilities, Capability::Push)
             || has_capability(result_.graph.node(receiver).capabilities, Capability::Close);
           if (resource_like) {
-            const bool consuming =
-              call->getNameAsStr() == "close"
-              || call->getNameAsStr() == "drop"
-              || call->getNameAsStr() == "destroy";
-            const bool exclusive = consuming || call->getNameAsStr() == "write";
+            const StyioBuiltinMethodKind builtin_method = styio_builtin_method_kind(call->getNameAsStr());
+            const std::string family = resource_family_for_expr(call->func_callee);
+            const ResourceMethodInfo* method = find_resource_method(family, call->getNameAsStr());
+            const bool consuming = method != nullptr
+              ? method->consuming
+              : styio_is_resource_destroy_method_kind(builtin_method);
+            const bool exclusive = consuming
+              || (method != nullptr && styio_is_resource_write_method_kind(builtin_method));
             result_.graph.add_edge(
               exclusive ? EdgeKind::Mutation : EdgeKind::Borrow,
               node,

@@ -115,7 +115,6 @@ using StyioSemaLoweringVisitor = AnalyzerVisitor<
   class StreamZipAST,
   class SnapshotDeclAST,
   class InstantPullAST,
-  class TypedStdinListAST,
   class TaskBlockAST,
   class TaskGroupLaunchAST,
   class FlowBindAST,
@@ -305,7 +304,6 @@ public:
   void typeInfer(StreamZipAST* ast) override;
   void typeInfer(SnapshotDeclAST* ast) override;
   void typeInfer(InstantPullAST* ast) override;
-  void typeInfer(TypedStdinListAST* ast) override;
   void typeInfer(TaskBlockAST* ast) override;
   void typeInfer(TaskGroupLaunchAST* ast) override;
   void typeInfer(FlowBindAST* ast) override;
