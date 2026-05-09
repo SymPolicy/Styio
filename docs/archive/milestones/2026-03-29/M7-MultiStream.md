@@ -210,10 +210,10 @@ f2 >> #(line) => { >_(line) }
 
 ## Post-M7: What Comes Next
 
-After M7, Styio has a **fully functional single-machine stream processing compiler**. Future work:
+After M7, the milestone expected the listed single-machine stream-processing compiler paths to pass their acceptance tests. Future work:
 
-- **Performance benchmarking** against Flink, hand-written C++, Python/Polars
-- **Real resource drivers** (network sockets, databases, exchange APIs)
+- **Performance measurement** with named baselines in `styio-benchmark`
+- **Resource driver families** (network sockets, databases, exchange APIs)
 - **Strict mode** (AOT compilation, dead code elimination)
 - **Schema declarations** (explicit state ledger)
 - **`styio audit`** tool (auto-rewrite scattered state to schema)

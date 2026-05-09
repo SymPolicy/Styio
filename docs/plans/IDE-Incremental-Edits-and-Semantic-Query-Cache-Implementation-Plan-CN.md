@@ -1,6 +1,6 @@
 # IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan-CN
 
-**Purpose:** 这是 [`IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md`](./IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md) 的中文镜像版本，用于定义 Styio IDE 子系统从当前 MVP 形态推进到成熟 IDE 级补全与语义能力的完整路线图。该路线图明确要求至少对标 3 套成熟语言工具链，而不是只参考 Rust 一条线；冻结验收目标见 [`../milestones/2026-04-15/`](../milestones/2026-04-15/)，IDE 使用方式见 [`../external/for-ide/README.md`](../external/for-ide/README.md)。
+**Purpose:** 这是 [`IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md`](./IDE-Incremental-Edits-and-Semantic-Query-Cache-Implementation-Plan.md) 的中文镜像版本，用于定义 Styio IDE 子系统从当前 MVP 形态推进到成熟 IDE 级补全与语义能力的完整路线图。该路线图参考多套成熟语言工具链，而不是只参考单一实现家族；冻结验收目标见 [`../milestones/2026-04-15/`](../milestones/2026-04-15/)，IDE 使用方式见 [`../external/for-ide/README.md`](../external/for-ide/README.md)。
 
 **Last updated:** 2026-04-16
 
@@ -24,13 +24,13 @@
 7. 工作区级符号/引用索引
 8. 后台运行时控制、取消机制和性能门槛
 
-这条路线图明确至少对标 3 套外部工具链族：
+这条路线图参考 3 套外部工具链族：
 
 1. C++：`clang` / `clangd`
 2. Python：CPython PEG parser 加 `parso` / `pyright` 风格编辑态工具
 3. Rust：`rustc` / `rust-analyzer`
 
-目标不是照搬其中任何一套，而是吸收三者最成熟的做法：
+目标不是照搬其中任何一套，而是吸收三者已有文档和实现中可验证的做法：
 
 - C++ 提供“复用编译器真相”、后台索引和工作区导航分层
 - Python 提供容错编辑态解析，以及在残缺代码下继续工作的 best-effort 语义服务
@@ -100,7 +100,7 @@
 | indexing | 打开文件状态、后台索引和持久化索引保持分层 |
 | runtime | 前台延迟优先于后台索引和维护任务 |
 
-在整个路线图周期内，还固定保持以下对标基线：
+在整个路线图周期内，还固定保持以下参考清单：
 
 | 工具链族 | 参考工具 | Styio 需要吸收的经验 |
 |------|----------|----------|

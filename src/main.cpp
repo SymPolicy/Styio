@@ -3874,6 +3874,9 @@ styio_native_build_write_wrapper_latest(
   std::string& error_message
 ) {
   const std::string wrapper = R"cpp(
+#include <chrono>
+#include <cstdlib>
+#include <fstream>
 #include <iostream>
 
 extern "C" int styio_user_main();
@@ -3882,12 +3885,89 @@ extern "C" const char* styio_runtime_last_error();
 extern "C" const char* styio_runtime_last_error_subcode();
 extern "C" void styio_runtime_clear_error();
 
+static long long styio_profile_ns_between(
+  std::chrono::steady_clock::time_point started,
+  std::chrono::steady_clock::time_point ended
+) {
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(ended - started).count();
+}
+
+static void styio_profile_write(
+  const char* path,
+  const char* status,
+  const char* const* phase_names,
+  const long long* phase_durations,
+  int phase_count,
+  long long total_duration_ns
+) {
+  if (path == nullptr || path[0] == '\0') {
+    return;
+  }
+  std::ofstream out(path, std::ios::out | std::ios::trunc);
+  if (!out.is_open()) {
+    return;
+  }
+  out << "{\n"
+      << "  \"schema_version\": 1,\n"
+      << "  \"tool\": \"styio-native-profiler\",\n"
+      << "  \"scope\": \"native_artifact\",\n"
+      << "  \"status\": \"" << status << "\",\n"
+      << "  \"total_duration_ns\": " << total_duration_ns << ",\n"
+      << "  \"phases\": [";
+  for (int i = 0; i < phase_count; ++i) {
+    out << (i == 0 ? "\n" : ",\n")
+        << "    {\"name\": \"" << phase_names[i]
+        << "\", \"duration_ns\": " << phase_durations[i] << "}";
+  }
+  if (phase_count > 0) {
+    out << "\n  ";
+  }
+  out << "]\n"
+      << "}\n";
+}
+
 int main() {
+  const auto profile_started = std::chrono::steady_clock::now();
+  const char* profile_out = std::getenv("STYIO_NATIVE_PROFILE_OUT");
+  const char* phase_names[3] = {};
+  long long phase_durations[3] = {};
+  int phase_count = 0;
+
+  auto phase_started = std::chrono::steady_clock::now();
   styio_runtime_clear_error();
+  phase_names[phase_count] = "runtime_init";
+  phase_durations[phase_count] = styio_profile_ns_between(
+    phase_started,
+    std::chrono::steady_clock::now());
+  phase_count += 1;
+
+  phase_started = std::chrono::steady_clock::now();
   const int code = styio_user_main();
-  if (styio_runtime_has_error()) {
-    const char* message = styio_runtime_last_error();
-    const char* subcode = styio_runtime_last_error_subcode();
+  phase_names[phase_count] = "execute";
+  phase_durations[phase_count] = styio_profile_ns_between(
+    phase_started,
+    std::chrono::steady_clock::now());
+  phase_count += 1;
+
+  phase_started = std::chrono::steady_clock::now();
+  const bool has_error = styio_runtime_has_error();
+  const char* message = has_error ? styio_runtime_last_error() : nullptr;
+  const char* subcode = has_error ? styio_runtime_last_error_subcode() : nullptr;
+  phase_names[phase_count] = "runtime_check";
+  phase_durations[phase_count] = styio_profile_ns_between(
+    phase_started,
+    std::chrono::steady_clock::now());
+  phase_count += 1;
+
+  styio_profile_write(
+    profile_out,
+    has_error ? "runtime_error" : "success",
+    phase_names,
+    phase_durations,
+    phase_count,
+    styio_profile_ns_between(profile_started, std::chrono::steady_clock::now()));
+
+  if (has_error) {
     std::cerr << "[RuntimeError] " << (message != nullptr ? message : "runtime helper reported error");
     if (subcode != nullptr && subcode[0] != '\0') {
       std::cerr << " [" << subcode << "]";
@@ -5161,28 +5241,39 @@ main(
   }
 
   try {
-    llvm::InitializeNativeTarget();
-    llvm::InitializeNativeTargetAsmPrinter();
-    llvm::InitializeNativeTargetAsmParser();
+    std::unique_ptr<StyioJIT_ORC> jit;
+    {
+      auto profile_phase = frontend_profiler.phase("runtime_init");
+      llvm::InitializeNativeTarget();
+      llvm::InitializeNativeTargetAsmPrinter();
+      llvm::InitializeNativeTargetAsmParser();
 
-    auto jit_or_err = StyioJIT_ORC::Create();
-    if (!jit_or_err) {
-      std::string emsg;
-      llvm::handleAllErrors(
-        jit_or_err.takeError(),
-        [&](const llvm::ErrorInfoBase& e) { emsg = e.message(); });
-      styio_emit_diagnostic(error_format, StyioErrorCategory::RuntimeError, fpath, emsg);
-      return styio_exit_code(StyioErrorCategory::RuntimeError);
+      auto jit_or_err = StyioJIT_ORC::Create();
+      if (!jit_or_err) {
+        std::string emsg;
+        llvm::handleAllErrors(
+          jit_or_err.takeError(),
+          [&](const llvm::ErrorInfoBase& e) { emsg = e.message(); });
+        styio_emit_diagnostic(error_format, StyioErrorCategory::RuntimeError, fpath, emsg);
+        return styio_exit_code(StyioErrorCategory::RuntimeError);
+      }
+      jit = std::move(*jit_or_err);
     }
 
-    StyioToLLVM generator = StyioToLLVM(std::move(*jit_or_err));
-    session.ir()->toLLVMIR(&generator);
-    const CompilationPhase previous_phase = session.phase();
-    session.mark_codegen_ready();
-    emit_compile_plan_session_transition(previous_phase, "mark_codegen_ready");
-    const std::string llvm_ir_text = generator.dump_llvm_ir();
+    std::unique_ptr<StyioToLLVM> generator;
+    std::string llvm_ir_text;
+    {
+      auto profile_phase = frontend_profiler.phase("llvm_ir");
+      generator = std::make_unique<StyioToLLVM>(std::move(jit));
+      session.ir()->toLLVMIR(generator.get());
+      const CompilationPhase previous_phase = session.phase();
+      session.mark_codegen_ready();
+      emit_compile_plan_session_transition(previous_phase, "mark_codegen_ready");
+      llvm_ir_text = generator->dump_llvm_ir();
+    }
 
     if (compile_plan_request.has_value()) {
+      auto profile_phase = frontend_profiler.phase("artifact_emit");
       std::string artifact_error;
       const std::filesystem::path llvm_ir_path =
         compile_plan_request->artifact_dir / (compile_plan_artifact_stem + ".llvm.ir");
@@ -5194,12 +5285,14 @@ main(
     }
 
     if (show_llvm_ir) {
-      generator.print_llvm_ir();
+      auto profile_phase = frontend_profiler.phase("artifact_emit");
+      generator->print_llvm_ir();
     }
     const bool should_execute =
       !compile_plan_request.has_value()
       || (compile_plan_request->intent != "build" && compile_plan_request->intent != "check");
     if (should_execute) {
+      auto profile_phase = frontend_profiler.phase("execute");
       if (compile_plan_request.has_value()) {
         if (compile_plan_request->intent == "test") {
           styio_emit_runtime_event_latest(
@@ -5230,7 +5323,7 @@ main(
       }
       styio_runtime_clear_error();
       styio_runtime_set_log_sink(styio_runtime_log_sink_latest);
-      generator.execute();
+      generator->execute();
       styio_runtime_set_log_sink(nullptr);
       compile_plan_runtime_executed = true;
       if (compile_plan_request.has_value()) {

@@ -1,8 +1,8 @@
 # Styio — Research Innovation Points & Paper Roadmap
 
-**Purpose:** 论文向 **创新主张与路线图**；**不**作为语言实现或语义的规范依据（实现见 `../specs/AGENT-SPEC.md`，语义见 `Styio-Language-Design.md`）。
+**Purpose:** 论文向研究假设与证据清单；**不**作为语言实现或语义的规范依据（实现见 `../specs/AGENT-SPEC.md`，语义见 `Styio-Language-Design.md`），也不作为产品、性能或外部系统比较声明。
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-05-09
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -16,17 +16,17 @@
 
 Alternative:
 
-> **From Symbols to Silicon: A Zero-Overhead Abstraction for Real-Time Multi-Source Stream Topology**
+> **From Symbols to Runtime: Stream Topology for Multi-Source Programs**
 
 ---
 
 ## Abstract (Draft)
 
-Modern stream processing systems face a fundamental tension: high-level declarative languages (SQL, dataflow DSLs) provide elegant abstractions but impose runtime overhead through garbage collection, dynamic dispatch, and monadic wrapping; low-level languages (C++, Rust) achieve peak performance but require developers to manually manage state buffers, synchronization barriers, and error propagation across heterogeneous data sources.
+Stream processing language design involves tradeoffs among expressiveness, runtime cost, state layout, synchronization, and error propagation. This draft records Styio research hypotheses and the evidence needed to evaluate them.
 
-We present **Styio**, a statically-typed, symbol-driven stream processing language that resolves this tension through five novel mechanisms: (1) **intent-aware compilation** that pushes field-access analysis down to I/O drivers at compile time; (2) **pulse frame locking** that provides hardware-clock-like deterministic snapshots without explicit synchronization primitives; (3) **algebraic absence propagation** that handles missing data at the value level without monadic types or runtime exceptions; (4) **virtual state mounting** with anonymous ledgers that enable scattered state declarations to compile into contiguous, cache-friendly memory layouts; and (5) **dual-track stream synchronization** that distinguishes push-aligned (zip) and pull-snapshot joins at the AST level, enabling fundamentally different code generation strategies.
+Styio explores five design areas: (1) **intent-aware compilation** that carries field-access analysis to resource drivers; (2) **pulse frame locking** for deterministic committed snapshots; (3) **algebraic absence propagation** at the value level; (4) **virtual state mounting** with anonymous ledgers; and (5) **dual-track stream synchronization** that distinguishes push-aligned and pull-snapshot joins at the AST level.
 
-We implement Styio as a C++20 compiler targeting LLVM IR with ORC JIT execution. On a benchmark suite of quantitative trading strategies operating on real-time market data from multiple exchanges, Styio achieves latency within 3% of hand-optimized C++ while requiring 5-10x fewer lines of code, and provides correctness guarantees (no silent NaN propagation, no data-race snapshots) that are impossible to express in existing stream processing frameworks.
+Any latency, code-size, safety, or related-work statement must be backed by repository tests, `styio-benchmark` reports, or cited primary sources before publication.
 
 ---
 
@@ -34,7 +34,7 @@ We implement Styio as a C++20 compiler targeting LLVM IR with ORC JIT execution.
 
 ### The Problem
 
-Existing stream systems treat I/O as opaque. When a Flink job reads from Kafka, it deserializes the entire message, even if only one field is used. When a Pandas script reads a CSV, it loads every column into memory.
+Resource drivers may expose fields that a program never reads. The research question is whether compiler-derived field usage can be passed to drivers without weakening type or resource checks.
 
 ### Styio's Contribution
 
@@ -48,15 +48,15 @@ Let \(R\) be a resource, \(F(R) = \{f_1, f_2, \ldots, f_n\}\) its full schema, a
 - Columnar file drivers to seek directly to relevant column chunks
 - Network drivers to subscribe to minimal data channels
 
-**Key distinction from prior work:**
+**Evidence required before external comparison:**
 
-- Apache Calcite performs predicate pushdown on SQL queries — but only within the SQL domain
-- Spark's Catalyst optimizer prunes columns — but only after full deserialization into JVM objects
-- Styio pushes intent **across the language-driver boundary**, before any data enters the runtime
+- cite primary documentation for each external optimizer or runtime being discussed
+- record the exact workload and driver contract being measured
+- state Styio behavior only for compiler paths covered by tests
 
 ### Evaluation Criteria
 
-Measure bytes transferred from source to runtime for identical analytical queries across Styio, PySpark, and Flink. Expect 2-10x reduction for wide-schema sources.
+Measure bytes transferred from source to runtime for identical analytical queries. Do not publish reduction ratios until the workload, inputs, and measured outputs are recorded in `styio-benchmark`.
 
 ---
 
@@ -78,19 +78,19 @@ For a closure \(C\) triggered by pulse \(p_t\) at time \(t\):
 
 **Implementation:**
 
-At frame entry, the runtime performs a single atomic snapshot of all declared shadow slots. The cost is O(k) where k is the number of declared shadows — typically 2-5 in practice.
+At frame entry, the runtime performs one snapshot of declared shadow slots. The cost is O(k), where k is the number of declared shadows.
 
-**Key distinction from prior work:**
+**Evidence required before external comparison:**
 
-- Flink's checkpointing provides consistency but at epoch granularity (seconds), not per-event
-- Kafka Streams' state stores use RocksDB with read-your-writes semantics, but no cross-store atomicity
-- Hardware description languages (Verilog) have clock-edge semantics, but Styio achieves this in software without a physical clock
+- cite primary documentation for each external consistency model being discussed
+- define the pulse/frame scenario before comparing behavior
+- separate measured behavior from design intent
 
 **Hot pull escape hatch:** The `(<< @resource)` syntax explicitly bypasses frame lock for latency-critical live reads, giving developers fine-grained control.
 
 ### Evaluation Criteria
 
-Construct a scenario where two state references are read in the same expression. Measure the frequency of inconsistent reads (time-tearing) in Styio (expected: 0) vs. equivalent code in RxJava, Flink, and async Python.
+Construct a scenario where two state references are read in the same expression. Measure whether covered Styio paths preserve committed-snapshot consistency, then compare only against explicitly defined and cited baseline programs.
 
 ---
 
@@ -98,10 +98,10 @@ Construct a scenario where two state references are read in the same expression.
 
 ### The Problem
 
-Missing data is pervasive in real-world streams (network drops, sensor failures, data gaps). Languages handle this in three ways, all with drawbacks:
+Missing data is pervasive in real-world streams (network drops, sensor failures, data gaps). Common representations include:
 
-1. **Null/nil** (Java, Python): Runtime NPE crashes
-2. **Option/Maybe monads** (Rust, Haskell): Safe but syntactically heavy — `unwrap()`, `match`, `?` operator on every access
+1. **Nullable sentinels:** require explicit checks at use sites
+2. **Option/Maybe-style wrappers:** make absence explicit in the type
 3. **NaN** (IEEE 754): Propagates silently but only works for floats, and `NaN != NaN` breaks equality
 
 ### Styio's Contribution
@@ -109,7 +109,7 @@ Missing data is pervasive in real-world streams (network drops, sensor failures,
 Styio introduces runtime `@` as an **algebraic absence value** that:
 
 - Propagates through supported value families as runtime absence, not as a user-authored bare source literal
-- Costs zero bytes in the happy path (represented as a metadata flag bit, not a wrapper type)
+- Keeps the common value representation outside user-authored wrapper types where the compiler path supports it
 - Carries **diagnostic metadata** in debug mode (reason code, source location)
 - Can be intercepted at any point via `|` (fallback) or `??` (diagnostic extract)
 
@@ -126,16 +126,15 @@ The `|` operator provides recovery:
 \[@ \mid d = d\]
 \[a \mid d = a \quad (\text{when } a \neq @)\]
 
-**Key distinction from prior work:**
+**Evidence required before external comparison:**
 
-- Unlike Rust's `Option<T>`, `@` requires no unwrapping — it flows through expressions invisibly
-- Unlike IEEE 754 NaN, `@` works on integers, strings, booleans, and composite types
-- Unlike SQL NULL (where `NULL = NULL` is `NULL`), Styio's `@` has well-defined equality: `@ == @` is `true`
-- The diagnostic taint system provides the traceability of exceptions without the control-flow disruption
+- specify the exact absence semantics being compared
+- cite the referenced language or runtime behavior
+- measure syntax and runtime cost with reproducible cases
 
 ### Evaluation Criteria
 
-Compare LOC and runtime overhead for a data pipeline with 5% missing values across Styio, Rust (with `Option`), Python (with `None` checks), and Java (with `Optional`). Measure both correctness (no silent corruption) and code brevity.
+Compare source size and runtime overhead for a data pipeline with controlled missing-value inputs. Keep external baselines in `styio-benchmark` and cite primary language references for each absence model.
 
 ---
 
@@ -143,11 +142,9 @@ Compare LOC and runtime overhead for a data pipeline with 5% missing values acro
 
 ### The Problem
 
-Stream processing requires persistent state (accumulators, buffers, counters). In existing systems:
+Stream processing requires persistent state (accumulators, buffers, counters). This design studies how much state layout can be decided from source-level declarations.
 
-- **Manual management** (C++): Developer allocates, sizes, and frees buffers. Error-prone.
-- **Managed heaps** (JVM/Python): GC pauses destroy latency guarantees.
-- **State backends** (Flink/RocksDB): High per-access overhead, designed for fault tolerance not speed.
+The comparison surface includes manual buffers, managed heaps, and external state backends, but each external system must be described from primary sources before publication.
 
 ### Styio's Contribution
 
@@ -167,22 +164,22 @@ Let \(S = \{s_1, s_2, \ldots, s_m\}\) be the set of all state declarations in a 
 
 A single `mmap` or stack allocation of `total_size` bytes serves the entire program's state needs.
 
-**Consequences:**
+**Implementation targets:**
 
-- **Zero GC:** No heap allocation, no garbage collection pauses
-- **Cache-friendly:** Sequential state access follows the prefetcher's prediction
-- **Instant serialization:** `memcpy(disk, ledger_base, total_size)` snapshots the entire system state
+- **No per-pulse allocation in covered paths:** verified through compiler/runtime tests
+- **Contiguous slot layout:** selectors lower to offsets in the resource ledger
+- **Snapshot copy path:** `memcpy(disk, ledger_base, total_size)` is the candidate implementation for fixed-layout snapshots
 - **Hot restart:** Load snapshot, remap base pointer, resume execution with full history
 
-**Key distinction from prior work:**
+**Evidence required before external comparison:**
 
-- Rust's ownership system prevents GC but doesn't optimize memory layout across unrelated variables
-- Flink's state backends are designed for distributed fault tolerance, not single-machine cache optimization
-- Styio's approach is closest to **arena allocation** in game engines, but automatically derived from source code analysis rather than manually managed
+- cite primary documentation for each external state model
+- measure allocation count, cache behavior, and snapshot cost on fixed workloads
+- avoid statements about external design goals unless sourced
 
 ### Evaluation Criteria
 
-Measure L1/L2 cache miss rates for state access patterns in Styio vs. equivalent Rust (scattered heap allocations) and Java (object-per-state). Measure snapshot/restore latency for a system with 100+ state variables.
+Measure L1/L2 cache miss rates for state access patterns and snapshot/restore latency for a system with 100+ state variables. External baselines require source-linked implementations.
 
 ---
 
@@ -195,7 +192,7 @@ When combining streams of different frequencies (e.g., 100Hz market data + 1Hz f
 - **Inner join (zip):** Only process when both arrive — loses high-frequency resolution
 - **Latest-value join:** Process on every high-frequency tick, using stale low-frequency data — risk of using arbitrarily old data
 
-Most systems offer this choice only at the API level (e.g., Flink's `connect().process()`), making the synchronization semantics invisible to the optimizer.
+The research question is whether making synchronization mode part of the AST gives the compiler a clearer lowering contract than library-only call sites.
 
 ### Styio's Contribution
 
@@ -209,19 +206,18 @@ Because the synchronization mode is known at compile time, the code generator pr
 - **Zip:** Two input queues + barrier synchronization + merged dispatch
 - **Snapshot:** Background atomic write + foreground atomic load (no synchronization overhead on the hot path)
 
-**Key distinction from prior work:**
+**Evidence required before external comparison:**
 
-- Kafka Streams' `KStream.join()` and `KTable.join()` distinguish stream-stream vs. stream-table joins, but this distinction is an API choice, not a language-level construct visible to the optimizer
-- Flink's `connect()` merges streams but leaves synchronization to the user-written `CoProcessFunction`
-- Styio makes the join mode a **syntactic property of the expression**, enabling the compiler to choose between barrier instructions and lock-free reads
+- cite external API semantics from primary documentation
+- define the same stream timing model for all programs under comparison
+- report Styio behavior only for AST and lowering paths covered by tests
 
 ### Evaluation Criteria
 
 Benchmark a cross-exchange arbitrage strategy that combines a 100Hz price feed with a 1Hz risk_factor feed. Compare latency percentiles (p50, p99, p99.9) across:
 - Styio with `&` (zip mode)
 - Styio with `$` snapshot mode
-- Equivalent Flink `CoProcessFunction`
-- Equivalent C++ with manual `std::atomic` + condition variable
+- cited external baseline implementations
 
 ---
 
@@ -229,7 +225,7 @@ Benchmark a cross-exchange arbitrage strategy that combines a 100Hz price feed w
 
 ### 6.1 Beyond Quantitative Finance
 
-While the initial target is financial trading, Styio's design is applicable to:
+Candidate application areas for evaluation:
 
 - **IoT edge computing:** Sensor fusion with heterogeneous sampling rates
 - **Autonomous systems:** Real-time decision pipelines with fail-safe `@` propagation
@@ -238,11 +234,11 @@ While the initial target is financial trading, Styio's design is applicable to:
 
 ### 6.2 Formal Verification
 
-The algebraic properties of `@` and the determinism of pulse frame locking open the door to **formal verification** of stream processing pipelines:
+The algebraic properties of `@` and the determinism of pulse frame locking define candidate proof obligations:
 
-- Prove that a trading strategy never executes on stale data (frame lock guarantee)
-- Prove that missing data never silently corrupts an accumulator (algebraic absence guarantee)
-- Prove that state serialization is always consistent (contiguous ledger guarantee)
+- stale-data checks for frame-locked reads
+- missing-data propagation checks for accumulators
+- snapshot consistency checks for contiguous ledgers
 
 ### 6.3 Distributed Styio
 
@@ -254,18 +250,14 @@ The current design targets single-machine execution. Extending to distributed cl
 
 ---
 
-## 7. Related Work Positioning
+## 7. Related Work Evidence Ledger
 
-| System | Intent Pushdown | Frame Lock | Algebraic Absence | State Layout | Sync Modes |
-|--------|:-:|:-:|:-:|:-:|:-:|
-| Apache Flink | Partial (Calcite) | Epoch-level | No (exceptions) | RocksDB backend | API-level |
-| Kafka Streams | No | No | No (null) | RocksDB backend | API-level |
-| Apache Spark | Partial (Catalyst) | Batch-level | No (null) | JVM heap | API-level |
-| RxJava/RxJS | No | No | No (onError) | GC heap | Operator-level |
-| Timely Dataflow | No | Progress tracking | No | Manual | Operator-level |
-| Differential Dataflow | No | Frontier-based | No | Arrangements | Operator-level |
-| KDB+/Q | No | Single-threaded | No (0N) | Columnar arrays | None |
-| **Styio** | **Full (cross-boundary)** | **Per-pulse** | **Yes (algebraic @)** | **Contiguous ledger** | **AST-level** |
+Related-work tables must be built from cited primary sources and reproducible baseline programs. This draft does not assert external system behavior. A publishable ledger must include:
+
+1. source link and version for each external system
+2. exact feature or API under discussion
+3. Styio compiler path or runtime path used for comparison
+4. benchmark or test artifact that supports the statement
 
 ---
 
@@ -273,48 +265,48 @@ The current design targets single-machine execution. Extending to distributed cl
 
 ### On Paper Structure
 
-I recommend structuring the paper as follows:
+Possible paper structure:
 
 1. **Introduction** — The performance-expressiveness gap in stream processing
 2. **Motivating Example** — The golden cross strategy (as developed in the Gemini discussion)
 3. **Language Design** — Core syntax, focusing on the five innovations
 4. **Compilation Pipeline** — Lexer → Parser → State Analysis → Intent Extraction → LLVM CodeGen
-5. **Evaluation** — Benchmarks against Flink, hand-written C++, and Python
+5. **Evaluation** — reproducible measurements and cited baselines
 6. **Discussion** — Limitations (symbol density, learning curve, single-machine only)
 7. **Related Work** — Positioning table above
 8. **Conclusion**
 
 ### On Evaluation Strategy
 
-The strongest evidence would come from a **three-way comparison**:
+Required evidence should include a three-way study:
 
 1. **Styio** — the complete system
 2. **Styio-minus** — ablation studies removing each innovation one at a time (e.g., Styio without frame lock, Styio without intent pushdown)
-3. **Baselines** — Flink (Java), hand-written C++ with LLVM, Python with Polars
+3. **Baselines** — source-linked external implementations with recorded workloads
 
-This demonstrates that each innovation contributes independently to the system's advantages.
+This keeps each design area tied to measurable behavior.
 
 ### On Intellectual Honesty
 
 The paper should openly acknowledge:
 
-- **Symbol density** is a real usability concern (cite APL/J's "write-only" reputation)
+- **Symbol density** requires usability evaluation
 - **Single-machine limitation** restricts applicability to scenarios where data fits in memory
 - **Pulse frame locking** adds O(k) overhead per pulse — quantify this precisely
 - **The "thick library" model** means the standard library is a significant engineering investment before the language becomes practically useful
 
-Acknowledging limitations strengthens rather than weakens the paper.
+Acknowledging limitations keeps the paper evidence-scoped.
 
-### On Novelty Claims
+### On Research Statement Discipline
 
-The strongest novelty claim is Innovation Point 4 (Virtual State Mounting). While individual techniques (arena allocation, state hoisting, contiguous layout) exist in various systems, the **automatic derivation of optimal state layout from scattered source-level declarations** — without a GC, without manual annotation, and with instant-serialization as a free consequence — appears genuinely novel. This should be the centerpiece of the paper.
+Research statements about originality, performance, safety, or external systems require a literature review, source citations, and repository evidence. Until that evidence exists, this document records hypotheses only.
 
-Innovation Point 3 (Algebraic Absence) is also strong because it offers a concrete alternative to the decades-old Option/Maybe approach, with measurable benefits in both LOC reduction and performance. The diagnostic tainting system adds practical value beyond the theoretical contribution.
+The same rule applies to algebraic absence and diagnostic tainting: describe the implemented semantics first, then publish only measured benefits.
 
 ### On Potential Reviewers' Concerns
 
-Expect pushback on:
+Questions to answer with evidence:
 
-1. "This is just a DSL for trading, not a general-purpose contribution" — Counter with IoT, gaming, and log analytics applications
-2. "The symbol syntax is too dense for adoption" — Counter with evidence from APL's continued use in finance, and the argument that Styio targets expert users, not beginners
-3. "How does this scale to distributed systems?" — Acknowledge as future work, but argue that single-machine stream processing covers a vast application space (most HFT systems are single-machine)
+1. scope of the language beyond the initial financial examples
+2. usability of dense symbolic syntax
+3. limits of the single-machine execution model

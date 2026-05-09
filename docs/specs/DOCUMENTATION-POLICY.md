@@ -183,6 +183,14 @@ Manifest exports also include text-volume statistics for the selected document s
 8. `python3 scripts/docs-lifecycle.py validate` is a required gate. `docs-audit.py` calls it automatically.
 9. Relative-link freshness is enforced for active docs. Archived raw provenance docs may retain historical relative links and are not rewritten for link normalization.
 
+### 0.12 Public Wording Discipline
+
+1. Repository documentation must stay concise, rigorous, and evidence-scoped.
+2. Do not speculate about companies, organizations, individuals, projects, products, or their capabilities.
+3. External systems may be named only as cited references, integration targets, or measured baselines with reproducible evidence.
+4. Avoid absolute marketing superlatives and unsupported superiority language. Use neutral terms such as "reference", "baseline", "measured result", or "implementation target".
+5. Performance, safety, resource-management, and maturity statements must point to compiler tests, `styio-benchmark` reports, audit records, or primary source references.
+
 ---
 
 ## 1. 目标

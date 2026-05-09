@@ -63,7 +63,7 @@ ctest --test-dir build-no-tree-sitter -L ide
 ## Cross-Team Dependencies
 
 1. IDE / LSP must review every syntax snapshot or adapter behavior change.
-2. Frontend must review grammar changes that claim alignment with compiler parser behavior.
+2. Frontend must review grammar changes that assert alignment with compiler parser behavior.
 3. Test Quality must review IDE regression coverage for error recovery and incremental reuse.
 4. Docs / Ecosystem must review `docs/external/for-ide/` updates.
 

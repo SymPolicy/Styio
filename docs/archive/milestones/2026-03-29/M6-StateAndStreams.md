@@ -230,9 +230,9 @@ Assign each a fixed offset in the contiguous ledger. Record in a `StateLedger` s
 
 ---
 
-## Critical Note
+## Implementation Note
 
-This milestone is the **most architecturally significant**. The state ledger, frame lock, and intrinsic inlining form the foundation for Styio's performance claims. The implementation must be:
+This milestone anchors the state ledger, frame lock, and intrinsic inlining work. The implementation target is:
 - **Contiguous:** Single allocation for all state
 - **Deterministic:** Frame lock guarantees must be provable
 - **Zero-allocation:** No heap allocation during pulse processing

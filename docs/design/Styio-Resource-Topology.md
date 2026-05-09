@@ -236,7 +236,52 @@ The example uses `|..2|` because it needs the previous and latest published valu
 
 ---
 
-## 10. References
+## 10. Resource-management design references
+
+Styio's resource model uses a small set of documented language and platform practices as references,
+then maps them onto resource topology instead of copying another language's surface syntax.
+
+| Industry practice | Source model | Styio decision |
+|-------------------|--------------|----------------|
+| Single owner plus invalidation after move/consume | Rust ownership and borrowing: one owner, automatic drop at scope end, and compile-time rejection of invalid references | Logical resources are move-only by default; consuming methods invalidate the receiver immediately; `<<` is the explicit copy/clone entry |
+| Automatic cleanup at scope exit | C++ RAII and resource handles; C# `using`; Java try-with-resources; Python `with` | Owned close-capable resources receive compiler-owned scope-exit drop edges. User code may call `.close()`, but language safety does not depend on remembering it |
+| Deterministic cleanup order | Java/C# multi-resource cleanup and Go `defer` use deterministic cleanup ordering | Styio must keep scope-exit drops deterministic. When multiple owned resources are in one scope, later acquisitions release before earlier acquisitions unless RTG establishes a stricter dependency |
+| Explicit method contract for cleanup | Java `AutoCloseable`, C# `IDisposable`, Python context manager protocol | Resource methods are resolved statically. Unknown methods, property-as-method calls, wrong arity, and final-binding overrides are compile errors |
+| Exception/error behavior is part of the resource contract | Java suppressed close exceptions; C# disposal through `try/finally`; Python `__exit__` receives exception state | First stage keeps drop failure as a runtime diagnostic. The language contract must document whether cleanup failures are primary, suppressed, or aggregated before stating full failure-safety |
+| Concurrent mutation must be visible to the type/checking layer | Rust borrow rules and Pony reference capabilities prevent unsafe simultaneous access patterns | RTG rejects unordered exclusive resource borrows unless an explicit `=>` happens-before edge orders the accesses. Task bodies may borrow outer resources but cannot consume them |
+| Dynamic convenience is acceptable only below a static safety boundary | Python/Go make cleanup easy but rely more on runtime discipline | Styio may keep convenient `@("path").close()` calls, but consuming status must be known from the method table before lowering |
+
+Source anchors used for this reference map:
+
+1. Rust ownership and borrowing: <https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html>, <https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html>
+2. C++ Core Guidelines resource management: <https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines?lang=en#Rr-raii>
+3. Java try-with-resources and `AutoCloseable`: <https://docs.oracle.com/javase/tutorial/essential/exceptions/tryResourceClose.html>
+4. C# `using` and `IDisposable`: <https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/using>
+5. Python `with` statement and context managers: <https://docs.python.org/3/reference/compound_stmts.html#the-with-statement>
+6. Go `defer`: <https://go.dev/blog/defer-panic-and-recover>
+7. Pony reference capabilities: <https://www.ponylang.io/learn/reference-capabilities/>, <https://tutorial.ponylang.io/reference-capabilities/guarantees.html>
+
+## 11. Public wording boundary
+
+Current repository-stage wording:
+
+> Styio is a modern resource-management language with compiler-visible resource topology,
+> move-only resource ownership by default, static consuming-method resolution, deterministic
+> scope-exit cleanup, and explicit happens-before ordering for exclusive resource access.
+
+Statements that require more evidence before publication:
+
+1. **Do not overstate the lifetime model.** Styio has compiler-visible ownership, consumption, and
+   topology checks, while full lifetime proof and method-family proof remain separate deliverables.
+2. **Do not state complete failure-safety.** Drop/close failure policy is still runtime-diagnostic
+   first stage; suppressed/aggregated cleanup errors remain a later design decision.
+3. **Do not state formally proven data-race freedom.** Current RTG rejects unordered exclusive
+   borrows for covered AST surfaces, but a formal proof and broad async/task stress suite are
+   separate deliverables.
+4. **Do not state all external drivers are safe by construction.** Driver-level FFI, filesystem,
+   network, and benchmark pressure behavior must be validated per driver family.
+
+## 12. References
 
 - Internal: [`../review/Logic-Conflicts.md`](../review/Logic-Conflicts.md) §1.3 `@` roles
 - Milestones provenance: [`../archive/milestones/2026-03-29/M6-StateAndStreams.md`](../archive/milestones/2026-03-29/M6-StateAndStreams.md)
