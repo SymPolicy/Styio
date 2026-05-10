@@ -1,0 +1,3 @@
+x = 1
+result = x + (<< @file("tests/features/stream_processing/data/ref50.txt"))
+>_(result)

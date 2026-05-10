@@ -18,7 +18,7 @@ Run this workflow whenever a change does at least one of the following:
 | Step | Owner | Required Surface | Evidence | Boundary |
 |------|-------|------------------|----------|----------|
 | 1 | Docs / Language owner | `docs/design/Styio-Language-Design.md`, `docs/design/Styio-EBNF.md`, `docs/design/Styio-Symbol-Reference.md` | Language SSOT diff | Defines accepted syntax only; does not redefine tests or runtime policy. |
-| 2 | Frontend | `src/StyioToken/`, `src/StyioParser/`, parser fixtures | Parser or milestone regression | Implements acceptance only; does not encode semantic/runtime ownership. |
+| 2 | Frontend | `src/StyioToken/`, `src/StyioParser/`, parser fixtures | Parser or feature regression | Implements acceptance only; does not encode semantic/runtime ownership. |
 | 3 | Sema / IR | `src/StyioAST/`, `src/StyioAnalyzer/`, `src/StyioIR/` | IR or analyzer test evidence | Defines meaning and IR shape; does not own LLVM helper registration. |
 | 4 | Codegen / Runtime | `src/StyioCodeGen/`, `src/StyioExtern/ExternLib.hpp`, `src/StyioExtern/ExternLib.cpp`, `src/StyioJIT/StyioJIT_ORC.hpp` | `python3 scripts/runtime-surface-gate.py` | Keeps helper calls, exports, implementations, and ORC registrations aligned. |
 | 5 | Test Quality | `tests/`, `docs/assets/workflow/TEST-CATALOG.md`, five-layer goldens | `ctest` label or parser shadow evidence | Records behavior evidence; does not redefine language semantics. |

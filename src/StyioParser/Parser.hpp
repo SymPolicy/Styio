@@ -391,9 +391,9 @@ public:
   is_root_statement_position() const {
     const TokenNesting nesting = token_nesting_before(index_of_token);
     return nesting.paren == 0
-      && nesting.bracket == 0
-      && nesting.brace == 0
-      && nesting.bounded == 0;
+           && nesting.bracket == 0
+           && nesting.brace == 0
+           && nesting.bounded == 0;
   }
 
   void
@@ -407,7 +407,8 @@ public:
     parse_diagnostics_.push_back(StyioParseDiagnostic{
       start,
       end,
-      std::move(message)});
+      std::move(message)
+    });
   }
 
   bool
@@ -1310,6 +1311,9 @@ parse_string(StyioContext& context);
 FmtStrAST*
 parse_fmt_str(StyioContext& context);
 
+FmtStrAST*
+parse_fmt_str_token_latest(StyioContext& context, StyioParserEngine engine);
+
 /*
   parse_path
 */
@@ -1473,7 +1477,8 @@ parse_parenthesized_instant_pull_latest(
   StyioContext& context,
   StyioTokenType prefix,
   const std::string& diagnostic,
-  const std::string& close_diagnostic);
+  const std::string& close_diagnostic
+);
 
 bool
 parse_terminal_handle_latest(StyioContext& context);
@@ -1655,7 +1660,8 @@ parse_main_block_with_engine_latest(
   StyioContext& context,
   StyioParserEngine engine,
   StyioParserRouteStats* route_stats = nullptr,
-  StyioParseMode mode = StyioParseMode::Strict);
+  StyioParseMode mode = StyioParseMode::Strict
+);
 
 StyioAST*
 parse_expr(StyioContext& context);

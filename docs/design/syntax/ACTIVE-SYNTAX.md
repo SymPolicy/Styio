@@ -78,7 +78,7 @@
 
 The active syntax docs name rejected families only as migration boundaries:
 
-1. Retired M6 state containers and state references are parser errors.
+1. Retired state-resource containers and state references are parser errors.
 2. Source-level bare `@` is not an authoring form.
 3. Reserved wave tokens `<~` and `~>` remain fail-closed.
 4. Compatibility spellings that remain implemented must not be used as the default teaching surface.

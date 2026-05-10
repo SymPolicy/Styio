@@ -1,18 +1,23 @@
 id = "test-catalog"
 title = "Styio Test Catalog"
-purpose = "Map milestone and feature-domain tests to inputs, goldens, side effects, and CTest commands."
-last_updated = "2026-05-04"
+purpose = "Map language feature tests to inputs, goldens, side effects, and CTest commands."
+last_updated = "2026-05-10"
 doc = "TEST-CATALOG.md"
 
-primary_command = "ctest --test-dir build/default -L milestone"
+primary_command = "ctest --test-dir build/default -L language_feature"
 
 domains = [
-  "M1 expressions, print, binding",
-  "M2 functions",
-  "M3 match/control",
-  "M4 waves",
-  "M5 resources",
-  "M7 synchronization",
+  "scalar expressions",
+  "functions",
+  "control flow",
+  "wave dispatch",
+  "file resources",
+  "state resources",
+  "stream processing",
+  "final bindings",
+  "standard stream input/output",
+  "native interop",
+  "task resources",
   "algorithm equivalence",
   "security",
   "five-layer pipeline",

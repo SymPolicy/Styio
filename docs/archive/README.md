@@ -7,7 +7,7 @@
 ## Scope
 
 1. Keep only lifecycle metadata and collection entrypoints needed by docs tooling.
-2. Do not retain historical source snapshots, retired syntax catalogs, old milestone batches, old plans, old rollups, archived examples, or deprecated implementation source in the current repository tree.
+2. Do not retain historical source snapshots, retired syntax catalogs, old planning batches, old plans, old rollups, archived examples, or deprecated implementation source in the current repository tree.
 3. Keep provenance ownership in [ARCHIVE-LEDGER.md](./ARCHIVE-LEDGER.md) and [ARCHIVE-MANIFEST.json](./ARCHIVE-MANIFEST.json).
 4. Use `../rollups/`, active SSOTs, and team runbooks first; use Git history only when exact historical wording is required.
 5. Do not copy historical syntax from Git history into active examples without checking the active language SSOT.

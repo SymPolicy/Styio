@@ -130,7 +130,7 @@ through the runtime helper surface registered in ORC.
 
 **2026-04-24 syntax revision:** user-authored bare `@` is no longer part of the
 active source language. Historical fixtures such as `x = @`, `x + @`,
-`x -> @stdout`, and the old wave-dispatch sink shorthand were retired from active milestones.
+`x -> @stdout`, and the old wave-dispatch sink shorthand were retired from active feature fixtures.
 `@` remains visible as an absence marker produced by resources/intrinsics and in
 diagnostics.
 
@@ -496,7 +496,7 @@ pull; treat that as a compatibility artifact, not the canonical read/pull spelli
 @stdout("Hello")           // call form (freezes for continuation)
 ```
 
-Frozen milestone docs use `-> @stdout` / `-> @stderr` as the **canonical spelling**.
+Feature test catalog use `-> @stdout` / `-> @stderr` as the **canonical spelling**.
 The current compiler also accepts iterable stream-sink writes:
 
 ```
@@ -598,9 +598,9 @@ l1 << l
 
 Copying an already-bound resource as `l1 <- l` is rejected; use `l1 << l`.
 
-### 9.5 Retired M6 State Families
+### 9.5 Retired state-resource State Families
 
-The old M6 state-declaration and shadow-read families are retired parser errors. Active code must
+The old state-resource state-declaration and shadow-read families are retired parser errors. Active code must
 use resource objects:
 
 ```styio
@@ -617,7 +617,7 @@ is recoverable from Git history when needed.
 
 ### 9.6 Retired History Probe Family
 
-The old M6 history-probe selector family is not active syntax.
+The old state-resource history-probe selector family is not active syntax.
 
 ---
 
@@ -710,7 +710,7 @@ These are **compiler intrinsics** — the compiler inlines optimized algorithms 
 
 ### 11.5 Retired History Probe Family
 
-The old M6 postfix history selector family is not active milestone syntax. Future history access
+The old state-resource postfix history selector family is not active syntax. Future history access
 must use resource selectors or a revised state-topology fixture.
 
 Historical examples remain provenance only in Git history.
@@ -864,7 +864,7 @@ The current C++ compiler implementation already has a rich token system, parser,
 
 2. **`@` overload risk:** `@` remains overloaded as a resource prefix, state prefix, standard-stream prefix, and runtime absence marker. Source-level bare `@` has been retired from active syntax to reduce ambiguity.
 
-3. **Legacy migration:** retired M6 state families are parser errors. The active surface is `@name : Type|n|` / `@name : Type|..n|` plus resource-object selectors.
+3. **Legacy migration:** retired state-resource state families are parser errors. The active surface is `@name : Type|n|` / `@name : Type|..n|` plus resource-object selectors.
 
 4. **Cross-platform builds:** The current CMakeLists.txt hardcodes Linux paths. Windows and macOS support need platform-conditional toolchain detection.
 

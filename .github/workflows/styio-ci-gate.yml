@@ -119,17 +119,17 @@ jobs:
         working-directory: styio-nightly
         run: ctest --test-dir build/ci -L styio_pipeline --output-on-failure
 
-      - name: Parser shadow gate (M1 full suite + artifacts)
+      - name: Parser shadow gate (scalar expressions suite + artifacts)
         working-directory: styio-nightly
         run: |
           mkdir -p build/ci/parser-shadow-artifacts
-          ./benchmark/parser-shadow-suite-gate.sh ./build/ci/bin/styio ./tests/milestones/m1 ./build/ci/parser-shadow-artifacts
+          ./benchmark/parser-shadow-suite-gate.sh ./build/ci/bin/styio ./tests/features/scalar_expressions ./build/ci/parser-shadow-artifacts
 
-      - name: Parser shadow gate (M2 full suite + artifacts)
+      - name: Parser shadow gate (functions suite + artifacts)
         working-directory: styio-nightly
         run: |
           mkdir -p build/ci/parser-shadow-artifacts-m2
-          ./benchmark/parser-shadow-suite-gate.sh ./build/ci/bin/styio ./tests/milestones/m2 ./build/ci/parser-shadow-artifacts-m2
+          ./benchmark/parser-shadow-suite-gate.sh ./build/ci/bin/styio ./tests/features/functions ./build/ci/parser-shadow-artifacts-m2
 
       - name: Upload parser shadow artifacts
         if: failure()
@@ -145,9 +145,9 @@ jobs:
         working-directory: styio-nightly
         run: ctest --test-dir build/ci -L soak_smoke --output-on-failure
 
-      - name: Milestone smoke
+      - name: Language feature smoke
         working-directory: styio-nightly
-        run: ctest --test-dir build/ci -R '^m1_t01_int_arith$|^m2_t01_simple_func$' --output-on-failure
+        run: ctest --test-dir build/ci -R '^scalar_expressions_t01_int_arith$|^functions_t01_simple_func$' --output-on-failure
 
       - name: Fuzz smoke
         working-directory: styio-nightly

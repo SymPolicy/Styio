@@ -903,7 +903,7 @@ enum class StyioNodeType
   // Condition
   Condition,
 
-  // M4: undefined literal, wave ops, fallback, selectors
+  // Wave dispatch: undefined literal, wave ops, fallback, selectors
   UndefLiteral,
   WaveMerge,
   WaveDispatch,
@@ -1020,18 +1020,18 @@ enum class StyioNodeType
   TaskGroupLaunch,
   FlowBind,
 
-  /* M6: state ledger, $refs, intrinsics, history */
+  /* State resources: state ledger, , intrinsics, history */
   StateDecl,
   StateRef,
   HistoryProbe,
   SeriesIntrinsic,
 
-  /* M7: multi-stream */
+  /* Stream processing: multi-stream */
   StreamZip,
   SnapshotDecl,
   InstantPull,
 
-  /* M9-M10: standard streams */
+  /* Standard stream resources */
   StdinResource,
   StdoutResource,
   StderrResource,
@@ -1113,7 +1113,7 @@ enum class StyioNodeType
   HashTagName
 };
 
-/* M9: standard stream direction */
+/* Standard stream direction */
 enum class StdStreamKind
 {
   Stdin,

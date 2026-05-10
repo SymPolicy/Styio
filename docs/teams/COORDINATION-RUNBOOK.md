@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily coordination entrypoint for Styio maintainers and tech leads; this file routes ownership, review, escalation, checkpoint, and cutover decisions to existing SSOTs instead of redefining them.
 
-**Last updated:** 2026-04-17
+**Last updated:** 2026-05-10
 
 ## Mission
 
@@ -48,7 +48,7 @@ flowchart TB
 | CLI / Nano | [CLI-NANO-RUNBOOK.md](./CLI-NANO-RUNBOOK.md) | CLI options, diagnostics, nano package workflow | CLI surface, machine-info, nano profile, package contract change |
 | IDE / LSP | [IDE-LSP-RUNBOOK.md](./IDE-LSP-RUNBOOK.md) | IDE service, VFS, HIR, SemDB, LSP server | Public IDE API, LSP method, incremental edit, or semantic cache change |
 | Grammar | [GRAMMAR-RUNBOOK.md](./GRAMMAR-RUNBOOK.md) | tree-sitter grammar and generated parser | `grammar.js`, generated CST surface, or syntax backend behavior change |
-| Test Quality | [TEST-QUALITY-RUNBOOK.md](./TEST-QUALITY-RUNBOOK.md) | milestone, five-layer, security, fuzz, shadow gates | New feature, changed behavior, changed oracle, or regression sample |
+| Test Quality | [TEST-QUALITY-RUNBOOK.md](./TEST-QUALITY-RUNBOOK.md) | language_feature, five-layer, security, fuzz, shadow gates | New feature, changed behavior, changed oracle, or regression sample |
 | Perf / Stability | [PERF-STABILITY-RUNBOOK.md](./PERF-STABILITY-RUNBOOK.md) | benchmark, soak, perf route, regression reports | Hot path, allocation, runtime loop, benchmark matrix, or RSS threshold change |
 | Docs / Ecosystem | [DOCS-ECOSYSTEM-RUNBOOK.md](./DOCS-ECOSYSTEM-RUNBOOK.md) | docs, templates, external handoff | SSOT, repo-boundary, generated index, archive, or ecosystem handoff change |
 
@@ -73,11 +73,11 @@ flowchart TB
 
 Any high-risk cross-team work must stay checkpoint-sized:
 
-1. Target a 1-3 day mergeable unit.
+1. Target one mergeable unit defined by a language feature slice, a functional closure, or a minimal test-evidence group.
 2. Ship code, tests, docs, temporary ADR when needed, and any active recovery note together.
 3. Keep fallback or shadow routes explicit when replacing parser, analyzer, runtime, CLI, or IDE behavior.
 4. Update the affected team runbook before delivery whenever mapped owned files changed.
-5. If a checkpoint changes cross-repo milestone IDs, repo exits, or shared cutover rules, update the authoritative ecosystem plan and affected handoff docs in the same batch.
+5. If a checkpoint changes cross-repo phase IDs, repo exits, or shared cutover rules, update the authoritative ecosystem plan and affected handoff docs in the same batch.
 6. If a checkpoint changes docs tree topology, index-generation rules, archive/rollup lifecycle, ignore-policy baseline, or tracked-fixture negate rules, update the documentation policy and affected docs/runbook owners in the same batch.
 7. Run the smallest team gate first, then `./scripts/delivery-gate.sh` for the common auto delivery floor. Pass `--base <ref>` only when auto cannot infer the intended branch delivery base. Keep `./scripts/checkpoint-health.sh` as the inner recovery gate.
 
@@ -87,10 +87,10 @@ The unified delivery floor is additive, not a replacement. Run `./scripts/delive
 
 | Cutover | Minimum gate |
 |---------|--------------|
-| Default parser route | Milestone tests, parser shadow gates, `parser_legacy_entry_audit`, relevant fuzz smoke |
-| IR shape accepted by codegen | Five-layer cases for affected stages plus milestone or unit coverage |
+| Default parser route | Feature tests, parser shadow gates, `parser_legacy_entry_audit`, relevant fuzz smoke |
+| IR shape accepted by codegen | Five-layer cases for affected stages plus feature or unit coverage |
 | Runtime or handle contract | Security tests, soak smoke, relevant benchmark route |
-| CLI diagnostic or exit-code contract | CLI-focused unit/milestone cases and docs update |
+| CLI diagnostic or exit-code contract | CLI-focused unit/feature cases and docs update |
 | Nano package contract | Nano tests in `styio_test`, [../external/for-spio/Styio-Nano-Spio-Coordination.md](../external/for-spio/Styio-Nano-Spio-Coordination.md) review |
 | LSP or IDE API surface | `styio_ide_test`, [../external/for-ide/INDEX.md](../external/for-ide/INDEX.md) update, syntax grammar gate when applicable |
 | Documentation collection shape | `./scripts/delivery-gate.sh --skip-health` |

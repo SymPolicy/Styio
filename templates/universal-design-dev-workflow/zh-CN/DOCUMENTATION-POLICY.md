@@ -1,6 +1,6 @@
 # 文档策略
 
-**文档作用：** 开发类 Markdown 的存放、**单一事实来源（SSOT）**、历史/里程碑/测试与自动化对齐。不含产品语义（见 `DOMAIN-OR-PRODUCT-SPEC.md`）。**规范依据：** [`./global/SSOT-AND-MAINTENANCE-RULES.md`](./global/SSOT-AND-MAINTENANCE-RULES.md)。
+**文档作用：** 开发类 Markdown 的存放、**单一事实来源（SSOT）**、历史/检查点/测试与自动化对齐。不含产品语义（见 `DOMAIN-OR-PRODUCT-SPEC.md`）。**规范依据：** [`./global/SSOT-AND-MAINTENANCE-RULES.md`](./global/SSOT-AND-MAINTENANCE-RULES.md)。
 
 **Last updated：** （分叉时填写）
 
@@ -18,7 +18,7 @@
 |------|----------|------------|
 | 产品/域 | `DOMAIN-OR-PRODUCT-SPEC.md` | 链接，勿长篇复述 |
 | 依赖 | `THIRD-PARTY.md` | 与锁文件一致 |
-| 里程碑批次 | `milestones/<YYYY-MM-DD>/00-Milestone-Index.md` | 勿私设平行总表 |
+| 检查点批次 | `checkpoints/<YYYY-MM-DD>/00-Checkpoint-Index.md` | 勿私设平行总表 |
 | ADR | `architecture/ADR-NNNN-*.md` | 仅链接 |
 | 测试 | `tests/TEST-CATALOG.md` | 每检查一行+命令 |
 | 文档拓扑 | 本文件 | 链接至此 |
@@ -32,12 +32,12 @@
 | 路径 | `history/YYYY-MM-DD.md` |
 | 索引 | `history/README.md` |
 
-## 第 2 节 — 里程碑
+## 第 2 节 — 检查点
 
 | 规则 | 说明 |
 |------|------|
-| 路径 | `milestones/<YYYY-MM-DD>/` |
-| 文件 | `00-Milestone-Index.md`、`M*.md` |
+| 路径 | `checkpoints/<YYYY-MM-DD>/` |
+| 文件 | `00-Checkpoint-Index.md`、`Checkpoint-*.md` |
 | 验收 | 须出现在 `TEST-CATALOG.md` 或标 **gap** |
 
 ## 第 3 节 — 测试目录

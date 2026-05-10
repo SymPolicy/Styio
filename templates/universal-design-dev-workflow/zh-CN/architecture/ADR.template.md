@@ -2,8 +2,8 @@
 
 **文档作用：** 记录难逆转或强耦合的架构决策。
 
-**Status：** proposed | accepted | superseded by ADR-…  
-**Date：** YYYY-MM-DD  
+**Status：** proposed | accepted | superseded by ADR-…
+**Date：** YYYY-MM-DD
 **Last updated：** YYYY-MM-DD
 
 ## 背景
@@ -19,6 +19,6 @@
 
 ## 链接
 
-- 相关域规格章节：  
-- 相关里程碑：  
-- 由此关闭的开放问题：  
+- 相关域规格章节：
+- 相关检查点：
+- 由此关闭的开放问题：
