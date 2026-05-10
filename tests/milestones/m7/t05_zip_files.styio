@@ -1,3 +1,0 @@
-@file("tests/m7/data/prices_a.txt") >> #(a) & @file("tests/m7/data/prices_b.txt") >> #(b) => {
-    >_(a - b)
-}

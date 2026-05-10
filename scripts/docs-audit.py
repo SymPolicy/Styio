@@ -23,8 +23,6 @@ LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 DATE_FILE_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}\.md$")
 ADR_FILE_RE = re.compile(r"^ADR-[0-9]{4}-[a-z0-9-]+\.md$")
 APPROVED_ADR_MARKDOWN = {"README.md", "INDEX.md", "IMPLEMENTED-DECISIONS.md"}
-MILESTONE_DIR_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
-MILESTONE_FILE_RE = re.compile(r"^(00-Milestone-Index|M[0-9]+-[A-Za-z0-9-]+)\.md$")
 BENCHMARK_REPORT_SUMMARY_RE = re.compile(r"^benchmark/reports/[^/]+/summary\.md$")
 APPROVED_TEST_DOC_NAMES = {"README.md", "REGRESSION-TEMPLATE.md"}
 APPROVED_ROOT_MARKDOWN = {
@@ -533,16 +531,6 @@ def check_naming(errors: List[str]) -> None:
     for path in (DOCS / "adr").glob("*.md"):
         if path.name not in APPROVED_ADR_MARKDOWN and not ADR_FILE_RE.match(path.name):
             errors.append(f"invalid ADR filename: {path.relative_to(ROOT)}")
-    for path in (DOCS / "milestones").iterdir():
-        if not path.is_dir():
-            continue
-        if not MILESTONE_DIR_RE.match(path.name):
-            errors.append(f"invalid milestone directory name: {path.relative_to(ROOT)}")
-            continue
-        for child in path.glob("*.md"):
-            if not MILESTONE_FILE_RE.match(child.name):
-                errors.append(f"invalid milestone file name: {child.relative_to(ROOT)}")
-
 
 def check_metadata(errors: List[str]) -> None:
     for path in iter_docs():

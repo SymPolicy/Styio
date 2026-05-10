@@ -58,7 +58,7 @@ Explicit imports come from top-level `@import { ... }` declarations. Source acce
 
 1. Incremental `textDocument/didChange` is the primary path.
 2. Ranged `contentChanges` are applied in the original LSP order.
-3. Full-document sync remains a compatibility fallback and is not optimized in the current M11 slice.
+3. Full-document sync remains a compatibility fallback and is not optimized in the current native-interop slice.
 4. LSP UTF-16 `line/character` positions are converted at the server boundary; internal IDE layers use UTF-8 byte offsets.
 5. Invalid or unsafe incremental ranges trigger full-document resynchronization rather than preserving partially applied edits.
 

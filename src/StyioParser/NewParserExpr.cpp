@@ -36,7 +36,10 @@ parse_expr_core_allowing_follow_latest(
 bool
 is_all_underscore_identifier_latest(const std::string& text) {
   return !text.empty()
-    && std::all_of(text.begin(), text.end(), [](char ch) { return ch == '_'; });
+         && std::all_of(text.begin(), text.end(), [](char ch)
+                        {
+                          return ch == '_';
+                        });
 }
 
 bool
@@ -576,7 +579,7 @@ stmt_subset_route_supported_latest(const StyioContext& context) {
   }
   if (start_type == StyioTokenType::TOK_HASH) {
     return can_route_hash_let_match_nightly_latest(context)
-      || can_route_hash_stmt_nightly_latest(context);
+           || can_route_hash_stmt_nightly_latest(context);
   }
   const bool allow_single_pipe = start_type == StyioTokenType::AWAIT_PIPE;
 
@@ -1071,18 +1074,24 @@ parse_iterator_tail_nightly_draft(StyioContext& context, StyioAST* collection) {
             hash_tags.push_back(HashTagNameAST::Create(parse_name_with_spaces_unsafe(context)));
           }
           else {
-            throw StyioSyntaxError(context.mark_cur_tok("What the hell after this hash tag?"));
+            throw StyioSyntaxError(
+              context.mark_cur_tok("expected hash tag name after # in iterator sequence")
+            );
           }
         }
         else {
-          throw StyioSyntaxError(context.mark_cur_tok("Iterator sequence only support hash tags."));
+          throw StyioSyntaxError(
+            context.mark_cur_tok("iterator sequence expects another #tag after >")
+          );
         }
       }
 
       return IterSeqAST::Create(collection, hash_tags);
     }
     else {
-      throw StyioSyntaxError(context.mark_cur_tok("Expected ( or name after # in iterator"));
+      throw StyioSyntaxError(
+        context.mark_cur_tok("expected #(param...) or #tag after >> in iterator")
+      );
     }
   }
   else if (
@@ -1130,11 +1139,15 @@ parse_iterator_tail_nightly_draft(StyioContext& context, StyioAST* collection) {
           hash_tags.push_back(HashTagNameAST::Create(parse_name_with_spaces_unsafe(context)));
         }
         else {
-          throw StyioSyntaxError(context.mark_cur_tok("What the hell after this hash tag?"));
+          throw StyioSyntaxError(
+            context.mark_cur_tok("expected hash tag name after # in iterator sequence")
+          );
         }
       }
       else {
-        throw StyioSyntaxError(context.mark_cur_tok("Iterator sequence only support hash tags."));
+        throw StyioSyntaxError(
+          context.mark_cur_tok("iterator sequence expects another #tag after >")
+        );
       }
     } while (context.try_match(StyioTokenType::TOK_RANGBRAC));
 
@@ -1364,7 +1377,7 @@ private:
         continue;
       }
       if (allow_extended_continuations && context_.cur_tok_type() == StyioTokenType::ITERATOR) {
-        const StyioDoubleRightContinuationOps ops {
+        const StyioDoubleRightContinuationOps ops{
           parse_infinite_after_double_right_nightly_latest,
           nullptr,
           "unsupported '>>' continuation in nightly parser subset",
@@ -1380,7 +1393,8 @@ private:
           owner.reset(FlowBindAST::Create(
             owner.release(),
             VarAST::Create(NameAST::Create(target_name)),
-            false));
+            false
+          ));
           continue;
         }
         owner.reset(parse_resource_redirect_tail_latest(context_, owner.release()));
@@ -1482,8 +1496,14 @@ private:
   }
 
   StyioAST* parse_state_ref_nightly_draft() {
+    const auto& tokens = context_.get_tokens();
+    const size_t cursor = context_.get_token_index();
+    if (cursor + 1 < tokens.size() && tokens[cursor + 1]->type == StyioTokenType::STRING) {
+      return parse_fmt_str_token_latest(context_, StyioParserEngine::Nightly);
+    }
     throw StyioSyntaxError(context_.mark_cur_tok(
-      "legacy M6 $state syntax is retired; use @name[-1] resource selectors"));
+      "legacy state-resource $state syntax is retired; use @name[-1] resource selectors"
+    ));
   }
 
   StyioAST* parse_primary() {
@@ -1551,14 +1571,16 @@ private:
             context_,
             StyioTokenType::ARROW_SINGLE_LEFT,
             "immediate pull needs @file(...), @{...}, or @stdin",
-            "expected ')' after immediate pull in nightly parser subset");
+            "expected ')' after immediate pull in nightly parser subset"
+          );
         }
         if (context_.cur_tok_type() == StyioTokenType::EXTRACTOR) {
           return parse_parenthesized_instant_pull_latest(
             context_,
             StyioTokenType::EXTRACTOR,
             "instant pull needs @file(...), @{...}, or @stdin",
-            "expected ')' after instant pull in nightly parser subset");
+            "expected ')' after instant pull in nightly parser subset"
+          );
         }
         StyioAST* inner = parse_full_expression();
         context_.skip();
@@ -1753,7 +1775,8 @@ parse_await_bind_stmt_nightly(StyioContext& context) {
   if (context.cur_tok_type() != StyioTokenType::ARROW_SINGLE_RIGHT) {
     source = parse_expr_core_allowing_follow_latest(
       context,
-      {StyioTokenType::ARROW_SINGLE_RIGHT});
+      {StyioTokenType::ARROW_SINGLE_RIGHT}
+    );
   }
   context.skip();
   context.try_match_panic(StyioTokenType::ARROW_SINGLE_RIGHT);
@@ -1782,7 +1805,8 @@ parse_await_bind_stmt_nightly(StyioContext& context) {
   return FlowBindAST::CreateAwait(
     source,
     VarAST::Create(target_name, target_type),
-    fallback);
+    fallback
+  );
 }
 
 StyioAST*
@@ -1877,7 +1901,8 @@ parse_return_value_nightly(StyioContext& context) {
     }
     StyioAST* ratom = parse_instant_pull_resource_atom_latest(
       context,
-      "return pull needs @file(...), @{...}, @stdin, or [>_]");
+      "return pull needs @file(...), @{...}, @stdin, or [>_]"
+    );
     return InstantPullAST::Create(ratom);
   }
   return parse_expr_subset_nightly(context);
@@ -1947,7 +1972,7 @@ parse_block_with_forward_subset_nightly(StyioContext& context) {
 
 StyioAST*
 parse_hash_stmt_nightly(StyioContext& context) {
-  const StyioHashFunctionParserOps ops {
+  const StyioHashFunctionParserOps ops{
     true,
     "expected function name after # in nightly parser subset",
     "new_stmt:hash_ret_tuple_open",
@@ -1959,7 +1984,10 @@ parse_hash_stmt_nightly(StyioContext& context) {
     "new_stmt:hash_assign_match",
     parse_expr_subset_nightly,
     parse_stmt_subset_impl_nightly,
-    [](StyioContext& inner) -> StyioAST* { return parse_block_with_forward_subset_nightly(inner); },
+    [](StyioContext& inner) -> StyioAST*
+    {
+      return parse_block_with_forward_subset_nightly(inner);
+    },
     parse_cases_only_nightly_draft,
     parse_iterator_with_forward,
   };
@@ -2063,19 +2091,19 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
           parse_expr_subset_nightly(context)
         );
       }
-	      if (context.cur_tok_type() == StyioTokenType::TOK_EQUAL) {
-	        context.move_forward(1, "new_stmt:typed_flex_bind_equal");
-	        context.skip();
-	        return FlexBindAST::Create(
-	          VarAST::Create(NameAST::Create(id), ty),
-	          parse_expr_subset_nightly(context)
-	        );
-	      }
-	      return FlexBindAST::Create(
-	        VarAST::Create(NameAST::Create(id), ty),
-	        make_default_value_for_decl_latest(ty->getDataType())
-	      );
-	    }
+      if (context.cur_tok_type() == StyioTokenType::TOK_EQUAL) {
+        context.move_forward(1, "new_stmt:typed_flex_bind_equal");
+        context.skip();
+        return FlexBindAST::Create(
+          VarAST::Create(NameAST::Create(id), ty),
+          parse_expr_subset_nightly(context)
+        );
+      }
+      return FlexBindAST::Create(
+        VarAST::Create(NameAST::Create(id), ty),
+        make_default_value_for_decl_latest(ty->getDataType())
+      );
+    }
     if (context.cur_tok_type() == StyioTokenType::WALRUS) {
       context.move_forward(1, "new_stmt:untyped_final_bind");
       context.skip();
@@ -2134,7 +2162,7 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
       return parse_resource_extractor_write_tail_latest(context, NameAST::Create(id));
     }
     if (context.cur_tok_type() == StyioTokenType::ITERATOR) {
-      const StyioDoubleRightContinuationOps ops {
+      const StyioDoubleRightContinuationOps ops{
         nullptr,
         parse_iterator_tail_nightly_draft,
         "unsupported '>>' continuation after name in nightly parser subset",

@@ -71,7 +71,7 @@
 
 - **C++ 标准库：** 由工具链提供（如 `libstdc++` / `libc++`），无单独 Fetch。
 - **标准 C 库与系统调用：** 运行时 I/O、JIT 加载等依赖 OS。
-- **里程碑测试数据：** `tests/milestones/**` 下 `.styio` 与 golden 为 **本仓库自有测试资源**，不是第三方包。
+- **里程碑测试数据：** `tests/features/**` 下 `.styio` 与 golden 为 **本仓库自有测试资源**，不是第三方包。
 
 ---
 

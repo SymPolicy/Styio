@@ -5,7 +5,7 @@
 **Last updated:** 2026-05-09
 
 **Status:** Topology v2 source syntax plus current compiler-owned RTG validation.
-**Supersedes:** retired M6 state containers, history probes, and shadow reads. The running compiler rejects those families; exact old spellings are recoverable from Git history and remain covered only by negative migration tests.
+**Supersedes:** retired state-resource state containers, history probes, and shadow reads. The running compiler rejects those families; exact old spellings are recoverable from Git history and remain covered only by negative migration tests.
 **See also:** [`Styio-EBNF.md`](./Styio-EBNF.md) (Appendix: Topology v2), [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md).
 
 ---
@@ -106,7 +106,7 @@ Multiple resources may share one driver:
 
 ```styio
 @ma5 : f64|..2|, @ma20 : f64|..2| := {
-  @file("tests/m6/data/prices.txt") >> #(p) => {
+  @file("tests/features/state_resources/data/prices.txt") >> #(p) => {
     p[avg, 5]  -> @ma5
     p[avg, 20] -> @ma20
   }
@@ -198,7 +198,7 @@ while the intrinsic still keeps the 20 raw samples it needs internally.
 
 ```styio
 @ma5 : f64|..2|, @ma20 : f64|..2| := {
-  @file("tests/m6/data/prices.txt") >> #(p) => {
+  @file("tests/features/state_resources/data/prices.txt") >> #(p) => {
     p[avg, 5]  -> @ma5
     p[avg, 20] -> @ma20
 
@@ -221,8 +221,8 @@ The example uses `|..2|` because it needs the previous and latest published valu
 
 | Item | Status |
 |------|--------|
-| Retired M6 state family | **Retired**; active tests use negative migration fixtures |
-| `@name : Type|n|`, `@name : Type|..n|`, `T..` / `T...` | **Implemented for v2 resource declarations and selectors covered by milestone tests** |
+| Retired state-resource state family | **Retired**; active tests use negative migration fixtures |
+| `@name : Type|n|`, `@name : Type|..n|`, `T..` / `T...` | **Implemented for v2 resource declarations and selectors covered by feature tests** |
 | Type parameters as `list[T]` / `dict[K, V]` | **Implemented for v2 type-shape normalization covered by tests** |
 | `__ : TypePattern := TypeExpr` type rewrite rules | **Implemented for type-position rewrite coverage** |
 | Top-level multi-resource `@a : T, @b : U := { driver }` | **Target syntax**; current compiler only has partial internal prelude resource declarations |

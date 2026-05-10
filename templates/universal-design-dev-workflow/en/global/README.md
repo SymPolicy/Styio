@@ -7,4 +7,4 @@ The `global/` folder is duplicated under `en/` and `zh-CN/` so each locale tree 
 | File | Contents |
 |------|----------|
 | [ARTIFACT-LAYOUT.md](./ARTIFACT-LAYOUT.md) | Paths, trees, adoption |
-| [SSOT-AND-MAINTENANCE-RULES.md](./SSOT-AND-MAINTENANCE-RULES.md) | SSOT, dedup, history/milestones/tests |
+| [SSOT-AND-MAINTENANCE-RULES.md](./SSOT-AND-MAINTENANCE-RULES.md) | SSOT, dedup, history/checkpoints/tests |

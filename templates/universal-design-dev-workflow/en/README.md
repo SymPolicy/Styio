@@ -12,7 +12,7 @@
 | [`OPEN-QUESTIONS-AND-HUMAN-INPUT.md`](./OPEN-QUESTIONS-AND-HUMAN-INPUT.md) | Human blanks |
 | [`THIRD-PARTY.md`](./THIRD-PARTY.md) | Dependencies |
 | [`architecture/ADR.template.md`](./architecture/ADR.template.md) | ADR template |
-| [`milestones/`](./milestones/) | Milestones |
+| [`checkpoints/`](./checkpoints/) | Checkpoints |
 | [`tests/`](./tests/) | Test catalog template |
 | [`history/`](./history/) | History templates |
 | [`prompts/`](./prompts/) | Prompts |

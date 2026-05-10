@@ -1,0 +1,3 @@
+@file("tests/features/stream_processing/data/prices_a.txt") >> #(a) & @file("tests/features/stream_processing/data/prices_b.txt") >> #(b) => {
+    >_(a - b)
+}

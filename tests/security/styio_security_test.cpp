@@ -1121,7 +1121,7 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnFlexBindSubsetSamples) {
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnHandleIoSubsetSamples) {
   const std::vector<std::string> samples = {
-    "f <- @file(\"tests/m5/data/hello.txt\")\n",
+    "f <- @file(\"tests/features/file_resources/data/hello.txt\")\n",
     "out << @file(\"/tmp/styio-new-parser-handle-io.txt\")\n",
   };
 
@@ -1131,7 +1131,7 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnHandleIoSubsetSamples) {
 }
 
 TEST(StyioSecurityNightlyParserStmt, RejectsBracedExplicitFileResource) {
-  const std::string src = "f <- @file{\"tests/m5/data/hello.txt\"}\n";
+  const std::string src = "f <- @file{\"tests/features/file_resources/data/hello.txt\"}\n";
   EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
   EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError);
 }
@@ -2294,8 +2294,8 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnResourcePostfixSubsetSamples
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnIteratorStmtSubsetSamples) {
   const std::vector<std::string> samples = {
-    "f <- @file(\"tests/m5/data/hello.txt\")\nf >> #(line) => {\n    >_(line)\n}\n",
-    "# double_it := (x: i32) => x * 2\nf <- @file(\"tests/m5/data/numbers.txt\")\nf >> #(line) => {\n    >_(double_it(line))\n}\n",
+    "f <- @file(\"tests/features/file_resources/data/hello.txt\")\nf >> #(line) => {\n    >_(line)\n}\n",
+    "# double_it := (x: i32) => x * 2\nf <- @file(\"tests/features/file_resources/data/numbers.txt\")\nf >> #(line) => {\n    >_(double_it(line))\n}\n",
     "result = true\n[1, 2, 3] >> #(x) => {\n    result = result && (x > 0)\n}\n>_(result)\n",
     "[1, 2, 3] >> #(x) => {\n    >_(x)\n}\n",
     "[1, 2, 3] >> #(n) & [4, 5, 6] >> #(m) => {\n    >_(n + m)\n}\n",
@@ -2336,13 +2336,13 @@ TEST(StyioSecurityNightlySemantics, RejectsNonBoolConditionalLoopGuard) {
 }
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnInstantPullSubsetSamples) {
-  const std::string src = "x = 1\nresult = x + (<< @file(\"tests/m7/data/ref50.txt\"))\n>_(result)\n";
+  const std::string src = "x = 1\nresult = x + (<< @file(\"tests/features/stream_processing/data/ref50.txt\"))\n>_(result)\n";
   EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false));
 }
 
 TEST(StyioSecurityNightlyParserStmt, RejectsRetiredLegacyStateAndSnapshotSyntax) {
   const std::vector<std::string> samples = {
-    "@[ref_val] << @file(\"tests/m7/data/ref.txt\")\n",
+    "@[ref_val] << @file(\"tests/features/stream_processing/data/ref.txt\")\n",
     "@[3](ma = 1 + 2)\n",
     "$state\n",
     "$state[<<, 1]\n",
@@ -2356,8 +2356,8 @@ TEST(StyioSecurityNightlyParserStmt, RejectsRetiredLegacyStateAndSnapshotSyntax)
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnAtResourceSubsetSamples) {
   const std::vector<std::string> samples = {
-    "@file(\"tests/m7/data/prices_a.txt\") >> #(a) => {\n    >_(a)\n}\n",
-    "@file(\"tests/m7/data/input.txt\") >> #(x) => {\n    result = x * 2\n    result << @file(\"/tmp/styio-new-parser-at-resource-subset.txt\")\n}\n",
+    "@file(\"tests/features/stream_processing/data/prices_a.txt\") >> #(a) => {\n    >_(a)\n}\n",
+    "@file(\"tests/features/stream_processing/data/input.txt\") >> #(x) => {\n    result = x * 2\n    result << @file(\"/tmp/styio-new-parser-at-resource-subset.txt\")\n}\n",
   };
 
   for (const auto& src : samples) {
@@ -2378,7 +2378,7 @@ TEST(StyioSecurityNightlyParserShadow, MatchesLegacyOnRedirectRouteSample) {
 
 TEST(StyioSecurityNightlyParserShadow, MatchesLegacyOnArbitrageGuardRouteSample) {
   const std::string src =
-    "@file(\"tests/m7/data/exchange_a.txt\") >> #(a) & @file(\"tests/m7/data/exchange_b.txt\") >> #(b) => {\n"
+    "@file(\"tests/features/stream_processing/data/exchange_a.txt\") >> #(a) & @file(\"tests/features/stream_processing/data/exchange_b.txt\") >> #(b) => {\n"
     "  gap = a - b\n"
     "  ?(gap > 5 || gap < -5) => { >_(\"Arb: \" + gap) }\n"
     "}\n";
@@ -3722,7 +3722,7 @@ TEST(StyioSafetyRuntime, InvalidWriteHandleSetsRuntimeError) {
 
 TEST(StyioSafetyRuntime, CloseIsIdempotentAndKeepsErrorClear) {
   styio_runtime_clear_error();
-  const int64_t h = styio_file_open("tests/m5/data/hello.txt");
+  const int64_t h = styio_file_open("tests/features/file_resources/data/hello.txt");
   ASSERT_NE(h, 0);
   styio_file_close(h);
   styio_file_close(h);
@@ -3737,7 +3737,7 @@ TEST(StyioSafetyRuntime, FreeCstrAcceptsNull) {
 }
 
 TEST(StyioSafetyRuntime, FreeCstrIgnoresBorrowedPointer) {
-  const int64_t h = styio_file_open("tests/m5/data/hello.txt");
+  const int64_t h = styio_file_open("tests/features/file_resources/data/hello.txt");
   ASSERT_NE(h, 0);
   const char* line = styio_file_read_line(h);
   ASSERT_NE(line, nullptr);

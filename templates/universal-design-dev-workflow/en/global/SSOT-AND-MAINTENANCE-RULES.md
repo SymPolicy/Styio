@@ -24,7 +24,7 @@ If **three or more** documents substantially repeat the same fact:
 |-------|-----------|---------------|
 | Product/domain | `DOMAIN-OR-PRODUCT-SPEC.md` | Link; short summary |
 | Dependencies | `THIRD-PARTY.md` | Match lockfiles |
-| Milestone batch | `milestones/<YYYY-MM-DD>/00-Milestone-Index.md` | No ad hoc duplicate tables |
+| Checkpoint batch | `checkpoints/<YYYY-MM-DD>/00-Checkpoint-Index.md` | No ad hoc duplicate tables |
 | Architecture | `architecture/ADR-NNNN-*.md` | Link only |
 | Tests | `tests/TEST-CATALOG.md` | One row + exact command |
 | Doc topology | `DOCUMENTATION-POLICY.md` | Link here |
@@ -36,10 +36,10 @@ If **three or more** documents substantially repeat the same fact:
 - Path: `history/YYYY-MM-DD.md`
 - Index: `history/README.md`
 
-## Milestones
+## Checkpoints
 
-- Path: `milestones/<YYYY-MM-DD>/`
-- Files: `00-Milestone-Index.md`, segment `M*.md`
+- Path: `checkpoints/<YYYY-MM-DD>/`
+- Files: `00-Checkpoint-Index.md`, segment `Checkpoint-*.md`
 - Acceptance: named in `TEST-CATALOG.md` or **gap**
 
 ## Test catalog
@@ -55,5 +55,5 @@ If `DOCUMENTATION-POLICY.md` and `CONTRIBUTOR-AND-AGENT-SPEC.md` disagree, fix *
 ## Optional checks
 
 - Documented tests pass.
-- `Last updated` on history/milestone indexes.
+- `Last updated` on history/checkpoint indexes.
 - `TEST-CATALOG.md` paths exist or marked pending.

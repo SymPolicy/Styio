@@ -15,11 +15,11 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 
 | Symbol | Name | C++ Token Kind | Physical Semantics |
 |--------|------|----------------|-------------------|
-| `@` | Resource Anchor | `TOK_AT` | **Before identifier + `:`:** Topology v2 resource declaration. **Before identifier + `(`:** resource with protocol. **Before `()` / `{...}`:** anonymous or empty resource. **Before `[`:** retired M6 prefix, parse error. Source-level bare `@` is not an authoring form. |
+| `@` | Resource Anchor | `TOK_AT` | **Before identifier + `:`:** Topology v2 resource declaration. **Before identifier + `(`:** resource with protocol. **Before `()` / `{...}`:** anonymous or empty resource. **Before `[`:** retired state-resource prefix, parse error. Source-level bare `@` is not an authoring form. |
 | `@stdout` | Standard Output | `TOK_AT` + `NAME("stdout")` | Built-in write-only stream resource (fd 1). Scalar write: `expr -> @stdout`; iterable write: `items >> @stdout`. |
 | `@stderr` | Standard Error | `TOK_AT` + `NAME("stderr")` | Built-in write-only stream resource (fd 2, unbuffered). Scalar write: `expr -> @stderr`; iterable write: `items >> @stderr`. |
 | `@stdin` | Standard Input | `TOK_AT` + `NAME("stdin")` | Built-in read-only stream resource (fd 0). Iterate via `@stdin >> #(line) => {...}`. Internal declaration forms use `@ stdin := #() => { ... }` with `{ <\|[>_] }`, `{ <\|(>_) }`, and expanded `{ <\| <- [>_] }`. Legacy `(<< @stdin)` is compatibility-only, not canonical design spelling. |
-| `$` | Capture / Format Prefix | `TOK_DOLLAR` | **Before `(`:** capture list in function declaration context. **Before string:** format string. **Before identifier:** retired M6 state reference, parse error. New topology text reads resources through `@name[...]`. |
+| `$` | Capture / Format Prefix | `TOK_DOLLAR` | **Before `(`:** capture list in function declaration context. **Before string:** format string. **Before identifier:** retired state-resource state reference, parse error. New topology text reads resources through `@name[...]`. |
 
 ---
 
@@ -59,9 +59,9 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | `x[a..]` | Tail Slice | Postfix on sliceable value/resource | Slice from `a` through the end |
 | `x[..b]` | Prefix Slice | Postfix on sliceable value/resource | Slice from the start through `b` |
 | `x[..]` / `x[...]` | All Selector | Postfix on sliceable value/resource | Select all currently enumerable values |
-| `[?, cond]` | Retired Predicate Guard | Inactive old milestone syntax | Use `?(cond) => value \| fallback` or `?(cond) => { ... }` |
-| `[?=, val]` | Retired Equality Probe | Inactive old milestone syntax | Use `?=` match blocks |
-| Retired history-probe selector | Retired History Probe | Inactive old milestone syntax | Use resource-object selectors such as `@price[-1]` and `@price[-3..]` |
+| `[?, cond]` | Retired Predicate Guard | Inactive old syntax | Use `?(cond) => value \| fallback` or `?(cond) => { ... }` |
+| `[?=, val]` | Retired Equality Probe | Inactive old syntax | Use `?=` match blocks |
+| Retired history-probe selector | Retired History Probe | Inactive old syntax | Use resource-object selectors such as `@price[-1]` and `@price[-3..]` |
 | `[avg, n]` | Moving Average | Postfix on stream | Compiler intrinsic: O(1) sliding sum |
 | `[max, n]` | Rolling Maximum | Postfix on stream | Compiler intrinsic: monotonic queue |
 | `[min, n]` | Rolling Minimum | Postfix on stream | Compiler intrinsic: monotonic queue |
@@ -153,7 +153,7 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | `@ident{...}` | Invalid explicit-resource spelling |
 | `@{...}` or `@(...)` | Anonymous resource (auto-detect) |
 | `@stdout`, `@stderr`, `@stdin` | Standard stream resource atom; direct user use is backed by internal Styio prelude declarations |
-| `$` followed by identifier | Retired M6 state reference family; parse error |
+| `$` followed by identifier | Retired state-resource state reference family; parse error |
 | `$(...)` | Capture list (function context) |
 | `$"..."` | Format string |
 | `>>` after expr, before `#`/`{`/ident | Pipe operator |

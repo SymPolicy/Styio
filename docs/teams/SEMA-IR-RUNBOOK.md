@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of AST lifecycle, semantic analysis, type inference, StyioIR lowering, string representation, and compilation session ownership.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-05-10
 
 ## Mission
 
@@ -50,14 +50,15 @@ High-value docs:
 18. Task resource bindings follow the same value-family rule: `TaskBlockAST` must infer `task[T]`. Ordinary `FlowBindAST` still requires a predeclared mutable target, while `?| job -> answer: T | fallback` declares the await target and consumes the task/future handle once before lowering to `SIOTaskCreate` plus `SIOFlowBind`. Bare `?| -> answer: T` must fail closed until continuation lowering can guarantee one-shot resume/discontinue. Free scalar references inside `||>` are captured into the task context; local binds inside the task body must not inflate that context.
 19. Match expression result kinds must preserve scalar families through IR. If tail expressions can yield `f64`, the `SGMatchReprKind` and lowering classifier must carry a float result kind instead of silently collapsing the branch value to `i64`.
 20. Resource topology graph validation is part of the Sema-to-Lowering boundary. Changes to file resources, standard streams, handles, state slots, hidden ledgers, stream ops, or task resources must update `src/StyioResourceTopology/` before lowering can accept the new shape.
-21. Retired state AST nodes may remain as internal ledger/lowering structures and ownership-test fixtures, but source syntax must enter through Topology v2 resources. User-facing diagnostics should point to `@name : Type`, `expr -> @name`, and `@name[-1]`, not to the old M6 spelling.
+21. Retired state AST nodes may remain as internal ledger/lowering structures and ownership-test fixtures, but source syntax must enter through Topology v2 resources. User-facing diagnostics should point to `@name : Type`, `expr -> @name`, and `@name[-1]`, not to the old state-resource spelling.
 22. Resource method semantics must resolve statically before lowering: unknown methods are compile errors, consuming methods such as close/drop/destroy invalidate the receiver immediately, and transitive calls from one receiver method to another consuming method must inherit consuming status. `resource -> @()` is the intrinsic destroy sink, scope exit adds automatic drop edges for close-capable owned resources, and task bodies may borrow outer resources but must not consume them. Lowering must consult the resolved method table's consuming flag so user overrides are not treated as destroy operations by name alone. Unordered named task or block bodies that take exclusive access to the same resource must be rejected unless an explicit `=>` happens-before edge orders them.
 23. `InstantPullAST` carries the result type for typed stdin pulls. Keep scalar and typed `list[T]` stdin pulls on the same AST and `SIOStdStreamPull` path, reject unsupported stdin list element families in sema, and infer `ReturnAST` expressions before deriving `task[T]` so f64 task bodies do not collapse to i64 handles.
 24. Built-in method names such as list `push/insert/pop`, string `lines`, and resource `write/close/drop/destroy` must be classified through `StyioUtil/BuiltinMethods.hpp`; sema, lowering, and topology must not keep independent string lists.
+25. Format strings lower through ordinary string concatenation: infer each embedded expression, report the result as `string`, and reuse existing string/numeric runtime conversion rather than inventing a separate formatting IR node. Undefined hash-tag iterator sequences must stay fail-closed until the design SSOT defines their semantics.
 
 ## Change Classes
 
-1. Small: local type rule, repr text fix, or non-contract helper cleanup. Run targeted unit and affected milestone tests.
+1. Small: local type rule, repr text fix, or non-contract helper cleanup. Run targeted unit and affected feature tests.
 2. Medium: AST node field, ownership, type inference, or lowering change. Add security or pipeline coverage and update goldens.
 3. High: new semantic category, IR node family, session lifecycle rule, or capability/failure model change. Use checkpoint workflow and add ADR if lifecycle or compatibility changes.
 
@@ -66,7 +67,7 @@ High-value docs:
 Minimum local commands:
 
 ```bash
-ctest --test-dir build/default -L milestone
+ctest --test-dir build/default -L language_feature
 ctest --test-dir build/default -L styio_pipeline
 ctest --test-dir build/default -L security
 ctest --test-dir build/default -L resource_topology

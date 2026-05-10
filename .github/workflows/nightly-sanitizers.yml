@@ -54,8 +54,8 @@ jobs:
             | tee sanitizer-artifacts/ctest-soak-smoke.log
           ctest --test-dir build/sanitizers -L styio_pipeline --output-on-failure \
             | tee sanitizer-artifacts/ctest-pipeline.log
-          ctest --test-dir build/sanitizers -L milestone --output-on-failure \
-            | tee sanitizer-artifacts/ctest-milestone.log
+          ctest --test-dir build/sanitizers -L language_feature --output-on-failure \
+            | tee sanitizer-artifacts/ctest-language-feature.log
 
       - name: Upload sanitizer artifacts
         if: always()

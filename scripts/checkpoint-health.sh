@@ -134,24 +134,24 @@ ctest --test-dir "$BUILD_DIR" \
   -R '^parser_legacy_entry_audit$' \
   --output-on-failure
 
-echo "[checkpoint-health] m1/m2 parser shadow dual-zero gates"
+echo "[checkpoint-health] scalar/functions parser shadow dual-zero gates"
 ctest --test-dir "$BUILD_DIR" \
-  -R '^parser_shadow_gate_m(1|2)_zero_fallback_and_internal_bridges$' \
+  -R '^parser_shadow_gate_(scalar_expressions|functions)_zero_fallback_and_internal_bridges$' \
   --output-on-failure
 
-echo "[checkpoint-health] m5 parser shadow dual-zero gate with expected nonzero manifest"
+echo "[checkpoint-health] file resource parser shadow dual-zero gate with expected nonzero manifest"
 ctest --test-dir "$BUILD_DIR" \
-  -R '^parser_shadow_gate_m5_dual_zero_expected_nonzero$' \
+  -R '^parser_shadow_gate_file_resources_dual_zero_expected_nonzero$' \
   --output-on-failure
 
-echo "[checkpoint-health] m7 parser shadow zero-fallback gate"
+echo "[checkpoint-health] stream processing parser shadow zero-fallback gate"
 ctest --test-dir "$BUILD_DIR" \
-  -R '^parser_shadow_gate_m7_zero_fallback$' \
+  -R '^parser_shadow_gate_stream_processing_zero_fallback$' \
   --output-on-failure
 
-echo "[checkpoint-health] m7 parser shadow zero-internal-bridges gate"
+echo "[checkpoint-health] stream processing parser shadow zero-internal-bridges gate"
 ctest --test-dir "$BUILD_DIR" \
-  -R '^parser_shadow_gate_m7_zero_internal_bridges$' \
+  -R '^parser_shadow_gate_stream_processing_zero_internal_bridges$' \
   --output-on-failure
 
 if [[ "$RUN_FUZZ" == "1" ]]; then
