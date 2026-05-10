@@ -1,6 +1,6 @@
 # Documentation policy
 
-**Purpose:** Where Markdown lives, how **SSOT** works, and how history, milestones, and tests align with automation. Not product semantics (`DOMAIN-OR-PRODUCT-SPEC.md`). **Normative:** [`./global/SSOT-AND-MAINTENANCE-RULES.md`](./global/SSOT-AND-MAINTENANCE-RULES.md).
+**Purpose:** Where Markdown lives, how **SSOT** works, and how history, checkpoints, and tests align with automation. Not product semantics (`DOMAIN-OR-PRODUCT-SPEC.md`). **Normative:** [`./global/SSOT-AND-MAINTENANCE-RULES.md`](./global/SSOT-AND-MAINTENANCE-RULES.md).
 
 **Last updated:** (set when forking)
 
@@ -18,7 +18,7 @@
 |-------|-----------|---------------|
 | Product/domain | `DOMAIN-OR-PRODUCT-SPEC.md` | Link; no long repeat |
 | Dependencies | `THIRD-PARTY.md` | Match lockfiles |
-| Milestone batch | `milestones/<YYYY-MM-DD>/00-Milestone-Index.md` | No forked master table |
+| Checkpoint batch | `checkpoints/<YYYY-MM-DD>/00-Checkpoint-Index.md` | No forked master table |
 | ADR | `architecture/ADR-NNNN-*.md` | Link only |
 | Tests | `tests/TEST-CATALOG.md` | One row + command |
 | Doc layout | This file | Link here |
@@ -32,12 +32,12 @@
 | Path | `history/YYYY-MM-DD.md` |
 | Index | `history/README.md` |
 
-## Section 2 — Milestones
+## Section 2 — Checkpoints
 
 | Rule | Detail |
 |------|--------|
-| Path | `milestones/<YYYY-MM-DD>/` |
-| Files | `00-Milestone-Index.md`, `M*.md` |
+| Path | `checkpoints/<YYYY-MM-DD>/` |
+| Files | `00-Checkpoint-Index.md`, `Checkpoint-*.md` |
 | Acceptance | In `TEST-CATALOG.md` or **gap** |
 
 ## Section 3 — Test catalog

@@ -12,8 +12,8 @@ directory remains only for interfaces that must live next to the Styio build:
   - In-tree long-loop and phase probe binary consumed by external routes.
 - `styio_task_scheduler_perf_test.cpp`
   - In-tree task scheduler probe binary consumed by external async routes.
-- `parser-shadow-suite-gate.sh` and `parser-shadow-m1-gate.sh`
-  - Parser correctness gate wrappers used by Styio CTest.
+- `parser-shadow-suite-gate.sh`
+  - Parser correctness gate wrapper used by Styio CTest feature suites.
 - `perf-route.sh`, `perf-report.py`, and `soak-minimize.sh`
   - Compatibility adapters that locate `styio-benchmark` and forward with
     `--styio-root` set to this checkout.

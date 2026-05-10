@@ -44,7 +44,7 @@ High-value docs:
 13. Async runtime reports must include normalized per-workload performance columns. The per-workload normalization baseline is `1.00x`; lower scores show relative performance against that baseline. Use median samples, not single runs, when comparing no-op fanout.
 14. Async runtime framework checks use pytest as the black-box contract runner over `styio-benchmark/async-runtime/run-async-bench.py`; keep runtime selection explicit with `--runtime` and promote only JSON/CSV/Markdown report outputs as evidence.
 15. Native C++ comparisons must run from `styio-benchmark/native-cpp/` across the three standard routes: `full-cli`, `cached-jit`, and `runtime-only`. Use one generated input per workload and report both raw throughput and normalized relative performance. The per-route normalization baseline is `1.00x`; routes without a real implementation must be marked `unsupported`, not approximated by another route.
-16. Soak workloads that exercise state-like behavior must use Topology v2 resource declarations, `expr -> @name` writes, and `@name[-1]` selectors. Retired M6 spellings belong only in negative parser/security tests, not performance baselines.
+16. Soak workloads that exercise state-like behavior must use Topology v2 resource declarations, `expr -> @name` writes, and `@name[-1]` selectors. Retired state-resource spellings belong only in negative parser/security tests, not performance baselines.
 
 ## Change Classes
 

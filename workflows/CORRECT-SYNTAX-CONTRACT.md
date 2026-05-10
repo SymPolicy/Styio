@@ -80,7 +80,7 @@ python3 scripts/docs-audit.py
 git diff --check
 ```
 
-When execution semantics are involved, also run the relevant golden, milestone, or reference-equivalence tests.
+When execution semantics are involved, also run the relevant golden, language feature, or reference-equivalence tests.
 
 ## Handoff
 

@@ -1,6 +1,6 @@
 # Open questions and human input
 
-**Purpose:** Track items that need a person or are still unknown. Move closures to `DOMAIN-OR-PRODUCT-SPEC.md`, an ADR, or milestone text.
+**Purpose:** Track items that need a person or are still unknown. Move closures to `DOMAIN-OR-PRODUCT-SPEC.md`, an ADR, or checkpoint text.
 
 **Last updated:** (set when forking)
 
@@ -26,7 +26,7 @@ Automation that depends on a **BLOCKING** row in A–E should pause and surface 
 |----|----------|-------|----------------|-------|
 | Q-003 | | | | |
 
-## D. Milestones
+## D. Checkpoints
 
 | ID | Question | Owner | Due / review | Notes |
 |----|----------|-------|----------------|-------|

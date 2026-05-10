@@ -8,7 +8,6 @@
 #include <condition_variable>
 #include <cmath>
 #include <deque>
-#include <filesystem>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -621,40 +620,7 @@ resolve_read_path(const char* path) {
   if (path == nullptr) {
     return {};
   }
-
-  std::string p(path);
-  std::error_code ec;
-  if (std::filesystem::exists(p, ec)) {
-    return p;
-  }
-
-  constexpr const char* kTestsPrefix = "tests/";
-  constexpr const char* kMilestonesPrefix = "tests/milestones/";
-  if (p.rfind(kTestsPrefix, 0) != 0 || p.rfind(kMilestonesPrefix, 0) == 0) {
-    return p;
-  }
-
-  std::string tail = p.substr(std::strlen(kTestsPrefix)); // m5/data/...
-  const size_t slash = tail.find('/');
-  if (slash == std::string::npos) {
-    return p;
-  }
-
-  const std::string top = tail.substr(0, slash); // m5
-  if (top.size() < 2 || top[0] != 'm') {
-    return p;
-  }
-  for (size_t i = 1; i < top.size(); ++i) {
-    if (!std::isdigit(static_cast<unsigned char>(top[i]))) {
-      return p;
-    }
-  }
-
-  std::string candidate = std::string(kMilestonesPrefix) + tail;
-  if (std::filesystem::exists(candidate, ec)) {
-    return candidate;
-  }
-  return p;
+  return std::string(path);
 }
 
 void
@@ -1825,7 +1791,7 @@ styio_file_open(const char* path) {
 
 extern "C" DLLEXPORT int64_t
 styio_file_open_auto(const char* path) {
-  /* M5: same as explicit file path for local filesystem paths. */
+  /* File resources: same as explicit file path for local filesystem paths. */
   return styio_file_open(path);
 }
 
@@ -2033,7 +1999,7 @@ styio_runtime_set_log_sink(StyioRuntimeLogSink sink) {
   g_runtime_log_sink = sink;
 }
 
-/* M9+: write a C-string to stdout with trailing newline and immediate flush.
+/* Standard streams: write a C-string to stdout with trailing newline and immediate flush.
    Null-safe (no-op for nullptr). */
 extern "C" DLLEXPORT void
 styio_stdout_write_cstr(const char* s) {
@@ -2046,7 +2012,7 @@ styio_stdout_write_cstr(const char* s) {
   }
 }
 
-/* M9: write a C-string to stderr with trailing newline and immediate flush.
+/* Standard streams: write a C-string to stderr with trailing newline and immediate flush.
    Null-safe (no-op for nullptr). */
 extern "C" DLLEXPORT void
 styio_stderr_write_cstr(const char* s) {
@@ -2059,7 +2025,7 @@ styio_stderr_write_cstr(const char* s) {
   }
 }
 
-/* M10: read one line from stdin into a thread-local buffer.
+/* Stdio input: read one line from stdin into a thread-local buffer.
    Returns borrowed pointer (valid until next call on this thread).
    Returns nullptr on EOF. Strips trailing newline/CR. */
 thread_local char g_stdin_line_buf[65536];

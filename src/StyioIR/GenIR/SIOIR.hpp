@@ -190,7 +190,7 @@ private:
   SIOResourceWriteToFile() = default;
 };
 
-/* M9: write to stdout / stderr */
+/* Standard streams: write to stdout / stderr */
 class SIOStdStreamWrite : public StyioIRTraits<SIOStdStreamWrite>
 {
 public:
@@ -210,7 +210,7 @@ private:
   SIOStdStreamWrite() = default;
 };
 
-/* M10: read lines from stdin */
+/* Stdio input: read lines from stdin */
 class SIOStdStreamLineIter : public StyioIRTraits<SIOStdStreamLineIter>
 {
 public:
@@ -234,7 +234,7 @@ private:
   SIOStdStreamLineIter() = default;
 };
 
-/* M10: single-read pull from stdin */
+/* Stdio input: single-read pull from stdin */
 class SIOStdStreamPull : public StyioIRTraits<SIOStdStreamPull>
 {
 public:

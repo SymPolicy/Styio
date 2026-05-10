@@ -27,7 +27,7 @@ en/
 ├── OPEN-QUESTIONS-AND-HUMAN-INPUT.md
 ├── THIRD-PARTY.md
 ├── architecture/
-├── milestones/
+├── checkpoints/
 ├── tests/
 ├── history/
 └── prompts/
@@ -43,8 +43,8 @@ en/
 | `DOMAIN_SPEC` | `DOMAIN-OR-PRODUCT-SPEC.md` |
 | `OPEN_QUESTIONS` | `OPEN-QUESTIONS-AND-HUMAN-INPUT.md` |
 | `THIRD_PARTY` | `THIRD-PARTY.md` |
-| `MILESTONE_BATCH` | `milestones/<YYYY-MM-DD>/00-Milestone-Index.md` |
-| `MILESTONE_SEGMENT` | `milestones/<YYYY-MM-DD>/M*.md` |
+| `CHECKPOINT_BATCH` | `checkpoints/<YYYY-MM-DD>/00-Checkpoint-Index.md` |
+| `CHECKPOINT_SEGMENT` | `checkpoints/<YYYY-MM-DD>/Checkpoint-*.md` |
 | `TEST_CATALOG` | `tests/TEST-CATALOG.md` |
 | `HISTORY_DAY` | `history/YYYY-MM-DD.md` |
 | `ADR` | `architecture/ADR-NNNN-*.md` |

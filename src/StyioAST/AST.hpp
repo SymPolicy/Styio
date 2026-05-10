@@ -1692,7 +1692,7 @@ public:
   }
 };
 
-/* M4: algebraic absence @ and wave / fallback */
+/* Wave dispatch: algebraic absence @ and wave / fallback */
 class UndefinedLitAST : public StyioASTTraits<UndefinedLitAST>
 {
   UndefinedLitAST() = default;
@@ -2801,7 +2801,7 @@ public:
 };
 
 /*
-  M5: @file("path") or @{"path"} (auto)
+  File resources: @file("path") or @{"path"} (auto)
 */
 class FileResourceAST : public StyioASTTraits<FileResourceAST>
 {
@@ -2838,7 +2838,7 @@ public:
 };
 
 /*
-  M9: @stdout, @stderr, @stdin
+  Standard stream resources: @stdout, @stderr, @stdin
 */
 class StdStreamAST : public StyioASTTraits<StdStreamAST>
 {
@@ -3030,7 +3030,7 @@ public:
   }
 };
 
-/* M6: pulse state ledger */
+/* State resources: pulse state ledger */
 class StateRefAST : public StyioASTTraits<StateRefAST>
 {
   std::unique_ptr<NameAST> name_owner_;

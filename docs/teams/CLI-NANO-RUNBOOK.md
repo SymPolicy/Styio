@@ -67,7 +67,7 @@ Minimum local commands:
 ```bash
 ctest --test-dir build/default -R '^StyioDiagnostics\.'
 ctest --test-dir build/default -R 'Nano|nano'
-ctest --test-dir build/default -L milestone
+ctest --test-dir build/default -L language_feature
 ```
 
 When package behavior changes:

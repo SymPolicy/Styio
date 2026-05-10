@@ -1,4 +1,4 @@
-// M6: pulse ledger, frame snapshot, intrinsics — codegen (StyioToLLVM members).
+// State resources: pulse ledger, frame snapshot, intrinsics codegen (StyioToLLVM members).
 
 #include "CodeGenVisitor.hpp"
 #include "../StyioIR/GenIR/GenIR.hpp"

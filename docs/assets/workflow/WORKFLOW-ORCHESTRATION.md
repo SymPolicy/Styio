@@ -2,7 +2,7 @@
 
 **Purpose:** Define the registered workflow documents, tool responsibilities, ordering rules, and scheduler entrypoints that keep Styio delivery workflows separated and executable.
 
-**Last updated:** 2026-05-02
+**Last updated:** 2026-05-10
 
 ## Separation Rules
 
@@ -37,7 +37,7 @@ Current registered table:
 | Workflow | `docs-gate` | 35 | docs | Common docs/process gate entrypoint and composition boundary. | `docs/assets/workflow/DOCS-GATE.md` |
 | Workflow | `five-layer-pipeline` | 45 | docs | Layered compiler golden coverage from lexer through runtime output. | `docs/assets/workflow/FIVE-LAYER-PIPELINE.md` |
 | Workflow | `test-catalog` | 45 | docs | Named test inventory, fixtures, labels, and automation evidence. | `docs/assets/workflow/TEST-CATALOG.md` |
-| Workflow | `checkpoint` | 50 | docs | Recovery-oriented checkpoint sizing and interruption handling. | `docs/assets/workflow/CHECKPOINT-WORKFLOW.md` |
+| Workflow | `checkpoint` | 50 | docs | Recovery-oriented checkpoint scope control and interruption handling. | `docs/assets/workflow/CHECKPOINT-WORKFLOW.md` |
 | Workflow | `delivery-gate` | 60 | docs | Common delivery-floor entrypoint and health-gate handoff. | `docs/assets/workflow/DELIVERY-GATE.md` |
 | Workflow | `checkpoint-health` | 70 | docs | Repository build/test health entrypoint for checkpoint delivery. | `docs/assets/workflow/CHECKPOINT-HEALTH.md` |
 | Tool | `workflow-scheduler-check` | 5 | Docs / Ecosystem | Validate workflow registry, separation, ordering, and discoverability. | `python3 scripts/workflow-scheduler.py check` |

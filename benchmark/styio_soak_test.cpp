@@ -218,55 +218,55 @@ build_compiler_workloads() {
     load_workload_fixture(
       "Scalar",
       "scalar_core",
-      root / "tests" / "milestones" / "m1" / "t20_combined.styio",
-      root / "tests" / "milestones" / "m1" / "expected" / "t20_combined.out"),
+      root / "tests" / "features" / "scalar_expressions" / "t20_combined.styio",
+      root / "tests" / "features" / "scalar_expressions" / "expected" / "t20_combined.out"),
     load_workload_fixture(
       "Bindings",
       "bindings_chain",
-      root / "tests" / "milestones" / "m1" / "t19_chain_bind.styio",
-      root / "tests" / "milestones" / "m1" / "expected" / "t19_chain_bind.out"),
+      root / "tests" / "features" / "scalar_expressions" / "t19_chain_bind.styio",
+      root / "tests" / "features" / "scalar_expressions" / "expected" / "t19_chain_bind.out"),
     load_workload_fixture(
       "Functions",
       "function_block_body",
-      root / "tests" / "milestones" / "m2" / "t03_block_body.styio",
-      root / "tests" / "milestones" / "m2" / "expected" / "t03_block_body.out"),
+      root / "tests" / "features" / "functions" / "t03_block_body.styio",
+      root / "tests" / "features" / "functions" / "expected" / "t03_block_body.out"),
     load_workload_fixture(
       "ControlFlow",
       "control_match",
-      root / "tests" / "milestones" / "m3" / "t10_fizzbuzz.styio",
-      root / "tests" / "milestones" / "m3" / "expected" / "t10_fizzbuzz.out"),
+      root / "tests" / "features" / "control_flow" / "t10_fizzbuzz.styio",
+      root / "tests" / "features" / "control_flow" / "expected" / "t10_fizzbuzz.out"),
     make_dict_inline_workload(),
     load_workload_fixture(
       "Resources",
       "resource_file_io",
-      root / "tests" / "milestones" / "m5" / "t01_read_file.styio",
-      root / "tests" / "milestones" / "m5" / "expected" / "t01_read_file.out"),
+      root / "tests" / "features" / "file_resources" / "t01_read_file.styio",
+      root / "tests" / "features" / "file_resources" / "expected" / "t01_read_file.out"),
     load_workload_fixture(
       "Streams",
       "stdin_transform",
-      root / "tests" / "milestones" / "m10" / "t05_stdin_transform.styio",
-      root / "tests" / "milestones" / "m10" / "expected" / "t05_stdin_transform.out",
-      root / "tests" / "milestones" / "m10" / "data" / "transform_input.txt"),
+      root / "tests" / "features" / "stdio_input" / "t05_stdin_transform.styio",
+      root / "tests" / "features" / "stdio_input" / "expected" / "t05_stdin_transform.out",
+      root / "tests" / "features" / "stdio_input" / "data" / "transform_input.txt"),
     load_workload_fixture(
       "Streams",
       "stream_zip_files",
-      root / "tests" / "milestones" / "m7" / "t05_zip_files.styio",
-      root / "tests" / "milestones" / "m7" / "expected" / "t05_zip_files.out"),
+      root / "tests" / "features" / "stream_processing" / "t05_zip_files.styio",
+      root / "tests" / "features" / "stream_processing" / "expected" / "t05_zip_files.out"),
     load_workload_fixture(
       "StateAndSeries",
       "snapshot_state",
-      root / "tests" / "milestones" / "m7" / "t09_snapshot_accum.styio",
-      root / "tests" / "milestones" / "m7" / "expected" / "t09_snapshot_accum.out"),
+      root / "tests" / "features" / "stream_processing" / "t09_snapshot_accum.styio",
+      root / "tests" / "features" / "stream_processing" / "expected" / "t09_snapshot_accum.out"),
     load_workload_fixture(
       "StateAndSeries",
       "series_window_avg",
-      root / "tests" / "milestones" / "m6" / "t03_window_avg.styio",
-      root / "tests" / "milestones" / "m6" / "expected" / "t03_window_avg.out"),
+      root / "tests" / "features" / "state_resources" / "t03_window_avg.styio",
+      root / "tests" / "features" / "state_resources" / "expected" / "t03_window_avg.out"),
     load_workload_fixture(
       "Topology",
       "topology_ring",
-      root / "tests" / "milestones" / "m8" / "t02_bounded_read.styio",
-      root / "tests" / "milestones" / "m8" / "expected" / "t02_bounded_read.out"),
+      root / "tests" / "features" / "final_bindings" / "t02_bounded_read.styio",
+      root / "tests" / "features" / "final_bindings" / "expected" / "t02_bounded_read.out"),
     make_state_inline_workload("state_pulse_inline"),
     load_workload_fixture(
       "Mixed",
@@ -480,7 +480,7 @@ build_micro_bench_specs() {
       load_workload_fixture(
         "Functions",
         "function_block_body",
-        root / "tests" / "milestones" / "m2" / "t03_block_body.styio",
+        root / "tests" / "features" / "functions" / "t03_block_body.styio",
         fs::path(),
         fs::path(),
         false),
@@ -491,7 +491,7 @@ build_micro_bench_specs() {
       load_workload_fixture(
         "ControlFlow",
         "parser_match_cases",
-        root / "tests" / "milestones" / "m3" / "t02_match_expr.styio",
+        root / "tests" / "features" / "control_flow" / "t02_match_expr.styio",
         fs::path(),
         fs::path(),
         false),
@@ -502,7 +502,7 @@ build_micro_bench_specs() {
       load_workload_fixture(
         "Resources",
         "parser_iterator_resource_postfix",
-        root / "tests" / "milestones" / "m5" / "t01_read_file.styio",
+        root / "tests" / "features" / "file_resources" / "t01_read_file.styio",
         fs::path(),
         fs::path(),
         false),
@@ -518,7 +518,7 @@ build_micro_bench_specs() {
       load_workload_fixture(
         "StateAndSeries",
         "snapshot_state",
-        root / "tests" / "milestones" / "m7" / "t09_snapshot_accum.styio",
+        root / "tests" / "features" / "stream_processing" / "t09_snapshot_accum.styio",
         fs::path(),
         fs::path(),
         false),
@@ -529,7 +529,7 @@ build_micro_bench_specs() {
       load_workload_fixture(
         "Streams",
         "stream_zip_files",
-        root / "tests" / "milestones" / "m7" / "t05_zip_files.styio",
+        root / "tests" / "features" / "stream_processing" / "t05_zip_files.styio",
         fs::path(),
         fs::path(),
         false),
@@ -540,7 +540,7 @@ build_micro_bench_specs() {
       load_workload_fixture(
         "Resources",
         "resource_file_io",
-        root / "tests" / "milestones" / "m5" / "t01_read_file.styio",
+        root / "tests" / "features" / "file_resources" / "t01_read_file.styio",
         fs::path(),
         fs::path(),
         false),
@@ -556,7 +556,7 @@ build_micro_bench_specs() {
       load_workload_fixture(
         "Scalar",
         "scalar_core",
-        root / "tests" / "milestones" / "m1" / "t20_combined.styio",
+        root / "tests" / "features" / "scalar_expressions" / "t20_combined.styio",
         fs::path(),
         fs::path(),
         false),
@@ -567,7 +567,7 @@ build_micro_bench_specs() {
       load_workload_fixture(
         "Resources",
         "resource_file_io_llvm",
-        root / "tests" / "milestones" / "m5" / "t01_read_file.styio",
+        root / "tests" / "features" / "file_resources" / "t01_read_file.styio",
         fs::path(),
         fs::path(),
         false),
@@ -616,7 +616,7 @@ build_error_bench_specs() {
       load_workload_fixture(
         "ErrorPaths",
         "type_final_then_flex_i64",
-        root / "tests" / "milestones" / "m8" / "e01_final_then_flex_i64.styio",
+        root / "tests" / "features" / "final_bindings" / "e01_final_then_flex_i64.styio",
         fs::path(),
         fs::path(),
         false),
@@ -629,7 +629,7 @@ build_error_bench_specs() {
       load_workload_fixture(
         "ErrorPaths",
         "runtime_read_missing_file",
-        root / "tests" / "milestones" / "m5" / "t06_fail_fast.styio",
+        root / "tests" / "features" / "file_resources" / "t06_fail_fast.styio",
         fs::path(),
         fs::path(),
         false),
@@ -1443,9 +1443,9 @@ TEST(StyioSoakSingleThread, DictHandleLookupUpdateLoop) {
 TEST(StyioSoakSingleThread, StreamProgramLoop) {
   const int loops = read_env_i32("STYIO_SOAK_STREAM_ITERS", 20, 1, 100000);
   const fs::path src =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m6" / "t02_running_max.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "state_resources" / "t02_running_max.styio";
   const fs::path exp =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m6" / "expected" / "t02_running_max.out";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "state_resources" / "expected" / "t02_running_max.out";
 
   const std::string runner = compiler_runner_path();
   ASSERT_FALSE(runner.empty());

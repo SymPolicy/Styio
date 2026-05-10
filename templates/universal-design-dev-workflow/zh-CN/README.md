@@ -12,7 +12,7 @@
 | [`OPEN-QUESTIONS-AND-HUMAN-INPUT.md`](./OPEN-QUESTIONS-AND-HUMAN-INPUT.md) | 待人工填写项 |
 | [`THIRD-PARTY.md`](./THIRD-PARTY.md) | 第三方依赖 |
 | [`architecture/ADR.template.md`](./architecture/ADR.template.md) | 架构决策模板 |
-| [`milestones/`](./milestones/) | 里程碑 |
+| [`checkpoints/`](./checkpoints/) | 检查点 |
 | [`tests/`](./tests/) | 测试目录模板 |
 | [`history/`](./history/) | 开发历史模板 |
 | [`prompts/`](./prompts/) | 文档生成提示词 |
