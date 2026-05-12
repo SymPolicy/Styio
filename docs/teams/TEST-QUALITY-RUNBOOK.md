@@ -60,7 +60,8 @@ Primary paths:
 34. Semantic negative tests must assert a stable diagnostic fragment from `tests/features/<feature>/expected/*.err`; a nonzero exit code alone is not enough evidence.
 35. Lit/FileCheck-style fixture trees belong under active `tests/` only when they are registered in CTest and have real check lines. Otherwise archive them until a live runner owns them.
 36. LibFuzzer runtime probes must compile a minimal `LLVMFuzzerTestOneInput` entrypoint. Do not probe `-fsanitize=fuzzer` with a custom `main`, because the sanitizer runtime provides `main` and the check will fail for the wrong reason.
-37. When replacing a placeholder with accepted behavior, pair the positive fixture with the smallest semantic negative that proves adjacent undefined syntax fails closed; for format strings this means a real `$"..."` stdio-output smoke plus a hash-tag iterator sequence diagnostic.
+37. Fuzz targets that exercise tokenizer, parser, AST, or compiler session objects must run each input inside `CompilationSession` or an equivalent arena owner so sanitizer deep runs catch real memory bugs instead of expected session-lifetime allocations.
+38. When replacing a placeholder with accepted behavior, pair the positive fixture with the smallest semantic negative that proves adjacent undefined syntax fails closed; for format strings this means a real `$"..."` stdio-output smoke plus a hash-tag iterator sequence diagnostic.
 
 ## Change Classes
 
