@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the active, evidence-based phase summary for repository-wide unfinished work so maintainers can split the next stage into checkpoint-sized, multi-team deliveries without creating parallel truths.
 
-**Last updated:** 2026-05-10
+**Last updated:** 2026-05-12
 
 **Status:** Active collaboration ledger. This file distinguishes:
 
@@ -30,7 +30,7 @@
 | Stream | Current reality | Next-stage pressure |
 |--------|-----------------|---------------------|
 | Frontend / Parser | Nightly parser is active but still a subset with explicit unsupported continuations and fallback paths | Close subset gaps before more behavior migrates onto nightly-only assumptions |
-| Sema / IR | Multiple AST families still lower to placeholders or skip type inference entirely, though the `FmtStrAST` placeholder is now closed and hash-tag iterator sequences fail closed | Highest technical debt concentration; blocks language/runtime completion |
+| Sema / IR | Multiple AST families still lower to placeholders or skip type inference entirely, though `FmtStrAST`, hash-tag iterator sequences, and internal operator fallback clusters now fail closed | Highest technical debt concentration; blocks language/runtime completion |
 | Codegen / Runtime | Multi-stream zip and stream-driver combinations are only partially lowered | stream-processing remains incomplete end-to-end |
 | CLI / Nano | Bootstrap nano contract exists; full package lifecycle does not | Keep `styio` limited to compiler contracts and handoff surfaces |
 | IDE / LSP | Core semantic services exist, but stdio runtime drain and several LSP methods are still absent | Close operational gaps before expanding host-facing promises |
@@ -59,7 +59,7 @@
 
 | Gap | Severity | Current evidence | Owning teams | Next checkpoint intent |
 |-----|----------|------------------|--------------|------------------------|
-| Placeholder lowering remains widespread | High | Representative `SGConstInt(0)` placeholders still exist for multiple AST kinds in [src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp) | Sema / IR, Codegen / Runtime, Test Quality | Replace silent placeholder lowering with real lowering or explicit typed failure; do not keep placeholder nodes on active execution paths |
+| Placeholder lowering remains widespread | High | Representative `SGConstInt(0)` placeholders still exist for multiple AST kinds in [src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp), but comparison/list/logical operator fallbacks now reject unknown internal values | Sema / IR, Codegen / Runtime, Test Quality | Replace silent placeholder lowering with real lowering or explicit typed failure; do not keep placeholder nodes on active execution paths |
 | Type inference coverage remains structurally incomplete | High | Empty visitors still exist for active AST families such as `CommentAST`, `InfiniteAST`, `ForwardAST`, and anonymous functions in [src/StyioSema/TypeInfer.cpp](../../src/StyioSema/TypeInfer.cpp); `FmtStrAST` now infers embedded expressions and returns `string` | Sema / IR, Test Quality | Build an explicit inventory of empty visitors and classify each as dead syntax, intentional no-op, or implementation debt |
 | State inline clone path still has unsupported-node fallthrough | Medium | Unsupported AST fallback remains in [src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp) | Sema / IR, Test Quality | Continue shrinking the unsupported clone surface until state-helper inlining is total for accepted language forms |
 
@@ -105,6 +105,8 @@
 | `CP-B0.2 runtime scheduling freeze` | Request-loop runtime diagnostics are budgeted in `Server::run()` (`kRuntimeDrainBudgetPerLoop = 1`), `IdeService::run_idle_tasks()` drains semantic diagnostics before budgeted background work, and stale/late updates are dropped by snapshot-version sequencing in `IdeService` | `ctest --test-dir build-codex -L ide --tests-regex 'StyioLspRuntime.RuntimeDrainCanBeBudgetedForScheduling|StyioLspRuntime.IdleSliceDrainsSemanticBeforeBackgroundWork|StyioLspRuntime.RunAdvancesBackgroundWorkAsRequestDrivenFallback|StyioLspServer.RunDrainsRuntimeDiagnostics' --output-on-failure` passed on 2026-04-22 |
 | Format strings (`$"..."`) parser/sema/lowering closure | [src/StyioParser/Parser.cpp](../../src/StyioParser/Parser.cpp) parses token-level format strings for both parser engines, [src/StyioSema/TypeInfer.cpp](../../src/StyioSema/TypeInfer.cpp) infers embedded expressions as `string`, [src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp) lowers through existing string concatenation, and [tests/features/stdio_output/t06_stdout_fmtstr.styio](../../tests/features/stdio_output/t06_stdout_fmtstr.styio) now exercises real `$"..."` syntax | `ctest --test-dir build/default -R '^(StyioParserEngine\.LegacyAndNightlyMatchOnStdioOutputFmtStringSample|stdio_output_t06_stdout_fmtstr)$' --output-on-failure` passed on 2026-05-10 |
 | Hash-tag iterator sequence fail-closed | `IterSeqAST` no longer silently executes as `SGConstInt(0)`; sema/lowering paths reject undefined hash-tag routing with a `TypeError`, and [tests/styio_test.cpp](../../tests/styio_test.cpp) covers the regression | `ctest --test-dir build/default -R '^StyioDiagnostics\.IteratorSequenceHashTagRoutingFailsClosed$' --output-on-failure` passed on 2026-05-10 |
+| Fuzz session lifetime and parser recovery leaks | Tokenizer accumulation and legacy main-block parsing now retain RAII ownership until handoff, fuzz leak seeds are backflowed under [tests/fuzz/corpus/](../../tests/fuzz/corpus/), and [tests/security/styio_security_test.cpp](../../tests/security/styio_security_test.cpp) covers the lexer/parser paths under `CompilationSession` | `ASAN_OPTIONS=detect_leaks=1:detect_container_overflow=0 ctest --test-dir build/asan-ubsan -R '^StyioSecurity(Lexer\.UnterminatedStringAfterOwnedTokensStaysExceptionSafe\|ParserContext\.HashFunctionFuzzSeedStaysExceptionSafe)$' --output-on-failure` passed on 2026-05-12 |
+| Internal operator fallback fail-closed | Unknown comparison, list, logical, and binary IR operator values now throw `StyioTypeError` instead of lowering/emitting equality, constant zero, or left-operand fallback in [src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp) and [src/StyioCodeGen/CodeGenG.cpp](../../src/StyioCodeGen/CodeGenG.cpp) | `ctest --test-dir build/default -R '^StyioSecurityNightlyCodegen\.(LogicalNotAndXorLowerWithoutLeftOperandFallback\|UnsupportedInternalBinaryOperatorFailsClosed\|UnsupportedInternalLoweringOperatorsFailClosed)$' --output-on-failure` passed on 2026-05-12 |
 
 ## 6. Next-Stage Execution Entry
 

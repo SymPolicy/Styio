@@ -535,6 +535,16 @@ TEST(StyioSecurityLexer, UnterminatedStringThrowsLexError) {
   );
 }
 
+TEST(StyioSecurityLexer, UnterminatedStringAfterOwnedTokensStaysExceptionSafe) {
+  CompilationSession session;
+  EXPECT_THROW(
+    {
+      session.adopt_tokens(StyioTokenizer::tokenize("555555555555555555555555555555555 \""));
+    },
+    StyioLexError
+  );
+}
+
 TEST(StyioSecurityLexer, UnterminatedBlockCommentThrowsLexError) {
   EXPECT_THROW(
     {
@@ -586,6 +596,28 @@ TEST(StyioSecurityParserContext, MoveForwardBeyondTokenTailIsClampedToEof) {
 
   delete ctx;
   free_tokens(tokens);
+}
+
+TEST(StyioSecurityParserContext, HashFunctionFuzzSeedStaysExceptionSafe) {
+  const std::string src = "# a : d=(a: a63, )b 6i4:";
+  for (StyioParserEngine engine : {StyioParserEngine::Legacy, StyioParserEngine::Nightly}) {
+    CompilationSession session;
+    session.adopt_tokens(StyioTokenizer::tokenize(src));
+    session.attach_context(StyioContext::Create(
+      "<fuzz-regression>",
+      src,
+      build_line_seps(src),
+      session.tokens(),
+      false
+    ));
+    try {
+      session.attach_ast(parse_main_block_with_engine_latest(*session.context(), engine, nullptr));
+    }
+    catch (const StyioBaseException&) {
+      session.mark_failed();
+    }
+    SUCCEED();
+  }
 }
 
 TEST(StyioSecurityParserContext, TokenMapMatchesSingleRightArrow) {
@@ -2011,6 +2043,80 @@ TEST(StyioSecurityNightlyCodegen, SgCallArityMismatchFailsBeforeLlvmEmission) {
 
   EXPECT_THROW(entry->toLLVMIR(&generator), StyioTypeError);
   delete entry;
+}
+
+TEST(StyioSecurityNightlyCodegen, LogicalNotAndXorLowerWithoutLeftOperandFallback) {
+  AstToStyioIRLowerer analyzer;
+  std::unique_ptr<StyioAST> not_ast(CondAST::Create(LogicType::NOT, BoolAST::Create(true)));
+  std::unique_ptr<StyioAST> xor_ast(CondAST::Create(LogicType::XOR, BoolAST::Create(true), BoolAST::Create(false)));
+
+  std::unique_ptr<StyioIR> not_ir(not_ast->toStyioIR(&analyzer));
+  std::unique_ptr<StyioIR> xor_ir(xor_ast->toStyioIR(&analyzer));
+  auto* not_cond = dynamic_cast<SGCond*>(not_ir.get());
+  auto* xor_cond = dynamic_cast<SGCond*>(xor_ir.get());
+  ASSERT_NE(not_cond, nullptr);
+  ASSERT_NE(xor_cond, nullptr);
+  EXPECT_EQ(not_cond->operand, StyioOpType::Logic_NOT);
+  EXPECT_EQ(xor_cond->operand, StyioOpType::Logic_XOR);
+
+  llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmPrinter();
+  llvm::InitializeNativeTargetAsmParser();
+  llvm::ExitOnError exit_on_error;
+  std::unique_ptr<StyioJIT_ORC> jit = exit_on_error(StyioJIT_ORC::Create());
+  StyioToLLVM generator(std::move(jit));
+  auto* entry = SGMainEntry::Create(std::vector<StyioIR*>{
+    SGCond::Create(SGConstBool::Create(true), SGConstBool::Create(false), StyioOpType::Logic_NOT),
+    SGCond::Create(SGConstBool::Create(true), SGConstBool::Create(false), StyioOpType::Logic_XOR)
+  });
+  EXPECT_NO_THROW(entry->toLLVMIR(&generator));
+  delete entry;
+}
+
+TEST(StyioSecurityNightlyCodegen, UnsupportedInternalBinaryOperatorFailsClosed) {
+  llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmPrinter();
+  llvm::InitializeNativeTargetAsmParser();
+  llvm::ExitOnError exit_on_error;
+  std::unique_ptr<StyioJIT_ORC> jit = exit_on_error(StyioJIT_ORC::Create());
+  StyioToLLVM generator(std::move(jit));
+  auto* entry = SGMainEntry::Create(std::vector<StyioIR*>{
+    SGBinOp::Create(
+      SGConstInt::Create(1),
+      SGConstInt::Create(2),
+      static_cast<StyioOpType>(999),
+      SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64})
+    )
+  });
+  EXPECT_THROW(entry->toLLVMIR(&generator), StyioTypeError);
+  delete entry;
+}
+
+TEST(StyioSecurityNightlyCodegen, UnsupportedInternalLoweringOperatorsFailClosed) {
+  AstToStyioIRLowerer analyzer;
+
+  std::unique_ptr<StyioAST> bad_comp(new BinCompAST(
+    static_cast<CompType>(999),
+    IntAST::Create("1", 64),
+    IntAST::Create("2", 64)
+  ));
+  EXPECT_THROW(
+    {
+      std::unique_ptr<StyioIR> ir(bad_comp->toStyioIR(&analyzer));
+    },
+    StyioTypeError
+  );
+
+  std::unique_ptr<StyioAST> bad_list(new ListOpAST(
+    StyioNodeType::Get_Reversed,
+    ListAST::Create(std::vector<StyioAST*>{IntAST::Create("1", 64)})
+  ));
+  EXPECT_THROW(
+    {
+      std::unique_ptr<StyioIR> ir(bad_list->toStyioIR(&analyzer));
+    },
+    StyioTypeError
+  );
 }
 
 TEST(StyioSecurityNightlyCodegen, EmitsTypedListHelpersForMutationAndOperations) {

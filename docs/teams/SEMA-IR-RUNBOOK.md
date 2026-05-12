@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of AST lifecycle, semantic analysis, type inference, StyioIR lowering, string representation, and compilation session ownership.
 
-**Last updated:** 2026-05-10
+**Last updated:** 2026-05-12
 
 ## Mission
 
@@ -55,6 +55,7 @@ High-value docs:
 23. `InstantPullAST` carries the result type for typed stdin pulls. Keep scalar and typed `list[T]` stdin pulls on the same AST and `SIOStdStreamPull` path, reject unsupported stdin list element families in sema, and infer `ReturnAST` expressions before deriving `task[T]` so f64 task bodies do not collapse to i64 handles.
 24. Built-in method names such as list `push/insert/pop`, string `lines`, and resource `write/close/drop/destroy` must be classified through `StyioUtil/BuiltinMethods.hpp`; sema, lowering, and topology must not keep independent string lists.
 25. Format strings lower through ordinary string concatenation: infer each embedded expression, report the result as `string`, and reuse existing string/numeric runtime conversion rather than inventing a separate formatting IR node. Undefined hash-tag iterator sequences must stay fail-closed until the design SSOT defines their semantics.
+26. Internal lowering dispatch must reject unknown comparison, list, and logical operator values with `StyioTypeError`. Do not map unknown enum values to equality, constant zero, raw value, or other placeholder IR.
 
 ## Change Classes
 

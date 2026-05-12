@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-05-10
+**Last updated:** 2026-05-12
 
 ## Mission
 
@@ -92,6 +92,7 @@ Key SSOTs:
 57. Do not describe Styio as equivalent to another language's resource model. State the exact compiler evidence Styio has, then list external practices only as references.
 58. Historical deprecated syntax belongs in Git history, not active docs; do not recreate old syntax catalogs or copy historical syntax into active examples without checking the active SSOT.
 59. When an audit creates a maintainer decision log under `docs/plans/`, keep it separate from language SSOTs: record autonomous closures, unresolved decisions, and verification evidence without defining new syntax there.
+60. When closing a rollup ledger item for sanitizer, fuzz, or fail-closed compiler work, cite the exact local command that proved the closure and keep broader open-gap rows intact unless the whole class is actually retired.
 
 ## Change Classes
 
