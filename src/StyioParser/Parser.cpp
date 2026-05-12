@@ -5007,7 +5007,7 @@ parse_block_only(StyioContext& context) {
 
 MainBlockAST*
 parse_main_block_legacy(StyioContext& context) {
-  vector<StyioAST*> statements;
+  std::vector<std::unique_ptr<StyioAST>> statements_owned;
 
   while (true) {
     consume_statement_separators_latest(context);
@@ -5029,16 +5029,23 @@ parse_main_block_legacy(StyioContext& context) {
     }
 
     if ((stmt->getNodeType()) == StyioNodeType::End) {
+      delete stmt;
       break;
     }
     else if ((stmt->getNodeType()) == StyioNodeType::Comment) {
+      delete stmt;
       continue;
     }
     else {
-      statements.push_back(stmt);
+      statements_owned.emplace_back(stmt);
     }
   }
 
+  vector<StyioAST*> statements;
+  statements.reserve(statements_owned.size());
+  for (auto& owned : statements_owned) {
+    statements.push_back(owned.release());
+  }
   return MainBlockAST::Create(statements);
 }
 

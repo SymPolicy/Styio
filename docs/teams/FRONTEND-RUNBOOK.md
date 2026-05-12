@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of Styio tokenization, parsing, Unicode handling, and legacy/nightly parser migration; this file links to language and test SSOTs instead of redefining grammar.
 
-**Last updated:** 2026-05-10
+**Last updated:** 2026-05-12
 
 ## Mission
 
@@ -45,6 +45,7 @@ Build and test targets:
 16. Resource method syntax is parser-owned but sema-resolved: accept `@file::name = ...`, `@file::name := ...`, compatible `@file.name = ...` definitions, `@("path")` file-resource expressions, `@()` empty-resource sinks, and expression postfix calls such as `@("path").close()`. Inside a resource method body, bare `@file` and postfix forms such as `@file.dispose()` are the receiver instance for that method family, not a constructor.
 17. Typed stdin pull syntax is one parser route: `name[, name...] <- @stdin : T-or-(T, ...)`. Scalar pulls and single-target collection pulls such as `xs <- @stdin : list[i64]` must both lower through typed `InstantPull`.
 18. `$` remains syntax-sensitive: `$"..."` is the accepted format-string route and must stay green in both parser engines, while `$identifier` is retired state-resource state syntax and must keep the migration diagnostic.
+19. Tokenizer and parser recovery paths are sanitizer-sensitive. Accumulate tokens and top-level statements behind RAII ownership before releasing them to `CompilationSession`, and backflow minimized fuzz samples into `tests/fuzz/corpus/` when nightly fuzz exposes a lifetime bug.
 
 ## Change Classes
 
