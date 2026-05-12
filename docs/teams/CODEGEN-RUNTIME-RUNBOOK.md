@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-05-12
 
 ## Mission
 
@@ -47,6 +47,7 @@ Related docs:
 18. File-resource destroy lowering must use explicit handle release IR. `SIOHandleRelease` should call `styio_file_close`, clear named handle slots to zero so scope-exit cleanup is idempotent, and preserve `@("path").close()` direct-path behavior without bypassing runtime diagnostics.
 19. Typed stdin pulls lower from `InstantPull` to `SIOStdStreamPull::result_type` for scalar i64/f64/string and typed list pulls. Untyped collect-bind stdin may still use `SIOListReadStdin`. String pulls must clone the borrowed stdin buffer before binding, and `list[f64]` stdin pulls must use the f64 list reader rather than falling through to i64 parsing. String concatenation should route non-string operands through `promote_to_cstr` so f64 formatting uses the same runtime decimal helper as other output paths.
 20. Dynamic-slot stores must fail closed on mismatched LLVM value families. Do not replace invalid integer, floating, or pointer fields with zero/null sentinels unless the IR node explicitly represents an undefined value.
+21. Internal IR operator dispatch must fail closed. Unknown binary or logical operators are typed diagnostics, not zero/left-operand fallbacks, and each new operator family needs a focused security/codegen regression before it can reach LLVM emission.
 
 ## Change Classes
 

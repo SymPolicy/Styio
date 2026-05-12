@@ -1748,7 +1748,7 @@ comp_type_to_op(CompType ct) {
     case CompType::LE:
       return StyioOpType::Less_Than_Equal;
     default:
-      return StyioOpType::Equal;
+      throw StyioTypeError("unsupported comparison operator in lowering");
   }
 }
 
@@ -2186,7 +2186,7 @@ AstToStyioIRLowerer::toStyioIR(ListOpAST* ast) {
       styio_type_item_type_name(base_type)
     );
   }
-  return SGConstInt::Create(0);
+  throw StyioTypeError("unsupported list operation in lowering");
 }
 
 StyioIR*
@@ -2203,6 +2203,12 @@ AstToStyioIRLowerer::toStyioIR(BinCompAST* ast) {
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(CondAST* ast) {
   switch (ast->getSign()) {
+    case LogicType::NOT:
+      return SGCond::Create(
+        ast->getValue()->toStyioIR(this),
+        SGConstBool::Create(false),
+        StyioOpType::Logic_NOT
+      );
     case LogicType::AND:
       return SGCond::Create(
         ast->getLHS()->toStyioIR(this),
@@ -2215,10 +2221,16 @@ AstToStyioIRLowerer::toStyioIR(CondAST* ast) {
         ast->getRHS()->toStyioIR(this),
         StyioOpType::Logic_OR
       );
+    case LogicType::XOR:
+      return SGCond::Create(
+        ast->getLHS()->toStyioIR(this),
+        ast->getRHS()->toStyioIR(this),
+        StyioOpType::Logic_XOR
+      );
     case LogicType::RAW:
       return ast->getValue()->toStyioIR(this);
     default:
-      return ast->getValue() ? ast->getValue()->toStyioIR(this) : SGConstInt::Create(0);
+      throw StyioTypeError("unsupported logical condition operator in lowering");
   }
 }
 
