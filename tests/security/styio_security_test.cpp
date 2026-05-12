@@ -599,24 +599,29 @@ TEST(StyioSecurityParserContext, MoveForwardBeyondTokenTailIsClampedToEof) {
 }
 
 TEST(StyioSecurityParserContext, HashFunctionFuzzSeedStaysExceptionSafe) {
-  const std::string src = "# a : d=(a: a63, )b 6i4:";
-  for (StyioParserEngine engine : {StyioParserEngine::Legacy, StyioParserEngine::Nightly}) {
-    CompilationSession session;
-    session.adopt_tokens(StyioTokenizer::tokenize(src));
-    session.attach_context(StyioContext::Create(
-      "<fuzz-regression>",
-      src,
-      build_line_seps(src),
-      session.tokens(),
-      false
-    ));
-    try {
-      session.attach_ast(parse_main_block_with_engine_latest(*session.context(), engine, nullptr));
+  const std::vector<std::string> samples{
+    "# a : d=(a: a63, )b 6i4:",
+    "a# : dHHHHHHHHHHHHHHH5, "
+  };
+  for (const std::string& src : samples) {
+    for (StyioParserEngine engine : {StyioParserEngine::Legacy, StyioParserEngine::Nightly}) {
+      CompilationSession session;
+      session.adopt_tokens(StyioTokenizer::tokenize(src));
+      session.attach_context(StyioContext::Create(
+        "<fuzz-regression>",
+        src,
+        build_line_seps(src),
+        session.tokens(),
+        false
+      ));
+      try {
+        session.attach_ast(parse_main_block_with_engine_latest(*session.context(), engine, nullptr));
+      }
+      catch (const StyioBaseException&) {
+        session.mark_failed();
+      }
+      SUCCEED();
     }
-    catch (const StyioBaseException&) {
-      session.mark_failed();
-    }
-    SUCCEED();
   }
 }
 
