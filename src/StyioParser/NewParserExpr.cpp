@@ -1125,7 +1125,7 @@ parse_forward_as_list_nightly_draft(StyioContext& context) {
 
 StyioAST*
 parse_iterator_tail_nightly_draft(StyioContext& context, StyioAST* collection) {
-  std::vector<ParamAST*> params;
+  std::vector<std::unique_ptr<ParamAST>> params;
 
   context.skip();
 
@@ -1194,23 +1194,37 @@ parse_iterator_tail_nightly_draft(StyioContext& context, StyioAST* collection) {
       throw StyioSyntaxError(context.mark_cur_tok("expected >> after first stream in zip"));
     }
     context.skip();
-    std::vector<ParamAST*> params_b = parse_params(context);
+    std::vector<std::unique_ptr<ParamAST>> params_b = parse_params(context);
     context.skip();
     if (not context.try_match(StyioTokenType::ARROW_DOUBLE_RIGHT)) {
       throw StyioSyntaxError(context.mark_cur_tok("expected => after zip streams"));
     }
     context.skip();
     StyioAST* body_ast = parse_iterator_body_nightly_fallback_latest_draft(context);
-    return StreamZipAST::Create(collection, params, collection_b, params_b, body_ast);
+    return StreamZipAST::Create(
+      collection,
+      release_owned_params(std::move(params)),
+      collection_b,
+      release_owned_params(std::move(params_b)),
+      body_ast
+    );
   }
 
   if (context.try_match(StyioTokenType::ARROW_DOUBLE_RIGHT)) {
     context.skip();
-    return IteratorAST::Create(collection, params, parse_iterator_body_nightly_fallback_latest_draft(context));
+    return IteratorAST::Create(
+      collection,
+      release_owned_params(std::move(params)),
+      parse_iterator_body_nightly_fallback_latest_draft(context)
+    );
   }
   context.skip();
   if (context.check(StyioTokenType::TOK_LCURBRAC)) {
-    return IteratorAST::Create(collection, params, parse_block_only_subset_with_legacy_fallback_latest_draft(context));
+    return IteratorAST::Create(
+      collection,
+      release_owned_params(std::move(params)),
+      parse_block_only_subset_with_legacy_fallback_latest_draft(context)
+    );
   }
   else if (context.try_match(StyioTokenType::TOK_RANGBRAC)) {
     std::vector<HashTagNameAST*> hash_tags;
@@ -1234,10 +1248,10 @@ parse_iterator_tail_nightly_draft(StyioContext& context, StyioAST* collection) {
       }
     } while (context.try_match(StyioTokenType::TOK_RANGBRAC));
 
-    return IterSeqAST::Create(collection, params, hash_tags);
+    return IterSeqAST::Create(collection, release_owned_params(std::move(params)), hash_tags);
   }
 
-  return IteratorAST::Create(collection, params);
+  return IteratorAST::Create(collection, release_owned_params(std::move(params)));
 }
 
 StyioAST*
