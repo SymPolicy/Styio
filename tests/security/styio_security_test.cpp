@@ -864,6 +864,34 @@ TEST(StyioSecurityParserContext, MalformedIteratorHashTagLeakSeedDoesNotLeakUnde
   }
 }
 
+TEST(StyioSecurityParserContext, MalformedIteratorFallbackLeakSeedDoesNotLeakUnderSessionArena) {
+  static constexpr unsigned char kSeed[] = {
+    0x5b, 0x5b, 0x5b, 0x5b, 0x35, 0x5b, 0x5b, 0x5b, 0x32, 0x32, 0x32, 0x3e,
+    0x40, 0x3e, 0x3e, 0x3e, 0x23, 0x20, 0x61, 0x74, 0x3e, 0x3e, 0x23, 0x20,
+    0x61, 0x74, 0x20, 0x72, 0x3e, 0x69, 0x78, 0x20, 0x72, 0x3e, 0x69, 0x78,
+    0x36, 0x38, 0x34, 0x29, 0x20, 0x29,
+  };
+  const std::string src(reinterpret_cast<const char*>(kSeed), sizeof(kSeed));
+
+  for (StyioParserEngine engine : {StyioParserEngine::Legacy, StyioParserEngine::Nightly}) {
+    CompilationSession session;
+    session.adopt_tokens(StyioTokenizer::tokenize(src));
+    session.attach_context(StyioContext::Create(
+      "<malformed-iterator-fallback-leak-regression>",
+      src,
+      build_line_seps(src),
+      session.tokens(),
+      false
+    ));
+
+    try {
+      session.attach_ast(parse_main_block_with_engine_latest(*session.context(), engine, nullptr));
+    } catch (const StyioBaseException&) {
+    } catch (...) {
+    }
+  }
+}
+
 TEST(StyioSecurityParserContext, TokenMapMatchesSingleRightArrow) {
   std::vector<StyioToken*> tokens{
     StyioToken::Create(StyioTokenType::TOK_MINUS, "-"),
