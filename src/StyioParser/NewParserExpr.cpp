@@ -11,6 +11,7 @@ namespace
 
 constexpr int kMaxExprDelimiterNestingLatest = 64;
 constexpr int kMaxExprRecoveryFallbackNestingLatest = kMaxExprDelimiterNestingLatest - 4;
+constexpr size_t kMaxInternalLegacyBridgesPerTokenLatest = 4;
 
 void
 enforce_expr_delimiter_budget_latest(StyioContext& context, const char* construct) {
@@ -36,6 +37,21 @@ expr_recovery_limit_error_latest(StyioContext& context, const char* construct) {
       + std::to_string(kMaxExprRecoveryFallbackNestingLatest)
     )
   ));
+}
+
+void
+enforce_nightly_internal_legacy_bridge_budget_latest(StyioContext& context, const char* construct) {
+  const size_t bridge_count = context.note_nightly_internal_legacy_bridge_latest();
+  if (bridge_count <= kMaxInternalLegacyBridgesPerTokenLatest) {
+    return;
+  }
+  throw StyioParserResourceLimitError(
+    context.mark_cur_tok(
+      std::string(construct) + " exceeded nightly-to-legacy bridge limit of "
+      + std::to_string(kMaxInternalLegacyBridgesPerTokenLatest)
+      + " at one token"
+    )
+  );
 }
 
 BlockAST*
@@ -862,7 +878,7 @@ parse_dict_literal_nightly_draft(StyioContext& context) {
     if (attempt.status == ParseAttemptStatus::Fatal) {
       std::rethrow_exception(attempt.error);
     }
-    context.note_nightly_internal_legacy_bridge_latest();
+    enforce_nightly_internal_legacy_bridge_budget_latest(context, "dictionary literal fallback");
     return parse_expr(context);
   };
 
@@ -897,7 +913,7 @@ parse_stmt_subset_with_legacy_fallback_latest_draft(StyioContext& context) {
   if (attempt.status == ParseAttemptStatus::Fatal) {
     std::rethrow_exception(attempt.error);
   }
-  context.note_nightly_internal_legacy_bridge_latest();
+  enforce_nightly_internal_legacy_bridge_budget_latest(context, "statement subset fallback");
   return parse_stmt_or_expr_legacy(context);
 }
 
@@ -910,7 +926,7 @@ parse_block_only_subset_with_legacy_fallback_latest_draft(StyioContext& context)
   if (attempt.status == ParseAttemptStatus::Fatal) {
     std::rethrow_exception(attempt.error);
   }
-  context.note_nightly_internal_legacy_bridge_latest();
+  enforce_nightly_internal_legacy_bridge_budget_latest(context, "block subset fallback");
   return parse_block_only(context);
 }
 
@@ -936,7 +952,7 @@ parse_iterator_collection_rhs_nightly_draft(StyioContext& context) {
   if (attempt.status == ParseAttemptStatus::Fatal) {
     std::rethrow_exception(attempt.error);
   }
-  context.note_nightly_internal_legacy_bridge_latest();
+  enforce_nightly_internal_legacy_bridge_budget_latest(context, "iterator collection fallback");
   return parse_expr(context);
 }
 
@@ -1007,7 +1023,7 @@ parse_cases_only_nightly_draft(StyioContext& context) {
         std::rethrow_exception(left_attempt.error);
       }
       else {
-        context.note_nightly_internal_legacy_bridge_latest();
+        enforce_nightly_internal_legacy_bridge_budget_latest(context, "match case fallback");
         left.reset(parse_expr(context));
       }
 
@@ -1078,7 +1094,7 @@ parse_forward_as_list_nightly_draft(StyioContext& context) {
               std::rethrow_exception(attempt.error);
             }
             else {
-              context.note_nightly_internal_legacy_bridge_latest();
+              enforce_nightly_internal_legacy_bridge_budget_latest(context, "match arm equality fallback");
               rvals.push_back(parse_expr(context));
             }
           } while (context.try_match(StyioTokenType::TOK_COMMA));
@@ -2380,7 +2396,7 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
     if (attempt.status == ParseAttemptStatus::Fatal) {
       std::rethrow_exception(attempt.error);
     }
-    context.note_nightly_internal_legacy_bridge_latest();
+    enforce_nightly_internal_legacy_bridge_budget_latest(context, "hash statement fallback");
     return parse_hash_tag(context);
   }
   if (context.cur_tok_type() == StyioTokenType::TOK_AT) {

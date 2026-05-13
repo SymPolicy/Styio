@@ -85,6 +85,7 @@ private:
   StyioParserRouteStats* parser_route_stats = nullptr;
   StyioParseMode parse_mode_ = StyioParseMode::Strict;
   std::vector<StyioParseDiagnostic> parse_diagnostics_;
+  std::vector<size_t> nightly_internal_legacy_bridge_counts_;
 
   bool debug_mode = false;
 
@@ -499,11 +500,16 @@ public:
     return parser_route_stats;
   }
 
-  void
+  size_t
   note_nightly_internal_legacy_bridge_latest() {
     if (parser_route_stats != nullptr) {
       parser_route_stats->nightly_internal_legacy_bridges += 1;
     }
+    if (nightly_internal_legacy_bridge_counts_.size() <= index_of_token) {
+      nightly_internal_legacy_bridge_counts_.resize(index_of_token + 1, 0);
+    }
+    nightly_internal_legacy_bridge_counts_[index_of_token] += 1;
+    return nightly_internal_legacy_bridge_counts_[index_of_token];
   }
 
   inline void skip() {
