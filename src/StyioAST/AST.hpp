@@ -405,6 +405,10 @@ public:
     data_type->type = type;
   }
 
+  ~FloatAST() override {
+    delete data_type;
+  }
+
   static FloatAST* Create(const string& value) {
     return new FloatAST(value);
   }

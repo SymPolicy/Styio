@@ -609,11 +609,22 @@ TEST(StyioSecurityParserContext, HashFunctionFuzzSeedStaysExceptionSafe) {
   nested_match_print_seed.push_back('\0');
   nested_match_print_seed += "|\n}\n";
 
+  std::string typed_binding_recovery_seed =
+    "# ad : d=(a:i6,4  b: " + std::string(100, 'r') + "i64) => {\n"
+    "  <- a + ";
+  typed_binding_recovery_seed.push_back(static_cast<char>(0xa2));
+  typed_binding_recovery_seed += "? >";
+  typed_binding_recovery_seed.append(5, '\0');
+  typed_binding_recovery_seed += "E";
+  typed_binding_recovery_seed.push_back('\0');
+  typed_binding_recovery_seed += "b\n}\n\n>_ad(d(1, 2))\n";
+
   const std::vector<std::string> samples{
     "# a : d=(a: a63, )b 6i4:",
     "a# : dHHHHHHHHHHHHHHH5, ",
     "# ad : d=(a: i64, b: i64) =>(add(0, 2)>",
-    nested_match_print_seed
+    nested_match_print_seed,
+    typed_binding_recovery_seed
   };
   for (const std::string& src : samples) {
     for (StyioParserEngine engine : {StyioParserEngine::Legacy, StyioParserEngine::Nightly}) {
