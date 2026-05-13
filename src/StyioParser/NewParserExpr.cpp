@@ -1349,7 +1349,14 @@ private:
         context_.move_forward(1, "new_expr:dot_name");
         context_.skip_spaces_no_linebreak();
         if (context_.cur_tok_type() == StyioTokenType::TOK_LPAREN) {
-          owner.reset(FuncCallAST::Create(owner.release(), NameAST::Create(member_name), parse_call_args()));
+          auto arg_owners = parse_call_arg_owners();
+          auto args = call_arg_view(arg_owners);
+          std::unique_ptr<NameAST> member(NameAST::Create(member_name));
+          FuncCallAST* call = FuncCallAST::Create(owner.get(), member.get(), args);
+          owner.release();
+          member.release();
+          release_call_args(arg_owners);
+          owner.reset(call);
           continue;
         }
         owner.reset(AttrAST::Create(owner.release(), NameAST::Create(member_name)));
@@ -1358,14 +1365,22 @@ private:
       if (context_.cur_tok_type() == StyioTokenType::TOK_LBOXBRAC) {
         context_.move_forward(1, "new_expr:index_open");
         context_.skip();
-        StyioAST* idx = parse_full_expression();
+        std::unique_ptr<StyioAST> idx(parse_full_expression());
         context_.skip();
         context_.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
-        owner.reset(new ListOpAST(StyioNodeType::Access_By_Index, owner.release(), idx));
+        StyioAST* access = new ListOpAST(StyioNodeType::Access_By_Index, owner.get(), idx.get());
+        owner.release();
+        idx.release();
+        owner.reset(access);
         continue;
       }
       if (context_.cur_tok_type() == StyioTokenType::TOK_LPAREN) {
-        owner.reset(FuncCallAST::CreateCallable(owner.release(), parse_call_args()));
+        auto arg_owners = parse_call_arg_owners();
+        auto args = call_arg_view(arg_owners);
+        FuncCallAST* call = FuncCallAST::CreateCallable(owner.get(), args);
+        owner.release();
+        release_call_args(arg_owners);
+        owner.reset(call);
         continue;
       }
       if (allow_extended_continuations && context_.match(StyioTokenType::MATCH)) {
@@ -1373,7 +1388,11 @@ private:
         if (context_.cur_tok_type() != StyioTokenType::TOK_LCURBRAC) {
           throw StyioSyntaxError(context_.mark_cur_tok("?= must be followed by {"));
         }
-        owner.reset(MatchCasesAST::make(owner.release(), parse_cases_only_nightly_draft(context_)));
+        std::unique_ptr<CasesAST> cases(parse_cases_only_nightly_draft(context_));
+        StyioAST* match = MatchCasesAST::make(owner.get(), cases.get());
+        owner.release();
+        cases.release();
+        owner.reset(match);
         continue;
       }
       if (allow_extended_continuations && context_.cur_tok_type() == StyioTokenType::ITERATOR) {
@@ -1424,23 +1443,22 @@ private:
   }
 
   StyioAST* parse_full_expression() {
-    StyioAST* parsed = parse_postfix(parse_expression(0));
+    std::unique_ptr<StyioAST> parsed(parse_postfix(parse_expression(0)));
     context_.skip_spaces_no_linebreak();
     if (has_unsupported_continuation_latest_draft(context_.cur_tok_type())) {
-      delete parsed;
       throw StyioSyntaxError("unsupported expression continuation in nightly parser subset");
     }
-    return parsed;
+    return parsed.release();
   }
 
-  std::vector<StyioAST*> parse_call_args() {
+  std::vector<std::unique_ptr<StyioAST>> parse_call_arg_owners() {
     context_.move_forward(1, "new_expr:call(");
 
-    std::vector<StyioAST*> args;
+    std::vector<std::unique_ptr<StyioAST>> args;
     context_.skip_spaces_no_linebreak();
     if (context_.cur_tok_type() != StyioTokenType::TOK_RPAREN) {
       while (true) {
-        args.push_back(parse_full_expression());
+        args.emplace_back(parse_full_expression());
         context_.skip_spaces_no_linebreak();
         if (context_.cur_tok_type() == StyioTokenType::TOK_RPAREN) {
           break;
@@ -1453,8 +1471,30 @@ private:
     return args;
   }
 
+  std::vector<StyioAST*>
+  call_arg_view(const std::vector<std::unique_ptr<StyioAST>>& arg_owners) {
+    std::vector<StyioAST*> args;
+    args.reserve(arg_owners.size());
+    for (const auto& arg : arg_owners) {
+      args.push_back(arg.get());
+    }
+    return args;
+  }
+
+  void release_call_args(std::vector<std::unique_ptr<StyioAST>>& arg_owners) {
+    for (auto& arg : arg_owners) {
+      arg.release();
+    }
+  }
+
   StyioAST* parse_call_after_name(const std::string& callee_name) {
-    return FuncCallAST::Create(NameAST::Create(callee_name), parse_call_args());
+    auto arg_owners = parse_call_arg_owners();
+    auto args = call_arg_view(arg_owners);
+    std::unique_ptr<NameAST> name(NameAST::Create(callee_name));
+    FuncCallAST* call = FuncCallAST::Create(name.get(), args);
+    name.release();
+    release_call_args(arg_owners);
+    return call;
   }
 
   StyioAST* parse_name_family(const std::string& name) {
@@ -1582,12 +1622,12 @@ private:
             "expected ')' after instant pull in nightly parser subset"
           );
         }
-        StyioAST* inner = parse_full_expression();
+        std::unique_ptr<StyioAST> inner(parse_full_expression());
         context_.skip();
         if (!context_.match(StyioTokenType::TOK_RPAREN)) {
           throw StyioSyntaxError("expected ')' in nightly parser expression subset");
         }
-        return inner;
+        return inner.release();
       }
       default:
         throw StyioSyntaxError("unexpected token in nightly parser expression subset");
@@ -1619,14 +1659,19 @@ private:
           break;
       }
       // Align with legacy parser: unary '-' captures the remaining expression.
-      return BinOpAST::Create(StyioOpType::Binary_Sub, IntAST::Create("0"), parse_expression(0));
+      std::unique_ptr<StyioAST> zero(IntAST::Create("0"));
+      std::unique_ptr<StyioAST> rhs(parse_expression(0));
+      StyioAST* negative_expr = BinOpAST::Create(StyioOpType::Binary_Sub, zero.get(), rhs.get());
+      zero.release();
+      rhs.release();
+      return negative_expr;
     }
 
     return parse_postfix(parse_primary(), false);
   }
 
   StyioAST* parse_expression(int min_prec) {
-    StyioAST* lhs = parse_unary();
+    std::unique_ptr<StyioAST> lhs(parse_unary());
 
     while (true) {
       context_.skip_spaces_no_linebreak();
@@ -1646,22 +1691,34 @@ private:
 
       context_.move_forward(1, "new_expr:binop");
       const int next_min = expr_is_right_assoc(tok) ? prec : (prec + 1);
-      StyioAST* rhs = parse_expression(next_min);
+      std::unique_ptr<StyioAST> rhs(parse_expression(next_min));
       if (is_apply) {
-        lhs = make_callable_apply_nightly_latest(lhs, rhs);
+        StyioAST* apply = make_callable_apply_nightly_latest(lhs.get(), rhs.get());
+        lhs.release();
+        rhs.release();
+        lhs.reset(apply);
       }
       else if (is_comp) {
-        lhs = new BinCompAST(expr_map_comp(tok), lhs, rhs);
+        StyioAST* comp = new BinCompAST(expr_map_comp(tok), lhs.get(), rhs.get());
+        lhs.release();
+        rhs.release();
+        lhs.reset(comp);
       }
       else if (is_logic) {
-        lhs = CondAST::Create(expr_map_logic(tok), lhs, rhs);
+        StyioAST* cond = CondAST::Create(expr_map_logic(tok), lhs.get(), rhs.get());
+        lhs.release();
+        rhs.release();
+        lhs.reset(cond);
       }
       else {
-        lhs = BinOpAST::Create(op, lhs, rhs);
+        StyioAST* binop = BinOpAST::Create(op, lhs.get(), rhs.get());
+        lhs.release();
+        rhs.release();
+        lhs.reset(binop);
       }
     }
 
-    return lhs;
+    return lhs.release();
   }
 
 public:
@@ -1674,35 +1731,33 @@ public:
   }
 
   StyioAST* parse_with_allowed_follow(std::initializer_list<StyioTokenType> allowed_follow) {
-    StyioAST* parsed = parse_postfix(parse_expression(0));
+    std::unique_ptr<StyioAST> parsed(parse_postfix(parse_expression(0)));
     context_.skip_spaces_no_linebreak();
     const StyioTokenType follow = context_.cur_tok_type();
     for (auto allowed : allowed_follow) {
       if (follow == allowed) {
-        return parsed;
+        return parsed.release();
       }
     }
     if (has_unsupported_continuation_latest_draft(follow)) {
-      delete parsed;
       throw StyioSyntaxError("unsupported expression continuation in nightly parser subset");
     }
-    return parsed;
+    return parsed.release();
   }
 
   StyioAST* parse_core_with_allowed_follow(std::initializer_list<StyioTokenType> allowed_follow) {
-    StyioAST* parsed = parse_expression(0);
+    std::unique_ptr<StyioAST> parsed(parse_expression(0));
     context_.skip_spaces_no_linebreak();
     const StyioTokenType follow = context_.cur_tok_type();
     for (auto allowed : allowed_follow) {
       if (follow == allowed) {
-        return parsed;
+        return parsed.release();
       }
     }
     if (has_unsupported_continuation_latest_draft(follow)) {
-      delete parsed;
       throw StyioSyntaxError("unsupported expression continuation in nightly parser subset");
     }
-    return parsed;
+    return parsed.release();
   }
 };
 
@@ -2009,17 +2064,21 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
     {
       auto parse_target_suffix = [&](StyioAST* base) -> StyioAST*
       {
+        std::unique_ptr<StyioAST> base_owner(base);
         while (true) {
           context.skip();
           if (context.cur_tok_type() != StyioTokenType::TOK_LBOXBRAC) {
-            return base;
+            return base_owner.release();
           }
           context.move_forward(1, "new_stmt:target_index_open");
           context.skip();
-          StyioAST* idx = parse_expr_subset_nightly(context);
+          std::unique_ptr<StyioAST> idx(parse_expr_subset_nightly(context));
           context.skip();
           context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
-          base = new ListOpAST(StyioNodeType::Access_By_Index, base, idx);
+          StyioAST* access = new ListOpAST(StyioNodeType::Access_By_Index, base_owner.get(), idx.get());
+          base_owner.release();
+          idx.release();
+          base_owner.reset(access);
         }
       };
 
@@ -2086,47 +2145,66 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
       if (context.cur_tok_type() == StyioTokenType::WALRUS) {
         context.move_forward(1, "new_stmt:final_bind_walrus");
         context.skip();
-        return FinalBindAST::Create(
-          VarAST::Create(NameAST::Create(id), ty),
-          parse_expr_subset_nightly(context)
-        );
+        std::unique_ptr<TypeAST> ty_owner(ty);
+        std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(id), ty_owner.get()));
+        ty_owner.release();
+        std::unique_ptr<StyioAST> value(parse_expr_subset_nightly(context));
+        auto* bind = FinalBindAST::Create(var.get(), value.get());
+        var.release();
+        value.release();
+        return bind;
       }
       if (context.cur_tok_type() == StyioTokenType::TOK_EQUAL) {
         context.move_forward(1, "new_stmt:typed_flex_bind_equal");
         context.skip();
-        return FlexBindAST::Create(
-          VarAST::Create(NameAST::Create(id), ty),
-          parse_expr_subset_nightly(context)
-        );
+        std::unique_ptr<TypeAST> ty_owner(ty);
+        std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(id), ty_owner.get()));
+        ty_owner.release();
+        std::unique_ptr<StyioAST> value(parse_expr_subset_nightly(context));
+        auto* bind = FlexBindAST::Create(var.get(), value.get());
+        var.release();
+        value.release();
+        return bind;
       }
-      return FlexBindAST::Create(
-        VarAST::Create(NameAST::Create(id), ty),
-        make_default_value_for_decl_latest(ty->getDataType())
-      );
+      std::unique_ptr<TypeAST> ty_owner(ty);
+      std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(id), ty_owner.get()));
+      const auto dtype = ty_owner->getDataType();
+      ty_owner.release();
+      std::unique_ptr<StyioAST> value(make_default_value_for_decl_latest(dtype));
+      auto* bind = FlexBindAST::Create(var.get(), value.get());
+      var.release();
+      value.release();
+      return bind;
     }
     if (context.cur_tok_type() == StyioTokenType::WALRUS) {
       context.move_forward(1, "new_stmt:untyped_final_bind");
       context.skip();
-      return FinalBindAST::Create(
-        VarAST::Create(NameAST::Create(id)),
-        parse_expr_subset_nightly(context)
-      );
+      std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(id)));
+      std::unique_ptr<StyioAST> value(parse_expr_subset_nightly(context));
+      auto* bind = FinalBindAST::Create(var.get(), value.get());
+      var.release();
+      value.release();
+      return bind;
     }
     if (context.cur_tok_type() == StyioTokenType::ARROW_DOUBLE_RIGHT) {
       context.move_forward(1, "new_stmt:resource_order");
       context.skip();
-      return ResourceOrderAST::Create(
-        NameAST::Create(id),
-        parse_expr_subset_nightly(context)
-      );
+      std::unique_ptr<NameAST> before(NameAST::Create(id));
+      std::unique_ptr<StyioAST> after(parse_expr_subset_nightly(context));
+      auto* order = ResourceOrderAST::Create(before.get(), after.get());
+      before.release();
+      after.release();
+      return order;
     }
     if (context.cur_tok_type() == StyioTokenType::TOK_EQUAL) {
       context.move_forward(1, "new_stmt:flex_bind");
       context.skip();
-      return FlexBindAST::Create(
-        VarAST::Create(NameAST::Create(id)),
-        parse_expr_subset_nightly(context)
-      );
+      std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(id)));
+      std::unique_ptr<StyioAST> value(parse_expr_subset_nightly(context));
+      auto* bind = FlexBindAST::Create(var.get(), value.get());
+      var.release();
+      value.release();
+      return bind;
     }
     if (context.cur_tok_type() == StyioTokenType::ARROW_SINGLE_LEFT) {
       context.move_forward(1, "new_stmt:handle_acquire");
@@ -2137,15 +2215,19 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
       if (context.cur_tok_type() == StyioTokenType::NAME) {
         const std::string src = context.cur_tok()->original;
         context.move_forward(1, "new_stmt:clone_from_name");
-        return HandleAcquireAST::Create(
-          VarAST::Create(NameAST::Create(id)),
-          NameAST::Create(src)
-        );
+        std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(id)));
+        std::unique_ptr<NameAST> source(NameAST::Create(src));
+        auto* acquire = HandleAcquireAST::Create(var.get(), source.get());
+        var.release();
+        source.release();
+        return acquire;
       }
-      return HandleAcquireAST::Create(
-        VarAST::Create(NameAST::Create(id)),
-        parse_resource_file_atom_latest(context)
-      );
+      std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(id)));
+      std::unique_ptr<StyioAST> source(parse_resource_file_atom_latest(context));
+      auto* acquire = HandleAcquireAST::Create(var.get(), source.get());
+      var.release();
+      source.release();
+      return acquire;
     }
     if (context.cur_tok_type() == StyioTokenType::EXTRACTOR) {
       context.move_forward(1, "new_stmt:resource_write");
@@ -2153,13 +2235,19 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
       if (context.cur_tok_type() == StyioTokenType::NAME) {
         const std::string src = context.cur_tok()->original;
         context.move_forward(1, "new_stmt:clone_into_name");
-        return HandleAcquireAST::Create(
-          VarAST::Create(NameAST::Create(id)),
-          NameAST::Create(src),
+        std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(id)));
+        std::unique_ptr<NameAST> source(NameAST::Create(src));
+        auto* acquire = HandleAcquireAST::Create(
+          var.get(),
+          source.get(),
           HandleAcquireAST::BindMode::Flex
         );
+        var.release();
+        source.release();
+        return acquire;
       }
-      return parse_resource_extractor_write_tail_latest(context, NameAST::Create(id));
+      std::unique_ptr<NameAST> source(NameAST::Create(id));
+      return parse_resource_extractor_write_tail_latest(context, source.release());
     }
     if (context.cur_tok_type() == StyioTokenType::ITERATOR) {
       const StyioDoubleRightContinuationOps ops{
@@ -2173,7 +2261,12 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
     if (cop != StyioOpType::Undefined) {
       context.move_forward(1, "new_stmt:compound_assign");
       context.skip();
-      return BinOpAST::Create(cop, NameAST::Create(id), parse_expr_subset_nightly(context));
+      std::unique_ptr<NameAST> lhs(NameAST::Create(id));
+      std::unique_ptr<StyioAST> rhs(parse_expr_subset_nightly(context));
+      auto* binop = BinOpAST::Create(cop, lhs.get(), rhs.get());
+      lhs.release();
+      rhs.release();
+      return binop;
     }
     context.restore_cursor(saved);
   }
