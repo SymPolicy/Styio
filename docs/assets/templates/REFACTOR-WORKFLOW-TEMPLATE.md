@@ -2,16 +2,16 @@
 
 **Purpose:** Provide the reusable template documented in 通用重构工作流模板（可复用）.
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-05-10
 
 **用途：** 作为维护代码库时的通用执行模板。  
 **目标：** 小步可合并、可中断恢复、每步可验证、风险可回滚。
 
 ---
 
-## 0. 预检（开始前 10 分钟）
+## 0. 预检
 
-1. 明确本次范围：只改一个微目标（1-3 天可合并）。
+1. 明确本次范围：只改一个微目标，按一个语言特性切片、一个功能闭环或一组最小测试证据来界定。
 2. 先写“失败测试”（TDD 书签），定义要修复的行为。
 3. 记录风险边界（所有权、生命周期、ABI、并发、持久化）。
 4. 选择迁移策略：
@@ -46,7 +46,7 @@
 
 1. 跑安全回归（如 `security`）。
 2. 跑关键链路（如 `pipeline`）。
-3. 跑基线回归（如 `milestone`）。
+3. 跑基线回归（如 `language_feature`）。
 
 ### 1.4 交付包（强制五件套）
 
@@ -148,5 +148,5 @@ fix: make AST tracked cleanup non-owning to avoid double free
 
 ```bash
 tmp_dir="$(mktemp -d)"
-./benchmark/parser-shadow-suite-gate.sh ./build/default/bin/styio ./tests/milestones/m1 "$tmp_dir"
+./benchmark/parser-shadow-suite-gate.sh ./build/default/bin/styio ./tests/features/scalar_expressions "$tmp_dir"
 ```

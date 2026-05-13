@@ -2,7 +2,7 @@
 
 **Purpose:** 约束 AI 与人类贡献者在 **编译器实现、测试与文档交叉引用** 上的操作规程与禁止项；**语言权威语义**仍以 `../design/Styio-Language-Design.md`、`../design/Styio-EBNF.md` 为准。文档目录与「最小改动 / SSOT」准则见 `DOCUMENTATION-POLICY.md` §0。
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-05-10
 
 **Version:** 1.1  
 **Date:** 2026-03-28  
@@ -57,9 +57,9 @@ Before making any language-level change, agents MUST read:
 - `../design/Styio-StdLib-Intrinsics.md` — Standard library algorithms
 - `../design/Styio-Resource-Driver.md` — Resource driver interface
 - `../design/Styio-Research-Innovations.md` — Research novelty points (do not break these)
-- `./DOCUMENTATION-POLICY.md` — Doc layout, **§0** maintenance (minimal change, three-doc SSOT), history/milestones/test-catalog rules
+- `./DOCUMENTATION-POLICY.md` — Doc layout, **§0** maintenance (minimal change, three-doc SSOT), history/checkpoint/feature-test rules
 - `./PRINCIPLES-AND-OBJECTIVES.md` — Project-wide priority order, rewrite boundary, and lifecycle objectives
-- `../assets/workflow/CHECKPOINT-WORKFLOW.md` — Interrupt-friendly checkpoint process (micro-milestones, recovery notes, ADR requirement)
+- `../assets/workflow/CHECKPOINT-WORKFLOW.md` — Interrupt-friendly checkpoint process (feature slices, recovery notes, ADR requirement)
 - `../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md` — Delivery gate requiring mapped team runbooks to be updated and kept in the documented template shape when owned folders change
 - `../adr/README.md` — ADR index for ownership/lifecycle/API decisions
 - `../assets/workflow/TEST-CATALOG.md` — Functional test map (inputs, oracles, `ctest` commands)
@@ -96,7 +96,6 @@ Styio/
 │   │   ├── workflow/           # Reusable workflows, test framework docs, repo hygiene
 │   │   └── templates/          # Reusable templates
 │   ├── history/                # docs/history/YYYY-MM-DD.md — daily dev notes
-│   ├── milestones/             # docs/milestones/YYYY-MM-DD/ — frozen milestone specs
 │   └── adr/                    # Architecture Decision Records
 │
 ├── src/                        # Compiler source code
@@ -167,7 +166,7 @@ Styio/
 └── tests/                      # Test suite
     ├── CMakeLists.txt           # GoogleTest setup
     ├── styio_test.cpp           # GoogleTest C++ tests
-    ├── milestones/              # CTest-registered language milestone fixtures
+    ├── features/                # CTest-registered language feature fixtures
     ├── algorithms/              # Styio/C++ algorithm equivalence fixtures
     ├── fuzz/                    # Fuzz targets, corpus, and smoke harnesses
     ├── ide/                     # IDE and LSP tests
@@ -544,15 +543,15 @@ Every change MUST include tests for:
 
 ### 10.2 Test File Organization
 
-**Milestone acceptance tests** live under `tests/milestones/m{1..7}/`:
+**Language feature acceptance tests** live under `tests/features/<feature>/`:
 
 - Source: `t*.styio`
 - **Stdout oracle:** `expected/<same_basename>.out` (compared via `styio --file … | cmp -s - …` in CMake)
-- **Registration:** `tests/CMakeLists.txt` (`add_test` + labels `milestone`, `m1`…`m7`)
+- **Registration:** `tests/CMakeLists.txt` (`add_test` + labels `language_feature`, `<feature>`, and optional `<feature>_semantic`)
 
 **Human-readable index:** `../assets/workflow/TEST-CATALOG.md` (must list **input**, **oracle** or side-effect path, and **`ctest -R` / `-L`**). When you add a fixture, update both CMake and the catalog.
 
-**Ad-hoc parsing/scaffolding** may still use `extend_tests.py` and numbered files under `tests/parsing/` if present; do not use that layout for milestone regressions unless those tests are also wired into CTest.
+**Ad-hoc parsing/scaffolding** may still use `extend_tests.py` and numbered files under `tests/parsing/` if present; do not use that layout for feature regressions unless those tests are also wired into CTest.
 
 ### 10.3 GoogleTest
 
@@ -639,14 +638,13 @@ When showing Styio code examples, use the canonical "Golden Cross" strategy as t
 
 This is the "constitution" — any syntax change that breaks this example must be explicitly justified. The 2026-05-09 revision moved the active example to `Type|..n|` resources, `expr -> @name` sink writes, and resource selectors such as `@ma5[-1]`.
 
-### 12.4 Development history, milestones, and test documentation
+### 12.4 Development history, checkpoints, and test documentation
 
 Follow `./DOCUMENTATION-POLICY.md` (including **§0** — minimal change, three-doc SSOT rule, doc-purpose lines):
 
 - **Progress and lessons learned:** durable lessons must be promoted into active rollups, SSOTs, or runbooks; raw dated checkpoint text is recovered from Git history when needed.
-- **Milestone specs:** active acceptance batches stay under `docs/milestones/<YYYY-MM-DD>/`; absorbed batches are removed from the current tree after durable rules move into active docs.
 - **Implemented decisions:** `../adr/IMPLEMENTED-DECISIONS.md` keeps a compressed provenance summary; exact old ADR wording comes from Git history.
-- **Test catalog:** `../assets/workflow/TEST-CATALOG.md` — group by **functional area**; each row must be reproducible with **CTest** (and document stdin/stdout/files).
+- **Test catalog:** `../assets/workflow/TEST-CATALOG.md` — group by **language feature**; each row must be reproducible with **CTest** (and document stdin/stdout/files).
 - **Team runbooks:** `../teams/<TEAM>-RUNBOOK.md` — every delivery that changes a mapped team-owned folder must update the corresponding runbook when the ownership surface, workflow, gates, handoff, or recovery knowledge changes. Ordinary team runbooks must follow `../assets/templates/TEAM-RUNBOOK-TEMPLATE.md`; the enforcement entrypoint is `../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md` and `python3 scripts/team-docs-gate.py`.
 - **Runbook statistics:** `../teams/DOC-STATS.md` — refresh this file in the same delivery when any team runbook or `COORDINATION-RUNBOOK.md` changes.
 
@@ -698,15 +696,15 @@ Agents MUST NOT:
 
 ## 15. Decision Authority
 
-### Current Milestone
+### Current Active Front
 
-Agents must work on the **current active front** and not skip ahead. Start from `docs/rollups/CURRENT-STATE.md`, then follow the active milestone batch under `docs/milestones/` plus the active checkpoint/plan docs it points to. Historical milestone batches live in Git history and are provenance only, not the default maintenance input. Each active milestone document defines:
+Agents must work on the **current active front** and not skip ahead. Start from `docs/rollups/CURRENT-STATE.md`, then follow the active checkpoint, plan, and feature-test docs it points to. Historical batch planning text lives in Git history and is provenance only, not the default maintenance input. Each active checkpoint or plan defines:
 
 - **Acceptance tests** — the FIRST thing to read; defines success
 - **Implementation tasks** — ordered by dependency, assigned to roles
 - **Completion criteria** — all tests must pass, no regressions
 
-**No milestone may break tests from a previous milestone.**
+**No checkpoint may break existing feature tests.**
 
 ### What Agents Can Decide Independently
 
@@ -746,7 +744,7 @@ If two agents propose conflicting changes to the same file:
 8. Run the compiler on a test file with `--all` to see all stages
 9. Make your change
 10. Run `clang-format` on modified files
-11. Verify all existing tests still pass (`ctest --test-dir build/default -L milestone` plus `styio_test` when the build allows)
+11. Verify all existing tests still pass (`ctest --test-dir build/default -L language_feature` plus `styio_test` when the build allows)
 12. Add new tests for your change; register in `tests/CMakeLists.txt` and `../assets/workflow/TEST-CATALOG.md`
 13. Update the mapped team runbook using `../assets/templates/TEAM-RUNBOOK-TEMPLATE.md` and refresh `../teams/DOC-STATS.md` when the change affects owned folders or team maintenance knowledge
 14. Update `docs/history/YYYY-MM-DD.md` for non-trivial work; update design docs if syntax or semantics change
@@ -777,9 +775,9 @@ Features from the design documents and their current implementation state:
 | Resources (`@`) | §7 | ✅ | ✅ | ✅ | Partial | Partial | — | **In Progress** |
 | Bindings (`:=`, `=`) | §— | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
 | Collections (list, tuple, set) | §10 | ✅ | ✅ | ✅ | Partial | Partial | Partial | **In Progress** |
-| Format strings (`$"..."`) | §11.3 | ✅ | ✅ | ✅ | Partial | Partial | — | **In Progress** |
+| Format strings (`$"..."`) | §11.3 | ✅ | ✅ | ✅ | ✅ | ✅ | via string concat | **Working** |
 | Reserved wave tokens (`<~`, `~>`) | §3 reserved tokens | ✅ | Rejects active use | — | — | — | — | **Reserved** |
-| Retired M6 state families | §8.2 | — | Rejects active use | — | — | — | — | **Retired** |
+| Retired state-resource state families | §8.2 | — | Rejects active use | — | — | — | — | **Retired** |
 | Resource topology selectors | §8.4 | ✅ | ✅ | Partial | Partial | Partial | Partial | **In Progress** |
 | Pulse Frame Lock | §8.5 | — | — | — | Partial | Partial | — | **In Progress** |
 | Break (`^...`) | §5.5 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |

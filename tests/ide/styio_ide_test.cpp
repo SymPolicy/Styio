@@ -875,7 +875,7 @@ TEST(StyioIdeService, UsesHirBackedDocumentSymbolsAndDefinition) {
 }
 
 TEST(StyioNameResolver, LocalBindingsShadowImportsAndGlobals) {
-  const std::string root = make_temp_project_dir("m14_shadow");
+  const std::string root = make_temp_project_dir("ide_shadow");
   styio::ide::IdeService service;
   service.initialize(styio::ide::uri_from_path(root));
 
@@ -909,7 +909,7 @@ TEST(StyioNameResolver, LocalBindingsShadowImportsAndGlobals) {
 }
 
 TEST(StyioNameResolver, ResolvesImportsAcrossFiles) {
-  const std::string root = make_temp_project_dir("m14_imports");
+  const std::string root = make_temp_project_dir("ide_imports");
   const std::filesystem::path imported_file = std::filesystem::path(root) / "pkg" / "math.styio";
   std::filesystem::create_directories(imported_file.parent_path());
   const std::string imported_path = imported_file.string();
@@ -955,7 +955,7 @@ TEST(StyioNameResolver, ResolvesImportsAcrossFiles) {
 }
 
 TEST(StyioIdeService, ReferencesUseScopeAwareResolution) {
-  const std::string root = make_temp_project_dir("m14_references");
+  const std::string root = make_temp_project_dir("ide_references");
   const std::string imported_path = (std::filesystem::path(root) / "lib.styio").string();
   const std::string imported_source =
     "# shared := (x: i32) => x\n";
@@ -983,7 +983,7 @@ TEST(StyioIdeService, ReferencesUseScopeAwareResolution) {
 }
 
 TEST(StyioIdeService, DefinitionAndHoverUseResolvedSymbols) {
-  const std::string root = make_temp_project_dir("m14_hover_definition");
+  const std::string root = make_temp_project_dir("ide_hover_definition");
   const std::string imported_path = (std::filesystem::path(root) / "math.styio").string();
   const std::string imported_source =
     "# add := (a: i32, b: i32) => a + b\n";
@@ -1110,7 +1110,7 @@ TEST(StyioTypeInference, InvalidatesOnlyEditedFunctionBody) {
 }
 
 TEST(StyioIdeService, ExposesReceiverTypesForMembers) {
-  const std::string root = make_temp_project_dir("m15_receiver_type");
+  const std::string root = make_temp_project_dir("ide_receiver_type");
   styio::ide::IdeService service;
   service.initialize(styio::ide::uri_from_path(root));
 
@@ -1135,7 +1135,7 @@ TEST(StyioIdeService, ExposesReceiverTypesForMembers) {
 }
 
 TEST(StyioIdeService, ExposesCallSiteExpectedTypes) {
-  const std::string root = make_temp_project_dir("m15_expected_type");
+  const std::string root = make_temp_project_dir("ide_expected_type");
   styio::ide::IdeService service;
   service.initialize(styio::ide::uri_from_path(root));
 
@@ -1156,7 +1156,7 @@ TEST(StyioIdeService, ExposesCallSiteExpectedTypes) {
 }
 
 TEST(StyioCompletionEngine, FiltersTypePositionCandidates) {
-  const std::string root = make_temp_project_dir("m16_type_position");
+  const std::string root = make_temp_project_dir("ide_type_position");
   styio::ide::IdeService service;
   service.initialize(styio::ide::uri_from_path(root));
 
@@ -1176,7 +1176,7 @@ TEST(StyioCompletionEngine, FiltersTypePositionCandidates) {
 }
 
 TEST(StyioCompletionEngine, RanksLocalsAboveImportsAndBuiltins) {
-  const std::string root = make_temp_project_dir("m16_ranking");
+  const std::string root = make_temp_project_dir("ide_ranking");
   const std::string imported_path = (std::filesystem::path(root) / "lib.styio").string();
   write_text_file(imported_path, "# stable := (x: i32) => x\n");
 
@@ -1211,7 +1211,7 @@ TEST(StyioCompletionEngine, RanksLocalsAboveImportsAndBuiltins) {
 }
 
 TEST(StyioCompletionEngine, FiltersMembersByReceiverType) {
-  const std::string root = make_temp_project_dir("m16_member_filter");
+  const std::string root = make_temp_project_dir("ide_member_filter");
   styio::ide::IdeService service;
   service.initialize(styio::ide::uri_from_path(root));
 
@@ -1232,7 +1232,7 @@ TEST(StyioCompletionEngine, FiltersMembersByReceiverType) {
 }
 
 TEST(StyioCompletionEngine, UsesExpectedTypesAtCallSites) {
-  const std::string root = make_temp_project_dir("m16_expected_type_completion");
+  const std::string root = make_temp_project_dir("ide_expected_type_completion");
   styio::ide::IdeService service;
   service.initialize(styio::ide::uri_from_path(root));
 
@@ -1255,7 +1255,7 @@ TEST(StyioCompletionEngine, UsesExpectedTypesAtCallSites) {
 }
 
 TEST(StyioCompletionEngine, RecoversInBrokenSyntax) {
-  const std::string root = make_temp_project_dir("m16_recovery");
+  const std::string root = make_temp_project_dir("ide_recovery");
   styio::ide::IdeService service;
   service.initialize(styio::ide::uri_from_path(root));
 
@@ -1273,7 +1273,7 @@ TEST(StyioCompletionEngine, RecoversInBrokenSyntax) {
 }
 
 TEST(StyioWorkspaceIndex, WorkspaceSymbolSearchIncludesBackgroundIndexedFiles) {
-  const std::string root = make_temp_project_dir("m17_workspace_symbols");
+  const std::string root = make_temp_project_dir("ide_workspace_symbols");
   const std::string indexed_path = (std::filesystem::path(root) / "indexed.styio").string();
   write_text_file(indexed_path, "# background_only := (x: i32) => x\n");
 
@@ -1293,7 +1293,7 @@ TEST(StyioWorkspaceIndex, WorkspaceSymbolSearchIncludesBackgroundIndexedFiles) {
 }
 
 TEST(StyioIdeService, DefinitionUsesWorkspaceIndexAcrossFiles) {
-  const std::string root = make_temp_project_dir("m17_index_definition");
+  const std::string root = make_temp_project_dir("ide_index_definition");
   const std::string owner_path = (std::filesystem::path(root) / "owner.styio").string();
   const std::string owner_source = "# indexed_target := (x: i32) => x\n";
   write_text_file(owner_path, owner_source);
@@ -1330,7 +1330,7 @@ TEST(StyioIdeService, DefinitionUsesWorkspaceIndexAcrossFiles) {
 }
 
 TEST(StyioIdeService, ReferencesMergeOpenFileAndBackgroundIndex) {
-  const std::string root = make_temp_project_dir("m17_index_references");
+  const std::string root = make_temp_project_dir("ide_index_references");
   const std::string owner_path = (std::filesystem::path(root) / "owner.styio").string();
   const std::string disk_user_path = (std::filesystem::path(root) / "disk_user.styio").string();
   const std::string owner_source = "# indexed_target := (x: i32) => x\n";
@@ -1358,7 +1358,7 @@ TEST(StyioIdeService, ReferencesMergeOpenFileAndBackgroundIndex) {
 }
 
 TEST(StyioWorkspaceIndex, PersistentIndexClearsDeletedSymbolsOnNewSession) {
-  const std::string root = make_temp_project_dir("m17_persistent_index");
+  const std::string root = make_temp_project_dir("ide_persistent_index");
   const std::string path = (std::filesystem::path(root) / "persisted.styio").string();
   const std::string source = "# persisted_symbol := (x: i32) => x\n";
   write_text_file(path, source);
@@ -1380,7 +1380,7 @@ TEST(StyioWorkspaceIndex, PersistentIndexClearsDeletedSymbolsOnNewSession) {
 }
 
 TEST(StyioWorkspaceIndex, ClosedFileRefreshesFromDiskBeforeBackgroundIndexing) {
-  const std::string root = make_temp_project_dir("m17_closed_file_refresh");
+  const std::string root = make_temp_project_dir("ide_closed_file_refresh");
   const std::string path = (std::filesystem::path(root) / "refresh.styio").string();
   write_text_file(path, "# old_symbol := (x: i32) => x\n");
 
@@ -1924,7 +1924,7 @@ TEST(StyioLspServer, RunDrainsRuntimeDiagnostics) {
 
 TEST(StyioLspRuntime, RunAdvancesBackgroundWorkAsRequestDrivenFallback) {
   styio::lsp::Server server;
-  const std::string root = make_temp_project_dir("m18_request_driven_background");
+  const std::string root = make_temp_project_dir("ide_request_driven_background");
   write_text_file((std::filesystem::path(root) / "lib_bg.styio").string(), "# lib_bg := (x: i32) => x\n");
   write_text_file((std::filesystem::path(root) / "other_bg.styio").string(), "# other_bg := (x: i32) => x\n");
 
@@ -1972,7 +1972,7 @@ TEST(StyioLspRuntime, RunAdvancesBackgroundWorkAsRequestDrivenFallback) {
 }
 
 TEST(StyioLspRuntime, BackgroundIndexYieldsToForegroundRequests) {
-  const std::string root = make_temp_project_dir("m18_background");
+  const std::string root = make_temp_project_dir("ide_background");
   write_text_file((std::filesystem::path(root) / "lib.styio").string(), "# lib_add := (a: i32, b: i32) => a + b\n");
   write_text_file((std::filesystem::path(root) / "other.styio").string(), "# other := (x: i32) => x\n");
 
@@ -2002,7 +2002,7 @@ TEST(StyioLspRuntime, BackgroundIndexYieldsToForegroundRequests) {
 }
 
 TEST(StyioLspRuntime, IdleSliceDrainsSemanticBeforeBackgroundWork) {
-  const std::string root = make_temp_project_dir("m18_idle_slice");
+  const std::string root = make_temp_project_dir("ide_idle_slice");
   const auto background_path = std::filesystem::path(root) / "background.styio";
   write_text_file(background_path.string(), "# background := (x: i32) => x\n");
 
@@ -2072,7 +2072,7 @@ TEST(StyioCompletionEngine, SurvivesMalformedBinaryOperandsFromFuzzRegression) {
   styio::ide::IdeService service;
   service.initialize(styio::ide::uri_from_path(make_temp_dir()));
 
-  const std::string uri = temp_uri("m19_completion_fuzz_regression.styio");
+  const std::string uri = temp_uri("ide_completion_fuzz_regression.styio");
   const std::string source = read_text_file(
     (std::filesystem::path("tests") / "fuzz" / "corpus" / "ide_completion" / "seed-malformed-binop.styio").string());
 
@@ -2100,7 +2100,8 @@ TEST(StyioSyntaxDrift, CorpusMatchesApprovedEnvelope) {
     std::string approved_exception;
   };
 
-  const std::string corpus_root = (std::filesystem::path("tests") / "ide" / "corpus" / "m19").string();
+  const std::string corpus_root =
+    (std::filesystem::path("tests") / "ide" / "corpus" / "completion_regression").string();
   std::vector<DriftCase> cases;
 
   {
@@ -2261,7 +2262,7 @@ TEST(StyioIdePerf, EnforcesFrozenLatencyBudgets) {
 
   styio::ide::VirtualFileSystem vfs;
   styio::ide::SyntaxParser parser;
-  const std::string parse_path = make_temp_dir() + "/m19_perf_incremental.styio";
+  const std::string parse_path = make_temp_dir() + "/ide_perf_incremental.styio";
   const std::string parse_source = make_incremental_perf_source(kLineCount);
   auto parse_snapshot = vfs.open(parse_path, parse_source, 1);
   (void)parser.parse(*parse_snapshot);
@@ -2280,7 +2281,7 @@ TEST(StyioIdePerf, EnforcesFrozenLatencyBudgets) {
   }
 
   const std::string perf_source = make_hot_query_perf_source(kFunctionCount);
-  const std::string root = make_temp_project_dir("m19_perf_workspace_hot");
+  const std::string root = make_temp_project_dir("ide_perf_workspace_hot");
   styio::ide::IdeService service;
   service.initialize(styio::ide::uri_from_path(root));
   const std::string uri = styio::ide::uri_from_path((std::filesystem::path(root) / "hot.styio").string());
@@ -2312,7 +2313,7 @@ TEST(StyioIdePerf, EnforcesFrozenLatencyBudgets) {
 
   std::vector<std::uint64_t> startup_samples;
   for (std::size_t i = 0; i < 3; ++i) {
-    const std::string startup_root = make_temp_project_dir("m19_perf_startup_" + std::to_string(i));
+    const std::string startup_root = make_temp_project_dir("ide_perf_startup_" + std::to_string(i));
     for (std::size_t file_index = 0; file_index < 100; ++file_index) {
       std::ostringstream file_source;
       for (std::size_t line = 0; line < 50; ++line) {

@@ -1,10 +1,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
-#include <vector>
 
 #include "StyioException/Exception.hpp"
 #include "StyioParser/Tokenizer.hpp"
+#include "StyioSession/CompilationSession.hpp"
 
 extern "C" int
 LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
@@ -12,12 +12,10 @@ LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     return 0;
   }
 
+  CompilationSession session;
   std::string src(reinterpret_cast<const char*>(data), size);
   try {
-    std::vector<StyioToken*> tokens = StyioTokenizer::tokenize(src);
-    for (auto* t : tokens) {
-      delete t;
-    }
+    session.adopt_tokens(StyioTokenizer::tokenize(src));
   } catch (const StyioLexError&) {
     // expected for malformed inputs
   } catch (const StyioBaseException&) {

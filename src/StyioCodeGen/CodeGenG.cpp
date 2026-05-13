@@ -1183,10 +1183,10 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
     } break;
 
     default:
-      break;
+      throw StyioTypeError("unsupported binary operator in codegen");
   }
 
-  return theBuilder->getInt64(0);
+  throw StyioTypeError("unsupported binary operand types in codegen");
 }
 
 llvm::Value*
@@ -1212,13 +1212,19 @@ StyioToLLVM::toLLVMIR(SGCond* node) {
   };
   L = to_bool(L);
   R = to_bool(R);
+  if (node->operand == StyioOpType::Logic_NOT) {
+    return theBuilder->CreateNot(L);
+  }
   if (node->operand == StyioOpType::Logic_AND) {
     return theBuilder->CreateAnd(L, R);
+  }
+  if (node->operand == StyioOpType::Logic_XOR) {
+    return theBuilder->CreateXor(L, R);
   }
   if (node->operand == StyioOpType::Logic_OR) {
     return theBuilder->CreateOr(L, R);
   }
-  return L;
+  throw StyioTypeError("unsupported logical condition operator in codegen");
 }
 
 llvm::Value*

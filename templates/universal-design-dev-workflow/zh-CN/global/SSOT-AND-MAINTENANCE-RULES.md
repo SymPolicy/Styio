@@ -14,8 +14,8 @@
 
 若**三篇及以上**文档对同一事实作**实质性**重复：
 
-1. 指定**唯一 SSOT**。  
-2. 无合适承载处再增新文。  
+1. 指定**唯一 SSOT**。
+2. 无合适承载处再增新文。
 3. 其余处删改重复内容，改为链接。
 
 ## SSOT 槽位（分叉时自定义）
@@ -24,7 +24,7 @@
 |------|----------|------------|
 | 产品/域行为 | `DOMAIN-OR-PRODUCT-SPEC.md` | 链接、短摘要 |
 | 依赖 | `THIRD-PARTY.md` | 与锁文件一致 |
-| 里程碑批次 | `milestones/<YYYY-MM-DD>/00-Milestone-Index.md` | 勿随意复制总表 |
+| 检查点批次 | `checkpoints/<YYYY-MM-DD>/00-Checkpoint-Index.md` | 勿随意复制总表 |
 | 架构决策 | `architecture/ADR-NNNN-*.md` | 仅链接 |
 | 测试 | `tests/TEST-CATALOG.md` | 每检查一行+命令 |
 | 文档拓扑 | `DOCUMENTATION-POLICY.md` | 链接至此 |
@@ -33,19 +33,19 @@
 
 ## 历史目录
 
-- 路径：`history/YYYY-MM-DD.md`  
+- 路径：`history/YYYY-MM-DD.md`
 - 索引：`history/README.md`
 
-## 里程碑目录
+## 检查点目录
 
-- 路径：`milestones/<YYYY-MM-DD>/`  
-- 文件：`00-Milestone-Index.md`、分段 `M*.md`  
+- 路径：`checkpoints/<YYYY-MM-DD>/`
+- 文件：`00-Checkpoint-Index.md`、分段 `Checkpoint-*.md`
 - 验收：`TEST-CATALOG.md` 有名或标 **gap**
 
 ## 测试目录
 
-- 按功能域分组。  
-- 每行：测试 id、输入、判据、自动化命令。  
+- 按功能域分组。
+- 每行：测试 id、输入、判据、自动化命令。
 - 在**一处**构建/CI 清单与本目录**双登记**。
 
 ## 策略与贡献者规程冲突
@@ -54,6 +54,6 @@
 
 ## 可选校验
 
-- 文档化测试通过。  
-- 历史/里程碑索引含 `Last updated`。  
+- 文档化测试通过。
+- 历史/检查点索引含 `Last updated`。
 - `TEST-CATALOG.md` 中路径存在或标为待定。

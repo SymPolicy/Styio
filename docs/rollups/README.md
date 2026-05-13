@@ -13,7 +13,7 @@
 ## Default Load Order
 
 1. Read [CURRENT-STATE.md](./CURRENT-STATE.md) first.
-2. Jump from there to the owning SSOT in `../design/`, `../specs/`, `../teams/`, `../assets/workflow/`, or the current active milestone/plan docs.
+2. Jump from there to the owning SSOT in `../design/`, `../specs/`, `../teams/`, `../assets/workflow/`, or the current active plan docs.
 3. Read the newest raw entry in `../history/INDEX.md` or the newest active dated review bundle only if active docs are still insufficient.
 4. Read `../archive/` only when exact historical wording or provenance trace is required.
 

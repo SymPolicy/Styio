@@ -1,3 +1,0 @@
-x = 1
-result = x + (<< @file("tests/m7/data/ref50.txt"))
->_(result)

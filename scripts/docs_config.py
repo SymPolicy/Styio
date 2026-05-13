@@ -34,7 +34,6 @@ COLLECTION_SPECS: tuple[CollectionSpec, ...] = (
     CollectionSpec("docs/adr", "ADR Index", "Provide the generated inventory for `docs/adr/`; decision-record conventions live in [README.md](./README.md)."),
     CollectionSpec("docs/audit", "Audit Index", "Provide the generated inventory for `docs/audit/`; transient defect records live in ignored `docs/audit/defects/` and are enforced by external `audit` runs."),
     CollectionSpec("docs/history", "History Index", "Provide the generated inventory for `docs/history/`; recovery rules live in [README.md](./README.md)."),
-    CollectionSpec("docs/milestones", "Milestones Index", "Provide the generated inventory for `docs/milestones/`; freeze-batch rules live in [README.md](./README.md)."),
     CollectionSpec("workflows", "Workflows Index", "Provide the generated inventory for root-level `workflows/`; reusable delivery workflows and repo-local skills live in [README.md](./README.md)."),
     CollectionSpec("workflows/skills", "Workflow Skills Index", "Provide the generated inventory for `workflows/skills/`; repo-local skills used by root workflows live in [README.md](./README.md)."),
 )

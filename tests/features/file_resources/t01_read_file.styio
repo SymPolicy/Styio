@@ -1,0 +1,4 @@
+f <- @file("tests/features/file_resources/data/hello.txt")
+f >> #(line) => {
+    >_(line)
+}

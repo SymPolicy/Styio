@@ -4,6 +4,7 @@
 
 // [C++ STL]
 #include <string>
+#include <vector>
 
 // [LLVM]
 #include "llvm/IR/Type.h"
@@ -28,6 +29,15 @@ public:
   /* LLVM IR Generator */
   virtual llvm::Value* toLLVMIR(StyioToLLVM* visitor) = 0;
 };
+
+template <class T>
+inline void
+styio_delete_ir_nodes(std::vector<T*>& nodes) noexcept {
+  for (auto* node : nodes) {
+    delete node;
+  }
+  nodes.clear();
+}
 
 template <class Derived>
 class StyioIRTraits : public StyioIR

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 在仓库根目录生成「Git 变更摘要 + CTest 结果」Markdown 报告。
 # 用法：
-#   ./scripts/dev-report.sh              # 尝试编译后跑 milestone + styio_pipeline
+#   ./scripts/dev-report.sh              # 尝试编译后跑 language_feature + styio_pipeline
 #   ./scripts/dev-report.sh --no-build   # 不编译，仅基于当前 build/default/
 #   ./scripts/dev-report.sh --note "理由"  # 报告顶部附加说明
 set -euo pipefail
@@ -108,14 +108,14 @@ BUILD_DIR="$ROOT/build/default"
   if [[ ! -f "$BUILD_DIR/CTestTestfile.cmake" ]]; then
     echo "未找到 \`build/default/CTestTestfile.cmake\`。请先 \`cmake -S . -B build/default\` 并配置测试。"
   else
-    echo "### 标签 \`milestone\`"
+    echo "### 标签 \`language_feature\`"
     echo '```'
-    if ctest --test-dir "$BUILD_DIR" -L milestone --output-on-failure 2>&1; then
+    if ctest --test-dir "$BUILD_DIR" -L language_feature --output-on-failure 2>&1; then
       echo '```'
-      echo "**milestone:** 通过"
+      echo "**language_feature:** 通过"
     else
       echo '```'
-      echo "**milestone:** 有失败（见上方输出）"
+      echo "**language_feature:** 有失败（见上方输出）"
     fi
     echo
     echo "### 标签 \`styio_pipeline\`（五层流水线）"

@@ -11,11 +11,11 @@ Fill in: languages, build system, format/lint, test runner, package manager.
 
 ## 2. Layout
 
-`docs/` holds `global/`, policy files, `history/`, `milestones/`, `tests/`; plus source, tests, CI config under the repo root.
+`docs/` holds `global/`, policy files, `history/`, `checkpoints/`, `tests/`; plus source, tests, CI config under the repo root.
 
 ## 3. Change workflow
 
-Read domain spec and open questions; check milestone index; implement with registered tests; run formatters and tests; append `history/` for non-trivial work; update SSOT when contracts change.
+Read domain spec and open questions; check checkpoint index; implement with registered tests; run formatters and tests; append `history/` for non-trivial work; update SSOT when contracts change.
 
 ## 4. Coding standards
 
@@ -31,7 +31,7 @@ User-visible behavior → domain spec; follow SSOT; one canonical example if use
 
 ## 7. Prohibited actions
 
-Examples: unapproved dependencies; editing vendor/generated code against policy; secrets or policy-violating binaries; phantom tests; changing acceptance without updating milestone docs.
+Examples: unapproved dependencies; editing vendor/generated code against policy; secrets or policy-violating binaries; phantom tests; changing acceptance without updating checkpoint docs.
 
 ## 8. Decision authority
 
