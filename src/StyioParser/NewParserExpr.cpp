@@ -864,7 +864,16 @@ parse_list_expr_or_iterator_nightly_draft(StyioContext& context) {
 
 DictAST*
 parse_dict_literal_nightly_draft(StyioContext& context) {
-  std::vector<std::pair<StyioAST*, StyioAST*>> entries;
+  std::vector<std::pair<std::unique_ptr<StyioAST>, std::unique_ptr<StyioAST>>> entry_owners;
+  auto release_entries = [&]() -> std::vector<std::pair<StyioAST*, StyioAST*>>
+  {
+    std::vector<std::pair<StyioAST*, StyioAST*>> entries;
+    entries.reserve(entry_owners.size());
+    for (auto& entry : entry_owners) {
+      entries.emplace_back(entry.first.release(), entry.second.release());
+    }
+    return entries;
+  };
 
   auto parse_entry_expr = [&]() -> StyioAST*
   {
@@ -885,19 +894,19 @@ parse_dict_literal_nightly_draft(StyioContext& context) {
   context.try_match_panic(StyioTokenType::TOK_LCURBRAC);
   context.skip();
   if (context.match(StyioTokenType::TOK_RCURBRAC)) {
-    return DictAST::Create(std::move(entries));
+    return DictAST::Create({});
   }
 
   while (true) {
-    StyioAST* key = parse_entry_expr();
+    std::unique_ptr<StyioAST> key(parse_entry_expr());
     context.skip();
     context.try_match_panic(StyioTokenType::TOK_COLON);
     context.skip();
-    StyioAST* value = parse_entry_expr();
-    entries.push_back({key, value});
+    std::unique_ptr<StyioAST> value(parse_entry_expr());
+    entry_owners.emplace_back(std::move(key), std::move(value));
     context.skip();
     if (context.match(StyioTokenType::TOK_RCURBRAC)) {
-      return DictAST::Create(std::move(entries));
+      return DictAST::Create(release_entries());
     }
     context.try_match_panic(StyioTokenType::TOK_COMMA);
     context.skip();
