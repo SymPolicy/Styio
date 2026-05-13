@@ -1609,7 +1609,17 @@ parse_ext_elem(StyioContext& context);
 ExtPackAST*
 parse_ext_pack(StyioContext& context);
 
-std::vector<ParamAST*>
+inline std::vector<ParamAST*>
+release_owned_params(std::vector<std::unique_ptr<ParamAST>> params) {
+  std::vector<ParamAST*> released;
+  released.reserve(params.size());
+  for (auto& param : params) {
+    released.push_back(param.release());
+  }
+  return released;
+}
+
+std::vector<std::unique_ptr<ParamAST>>
 parse_params(StyioContext& context);
 
 std::vector<StyioAST*>
