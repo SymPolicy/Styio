@@ -1629,6 +1629,16 @@ release_owned_exprs(std::vector<std::unique_ptr<StyioAST>> exprs) {
   return released;
 }
 
+inline std::vector<HashTagNameAST*>
+release_owned_hash_tags(std::vector<std::unique_ptr<HashTagNameAST>> tags) {
+  std::vector<HashTagNameAST*> released;
+  released.reserve(tags.size());
+  for (auto& tag : tags) {
+    released.push_back(tag.release());
+  }
+  return released;
+}
+
 std::vector<std::unique_ptr<ParamAST>>
 parse_params(StyioContext& context);
 
