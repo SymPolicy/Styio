@@ -3,6 +3,7 @@
 #include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <initializer_list>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -25,6 +26,12 @@
 
 using std::string;
 using std::vector;
+
+ParseAttempt<StyioAST>
+try_parse_expr_subset_until_latest(
+  StyioContext& context,
+  std::initializer_list<StyioTokenType> delimiters
+);
 
 namespace
 {
@@ -3397,20 +3404,17 @@ StyioAST*
 parse_list_exprs_latest_draft(StyioContext& context) {
   enforce_parser_delimiter_budget_latest(context, "list expression");
   vector<StyioAST*> exprs;
-  auto parse_list_elem_expr = [&]() -> StyioAST*
+  auto parse_list_elem_expr = [&](std::initializer_list<StyioTokenType> allowed_follow) -> StyioAST*
   {
-    auto saved = context.save_cursor();
-    try {
-      return parse_expr_subset_nightly(context);
+    auto attempt = try_parse_expr_subset_until_latest(context, allowed_follow);
+    if (attempt.status == ParseAttemptStatus::Parsed) {
+      return attempt.node;
     }
-    catch (const StyioParserResourceLimitError&) {
-      context.restore_cursor(saved);
-      throw;
+    if (attempt.status == ParseAttemptStatus::Fatal) {
+      std::rethrow_exception(attempt.error);
     }
-    catch (const std::exception&) {
-      context.restore_cursor(saved);
-      return parse_expr(context);
-    }
+    context.note_nightly_internal_legacy_bridge_latest();
+    return parse_expr(context);
   };
 
   context.move_forward(1); /* [ */
@@ -3427,12 +3431,14 @@ parse_list_exprs_latest_draft(StyioContext& context) {
     return ListAST::Create(exprs);
   }
 
-  StyioAST* first_expr = parse_list_elem_expr();
+  StyioAST* first_expr = parse_list_elem_expr(
+    {StyioTokenType::ELLIPSIS, StyioTokenType::TOK_COMMA, StyioTokenType::TOK_RBOXBRAC}
+  );
   context.skip();
 
   if (context.match(StyioTokenType::ELLIPSIS)) {
     context.skip();
-    StyioAST* last_expr = parse_list_elem_expr();
+    StyioAST* last_expr = parse_list_elem_expr({StyioTokenType::TOK_RBOXBRAC});
     context.skip();
     context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
     return new RangeAST(first_expr, last_expr, IntAST::Create("1"));
@@ -3447,7 +3453,7 @@ parse_list_exprs_latest_draft(StyioContext& context) {
       return ListAST::Create(exprs);
     }
 
-    exprs.push_back(parse_list_elem_expr());
+    exprs.push_back(parse_list_elem_expr({StyioTokenType::TOK_COMMA, StyioTokenType::TOK_RBOXBRAC}));
     context.skip();
   }
 

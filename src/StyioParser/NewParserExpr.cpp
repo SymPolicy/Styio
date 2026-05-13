@@ -10,6 +10,7 @@ namespace
 {
 
 constexpr int kMaxExprDelimiterNestingLatest = 64;
+constexpr int kMaxExprRecoveryFallbackNestingLatest = kMaxExprDelimiterNestingLatest - 4;
 
 void
 enforce_expr_delimiter_budget_latest(StyioContext& context, const char* construct) {
@@ -22,6 +23,19 @@ enforce_expr_delimiter_budget_latest(StyioContext& context, const char* construc
       + std::to_string(kMaxExprDelimiterNestingLatest)
     )
   );
+}
+
+std::exception_ptr
+expr_recovery_limit_error_latest(StyioContext& context, const char* construct) {
+  if (context.delimiter_nesting_before_current_token() < kMaxExprRecoveryFallbackNestingLatest) {
+    return {};
+  }
+  return std::make_exception_ptr(StyioParserResourceLimitError(
+    context.mark_cur_tok(
+      std::string(construct) + " exceeds parser recovery nesting limit of "
+      + std::to_string(kMaxExprRecoveryFallbackNestingLatest)
+    )
+  ));
 }
 
 BlockAST*
@@ -642,7 +656,7 @@ expr_subset_route_supported_until_latest(
     start,
     [](StyioTokenType type)
     {
-      return styio_parser_stmt_subset_token_nightly(type);
+      return styio_parser_expr_subset_token_nightly(type);
     },
     [delimiters](StyioTokenType type, int paren_depth, int box_depth, int brace_depth, bool saw_non_trivia)
     {
@@ -666,7 +680,7 @@ expr_subset_route_supported_until_latest(
 }
 
 ParseAttempt<StyioAST>
-try_parse_expr_subset_until_latest(
+try_parse_expr_subset_until_latest_impl(
   StyioContext& context,
   std::initializer_list<StyioTokenType> delimiters
 ) {
@@ -682,11 +696,26 @@ try_parse_expr_subset_until_latest(
     return ParseAttempt<StyioAST>::parsed(parse_expr_subset_allowing_follow_latest(context, delimiters));
   }
   catch (...) {
+    std::exception_ptr error = std::current_exception();
+    if (std::exception_ptr limit_error =
+          expr_recovery_limit_error_latest(context, "nightly expression fallback")) {
+      error = limit_error;
+    }
     context.restore_cursor(saved);
+    if (error != nullptr) {
+      try {
+        std::rethrow_exception(error);
+      }
+      catch (const StyioParserResourceLimitError&) {
+        return ParseAttempt<StyioAST>::fatal(error);
+      }
+      catch (...) {
+      }
+    }
     if (!route_supported) {
       return ParseAttempt<StyioAST>::declined();
     }
-    return ParseAttempt<StyioAST>::fatal(std::current_exception());
+    return ParseAttempt<StyioAST>::fatal(error);
   }
 }
 
@@ -823,7 +852,7 @@ parse_dict_literal_nightly_draft(StyioContext& context) {
 
   auto parse_entry_expr = [&]() -> StyioAST*
   {
-    auto attempt = try_parse_expr_subset_until_latest(
+    auto attempt = try_parse_expr_subset_until_latest_impl(
       context,
       {StyioTokenType::TOK_COLON, StyioTokenType::TOK_COMMA, StyioTokenType::TOK_RCURBRAC}
     );
@@ -900,7 +929,7 @@ parse_iterator_collection_rhs_nightly_draft(StyioContext& context) {
   if (context.cur_tok_type() == StyioTokenType::TOK_LBOXBRAC) {
     return parse_list_exprs_latest_draft(context);
   }
-  auto attempt = try_parse_expr_subset_until_latest(context, {StyioTokenType::ITERATOR});
+  auto attempt = try_parse_expr_subset_until_latest_impl(context, {StyioTokenType::ITERATOR});
   if (attempt.status == ParseAttemptStatus::Parsed) {
     return attempt.node;
   }
@@ -969,7 +998,7 @@ parse_cases_only_nightly_draft(StyioContext& context) {
       }
     }
     else {
-      auto left_attempt = try_parse_expr_subset_until_latest(context, {StyioTokenType::ARROW_DOUBLE_RIGHT});
+      auto left_attempt = try_parse_expr_subset_until_latest_impl(context, {StyioTokenType::ARROW_DOUBLE_RIGHT});
       std::unique_ptr<StyioAST> left;
       if (left_attempt.status == ParseAttemptStatus::Parsed) {
         left.reset(left_attempt.node);
@@ -1041,7 +1070,7 @@ parse_forward_as_list_nightly_draft(StyioContext& context) {
         else {
           std::vector<StyioAST*> rvals;
           do {
-            auto attempt = try_parse_expr_subset_until_latest(context, {StyioTokenType::TOK_COMMA});
+            auto attempt = try_parse_expr_subset_until_latest_impl(context, {StyioTokenType::TOK_COMMA});
             if (attempt.status == ParseAttemptStatus::Parsed) {
               rvals.push_back(attempt.node);
             }
@@ -1821,6 +1850,14 @@ parse_expr_core_allowing_follow_latest(
 }
 
 }  // namespace
+
+ParseAttempt<StyioAST>
+try_parse_expr_subset_until_latest(
+  StyioContext& context,
+  std::initializer_list<StyioTokenType> delimiters
+) {
+  return try_parse_expr_subset_until_latest_impl(context, delimiters);
+}
 
 bool
 styio_parser_expr_subset_token_nightly(StyioTokenType type) {
