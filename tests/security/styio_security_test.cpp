@@ -648,6 +648,27 @@ TEST(StyioSecurityParserContext, HashFunctionFuzzSeedStaysExceptionSafe) {
   }
 }
 
+TEST(StyioSecurityParserContext, DeepUnclosedIndexListSeedHitsNestingBudget) {
+  const std::string src = "x" + std::string(70, '[') + "x)\n";
+
+  CompilationSession session;
+  session.adopt_tokens(StyioTokenizer::tokenize(src));
+  session.attach_context(StyioContext::Create(
+    "<deep-index-list-oom-regression>",
+    src,
+    build_line_seps(src),
+    session.tokens(),
+    false
+  ));
+
+  EXPECT_THROW(
+    {
+      std::unique_ptr<StyioAST> parsed(parse_expr_subset_nightly(*session.context()));
+    },
+    StyioParserResourceLimitError
+  );
+}
+
 TEST(StyioSecurityParserContext, TokenMapMatchesSingleRightArrow) {
   std::vector<StyioToken*> tokens{
     StyioToken::Create(StyioTokenType::TOK_MINUS, "-"),

@@ -49,6 +49,21 @@ public:
   }
 };
 
+class StyioParserResourceLimitError : public StyioSyntaxError
+{
+public:
+  explicit StyioParserResourceLimitError(std::string msg) :
+      StyioSyntaxError(msg) {}
+
+  StyioParserResourceLimitError(
+    std::string meta_info,
+    std::string msg
+  ) :
+      StyioSyntaxError(meta_info, msg) {}
+
+  ~StyioParserResourceLimitError() throw() {}
+};
+
 class StyioParseError : public StyioBaseException
 {
 private:
