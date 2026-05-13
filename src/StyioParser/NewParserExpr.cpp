@@ -935,8 +935,8 @@ parse_infinite_conditional_loop_after_iterator_nightly_draft(
 
 CasesAST*
 parse_cases_only_nightly_draft(StyioContext& context) {
-  vector<std::pair<StyioAST*, StyioAST*>> case_pairs;
-  StyioAST* default_stmt = nullptr;
+  vector<std::pair<std::unique_ptr<StyioAST>, std::unique_ptr<StyioAST>>> case_owners;
+  std::unique_ptr<StyioAST> default_owner;
 
   context.try_match_panic(StyioTokenType::TOK_LCURBRAC);
 
@@ -947,7 +947,7 @@ parse_cases_only_nightly_draft(StyioContext& context) {
       context.skip();
       if (context.match(StyioTokenType::ARROW_DOUBLE_RIGHT)) {
         context.skip();
-        default_stmt = parse_iterator_body_nightly_fallback_latest_draft(context);
+        default_owner.reset(parse_iterator_body_nightly_fallback_latest_draft(context));
       }
       else {
         throw StyioSyntaxError("=> not found for default case");
@@ -955,23 +955,23 @@ parse_cases_only_nightly_draft(StyioContext& context) {
     }
     else {
       auto left_attempt = try_parse_expr_subset_until_latest(context, {StyioTokenType::ARROW_DOUBLE_RIGHT});
-      StyioAST* left = nullptr;
+      std::unique_ptr<StyioAST> left;
       if (left_attempt.status == ParseAttemptStatus::Parsed) {
-        left = left_attempt.node;
+        left.reset(left_attempt.node);
       }
       else if (left_attempt.status == ParseAttemptStatus::Fatal) {
         std::rethrow_exception(left_attempt.error);
       }
       else {
         context.note_nightly_internal_legacy_bridge_latest();
-        left = parse_expr(context);
+        left.reset(parse_expr(context));
       }
 
       context.skip();
       if (context.match(StyioTokenType::ARROW_DOUBLE_RIGHT)) {
         context.skip();
-        StyioAST* right = parse_iterator_body_nightly_fallback_latest_draft(context);
-        case_pairs.push_back(std::make_pair(left, right));
+        std::unique_ptr<StyioAST> right(parse_iterator_body_nightly_fallback_latest_draft(context));
+        case_owners.emplace_back(std::move(left), std::move(right));
       }
       else {
         throw StyioSyntaxError(context.mark_cur_tok("`=>` not found"));
@@ -981,10 +981,24 @@ parse_cases_only_nightly_draft(StyioContext& context) {
     context.skip();
   }
 
-  if (case_pairs.empty()) {
-    return CasesAST::Create(default_stmt);
+  if (case_owners.empty()) {
+    CasesAST* cases = CasesAST::Create(default_owner.get());
+    default_owner.release();
+    return cases;
   }
-  return CasesAST::Create(case_pairs, default_stmt);
+
+  vector<std::pair<StyioAST*, StyioAST*>> case_pairs;
+  case_pairs.reserve(case_owners.size());
+  for (auto& entry : case_owners) {
+    case_pairs.emplace_back(entry.first.get(), entry.second.get());
+  }
+  CasesAST* cases = CasesAST::Create(case_pairs, default_owner.get());
+  for (auto& entry : case_owners) {
+    entry.first.release();
+    entry.second.release();
+  }
+  default_owner.release();
+  return cases;
 }
 
 std::vector<StyioAST*>
