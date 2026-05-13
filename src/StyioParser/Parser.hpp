@@ -1619,6 +1619,16 @@ release_owned_params(std::vector<std::unique_ptr<ParamAST>> params) {
   return released;
 }
 
+inline std::vector<StyioAST*>
+release_owned_exprs(std::vector<std::unique_ptr<StyioAST>> exprs) {
+  std::vector<StyioAST*> released;
+  released.reserve(exprs.size());
+  for (auto& expr : exprs) {
+    released.push_back(expr.release());
+  }
+  return released;
+}
+
 std::vector<std::unique_ptr<ParamAST>>
 parse_params(StyioContext& context);
 
