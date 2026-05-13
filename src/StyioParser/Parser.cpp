@@ -5112,7 +5112,12 @@ parse_stmt_or_expr_legacy(
       if (cop != StyioOpType::Undefined) {
         context.move_forward(1, "compound_assign");
         context.skip();
-        return BinOpAST::Create(cop, NameAST::Create(id), parse_expr(context));
+        std::unique_ptr<NameAST> lhs(NameAST::Create(id));
+        std::unique_ptr<StyioAST> rhs(parse_expr(context));
+        auto* binop = BinOpAST::Create(cop, lhs.get(), rhs.get());
+        lhs.release();
+        rhs.release();
+        return binop;
       }
 
       context.restore_cursor(saved);
