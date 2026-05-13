@@ -1146,15 +1146,23 @@ parse_iterator_tail_nightly_draft(StyioContext& context, StyioAST* collection) {
       params = parse_params(context);
     }
     else if (context.check(StyioTokenType::NAME)) {
-      std::vector<HashTagNameAST*> hash_tags;
+      std::vector<std::unique_ptr<HashTagNameAST>> hash_tags;
 
-      hash_tags.push_back(HashTagNameAST::Create(parse_name_with_spaces_unsafe(context)));
+      hash_tags.push_back(
+        std::unique_ptr<HashTagNameAST>(
+          HashTagNameAST::Create(parse_name_with_spaces_unsafe(context))
+        )
+      );
 
       while (context.try_match(StyioTokenType::TOK_RANGBRAC)) {
         if (context.try_match(StyioTokenType::TOK_HASH)) {
           context.skip();
           if (context.check(StyioTokenType::NAME)) {
-            hash_tags.push_back(HashTagNameAST::Create(parse_name_with_spaces_unsafe(context)));
+            hash_tags.push_back(
+              std::unique_ptr<HashTagNameAST>(
+                HashTagNameAST::Create(parse_name_with_spaces_unsafe(context))
+              )
+            );
           }
           else {
             throw StyioSyntaxError(
@@ -1169,7 +1177,7 @@ parse_iterator_tail_nightly_draft(StyioContext& context, StyioAST* collection) {
         }
       }
 
-      return IterSeqAST::Create(collection, hash_tags);
+      return IterSeqAST::Create(collection, release_owned_hash_tags(std::move(hash_tags)));
     }
     else {
       throw StyioSyntaxError(
@@ -1227,13 +1235,17 @@ parse_iterator_tail_nightly_draft(StyioContext& context, StyioAST* collection) {
     );
   }
   else if (context.try_match(StyioTokenType::TOK_RANGBRAC)) {
-    std::vector<HashTagNameAST*> hash_tags;
+    std::vector<std::unique_ptr<HashTagNameAST>> hash_tags;
 
     do {
       if (context.try_match(StyioTokenType::TOK_HASH)) {
         context.skip();
         if (context.check(StyioTokenType::NAME)) {
-          hash_tags.push_back(HashTagNameAST::Create(parse_name_with_spaces_unsafe(context)));
+          hash_tags.push_back(
+            std::unique_ptr<HashTagNameAST>(
+              HashTagNameAST::Create(parse_name_with_spaces_unsafe(context))
+            )
+          );
         }
         else {
           throw StyioSyntaxError(
@@ -1248,7 +1260,11 @@ parse_iterator_tail_nightly_draft(StyioContext& context, StyioAST* collection) {
       }
     } while (context.try_match(StyioTokenType::TOK_RANGBRAC));
 
-    return IterSeqAST::Create(collection, release_owned_params(std::move(params)), hash_tags);
+    return IterSeqAST::Create(
+      collection,
+      release_owned_params(std::move(params)),
+      release_owned_hash_tags(std::move(hash_tags))
+    );
   }
 
   return IteratorAST::Create(collection, release_owned_params(std::move(params)));
