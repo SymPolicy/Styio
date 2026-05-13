@@ -803,8 +803,9 @@ try_parse_hash_let_match_nightly_latest(StyioContext& context) {
     context.skip();
     context.try_match_panic(StyioTokenType::TOK_EQUAL);
     context.skip();
-    StyioAST* bind_value =
-      parse_expr_subset_allowing_follow_latest(context, {StyioTokenType::TOK_RPAREN});
+    std::unique_ptr<StyioAST> bind_value(
+      parse_expr_subset_allowing_follow_latest(context, {StyioTokenType::TOK_RPAREN})
+    );
     context.skip();
     context.try_match_panic(StyioTokenType::TOK_RPAREN);
     context.skip();
@@ -817,15 +818,18 @@ try_parse_hash_let_match_nightly_latest(StyioContext& context) {
       throw StyioSyntaxError(context.mark_cur_tok("expected case block after #(name = expr) ?="));
     }
 
+    std::unique_ptr<CasesAST> cases(parse_cases_only_nightly_draft(context));
     std::vector<StyioAST*> stmts;
     stmts.push_back(FlexBindAST::Create(
       VarAST::Create(NameAST::Create(bind_name)),
-      bind_value
+      bind_value.get()
     ));
     stmts.push_back(MatchCasesAST::make(
       NameAST::Create(bind_name),
-      parse_cases_only_nightly_draft(context)
+      cases.get()
     ));
+    bind_value.release();
+    cases.release();
     return ParseAttempt<StyioAST>::parsed(BlockAST::Create(std::move(stmts)));
   }
   catch (...) {
@@ -991,15 +995,17 @@ parse_infinite_conditional_loop_after_iterator_nightly_draft(
   context.skip();
   context.try_match_panic(StyioTokenType::TOK_LPAREN);
   context.skip();
-  StyioAST* cond = parse_condition();
+  std::unique_ptr<StyioAST> cond(parse_condition());
   context.skip();
   context.try_match_panic(StyioTokenType::TOK_RPAREN);
   context.skip();
   context.try_match_panic(StyioTokenType::ARROW_DOUBLE_RIGHT);
   context.skip();
-  return InfiniteLoopAST::CreateWhile(
-    cond, parse_infinite_loop_body_nightly_draft(context)
-  );
+  std::unique_ptr<BlockAST> body(parse_infinite_loop_body_nightly_draft(context));
+  InfiniteLoopAST* loop = InfiniteLoopAST::CreateWhile(cond.get(), body.get());
+  cond.release();
+  body.release();
+  return loop;
 }
 
 CasesAST*
@@ -1072,14 +1078,23 @@ parse_cases_only_nightly_draft(StyioContext& context) {
 
 std::vector<StyioAST*>
 parse_forward_as_list_nightly_draft(StyioContext& context) {
-  std::vector<StyioAST*> following_exprs;
+  std::vector<std::unique_ptr<StyioAST>> following_owners;
+  auto release_followings = [&]() -> std::vector<StyioAST*>
+  {
+    std::vector<StyioAST*> following_exprs;
+    following_exprs.reserve(following_owners.size());
+    for (auto& owner : following_owners) {
+      following_exprs.push_back(owner.release());
+    }
+    return following_exprs;
+  };
 
   while (true) {
     context.skip();
     switch (context.cur_tok_type()) {
       case StyioTokenType::ARROW_DOUBLE_RIGHT: {
         context.move_forward(1);
-        following_exprs.push_back(parse_iterator_body_nightly_fallback_latest_draft(context));
+        following_owners.emplace_back(parse_iterator_body_nightly_fallback_latest_draft(context));
       } break;
 
       case StyioTokenType::TOK_QUEST: {
@@ -1090,24 +1105,32 @@ parse_forward_as_list_nightly_draft(StyioContext& context) {
         context.move_forward(1);
         context.skip();
         if (context.check(StyioTokenType::TOK_LCURBRAC)) {
-          following_exprs.push_back(parse_cases_only_nightly_draft(context));
+          following_owners.emplace_back(parse_cases_only_nightly_draft(context));
         }
         else {
-          std::vector<StyioAST*> rvals;
+          std::vector<std::unique_ptr<StyioAST>> rval_owners;
           do {
             auto attempt = try_parse_expr_subset_until_latest_impl(context, {StyioTokenType::TOK_COMMA});
             if (attempt.status == ParseAttemptStatus::Parsed) {
-              rvals.push_back(attempt.node);
+              rval_owners.emplace_back(attempt.node);
             }
             else if (attempt.status == ParseAttemptStatus::Fatal) {
               std::rethrow_exception(attempt.error);
             }
             else {
               enforce_nightly_internal_legacy_bridge_budget_latest(context, "match arm equality fallback");
-              rvals.push_back(parse_expr(context));
+              rval_owners.emplace_back(parse_expr(context));
             }
           } while (context.try_match(StyioTokenType::TOK_COMMA));
-          following_exprs.push_back(CheckEqualAST::Create(rvals));
+          std::vector<StyioAST*> rvals;
+          rvals.reserve(rval_owners.size());
+          for (auto& owner : rval_owners) {
+            rvals.push_back(owner.get());
+          }
+          following_owners.emplace_back(CheckEqualAST::Create(rvals));
+          for (auto& owner : rval_owners) {
+            owner.release();
+          }
         }
       } break;
 
@@ -1115,22 +1138,23 @@ parse_forward_as_list_nightly_draft(StyioContext& context) {
       } break;
 
       default: {
-        return following_exprs;
+        return release_followings();
       } break;
     }
   }
 
-  return following_exprs;
+  return release_followings();
 }
 
 StyioAST*
 parse_iterator_tail_nightly_draft(StyioContext& context, StyioAST* collection) {
+  std::unique_ptr<StyioAST> collection_owner(collection);
   std::vector<std::unique_ptr<ParamAST>> params;
 
   context.skip();
 
-  if (collection != nullptr
-      && collection->getNodeType() == StyioNodeType::Infinite
+  if (collection_owner != nullptr
+      && collection_owner->getNodeType() == StyioNodeType::Infinite
       && context.cur_tok_type() == StyioTokenType::TOK_QUEST) {
     return parse_infinite_conditional_loop_after_iterator_nightly_draft(
       context, [&]()
@@ -1177,7 +1201,10 @@ parse_iterator_tail_nightly_draft(StyioContext& context, StyioAST* collection) {
         }
       }
 
-      return IterSeqAST::Create(collection, release_owned_hash_tags(std::move(hash_tags)));
+      return IterSeqAST::Create(
+        collection_owner.release(),
+        release_owned_hash_tags(std::move(hash_tags))
+      );
     }
     else {
       throw StyioSyntaxError(
@@ -1196,7 +1223,7 @@ parse_iterator_tail_nightly_draft(StyioContext& context, StyioAST* collection) {
 
   if (context.try_match(StyioTokenType::TOK_AMP)) {
     context.skip();
-    StyioAST* collection_b = parse_iterator_collection_rhs_nightly_draft(context);
+    std::unique_ptr<StyioAST> collection_b(parse_iterator_collection_rhs_nightly_draft(context));
     context.skip();
     if (not context.match(StyioTokenType::ITERATOR)) {
       throw StyioSyntaxError(context.mark_cur_tok("expected >> after first stream in zip"));
@@ -1208,30 +1235,32 @@ parse_iterator_tail_nightly_draft(StyioContext& context, StyioAST* collection) {
       throw StyioSyntaxError(context.mark_cur_tok("expected => after zip streams"));
     }
     context.skip();
-    StyioAST* body_ast = parse_iterator_body_nightly_fallback_latest_draft(context);
+    std::unique_ptr<StyioAST> body_ast(parse_iterator_body_nightly_fallback_latest_draft(context));
     return StreamZipAST::Create(
-      collection,
+      collection_owner.release(),
       release_owned_params(std::move(params)),
-      collection_b,
+      collection_b.release(),
       release_owned_params(std::move(params_b)),
-      body_ast
+      body_ast.release()
     );
   }
 
   if (context.try_match(StyioTokenType::ARROW_DOUBLE_RIGHT)) {
     context.skip();
+    std::unique_ptr<StyioAST> body_ast(parse_iterator_body_nightly_fallback_latest_draft(context));
     return IteratorAST::Create(
-      collection,
+      collection_owner.release(),
       release_owned_params(std::move(params)),
-      parse_iterator_body_nightly_fallback_latest_draft(context)
+      body_ast.release()
     );
   }
   context.skip();
   if (context.check(StyioTokenType::TOK_LCURBRAC)) {
+    std::unique_ptr<BlockAST> body(parse_block_only_subset_with_legacy_fallback_latest_draft(context));
     return IteratorAST::Create(
-      collection,
+      collection_owner.release(),
       release_owned_params(std::move(params)),
-      parse_block_only_subset_with_legacy_fallback_latest_draft(context)
+      body.release()
     );
   }
   else if (context.try_match(StyioTokenType::TOK_RANGBRAC)) {
@@ -1261,25 +1290,23 @@ parse_iterator_tail_nightly_draft(StyioContext& context, StyioAST* collection) {
     } while (context.try_match(StyioTokenType::TOK_RANGBRAC));
 
     return IterSeqAST::Create(
-      collection,
+      collection_owner.release(),
       release_owned_params(std::move(params)),
       release_owned_hash_tags(std::move(hash_tags))
     );
   }
 
-  return IteratorAST::Create(collection, release_owned_params(std::move(params)));
+  return IteratorAST::Create(
+    collection_owner.release(),
+    release_owned_params(std::move(params))
+  );
 }
 
 StyioAST*
 parse_iterator_only_nightly_draft(StyioContext& context, StyioAST* collection) {
   std::unique_ptr<StyioAST> collection_owner(collection);
   context.try_match_panic(StyioTokenType::ITERATOR);
-  StyioAST* iterator = parse_iterator_tail_nightly_draft(context, collection_owner.get());
-  if (dynamic_cast<IteratorAST*>(iterator) != nullptr
-      || dynamic_cast<StreamZipAST*>(iterator) != nullptr) {
-    collection_owner.release();
-  }
-  return iterator;
+  return parse_iterator_tail_nightly_draft(context, collection_owner.release());
 }
 
 InfiniteLoopAST*
@@ -1637,24 +1664,30 @@ private:
     context_.skip();
     context_.try_match_panic(StyioTokenType::TOK_LPAREN);
     context_.skip();
-    StyioAST* cond = parse_full_expression();
+    std::unique_ptr<StyioAST> cond(parse_full_expression());
     context_.skip();
     context_.try_match_panic(StyioTokenType::TOK_RPAREN);
     context_.skip();
 
     if (context_.match(StyioTokenType::ARROW_DOUBLE_RIGHT)) {
       context_.skip();
-      StyioAST* true_val = parse_with_allowed_follow({StyioTokenType::TOK_PIPE});
+      std::unique_ptr<StyioAST> true_val(
+        parse_with_allowed_follow({StyioTokenType::TOK_PIPE})
+      );
       context_.skip();
       if (!context_.match(StyioTokenType::TOK_PIPE)) {
         throw StyioSyntaxError(context_.mark_cur_tok("Expected | after guard true value"));
       }
       context_.skip();
-      StyioAST* false_val = parse_with_allowed_follow({});
-      return WaveMergeAST::Create(cond, true_val, false_val);
+      std::unique_ptr<StyioAST> false_val(parse_with_allowed_follow({}));
+      StyioAST* merge = WaveMergeAST::Create(cond.get(), true_val.get(), false_val.get());
+      cond.release();
+      true_val.release();
+      false_val.release();
+      return merge;
     }
 
-    return cond;
+    return cond.release();
   }
 
   StyioAST* parse_state_ref_nightly_draft() {
