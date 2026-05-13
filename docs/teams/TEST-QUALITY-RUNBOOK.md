@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of feature tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-05-12
+**Last updated:** 2026-05-13
 
 ## Mission
 
@@ -64,6 +64,7 @@ Primary paths:
 38. When replacing a placeholder with accepted behavior, pair the positive fixture with the smallest semantic negative that proves adjacent undefined syntax fails closed; for format strings this means a real `$"..."` stdio-output smoke plus a hash-tag iterator sequence diagnostic.
 39. Nightly fuzz leak artifacts must become durable regression evidence. Add each minimized lexer/parser seed to `tests/fuzz/corpus/`, add the smallest security or ASan-targeted regression that exercises the same recovery path, preserve embedded NUL bytes in deterministic parser regression inputs when the artifact has them, and record any local libFuzzer toolchain blocker separately from the code fix.
 40. Parser lifetime regressions that pass through typed annotations need both routes covered when the seed can reach them. Keep the raw fuzz corpus byte-for-byte, then add a deterministic security test that builds the same embedded-NUL input through `CompilationSession` so ASan/LSan validates parser recovery ownership without depending on the local libFuzzer runtime.
+41. Parser DoS or OOM fuzz artifacts follow the same evidence path as lifetime bugs. Preserve the raw seed byte-for-byte, add a deterministic resource-limit regression, replay the artifact and the tracked corpus seed with the local libFuzzer target, and verify the relevant security tests under both default and ASan builds.
 
 ## Change Classes
 

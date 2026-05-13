@@ -29,6 +29,21 @@ using std::vector;
 namespace
 {
 
+constexpr int kMaxParserDelimiterNestingLatest = 64;
+
+void
+enforce_parser_delimiter_budget_latest(StyioContext& context, const char* construct) {
+  if (context.delimiter_nesting_before_current_token() < kMaxParserDelimiterNestingLatest) {
+    return;
+  }
+  throw StyioParserResourceLimitError(
+    context.mark_cur_tok(
+      std::string(construct) + " exceeds parser delimiter nesting limit of "
+      + std::to_string(kMaxParserDelimiterNestingLatest)
+    )
+  );
+}
+
 struct ParserRouteStatsScopeLatestDraft
 {
   StyioContext& context;
@@ -3303,6 +3318,7 @@ parse_tuple_exprs(StyioContext& context) {
 
 StyioAST*
 parse_expr(StyioContext& context) {
+  enforce_parser_delimiter_budget_latest(context, "expression");
   /* Keep postfix tails after ||/&&; <~ and ~> are reserved at token level. */
   return parse_expr_postfix(
     context,
@@ -3379,12 +3395,17 @@ parse_tuple_no_braces(StyioContext& context, StyioAST* first_element) {
 
 StyioAST*
 parse_list_exprs_latest_draft(StyioContext& context) {
+  enforce_parser_delimiter_budget_latest(context, "list expression");
   vector<StyioAST*> exprs;
   auto parse_list_elem_expr = [&]() -> StyioAST*
   {
     auto saved = context.save_cursor();
     try {
       return parse_expr_subset_nightly(context);
+    }
+    catch (const StyioParserResourceLimitError&) {
+      context.restore_cursor(saved);
+      throw;
     }
     catch (const std::exception&) {
       context.restore_cursor(saved);
@@ -5065,6 +5086,10 @@ parse_stmt_or_expr_legacy(
       auto cond_start = context.save_cursor();
       try {
         cond_expr.reset(parse_expr_subset_nightly(context));
+      }
+      catch (const StyioParserResourceLimitError&) {
+        context.restore_cursor(cond_start);
+        throw;
       }
       catch (const std::exception&) {
         context.restore_cursor(cond_start);
