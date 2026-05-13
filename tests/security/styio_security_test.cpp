@@ -669,6 +669,28 @@ TEST(StyioSecurityParserContext, DeepUnclosedIndexListSeedHitsNestingBudget) {
   );
 }
 
+TEST(StyioSecurityParserContext, DeepBraceNestedIndexSeedHitsRecoveryBudget) {
+  const std::string src =
+    "x[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[{[[[[[[[[x)\n";
+
+  CompilationSession session;
+  session.adopt_tokens(StyioTokenizer::tokenize(src));
+  session.attach_context(StyioContext::Create(
+    "<deep-brace-index-timeout-regression>",
+    src,
+    build_line_seps(src),
+    session.tokens(),
+    false
+  ));
+
+  EXPECT_THROW(
+    {
+      std::unique_ptr<StyioAST> parsed(parse_expr_subset_nightly(*session.context()));
+    },
+    StyioParserResourceLimitError
+  );
+}
+
 TEST(StyioSecurityParserContext, TokenMapMatchesSingleRightArrow) {
   std::vector<StyioToken*> tokens{
     StyioToken::Create(StyioTokenType::TOK_MINUS, "-"),

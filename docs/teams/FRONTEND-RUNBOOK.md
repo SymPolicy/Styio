@@ -48,6 +48,7 @@ Build and test targets:
 19. Tokenizer and parser recovery paths are sanitizer-sensitive. Accumulate tokens, top-level statements, hash-function parts, parsed return-type fragments, parenthesized expressions, call arguments, and match-case arms/default bodies behind RAII ownership before releasing them to the session or final AST node, and backflow minimized fuzz samples into `tests/fuzz/corpus/` when nightly fuzz exposes a lifetime bug.
 20. Typed annotation recovery is part of the same ownership contract. Keep parsed `TypeAST`, declared `VarAST`, await targets, resource declaration slots, and parameter nodes behind local owners until the parser has seen the required delimiter or assignment token and the final AST node has adopted them.
 21. Parser recovery resource limits are fail-closed. Deep delimiter nesting, repeated fallback routes, and unclosed expression contexts must raise the parser resource-limit diagnostic directly instead of being swallowed by legacy fallback; minimized OOM fuzz seeds belong in `tests/fuzz/corpus/` with a deterministic security regression.
+22. List-element recovery must stay on the `ParseAttempt` bridge. When nightly expression parsing inside list literals needs legacy fallback, route it through `try_parse_expr_subset_until_latest(...)` with explicit follow-token delimiters instead of calling the nightly subset parser directly and rewinding into `parse_expr(context)`, or deep malformed nests can bounce between routes until timeout instead of tripping the resource-limit diagnostic.
 
 ## Change Classes
 

@@ -65,6 +65,7 @@ Primary paths:
 39. Nightly fuzz leak artifacts must become durable regression evidence. Add each minimized lexer/parser seed to `tests/fuzz/corpus/`, add the smallest security or ASan-targeted regression that exercises the same recovery path, preserve embedded NUL bytes in deterministic parser regression inputs when the artifact has them, and record any local libFuzzer toolchain blocker separately from the code fix.
 40. Parser lifetime regressions that pass through typed annotations need both routes covered when the seed can reach them. Keep the raw fuzz corpus byte-for-byte, then add a deterministic security test that builds the same embedded-NUL input through `CompilationSession` so ASan/LSan validates parser recovery ownership without depending on the local libFuzzer runtime.
 41. Parser DoS or OOM fuzz artifacts follow the same evidence path as lifetime bugs. Preserve the raw seed byte-for-byte, add a deterministic resource-limit regression, replay the artifact and the tracked corpus seed with the local libFuzzer target, and verify the relevant security tests under both default and ASan builds.
+42. Parser timeout artifacts caused by nightly-to-legacy bridge loops need explicit closure evidence. Keep the minimized seed in `tests/fuzz/corpus/parser/`, add a deterministic security regression that exercises the same malformed nest through `CompilationSession`, replay the isolated artifact, and replay the full parser corpus so a single fixed seed does not hide another fallback loop nearby.
 
 ## Change Classes
 
