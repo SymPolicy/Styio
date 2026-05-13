@@ -68,10 +68,10 @@ Stable full-compiler source-build helper:
 ./scripts/source-build-minimal.sh
 ```
 
-Run milestone and pipeline tests:
+Run language feature and pipeline tests:
 
 ```bash
-ctest --test-dir build/default -L milestone
+ctest --test-dir build/default -L language_feature
 ctest --test-dir build/default -L styio_pipeline
 ctest --test-dir build/default -L security
 ```

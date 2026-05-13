@@ -11,9 +11,9 @@ Each `*.prompt.md` targets **one** artifact. Full workflow orchestration: master
 | 04 | `04-domain-spec.prompt.md` | `../DOMAIN-OR-PRODUCT-SPEC.md` |
 | 05 | `05-open-questions.prompt.md` | `../OPEN-QUESTIONS-AND-HUMAN-INPUT.md` |
 | 06 | `06-third-party.prompt.md` | `../THIRD-PARTY.md` |
-| 07 | `07-milestones-readme.prompt.md` | `../milestones/README.md` |
-| 08 | `08-milestone-index.prompt.md` | `../milestones/_template/00-Milestone-Index.template.md` |
-| 09 | `09-milestone-segment.prompt.md` | `../milestones/_template/Mx-Segment.template.md` |
+| 07 | `07-checkpoints-readme.prompt.md` | `../checkpoints/README.md` |
+| 08 | `08-checkpoint-index.prompt.md` | `../checkpoints/_template/00-Checkpoint-Index.template.md` |
+| 09 | `09-checkpoint-segment.prompt.md` | `../checkpoints/_template/Checkpoint-Segment.template.md` |
 | 10 | `10-test-catalog.prompt.md` | `../tests/TEST-CATALOG.template.md` |
 | 11 | `11-history-readme.prompt.md` | `../history/README.template.md` |
 | 12 | `12-history-daily.prompt.md` | `../history/YYYY-MM-DD.template.md` |

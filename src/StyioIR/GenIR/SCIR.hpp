@@ -19,6 +19,10 @@ public:
       elems(std::move(e)), elem_type(std::move(et)) {
   }
 
+  ~SCListLiteral() override {
+    styio_delete_ir_nodes(elems);
+  }
+
   static SCListLiteral* Create(std::vector<StyioIR*> e, std::string elem_type = "i64") {
     return new SCListLiteral(std::move(e), std::move(elem_type));
   }
@@ -40,6 +44,14 @@ public:
       entries(std::move(e)), value_type(std::move(vt)) {
   }
 
+  ~SCDictLiteral() override {
+    for (auto& entry : entries) {
+      delete entry.key;
+      delete entry.value;
+    }
+    entries.clear();
+  }
+
   static SCDictLiteral* Create(std::vector<Entry> e, std::string value_type = "i64") {
     return new SCDictLiteral(std::move(e), std::move(value_type));
   }
@@ -55,6 +67,10 @@ public:
 
   SCMatrixLiteral(std::vector<StyioIR*> e, std::string et, size_t r, size_t c) :
       elems(std::move(e)), elem_type(std::move(et)), rows(r), cols(c) {
+  }
+
+  ~SCMatrixLiteral() override {
+    styio_delete_ir_nodes(elems);
   }
 
   static SCMatrixLiteral* Create(
@@ -76,6 +92,10 @@ public:
       source(src) {
   }
 
+  ~SCListClone() override {
+    delete source;
+  }
+
   static SCListClone* Create(StyioIR* src) {
     return new SCListClone(src);
   }
@@ -88,6 +108,10 @@ public:
 
   explicit SCListLen(StyioIR* l) :
       list(l) {
+  }
+
+  ~SCListLen() override {
+    delete list;
   }
 
   static SCListLen* Create(StyioIR* l) {
@@ -104,6 +128,11 @@ public:
 
   SCListGet(StyioIR* l, StyioIR* idx, std::string elem = "i64") :
       list(l), index(idx), elem_type(std::move(elem)) {
+  }
+
+  ~SCListGet() override {
+    delete list;
+    delete index;
   }
 
   static SCListGet* Create(StyioIR* l, StyioIR* idx, std::string elem = "i64") {
@@ -123,6 +152,12 @@ public:
       list(l), index(idx), value(v), elem_type(std::move(elem)) {
   }
 
+  ~SCListSet() override {
+    delete list;
+    delete index;
+    delete value;
+  }
+
   static SCListSet* Create(StyioIR* l, StyioIR* idx, StyioIR* v, std::string elem_type = "i64") {
     return new SCListSet(l, idx, v, std::move(elem_type));
   }
@@ -135,6 +170,10 @@ public:
 
   explicit SCListToString(StyioIR* l) :
       list(l) {
+  }
+
+  ~SCListToString() override {
+    delete list;
   }
 
   static SCListToString* Create(StyioIR* l) {
@@ -154,6 +193,12 @@ public:
       matrix(m), row(r), col(c), elem_type(std::move(et)) {
   }
 
+  ~SCMatrixGet() override {
+    delete matrix;
+    delete row;
+    delete col;
+  }
+
   static SCMatrixGet* Create(StyioIR* m, StyioIR* r, StyioIR* c, std::string elem_type) {
     return new SCMatrixGet(m, r, c, std::move(elem_type));
   }
@@ -170,6 +215,11 @@ public:
       matrix(m), row(r), elem_type(std::move(et)) {
   }
 
+  ~SCMatrixRow() override {
+    delete matrix;
+    delete row;
+  }
+
   static SCMatrixRow* Create(StyioIR* m, StyioIR* r, std::string elem_type) {
     return new SCMatrixRow(m, r, std::move(elem_type));
   }
@@ -182,6 +232,10 @@ public:
 
   explicit SCMatrixToString(StyioIR* m) :
       matrix(m) {
+  }
+
+  ~SCMatrixToString() override {
+    delete matrix;
   }
 
   static SCMatrixToString* Create(StyioIR* m) {
@@ -198,6 +252,10 @@ public:
       source(src) {
   }
 
+  ~SCDictClone() override {
+    delete source;
+  }
+
   static SCDictClone* Create(StyioIR* src) {
     return new SCDictClone(src);
   }
@@ -210,6 +268,10 @@ public:
 
   explicit SCDictLen(StyioIR* d) :
       dict(d) {
+  }
+
+  ~SCDictLen() override {
+    delete dict;
   }
 
   static SCDictLen* Create(StyioIR* d) {
@@ -226,6 +288,11 @@ public:
 
   SCDictGet(StyioIR* d, StyioIR* k, std::string vt) :
       dict(d), key(k), value_type(std::move(vt)) {
+  }
+
+  ~SCDictGet() override {
+    delete dict;
+    delete key;
   }
 
   static SCDictGet* Create(StyioIR* d, StyioIR* k, std::string value_type = "i64") {
@@ -245,6 +312,12 @@ public:
       dict(d), key(k), value(v), value_type(std::move(vt)) {
   }
 
+  ~SCDictSet() override {
+    delete dict;
+    delete key;
+    delete value;
+  }
+
   static SCDictSet* Create(StyioIR* d, StyioIR* k, StyioIR* v, std::string value_type = "i64") {
     return new SCDictSet(d, k, v, std::move(value_type));
   }
@@ -257,6 +330,10 @@ public:
 
   explicit SCDictKeys(StyioIR* d) :
       dict(d) {
+  }
+
+  ~SCDictKeys() override {
+    delete dict;
   }
 
   static SCDictKeys* Create(StyioIR* d) {
@@ -274,6 +351,10 @@ public:
       dict(d), value_type(std::move(vt)) {
   }
 
+  ~SCDictValues() override {
+    delete dict;
+  }
+
   static SCDictValues* Create(StyioIR* d, std::string value_type = "i64") {
     return new SCDictValues(d, std::move(value_type));
   }
@@ -286,6 +367,10 @@ public:
 
   explicit SCDictToString(StyioIR* d) :
       dict(d) {
+  }
+
+  ~SCDictToString() override {
+    delete dict;
   }
 
   static SCDictToString* Create(StyioIR* d) {

@@ -334,7 +334,7 @@ StyioToLLVM::toLLVMIR(SIORead* node) {
   return output;
 }
 
-/* ── M9: SIOStdStreamWrite (stdout / stderr) ────────────────────── */
+/* Standard streams: SIOStdStreamWrite (stdout / stderr). */
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SIOStdStreamWrite* node) {
@@ -347,7 +347,7 @@ StyioToLLVM::toLLVMIR(SIOStdStreamWrite* node) {
   return theBuilder->getInt32(0);
 }
 
-/* ── M10: SIOStdStreamLineIter ──────────────────────────────────────── */
+/* Stdio input: SIOStdStreamLineIter. */
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SIOStdStreamLineIter* node) {
@@ -441,7 +441,7 @@ StyioToLLVM::toLLVMIR(SIOStdStreamLineIter* node) {
   return theBuilder->getInt64(0);
 }
 
-/* M10: typed stdin pull. Scalars read one line; list[T] materializes stdin. */
+/* Stdio input: typed stdin pull. Scalars read one line; list[T] materializes stdin. */
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SIOStdStreamPull* node) {

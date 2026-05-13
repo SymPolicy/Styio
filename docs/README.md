@@ -16,7 +16,7 @@
 8. Reusable workflows and templates live in `docs/assets/`.
 9. Compressed active summaries live in `docs/rollups/`.
 10. Minimal lifecycle metadata lives in `docs/archive/`; exact old prose is recovered from Git history.
-11. Current milestones and temporary ADRs stay in their dedicated directories; implemented decisions are compressed and raw daily history is not retained by default.
+11. Current checkpoints and temporary ADRs stay in their dedicated directories; implemented decisions are compressed and raw daily history is not retained by default.
 
 ## Entry Points
 

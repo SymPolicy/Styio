@@ -1,0 +1,4 @@
+f1 <- @file("tests/features/stream_processing/data/hello.txt")
+f2 <- @file("tests/features/stream_processing/data/hello.txt")
+f1 >> #(line) => { >_(line) }
+f2 >> #(line) => { >_(line) }

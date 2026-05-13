@@ -285,9 +285,9 @@ assign_op          = '=' | '+=' | '-=' | '*=' | '/=' | ':=' ;
 
 ---
 
-## 6. Retired State Declarations (M6)
+## 6. Retired State Declarations (state-resource)
 
-Retired M6 state containers and state references are not active grammar productions. The parser
+Retired state-resource state containers and state references are not active grammar productions. The parser
 rejects the retired prefixes with migration diagnostics. New topology code uses `@name : Type`
 resource declarations, `expr -> @name` writes, and resource-object selectors.
 
@@ -601,8 +601,8 @@ When the parser encounters `>>` (or longer `>>>`, `>>>>`, etc.):
 
 ### Rule 2: `@` Disambiguation
 
-- `@` alone as a source expression: **parse error**. Use resource/intrinsic-produced absence; active milestone fixtures must not author bare `@` directly.
-- `@` followed by `[` : **retired M6 state-container family; parse error**
+- `@` alone as a source expression: **parse error**. Use resource/intrinsic-produced absence; active feature fixtures must not author bare `@` directly.
+- `@` followed by `[` : **retired state-resource state-container family; parse error**
 - `@` followed by identifier then `:`: **Topology v2 resource declaration**
 - `@` followed by identifier then `(`: **Resource with explicit protocol**
 - `@` followed by identifier then `{`: **Invalid for explicit resources; use `@name(...)`**
@@ -611,7 +611,7 @@ When the parser encounters `>>` (or longer `>>>`, `>>>>`, etc.):
 
 ### Rule 3: `$` Disambiguation
 
-- `$` followed by identifier: **Retired M6 state reference; parse error**
+- `$` followed by identifier: **Retired state-resource state reference; parse error**
 - `$` followed by `(`: **Capture list** (only valid in function declaration context)
 - `$` followed by string literal: **Format string**
 

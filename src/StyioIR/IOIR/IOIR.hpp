@@ -25,6 +25,10 @@ public:
       expr(expr) {
   }
 
+  ~SIOPrint() override {
+    styio_delete_ir_nodes(expr);
+  }
+
   static SIOPrint* Create(std::vector<StyioIR*> expr) {
     return new SIOPrint(expr);
   }
@@ -37,6 +41,10 @@ public:
 
   SIORead(SIOPath* file_path) :
       file_path(file_path) {
+  }
+
+  ~SIORead() override {
+    delete file_path;
   }
 
   static SIORead* Create(SIOPath* file_path) {

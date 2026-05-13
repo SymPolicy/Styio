@@ -206,4 +206,4 @@ Merge precedence is deterministic: open-file entries override background and per
 6. `run_idle_tasks()` is the explicit idle slice: it drains queued semantic diagnostics first, then runs background index work within the supplied budget.
 7. `runtime_counters()` exposes coarse counters and latency aggregates for stale drops, cancellations, debounce activity, foreground-yield events, and background task completion.
 
-To keep the M17 workspace-index guarantees under the new debounce model, dirty open buffers are refreshed into `OpenFileIndex` lazily before `workspace_symbols` and cross-file definition queries.
+To keep the workspace-index guarantees under the new debounce model, dirty open buffers are refreshed into `OpenFileIndex` lazily before `workspace_symbols` and cross-file definition queries.

@@ -10,6 +10,6 @@
 
 ## Links
 
-- Commits:  
-- Milestones:  
-- Spec sections:  
+- Commits:
+- Checkpoints:
+- Spec sections:

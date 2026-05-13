@@ -1,0 +1,4 @@
+@file("tests/features/stream_processing/data/input.txt") >> #(x) => {
+    result = x * 2
+    result << @file("/tmp/styio_doubled.txt")
+}
