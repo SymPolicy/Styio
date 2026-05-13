@@ -601,7 +601,8 @@ TEST(StyioSecurityParserContext, MoveForwardBeyondTokenTailIsClampedToEof) {
 TEST(StyioSecurityParserContext, HashFunctionFuzzSeedStaysExceptionSafe) {
   const std::vector<std::string> samples{
     "# a : d=(a: a63, )b 6i4:",
-    "a# : dHHHHHHHHHHHHHHH5, "
+    "a# : dHHHHHHHHHHHHHHH5, ",
+    "# ad : d=(a: i64, b: i64) =>(add(0, 2)>"
   };
   for (const std::string& src : samples) {
     for (StyioParserEngine engine : {StyioParserEngine::Legacy, StyioParserEngine::Nightly}) {
