@@ -4896,7 +4896,7 @@ parse_read_file(StyioContext& context, NameAST* id_ast) {
 
 StyioAST*
 parse_print(StyioContext& context) {
-  vector<StyioAST*> exprs;
+  std::vector<std::unique_ptr<StyioAST>> exprs;
 
   context.match_panic(StyioTokenType::PRINT);  // >_
 
@@ -4906,16 +4906,16 @@ parse_print(StyioContext& context) {
     context.skip();
 
     if (context.match(StyioTokenType::TOK_RPAREN) /* ) */) {
-      return PrintAST::Create(exprs);
+      return PrintAST::Create(release_owned_exprs(std::move(exprs)));
     }
     else {
-      exprs.push_back(parse_expr(context));
+      exprs.emplace_back(parse_expr(context));
     }
   } while (context.try_match(StyioTokenType::TOK_COMMA) /* , */);
 
   context.try_match_panic(StyioTokenType::TOK_RPAREN); /* ) */
 
-  return PrintAST::Create(exprs);
+  return PrintAST::Create(release_owned_exprs(std::move(exprs)));
 }
 
 // StyioAST* parse_panic (
