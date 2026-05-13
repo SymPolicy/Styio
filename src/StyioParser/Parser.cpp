@@ -3419,7 +3419,16 @@ parse_tuple_no_braces(StyioContext& context, StyioAST* first_element) {
 StyioAST*
 parse_list_exprs_latest_draft(StyioContext& context) {
   enforce_parser_delimiter_budget_latest(context, "list expression");
-  vector<StyioAST*> exprs;
+  std::vector<std::unique_ptr<StyioAST>> expr_owners;
+  auto release_exprs = [&]() -> vector<StyioAST*>
+  {
+    vector<StyioAST*> exprs;
+    exprs.reserve(expr_owners.size());
+    for (auto& owner : expr_owners) {
+      exprs.push_back(owner.release());
+    }
+    return exprs;
+  };
   auto parse_list_elem_expr = [&](std::initializer_list<StyioTokenType> allowed_follow) -> StyioAST*
   {
     auto attempt = try_parse_expr_subset_until_latest(context, allowed_follow);
@@ -3444,38 +3453,38 @@ parse_list_exprs_latest_draft(StyioContext& context) {
   }
 
   if (context.match(StyioTokenType::TOK_RBOXBRAC) /* ] */) {
-    return ListAST::Create(exprs);
+    return ListAST::Create({});
   }
 
-  StyioAST* first_expr = parse_list_elem_expr(
+  std::unique_ptr<StyioAST> first_expr(parse_list_elem_expr(
     {StyioTokenType::ELLIPSIS, StyioTokenType::TOK_COMMA, StyioTokenType::TOK_RBOXBRAC}
-  );
+  ));
   context.skip();
 
   if (context.match(StyioTokenType::ELLIPSIS)) {
     context.skip();
-    StyioAST* last_expr = parse_list_elem_expr({StyioTokenType::TOK_RBOXBRAC});
+    std::unique_ptr<StyioAST> last_expr(parse_list_elem_expr({StyioTokenType::TOK_RBOXBRAC}));
     context.skip();
     context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
-    return new RangeAST(first_expr, last_expr, IntAST::Create("1"));
+    return new RangeAST(first_expr.release(), last_expr.release(), IntAST::Create("1"));
   }
 
-  exprs.push_back(first_expr);
+  expr_owners.push_back(std::move(first_expr));
 
   while (context.try_match(StyioTokenType::TOK_COMMA) /* , */) {
     context.skip();
 
     if (context.match(StyioTokenType::TOK_RBOXBRAC) /* ] */) {
-      return ListAST::Create(exprs);
+      return ListAST::Create(release_exprs());
     }
 
-    exprs.push_back(parse_list_elem_expr({StyioTokenType::TOK_COMMA, StyioTokenType::TOK_RBOXBRAC}));
+    expr_owners.emplace_back(parse_list_elem_expr({StyioTokenType::TOK_COMMA, StyioTokenType::TOK_RBOXBRAC}));
     context.skip();
   }
 
   context.try_match_panic(StyioTokenType::TOK_RBOXBRAC); /* ] */
 
-  return ListAST::Create(exprs);
+  return ListAST::Create(release_exprs());
 }
 
 StyioAST*
