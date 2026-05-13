@@ -334,6 +334,12 @@ public:
     return index_of_token;
   }
 
+  int
+  delimiter_nesting_before_current_token() const {
+    const TokenNesting nesting = token_nesting_before(index_of_token);
+    return nesting.paren + nesting.bracket + nesting.brace + nesting.bounded;
+  }
+
   void move_forward(size_t steps = 1, std::string caller = "") {
     // std::cout << "[" << index_of_token << "] " << caller << "(`" << cur_tok()->as_str() << "`)" << ", step: " << steps << std::endl;
     if (index_of_token >= tokens.size()) {

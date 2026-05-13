@@ -9,6 +9,21 @@
 namespace
 {
 
+constexpr int kMaxExprDelimiterNestingLatest = 64;
+
+void
+enforce_expr_delimiter_budget_latest(StyioContext& context, const char* construct) {
+  if (context.delimiter_nesting_before_current_token() < kMaxExprDelimiterNestingLatest) {
+    return;
+  }
+  throw StyioParserResourceLimitError(
+    context.mark_cur_tok(
+      std::string(construct) + " exceeds parser delimiter nesting limit of "
+      + std::to_string(kMaxExprDelimiterNestingLatest)
+    )
+  );
+}
+
 BlockAST*
 parse_block_only_subset_nightly(StyioContext& context);
 
@@ -1383,6 +1398,7 @@ private:
         continue;
       }
       if (context_.cur_tok_type() == StyioTokenType::TOK_LBOXBRAC) {
+        enforce_expr_delimiter_budget_latest(context_, "index expression");
         context_.move_forward(1, "new_expr:index_open");
         context_.skip();
         std::unique_ptr<StyioAST> idx(parse_full_expression());
@@ -1463,6 +1479,7 @@ private:
   }
 
   StyioAST* parse_full_expression() {
+    enforce_expr_delimiter_budget_latest(context_, "nightly expression");
     std::unique_ptr<StyioAST> parsed(parse_postfix(parse_expression(0)));
     context_.skip_spaces_no_linebreak();
     if (has_unsupported_continuation_latest_draft(context_.cur_tok_type())) {
@@ -1472,6 +1489,7 @@ private:
   }
 
   std::vector<std::unique_ptr<StyioAST>> parse_call_arg_owners() {
+    enforce_expr_delimiter_budget_latest(context_, "call argument list");
     context_.move_forward(1, "new_expr:call(");
 
     std::vector<std::unique_ptr<StyioAST>> args;
@@ -1595,6 +1613,7 @@ private:
         return StringAST::Create(lit);
       }
       case StyioTokenType::TOK_LBOXBRAC: {
+        enforce_expr_delimiter_budget_latest(context_, "list expression");
         return parse_list_expr_or_iterator_nightly_draft(context_);
       }
       case StyioTokenType::TOK_AT: {
@@ -1624,6 +1643,7 @@ private:
         return parse_guard_value_expr();
       }
       case StyioTokenType::TOK_LPAREN: {
+        enforce_expr_delimiter_budget_latest(context_, "parenthesized expression");
         context_.move_forward(1, "new_expr:(");
         context_.skip();
         if (context_.cur_tok_type() == StyioTokenType::ARROW_SINGLE_LEFT) {
@@ -1691,6 +1711,7 @@ private:
   }
 
   StyioAST* parse_expression(int min_prec) {
+    enforce_expr_delimiter_budget_latest(context_, "nightly expression");
     std::unique_ptr<StyioAST> lhs(parse_unary());
 
     while (true) {
