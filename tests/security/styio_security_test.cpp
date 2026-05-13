@@ -892,6 +892,31 @@ TEST(StyioSecurityParserContext, MalformedIteratorFallbackLeakSeedDoesNotLeakUnd
   }
 }
 
+TEST(StyioSecurityParserContext, MalformedCompoundAssignNameLeakSeedDoesNotLeakUnderSessionArena) {
+  std::string src(103, 'Q');
+  src += "x*=( > 2\n*****";
+  src.push_back('\x08');
+  src += ">y2&";
+
+  for (StyioParserEngine engine : {StyioParserEngine::Legacy, StyioParserEngine::Nightly}) {
+    CompilationSession session;
+    session.adopt_tokens(StyioTokenizer::tokenize(src));
+    session.attach_context(StyioContext::Create(
+      "<malformed-compound-assign-name-leak-regression>",
+      src,
+      build_line_seps(src),
+      session.tokens(),
+      false
+    ));
+
+    try {
+      session.attach_ast(parse_main_block_with_engine_latest(*session.context(), engine, nullptr));
+    } catch (const StyioBaseException&) {
+    } catch (...) {
+    }
+  }
+}
+
 TEST(StyioSecurityParserContext, TokenMapMatchesSingleRightArrow) {
   std::vector<StyioToken*> tokens{
     StyioToken::Create(StyioTokenType::TOK_MINUS, "-"),
