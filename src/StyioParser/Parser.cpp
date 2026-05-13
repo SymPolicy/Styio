@@ -37,6 +37,7 @@ namespace
 {
 
 constexpr int kMaxParserDelimiterNestingLatest = 64;
+constexpr size_t kMaxInternalLegacyBridgesPerTokenLatest = 4;
 
 void
 enforce_parser_delimiter_budget_latest(StyioContext& context, const char* construct) {
@@ -47,6 +48,21 @@ enforce_parser_delimiter_budget_latest(StyioContext& context, const char* constr
     context.mark_cur_tok(
       std::string(construct) + " exceeds parser delimiter nesting limit of "
       + std::to_string(kMaxParserDelimiterNestingLatest)
+    )
+  );
+}
+
+void
+enforce_nightly_internal_legacy_bridge_budget_latest(StyioContext& context, const char* construct) {
+  const size_t bridge_count = context.note_nightly_internal_legacy_bridge_latest();
+  if (bridge_count <= kMaxInternalLegacyBridgesPerTokenLatest) {
+    return;
+  }
+  throw StyioParserResourceLimitError(
+    context.mark_cur_tok(
+      std::string(construct) + " exceeded nightly-to-legacy bridge limit of "
+      + std::to_string(kMaxInternalLegacyBridgesPerTokenLatest)
+      + " at one token"
     )
   );
 }
@@ -3413,7 +3429,7 @@ parse_list_exprs_latest_draft(StyioContext& context) {
     if (attempt.status == ParseAttemptStatus::Fatal) {
       std::rethrow_exception(attempt.error);
     }
-    context.note_nightly_internal_legacy_bridge_latest();
+    enforce_nightly_internal_legacy_bridge_budget_latest(context, "list expression fallback");
     return parse_expr(context);
   };
 
