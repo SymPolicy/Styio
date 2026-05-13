@@ -31,12 +31,8 @@ public:
     return tag_name_.release();
   }
 
-  void set_params(std::vector<ParamAST*> params) {
-    params_.clear();
-    params_.reserve(params.size());
-    for (auto* param : params) {
-      params_.emplace_back(param);
-    }
+  void set_params(std::vector<std::unique_ptr<ParamAST>> params) {
+    params_ = std::move(params);
   }
 
   std::size_t

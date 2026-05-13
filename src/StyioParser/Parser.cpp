@@ -1915,7 +1915,7 @@ parse_resource_method_def_after_at_latest(StyioContext& context) {
   }
   context.skip();
 
-  std::vector<ParamAST*> params;
+  std::vector<std::unique_ptr<ParamAST>> params;
   bool property = true;
   StyioAST* body = nullptr;
   if (context.check(StyioTokenType::TOK_LPAREN)) {
@@ -1942,7 +1942,7 @@ parse_resource_method_def_after_at_latest(StyioContext& context) {
     method,
     final_binding,
     property,
-    std::move(params),
+    release_owned_params(std::move(params)),
     body
   );
 }
@@ -3016,7 +3016,7 @@ parse_infinite_conditional_loop_after_iterator(StyioContext& context) {
 
 static StyioAST*
 parse_iterator_tail(StyioContext& context, StyioAST* collection) {
-  std::vector<ParamAST*> params;
+  std::vector<std::unique_ptr<ParamAST>> params;
 
   context.skip();
 
@@ -3075,7 +3075,7 @@ parse_iterator_tail(StyioContext& context, StyioAST* collection) {
       throw StyioSyntaxError(context.mark_cur_tok("expected >> after first stream in zip"));
     }
     context.skip();
-    std::vector<ParamAST*> params_b = parse_params(context);
+    std::vector<std::unique_ptr<ParamAST>> params_b = parse_params(context);
     context.skip();
     if (not context.try_match(StyioTokenType::ARROW_DOUBLE_RIGHT)) {
       throw StyioSyntaxError(context.mark_cur_tok("expected => after zip streams"));
@@ -3088,19 +3088,25 @@ parse_iterator_tail(StyioContext& context, StyioAST* collection) {
     else {
       body_ast = parse_stmt_or_expr_legacy(context);
     }
-    return StreamZipAST::Create(collection, params, collection_b, params_b, body_ast);
+    return StreamZipAST::Create(
+      collection,
+      release_owned_params(std::move(params)),
+      collection_b,
+      release_owned_params(std::move(params_b)),
+      body_ast
+    );
   }
 
   if (context.try_match(StyioTokenType::ARROW_DOUBLE_RIGHT) /* => */) {
     context.skip();
     if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
-      return IteratorAST::Create(collection, params, parse_block_only(context));
+      return IteratorAST::Create(collection, release_owned_params(std::move(params)), parse_block_only(context));
     }
-    return IteratorAST::Create(collection, params, parse_stmt_or_expr_legacy(context));
+    return IteratorAST::Create(collection, release_owned_params(std::move(params)), parse_stmt_or_expr_legacy(context));
   }
   context.skip();
   if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
-    return IteratorAST::Create(collection, params, parse_block_only(context));
+    return IteratorAST::Create(collection, release_owned_params(std::move(params)), parse_block_only(context));
   }
   else if (context.try_match(StyioTokenType::TOK_RANGBRAC) /* > */) {
     std::vector<HashTagNameAST*> hash_tags;
@@ -3124,10 +3130,10 @@ parse_iterator_tail(StyioContext& context, StyioAST* collection) {
       }
     } while (context.try_match(StyioTokenType::TOK_RANGBRAC) /* > */);
 
-    return IterSeqAST::Create(collection, params, hash_tags);
+    return IterSeqAST::Create(collection, release_owned_params(std::move(params)), hash_tags);
   }
 
-  return IteratorAST::Create(collection, params);
+  return IteratorAST::Create(collection, release_owned_params(std::move(params)));
 }
 
 static StyioAST*
@@ -4535,9 +4541,9 @@ parse_hash_tag(StyioContext& context) {
   return parse_hash_function_common_latest(context, ops);
 }
 
-std::vector<ParamAST*>
+std::vector<std::unique_ptr<ParamAST>>
 parse_params(StyioContext& context) {
-  std::vector<ParamAST*> params;
+  std::vector<std::unique_ptr<ParamAST>> params;
 
   context.try_match(StyioTokenType::TOK_HASH); /* # */
 
@@ -4559,14 +4565,12 @@ parse_params(StyioContext& context) {
         ));
         var_name.release();
         var_type.release();
-        params.push_back(param.get());
-        param.release();
+        params.push_back(std::move(param));
       }
       else {
         std::unique_ptr<ParamAST> param(ParamAST::Create(var_name.get()));
         var_name.release();
-        params.push_back(param.get());
-        param.release();
+        params.push_back(std::move(param));
       }
     }
   } while (context.try_match(StyioTokenType::TOK_COMMA) /* , */);
