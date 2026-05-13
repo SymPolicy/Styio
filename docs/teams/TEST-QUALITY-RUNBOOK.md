@@ -67,6 +67,7 @@ Primary paths:
 41. Parser DoS or OOM fuzz artifacts follow the same evidence path as lifetime bugs. Preserve the raw seed byte-for-byte, add a deterministic resource-limit regression, replay the artifact and the tracked corpus seed with the local libFuzzer target, and verify the relevant security tests under both default and ASan builds.
 42. Parser timeout artifacts caused by nightly-to-legacy bridge loops need explicit closure evidence. Keep the minimized seed in `tests/fuzz/corpus/parser/`, add a deterministic security regression that exercises the same malformed nest through `CompilationSession`, replay the isolated artifact, and replay the full parser corpus so a single fixed seed does not hide another fallback loop nearby.
 43. When fuzz minimizes a previously tracked parser timeout into a smaller bridge-loop seed, keep the derivative corpus file too. Add a second deterministic regression for the smaller shape and prove that both the original artifact and the minimized derivative replay cleanly, or bridge-budget fixes can look closed while a nearby cursor-starter path still times out.
+44. Leak artifacts from parser fuzzing need session-backed regressions, not just direct parser helper calls. If the parser runs under `CompilationSession` arenas, reproduce the exact seed bytes through the session path, replay the isolated `leak-*` artifact with leak detection enabled, and keep the raw corpus seed so later timeout fixes do not leave an exception-path destructor leak behind.
 
 ## Change Classes
 
