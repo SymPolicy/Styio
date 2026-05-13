@@ -5227,7 +5227,16 @@ parse_stmt_or_expr_legacy(
 
 BlockAST*
 parse_block_only(StyioContext& context) {
-  vector<StyioAST*> stmts;
+  std::vector<std::unique_ptr<StyioAST>> stmt_owners;
+  auto release_stmts = [&]() -> vector<StyioAST*>
+  {
+    vector<StyioAST*> stmts;
+    stmts.reserve(stmt_owners.size());
+    for (auto& owner : stmt_owners) {
+      stmts.push_back(owner.release());
+    }
+    return stmts;
+  };
 
   context.match_panic(StyioTokenType::TOK_LCURBRAC); /* { */
 
@@ -5239,12 +5248,12 @@ parse_block_only(StyioContext& context) {
       break;
     }
     if (context.match(StyioTokenType::TOK_RCURBRAC) /* } */) {
-      return BlockAST::Create(std::move(stmts));
+      return BlockAST::Create(release_stmts());
     }
     else {
       const auto statement_start = context.save_cursor();
       try {
-        stmts.push_back(parse_stmt_or_expr_legacy(context));
+        stmt_owners.emplace_back(parse_stmt_or_expr_legacy(context));
       }
       catch (...) {
         if (!parser_handle_recovery_latest(context, statement_start, parser_recovery_message_latest())) {
@@ -5256,7 +5265,7 @@ parse_block_only(StyioContext& context) {
 
   context.try_match_panic(StyioTokenType::TOK_RCURBRAC); /* } */
 
-  return BlockAST::Create(std::move(stmts));
+  return BlockAST::Create(release_stmts());
 }
 
 MainBlockAST*
