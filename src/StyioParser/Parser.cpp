@@ -1977,26 +1977,26 @@ parse_resource_ref_after_at_latest(StyioContext& context) {
   if (!context.check(StyioTokenType::NAME)) {
     throw StyioSyntaxError(context.mark_cur_tok("resource reference needs a name after @"));
   }
-  NameAST* name = parse_name_unsafe(context);
+  std::unique_ptr<NameAST> name(parse_name_unsafe(context));
   context.skip();
   if (!context.try_match(StyioTokenType::TOK_LBOXBRAC)) {
-    return ResourceRefAST::Create(name);
+    return ResourceRefAST::Create(name.release());
   }
   context.skip();
   if (context.try_match(StyioTokenType::ELLIPSIS)) {
     context.skip();
     context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
-    return ResourceRefAST::CreateSelector(name, ResourceSelectorKind::SnapshotAll);
+    return ResourceRefAST::CreateSelector(name.release(), ResourceSelectorKind::SnapshotAll);
   }
   const int offset = parse_resource_selector_offset_latest(context);
   context.skip();
   if (context.try_match(StyioTokenType::ELLIPSIS)) {
     context.skip();
     context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
-    return ResourceRefAST::CreateSelector(name, ResourceSelectorKind::SliceFrom, offset);
+    return ResourceRefAST::CreateSelector(name.release(), ResourceSelectorKind::SliceFrom, offset);
   }
   context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
-  return ResourceRefAST::CreateSelector(name, ResourceSelectorKind::Offset, offset);
+  return ResourceRefAST::CreateSelector(name.release(), ResourceSelectorKind::Offset, offset);
 }
 
 StyioAST*
