@@ -1845,14 +1845,14 @@ StyioIR*
 AstToStyioIRLowerer::toStyioIR(VarAST* ast) {
   if (ast->val_init) {
     return SGVar::Create(
-      static_cast<SGResId*>(ast->var_name->toStyioIR(this)),
+      SGResId::Create(ast->var_name->getAsStr()),
       static_cast<SGType*>(ast->var_type->toStyioIR(this)),
       ast->val_init->toStyioIR(this)
     );
   }
   else {
     return SGVar::Create(
-      static_cast<SGResId*>(ast->var_name->toStyioIR(this)),
+      SGResId::Create(ast->var_name->getAsStr()),
       static_cast<SGType*>(ast->var_type->toStyioIR(this))
     );
   }
@@ -1862,14 +1862,14 @@ StyioIR*
 AstToStyioIRLowerer::toStyioIR(ParamAST* ast) {
   if (ast->val_init) {
     return SGVar::Create(
-      static_cast<SGResId*>(ast->var_name->toStyioIR(this)),
+      SGResId::Create(ast->var_name->getAsStr()),
       static_cast<SGType*>(ast->var_type->toStyioIR(this)),
       ast->val_init->toStyioIR(this)
     );
   }
   else {
     return SGVar::Create(
-      static_cast<SGResId*>(ast->var_name->toStyioIR(this)),
+      SGResId::Create(ast->var_name->getAsStr()),
       static_cast<SGType*>(ast->var_type->toStyioIR(this))
     );
   }
@@ -1952,7 +1952,7 @@ AstToStyioIRLowerer::toStyioIR(ParallelAssignAST* ast) {
   for (auto* rhs : ast->getRHS()) {
     std::string tmp_name = alloc_lowering_tmp_name("__styio_parallel_tmp_");
     tmp_names.push_back(tmp_name);
-    VarAST* tmp_var = VarAST::Create(NameAST::Create(tmp_name));
+    std::unique_ptr<VarAST> tmp_var(VarAST::Create(NameAST::Create(tmp_name)));
     auto* sg_var = static_cast<SGVar*>(tmp_var->toStyioIR(this));
     stmts.push_back(SGFinalBind::Create(sg_var, rhs->toStyioIR(this)));
   }
@@ -1960,7 +1960,7 @@ AstToStyioIRLowerer::toStyioIR(ParallelAssignAST* ast) {
   for (size_t i = 0; i < ast->getLHS().size(); ++i) {
     StyioIR* rhs_val = SGResId::Create(tmp_names[i]);
     if (auto* nm = dynamic_cast<NameAST*>(ast->getLHS()[i])) {
-      VarAST* lhs_var = VarAST::Create(NameAST::Create(nm->getAsStr()));
+      std::unique_ptr<VarAST> lhs_var(VarAST::Create(NameAST::Create(nm->getAsStr())));
       auto* sg_var = static_cast<SGVar*>(lhs_var->toStyioIR(this));
       auto it = binding_info_.find(nm->getAsStr());
       if (it != binding_info_.end()) {
@@ -3033,6 +3033,7 @@ AstToStyioIRLowerer::toStyioIR(FunctionAST* ast) {
   if (func_ret_is_unspecified(ast->ret_type)) {
     StyioDataType inferred_ret = infer_tail_value_type(this, ast->func_body);
     if (!inferred_ret.isUndefined()) {
+      delete rt;
       rt = SGType::Create(inferred_ret);
     }
   }
@@ -3048,6 +3049,7 @@ AstToStyioIRLowerer::toStyioIR(FunctionAST* ast) {
       }
       scan_returns_for_value_kinds(c->case_default, hs, hi, hf);
       if (hs) {
+        delete rt;
         rt = SGType::Create(StyioDataType{StyioDataTypeOption::String, "string", 0});
       }
     }
@@ -3087,6 +3089,7 @@ AstToStyioIRLowerer::toStyioIR(SimpleFuncAST* ast) {
   if (func_ret_is_unspecified(ast->ret_type)) {
     StyioDataType inferred_ret = infer_tail_value_type(this, ast->ret_expr);
     if (!inferred_ret.isUndefined()) {
+      delete rt;
       rt = SGType::Create(inferred_ret);
     }
   }
@@ -3103,6 +3106,7 @@ AstToStyioIRLowerer::toStyioIR(SimpleFuncAST* ast) {
       scan_returns_for_value_kinds(c->case_default, hs, hi, hf);
       if (hs) {
         /* Any <| "..." arm: LLVM return must be i8* (and may mix with snprintf ints). */
+        delete rt;
         rt = SGType::Create(StyioDataType{StyioDataTypeOption::String, "string", 0});
       }
     }
@@ -3153,7 +3157,7 @@ AstToStyioIRLowerer::toStyioIR(IteratorAST* ast) {
       )
     );
   }
-  SGBlock* body = SGBlock::Create({});
+  std::unique_ptr<SGBlock> body(SGBlock::Create({}));
   std::unique_ptr<SGPulsePlan> pplan;
   if (!ast->following.empty()) {
     auto* abody = dynamic_cast<BlockAST*>(ast->following[0]);
@@ -3161,10 +3165,10 @@ AstToStyioIRLowerer::toStyioIR(IteratorAST* ast) {
       PulseScratch scratch;
       std::unordered_map<StyioAST*, StateDeclAST*> cache;
       pplan = build_pulse_plan(this, abody, &scratch, cache);
-      body = lower_pulse_body(this, abody, pplan.get(), &scratch, cache);
+      body.reset(lower_pulse_body(this, abody, pplan.get(), &scratch, cache));
     }
     else {
-      body = lower_func_body(this, ast->following[0]);
+      body.reset(lower_func_body(this, ast->following[0]));
     }
   }
   local_binding_types = std::move(saved_locals);
@@ -3176,7 +3180,7 @@ AstToStyioIRLowerer::toStyioIR(IteratorAST* ast) {
       rg->getEnd()->toStyioIR(this),
       rg->getStep()->toStyioIR(this),
       std::move(vname),
-      body
+      body.release()
     );
   }
   /* Stdio input: stdin line iteration. */
@@ -3191,7 +3195,8 @@ AstToStyioIRLowerer::toStyioIR(IteratorAST* ast) {
     if (ss->getStreamKind() == StdStreamKind::Stderr) {
       throw StyioTypeError("@stderr is a write-only stream; cannot iterate over it");
     }
-    auto* sl = SIOStdStreamLineIter::Create(std::move(vname), body);
+    auto* sl = SIOStdStreamLineIter::Create(std::move(vname), body.get());
+    body.release();
     if (pplan) {
       sl->set_pulse_plan(std::move(pplan));
       if (sl->pulse_plan && sl->pulse_plan->total_bytes > 0) {
@@ -3205,8 +3210,9 @@ AstToStyioIRLowerer::toStyioIR(IteratorAST* ast) {
     auto* fl = SIOFileLineIter::CreateFromPath(
       fr->getPath()->toStyioIR(this),
       std::move(vname),
-      body
+      body.get()
     );
+    body.release();
     if (pplan) {
       fl->set_pulse_plan(std::move(pplan));
       if (fl->pulse_plan && fl->pulse_plan->total_bytes > 0) {
@@ -3226,7 +3232,8 @@ AstToStyioIRLowerer::toStyioIR(IteratorAST* ast) {
         if (*kind == StdStreamKind::Stderr) {
           throw StyioTypeError("@stderr is a write-only stream; cannot iterate over it");
         }
-        auto* sl = SIOStdStreamLineIter::Create(std::move(vname), body);
+        auto* sl = SIOStdStreamLineIter::Create(std::move(vname), body.get());
+        body.release();
         if (pplan) {
           sl->set_pulse_plan(std::move(pplan));
           if (sl->pulse_plan && sl->pulse_plan->total_bytes > 0) {
@@ -3239,8 +3246,9 @@ AstToStyioIRLowerer::toStyioIR(IteratorAST* ast) {
         auto* fl = SIOFileLineIter::CreateFromHandle(
           nm->getAsStr(),
           std::move(vname),
-          body
+          body.get()
         );
+        body.release();
         if (pplan) {
           fl->set_pulse_plan(std::move(pplan));
           if (fl->pulse_plan && fl->pulse_plan->total_bytes > 0) {
@@ -3255,8 +3263,9 @@ AstToStyioIRLowerer::toStyioIR(IteratorAST* ast) {
     ast->collection->toStyioIR(this),
     std::move(vname),
     styio_type_item_type_name(expr_lowered_type(this, ast->collection)),
-    body
+    body.get()
   );
+  body.release();
   if (pplan) {
     fe->set_pulse_plan(std::move(pplan));
     if (fe->pulse_plan && fe->pulse_plan->total_bytes > 0) {
@@ -3298,7 +3307,7 @@ AstToStyioIRLowerer::toStyioIR(StreamZipAST* ast) {
       )
     );
   }
-  SGBlock* body = SGBlock::Create({});
+  std::unique_ptr<SGBlock> body(SGBlock::Create({}));
   std::unique_ptr<SGPulsePlan> pplan;
   if (!ast->getFollowing().empty()) {
     auto* abody = dynamic_cast<BlockAST*>(ast->getFollowing()[0]);
@@ -3306,10 +3315,10 @@ AstToStyioIRLowerer::toStyioIR(StreamZipAST* ast) {
       PulseScratch scratch;
       std::unordered_map<StyioAST*, StateDeclAST*> cache;
       pplan = build_pulse_plan(this, abody, &scratch, cache);
-      body = lower_pulse_body(this, abody, pplan.get(), &scratch, cache);
+      body.reset(lower_pulse_body(this, abody, pplan.get(), &scratch, cache));
     }
     else {
-      body = lower_func_body(this, ast->getFollowing()[0]);
+      body.reset(lower_func_body(this, ast->getFollowing()[0]));
     }
   }
   local_binding_types = std::move(saved_locals);
@@ -3336,7 +3345,8 @@ AstToStyioIRLowerer::toStyioIR(StreamZipAST* ast) {
   }
   bool astr = collection_elem_is_string(this, ca);
   bool bstr = collection_elem_is_string(this, cb);
-  auto* z = SIOStreamZip::Create(ia, fa, std::move(va), ib, fb, std::move(vb), astr, bstr, body);
+  auto* z = SIOStreamZip::Create(ia, fa, std::move(va), ib, fb, std::move(vb), astr, bstr, body.get());
+  body.release();
   if (pplan) {
     z->set_pulse_plan(std::move(pplan));
     if (z->pulse_plan && z->pulse_plan->total_bytes > 0) {

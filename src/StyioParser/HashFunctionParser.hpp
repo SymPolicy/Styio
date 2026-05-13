@@ -211,8 +211,7 @@ parse_hash_function_common_latest(
       );
     }
     std::unique_ptr<NameAST> iter_collection(NameAST::Create(state.param_at(0)->getName()));
-    std::unique_ptr<StyioAST> body(ops.parse_iterator(context, iter_collection.get()));
-    iter_collection.release();
+    std::unique_ptr<StyioAST> body(ops.parse_iterator(context, iter_collection.release()));
     return FunctionAST::Create(
       state.release_name(),
       true,

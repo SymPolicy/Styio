@@ -484,6 +484,9 @@ canonicalize_match_in_sequence(
 
   auto& default_stmts = match->default_arm->stmts;
   default_stmts.erase(default_stmts.begin() + static_cast<std::ptrdiff_t>(rebind->index));
+  if (match->scrutinee != rebind->bind->value) {
+    delete match->scrutinee;
+  }
   match->scrutinee = SGResId::Create(rebind->name);
   return SGBlock::Create(std::vector<StyioIR*>{rebind->bind, match});
 }

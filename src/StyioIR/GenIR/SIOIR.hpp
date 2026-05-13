@@ -20,6 +20,10 @@ public:
       var_name(std::move(v)), path_expr(p), is_auto(a) {
   }
 
+  ~SIOHandleAcquire() override {
+    delete path_expr;
+  }
+
   static SIOHandleAcquire* Create(std::string v, StyioIR* p, bool a) {
     return new SIOHandleAcquire(std::move(v), p, a);
   }
@@ -46,6 +50,10 @@ public:
     x->is_auto = a;
     x->from_path = true;
     return x;
+  }
+
+  ~SIOHandleRelease() override {
+    delete path_expr;
   }
 
 private:
@@ -83,6 +91,11 @@ public:
 
   void set_pulse_plan(std::unique_ptr<SGPulsePlan> p) {
     pulse_plan = std::move(p);
+  }
+
+  ~SIOFileLineIter() override {
+    delete path_expr;
+    delete body;
   }
 
 private:
@@ -131,6 +144,12 @@ public:
   void set_pulse_plan(std::unique_ptr<SGPulsePlan> p) {
     pulse_plan = std::move(p);
   }
+
+  ~SIOStreamZip() override {
+    delete iterable_a;
+    delete iterable_b;
+    delete body;
+  }
 };
 
 class SIOInstantPull : public StyioIRTraits<SIOInstantPull>
@@ -140,6 +159,10 @@ public:
 
   explicit SIOInstantPull(StyioIR* p) :
       path_expr(p) {
+  }
+
+  ~SIOInstantPull() override {
+    delete path_expr;
   }
 
   static SIOInstantPull* Create(StyioIR* p) {
@@ -186,6 +209,11 @@ public:
     return x;
   }
 
+  ~SIOResourceWriteToFile() override {
+    delete data_expr;
+    delete path_expr;
+  }
+
 private:
   SIOResourceWriteToFile() = default;
 };
@@ -204,6 +232,10 @@ public:
     x->stream = s;
     x->exprs = std::move(e);
     return x;
+  }
+
+  ~SIOStdStreamWrite() override {
+    styio_delete_ir_nodes(exprs);
   }
 
 private:
@@ -228,6 +260,10 @@ public:
 
   void set_pulse_plan(std::unique_ptr<SGPulsePlan> p) {
     pulse_plan = std::move(p);
+  }
+
+  ~SIOStdStreamLineIter() override {
+    delete body;
   }
 
 private:
@@ -268,6 +304,10 @@ public:
     return x;
   }
 
+  ~SIOTaskCreate() override {
+    delete body;
+  }
+
 private:
   SIOTaskCreate() = default;
 };
@@ -298,6 +338,11 @@ public:
     x->source_is_task = task_source;
     x->await_bind = is_await;
     return x;
+  }
+
+  ~SIOFlowBind() override {
+    delete source_expr;
+    delete fallback_expr;
   }
 
 private:
