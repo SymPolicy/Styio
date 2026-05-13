@@ -2040,7 +2040,7 @@ parse_block_with_forward_subset_nightly(StyioContext& context);
 
 PrintAST*
 parse_print_nightly(StyioContext& context) {
-  std::vector<StyioAST*> exprs;
+  std::vector<std::unique_ptr<StyioAST>> exprs;
   context.match_panic(StyioTokenType::PRINT);
   context.try_match_panic(StyioTokenType::TOK_LPAREN);
 
@@ -2049,7 +2049,7 @@ parse_print_nightly(StyioContext& context) {
     if (context.match(StyioTokenType::TOK_RPAREN)) {
       break;
     }
-    exprs.push_back(parse_expr_subset_nightly(context));
+    exprs.emplace_back(parse_expr_subset_nightly(context));
     context.skip();
     if (context.match(StyioTokenType::TOK_RPAREN)) {
       break;
@@ -2057,7 +2057,7 @@ parse_print_nightly(StyioContext& context) {
     context.try_match_panic(StyioTokenType::TOK_COMMA);
   }
 
-  return PrintAST::Create(exprs);
+  return PrintAST::Create(release_owned_exprs(std::move(exprs)));
 }
 
 ReturnAST*
