@@ -599,10 +599,21 @@ TEST(StyioSecurityParserContext, MoveForwardBeyondTokenTailIsClampedToEof) {
 }
 
 TEST(StyioSecurityParserContext, HashFunctionFuzzSeedStaysExceptionSafe) {
+  std::string nested_match_print_seed =
+    "x = 1\n"
+    "x ?= {\n"
+    " \n"
+    "x ?= {\n"
+    "  1 => >_(1)\n"
+    "(1)";
+  nested_match_print_seed.push_back('\0');
+  nested_match_print_seed += "|\n}\n";
+
   const std::vector<std::string> samples{
     "# a : d=(a: a63, )b 6i4:",
     "a# : dHHHHHHHHHHHHHHH5, ",
-    "# ad : d=(a: i64, b: i64) =>(add(0, 2)>"
+    "# ad : d=(a: i64, b: i64) =>(add(0, 2)>",
+    nested_match_print_seed
   };
   for (const std::string& src : samples) {
     for (StyioParserEngine engine : {StyioParserEngine::Legacy, StyioParserEngine::Nightly}) {

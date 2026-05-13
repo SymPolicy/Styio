@@ -62,7 +62,7 @@ Primary paths:
 36. LibFuzzer runtime probes must compile a minimal `LLVMFuzzerTestOneInput` entrypoint. Do not probe `-fsanitize=fuzzer` with a custom `main`, because the sanitizer runtime provides `main` and the check will fail for the wrong reason.
 37. Fuzz targets that exercise tokenizer, parser, AST, or compiler session objects must run each input inside `CompilationSession` or an equivalent arena owner so sanitizer deep runs catch real memory bugs instead of expected session-lifetime allocations.
 38. When replacing a placeholder with accepted behavior, pair the positive fixture with the smallest semantic negative that proves adjacent undefined syntax fails closed; for format strings this means a real `$"..."` stdio-output smoke plus a hash-tag iterator sequence diagnostic.
-39. Nightly fuzz leak artifacts must become durable regression evidence. Add each minimized lexer/parser seed to `tests/fuzz/corpus/`, add the smallest security or ASan-targeted regression that exercises the same recovery path, and record any local libFuzzer toolchain blocker separately from the code fix.
+39. Nightly fuzz leak artifacts must become durable regression evidence. Add each minimized lexer/parser seed to `tests/fuzz/corpus/`, add the smallest security or ASan-targeted regression that exercises the same recovery path, preserve embedded NUL bytes in deterministic parser regression inputs when the artifact has them, and record any local libFuzzer toolchain blocker separately from the code fix.
 
 ## Change Classes
 

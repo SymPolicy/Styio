@@ -4577,8 +4577,8 @@ parse_block_with_forward(StyioContext& context) {
 
 CasesAST*
 parse_cases_only_latest(StyioContext& context) {
-  vector<std::pair<StyioAST*, StyioAST*>> case_pairs;
-  StyioAST* default_stmt = nullptr;
+  vector<std::pair<std::unique_ptr<StyioAST>, std::unique_ptr<StyioAST>>> case_owners;
+  std::unique_ptr<StyioAST> default_owner;
 
   context.try_match_panic(StyioTokenType::TOK_LCURBRAC); /* { */
 
@@ -4590,10 +4590,10 @@ parse_cases_only_latest(StyioContext& context) {
       if (context.match(StyioTokenType::ARROW_DOUBLE_RIGHT) /* => */) {
         context.skip();
         if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
-          default_stmt = parse_block_only(context);
+          default_owner.reset(parse_block_only(context));
         }
         else {
-          default_stmt = parse_stmt_or_expr_legacy(context);
+          default_owner.reset(parse_stmt_or_expr_legacy(context));
         }
       }
       else {
@@ -4603,21 +4603,21 @@ parse_cases_only_latest(StyioContext& context) {
     }
     else {
       // StyioAST* left = parse_cond(context);
-      StyioAST* left = parse_expr(context);
+      std::unique_ptr<StyioAST> left(parse_expr(context));
 
       context.skip();
       if (context.match(StyioTokenType::ARROW_DOUBLE_RIGHT) /* => */) {
-        StyioAST* right;
+        std::unique_ptr<StyioAST> right;
 
         context.skip();
         if (context.check(StyioTokenType::TOK_LCURBRAC) /* { */) {
-          right = parse_block_only(context);
+          right.reset(parse_block_only(context));
         }
         else {
-          right = parse_stmt_or_expr_legacy(context);
+          right.reset(parse_stmt_or_expr_legacy(context));
         }
 
-        case_pairs.push_back(std::make_pair(left, right));
+        case_owners.emplace_back(std::move(left), std::move(right));
       }
       else {
         // SyntaxError
@@ -4635,11 +4635,24 @@ parse_cases_only_latest(StyioContext& context) {
   //   context.show_ast(case_pairs[i].second);
   // }
 
-  if (case_pairs.size() == 0) {
-    return CasesAST::Create(default_stmt);
+  if (case_owners.size() == 0) {
+    CasesAST* cases = CasesAST::Create(default_owner.get());
+    default_owner.release();
+    return cases;
   }
   else {
-    return CasesAST::Create(case_pairs, default_stmt);
+    vector<std::pair<StyioAST*, StyioAST*>> case_pairs;
+    case_pairs.reserve(case_owners.size());
+    for (auto& entry : case_owners) {
+      case_pairs.emplace_back(entry.first.get(), entry.second.get());
+    }
+    CasesAST* cases = CasesAST::Create(case_pairs, default_owner.get());
+    for (auto& entry : case_owners) {
+      entry.first.release();
+      entry.second.release();
+    }
+    default_owner.release();
+    return cases;
   }
 }
 
