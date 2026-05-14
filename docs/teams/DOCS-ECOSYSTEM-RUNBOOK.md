@@ -95,6 +95,7 @@ Key SSOTs:
 60. When closing a rollup ledger item for sanitizer, fuzz, or fail-closed compiler work, cite the exact local command that proved the closure, preserve the GitHub run or artifact id and backflow seed when the finding came from CI, and keep broader open-gap rows intact unless the whole class is actually retired.
 61. Keep `docs/external/SERVICES.md` as the consumer-neutral catalog for package-manager, IDE, CI, and editor-facing compiler services. Consumer-specific pages under `for-spio/` or `for-ide/` should point to that catalog when they describe shared service contracts such as syntax checking.
 62. Source-level Markdown remains disallowed under `src/` except for `src/StyioServices/**/README.md` and `src/StyioServices/MANIFEST.md`, which document service usage at the code boundary. Do not broaden the docs-audit exception without updating this runbook and the service catalog.
+63. Keep `scripts/ecosystem-cli-doc-gate.py` aligned with service-contract section numbering and controlled source graph names. When a downstream layout change lands before released `audit` policy catches up, CI may normalize the checked-out policy in `.github/workflows/audit.yml`; that workflow patch must remain downstream-local and must not imply an upstream policy push.
 
 ## Change Classes
 
