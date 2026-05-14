@@ -43,6 +43,25 @@ jobs:
             git fetch --no-tags origin "+refs/heads/${branch}:refs/remotes/origin/${branch}" || true
           done
 
+      - name: Normalize released audit policy for StyioServices layout
+        working-directory: styio
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          policy = Path("../styio-audit/for-styio/module.json")
+          text = policy.read_text()
+          text = text.replace(
+              "StyioIDE and StyioLSP editor-facing workspace services",
+              "StyioServices/StyioIDE and StyioServices/StyioLSP editor-facing workspace services",
+          )
+          text = text.replace(
+              '"scope_globs": ["src/StyioIDE/**", "src/StyioLSP/**", "tests/ide/**"]',
+              '"scope_globs": ["src/StyioServices/StyioIDE/**", "src/StyioServices/StyioLSP/**", "tests/ide/**"]',
+          )
+          policy.write_text(text)
+          PY
+
       - name: Run released styio-audit gate
         working-directory: Styio
         run: |
