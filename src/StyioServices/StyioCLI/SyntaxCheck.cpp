@@ -1,0 +1,396 @@
+#include "SyntaxCheck.hpp"
+
+#include <algorithm>
+#include <cctype>
+#include <cstddef>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "StyioAST/AST.hpp"
+#include "StyioException/Exception.hpp"
+#include "StyioParser/Parser.hpp"
+#include "StyioParser/Tokenizer.hpp"
+#include "StyioToken/Token.hpp"
+
+#ifndef STYIO_PROJECT_VERSION
+#define STYIO_PROJECT_VERSION "0.0.0-dev"
+#endif
+
+#ifndef STYIO_RELEASE_CHANNEL
+#define STYIO_RELEASE_CHANNEL "dev"
+#endif
+
+#ifndef STYIO_EDITION_MAX
+#define STYIO_EDITION_MAX "2026"
+#endif
+
+namespace styio::services {
+
+namespace {
+
+enum class SyntaxCheckExitCode : int
+{
+  Success = 0,
+  LexError = 2,
+  ParseError = 3,
+  CliError = 6,
+};
+
+struct SourceText
+{
+  std::string text;
+  std::vector<std::size_t> line_starts;
+  std::vector<std::pair<std::size_t, std::size_t>> line_seps;
+};
+
+struct Diagnostic
+{
+  std::string phase;
+  std::string code;
+  std::string message;
+  std::size_t offset = 0;
+  std::size_t length = 0;
+};
+
+std::string
+json_escape(const std::string& input) {
+  std::string out;
+  out.reserve(input.size() + 16);
+  for (char ch : input) {
+    switch (ch) {
+      case '\\':
+        out += "\\\\";
+        break;
+      case '"':
+        out += "\\\"";
+        break;
+      case '\n':
+        out += "\\n";
+        break;
+      case '\r':
+        out += "\\r";
+        break;
+      case '\t':
+        out += "\\t";
+        break;
+      default:
+        if (static_cast<unsigned char>(ch) < 0x20) {
+          out += "\\u00";
+          constexpr char kHex[] = "0123456789abcdef";
+          out.push_back(kHex[(static_cast<unsigned char>(ch) >> 4) & 0x0f]);
+          out.push_back(kHex[static_cast<unsigned char>(ch) & 0x0f]);
+        }
+        else {
+          out.push_back(ch);
+        }
+        break;
+    }
+  }
+  return out;
+}
+
+SourceText
+make_source_text(std::string text) {
+  SourceText source;
+  source.text = std::move(text);
+  source.line_starts.push_back(0);
+
+  std::size_t line_start = 0;
+  std::size_t line_len = 0;
+  for (std::size_t i = 0; i < source.text.size(); ++i) {
+    const char ch = source.text[i];
+    if (ch == '\n') {
+      source.line_seps.emplace_back(line_start, line_len);
+      source.line_starts.push_back(i + 1);
+      line_start = i + 1;
+      line_len = 0;
+      continue;
+    }
+    line_len += 1;
+  }
+  if (!source.text.empty() && source.text.back() != '\n') {
+    source.line_seps.emplace_back(line_start, line_len);
+  }
+
+  return source;
+}
+
+std::pair<std::size_t, std::size_t>
+position_at(const SourceText& source, std::size_t offset) {
+  if (source.line_starts.empty()) {
+    return {0, 0};
+  }
+  offset = std::min(offset, source.text.size());
+  const auto it = std::upper_bound(source.line_starts.begin(), source.line_starts.end(), offset);
+  const std::size_t line =
+    it == source.line_starts.begin() ? 0 : static_cast<std::size_t>((it - source.line_starts.begin()) - 1);
+  return {line + 1, offset - source.line_starts[line] + 1};
+}
+
+std::size_t
+diagnostic_offset_from_message(const std::string& message, const SourceText& source) {
+  const std::string marker = " at offset ";
+  const std::size_t marker_pos = message.rfind(marker);
+  if (marker_pos == std::string::npos) {
+    return 0;
+  }
+
+  std::size_t cursor = marker_pos + marker.size();
+  if (cursor >= message.size() || !std::isdigit(static_cast<unsigned char>(message[cursor]))) {
+    return 0;
+  }
+
+  std::size_t value = 0;
+  while (cursor < message.size() && std::isdigit(static_cast<unsigned char>(message[cursor]))) {
+    value = (value * 10) + static_cast<std::size_t>(message[cursor] - '0');
+    ++cursor;
+  }
+  return std::min(value, source.text.size());
+}
+
+bool
+read_file(const std::string& path, std::string& out, std::string& error) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input.is_open()) {
+    error = std::filesystem::exists(path) ? "cannot open file" : "file not found";
+    return false;
+  }
+
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  out = buffer.str();
+  if (!input.good() && !input.eof()) {
+    error = "failed to read file";
+    return false;
+  }
+  return true;
+}
+
+void
+delete_tokens(std::vector<StyioToken*>& tokens) {
+  for (auto* token : tokens) {
+    delete token;
+  }
+  tokens.clear();
+}
+
+void
+emit_result(
+  const std::string& file,
+  const std::string& status,
+  bool ok,
+  const std::string& phase,
+  StyioParserEngine engine,
+  const SourceText& source,
+  const std::vector<Diagnostic>& diagnostics
+) {
+  std::cout
+    << "{\"schema_version\":1"
+    << ",\"contract\":\"syntax-check\""
+    << ",\"tool\":\"styio\""
+    << ",\"compiler_version\":\"" << json_escape(STYIO_PROJECT_VERSION) << "\""
+    << ",\"channel\":\"" << json_escape(STYIO_RELEASE_CHANNEL) << "\""
+    << ",\"grammar_version\":\"" << json_escape(STYIO_EDITION_MAX) << "\""
+    << ",\"file\":\"" << json_escape(file) << "\""
+    << ",\"status\":\"" << json_escape(status) << "\""
+    << ",\"ok\":" << (ok ? "true" : "false")
+    << ",\"phase\":\"" << json_escape(phase) << "\""
+    << ",\"parser_engine\":\"" << styio_parser_engine_name_latest(engine) << "\""
+    << ",\"diagnostics\":[";
+
+  for (std::size_t i = 0; i < diagnostics.size(); ++i) {
+    const auto& diagnostic = diagnostics[i];
+    const auto [line, column] = position_at(source, diagnostic.offset);
+    if (i > 0) {
+      std::cout << ",";
+    }
+    std::cout
+      << "{\"phase\":\"" << json_escape(diagnostic.phase) << "\""
+      << ",\"code\":\"" << json_escape(diagnostic.code) << "\""
+      << ",\"severity\":\"error\""
+      << ",\"message\":\"" << json_escape(diagnostic.message) << "\""
+      << ",\"line\":" << line
+      << ",\"column\":" << column
+      << ",\"offset\":" << diagnostic.offset
+      << ",\"length\":" << diagnostic.length
+      << "}";
+  }
+
+  std::cout << "]}\n";
+}
+
+int
+emit_cli_error(const std::string& message, const std::string& file = "") {
+  SourceText empty = make_source_text("");
+  emit_result(
+    file,
+    "cli_error",
+    false,
+    "cli",
+    StyioParserEngine::Nightly,
+    empty,
+    {Diagnostic{"cli", "STYIO_CLI", message, 0, 0}});
+  return static_cast<int>(SyntaxCheckExitCode::CliError);
+}
+
+void
+print_help() {
+  std::cout
+    << "Usage: styio check --syntax --json --file <path> [--parser-engine nightly|legacy]\n"
+    << "\n"
+    << "Runs lexing, parsing, and AST construction only. It does not type-check,\n"
+    << "lower, codegen, execute, or access runtime resources.\n";
+}
+
+}  // namespace
+
+int
+run_syntax_check_cli(int argc, char* argv[]) {
+  bool syntax_only = false;
+  bool json = false;
+  std::string file;
+  std::string parser_engine_raw = "nightly";
+
+  for (int i = 2; i < argc; ++i) {
+    const std::string arg = argv[i] == nullptr ? std::string() : std::string(argv[i]);
+    if (arg == "--help" || arg == "-h") {
+      print_help();
+      return static_cast<int>(SyntaxCheckExitCode::Success);
+    }
+    if (arg == "--syntax") {
+      syntax_only = true;
+      continue;
+    }
+    if (arg == "--json") {
+      json = true;
+      continue;
+    }
+    if (arg == "--file" || arg == "-f") {
+      if (i + 1 >= argc || argv[i + 1] == nullptr) {
+        return emit_cli_error("--file requires a path");
+      }
+      file = argv[++i];
+      continue;
+    }
+    if (arg.rfind("--file=", 0) == 0) {
+      file = arg.substr(std::string("--file=").size());
+      continue;
+    }
+    if (arg == "--parser-engine") {
+      if (i + 1 >= argc || argv[i + 1] == nullptr) {
+        return emit_cli_error("--parser-engine requires legacy or nightly");
+      }
+      parser_engine_raw = argv[++i];
+      continue;
+    }
+    if (arg.rfind("--parser-engine=", 0) == 0) {
+      parser_engine_raw = arg.substr(std::string("--parser-engine=").size());
+      continue;
+    }
+    return emit_cli_error("unsupported styio check option: " + arg, file);
+  }
+
+  if (!syntax_only) {
+    return emit_cli_error("styio check currently requires --syntax", file);
+  }
+  if (!json) {
+    return emit_cli_error("styio check --syntax currently requires --json", file);
+  }
+  if (file.empty()) {
+    return emit_cli_error("styio check --syntax requires --file <path>");
+  }
+
+  StyioParserEngine parser_engine = StyioParserEngine::Nightly;
+  if (!styio_parse_parser_engine_latest(parser_engine_raw, parser_engine)) {
+    return emit_cli_error("unsupported --parser-engine: " + parser_engine_raw, file);
+  }
+
+  std::string text;
+  std::string read_error;
+  if (!read_file(file, text, read_error)) {
+    return emit_cli_error(read_error + ": " + file, file);
+  }
+
+  SourceText source = make_source_text(std::move(text));
+  std::vector<StyioToken*> tokens;
+  StyioContext* context = nullptr;
+  MainBlockAST* ast = nullptr;
+
+  auto cleanup = [&]()
+  {
+    delete ast;
+    delete context;
+    delete_tokens(tokens);
+    StyioAST::destroy_all_tracked_nodes();
+  };
+
+  try {
+    tokens = StyioTokenizer::tokenize(source.text);
+  } catch (const StyioLexError& ex) {
+    const std::size_t offset = diagnostic_offset_from_message(ex.what(), source);
+    cleanup();
+    emit_result(
+      file,
+      "lexical_error",
+      false,
+      "lex",
+      parser_engine,
+      source,
+      {Diagnostic{"lex", "STYIO_LEX", ex.what(), offset, source.text.empty() ? 0u : 1u}});
+    return static_cast<int>(SyntaxCheckExitCode::LexError);
+  } catch (const std::exception& ex) {
+    const std::size_t offset = diagnostic_offset_from_message(ex.what(), source);
+    cleanup();
+    emit_result(
+      file,
+      "lexical_error",
+      false,
+      "lex",
+      parser_engine,
+      source,
+      {Diagnostic{"lex", "STYIO_LEX", ex.what(), offset, source.text.empty() ? 0u : 1u}});
+    return static_cast<int>(SyntaxCheckExitCode::LexError);
+  }
+
+  try {
+    context = StyioContext::Create(file, source.text, source.line_seps, tokens, false);
+    ast = parse_main_block_with_engine_latest(*context, parser_engine, nullptr, StyioParseMode::Strict);
+  } catch (const StyioBaseException& ex) {
+    const std::size_t offset =
+      context == nullptr ? 0 : std::min(context->current_token_end_pos(), source.text.size());
+    cleanup();
+    emit_result(
+      file,
+      "syntax_error",
+      false,
+      "parse",
+      parser_engine,
+      source,
+      {Diagnostic{"parse", "STYIO_PARSE", ex.what(), offset, source.text.empty() ? 0u : 1u}});
+    return static_cast<int>(SyntaxCheckExitCode::ParseError);
+  } catch (const std::exception& ex) {
+    const std::size_t offset =
+      context == nullptr ? 0 : std::min(context->current_token_end_pos(), source.text.size());
+    cleanup();
+    emit_result(
+      file,
+      "syntax_error",
+      false,
+      "parse",
+      parser_engine,
+      source,
+      {Diagnostic{"parse", "STYIO_PARSE", ex.what(), offset, source.text.empty() ? 0u : 1u}});
+    return static_cast<int>(SyntaxCheckExitCode::ParseError);
+  }
+
+  cleanup();
+  emit_result(file, "ok", true, "parse", parser_engine, source, {});
+  return static_cast<int>(SyntaxCheckExitCode::Success);
+}
+
+}  // namespace styio::services

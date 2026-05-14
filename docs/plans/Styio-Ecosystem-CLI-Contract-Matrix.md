@@ -19,6 +19,7 @@
    - `pafio --json tool install/use/pin ...`
 3. `styio` 的 compiler-side internal CLI contract 固定为：
    - `styio --machine-info=json`
+   - `styio check --syntax --json --file <path>`
    - `styio --compile-plan <path>`
    - `styio --source-build-info=json`
 4. 任何 active internal CLI contract 变更，必须在同一 checkpoint 内同步更新三仓文档与 gate manifest。
@@ -39,16 +40,40 @@ styio --machine-info=json
 2. `supported_contract_versions`
 3. `supported_adapter_modes`
 4. `feature_flags`
-5. `supported_contracts.compile_plan:[1]`
-6. `supported_contracts.runtime_events:[1]`
-7. `feature_flags.runtime_event_stream:true`
+5. `supported_contracts.syntax_check:[1]`
+6. `supported_contracts.compile_plan:[1]`
+7. `supported_contracts.runtime_events:[1]`
+8. `feature_flags.syntax_check:true`
+9. `feature_flags.runtime_event_stream:true`
 
 Owner / consumer docs:
 
 1. `styio-pafio/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md`
 2. `styio-view/docs/external/for-styio/Styio-Compile-Run-Contract.md`
 
-### 2.2 `styio --compile-plan <path>`
+### 2.2 `styio check --syntax --json --file <path>`
+
+Canonical form:
+
+```text
+styio check --syntax --json --file <path>
+```
+
+当前跨仓必须保持一致的要点：
+
+1. 只执行 lexing、parsing、AST construction。
+2. 不执行 type checking、resource topology sema、lowering、codegen、runtime execution。
+3. 输出单个 JSON result object，`contract` 固定为 `syntax-check`。
+4. 成功返回 `0`，lexical error 返回 `2`，syntax/parse error 返回 `3`，CLI misuse 返回 `6`。
+5. diagnostics 必须携带 `phase`、`code`、`line`、`column`、`offset`、`length`。
+6. 该 contract 是通用语言服务入口，不绑定 `spio`、Vityo 或某个 IDE。
+
+Owner / consumer docs:
+
+1. [../external/SERVICES.md](../external/SERVICES.md)
+2. `styio-view` / Vityo / third-party editor integrations can consume this before adopting full LSP.
+
+### 2.3 `styio --compile-plan <path>`
 
 Canonical form:
 
@@ -70,7 +95,7 @@ Owner / consumer docs:
 1. `styio-pafio/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md`
 2. `styio-view/docs/external/for-styio/Styio-Compile-Run-Contract.md`
 
-### 2.3 `styio --source-build-info=json`
+### 2.4 `styio --source-build-info=json`
 
 Canonical form:
 
@@ -82,7 +107,7 @@ styio --source-build-info=json
 
 1. official source origin 固定为 `https://github.com/SymPolicy/Styio.git`
 2. `stable` 和 `nightly` 通道映射到同名源码分支
-3. official controlled source graph 当前冻结为 `compiler_core / std_symbols / runtime / macro_prelude`
+3. official controlled source graph 当前冻结为 `compiler_core / std_symbols / runtime / services / macro_prelude`
 4. 当前唯一官方 build mode 是 `minimal`
 5. current helper entry is `scripts/source-build-minimal.sh`
 6. compile-plan `profile.build_mode` 缺失时默认回落到 `minimal`，显式值当前也只允许 `minimal`
@@ -94,7 +119,7 @@ Owner / consumer docs:
 1. `styio-nightly/docs/external/for-pafio/Styio-Nano-Pafio-Coordination.md`
 2. `styio-pafio/docs/governance/Pafio-CLI-Contract.md`
 
-### 2.4 `styio build <file_path> -o <artifact_name>`
+### 2.5 `styio build <file_path> -o <artifact_name>`
 
 Canonical form:
 

@@ -1,7 +1,7 @@
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/StyioTargetHelpers.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/StyioFrontendSources.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/StyioBackendSources.cmake")
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/StyioIDESources.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/StyioServicesSources.cmake")
 
 add_library(styio_symbol_core STATIC ${STYIO_SYMBOL_SOURCES})
 styio_configure_library_target(styio_symbol_core)
@@ -20,7 +20,12 @@ target_link_libraries(styio_core PUBLIC styio_frontend_core styio_runtime_core $
 
 add_library(styio_cli_contract_core STATIC ${STYIO_CONTRACT_SOURCES})
 styio_configure_library_target(styio_cli_contract_core)
-target_link_libraries(styio_cli_contract_core PUBLIC styio_symbol_core ${LLVM_LIBS})
+target_compile_definitions(styio_cli_contract_core PRIVATE
+  "STYIO_PROJECT_VERSION=\"${PROJECT_VERSION}\""
+  "STYIO_RELEASE_CHANNEL=\"nightly\""
+  "STYIO_EDITION_MAX=\"2026\""
+)
+target_link_libraries(styio_cli_contract_core PUBLIC styio_frontend_core styio_symbol_core ${LLVM_LIBS})
 
 add_library(styio_ide_core STATIC ${STYIO_IDE_SOURCES})
 styio_configure_library_target(styio_ide_core)

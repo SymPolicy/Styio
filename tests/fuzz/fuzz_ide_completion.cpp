@@ -2,9 +2,9 @@
 #include <cstdint>
 #include <string>
 
-#include "StyioIDE/Project.hpp"
-#include "StyioIDE/SemDB.hpp"
-#include "StyioIDE/VFS.hpp"
+#include "StyioServices/StyioIDE/Project.hpp"
+#include "StyioServices/StyioIDE/SemDB.hpp"
+#include "StyioServices/StyioIDE/VFS.hpp"
 #include "fuzz_ide_common.hpp"
 
 extern "C" int

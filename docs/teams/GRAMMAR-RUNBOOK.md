@@ -16,7 +16,7 @@ Primary paths:
 2. `grammar/tree-sitter-styio/src/parser.c`
 3. `grammar/tree-sitter-styio/src/grammar.json`
 4. `grammar/tree-sitter-styio/src/node-types.json`
-5. `src/StyioIDE/TreeSitterBackend.*`
+5. `src/StyioServices/StyioIDE/TreeSitterBackend.*`
 6. [../external/for-ide/TREE-SITTER.md](../external/for-ide/TREE-SITTER.md)
 
 ## Daily Workflow

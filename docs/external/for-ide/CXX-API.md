@@ -9,7 +9,7 @@
 Use `styio::ide::IdeService` when your host wants one façade over VFS, syntax, HIR, semdb, indexing, and IDE DTOs.
 
 ```cpp
-#include "StyioIDE/Service.hpp"
+#include "StyioServices/StyioIDE/Service.hpp"
 
 styio::ide::IdeService service;
 service.initialize("file:///abs/workspace");
@@ -26,7 +26,7 @@ auto semantic_tokens = service.semantic_tokens(uri);
 auto context = service.completion_context(uri, styio::ide::Position{1, 16});
 ```
 
-Public façade methods currently available in [../../../src/StyioIDE/Service.hpp](../../../src/StyioIDE/Service.hpp):
+Public façade methods currently available in [../../../src/StyioServices/StyioIDE/Service.hpp](../../../src/StyioServices/StyioIDE/Service.hpp):
 
 1. `initialize`
 2. `did_open`
@@ -47,7 +47,7 @@ Public façade methods currently available in [../../../src/StyioIDE/Service.hpp
 Use `styio::ide::SyntaxParser` when you only need a tolerant syntax snapshot and do not want the full semantic pipeline.
 
 ```cpp
-#include "StyioIDE/Syntax.hpp"
+#include "StyioServices/StyioIDE/Syntax.hpp"
 
 styio::ide::DocumentSnapshot snapshot;
 snapshot.file_id = 1;
@@ -88,7 +88,7 @@ The returned `SyntaxSnapshot` exposes:
 Use `styio::ide::analyze_document` when you want Nightly semantic facts without the full IDE service.
 
 ```cpp
-#include "StyioIDE/CompilerBridge.hpp"
+#include "StyioServices/StyioIDE/CompilerBridge.hpp"
 
 auto summary = styio::ide::analyze_document("memory://sample.styio", source_text);
 if (summary.used_recovery) {
