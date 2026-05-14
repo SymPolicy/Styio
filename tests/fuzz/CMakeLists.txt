@@ -82,7 +82,7 @@ styio_apply_llvm_compile_settings(styio_fuzz_ide_completion_smoke)
 
 add_executable(styio_fuzz_ide_lsp_sync
   fuzz_ide_lsp_sync.cpp
-  "${CMAKE_SOURCE_DIR}/src/StyioLSP/Server.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioServices/StyioLSP/Server.cpp"
 )
 target_link_libraries(styio_fuzz_ide_lsp_sync PRIVATE styio_ide_core ${LLVM_LIBS})
 styio_apply_llvm_compile_settings(styio_fuzz_ide_lsp_sync)
@@ -92,7 +92,7 @@ target_link_options(styio_fuzz_ide_lsp_sync PRIVATE ${STYIO_FUZZ_FLAGS})
 add_executable(styio_fuzz_ide_lsp_sync_smoke
   fuzz_smoke_main.cpp
   fuzz_ide_lsp_sync.cpp
-  "${CMAKE_SOURCE_DIR}/src/StyioLSP/Server.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioServices/StyioLSP/Server.cpp"
 )
 target_link_libraries(styio_fuzz_ide_lsp_sync_smoke PRIVATE styio_ide_core ${LLVM_LIBS})
 styio_apply_llvm_compile_settings(styio_fuzz_ide_lsp_sync_smoke)

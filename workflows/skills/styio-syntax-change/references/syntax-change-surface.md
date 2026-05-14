@@ -4,7 +4,7 @@
 
 1. Tokens: `src/StyioToken/Token.hpp`, `src/StyioToken/Token.cpp`
 2. Lexer: `src/StyioParser/Tokenizer.cpp`
-3. IDE lexer: `src/StyioIDE/Syntax.cpp`
+3. IDE lexer: `src/StyioServices/StyioIDE/Syntax.cpp`
 4. Legacy parser: `src/StyioParser/Parser.cpp`
 5. Nightly parser: `src/StyioParser/NewParserExpr.cpp`
 6. AST shape: `src/StyioAST/AST.hpp`

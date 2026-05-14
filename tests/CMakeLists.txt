@@ -444,7 +444,7 @@ styio_apply_llvm_compile_settings(styio_resource_topology_test)
 
 add_executable(styio_ide_test
   ide/styio_ide_test.cpp
-  "${CMAKE_SOURCE_DIR}/src/StyioLSP/Server.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioServices/StyioLSP/Server.cpp"
 )
 target_link_libraries(styio_ide_test PRIVATE styio_ide_core GTest::gtest_main ${LLVM_LIBS})
 styio_apply_llvm_compile_settings(styio_ide_test)

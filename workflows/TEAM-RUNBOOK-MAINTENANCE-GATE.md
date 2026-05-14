@@ -67,9 +67,9 @@ Gate failures print the missing, duplicate, extra, or out-of-order section and p
 | `FRONTEND-RUNBOOK.md` | `src/StyioToken/`, `src/StyioUnicode/`, `src/StyioParser/`, `src/Deprecated/` |
 | `SEMA-IR-RUNBOOK.md` | `src/StyioAST/`, `src/StyioSema/`, `src/StyioLowering/`, `src/StyioIR/`, `src/StyioToString/`, `src/StyioSession/` |
 | `CODEGEN-RUNTIME-RUNBOOK.md` | `src/StyioCodeGen/`, `src/StyioJIT/`, `src/StyioExtern/`, `src/StyioRuntime/` |
-| `CLI-NANO-RUNBOOK.md` | `src/main.cpp`, `src/StyioConfig/`, `configs/`, `scripts/gen-styio-nano-profile.py`, `docs/external/for-spio/` |
-| `IDE-LSP-RUNBOOK.md` | `src/StyioIDE/`, `src/StyioLSP/`, `docs/external/for-ide/`, `tests/ide/` |
-| `GRAMMAR-RUNBOOK.md` | `grammar/tree-sitter-styio/`, `src/StyioIDE/TreeSitterBackend.*` |
+| `CLI-NANO-RUNBOOK.md` | `src/main.cpp`, `src/StyioServices/StyioCLI/`, `src/StyioServices/StyioConfig/`, `configs/`, `scripts/gen-styio-nano-profile.py`, `docs/external/for-spio/` |
+| `IDE-LSP-RUNBOOK.md` | `src/StyioServices/StyioIDE/`, `src/StyioServices/StyioLSP/`, `docs/external/for-ide/`, `tests/ide/` |
+| `GRAMMAR-RUNBOOK.md` | `grammar/tree-sitter-styio/`, `src/StyioServices/StyioIDE/TreeSitterBackend.*` |
 | `TEST-QUALITY-RUNBOOK.md` | `tests/`, `src/StyioTesting/`, `extend_tests.py`, parser shadow scripts, fuzz pack script, `scripts/checkpoint-health.sh` |
 | `PERF-STABILITY-RUNBOOK.md` | `benchmark/` |
 | `DOCS-ECOSYSTEM-RUNBOOK.md` | `README.md`, `docs/`, `workflows/`, `templates/`, docs maintenance scripts, `scripts/delivery-gate.sh`, `scripts/team-docs-gate.py` |

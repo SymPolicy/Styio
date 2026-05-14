@@ -71,6 +71,21 @@ controlled_components() {
     {"description", "Runtime support and intrinsic lowering implementation linked into build-channel artifacts."},
   });
   components.push_back(llvm::json::Object{
+    {"id", "services"},
+    {"cmake_targets", llvm::json::Array{
+      "styio_cli_contract_core",
+      "styio_ide_core",
+      "styio_lspd",
+    }},
+    {"paths", component_paths({
+      "src/StyioServices/StyioCLI/",
+      "src/StyioServices/StyioConfig/",
+      "src/StyioServices/StyioIDE/",
+      "src/StyioServices/StyioLSP/",
+    })},
+    {"description", "Consumer-neutral language service layer for package managers, IDEs, CI, and external tooling."},
+  });
+  components.push_back(llvm::json::Object{
     {"id", "macro_prelude"},
     {"cmake_targets", llvm::json::Array{"styio_symbol_core"}},
     {"paths", component_paths({
@@ -139,6 +154,7 @@ source_build_info_json(const SourceBuildInfoOptions& options) {
       {"cmake_target", "styio"},
       {"compiler_binary", "styio"},
       {"compile_plan_consumer", "--compile-plan"},
+      {"syntax_check_consumer", "check --syntax --json --file"},
     }},
     {"controlled_components", controlled_components()},
     {"symbol_registry", std::move(symbol_registry)},

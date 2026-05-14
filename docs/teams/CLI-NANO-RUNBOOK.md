@@ -6,23 +6,25 @@
 
 ## Mission
 
-Own user-facing command execution, the bootstrap packaging path for `styio-nano`, and the compiler-side handoff contracts consumed by `styio-spio`. This team protects CLI options, error formatting, exit codes, machine-info capabilities, source-build metadata, nano profile compile definitions, and the static nano package contract. It does not own long-term package-manager UX, which belongs to `styio-spio`.
+Own user-facing command execution, the bootstrap packaging path for `styio-nano`, and compiler-side service contracts consumed by package managers, IDEs, CI, and other external tools. This team protects CLI options, error formatting, exit codes, machine-info capabilities, syntax-check output, source-build metadata, nano profile compile definitions, and the static nano package contract. It does not own long-term package-manager UX, which belongs to `styio-spio`.
 
 ## Owned Surface
 
 Primary paths:
 
 1. `src/main.cpp`
-2. `src/StyioConfig/`
-3. `configs/`
-4. `scripts/gen-styio-nano-profile.py`
-5. `scripts/source-build-minimal.sh`
-6. Nano package tests in `tests/styio_test.cpp`
+2. `src/StyioServices/StyioCLI/`
+3. `src/StyioServices/StyioConfig/`
+4. `configs/`
+5. `scripts/gen-styio-nano-profile.py`
+6. `scripts/source-build-minimal.sh`
+7. Nano package tests in `tests/styio_test.cpp`
 
-Key implementation seams inside `src/StyioConfig/`:
+Key implementation seams inside `src/StyioServices/`:
 
-1. `CompilePlanContract.*` owns compile-plan version/build-mode parsing and validation shared by full `styio` execution paths.
-2. `SourceBuildInfo.*` owns the published `--source-build-info=json` payload and its mapping to the official `spio build` source-layout contract.
+1. `StyioCLI/SyntaxCheck.*` owns `styio check --syntax --json --file`, the syntax-only JSON service for IDEs, CI, and other tools.
+2. `StyioConfig/CompilePlanContract.*` owns compile-plan version/build-mode parsing and validation shared by full `styio` execution paths.
+3. `StyioConfig/SourceBuildInfo.*` owns the published `--source-build-info=json` payload and its mapping to the official `spio build` source-layout contract.
 
 Key handoff document:
 
@@ -33,26 +35,27 @@ Key handoff document:
 1. Determine whether the change affects full `styio`, `styio-nano`, or both.
 2. Keep CLI option changes discoverable through help text and tests.
 3. Keep `--machine-info` capability output aligned with actual behavior.
-4. Keep `--source-build-info=json` aligned with the official source-layout contract consumed by `spio build`.
-5. Treat nano static repository layout as a contract; update handoff docs when it changes.
-6. Keep package-manager responsibilities out of the compiler unless they are bootstrap validation or official source-build layout export.
-7. When compile-plan, source-build-info, or diagnostics behavior changes, keep the `styio-spio` / `styio-view` coordinator mirror and handoff docs aligned in the same checkpoint.
-8. When runtime event artifacts change, keep `supported_contracts.runtime_events`, `feature_flags.runtime_event_stream`, `receipt.json`, and `build_root/runtime-events.jsonl` aligned in the same checkpoint.
-9. Keep generated nano subset build manifests aligned with the repository compatibility floor and the shared `styio-nightly` / `styio-spio` toolchain baseline when `src/main.cpp` emits CMake scaffolding.
-10. Keep `scripts/source-build-minimal.sh` aligned with the published `--source-build-info=json` contract so build-channel consumers have one stable compiler-side helper entry.
-11. Prefer named enum tables and shared field-resolution helpers for project config, nano package config, nano publish config, and nano manifest parsing so new keys or aliases are added in one place instead of another `if/else` ladder in `src/main.cpp`.
-12. Treat config alias changes as contract changes when they affect source-build, nano packaging, or publish bootstrap behavior; update this runbook and the handoff docs in the same checkpoint.
-13. Keep compile-plan contract parsing and source-build metadata export in `src/StyioConfig/` as the single source of truth; `src/main.cpp` may orchestrate those paths, but it should not grow a second parser or duplicate build-mode vocabulary.
-14. When frontend, StyioIR optimizer, or runtime source roots gain new support libraries, update the local-subset nano closure seed list, generated CMake include paths, generated config headers, and link libraries together; `StyioNanoPackage.LocalSubset*` tests must prove the extracted clean-room bundle still links.
-15. When compiler source-layout directories move, update `SourceBuildInfo.*`, `styio_nano_source_roots_latest(...)`, and the `StyioDiagnostics.SourceBuildInfoJsonReportsOfficialSourceLayoutFields` regression together so `spio build` consumers see the same controlled component graph as local nano bundles.
-16. When internal prelude source files such as `src/StyioPrelude/resources.styio` become part of compiler behavior, include them in `--source-build-info=json` controlled components and the matching diagnostics regression.
-17. When `--profile-frontend` grows runtime-side records, keep the CLI flush hook in `src/main.cpp` paired with a profiler smoke that proves the emitted JSON includes the new section. Native executable profiling stays opt-in through `STYIO_NATIVE_PROFILE_OUT` so benchmark validation can collect run-only attribution without adding overhead to measured repeats.
-18. Keep `--nano-create` clean-room local-subset builds on the same Clang CMake compiler pair used to build Styio unless `CC` or `CXX` is explicitly set by the caller; generated `build-styio-nano.sh` must preserve that override rule.
-19. When Sema / IR gains a new required implementation directory such as `src/StyioResourceTopology/`, add its `.cpp` seed to `styio_nano_source_roots_latest(...)` so local-subset nano packages link in a clean-room bundle.
-20. Keep `styio build <file_path> -o <artifact_name>` aligned with the native executable artifact contract: it must not execute the entry program during build, must reuse the compile-plan `intent=build` frontend path, and must link the Styio runtime helper surface into the produced executable.
-21. Remove unused CLI debug helpers instead of leaving ad hoc public symbols or stdout probes in `src/main.cpp`; command-visible diagnostics should go through the existing CLI error and option paths.
-22. Keep clean-room nano package builds resource-bounded by default. `STYIO_NANO_BUILD_JOBS` may raise the build parallelism on larger machines, but generated helpers should not default to unbounded `--parallel`.
-23. Keep the Spio handoff doc pointed at current contracts only. Do not reintroduce deleted bootstrap/source-build long plans after their durable rules have moved into this runbook, the repository map, or the handoff document.
+4. Keep `styio check --syntax --json --file` syntax-only: no type checking, lowering, codegen, execution, or runtime resource access.
+5. Keep `--source-build-info=json` aligned with the official source-layout contract consumed by `spio build`.
+6. Treat nano static repository layout as a contract; update handoff docs when it changes.
+7. Keep package-manager responsibilities out of the compiler unless they are bootstrap validation or official source-build layout export.
+8. When compile-plan, source-build-info, syntax-check, or diagnostics behavior changes, keep the coordinator mirror, external service docs, source-level module README, and `src/StyioServices/MANIFEST.md` aligned in the same checkpoint.
+9. When runtime event artifacts change, keep `supported_contracts.runtime_events`, `feature_flags.runtime_event_stream`, `receipt.json`, and `build_root/runtime-events.jsonl` aligned in the same checkpoint.
+10. Keep generated nano subset build manifests aligned with the repository compatibility floor and the shared `styio-nightly` / `styio-spio` toolchain baseline when `src/main.cpp` emits CMake scaffolding.
+11. Keep `scripts/source-build-minimal.sh` aligned with the published `--source-build-info=json` contract so build-channel consumers have one stable compiler-side helper entry.
+12. Prefer named enum tables and shared field-resolution helpers for project config, nano package config, nano publish config, and nano manifest parsing so new keys or aliases are added in one place instead of another `if/else` ladder in `src/main.cpp`.
+13. Treat config alias changes as contract changes when they affect source-build, nano packaging, or publish bootstrap behavior; update this runbook and the handoff docs in the same checkpoint.
+14. Keep compile-plan contract parsing and source-build metadata export in `src/StyioServices/StyioConfig/` as the single source of truth; `src/main.cpp` may orchestrate those paths, but it should not grow a second parser or duplicate build-mode vocabulary.
+15. When frontend, StyioIR optimizer, or runtime source roots gain new support libraries, update the local-subset nano closure seed list, generated CMake include paths, generated config headers, and link libraries together; `StyioNanoPackage.LocalSubset*` tests must prove the extracted clean-room bundle still links.
+16. When compiler source-layout directories move, update `SourceBuildInfo.*`, `styio_nano_source_roots_latest(...)`, and the `StyioDiagnostics.SourceBuildInfoJsonReportsOfficialSourceLayoutFields` regression together so `spio build` consumers see the same controlled component graph as local nano bundles.
+17. When internal prelude source files such as `src/StyioPrelude/resources.styio` become part of compiler behavior, include them in `--source-build-info=json` controlled components and the matching diagnostics regression.
+18. When `--profile-frontend` grows runtime-side records, keep the CLI flush hook in `src/main.cpp` paired with a profiler smoke that proves the emitted JSON includes the new section. Native executable profiling stays opt-in through `STYIO_NATIVE_PROFILE_OUT` so benchmark validation can collect run-only attribution without adding overhead to measured repeats.
+19. Keep `--nano-create` clean-room local-subset builds on the same Clang CMake compiler pair used to build Styio unless `CC` or `CXX` is explicitly set by the caller; generated `build-styio-nano.sh` must preserve that override rule.
+20. When Sema / IR gains a new required implementation directory such as `src/StyioResourceTopology/`, add its `.cpp` seed to `styio_nano_source_roots_latest(...)` so local-subset nano packages link in a clean-room bundle.
+21. Keep `styio build <file_path> -o <artifact_name>` aligned with the native executable artifact contract: it must not execute the entry program during build, must reuse the compile-plan `intent=build` frontend path, and must link the Styio runtime helper surface into the produced executable.
+22. Remove unused CLI debug helpers instead of leaving ad hoc public symbols or stdout probes in `src/main.cpp`; command-visible diagnostics should go through the existing CLI error and option paths.
+23. Keep clean-room nano package builds resource-bounded by default. `STYIO_NANO_BUILD_JOBS` may raise the build parallelism on larger machines, but generated helpers should not default to unbounded `--parallel`.
+24. Keep the Spio handoff doc pointed at current contracts only. Do not reintroduce deleted bootstrap/source-build long plans after their durable rules have moved into this runbook, the repository map, or the handoff document.
 
 ## Change Classes
 

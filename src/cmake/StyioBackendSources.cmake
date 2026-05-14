@@ -15,11 +15,6 @@ set(STYIO_TESTING_SUPPORT_SOURCES
   StyioTesting/PipelineCheck.cpp
 )
 
-set(STYIO_CONTRACT_SOURCES
-  StyioConfig/CompilePlanContract.cpp
-  StyioConfig/SourceBuildInfo.cpp
-)
-
 set(STYIO_CORE_SOURCES
   ${STYIO_BACKEND_SOURCES}
   ${STYIO_TESTING_SUPPORT_SOURCES}

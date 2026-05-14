@@ -67,7 +67,8 @@ TEAM_RULES: tuple[TeamRule, ...] = (
         Path("docs/teams/CLI-NANO-RUNBOOK.md"),
         (
             "src/main.cpp",
-            "src/StyioConfig/",
+            "src/StyioServices/StyioCLI/",
+            "src/StyioServices/StyioConfig/",
             "configs/",
             "scripts/gen-styio-nano-profile.py",
             "scripts/source-build-minimal.sh",
@@ -79,8 +80,8 @@ TEAM_RULES: tuple[TeamRule, ...] = (
         "IDE / LSP",
         Path("docs/teams/IDE-LSP-RUNBOOK.md"),
         (
-            "src/StyioIDE/",
-            "src/StyioLSP/",
+            "src/StyioServices/StyioIDE/",
+            "src/StyioServices/StyioLSP/",
             "docs/external/for-ide/",
             "tests/ide/",
         ),
@@ -91,8 +92,8 @@ TEAM_RULES: tuple[TeamRule, ...] = (
         Path("docs/teams/GRAMMAR-RUNBOOK.md"),
         (
             "grammar/tree-sitter-styio/",
-            "src/StyioIDE/TreeSitterBackend.cpp",
-            "src/StyioIDE/TreeSitterBackend.hpp",
+            "src/StyioServices/StyioIDE/TreeSitterBackend.cpp",
+            "src/StyioServices/StyioIDE/TreeSitterBackend.hpp",
         ),
     ),
     TeamRule(

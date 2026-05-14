@@ -11,11 +11,11 @@
 #include <vector>
 
 #include "StyioAST/AST.hpp"
-#include "StyioIDE/CompilerBridge.hpp"
-#include "StyioIDE/HIR.hpp"
-#include "StyioIDE/Service.hpp"
-#include "StyioIDE/Syntax.hpp"
-#include "StyioLSP/Server.hpp"
+#include "StyioServices/StyioIDE/CompilerBridge.hpp"
+#include "StyioServices/StyioIDE/HIR.hpp"
+#include "StyioServices/StyioIDE/Service.hpp"
+#include "StyioServices/StyioIDE/Syntax.hpp"
+#include "StyioServices/StyioLSP/Server.hpp"
 #include "StyioException/Exception.hpp"
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"

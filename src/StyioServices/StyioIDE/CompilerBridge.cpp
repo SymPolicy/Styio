@@ -5,11 +5,11 @@
 #include <unordered_map>
 #include <variant>
 
-#include "../StyioAST/AST.hpp"
-#include "../StyioLowering/AstToStyioIRLowerer.hpp"
-#include "../StyioException/Exception.hpp"
-#include "../StyioParser/Parser.hpp"
-#include "../StyioParser/Tokenizer.hpp"
+#include "StyioAST/AST.hpp"
+#include "StyioLowering/AstToStyioIRLowerer.hpp"
+#include "StyioException/Exception.hpp"
+#include "StyioParser/Parser.hpp"
+#include "StyioParser/Tokenizer.hpp"
 
 namespace styio::ide {
 

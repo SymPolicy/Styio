@@ -64,6 +64,7 @@
   - `compiler_core`
   - `std_symbols`
   - `runtime`
+  - `services`
   - `macro_prelude`
 - 官方 build mode：
   - `minimal`
@@ -154,12 +155,13 @@ materialized package 目录至少包含：
 
 当前 full `styio` 的 `--machine-info=json` 已声明这些 contract capability：
 
+- `syntax_check_json`
 - `nano_package_materialize`
 - `nano_package_local_subset_closure_v1`
 - `nano_package_registry_consume_v1`
 - `nano_package_registry_publish_v1`
 
-`spio` 后续可以用这些 capability 做兼容性判定，而不是猜测某个 `styio` 二进制支不支持 nano package workflow。
+`spio`、IDE、CI 和其它工具后续可以用这些 capability 做兼容性判定，而不是猜测某个 `styio` 二进制支是否支持 syntax check、nano package workflow 或其它服务入口。
 
 ---
 
@@ -395,6 +397,7 @@ blob 内容是一个 tar 包，解开后必须能解析出 package root，并且
 这部分现在已经进入 **baseline live** 状态：
 
 - `--machine-info=json` 会公开 `supported_contracts.compile_plan:[1]`
+- `--machine-info=json` 会公开 `supported_contracts.syntax_check:[1]`，用于通用 `styio check --syntax --json --file <path>` 语法审核入口
 - `styio --compile-plan <path>` 会消费 versioned plan，并支持 `build` / `check` / `run` / `test`
 - compile-plan 执行会在约定的 `outputs.build_root` / `artifact_dir` / `diag_dir` 内写出 receipt、编译产物和 `diagnostics.jsonl`
 - 若 plan 非法或 `--compile-plan` 与其它入口参数冲突，只要能解析到 `outputs.diag_dir`，也会把 `STYIO_CLI` 诊断写入该目录；stderr 同样保持 machine-readable JSONL

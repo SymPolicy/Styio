@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "../StyioIDE/Service.hpp"
+#include "StyioServices/StyioIDE/Service.hpp"
 #include "llvm/Support/JSON.h"
 
 namespace styio::lsp {

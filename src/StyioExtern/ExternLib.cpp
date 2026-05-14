@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "ExternLib.hpp"
-#include "StyioConfig/NanoProfile.hpp"
+#include "StyioServices/StyioConfig/NanoProfile.hpp"
 #include "StyioRuntime/HandleTable.hpp"
 
 namespace {

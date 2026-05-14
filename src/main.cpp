@@ -43,9 +43,10 @@
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
 #include "StyioProfiler/FrontendProfiler.hpp"
-#include "StyioConfig/CompilePlanContract.hpp"
-#include "StyioConfig/NanoProfile.hpp"
-#include "StyioConfig/SourceBuildInfo.hpp"
+#include "StyioServices/StyioCLI/SyntaxCheck.hpp"
+#include "StyioServices/StyioConfig/CompilePlanContract.hpp"
+#include "StyioServices/StyioConfig/NanoProfile.hpp"
+#include "StyioServices/StyioConfig/SourceBuildInfo.hpp"
 #include "StyioRuntime/HandleTable.hpp"
 #include "StyioSession/CompilationSession.hpp"
 #include "StyioToString/ToStringVisitor.hpp" /* StyioRepr */
@@ -3083,7 +3084,13 @@ styio_emit_machine_info_json(const StyioDictImplSelectionLatest& dict_impl_selec
     << ",\"channel\":\"" << styio_json_escape(STYIO_RELEASE_CHANNEL) << "\""
     << ",\"variant\":\"" << (STYIO_NANO_BUILD ? "nano" : "full") << "\""
     << ",\"active_integration_phase\":\"" << active_integration_phase << "\""
-    << ",\"supported_contracts\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"compile_plan\":"
+    << ",\"supported_contracts\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":"
+#if STYIO_NANO_BUILD
+    << "[]"
+#else
+    << "[1]"
+#endif
+    << ",\"compile_plan\":"
 #if STYIO_NANO_BUILD
     << "[]"
 #else
@@ -3096,7 +3103,13 @@ styio_emit_machine_info_json(const StyioDictImplSelectionLatest& dict_impl_selec
     << "[1]"
 #endif
     << "}"
-    << ",\"supported_contract_versions\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"compile_plan\":"
+    << ",\"supported_contract_versions\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":"
+#if STYIO_NANO_BUILD
+    << "[]"
+#else
+    << "[1]"
+#endif
+    << ",\"compile_plan\":"
 #if STYIO_NANO_BUILD
     << "[]"
 #else
@@ -3112,6 +3125,12 @@ styio_emit_machine_info_json(const StyioDictImplSelectionLatest& dict_impl_selec
     << ",\"supported_adapter_modes\":[\"cli\"]"
     << ",\"feature_flags\":{\"single_file_entry\":true"
     << ",\"jsonl_diagnostics\":true"
+    << ",\"syntax_check\":"
+#if STYIO_NANO_BUILD
+    << "false"
+#else
+    << "true"
+#endif
     << ",\"compile_plan_consumer\":"
 #if STYIO_NANO_BUILD
     << "false"
@@ -3135,6 +3154,9 @@ styio_emit_machine_info_json(const StyioDictImplSelectionLatest& dict_impl_selec
     << "\"machine_info_json\","
     << "\"single_file_entry\","
     << "\"jsonl_diagnostics\"";
+#if !STYIO_NANO_BUILD
+  std::cout << ",\"syntax_check_json\"";
+#endif
 #if !STYIO_NANO_BUILD
   std::cout << ",\"nano_package_materialize\"";
   std::cout << ",\"nano_package_local_subset_closure_v1\"";
@@ -4330,6 +4352,11 @@ main(
   if (argc >= 2 && argv[1] != nullptr && std::string(argv[1]) == "build") {
     return styio_native_build_cli_latest(argc, argv);
   }
+#if !STYIO_NANO_BUILD
+  if (argc >= 2 && argv[1] != nullptr && std::string(argv[1]) == "check") {
+    return styio::services::run_syntax_check_cli(argc, argv);
+  }
+#endif
 
   cxxopts::Options options("styio", "Styio Compiler");
 
