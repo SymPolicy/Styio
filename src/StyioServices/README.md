@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the source-level entrypoint for externally consumable Styio language services.
 
-**Last updated:** 2026-05-14
+**Last updated:** 2026-05-17
 
 ## Scope
 
@@ -10,7 +10,7 @@
 
 ## Modules
 
-1. [StyioCLI](./StyioCLI/README.md) exposes command-line service helpers such as syntax-only JSON checking.
+1. [StyioCLI](./StyioCLI/README.md) exposes command-line service helpers such as syntax-only JSON checking with recoverable parse diagnostics and source context.
 2. [StyioConfig](./StyioConfig/README.md) owns machine-readable compiler handoff contracts and source-build metadata.
 3. [StyioIDE](./StyioIDE/README.md) owns in-process editor services: VFS, syntax snapshots, HIR, SemDB, indexing, completion, hover, definition, references, symbols, semantic tokens, and runtime scheduling counters.
 4. [StyioLSP](./StyioLSP/README.md) owns the stdio Language Server Protocol surface built on `StyioIDE`.
@@ -48,4 +48,3 @@ For editors:
 ```bash
 styio_lspd
 ```
-

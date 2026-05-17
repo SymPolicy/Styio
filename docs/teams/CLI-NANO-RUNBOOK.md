@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-05-17
 
 ## Mission
 
@@ -56,6 +56,7 @@ Key handoff document:
 22. Remove unused CLI debug helpers instead of leaving ad hoc public symbols or stdout probes in `src/main.cpp`; command-visible diagnostics should go through the existing CLI error and option paths.
 23. Keep clean-room nano package builds resource-bounded by default. `STYIO_NANO_BUILD_JOBS` may raise the build parallelism on larger machines, but generated helpers should not default to unbounded `--parallel`.
 24. Keep the Spio handoff doc pointed at current contracts only. Do not reintroduce deleted bootstrap/source-build long plans after their durable rules have moved into this runbook, the repository map, or the handoff document.
+25. When `styio check --syntax --json --file` diagnostics gain recovery behavior or new machine-readable fields, update `--machine-info=json` capabilities, `StyioDiagnostics.*` contract tests, `src/StyioServices/StyioCLI/README.md`, and `src/StyioServices/MANIFEST.md` together.
 
 ## Change Classes
 

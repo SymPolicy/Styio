@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of AST lifecycle, semantic analysis, type inference, StyioIR lowering, string representation, and compilation session ownership.
 
-**Last updated:** 2026-05-12
+**Last updated:** 2026-05-17
 
 ## Mission
 
@@ -57,6 +57,7 @@ High-value docs:
 25. Format strings lower through ordinary string concatenation: infer each embedded expression, report the result as `string`, and reuse existing string/numeric runtime conversion rather than inventing a separate formatting IR node. Undefined hash-tag iterator sequences must stay fail-closed until the design SSOT defines their semantics.
 26. Internal lowering dispatch must reject unknown comparison, list, and logical operator values with `StyioTypeError`. Do not map unknown enum values to equality, constant zero, raw value, or other placeholder IR.
 27. IR and lowering ownership must be exception-safe across optimizer rewrites. When a lowering path creates temporary AST or IR nodes, keep a local owner until the target IR node adopts them; when an optimizer replaces or hoists child IR, either transfer that exact pointer into the new owner or delete the superseded child before overwriting the field. ASan security coverage is required for parser recovery seeds and IR rewrite paths that previously leaked.
+28. Native `@extern` source references are middle-layer metadata, not parsed Styio syntax. Preserve `ExternBlockAST::getSourcePaths()` through `SGExternBlock`, include them in textual reprs for diagnostics/goldens, and let native signature discovery read the referenced C/C++ sources during sema so missing files fail as typed semantic errors rather than parser errors.
 
 ## Change Classes
 

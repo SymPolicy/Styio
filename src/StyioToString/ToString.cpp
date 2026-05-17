@@ -772,10 +772,18 @@ StyioRepr::toString(ExportDeclAST* ast, int indent) {
 
 std::string
 StyioRepr::toString(ExternBlockAST* ast, int indent) {
-  return reprASTType(ast->getNodeType(), " ") + "{\n"
-         + make_padding(indent) + "abi: " + ast->getAbi() + "\n"
-         + make_padding(indent) + "body: " + ast->getBody() + "\n"
-         + "}";
+  std::string out = reprASTType(ast->getNodeType(), " ") + "{\n"
+                    + make_padding(indent) + "abi: " + ast->getAbi() + "\n"
+                    + make_padding(indent) + "body: " + ast->getBody() + "\n";
+  if (!ast->getSourcePaths().empty()) {
+    out += make_padding(indent) + "sources:";
+    for (const auto& source : ast->getSourcePaths()) {
+      out += " " + source;
+    }
+    out += "\n";
+  }
+  out += "}";
+  return out;
 }
 
 std::string
@@ -1449,7 +1457,18 @@ StyioRepr::toString(SGExportDecl* node, int indent) {
 std::string
 StyioRepr::toString(SGExternBlock* node, int indent) {
   (void)indent;
-  return std::string("styio.ir.extern { abi=") + node->abi + " }";
+  std::string out = std::string("styio.ir.extern { abi=") + node->abi;
+  if (!node->source_paths.empty()) {
+    out += " sources=";
+    for (size_t i = 0; i < node->source_paths.size(); ++i) {
+      if (i > 0) {
+        out += ",";
+      }
+      out += node->source_paths[i];
+    }
+  }
+  out += " }";
+  return out;
 }
 
 std::string

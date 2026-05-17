@@ -493,6 +493,26 @@ parse_raw_braced_body_latest(StyioContext& context, const char* context_label) {
   return body;
 }
 
+static std::string
+strip_extern_source_string_latest(const std::string& raw) {
+  if (raw.size() >= 2 && raw.front() == '"' && raw.back() == '"') {
+    return raw.substr(1, raw.size() - 2);
+  }
+  return raw;
+}
+
+static std::string
+resolve_extern_source_path_latest(StyioContext& context, const std::string& raw_path) {
+  std::filesystem::path source_path(strip_extern_source_string_latest(raw_path));
+  if (source_path.is_relative()) {
+    const std::filesystem::path styio_file(context.get_file_name());
+    if (!styio_file.empty() && !styio_file.parent_path().empty()) {
+      source_path = styio_file.parent_path() / source_path;
+    }
+  }
+  return source_path.lexically_normal().string();
+}
+
 static ExternBlockAST*
 parse_extern_decl_after_at_latest(StyioContext& context) {
   if (!context.is_root_statement_position()) {
@@ -543,6 +563,14 @@ parse_extern_decl_after_at_latest(StyioContext& context) {
   context.skip();
   context.try_match_panic(StyioTokenType::ARROW_DOUBLE_RIGHT);
   context.skip();
+
+  if (context.cur_tok_type() == StyioTokenType::STRING) {
+    std::vector<std::string> source_paths{
+      resolve_extern_source_path_latest(context, context.cur_tok()->original)
+    };
+    context.move_forward(1, "@extern source");
+    return ExternBlockAST::Create(abi, "", std::move(source_paths));
+  }
 
   return ExternBlockAST::Create(abi, parse_raw_braced_body_latest(context, "@extern"));
 }

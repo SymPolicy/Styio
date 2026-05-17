@@ -2,7 +2,7 @@
 
 **Purpose:** Provide command-line service entry helpers for reusable Styio language-service contracts.
 
-**Last updated:** 2026-05-14
+**Last updated:** 2026-05-17
 
 ## Use
 
@@ -19,7 +19,20 @@ styio check --syntax --json --parser-engine nightly --file path/to/file.styio
 styio check --syntax --json --parser-engine legacy --file path/to/file.styio
 ```
 
-The service returns one JSON object. Successful validation has `status:"ok"` and an empty diagnostics array. Lexing and parsing failures return `status:"lexical_error"` or `status:"syntax_error"` with line, column, offset, and length fields.
+The service returns one JSON object. Successful validation has `status:"ok"` and an empty diagnostics array. Lexing and parsing failures return `status:"lexical_error"` or `status:"syntax_error"` with line, column, offset, length, and `source_context` fields.
+
+`source_context` is designed for Clang-style caret rendering by IDEs and terminals:
+
+```json
+{
+  "line_text": "# broken := (a: i32) => a +",
+  "range_start_column": 1,
+  "range_end_column": 2,
+  "caret": "^"
+}
+```
+
+For parser failures, the command uses recoverable statement parsing where possible, so one result can contain more than one `STYIO_PARSE` diagnostic.
 
 ## Embedding
 
@@ -42,4 +55,3 @@ return styio::services::run_syntax_check_cli(argc, argv);
 5. Does not access runtime resources such as `@stdin`, `@file`, `@stdout`, `||>`, or `?|`.
 
 See the full service inventory in [../MANIFEST.md](../MANIFEST.md).
-

@@ -61,11 +61,24 @@ std::string normalize_abi(std::string abi);
 std::string configured_native_toolchain_mode();
 CompilerResolution resolve_compiler_for_abi(const std::string& abi);
 std::vector<FunctionSignature> parse_function_signatures(const std::string& body);
+std::vector<FunctionSignature> parse_function_signatures_for_block(
+  const std::string& body,
+  const std::vector<std::string>& source_paths);
 StyioDataType styio_data_type_for_c_type(const CType& type);
+std::string source_text_for_block(
+  const std::string& abi,
+  const std::string& body,
+  const std::vector<std::string>& source_paths);
 
 LoadedBlock compile_and_load_block(
   const std::string& abi,
   const std::string& body,
+  const std::vector<std::string>& export_symbols);
+
+LoadedBlock compile_and_load_block(
+  const std::string& abi,
+  const std::string& body,
+  const std::vector<std::string>& source_paths,
   const std::vector<std::string>& export_symbols);
 
 void close_loaded_block(void* handle);

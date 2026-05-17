@@ -310,6 +310,11 @@ public:
     return code;
   }
 
+  const string&
+  get_file_name() const {
+    return file_name;
+  }
+
   /*
     === Token Start
   */

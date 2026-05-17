@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of `styio_ide_core`, `styio_lspd`, IDE-facing C++ APIs, VFS snapshots, syntax/HIR/SemDB services, and LSP protocol behavior.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-05-17
 
 ## Mission
 
@@ -39,6 +39,7 @@ Build and test targets:
 12. When async, continuation, or task syntax adds tokens such as `?|` or `||>`, update `src/StyioServices/StyioIDE/Syntax.cpp` in the same change so tolerant highlighting and diagnostics recognize the new token boundary.
 13. When testing `VFS` close/drop-open-file behavior, put expected closed-file contents on disk before closing the in-memory document; closed snapshots intentionally reload from disk instead of retaining stale open-buffer query state.
 14. Keep compiler bridge code pointed at `AstToStyioIRLowerer` for semantic truth; do not rebuild a separate IDE analyzer or depend on the legacy `StyioAnalyzer` compatibility alias for new code.
+15. Treat `StyioSyntaxDrift.CorpusMatchesApprovedEnvelope` as an approved-drift ledger, not a permanent suppression list. When nightly parser recovery improves and the compiler outline matches the tolerant IDE syntax outline, remove the approved exception, update the expected recovery flag, and keep the corpus file unchanged unless the user-facing editing scenario itself changes.
 
 ## Change Classes
 

@@ -2934,7 +2934,8 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
       continue;
     }
     if (auto* ex = dynamic_cast<ExternBlockAST*>(s)) {
-      const auto signatures = styio::native::parse_function_signatures(ex->getBody());
+      const auto signatures =
+        styio::native::parse_function_signatures_for_block(ex->getBody(), ex->getSourcePaths());
       for (const auto& sig : signatures) {
         if (!export_filter.empty() && export_filter.find(sig.name) == export_filter.end()) {
           continue;

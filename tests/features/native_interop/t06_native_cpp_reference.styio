@@ -1,0 +1,6 @@
+// M11 / T11.06: @extern(c++) can reference a source file relative to the Styio file
+
+@export { ref_square }
+@extern(c++) => "native/ref_square.cpp"
+
+>_(ref_square(7))

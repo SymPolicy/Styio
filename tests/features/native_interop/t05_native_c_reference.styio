@@ -1,0 +1,6 @@
+// M11 / T11.05: @extern(c) can reference a source file relative to the Styio file
+
+@export { ref_add }
+@extern(c) => "native/ref_add.c"
+
+>_(ref_add(20, 22))

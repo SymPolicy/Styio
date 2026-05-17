@@ -2,7 +2,7 @@
 
 **Purpose:** List every public service capability currently available under `src/StyioServices/`.
 
-**Last updated:** 2026-05-14
+**Last updated:** 2026-05-17
 
 ## Capability Inventory
 
@@ -10,6 +10,8 @@
 |------------|--------|-------------|--------------|-----|
 | Syntax-only JSON check | `StyioCLI` | `styio check --syntax --json --file <path>` / `styio::services::run_syntax_check_cli` | CLI contract | Validate Styio source syntax without type checking, lowering, codegen, execution, or runtime resource access. |
 | Parser engine selection for syntax check | `StyioCLI` | `--parser-engine nightly|legacy` | CLI option | Select the parser engine used by syntax-only validation. |
+| Syntax-check recovery diagnostics | `StyioCLI` | `styio check --syntax --json --file <path>` | CLI contract behavior | Continue parsing after recoverable statement-level syntax failures and report multiple diagnostics in one JSON result. |
+| Syntax-check source context | `StyioCLI` | `diagnostics[].source_context` | JSON diagnostic field | Provide source line text, range columns, and caret marker data for IDE and terminal renderers. |
 | Machine info contract | `StyioConfig` via `src/main.cpp` | `styio --machine-info=json` | CLI JSON contract | Discover compiler version, release channel, supported contracts, feature flags, adapter modes, and capabilities. |
 | Compile-plan contract parsing | `StyioConfig` | `styio::config::parse_compile_plan` / `styio --compile-plan <path>` | C++ helper plus CLI contract | Parse and validate versioned compiler request envelopes for build, check, run, and test handoff. |
 | Compile-plan diagnostics directory probing | `StyioConfig` | `styio::config::probe_compile_plan_diag_dir` | C++ helper | Find the requested diagnostics directory early enough for machine-readable CLI errors. |
@@ -34,4 +36,3 @@
 1. New public services must be added to this manifest in the same change that introduces the source entrypoint.
 2. Each module README must explain direct usage and link back to this manifest.
 3. Consumer-specific docs may reference these capabilities, but must not redefine their contract shape.
-

@@ -121,6 +121,35 @@ shell_quote(const std::string& value) {
   return out;
 }
 
+std::string
+c_string_escape(const std::string& value) {
+  std::string out;
+  out.reserve(value.size() + 8);
+  for (char ch : value) {
+    switch (ch) {
+      case '\\':
+        out += "\\\\";
+        break;
+      case '"':
+        out += "\\\"";
+        break;
+      case '\n':
+        out += "\\n";
+        break;
+      case '\r':
+        out += "\\r";
+        break;
+      case '\t':
+        out += "\\t";
+        break;
+      default:
+        out.push_back(ch);
+        break;
+    }
+  }
+  return out;
+}
+
 bool
 native_cache_enabled() {
   if (const char* env = std::getenv("STYIO_NATIVE_CACHE")) {
@@ -700,6 +729,28 @@ read_text_file(const std::filesystem::path& path, std::string& out_text) {
   return true;
 }
 
+std::vector<std::pair<std::filesystem::path, std::string>>
+read_referenced_sources(const std::vector<std::string>& source_paths) {
+  std::vector<std::pair<std::filesystem::path, std::string>> sources;
+  sources.reserve(source_paths.size());
+  for (const auto& raw_path : source_paths) {
+    if (trim_copy(raw_path).empty()) {
+      throw StyioTypeError("native @extern source reference must not be empty");
+    }
+    std::filesystem::path path(raw_path);
+    if (path.is_relative()) {
+      path = std::filesystem::absolute(path);
+    }
+    path = path.lexically_normal();
+    std::string text;
+    if (!read_text_file(path, text)) {
+      throw StyioTypeError("native @extern source file not found or unreadable: " + path.string());
+    }
+    sources.emplace_back(std::move(path), std::move(text));
+  }
+  return sources;
+}
+
 bool
 is_executable_file(const std::filesystem::path& path) {
   std::error_code ec;
@@ -925,6 +976,20 @@ parse_function_signatures(const std::string& body) {
   return functions;
 }
 
+std::vector<FunctionSignature>
+parse_function_signatures_for_block(
+  const std::string& body,
+  const std::vector<std::string>& source_paths
+) {
+  std::string signature_text = body;
+  for (const auto& source : read_referenced_sources(source_paths)) {
+    signature_text.push_back('\n');
+    signature_text += source.second;
+    signature_text.push_back('\n');
+  }
+  return parse_function_signatures(signature_text);
+}
+
 StyioDataType
 styio_data_type_for_c_type(const CType& type) {
   switch (type.kind) {
@@ -946,14 +1011,44 @@ styio_data_type_for_c_type(const CType& type) {
   return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
 }
 
+std::string
+source_text_for_block(
+  const std::string& abi,
+  const std::string& body,
+  const std::vector<std::string>& source_paths
+) {
+  const std::string normalized_abi = normalize_abi(abi);
+  std::string source_text = source_preamble(normalized_abi) + body + "\n";
+  for (const auto& source : read_referenced_sources(source_paths)) {
+    source_text += "\n/* styio native source: ";
+    source_text += c_string_escape(source.first.string());
+    source_text += " hash=";
+    source_text += stable_hash_hex(source.second);
+    source_text += " */\n#include \"";
+    source_text += c_string_escape(source.first.string());
+    source_text += "\"\n";
+  }
+  return source_text;
+}
+
 LoadedBlock
 compile_and_load_block(
   const std::string& abi,
   const std::string& body,
   const std::vector<std::string>& export_symbols
 ) {
+  return compile_and_load_block(abi, body, {}, export_symbols);
+}
+
+LoadedBlock
+compile_and_load_block(
+  const std::string& abi,
+  const std::string& body,
+  const std::vector<std::string>& source_paths,
+  const std::vector<std::string>& export_symbols
+) {
   const std::string normalized_abi = normalize_abi(abi);
-  std::vector<FunctionSignature> parsed = parse_function_signatures(body);
+  std::vector<FunctionSignature> parsed = parse_function_signatures_for_block(body, source_paths);
   if (parsed.empty()) {
     throw StyioTypeError("@extern(" + normalized_abi + ") block does not declare any callable function");
   }
@@ -971,7 +1066,7 @@ compile_and_load_block(
   }
 
   const CompilerResolution compiler = resolve_compiler_for_abi(normalized_abi);
-  const std::string source_text = source_preamble(normalized_abi) + body + "\n";
+  const std::string source_text = source_text_for_block(normalized_abi, body, source_paths);
   const std::string cache_key = native_cache_key(normalized_abi, compiler, source_text);
 
   auto& process_cache = native_module_cache();

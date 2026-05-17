@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-05-14
+**Last updated:** 2026-05-17
 
 ## Mission
 
@@ -49,6 +49,7 @@ Related docs:
 20. Dynamic-slot stores must fail closed on mismatched LLVM value families. Do not replace invalid integer, floating, or pointer fields with zero/null sentinels unless the IR node explicitly represents an undefined value.
 21. Internal IR operator dispatch must fail closed. Unknown binary or logical operators are typed diagnostics, not zero/left-operand fallbacks, and each new operator family needs a focused security/codegen regression before it can reach LLVM emission.
 22. Runtime helpers may include public service configuration headers from `src/StyioServices/StyioConfig/`, but service-layer moves must not change the emitted helper ABI, exported `styio_*` symbol set, or ORC registration requirements.
+23. Native `@extern` codegen must keep JIT and `styio build` artifacts equivalent. Inline bodies and referenced C/C++ source files both flow through `StyioNative::source_text_for_block(...)`; artifact builds must compile those units into objects and link them into the final executable so exported symbols are available without relying on process-local JIT state.
 
 ## Change Classes
 

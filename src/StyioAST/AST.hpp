@@ -3328,15 +3328,17 @@ class ExternBlockAST : public StyioASTTraits<ExternBlockAST>
 {
   string Abi;
   string Body;
+  vector<string> SourcePaths;
 
 public:
-  ExternBlockAST(string abi, string body) :
+  ExternBlockAST(string abi, string body, vector<string> source_paths = {}) :
       Abi(std::move(abi)),
-      Body(std::move(body)) {
+      Body(std::move(body)),
+      SourcePaths(std::move(source_paths)) {
   }
 
-  static ExternBlockAST* Create(string abi, string body) {
-    return new ExternBlockAST(std::move(abi), std::move(body));
+  static ExternBlockAST* Create(string abi, string body, vector<string> source_paths = {}) {
+    return new ExternBlockAST(std::move(abi), std::move(body), std::move(source_paths));
   }
 
   const string& getAbi() const {
@@ -3345,6 +3347,10 @@ public:
 
   const string& getBody() const {
     return Body;
+  }
+
+  const vector<string>& getSourcePaths() const {
+    return SourcePaths;
   }
 
   const StyioNodeType getNodeType() const {

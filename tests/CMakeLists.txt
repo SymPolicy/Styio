@@ -156,6 +156,15 @@ set_tests_properties(styio_build_native_executable_stdin_echo PROPERTIES
 )
 
 add_test(
+  NAME styio_build_native_executable_native_interop
+  COMMAND bash -c "rm -f \"${CMAKE_BINARY_DIR}/styio-native-hybrid\" && \"${STYIO_EXE}\" build \"${STYIO_FEATURES}/native_interop/t07_native_hybrid_inline_reference_artifact.styio\" -o \"${CMAKE_BINARY_DIR}/styio-native-hybrid\" && test -x \"${CMAKE_BINARY_DIR}/styio-native-hybrid\" && \"${CMAKE_BINARY_DIR}/styio-native-hybrid\" | cmp -s - \"${STYIO_FEATURES}/native_interop/expected/t07_native_hybrid_inline_reference_artifact.out\""
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(styio_build_native_executable_native_interop PROPERTIES
+  LABELS "native_artifact;native_interop;language_feature"
+)
+
+add_test(
   NAME stdio_input_t02_stdin_pull
   COMMAND bash -c "cat \"${STYIO_FEATURES}/stdio_input/data/pull_input.txt\" | \"${STYIO_EXE}\" --file \"${STYIO_FEATURES}/stdio_input/t02_stdin_pull.styio\" | cmp -s - \"${STYIO_FEATURES}/stdio_input/expected/t02_stdin_pull.out\""
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"

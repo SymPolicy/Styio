@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of feature tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-05-14
+**Last updated:** 2026-05-17
 
 ## Mission
 
@@ -76,6 +76,7 @@ Primary paths:
 50. Iterator and forward-clause leaks can migrate outward after the inner `#tag` ownership is fixed. When fuzz shows a later failure in legacy fallback or nightly subset recovery after an iterator was already constructed, preserve that second raw seed too, add a second session-backed regression, and rerun the isolated artifact plus the full parser corpus so the next owner boundary is proved closed.
 51. Statement-prefix leaks need the same two-engine closure. If fuzz reaches `parse_stmt_or_expr_legacy(...)` or shadow-mode statement recovery and leaks a created `NameAST` or bind target before the right-hand side finishes parsing, keep that raw seed, add a session-backed regression that covers both engines, and replay the isolated artifact plus the tracked parser corpus so legacy entry points cannot silently rot behind nightly shadow green status.
 52. `@resource` leak seeds need three-route confirmation even when the test loop only drives two engines. If fuzz leaks a `NameAST` built in `parse_resource_ref_after_at_latest(...)`, preserve the raw seed, add a session-backed regression that runs both legacy and nightly engines, and verify the replay stack closes legacy main-block parsing plus nightly subset and shadow recovery before treating the corpus backflow as complete.
+53. Syntax-check diagnostics that add recoverable parser behavior or source context need focused CLI tests covering nonzero exit codes, multiple recovered `STYIO_PARSE` entries when applicable, and machine-readable caret/source fields for both parse and lex failures.
 
 ## Change Classes
 

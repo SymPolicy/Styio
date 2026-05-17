@@ -40,6 +40,7 @@
 #include "StyioException/Exception.hpp"
 #include "StyioExtern/ExternLib.hpp"
 #include "StyioIR/StyioIR.hpp" /* StyioIR */
+#include "StyioNative/NativeInterop.hpp"
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
 #include "StyioProfiler/FrontendProfiler.hpp"
@@ -3131,6 +3132,18 @@ styio_emit_machine_info_json(const StyioDictImplSelectionLatest& dict_impl_selec
 #else
     << "true"
 #endif
+    << ",\"syntax_check_recovery_diagnostics\":"
+#if STYIO_NANO_BUILD
+    << "false"
+#else
+    << "true"
+#endif
+    << ",\"syntax_check_source_context\":"
+#if STYIO_NANO_BUILD
+    << "false"
+#else
+    << "true"
+#endif
     << ",\"compile_plan_consumer\":"
 #if STYIO_NANO_BUILD
     << "false"
@@ -3156,6 +3169,8 @@ styio_emit_machine_info_json(const StyioDictImplSelectionLatest& dict_impl_selec
     << "\"jsonl_diagnostics\"";
 #if !STYIO_NANO_BUILD
   std::cout << ",\"syntax_check_json\"";
+  std::cout << ",\"syntax_check_recovery_diagnostics\"";
+  std::cout << ",\"syntax_check_source_context\"";
 #endif
 #if !STYIO_NANO_BUILD
   std::cout << ",\"nano_package_materialize\"";
@@ -4031,6 +4046,122 @@ styio_native_build_prepare_ir_latest(
   return styio_write_text_file_latest(native_ir_path, ir_text, error_message);
 }
 
+struct StyioNativeExternUnitLatest
+{
+  std::string abi;
+  std::string source_text;
+};
+
+static bool
+styio_native_build_collect_extern_units_latest(
+  const std::filesystem::path& input_path,
+  std::vector<StyioNativeExternUnitLatest>& out_units,
+  std::string& error_message
+) {
+  tmp_code_wrap source = read_styio_file(input_path.string());
+  if (!source.ok) {
+    error_message = source.error_message;
+    return false;
+  }
+
+  std::vector<StyioToken*> tokens;
+  StyioContext* context = nullptr;
+  MainBlockAST* ast = nullptr;
+  auto cleanup = [&]()
+  {
+    delete ast;
+    delete context;
+    for (auto* token : tokens) {
+      delete token;
+    }
+    tokens.clear();
+    StyioAST::destroy_all_tracked_nodes();
+  };
+
+  try {
+    tokens = StyioTokenizer::tokenize(source.code_text);
+    context = StyioContext::Create(input_path.string(), source.code_text, source.line_seps, tokens, false);
+    ast = parse_main_block_with_engine_latest(*context, StyioParserEngine::Nightly, nullptr);
+    for (auto* stmt : ast->getStmts()) {
+      if (auto* extern_block = dynamic_cast<ExternBlockAST*>(stmt)) {
+        out_units.push_back(StyioNativeExternUnitLatest{
+          extern_block->getAbi(),
+          styio::native::source_text_for_block(
+            extern_block->getAbi(),
+            extern_block->getBody(),
+            extern_block->getSourcePaths())});
+      }
+    }
+  } catch (const StyioBaseException& ex) {
+    error_message = ex.what();
+    cleanup();
+    return false;
+  } catch (const std::exception& ex) {
+    error_message = ex.what();
+    cleanup();
+    return false;
+  }
+
+  cleanup();
+  return true;
+}
+
+static bool
+styio_native_build_compile_extern_units_latest(
+  const std::filesystem::path& build_root,
+  const std::vector<StyioNativeExternUnitLatest>& units,
+  std::vector<std::filesystem::path>& out_objects,
+  std::string& error_message
+) {
+  const std::filesystem::path native_dir = build_root / "native-extern";
+  std::error_code ec;
+  std::filesystem::create_directories(native_dir, ec);
+  if (ec) {
+    error_message = "cannot create native @extern build directory: "
+      + native_dir.string() + ": " + ec.message();
+    return false;
+  }
+
+  for (size_t i = 0; i < units.size(); ++i) {
+    const std::string abi = styio::native::normalize_abi(units[i].abi);
+    const std::filesystem::path source_path =
+      native_dir / ("extern-" + std::to_string(i) + (abi == "c++" ? ".cpp" : ".c"));
+    const std::filesystem::path object_path =
+      native_dir / ("extern-" + std::to_string(i) + ".o");
+    const std::filesystem::path log_path =
+      native_dir / ("extern-" + std::to_string(i) + ".log");
+
+    if (!styio_write_text_file_latest(source_path, units[i].source_text, error_message)) {
+      return false;
+    }
+
+    const auto compiler = styio::native::resolve_compiler_for_abi(abi);
+    const std::string command =
+      styio_shell_quote_latest(compiler.command)
+      + (abi == "c++" ? " -std=c++20" : " -std=c11")
+      + " -O2 -fPIC -c "
+      + styio_shell_quote_latest(source_path.string())
+      + " -o "
+      + styio_shell_quote_latest(object_path.string())
+      + " > "
+      + styio_shell_quote_latest(log_path.string())
+      + " 2>&1";
+    if (std::system(command.c_str()) != 0) {
+      error_message = "native @extern artifact compile failed with command `" + command + "`";
+      std::string log_text;
+      std::string log_error;
+      (void)styio_read_text_file_latest(log_path, log_text, log_error);
+      if (!log_text.empty()) {
+        error_message += "\n" + log_text;
+      }
+      return false;
+    }
+
+    out_objects.push_back(object_path);
+  }
+  return true;
+}
+
 static std::string
 styio_native_build_read_log_latest(const std::filesystem::path& path) {
   std::string text;
@@ -4159,17 +4290,38 @@ styio_native_build_cli_latest(int argc, char* argv[]) {
     return static_cast<int>(StyioExitCode::RuntimeError);
   }
 
+  std::vector<StyioNativeExternUnitLatest> native_extern_units;
+  if (!styio_native_build_collect_extern_units_latest(input_path, native_extern_units, error_message)) {
+    std::cerr << "[RuntimeError] " << error_message << std::endl;
+    cleanup();
+    return static_cast<int>(StyioExitCode::RuntimeError);
+  }
+  std::vector<std::filesystem::path> native_extern_objects;
+  if (!styio_native_build_compile_extern_units_latest(
+        build_root,
+        native_extern_units,
+        native_extern_objects,
+        error_message)) {
+    std::cerr << "[RuntimeError] " << error_message << std::endl;
+    cleanup();
+    return static_cast<int>(StyioExitCode::RuntimeError);
+  }
+
   const std::filesystem::path runtime_src = source_root / "src" / "StyioExtern" / "ExternLib.cpp";
   const std::filesystem::path include_dir = source_root / "src";
   const std::string cxx = styio_native_build_compiler_latest();
-  const std::string native_cmd =
+  std::string native_cmd =
     styio_shell_quote_latest(cxx)
     + " -std=c++20 -O3 -DNDEBUG -Wno-override-module"
     + " " + styio_shell_quote_latest(native_ir_path.string())
     + " " + styio_shell_quote_latest(wrapper_path.string())
     + " " + styio_shell_quote_latest(runtime_src.string())
-    + " -I " + styio_shell_quote_latest(include_dir.string())
-    + " -o " + styio_shell_quote_latest(output_path.string())
+    + " -I " + styio_shell_quote_latest(include_dir.string());
+  for (const auto& object_path : native_extern_objects) {
+    native_cmd += " " + styio_shell_quote_latest(object_path.string());
+  }
+  native_cmd +=
+    " -o " + styio_shell_quote_latest(output_path.string())
     + " -ldl -pthread"
     + " > " + styio_shell_quote_latest(native_compile_log.string())
     + " 2>&1";

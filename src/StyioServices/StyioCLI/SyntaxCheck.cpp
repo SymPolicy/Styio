@@ -57,6 +57,14 @@ struct Diagnostic
   std::size_t length = 0;
 };
 
+struct SourceContext
+{
+  std::string line_text;
+  std::size_t range_start_column = 1;
+  std::size_t range_end_column = 1;
+  std::string caret;
+};
+
 std::string
 json_escape(const std::string& input) {
   std::string out;
@@ -132,6 +140,46 @@ position_at(const SourceText& source, std::size_t offset) {
   return {line + 1, offset - source.line_starts[line] + 1};
 }
 
+SourceContext
+source_context_at(const SourceText& source, std::size_t offset, std::size_t length) {
+  SourceContext context;
+  if (source.line_starts.empty()) {
+    context.caret = "^";
+    return context;
+  }
+
+  offset = std::min(offset, source.text.size());
+  const auto it = std::upper_bound(source.line_starts.begin(), source.line_starts.end(), offset);
+  const std::size_t line_index =
+    it == source.line_starts.begin() ? 0 : static_cast<std::size_t>((it - source.line_starts.begin()) - 1);
+  const std::size_t line_start = source.line_starts[line_index];
+  std::size_t line_end =
+    line_index + 1 < source.line_starts.size() ? source.line_starts[line_index + 1] : source.text.size();
+  if (line_end > line_start && source.text[line_end - 1] == '\n') {
+    line_end -= 1;
+  }
+  if (line_end > line_start && source.text[line_end - 1] == '\r') {
+    line_end -= 1;
+  }
+
+  context.line_text = source.text.substr(line_start, line_end - line_start);
+  context.range_start_column = offset - line_start + 1;
+  const std::size_t line_length = line_end - line_start;
+  const std::size_t start_offset_in_line = offset - line_start;
+  const std::size_t max_width_on_line =
+    line_length > start_offset_in_line ? line_length - start_offset_in_line : 1;
+  const std::size_t requested_length = length == 0 ? 1 : length;
+  const std::size_t effective_length = std::max<std::size_t>(1, std::min(requested_length, max_width_on_line));
+  context.range_end_column = context.range_start_column + effective_length;
+  const std::size_t caret_indent = context.range_start_column > 0 ? context.range_start_column - 1 : 0;
+  context.caret.assign(caret_indent, ' ');
+  context.caret.push_back('^');
+  if (effective_length > 1) {
+    context.caret.append(effective_length - 1, '~');
+  }
+  return context;
+}
+
 std::size_t
 diagnostic_offset_from_message(const std::string& message, const SourceText& source) {
   const std::string marker = " at offset ";
@@ -151,6 +199,18 @@ diagnostic_offset_from_message(const std::string& message, const SourceText& sou
     ++cursor;
   }
   return std::min(value, source.text.size());
+}
+
+std::vector<Diagnostic>
+parse_diagnostics_from_context(const StyioContext& context, const SourceText& source) {
+  std::vector<Diagnostic> diagnostics;
+  for (const auto& diagnostic : context.parse_diagnostics()) {
+    const std::size_t start = std::min(diagnostic.start, source.text.size());
+    const std::size_t end = std::min(std::max(diagnostic.end, diagnostic.start), source.text.size());
+    const std::size_t length = end > start ? end - start : (source.text.empty() ? 0u : 1u);
+    diagnostics.push_back(Diagnostic{"parse", "STYIO_PARSE", diagnostic.message, start, length});
+  }
+  return diagnostics;
 }
 
 bool
@@ -218,6 +278,13 @@ emit_result(
       << ",\"column\":" << column
       << ",\"offset\":" << diagnostic.offset
       << ",\"length\":" << diagnostic.length
+      << ",\"source_context\":";
+    const SourceContext context = source_context_at(source, diagnostic.offset, diagnostic.length);
+    std::cout
+      << "{\"line_text\":\"" << json_escape(context.line_text) << "\""
+      << ",\"range_start_column\":" << context.range_start_column
+      << ",\"range_end_column\":" << context.range_end_column
+      << ",\"caret\":\"" << json_escape(context.caret) << "\"}"
       << "}";
   }
 
@@ -359,7 +426,7 @@ run_syntax_check_cli(int argc, char* argv[]) {
 
   try {
     context = StyioContext::Create(file, source.text, source.line_seps, tokens, false);
-    ast = parse_main_block_with_engine_latest(*context, parser_engine, nullptr, StyioParseMode::Strict);
+    ast = parse_main_block_with_engine_latest(*context, parser_engine, nullptr, StyioParseMode::Recovery);
   } catch (const StyioBaseException& ex) {
     const std::size_t offset =
       context == nullptr ? 0 : std::min(context->current_token_end_pos(), source.text.size());
@@ -385,6 +452,21 @@ run_syntax_check_cli(int argc, char* argv[]) {
       parser_engine,
       source,
       {Diagnostic{"parse", "STYIO_PARSE", ex.what(), offset, source.text.empty() ? 0u : 1u}});
+    return static_cast<int>(SyntaxCheckExitCode::ParseError);
+  }
+
+  std::vector<Diagnostic> parse_diagnostics =
+    context == nullptr ? std::vector<Diagnostic>{} : parse_diagnostics_from_context(*context, source);
+  if (!parse_diagnostics.empty()) {
+    cleanup();
+    emit_result(
+      file,
+      "syntax_error",
+      false,
+      "parse",
+      parser_engine,
+      source,
+      parse_diagnostics);
     return static_cast<int>(SyntaxCheckExitCode::ParseError);
   }
 

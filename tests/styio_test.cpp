@@ -94,6 +94,20 @@ trim_copy_latest(const std::string& text) {
   return text.substr(begin, end - begin);
 }
 
+std::size_t
+count_substring_latest(const std::string& text, const std::string& needle) {
+  if (needle.empty()) {
+    return 0;
+  }
+  std::size_t count = 0;
+  std::size_t pos = 0;
+  while ((pos = text.find(needle, pos)) != std::string::npos) {
+    ++count;
+    pos += needle.size();
+  }
+  return count;
+}
+
 std::string
 sha256_file_latest(const fs::path& path) {
   const CommandResult shasum =
@@ -455,6 +469,8 @@ TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   EXPECT_NE(result.stdout_text.find("\"supported_adapter_modes\":[\"cli\"]"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"feature_flags\":{\"single_file_entry\":true"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"syntax_check\":true"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"syntax_check_recovery_diagnostics\":true"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"syntax_check_source_context\":true"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"compile_plan_consumer\":true"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"project_execution_via_compile_plan\":true"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"runtime_event_stream\":true"), std::string::npos);
@@ -462,6 +478,8 @@ TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   EXPECT_NE(result.stdout_text.find("\"single_file_entry\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"jsonl_diagnostics\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"syntax_check_json\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"syntax_check_recovery_diagnostics\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"syntax_check_source_context\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"nano_package_registry_publish_v1\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"dict_impl\":{\"selected\":\"ordered-hash\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"edition_max\":\"2026\""), std::string::npos);
@@ -537,6 +555,41 @@ TEST(StyioDiagnostics, SyntaxCheckJsonReportsParseFailure) {
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_PARSE\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"line\":"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"column\":"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"source_context\":{"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"line_text\":\"# broken := (a: i32) => a +\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"caret\":\"^\""), std::string::npos);
+
+  fs::remove(source);
+}
+
+TEST(StyioDiagnostics, SyntaxCheckJsonReportsMultipleRecoveredParseFailures) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path source =
+    fs::temp_directory_path() / ("styio-syntax-check-recovery-" + std::to_string(uniq) + ".styio");
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << "# broken := (a: i32) => a +\n";
+    out << "# also_broken := (b: i32) => b +\n";
+    out << "valid: i32 := 1\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" check --syntax --json --file \"" + source.string() + "\" 2>&1";
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 3) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"status\":\"syntax_error\""), std::string::npos);
+  EXPECT_EQ(count_substring_latest(result.stdout_text, "\"code\":\"STYIO_PARSE\""), 2U) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"line_text\":\"# broken := (a: i32) => a +\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"line_text\":\"# also_broken := (b: i32) => b +\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"source_context\":{"), std::string::npos);
 
   fs::remove(source);
 }
@@ -569,6 +622,9 @@ TEST(StyioDiagnostics, SyntaxCheckJsonReportsLexFailure) {
   EXPECT_NE(result.stdout_text.find("\"line\":2"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"column\":1"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"offset\":7"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"source_context\":{"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"line_text\":\"/* unterminated\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"caret\":\"^\""), std::string::npos);
 
   fs::remove(source);
 }

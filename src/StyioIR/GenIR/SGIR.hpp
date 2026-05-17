@@ -475,14 +475,16 @@ class SGExternBlock : public StyioIRTraits<SGExternBlock>
 public:
   std::string abi;
   std::string body;
+  std::vector<std::string> source_paths;
 
-  SGExternBlock(std::string abi, std::string body) :
+  SGExternBlock(std::string abi, std::string body, std::vector<std::string> source_paths = {}) :
       abi(std::move(abi)),
-      body(std::move(body)) {
+      body(std::move(body)),
+      source_paths(std::move(source_paths)) {
   }
 
-  static SGExternBlock* Create(std::string abi, std::string body) {
-    return new SGExternBlock(std::move(abi), std::move(body));
+  static SGExternBlock* Create(std::string abi, std::string body, std::vector<std::string> source_paths = {}) {
+    return new SGExternBlock(std::move(abi), std::move(body), std::move(source_paths));
   }
 };
 

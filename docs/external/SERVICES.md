@@ -37,10 +37,10 @@ Successful output uses the `syntax-check` contract:
 {"schema_version":1,"contract":"syntax-check","status":"ok","ok":true,"phase":"parse","diagnostics":[]}
 ```
 
-Failure output remains JSON and carries a phase-specific diagnostic:
+Failure output remains JSON and carries phase-specific diagnostics. Parser failures use recoverable statement parsing where possible, so tools can receive multiple `STYIO_PARSE` entries in one result. Each diagnostic includes a structured `source_context` object for Clang-style caret rendering without parsing the human message:
 
 ```json
-{"schema_version":1,"contract":"syntax-check","status":"syntax_error","ok":false,"phase":"parse","diagnostics":[{"phase":"parse","code":"STYIO_PARSE","severity":"error","line":1,"column":1}]}
+{"schema_version":1,"contract":"syntax-check","status":"syntax_error","ok":false,"phase":"parse","diagnostics":[{"phase":"parse","code":"STYIO_PARSE","severity":"error","line":1,"column":1,"source_context":{"line_text":"# broken := (a: i32) => a +","range_start_column":1,"range_end_column":2,"caret":"^"}}]}
 ```
 
 ### Compiler Handoff Contracts

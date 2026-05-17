@@ -1535,7 +1535,7 @@ StyioToLLVM::declare_native_extern_block(
   SGExternBlock* node,
   const std::vector<std::string>& export_symbols
 ) {
-  auto loaded = styio::native::compile_and_load_block(node->abi, node->body, export_symbols);
+  auto loaded = styio::native::compile_and_load_block(node->abi, node->body, node->source_paths, export_symbols);
   if (loaded.handle != nullptr) {
     native_library_handles_.push_back(loaded.handle);
   }
