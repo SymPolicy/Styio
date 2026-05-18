@@ -476,15 +476,31 @@ public:
   std::string abi;
   std::string body;
   std::vector<std::string> source_paths;
+  std::vector<std::string> exported_symbols;
 
-  SGExternBlock(std::string abi, std::string body, std::vector<std::string> source_paths = {}) :
+  SGExternBlock(
+    std::string abi,
+    std::string body,
+    std::vector<std::string> source_paths = {},
+    std::vector<std::string> exported_symbols = {}
+  ) :
       abi(std::move(abi)),
       body(std::move(body)),
-      source_paths(std::move(source_paths)) {
+      source_paths(std::move(source_paths)),
+      exported_symbols(std::move(exported_symbols)) {
   }
 
-  static SGExternBlock* Create(std::string abi, std::string body, std::vector<std::string> source_paths = {}) {
-    return new SGExternBlock(std::move(abi), std::move(body), std::move(source_paths));
+  static SGExternBlock* Create(
+    std::string abi,
+    std::string body,
+    std::vector<std::string> source_paths = {},
+    std::vector<std::string> exported_symbols = {}
+  ) {
+    return new SGExternBlock(
+      std::move(abi),
+      std::move(body),
+      std::move(source_paths),
+      std::move(exported_symbols));
   }
 };
 

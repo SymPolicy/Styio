@@ -1,0 +1,5 @@
+// M11 / T11.08: multiple native functions are explicitly exposed from one source reference
+
+# ref_square_1, ref_square_2 := @ extern(c++) { "native/ref_pair.cpp" }
+
+>_(ref_square_1(6) + ref_square_2(5))

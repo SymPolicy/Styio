@@ -98,6 +98,66 @@ struct StyioHashFunctionParserOps
   StyioAST* (*parse_iterator)(StyioContext& context, StyioAST* collection) = nullptr;
 };
 
+inline bool
+try_parse_hash_extern_binding_common_latest(StyioContext& context, StyioAST*& out) {
+  const auto saved = context.save_cursor();
+
+  if (!context.try_match(StyioTokenType::TOK_HASH)) {
+    context.restore_cursor(saved);
+    return false;
+  }
+  context.skip();
+
+  std::vector<std::string> exported_symbols;
+  if (context.cur_tok_type() != StyioTokenType::NAME) {
+    context.restore_cursor(saved);
+    return false;
+  }
+  exported_symbols.push_back(context.cur_tok()->original);
+  context.move_forward(1, "hash_extern_binding_name");
+  context.skip();
+
+  while (context.cur_tok_type() == StyioTokenType::TOK_COMMA) {
+    context.move_forward(1, "hash_extern_binding_comma");
+    context.skip();
+    if (context.cur_tok_type() != StyioTokenType::NAME) {
+      context.restore_cursor(saved);
+      return false;
+    }
+    exported_symbols.push_back(context.cur_tok()->original);
+    context.move_forward(1, "hash_extern_binding_name");
+    context.skip();
+  }
+
+  if (context.cur_tok_type() != StyioTokenType::WALRUS
+      && context.cur_tok_type() != StyioTokenType::TOK_EQUAL) {
+    context.restore_cursor(saved);
+    return false;
+  }
+  context.move_forward(1, "hash_extern_binding_assign");
+  context.skip();
+
+  if (context.cur_tok_type() != StyioTokenType::TOK_AT) {
+    context.restore_cursor(saved);
+    return false;
+  }
+
+  const auto at_saved = context.save_cursor();
+  context.move_forward(1, "hash_extern_binding_at_probe");
+  context.skip();
+  const bool is_extern =
+    context.cur_tok_type() == StyioTokenType::NAME
+    && context.cur_tok()->original == "extern";
+  context.restore_cursor(at_saved);
+  if (!is_extern) {
+    context.restore_cursor(saved);
+    return false;
+  }
+
+  out = parse_bound_extern_after_at_latest(context, std::move(exported_symbols));
+  return true;
+}
+
 inline std::variant<TypeAST*, TypeTupleAST*>
 parse_hash_return_type_common_latest(
   StyioContext& context,
@@ -133,6 +193,11 @@ parse_hash_function_common_latest(
   StyioContext& context,
   const StyioHashFunctionParserOps& ops
 ) {
+  StyioAST* extern_binding = nullptr;
+  if (try_parse_hash_extern_binding_common_latest(context, extern_binding)) {
+    return extern_binding;
+  }
+
   context.match_panic(StyioTokenType::TOK_HASH);
   context.skip();
 

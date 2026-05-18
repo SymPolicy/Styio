@@ -2679,7 +2679,11 @@ AstToStyioIRLowerer::toStyioIR(ExportDeclAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ExternBlockAST* ast) {
-  return SGExternBlock::Create(ast->getAbi(), ast->getBody(), ast->getSourcePaths());
+  return SGExternBlock::Create(
+    ast->getAbi(),
+    ast->getBody(),
+    ast->getSourcePaths(),
+    ast->getExportedSymbols());
 }
 
 StyioIR*

@@ -1552,6 +1552,29 @@ TEST(StyioSecurityNightlyParserStmt, AcceptsAtExternCPlusPlusBlockSyntax) {
   EXPECT_NE(nightly.find("fast_square"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, AcceptsBoundExternReferenceSyntax) {
+  const std::string src =
+    "# ref_square := @ extern(C++) { \"native/ref_square.cpp\" }\n";
+
+  const std::string nightly = parse_program_to_repr_latest(src, true);
+  const std::string legacy = parse_program_to_repr_latest(src, false);
+  EXPECT_EQ(nightly, legacy);
+  EXPECT_NE(nightly.find("styio.ast.extern"), std::string::npos);
+  EXPECT_NE(nightly.find("abi: c++"), std::string::npos);
+  EXPECT_NE(nightly.find("sources:"), std::string::npos);
+  EXPECT_NE(nightly.find("exports: ref_square"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, AcceptsBoundExternMultipleSymbolsSyntax) {
+  const std::string src =
+    "# ref_square_1, ref_square_2 := @ extern(C++) { \"native/ref_pair.cpp\" }\n";
+
+  const std::string nightly = parse_program_to_repr_latest(src, true);
+  const std::string legacy = parse_program_to_repr_latest(src, false);
+  EXPECT_EQ(nightly, legacy);
+  EXPECT_NE(nightly.find("exports: ref_square_1 ref_square_2"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, RejectsMixedSeparatorsInsideAtImportItem) {
   const std::string src = "@import { styio/mod.sub }\n";
   EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
@@ -1843,6 +1866,42 @@ TEST(StyioSecurityNightlySemantics, RejectsUnknownFunctionDuringTypecheck) {
     parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly),
     StyioTypeError
   );
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsBoundExternMissingDeclaredSymbol) {
+  const std::string src =
+    "# missing_add := @ extern(c) {\n"
+    "int fast_add(int a, int b) { return a + b; }\n"
+    "}\n"
+    ">_(missing_add(1, 2))\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected bound extern declaration mismatch";
+  }
+  catch (const StyioTypeError& ex) {
+    const std::string msg = ex.what();
+    EXPECT_NE(msg.find("@extern binding does not declare native function `missing_add`"), std::string::npos)
+      << msg;
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RegistersOnlyBoundExternSymbols) {
+  const std::string src =
+    "# fast_add := @ extern(c) {\n"
+    "int fast_add(int a, int b) { return a + b; }\n"
+    "int hidden_add(int a, int b) { return a + b; }\n"
+    "}\n"
+    ">_(hidden_add(1, 2))\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected hidden native symbol rejection";
+  }
+  catch (const StyioTypeError& ex) {
+    const std::string msg = ex.what();
+    EXPECT_NE(msg.find("unknown function `hidden_add`"), std::string::npos) << msg;
+  }
 }
 
 TEST(StyioSecurityNightlySemantics, RejectsUserFunctionArityMismatchDuringTypecheck) {

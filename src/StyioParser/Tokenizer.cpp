@@ -83,11 +83,14 @@ styio_prev_non_trivia_index(const std::vector<StyioToken*>& tokens, size_t befor
 bool
 styio_recent_tokens_open_native_extern_body(const std::vector<StyioToken*>& tokens) {
   auto cur = styio_prev_non_trivia_index(tokens, tokens.size());
-  if (!cur || tokens[*cur]->type != StyioTokenType::ARROW_DOUBLE_RIGHT) {
+  if (!cur) {
     return false;
   }
 
-  cur = styio_prev_non_trivia_index(tokens, *cur);
+  if (tokens[*cur]->type == StyioTokenType::ARROW_DOUBLE_RIGHT) {
+    cur = styio_prev_non_trivia_index(tokens, *cur);
+  }
+
   if (!cur || tokens[*cur]->type != StyioTokenType::TOK_RPAREN) {
     return false;
   }

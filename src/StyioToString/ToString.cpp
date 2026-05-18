@@ -782,6 +782,13 @@ StyioRepr::toString(ExternBlockAST* ast, int indent) {
     }
     out += "\n";
   }
+  if (!ast->getExportedSymbols().empty()) {
+    out += make_padding(indent) + "exports:";
+    for (const auto& symbol : ast->getExportedSymbols()) {
+      out += " " + symbol;
+    }
+    out += "\n";
+  }
   out += "}";
   return out;
 }
@@ -1465,6 +1472,15 @@ StyioRepr::toString(SGExternBlock* node, int indent) {
         out += ",";
       }
       out += node->source_paths[i];
+    }
+  }
+  if (!node->exported_symbols.empty()) {
+    out += " exports=";
+    for (size_t i = 0; i < node->exported_symbols.size(); ++i) {
+      if (i > 0) {
+        out += ",";
+      }
+      out += node->exported_symbols[i];
     }
   }
   out += " }";

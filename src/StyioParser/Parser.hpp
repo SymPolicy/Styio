@@ -1665,6 +1665,12 @@ parse_cases_only_latest(StyioContext& context);
 StyioAST*
 parse_at_stmt_or_expr_latest(StyioContext& context);
 
+ExternBlockAST*
+parse_bound_extern_after_at_latest(
+  StyioContext& context,
+  std::vector<std::string> exported_symbols
+);
+
 StyioAST*
 parse_state_decl_after_at_latest(StyioContext& context);
 

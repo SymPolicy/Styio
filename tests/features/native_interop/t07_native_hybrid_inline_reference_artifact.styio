@@ -1,9 +1,9 @@
 // M11 / T11.07: inline C and referenced C++ native externs link into JIT and artifacts
 
-@export { inline_add, ref_square }
-@extern(c) => {
+# ref_square := @ extern(c++) { "native/ref_square.cpp" }
+
+# inline_add := @ extern(c) {
 int inline_add(int a, int b) { return a + b; }
 }
-@extern(c++) => "native/ref_square.cpp"
 
 >_(inline_add(ref_square(6), 6))

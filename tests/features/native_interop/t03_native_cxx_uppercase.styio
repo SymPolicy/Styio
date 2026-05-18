@@ -1,7 +1,6 @@
-// M11 / T11.03: @extern(C++) is accepted as the same ABI spelling as @extern(c++)
+// M11 / T11.03: @ extern(C++) is accepted as the same ABI spelling as @ extern(c++)
 
-@export { fast_cube }
-@extern(C++) => {
+# fast_cube := @ extern(C++) {
 extern "C" int fast_cube(int x) { return x * x * x; }
 }
 

@@ -2920,10 +2920,6 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
       exported_symbols.insert(exported_symbols.end(), symbols.begin(), symbols.end());
     }
   }
-  const std::unordered_set<std::string> export_filter(
-    exported_symbols.begin(),
-    exported_symbols.end()
-  );
   for (auto const& s : stmts) {
     if (auto* f = dynamic_cast<FunctionAST*>(s)) {
       func_defs[f->getNameAsStr()] = f;
@@ -2936,8 +2932,16 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
     if (auto* ex = dynamic_cast<ExternBlockAST*>(s)) {
       const auto signatures =
         styio::native::parse_function_signatures_for_block(ex->getBody(), ex->getSourcePaths());
+      std::vector<std::string> block_symbols = ex->getExportedSymbols();
+      const std::vector<std::string>& active_exported_symbols =
+        block_symbols.empty() ? exported_symbols : block_symbols;
+      const std::unordered_set<std::string> active_export_filter(
+        active_exported_symbols.begin(),
+        active_exported_symbols.end()
+      );
+      std::unordered_set<std::string> registered_block_symbols;
       for (const auto& sig : signatures) {
-        if (!export_filter.empty() && export_filter.find(sig.name) == export_filter.end()) {
+        if (!active_export_filter.empty() && active_export_filter.find(sig.name) == active_export_filter.end()) {
           continue;
         }
         NativeFunctionType native_type;
@@ -2946,6 +2950,12 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
           native_type.arg_types.push_back(styio::native::styio_data_type_for_c_type(param.type));
         }
         native_func_defs[sig.name] = std::move(native_type);
+        registered_block_symbols.insert(sig.name);
+      }
+      for (const auto& symbol : block_symbols) {
+        if (registered_block_symbols.find(symbol) == registered_block_symbols.end()) {
+          throw StyioTypeError("@extern binding does not declare native function `" + symbol + "`");
+        }
       }
     }
     if (auto* method = dynamic_cast<ResourceMethodDefAST*>(s)) {

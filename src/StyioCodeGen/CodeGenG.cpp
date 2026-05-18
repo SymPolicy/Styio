@@ -2222,7 +2222,11 @@ StyioToLLVM::toLLVMIR(SGMainEntry* node) {
 
   for (auto* s : node->stmts) {
     if (auto* extern_block = dynamic_cast<SGExternBlock*>(s)) {
-      declare_native_extern_block(extern_block, export_symbols);
+      const std::vector<std::string>& active_export_symbols =
+        extern_block->exported_symbols.empty()
+          ? export_symbols
+          : extern_block->exported_symbols;
+      declare_native_extern_block(extern_block, active_export_symbols);
     }
   }
 

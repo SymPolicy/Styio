@@ -513,8 +513,75 @@ resolve_extern_source_path_latest(StyioContext& context, const std::string& raw_
   return source_path.lexically_normal().string();
 }
 
+static std::optional<std::vector<std::string>>
+try_parse_extern_source_paths_from_body_latest(StyioContext& context, const std::string& body) {
+  std::vector<std::string> source_paths;
+  size_t pos = 0;
+  auto skip_ws = [&]()
+  {
+    while (pos < body.size() && std::isspace(static_cast<unsigned char>(body[pos]))) {
+      ++pos;
+    }
+  };
+
+  skip_ws();
+  while (pos < body.size()) {
+    if (body[pos] != '"') {
+      return std::nullopt;
+    }
+
+    const size_t start = pos;
+    ++pos;
+    bool escaped = false;
+    while (pos < body.size()) {
+      const char ch = body[pos];
+      if (escaped) {
+        escaped = false;
+        ++pos;
+        continue;
+      }
+      if (ch == '\\') {
+        escaped = true;
+        ++pos;
+        continue;
+      }
+      if (ch == '"') {
+        ++pos;
+        break;
+      }
+      ++pos;
+    }
+    if (pos > body.size() || body[pos - 1] != '"') {
+      return std::nullopt;
+    }
+
+    source_paths.push_back(
+      resolve_extern_source_path_latest(context, body.substr(start, pos - start)));
+    skip_ws();
+    if (pos >= body.size()) {
+      break;
+    }
+    if (body[pos] != ',' && body[pos] != ';') {
+      return std::nullopt;
+    }
+    ++pos;
+    skip_ws();
+    if (pos >= body.size()) {
+      return std::nullopt;
+    }
+  }
+
+  if (source_paths.empty()) {
+    return std::nullopt;
+  }
+  return source_paths;
+}
+
 static ExternBlockAST*
-parse_extern_decl_after_at_latest(StyioContext& context) {
+parse_extern_block_after_at_name_latest(
+  StyioContext& context,
+  std::vector<std::string> exported_symbols
+) {
   if (!context.is_root_statement_position()) {
     throw StyioSyntaxError(context.mark_cur_tok("@extern is only allowed at file top level"));
   }
@@ -561,18 +628,57 @@ parse_extern_decl_after_at_latest(StyioContext& context) {
 
   context.try_match_panic(StyioTokenType::TOK_RPAREN);
   context.skip();
-  context.try_match_panic(StyioTokenType::ARROW_DOUBLE_RIGHT);
+  const bool saw_arrow = context.try_match(StyioTokenType::ARROW_DOUBLE_RIGHT);
   context.skip();
 
-  if (context.cur_tok_type() == StyioTokenType::STRING) {
+  if (saw_arrow && context.cur_tok_type() == StyioTokenType::STRING) {
     std::vector<std::string> source_paths{
       resolve_extern_source_path_latest(context, context.cur_tok()->original)
     };
     context.move_forward(1, "@extern source");
-    return ExternBlockAST::Create(abi, "", std::move(source_paths));
+    return ExternBlockAST::Create(
+      abi,
+      "",
+      std::move(source_paths),
+      std::move(exported_symbols));
   }
 
-  return ExternBlockAST::Create(abi, parse_raw_braced_body_latest(context, "@extern"));
+  if (context.cur_tok_type() != StyioTokenType::TOK_LCURBRAC) {
+    throw StyioSyntaxError(context.mark_cur_tok("expected => or body after @extern ABI"));
+  }
+
+  std::string body = parse_raw_braced_body_latest(context, "@extern");
+  if (auto source_paths = try_parse_extern_source_paths_from_body_latest(context, body)) {
+    return ExternBlockAST::Create(
+      abi,
+      "",
+      std::move(*source_paths),
+      std::move(exported_symbols));
+  }
+
+  return ExternBlockAST::Create(
+    abi,
+    std::move(body),
+    {},
+    std::move(exported_symbols));
+}
+
+static ExternBlockAST*
+parse_extern_decl_after_at_latest(StyioContext& context) {
+  return parse_extern_block_after_at_name_latest(context, {});
+}
+
+ExternBlockAST*
+parse_bound_extern_after_at_latest(
+  StyioContext& context,
+  std::vector<std::string> exported_symbols
+) {
+  context.try_match_panic(StyioTokenType::TOK_AT);
+  context.skip();
+  if (exported_symbols.empty()) {
+    throw StyioSyntaxError(context.mark_cur_tok("@extern binding requires at least one exported symbol"));
+  }
+  return parse_extern_block_after_at_name_latest(context, std::move(exported_symbols));
 }
 
 static StyioAST* parse_token_index_suffix(StyioContext& context, StyioAST* base);
