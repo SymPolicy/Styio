@@ -14,6 +14,7 @@ The numbers below use the same approximation as `scripts/docs-audit.py`:
 4. `character_count` is the raw Markdown character length.
 
 This table excludes generated [INDEX.md](./INDEX.md), collection [README.md](./README.md), and this statistics file from the team-runbook total.
+Refresh this snapshot in the same commit whenever a team runbook changes, even if adjacent commits already staged related statistics.
 
 Refresh command:
 

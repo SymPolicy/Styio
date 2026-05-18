@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the compressed default read-in for the current repository state so future agents can orient themselves from active docs first; Git history and minimal lifecycle provenance are optional background, not required maintenance input.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-05-19
 
 ## Default Read Order
 
@@ -30,6 +30,7 @@
 1. The active repo-wide unfinished-work summary is [`./NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md). Use it to split compiler debt, IDE closure work, and `spio` handoff tasks without collapsing repo boundaries.
 2. IDE work is tracked through the IDE external docs, IDE/LSP runbook, perf runbook, and current gap ledger instead of a retained planning batch.
 3. Resource Topology v2 remains a dedicated migration track owned by [`../design/Styio-Resource-Topology.md`](../design/Styio-Resource-Topology.md), [`../design/syntax/ACTIVE-SYNTAX.md`](../design/syntax/ACTIVE-SYNTAX.md), and the current gap ledger.
+4. Broad industrial-language closure work is decision-gated by [`NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md) §5.7. A missing compiler-language capability may remain unfinished only when it is recorded there with a pending decision, a mature architecture reference, and a concrete stop condition.
 
 ## Active Gates
 
@@ -46,7 +47,7 @@
 
 ## Current Risks
 
-1. The deepest remaining implementation debt is summarized in [`./NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md): parser subset gaps, sema/lowering placeholders, incomplete stream-processing stream closure, compile-plan release hardening with `styio-spio`, and IDE operational closure.
+1. The deepest remaining implementation debt is summarized in [`./NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md): parser subset gaps, sema/lowering placeholders, incomplete stream-processing stream closure, compile-plan release hardening with `styio-spio`, IDE operational closure, and the industrial-maturity decision register.
 2. Resource topology migration must keep design, parser/sema/lowering work, and test catalog updates in one checkpoint path.
 3. Benchmarking is now structured, but meaningful comparisons still depend on keeping parser shadow/five-layer gates green alongside the perf route.
 4. Shared ignore/fixture governance is only frozen for current tracked roots; any future repro root outside `docs/**` or `tests/**` still needs explicit negate rules before files land.

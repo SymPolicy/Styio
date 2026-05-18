@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-05-17
+**Last updated:** 2026-05-19
 
 ## Mission
 
@@ -97,6 +97,7 @@ Key SSOTs:
 62. Source-level Markdown remains disallowed under `src/` except for `src/StyioServices/**/README.md` and `src/StyioServices/MANIFEST.md`, which document service usage at the code boundary. Do not broaden the docs-audit exception without updating this runbook and the service catalog.
 63. Keep `scripts/ecosystem-cli-doc-gate.py` aligned with service-contract section numbering and controlled source graph names. When a downstream layout change lands before released `audit` policy catches up, CI may normalize the checked-out policy in `.github/workflows/audit.yml`; that workflow patch must remain downstream-local and must not imply an upstream policy push.
 64. When shared service diagnostics add consumer-facing JSON fields, update `docs/external/SERVICES.md`, the source-level service README, and the module manifest in the same checkpoint so external users see the same contract shape as `--machine-info=json`.
+65. When a broad compiler-language maturity gap cannot be implemented in the current checkpoint, record it in [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md) with a named pending decision, mature architecture reference, owner-facing stop condition, and follow-up gate instead of leaving it as prose in a chat or long-lived plan file.
 
 ## Change Classes
 

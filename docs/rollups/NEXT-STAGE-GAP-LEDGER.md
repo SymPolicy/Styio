@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the active, evidence-based phase summary for repository-wide unfinished work so maintainers can split the next stage into checkpoint-sized, multi-team deliveries without creating parallel truths.
 
-**Last updated:** 2026-05-12
+**Last updated:** 2026-05-19
 
 **Status:** Active collaboration ledger. This file distinguishes:
 
@@ -16,6 +16,7 @@
 2. Treat each gap below as a coordination item, not as a free-form backlog note. Every implementation checkpoint should point back to one or more ledger items.
 3. When a gap changes status, update this file, the owning runbook, and the relevant SSOT or handoff document in the same checkpoint.
 4. Do not use this file to redefine language semantics, package-manager product scope, or IDE public behavior. Those still belong to the owning SSOTs.
+5. Treat the industrial-maturity decision register in §5.7 as the required stop line for broad compiler-language hardening work: an unfinished capability may remain open only when it is tied to a named pending decision, a mature reference architecture, and the next artifact that would close or reject it.
 
 ## 2. Current Baseline That Is Real
 
@@ -34,7 +35,7 @@
 | Codegen / Runtime | Multi-stream zip and stream-driver combinations are only partially lowered | stream-processing remains incomplete end-to-end |
 | CLI / Nano | Bootstrap nano contract exists; full package lifecycle does not | Keep `styio` limited to compiler contracts and handoff surfaces |
 | IDE / LSP | Core semantic services exist, but stdio runtime drain and several LSP methods are still absent | Close operational gaps before expanding host-facing promises |
-| Tests / Quality | Core suites exist, state-resource active acceptance now uses Topology v2 syntax, and resource-topology safety coverage is registered, but negative-path package and next-stage migration coverage still need expansion | Coverage closure must run in parallel with implementation closure |
+| Tests / Quality | Core suites exist, state-resource active acceptance now uses Topology v2 syntax, resource-topology safety coverage is registered, and broad maturity gaps are now decision-tracked in §5.7, but negative-path package and next-stage migration coverage still need expansion | Coverage closure must run in parallel with implementation closure |
 
 ## 4. Responsibility Split: `styio` vs `styio-spio`
 
@@ -95,7 +96,34 @@
 | Package and contract negative-path testing still lags behind implementation branches | Medium | Nano create/publish guards, marker parsing, and blob verification are present in code but not closed by matching test density | Test Quality, CLI / Nano | Treat contract-edge coverage as release-blocking for any future nano handoff changes |
 | Broadened ignore baselines can still hide future tracked repro fixtures outside the frozen negate roots | Low | Root ignore rules now absorb cache, `tmp/`, `build-*`, and `*.tmp` / `*.log` style paths in [../../.gitignore](../../.gitignore), but `docs/**` and `tests/**` now have explicit negate rules and are checked by [../../scripts/repo-hygiene-gate.py](../../scripts/repo-hygiene-gate.py) | Docs / Ecosystem, Test Quality | Keep the shared ignore baseline, extend explicit negate rules before adding new tracked repro roots outside `docs/**` or `tests/**`, and do not rely on review memory alone |
 
-### 5.7 Closed Since Previous Ledger
+### 5.7 Industrial Maturity Decision Register
+
+This register is the active answer to broad requests to make Styio a mature compiler-language engineering project. It does not replace the feature ledger above. It records the decisions that must be resolved before a gap can be considered industrially closed, and it ties each item to a mature public architecture reference instead of local preference alone.
+
+| Decision ID | Capability gap | Current state | Mature reference architecture | Decision required before implementation closure | Stop condition |
+|-------------|----------------|---------------|-------------------------------|-----------------------------------------------|----------------|
+| IM-D1 | Parser ownership and grammar completeness | Nightly is active but remains a constrained subset with compatibility and fallback routes | Clang separates reusable source/diagnostic/file infrastructure in its Basic library and keeps diagnostics as first-class IDs, locations, severities, ranges, and consumers; rustc separates AST, HIR, type checking, MIR, borrow checking, optimization, and code generation in the compiler overview | Decide whether Styio keeps a hand-written parser with a strict no-fallback accepted grammar, or introduces a generated/recovering grammar layer for IDE while the compiler parser remains authoritative | Either every accepted grammar form has parser parity and shadow-gate evidence, or each unsupported form is listed with a rejection diagnostic and checkpoint owner |
+| IM-D2 | Typed diagnostics and parser/sema failure contract | Syntax check JSON exists, but several runtime/compiler gaps still depend on local diagnostics rather than a complete diagnostic taxonomy | Clang diagnostics use unique IDs, severity mapping, source locations, ranges, notes, and consumer rendering; Clang also keeps diagnostic and AST dump tests as a normal compiler testing pattern | Decide the stable Styio diagnostic code taxonomy across lex, parse, sema, lowering, runtime, native interop, and service APIs | All public diagnostics have machine-readable codes and tests, or the missing family is explicitly marked pending with owner and gate |
+| IM-D3 | Sema and lowering completeness | Placeholder lowering and empty visitors remain active debt | rustc lowers AST to HIR and then MIR; MIR is a simplified CFG with explicit types for flow-sensitive safety checks, optimization, and code generation | Decide the Styio middle-layer invariant: either introduce a Rust-style typed mid-level IR for all active syntax, or require every AST family to lower directly with no placeholder fallback | No active AST lowers to `SGConstInt(0)` as a placeholder; each remaining empty visitor is classified as dead syntax, intentional no-op, or implementation debt |
+| IM-D4 | Resource, capability, and failure-type model | Topology v2 and handle/capability/failure unification are still target design rather than fully active compiler behavior | Rust uses MIR for flow-sensitive safety checks; C++/Clang-style source/diagnostic infrastructure supports precise resource diagnostics; Go memory model documents synchronization and DRF-SC boundaries for concurrent execution | Decide the active resource contract: capability-state lattice, move/borrow behavior, cleanup failure semantics, and whether fallible operations become typed effects | Resource operations either typecheck through one unified capability/failure protocol or remain blocked behind named migration diagnostics |
+| IM-D5 | Stream runtime, concurrency, and cross-stream synchronization | Multi-stream zip and stream-driver combinations are partially lowered; cross-stream sync and pulse-frame locking are not fully active | Go memory model documents happens-before, synchronization operations, channel communication, and race-free sequential consistency; rustc MIR provides explicit CFG structure for control/dataflow checks | Decide whether Styio stream concurrency is single-machine deterministic pulses, Go-like synchronized channels, or another explicitly documented memory model | Each accepted stream combination has parser/sema/lowering/runtime tests, or the combination is rejected by a stable diagnostic tied to this decision |
+| IM-D6 | Package, module, and release compatibility model | `styio` owns nano producer/verifier and compile-plan contracts; full lifecycle is intentionally owned by `styio-spio` | Go modules define module graphs, minimal version selection, graph pruning, lazy loading, workspaces, and version-to-repository mapping | Decide the exact boundary between Styio compiler contracts and `styio-spio` package UX, including version pinning, lockfiles, vendoring, registry trust, and compatibility matrix ownership | `styio` exposes only compiler-side contracts with negative-path tests; package lifecycle items are either implemented in `styio-spio` or tracked as out-of-scope handoff requirements |
+| IM-D7 | Native interop ABI contract | Explicit `# name := @ extern(...) { ... }` binding is the preferred path, but ABI versioning, headers, namespaces, overloads, and manifest contracts are not yet defined | Clang owns C/C++ front-end source handling and target abstraction; LLVM LangRef is the stable IR contract beneath native codegen | Decide whether native interop remains source-slice based or grows a versioned ABI manifest with symbol mapping, target triples, toolchain requirements, and platform matrix | Each native fixture states its ABI contract and expected symbol exposure; unresolved ABI surfaces remain pending decisions rather than implicit behavior |
+| IM-D8 | Standard library and domain library maturity | Core fixtures cover language/runtime slices, but the thick-library model remains a large investment before practical broad use | Go standard packages and module tooling show a language-level distribution model; Rust/Clang keep core compiler semantics separate from libraries and toolchain integration | Decide which libraries are part of core language acceptance, which are external packages, and which belong to benchmark or domain repos | A library capability is either in the test catalog with versioned contract, delegated to a package repo, or explicitly deferred |
+| IM-D9 | IDE/LSP completeness and service contracts | LSP core exists, but `rename`, `codeAction`, `inlayHint`, multi-workspace behavior, and full operational closure are absent | Clang exposes diagnostics through consumers; rustc query-style demand-driven organization supports cached semantic facts; Go workspace behavior defines how tools scope multiple modules | Decide the stable service boundary between compiler parser, IDE recovery parser, semantic cache, and host-facing LSP capabilities | Public LSP capabilities match documented server capabilities and tests; missing methods remain intentionally absent with documented prerequisites |
+| IM-D10 | Release, conformance, and regression matrix | Local gates are strong, but cross-platform release, sanitizer/fuzz/perf, package negative paths, and conformance matrices are not complete | Clang keeps diagnostic and AST dump tests; Go modules define compatibility through module graph/version rules; rustc exposes staged IRs and query boundaries for compiler validation | Decide the release-quality matrix for nightly promotion: required platforms, sanitizer/fuzz lanes, perf gates, conformance fixtures, and service contract checks | A promotion is blocked by the matrix or the matrix explicitly lists the missing lane as a pending release decision |
+
+Reference links used by the register:
+
+1. Clang CFE Internals Manual: <https://clang.llvm.org/docs/InternalsManual.html>
+2. LLVM Language Reference Manual: <https://llvm.org/docs/LangRef.html>
+3. rustc development guide overview: <https://rustc-dev-guide.rust-lang.org/overview.html>
+4. rustc MIR guide: <https://rustc-dev-guide.rust-lang.org/mir/index.html>
+5. rustc query system guide: <https://rustc-dev-guide.rust-lang.org/query.html>
+6. Go Modules Reference: <https://go.dev/ref/mod>
+7. Go Memory Model: <https://go.dev/ref/mem>
+
+### 5.8 Closed Since Previous Ledger
 
 | Closed item | Evidence | Verification |
 |-------------|----------|--------------|
@@ -146,5 +174,6 @@ The next stage should not be a single monolithic rewrite. Use checkpoint-sized w
 
 1. The repository is not “unfinished everywhere”; it already has a real nightly-first baseline, a real IDE core, and a real nano bootstrap contract.
 2. The deepest unfinished work is concentrated in compiler completion debt: parser subset gaps, sema/type/lowering placeholders, stream-processing runtime closure, and Topology v2 migration debt.
-3. Package-manager expectations must stay split cleanly: `styio` now owns the compiler-side compile-plan contract baseline and its compatibility maintenance, but not a full package-manager product surface.
-4. IDE next-stage work should prioritize operational closure over feature count: drain semantics correctly first, then expand methods.
+3. Broad industrial-language gaps must not remain implicit. They are either implemented through checkpoint-sized work or parked in §5.7 with a named decision, a mature reference architecture, and a stop condition.
+4. Package-manager expectations must stay split cleanly: `styio` now owns the compiler-side compile-plan contract baseline and its compatibility maintenance, but not a full package-manager product surface.
+5. IDE next-stage work should prioritize operational closure over feature count: drain semantics correctly first, then expand methods.
