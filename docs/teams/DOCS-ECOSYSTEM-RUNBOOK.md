@@ -98,6 +98,7 @@ Key SSOTs:
 63. Keep `scripts/ecosystem-cli-doc-gate.py` aligned with service-contract section numbering and controlled source graph names. When a downstream layout change lands before released `audit` policy catches up, CI may normalize the checked-out policy in `.github/workflows/audit.yml`; that workflow patch must remain downstream-local and must not imply an upstream policy push.
 64. When shared service diagnostics add consumer-facing JSON fields, update `docs/external/SERVICES.md`, the source-level service README, and the module manifest in the same checkpoint so external users see the same contract shape as `--machine-info=json`.
 65. When a broad compiler-language maturity gap cannot be implemented in the current checkpoint, record it in [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md) with a named pending decision, mature architecture reference, owner-facing stop condition, and follow-up gate instead of leaving it as prose in a chat or long-lived plan file.
+66. Keep the industrial-maturity decision register sorted by descending priority: `IM-D1` is the highest-priority blocker, and larger decision numbers are lower priority.
 
 ## Change Classes
 
