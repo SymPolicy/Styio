@@ -341,6 +341,7 @@ public:
 
   std::string toString(SGResId* node, int indent = 0);
   std::string toString(SGType* node, int indent = 0);
+  std::string toString(SGNoOp* node, int indent = 0);
   
   std::string toString(SGConstBool* node, int indent = 0);
 

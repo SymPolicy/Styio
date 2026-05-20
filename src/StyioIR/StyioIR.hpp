@@ -28,6 +28,9 @@ public:
 
   /* LLVM IR Generator */
   virtual llvm::Value* toLLVMIR(StyioToLLVM* visitor) = 0;
+
+  /* True when this node belongs to the active StyioIR surface. */
+  virtual bool is_active() const = 0;
 };
 
 template <class T>
@@ -53,6 +56,10 @@ public:
 
   llvm::Value* toLLVMIR(StyioToLLVM* visitor) override {
     return visitor->toLLVMIR(static_cast<Derived*>(this));
+  }
+
+  bool is_active() const override {
+    return true;
   }
 };
 

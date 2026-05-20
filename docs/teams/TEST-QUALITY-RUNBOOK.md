@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of feature tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-05-17
+**Last updated:** 2026-05-20
 
 ## Mission
 
@@ -78,6 +78,7 @@ Primary paths:
 52. `@resource` leak seeds need three-route confirmation even when the test loop only drives two engines. If fuzz leaks a `NameAST` built in `parse_resource_ref_after_at_latest(...)`, preserve the raw seed, add a session-backed regression that runs both legacy and nightly engines, and verify the replay stack closes legacy main-block parsing plus nightly subset and shadow recovery before treating the corpus backflow as complete.
 53. Syntax-check diagnostics that add recoverable parser behavior or source context need focused CLI tests covering nonzero exit codes, multiple recovered `STYIO_PARSE` entries when applicable, and machine-readable caret/source fields for both parse and lex failures.
 54. Native interop syntax tests must cover both compatibility and preferred binding forms. Keep legacy `@export { name }` plus `@extern(...) => ...` only in parser compatibility coverage; feature fixtures, artifact tests, and new examples must use explicit `# name[, other] := @ extern(...) { ... }` bindings for referenced C, referenced C++, inline C, mixed inline/reference execution, `styio build` artifact linking, and multi-symbol exposure from one native source file.
+55. IR contract tests must call new node-level invariants through `StyioIR*` or another public base surface, not only through concrete classes. The `is_active()` and verifier contract needs focused coverage for SG, SC, SIO, and legacy IOIR domains, explicit `SGNoOp` lowering from no-op AST forms, inactive-node rejection, and codegen gate rejection before LLVM emission.
 
 ## Change Classes
 

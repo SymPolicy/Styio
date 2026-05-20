@@ -32,7 +32,9 @@
 #include "StyioException/Exception.hpp"
 #include "StyioExtern/ExternLib.hpp"
 #include "StyioIR/GenIR/GenIR.hpp"
+#include "StyioIR/IOIR/IOIR.hpp"
 #include "StyioIR/StyioIR.hpp"
+#include "StyioIR/Verifier.hpp"
 #include "StyioJIT/StyioJIT_ORC.hpp"
 #include "StyioLowering/AstToStyioIRLowerer.hpp"
 #include "StyioNative/NativeInterop.hpp"
@@ -164,6 +166,30 @@ public:
     if (dtor_count_ != nullptr) {
       *dtor_count_ += 1;
     }
+  }
+};
+
+class InactiveTestIR : public StyioIR
+{
+public:
+  std::string toString(StyioRepr* visitor, int indent = 0) override {
+    (void)visitor;
+    (void)indent;
+    return "inactive-test-ir";
+  }
+
+  llvm::Type* toLLVMType(StyioToLLVM* visitor) override {
+    (void)visitor;
+    return nullptr;
+  }
+
+  llvm::Value* toLLVMIR(StyioToLLVM* visitor) override {
+    (void)visitor;
+    return nullptr;
+  }
+
+  bool is_active() const override {
+    return false;
   }
 };
 
@@ -516,6 +542,55 @@ execute_program_engine_with_stdin_latest(
 #endif
 }
 }  // namespace
+
+TEST(StyioIRContract, ExistingIRNodesAreActiveByDefault) {
+  std::vector<std::unique_ptr<StyioIR>> nodes;
+  nodes.emplace_back(SGNoOp::Create());
+  nodes.emplace_back(SGConstInt::Create(0));
+  nodes.emplace_back(SGConstString::Create("value"));
+  nodes.emplace_back(SGBlock::Create(std::vector<StyioIR*>{
+    SGConstInt::Create(1)
+  }));
+  nodes.emplace_back(SCListLiteral::Create(std::vector<StyioIR*>{
+    SGConstInt::Create(2)
+  }));
+  nodes.emplace_back(SIOStdStreamWrite::Create(
+    SIOStdStreamWrite::Stream::Stdout,
+    std::vector<StyioIR*>{SGConstString::Create("out")}
+  ));
+  nodes.emplace_back(SIOPath::Create("fixture.txt"));
+
+  for (const auto& node : nodes) {
+    EXPECT_TRUE(node->is_active());
+  }
+}
+
+TEST(StyioIRContract, NoOpAstNodesLowerToExplicitNoOp) {
+  AstToStyioIRLowerer analyzer;
+  std::unique_ptr<StyioAST> comment(CommentAST::Create("comment"));
+  std::unique_ptr<StyioAST> empty(EmptyAST::Create());
+  std::unique_ptr<StyioAST> pass(PassAST::Create());
+
+  std::unique_ptr<StyioIR> comment_ir(comment->toStyioIR(&analyzer));
+  std::unique_ptr<StyioIR> empty_ir(empty->toStyioIR(&analyzer));
+  std::unique_ptr<StyioIR> pass_ir(pass->toStyioIR(&analyzer));
+
+  EXPECT_NE(dynamic_cast<SGNoOp*>(comment_ir.get()), nullptr);
+  EXPECT_NE(dynamic_cast<SGNoOp*>(empty_ir.get()), nullptr);
+  EXPECT_NE(dynamic_cast<SGNoOp*>(pass_ir.get()), nullptr);
+}
+
+TEST(StyioIRContract, VerifierRejectsInactiveIR) {
+  InactiveTestIR node;
+
+  styio::ir::StyioIRVerifierResult result = styio::ir::verify_styio_ir(&node);
+  EXPECT_FALSE(result.ok());
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.diagnostics.front().phase, "styioir");
+  EXPECT_EQ(result.diagnostics.front().code, "STYIO_IR_CONTRACT");
+
+  EXPECT_THROW(styio::ir::require_verified_styio_ir(&node), StyioTypeError);
+}
 
 TEST(StyioSecurityLexer, EmptySourceProducesEof) {
   auto tokens = StyioTokenizer::tokenize("");
@@ -2430,6 +2505,21 @@ TEST(StyioSecurityNightlyCodegen, SgCallArityMismatchFailsBeforeLlvmEmission) {
   );
   auto* entry = SGMainEntry::Create(std::vector<StyioIR*>{fn, call});
 
+  EXPECT_THROW(entry->toLLVMIR(&generator), StyioTypeError);
+  delete entry;
+}
+
+TEST(StyioSecurityNightlyCodegen, CodegenRejectsUnverifiedStyioIR) {
+  llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmPrinter();
+  llvm::InitializeNativeTargetAsmParser();
+  llvm::ExitOnError exit_on_error;
+  std::unique_ptr<StyioJIT_ORC> jit = exit_on_error(StyioJIT_ORC::Create());
+  StyioToLLVM generator(std::move(jit));
+
+  auto* entry = SGMainEntry::Create(std::vector<StyioIR*>{
+    new InactiveTestIR()
+  });
   EXPECT_THROW(entry->toLLVMIR(&generator), StyioTypeError);
   delete entry;
 }

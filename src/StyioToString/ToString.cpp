@@ -1338,6 +1338,13 @@ StyioRepr::toString(SGType* node, int indent) {
 }
 
 std::string
+StyioRepr::toString(SGNoOp* node, int indent) {
+  (void)node;
+  (void)indent;
+  return "styio.ir.noop { }";
+}
+
+std::string
 StyioRepr::toString(SGConstBool* node, int indent) {
   return std::string("styio.ir.bool { ") + std::to_string(node->value) + " }";
 }

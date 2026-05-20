@@ -80,6 +80,7 @@ public:
 using StyioCodeGenVisitor = CodeGenVisitor<
   class SGResId,
   class SGType,
+  class SGNoOp,
 
   class SGConstBool,
 
@@ -255,6 +256,7 @@ public:
   /* CodeGen Get LLVM Type */
   llvm::Type* toLLVMType(SGResId* node);
   llvm::Type* toLLVMType(SGType* node);
+  llvm::Type* toLLVMType(SGNoOp* node);
 
   llvm::Type* toLLVMType(SGConstBool* node);
 
@@ -352,6 +354,7 @@ public:
   /* LLVM Code Generation */
   llvm::Value* toLLVMIR(SGResId* node);
   llvm::Value* toLLVMIR(SGType* node);
+  llvm::Value* toLLVMIR(SGNoOp* node);
 
   llvm::Value* toLLVMIR(SGConstBool* node);
 

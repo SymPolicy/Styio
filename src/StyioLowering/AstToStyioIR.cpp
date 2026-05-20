@@ -1754,7 +1754,8 @@ comp_type_to_op(CompType ct) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(CommentAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return SGNoOp::Create();
 }
 
 StyioIR*
@@ -1764,7 +1765,8 @@ AstToStyioIRLowerer::toStyioIR(NoneAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(EmptyAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return SGNoOp::Create();
 }
 
 StyioIR*
@@ -2709,7 +2711,8 @@ AstToStyioIRLowerer::toStyioIR(ContinueAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(PassAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return SGNoOp::Create();
 }
 
 StyioIR*

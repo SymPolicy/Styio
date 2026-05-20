@@ -8,6 +8,7 @@ class StyioIR;
 /* SG = Styio General. Default/general IR nodes. */
 class SGResId;
 class SGType;
+class SGNoOp;
 
 class SGConstBool;
 

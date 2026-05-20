@@ -70,6 +70,14 @@ public:
   }
 };
 
+class SGNoOp : public StyioIRTraits<SGNoOp>
+{
+public:
+  static SGNoOp* Create() {
+    return new SGNoOp();
+  }
+};
+
 class SGConstBool : public StyioIRTraits<SGConstBool>
 {
 public:

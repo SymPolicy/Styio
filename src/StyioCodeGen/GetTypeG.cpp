@@ -63,6 +63,12 @@ StyioToLLVM::toLLVMType(SGType* node) {
 };
 
 llvm::Type*
+StyioToLLVM::toLLVMType(SGNoOp* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+};
+
+llvm::Type*
 StyioToLLVM::toLLVMType(SGConstBool* node) {
   return theBuilder->getInt1Ty();
 };

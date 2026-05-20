@@ -16,6 +16,7 @@ set(STYIO_FRONTEND_SEMA_IR_SOURCES
   StyioNative/NativeInterop.cpp
   StyioResourceTopology/ResourceTopology.cpp
   StyioToString/ToString.cpp
+  StyioIR/Verifier.cpp
   StyioSema/TypeInfer.cpp
   StyioLowering/AstToStyioIR.cpp
   StyioLowering/StyioIROptimizer.cpp

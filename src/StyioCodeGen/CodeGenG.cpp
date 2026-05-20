@@ -14,6 +14,7 @@
 // [Styio]
 #include "../StyioException/Exception.hpp"
 #include "../StyioIR/GenIR/GenIR.hpp"
+#include "../StyioIR/Verifier.hpp"
 #include "../StyioToken/Token.hpp"
 #include "../StyioUtil/BoundedType.hpp"
 #include "../StyioUtil/DynamicValue.hpp"
@@ -569,6 +570,12 @@ StyioToLLVM::toLLVMIR(SGResId* node) {
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGType* node) {
   return theBuilder->getInt64(0);
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SGNoOp* node) {
+  (void)node;
+  return nullptr;
 }
 
 llvm::Value*
@@ -2184,6 +2191,7 @@ StyioToLLVM::toLLVMIR(SGReturn* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGBlock* node) {
+  styio::ir::require_verified_styio_ir(node);
   push_file_handle_scope();
   llvm::Value* last = nullptr;
   for (auto const& s : node->stmts) {
@@ -2201,6 +2209,7 @@ StyioToLLVM::toLLVMIR(SGBlock* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGEntry* node) {
+  styio::ir::require_verified_styio_ir(node);
   llvm::Value* last = nullptr;
   for (auto* stmt : node->stmts) {
     last = stmt->toLLVMIR(this);
@@ -2213,6 +2222,7 @@ StyioToLLVM::toLLVMIR(SGEntry* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGMainEntry* node) {
+  styio::ir::require_verified_styio_ir(node);
   std::vector<std::string> export_symbols;
   for (auto* s : node->stmts) {
     if (auto* export_decl = dynamic_cast<SGExportDecl*>(s)) {
