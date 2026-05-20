@@ -100,6 +100,7 @@ Key SSOTs:
 65. When a broad compiler-language maturity gap cannot be implemented in the current checkpoint, record it in [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md) with a named pending decision, mature architecture reference, owner-facing stop condition, and follow-up gate instead of leaving it as prose in a chat or long-lived plan file.
 66. Keep the industrial-maturity decision register sorted by descending priority: `IM-D1` is the highest-priority blocker, and larger decision numbers are lower priority.
 67. When describing `IM-D1`, treat `StyioIR` as the existing canonical typed mid-level IR; the remaining maturity work is to freeze its contract, complete accepted AST coverage, and reject unsupported forms with typed diagnostics instead of placeholder lowering.
+68. When an industrial-maturity item moves from pending decision to accepted implementation rule, keep the rollup row and the owning team runbooks in the same staged delivery so staged gates can prove the decision and operational rule landed together.
 
 ## Change Classes
 
