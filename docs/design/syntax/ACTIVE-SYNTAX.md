@@ -42,17 +42,22 @@
 |------|----------------|-------|
 | Resource slot | `@price : f64|..10|` | Top-level only. |
 | Multi-resource slot | `@a : f64|..2|, @b : f64|..2| := { ... }` | Driver-block coverage remains staged by topology tests. |
-| Sink write | `expr -> @price` | Produces a pending resource write. |
-| Latest read | `@price[-1]` | Reads committed snapshot state. |
+| Sink write | `expr -> @price` | Produces a pending write against the current resource context. |
+| Resource block | `resource >> { ... }` / `resource >> #(x) => { ... }` | Enters a snapshot at `>>`; commits snapshot result at `}`. Chained block stages commit once per block. |
+| Latest read | `@price[-1]` | Reads committed resource state or the current block snapshot. |
 | Slice read | `@price[-3..]`, `@price[...]` | Resource-object selectors. |
 | Stdin pull | `value <- @stdin` | Untyped scalar pull. |
 | Typed stdin pull | `a, b <- @stdin : (f64, f64)` | Tuple/list/scalar forms share the stdin-pull path. |
-| Stdin iteration | `@stdin >> #(line) => { ... }` | `@stdin` is read-only. |
-| Stdout/stderr scalar write | `expr -> @stdout`, `expr -> @stderr` | `@stdout` and `@stderr` are write-only sinks. |
+| Stdin iteration | `@stdin >> #(line) => { ... }` | `@stdin` is read-only for data flow; explicit resource operations may still release it. |
+| Stdout/stderr scalar write | `expr -> @stdout`, `expr -> @stderr` | `@stdout` and `@stderr` are write-only data sinks; explicit resource operations may still release them. |
 | Stdout/stderr iterable write | `items >> @stdout`, `items >> @stderr` | Plain strings should use `->` unless explicitly split. |
 | File resource | `@("log.txt")`, `@file("log.txt")` | Runtime substrate is file-backed when resolved as a file. |
 | Empty resource sink | `@()` | Destroy sink / empty resource. |
 | Explicit copy | `snapshot << @price[...]` | Only explicit copy entry. |
+| Resource effect fallback | `?\| resource_operation \| fallback` | `?\| resource_operation` settles in place and raises immediately on failure; fallback participates in type inference. Bare `\| fallback` is not resource fallback. |
+| Effect-specific handler | `?\| res -> msg_queue \| backpressure => do_something()` | Handles only the named typed effect family. Handler chains are allowed. |
+| Effect discard statement | `?\| res -> msg_queue \| ...` | Standalone statement only. Settles the operation, discards business recovery, produces no value, and continues with the next statement. |
+| Pressure observer | `channel.pressure >> #(p) => { ... }` | Optional resource-family effect stream for observing non-failure pressure such as backlog growth. Observer actions still use normal resource rules. |
 
 ## Resource Family Members
 
@@ -71,7 +76,7 @@
 |------|----------------|-------|
 | Single task | `job = ||> { ... }` | Produces a task handle. |
 | Task group | `||> [ t1 := { ... } t2 := { ... } ]` | Each entry binds a task handle. |
-| Await | `?| job -> value: T | fallback` | Fallback is optional. |
+| Await | `?\| job -> value: T \| fallback` | Uses the same effect-evaluation marker; without fallback, failed pull raises immediately. |
 | Resource order | `t1 => t2` | Explicit happens-before edge; it does not transfer data. |
 
 ## Rejected Families

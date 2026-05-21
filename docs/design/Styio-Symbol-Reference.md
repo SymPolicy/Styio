@@ -27,9 +27,9 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 
 | Symbol | Name | C++ Token Kind | Semantics | Example |
 |--------|------|----------------|-----------|---------|
-| `>>` | Pipe / Iterate / Resource-Write Shorthand | `TOK_PIPE` | **Before iterator tail:** push pulse from source into consumer. **Before resource atom (`@file(...)`, `@stdout`, `@stderr`, `@stdin`)**: parse as `resource_write` shorthand. **Before `[>_]`, `@stdout`, or `@stderr`:** iterable text serialization only; plain strings must use `->` or explicit `text.lines() >> ...`. `@stdin` remains semantically read-only. | `prices >> #(p) => { ... }`, `items >> @stdout`, `text.lines() >> [>_]` |
-| `\|\|>` | Task Launch / Task Group | `TASK_LAUNCH` | **Before `{`:** construct one scheduled task block. **Before `[`:** launch independent task blocks and bind each entry name to a task handle. | `job = \|\|> { <\| 42 }`, `\|\|> [ t1 := { <\| 1 } ]` |
-| `?\|` | Await / Freeze | `AWAIT_PIPE` | **With source:** await or pull a task/future handle into a newly declared typed local, with optional `\| fallback` on runtime failure or absence. **Without source:** reserved bare continuation freeze; parsed but fail-closed until continuation lowering lands. | `?\| job -> value: i64`, `?\| job -> value: i64 \| 0`, `?\| -> input: i64` |
+| `>>` | Pipe / Iterate / Resource-Write Shorthand | `TOK_PIPE` | **Before iterator tail:** push pulse from source into consumer and enter a block-entry snapshot when the consumer is a block. **Before resource atom (`@file(...)`, `@stdout`, `@stderr`, `@stdin`)**: parse as `resource_write` shorthand. **Before `[>_]`, `@stdout`, or `@stderr`:** iterable text serialization only; plain strings must use `->` or explicit `text.lines() >> ...`. `@stdin` remains semantically read-only for data flow. | `prices >> #(p) => { ... }`, `items >> @stdout`, `text.lines() >> [>_]` |
+| `\|\|>` | Task Launch / Task Group | `TASK_LAUNCH` | **Before `{`:** construct one scheduled task block and enter a task snapshot context. **Before `[`:** launch independent task blocks and bind each entry name to a task handle; each entry block is its own snapshot/commit stage. | `job = \|\|> { <\| 42 }`, `\|\|> [ t1 := { <\| 1 } ]` |
+| `?\|` | Resource Eval / Await / Freeze | `AWAIT_PIPE` | **Before resource operation:** settle the resource effect at that source site; without fallback, failure raises immediately; with `\| fallback`, recovery enters normal type inference; with `\| effect => handler`, only the named typed effect is handled. Handler chains are allowed. `\| ...` is an audited discard only for standalone statements: it settles the resource operation, discards business recovery, produces no value, and continues with the next statement. `\| effect => @()` is rejected because `@()` is a resource sink, not an executable empty action. **With task source:** await or pull a task/future handle into a newly declared typed local through the same effect-evaluation rule. **Without source:** reserved bare continuation freeze; parsed but fail-closed until continuation lowering lands. | `?\| @("log.txt").close()`, `?\| res -> msg_queue \| backpressure => do_something()`, `?\| res -> msg_queue \| ...`, `?\| close_log() \| cleanup_failure => report_cleanup()`, `?\| job -> value: i64`, `?\| job -> value: i64 \| 0`, `?\| -> input: i64` |
 | `->` | Forward / Redirect / Resource Sink | `TOK_ARROW_RIGHT` | Redirect data to a physical destination or flow a produced value into a named resource sink | `ma5 -> @database(...)`, `price -> @prices` |
 | `<-` | Acquire / Pull | `TOK_ARROW_LEFT` | Extract or acquire from a resource; used in expanded stdin symbolic definition as `<\| <- [>_]`. | `f <- @file("data.txt")` |
 | `<<` | Copy / Snapshot / Compatibility Pull | `TOK_SHIFT_BACK` | Explicit resource copy or snapshot, e.g. `snapshot << @price[...]`. Retired history-probe selector families remain rejected. **`(<< @res)`:** compatibility instant pull only. |
@@ -46,7 +46,7 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 |--------|------|----------------|-----------|-----------|
 | `<~` | Reserved Wave Left | `TOK_WAVE_LEFT` | Reserved | Tokenized for future reassignment; parser rejects active use |
 | `~>` | Reserved Wave Right | `TOK_WAVE_RIGHT` | Reserved | Tokenized for future reassignment; parser rejects active use |
-| `\|` | Fallback / Else | `TOK_PIPE_SINGLE` | — | Else-branch for guard conditionals; fallback for runtime absence recovery |
+| `\|` | Value Fallback / Else | `TOK_PIPE_SINGLE` | — | Else-branch for guard conditionals and value-level runtime absence recovery. It is not resource fallback; resource fallback is `?\| operation \| fallback`. |
 
 ---
 
@@ -74,9 +74,9 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 
 | Symbol | Name | C++ Token Kind | Semantics |
 |--------|------|----------------|-----------|
-| `?=` | Pattern Match | `TOK_MATCH` | Trigger pattern matching block |
-| `?(expr)` | Guard / Paren marker | `TOK_QUEST` + `(` | **As an expression:** `?(expr) => value \| fallback`. **As a statement:** `?(expr) => { ... }` with optional fallback `\| { ... }`. **After `[...] >>`:** `?(expr) =>` → conditioned loop (`InfiniteLoopAST`). |
-| `=>` | Map / Then | `TOK_FAT_ARROW` | Connects pattern/param to result/body |
+| `?=` | Pattern Match | `TOK_MATCH` | Trigger pattern matching block; the match body and selected arm block follow block-entry snapshot/commit semantics |
+| `?(expr)` | Guard / Paren marker | `TOK_QUEST` + `(` | **As an expression:** `?(expr) => value \| fallback`. **As a statement:** `?(expr) => { ... }` with optional fallback `\| { ... }`; block branches follow block-entry snapshot/commit semantics. **After `[...] >>`:** `?(expr) =>` → conditioned loop (`InfiniteLoopAST`). |
+| `=>` | Map / Then | `TOK_FAT_ARROW` | Connects pattern/param to result/body; when the result is a block, it creates a snapshot/commit block stage |
 | `^` ... `^^^^` | Break | `BREAK_TOKEN` | Exit the nearest enclosing loop; count is normalized to 1 |
 | `>>` ... `>>>>` | Continue | `CONTINUE_TOKEN(n)` | Skip to next iteration, `n-1` levels up |
 | `[...]` | Infinite Generator / All Selector | `[` + dot run + `]` | Without a left side, produces an infinite pulse stream. After a value/resource, selects all currently enumerable values. |

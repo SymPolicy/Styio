@@ -40,10 +40,10 @@ resource identity is governed by the Styio declaration above.
 
 | Identifier | Definition form | Direction |
 |------------|-----------------|-----------|
-| `@ stdin` | `@ stdin := #() => { ... }` | read |
-| `@ stdout` | `@ stdout := #(x-or-xs) => { ... }` | write |
-| `@ stderr` | `@ stderr := #(x-or-xs) => { ... }` | write |
-| `@ file` | `@ file : ftype := #(path) => { ... }` | read/write |
+| `@ stdin` | `@ stdin := #() => { ... }` | read + explicit release |
+| `@ stdout` | `@ stdout := #(x-or-xs) => { ... }` | write + explicit release |
+| `@ stderr` | `@ stderr := #(x-or-xs) => { ... }` | write + explicit release |
+| `@ file` | `@ file : ftype := #(path) => { ... }` | read/write + explicit release |
 | `@stdin: list[T]` | typed ingestion adapter over `@ stdin` | read |
 
 `[>_]` is the canonical terminal-handle spelling inside standard-stream definitions. `@stdin` is
@@ -54,5 +54,8 @@ consumed as an iterable stream through `@stdin >> #(line) => { ... }`; immediate
 `items >> @stdout` are only for iterable values whose items can be text-serialized. A plain
 string must not use `>>`; write it with `->` or split it explicitly with
 `text.lines() >> [>_]` / `text.lines() >> @stdout`.
+
+Direction describes data flow only. Standard resources remain explicit resource subjects, so user
+code may invoke declared release/close operations when the resource family provides them.
 
 Target-only driver identifiers such as `@mysql(...)`, `@http(...)`, and `@kafka(...)` are not part of this current surface.

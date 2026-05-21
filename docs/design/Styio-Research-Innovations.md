@@ -111,7 +111,7 @@ Styio introduces runtime `@` as an **algebraic absence value** that:
 - Propagates through supported value families as runtime absence, not as a user-authored bare source literal
 - Keeps the common value representation outside user-authored wrapper types where the compiler path supports it
 - Carries **diagnostic metadata** in debug mode (reason code, source location)
-- Can be intercepted at any point via `|` (fallback) or `??` (diagnostic extract)
+- Can be intercepted at any value point via `|` (value fallback) or `??` (diagnostic extract). Resource-effect fallback is separate: `?| resource_operation` settles in place and raises immediately on failure, while `?| resource_operation | fallback` recovers through type inference.
 
 **Formal algebra:**
 

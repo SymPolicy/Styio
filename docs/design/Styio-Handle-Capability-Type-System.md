@@ -2,7 +2,7 @@
 
 **Purpose:** 为 Styio 的资源值、`@stdin/@stdout`、`<<`、可迭代对象、以及默认失败处理建立统一的设计级类型系统；该文档定义目标模型，不等同于当前实现。
 
-**Last updated:** 2026-05-03
+**Last updated:** 2026-05-21
 
 **Status:** Target design — not fully implemented in the current compiler.  
 **See also:** [`Styio-Language-Design.md`](./Styio-Language-Design.md), [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md), [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md).
@@ -55,8 +55,8 @@ Where:
 
 Examples:
 
-- `@stdin : Handle<fd, string, {pull, iter}, open>`
-- `@stdout : Handle<fd, string, {push}, open>`
+- `@stdin : Handle<fd, string, {pull, iter, close}, open>`
+- `@stdout : Handle<fd, string, {push, close}, open>`
 - `list[i32] : Handle<ptr, i32, {iter, push, index, sized, collect}, materialized>`
 - `matrix[f64] : Handle<matrix, f64, {index, sized, clone, close}, materialized>`
 - `range[i64] : Handle<imm, i64, {iter}, materialized>`
@@ -102,17 +102,18 @@ A Styio value is iterable if and only if its type carries an iteration capabilit
 
 ### 5.1 Initial capability set
 
-The first version should support these capabilities:
+The accepted v1 baseline supports exactly these public capabilities:
 
 | Capability | Meaning |
 |------------|---------|
 | `iter` | Can produce a sequence of `Item` values |
 | `pull` | Can produce at most one `Item` per explicit pull step |
-| `push` | Can accept `Item` values one by one |
+| `push` | Can accept `Item` values one by one; the write may remain pending until a safe commit boundary |
 | `index` | Supports random access by integer index |
+| `slice` | Supports range or window selection |
 | `sized` | Supports `.length` / `.size` |
 | `collect` | Can accumulate a stream or iterable into a materialized container |
-| `clone` | Supports resource-preserving clone semantics |
+| `clone` | Supports deep clone into independent owned storage or resource state |
 | `close` | Has an explicit close / release protocol |
 
 ### 5.2 Derived concepts
@@ -121,6 +122,7 @@ These are not separate runtime kinds; they are predicates over capabilities:
 
 - **Iterable[T]**: any type with `iter` over `T`
 - **Indexable[T]**: any type with `index` over `T`
+- **Sliceable[T]**: any type with `slice` over `T`
 - **Writable[T]**: any type with `push` over `T`
 - **Sized**: any type with `sized`
 - **Cloneable**: any type with `clone`
@@ -129,7 +131,8 @@ So Styio should check:
 
 - `>>` requires `Iterable[T]`
 - `zip` requires both sides to be `Iterable`
-- `[]` requires `Indexable`
+- single-index `[]` requires `Indexable`
+- range or window selection requires `Sliceable`
 - `.length` and `.size` require `Sized`
 - `<<` requires a left-hand sink with `push` or `collect`
 
@@ -167,7 +170,9 @@ Examples of desired transitions:
 - `list.materialized --index--> list.materialized`
 
 When the state is statically known, invalid operations should be compile-time errors.  
-When the state is dynamic, the runtime may check and fail through the default failure handler.
+When the state is dynamic, the runtime may emit a typed operation effect that is
+settled by `?|`, a named handler, statement discard, or the default failure
+handler. `failed` is not a persistent resource state.
 
 ---
 
@@ -184,7 +189,7 @@ When the state is dynamic, the runtime may check and fail through the default fa
 Conceptually:
 
 ```text
-Handle<fd, string, {pull, iter}, open>
+Handle<fd, string, {pull, iter, close}, open>
 ```
 
 This means:
@@ -194,6 +199,7 @@ This means:
 - it is not writable
 - it is not indexable
 - it is not sized in the general case
+- it may be explicitly released/closed by user code through its resource operation surface
 
 ### 7.2 `@stdout` / `@stderr`
 
@@ -207,7 +213,7 @@ These are write sinks:
 Conceptually:
 
 ```text
-Handle<fd, string, {push}, open>
+Handle<fd, string, {push, close}, open>
 ```
 
 ### 7.3 `list[T]`
@@ -275,7 +281,16 @@ use a future named typed-read API.
 
 A clone is just a special case where the left side is a collector or sink over resource items and the right side is a cloneable iterable/resource source.
 
-The checker may still lower some cases to `clone` internally, but the user-visible semantics of `<<` remains “one by one into the left side”.
+For resources, `clone` means a deep copy:
+
+- allocate independent storage or resource state,
+- copy the reachable resource contents,
+- return a fresh owner, and
+- do not create a second binding that shares the same mutable backing resource.
+
+Styio does not use reference-counted clone semantics for resource values. The checker may still
+lower some cases to `clone` internally, but the user-visible semantics of `<<` remains “one by
+one into the left side” and the resulting resource owner is independent.
 
 ---
 
@@ -338,6 +353,8 @@ For `expr >> #(x) => body`, typing succeeds iff:
 - `X` has `iter`
 - the yielded item type is `T`
 - `x : T`
+- the block runs on a resource snapshot created at the `>>` boundary
+- block exit commits the snapshot result back to the source resource when the resource family supports commit
 
 The same rule should drive:
 
@@ -371,6 +388,9 @@ Default behavior:
 1. Fallible operations are typed internally as `Result`.
 2. At statement or expression-use boundaries, Styio performs an implicit force.
 3. If the result is `Err`, execution aborts with a structured diagnostic.
+4. Cleanup failure uses the distinct `ResourceCleanupFailure` family and participates in the same
+   inference path; `?| resource_operation` without fallback raises immediately at that source site,
+   while `?| resource_operation | fallback` recovers through normal type inference.
 
 This is effectively “default unwrap with fail-fast diagnostics”.
 
@@ -379,6 +399,10 @@ This is effectively “default unwrap with fail-fast diagnostics”.
 - writing to `@stdout` may fail: internally `Result[unit, IOError]`
 - `@stdin: list[i32]` parsing may fail: internally `Result[list[i32], ParseError]`
 - `list[i][j]` bounds checks may fail: internally `Result[T, BoundsError]`
+- closing or dropping a resource may fail: internally `Result[unit, ResourceCleanupFailure]`
+- write backpressure is first an observable `ResourceBackpressure` pressure signal; only a
+  resource-family escalation such as timeout, closed channel, failed transport, or exceeded backlog
+  limit becomes a `ResourceBackpressureFailure`
 
 The default top-level handler reports the error immediately.
 
@@ -403,46 +427,44 @@ This avoids baking a second unrelated “stdin type” into the core model.
 
 ---
 
-## 13. Aliasing and safe mutation
+## 13. Resource access and safe mutation
 
-Styio resources should borrow from uniqueness / capability work rather than from plain mutable variables.
+Styio source treats a resource as the subject of declared operations. It does not expose `borrow`,
+`shared`, `own`, or `pure` as user syntax.
 
 ### 13.1 Principle
 
-Only references with the right capability may mutate or advance resource state.
+Only operations with the right capability may mutate, advance, snapshot, commit, close, or read a
+resource subject.
 
 ### 13.2 Practical rule for Styio
 
-The first implementation can use a small permission split:
+Block-entry execution uses resource snapshots:
 
-- `own`
-- `shared`
-- `pure`
-
-Where:
-
-- `own` may consume, push, or change state
-- `shared` may read and iterate if the resource protocol allows shared iteration
-- `pure` may inspect metadata but may not change resource state
-
-This can later refine the current final/flex binding metadata without exposing a large borrow calculus to users.
+- `resource >> { ... }` enters a snapshot at the `>>` boundary.
+- `resource >> #(x) => { ... }` binds yielded items from the snapshot stream.
+- `=> { ... }`, selected `?=` arm blocks, active `||> { ... }`, and reserved `|>` block forms follow the same block-entry rule when they enter a block.
+- The block body may read or write the snapshot according to the resource capability rules.
+- At `}`, the compiler commits the snapshot result back to the original resource.
+- A chained sequence such as `a => { 1 } => { 2 } => { 3 }` has one snapshot and one commit per block stage. Later stages read the resource state committed by earlier stages.
+- Resource sharing is not currently an accepted Styio source behavior.
 
 ---
 
 ## 14. Research guidance absorbed into this design
 
-This design should borrow the following ideas:
+This design uses the following ideas:
 
-1. **Reference capabilities on aliases, not objects**  
-   From Pony and related capability systems: the capability belongs to the reference being used.
+1. **Capability checks on resource operations**
+   From capability-oriented systems: operation permission must be visible to the checker.
 
-2. **Typestate for protocol resources**  
+2. **Typestate for protocol resources**
    From typestate-oriented programming: file handles and streams should have explicit protocol state.
 
-3. **Uniqueness for destructive update**  
+3. **Uniqueness for destructive update**
    From Clean and Cogent: unique ownership enables safe in-place updates and resource transfer.
 
-4. **Failure as an effect, not a user chore**  
+4. **Failure as an effect, not a user chore**
    From Koka-style effect typing: operations may be statically marked as fallible while the surface language still offers a default handler.
 
 ---
@@ -486,7 +508,7 @@ Add internal `Result` / `Step` modeling and a default fail-fast handler.
 
 ## 16. Explicit non-goals for v1
 
-1. Full user-visible borrow syntax.
+1. Any user-visible `borrow`, `shared`, `own`, or `pure` syntax.
 2. User-visible `unwrap` as a mandatory language pattern.
 3. Python-style universal object dictionary semantics.
 4. General structural duck typing for all user types.

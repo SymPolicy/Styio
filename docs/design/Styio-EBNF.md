@@ -170,6 +170,7 @@ statement          = declaration
                    | assignment
                    | conditional_stmt
                    | await_stmt
+                   | resource_effect_discard_stmt
                    | task_group_launch
                    | resource_order_stmt
                    | match_bind_expr
@@ -369,6 +370,10 @@ resource_order_stmt = identifier '=>' identifier ;
 freeze. The parser accepts it, but current semantic analysis rejects it until
 continuation lowering can enforce one-shot resume/discontinue.
 
+`await_stmt` with a source settles the task/future pull at the current source
+site. Without `| fallback`, pull failure raises immediately. With `| fallback`,
+the declared value type and fallback value type must unify.
+
 ---
 
 ## 8. Expressions
@@ -388,14 +393,30 @@ continuation lowering can enforce one-shot resume/discontinue.
 | 9 | `\|\|` | Left |
 | 10 | `>>`, `?=` | Left |
 | 11 | `<\|` | Left |
-| 12 | `\|` (fallback) | Left |
+| 12 | `\|` (value fallback / guard else) | Left |
 | 13 | `??` (diagnostic) | Left |
 | 14 (lowest) | `=`, `+=`, etc. | Right |
 
 ### 8.2 Expression Grammar
 
 ```ebnf
-expression         = apply_expr ;
+expression         = resource_effect_expr
+                   | apply_expr ;
+
+resource_effect_expr
+                   = '?|' resource_operation { '|' resource_effect_handler } ;
+
+resource_effect_discard_stmt
+                   = '?|' resource_operation { '|' effect_handler_clause } '|' '...' ;
+
+resource_operation = apply_expr ;
+
+resource_effect_handler
+                   = effect_handler_clause
+                   | expression ;
+
+effect_handler_clause
+                   = identifier '=>' ( block | expression ) ;
 
 apply_expr         = conditional_value_expr { '<|' conditional_value_expr } ;  (* left associative; one-shot continuation resume when lhs is captured *)
 
@@ -440,6 +461,24 @@ member_access      = '.' identifier ;
 
 expression_list    = expression { ',' expression } ;
 ```
+
+`resource_effect_expr` is the only resource fallback surface. `?| op` settles
+the resource operation in place and raises a structured error immediately if it
+fails. `?| op | fallback` evaluates `fallback` only for resource-effect failure,
+then type-checks the operation success value and fallback value against the same
+use-site type. `?| op | effect => handler` handles only the named typed effect
+family and must still type-check against the same use-site type. Multiple named
+handlers may be chained; duplicate handlers are rejected, and any catch-all
+fallback must be last. A bare `op | fallback` is not resource fallback.
+Statement-shaped resource operations that become `?|`-eligible must route
+through the same settlement contract rather than adding a trailing bare
+`| fallback`. `?=` does not catch resource effects; it only matches ordinary
+values that have already been materialized. `?| op | ...` is a separate
+statement-only discard form: it settles the operation, discards business recovery
+for effects at that site, produces no value, and continues with the next
+statement. It is rejected in expression contexts such as assignment, call
+arguments, and branch values. A bare `@()` handler is also rejected because `@()`
+is the empty resource / destroy sink, not an executable empty action.
 
 ### 8.3 Primary Expressions
 
@@ -631,7 +670,7 @@ The lexer always prefers the two-character compound token over individual charac
 
 This appendix records the topology grammar surface that is now folded into the main EBNF above.
 The resource-topology design document owns semantic details such as capability inference,
-pending writes, move-only checks, consuming methods, and commit boundaries.
+pending writes, resource block snapshots, consuming methods, and commit boundaries.
 
 ### B.1 Program and top-level resource
 
@@ -647,6 +686,8 @@ resource_decl_v2   = "@" identifier ":" type_v2
 
 driver_block_v2    = "{" stream_topology "}" ;
 (* stream_topology matches existing pipe: expr ">>" "#(" id ")" "=>" block *)
+(* resource >> block forms enter a snapshot at >> and commit that snapshot at block exit. *)
+(* Chained block stages, for example a => { ... } => { ... }, repeat that snapshot/commit rule once per block stage. *)
 ```
 
 ### B.2 Types (extensions)

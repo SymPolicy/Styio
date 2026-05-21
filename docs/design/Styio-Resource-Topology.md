@@ -2,7 +2,7 @@
 
 **Purpose:** `@` 资源定义、类型长度后缀、资源读取/复制/迭代、以及资源拓扑安全检查的设计级单一叙述；模块导入语法见 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 与 [`Styio-EBNF.md`](./Styio-EBNF.md)。与当前编译器差异见 [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md)。
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-05-21
 
 **Status:** Topology v2 source syntax plus current compiler-owned RTG validation.
 **Supersedes:** retired state-resource state containers, history probes, and shadow reads. The running compiler rejects those families; exact old spellings are recoverable from Git history and remain covered only by negative migration tests.
@@ -16,7 +16,7 @@ Global, persistent resources must not look like local function calls. The v2 sur
 
 - **Resource identity:** `@name` is a resource object or resource entry, not a scalar latest value.
 - **Value shape:** type expressions define scalar, tuple, fixed-length, recent-window, and unbounded sequence shapes.
-- **Flow:** `->` writes into sinks; `<<` explicitly copies resources or snapshots; `>>` iterates.
+- **Flow:** `->` writes into sinks; `<<` explicitly copies resources or snapshots; every block-entry surface such as `>>`, `=>`, `?=`, active `||>`, and reserved `|>` when activated enters a snapshot-backed resource context and commits at block exit.
 - **Scope:** globally visible `@name` resources belong at program root unless a future scoped-resource rule says otherwise.
 
 ---
@@ -32,6 +32,11 @@ The running compiler also reserves top-level `@import { ... }` as a module decla
 | **A. Honest missing** | Runtime absence produced by resources/intrinsics | no active source-level bare `@` |
 | **B. Resource anchor** | External driver / file / exchange handle | `@file(...)`, `@binance(...)`, `@stdin` |
 | **C. Named resource object** | Persistent resource, sequence, stream, snapshot slot, or topology output | `@price : f64|..10| := { ... }` |
+
+Host-provided resource anchors are explicit resource subjects. User code may operate them through
+their declared capabilities, including explicit release/close when the resource family provides
+that capability. Labels such as read-only or write-only describe data-flow direction; they do not
+make the resource borrow-only.
 
 **Parser rule:** `@ import { ... }` is an import declaration; `@ident ( ... )` is an explicit resource atom; `@ident { ... }` is invalid for explicit resources; `@ident : Type` is a resource declaration. Retired state-container prefixes are parse errors; use top-level `@name : Type`, `expr -> @name`, and `@name[-1]` selectors.
 
@@ -141,12 +146,36 @@ all    = @price[...]
 |------|---------|
 | `expr -> @x` | Flow one produced value into resource sink `@x` |
 | `x = @price[-1]` | Read a scalar value |
-| `@price >> #(v) => { ... }` | Iterate the resource object |
-| `snapshot << @price[...]` | Explicitly copy the current enumerable snapshot |
+| `@price >> #(v) => { ... }` | Run the block over a resource snapshot and commit at block exit |
+| `a => { ... }` | Enter a block stage, operate on a resource snapshot context, and commit at block exit |
+| `x ?= { arm => { ... } }` | Match block entry plus selected arm block entry; each block stage has its own snapshot/commit |
+| `||> { ... }` | Task block entry; captures a resource snapshot context when constructing the task block |
+| `snapshot << @price[...]` | Explicitly deep-copy the current enumerable snapshot into independent storage |
 | `l <- @stdin: list[i32]` | Receive and bind from a resource entry |
-| `l1 << l` | Explicitly copy a resource |
+| `l1 << l` | Explicitly deep-copy a cloneable resource into a fresh owner |
 
 `<-` is for acquiring or receiving from a resource entry. It is not the general resource-copy operator. A resource already bound to `l` must not be copied as `l1 <- l`; use `l1 << l`.
+
+Every block-entry surface enters a resource snapshot context at its operator boundary. This includes
+`>>`, `=>`, `?=`, active `||>`, and the reserved `|>` family if it later becomes a block-entry
+surface. The block operates on the snapshot rather than sharing mutable access to the original
+resource context. When the block reaches `}`, the compiler commits the snapshot result back to the
+source resource context for that stage. This rule covers resource state and resource effects;
+ordinary lexical value scoping keeps its existing language rules.
+
+Chained block stages commit one stage at a time. For example, `a => { 1 } => { 2 } => { 3 }`
+means three independent snapshot/commit units: the first block snapshots `a` and commits at its
+`}`, the second block snapshots that committed state and commits at its `}`, and the third block
+does the same. The chain is therefore observable only at stage boundaries, not at every statement
+inside a block.
+
+`expr -> @name` creates a pending resource-write effect against the current resource context. Inside
+a block-entered stage, that context is the block snapshot. Outside a block, it is the original resource.
+The compiler should commit pending writes at the latest safe boundary rather than immediately, so
+optimization and topology reasoning can keep room to fuse, reorder, or remove non-observable
+intermediate writes. Barriers that force commit include same-resource reads, explicit snapshots,
+iteration by another consumer, `flush`, `close`, resource-family release/commit hooks, explicit
+happens-before edges, and block exit.
 
 ---
 
@@ -213,7 +242,7 @@ while the intrinsic still keeps the 20 raw samples it needs internally.
 }
 ```
 
-The example uses `|..2|` because it needs the previous and latest published values. The intrinsic `p[avg, 20]` still owns its required raw-history storage.
+The example uses `|..2|` because it needs the previous and current published values. The intrinsic `p[avg, 20]` still owns its required raw-history storage.
 
 ---
 
@@ -243,12 +272,12 @@ then maps them onto resource topology instead of copying another language's surf
 
 | Industry practice | Source model | Styio decision |
 |-------------------|--------------|----------------|
-| Single owner plus invalidation after move/consume | Affine resource ownership: one active owner, automatic drop at scope end, and compile-time rejection of invalid references | Logical resources are move-only by default; consuming methods invalidate the receiver immediately; `<<` is the explicit copy/clone entry |
+| Single owner plus invalidation after move/consume | Affine resource ownership: one active owner, automatic drop at scope end, and compile-time rejection of invalid references | Logical resources are move-only by default; consuming methods invalidate the receiver immediately; `<<` is the explicit deep copy/clone entry and must allocate independent storage or resource state |
 | Automatic cleanup at scope exit | C++ RAII and resource handles; C# `using`; Java try-with-resources; Python `with` | Owned close-capable resources receive compiler-owned scope-exit drop edges. User code may call `.close()`, but language safety does not depend on remembering it |
 | Deterministic cleanup order | Java/C# multi-resource cleanup and Go `defer` use deterministic cleanup ordering | Styio must keep scope-exit drops deterministic. When multiple owned resources are in one scope, later acquisitions release before earlier acquisitions unless RTG establishes a stricter dependency |
 | Explicit method contract for cleanup | Java `AutoCloseable`, C# `IDisposable`, Python context manager protocol | Resource methods are resolved statically. Unknown methods, property-as-method calls, wrong arity, and final-binding overrides are compile errors |
-| Exception/error behavior is part of the resource contract | Java suppressed close exceptions; C# disposal through `try/finally`; Python `__exit__` receives exception state | First stage keeps drop failure as a runtime diagnostic. The language contract must document whether cleanup failures are primary, suppressed, or aggregated before stating full failure-safety |
-| Concurrent mutation must be visible to the type/checking layer | Static alias-control and reference-capability systems prevent unsafe simultaneous access patterns | RTG rejects unordered exclusive resource borrows unless an explicit `=>` happens-before edge orders the accesses. Task bodies may borrow outer resources but cannot consume them |
+| Exception/error behavior is part of the resource contract | Java suppressed close exceptions; C# disposal through `try/finally`; Python `__exit__` receives exception state | Cleanup failure is a typed resource effect with a distinct `ResourceCleanupFailure` family. `?\| resource_operation` without fallback raises immediately, and `?\| resource_operation \| fallback` recovers explicitly through type inference |
+| Concurrent mutation must be visible to the type/checking layer | Static alias-control and reference-capability systems prevent unsafe simultaneous access patterns | RTG rejects unordered exclusive resource accesses unless an explicit `=>` happens-before edge orders the accesses. Block-entry surfaces use snapshots instead of shared mutable access to the original resource context |
 | Dynamic convenience is acceptable only below a static safety boundary | Python/Go make cleanup easy but rely more on runtime discipline | Styio may keep convenient `@("path").close()` calls, but consuming status must be known from the method table before lowering |
 
 Source anchors used for this reference map:
@@ -272,13 +301,16 @@ Statements that require more evidence before publication:
 
 1. **Do not overstate the lifetime model.** Styio has compiler-visible ownership, consumption, and
    topology checks, while full lifetime proof and method-family proof remain separate deliverables.
-2. **Do not state complete failure-safety.** Drop/close failure policy is still runtime-diagnostic
-   first stage; suppressed/aggregated cleanup errors remain a later design decision.
+2. **Do not state complete failure-safety.** Drop/close failure is now typed as
+   `ResourceCleanupFailure`, and the source fallback surface is fixed as
+   `?| resource_operation | fallback`, but implementation coverage still needs
+   resource-family tests before documenting full failure-safety.
 3. **Do not state formally proven data-race freedom.** Current RTG rejects unordered exclusive
-   borrows for covered AST surfaces, but a formal proof and broad async/task stress suite are
+   resource accesses for covered AST surfaces, but a formal proof and broad async/task stress suite are
    separate deliverables.
 4. **Do not state all external drivers are safe by construction.** Driver-level FFI, filesystem,
-   network, and benchmark pressure behavior must be validated per driver family.
+   network, pressure-observer behavior, and benchmark pressure behavior must be validated per
+   driver family.
 
 ## 12. References
 

@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-05-21
 
 ## Mission
 
@@ -102,6 +102,7 @@ Key SSOTs:
 67. When describing `IM-D1`, treat `StyioIR` as the existing canonical typed mid-level IR; the remaining maturity work is to freeze its contract, complete accepted AST coverage, and reject unsupported forms with typed diagnostics instead of placeholder lowering.
 68. When an industrial-maturity item moves from pending decision to accepted implementation rule, keep the rollup row and the owning team runbooks in the same staged delivery so staged gates can prove the decision and operational rule landed together.
 69. Keep the IM-D1 contract inventory in [../rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md](../rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md) when placeholder behavior changes. The rollup ledger may call the contract closed only when the inventory, runbooks, focused tests, and docs indexes all describe the same accepted/no-op/fail-closed split.
+70. Keep IM-D4 scoped to resource management: resource-subject identity, capability vocabulary, typestate transitions, block snapshot/commit behavior, cleanup policy, and fallible operation semantics. Resource recovery uses `?| resource_operation | fallback`, named handlers such as `?| resource_operation | backpressure => handler`, and the statement-only discard `?| resource_operation | ...`; the discard form produces no value and still requires resource settlement. Do not introduce user-visible `borrow`, `shared`, `own`, or `pure` syntax, and do not restate the IM-D1 verifier placement, no-op, active AST, or codegen-gate contract inside the IM-D4 row or inventory.
 
 ## Change Classes
 

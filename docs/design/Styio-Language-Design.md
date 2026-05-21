@@ -313,7 +313,30 @@ For compressed one-line blocks, `|<| value |;` is the inline return spelling. `|
 
 When multiple branches yield (e.g., in `?=`), the compiler generates LLVM `phi` nodes at the merge point.
 
-### 6.8 Tasks and Await: `||>` / `?|`
+### 6.8 Block-Entry Snapshot / Commit
+
+Every language form that enters a `{ ... }` block creates a resource snapshot context at the
+block-entry operator and commits resource effects at the matching `}`. This is a general block
+semantics rule, not a special case for resource loops.
+
+Covered block-entry surfaces include `>>`, `=>`, `?=`, active `||>`, and the reserved `|>` family
+if it later becomes an active block-entry form. The rule applies to resource state and resource
+effects; ordinary lexical values keep their normal scoping rules.
+
+Chained stages commit once per block. For example:
+
+```styio
+a => { 1 } => { 2 } => { 3 }
+```
+
+creates three snapshot/commit units. The second block starts from the state committed by the first
+block, and the third starts from the state committed by the second.
+
+If a block-entry operation supports recovery, recovery must wrap the
+block-entry operation with `?| block_entry_operation | fallback`. A trailing
+`} | fallback` is not resource fallback.
+
+### 6.9 Tasks, Resource Effects, and Await: `||>` / `?|`
 
 `||> { ... }` constructs one scheduled task. `||> [ name := { ... } ... ]`
 launches a group of independent task blocks and binds each name to its task handle.
@@ -326,12 +349,68 @@ launches a group of independent task blocks and binds each name to its task hand
 
 ?| price -> p: f64
 ?| risk -> r: f64 | 0.0
+?| @("log.txt").close()
+?| @("archive.log").close() | cleanup_failure => report_cleanup()
 ```
 
 `?| task -> value: T` awaits or pulls a task/future handle and declares `value`
-with type `T`. `?| task -> value: T | fallback` evaluates `fallback` only when
-the task pull reports runtime failure or absence. The fallback separator is the
-ordinary `|`; `??` remains diagnostic extraction, not async fallback syntax.
+with type `T`. Without fallback, a failed pull settles at that source site and
+raises a structured error immediately. `?| task -> value: T | fallback` evaluates
+`fallback` only when the task pull reports runtime failure or absence.
+
+The same marker is the uniform resource-effect evaluation form:
+`?| resource_operation` settles the resource operation in place, while
+`?| resource_operation | fallback` recovers through normal type inference. The
+successful operation value and fallback value must match the surrounding use-site
+type. A bare `resource_operation | fallback` is not a resource fallback form.
+Effect-specific handlers use the same boundary:
+`?| resource_operation | effect_name => handler` handles only the named typed
+effect family. For example, `?| res -> msg_queue | backpressure => do_something()`
+is a pressure handler, not a `?=` match and not a catch-all fallback.
+Handlers may be chained: `?| op | e1 => handler1 | e2 => handler2`.
+`?| resource_operation | ...` is an audited discard form, but only as a
+standalone statement. It executes and settles the resource operation, discards
+business recovery for any effects at that site, produces no value, and continues
+with the next statement. It is illegal anywhere a value is required, such as
+assignment, argument position, or branch expression. `?| resource_operation |
+effect => @()` is rejected: `@()` is an empty resource / destroy sink, not an
+executable empty action.
+`?=` remains value/pattern matching; it can match `backpressure` only after an
+operation explicitly materializes a normal result value, not as an implicit catch
+for unsettled resource effects.
+`??` remains diagnostic extraction, not async or resource fallback syntax.
+
+Backpressure is a resource pressure signal before it is a failure. A pressured
+write may wait, stay pending, or be scheduled by the resource family. Only an
+escalated pressure condition, such as a closed channel, failed transport,
+timeout, or exceeded backlog limit, becomes a `ResourceBackpressureFailure` for
+`?| ... | fallback`.
+
+Resource families may expose pressure as an ordinary observable effect stream:
+
+```styio
+?| res -> msg_queue | backpressure => do_something()
+?| res -> msg_queue | ...
+
+channel.pressure >> #(p) => {
+    ?(p.pending > 10000) => {
+        ||> {
+            ?| channel.inspect()
+              | inspection_failed => report_pressure_probe(p)
+        }
+    }
+}
+```
+
+This form is side-effecting resource code, not implicit error handling. The
+observer can count, log, spawn a task, or invoke recovery operations, and those
+operations still obey normal resource capabilities and fallback rules.
+
+This pressure model is a core Styio design choice. The compiler may do additional
+effect inference when that preserves a valuable language feature: useful resource
+effects should not be collapsed into failures merely because they require more
+static reasoning. Backpressure is useful precisely because it can remain
+observable and mostly harmless until a resource-family policy escalates it.
 
 `?| -> value: T` is reserved as the bare "freeze here" continuation point. The
 parser accepts the shape, but semantic analysis currently fails closed until
@@ -587,7 +666,7 @@ expr -> @price
 snapshot << @price[...]
 ```
 
-`->` writes a produced value into a resource sink. `>>` iterates the resource object. `<<` makes an explicit copy or snapshot.
+`->` writes a produced value into a resource sink. `>>` enters a snapshot-backed block or iteration and commits resource effects at block exit. `<<` makes an explicit copy or snapshot.
 
 Resource acquisition uses `<-` only at resource-entry boundaries:
 
@@ -808,10 +887,12 @@ The `??` operator extracts the diagnostic context from a tainted `@`.
 ### 13.4 Guard-based Recovery
 
 ```
-safe_price = price | @last_valid_price[-1]    // fallback if price carries runtime absence
+safe_price = price | @last_valid_price[-1]    // value fallback if price carries runtime absence
 ```
 
-The `|` operator provides a fallback value when the left side carries runtime absence.
+The `|` operator provides a value fallback when the left side carries runtime
+absence. Resource failures do not use bare `|`; they use
+`?| resource_operation | fallback`.
 
 ---
 

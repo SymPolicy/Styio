@@ -265,7 +265,7 @@ On new value x:
 
 ---
 
-### 4.2 Fallback: `x | default`
+### 4.2 Value Fallback: `x | default`
 
 **Syntax:**
 
@@ -274,6 +274,11 @@ safe = price | @last_valid[-1]
 ```
 
 **LLVM IR:** Compiles to a single `select` instruction (no branch, no phi node). If left operand's undefined flag is set, return right operand.
+
+This is value-level fallback for runtime absence. Resource-effect fallback uses
+the uniform `?| resource_operation | fallback` surface instead: `?| op` settles
+the operation in place and raises immediately on failure, while `?| op | fallback`
+recovers through normal type inference.
 
 ---
 
