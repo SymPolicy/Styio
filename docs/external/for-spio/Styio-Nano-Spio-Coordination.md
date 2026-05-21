@@ -400,7 +400,7 @@ blob 内容是一个 tar 包，解开后必须能解析出 package root，并且
 - `--machine-info=json` 会公开 `supported_contracts.syntax_check:[1]`，用于通用 `styio check --syntax --json --file <path>` 语法审核入口
 - `styio --compile-plan <path>` 会消费 versioned plan，并支持 `build` / `check` / `run` / `test`
 - compile-plan 执行会在约定的 `outputs.build_root` / `artifact_dir` / `diag_dir` 内写出 receipt、编译产物和 `diagnostics.jsonl`
-- 若 plan 非法或 `--compile-plan` 与其它入口参数冲突，只要能解析到 `outputs.diag_dir`，也会把 `STYIO_CLI` 诊断写入该目录；stderr 同样保持 machine-readable JSONL
+- 若 plan 非法或 `--compile-plan` 与其它入口参数冲突，只要能解析到 `outputs.diag_dir`，也会把 `STYIO_SERVICE_COMPILE_PLAN_INVALID` 或 `STYIO_SERVICE_COMPILE_PLAN_CLI_CONFLICT` 诊断写入该目录；stderr 同样保持 machine-readable JSONL
 
 因此，`spio build/check/run/test` 已经可以真正走 live path，而不需要复制编译器内部逻辑。
 

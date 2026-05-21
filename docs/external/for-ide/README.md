@@ -2,12 +2,12 @@
 
 **Purpose:** Define the scope and naming rules for `docs/external/for-ide/`; this directory is the SSOT for consuming `styio`'s IDE-facing components, while consumer-neutral service rules live in [../SERVICES.md](../SERVICES.md) and the generated inventory lives in [INDEX.md](./INDEX.md).
 
-**Last updated:** 2026-05-14
+**Last updated:** 2026-05-20
 
 ## Scope
 
 1. Document how to build, run, embed, and verify `styio_ide_core` and `styio_lspd`.
-2. Keep edit-time syntax backend guidance here, including Tree-sitter grammar maintenance.
+2. Keep edit-time syntax backend guidance here, including Tree-sitter snapshot maintenance, while keeping accepted grammar authority in the compiler parser.
 3. For one-shot source validation, prefer the consumer-neutral `styio check --syntax --json --file <path>` service documented in [../SERVICES.md](../SERVICES.md).
 4. Do not restate language semantics here; semantic SSOT remains in [../../design/INDEX.md](../../design/INDEX.md).
 5. IDE-facing tradeoffs still follow [../../specs/PRINCIPLES-AND-OBJECTIVES.md](../../specs/PRINCIPLES-AND-OBJECTIVES.md).

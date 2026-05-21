@@ -1,7 +1,7 @@
 id = "add-syntax-with-skills"
 title = "Add Syntax With Skills"
 purpose = "Orchestrate new Styio syntax work through repo-local skills, implementation surfaces, docs, and gates."
-last_updated = "2026-04-23"
+last_updated = "2026-05-20"
 doc = "ADD-SYNTAX-WITH-SKILLS.md"
 skill = "skills/styio-syntax-change/skill.toml"
 
@@ -10,8 +10,8 @@ steps = [
   "freeze accepted examples and reserved symbols",
   "update token enum, token names, and lexer",
   "update IDE tokenizer",
-  "update legacy parser",
-  "update nightly parser",
+  "update authoritative nightly parser",
+  "update legacy parser migration evidence only when the change touches retired syntax",
   "update AST, type, and IR behavior",
   "update docs and runbooks",
   "add tests and runtime smoke",
@@ -21,8 +21,8 @@ steps = [
 implementation_order = [
   "token enum/name/lexer",
   "IDE tokenizer",
-  "legacy parser",
-  "nightly parser",
+  "authoritative nightly parser",
+  "legacy parser migration evidence only when the change touches retired syntax",
   "AST/type/IR behavior",
   "docs and runbooks",
   "tests",
@@ -30,7 +30,7 @@ implementation_order = [
 
 required_evidence = [
   "lexer coverage for every new token",
-  "legacy and nightly parser coverage for every accepted form",
+  "authoritative nightly parser coverage for every accepted form with no accepted-grammar fallback",
   "semantic negative coverage for every accepted-but-not-lowered form",
   "runtime smoke for every supported lowering path",
   "compact syntax, EBNF, symbol reference, and semantic SSOT docs updated",

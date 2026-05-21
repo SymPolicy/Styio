@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-05-19
+**Last updated:** 2026-05-20
 
 ## Mission
 
@@ -101,6 +101,7 @@ Key SSOTs:
 66. Keep the industrial-maturity decision register sorted by descending priority: `IM-D1` is the highest-priority blocker, and larger decision numbers are lower priority.
 67. When describing `IM-D1`, treat `StyioIR` as the existing canonical typed mid-level IR; the remaining maturity work is to freeze its contract, complete accepted AST coverage, and reject unsupported forms with typed diagnostics instead of placeholder lowering.
 68. When an industrial-maturity item moves from pending decision to accepted implementation rule, keep the rollup row and the owning team runbooks in the same staged delivery so staged gates can prove the decision and operational rule landed together.
+69. Keep the IM-D1 contract inventory in [../rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md](../rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md) when placeholder behavior changes. The rollup ledger may call the contract closed only when the inventory, runbooks, focused tests, and docs indexes all describe the same accepted/no-op/fail-closed split.
 
 ## Change Classes
 

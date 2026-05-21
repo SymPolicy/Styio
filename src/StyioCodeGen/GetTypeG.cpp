@@ -51,6 +51,8 @@ StyioToLLVM::toLLVMType(SGType* node) {
       return theBuilder->getInt64Ty();
     case StyioDataTypeOption::Float:
       return theBuilder->getDoubleTy();
+    case StyioDataTypeOption::Char:
+      return theBuilder->getInt8Ty();
     case StyioDataTypeOption::String:
       return llvm::PointerType::get(*theContext, 0);
     case StyioDataTypeOption::List:
@@ -85,7 +87,7 @@ StyioToLLVM::toLLVMType(SGConstFloat* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGConstChar* node) {
-  return theBuilder->getInt64Ty();
+  return theBuilder->getInt8Ty();
 };
 
 llvm::Type*

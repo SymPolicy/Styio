@@ -15,6 +15,7 @@
 #include "StyioException/Exception.hpp"
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
+#include "StyioServices/DiagnosticContract.hpp"
 #include "StyioToken/Token.hpp"
 
 #ifndef STYIO_PROJECT_VERSION
@@ -208,7 +209,12 @@ parse_diagnostics_from_context(const StyioContext& context, const SourceText& so
     const std::size_t start = std::min(diagnostic.start, source.text.size());
     const std::size_t end = std::min(std::max(diagnostic.end, diagnostic.start), source.text.size());
     const std::size_t length = end > start ? end - start : (source.text.empty() ? 0u : 1u);
-    diagnostics.push_back(Diagnostic{"parse", "STYIO_PARSE", diagnostic.message, start, length});
+    diagnostics.push_back(Diagnostic{
+      std::string(diagnostics::kPhaseParse),
+      diagnostics::classify_parse_code(diagnostic.message),
+      diagnostic.message,
+      start,
+      length});
   }
   return diagnostics;
 }
@@ -285,6 +291,7 @@ emit_result(
       << ",\"range_start_column\":" << context.range_start_column
       << ",\"range_end_column\":" << context.range_end_column
       << ",\"caret\":\"" << json_escape(context.caret) << "\"}"
+      << ",\"notes\":[]"
       << "}";
   }
 
@@ -298,19 +305,24 @@ emit_cli_error(const std::string& message, const std::string& file = "") {
     file,
     "cli_error",
     false,
-    "cli",
+    std::string(diagnostics::kPhaseService),
     StyioParserEngine::Nightly,
     empty,
-    {Diagnostic{"cli", "STYIO_CLI", message, 0, 0}});
+    {Diagnostic{
+      std::string(diagnostics::kPhaseService),
+      diagnostics::classify_service_code("", message),
+      message,
+      0,
+      0}});
   return static_cast<int>(SyntaxCheckExitCode::CliError);
 }
 
 void
 print_help() {
   std::cout
-    << "Usage: styio check --syntax --json --file <path> [--parser-engine nightly|legacy]\n"
+    << "Usage: styio check --syntax --json --file <path> [--parser-engine nightly]\n"
     << "\n"
-    << "Runs lexing, parsing, and AST construction only. It does not type-check,\n"
+    << "Runs lexing, authoritative nightly parsing, and AST construction only. It does not type-check,\n"
     << "lower, codegen, execute, or access runtime resources.\n";
 }
 
@@ -350,7 +362,7 @@ run_syntax_check_cli(int argc, char* argv[]) {
     }
     if (arg == "--parser-engine") {
       if (i + 1 >= argc || argv[i + 1] == nullptr) {
-        return emit_cli_error("--parser-engine requires legacy or nightly");
+        return emit_cli_error("--parser-engine requires nightly");
       }
       parser_engine_raw = argv[++i];
       continue;
@@ -373,8 +385,8 @@ run_syntax_check_cli(int argc, char* argv[]) {
   }
 
   StyioParserEngine parser_engine = StyioParserEngine::Nightly;
-  if (!styio_parse_parser_engine_latest(parser_engine_raw, parser_engine)) {
-    return emit_cli_error("unsupported --parser-engine: " + parser_engine_raw, file);
+  if (parser_engine_raw != "nightly") {
+    return emit_cli_error("styio check --syntax only accepts the authoritative nightly parser", file);
   }
 
   std::string text;
@@ -405,10 +417,15 @@ run_syntax_check_cli(int argc, char* argv[]) {
       file,
       "lexical_error",
       false,
-      "lex",
+      std::string(diagnostics::kPhaseLex),
       parser_engine,
       source,
-      {Diagnostic{"lex", "STYIO_LEX", ex.what(), offset, source.text.empty() ? 0u : 1u}});
+      {Diagnostic{
+        std::string(diagnostics::kPhaseLex),
+        diagnostics::classify_lex_code(ex.what()),
+        ex.what(),
+        offset,
+        source.text.empty() ? 0u : 1u}});
     return static_cast<int>(SyntaxCheckExitCode::LexError);
   } catch (const std::exception& ex) {
     const std::size_t offset = diagnostic_offset_from_message(ex.what(), source);
@@ -417,10 +434,15 @@ run_syntax_check_cli(int argc, char* argv[]) {
       file,
       "lexical_error",
       false,
-      "lex",
+      std::string(diagnostics::kPhaseLex),
       parser_engine,
       source,
-      {Diagnostic{"lex", "STYIO_LEX", ex.what(), offset, source.text.empty() ? 0u : 1u}});
+      {Diagnostic{
+        std::string(diagnostics::kPhaseLex),
+        diagnostics::classify_lex_code(ex.what()),
+        ex.what(),
+        offset,
+        source.text.empty() ? 0u : 1u}});
     return static_cast<int>(SyntaxCheckExitCode::LexError);
   }
 
@@ -435,10 +457,15 @@ run_syntax_check_cli(int argc, char* argv[]) {
       file,
       "syntax_error",
       false,
-      "parse",
+      std::string(diagnostics::kPhaseParse),
       parser_engine,
       source,
-      {Diagnostic{"parse", "STYIO_PARSE", ex.what(), offset, source.text.empty() ? 0u : 1u}});
+      {Diagnostic{
+        std::string(diagnostics::kPhaseParse),
+        diagnostics::classify_parse_code(ex.what()),
+        ex.what(),
+        offset,
+        source.text.empty() ? 0u : 1u}});
     return static_cast<int>(SyntaxCheckExitCode::ParseError);
   } catch (const std::exception& ex) {
     const std::size_t offset =
@@ -448,10 +475,15 @@ run_syntax_check_cli(int argc, char* argv[]) {
       file,
       "syntax_error",
       false,
-      "parse",
+      std::string(diagnostics::kPhaseParse),
       parser_engine,
       source,
-      {Diagnostic{"parse", "STYIO_PARSE", ex.what(), offset, source.text.empty() ? 0u : 1u}});
+      {Diagnostic{
+        std::string(diagnostics::kPhaseParse),
+        diagnostics::classify_parse_code(ex.what()),
+        ex.what(),
+        offset,
+        source.text.empty() ? 0u : 1u}});
     return static_cast<int>(SyntaxCheckExitCode::ParseError);
   }
 
@@ -471,7 +503,7 @@ run_syntax_check_cli(int argc, char* argv[]) {
   }
 
   cleanup();
-  emit_result(file, "ok", true, "parse", parser_engine, source, {});
+  emit_result(file, "ok", true, std::string(diagnostics::kPhaseParse), parser_engine, source, {});
   return static_cast<int>(SyntaxCheckExitCode::Success);
 }
 

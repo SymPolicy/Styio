@@ -2,7 +2,7 @@
 
 **Purpose:** Explain how the repository-local Tree-sitter grammar plugs into `styio_ide_core`, and how to evolve it without breaking the IDE contracts.
 
-**Last updated:** 2026-04-14
+**Last updated:** 2026-05-20
 
 ## Ownership
 
@@ -22,8 +22,9 @@
 
 1. Token spans used by HIR and semantic tokens
 2. Bracket matching maps used by the fallback HIR builder
-3. Nightly parser semantic truth
-4. Completion ranking and type-aware filtering
+3. Accepted Styio grammar or syntax validity
+4. Nightly parser semantic truth
+5. Completion ranking and type-aware filtering
 
 ## Update Workflow
 
@@ -36,7 +37,7 @@
 
 `STYIO_ENABLE_TREE_SITTER=ON` links the generated parser and upstream runtime into `styio_ide_core`.
 
-`STYIO_ENABLE_TREE_SITTER=OFF` keeps the old tolerant backend as the only syntax source. This mode is valid for bring-up or offline builds, but it should not be the default path for IDE development.
+`STYIO_ENABLE_TREE_SITTER=OFF` keeps the old edit-time snapshot backend available for bring-up or offline builds. Neither backend is a grammar authority: editor snapshots may expose tokens, nodes, ranges, and diagnostics, but accepted syntax must still be proven by the hand-written nightly compiler parser through the compiler-owned syntax service.
 
 ## Incremental Reuse Contract
 

@@ -453,7 +453,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Char, "char", 8};
   }
 };
 

@@ -2,7 +2,7 @@
 
 **Purpose:** Record the reusable workflow for correcting a Styio syntax contract when compiler behavior, tests, and language specification disagree about accepted or rejected spelling.
 
-**Last updated:** 2026-05-01
+**Last updated:** 2026-05-20
 
 ## Canonical Workflow
 
@@ -32,4 +32,4 @@ Use this workflow when a user or maintainer reports that:
 
 ## Handoff
 
-Report the rejected spelling, accepted spelling, owning grammar rule, exact diagnostic, standard-doc changes, gates run, and any remaining parser-route, IDE grammar, or lowering work.
+Report the rejected spelling, accepted spelling, owning grammar rule, exact diagnostic, standard-doc changes, gates run, and any remaining parser-route, IDE snapshot, or lowering work.

@@ -76,9 +76,11 @@ Primary paths:
 50. Iterator and forward-clause leaks can migrate outward after the inner `#tag` ownership is fixed. When fuzz shows a later failure in legacy fallback or nightly subset recovery after an iterator was already constructed, preserve that second raw seed too, add a second session-backed regression, and rerun the isolated artifact plus the full parser corpus so the next owner boundary is proved closed.
 51. Statement-prefix leaks need the same two-engine closure. If fuzz reaches `parse_stmt_or_expr_legacy(...)` or shadow-mode statement recovery and leaks a created `NameAST` or bind target before the right-hand side finishes parsing, keep that raw seed, add a session-backed regression that covers both engines, and replay the isolated artifact plus the tracked parser corpus so legacy entry points cannot silently rot behind nightly shadow green status.
 52. `@resource` leak seeds need three-route confirmation even when the test loop only drives two engines. If fuzz leaks a `NameAST` built in `parse_resource_ref_after_at_latest(...)`, preserve the raw seed, add a session-backed regression that runs both legacy and nightly engines, and verify the replay stack closes legacy main-block parsing plus nightly subset and shadow recovery before treating the corpus backflow as complete.
-53. Syntax-check diagnostics that add recoverable parser behavior or source context need focused CLI tests covering nonzero exit codes, multiple recovered `STYIO_PARSE` entries when applicable, and machine-readable caret/source fields for both parse and lex failures.
+53. Syntax-check diagnostics that add recoverable parser behavior or source context need focused CLI tests covering nonzero exit codes, multiple recovered `STYIO_PARSE_*` entries when applicable, and machine-readable code/phase/notes/caret/source fields for both parse and lex failures.
 54. Native interop syntax tests must cover both compatibility and preferred binding forms. Keep legacy `@export { name }` plus `@extern(...) => ...` only in parser compatibility coverage; feature fixtures, artifact tests, and new examples must use explicit `# name[, other] := @ extern(...) { ... }` bindings for referenced C, referenced C++, inline C, mixed inline/reference execution, `styio build` artifact linking, and multi-symbol exposure from one native source file.
 55. IR contract tests must call new node-level invariants through `StyioIR*` or another public base surface, not only through concrete classes. The `is_active()` and verifier contract needs focused coverage for SG, SC, SIO, and legacy IOIR domains, explicit `SGNoOp` lowering from no-op AST forms, inactive-node rejection, and codegen gate rejection before LLVM emission.
+56. Placeholder-retirement coverage must protect both sides of the contract: accepted metadata paths should prove `SGNoOp` or real lowering, while unsupported value syntax should assert `StyioTypeError`. Pair focused `StyioIRContract` unit tests with `security`, `language_feature`, and `styio_pipeline` labels before marking an IM-D1 slice closed.
+57. Parser-authority coverage must protect IM-D2: public syntax-check tests must prove `legacy` and other non-authoritative engines are rejected, parser tests must prove unsupported syntax fails closed instead of using fallback, and IDE tests must prove malformed-source token snapshots do not publish recovered semantic facts.
 
 ## Change Classes
 
@@ -95,6 +97,7 @@ ctest --test-dir build/default -L language_feature
 ctest --test-dir build/default -L styio_pipeline
 ctest --test-dir build/default -L security
 ctest --test-dir build/default -L resource_topology
+ctest --test-dir build/default -R '^(StyioDiagnostics\.SyntaxCheckRejectsNonAuthoritativeParserEngine|StyioSemanticBridge\.RejectsMalformedInputWithoutRecovery|StyioSyntaxDrift\.CorpusMatchesApprovedEnvelope)$'
 ctest --test-dir build/default -R '^parser_shadow_gate_'
 ctest --test-dir build/default -L algorithm_equivalence
 ```

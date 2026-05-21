@@ -2,7 +2,7 @@
 
 **Purpose:** Orchestrate new Styio syntax work through repo-local skills, implementation surfaces, docs, and gates.
 
-**Last updated:** 2026-04-23
+**Last updated:** 2026-05-20
 
 **TOML:** [ADD-SYNTAX-WITH-SKILLS.toml](./ADD-SYNTAX-WITH-SKILLS.toml) is the machine-readable workflow definition.
 
@@ -17,18 +17,18 @@ Use [styio-syntax-change/skill.toml](./skills/styio-syntax-change/skill.toml) wh
 3. Implement in this order:
    - token enum/name/lexer
    - IDE tokenizer
-   - legacy parser
-   - nightly parser
+   - authoritative nightly parser
+   - legacy parser migration evidence only when the change touches retired syntax
    - AST/type/IR behavior
    - docs and runbooks
    - tests
 4. If runtime lowering is incomplete, reject the accepted-looking form with a typed fail-closed diagnostic.
-5. Prove parity and boundaries before reporting completion.
+5. Prove no-fallback acceptance and boundaries before reporting completion.
 
 ## Required Evidence
 
 1. Lexer coverage for every new token.
-2. Legacy and nightly parser coverage for every accepted form.
+2. Authoritative nightly parser coverage for every accepted form, with no accepted-grammar fallback.
 3. Semantic negative coverage for every accepted-but-not-lowered form.
 4. Runtime smoke for every supported lowering path.
 5. Docs updated in compact syntax, EBNF, symbol reference, and semantic SSOT.

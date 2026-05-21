@@ -57,6 +57,8 @@ Key handoff document:
 23. Keep clean-room nano package builds resource-bounded by default. `STYIO_NANO_BUILD_JOBS` may raise the build parallelism on larger machines, but generated helpers should not default to unbounded `--parallel`.
 24. Keep the Spio handoff doc pointed at current contracts only. Do not reintroduce deleted bootstrap/source-build long plans after their durable rules have moved into this runbook, the repository map, or the handoff document.
 25. When `styio check --syntax --json --file` diagnostics gain recovery behavior or new machine-readable fields, update `--machine-info=json` capabilities, `StyioDiagnostics.*` contract tests, `src/StyioServices/StyioCLI/README.md`, and `src/StyioServices/MANIFEST.md` together.
+26. Keep syntax-check parser authority locked to nightly. `--parser-engine nightly` may remain accepted as an explicit spelling, but `legacy`, `new`, and consumer-specific engines must remain CLI errors for the public syntax service.
+27. Public JSON/JSONL diagnostics must use the shared `STYIO_<PHASE>_<ERROR_FAMILY>` taxonomy from `src/StyioServices/DiagnosticContract.hpp`; keep compatibility `subcode` fields only as secondary aliases.
 
 ## Change Classes
 

@@ -1,6 +1,7 @@
 #include "SemDB.hpp"
 
 #include "StyioParser/SymbolRegistry.hpp"
+#include "StyioServices/DiagnosticContract.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -128,6 +129,8 @@ diagnostic_key(const Diagnostic& diagnostic) {
   return std::to_string(diagnostic.range.start)
     + ":"
     + std::to_string(diagnostic.range.end)
+    + ":"
+    + diagnostic.code
     + ":"
     + diagnostic.message;
 }
@@ -621,10 +624,12 @@ SemanticDB::diagnostics_from_file_queries(const DocumentSnapshot& document) {
     append_unique_diagnostic(diagnostics, seen_diagnostics, Diagnostic{
       TextRange{0, 0},
       DiagnosticSeverity::Error,
-      "lsp",
+      "styio-lsp",
       document.resync_reason.empty()
         ? "full document resynchronization required"
-        : "full document resynchronization required: " + document.resync_reason});
+        : "full document resynchronization required: " + document.resync_reason,
+      std::string(styio::services::diagnostics::kServiceLspResyncRequired),
+      std::string(styio::services::diagnostics::kPhaseService)});
   }
   return diagnostics;
 }
@@ -689,10 +694,12 @@ SemanticDB::syntax_diagnostics_for(const std::string& path) {
     diagnostics.push_back(Diagnostic{
       TextRange{0, 0},
       DiagnosticSeverity::Error,
-      "lsp",
+      "styio-lsp",
       document->resync_reason.empty()
         ? "full document resynchronization required"
-        : "full document resynchronization required: " + document->resync_reason});
+        : "full document resynchronization required: " + document->resync_reason,
+      std::string(styio::services::diagnostics::kServiceLspResyncRequired),
+      std::string(styio::services::diagnostics::kPhaseService)});
   }
   return diagnostics;
 }

@@ -348,11 +348,18 @@ Server::make_diagnostic_notification(
 ) {
   llvm::json::Array items;
   for (const auto& diagnostic : diagnostics) {
-    items.push_back(llvm::json::Object{
+    llvm::json::Object item{
       {"range", to_lsp_range(buffer, diagnostic.range)},
       {"severity", static_cast<std::int64_t>(diagnostic.severity)},
       {"source", diagnostic.source},
-      {"message", diagnostic.message}});
+      {"message", diagnostic.message}};
+    if (!diagnostic.code.empty()) {
+      item["code"] = diagnostic.code;
+    }
+    if (!diagnostic.phase.empty()) {
+      item["data"] = llvm::json::Object{{"phase", diagnostic.phase}};
+    }
+    items.push_back(std::move(item));
   }
 
   return llvm::json::Object{

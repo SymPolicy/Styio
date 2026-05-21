@@ -1,12 +1,12 @@
 # Frontend Runbook
 
-**Purpose:** Provide the daily-work entrypoint for maintainers of Styio tokenization, parsing, Unicode handling, and legacy/nightly parser migration; this file links to language and test SSOTs instead of redefining grammar.
+**Purpose:** Provide the daily-work entrypoint for maintainers of Styio tokenization, parsing, Unicode handling, and the authoritative nightly parser contract; this file links to language and test SSOTs instead of redefining grammar.
 
-**Last updated:** 2026-05-17
+**Last updated:** 2026-05-20
 
 ## Mission
 
-Own the source-to-AST front end: token definitions, lexer behavior, parser routing, parser recovery, lookahead helpers, and legacy/nightly migration boundaries. Do not own language meaning beyond implementing the design SSOT.
+Own the source-to-AST front end: token definitions, lexer behavior, parser routing, parser diagnostics, lookahead helpers, and the authoritative nightly parser boundary. Do not own language meaning beyond implementing the design SSOT.
 
 ## Owned Surface
 
@@ -28,7 +28,7 @@ Build and test targets:
 ## Daily Workflow
 
 1. Read [../design/Styio-EBNF.md](../design/Styio-EBNF.md), [../design/Styio-Symbol-Reference.md](../design/Styio-Symbol-Reference.md), and relevant language sections before changing syntax.
-2. Check [../rollups/CURRENT-STATE.md](../rollups/CURRENT-STATE.md), [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md), and the parser gate sections in [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) when touching legacy/nightly paths; use Git history only if active docs are still insufficient.
+2. Check [../rollups/CURRENT-STATE.md](../rollups/CURRENT-STATE.md), [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md), [../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md](../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md), and the parser gate sections in [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) when touching parser authority paths; use Git history only if active docs are still insufficient.
 3. Make lexer and parser changes in the smallest parse subset possible.
 4. Add or update a failing fixture before changing accepted behavior.
 5. Update [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) when adding feature or parser acceptance coverage.
@@ -47,22 +47,23 @@ Build and test targets:
 18. `$` remains syntax-sensitive: `$"..."` is the accepted format-string route and must stay green in both parser engines, while `$identifier` is retired state-resource state syntax and must keep the migration diagnostic.
 19. Tokenizer and parser recovery paths are sanitizer-sensitive. Accumulate tokens, top-level statements, hash-function parts, parsed return-type fragments, parenthesized expressions, call arguments, and match-case arms/default bodies behind RAII ownership before releasing them to the session or final AST node, and backflow minimized fuzz samples into `tests/fuzz/corpus/` when nightly fuzz exposes a lifetime bug.
 20. Typed annotation recovery is part of the same ownership contract. Keep parsed `TypeAST`, declared `VarAST`, await targets, resource declaration slots, and parameter nodes behind local owners until the parser has seen the required delimiter or assignment token and the final AST node has adopted them.
-21. Parser recovery resource limits are fail-closed. Deep delimiter nesting, repeated fallback routes, and unclosed expression contexts must raise the parser resource-limit diagnostic directly instead of being swallowed by legacy fallback; minimized OOM fuzz seeds belong in `tests/fuzz/corpus/` with a deterministic security regression.
-22. List-element recovery must stay on the `ParseAttempt` bridge. When nightly expression parsing inside list literals needs legacy fallback, route it through `try_parse_expr_subset_until_latest(...)` with explicit follow-token delimiters instead of calling the nightly subset parser directly and rewinding into `parse_expr(context)`, or deep malformed nests can bounce between routes until timeout instead of tripping the resource-limit diagnostic.
-23. Internal nightly-to-legacy bridges are recovery-budgeted per token. If one cursor position declines or falls back repeatedly, raise a parser resource-limit diagnostic instead of letting list/dict/hash recovery loop between nightly subset entry and legacy expression parsing.
-24. Temporary ASTs produced during parser recovery and fallback must stay under local ownership until `ListAST`, `DictAST`, `BlockAST`, `MainBlockAST`, `RangeAST`, parameter-list adopters, or equivalent final AST nodes take them. Session-arena release does not run destructors for abandoned parser nodes, so exception paths that drop partially parsed literals, block statements, or function and iterator parameter lists can leak nested string storage even when the outer AST object memory comes from the arena.
+21. Parser resource limits are fail-closed. Deep delimiter nesting and unclosed expression contexts must raise parser diagnostics directly instead of being swallowed by legacy fallback; minimized OOM fuzz seeds belong in `tests/fuzz/corpus/` with a deterministic security regression.
+22. Accepted grammar is no-fallback. When nightly expression, statement, block, list, dict, match, iterator, or hash-statement parsing declines, either implement the missing nightly route with tests or reject it with a stable syntax diagnostic; do not rewind into `parse_expr(context)`, `parse_block_only(context)`, `parse_stmt_or_expr_legacy(context)`, or `parse_hash_tag(context)`.
+23. Public syntax validation is locked to the hand-written nightly parser. `styio check --syntax --json` may accept `--parser-engine nightly` as an explicit no-op, but non-authoritative engines such as `legacy` or `new` must stay rejected by tests.
+24. Temporary ASTs produced during parser failures must stay under local ownership until `ListAST`, `DictAST`, `BlockAST`, `MainBlockAST`, `RangeAST`, parameter-list adopters, or equivalent final AST nodes take them. Session-arena release does not run destructors for abandoned parser nodes, so exception paths that drop partially parsed literals, block statements, or function and iterator parameter lists can leak nested string storage even when the outer AST object memory comes from the arena.
 25. Statement-local expression accumulators follow the same rule. Parser helpers such as `parse_print(...)` and nightly statement subsets must keep temporary expression lists behind RAII until `PrintAST` or another final adopter takes ownership, or a malformed outer delimiter can leak inner call-argument buffers after the callee AST has already been constructed.
 26. Iterator hash-tag accumulators are part of the same ownership contract. `parse_iterator_tail(...)` and nightly iterator parsing must keep temporary `HashTagNameAST` lists behind RAII until `IterSeqAST` adopts them, or malformed outer expressions can leak completed `#tag` names after the iterator sequence has already been recognized.
 27. Iterator continuation and forward-clause recovery must also stay fail-closed under RAII. Once parser fallback has built a collection, guard condition, `?=` right-value list, or iterator body AST, keep it locally owned until `IteratorAST`, `StreamZipAST`, `InfiniteLoopAST`, or `CheckEqualAST` has adopted it, or malformed outer continuations can leak completed nested ASTs after a later delimiter or route check fails.
 28. Statement-entry names are part of the same fail-closed contract. In `parse_stmt_or_expr_legacy(...)` and shadow-mode recovery, keep `NameAST`, typed bind targets, and compound-assignment operands behind local ownership until the final bind or `BinOpAST` has adopted them, or malformed right-hand expressions can leak the already-created statement prefix across both legacy and nightly entry routes.
 29. `@resource` references belong to the same ownership boundary. `parse_resource_ref_after_at_latest(...)` must keep the parsed `NameAST` behind RAII until `ResourceRefAST` adopts it, or malformed selectors and outer `#...` recovery can leak the completed `@name` prefix across legacy entry, nightly subset recovery, and shadow-mode fallback.
 30. Native source references use compatibility `@extern(c|c++) => "relative/or/absolute/source"` and the preferred explicit binding form `# name[, other] := @ extern(c|c++) { "relative/or/absolute/source" }` as parser-owned structure only. The parser may normalize a relative path against the `.styio` file location and store it on `ExternBlockAST`, but syntax-only paths must not open, stat, compile, or validate the referenced file. Inline native bodies in `# name := @ extern(c|c++) { ... }` must remain raw-scanned by the tokenizer, because C/C++ braces, strings, comments, and raw string literals are not Styio syntax.
+31. Primitive token-table changes are frontend-owned public surface. When a scalar such as `char` changes its canonical width or type metadata, update the token table together with AST/Sema/IR/codegen tests so syntax acceptance does not drift from executable type behavior.
 
 ## Change Classes
 
 1. Small: typo-safe parser helper changes, local lookahead fix, or token display-name cleanup. Run targeted unit or feature tests.
-2. Medium: new token, changed AST construction, changed parser fallback, or changed parse diagnostics. Add tests and run parser shadow gates for affected feature labels.
-3. High: default parser route, legacy fallback policy, statement boundary, or recovery-mode behavior. Use checkpoint workflow, add ADR if ownership or route policy changes, and run checkpoint health.
+2. Medium: new token, changed AST construction, changed parser rejection, or changed parse diagnostics. Add tests and run parser authority/shadow gates for affected feature labels.
+3. High: default parser route, parser authority policy, statement boundary, or syntax-check service behavior. Use checkpoint workflow, add ADR if ownership or route policy changes, and run checkpoint health.
 
 ## Required Gates
 
@@ -71,6 +72,7 @@ Minimum local commands:
 ```bash
 ctest --test-dir build/default -L language_feature
 ctest --test-dir build/default -R '^StyioParserEngine\.'
+ctest --test-dir build/default -R '^StyioDiagnostics\.SyntaxCheckRejectsNonAuthoritativeParserEngine$'
 ctest --test-dir build/default -R '^parser_shadow_gate_'
 ```
 
@@ -96,7 +98,7 @@ python3 scripts/runtime-surface-gate.py
 
 ## Cross-Team Dependencies
 
-1. Sema / IR must review changes that alter AST shape, node ownership, or parse-mode recovery output.
+1. Sema / IR must review changes that alter AST shape, node ownership, or parser semantic output.
 2. Test Quality must review new parser acceptance fixtures, shadow gate changes, and fuzz regression samples.
 3. IDE / LSP and Grammar must review changes that affect edit-time syntax assumptions or public diagnostics.
 4. Codegen / Runtime must review syntax changes that add, rename, or reroute `styio_*` runtime helpers.
@@ -108,6 +110,6 @@ Record unfinished parser work in `docs/history/YYYY-MM-DD.md` with:
 
 1. Parser engine, route, and feature subset.
 2. Exact failing command or shadow artifact path.
-3. Legacy/nightly fallback status.
+3. Parser-authority and no-fallback status.
 4. Next smallest parser slice.
 5. Rollback point if accepted syntax changed.

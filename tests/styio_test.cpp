@@ -468,6 +468,7 @@ TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   );
   EXPECT_NE(result.stdout_text.find("\"supported_adapter_modes\":[\"cli\"]"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"feature_flags\":{\"single_file_entry\":true"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"stable_diagnostic_codes\":true"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"syntax_check\":true"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"syntax_check_recovery_diagnostics\":true"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"syntax_check_source_context\":true"), std::string::npos);
@@ -480,6 +481,7 @@ TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   EXPECT_NE(result.stdout_text.find("\"syntax_check_json\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"syntax_check_recovery_diagnostics\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"syntax_check_source_context\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"stable_diagnostic_codes\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"nano_package_registry_publish_v1\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"dict_impl\":{\"selected\":\"ordered-hash\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"edition_max\":\"2026\""), std::string::npos);
@@ -552,7 +554,8 @@ TEST(StyioDiagnostics, SyntaxCheckJsonReportsParseFailure) {
   EXPECT_NE(result.stdout_text.find("\"status\":\"syntax_error\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"ok\":false"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"phase\":\"parse\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_PARSE\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_PARSE_UNEXPECTED_TOKEN\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"notes\":[]"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"line\":"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"column\":"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"source_context\":{"), std::string::npos);
@@ -586,7 +589,8 @@ TEST(StyioDiagnostics, SyntaxCheckJsonReportsMultipleRecoveredParseFailures) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 3) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"status\":\"syntax_error\""), std::string::npos);
-  EXPECT_EQ(count_substring_latest(result.stdout_text, "\"code\":\"STYIO_PARSE\""), 2U) << result.stdout_text;
+  EXPECT_EQ(count_substring_latest(result.stdout_text, "\"code\":\"STYIO_PARSE_UNEXPECTED_TOKEN\""), 2U)
+    << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"line_text\":\"# broken := (a: i32) => a +\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"line_text\":\"# also_broken := (b: i32) => b +\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"source_context\":{"), std::string::npos);
@@ -618,13 +622,48 @@ TEST(StyioDiagnostics, SyntaxCheckJsonReportsLexFailure) {
   EXPECT_NE(result.stdout_text.find("\"contract\":\"syntax-check\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"status\":\"lexical_error\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"phase\":\"lex\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_LEX\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_LEX_UNTERMINATED_BLOCK_COMMENT\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"notes\":[]"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"line\":2"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"column\":1"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"offset\":7"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"source_context\":{"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"line_text\":\"/* unterminated\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"caret\":\"^\""), std::string::npos);
+
+  fs::remove(source);
+}
+
+TEST(StyioDiagnostics, SyntaxCheckRejectsNonAuthoritativeParserEngine) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path source =
+    fs::temp_directory_path() / ("styio-syntax-check-authority-" + std::to_string(uniq) + ".styio");
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << "result: i32 := 1\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" check --syntax --json --parser-engine legacy --file \""
+    + source.string() + "\" 2>&1";
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"contract\":\"syntax-check\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"status\":\"cli_error\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"service\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_INVALID_ARGUMENT\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("styio check --syntax only accepts the authoritative nightly parser"),
+    std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\"parser_engine\":\"legacy\""), std::string::npos);
 
   fs::remove(source);
 }
@@ -1130,7 +1169,9 @@ TEST(StyioDiagnostics, CompilePlanFailureWritesJsonlDiagnosticIntoDiagDir) {
   const std::string diagnostics = read_text_file_latest(diag_path);
   const std::string runtime_events = read_text_file_latest(runtime_events_path);
   EXPECT_NE(diagnostics.find("\"severity\":\"error\""), std::string::npos);
-  EXPECT_NE(diagnostics.find("\"code\":\"STYIO_RUNTIME\""), std::string::npos);
+  EXPECT_NE(diagnostics.find("\"phase\":\"runtime\""), std::string::npos);
+  EXPECT_NE(diagnostics.find("\"code\":\"STYIO_RUNTIME_ERROR\""), std::string::npos);
+  EXPECT_NE(diagnostics.find("\"notes\":[]"), std::string::npos);
   EXPECT_NE(diagnostics.find("\"file\":\"" + source.string() + "\""), std::string::npos);
   EXPECT_NE(diagnostics.find("file not found"), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
@@ -1201,7 +1242,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidIntentReportsCliDiagnosticAndWritesDiag
     run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"CliError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"subcode\":\"compile_plan_invalid\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("unsupported compile-plan intent: ship"), std::string::npos);
 
@@ -1209,7 +1250,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidIntentReportsCliDiagnosticAndWritesDiag
   ASSERT_TRUE(fs::exists(diag_path));
   const std::string diagnostics = read_text_file_latest(diag_path);
   EXPECT_NE(diagnostics.find("\"category\":\"CliError\""), std::string::npos);
-  EXPECT_NE(diagnostics.find("\"code\":\"STYIO_CLI\""), std::string::npos);
+  EXPECT_NE(diagnostics.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
   EXPECT_NE(diagnostics.find("\"subcode\":\"compile_plan_invalid\""), std::string::npos);
   EXPECT_NE(diagnostics.find("unsupported compile-plan intent: ship"), std::string::npos);
 
@@ -1272,7 +1313,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidBuildModeReportsCliDiagnosticAndWritesD
     run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"CliError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"subcode\":\"compile_plan_invalid\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("unsupported compile-plan profile.build_mode: full"), std::string::npos);
 
@@ -1280,7 +1321,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidBuildModeReportsCliDiagnosticAndWritesD
   ASSERT_TRUE(fs::exists(diag_path));
   const std::string diagnostics = read_text_file_latest(diag_path);
   EXPECT_NE(diagnostics.find("\"category\":\"CliError\""), std::string::npos);
-  EXPECT_NE(diagnostics.find("\"code\":\"STYIO_CLI\""), std::string::npos);
+  EXPECT_NE(diagnostics.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
   EXPECT_NE(diagnostics.find("\"subcode\":\"compile_plan_invalid\""), std::string::npos);
   EXPECT_NE(diagnostics.find("unsupported compile-plan profile.build_mode: full"), std::string::npos);
 
@@ -1346,13 +1387,14 @@ TEST(StyioDiagnostics, CompilePlanCliConflictReportsCliDiagnosticAndWritesDiagDi
     );
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"CliError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_CLI_CONFLICT\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"subcode\":\"compile_plan_cli_conflict\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("--compile-plan and --file are mutually exclusive"), std::string::npos);
 
   const fs::path diag_path = diag_dir / "diagnostics.jsonl";
   ASSERT_TRUE(fs::exists(diag_path));
   const std::string diagnostics = read_text_file_latest(diag_path);
+  EXPECT_NE(diagnostics.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_CLI_CONFLICT\""), std::string::npos);
   EXPECT_NE(diagnostics.find("\"subcode\":\"compile_plan_cli_conflict\""), std::string::npos);
   EXPECT_NE(diagnostics.find("--compile-plan and --file are mutually exclusive"), std::string::npos);
 
@@ -1384,7 +1426,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidJsonReportsMachineReadableCliDiagnostic
     run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"CliError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"subcode\":\"compile_plan_invalid\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("compile-plan is not valid JSON"), std::string::npos);
   EXPECT_FALSE(fs::exists(build_root / "diag" / "diagnostics.jsonl"));
@@ -1447,13 +1489,13 @@ TEST(StyioDiagnostics, CompilePlanGeneratedByMismatchReportsCliDiagnosticAndWrit
   const CommandResult result =
     run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("compile-plan generated_by.tool must equal \\\"spio\\\""), std::string::npos);
 
   const fs::path diag_path = diag_dir / "diagnostics.jsonl";
   ASSERT_TRUE(fs::exists(diag_path));
   const std::string diagnostics = read_text_file_latest(diag_path);
-  EXPECT_NE(diagnostics.find("\"code\":\"STYIO_CLI\""), std::string::npos);
+  EXPECT_NE(diagnostics.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
   EXPECT_NE(diagnostics.find("compile-plan generated_by.tool must equal \\\"spio\\\""), std::string::npos);
 
   fs::remove_all(root);
@@ -1514,13 +1556,13 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedTargetKindReportsCliDiagnosticAndWr
   const CommandResult result =
     run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("unsupported compile-plan entry.target_kind: bench"), std::string::npos);
 
   const fs::path diag_path = diag_dir / "diagnostics.jsonl";
   ASSERT_TRUE(fs::exists(diag_path));
   const std::string diagnostics = read_text_file_latest(diag_path);
-  EXPECT_NE(diagnostics.find("\"code\":\"STYIO_CLI\""), std::string::npos);
+  EXPECT_NE(diagnostics.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
   EXPECT_NE(diagnostics.find("unsupported compile-plan entry.target_kind: bench"), std::string::npos);
 
   fs::remove_all(root);
@@ -1581,13 +1623,13 @@ TEST(StyioDiagnostics, CompilePlanRelativeWorkspaceRootReportsCliDiagnosticAndWr
   const CommandResult result =
     run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("compile-plan path must be absolute: workspace_root"), std::string::npos);
 
   const fs::path diag_path = diag_dir / "diagnostics.jsonl";
   ASSERT_TRUE(fs::exists(diag_path));
   const std::string diagnostics = read_text_file_latest(diag_path);
-  EXPECT_NE(diagnostics.find("\"code\":\"STYIO_CLI\""), std::string::npos);
+  EXPECT_NE(diagnostics.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
   EXPECT_NE(diagnostics.find("compile-plan path must be absolute: workspace_root"), std::string::npos);
 
   fs::remove_all(root);
@@ -1642,7 +1684,7 @@ TEST(StyioDiagnostics, CompilePlanMissingOutputsReportsMachineReadableCliDiagnos
     run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"CliError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("compile-plan is missing required object field: outputs"), std::string::npos);
   EXPECT_FALSE(fs::exists(build_root / "diag" / "diagnostics.jsonl"));
 
@@ -4121,8 +4163,10 @@ TEST(StyioDiagnostics, RuntimeHelperErrorEmitsJsonlRuntimeDiagnostic) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 5);
   EXPECT_NE(result.stdout_text.find("\"category\":\"RuntimeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_RUNTIME\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"runtime\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_RUNTIME_FILE_OPEN_READ\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"subcode\":\"STYIO_RUNTIME_FILE_OPEN_READ\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"notes\":[]"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("cannot open file for read"), std::string::npos);
 
   fs::remove(input);
@@ -4155,7 +4199,8 @@ TEST(StyioDiagnostics, RuntimeWriteHelperErrorEmitsJsonlRuntimeDiagnostic) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 5);
   EXPECT_NE(result.stdout_text.find("\"category\":\"RuntimeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_RUNTIME\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"runtime\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_RUNTIME_FILE_OPEN_WRITE\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"subcode\":\"STYIO_RUNTIME_FILE_OPEN_WRITE\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("cannot open file for write"), std::string::npos);
   EXPECT_FALSE(fs::exists(missing_target));
@@ -4191,7 +4236,8 @@ TEST(StyioDiagnostics, InvalidNumericStdinArgumentEmitsJsonlRuntimeDiagnostic) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 5);
   EXPECT_NE(result.stdout_text.find("\"category\":\"RuntimeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_RUNTIME\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"runtime\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_RUNTIME_NUMERIC_PARSE\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"subcode\":\"STYIO_RUNTIME_NUMERIC_PARSE\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("cannot parse integer from string"), std::string::npos);
 
@@ -4225,7 +4271,9 @@ TEST(StyioDiagnostics, CompoundAssignOnImmutableBindingReportsTypeError) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 4);
   EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"type\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE_ERROR\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"notes\":[]"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("compound assignment requires a mutable binding"), std::string::npos);
 
   fs::remove(input);
@@ -4259,7 +4307,7 @@ TEST(StyioDiagnostics, StreamZipUnsupportedSourceReportsTypeError) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 4);
   EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE_ERROR\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("unsupported stream zip lowering"), std::string::npos);
 
   fs::remove(input);
@@ -4291,7 +4339,7 @@ TEST(StyioDiagnostics, IteratorSequenceHashTagRoutingFailsClosed) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 4);
   EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE_ERROR\""), std::string::npos);
   EXPECT_NE(
     result.stdout_text.find("iterator sequence hash-tag routing is not implemented"),
     std::string::npos
@@ -4618,7 +4666,9 @@ TEST(StyioDiagnostics, MalformedStatementPrefixReportsParseErrorWithoutCrash) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 3);
   EXPECT_NE(result.stdout_text.find("\"category\":\"ParseError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("which is expected to be ("), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("unsupported syntax in authoritative nightly parser"),
+    std::string::npos);
   EXPECT_EQ(result.stdout_text.find("Styio.NotImplemented"), std::string::npos);
 
   fs::remove(input);

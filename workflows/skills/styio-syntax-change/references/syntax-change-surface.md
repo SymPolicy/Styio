@@ -5,8 +5,8 @@
 1. Tokens: `src/StyioToken/Token.hpp`, `src/StyioToken/Token.cpp`
 2. Lexer: `src/StyioParser/Tokenizer.cpp`
 3. IDE lexer: `src/StyioServices/StyioIDE/Syntax.cpp`
-4. Legacy parser: `src/StyioParser/Parser.cpp`
-5. Nightly parser: `src/StyioParser/NewParserExpr.cpp`
+4. Authoritative nightly parser: `src/StyioParser/Parser.cpp`, `src/StyioParser/NewParserExpr.cpp`
+5. Legacy parser migration evidence: `src/StyioParser/Parser.cpp`
 6. AST shape: `src/StyioAST/AST.hpp`
 7. Type/semantic checks: `src/StyioSema/TypeInfer.cpp`
 8. StyioIR lowering: `src/StyioLowering/AstToStyioIR.cpp`
@@ -22,6 +22,6 @@
 ## Tests
 
 1. Lexer/parser/security: `tests/security/styio_security_test.cpp`
-2. Parser parity: `StyioParserEngine.*`
-3. Shadow gates: `parser_shadow_gate_*`
+2. Parser authority: `StyioDiagnostics.SyntaxCheckRejectsNonAuthoritativeParserEngine`
+3. Shadow gates: `parser_shadow_gate_*` zero accepted-grammar fallback evidence
 4. Runtime smoke: `build/default/bin/styio --file <sample>`

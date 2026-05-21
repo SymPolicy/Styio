@@ -302,6 +302,33 @@ private:
     return "";
   }
 
+  std::string explicit_type_annotation(std::size_t name_index, std::size_t before_index) const {
+    std::optional<std::size_t> colon_index;
+    for (std::size_t i = name_index + 1; i < before_index && i < syntax_.tokens.size(); ++i) {
+      const StyioTokenType type = syntax_.tokens[i].type;
+      if (type == StyioTokenType::TOK_COLON) {
+        colon_index = i;
+        break;
+      }
+      if (!syntax_.tokens[i].is_trivia()) {
+        return "";
+      }
+    }
+    if (!colon_index.has_value()) {
+      return "";
+    }
+
+    std::string type_name;
+    for (std::size_t i = *colon_index + 1; i < before_index && i < syntax_.tokens.size(); ++i) {
+      const SyntaxToken& token = syntax_.tokens[i];
+      if (token.is_trivia()) {
+        continue;
+      }
+      type_name += token.lexeme;
+    }
+    return type_name;
+  }
+
   std::string lookup_function_detail(const std::string& name) const {
     auto it = semantic_.function_signatures.find(name);
     if (it != semantic_.function_signatures.end()) {
@@ -580,6 +607,9 @@ private:
         std::optional<ItemId> item_id;
         std::string detail = "binding";
         std::string type_name = lookup_type(first.lexeme);
+        if (type_name.empty()) {
+          type_name = explicit_type_annotation(*first_sig, *operator_index);
+        }
         bool canonical = false;
         if (scope_id == 0) {
           const std::size_t item_index = module_.items.size();

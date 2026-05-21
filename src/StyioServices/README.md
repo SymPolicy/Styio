@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the source-level entrypoint for externally consumable Styio language services.
 
-**Last updated:** 2026-05-17
+**Last updated:** 2026-05-21
 
 ## Scope
 
@@ -10,7 +10,7 @@
 
 ## Modules
 
-1. [StyioCLI](./StyioCLI/README.md) exposes command-line service helpers such as syntax-only JSON checking with recoverable parse diagnostics and source context.
+1. [StyioCLI](./StyioCLI/README.md) exposes command-line service helpers such as authoritative syntax-only JSON checking and source context.
 2. [StyioConfig](./StyioConfig/README.md) owns machine-readable compiler handoff contracts and source-build metadata.
 3. [StyioIDE](./StyioIDE/README.md) owns in-process editor services: VFS, syntax snapshots, HIR, SemDB, indexing, completion, hover, definition, references, symbols, semantic tokens, and runtime scheduling counters.
 4. [StyioLSP](./StyioLSP/README.md) owns the stdio Language Server Protocol surface built on `StyioIDE`.
@@ -22,6 +22,10 @@ The complete service inventory is [MANIFEST.md](./MANIFEST.md).
 1. `styio_cli_contract_core` builds `StyioCLI` and `StyioConfig` service code used by the full `styio` binary.
 2. `styio_ide_core` builds the embeddable IDE service library.
 3. `styio_lspd` builds the standalone LSP daemon.
+
+## Diagnostic Contract
+
+All public service diagnostics use the shared taxonomy in [DiagnosticContract.hpp](./DiagnosticContract.hpp). Public codes follow `STYIO_<PHASE>_<ERROR_FAMILY>`, carry a stable public phase, and keep process exit codes coarse. IDE and LSP diagnostics preserve compiler/service codes when they come from compiler-owned facts, and use service/editor codes for editor-only interaction diagnostics.
 
 ## Use
 
@@ -48,3 +52,7 @@ For editors:
 ```bash
 styio_lspd
 ```
+
+## Parser Authority
+
+The hand-written nightly compiler parser is the only authority for accepted Styio grammar. IDE, LSP, package-manager, and external validation consumers must route syntax validity through `StyioCLI` or compiler-owned parser services instead of maintaining a separate accepted grammar.

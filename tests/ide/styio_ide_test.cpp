@@ -311,7 +311,7 @@ nightly_outline(const std::string& path, const std::string& source, bool* used_r
       *context,
       StyioParserEngine::Nightly,
       nullptr,
-      StyioParseMode::Recovery);
+      StyioParseMode::Strict);
     if (used_recovery != nullptr) {
       *used_recovery = !context->parse_diagnostics().empty();
     }
@@ -1561,7 +1561,7 @@ TEST(StyioSemanticDb, DropsOpenFileQueryStateOnClose) {
   EXPECT_EQ(after_reopen_query.document_symbols.misses, after_close_query.document_symbols.misses + 1);
 }
 
-TEST(StyioSemanticBridge, RecoversNightlyParseForLaterStatements) {
+TEST(StyioSemanticBridge, RejectsMalformedInputWithoutRecovery) {
   const std::string source =
     "# broken := (a: i32, b: i32) => {\n"
     "  value: i32 := a +\n"
@@ -1570,13 +1570,52 @@ TEST(StyioSemanticBridge, RecoversNightlyParseForLaterStatements) {
     "result: i32 := stable(1, 2)\n";
 
   const auto summary = styio::ide::analyze_document("memory://recovery_sample.styio", source);
-  EXPECT_TRUE(summary.parse_success);
-  EXPECT_TRUE(summary.used_recovery);
+  EXPECT_FALSE(summary.parse_success);
+  EXPECT_FALSE(summary.used_recovery);
   EXPECT_FALSE(summary.diagnostics.empty());
+  EXPECT_EQ(summary.diagnostics.front().source, "styio-compiler");
+  EXPECT_EQ(summary.diagnostics.front().code, "STYIO_PARSE_UNEXPECTED_TOKEN");
+  EXPECT_EQ(summary.diagnostics.front().phase, "parse");
 
   const auto it = summary.function_signatures.find("stable");
-  ASSERT_NE(it, summary.function_signatures.end());
-  EXPECT_NE(it->second.find("stable"), std::string::npos);
+  EXPECT_EQ(it, summary.function_signatures.end());
+}
+
+TEST(StyioLspServer, PublishDiagnosticsCarriesStyioCodeAndPhase) {
+  styio::lsp::Server server;
+  const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());
+  const std::string uri = temp_uri("server_diagnostic_code_sample.styio");
+
+  auto init_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 1},
+    {"method", "initialize"},
+    {"params", llvm::json::Object{{"rootUri", root_uri}}}});
+  ASSERT_EQ(init_messages.size(), 1u);
+
+  auto open_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didOpen"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{
+          {"uri", uri},
+          {"version", 1},
+          {"text", "/* unterminated\n"}}}}}});
+  ASSERT_EQ(open_messages.size(), 1u);
+  EXPECT_EQ(open_messages[0].payload.getString("method").value_or(""), "textDocument/publishDiagnostics");
+
+  const auto* params = open_messages[0].payload.getObject("params");
+  ASSERT_NE(params, nullptr);
+  const auto* diagnostics = params->getArray("diagnostics");
+  ASSERT_NE(diagnostics, nullptr);
+  ASSERT_FALSE(diagnostics->empty());
+  const auto* diagnostic = (*diagnostics)[0].getAsObject();
+  ASSERT_NE(diagnostic, nullptr);
+  EXPECT_EQ(diagnostic->getString("source").value_or(""), "styio-editor");
+  EXPECT_EQ(diagnostic->getString("code").value_or(""), "STYIO_SERVICE_EDITOR_SYNTAX");
+  const auto* data = diagnostic->getObject("data");
+  ASSERT_NE(data, nullptr);
+  EXPECT_EQ(data->getString("phase").value_or(""), "service");
 }
 
 TEST(StyioLspServer, HandlesInitializeOpenAndCompletion) {
@@ -2204,7 +2243,7 @@ TEST(StyioSyntaxDrift, CorpusMatchesApprovedEnvelope) {
     cases.push_back(DriftCase{
       path,
       {"function:broken", "function:stable", "binding:result"},
-      {"function:broken", "function:stable", "binding:result"},
+      {},
       {0, source.find("# stable"), source.find("result")},
       {nth_occurrence(source, "{", 0)},
       {
@@ -2216,8 +2255,8 @@ TEST(StyioSyntaxDrift, CorpusMatchesApprovedEnvelope) {
       },
       1,
       47,
-      true,
-      ""});
+      false,
+      "editor token snapshots are not grammar authority for malformed source"});
   }
 
   styio::ide::VirtualFileSystem vfs;
@@ -2246,7 +2285,7 @@ TEST(StyioSyntaxDrift, CorpusMatchesApprovedEnvelope) {
     if (drift_case.approved_exception.empty()) {
       EXPECT_EQ(syntax_outline(syntax), nightly);
     } else {
-      EXPECT_FALSE(nightly.empty()) << drift_case.approved_exception;
+      EXPECT_FALSE(drift_case.approved_exception.empty());
     }
   }
 }

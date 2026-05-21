@@ -2,7 +2,7 @@
 
 **Purpose:** Describe how to configure, build, and launch the IDE-facing targets `styio_ide_core` and `styio_lspd`, including the optional Tree-sitter syntax backend, after the repository-level toolchain is already in place.
 
-**Last updated:** 2026-04-19
+**Last updated:** 2026-05-20
 
 ## Targets
 
@@ -32,7 +32,7 @@ cmake -S . -B build/default \
   -DSTYIO_USE_ICU=OFF
 ```
 
-`STYIO_ENABLE_TREE_SITTER=ON` is the default. Set it to `OFF` if you need a pure tolerant syntax build with no FetchContent network step.
+`STYIO_ENABLE_TREE_SITTER=ON` is the default. Set it to `OFF` if you need the repository-local edit-time snapshot backend with no FetchContent network step. Both modes are editor-support modes; syntax validity is still owned by the hand-written nightly compiler parser.
 
 ## Build
 
@@ -74,7 +74,7 @@ The server uses stdio JSON-RPC. Your IDE host is expected to launch it as a long
 
 1. Edit-time syntax goes through Tree-sitter when `STYIO_ENABLE_TREE_SITTER=ON`.
 2. `SyntaxParser` reuses the previous Tree-sitter tree for the same file path and applies a single incremental edit before reparsing.
-3. Semantic analysis uses the Nightly parser in `ParseMode::Recovery`, so malformed statements emit diagnostics but do not necessarily abort the rest of the file.
+3. Semantic analysis uses the authoritative nightly compiler parser in strict mode. Malformed source emits diagnostics and does not publish recovered later semantic facts.
 
 ## Regenerate The Grammar
 

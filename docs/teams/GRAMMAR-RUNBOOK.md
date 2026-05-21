@@ -2,11 +2,11 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the repository-local Tree-sitter grammar and edit-time syntax backend contract.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-05-20
 
 ## Mission
 
-Own edit-time CST structure, Tree-sitter error-node behavior, generated grammar artifacts, and the grammar-to-`SyntaxSnapshot` adapter contract. This team does not own compiler parser semantics or type truth.
+Own edit-time CST structure, Tree-sitter error-node behavior, generated grammar artifacts, and the grammar-to-`SyntaxSnapshot` adapter contract. This team does not own compiler parser semantics, accepted grammar, or type truth.
 
 ## Owned Surface
 
@@ -29,6 +29,7 @@ Primary paths:
 6. For token repetitions such as `^...`, keep edit-time recognition tolerant while following the language SSOT for semantics; caret count is not a Tree-sitter-owned break-depth contract.
 7. When conditional-loop syntax changes, keep compiler parser tests, [../design/Styio-EBNF.md](../design/Styio-EBNF.md), language design docs, and symbol reference aligned; the active form is `[...] >> ?(condition) => { ... }`.
 8. Generated support headers may be edited only for repository-public wording cleanup or regenerated artifact hygiene; keep those edits narrow and rerun grammar/IDE gates when behavior changes.
+9. Tree-sitter and fallback syntax snapshots are non-authoritative editor aids. Accepted grammar must be proven through the hand-written nightly compiler parser and [../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md](../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md), not by Tree-sitter success.
 
 ## Change Classes
 
@@ -64,7 +65,7 @@ ctest --test-dir build-no-tree-sitter -L ide
 ## Cross-Team Dependencies
 
 1. IDE / LSP must review every syntax snapshot or adapter behavior change.
-2. Frontend must review grammar changes that assert alignment with compiler parser behavior.
+2. Frontend must review grammar changes that assert alignment with compiler parser behavior or accepted syntax.
 3. Test Quality must review IDE regression coverage for error recovery and incremental reuse.
 4. Docs / Ecosystem must review `docs/external/for-ide/` updates.
 
@@ -76,4 +77,4 @@ Record unfinished grammar work with:
 2. Whether generated artifacts are up to date.
 3. IDE behavior expected from the CST change.
 4. Tree-sitter ON/OFF test status.
-5. Known parser semantic mismatch, if any.
+5. Known parser semantic mismatch, if any, with the compiler parser authority result named explicitly.

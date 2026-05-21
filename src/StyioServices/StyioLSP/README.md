@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the editor-neutral Language Server Protocol service built on `StyioIDE`.
 
-**Last updated:** 2026-05-14
+**Last updated:** 2026-05-21
 
 ## Use
 
@@ -38,5 +38,10 @@ std::vector<styio::lsp::OutboundMessage> replies = server.handle(std::move(reque
 
 The server is backed by `styio::ide::IdeService` and currently supports document lifecycle, diagnostics, completion, hover, definition, references, document/workspace symbols, semantic tokens, runtime drain, and scheduling-related test hooks.
 
-See the full service inventory in [../MANIFEST.md](../MANIFEST.md).
+Published LSP diagnostics carry Styio diagnostic identity when available:
 
+1. LSP `Diagnostic.code` is the shared `STYIO_<PHASE>_<ERROR_FAMILY>` code.
+2. LSP `Diagnostic.data.phase` is the public Styio phase.
+3. LSP `Diagnostic.source` remains `styio-compiler`, `styio-editor`, or `styio-lsp` depending on the origin.
+
+See the full service inventory in [../MANIFEST.md](../MANIFEST.md).

@@ -5,6 +5,7 @@
 #include <stack>
 #include <unordered_set>
 
+#include "StyioServices/DiagnosticContract.hpp"
 #include "TreeSitterBackend.hpp"
 
 namespace styio::ide {
@@ -72,8 +73,10 @@ tokenize_tolerant(const std::string& text, std::vector<Diagnostic>& diagnostics)
         diagnostics.push_back(Diagnostic{
           TextRange{i, text.size()},
           DiagnosticSeverity::Error,
-          "syntax",
-          "unterminated block comment"});
+          "styio-editor",
+          "unterminated block comment",
+          std::string(styio::services::diagnostics::kServiceEditorSyntax),
+          std::string(styio::services::diagnostics::kPhaseService)});
         push(StyioTokenType::COMMENT_CLOSED, text.substr(i));
         break;
       }
@@ -94,8 +97,10 @@ tokenize_tolerant(const std::string& text, std::vector<Diagnostic>& diagnostics)
         diagnostics.push_back(Diagnostic{
           TextRange{i, end},
           DiagnosticSeverity::Error,
-          "syntax",
-          "unterminated string literal"});
+          "styio-editor",
+          "unterminated string literal",
+          std::string(styio::services::diagnostics::kServiceEditorSyntax),
+          std::string(styio::services::diagnostics::kPhaseService)});
         push(StyioTokenType::STRING, text.substr(i, end - i));
         i = end;
         continue;
@@ -424,7 +429,9 @@ append_unique_diagnostic(
   Diagnostic diagnostic
 ) {
   const std::string key =
-    std::to_string(diagnostic.range.start) + ":" + std::to_string(diagnostic.range.end) + ":" + diagnostic.message;
+    std::to_string(diagnostic.range.start) + ":" + std::to_string(diagnostic.range.end)
+    + ":" + diagnostic.code
+    + ":" + diagnostic.message;
   if (seen.insert(key).second) {
     diagnostics.push_back(std::move(diagnostic));
   }
@@ -739,8 +746,10 @@ SyntaxParser::parse(const DocumentSnapshot& snapshot) const {
         Diagnostic{
           token.range,
           DiagnosticSeverity::Error,
-          "syntax",
-          "unmatched closing token " + token.lexeme});
+          "styio-editor",
+          "unmatched closing token " + token.lexeme,
+          std::string(styio::services::diagnostics::kServiceEditorSyntax),
+          std::string(styio::services::diagnostics::kPhaseService)});
       continue;
     }
 
@@ -772,8 +781,10 @@ SyntaxParser::parse(const DocumentSnapshot& snapshot) const {
       Diagnostic{
         syntax.tokens[open.first].range,
         DiagnosticSeverity::Error,
-        "syntax",
-        "unclosed opening token " + syntax.tokens[open.first].lexeme});
+        "styio-editor",
+        "unclosed opening token " + syntax.tokens[open.first].lexeme,
+        std::string(styio::services::diagnostics::kServiceEditorSyntax),
+        std::string(styio::services::diagnostics::kPhaseService)});
   }
 
   syntax.diagnostics = std::move(diagnostics);

@@ -2,7 +2,7 @@
 
 **Purpose:** Correct a Styio syntax contract when the compiler, tests, and language specification disagree about which form should be accepted or rejected.
 
-**Last updated:** 2026-05-01
+**Last updated:** 2026-05-20
 
 **TOML:** [CORRECT-SYNTAX-CONTRACT.toml](./CORRECT-SYNTAX-CONTRACT.toml) is the machine-readable workflow definition.
 
@@ -22,8 +22,8 @@ Use this workflow when a maintainer or user reports that a Styio spelling is acc
 3. Freeze the accepted spelling and rejected spelling in plain examples before editing implementation.
 4. Inspect all syntax contract surfaces:
    - lexer/token names when tokens are involved
-   - legacy parser
-   - nightly parser
+   - authoritative nightly parser
+   - legacy parser only as migration or negative evidence, not as an accepted-grammar fallback
    - AST node shape and visitor path
    - Sema/type inference
    - lowering/runtime if execution semantics change
@@ -91,4 +91,4 @@ Report:
 3. Exact compiler diagnostic for the rejected form.
 4. Whether the language standard changed and which SSOT files changed.
 5. Focused tests and docs gates that passed.
-6. Any remaining parser-route, IDE grammar, or lowering work that was intentionally left out.
+6. Any remaining parser-route, IDE snapshot, or lowering work that was intentionally left out.

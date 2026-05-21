@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the embeddable C++ IDE service layer for Styio source editing, navigation, diagnostics, and workspace queries.
 
-**Last updated:** 2026-05-14
+**Last updated:** 2026-05-21
 
 ## Use
 
@@ -31,9 +31,9 @@ Use lower-level components only when the host needs a narrower service:
 | URI/path conversion | `path_from_uri`, `uri_from_path` | Normalize editor and filesystem identifiers. |
 | Text position mapping | `TextBuffer::position_at`, `TextBuffer::offset_at` | Convert byte offsets and LSP-style positions. |
 | Virtual documents | `VirtualFileSystem` | Open, update, incrementally edit, close, and snapshot documents. |
-| Syntax parsing | `SyntaxParser::parse` | Produce tolerant or Tree-sitter syntax snapshots. |
+| Editor syntax snapshots | `SyntaxParser::parse` | Produce non-authoritative token, CST, matching-token, diagnostic, and folding snapshots for editing. |
 | Syntax cache eviction | `SyntaxParser::drop_cached_file` | Clear incremental parser state for closed or invalidated files. |
-| Compiler semantic facts | `analyze_document` | Reuse compiler parse/type facts for editor diagnostics and summaries. |
+| Compiler semantic facts | `analyze_document` | Reuse strict authoritative nightly parser/type facts for editor diagnostics and summaries. |
 | HIR model | `HirBuilder::build` | Build item, scope, symbol, and reference models from syntax and semantic summaries. |
 | Open-file indexing | `OpenFileIndex` | Query symbols and references from open documents. |
 | Background indexing | `BackgroundIndex` | Query symbols and references from background workspace scans. |
@@ -54,5 +54,8 @@ Use lower-level components only when the host needs a narrower service:
 
 `StyioIDE` is an in-process API. If a host needs protocol transport instead, use [../StyioLSP/README.md](../StyioLSP/README.md). If a host only needs syntax validity, use [../StyioCLI/README.md](../StyioCLI/README.md).
 
-See the full service inventory in [../MANIFEST.md](../MANIFEST.md).
+`SyntaxParser::parse` is not a grammar authority and must not be used to decide whether Styio source is accepted. It supports editor interaction. `analyze_document` and syntax-check services route accepted grammar through the compiler-owned nightly parser.
 
+`Diagnostic::code` and `Diagnostic::phase` preserve the shared Styio diagnostic contract. Compiler-owned diagnostics use compiler/service codes from [../DiagnosticContract.hpp](../DiagnosticContract.hpp). Editor-only syntax snapshots use `source:"styio-editor"` and service diagnostic codes so they do not masquerade as compiler acceptance results.
+
+See the full service inventory in [../MANIFEST.md](../MANIFEST.md).

@@ -1,7 +1,7 @@
 id = "correct-syntax-contract"
 title = "Correct Syntax Contract"
 purpose = "Correct a Styio syntax contract when compiler behavior, tests, and language specification disagree."
-last_updated = "2026-05-01"
+last_updated = "2026-05-20"
 doc = "CORRECT-SYNTAX-CONTRACT.md"
 
 triggers = [
@@ -15,7 +15,7 @@ steps = [
   "reproduce current behavior with the smallest .styio sample",
   "capture the compiler stage and exact diagnostic",
   "freeze accepted and rejected spellings before editing",
-  "inspect lexer, legacy parser, nightly parser, AST, Sema, lowering, docs, and tests",
+  "inspect lexer, authoritative nightly parser, legacy migration evidence, AST, Sema, lowering, docs, and tests",
   "decide parser-vs-Sema rejection boundary",
   "implement the narrowest change while preserving existing AST and visitor architecture",
   "add positive and negative tests",
@@ -26,8 +26,8 @@ steps = [
 
 contract_surfaces = [
   "lexer/token names",
-  "legacy parser",
-  "nightly parser",
+  "authoritative nightly parser",
+  "legacy parser migration evidence",
   "AST node shape and visitor path",
   "Sema/type inference",
   "lowering/runtime",
@@ -69,5 +69,5 @@ report = [
   "exact compiler diagnostic",
   "language-standard files changed",
   "focused tests and docs gates",
-  "remaining parser-route, IDE grammar, or lowering work",
+  "remaining parser-route, IDE snapshot, or lowering work",
 ]

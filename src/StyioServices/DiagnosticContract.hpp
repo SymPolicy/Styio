@@ -1,0 +1,147 @@
+#pragma once
+
+#ifndef STYIO_SERVICES_DIAGNOSTIC_CONTRACT_HPP_
+#define STYIO_SERVICES_DIAGNOSTIC_CONTRACT_HPP_
+
+#include <algorithm>
+#include <cctype>
+#include <string>
+#include <string_view>
+
+namespace styio::services::diagnostics {
+
+inline constexpr std::string_view kPhaseLex = "lex";
+inline constexpr std::string_view kPhaseParse = "parse";
+inline constexpr std::string_view kPhaseSema = "sema";
+inline constexpr std::string_view kPhaseType = "type";
+inline constexpr std::string_view kPhaseLowering = "lowering";
+inline constexpr std::string_view kPhaseIrVerify = "ir_verify";
+inline constexpr std::string_view kPhaseCodegen = "codegen";
+inline constexpr std::string_view kPhaseRuntime = "runtime";
+inline constexpr std::string_view kPhaseNativeInterop = "native_interop";
+inline constexpr std::string_view kPhaseService = "service";
+
+inline constexpr std::string_view kLexInvalidToken = "STYIO_LEX_INVALID_TOKEN";
+inline constexpr std::string_view kLexUnterminatedString = "STYIO_LEX_UNTERMINATED_STRING";
+inline constexpr std::string_view kLexUnterminatedBlockComment = "STYIO_LEX_UNTERMINATED_BLOCK_COMMENT";
+
+inline constexpr std::string_view kParseUnexpectedToken = "STYIO_PARSE_UNEXPECTED_TOKEN";
+inline constexpr std::string_view kParseUnsupportedSyntax = "STYIO_PARSE_UNSUPPORTED_SYNTAX";
+inline constexpr std::string_view kParseShadowMismatch = "STYIO_PARSE_SHADOW_MISMATCH";
+
+inline constexpr std::string_view kTypeError = "STYIO_TYPE_ERROR";
+inline constexpr std::string_view kLowerUnsupportedAst = "STYIO_LOWER_UNSUPPORTED_AST";
+inline constexpr std::string_view kCodegenError = "STYIO_CODEGEN_ERROR";
+inline constexpr std::string_view kRuntimeError = "STYIO_RUNTIME_ERROR";
+inline constexpr std::string_view kNativeInteropError = "STYIO_NATIVE_INTEROP_ERROR";
+
+inline constexpr std::string_view kServiceInvalidArgument = "STYIO_SERVICE_INVALID_ARGUMENT";
+inline constexpr std::string_view kServiceReadFailed = "STYIO_SERVICE_READ_FAILED";
+inline constexpr std::string_view kServiceCompilePlanInvalid = "STYIO_SERVICE_COMPILE_PLAN_INVALID";
+inline constexpr std::string_view kServiceCompilePlanCliConflict = "STYIO_SERVICE_COMPILE_PLAN_CLI_CONFLICT";
+inline constexpr std::string_view kServiceEditorSyntax = "STYIO_SERVICE_EDITOR_SYNTAX";
+inline constexpr std::string_view kServiceLspResyncRequired = "STYIO_SERVICE_LSP_RESYNC_REQUIRED";
+
+inline bool
+contains(std::string_view text, std::string_view needle) {
+  return text.find(needle) != std::string_view::npos;
+}
+
+inline bool
+starts_with(std::string_view text, std::string_view prefix) {
+  return text.rfind(prefix, 0) == 0;
+}
+
+inline std::string
+to_upper_ascii(std::string value) {
+  std::transform(
+    value.begin(),
+    value.end(),
+    value.begin(),
+    [](unsigned char ch) { return static_cast<char>(std::toupper(ch)); });
+  return value;
+}
+
+inline std::string
+diagnostic_phase_for_code(std::string_view code) {
+  if (starts_with(code, "STYIO_LEX_")) {
+    return std::string(kPhaseLex);
+  }
+  if (starts_with(code, "STYIO_PARSE_")) {
+    return std::string(kPhaseParse);
+  }
+  if (starts_with(code, "STYIO_SEMA_")) {
+    return std::string(kPhaseSema);
+  }
+  if (starts_with(code, "STYIO_TYPE_")) {
+    return std::string(kPhaseType);
+  }
+  if (starts_with(code, "STYIO_LOWER_")) {
+    return std::string(kPhaseLowering);
+  }
+  if (starts_with(code, "STYIO_IR_VERIFY_")) {
+    return std::string(kPhaseIrVerify);
+  }
+  if (starts_with(code, "STYIO_CODEGEN_")) {
+    return std::string(kPhaseCodegen);
+  }
+  if (starts_with(code, "STYIO_RUNTIME_")) {
+    return std::string(kPhaseRuntime);
+  }
+  if (starts_with(code, "STYIO_NATIVE_")) {
+    return std::string(kPhaseNativeInterop);
+  }
+  return std::string(kPhaseService);
+}
+
+inline std::string
+classify_lex_code(std::string_view message) {
+  if (contains(message, "unterminated string")) {
+    return std::string(kLexUnterminatedString);
+  }
+  if (contains(message, "unterminated block comment") || contains(message, "Unterminated block comment")) {
+    return std::string(kLexUnterminatedBlockComment);
+  }
+  return std::string(kLexInvalidToken);
+}
+
+inline std::string
+classify_parse_code(std::string_view message) {
+  if (contains(message, "unsupported syntax") || contains(message, "not supported")) {
+    return std::string(kParseUnsupportedSyntax);
+  }
+  if (contains(message, "shadow parser")) {
+    return std::string(kParseShadowMismatch);
+  }
+  return std::string(kParseUnexpectedToken);
+}
+
+inline std::string
+classify_service_code(std::string_view subcode, std::string_view message) {
+  if (subcode == "compile_plan_cli_conflict") {
+    return std::string(kServiceCompilePlanCliConflict);
+  }
+  if (subcode == "compile_plan_invalid") {
+    return std::string(kServiceCompilePlanInvalid);
+  }
+  if (contains(message, "cannot open file") || contains(message, "file not found")
+      || contains(message, "failed to read file")) {
+    return std::string(kServiceReadFailed);
+  }
+  return std::string(kServiceInvalidArgument);
+}
+
+inline std::string
+classify_runtime_or_native_code(std::string_view subcode, std::string_view message) {
+  if (starts_with(subcode, "STYIO_RUNTIME_") || starts_with(subcode, "STYIO_NATIVE_")) {
+    return std::string(subcode);
+  }
+  if (contains(message, "native") || contains(message, "extern") || contains(message, "toolchain")) {
+    return std::string(kNativeInteropError);
+  }
+  return std::string(kRuntimeError);
+}
+
+}  // namespace styio::services::diagnostics
+
+#endif

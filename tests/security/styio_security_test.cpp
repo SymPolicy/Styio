@@ -570,14 +570,76 @@ TEST(StyioIRContract, NoOpAstNodesLowerToExplicitNoOp) {
   std::unique_ptr<StyioAST> comment(CommentAST::Create("comment"));
   std::unique_ptr<StyioAST> empty(EmptyAST::Create());
   std::unique_ptr<StyioAST> pass(PassAST::Create());
+  std::unique_ptr<StyioAST> resources(ResourceAST::Create({}));
 
   std::unique_ptr<StyioIR> comment_ir(comment->toStyioIR(&analyzer));
   std::unique_ptr<StyioIR> empty_ir(empty->toStyioIR(&analyzer));
   std::unique_ptr<StyioIR> pass_ir(pass->toStyioIR(&analyzer));
+  std::unique_ptr<StyioIR> resources_ir(resources->toStyioIR(&analyzer));
 
   EXPECT_NE(dynamic_cast<SGNoOp*>(comment_ir.get()), nullptr);
   EXPECT_NE(dynamic_cast<SGNoOp*>(empty_ir.get()), nullptr);
   EXPECT_NE(dynamic_cast<SGNoOp*>(pass_ir.get()), nullptr);
+  EXPECT_NE(dynamic_cast<SGNoOp*>(resources_ir.get()), nullptr);
+}
+
+TEST(StyioIRContract, CharAstLowersToConstChar) {
+  AstToStyioIRLowerer analyzer;
+  std::unique_ptr<StyioAST> ch(CharAST::Create("x"));
+
+  EXPECT_EQ(ch->getDataType().option, StyioDataTypeOption::Char);
+  EXPECT_EQ(ch->getDataType().num_of_bit, 8);
+  std::unique_ptr<StyioIR> ir(ch->toStyioIR(&analyzer));
+
+  auto* const_char = dynamic_cast<SGConstChar*>(ir.get());
+  ASSERT_NE(const_char, nullptr);
+  EXPECT_EQ(const_char->value, 'x');
+}
+
+TEST(StyioIRContract, StandardStreamAliasesLowerToExplicitNoOp) {
+  AstToStyioIRLowerer analyzer;
+  std::unique_ptr<StyioAST> flex(FlexBindAST::Create(
+    VarAST::Create(NameAST::Create("out")),
+    StdStreamAST::Create(StdStreamKind::Stdout)
+  ));
+  std::unique_ptr<StyioAST> final(FinalBindAST::Create(
+    VarAST::Create(NameAST::Create("err")),
+    StdStreamAST::Create(StdStreamKind::Stderr)
+  ));
+
+  std::unique_ptr<StyioIR> flex_ir(flex->toStyioIR(&analyzer));
+  std::unique_ptr<StyioIR> final_ir(final->toStyioIR(&analyzer));
+
+  EXPECT_NE(dynamic_cast<SGNoOp*>(flex_ir.get()), nullptr);
+  EXPECT_NE(dynamic_cast<SGNoOp*>(final_ir.get()), nullptr);
+}
+
+TEST(StyioIRContract, UnsupportedAstNodesFailClosedInsteadOfPlaceholder) {
+  auto expect_unsupported = [](std::unique_ptr<StyioAST> ast)
+  {
+    AstToStyioIRLowerer analyzer;
+    EXPECT_THROW(
+      {
+        std::unique_ptr<StyioIR> ir(ast->toStyioIR(&analyzer));
+      },
+      StyioTypeError
+    );
+  };
+
+  expect_unsupported(std::unique_ptr<StyioAST>(NoneAST::Create()));
+  expect_unsupported(std::unique_ptr<StyioAST>(TypeTupleAST::Create()));
+  expect_unsupported(std::unique_ptr<StyioAST>(
+    TypeConvertAST::Create(IntAST::Create("1"), NumPromoTy::Int_To_Float)
+  ));
+  expect_unsupported(std::unique_ptr<StyioAST>(
+    TupleAST::Create(std::vector<StyioAST*>{IntAST::Create("1")})
+  ));
+  expect_unsupported(std::unique_ptr<StyioAST>(
+    SetAST::Create(std::vector<StyioAST*>{IntAST::Create("1")})
+  ));
+  expect_unsupported(std::unique_ptr<StyioAST>(StdStreamAST::Create(StdStreamKind::Stdout)));
+  expect_unsupported(std::unique_ptr<StyioAST>(new ForwardAST()));
+  expect_unsupported(std::unique_ptr<StyioAST>(CasesAST::Create(IntAST::Create("1"))));
 }
 
 TEST(StyioIRContract, VerifierRejectsInactiveIR) {
@@ -766,7 +828,7 @@ TEST(StyioSecurityParserContext, DeepBraceNestedIndexSeedHitsRecoveryBudget) {
   );
 }
 
-TEST(StyioSecurityParserContext, DeepBraceNestedIndexSeedHitsBridgeBudget) {
+TEST(StyioSecurityParserContext, DeepBraceNestedIndexSeedFailsClosedBeforeBridgeBudget) {
   const std::string src = "x[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[{[[[[[[[[x)\n";
 
   CompilationSession session;
@@ -779,12 +841,15 @@ TEST(StyioSecurityParserContext, DeepBraceNestedIndexSeedHitsBridgeBudget) {
     false
   ));
 
-  EXPECT_THROW(
-    {
-      std::unique_ptr<StyioAST> parsed(parse_expr_subset_nightly(*session.context()));
-    },
-    StyioParserResourceLimitError
-  );
+  try {
+    std::unique_ptr<StyioAST> parsed(parse_expr_subset_nightly(*session.context()));
+    FAIL() << "expected deep malformed index seed to fail closed";
+  } catch (const StyioSyntaxError& ex) {
+    EXPECT_NE(
+      std::string(ex.what()).find("unsupported syntax in authoritative nightly parser"),
+      std::string::npos
+    );
+  }
 }
 
 TEST(StyioSecurityParserContext, DeepBraceNestedIndexLeakSeedDoesNotLeakUnderSessionArena) {
@@ -2988,7 +3053,11 @@ TEST(StyioSecurityNightlyParserShadow, RejectsRetiredWaveOperatorSyntax) {
         FAIL() << "expected retired wave syntax to be rejected: " << src;
       }
       catch (const StyioSyntaxError& ex) {
-        EXPECT_NE(std::string(ex.what()).find("reserved"), std::string::npos) << src;
+        const std::string message = ex.what();
+        EXPECT_TRUE(
+          message.find("reserved") != std::string::npos
+          || message.find("unsupported syntax in authoritative nightly parser") != std::string::npos
+        ) << src << "\n" << message;
       }
     }
   }

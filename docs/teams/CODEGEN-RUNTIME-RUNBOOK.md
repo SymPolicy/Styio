@@ -51,6 +51,7 @@ Related docs:
 22. Runtime helpers may include public service configuration headers from `src/StyioServices/StyioConfig/`, but service-layer moves must not change the emitted helper ABI, exported `styio_*` symbol set, or ORC registration requirements.
 23. Native `@extern` codegen must keep JIT and `styio build` artifacts equivalent. Inline bodies and referenced C/C++ source files both flow through `StyioNative::source_text_for_block(...)`; artifact builds must compile those units into objects and link them into the final executable so exported symbols are available without relying on process-local JIT state. When `SGExternBlock` carries explicit binding symbols from `# name[, other] := @ extern(...) { ... }`, codegen must pass that block-local symbol list instead of the legacy module-wide `@export` list.
 24. Codegen must treat the independent StyioIR verifier as its input gate. `SGMainEntry`, `SGEntry`, and `SGBlock` emission must require verified active IR before LLVM builder work begins; optimization remains a separate lowering-side pass, and codegen must not reinterpret inactive, tombstone, or placeholder IR nodes as executable defaults.
+25. Scalar type lowering must keep AST, Sema, IR, and LLVM type widths consistent. `char` is an 8-bit scalar through `CharAST`, `SGConstChar`, `SGType(char)`, and LLVM `i8`; do not widen or default it to `i64` without a language-level scalar-width decision.
 
 ## Change Classes
 

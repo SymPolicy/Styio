@@ -2,7 +2,7 @@
 
 **Purpose:** Show how to embed Styio's IDE components directly from C++, from the high-level `IdeService` entrypoint down to the edit-time `SyntaxParser`.
 
-**Last updated:** 2026-04-22
+**Last updated:** 2026-05-20
 
 ## High-Level Service
 
@@ -44,7 +44,7 @@ Public façade methods currently available in [../../../src/StyioServices/StyioI
 
 ## Edit-Time Syntax Only
 
-Use `styio::ide::SyntaxParser` when you only need a tolerant syntax snapshot and do not want the full semantic pipeline.
+Use `styio::ide::SyntaxParser` when you only need a non-authoritative edit-time syntax snapshot and do not want the full semantic pipeline.
 
 ```cpp
 #include "StyioServices/StyioIDE/Syntax.hpp"
@@ -85,21 +85,21 @@ The returned `SyntaxSnapshot` exposes:
 
 ## Semantic Bridge Only
 
-Use `styio::ide::analyze_document` when you want Nightly semantic facts without the full IDE service.
+Use `styio::ide::analyze_document` when you want compiler-owned nightly semantic facts without the full IDE service.
 
 ```cpp
 #include "StyioServices/StyioIDE/CompilerBridge.hpp"
 
 auto summary = styio::ide::analyze_document("memory://sample.styio", source_text);
-if (summary.used_recovery) {
-  // The parse continued past at least one malformed statement.
+if (!summary.parse_success) {
+  // Use summary.diagnostics; semantic facts are not published from malformed source.
 }
 ```
 
 `SemanticSummary` currently reports:
 
 1. `parse_success`
-2. `used_recovery`
+2. `used_recovery` retained for ABI compatibility; strict compiler parsing leaves it false for rejected source
 3. `diagnostics`
 4. `items`
 5. `inferred_types`
@@ -188,8 +188,8 @@ Merge precedence is deterministic: open-file entries override background and per
 
 ## Layer Boundaries
 
-1. `SyntaxParser` owns edit-time CST and tolerant token spans.
-2. Nightly parser + analyzer remain the semantic truth for `SemanticSummary`, with `ParseMode::Recovery` enabled for IDE usage.
+1. `SyntaxParser` owns edit-time CST and token spans, but it is not a grammar authority.
+2. The hand-written nightly compiler parser plus analyzer remain the semantic truth for `SemanticSummary`, with strict parsing for IDE semantic publication.
 3. `HirBuilder` lowers syntax plus semantic summary into the IDE-facing HIR.
 4. `SemanticDB` owns file-level and offset-level IDE query caches.
 5. `IdeService` is the recommended stable boundary for application code.

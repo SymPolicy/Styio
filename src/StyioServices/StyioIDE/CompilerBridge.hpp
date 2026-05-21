@@ -40,6 +40,7 @@ struct SemanticItemFact
 struct SemanticSummary
 {
   bool parse_success = false;
+  // Retained for ABI compatibility; IDE semantic publication uses strict parser facts.
   bool used_recovery = false;
   std::vector<Diagnostic> diagnostics;
   std::vector<SemanticItemFact> items;

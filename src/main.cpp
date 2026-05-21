@@ -44,6 +44,7 @@
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
 #include "StyioProfiler/FrontendProfiler.hpp"
+#include "StyioServices/DiagnosticContract.hpp"
 #include "StyioServices/StyioCLI/SyntaxCheck.hpp"
 #include "StyioServices/StyioConfig/CompilePlanContract.hpp"
 #include "StyioServices/StyioConfig/NanoProfile.hpp"
@@ -256,21 +257,52 @@ styio_category_name(StyioErrorCategory c) {
   return "RuntimeError";
 }
 
-static const char*
-styio_category_code(StyioErrorCategory c) {
+static std::string
+styio_diagnostic_code(
+  StyioErrorCategory category,
+  const std::string& message,
+  const std::string& subcode
+) {
+  namespace diag = styio::services::diagnostics;
+  if (diag::starts_with(subcode, "STYIO_")) {
+    return subcode;
+  }
+  switch (category) {
+    case StyioErrorCategory::CliError:
+      return diag::classify_service_code(subcode, message);
+    case StyioErrorCategory::LexError:
+      return diag::classify_lex_code(message);
+    case StyioErrorCategory::ParseError:
+      return diag::classify_parse_code(message);
+    case StyioErrorCategory::TypeError:
+      if (diag::contains(message, "Unsupported AST")
+          || diag::contains(message, "unsupported AST")
+          || diag::contains(message, "unsupported node")) {
+        return std::string(diag::kLowerUnsupportedAst);
+      }
+      return std::string(diag::kTypeError);
+    case StyioErrorCategory::RuntimeError:
+      return diag::classify_runtime_or_native_code(subcode, message);
+  }
+  return std::string(diag::kRuntimeError);
+}
+
+static std::string
+styio_category_phase(StyioErrorCategory c) {
+  namespace diag = styio::services::diagnostics;
   switch (c) {
     case StyioErrorCategory::CliError:
-      return "STYIO_CLI";
+      return std::string(diag::kPhaseService);
     case StyioErrorCategory::LexError:
-      return "STYIO_LEX";
+      return std::string(diag::kPhaseLex);
     case StyioErrorCategory::ParseError:
-      return "STYIO_PARSE";
+      return std::string(diag::kPhaseParse);
     case StyioErrorCategory::TypeError:
-      return "STYIO_TYPE";
+      return std::string(diag::kPhaseType);
     case StyioErrorCategory::RuntimeError:
-      return "STYIO_RUNTIME";
+      return std::string(diag::kPhaseRuntime);
   }
-  return "STYIO_RUNTIME";
+  return std::string(diag::kPhaseRuntime);
 }
 
 static int
@@ -3127,6 +3159,7 @@ styio_emit_machine_info_json(const StyioDictImplSelectionLatest& dict_impl_selec
     << ",\"supported_adapter_modes\":[\"cli\"]"
     << ",\"feature_flags\":{\"single_file_entry\":true"
     << ",\"jsonl_diagnostics\":true"
+    << ",\"stable_diagnostic_codes\":true"
     << ",\"syntax_check\":"
 #if STYIO_NANO_BUILD
     << "false"
@@ -3172,6 +3205,7 @@ styio_emit_machine_info_json(const StyioDictImplSelectionLatest& dict_impl_selec
   std::cout << ",\"syntax_check_json\"";
   std::cout << ",\"syntax_check_recovery_diagnostics\"";
   std::cout << ",\"syntax_check_source_context\"";
+  std::cout << ",\"stable_diagnostic_codes\"";
 #endif
 #if !STYIO_NANO_BUILD
   std::cout << ",\"nano_package_materialize\"";
@@ -3254,16 +3288,26 @@ styio_render_diagnostic_jsonl_latest(
   const std::string& message,
   const std::string& subcode
 ) {
+  const std::string code = styio_diagnostic_code(category, message, subcode);
+  const std::string phase = styio::services::diagnostics::diagnostic_phase_for_code(code);
   std::ostringstream out;
-  out << "{\"severity\":\"error\""
+  out << "{\"schema_version\":1"
+      << ",\"contract\":\"diagnostic\""
+      << ",\"severity\":\"error\""
+      << ",\"phase\":\"" << styio_json_escape(phase.empty() ? styio_category_phase(category) : phase) << "\""
       << ",\"category\":\"" << styio_category_name(category)
-      << "\",\"code\":\"" << styio_category_code(category) << "\"";
+      << "\",\"code\":\"" << styio_json_escape(code) << "\"";
   if (!subcode.empty()) {
     out << ",\"subcode\":\"" << styio_json_escape(subcode) << "\"";
   }
   out << ",\"file\":\"" << styio_json_escape(file_path)
-      << "\",\"message\":\"" << styio_json_escape(message)
-      << "\"}";
+      << "\",\"line\":0"
+      << ",\"column\":0"
+      << ",\"offset\":0"
+      << ",\"length\":0"
+      << ",\"message\":\"" << styio_json_escape(message)
+      << "\",\"notes\":[]"
+      << "}";
   return out.str();
 }
 

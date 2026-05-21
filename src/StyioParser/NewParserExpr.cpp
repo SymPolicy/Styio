@@ -54,6 +54,15 @@ enforce_nightly_internal_legacy_bridge_budget_latest(StyioContext& context, cons
   );
 }
 
+[[noreturn]] void
+reject_authoritative_nightly_gap_latest(StyioContext& context, const char* construct) {
+  throw StyioSyntaxError(
+    context.mark_cur_tok(
+      std::string("unsupported syntax in authoritative nightly parser: ") + construct
+    )
+  );
+}
+
 BlockAST*
 parse_block_only_subset_nightly(StyioContext& context);
 
@@ -891,8 +900,7 @@ parse_dict_literal_nightly_draft(StyioContext& context) {
     if (attempt.status == ParseAttemptStatus::Fatal) {
       std::rethrow_exception(attempt.error);
     }
-    enforce_nightly_internal_legacy_bridge_budget_latest(context, "dictionary literal fallback");
-    return parse_expr(context);
+    reject_authoritative_nightly_gap_latest(context, "dictionary literal expression");
   };
 
   context.try_match_panic(StyioTokenType::TOK_LCURBRAC);
@@ -926,8 +934,7 @@ parse_stmt_subset_with_legacy_fallback_latest_draft(StyioContext& context) {
   if (attempt.status == ParseAttemptStatus::Fatal) {
     std::rethrow_exception(attempt.error);
   }
-  enforce_nightly_internal_legacy_bridge_budget_latest(context, "statement subset fallback");
-  return parse_stmt_or_expr_legacy(context);
+  reject_authoritative_nightly_gap_latest(context, "statement subset");
 }
 
 BlockAST*
@@ -939,8 +946,7 @@ parse_block_only_subset_with_legacy_fallback_latest_draft(StyioContext& context)
   if (attempt.status == ParseAttemptStatus::Fatal) {
     std::rethrow_exception(attempt.error);
   }
-  enforce_nightly_internal_legacy_bridge_budget_latest(context, "block subset fallback");
-  return parse_block_only(context);
+  reject_authoritative_nightly_gap_latest(context, "block subset");
 }
 
 StyioAST*
@@ -965,8 +971,7 @@ parse_iterator_collection_rhs_nightly_draft(StyioContext& context) {
   if (attempt.status == ParseAttemptStatus::Fatal) {
     std::rethrow_exception(attempt.error);
   }
-  enforce_nightly_internal_legacy_bridge_budget_latest(context, "iterator collection fallback");
-  return parse_expr(context);
+  reject_authoritative_nightly_gap_latest(context, "iterator collection expression");
 }
 
 BlockAST*
@@ -1038,8 +1043,7 @@ parse_cases_only_nightly_draft(StyioContext& context) {
         std::rethrow_exception(left_attempt.error);
       }
       else {
-        enforce_nightly_internal_legacy_bridge_budget_latest(context, "match case fallback");
-        left.reset(parse_expr(context));
+        reject_authoritative_nightly_gap_latest(context, "match case expression");
       }
 
       context.skip();
@@ -1118,8 +1122,7 @@ parse_forward_as_list_nightly_draft(StyioContext& context) {
               std::rethrow_exception(attempt.error);
             }
             else {
-              enforce_nightly_internal_legacy_bridge_budget_latest(context, "match arm equality fallback");
-              rval_owners.emplace_back(parse_expr(context));
+              reject_authoritative_nightly_gap_latest(context, "match arm equality expression");
             }
           } while (context.try_match(StyioTokenType::TOK_COMMA));
           std::vector<StyioAST*> rvals;
@@ -2468,8 +2471,7 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
     if (attempt.status == ParseAttemptStatus::Fatal) {
       std::rethrow_exception(attempt.error);
     }
-    enforce_nightly_internal_legacy_bridge_budget_latest(context, "hash statement fallback");
-    return parse_hash_tag(context);
+    reject_authoritative_nightly_gap_latest(context, "hash statement");
   }
   if (context.cur_tok_type() == StyioTokenType::TOK_AT) {
     return parse_at_stmt_or_expr_latest(context);

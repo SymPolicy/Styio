@@ -5,6 +5,8 @@
 #include <string>
 #include <unordered_set>
 
+#include "StyioServices/DiagnosticContract.hpp"
+
 #ifdef STYIO_HAS_TREE_SITTER
 #include <tree_sitter/api.h>
 
@@ -65,7 +67,9 @@ append_unique_diagnostic(
   Diagnostic diagnostic
 ) {
   const std::string key =
-    std::to_string(diagnostic.range.start) + ":" + std::to_string(diagnostic.range.end) + ":" + diagnostic.message;
+    std::to_string(diagnostic.range.start) + ":" + std::to_string(diagnostic.range.end)
+    + ":" + diagnostic.code
+    + ":" + diagnostic.message;
   if (seen.insert(key).second) {
     diagnostics.push_back(std::move(diagnostic));
   }
@@ -209,7 +213,13 @@ append_tree_sitter_node(
     append_unique_diagnostic(
       diagnostics,
       diag_seen,
-      Diagnostic{range, DiagnosticSeverity::Error, "syntax", std::move(message)});
+      Diagnostic{
+        range,
+        DiagnosticSeverity::Error,
+        "styio-editor",
+        std::move(message),
+        std::string(styio::services::diagnostics::kServiceEditorSyntax),
+        std::string(styio::services::diagnostics::kPhaseService)});
   }
 
   if ((nodes[index].kind == SyntaxNodeKind::Block

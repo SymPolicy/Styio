@@ -2,7 +2,7 @@
 
 **Purpose:** Define how IDE hosts should launch and talk to `styio_lspd`, and record the currently supported request and notification surface.
 
-**Last updated:** 2026-04-22
+**Last updated:** 2026-05-20
 
 ## Transport
 
@@ -64,11 +64,11 @@ Explicit imports come from top-level `@import { ... }` declarations. Source acce
 
 ## Diagnostics Semantics
 
-1. `didOpen` / `didChange` publish syntax diagnostics immediately from the edit-time syntax snapshot.
-2. Semantic diagnostics come from the Nightly parser/analyzer bridge and are queued behind a debounce boundary.
+1. `didOpen` / `didChange` publish edit-time syntax snapshot diagnostics immediately. These diagnostics support editor interaction but do not define accepted Styio grammar.
+2. Semantic diagnostics come from the authoritative nightly parser/analyzer bridge and are queued behind a debounce boundary.
 3. Debounced semantic publication replaces the earlier syntax-only list with the full merged diagnostic set for the latest visible snapshot.
 4. Stale semantic runs are dropped by snapshot/version guards instead of being published.
-5. In recovery mode, malformed statements are reported while later statements in the same file can still contribute hover, completion, and symbol data.
+5. Malformed source does not publish recovered later hover, completion, symbol, or type facts from the compiler semantic bridge.
 
 ## Current Limits
 

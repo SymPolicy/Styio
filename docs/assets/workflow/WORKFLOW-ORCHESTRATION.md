@@ -30,7 +30,7 @@ Current registered table:
 | Workflow | `change-bootstrap-env` | 20 | docs | Bootstrap environment dependency, version, path, and documentation changes. | `docs/assets/workflow/CHANGE-BOOTSTRAP-ENV.md` |
 | Workflow | `add-resource-identifier` | 25 | docs | Resource identifier syntax, capability, lifecycle, and fail-closed rollout. | `docs/assets/workflow/ADD-RESOURCE-IDENTIFIER.md` |
 | Workflow | `correct-syntax-contract` | 25 | docs | Syntax-contract correction from minimal repro through parser/Sema boundary, SSOT docs, and gates. | `docs/assets/workflow/CORRECT-SYNTAX-CONTRACT.md` |
-| Workflow | `promote-nightly-parser-subset` | 25 | docs | Nightly parser subset promotion with parity, fallback, and error-boundary tests. | `docs/assets/workflow/PROMOTE-NIGHTLY-PARSER-SUBSET.md` |
+| Workflow | `promote-nightly-parser-subset` | 25 | docs | Authoritative nightly parser coverage with no accepted-grammar fallback. | `docs/assets/workflow/PROMOTE-NIGHTLY-PARSER-SUBSET.md` |
 | Workflow | `syntax-addition` | 25 | docs | Ordered syntax-change chain from language SSOT through runtime registration. | `docs/assets/workflow/SYNTAX-ADDITION-WORKFLOW.md` |
 | Workflow | `docs-maintenance` | 30 | docs | Documentation metadata, generated indexes, and archive lifecycle. | `docs/assets/workflow/DOCS-MAINTENANCE-WORKFLOW.md` |
 | Workflow | `team-runbook-maintenance` | 30 | docs | Team runbook ownership and update requirements for touched surfaces. | `docs/assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md` |

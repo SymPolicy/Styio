@@ -100,6 +100,7 @@ styio_feature_stdout_golden_test(scalar_expressions "t*.styio" scalar_expression
 styio_feature_stdout_golden_test(functions "t*.styio" functions)
 styio_feature_stdout_golden_test(control_flow "t*.styio" control_flow)
 styio_feature_stdout_golden_test(wave_dispatch "t*.styio" wave_dispatch)
+styio_feature_stderr_failure_golden_test(wave_dispatch wave_dispatch)
 styio_feature_stdout_golden_test(state_resources "t*.styio" state_resources)
 styio_feature_stdout_golden_test(final_bindings "t*.styio" final_bindings)
 styio_feature_stdout_golden_test(native_interop "t*.styio" native_interop)

@@ -112,6 +112,8 @@ struct Diagnostic
   DiagnosticSeverity severity = DiagnosticSeverity::Error;
   std::string source;
   std::string message;
+  std::string code;
+  std::string phase;
 };
 
 struct Location

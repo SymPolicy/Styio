@@ -10,6 +10,7 @@
 #include "StyioException/Exception.hpp"
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
+#include "StyioServices/DiagnosticContract.hpp"
 
 namespace styio::ide {
 
@@ -339,16 +340,18 @@ analyze_document(const std::string& path, const std::string& text) {
       *context,
       StyioParserEngine::Nightly,
       nullptr,
-      StyioParseMode::Recovery);
+      StyioParseMode::Strict);
     summary.parse_success = ast != nullptr;
-    summary.used_recovery = !context->parse_diagnostics().empty();
+    summary.used_recovery = false;
 
     for (const auto& diagnostic : context->parse_diagnostics()) {
       summary.diagnostics.push_back(Diagnostic{
         TextRange{diagnostic.start, std::min(diagnostic.end, text.size())},
         DiagnosticSeverity::Error,
-        "semantic",
-        diagnostic.message});
+        "styio-compiler",
+        diagnostic.message,
+        styio::services::diagnostics::classify_parse_code(diagnostic.message),
+        std::string(styio::services::diagnostics::kPhaseParse)});
     }
 
     AstToStyioIRLowerer analyzer;
@@ -359,14 +362,18 @@ analyze_document(const std::string& path, const std::string& text) {
         summary.diagnostics.push_back(Diagnostic{
           TextRange{0, text.size()},
           DiagnosticSeverity::Error,
-          "semantic",
-          ex.what()});
+          "styio-compiler",
+          ex.what(),
+          std::string(styio::services::diagnostics::kTypeError),
+          std::string(styio::services::diagnostics::kPhaseType)});
       } catch (const std::exception& ex) {
         summary.diagnostics.push_back(Diagnostic{
           TextRange{0, text.size()},
           DiagnosticSeverity::Error,
-          "semantic",
-          ex.what()});
+          "styio-compiler",
+          ex.what(),
+          std::string(styio::services::diagnostics::kTypeError),
+          std::string(styio::services::diagnostics::kPhaseType)});
       }
 
       for (const auto& entry : analyzer.local_binding_types) {
@@ -382,18 +389,30 @@ analyze_document(const std::string& path, const std::string& text) {
 
       collect_semantic_items(summary, ast);
     }
+  } catch (const StyioLexError& ex) {
+    summary.diagnostics.push_back(Diagnostic{
+      TextRange{0, text.size()},
+      DiagnosticSeverity::Error,
+      "styio-compiler",
+      ex.what(),
+      styio::services::diagnostics::classify_lex_code(ex.what()),
+      std::string(styio::services::diagnostics::kPhaseLex)});
   } catch (const StyioBaseException& ex) {
     summary.diagnostics.push_back(Diagnostic{
       TextRange{0, text.size()},
       DiagnosticSeverity::Error,
-      "semantic",
-      ex.what()});
+      "styio-compiler",
+      ex.what(),
+      styio::services::diagnostics::classify_parse_code(ex.what()),
+      std::string(styio::services::diagnostics::kPhaseParse)});
   } catch (const std::exception& ex) {
     summary.diagnostics.push_back(Diagnostic{
       TextRange{0, text.size()},
       DiagnosticSeverity::Error,
-      "semantic",
-      ex.what()});
+      "styio-compiler",
+      ex.what(),
+      styio::services::diagnostics::classify_parse_code(ex.what()),
+      std::string(styio::services::diagnostics::kPhaseParse)});
   }
 
   cleanup();

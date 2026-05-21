@@ -54,6 +54,15 @@ lowering_string_type() {
   return StyioDataType{StyioDataTypeOption::String, "string", 0};
 }
 
+StyioIR*
+unsupported_ast_lowering(const char* ast_name, const char* reason = nullptr) {
+  std::string msg = std::string("unsupported AST lowering: ") + ast_name;
+  if (reason != nullptr && reason[0] != '\0') {
+    msg += std::string(" (") + reason + ")";
+  }
+  throw StyioTypeError(msg);
+}
+
 std::string
 alloc_lowering_tmp_name(const char* prefix) {
   static int n = 0;
@@ -868,11 +877,11 @@ SGMatchReprKind
 classify_cases(CasesAST* c) {
   bool any = false;
   for (auto const& pr : c->case_list) {
-    if (stmt_has_return_tree(pr.second)) {
+    if (stmt_has_return_tree(pr.second) || ast_has_tail_value(pr.second)) {
       any = true;
     }
   }
-  if (stmt_has_return_tree(c->case_default)) {
+  if (stmt_has_return_tree(c->case_default) || ast_has_tail_value(c->case_default)) {
     any = true;
   }
   if (!any) {
@@ -896,6 +905,30 @@ classify_cases(CasesAST* c) {
     return SGMatchReprKind::ExprFloat;
   }
   return SGMatchReprKind::ExprInt;
+}
+
+SGMatch*
+lower_cases_with_scrutinee(
+  AstToStyioIRLowerer* an,
+  CasesAST* c,
+  StyioIR* scrutinee_ir,
+  const std::string* scrutinee_name
+) {
+  SGMatchReprKind rk = classify_cases(c);
+  std::vector<std::pair<std::int64_t, SGBlock*>> arms;
+  for (auto const& pr : c->case_list) {
+    std::optional<std::int64_t> arm_value =
+      match_case_pattern_value_for_name(pr.first, scrutinee_name);
+    if (!arm_value.has_value()) {
+      throw StyioTypeError("match arms need integer literal patterns in this language feature");
+    }
+    arms.push_back({*arm_value, lower_func_body(an, pr.second, true)});
+  }
+  SGBlock* def = nullptr;
+  if (c->case_default) {
+    def = lower_func_body(an, c->case_default, true);
+  }
+  return SGMatch::Create(scrutinee_ir, std::move(arms), def, rk);
 }
 
 bool
@@ -1760,7 +1793,8 @@ AstToStyioIRLowerer::toStyioIR(CommentAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(NoneAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("NoneAST", "none/null value semantics are not defined in StyioIR");
 }
 
 StyioIR*
@@ -1805,7 +1839,8 @@ AstToStyioIRLowerer::toStyioIR(TypeAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(TypeTupleAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("TypeTupleAST", "type tuples are declaration metadata, not runtime values");
 }
 
 StyioIR*
@@ -1825,7 +1860,11 @@ AstToStyioIRLowerer::toStyioIR(FloatAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(CharAST* ast) {
-  return SGConstInt::Create(0);
+  const std::string& value = ast->getValue();
+  if (value.size() != 1) {
+    throw StyioTypeError("char literal lowering expects exactly one byte");
+  }
+  return SGConstChar::Create(value.front());
 }
 
 StyioIR*
@@ -1839,8 +1878,9 @@ AstToStyioIRLowerer::toStyioIR(StringAST* ast) {
 }
 
 StyioIR*
-AstToStyioIRLowerer::toStyioIR(TypeConvertAST*) {
-  return SGConstInt::Create(0);
+AstToStyioIRLowerer::toStyioIR(TypeConvertAST* ast) {
+  (void)ast;
+  return unsupported_ast_lowering("TypeConvertAST", "value-carrying cast IR is not implemented");
 }
 
 StyioIR*
@@ -1879,12 +1919,14 @@ AstToStyioIRLowerer::toStyioIR(ParamAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(OptArgAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("OptArgAST", "optional positional arguments are declaration-only syntax");
 }
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(OptKwArgAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("OptKwArgAST", "optional keyword arguments are declaration-only syntax");
 }
 
 /*
@@ -1902,7 +1944,7 @@ AstToStyioIRLowerer::toStyioIR(FlexBindAST* ast) {
     );
   }
   if (dynamic_cast<StdStreamAST*>(ast->getValue()) != nullptr) {
-    return SGConstInt::Create(0);
+    return SGNoOp::Create();
   }
   auto* var = static_cast<SGVar*>(ast->getVar()->toStyioIR(this));
   auto it = binding_info_.find(ast->getNameAsStr());
@@ -1929,7 +1971,7 @@ AstToStyioIRLowerer::toStyioIR(FinalBindAST* ast) {
     );
   }
   if (dynamic_cast<StdStreamAST*>(ast->getValue()) != nullptr) {
-    return SGConstInt::Create(0);
+    return SGNoOp::Create();
   }
   auto* var = static_cast<SGVar*>(ast->getVar()->toStyioIR(this));
   auto it = binding_info_.find(ast->getVar()->getNameAsStr());
@@ -2006,7 +2048,8 @@ AstToStyioIRLowerer::toStyioIR(ParallelAssignAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(InfiniteAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("InfiniteAST", "legacy infinite sequence syntax has no active StyioIR lowering");
 }
 
 StyioIR*
@@ -2022,17 +2065,20 @@ AstToStyioIRLowerer::toStyioIR(StructAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(TupleAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("TupleAST", "tuple value IR is not implemented");
 }
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(VarTupleAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("VarTupleAST", "tuple parameter groups are declaration-only syntax");
 }
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ExtractorAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("ExtractorAST", "tuple extractor IR is not implemented");
 }
 
 StyioIR*
@@ -2083,7 +2129,8 @@ AstToStyioIRLowerer::toStyioIR(RangeAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(SetAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("SetAST", "set literal IR is not implemented");
 }
 
 StyioIR*
@@ -2291,9 +2338,10 @@ AstToStyioIRLowerer::toStyioIR(FileResourceAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(StdStreamAST* ast) {
+  (void)ast;
   /* StdStreamAST is not lowered to its own IR node;
      it is consumed by the parent node (ResourceWriteAST, IteratorAST, etc.). */
-  return SGConstInt::Create(0);
+  return unsupported_ast_lowering("StdStreamAST", "standard streams must be consumed by a parent resource operation");
 }
 
 StyioIR*
@@ -2363,7 +2411,7 @@ AstToStyioIRLowerer::toStyioIR(HandleAcquireAST* ast) {
 
   if (dynamic_cast<StdStreamAST*>(ast->getResource())) {
     /* Standard stream aliases are compile-time handles in v1; lowering happens at the use site. */
-    return SGConstInt::Create(0);
+    return SGNoOp::Create();
   }
   auto* fr = dynamic_cast<FileResourceAST*>(ast->getResource());
   if (!fr) {
@@ -2488,7 +2536,7 @@ lower_file_release_latest(AstToStyioIRLowerer* an, StyioAST* expr) {
       fr->isAutoDetect()
     );
   }
-  return SGConstInt::Create(0);
+  return unsupported_ast_lowering("ResourceRedirectAST", "file release requires a file handle name or file resource");
 }
 
 StyioIR*
@@ -2552,13 +2600,14 @@ AstToStyioIRLowerer::toStyioIR(FmtStrAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ResourceAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return SGNoOp::Create();
 }
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(EmptyResourceAST* ast) {
   (void)ast;
-  return SGConstInt::Create(0);
+  return unsupported_ast_lowering("EmptyResourceAST", "empty resource is a redirect/release sentinel only");
 }
 
 StyioIR*
@@ -2586,13 +2635,13 @@ AstToStyioIRLowerer::resolveResourceReceiverExprLatest(StyioAST* expr) const {
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ResourceMethodDefAST* ast) {
   (void)ast;
-  return SGConstInt::Create(0);
+  return SGNoOp::Create();
 }
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ResourceOrderAST* ast) {
   (void)ast;
-  return SGConstInt::Create(0);
+  return SGNoOp::Create();
 }
 
 static StyioDataType
@@ -2651,27 +2700,32 @@ AstToStyioIRLowerer::toStyioIR(ResourceRefAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ResPathAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("ResPathAST", "resource path values are not implemented as runtime IR");
 }
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(RemotePathAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("RemotePathAST", "remote path values are not implemented as runtime IR");
 }
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(WebUrlAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("WebUrlAST", "web URL values are not implemented as runtime IR");
 }
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(DBUrlAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("DBUrlAST", "database URL values are not implemented as runtime IR");
 }
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ExtPackAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("ExtPackAST", "external package declarations are not runtime values");
 }
 
 StyioIR*
@@ -2690,12 +2744,14 @@ AstToStyioIRLowerer::toStyioIR(ExternBlockAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ReadFileAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("ReadFileAST", "legacy read-file syntax is superseded by file resources");
 }
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(EOFAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return SGNoOp::Create();
 }
 
 StyioIR*
@@ -2799,9 +2855,10 @@ AstToStyioIRLowerer::toStyioIR(FuncCallAST* ast) {
               ast->func_callee,
               ast->getArgList()
             );
-            lowered = inlined_body == nullptr
-                        ? static_cast<StyioIR*>(SGConstInt::Create(0))
-                        : flatten_single_stmt_block_latest(inlined_body->toStyioIR(this));
+            if (inlined_body == nullptr) {
+              throw StyioTypeError("resource method lowering produced no body");
+            }
+            lowered = flatten_single_stmt_block_latest(inlined_body->toStyioIR(this));
           }
           catch (...) {
             restore_receiver();
@@ -2845,7 +2902,7 @@ AstToStyioIRLowerer::toStyioIR(FuncCallAST* ast) {
           }
         }
       }
-      return SGConstInt::Create(0);
+      return unsupported_ast_lowering("FuncCallAST", "unsupported resource method call");
     }
   }
 
@@ -2886,7 +2943,7 @@ StyioIR*
 AstToStyioIRLowerer::toStyioIR(AttrAST* ast) {
   auto* attr_name = dynamic_cast<NameAST*>(ast->attr);
   if (attr_name == nullptr) {
-    return SGConstInt::Create(0);
+    return unsupported_ast_lowering("AttrAST", "attribute name must be a simple identifier");
   }
   const std::string attr_str = attr_name->getAsStr();
   const StyioBuiltinMethodKind builtin_method = styio_builtin_method_kind(attr_str);
@@ -2930,9 +2987,10 @@ AstToStyioIRLowerer::toStyioIR(AttrAST* ast) {
             ast->body,
             {}
           );
-          lowered = inlined_body == nullptr
-                      ? static_cast<StyioIR*>(SGConstInt::Create(0))
-                      : flatten_single_stmt_block_latest(inlined_body->toStyioIR(this));
+          if (inlined_body == nullptr) {
+            throw StyioTypeError("resource property lowering produced no body");
+          }
+          lowered = flatten_single_stmt_block_latest(inlined_body->toStyioIR(this));
         }
         catch (...) {
           restore_receiver();
@@ -2956,7 +3014,7 @@ AstToStyioIRLowerer::toStyioIR(AttrAST* ast) {
       }
       return SGConstString::Create("");
     }
-    return SGConstInt::Create(0);
+    return unsupported_ast_lowering("AttrAST", "unsupported resource property access");
   }
   if (styio_is_dict_type(body_type)) {
     return SCDictLen::Create(ast->body->toStyioIR(this));
@@ -2985,32 +3043,38 @@ AstToStyioIRLowerer::toStyioIR(PrintAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ForwardAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("ForwardAST", "forward flow syntax has no active StyioIR lowering");
 }
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(BackwardAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("BackwardAST", "backward flow syntax has no active StyioIR lowering");
 }
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(CODPAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("CODPAST", "chain-of-data-processing syntax has no active StyioIR lowering");
 }
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(CheckEqualAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("CheckEqualAST", "match guards must be lowered through MatchCasesAST");
 }
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(CheckIsinAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("CheckIsinAST", "match membership guards are not implemented as standalone IR");
 }
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(HashTagNameAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("HashTagNameAST", "hash-tag names are parser metadata, not runtime values");
 }
 
 StyioIR*
@@ -3022,7 +3086,8 @@ AstToStyioIRLowerer::toStyioIR(CondFlowAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(AnonyFuncAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("AnonyFuncAST", "anonymous function closures are not implemented in StyioIR");
 }
 
 StyioIR*
@@ -3063,7 +3128,23 @@ AstToStyioIRLowerer::toStyioIR(FunctionAST* ast) {
   }
   SGBlock* body = nullptr;
   try {
-    body = lower_func_body_with_local_defs(this, ast->func_body, true);
+    if (auto* direct_cases = dynamic_cast<CasesAST*>(ast->func_body)) {
+      if (ast->params.size() != 1) {
+        throw StyioTypeError("function match sugar requires exactly one parameter");
+      }
+      const std::string scrutinee_name = ast->params[0]->getName();
+      body = SGBlock::Create({
+        SGReturn::Create(lower_cases_with_scrutinee(
+          this,
+          direct_cases,
+          SGResId::Create(scrutinee_name),
+          &scrutinee_name
+        ))
+      });
+    }
+    else {
+      body = lower_func_body_with_local_defs(this, ast->func_body, true);
+    }
   }
   catch (...) {
     local_binding_types = std::move(saved_local_types);
@@ -3455,13 +3536,14 @@ AstToStyioIRLowerer::toStyioIR(InfiniteLoopAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(CasesAST* ast) {
-  return SGConstInt::Create(0);
+  (void)ast;
+  return unsupported_ast_lowering("CasesAST", "cases must be lowered through MatchCasesAST");
 }
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(StateDeclAST* ast) {
   (void)ast;
-  return SGConstInt::Create(0);
+  return unsupported_ast_lowering("StateDeclAST", "state declarations must be lowered through pulse topology planning");
 }
 
 StyioIR*
@@ -3518,21 +3600,15 @@ AstToStyioIRLowerer::toStyioIR(SeriesIntrinsicAST* ast) {
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(MatchCasesAST* ast) {
   CasesAST* c = ast->getCases();
-  SGMatchReprKind rk = classify_cases(c);
-  StyioIR* scr = ast->getScrutinee()->toStyioIR(this);
-  std::vector<std::pair<std::int64_t, SGBlock*>> arms;
-  for (auto const& pr : c->case_list) {
-    std::optional<std::int64_t> arm_value = match_case_pattern_value(pr.first, ast->getScrutinee());
-    if (!arm_value.has_value()) {
-      throw StyioTypeError("match arms need integer literal patterns in this language feature");
-    }
-    arms.push_back({*arm_value, lower_func_body(this, pr.second, true)});
-  }
-  SGBlock* def = nullptr;
-  if (c->case_default) {
-    def = lower_func_body(this, c->case_default, true);
-  }
-  return SGMatch::Create(scr, std::move(arms), def, rk);
+  auto* scrutinee_name_ast = dynamic_cast<NameAST*>(ast->getScrutinee());
+  const std::string* scrutinee_name =
+    scrutinee_name_ast != nullptr ? &scrutinee_name_ast->getAsStr() : nullptr;
+  return lower_cases_with_scrutinee(
+    this,
+    c,
+    ast->getScrutinee()->toStyioIR(this),
+    scrutinee_name
+  );
 }
 
 StyioIR*

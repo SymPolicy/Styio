@@ -67,6 +67,15 @@ enforce_nightly_internal_legacy_bridge_budget_latest(StyioContext& context, cons
   );
 }
 
+[[noreturn]] void
+reject_authoritative_nightly_gap_latest(StyioContext& context, const char* construct) {
+  throw StyioSyntaxError(
+    context.mark_cur_tok(
+      std::string("unsupported syntax in authoritative nightly parser: ") + construct
+    )
+  );
+}
+
 struct ParserRouteStatsScopeLatestDraft
 {
   StyioContext& context;
@@ -3618,8 +3627,7 @@ parse_list_exprs_latest_draft(StyioContext& context) {
     if (attempt.status == ParseAttemptStatus::Fatal) {
       std::rethrow_exception(attempt.error);
     }
-    enforce_nightly_internal_legacy_bridge_budget_latest(context, "list expression fallback");
-    return parse_expr(context);
+    reject_authoritative_nightly_gap_latest(context, "list expression element");
   };
 
   context.move_forward(1); /* [ */
@@ -5572,10 +5580,7 @@ parse_main_block_shadow_nightly(StyioContext& context, StyioParserRouteStats* ro
       }
 
       if (stmt == nullptr) {
-        stmt = parse_stmt_or_expr_legacy(context);
-        if (route_stats != nullptr) {
-          route_stats->legacy_fallback_statements += 1;
-        }
+        reject_authoritative_nightly_gap_latest(context, "statement");
       }
     }
     catch (...) {

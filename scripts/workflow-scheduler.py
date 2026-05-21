@@ -203,7 +203,7 @@ WORKFLOW_DOCS: tuple[WorkflowDoc, ...] = (
         "promote-nightly-parser-subset",
         "docs/assets/workflow/PROMOTE-NIGHTLY-PARSER-SUBSET.md",
         25,
-        "Nightly parser subset promotion with parity, fallback, and error-boundary tests.",
+        "Authoritative nightly parser coverage with no accepted-grammar fallback.",
     ),
     WorkflowDoc(
         "syntax-addition",

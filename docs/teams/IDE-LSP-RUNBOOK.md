@@ -2,11 +2,11 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of `styio_ide_core`, `styio_lspd`, IDE-facing C++ APIs, VFS snapshots, syntax/HIR/SemDB services, and LSP protocol behavior.
 
-**Last updated:** 2026-05-17
+**Last updated:** 2026-05-20
 
 ## Mission
 
-Own edit-time developer experience and host integration. This team makes compiler facts usable through IDE APIs and LSP without redefining language semantics. The Nightly parser/analyzer remains semantic truth; IDE syntax layers provide recovery and interaction support.
+Own edit-time developer experience and host integration. This team makes compiler facts usable through IDE APIs and LSP without redefining language semantics. The hand-written nightly compiler parser remains grammar and semantic truth; IDE syntax snapshots provide interaction support only.
 
 ## Owned Surface
 
@@ -28,18 +28,20 @@ Build and test targets:
 1. Start from [../external/for-ide/README.md](../external/for-ide/README.md), then the relevant `BUILD`, `CXX-API`, `LSP`, `TREE-SITTER`, or `TESTING` page.
 2. Decide whether the change is syntax-only, semantic bridge, HIR/SemDB, service API, or LSP boundary.
 3. Keep UTF-16 LSP positions at the server boundary and UTF-8 byte offsets inside IDE core.
-4. Preserve recovery behavior: malformed statements should not unnecessarily erase later useful IDE facts.
+4. Do not treat editor syntax snapshots as grammar authority. Malformed source may keep token/CST interaction hints, but compiler semantic facts must come from strict nightly parsing.
 5. Keep `docs/external/for-ide/BUILD.md` scoped to IDE/LSP targets; repository-wide bootstrap and common compiler commands belong in [../BUILD-AND-DEV-ENV.md](../BUILD-AND-DEV-ENV.md).
 6. Update `docs/external/for-ide/`, the relevant source-level module README, and `src/StyioServices/MANIFEST.md` when public host behavior changes.
 7. When IDE build docs mention compiler prerequisites, reflect the shared repository baseline instead of creating a second LLVM/CMake/Python version matrix under `docs/external/for-ide/`.
 8. Tree-sitter maintenance instructions in `docs/external/for-ide/BUILD.md` must keep using the repository-standard Node.js `v24.15.0` LTS line instead of a floating `stable` or distro-default Node release.
 9. Keep builtin/default-symbol completions sourced from the shared compiler-owned symbol registry under `src/StyioParser/`; do not reintroduce a private IDE-only builtin or keyword table.
 10. Preserve the runtime scheduling contract: request-loop drains are budgeted, foreground work yields over queued background reindexing, and explicit idle slices drain semantic diagnostics before background work.
-11. Mirror lexer token additions in the tolerant syntax layer so edit-time diagnostics and grouping do not drift from compiler tokenization.
-12. When async, continuation, or task syntax adds tokens such as `?|` or `||>`, update `src/StyioServices/StyioIDE/Syntax.cpp` in the same change so tolerant highlighting and diagnostics recognize the new token boundary.
+11. Mirror lexer token additions in the editor syntax snapshot layer so highlighting, grouping, and completion contexts do not drift from compiler tokenization.
+12. When async, continuation, or task syntax adds tokens such as `?|` or `||>`, update `src/StyioServices/StyioIDE/Syntax.cpp` in the same change so editor highlighting and diagnostics recognize the new token boundary, then prove accepted grammar through the compiler parser path.
 13. When testing `VFS` close/drop-open-file behavior, put expected closed-file contents on disk before closing the in-memory document; closed snapshots intentionally reload from disk instead of retaining stale open-buffer query state.
 14. Keep compiler bridge code pointed at `AstToStyioIRLowerer` for semantic truth; do not rebuild a separate IDE analyzer or depend on the legacy `StyioAnalyzer` compatibility alias for new code.
-15. Treat `StyioSyntaxDrift.CorpusMatchesApprovedEnvelope` as an approved-drift ledger, not a permanent suppression list. When nightly parser recovery improves and the compiler outline matches the tolerant IDE syntax outline, remove the approved exception, update the expected recovery flag, and keep the corpus file unchanged unless the user-facing editing scenario itself changes.
+15. Treat `StyioSyntaxDrift.CorpusMatchesApprovedEnvelope` as an approved-drift ledger, not a permanent suppression list. If compiler strict parsing accepts a corpus case and the compiler outline matches the editor syntax outline, remove the approved exception; if strict parsing rejects malformed source, the exception must say the editor snapshot is non-authoritative.
+16. `analyze_document` must not use recovery parsing to publish later semantic facts from malformed source. Syntax-validity consumers should use `styio check --syntax --json --file`, not IDE token/CST snapshots.
+17. IDE and LSP diagnostics must preserve shared Styio diagnostic identity: compiler facts carry compiler/service codes, editor-only facts use `styio-editor` service codes, and LSP publishes `Diagnostic.code` plus `data.phase`.
 
 ## Change Classes
 

@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the repeatable verification commands for the IDE-facing build, syntax backend, LSP server, and documentation inventory.
 
-**Last updated:** 2026-04-16
+**Last updated:** 2026-05-20
 
 ## Recommended Commands
 
@@ -20,7 +20,7 @@ bash scripts/ide-quality-gate.sh --skip-fuzz --waiver 'skip fuzz on machines wit
 1. Syntax/LSP only: `ctest --test-dir build/default --output-on-failure -L 'ide|lsp'`
 2. One IDE unit test: `ctest --test-dir build/default --output-on-failure -R 'StyioSyntaxParser.UsesTreeSitterBackendWhenAvailable'`
 3. Incremental syntax reuse: `ctest --test-dir build/default --output-on-failure -R 'StyioSyntaxParser.ReusesIncrementalTreeForSubsequentParses'`
-4. Recovery-mode semantic bridge: `ctest --test-dir build/default --output-on-failure -R 'StyioSemanticBridge.RecoversNightlyParseForLaterStatements'`
+4. Strict semantic bridge rejection: `ctest --test-dir build/default --output-on-failure -R 'StyioSemanticBridge.RejectsMalformedInputWithoutRecovery'`
 5. Service integration test: `ctest --test-dir build/default --output-on-failure -R 'StyioIdeService.DocumentSymbolsHoverDefinitionAndCompletion'`
 6. Semantic query cache tests: `ctest --test-dir build/default --output-on-failure -R 'StyioSemanticDb'`
 7. Stable HIR identity tests: `ctest --test-dir build/default --output-on-failure -R 'StyioHirBuilder'`
@@ -37,6 +37,6 @@ bash scripts/ide-quality-gate.sh --skip-fuzz --waiver 'skip fuzz on machines wit
 1. `styio_lspd` builds and starts without missing symbol errors.
 2. `StyioSyntaxParser.UsesTreeSitterBackendWhenAvailable` passes when Tree-sitter is enabled.
 3. IDE/LSP tests keep passing when the grammar or syntax adapter changes.
-4. `StyioSyntaxDrift.CorpusMatchesApprovedEnvelope` keeps the approved parser drift envelope explicit.
+4. `StyioSyntaxDrift.CorpusMatchesApprovedEnvelope` keeps editor snapshot differences explicit without making Tree-sitter or fallback snapshots accepted-grammar authorities.
 5. `StyioIdePerf.EnforcesFrozenLatencyBudgets` is enforced through the dedicated Release perf gate, while Debug IDE/LSP regression runs may skip it.
 6. `docs-index.py --check` and `docs-audit.py` stay green after doc changes.

@@ -41,7 +41,7 @@ ctest --test-dir build/default -L scalar_expressions --output-on-failure
 | `scalar_expressions` | `tests/features/scalar_expressions/` | integer/float arithmetic, precedence, strings, bindings, comparison, logic, stdout shorthand | `ctest --test-dir build/default -L scalar_expressions --output-on-failure` |
 | `functions` | `tests/features/functions/` | function definitions, typed returns, block bodies, call chains, no-param functions, nested calls | `ctest --test-dir build/default -L functions --output-on-failure` |
 | `control_flow` | `tests/features/control_flow/` | match expressions, defaults, loops, break, continue, factorial/fizzbuzz examples | `ctest --test-dir build/default -L control_flow --output-on-failure` |
-| `wave_dispatch` | `tests/features/wave_dispatch/` | wave merge/dispatch and currently accepted fallback behavior | `ctest --test-dir build/default -L wave_dispatch --output-on-failure` |
+| `wave_dispatch` | `tests/features/wave_dispatch/` | wave merge/dispatch plus rejected fallback/noop spelling evidence | `ctest --test-dir build/default -L wave_dispatch --output-on-failure` |
 | `file_resources` | `tests/features/file_resources/` | `@file`, file reads/writes, RAII, redirect, file pipelines, fail-fast file cases | `ctest --test-dir build/default -L file_resources --output-on-failure` |
 | `state_resources` | `tests/features/state_resources/` | Topology-style state resources and retired state-family negative diagnostics | `ctest --test-dir build/default -L state_resources --output-on-failure` |
 | `stream_processing` | `tests/features/stream_processing/` | zip, snapshots, instant pull, file-backed streams, singleton, arbitrage, stream output artifacts | `ctest --test-dir build/default -L stream_processing --output-on-failure` |

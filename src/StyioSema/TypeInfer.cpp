@@ -678,6 +678,8 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
       return static_cast<IntAST*>(expr)->getDataType();
     case StyioNodeType::Float:
       return static_cast<FloatAST*>(expr)->getDataType();
+    case StyioNodeType::Char:
+      return static_cast<CharAST*>(expr)->getDataType();
     case StyioNodeType::String:
     case StyioNodeType::FmtStr:
       return kStringType;
