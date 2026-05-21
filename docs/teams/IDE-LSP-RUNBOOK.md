@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of `styio_ide_core`, `styio_lspd`, IDE-facing C++ APIs, VFS snapshots, syntax/HIR/SemDB services, and LSP protocol behavior.
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-05-22
 
 ## Mission
 
@@ -42,6 +42,8 @@ Build and test targets:
 15. Treat `StyioSyntaxDrift.CorpusMatchesApprovedEnvelope` as an approved-drift ledger, not a permanent suppression list. If compiler strict parsing accepts a corpus case and the compiler outline matches the editor syntax outline, remove the approved exception; if strict parsing rejects malformed source, the exception must say the editor snapshot is non-authoritative.
 16. `analyze_document` must not use recovery parsing to publish later semantic facts from malformed source. Syntax-validity consumers should use `styio check --syntax --json --file`, not IDE token/CST snapshots.
 17. IDE and LSP diagnostics must preserve shared Styio diagnostic identity: compiler facts carry compiler/service codes, editor-only facts use `styio-editor` service codes, and LSP publishes `Diagnostic.code` plus `data.phase`.
+18. Treat Vityo and Spio as first-party service consumers, not generic LSP-only clients. They may use deep convenience adapters over `StyioServices`, but those adapters must reuse shared service facts and must not become separate grammar, diagnostic, or semantic authorities.
+19. Host-facing service payloads should preserve `documentId`, `revision`, `protocolVersion`, `toolchainId`, `parserEngine`, `grammarVersion`, `configPath`, `workingDirectory`, and per-capability state whenever those fields apply.
 
 ## Change Classes
 

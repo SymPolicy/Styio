@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-05-21
+**Last updated:** 2026-05-22
 
 ## Mission
 
@@ -107,6 +107,8 @@ Key SSOTs:
 72. Keep IM-D6 scoped to release evidence and promotion policy: L0/L1/L2/L3 gate tiers, lane status, block policy, affected-area gates, nightly/release matrices, conformance families, and package-boundary reporting. Do not turn IM-D6 into feature semantics, and do not treat skipped or unavailable lanes as success without an explicit `skip-with-reason` or `pending` owner.
 73. Keep IM-D7 scoped to native interop ABI evidence: host C/C++ compiler delegation, explicit binding names, native signature extraction, symbol resolution, function-pointer calls, native effect classification, and toolchain/cache records. Do not replace the compiler-owned native route with a private C/C++ parser, and do not document unsupported C++ symbol behavior as accepted without signature and symbol evidence.
 74. Keep IM-D8 scoped to library ownership: language-core, compiler-intrinsic, and standard library are the retained layers; examples, benchmarks, and domain libraries are external projects. Standard-library implementation may remain temporarily in this repository, but future official package distribution belongs through Spio / Styio-Platform, and benchmark/example/domain content must not become a language or standard-library commitment without an explicit promotion record.
+75. Keep IM-D9 scoped to IDE/LSP service contracts: compiler-owned parser and semantic pipeline remain authoritative, while editor syntax snapshots are non-authoritative interaction data. Vityo, Spio, and other first-party projects may have deep convenience adapters over `StyioServices`, but those adapters must reuse shared service facts, capability states, parser/grammar evidence, document revisions, and workspace/config identity; they must not become separate grammar, diagnostic, or semantic authorities. LSP capabilities must be advertised only when backed by `StyioIDE` service behavior and tests.
+76. Keep IM-D10 scoped to package, module, and release compatibility boundaries. Local `styio-spio` or `styio-platform` checkouts are not authoritative for externally maintained state; if the active owning repository cannot be read, record manifest, lockfile, resolver, registry, trust, hosted workspace, standard-library package, and compatibility-matrix questions as external confirmations instead of turning them into `styio` commitments.
 
 ## Change Classes
 

@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-05-22
 
 ## Mission
 
@@ -59,6 +59,7 @@ Key handoff document:
 25. When `styio check --syntax --json --file` diagnostics gain recovery behavior or new machine-readable fields, update `--machine-info=json` capabilities, `StyioDiagnostics.*` contract tests, `src/StyioServices/StyioCLI/README.md`, and `src/StyioServices/MANIFEST.md` together.
 26. Keep syntax-check parser authority locked to nightly. `--parser-engine nightly` may remain accepted as an explicit spelling, but `legacy`, `new`, and consumer-specific engines must remain CLI errors for the public syntax service.
 27. Public JSON/JSONL diagnostics must use the shared `STYIO_<PHASE>_<ERROR_FAMILY>` taxonomy from `src/StyioServices/DiagnosticContract.hpp`; keep compatibility `subcode` fields only as secondary aliases.
+28. For IM-D10 package-boundary work, keep `styio` limited to compiler-side facts: machine-info, source-build-info, syntax-check, compile-plan, nano producer/verifier, receipts, diagnostics, and runtime events. Do not infer current Spio or Styio-Platform behavior from stale local checkouts; unresolved manifest, lockfile, resolver, registry, trust, hosted workspace, standard-library package, and compatibility-matrix topics must remain external confirmation items.
 
 ## Change Classes
 

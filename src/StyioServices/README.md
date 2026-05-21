@@ -2,11 +2,11 @@
 
 **Purpose:** Provide the source-level entrypoint for externally consumable Styio language services.
 
-**Last updated:** 2026-05-21
+**Last updated:** 2026-05-22
 
 ## Scope
 
-`StyioServices` contains reusable language-facing services for package managers, IDEs, editors, CI systems, and other external tools. It is not a consumer-specific adapter layer. Consumer names such as `spio` or Vityo may use these services, but the service contracts here must stay general enough for other tools.
+`StyioServices` contains reusable language-facing services for package managers, IDEs, editors, CI systems, and other external tools. It is not a consumer-specific adapter layer. Consumer names such as `spio` or Vityo may use these services, and first-party projects may bind to richer convenience payloads, but the facts exposed here remain shared service facts rather than separate product-local grammar, diagnostic, or semantic authorities.
 
 ## Modules
 
@@ -56,3 +56,7 @@ styio_lspd
 ## Parser Authority
 
 The hand-written nightly compiler parser is the only authority for accepted Styio grammar. IDE, LSP, package-manager, and external validation consumers must route syntax validity through `StyioCLI` or compiler-owned parser services instead of maintaining a separate accepted grammar.
+
+## First-Party Adapters
+
+Vityo and `spio` may use direct C++ APIs, CLI JSON/JSONL contracts, future FFI facades, or hosted service payloads when that is more ergonomic than public LSP. Those adapters must still preserve parser evidence, grammar version, diagnostic identity, capability state, document revision, and workspace/config identity from the shared StyioServices contracts.

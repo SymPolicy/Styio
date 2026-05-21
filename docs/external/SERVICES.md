@@ -2,11 +2,13 @@
 
 **Purpose:** Define the public service layer exposed by `styio` for external tools, package managers, editors, IDEs, and validation pipelines.
 
-**Last updated:** 2026-05-21
+**Last updated:** 2026-05-22
 
 ## Scope
 
-`StyioServices` is the repository home for language-facing services that can be consumed outside the core compiler implementation. These services are not special-case adapters for `spio`, Vityo, or any single internal application. They are the reusable frontend surface for tools that need to inspect, validate, build, or provide editor support for Styio source code.
+`StyioServices` is the repository home for language-facing services that can be consumed outside the core compiler implementation. These services are the reusable frontend surface for tools that need to inspect, validate, build, or provide editor support for Styio source code.
+
+The service layer is consumer-neutral, but first-party projects such as Vityo and `spio` may bind to it more deeply than a generic external editor. Those convenience adapters must still reuse the shared StyioServices facts, capability states, diagnostic taxonomy, parser evidence, and workspace identity instead of creating separate grammar, diagnostic, or semantic authorities.
 
 Primary source roots:
 
@@ -89,3 +91,5 @@ New externally consumable language services should land under `src/StyioServices
 4. or a future stable FFI/WASM boundary.
 
 Do not add consumer-specific parser copies or editor-specific accepted grammars. The hand-written nightly compiler parser is the grammar authority for all external services.
+
+First-party adapters may expose richer payloads than public LSP when they are documented as StyioServices facts and marked with capability state. Public LSP capabilities remain editor-neutral and may be advertised only after the backing `StyioIDE` behavior and tests exist.
