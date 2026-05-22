@@ -81,6 +81,7 @@ Primary paths:
 55. IR contract tests must call new node-level invariants through `StyioIR*` or another public base surface, not only through concrete classes. The `is_active()` and verifier contract needs focused coverage for SG, SC, SIO, and legacy IOIR domains, explicit `SGNoOp` lowering from no-op AST forms, inactive-node rejection, and codegen gate rejection before LLVM emission.
 56. Placeholder-retirement coverage must protect both sides of the contract: accepted metadata paths should prove `SGNoOp` or real lowering, while unsupported value syntax should assert `StyioTypeError`. Pair focused `StyioIRContract` unit tests with `security`, `language_feature`, and `styio_pipeline` labels before marking an IM-D1 slice closed.
 57. Parser-authority coverage must protect IM-D2: public syntax-check tests must prove `legacy` and other non-authoritative engines are rejected, parser tests must prove unsupported syntax fails closed instead of using fallback, and IDE tests must prove malformed-source token snapshots do not publish recovered semantic facts.
+58. Fuzz corpus recovery must preserve semantic seed content while removing incidental transport whitespace when it would fail repository whitespace checks. Treat this as seed hygiene, not a parser behavior change, unless the byte sequence itself is the minimized reproducer.
 
 ## Change Classes
 

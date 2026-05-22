@@ -48,4 +48,3 @@ bool ok = styio::config::parse_compile_plan("compile-plan.json", request, error)
 4. Source-build controlled components include `compiler_core`, `std_symbols`, `runtime`, `services`, and `macro_prelude`.
 
 See the full service inventory in [../MANIFEST.md](../MANIFEST.md).
-
