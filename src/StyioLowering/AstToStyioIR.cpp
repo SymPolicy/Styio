@@ -50,6 +50,28 @@ lowering_f64_type() {
 }
 
 StyioDataType
+lowering_type_convert_target_type(NumPromoTy promo_type) {
+  switch (promo_type) {
+    case NumPromoTy::Bool_To_Int:
+      return lowering_i64_type();
+    case NumPromoTy::Int_To_Float:
+      return lowering_f64_type();
+  }
+  return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+}
+
+StyioDataType
+lowering_type_convert_source_fallback_type(NumPromoTy promo_type) {
+  switch (promo_type) {
+    case NumPromoTy::Bool_To_Int:
+      return lowering_bool_type();
+    case NumPromoTy::Int_To_Float:
+      return lowering_i64_type();
+  }
+  return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+}
+
+StyioDataType
 lowering_string_type() {
   return StyioDataType{StyioDataTypeOption::String, "string", 0};
 }
@@ -1879,8 +1901,19 @@ AstToStyioIRLowerer::toStyioIR(StringAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(TypeConvertAST* ast) {
-  (void)ast;
-  return unsupported_ast_lowering("TypeConvertAST", "value-carrying cast IR is not implemented");
+  StyioDataType from_type = expr_lowered_type(this, ast->getValue());
+  if (from_type.isUndefined()) {
+    from_type = lowering_type_convert_source_fallback_type(ast->getPromoTy());
+  }
+  StyioDataType to_type = ast->getDataType();
+  if (to_type.isUndefined()) {
+    to_type = lowering_type_convert_target_type(ast->getPromoTy());
+  }
+  return SGCast::Create(
+    ast->getValue()->toStyioIR(this),
+    SGType::Create(from_type),
+    SGType::Create(to_type)
+  );
 }
 
 StyioIR*

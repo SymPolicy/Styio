@@ -668,8 +668,60 @@ StyioToLLVM::toLLVMIR(SGStruct* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGCast* node) {
-  auto output = theBuilder->getInt32(0);
-  return output;
+  if (node == nullptr || node->value == nullptr || node->to_type == nullptr) {
+    throw StyioTypeError("cast lowering requires a value and target type");
+  }
+
+  llvm::Value* value = node->value->toLLVMIR(this);
+  llvm::Type* target_ty = node->to_type->toLLVMType(this);
+  if (value == nullptr || target_ty == nullptr) {
+    throw StyioTypeError("cast lowering produced an invalid value or target type");
+  }
+  if (value->getType() == target_ty) {
+    return value;
+  }
+
+  if (target_ty->isDoubleTy()) {
+    if (value->getType()->isIntegerTy()) {
+      return theBuilder->CreateSIToFP(value, target_ty);
+    }
+    if (value->getType()->isPointerTy()) {
+      return cstr_to_f64_checked(value);
+    }
+  }
+
+  if (target_ty->isIntegerTy(1)) {
+    if (value->getType()->isIntegerTy()) {
+      return theBuilder->CreateICmpNE(
+        value,
+        llvm::ConstantInt::get(llvm::cast<llvm::IntegerType>(value->getType()), 0));
+    }
+    if (value->getType()->isFloatingPointTy()) {
+      return theBuilder->CreateFCmpONE(
+        value,
+        llvm::ConstantFP::get(value->getType(), 0.0));
+    }
+  }
+
+  if (target_ty->isIntegerTy()) {
+    if (value->getType()->isIntegerTy()) {
+      if (value->getType()->isIntegerTy(1)) {
+        return theBuilder->CreateZExt(value, target_ty);
+      }
+      return theBuilder->CreateSExtOrTrunc(value, target_ty);
+    }
+    if (value->getType()->isFloatingPointTy()) {
+      return theBuilder->CreateFPToSI(value, target_ty);
+    }
+    if (value->getType()->isPointerTy()) {
+      llvm::Value* parsed = cstr_to_i64_checked(value);
+      return target_ty->isIntegerTy(64)
+        ? parsed
+        : theBuilder->CreateSExtOrTrunc(parsed, target_ty);
+    }
+  }
+
+  throw StyioTypeError("unsupported scalar cast lowering");
 }
 
 llvm::Value*

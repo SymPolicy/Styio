@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-05-22
 
 ## Mission
 
@@ -52,6 +52,7 @@ Related docs:
 23. Native `@extern` codegen must keep JIT and `styio build` artifacts equivalent. Inline bodies and referenced C/C++ source files both flow through `StyioNative::source_text_for_block(...)`; artifact builds must compile those units into objects and link them into the final executable so exported symbols are available without relying on process-local JIT state. When `SGExternBlock` carries explicit binding symbols from `# name[, other] := @ extern(...) { ... }`, codegen must pass that block-local symbol list instead of the legacy module-wide `@export` list.
 24. Codegen must treat the independent StyioIR verifier as its input gate. `SGMainEntry`, `SGEntry`, and `SGBlock` emission must require verified active IR before LLVM builder work begins; optimization remains a separate lowering-side pass, and codegen must not reinterpret inactive, tombstone, or placeholder IR nodes as executable defaults.
 25. Scalar type lowering must keep AST, Sema, IR, and LLVM type widths consistent. `char` is an 8-bit scalar through `CharAST`, `SGConstChar`, `SGType(char)`, and LLVM `i8`; do not widen or default it to `i64` without a language-level scalar-width decision.
+26. `SGCast` must emit real LLVM scalar conversions for compiler-owned numeric promotions. It must not return placeholder zero/default values, `bool -> int` must widen as `0` or `1`, and unsupported cast families must fail closed.
 
 ## Change Classes
 

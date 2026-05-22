@@ -56,6 +56,28 @@ StyioDataType const kStringType{
 StyioDataType
 infer_expr_type(StyioSemaContext* an, StyioAST* expr);
 
+StyioDataType
+type_convert_target_type(NumPromoTy promo_type) {
+  switch (promo_type) {
+    case NumPromoTy::Bool_To_Int:
+      return kI64Type;
+    case NumPromoTy::Int_To_Float:
+      return kF64Type;
+  }
+  return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+}
+
+StyioDataType
+type_convert_source_fallback_type(NumPromoTy promo_type) {
+  switch (promo_type) {
+    case NumPromoTy::Bool_To_Int:
+      return kBoolType;
+    case NumPromoTy::Int_To_Float:
+      return kI64Type;
+  }
+  return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+}
+
 std::string
 resource_family_for_type(const StyioDataType& type);
 
@@ -678,6 +700,8 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
       return static_cast<IntAST*>(expr)->getDataType();
     case StyioNodeType::Float:
       return static_cast<FloatAST*>(expr)->getDataType();
+    case StyioNodeType::NumConvert:
+      return static_cast<TypeConvertAST*>(expr)->getDataType();
     case StyioNodeType::Char:
       return static_cast<CharAST*>(expr)->getDataType();
     case StyioNodeType::String:
@@ -1105,7 +1129,27 @@ StyioSemaContext::typeInfer(StringAST* ast) {
 }
 
 void
-StyioSemaContext::typeInfer(TypeConvertAST*) {
+StyioSemaContext::typeInfer(TypeConvertAST* ast) {
+  ast->getValue()->typeInfer(this);
+  StyioDataType source_type = infer_expr_type(this, ast->getValue());
+  if (source_type.isUndefined()) {
+    source_type = type_convert_source_fallback_type(ast->getPromoTy());
+  }
+
+  switch (ast->getPromoTy()) {
+    case NumPromoTy::Bool_To_Int:
+      if (source_type.option != StyioDataTypeOption::Bool) {
+        throw StyioTypeError("bool-to-int conversion expects a bool value");
+      }
+      break;
+    case NumPromoTy::Int_To_Float:
+      if (source_type.option != StyioDataTypeOption::Integer) {
+        throw StyioTypeError("int-to-float conversion expects an integer value");
+      }
+      break;
+  }
+
+  ast->setDataType(type_convert_target_type(ast->getPromoTy()));
 }
 
 void

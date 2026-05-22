@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of AST lifecycle, semantic analysis, type inference, StyioIR lowering, string representation, and compilation session ownership.
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-05-22
 
 ## Mission
 
@@ -62,6 +62,7 @@ High-value docs:
 30. Every concrete `StyioIR` node must expose `is_active()`. Current canonical IR nodes default to active through `StyioIRTraits`; any future retired, tombstone, compatibility-only, or placeholder IR node must override it to `false`. The independent `StyioIR` verifier owns contract state such as resource/handle capability side tables, runs after lowering and before codegen, and rejects inactive nodes on accepted execution paths.
 31. Intentional empty statement forms lower to explicit `SGNoOp`, not scalar sentinel values. `CommentAST`, `EmptyAST`, and `PassAST` are no-op statements; expression-like absence such as `NoneAST` must not be silently reclassified as no-op without a separate language decision.
 32. Keep [../rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md](../rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md) aligned with lowering reality. Accepted metadata such as resource preludes or resource method definitions may lower to `SGNoOp`; accepted executable sugar such as function-level match cases needs real StyioIR; unsupported value syntax must fail closed instead of returning `SGConstInt(0)`.
+33. `TypeConvertAST` is accepted only for compiler-owned scalar promotions in this slice. It must carry its source value into `SGCast(value, from_type, to_type)`, remain visible to verifier and optimizer traversal, and stay separate from source-level cast syntax until an explicit language decision accepts that syntax.
 
 ## Change Classes
 

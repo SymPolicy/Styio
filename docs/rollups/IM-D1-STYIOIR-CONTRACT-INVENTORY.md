@@ -2,7 +2,7 @@
 
 **Purpose:** Record the implementation inventory for IM-D1 so StyioIR contract work is judged by explicit lowering behavior instead of scattered placeholder returns.
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-05-22
 
 **Status:** Active contract inventory. This document supports [NEXT-STAGE-GAP-LEDGER.md](./NEXT-STAGE-GAP-LEDGER.md) §5.7 `IM-D1`.
 
@@ -15,6 +15,7 @@
 | Independent verifier | Lowering feeds an independent StyioIR verifier before codegen; resource/handle contract state is verifier-owned side-table state | [../../src/StyioIR/Verifier.cpp](../../src/StyioIR/Verifier.cpp) |
 | Codegen gate | `SGMainEntry`, `SGEntry`, and `SGBlock` codegen require verified active StyioIR before LLVM emission | [../../src/StyioCodeGen/CodeGenG.cpp](../../src/StyioCodeGen/CodeGenG.cpp) |
 | Placeholder retirement | Direct unsupported AST lowering now raises `StyioTypeError` instead of silently producing `SGConstInt(0)` | [../../src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp) |
+| Value-carrying scalar casts | `TypeConvertAST` lowers to `SGCast(value, from_type, to_type)` for compiler-owned scalar promotions instead of failing closed or returning a placeholder | [../../src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp), [../../src/StyioCodeGen/CodeGenG.cpp](../../src/StyioCodeGen/CodeGenG.cpp) |
 | Regression coverage | Contract tests cover active defaults, no-op lowering, char lowering, fail-closed unsupported AST nodes, inactive verifier rejection, and codegen rejection | [../../tests/security/styio_security_test.cpp](../../tests/security/styio_security_test.cpp) |
 
 ## Implemented In This Contract Slice
@@ -25,6 +26,7 @@
 4. Resource method/property clone paths reject missing inlined bodies instead of inventing a placeholder value.
 5. Unsupported resource method calls and unsupported resource property accesses fail closed.
 6. Function-level match sugar (`# f(x) ?= { ... }`) lowers `CasesAST` through the first parameter as an explicit `SGMatch` instead of relying on the former integer placeholder.
+7. `TypeConvertAST` now carries its source value through Sema, StyioIR, verifier traversal, optimizer traversal, textual repr, and LLVM scalar conversion for `Bool_To_Int` and `Int_To_Float`.
 
 ## Remaining `SGConstInt(0)` Uses
 
@@ -41,7 +43,7 @@ These nodes are no longer allowed to pass through lowering as integer zero:
 |------------|----------------|------------------|
 | `NoneAST` | Implementation debt | Fails closed until null/unit/option semantics are defined. |
 | `TypeTupleAST`, `OptArgAST`, `OptKwArgAST`, `VarTupleAST` | Declaration metadata | Fails closed when lowered directly; parent declarations must consume them. |
-| `TypeConvertAST` | Implementation debt | Fails closed until value-carrying cast IR exists. |
+| `TypeConvertAST` | Accepted compiler-owned scalar promotion | Lowers to value-carrying `SGCast` for `Bool_To_Int` and `Int_To_Float`; other user-facing cast syntax still requires a separate language decision. |
 | `InfiniteAST` | Retired/undefined sequence syntax | Fails closed. |
 | `TupleAST`, `ExtractorAST`, `SetAST` | Implementation debt | Fails closed until tuple/set value IR is implemented. |
 | `StdStreamAST` | Parent-consumed resource syntax | Fails closed when lowered directly; parent resource operations consume it. |
@@ -59,7 +61,8 @@ These nodes are no longer allowed to pass through lowering as integer zero:
 | `CommentAST`, `EmptyAST`, `PassAST`, `EOFAST` | Intentional no-op | No extra sema action unless the no-op contract changes. |
 | `BoolAST`, `IntAST`, `FloatAST`, `CharAST`, `StringAST`, `TypeAST` | Leaf type carrier | Their type comes from the node or type token. Keep inference side-effect free. |
 | `VarAST`, `ParamAST`, `OptArgAST`, `OptKwArgAST`, `TypeTupleAST`, `VarTupleAST` | Declaration metadata | Parent declarations must validate and bind them. Direct runtime lowering is rejected. |
-| `NoneAST`, `TypeConvertAST`, `InfiniteAST`, `TupleAST`, `ExtractorAST`, `SetAST`, `AnonyFuncAST` | Implementation debt | Add real sema and IR only when the language semantics are accepted; otherwise keep typed rejection. |
+| `NoneAST`, `InfiniteAST`, `TupleAST`, `ExtractorAST`, `SetAST`, `AnonyFuncAST` | Implementation debt | Add real sema and IR only when the language semantics are accepted; otherwise keep typed rejection. |
+| `TypeConvertAST` | Accepted compiler-owned scalar promotion | Keep the value-carrying `SGCast` path limited to internally selected scalar promotions until source-level cast syntax is accepted. |
 | `StructAST`, `RangeAST`, `EmptyResourceAST`, `ResPathAST`, `RemotePathAST`, `WebUrlAST`, `DBUrlAST`, `ExtPackAST`, `ReadFileAST` | Partially retired or metadata-heavy syntax | Keep fail-closed or parent-consumed behavior until the owning design SSOT accepts runtime semantics. |
 | `ResourceAST`, `ResourceMethodDefAST`, `ResourceOrderAST` | Accepted resource/topology metadata | Lowering is explicit `SGNoOp`; collection and validation happen before executable lowering without creating runtime placeholder values. |
 | `ExportDeclAST`, `ExternBlockAST` | Contract metadata | Sema may remain side-effect free while native interop ownership is collected elsewhere. |
@@ -71,4 +74,4 @@ These nodes are no longer allowed to pass through lowering as integer zero:
 
 The StyioIR contract part of IM-D1 is implemented: no active direct AST lowering path should silently use `SGConstInt(0)` as a placeholder, codegen requires verified active IR, and intentional no-op source forms use explicit `SGNoOp`.
 
-Remaining work in this area is no longer an implicit IM-D1 decision. It is feature implementation debt: tuple/set values, null/unit semantics, value-carrying casts, closures, retired flow syntax, and resource/path value semantics need separate accepted-language decisions before they can become runnable.
+Remaining work in this area is no longer an implicit IM-D1 decision. It is feature implementation debt: tuple/set values, null/unit semantics, source-level cast syntax beyond compiler-owned scalar promotion, closures, retired flow syntax, and resource/path value semantics need separate accepted-language decisions before they can become runnable.
