@@ -10,4 +10,5 @@
 
 | Path | Entry | Summary |
 |------|-------|---------|
+| `ADR-0120-native-extern-jit-interop.md` | [ADR-0120: Native Extern JIT Interop](./ADR-0120-native-extern-jit-interop.md) | Record the decision, context, alternatives, and consequences for compiling C/C++ @extern blocks and calling their symbols through the Styio JIT. |
 | `IMPLEMENTED-DECISIONS.md` | [Implemented Decisions Summary](./IMPLEMENTED-DECISIONS.md) | Compress implemented architecture and workflow decisions that no longer need one file per decision in the current tree; exact previous ADR wording is available from Git history when needed. |
