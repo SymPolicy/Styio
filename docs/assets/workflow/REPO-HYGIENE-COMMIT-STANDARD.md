@@ -116,7 +116,14 @@ gh pr create --draft --base nightly --head codex/<topic>
 
 后续只向这个分支继续提交和 push；Draft PR 会自动更新。这个分支是任务的远端备份点，也是后续 CI、review 和最终合并入口。
 
-最小推送单位固定为：
+最小推送单位按工程切片定义，而不是按耗时定义。一个最小推送单位必须能归入以下一种：
+
+1. 语法/语义切片：一个语法形式、一个语义规则、或一个 parser / Sema / IR / runtime 交接点及其最小证据；
+2. 功能改造闭环：一个用户可观察 workflow、CLI/API contract、运行时行为、仓库维护功能或 gate 调整；
+3. 测试证据组：一个 fixture family、CTest label、shadow / five-layer / security gate、或一个覆盖缺口的关闭证据；
+4. 文档/治理闭环：一个规则、索引、runbook、ADR、外部 handoff 或 CI / hygiene 约束的最小一致性更新。
+
+每个最小推送单位还必须满足：
 
 1. 提交说明能说清本次保存的目的；
 2. 不包含明显垃圾文件、大 blob、构建产物或本地 IDE 状态；
@@ -124,7 +131,7 @@ gh pr create --draft --base nightly --head codex/<topic>
 4. 若改动已经 staged，优先通过 `./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit`；
 5. 对于正在抢救但尚未完整闭环的状态，提交消息使用 `checkpoint: preserve <scope>`，并只推送到 Draft PR 工作分支。
 
-长任务中任何有价值的改动都不应只停留在工作树或对话上下文中。默认每 20-30 分钟形成一次最小推送单位；如果上下文、虚拟机或本地进程崩溃，恢复点应以远端 Draft PR 分支为准。
+长任务中任何有价值的改动都不应只停留在工作树或对话上下文中。每完成一个上述工程切片，就形成一次最小推送单位；如果上下文、虚拟机或本地进程崩溃，恢复点应以远端 Draft PR 分支为准。
 
 推荐先运行仓库门禁：
 
