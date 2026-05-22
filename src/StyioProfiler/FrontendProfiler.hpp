@@ -41,6 +41,9 @@ public:
 
   void set_source_summary(std::uint64_t source_bytes, std::uint64_t source_lines);
   void set_token_histogram(const std::vector<StyioToken*>& tokens);
+  // MIGRATION-NEEDED: M-PARSER-02 (docs/rollups/MIGRATION-LEDGER.md)
+  // legacy_fallback_statements and nightly_internal_legacy_bridges are
+  // dropped from this signature once the parser engine migration completes.
   void set_parser_route_stats(
     std::uint64_t nightly_subset_statements,
     std::uint64_t nightly_declined_statements,
@@ -82,6 +85,7 @@ private:
     bool present = false;
     std::uint64_t nightly_subset_statements = 0;
     std::uint64_t nightly_declined_statements = 0;
+    // MIGRATION-NEEDED: M-PARSER-02 (docs/rollups/MIGRATION-LEDGER.md)
     std::uint64_t legacy_fallback_statements = 0;
     std::uint64_t nightly_internal_legacy_bridges = 0;
   };

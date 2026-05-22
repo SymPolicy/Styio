@@ -349,4 +349,61 @@ private:
   SIOFlowBind() = default;
 };
 
+/*
+  The classes below (SIOPath, SIOPrint, SIORead) were merged from the
+  former `StyioIR/IOIR/IOIR.hpp` during the 2026-05-22 history-burden
+  reduction pass. They share the SIO domain prefix and live here so the
+  IO/std-stream node family stays in a single header.
+*/
+
+class SIOPath : public StyioIRTraits<SIOPath>
+{
+public:
+  std::string path;
+
+  SIOPath(std::string path) :
+      path(path) {
+  }
+
+  static SIOPath* Create(std::string path) {
+    return new SIOPath(path);
+  }
+};
+
+class SIOPrint : public StyioIRTraits<SIOPrint>
+{
+public:
+  std::vector<StyioIR*> expr;
+
+  SIOPrint(std::vector<StyioIR*> expr) :
+      expr(expr) {
+  }
+
+  ~SIOPrint() override {
+    styio_delete_ir_nodes(expr);
+  }
+
+  static SIOPrint* Create(std::vector<StyioIR*> expr) {
+    return new SIOPrint(expr);
+  }
+};
+
+class SIORead : public StyioIRTraits<SIORead>
+{
+public:
+  SIOPath* file_path;
+
+  SIORead(SIOPath* file_path) :
+      file_path(file_path) {
+  }
+
+  ~SIORead() override {
+    delete file_path;
+  }
+
+  static SIORead* Create(SIOPath* file_path) {
+    return new SIORead(file_path);
+  }
+};
+
 #endif

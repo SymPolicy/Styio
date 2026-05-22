@@ -3,7 +3,6 @@ set(STYIO_RUNTIME_SUPPORT_SOURCES
 )
 
 set(STYIO_BACKEND_SOURCES
-  StyioCodeGen/CodeGen.cpp
   StyioCodeGen/GetTypeG.cpp
   StyioCodeGen/CodeGenG.cpp
   StyioCodeGen/CodeGenPulse.cpp

@@ -1,0 +1,60 @@
+# Migration Ledger
+
+**Purpose:** Track every active historical-compatibility migration so the project can reduce historical burden checkpoint by checkpoint without losing visibility on the still-open seams. Each row has an explicit completion signal so the seam can be retired the day its closure conditions are met.
+
+**Last updated:** 2026-05-22
+
+> Search code, scripts, and docs for `MIGRATION-NEEDED:` to find every site annotated under this ledger.
+
+## How To Use
+
+1. Before adding a new compatibility shim, alias, fallback engine, or "legacy" branch, register it here with its completion signal.
+2. When closing a migration, remove the matching `MIGRATION-NEEDED:` markers from the code, then drop the row from this ledger.
+3. Each row links to its owner runbook and to the file it lives in. Owners are responsible for keeping the row honest.
+4. This ledger does not replace `NEXT-STAGE-GAP-LEDGER.md`. Migrations carry both an end-state plan (here) and any open implementation gap (there) only when the gap is broader than the migration itself.
+
+## Open Migrations
+
+| ID | Name | Owner | Site(s) | Completion Signal |
+|----|------|-------|---------|-------------------|
+| M-PARSER-01 | Parser engine `Legacy` → `Nightly` | Frontend | `src/StyioParser/Parser.hpp:29-34` (`enum StyioParserEngine { Legacy, Nightly, New = Nightly }`); `src/StyioParser/Parser.cpp` and `src/StyioParser/NewParserExpr.cpp` `_latest` function family; `src/StyioParser/Parser.cpp:5485` and `NewParserExpr.cpp:2598` legacy import diagnostic; `Parser.cpp:1689` and `NewParserExpr.cpp:1703` retired state-resource diagnostics | `Legacy` enum value, `New` alias, `_latest` suffix sweep, and `nightly_internal_legacy_bridge*` counters all removed; `NewParserExpr.cpp` either deleted or merged back into `Parser.cpp`. |
+| M-PARSER-02 | Profiler legacy-bridge counters | Frontend, Codegen / Runtime | `src/StyioProfiler/FrontendProfiler.hpp:48,86` `nightly_internal_legacy_bridge*`; `src/StyioParser/Parser.hpp:42-48` `legacy_fallback_statements`, `nightly_internal_legacy_bridges` | Migrations M-PARSER-01 closed and the counters drop from the public profiler surface. |
+| M-SEMA-01 | Lowering rejects retired AST forms | Sema / IR | `src/StyioLowering/AstToStyioIR.cpp:2085` (`InfiniteAST` rejection), `:2781` (`ReadFileAST` rejection); `src/StyioAST/AST.hpp:4551,4826` "Legacy" comments | Either remove the AST nodes (`InfiniteAST`, `ReadFileAST`) entirely once the syntax is fully retired, or replace the rejections with real lowering paths. |
+| M-RUNTIME-01 | `StyioRuntime/HandleTable.hpp` lone-orphan reorg | Codegen / Runtime | `src/StyioRuntime/HandleTable.hpp` (only file in the directory; `src/main.cpp:5185` `// C.1 shell: handle table exists before runtime migration.`) | Either flesh out `StyioRuntime/` with the real runtime entry points and rename the cmake variable, or merge `HandleTable.hpp` into `StyioExtern/` and drop the directory. |
+| M-RUNTIME-02 | `Checkpoint C.1/C.2 shell` session lifetime | Codegen / Runtime | `src/StyioSession/CompilationSession.hpp:28-31`, `src/StyioSession/SessionAllocation.hpp` (header-only), `src/main.cpp:5185` | The shell comment is removed when the runtime/session migration plan in the rollup ledger reports closure. |
+| M-CODEGEN-01 | `GetTypeIO.cpp` placeholder type | Codegen / Runtime | `src/StyioCodeGen/GetTypeIO.cpp` (returns `int64` for `SIOPath`, `SIOPrint`, `SIORead`) | Real type system for IO nodes lands; placeholder returns are removed. |
+| M-CODEGEN-02 | Pipeline-check legacy `printf/puts` canonicalization | Test Quality, Codegen / Runtime | `src/StyioTesting/PipelineCheck.hpp:20` (lowering normalization between legacy `printf/puts` and `styio_stdout_write_cstr`) | Codegen drops the legacy printf/puts emission path; the canonicalization is no longer needed. |
+| M-CLI-01 | `src/main.cpp` is too large | CLI / Nano | `src/main.cpp` (5,685 LOC; embedded TOML project-config parser, styio-nano package/publish/manifest workflow, `--machine-info=json` printer, parser shadow-compare driver) | Non-CLI logic is relocated under `StyioServices/StyioConfig/` or a new `src/StyioCLI/` so `main.cpp` shrinks to ~200-500 lines. |
+| M-CLI-02 | `extend_tests.py` is unreachable | Test Quality | `extend_tests.py` (hardcoded `<user-home>/tests/parsing/forward` path; `tests/parsing/` no longer exists; lit harness retired) | Pick one path and apply both sub-steps in the same commit. **Path A — rewrite:** (1) replace the helper with a CTest-wired scaffolder that emits `tests/features/<feature>/t<NN>_<name>.styio` plus an `expected/` golden; (2) keep the doc references intact. **Path B — remove:** (1) `git rm extend_tests.py`; (2) drop the matching references in `docs/specs/AGENT-SPEC.md:78`, `docs/specs/AGENT-SPEC.md:554`, `workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md:73`, `scripts/team-docs-gate.py:106` (one entry each). |
+| M-SCRIPT-01 | `scripts/perf-route.sh` wrapper | Performance / Stability | `scripts/perf-route.sh` (6-line shim around `benchmark/perf-route.sh`; no remaining caller outside `benchmark/README.md` and `docs/teams/PERF-STABILITY-RUNBOOK.md`, both of which already cite the canonical path) | One release cycle after a deprecation note in `benchmark/README.md`; then delete the wrapper. |
+| M-SCRIPT-02 | `scripts/soak-minimize.sh` wrapper | Performance / Stability | `scripts/soak-minimize.sh` (mirrors M-SCRIPT-01) | Same as M-SCRIPT-01. |
+| M-ECOSYSTEM-01 | `scripts/ecosystem-product-gate.py` shim | Docs / Ecosystem | `scripts/ecosystem-product-gate.py` (33 lines, delegates to `../styio-spio/scripts/ecosystem-product-gate.py`, exits 0 silently when sibling not present); `scripts/ecosystem-sample-workflow-gate.py` (same pattern) | Either wire both gates into `.github/workflows/` and `scripts/workflow-scheduler.py`, or remove. Today they always exit 0 silently and mask the contract failure mode. |
+| M-AUDIT-01 | Stale 2026-04-22 audit reports | Docs / Ecosystem | `docs/audit/EXTERNAL-AUDIT-2026-04-22.md`, `docs/audit/agent-findings/nightly-compiler-2026-04-22.md`, `docs/audit/agent-findings/nightly-ide-parser-2026-04-22.md`, `docs/audit/agent-findings/nightly-sema-codegen-2026-04-22.md` | Apply all four sub-steps in the same commit: (1) verify each finding is closed against `docs/adr/IMPLEMENTED-DECISIONS.md` and the matching `docs/rollups/IM-D*` inventory; (2) record the closure rows in `docs/archive/ARCHIVE-MANIFEST.json`; (3) regenerate `docs/archive/ARCHIVE-LEDGER.md`; (4) `git rm` the four files listed in the Site(s) cell. |
+| M-PRELUDE-01 | `src/StyioPrelude/` is data-only inside `src/` | CLI / Nano | `src/StyioPrelude/resources.styio` (only file; not C++) | Relocate to `share/styio/prelude/resources.styio` so `src/Styio*/` is uniformly C++ and `StyioServices/StyioConfig/SourceBuildInfo.cpp` references the new path. |
+| M-PLAN-01 | Spio dual-channel plan absorption | Docs / Ecosystem | `docs/plans/Styio-Spio-Dual-Channel-Source-Build-Implementation-Plan.md` ("Repo-local baseline completed.") | Apply all sub-steps in the same commit: (1) lift residual hardening rules into [`../plans/Styio-Ecosystem-Delivery-Master-Plan.md`](../plans/Styio-Ecosystem-Delivery-Master-Plan.md) phase tables; (2) confirm the `styio-spio` SSOT covers the cross-repo contract; (3) record closure in `docs/archive/ARCHIVE-MANIFEST.json` and regenerate `docs/archive/ARCHIVE-LEDGER.md`; (4) `git rm docs/plans/Styio-Spio-Dual-Channel-Source-Build-Implementation-Plan.md`. |
+| M-PLAN-02 | `docs/history/2026-05-19.md` snapshot | Docs / Ecosystem | `docs/history/2026-05-19.md` (single dated note explicitly referenced by `NEXT-STAGE-GAP-LEDGER.md`) | The owning ledger row closes; the snapshot is archived through the manifest and removed. |
+| M-DOCS-01 | `CHANGELOG.md` Unreleased line contradicts archive policy | Docs / Ecosystem | `CHANGELOG.md:12` ("Draft language experiments live under `docs/archive/`") vs `docs/archive/README.md` rule #2 | Rewrite the Unreleased note to reflect the current archive-as-lifecycle-only policy. |
+
+## Recently Closed (2026-05-22 reduction pass)
+
+| Migration | Closure |
+|-----------|---------|
+| `StyioAnalyzer/` compatibility shim | `src/StyioAnalyzer/ASTAnalyzer.hpp` deleted; `using StyioAnalyzer = AstToStyioIRLowerer;` and `using StyioAnalyzerVisitor = StyioSemaLoweringVisitor;` aliases removed; runbooks and `scripts/team-docs-gate.py` updated. |
+| `StyioJIT/JITExecutor.hpp` empty stub | Header deleted; `docs/specs/AGENT-SPEC.md` directory tree updated. |
+| `StyioIR/DFIR/` planned-but-empty subsystem | Two zero-byte files plus the directory deleted; `src/StyioToString/ToString.cpp:10` dead include removed; `src/StyioIR/IRDecl.hpp` comment refreshed. |
+| Zero-byte `.cpp` placeholders | `src/StyioIR/GenIR/GenIR.cpp`, `src/StyioIR/IOIR/IOIR.cpp`, `src/StyioIR/IOIR/Planner.cpp` deleted. |
+| `IOIR/IOIR.hpp` separate domain | Three classes (`SIOPath`, `SIOPrint`, `SIORead`) merged into `src/StyioIR/GenIR/SIOIR.hpp`; 5 includers updated; `src/StyioIR/IOIR/` directory deleted. |
+| `src/cmake/StyioIDESources.cmake` stale alias | Pre-StyioServices reorg leftover deleted (no `include()` in repo). |
+| `src/StyioCodeGen/CodeGen.cpp` 57-line shard | Merged into `CodeGenG.cpp` end-of-file; cmake source list and `src/main.cpp` source-build inventory updated. |
+| Root `FindICU.cmake` location | Moved to `cmake/FindICU.cmake`; second `CMAKE_MODULE_PATH` entry removed; `cmake/StyioICU.cmake` and `docs/specs/THIRD-PARTY.md`, `AGENT-SPEC.md` references updated. |
+| `tests/milestones/m11/` retired-workflow fixture | Six tracked files removed via `git rm`; the milestones workflow itself was retired on 2026-05-10. |
+| `docs/assets/workflow/` mirror of root `workflows/` | Mirror tree deleted; root `workflows/` is the single canonical SSOT; `WORKFLOW-ORCHESTRATION.md` relocated; `scripts/workflow-scheduler.py`, `scripts/docs_config.py`, `tests/workflow_scheduler_test.py`, and ~20 docs path references rewritten; `workflows/WORKFLOW-ORCHESTRATION.toml` added. |
+| `docs/assets/workflow/SYNTAX-ADDITION-WORKFLOW.md` superseded | Workflow superseded by `workflows/ADD-SYNTAX-WITH-SKILLS.md`; references in `docs/teams/CODEGEN-RUNTIME-RUNBOOK.md`, `docs/teams/FRONTEND-RUNBOOK.md`, `tests/workflow_scheduler_test.py`, and `docs/specs/DOCUMENTATION-POLICY.md` updated. |
+| `docs/archive/adr/` empty subshell | Deleted; `docs/archive/INDEX.md` and `docs/archive/README.md` updated to reflect the simplified archive lifecycle. |
+| Stray local build artifacts | `build-codex/`, `build-release-alpha/`, `cmake_test_discovery_*.json`, `scripts/__pycache__/`, `tests/.lit_test_times.txt`, `.cursor/`, `.vscode/` cleaned (~1.25 GB reclaimed; all gitignored). |
+
+## Cross-References
+
+1. Active gap ownership lives in [`NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md).
+2. Implemented decision provenance lives in [`../adr/IMPLEMENTED-DECISIONS.md`](../adr/IMPLEMENTED-DECISIONS.md).
+3. Lifecycle rules for archive state live in [`../archive/README.md`](../archive/README.md).

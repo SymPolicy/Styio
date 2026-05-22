@@ -15,7 +15,6 @@
 #include "../StyioIR/IRDecl.hpp"
 #include "../StyioIR/StyioIR.hpp"
 #include "../StyioIR/GenIR/GenIR.hpp"
-#include "../StyioIR/IOIR/IOIR.hpp"
 #include "../StyioException/Exception.hpp"
 #include "../StyioToken/Token.hpp"
 #include "../StyioUtil/DynamicValue.hpp"

@@ -316,5 +316,5 @@ Statements that require more evidence before publication:
 
 - Current implementation gaps: [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md)
 - Historical provenance: Git history for retired wording when exact old text is required
-- Test coverage: [`../assets/workflow/TEST-CATALOG.md`](../assets/workflow/TEST-CATALOG.md)
+- Test coverage: [`../../workflows/TEST-CATALOG.md`](../../workflows/TEST-CATALOG.md)
 - Maintainer workflow: [`../teams/CODEGEN-RUNTIME-RUNBOOK.md`](../teams/CODEGEN-RUNTIME-RUNBOOK.md)

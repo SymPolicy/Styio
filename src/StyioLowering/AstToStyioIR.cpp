@@ -18,7 +18,6 @@
 #include "../StyioAST/AST.hpp"
 #include "../StyioException/Exception.hpp"
 #include "../StyioIR/GenIR/GenIR.hpp"
-#include "../StyioIR/IOIR/IOIR.hpp"
 #include "../StyioResourceTopology/ResourceTopology.hpp"
 #include "../StyioToken/Token.hpp"
 #include "../StyioUtil/BuiltinMethods.hpp"
@@ -2079,6 +2078,8 @@ AstToStyioIRLowerer::toStyioIR(ParallelAssignAST* ast) {
   return SGBlock::Create(std::move(stmts));
 }
 
+// MIGRATION-NEEDED: M-SEMA-01 (docs/rollups/MIGRATION-LEDGER.md)
+// Either restore lowering for InfiniteAST or delete the AST node entirely.
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(InfiniteAST* ast) {
   (void)ast;
@@ -2775,6 +2776,8 @@ AstToStyioIRLowerer::toStyioIR(ExternBlockAST* ast) {
     ast->getExportedSymbols());
 }
 
+// MIGRATION-NEEDED: M-SEMA-01 (docs/rollups/MIGRATION-LEDGER.md)
+// Either restore lowering for ReadFileAST or delete the AST node entirely.
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ReadFileAST* ast) {
   (void)ast;

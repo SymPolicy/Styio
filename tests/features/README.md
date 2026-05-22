@@ -13,4 +13,4 @@ ctest --test-dir build/default -L language_feature --output-on-failure
 ctest --test-dir build/default -L <feature> --output-on-failure
 ```
 
-The authoritative catalog is `docs/assets/workflow/TEST-CATALOG.md`.
+The authoritative catalog is [`workflows/TEST-CATALOG.md`](../../workflows/TEST-CATALOG.md).

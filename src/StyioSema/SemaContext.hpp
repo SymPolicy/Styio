@@ -171,8 +171,6 @@ using StyioSemaLoweringVisitor = AnalyzerVisitor<
   class PrintAST,
   class ReadFileAST>;
 
-using StyioAnalyzerVisitor = StyioSemaLoweringVisitor;
-
 class StyioSemaContext : public StyioSemaLoweringVisitor
 {
 public:

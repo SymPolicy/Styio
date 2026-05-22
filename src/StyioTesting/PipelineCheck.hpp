@@ -20,6 +20,10 @@ namespace testing {
  * L4 canonicalizes the legacy `printf/puts` stdout lowering and the current
  * `styio_stdout_write_cstr` runtime-helper lowering into the same semantic form before comparing
  * LLVM IR goldens, so output implementation details do not create false-red pipeline failures.
+ *
+ * MIGRATION-NEEDED: M-CODEGEN-02 (docs/rollups/MIGRATION-LEDGER.md)
+ * Drop the `printf/puts` canonicalization branch once StyioCodeGen no longer
+ * emits the legacy lowering form.
  * L5 compares the **observable** process output by running
  * `layer5_compiler_exe --file <case_dir>/input.styio` and diffing stdout; when `stderr.txt`
  * exists, it diffs stderr as well. When `layer5_compiler_exe` is null, L5 is skipped.

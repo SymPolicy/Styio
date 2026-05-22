@@ -114,6 +114,4 @@ private:
   std::unordered_map<std::string, StyioAST*> resource_receiver_expr_bindings_;
 };
 
-using StyioAnalyzer = AstToStyioIRLowerer;
-
 #endif

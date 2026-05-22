@@ -13,7 +13,6 @@
 #include <vector>
 
 #include "../StyioIR/GenIR/GenIR.hpp"
-#include "../StyioIR/IOIR/IOIR.hpp"
 
 namespace styio::lowering {
 namespace {

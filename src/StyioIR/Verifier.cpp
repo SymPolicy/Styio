@@ -7,7 +7,6 @@
 
 #include "../StyioException/Exception.hpp"
 #include "GenIR/GenIR.hpp"
-#include "IOIR/IOIR.hpp"
 
 namespace styio::ir {
 namespace {

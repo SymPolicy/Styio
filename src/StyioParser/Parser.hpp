@@ -26,6 +26,11 @@ using std::unique_ptr;
 class StyioContext;
 class StyioParser;
 
+// MIGRATION-NEEDED: M-PARSER-01 (docs/rollups/MIGRATION-LEDGER.md)
+// Legacy/New are retained while the parser engine migration to Nightly
+// completes. Closure: drop Legacy and the New=Nightly alias once no
+// production caller selects Legacy and the bridge counters above are zero
+// across the supported test surface.
 enum class StyioParserEngine
 {
   Legacy,
@@ -43,6 +48,10 @@ struct StyioParserRouteStats
 {
   size_t nightly_subset_statements = 0;
   size_t nightly_declined_statements = 0;
+  // MIGRATION-NEEDED: M-PARSER-02 (docs/rollups/MIGRATION-LEDGER.md)
+  // legacy_fallback_statements and nightly_internal_legacy_bridges instrument
+  // the in-flight engine migration; they are dropped together with the
+  // Legacy enum value once M-PARSER-01 closes.
   size_t legacy_fallback_statements = 0;
   size_t nightly_internal_legacy_bridges = 0;
 };

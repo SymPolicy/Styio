@@ -1982,7 +1982,6 @@ styio_nano_source_roots_latest(bool include_pipeline_check) {
     "src/StyioSema/TypeInfer.cpp",
     "src/StyioLowering/AstToStyioIR.cpp",
     "src/StyioLowering/StyioIROptimizer.cpp",
-    "src/StyioCodeGen/CodeGen.cpp",
     "src/StyioCodeGen/GetTypeG.cpp",
     "src/StyioCodeGen/CodeGenG.cpp",
     "src/StyioCodeGen/CodeGenPulse.cpp",
@@ -5182,6 +5181,7 @@ main(
     show_code_with_linenum(styio_code);
   }
 
+  // MIGRATION-NEEDED: M-RUNTIME-01/M-RUNTIME-02 (docs/rollups/MIGRATION-LEDGER.md)
   // C.1 shell: handle table exists before runtime migration.
   StyioHandleTable handle_table;
   (void)handle_table;

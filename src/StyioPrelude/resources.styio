@@ -1,3 +1,7 @@
+// MIGRATION-NEEDED: M-PRELUDE-01 (docs/rollups/MIGRATION-LEDGER.md)
+// This data file is the only non-C++ artifact under `src/`. Relocate it to
+// `share/styio/prelude/resources.styio` so `src/Styio*/` is uniformly C++.
+
 @ stdout := #(xs) => { xs >> [>_] }
 @ stdout := #(x) => { x -> [>_] }
 @ stdout := #(xs) => { xs >> (>_) }

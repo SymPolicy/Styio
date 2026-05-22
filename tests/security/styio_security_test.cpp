@@ -32,7 +32,6 @@
 #include "StyioException/Exception.hpp"
 #include "StyioExtern/ExternLib.hpp"
 #include "StyioIR/GenIR/GenIR.hpp"
-#include "StyioIR/IOIR/IOIR.hpp"
 #include "StyioIR/StyioIR.hpp"
 #include "StyioIR/Verifier.hpp"
 #include "StyioJIT/StyioJIT_ORC.hpp"

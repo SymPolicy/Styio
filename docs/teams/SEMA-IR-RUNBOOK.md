@@ -25,14 +25,14 @@ High-value docs:
 
 1. [../design/Styio-Language-Design.md](../design/Styio-Language-Design.md)
 2. [../design/Styio-Handle-Capability-Type-System.md](../design/Styio-Handle-Capability-Type-System.md)
-3. [../assets/workflow/FIVE-LAYER-PIPELINE.md](../assets/workflow/FIVE-LAYER-PIPELINE.md)
+3. [../../workflows/FIVE-LAYER-PIPELINE.md](../../workflows/FIVE-LAYER-PIPELINE.md)
 4. [../design/Styio-Resource-Topology.md](../design/Styio-Resource-Topology.md)
 
 ## Daily Workflow
 
 1. Start from the language or capability SSOT for the feature.
 2. Identify the AST node, type-inference rule, lowering rule, and IR node together before editing.
-3. Keep `StyioSemaContext` responsible for type inference/state and `AstToStyioIRLowerer` responsible for AST-to-IR conversion; the legacy `StyioAnalyzer` name is compatibility only.
+3. Keep `StyioSemaContext` responsible for type inference/state and `AstToStyioIRLowerer` responsible for AST-to-IR conversion. The historical `StyioAnalyzer` compatibility alias has been removed; new code references the canonical class names directly.
 4. Keep ownership/view changes small and covered by safety or security tests.
 5. Update five-layer goldens when AST or StyioIR textual shape intentionally changes.
 6. Coordinate with Codegen / Runtime before changing IR consumed by LLVM emission.

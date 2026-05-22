@@ -2,7 +2,7 @@
 
 **Purpose:** 约束 Styio 仓库的本地清理、`.gitignore`、提交前检查、push 前检查、历史重写与 `force-push` 边界；不定义语言语义与功能重构步骤（见 `CHECKPOINT-WORKFLOW.md` / `../docs/assets/templates/REFACTOR-WORKFLOW-TEMPLATE.md`）。
 
-**Last updated:** 2026-04-17
+**Last updated:** 2026-05-22
 
 ---
 
@@ -102,6 +102,36 @@ git diff --cached --name-only \
 ---
 
 ## 5. Push 前检查
+
+### 5.0 Draft PR 最小推送单位
+
+长任务、恢复任务和不确定范围的探索任务默认采用一个远端工作分支承载一个 Draft PR：
+
+```bash
+git fetch origin --prune
+git switch -c codex/<topic> origin/nightly
+git push -u origin codex/<topic>
+gh pr create --draft --base nightly --head codex/<topic>
+```
+
+后续只向这个分支继续提交和 push；Draft PR 会自动更新。这个分支是任务的远端备份点，也是后续 CI、review 和最终合并入口。
+
+最小推送单位按工程切片定义，而不是按耗时定义。一个最小推送单位必须能归入以下一种：
+
+1. 语法/语义切片：一个语法形式、一个语义规则、或一个 parser / Sema / IR / runtime 交接点及其最小证据；
+2. 功能改造闭环：一个用户可观察 workflow、CLI/API contract、运行时行为、仓库维护功能或 gate 调整；
+3. 测试证据组：一个 fixture family、CTest label、shadow / five-layer / security gate、或一个覆盖缺口的关闭证据；
+4. 文档/治理闭环：一个规则、索引、runbook、ADR、外部 handoff 或 CI / hygiene 约束的最小一致性更新。
+
+每个最小推送单位还必须满足：
+
+1. 提交说明能说清本次保存的目的；
+2. 不包含明显垃圾文件、大 blob、构建产物或本地 IDE 状态；
+3. 至少通过 `git diff --check` 和 `python3 scripts/repo-hygiene-gate.py --mode worktree`；
+4. 若改动已经 staged，优先通过 `./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit`；
+5. 对于正在抢救但尚未完整闭环的状态，提交消息使用 `checkpoint: preserve <scope>`，并只推送到 Draft PR 工作分支。
+
+长任务中任何有价值的改动都不应只停留在工作树或对话上下文中。每完成一个上述工程切片，就形成一次最小推送单位；如果上下文、虚拟机或本地进程崩溃，恢复点应以远端 Draft PR 分支为准。
 
 推荐先运行仓库门禁：
 
@@ -211,6 +241,7 @@ git push --force-with-lease origin <branch>
 
 ```text
 checkpoint: <范围> <目的>
+checkpoint: preserve <scope>
 cleanup: remove tracked generated artifacts
 docs: freeze repo hygiene and commit standard
 fix: <行为修复>
@@ -239,7 +270,8 @@ fix: <行为修复>
 
 1. `pre-commit` 会通过 `./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit` 检查暂存区路径、二进制、本机产物、runtime surface 和 staged docs/runbook 责任。
 2. `pre-push` 会通过 `./scripts/delivery-gate.sh --mode push --skip-health` 检查待推送历史里的禁止路径、大 blob、docs/runbook 分支责任和 external audit。
-3. GitHub Actions `repo-hygiene` 会在 `push` / `pull_request` 上重复执行同样的门禁。
+3. GitHub Actions `repo-hygiene` 会在所有 `push` 与 `pull_request` 上快速检查 tracked tree 与 incoming history range。
+4. GitHub Actions `styio-ci-gate` 会在受管分支的 `push` 与所有 `pull_request` 上通过 workflow scheduler 重复执行完整交付门禁。
 
 ---
 

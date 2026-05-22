@@ -23,7 +23,7 @@ Primary paths:
 High-value docs:
 
 1. [../design/performance-testing.md](../design/performance-testing.md)
-2. [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md)
+2. [../../workflows/TEST-CATALOG.md](../../workflows/TEST-CATALOG.md)
 3. `styio-benchmark/README.md`
 4. `styio-benchmark/docs/COVERAGE-MATRIX.md`
 

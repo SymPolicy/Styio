@@ -61,6 +61,7 @@ Key handoff document:
 27. Public JSON/JSONL diagnostics must use the shared `STYIO_<PHASE>_<ERROR_FAMILY>` taxonomy from `src/StyioServices/DiagnosticContract.hpp`; keep compatibility `subcode` fields only as secondary aliases.
 28. For IM-D10 package-boundary work, keep `styio` limited to compiler-side facts: machine-info, source-build-info, syntax-check, compile-plan, nano producer/verifier, receipts, diagnostics, and runtime events. Do not infer current Spio or Styio-Platform behavior from stale local checkouts; unresolved manifest, lockfile, resolver, registry, trust, hosted workspace, standard-library package, and compatibility-matrix topics must remain external confirmation items.
 29. Recovery edits under `src/StyioServices/StyioConfig/` should be mechanical unless they change a public CLI contract. Whitespace-only README cleanup does not alter machine-info, source-build-info, compile-plan, or nano behavior and should be paired with docs gates rather than CLI contract rewrites.
+30. `src/main.cpp` carries embedded TOML project-config parsing, the styio-nano package/publish/manifest workflow, the `--machine-info=json` printer, and the parser shadow-compare driver in addition to CLI dispatch. This is tracked as **M-CLI-01** in [`../rollups/MIGRATION-LEDGER.md`](../rollups/MIGRATION-LEDGER.md); incremental moves should land non-CLI logic under `src/StyioServices/StyioConfig/` (or a future `src/StyioCLI/`) instead of growing `main.cpp` further.
 
 ## Change Classes
 

@@ -39,7 +39,6 @@ TEAM_RULES: tuple[TeamRule, ...] = (
         Path("docs/teams/SEMA-IR-RUNBOOK.md"),
         (
             "src/StyioAST/",
-            "src/StyioAnalyzer/",
             "src/StyioSema/",
             "src/StyioLowering/",
             "src/StyioIR/",

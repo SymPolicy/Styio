@@ -2,7 +2,7 @@
 
 **Purpose:** Provide root-level reusable workflows and repo-local skills for styio-nightly delivery.
 
-**Last updated:** 2026-05-01
+**Last updated:** 2026-05-22
 
 ## Scope
 
@@ -10,8 +10,9 @@
 2. Treat `*.toml` as the machine-readable workflow format.
 3. Keep Markdown files as human-facing explanations only.
 4. Keep repo-local skills under `workflows/skills/` using `skill.toml`.
-5. Keep docs mirrors under `docs/assets/workflow/` available for existing links.
-6. Pair workflow changes with gates or validation commands.
+5. Pair workflow changes with gates or validation commands.
+
+> The former `docs/assets/workflow/` mirror was retired on 2026-05-22; this root tree is the only canonical location for reusable workflow documents.
 
 ## Entry Points
 

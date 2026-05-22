@@ -7,9 +7,7 @@
 
 // [Styio]
 #include "../StyioAST/AST.hpp"
-#include "../StyioIR/DFIR/DFIR.hpp"
 #include "../StyioIR/GenIR/GenIR.hpp"
-#include "../StyioIR/IOIR/IOIR.hpp"
 #include "../StyioToken/Token.hpp"
 #include "../StyioUtil/Util.hpp"
 

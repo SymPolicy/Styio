@@ -38,7 +38,7 @@
 ## Default Read Order
 
 1. Start with [rollups/CURRENT-STATE.md](./rollups/CURRENT-STATE.md).
-2. Follow its links into the owning SSOT in `design/`, `specs/`, `assets/workflow/`, `teams/`, `plans/`, or current rollups.
+2. Follow its links into the owning SSOT in `design/`, `specs/`, `../workflows/`, `teams/`, `plans/`, or current rollups.
 3. Use Git history only when exact old history/review wording is required.
 4. Use `archive/` only for lifecycle metadata.
 

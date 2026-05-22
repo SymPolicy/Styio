@@ -2,11 +2,11 @@
 
 **Purpose:** Define the common delivery-floor entrypoint for Styio so contributors can run local, branch, audit, and checkpoint health checks through one safe auto command before checkpoint merge or branch delivery.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-05-22
 
 ## Goal
 
-`checkpoint-health.sh` is the inner recovery/test gate, but a real delivery also needs repository hygiene, docs/runbook discipline, PR-range hygiene, and external audit. This workflow defines the shared floor that must run before a checkpoint merges or a branch is handed off, while delegating docs/process ownership to [DOCS-GATE.md](./DOCS-GATE.md).
+`checkpoint-health.sh` is the inner recovery/test gate, but a real delivery also needs repository hygiene, docs/runbook discipline, PR-range hygiene, and external audit. This workflow defines the shared floor that must run before a checkpoint merges or a branch is handed off, while delegating docs/process ownership to [DOCS-GATE.md](./DOCS-GATE.md). Tool ownership, ordering, and separation are registered in [WORKFLOW-ORCHESTRATION.md](./WORKFLOW-ORCHESTRATION.md).
 
 ## Command
 
@@ -69,6 +69,8 @@ Release-candidate local floor:
 2. `audit gate --repo . --project styio`
 3. `./scripts/checkpoint-health.sh` with ASan/UBSan and fuzz smoke enabled
 
+The scheduler expands those profiles into repository hygiene, runtime-surface alignment, team-runbook maintenance, docs audit, and ecosystem CLI doc checks in registered phase order.
+
 ## Options
 
 Fast floor is the default. Opt in to heavier health legs only when the delivery requires them:
@@ -97,6 +99,8 @@ You still need the domain-specific gates from [../docs/teams/COORDINATION-RUNBOO
 3. runtime or handle contracts
 4. CLI / nano contracts
 5. IDE / LSP public surface
+
+Syntax additions that reach lowering or runtime helpers must also follow [ADD-SYNTAX-WITH-SKILLS.md](./ADD-SYNTAX-WITH-SKILLS.md).
 
 ## When To Use Which Entry
 

@@ -21,8 +21,8 @@ IM-D6 does not define new Styio language semantics. It also does not move packag
 
 The repository already has strong local gate entrypoints:
 
-- [Unified Delivery Gate](../assets/workflow/DELIVERY-GATE.md) owns the delivery floor.
-- [Checkpoint Health](../assets/workflow/CHECKPOINT-HEALTH.md) owns build/test health.
+- [Unified Delivery Gate](../../workflows/DELIVERY-GATE.md) owns the delivery floor.
+- [Checkpoint Health](../../workflows/CHECKPOINT-HEALTH.md) owns build/test health.
 - team runbooks own domain-specific checks for parser, Sema/IR, runtime, IDE/LSP, tests, and performance.
 - `audit` provides external audit policy.
 
@@ -215,8 +215,8 @@ No IM-D6 release-matrix decision remains open in this inventory. Remaining work 
 ## Source Documents
 
 - [NEXT-STAGE-GAP-LEDGER.md](./NEXT-STAGE-GAP-LEDGER.md)
-- [Unified Delivery Gate](../assets/workflow/DELIVERY-GATE.md)
-- [Checkpoint Health](../assets/workflow/CHECKPOINT-HEALTH.md)
+- [Unified Delivery Gate](../../workflows/DELIVERY-GATE.md)
+- [Checkpoint Health](../../workflows/CHECKPOINT-HEALTH.md)
 - [Test Quality Runbook](../teams/TEST-QUALITY-RUNBOOK.md)
 - [Performance / Stability Runbook](../teams/PERF-STABILITY-RUNBOOK.md)
 - [Docs / Ecosystem Runbook](../teams/DOCS-ECOSYSTEM-RUNBOOK.md)

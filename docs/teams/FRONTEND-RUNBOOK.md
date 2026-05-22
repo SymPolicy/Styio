@@ -28,12 +28,12 @@ Build and test targets:
 ## Daily Workflow
 
 1. Read [../design/Styio-EBNF.md](../design/Styio-EBNF.md), [../design/Styio-Symbol-Reference.md](../design/Styio-Symbol-Reference.md), and relevant language sections before changing syntax.
-2. Check [../rollups/CURRENT-STATE.md](../rollups/CURRENT-STATE.md), [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md), [../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md](../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md), and the parser gate sections in [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) when touching parser authority paths; use Git history only if active docs are still insufficient.
+2. Check [../rollups/CURRENT-STATE.md](../rollups/CURRENT-STATE.md), [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md), [../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md](../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md), and the parser gate sections in [../../workflows/TEST-CATALOG.md](../../workflows/TEST-CATALOG.md) when touching parser authority paths; use Git history only if active docs are still insufficient.
 3. Make lexer and parser changes in the smallest parse subset possible.
 4. Add or update a failing fixture before changing accepted behavior.
-5. Update [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) when adding feature or parser acceptance coverage.
+5. Update [../../workflows/TEST-CATALOG.md](../../workflows/TEST-CATALOG.md) when adding feature or parser acceptance coverage.
 6. When token or primitive spelling tables change, add a focused regression so public token names do not drift silently.
-7. When accepted syntax reaches lowering or runtime helpers, follow [../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md](../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md) and do not stop at parser-only green status.
+7. When accepted syntax reaches lowering or runtime helpers, follow [../../workflows/ADD-SYNTAX-WITH-SKILLS.md](../../workflows/ADD-SYNTAX-WITH-SKILLS.md) and do not stop at parser-only green status.
 8. Conditional infinite loops use `[...] >> ?(cond) => { ... }`; reject the older `[...] ?(cond) >> { ... }` spelling in both legacy and nightly parser routes.
 9. Keep negative numeric literals as literal atoms in both parser routes; `-1 + 2` must parse as `(-1) + 2`, not `0 - (1 + 2)`.
 10. When a type annotation admits a collection-shaped literal, keep the parser change context-triggered, such as `m: matrix = [[...], [...]]`, and leave untyped nested list literals on the ordinary list path.

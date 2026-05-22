@@ -18,6 +18,10 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 
+// MIGRATION-NEEDED: M-CODEGEN-01 (docs/rollups/MIGRATION-LEDGER.md)
+// All three implementations below return i64 as a stand-in for a real IO
+// type system. Replace with proper handle/string/byte-stream types when
+// the IO type contract is finalized.
 llvm::Type*
 StyioToLLVM::toLLVMType(SIOPath* node) {
   return theBuilder->getInt64Ty();

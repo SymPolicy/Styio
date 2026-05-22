@@ -1,5 +1,5 @@
 if(STYIO_USE_ICU)
-  message(STATUS "[ICU] Enabled via STYIO_USE_ICU=ON; using FindICU.cmake in: ${PROJECT_SOURCE_DIR}")
+  message(STATUS "[ICU] Enabled via STYIO_USE_ICU=ON; using cmake/FindICU.cmake")
   find_package(ICU COMPONENTS uc i18n REQUIRED)
 
   foreach(_target IN ITEMS styio_frontend_core styio_core styio_ide_core)

@@ -1,6 +1,11 @@
 title = "Styio Workflows Registry"
 purpose = "Registry of root-level workflow TOML definitions and repo-local skills."
-last_updated = "2026-05-01"
+last_updated = "2026-05-22"
+
+[[workflow]]
+id = "workflow-orchestration"
+file = "WORKFLOW-ORCHESTRATION.toml"
+doc = "WORKFLOW-ORCHESTRATION.md"
 
 [[workflow]]
 id = "add-repo-file"

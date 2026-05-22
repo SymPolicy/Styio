@@ -33,11 +33,11 @@ Required sections:
 6. Cross-Team Dependencies
 7. Handoff / Recovery
 
-[COORDINATION-RUNBOOK.md](./COORDINATION-RUNBOOK.md) uses a coordinator-specific shape documented in [../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md](../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md), because it owns module maps and review policy rather than a single team surface.
+[COORDINATION-RUNBOOK.md](./COORDINATION-RUNBOOK.md) uses a coordinator-specific shape documented in [../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md](../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md), because it owns module maps and review policy rather than a single team surface.
 
 ## Maintenance Gate
 
-Every delivery that changes a mapped team-owned folder must update that team's runbook. The gate is documented in [../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md](../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md) and runs through:
+Every delivery that changes a mapped team-owned folder must update that team's runbook. The gate is documented in [../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md](../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md) and runs through:
 
 ```bash
 python3 scripts/team-docs-gate.py

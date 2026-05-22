@@ -1,14 +1,14 @@
 # Styio 中断友好 Checkpoint 工作流
 
-**Purpose:** 约束 Styio 在底层重构期间的 **微里程碑拆分、可中断恢复、分支寿命与合并门槛**；不替代语言语义文档（见 `../docs/design/Styio-Language-Design.md` / `../docs/design/Styio-EBNF.md`），也不重写项目级优先级顺序（见 `../docs/specs/PRINCIPLES-AND-OBJECTIVES.md`）。
+**Purpose:** 约束 Styio 在底层重构期间的 **微里程碑拆分、可中断恢复、范围边界与合并门槛**；不替代语言语义文档（见 `../docs/design/Styio-Language-Design.md` / `../docs/design/Styio-EBNF.md`），也不重写项目级优先级顺序（见 `../docs/specs/PRINCIPLES-AND-OBJECTIVES.md`）。
 
-**Last updated:** 2026-04-16
+**Last updated:** 2026-05-22
 
 ---
 
 ## 1. 强制规则
 
-1. 单分支最长存活 72 小时；超时必须拆分或先落 feature flag 空壳。
+1. 单分支只承载一个 checkpoint 目标；如果范围不能归纳为一个语言特性切片、一个功能闭环或一组最小测试证据，必须先拆分或先落 feature flag 空壳。
 2. 每个 Checkpoint 合并前必须满足：可编译、可测试、可回滚、可读档恢复。
 3. 每个 Checkpoint 最小交付包固定为 5 项：代码、测试、文档、ADR、恢复指引。
 4. 恢复指引统一写入 `docs/history/YYYY-MM-DD.md` 的 `Checkpoint` 小节。
@@ -27,13 +27,18 @@
 13. 每次提交与 push 前必须符合 [`REPO-HYGIENE-COMMIT-STANDARD.md`](./REPO-HYGIENE-COMMIT-STANDARD.md)：禁止提交构建产物、测试发现文件、二进制与大 blob。
 14. 若 GitHub push 因 `100MB` 限制失败，必须清理**当前待推送历史**，而不是只删除工作区文件。
 15. Checkpoint 交付默认走统一入口 [`DELIVERY-GATE.md`](./DELIVERY-GATE.md)；`checkpoint-health.sh` 继续作为内部恢复/验证 gate，而不是唯一交付 gate。
+16. 长任务或恢复任务默认先创建一个远端工作分支和 Draft PR；任务期间持续向同一分支提交最小推送单位，直到 Draft PR 准备合并。
+17. 最小推送单位优先保护状态不丢失：提交说明必须可读，仓库卫生必须过关，完整测试可以留到 checkpoint 合并前补齐。
 
 ---
 
 ## 2. 微里程碑粒度
 
-- 单个微里程碑目标粒度：1-3 天内可合并。
-- 严禁提交“跨两周才能验证”的黑盒分支。
+- 单个微里程碑必须选择一个主尺度：
+  1. 语言特性切片：一个语法/语义能力及其 parser、sema、lowering、runtime、文档与测试证据。
+  2. 功能闭环：一个用户可观察的 workflow、CLI/API contract、运行时行为或仓库维护功能，以及对应 gate。
+  3. 测试证据组：一个 fixture family、CTest label、shadow/five-layer/security gate 或覆盖缺口的关闭证据。
+- 若一个 checkpoint 同时跨多个独立语言特性、无法命名最小代表测试，或必须等待无关模块一起完成才能验证，则范围过大，必须拆分。
 - 大里程碑（A-F）只作为路线图，执行与合并均按 `A.1 / A.2 / ...` 级别推进。
 
 ---
@@ -54,6 +59,8 @@
 1. 采用 trunk-based，小 PR 高频合并。
 2. 优先“结构空壳先入主干，再逐层接管行为”。
 3. 若改动涉及 ABI/诊断格式，先提交 ADR，再改代码。
+4. 下游仓库的长任务默认用 `codex/<topic>` 工作分支加 Draft PR 承载；不要为同一任务拆出多个临时恢复分支，除非需要隔离不可推送的污染历史。
+5. Draft PR 分支上的 `checkpoint: preserve <scope>` 提交允许表达未闭合状态，但不得包含生成产物、大 blob 或本地工具状态；准备合并前再按普通 checkpoint 门槛补验证或整理提交。
 
 ---
 

@@ -55,31 +55,31 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 | 符号 ↔ lexer token 名 | `../design/Styio-Symbol-Reference.md` | 链接 |
 | `@` 拓扑目标语法、Golden Cross **设计级**叙述与示例形态 | `../design/Styio-Resource-Topology.md`（含 §8） | 保留链接或一句摘要 |
 | 当前实现缺口与跨团队排期 | `../rollups/NEXT-STAGE-GAP-LEDGER.md` | 链接，不另建平行 backlog |
-| 集成测试路径、`ctest` 命令 | `docs/assets/workflow/TEST-CATALOG.md` | 链接 |
+| 集成测试路径、`ctest` 命令 | `../../workflows/TEST-CATALOG.md` | 链接 |
 | **外部包 / 开源依赖清单**（LLVM、ICU、gtest、vendored） | [`THIRD-PARTY.md`](./THIRD-PARTY.md) | 与 `CMakeLists.txt`、`tests/CMakeLists.txt` 一致；新增依赖先更新该文件 |
 | **官方仓库生态、角色边界与文档归属** | [`REPOSITORY-MAP.md`](./REPOSITORY-MAP.md) | 其它文档只链接，不重复维护仓库总表 |
 | **团队日常工作入口、review 协作矩阵与维护者 runbook** | [`../teams/COORDINATION-RUNBOOK.md`](../teams/COORDINATION-RUNBOOK.md) | 团队文档只做日常入口，语言/测试/仓库边界仍链接 owning SSOT |
 | **项目级原则与目标**（规划 / 设计 / 开发 / 测试 / 审核的优先级） | [`PRINCIPLES-AND-OBJECTIVES.md`](./PRINCIPLES-AND-OBJECTIVES.md) | 其它文档引用，不平行重写项目级优先级与重写边界 |
 | **默认冷启动摘要 / 当前仓库状态** | [`../rollups/CURRENT-STATE.md`](../rollups/CURRENT-STATE.md) | 先读本文件，再跳到 owning SSOT |
-| **五层编译流水线** goldens（Lexer/IR/…） | `docs/assets/workflow/FIVE-LAYER-PIPELINE.md` | 与 `TEST-CATALOG` §9 交叉链接 |
+| **五层编译流水线** goldens（Lexer/IR/…） | `../../workflows/FIVE-LAYER-PIPELINE.md` | 与 `TEST-CATALOG` §9 交叉链接 |
 | 开发文档目录与维护准则（含本节） | `DOCUMENTATION-POLICY.md` | 链接 |
 | Agent 实现规程、禁止项、流水线 | `AGENT-SPEC.md` | 链接 |
 | Golden Cross **守则内嵌的宪法示例代码** | `AGENT-SPEC.md` §12.3 | 设计背景链到 `../design/Styio-Resource-Topology.md` §8 |
 | Topology v2 **设计、实现状态与迁移入口** | `../design/Styio-Resource-Topology.md` + `../rollups/NEXT-STAGE-GAP-LEDGER.md` | 不保留平行长计划 |
-| **Checkpoint 执行规则**（可中断/可恢复） | `../assets/workflow/CHECKPOINT-WORKFLOW.md` | 在 `history/YYYY-MM-DD.md` 写恢复指引，不在其它文档重复流程细节 |
-| **统一交付门禁**（common delivery floor） | `../assets/workflow/DELIVERY-GATE.md` | 先过 common floor，再按协调 runbook 叠加域专属 cutover gate |
-| **新语法添加工作流**（含 runtime helper / ORC 注册对齐） | `../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md` | 前端、Codegen/Runtime、测试与 docs 只保留入口规则与链接 |
-| **语法契约纠正工作流**（用户质疑 / parser-Sema-EBNF 不一致） | `../assets/workflow/CORRECT-SYNTAX-CONTRACT.md` | 智能体先读 workflow，再改 parser、Sema、lowering、测试或语法文档 |
-| **工作流调度与分离原则** | `../assets/workflow/WORKFLOW-ORCHESTRATION.md` | 新增 workflow / gate 前必须先查该表；工具调用顺序由 `scripts/workflow-scheduler.py` 固化 |
-| **仓库清理、提交、push 与历史重写标准** | `../assets/workflow/REPO-HYGIENE-COMMIT-STANDARD.md` | 其它文档只保留入口规则与链接 |
-| **文档元数据、生成索引与审计流程** | `../assets/workflow/DOCS-MAINTENANCE-WORKFLOW.md` | 其它文档只保留入口规则与链接 |
-| **团队 runbook 维护交付门禁** | `../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md` | `docs-audit.py` 串联该门禁；团队文档只链接门禁说明与模板 |
+| **Checkpoint 执行规则**（可中断/可恢复） | `../../workflows/CHECKPOINT-WORKFLOW.md` | 在 `history/YYYY-MM-DD.md` 写恢复指引，不在其它文档重复流程细节 |
+| **统一交付门禁**（common delivery floor） | `../../workflows/DELIVERY-GATE.md` | 先过 common floor，再按协调 runbook 叠加域专属 cutover gate |
+| **新语法添加工作流**（含 runtime helper / ORC 注册对齐） | `../../workflows/ADD-SYNTAX-WITH-SKILLS.md` | 前端、Codegen/Runtime、测试与 docs 只保留入口规则与链接 |
+| **语法契约纠正工作流**（用户质疑 / parser-Sema-EBNF 不一致） | `../../workflows/CORRECT-SYNTAX-CONTRACT.md` | 智能体先读 workflow，再改 parser、Sema、lowering、测试或语法文档 |
+| **工作流调度与分离原则** | `../../workflows/WORKFLOW-ORCHESTRATION.md` | 新增 workflow / gate 前必须先查该表；工具调用顺序由 `scripts/workflow-scheduler.py` 固化 |
+| **仓库清理、提交、push 与历史重写标准** | `../../workflows/REPO-HYGIENE-COMMIT-STANDARD.md` | 其它文档只保留入口规则与链接 |
+| **文档元数据、生成索引与审计流程** | `../../workflows/DOCS-MAINTENANCE-WORKFLOW.md` | 其它文档只保留入口规则与链接 |
+| **团队 runbook 维护交付门禁** | `../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md` | `docs-audit.py` 串联该门禁；团队文档只链接门禁说明与模板 |
 | **团队 runbook 标准格式** | `../assets/templates/TEAM-RUNBOOK-TEMPLATE.md` | 普通团队 runbook 必须使用该 H2 结构；协调者 runbook 的特殊结构由门禁说明列明 |
 | **架构决策 provenance（非活跃 SSOT）** | `docs/adr/IMPLEMENTED-DECISIONS.md`、Git history | 活跃规则必须提升到 owning SSOT；旧 ADR 全文不保留在当前树 |
 
 ### 0.5 文档状态与 superseded 规则
 
-1. 活跃维护知识默认只应留在 `docs/design/`、`docs/specs/`、`docs/teams/`、`docs/assets/workflow/`、当前 `docs/rollups/` 摘要，以及仍在推进中的短计划。
+1. 活跃维护知识默认只应留在 `docs/design/`、`docs/specs/`、`docs/teams/`、根目录 `workflows/`、当前 `docs/rollups/` 摘要，以及仍在推进中的短计划。
 2. `docs/plans/*.md` 是**设计/实施计划**，不是语言或验收层面的 SSOT；当计划的稳定结论已经吸收到活跃文档后，计划应从当前树删除，确需追溯时使用 Git 历史。
 3. 语言验收不再使用冻结批次目录；当前树不得保留 `docs/plans/`。验收规则必须提升到语言设计、feature test catalog、team runbook 或 active rollup。
 4. 若后续实现保留兼容层，文档必须明确区分：
@@ -101,8 +101,8 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 | `docs/review/` | review 发现、设计冲突、待定决议；不保留已归纳的旧 dated bundle |
 | `docs/plans/` | 当前仍在执行的设计草案、实施计划、迁移方案；已吸收/已完成项从当前树删除并依赖 Git 历史追溯 |
 | `docs/for-ide/` | IDE 集成、LSP 调用、嵌入方式与 edit-time 语法层使用说明 |
-| `docs/assets/workflow/` | 可复用工作流、测试框架、checkpoint / hygiene 标准 |
 | `docs/assets/templates/` | 可复用模板 |
+| 根目录 `workflows/` | 可复用工作流、测试框架、checkpoint / hygiene 标准（机器可读 `*.toml` 配对，repo-local skills 在 `workflows/skills/`） |
 | `docs/rollups/` | 压缩后的 active 摘要；默认冷启动先读这里 |
 | `docs/archive/` | 最小 lifecycle metadata 壳；不保留旧语法目录、旧示例、旧 source、历史 plan/rollup 快照 |
 | `docs/history/` | 恢复入口；默认不保留 raw dated checkpoint，精确历史文本使用 Git history |
@@ -115,7 +115,7 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 3. `docs/teams/`：团队日常入口使用 `<TEAM>-RUNBOOK.md`；跨团队协调入口固定为 `COORDINATION-RUNBOOK.md`；集合统计固定为 `DOC-STATS.md`。
    普通团队 runbook 必须遵守 `docs/assets/templates/TEAM-RUNBOOK-TEMPLATE.md` 的 H1、`Purpose`、`Last updated`、H2 顺序；交付门禁输出必须指向模板和门禁说明，而不是只要求维护者阅读脚本源码。
 4. `docs/plans/`：计划文件必须使用描述性名称，优先 `<Topic>-Plan.md`、`<Topic>-Implementation-Plan.md`、`<Topic>-Adjustment.md`；禁止再新增 `idea.md`、`notes.md`、`misc.md` 这类泛名文件。
-5. `docs/assets/workflow/` 与 `docs/assets/templates/`：可复用资产采用稳定、可搜索的全大写短横线命名。
+5. 根 `workflows/` 与 `docs/assets/templates/`：可复用资产采用稳定、可搜索的全大写短横线命名。
 6. `docs/history/`：严格使用 `YYYY-MM-DD.md`。
 7. `docs/adr/`：严格使用 `ADR-XXXX-<slug>.md`。
 
@@ -193,7 +193,7 @@ Manifest exports also include text-volume statistics for the selected document s
 ## 1. 目标
 
 - **历史（history）**：所有开发经验、排错记录、进展摘要按 **自然日** 写入 `docs/history/`，一天一篇或同日增量追加，禁止只写在聊天或未入库笔记里。
-- **测试说明（workflow assets）**：面向读者的测试说明按 **语言特性域** 维护在 `docs/assets/workflow/TEST-CATALOG.md`，与 CMake 中的 `add_test` 一一可追溯；**必须**给出可复制的自动化命令（CTest 标签或正则）。
+- **测试说明（workflow assets）**：面向读者的测试说明按 **语言特性域** 维护在根 `workflows/TEST-CATALOG.md`，与 CMake 中的 `add_test` 一一可追溯；**必须**给出可复制的自动化命令（CTest 标签或正则）。
 - **可机读元数据**：凡描述「某测试在测什么」的文档，须在文首或表格中写明 **Last updated**、**输入**、**期望输出/比对物**（golden 路径或约定临时文件），以便脚本与人工对照。
 
 ---
@@ -224,18 +224,18 @@ Manifest exports also include text-volume statistics for the selected document s
 | 规则 | 说明 |
 |------|------|
 | 目录 | 所有语言验收用例按语言特性放在 `tests/features/<feature>/`。 |
-| 文档入口 | `docs/assets/workflow/TEST-CATALOG.md` 是测试目录、CTest label、特殊 gate 的唯一活跃索引。 |
+| 文档入口 | `../../workflows/TEST-CATALOG.md` 是测试目录、CTest label、特殊 gate 的唯一活跃索引。 |
 | 与实现关系 | 新增或移动 `.styio` fixture 时，必须同步更新 `tests/CMakeLists.txt`、feature catalog、受影响 team runbook。 |
 
 ---
 
-## 4. 测试目录 `docs/assets/workflow/TEST-CATALOG.md`
+## 4. 测试目录 `workflows/TEST-CATALOG.md`
 
 | 规则 | 说明 |
 |------|------|
 | 划分维度 | **按语言功能域**，而非按历史编号或内部文件名。 |
 | 每条目 | 至少包含：**CTest 名**、**输入**（`.styio` 路径）、**输出/Oracle**（`expected/*.out` 或文档约定的临时文件路径）、**自动化**（`ctest -R '…'` 或 `ctest -L …`）。 |
-| 与构建一致 | 新增 `.styio` 验收测试时，必须同时更新 `tests/CMakeLists.txt`（或项目约定的单一注册处）与 `../assets/workflow/TEST-CATALOG.md`。 |
+| 与构建一致 | 新增 `.styio` 验收测试时，必须同时更新 `tests/CMakeLists.txt`（或项目约定的单一注册处）与 `../../workflows/TEST-CATALOG.md`。 |
 
 单条示例（字段名固定，便于将来脚本解析）：
 
@@ -260,6 +260,6 @@ CI 或本地可逐步引入：
 3. `python3 scripts/docs-lifecycle.py validate` 必须通过，确保 rollup/archive manifest、ledger、keep-window 与路径映射一致。
 4. `python3 scripts/docs-audit.py` 必须通过，确保 `Purpose` / `Last updated` / 命名 / 链接 / 目录入口都符合规则，并串联 lifecycle gate。
 5. `python3 scripts/docs-audit.py --manifest invalid --format list` 是仓库级 Markdown 清理清单；需要排查本地生成物时改用 `--source filesystem`。
-6. `../assets/workflow/TEST-CATALOG.md` 中列出的每个 `tests/features/...` 路径在仓库中存在。
+6. `../../workflows/TEST-CATALOG.md` 中列出的每个 `tests/features/...` 路径在仓库中存在。
 
 当前仓库的 **权威自动化入口** 为：**CMake 注册的 CTest + `styio --file`**（见 `tests/CMakeLists.txt`）。

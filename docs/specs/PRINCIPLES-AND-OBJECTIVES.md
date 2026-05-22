@@ -60,7 +60,7 @@
 ### [CN] 与其他文档的关系
 
 1. 语言语义仍以 `../design/` 为准；本文件不替代语义 SSOT。
-2. 具体流程仍以 `../assets/workflow/` 为准；本文件只定义优先级顺序与项目目标。
+2. 具体流程仍以 `../../workflows/` 为准；本文件只定义优先级顺序与项目目标。
 3. 计划、里程碑、测试与审核在解释某个取舍为何成立时，都应把本文件作为共同基线。
 
 ---
@@ -111,7 +111,7 @@
 ### [EN] Relationship To Other Documents
 
 1. Language semantics remain in `../design/`; this file does not replace semantic SSOT.
-2. Workflow details remain in `../assets/workflow/`; this file only defines priority order and objectives.
+2. Workflow details remain in `../../workflows/`; this file only defines priority order and objectives.
 3. Plans, checkpoints, tests, and reviews must use this file as the common baseline when explaining why a tradeoff is acceptable.
 
 ---

@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+"""Cross-repo ecosystem sample-workflow gate proxy.
+
+MIGRATION-NEEDED: M-ECOSYSTEM-01 (docs/rollups/MIGRATION-LEDGER.md)
+
+Same shape and same migration disposition as
+``scripts/ecosystem-product-gate.py``: silent exit 0 when the sibling
+``styio-spio`` repository is not present, with no current CI wiring.
+"""
 from __future__ import annotations
 
 import json

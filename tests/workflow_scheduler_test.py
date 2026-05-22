@@ -50,7 +50,7 @@ class WorkflowSchedulerTest(unittest.TestCase):
 
     def test_markdown_table_exposes_syntax_workflow(self) -> None:
         table = workflow_scheduler.markdown_table()
-        self.assertIn("SYNTAX-ADDITION-WORKFLOW.md", table)
+        self.assertIn("ADD-SYNTAX-WITH-SKILLS.md", table)
         self.assertIn("runtime-surface", table)
 
 

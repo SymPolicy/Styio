@@ -1,3 +1,23 @@
+"""Test-scaffolding helper.
+
+MIGRATION-NEEDED: M-CLI-02 (docs/rollups/MIGRATION-LEDGER.md)
+
+This script is unreachable in the current tree:
+1. ``__main__`` calls ``extend_tests("<user-home>/tests/parsing/forward", 5)``,
+   a hardcoded absolute Linux path that does not exist in this repository.
+2. The target ``tests/parsing/`` directory has been retired; tests live
+   under ``tests/features/``.
+3. The lit harness referenced by the generated ``// RUN:`` headers has been
+   decommissioned; CTest is the active acceptance harness.
+
+Closure: rewrite the helper to scaffold CTest-wired feature tests under
+``tests/features/<feature>/t<NN>_<name>.styio`` (and update its docs/
+references), or ``git rm`` the file together with the references in
+``docs/specs/AGENT-SPEC.md:78,554``,
+``workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md:73``, and
+``scripts/team-docs-gate.py:106``.
+"""
+
 import os
 import re
 

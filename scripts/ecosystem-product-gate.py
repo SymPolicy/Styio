@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+"""Cross-repo ecosystem product gate proxy.
+
+MIGRATION-NEEDED: M-ECOSYSTEM-01 (docs/rollups/MIGRATION-LEDGER.md)
+
+This shim silently exits 0 when the sibling ``styio-spio`` repository is
+not checked out next to ``styio-nightly``. That makes the contract failure
+mode invisible and the gate is not currently wired into ``.github/workflows``
+or ``scripts/workflow-scheduler.py``. Either wire it in (with required
+sibling checkout) or delete the shim entirely.
+"""
 from __future__ import annotations
 
 import json

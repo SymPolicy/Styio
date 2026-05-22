@@ -4548,7 +4548,8 @@ public:
     return new InfiniteLoopAST(cond, body);
   }
 
-  /* Legacy empty loop (unused list/loop char parser path). */
+  // MIGRATION-NEEDED: M-SEMA-01 (docs/rollups/MIGRATION-LEDGER.md)
+  // Legacy empty loop kept for the unused list/loop char parser path.
   static InfiniteLoopAST* Create() {
     return new InfiniteLoopAST(nullptr, BlockAST::Create({}));
   }
@@ -4823,7 +4824,9 @@ public:
     return new InstantPullAST(r, std::move(result_type));
   }
 
-  /* Legacy convenience: still accepts FileResourceAST* */
+  // MIGRATION-NEEDED: M-SEMA-01 (docs/rollups/MIGRATION-LEDGER.md)
+  // Legacy convenience overload retained while the FileResourceAST* path
+  // is still in use; remove together with InfiniteAST/ReadFileAST cleanup.
   static InstantPullAST* Create(FileResourceAST* r) {
     return new InstantPullAST(static_cast<StyioAST*>(r));
   }

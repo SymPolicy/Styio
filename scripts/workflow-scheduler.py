@@ -135,97 +135,97 @@ TOOLS: tuple[Tool, ...] = (
 WORKFLOW_DOCS: tuple[WorkflowDoc, ...] = (
     WorkflowDoc(
         "add-repo-file",
-        "docs/assets/workflow/ADD-REPO-FILE.md",
+        "workflows/ADD-REPO-FILE.md",
         15,
         "Repository file creation with metadata, indexes, ownership, and gates.",
     ),
     WorkflowDoc(
         "add-resource-identifier",
-        "docs/assets/workflow/ADD-RESOURCE-IDENTIFIER.md",
+        "workflows/ADD-RESOURCE-IDENTIFIER.md",
         25,
         "Resource identifier syntax, capability, lifecycle, and fail-closed rollout.",
     ),
     WorkflowDoc(
         "correct-syntax-contract",
-        "docs/assets/workflow/CORRECT-SYNTAX-CONTRACT.md",
+        "workflows/CORRECT-SYNTAX-CONTRACT.md",
         25,
         "Syntax-contract correction from minimal repro through parser/Sema boundary, SSOT docs, and gates.",
     ),
     WorkflowDoc(
         "change-bootstrap-env",
-        "docs/assets/workflow/CHANGE-BOOTSTRAP-ENV.md",
+        "workflows/CHANGE-BOOTSTRAP-ENV.md",
         20,
         "Bootstrap environment dependency, version, path, and documentation changes.",
     ),
     WorkflowDoc(
         "checkpoint-health",
-        "docs/assets/workflow/CHECKPOINT-HEALTH.md",
+        "workflows/CHECKPOINT-HEALTH.md",
         70,
         "Repository build/test health entrypoint for checkpoint delivery.",
     ),
     WorkflowDoc(
         "checkpoint",
-        "docs/assets/workflow/CHECKPOINT-WORKFLOW.md",
+        "workflows/CHECKPOINT-WORKFLOW.md",
         50,
         "Recovery-oriented checkpoint scope control and interruption handling.",
     ),
     WorkflowDoc(
         "delivery-gate",
-        "docs/assets/workflow/DELIVERY-GATE.md",
+        "workflows/DELIVERY-GATE.md",
         60,
         "Common delivery-floor entrypoint and health-gate handoff.",
     ),
     WorkflowDoc(
         "docs-maintenance",
-        "docs/assets/workflow/DOCS-MAINTENANCE-WORKFLOW.md",
+        "workflows/DOCS-MAINTENANCE-WORKFLOW.md",
         30,
         "Documentation metadata, generated indexes, and archive lifecycle.",
     ),
     WorkflowDoc(
         "docs-gate",
-        "docs/assets/workflow/DOCS-GATE.md",
+        "workflows/DOCS-GATE.md",
         35,
         "Common docs/process gate entrypoint and composition boundary.",
     ),
     WorkflowDoc(
         "five-layer-pipeline",
-        "docs/assets/workflow/FIVE-LAYER-PIPELINE.md",
+        "workflows/FIVE-LAYER-PIPELINE.md",
         45,
         "Layered compiler golden coverage from lexer through runtime output.",
     ),
     WorkflowDoc(
         "repo-hygiene",
-        "docs/assets/workflow/REPO-HYGIENE-COMMIT-STANDARD.md",
+        "workflows/REPO-HYGIENE-COMMIT-STANDARD.md",
         10,
         "Repository cleanliness, commit, push, and history rewriting standards.",
     ),
     WorkflowDoc(
         "promote-nightly-parser-subset",
-        "docs/assets/workflow/PROMOTE-NIGHTLY-PARSER-SUBSET.md",
+        "workflows/PROMOTE-NIGHTLY-PARSER-SUBSET.md",
         25,
         "Authoritative nightly parser coverage with no accepted-grammar fallback.",
     ),
     WorkflowDoc(
-        "syntax-addition",
-        "docs/assets/workflow/SYNTAX-ADDITION-WORKFLOW.md",
+        "add-syntax-with-skills",
+        "workflows/ADD-SYNTAX-WITH-SKILLS.md",
         25,
         "Ordered syntax-change chain from language SSOT through runtime registration.",
     ),
     WorkflowDoc(
         "team-runbook-maintenance",
-        "docs/assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md",
+        "workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md",
         30,
         "Team runbook ownership and update requirements for touched surfaces.",
     ),
     WorkflowDoc(
         "test-catalog",
-        "docs/assets/workflow/TEST-CATALOG.md",
+        "workflows/TEST-CATALOG.md",
         45,
         "Named test inventory, fixtures, labels, and automation evidence.",
     ),
     WorkflowDoc(
         "workflow-orchestration",
-        "docs/assets/workflow/WORKFLOW-ORCHESTRATION.md",
+        "workflows/WORKFLOW-ORCHESTRATION.md",
         5,
         "Tool registry, workflow separation, profile ordering, and scheduler usage.",
     ),
@@ -381,14 +381,14 @@ def validate_registry() -> list[str]:
 
     active_docs = {
         path.relative_to(ROOT).as_posix()
-        for path in (ROOT / "docs/assets/workflow").glob("*.md")
+        for path in (ROOT / "workflows").glob("*.md")
         if path.name not in {"README.md", "INDEX.md"}
     }
     registered_docs = {doc.path for doc in WORKFLOW_DOCS}
     for path in sorted(active_docs - registered_docs):
         errors.append(f"workflow doc is not registered in scripts/workflow-scheduler.py: {path}")
     for path in sorted(registered_docs - active_docs):
-        errors.append(f"registered workflow doc does not exist in docs/assets/workflow: {path}")
+        errors.append(f"registered workflow doc does not exist in workflows/: {path}")
 
     for profile in PROFILES:
         phases: list[int] = []
@@ -402,7 +402,7 @@ def validate_registry() -> list[str]:
         if phases != sorted(phases):
             errors.append(f"profile {profile.key} tool phases are not ordered: {profile.tools}")
 
-    orchestration_doc = ROOT / "docs/assets/workflow/WORKFLOW-ORCHESTRATION.md"
+    orchestration_doc = ROOT / "workflows/WORKFLOW-ORCHESTRATION.md"
     if orchestration_doc.exists() and markdown_table() not in orchestration_doc.read_text(encoding="utf-8"):
         errors.append("WORKFLOW-ORCHESTRATION.md audit table is not synchronized with workflow-scheduler.py")
 

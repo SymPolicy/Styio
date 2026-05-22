@@ -28,6 +28,10 @@ enum class CompilationPhase
 /**
  * Checkpoint C.1/C.2 shell:
  * Own compiler graph lifetimes in one place so each migration step can be merged safely.
+ *
+ * MIGRATION-NEEDED: M-RUNTIME-02 (docs/rollups/MIGRATION-LEDGER.md)
+ * Remove the "shell" wording and consolidate ownership when the runtime/
+ * session migration plan reports closure.
  */
 class CompilationSession
 {

@@ -10,7 +10,6 @@
 
 | Path | Entry | Summary |
 |------|-------|---------|
-| `adr/` | [Archived ADRs](./adr/README.md) | Define the scope of absorbed architecture decision records under docs/archive/adr/; these files preserve decision provenance after the active rule has been lifted into owning SSOT documents. |
 | `history/` | [Archive History Index](./history/INDEX.md) | Keep the generated entrypoint for docs/archive/history/; archived raw history snapshots are no longer retained in the current tree. |
 | `review/` | [Archive Review Index](./review/INDEX.md) | Keep the generated entrypoint for docs/archive/review/; archived dated review bundles are no longer retained in the current tree. |
 

@@ -1,0 +1,21 @@
+id = "workflow-orchestration"
+title = "Workflow Orchestration"
+purpose = "Define registered workflow documents, tool responsibilities, profile ordering, and scheduler entrypoints that keep delivery workflows separated and executable."
+last_updated = "2026-05-22"
+doc = "WORKFLOW-ORCHESTRATION.md"
+
+separation_rules = [
+  "every active workflows/*.md (except README and INDEX) must be registered in scripts/workflow-scheduler.py",
+  "each workflow document owns exactly one responsibility boundary",
+  "each tool owns exactly one validation responsibility",
+  "profiles must run tools in ascending phase order",
+  "registry, docs, CI entrypoint, and delivery entrypoint must agree before delivery",
+  "every workflow markdown is paired with a machine-readable <NAME>.toml registered in workflows.toml",
+]
+
+required_commands = [
+  "python3 scripts/workflow-scheduler.py check",
+  "python3 scripts/workflow-scheduler.py list --format markdown",
+  "python3 scripts/workflow-scheduler.py run --profile syntax-local",
+  "python3 tests/workflow_scheduler_test.py",
+]

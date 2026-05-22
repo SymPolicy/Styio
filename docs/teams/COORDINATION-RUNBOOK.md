@@ -13,8 +13,8 @@ Authoritative references:
 1. Language semantics: [../design/INDEX.md](../design/INDEX.md)
 2. Project priorities: [../specs/PRINCIPLES-AND-OBJECTIVES.md](../specs/PRINCIPLES-AND-OBJECTIVES.md)
 3. Repository boundaries: [../specs/REPOSITORY-MAP.md](../specs/REPOSITORY-MAP.md)
-4. Test catalog: [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md)
-5. Checkpoint workflow: [../assets/workflow/CHECKPOINT-WORKFLOW.md](../assets/workflow/CHECKPOINT-WORKFLOW.md)
+4. Test catalog: [../../workflows/TEST-CATALOG.md](../../workflows/TEST-CATALOG.md)
+5. Checkpoint workflow: [../../workflows/CHECKPOINT-WORKFLOW.md](../../workflows/CHECKPOINT-WORKFLOW.md)
 6. Cross-repo program plan: [../plans/Styio-Ecosystem-Delivery-Master-Plan.md](../plans/Styio-Ecosystem-Delivery-Master-Plan.md)
 
 ## Module Map
@@ -64,9 +64,9 @@ flowchart TB
 ## Escalation Rules
 
 1. Language meaning conflict: use [../design/INDEX.md](../design/INDEX.md), then update the owning design doc and [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md) if follow-up remains.
-2. Test acceptance conflict: use [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) and [../assets/workflow/FIVE-LAYER-PIPELINE.md](../assets/workflow/FIVE-LAYER-PIPELINE.md).
+2. Test acceptance conflict: use [../../workflows/TEST-CATALOG.md](../../workflows/TEST-CATALOG.md) and [../../workflows/FIVE-LAYER-PIPELINE.md](../../workflows/FIVE-LAYER-PIPELINE.md).
 3. Repository ownership conflict: use [../specs/REPOSITORY-MAP.md](../specs/REPOSITORY-MAP.md).
-4. Workflow or checkpoint conflict: use [../assets/workflow/CHECKPOINT-WORKFLOW.md](../assets/workflow/CHECKPOINT-WORKFLOW.md).
+4. Workflow or checkpoint conflict: use [../../workflows/CHECKPOINT-WORKFLOW.md](../../workflows/CHECKPOINT-WORKFLOW.md).
 5. Priority conflict: use [../specs/PRINCIPLES-AND-OBJECTIVES.md](../specs/PRINCIPLES-AND-OBJECTIVES.md).
 
 ## Checkpoint Policy

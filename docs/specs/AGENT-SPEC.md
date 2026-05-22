@@ -59,10 +59,10 @@ Before making any language-level change, agents MUST read:
 - `../design/Styio-Research-Innovations.md` — Research novelty points (do not break these)
 - `./DOCUMENTATION-POLICY.md` — Doc layout, **§0** maintenance (minimal change, three-doc SSOT), history/checkpoint/feature-test rules
 - `./PRINCIPLES-AND-OBJECTIVES.md` — Project-wide priority order, rewrite boundary, and lifecycle objectives
-- `../assets/workflow/CHECKPOINT-WORKFLOW.md` — Interrupt-friendly checkpoint process (feature slices, recovery notes, ADR requirement)
-- `../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md` — Delivery gate requiring mapped team runbooks to be updated and kept in the documented template shape when owned folders change
+- `../../workflows/CHECKPOINT-WORKFLOW.md` — Interrupt-friendly checkpoint process (feature slices, recovery notes, ADR requirement)
+- `../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md` — Delivery gate requiring mapped team runbooks to be updated and kept in the documented template shape when owned folders change
 - `../adr/README.md` — ADR index for ownership/lifecycle/API decisions
-- `../assets/workflow/TEST-CATALOG.md` — Functional test map (inputs, oracles, `ctest` commands)
+- `../../workflows/TEST-CATALOG.md` — Functional test map (inputs, oracles, `ctest` commands)
 - `../README.md` — Docs taxonomy and directory entrypoints
 
 ---
@@ -129,8 +129,10 @@ Styio/
 │   ├── StyioIR/                # Styio intermediate representation
 │   │   ├── StyioIR.hpp         # IR base classes
 │   │   ├── IRDecl.hpp          # IR node forward declarations
-│   │   ├── GenIR/GenIR.hpp     # General IR node definitions
-│   │   └── IOIR/IOIR.hpp       # I/O-specific IR nodes
+│   │   ├── GenIR/GenIR.hpp     # General IR node aggregator
+│   │   ├── GenIR/SGIR.hpp      # General IR (default) nodes
+│   │   ├── GenIR/SIOIR.hpp     # I/O / std-stream / file IR nodes
+│   │   └── GenIR/SCIR.hpp      # Collection IR nodes (list/dict/matrix)
 │   │
 │   ├── StyioCodeGen/           # LLVM IR generation
 │   │   ├── CodeGenVisitor.hpp  # StyioToLLVM visitor class
@@ -141,8 +143,7 @@ Styio/
 │   │   └── GetTypeIO.cpp       # LLVM type resolution (I/O)
 │   │
 │   ├── StyioJIT/               # JIT execution
-│   │   ├── StyioJIT_ORC.hpp    # LLVM ORC JIT wrapper
-│   │   └── JITExecutor.hpp     # Execution entry point
+│   │   └── StyioJIT_ORC.hpp    # LLVM ORC JIT wrapper
 │   │
 │   ├── StyioNative/            # C/C++ @extern signature parsing, native compilation, dlopen/dlsym loading
 │   │   ├── NativeInterop.hpp
@@ -465,7 +466,7 @@ When adding parsing logic for ambiguous tokens (e.g., `>>` as pipe vs. continue)
 ### Step 1: Add IR Node (if needed)
 
 If the new AST concept requires a distinct IR representation:
-1. Define in `src/StyioIR/GenIR/GenIR.hpp` (or `IOIR/IOIR.hpp` for I/O nodes)
+1. Define in the right domain header under `src/StyioIR/GenIR/`: general nodes in `SGIR.hpp`, I/O / std-stream / file nodes in `SIOIR.hpp`, collection nodes (list/dict/matrix) in `SCIR.hpp`. `GenIR.hpp` is a compatibility aggregator only.
 2. Forward-declare in `src/StyioIR/IRDecl.hpp`
 
 ### Step 2: Implement IR Lowering
@@ -549,7 +550,7 @@ Every change MUST include tests for:
 - **Stdout oracle:** `expected/<same_basename>.out` (compared via `styio --file … | cmp -s - …` in CMake)
 - **Registration:** `tests/CMakeLists.txt` (`add_test` + labels `language_feature`, `<feature>`, and optional `<feature>_semantic`)
 
-**Human-readable index:** `../assets/workflow/TEST-CATALOG.md` (must list **input**, **oracle** or side-effect path, and **`ctest -R` / `-L`**). When you add a fixture, update both CMake and the catalog.
+**Human-readable index:** `../../workflows/TEST-CATALOG.md` (must list **input**, **oracle** or side-effect path, and **`ctest -R` / `-L`**). When you add a fixture, update both CMake and the catalog.
 
 **Ad-hoc parsing/scaffolding** may still use `extend_tests.py` and numbered files under `tests/parsing/` if present; do not use that layout for feature regressions unless those tests are also wired into CTest.
 
@@ -584,7 +585,7 @@ The build is orchestrated by the top-level `CMakeLists.txt`, which delegates com
 | Dependency | Version | Purpose |
 |------------|---------|---------|
 | LLVM | 18.1.0+ (CMake) | IR generation, JIT, native target |
-| ICU | System + `FindICU.cmake` | Unicode (`uc`, `i18n`) |
+| ICU | System + `cmake/FindICU.cmake` | Unicode (`uc`, `i18n`) |
 | GoogleTest | FetchContent zip in `cmake/StyioGoogleTest.cmake` | Tests and benchmark targets only |
 | cxxopts | Vendored `src/include/cxxopts.hpp` | CLI argument parsing |
 
@@ -644,8 +645,8 @@ Follow `./DOCUMENTATION-POLICY.md` (including **§0** — minimal change, three-
 
 - **Progress and lessons learned:** durable lessons must be promoted into active rollups, SSOTs, or runbooks; raw dated checkpoint text is recovered from Git history when needed.
 - **Implemented decisions:** `../adr/IMPLEMENTED-DECISIONS.md` keeps a compressed provenance summary; exact old ADR wording comes from Git history.
-- **Test catalog:** `../assets/workflow/TEST-CATALOG.md` — group by **language feature**; each row must be reproducible with **CTest** (and document stdin/stdout/files).
-- **Team runbooks:** `../teams/<TEAM>-RUNBOOK.md` — every delivery that changes a mapped team-owned folder must update the corresponding runbook when the ownership surface, workflow, gates, handoff, or recovery knowledge changes. Ordinary team runbooks must follow `../assets/templates/TEAM-RUNBOOK-TEMPLATE.md`; the enforcement entrypoint is `../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md` and `python3 scripts/team-docs-gate.py`.
+- **Test catalog:** `../../workflows/TEST-CATALOG.md` — group by **language feature**; each row must be reproducible with **CTest** (and document stdin/stdout/files).
+- **Team runbooks:** `../teams/<TEAM>-RUNBOOK.md` — every delivery that changes a mapped team-owned folder must update the corresponding runbook when the ownership surface, workflow, gates, handoff, or recovery knowledge changes. Ordinary team runbooks must follow `../assets/templates/TEAM-RUNBOOK-TEMPLATE.md`; the enforcement entrypoint is `../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md` and `python3 scripts/team-docs-gate.py`.
 - **Runbook statistics:** `../teams/DOC-STATS.md` — refresh this file in the same delivery when any team runbook or `COORDINATION-RUNBOOK.md` changes.
 
 ---
@@ -735,7 +736,7 @@ If two agents propose conflicting changes to the same file:
 ## Appendix A: Quick-Start Checklist for New Agents
 
 1. Read this file (`AGENT-SPEC.md`) completely
-2. Read `DOCUMENTATION-POLICY.md` and `../assets/workflow/TEST-CATALOG.md` for where to log work and how tests are named
+2. Read `DOCUMENTATION-POLICY.md` and `../../workflows/TEST-CATALOG.md` for where to log work and how tests are named
 3. Read `../design/Styio-Language-Design.md` for the full language picture
 4. Read `../design/Styio-Symbol-Reference.md` to understand the symbol system
 5. Examine `src/main.cpp` to understand the pipeline flow
@@ -745,7 +746,7 @@ If two agents propose conflicting changes to the same file:
 9. Make your change
 10. Run `clang-format` on modified files
 11. Verify all existing tests still pass (`ctest --test-dir build/default -L language_feature` plus `styio_test` when the build allows)
-12. Add new tests for your change; register in `tests/CMakeLists.txt` and `../assets/workflow/TEST-CATALOG.md`
+12. Add new tests for your change; register in `tests/CMakeLists.txt` and `../../workflows/TEST-CATALOG.md`
 13. Update the mapped team runbook using `../assets/templates/TEAM-RUNBOOK-TEMPLATE.md` and refresh `../teams/DOC-STATS.md` when the change affects owned folders or team maintenance knowledge
 14. Update `docs/history/YYYY-MM-DD.md` for non-trivial work; update design docs if syntax or semantics change
 15. Run `python3 scripts/team-docs-gate.py` and `python3 scripts/docs-audit.py` before delivery

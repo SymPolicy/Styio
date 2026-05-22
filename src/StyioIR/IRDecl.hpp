@@ -106,7 +106,7 @@ class SGBlock;
 class SGEntry;
 class SGMainEntry;
 
-/* IOIR */
+/* IO IR (merged into GenIR/SIOIR.hpp 2026-05-22) */
 class SIOPath;
 class SIOPrint;
 class SIORead;

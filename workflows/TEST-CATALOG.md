@@ -2,7 +2,7 @@
 
 **Purpose:** Define the feature-based Styio test inventory, CTest labels, fixture layout, and gate commands for language acceptance coverage.
 
-**Last updated:** 2026-05-10
+**Last updated:** 2026-05-22
 
 ---
 
@@ -57,6 +57,9 @@ ctest --test-dir build/default -L scalar_expressions --output-on-failure
 
 | Gate | Purpose | Command |
 |------|---------|---------|
+| `StyioDiagnostics.SyntaxCheckRejectsNonAuthoritativeParserEngine` | Prove the public syntax-check contract is locked to the authoritative nightly parser. | `ctest --test-dir build/default -R '^StyioDiagnostics\.SyntaxCheckRejectsNonAuthoritativeParserEngine$' --output-on-failure` |
+| `StyioSemanticBridge.RejectsMalformedInputWithoutRecovery` | Prove IDE semantic facts are not recovered from malformed source after strict compiler parsing fails. | `ctest --test-dir build/default -R '^StyioSemanticBridge\.RejectsMalformedInputWithoutRecovery$' --output-on-failure` |
+| `StyioSyntaxDrift.CorpusMatchesApprovedEnvelope` | Keep editor syntax snapshots documented as non-authoritative when they intentionally differ from strict compiler parsing on malformed source. | `ctest --test-dir build/default -R '^StyioSyntaxDrift\.CorpusMatchesApprovedEnvelope$' --output-on-failure` |
 | `parser_shadow_gate_scalar_expressions_zero_fallback_and_internal_bridges` | Keep scalar expression fixtures identical across parser engines with no fallback records. | `ctest --test-dir build/default -R '^parser_shadow_gate_scalar_expressions_zero_fallback_and_internal_bridges$' --output-on-failure` |
 | `parser_shadow_gate_functions_zero_fallback_and_internal_bridges` | Keep function fixtures identical across parser engines with no fallback records. | `ctest --test-dir build/default -R '^parser_shadow_gate_functions_zero_fallback_and_internal_bridges$' --output-on-failure` |
 | `parser_shadow_gate_file_resources_dual_zero_expected_nonzero` | Keep file-resource parser artifacts matched while allowing registered fail-fast fixtures in `shadow-expected-nonzero.txt`. | `ctest --test-dir build/default -R '^parser_shadow_gate_file_resources_dual_zero_expected_nonzero$' --output-on-failure` |

@@ -6,6 +6,8 @@
 
 **Plan status:** Repo-local baseline completed. Remaining ecosystem-wide closure is tracked in [Styio-Ecosystem-Delivery-Master-Plan.md](./Styio-Ecosystem-Delivery-Master-Plan.md) and the owning consumer plans.
 
+> **MIGRATION-NEEDED: M-PLAN-01** ([../rollups/MIGRATION-LEDGER.md](../rollups/MIGRATION-LEDGER.md)). Once the master plan absorbs the residual hardening rules and the `spio` SSOT covers the cross-repo contract, archive this file through `docs/archive/ARCHIVE-MANIFEST.json` and remove it from the current tree.
+
 ## 1. Goal
 
 `styio-nightly` 需要同时服务 `spio` 的两条工具链通道：
