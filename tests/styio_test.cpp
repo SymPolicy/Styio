@@ -2470,6 +2470,90 @@ TEST(StyioNanoPackage, CloudRepositoryRejectsBlobSha256Mismatch) {
   fs::remove_all(root);
 }
 
+TEST(StyioNanoPackage, CloudRepositoryRejectsBlobSizeMismatch) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-nano-package-size-mismatch-" + std::to_string(uniq));
+  const fs::path repo_dir = root / "repo";
+  const fs::path output_dir = root / "install";
+  const fs::path config = root / "nano.toml";
+  const std::string package_name = "edge/default";
+  const std::string version = "0.0.1";
+  const fs::path entry =
+    repo_dir / "index" / "edge" / "default" / (version + ".json");
+  ASSERT_TRUE(fs::create_directories(entry.parent_path()));
+
+  {
+    std::ofstream out(repo_dir / "styio-nano-repository.json");
+    ASSERT_TRUE(out.is_open());
+    out << "{\n";
+    out << "  \"kind\": \"styio-nano-static\",\n";
+    out << "  \"schema_version\": 1\n";
+    out << "}\n";
+  }
+
+  const fs::path blob_staging = root / "edge-default.tar";
+  {
+    std::ofstream out(blob_staging, std::ios::binary);
+    ASSERT_TRUE(out.is_open());
+    out << "not a real nano tarball, but it has a stable digest\n";
+  }
+  const std::string sha256 = trim_copy_latest(sha256_file_latest(blob_staging));
+  ASSERT_EQ(sha256.size(), 64U);
+  const fs::path blob_relpath =
+    fs::path("blobs") / "sha256" / sha256.substr(0, 2) / sha256.substr(2, 2) / (sha256 + ".tar");
+  const fs::path blob_path = repo_dir / blob_relpath;
+  ASSERT_TRUE(fs::create_directories(blob_path.parent_path()));
+  {
+    std::error_code ec;
+    fs::copy_file(blob_staging, blob_path, fs::copy_options::overwrite_existing, ec);
+    ASSERT_FALSE(ec) << ec.message();
+  }
+
+  {
+    std::ofstream out(entry);
+    ASSERT_TRUE(out.is_open());
+    out << "{\n";
+    out << "  \"schema_version\": 1,\n";
+    out << "  \"package\": \"" << package_name << "\",\n";
+    out << "  \"version\": \"" << version << "\",\n";
+    out << "  \"channel\": \"nano\",\n";
+    out << "  \"sha256\": \"" << sha256 << "\",\n";
+    out << "  \"size_bytes\": " << (fs::file_size(blob_path) + 1) << ",\n";
+    out << "  \"blob_path\": \"" << blob_relpath.generic_string() << "\",\n";
+    out << "  \"published_at\": \"2026-05-22T00:00:00Z\"\n";
+    out << "}\n";
+  }
+  {
+    std::ofstream out(config);
+    ASSERT_TRUE(out.is_open());
+    out << "[nano]\n";
+    out << "mode = \"cloud\"\n";
+    out << "output_dir = \"" << output_dir.string() << "\"\n";
+    out << "\n[nano.cloud]\n";
+    out << "registry = \"" << repo_dir.string() << "\"\n";
+    out << "package = \"" << package_name << "\"\n";
+    out << "version = \"" << version << "\"\n";
+  }
+
+  const CommandResult result =
+    run_stdout_command(std::string("\"") + runner + "\" --nano-create --nano-package-config \""
+                       + config.string() + "\" 2>&1");
+  EXPECT_NE(result.exit_code, 0) << result.stdout_text;
+  EXPECT_NE(
+    result.stdout_text.find("nano repository blob size mismatch for edge/default@0.0.1"),
+    std::string::npos);
+
+  fs::remove_all(root);
+}
+
 TEST(StyioNanoPackage, PublishConfigWritesRepositoryAndRoundTripsToCloudInstall) {
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
   if (runner == nullptr || runner[0] == '\0') {
