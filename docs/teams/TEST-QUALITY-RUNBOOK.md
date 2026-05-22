@@ -82,6 +82,7 @@ Primary paths:
 56. Placeholder-retirement coverage must protect both sides of the contract: accepted metadata paths should prove `SGNoOp` or real lowering, while unsupported value syntax should assert `StyioTypeError`. Pair focused `StyioIRContract` unit tests with `security`, `language_feature`, and `styio_pipeline` labels before marking an IM-D1 slice closed.
 57. Parser-authority coverage must protect IM-D2: public syntax-check tests must prove `legacy` and other non-authoritative engines are rejected, parser tests must prove unsupported syntax fails closed instead of using fallback, and IDE tests must prove malformed-source token snapshots do not publish recovered semantic facts.
 58. Fuzz corpus recovery must preserve semantic seed content while removing incidental transport whitespace when it would fail repository whitespace checks. Treat this as seed hygiene, not a parser behavior change, unless the byte sequence itself is the minimized reproducer.
+59. Nano/static repository negative-path coverage is compiler-side contract evidence, not package-manager UX. Keep marker contract rejection, blob integrity mismatch, and remote-publish rejection covered before extending static repository behavior; add the narrowest test that asserts the stable diagnostic text for each new guard.
 
 ## Change Classes
 

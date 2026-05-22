@@ -111,6 +111,7 @@ Key SSOTs:
 76. Keep IM-D10 scoped to package, module, and release compatibility boundaries. Local `styio-spio` or `styio-platform` checkouts are not authoritative for externally maintained state; if the active owning repository cannot be read, record manifest, lockfile, resolver, registry, trust, hosted workspace, standard-library package, and compatibility-matrix questions as external confirmations instead of turning them into `styio` commitments.
 77. When recovering Codex or VM change records, promote only durable repository evidence into tracked docs: ADRs, plans, audit summaries, generated indexes, and team runbook rules. Do not restore transient `docs/audit/defects/` records into pushable history; move stable audit findings into approved audit summaries or `docs/audit/agent-findings/` with owner-facing scope and follow-up gates.
 78. Keep the dedicated `repo-hygiene` GitHub Actions workflow aligned with `scripts/repo-hygiene-gate.py` whenever the gate modes, push-range calculation, Python baseline, or documented delivery floor changes.
+79. When updating the active rollup ledger for package or service contract hardening, keep the change evidence-scoped: record the exact local test command, preserve the `styio` compiler-side boundary, and leave unresolved package-manager or platform lifecycle questions in IM-D10 instead of turning them into `styio` commitments.
 
 ## Change Classes
 
