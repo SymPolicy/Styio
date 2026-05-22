@@ -60,6 +60,7 @@ Key handoff document:
 26. Keep syntax-check parser authority locked to nightly. `--parser-engine nightly` may remain accepted as an explicit spelling, but `legacy`, `new`, and consumer-specific engines must remain CLI errors for the public syntax service.
 27. Public JSON/JSONL diagnostics must use the shared `STYIO_<PHASE>_<ERROR_FAMILY>` taxonomy from `src/StyioServices/DiagnosticContract.hpp`; keep compatibility `subcode` fields only as secondary aliases.
 28. For IM-D10 package-boundary work, keep `styio` limited to compiler-side facts: machine-info, source-build-info, syntax-check, compile-plan, nano producer/verifier, receipts, diagnostics, and runtime events. Do not infer current Spio or Styio-Platform behavior from stale local checkouts; unresolved manifest, lockfile, resolver, registry, trust, hosted workspace, standard-library package, and compatibility-matrix topics must remain external confirmation items.
+29. Recovery edits under `src/StyioServices/StyioConfig/` should be mechanical unless they change a public CLI contract. Whitespace-only README cleanup does not alter machine-info, source-build-info, compile-plan, or nano behavior and should be paired with docs gates rather than CLI contract rewrites.
 
 ## Change Classes
 

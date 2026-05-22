@@ -91,6 +91,7 @@ struct VerifierContext
       return;
     }
     if (auto* n = dynamic_cast<const SGCast*>(node)) {
+      visit_required(n->value, "SGCast.value");
       visit_required(n->from_type, "SGCast.from_type");
       visit_required(n->to_type, "SGCast.to_type");
       return;

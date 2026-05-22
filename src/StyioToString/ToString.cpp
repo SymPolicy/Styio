@@ -1388,7 +1388,13 @@ StyioRepr::toString(SGStruct* node, int indent) {
 
 std::string
 StyioRepr::toString(SGCast* node, int indent) {
-  return std::string("styio.ir.cast { ") + " }";
+  return std::string("styio.ir.cast {\n")
+         + make_padding(indent) + "from "
+         + node->from_type->toString(this, indent + 1) + "\n"
+         + make_padding(indent) + "to "
+         + node->to_type->toString(this, indent + 1) + "\n"
+         + make_padding(indent) + node->value->toString(this, indent + 1)
+         + "}";
 }
 
 std::string

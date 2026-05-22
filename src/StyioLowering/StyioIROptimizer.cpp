@@ -63,6 +63,17 @@ ir_expr_equiv(StyioIR* lhs, StyioIR* rhs) {
     auto* rf = dynamic_cast<SGConstFloat*>(rhs);
     return rf != nullptr && lf->value == rf->value;
   }
+  if (auto* lc = dynamic_cast<SGCast*>(lhs)) {
+    auto* rc = dynamic_cast<SGCast*>(rhs);
+    return rc != nullptr
+      && lc->from_type != nullptr
+      && rc->from_type != nullptr
+      && lc->to_type != nullptr
+      && rc->to_type != nullptr
+      && same_type(lc->from_type->data_type, rc->from_type->data_type)
+      && same_type(lc->to_type->data_type, rc->to_type->data_type)
+      && ir_expr_equiv(lc->value, rc->value);
+  }
   if (auto* ls = dynamic_cast<SGConstString*>(lhs)) {
     auto* rs = dynamic_cast<SGConstString*>(rhs);
     return rs != nullptr && ls->value == rs->value;
@@ -135,6 +146,9 @@ ir_expr_is_speculatable(StyioIR* ir) {
       || dynamic_cast<SGConstString*>(ir)) {
     return true;
   }
+  if (auto* cast = dynamic_cast<SGCast*>(ir)) {
+    return ir_expr_is_speculatable(cast->value);
+  }
   if (auto* op = dynamic_cast<SGBinOp*>(ir)) {
     return is_speculatable_op(op->operand)
       && ir_expr_is_speculatable(op->lhs_expr)
@@ -164,9 +178,11 @@ ir_expr_has_no_runtime_effects(StyioIR* ir) {
       || dynamic_cast<SGConstBool*>(ir)
       || dynamic_cast<SGConstInt*>(ir)
       || dynamic_cast<SGConstFloat*>(ir)
-      || dynamic_cast<SGConstString*>(ir)
-      || dynamic_cast<SGCast*>(ir)) {
+      || dynamic_cast<SGConstString*>(ir)) {
     return true;
+  }
+  if (auto* cast = dynamic_cast<SGCast*>(ir)) {
+    return ir_expr_has_no_runtime_effects(cast->value);
   }
   if (auto* op = dynamic_cast<SGBinOp*>(ir)) {
     return ir_expr_has_no_runtime_effects(op->lhs_expr)
@@ -228,6 +244,10 @@ collect_expr_reads(StyioIR* ir, std::unordered_set<std::string>& names) {
   }
   if (auto name = res_id_name(ir)) {
     names.insert(*name);
+    return;
+  }
+  if (auto* cast = dynamic_cast<SGCast*>(ir)) {
+    collect_expr_reads(cast->value, names);
     return;
   }
   if (auto* op = dynamic_cast<SGBinOp*>(ir)) {
@@ -541,6 +561,10 @@ private:
     if (auto* op = dynamic_cast<SGBinOp*>(ir)) {
       op->lhs_expr = optimize(op->lhs_expr);
       op->rhs_expr = optimize(op->rhs_expr);
+      return;
+    }
+    if (auto* cast = dynamic_cast<SGCast*>(ir)) {
+      cast->value = optimize(cast->value);
       return;
     }
     if (auto* cond = dynamic_cast<SGCond*>(ir)) {

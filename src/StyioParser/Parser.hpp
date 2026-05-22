@@ -1486,6 +1486,12 @@ parse_resources_after_at(StyioContext& context);
 StyioAST*
 parse_resource_file_atom_latest(StyioContext& context);
 
+bool
+parse_terminal_handle_latest(StyioContext& context);
+
+StyioAST*
+parse_resource_target_latest(StyioContext& context, StdStreamKind terminal_kind = StdStreamKind::Stdout);
+
 StyioAST*
 parse_instant_pull_resource_atom_latest(StyioContext& context, const std::string& diagnostic);
 
@@ -1496,12 +1502,6 @@ parse_parenthesized_instant_pull_latest(
   const std::string& diagnostic,
   const std::string& close_diagnostic
 );
-
-bool
-parse_terminal_handle_latest(StyioContext& context);
-
-StyioAST*
-parse_resource_target_latest(StyioContext& context, StdStreamKind terminal_kind = StdStreamKind::Stdout);
 
 StyioAST*
 try_parse_resource_write_tail_latest(StyioContext& context, StyioAST* data);

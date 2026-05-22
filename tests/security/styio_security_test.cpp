@@ -596,6 +596,26 @@ TEST(StyioIRContract, CharAstLowersToConstChar) {
   EXPECT_EQ(const_char->value, 'x');
 }
 
+TEST(StyioIRContract, TypeConvertAstLowersToValueCarryingCast) {
+  AstToStyioIRLowerer analyzer;
+  std::unique_ptr<StyioAST> expr(
+    TypeConvertAST::Create(IntAST::Create("7"), NumPromoTy::Int_To_Float)
+  );
+
+  expr->typeInfer(&analyzer);
+  EXPECT_EQ(expr->getDataType().option, StyioDataTypeOption::Float);
+  EXPECT_EQ(expr->getDataType().name, "f64");
+
+  std::unique_ptr<StyioIR> ir(expr->toStyioIR(&analyzer));
+  auto* cast = dynamic_cast<SGCast*>(ir.get());
+  ASSERT_NE(cast, nullptr);
+  EXPECT_NE(dynamic_cast<SGConstInt*>(cast->value), nullptr);
+  ASSERT_NE(cast->from_type, nullptr);
+  ASSERT_NE(cast->to_type, nullptr);
+  EXPECT_EQ(cast->from_type->data_type.option, StyioDataTypeOption::Integer);
+  EXPECT_EQ(cast->to_type->data_type.option, StyioDataTypeOption::Float);
+}
+
 TEST(StyioIRContract, StandardStreamAliasesLowerToExplicitNoOp) {
   AstToStyioIRLowerer analyzer;
   std::unique_ptr<StyioAST> flex(FlexBindAST::Create(
@@ -628,9 +648,6 @@ TEST(StyioIRContract, UnsupportedAstNodesFailClosedInsteadOfPlaceholder) {
 
   expect_unsupported(std::unique_ptr<StyioAST>(NoneAST::Create()));
   expect_unsupported(std::unique_ptr<StyioAST>(TypeTupleAST::Create()));
-  expect_unsupported(std::unique_ptr<StyioAST>(
-    TypeConvertAST::Create(IntAST::Create("1"), NumPromoTy::Int_To_Float)
-  ));
   expect_unsupported(std::unique_ptr<StyioAST>(
     TupleAST::Create(std::vector<StyioAST*>{IntAST::Create("1")})
   ));
@@ -2586,6 +2603,40 @@ TEST(StyioSecurityNightlyCodegen, CodegenRejectsUnverifiedStyioIR) {
     new InactiveTestIR()
   });
   EXPECT_THROW(entry->toLLVMIR(&generator), StyioTypeError);
+  delete entry;
+}
+
+TEST(StyioSecurityNightlyCodegen, ValueCarryingCastEmitsNumericConversion) {
+  llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmPrinter();
+  llvm::InitializeNativeTargetAsmParser();
+  llvm::ExitOnError exit_on_error;
+  std::unique_ptr<StyioJIT_ORC> jit = exit_on_error(StyioJIT_ORC::Create());
+  StyioToLLVM generator(std::move(jit));
+
+  std::unique_ptr<StyioIR> bool_cast(SGCast::Create(
+    SGConstBool::Create(true),
+    SGType::Create(StyioDataType{StyioDataTypeOption::Bool, "bool", 1}),
+    SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64})
+  ));
+  llvm::Value* bool_cast_value = bool_cast->toLLVMIR(&generator);
+  auto* bool_const = llvm::dyn_cast<llvm::ConstantInt>(bool_cast_value);
+  ASSERT_NE(bool_const, nullptr);
+  EXPECT_EQ(bool_const->getSExtValue(), 1);
+
+  auto* entry = SGMainEntry::Create(std::vector<StyioIR*>{
+    SGCast::Create(
+      SGConstInt::Create(7),
+      SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64}),
+      SGType::Create(StyioDataType{StyioDataTypeOption::Float, "f64", 64})
+    ),
+    SGCast::Create(
+      SGConstBool::Create(true),
+      SGType::Create(StyioDataType{StyioDataTypeOption::Bool, "bool", 1}),
+      SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64})
+    )
+  });
+  EXPECT_NO_THROW(entry->toLLVMIR(&generator));
   delete entry;
 }
 

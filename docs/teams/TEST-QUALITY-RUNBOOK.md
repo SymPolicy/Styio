@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of feature tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-05-22
 
 ## Mission
 
@@ -80,7 +80,10 @@ Primary paths:
 54. Native interop syntax tests must cover both compatibility and preferred binding forms. Keep legacy `@export { name }` plus `@extern(...) => ...` only in parser compatibility coverage; feature fixtures, artifact tests, and new examples must use explicit `# name[, other] := @ extern(...) { ... }` bindings for referenced C, referenced C++, inline C, mixed inline/reference execution, `styio build` artifact linking, and multi-symbol exposure from one native source file.
 55. IR contract tests must call new node-level invariants through `StyioIR*` or another public base surface, not only through concrete classes. The `is_active()` and verifier contract needs focused coverage for SG, SC, SIO, and legacy IOIR domains, explicit `SGNoOp` lowering from no-op AST forms, inactive-node rejection, and codegen gate rejection before LLVM emission.
 56. Placeholder-retirement coverage must protect both sides of the contract: accepted metadata paths should prove `SGNoOp` or real lowering, while unsupported value syntax should assert `StyioTypeError`. Pair focused `StyioIRContract` unit tests with `security`, `language_feature`, and `styio_pipeline` labels before marking an IM-D1 slice closed.
-57. Parser-authority coverage must protect IM-D2: public syntax-check tests must prove `legacy` and other non-authoritative engines are rejected, parser tests must prove unsupported syntax fails closed instead of using fallback, and IDE tests must prove malformed-source token snapshots do not publish recovered semantic facts.
+57. Value-carrying cast closure needs paired IR contract and codegen regression coverage: `TypeConvertAST -> SGCast` must preserve the value/type edge, and `SGCast` LLVM conversion must prove numeric promotion semantics instead of only asserting no throw.
+58. Parser-authority coverage must protect IM-D2: public syntax-check tests must prove `legacy` and other non-authoritative engines are rejected, parser tests must prove unsupported syntax fails closed instead of using fallback, and IDE tests must prove malformed-source token snapshots do not publish recovered semantic facts.
+59. Fuzz corpus recovery must preserve semantic seed content while removing incidental transport whitespace when it would fail repository whitespace checks. Treat this as seed hygiene, not a parser behavior change, unless the byte sequence itself is the minimized reproducer.
+60. Nano/static repository negative-path coverage is compiler-side contract evidence, not package-manager UX. Keep marker contract rejection, blob SHA256 mismatch, blob size mismatch, and remote-publish rejection covered before extending static repository behavior; add the narrowest test that asserts the stable diagnostic text for each new guard.
 
 ## Change Classes
 

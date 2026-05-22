@@ -107,7 +107,7 @@ StyioToLLVM::toLLVMType(SGStruct* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGCast* node) {
-  return theBuilder->getInt64Ty();
+  return node->to_type->toLLVMType(this);
 };
 
 llvm::Type*

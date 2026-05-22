@@ -979,7 +979,9 @@ public:
 class TypeConvertAST : public StyioASTTraits<TypeConvertAST>
 {
   std::unique_ptr<StyioAST> value_owner_;
+  std::unique_ptr<TypeAST> data_type_owner_;
   StyioAST* Value = nullptr;
+  TypeAST* data_type = nullptr;
   NumPromoTy PromoType;
 
 public:
@@ -987,7 +989,11 @@ public:
     StyioAST* val,
     NumPromoTy promo_type
   ) :
-      value_owner_(val), Value(value_owner_.get()), PromoType(promo_type) {
+      value_owner_(val),
+      data_type_owner_(TypeAST::Create()),
+      Value(value_owner_.get()),
+      data_type(data_type_owner_.get()),
+      PromoType(promo_type) {
   }
 
   static TypeConvertAST* Create(
@@ -1005,12 +1011,16 @@ public:
     return PromoType;
   }
 
+  void setDataType(StyioDataType type) {
+    data_type->setType(type);
+  }
+
   const StyioNodeType getNodeType() const {
     return StyioNodeType::NumConvert;
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    return data_type->getDataType();
   }
 };
 

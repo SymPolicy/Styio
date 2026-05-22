@@ -207,20 +207,26 @@ public:
 class SGCast : public StyioIRTraits<SGCast>
 {
 public:
+  StyioIR* value = nullptr;
   SGType* from_type;
   SGType* to_type;
 
-  SGCast(SGType* from_type, SGType* to_type) :
-      from_type(from_type), to_type(to_type) {
+  SGCast(StyioIR* value, SGType* from_type, SGType* to_type) :
+      value(value), from_type(from_type), to_type(to_type) {
   }
 
   ~SGCast() override {
+    delete value;
     delete from_type;
     delete to_type;
   }
 
+  static SGCast* Create(StyioIR* value, SGType* from_type, SGType* to_type) {
+    return new SGCast(value, from_type, to_type);
+  };
+
   static SGCast* Create(SGType* from_type, SGType* to_type) {
-    return new SGCast(from_type, to_type);
+    return new SGCast(nullptr, from_type, to_type);
   };
 };
 
