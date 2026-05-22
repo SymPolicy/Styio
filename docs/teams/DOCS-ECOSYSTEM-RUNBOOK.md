@@ -112,6 +112,7 @@ Key SSOTs:
 77. When recovering Codex or VM change records, promote only durable repository evidence into tracked docs: ADRs, plans, audit summaries, generated indexes, and team runbook rules. Do not restore transient `docs/audit/defects/` records into pushable history; move stable audit findings into approved audit summaries or `docs/audit/agent-findings/` with owner-facing scope and follow-up gates.
 78. Keep the dedicated `repo-hygiene` GitHub Actions workflow aligned with `scripts/repo-hygiene-gate.py` whenever the gate modes, push-range calculation, Python baseline, or documented delivery floor changes.
 79. When updating the active rollup ledger for package or service contract hardening, keep the change evidence-scoped: record the exact local test command, preserve the `styio` compiler-side boundary, and leave unresolved package-manager or platform lifecycle questions in IM-D10 instead of turning them into `styio` commitments.
+80. Keep the Draft PR checkpoint rule in [../assets/workflow/REPO-HYGIENE-COMMIT-STANDARD.md](../assets/workflow/REPO-HYGIENE-COMMIT-STANDARD.md) and [../assets/workflow/CHECKPOINT-WORKFLOW.md](../assets/workflow/CHECKPOINT-WORKFLOW.md) aligned whenever commit, push, or recovery-branch practice changes; the minimum push unit exists to protect remote recoverability before long-running tasks are fully polished.
 
 ## Change Classes
 

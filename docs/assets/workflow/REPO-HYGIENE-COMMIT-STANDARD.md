@@ -2,7 +2,7 @@
 
 **Purpose:** 约束 Styio 仓库的本地清理、`.gitignore`、提交前检查、push 前检查、历史重写与 `force-push` 边界；不定义语言语义与功能重构步骤（见 `CHECKPOINT-WORKFLOW.md` / `../templates/REFACTOR-WORKFLOW-TEMPLATE.md`）。
 
-**Last updated:** 2026-04-17
+**Last updated:** 2026-05-22
 
 ---
 
@@ -102,6 +102,29 @@ git diff --cached --name-only \
 ---
 
 ## 5. Push 前检查
+
+### 5.0 Draft PR 最小推送单位
+
+长任务、恢复任务和不确定范围的探索任务默认采用一个远端工作分支承载一个 Draft PR：
+
+```bash
+git fetch origin --prune
+git switch -c codex/<topic> origin/nightly
+git push -u origin codex/<topic>
+gh pr create --draft --base nightly --head codex/<topic>
+```
+
+后续只向这个分支继续提交和 push；Draft PR 会自动更新。这个分支是任务的远端备份点，也是后续 CI、review 和最终合并入口。
+
+最小推送单位固定为：
+
+1. 提交说明能说清本次保存的目的；
+2. 不包含明显垃圾文件、大 blob、构建产物或本地 IDE 状态；
+3. 至少通过 `git diff --check` 和 `python3 scripts/repo-hygiene-gate.py --mode worktree`；
+4. 若改动已经 staged，优先通过 `./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit`；
+5. 对于正在抢救但尚未完整闭环的状态，提交消息使用 `checkpoint: preserve <scope>`，并只推送到 Draft PR 工作分支。
+
+长任务中任何有价值的改动都不应只停留在工作树或对话上下文中。默认每 20-30 分钟形成一次最小推送单位；如果上下文、虚拟机或本地进程崩溃，恢复点应以远端 Draft PR 分支为准。
 
 推荐先运行仓库门禁：
 
@@ -211,6 +234,7 @@ git push --force-with-lease origin <branch>
 
 ```text
 checkpoint: <范围> <目的>
+checkpoint: preserve <scope>
 cleanup: remove tracked generated artifacts
 docs: freeze repo hygiene and commit standard
 fix: <行为修复>
