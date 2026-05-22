@@ -239,7 +239,8 @@ fix: <行为修复>
 
 1. `pre-commit` 会通过 `./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit` 检查暂存区路径、二进制、本机产物、runtime surface 和 staged docs/runbook 责任。
 2. `pre-push` 会通过 `./scripts/delivery-gate.sh --mode push --skip-health` 检查待推送历史里的禁止路径、大 blob、docs/runbook 分支责任和 external audit。
-3. GitHub Actions `styio-ci-gate` 会在受管分支的 `push` 与所有 `pull_request` 上重复执行同样的门禁。
+3. GitHub Actions `repo-hygiene` 会在所有 `push` 与 `pull_request` 上快速检查 tracked tree 与 incoming history range。
+4. GitHub Actions `styio-ci-gate` 会在受管分支的 `push` 与所有 `pull_request` 上通过 workflow scheduler 重复执行完整交付门禁。
 
 ---
 
