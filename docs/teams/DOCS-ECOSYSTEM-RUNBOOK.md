@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-05-22
+**Last updated:** 2026-05-24
 
 ## Mission
 
@@ -114,6 +114,7 @@ Key SSOTs:
 79. When updating the active rollup ledger for package or service contract hardening, keep the change evidence-scoped: record the exact local test command, preserve the `styio` compiler-side boundary, and leave unresolved package-manager or platform lifecycle questions in IM-D10 instead of turning them into `styio` commitments. For nano static repository hardening, keep marker, SHA256, size, and remote-publish guard evidence together when the baseline changes.
 80. Keep the Draft PR checkpoint rule in [../../workflows/REPO-HYGIENE-COMMIT-STANDARD.md](../../workflows/REPO-HYGIENE-COMMIT-STANDARD.md) and [../../workflows/CHECKPOINT-WORKFLOW.md](../../workflows/CHECKPOINT-WORKFLOW.md) aligned whenever commit, push, or recovery-branch practice changes; the minimum push unit is an engineering slice such as a syntax/semantic slice, feature-closure unit, test-evidence group, or docs/governance closure, and exists to protect remote recoverability before long-running tasks are fully polished.
 81. Branch-consolidation pushes must run whitespace checks over the full push range, not only the worktree. If an older tracked docs file fails range hygiene, fix the active file in the consolidation commit and refresh `DOC-STATS.md` when team runbooks changed.
+82. Current implementation-vs-design gap audits belong in `docs/rollups/` only when they are evidence-backed active summaries. Keep them tied to `CURRENT-STATE.md`, `NEXT-STAGE-GAP-LEDGER.md`, exact local verification commands, and explicit non-gap boundaries so they do not become a parallel language SSOT or a stale audit bundle.
 
 ## Change Classes
 

@@ -1,0 +1,270 @@
+# Current Code vs Design Gap Audit 2026-05-24
+
+**Purpose:** Record the current implementation-to-design gap audit for the `styio` repository after the recovery-era rebuild, using the live code, docs, build tree, and local gates as evidence.
+
+**Last updated:** 2026-05-24
+
+**Status:** Active rollup. Use this as a current, evidence-backed audit companion to
+[`CURRENT-STATE.md`](./CURRENT-STATE.md) and [`NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md).
+
+## Scope
+
+This audit compares the current checkout against the active design and contract
+documents in `docs/design/`, `docs/specs/`, `docs/external/`, `docs/rollups/`,
+`workflows/`, and the actual implementation under `src/`, `tests/`, `benchmark/`,
+and `example/`.
+
+The key question is not whether old lost code can be reconstructed from memory.
+The key question is which design promises have a real compiler/runtime/test path
+today, which promises are target design only, and which missing surfaces are
+intentionally owned by adjacent repositories.
+
+## Verification Snapshot
+
+Current local facts:
+
+| Area | Result |
+|------|--------|
+| Branch/worktree | `nightly...origin/nightly`, no tracked dirty files before writing this audit |
+| Compiler binary | `build/bin/styio --version` prints `styio 0.0.1` |
+| Machine contract | `build/bin/styio --machine-info=json` reports `channel=nightly`, `active_integration_phase=compile-plan-live`, and contracts for `machine_info`, `jsonl_diagnostics`, `syntax_check`, `compile_plan`, and `runtime_events` |
+| Docs/parser smoke | `docs_audit`, README glimpse example, syntax-check parser-authority test, and parser legacy-entry audit passed |
+| Language feature suite | `ctest --test-dir build -L language_feature --output-on-failure`: 126/126 passed |
+| Security/safety suite | `ctest --test-dir build -L security --output-on-failure`: 258/258 passed |
+| Pipeline suite | `ctest --test-dir build -L styio_pipeline --output-on-failure`: 167/167 passed |
+| Parser shadow gates | `ctest --test-dir build -R '^(parser_shadow_gate_|parser_legacy_entry_audit)' --output-on-failure`: 6/6 passed |
+| Algorithm equivalence | After building the missing target, `ctest --test-dir build -L algorithm_equivalence --output-on-failure`: 36/36 passed |
+| Performance smoke | After building the missing target, `ctest --test-dir build -L performance --output-on-failure`: 2/2 passed |
+| Deep soak | After building the missing target, `ctest --test-dir build -R '^(styio_algorithm_equivalence_test_NOT_BUILT\|soak_deep_)' --output-on-failure`: 9/9 soak tests passed; the prior `NOT_BUILT` placeholder disappeared after target discovery |
+
+Important nuance: before explicitly building `styio_algorithm_equivalence_test`,
+`styio_soak_test`, and `styio_task_scheduler_perf_test`, CTest had registered
+placeholder or target-backed tests that were `Not Run` because the executables
+were absent from `build/bin`. That was a local build-state/target-selection
+problem, not evidence that the source targets are missing.
+
+## What Is Real
+
+The current repository is a working recovered baseline, not an empty shell.
+
+Real compiler/runtime surfaces:
+
+1. A runnable compiler CLI exists and handles single-file execution, AST/IR/LLVM
+   dumps, JSONL diagnostics, source-build metadata, compile-plan input, and nano
+   package materialization/publish/consume paths.
+2. The nightly parser is the default accepted parser. Parser shadow gates for
+   scalar expressions, functions, file resources, and stream-processing fixtures
+   pass with zero accepted-grammar fallback in the checked suites.
+3. The language feature matrix has runnable coverage for scalar expressions,
+   functions, control flow, wave dispatch, Topology v2 resource slots, final
+   bindings, native interop, tasks, stdio, file resources, and selected stream
+   processing.
+4. Direct unsupported AST lowering now fails closed or lowers intentional empty
+   forms to `SGNoOp`; codegen verifier gating and security tests are present.
+5. `@extern(c|c++)` is not just design prose: native interop feature tests and
+   native executable build tests pass.
+6. The IDE/LSP core exists for completion, hover, definition, references,
+   document/workspace symbols, semantic tokens, diagnostics, incremental sync,
+   and request-driven semantic drain.
+7. Nano package and `compile_plan` integration are real compiler-side contracts;
+   full package-manager UX is explicitly outside this checkout.
+
+## Highest-Priority Gaps
+
+### P0. Resource-effect `?|` is still mostly task_await, not the unified resource effect model
+
+Design says `?| resource_operation`, `?| resource_operation | fallback`,
+effect-specific handlers, and audited discard are the uniform resource-effect
+surface. See `docs/design/syntax/ACTIVE-SYNTAX.md` resource rows for fallback,
+handler, discard, and pressure observer, and `docs/design/Styio-Language-Design.md`
+task/resource-effect section.
+
+Current implementation reality:
+
+1. The parser entry for `?|` is `parse_await_bind_stmt_nightly` in
+   `src/StyioParser/NewParserExpr.cpp`; it requires `?| [source] -> name: T`
+   and parses only an optional value fallback after that target declaration.
+2. `StyioSema/TypeInfer.cpp` rejects `?| ->` as unimplemented continuation
+   lowering and requires the `?|` source to be a task/future handle.
+3. There is no implemented parser/sema/lowering path for `?| @("log.txt").close()`,
+   `?| resource_write | fallback`, `?| op | backpressure => handler`, or
+   `?| op | ...` as resource-effect settlement.
+
+Impact: cleanup failure, resource fallback, backpressure handling, and typed
+resource-effect settlement are design decisions, but not executable source
+language behavior yet. Treat this as the top resource/runtime gap because many
+other resource promises depend on it.
+
+### P0. Topology v2 resource selectors parse, but slice/snapshot value semantics are not closed
+
+Design says `@price[-1]` reads a scalar, while `@price[-3..]` and `@price[...]`
+read snapshot/slice values. The active syntax map lists all three forms.
+
+Current implementation reality:
+
+1. The parser has `ResourceSelectorKind::{Whole, Offset, SliceFrom, SnapshotAll}`
+   and accepts `@name[-n]`, `@name[-n..]`, and `@name[...]`.
+2. Sema currently assigns every non-whole selector the resource value type, not a
+   slice/snapshot container type.
+3. Lowering handles only `ResourceSelectorKind::Offset` specially. `SliceFrom`
+   and `SnapshotAll` fall through to `SGResId::Create(name)`, so they behave like
+   a whole/current resource id in executable code.
+4. A live smoke check showed `@price[-3..]` and `@price[...]` both printing the
+   same latest scalar value as `@price[-1]` in a simple integer recent-window
+   resource program.
+
+Impact: the source surface is broader than the runtime value semantics. This is
+dangerous because it can appear to work while silently collapsing slice/snapshot
+semantics into scalar/latest-resource behavior.
+
+### P0. Stream concurrency and pressure are only partially executable
+
+Design and IM-D5 specify deterministic pulse frames, zip barrier synchronization,
+snapshot joins, declared queue/pressure/timeout/EOF behavior, pressure observers,
+and multiple-writer merge/conflict rules.
+
+Current implementation reality:
+
+1. `SIOStreamZip` codegen supports only list literal and `@file` stream
+   combinations, then throws `unsupported stream zip lowering (supported sources:
+   list literal and @file stream)`.
+2. Resource topology records backpressure edges for writes, collect, iterator,
+   and zip paths, but that is analysis graph evidence rather than a complete
+   runtime scheduling/effect system.
+3. Existing stream-processing tests pass for selected fixtures, but they do not
+   close the full IM-D5 model.
+
+Impact: the stream core is real for selected examples, but the design's
+cross-stream synchronization and pressure semantics remain target architecture.
+Do not market or depend on arbitrary stream-source combinations yet.
+
+## High-Priority Compiler Gaps
+
+### P1. Sema/IR has explicit unsupported language families
+
+The recovered compiler is safer than the old placeholder path, but several AST
+families still do not have real StyioIR semantics:
+
+1. `TupleAST` lowers to `unsupported AST lowering: TupleAST`.
+2. `ExtractorAST` lowers to `unsupported AST lowering: ExtractorAST`.
+3. `SetAST` lowers to `unsupported AST lowering: SetAST`.
+4. `NoneAST` is rejected because null/none value semantics are not defined.
+5. `InfiniteAST`, `ForwardAST`, `BackwardAST`, and `CODPAST` have no active
+   StyioIR lowering.
+6. `IterSeqAST` fail-closes with a diagnostic telling users to use normal
+   `#(param) => { ... }` iterator bodies.
+
+This is mostly good failure behavior, but it is still a design gap wherever the
+surface appears in active docs, EBNF, examples, or parser support.
+
+### P1. Type semantics still contain recovery-era defaults
+
+Examples:
+
+1. Function return lowering still maps tuple return metadata and unspecified
+   return types through an `i64` fallback in helper code.
+2. Topology v2 resource declaration lowering initializes declared slots to a
+   zero value by storage type. For integer fixed/recent resources this becomes a
+   bounded-ring storage value, but non-integer resource storage and absence/default
+   semantics are not a full typed resource initialization contract.
+3. Range literal lowering currently requires integer literal bounds; general
+   range expressions are not implemented.
+
+Impact: these are not silent `SGConstInt(0)` placeholder AST lowerings, but they
+are still places where the design's expression-oriented and typed semantics have
+not fully replaced recovery defaults.
+
+### P1. IDE/LSP is useful but intentionally incomplete
+
+Current LSP capabilities match the documented core: completion, hover,
+definition, references, document/workspace symbols, semantic tokens, document
+sync, and diagnostics.
+
+Still missing by design/current docs:
+
+1. `rename`
+2. `codeAction`
+3. `inlayHint`
+4. multi-workspace/server deployment behavior
+5. full independent idle runtime, since stdio service progress is request-driven
+
+Impact: Vityo/first-party adapters may have richer local UX, but public compiler
+service truth is narrower. Hosts must not infer unsupported public LSP features
+from first-party fallback behavior.
+
+## Medium-Priority Ecosystem Gaps
+
+### P2. Package-manager expectations are split by design, but easy to misread
+
+`styio` currently owns:
+
+1. nano package materialization
+2. static local registry consume/publish
+3. `compile_plan` producer/consumer contract
+4. machine-readable compiler capabilities
+
+`styio` does not own full package lifecycle UX:
+
+1. `install`
+2. `use`
+3. `search`
+4. `vendor`
+5. `pin`
+6. dependency resolution
+7. lockfiles
+8. remote registry protocol/auth/trust
+
+This is not a code defect inside `styio`; it is a boundary that must stay visible
+in any design review. If a recovered product design assumes those features are
+in this repository, that design is currently mapped to the wrong repo.
+
+### P2. Release/conformance evidence is strong locally but not yet full release closure
+
+The local build passed broad language, security, pipeline, algorithm,
+performance, and deep-soak checks after building the missing optional targets.
+Remaining gap is release posture:
+
+1. Cross-platform release matrix is not proven by this local macOS checkout.
+2. Sanitizer/fuzz/perf/nightly lanes are documented as tiered responsibilities,
+   but this audit did not run every L3 lane.
+3. CTest can show misleading `NOT_BUILT`/missing executable failures if optional
+   targets have not been built before selection by regex or all-test runs.
+
+Impact: local recovery health is good, but release promotion should still use the
+IM-D6 lane vocabulary and avoid treating "not built in this tree yet" as either
+a source defect or a pass.
+
+## Non-Gaps
+
+These should not be counted as missing implementation in this checkout:
+
+1. Full package-manager product behavior belongs to `styio-spio`, not `styio`.
+2. Remote registry service semantics, auth/signing/trust, channel aliasing, and
+   package listing APIs are not compiler responsibilities.
+3. Retired state-resource containers, source-level bare `@`, and retired wave
+   tokens should remain rejected unless a new design checkpoint deliberately
+   reopens them.
+4. The presence of legacy parser code is not by itself evidence that accepted
+   grammar still depends on fallback; current parser shadow gates passed for the
+   covered suites. It remains maintenance debt, not current user-facing authority.
+
+## Recommended Closure Order
+
+1. Implement or explicitly reject every `?| resource_operation` form in one
+   resource-effect checkpoint. Include fallback, named handler, discard, cleanup
+   failure, and task_await compatibility tests.
+2. Fix Topology v2 selector value semantics before adding new resource features:
+   `@x[-n]` scalar, `@x[-n..]` slice, and `@x[...]` snapshot must have distinct
+   sema types, lowering, runtime values, and golden tests.
+3. Pick one stream-source combination beyond list/file and carry it through
+   parser, sema, lowering, runtime, topology graph, diagnostics, and tests.
+4. Retire or implement the explicit unsupported AST families according to the
+   active syntax docs. Do not let parsed-but-unlowerable forms accumulate.
+5. Expand IDE only after service facts and diagnostics remain stable under the
+   compiler-owned semantic bridge. `rename` and `codeAction` should be backed by
+   shared service facts, not editor-local grammar guesses.
+6. Keep package lifecycle scope out of `styio`; update handoff docs when `spio`
+   contracts change instead of adding compiler CLI flags opportunistically.
+7. Make release gates resilient to optional-target discovery by ensuring the
+   default documented build target set produces every test binary that default
+   CTest invocations are expected to run.
