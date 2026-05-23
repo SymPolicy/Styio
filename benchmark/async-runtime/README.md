@@ -8,5 +8,6 @@ styio-benchmark/async-runtime/
 
 Do not add async performance workloads, runners, generated peer-runtime sources,
 or stored reports under the Styio repository. Styio only provides the selected
-checkout, build directory, and task scheduler probe that the external framework
-uses through `--styio-root`.
+checkout, build directory, and task scheduler probe target that the external
+framework uses through `--styio-root`; the migrated probe source lives in
+`styio-benchmark/styio-probes/`.

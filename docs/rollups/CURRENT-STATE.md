@@ -38,7 +38,7 @@
 2. Common delivery floor: `./scripts/delivery-gate.sh` (default safe auto mode; pass `--base <ref>` only when the intended branch/promotion base cannot be inferred)
 3. Core correctness: `ctest --test-dir build -L language_feature`, `ctest --test-dir build -L styio_pipeline`, `ctest --test-dir build -L security`
 4. Parser authority health: syntax-check authority tests plus shadow gate / zero-fallback / zero-internal-bridges flows described in [`../../workflows/TEST-CATALOG.md`](../../workflows/TEST-CATALOG.md)
-5. Benchmark/perf workflow: `styio-benchmark/tools/perf-route.sh --styio-root <styio-checkout>` plus structured reports in `styio-benchmark`; Styio keeps only probes and compatibility wrappers
+5. Benchmark/perf workflow: `styio-benchmark/tools/perf-route.sh --styio-root <styio-checkout>` plus structured reports in `styio-benchmark`; Styio keeps only probe build adapters and compatibility wrappers, while migrated probe sources live in `styio-benchmark/styio-probes/`
 
 ## Optional Provenance
 

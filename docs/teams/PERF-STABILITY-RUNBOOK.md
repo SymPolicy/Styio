@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of benchmark routes, soak tests, performance reports, regression templates, and stability guardrails.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-05-24
 
 ## Mission
 
@@ -13,8 +13,8 @@ Own Styio's performance probe surface and long-run stability evidence. Canonical
 Primary paths:
 
 1. `benchmark/CMakeLists.txt`
-2. `benchmark/styio_soak_test.cpp`
-3. `benchmark/styio_task_scheduler_perf_test.cpp`
+2. `styio-benchmark/styio-probes/styio_soak_test.cpp`
+3. `styio-benchmark/styio-probes/styio_task_scheduler_perf_test.cpp`
 4. `benchmark/perf-route.sh`
 5. `benchmark/perf-report.py`
 6. `benchmark/soak-minimize.sh`

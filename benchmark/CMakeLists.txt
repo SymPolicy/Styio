@@ -1,7 +1,51 @@
 include(GoogleTest)
 
+set(STYIO_BENCHMARK_ROOT "" CACHE PATH
+    "Path to the external styio-benchmark checkout that owns migrated benchmark probe sources")
+
+function(styio_resolve_benchmark_root out_var)
+  set(candidates)
+  if(STYIO_BENCHMARK_ROOT)
+    list(APPEND candidates "${STYIO_BENCHMARK_ROOT}")
+  endif()
+  if(DEFINED ENV{STYIO_BENCHMARK_ROOT})
+    list(APPEND candidates "$ENV{STYIO_BENCHMARK_ROOT}")
+  endif()
+  list(APPEND candidates
+    "${CMAKE_SOURCE_DIR}/../styio-benchmark"
+    "${CMAKE_SOURCE_DIR}/../../SymPolicy/styio-benchmark"
+    "$ENV{HOME}/DevSpace/SymPolicy/styio-benchmark"
+    "$ENV{HOME}/SymPolicy/styio-benchmark"
+  )
+
+  foreach(candidate IN LISTS candidates)
+    if(candidate STREQUAL "")
+      continue()
+    endif()
+    get_filename_component(candidate_abs "${candidate}" ABSOLUTE BASE_DIR "${CMAKE_SOURCE_DIR}")
+    if(EXISTS "${candidate_abs}/styio-probes/styio_soak_test.cpp"
+       AND EXISTS "${candidate_abs}/styio-probes/styio_task_scheduler_perf_test.cpp")
+      set(${out_var} "${candidate_abs}" PARENT_SCOPE)
+      return()
+    endif()
+  endforeach()
+
+  set(${out_var} "" PARENT_SCOPE)
+endfunction()
+
+styio_resolve_benchmark_root(STYIO_BENCHMARK_ROOT_RESOLVED)
+if(NOT STYIO_BENCHMARK_ROOT_RESOLVED)
+  message(FATAL_ERROR
+    "Styio benchmark probe sources have moved to styio-benchmark/styio-probes. "
+    "Set -DSTYIO_BENCHMARK_ROOT=/path/to/styio-benchmark or export STYIO_BENCHMARK_ROOT.")
+endif()
+set(STYIO_BENCHMARK_ROOT "${STYIO_BENCHMARK_ROOT_RESOLVED}" CACHE PATH
+    "Path to the external styio-benchmark checkout that owns migrated benchmark probe sources" FORCE)
+set(STYIO_BENCHMARK_PROBE_DIR "${STYIO_BENCHMARK_ROOT}/styio-probes")
+message(STATUS "[Styio] Benchmark probes: ${STYIO_BENCHMARK_PROBE_DIR}")
+
 add_executable(styio_soak_test
-  styio_soak_test.cpp
+  "${STYIO_BENCHMARK_PROBE_DIR}/styio_soak_test.cpp"
 )
 target_link_libraries(styio_soak_test PRIVATE styio_core GTest::gtest_main)
 styio_apply_llvm_compile_settings(styio_soak_test)
@@ -16,7 +60,7 @@ gtest_discover_tests(styio_soak_test
 )
 
 add_executable(styio_task_scheduler_perf_test
-  styio_task_scheduler_perf_test.cpp
+  "${STYIO_BENCHMARK_PROBE_DIR}/styio_task_scheduler_perf_test.cpp"
 )
 target_link_libraries(styio_task_scheduler_perf_test PRIVATE styio_core GTest::gtest_main)
 styio_apply_llvm_compile_settings(styio_task_scheduler_perf_test)

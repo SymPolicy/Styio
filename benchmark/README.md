@@ -3,15 +3,13 @@
 The canonical benchmark repository is `styio-benchmark`.
 
 All performance workloads, benchmark runners, cross-runtime harnesses, native C++
-comparison code, stored reports, and baseline documents belong there. This
-directory remains only for interfaces that must live next to the Styio build:
+comparison code, stored reports, baseline documents, and migrated C++ probe
+sources belong there. This directory remains only for interfaces that must live
+next to the Styio build:
 
 - `CMakeLists.txt`
-  - Builds Styio-owned probe binaries.
-- `styio_soak_test.cpp`
-  - In-tree long-loop and phase probe binary consumed by external routes.
-- `styio_task_scheduler_perf_test.cpp`
-  - In-tree task scheduler probe binary consumed by external async routes.
+  - Builds Styio-owned probe binaries from
+    `styio-benchmark/styio-probes/*.cpp`.
 - `parser-shadow-suite-gate.sh`
   - Parser correctness gate wrapper used by Styio CTest feature suites.
 - `perf-route.sh`, `perf-report.py`, and `soak-minimize.sh`
@@ -35,5 +33,6 @@ Equivalent direct form:
 ```
 
 Do not add new benchmark implementation files under this directory. If a new
-measurement needs Styio internals, add the smallest necessary exported probe or
-ABI here, then keep the workload and runner in `styio-benchmark`.
+measurement needs Styio internals, put the smallest necessary probe source under
+`styio-benchmark/styio-probes/`, expose only the target or ABI needed by this
+checkout, then keep the workload and runner in `styio-benchmark`.
