@@ -4791,6 +4791,39 @@ TEST(StyioTopologyV2, LogicalResourceWritesCommitAtPulseEnd) {
   fs::remove(input);
 }
 
+TEST(StyioTopologyV2, AwaitPipeResourceEffectDiscardCommitsWrite) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-discard-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@out : i64|..2|\n";
+    out << "[1] >> #(v) => {\n";
+    out << "  ?| v -> @out | ...\n";
+    out << "  >_(@out[-1])\n";
+    out << "}\n";
+    out << ">_(@out[-1])\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "0\n1\n");
+
+  fs::remove(input);
+}
+
 TEST(StyioDiagnostics, MatchWithoutDefaultDoesNotCrash) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();

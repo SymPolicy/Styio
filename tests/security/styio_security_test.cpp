@@ -1537,6 +1537,21 @@ TEST(StyioSecurityNightlyParserStmt, ParsesTaskGroupAndAwaitBindings) {
   EXPECT_NE(llvm_ir.find("styio_runtime_clear_error"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectDiscardStatement) {
+  const std::string src =
+    "@out : i64|..2|\n"
+    "[1] >> #(v) => {\n"
+    "  ?| v -> @out | ...\n"
+    "}\n"
+    ">_(@out[-1])\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.redirect"), std::string::npos);
+  EXPECT_EQ(repr.find("styio.ast.FlowBind"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesTerminalHandleReturnShorthands) {
   const std::vector<std::string> samples = {
     "# stdin_a := () => { <|[>_] }\n",

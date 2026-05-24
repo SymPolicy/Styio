@@ -88,12 +88,39 @@ parse_expr_core_allowing_follow_latest(
 );
 
 bool
+is_statement_separator_nightly_latest(StyioTokenType type);
+
+bool
 is_all_underscore_identifier_latest(const std::string& text) {
   return !text.empty()
          && std::all_of(text.begin(), text.end(), [](char ch)
                         {
                           return ch == '_';
                         });
+}
+
+bool
+is_non_line_trivia_latest(StyioTokenType type) {
+  return type == StyioTokenType::TOK_SPACE
+         || type == StyioTokenType::COMMENT_CLOSED;
+}
+
+std::size_t
+skip_non_line_trivia_latest(const std::vector<StyioToken*>& tokens, std::size_t cursor) {
+  while (cursor < tokens.size() && is_non_line_trivia_latest(tokens[cursor]->type)) {
+    ++cursor;
+  }
+  return cursor;
+}
+
+bool
+is_statement_boundary_token_latest(StyioTokenType type) {
+  return type == StyioTokenType::TOK_LF
+         || type == StyioTokenType::TOK_CR
+         || type == StyioTokenType::TOK_EOF
+         || type == StyioTokenType::TOK_RCURBRAC
+         || type == StyioTokenType::COMMENT_LINE
+         || is_statement_separator_nightly_latest(type);
 }
 
 bool
@@ -2036,6 +2063,108 @@ parse_await_bind_stmt_nightly(StyioContext& context) {
   return bind;
 }
 
+bool
+looks_like_await_bind_stmt_nightly(const StyioContext& context) {
+  const auto& tokens = context.get_tokens();
+  std::size_t cursor = context.get_token_index();
+  if (cursor >= tokens.size() || tokens[cursor]->type != StyioTokenType::AWAIT_PIPE) {
+    return false;
+  }
+  cursor += 1;
+
+  int paren_depth = 0;
+  int box_depth = 0;
+  int brace_depth = 0;
+  while (cursor < tokens.size()) {
+    cursor = skip_non_line_trivia_latest(tokens, cursor);
+    if (cursor >= tokens.size()) {
+      return false;
+    }
+    const StyioTokenType type = tokens[cursor]->type;
+    if (paren_depth == 0 && box_depth == 0 && brace_depth == 0) {
+      if (is_statement_boundary_token_latest(type) || type == StyioTokenType::TOK_PIPE) {
+        return false;
+      }
+      if (type == StyioTokenType::ARROW_SINGLE_RIGHT) {
+        std::size_t next = skip_non_line_trivia_latest(tokens, cursor + 1);
+        if (next >= tokens.size() || tokens[next]->type != StyioTokenType::NAME) {
+          return false;
+        }
+        next = skip_non_line_trivia_latest(tokens, next + 1);
+        return next < tokens.size() && tokens[next]->type == StyioTokenType::TOK_COLON;
+      }
+    }
+
+    if (type == StyioTokenType::TOK_LPAREN) {
+      ++paren_depth;
+    }
+    else if (type == StyioTokenType::TOK_RPAREN && paren_depth > 0) {
+      --paren_depth;
+    }
+    else if (type == StyioTokenType::TOK_LBOXBRAC) {
+      ++box_depth;
+    }
+    else if (type == StyioTokenType::TOK_RBOXBRAC && box_depth > 0) {
+      --box_depth;
+    }
+    else if (type == StyioTokenType::TOK_LCURBRAC) {
+      ++brace_depth;
+    }
+    else if (type == StyioTokenType::TOK_RCURBRAC && brace_depth > 0) {
+      --brace_depth;
+    }
+    ++cursor;
+  }
+  return false;
+}
+
+bool
+is_resource_effect_operation_nightly(StyioAST* ast) {
+  return dynamic_cast<ResourceWriteAST*>(ast) != nullptr
+         || dynamic_cast<ResourceRedirectAST*>(ast) != nullptr
+         || dynamic_cast<InstantPullAST*>(ast) != nullptr
+         || dynamic_cast<ResourceRefAST*>(ast) != nullptr;
+}
+
+StyioAST*
+parse_resource_effect_stmt_nightly(StyioContext& context) {
+  context.match_panic(StyioTokenType::AWAIT_PIPE);
+  context.skip();
+
+  std::unique_ptr<StyioAST> operation(
+    parse_expr_subset_allowing_follow_latest(context, {StyioTokenType::TOK_PIPE}));
+  if (!is_resource_effect_operation_nightly(operation.get())) {
+    throw StyioSyntaxError(
+      context.mark_cur_tok("`?|` resource settlement requires a resource operation")
+    );
+  }
+
+  context.skip();
+  if (context.cur_tok_type() == StyioTokenType::TOK_PIPE) {
+    context.move_forward(1, "new_stmt:resource_effect_discard");
+    context.skip();
+    if (context.cur_tok_type() != StyioTokenType::ELLIPSIS) {
+      throw StyioSyntaxError(
+        context.mark_cur_tok(
+          "resource-effect fallback expressions and named handlers are not implemented in this slice; "
+          "use `?| resource_operation | ...` for statement discard"
+        )
+      );
+    }
+    context.move_forward(1, "new_stmt:resource_effect_discard_ellipsis");
+  }
+
+  return operation.release();
+}
+
+StyioAST*
+parse_await_or_resource_effect_stmt_nightly(StyioContext& context) {
+  if (looks_like_await_bind_stmt_nightly(context)) {
+    return parse_await_bind_stmt_nightly(context);
+  }
+  return parse_resource_effect_stmt_nightly(context);
+}
+
 StyioAST*
 parse_task_group_launch_nightly(StyioContext& context) {
   context.match_panic(StyioTokenType::TASK_LAUNCH);
@@ -2444,7 +2573,7 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
     return parse_print_nightly(context);
   }
   if (context.cur_tok_type() == StyioTokenType::AWAIT_PIPE) {
-    return parse_await_bind_stmt_nightly(context);
+    return parse_await_or_resource_effect_stmt_nightly(context);
   }
   if (context.cur_tok_type() == StyioTokenType::TASK_LAUNCH) {
     const auto saved = context.save_cursor();
