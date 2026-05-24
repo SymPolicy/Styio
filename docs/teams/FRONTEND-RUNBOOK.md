@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of Styio tokenization, parsing, Unicode handling, and the authoritative nightly parser contract; this file links to language and test SSOTs instead of redefining grammar.
 
-**Last updated:** 2026-05-22
+**Last updated:** 2026-05-24
 
 ## Mission
 
@@ -59,6 +59,7 @@ Build and test targets:
 30. Native source references use compatibility `@extern(c|c++) => "relative/or/absolute/source"` and the preferred explicit binding form `# name[, other] := @ extern(c|c++) { "relative/or/absolute/source" }` as parser-owned structure only. The parser may normalize a relative path against the `.styio` file location and store it on `ExternBlockAST`, but syntax-only paths must not open, stat, compile, or validate the referenced file. Inline native bodies in `# name := @ extern(c|c++) { ... }` must remain raw-scanned by the tokenizer, because C/C++ braces, strings, comments, and raw string literals are not Styio syntax.
 31. Primitive token-table changes are frontend-owned public surface. When a scalar such as `char` changes its canonical width or type metadata, update the token table together with AST/Sema/IR/codegen tests so syntax acceptance does not drift from executable type behavior.
 32. Parser header declarations must stay one canonical prototype per helper. After merge-heavy recovery work, rebuild `styio_frontend_core` or a dependent target and remove duplicate declarations or repeated default arguments before pushing `nightly`.
+33. `?|` statement routing must preserve the typed task_await shape `?| task -> value: T` and route non-typed resource-effect operations such as `?| resource_operation | ...` to resource settlement/discard parsing. Do not interpret every `?|` statement as task await, and do not admit resource-effect discard in expression contexts.
 
 ## Change Classes
 

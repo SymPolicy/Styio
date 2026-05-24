@@ -115,6 +115,7 @@ Key SSOTs:
 80. Keep the Draft PR checkpoint rule in [../../workflows/REPO-HYGIENE-COMMIT-STANDARD.md](../../workflows/REPO-HYGIENE-COMMIT-STANDARD.md) and [../../workflows/CHECKPOINT-WORKFLOW.md](../../workflows/CHECKPOINT-WORKFLOW.md) aligned whenever commit, push, or recovery-branch practice changes; the minimum push unit is an engineering slice such as a syntax/semantic slice, feature-closure unit, test-evidence group, or docs/governance closure, and exists to protect remote recoverability before long-running tasks are fully polished.
 81. Branch-consolidation pushes must run whitespace checks over the full push range, not only the worktree. If an older tracked docs file fails range hygiene, fix the active file in the consolidation commit and refresh `DOC-STATS.md` when team runbooks changed.
 82. Current implementation-vs-design gap audits belong in `docs/rollups/` only when they are evidence-backed active summaries. Keep them tied to `CURRENT-STATE.md`, `NEXT-STAGE-GAP-LEDGER.md`, exact local verification commands, and explicit non-gap boundaries so they do not become a parallel language SSOT or a stale audit bundle.
+83. When an accepted industrial-maturity design slice is implemented while adjacent questions remain undecided, update the owning IM inventory with the accepted behavior, keep the unresolved question as a named pending decision in [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md), and do not let the ledger become the authority for already accepted syntax.
 
 ## Change Classes
 

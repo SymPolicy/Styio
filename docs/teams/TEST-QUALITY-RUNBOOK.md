@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of feature tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-05-22
+**Last updated:** 2026-05-24
 
 ## Mission
 
@@ -84,6 +84,7 @@ Primary paths:
 58. Parser-authority coverage must protect IM-D2: public syntax-check tests must prove `legacy` and other non-authoritative engines are rejected, parser tests must prove unsupported syntax fails closed instead of using fallback, and IDE tests must prove malformed-source token snapshots do not publish recovered semantic facts.
 59. Fuzz corpus recovery must preserve semantic seed content while removing incidental transport whitespace when it would fail repository whitespace checks. Treat this as seed hygiene, not a parser behavior change, unless the byte sequence itself is the minimized reproducer.
 60. Nano/static repository negative-path coverage is compiler-side contract evidence, not package-manager UX. Keep marker contract rejection, blob SHA256 mismatch, blob size mismatch, and remote-publish rejection covered before extending static repository behavior; add the narrowest test that asserts the stable diagnostic text for each new guard.
+61. Resource-effect parser changes need paired evidence: a focused parser/security test that proves `?| resource_operation | ...` stays out of task_await ASTs, plus the smallest runtime test proving the underlying resource operation still commits through the accepted topology behavior.
 
 ## Change Classes
 

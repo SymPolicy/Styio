@@ -2,7 +2,7 @@
 
 **Purpose:** Record the accepted resource-management decisions for IM-D4 without duplicating the IM-D1 StyioIR verifier, lowering, no-op, or codegen-gate contract.
 
-**Last updated:** 2026-05-21
+**Last updated:** 2026-05-24
 
 ## Scope
 
@@ -19,6 +19,9 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
 - block-entering forms such as `>> { ... }`, `=> { ... }`, `?= { ... }`, and task blocks enter a resource snapshot context.
 - `@name[-1]`, `@name[-3..]`, and `@name[...]` read resource snapshots or slices.
 - `@stdin`, `@stdout`, `@file(...)`, and similar entries act as standard or external resource anchors.
+- `?| resource_operation | ...` is accepted as a statement-only audited
+  discard for the first implementation slice; it parses and lowers the resource
+  operation while preserving task_await binding for `?| task -> value: T`.
 
 Current RTG checks cover parts of resource topology, but the broader resource-management model is still design-level. The remaining gap is not "add another verifier." The gap is to define the facts that the existing compiler pipeline must enforce for resource values.
 

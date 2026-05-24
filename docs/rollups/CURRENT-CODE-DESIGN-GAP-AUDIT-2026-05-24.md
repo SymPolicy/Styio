@@ -81,19 +81,26 @@ task/resource-effect section.
 
 Current implementation reality:
 
-1. The parser entry for `?|` is `parse_await_bind_stmt_nightly` in
-   `src/StyioParser/NewParserExpr.cpp`; it requires `?| [source] -> name: T`
-   and parses only an optional value fallback after that target declaration.
-2. `StyioSema/TypeInfer.cpp` rejects `?| ->` as unimplemented continuation
+1. The parser entry for `?|` now routes through
+   `parse_await_or_resource_effect_stmt_nightly` in
+   `src/StyioParser/NewParserExpr.cpp`; it preserves typed task_await binding
+   for `?| task -> name: T` and routes non-typed resource operations to a
+   resource-effect statement path.
+2. The first resource-effect implementation slice accepts
+   `?| resource_operation` and statement-only `?| resource_operation | ...`;
+   the parsed statement still lowers through the existing resource operation
+   rather than a complete typed resource-effect value model.
+3. `StyioSema/TypeInfer.cpp` rejects `?| ->` as unimplemented continuation
    lowering and requires the `?|` source to be a task/future handle.
-3. There is no implemented parser/sema/lowering path for `?| @("log.txt").close()`,
-   `?| resource_write | fallback`, `?| op | backpressure => handler`, or
-   `?| op | ...` as resource-effect settlement.
+4. There is still no implemented parser/sema/lowering path for
+   `?| resource_write | fallback`, `?| op | backpressure => handler`, or handler
+   chains as typed resource-effect recovery.
 
 Impact: cleanup failure, resource fallback, backpressure handling, and typed
-resource-effect settlement are design decisions, but not executable source
-language behavior yet. Treat this as the top resource/runtime gap because many
-other resource promises depend on it.
+resource-effect recovery are design decisions, but only the settlement/discard
+statement slice is executable source behavior so far. Treat the remaining
+fallback and handler work as the top resource/runtime gap because many other
+resource promises depend on it.
 
 ### P0. Topology v2 resource selectors parse, but slice/snapshot value semantics are not closed
 
@@ -250,9 +257,11 @@ These should not be counted as missing implementation in this checkout:
 
 ## Recommended Closure Order
 
-1. Implement or explicitly reject every `?| resource_operation` form in one
-   resource-effect checkpoint. Include fallback, named handler, discard, cleanup
-   failure, and task_await compatibility tests.
+1. Complete the remaining `?| resource_operation` forms in resource-effect
+   checkpoints. The statement-only discard slice is implemented; the next slices
+   must cover fallback, named handler, handler-chain, cleanup-failure, and
+   task_await compatibility behavior with parser, sema, lowering, runtime, and
+   negative tests.
 2. Fix Topology v2 selector value semantics before adding new resource features:
    `@x[-n]` scalar, `@x[-n..]` slice, and `@x[...]` snapshot must have distinct
    sema types, lowering, runtime values, and golden tests.
