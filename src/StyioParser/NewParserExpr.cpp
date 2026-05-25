@@ -991,6 +991,9 @@ parse_iterator_collection_rhs_nightly_draft(StyioContext& context) {
   if (context.cur_tok_type() == StyioTokenType::TOK_LBOXBRAC) {
     return parse_list_exprs_latest_draft(context);
   }
+  if (context.cur_tok_type() == StyioTokenType::TOK_AT) {
+    return parse_resource_file_atom_latest(context);
+  }
   if (context.cur_tok_type() == StyioTokenType::NAME) {
     const auto& tokens = context.get_tokens();
     std::size_t next = skip_non_line_trivia_latest(tokens, context.get_token_index() + 1);

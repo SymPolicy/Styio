@@ -3146,6 +3146,55 @@ TEST(StyioStreamZip, MaterializedListHandlesSupportF64AndBool) {
   fs::remove(input);
 }
 
+TEST(StyioStreamZip, MixedFileAndMaterializedListsTerminateAtShorterInput) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input_a =
+    fs::temp_directory_path() / ("styio-zip-list-file-" + std::to_string(uniq) + ".styio");
+  const fs::path input_b =
+    fs::temp_directory_path() / ("styio-zip-file-list-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input_a);
+    ASSERT_TRUE(out.is_open());
+    out << "offsets = [1, 2]\n";
+    out << "offsets >> #(offset) & @file(\"tests/features/stream_processing/data/prices_a.txt\") >> #(price) => {\n";
+    out << "  >_(price + offset)\n";
+    out << "}\n";
+  }
+  {
+    std::ofstream out(input_b);
+    ASSERT_TRUE(out.is_open());
+    out << "names = \"left\nright\nextra\nunused\"\n";
+    out << "@file(\"tests/features/stream_processing/data/prices_a.txt\") >> #(price) & names.lines() >> #(name) => {\n";
+    out << "  line = name + \" \" + price\n";
+    out << "  >_(line)\n";
+    out << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_a =
+    std::string("\"") + runner + "\" --file \"" + input_a.string() + "\" 2>&1";
+  const std::string cmd_b =
+    std::string("\"") + runner + "\" --file \"" + input_b.string() + "\" 2>&1";
+
+  const CommandResult result_a = run_stdout_command(cmd_a);
+  EXPECT_EQ(result_a.exit_code, 0) << result_a.stdout_text;
+  EXPECT_EQ(result_a.stdout_text, "101\n202\n");
+
+  const CommandResult result_b = run_stdout_command(cmd_b);
+  EXPECT_EQ(result_b.exit_code, 0) << result_b.stdout_text;
+  EXPECT_EQ(result_b.stdout_text, "left 100\nright 200\nextra 300\n");
+
+  fs::remove(input_a);
+  fs::remove(input_b);
+}
+
 TEST(StyioParserEngine, LegacyAndNightlyMatchOnStreamProcessingZipFilesSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "stream_processing" / "t05_zip_files.styio";
@@ -4559,9 +4608,9 @@ TEST(StyioDiagnostics, StreamZipUnsupportedSourceReportsTypeError) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "text = \"a\\nb\"\n";
-    out << "@file(\"tests/features/stream_processing/data/ref.txt\") >> #(s) & text.lines() >> #(n) => {\n";
-    out << "  >_(s + \" \" + n)\n";
+    out << "x = 1\n";
+    out << "x >> #(n) & @file(\"tests/features/stream_processing/data/ref.txt\") >> #(s) => {\n";
+    out << "  >_(s + n)\n";
     out << "}\n";
   }
 
@@ -4579,7 +4628,7 @@ TEST(StyioDiagnostics, StreamZipUnsupportedSourceReportsTypeError) {
   EXPECT_EQ(result.exit_code, 4);
   EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE_ERROR\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("unsupported stream zip lowering"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("zip requires iterable inputs on both sides"), std::string::npos);
 
   fs::remove(input);
 }

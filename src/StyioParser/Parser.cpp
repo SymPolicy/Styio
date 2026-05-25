@@ -3245,7 +3245,11 @@ parse_iterator_tail(StyioContext& context, StyioAST* collection) {
 
   if (context.try_match(StyioTokenType::TOK_AMP)) {
     context.skip();
-    std::unique_ptr<StyioAST> collection_b(parse_fallback_expr(context));
+    std::unique_ptr<StyioAST> collection_b(
+      context.cur_tok_type() == StyioTokenType::TOK_AT
+        ? parse_resource_file_atom_latest(context)
+        : parse_fallback_expr(context)
+    );
     context.skip();
     if (not context.match(StyioTokenType::ITERATOR)) {
       throw StyioSyntaxError(context.mark_cur_tok("expected >> after first stream in zip"));
