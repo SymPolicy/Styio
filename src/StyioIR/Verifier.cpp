@@ -346,6 +346,11 @@ struct VerifierContext
       visit_vector(n->exprs, "SIOStdStreamWrite.exprs");
       return;
     }
+    if (auto* n = dynamic_cast<const SIOResourceEffect*>(node)) {
+      visit_required(n->operation, "SIOResourceEffect.operation");
+      visit_optional(n->fallback);
+      return;
+    }
     if (auto* n = dynamic_cast<const SIOStdStreamLineIter*>(node)) {
       visit_required(n->body, "SIOStdStreamLineIter.body");
       return;

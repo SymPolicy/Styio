@@ -72,6 +72,7 @@ class SIOInstantPull;
 class SIOListReadStdin;
 class SIOResourceWriteToFile;
 class SIOStdStreamWrite;
+class SIOResourceEffect;
 class SIOStdStreamLineIter;
 class SIOStdStreamPull;
 class SIOTaskCreate;

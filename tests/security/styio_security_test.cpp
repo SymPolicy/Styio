@@ -1552,6 +1552,33 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectDiscardStatement) {
   EXPECT_EQ(repr.find("styio.ast.FlowBind"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectFallbackStatement) {
+  const std::string src =
+    "?| \"x\" -> @stdout | \"fallback\" -> @stderr\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("styio.ast.resource.redirect"), std::string::npos);
+  EXPECT_EQ(repr.find("styio.ast.FlowBind"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsResourceEffectNamedHandlerUntilRuntimeSlice) {
+  const std::string src =
+    "?| \"x\" -> @stdout | backpressure => \"fallback\" -> @stderr\n";
+
+  try {
+    (void)parse_program_to_repr_latest(src, true);
+    FAIL() << "expected resource-effect named handler to fail closed";
+  }
+  catch (const StyioSyntaxError& err) {
+    EXPECT_NE(
+      std::string(err.what()).find("resource-effect named handlers are not implemented"),
+      std::string::npos);
+  }
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesTerminalHandleReturnShorthands) {
   const std::vector<std::string> samples = {
     "# stdin_a := () => { <|[>_] }\n",

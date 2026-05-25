@@ -245,6 +245,7 @@ class StdStreamAST;
 class HandleAcquireAST;
 class ResourceWriteAST;
 class ResourceRedirectAST;
+class ResourceEffectAST;
 class WriteFileAST;
 
 class StateDeclAST;

@@ -53,6 +53,7 @@ public:
   StyioIR* toStyioIR(HandleAcquireAST* ast) override;
   StyioIR* toStyioIR(ResourceWriteAST* ast) override;
   StyioIR* toStyioIR(ResourceRedirectAST* ast) override;
+  StyioIR* toStyioIR(ResourceEffectAST* ast) override;
   StyioIR* lowerResourceSinkWriteLatest(StyioAST* data, StyioAST* resource, bool redirect_mode);
   StyioIR* toStyioIR(BinOpAST* ast) override;
   StyioIR* toStyioIR(FmtStrAST* ast) override;

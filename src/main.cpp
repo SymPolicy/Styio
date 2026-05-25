@@ -41,6 +41,7 @@
 #include "StyioExtern/ExternLib.hpp"
 #include "StyioIR/StyioIR.hpp" /* StyioIR */
 #include "StyioNative/NativeInterop.hpp"
+#include "StyioNative/NativeToolchainConfig.hpp"
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
 #include "StyioProfiler/FrontendProfiler.hpp"
@@ -3908,15 +3909,129 @@ styio_create_native_build_temp_root_latest(std::string& error_message) {
 }
 
 static std::string
-styio_native_build_compiler_latest() {
+styio_native_build_lower_basename_latest(const std::string& command) {
+  std::string base = std::filesystem::path(command).filename().string();
+  std::transform(base.begin(), base.end(), base.begin(), [](unsigned char ch) {
+    return static_cast<char>(std::tolower(ch));
+  });
+  return base;
+}
+
+static bool
+styio_native_build_command_looks_like_clang_cxx_latest(const std::string& command) {
+  const std::string base = styio_native_build_lower_basename_latest(command);
+  return base.find("clang++") != std::string::npos || base.find("clang-cl") != std::string::npos;
+}
+
+static bool
+styio_native_build_is_executable_file_latest(const std::filesystem::path& path) {
+  std::error_code ec;
+  const auto status = std::filesystem::status(path, ec);
+  if (ec || !std::filesystem::is_regular_file(status)) {
+    return false;
+  }
+  const auto perms = status.permissions();
+  return (perms & std::filesystem::perms::owner_exec) != std::filesystem::perms::none
+    || (perms & std::filesystem::perms::group_exec) != std::filesystem::perms::none
+    || (perms & std::filesystem::perms::others_exec) != std::filesystem::perms::none;
+}
+
+static bool
+styio_native_build_find_executable_latest(
+  const std::string& name,
+  std::string& out_command
+) {
+  if (name.empty()) {
+    return false;
+  }
+
+  const std::filesystem::path direct(name);
+  if (direct.has_parent_path()) {
+    if (styio_native_build_is_executable_file_latest(direct)) {
+      out_command = direct.string();
+      return true;
+    }
+    return false;
+  }
+
+  const char* path_env = std::getenv("PATH");
+  if (path_env == nullptr || path_env[0] == '\0') {
+    return false;
+  }
+  std::stringstream paths(path_env);
+  std::string dir;
+  while (std::getline(paths, dir, ':')) {
+    const std::filesystem::path candidate =
+      (dir.empty() ? std::filesystem::path(".") : std::filesystem::path(dir)) / name;
+    if (styio_native_build_is_executable_file_latest(candidate)) {
+      out_command = candidate.string();
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool
+styio_native_build_find_clang_in_root_latest(
+  const std::filesystem::path& root,
+  std::string& out_command
+) {
+  if (root.empty()) {
+    return false;
+  }
+  for (const auto& dir : {root / "bin", root}) {
+    for (const auto& name : {"clang++", "clang++-18"}) {
+      const std::filesystem::path candidate = dir / name;
+      if (styio_native_build_is_executable_file_latest(candidate)) {
+        out_command = candidate.string();
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+static std::string
+styio_native_build_compiler_latest(const std::filesystem::path& self_exe) {
   const char* env_compiler = std::getenv("STYIO_NATIVE_CXX");
   if (env_compiler != nullptr && env_compiler[0] != '\0') {
     return env_compiler;
   }
-  if (std::string(STYIO_CMAKE_CXX_COMPILER).empty()) {
-    return "clang++";
+
+  const std::string cmake_cxx = STYIO_CMAKE_CXX_COMPILER;
+  if (!cmake_cxx.empty() && styio_native_build_command_looks_like_clang_cxx_latest(cmake_cxx)) {
+    return cmake_cxx;
   }
-  return STYIO_CMAKE_CXX_COMPILER;
+
+  std::string resolved;
+  const std::vector<std::filesystem::path> toolchain_roots = {
+    std::getenv("STYIO_NATIVE_TOOLCHAIN_ROOT") != nullptr
+      ? std::filesystem::path(std::getenv("STYIO_NATIVE_TOOLCHAIN_ROOT"))
+      : std::filesystem::path(),
+    std::filesystem::path(STYIO_NATIVE_TOOLCHAIN_ROOT),
+    !self_exe.empty()
+      ? self_exe.parent_path() / STYIO_NATIVE_TOOLCHAIN_RELATIVE_DIR
+      : std::filesystem::path(),
+    !self_exe.empty()
+      ? self_exe.parent_path().parent_path() / STYIO_NATIVE_TOOLCHAIN_RELATIVE_DIR
+      : std::filesystem::path(),
+    !self_exe.empty()
+      ? self_exe.parent_path().parent_path() / "lib" / "styio" / STYIO_NATIVE_TOOLCHAIN_RELATIVE_DIR
+      : std::filesystem::path(),
+  };
+  for (const auto& root : toolchain_roots) {
+    if (styio_native_build_find_clang_in_root_latest(root, resolved)) {
+      return resolved;
+    }
+  }
+
+  for (const auto& candidate : {"clang++", "clang++-18"}) {
+    if (styio_native_build_find_executable_latest(candidate, resolved)) {
+      return resolved;
+    }
+  }
+
+  return "clang++";
 }
 
 static bool
@@ -4353,7 +4468,7 @@ styio_native_build_cli_latest(int argc, char* argv[]) {
 
   const std::filesystem::path runtime_src = source_root / "src" / "StyioExtern" / "ExternLib.cpp";
   const std::filesystem::path include_dir = source_root / "src";
-  const std::string cxx = styio_native_build_compiler_latest();
+  const std::string cxx = styio_native_build_compiler_latest(self_exe);
   std::string native_cmd =
     styio_shell_quote_latest(cxx)
     + " -std=c++20 -O3 -DNDEBUG -Wno-override-module"

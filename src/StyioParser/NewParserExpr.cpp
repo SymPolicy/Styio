@@ -2126,6 +2126,18 @@ is_resource_effect_operation_nightly(StyioAST* ast) {
          || dynamic_cast<ResourceRefAST*>(ast) != nullptr;
 }
 
+bool
+looks_like_resource_effect_named_handler_latest(const StyioContext& context) {
+  const auto& tokens = context.get_tokens();
+  std::size_t cursor = context.get_token_index();
+  cursor = skip_non_line_trivia_latest(tokens, cursor);
+  if (cursor >= tokens.size() || tokens[cursor]->type != StyioTokenType::NAME) {
+    return false;
+  }
+  cursor = skip_non_line_trivia_latest(tokens, cursor + 1);
+  return cursor < tokens.size() && tokens[cursor]->type == StyioTokenType::ARROW_DOUBLE_RIGHT;
+}
+
 StyioAST*
 parse_resource_effect_stmt_nightly(StyioContext& context) {
   context.match_panic(StyioTokenType::AWAIT_PIPE);
@@ -2140,21 +2152,32 @@ parse_resource_effect_stmt_nightly(StyioContext& context) {
   }
 
   context.skip();
+  std::unique_ptr<StyioAST> fallback;
+  bool discard = false;
   if (context.cur_tok_type() == StyioTokenType::TOK_PIPE) {
     context.move_forward(1, "new_stmt:resource_effect_discard");
     context.skip();
-    if (context.cur_tok_type() != StyioTokenType::ELLIPSIS) {
+    if (context.cur_tok_type() == StyioTokenType::ELLIPSIS) {
+      discard = true;
+      context.move_forward(1, "new_stmt:resource_effect_discard_ellipsis");
+    }
+    else if (looks_like_resource_effect_named_handler_latest(context)) {
       throw StyioSyntaxError(
         context.mark_cur_tok(
-          "resource-effect fallback expressions and named handlers are not implemented in this slice; "
-          "use `?| resource_operation | ...` for statement discard"
+          "resource-effect named handlers are not implemented in this slice; "
+          "use `?| resource_operation | fallback` or `?| resource_operation | ...`"
         )
       );
     }
-    context.move_forward(1, "new_stmt:resource_effect_discard_ellipsis");
+    else {
+      fallback.reset(parse_expr_subset_nightly(context));
+    }
   }
 
-  return operation.release();
+  auto* effect = ResourceEffectAST::Create(operation.get(), fallback.get(), discard);
+  operation.release();
+  fallback.release();
+  return effect;
 }
 
 StyioAST*

@@ -1016,6 +1016,7 @@ enum class StyioNodeType
   HandleAcquire,
   ResourceWrite,
   ResourceRedirect,
+  ResourceEffect,
   TaskBlock,
   TaskGroupLaunch,
   FlowBind,

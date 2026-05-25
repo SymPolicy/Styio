@@ -415,6 +415,10 @@ reprASTType(StyioNodeType type, std::string extra) {
       output += std::string("resource.redirect");
     } break;
 
+    case StyioNodeType::ResourceEffect: {
+      output += std::string("resource.effect");
+    } break;
+
     case StyioNodeType::TaskBlock: {
       output += std::string("task.block");
     } break;

@@ -4620,6 +4620,64 @@ StyioToLLVM::toLLVMIR(SIOResourceWriteToFile* node) {
 }
 
 llvm::Value*
+StyioToLLVM::toLLVMIR(SIOResourceEffect* node) {
+  if (node->operation != nullptr) {
+    node->operation->toLLVMIR(this);
+  }
+  llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
+  if (cur == nullptr || cur->getTerminator() != nullptr) {
+    return theBuilder->getInt64(0);
+  }
+
+  llvm::FunctionCallee has_error = theModule->getOrInsertFunction(
+    "styio_runtime_has_error",
+    llvm::FunctionType::get(theBuilder->getInt32Ty(), false));
+  llvm::FunctionCallee clear_error = theModule->getOrInsertFunction(
+    "styio_runtime_clear_error",
+    llvm::FunctionType::get(theBuilder->getVoidTy(), false));
+
+  if (node->discard) {
+    llvm::Function* fn = cur->getParent();
+    llvm::Value* has_err = theBuilder->CreateCall(has_error, {});
+    llvm::Value* bad = theBuilder->CreateICmpNE(has_err, theBuilder->getInt32(0));
+    llvm::BasicBlock* clear_bb = llvm::BasicBlock::Create(*theContext, "resource_discard_clear", fn);
+    llvm::BasicBlock* cont_bb = llvm::BasicBlock::Create(*theContext, "resource_discard_continue", fn);
+    theBuilder->CreateCondBr(bad, clear_bb, cont_bb);
+
+    theBuilder->SetInsertPoint(clear_bb);
+    theBuilder->CreateCall(clear_error, {});
+    theBuilder->CreateBr(cont_bb);
+
+    theBuilder->SetInsertPoint(cont_bb);
+    return theBuilder->getInt64(0);
+  }
+
+  if (node->fallback == nullptr) {
+    emit_runtime_error_guard_return();
+    return theBuilder->getInt64(0);
+  }
+
+  llvm::Function* fn = cur->getParent();
+  llvm::Value* has_err = theBuilder->CreateCall(has_error, {});
+  llvm::Value* bad = theBuilder->CreateICmpNE(has_err, theBuilder->getInt32(0));
+  llvm::BasicBlock* fallback_bb = llvm::BasicBlock::Create(*theContext, "resource_fallback", fn);
+  llvm::BasicBlock* cont_bb = llvm::BasicBlock::Create(*theContext, "resource_effect_continue", fn);
+  theBuilder->CreateCondBr(bad, fallback_bb, cont_bb);
+
+  theBuilder->SetInsertPoint(fallback_bb);
+  theBuilder->CreateCall(clear_error, {});
+  node->fallback->toLLVMIR(this);
+  emit_runtime_error_guard_return();
+  llvm::BasicBlock* after_fallback = theBuilder->GetInsertBlock();
+  if (after_fallback != nullptr && after_fallback->getTerminator() == nullptr) {
+    theBuilder->CreateBr(cont_bb);
+  }
+
+  theBuilder->SetInsertPoint(cont_bb);
+  return theBuilder->getInt64(0);
+}
+
+llvm::Value*
 StyioToLLVM::toLLVMIR(SGMatch* node) {
   llvm::Function* F = theBuilder->GetInsertBlock()->getParent();
   llvm::IntegerType* i64ti = theBuilder->getInt64Ty();

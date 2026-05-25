@@ -542,6 +542,12 @@ StyioToLLVM::toLLVMType(SIOStdStreamWrite* node) {
 }
 
 llvm::Type*
+StyioToLLVM::toLLVMType(SIOResourceEffect* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}
+
+llvm::Type*
 StyioToLLVM::toLLVMType(SIOStdStreamLineIter* node) {
   (void)node;
   return theBuilder->getVoidTy();

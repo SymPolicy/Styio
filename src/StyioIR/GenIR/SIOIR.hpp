@@ -242,6 +242,37 @@ private:
   SIOStdStreamWrite() = default;
 };
 
+class SIOResourceEffect : public StyioIRTraits<SIOResourceEffect>
+{
+public:
+  StyioIR* operation = nullptr;
+  StyioIR* fallback = nullptr;
+  bool discard = false;
+  StyioDataType result_type{StyioDataTypeOption::Undefined, "undefined", 0};
+
+  static SIOResourceEffect* Create(
+    StyioIR* op,
+    StyioIR* fb,
+    bool discard_effect,
+    StyioDataType result
+  ) {
+    auto* x = new SIOResourceEffect();
+    x->operation = op;
+    x->fallback = fb;
+    x->discard = discard_effect;
+    x->result_type = std::move(result);
+    return x;
+  }
+
+  ~SIOResourceEffect() override {
+    delete operation;
+    delete fallback;
+  }
+
+private:
+  SIOResourceEffect() = default;
+};
+
 /* Stdio input: read lines from stdin */
 class SIOStdStreamLineIter : public StyioIRTraits<SIOStdStreamLineIter>
 {

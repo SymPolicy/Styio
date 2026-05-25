@@ -158,6 +158,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SCDictToString,
   class SIOResourceWriteToFile,
   class SIOStdStreamWrite,
+  class SIOResourceEffect,
   class SIOStdStreamLineIter,
   class SIOStdStreamPull,
   class SIOTaskCreate,
@@ -334,6 +335,7 @@ public:
   llvm::Type* toLLVMType(SCDictToString* node);
   llvm::Type* toLLVMType(SIOResourceWriteToFile* node);
   llvm::Type* toLLVMType(SIOStdStreamWrite* node);
+  llvm::Type* toLLVMType(SIOResourceEffect* node);
   llvm::Type* toLLVMType(SIOStdStreamLineIter* node);
   llvm::Type* toLLVMType(SIOStdStreamPull* node);
   llvm::Type* toLLVMType(SIOTaskCreate* node);
@@ -432,6 +434,7 @@ public:
   llvm::Value* toLLVMIR(SCDictToString* node);
   llvm::Value* toLLVMIR(SIOResourceWriteToFile* node);
   llvm::Value* toLLVMIR(SIOStdStreamWrite* node);
+  llvm::Value* toLLVMIR(SIOResourceEffect* node);
   llvm::Value* toLLVMIR(SIOStdStreamLineIter* node);
   llvm::Value* toLLVMIR(SIOStdStreamPull* node);
   llvm::Value* toLLVMIR(SIOTaskCreate* node);

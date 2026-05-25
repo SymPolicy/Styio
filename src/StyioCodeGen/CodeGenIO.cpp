@@ -202,15 +202,33 @@ void collect_task_free_refs(
   }
   if (auto* flow = dynamic_cast<SIOFlowBind*>(node)) {
     collect_task_free_refs(flow->source_expr, refs, locals);
+    collect_task_free_refs(flow->fallback_expr, refs, locals);
     if (locals.count(flow->target_name) == 0) {
       refs.insert(flow->target_name);
     }
+    return;
+  }
+  if (auto* release = dynamic_cast<SIOHandleRelease*>(node)) {
+    collect_task_free_refs(release->path_expr, refs, locals);
+    if (!release->from_path && locals.count(release->var_name) == 0) {
+      refs.insert(release->var_name);
+    }
+    return;
+  }
+  if (auto* file_write = dynamic_cast<SIOResourceWriteToFile*>(node)) {
+    collect_task_free_refs(file_write->data_expr, refs, locals);
+    collect_task_free_refs(file_write->path_expr, refs, locals);
     return;
   }
   if (auto* write = dynamic_cast<SIOStdStreamWrite*>(node)) {
     for (StyioIR* expr : write->exprs) {
       collect_task_free_refs(expr, refs, locals);
     }
+    return;
+  }
+  if (auto* effect = dynamic_cast<SIOResourceEffect*>(node)) {
+    collect_task_free_refs(effect->operation, refs, locals);
+    collect_task_free_refs(effect->fallback, refs, locals);
     return;
   }
   if (auto* print = dynamic_cast<SIOPrint*>(node)) {
