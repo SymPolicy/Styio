@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-05-22
+**Last updated:** 2026-05-26
 
 ## Mission
 
@@ -53,15 +53,16 @@ Key handoff document:
 19. Keep `--nano-create` clean-room local-subset builds on the same Clang CMake compiler pair used to build Styio unless `CC` or `CXX` is explicitly set by the caller; generated `build-styio-nano.sh` must preserve that override rule.
 20. When Sema / IR gains a new required implementation directory or pass such as `src/StyioResourceTopology/` or the StyioIR verifier, add its `.cpp` seed to `styio_nano_source_roots_latest(...)` so local-subset nano packages link in a clean-room bundle.
 21. Keep `styio build <file_path> -o <artifact_name>` aligned with the native executable artifact contract: it must not execute the entry program during build, must reuse the compile-plan `intent=build` frontend path, and must link the Styio runtime helper surface into the produced executable.
-22. Remove unused CLI debug helpers instead of leaving ad hoc public symbols or stdout probes in `src/main.cpp`; command-visible diagnostics should go through the existing CLI error and option paths.
-23. Keep clean-room nano package builds resource-bounded by default. `STYIO_NANO_BUILD_JOBS` may raise the build parallelism on larger machines, but generated helpers should not default to unbounded `--parallel`.
-24. Keep the Spio handoff doc pointed at current contracts only. Do not reintroduce deleted bootstrap/source-build long plans after their durable rules have moved into this runbook, the repository map, or the handoff document.
-25. When `styio check --syntax --json --file` diagnostics gain recovery behavior or new machine-readable fields, update `--machine-info=json` capabilities, `StyioDiagnostics.*` contract tests, `src/StyioServices/StyioCLI/README.md`, and `src/StyioServices/MANIFEST.md` together.
-26. Keep syntax-check parser authority locked to nightly. `--parser-engine nightly` may remain accepted as an explicit spelling, but `legacy`, `new`, and consumer-specific engines must remain CLI errors for the public syntax service.
-27. Public JSON/JSONL diagnostics must use the shared `STYIO_<PHASE>_<ERROR_FAMILY>` taxonomy from `src/StyioServices/DiagnosticContract.hpp`; keep compatibility `subcode` fields only as secondary aliases.
-28. For IM-D10 package-boundary work, keep `styio` limited to compiler-side facts: machine-info, source-build-info, syntax-check, compile-plan, nano producer/verifier, receipts, diagnostics, and runtime events. Do not infer current Spio or Styio-Platform behavior from stale local checkouts; unresolved manifest, lockfile, resolver, registry, trust, hosted workspace, standard-library package, and compatibility-matrix topics must remain external confirmation items.
-29. Recovery edits under `src/StyioServices/StyioConfig/` should be mechanical unless they change a public CLI contract. Whitespace-only README cleanup does not alter machine-info, source-build-info, compile-plan, or nano behavior and should be paired with docs gates rather than CLI contract rewrites.
-30. `src/main.cpp` carries embedded TOML project-config parsing, the styio-nano package/publish/manifest workflow, the `--machine-info=json` printer, and the parser shadow-compare driver in addition to CLI dispatch. This is tracked as **M-CLI-01** in [`../rollups/MIGRATION-LEDGER.md`](../rollups/MIGRATION-LEDGER.md); incremental moves should land non-CLI logic under `src/StyioServices/StyioConfig/` (or a future `src/StyioCLI/`) instead of growing `main.cpp` further.
+22. Native executable artifact linking must use a clang-family C++ driver because the build path links generated LLVM `.ll` IR directly; only `STYIO_NATIVE_CXX` may intentionally override that probe, and native artifact tests must cover the system-compiler fallback.
+23. Remove unused CLI debug helpers instead of leaving ad hoc public symbols or stdout probes in `src/main.cpp`; command-visible diagnostics should go through the existing CLI error and option paths.
+24. Keep clean-room nano package builds resource-bounded by default. `STYIO_NANO_BUILD_JOBS` may raise the build parallelism on larger machines, but generated helpers should not default to unbounded `--parallel`.
+25. Keep the Spio handoff doc pointed at current contracts only. Do not reintroduce deleted bootstrap/source-build long plans after their durable rules have moved into this runbook, the repository map, or the handoff document.
+26. When `styio check --syntax --json --file` diagnostics gain recovery behavior or new machine-readable fields, update `--machine-info=json` capabilities, `StyioDiagnostics.*` contract tests, `src/StyioServices/StyioCLI/README.md`, and `src/StyioServices/MANIFEST.md` together.
+27. Keep syntax-check parser authority locked to nightly. `--parser-engine nightly` may remain accepted as an explicit spelling, but `legacy`, `new`, and consumer-specific engines must remain CLI errors for the public syntax service.
+28. Public JSON/JSONL diagnostics must use the shared `STYIO_<PHASE>_<ERROR_FAMILY>` taxonomy from `src/StyioServices/DiagnosticContract.hpp`; keep compatibility `subcode` fields only as secondary aliases.
+29. For IM-D10 package-boundary work, keep `styio` limited to compiler-side facts: machine-info, source-build-info, syntax-check, compile-plan, nano producer/verifier, receipts, diagnostics, and runtime events. Do not infer current Spio or Styio-Platform behavior from stale local checkouts; unresolved manifest, lockfile, resolver, registry, trust, hosted workspace, standard-library package, and compatibility-matrix topics must remain external confirmation items.
+30. Recovery edits under `src/StyioServices/StyioConfig/` should be mechanical unless they change a public CLI contract. Whitespace-only README cleanup does not alter machine-info, source-build-info, compile-plan, or nano behavior and should be paired with docs gates rather than CLI contract rewrites.
+31. `src/main.cpp` carries embedded TOML project-config parsing, the styio-nano package/publish/manifest workflow, the `--machine-info=json` printer, and the parser shadow-compare driver in addition to CLI dispatch. This is tracked as **M-CLI-01** in [`../rollups/MIGRATION-LEDGER.md`](../rollups/MIGRATION-LEDGER.md); incremental moves should land non-CLI logic under `src/StyioServices/StyioConfig/` (or a future `src/StyioCLI/`) instead of growing `main.cpp` further.
 
 ## Change Classes
 

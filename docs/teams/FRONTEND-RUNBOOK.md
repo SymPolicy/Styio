@@ -60,6 +60,7 @@ Build and test targets:
 31. Primitive token-table changes are frontend-owned public surface. When a scalar such as `char` changes its canonical width or type metadata, update the token table together with AST/Sema/IR/codegen tests so syntax acceptance does not drift from executable type behavior.
 32. Parser header declarations must stay one canonical prototype per helper. After merge-heavy recovery work, rebuild `styio_frontend_core` or a dependent target and remove duplicate declarations or repeated default arguments before pushing `nightly`.
 33. `?|` statement routing must preserve the typed task_await shape `?| task -> value: T` and route non-typed resource-effect operations such as `?| resource_operation | ...` to resource settlement/discard parsing. Do not interpret every `?|` statement as task await, and do not admit resource-effect discard in expression contexts.
+34. The current resource-effect parser slice accepts catch-all `?| resource_operation | fallback` as a statement and wraps non-task `?|` operations in `ResourceEffectAST`. Keep `?| resource_operation | effect => handler` and handler chains fail-closed until the typed handler dispatch slice lands; do not parse them as ordinary fallback expressions.
 
 ## Change Classes
 
