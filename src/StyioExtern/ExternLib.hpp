@@ -25,6 +25,8 @@ extern "C" DLLEXPORT double styio_cstr_to_f64(const char* s);
 extern "C" DLLEXPORT int64_t styio_read_file_i64line(const char* path);
 /* Owns heap memory; release with styio_free_cstr. */
 extern "C" DLLEXPORT const char* styio_strcat_ab(const char* a, const char* b);
+/* Owns heap memory; release with styio_free_cstr. */
+extern "C" DLLEXPORT const char* styio_clone_cstr(const char* s);
 /* Safe no-op for null/non-owned pointers; frees only styio-owned cstr allocations. */
 extern "C" DLLEXPORT void styio_free_cstr(const char* s);
 /* Borrowed thread-local decimal buffers; do not free. */

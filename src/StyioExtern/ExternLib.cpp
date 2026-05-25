@@ -1932,6 +1932,11 @@ styio_strcat_ab(const char* a, const char* b) {
   return p;
 }
 
+extern "C" DLLEXPORT const char*
+styio_clone_cstr(const char* s) {
+  return copy_to_owned_cstr(s == nullptr ? std::string() : std::string(s));
+}
+
 extern "C" DLLEXPORT void
 styio_free_cstr(const char* s) {
   if (s == nullptr) {

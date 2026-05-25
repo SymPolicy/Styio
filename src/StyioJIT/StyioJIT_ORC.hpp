@@ -70,6 +70,7 @@ public:
     add_symbol("styio_cstr_to_f64", &styio_cstr_to_f64);
     add_symbol("styio_read_file_i64line", &styio_read_file_i64line);
     add_symbol("styio_strcat_ab", &styio_strcat_ab);
+    add_symbol("styio_clone_cstr", &styio_clone_cstr);
     add_symbol("styio_free_cstr", &styio_free_cstr);
     add_symbol("styio_i64_dec_cstr", &styio_i64_dec_cstr);
     add_symbol("styio_f64_dec_cstr", &styio_f64_dec_cstr);
