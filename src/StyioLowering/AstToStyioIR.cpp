@@ -3553,7 +3553,25 @@ AstToStyioIRLowerer::toStyioIR(StreamZipAST* ast) {
   }
   bool astr = collection_elem_is_string(this, ca);
   bool bstr = collection_elem_is_string(this, cb);
-  auto* z = SIOStreamZip::Create(ia, fa, std::move(va), ib, fb, std::move(vb), astr, bstr, body.get());
+  auto zip_elem_type = [&](StyioAST* collection)
+  {
+    std::string elem_type = styio_type_item_type_name(expr_lowered_type(this, collection));
+    return elem_type.empty() ? std::string("i64") : elem_type;
+  };
+  std::string a_elem_type = zip_elem_type(ca);
+  std::string b_elem_type = zip_elem_type(cb);
+  auto* z = SIOStreamZip::Create(
+    ia,
+    fa,
+    std::move(va),
+    ib,
+    fb,
+    std::move(vb),
+    astr,
+    bstr,
+    std::move(a_elem_type),
+    std::move(b_elem_type),
+    body.get());
   body.release();
   if (pplan) {
     z->set_pulse_plan(std::move(pplan));
