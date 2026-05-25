@@ -90,6 +90,9 @@ styio_bounded_ring_element_llvm_type(const StyioDataType& dt, llvm::IRBuilder<>*
   if (type_name && *type_name == "bool") {
     return builder->getInt1Ty();
   }
+  if (type_name && *type_name == "char") {
+    return builder->getInt8Ty();
+  }
   if (type_name && *type_name == "string") {
     return llvm::PointerType::get(builder->getContext(), 0);
   }
@@ -2025,6 +2028,9 @@ StyioToLLVM::toLLVMIR(SGCall* node) {
     if (suffix == "bool") {
       return StyioValueFamily::Bool;
     }
+    if (suffix == "char") {
+      return StyioValueFamily::Char;
+    }
     if (suffix == "f64") {
       return StyioValueFamily::Float;
     }
@@ -2040,6 +2046,9 @@ StyioToLLVM::toLLVMIR(SGCall* node) {
     return StyioValueFamily::Integer;
   };
   auto builtin_list_value_type = [&](StyioValueFamily family) -> llvm::Type* {
+    if (family == StyioValueFamily::Char) {
+      return theBuilder->getInt8Ty();
+    }
     if (family == StyioValueFamily::Float) {
       return theBuilder->getDoubleTy();
     }
@@ -2066,6 +2075,14 @@ StyioToLLVM::toLLVMIR(SGCall* node) {
         }
       }
       return value;
+    }
+    if (family == StyioValueFamily::Char) {
+      if (value->getType()->isIntegerTy()) {
+        return value->getType()->isIntegerTy(8)
+          ? value
+          : theBuilder->CreateSExtOrTrunc(value, theBuilder->getInt8Ty());
+      }
+      return theBuilder->getInt8(0);
     }
     if (value->getType()->isIntegerTy(1)) {
       return theBuilder->CreateZExt(value, theBuilder->getInt64Ty());
@@ -2481,6 +2498,14 @@ StyioToLLVM::promote_to_cstr(llvm::Value* v) {
     return v;
   }
 
+  if (v->getType()->isIntegerTy(8)) {
+    llvm::Value* wi = theBuilder->CreateSExtOrTrunc(v, theBuilder->getInt64Ty());
+    llvm::FunctionCallee char_cstr = theModule->getOrInsertFunction(
+      "styio_char_cstr",
+      llvm::FunctionType::get(char_ptr, {theBuilder->getInt64Ty()}, false));
+    return theBuilder->CreateCall(char_cstr, {wi});
+  }
+
   if (v->getType()->isIntegerTy()) {
     llvm::Value* wi = v->getType()->isIntegerTy(64)
       ? v
@@ -2711,29 +2736,36 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
   const bool elem_string = elem_family == StyioValueFamily::String;
   const bool elem_float = elem_family == StyioValueFamily::Float;
   const bool elem_bool = elem_family == StyioValueFamily::Bool;
+  const bool elem_char = elem_family == StyioValueFamily::Char;
   const bool elem_list = elem_family == StyioValueFamily::ListHandle;
   const bool elem_dict = elem_family == StyioValueFamily::DictHandle;
   llvm::Type* elem_ty = elem_string
     ? static_cast<llvm::Type*>(llvm::PointerType::get(*theContext, 0))
     : (elem_float
         ? static_cast<llvm::Type*>(theBuilder->getDoubleTy())
-        : (elem_bool
-            ? static_cast<llvm::Type*>(theBuilder->getInt1Ty())
-            : static_cast<llvm::Type*>(i64t)));
+        : (elem_char
+            ? static_cast<llvm::Type*>(theBuilder->getInt8Ty())
+            : (elem_bool
+                ? static_cast<llvm::Type*>(theBuilder->getInt1Ty())
+                : static_cast<llvm::Type*>(i64t))));
   llvm::Type* get_ty = elem_string
     ? static_cast<llvm::Type*>(llvm::PointerType::get(*theContext, 0))
     : (elem_float
         ? static_cast<llvm::Type*>(theBuilder->getDoubleTy())
-        : static_cast<llvm::Type*>(i64t));
+        : (elem_char
+            ? static_cast<llvm::Type*>(theBuilder->getInt8Ty())
+            : static_cast<llvm::Type*>(i64t)));
   const char* get_name = elem_string
     ? "styio_list_get_cstr"
     : (elem_float
         ? "styio_list_get_f64"
-        : (elem_bool
-            ? "styio_list_get_bool"
-            : (elem_list
-                ? "styio_list_get_list"
-                : (elem_dict ? "styio_list_get_dict" : "styio_list_get"))));
+        : (elem_char
+            ? "styio_list_get_char"
+            : (elem_bool
+                ? "styio_list_get_bool"
+                : (elem_list
+                    ? "styio_list_get_list"
+                    : (elem_dict ? "styio_list_get_dict" : "styio_list_get")))));
 
   llvm::FunctionCallee len_fn = theModule->getOrInsertFunction(
     "styio_list_len",
@@ -2928,6 +2960,11 @@ StyioToLLVM::toLLVMIR(SCListLiteral* node) {
       new_name = "styio_list_new_bool";
       push_name = "styio_list_push_bool";
       break;
+    case StyioValueFamily::Char:
+      new_name = "styio_list_new_char";
+      push_name = "styio_list_push_char";
+      push_value_type = theBuilder->getInt8Ty();
+      break;
     case StyioValueFamily::Float:
       new_name = "styio_list_new_f64";
       push_name = "styio_list_push_f64";
@@ -2975,6 +3012,16 @@ StyioToLLVM::toLLVMIR(SCListLiteral* node) {
         else {
           value = llvm::ConstantFP::get(theBuilder->getDoubleTy(), 0.0);
         }
+      }
+    }
+    else if (elem_family == StyioValueFamily::Char) {
+      if (value->getType()->isIntegerTy()) {
+        value = value->getType()->isIntegerTy(8)
+          ? value
+          : theBuilder->CreateSExtOrTrunc(value, theBuilder->getInt8Ty());
+      }
+      else {
+        value = theBuilder->getInt8(0);
       }
     }
     else {
@@ -3814,23 +3861,28 @@ StyioToLLVM::toLLVMIR(SCListGet* node) {
   const bool string_elem = elem_family == StyioValueFamily::String;
   const bool float_elem = elem_family == StyioValueFamily::Float;
   const bool bool_elem = elem_family == StyioValueFamily::Bool;
+  const bool char_elem = elem_family == StyioValueFamily::Char;
   const bool list_elem = elem_family == StyioValueFamily::ListHandle;
   const bool dict_elem = elem_family == StyioValueFamily::DictHandle;
   llvm::Type* result_type = string_elem
     ? static_cast<llvm::Type*>(llvm::PointerType::get(*theContext, 0))
     : (float_elem
         ? static_cast<llvm::Type*>(theBuilder->getDoubleTy())
-        : static_cast<llvm::Type*>(theBuilder->getInt64Ty()));
+        : (char_elem
+            ? static_cast<llvm::Type*>(theBuilder->getInt8Ty())
+            : static_cast<llvm::Type*>(theBuilder->getInt64Ty())));
   llvm::FunctionCallee get_fn = theModule->getOrInsertFunction(
     string_elem
       ? "styio_list_get_cstr"
       : (float_elem
           ? "styio_list_get_f64"
-          : (bool_elem
-              ? "styio_list_get_bool"
-              : (list_elem
-                  ? "styio_list_get_list"
-                  : (dict_elem ? "styio_list_get_dict" : "styio_list_get")))),
+          : (char_elem
+              ? "styio_list_get_char"
+              : (bool_elem
+                  ? "styio_list_get_bool"
+                  : (list_elem
+                      ? "styio_list_get_list"
+                      : (dict_elem ? "styio_list_get_dict" : "styio_list_get"))))),
     llvm::FunctionType::get(
       result_type,
       {theBuilder->getInt64Ty(), theBuilder->getInt64Ty()},
@@ -3868,6 +3920,10 @@ StyioToLLVM::toLLVMIR(SCListSet* node) {
   switch (value_family) {
     case StyioValueFamily::Bool:
       set_name = "styio_list_set_bool";
+      break;
+    case StyioValueFamily::Char:
+      set_name = "styio_list_set_char";
+      set_value_type = theBuilder->getInt8Ty();
       break;
     case StyioValueFamily::Float:
       set_name = "styio_list_set_f64";
@@ -3917,6 +3973,16 @@ StyioToLLVM::toLLVMIR(SCListSet* node) {
       else {
         value = llvm::ConstantFP::get(theBuilder->getDoubleTy(), 0.0);
       }
+    }
+  }
+  else if (value_family == StyioValueFamily::Char) {
+    if (value->getType()->isIntegerTy()) {
+      value = value->getType()->isIntegerTy(8)
+        ? value
+        : theBuilder->CreateSExtOrTrunc(value, theBuilder->getInt8Ty());
+    }
+    else {
+      value = theBuilder->getInt8(0);
     }
   }
   else {
@@ -4319,6 +4385,9 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     if (family == StyioValueFamily::String) {
       return llvm::PointerType::get(*theContext, 0);
     }
+    if (family == StyioValueFamily::Char) {
+      return theBuilder->getInt8Ty();
+    }
     if (family == StyioValueFamily::Float) {
       return theBuilder->getDoubleTy();
     }
@@ -4332,6 +4401,9 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     if (family == StyioValueFamily::String) {
       return llvm::PointerType::get(*theContext, 0);
     }
+    if (family == StyioValueFamily::Char) {
+      return theBuilder->getInt8Ty();
+    }
     if (family == StyioValueFamily::Float) {
       return theBuilder->getDoubleTy();
     }
@@ -4344,6 +4416,9 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     }
     if (family == StyioValueFamily::Float) {
       return "styio_list_get_f64";
+    }
+    if (family == StyioValueFamily::Char) {
+      return "styio_list_get_char";
     }
     if (family == StyioValueFamily::Bool) {
       return "styio_list_get_bool";

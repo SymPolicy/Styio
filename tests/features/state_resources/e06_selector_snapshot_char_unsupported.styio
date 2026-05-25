@@ -1,2 +1,0 @@
-@letter : char|..2|
->_(@letter[...])

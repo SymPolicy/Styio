@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -2234,6 +2235,10 @@ TEST(StyioSecurityNightlySemantics, AllowsPredefinedListOperationsAcrossRuntimeF
     "nums.push(3)\n"
     "nums.insert(0,4)\n"
     "nums.pop()\n"
+    "letters = ['a','b']\n"
+    "letters.push('c')\n"
+    "letters.insert(0,'z')\n"
+    "letters.pop()\n"
     "flags = [true,false]\n"
     "flags[1] = true\n"
     "names = [\"Ada\"]\n"
@@ -2249,6 +2254,39 @@ TEST(StyioSecurityNightlySemantics, AllowsPredefinedListOperationsAcrossRuntimeF
   EXPECT_NO_THROW(
     parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
   );
+}
+
+TEST(StyioSecurityNightlySemantics, BoundedCharResourceSelectorsMaterializeCharLists) {
+  const std::string src =
+    "@letter : char|..3|\n"
+    "['a','b','c','d'] >> #(v) => {\n"
+    "  v -> @letter\n"
+    "}\n"
+    ">_(@letter[-1])\n"
+    ">_(@letter[...])\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_list_new_char"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_push_char"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_char_cstr"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, CharMaterializedListsFeedZipBarrier) {
+  const std::string src =
+    "['a','b'] >> #(left) & ['x','y'] >> #(right) => {\n"
+    "  >_(left)\n"
+    "  >_(right)\n"
+    "}\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_list_get_char"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_char_cstr"), std::string::npos);
 }
 
 TEST(StyioSecurityNightlySemantics, AllowsDictIndexingAttrsAndClone) {
@@ -4422,6 +4460,21 @@ TEST(StyioSafetyRuntime, CloneCstrAllocatesOwnedCopyAndHandlesNull) {
   ASSERT_NE(empty, nullptr);
   ASSERT_STREQ(empty, "");
   styio_free_cstr(empty);
+}
+
+TEST(StyioSafetyRuntime, CharListRendersEscapedCharLiterals) {
+  styio_runtime_clear_error();
+  const int64_t h = styio_list_new_char();
+  ASSERT_NE(h, 0);
+  styio_list_push_char(h, static_cast<int8_t>('x'));
+  styio_list_push_char(h, static_cast<int8_t>('\n'));
+  const char* text = styio_list_to_cstr(h);
+  ASSERT_NE(text, nullptr);
+  EXPECT_STREQ(text, "['x','\\n']");
+  styio_free_cstr(text);
+  EXPECT_EQ(styio_list_get_char(h, 0), static_cast<int8_t>('x'));
+  styio_list_release(h);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
 }
 
 TEST(StyioSafetyRuntime, MissingFileOpenReturnsZeroHandle) {

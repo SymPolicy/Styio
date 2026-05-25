@@ -316,6 +316,8 @@ constexpr StyioTokenType k_expr_subset_tokens_latest[] = {
   StyioTokenType::INTEGER,
   StyioTokenType::DECIMAL,
   StyioTokenType::STRING,
+  StyioTokenType::TOK_SQUOTE,
+  StyioTokenType::TOK_BACKSLASH,
   StyioTokenType::NAME,
   StyioTokenType::TOK_AT,
   StyioTokenType::ARROW_SINGLE_LEFT,
@@ -353,6 +355,7 @@ constexpr StyioTokenType k_expr_subset_start_tokens_latest[] = {
   StyioTokenType::INTEGER,
   StyioTokenType::DECIMAL,
   StyioTokenType::STRING,
+  StyioTokenType::TOK_SQUOTE,
   StyioTokenType::NAME,
   StyioTokenType::TOK_AT,
   StyioTokenType::TOK_DOLLAR,
@@ -1518,6 +1521,56 @@ private:
     }
   }
 
+  StyioAST* parse_char_literal() {
+    context_.try_match_panic(StyioTokenType::TOK_SQUOTE);
+    if (context_.cur_tok_type() == StyioTokenType::TOK_LF
+        || context_.cur_tok_type() == StyioTokenType::TOK_CR
+        || context_.cur_tok_type() == StyioTokenType::TOK_EOF) {
+      throw StyioSyntaxError(context_.mark_cur_tok("unterminated char literal"));
+    }
+
+    char value = '\0';
+    if (context_.cur_tok_type() == StyioTokenType::TOK_BACKSLASH) {
+      context_.move_forward(1, "new_expr:char_escape");
+      const std::string raw = context_.cur_tok() != nullptr ? context_.cur_tok()->original : "";
+      if (raw == "n") {
+        value = '\n';
+      }
+      else if (raw == "r") {
+        value = '\r';
+      }
+      else if (raw == "t") {
+        value = '\t';
+      }
+      else if (raw == "0") {
+        value = '\0';
+      }
+      else if (raw == "\\") {
+        value = '\\';
+      }
+      else if (context_.cur_tok_type() == StyioTokenType::TOK_SQUOTE || raw == "'") {
+        value = '\'';
+      }
+      else {
+        throw StyioSyntaxError(context_.mark_cur_tok("unsupported char literal escape"));
+      }
+      context_.move_forward(1, "new_expr:char_escaped_value");
+    }
+    else {
+      const std::string raw = context_.cur_tok() != nullptr ? context_.cur_tok()->original : "";
+      if (context_.cur_tok_type() == StyioTokenType::TOK_SQUOTE || raw.size() != 1) {
+        throw StyioSyntaxError(context_.mark_cur_tok("char literal expects exactly one byte"));
+      }
+      value = raw.front();
+      context_.move_forward(1, "new_expr:char_value");
+    }
+
+    if (!context_.try_match(StyioTokenType::TOK_SQUOTE)) {
+      throw StyioSyntaxError(context_.mark_cur_tok("expected closing quote for char literal"));
+    }
+    return CharAST::Create(std::string(1, value));
+  }
+
   StyioAST* parse_postfix(StyioAST* lhs, bool allow_extended_continuations = true) {
     std::unique_ptr<StyioAST> owner(lhs);
     while (true) {
@@ -1768,6 +1821,9 @@ private:
         const std::string lit = context_.cur_tok()->original;
         context_.move_forward(1, "new_expr:string");
         return StringAST::Create(lit);
+      }
+      case StyioTokenType::TOK_SQUOTE: {
+        return parse_char_literal();
       }
       case StyioTokenType::TOK_LBOXBRAC: {
         enforce_expr_delimiter_budget_latest(context_, "list expression");

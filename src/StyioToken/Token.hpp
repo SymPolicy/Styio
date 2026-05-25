@@ -82,6 +82,7 @@ enum class StyioValueFamily : std::uint8_t
   StreamHandle,
   TaskHandle,
   UserDefined,
+  Char,
 };
 
 enum class StyioTypeCapability : std::uint32_t
@@ -550,6 +551,8 @@ styio_value_family_for_type(const StyioDataType& type) {
   switch (type.option) {
     case StyioDataTypeOption::Bool:
       return StyioValueFamily::Bool;
+    case StyioDataTypeOption::Char:
+      return StyioValueFamily::Char;
     case StyioDataTypeOption::Integer:
       return StyioValueFamily::Integer;
     case StyioDataTypeOption::Float:
@@ -1242,7 +1245,8 @@ styio_value_family_is_runtime_handle(StyioValueFamily family) {
 inline bool
 styio_type_supports_runtime_list_elem(const StyioDataType& type) {
   StyioValueFamily family = styio_value_family_for_type(type);
-  return styio_value_family_is_runtime_scalar(family)
+  return family == StyioValueFamily::Char
+    || styio_value_family_is_runtime_scalar(family)
     || styio_value_family_is_runtime_handle(family);
 }
 

@@ -1,0 +1,1 @@
+resource `bucket` slice/snapshot selection currently supports integer, float, bool, char, or string resources
