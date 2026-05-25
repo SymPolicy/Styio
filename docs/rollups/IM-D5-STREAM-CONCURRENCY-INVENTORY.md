@@ -28,13 +28,15 @@ Styio already has active design and partial implementation surfaces for streams:
 - `&` is the stream zip token for aligned synchronization.
 - Pulse-frame locking is documented as a core Styio design direction.
 - Current compiler paths contain parser, sema, lowering, and codegen pieces for selected stream and zip shapes.
-- Materialized non-file `list[T]` handles and mixed `@file` / materialized-list
-  pairs now have a zip-barrier runtime slice for `i64`, `string`, `f64`, and
-  `bool` list elements: list sides use `styio_list_len` / `styio_list_get_*`,
-  file sides read one line per frame, finite zip terminates at the shorter file
-  EOF or list length, and the existing block/frame commit path runs for each
-  matched pair. Snapshot joins, queue/timeout policy, pressure observers, and
-  multi-writer merge/conflict semantics remain open.
+- Materialized non-file `list[T]` handles, mixed `@file` / materialized-list
+  pairs, and bounded Topology selector snapshots that have already materialized
+  as `list[T]` values now have a zip-barrier runtime slice for `i64`, `string`,
+  `f64`, and `bool` list elements: list sides use `styio_list_len` /
+  `styio_list_get_*`, file sides read one line per frame, finite zip terminates
+  at the shorter file EOF or list length, and the existing block/frame commit
+  path runs for each matched pair. This selector-snapshot slice remains ordinary
+  finite zip over materialized lists; snapshot joins, queue/timeout policy,
+  pressure observers, and multi-writer merge/conflict semantics remain open.
 
 The implementation is still incomplete. Multi-stream zip and driver combinations are only partially lowered, unsupported combinations may still end in narrow lowering/codegen paths, and cross-stream sync needs a stable memory-model contract before the remaining implementation can be judged complete.
 

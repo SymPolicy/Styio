@@ -89,6 +89,7 @@ Primary paths:
 63. Explicit selector-copy changes need the same boundary evidence: prove `name << @resource[-n..]` or `name << @resource[...]` binds the materialized snapshot value, and add an adjacent negative for scalar latest reads such as `name << @resource[-1]` so copy semantics do not collapse into ordinary scalar binding or resource-write compatibility.
 64. Stream zip source-combination changes need a positive fixture that proves the accepted source shape reaches runtime with the expected finite-barrier behavior and typed element families, plus an adjacent negative that keeps the next unsupported mixed source shape fail-closed. Run the affected stream-processing feature tests and the diagnostic regression before recording an IM-D5 closure.
 65. Mixed file/list zip evidence needs both source orders when both are accepted: one parser-shadow-safe feature fixture for catalog coverage, one focused unit or pipeline test for the opposite order and shorter-input termination, and the stream-processing shadow gates so parser-route AST drift cannot masquerade as runtime coverage.
+66. Resource-selector zip evidence must avoid conflating materialized selector snapshots with IM-D5 snapshot joins. Pair a parser-shadow-safe feature fixture for `@name[...]` / `@name[-n..]` finite zip with a negative scalar-selector case such as `@name[-1] >> ...`, and keep the catalog wording on materialized bounded selector snapshots.
 
 ## Change Classes
 

@@ -56,6 +56,7 @@ Related docs:
 26. `SGCast` must emit real LLVM scalar conversions for compiler-owned numeric promotions. It must not return placeholder zero/default values, `bool -> int` must widen as `0` or `1`, and unsupported cast families must fail closed.
 27. Stream zip over materialized non-file `list[T]` handles must use runtime `styio_list_len` / `styio_list_get_*` loops, carry the left/right element type through `SIOStreamZip`, free owned string/list/dict element temporaries after each frame, and release temporary list sources such as list literals after the finite zip exits.
 28. Mixed `@file` / materialized-list stream zip must read at most one file line and one list element per frame, terminate at the shorter file EOF or list length, close the file handle on exit, and release owned temporary list sources. Do not generalize this slice to arbitrary stream drivers, topology resources, pressure effects, or timeout behavior without separate IM-D5 evidence.
+29. Bounded selector snapshots in zip are not a new stream driver. They must arrive at codegen as materialized `SCListLiteral` / list-handle values produced by selector lowering, then use the existing runtime-list zip loop and ownership cleanup. Do not reinterpret raw topology resources, scalar selectors, or true snapshot joins as this materialized-list slice.
 
 ## Change Classes
 
