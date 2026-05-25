@@ -85,7 +85,7 @@ Primary paths:
 59. Fuzz corpus recovery must preserve semantic seed content while removing incidental transport whitespace when it would fail repository whitespace checks. Treat this as seed hygiene, not a parser behavior change, unless the byte sequence itself is the minimized reproducer.
 60. Nano/static repository negative-path coverage is compiler-side contract evidence, not package-manager UX. Keep marker contract rejection, blob SHA256 mismatch, blob size mismatch, and remote-publish rejection covered before extending static repository behavior; add the narrowest test that asserts the stable diagnostic text for each new guard.
 61. Resource-effect parser changes need paired evidence: a focused parser/security test that proves `?| resource_operation | ...` stays out of task_await ASTs, plus the smallest runtime test proving the underlying resource operation still commits through the accepted topology behavior.
-62. Topology v2 selector changes need both positive and adjacent negative evidence. When `@name[-n..]` or `@name[...]` is accepted for a resource family, add a runtime fixture that proves the selector materializes a distinct slice/snapshot value instead of the latest scalar, plus a fail-closed fixture for the nearest unsupported boundary such as depth beyond the declared history window.
+62. Topology v2 selector changes need both positive and adjacent negative evidence. When `@name[-n..]` or `@name[...]` is accepted for a resource family, add a runtime fixture that proves the selector materializes a distinct typed slice/snapshot value instead of the latest scalar, plus fail-closed fixtures for the nearest unsupported boundaries such as depth beyond the declared history window or an unsupported bounded value family.
 
 ## Change Classes
 

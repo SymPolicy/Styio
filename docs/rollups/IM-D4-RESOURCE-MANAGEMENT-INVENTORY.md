@@ -22,12 +22,12 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
 - `?| resource_operation | ...` is accepted as a statement-only audited
   discard for the first implementation slice; it parses and lowers the resource
   operation while preserving task_await binding for `?| task -> value: T`.
-- Bounded integer resource selectors now have distinct executable value shapes:
-  `@name[-n]` reads a scalar value, while `@name[-n..]` and `@name[...]`
-  materialize `list[i64]` snapshots from explicit history reads. Selectors that
-  exceed the declared bound, use non-bounded resource shapes, or require
-  non-integer history storage remain fail-closed until their resource-family
-  storage semantics are implemented.
+- Bounded `i64` and `f64` resource selectors now have distinct executable value
+  shapes: `@name[-n]` reads a scalar value, while `@name[-n..]` and
+  `@name[...]` materialize typed list snapshots from explicit history reads.
+  Selectors that exceed the declared bound, use non-bounded resource shapes, or
+  require unsupported value-family history storage remain fail-closed until
+  their resource-family storage semantics are implemented.
 
 Current RTG checks cover parts of resource topology, but the broader resource-management model is still design-level. The remaining gap is not "add another verifier." The gap is to define the facts that the existing compiler pipeline must enforce for resource values.
 

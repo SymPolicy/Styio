@@ -111,26 +111,29 @@ Current implementation reality:
 
 1. The parser has `ResourceSelectorKind::{Whole, Offset, SliceFrom, SnapshotAll}`
    and accepts `@name[-n]`, `@name[-n..]`, and `@name[...]`.
-2. Sema now distinguishes selector families for bounded integer topology
+2. Sema now distinguishes selector families for bounded scalar topology
    resources: `@price[-1]` remains the scalar resource value, while
-   `@price[-n..]` and `@price[...]` infer `list[i64]`; unsupported non-bounded,
-   non-integer, or out-of-window selector shapes fail closed.
+   bounded `i64` selectors infer `list[i64]` and bounded `f64` selectors infer
+   `list[f64]`; unsupported non-bounded, unsupported value-family, or
+   out-of-window selector shapes fail closed.
 3. Lowering now handles `ResourceSelectorKind::Offset`,
    `ResourceSelectorKind::SliceFrom`, and `ResourceSelectorKind::SnapshotAll` for
-   bounded integer resources. Slice/snapshot selectors materialize a list literal
-   from explicit history reads instead of falling through to
+   bounded `i64` and `f64` resources. Slice/snapshot selectors materialize a
+   list literal from explicit history reads instead of falling through to
    `SGResId::Create(name)`.
 4. `tests/features/state_resources/t06_topology_selector_snapshot.styio` proves
    a recent-window resource prints distinct scalar, slice, and snapshot values:
    `@price[-1]` prints `40`, `@price[-2..]` prints `[30,40]`, and `@price[...]`
-   prints `[20,30,40]`. The adjacent negative fixture
-   `e05_selector_slice_exceeds_bound.styio` rejects a selector deeper than the
-   declared history bound.
+   prints `[20,30,40]`. `t07_topology_selector_snapshot_f64.styio` proves the
+   same value-shape contract for bounded `f64` history. Adjacent negative
+   fixtures reject selectors deeper than the declared history bound and
+   unsupported bounded string snapshots.
 
 Impact: the prior silent scalar/latest-resource collapse is closed for bounded
-integer resource selectors. Broader selector closure still needs non-integer
-storage history, unbounded sequence snapshot policy, and explicit copy semantics
-before the full Topology v2 selector model can be considered complete.
+`i64` and `f64` resource selectors. Broader selector closure still needs
+unsupported value-family history storage, unbounded sequence snapshot policy,
+and explicit copy semantics before the full Topology v2 selector model can be
+considered complete.
 
 ### P0. Stream concurrency and pressure are only partially executable
 
@@ -179,9 +182,10 @@ Examples:
 1. Function return lowering still maps tuple return metadata and unspecified
    return types through an `i64` fallback in helper code.
 2. Topology v2 resource declaration lowering initializes declared slots to a
-   zero value by storage type. For integer fixed/recent resources this becomes a
-   bounded-ring storage value, but non-integer resource storage and absence/default
-   semantics are not a full typed resource initialization contract.
+   zero value by storage type. For `i64` and `f64` fixed/recent resources this
+   becomes a bounded-ring storage value, but unsupported value-family storage and
+   absence/default semantics are not a full typed resource initialization
+   contract.
 3. Range literal lowering currently requires integer literal bounds; general
    range expressions are not implemented.
 
@@ -271,10 +275,10 @@ These should not be counted as missing implementation in this checkout:
    task_await compatibility behavior with parser, sema, lowering, runtime, and
    negative tests.
 2. Continue Topology v2 selector value semantics before adding new resource
-   features: the bounded integer slice is closed, while non-integer storage,
-   unbounded sequence snapshots, and explicit `snapshot << @x[...]` copy
-   semantics still need distinct sema types, lowering, runtime values, and
-   golden tests.
+   features: bounded `i64` and `f64` selector storage is closed, while
+   unsupported value-family storage, unbounded sequence snapshots, and explicit
+   `snapshot << @x[...]` copy semantics still need distinct sema types,
+   lowering, runtime values, and golden tests.
 3. Pick one stream-source combination beyond list/file and carry it through
    parser, sema, lowering, runtime, topology graph, diagnostics, and tests.
 4. Retire or implement the explicit unsupported AST families according to the
