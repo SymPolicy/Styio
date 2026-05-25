@@ -2142,10 +2142,16 @@ AstToStyioIRLowerer::toStyioIR(RangeAST* ast) {
   std::int64_t end = 0;
   std::int64_t step = 0;
 
-  if (!try_parse_int_literal_value(ast->getStart(), start)
-      || !try_parse_int_literal_value(ast->getEnd(), end)
-      || !try_parse_int_literal_value(ast->getStep(), step)) {
-    throw StyioTypeError("range literal lowering currently requires integer literal bounds");
+  const bool constant_range =
+    try_parse_int_literal_value(ast->getStart(), start)
+    && try_parse_int_literal_value(ast->getEnd(), end)
+    && try_parse_int_literal_value(ast->getStep(), step);
+
+  if (!constant_range) {
+    return SGCall::Create(
+      SGResId::Create("__styio_list_range_i64"),
+      {ast->getStart()->toStyioIR(this), ast->getEnd()->toStyioIR(this), ast->getStep()->toStyioIR(this)}
+    );
   }
 
   if (step == 0) {

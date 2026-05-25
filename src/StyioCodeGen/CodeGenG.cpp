@@ -157,7 +157,8 @@ ir_yields_list_handle(StyioIR* value) {
   }
   if (auto* call = dynamic_cast<SGCall*>(value)) {
     return call->func_name != nullptr
-      && call->func_name->as_str() == "__styio_string_lines";
+      && (call->func_name->as_str() == "__styio_string_lines"
+          || call->func_name->as_str() == "__styio_list_range_i64");
   }
   return false;
 }
@@ -2130,6 +2131,72 @@ StyioToLLVM::toLLVMIR(SGCall* node) {
     free_owned_cstr_temp_if_tracked(raw);
     track_owned_resource_temp(out, TempResourceKind::List);
     return out;
+  }
+
+  if (fname == "__styio_list_range_i64") {
+    if (node->func_args.size() != 3) {
+      throw StyioTypeError(
+        "runtime range list expects 3 arguments, got "
+        + std::to_string(node->func_args.size()));
+    }
+
+    auto coerce_i64 = [&](llvm::Value* raw) -> llvm::Value*
+    {
+      if (raw->getType()->isIntegerTy(64)) {
+        return raw;
+      }
+      if (raw->getType()->isIntegerTy()) {
+        return theBuilder->CreateSExtOrTrunc(raw, theBuilder->getInt64Ty());
+      }
+      throw StyioTypeError("runtime range list requires integer arguments");
+    };
+
+    llvm::Value* start = coerce_i64(node->func_args[0]->toLLVMIR(this));
+    llvm::Value* end = coerce_i64(node->func_args[1]->toLLVMIR(this));
+    llvm::Value* step = coerce_i64(node->func_args[2]->toLLVMIR(this));
+
+    llvm::IntegerType* i64t = theBuilder->getInt64Ty();
+    llvm::FunctionCallee new_fn = theModule->getOrInsertFunction(
+      "styio_list_new_i64",
+      llvm::FunctionType::get(i64t, {}, false));
+    llvm::FunctionCallee push_fn = theModule->getOrInsertFunction(
+      "styio_list_push_i64",
+      llvm::FunctionType::get(theBuilder->getVoidTy(), {i64t, i64t}, false));
+    llvm::Value* list = theBuilder->CreateCall(new_fn, {});
+
+    llvm::Function* F = theBuilder->GetInsertBlock()->getParent();
+    llvm::BasicBlock* hdr_bb = llvm::BasicBlock::Create(*theContext, "range_list_hdr", F);
+    llvm::BasicBlock* body_bb = llvm::BasicBlock::Create(*theContext, "range_list_body", F);
+    llvm::BasicBlock* step_bb = llvm::BasicBlock::Create(*theContext, "range_list_step", F);
+    llvm::BasicBlock* exit_bb = llvm::BasicBlock::Create(*theContext, "range_list_exit", F);
+    llvm::AllocaInst* cur_slot = theBuilder->CreateAlloca(i64t, nullptr, "range.list.cur");
+    theBuilder->CreateStore(start, cur_slot);
+    theBuilder->CreateBr(hdr_bb);
+
+    theBuilder->SetInsertPoint(hdr_bb);
+    llvm::Value* cur = theBuilder->CreateLoad(i64t, cur_slot);
+    llvm::Value* zero = theBuilder->getInt64(0);
+    llvm::Value* is_zero = theBuilder->CreateICmpEQ(step, zero);
+    llvm::Value* is_pos = theBuilder->CreateICmpSGT(step, zero);
+    llvm::Value* pos_go = theBuilder->CreateICmpSLE(cur, end);
+    llvm::Value* neg_go = theBuilder->CreateICmpSGE(cur, end);
+    llvm::Value* non_zero_go = theBuilder->CreateSelect(is_pos, pos_go, neg_go);
+    llvm::Value* go = theBuilder->CreateSelect(is_zero, llvm::ConstantInt::getFalse(*theContext), non_zero_go);
+    theBuilder->CreateCondBr(go, body_bb, exit_bb);
+
+    theBuilder->SetInsertPoint(body_bb);
+    llvm::Value* body_cur = theBuilder->CreateLoad(i64t, cur_slot);
+    theBuilder->CreateCall(push_fn, {list, body_cur});
+    theBuilder->CreateBr(step_bb);
+
+    theBuilder->SetInsertPoint(step_bb);
+    llvm::Value* next = theBuilder->CreateAdd(theBuilder->CreateLoad(i64t, cur_slot), step);
+    theBuilder->CreateStore(next, cur_slot);
+    theBuilder->CreateBr(hdr_bb);
+
+    theBuilder->SetInsertPoint(exit_bb);
+    track_owned_resource_temp(list, TempResourceKind::List);
+    return list;
   }
 
   bool is_builtin_list_push = false;
