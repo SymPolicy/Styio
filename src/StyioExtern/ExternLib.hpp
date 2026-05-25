@@ -37,6 +37,7 @@ extern "C" DLLEXPORT int styio_runtime_has_error();
 extern "C" DLLEXPORT const char* styio_runtime_last_error();
 /* Borrowed pointer to last runtime error subcode; null when no runtime error is set. */
 extern "C" DLLEXPORT const char* styio_runtime_last_error_subcode();
+extern "C" DLLEXPORT int styio_runtime_error_matches_effect(const char* effect_name);
 extern "C" DLLEXPORT void styio_runtime_clear_error();
 using StyioRuntimeLogSink = void (*)(const char* stream, const char* message);
 extern "C" DLLEXPORT void styio_runtime_set_log_sink(StyioRuntimeLogSink sink);

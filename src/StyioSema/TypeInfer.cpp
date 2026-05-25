@@ -82,6 +82,16 @@ type_convert_source_fallback_type(NumPromoTy promo_type) {
 std::string
 resource_family_for_type(const StyioDataType& type);
 
+bool
+resource_effect_handler_name_supported_latest(const std::string& name) {
+  return name == "io"
+         || name == "parse"
+         || name == "bounds"
+         || name == "closed"
+         || name == "backpressure"
+         || name == "cleanup";
+}
+
 StyioDataType
 infer_list_literal_type(StyioSemaContext* an, ListAST* list) {
   auto const& els = list->getElements();
@@ -1935,6 +1945,35 @@ void
 StyioSemaContext::typeInfer(ResourceEffectAST* ast) {
   ast->getOperation()->typeInfer(this);
   StyioDataType operation_type = infer_expr_type(this, ast->getOperation());
+
+  if (ast->hasHandlers()) {
+    std::unordered_set<std::string> seen_handlers;
+    for (const auto& handler : ast->getHandlers()) {
+      if (!resource_effect_handler_name_supported_latest(handler.effect_name)) {
+        throw StyioTypeError(
+          "unknown resource-effect handler `" + handler.effect_name + "`"
+        );
+      }
+      if (!seen_handlers.insert(handler.effect_name).second) {
+        throw StyioTypeError(
+          "duplicate resource-effect handler `" + handler.effect_name + "`"
+        );
+      }
+      if (dynamic_cast<EmptyResourceAST*>(handler.body) != nullptr) {
+        throw StyioTypeError("resource-effect handler must be executable code, not @()");
+      }
+      handler.body->typeInfer(this);
+      StyioDataType handler_type = infer_expr_type(this, handler.body);
+      if (!operation_type.isUndefined()
+          && !handler_type.isUndefined()
+          && !container_value_assignable(operation_type, handler_type)) {
+        throw StyioTypeError(
+          "resource-effect handler `" + handler.effect_name + "` expects "
+          + operation_type.name + ", got " + handler_type.name
+        );
+      }
+    }
+  }
 
   if (ast->isDiscard()) {
     ast->setResultType(StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0});

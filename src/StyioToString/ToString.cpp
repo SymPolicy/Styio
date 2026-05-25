@@ -533,10 +533,15 @@ StyioRepr::toString(ResourceEffectAST* ast, int indent) {
     + " {\n"
     + make_padding(indent) + "mode: "
     + (ast->isDiscard() ? std::string("discard")
-                        : (ast->hasFallback() ? std::string("fallback") : std::string("settle")))
+                        : (ast->hasHandlers() ? std::string("handler")
+                                              : (ast->hasFallback() ? std::string("fallback") : std::string("settle"))))
     + "\n"
     + make_padding(indent) + "operation: "
     + (ast->getOperation() ? ast->getOperation()->toString(this, indent + 1) : std::string("null"));
+  for (const auto& handler : ast->getHandlers()) {
+    out += "\n" + make_padding(indent) + "handler:" + handler.effect_name + ": "
+      + (handler.body ? handler.body->toString(this, indent + 1) : std::string("null"));
+  }
   if (ast->hasFallback()) {
     out += "\n" + make_padding(indent) + "fallback: "
       + ast->getFallback()->toString(this, indent + 1);
@@ -1915,8 +1920,13 @@ StyioRepr::toString(SIOResourceEffect* node, int indent) {
   std::string op = node->operation ? node->operation->toString(this, indent) : std::string("null");
   std::string out = std::string("styio.ir.resource_effect { mode=")
     + (node->discard ? std::string("discard")
-                     : (node->fallback ? std::string("fallback") : std::string("settle")))
+                     : (!node->handlers.empty() ? std::string("handler")
+                                                : (node->fallback ? std::string("fallback") : std::string("settle"))))
     + ", operation=" + op;
+  for (const auto& handler : node->handlers) {
+    out += ", handler:" + handler.effect_name + "="
+      + (handler.body ? handler.body->toString(this, indent) : std::string("null"));
+  }
   if (node->fallback != nullptr) {
     out += ", fallback=" + node->fallback->toString(this, indent);
   }

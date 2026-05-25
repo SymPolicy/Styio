@@ -1361,10 +1361,16 @@ class StateExprCloneVisitor
   }
 
   StyioAST* clone(ResourceEffectAST* expr) {
+    std::vector<ResourceEffectAST::Handler> handlers;
+    handlers.reserve(expr->getHandlers().size());
+    for (const auto& handler : expr->getHandlers()) {
+      handlers.emplace_back(handler.effect_name, clone(handler.body));
+    }
     return ResourceEffectAST::Create(
       clone(expr->getOperation()),
       expr->hasFallback() ? clone(expr->getFallback()) : nullptr,
-      expr->isDiscard()
+      expr->isDiscard(),
+      std::move(handlers)
     );
   }
 
@@ -2601,11 +2607,17 @@ StyioIR*
 AstToStyioIRLowerer::toStyioIR(ResourceEffectAST* ast) {
   StyioIR* operation = ast->getOperation()->toStyioIR(this);
   StyioIR* fallback = ast->hasFallback() ? ast->getFallback()->toStyioIR(this) : nullptr;
+  std::vector<SIOResourceEffect::Handler> handlers;
+  handlers.reserve(ast->getHandlers().size());
+  for (const auto& handler : ast->getHandlers()) {
+    handlers.emplace_back(handler.effect_name, handler.body->toStyioIR(this));
+  }
   return SIOResourceEffect::Create(
     operation,
     fallback,
     ast->isDiscard(),
-    ast->getDataType()
+    ast->getDataType(),
+    std::move(handlers)
   );
 }
 

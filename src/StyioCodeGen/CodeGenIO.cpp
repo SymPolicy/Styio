@@ -228,6 +228,9 @@ void collect_task_free_refs(
   }
   if (auto* effect = dynamic_cast<SIOResourceEffect*>(node)) {
     collect_task_free_refs(effect->operation, refs, locals);
+    for (const auto& handler : effect->handlers) {
+      collect_task_free_refs(handler.body, refs, locals);
+    }
     collect_task_free_refs(effect->fallback, refs, locals);
     return;
   }

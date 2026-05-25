@@ -53,6 +53,36 @@ constexpr const char* kRuntimeSubcodeMatrixShape = "STYIO_RUNTIME_MATRIX_SHAPE";
 constexpr const char* kRuntimeSubcodeMatrixElemKind = "STYIO_RUNTIME_MATRIX_ELEM_KIND";
 constexpr const char* kRuntimeSubcodeNumericParse = "STYIO_RUNTIME_NUMERIC_PARSE";
 
+bool
+runtime_subcode_matches_effect_family(const char* subcode, const char* effect_name) {
+  if (subcode == nullptr || effect_name == nullptr) {
+    return false;
+  }
+  if (std::strcmp(effect_name, "io") == 0) {
+    return std::strcmp(subcode, kRuntimeSubcodeFilePathNull) == 0
+           || std::strcmp(subcode, kRuntimeSubcodeFileOpenRead) == 0
+           || std::strcmp(subcode, kRuntimeSubcodeFileOpenWrite) == 0;
+  }
+  if (std::strcmp(effect_name, "parse") == 0) {
+    return std::strcmp(subcode, kRuntimeSubcodeNumericParse) == 0
+           || std::strcmp(subcode, kRuntimeSubcodeListParse) == 0;
+  }
+  if (std::strcmp(effect_name, "bounds") == 0) {
+    return std::strcmp(subcode, kRuntimeSubcodeListIndex) == 0
+           || std::strcmp(subcode, kRuntimeSubcodeDictKey) == 0
+           || std::strcmp(subcode, kRuntimeSubcodeMatrixIndex) == 0;
+  }
+  if (std::strcmp(effect_name, "closed") == 0) {
+    return std::strcmp(subcode, kRuntimeSubcodeInvalidFileHandle) == 0
+           || std::strcmp(subcode, kRuntimeSubcodeInvalidListHandle) == 0
+           || std::strcmp(subcode, kRuntimeSubcodeInvalidDictHandle) == 0
+           || std::strcmp(subcode, kRuntimeSubcodeInvalidMatrixHandle) == 0
+           || std::strcmp(subcode, kRuntimeSubcodeInvalidTaskHandle) == 0
+           || std::strcmp(subcode, kRuntimeSubcodeTaskConsumed) == 0;
+  }
+  return false;
+}
+
 enum class StyioListElemKind : std::uint8_t
 {
   Bool = 0,
@@ -1992,6 +2022,14 @@ styio_runtime_last_error_subcode() {
     return nullptr;
   }
   return g_runtime_error_subcode.c_str();
+}
+
+extern "C" DLLEXPORT int
+styio_runtime_error_matches_effect(const char* effect_name) {
+  if (!g_runtime_error || g_runtime_error_subcode.empty()) {
+    return 0;
+  }
+  return runtime_subcode_matches_effect_family(g_runtime_error_subcode.c_str(), effect_name) ? 1 : 0;
 }
 
 extern "C" DLLEXPORT void

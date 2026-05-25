@@ -1564,17 +1564,62 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectFallbackStatement) {
   EXPECT_EQ(repr.find("styio.ast.FlowBind"), std::string::npos);
 }
 
-TEST(StyioSecurityNightlyParserStmt, RejectsResourceEffectNamedHandlerUntilRuntimeSlice) {
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectNamedHandlerStatement) {
   const std::string src =
-    "?| \"x\" -> @stdout | backpressure => \"fallback\" -> @stderr\n";
+    "?| \"x\" -> @stdout | io => \"fallback\" -> @stderr\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("handler:io"), std::string::npos);
+  EXPECT_EQ(repr.find("styio.ast.FlowBind"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsUnknownResourceEffectNamedHandler) {
+  const std::string src =
+    "?| \"x\" -> @stdout | unknown_effect => \"fallback\" -> @stderr\n";
 
   try {
-    (void)parse_program_to_repr_latest(src, true);
-    FAIL() << "expected resource-effect named handler to fail closed";
+    (void)parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected unknown resource-effect handler to fail closed";
   }
-  catch (const StyioSyntaxError& err) {
+  catch (const StyioTypeError& err) {
     EXPECT_NE(
-      std::string(err.what()).find("resource-effect named handlers are not implemented"),
+      std::string(err.what()).find("unknown resource-effect handler `unknown_effect`"),
+      std::string::npos);
+  }
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsDuplicateResourceEffectNamedHandler) {
+  const std::string src =
+    "?| \"x\" -> @stdout | io => \"a\" -> @stderr | io => \"b\" -> @stderr\n";
+
+  try {
+    (void)parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected duplicate resource-effect handler to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    EXPECT_NE(
+      std::string(err.what()).find("duplicate resource-effect handler `io`"),
+      std::string::npos);
+  }
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsEmptyResourceNamedHandlerBody) {
+  const std::string src =
+    "?| \"x\" -> @stdout | io => @()\n";
+
+  try {
+    (void)parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected empty resource handler body to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    EXPECT_NE(
+      std::string(err.what()).find("resource-effect handler must be executable code, not @()"),
       std::string::npos);
   }
 }

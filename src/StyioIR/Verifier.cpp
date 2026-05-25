@@ -348,6 +348,9 @@ struct VerifierContext
     }
     if (auto* n = dynamic_cast<const SIOResourceEffect*>(node)) {
       visit_required(n->operation, "SIOResourceEffect.operation");
+      for (const auto& handler : n->handlers) {
+        visit_required(handler.body, "SIOResourceEffect.handler");
+      }
       visit_optional(n->fallback);
       return;
     }
