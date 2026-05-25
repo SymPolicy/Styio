@@ -159,9 +159,15 @@ and multiple-writer merge/conflict rules.
 
 Current implementation reality:
 
-1. `SIOStreamZip` codegen supports only list literal and `@file` stream
-   combinations, then throws `unsupported stream zip lowering (supported sources:
-   list literal and @file stream)`.
+1. `SIOStreamZip` codegen supports list literal pairs, file-backed stream pairs,
+   literal/file mixed pairs, and the first materialized list-handle zip slice:
+   non-file `list[T]` handles for `i64`, `string`, `f64`, and `bool` now run
+   through runtime `styio_list_len` / `styio_list_get_*` loops. `t11_zip_bound_lists`
+   proves the parser-shadow-safe bound-list/literal zip path, and
+   `StyioStreamZip.MaterializedListHandlesSupportF64AndBool` proves the typed
+   f64/bool bound-list runtime path. `StreamZipUnsupportedSourceReportsTypeError`
+   keeps a file + runtime-list combination fail-closed until mixed driver/list
+   scheduling is defined.
 2. Resource topology records backpressure edges for writes, collect, iterator,
    and zip paths, but that is analysis graph evidence rather than a complete
    runtime scheduling/effect system.
@@ -296,8 +302,11 @@ These should not be counted as missing implementation in this checkout:
    Unsupported value-family storage, unbounded sequence snapshots, and the full
    type-directed `<<` copy/clone model still need distinct sema types, lowering,
    runtime values, and golden tests.
-3. Pick one stream-source combination beyond list/file and carry it through
-   parser, sema, lowering, runtime, topology graph, diagnostics, and tests.
+3. Continue stream-source closure after the materialized list-handle zip slice:
+   mixed file/runtime-list scheduling, snapshot joins, pressure observers,
+   timeouts, EOF/failure distinctions, and merge/conflict semantics still need
+   dedicated checkpoints across parser, sema, lowering, runtime, topology graph,
+   diagnostics, and tests.
 4. Retire or implement the explicit unsupported AST families according to the
    active syntax docs. Do not let parsed-but-unlowerable forms accumulate.
 5. Expand IDE only after service facts and diagnostics remain stable under the
