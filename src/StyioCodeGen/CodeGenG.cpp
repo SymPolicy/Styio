@@ -81,6 +81,47 @@ styio_dynamic_cell_type(llvm::LLVMContext& ctx) {
   return cell;
 }
 
+llvm::Type*
+styio_bounded_ring_element_llvm_type(const StyioDataType& dt, llvm::IRBuilder<>* builder) {
+  auto type_name = styio_bounded_ring_value_type_name(dt);
+  if (type_name && *type_name == "f64") {
+    return builder->getDoubleTy();
+  }
+  return builder->getInt64Ty();
+}
+
+llvm::Constant*
+styio_zero_for_llvm_type(llvm::Type* ty, llvm::IRBuilder<>* builder) {
+  if (ty->isDoubleTy()) {
+    return llvm::ConstantFP::get(ty, 0.0);
+  }
+  if (ty->isIntegerTy()) {
+    return llvm::ConstantInt::get(llvm::cast<llvm::IntegerType>(ty), 0);
+  }
+  return llvm::Constant::getNullValue(ty);
+}
+
+llvm::Value*
+styio_coerce_bounded_ring_value(llvm::Value* value, llvm::Type* elem_ty, llvm::IRBuilder<>* builder) {
+  if (value == nullptr || elem_ty == nullptr || value->getType() == elem_ty) {
+    return value;
+  }
+  llvm::Type* value_ty = value->getType();
+  if (elem_ty->isDoubleTy() && value_ty->isIntegerTy()) {
+    return builder->CreateSIToFP(value, elem_ty);
+  }
+  if (elem_ty->isIntegerTy() && value_ty->isDoubleTy()) {
+    return builder->CreateFPToSI(value, elem_ty);
+  }
+  if (elem_ty->isIntegerTy() && value_ty->isIntegerTy()) {
+    if (value_ty->isIntegerTy(1)) {
+      return builder->CreateZExt(value, elem_ty);
+    }
+    return builder->CreateSExtOrTrunc(value, elem_ty);
+  }
+  throw StyioTypeError("bounded resource ring value type mismatch");
+}
+
 bool
 ir_yields_list_handle(StyioIR* value) {
   if (dynamic_cast<SCListLiteral*>(value)
@@ -540,8 +581,10 @@ StyioToLLVM::toLLVMIR(SGResId* node) {
     std::uint64_t cap = bounded_ring_capacity_[name];
     llvm::Type* i64 = theBuilder->getInt64Ty();
     auto* arrTy = llvm::cast<llvm::ArrayType>(arr->getAllocatedType());
+    llvm::Type* elem_ty = arrTy->getElementType();
     llvm::Value* head = theBuilder->CreateLoad(i64, headSlot);
     llvm::Value* zero = llvm::ConstantInt::get(i64, 0);
+    llvm::Value* zero_elem = styio_zero_for_llvm_type(elem_ty, theBuilder.get());
     const int depth = node->has_history_selector && node->history_offset < 0
       ? -node->history_offset
       : 1;
@@ -552,8 +595,8 @@ StyioToLLVM::toLLVMIR(SGResId* node) {
     llvm::Value* prev_m = theBuilder->CreateURem(prev, capv);
     llvm::Value* idx = theBuilder->CreateSelect(has, prev_m, zero);
     llvm::Value* gep = theBuilder->CreateInBoundsGEP(arrTy, arr, {zero, idx});
-    llvm::Value* cell = theBuilder->CreateLoad(i64, gep);
-    return theBuilder->CreateSelect(has, cell, zero);
+    llvm::Value* cell = theBuilder->CreateLoad(elem_ty, gep);
+    return theBuilder->CreateSelect(has, cell, zero_elem);
   }
 
   if (named_values.contains(name)) {
@@ -1341,12 +1384,13 @@ StyioToLLVM::emit_bounded_ring_pending_commit(const std::string& name) {
   theBuilder->SetInsertPoint(body_bb);
   auto* ring_ty = llvm::cast<llvm::ArrayType>(arr_it->second->getAllocatedType());
   auto* pending_ty = llvm::cast<llvm::ArrayType>(pending_it->second->getAllocatedType());
+  llvm::Type* elem_ty = pending_ty->getElementType();
   llvm::Value* pending_idx = theBuilder->CreateURem(i, capv);
   llvm::Value* pending_gep = theBuilder->CreateInBoundsGEP(
     pending_ty,
     pending_it->second,
     {zero, pending_idx});
-  llvm::Value* value = theBuilder->CreateLoad(i64, pending_gep);
+  llvm::Value* value = theBuilder->CreateLoad(elem_ty, pending_gep);
   llvm::Value* head = theBuilder->CreateLoad(i64, head_it->second);
   llvm::Value* ring_idx = theBuilder->CreateURem(head, capv);
   llvm::Value* ring_gep = theBuilder->CreateInBoundsGEP(
@@ -1403,7 +1447,10 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
     std::uint64_t cap = bounded_ring_capacity_[varname];
     llvm::Type* i64 = theBuilder->getInt64Ty();
     llvm::Value* zero = llvm::ConstantInt::get(i64, 0);
+    auto* arrTy = llvm::cast<llvm::ArrayType>(arr->getAllocatedType());
+    llvm::Type* elem_ty = arrTy->getElementType();
     llvm::Value* next_value = node->value->toLLVMIR(this);
+    next_value = styio_coerce_bounded_ring_value(next_value, elem_ty, theBuilder.get());
     if (node->pending_resource_write
         && bounded_ring_pending_slot_.contains(varname)
         && bounded_ring_pending_count_slot_.contains(varname)) {
@@ -1415,6 +1462,7 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
         pending_count,
         llvm::ConstantInt::get(i64, cap));
       llvm::Value* gep = theBuilder->CreateInBoundsGEP(pending_ty, pending, {zero, idx});
+      next_value = styio_coerce_bounded_ring_value(next_value, pending_ty->getElementType(), theBuilder.get());
       theBuilder->CreateStore(next_value, gep);
       theBuilder->CreateStore(
         theBuilder->CreateAdd(pending_count, llvm::ConstantInt::get(i64, 1)),
@@ -1423,7 +1471,6 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
     }
 
     llvm::AllocaInst* headSlot = bounded_ring_head_slot_[varname];
-    auto* arrTy = llvm::cast<llvm::ArrayType>(arr->getAllocatedType());
     llvm::Value* head = theBuilder->CreateLoad(i64, headSlot);
     llvm::Value* idx = theBuilder->CreateURem(head, llvm::ConstantInt::get(i64, cap));
     llvm::Value* gep = theBuilder->CreateInBoundsGEP(arrTy, arr, {zero, idx});
@@ -1522,7 +1569,8 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
     llvm::BasicBlock* ent = &F->getEntryBlock();
     llvm::IRBuilder<> prealloc(ent, ent->getFirstInsertionPt());
     llvm::Type* i64 = theBuilder->getInt64Ty();
-    llvm::Type* arrTy = llvm::ArrayType::get(i64, *cap);
+    llvm::Type* elem_ty = styio_bounded_ring_element_llvm_type(node->var->var_type->data_type, theBuilder.get());
+    llvm::Type* arrTy = llvm::ArrayType::get(elem_ty, *cap);
     llvm::AllocaInst* arr = prealloc.CreateAlloca(arrTy, nullptr, varname);
     llvm::AllocaInst* head = prealloc.CreateAlloca(i64, nullptr, varname + ".head");
     llvm::AllocaInst* pending = prealloc.CreateAlloca(arrTy, nullptr, varname + ".pending");
@@ -1530,10 +1578,11 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
     prealloc.CreateStore(llvm::ConstantInt::get(i64, 0), head);
     prealloc.CreateStore(llvm::ConstantInt::get(i64, 0), pending_count);
     llvm::Value* val = node->value->toLLVMIR(this);
+    val = styio_coerce_bounded_ring_value(val, elem_ty, theBuilder.get());
     llvm::Value* z = llvm::ConstantInt::get(i64, 0);
-    llvm::Value* gep0 = prealloc.CreateInBoundsGEP(arrTy, arr, {z, z});
-    prealloc.CreateStore(val, gep0);
-    prealloc.CreateStore(llvm::ConstantInt::get(i64, 1), head);
+    llvm::Value* gep0 = theBuilder->CreateInBoundsGEP(arrTy, arr, {z, z});
+    theBuilder->CreateStore(val, gep0);
+    theBuilder->CreateStore(llvm::ConstantInt::get(i64, 1), head);
     mutable_variables[varname] = arr;
     bounded_ring_head_slot_[varname] = head;
     bounded_ring_capacity_[varname] = *cap;

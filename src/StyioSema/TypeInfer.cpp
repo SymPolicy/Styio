@@ -2285,23 +2285,31 @@ StyioSemaContext::typeInfer(ResourceRefAST* ast) {
     throw StyioTypeError("resource `" + ast->getNameStr() + "` does not support snapshot selection");
   }
   StyioDataType value_type = styio_topology_resource_value_type(resource_type);
-  if (ast->getSelectorKind() == ResourceSelectorKind::Offset) {
-    ast->setDataType(value_type);
-    return;
-  }
-
   const bool bounded_history =
     (resource_type.resource_shape == StyioResourceShapeKind::Fixed
      || resource_type.resource_shape == StyioResourceShapeKind::Recent)
     && resource_type.resource_shape_bound > 0;
+  const bool supported_bounded_history_value =
+    value_type.option == StyioDataTypeOption::Integer
+    || value_type.option == StyioDataTypeOption::Float;
+  if (ast->getSelectorKind() == ResourceSelectorKind::Offset) {
+    if (bounded_history && !supported_bounded_history_value) {
+      throw StyioTypeError(
+        "resource `" + ast->getNameStr() + "` history selection currently supports integer or float resources"
+      );
+    }
+    ast->setDataType(value_type);
+    return;
+  }
+
   if (!bounded_history) {
     throw StyioTypeError(
       "resource `" + ast->getNameStr() + "` slice/snapshot selection requires a bounded topology resource"
     );
   }
-  if (value_type.option != StyioDataTypeOption::Integer) {
+  if (!supported_bounded_history_value) {
     throw StyioTypeError(
-      "resource `" + ast->getNameStr() + "` slice/snapshot selection currently supports integer resources"
+      "resource `" + ast->getNameStr() + "` slice/snapshot selection currently supports integer or float resources"
     );
   }
   if (resource_type.resource_shape_bound > static_cast<std::size_t>(std::numeric_limits<int>::max())) {

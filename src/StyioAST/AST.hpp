@@ -394,7 +394,7 @@ class FloatAST : public StyioASTTraits<FloatAST>
 {
 public:
   string value;
-  TypeAST* data_type = TypeAST::Create(StyioDataType{StyioDataTypeOption::Float, "Float", 64});
+  TypeAST* data_type = TypeAST::Create(StyioDataType{StyioDataTypeOption::Float, "f64", 64});
 
   FloatAST(const string& value) :
       value(value) {
