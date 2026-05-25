@@ -1,0 +1,21 @@
+@price : i64|..3|
+@risk : i64|..3|
+[10, 20, 30, 40] >> #(v) => {
+  v -> @price
+}
+[1, 2, 3, 4] >> #(v) => {
+  v -> @risk
+}
+@price[...] >> #(p) & @risk[-2..] >> #(r) => {
+  >_(p + r)
+}
+
+@name : string|..3|
+names_src = ["Ada", "Lin", "Moe", "Zoe"]
+names_src >> #(v) => {
+  v -> @name
+}
+@name[...] >> #(label) & [1, 2, 3] >> #(rank) => {
+  prefix = label + " "
+  >_(prefix + rank)
+}

@@ -2271,6 +2271,16 @@ parse_resource_file_atom_latest(StyioContext& context) {
 }
 
 StyioAST*
+parse_resource_zip_collection_atom_latest(StyioContext& context) {
+  return parse_resource_operand_after_at_latest(
+    context,
+    ResourceOperandPurposeLatest::FileAtom,
+    "expected @file(...), @{...}, @stdout, @stderr, @stdin, or @name[...] in zip collection",
+    true
+  );
+}
+
+StyioAST*
 parse_instant_pull_resource_atom_latest(StyioContext& context, const std::string& diagnostic) {
   return parse_resource_operand_after_at_latest(
     context,
@@ -3247,7 +3257,7 @@ parse_iterator_tail(StyioContext& context, StyioAST* collection) {
     context.skip();
     std::unique_ptr<StyioAST> collection_b(
       context.cur_tok_type() == StyioTokenType::TOK_AT
-        ? parse_resource_file_atom_latest(context)
+        ? parse_resource_zip_collection_atom_latest(context)
         : parse_fallback_expr(context)
     );
     context.skip();
@@ -5312,7 +5322,18 @@ parse_stmt_or_expr_legacy(
 
     /* @ */
     case StyioTokenType::TOK_AT: {
-      return parse_at_stmt_or_expr_latest(context);
+      std::unique_ptr<StyioAST> at_expr(parse_at_stmt_or_expr_latest(context));
+      context.skip();
+      if (context.cur_tok_type() == StyioTokenType::ITERATOR
+          && !has_linebreak_before_current_token_latest(context)) {
+        const StyioDoubleRightContinuationOps ops{
+          parse_infinite_conditional_loop_after_iterator,
+          parse_iterator_tail,
+          "unsupported '>>' continuation after resource selector",
+        };
+        return parse_double_right_continuation_latest(context, at_expr.release(), ops);
+      }
+      return at_expr.release();
     } break;
 
     /* # */

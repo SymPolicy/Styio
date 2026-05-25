@@ -992,7 +992,7 @@ parse_iterator_collection_rhs_nightly_draft(StyioContext& context) {
     return parse_list_exprs_latest_draft(context);
   }
   if (context.cur_tok_type() == StyioTokenType::TOK_AT) {
-    return parse_resource_file_atom_latest(context);
+    return parse_resource_zip_collection_atom_latest(context);
   }
   if (context.cur_tok_type() == StyioTokenType::NAME) {
     const auto& tokens = context.get_tokens();
@@ -2636,7 +2636,17 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
     reject_authoritative_nightly_gap_latest(context, "hash statement");
   }
   if (context.cur_tok_type() == StyioTokenType::TOK_AT) {
-    return parse_at_stmt_or_expr_latest(context);
+    std::unique_ptr<StyioAST> at_expr(parse_at_stmt_or_expr_latest(context));
+    context.skip_spaces_no_linebreak();
+    if (context.cur_tok_type() == StyioTokenType::ITERATOR) {
+      const StyioDoubleRightContinuationOps ops{
+        parse_infinite_after_double_right_nightly_latest,
+        parse_iterator_tail_nightly_draft,
+        "unsupported '>>' continuation after resource selector in nightly parser subset",
+      };
+      return parse_double_right_continuation_latest(context, at_expr.release(), ops);
+    }
+    return at_expr.release();
   }
   if (context.cur_tok_type() == StyioTokenType::TOK_QUEST) {
     context.move_forward(1, "new_stmt:condflow?");

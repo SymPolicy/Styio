@@ -299,6 +299,22 @@ private:
     return ast->getDataType();
   }
 
+  StyioDataType resource_selector_value_type(ResourceRefAST* ref) const {
+    if (ref == nullptr || ref->isWholeResource()) {
+      return undefined_type();
+    }
+    auto hit = binding_types_.find(std::string("@") + ref->getNameStr());
+    if (hit == binding_types_.end()) {
+      return ref->getDataType();
+    }
+    StyioDataType value_type = styio_topology_resource_value_type(hit->second);
+    if (ref->getSelectorKind() == ResourceSelectorKind::SliceFrom
+        || ref->getSelectorKind() == ResourceSelectorKind::SnapshotAll) {
+      return styio_make_list_type(value_type.name);
+    }
+    return value_type;
+  }
+
   std::size_t add_value(StyioAST* ast, std::string label, Context ctx) {
     const StyioDataType type = type_hint(ast);
     return add_ast_node(
@@ -663,12 +679,13 @@ private:
       }
       require_cap(resource, Capability::Pull, "resource selector needs read capability", ast);
       require_cap(resource, Capability::Checkpoint, "resource selector needs snapshot capability", ast);
+      const StyioDataType selector_type = resource_selector_value_type(ref);
       const std::size_t value = add_ast_node(
         ast,
         NodeKind::Value,
         std::string("resource-select:@") + ref->getNameStr(),
-        Capability::None,
-        TypeState::Ready,
+        capabilities_from_type(selector_type),
+        state_from_type(selector_type),
         ctx);
       result_.graph.add_edge(EdgeKind::Flow, resource, value, "committed-snapshot-read");
       result_.graph.add_edge(EdgeKind::Borrow, value, resource, "selector-borrow");
