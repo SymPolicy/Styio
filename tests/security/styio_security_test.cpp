@@ -1387,7 +1387,7 @@ TEST(StyioSecurityNightlyParserExpr, NegativeNumericLiteralsAreAtoms) {
     EXPECT_EQ(int_repr.find("|- OP : <Sub>"), std::string::npos);
 
     const std::string float_repr = parse_expr_to_repr_latest("-1.5", use_nightly_parser);
-    EXPECT_NE(float_repr.find("{ -1.5 : Float }"), std::string::npos);
+    EXPECT_NE(float_repr.find("{ -1.5 : f64 }"), std::string::npos);
     EXPECT_EQ(float_repr.find("styio.ast.binop"), std::string::npos);
   }
 }

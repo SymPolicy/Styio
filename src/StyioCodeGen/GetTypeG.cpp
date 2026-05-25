@@ -14,8 +14,18 @@
 #include "CodeGenVisitor.hpp"
 
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/Support/Casting.h"
 
 namespace {
+
+llvm::Type*
+styio_bounded_ring_element_llvm_type(const StyioDataType& dt, llvm::IRBuilder<>* builder) {
+  auto type_name = styio_bounded_ring_value_type_name(dt);
+  if (type_name && *type_name == "f64") {
+    return builder->getDoubleTy();
+  }
+  return builder->getInt64Ty();
+}
 
 llvm::StructType*
 styio_dynamic_cell_type(llvm::LLVMContext& ctx) {
@@ -36,13 +46,20 @@ styio_dynamic_cell_type(llvm::LLVMContext& ctx) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGResId* node) {
+  const string& name = node->as_str();
+  auto var_it = mutable_variables.find(name);
+  if (var_it != mutable_variables.end() && bounded_ring_head_slot_.contains(name)) {
+    if (auto* arr_ty = llvm::dyn_cast<llvm::ArrayType>(var_it->second->getAllocatedType())) {
+      return arr_ty->getElementType();
+    }
+  }
   return theBuilder->getInt64Ty();
 };
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGType* node) {
   if (auto cap = styio_bounded_ring_capacity(node->data_type)) {
-    return llvm::ArrayType::get(theBuilder->getInt64Ty(), *cap);
+    return llvm::ArrayType::get(styio_bounded_ring_element_llvm_type(node->data_type, theBuilder.get()), *cap);
   }
   switch (node->data_type.option) {
     case StyioDataTypeOption::Bool:
@@ -125,9 +142,9 @@ StyioToLLVM::toLLVMType(SGVar* node) {
   if (node->is_dynamic_slot) {
     return styio_dynamic_cell_type(*theContext);
   }
-  /* Logical (pulse) value is scalar i64; storage may be [|n|] array (see SGFinalBind alloca). */
+  /* Logical (pulse) value is scalar; storage may be a bounded ring array (see SGFinalBind alloca). */
   if (styio_bounded_ring_capacity(node->var_type->data_type)) {
-    return theBuilder->getInt64Ty();
+    return styio_bounded_ring_element_llvm_type(node->var_type->data_type, theBuilder.get());
   }
   return node->var_type->toLLVMType(this);
 };
