@@ -136,12 +136,20 @@ Current implementation reality:
    prints `false`, `[true,false]`, and `[false,true,false]`. Adjacent negative
    fixtures reject selectors deeper than the declared history bound and
    unsupported bounded string snapshots.
+5. Explicit selector copy now has the first executable bounded-scalar slice:
+   `name << @resource[...]` and `name << @resource[-n..]` bind the materialized
+   selector list for bounded `i64`, `f64`, and `bool` resources instead of
+   treating the selector as a write target. `t09_topology_selector_explicit_copy`
+   proves copied `i64`, `f64`, and `bool` snapshots, while
+   `e07_selector_copy_scalar_unsupported` rejects `name << @resource[-1]`
+   because the scalar latest read is not an enumerable snapshot copy.
 
 Impact: the prior silent scalar/latest-resource collapse is closed for bounded
-`i64`, `f64`, and `bool` resource selectors. Broader selector closure still
-needs unsupported value-family history storage, unbounded sequence snapshot
-policy, and explicit copy semantics before the full Topology v2 selector model
-can be considered complete.
+`i64`, `f64`, and `bool` resource selectors, including explicit copy from their
+slice/snapshot selectors. Broader selector closure still needs unsupported
+value-family history storage, unbounded sequence snapshot policy, and full
+type-directed `<<` copy/clone semantics before the complete Topology v2 selector
+model can be considered complete.
 
 ### P0. Stream concurrency and pressure are only partially executable
 
@@ -284,9 +292,10 @@ These should not be counted as missing implementation in this checkout:
    negative tests.
 2. Continue Topology v2 selector value semantics before adding new resource
    features: bounded `i64`, `f64`, and `bool` selector storage is closed, while
-   unsupported value-family storage, unbounded sequence snapshots, and explicit
-   `snapshot << @x[...]` copy semantics still need distinct sema types,
-   lowering, runtime values, and golden tests.
+   bounded scalar `snapshot << @x[...]` / `snapshot << @x[-n..]` copy is closed.
+   Unsupported value-family storage, unbounded sequence snapshots, and the full
+   type-directed `<<` copy/clone model still need distinct sema types, lowering,
+   runtime values, and golden tests.
 3. Pick one stream-source combination beyond list/file and carry it through
    parser, sema, lowering, runtime, topology graph, diagnostics, and tests.
 4. Retire or implement the explicit unsupported AST families according to the

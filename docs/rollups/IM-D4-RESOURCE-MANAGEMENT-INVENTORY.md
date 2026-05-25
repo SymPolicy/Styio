@@ -34,6 +34,12 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   history reads. Selectors that exceed the declared bound, use non-bounded
   resource shapes, or require unsupported value-family history storage remain
   fail-closed until their resource-family storage semantics are implemented.
+- The first explicit-copy selector slice is executable for those bounded scalar
+  resource families: `snapshot << @name[-n..]` and `snapshot << @name[...]`
+  bind the materialized typed list snapshot to `snapshot`; `snapshot <<
+  @name[-1]` remains rejected because the latest read is scalar rather than an
+  enumerable snapshot copy. Full type-directed `<<` clone/copy semantics remain
+  open for broader resource families.
 
 Current RTG checks cover parts of resource topology, but the broader resource-management model is still design-level. The remaining gap is not "add another verifier." The gap is to define the facts that the existing compiler pipeline must enforce for resource values.
 

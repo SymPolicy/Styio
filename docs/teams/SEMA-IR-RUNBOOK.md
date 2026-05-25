@@ -65,6 +65,7 @@ High-value docs:
 32. Keep [../rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md](../rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md) aligned with lowering reality. Accepted metadata such as resource preludes or resource method definitions may lower to `SGNoOp`; accepted executable sugar such as function-level match cases needs real StyioIR; unsupported value syntax must fail closed instead of returning `SGConstInt(0)`.
 33. `TypeConvertAST` is accepted only for compiler-owned scalar promotions in this slice. It must carry its source value into `SGCast(value, from_type, to_type)`, remain visible to verifier and optimizer traversal, and stay separate from source-level cast syntax until an explicit language decision accepts that syntax.
 34. Topology v2 resource selectors must keep distinct value families through Sema and lowering. `@name[-n]` is a scalar history read, while bounded `i64`/`f64`/`bool` `@name[-n..]` and `@name[...]` lower to typed list materialization from explicit history reads. Do not collapse slice or snapshot selectors back to whole-resource `SGResId`; unsupported non-bounded, unsupported value-family, or out-of-window selectors must fail closed.
+35. Explicit selector copy builds on the same value-family rule: `snapshot << @name[-n..]` and `snapshot << @name[...]` bind the materialized list selector value for bounded `i64`/`f64`/`bool` resources. Do not route these forms through resource-write lowering, and keep scalar `@name[-1]` out of the snapshot-copy path.
 
 ## Change Classes
 
