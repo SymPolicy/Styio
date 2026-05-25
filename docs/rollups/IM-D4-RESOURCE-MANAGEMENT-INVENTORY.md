@@ -25,9 +25,15 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   statement-shaped resource operations backed by the current runtime error
   channel: file-write failure runs the fallback after clearing the materialized
   error, successful writes skip fallback, and no-fallback settlement stops at
-  the source site. This preserves task_await binding for
-  `?| task -> value: T`. Effect-specific named handlers and handler chains
-  remain fail-closed until their typed effect dispatch is implemented.
+  the source site. Statement-shaped named handlers and handler chains are also
+  executable for current runtime subcode families: `io`, `parse`, `bounds`, and
+  `closed` dispatch by matching the materialized runtime subcode, while
+  `backpressure` and `cleanup` remain accepted handler names that do not match
+  until a resource family emits those typed effects. Duplicate and unknown
+  handler names fail closed, `effect => @()` remains invalid, unmatched handlers
+  fall through to the next handler or final catch-all fallback, and unmatched
+  failures without fallback keep the default fail-fast rule. This preserves
+  task_await binding for `?| task -> value: T`.
 - Bounded `i64`, `f64`, `bool`, and `string` resource selectors now have distinct
   executable value shapes: `@name[-n]` reads a scalar value, while
   `@name[-n..]` and `@name[...]` materialize typed list snapshots from explicit

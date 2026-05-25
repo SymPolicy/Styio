@@ -90,23 +90,31 @@ Current implementation reality:
    AST/IR wrapper. `?| resource_operation` settles the operation and emits a
    runtime-error guard at that source site, statement-only
    `?| resource_operation | ...` settles and discards business recovery, and the
-   first catch-all fallback slice accepts `?| resource_operation | fallback` for
-   statement-shaped resource operations.
+   catch-all fallback slice accepts `?| resource_operation | fallback` for
+   statement-shaped resource operations. The first named-handler slice accepts
+   statement-shaped `?| resource_operation | effect => handler` and handler
+   chains, stores them through AST/IR, rejects duplicate or unknown handler names
+   in Sema, and dispatches matched runtime subcodes through the current resource
+   error channel.
 3. `StyioSema/TypeInfer.cpp` rejects `?| ->` as unimplemented continuation
    lowering and requires the `?|` source to be a task/future handle.
-4. File-backed resource-write smoke coverage proves fallback runs only after the
-   resource failure is materialized and cleared, successful operations skip the
-   fallback, and `?| resource_operation` without fallback stops before the next
-   statement. Named handlers and handler chains still fail closed.
+4. File-backed resource-write smoke coverage proves fallback and named `io`
+   handlers run only after the resource failure is materialized and cleared,
+   successful operations skip recovery, unmatched handlers such as
+   `backpressure` for a file-open failure fall through to the default fail-fast
+   rule when no catch-all fallback is present, handler chains continue to a final
+   catch-all fallback when no named handler matches, and
+   `?| resource_operation` without fallback stops before the next statement.
 5. There is still no complete typed value-producing resource-effect model for
-   arbitrary resource operations, no effect-specific handler lowering for
-   `?| op | backpressure => handler`, and no handler-chain implementation.
+   arbitrary resource operations, no cleanup-failure runtime family, no resource
+   family that emits a non-failure `ResourceBackpressure` pressure event, and no
+   pressure-observer implementation.
 
-Impact: cleanup failure, effect-specific backpressure handling, handler chains,
-and the full typed resource-effect value model remain design-fixed but
-unfinished. The prior complete absence of `?| resource_operation | fallback` is
-closed for the statement/runtime slice, but the remaining handler and typed
-value recovery work is still the top resource/runtime gap.
+Impact: statement-shaped fallback, audited discard, and named handler chains now
+have a real parser/Sema/IR/codegen/runtime path for current runtime error
+subcode families such as `io`. Cleanup failure, non-failure backpressure
+observation/escalation, pressure observers, and the full typed value-producing
+resource-effect model remain design-fixed but unfinished.
 
 ### P0. Topology v2 resource selectors parse, but slice/snapshot value semantics are not closed
 
@@ -301,10 +309,11 @@ These should not be counted as missing implementation in this checkout:
 ## Recommended Closure Order
 
 1. Complete the remaining `?| resource_operation` forms in resource-effect
-   checkpoints. The statement-only discard slice is implemented; the next slices
-   must cover fallback, named handler, handler-chain, cleanup-failure, and
-   task_await compatibility behavior with parser, sema, lowering, runtime, and
-   negative tests.
+   checkpoints. Statement-only discard, catch-all fallback, and the first
+   statement-shaped named-handler chain slice are implemented; the next slices
+   must cover cleanup-failure, resource families that emit typed pressure or
+   cleanup effects, full value-producing recovery, and task_await compatibility
+   behavior with parser, sema, lowering, runtime, and negative tests.
 2. Continue Topology v2 selector value semantics before adding new resource
    features: bounded `i64`, `f64`, `bool`, and `string` selector storage is
    closed, while bounded selector `snapshot << @x[...]` / `snapshot << @x[-n..]`
