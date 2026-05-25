@@ -1,0 +1,5 @@
+@price : i64|..2|
+[1, 2] >> #(v) => {
+  v -> @price
+}
+snapshot << @price[-1]

@@ -2367,6 +2367,23 @@ parse_resource_extractor_write_tail_latest(StyioContext& context, StyioAST* data
   std::unique_ptr<StyioAST> data_owner(data);
   context.skip();
   std::unique_ptr<StyioAST> target(parse_resource_target_latest(context));
+  if (auto* lhs_name = dynamic_cast<NameAST*>(data_owner.get())) {
+    if (auto* resource_ref = dynamic_cast<ResourceRefAST*>(target.get())) {
+      if (resource_ref->getSelectorKind() == ResourceSelectorKind::Offset) {
+        throw StyioSyntaxError(
+          "resource copy with `<<` requires @name[-n..] or @name[...]"
+        );
+      }
+      if (resource_ref->getSelectorKind() == ResourceSelectorKind::SliceFrom
+          || resource_ref->getSelectorKind() == ResourceSelectorKind::SnapshotAll) {
+        std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(lhs_name->getAsStr())));
+        StyioAST* bind = FlexBindAST::Create(var.get(), target.get());
+        var.release();
+        target.release();
+        return bind;
+      }
+    }
+  }
   StyioAST* write = ResourceWriteAST::Create(data_owner.get(), target.get());
   data_owner.release();
   target.release();
