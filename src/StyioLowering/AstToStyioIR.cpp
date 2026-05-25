@@ -2707,12 +2707,14 @@ resource_storage_type_latest(const StyioDataType& resource_type) {
   StyioDataType value_type = styio_topology_resource_value_type(resource_type);
   if ((value_type.option == StyioDataTypeOption::Integer
        || value_type.option == StyioDataTypeOption::Float
-       || value_type.option == StyioDataTypeOption::Bool)
+       || value_type.option == StyioDataTypeOption::Bool
+       || value_type.option == StyioDataTypeOption::String)
       && resource_type.resource_shape_bound > 0
       && (resource_type.resource_shape == StyioResourceShapeKind::Fixed || resource_type.resource_shape == StyioResourceShapeKind::Recent)) {
     std::string ring_name = std::string(kStyioBoundedRingPrefix);
     if (value_type.option == StyioDataTypeOption::Float
-        || value_type.option == StyioDataTypeOption::Bool) {
+        || value_type.option == StyioDataTypeOption::Bool
+        || value_type.option == StyioDataTypeOption::String) {
       ring_name += value_type.name + ":";
     }
     ring_name += std::to_string(resource_type.resource_shape_bound);
@@ -2733,6 +2735,9 @@ zero_value_for_type_latest(const StyioDataType& type) {
     }
     if (*ring_type == "bool") {
       return SGConstBool::Create(false);
+    }
+    if (*ring_type == "string") {
+      return SGConstString::Create("");
     }
     return SGConstInt::Create(0);
   }

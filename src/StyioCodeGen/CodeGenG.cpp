@@ -90,6 +90,9 @@ styio_bounded_ring_element_llvm_type(const StyioDataType& dt, llvm::IRBuilder<>*
   if (type_name && *type_name == "bool") {
     return builder->getInt1Ty();
   }
+  if (type_name && *type_name == "string") {
+    return llvm::PointerType::get(builder->getContext(), 0);
+  }
   return builder->getInt64Ty();
 }
 
@@ -121,6 +124,9 @@ styio_coerce_bounded_ring_value(llvm::Value* value, llvm::Type* elem_ty, llvm::I
       return builder->CreateZExt(value, elem_ty);
     }
     return builder->CreateSExtOrTrunc(value, elem_ty);
+  }
+  if (elem_ty->isPointerTy() && value_ty->isPointerTy()) {
+    return value;
   }
   throw StyioTypeError("bounded resource ring value type mismatch");
 }
@@ -310,6 +316,14 @@ StyioToLLVM::free_cstr_fn() {
 }
 
 llvm::FunctionCallee
+StyioToLLVM::clone_cstr_fn() {
+  llvm::Type* char_ptr = llvm::PointerType::get(*theContext, 0);
+  return theModule->getOrInsertFunction(
+    "styio_clone_cstr",
+    llvm::FunctionType::get(char_ptr, {char_ptr}, false));
+}
+
+llvm::FunctionCallee
 StyioToLLVM::list_release_fn() {
   return theModule->getOrInsertFunction(
     "styio_list_release",
@@ -342,6 +356,16 @@ StyioToLLVM::track_owned_cstr_temp(llvm::Value* v) {
   if (v && v->getType()->isPointerTy()) {
     owned_cstr_temps_.insert(v);
   }
+}
+
+llvm::Value*
+StyioToLLVM::clone_cstr_for_runtime_owner(llvm::Value* v) {
+  if (!v || !v->getType()->isPointerTy()) {
+    return v;
+  }
+  llvm::Value* out = theBuilder->CreateCall(clone_cstr_fn(), {v});
+  free_owned_cstr_temp_if_tracked(v);
+  return out;
 }
 
 bool
@@ -378,6 +402,58 @@ StyioToLLVM::free_owned_cstr_temp_if_tracked(llvm::Value* v) {
     return;
   }
   free_cstr_if_runtime_owned(v);
+}
+
+void
+StyioToLLVM::store_bounded_ring_value(
+  llvm::ArrayType* array_type,
+  llvm::AllocaInst* array,
+  llvm::Value* index,
+  llvm::Value* value) {
+  if (array_type == nullptr || array == nullptr || index == nullptr || value == nullptr) {
+    return;
+  }
+  llvm::Type* elem_ty = array_type->getElementType();
+  llvm::Value* zero = llvm::ConstantInt::get(theBuilder->getInt64Ty(), 0);
+  llvm::Value* gep = theBuilder->CreateInBoundsGEP(array_type, array, {zero, index});
+  value = styio_coerce_bounded_ring_value(value, elem_ty, theBuilder.get());
+  if (elem_ty->isPointerTy()) {
+    llvm::Value* old = theBuilder->CreateLoad(elem_ty, gep);
+    free_cstr_if_runtime_owned(old);
+    value = clone_cstr_for_runtime_owner(value);
+  }
+  theBuilder->CreateStore(value, gep);
+}
+
+void
+StyioToLLVM::move_bounded_ring_value(
+  llvm::ArrayType* dst_type,
+  llvm::AllocaInst* dst_array,
+  llvm::Value* dst_index,
+  llvm::ArrayType* src_type,
+  llvm::AllocaInst* src_array,
+  llvm::Value* src_index) {
+  if (dst_type == nullptr || dst_array == nullptr || dst_index == nullptr
+      || src_type == nullptr || src_array == nullptr || src_index == nullptr) {
+    return;
+  }
+  llvm::Type* dst_elem_ty = dst_type->getElementType();
+  llvm::Type* src_elem_ty = src_type->getElementType();
+  llvm::Value* zero = llvm::ConstantInt::get(theBuilder->getInt64Ty(), 0);
+  llvm::Value* src_gep = theBuilder->CreateInBoundsGEP(src_type, src_array, {zero, src_index});
+  llvm::Value* dst_gep = theBuilder->CreateInBoundsGEP(dst_type, dst_array, {zero, dst_index});
+  llvm::Value* value = theBuilder->CreateLoad(src_elem_ty, src_gep);
+  value = styio_coerce_bounded_ring_value(value, dst_elem_ty, theBuilder.get());
+  if (dst_elem_ty->isPointerTy()) {
+    llvm::Value* old = theBuilder->CreateLoad(dst_elem_ty, dst_gep);
+    free_cstr_if_runtime_owned(old);
+  }
+  theBuilder->CreateStore(value, dst_gep);
+  if (src_elem_ty->isPointerTy()) {
+    theBuilder->CreateStore(
+      llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(src_elem_ty)),
+      src_gep);
+  }
 }
 
 void
@@ -599,7 +675,13 @@ StyioToLLVM::toLLVMIR(SGResId* node) {
     llvm::Value* idx = theBuilder->CreateSelect(has, prev_m, zero);
     llvm::Value* gep = theBuilder->CreateInBoundsGEP(arrTy, arr, {zero, idx});
     llvm::Value* cell = theBuilder->CreateLoad(elem_ty, gep);
-    return theBuilder->CreateSelect(has, cell, zero_elem);
+    llvm::Value* selected = theBuilder->CreateSelect(has, cell, zero_elem);
+    if (elem_ty->isPointerTy()) {
+      llvm::Value* owned = clone_cstr_for_runtime_owner(selected);
+      track_owned_cstr_temp(owned);
+      return owned;
+    }
+    return selected;
   }
 
   if (named_values.contains(name)) {
@@ -1387,20 +1469,16 @@ StyioToLLVM::emit_bounded_ring_pending_commit(const std::string& name) {
   theBuilder->SetInsertPoint(body_bb);
   auto* ring_ty = llvm::cast<llvm::ArrayType>(arr_it->second->getAllocatedType());
   auto* pending_ty = llvm::cast<llvm::ArrayType>(pending_it->second->getAllocatedType());
-  llvm::Type* elem_ty = pending_ty->getElementType();
   llvm::Value* pending_idx = theBuilder->CreateURem(i, capv);
-  llvm::Value* pending_gep = theBuilder->CreateInBoundsGEP(
-    pending_ty,
-    pending_it->second,
-    {zero, pending_idx});
-  llvm::Value* value = theBuilder->CreateLoad(elem_ty, pending_gep);
   llvm::Value* head = theBuilder->CreateLoad(i64, head_it->second);
   llvm::Value* ring_idx = theBuilder->CreateURem(head, capv);
-  llvm::Value* ring_gep = theBuilder->CreateInBoundsGEP(
+  move_bounded_ring_value(
     ring_ty,
     arr_it->second,
-    {zero, ring_idx});
-  theBuilder->CreateStore(value, ring_gep);
+    ring_idx,
+    pending_ty,
+    pending_it->second,
+    pending_idx);
   theBuilder->CreateStore(theBuilder->CreateAdd(head, one), head_it->second);
   theBuilder->CreateStore(theBuilder->CreateAdd(i, one), idx_slot);
   theBuilder->CreateBr(hdr_bb);
@@ -1449,7 +1527,6 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
     llvm::AllocaInst* arr = mutable_variables[varname];
     std::uint64_t cap = bounded_ring_capacity_[varname];
     llvm::Type* i64 = theBuilder->getInt64Ty();
-    llvm::Value* zero = llvm::ConstantInt::get(i64, 0);
     auto* arrTy = llvm::cast<llvm::ArrayType>(arr->getAllocatedType());
     llvm::Type* elem_ty = arrTy->getElementType();
     llvm::Value* next_value = node->value->toLLVMIR(this);
@@ -1464,9 +1541,7 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
       llvm::Value* idx = theBuilder->CreateURem(
         pending_count,
         llvm::ConstantInt::get(i64, cap));
-      llvm::Value* gep = theBuilder->CreateInBoundsGEP(pending_ty, pending, {zero, idx});
-      next_value = styio_coerce_bounded_ring_value(next_value, pending_ty->getElementType(), theBuilder.get());
-      theBuilder->CreateStore(next_value, gep);
+      store_bounded_ring_value(pending_ty, pending, idx, next_value);
       theBuilder->CreateStore(
         theBuilder->CreateAdd(pending_count, llvm::ConstantInt::get(i64, 1)),
         pending_count_slot);
@@ -1476,8 +1551,7 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
     llvm::AllocaInst* headSlot = bounded_ring_head_slot_[varname];
     llvm::Value* head = theBuilder->CreateLoad(i64, headSlot);
     llvm::Value* idx = theBuilder->CreateURem(head, llvm::ConstantInt::get(i64, cap));
-    llvm::Value* gep = theBuilder->CreateInBoundsGEP(arrTy, arr, {zero, idx});
-    theBuilder->CreateStore(next_value, gep);
+    store_bounded_ring_value(arrTy, arr, idx, next_value);
     llvm::Value* next_head = theBuilder->CreateAdd(head, llvm::ConstantInt::get(i64, 1));
     theBuilder->CreateStore(next_head, headSlot);
     return arr;
@@ -1573,24 +1647,28 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
     llvm::IRBuilder<> prealloc(ent, ent->getFirstInsertionPt());
     llvm::Type* i64 = theBuilder->getInt64Ty();
     llvm::Type* elem_ty = styio_bounded_ring_element_llvm_type(node->var->var_type->data_type, theBuilder.get());
-    llvm::Type* arrTy = llvm::ArrayType::get(elem_ty, *cap);
+    auto* arrTy = llvm::ArrayType::get(elem_ty, *cap);
     llvm::AllocaInst* arr = prealloc.CreateAlloca(arrTy, nullptr, varname);
     llvm::AllocaInst* head = prealloc.CreateAlloca(i64, nullptr, varname + ".head");
     llvm::AllocaInst* pending = prealloc.CreateAlloca(arrTy, nullptr, varname + ".pending");
     llvm::AllocaInst* pending_count = prealloc.CreateAlloca(i64, nullptr, varname + ".pending.count");
+    prealloc.CreateStore(llvm::ConstantAggregateZero::get(arrTy), arr);
+    prealloc.CreateStore(llvm::ConstantAggregateZero::get(arrTy), pending);
     prealloc.CreateStore(llvm::ConstantInt::get(i64, 0), head);
     prealloc.CreateStore(llvm::ConstantInt::get(i64, 0), pending_count);
     llvm::Value* val = node->value->toLLVMIR(this);
     val = styio_coerce_bounded_ring_value(val, elem_ty, theBuilder.get());
     llvm::Value* z = llvm::ConstantInt::get(i64, 0);
-    llvm::Value* gep0 = theBuilder->CreateInBoundsGEP(arrTy, arr, {z, z});
-    theBuilder->CreateStore(val, gep0);
+    store_bounded_ring_value(arrTy, arr, z, val);
     theBuilder->CreateStore(llvm::ConstantInt::get(i64, 1), head);
     mutable_variables[varname] = arr;
     bounded_ring_head_slot_[varname] = head;
     bounded_ring_capacity_[varname] = *cap;
     bounded_ring_pending_slot_[varname] = pending;
     bounded_ring_pending_count_slot_[varname] = pending_count;
+    if (elem_ty->isPointerTy()) {
+      register_bounded_ring_cstr_for_raii(varname);
+    }
     return arr;
   }
 
@@ -1878,12 +1956,14 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   auto saved_ring_c = bounded_ring_capacity_;
   auto saved_ring_pending = bounded_ring_pending_slot_;
   auto saved_ring_pending_count = bounded_ring_pending_count_slot_;
+  auto saved_bounded_ring_cstr_scopes = bounded_ring_cstr_scope_stack_;
   mutable_variables.clear();
   named_values.clear();
   bounded_ring_head_slot_.clear();
   bounded_ring_capacity_.clear();
   bounded_ring_pending_slot_.clear();
   bounded_ring_pending_count_slot_.clear();
+  bounded_ring_cstr_scope_stack_.clear();
 
   llvm::BasicBlock* block = llvm::BasicBlock::Create(
     *theContext,
@@ -1929,6 +2009,7 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   bounded_ring_capacity_ = std::move(saved_ring_c);
   bounded_ring_pending_slot_ = std::move(saved_ring_pending);
   bounded_ring_pending_count_slot_ = std::move(saved_ring_pending_count);
+  bounded_ring_cstr_scope_stack_ = std::move(saved_bounded_ring_cstr_scopes);
 }
 
 llvm::Value*
@@ -3187,10 +3268,75 @@ StyioToLLVM::toLLVMIR(SGEqProbe* node) {
 }
 
 void
+StyioToLLVM::release_bounded_ring_cstr_array(
+  llvm::ArrayType* array_type,
+  llvm::AllocaInst* array,
+  std::uint64_t capacity,
+  const std::string& label) {
+  if (array_type == nullptr || array == nullptr || capacity == 0) {
+    return;
+  }
+  llvm::Type* elem_ty = array_type->getElementType();
+  if (!elem_ty->isPointerTy()) {
+    return;
+  }
+  llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
+  if (cur == nullptr || cur->getTerminator() != nullptr) {
+    return;
+  }
+  llvm::Function* F = cur->getParent();
+  llvm::Type* i64 = theBuilder->getInt64Ty();
+  llvm::Value* zero = llvm::ConstantInt::get(i64, 0);
+  llvm::Value* one = llvm::ConstantInt::get(i64, 1);
+  llvm::Value* cap = llvm::ConstantInt::get(i64, capacity);
+  llvm::AllocaInst* idx_slot = theBuilder->CreateAlloca(i64, nullptr, label + ".cleanup.i");
+  theBuilder->CreateStore(zero, idx_slot);
+
+  llvm::BasicBlock* hdr_bb = llvm::BasicBlock::Create(*theContext, label + "_cleanup_hdr", F);
+  llvm::BasicBlock* body_bb = llvm::BasicBlock::Create(*theContext, label + "_cleanup_body", F);
+  llvm::BasicBlock* done_bb = llvm::BasicBlock::Create(*theContext, label + "_cleanup_done", F);
+  theBuilder->CreateBr(hdr_bb);
+
+  theBuilder->SetInsertPoint(hdr_bb);
+  llvm::Value* i = theBuilder->CreateLoad(i64, idx_slot);
+  llvm::Value* more = theBuilder->CreateICmpULT(i, cap);
+  theBuilder->CreateCondBr(more, body_bb, done_bb);
+
+  theBuilder->SetInsertPoint(body_bb);
+  llvm::Value* gep = theBuilder->CreateInBoundsGEP(array_type, array, {zero, i});
+  llvm::Value* value = theBuilder->CreateLoad(elem_ty, gep);
+  free_cstr_if_runtime_owned(value);
+  theBuilder->CreateStore(theBuilder->CreateAdd(i, one), idx_slot);
+  theBuilder->CreateBr(hdr_bb);
+
+  theBuilder->SetInsertPoint(done_bb);
+}
+
+void
+StyioToLLVM::release_bounded_ring_cstr_storage(const std::string& name) {
+  auto arr_it = mutable_variables.find(name);
+  auto pending_it = bounded_ring_pending_slot_.find(name);
+  auto cap_it = bounded_ring_capacity_.find(name);
+  if (arr_it == mutable_variables.end()
+      || pending_it == bounded_ring_pending_slot_.end()
+      || cap_it == bounded_ring_capacity_.end()) {
+    return;
+  }
+  auto* arr_ty = llvm::dyn_cast<llvm::ArrayType>(arr_it->second->getAllocatedType());
+  auto* pending_ty = llvm::dyn_cast<llvm::ArrayType>(pending_it->second->getAllocatedType());
+  if (arr_ty == nullptr || pending_ty == nullptr || !arr_ty->getElementType()->isPointerTy()) {
+    return;
+  }
+  release_bounded_ring_cstr_array(arr_ty, arr_it->second, cap_it->second, name + ".ring");
+  release_bounded_ring_cstr_array(pending_ty, pending_it->second, cap_it->second, name + ".pending");
+}
+
+void
 StyioToLLVM::push_file_handle_scope() {
   file_handle_scope_stack_.emplace_back();
   cstr_slot_scope_stack_.emplace_back();
   dynamic_slot_scope_stack_.emplace_back();
+  bounded_ring_cstr_scope_stack_.emplace_back();
 }
 
 void
@@ -3211,6 +3357,13 @@ void
 StyioToLLVM::register_dynamic_slot_for_raii(llvm::AllocaInst* slot) {
   if (slot && !dynamic_slot_scope_stack_.empty()) {
     dynamic_slot_scope_stack_.back().push_back(slot);
+  }
+}
+
+void
+StyioToLLVM::register_bounded_ring_cstr_for_raii(const std::string& name) {
+  if (!name.empty() && !bounded_ring_cstr_scope_stack_.empty()) {
+    bounded_ring_cstr_scope_stack_.back().push_back(name);
   }
 }
 
@@ -3272,6 +3425,18 @@ StyioToLLVM::emit_active_scope_cleanup() {
       release_dynamic_slot_contents(slot);
     }
   }
+
+  std::unordered_set<std::string> released_bounded_rings;
+  for (auto scope_it = bounded_ring_cstr_scope_stack_.rbegin();
+       scope_it != bounded_ring_cstr_scope_stack_.rend();
+       ++scope_it) {
+    for (const std::string& name : *scope_it) {
+      if (!released_bounded_rings.insert(name).second) {
+        continue;
+      }
+      release_bounded_ring_cstr_storage(name);
+    }
+  }
 }
 
 void
@@ -3325,6 +3490,16 @@ StyioToLLVM::pop_file_handle_scope() {
       release_dynamic_slot_contents(slot);
     }
     dynamic_slot_scope_stack_.pop_back();
+  }
+  if (!bounded_ring_cstr_scope_stack_.empty()) {
+    std::unordered_set<std::string> released_bounded_rings;
+    for (const std::string& name : bounded_ring_cstr_scope_stack_.back()) {
+      if (!released_bounded_rings.insert(name).second) {
+        continue;
+      }
+      release_bounded_ring_cstr_storage(name);
+    }
+    bounded_ring_cstr_scope_stack_.pop_back();
   }
   file_handle_scope_stack_.pop_back();
 }

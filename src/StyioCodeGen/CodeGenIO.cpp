@@ -601,6 +601,7 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   auto saved_ring_c = bounded_ring_capacity_;
   auto saved_ring_pending = bounded_ring_pending_slot_;
   auto saved_ring_pending_count = bounded_ring_pending_count_slot_;
+  auto saved_bounded_ring_cstr_scopes = bounded_ring_cstr_scope_stack_;
   auto saved_dyn_names = dynamic_variable_names_;
   auto saved_list_names = list_slot_names_;
   auto saved_file_scopes = file_handle_scope_stack_;
@@ -615,6 +616,7 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   bounded_ring_capacity_.clear();
   bounded_ring_pending_slot_.clear();
   bounded_ring_pending_count_slot_.clear();
+  bounded_ring_cstr_scope_stack_.clear();
   dynamic_variable_names_.clear();
   list_slot_names_.clear();
   file_handle_scope_stack_.clear();
@@ -696,6 +698,7 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   bounded_ring_capacity_ = std::move(saved_ring_c);
   bounded_ring_pending_slot_ = std::move(saved_ring_pending);
   bounded_ring_pending_count_slot_ = std::move(saved_ring_pending_count);
+  bounded_ring_cstr_scope_stack_ = std::move(saved_bounded_ring_cstr_scopes);
   dynamic_variable_names_ = std::move(saved_dyn_names);
   list_slot_names_ = std::move(saved_list_names);
   file_handle_scope_stack_ = std::move(saved_file_scopes);

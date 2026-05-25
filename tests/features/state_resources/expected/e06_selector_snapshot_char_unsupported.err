@@ -1,0 +1,1 @@
+resource `letter` slice/snapshot selection currently supports integer, float, bool, or string resources

@@ -4367,6 +4367,18 @@ TEST(StyioSafetyRuntime, StrcatAbHugeInputDoesNotCrash) {
   styio_free_cstr(p);
 }
 
+TEST(StyioSafetyRuntime, CloneCstrAllocatesOwnedCopyAndHandlesNull) {
+  const char* p = styio_clone_cstr("ring");
+  ASSERT_NE(p, nullptr);
+  ASSERT_STREQ(p, "ring");
+  styio_free_cstr(p);
+
+  const char* empty = styio_clone_cstr(nullptr);
+  ASSERT_NE(empty, nullptr);
+  ASSERT_STREQ(empty, "");
+  styio_free_cstr(empty);
+}
+
 TEST(StyioSafetyRuntime, MissingFileOpenReturnsZeroHandle) {
   styio_runtime_clear_error();
   const int64_t h = styio_file_open("/tmp/styio_missing_9b8fe8e2_7dfe_42ed_9ce2_4f9e587f7f6d.txt");

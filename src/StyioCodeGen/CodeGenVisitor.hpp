@@ -197,6 +197,7 @@ class StyioToLLVM : public StyioCodeGenVisitor
   unordered_map<string, std::uint64_t> bounded_ring_capacity_;
   unordered_map<string, llvm::AllocaInst*> bounded_ring_pending_slot_;
   unordered_map<string, llvm::AllocaInst*> bounded_ring_pending_count_slot_;
+  std::vector<std::vector<std::string>> bounded_ring_cstr_scope_stack_;
   std::unordered_set<std::string> dynamic_variable_names_;
   std::unordered_set<std::string> list_slot_names_;
 
@@ -517,10 +518,12 @@ private:
     const char* label_prefix);
 
   llvm::FunctionCallee free_cstr_fn();
+  llvm::FunctionCallee clone_cstr_fn();
   llvm::FunctionCallee list_release_fn();
   llvm::FunctionCallee dict_release_fn();
   llvm::FunctionCallee matrix_release_fn();
   llvm::FunctionCallee task_release_fn();
+  llvm::Value* clone_cstr_for_runtime_owner(llvm::Value* v);
   void track_owned_cstr_temp(llvm::Value* v);
   bool take_owned_cstr_temp(llvm::Value* v);
   void forget_owned_cstr_temp(llvm::Value* v);
@@ -532,6 +535,25 @@ private:
   void free_resource_if_runtime_owned(llvm::Value* v, TempResourceKind kind);
   void free_owned_resource_temp_if_tracked(llvm::Value* v);
   void emit_active_scope_cleanup();
+  void store_bounded_ring_value(
+    llvm::ArrayType* array_type,
+    llvm::AllocaInst* array,
+    llvm::Value* index,
+    llvm::Value* value);
+  void move_bounded_ring_value(
+    llvm::ArrayType* dst_type,
+    llvm::AllocaInst* dst_array,
+    llvm::Value* dst_index,
+    llvm::ArrayType* src_type,
+    llvm::AllocaInst* src_array,
+    llvm::Value* src_index);
+  void release_bounded_ring_cstr_array(
+    llvm::ArrayType* array_type,
+    llvm::AllocaInst* array,
+    std::uint64_t capacity,
+    const std::string& label);
+  void release_bounded_ring_cstr_storage(const std::string& name);
+  void register_bounded_ring_cstr_for_raii(const std::string& name);
 
   llvm::Value* pulse_ledger_base_ = nullptr;
   llvm::Value* pulse_snap_base_ = nullptr;
