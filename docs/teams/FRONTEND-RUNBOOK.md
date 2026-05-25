@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of Styio tokenization, parsing, Unicode handling, and the authoritative nightly parser contract; this file links to language and test SSOTs instead of redefining grammar.
 
-**Last updated:** 2026-05-24
+**Last updated:** 2026-05-26
 
 ## Mission
 
@@ -63,6 +63,7 @@ Build and test targets:
 34. The current resource-effect parser slice accepts catch-all `?| resource_operation | fallback` as a statement and wraps non-task `?|` operations in `ResourceEffectAST`. Keep `?| resource_operation | effect => handler` and handler chains fail-closed until the typed handler dispatch slice lands; do not parse them as ordinary fallback expressions.
 35. `name << @resource[-n..]` and `name << @resource[...]` are explicit selector-copy forms for bounded Topology v2 snapshots and should parse to a binding over the selector value, not a resource write target. Keep `name << @resource[-1]` fail-closed because it is a scalar latest read, and preserve existing file/standard-stream `value << @file(...)` write compatibility.
 36. Zip right-hand collection parsing must stop before the right-hand `>>` separator for accepted collection expressions such as bound names. Do not let the expression subset consume `name >>` as an unsupported continuation before `StreamZipAST` can own the right collection, parameters, and body.
+37. Zip right-hand `@file(...)`, `@{...}`, and standard-stream resource atoms must also stop before the right-hand `>>` separator. Parse them as resource atoms for the zip collection slot, not as full statements or postfix expressions that can consume the iterator continuation.
 
 ## Change Classes
 

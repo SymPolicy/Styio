@@ -67,6 +67,7 @@ High-value docs:
 34. Topology v2 resource selectors must keep distinct value families through Sema and lowering. `@name[-n]` is a scalar history read, while bounded `i64`/`f64`/`bool` `@name[-n..]` and `@name[...]` lower to typed list materialization from explicit history reads. Do not collapse slice or snapshot selectors back to whole-resource `SGResId`; unsupported non-bounded, unsupported value-family, or out-of-window selectors must fail closed.
 35. Explicit selector copy builds on the same value-family rule: `snapshot << @name[-n..]` and `snapshot << @name[...]` bind the materialized list selector value for bounded `i64`/`f64`/`bool` resources. Do not route these forms through resource-write lowering, and keep scalar `@name[-1]` out of the snapshot-copy path.
 36. Stream zip element families must survive from Sema through lowering. When a zip input is a materialized `list[T]` handle rather than a literal or file source, bind the closure parameter as `T` and carry `T` into `SIOStreamZip`; codegen must not infer every non-string zip element as `i64`.
+37. Mixed file/list zip source-shape facts must stay explicit in Sema and IR: `@file` contributes the file element family, the opposite side must be a materialized `list[T]` handle for the accepted slice, and scalar or broader resource inputs must fail closed before codegen can reinterpret them as list handles.
 
 ## Change Classes
 
