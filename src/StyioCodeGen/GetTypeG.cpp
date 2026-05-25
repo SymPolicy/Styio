@@ -24,6 +24,9 @@ styio_bounded_ring_element_llvm_type(const StyioDataType& dt, llvm::IRBuilder<>*
   if (type_name && *type_name == "f64") {
     return builder->getDoubleTy();
   }
+  if (type_name && *type_name == "bool") {
+    return builder->getInt1Ty();
+  }
   return builder->getInt64Ty();
 }
 

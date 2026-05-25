@@ -1,1 +1,1 @@
-resource `name` slice/snapshot selection currently supports integer or float resources
+resource `name` slice/snapshot selection currently supports integer, float, or bool resources

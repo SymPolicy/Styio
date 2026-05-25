@@ -2706,11 +2706,13 @@ static StyioDataType
 resource_storage_type_latest(const StyioDataType& resource_type) {
   StyioDataType value_type = styio_topology_resource_value_type(resource_type);
   if ((value_type.option == StyioDataTypeOption::Integer
-       || value_type.option == StyioDataTypeOption::Float)
+       || value_type.option == StyioDataTypeOption::Float
+       || value_type.option == StyioDataTypeOption::Bool)
       && resource_type.resource_shape_bound > 0
       && (resource_type.resource_shape == StyioResourceShapeKind::Fixed || resource_type.resource_shape == StyioResourceShapeKind::Recent)) {
     std::string ring_name = std::string(kStyioBoundedRingPrefix);
-    if (value_type.option == StyioDataTypeOption::Float) {
+    if (value_type.option == StyioDataTypeOption::Float
+        || value_type.option == StyioDataTypeOption::Bool) {
       ring_name += value_type.name + ":";
     }
     ring_name += std::to_string(resource_type.resource_shape_bound);
@@ -2729,7 +2731,13 @@ zero_value_for_type_latest(const StyioDataType& type) {
     if (*ring_type == "f64") {
       return SGConstFloat::Create("0.0");
     }
+    if (*ring_type == "bool") {
+      return SGConstBool::Create(false);
+    }
     return SGConstInt::Create(0);
+  }
+  if (type.option == StyioDataTypeOption::Bool) {
+    return SGConstBool::Create(false);
   }
   if (type.option == StyioDataTypeOption::Float) {
     return SGConstFloat::Create("0.0");
