@@ -31,7 +31,7 @@ Styio already has active design and partial implementation surfaces for streams:
 - Materialized non-file `list[T]` handles, mixed `@file` / materialized-list
   pairs, and bounded Topology selector snapshots that have already materialized
   as `list[T]` values now have a zip-barrier runtime slice for `i64`, `string`,
-  `f64`, and `bool` list elements: list sides use `styio_list_len` /
+  `f64`, `bool`, and `char` list elements: list sides use `styio_list_len` /
   `styio_list_get_*`, file sides read one line per frame, finite zip terminates
   at the shorter file EOF or list length, and the existing block/frame commit
   path runs for each matched pair. This selector-snapshot slice remains ordinary
