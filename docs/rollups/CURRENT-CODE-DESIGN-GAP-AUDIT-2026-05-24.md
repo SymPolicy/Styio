@@ -163,16 +163,20 @@ and multiple-writer merge/conflict rules.
 Current implementation reality:
 
 1. `SIOStreamZip` codegen supports list literal pairs, file-backed stream pairs,
-   literal/file mixed pairs, materialized non-file `list[T]` handle pairs, and
-   mixed `@file` / materialized-list pairs in both directions. Runtime list
-   loops use `styio_list_len` / `styio_list_get_*`, cover `i64`, `string`,
-   `f64`, and `bool` list elements, and terminate finite zip at the shorter
-   file EOF or list length. `t11_zip_bound_lists` proves the parser-shadow-safe
-   bound-list/literal zip path, `t12_zip_file_bound_list` proves list-left /
-   file-right feature coverage, and
-   `StyioStreamZip.MixedFileAndMaterializedListsTerminateAtShorterInput` proves
-   both mixed directions. Non-iterable sources still fail closed with a typed
-   zip diagnostic.
+   literal/file mixed pairs, materialized non-file `list[T]` handle pairs, mixed
+   `@file` / materialized-list pairs in both directions, and bounded Topology
+   selector snapshots that have already materialized as `list[T]` handles.
+   Runtime list loops use `styio_list_len` / `styio_list_get_*`, cover `i64`,
+   `string`, `f64`, and `bool` list elements, and terminate finite zip at the
+   shorter file EOF or list length. `t11_zip_bound_lists` proves the
+   parser-shadow-safe bound-list/literal zip path, `t12_zip_file_bound_list`
+   proves list-left / file-right feature coverage, and
+   `t13_zip_resource_selector_snapshots` proves bounded `i64` and `string`
+   selector snapshots feed the same finite zip barrier. Focused unit coverage
+   proves both mixed file/list directions and keeps scalar resource selectors
+   such as `@price[-1]` fail-closed as non-iterable zip inputs. This is not IM-D5
+   snapshot-join semantics; it is the materialized-list zip slice over selector
+   snapshot values.
 2. Resource topology records backpressure edges for writes, collect, iterator,
    and zip paths, but that is analysis graph evidence rather than a complete
    runtime scheduling/effect system.
@@ -307,11 +311,11 @@ These should not be counted as missing implementation in this checkout:
    copy is closed for those families. Unsupported value-family storage,
    unbounded sequence snapshots, and the full type-directed `<<` copy/clone model
    still need distinct sema types, lowering, runtime values, and golden tests.
-3. Continue stream-source closure after the materialized list-handle zip slice:
-   mixed file/runtime-list scheduling, snapshot joins, pressure observers,
-   timeouts, EOF/failure distinctions, and merge/conflict semantics still need
-   dedicated checkpoints across parser, sema, lowering, runtime, topology graph,
-   diagnostics, and tests.
+3. Continue stream-source closure after the materialized list-handle and
+   bounded-selector-snapshot zip slices: true snapshot joins, pressure
+   observers, timeouts, EOF/failure distinctions, and merge/conflict semantics
+   still need dedicated checkpoints across parser, sema, lowering, runtime,
+   topology graph, diagnostics, and tests.
 4. Retire or implement the explicit unsupported AST families according to the
    active syntax docs. Do not let parsed-but-unlowerable forms accumulate.
 5. Expand IDE only after service facts and diagnostics remain stable under the

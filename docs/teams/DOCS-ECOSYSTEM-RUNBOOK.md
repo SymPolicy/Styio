@@ -122,6 +122,7 @@ Key SSOTs:
 86. When a resource selector closure broadens an already-accepted bounded history family, update rollups and the test catalog with the precise family list and keep open-gap wording intact for unsupported families, unbounded snapshots, and explicit copy semantics.
 87. When explicit resource-copy evidence lands for only one selector family, describe the exact accepted copy shape and keep the broader `<<` clone/copy model listed as open unless type-directed source/sink semantics are also implemented and tested.
 88. When an IM-D5 stream-source closure broadens an existing accepted slice, update the gap audit, IM-D5 inventory, next-stage ledger, test catalog, and owning runbooks with the precise source orders, element families, termination behavior, and remaining unsupported stream semantics before refreshing generated doc stats.
+89. When a bounded resource-selector snapshot becomes accepted as a materialized stream-zip input, keep rollups and `workflows/TEST-CATALOG.md` framed as evidence indexes: name the selector families and finite-barrier behavior, cite the adjacent scalar-selector negative, and keep true snapshot joins listed as open unless they have separate IM-D5 runtime evidence.
 
 ## Change Classes
 
