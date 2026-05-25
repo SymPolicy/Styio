@@ -174,6 +174,7 @@ ast_is_statement_only_tail(StyioAST* ast) {
     case StyioNodeType::HandleAcquire:
     case StyioNodeType::ResourceWrite:
     case StyioNodeType::ResourceRedirect:
+    case StyioNodeType::ResourceEffect:
     case StyioNodeType::FlowBind:
     case StyioNodeType::StateDecl:
     case StyioNodeType::StreamZip:
@@ -1359,6 +1360,14 @@ class StateExprCloneVisitor
     return ResourceRedirectAST::Create(clone(expr->getData()), clone(expr->getResource()));
   }
 
+  StyioAST* clone(ResourceEffectAST* expr) {
+    return ResourceEffectAST::Create(
+      clone(expr->getOperation()),
+      expr->hasFallback() ? clone(expr->getFallback()) : nullptr,
+      expr->isDiscard()
+    );
+  }
+
   StyioAST* clone(HistoryProbeAST* expr) {
     StyioAST* cloned_target = clone(expr->getTarget());
     if (cloned_target == nullptr || cloned_target->getNodeType() != StyioNodeType::StateRef) {
@@ -1532,6 +1541,8 @@ public:
         return clone(static_cast<ResourceWriteAST*>(expr));
       case StyioNodeType::ResourceRedirect:
         return clone(static_cast<ResourceRedirectAST*>(expr));
+      case StyioNodeType::ResourceEffect:
+        return clone(static_cast<ResourceEffectAST*>(expr));
       case StyioNodeType::HistoryProbe:
         return clone(static_cast<HistoryProbeAST*>(expr));
       case StyioNodeType::StateRef:
@@ -2583,6 +2594,18 @@ AstToStyioIRLowerer::toStyioIR(ResourceRedirectAST* ast) {
     ast->getData(),
     ast->getResource(),
     true
+  );
+}
+
+StyioIR*
+AstToStyioIRLowerer::toStyioIR(ResourceEffectAST* ast) {
+  StyioIR* operation = ast->getOperation()->toStyioIR(this);
+  StyioIR* fallback = ast->hasFallback() ? ast->getFallback()->toStyioIR(this) : nullptr;
+  return SIOResourceEffect::Create(
+    operation,
+    fallback,
+    ast->isDiscard(),
+    ast->getDataType()
   );
 }
 

@@ -3044,6 +3044,62 @@ public:
   }
 };
 
+class ResourceEffectAST : public StyioASTTraits<ResourceEffectAST>
+{
+  std::unique_ptr<StyioAST> operation_owner_;
+  std::unique_ptr<StyioAST> fallback_owner_;
+
+  StyioAST* operation_ = nullptr;
+  StyioAST* fallback_ = nullptr;
+  bool discard_ = false;
+  StyioDataType result_type_{StyioDataTypeOption::Undefined, "undefined", 0};
+
+  ResourceEffectAST(StyioAST* operation, StyioAST* fallback, bool discard) :
+      operation_owner_(operation),
+      fallback_owner_(fallback),
+      operation_(operation_owner_.get()),
+      fallback_(fallback_owner_.get()),
+      discard_(discard) {
+  }
+
+public:
+  static ResourceEffectAST* Create(
+    StyioAST* operation,
+    StyioAST* fallback = nullptr,
+    bool discard = false
+  ) {
+    return new ResourceEffectAST(operation, fallback, discard);
+  }
+
+  StyioAST* getOperation() {
+    return operation_;
+  }
+
+  bool hasFallback() const {
+    return fallback_ != nullptr;
+  }
+
+  StyioAST* getFallback() {
+    return fallback_;
+  }
+
+  bool isDiscard() const {
+    return discard_;
+  }
+
+  void setResultType(StyioDataType type) {
+    result_type_ = std::move(type);
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::ResourceEffect;
+  }
+
+  const StyioDataType getDataType() const {
+    return result_type_;
+  }
+};
+
 /* State resources: pulse state ledger */
 class StateRefAST : public StyioASTTraits<StateRefAST>
 {

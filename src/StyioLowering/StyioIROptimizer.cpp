@@ -779,6 +779,11 @@ private:
       }
       return;
     }
+    if (auto* effect = dynamic_cast<SIOResourceEffect*>(ir)) {
+      effect->operation = optimize(effect->operation);
+      effect->fallback = optimize(effect->fallback);
+      return;
+    }
     if (auto* iter = dynamic_cast<SIOStdStreamLineIter*>(ir)) {
       optimize_block(iter->body);
       return;

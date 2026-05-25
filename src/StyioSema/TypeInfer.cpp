@@ -722,6 +722,7 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
     case StyioNodeType::ResourceRef:
     case StyioNodeType::InstantPull:
     case StyioNodeType::TaskBlock:
+    case StyioNodeType::ResourceEffect:
       return expr->getDataType();
     case StyioNodeType::FlowBind:
       return static_cast<FlowBindAST*>(expr)->getDataType();
@@ -1928,6 +1929,35 @@ StyioSemaContext::typeInfer(ResourceRedirectAST* ast) {
   if (!styio_type_is_writable(resource_type)) {
     throw StyioTypeError("redirect target must be a writable resource");
   }
+}
+
+void
+StyioSemaContext::typeInfer(ResourceEffectAST* ast) {
+  ast->getOperation()->typeInfer(this);
+  StyioDataType operation_type = infer_expr_type(this, ast->getOperation());
+
+  if (ast->isDiscard()) {
+    ast->setResultType(StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0});
+    return;
+  }
+
+  if (ast->hasFallback()) {
+    if (dynamic_cast<EmptyResourceAST*>(ast->getFallback()) != nullptr) {
+      throw StyioTypeError("resource-effect fallback must be executable code, not @()");
+    }
+    ast->getFallback()->typeInfer(this);
+    StyioDataType fallback_type = infer_expr_type(this, ast->getFallback());
+    if (!operation_type.isUndefined()
+        && !fallback_type.isUndefined()
+        && !container_value_assignable(operation_type, fallback_type)) {
+      throw StyioTypeError(
+        "resource-effect fallback expects " + operation_type.name
+        + ", got " + fallback_type.name
+      );
+    }
+  }
+
+  ast->setResultType(operation_type);
 }
 
 /*

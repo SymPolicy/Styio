@@ -528,6 +528,24 @@ StyioRepr::toString(ResourceRedirectAST* ast, int indent) {
 }
 
 std::string
+StyioRepr::toString(ResourceEffectAST* ast, int indent) {
+  std::string out = reprASTType(ast->getNodeType(), " ")
+    + " {\n"
+    + make_padding(indent) + "mode: "
+    + (ast->isDiscard() ? std::string("discard")
+                        : (ast->hasFallback() ? std::string("fallback") : std::string("settle")))
+    + "\n"
+    + make_padding(indent) + "operation: "
+    + (ast->getOperation() ? ast->getOperation()->toString(this, indent + 1) : std::string("null"));
+  if (ast->hasFallback()) {
+    out += "\n" + make_padding(indent) + "fallback: "
+      + ast->getFallback()->toString(this, indent + 1);
+  }
+  out += "}";
+  return out;
+}
+
+std::string
 StyioRepr::toString(TaskBlockAST* ast, int indent) {
   return reprASTType(ast->getNodeType(), " ")
          + " {\n"
@@ -1890,6 +1908,20 @@ StyioRepr::toString(SIOStdStreamWrite* node, int indent) {
     parts += node->exprs[i] ? node->exprs[i]->toString(this, indent) : std::string("null");
   }
   return std::string("styio.ir.std_stream_write { target=") + target + ", exprs=[" + parts + "] }";
+}
+
+std::string
+StyioRepr::toString(SIOResourceEffect* node, int indent) {
+  std::string op = node->operation ? node->operation->toString(this, indent) : std::string("null");
+  std::string out = std::string("styio.ir.resource_effect { mode=")
+    + (node->discard ? std::string("discard")
+                     : (node->fallback ? std::string("fallback") : std::string("settle")))
+    + ", operation=" + op;
+  if (node->fallback != nullptr) {
+    out += ", fallback=" + node->fallback->toString(this, indent);
+  }
+  out += " }";
+  return out;
 }
 
 std::string

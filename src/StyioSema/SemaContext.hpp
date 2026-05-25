@@ -93,6 +93,7 @@ using StyioSemaLoweringVisitor = AnalyzerVisitor<
   class HandleAcquireAST,
   class ResourceWriteAST,
   class ResourceRedirectAST,
+  class ResourceEffectAST,
 
   class StateDeclAST,
   class StateRefAST,
@@ -261,6 +262,7 @@ public:
   void typeInfer(HandleAcquireAST* ast) override;
   void typeInfer(ResourceWriteAST* ast) override;
   void typeInfer(ResourceRedirectAST* ast) override;
+  void typeInfer(ResourceEffectAST* ast) override;
   void typeInfer(StateDeclAST* ast) override;
   void typeInfer(StateRefAST* ast) override;
   void typeInfer(HistoryProbeAST* ast) override;
