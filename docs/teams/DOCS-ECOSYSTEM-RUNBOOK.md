@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-05-24
+**Last updated:** 2026-05-26
 
 ## Mission
 
@@ -116,6 +116,7 @@ Key SSOTs:
 81. Branch-consolidation pushes must run whitespace checks over the full push range, not only the worktree. If an older tracked docs file fails range hygiene, fix the active file in the consolidation commit and refresh `DOC-STATS.md` when team runbooks changed.
 82. Current implementation-vs-design gap audits belong in `docs/rollups/` only when they are evidence-backed active summaries. Keep them tied to `CURRENT-STATE.md`, `NEXT-STAGE-GAP-LEDGER.md`, exact local verification commands, and explicit non-gap boundaries so they do not become a parallel language SSOT or a stale audit bundle.
 83. When an accepted industrial-maturity design slice is implemented while adjacent questions remain undecided, update the owning IM inventory with the accepted behavior, keep the unresolved question as a named pending decision in [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md), and do not let the ledger become the authority for already accepted syntax.
+84. When a resource-topology gap closure updates rollups and `workflows/TEST-CATALOG.md`, refresh generated indexes and record the docs-maintenance rule here so future checkpoints can distinguish evidence indexing from language semantics.
 
 ## Change Classes
 
