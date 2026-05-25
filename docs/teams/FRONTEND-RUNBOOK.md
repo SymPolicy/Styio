@@ -65,6 +65,7 @@ Build and test targets:
 36. Zip right-hand collection parsing must stop before the right-hand `>>` separator for accepted collection expressions such as bound names. Do not let the expression subset consume `name >>` as an unsupported continuation before `StreamZipAST` can own the right collection, parameters, and body.
 37. Zip `@` collection parsing must distinguish resource atoms from named resource selectors. `@file(...)`, `@{...}`, and standard-stream atoms stay resource atoms for file/std stream zip, while `@name[-n..]` and `@name[...]` enter the zip collection slot as selector values that Sema must prove iterable. Do not parse right-hand resource collections as full statements or postfix expressions that can consume the iterator continuation.
 38. Resource-selector iterators at statement start, such as `@price[...] >> #(p) => { ... }`, must route through the nightly iterator tail without crossing a line break. Scalar latest selectors such as `@price[-1] >> ...` may parse, but Sema must keep them rejected as non-iterable inputs.
+39. Range literals in the nightly list route accept `[start..end]` and `[start..end..step]` with expression operands. Keep the parsed start/end/step expressions under RAII ownership until `RangeAST` adopts them, stop the middle operand before the second dot run, and do not add legacy-parser fallback to make expression-bound ranges pass shadow gates.
 
 ## Change Classes
 

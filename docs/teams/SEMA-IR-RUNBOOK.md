@@ -69,6 +69,7 @@ High-value docs:
 36. Stream zip element families must survive from Sema through lowering. When a zip input is a materialized `list[T]` handle rather than a literal or file source, bind the closure parameter as `T` and carry `T` into `SIOStreamZip`; codegen must not infer every non-string zip element as `i64`.
 37. Mixed file/list zip source-shape facts must stay explicit in Sema and IR: `@file` contributes the file element family, the opposite side must be a materialized `list[T]` handle for the accepted slice, and scalar or broader resource inputs must fail closed before codegen can reinterpret them as list handles.
 38. Bounded Topology selector snapshots may feed stream zip only after the selector has inferred and lowered to a materialized `list[T]` value. Keep `@name[-n..]` and `@name[...]` on the same value-family path as other materialized lists, and keep scalar/latest `@name[-1]` rejected as a non-iterable zip input.
+39. Range literals are accepted only for integer `start`, `end`, and optional `step` expressions in this slice. Sema should infer expression-bound range values as materialized `list[i64]` handles for binding, printing, and stream/list consumers; lowering may still use the dedicated `SGRangeFor` path for iterator bodies. Non-integer bounds must fail before codegen.
 
 ## Change Classes
 

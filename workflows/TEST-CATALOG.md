@@ -66,6 +66,7 @@ ctest --test-dir build/default -L scalar_expressions --output-on-failure
 | `parser_shadow_gate_stream_processing_zero_fallback` | Keep stream-processing fixtures matched with zero legacy fallback. | `ctest --test-dir build/default -R '^parser_shadow_gate_stream_processing_zero_fallback$' --output-on-failure` |
 | `parser_shadow_gate_stream_processing_zero_internal_bridges` | Keep stream-processing fixtures matched with zero internal legacy bridges. | `ctest --test-dir build/default -R '^parser_shadow_gate_stream_processing_zero_internal_bridges$' --output-on-failure` |
 | `parser_legacy_entry_audit` | Reject new parser legacy-entry regressions. | `ctest --test-dir build/default -R '^parser_legacy_entry_audit$' --output-on-failure` |
+| `RangeLiteralExpressionBoundsMaterializeList` / `RangeLiteralRejectsNonIntegerExpressionBounds` / `DynamicRangeLiteralLowersToRuntimeListLoop` | Prove `[start..end..step]` accepts integer expressions, materializes `list[i64]`, rejects non-integer operands in Sema, and emits the dynamic runtime-list fill loop. | `ctest --test-dir build/default -R '^(StyioParserEngine\.(RangeLiteralExpressionBoundsMaterializeList\|RangeLiteralRejectsNonIntegerExpressionBounds)\|StyioSecurityNightlyCodegen\.DynamicRangeLiteralLowersToRuntimeListLoop)$' --output-on-failure` |
 
 ---
 

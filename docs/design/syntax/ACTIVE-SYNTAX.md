@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the compact authoring map for current Styio syntax; grammar authority stays in [../Styio-EBNF.md](../Styio-EBNF.md), token authority stays in [../Styio-Symbol-Reference.md](../Styio-Symbol-Reference.md), and semantics stay in the owning design documents.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-05-26
 
 ## Reading Contract
 
@@ -22,6 +22,7 @@
 | Return/export | `<| expr` | [CONTINUATION_TRANSFER.md](./CONTINUATION_TRANSFER.md) |
 | Inline return | `|<| expr |;` | [CONTINUATION_TRANSFER.md](./CONTINUATION_TRANSFER.md) |
 | Conditional | `?(cond) => { ... } | { ... }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
+| Range literal | `[start..end]`, `[start..end..step]` | Integer expressions only; materializes `list[i64]` for expression/value use and remains iterable in `>> #(x)` loops. |
 | Infinite stream loop | `[...] >> ?(cond) => { ... }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
 
 ## Types

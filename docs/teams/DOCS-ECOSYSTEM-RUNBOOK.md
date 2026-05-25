@@ -124,6 +124,7 @@ Key SSOTs:
 88. When an IM-D5 stream-source closure broadens an existing accepted slice, update the gap audit, IM-D5 inventory, next-stage ledger, test catalog, and owning runbooks with the precise source orders, element families, termination behavior, and remaining unsupported stream semantics before refreshing generated doc stats.
 89. When a bounded resource-selector snapshot becomes accepted as a materialized stream-zip input, keep rollups and `workflows/TEST-CATALOG.md` framed as evidence indexes: name the selector families and finite-barrier behavior, cite the adjacent scalar-selector negative, and keep true snapshot joins listed as open unless they have separate IM-D5 runtime evidence.
 90. When a parser/runtime slice turns an already-documented type family into executable syntax, update the grammar/status SSOTs and evidence rollups together. For example, accepting single-quoted `char` literals and bounded `char` selector snapshots requires EBNF literal coverage, Resource Topology implementation-status wording, current gap/IM inventory evidence, test catalog wording, and a shifted adjacent negative for the next unsupported family.
+91. When range literal semantics change, keep `ACTIVE-SYNTAX.md`, IM-D1, the current gap audit, the next-stage ledger, owning runbooks, and the unit/security test evidence aligned. Record the exact accepted operand family and materialized value shape instead of implying broader sequence/range-handle semantics.
 
 ## Change Classes
 
