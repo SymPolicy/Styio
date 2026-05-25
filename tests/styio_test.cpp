@@ -4493,6 +4493,70 @@ TEST(StyioParserEngine, RangeLiteralIteratesInclusivelyAndIgnoresDotCount) {
   fs::remove(input);
 }
 
+TEST(StyioParserEngine, RangeLiteralExpressionBoundsMaterializeList) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input = fs::temp_directory_path() / ("styio-range-expr-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "start = 2\n"
+        << "stop = 6\n"
+        << "step = 2\n"
+        << "xs = [start..stop..step]\n"
+        << ">_(xs)\n"
+        << "down = [stop..start..-step]\n"
+        << ">_(down)\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, std::string("[2,4,6]\n[6,4,2]\n"));
+
+  fs::remove(input);
+}
+
+TEST(StyioParserEngine, RangeLiteralRejectsNonIntegerExpressionBounds) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input = fs::temp_directory_path() / ("styio-range-float-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "start = 1.5\n"
+        << "xs = [start..3]\n"
+        << ">_(xs)\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
+  EXPECT_NE(
+    result.stdout_text.find("range literal bounds and step must be integer expressions"),
+    std::string::npos);
+
+  fs::remove(input);
+}
+
 TEST(StyioDiagnostics, RuntimeHelperErrorEmitsJsonlRuntimeDiagnostic) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();

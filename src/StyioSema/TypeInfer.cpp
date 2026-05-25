@@ -723,6 +723,7 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
     case StyioNodeType::Dict:
       return infer_dict_literal_type(an, static_cast<DictAST*>(expr));
     case StyioNodeType::Range:
+      return styio_make_list_type("i64");
     case StyioNodeType::StdinResource:
     case StyioNodeType::StdoutResource:
     case StyioNodeType::StderrResource:
@@ -996,6 +997,7 @@ expr_is_intish_hint(StyioSemaContext* an, StyioAST* x) {
 StyioSemaContext::BindingValueKind
 binding_value_kind_for_type(const StyioDataType& type) {
   switch (styio_value_family_for_type(type)) {
+    case StyioValueFamily::RangeHandle:
     case StyioValueFamily::ListHandle:
       return StyioSemaContext::BindingValueKind::ListHandle;
     case StyioValueFamily::DictHandle:
@@ -1609,6 +1611,18 @@ StyioSemaContext::typeInfer(ExtractorAST* ast) {
 
 void
 StyioSemaContext::typeInfer(RangeAST* ast) {
+  ast->getStart()->typeInfer(this);
+  ast->getEnd()->typeInfer(this);
+  ast->getStep()->typeInfer(this);
+
+  StyioDataType start_type = infer_expr_type(this, ast->getStart());
+  StyioDataType end_type = infer_expr_type(this, ast->getEnd());
+  StyioDataType step_type = infer_expr_type(this, ast->getStep());
+  if (start_type.option != StyioDataTypeOption::Integer
+      || end_type.option != StyioDataTypeOption::Integer
+      || step_type.option != StyioDataTypeOption::Integer) {
+    throw StyioTypeError("range literal bounds and step must be integer expressions");
+  }
 }
 
 void

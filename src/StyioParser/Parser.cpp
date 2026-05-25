@@ -3682,10 +3682,18 @@ parse_list_exprs_latest_draft(StyioContext& context) {
 
   if (context.match(StyioTokenType::ELLIPSIS)) {
     context.skip();
-    std::unique_ptr<StyioAST> last_expr(parse_list_elem_expr({StyioTokenType::TOK_RBOXBRAC}));
+    std::unique_ptr<StyioAST> last_expr(parse_list_elem_expr(
+      {StyioTokenType::ELLIPSIS, StyioTokenType::TOK_RBOXBRAC}
+    ));
     context.skip();
+    std::unique_ptr<StyioAST> step_expr(IntAST::Create("1"));
+    if (context.match(StyioTokenType::ELLIPSIS)) {
+      context.skip();
+      step_expr.reset(parse_list_elem_expr({StyioTokenType::TOK_RBOXBRAC}));
+      context.skip();
+    }
     context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
-    return new RangeAST(first_expr.release(), last_expr.release(), IntAST::Create("1"));
+    return new RangeAST(first_expr.release(), last_expr.release(), step_expr.release());
   }
 
   expr_owners.push_back(std::move(first_expr));

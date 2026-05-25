@@ -2862,6 +2862,20 @@ TEST(StyioSecurityNightlyCodegen, EmitsTypedListHelpersForMutationAndOperations)
   EXPECT_NE(llvm_ir.find("styio_list_set_dict"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyCodegen, DynamicRangeLiteralLowersToRuntimeListLoop) {
+  const std::string src =
+    "start = 2\n"
+    "stop = 6\n"
+    "step = 2\n"
+    "xs = [start..stop..step]\n"
+    ">_(xs)\n";
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("range_list_hdr"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_new_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_push_i64"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyCodegen, EmitsStringListCollectHelperForStdinCollectBind) {
   const std::string src =
     "lines << @stdin\n"
