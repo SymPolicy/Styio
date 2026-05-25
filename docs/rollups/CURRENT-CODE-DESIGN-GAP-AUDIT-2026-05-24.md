@@ -229,8 +229,10 @@ Examples:
    fixed/recent resources this becomes a bounded-ring storage value, but
    unsupported tuple/list/dict/matrix storage and absence/default semantics are
    not a full typed resource initialization contract.
-3. Range literal lowering currently requires integer literal bounds; general
-   range expressions are not implemented.
+3. Range literals now accept integer expressions for `start`, `end`, and
+   optional `step`; non-integer bounds fail in Sema. Constant ranges still lower
+   to list literals, while expression-bound ranges materialize `list[i64]`
+   through the runtime list loop used by the current value/print paths.
 
 Impact: these are not silent `SGConstInt(0)` placeholder AST lowerings, but they
 are still places where the design's expression-oriented and typed semantics have
@@ -309,6 +311,11 @@ These should not be counted as missing implementation in this checkout:
 4. The presence of legacy parser code is not by itself evidence that accepted
    grammar still depends on fallback; current parser shadow gates passed for the
    covered suites. It remains maintenance debt, not current user-facing authority.
+5. Range literal expression bounds are no longer an implementation gap for
+   integer expressions. `RangeLiteralExpressionBoundsMaterializeList`,
+   `RangeLiteralRejectsNonIntegerExpressionBounds`, and
+   `DynamicRangeLiteralLowersToRuntimeListLoop` prove parser/Sema/lowering/
+   codegen/runtime-list behavior and the adjacent float-bound rejection.
 
 ## Recommended Closure Order
 

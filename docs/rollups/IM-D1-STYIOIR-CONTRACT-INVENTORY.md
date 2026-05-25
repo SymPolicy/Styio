@@ -27,6 +27,7 @@
 5. Unsupported resource method calls and unsupported resource property accesses fail closed.
 6. Function-level match sugar (`# f(x) ?= { ... }`) lowers `CasesAST` through the first parameter as an explicit `SGMatch` instead of relying on the former integer placeholder.
 7. `TypeConvertAST` now carries its source value through Sema, StyioIR, verifier traversal, optimizer traversal, textual repr, and LLVM scalar conversion for `Bool_To_Int` and `Int_To_Float`.
+8. `RangeAST` now validates integer expression operands in Sema, lowers constant ranges to `SCListLiteral`, and lowers expression-bound ranges to an internal list-producing `SGCall` that codegen expands into a runtime `list[i64]` fill loop.
 
 ## Remaining `SGConstInt(0)` Uses
 
@@ -63,7 +64,8 @@ These nodes are no longer allowed to pass through lowering as integer zero:
 | `VarAST`, `ParamAST`, `OptArgAST`, `OptKwArgAST`, `TypeTupleAST`, `VarTupleAST` | Declaration metadata | Parent declarations must validate and bind them. Direct runtime lowering is rejected. |
 | `NoneAST`, `InfiniteAST`, `TupleAST`, `ExtractorAST`, `SetAST`, `AnonyFuncAST` | Implementation debt | Add real sema and IR only when the language semantics are accepted; otherwise keep typed rejection. |
 | `TypeConvertAST` | Accepted compiler-owned scalar promotion | Keep the value-carrying `SGCast` path limited to internally selected scalar promotions until source-level cast syntax is accepted. |
-| `StructAST`, `RangeAST`, `EmptyResourceAST`, `ResPathAST`, `RemotePathAST`, `WebUrlAST`, `DBUrlAST`, `ExtPackAST`, `ReadFileAST` | Partially retired or metadata-heavy syntax | Keep fail-closed or parent-consumed behavior until the owning design SSOT accepts runtime semantics. |
+| `RangeAST` | Accepted collection syntax | Validate integer `start`, `end`, and optional `step`; materialize `list[i64]` for expression/value use and keep iterator lowering on the dedicated range loop path. |
+| `StructAST`, `EmptyResourceAST`, `ResPathAST`, `RemotePathAST`, `WebUrlAST`, `DBUrlAST`, `ExtPackAST`, `ReadFileAST` | Partially retired or metadata-heavy syntax | Keep fail-closed or parent-consumed behavior until the owning design SSOT accepts runtime semantics. |
 | `ResourceAST`, `ResourceMethodDefAST`, `ResourceOrderAST` | Accepted resource/topology metadata | Lowering is explicit `SGNoOp`; collection and validation happen before executable lowering without creating runtime placeholder values. |
 | `ExportDeclAST`, `ExternBlockAST` | Contract metadata | Sema may remain side-effect free while native interop ownership is collected elsewhere. |
 | `BreakAST`, `ContinueAST`, `ReturnAST` | Control-flow syntax | Current local behavior is accepted; a future control-flow verifier can add dominance/reachability checks. |
