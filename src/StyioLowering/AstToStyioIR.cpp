@@ -2704,6 +2704,38 @@ zero_value_for_type_latest(const StyioDataType& type) {
   return SGConstInt::Create(0);
 }
 
+static int
+resource_selector_snapshot_depth_latest(ResourceRefAST* ast, const StyioDataType& resource_type) {
+  if (ast->getSelectorKind() == ResourceSelectorKind::SnapshotAll) {
+    if (resource_type.resource_shape_bound > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+      throw StyioTypeError("resource selector history bound exceeds supported selector depth");
+    }
+    return static_cast<int>(resource_type.resource_shape_bound);
+  }
+  if (ast->getSelectorKind() == ResourceSelectorKind::SliceFrom) {
+    if (ast->getSelectorOffset() == std::numeric_limits<int>::min()) {
+      throw StyioTypeError("resource slice selector depth exceeds supported selector depth");
+    }
+    return -ast->getSelectorOffset();
+  }
+  return 0;
+}
+
+static StyioIR*
+lower_resource_selector_snapshot_latest(ResourceRefAST* ast, const StyioDataType& resource_type) {
+  StyioDataType value_type = styio_topology_resource_value_type(resource_type);
+  const int depth = resource_selector_snapshot_depth_latest(ast, resource_type);
+  if (depth <= 0) {
+    throw StyioTypeError("resource slice/snapshot lowering requires a bounded selector depth");
+  }
+  std::vector<StyioIR*> elems;
+  elems.reserve(static_cast<std::size_t>(depth));
+  for (int d = depth; d >= 1; --d) {
+    elems.push_back(SGResId::CreateHistory(ast->getNameStr(), -d));
+  }
+  return SCListLiteral::Create(std::move(elems), value_type.name);
+}
+
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ResourceDeclAST* ast) {
   std::vector<StyioIR*> stmts;
@@ -2728,6 +2760,14 @@ StyioIR*
 AstToStyioIRLowerer::toStyioIR(ResourceRefAST* ast) {
   if (ast->getSelectorKind() == ResourceSelectorKind::Offset) {
     return SGResId::CreateHistory(ast->getNameStr(), ast->getSelectorOffset());
+  }
+  if (ast->getSelectorKind() == ResourceSelectorKind::SliceFrom
+      || ast->getSelectorKind() == ResourceSelectorKind::SnapshotAll) {
+    auto it = resource_binding_types_.find(ast->getNameStr());
+    if (it == resource_binding_types_.end()) {
+      throw StyioTypeError("unknown resource `" + ast->getNameStr() + "`");
+    }
+    return lower_resource_selector_snapshot_latest(ast, it->second);
   }
   return SGResId::Create(ast->getNameStr());
 }

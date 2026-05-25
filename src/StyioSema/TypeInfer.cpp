@@ -7,6 +7,7 @@
 
 // [C++ STL]
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -2283,7 +2284,46 @@ StyioSemaContext::typeInfer(ResourceRefAST* ast) {
       && resource_type.resource_shape == StyioResourceShapeKind::Scalar) {
     throw StyioTypeError("resource `" + ast->getNameStr() + "` does not support snapshot selection");
   }
-  ast->setDataType(styio_topology_resource_value_type(resource_type));
+  StyioDataType value_type = styio_topology_resource_value_type(resource_type);
+  if (ast->getSelectorKind() == ResourceSelectorKind::Offset) {
+    ast->setDataType(value_type);
+    return;
+  }
+
+  const bool bounded_history =
+    (resource_type.resource_shape == StyioResourceShapeKind::Fixed
+     || resource_type.resource_shape == StyioResourceShapeKind::Recent)
+    && resource_type.resource_shape_bound > 0;
+  if (!bounded_history) {
+    throw StyioTypeError(
+      "resource `" + ast->getNameStr() + "` slice/snapshot selection requires a bounded topology resource"
+    );
+  }
+  if (value_type.option != StyioDataTypeOption::Integer) {
+    throw StyioTypeError(
+      "resource `" + ast->getNameStr() + "` slice/snapshot selection currently supports integer resources"
+    );
+  }
+  if (resource_type.resource_shape_bound > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+    throw StyioTypeError(
+      "resource `" + ast->getNameStr() + "` selector history bound exceeds supported selector depth"
+    );
+  }
+  if (ast->getSelectorKind() == ResourceSelectorKind::SliceFrom) {
+    if (ast->getSelectorOffset() == std::numeric_limits<int>::min()) {
+      throw StyioTypeError("resource slice selector depth exceeds supported selector depth");
+    }
+    const int depth = -ast->getSelectorOffset();
+    if (depth <= 0) {
+      throw StyioTypeError("resource slice selector requires a negative history offset");
+    }
+    if (static_cast<std::size_t>(depth) > resource_type.resource_shape_bound) {
+      throw StyioTypeError(
+        "resource selector depth exceeds resource `" + ast->getNameStr() + "` history bound"
+      );
+    }
+  }
+  ast->setDataType(styio_make_list_type(value_type.name));
 }
 
 void
