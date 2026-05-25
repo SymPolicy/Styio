@@ -19,9 +19,15 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
 - block-entering forms such as `>> { ... }`, `=> { ... }`, `?= { ... }`, and task blocks enter a resource snapshot context.
 - `@name[-1]`, `@name[-3..]`, and `@name[...]` read resource snapshots or slices.
 - `@stdin`, `@stdout`, `@file(...)`, and similar entries act as standard or external resource anchors.
-- `?| resource_operation | ...` is accepted as a statement-only audited
-  discard for the first implementation slice; it parses and lowers the resource
-  operation while preserving task_await binding for `?| task -> value: T`.
+- `?| resource_operation`, `?| resource_operation | fallback`, and
+  `?| resource_operation | ...` now have an explicit statement-level
+  resource-effect AST/IR wrapper. The fallback slice is executable for
+  statement-shaped resource operations backed by the current runtime error
+  channel: file-write failure runs the fallback after clearing the materialized
+  error, successful writes skip fallback, and no-fallback settlement stops at
+  the source site. This preserves task_await binding for
+  `?| task -> value: T`. Effect-specific named handlers and handler chains
+  remain fail-closed until their typed effect dispatch is implemented.
 - Bounded `i64` and `f64` resource selectors now have distinct executable value
   shapes: `@name[-n]` reads a scalar value, while `@name[-n..]` and
   `@name[...]` materialize typed list snapshots from explicit history reads.
@@ -332,6 +338,7 @@ IM-D4 can close only when every accepted resource operation is covered by:
 5. a commit-barrier rule for pending resource writes,
 6. a cleanup rule when the operation creates or releases a resource,
 7. a failure result/effect rule, including `ResourceCleanupFailure` where cleanup can fail,
+   a fallback rule when the source form permits `?| op | fallback`,
    and a statement-only discard rule when the source form permits `?| op | ...`,
 8. positive tests for accepted behavior, and
 9. negative tests for invalid state, invalid capability, retired syntax, and unsupported resource families.

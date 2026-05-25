@@ -71,7 +71,7 @@ Real compiler/runtime surfaces:
 
 ## Highest-Priority Gaps
 
-### P0. Resource-effect `?|` is still mostly task_await, not the unified resource effect model
+### P0. Resource-effect `?|` has fallback settlement, but not the full unified model
 
 Design says `?| resource_operation`, `?| resource_operation | fallback`,
 effect-specific handlers, and audited discard are the uniform resource-effect
@@ -86,21 +86,27 @@ Current implementation reality:
    `src/StyioParser/NewParserExpr.cpp`; it preserves typed task_await binding
    for `?| task -> name: T` and routes non-typed resource operations to a
    resource-effect statement path.
-2. The first resource-effect implementation slice accepts
-   `?| resource_operation` and statement-only `?| resource_operation | ...`;
-   the parsed statement still lowers through the existing resource operation
-   rather than a complete typed resource-effect value model.
+2. Resource-effect statements now lower through an explicit resource-effect
+   AST/IR wrapper. `?| resource_operation` settles the operation and emits a
+   runtime-error guard at that source site, statement-only
+   `?| resource_operation | ...` settles and discards business recovery, and the
+   first catch-all fallback slice accepts `?| resource_operation | fallback` for
+   statement-shaped resource operations.
 3. `StyioSema/TypeInfer.cpp` rejects `?| ->` as unimplemented continuation
    lowering and requires the `?|` source to be a task/future handle.
-4. There is still no implemented parser/sema/lowering path for
-   `?| resource_write | fallback`, `?| op | backpressure => handler`, or handler
-   chains as typed resource-effect recovery.
+4. File-backed resource-write smoke coverage proves fallback runs only after the
+   resource failure is materialized and cleared, successful operations skip the
+   fallback, and `?| resource_operation` without fallback stops before the next
+   statement. Named handlers and handler chains still fail closed.
+5. There is still no complete typed value-producing resource-effect model for
+   arbitrary resource operations, no effect-specific handler lowering for
+   `?| op | backpressure => handler`, and no handler-chain implementation.
 
-Impact: cleanup failure, resource fallback, backpressure handling, and typed
-resource-effect recovery are design decisions, but only the settlement/discard
-statement slice is executable source behavior so far. Treat the remaining
-fallback and handler work as the top resource/runtime gap because many other
-resource promises depend on it.
+Impact: cleanup failure, effect-specific backpressure handling, handler chains,
+and the full typed resource-effect value model remain design-fixed but
+unfinished. The prior complete absence of `?| resource_operation | fallback` is
+closed for the statement/runtime slice, but the remaining handler and typed
+value recovery work is still the top resource/runtime gap.
 
 ### P0. Topology v2 resource selectors parse, but slice/snapshot value semantics are not closed
 
