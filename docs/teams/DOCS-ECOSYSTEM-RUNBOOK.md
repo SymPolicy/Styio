@@ -119,6 +119,7 @@ Key SSOTs:
 83. When an accepted industrial-maturity design slice is implemented while adjacent questions remain undecided, update the owning IM inventory with the accepted behavior, keep the unresolved question as a named pending decision in [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md), and do not let the ledger become the authority for already accepted syntax.
 84. When a resource-topology gap closure updates rollups and `workflows/TEST-CATALOG.md`, refresh generated indexes and record the docs-maintenance rule here so future checkpoints can distinguish evidence indexing from language semantics.
 85. When a resource selector closure only broadens an already-accepted scalar family, update rollups and the test catalog with the precise family list and keep open-gap wording intact for unsupported families, unbounded snapshots, and explicit copy semantics.
+86. When explicit resource-copy evidence lands for only one selector family, describe the exact accepted copy shape and keep the broader `<<` clone/copy model listed as open unless type-directed source/sink semantics are also implemented and tested.
 
 ## Change Classes
 
