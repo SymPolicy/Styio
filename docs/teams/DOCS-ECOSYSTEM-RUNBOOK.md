@@ -121,6 +121,7 @@ Key SSOTs:
 85. When a resource-topology gap closure updates rollups and `workflows/TEST-CATALOG.md`, refresh generated indexes and record the docs-maintenance rule here so future checkpoints can distinguish evidence indexing from language semantics.
 86. When a resource selector closure only broadens an already-accepted scalar family, update rollups and the test catalog with the precise family list and keep open-gap wording intact for unsupported families, unbounded snapshots, and explicit copy semantics.
 87. When explicit resource-copy evidence lands for only one selector family, describe the exact accepted copy shape and keep the broader `<<` clone/copy model listed as open unless type-directed source/sink semantics are also implemented and tested.
+88. When an IM-D5 stream-source closure broadens an existing accepted slice, update the gap audit, IM-D5 inventory, next-stage ledger, test catalog, and owning runbooks with the precise source orders, element families, termination behavior, and remaining unsupported stream semantics before refreshing generated doc stats.
 
 ## Change Classes
 

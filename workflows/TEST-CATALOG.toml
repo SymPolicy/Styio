@@ -1,7 +1,7 @@
 id = "test-catalog"
 title = "Styio Test Catalog"
 purpose = "Map language feature tests to inputs, goldens, side effects, and CTest commands."
-last_updated = "2026-05-10"
+last_updated = "2026-05-26"
 doc = "TEST-CATALOG.md"
 
 primary_command = "ctest --test-dir build/default -L language_feature"

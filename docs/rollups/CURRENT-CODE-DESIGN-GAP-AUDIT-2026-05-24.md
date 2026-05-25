@@ -160,14 +160,16 @@ and multiple-writer merge/conflict rules.
 Current implementation reality:
 
 1. `SIOStreamZip` codegen supports list literal pairs, file-backed stream pairs,
-   literal/file mixed pairs, and the first materialized list-handle zip slice:
-   non-file `list[T]` handles for `i64`, `string`, `f64`, and `bool` now run
-   through runtime `styio_list_len` / `styio_list_get_*` loops. `t11_zip_bound_lists`
-   proves the parser-shadow-safe bound-list/literal zip path, and
-   `StyioStreamZip.MaterializedListHandlesSupportF64AndBool` proves the typed
-   f64/bool bound-list runtime path. `StreamZipUnsupportedSourceReportsTypeError`
-   keeps a file + runtime-list combination fail-closed until mixed driver/list
-   scheduling is defined.
+   literal/file mixed pairs, materialized non-file `list[T]` handle pairs, and
+   mixed `@file` / materialized-list pairs in both directions. Runtime list
+   loops use `styio_list_len` / `styio_list_get_*`, cover `i64`, `string`,
+   `f64`, and `bool` list elements, and terminate finite zip at the shorter
+   file EOF or list length. `t11_zip_bound_lists` proves the parser-shadow-safe
+   bound-list/literal zip path, `t12_zip_file_bound_list` proves list-left /
+   file-right feature coverage, and
+   `StyioStreamZip.MixedFileAndMaterializedListsTerminateAtShorterInput` proves
+   both mixed directions. Non-iterable sources still fail closed with a typed
+   zip diagnostic.
 2. Resource topology records backpressure edges for writes, collect, iterator,
    and zip paths, but that is analysis graph evidence rather than a complete
    runtime scheduling/effect system.
