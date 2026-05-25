@@ -2148,6 +2148,24 @@ looks_like_resource_effect_named_handler_latest(const StyioContext& context) {
   return cursor < tokens.size() && tokens[cursor]->type == StyioTokenType::ARROW_DOUBLE_RIGHT;
 }
 
+ResourceEffectAST::Handler
+parse_resource_effect_named_handler_latest(StyioContext& context) {
+  std::unique_ptr<NameAST> effect_name(parse_name_unsafe(context));
+  context.skip();
+  context.try_match_panic(StyioTokenType::ARROW_DOUBLE_RIGHT);
+  context.skip();
+  if (context.cur_tok_type() == StyioTokenType::ELLIPSIS) {
+    throw StyioSyntaxError(
+      context.mark_cur_tok("resource-effect named handler body must be executable code")
+    );
+  }
+  std::unique_ptr<StyioAST> body(
+    parse_expr_subset_allowing_follow_latest(context, {StyioTokenType::TOK_PIPE})
+  );
+  std::string name = effect_name->getAsStr();
+  return ResourceEffectAST::Handler(std::move(name), body.release());
+}
+
 StyioAST*
 parse_resource_effect_stmt_nightly(StyioContext& context) {
   context.match_panic(StyioTokenType::AWAIT_PIPE);
@@ -2163,6 +2181,7 @@ parse_resource_effect_stmt_nightly(StyioContext& context) {
 
   context.skip();
   std::unique_ptr<StyioAST> fallback;
+  std::vector<ResourceEffectAST::Handler> handlers;
   bool discard = false;
   if (context.cur_tok_type() == StyioTokenType::TOK_PIPE) {
     context.move_forward(1, "new_stmt:resource_effect_discard");
@@ -2172,19 +2191,36 @@ parse_resource_effect_stmt_nightly(StyioContext& context) {
       context.move_forward(1, "new_stmt:resource_effect_discard_ellipsis");
     }
     else if (looks_like_resource_effect_named_handler_latest(context)) {
-      throw StyioSyntaxError(
-        context.mark_cur_tok(
-          "resource-effect named handlers are not implemented in this slice; "
-          "use `?| resource_operation | fallback` or `?| resource_operation | ...`"
-        )
-      );
+      handlers.emplace_back(parse_resource_effect_named_handler_latest(context));
+      context.skip();
+      while (context.cur_tok_type() == StyioTokenType::TOK_PIPE) {
+        context.move_forward(1, "new_stmt:resource_effect_handler_chain");
+        context.skip();
+        if (context.cur_tok_type() == StyioTokenType::ELLIPSIS) {
+          throw StyioSyntaxError(
+            context.mark_cur_tok("resource-effect handler chains cannot end with discard ellipsis")
+          );
+        }
+        if (looks_like_resource_effect_named_handler_latest(context)) {
+          handlers.emplace_back(parse_resource_effect_named_handler_latest(context));
+          context.skip();
+          continue;
+        }
+        fallback.reset(parse_expr_subset_nightly(context));
+        break;
+      }
     }
     else {
       fallback.reset(parse_expr_subset_nightly(context));
     }
   }
 
-  auto* effect = ResourceEffectAST::Create(operation.get(), fallback.get(), discard);
+  auto* effect = ResourceEffectAST::Create(
+    operation.get(),
+    fallback.get(),
+    discard,
+    std::move(handlers)
+  );
   operation.release();
   fallback.release();
   return effect;

@@ -251,8 +251,18 @@ private:
 class SIOResourceEffect : public StyioIRTraits<SIOResourceEffect>
 {
 public:
+  struct Handler {
+    std::string effect_name;
+    StyioIR* body = nullptr;
+
+    Handler(std::string effect, StyioIR* handler_body) :
+        effect_name(std::move(effect)), body(handler_body) {
+    }
+  };
+
   StyioIR* operation = nullptr;
   StyioIR* fallback = nullptr;
+  std::vector<Handler> handlers;
   bool discard = false;
   StyioDataType result_type{StyioDataTypeOption::Undefined, "undefined", 0};
 
@@ -260,11 +270,13 @@ public:
     StyioIR* op,
     StyioIR* fb,
     bool discard_effect,
-    StyioDataType result
+    StyioDataType result,
+    std::vector<Handler> effect_handlers = {}
   ) {
     auto* x = new SIOResourceEffect();
     x->operation = op;
     x->fallback = fb;
+    x->handlers = std::move(effect_handlers);
     x->discard = discard_effect;
     x->result_type = std::move(result);
     return x;
@@ -273,6 +285,9 @@ public:
   ~SIOResourceEffect() override {
     delete operation;
     delete fallback;
+    for (auto& handler : handlers) {
+      delete handler.body;
+    }
   }
 
 private:

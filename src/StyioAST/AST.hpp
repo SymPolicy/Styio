@@ -3046,17 +3046,43 @@ public:
 
 class ResourceEffectAST : public StyioASTTraits<ResourceEffectAST>
 {
+public:
+  struct Handler {
+    std::string effect_name;
+    std::unique_ptr<StyioAST> body_owner;
+    StyioAST* body = nullptr;
+
+    Handler(std::string effect, StyioAST* handler_body) :
+        effect_name(std::move(effect)),
+        body_owner(handler_body),
+        body(body_owner.get()) {
+    }
+
+    Handler(Handler&&) noexcept = default;
+    Handler& operator=(Handler&&) noexcept = default;
+    Handler(const Handler&) = delete;
+    Handler& operator=(const Handler&) = delete;
+  };
+
+private:
   std::unique_ptr<StyioAST> operation_owner_;
   std::unique_ptr<StyioAST> fallback_owner_;
+  std::vector<Handler> handlers_;
 
   StyioAST* operation_ = nullptr;
   StyioAST* fallback_ = nullptr;
   bool discard_ = false;
   StyioDataType result_type_{StyioDataTypeOption::Undefined, "undefined", 0};
 
-  ResourceEffectAST(StyioAST* operation, StyioAST* fallback, bool discard) :
+  ResourceEffectAST(
+    StyioAST* operation,
+    StyioAST* fallback,
+    bool discard,
+    std::vector<Handler> handlers
+  ) :
       operation_owner_(operation),
       fallback_owner_(fallback),
+      handlers_(std::move(handlers)),
       operation_(operation_owner_.get()),
       fallback_(fallback_owner_.get()),
       discard_(discard) {
@@ -3066,9 +3092,10 @@ public:
   static ResourceEffectAST* Create(
     StyioAST* operation,
     StyioAST* fallback = nullptr,
-    bool discard = false
+    bool discard = false,
+    std::vector<Handler> handlers = {}
   ) {
-    return new ResourceEffectAST(operation, fallback, discard);
+    return new ResourceEffectAST(operation, fallback, discard, std::move(handlers));
   }
 
   StyioAST* getOperation() {
@@ -3081,6 +3108,14 @@ public:
 
   StyioAST* getFallback() {
     return fallback_;
+  }
+
+  const std::vector<Handler>& getHandlers() const {
+    return handlers_;
+  }
+
+  bool hasHandlers() const {
+    return !handlers_.empty();
   }
 
   bool isDiscard() const {

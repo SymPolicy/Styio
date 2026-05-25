@@ -5140,7 +5140,7 @@ StyioToLLVM::toLLVMIR(SIOResourceEffect* node) {
     return theBuilder->getInt64(0);
   }
 
-  if (node->fallback == nullptr) {
+  if (node->fallback == nullptr && node->handlers.empty()) {
     emit_runtime_error_guard_return();
     return theBuilder->getInt64(0);
   }
@@ -5148,17 +5148,53 @@ StyioToLLVM::toLLVMIR(SIOResourceEffect* node) {
   llvm::Function* fn = cur->getParent();
   llvm::Value* has_err = theBuilder->CreateCall(has_error, {});
   llvm::Value* bad = theBuilder->CreateICmpNE(has_err, theBuilder->getInt32(0));
-  llvm::BasicBlock* fallback_bb = llvm::BasicBlock::Create(*theContext, "resource_fallback", fn);
+  llvm::BasicBlock* dispatch_bb = llvm::BasicBlock::Create(*theContext, "resource_effect_dispatch", fn);
   llvm::BasicBlock* cont_bb = llvm::BasicBlock::Create(*theContext, "resource_effect_continue", fn);
-  theBuilder->CreateCondBr(bad, fallback_bb, cont_bb);
+  theBuilder->CreateCondBr(bad, dispatch_bb, cont_bb);
 
-  theBuilder->SetInsertPoint(fallback_bb);
-  theBuilder->CreateCall(clear_error, {});
-  node->fallback->toLLVMIR(this);
-  emit_runtime_error_guard_return();
-  llvm::BasicBlock* after_fallback = theBuilder->GetInsertBlock();
-  if (after_fallback != nullptr && after_fallback->getTerminator() == nullptr) {
-    theBuilder->CreateBr(cont_bb);
+  theBuilder->SetInsertPoint(dispatch_bb);
+  llvm::Type* char_ptr = llvm::PointerType::get(*theContext, 0);
+  llvm::FunctionCallee matches_effect = theModule->getOrInsertFunction(
+    "styio_runtime_error_matches_effect",
+    llvm::FunctionType::get(theBuilder->getInt32Ty(), {char_ptr}, false));
+
+  for (const auto& handler : node->handlers) {
+    llvm::BasicBlock* handler_bb = llvm::BasicBlock::Create(*theContext, "resource_handler", fn);
+    llvm::BasicBlock* next_bb = llvm::BasicBlock::Create(*theContext, "resource_handler_next", fn);
+    llvm::Value* name = theBuilder->CreateGlobalStringPtr(handler.effect_name);
+    llvm::Value* matched = theBuilder->CreateCall(matches_effect, {name});
+    llvm::Value* is_match = theBuilder->CreateICmpNE(matched, theBuilder->getInt32(0));
+    theBuilder->CreateCondBr(is_match, handler_bb, next_bb);
+
+    theBuilder->SetInsertPoint(handler_bb);
+    theBuilder->CreateCall(clear_error, {});
+    if (handler.body != nullptr) {
+      handler.body->toLLVMIR(this);
+    }
+    emit_runtime_error_guard_return();
+    llvm::BasicBlock* after_handler = theBuilder->GetInsertBlock();
+    if (after_handler != nullptr && after_handler->getTerminator() == nullptr) {
+      theBuilder->CreateBr(cont_bb);
+    }
+
+    theBuilder->SetInsertPoint(next_bb);
+  }
+
+  if (node->fallback != nullptr) {
+    theBuilder->CreateCall(clear_error, {});
+    node->fallback->toLLVMIR(this);
+    emit_runtime_error_guard_return();
+    llvm::BasicBlock* after_fallback = theBuilder->GetInsertBlock();
+    if (after_fallback != nullptr && after_fallback->getTerminator() == nullptr) {
+      theBuilder->CreateBr(cont_bb);
+    }
+  }
+  else {
+    emit_runtime_error_guard_return();
+    llvm::BasicBlock* after_unmatched = theBuilder->GetInsertBlock();
+    if (after_unmatched != nullptr && after_unmatched->getTerminator() == nullptr) {
+      theBuilder->CreateBr(cont_bb);
+    }
   }
 
   theBuilder->SetInsertPoint(cont_bb);

@@ -5011,6 +5011,108 @@ TEST(StyioResourceEffects, FallbackIsSkippedAfterSuccessfulFileWrite) {
   fs::remove(output);
 }
 
+TEST(StyioResourceEffects, NamedIoHandlerRunsForFileWriteFailure) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-io-handler-" + std::to_string(uniq) + ".styio");
+  const fs::path missing_target =
+    fs::temp_directory_path() / ("styio-resource-effect-io-handler-dir-" + std::to_string(uniq)) / "out.txt";
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "?| \"primary\" -> @file(\"" << missing_target.string()
+        << "\") | parse => \"parse\" -> @stdout | io => \"io\" -> @stdout | \"fallback\" -> @stdout\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "io\nafter\n");
+  EXPECT_FALSE(fs::exists(missing_target));
+
+  fs::remove(input);
+}
+
+TEST(StyioResourceEffects, UnmatchedNamedHandlerFailsFastWithoutCatchAllFallback) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-unmatched-handler-" + std::to_string(uniq) + ".styio");
+  const fs::path missing_target =
+    fs::temp_directory_path() / ("styio-resource-effect-unmatched-handler-dir-" + std::to_string(uniq)) / "out.txt";
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "?| \"primary\" -> @file(\"" << missing_target.string()
+        << "\") | backpressure => \"pressure\" -> @stdout\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 5) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_RUNTIME_FILE_OPEN_WRITE\""), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("pressure"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("after"), std::string::npos);
+  EXPECT_FALSE(fs::exists(missing_target));
+
+  fs::remove(input);
+}
+
+TEST(StyioResourceEffects, HandlerChainFallsBackAfterUnmatchedEffects) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-handler-chain-" + std::to_string(uniq) + ".styio");
+  const fs::path missing_target =
+    fs::temp_directory_path() / ("styio-resource-effect-handler-chain-dir-" + std::to_string(uniq)) / "out.txt";
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "?| \"primary\" -> @file(\"" << missing_target.string()
+        << "\") | parse => \"parse\" -> @stdout | \"fallback\" -> @stdout\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "fallback\nafter\n");
+  EXPECT_FALSE(fs::exists(missing_target));
+
+  fs::remove(input);
+}
+
 TEST(StyioResourceEffects, MissingFallbackStopsAtSettlementSite) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();

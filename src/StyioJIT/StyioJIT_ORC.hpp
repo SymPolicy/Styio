@@ -77,6 +77,7 @@ public:
     add_symbol("styio_runtime_has_error", &styio_runtime_has_error);
     add_symbol("styio_runtime_last_error", &styio_runtime_last_error);
     add_symbol("styio_runtime_last_error_subcode", &styio_runtime_last_error_subcode);
+    add_symbol("styio_runtime_error_matches_effect", &styio_runtime_error_matches_effect);
     add_symbol("styio_runtime_clear_error", &styio_runtime_clear_error);
     add_symbol("styio_runtime_set_log_sink", &styio_runtime_set_log_sink);
     add_symbol("styio_stdout_write_cstr", &styio_stdout_write_cstr);

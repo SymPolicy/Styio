@@ -781,6 +781,9 @@ private:
     }
     if (auto* effect = dynamic_cast<SIOResourceEffect*>(ir)) {
       effect->operation = optimize(effect->operation);
+      for (auto& handler : effect->handlers) {
+        handler.body = optimize(handler.body);
+      }
       effect->fallback = optimize(effect->fallback);
       return;
     }
