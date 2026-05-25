@@ -1,0 +1,7 @@
+@flag : bool|..3|
+[true, false, true, false] >> #(v) => {
+  v -> @flag
+}
+>_(@flag[-1])
+>_(@flag[-2..])
+>_(@flag[...])
