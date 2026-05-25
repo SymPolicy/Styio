@@ -113,6 +113,8 @@ public:
   std::string var_b;
   bool a_elem_string = false;
   bool b_elem_string = false;
+  std::string a_elem_type = "i64";
+  std::string b_elem_type = "i64";
   SGBlock* body = nullptr;
   std::unique_ptr<SGPulsePlan> pulse_plan;
   int pulse_region_id = -1;
@@ -126,6 +128,8 @@ public:
     std::string vb,
     bool astr,
     bool bstr,
+    std::string a_elem,
+    std::string b_elem,
     SGBlock* b
   ) {
     auto* z = new SIOStreamZip();
@@ -137,6 +141,8 @@ public:
     z->var_b = std::move(vb);
     z->a_elem_string = astr;
     z->b_elem_string = bstr;
+    z->a_elem_type = std::move(a_elem);
+    z->b_elem_type = std::move(b_elem);
     z->body = b;
     return z;
   }

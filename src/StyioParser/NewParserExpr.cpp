@@ -991,6 +991,13 @@ parse_iterator_collection_rhs_nightly_draft(StyioContext& context) {
   if (context.cur_tok_type() == StyioTokenType::TOK_LBOXBRAC) {
     return parse_list_exprs_latest_draft(context);
   }
+  if (context.cur_tok_type() == StyioTokenType::NAME) {
+    const auto& tokens = context.get_tokens();
+    std::size_t next = skip_non_line_trivia_latest(tokens, context.get_token_index() + 1);
+    if (next < tokens.size() && tokens[next]->type == StyioTokenType::ITERATOR) {
+      return parse_name_unsafe(context);
+    }
+  }
   auto attempt = try_parse_expr_subset_until_latest_impl(context, {StyioTokenType::ITERATOR});
   if (attempt.status == ParseAttemptStatus::Parsed) {
     return attempt.node;

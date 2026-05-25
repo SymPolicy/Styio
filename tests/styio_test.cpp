@@ -3113,6 +3113,39 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnStreamProcessingZipUnequalSample)
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
+TEST(StyioStreamZip, MaterializedListHandlesSupportF64AndBool) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-zip-bound-f64-bool-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "rates = [1.5, 2.5, 3.5]\n";
+    out << "flags = [true, false]\n";
+    out << "rates >> #(r) & flags >> #(flag) => {\n";
+    out << "  >_(r)\n";
+    out << "  >_(flag)\n";
+    out << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "1.500000\ntrue\n2.500000\nfalse\n");
+
+  fs::remove(input);
+}
+
 TEST(StyioParserEngine, LegacyAndNightlyMatchOnStreamProcessingZipFilesSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "stream_processing" / "t05_zip_files.styio";
@@ -4526,9 +4559,9 @@ TEST(StyioDiagnostics, StreamZipUnsupportedSourceReportsTypeError) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "a = [1, 2, 3]\n";
-    out << "a >> #(n) & [\"x\", \"y\", \"z\"] >> #(s) => {\n";
-    out << "  >_(n + \" \" + s)\n";
+    out << "text = \"a\\nb\"\n";
+    out << "@file(\"tests/features/stream_processing/data/ref.txt\") >> #(s) & text.lines() >> #(n) => {\n";
+    out << "  >_(s + \" \" + n)\n";
     out << "}\n";
   }
 

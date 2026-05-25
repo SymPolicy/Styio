@@ -4135,6 +4135,177 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     }
   };
 
+  auto zip_value_family = [](const std::string& elem_type)
+  {
+    return styio_value_family_from_type_name(elem_type.empty() ? std::string("i64") : elem_type);
+  };
+  auto zip_slot_type = [&](StyioValueFamily family) -> llvm::Type*
+  {
+    if (family == StyioValueFamily::String) {
+      return llvm::PointerType::get(*theContext, 0);
+    }
+    if (family == StyioValueFamily::Float) {
+      return theBuilder->getDoubleTy();
+    }
+    if (family == StyioValueFamily::Bool) {
+      return theBuilder->getInt1Ty();
+    }
+    return i64t;
+  };
+  auto zip_get_type = [&](StyioValueFamily family) -> llvm::Type*
+  {
+    if (family == StyioValueFamily::String) {
+      return llvm::PointerType::get(*theContext, 0);
+    }
+    if (family == StyioValueFamily::Float) {
+      return theBuilder->getDoubleTy();
+    }
+    return i64t;
+  };
+  auto zip_get_name = [](StyioValueFamily family) -> const char*
+  {
+    if (family == StyioValueFamily::String) {
+      return "styio_list_get_cstr";
+    }
+    if (family == StyioValueFamily::Float) {
+      return "styio_list_get_f64";
+    }
+    if (family == StyioValueFamily::Bool) {
+      return "styio_list_get_bool";
+    }
+    if (family == StyioValueFamily::ListHandle) {
+      return "styio_list_get_list";
+    }
+    if (family == StyioValueFamily::DictHandle) {
+      return "styio_list_get_dict";
+    }
+    return "styio_list_get";
+  };
+  auto release_zip_elem = [&](StyioValueFamily family, llvm::AllocaInst* slot)
+  {
+    if (family == StyioValueFamily::String) {
+      llvm::Value* cur = theBuilder->CreateLoad(zip_slot_type(family), slot);
+      free_cstr_if_runtime_owned(cur);
+    }
+    else if (family == StyioValueFamily::ListHandle) {
+      llvm::Value* cur = theBuilder->CreateLoad(i64t, slot);
+      theBuilder->CreateCall(list_release_fn(), {cur});
+    }
+    else if (family == StyioValueFamily::DictHandle) {
+      llvm::Value* cur = theBuilder->CreateLoad(i64t, slot);
+      theBuilder->CreateCall(dict_release_fn(), {cur});
+    }
+  };
+
+  if (!node->a_is_file && !node->b_is_file) {
+    StyioValueFamily family_a = zip_value_family(node->a_elem_type);
+    StyioValueFamily family_b = zip_value_family(node->b_elem_type);
+    llvm::FunctionCallee len_fn = theModule->getOrInsertFunction(
+      "styio_list_len",
+      llvm::FunctionType::get(i64t, {i64t}, false));
+    llvm::FunctionCallee get_a_fn = theModule->getOrInsertFunction(
+      zip_get_name(family_a),
+      llvm::FunctionType::get(zip_get_type(family_a), {i64t, i64t}, false));
+    llvm::FunctionCallee get_b_fn = theModule->getOrInsertFunction(
+      zip_get_name(family_b),
+      llvm::FunctionType::get(zip_get_type(family_b), {i64t, i64t}, false));
+
+    llvm::Value* list_a = node->iterable_a->toLLVMIR(this);
+    if (!list_a->getType()->isIntegerTy(64)) {
+      list_a = theBuilder->CreateSExtOrTrunc(list_a, i64t);
+    }
+    std::optional<TempResourceKind> list_a_kind = take_owned_resource_temp(list_a);
+    const bool release_list_a =
+      list_a_kind.has_value() && *list_a_kind == TempResourceKind::List;
+
+    llvm::Value* list_b = node->iterable_b->toLLVMIR(this);
+    if (!list_b->getType()->isIntegerTy(64)) {
+      list_b = theBuilder->CreateSExtOrTrunc(list_b, i64t);
+    }
+    std::optional<TempResourceKind> list_b_kind = take_owned_resource_temp(list_b);
+    const bool release_list_b =
+      list_b_kind.has_value() && *list_b_kind == TempResourceKind::List;
+
+    llvm::AllocaInst* list_a_slot = theBuilder->CreateAlloca(i64t, nullptr, "zip_rt_a");
+    llvm::AllocaInst* list_b_slot = theBuilder->CreateAlloca(i64t, nullptr, "zip_rt_b");
+    llvm::AllocaInst* idx_slot = theBuilder->CreateAlloca(i64t, nullptr, "zip_rt_i");
+    theBuilder->CreateStore(list_a, list_a_slot);
+    theBuilder->CreateStore(list_b, list_b_slot);
+    theBuilder->CreateStore(zero, idx_slot);
+
+    llvm::BasicBlock* exit_bb = llvm::BasicBlock::Create(*theContext, "zip_rt_exit", F);
+    llvm::BasicBlock* hdr_bb = llvm::BasicBlock::Create(*theContext, "zip_rt_hdr", F);
+    llvm::BasicBlock* body_bb = llvm::BasicBlock::Create(*theContext, "zip_rt_body", F);
+    llvm::BasicBlock* step_bb = llvm::BasicBlock::Create(*theContext, "zip_rt_step", F);
+    theBuilder->CreateBr(hdr_bb);
+
+    theBuilder->SetInsertPoint(hdr_bb);
+    llvm::Value* idxv = theBuilder->CreateLoad(i64t, idx_slot);
+    llvm::Value* cur_list_a = theBuilder->CreateLoad(i64t, list_a_slot);
+    llvm::Value* cur_list_b = theBuilder->CreateLoad(i64t, list_b_slot);
+    llvm::Value* len_a = theBuilder->CreateCall(len_fn, {cur_list_a});
+    llvm::Value* len_b = theBuilder->CreateCall(len_fn, {cur_list_b});
+    llvm::Value* ok_a = theBuilder->CreateICmpSLT(idxv, len_a);
+    llvm::Value* ok_b = theBuilder->CreateICmpSLT(idxv, len_b);
+    theBuilder->CreateCondBr(theBuilder->CreateAnd(ok_a, ok_b), body_bb, exit_bb);
+
+    loop_stack_.push_back(LoopFrame{exit_bb, step_bb});
+    theBuilder->SetInsertPoint(body_bb);
+    emit_snapshot_shadow_reload();
+    llvm::Value* idx = theBuilder->CreateLoad(i64t, idx_slot);
+    llvm::Value* elem_a = theBuilder->CreateCall(
+      get_a_fn,
+      {theBuilder->CreateLoad(i64t, list_a_slot), idx});
+    llvm::Value* elem_b = theBuilder->CreateCall(
+      get_b_fn,
+      {theBuilder->CreateLoad(i64t, list_b_slot), idx});
+    if (family_a == StyioValueFamily::Bool) {
+      elem_a = theBuilder->CreateICmpNE(elem_a, theBuilder->getInt64(0));
+    }
+    if (family_b == StyioValueFamily::Bool) {
+      elem_b = theBuilder->CreateICmpNE(elem_b, theBuilder->getInt64(0));
+    }
+
+    llvm::AllocaInst* slot_a =
+      theBuilder->CreateAlloca(zip_slot_type(family_a), nullptr, node->var_a);
+    llvm::AllocaInst* slot_b =
+      theBuilder->CreateAlloca(zip_slot_type(family_b), nullptr, node->var_b);
+    theBuilder->CreateStore(elem_a, slot_a);
+    theBuilder->CreateStore(elem_b, slot_b);
+    mutable_variables[node->var_a] = slot_a;
+    mutable_variables[node->var_b] = slot_b;
+
+    run_pulse_prologue();
+    node->body->toLLVMIR(this);
+    run_pulse_epilogue();
+
+    mutable_variables.erase(node->var_a);
+    mutable_variables.erase(node->var_b);
+
+    llvm::BasicBlock* bcur = theBuilder->GetInsertBlock();
+    if (bcur && !bcur->getTerminator()) {
+      release_zip_elem(family_a, slot_a);
+      release_zip_elem(family_b, slot_b);
+      theBuilder->CreateBr(step_bb);
+    }
+
+    theBuilder->SetInsertPoint(step_bb);
+    llvm::Value* nx = theBuilder->CreateAdd(theBuilder->CreateLoad(i64t, idx_slot), one);
+    theBuilder->CreateStore(nx, idx_slot);
+    theBuilder->CreateBr(hdr_bb);
+
+    theBuilder->SetInsertPoint(exit_bb);
+    if (release_list_a) {
+      theBuilder->CreateCall(list_release_fn(), {theBuilder->CreateLoad(i64t, list_a_slot)});
+    }
+    if (release_list_b) {
+      theBuilder->CreateCall(list_release_fn(), {theBuilder->CreateLoad(i64t, list_b_slot)});
+    }
+    loop_stack_.pop_back();
+    finish_zip();
+    return theBuilder->getInt64(0);
+  }
+
   if (lit_a && lit_b && !node->a_is_file && !node->b_is_file) {
     size_t na = lit_a->elems.size();
     size_t nb = lit_b->elems.size();
