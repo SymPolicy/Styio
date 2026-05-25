@@ -127,12 +127,12 @@ Current implementation reality:
    and accepts `@name[-n]`, `@name[-n..]`, and `@name[...]`.
 2. Sema now distinguishes selector families for bounded topology
    resources: `@price[-1]` remains the scalar resource value, while bounded
-   `i64`, `f64`, `bool`, and `string` selectors infer `list[i64]`,
-   `list[f64]`, `list[bool]`, and `list[string]`; unsupported non-bounded,
+   `i64`, `f64`, `bool`, `char`, and `string` selectors infer `list[i64]`,
+   `list[f64]`, `list[bool]`, `list[char]`, and `list[string]`; unsupported non-bounded,
    unsupported value-family, or out-of-window selector shapes fail closed.
 3. Lowering now handles `ResourceSelectorKind::Offset`,
    `ResourceSelectorKind::SliceFrom`, and `ResourceSelectorKind::SnapshotAll` for
-   bounded `i64`, `f64`, `bool`, and `string` resources. Slice/snapshot selectors
+   bounded `i64`, `f64`, `bool`, `char`, and `string` resources. Slice/snapshot selectors
    materialize a list literal from explicit history reads instead of falling
    through to `SGResId::Create(name)`.
 4. `tests/features/state_resources/t06_topology_selector_snapshot.styio` proves
@@ -141,23 +141,26 @@ Current implementation reality:
    prints `[20,30,40]`. `t07_topology_selector_snapshot_f64.styio` proves the
    same value-shape contract for bounded `f64` history, and
    `t08_topology_selector_snapshot_bool.styio` proves bounded `bool` history
-   prints `false`, `[true,false]`, and `[false,true,false]`. Adjacent negative
-   fixtures reject selectors deeper than the declared history bound and
-   unsupported bounded `char` snapshots. `t10_topology_selector_snapshot_string`
-   proves bounded `string` latest, slice, snapshot, and selector-copy values.
+   prints `false`, `[true,false]`, and `[false,true,false]`.
+   `t10_topology_selector_snapshot_string` proves bounded `string` latest,
+   slice, snapshot, and selector-copy values, and
+   `t11_topology_selector_snapshot_char.styio` proves bounded `char` latest,
+   slice, snapshot, and selector-copy values with `list[char]` rendering.
+   Adjacent negative fixtures reject selectors deeper than the declared history
+   bound and unsupported bounded `matrix` snapshots.
 5. Explicit selector copy now has the first executable bounded-selector slice:
    `name << @resource[...]` and `name << @resource[-n..]` bind the materialized
-   selector list for bounded `i64`, `f64`, `bool`, and `string` resources instead of
+   selector list for bounded `i64`, `f64`, `bool`, `char`, and `string` resources instead of
    treating the selector as a write target. `t09_topology_selector_explicit_copy`
    proves copied `i64`, `f64`, and `bool` snapshots, `t10` proves copied
-   `string` snapshots, while
+   `string` snapshots, `t11` proves copied `char` snapshots, while
    `e07_selector_copy_scalar_unsupported` rejects `name << @resource[-1]`
    because the scalar latest read is not an enumerable snapshot copy.
 
 Impact: the prior silent scalar/latest-resource collapse is closed for bounded
-`i64`, `f64`, `bool`, and `string` resource selectors, including explicit copy
+`i64`, `f64`, `bool`, `char`, and `string` resource selectors, including explicit copy
 from their slice/snapshot selectors. Broader selector closure still needs
-unsupported `char`/tuple/list/dict/matrix value-family history storage,
+unsupported tuple/list/dict/matrix value-family history storage,
 unbounded sequence snapshot policy, and full type-directed `<<` copy/clone
 semantics before the complete Topology v2 selector model can be considered
 complete.
@@ -175,13 +178,14 @@ Current implementation reality:
    `@file` / materialized-list pairs in both directions, and bounded Topology
    selector snapshots that have already materialized as `list[T]` handles.
    Runtime list loops use `styio_list_len` / `styio_list_get_*`, cover `i64`,
-   `string`, `f64`, and `bool` list elements, and terminate finite zip at the
+   `string`, `f64`, `bool`, and `char` list elements, and terminate finite zip at the
    shorter file EOF or list length. `t11_zip_bound_lists` proves the
    parser-shadow-safe bound-list/literal zip path, `t12_zip_file_bound_list`
    proves list-left / file-right feature coverage, and
    `t13_zip_resource_selector_snapshots` proves bounded `i64` and `string`
    selector snapshots feed the same finite zip barrier. Focused unit coverage
-   proves both mixed file/list directions and keeps scalar resource selectors
+   proves f64/bool/char materialized-list zip lowering, both mixed file/list
+   directions, and keeps scalar resource selectors
    such as `@price[-1]` fail-closed as non-iterable zip inputs. This is not IM-D5
    snapshot-join semantics; it is the materialized-list zip slice over selector
    snapshot values.
@@ -221,10 +225,10 @@ Examples:
 1. Function return lowering still maps tuple return metadata and unspecified
    return types through an `i64` fallback in helper code.
 2. Topology v2 resource declaration lowering initializes declared slots to a
-   zero value by storage type. For `i64`, `f64`, `bool`, and `string`
+   zero value by storage type. For `i64`, `f64`, `bool`, `char`, and `string`
    fixed/recent resources this becomes a bounded-ring storage value, but
-   unsupported value-family storage and absence/default semantics are not a full
-   typed resource initialization contract.
+   unsupported tuple/list/dict/matrix storage and absence/default semantics are
+   not a full typed resource initialization contract.
 3. Range literal lowering currently requires integer literal bounds; general
    range expressions are not implemented.
 
@@ -315,11 +319,12 @@ These should not be counted as missing implementation in this checkout:
    cleanup effects, full value-producing recovery, and task_await compatibility
    behavior with parser, sema, lowering, runtime, and negative tests.
 2. Continue Topology v2 selector value semantics before adding new resource
-   features: bounded `i64`, `f64`, `bool`, and `string` selector storage is
+   features: bounded `i64`, `f64`, `bool`, `char`, and `string` selector storage is
    closed, while bounded selector `snapshot << @x[...]` / `snapshot << @x[-n..]`
-   copy is closed for those families. Unsupported value-family storage,
-   unbounded sequence snapshots, and the full type-directed `<<` copy/clone model
-   still need distinct sema types, lowering, runtime values, and golden tests.
+   copy is closed for those families. Unsupported tuple/list/dict/matrix
+   history storage, unbounded sequence snapshots, and the full type-directed
+   `<<` copy/clone model still need distinct sema types, lowering, runtime
+   values, and golden tests.
 3. Continue stream-source closure after the materialized list-handle and
    bounded-selector-snapshot zip slices: true snapshot joins, pressure
    observers, timeouts, EOF/failure distinctions, and merge/conflict semantics

@@ -42,7 +42,9 @@ identifier     = letter { letter | digit } ;
 int_literal    = [ '-' ] digit { digit } ;
 float_literal  = [ '-' ] digit { digit } '.' digit { digit } ;
 string_literal = '"' { any_char_except_dquote | escape_seq } '"' ;
+char_literal   = "'" ( any_char_except_squote_or_backslash | char_escape_seq ) "'" ;
 escape_seq     = '\' ( 'n' | 't' | 'r' | '\' | '"' | '0' ) ;
+char_escape_seq = '\' ( 'n' | 't' | 'r' | '0' | '\' | '\'' ) ;
 ```
 
 ### 2.3 Core Compound Symbols
@@ -487,6 +489,7 @@ primary_expr       = identifier
                    | int_literal
                    | float_literal
                    | string_literal
+                   | char_literal
                    | 'true' | 'false'
                    | resource
                    | collection
