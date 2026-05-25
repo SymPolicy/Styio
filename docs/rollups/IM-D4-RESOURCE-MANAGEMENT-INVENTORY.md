@@ -28,13 +28,15 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   the source site. This preserves task_await binding for
   `?| task -> value: T`. Effect-specific named handlers and handler chains
   remain fail-closed until their typed effect dispatch is implemented.
-- Bounded `i64`, `f64`, and `bool` resource selectors now have distinct
+- Bounded `i64`, `f64`, `bool`, and `string` resource selectors now have distinct
   executable value shapes: `@name[-n]` reads a scalar value, while
   `@name[-n..]` and `@name[...]` materialize typed list snapshots from explicit
-  history reads. Selectors that exceed the declared bound, use non-bounded
-  resource shapes, or require unsupported value-family history storage remain
-  fail-closed until their resource-family storage semantics are implemented.
-- The first explicit-copy selector slice is executable for those bounded scalar
+  history reads. String selector rings own cloned cstr values and release them
+  on overwrite or scope cleanup. Selectors that exceed the declared bound, use
+  non-bounded resource shapes, or require unsupported value-family history
+  storage remain fail-closed until their resource-family storage semantics are
+  implemented.
+- The first explicit-copy selector slice is executable for those bounded
   resource families: `snapshot << @name[-n..]` and `snapshot << @name[...]`
   bind the materialized typed list snapshot to `snapshot`; `snapshot <<
   @name[-1]` remains rejected because the latest read is scalar rather than an
