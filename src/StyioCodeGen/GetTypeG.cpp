@@ -27,6 +27,9 @@ styio_bounded_ring_element_llvm_type(const StyioDataType& dt, llvm::IRBuilder<>*
   if (type_name && *type_name == "bool") {
     return builder->getInt1Ty();
   }
+  if (type_name && *type_name == "char") {
+    return builder->getInt8Ty();
+  }
   if (type_name && *type_name == "string") {
     return llvm::PointerType::get(builder->getContext(), 0);
   }
@@ -447,6 +450,8 @@ StyioToLLVM::toLLVMType(SCListGet* node) {
       return theBuilder->getDoubleTy();
     case StyioValueFamily::Bool:
       return theBuilder->getInt1Ty();
+    case StyioValueFamily::Char:
+      return theBuilder->getInt8Ty();
     default:
       break;
   }

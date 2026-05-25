@@ -807,6 +807,9 @@ predefined_list_operation_runtime_name(const std::string& method, const StyioDat
     case StyioValueFamily::Bool:
       suffix = "bool";
       break;
+    case StyioValueFamily::Char:
+      suffix = "char";
+      break;
     case StyioValueFamily::Float:
       suffix = "f64";
       break;
@@ -2720,12 +2723,14 @@ resource_storage_type_latest(const StyioDataType& resource_type) {
   if ((value_type.option == StyioDataTypeOption::Integer
        || value_type.option == StyioDataTypeOption::Float
        || value_type.option == StyioDataTypeOption::Bool
+       || value_type.option == StyioDataTypeOption::Char
        || value_type.option == StyioDataTypeOption::String)
       && resource_type.resource_shape_bound > 0
       && (resource_type.resource_shape == StyioResourceShapeKind::Fixed || resource_type.resource_shape == StyioResourceShapeKind::Recent)) {
     std::string ring_name = std::string(kStyioBoundedRingPrefix);
     if (value_type.option == StyioDataTypeOption::Float
         || value_type.option == StyioDataTypeOption::Bool
+        || value_type.option == StyioDataTypeOption::Char
         || value_type.option == StyioDataTypeOption::String) {
       ring_name += value_type.name + ":";
     }

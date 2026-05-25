@@ -91,6 +91,7 @@ enum class StyioListElemKind : std::uint8_t
   String = 3,
   ListHandle = 4,
   DictHandle = 5,
+  Char = 6,
 };
 
 struct StyioListBase
@@ -120,6 +121,15 @@ struct StyioListBool : public StyioListBase
   }
 
   std::vector<int64_t> elems;
+};
+
+struct StyioListChar : public StyioListBase
+{
+  StyioListChar() :
+      StyioListBase(StyioListElemKind::Char) {
+  }
+
+  std::vector<int8_t> elems;
 };
 
 struct StyioListF64 : public StyioListBase
@@ -816,6 +826,23 @@ as_list_bool(int64_t h, bool diagnose_if_missing = false) {
   return static_cast<StyioListBool*>(list);
 }
 
+StyioListChar*
+as_list_char(int64_t h, bool diagnose_if_missing = false) {
+  StyioListBase* list = as_list_base(h, diagnose_if_missing);
+  if (list == nullptr) {
+    return nullptr;
+  }
+  if (list->elem_kind != StyioListElemKind::Char) {
+    if (diagnose_if_missing) {
+      set_runtime_error_once(
+        kRuntimeSubcodeListElemKind,
+        "list handle does not carry char elements: " + std::to_string(static_cast<long long>(h)));
+    }
+    return nullptr;
+  }
+  return static_cast<StyioListChar*>(list);
+}
+
 StyioListF64*
 as_list_f64(int64_t h, bool diagnose_if_missing = false) {
   StyioListBase* list = as_list_base(h, diagnose_if_missing);
@@ -1005,6 +1032,9 @@ close_list(void* raw) {
   switch (list->elem_kind) {
     case StyioListElemKind::Bool:
       delete static_cast<StyioListBool*>(list);
+      break;
+    case StyioListElemKind::Char:
+      delete static_cast<StyioListChar*>(list);
       break;
     case StyioListElemKind::I64:
       delete static_cast<StyioListI64*>(list);
@@ -1505,6 +1535,32 @@ escape_string_for_literal(const std::string& input) {
 }
 
 std::string
+escape_char_for_literal(int8_t raw) {
+  const unsigned char ch = static_cast<unsigned char>(raw);
+  switch (ch) {
+    case '\\':
+      return "\\\\";
+    case '\'':
+      return "\\'";
+    case '\n':
+      return "\\n";
+    case '\r':
+      return "\\r";
+    case '\t':
+      return "\\t";
+    case '\0':
+      return "\\0";
+    default:
+      if (std::isprint(ch)) {
+        return std::string(1, static_cast<char>(ch));
+      }
+      char buf[5];
+      std::snprintf(buf, sizeof(buf), "\\x%02X", static_cast<unsigned>(ch));
+      return std::string(buf);
+  }
+}
+
+std::string
 format_f64_literal(double value) {
   char buf[64];
   std::snprintf(buf, sizeof(buf), "%.6f", value);
@@ -1532,6 +1588,11 @@ clone_list_handle_value(int64_t h) {
     case StyioListElemKind::Bool: {
       auto* clone = new StyioListBool();
       clone->elems = static_cast<StyioListBool*>(src)->elems;
+      return stash_list(clone);
+    }
+    case StyioListElemKind::Char: {
+      auto* clone = new StyioListChar();
+      clone->elems = static_cast<StyioListChar*>(src)->elems;
       return stash_list(clone);
     }
     case StyioListElemKind::I64: {
@@ -1623,6 +1684,17 @@ append_list_handle_repr(std::string& out, int64_t h) {
             text.push_back(',');
           }
           text += bools->elems[i] != 0 ? "true" : "false";
+        }
+      } break;
+      case StyioListElemKind::Char: {
+        auto* chars = static_cast<StyioListChar*>(list);
+        for (size_t i = 0; i < chars->elems.size(); ++i) {
+          if (i > 0) {
+            text.push_back(',');
+          }
+          text.push_back('\'');
+          text += escape_char_for_literal(chars->elems[i]);
+          text.push_back('\'');
         }
       } break;
       case StyioListElemKind::I64: {
@@ -1982,6 +2054,7 @@ styio_free_cstr(const char* s) {
 
 thread_local char g_i64_dec_buf[32];
 thread_local char g_f64_dec_buf[64];
+thread_local char g_char_cstr_buf[2];
 
 extern "C" DLLEXPORT const char*
 styio_i64_dec_cstr(int64_t v) {
@@ -2001,6 +2074,13 @@ styio_f64_dec_cstr(double v) {
     "%.6f",
     v);
   return g_f64_dec_buf;
+}
+
+extern "C" DLLEXPORT const char*
+styio_char_cstr(int64_t v) {
+  g_char_cstr_buf[0] = static_cast<char>(static_cast<unsigned char>(v & 0xff));
+  g_char_cstr_buf[1] = '\0';
+  return g_char_cstr_buf;
 }
 
 extern "C" DLLEXPORT int
@@ -2342,6 +2422,11 @@ styio_list_new_bool() {
 }
 
 extern "C" DLLEXPORT int64_t
+styio_list_new_char() {
+  return stash_list(new StyioListChar());
+}
+
+extern "C" DLLEXPORT int64_t
 styio_list_new_i64() {
   return stash_list(new StyioListI64());
 }
@@ -2371,6 +2456,14 @@ styio_list_push_bool(int64_t h, int64_t value) {
   StyioListBool* list = as_list_bool(h, true);
   if (list != nullptr) {
     list->elems.push_back(value != 0 ? 1 : 0);
+  }
+}
+
+extern "C" DLLEXPORT void
+styio_list_push_char(int64_t h, int8_t value) {
+  StyioListChar* list = as_list_char(h, true);
+  if (list != nullptr) {
+    list->elems.push_back(value);
   }
 }
 
@@ -2419,6 +2512,14 @@ styio_list_insert_bool(int64_t h, int64_t idx, int64_t value) {
   StyioListBool* list = as_list_bool(h, true);
   if (list != nullptr) {
     list_insert_value(list, idx, value != 0 ? 1 : 0);
+  }
+}
+
+extern "C" DLLEXPORT void
+styio_list_insert_char(int64_t h, int64_t idx, int8_t value) {
+  StyioListChar* list = as_list_char(h, true);
+  if (list != nullptr) {
+    list_insert_value(list, idx, value);
   }
 }
 
@@ -2482,6 +2583,9 @@ styio_list_len(int64_t h) {
   if (list->elem_kind == StyioListElemKind::Bool) {
     return static_cast<int64_t>(static_cast<StyioListBool*>(list)->elems.size());
   }
+  if (list->elem_kind == StyioListElemKind::Char) {
+    return static_cast<int64_t>(static_cast<StyioListChar*>(list)->elems.size());
+  }
   if (list->elem_kind == StyioListElemKind::I64) {
     return static_cast<int64_t>(static_cast<StyioListI64*>(list)->elems.size());
   }
@@ -2507,6 +2611,18 @@ styio_list_get_bool(int64_t h, int64_t idx) {
     return 0;
   }
   return list->elems[static_cast<size_t>(idx)] != 0 ? 1 : 0;
+}
+
+extern "C" DLLEXPORT int8_t
+styio_list_get_char(int64_t h, int64_t idx) {
+  StyioListChar* list = as_list_char(h, true);
+  if (list == nullptr) {
+    return 0;
+  }
+  if (!check_list_index(list->elems.size(), idx, false)) {
+    return 0;
+  }
+  return list->elems[static_cast<size_t>(idx)];
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2578,6 +2694,14 @@ styio_list_set_bool(int64_t h, int64_t idx, int64_t value) {
 }
 
 extern "C" DLLEXPORT void
+styio_list_set_char(int64_t h, int64_t idx, int8_t value) {
+  StyioListChar* list = as_list_char(h, true);
+  if (list != nullptr) {
+    list_set_value(list, idx, value);
+  }
+}
+
+extern "C" DLLEXPORT void
 styio_list_set(int64_t h, int64_t idx, int64_t value) {
   StyioListI64* list = as_list_i64(h, true);
   if (list != nullptr) {
@@ -2635,6 +2759,14 @@ styio_list_pop(int64_t h) {
   switch (list->elem_kind) {
     case StyioListElemKind::Bool: {
       auto* values = static_cast<StyioListBool*>(list);
+      if (values->elems.empty()) {
+        break;
+      }
+      values->elems.pop_back();
+      popped = true;
+    } break;
+    case StyioListElemKind::Char: {
+      auto* values = static_cast<StyioListChar*>(list);
       if (values->elems.empty()) {
         break;
       }

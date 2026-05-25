@@ -1301,6 +1301,10 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
         ast->getVar()->setDataType(StyioDataType{StyioDataTypeOption::Bool, "bool", 1});
       } break;
 
+      case StyioNodeType::Char: {
+        ast->getVar()->setDataType(static_cast<CharAST*>(ast->getValue())->getDataType());
+      } break;
+
       case StyioNodeType::String: {
         ast->getVar()->setDataType(kStringType);
       } break;
@@ -2362,11 +2366,12 @@ StyioSemaContext::typeInfer(ResourceRefAST* ast) {
     value_type.option == StyioDataTypeOption::Integer
     || value_type.option == StyioDataTypeOption::Float
     || value_type.option == StyioDataTypeOption::Bool
+    || value_type.option == StyioDataTypeOption::Char
     || value_type.option == StyioDataTypeOption::String;
   if (ast->getSelectorKind() == ResourceSelectorKind::Offset) {
     if (bounded_history && !supported_bounded_history_value) {
       throw StyioTypeError(
-        "resource `" + ast->getNameStr() + "` history selection currently supports integer, float, bool, or string resources"
+        "resource `" + ast->getNameStr() + "` history selection currently supports integer, float, bool, char, or string resources"
       );
     }
     ast->setDataType(value_type);
@@ -2380,7 +2385,7 @@ StyioSemaContext::typeInfer(ResourceRefAST* ast) {
   }
   if (!supported_bounded_history_value) {
     throw StyioTypeError(
-      "resource `" + ast->getNameStr() + "` slice/snapshot selection currently supports integer, float, bool, or string resources"
+      "resource `" + ast->getNameStr() + "` slice/snapshot selection currently supports integer, float, bool, char, or string resources"
     );
   }
   if (resource_type.resource_shape_bound > static_cast<std::size_t>(std::numeric_limits<int>::max())) {

@@ -266,6 +266,9 @@ StyioToLLVM::emit_std_stream_write_parts(
   llvm::FunctionCallee f64_cstr_fn = theModule->getOrInsertFunction(
     "styio_f64_dec_cstr",
     llvm::FunctionType::get(char_ptr, {theBuilder->getDoubleTy()}, false));
+  llvm::FunctionCallee char_cstr_fn = theModule->getOrInsertFunction(
+    "styio_char_cstr",
+    llvm::FunctionType::get(char_ptr, {theBuilder->getInt64Ty()}, false));
 
   const std::string prefix = label_prefix != nullptr ? label_prefix : "stdstream";
   const bool legacy_print_names = prefix == "print";
@@ -291,6 +294,10 @@ StyioToLLVM::emit_std_stream_write_parts(
       llvm::Value* tstr = theBuilder->CreateGlobalStringPtr("true", true_global);
       llvm::Value* fstr = theBuilder->CreateGlobalStringPtr("false", false_global);
       cstr = theBuilder->CreateSelect(v, tstr, fstr);
+    }
+    else if (v->getType()->isIntegerTy(8)) {
+      llvm::Value* ext = theBuilder->CreateSExtOrTrunc(v, theBuilder->getInt64Ty());
+      cstr = theBuilder->CreateCall(char_cstr_fn, {ext});
     }
     else if (v->getType()->isIntegerTy(32)) {
       llvm::Value* ext = theBuilder->CreateSExt(v, theBuilder->getInt64Ty());
