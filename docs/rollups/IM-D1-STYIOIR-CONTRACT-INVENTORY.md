@@ -30,6 +30,7 @@
 8. `RangeAST` now validates integer expression operands in Sema, lowers constant ranges to `SCListLiteral`, and lowers expression-bound ranges to an internal list-producing `SGCall` that codegen expands into a runtime `list[i64]` fill loop.
 9. Function return annotations that parse as `TypeTupleAST` now fail closed in Sema/lowering instead of using the old `i64` fallback. Tuple value returns remain open until tuple value IR exists.
 10. Accepted `MatchCasesAST` / function match sugar now run semantic inference over the scrutinee, integer case patterns, arm/default bodies, and scalar/string tail result kinds before lowering. Branch-local bindings are isolated per arm, function-body inference uses a recursion guard, recursive match functions can reuse earlier base-arm result evidence, and undefined match tail values fail closed instead of reaching codegen as default `i64` values.
+11. `ListOpAST` slice selectors over materialized `list[T]` now lower to explicit `SCListSlice` IR instead of reusing index IR or parser-only acceptance. Verifier, optimizer, textual repr, LLVM codegen, ORC registration, and runtime settlement all traverse the new IR node.
 
 ## Remaining `SGConstInt(0)` Uses
 
