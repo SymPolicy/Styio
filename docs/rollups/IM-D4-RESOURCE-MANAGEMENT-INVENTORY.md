@@ -33,7 +33,10 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   unknown handler names fail closed, `effect => @()` remains invalid, unmatched
   handlers fall through to the next handler or final catch-all fallback, and
   unmatched failures without fallback keep the default fail-fast rule. This
-  preserves task_await binding for `?| task -> value: T`.
+  preserves task_await binding for `?| task -> value: T`; failed task pulls now
+  run the await fallback after clearing the materialized task error, while
+  failed task pulls without fallback stop at the await settlement site. Non-task
+  await sources and bare continuation freeze fallbacks remain fail-closed.
 - Bounded `i64`, `f64`, `bool`, `char`, and `string` resource selectors now have distinct
   executable value shapes: `@name[-n]` reads a scalar value, while
   `@name[-n..]` and `@name[...]` materialize typed list snapshots from explicit

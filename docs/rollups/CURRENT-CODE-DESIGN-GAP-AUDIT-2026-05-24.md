@@ -96,8 +96,12 @@ Current implementation reality:
    chains, stores them through AST/IR, rejects duplicate or unknown handler names
    in Sema, and dispatches matched runtime subcodes through the current resource
    error channel.
-3. `StyioSema/TypeInfer.cpp` rejects `?| ->` as unimplemented continuation
-   lowering and requires the `?|` source to be a task/future handle.
+3. Task/future pull settlement now has parser/Sema/lowering/runtime evidence:
+   `?| task -> name: T` and `?| task -> name: T | fallback` lower through
+   `SIOFlowBind`; failed task pulls run the await fallback only after clearing
+   the materialized task error; failed task pulls without fallback stop at the
+   await settlement site; non-task await sources and bare continuation freeze
+   fallbacks fail closed.
 4. File-backed resource-write smoke coverage proves fallback and named `io`
    handlers run only after the resource failure is materialized and cleared,
    successful operations skip recovery, unmatched handlers such as
@@ -119,8 +123,9 @@ Current implementation reality:
 Impact: statement-shaped fallback, audited discard, and named handler chains now
 have a real parser/Sema/IR/codegen/runtime path for current runtime error
 subcode families such as `io`, plus the first file-close cleanup-failure family.
-Implicit cleanup, broader resource-family cleanup, non-failure backpressure
-observation/escalation, pressure observers, and the full typed value-producing
+Task await fallback settlement for failed task pulls is now covered. Implicit
+cleanup, broader resource-family cleanup, non-failure backpressure observation/
+escalation, pressure observers, and the full typed value-producing
 resource-effect model remain design-fixed but unfinished.
 
 ### P0. Topology v2 resource selectors parse, but slice/snapshot value semantics are not closed
@@ -356,6 +361,12 @@ These should not be counted as missing implementation in this checkout:
    keeps adjacent scalar/inferred returns executable, and
    `StyioSecurityNightlyParserStmt.RejectsTupleFunctionReturnAnnotationBeforeLoweringFallback`
    covers the Sema/lowering fail-closed path.
+9. Task await fallback settlement is no longer missing from the resource-effect
+   compatibility path. `StyioResourceEffects` proves failed task pulls run
+   fallback after clearing the materialized task error and fail fast without
+   fallback, `StyioSecurityNightlyParserStmt` keeps bare continuation freeze
+   fallback fail-closed, and `task_resources` feature negatives cover non-task
+   await sources and reserved bare freeze fallback syntax.
 
 ## Recommended Closure Order
 
@@ -363,10 +374,10 @@ These should not be counted as missing implementation in this checkout:
    checkpoints. Statement-only discard, catch-all fallback, and the first
    statement-shaped named-handler chain slice are implemented, and explicit
    file-write close cleanup failure now reaches the `cleanup` handler family.
-   The next slices must cover implicit cleanup, reassignment cleanup, additional
-   resource families that emit typed pressure or cleanup effects, full
-   value-producing recovery, and task_await compatibility behavior with parser,
-   sema, lowering, runtime, and negative tests.
+   Task_await fallback settlement now has parser, Sema, lowering, runtime, and
+   negative evidence. The next slices must cover implicit cleanup, reassignment
+   cleanup, additional resource families that emit typed pressure or cleanup
+   effects, and full value-producing recovery.
 2. Continue Topology v2 selector value semantics before adding new resource
    features: bounded `i64`, `f64`, `bool`, `char`, and `string` selector storage is
    closed, while bounded selector `snapshot << @x[...]` / `snapshot << @x[-n..]`
