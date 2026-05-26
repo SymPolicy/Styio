@@ -116,16 +116,22 @@ Current implementation reality:
    named cleanup handler, and adjacent `io => handler` does not catch it.
 6. Plain file resource-operation statements outside a `?|` wrapper now settle at
    the statement boundary instead of carrying a runtime error into later
-   statements. `f <- @file(missing)` and `"x" >> @file(missing-dir/out)` emit
-   the JSONL runtime diagnostic and stop before a following `>_("after")`,
-   while the same operation-local guard is suppressed inside `SIOResourceEffect`
-   so catch-all fallback and named handlers still recover.
+   statements. `f <- @file(missing)`, `"x" >> @file(missing-dir/out)`, and
+   direct `@file(missing) >> #(line)` iteration emit the JSONL runtime
+   diagnostic and stop before a following `>_("after")`, while the same
+   operation-local guard is suppressed inside `SIOResourceEffect` so catch-all
+   fallback and named handlers still recover.
 7. File-resource flex rebinding now covers the source-reachable cleanup edge for
    `name = @file(...)`: Sema treats a successful resource rebind as a new
    occupant after a consuming `.close()`, Codegen releases the prior tracked file
    handle before overwrite, and same-path singleton slots left at zero by an
    explicit close are reopened before later iteration.
-8. There is still no complete typed value-producing resource-effect model for
+8. File iterator error/EOF separation now covers same-path alias invalidation:
+   zero file handles diagnose as `STYIO_RUNTIME_INVALID_FILE_HANDLE`, and
+   `SIOFileLineIter` checks the runtime error channel before treating a null
+   line as normal EOF. `f1.close(); f2 >> #(line)` over a shared same-path file
+   slot fails fast instead of silently continuing after the iterator.
+9. There is still no complete typed value-producing resource-effect model for
    arbitrary resource operations, no cleanup-failure coverage for implicit
    scope-exit drop or broader reassignment cleanup, no cleanup families beyond
    file close, no resource family that emits a non-failure
@@ -137,7 +143,10 @@ have a real parser/Sema/IR/codegen/runtime path for current runtime error
 subcode families such as `io`, plus the first file-close cleanup-failure family.
 Task await fallback settlement for failed task pulls is now covered, and plain
 file acquire/write failures now fail fast before subsequent statements when no
-`?|` recovery wrapper is present. Implicit cleanup, broader resource-family
+`?|` recovery wrapper is present, direct file iterators fail fast on open
+failure, and same-path aliases now report closed-handle use instead of normal
+EOF after another alias closes the shared slot. Implicit cleanup, broader
+resource-family
 cleanup, non-failure backpressure observation/escalation, pressure observers,
 and the full typed value-producing resource-effect model remain design-fixed
 but unfinished.
@@ -371,11 +380,16 @@ These should not be counted as missing implementation in this checkout:
    matched cleanup recovery and adjacent `io` non-match behavior, while
    `StyioSafetyRuntime.FileCloseFailureIsCleanupRuntimeEffect` covers the direct
    runtime subcode/effect-family mapping.
-8. Plain file acquire/write failures no longer leak past their ordinary
-   statement boundary. `StyioDiagnostics.RuntimeFileAcquireFailureStopsBeforeNextStatement`
-   and `StyioDiagnostics.RuntimeFileWriteFailureStopsBeforeNextStatement` prove
-   JSONL runtime diagnostics are emitted and a following `after` print is not
-   executed outside a `?|` recovery wrapper.
+8. Plain file acquire/write and file-iterator failures no longer leak past
+   their ordinary statement boundary.
+   `StyioDiagnostics.RuntimeFileAcquireFailureStopsBeforeNextStatement`,
+   `StyioDiagnostics.RuntimeFileWriteFailureStopsBeforeNextStatement`, and
+   `StyioDiagnostics.RuntimeFileIteratorOpenFailureStopsBeforeNextStatement`
+   prove JSONL runtime diagnostics are emitted and a following `after` print is
+   not executed outside a `?|` recovery wrapper.
+   `StyioResourceLifecycle.FileAliasUseAfterCloseFailsFast` proves same-path
+   alias use after close now reports a closed-handle diagnostic instead of
+   normal EOF.
 9. Tuple function return annotations are no longer a silent `i64` fallback.
    `StyioDiagnostics.TupleFunctionReturnAnnotationFailsClosed` proves the CLI
    JSONL `STYIO_TYPE_ERROR` path, `ScalarAndInferredFunctionReturnsStayExecutable`
@@ -396,8 +410,9 @@ These should not be counted as missing implementation in this checkout:
    statement-shaped named-handler chain slice are implemented, and explicit
    file-write close cleanup failure now reaches the `cleanup` handler family.
    Task_await fallback settlement now has parser, Sema, lowering, runtime, and
-   negative evidence. Plain file acquire/write failures now settle at ordinary
-   statement boundaries outside `?|`. The next slices must cover implicit
+   negative evidence. Plain file acquire/write, direct file iterator open, and
+   same-path alias closed-handle failures now settle at ordinary statement
+   boundaries outside `?|`. The next slices must cover implicit
    cleanup, reassignment cleanup, additional resource families that emit typed
    pressure or cleanup effects, and full value-producing recovery.
 2. Continue Topology v2 selector value semantics before adding new resource
