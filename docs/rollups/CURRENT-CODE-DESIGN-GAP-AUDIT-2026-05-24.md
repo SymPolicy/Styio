@@ -199,10 +199,11 @@ Impact: statement-shaped fallback, audited discard, and named handler chains now
 have a real parser/Sema/IR/codegen/runtime path for current runtime error
 subcode families such as `io`, plus the first file-close cleanup-failure family.
 Task await fallback settlement for failed task pulls is now covered, and plain
-file acquire/write failures now fail fast before subsequent statements when no
-`?|` recovery wrapper is present, direct file iterators fail fast on open
-failure, and same-path aliases now report closed-handle use instead of normal
-EOF after another alias closes the shared slot. Explicit returns and ordinary
+file acquire/write/release failures now fail fast before subsequent statements
+when no `?|` recovery wrapper is present, direct file iterators fail fast on open
+failure, successful direct file release continues normally, and same-path
+aliases now report closed-handle use instead of normal EOF after another alias
+closes the shared slot. Explicit returns and ordinary
 scope-pop exits now close tracked file handles before leaving the scope and
 settle cleanup failures at that boundary. Resource method calls such as
 direct file close and statement-shaped file handle acquire now enter the
@@ -464,13 +465,16 @@ These should not be counted as missing implementation in this checkout:
    matched cleanup recovery and adjacent `io` non-match behavior, while
    `StyioSafetyRuntime.FileCloseFailureIsCleanupRuntimeEffect` covers the direct
    runtime subcode/effect-family mapping.
-8. Plain file acquire/write and file-iterator failures no longer leak past
-   their ordinary statement boundary.
+8. Plain file acquire/write/release and file-iterator failures no longer leak
+   past their ordinary statement boundary.
    `StyioDiagnostics.RuntimeFileAcquireFailureStopsBeforeNextStatement`,
-   `StyioDiagnostics.RuntimeFileWriteFailureStopsBeforeNextStatement`, and
+   `StyioDiagnostics.RuntimeFileWriteFailureStopsBeforeNextStatement`,
+   `StyioDiagnostics.RuntimeFileReleaseFailureStopsBeforeNextStatement`, and
    `StyioDiagnostics.RuntimeFileIteratorOpenFailureStopsBeforeNextStatement`
    prove JSONL runtime diagnostics are emitted and a following `after` print is
    not executed outside a `?|` recovery wrapper.
+   `StyioResourceLifecycle.DirectFileReleaseSuccessContinues` proves successful
+   direct file release proceeds to the next statement.
    `StyioResourceLifecycle.FileAliasUseAfterCloseFailsFast` proves same-path
    alias use after close now reports a closed-handle diagnostic instead of
    normal EOF.
@@ -559,9 +563,9 @@ These should not be counted as missing implementation in this checkout:
    statement-shaped named-handler chain slice are implemented, and explicit
    file-write close cleanup failure now reaches the `cleanup` handler family.
    Task_await fallback settlement now has parser, Sema, lowering, runtime, and
-   negative evidence. Plain file acquire/write, direct file iterator open, and
-   same-path alias closed-handle failures now settle at ordinary statement
-   boundaries outside `?|`, and file/stdin instant-pull plus materialized
+   negative evidence. Plain file acquire/write/release, direct file iterator
+   open, and same-path alias closed-handle failures now settle at ordinary
+   statement boundaries outside `?|`, and file/stdin instant-pull plus materialized
    container-index/list-slice resource-effect expressions now return typed
    success/fallback/handler values, including explicit-target stdin `f64`,
    `string`, typed-list values, list slices, and list/dict/matrix `bounds` recovery. Resource

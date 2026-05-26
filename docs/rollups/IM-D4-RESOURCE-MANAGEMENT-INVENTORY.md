@@ -83,11 +83,13 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   where a value is required, and dict/matrix slice-shaped resource-effect values
   stay fail-closed until those operation families have their own checkpoints.
 - Plain file resource operations outside a `?|` recovery wrapper now settle at
-  the ordinary statement boundary for the covered file acquire/write/iterator
-  paths: missing `@file` acquire, missing-directory file write, and direct
-  `@file(missing) >> #(line)` failures emit structured runtime diagnostics and
-  stop before a following statement. File iterator lowering now checks the
-  runtime error channel before treating a null line as EOF, so use through a
+  the ordinary statement boundary for the covered file acquire/write/release/
+  iterator paths: missing `@file` acquire, missing-directory file write, direct
+  `@file(missing).close()`, and direct `@file(missing) >> #(line)` failures
+  emit structured runtime diagnostics and stop before a following statement.
+  Successful direct file release continues to the next statement. File iterator
+  lowering now checks the runtime error channel before treating a null line as
+  EOF, so use through a
   same-path alias after another alias closes the shared slot reports
   `STYIO_RUNTIME_INVALID_FILE_HANDLE` instead of silently ending the iterator.
   The operation-local guard is suppressed while `SIOResourceEffect` is
