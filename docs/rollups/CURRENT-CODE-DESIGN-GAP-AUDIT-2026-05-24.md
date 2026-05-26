@@ -131,7 +131,15 @@ Current implementation reality:
    `SIOFileLineIter` checks the runtime error channel before treating a null
    line as normal EOF. `f1.close(); f2 >> #(line)` over a shared same-path file
    slot fails fast instead of silently continuing after the iterator.
-9. The first value-producing non-task resource-effect slices are executable for
+9. Statement-shaped resource method calls now participate in resource-effect
+   settlement. `?| @file("data.txt").close() | fallback` skips recovery after a
+   successful open/close, missing direct file close recovers through catch-all
+   fallback or a matched `io` handler after clearing the materialized
+   `STYIO_RUNTIME_FILE_OPEN_READ`, and no-fallback settlement stops before the
+   following statement. Sema rejects non-resource member calls such as
+   `text.lines()` under `?|` so ordinary method calls do not become implicit
+   resource effects.
+10. The first value-producing non-task resource-effect slices are executable for
    file and stdin instant pulls: `result = ?| (<< @file("data.txt")) | fallback`
    returns the successful `i64` file line value on success, clears a materialized
    file-open read failure before evaluating the fallback on failure, supports
@@ -149,7 +157,7 @@ Current implementation reality:
    `STYIO_RUNTIME_LIST_PARSE` without fallback. Parser/Sema keep `?| op | ...`
    statement-only and reject statement-shaped write operations where a value is
    required.
-10. There is still no complete typed value-producing resource-effect model for
+11. There is still no complete typed value-producing resource-effect model for
    arbitrary resource operations, no cleanup-failure coverage for implicit
    scope-exit drop or broader reassignment cleanup, no cleanup families beyond
    file close, no resource family that emits a non-failure
@@ -163,10 +171,13 @@ Task await fallback settlement for failed task pulls is now covered, and plain
 file acquire/write failures now fail fast before subsequent statements when no
 `?|` recovery wrapper is present, direct file iterators fail fast on open
 failure, and same-path aliases now report closed-handle use instead of normal
-EOF after another alias closes the shared slot. File and stdin instant-pull
-resource-effect expressions now cover the first typed success/fallback/handler
-value paths, including explicit-target stdin `f64`, `string`, and typed-list
-pulls under `?|`.
+EOF after another alias closes the shared slot. Resource method calls such as
+direct file close now enter the statement `?|` recovery path, including
+catch-all fallback, matched `io` handlers, no-fallback fail-fast settlement, and
+non-resource member-call rejection. File and stdin instant-pull resource-effect
+expressions now cover the first typed success/fallback/handler value paths,
+including explicit-target stdin `f64`, `string`, and typed-list pulls under
+`?|`.
 Implicit cleanup, broader resource-family cleanup, non-failure backpressure
 observation/escalation, pressure observers, and arbitrary value-producing
 resource-effect recovery remain design-fixed but unfinished.
@@ -434,6 +445,15 @@ These should not be counted as missing implementation in this checkout:
    `StyioSecurityNightlyParserStmt` / `StyioSecurityNightlySemantics` prove the
    parser/codegen value path and keep expression discard, statement-shaped write
    expressions, and mismatched fallback values fail-closed.
+12. Resource method calls are no longer excluded from statement-shaped
+   resource-effect settlement. `StyioResourceEffects` proves direct
+   `@file(...).close()` skips fallback on success, recovers missing file
+   open-read failures through catch-all fallback or a matched `io` handler, and
+   fails fast without fallback before a following statement.
+   `StyioSecurityNightlyParserStmt.ParsesResourceEffectResourceMethodStatement`
+   proves parser/lowering/codegen routing, while
+   `StyioSecurityNightlySemantics.RejectsNonResourceMethodResourceEffectStatement`
+   keeps ordinary member calls fail-closed under `?|`.
 
 ## Recommended Closure Order
 
@@ -446,7 +466,9 @@ These should not be counted as missing implementation in this checkout:
    same-path alias closed-handle failures now settle at ordinary statement
    boundaries outside `?|`, and file/stdin instant-pull resource-effect
    expressions now return typed success/fallback/handler values, including
-   explicit-target stdin `f64`, `string`, and typed-list values. The next slices must cover
+   explicit-target stdin `f64`, `string`, and typed-list values. Resource method
+   calls now enter statement `?|` settlement for direct file close success,
+   fallback/`io` recovery, and no-fallback failure. The next slices must cover
    implicit cleanup, reassignment cleanup, additional resource families that
    emit typed pressure or cleanup effects, and arbitrary value-producing
    recovery beyond the instant-pull paths.
