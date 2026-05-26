@@ -1596,6 +1596,69 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectNamedHandlerStatement) 
   EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueFallbackExpression) {
+  const std::string src =
+    "result = ?| (<< @file(\"/tmp/styio-resource-effect-value-missing\")) | 7\n"
+    ">_(result)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("value: required"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsResourceEffectDiscardExpression) {
+  const std::string src =
+    "result = ?| (<< @file(\"/tmp/styio-resource-effect-value-missing\")) | ...\n"
+    ">_(result)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected resource-effect discard expression to fail closed";
+  }
+  catch (const StyioSyntaxError& err) {
+    EXPECT_NE(
+      std::string(err.what()).find("resource-effect discard is statement-only"),
+      std::string::npos);
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsStatementShapedResourceEffectExpression) {
+  const std::string src =
+    "result = ?| \"x\" -> @stdout | 7\n"
+    ">_(result)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected statement-shaped resource-effect expression to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    EXPECT_NE(
+      std::string(err.what()).find("resource-effect expression requires a value-producing resource operation"),
+      std::string::npos);
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsResourceEffectValueFallbackTypeMismatch) {
+  const std::string src =
+    "result = ?| (<< @file(\"/tmp/styio-resource-effect-value-missing\")) | \"fallback\"\n"
+    ">_(result)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected mismatched resource-effect value fallback to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    const std::string msg = err.what();
+    EXPECT_NE(msg.find("resource-effect fallback expects i64, got string"), std::string::npos)
+      << msg;
+  }
+}
+
 TEST(StyioSecurityNightlyParserStmt, RejectsUnknownResourceEffectNamedHandler) {
   const std::string src =
     "?| \"x\" -> @stdout | unknown_effect => \"fallback\" -> @stderr\n";

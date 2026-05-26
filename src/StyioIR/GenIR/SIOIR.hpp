@@ -264,6 +264,7 @@ public:
   StyioIR* fallback = nullptr;
   std::vector<Handler> handlers;
   bool discard = false;
+  bool value_required = false;
   StyioDataType result_type{StyioDataTypeOption::Undefined, "undefined", 0};
 
   static SIOResourceEffect* Create(
@@ -271,13 +272,15 @@ public:
     StyioIR* fb,
     bool discard_effect,
     StyioDataType result,
-    std::vector<Handler> effect_handlers = {}
+    std::vector<Handler> effect_handlers = {},
+    bool requires_value = false
   ) {
     auto* x = new SIOResourceEffect();
     x->operation = op;
     x->fallback = fb;
     x->handlers = std::move(effect_handlers);
     x->discard = discard_effect;
+    x->value_required = requires_value;
     x->result_type = std::move(result);
     return x;
   }

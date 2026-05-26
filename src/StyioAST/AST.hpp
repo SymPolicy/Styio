@@ -3072,20 +3072,23 @@ private:
   StyioAST* operation_ = nullptr;
   StyioAST* fallback_ = nullptr;
   bool discard_ = false;
+  bool value_required_ = false;
   StyioDataType result_type_{StyioDataTypeOption::Undefined, "undefined", 0};
 
   ResourceEffectAST(
     StyioAST* operation,
     StyioAST* fallback,
     bool discard,
-    std::vector<Handler> handlers
+    std::vector<Handler> handlers,
+    bool value_required
   ) :
       operation_owner_(operation),
       fallback_owner_(fallback),
       handlers_(std::move(handlers)),
       operation_(operation_owner_.get()),
       fallback_(fallback_owner_.get()),
-      discard_(discard) {
+      discard_(discard),
+      value_required_(value_required) {
   }
 
 public:
@@ -3093,9 +3096,16 @@ public:
     StyioAST* operation,
     StyioAST* fallback = nullptr,
     bool discard = false,
-    std::vector<Handler> handlers = {}
+    std::vector<Handler> handlers = {},
+    bool value_required = false
   ) {
-    return new ResourceEffectAST(operation, fallback, discard, std::move(handlers));
+    return new ResourceEffectAST(
+      operation,
+      fallback,
+      discard,
+      std::move(handlers),
+      value_required
+    );
   }
 
   StyioAST* getOperation() {
@@ -3120,6 +3130,10 @@ public:
 
   bool isDiscard() const {
     return discard_;
+  }
+
+  bool isValueRequired() const {
+    return value_required_;
   }
 
   void setResultType(StyioDataType type) {

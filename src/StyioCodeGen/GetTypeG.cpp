@@ -560,8 +560,26 @@ StyioToLLVM::toLLVMType(SIOStdStreamWrite* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SIOResourceEffect* node) {
-  (void)node;
-  return theBuilder->getVoidTy();
+  if (node == nullptr || !node->value_required || node->result_type.isUndefined()) {
+    return theBuilder->getVoidTy();
+  }
+  switch (node->result_type.option) {
+    case StyioDataTypeOption::Bool:
+      return theBuilder->getInt1Ty();
+    case StyioDataTypeOption::Float:
+      return theBuilder->getDoubleTy();
+    case StyioDataTypeOption::Char:
+      return theBuilder->getInt8Ty();
+    case StyioDataTypeOption::String:
+      return llvm::PointerType::get(*theContext, 0);
+    case StyioDataTypeOption::Integer:
+    case StyioDataTypeOption::List:
+    case StyioDataTypeOption::Dict:
+    case StyioDataTypeOption::Matrix:
+      return theBuilder->getInt64Ty();
+    default:
+      return theBuilder->getVoidTy();
+  }
 }
 
 llvm::Type*

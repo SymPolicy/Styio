@@ -5333,10 +5333,11 @@ StyioToLLVM::toLLVMIR(SIOResourceWriteToFile* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SIOResourceEffect* node) {
+  llvm::Value* operation_value = nullptr;
   if (node->operation != nullptr) {
     ++resource_effect_operation_depth_;
     try {
-      node->operation->toLLVMIR(this);
+      operation_value = node->operation->toLLVMIR(this);
     }
     catch (...) {
       --resource_effect_operation_depth_;
@@ -5355,6 +5356,19 @@ StyioToLLVM::toLLVMIR(SIOResourceEffect* node) {
   llvm::FunctionCallee clear_error = theModule->getOrInsertFunction(
     "styio_runtime_clear_error",
     llvm::FunctionType::get(theBuilder->getVoidTy(), false));
+  llvm::Type* result_ty = node->toLLVMType(this);
+  const bool produces_value =
+    node->value_required && result_ty != nullptr && !result_ty->isVoidTy();
+  auto result_value = [&](llvm::Value* value) -> llvm::Value*
+  {
+    if (!produces_value) {
+      return nullptr;
+    }
+    if (value == nullptr || value->getType()->isVoidTy()) {
+      return default_runtime_return_value(result_ty);
+    }
+    return coerce_for_return(value, result_ty);
+  };
 
   if (node->discard) {
     llvm::Function* fn = cur->getParent();
@@ -5374,15 +5388,24 @@ StyioToLLVM::toLLVMIR(SIOResourceEffect* node) {
 
   if (node->fallback == nullptr && node->handlers.empty()) {
     emit_runtime_error_guard_return();
-    return theBuilder->getInt64(0);
+    return produces_value ? result_value(operation_value) : theBuilder->getInt64(0);
   }
 
   llvm::Function* fn = cur->getParent();
   llvm::Value* has_err = theBuilder->CreateCall(has_error, {});
   llvm::Value* bad = theBuilder->CreateICmpNE(has_err, theBuilder->getInt32(0));
   llvm::BasicBlock* dispatch_bb = llvm::BasicBlock::Create(*theContext, "resource_effect_dispatch", fn);
+  llvm::BasicBlock* success_bb = llvm::BasicBlock::Create(*theContext, "resource_effect_success", fn);
   llvm::BasicBlock* cont_bb = llvm::BasicBlock::Create(*theContext, "resource_effect_continue", fn);
-  theBuilder->CreateCondBr(bad, dispatch_bb, cont_bb);
+  theBuilder->CreateCondBr(bad, dispatch_bb, success_bb);
+
+  std::vector<std::pair<llvm::Value*, llvm::BasicBlock*>> incoming_values;
+
+  theBuilder->SetInsertPoint(success_bb);
+  if (produces_value) {
+    incoming_values.emplace_back(result_value(operation_value), success_bb);
+  }
+  theBuilder->CreateBr(cont_bb);
 
   theBuilder->SetInsertPoint(dispatch_bb);
   llvm::Type* char_ptr = llvm::PointerType::get(*theContext, 0);
@@ -5400,12 +5423,16 @@ StyioToLLVM::toLLVMIR(SIOResourceEffect* node) {
 
     theBuilder->SetInsertPoint(handler_bb);
     theBuilder->CreateCall(clear_error, {});
+    llvm::Value* handler_value = nullptr;
     if (handler.body != nullptr) {
-      handler.body->toLLVMIR(this);
+      handler_value = handler.body->toLLVMIR(this);
     }
     emit_runtime_error_guard_return();
     llvm::BasicBlock* after_handler = theBuilder->GetInsertBlock();
     if (after_handler != nullptr && after_handler->getTerminator() == nullptr) {
+      if (produces_value) {
+        incoming_values.emplace_back(result_value(handler_value), after_handler);
+      }
       theBuilder->CreateBr(cont_bb);
     }
 
@@ -5414,10 +5441,13 @@ StyioToLLVM::toLLVMIR(SIOResourceEffect* node) {
 
   if (node->fallback != nullptr) {
     theBuilder->CreateCall(clear_error, {});
-    node->fallback->toLLVMIR(this);
+    llvm::Value* fallback_value = node->fallback->toLLVMIR(this);
     emit_runtime_error_guard_return();
     llvm::BasicBlock* after_fallback = theBuilder->GetInsertBlock();
     if (after_fallback != nullptr && after_fallback->getTerminator() == nullptr) {
+      if (produces_value) {
+        incoming_values.emplace_back(result_value(fallback_value), after_fallback);
+      }
       theBuilder->CreateBr(cont_bb);
     }
   }
@@ -5425,11 +5455,28 @@ StyioToLLVM::toLLVMIR(SIOResourceEffect* node) {
     emit_runtime_error_guard_return();
     llvm::BasicBlock* after_unmatched = theBuilder->GetInsertBlock();
     if (after_unmatched != nullptr && after_unmatched->getTerminator() == nullptr) {
+      if (produces_value) {
+        incoming_values.emplace_back(default_runtime_return_value(result_ty), after_unmatched);
+      }
       theBuilder->CreateBr(cont_bb);
     }
   }
 
   theBuilder->SetInsertPoint(cont_bb);
+  if (produces_value) {
+    if (incoming_values.empty()) {
+      return default_runtime_return_value(result_ty);
+    }
+    llvm::PHINode* phi = theBuilder->CreatePHI(
+      result_ty,
+      static_cast<unsigned>(incoming_values.size()),
+      "resource_effect_value"
+    );
+    for (auto& incoming : incoming_values) {
+      phi->addIncoming(incoming.first, incoming.second);
+    }
+    return phi;
+  }
   return theBuilder->getInt64(0);
 }
 

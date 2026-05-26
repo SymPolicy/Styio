@@ -1375,7 +1375,8 @@ class StateExprCloneVisitor
       clone(expr->getOperation()),
       expr->hasFallback() ? clone(expr->getFallback()) : nullptr,
       expr->isDiscard(),
-      std::move(handlers)
+      std::move(handlers),
+      expr->isValueRequired()
     );
   }
 
@@ -2638,7 +2639,8 @@ AstToStyioIRLowerer::toStyioIR(ResourceEffectAST* ast) {
     fallback,
     ast->isDiscard(),
     ast->getDataType(),
-    std::move(handlers)
+    std::move(handlers),
+    ast->isValueRequired()
   );
 }
 
