@@ -903,6 +903,57 @@ parse_string(StyioContext& context) {
   return ret_val;
 }
 
+static CharAST*
+parse_char_literal_token_latest(StyioContext& context) {
+  context.try_match_panic(StyioTokenType::TOK_SQUOTE);
+  if (context.cur_tok_type() == StyioTokenType::TOK_LF
+      || context.cur_tok_type() == StyioTokenType::TOK_CR
+      || context.cur_tok_type() == StyioTokenType::TOK_EOF) {
+    throw StyioSyntaxError(context.mark_cur_tok("unterminated char literal"));
+  }
+
+  char value = '\0';
+  if (context.cur_tok_type() == StyioTokenType::TOK_BACKSLASH) {
+    context.move_forward(1, "parse_char_escape");
+    const std::string raw = context.cur_tok() != nullptr ? context.cur_tok()->original : "";
+    if (raw == "n") {
+      value = '\n';
+    }
+    else if (raw == "r") {
+      value = '\r';
+    }
+    else if (raw == "t") {
+      value = '\t';
+    }
+    else if (raw == "0") {
+      value = '\0';
+    }
+    else if (raw == "\\") {
+      value = '\\';
+    }
+    else if (context.cur_tok_type() == StyioTokenType::TOK_SQUOTE || raw == "'") {
+      value = '\'';
+    }
+    else {
+      throw StyioSyntaxError(context.mark_cur_tok("unsupported char literal escape"));
+    }
+    context.move_forward(1, "parse_char_escaped_value");
+  }
+  else {
+    const std::string raw = context.cur_tok() != nullptr ? context.cur_tok()->original : "";
+    if (context.cur_tok_type() == StyioTokenType::TOK_SQUOTE || raw.size() != 1) {
+      throw StyioSyntaxError(context.mark_cur_tok("char literal expects exactly one byte"));
+    }
+    value = raw.front();
+    context.move_forward(1, "parse_char_value");
+  }
+
+  if (!context.try_match(StyioTokenType::TOK_SQUOTE)) {
+    throw StyioSyntaxError(context.mark_cur_tok("expected closing quote for char literal"));
+  }
+  return CharAST::Create(std::string(1, value));
+}
+
 StyioAST*
 parse_int_or_float(StyioContext& context) {
   string digits = "";
@@ -2881,6 +2932,11 @@ parse_arithmetic_expr(StyioContext& context) {
 
     case StyioTokenType::STRING: {
       StyioAST* output = parse_string(context);
+      return parse_arithmetic_tail_from_atom(context, output);
+    } break;
+
+    case StyioTokenType::TOK_SQUOTE: {
+      StyioAST* output = parse_char_literal_token_latest(context);
       return parse_arithmetic_tail_from_atom(context, output);
     } break;
 

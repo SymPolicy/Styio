@@ -1238,6 +1238,10 @@ class StateExprCloneVisitor
     return StringAST::Create(expr->getValue());
   }
 
+  StyioAST* clone(CharAST* expr) {
+    return CharAST::Create(expr->getValue());
+  }
+
   StyioAST* clone(TupleAST* expr) {
     return TupleAST::Create(clone_child_list(expr->getElements()));
   }
@@ -1493,6 +1497,8 @@ public:
         return clone(static_cast<BoolAST*>(expr));
       case StyioNodeType::String:
         return clone(static_cast<StringAST*>(expr));
+      case StyioNodeType::Char:
+        return clone(static_cast<CharAST*>(expr));
       case StyioNodeType::Tuple:
         return clone(static_cast<TupleAST*>(expr));
       case StyioNodeType::List:
