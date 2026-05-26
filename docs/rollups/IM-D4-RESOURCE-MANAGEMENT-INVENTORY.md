@@ -26,14 +26,14 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   channel: file-write failure runs the fallback after clearing the materialized
   error, successful writes skip fallback, and no-fallback settlement stops at
   the source site. Statement-shaped named handlers and handler chains are also
-  executable for current runtime subcode families: `io`, `parse`, `bounds`, and
-  `closed` dispatch by matching the materialized runtime subcode, while
-  `backpressure` and `cleanup` remain accepted handler names that do not match
-  until a resource family emits those typed effects. Duplicate and unknown
-  handler names fail closed, `effect => @()` remains invalid, unmatched handlers
-  fall through to the next handler or final catch-all fallback, and unmatched
-  failures without fallback keep the default fail-fast rule. This preserves
-  task_await binding for `?| task -> value: T`.
+  executable for current runtime subcode families: `io`, `parse`, `bounds`,
+  `closed`, and file-close `cleanup` dispatch by matching the materialized
+  runtime subcode, while `backpressure` remains an accepted handler name that
+  does not match until a resource family emits that typed effect. Duplicate and
+  unknown handler names fail closed, `effect => @()` remains invalid, unmatched
+  handlers fall through to the next handler or final catch-all fallback, and
+  unmatched failures without fallback keep the default fail-fast rule. This
+  preserves task_await binding for `?| task -> value: T`.
 - Bounded `i64`, `f64`, `bool`, `char`, and `string` resource selectors now have distinct
   executable value shapes: `@name[-n]` reads a scalar value, while
   `@name[-n..]` and `@name[...]` materialize typed list snapshots from explicit
@@ -191,6 +191,11 @@ Accepted cleanup-failure decision:
 - Resource fallback uses the uniform `?| resource_operation | fallback` form. The fallback handles the `ResourceCleanupFailure` value/effect through normal type inference instead of hiding the failure.
 
 The remaining IM-D4 work is to implement this decision across resource families.
+The explicit file-write path now covers one cleanup-failure family:
+`fclose` failure reports `STYIO_RUNTIME_FILE_CLEANUP_FAILURE`, matches the
+`cleanup` handler family, and stays distinct from `io`. Implicit scope-exit
+drop, reassignment cleanup, release/commit hooks, and non-file resource-family
+cleanup effects still require separate implementation and tests.
 
 ### Fallible Operations
 
