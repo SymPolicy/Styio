@@ -37,6 +37,13 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   run the await fallback after clearing the materialized task error, while
   failed task pulls without fallback stop at the await settlement site. Non-task
   await sources and bare continuation freeze fallbacks remain fail-closed.
+  Statement-shaped resource method calls now enter the same settlement route:
+  `?| @file("data.txt").close() | fallback` skips recovery on successful file
+  open/close, missing files recover through catch-all fallback or matched `io`
+  handlers after the materialized open-read failure is cleared, and no-fallback
+  close settlement raises `STYIO_RUNTIME_FILE_OPEN_READ` before the next
+  statement. Non-resource member calls such as `text.lines()` remain rejected
+  under `?|`.
 - The first value-producing non-task resource-effect expression slices are
   executable for file and stdin instant pulls. `result = ?| (<< @file("data.txt")) | fallback`
   returns the successful `i64` file line value on success, evaluates the fallback
@@ -296,8 +303,10 @@ Implementation note: the current value-producing non-task slices are limited to
 file instant pulls and stdin instant pulls. File instant pulls still return
 `i64`; stdin instant pulls now cover the untyped `i64` path plus explicit-target
 `f64`, `string`, and supported typed-list paths under `?|` expression recovery.
-Statement-shaped writes, broader resource families, cleanup/drop hooks, pressure
-observations, and non-instant-pull value-returning resource operations must
+Statement-shaped writes and file close methods have the first statement
+settlement paths; broader resource families, cleanup/drop hooks, pressure
+observations, value-producing resource methods, and non-instant-pull
+value-returning resource operations must
 remain separately implemented and tested before the full typed resource-effect
 model is closed.
 
