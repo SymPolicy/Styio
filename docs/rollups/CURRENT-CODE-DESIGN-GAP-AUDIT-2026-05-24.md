@@ -137,12 +137,18 @@ Current implementation reality:
    file-open read failure before evaluating the fallback on failure, supports
    named handler value branches such as `io => 9`, and fails fast without a
    fallback. `result = ?| (<- @stdin) | fallback` now follows the same
-   value-required path for stdin numeric pulls: successful stdin lines return the
-   parsed `i64`, numeric parse failures recover through catch-all fallback or a
-   matched `parse => handler`, and no-fallback expression settlement still
-   reports `STYIO_RUNTIME_NUMERIC_PARSE` before later statements. Parser/Sema
-   keep `?| op | ...` statement-only and reject statement-shaped write
-   operations where a value is required.
+   value-required path for untyped stdin numeric pulls: successful stdin lines
+   return the parsed `i64`, numeric parse failures recover through catch-all
+   fallback or a matched `parse => handler`, and no-fallback expression
+   settlement still reports `STYIO_RUNTIME_NUMERIC_PARSE` before later
+   statements. Explicit target types now flow into stdin resource-effect pulls
+   as well: `result: f64 = ?| (<- @stdin) | fallback` returns or recovers `f64`
+   values, `result: string = ?| (<- @stdin) | fallback` returns a cloned stdin
+   line, and `result: list[i64] = ?| (<- @stdin) | fallback` materializes or
+   recovers typed list values while list parse failures report
+   `STYIO_RUNTIME_LIST_PARSE` without fallback. Parser/Sema keep `?| op | ...`
+   statement-only and reject statement-shaped write operations where a value is
+   required.
 10. There is still no complete typed value-producing resource-effect model for
    arbitrary resource operations, no cleanup-failure coverage for implicit
    scope-exit drop or broader reassignment cleanup, no cleanup families beyond
@@ -159,7 +165,8 @@ file acquire/write failures now fail fast before subsequent statements when no
 failure, and same-path aliases now report closed-handle use instead of normal
 EOF after another alias closes the shared slot. File and stdin instant-pull
 resource-effect expressions now cover the first typed success/fallback/handler
-value paths.
+value paths, including explicit-target stdin `f64`, `string`, and typed-list
+pulls under `?|`.
 Implicit cleanup, broader resource-family cleanup, non-failure backpressure
 observation/escalation, pressure observers, and arbitrary value-producing
 resource-effect recovery remain design-fixed but unfinished.
@@ -420,8 +427,10 @@ These should not be counted as missing implementation in this checkout:
    fallback values are returned from `result = ?| (<< @file("data.txt")) | fallback`,
    named `io` handler values can recover a file-open read failure, stdin
    `result = ?| (<- @stdin) | fallback` recovers numeric parse failures through
-   fallback or matched `parse` handlers, and no-fallback expression settlement
-   fails before the following statement.
+   fallback or matched `parse` handlers, explicit-target stdin `f64`, `string`,
+   and `list[i64]` resource-effect values execute through the same value PHI
+   path, and no-fallback expression settlement fails before the following
+   statement.
    `StyioSecurityNightlyParserStmt` / `StyioSecurityNightlySemantics` prove the
    parser/codegen value path and keep expression discard, statement-shaped write
    expressions, and mismatched fallback values fail-closed.
@@ -436,7 +445,8 @@ These should not be counted as missing implementation in this checkout:
    negative evidence. Plain file acquire/write, direct file iterator open, and
    same-path alias closed-handle failures now settle at ordinary statement
    boundaries outside `?|`, and file/stdin instant-pull resource-effect
-   expressions now return typed success/fallback/handler values. The next slices must cover
+   expressions now return typed success/fallback/handler values, including
+   explicit-target stdin `f64`, `string`, and typed-list values. The next slices must cover
    implicit cleanup, reassignment cleanup, additional resource families that
    emit typed pressure or cleanup effects, and arbitrary value-producing
    recovery beyond the instant-pull paths.
