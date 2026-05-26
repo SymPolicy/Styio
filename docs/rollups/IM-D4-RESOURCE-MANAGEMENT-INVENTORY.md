@@ -38,12 +38,16 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   failed task pulls without fallback stop at the await settlement site. Non-task
   await sources and bare continuation freeze fallbacks remain fail-closed.
 - Plain file resource operations outside a `?|` recovery wrapper now settle at
-  the ordinary statement boundary for the covered file acquire/write paths:
-  missing `@file` acquire and missing-directory file write failures emit their
-  structured runtime diagnostics and stop before a following statement. The
-  operation-local guard is suppressed while `SIOResourceEffect` is dispatching
-  fallback or named handlers, so explicit `?| ... | fallback` recovery remains
-  the recovery surface.
+  the ordinary statement boundary for the covered file acquire/write/iterator
+  paths: missing `@file` acquire, missing-directory file write, and direct
+  `@file(missing) >> #(line)` failures emit structured runtime diagnostics and
+  stop before a following statement. File iterator lowering now checks the
+  runtime error channel before treating a null line as EOF, so use through a
+  same-path alias after another alias closes the shared slot reports
+  `STYIO_RUNTIME_INVALID_FILE_HANDLE` instead of silently ending the iterator.
+  The operation-local guard is suppressed while `SIOResourceEffect` is
+  dispatching fallback or named handlers, so explicit `?| ... | fallback`
+  recovery remains the recovery surface.
 - Bounded `i64`, `f64`, `bool`, `char`, and `string` resource selectors now have distinct
   executable value shapes: `@name[-n]` reads a scalar value, while
   `@name[-n..]` and `@name[...]` materialize typed list snapshots from explicit
@@ -142,7 +146,9 @@ Examples:
 
 `eof` is not an error. It is iterator termination. I/O failure, parse failure,
 bounds failure, cleanup failure, backpressure escalation, and closed-handle use
-are effects/results, not implicit typestate fallthroughs.
+are effects/results, not implicit typestate fallthroughs. The current file
+iterator implementation preserves that distinction for zero or invalid handles
+by reporting the closed-handle runtime subcode before accepting EOF.
 
 ### Resource Access And Copy
 
@@ -215,10 +221,12 @@ The explicit file-write path now covers one cleanup-failure family:
 `cleanup` handler family, and stays distinct from `io`. The file flex-rebind
 slice also releases a tracked file handle before `name = @file(...)` overwrites
 the owner, clears consumed-receiver state after a successful resource rebind, and
-reopens a same-path singleton slot that an explicit close left at zero. Implicit
-scope-exit drop, cleanup-failure settlement for reassignments that can fail,
-release/commit hooks, and non-file resource-family cleanup effects still require
-separate implementation and tests.
+reopens a same-path singleton slot that an explicit close left at zero. The file
+iterator closed-handle slice reports a structured `closed`-family diagnostic
+when a stale same-path alias uses that zeroed slot. Implicit scope-exit drop,
+cleanup-failure settlement for reassignments that can fail, release/commit
+hooks, and non-file resource-family cleanup effects still require separate
+implementation and tests.
 
 ### Fallible Operations
 
