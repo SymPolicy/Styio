@@ -257,7 +257,7 @@ The example uses `|..2|` because it needs the previous and current published val
 | Top-level multi-resource `@a : T, @b : U := { driver }` | **Target syntax**; current compiler only has partial internal prelude resource declarations |
 | `expr -> @resource` as topology sink write | **Partially covered** by existing redirect/resource-write surfaces; strict topology semantics TBD |
 | Resource object selectors `@price[-1]`, `@price[-3..]`, `@price[...]` | **Implemented for v2 resource reads; retired state-history probes stay rejected** |
-| Explicit selector copy `snapshot << @price[-n..]` / `snapshot << @price[...]` | **Implemented for bounded `i64`, `f64`, `bool`, `char`, and `string` selector snapshots; scalar latest reads and broader type-directed `<<` clone/copy remain staged** |
+| Explicit selector/container copy `snapshot << @price[-n..]` / `snapshot << @price[...]` / `copy << list_or_dict` | **Implemented for bounded `i64`, `f64`, `bool`, `char`, and `string` selector snapshots plus materialized list/dict handle deep clones; scalar latest reads, `copy <- list_or_dict`, and broader matrix/file/topology `<<` clone/copy remain staged or rejected** |
 | Compiler-owned resource topology graph (RTG) | **Implemented for current resource AST surfaces** |
 
 **Current RTG implementation note:** RTG is an internal compiler safety layer, not a new source-level syntax contract. It validates resource AST nodes and edges before lowering, including standard streams, handle acquire, writes, redirects, iterators, zip, snapshots, instant pulls, hidden intrinsic ledgers, task resources, ownership, mutation, commit, failure-domain, and backpressure relationships.
