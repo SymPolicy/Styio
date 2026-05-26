@@ -102,13 +102,17 @@ Current implementation reality:
    the materialized task error; failed task pulls without fallback stop at the
    await settlement site; non-task await sources and bare continuation freeze
    fallbacks fail closed.
-4. File-backed resource-write smoke coverage proves fallback and named `io`
-   handlers run only after the resource failure is materialized and cleared,
-   successful operations skip recovery, unmatched handlers such as
+4. File-backed resource-write and handle-acquire smoke coverage proves fallback
+   and named `io` handlers run only after the resource failure is materialized
+   and cleared, successful operations skip recovery, unmatched handlers such as
    `backpressure` for a file-open failure fall through to the default fail-fast
    rule when no catch-all fallback is present, handler chains continue to a final
    catch-all fallback when no named handler matches, and
    `?| resource_operation` without fallback stops before the next statement.
+   The accepted statement-shaped acquire slice covers
+   `?| f <- @file(missing) | fallback` and matched `io` handlers for file-open
+   read failures; using a newly acquired handle as a later resource after the
+   wrapper still needs a separate resource-topology binding checkpoint.
 5. File-close cleanup failure now has a real runtime subcode family:
    `fclose` failure is reported as `STYIO_RUNTIME_FILE_CLEANUP_FAILURE`,
    `styio_runtime_error_matches_effect("cleanup")` matches it, source-level
@@ -120,7 +124,8 @@ Current implementation reality:
    direct `@file(missing) >> #(line)` iteration emit the JSONL runtime
    diagnostic and stop before a following `>_("after")`, while the same
    operation-local guard is suppressed inside `SIOResourceEffect` so catch-all
-   fallback and named handlers still recover.
+   fallback and named handlers still recover, including statement-shaped
+   `?| f <- @file(missing) | fallback` acquire recovery.
 7. File-resource flex rebinding now covers the source-reachable cleanup edge for
    `name = @file(...)`: Sema treats a successful resource rebind as a new
    occupant after a consuming `.close()`, Codegen releases the prior tracked file
@@ -194,9 +199,10 @@ failure, and same-path aliases now report closed-handle use instead of normal
 EOF after another alias closes the shared slot. Explicit returns and ordinary
 scope-pop exits now close tracked file handles before leaving the scope and
 settle cleanup failures at that boundary. Resource method calls such as
-direct file close now enter the statement `?|` recovery path, including
-catch-all fallback, matched `io` handlers, no-fallback fail-fast settlement, and
-non-resource member-call rejection. File/stdin instant-pull, materialized
+direct file close and statement-shaped file handle acquire now enter the
+statement `?|` recovery path, including catch-all fallback, matched `io`
+handlers, no-fallback fail-fast settlement, and non-resource member-call
+rejection for method candidates. File/stdin instant-pull, materialized
 container-index, and materialized list-slice resource-effect expressions now cover the first typed
 success/fallback/handler value paths, including explicit-target stdin `f64`,
 `string`, typed-list pulls, and `bounds` recovery for
@@ -204,8 +210,9 @@ success/fallback/handler value paths, including explicit-target stdin `f64`,
 `STYIO_RUNTIME_MATRIX_INDEX` under `?|`.
 Implicit cleanup fallback recovery, broader reassignment cleanup,
 broader resource-family cleanup, non-failure backpressure
-observation/escalation, pressure observers, and arbitrary value-producing
-resource-effect recovery remain design-fixed but unfinished.
+observation/escalation, pressure observers, using a handle acquired inside a
+statement `?|` wrapper as a later topology resource, and arbitrary
+value-producing resource-effect recovery remain design-fixed but unfinished.
 
 ### P0. Topology v2 resource selectors parse, but slice/snapshot value semantics are not closed
 
@@ -490,15 +497,23 @@ These should not be counted as missing implementation in this checkout:
    `StyioSecurityNightlyParserStmt` / `StyioSecurityNightlySemantics` prove the
    parser/codegen value path and keep expression discard, statement-shaped write
    expressions, and mismatched fallback values fail-closed.
-13. Resource method calls are no longer excluded from statement-shaped
-   resource-effect settlement. `StyioResourceEffects` proves direct
+13. Resource method calls and file handle-acquire statements are no longer
+   excluded from statement-shaped resource-effect settlement.
+   `StyioResourceEffects` proves direct
    `@file(...).close()` skips fallback on success, recovers missing file
    open-read failures through catch-all fallback or a matched `io` handler, and
-   fails fast without fallback before a following statement.
+   fails fast without fallback before a following statement. The same suite now
+   proves `?| f <- @file(missing) | fallback` recovers open-read failures
+   through catch-all fallback or a matched `io` handler, skips fallback on a
+   successful open, and fails fast without fallback before a following
+   statement.
    `StyioSecurityNightlyParserStmt.ParsesResourceEffectResourceMethodStatement`
-   proves parser/lowering/codegen routing, while
+   and `ParsesResourceEffectHandleAcquireStatement` prove parser/lowering/codegen
+   routing, while
    `StyioSecurityNightlySemantics.RejectsNonResourceMethodResourceEffectStatement`
-   keeps ordinary member calls fail-closed under `?|`.
+   keeps ordinary member calls fail-closed under `?|` and
+   `StyioSecurityNightlyParserStmt.RejectsHandleAcquireResourceEffectExpression`
+   keeps statement-shaped acquire out of value-required `?|` expressions.
 14. Materialized container index and list-slice value-producing resource effects are no longer
    excluded from the first non-instant-pull `?|` value path.
    `StyioResourceEffects` proves `result = ?| xs[i] | fallback`,
@@ -536,9 +551,12 @@ These should not be counted as missing implementation in this checkout:
    success/fallback/handler values, including explicit-target stdin `f64`,
    `string`, typed-list values, list slices, and list/dict/matrix `bounds` recovery. Resource
    method calls now enter statement `?|` settlement for direct file close
-   success, fallback/`io` recovery, and no-fallback failure. Explicit returns
-   now close tracked file handles before leaving the function. The next slices
-   must cover fallback recovery for implicit cleanup, reassignment cleanup, dict/matrix slice-shaped
+   success, fallback/`io` recovery, and no-fallback failure; statement-shaped
+   file acquire now covers fallback/`io` recovery and no-fallback failure for
+   file-open read errors. Explicit returns now close tracked file handles before
+   leaving the function. The next slices must cover fallback recovery for
+   implicit cleanup, reassignment cleanup, using an acquire inside `?|` as a
+   later topology resource, dict/matrix slice-shaped
    bounds recovery, additional resource families that emit typed pressure or cleanup
    effects, and arbitrary value-producing recovery beyond the covered paths.
 2. Continue Topology v2 selector value semantics before adding new resource

@@ -42,8 +42,15 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   open/close, missing files recover through catch-all fallback or matched `io`
   handlers after the materialized open-read failure is cleared, and no-fallback
   close settlement raises `STYIO_RUNTIME_FILE_OPEN_READ` before the next
-  statement. Non-resource member calls such as `text.lines()` remain rejected
-  under `?|`.
+  statement. Statement-shaped file handle acquire now enters the same recovery
+  route for file resources: `?| f <- @file(missing) | fallback` and matched
+  `io` handlers recover open-read failures, a successful open skips fallback,
+  and no-fallback settlement raises `STYIO_RUNTIME_FILE_OPEN_READ` before the
+  next statement. Non-resource member calls such as `text.lines()` remain
+  rejected under `?|`, and statement-shaped acquire stays rejected where a
+  value-producing `?|` expression is required. Using the acquired handle as a
+  later topology resource after the wrapper still needs a separate implementation
+  checkpoint.
 - The first value-producing non-task resource-effect expression slices are
   executable for file/stdin instant pulls and materialized container bounds
   reads, including materialized list slices.
@@ -79,7 +86,8 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   `STYIO_RUNTIME_INVALID_FILE_HANDLE` instead of silently ending the iterator.
   The operation-local guard is suppressed while `SIOResourceEffect` is
   dispatching fallback or named handlers, so explicit `?| ... | fallback`
-  recovery remains the recovery surface.
+  recovery remains the recovery surface, including statement-shaped
+  `?| f <- @file(missing) | fallback` file-acquire recovery.
 - Tracked file handles now have the first compiler-owned scope-exit cleanup
   settlement slice: explicit `<| return` closes active file-handle slots before
   emitting the LLVM `ret`, normal scope-pop cleanup checks the runtime error
@@ -273,7 +281,8 @@ success/fallback/handler paths for non-task `?|` expressions, including
 explicit-target stdin `f64`, `string`, typed-list values, and list/dict/matrix
 `bounds` recovery. Source-level fallback recovery for implicit cleanup,
 cleanup-failure settlement for reassignments that can fail, release/commit hooks, non-file resource-family
-cleanup effects, dict/matrix slice-shaped bounds recovery, and arbitrary
+cleanup effects, using a handle acquired inside statement `?|` as a later
+topology resource, dict/matrix slice-shaped bounds recovery, and arbitrary
 value-producing resource operations still require separate implementation and
 tests.
 
@@ -333,7 +342,7 @@ recovers `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, and
 `STYIO_RUNTIME_MATRIX_INDEX` through catch-all fallback or matched `bounds`
 handlers; matrix row recovery uses the same matrix bounds family, and list slice
 recovery uses `SCListSlice` / `styio_list_slice` with the list bounds family.
-Statement-shaped writes and file close methods have the first
+Statement-shaped writes, file acquire, and file close methods have the first
 statement settlement paths; broader resource families, cleanup/drop hooks,
 pressure observations, value-producing resource methods, dict/matrix slice-shaped
 bounds recovery, and other non-instant-pull value-returning resource operations
