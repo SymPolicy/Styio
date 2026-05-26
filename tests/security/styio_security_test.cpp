@@ -1713,6 +1713,22 @@ TEST(StyioSecurityNightlyParserStmt, ParsesGenericFunctionTypeAnnotations) {
   EXPECT_NE(engine_repr.find("styio.ast.attr { xs.length }"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, RejectsTupleFunctionReturnAnnotationBeforeLoweringFallback) {
+  const std::string src =
+    "# pair : (i64, i64) := (x: i64) => x\n"
+    ">_(pair(7))\n";
+
+  try {
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected tuple return annotation to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    EXPECT_NE(
+      std::string(err.what()).find("tuple function return annotations require tuple value IR"),
+      std::string::npos);
+  }
+}
+
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnFlexBindSubsetSamples) {
   const std::vector<std::string> samples = {
     "x = 1 + 2\n>_(x)\n",
