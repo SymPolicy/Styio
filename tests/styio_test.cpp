@@ -2697,6 +2697,161 @@ TEST(StyioNanoPackage, PublishRejectsRemoteRegistryRoot) {
   fs::remove_all(root);
 }
 
+TEST(StyioNanoPackage, CloudRepositoryRejectsMalformedEntrySchema) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-nano-package-bad-entry-" + std::to_string(uniq));
+  const fs::path repo_dir = root / "repo";
+  const fs::path output_dir = root / "install";
+  const fs::path config = root / "nano.toml";
+  const std::string package_name = "edge/default";
+  const std::string version = "0.0.1";
+  const fs::path entry =
+    repo_dir / "index" / "edge" / "default" / (version + ".json");
+  ASSERT_TRUE(fs::create_directories(entry.parent_path()));
+
+  {
+    std::ofstream out(repo_dir / "styio-nano-repository.json");
+    ASSERT_TRUE(out.is_open());
+    out << "{\n";
+    out << "  \"kind\": \"styio-nano-static\",\n";
+    out << "  \"schema_version\": 1\n";
+    out << "}\n";
+  }
+  {
+    std::ofstream out(entry);
+    ASSERT_TRUE(out.is_open());
+    out << "{\n";
+    out << "  \"schema_version\": 1,\n";
+    out << "  \"package\": \"" << package_name << "\",\n";
+    out << "  \"version\": \"" << version << "\",\n";
+    out << "  \"channel\": \"nano\",\n";
+    out << "  \"sha256\": \"" << std::string(64, '0') << "\",\n";
+    out << "  \"size_bytes\": \"not-a-number\",\n";
+    out << "  \"blob_path\": \"blobs/sha256/00/00/" << std::string(64, '0') << ".tar\"\n";
+    out << "}\n";
+  }
+  {
+    std::ofstream out(config);
+    ASSERT_TRUE(out.is_open());
+    out << "[nano]\n";
+    out << "mode = \"cloud\"\n";
+    out << "output_dir = \"" << output_dir.string() << "\"\n";
+    out << "\n[nano.cloud]\n";
+    out << "registry = \"" << repo_dir.string() << "\"\n";
+    out << "package = \"" << package_name << "\"\n";
+    out << "version = \"" << version << "\"\n";
+  }
+
+  const CommandResult result =
+    run_stdout_command(std::string("\"") + runner + "\" --nano-create --nano-package-config \""
+                       + config.string() + "\" 2>&1");
+  EXPECT_NE(result.exit_code, 0) << result.stdout_text;
+  EXPECT_NE(
+    result.stdout_text.find("nano repository entry is missing a valid size_bytes"),
+    std::string::npos);
+
+  fs::remove_all(root);
+}
+
+TEST(StyioNanoPackage, CloudManifestRejectsMalformedPackageFile) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-nano-package-bad-manifest-" + std::to_string(uniq));
+  const fs::path output_dir = root / "install";
+  const fs::path config = root / "nano.toml";
+  const fs::path manifest = root / "manifest.toml";
+  ASSERT_TRUE(fs::create_directories(root));
+
+  {
+    std::ofstream out(manifest);
+    ASSERT_TRUE(out.is_open());
+    out << "[package\n";
+    out << "name = \"edge-manifest-test\"\n";
+  }
+  {
+    std::ofstream out(config);
+    ASSERT_TRUE(out.is_open());
+    out << "[nano]\n";
+    out << "mode = \"cloud\"\n";
+    out << "output_dir = \"" << output_dir.string() << "\"\n";
+    out << "\n[nano.cloud]\n";
+    out << "manifest = \"" << manifest.string() << "\"\n";
+  }
+
+  const CommandResult result =
+    run_stdout_command(std::string("\"") + runner + "\" --nano-create --nano-package-config \""
+                       + config.string() + "\" 2>&1");
+  EXPECT_NE(result.exit_code, 0) << result.stdout_text;
+  EXPECT_NE(
+    result.stdout_text.find("malformed section header in nano package manifest"),
+    std::string::npos);
+
+  fs::remove_all(root);
+}
+
+TEST(StyioNanoPackage, CliRejectsMutuallyExclusiveAndMisdirectedOptions) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-nano-package-cli-guards-" + std::to_string(uniq));
+  ASSERT_TRUE(fs::create_directories(root));
+  const fs::path create_config = root / "create.toml";
+  const fs::path publish_config = root / "publish.toml";
+
+  const CommandResult both_modes =
+    run_stdout_command(std::string("\"") + runner + "\" --nano-create --nano-publish 2>&1");
+  EXPECT_NE(both_modes.exit_code, 0) << both_modes.stdout_text;
+  EXPECT_NE(
+    both_modes.stdout_text.find("--nano-create and --nano-publish are mutually exclusive"),
+    std::string::npos);
+
+  const CommandResult arg_without_mode =
+    run_stdout_command(std::string("\"") + runner + "\" --nano-output \"" + root.string() + "\" 2>&1");
+  EXPECT_NE(arg_without_mode.exit_code, 0) << arg_without_mode.stdout_text;
+  EXPECT_NE(
+    arg_without_mode.stdout_text.find("styio-nano packaging arguments require --nano-create or --nano-publish"),
+    std::string::npos);
+
+  const CommandResult create_with_publish_only =
+    run_stdout_command(std::string("\"") + runner + "\" --nano-create --nano-publish-config \""
+                       + publish_config.string() + "\" 2>&1");
+  EXPECT_NE(create_with_publish_only.exit_code, 0) << create_with_publish_only.stdout_text;
+  EXPECT_NE(
+    create_with_publish_only.stdout_text.find("--nano-create does not accept publish-only options"),
+    std::string::npos);
+
+  const CommandResult publish_with_create_only =
+    run_stdout_command(std::string("\"") + runner + "\" --nano-publish --nano-package-config \""
+                       + create_config.string() + "\" 2>&1");
+  EXPECT_NE(publish_with_create_only.exit_code, 0) << publish_with_create_only.stdout_text;
+  EXPECT_NE(
+    publish_with_create_only.stdout_text.find("--nano-publish does not accept create-only options"),
+    std::string::npos);
+
+  fs::remove_all(root);
+}
+
 TEST(StyioParserEngine, LegacyAndNightlyMatchOnScalarExpressionsSample) {
   const fs::path input =
     fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "scalar_expressions" / "t01_int_arith.styio";
