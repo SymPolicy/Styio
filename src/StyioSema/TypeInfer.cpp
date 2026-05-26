@@ -568,6 +568,26 @@ container_value_assignable(const StyioDataType& target, const StyioDataType& act
   return target_family == actual_family;
 }
 
+void
+apply_stdin_resource_effect_expected_type(StyioAST* expr, const StyioDataType& expected_type) {
+  if (expected_type.isUndefined()) {
+    return;
+  }
+  auto* effect = dynamic_cast<ResourceEffectAST*>(expr);
+  if (effect == nullptr || !effect->isValueRequired()) {
+    return;
+  }
+  auto* pull = dynamic_cast<InstantPullAST*>(effect->getOperation());
+  if (pull == nullptr) {
+    return;
+  }
+  auto* stream = dynamic_cast<StdStreamAST*>(pull->getResource());
+  if (stream == nullptr || stream->getStreamKind() != StdStreamKind::Stdin) {
+    return;
+  }
+  pull->setResultType(expected_type);
+}
+
 StyioDataType
 infer_predefined_list_operation_type(StyioSemaContext* an, FuncCallAST* call) {
   if (call == nullptr || call->func_callee == nullptr) {
@@ -1256,6 +1276,7 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
   auto var_type = ast->getVar()->getDType()->type;
 
   if (var_type.option != StyioDataTypeOption::Undefined) {
+    apply_stdin_resource_effect_expected_type(ast->getValue(), var_type);
     if (ast->getValue()->getNodeType() == StyioNodeType::BinOp) {
       if (!styio_is_matrix_type(var_type)) {
         static_cast<BinOpAST*>(ast->getValue())->setDType(var_type);
@@ -1413,8 +1434,11 @@ StyioSemaContext::typeInfer(FinalBindAST* ast) {
       );
     }
   }
-  ast->getValue()->typeInfer(this);
   auto vt = ast->getVar()->getDType()->type;
+  if (vt.option != StyioDataTypeOption::Undefined) {
+    apply_stdin_resource_effect_expected_type(ast->getValue(), vt);
+  }
+  ast->getValue()->typeInfer(this);
   if (vt.option == StyioDataTypeOption::Undefined) {
     vt = infer_expr_type(this, ast->getValue());
     ast->getVar()->setDataType(vt);

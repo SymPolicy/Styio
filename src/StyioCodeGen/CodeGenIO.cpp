@@ -479,6 +479,9 @@ StyioToLLVM::toLLVMIR(SIOStdStreamPull* node) {
       llvm::FunctionType::get(theBuilder->getInt64Ty(), {}, false));
     llvm::Value* out = theBuilder->CreateCall(read_fn, {});
     track_owned_resource_temp(out, TempResourceKind::List);
+    if (resource_effect_operation_depth_ == 0) {
+      emit_runtime_error_guard_return();
+    }
     return out;
   }
 
