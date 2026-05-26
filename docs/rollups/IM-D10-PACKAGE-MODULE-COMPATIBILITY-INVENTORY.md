@@ -154,7 +154,7 @@ IM-D10 can close inside `styio` only when:
 
 ## Decision Closure
 
-IM-D10 is not closed by this inventory. The compiler-side boundary is clear enough to proceed with local hardening, and the current nano producer/verifier edge tests now cover malformed static repository entries, malformed cloud manifests, create/publish guard failures, blob integrity failures, and local/static publish boundaries. The package lifecycle, remote registry, hosted platform, standard-library distribution, trust, and compatibility-matrix questions still require explicit confirmation from the active `spio` and Styio-Platform maintainers.
+IM-D10 is not closed by this inventory. The compiler-side boundary is clear enough to proceed with local hardening, and the current nano producer/verifier edge tests now cover malformed static repository entries, malformed cloud manifests, create/publish guard failures, blob integrity failures, and local/static publish boundaries. Compile-plan v1 validation now also rejects malformed explicit `profile.build_mode` values, malformed package entries, and entry-package inconsistencies while staying within the resolved compiler request envelope. The package lifecycle, remote registry, hosted platform, standard-library distribution, trust, and compatibility-matrix questions still require explicit confirmation from the active `spio` and Styio-Platform maintainers.
 
 ## Source Documents
 
