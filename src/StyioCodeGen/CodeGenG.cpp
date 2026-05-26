@@ -1954,7 +1954,9 @@ StyioToLLVM::cstr_to_i64_checked(llvm::Value* v) {
       {llvm::PointerType::get(*theContext, 0)},
       false));
   llvm::Value* out = theBuilder->CreateCall(conv, {v});
-  emit_runtime_error_guard_return();
+  if (resource_effect_operation_depth_ == 0) {
+    emit_runtime_error_guard_return();
+  }
   return out;
 }
 
@@ -1970,7 +1972,9 @@ StyioToLLVM::cstr_to_f64_checked(llvm::Value* v) {
       {llvm::PointerType::get(*theContext, 0)},
       false));
   llvm::Value* out = theBuilder->CreateCall(conv, {v});
-  emit_runtime_error_guard_return();
+  if (resource_effect_operation_depth_ == 0) {
+    emit_runtime_error_guard_return();
+  }
   return out;
 }
 
