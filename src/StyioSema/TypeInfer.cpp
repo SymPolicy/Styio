@@ -12,6 +12,7 @@
 #include <optional>
 #include <string>
 #include <unordered_set>
+#include <variant>
 #include <vector>
 
 // [Styio]
@@ -2804,11 +2805,21 @@ StyioSemaContext::typeInfer(AnonyFuncAST* ast) {
 
 void
 StyioSemaContext::typeInfer(FunctionAST* ast) {
+  if (std::holds_alternative<TypeTupleAST*>(ast->ret_type)) {
+    throw StyioTypeError(
+      "tuple function return annotations require tuple value IR; tuple returns are not implemented"
+    );
+  }
   func_defs[ast->getNameAsStr()] = ast;
 }
 
 void
 StyioSemaContext::typeInfer(SimpleFuncAST* ast) {
+  if (std::holds_alternative<TypeTupleAST*>(ast->ret_type)) {
+    throw StyioTypeError(
+      "tuple function return annotations require tuple value IR; tuple returns are not implemented"
+    );
+  }
   func_defs[ast->func_name->getAsStr()] = ast;
 }
 

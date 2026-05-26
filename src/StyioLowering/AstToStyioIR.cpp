@@ -111,7 +111,9 @@ func_ret_to_sgtype(
     return SGType::Create(lowering_i64_type());
   }
   if (std::holds_alternative<TypeTupleAST*>(ret_type)) {
-    return SGType::Create(lowering_i64_type());
+    throw StyioTypeError(
+      "tuple function return annotations require tuple value IR; tuple returns are not implemented"
+    );
   }
   TypeAST* t = std::get<TypeAST*>(ret_type);
   if (!t || t->getDataType().option == StyioDataTypeOption::Undefined) {
