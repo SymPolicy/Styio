@@ -5,7 +5,7 @@ styio.ast.main {
     |- styio.ast.arg { a : i32 }
     |- styio.ast.arg { b : i32 }
   |- ret_type: 
-  |- ret_expr: styio.ast.binop: undefined {
+  |- ret_expr: styio.ast.binop: i32 {
     |- LHS: a
     |- OP : <Add>
     |- RHS: b}}

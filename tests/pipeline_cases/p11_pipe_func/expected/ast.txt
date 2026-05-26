@@ -4,7 +4,7 @@ styio.ast.main {
   |- params: 
     |- styio.ast.arg { x : i32 }
   |- ret_type: 
-  |- ret_expr: styio.ast.binop: undefined {
+  |- ret_expr: styio.ast.binop: i32 {
     |- LHS: x
     |- OP : <Mul>
     |- RHS: { 2 : int }}}
