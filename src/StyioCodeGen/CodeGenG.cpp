@@ -4197,7 +4197,9 @@ StyioToLLVM::toLLVMIR(SCMatrixGet* node) {
   }
   llvm::Value* out = theBuilder->CreateCall(get_fn, {matrix, row, col});
   free_owned_resource_temp_if_tracked(matrix);
-  emit_runtime_error_guard_return();
+  if (resource_effect_operation_depth_ == 0) {
+    emit_runtime_error_guard_return();
+  }
   return out;
 }
 
@@ -4220,7 +4222,9 @@ StyioToLLVM::toLLVMIR(SCMatrixRow* node) {
   }
   llvm::Value* out = theBuilder->CreateCall(row_fn, {matrix, row});
   free_owned_resource_temp_if_tracked(matrix);
-  emit_runtime_error_guard_return();
+  if (resource_effect_operation_depth_ == 0) {
+    emit_runtime_error_guard_return();
+  }
   track_owned_resource_temp(out, TempResourceKind::List);
   return out;
 }
@@ -4305,6 +4309,9 @@ StyioToLLVM::toLLVMIR(SCDictGet* node) {
   llvm::Value* out = theBuilder->CreateCall(get_fn, {dict, key});
   free_owned_cstr_temp_if_tracked(key);
   free_owned_resource_temp_if_tracked(dict);
+  if (resource_effect_operation_depth_ == 0) {
+    emit_runtime_error_guard_return();
+  }
   if (string_value) {
     track_owned_cstr_temp(out);
   }
