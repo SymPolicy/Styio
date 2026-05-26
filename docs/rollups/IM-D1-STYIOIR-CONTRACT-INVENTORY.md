@@ -16,7 +16,7 @@
 | Codegen gate | `SGMainEntry`, `SGEntry`, and `SGBlock` codegen require verified active StyioIR before LLVM emission | [../../src/StyioCodeGen/CodeGenG.cpp](../../src/StyioCodeGen/CodeGenG.cpp) |
 | Placeholder retirement | Direct unsupported AST lowering now raises `StyioTypeError` instead of silently producing `SGConstInt(0)` | [../../src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp) |
 | Value-carrying scalar casts | `TypeConvertAST` lowers to `SGCast(value, from_type, to_type)` for compiler-owned scalar promotions instead of failing closed or returning a placeholder | [../../src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp), [../../src/StyioCodeGen/CodeGenG.cpp](../../src/StyioCodeGen/CodeGenG.cpp) |
-| Regression coverage | Contract tests cover active defaults, no-op lowering, char lowering, fail-closed unsupported AST nodes, inactive verifier rejection, and codegen rejection | [../../tests/security/styio_security_test.cpp](../../tests/security/styio_security_test.cpp) |
+| Regression coverage | Contract tests cover active defaults, no-op lowering, char lowering, resource-method char inline cloning, fail-closed unsupported AST nodes, inactive verifier rejection, and codegen rejection | [../../tests/security/styio_security_test.cpp](../../tests/security/styio_security_test.cpp), [../../tests/styio_test.cpp](../../tests/styio_test.cpp) |
 
 ## Implemented In This Contract Slice
 
@@ -31,6 +31,7 @@
 9. Function return annotations that parse as `TypeTupleAST` now fail closed in Sema/lowering instead of using the old `i64` fallback. Tuple value returns remain open until tuple value IR exists.
 10. Accepted `MatchCasesAST` / function match sugar now run semantic inference over the scrutinee, integer case patterns, arm/default bodies, and scalar/string tail result kinds before lowering. Branch-local bindings are isolated per arm, function-body inference uses a recursion guard, recursive match functions can reuse earlier base-arm result evidence, and undefined match tail values fail closed instead of reaching codegen as default `i64` values.
 11. `ListOpAST` slice selectors over materialized `list[T]` now lower to explicit `SCListSlice` IR instead of reusing index IR or parser-only acceptance. Verifier, optimizer, textual repr, LLVM codegen, ORC registration, and runtime settlement all traverse the new IR node.
+12. Accepted `CharAST` values now also survive resource-method body parsing and state/resource-method inline cloning. A user-defined resource method such as `@file::marker = () => { >_('x') }` executes after inlining, and invalid multi-byte char literals fail closed before lowering.
 
 ## Remaining `SGConstInt(0)` Uses
 
@@ -63,7 +64,7 @@ These nodes are no longer allowed to pass through lowering as integer zero:
 | Visitor family | Classification | Required follow-up |
 |----------------|----------------|--------------------|
 | `CommentAST`, `EmptyAST`, `PassAST`, `EOFAST` | Intentional no-op | No extra sema action unless the no-op contract changes. |
-| `BoolAST`, `IntAST`, `FloatAST`, `CharAST`, `StringAST`, `TypeAST` | Leaf type carrier | Their type comes from the node or type token. Keep inference side-effect free. |
+| `BoolAST`, `IntAST`, `FloatAST`, `CharAST`, `StringAST`, `TypeAST` | Leaf type carrier | Their type comes from the node or type token. Keep inference side-effect free. Accepted leaf literals that can appear in resource/state helper bodies must also have inline-clone coverage; `CharAST` is now covered for resource-method bodies. |
 | `VarAST`, `ParamAST`, `OptArgAST`, `OptKwArgAST`, `TypeTupleAST`, `VarTupleAST` | Declaration metadata | Parent declarations must validate and bind them. Function return annotations reject `TypeTupleAST` until tuple value IR exists; direct runtime lowering is rejected. |
 | `NoneAST`, `InfiniteAST`, `TupleAST`, `ExtractorAST`, `SetAST`, `AnonyFuncAST` | Implementation debt | Add real sema and IR only when the language semantics are accepted; otherwise keep typed rejection. |
 | `TypeConvertAST` | Accepted compiler-owned scalar promotion | Keep the value-carrying `SGCast` path limited to internally selected scalar promotions until source-level cast syntax is accepted. |
@@ -80,4 +81,4 @@ These nodes are no longer allowed to pass through lowering as integer zero:
 
 The StyioIR contract part of IM-D1 is implemented: no active direct AST lowering path should silently use `SGConstInt(0)` as a placeholder, codegen requires verified active IR, and intentional no-op source forms use explicit `SGNoOp`.
 
-Remaining work in this area is no longer an implicit IM-D1 decision. It is feature implementation debt: tuple/set values, null/unit semantics, source-level cast syntax beyond compiler-owned scalar promotion, closures, broader match result families beyond the current scalar/string lowering path, retired flow syntax, and resource/path value semantics need separate accepted-language decisions before they can become runnable.
+Remaining work in this area is no longer an implicit IM-D1 decision. It is feature implementation debt: tuple/set values, null/unit semantics, source-level cast syntax beyond compiler-owned scalar promotion, closures, broader match result families beyond the current scalar/string lowering path, retired flow syntax, resource/path value semantics, and the still-incomplete state inline clone surface for other accepted source-reachable AST families need separate accepted-language decisions or focused implementation slices before they can become runnable.
