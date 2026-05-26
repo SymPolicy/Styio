@@ -37,6 +37,13 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   run the await fallback after clearing the materialized task error, while
   failed task pulls without fallback stop at the await settlement site. Non-task
   await sources and bare continuation freeze fallbacks remain fail-closed.
+- Plain file resource operations outside a `?|` recovery wrapper now settle at
+  the ordinary statement boundary for the covered file acquire/write paths:
+  missing `@file` acquire and missing-directory file write failures emit their
+  structured runtime diagnostics and stop before a following statement. The
+  operation-local guard is suppressed while `SIOResourceEffect` is dispatching
+  fallback or named handlers, so explicit `?| ... | fallback` recovery remains
+  the recovery surface.
 - Bounded `i64`, `f64`, `bool`, `char`, and `string` resource selectors now have distinct
   executable value shapes: `@name[-n]` reads a scalar value, while
   `@name[-n..]` and `@name[...]` materialize typed list snapshots from explicit
