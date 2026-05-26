@@ -54,7 +54,7 @@
 | Stdout/stderr iterable write | `items >> @stdout`, `items >> @stderr` | Plain strings should use `->` unless explicitly split. |
 | File resource | `@("log.txt")`, `@file("log.txt")` | Runtime substrate is file-backed when resolved as a file. |
 | Empty resource sink | `@()` | Destroy sink / empty resource. |
-| Explicit copy | `snapshot << @price[...]` | Only explicit copy entry. |
+| Explicit copy | `snapshot << @price[...]`, `copy << list_or_dict` | Selector snapshots and materialized list/dict handles copy through `<<`; `<-` stays resource acquire / task pull, not bound-resource clone. |
 | Resource effect fallback | `?\| resource_operation \| fallback` | `?\| resource_operation` settles in place and raises immediately on failure; fallback participates in type inference. Bare `\| fallback` is not resource fallback. |
 | Effect-specific handler | `?\| res -> msg_queue \| backpressure => do_something()` | Handles only the named typed effect family. Handler chains are allowed. |
 | Effect discard statement | `?\| res -> msg_queue \| ...` | Standalone statement only. Settles the operation, discards business recovery, produces no value, and continues with the next statement. |

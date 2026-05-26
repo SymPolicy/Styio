@@ -47,8 +47,13 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   resource families: `snapshot << @name[-n..]` and `snapshot << @name[...]`
   bind the materialized typed list snapshot to `snapshot`; `snapshot <<
   @name[-1]` remains rejected because the latest read is scalar rather than an
-  enumerable snapshot copy. Full type-directed `<<` clone/copy semantics remain
-  open for broader resource families.
+  enumerable snapshot copy.
+- The first type-directed materialized-container clone slice is executable:
+  `copy << list_source` and `copy << dict_source` lower through list/dict clone
+  IR and runtime helpers, produce independent owned containers, and
+  `copy <- list_source` / `copy <- dict_source` now fail closed because `<-`
+  is resource acquire or task pull, not bound-resource cloning. Matrix, file,
+  topology-resource, and broader family clone/copy semantics remain open.
 
 Current RTG checks cover parts of resource topology, but the broader resource-management model is still design-level. The remaining gap is not "add another verifier." The gap is to define the facts that the existing compiler pipeline must enforce for resource values.
 
@@ -139,6 +144,9 @@ Styio source does not expose `borrow`, `shared`, `own`, or `pure` as user syntax
 - `clone` means deep copy: allocate independent storage/resource state, copy the reachable resource contents, and return a fresh owner.
 - Styio does not use reference-counted clone semantics for resources; clone must not create another binding that shares the same mutable backing resource.
 - `<<` remains an explicit feed/copy surface and must be type-directed, not parser-shape-directed.
+- `<-` is not a clone surface for already-bound resources or materialized
+  containers; it is reserved for resource-entry acquire/receive and task/future
+  pulls.
 
 The important decision is the resource rule visible to users and tests, not an imported borrow calculus from another language.
 
