@@ -37,6 +37,14 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   run the await fallback after clearing the materialized task error, while
   failed task pulls without fallback stop at the await settlement site. Non-task
   await sources and bare continuation freeze fallbacks remain fail-closed.
+- The first value-producing non-task resource-effect expression slice is
+  executable for file instant pulls. `result = ?| (<< @file("data.txt")) | fallback`
+  returns the successful `i64` line value on success, evaluates the fallback
+  after clearing a materialized file-open read failure, and can recover through a
+  matched named handler such as `io => 9`. `result = ?| (<< @file("data.txt"))`
+  without fallback settles the runtime error at the expression site. Expression
+  discard remains rejected, and statement-shaped write operations remain
+  rejected where a value is required.
 - Plain file resource operations outside a `?|` recovery wrapper now settle at
   the ordinary statement boundary for the covered file acquire/write/iterator
   paths: missing `@file` acquire, missing-directory file write, and direct
@@ -223,10 +231,12 @@ slice also releases a tracked file handle before `name = @file(...)` overwrites
 the owner, clears consumed-receiver state after a successful resource rebind, and
 reopens a same-path singleton slot that an explicit close left at zero. The file
 iterator closed-handle slice reports a structured `closed`-family diagnostic
-when a stale same-path alias uses that zeroed slot. Implicit scope-exit drop,
-cleanup-failure settlement for reassignments that can fail, release/commit
-hooks, and non-file resource-family cleanup effects still require separate
-implementation and tests.
+when a stale same-path alias uses that zeroed slot. The file instant-pull slice
+now covers the first value-producing success/fallback/handler path for non-task
+`?|` expressions. Implicit scope-exit drop, cleanup-failure settlement for
+reassignments that can fail, release/commit hooks, non-file resource-family
+cleanup effects, and arbitrary value-producing resource operations still require
+separate implementation and tests.
 
 ### Fallible Operations
 
@@ -273,6 +283,12 @@ Accepted resource fallback decision:
 - Await keeps the same marker because task/future await is also a resource-like effect: `?| task -> value: T` raises immediately on failed pull, while `?| task -> value: T | fallback` recovers through the same typed fallback path.
 - `?=` remains ordinary value/pattern matching. A form such as `res_op ?= { backpressure => { ... } }` only applies after `res_op` has explicitly materialized a normal discriminated value or result; it does not implicitly catch resource effects.
 - Future syntax may add more ergonomic forms, but the current uniform resource fallback surface is `?| ... | ...`.
+
+Implementation note: the current value-producing non-task slice is limited to
+file instant pulls, whose success value is `i64`. Statement-shaped writes,
+broader resource families, cleanup/drop hooks, pressure observations, and
+non-file value-returning resource operations must remain separately implemented
+and tested before the full typed resource-effect model is closed.
 
 Allowed fallback installation points:
 

@@ -131,7 +131,15 @@ Current implementation reality:
    `SIOFileLineIter` checks the runtime error channel before treating a null
    line as normal EOF. `f1.close(); f2 >> #(line)` over a shared same-path file
    slot fails fast instead of silently continuing after the iterator.
-9. There is still no complete typed value-producing resource-effect model for
+9. The first value-producing non-task resource-effect slice is executable for
+   file instant pulls: `result = ?| (<< @file("data.txt")) | fallback` returns the
+   successful `i64` line value on success, clears a materialized file-open read
+   failure before evaluating the fallback on failure, supports named handler
+   value branches such as `io => 9`, and `result = ?| (<< @file("data.txt"))`
+   without fallback fails fast at the expression settlement site. Parser/Sema
+   keep `?| op | ...` statement-only and reject statement-shaped write
+   operations where a value is required.
+10. There is still no complete typed value-producing resource-effect model for
    arbitrary resource operations, no cleanup-failure coverage for implicit
    scope-exit drop or broader reassignment cleanup, no cleanup families beyond
    file close, no resource family that emits a non-failure
@@ -145,11 +153,11 @@ Task await fallback settlement for failed task pulls is now covered, and plain
 file acquire/write failures now fail fast before subsequent statements when no
 `?|` recovery wrapper is present, direct file iterators fail fast on open
 failure, and same-path aliases now report closed-handle use instead of normal
-EOF after another alias closes the shared slot. Implicit cleanup, broader
-resource-family
-cleanup, non-failure backpressure observation/escalation, pressure observers,
-and the full typed value-producing resource-effect model remain design-fixed
-but unfinished.
+EOF after another alias closes the shared slot. File instant-pull resource-effect
+expressions now cover the first typed success/fallback/handler value path.
+Implicit cleanup, broader resource-family cleanup, non-failure backpressure
+observation/escalation, pressure observers, and arbitrary value-producing
+resource-effect recovery remain design-fixed but unfinished.
 
 ### P0. Topology v2 resource selectors parse, but slice/snapshot value semantics are not closed
 
@@ -402,6 +410,14 @@ These should not be counted as missing implementation in this checkout:
    fallback, `StyioSecurityNightlyParserStmt` keeps bare continuation freeze
    fallback fail-closed, and `task_resources` feature negatives cover non-task
    await sources and reserved bare freeze fallback syntax.
+11. File instant-pull value-producing resource effects are no longer missing
+   from the non-task `?|` path. `StyioResourceEffects` proves success and
+   fallback values are returned from `result = ?| (<< @file("data.txt")) | fallback`,
+   named `io` handler values can recover a file-open read failure, and
+   no-fallback expression settlement fails before the following statement.
+   `StyioSecurityNightlyParserStmt` / `StyioSecurityNightlySemantics` prove the
+   parser/codegen value path and keep expression discard, statement-shaped write
+   expressions, and mismatched fallback values fail-closed.
 
 ## Recommended Closure Order
 
@@ -412,9 +428,11 @@ These should not be counted as missing implementation in this checkout:
    Task_await fallback settlement now has parser, Sema, lowering, runtime, and
    negative evidence. Plain file acquire/write, direct file iterator open, and
    same-path alias closed-handle failures now settle at ordinary statement
-   boundaries outside `?|`. The next slices must cover implicit
-   cleanup, reassignment cleanup, additional resource families that emit typed
-   pressure or cleanup effects, and full value-producing recovery.
+   boundaries outside `?|`, and file instant-pull resource-effect expressions
+   now return typed success/fallback/handler values. The next slices must cover
+   implicit cleanup, reassignment cleanup, additional resource families that
+   emit typed pressure or cleanup effects, and arbitrary value-producing
+   recovery beyond the file instant-pull path.
 2. Continue Topology v2 selector value semantics before adding new resource
    features: bounded `i64`, `f64`, `bool`, `char`, and `string` selector storage is
    closed, while bounded selector `snapshot << @x[...]` / `snapshot << @x[-n..]`
