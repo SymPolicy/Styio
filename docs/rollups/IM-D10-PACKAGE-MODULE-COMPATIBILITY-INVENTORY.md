@@ -146,7 +146,7 @@ IM-D10 can close inside `styio` only when:
 1. compiler-side package contracts are documented and tested as compiler contracts;
 2. compile-plan v1 remains a resolved compiler input and not a dependency-resolution request;
 3. `styio` rejects malformed package-facing plans with stable service diagnostics;
-4. nano producer/verifier and static repository behavior have positive and negative tests;
+4. nano producer/verifier and static repository behavior have positive and negative tests, including malformed repository entry schemas, malformed cloud package manifests, blob integrity failures, local/static publish boundaries, and create/publish CLI guard failures;
 5. `styio` docs do not present local Spio or Platform checkout observations as current implementation evidence;
 6. every Spio-owned package lifecycle decision is either confirmed by active Spio docs or listed as external confirmation required;
 7. every Styio-Platform registry or hosted-service decision is either confirmed by active Platform docs or listed as external confirmation required; and
@@ -154,7 +154,7 @@ IM-D10 can close inside `styio` only when:
 
 ## Decision Closure
 
-IM-D10 is not closed by this inventory. The compiler-side boundary is clear enough to proceed with local hardening, but the package lifecycle, remote registry, hosted platform, standard-library distribution, trust, and compatibility-matrix questions require explicit confirmation from the active `spio` and Styio-Platform maintainers.
+IM-D10 is not closed by this inventory. The compiler-side boundary is clear enough to proceed with local hardening, and the current nano producer/verifier edge tests now cover malformed static repository entries, malformed cloud manifests, create/publish guard failures, blob integrity failures, and local/static publish boundaries. The package lifecycle, remote registry, hosted platform, standard-library distribution, trust, and compatibility-matrix questions still require explicit confirmation from the active `spio` and Styio-Platform maintainers.
 
 ## Source Documents
 
