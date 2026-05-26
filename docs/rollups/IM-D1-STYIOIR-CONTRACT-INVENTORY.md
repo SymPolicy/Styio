@@ -2,7 +2,7 @@
 
 **Purpose:** Record the implementation inventory for IM-D1 so StyioIR contract work is judged by explicit lowering behavior instead of scattered placeholder returns.
 
-**Last updated:** 2026-05-22
+**Last updated:** 2026-05-26
 
 **Status:** Active contract inventory. This document supports [NEXT-STAGE-GAP-LEDGER.md](./NEXT-STAGE-GAP-LEDGER.md) §5.7 `IM-D1`.
 
@@ -29,6 +29,7 @@
 7. `TypeConvertAST` now carries its source value through Sema, StyioIR, verifier traversal, optimizer traversal, textual repr, and LLVM scalar conversion for `Bool_To_Int` and `Int_To_Float`.
 8. `RangeAST` now validates integer expression operands in Sema, lowers constant ranges to `SCListLiteral`, and lowers expression-bound ranges to an internal list-producing `SGCall` that codegen expands into a runtime `list[i64]` fill loop.
 9. Function return annotations that parse as `TypeTupleAST` now fail closed in Sema/lowering instead of using the old `i64` fallback. Tuple value returns remain open until tuple value IR exists.
+10. Accepted `MatchCasesAST` / function match sugar now run semantic inference over the scrutinee, integer case patterns, arm/default bodies, and scalar/string tail result kinds before lowering. Branch-local bindings are isolated per arm, function-body inference uses a recursion guard, recursive match functions can reuse earlier base-arm result evidence, and undefined match tail values fail closed instead of reaching codegen as default `i64` values.
 
 ## Remaining `SGConstInt(0)` Uses
 
@@ -69,12 +70,13 @@ These nodes are no longer allowed to pass through lowering as integer zero:
 | `StructAST`, `EmptyResourceAST`, `ResPathAST`, `RemotePathAST`, `WebUrlAST`, `DBUrlAST`, `ExtPackAST`, `ReadFileAST` | Partially retired or metadata-heavy syntax | Keep fail-closed or parent-consumed behavior until the owning design SSOT accepts runtime semantics. |
 | `ResourceAST`, `ResourceMethodDefAST`, `ResourceOrderAST` | Accepted resource/topology metadata | Lowering is explicit `SGNoOp`; collection and validation happen before executable lowering without creating runtime placeholder values. |
 | `ExportDeclAST`, `ExternBlockAST` | Contract metadata | Sema may remain side-effect free while native interop ownership is collected elsewhere. |
-| `BreakAST`, `ContinueAST`, `ReturnAST` | Control-flow syntax | Current local behavior is accepted; a future control-flow verifier can add dominance/reachability checks. |
+| `BreakAST`, `ContinueAST`, `ReturnAST` | Control-flow syntax | `ReturnAST` now infers its expression for accepted function/task/match contexts; a future control-flow verifier can add dominance/reachability checks. |
 | `ForwardAST`, `BackwardAST`, `CODPAST`, `CheckEqualAST`, `CheckIsinAST`, `HashTagNameAST` | Retired or parser-metadata syntax | Keep fail-closed unless a future design reactivates them. |
-| `CasesAST`, `MatchCasesAST`, `StateRefAST` | Parent/context-sensitive syntax | Continue tightening sema in the owning match/pulse checkpoints. |
+| `CasesAST`, `MatchCasesAST` | Accepted parent/context-sensitive match syntax | Match parents now infer scrutinee, integer patterns, arm/default bodies, branch-local scopes, and scalar/string tail result kinds; direct `CasesAST` lowering remains parent-consumed. |
+| `StateRefAST` | Parent/context-sensitive pulse syntax | Continue tightening sema in the owning pulse checkpoints. |
 
 ## IM-D1 Closure Position
 
 The StyioIR contract part of IM-D1 is implemented: no active direct AST lowering path should silently use `SGConstInt(0)` as a placeholder, codegen requires verified active IR, and intentional no-op source forms use explicit `SGNoOp`.
 
-Remaining work in this area is no longer an implicit IM-D1 decision. It is feature implementation debt: tuple/set values, null/unit semantics, source-level cast syntax beyond compiler-owned scalar promotion, closures, retired flow syntax, and resource/path value semantics need separate accepted-language decisions before they can become runnable.
+Remaining work in this area is no longer an implicit IM-D1 decision. It is feature implementation debt: tuple/set values, null/unit semantics, source-level cast syntax beyond compiler-owned scalar promotion, closures, broader match result families beyond the current scalar/string lowering path, retired flow syntax, and resource/path value semantics need separate accepted-language decisions before they can become runnable.

@@ -322,6 +322,14 @@ Examples:
    optional `step`; non-integer bounds fail in Sema. Constant ranges still lower
    to list literals, while expression-bound ranges materialize `list[i64]`
    through the runtime list loop used by the current value/print paths.
+4. Accepted match expressions and function match sugar now run Sema before
+   lowering: scrutinees must infer integer type, case patterns stay on the
+   integer-literal/equality subset that lowering accepts, arm/default bodies are
+   type-inferred in isolated branch scopes, and scalar/string tail result kinds
+   are recorded on `MatchCasesAST`. Undefined branch tail values and branch-local
+   binding leaks now fail as type errors instead of reaching codegen as default
+   `i64` values. Broader match result families such as tuple/list/dict/matrix
+   still remain future feature work.
 
 Impact: these are not silent `SGConstInt(0)` placeholder AST lowerings, but they
 are still places where the design's expression-oriented and typed semantics have
@@ -485,6 +493,13 @@ These should not be counted as missing implementation in this checkout:
    the following statement, while `StyioSecurityNightlyParserStmt` /
    `StyioSecurityNightlySemantics` prove parser/codegen routing, fallback type
    checking, and the adjacent slice-shaped resource-effect value boundary.
+14. Match case semantics no longer bypass Sema before lowering. `MatchCasesAST`
+   stores the inferred scalar/string result family, function-body inference runs
+   with a recursion guard so function match sugar is checked when called, and
+   each match arm/default is inferred in an isolated branch scope. Runtime smoke
+   coverage keeps branch-local match tails executable, while security coverage
+   rejects undefined match arm values and branch-local binding leakage for both
+   ordinary match expressions and function match sugar.
 
 ## Recommended Closure Order
 
