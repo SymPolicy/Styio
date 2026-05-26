@@ -2234,15 +2234,33 @@ TEST(StyioSecurityNightlySemantics, RejectsPlainResourceCopyByEqual) {
   );
 }
 
-TEST(StyioSecurityNightlySemantics, AllowsCloneFormsAndIndexedMutation) {
+TEST(StyioSecurityNightlySemantics, RejectsBoundResourceCopyByLeftArrow) {
   const std::string src =
     "l <- @stdin: list[i32]\n"
-    "l1 <- l\n"
+    "l1 <- l\n";
+  try {
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected bound resource clone with `<-` to fail";
+  }
+  catch (const StyioTypeError& err) {
+    EXPECT_NE(
+      std::string(err.what()).find("must use `<<`; `<-` only acquires external resources"),
+      std::string::npos)
+      << err.what();
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, AllowsExplicitCloneFormAndIndexedMutation) {
+  const std::string src =
+    "l <- @stdin: list[i32]\n"
     "l2 << l\n"
     "l[0] = 9\n";
   EXPECT_NO_THROW(
     parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
   );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_list_clone"), std::string::npos);
 }
 
 TEST(StyioSecurityNightlySemantics, AllowsPredefinedListOperationsAcrossRuntimeFamilies) {

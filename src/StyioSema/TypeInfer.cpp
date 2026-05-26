@@ -1216,7 +1216,7 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
     if (it != binding_info_.end() && it->second.resource_value) {
       throw StyioTypeError(
         "resource `" + src->getAsStr()
-        + "` cannot be copied with `=`; use `<-` or `<<` to clone it"
+        + "` cannot be copied with `=`; use `<<` to clone it"
       );
     }
   };
@@ -1402,7 +1402,7 @@ StyioSemaContext::typeInfer(FinalBindAST* ast) {
     if (it != binding_info_.end() && it->second.resource_value) {
       throw StyioTypeError(
         "resource `" + rhs_name->getAsStr()
-        + "` cannot be copied with `:=`; use `<-` or `<<` to clone it"
+        + "` cannot be copied with `:=`; use `<<` to clone it"
       );
     }
   }
@@ -1506,7 +1506,7 @@ StyioSemaContext::typeInfer(ParallelAssignAST* ast) {
       if (it != binding_info_.end() && it->second.resource_value) {
         throw StyioTypeError(
           "resource `" + rhs_name->getAsStr()
-          + "` cannot be copied with `=`; use `<-` or `<<` to clone it"
+          + "` cannot be copied with `=`; use `<<` to clone it"
         );
       }
     }
@@ -1848,6 +1848,12 @@ StyioSemaContext::typeInfer(HandleAcquireAST* ast) {
           || !styio_type_is_cloneable(source_type)) {
         throw StyioTypeError(
           "resource clone source `" + src->getAsStr() + "` is not a cloneable resource"
+        );
+      }
+      if (!ast->isFlexBind()) {
+        throw StyioTypeError(
+          "resource clone source `" + src->getAsStr()
+          + "` must use `<<`; `<-` only acquires external resources or pulls task handles"
         );
       }
       info.value_kind = it->second.value_kind;
