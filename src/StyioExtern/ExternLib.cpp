@@ -39,6 +39,7 @@ constexpr const char* kRuntimeSubcodeInvalidFileHandle = "STYIO_RUNTIME_INVALID_
 constexpr const char* kRuntimeSubcodeFilePathNull = "STYIO_RUNTIME_FILE_PATH_NULL";
 constexpr const char* kRuntimeSubcodeFileOpenRead = "STYIO_RUNTIME_FILE_OPEN_READ";
 constexpr const char* kRuntimeSubcodeFileOpenWrite = "STYIO_RUNTIME_FILE_OPEN_WRITE";
+constexpr const char* kRuntimeSubcodeFileCleanupFailure = "STYIO_RUNTIME_FILE_CLEANUP_FAILURE";
 constexpr const char* kRuntimeSubcodeInvalidListHandle = "STYIO_RUNTIME_INVALID_LIST_HANDLE";
 constexpr const char* kRuntimeSubcodeInvalidDictHandle = "STYIO_RUNTIME_INVALID_DICT_HANDLE";
 constexpr const char* kRuntimeSubcodeInvalidMatrixHandle = "STYIO_RUNTIME_INVALID_MATRIX_HANDLE";
@@ -79,6 +80,9 @@ runtime_subcode_matches_effect_family(const char* subcode, const char* effect_na
            || std::strcmp(subcode, kRuntimeSubcodeInvalidMatrixHandle) == 0
            || std::strcmp(subcode, kRuntimeSubcodeInvalidTaskHandle) == 0
            || std::strcmp(subcode, kRuntimeSubcodeTaskConsumed) == 0;
+  }
+  if (std::strcmp(effect_name, "cleanup") == 0) {
+    return std::strcmp(subcode, kRuntimeSubcodeFileCleanupFailure) == 0;
   }
   return false;
 }
@@ -766,7 +770,16 @@ close_file(void* raw) {
   if (raw == nullptr) {
     return;
   }
-  std::fclose(static_cast<FILE*>(raw));
+  errno = 0;
+  if (std::fclose(static_cast<FILE*>(raw)) != 0) {
+    const int saved_errno = errno;
+    std::string message = "file cleanup failed";
+    if (saved_errno != 0) {
+      message += ": ";
+      message += std::strerror(saved_errno);
+    }
+    set_runtime_error_once(kRuntimeSubcodeFileCleanupFailure, message);
+  }
 }
 
 int64_t
