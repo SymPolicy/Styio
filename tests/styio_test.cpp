@@ -4781,6 +4781,39 @@ TEST(StyioDiagnostics, RuntimeFileAcquireFailureStopsBeforeNextStatement) {
   fs::remove(input);
 }
 
+TEST(StyioDiagnostics, RuntimeFileIteratorOpenFailureStopsBeforeNextStatement) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-runtime-file-iter-open-stop-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@file(\"/tmp/styio_missing_iter_runtime_stop_"
+        << uniq
+        << ".txt\") >> #(line) => { >_(line) }\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 5);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_RUNTIME_FILE_OPEN_READ\""), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("after"), std::string::npos);
+
+  fs::remove(input);
+}
+
 TEST(StyioDiagnostics, RuntimeWriteHelperErrorEmitsJsonlRuntimeDiagnostic) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
@@ -4886,6 +4919,49 @@ TEST(StyioResourceLifecycle, FlexFileRebindAfterCloseReopensSamePath) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_EQ(result.stdout_text, "alpha\nbeta\n");
+
+  fs::remove(source);
+  fs::remove(data);
+}
+
+TEST(StyioResourceLifecycle, FileAliasUseAfterCloseFailsFast) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path source =
+    fs::temp_directory_path() / ("styio-resource-alias-close-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-alias-close-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "alpha\n";
+  }
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << "f1 <- @file(\"" << data.generic_string() << "\")\n";
+    out << "f2 <- @file(\"" << data.generic_string() << "\")\n";
+    out << "f1.close()\n";
+    out << "f2 >> #(line) => { >_(line) }\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + source.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 5);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_RUNTIME_INVALID_FILE_HANDLE\""), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("alpha"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("after"), std::string::npos);
 
   fs::remove(source);
   fs::remove(data);

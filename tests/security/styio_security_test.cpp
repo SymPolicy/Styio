@@ -4660,6 +4660,18 @@ TEST(StyioSafetyRuntime, InvalidHandleOperationsAreSafe) {
   styio_runtime_clear_error();
 }
 
+TEST(StyioSafetyRuntime, ZeroFileHandleReadSetsRuntimeError) {
+  styio_runtime_clear_error();
+  styio_file_rewind(0);
+  EXPECT_EQ(styio_file_read_line(0), nullptr);
+  EXPECT_EQ(styio_runtime_has_error(), 1);
+  EXPECT_STREQ(styio_runtime_last_error_subcode(), "STYIO_RUNTIME_INVALID_FILE_HANDLE");
+  const char* msg = styio_runtime_last_error();
+  ASSERT_NE(msg, nullptr);
+  EXPECT_NE(std::strstr(msg, "invalid file handle: 0"), nullptr);
+  styio_runtime_clear_error();
+}
+
 TEST(StyioSafetyRuntime, FirstErrorWinsAcrossMultipleRuntimeFailures) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
