@@ -409,7 +409,7 @@ blob 内容是一个 tar 包，解开后必须能解析出 package root，并且
 当前仍需继续收紧的是：
 
 - 更宽的 compatibility edge / malformed-input 矩阵覆盖
-  当前已覆盖的负路径包括 invalid JSON、invalid intent、CLI conflict、generated_by mismatch、unsupported target kind、absolute-path guard 和 missing-outputs stderr fallback
+  当前已覆盖的负路径包括 invalid JSON、invalid intent、CLI conflict、generated_by mismatch、unsupported target kind、absolute-path guard、missing-outputs stderr fallback、malformed explicit `profile.build_mode`、malformed package entries 和 entry package 不在 `packages` 列表中的一致性错误
 - contract 字段稳定性与文档同步
 - 在不扩张 package-manager scope 的前提下持续维护 producer boundary
 

@@ -363,6 +363,12 @@ create-only/publish-only option mixups, invalid markers, blob SHA256 mismatches,
 blob size mismatches, and HTTP(S) publish-root rejection are covered in
 `tests/styio_test.cpp` without adding package-manager lifecycle commands.
 
+Compiler-side `compile_plan` validation now also rejects malformed optional
+`profile.build_mode` values instead of silently defaulting them, rejects
+non-object package entries, and rejects plans whose `entry.package_id` is absent
+from `packages`. The coverage remains limited to the v1 compiler request
+envelope and does not add resolver, install, registry, or lifecycle behavior.
+
 `styio` does not own full package lifecycle UX:
 
 1. `install`
