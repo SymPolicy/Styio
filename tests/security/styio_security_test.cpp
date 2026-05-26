@@ -4601,6 +4601,30 @@ TEST(StyioSafetyRuntime, CloseIsIdempotentAndKeepsErrorClear) {
   EXPECT_EQ(styio_runtime_last_error(), nullptr);
 }
 
+TEST(StyioSafetyRuntime, FileCloseFailureIsCleanupRuntimeEffect) {
+#ifdef _WIN32
+  GTEST_SKIP() << "/dev/full cleanup-failure fixture is Unix-specific";
+#else
+  if (!std::filesystem::exists("/dev/full")) {
+    GTEST_SKIP() << "/dev/full is not available";
+  }
+
+  styio_runtime_clear_error();
+  const int64_t h = styio_file_open_write("/dev/full");
+  ASSERT_NE(h, 0);
+  styio_file_write_cstr(h, "cleanup-probe");
+  styio_file_close(h);
+  EXPECT_EQ(styio_runtime_has_error(), 1);
+  EXPECT_STREQ(styio_runtime_last_error_subcode(), "STYIO_RUNTIME_FILE_CLEANUP_FAILURE");
+  const char* msg = styio_runtime_last_error();
+  ASSERT_NE(msg, nullptr);
+  EXPECT_NE(std::strstr(msg, "file cleanup failed"), nullptr);
+  EXPECT_EQ(styio_runtime_error_matches_effect("cleanup"), 1);
+  EXPECT_EQ(styio_runtime_error_matches_effect("io"), 0);
+  styio_runtime_clear_error();
+#endif
+}
+
 TEST(StyioSafetyRuntime, FreeCstrAcceptsNull) {
   styio_free_cstr(nullptr);
   SUCCEED();
