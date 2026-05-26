@@ -119,6 +119,11 @@ extern "C" DLLEXPORT double styio_list_get_f64(int64_t h, int64_t idx);
 extern "C" DLLEXPORT const char* styio_list_get_cstr(int64_t h, int64_t idx);
 extern "C" DLLEXPORT int64_t styio_list_get_list(int64_t h, int64_t idx);
 extern "C" DLLEXPORT int64_t styio_list_get_dict(int64_t h, int64_t idx);
+extern "C" DLLEXPORT int64_t styio_list_slice(
+  int64_t h,
+  int64_t start,
+  int64_t end_exclusive,
+  int32_t has_end);
 extern "C" DLLEXPORT void styio_list_set_bool(int64_t h, int64_t idx, int64_t value);
 extern "C" DLLEXPORT void styio_list_set_char(int64_t h, int64_t idx, int8_t value);
 extern "C" DLLEXPORT void styio_list_set(int64_t h, int64_t idx, int64_t value);

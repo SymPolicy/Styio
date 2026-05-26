@@ -1645,6 +1645,25 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueListIndexFallbackE
   EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueListSliceFallbackExpression) {
+  const std::string src =
+    "xs = [1,2]\n"
+    "result = ?| xs[0..] | bounds => [9] | [7]\n"
+    ">_(result)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("value: required"), std::string::npos);
+  EXPECT_NE(repr.find("handler:bounds"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_list_slice"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueDictIndexFallbackExpression) {
   const std::string src =
     "d = dict{\"a\": 1}\n"
@@ -1786,6 +1805,23 @@ TEST(StyioSecurityNightlySemantics, RejectsResourceEffectValueListIndexFallbackT
   }
 }
 
+TEST(StyioSecurityNightlySemantics, RejectsResourceEffectValueListSliceFallbackTypeMismatch) {
+  const std::string src =
+    "xs = [1,2]\n"
+    "result = ?| xs[0..] | \"fallback\"\n"
+    ">_(result)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected list-slice resource-effect value fallback mismatch to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    const std::string msg = err.what();
+    EXPECT_NE(msg.find("resource-effect fallback expects"), std::string::npos) << msg;
+    EXPECT_NE(msg.find("got string"), std::string::npos) << msg;
+  }
+}
+
 TEST(StyioSecurityNightlySemantics, RejectsResourceEffectValueDictIndexFallbackTypeMismatch) {
   const std::string src =
     "d = dict{\"a\": 1}\n"
@@ -1820,23 +1856,19 @@ TEST(StyioSecurityNightlySemantics, RejectsResourceEffectValueMatrixIndexFallbac
   }
 }
 
-TEST(StyioSecurityNightlySemantics, RejectsSliceResourceEffectValueBeforeSliceBoundsSlice) {
+TEST(StyioSecurityNightlySemantics, RejectsDictSliceResourceEffectValueBeforeDictSliceSupport) {
   const std::string src =
-    "xs = [1,2]\n"
-    "result = ?| xs[0..] | [9]\n"
+    "d = dict{\"a\": 1}\n"
+    "result = ?| d[0..] | [9]\n"
     ">_(result)\n";
 
   try {
     parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
-    FAIL() << "expected slice resource-effect value to stay fail-closed in this slice";
+    FAIL() << "expected dict slice resource-effect value to stay fail-closed";
   }
-  catch (const StyioBaseException& err) {
+  catch (const StyioTypeError& err) {
     const std::string msg = err.what();
-    EXPECT_TRUE(
-      msg.find("unexpected token") != std::string::npos
-      || msg.find("`?|` resource settlement requires a resource operation") != std::string::npos
-      || msg.find("expected to be ]") != std::string::npos
-    ) << msg;
+    EXPECT_NE(msg.find("list slice requires a list value"), std::string::npos) << msg;
   }
 }
 

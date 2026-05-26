@@ -928,6 +928,7 @@ enum class StyioNodeType
   // List Operation
   Access,           // [id]
   Access_By_Index,  // [index]
+  Access_By_Slice,  // [start..end]
   Access_By_Name,   // ["name"]
 
   Get_Index_By_Value,          // [?= value]

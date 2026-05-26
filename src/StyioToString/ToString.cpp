@@ -1839,6 +1839,15 @@ StyioRepr::toString(SCListGet* node, int indent) {
 }
 
 std::string
+StyioRepr::toString(SCListSlice* node, int indent) {
+  return std::string("styio.ir.list_slice { list=")
+    + (node->list ? node->list->toString(this, indent) : std::string("null"))
+    + ", start=" + (node->start ? node->start->toString(this, indent) : std::string("null"))
+    + ", end=" + (node->end ? node->end->toString(this, indent) : std::string("end"))
+    + ", elem=" + node->elem_type + " }";
+}
+
+std::string
 StyioRepr::toString(SCListSet* node, int indent) {
   return std::string("styio.ir.list_set { list=")
     + (node->list ? node->list->toString(this, indent) : std::string("null"))

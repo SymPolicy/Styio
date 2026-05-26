@@ -159,6 +159,29 @@ public:
   }
 };
 
+class SCListSlice : public StyioIRTraits<SCListSlice>
+{
+public:
+  StyioIR* list = nullptr;
+  StyioIR* start = nullptr;
+  StyioIR* end = nullptr;
+  std::string elem_type = "i64";
+
+  SCListSlice(StyioIR* l, StyioIR* s, StyioIR* e, std::string elem = "i64") :
+      list(l), start(s), end(e), elem_type(std::move(elem)) {
+  }
+
+  ~SCListSlice() override {
+    delete list;
+    delete start;
+    delete end;
+  }
+
+  static SCListSlice* Create(StyioIR* l, StyioIR* s, StyioIR* e, std::string elem = "i64") {
+    return new SCListSlice(l, s, e, std::move(elem));
+  }
+};
+
 class SCListSet : public StyioIRTraits<SCListSet>
 {
 public:

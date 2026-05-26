@@ -419,6 +419,7 @@ public:
   std::string toString(SCMatrixClone* node, int indent = 0);
   std::string toString(SCListLen* node, int indent = 0);
   std::string toString(SCListGet* node, int indent = 0);
+  std::string toString(SCListSlice* node, int indent = 0);
   std::string toString(SCListSet* node, int indent = 0);
   std::string toString(SCListToString* node, int indent = 0);
   std::string toString(SCDictClone* node, int indent = 0);

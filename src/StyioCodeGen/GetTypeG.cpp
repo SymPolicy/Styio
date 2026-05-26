@@ -465,6 +465,12 @@ StyioToLLVM::toLLVMType(SCListGet* node) {
 }
 
 llvm::Type*
+StyioToLLVM::toLLVMType(SCListSlice* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
 StyioToLLVM::toLLVMType(SCListSet* node) {
   (void)node;
   return theBuilder->getVoidTy();

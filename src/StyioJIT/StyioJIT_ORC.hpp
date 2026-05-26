@@ -135,6 +135,7 @@ public:
     add_symbol("styio_list_get_cstr", &styio_list_get_cstr);
     add_symbol("styio_list_get_list", &styio_list_get_list);
     add_symbol("styio_list_get_dict", &styio_list_get_dict);
+    add_symbol("styio_list_slice", &styio_list_slice);
     add_symbol("styio_list_set_bool", &styio_list_set_bool);
     add_symbol("styio_list_set_char", &styio_list_set_char);
     add_symbol("styio_list_set", &styio_list_set);

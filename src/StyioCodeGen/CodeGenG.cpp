@@ -139,6 +139,7 @@ ir_yields_list_handle(StyioIR* value) {
   if (dynamic_cast<SCListLiteral*>(value)
       || dynamic_cast<SIOListReadStdin*>(value)
       || dynamic_cast<SCListClone*>(value)
+      || dynamic_cast<SCListSlice*>(value)
       || dynamic_cast<SCDictKeys*>(value)
       || dynamic_cast<SCDictValues*>(value)) {
     return true;
@@ -4062,6 +4063,44 @@ StyioToLLVM::toLLVMIR(SCListGet* node) {
   if (bool_elem) {
     return theBuilder->CreateICmpNE(out, theBuilder->getInt64(0));
   }
+  return out;
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SCListSlice* node) {
+  llvm::FunctionCallee slice_fn = theModule->getOrInsertFunction(
+    "styio_list_slice",
+    llvm::FunctionType::get(
+      theBuilder->getInt64Ty(),
+      {
+        theBuilder->getInt64Ty(),
+        theBuilder->getInt64Ty(),
+        theBuilder->getInt64Ty(),
+        theBuilder->getInt32Ty(),
+      },
+      false));
+  llvm::Value* list = node->list->toLLVMIR(this);
+  llvm::Value* start = node->start->toLLVMIR(this);
+  llvm::Value* end = node->end != nullptr
+    ? node->end->toLLVMIR(this)
+    : theBuilder->getInt64(0);
+  if (!list->getType()->isIntegerTy(64)) {
+    list = theBuilder->CreateSExtOrTrunc(list, theBuilder->getInt64Ty());
+  }
+  if (!start->getType()->isIntegerTy(64)) {
+    start = theBuilder->CreateSExtOrTrunc(start, theBuilder->getInt64Ty());
+  }
+  if (!end->getType()->isIntegerTy(64)) {
+    end = theBuilder->CreateSExtOrTrunc(end, theBuilder->getInt64Ty());
+  }
+  llvm::Value* out = theBuilder->CreateCall(
+    slice_fn,
+    {list, start, end, theBuilder->getInt32(node->end != nullptr ? 1 : 0)});
+  free_owned_resource_temp_if_tracked(list);
+  if (resource_effect_operation_depth_ == 0) {
+    emit_runtime_error_guard_return();
+  }
+  track_owned_resource_temp(out, TempResourceKind::List);
   return out;
 }
 

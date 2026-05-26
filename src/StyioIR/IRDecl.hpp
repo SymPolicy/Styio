@@ -87,6 +87,7 @@ class SCListClone;
 class SCMatrixClone;
 class SCListLen;
 class SCListGet;
+class SCListSlice;
 class SCListSet;
 class SCListToString;
 class SCMatrixGet;

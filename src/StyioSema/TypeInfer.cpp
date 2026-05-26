@@ -931,6 +931,14 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
       }
       return styio_data_type_from_name(styio_type_item_type_name(base_type));
     }
+    case StyioNodeType::Access_By_Slice: {
+      auto* access = static_cast<ListOpAST*>(expr);
+      StyioDataType base_type = infer_expr_type(an, access->getList());
+      if (!styio_is_list_type(base_type)) {
+        return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+      }
+      return base_type;
+    }
     case StyioNodeType::Access_By_Name: {
       auto* access = static_cast<ListOpAST*>(expr);
       StyioDataType base_type = infer_expr_type(an, access->getList());
@@ -1077,10 +1085,16 @@ resource_family_for_expr(StyioSemaContext* an, StyioAST* expr) {
 
 bool
 resource_effect_index_operation_supported_latest(StyioSemaContext* an, ListOpAST* access) {
-  if (access == nullptr || access->getOp() != StyioNodeType::Access_By_Index) {
+  if (access == nullptr) {
     return false;
   }
   StyioDataType base_type = infer_expr_type(an, access->getList());
+  if (access->getOp() == StyioNodeType::Access_By_Slice) {
+    return styio_is_list_type(base_type);
+  }
+  if (access->getOp() != StyioNodeType::Access_By_Index) {
+    return false;
+  }
   return styio_is_list_type(base_type)
          || styio_is_dict_type(base_type)
          || styio_is_matrix_type(base_type);
@@ -1931,6 +1945,22 @@ StyioSemaContext::typeInfer(ListOpAST* ast) {
   if (ast->getOp() == StyioNodeType::Access_By_Name) {
     if (!styio_is_dict_type(list_type)) {
       throw StyioTypeError("name-based access requires a dict value");
+    }
+    return;
+  }
+  if (ast->getOp() == StyioNodeType::Access_By_Slice) {
+    if (!styio_is_list_type(list_type)) {
+      throw StyioTypeError("list slice requires a list value");
+    }
+    StyioDataType start_type = infer_expr_type(this, ast->getSlot1());
+    if (start_type.option != StyioDataTypeOption::Integer) {
+      throw StyioTypeError("list slice start must have integer type");
+    }
+    if (ast->getSlot2() != nullptr) {
+      StyioDataType end_type = infer_expr_type(this, ast->getSlot2());
+      if (end_type.option != StyioDataTypeOption::Integer) {
+        throw StyioTypeError("list slice end must have integer type");
+      }
     }
     return;
   }
