@@ -113,9 +113,12 @@ Current implementation reality:
    `?| f <- @file(missing) | fallback` and matched `io` handlers for file-open
    read failures, and the successful acquire path now records the file handle in
    resource topology so a following `f >> #(line) => { ... }` iterator can use
-   it. If the acquire failure is recovered and the zeroed handle is later used,
-   the file iterator reports `STYIO_RUNTIME_INVALID_FILE_HANDLE` instead of
-   treating the handle as a valid stream.
+   it. The same acquired handle can feed a later resource-effect close method,
+   and the close still consumes the receiver in topology so following `f.path`
+   use fails closed. If the acquire failure is recovered and the zeroed handle
+   is later used, the file iterator reports
+   `STYIO_RUNTIME_INVALID_FILE_HANDLE` instead of treating the handle as a valid
+   stream.
 5. File-close cleanup failure now has a real runtime subcode family:
    `fclose` failure is reported as `STYIO_RUNTIME_FILE_CLEANUP_FAILURE`,
    `styio_runtime_error_matches_effect("cleanup")` matches it, source-level
@@ -214,8 +217,9 @@ success/fallback/handler value paths, including explicit-target stdin `f64`,
 Implicit cleanup fallback recovery, broader reassignment cleanup,
 broader resource-family cleanup, non-failure backpressure
 observation/escalation, pressure observers, broader post-acquire resource
-operations beyond the covered file iterator path, and arbitrary value-producing
-resource-effect recovery remain design-fixed but unfinished.
+operations beyond the covered file iterator and close-method paths, and
+arbitrary value-producing resource-effect recovery remain design-fixed but
+unfinished.
 
 ### P0. Topology v2 resource selectors parse, but slice/snapshot value semantics are not closed
 
@@ -509,15 +513,20 @@ These should not be counted as missing implementation in this checkout:
    proves `?| f <- @file(missing) | fallback` recovers open-read failures
    through catch-all fallback or a matched `io` handler, skips fallback on a
    successful open, keeps the acquired file handle usable for a following
-   iterator, fails fast without fallback before a following statement, and
+   iterator or later resource-effect close method, fails fast without fallback
+   before a following statement, and
    fails closed with `STYIO_RUNTIME_INVALID_FILE_HANDLE` when fallback recovers
    the open failure but later code tries to iterate the zeroed handle.
    `StyioSecurityNightlyParserStmt.ParsesResourceEffectResourceMethodStatement`
    and `ParsesResourceEffectHandleAcquireStatement` /
-   `ResourceEffectHandleAcquireFeedsLaterIterator` prove parser/lowering/codegen
-   routing, while
+   `ResourceEffectHandleAcquireFeedsLaterIterator` /
+   `ResourceEffectHandleAcquireFeedsLaterCloseMethod` prove
+   parser/lowering/codegen routing for the iterator and later close-method
+   paths, while
    `StyioSecurityNightlySemantics.RejectsNonResourceMethodResourceEffectStatement`
    keeps ordinary member calls fail-closed under `?|` and
+   `ResourceEffectAcquireThenCloseConsumesReceiver` proves the acquired handle
+   remains destroyed after a later close.
    `StyioSecurityNightlyParserStmt.RejectsHandleAcquireResourceEffectExpression`
    keeps statement-shaped acquire out of value-required `?|` expressions.
 14. Materialized container index and list-slice value-producing resource effects are no longer
@@ -559,11 +568,13 @@ These should not be counted as missing implementation in this checkout:
    method calls now enter statement `?|` settlement for direct file close
    success, fallback/`io` recovery, and no-fallback failure; statement-shaped
    file acquire now covers fallback/`io` recovery, successful acquire followed by
-   file iteration, no-fallback failure for file-open read errors, and fail-closed
-   later iteration after a recovered failed acquire. Explicit returns now close
-   tracked file handles before leaving the function. The next slices must cover
+   file iteration or a later resource-effect close method, no-fallback failure
+   for file-open read errors, fail-closed later iteration after a recovered
+   failed acquire, and close-method receiver invalidation. Explicit returns now
+   close tracked file handles before leaving the function. The next slices must cover
    fallback recovery for implicit cleanup, reassignment cleanup, broader
-   post-acquire resource operations beyond the covered file iterator path,
+   post-acquire resource operations beyond the covered file iterator and
+   close-method paths,
    dict/matrix slice-shaped
    bounds recovery, additional resource families that emit typed pressure or cleanup
    effects, and arbitrary value-producing recovery beyond the covered paths.
