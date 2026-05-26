@@ -120,11 +120,17 @@ Current implementation reality:
    the JSONL runtime diagnostic and stop before a following `>_("after")`,
    while the same operation-local guard is suppressed inside `SIOResourceEffect`
    so catch-all fallback and named handlers still recover.
-7. There is still no complete typed value-producing resource-effect model for
+7. File-resource flex rebinding now covers the source-reachable cleanup edge for
+   `name = @file(...)`: Sema treats a successful resource rebind as a new
+   occupant after a consuming `.close()`, Codegen releases the prior tracked file
+   handle before overwrite, and same-path singleton slots left at zero by an
+   explicit close are reopened before later iteration.
+8. There is still no complete typed value-producing resource-effect model for
    arbitrary resource operations, no cleanup-failure coverage for implicit
-   scope-exit drop or reassignment cleanup, no cleanup families beyond file
-   close, no resource family that emits a non-failure `ResourceBackpressure`
-   pressure event, and no pressure-observer implementation.
+   scope-exit drop or broader reassignment cleanup, no cleanup families beyond
+   file close, no resource family that emits a non-failure
+   `ResourceBackpressure` pressure event, and no pressure-observer
+   implementation.
 
 Impact: statement-shaped fallback, audited discard, and named handler chains now
 have a real parser/Sema/IR/codegen/runtime path for current runtime error

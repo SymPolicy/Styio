@@ -212,9 +212,13 @@ Accepted cleanup-failure decision:
 The remaining IM-D4 work is to implement this decision across resource families.
 The explicit file-write path now covers one cleanup-failure family:
 `fclose` failure reports `STYIO_RUNTIME_FILE_CLEANUP_FAILURE`, matches the
-`cleanup` handler family, and stays distinct from `io`. Implicit scope-exit
-drop, reassignment cleanup, release/commit hooks, and non-file resource-family
-cleanup effects still require separate implementation and tests.
+`cleanup` handler family, and stays distinct from `io`. The file flex-rebind
+slice also releases a tracked file handle before `name = @file(...)` overwrites
+the owner, clears consumed-receiver state after a successful resource rebind, and
+reopens a same-path singleton slot that an explicit close left at zero. Implicit
+scope-exit drop, cleanup-failure settlement for reassignments that can fail,
+release/commit hooks, and non-file resource-family cleanup effects still require
+separate implementation and tests.
 
 ### Fallible Operations
 
