@@ -2231,10 +2231,31 @@ is_resource_effect_operation_nightly(StyioAST* ast) {
   auto* call = dynamic_cast<FuncCallAST*>(ast);
   return dynamic_cast<ResourceWriteAST*>(ast) != nullptr
          || dynamic_cast<ResourceRedirectAST*>(ast) != nullptr
+         || dynamic_cast<HandleAcquireAST*>(ast) != nullptr
          || dynamic_cast<InstantPullAST*>(ast) != nullptr
          || dynamic_cast<ResourceRefAST*>(ast) != nullptr
          || dynamic_cast<ListOpAST*>(ast) != nullptr
          || (call != nullptr && call->func_callee != nullptr);
+}
+
+bool
+looks_like_resource_effect_handle_acquire_latest(const StyioContext& context) {
+  const auto& tokens = context.get_tokens();
+  std::size_t cursor = context.get_token_index();
+  cursor = skip_non_line_trivia_latest(tokens, cursor);
+  if (cursor >= tokens.size() || tokens[cursor]->type != StyioTokenType::NAME) {
+    return false;
+  }
+  cursor = skip_non_line_trivia_latest(tokens, cursor + 1);
+  return cursor < tokens.size() && tokens[cursor]->type == StyioTokenType::ARROW_SINGLE_LEFT;
+}
+
+StyioAST*
+parse_resource_effect_operation_latest(StyioContext& context, bool value_required) {
+  if (!value_required && looks_like_resource_effect_handle_acquire_latest(context)) {
+    return parse_stmt_subset_impl_nightly(context);
+  }
+  return parse_expr_subset_allowing_follow_latest(context, {StyioTokenType::TOK_PIPE});
 }
 
 bool
@@ -2277,7 +2298,7 @@ parse_resource_effect_nightly(
   context.skip();
 
   std::unique_ptr<StyioAST> operation(
-    parse_expr_subset_allowing_follow_latest(context, {StyioTokenType::TOK_PIPE}));
+    parse_resource_effect_operation_latest(context, value_required));
   if (!is_resource_effect_operation_nightly(operation.get())) {
     throw StyioSyntaxError(
       context.mark_cur_tok("`?|` resource settlement requires a resource operation")
