@@ -436,6 +436,12 @@ StyioToLLVM::toLLVMType(SCListClone* node) {
 }
 
 llvm::Type*
+StyioToLLVM::toLLVMType(SCMatrixClone* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
 StyioToLLVM::toLLVMType(SCListLen* node) {
   (void)node;
   return theBuilder->getInt64Ty();

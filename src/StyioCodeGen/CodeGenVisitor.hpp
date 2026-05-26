@@ -142,6 +142,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SIOInstantPull,
   class SIOListReadStdin,
   class SCListClone,
+  class SCMatrixClone,
   class SCListLen,
   class SCListGet,
   class SCListSet,
@@ -320,6 +321,7 @@ public:
   llvm::Type* toLLVMType(SIOInstantPull* node);
   llvm::Type* toLLVMType(SIOListReadStdin* node);
   llvm::Type* toLLVMType(SCListClone* node);
+  llvm::Type* toLLVMType(SCMatrixClone* node);
   llvm::Type* toLLVMType(SCListLen* node);
   llvm::Type* toLLVMType(SCListGet* node);
   llvm::Type* toLLVMType(SCListSet* node);
@@ -419,6 +421,7 @@ public:
   llvm::Value* toLLVMIR(SIOInstantPull* node);
   llvm::Value* toLLVMIR(SIOListReadStdin* node);
   llvm::Value* toLLVMIR(SCListClone* node);
+  llvm::Value* toLLVMIR(SCMatrixClone* node);
   llvm::Value* toLLVMIR(SCListLen* node);
   llvm::Value* toLLVMIR(SCListGet* node);
   llvm::Value* toLLVMIR(SCListSet* node);

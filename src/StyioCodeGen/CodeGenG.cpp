@@ -183,7 +183,8 @@ ir_yields_dict_handle(StyioIR* value) {
 
 bool
 ir_yields_matrix_handle(StyioIR* value) {
-  if (dynamic_cast<SCMatrixLiteral*>(value)) {
+  if (dynamic_cast<SCMatrixLiteral*>(value)
+      || dynamic_cast<SCMatrixClone*>(value)) {
     return true;
   }
   if (auto* load = dynamic_cast<SGDynLoad*>(value)) {
@@ -3905,6 +3906,23 @@ StyioToLLVM::toLLVMIR(SCListClone* node) {
   }
   llvm::Value* out = theBuilder->CreateCall(clone_fn, {src});
   track_owned_resource_temp(out, TempResourceKind::List);
+  return out;
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SCMatrixClone* node) {
+  const bool is_f64 =
+    styio_value_family_from_type_name(node->elem_type) == StyioValueFamily::Float;
+  llvm::FunctionCallee clone_fn = theModule->getOrInsertFunction(
+    is_f64 ? "styio_matrix_clone_f64" : "styio_matrix_clone_i64",
+    llvm::FunctionType::get(theBuilder->getInt64Ty(), {theBuilder->getInt64Ty()}, false));
+  llvm::Value* src = node->source->toLLVMIR(this);
+  if (!src->getType()->isIntegerTy(64)) {
+    src = theBuilder->CreateSExtOrTrunc(src, theBuilder->getInt64Ty());
+  }
+  llvm::Value* out = theBuilder->CreateCall(clone_fn, {src});
+  emit_runtime_error_guard_return();
+  track_owned_resource_temp(out, TempResourceKind::Matrix);
   return out;
 }
 

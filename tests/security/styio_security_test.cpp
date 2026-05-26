@@ -2296,6 +2296,42 @@ TEST(StyioSecurityNightlySemantics, AllowsExplicitCloneFormAndIndexedMutation) {
   EXPECT_NE(llvm_ir.find("styio_list_clone"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlySemantics, AllowsExplicitMatrixCloneForm) {
+  const std::string src =
+    "m: matrix = [[1,2],[3,4]]\n"
+    "m2 << m\n"
+    "ok = mat_set(m,0,0,9)\n"
+    "cell = m2[0][0]\n"
+    "mf: matrix = [[1.5,2.5],[3.5,4.5]]\n"
+    "mf2 << mf\n"
+    "ok2 = mat_set(mf,1,1,9.5)\n"
+    "fcell = mf2[1][1]\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_matrix_clone_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_clone_f64"), std::string::npos);
+  EXPECT_EQ(llvm_ir.find("styio_list_clone"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsMatrixCopyByLeftArrow) {
+  const std::string src =
+    "m: matrix = [[1,2],[3,4]]\n"
+    "m2 <- m\n";
+  try {
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected bound matrix clone with `<-` to fail";
+  }
+  catch (const StyioTypeError& err) {
+    EXPECT_NE(
+      std::string(err.what()).find("must use `<<`; `<-` only acquires external resources"),
+      std::string::npos)
+      << err.what();
+  }
+}
+
 TEST(StyioSecurityNightlySemantics, AllowsPredefinedListOperationsAcrossRuntimeFamilies) {
   const std::string src =
     "nums = [1,2]\n"
