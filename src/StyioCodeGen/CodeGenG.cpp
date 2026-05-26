@@ -1913,6 +1913,36 @@ StyioToLLVM::release_tracked_file_handle_binding(const std::string& var_name) {
 }
 
 void
+StyioToLLVM::emit_runtime_error_guard_return_after_cleanup() {
+  llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
+  if (cur == nullptr || cur->getTerminator() != nullptr) {
+    return;
+  }
+
+  llvm::Function* fn = cur->getParent();
+  llvm::FunctionCallee has_error = theModule->getOrInsertFunction(
+    "styio_runtime_has_error",
+    llvm::FunctionType::get(theBuilder->getInt32Ty(), false));
+  llvm::Value* has_err = theBuilder->CreateCall(has_error, {});
+  llvm::Value* bad = theBuilder->CreateICmpNE(has_err, theBuilder->getInt32(0));
+
+  llvm::BasicBlock* abort_bb = llvm::BasicBlock::Create(*theContext, "runtime_fail", fn);
+  llvm::BasicBlock* cont_bb = llvm::BasicBlock::Create(*theContext, "runtime_ok", fn);
+  theBuilder->CreateCondBr(bad, abort_bb, cont_bb);
+
+  theBuilder->SetInsertPoint(abort_bb);
+  llvm::Type* ret_ty = fn->getReturnType();
+  if (ret_ty->isVoidTy()) {
+    theBuilder->CreateRetVoid();
+  }
+  else {
+    theBuilder->CreateRet(default_runtime_return_value(ret_ty));
+  }
+
+  theBuilder->SetInsertPoint(cont_bb);
+}
+
+void
 StyioToLLVM::emit_runtime_error_guard_return() {
   llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
   if (cur == nullptr || cur->getTerminator() != nullptr) {
@@ -1998,6 +2028,13 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   auto saved_ring_pending = bounded_ring_pending_slot_;
   auto saved_ring_pending_count = bounded_ring_pending_count_slot_;
   auto saved_bounded_ring_cstr_scopes = bounded_ring_cstr_scope_stack_;
+  auto saved_dyn_names = dynamic_variable_names_;
+  auto saved_list_names = list_slot_names_;
+  auto saved_file_scopes = file_handle_scope_stack_;
+  auto saved_cstr_scopes = cstr_slot_scope_stack_;
+  auto saved_dynamic_scopes = dynamic_slot_scope_stack_;
+  auto saved_owned_cstr = owned_cstr_temps_;
+  auto saved_owned_resource = owned_resource_temps_;
   mutable_variables.clear();
   named_values.clear();
   bounded_ring_head_slot_.clear();
@@ -2005,6 +2042,13 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   bounded_ring_pending_slot_.clear();
   bounded_ring_pending_count_slot_.clear();
   bounded_ring_cstr_scope_stack_.clear();
+  dynamic_variable_names_.clear();
+  list_slot_names_.clear();
+  file_handle_scope_stack_.clear();
+  cstr_slot_scope_stack_.clear();
+  dynamic_slot_scope_stack_.clear();
+  owned_cstr_temps_.clear();
+  owned_resource_temps_.clear();
 
   llvm::BasicBlock* block = llvm::BasicBlock::Create(
     *theContext,
@@ -2051,6 +2095,13 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   bounded_ring_pending_slot_ = std::move(saved_ring_pending);
   bounded_ring_pending_count_slot_ = std::move(saved_ring_pending_count);
   bounded_ring_cstr_scope_stack_ = std::move(saved_bounded_ring_cstr_scopes);
+  dynamic_variable_names_ = std::move(saved_dyn_names);
+  list_slot_names_ = std::move(saved_list_names);
+  file_handle_scope_stack_ = std::move(saved_file_scopes);
+  cstr_slot_scope_stack_ = std::move(saved_cstr_scopes);
+  dynamic_slot_scope_stack_ = std::move(saved_dynamic_scopes);
+  owned_cstr_temps_ = std::move(saved_owned_cstr);
+  owned_resource_temps_ = std::move(saved_owned_resource);
 }
 
 llvm::Value*
@@ -2492,6 +2543,12 @@ StyioToLLVM::toLLVMIR(SGReturn* node) {
   llvm::Value* ret = coerce_for_return(v, fn->getReturnType());
   if (ret == nullptr) {
     ret = default_runtime_return_value(fn->getReturnType());
+  }
+  if (emit_active_file_handle_cleanup()) {
+    emit_runtime_error_guard_return_after_cleanup();
+    if (theBuilder->GetInsertBlock()->getTerminator()) {
+      return ret;
+    }
   }
   return theBuilder->CreateRet(ret);
 }
@@ -3518,9 +3575,10 @@ StyioToLLVM::register_bounded_ring_cstr_for_raii(const std::string& name) {
   }
 }
 
-void
-StyioToLLVM::emit_active_scope_cleanup() {
+bool
+StyioToLLVM::emit_active_file_handle_cleanup() {
   std::unordered_set<llvm::AllocaInst*> closed_file_slots;
+  bool emitted_cleanup = false;
   if (!file_handle_scope_stack_.empty()) {
     for (auto scope_it = file_handle_scope_stack_.rbegin();
          scope_it != file_handle_scope_stack_.rend();
@@ -3535,10 +3593,16 @@ StyioToLLVM::emit_active_scope_cleanup() {
           continue;
         }
         emit_file_handle_slot_close(slot);
+        emitted_cleanup = true;
       }
     }
   }
+  return emitted_cleanup;
+}
 
+void
+StyioToLLVM::emit_active_scope_cleanup() {
+  (void)emit_active_file_handle_cleanup();
   std::unordered_set<llvm::AllocaInst*> freed_cstr_slots;
   for (auto scope_it = cstr_slot_scope_stack_.rbegin();
        scope_it != cstr_slot_scope_stack_.rend();
@@ -3588,6 +3652,7 @@ StyioToLLVM::pop_file_handle_scope() {
   if (file_handle_scope_stack_.empty()) {
     return;
   }
+  bool emitted_file_cleanup = false;
   if (!file_handle_scope_stack_.back().empty()) {
     std::unordered_set<llvm::AllocaInst*> closed_slots;
     for (const std::string& v : file_handle_scope_stack_.back()) {
@@ -3596,6 +3661,7 @@ StyioToLLVM::pop_file_handle_scope() {
         llvm::AllocaInst* slot = it->second;
         if (closed_slots.insert(slot).second) {
           emit_file_handle_slot_close(slot);
+          emitted_file_cleanup = true;
         }
       }
     }
@@ -3639,6 +3705,9 @@ StyioToLLVM::pop_file_handle_scope() {
     bounded_ring_cstr_scope_stack_.pop_back();
   }
   file_handle_scope_stack_.pop_back();
+  if (emitted_file_cleanup) {
+    emit_runtime_error_guard_return_after_cleanup();
+  }
 }
 
 void

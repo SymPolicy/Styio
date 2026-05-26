@@ -46,16 +46,24 @@ fline_exit:                                       ; preds = %runtime_ok2
   %11 = load i64, ptr %f, align 8
   call void @styio_file_close(i64 %11)
   store i64 0, ptr %f, align 8
-  ret i32 0
+  %12 = call i32 @styio_runtime_has_error()
+  %13 = icmp ne i32 %12, 0
+  br i1 %13, label %runtime_fail3, label %runtime_ok4
 
 runtime_fail1:                                    ; preds = %fline_maybe_done
-  %12 = load i64, ptr %f, align 8
-  call void @styio_file_close(i64 %12)
+  %14 = load i64, ptr %f, align 8
+  call void @styio_file_close(i64 %14)
   store i64 0, ptr %f, align 8
   ret i32 0
 
 runtime_ok2:                                      ; preds = %fline_maybe_done
   br label %fline_exit
+
+runtime_fail3:                                    ; preds = %fline_exit
+  ret i32 0
+
+runtime_ok4:                                      ; preds = %fline_exit
+  ret i32 0
 }
 
 declare i64 @styio_file_open_auto(ptr)
