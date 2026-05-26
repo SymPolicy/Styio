@@ -940,12 +940,24 @@ resource_family_for_expr(StyioSemaContext* an, StyioAST* expr) {
 }
 
 bool
+resource_effect_list_index_operation_supported_latest(StyioSemaContext* an, ListOpAST* access) {
+  if (access == nullptr || access->getOp() != StyioNodeType::Access_By_Index) {
+    return false;
+  }
+  StyioDataType base_type = infer_expr_type(an, access->getList());
+  return styio_is_list_type(base_type);
+}
+
+bool
 resource_effect_operation_supported_latest(StyioSemaContext* an, StyioAST* ast) {
   if (dynamic_cast<ResourceWriteAST*>(ast) != nullptr
       || dynamic_cast<ResourceRedirectAST*>(ast) != nullptr
       || dynamic_cast<InstantPullAST*>(ast) != nullptr
       || dynamic_cast<ResourceRefAST*>(ast) != nullptr) {
     return true;
+  }
+  if (auto* access = dynamic_cast<ListOpAST*>(ast)) {
+    return resource_effect_list_index_operation_supported_latest(an, access);
   }
   auto* call = dynamic_cast<FuncCallAST*>(ast);
   if (call == nullptr || call->func_callee == nullptr) {
