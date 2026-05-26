@@ -52,10 +52,11 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   @name[-1]` remains rejected because the latest read is scalar rather than an
   enumerable snapshot copy.
 - The first type-directed materialized-container clone slice is executable:
-  `copy << list_source` and `copy << dict_source` lower through list/dict clone
-  IR and runtime helpers, produce independent owned containers, and
-  `copy <- list_source` / `copy <- dict_source` now fail closed because `<-`
-  is resource acquire or task pull, not bound-resource cloning. Matrix, file,
+  `copy << list_source`, `copy << dict_source`, and `copy << matrix_source`
+  lower through list/dict/matrix clone IR and runtime helpers, produce
+  independent owned containers, and `copy <- list_source` /
+  `copy <- dict_source` / `copy <- matrix_source` now fail closed because
+  `<-` is resource acquire or task pull, not bound-resource cloning. File,
   topology-resource, and broader family clone/copy semantics remain open.
 
 Current RTG checks cover parts of resource topology, but the broader resource-management model is still design-level. The remaining gap is not "add another verifier." The gap is to define the facts that the existing compiler pipeline must enforce for resource values.

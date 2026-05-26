@@ -71,7 +71,7 @@ High-value docs:
 38. Bounded Topology selector snapshots may feed stream zip only after the selector has inferred and lowered to a materialized `list[T]` value. Keep `@name[-n..]` and `@name[...]` on the same value-family path as other materialized lists, and keep scalar/latest `@name[-1]` rejected as a non-iterable zip input.
 39. Range literals are accepted only for integer `start`, `end`, and optional `step` expressions in this slice. Sema should infer expression-bound range values as materialized `list[i64]` handles for binding, printing, and stream/list consumers; lowering may still use the dedicated `SGRangeFor` path for iterator bodies. Non-integer bounds must fail before codegen.
 40. Function return type metadata must not become placeholder runtime types. Scalar and supported container return annotations may lower normally, unspecified return types may infer from accepted tail expressions, but tuple return annotations must fail closed until tuple value IR exists instead of falling back to `i64`.
-41. Materialized `list` and `dict` handle clones use the explicit `name << source` surface. Sema must reject `name <- source` for already-bound cloneable resources because `<-` is resource-entry acquire/receive or task/future pull, while `<<` lowers through `SCListClone` / `SCDictClone` and preserves independent owned containers.
+41. Materialized `list`, `dict`, and `matrix` handle clones use the explicit `name << source` surface. Sema must reject `name <- source` for already-bound cloneable resources because `<-` is resource-entry acquire/receive or task/future pull, while `<<` lowers through `SCListClone` / `SCDictClone` / `SCMatrixClone` and preserves independent owned containers.
 
 ## Change Classes
 

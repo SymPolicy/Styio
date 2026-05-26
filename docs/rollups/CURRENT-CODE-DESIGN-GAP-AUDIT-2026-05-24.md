@@ -168,19 +168,21 @@ Current implementation reality:
    `string` snapshots, `t11` proves copied `char` snapshots, while
    `e07_selector_copy_scalar_unsupported` rejects `name << @resource[-1]`
    because the scalar latest read is not an enumerable snapshot copy.
-6. The first materialized-container type-directed copy slice is executable:
-   `copy << list_source` and `copy << dict_source` lower through list/dict clone
-   IR and runtime helpers, produce independent containers after source
-   mutation, and `copy <- list_source` now fails closed because `<-` is
-   acquire/receive or task pull rather than bound-resource clone.
+6. The materialized-container type-directed copy slice now covers
+   `copy << list_source`, `copy << dict_source`, and `copy << matrix_source`.
+   Those forms lower through list/dict/matrix clone IR and runtime helpers,
+   produce independent containers after source mutation, and
+   `copy <- list_source` / `copy <- dict_source` / `copy <- matrix_source`
+   fail closed because `<-` is acquire/receive or task pull rather than
+   bound-resource clone.
 
 Impact: the prior silent scalar/latest-resource collapse is closed for bounded
 `i64`, `f64`, `bool`, `char`, and `string` resource selectors, including explicit copy
-from their slice/snapshot selectors, and materialized list/dict handle cloning is
-closed for `copy << source`. Broader selector closure still needs
+from their slice/snapshot selectors, and materialized list/dict/matrix handle
+cloning is closed for `copy << source`. Broader selector closure still needs
 unsupported tuple/list/dict/matrix value-family history storage,
 unbounded sequence snapshot policy, and broader type-directed `<<` copy/clone
-semantics for matrix, file, topology-resource, and future resource families
+semantics for file, topology-resource, and future resource families
 before the complete Topology v2 selector model can be considered complete.
 
 ### P0. Stream concurrency and pressure are only partially executable
@@ -381,12 +383,12 @@ These should not be counted as missing implementation in this checkout:
 2. Continue Topology v2 selector value semantics before adding new resource
    features: bounded `i64`, `f64`, `bool`, `char`, and `string` selector storage is
    closed, while bounded selector `snapshot << @x[...]` / `snapshot << @x[-n..]`
-   copy is closed for those families, and materialized list/dict handle
+   copy is closed for those families, and materialized list/dict/matrix handle
    `copy << source` now has deep-copy runtime evidence. Unsupported
    tuple/list/dict/matrix history storage, unbounded sequence snapshots, and
-   broader type-directed `<<` copy/clone for matrix, file, topology-resource,
-   and future resource families still need distinct sema types, lowering,
-   runtime values, and golden tests.
+   broader type-directed `<<` copy/clone for file, topology-resource, and
+   future resource families still need distinct sema types, lowering, runtime
+   values, and golden tests.
 3. Continue stream-source closure after the materialized list-handle and
    bounded-selector-snapshot zip slices: true snapshot joins, pressure
    observers, timeouts, EOF/failure distinctions, and merge/conflict semantics
