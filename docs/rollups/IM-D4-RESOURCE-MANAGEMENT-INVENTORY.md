@@ -80,6 +80,15 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   The operation-local guard is suppressed while `SIOResourceEffect` is
   dispatching fallback or named handlers, so explicit `?| ... | fallback`
   recovery remains the recovery surface.
+- Tracked file handles now have the first compiler-owned scope-exit cleanup
+  settlement slice: explicit `<| return` closes active file-handle slots before
+  emitting the LLVM `ret`, normal scope-pop cleanup checks the runtime error
+  channel after cleanup, and function codegen keeps function-local resource
+  scope stacks isolated from surrounding codegen. This covers tracked file
+  handles on ordinary scope pop and explicit return only; it does not yet
+  provide a source-level fallback recovery site for implicit cleanup failures,
+  failing reassignment cleanup, release/commit hooks, or non-file cleanup
+  families.
 - Bounded `i64`, `f64`, `bool`, `char`, and `string` resource selectors now have distinct
   executable value shapes: `@name[-n]` reads a scalar value, while
   `@name[-n..]` and `@name[...]` materialize typed list snapshots from explicit
@@ -253,14 +262,17 @@ The explicit file-write path now covers one cleanup-failure family:
 `cleanup` handler family, and stays distinct from `io`. The file flex-rebind
 slice also releases a tracked file handle before `name = @file(...)` overwrites
 the owner, clears consumed-receiver state after a successful resource rebind, and
-reopens a same-path singleton slot that an explicit close left at zero. The file
+reopens a same-path singleton slot that an explicit close left at zero. Tracked
+file handles are now also closed on explicit `<| return` before the LLVM return,
+and normal scope-pop cleanup checks for cleanup failures after the cleanup
+boundary. The file
 iterator closed-handle slice reports a structured `closed`-family diagnostic
 when a stale same-path alias uses that zeroed slot. The file/stdin instant-pull
 and materialized container-index/list-slice paths now cover the first value-producing
 success/fallback/handler paths for non-task `?|` expressions, including
 explicit-target stdin `f64`, `string`, typed-list values, and list/dict/matrix
-`bounds` recovery. Implicit scope-exit drop, cleanup-failure settlement for
-reassignments that can fail, release/commit hooks, non-file resource-family
+`bounds` recovery. Source-level fallback recovery for implicit cleanup,
+cleanup-failure settlement for reassignments that can fail, release/commit hooks, non-file resource-family
 cleanup effects, dict/matrix slice-shaped bounds recovery, and arbitrary
 value-producing resource operations still require separate implementation and
 tests.
