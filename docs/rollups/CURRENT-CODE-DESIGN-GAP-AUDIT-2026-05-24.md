@@ -131,7 +131,15 @@ Current implementation reality:
    `SIOFileLineIter` checks the runtime error channel before treating a null
    line as normal EOF. `f1.close(); f2 >> #(line)` over a shared same-path file
    slot fails fast instead of silently continuing after the iterator.
-9. Statement-shaped resource method calls now participate in resource-effect
+9. File scope-exit cleanup now covers the first explicit-return path for
+   tracked file handles. `SGReturn` emits active file-handle cleanup before the
+   LLVM `ret`, normal scope-pop cleanup checks the runtime error channel after
+   cleanup, and function-body codegen saves/restores resource scope state so
+   function-local cleanup stacks do not leak into later codegen. This is a
+   tracked-file cleanup settlement slice; fallback recovery for implicit
+   cleanup, failing reassignment cleanup, and non-file cleanup families remain
+   open.
+10. Statement-shaped resource method calls now participate in resource-effect
    settlement. `?| @file("data.txt").close() | fallback` skips recovery after a
    successful open/close, missing direct file close recovers through catch-all
    fallback or a matched `io` handler after clearing the materialized
@@ -139,7 +147,7 @@ Current implementation reality:
    following statement. Sema rejects non-resource member calls such as
    `text.lines()` under `?|` so ordinary method calls do not become implicit
    resource effects.
-10. The first value-producing non-task resource-effect slices are executable for
+11. The first value-producing non-task resource-effect slices are executable for
    file and stdin instant pulls plus materialized container bounds reads:
    `result = ?| (<< @file("data.txt")) | fallback`
    returns the successful `i64` file line value on success, clears a materialized
@@ -167,12 +175,12 @@ Current implementation reality:
    operations where a value is required, reject fallback type mismatches, and
    keep dict/matrix slice-shaped resource-effect values fail-closed until those
    operation families have their own checkpoints.
-11. There is still no complete typed value-producing resource-effect model for
+12. There is still no complete typed value-producing resource-effect model for
    arbitrary resource operations beyond the covered file/stdin instant pulls and
    materialized container index/row reads and materialized list slices, no
-   cleanup-failure coverage for implicit
-   scope-exit drop or broader reassignment cleanup, no cleanup families beyond
-   file close, no resource family that emits a non-failure
+   fallback recovery model for implicit cleanup, no cleanup-failure coverage for
+   broader reassignment cleanup, no cleanup families beyond file close, no
+   resource family that emits a non-failure
    `ResourceBackpressure` pressure event, and no pressure-observer
    implementation.
 
@@ -183,7 +191,9 @@ Task await fallback settlement for failed task pulls is now covered, and plain
 file acquire/write failures now fail fast before subsequent statements when no
 `?|` recovery wrapper is present, direct file iterators fail fast on open
 failure, and same-path aliases now report closed-handle use instead of normal
-EOF after another alias closes the shared slot. Resource method calls such as
+EOF after another alias closes the shared slot. Explicit returns and ordinary
+scope-pop exits now close tracked file handles before leaving the scope and
+settle cleanup failures at that boundary. Resource method calls such as
 direct file close now enter the statement `?|` recovery path, including
 catch-all fallback, matched `io` handlers, no-fallback fail-fast settlement, and
 non-resource member-call rejection. File/stdin instant-pull, materialized
@@ -192,7 +202,8 @@ success/fallback/handler value paths, including explicit-target stdin `f64`,
 `string`, typed-list pulls, and `bounds` recovery for
 `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, and
 `STYIO_RUNTIME_MATRIX_INDEX` under `?|`.
-Implicit cleanup, broader resource-family cleanup, non-failure backpressure
+Implicit cleanup fallback recovery, broader reassignment cleanup,
+broader resource-family cleanup, non-failure backpressure
 observation/escalation, pressure observers, and arbitrary value-producing
 resource-effect recovery remain design-fixed but unfinished.
 
@@ -449,19 +460,25 @@ These should not be counted as missing implementation in this checkout:
    `StyioResourceLifecycle.FileAliasUseAfterCloseFailsFast` proves same-path
    alias use after close now reports a closed-handle diagnostic instead of
    normal EOF.
-9. Tuple function return annotations are no longer a silent `i64` fallback.
+9. Explicit return no longer bypasses tracked file cleanup. `SGReturn` emits
+   file-handle cleanup before the LLVM `ret`,
+   `StyioSecurityNightlyCodegen.ReturnRunsFileScopeCleanupBeforeRet` proves the
+   emitted close happens before the function return, and
+   `StyioResourceLifecycle.FunctionReturnRunsFileScopeCleanupSmoke` keeps the
+   source-level early-return path executable.
+10. Tuple function return annotations are no longer a silent `i64` fallback.
    `StyioDiagnostics.TupleFunctionReturnAnnotationFailsClosed` proves the CLI
    JSONL `STYIO_TYPE_ERROR` path, `ScalarAndInferredFunctionReturnsStayExecutable`
    keeps adjacent scalar/inferred returns executable, and
    `StyioSecurityNightlyParserStmt.RejectsTupleFunctionReturnAnnotationBeforeLoweringFallback`
    covers the Sema/lowering fail-closed path.
-10. Task await fallback settlement is no longer missing from the resource-effect
+11. Task await fallback settlement is no longer missing from the resource-effect
    compatibility path. `StyioResourceEffects` proves failed task pulls run
    fallback after clearing the materialized task error and fail fast without
    fallback, `StyioSecurityNightlyParserStmt` keeps bare continuation freeze
    fallback fail-closed, and `task_resources` feature negatives cover non-task
    await sources and reserved bare freeze fallback syntax.
-11. File and stdin instant-pull value-producing resource effects are no longer missing
+12. File and stdin instant-pull value-producing resource effects are no longer missing
    from the non-task `?|` path. `StyioResourceEffects` proves success and
    fallback values are returned from `result = ?| (<< @file("data.txt")) | fallback`,
    named `io` handler values can recover a file-open read failure, stdin
@@ -473,7 +490,7 @@ These should not be counted as missing implementation in this checkout:
    `StyioSecurityNightlyParserStmt` / `StyioSecurityNightlySemantics` prove the
    parser/codegen value path and keep expression discard, statement-shaped write
    expressions, and mismatched fallback values fail-closed.
-12. Resource method calls are no longer excluded from statement-shaped
+13. Resource method calls are no longer excluded from statement-shaped
    resource-effect settlement. `StyioResourceEffects` proves direct
    `@file(...).close()` skips fallback on success, recovers missing file
    open-read failures through catch-all fallback or a matched `io` handler, and
@@ -482,7 +499,7 @@ These should not be counted as missing implementation in this checkout:
    proves parser/lowering/codegen routing, while
    `StyioSecurityNightlySemantics.RejectsNonResourceMethodResourceEffectStatement`
    keeps ordinary member calls fail-closed under `?|`.
-13. Materialized container index and list-slice value-producing resource effects are no longer
+14. Materialized container index and list-slice value-producing resource effects are no longer
    excluded from the first non-instant-pull `?|` value path.
    `StyioResourceEffects` proves `result = ?| xs[i] | fallback`,
    `result = ?| d[key] | fallback`, `result = ?| m[row][col] | fallback`, and
@@ -497,7 +514,7 @@ These should not be counted as missing implementation in this checkout:
    before the following statement, while `StyioSecurityNightlyParserStmt` /
    `StyioSecurityNightlySemantics` prove parser/codegen routing, fallback type
    checking, and the adjacent dict-slice resource-effect boundary.
-14. Match case semantics no longer bypass Sema before lowering. `MatchCasesAST`
+15. Match case semantics no longer bypass Sema before lowering. `MatchCasesAST`
    stores the inferred scalar/string result family, function-body inference runs
    with a recursion guard so function match sugar is checked when called, and
    each match arm/default is inferred in an isolated branch scope. Runtime smoke
@@ -519,8 +536,9 @@ These should not be counted as missing implementation in this checkout:
    success/fallback/handler values, including explicit-target stdin `f64`,
    `string`, typed-list values, list slices, and list/dict/matrix `bounds` recovery. Resource
    method calls now enter statement `?|` settlement for direct file close
-   success, fallback/`io` recovery, and no-fallback failure. The next slices
-   must cover implicit cleanup, reassignment cleanup, dict/matrix slice-shaped
+   success, fallback/`io` recovery, and no-fallback failure. Explicit returns
+   now close tracked file handles before leaving the function. The next slices
+   must cover fallback recovery for implicit cleanup, reassignment cleanup, dict/matrix slice-shaped
    bounds recovery, additional resource families that emit typed pressure or cleanup
    effects, and arbitrary value-producing recovery beyond the covered paths.
 2. Continue Topology v2 selector value semantics before adding new resource
