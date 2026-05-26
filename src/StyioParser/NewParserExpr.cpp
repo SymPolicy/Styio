@@ -2205,6 +2205,7 @@ is_resource_effect_operation_nightly(StyioAST* ast) {
          || dynamic_cast<ResourceRedirectAST*>(ast) != nullptr
          || dynamic_cast<InstantPullAST*>(ast) != nullptr
          || dynamic_cast<ResourceRefAST*>(ast) != nullptr
+         || dynamic_cast<ListOpAST*>(ast) != nullptr
          || (call != nullptr && call->func_callee != nullptr);
 }
 

@@ -4047,6 +4047,9 @@ StyioToLLVM::toLLVMIR(SCListGet* node) {
   }
   llvm::Value* out = theBuilder->CreateCall(get_fn, {list, idx});
   free_owned_resource_temp_if_tracked(list);
+  if (resource_effect_operation_depth_ == 0) {
+    emit_runtime_error_guard_return();
+  }
   if (string_elem) {
     track_owned_cstr_temp(out);
   }
