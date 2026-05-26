@@ -1538,6 +1538,22 @@ TEST(StyioSecurityNightlyParserStmt, ParsesTaskGroupAndAwaitBindings) {
   EXPECT_NE(llvm_ir.find("styio_runtime_clear_error"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, RejectsBareAwaitFreezeFallbackBeforeContinuationLowering) {
+  const std::string src =
+    "?| -> answer: i64 | 0\n"
+    ">_(answer)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected bare continuation freeze fallback to fail closed";
+  }
+  catch (const StyioSyntaxError& ex) {
+    const std::string msg = ex.what();
+    EXPECT_NE(msg.find("bare continuation freeze"), std::string::npos) << msg;
+    EXPECT_NE(msg.find("does not accept fallback"), std::string::npos) << msg;
+  }
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectDiscardStatement) {
   const std::string src =
     "@out : i64|..2|\n"
@@ -2209,6 +2225,23 @@ TEST(StyioSecurityNightlySemantics, RejectsBareAwaitFreezeBeforeContinuationLowe
     const std::string msg = ex.what();
     EXPECT_NE(msg.find("bare continuation freeze"), std::string::npos) << msg;
     EXPECT_NE(msg.find("continuation lowering"), std::string::npos) << msg;
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsAwaitPipeNonTaskSource) {
+  const std::string src =
+    "x = 1\n"
+    "?| x -> answer: i64 | 0\n"
+    ">_(answer)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected non-task await source to fail closed";
+  }
+  catch (const StyioTypeError& ex) {
+    const std::string msg = ex.what();
+    EXPECT_NE(msg.find("await source for `?|` must be a task/future handle"), std::string::npos)
+      << msg;
   }
 }
 

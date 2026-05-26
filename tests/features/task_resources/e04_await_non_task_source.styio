@@ -1,0 +1,3 @@
+x = 1
+?| x -> answer: i64 | 0
+answer -> @stdout
