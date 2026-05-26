@@ -1384,6 +1384,9 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
   if (info.resource_value) {
     owned_resource_names_.insert(bound_name);
   }
+  if (external_resource_value && direct_resource_construct) {
+    consumed_resource_names_.erase(bound_name);
+  }
 }
 
 void
@@ -1882,6 +1885,9 @@ StyioSemaContext::typeInfer(HandleAcquireAST* ast) {
   binding_info_[name] = info;
   if (info.resource_value) {
     owned_resource_names_.insert(name);
+  }
+  if (ast->isFlexBind()) {
+    consumed_resource_names_.erase(name);
   }
 }
 

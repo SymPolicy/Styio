@@ -1528,6 +1528,10 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
       std::string("immutable binding cannot be reassigned with `=`: ") + varname);
   }
 
+  if (release_tracked_file_handle_binding(varname)) {
+    emit_runtime_error_guard_return();
+  }
+
   if (bounded_ring_head_slot_.contains(varname)) {
     llvm::AllocaInst* arr = mutable_variables[varname];
     std::uint64_t cap = bounded_ring_capacity_[varname];
@@ -1878,6 +1882,33 @@ StyioToLLVM::default_runtime_return_value(llvm::Type* ret_ty) {
     return llvm::ConstantInt::get(ret_ty, 0);
   }
   return llvm::Constant::getNullValue(ret_ty);
+}
+
+void
+StyioToLLVM::emit_file_handle_slot_close(llvm::AllocaInst* slot) {
+  if (slot == nullptr) {
+    return;
+  }
+  llvm::FunctionCallee close_fn = theModule->getOrInsertFunction(
+    "styio_file_close",
+    llvm::FunctionType::get(
+      theBuilder->getVoidTy(),
+      {theBuilder->getInt64Ty()},
+      false));
+  llvm::Value* h = theBuilder->CreateLoad(theBuilder->getInt64Ty(), slot);
+  theBuilder->CreateCall(close_fn, {h});
+  theBuilder->CreateStore(theBuilder->getInt64(0), slot);
+}
+
+bool
+StyioToLLVM::release_tracked_file_handle_binding(const std::string& var_name) {
+  auto it = file_handle_var_slots_.find(var_name);
+  if (it == file_handle_var_slots_.end()) {
+    return false;
+  }
+  emit_file_handle_slot_close(it->second);
+  file_handle_var_slots_.erase(it);
+  return true;
 }
 
 void
@@ -3486,12 +3517,6 @@ void
 StyioToLLVM::emit_active_scope_cleanup() {
   std::unordered_set<llvm::AllocaInst*> closed_file_slots;
   if (!file_handle_scope_stack_.empty()) {
-    llvm::FunctionCallee close_fn = theModule->getOrInsertFunction(
-      "styio_file_close",
-      llvm::FunctionType::get(
-        theBuilder->getVoidTy(),
-        {theBuilder->getInt64Ty()},
-        false));
     for (auto scope_it = file_handle_scope_stack_.rbegin();
          scope_it != file_handle_scope_stack_.rend();
          ++scope_it) {
@@ -3504,8 +3529,7 @@ StyioToLLVM::emit_active_scope_cleanup() {
         if (!closed_file_slots.insert(slot).second) {
           continue;
         }
-        llvm::Value* h = theBuilder->CreateLoad(theBuilder->getInt64Ty(), slot);
-        theBuilder->CreateCall(close_fn, {h});
+        emit_file_handle_slot_close(slot);
       }
     }
   }
@@ -3560,20 +3584,13 @@ StyioToLLVM::pop_file_handle_scope() {
     return;
   }
   if (!file_handle_scope_stack_.back().empty()) {
-    llvm::FunctionCallee close_fn = theModule->getOrInsertFunction(
-      "styio_file_close",
-      llvm::FunctionType::get(
-        theBuilder->getVoidTy(),
-        {theBuilder->getInt64Ty()},
-        false));
     std::unordered_set<llvm::AllocaInst*> closed_slots;
     for (const std::string& v : file_handle_scope_stack_.back()) {
       auto it = mutable_variables.find(v);
       if (it != mutable_variables.end()) {
         llvm::AllocaInst* slot = it->second;
         if (closed_slots.insert(slot).second) {
-          llvm::Value* h = theBuilder->CreateLoad(theBuilder->getInt64Ty(), slot);
-          theBuilder->CreateCall(close_fn, {h});
+          emit_file_handle_slot_close(slot);
         }
       }
     }
@@ -3659,11 +3676,38 @@ StyioToLLVM::toLLVMIR(SIOHandleAcquire* node) {
     llvm::FunctionType::get(theBuilder->getInt64Ty(), {char_ptr}, false));
   llvm::Value* path = node->path_expr->toLLVMIR(this);
   std::string pkey = path_key_from_path_ir(node->path_expr);
+  if (release_tracked_file_handle_binding(node->var_name)
+      && resource_effect_operation_depth_ == 0) {
+    emit_runtime_error_guard_return();
+  }
+
+  auto reopen_slot_if_closed = [&](llvm::AllocaInst* existing_slot)
+  {
+    llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
+    if (existing_slot == nullptr || cur == nullptr || cur->getTerminator() != nullptr) {
+      return;
+    }
+    llvm::Function* fn = cur->getParent();
+    llvm::Value* current = theBuilder->CreateLoad(theBuilder->getInt64Ty(), existing_slot);
+    llvm::Value* is_closed = theBuilder->CreateICmpEQ(current, theBuilder->getInt64(0));
+    llvm::BasicBlock* reopen_bb = llvm::BasicBlock::Create(*theContext, "file_reopen", fn);
+    llvm::BasicBlock* cont_bb = llvm::BasicBlock::Create(*theContext, "file_open_ok", fn);
+    theBuilder->CreateCondBr(is_closed, reopen_bb, cont_bb);
+
+    theBuilder->SetInsertPoint(reopen_bb);
+    llvm::Value* h = theBuilder->CreateCall(open_fn, {path});
+    theBuilder->CreateStore(h, existing_slot);
+    theBuilder->CreateBr(cont_bb);
+
+    theBuilder->SetInsertPoint(cont_bb);
+  };
+
   llvm::AllocaInst* slot = nullptr;
   if (!pkey.empty()) {
     auto sit = file_singleton_path_slots_.find(pkey);
     if (sit != file_singleton_path_slots_.end()) {
       slot = sit->second;
+      reopen_slot_if_closed(slot);
     }
   }
   if (!slot) {
@@ -3678,14 +3722,8 @@ StyioToLLVM::toLLVMIR(SIOHandleAcquire* node) {
     }
   }
   mutable_variables[node->var_name] = slot;
-  if (!pkey.empty()) {
-    if (file_singleton_raii_paths_.insert(pkey).second) {
-      register_file_handle_for_raii(node->var_name);
-    }
-  }
-  else {
-    register_file_handle_for_raii(node->var_name);
-  }
+  file_handle_var_slots_[node->var_name] = slot;
+  register_file_handle_for_raii(node->var_name);
   if (resource_effect_operation_depth_ == 0) {
     emit_runtime_error_guard_return();
   }
@@ -3814,16 +3852,8 @@ StyioToLLVM::toLLVMIR(SIOFileLineIter* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SIOHandleRelease* node) {
-  llvm::FunctionCallee close_fn = theModule->getOrInsertFunction(
-    "styio_file_close",
-    llvm::FunctionType::get(
-      theBuilder->getVoidTy(),
-      {theBuilder->getInt64Ty()},
-      false));
   auto close_slot = [&](llvm::AllocaInst* slot) -> llvm::Value* {
-    llvm::Value* h = theBuilder->CreateLoad(theBuilder->getInt64Ty(), slot);
-    theBuilder->CreateCall(close_fn, {h});
-    theBuilder->CreateStore(theBuilder->getInt64(0), slot);
+    emit_file_handle_slot_close(slot);
     return theBuilder->getInt64(0);
   };
 
@@ -3845,6 +3875,9 @@ StyioToLLVM::toLLVMIR(SIOHandleRelease* node) {
       llvm::FunctionType::get(theBuilder->getInt64Ty(), {char_ptr}, false));
     llvm::Value* path = node->path_expr->toLLVMIR(this);
     llvm::Value* h = theBuilder->CreateCall(open_fn, {path});
+    llvm::FunctionCallee close_fn = theModule->getOrInsertFunction(
+      "styio_file_close",
+      llvm::FunctionType::get(theBuilder->getVoidTy(), {theBuilder->getInt64Ty()}, false));
     theBuilder->CreateCall(close_fn, {h});
     if (resource_effect_operation_depth_ == 0) {
       emit_runtime_error_guard_return();
@@ -3857,6 +3890,7 @@ StyioToLLVM::toLLVMIR(SIOHandleRelease* node) {
     return theBuilder->getInt64(0);
   }
   llvm::Value* out = close_slot(it->second);
+  file_handle_var_slots_.erase(node->var_name);
   if (resource_effect_operation_depth_ == 0) {
     emit_runtime_error_guard_return();
   }

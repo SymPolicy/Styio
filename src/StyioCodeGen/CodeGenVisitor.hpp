@@ -468,6 +468,8 @@ private:
   llvm::Value* truncate_for_main_ret(llvm::Value* v);
   llvm::Value* default_runtime_return_value(llvm::Type* ret_ty);
   void emit_runtime_error_guard_return();
+  void emit_file_handle_slot_close(llvm::AllocaInst* slot);
+  bool release_tracked_file_handle_binding(const std::string& var_name);
   llvm::Value* cstr_to_i64_checked(llvm::Value* v);
   llvm::Value* cstr_to_f64_checked(llvm::Value* v);
 
@@ -480,8 +482,8 @@ private:
   std::vector<std::vector<llvm::AllocaInst*>> dynamic_slot_scope_stack_;
 
   std::vector<std::pair<std::string, StyioIR*>> snapshot_path_exprs_;
+  std::unordered_map<std::string, llvm::AllocaInst*> file_handle_var_slots_;
   std::unordered_map<std::string, llvm::AllocaInst*> file_singleton_path_slots_;
-  std::unordered_set<std::string> file_singleton_raii_paths_;
   std::unordered_set<llvm::Value*> owned_cstr_temps_;
   std::unordered_map<llvm::Value*, TempResourceKind> owned_resource_temps_;
   std::uint64_t task_function_counter_ = 0;
