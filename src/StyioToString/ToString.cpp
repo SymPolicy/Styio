@@ -536,6 +536,9 @@ StyioRepr::toString(ResourceEffectAST* ast, int indent) {
                         : (ast->hasHandlers() ? std::string("handler")
                                               : (ast->hasFallback() ? std::string("fallback") : std::string("settle"))))
     + "\n"
+    + make_padding(indent) + "value: "
+    + (ast->isValueRequired() ? std::string("required") : std::string("statement"))
+    + "\n"
     + make_padding(indent) + "operation: "
     + (ast->getOperation() ? ast->getOperation()->toString(this, indent + 1) : std::string("null"));
   for (const auto& handler : ast->getHandlers()) {
@@ -1929,6 +1932,7 @@ StyioRepr::toString(SIOResourceEffect* node, int indent) {
     + (node->discard ? std::string("discard")
                      : (!node->handlers.empty() ? std::string("handler")
                                                 : (node->fallback ? std::string("fallback") : std::string("settle"))))
+    + ", value=" + (node->value_required ? std::string("required") : std::string("statement"))
     + ", operation=" + op;
   for (const auto& handler : node->handlers) {
     out += ", handler:" + handler.effect_name + "="

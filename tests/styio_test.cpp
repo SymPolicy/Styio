@@ -5631,6 +5631,116 @@ TEST(StyioResourceEffects, MissingFallbackStopsAtSettlementSite) {
   fs::remove(input);
 }
 
+TEST(StyioResourceEffects, ValueFallbackRecoversFileInstantPull) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-value-fallback-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-effect-value-data-" + std::to_string(uniq) + ".txt");
+  const fs::path missing =
+    fs::temp_directory_path() / ("styio-resource-effect-value-missing-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream data_out(data);
+    ASSERT_TRUE(data_out.is_open());
+    data_out << "42\n";
+  }
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "success = ?| (<< @file(\"" << data.string() << "\")) | 7\n";
+    out << ">_(success)\n";
+    out << "recovered = ?| (<< @file(\"" << missing.string() << "\")) | 7\n";
+    out << ">_(recovered)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "42\n7\nafter\n");
+
+  fs::remove(input);
+  fs::remove(data);
+}
+
+TEST(StyioResourceEffects, ValueNamedHandlerRecoversFileInstantPull) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-value-handler-" + std::to_string(uniq) + ".styio");
+  const fs::path missing =
+    fs::temp_directory_path() / ("styio-resource-effect-value-handler-missing-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "handled = ?| (<< @file(\"" << missing.string()
+        << "\")) | parse => 8 | io => 9 | 7\n";
+    out << ">_(handled)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "9\nafter\n");
+
+  fs::remove(input);
+}
+
+TEST(StyioResourceEffects, ValueNoFallbackStopsFileInstantPull) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-value-no-fallback-" + std::to_string(uniq) + ".styio");
+  const fs::path missing =
+    fs::temp_directory_path() / ("styio-resource-effect-value-no-fallback-missing-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "result = ?| (<< @file(\"" << missing.string() << "\"))\n";
+    out << ">_(result)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 5) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_RUNTIME_FILE_OPEN_READ\""), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("after"), std::string::npos);
+
+  fs::remove(input);
+}
+
 TEST(StyioResourceEffects, TaskAwaitFallbackRunsAfterFailedTaskPull) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();

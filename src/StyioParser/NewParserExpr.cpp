@@ -87,6 +87,9 @@ parse_expr_core_allowing_follow_latest(
   std::initializer_list<StyioTokenType> allowed_follow
 );
 
+StyioAST*
+parse_resource_effect_expr_nightly(StyioContext& context);
+
 bool
 is_statement_separator_nightly_latest(StyioTokenType type);
 
@@ -321,6 +324,7 @@ constexpr StyioTokenType k_expr_subset_tokens_latest[] = {
   StyioTokenType::NAME,
   StyioTokenType::TOK_AT,
   StyioTokenType::ARROW_SINGLE_LEFT,
+  StyioTokenType::AWAIT_PIPE,
   StyioTokenType::TOK_COLON,
   StyioTokenType::TOK_DOLLAR,
   StyioTokenType::TOK_LBOXBRAC,
@@ -331,6 +335,7 @@ constexpr StyioTokenType k_expr_subset_tokens_latest[] = {
   StyioTokenType::TOK_DOT,
   StyioTokenType::PRINT,
   StyioTokenType::ELLIPSIS,
+  StyioTokenType::TOK_PIPE,
   StyioTokenType::TOK_PLUS,
   StyioTokenType::TOK_MINUS,
   StyioTokenType::TOK_STAR,
@@ -349,6 +354,7 @@ constexpr StyioTokenType k_expr_subset_tokens_latest[] = {
   StyioTokenType::LOGIC_OR,
   StyioTokenType::YIELD_PIPE,
   StyioTokenType::TASK_LAUNCH,
+  StyioTokenType::ARROW_DOUBLE_RIGHT,
 };
 
 constexpr StyioTokenType k_expr_subset_start_tokens_latest[] = {
@@ -364,6 +370,7 @@ constexpr StyioTokenType k_expr_subset_start_tokens_latest[] = {
   StyioTokenType::TOK_PLUS,
   StyioTokenType::TOK_MINUS,
   StyioTokenType::TASK_LAUNCH,
+  StyioTokenType::AWAIT_PIPE,
 };
 
 constexpr StyioTokenType k_stmt_subset_extra_tokens_latest[] = {
@@ -432,6 +439,7 @@ scan_subset_route_tokens_latest(
   int box_depth = 0;
   int brace_depth = 0;
   bool saw_non_trivia = false;
+  bool saw_await_pipe = false;
 
   while (cursor < tokens.size()) {
     const StyioTokenType type = tokens[cursor]->type;
@@ -442,13 +450,16 @@ scan_subset_route_tokens_latest(
       cursor += 1;
       continue;
     }
-    if (type == StyioTokenType::TOK_PIPE && !allow_single_pipe) {
+    if (type == StyioTokenType::TOK_PIPE && !allow_single_pipe && !saw_await_pipe) {
       return false;
     }
     if (!allowed(type)) {
       return false;
     }
     saw_non_trivia = true;
+    if (type == StyioTokenType::AWAIT_PIPE) {
+      saw_await_pipe = true;
+    }
 
     switch (type) {
       case StyioTokenType::TOK_LPAREN:
@@ -1840,6 +1851,9 @@ private:
         }
         return TaskBlockAST::Create(parse_block_only_subset_nightly(context_));
       }
+      case StyioTokenType::AWAIT_PIPE: {
+        return parse_resource_effect_expr_nightly(context_);
+      }
       case StyioTokenType::NAME: {
         const std::string name = context_.cur_tok()->original;
         context_.move_forward(1, "new_expr:name");
@@ -2223,7 +2237,11 @@ parse_resource_effect_named_handler_latest(StyioContext& context) {
 }
 
 StyioAST*
-parse_resource_effect_stmt_nightly(StyioContext& context) {
+parse_resource_effect_nightly(
+  StyioContext& context,
+  bool allow_discard,
+  bool value_required
+) {
   context.match_panic(StyioTokenType::AWAIT_PIPE);
   context.skip();
 
@@ -2243,6 +2261,11 @@ parse_resource_effect_stmt_nightly(StyioContext& context) {
     context.move_forward(1, "new_stmt:resource_effect_discard");
     context.skip();
     if (context.cur_tok_type() == StyioTokenType::ELLIPSIS) {
+      if (!allow_discard) {
+        throw StyioSyntaxError(
+          context.mark_cur_tok("resource-effect discard is statement-only")
+        );
+      }
       discard = true;
       context.move_forward(1, "new_stmt:resource_effect_discard_ellipsis");
     }
@@ -2275,11 +2298,30 @@ parse_resource_effect_stmt_nightly(StyioContext& context) {
     operation.get(),
     fallback.get(),
     discard,
-    std::move(handlers)
+    std::move(handlers),
+    value_required
   );
   operation.release();
   fallback.release();
   return effect;
+}
+
+StyioAST*
+parse_resource_effect_expr_nightly(StyioContext& context) {
+  return parse_resource_effect_nightly(
+    context,
+    false,
+    true
+  );
+}
+
+StyioAST*
+parse_resource_effect_stmt_nightly(StyioContext& context) {
+  return parse_resource_effect_nightly(
+    context,
+    true,
+    false
+  );
 }
 
 StyioAST*

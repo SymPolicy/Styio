@@ -1316,6 +1316,10 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
         ast->getVar()->setDataType(ast->getValue()->getDataType());
       } break;
 
+      case StyioNodeType::ResourceEffect: {
+        ast->getVar()->setDataType(ast->getValue()->getDataType());
+      } break;
+
       default:
         break;
     }
@@ -2009,6 +2013,12 @@ StyioSemaContext::typeInfer(ResourceEffectAST* ast) {
   if (ast->isDiscard()) {
     ast->setResultType(StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0});
     return;
+  }
+
+  if (ast->isValueRequired() && operation_type.isUndefined()) {
+    throw StyioTypeError(
+      "resource-effect expression requires a value-producing resource operation"
+    );
   }
 
   if (ast->hasFallback()) {
