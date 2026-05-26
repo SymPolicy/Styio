@@ -1815,6 +1815,13 @@ StyioRepr::toString(SCListClone* node, int indent) {
 }
 
 std::string
+StyioRepr::toString(SCMatrixClone* node, int indent) {
+  return std::string("styio.ir.matrix_clone { src=")
+    + (node->source ? node->source->toString(this, indent) : std::string("null"))
+    + ", elem=" + node->elem_type + " }";
+}
+
+std::string
 StyioRepr::toString(SCListLen* node, int indent) {
   return std::string("styio.ir.list_len { list=")
     + (node->list ? node->list->toString(this, indent) : std::string("null")) + " }";

@@ -680,6 +680,10 @@ private:
       clone->source = optimize(clone->source);
       return;
     }
+    if (auto* clone = dynamic_cast<SCMatrixClone*>(ir)) {
+      clone->source = optimize(clone->source);
+      return;
+    }
     if (auto* len = dynamic_cast<SCListLen*>(ir)) {
       len->list = optimize(len->list);
       return;

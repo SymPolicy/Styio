@@ -247,6 +247,10 @@ struct VerifierContext
       visit_required(n->source, "SCListClone.source");
       return;
     }
+    if (auto* n = dynamic_cast<const SCMatrixClone*>(node)) {
+      visit_required(n->source, "SCMatrixClone.source");
+      return;
+    }
     if (auto* n = dynamic_cast<const SCListLen*>(node)) {
       visit_required(n->list, "SCListLen.list");
       return;

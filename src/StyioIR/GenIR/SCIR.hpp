@@ -101,6 +101,25 @@ public:
   }
 };
 
+class SCMatrixClone : public StyioIRTraits<SCMatrixClone>
+{
+public:
+  StyioIR* source = nullptr;
+  std::string elem_type = "i64";
+
+  SCMatrixClone(StyioIR* src, std::string et) :
+      source(src), elem_type(std::move(et)) {
+  }
+
+  ~SCMatrixClone() override {
+    delete source;
+  }
+
+  static SCMatrixClone* Create(StyioIR* src, std::string elem_type = "i64") {
+    return new SCMatrixClone(src, std::move(elem_type));
+  }
+};
+
 class SCListLen : public StyioIRTraits<SCListLen>
 {
 public:

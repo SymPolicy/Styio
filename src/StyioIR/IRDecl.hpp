@@ -84,6 +84,7 @@ class SCListLiteral;
 class SCDictLiteral;
 class SCMatrixLiteral;
 class SCListClone;
+class SCMatrixClone;
 class SCListLen;
 class SCListGet;
 class SCListSet;

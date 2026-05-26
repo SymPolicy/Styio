@@ -5924,6 +5924,48 @@ TEST(StyioResourceCopy, ExplicitListAndDictCloneAreIndependent) {
   fs::remove(input);
 }
 
+TEST(StyioResourceCopy, ExplicitMatrixCloneIsIndependent) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-copy-matrix-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "m: matrix = [[1,2],[3,4]]\n";
+    out << "m_copy << m\n";
+    out << "ok = mat_set(m,0,0,9)\n";
+    out << ">_(m_copy)\n";
+    out << ">_(m)\n";
+    out << "mf: matrix = [[1.5,2.5],[3.5,4.5]]\n";
+    out << "mf_copy << mf\n";
+    out << "ok2 = mat_set(mf,1,1,9.5)\n";
+    out << ">_(mf_copy)\n";
+    out << ">_(mf)\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(
+    result.stdout_text,
+    "[[1,2],[3,4]]\n[[9,2],[3,4]]\n"
+    "[[1.500000,2.500000],[3.500000,4.500000]]\n"
+    "[[1.500000,2.500000],[3.500000,9.500000]]\n"
+  );
+
+  fs::remove(input);
+}
+
 TEST(StyioSamples, MatrixTypeNestedListLiteral) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();

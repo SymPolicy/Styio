@@ -416,6 +416,7 @@ public:
   std::string toString(SIOInstantPull* node, int indent = 0);
   std::string toString(SIOListReadStdin* node, int indent = 0);
   std::string toString(SCListClone* node, int indent = 0);
+  std::string toString(SCMatrixClone* node, int indent = 0);
   std::string toString(SCListLen* node, int indent = 0);
   std::string toString(SCListGet* node, int indent = 0);
   std::string toString(SCListSet* node, int indent = 0);

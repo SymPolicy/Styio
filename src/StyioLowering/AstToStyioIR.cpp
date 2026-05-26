@@ -2452,7 +2452,8 @@ AstToStyioIRLowerer::toStyioIR(HandleAcquireAST* ast) {
     if (it != binding_info_.end()) {
       var->is_dynamic_slot = it->second.dynamic_slot
                              || it->second.value_kind == BindingValueKind::ListHandle
-                             || it->second.value_kind == BindingValueKind::DictHandle;
+                             || it->second.value_kind == BindingValueKind::DictHandle
+                             || it->second.value_kind == BindingValueKind::MatrixHandle;
       var->is_list_slot = !it->second.dynamic_slot
                           && it->second.value_kind == BindingValueKind::ListHandle;
     }
@@ -2462,8 +2463,17 @@ AstToStyioIRLowerer::toStyioIR(HandleAcquireAST* ast) {
     if (src_type.has_value() && styio_is_dict_type(*src_type)) {
       rhs = SCDictClone::Create(ast->getResource()->toStyioIR(this));
     }
-    else {
+    else if (src_type.has_value() && styio_is_list_type(*src_type)) {
       rhs = SCListClone::Create(ast->getResource()->toStyioIR(this));
+    }
+    else if (src_type.has_value() && styio_is_matrix_type(*src_type)) {
+      rhs = SCMatrixClone::Create(
+        ast->getResource()->toStyioIR(this),
+        styio_matrix_elem_type_name(*src_type)
+      );
+    }
+    else {
+      throw StyioTypeError("resource clone source has no implemented `<<` clone lowering");
     }
 
     if (ast->isFlexBind()) {
