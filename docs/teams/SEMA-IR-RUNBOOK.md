@@ -73,6 +73,7 @@ High-value docs:
 39. Range literals are accepted only for integer `start`, `end`, and optional `step` expressions in this slice. Sema should infer expression-bound range values as materialized `list[i64]` handles for binding, printing, and stream/list consumers; lowering may still use the dedicated `SGRangeFor` path for iterator bodies. Non-integer bounds must fail before codegen.
 40. Function return type metadata must not become placeholder runtime types. Scalar and supported container return annotations may lower normally, unspecified return types may infer from accepted tail expressions, but tuple return annotations must fail closed until tuple value IR exists instead of falling back to `i64`.
 41. Materialized `list`, `dict`, and `matrix` handle clones use the explicit `name << source` surface. Sema must reject `name <- source` for already-bound cloneable resources because `<-` is resource-entry acquire/receive or task/future pull, while `<<` lowers through `SCListClone` / `SCDictClone` / `SCMatrixClone` and preserves independent owned containers.
+42. State/resource-method inline cloning must cover accepted source-reachable value ASTs before those forms are considered executable inside helper bodies. `StateExprCloneVisitor` currently clones `CharAST` along with the existing scalar leaves, so `@file::marker = () => { >_('x') }` can inline and run; keep the fallback diagnostic for unsupported node families until each accepted helper-body form has parser, clone, lowering, and runtime evidence.
 
 ## Change Classes
 
