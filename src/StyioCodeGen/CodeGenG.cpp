@@ -3748,6 +3748,9 @@ StyioToLLVM::toLLVMIR(SIOFileLineIter* node) {
     h0 = theBuilder->CreateCall(open_fn, {path});
     h_slot = theBuilder->CreateAlloca(theBuilder->getInt64Ty(), nullptr, "file_iter_h");
     theBuilder->CreateStore(h0, h_slot);
+    if (resource_effect_operation_depth_ == 0) {
+      emit_runtime_error_guard_return();
+    }
   }
   else {
     auto it = mutable_variables.find(node->handle_var);
@@ -3764,6 +3767,7 @@ StyioToLLVM::toLLVMIR(SIOFileLineIter* node) {
 
   llvm::BasicBlock* hdr = llvm::BasicBlock::Create(*theContext, "fline_hdr", F);
   llvm::BasicBlock* body = llvm::BasicBlock::Create(*theContext, "fline_body", F);
+  llvm::BasicBlock* maybe_done = llvm::BasicBlock::Create(*theContext, "fline_maybe_done", F);
   llvm::BasicBlock* exit_bb = llvm::BasicBlock::Create(*theContext, "fline_exit", F);
 
   llvm::AllocaInst* ledger_alloc = nullptr;
@@ -3797,7 +3801,16 @@ StyioToLLVM::toLLVMIR(SIOFileLineIter* node) {
   llvm::Value* null_line = llvm::ConstantPointerNull::get(
     llvm::cast<llvm::PointerType>(char_ptr));
   llvm::Value* done = theBuilder->CreateICmpEQ(lineptr, null_line);
-  theBuilder->CreateCondBr(done, exit_bb, body);
+  theBuilder->CreateCondBr(done, maybe_done, body);
+
+  theBuilder->SetInsertPoint(maybe_done);
+  if (resource_effect_operation_depth_ == 0) {
+    emit_runtime_error_guard_return();
+  }
+  if (llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
+      cur != nullptr && cur->getTerminator() == nullptr) {
+    theBuilder->CreateBr(exit_bb);
+  }
 
   theBuilder->SetInsertPoint(body);
   llvm::AllocaInst* line_slot = theBuilder->CreateAlloca(char_ptr, nullptr, node->line_var);

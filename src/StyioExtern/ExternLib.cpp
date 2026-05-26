@@ -754,6 +754,9 @@ as_task_for_pull(int64_t h, StyioTaskValueKind expected_kind) {
 FILE*
 as_file(int64_t h, bool diagnose_if_missing = false) {
   if (h == 0) {
+    if (diagnose_if_missing) {
+      set_runtime_error_once(kRuntimeSubcodeInvalidFileHandle, "invalid file handle: 0");
+    }
     return nullptr;
   }
   FILE* f = g_handle_table.lookup_as<FILE>(h, StyioHandleTable::HandleKind::File);
