@@ -1596,6 +1596,21 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectNamedHandlerStatement) 
   EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectResourceMethodStatement) {
+  const std::string src =
+    "?| @file(\"/tmp/styio-resource-effect-method-close\").close() | io => \"io\" -> @stderr\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_EQ(repr.find("styio.ast.FlowBind"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_file_close"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueFallbackExpression) {
   const std::string src =
     "result = ?| (<< @file(\"/tmp/styio-resource-effect-value-missing\")) | 7\n"
@@ -1709,6 +1724,22 @@ TEST(StyioSecurityNightlySemantics, RejectsUnsupportedTypedStdinResourceEffectVa
   catch (const StyioTypeError& err) {
     EXPECT_NE(
       std::string(err.what()).find("typed stdin pull supports i64, f64, string, or list[T] targets"),
+      std::string::npos);
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsNonResourceMethodResourceEffectStatement) {
+  const std::string src =
+    "text = \"alpha\"\n"
+    "?| text.lines() | \"fallback\" -> @stdout\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected non-resource member call under resource-effect settlement to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    EXPECT_NE(
+      std::string(err.what()).find("`?|` resource settlement requires a resource operation"),
       std::string::npos);
   }
 }

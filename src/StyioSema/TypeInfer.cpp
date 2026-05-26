@@ -83,6 +83,9 @@ type_convert_source_fallback_type(NumPromoTy promo_type) {
 std::string
 resource_family_for_type(const StyioDataType& type);
 
+std::string
+resource_family_for_expr(StyioSemaContext* an, StyioAST* expr);
+
 bool
 resource_effect_handler_name_supported_latest(const std::string& name) {
   return name == "io"
@@ -934,6 +937,26 @@ resource_family_for_expr(StyioSemaContext* an, StyioAST* expr) {
     }
   }
   return resource_family_for_type(infer_expr_type(an, expr));
+}
+
+bool
+resource_effect_operation_supported_latest(StyioSemaContext* an, StyioAST* ast) {
+  if (dynamic_cast<ResourceWriteAST*>(ast) != nullptr
+      || dynamic_cast<ResourceRedirectAST*>(ast) != nullptr
+      || dynamic_cast<InstantPullAST*>(ast) != nullptr
+      || dynamic_cast<ResourceRefAST*>(ast) != nullptr) {
+    return true;
+  }
+  auto* call = dynamic_cast<FuncCallAST*>(ast);
+  if (call == nullptr || call->func_callee == nullptr) {
+    return false;
+  }
+  const std::string family = resource_family_for_expr(an, call->func_callee);
+  if (family.empty()) {
+    return false;
+  }
+  const auto* method = an->find_resource_method(family, call->getNameAsStr());
+  return method != nullptr && !method->property;
 }
 
 bool
@@ -2003,6 +2026,9 @@ StyioSemaContext::typeInfer(ResourceRedirectAST* ast) {
 void
 StyioSemaContext::typeInfer(ResourceEffectAST* ast) {
   ast->getOperation()->typeInfer(this);
+  if (!resource_effect_operation_supported_latest(this, ast->getOperation())) {
+    throw StyioTypeError("`?|` resource settlement requires a resource operation");
+  }
   StyioDataType operation_type = infer_expr_type(this, ast->getOperation());
 
   if (ast->hasHandlers()) {
