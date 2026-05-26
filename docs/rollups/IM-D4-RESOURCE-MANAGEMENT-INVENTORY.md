@@ -44,10 +44,14 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   matched named handler such as `io => 9`. `result = ?| (<- @stdin) | fallback`
   returns a parsed stdin `i64` on success and recovers numeric parse failures
   through catch-all fallback or a matched `parse => handler` after the
-  materialized parse error is cleared. No-fallback value expressions still
-  settle the runtime error at the expression site. Expression discard remains
-  rejected, and statement-shaped write operations remain rejected where a value
-  is required.
+  materialized parse error is cleared. Explicit target types now drive stdin
+  value-required pulls in the same expression form: `result: f64 = ?| (<- @stdin) | fallback`
+  returns or recovers `f64` values, `result: string = ?| (<- @stdin) | fallback`
+  returns cloned stdin lines, and `result: list[i64] = ?| (<- @stdin) | fallback`
+  materializes typed stdin list values or recovers list-parse failures through
+  fallback. No-fallback value expressions still settle the runtime error at the
+  expression site. Expression discard remains rejected, and statement-shaped
+  write operations remain rejected where a value is required.
 - Plain file resource operations outside a `?|` recovery wrapper now settle at
   the ordinary statement boundary for the covered file acquire/write/iterator
   paths: missing `@file` acquire, missing-directory file write, and direct
@@ -236,7 +240,8 @@ reopens a same-path singleton slot that an explicit close left at zero. The file
 iterator closed-handle slice reports a structured `closed`-family diagnostic
 when a stale same-path alias uses that zeroed slot. The file and stdin
 instant-pull slices now cover the first value-producing success/fallback/handler
-paths for non-task `?|` expressions. Implicit scope-exit drop, cleanup-failure
+paths for non-task `?|` expressions, including explicit-target stdin `f64`,
+`string`, and typed-list values. Implicit scope-exit drop, cleanup-failure
 settlement for reassignments that can fail, release/commit hooks, non-file
 resource-family cleanup effects, and arbitrary value-producing resource
 operations still require separate implementation and tests.
@@ -288,9 +293,10 @@ Accepted resource fallback decision:
 - Future syntax may add more ergonomic forms, but the current uniform resource fallback surface is `?| ... | ...`.
 
 Implementation note: the current value-producing non-task slices are limited to
-file instant pulls and stdin numeric instant pulls, whose success values are
-`i64`. Statement-shaped writes, typed stdin list/string/f64 pulls under `?|`
-expression recovery, broader resource families, cleanup/drop hooks, pressure
+file instant pulls and stdin instant pulls. File instant pulls still return
+`i64`; stdin instant pulls now cover the untyped `i64` path plus explicit-target
+`f64`, `string`, and supported typed-list paths under `?|` expression recovery.
+Statement-shaped writes, broader resource families, cleanup/drop hooks, pressure
 observations, and non-instant-pull value-returning resource operations must
 remain separately implemented and tested before the full typed resource-effect
 model is closed.
