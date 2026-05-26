@@ -471,6 +471,8 @@ private:
   llvm::Value* truncate_for_main_ret(llvm::Value* v);
   llvm::Value* default_runtime_return_value(llvm::Type* ret_ty);
   void emit_runtime_error_guard_return();
+  void emit_runtime_error_guard_return_after_cleanup();
+  bool emit_active_file_handle_cleanup();
   void emit_file_handle_slot_close(llvm::AllocaInst* slot);
   bool release_tracked_file_handle_binding(const std::string& var_name);
   llvm::Value* cstr_to_i64_checked(llvm::Value* v);

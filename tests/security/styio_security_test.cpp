@@ -1611,6 +1611,36 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectResourceMethodStatement
   EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyCodegen, ReturnRunsFileScopeCleanupBeforeRet) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const std::filesystem::path data =
+    std::filesystem::temp_directory_path()
+    / ("styio-return-cleanup-data-" + std::to_string(uniq) + ".txt");
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "line\n";
+  }
+
+  const std::string src =
+    "# early : i64 := () => {\n"
+    "  f <- @file(\"" + data.generic_string() + "\")\n"
+    "  <| 17\n"
+    "}\n"
+    ">_(early())\n";
+
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  const std::size_t close_pos = llvm_ir.find("call void @styio_file_close");
+  ASSERT_NE(close_pos, std::string::npos) << llvm_ir;
+  const std::size_t ret_pos = llvm_ir.find("ret i64", close_pos);
+  EXPECT_NE(ret_pos, std::string::npos) << llvm_ir;
+  EXPECT_LT(close_pos, ret_pos);
+
+  std::filesystem::remove(data);
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueFallbackExpression) {
   const std::string src =
     "result = ?| (<< @file(\"/tmp/styio-resource-effect-value-missing\")) | 7\n"
