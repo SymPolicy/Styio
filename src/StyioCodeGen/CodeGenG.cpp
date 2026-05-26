@@ -3686,6 +3686,9 @@ StyioToLLVM::toLLVMIR(SIOHandleAcquire* node) {
   else {
     register_file_handle_for_raii(node->var_name);
   }
+  if (resource_effect_operation_depth_ == 0) {
+    emit_runtime_error_guard_return();
+  }
   return theBuilder->getInt64(0);
 }
 
@@ -3829,7 +3832,11 @@ StyioToLLVM::toLLVMIR(SIOHandleRelease* node) {
     if (!pkey.empty()) {
       auto sit = file_singleton_path_slots_.find(pkey);
       if (sit != file_singleton_path_slots_.end()) {
-        return close_slot(sit->second);
+        llvm::Value* out = close_slot(sit->second);
+        if (resource_effect_operation_depth_ == 0) {
+          emit_runtime_error_guard_return();
+        }
+        return out;
       }
     }
     llvm::Type* char_ptr = llvm::PointerType::get(*theContext, 0);
@@ -3839,6 +3846,9 @@ StyioToLLVM::toLLVMIR(SIOHandleRelease* node) {
     llvm::Value* path = node->path_expr->toLLVMIR(this);
     llvm::Value* h = theBuilder->CreateCall(open_fn, {path});
     theBuilder->CreateCall(close_fn, {h});
+    if (resource_effect_operation_depth_ == 0) {
+      emit_runtime_error_guard_return();
+    }
     return theBuilder->getInt64(0);
   }
 
@@ -3846,7 +3856,11 @@ StyioToLLVM::toLLVMIR(SIOHandleRelease* node) {
   if (it == mutable_variables.end()) {
     return theBuilder->getInt64(0);
   }
-  return close_slot(it->second);
+  llvm::Value* out = close_slot(it->second);
+  if (resource_effect_operation_depth_ == 0) {
+    emit_runtime_error_guard_return();
+  }
+  return out;
 }
 
 llvm::Value*
@@ -5264,13 +5278,24 @@ StyioToLLVM::toLLVMIR(SIOResourceWriteToFile* node) {
   theBuilder->CreateCall(write_fn, {h, data});
   free_owned_cstr_temp_if_tracked(data);
   theBuilder->CreateCall(close_fn, {h});
+  if (resource_effect_operation_depth_ == 0) {
+    emit_runtime_error_guard_return();
+  }
   return theBuilder->getInt64(0);
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SIOResourceEffect* node) {
   if (node->operation != nullptr) {
-    node->operation->toLLVMIR(this);
+    ++resource_effect_operation_depth_;
+    try {
+      node->operation->toLLVMIR(this);
+    }
+    catch (...) {
+      --resource_effect_operation_depth_;
+      throw;
+    }
+    --resource_effect_operation_depth_;
   }
   llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
   if (cur == nullptr || cur->getTerminator() != nullptr) {
