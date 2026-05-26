@@ -2116,6 +2116,9 @@ public:
     Access_By_Index
       [index]
 
+    Access_By_Slice
+      [start..end]
+
     Access_By_Name
       ["name"]
 

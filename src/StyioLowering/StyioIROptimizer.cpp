@@ -201,6 +201,11 @@ ir_expr_has_no_runtime_effects(StyioIR* ir) {
     return ir_expr_has_no_runtime_effects(get->list)
       && ir_expr_has_no_runtime_effects(get->index);
   }
+  if (auto* slice = dynamic_cast<SCListSlice*>(ir)) {
+    return ir_expr_has_no_runtime_effects(slice->list)
+      && ir_expr_has_no_runtime_effects(slice->start)
+      && (slice->end == nullptr || ir_expr_has_no_runtime_effects(slice->end));
+  }
   if (auto* get = dynamic_cast<SCDictGet*>(ir)) {
     return ir_expr_has_no_runtime_effects(get->dict)
       && ir_expr_has_no_runtime_effects(get->key);
@@ -270,6 +275,12 @@ collect_expr_reads(StyioIR* ir, std::unordered_set<std::string>& names) {
   if (auto* get = dynamic_cast<SCListGet*>(ir)) {
     collect_expr_reads(get->list, names);
     collect_expr_reads(get->index, names);
+    return;
+  }
+  if (auto* slice = dynamic_cast<SCListSlice*>(ir)) {
+    collect_expr_reads(slice->list, names);
+    collect_expr_reads(slice->start, names);
+    collect_expr_reads(slice->end, names);
     return;
   }
   if (auto* get = dynamic_cast<SCDictGet*>(ir)) {
@@ -695,6 +706,12 @@ private:
     if (auto* get = dynamic_cast<SCListGet*>(ir)) {
       get->list = optimize(get->list);
       get->index = optimize(get->index);
+      return;
+    }
+    if (auto* slice = dynamic_cast<SCListSlice*>(ir)) {
+      slice->list = optimize(slice->list);
+      slice->start = optimize(slice->start);
+      slice->end = optimize(slice->end);
       return;
     }
     if (auto* get = dynamic_cast<SCDictGet*>(ir)) {

@@ -2414,6 +2414,38 @@ check_list_index(size_t size, int64_t idx, bool allow_end = false) {
   return true;
 }
 
+bool
+check_list_slice_bounds(
+  size_t size,
+  int64_t start,
+  int64_t end_exclusive,
+  bool has_end,
+  size_t& begin,
+  size_t& finish
+) {
+  if (start < 0) {
+    set_runtime_error_once(
+      kRuntimeSubcodeListIndex,
+      "list slice start out of range: " + std::to_string(static_cast<long long>(start)));
+    return false;
+  }
+  if (has_end && end_exclusive < 0) {
+    set_runtime_error_once(
+      kRuntimeSubcodeListIndex,
+      "list slice end out of range: " + std::to_string(static_cast<long long>(end_exclusive)));
+    return false;
+  }
+  const size_t pos_start = static_cast<size_t>(start);
+  const size_t pos_end = has_end ? static_cast<size_t>(end_exclusive) : size;
+  if (pos_start > size || pos_end > size || pos_end < pos_start) {
+    set_runtime_error_once(kRuntimeSubcodeListIndex, "list slice bounds out of range");
+    return false;
+  }
+  begin = pos_start;
+  finish = pos_end;
+  return true;
+}
+
 template <typename ListT, typename ValueT>
 void
 list_insert_value(ListT* list, int64_t idx, ValueT&& value) {
@@ -2430,6 +2462,22 @@ list_set_value(ListT* list, int64_t idx, ValueT&& value) {
     return;
   }
   list->elems[static_cast<size_t>(idx)] = std::forward<ValueT>(value);
+}
+
+template <typename ListT>
+int64_t
+slice_plain_list(ListT* list, int64_t start, int64_t end_exclusive, bool has_end) {
+  if (list == nullptr) {
+    return 0;
+  }
+  size_t begin = 0;
+  size_t finish = 0;
+  if (!check_list_slice_bounds(list->elems.size(), start, end_exclusive, has_end, begin, finish)) {
+    return 0;
+  }
+  auto* out = new ListT();
+  out->elems.assign(list->elems.begin() + begin, list->elems.begin() + finish);
+  return stash_list(out);
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2699,6 +2747,61 @@ styio_list_get_dict(int64_t h, int64_t idx) {
     return 0;
   }
   return clone_dict_handle_value(list->elems[static_cast<size_t>(idx)]);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_list_slice(int64_t h, int64_t start, int64_t end_exclusive, int32_t has_end) {
+  StyioListBase* list = as_list_base(h, true);
+  if (list == nullptr) {
+    return 0;
+  }
+  const bool bounded_end = has_end != 0;
+  switch (list->elem_kind) {
+    case StyioListElemKind::Bool:
+      return slice_plain_list(
+        static_cast<StyioListBool*>(list), start, end_exclusive, bounded_end);
+    case StyioListElemKind::Char:
+      return slice_plain_list(
+        static_cast<StyioListChar*>(list), start, end_exclusive, bounded_end);
+    case StyioListElemKind::I64:
+      return slice_plain_list(
+        static_cast<StyioListI64*>(list), start, end_exclusive, bounded_end);
+    case StyioListElemKind::F64:
+      return slice_plain_list(
+        static_cast<StyioListF64*>(list), start, end_exclusive, bounded_end);
+    case StyioListElemKind::String:
+      return slice_plain_list(
+        static_cast<StyioListString*>(list), start, end_exclusive, bounded_end);
+    case StyioListElemKind::ListHandle: {
+      auto* src = static_cast<StyioListListHandle*>(list);
+      size_t begin = 0;
+      size_t finish = 0;
+      if (!check_list_slice_bounds(src->elems.size(), start, end_exclusive, bounded_end, begin, finish)) {
+        return 0;
+      }
+      auto* out = new StyioListListHandle();
+      out->elems.reserve(finish - begin);
+      for (size_t i = begin; i < finish; ++i) {
+        out->elems.push_back(clone_list_handle_value(src->elems[i]));
+      }
+      return stash_list(out);
+    }
+    case StyioListElemKind::DictHandle: {
+      auto* src = static_cast<StyioListDictHandle*>(list);
+      size_t begin = 0;
+      size_t finish = 0;
+      if (!check_list_slice_bounds(src->elems.size(), start, end_exclusive, bounded_end, begin, finish)) {
+        return 0;
+      }
+      auto* out = new StyioListDictHandle();
+      out->elems.reserve(finish - begin);
+      for (size_t i = begin; i < finish; ++i) {
+        out->elems.push_back(clone_dict_handle_value(src->elems[i]));
+      }
+      return stash_list(out);
+    }
+  }
+  return 0;
 }
 
 extern "C" DLLEXPORT void

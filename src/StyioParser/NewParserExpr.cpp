@@ -1616,8 +1616,36 @@ private:
         enforce_expr_delimiter_budget_latest(context_, "index expression");
         context_.move_forward(1, "new_expr:index_open");
         context_.skip();
-        std::unique_ptr<StyioAST> idx(parse_full_expression());
+        std::unique_ptr<StyioAST> idx;
+        if (context_.cur_tok_type() != StyioTokenType::ELLIPSIS) {
+          idx.reset(parse_postfix(parse_expression(0)));
+        }
         context_.skip();
+        if (context_.cur_tok_type() == StyioTokenType::ELLIPSIS) {
+          context_.move_forward(1, "new_expr:slice_ellipsis");
+          context_.skip();
+          std::unique_ptr<StyioAST> end;
+          if (context_.cur_tok_type() != StyioTokenType::TOK_RBOXBRAC) {
+            end.reset(parse_postfix(parse_expression(0)));
+            context_.skip();
+          }
+          context_.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
+          if (!idx) {
+            idx.reset(IntAST::Create("0"));
+          }
+          StyioAST* access =
+            new ListOpAST(StyioNodeType::Access_By_Slice, owner.get(), idx.get(), end.get());
+          owner.release();
+          idx.release();
+          if (end) {
+            end.release();
+          }
+          owner.reset(access);
+          continue;
+        }
+        if (!idx) {
+          throw StyioSyntaxError(context_.mark_cur_tok("list index expression is required"));
+        }
         context_.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
         StyioAST* access = new ListOpAST(StyioNodeType::Access_By_Index, owner.get(), idx.get());
         owner.release();

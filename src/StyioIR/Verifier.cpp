@@ -260,6 +260,12 @@ struct VerifierContext
       visit_required(n->index, "SCListGet.index");
       return;
     }
+    if (auto* n = dynamic_cast<const SCListSlice*>(node)) {
+      visit_required(n->list, "SCListSlice.list");
+      visit_required(n->start, "SCListSlice.start");
+      visit_optional(n->end);
+      return;
+    }
     if (auto* n = dynamic_cast<const SCListSet*>(node)) {
       visit_required(n->list, "SCListSet.list");
       visit_required(n->index, "SCListSet.index");

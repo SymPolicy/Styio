@@ -466,6 +466,9 @@ expr_lowered_type(AstToStyioIRLowerer* an, StyioAST* expr) {
   }
   if (auto* access = dynamic_cast<ListOpAST*>(expr)) {
     StyioDataType base_type = expr_lowered_type(an, access->getList());
+    if (access->getOp() == StyioNodeType::Access_By_Slice && styio_is_list_type(base_type)) {
+      return base_type;
+    }
     if (styio_is_dict_type(base_type)) {
       return styio_data_type_from_name(styio_dict_value_type_name(base_type));
     }
@@ -1520,6 +1523,7 @@ public:
         return clone(static_cast<TypeConvertAST*>(expr));
       case StyioNodeType::Access:
       case StyioNodeType::Access_By_Index:
+      case StyioNodeType::Access_By_Slice:
       case StyioNodeType::Access_By_Name:
       case StyioNodeType::Get_Index_By_Value:
       case StyioNodeType::Get_Indices_By_Many_Values:
@@ -2261,6 +2265,18 @@ AstToStyioIRLowerer::toStyioIR(SizeOfAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ListOpAST* ast) {
+  if (ast->getOp() == StyioNodeType::Access_By_Slice) {
+    StyioDataType base_type = expr_lowered_type(this, ast->getList());
+    if (!styio_is_list_type(base_type)) {
+      throw StyioTypeError("list slice lowering requires a list value");
+    }
+    return SCListSlice::Create(
+      ast->getList()->toStyioIR(this),
+      ast->getSlot1()->toStyioIR(this),
+      ast->getSlot2() != nullptr ? ast->getSlot2()->toStyioIR(this) : nullptr,
+      styio_type_item_type_name(base_type)
+    );
+  }
   if (ast->getOp() == StyioNodeType::Access_By_Index) {
     if (auto* row_access = dynamic_cast<ListOpAST*>(ast->getList())) {
       if (row_access->getOp() == StyioNodeType::Access_By_Index) {
