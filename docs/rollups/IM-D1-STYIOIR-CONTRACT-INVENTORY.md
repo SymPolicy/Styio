@@ -28,6 +28,7 @@
 6. Function-level match sugar (`# f(x) ?= { ... }`) lowers `CasesAST` through the first parameter as an explicit `SGMatch` instead of relying on the former integer placeholder.
 7. `TypeConvertAST` now carries its source value through Sema, StyioIR, verifier traversal, optimizer traversal, textual repr, and LLVM scalar conversion for `Bool_To_Int` and `Int_To_Float`.
 8. `RangeAST` now validates integer expression operands in Sema, lowers constant ranges to `SCListLiteral`, and lowers expression-bound ranges to an internal list-producing `SGCall` that codegen expands into a runtime `list[i64]` fill loop.
+9. Function return annotations that parse as `TypeTupleAST` now fail closed in Sema/lowering instead of using the old `i64` fallback. Tuple value returns remain open until tuple value IR exists.
 
 ## Remaining `SGConstInt(0)` Uses
 
@@ -43,7 +44,7 @@ These nodes are no longer allowed to pass through lowering as integer zero:
 | AST family | Classification | Current behavior |
 |------------|----------------|------------------|
 | `NoneAST` | Implementation debt | Fails closed until null/unit/option semantics are defined. |
-| `TypeTupleAST`, `OptArgAST`, `OptKwArgAST`, `VarTupleAST` | Declaration metadata | Fails closed when lowered directly; parent declarations must consume them. |
+| `TypeTupleAST`, `OptArgAST`, `OptKwArgAST`, `VarTupleAST` | Declaration metadata | Fails closed when lowered directly; function parents now reject tuple return annotations until tuple value IR exists. |
 | `TypeConvertAST` | Accepted compiler-owned scalar promotion | Lowers to value-carrying `SGCast` for `Bool_To_Int` and `Int_To_Float`; other user-facing cast syntax still requires a separate language decision. |
 | `InfiniteAST` | Retired/undefined sequence syntax | Fails closed. |
 | `TupleAST`, `ExtractorAST`, `SetAST` | Implementation debt | Fails closed until tuple/set value IR is implemented. |
@@ -61,7 +62,7 @@ These nodes are no longer allowed to pass through lowering as integer zero:
 |----------------|----------------|--------------------|
 | `CommentAST`, `EmptyAST`, `PassAST`, `EOFAST` | Intentional no-op | No extra sema action unless the no-op contract changes. |
 | `BoolAST`, `IntAST`, `FloatAST`, `CharAST`, `StringAST`, `TypeAST` | Leaf type carrier | Their type comes from the node or type token. Keep inference side-effect free. |
-| `VarAST`, `ParamAST`, `OptArgAST`, `OptKwArgAST`, `TypeTupleAST`, `VarTupleAST` | Declaration metadata | Parent declarations must validate and bind them. Direct runtime lowering is rejected. |
+| `VarAST`, `ParamAST`, `OptArgAST`, `OptKwArgAST`, `TypeTupleAST`, `VarTupleAST` | Declaration metadata | Parent declarations must validate and bind them. Function return annotations reject `TypeTupleAST` until tuple value IR exists; direct runtime lowering is rejected. |
 | `NoneAST`, `InfiniteAST`, `TupleAST`, `ExtractorAST`, `SetAST`, `AnonyFuncAST` | Implementation debt | Add real sema and IR only when the language semantics are accepted; otherwise keep typed rejection. |
 | `TypeConvertAST` | Accepted compiler-owned scalar promotion | Keep the value-carrying `SGCast` path limited to internally selected scalar promotions until source-level cast syntax is accepted. |
 | `RangeAST` | Accepted collection syntax | Validate integer `start`, `end`, and optional `step`; materialize `list[i64]` for expression/value use and keep iterator lowering on the dedicated range loop path. |
