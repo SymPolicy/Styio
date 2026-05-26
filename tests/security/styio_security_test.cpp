@@ -1627,6 +1627,28 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueStdinPullFallbackE
   EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueTypedStdinPullFallbackExpressions) {
+  const std::string src =
+    "rate: f64 = ?| (<- @stdin) | 1.5\n"
+    "text: string = ?| (<- @stdin) | \"fallback\"\n"
+    "values: list[i64] = ?| (<- @stdin) | [1,2]\n"
+    ">_(rate)\n"
+    ">_(text)\n"
+    ">_(values)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("value: required"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_cstr_to_f64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_strcat_ab"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_i64_read_stdin"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, RejectsResourceEffectDiscardExpression) {
   const std::string src =
     "result = ?| (<< @file(\"/tmp/styio-resource-effect-value-missing\")) | ...\n"
@@ -1672,6 +1694,22 @@ TEST(StyioSecurityNightlySemantics, RejectsResourceEffectValueFallbackTypeMismat
     const std::string msg = err.what();
     EXPECT_NE(msg.find("resource-effect fallback expects i64, got string"), std::string::npos)
       << msg;
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsUnsupportedTypedStdinResourceEffectValue) {
+  const std::string src =
+    "flag: bool = ?| (<- @stdin) | 1\n"
+    ">_(flag)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected unsupported typed stdin resource-effect value to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    EXPECT_NE(
+      std::string(err.what()).find("typed stdin pull supports i64, f64, string, or list[T] targets"),
+      std::string::npos);
   }
 }
 

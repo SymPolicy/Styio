@@ -4947,6 +4947,10 @@ public:
   const StyioDataType getDataType() const {
     return result_type_;
   }
+
+  void setResultType(StyioDataType type) {
+    result_type_ = std::move(type);
+  }
 };
 
 class TaskBlockAST : public StyioASTTraits<TaskBlockAST>
