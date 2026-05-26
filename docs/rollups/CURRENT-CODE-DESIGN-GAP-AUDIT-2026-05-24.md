@@ -267,6 +267,13 @@ from first-party fallback behavior.
 3. `compile_plan` producer/consumer contract
 4. machine-readable compiler capabilities
 
+Compiler-side nano negative paths now have explicit evidence for the current
+handoff surface: malformed static repository entry schemas, malformed cloud
+package manifests, create/publish mutual exclusion, missing nano mode selection,
+create-only/publish-only option mixups, invalid markers, blob SHA256 mismatches,
+blob size mismatches, and HTTP(S) publish-root rejection are covered in
+`tests/styio_test.cpp` without adding package-manager lifecycle commands.
+
 `styio` does not own full package lifecycle UX:
 
 1. `install`
@@ -316,6 +323,12 @@ These should not be counted as missing implementation in this checkout:
    `RangeLiteralRejectsNonIntegerExpressionBounds`, and
    `DynamicRangeLiteralLowersToRuntimeListLoop` prove parser/Sema/lowering/
    codegen/runtime-list behavior and the adjacent float-bound rejection.
+6. Nano static repository and package-manifest edge validation is no longer just
+   code-only for the current compiler-side handoff surface. The
+   `StyioNanoPackage.*` negative-path tests prove malformed entry schemas,
+   malformed manifests, blob integrity failures, remote publish rejection, and
+   create/publish CLI guard behavior while leaving package lifecycle UX outside
+   this repository.
 
 ## Recommended Closure Order
 
