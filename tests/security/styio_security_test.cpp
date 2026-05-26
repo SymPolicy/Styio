@@ -1611,6 +1611,22 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueFallbackExpression
   EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueStdinPullFallbackExpression) {
+  const std::string src =
+    "result = ?| (<- @stdin) | 7\n"
+    ">_(result)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("value: required"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_cstr_to_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, RejectsResourceEffectDiscardExpression) {
   const std::string src =
     "result = ?| (<< @file(\"/tmp/styio-resource-effect-value-missing\")) | ...\n"

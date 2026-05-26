@@ -5741,6 +5741,102 @@ TEST(StyioResourceEffects, ValueNoFallbackStopsFileInstantPull) {
   fs::remove(input);
 }
 
+TEST(StyioResourceEffects, ValueFallbackRecoversStdinInstantPullParseFailure) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-stdin-value-fallback-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "success = ?| (<- @stdin) | 7\n";
+    out << ">_(success)\n";
+    out << "recovered = ?| (<- @stdin) | 7\n";
+    out << ">_(recovered)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("printf '42\\nbad\\n' | \"") + runner + "\" --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "42\n7\nafter\n");
+
+  fs::remove(input);
+}
+
+TEST(StyioResourceEffects, ValueNamedHandlerRecoversStdinInstantPullParseFailure) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-stdin-value-handler-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "handled = ?| (<- @stdin) | io => 8 | parse => 9 | 7\n";
+    out << ">_(handled)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("printf 'bad\\n' | \"") + runner + "\" --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "9\nafter\n");
+
+  fs::remove(input);
+}
+
+TEST(StyioResourceEffects, ValueNoFallbackStopsStdinInstantPullParseFailure) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-stdin-value-no-fallback-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "result = ?| (<- @stdin)\n";
+    out << ">_(result)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("printf 'bad\\n' | \"") + runner + "\" --error-format=jsonl --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 5) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_RUNTIME_NUMERIC_PARSE\""), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("after"), std::string::npos);
+
+  fs::remove(input);
+}
+
 TEST(StyioResourceEffects, TaskAwaitFallbackRunsAfterFailedTaskPull) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
