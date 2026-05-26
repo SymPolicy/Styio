@@ -105,14 +105,21 @@ Current implementation reality:
    rule when no catch-all fallback is present, handler chains continue to a final
    catch-all fallback when no named handler matches, and
    `?| resource_operation` without fallback stops before the next statement.
-5. There is still no complete typed value-producing resource-effect model for
-   arbitrary resource operations, no cleanup-failure runtime family, no resource
-   family that emits a non-failure `ResourceBackpressure` pressure event, and no
-   pressure-observer implementation.
+5. File-close cleanup failure now has a real runtime subcode family:
+   `fclose` failure is reported as `STYIO_RUNTIME_FILE_CLEANUP_FAILURE`,
+   `styio_runtime_error_matches_effect("cleanup")` matches it, source-level
+   `?| "x" -> @file("/dev/full") | cleanup => handler` recovers through the
+   named cleanup handler, and adjacent `io => handler` does not catch it.
+6. There is still no complete typed value-producing resource-effect model for
+   arbitrary resource operations, no cleanup-failure coverage for implicit
+   scope-exit drop or reassignment cleanup, no cleanup families beyond file
+   close, no resource family that emits a non-failure `ResourceBackpressure`
+   pressure event, and no pressure-observer implementation.
 
 Impact: statement-shaped fallback, audited discard, and named handler chains now
 have a real parser/Sema/IR/codegen/runtime path for current runtime error
-subcode families such as `io`. Cleanup failure, non-failure backpressure
+subcode families such as `io`, plus the first file-close cleanup-failure family.
+Implicit cleanup, broader resource-family cleanup, non-failure backpressure
 observation/escalation, pressure observers, and the full typed value-producing
 resource-effect model remain design-fixed but unfinished.
 
@@ -329,15 +336,22 @@ These should not be counted as missing implementation in this checkout:
    malformed manifests, blob integrity failures, remote publish rejection, and
    create/publish CLI guard behavior while leaving package lifecycle UX outside
    this repository.
+7. File-close cleanup failure is no longer a missing runtime-effect family for
+   the explicit file-write resource operation. `StyioResourceEffects` covers
+   matched cleanup recovery and adjacent `io` non-match behavior, while
+   `StyioSafetyRuntime.FileCloseFailureIsCleanupRuntimeEffect` covers the direct
+   runtime subcode/effect-family mapping.
 
 ## Recommended Closure Order
 
 1. Complete the remaining `?| resource_operation` forms in resource-effect
    checkpoints. Statement-only discard, catch-all fallback, and the first
-   statement-shaped named-handler chain slice are implemented; the next slices
-   must cover cleanup-failure, resource families that emit typed pressure or
-   cleanup effects, full value-producing recovery, and task_await compatibility
-   behavior with parser, sema, lowering, runtime, and negative tests.
+   statement-shaped named-handler chain slice are implemented, and explicit
+   file-write close cleanup failure now reaches the `cleanup` handler family.
+   The next slices must cover implicit cleanup, reassignment cleanup, additional
+   resource families that emit typed pressure or cleanup effects, full
+   value-producing recovery, and task_await compatibility behavior with parser,
+   sema, lowering, runtime, and negative tests.
 2. Continue Topology v2 selector value semantics before adding new resource
    features: bounded `i64`, `f64`, `bool`, `char`, and `string` selector storage is
    closed, while bounded selector `snapshot << @x[...]` / `snapshot << @x[-n..]`
