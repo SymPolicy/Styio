@@ -1581,6 +1581,23 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectFallbackStatement) {
   EXPECT_EQ(repr.find("styio.ast.FlowBind"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectHandleAcquireStatement) {
+  const std::string src =
+    "?| f <- @file(\"/tmp/styio-resource-effect-acquire-missing\")"
+    " | io => \"io\" -> @stderr\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("styio.ast.handle.acquire"), std::string::npos);
+  EXPECT_EQ(repr.find("styio.ast.FlowBind"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_file_open"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectNamedHandlerStatement) {
   const std::string src =
     "?| \"x\" -> @stdout | io => \"fallback\" -> @stderr\n";
@@ -1798,6 +1815,22 @@ TEST(StyioSecurityNightlySemantics, RejectsStatementShapedResourceEffectExpressi
   catch (const StyioTypeError& err) {
     EXPECT_NE(
       std::string(err.what()).find("resource-effect expression requires a value-producing resource operation"),
+      std::string::npos);
+  }
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsHandleAcquireResourceEffectExpression) {
+  const std::string src =
+    "result = ?| f <- @file(\"/tmp/styio-resource-effect-acquire-missing\") | 7\n"
+    ">_(result)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected statement-shaped resource acquire expression to fail closed";
+  }
+  catch (const StyioSyntaxError& err) {
+    EXPECT_NE(
+      std::string(err.what()).find("unsupported expression continuation in nightly parser subset"),
       std::string::npos);
   }
 }

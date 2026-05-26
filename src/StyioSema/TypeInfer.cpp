@@ -1102,6 +1102,10 @@ resource_effect_index_operation_supported_latest(StyioSemaContext* an, ListOpAST
 
 bool
 resource_effect_operation_supported_latest(StyioSemaContext* an, StyioAST* ast) {
+  if (auto* acquire = dynamic_cast<HandleAcquireAST*>(ast)) {
+    (void)an;
+    return dynamic_cast<FileResourceAST*>(acquire->getResource()) != nullptr;
+  }
   if (dynamic_cast<ResourceWriteAST*>(ast) != nullptr
       || dynamic_cast<ResourceRedirectAST*>(ast) != nullptr
       || dynamic_cast<InstantPullAST*>(ast) != nullptr
