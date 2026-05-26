@@ -114,7 +114,13 @@ Current implementation reality:
    `styio_runtime_error_matches_effect("cleanup")` matches it, source-level
    `?| "x" -> @file("/dev/full") | cleanup => handler` recovers through the
    named cleanup handler, and adjacent `io => handler` does not catch it.
-6. There is still no complete typed value-producing resource-effect model for
+6. Plain file resource-operation statements outside a `?|` wrapper now settle at
+   the statement boundary instead of carrying a runtime error into later
+   statements. `f <- @file(missing)` and `"x" >> @file(missing-dir/out)` emit
+   the JSONL runtime diagnostic and stop before a following `>_("after")`,
+   while the same operation-local guard is suppressed inside `SIOResourceEffect`
+   so catch-all fallback and named handlers still recover.
+7. There is still no complete typed value-producing resource-effect model for
    arbitrary resource operations, no cleanup-failure coverage for implicit
    scope-exit drop or reassignment cleanup, no cleanup families beyond file
    close, no resource family that emits a non-failure `ResourceBackpressure`
@@ -123,10 +129,12 @@ Current implementation reality:
 Impact: statement-shaped fallback, audited discard, and named handler chains now
 have a real parser/Sema/IR/codegen/runtime path for current runtime error
 subcode families such as `io`, plus the first file-close cleanup-failure family.
-Task await fallback settlement for failed task pulls is now covered. Implicit
-cleanup, broader resource-family cleanup, non-failure backpressure observation/
-escalation, pressure observers, and the full typed value-producing
-resource-effect model remain design-fixed but unfinished.
+Task await fallback settlement for failed task pulls is now covered, and plain
+file acquire/write failures now fail fast before subsequent statements when no
+`?|` recovery wrapper is present. Implicit cleanup, broader resource-family
+cleanup, non-failure backpressure observation/escalation, pressure observers,
+and the full typed value-producing resource-effect model remain design-fixed
+but unfinished.
 
 ### P0. Topology v2 resource selectors parse, but slice/snapshot value semantics are not closed
 
@@ -357,13 +365,18 @@ These should not be counted as missing implementation in this checkout:
    matched cleanup recovery and adjacent `io` non-match behavior, while
    `StyioSafetyRuntime.FileCloseFailureIsCleanupRuntimeEffect` covers the direct
    runtime subcode/effect-family mapping.
-8. Tuple function return annotations are no longer a silent `i64` fallback.
+8. Plain file acquire/write failures no longer leak past their ordinary
+   statement boundary. `StyioDiagnostics.RuntimeFileAcquireFailureStopsBeforeNextStatement`
+   and `StyioDiagnostics.RuntimeFileWriteFailureStopsBeforeNextStatement` prove
+   JSONL runtime diagnostics are emitted and a following `after` print is not
+   executed outside a `?|` recovery wrapper.
+9. Tuple function return annotations are no longer a silent `i64` fallback.
    `StyioDiagnostics.TupleFunctionReturnAnnotationFailsClosed` proves the CLI
    JSONL `STYIO_TYPE_ERROR` path, `ScalarAndInferredFunctionReturnsStayExecutable`
    keeps adjacent scalar/inferred returns executable, and
    `StyioSecurityNightlyParserStmt.RejectsTupleFunctionReturnAnnotationBeforeLoweringFallback`
    covers the Sema/lowering fail-closed path.
-9. Task await fallback settlement is no longer missing from the resource-effect
+10. Task await fallback settlement is no longer missing from the resource-effect
    compatibility path. `StyioResourceEffects` proves failed task pulls run
    fallback after clearing the materialized task error and fail fast without
    fallback, `StyioSecurityNightlyParserStmt` keeps bare continuation freeze
@@ -377,9 +390,10 @@ These should not be counted as missing implementation in this checkout:
    statement-shaped named-handler chain slice are implemented, and explicit
    file-write close cleanup failure now reaches the `cleanup` handler family.
    Task_await fallback settlement now has parser, Sema, lowering, runtime, and
-   negative evidence. The next slices must cover implicit cleanup, reassignment
-   cleanup, additional resource families that emit typed pressure or cleanup
-   effects, and full value-producing recovery.
+   negative evidence. Plain file acquire/write failures now settle at ordinary
+   statement boundaries outside `?|`. The next slices must cover implicit
+   cleanup, reassignment cleanup, additional resource families that emit typed
+   pressure or cleanup effects, and full value-producing recovery.
 2. Continue Topology v2 selector value semantics before adding new resource
    features: bounded `i64`, `f64`, `bool`, `char`, and `string` selector storage is
    closed, while bounded selector `snapshot << @x[...]` / `snapshot << @x[-n..]`
