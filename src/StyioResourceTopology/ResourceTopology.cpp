@@ -747,6 +747,36 @@ private:
       return handle;
     }
 
+    if (auto* effect = dynamic_cast<ResourceEffectAST*>(ast)) {
+      const StyioDataType effect_type = type_hint(effect);
+      const bool value_like = !effect_type.isUndefined();
+      const std::size_t node = add_ast_node(
+        ast,
+        value_like ? NodeKind::Value : NodeKind::StreamOp,
+        value_like ? "value:resource_effect" : "resource:effect",
+        capabilities_from_type(effect_type),
+        state_from_type(effect_type),
+        ctx);
+      const std::size_t op = visit(effect->getOperation(), Context{node, ctx.in_state_decl});
+      if (op != kNoNode) {
+        result_.graph.add_edge(EdgeKind::Flow, op, node, "resource-effect-operation");
+        result_.graph.add_edge(EdgeKind::Failure, op, node, "resource-effect-settlement");
+      }
+      for (const auto& handler : effect->getHandlers()) {
+        const std::size_t body = visit(handler.body, Context{node, ctx.in_state_decl});
+        if (body != kNoNode) {
+          result_.graph.add_edge(EdgeKind::Flow, node, body, "resource-effect-handler");
+        }
+      }
+      if (effect->hasFallback()) {
+        const std::size_t fallback = visit(effect->getFallback(), Context{node, ctx.in_state_decl});
+        if (fallback != kNoNode) {
+          result_.graph.add_edge(EdgeKind::Flow, node, fallback, "resource-effect-fallback");
+        }
+      }
+      return node;
+    }
+
     if (auto* wr = dynamic_cast<ResourceWriteAST*>(ast)) {
       if (auto* target_name = dynamic_cast<NameAST*>(wr->getData())) {
         if (auto* stream = dynamic_cast<StdStreamAST*>(wr->getResource())) {

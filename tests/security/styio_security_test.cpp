@@ -1598,6 +1598,24 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectHandleAcquireStatement)
   EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ResourceEffectHandleAcquireFeedsLaterIterator) {
+  const std::string src =
+    "?| f <- @file(\"tests/features/file_resources/data/hello.txt\")"
+    " | \"fallback\" -> @stderr\n"
+    "f >> #(line) => {\n"
+    "  >_(line)\n"
+    "}\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_file_open"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_file_rewind"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_file_read_line"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectNamedHandlerStatement) {
   const std::string src =
     "?| \"x\" -> @stdout | io => \"fallback\" -> @stderr\n";
