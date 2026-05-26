@@ -46,11 +46,15 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   route for file resources: `?| f <- @file(missing) | fallback` and matched
   `io` handlers recover open-read failures, a successful open skips fallback,
   and no-fallback settlement raises `STYIO_RUNTIME_FILE_OPEN_READ` before the
-  next statement. Non-resource member calls such as `text.lines()` remain
-  rejected under `?|`, and statement-shaped acquire stays rejected where a
-  value-producing `?|` expression is required. Using the acquired handle as a
-  later topology resource after the wrapper still needs a separate implementation
-  checkpoint.
+  next statement. The successful acquire path now participates in resource
+  topology binding, so a following `f >> #(line) => { ... }` iterator can use
+  the handle; if fallback recovered the open failure and later code tries to
+  iterate the zeroed slot, the iterator reports
+  `STYIO_RUNTIME_INVALID_FILE_HANDLE`. Non-resource member calls such as
+  `text.lines()` remain rejected under `?|`, and statement-shaped acquire stays
+  rejected where a value-producing `?|` expression is required. Broader
+  post-acquire resource operations beyond the covered file iterator path still
+  need separate implementation checkpoints.
 - The first value-producing non-task resource-effect expression slices are
   executable for file/stdin instant pulls and materialized container bounds
   reads, including materialized list slices.
@@ -282,9 +286,9 @@ explicit-target stdin `f64`, `string`, typed-list values, and list/dict/matrix
 `bounds` recovery. Source-level fallback recovery for implicit cleanup,
 cleanup-failure settlement for reassignments that can fail, release/commit hooks, non-file resource-family
 cleanup effects, using a handle acquired inside statement `?|` as a later
-topology resource, dict/matrix slice-shaped bounds recovery, and arbitrary
-value-producing resource operations still require separate implementation and
-tests.
+resource operation beyond the covered file iterator path, dict/matrix
+slice-shaped bounds recovery, and arbitrary value-producing resource operations
+still require separate implementation and tests.
 
 ### Fallible Operations
 
@@ -343,7 +347,9 @@ recovers `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, and
 handlers; matrix row recovery uses the same matrix bounds family, and list slice
 recovery uses `SCListSlice` / `styio_list_slice` with the list bounds family.
 Statement-shaped writes, file acquire, and file close methods have the first
-statement settlement paths; broader resource families, cleanup/drop hooks,
+statement settlement paths; file acquire also covers successful acquire followed
+by file iteration and fail-closed iteration after a recovered failed acquire.
+Broader resource families, cleanup/drop hooks,
 pressure observations, value-producing resource methods, dict/matrix slice-shaped
 bounds recovery, and other non-instant-pull value-returning resource operations
 must remain separately implemented and tested before the full typed

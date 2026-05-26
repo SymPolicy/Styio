@@ -111,8 +111,11 @@ Current implementation reality:
    `?| resource_operation` without fallback stops before the next statement.
    The accepted statement-shaped acquire slice covers
    `?| f <- @file(missing) | fallback` and matched `io` handlers for file-open
-   read failures; using a newly acquired handle as a later resource after the
-   wrapper still needs a separate resource-topology binding checkpoint.
+   read failures, and the successful acquire path now records the file handle in
+   resource topology so a following `f >> #(line) => { ... }` iterator can use
+   it. If the acquire failure is recovered and the zeroed handle is later used,
+   the file iterator reports `STYIO_RUNTIME_INVALID_FILE_HANDLE` instead of
+   treating the handle as a valid stream.
 5. File-close cleanup failure now has a real runtime subcode family:
    `fclose` failure is reported as `STYIO_RUNTIME_FILE_CLEANUP_FAILURE`,
    `styio_runtime_error_matches_effect("cleanup")` matches it, source-level
@@ -210,9 +213,9 @@ success/fallback/handler value paths, including explicit-target stdin `f64`,
 `STYIO_RUNTIME_MATRIX_INDEX` under `?|`.
 Implicit cleanup fallback recovery, broader reassignment cleanup,
 broader resource-family cleanup, non-failure backpressure
-observation/escalation, pressure observers, using a handle acquired inside a
-statement `?|` wrapper as a later topology resource, and arbitrary
-value-producing resource-effect recovery remain design-fixed but unfinished.
+observation/escalation, pressure observers, broader post-acquire resource
+operations beyond the covered file iterator path, and arbitrary value-producing
+resource-effect recovery remain design-fixed but unfinished.
 
 ### P0. Topology v2 resource selectors parse, but slice/snapshot value semantics are not closed
 
@@ -505,10 +508,13 @@ These should not be counted as missing implementation in this checkout:
    fails fast without fallback before a following statement. The same suite now
    proves `?| f <- @file(missing) | fallback` recovers open-read failures
    through catch-all fallback or a matched `io` handler, skips fallback on a
-   successful open, and fails fast without fallback before a following
-   statement.
+   successful open, keeps the acquired file handle usable for a following
+   iterator, fails fast without fallback before a following statement, and
+   fails closed with `STYIO_RUNTIME_INVALID_FILE_HANDLE` when fallback recovers
+   the open failure but later code tries to iterate the zeroed handle.
    `StyioSecurityNightlyParserStmt.ParsesResourceEffectResourceMethodStatement`
-   and `ParsesResourceEffectHandleAcquireStatement` prove parser/lowering/codegen
+   and `ParsesResourceEffectHandleAcquireStatement` /
+   `ResourceEffectHandleAcquireFeedsLaterIterator` prove parser/lowering/codegen
    routing, while
    `StyioSecurityNightlySemantics.RejectsNonResourceMethodResourceEffectStatement`
    keeps ordinary member calls fail-closed under `?|` and
@@ -552,11 +558,13 @@ These should not be counted as missing implementation in this checkout:
    `string`, typed-list values, list slices, and list/dict/matrix `bounds` recovery. Resource
    method calls now enter statement `?|` settlement for direct file close
    success, fallback/`io` recovery, and no-fallback failure; statement-shaped
-   file acquire now covers fallback/`io` recovery and no-fallback failure for
-   file-open read errors. Explicit returns now close tracked file handles before
-   leaving the function. The next slices must cover fallback recovery for
-   implicit cleanup, reassignment cleanup, using an acquire inside `?|` as a
-   later topology resource, dict/matrix slice-shaped
+   file acquire now covers fallback/`io` recovery, successful acquire followed by
+   file iteration, no-fallback failure for file-open read errors, and fail-closed
+   later iteration after a recovered failed acquire. Explicit returns now close
+   tracked file handles before leaving the function. The next slices must cover
+   fallback recovery for implicit cleanup, reassignment cleanup, broader
+   post-acquire resource operations beyond the covered file iterator path,
+   dict/matrix slice-shaped
    bounds recovery, additional resource families that emit typed pressure or cleanup
    effects, and arbitrary value-producing recovery beyond the covered paths.
 2. Continue Topology v2 selector value semantics before adding new resource
