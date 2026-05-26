@@ -156,19 +156,21 @@ Current implementation reality:
    line, and `result: list[i64] = ?| (<- @stdin) | fallback` materializes or
    recovers typed list values while list parse failures report
    `STYIO_RUNTIME_LIST_PARSE` without fallback. `result = ?| xs[i] | fallback`,
-   `result = ?| d[key] | fallback`, `result = ?| m[row][col] | fallback`, and
-   `row = ?| m[row] | fallback` now also return successful materialized
-   container values, recover `STYIO_RUNTIME_LIST_INDEX`,
+   `result = ?| d[key] | fallback`, `result = ?| m[row][col] | fallback`,
+   `row = ?| m[row] | fallback`, and `slice = ?| xs[0..] | fallback` now also
+   return successful materialized container values, recover `STYIO_RUNTIME_LIST_INDEX`,
    `STYIO_RUNTIME_DICT_KEY`, or `STYIO_RUNTIME_MATRIX_INDEX` through catch-all
    fallback or a matched `bounds => handler`, and fail fast without a fallback.
-   Plain `xs[i]`, `d[key]`, and `m[row][col]` expressions outside `?|` now guard
-   the same runtime bounds failures before a following statement. Parser/Sema
-   keep `?| op | ...` statement-only, reject statement-shaped write operations
-   where a value is required, and keep slice-shaped resource-effect values
-   fail-closed until that bounds slice lands.
+   Plain `xs[i]`, `xs[0..]`, `d[key]`, and `m[row][col]` expressions outside
+   `?|` now guard the same runtime bounds failures before a following statement.
+   Parser/Sema keep `?| op | ...` statement-only, reject statement-shaped write
+   operations where a value is required, reject fallback type mismatches, and
+   keep dict/matrix slice-shaped resource-effect values fail-closed until those
+   operation families have their own checkpoints.
 11. There is still no complete typed value-producing resource-effect model for
    arbitrary resource operations beyond the covered file/stdin instant pulls and
-   materialized container index/row reads, no cleanup-failure coverage for implicit
+   materialized container index/row reads and materialized list slices, no
+   cleanup-failure coverage for implicit
    scope-exit drop or broader reassignment cleanup, no cleanup families beyond
    file close, no resource family that emits a non-failure
    `ResourceBackpressure` pressure event, and no pressure-observer
@@ -184,8 +186,8 @@ failure, and same-path aliases now report closed-handle use instead of normal
 EOF after another alias closes the shared slot. Resource method calls such as
 direct file close now enter the statement `?|` recovery path, including
 catch-all fallback, matched `io` handlers, no-fallback fail-fast settlement, and
-non-resource member-call rejection. File/stdin instant-pull and materialized
-container-index resource-effect expressions now cover the first typed
+non-resource member-call rejection. File/stdin instant-pull, materialized
+container-index, and materialized list-slice resource-effect expressions now cover the first typed
 success/fallback/handler value paths, including explicit-target stdin `f64`,
 `string`, typed-list pulls, and `bounds` recovery for
 `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, and
@@ -480,19 +482,21 @@ These should not be counted as missing implementation in this checkout:
    proves parser/lowering/codegen routing, while
    `StyioSecurityNightlySemantics.RejectsNonResourceMethodResourceEffectStatement`
    keeps ordinary member calls fail-closed under `?|`.
-13. Materialized container index value-producing resource effects are no longer
+13. Materialized container index and list-slice value-producing resource effects are no longer
    excluded from the first non-instant-pull `?|` value path.
    `StyioResourceEffects` proves `result = ?| xs[i] | fallback`,
    `result = ?| d[key] | fallback`, `result = ?| m[row][col] | fallback`, and
-   `row = ?| m[row] | fallback` return successful container values, recover
+   `row = ?| m[row] | fallback` return successful container values, and
+   `slice = ?| xs[0..] | fallback` returns a successful materialized list slice.
+   The same group proves container reads and list slices recover
    `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, or
    `STYIO_RUNTIME_MATRIX_INDEX` through catch-all fallback or a matched
    `bounds` handler, and fail fast without a fallback before the following
-   statement. `StyioDiagnostics` proves plain `xs[i]`, `d[key]`, and
-   `m[row][col]` outside `?|` now emit JSONL bounds diagnostics and stop before
-   the following statement, while `StyioSecurityNightlyParserStmt` /
+   statement. `StyioDiagnostics` proves plain `xs[i]`, `xs[0..]`, `d[key]`,
+   and `m[row][col]` outside `?|` now emit JSONL bounds diagnostics and stop
+   before the following statement, while `StyioSecurityNightlyParserStmt` /
    `StyioSecurityNightlySemantics` prove parser/codegen routing, fallback type
-   checking, and the adjacent slice-shaped resource-effect value boundary.
+   checking, and the adjacent dict-slice resource-effect boundary.
 14. Match case semantics no longer bypass Sema before lowering. `MatchCasesAST`
    stores the inferred scalar/string result family, function-body inference runs
    with a recursion guard so function match sugar is checked when called, and
@@ -511,13 +515,13 @@ These should not be counted as missing implementation in this checkout:
    negative evidence. Plain file acquire/write, direct file iterator open, and
    same-path alias closed-handle failures now settle at ordinary statement
    boundaries outside `?|`, and file/stdin instant-pull plus materialized
-   container-index resource-effect expressions now return typed
+   container-index/list-slice resource-effect expressions now return typed
    success/fallback/handler values, including explicit-target stdin `f64`,
-   `string`, typed-list values, and list/dict/matrix `bounds` recovery. Resource
+   `string`, typed-list values, list slices, and list/dict/matrix `bounds` recovery. Resource
    method calls now enter statement `?|` settlement for direct file close
    success, fallback/`io` recovery, and no-fallback failure. The next slices
-   must cover implicit cleanup, reassignment cleanup, slice-shaped bounds
-   recovery, additional resource families that emit typed pressure or cleanup
+   must cover implicit cleanup, reassignment cleanup, dict/matrix slice-shaped
+   bounds recovery, additional resource families that emit typed pressure or cleanup
    effects, and arbitrary value-producing recovery beyond the covered paths.
 2. Continue Topology v2 selector value semantics before adding new resource
    features: bounded `i64`, `f64`, `bool`, `char`, and `string` selector storage is
