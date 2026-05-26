@@ -485,6 +485,7 @@ private:
   std::unordered_set<llvm::Value*> owned_cstr_temps_;
   std::unordered_map<llvm::Value*, TempResourceKind> owned_resource_temps_;
   std::uint64_t task_function_counter_ = 0;
+  int resource_effect_operation_depth_ = 0;
 
   void emit_snapshot_shadow_reload();
 

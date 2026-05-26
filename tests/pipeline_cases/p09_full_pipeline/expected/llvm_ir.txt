@@ -14,7 +14,7 @@ main_entry:
   store i64 %0, ptr %file_iter_h, align 8
   br label %fline_hdr
 
-fline_hdr:                                        ; preds = %runtime_ok, %main_entry
+fline_hdr:                                        ; preds = %runtime_ok2, %main_entry
   %1 = load i64, ptr %file_iter_h, align 8
   %2 = call ptr @styio_file_read_line(i64 %1)
   %3 = icmp eq ptr %2, null
@@ -50,6 +50,14 @@ runtime_ok:                                       ; preds = %fline_body
   call void @styio_file_write_cstr(i64 %13, ptr %16)
   call void @styio_free_cstr(ptr %16)
   call void @styio_file_close(i64 %13)
+  %17 = call i32 @styio_runtime_has_error()
+  %18 = icmp ne i32 %17, 0
+  br i1 %18, label %runtime_fail1, label %runtime_ok2
+
+runtime_fail1:                                    ; preds = %runtime_ok
+  ret i32 0
+
+runtime_ok2:                                      ; preds = %runtime_ok
   br label %fline_hdr
 }
 
@@ -61,11 +69,11 @@ declare i64 @styio_cstr_to_i64(ptr)
 
 declare i32 @styio_runtime_has_error()
 
+declare void @styio_file_close(i64)
+
 declare i64 @styio_file_open_write(ptr)
 
 declare void @styio_file_write_cstr(i64, ptr)
-
-declare void @styio_file_close(i64)
 
 declare ptr @styio_i64_dec_cstr(i64)
 
