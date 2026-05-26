@@ -50,20 +50,6 @@ json_require_string(
 }
 
 bool
-json_optional_string(
-  const llvm::json::Object& obj,
-  const char* key,
-  std::string& out_value
-) {
-  const auto raw = obj.getString(key);
-  if (!raw.has_value() || raw->empty()) {
-    return false;
-  }
-  out_value = std::string(*raw);
-  return true;
-}
-
-bool
 json_require_integer(
   const llvm::json::Object& obj,
   const char* key,
@@ -96,6 +82,28 @@ json_require_bool(
 }
 
 bool
+json_optional_nonempty_string(
+  const llvm::json::Object& obj,
+  const char* key,
+  const char* field_path,
+  std::string& out_value,
+  std::string& error_message
+) {
+  if (obj.get(key) == nullptr) {
+    return true;
+  }
+
+  const auto raw = obj.getString(key);
+  if (!raw.has_value() || raw->empty()) {
+    error_message =
+      std::string("compile-plan optional string field must be a non-empty string: ") + field_path;
+    return false;
+  }
+  out_value = std::string(*raw);
+  return true;
+}
+
+bool
 json_require_object(
   const llvm::json::Object& obj,
   const char* key,
@@ -120,6 +128,40 @@ json_require_array(
   out_value = obj.getArray(key);
   if (out_value == nullptr) {
     error_message = std::string("compile-plan is missing required array field: ") + key;
+    return false;
+  }
+  return true;
+}
+
+bool
+compile_plan_validate_packages(
+  const llvm::json::Array& packages,
+  const std::string& entry_package_id,
+  std::string& error_message
+) {
+  bool saw_entry_package = false;
+  for (size_t i = 0; i < packages.size(); ++i) {
+    const llvm::json::Object* package = packages[i].getAsObject();
+    if (package == nullptr) {
+      error_message =
+        "compile-plan packages[" + std::to_string(i) + "] must be an object";
+      return false;
+    }
+
+    const auto package_id = package->getString("id");
+    if (!package_id.has_value() || package_id->empty()) {
+      error_message =
+        "compile-plan is missing required string field: packages[" + std::to_string(i) + "].id";
+      return false;
+    }
+    if (*package_id == entry_package_id) {
+      saw_entry_package = true;
+    }
+  }
+
+  if (!saw_entry_package) {
+    error_message =
+      "compile-plan entry.package_id is not present in packages: " + entry_package_id;
     return false;
   }
   return true;
@@ -265,7 +307,14 @@ parse_compile_plan(
   }
 
   out_request.build_mode = std::string(default_build_mode_name());
-  json_optional_string(*profile, "build_mode", out_request.build_mode);
+  if (!json_optional_nonempty_string(
+        *profile,
+        "build_mode",
+        "profile.build_mode",
+        out_request.build_mode,
+        error_message)) {
+    return false;
+  }
   if (!is_supported_build_mode(out_request.build_mode)) {
     error_message = "unsupported compile-plan profile.build_mode: " + out_request.build_mode;
     return false;
@@ -293,6 +342,9 @@ parse_compile_plan(
         || out_request.entry_target_kind == "bin"
         || out_request.entry_target_kind == "test")) {
     error_message = "unsupported compile-plan entry.target_kind: " + out_request.entry_target_kind;
+    return false;
+  }
+  if (!compile_plan_validate_packages(*packages, out_request.entry_package_id, error_message)) {
     return false;
   }
 
