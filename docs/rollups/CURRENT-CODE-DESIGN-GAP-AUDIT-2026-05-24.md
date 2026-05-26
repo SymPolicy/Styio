@@ -140,7 +140,8 @@ Current implementation reality:
    `text.lines()` under `?|` so ordinary method calls do not become implicit
    resource effects.
 10. The first value-producing non-task resource-effect slices are executable for
-   file and stdin instant pulls: `result = ?| (<< @file("data.txt")) | fallback`
+   file and stdin instant pulls plus materialized list index reads:
+   `result = ?| (<< @file("data.txt")) | fallback`
    returns the successful `i64` file line value on success, clears a materialized
    file-open read failure before evaluating the fallback on failure, supports
    named handler value branches such as `io => 9`, and fails fast without a
@@ -154,11 +155,17 @@ Current implementation reality:
    values, `result: string = ?| (<- @stdin) | fallback` returns a cloned stdin
    line, and `result: list[i64] = ?| (<- @stdin) | fallback` materializes or
    recovers typed list values while list parse failures report
-   `STYIO_RUNTIME_LIST_PARSE` without fallback. Parser/Sema keep `?| op | ...`
-   statement-only and reject statement-shaped write operations where a value is
-   required.
+   `STYIO_RUNTIME_LIST_PARSE` without fallback. `result = ?| xs[i] | fallback`
+   now also returns the successful materialized list item, recovers
+   `STYIO_RUNTIME_LIST_INDEX` through catch-all fallback or a matched
+   `bounds => handler`, and fails fast without a fallback. Plain `xs[i]`
+   expressions outside `?|` now guard the same runtime bounds failure before a
+   following statement. Parser/Sema keep `?| op | ...` statement-only, reject
+   statement-shaped write operations where a value is required, and keep
+   dict-index resource-effect values fail-closed until that bounds slice lands.
 11. There is still no complete typed value-producing resource-effect model for
-   arbitrary resource operations, no cleanup-failure coverage for implicit
+   arbitrary resource operations beyond the covered file/stdin instant pulls and
+   materialized list index reads, no cleanup-failure coverage for implicit
    scope-exit drop or broader reassignment cleanup, no cleanup families beyond
    file close, no resource family that emits a non-failure
    `ResourceBackpressure` pressure event, and no pressure-observer
@@ -174,10 +181,11 @@ failure, and same-path aliases now report closed-handle use instead of normal
 EOF after another alias closes the shared slot. Resource method calls such as
 direct file close now enter the statement `?|` recovery path, including
 catch-all fallback, matched `io` handlers, no-fallback fail-fast settlement, and
-non-resource member-call rejection. File and stdin instant-pull resource-effect
-expressions now cover the first typed success/fallback/handler value paths,
-including explicit-target stdin `f64`, `string`, and typed-list pulls under
-`?|`.
+non-resource member-call rejection. File/stdin instant-pull and materialized
+list-index resource-effect expressions now cover the first typed
+success/fallback/handler value paths, including explicit-target stdin `f64`,
+`string`, typed-list pulls, and `bounds` recovery for `STYIO_RUNTIME_LIST_INDEX`
+under `?|`.
 Implicit cleanup, broader resource-family cleanup, non-failure backpressure
 observation/escalation, pressure observers, and arbitrary value-producing
 resource-effect recovery remain design-fixed but unfinished.
@@ -454,6 +462,16 @@ These should not be counted as missing implementation in this checkout:
    proves parser/lowering/codegen routing, while
    `StyioSecurityNightlySemantics.RejectsNonResourceMethodResourceEffectStatement`
    keeps ordinary member calls fail-closed under `?|`.
+13. Materialized list index value-producing resource effects are no longer
+   excluded from the first non-instant-pull `?|` value path.
+   `StyioResourceEffects` proves `result = ?| xs[i] | fallback` returns the
+   successful list item, recovers `STYIO_RUNTIME_LIST_INDEX` through catch-all
+   fallback or a matched `bounds` handler, and fails fast without a fallback
+   before the following statement. `StyioDiagnostics` proves plain `xs[i]`
+   outside `?|` now emits the JSONL list-index diagnostic and stops before the
+   following statement, while `StyioSecurityNightlyParserStmt` /
+   `StyioSecurityNightlySemantics` prove parser/codegen routing, fallback type
+   checking, and the adjacent dict-index resource-effect value boundary.
 
 ## Recommended Closure Order
 
@@ -464,14 +482,15 @@ These should not be counted as missing implementation in this checkout:
    Task_await fallback settlement now has parser, Sema, lowering, runtime, and
    negative evidence. Plain file acquire/write, direct file iterator open, and
    same-path alias closed-handle failures now settle at ordinary statement
-   boundaries outside `?|`, and file/stdin instant-pull resource-effect
-   expressions now return typed success/fallback/handler values, including
-   explicit-target stdin `f64`, `string`, and typed-list values. Resource method
-   calls now enter statement `?|` settlement for direct file close success,
-   fallback/`io` recovery, and no-fallback failure. The next slices must cover
-   implicit cleanup, reassignment cleanup, additional resource families that
-   emit typed pressure or cleanup effects, and arbitrary value-producing
-   recovery beyond the instant-pull paths.
+   boundaries outside `?|`, and file/stdin instant-pull plus materialized
+   list-index resource-effect expressions now return typed
+   success/fallback/handler values, including explicit-target stdin `f64`,
+   `string`, typed-list values, and list-index `bounds` recovery. Resource
+   method calls now enter statement `?|` settlement for direct file close
+   success, fallback/`io` recovery, and no-fallback failure. The next slices
+   must cover implicit cleanup, reassignment cleanup, dict/matrix/slice bounds
+   recovery, additional resource families that emit typed pressure or cleanup
+   effects, and arbitrary value-producing recovery beyond the covered paths.
 2. Continue Topology v2 selector value semantics before adding new resource
    features: bounded `i64`, `f64`, `bool`, `char`, and `string` selector storage is
    closed, while bounded selector `snapshot << @x[...]` / `snapshot << @x[-n..]`

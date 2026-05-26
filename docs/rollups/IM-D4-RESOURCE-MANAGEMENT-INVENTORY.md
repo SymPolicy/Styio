@@ -45,7 +45,8 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   statement. Non-resource member calls such as `text.lines()` remain rejected
   under `?|`.
 - The first value-producing non-task resource-effect expression slices are
-  executable for file and stdin instant pulls. `result = ?| (<< @file("data.txt")) | fallback`
+  executable for file/stdin instant pulls and materialized list index reads.
+  `result = ?| (<< @file("data.txt")) | fallback`
   returns the successful `i64` file line value on success, evaluates the fallback
   after clearing a materialized file-open read failure, and can recover through a
   matched named handler such as `io => 9`. `result = ?| (<- @stdin) | fallback`
@@ -56,9 +57,13 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   returns or recovers `f64` values, `result: string = ?| (<- @stdin) | fallback`
   returns cloned stdin lines, and `result: list[i64] = ?| (<- @stdin) | fallback`
   materializes typed stdin list values or recovers list-parse failures through
-  fallback. No-fallback value expressions still settle the runtime error at the
-  expression site. Expression discard remains rejected, and statement-shaped
-  write operations remain rejected where a value is required.
+  fallback. `result = ?| xs[i] | fallback` returns the successful materialized
+  list item, recovers `STYIO_RUNTIME_LIST_INDEX` through catch-all fallback or a
+  matched `bounds => handler`, and fails fast without fallback. Plain `xs[i]`
+  outside `?|` now has the same default runtime guard before the following
+  statement. Expression discard remains rejected, statement-shaped write
+  operations remain rejected where a value is required, and dict-index
+  resource-effect values stay fail-closed until that bounds slice lands.
 - Plain file resource operations outside a `?|` recovery wrapper now settle at
   the ordinary statement boundary for the covered file acquire/write/iterator
   paths: missing `@file` acquire, missing-directory file write, and direct
@@ -245,13 +250,15 @@ slice also releases a tracked file handle before `name = @file(...)` overwrites
 the owner, clears consumed-receiver state after a successful resource rebind, and
 reopens a same-path singleton slot that an explicit close left at zero. The file
 iterator closed-handle slice reports a structured `closed`-family diagnostic
-when a stale same-path alias uses that zeroed slot. The file and stdin
-instant-pull slices now cover the first value-producing success/fallback/handler
-paths for non-task `?|` expressions, including explicit-target stdin `f64`,
-`string`, and typed-list values. Implicit scope-exit drop, cleanup-failure
-settlement for reassignments that can fail, release/commit hooks, non-file
-resource-family cleanup effects, and arbitrary value-producing resource
-operations still require separate implementation and tests.
+when a stale same-path alias uses that zeroed slot. The file/stdin instant-pull
+and materialized list-index slices now cover the first value-producing
+success/fallback/handler paths for non-task `?|` expressions, including
+explicit-target stdin `f64`, `string`, typed-list values, and list-index
+`bounds` recovery. Implicit scope-exit drop, cleanup-failure settlement for
+reassignments that can fail, release/commit hooks, non-file resource-family
+cleanup effects, dict/matrix/slice bounds recovery, and arbitrary
+value-producing resource operations still require separate implementation and
+tests.
 
 ### Fallible Operations
 
@@ -300,15 +307,17 @@ Accepted resource fallback decision:
 - Future syntax may add more ergonomic forms, but the current uniform resource fallback surface is `?| ... | ...`.
 
 Implementation note: the current value-producing non-task slices are limited to
-file instant pulls and stdin instant pulls. File instant pulls still return
-`i64`; stdin instant pulls now cover the untyped `i64` path plus explicit-target
-`f64`, `string`, and supported typed-list paths under `?|` expression recovery.
-Statement-shaped writes and file close methods have the first statement
-settlement paths; broader resource families, cleanup/drop hooks, pressure
-observations, value-producing resource methods, and non-instant-pull
-value-returning resource operations must
-remain separately implemented and tested before the full typed resource-effect
-model is closed.
+file instant pulls, stdin instant pulls, and materialized list index reads. File
+instant pulls still return `i64`; stdin instant pulls now cover the untyped
+`i64` path plus explicit-target `f64`, `string`, and supported typed-list paths
+under `?|` expression recovery. Materialized list indexing recovers
+`STYIO_RUNTIME_LIST_INDEX` through catch-all fallback or matched `bounds`
+handlers. Statement-shaped writes and file close methods have the first
+statement settlement paths; broader resource families, cleanup/drop hooks,
+pressure observations, value-producing resource methods, dict/matrix/slice
+bounds recovery, and other non-instant-pull value-returning resource operations
+must remain separately implemented and tested before the full typed
+resource-effect model is closed.
 
 Allowed fallback installation points:
 
