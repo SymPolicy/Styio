@@ -2200,10 +2200,12 @@ looks_like_await_bind_stmt_nightly(const StyioContext& context) {
 
 bool
 is_resource_effect_operation_nightly(StyioAST* ast) {
+  auto* call = dynamic_cast<FuncCallAST*>(ast);
   return dynamic_cast<ResourceWriteAST*>(ast) != nullptr
          || dynamic_cast<ResourceRedirectAST*>(ast) != nullptr
          || dynamic_cast<InstantPullAST*>(ast) != nullptr
-         || dynamic_cast<ResourceRefAST*>(ast) != nullptr;
+         || dynamic_cast<ResourceRefAST*>(ast) != nullptr
+         || (call != nullptr && call->func_callee != nullptr);
 }
 
 bool
