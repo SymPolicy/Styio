@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 #ifndef _WIN32
@@ -106,6 +107,115 @@ count_substring_latest(const std::string& text, const std::string& needle) {
     pos += needle.size();
   }
   return count;
+}
+
+const char*
+styio_compiler_runner_latest() {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  return runner;
+}
+
+struct CompilePlanContractCaseLatest
+{
+  fs::path root;
+  fs::path source;
+  fs::path build_root;
+  fs::path artifact_dir;
+  fs::path diag_dir;
+  fs::path plan_path;
+};
+
+CompilePlanContractCaseLatest
+write_compile_plan_contract_case_latest(
+  const std::string& suffix,
+  const std::string& profile_json,
+  const std::string& packages_json,
+  const std::string& entry_package_id = "demo/app@0.1.0"
+) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  CompilePlanContractCaseLatest paths;
+  paths.root =
+    fs::temp_directory_path() / ("styio-compile-plan-contract-" + suffix + "-" + std::to_string(uniq));
+  paths.source = paths.root / "src" / "main.styio";
+  paths.build_root = paths.root / ".spio" / "build" / "case";
+  paths.artifact_dir = paths.build_root / "artifacts";
+  paths.diag_dir = paths.build_root / "diag";
+  paths.plan_path = paths.build_root / "plan.json";
+
+  std::error_code ec;
+  fs::create_directories(paths.source.parent_path(), ec);
+  if (ec) {
+    throw std::runtime_error("cannot create compile-plan source directory: " + ec.message());
+  }
+  fs::create_directories(paths.build_root, ec);
+  if (ec) {
+    throw std::runtime_error("cannot create compile-plan build directory: " + ec.message());
+  }
+
+  {
+    std::ofstream out(paths.source);
+    if (!out.is_open()) {
+      throw std::runtime_error("cannot write compile-plan source fixture");
+    }
+    out << ">_(\"compile-plan-" << suffix << "\")\n";
+  }
+  {
+    std::ofstream out(paths.plan_path);
+    if (!out.is_open()) {
+      throw std::runtime_error("cannot write compile-plan fixture");
+    }
+    out
+      << "{\n"
+      << "  \"plan_version\": 1,\n"
+      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"intent\": \"build\",\n"
+      << "  \"workspace_root\": \"" << paths.root.string() << "\",\n"
+      << "  \"entry\": {\n"
+      << "    \"package_id\": \"" << entry_package_id << "\",\n"
+      << "    \"target_kind\": \"bin\",\n"
+      << "    \"target_name\": \"demo-" << suffix << "\",\n"
+      << "    \"file\": \"" << paths.source.string() << "\"\n"
+      << "  },\n"
+      << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
+      << "  \"profile\": " << profile_json << ",\n"
+      << "  \"packages\": " << packages_json << ",\n"
+      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"outputs\": {\"build_root\": \"" << paths.build_root.string() << "\", \"artifact_dir\": \""
+      << paths.artifact_dir.string() << "\", \"diag_dir\": \"" << paths.diag_dir.string() << "\"},\n"
+      << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
+      << "}\n";
+  }
+
+  return paths;
+}
+
+void
+expect_compile_plan_invalid_with_diag_latest(
+  const fs::path& plan_path,
+  const fs::path& diag_dir,
+  const std::string& expected_message
+) {
+  const char* runner = styio_compiler_runner_latest();
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const CommandResult result =
+    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+  EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"subcode\":\"compile_plan_invalid\""), std::string::npos)
+    << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find(expected_message), std::string::npos)
+    << result.stdout_text;
+
+  const fs::path diag_path = diag_dir / "diagnostics.jsonl";
+  ASSERT_TRUE(fs::exists(diag_path));
+  const std::string diagnostics = read_text_file_latest(diag_path);
+  EXPECT_NE(diagnostics.find("\"category\":\"CliError\""), std::string::npos);
+  EXPECT_NE(diagnostics.find(expected_message), std::string::npos)
+    << diagnostics;
 }
 
 std::string
@@ -1811,6 +1921,48 @@ TEST(StyioDiagnostics, CompilePlanEmptyPackagesWritesCliDiagnosticToDiagDir) {
   EXPECT_NE(diagnostics.find("compile-plan packages array must not be empty"), std::string::npos);
 
   fs::remove_all(root);
+}
+
+TEST(StyioDiagnostics, CompilePlanMalformedBuildModeTypeWritesCliDiagnosticToDiagDir) {
+  const CompilePlanContractCaseLatest plan = write_compile_plan_contract_case_latest(
+    "malformed-build-mode-type",
+    "{\"name\": \"dev\", \"build_mode\": false, \"opt_level\": 0, \"debug\": true, \"lto\": false}",
+    "[{\"id\": \"demo/app@0.1.0\"}]");
+
+  expect_compile_plan_invalid_with_diag_latest(
+    plan.plan_path,
+    plan.diag_dir,
+    "compile-plan optional string field must be a non-empty string: profile.build_mode");
+
+  fs::remove_all(plan.root);
+}
+
+TEST(StyioDiagnostics, CompilePlanMalformedPackageEntryWritesCliDiagnosticToDiagDir) {
+  const CompilePlanContractCaseLatest plan = write_compile_plan_contract_case_latest(
+    "malformed-package-entry",
+    "{\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false}",
+    "[42]");
+
+  expect_compile_plan_invalid_with_diag_latest(
+    plan.plan_path,
+    plan.diag_dir,
+    "compile-plan packages[0] must be an object");
+
+  fs::remove_all(plan.root);
+}
+
+TEST(StyioDiagnostics, CompilePlanEntryPackageMissingWritesCliDiagnosticToDiagDir) {
+  const CompilePlanContractCaseLatest plan = write_compile_plan_contract_case_latest(
+    "missing-entry-package",
+    "{\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false}",
+    "[{\"id\": \"demo/lib@0.1.0\"}]");
+
+  expect_compile_plan_invalid_with_diag_latest(
+    plan.plan_path,
+    plan.diag_dir,
+    "compile-plan entry.package_id is not present in packages: demo/app@0.1.0");
+
+  fs::remove_all(plan.root);
 }
 
 TEST(StyioDiagnostics, CompilePlanUnsupportedErrorFormatWritesCliDiagnosticToDiagDir) {
