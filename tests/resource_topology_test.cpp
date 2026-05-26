@@ -374,6 +374,25 @@ TEST(StyioResourceTopology, RepeatedConsumingMethodCallIsUseAfterDestroy) {
   expect_type_error_contains(src, "use-after-destroy");
 }
 
+TEST(StyioResourceTopology, ResourceUseAfterCloseStillRequiresRebind) {
+  const std::string src =
+    "log = @(\"log.txt\")\n"
+    "log.close()\n"
+    "log.path\n";
+
+  expect_type_error_contains(src, "use-after-destroy");
+}
+
+TEST(StyioResourceTopology, FlexResourceRebindClearsDestroyedReceiver) {
+  const std::string src =
+    "log = @(\"log.txt\")\n"
+    "log.close()\n"
+    "log = @(\"log.txt\")\n"
+    "log.path\n";
+
+  EXPECT_NO_THROW(typecheck_nightly(src));
+}
+
 TEST(StyioResourceTopology, TaskCannotConsumeOuterResource) {
   const std::string src =
     "log := @(\"log.txt\")\n"

@@ -4851,6 +4851,46 @@ TEST(StyioDiagnostics, RuntimeFileWriteFailureStopsBeforeNextStatement) {
   fs::remove(input);
 }
 
+TEST(StyioResourceLifecycle, FlexFileRebindAfterCloseReopensSamePath) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path source =
+    fs::temp_directory_path() / ("styio-resource-rebind-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-rebind-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "alpha\nbeta\n";
+  }
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << "f = @file(\"" << data.generic_string() << "\")\n";
+    out << "f.close()\n";
+    out << "f = @file(\"" << data.generic_string() << "\")\n";
+    out << "f >> #(line) => { >_(line) }\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + source.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "alpha\nbeta\n");
+
+  fs::remove(source);
+  fs::remove(data);
+}
+
 TEST(StyioDiagnostics, InvalidNumericStdinArgumentEmitsJsonlRuntimeDiagnostic) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
