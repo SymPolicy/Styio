@@ -3803,6 +3803,86 @@ TEST(StyioSecurityNightlyParserStmt, AcceptsModuloSubjectBeforeMatchCases) {
   EXPECT_NE(nightly.find("label"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlySemantics, RejectsUndefinedMatchArmTailValue) {
+  const std::string src =
+    "x = 1\n"
+    "label = x ?= {\n"
+    "  1 => missing_value\n"
+    "  _ => 2\n"
+    "}\n"
+    ">_(label)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected match arm tail value to require semantic type inference";
+  }
+  catch (const StyioTypeError& err) {
+    const std::string msg = err.what();
+    EXPECT_NE(msg.find("match branch value has undefined type"), std::string::npos) << msg;
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, MatchArmBindingsDoNotLeakAcrossBranches) {
+  const std::string src =
+    "x = 2\n"
+    "label = x ?= {\n"
+    "  1 => {\n"
+    "    hidden = 4\n"
+    "    hidden\n"
+    "  }\n"
+    "  _ => hidden + 1\n"
+    "}\n"
+    ">_(label)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected match arm local binding to stay scoped to its branch";
+  }
+  catch (const StyioTypeError& err) {
+    const std::string msg = err.what();
+    EXPECT_NE(msg.find("match branch value has undefined type"), std::string::npos) << msg;
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, FunctionMatchSugarInfersArmBodiesOnCall) {
+  const std::string src =
+    "# choose := (n: i32) ?= {\n"
+    "  0 => missing_value\n"
+    "  _ => 1\n"
+    "}\n"
+    ">_(choose(0))\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected function match sugar arms to be type-inferred when called";
+  }
+  catch (const StyioTypeError& err) {
+    const std::string msg = err.what();
+    EXPECT_NE(msg.find("match branch value has undefined type"), std::string::npos) << msg;
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, FunctionMatchSugarArmBindingsStayBranchScoped) {
+  const std::string src =
+    "# choose := (n: i32) ?= {\n"
+    "  0 => {\n"
+    "    hidden = 4\n"
+    "    hidden\n"
+    "  }\n"
+    "  _ => hidden + 1\n"
+    "}\n"
+    ">_(choose(1))\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected function match sugar arm locals to stay branch scoped";
+  }
+  catch (const StyioTypeError& err) {
+    const std::string msg = err.what();
+    EXPECT_NE(msg.find("match branch value has undefined type"), std::string::npos) << msg;
+  }
+}
+
 TEST(StyioSecurityNightlyParserStmt, RejectsHashIteratorMatchForwardChainWithStableError) {
   const std::string src = "# iter_only(x) >> (n) ?= 2 => >_(n)\niter_only([1, 2, 3])\n";
   EXPECT_THROW(

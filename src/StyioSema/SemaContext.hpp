@@ -212,6 +212,11 @@ public:
 
   virtual ~StyioSemaContext() {}
 
+  void push_active_function_body(const std::string& name);
+  void pop_active_function_body();
+  void record_inferred_function_return_type(const StyioDataType& type);
+  StyioDataType inferred_function_return_type(const std::string& name) const;
+
   /* Styio AST Type Inference */
 
   void typeInfer(BoolAST* ast) override;
@@ -375,6 +380,9 @@ protected:
   std::unordered_set<std::string> consumed_resource_names_;
   std::unordered_set<std::string> owned_resource_names_;
   std::vector<std::unordered_set<std::string>> task_outer_resource_names_stack_;
+  std::unordered_set<std::string> active_function_body_inference_;
+  std::vector<std::string> active_function_body_stack_;
+  std::unordered_map<std::string, StyioDataType> inferred_function_return_types_;
   std::string active_resource_receiver_family_;
 };
 

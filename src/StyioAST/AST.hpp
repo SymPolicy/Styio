@@ -3743,6 +3743,7 @@ class MatchCasesAST : public StyioASTTraits<MatchCasesAST>
 
   StyioAST* Value = nullptr;
   CasesAST* Cases = nullptr;
+  StyioDataType inferred_type_ = StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
 
 public:
   /* v ?= { _ => ... } */
@@ -3758,7 +3759,11 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    return inferred_type_;
+  }
+
+  void setDataType(StyioDataType type) {
+    inferred_type_ = std::move(type);
   }
 
   static MatchCasesAST* make(StyioAST* value, CasesAST* cases) {

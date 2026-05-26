@@ -6972,6 +6972,51 @@ TEST(StyioDiagnostics, FunctionMatchSugarAndTailExpressionsReturnValues) {
   fs::remove(input);
 }
 
+TEST(StyioDiagnostics, MatchBranchLocalTailValuesRemainExecutable) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-match-branch-local-tail-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "x = 1\n";
+    out << "left = x ?= {\n";
+    out << "  1 => {\n";
+    out << "    hidden = 4\n";
+    out << "    hidden + 1\n";
+    out << "  }\n";
+    out << "  _ => 2\n";
+    out << "}\n";
+    out << "x = 2\n";
+    out << "right = x ?= {\n";
+    out << "  1 => 7\n";
+    out << "  _ => {\n";
+    out << "    other = 8\n";
+    out << "    other + 1\n";
+    out << "  }\n";
+    out << "}\n";
+    out << ">_(left)\n";
+    out << ">_(right)\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "5\n9\n");
+
+  fs::remove(input);
+}
+
 TEST(StyioDiagnostics, ScalarAndInferredFunctionReturnsStayExecutable) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();

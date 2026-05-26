@@ -522,6 +522,132 @@ merge_cond_flow_branch_type(
   return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
 }
 
+StyioDataType
+merge_match_value_type(const StyioDataType& current, const StyioDataType& next) {
+  if (current.isUndefined()) {
+    return next;
+  }
+  if (next.isUndefined()) {
+    return current;
+  }
+  StyioValueFamily current_family = styio_value_family_for_type(current);
+  StyioValueFamily next_family = styio_value_family_for_type(next);
+  if (current_family == StyioValueFamily::String || next_family == StyioValueFamily::String) {
+    return kStringType;
+  }
+  if (type_is_numeric_family(current) && type_is_numeric_family(next)) {
+    return getMaxType(current, next);
+  }
+  if ((current_family == StyioValueFamily::Bool || current_family == StyioValueFamily::Char)
+      && (next_family == StyioValueFamily::Bool || next_family == StyioValueFamily::Char)) {
+    return kI64Type;
+  }
+  if (current.equals(next)) {
+    return current;
+  }
+  return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+}
+
+bool
+match_result_type_supported(const StyioDataType& type) {
+  if (type.isUndefined()) {
+    return true;
+  }
+  StyioValueFamily family = styio_value_family_for_type(type);
+  return family == StyioValueFamily::Integer
+         || family == StyioValueFamily::Float
+         || family == StyioValueFamily::Bool
+         || family == StyioValueFamily::Char
+         || family == StyioValueFamily::String;
+}
+
+bool
+match_tail_value_expected(StyioAST* ast) {
+  if (ast == nullptr) {
+    return false;
+  }
+  switch (ast->getNodeType()) {
+    case StyioNodeType::Return:
+    case StyioNodeType::Bool:
+    case StyioNodeType::Integer:
+    case StyioNodeType::Float:
+    case StyioNodeType::Char:
+    case StyioNodeType::String:
+    case StyioNodeType::FmtStr:
+    case StyioNodeType::List:
+    case StyioNodeType::Dict:
+    case StyioNodeType::Range:
+    case StyioNodeType::Id:
+    case StyioNodeType::Call:
+    case StyioNodeType::Attribute:
+    case StyioNodeType::Access_By_Index:
+    case StyioNodeType::Access_By_Name:
+    case StyioNodeType::BinOp:
+    case StyioNodeType::Compare:
+    case StyioNodeType::Condition:
+    case StyioNodeType::ResourceRef:
+    case StyioNodeType::InstantPull:
+    case StyioNodeType::ResourceEffect:
+    case StyioNodeType::FlowBind:
+    case StyioNodeType::MatchCases:
+      return true;
+    default:
+      return false;
+  }
+}
+
+StyioDataType
+match_branch_tail_type(StyioSemaContext* an, StyioAST* ast) {
+  if (ast == nullptr) {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+  if (auto* ret = dynamic_cast<ReturnAST*>(ast)) {
+    if (ret->getExpr() != nullptr) {
+      ret->getExpr()->typeInfer(an);
+    }
+    StyioDataType result = infer_expr_type(an, ret->getExpr());
+    if (result.isUndefined()) {
+      throw StyioTypeError("match branch return value has undefined type");
+    }
+    return result;
+  }
+  if (auto* block = dynamic_cast<BlockAST*>(ast)) {
+    if (block->stmts.empty()) {
+      return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    }
+    return match_branch_tail_type(an, block->stmts.back());
+  }
+  if (!match_tail_value_expected(ast)) {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+  StyioDataType result = infer_expr_type(an, ast);
+  if (result.isUndefined()) {
+    throw StyioTypeError("match branch value has undefined type");
+  }
+  return result;
+}
+
+bool
+is_name_ast_latest(StyioAST* ast, const std::string& name) {
+  auto* n = dynamic_cast<NameAST*>(ast);
+  return n != nullptr && n->getAsStr() == name;
+}
+
+bool
+match_pattern_supported_latest(StyioAST* pattern, const std::string* scrutinee_name) {
+  if (dynamic_cast<IntAST*>(pattern) != nullptr) {
+    return true;
+  }
+  auto* cmp = dynamic_cast<BinCompAST*>(pattern);
+  if (cmp == nullptr || cmp->getSign() != CompType::EQ || scrutinee_name == nullptr) {
+    return false;
+  }
+  return (is_name_ast_latest(cmp->getLHS(), *scrutinee_name)
+          && dynamic_cast<IntAST*>(cmp->getRHS()) != nullptr)
+         || (is_name_ast_latest(cmp->getRHS(), *scrutinee_name)
+             && dynamic_cast<IntAST*>(cmp->getLHS()) != nullptr);
+}
+
 bool
 type_is_runtime_dict_value(const StyioDataType& type) {
   return styio_type_supports_runtime_dict_value(type);
@@ -658,6 +784,10 @@ func_ret_type_of_def(StyioSemaContext* an, StyioAST* def) {
         }
       }
     }
+    StyioDataType inferred_return = an->inferred_function_return_type(f->getNameAsStr());
+    if (!inferred_return.isUndefined()) {
+      return inferred_return;
+    }
     return infer_expr_type(an, f->func_body);
   }
 
@@ -673,6 +803,10 @@ func_ret_type_of_def(StyioSemaContext* an, StyioAST* def) {
           return dt;
         }
       }
+    }
+    StyioDataType inferred_return = an->inferred_function_return_type(f->func_name->getAsStr());
+    if (!inferred_return.isUndefined()) {
+      return inferred_return;
     }
     return infer_expr_type(an, f->ret_expr);
   }
@@ -761,6 +895,8 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
       return expr->getDataType();
     case StyioNodeType::FlowBind:
       return static_cast<FlowBindAST*>(expr)->getDataType();
+    case StyioNodeType::MatchCases:
+      return static_cast<MatchCasesAST*>(expr)->getDataType();
     case StyioNodeType::Attribute: {
       auto* attr = static_cast<AttrAST*>(expr);
       auto* attr_name = dynamic_cast<NameAST*>(attr->attr);
@@ -1154,6 +1290,44 @@ infer_numeric_string_coercion(StyioSemaContext* an, BinOpAST* ast, StyioAST* lhs
 }  // namespace
 
 void
+StyioSemaContext::push_active_function_body(const std::string& name) {
+  active_function_body_stack_.push_back(name);
+}
+
+void
+StyioSemaContext::pop_active_function_body() {
+  if (!active_function_body_stack_.empty()) {
+    active_function_body_stack_.pop_back();
+  }
+}
+
+void
+StyioSemaContext::record_inferred_function_return_type(const StyioDataType& type) {
+  if (type.isUndefined() || active_function_body_stack_.empty()) {
+    return;
+  }
+  const std::string& name = active_function_body_stack_.back();
+  auto it = inferred_function_return_types_.find(name);
+  if (it == inferred_function_return_types_.end()) {
+    inferred_function_return_types_[name] = type;
+    return;
+  }
+  StyioDataType merged = merge_match_value_type(it->second, type);
+  if (!merged.isUndefined()) {
+    it->second = merged;
+  }
+}
+
+StyioDataType
+StyioSemaContext::inferred_function_return_type(const std::string& name) const {
+  auto it = inferred_function_return_types_.find(name);
+  if (it == inferred_function_return_types_.end()) {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+  return it->second;
+}
+
+void
 StyioSemaContext::typeInfer(CommentAST* ast) {
 }
 
@@ -1378,6 +1552,10 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
         ast->getVar()->setDataType(ast->getValue()->getDataType());
       } break;
 
+      case StyioNodeType::MatchCases: {
+        ast->getVar()->setDataType(ast->getValue()->getDataType());
+      } break;
+
       default:
         break;
     }
@@ -1503,6 +1681,11 @@ StyioSemaContext::typeInfer(FinalBindAST* ast) {
       static_cast<BinOpAST*>(ast->getValue())->setDType(vt);
       ast->getValue()->typeInfer(this);
     }
+  }
+  if (ast->getValue()->getNodeType() == StyioNodeType::MatchCases
+      && vt.option == StyioDataTypeOption::Undefined) {
+    vt = ast->getValue()->getDataType();
+    ast->getVar()->setDataType(vt);
   }
   local_binding_types[ast->getVar()->getNameAsStr()] = vt;
   fixed_assignment_names_.insert(ast->getVar()->getNameAsStr());
@@ -2562,6 +2745,9 @@ StyioSemaContext::typeInfer(PassAST* ast) {
 
 void
 StyioSemaContext::typeInfer(ReturnAST* ast) {
+  if (ast->getExpr() != nullptr) {
+    ast->getExpr()->typeInfer(this);
+  }
 }
 
 void
@@ -2758,6 +2944,62 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
         + "': expected " + declared_type.name + ", got " + arg_types[i].name
       );
     }
+  }
+
+  const std::string function_name = ast->getNameAsStr();
+  if (active_function_body_inference_.insert(function_name).second) {
+    const auto saved_types = local_binding_types;
+    const auto saved_funcs = func_defs;
+    const auto saved_fixed = fixed_assignment_names_;
+    const auto saved_bind = binding_info_;
+    const auto saved_consumed_tasks = consumed_task_names_;
+    const auto saved_consumed_resources = consumed_resource_names_;
+    const auto saved_owned_resources = owned_resource_names_;
+    const auto saved_snapshot_names = snapshot_var_names_;
+    const auto saved_function_stack = active_function_body_stack_;
+
+    auto restore_function_scope = [&]()
+    {
+      local_binding_types = saved_types;
+      func_defs = saved_funcs;
+      fixed_assignment_names_ = saved_fixed;
+      binding_info_ = saved_bind;
+      consumed_task_names_ = saved_consumed_tasks;
+      consumed_resource_names_ = saved_consumed_resources;
+      owned_resource_names_ = saved_owned_resources;
+      snapshot_var_names_ = saved_snapshot_names;
+      active_function_body_stack_ = saved_function_stack;
+      active_function_body_inference_.erase(function_name);
+    };
+
+    try {
+      for (size_t i = 0; i < func_args.size(); ++i) {
+        StyioDataType param_type = func_args[i]->getDType()->getDataType();
+        if (param_type.isUndefined() && i < arg_types.size()) {
+          param_type = arg_types[i];
+        }
+        local_binding_types[func_args[i]->getNameAsStr()] = param_type;
+      }
+
+      push_active_function_body(function_name);
+      if (auto* f = dynamic_cast<FunctionAST*>(def_it->second)) {
+        if (f->func_body != nullptr) {
+          f->func_body->typeInfer(this);
+          record_inferred_function_return_type(infer_expr_type(this, f->func_body));
+        }
+      }
+      else if (auto* sf = dynamic_cast<SimpleFuncAST*>(def_it->second)) {
+        if (sf->ret_expr != nullptr) {
+          sf->ret_expr->typeInfer(this);
+          record_inferred_function_return_type(infer_expr_type(this, sf->ret_expr));
+        }
+      }
+    }
+    catch (...) {
+      restore_function_scope();
+      throw;
+    }
+    restore_function_scope();
   }
 }
 
@@ -3126,10 +3368,109 @@ StyioSemaContext::typeInfer(InfiniteLoopAST* ast) {
 
 void
 StyioSemaContext::typeInfer(CasesAST* ast) {
+  for (auto const& pr : ast->case_list) {
+    if (pr.first != nullptr) {
+      pr.first->typeInfer(this);
+    }
+    if (pr.second != nullptr) {
+      pr.second->typeInfer(this);
+    }
+  }
+  if (ast->case_default != nullptr) {
+    ast->case_default->typeInfer(this);
+  }
 }
 
 void
 StyioSemaContext::typeInfer(MatchCasesAST* ast) {
+  if (ast == nullptr || ast->getScrutinee() == nullptr || ast->getCases() == nullptr) {
+    throw StyioTypeError("match cases require a scrutinee and case block");
+  }
+
+  ast->getScrutinee()->typeInfer(this);
+  StyioDataType scrutinee_type = infer_expr_type(this, ast->getScrutinee());
+  if (scrutinee_type.option != StyioDataTypeOption::Integer) {
+    throw StyioTypeError("match scrutinee must be integer-typed");
+  }
+
+  auto* scrutinee_name_ast = dynamic_cast<NameAST*>(ast->getScrutinee());
+  const std::string* scrutinee_name =
+    scrutinee_name_ast != nullptr ? &scrutinee_name_ast->getAsStr() : nullptr;
+
+  const auto saved_types = local_binding_types;
+  const auto saved_funcs = func_defs;
+  const auto saved_fixed = fixed_assignment_names_;
+  const auto saved_bind = binding_info_;
+  const auto saved_consumed_tasks = consumed_task_names_;
+  const auto saved_consumed_resources = consumed_resource_names_;
+  const auto saved_owned_resources = owned_resource_names_;
+  const auto saved_snapshot_names = snapshot_var_names_;
+
+  auto restore_branch_scope = [&]()
+  {
+    local_binding_types = saved_types;
+    func_defs = saved_funcs;
+    fixed_assignment_names_ = saved_fixed;
+    binding_info_ = saved_bind;
+    consumed_task_names_ = saved_consumed_tasks;
+    consumed_resource_names_ = saved_consumed_resources;
+    owned_resource_names_ = saved_owned_resources;
+    snapshot_var_names_ = saved_snapshot_names;
+  };
+
+  auto infer_branch = [&](StyioAST* branch) -> StyioDataType
+  {
+    restore_branch_scope();
+    try {
+      if (branch != nullptr) {
+        branch->typeInfer(this);
+      }
+      StyioDataType branch_type = match_branch_tail_type(this, branch);
+      restore_branch_scope();
+      return branch_type;
+    }
+    catch (...) {
+      restore_branch_scope();
+      throw;
+    }
+  };
+
+  StyioDataType result_type{StyioDataTypeOption::Undefined, "undefined", 0};
+  CasesAST* cases = ast->getCases();
+  for (auto const& pr : cases->case_list) {
+    if (pr.first == nullptr) {
+      throw StyioTypeError("match arm requires a pattern expression");
+    }
+    pr.first->typeInfer(this);
+    if (!match_pattern_supported_latest(pr.first, scrutinee_name)) {
+      throw StyioTypeError("match arms need integer literal patterns in this language feature");
+    }
+
+    StyioDataType branch_type = infer_branch(pr.second);
+    if (!match_result_type_supported(branch_type)) {
+      throw StyioTypeError("match branch values support scalar and string results in this slice");
+    }
+    result_type = merge_match_value_type(result_type, branch_type);
+    ast->setDataType(result_type);
+    record_inferred_function_return_type(result_type);
+  }
+
+  if (cases->case_default != nullptr) {
+    StyioDataType branch_type = infer_branch(cases->case_default);
+    if (!match_result_type_supported(branch_type)) {
+      throw StyioTypeError("match branch values support scalar and string results in this slice");
+    }
+    result_type = merge_match_value_type(result_type, branch_type);
+    ast->setDataType(result_type);
+    record_inferred_function_return_type(result_type);
+  }
+
+  if (result_type.isUndefined()) {
+    result_type = kI64Type;
+  }
+  ast->setDataType(result_type);
+  record_inferred_function_return_type(result_type);
+  restore_branch_scope();
 }
 
 void
@@ -3192,6 +3533,7 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
   consumed_resource_names_.clear();
   owned_resource_names_.clear();
   task_outer_resource_names_stack_.clear();
+  active_function_body_inference_.clear();
   active_resource_receiver_family_.clear();
   auto stmts = ast->getStmts();
   std::vector<std::string> exported_symbols;
