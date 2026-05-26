@@ -229,8 +229,11 @@ surface appears in active docs, EBNF, examples, or parser support.
 
 Examples:
 
-1. Function return lowering still maps tuple return metadata and unspecified
-   return types through an `i64` fallback in helper code.
+1. Function return lowering no longer maps tuple return metadata through an
+   `i64` fallback: tuple return annotations now fail closed with a type
+   diagnostic until tuple value IR exists. Unspecified function returns infer
+   final expression tails for the covered scalar families; statement-only tails
+   still return the current generated default value.
 2. Topology v2 resource declaration lowering initializes declared slots to a
    zero value by storage type. For `i64`, `f64`, `bool`, `char`, and `string`
    fixed/recent resources this becomes a bounded-ring storage value, but
@@ -341,6 +344,12 @@ These should not be counted as missing implementation in this checkout:
    matched cleanup recovery and adjacent `io` non-match behavior, while
    `StyioSafetyRuntime.FileCloseFailureIsCleanupRuntimeEffect` covers the direct
    runtime subcode/effect-family mapping.
+8. Tuple function return annotations are no longer a silent `i64` fallback.
+   `StyioDiagnostics.TupleFunctionReturnAnnotationFailsClosed` proves the CLI
+   JSONL `STYIO_TYPE_ERROR` path, `ScalarAndInferredFunctionReturnsStayExecutable`
+   keeps adjacent scalar/inferred returns executable, and
+   `StyioSecurityNightlyParserStmt.RejectsTupleFunctionReturnAnnotationBeforeLoweringFallback`
+   covers the Sema/lowering fail-closed path.
 
 ## Recommended Closure Order
 

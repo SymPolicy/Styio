@@ -91,6 +91,7 @@ Primary paths:
 65. Mixed file/list zip evidence needs both source orders when both are accepted: one parser-shadow-safe feature fixture for catalog coverage, one focused unit or pipeline test for the opposite order and shorter-input termination, and the stream-processing shadow gates so parser-route AST drift cannot masquerade as runtime coverage.
 66. Resource-selector zip evidence must avoid conflating materialized selector snapshots with IM-D5 snapshot joins. Pair a parser-shadow-safe feature fixture for `@name[...]` / `@name[-n..]` finite zip with a negative scalar-selector case such as `@name[-1] >> ...`, and keep the catalog wording on materialized bounded selector snapshots.
 67. Range literal expression-bound coverage needs three proofs in the same slice: an executable positive that materializes and prints a `list[i64]`, an adjacent non-integer-bound failure that stops in Sema, and a focused codegen regression that proves the dynamic range path emits the runtime list loop rather than falling back to constant literal lowering.
+68. Function return fallback closure needs paired evidence: an executable positive for scalar and inferred return types, a CLI JSONL negative for unsupported tuple return annotations, and a security/lowering regression proving tuple return metadata fails closed before it can become an `i64` function type.
 
 ## Change Classes
 

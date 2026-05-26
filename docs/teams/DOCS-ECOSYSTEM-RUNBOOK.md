@@ -126,6 +126,7 @@ Key SSOTs:
 90. When a parser/runtime slice turns an already-documented type family into executable syntax, update the grammar/status SSOTs and evidence rollups together. For example, accepting single-quoted `char` literals and bounded `char` selector snapshots requires EBNF literal coverage, Resource Topology implementation-status wording, current gap/IM inventory evidence, test catalog wording, and a shifted adjacent negative for the next unsupported family.
 91. When compiler-owned IM-D10 nano negative-path evidence changes, update the gap audit, next-stage ledger, IM-D10 inventory, `workflows/TEST-CATALOG.md`, CLI / Nano runbook, Test Quality runbook, and `DOC-STATS.md` together. Keep the wording scoped to compiler-side producer/verifier and static repository contracts; package-manager lifecycle UX, resolver policy, remote registry semantics, and trust/auth remain Spio or Platform confirmation items.
 91. When range literal semantics change, keep `ACTIVE-SYNTAX.md`, IM-D1, the current gap audit, the next-stage ledger, owning runbooks, and the unit/security test evidence aligned. Record the exact accepted operand family and materialized value shape instead of implying broader sequence/range-handle semantics.
+92. When closing a function-return fallback gap, keep IM-D1, the current gap audit, the next-stage ledger, `workflows/TEST-CATALOG.md`, and owning runbooks aligned. Distinguish positive scalar/inferred return evidence from fail-closed tuple return annotations so tuple value IR remains an explicit open language/runtime gap.
 
 ## Change Classes
 
