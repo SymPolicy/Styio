@@ -1616,6 +1616,21 @@ TEST(StyioSecurityNightlyParserStmt, ResourceEffectHandleAcquireFeedsLaterIterat
   EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ResourceEffectHandleAcquireFeedsLaterCloseMethod) {
+  const std::string src =
+    "?| f <- @file(\"tests/features/file_resources/data/hello.txt\")"
+    " | \"fallback\" -> @stderr\n"
+    "?| f.close() | \"close fallback\" -> @stderr\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_file_open"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_file_close"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectNamedHandlerStatement) {
   const std::string src =
     "?| \"x\" -> @stdout | io => \"fallback\" -> @stderr\n";
@@ -1982,6 +1997,22 @@ TEST(StyioSecurityNightlySemantics, RejectsNonResourceMethodResourceEffectStatem
     EXPECT_NE(
       std::string(err.what()).find("`?|` resource settlement requires a resource operation"),
       std::string::npos);
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, ResourceEffectAcquireThenCloseConsumesReceiver) {
+  const std::string src =
+    "?| f <- @file(\"tests/features/file_resources/data/hello.txt\")"
+    " | \"fallback\" -> @stdout\n"
+    "?| f.close() | \"close fallback\" -> @stdout\n"
+    "f.path\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected resource-effect acquired handle to stay destroyed after close";
+  }
+  catch (const StyioTypeError& err) {
+    EXPECT_NE(std::string(err.what()).find("use-after-destroy"), std::string::npos);
   }
 }
 
