@@ -2,7 +2,7 @@
 
 **Purpose:** Record the accepted resource-management decisions for IM-D4 without duplicating the IM-D1 StyioIR verifier, lowering, no-op, or codegen-gate contract.
 
-**Last updated:** 2026-05-29
+**Last updated:** 2026-05-30
 
 ## Scope
 
@@ -61,9 +61,16 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   may recover through a matched `closed` handler, stops before the following
   statement when no fallback is present, and the write method does not recreate
   the file by reopening the saved path.
+  Statement-shaped file flex rebind now uses the same settlement route for
+  `?| f = @file(next) | fallback`: the parser admits only the file-resource
+  rebind shape, Sema keeps scalar `?| x = 1 | ...` rejected, runtime file-open
+  failures recover through catch-all fallback or matched `io` handlers, and the
+  codegen cleanup branch leaves a prior tracked-handle close failure on the
+  `SIOResourceEffect` error channel before any replacement open can run.
   Non-resource member calls such as
   `text.lines()` remain rejected under `?|`, and statement-shaped acquire stays
-  rejected where a value-producing `?|` expression is required. Broader
+  rejected where a value-producing `?|` expression is required; statement-shaped
+  file rebind is rejected in value-required `?|` expressions as well. Broader
   post-acquire resource operations beyond the covered file iterator and
   close-method, write-method, and acquired-handle instant-pull paths still need
   separate implementation checkpoints.
@@ -141,7 +148,8 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   The operation-local guard is suppressed while `SIOResourceEffect` is
   dispatching fallback or named handlers, so explicit `?| ... | fallback`
   recovery remains the recovery surface, including statement-shaped
-  `?| f <- @file(missing) | fallback` file-acquire recovery.
+  `?| f <- @file(missing) | fallback` file-acquire recovery and
+  `?| f = @file(missing) | fallback` file-rebind recovery.
 - Tracked file handles now have the first compiler-owned scope-exit cleanup
   settlement slice: explicit `<| return` closes active file-handle slots before
   emitting the LLVM `ret`, normal scope-pop cleanup checks the runtime error
@@ -150,12 +158,16 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   function codegen keeps function-local resource scope stacks isolated from
   surrounding codegen. File flex-rebind also runs the tracked file-handle close
   before the RHS acquire/overwrite, then checks the cleanup error channel so
-  cleanup failure stops at the rebind boundary. File handle slots are allocated
+  cleanup failure stops at the rebind boundary; under
+  `?| f = @file(...) | fallback` or a matched `cleanup` handler, the same
+  materialized cleanup failure is routed through `SIOResourceEffect` before the
+  replacement open. File handle slots are allocated
   so later same-path singleton reuse across loop branches still satisfies LLVM
   dominance. This covers tracked file handles on ordinary scope pop, explicit
-  return, loop break/continue exits, and default no-fallback file flex-rebind
-  cleanup settlement only; it does not yet provide a source-level fallback
-  recovery site for implicit or reassignment cleanup failures,
+  return, loop break/continue exits, default no-fallback file flex-rebind
+  cleanup settlement, and explicit statement-shaped file flex-rebind
+  settlement; it does not yet provide a source-level fallback recovery site for
+  implicit cleanup failures, non-file reassignment cleanup failures,
   release/commit hooks, or non-file cleanup families.
 - Bounded `i64`, `f64`, `bool`, `char`, and `string` resource selectors now have distinct
   executable value shapes: `@name[-n]` reads a scalar value, while
@@ -332,7 +344,11 @@ slice also releases a tracked file handle before `name = @file(...)` evaluates
 the RHS acquire or overwrites the owner, checks the cleanup error channel at that
 rebind boundary, clears consumed-receiver state after a successful resource
 rebind, and reopens a same-path singleton slot that an explicit close left at
-zero. Tracked file handles are now also closed on explicit `<| return` before
+zero. Explicit `?| name = @file(...) | fallback` / `| cleanup => handler`
+settlement now reuses that rebind cleanup boundary: parser and Sema admit only
+file-resource flex rebind, codegen branches a materialized cleanup failure to
+`SIOResourceEffect` before replacement open, and file-open failures on the
+replacement path recover through the existing `io` family. Tracked file handles are now also closed on explicit `<| return` before
 the LLVM return, normal scope-pop cleanup checks for cleanup failures after the
 cleanup boundary, and loop `^` / `>>` exits clean the tracked file scopes they
 bypass before branching. The file
@@ -342,9 +358,9 @@ and materialized container-index/list-slice paths now cover the first value-prod
 success/fallback/handler paths for non-task `?|` expressions, including
 explicit-target stdin `f64`, `string`, typed-list values, list/dict/matrix
 `bounds` recovery, and returned matrix cell/row or row-range-slice bounds from
-typed resource method parameters. Source-level fallback recovery for implicit or
-reassignment cleanup failures, release/commit hooks, non-file resource-family
-cleanup effects, using a handle acquired inside statement `?|` as a later
+typed resource method parameters. Source-level fallback recovery for implicit
+cleanup failures, non-file reassignment cleanup failures, release/commit hooks,
+non-file resource-family cleanup effects, using a handle acquired inside statement `?|` as a later
 resource operation beyond the covered file iterator, close-method, and
 write-method paths, dict
 slice-shaped bounds recovery, and arbitrary value-producing resource operations
@@ -421,13 +437,16 @@ returned `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, or
 under `?|`. Declared resource method parameter types are bound while inferring
 the method body and are checked at call sites; unimplemented lexical/global
 capture still fails closed before lowering.
-Statement-shaped writes, file acquire, file close methods, and guarded
+Statement-shaped writes, file acquire, file rebind, file close methods, and guarded
 acquired-handle file write methods have the first statement settlement paths;
 file acquire also covers successful acquire followed by file iteration,
 successful acquire followed by a later resource-effect close method, successful
 acquire followed by a later guarded write method, close-method receiver
 invalidation, and fail-closed iterator or write-method use after a recovered
-failed acquire.
+failed acquire. File rebind covers catch-all fallback and matched `io` handler
+recovery for replacement open failures, keeps scalar flex binds fail-closed, and
+keeps value-required rebind expressions rejected; the codegen cleanup branch
+routes prior-handle cleanup failure to the wrapper before opening a replacement.
 Broader resource families, cleanup/drop hooks,
 pressure observations, failing value-producing resource methods beyond returned
 file/stdin instant pulls and returned list/dict/matrix bounds slices,

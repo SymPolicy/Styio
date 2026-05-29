@@ -2,7 +2,7 @@
 
 **Purpose:** Record the implementation contract for IM-D2 so accepted Styio grammar is judged by the compiler-owned parser instead of legacy fallback, editor snapshot drift, or consumer-local syntax approximations.
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-05-30
 
 **Status:** Active contract inventory. This document supports [NEXT-STAGE-GAP-LEDGER.md](./NEXT-STAGE-GAP-LEDGER.md) §5.7 `IM-D2`.
 
@@ -14,6 +14,7 @@
 | Public syntax service | `styio check --syntax --json --file` uses nightly parser only; `legacy` is rejected | [../../src/StyioServices/StyioCLI/SyntaxCheck.cpp](../../src/StyioServices/StyioCLI/SyntaxCheck.cpp), `StyioDiagnostics.SyntaxCheckRejectsNonAuthoritativeParserEngine` |
 | Accepted grammar no-fallback | Nightly top-level statement declines now fail with a syntax diagnostic instead of calling `parse_stmt_or_expr_legacy` | [../../src/StyioParser/Parser.cpp](../../src/StyioParser/Parser.cpp) |
 | Internal bridge no-fallback | List, dict, block, statement, match, iterator, and hash-statement internal fallback points now reject unsupported syntax instead of routing to legacy parser helpers | [../../src/StyioParser/NewParserExpr.cpp](../../src/StyioParser/NewParserExpr.cpp), [../../src/StyioParser/Parser.cpp](../../src/StyioParser/Parser.cpp) |
+| Resource-effect file rebind route | Statement-shaped `?| f = @file(...) | fallback` is accepted through nightly `ResourceEffectAST` / `FlexBindAST` parsing without legacy fallback; scalar flex binds and value-required file rebind expressions stay rejected | `StyioSecurityNightlyParserStmt.ParsesResourceEffectFileRebindStatement`, `StyioSecurityNightlyParserStmt.RejectsScalarFlexBindResourceEffectStatement`, `StyioSecurityNightlyParserStmt.RejectsFileRebindResourceEffectExpression` |
 | IDE boundary | IDE syntax snapshots are non-authoritative editor data; semantic bridge uses strict nightly parser facts and no longer recovers later semantic facts from malformed source | [../../src/StyioServices/StyioIDE/CompilerBridge.cpp](../../src/StyioServices/StyioIDE/CompilerBridge.cpp), `StyioSemanticBridge.RejectsMalformedInputWithoutRecovery` |
 | Unsupported syntax | Unsupported syntax is a parser error, not a subset gap that can pass through fallback | `StyioDiagnostics.MalformedStatementPrefixReportsParseErrorWithoutCrash`, `StyioSyntaxDrift.CorpusMatchesApprovedEnvelope` |
 
