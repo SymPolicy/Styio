@@ -2967,6 +2967,11 @@ parse_stmt_subset_nightly(StyioContext& context) {
   return parse_stmt_subset_impl_nightly(context);
 }
 
+BlockAST*
+parse_block_subset_nightly(StyioContext& context) {
+  return parse_block_only_subset_nightly(context);
+}
+
 ParseAttempt<StyioAST>
 try_parse_stmt_subset_nightly(StyioContext& context) {
   const auto saved = context.save_cursor();

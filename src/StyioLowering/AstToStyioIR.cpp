@@ -1442,13 +1442,15 @@ class StateExprCloneVisitor
     for (const auto& handler : expr->getHandlers()) {
       handlers.emplace_back(handler.effect_name, clone(handler.body));
     }
-    return ResourceEffectAST::Create(
+    auto* cloned = ResourceEffectAST::Create(
       clone(expr->getOperation()),
       expr->hasFallback() ? clone(expr->getFallback()) : nullptr,
       expr->isDiscard(),
       std::move(handlers),
       expr->isValueRequired()
     );
+    cloned->setResultType(expr->getDataType());
+    return cloned;
   }
 
   StyioAST* clone(InstantPullAST* expr) {
