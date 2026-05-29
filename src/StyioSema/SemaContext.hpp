@@ -346,6 +346,8 @@ public:
     bool property = false;
     StyioDataType result_type{StyioDataTypeOption::Undefined, "undefined", 0};
     std::size_t param_count = 0;
+    std::vector<std::string> param_names;
+    std::vector<StyioDataType> param_types;
   };
 
   const ResourceMethodInfo* find_resource_method(

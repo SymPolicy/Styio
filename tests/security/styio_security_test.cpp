@@ -1822,6 +1822,48 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueMatrixIndexFallbac
   EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedMatrixIndexFallbackExpression) {
+  const std::string src =
+    "@file::cell_missing = (m: matrix) => { <| m[3][0] }\n"
+    "m: matrix = [[1,2],[3,4]]\n"
+    "log := @file(\"/tmp/styio-resource-method-matrix-index\")\n"
+    "result = ?| log.cell_missing(m) | bounds => 9 | 7\n"
+    ">_(result)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("value: required"), std::string::npos);
+  EXPECT_NE(repr.find("handler:bounds"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_matrix_get_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedMatrixRowFallbackExpression) {
+  const std::string src =
+    "@file::row_missing = (m: matrix) => { <| m[3] }\n"
+    "m: matrix = [[1,2],[3,4]]\n"
+    "log := @file(\"/tmp/styio-resource-method-matrix-row\")\n"
+    "result: list[i64] = ?| log.row_missing(m) | bounds => [9] | [7]\n"
+    ">_(result)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("value: required"), std::string::npos);
+  EXPECT_NE(repr.find("handler:bounds"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_matrix_row_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueStdinPullFallbackExpression) {
   const std::string src =
     "result = ?| (<- @stdin) | 7\n"
@@ -1989,6 +2031,43 @@ TEST(StyioSecurityNightlySemantics, RejectsResourceEffectValueMatrixIndexFallbac
     const std::string msg = err.what();
     EXPECT_NE(msg.find("resource-effect fallback expects"), std::string::npos) << msg;
     EXPECT_NE(msg.find("got string"), std::string::npos) << msg;
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsResourceMethodArgumentTypeMismatch) {
+  const std::string src =
+    "@file::cell = (m: matrix) => { <| m[0][0] }\n"
+    "xs = [1,2]\n"
+    "log := @file(\"/tmp/styio-resource-method-matrix-arg-mismatch\")\n"
+    "result = ?| log.cell(xs) | 7\n"
+    ">_(result)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected resource method argument type mismatch to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    const std::string msg = err.what();
+    EXPECT_NE(msg.find("resource method argument type mismatch for parameter 'm'"), std::string::npos) << msg;
+    EXPECT_NE(msg.find("expected matrix"), std::string::npos) << msg;
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsResourceMethodGlobalMatrixCaptureBeforeLexicalCaptureSupport) {
+  const std::string src =
+    "m: matrix = [[1,2],[3,4]]\n"
+    "@file::cell = () => { <| m[0][0] }\n"
+    "log := @file(\"/tmp/styio-resource-method-matrix-global\")\n"
+    "result = ?| log.cell() | 7\n"
+    ">_(result)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected resource method global matrix capture to stay fail-closed";
+  }
+  catch (const StyioTypeError& err) {
+    const std::string msg = err.what();
+    EXPECT_NE(msg.find("indexed access requires an indexable value"), std::string::npos) << msg;
   }
 }
 
