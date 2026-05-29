@@ -3850,9 +3850,28 @@ StyioToLLVM::toLLVMIR(SIOHandleAcquire* node) {
     llvm::FunctionType::get(theBuilder->getInt64Ty(), {char_ptr}, false));
   llvm::Value* path = node->path_expr->toLLVMIR(this);
   std::string pkey = path_key_from_path_ir(node->path_expr);
-  if (release_tracked_file_handle_binding(node->var_name)
-      && resource_effect_operation_depth_ == 0) {
-    emit_runtime_error_guard_return();
+  llvm::BasicBlock* resource_effect_rebind_done = nullptr;
+  if (release_tracked_file_handle_binding(node->var_name)) {
+    if (resource_effect_operation_depth_ == 0) {
+      emit_runtime_error_guard_return();
+    }
+    else {
+      llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
+      if (cur != nullptr && cur->getTerminator() == nullptr) {
+        llvm::Function* fn = cur->getParent();
+        llvm::FunctionCallee has_error = theModule->getOrInsertFunction(
+          "styio_runtime_has_error",
+          llvm::FunctionType::get(theBuilder->getInt32Ty(), false));
+        llvm::Value* has_err = theBuilder->CreateCall(has_error, {});
+        llvm::Value* failed = theBuilder->CreateICmpNE(has_err, theBuilder->getInt32(0));
+        llvm::BasicBlock* open_bb = llvm::BasicBlock::Create(
+          *theContext, "file_rebind_cleanup_ok", fn);
+        resource_effect_rebind_done = llvm::BasicBlock::Create(
+          *theContext, "file_rebind_cleanup_done", fn);
+        theBuilder->CreateCondBr(failed, resource_effect_rebind_done, open_bb);
+        theBuilder->SetInsertPoint(open_bb);
+      }
+    }
   }
 
   auto reopen_slot_if_closed = [&](llvm::AllocaInst* existing_slot)
@@ -3897,6 +3916,14 @@ StyioToLLVM::toLLVMIR(SIOHandleAcquire* node) {
   mutable_variables[node->var_name] = slot;
   file_handle_var_slots_[node->var_name] = slot;
   register_file_handle_for_raii(node->var_name);
+  if (resource_effect_rebind_done != nullptr) {
+    llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
+    if (cur != nullptr && cur->getTerminator() == nullptr) {
+      theBuilder->CreateBr(resource_effect_rebind_done);
+    }
+    theBuilder->SetInsertPoint(resource_effect_rebind_done);
+    return theBuilder->getInt64(0);
+  }
   if (resource_effect_operation_depth_ == 0) {
     emit_runtime_error_guard_return();
   }
