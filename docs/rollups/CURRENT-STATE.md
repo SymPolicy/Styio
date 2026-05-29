@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the compressed default read-in for the current repository state so future agents can orient themselves from active docs first; Git history and minimal lifecycle provenance are optional background, not required maintenance input.
 
-**Last updated:** 2026-05-19
+**Last updated:** 2026-05-30
 
 ## Default Read Order
 
@@ -30,7 +30,7 @@
 1. The active repo-wide unfinished-work summary is [`./NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md). Use it to split compiler debt, IDE closure work, and `spio` handoff tasks without collapsing repo boundaries.
 2. IDE work is tracked through the IDE external docs, IDE/LSP runbook, perf runbook, and current gap ledger instead of a retained planning batch.
 3. Resource Topology v2 remains a dedicated migration track owned by [`../design/Styio-Resource-Topology.md`](../design/Styio-Resource-Topology.md), [`../design/syntax/ACTIVE-SYNTAX.md`](../design/syntax/ACTIVE-SYNTAX.md), and the current gap ledger.
-4. Broad industrial-language closure work is decision-gated by [`NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md) §5.7. IM-D1's StyioIR contract inventory lives in [`IM-D1-STYIOIR-CONTRACT-INVENTORY.md`](./IM-D1-STYIOIR-CONTRACT-INVENTORY.md), IM-D2's parser-authority inventory lives in [`IM-D2-PARSER-AUTHORITY-INVENTORY.md`](./IM-D2-PARSER-AUTHORITY-INVENTORY.md), and IM-D3's diagnostic contract inventory lives in [`IM-D3-DIAGNOSTIC-CONTRACT-INVENTORY.md`](./IM-D3-DIAGNOSTIC-CONTRACT-INVENTORY.md). A missing compiler-language capability may remain unfinished only when it is recorded with a pending decision, a mature architecture reference, and a concrete stop condition.
+4. Broad industrial-language closure work is decision-gated by [`NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md) §5.7. IM-D1's StyioIR contract inventory lives in [`IM-D1-STYIOIR-CONTRACT-INVENTORY.md`](./IM-D1-STYIOIR-CONTRACT-INVENTORY.md), IM-D2's parser-authority inventory lives in [`IM-D2-PARSER-AUTHORITY-INVENTORY.md`](./IM-D2-PARSER-AUTHORITY-INVENTORY.md), IM-D3's diagnostic contract inventory lives in [`IM-D3-DIAGNOSTIC-CONTRACT-INVENTORY.md`](./IM-D3-DIAGNOSTIC-CONTRACT-INVENTORY.md), and IM-D7's native interop ABI inventory lives in [`IM-D7-NATIVE-INTEROP-ABI-INVENTORY.md`](./IM-D7-NATIVE-INTEROP-ABI-INVENTORY.md). A missing compiler-language capability may remain unfinished only when it is recorded with a pending decision, a mature architecture reference, and a concrete stop condition.
 
 ## Active Gates
 

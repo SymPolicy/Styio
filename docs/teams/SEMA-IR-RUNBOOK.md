@@ -78,6 +78,7 @@ High-value docs:
 44. Tuple return diagnostic refinements must remain diagnostic-only. `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN` proves the existing fail-closed tuple-return boundary, not tuple value IR or tuple return execution.
 45. Hash-tag iterator route diagnostics must remain diagnostic-only. `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED` proves the existing fail-closed `IterSeqAST` route boundary, not accepted stream route semantics; do not implement `>> #tag` runtime behavior until IM-D5-P1 defines or retires that syntax in the design SSOT.
 46. Resource-effect fallback mismatch and resource-method unsupported-body diagnostics must remain diagnostic-only. `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH` and `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY` prove existing fail-closed boundaries; do not use them as evidence for arbitrary fallback recovery, multi-statement resource method bodies, captures, dict slice recovery, or pressure handling.
+47. Native `@extern` source-read and explicit binding/signature diagnostics must remain diagnostic-only. `STYIO_NATIVE_SOURCE_READ_FAILED` and `STYIO_NATIVE_SIGNATURE_NOT_FOUND` prove existing fail-closed sema/codegen boundaries while preserving explicit binding rules; do not use them as evidence for broader native signatures, hidden-symbol visibility, C++ symbol mapping, or host-toolchain behavior.
 
 ## Change Classes
 
