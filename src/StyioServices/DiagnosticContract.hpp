@@ -31,6 +31,8 @@ inline constexpr std::string_view kParseShadowMismatch = "STYIO_PARSE_SHADOW_MIS
 
 inline constexpr std::string_view kSemaImmutableBinding = "STYIO_SEMA_IMMUTABLE_BINDING";
 inline constexpr std::string_view kSemaUndeclaredSymbol = "STYIO_SEMA_UNDECLARED_SYMBOL";
+inline constexpr std::string_view kSemaCallArityMismatch =
+  "STYIO_SEMA_CALL_ARITY_MISMATCH";
 inline constexpr std::string_view kSemaResourceMethodUnsupportedBody =
   "STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY";
 inline constexpr std::string_view kTypeError = "STYIO_TYPE_ERROR";
@@ -217,6 +219,10 @@ classify_type_or_lowering_code(std::string_view message) {
       || contains(message, "unknown resource `")
       || contains(message, "unknown resource: @")) {
     return std::string(kSemaUndeclaredSymbol);
+  }
+  if ((contains(message, "function `") || contains(message, "resource method @"))
+      && contains(message, "expects") && contains(message, "argument(s), got")) {
+    return std::string(kSemaCallArityMismatch);
   }
   if (contains(message, "resource method return currently requires a single")) {
     return std::string(kSemaResourceMethodUnsupportedBody);
