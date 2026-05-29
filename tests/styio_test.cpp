@@ -5148,6 +5148,78 @@ TEST(StyioResourceLifecycle, FlexFileRebindAfterCloseReopensSamePath) {
   fs::remove(data);
 }
 
+TEST(StyioResourceLifecycle, FlexFileRebindReleasesOldFileAndContinues) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path source =
+    fs::temp_directory_path() / ("styio-resource-rebind-release-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << "f = @file(\"tests/features/file_resources/data/hello.txt\")\n";
+    out << "f = @file(\"tests/features/file_resources/data/numbers.txt\")\n";
+    out << "f >> #(line) => { >_(line) }\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + source.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "10\n20\n30\n");
+
+  fs::remove(source);
+}
+
+TEST(StyioResourceLifecycle, FlexFileRebindCleanupFailureStopsBeforeOverwrite) {
+#ifdef _WIN32
+  GTEST_SKIP() << "/dev/full cleanup-failure fixture is Unix-specific";
+#else
+  if (!fs::exists("/dev/full")) {
+    GTEST_SKIP() << "/dev/full is not available";
+  }
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path source =
+    fs::temp_directory_path() / ("styio-resource-rebind-cleanup-fail-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << "f = @file(\"/dev/full\")\n";
+    out << "f.write(\"primary\")\n";
+    out << "f = @file(\"tests/features/file_resources/data/hello.txt\")\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --error-format=jsonl --file \""
+    + source.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 5) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_RUNTIME_FILE_CLEANUP_FAILURE\""), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("after"), std::string::npos);
+
+  fs::remove(source);
+#endif
+}
+
 TEST(StyioResourceLifecycle, FunctionReturnRunsFileScopeCleanupSmoke) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
