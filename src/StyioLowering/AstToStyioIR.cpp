@@ -1387,6 +1387,10 @@ class StateExprCloneVisitor
     );
   }
 
+  StyioAST* clone(InstantPullAST* expr) {
+    return InstantPullAST::Create(clone(expr->getResource()), expr->getDataType());
+  }
+
   StyioAST* clone(HistoryProbeAST* expr) {
     StyioAST* cloned_target = clone(expr->getTarget());
     if (cloned_target == nullptr || cloned_target->getNodeType() != StyioNodeType::StateRef) {
@@ -1565,6 +1569,8 @@ public:
         return clone(static_cast<ResourceRedirectAST*>(expr));
       case StyioNodeType::ResourceEffect:
         return clone(static_cast<ResourceEffectAST*>(expr));
+      case StyioNodeType::InstantPull:
+        return clone(static_cast<InstantPullAST*>(expr));
       case StyioNodeType::HistoryProbe:
         return clone(static_cast<HistoryProbeAST*>(expr));
       case StyioNodeType::StateRef:
