@@ -1710,6 +1710,64 @@ TEST(StyioSecurityNightlyCodegen, ReturnRunsFileScopeCleanupBeforeRet) {
   std::filesystem::remove(data);
 }
 
+TEST(StyioSecurityNightlyCodegen, BreakRunsFileScopeCleanupBeforeLoopExitBranch) {
+  const std::string src =
+    "[1] >> #(i) => {\n"
+    "  f <- @file(\"tests/features/file_resources/data/hello.txt\")\n"
+    "  ^\n"
+    "}\n"
+    ">_(\"after\")\n";
+
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  const std::size_t close_pos = llvm_ir.find("call void @styio_file_close");
+  ASSERT_NE(close_pos, std::string::npos) << llvm_ir;
+  std::size_t branch_pos = llvm_ir.find("br label %foreach_exit", close_pos);
+  if (branch_pos == std::string::npos) {
+    branch_pos = llvm_ir.find("br label %foreach_rt_exit", close_pos);
+  }
+  EXPECT_NE(branch_pos, std::string::npos) << llvm_ir;
+  EXPECT_LT(close_pos, branch_pos);
+}
+
+TEST(StyioSecurityNightlyCodegen, ContinueRunsFileScopeCleanupBeforeLoopStepBranch) {
+  const std::string src =
+    "[1] >> #(i) => {\n"
+    "  f <- @file(\"tests/features/file_resources/data/hello.txt\")\n"
+    "  >>\n"
+    "}\n"
+    ">_(\"after\")\n";
+
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  const std::size_t close_pos = llvm_ir.find("call void @styio_file_close");
+  ASSERT_NE(close_pos, std::string::npos) << llvm_ir;
+  std::size_t branch_pos = llvm_ir.find("br label %foreach_step", close_pos);
+  if (branch_pos == std::string::npos) {
+    branch_pos = llvm_ir.find("br label %foreach_rt_step", close_pos);
+  }
+  EXPECT_NE(branch_pos, std::string::npos) << llvm_ir;
+  EXPECT_LT(close_pos, branch_pos);
+}
+
+TEST(StyioSecurityNightlyCodegen, RejectsBreakAndContinueOutsideLoop) {
+  try {
+    compile_program_to_llvm_ir_engine_latest("^\n", StyioParserEngine::Nightly);
+    FAIL() << "expected top-level break to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    EXPECT_NE(std::string(err.what()).find("break outside enclosing loop"), std::string::npos);
+  }
+
+  try {
+    compile_program_to_llvm_ir_engine_latest(">>\n", StyioParserEngine::Nightly);
+    FAIL() << "expected top-level continue to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    EXPECT_NE(std::string(err.what()).find("continue outside enclosing loop"), std::string::npos);
+  }
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueFallbackExpression) {
   const std::string src =
     "result = ?| (<< @file(\"/tmp/styio-resource-effect-value-missing\")) | 7\n"

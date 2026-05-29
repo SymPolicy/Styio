@@ -2569,6 +2569,9 @@ StyioToLLVM::toLLVMIR(SGBlock* node) {
   if (bcur && !bcur->getTerminator()) {
     pop_file_handle_scope();
   }
+  else {
+    discard_file_handle_scope_metadata();
+  }
   return last ? last : theBuilder->getInt64(0);
 }
 
@@ -2725,7 +2728,7 @@ StyioToLLVM::toLLVMIR(SGLoop* node) {
 
   if (node->tag == SGLoopTag::Infinite) {
     theBuilder->CreateBr(body_bb);
-    loop_stack_.push_back(LoopFrame{exit_bb, body_bb});
+    loop_stack_.push_back(LoopFrame{exit_bb, body_bb, file_handle_scope_stack_.size()});
     theBuilder->SetInsertPoint(body_bb);
     node->body->toLLVMIR(this);
     emit_bounded_ring_pending_commits();
@@ -2749,7 +2752,7 @@ StyioToLLVM::toLLVMIR(SGLoop* node) {
       llvm::ConstantInt::get(llvm::cast<llvm::IntegerType>(cv->getType()), 0));
   }
   theBuilder->CreateCondBr(c, body_bb, exit_bb);
-  loop_stack_.push_back(LoopFrame{exit_bb, cond_bb});
+  loop_stack_.push_back(LoopFrame{exit_bb, cond_bb, file_handle_scope_stack_.size()});
   theBuilder->SetInsertPoint(body_bb);
   node->body->toLLVMIR(this);
   emit_bounded_ring_pending_commits();
@@ -2861,7 +2864,7 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
     llvm::Value* go = theBuilder->CreateICmpSLT(idxv, n);
     theBuilder->CreateCondBr(go, body_bb, exit_bb);
 
-    loop_stack_.push_back(LoopFrame{exit_bb, step_bb});
+    loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size()});
     theBuilder->SetInsertPoint(body_bb);
     llvm::Value* idx = theBuilder->CreateLoad(i64t, idx_slot);
     llvm::Value* z32 = theBuilder->getInt32(0);
@@ -2962,7 +2965,7 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
   llvm::Value* go = theBuilder->CreateICmpSLT(idxv, len);
   theBuilder->CreateCondBr(go, body_bb, exit_bb);
 
-  loop_stack_.push_back(LoopFrame{exit_bb, step_bb});
+  loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size()});
   theBuilder->SetInsertPoint(body_bb);
   llvm::Value* idx = theBuilder->CreateLoad(i64t, idx_slot);
   llvm::Value* cur_list = theBuilder->CreateLoad(i64t, list_slot);
@@ -3049,7 +3052,7 @@ StyioToLLVM::toLLVMIR(SGRangeFor* node) {
   llvm::Value* go = theBuilder->CreateSelect(is_zero, llvm::ConstantInt::getFalse(*theContext), go_non_zero);
   theBuilder->CreateCondBr(go, body_bb, exit_bb);
 
-  loop_stack_.push_back(LoopFrame{exit_bb, step_bb});
+  loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size()});
 
   theBuilder->SetInsertPoint(body_bb);
   llvm::AllocaInst* vs = theBuilder->CreateAlloca(i64t, nullptr, node->var);
@@ -3343,19 +3346,31 @@ llvm::Value*
 StyioToLLVM::toLLVMIR(SGBreak* node) {
   (void)node;
   if (loop_stack_.empty()) {
+    throw StyioTypeError("break outside enclosing loop");
+  }
+  const LoopFrame& frame = loop_stack_.back();
+  emit_scope_cleanup_to_depth(frame.resource_scope_depth);
+  llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
+  if (cur == nullptr || cur->getTerminator() != nullptr) {
     return nullptr;
   }
-  theBuilder->CreateBr(loop_stack_.back().break_dest);
+  theBuilder->CreateBr(frame.break_dest);
   return nullptr;
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGContinue* node) {
   if (loop_stack_.empty() || node->depth == 0 || node->depth > loop_stack_.size()) {
-    return nullptr;
+    throw StyioTypeError("continue outside enclosing loop");
   }
   size_t ix = loop_stack_.size() - node->depth;
-  theBuilder->CreateBr(loop_stack_[ix].continue_dest);
+  const LoopFrame& frame = loop_stack_[ix];
+  emit_scope_cleanup_to_depth(frame.resource_scope_depth);
+  llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
+  if (cur == nullptr || cur->getTerminator() != nullptr) {
+    return nullptr;
+  }
+  theBuilder->CreateBr(frame.continue_dest);
   return nullptr;
 }
 
@@ -3602,6 +3617,71 @@ StyioToLLVM::emit_active_file_handle_cleanup() {
 }
 
 void
+StyioToLLVM::emit_scope_cleanup_to_depth(std::size_t keep_depth) {
+  if (keep_depth >= file_handle_scope_stack_.size()) {
+    return;
+  }
+
+  std::unordered_set<llvm::AllocaInst*> closed_file_slots;
+  bool emitted_file_cleanup = false;
+  for (std::size_t scope_ix = file_handle_scope_stack_.size(); scope_ix-- > keep_depth;) {
+    for (const std::string& v : file_handle_scope_stack_[scope_ix]) {
+      auto it = mutable_variables.find(v);
+      if (it == mutable_variables.end()) {
+        continue;
+      }
+      llvm::AllocaInst* slot = it->second;
+      if (!closed_file_slots.insert(slot).second) {
+        continue;
+      }
+      emit_file_handle_slot_close(slot);
+      emitted_file_cleanup = true;
+    }
+  }
+
+  std::unordered_set<llvm::AllocaInst*> freed_cstr_slots;
+  for (std::size_t scope_ix = cstr_slot_scope_stack_.size(); scope_ix-- > keep_depth;) {
+    for (llvm::AllocaInst* slot : cstr_slot_scope_stack_[scope_ix]) {
+      if (slot == nullptr || !slot->getAllocatedType()->isPointerTy()) {
+        continue;
+      }
+      if (!freed_cstr_slots.insert(slot).second) {
+        continue;
+      }
+      llvm::Value* s = theBuilder->CreateLoad(slot->getAllocatedType(), slot);
+      free_cstr_if_runtime_owned(s);
+    }
+  }
+
+  std::unordered_set<llvm::AllocaInst*> released_dynamic_slots;
+  for (std::size_t scope_ix = dynamic_slot_scope_stack_.size(); scope_ix-- > keep_depth;) {
+    for (llvm::AllocaInst* slot : dynamic_slot_scope_stack_[scope_ix]) {
+      if (slot == nullptr) {
+        continue;
+      }
+      if (!released_dynamic_slots.insert(slot).second) {
+        continue;
+      }
+      release_dynamic_slot_contents(slot);
+    }
+  }
+
+  std::unordered_set<std::string> released_bounded_rings;
+  for (std::size_t scope_ix = bounded_ring_cstr_scope_stack_.size(); scope_ix-- > keep_depth;) {
+    for (const std::string& name : bounded_ring_cstr_scope_stack_[scope_ix]) {
+      if (!released_bounded_rings.insert(name).second) {
+        continue;
+      }
+      release_bounded_ring_cstr_storage(name);
+    }
+  }
+
+  if (emitted_file_cleanup) {
+    emit_runtime_error_guard_return_after_cleanup();
+  }
+}
+
+void
 StyioToLLVM::emit_active_scope_cleanup() {
   (void)emit_active_file_handle_cleanup();
   std::unordered_set<llvm::AllocaInst*> freed_cstr_slots;
@@ -3645,6 +3725,22 @@ StyioToLLVM::emit_active_scope_cleanup() {
       }
       release_bounded_ring_cstr_storage(name);
     }
+  }
+}
+
+void
+StyioToLLVM::discard_file_handle_scope_metadata() {
+  if (!file_handle_scope_stack_.empty()) {
+    file_handle_scope_stack_.pop_back();
+  }
+  if (!cstr_slot_scope_stack_.empty()) {
+    cstr_slot_scope_stack_.pop_back();
+  }
+  if (!dynamic_slot_scope_stack_.empty()) {
+    dynamic_slot_scope_stack_.pop_back();
+  }
+  if (!bounded_ring_cstr_scope_stack_.empty()) {
+    bounded_ring_cstr_scope_stack_.pop_back();
   }
 }
 
@@ -3787,10 +3883,9 @@ StyioToLLVM::toLLVMIR(SIOHandleAcquire* node) {
   }
   if (!slot) {
     llvm::Value* h = theBuilder->CreateCall(open_fn, {path});
-    slot = theBuilder->CreateAlloca(
+    slot = create_entry_alloca(
       theBuilder->getInt64Ty(),
-      nullptr,
-      node->var_name.c_str());
+      node->var_name);
     theBuilder->CreateStore(h, slot);
     if (!pkey.empty()) {
       file_singleton_path_slots_[pkey] = slot;
@@ -4831,7 +4926,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     llvm::Value* ok_b = theBuilder->CreateICmpSLT(idxv, len_b);
     theBuilder->CreateCondBr(theBuilder->CreateAnd(ok_a, ok_b), body_bb, exit_bb);
 
-    loop_stack_.push_back(LoopFrame{exit_bb, step_bb});
+    loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size()});
     theBuilder->SetInsertPoint(body_bb);
     emit_snapshot_shadow_reload();
     llvm::Value* idx = theBuilder->CreateLoad(i64t, idx_slot);
@@ -4950,7 +5045,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     llvm::Value* got_line = theBuilder->CreateICmpNE(line, null_line);
     theBuilder->CreateCondBr(got_line, body_bb, exit_bb);
 
-    loop_stack_.push_back(LoopFrame{exit_bb, step_bb});
+    loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size()});
     theBuilder->SetInsertPoint(body_bb);
     emit_snapshot_shadow_reload();
     llvm::Value* idx = theBuilder->CreateLoad(i64t, idx_slot);
@@ -5111,7 +5206,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     llvm::Value* ok = theBuilder->CreateICmpSLT(iv, lim);
     theBuilder->CreateCondBr(ok, body_bb, exit_bb);
 
-    loop_stack_.push_back(LoopFrame{exit_bb, step_bb});
+    loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size()});
     theBuilder->SetInsertPoint(body_bb);
     emit_snapshot_shadow_reload();
     llvm::Value* idx = theBuilder->CreateLoad(i64t, idx_slot);
@@ -5225,7 +5320,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     llvm::Value* got = theBuilder->CreateICmpNE(ln, null_ln);
     theBuilder->CreateCondBr(got, body_bb, exit_bb);
 
-    loop_stack_.push_back(LoopFrame{exit_bb, step_bb});
+    loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size()});
     theBuilder->SetInsertPoint(body_bb);
     emit_snapshot_shadow_reload();
     llvm::Value* idx = theBuilder->CreateLoad(i64t, idx_slot);
@@ -5342,7 +5437,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     llvm::Value* got = theBuilder->CreateICmpNE(ln, null_ln);
     theBuilder->CreateCondBr(got, body_bb, exit_bb);
 
-    loop_stack_.push_back(LoopFrame{exit_bb, step_bb});
+    loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size()});
     theBuilder->SetInsertPoint(body_bb);
     emit_snapshot_shadow_reload();
     llvm::Value* idx = theBuilder->CreateLoad(i64t, idx_slot);
@@ -5420,7 +5515,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     llvm::Value* stop = theBuilder->CreateOr(da, db);
     theBuilder->CreateCondBr(stop, exit_bb, body_bb);
 
-    loop_stack_.push_back(LoopFrame{exit_bb, hdr_bb});
+    loop_stack_.push_back(LoopFrame{exit_bb, hdr_bb, file_handle_scope_stack_.size()});
     theBuilder->SetInsertPoint(body_bb);
     emit_snapshot_shadow_reload();
     llvm::Value* val_a = la;

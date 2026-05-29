@@ -19,8 +19,8 @@ double_it_entry:
 
 define i32 @main() {
 main_entry:
-  %0 = call i64 @styio_file_open(ptr @styio_str)
   %f = alloca i64, align 8
+  %0 = call i64 @styio_file_open(ptr @styio_str)
   store i64 %0, ptr %f, align 8
   %1 = call i32 @styio_runtime_has_error()
   %2 = icmp ne i32 %1, 0
