@@ -422,9 +422,10 @@ Examples:
 
 1. Function return lowering no longer maps tuple return metadata through an
    `i64` fallback: tuple return annotations now fail closed with a type
-   diagnostic until tuple value IR exists. Unspecified function returns infer
-   final expression tails for the covered scalar families; statement-only tails
-   still return the current generated default value.
+   diagnostic until tuple value IR exists, and the public JSONL code is the
+   feature-owned `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN`. Unspecified function
+   returns infer final expression tails for the covered scalar families;
+   statement-only tails still return the current generated default value.
 2. Topology v2 resource declaration lowering initializes declared slots to a
    zero value by storage type. For `i64`, `f64`, `bool`, `char`, and `string`
    fixed/recent resources this becomes a bounded-ring storage value, but
@@ -570,9 +571,9 @@ These should not be counted as missing implementation in this checkout:
    `StyioResourceLifecycle.FunctionReturnRunsFileScopeCleanupSmoke` keeps the
    source-level early-return path executable.
 10. Tuple function return annotations are no longer a silent `i64` fallback.
-   `StyioDiagnostics.TupleFunctionReturnAnnotationFailsClosed` proves the CLI
-   JSONL `STYIO_TYPE_ERROR` path, `ScalarAndInferredFunctionReturnsStayExecutable`
-   keeps adjacent scalar/inferred returns executable, and
+   `StyioDiagnostics.TupleFunctionReturnAnnotationReportsTypeCode` proves the CLI
+   JSONL `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN` path,
+   `ScalarAndInferredFunctionReturnsStayExecutable` keeps adjacent scalar/inferred returns executable, and
    `StyioSecurityNightlyParserStmt.RejectsTupleFunctionReturnAnnotationBeforeLoweringFallback`
    covers the Sema/lowering fail-closed path.
 11. Task await fallback settlement is no longer missing from the resource-effect
@@ -681,6 +682,15 @@ These should not be counted as missing implementation in this checkout:
     the JSONL public phase is `sema`, the exit family remains TypeError, and
     the stable message fragment is still present. This is diagnostic refinement
     only; it does not broaden or change final-binding mutability semantics.
+19. Tuple function return annotation diagnostics are no longer only the broad
+    `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies the
+    stable tuple-value-IR rejection message as
+    `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN`, while
+    `StyioDiagnostics.TupleFunctionReturnAnnotationReportsTypeCode` proves the
+    JSONL public phase is `type`, the exit family remains TypeError, and the
+    stable message fragment is still present. This is diagnostic refinement
+    only; tuple value IR and tuple return execution remain open language/runtime
+    work.
 
 ## Recommended Closure Order
 
