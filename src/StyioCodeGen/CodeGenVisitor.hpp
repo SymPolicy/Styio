@@ -207,6 +207,7 @@ class StyioToLLVM : public StyioCodeGenVisitor
   struct LoopFrame {
     llvm::BasicBlock* break_dest = nullptr;
     llvm::BasicBlock* continue_dest = nullptr;
+    std::size_t resource_scope_depth = 0;
   };
   std::vector<LoopFrame> loop_stack_;
 
@@ -476,6 +477,7 @@ private:
   void emit_runtime_error_guard_return();
   void emit_runtime_error_guard_return_after_cleanup();
   bool emit_active_file_handle_cleanup();
+  void emit_scope_cleanup_to_depth(std::size_t keep_depth);
   void emit_file_handle_slot_close(llvm::AllocaInst* slot);
   bool release_tracked_file_handle_binding(const std::string& var_name);
   llvm::Value* cstr_to_i64_checked(llvm::Value* v);
@@ -502,6 +504,7 @@ private:
   void push_file_handle_scope();
 
   void pop_file_handle_scope();
+  void discard_file_handle_scope_metadata();
 
   void register_file_handle_for_raii(const std::string& var_name);
   void register_cstr_slot_for_raii(llvm::AllocaInst* slot);

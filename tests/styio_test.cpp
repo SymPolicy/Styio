@@ -5189,6 +5189,53 @@ TEST(StyioResourceLifecycle, FunctionReturnRunsFileScopeCleanupSmoke) {
   fs::remove(data);
 }
 
+TEST(StyioResourceLifecycle, LoopBreakAndContinueRunFileScopeCleanupSmoke) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path source =
+    fs::temp_directory_path() / ("styio-resource-loop-cleanup-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-loop-cleanup-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "alpha\n";
+  }
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << "[1] >> #(i) => {\n";
+    out << "  f <- @file(\"" << data.generic_string() << "\")\n";
+    out << "  ^\n";
+    out << "  >_(\"unreachable-break\")\n";
+    out << "}\n";
+    out << "[1] >> #(i) => {\n";
+    out << "  g <- @file(\"" << data.generic_string() << "\")\n";
+    out << "  >>\n";
+    out << "  >_(\"unreachable-continue\")\n";
+    out << "}\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + source.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "after\n");
+
+  fs::remove(source);
+  fs::remove(data);
+}
+
 TEST(StyioResourceLifecycle, FileAliasUseAfterCloseFailsFast) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
