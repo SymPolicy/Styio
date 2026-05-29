@@ -38,6 +38,8 @@ inline constexpr std::string_view kSemaResourceMethodUnsupportedBody =
 inline constexpr std::string_view kTypeError = "STYIO_TYPE_ERROR";
 inline constexpr std::string_view kTypeResourceEffectFallbackMismatch =
   "STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH";
+inline constexpr std::string_view kTypeCallArgumentMismatch =
+  "STYIO_TYPE_CALL_ARGUMENT_MISMATCH";
 inline constexpr std::string_view kTypeUnsupportedTupleReturn =
   "STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN";
 inline constexpr std::string_view kTypeStreamHashTagRouteUnsupported =
@@ -229,6 +231,10 @@ classify_type_or_lowering_code(std::string_view message) {
   }
   if (contains(message, "resource-effect fallback expects")) {
     return std::string(kTypeResourceEffectFallbackMismatch);
+  }
+  if (contains(message, "function argument type mismatch for parameter '")
+      || contains(message, "resource method argument type mismatch for parameter '")) {
+    return std::string(kTypeCallArgumentMismatch);
   }
   if (contains(message, "tuple function return annotations require tuple value IR")) {
     return std::string(kTypeUnsupportedTupleReturn);

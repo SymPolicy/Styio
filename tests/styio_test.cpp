@@ -5666,6 +5666,92 @@ TEST(StyioDiagnostics, ResourceMethodArityReportsSemaCallArityMismatchCode) {
   fs::remove(input);
 }
 
+TEST(StyioDiagnostics, UserFunctionArgumentMismatchReportsTypeCallArgumentMismatchCode) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-user-call-type-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# cell := (m: matrix) => m[0][0]\n";
+    out << "xs = [1, 2]\n";
+    out << ">_(cell(xs))\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"type\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("\"code\":\"STYIO_TYPE_CALL_ARGUMENT_MISMATCH\""),
+    std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("function argument type mismatch for parameter 'm'"),
+    std::string::npos);
+  EXPECT_NE(result.stdout_text.find("expected matrix"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("got list"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioDiagnostics, ResourceMethodArgumentMismatchReportsTypeCallArgumentMismatchCode) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-method-call-type-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@file::cell = (m: matrix) => { <| m[0][0] }\n";
+    out << "xs = [1, 2]\n";
+    out << "log := @file(\"tests/features/file_resources/data/hello.txt\")\n";
+    out << "result = ?| log.cell(xs) | 7\n";
+    out << ">_(result)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"type\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("\"code\":\"STYIO_TYPE_CALL_ARGUMENT_MISMATCH\""),
+    std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("resource method argument type mismatch for parameter 'm'"),
+    std::string::npos);
+  EXPECT_NE(result.stdout_text.find("expected matrix"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("got list"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
+
+  fs::remove(input);
+}
+
 TEST(StyioDiagnostics, StreamZipUnsupportedSourceReportsFeatureCode) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
