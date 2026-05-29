@@ -67,6 +67,7 @@ Key handoff document:
 33. Compile-plan v1 malformed-input hardening must stay inside the resolved compiler request envelope: explicit optional fields with the wrong shape should fail instead of silently defaulting, package entries must have compiler-visible `id` fields, and `entry.package_id` must be present in the package list. Do not add resolver, install, registry, or package lifecycle behavior to close those compiler-side guards.
 34. When a public JSONL diagnostic family is narrowed from a broad fallback such as `STYIO_TYPE_ERROR`, add the code and classifier in `DiagnosticContract.hpp`, keep the process exit family stable unless the contract explicitly changes, update focused CLI JSONL tests, and refresh the StyioServices docs plus IM-D3 inventory in the same checkpoint.
 35. Immutable/final binding mutation diagnostics are sema-family public facts even when they surface through the TypeError exit family. Keep `STYIO_SEMA_IMMUTABLE_BINDING`, phase `sema`, exit code 4, and the stable message fragment covered together when those classifier messages change.
+36. Tuple function return annotation diagnostics are type-family public facts over an existing fail-closed boundary. Keep `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN`, phase `type`, exit code 4, and the stable tuple-value-IR message fragment covered without implying tuple value IR support.
 
 ## Change Classes
 
