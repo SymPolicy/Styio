@@ -7416,6 +7416,61 @@ TEST(StyioResourceEffects, ValueResourceMethodScalarFamiliesReturnFromDirectAndF
   fs::remove(data);
 }
 
+TEST(StyioResourceEffects, ValueResourceMethodReturnedResourceEffectRecoversInsideMethod) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-method-returned-effect-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-method-returned-effect-data-" + std::to_string(uniq) + ".txt");
+  const fs::path missing =
+    fs::temp_directory_path() / ("styio-resource-method-returned-effect-missing-" + std::to_string(uniq) + ".txt");
+
+  fs::remove(missing);
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "42\n";
+  }
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@file::read_ok = () => { <| ?| (<< @file(\"" << data.generic_string() << "\")) | 7 }\n";
+    out << "@file::read_or = () => { <| ?| (<< @file(\"" << missing.generic_string() << "\")) | 7 }\n";
+    out << "@file::read_named = () => { <| ?| (<< @file(\"" << missing.generic_string() << "\")) | io => 8 | 6 }\n";
+    out << "log := @file(\"" << data.generic_string() << "\")\n";
+    out << "direct_ok = log.read_ok()\n";
+    out << "direct_recovered = log.read_or()\n";
+    out << "named_recovered = log.read_named()\n";
+    out << "guarded = ?| log.read_or() | 9\n";
+    out << ">_(direct_ok)\n";
+    out << ">_(direct_recovered)\n";
+    out << ">_(named_recovered)\n";
+    out << ">_(guarded)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "42\n7\n8\n7\nafter\n");
+  EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
+  EXPECT_FALSE(fs::exists(missing));
+
+  fs::remove(input);
+  fs::remove(data);
+  fs::remove(missing);
+}
+
 TEST(StyioResourceEffects, ResourceMethodValueFallbackTypeMismatchReportsTypeCode) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();

@@ -2008,6 +2008,41 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedScalarFmtFallba
   EXPECT_NE(llvm_ir.find("value="), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedResourceEffectFallbackExpression) {
+  const std::string src =
+    "@file::read_or = () => { <| ?| (<< @file(\"/tmp/styio-resource-method-returned-effect-missing\")) | io => 8 | 7 }\n"
+    "log := @file(\"/tmp/styio-resource-method-returned-effect\")\n"
+    "result = ?| log.read_or() | 9\n"
+    ">_(result)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("value: required"), std::string::npos);
+  EXPECT_NE(repr.find("handler:io"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsResourceMethodReturnedResourceEffectDiscardExpression) {
+  const std::string src =
+    "@file::bad = () => { <| ?| (<< @file(\"/tmp/styio-resource-method-returned-effect-discard\")) | ... }\n"
+    "log := @file(\"/tmp/styio-resource-method-returned-effect-discard-log\")\n"
+    ">_(log.bad())\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected returned resource-effect discard to stay statement-only";
+  }
+  catch (const StyioSyntaxError& err) {
+    const std::string msg = err.what();
+    EXPECT_NE(msg.find("resource-effect discard is statement-only"), std::string::npos) << msg;
+  }
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueMatrixIndexFallbackExpression) {
   const std::string src =
     "m: matrix = [[1,2],[3,4]]\n"

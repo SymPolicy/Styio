@@ -58,6 +58,9 @@ parse_expr_subset_nightly(StyioContext& context);
 StyioAST*
 parse_stmt_subset_nightly(StyioContext& context);
 
+BlockAST*
+parse_block_subset_nightly(StyioContext& context);
+
 ParseAttempt<StyioAST>
 try_parse_stmt_subset_nightly(StyioContext& context);
 
