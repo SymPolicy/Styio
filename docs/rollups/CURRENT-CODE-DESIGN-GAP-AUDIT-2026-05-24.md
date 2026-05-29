@@ -120,12 +120,14 @@ Current implementation reality:
    `?| f <- @file(missing) | fallback` and matched `io` handlers for file-open
    read failures, and the successful acquire path now records the file handle in
    resource topology so a following `f >> #(line) => { ... }` iterator can use
-   it. The same acquired handle can feed a later resource-effect close method or
-   later guarded `f.write(...)` write method, and the close still consumes the
-   receiver in topology so following `f.path` use fails closed. If the acquire
-   failure is recovered and the zeroed handle is later used, the file iterator
-   and guarded write method report `STYIO_RUNTIME_INVALID_FILE_HANDLE` instead
-   of treating the handle as a valid stream or recreating the file by path.
+   it. The same acquired handle can feed a later resource-effect close method,
+   later guarded `f.write(...)` write method, or later value-producing
+   `?| (<< f) | fallback` instant-pull expression, and the close still consumes
+   the receiver in topology so following `f.path` use fails closed. If the
+   acquire failure is recovered and the zeroed handle is later used, the file
+   iterator, guarded write method, and acquired-handle instant pull report
+   `STYIO_RUNTIME_INVALID_FILE_HANDLE` instead of treating the handle as a valid
+   stream or recreating the file by path.
 5. File-close cleanup failure now has a real runtime subcode family:
    `fclose` failure is reported as `STYIO_RUNTIME_FILE_CLEANUP_FAILURE`,
    `styio_runtime_error_matches_effect("cleanup")` matches it, source-level
@@ -172,7 +174,13 @@ Current implementation reality:
    returns the successful `i64` file line value on success, clears a materialized
    file-open read failure before evaluating the fallback on failure, supports
    named handler value branches such as `io => 9`, and fails fast without a
-   fallback. `result = ?| (<- @stdin) | fallback` now follows the same
+   fallback. After a successful `?| f <- @file("data.txt") | ...`,
+   `result = ?| (<< f) | fallback` returns the next `i64` from that acquired
+   handle; if a recovered failed acquire leaves the slot at zero, matched
+   `closed => value` handlers recover `STYIO_RUNTIME_INVALID_FILE_HANDLE` and
+   no-fallback settlement fails before the following statement. Non-file names
+   such as materialized lists remain rejected as acquired-handle instant-pull
+   sources. `result = ?| (<- @stdin) | fallback` now follows the same
    value-required path for untyped stdin numeric pulls: successful stdin lines
    return the parsed `i64`, numeric parse failures recover through catch-all
    fallback or a matched `parse => handler`, and no-fallback expression
@@ -221,6 +229,7 @@ Current implementation reality:
    dict-slice semantics have their own checkpoint.
 12. There is still no complete typed value-producing resource-effect model for
    arbitrary resource operations beyond the covered file/stdin instant pulls,
+   acquired-handle file instant pulls,
    materialized container index/row/slice reads, materialized list slices, and simple
    resource-method single-return bodies, no recovery model for failing
    value-producing resource methods beyond the returned file/stdin instant-pull
@@ -265,8 +274,8 @@ opening global matrix capture.
 Implicit cleanup fallback recovery, broader reassignment cleanup,
 broader resource-family cleanup, non-failure backpressure
 observation/escalation, pressure observers, broader post-acquire resource
-operations beyond the covered file iterator, close-method, and write-method
-paths, failing value-producing resource methods beyond returned file/stdin
+operations beyond the covered file iterator, close-method, write-method, and
+acquired-handle instant-pull paths, failing value-producing resource methods beyond returned file/stdin
 instant pulls and returned list/dict/matrix bounds slices, multi-statement
 value-producing resource methods, resource-method lexical/global captures, and
 arbitrary value-producing resource-effect recovery remain design-fixed but
@@ -563,7 +572,13 @@ These should not be counted as missing implementation in this checkout:
 12. File and stdin instant-pull value-producing resource effects are no longer missing
    from the non-task `?|` path. `StyioResourceEffects` proves success and
    fallback values are returned from `result = ?| (<< @file("data.txt")) | fallback`,
-   named `io` handler values can recover a file-open read failure, stdin
+   named `io` handler values can recover a file-open read failure, and acquired
+   file handles from a preceding `?| f <- @file(...) | ...` can feed
+   `result = ?| (<< f) | fallback` through a handle-backed runtime helper.
+   Recovered failed acquires followed by `?| (<< f) | closed => 9 | 7` recover
+   `STYIO_RUNTIME_INVALID_FILE_HANDLE`, the no-fallback acquired-handle pull
+   stops before the following statement, and non-file names such as materialized
+   lists fail closed before lowering. Stdin
    `result = ?| (<- @stdin) | fallback` recovers numeric parse failures through
    fallback or matched `parse` handlers, explicit-target stdin `f64`, `string`,
    and `list[i64]` resource-effect values execute through the same value PHI
@@ -571,7 +586,8 @@ These should not be counted as missing implementation in this checkout:
    statement.
    `StyioSecurityNightlyParserStmt` / `StyioSecurityNightlySemantics` prove the
    parser/codegen value path and keep expression discard, statement-shaped write
-   expressions, and mismatched fallback values fail-closed.
+   expressions, non-file acquired-handle pull sources, and mismatched fallback
+   values fail-closed.
 13. Resource method calls and file handle-acquire statements are no longer
    excluded from statement-shaped resource-effect settlement.
    `StyioResourceEffects` proves direct
@@ -581,16 +597,19 @@ These should not be counted as missing implementation in this checkout:
    proves `?| f <- @file(missing) | fallback` recovers open-read failures
    through catch-all fallback or a matched `io` handler, skips fallback on a
    successful open, keeps the acquired file handle usable for a following
-   iterator, later resource-effect close method, or later guarded write method,
+   iterator, later resource-effect close method, later guarded write method, or
+   later value-producing instant pull,
    fails fast without fallback before a following statement, and
    fails closed with `STYIO_RUNTIME_INVALID_FILE_HANDLE` when fallback recovers
-   the open failure but later code tries to iterate the zeroed handle or write
-   through it without recreating the file path.
+   the open failure but later code tries to iterate, write through, or instant
+   pull from the zeroed handle without recreating the file path.
    `StyioSecurityNightlyParserStmt.ParsesResourceEffectResourceMethodStatement`
    and `ParsesResourceEffectHandleAcquireStatement` /
    `ResourceEffectHandleAcquireFeedsLaterIterator` /
-   `ResourceEffectHandleAcquireFeedsLaterCloseMethod` prove
-   parser/lowering/codegen routing for the iterator and later close-method
+   `ResourceEffectHandleAcquireFeedsLaterCloseMethod` /
+   `ResourceEffectHandleAcquireFeedsLaterInstantPull` prove
+   parser/lowering/codegen routing for the iterator, later close-method, and
+   acquired-handle instant-pull
    paths, while
    `StyioSecurityNightlySemantics.RejectsNonResourceMethodResourceEffectStatement`
    keeps ordinary member calls fail-closed under `?|` and
@@ -650,14 +669,15 @@ These should not be counted as missing implementation in this checkout:
    method calls now enter statement `?|` settlement for direct file close
    success, fallback/`io` recovery, and no-fallback failure; statement-shaped
    file acquire now covers fallback/`io` recovery, successful acquire followed by
-   file iteration, a later resource-effect close method, or a later guarded file
-   write method, no-fallback failure for file-open read errors, fail-closed
-   later iterator or write-method use after a recovered failed acquire, and
+   file iteration, a later resource-effect close method, a later guarded file
+   write method, or a later acquired-handle instant pull, no-fallback failure
+   for file-open read errors, fail-closed later iterator, write-method, or
+   instant-pull use after a recovered failed acquire, and
    close-method receiver invalidation. Explicit returns now
    close tracked file handles before leaving the function. The next slices must cover
    fallback recovery for implicit cleanup, reassignment cleanup, broader
    post-acquire resource operations beyond the covered file iterator,
-   close-method, and write-method paths,
+   close-method, write-method, and acquired-handle instant-pull paths,
    dict slice-shaped
    bounds recovery, additional resource families that emit typed pressure or cleanup
    effects, and arbitrary value-producing recovery beyond the covered paths.
