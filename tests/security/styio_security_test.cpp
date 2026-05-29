@@ -2042,6 +2042,32 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedMatchCasesScala
   EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedBlockFunctionCallFallbackExpression) {
+  const std::string src =
+    "# plus_one := (x: i64) => { <| x + 1 }\n"
+    "# label := (x: i64) => {\n"
+    "  $\"score={x + 2}\"\n"
+    "}\n"
+    "@file::score = (x: i64) => { <| plus_one(x) }\n"
+    "@file::label = (x: i64) => { <| label(x) }\n"
+    "log := @file(\"/tmp/styio-resource-method-function-call\")\n"
+    "score = ?| log.score(4) | 0\n"
+    "label = ?| log.label(5) | \"fallback\"\n"
+    ">_(score)\n"
+    ">_(label)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.method.def"), std::string::npos);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("value: required"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("score="), std::string::npos);
+}
+
 TEST(StyioSecurityNightlySemantics, RejectsResourceMethodReturnedContainerMatchResult) {
   const std::string src =
     "@file::bad = (x: int) => { <| x ?= {\n"
@@ -2058,6 +2084,23 @@ TEST(StyioSecurityNightlySemantics, RejectsResourceMethodReturnedContainerMatchR
   catch (const StyioTypeError& err) {
     const std::string msg = err.what();
     EXPECT_NE(msg.find("match branch values support scalar and string results"), std::string::npos) << msg;
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsResourceMethodReturnedStatementOnlyFunctionCall) {
+  const std::string src =
+    "# emit := (x: i64) => { >_(x) }\n"
+    "@file::bad = (x: i64) => { <| emit(x) }\n"
+    "log := @file(\"/tmp/styio-resource-method-function-stmt\")\n"
+    ">_(log.bad(4))\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected statement-only function result to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    const std::string msg = err.what();
+    EXPECT_NE(msg.find("resource method return currently requires a single"), std::string::npos) << msg;
   }
 }
 
