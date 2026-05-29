@@ -8941,6 +8941,67 @@ TEST(StyioDiagnostics, FunctionMatchSugarAndTailExpressionsReturnValues) {
   fs::remove(input);
 }
 
+TEST(StyioDiagnostics, MatchBoolAndCharTailValuesPreserveScalarFamilies) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-match-bool-char-tail-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "x = 1\n";
+    out << "flag = x ?= {\n";
+    out << "  1 => true\n";
+    out << "  _ => false\n";
+    out << "}\n";
+    out << "x = 2\n";
+    out << "other_flag = x ?= {\n";
+    out << "  1 => true\n";
+    out << "  _ => false\n";
+    out << "}\n";
+    out << "x = 1\n";
+    out << "mark = x ?= {\n";
+    out << "  1 => 'a'\n";
+    out << "  _ => 'b'\n";
+    out << "}\n";
+    out << "x = 2\n";
+    out << "other_mark = x ?= {\n";
+    out << "  1 => 'a'\n";
+    out << "  _ => 'b'\n";
+    out << "}\n";
+    out << "# pick_mark := (n: i32) ?= {\n";
+    out << "  0 => 'z'\n";
+    out << "  _ => 'y'\n";
+    out << "}\n";
+    out << "# pick_flag := (n: i32) ?= {\n";
+    out << "  0 => true\n";
+    out << "  _ => false\n";
+    out << "}\n";
+    out << ">_(flag)\n";
+    out << ">_(other_flag)\n";
+    out << ">_(mark)\n";
+    out << ">_(other_mark)\n";
+    out << ">_(pick_mark(0))\n";
+    out << ">_(pick_flag(3))\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(result.stdout_text, "true\nfalse\na\nb\nz\nfalse\n");
+
+  fs::remove(input);
+}
+
 TEST(StyioDiagnostics, MatchBranchLocalTailValuesRemainExecutable) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();

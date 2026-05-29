@@ -582,12 +582,12 @@ merge_match_value_type(const StyioDataType& current, const StyioDataType& next) 
   if (type_is_numeric_family(current) && type_is_numeric_family(next)) {
     return getMaxType(current, next);
   }
+  if (current.equals(next)) {
+    return current;
+  }
   if ((current_family == StyioValueFamily::Bool || current_family == StyioValueFamily::Char)
       && (next_family == StyioValueFamily::Bool || next_family == StyioValueFamily::Char)) {
     return kI64Type;
-  }
-  if (current.equals(next)) {
-    return current;
   }
   return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
 }

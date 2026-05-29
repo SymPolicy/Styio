@@ -502,6 +502,13 @@ merge_tail_value_type(const StyioDataType& a, const StyioDataType& b) {
   if (a.option == StyioDataTypeOption::Bool && b.option == StyioDataTypeOption::Bool) {
     return lowering_bool_type();
   }
+  if (a.option == StyioDataTypeOption::Char && b.option == StyioDataTypeOption::Char) {
+    return styio_data_type_from_name("char");
+  }
+  if ((a.option == StyioDataTypeOption::Bool || a.option == StyioDataTypeOption::Char)
+      && (b.option == StyioDataTypeOption::Bool || b.option == StyioDataTypeOption::Char)) {
+    return lowering_i64_type();
+  }
   return a;
 }
 
@@ -518,6 +525,14 @@ infer_tail_value_type(AstToStyioIRLowerer* an, StyioAST* ast) {
       return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
     }
     return infer_tail_value_type(an, blk->stmts.back());
+  }
+  if (auto* c = dynamic_cast<CasesAST*>(ast)) {
+    StyioDataType merged{StyioDataTypeOption::Undefined, "undefined", 0};
+    for (auto const& pr : c->case_list) {
+      merged = merge_tail_value_type(merged, infer_tail_value_type(an, pr.second));
+    }
+    merged = merge_tail_value_type(merged, infer_tail_value_type(an, c->case_default));
+    return merged;
   }
   if (auto* m = dynamic_cast<MatchCasesAST*>(ast)) {
     CasesAST* c = m->getCases();
@@ -907,8 +922,32 @@ scan_returns_for_value_kinds(StyioAST* ast, bool& has_str, bool& has_int, bool& 
   }
 }
 
+std::optional<SGMatchReprKind>
+match_repr_kind_for_type(const StyioDataType& type) {
+  if (type.isUndefined()) {
+    return std::nullopt;
+  }
+  StyioValueFamily family = styio_value_family_for_type(type);
+  if (family == StyioValueFamily::String) {
+    return SGMatchReprKind::ExprMixed;
+  }
+  if (family == StyioValueFamily::Float) {
+    return SGMatchReprKind::ExprFloat;
+  }
+  if (family == StyioValueFamily::Bool) {
+    return SGMatchReprKind::ExprBool;
+  }
+  if (family == StyioValueFamily::Char) {
+    return SGMatchReprKind::ExprChar;
+  }
+  if (family == StyioValueFamily::Integer) {
+    return SGMatchReprKind::ExprInt;
+  }
+  return std::nullopt;
+}
+
 SGMatchReprKind
-classify_cases(CasesAST* c) {
+classify_cases(CasesAST* c, const StyioDataType* inferred_type = nullptr) {
   bool any = false;
   for (auto const& pr : c->case_list) {
     if (stmt_has_return_tree(pr.second) || ast_has_tail_value(pr.second)) {
@@ -920,6 +959,11 @@ classify_cases(CasesAST* c) {
   }
   if (!any) {
     return SGMatchReprKind::Stmt;
+  }
+  if (inferred_type != nullptr) {
+    if (std::optional<SGMatchReprKind> kind = match_repr_kind_for_type(*inferred_type)) {
+      return *kind;
+    }
   }
   bool hs = false;
   bool hi = false;
@@ -946,9 +990,10 @@ lower_cases_with_scrutinee(
   AstToStyioIRLowerer* an,
   CasesAST* c,
   StyioIR* scrutinee_ir,
-  const std::string* scrutinee_name
+  const std::string* scrutinee_name,
+  const StyioDataType* inferred_type = nullptr
 ) {
-  SGMatchReprKind rk = classify_cases(c);
+  SGMatchReprKind rk = classify_cases(c, inferred_type);
   std::vector<std::pair<std::int64_t, SGBlock*>> arms;
   for (auto const& pr : c->case_list) {
     std::optional<std::int64_t> arm_value =
@@ -3382,7 +3427,8 @@ AstToStyioIRLowerer::toStyioIR(FunctionAST* ast) {
           this,
           direct_cases,
           SGResId::Create(scrutinee_name),
-          &scrutinee_name
+          &scrutinee_name,
+          &rt->data_type
         ))
       });
     }
@@ -3894,11 +3940,13 @@ AstToStyioIRLowerer::toStyioIR(MatchCasesAST* ast) {
   auto* scrutinee_name_ast = dynamic_cast<NameAST*>(ast->getScrutinee());
   const std::string* scrutinee_name =
     scrutinee_name_ast != nullptr ? &scrutinee_name_ast->getAsStr() : nullptr;
+  StyioDataType inferred_type = ast->getDataType();
   return lower_cases_with_scrutinee(
     this,
     c,
     ast->getScrutinee()->toStyioIR(this),
-    scrutinee_name
+    scrutinee_name,
+    &inferred_type
   );
 }
 
