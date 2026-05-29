@@ -62,11 +62,12 @@ Real compiler/runtime surfaces:
 4. Direct unsupported AST lowering now fails closed or lowers intentional empty
    forms to `SGNoOp`; codegen verifier gating and security tests are present.
 5. Accepted single-quoted `char` literals, format strings, and single-return
-   list/dict container bounds expressions are executable in ordinary expressions
-   and in user-defined resource method bodies after inlining. The resource-method
-   body parser now admits the same `CharAST`, `FmtStrAST`, list index/slice, and
-   inline `dict{...}` index value shapes, and `StateExprCloneVisitor` clones them
-   instead of reporting an unsupported inlined state expression.
+   list/dict/matrix container bounds expressions are executable in ordinary
+   expressions and in user-defined resource method bodies after inlining. The
+   resource-method body parser now admits the same `CharAST`, `FmtStrAST`, list
+   index/slice, inline `dict{...}` index, and typed-parameter matrix cell/row
+   value shapes, and `StateExprCloneVisitor` clones them instead of reporting an
+   unsupported inlined state expression.
 6. `@extern(c|c++)` is not just design prose: native interop feature tests and
    native executable build tests pass.
 7. The IDE/LSP core exists for completion, hover, definition, references,
@@ -203,12 +204,15 @@ Current implementation reality:
    success, recovers `STYIO_RUNTIME_NUMERIC_PARSE` through catch-all fallback or
    a matched `parse => handler`, and fails fast before following statements
    without a fallback. When the returned expression is a materialized list
-   index, list slice, or inline dict index, `?| method() | fallback` recovers
-   `STYIO_RUNTIME_LIST_INDEX` or `STYIO_RUNTIME_DICT_KEY` through catch-all
-   fallback or a matched `bounds => handler`, and no-fallback dict-key
-   settlement fails before the following statement. Multi-statement resource
-   method returns intentionally fail closed before lowering until arbitrary
-   method-body value semantics are implemented.
+   index, list slice, inline dict index, or typed-parameter matrix cell/row read,
+   `?| method() | fallback` recovers `STYIO_RUNTIME_LIST_INDEX`,
+   `STYIO_RUNTIME_DICT_KEY`, or `STYIO_RUNTIME_MATRIX_INDEX` through catch-all
+   fallback or a matched `bounds => handler`, and no-fallback dict-key or
+   matrix-index settlement fails before the following statement. Resource method
+   declared parameter types are bound while inferring the method body and checked
+   at call sites, while lexical/global captures remain fail-closed before
+   lowering. Multi-statement resource method returns intentionally fail closed
+   before lowering until arbitrary method-body value semantics are implemented.
    Parser/Sema keep `?| op | ...` statement-only, reject statement-shaped write
    operations where a value is required, reject fallback type mismatches, and
    keep dict/matrix slice-shaped resource-effect values fail-closed until those
@@ -218,8 +222,8 @@ Current implementation reality:
    materialized container index/row reads, materialized list slices, and simple
    resource-method single-return bodies, no recovery model for failing
    value-producing resource methods beyond the returned file/stdin instant-pull
-   and returned list/dict bounds failure slices, including returned matrix
-   bounds, or for multi-statement method returns, no
+   and returned list/dict/matrix bounds failure slices, or for multi-statement
+   method returns and resource-method lexical/global captures, no
    fallback recovery model for implicit cleanup, no cleanup-failure coverage for
    broader reassignment cleanup, no cleanup families beyond file close, no
    resource family that emits a non-failure
@@ -251,14 +255,17 @@ file instant pull or canonical stdin instant pull also recover matched `io` or
 `parse` failures under `?|`, and simple resource methods that return
 materialized list index/list-slice or inline dict-index expressions recover the
 covered `bounds` failures under `?|`, while direct `log.answer()` resource
-method calls no longer abort lowering.
+method calls no longer abort lowering. Typed resource method parameters now
+feed method-body inference and call-site checks, so returned matrix cell/row
+bounds failures recover through matched `bounds` handlers or catch-all fallback
+under `?|` without opening global matrix capture.
 Implicit cleanup fallback recovery, broader reassignment cleanup,
 broader resource-family cleanup, non-failure backpressure
 observation/escalation, pressure observers, broader post-acquire resource
 operations beyond the covered file iterator, close-method, and write-method
 paths, failing value-producing resource methods beyond returned file/stdin
-instant pulls and returned list/dict bounds slices, returned matrix bounds,
-multi-statement value-producing resource methods, and
+instant pulls and returned list/dict/matrix bounds slices, multi-statement
+value-producing resource methods, resource-method lexical/global captures, and
 arbitrary value-producing resource-effect recovery remain design-fixed but
 unfinished.
 
@@ -377,13 +384,14 @@ single-byte `char` literals and format strings. `@file::marker = () => { >_('x')
 and `@file::summary = () => { $"value={1 + 2}" -> @stdout }` run after resource
 method calls, while `@file::marker = () => { >_('xy') }` and
 `@file::summary = () => { $"value={1 + 2" -> @stdout }` fail closed in the parser.
-Single-return resource methods returning materialized list index/list-slice or
-inline dict-index expressions also inline through `ListAST`/`ListOpAST` and
-`DictAST` clone paths with type metadata preserved, while returned dict-slice
+Single-return resource methods returning materialized list index/list-slice,
+inline dict-index, or typed-parameter matrix cell/row expressions also inline
+through `ListAST`/`ListOpAST` and `DictAST` clone paths with type metadata
+preserved, while returned dict-slice and unimplemented lexical/global capture
 shapes stay fail-closed. That closes only the `CharAST`, `FmtStrAST`, and
-returned list/dict bounds resource-method inline-clone slices of the state inline
-clone surface; other accepted AST families still need source-reachable evidence
-before the unsupported clone fallback can be retired.
+returned list/dict/matrix bounds resource-method inline-clone slices of the state
+inline clone surface; other accepted AST families still need source-reachable
+evidence before the unsupported clone fallback can be retired.
 
 ### P1. Type semantics still contain recovery-era defaults
 

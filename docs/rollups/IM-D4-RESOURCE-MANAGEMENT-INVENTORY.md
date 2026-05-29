@@ -102,13 +102,16 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   `result = ?| log.read_stdin() | fallback` returns successful parsed `i64`
   values, recovers `STYIO_RUNTIME_NUMERIC_PARSE` through catch-all fallback or a
   matched `parse` handler, and fails fast without fallback. When that returned
-  expression is a materialized list index, materialized list slice, or inline
-  dict index, `?| method() | fallback` recovers `STYIO_RUNTIME_LIST_INDEX` or
-  `STYIO_RUNTIME_DICT_KEY` through catch-all fallback or a matched `bounds`
-  handler, and no-fallback dict-key settlement fails before the following
-  statement. Multi-statement resource method returns and failing
-  value-producing resource-method recovery beyond returned file/stdin instant
-  pulls plus returned list/dict bounds slices remain open.
+  expression is a materialized list index, materialized list slice, inline
+  dict index, or typed-parameter matrix cell/row read, `?| method() | fallback`
+  recovers `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, or
+  `STYIO_RUNTIME_MATRIX_INDEX` through catch-all fallback or a matched
+  `bounds` handler, and no-fallback dict-key or matrix-index settlement fails
+  before the following statement. Multi-statement resource method returns,
+  resource-method lexical/global captures, dict/matrix slice-shaped method
+  returns, and failing value-producing resource-method recovery beyond the
+  covered returned file/stdin instant pulls plus returned list/dict/matrix
+  bounds slices remain open.
 - Plain file resource operations outside a `?|` recovery wrapper now settle at
   the ordinary statement boundary for the covered file acquire/write/release/
   iterator paths: missing `@file` acquire, missing-directory file write, direct
@@ -313,8 +316,9 @@ iterator closed-handle slice reports a structured `closed`-family diagnostic
 when a stale same-path alias uses that zeroed slot. The file/stdin instant-pull
 and materialized container-index/list-slice paths now cover the first value-producing
 success/fallback/handler paths for non-task `?|` expressions, including
-explicit-target stdin `f64`, `string`, typed-list values, and list/dict/matrix
-`bounds` recovery. Source-level fallback recovery for implicit cleanup,
+explicit-target stdin `f64`, `string`, typed-list values, list/dict/matrix
+`bounds` recovery, and returned matrix cell/row bounds from typed resource
+method parameters. Source-level fallback recovery for implicit cleanup,
 cleanup-failure settlement for reassignments that can fail, release/commit hooks, non-file resource-family
 cleanup effects, using a handle acquired inside statement `?|` as a later
 resource operation beyond the covered file iterator, close-method, and
@@ -383,10 +387,13 @@ Single-return resource methods may return a file instant pull and recover that
 returned `STYIO_RUNTIME_FILE_OPEN_READ` through fallback or matched `io`
 handlers under `?|`; they may also return canonical `(<- @stdin)` and recover
 returned `STYIO_RUNTIME_NUMERIC_PARSE` through fallback or matched `parse`
-handlers under `?|`, or return materialized list index/list-slice and inline
-dict-index expressions that recover returned `STYIO_RUNTIME_LIST_INDEX` or
-`STYIO_RUNTIME_DICT_KEY` through fallback or matched `bounds` handlers under
-`?|`.
+handlers under `?|`, or return materialized list index/list-slice, inline
+dict-index, or typed-parameter matrix cell/row expressions that recover
+returned `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, or
+`STYIO_RUNTIME_MATRIX_INDEX` through fallback or matched `bounds` handlers
+under `?|`. Declared resource method parameter types are bound while inferring
+the method body and are checked at call sites; unimplemented lexical/global
+capture still fails closed before lowering.
 Statement-shaped writes, file acquire, file close methods, and guarded
 acquired-handle file write methods have the first statement settlement paths;
 file acquire also covers successful acquire followed by file iteration,
@@ -396,8 +403,9 @@ invalidation, and fail-closed iterator or write-method use after a recovered
 failed acquire.
 Broader resource families, cleanup/drop hooks,
 pressure observations, failing value-producing resource methods beyond returned
-file/stdin instant pulls and returned list/dict bounds slices, returned matrix
-bounds, multi-statement value-producing resource methods, dict/matrix
+file/stdin instant pulls and returned list/dict/matrix bounds slices,
+multi-statement value-producing resource methods, resource-method lexical/global
+captures, dict/matrix
 slice-shaped bounds recovery, and other non-instant-pull
 value-returning resource operations must remain separately implemented and
 tested before the full typed resource-effect model is closed.
