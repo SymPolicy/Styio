@@ -759,6 +759,19 @@ These should not be counted as missing implementation in this checkout:
     stable, stable message fragments are present, and following output does not
     execute. This is diagnostic refinement only; it does not broaden function
     calling or resource-method dispatch semantics.
+26. User function and resource-method call argument type mismatch diagnostics are
+    no longer only the broad `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp`
+    now classifies stable `function argument type mismatch for parameter` and
+    `resource method argument type mismatch for parameter` messages as
+    `STYIO_TYPE_CALL_ARGUMENT_MISMATCH`, while
+    `StyioDiagnostics.UserFunctionArgumentMismatchReportsTypeCallArgumentMismatchCode`
+    and
+    `StyioDiagnostics.ResourceMethodArgumentMismatchReportsTypeCallArgumentMismatchCode`
+    prove the JSONL public phase is `type`, the TypeError exit family remains
+    stable, stable message fragments are present, and following output does not
+    execute. This is diagnostic refinement only; it does not broaden function
+    calling, implicit argument adaptation, native ABI behavior, or resource-method
+    dispatch semantics.
 
 ## Recommended Closure Order
 
