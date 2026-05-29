@@ -33,6 +33,8 @@ inline constexpr std::string_view kSemaImmutableBinding = "STYIO_SEMA_IMMUTABLE_
 inline constexpr std::string_view kSemaUndeclaredSymbol = "STYIO_SEMA_UNDECLARED_SYMBOL";
 inline constexpr std::string_view kSemaCallArityMismatch =
   "STYIO_SEMA_CALL_ARITY_MISMATCH";
+inline constexpr std::string_view kSemaResourceCapabilityMismatch =
+  "STYIO_SEMA_RESOURCE_CAPABILITY_MISMATCH";
 inline constexpr std::string_view kSemaResourceMethodUnsupportedBody =
   "STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY";
 inline constexpr std::string_view kTypeError = "STYIO_TYPE_ERROR";
@@ -225,6 +227,17 @@ classify_type_or_lowering_code(std::string_view message) {
   if ((contains(message, "function `") || contains(message, "resource method @"))
       && contains(message, "expects") && contains(message, "argument(s), got")) {
     return std::string(kSemaCallArityMismatch);
+  }
+  if (contains(message, "must be a writable resource")
+      || contains(message, "must have push capability")
+      || contains(message, "must have pull capability")
+      || contains(message, "must have iter capability")
+      || contains(message, "does not have read capability")
+      || contains(message, "is not indexable")
+      || contains(message, "does not support snapshot selection")
+      || contains(message, "read-only stream; cannot")
+      || contains(message, "write-only stream; cannot")) {
+    return std::string(kSemaResourceCapabilityMismatch);
   }
   if (contains(message, "resource method return currently requires a single")) {
     return std::string(kSemaResourceMethodUnsupportedBody);
