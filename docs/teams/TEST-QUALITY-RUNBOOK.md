@@ -104,6 +104,7 @@ Primary paths:
 78. Immutable/final binding diagnostic refinements need the smallest final-binding mutation source, such as compound assignment to `name := expr`, and must assert `STYIO_SEMA_IMMUTABLE_BINDING`, public phase `sema`, TypeError exit family, and the stable binding-mutation message fragment without changing final-binding semantics.
 79. Tuple return diagnostic refinements need the smallest tuple function return annotation source and must assert `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN`, public phase `type`, TypeError exit family, and the stable tuple-value-IR message fragment without changing the fail-closed tuple-return semantics.
 80. Hash-tag iterator route diagnostic refinements need the smallest undefined route source, such as `[1, 2] >> #price`, and must assert `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED`, public phase `type`, TypeError exit family, the stable route-not-implemented message, and that following output does not execute. Do not treat this evidence as IM-D5-P1 route semantics.
+81. Resource-effect/resource-method diagnostic refinements need the smallest source for each existing fail-closed condition and must assert the public code, phase, TypeError exit family, stable message fragment, and no-following-output behavior. `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH` covers fallback value type mismatch; `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY` covers unsupported multi-statement value-producing resource method bodies. Do not treat either test as resource-effect semantics expansion.
 
 ## Change Classes
 

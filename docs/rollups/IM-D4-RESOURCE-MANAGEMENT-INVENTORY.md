@@ -104,7 +104,12 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   expression's inferred result type, direct calls such as `log.answer()` return
   the inlined value without emitting an expression-context `SGReturn`, and
   `result = ?| log.answer() | fallback` produces the method value on success
-  while rejecting fallback type mismatches. When that single returned expression
+  while rejecting fallback type mismatches. Public JSONL classification now maps
+  this fallback mismatch to `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH` and
+  the existing unsupported multi-statement value-producing resource method body
+  boundary to `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY`; this is an IM-D3
+  diagnostic refinement only and does not broaden resource-effect or resource
+  method semantics. When that single returned expression
   is a file instant pull, `result = ?| log.read_missing() | fallback` recovers
   `STYIO_RUNTIME_FILE_OPEN_READ` through catch-all fallback or a matched `io`
   handler, and no-fallback settlement fails before the following statement.

@@ -69,6 +69,7 @@ Key handoff document:
 35. Immutable/final binding mutation diagnostics are sema-family public facts even when they surface through the TypeError exit family. Keep `STYIO_SEMA_IMMUTABLE_BINDING`, phase `sema`, exit code 4, and the stable message fragment covered together when those classifier messages change.
 36. Tuple function return annotation diagnostics are type-family public facts over an existing fail-closed boundary. Keep `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN`, phase `type`, exit code 4, and the stable tuple-value-IR message fragment covered without implying tuple value IR support.
 37. Hash-tag iterator route diagnostics are type-family public facts over an existing fail-closed boundary. Keep `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED`, phase `type`, exit code 4, the stable route-not-implemented message, and no-following-output coverage together without implying IM-D5-P1 route semantics.
+38. Resource-effect/resource-method diagnostic refinements are public JSONL facts over existing fail-closed boundaries. Keep `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH` with phase `type`, exit code 4, and the stable fallback mismatch fragment, and keep `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY` with phase `sema`, exit code 4, the stable single-body message fragment, and no-following-output coverage. Do not treat either code as resource-effect semantics expansion.
 
 ## Change Classes
 
