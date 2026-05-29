@@ -326,6 +326,12 @@ StyioToLLVM::toLLVMType(SGMatch* node) {
   if (node->repr_kind == SGMatchReprKind::ExprFloat) {
     return theBuilder->getDoubleTy();
   }
+  if (node->repr_kind == SGMatchReprKind::ExprBool) {
+    return theBuilder->getInt1Ty();
+  }
+  if (node->repr_kind == SGMatchReprKind::ExprChar) {
+    return theBuilder->getInt8Ty();
+  }
   return theBuilder->getInt64Ty();
 }
 

@@ -4349,6 +4349,46 @@ TEST(StyioSecurityNightlySemantics, FunctionMatchSugarArmBindingsStayBranchScope
   }
 }
 
+TEST(StyioSecurityNightlySemantics, MatchBoolAndCharLowerToNativeScalarWidths) {
+  const std::string src =
+    "x = 1\n"
+    "flag = x ?= {\n"
+    "  1 => true\n"
+    "  _ => false\n"
+    "}\n"
+    "mark = x ?= {\n"
+    "  1 => 'a'\n"
+    "  _ => 'b'\n"
+    "}\n"
+    ">_(flag)\n"
+    ">_(mark)\n";
+
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("phi i1"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("phi i8"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsUnsupportedContainerMatchResultBeforeLowering) {
+  const std::string src =
+    "x = 1\n"
+    "values = x ?= {\n"
+    "  1 => [1,2]\n"
+    "  _ => [3,4]\n"
+    "}\n"
+    ">_(values)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected container-valued match branches to stay fail-closed";
+  }
+  catch (const StyioTypeError& err) {
+    const std::string msg = err.what();
+    EXPECT_NE(msg.find("match branch values support scalar and string results in this slice"), std::string::npos)
+      << msg;
+  }
+}
+
 TEST(StyioSecurityNightlyParserStmt, RejectsHashIteratorMatchForwardChainWithStableError) {
   const std::string src = "# iter_only(x) >> (n) ?= 2 => >_(n)\niter_only([1, 2, 3])\n";
   EXPECT_THROW(

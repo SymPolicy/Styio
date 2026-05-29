@@ -805,6 +805,8 @@ enum class SGMatchReprKind
   Stmt,
   ExprInt,
   ExprFloat,
+  ExprBool,
+  ExprChar,
   ExprMixed,
 };
 

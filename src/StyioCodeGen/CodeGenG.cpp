@@ -1843,6 +1843,9 @@ StyioToLLVM::coerce_for_return(llvm::Value* v, llvm::Type* want_ty) {
   if (want_ty->isIntegerTy(1) && v->getType()->isFloatingPointTy()) {
     return theBuilder->CreateFCmpONE(v, llvm::ConstantFP::get(v->getType(), 0.0));
   }
+  if (want_ty->isIntegerTy() && v->getType()->isIntegerTy()) {
+    return theBuilder->CreateSExtOrTrunc(v, want_ty);
+  }
   return v;
 }
 
@@ -5927,11 +5930,21 @@ StyioToLLVM::toLLVMIR(SGMatch* node) {
 
   bool mixed = node->repr_kind == SGMatchReprKind::ExprMixed;
   bool as_float = node->repr_kind == SGMatchReprKind::ExprFloat;
-  llvm::Type* merge_ty = mixed
-    ? static_cast<llvm::Type*>(llvm::PointerType::get(*theContext, 0))
-    : (as_float
-        ? static_cast<llvm::Type*>(llvm::Type::getDoubleTy(*theContext))
-        : static_cast<llvm::Type*>(llvm::Type::getInt64Ty(*theContext)));
+  bool as_bool = node->repr_kind == SGMatchReprKind::ExprBool;
+  bool as_char = node->repr_kind == SGMatchReprKind::ExprChar;
+  llvm::Type* merge_ty = llvm::Type::getInt64Ty(*theContext);
+  if (mixed) {
+    merge_ty = llvm::PointerType::get(*theContext, 0);
+  }
+  else if (as_float) {
+    merge_ty = llvm::Type::getDoubleTy(*theContext);
+  }
+  else if (as_bool) {
+    merge_ty = theBuilder->getInt1Ty();
+  }
+  else if (as_char) {
+    merge_ty = theBuilder->getInt8Ty();
+  }
 
   if (node->int_arms.empty()) {
     return evaluate_arm_block_value(node->default_arm, mixed);
@@ -5970,9 +5983,15 @@ StyioToLLVM::toLLVMIR(SGMatch* node) {
     dv = evaluate_arm_block_value(node->default_arm, mixed);
   }
   else {
-    dv = as_float
-      ? static_cast<llvm::Value*>(llvm::ConstantFP::get(merge_ty, 0.0))
-      : static_cast<llvm::Value*>(llvm::ConstantInt::get(i64ti, 0));
+    if (as_float) {
+      dv = llvm::ConstantFP::get(merge_ty, 0.0);
+    }
+    else if (mixed) {
+      dv = llvm::ConstantInt::get(i64ti, 0);
+    }
+    else {
+      dv = llvm::ConstantInt::get(llvm::cast<llvm::IntegerType>(merge_ty), 0);
+    }
     if (mixed) {
       dv = promote_to_cstr(dv);
     }
