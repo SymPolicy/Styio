@@ -2832,7 +2832,17 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
     }
   };
 
-  if (lit && !lit->elems.empty() && node->elem_type == "i64") {
+  bool const_i64_literal = lit != nullptr && !lit->elems.empty() && node->elem_type == "i64";
+  if (const_i64_literal) {
+    for (auto* e : lit->elems) {
+      if (dynamic_cast<SGConstInt*>(e) == nullptr) {
+        const_i64_literal = false;
+        break;
+      }
+    }
+  }
+
+  if (const_i64_literal) {
     llvm::BasicBlock* exit_bb = llvm::BasicBlock::Create(*theContext, "foreach_exit", F);
     llvm::BasicBlock* hdr_bb = llvm::BasicBlock::Create(*theContext, "foreach_hdr", F);
     llvm::BasicBlock* body_bb = llvm::BasicBlock::Create(*theContext, "foreach_body", F);
@@ -2840,12 +2850,8 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
 
     std::vector<llvm::Constant*> cs;
     for (auto* e : lit->elems) {
-      if (auto* ci = dynamic_cast<SGConstInt*>(e)) {
-        cs.push_back(llvm::ConstantInt::get(i64t, std::stoll(ci->value)));
-      }
-      else {
-        cs.push_back(llvm::ConstantInt::get(i64t, 0));
-      }
+      auto* ci = static_cast<SGConstInt*>(e);
+      cs.push_back(llvm::ConstantInt::get(i64t, std::stoll(ci->value)));
     }
     llvm::ArrayType* at = llvm::ArrayType::get(i64t, cs.size());
     llvm::Constant* init = llvm::ConstantArray::get(at, cs);
