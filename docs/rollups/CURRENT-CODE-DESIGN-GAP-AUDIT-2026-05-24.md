@@ -196,7 +196,12 @@ Current implementation reality:
    expression is a file instant pull, `result = ?| log.read_missing() | fallback`
    now recovers `STYIO_RUNTIME_FILE_OPEN_READ` through catch-all fallback or a
    matched `io => handler`, and no-fallback settlement stops before the
-   following statement. Multi-statement resource method returns intentionally
+   following statement. When the returned expression is the canonical
+   parenthesized stdin instant pull `(<- @stdin)`,
+   `result = ?| log.read_stdin() | fallback` returns the parsed `i64` on
+   success, recovers `STYIO_RUNTIME_NUMERIC_PARSE` through catch-all fallback or
+   a matched `parse => handler`, and fails fast before following statements
+   without a fallback. Multi-statement resource method returns intentionally
    fail closed before lowering until arbitrary method-body value semantics are
    implemented.
    Parser/Sema keep `?| op | ...` statement-only, reject statement-shaped write
@@ -207,8 +212,8 @@ Current implementation reality:
    arbitrary resource operations beyond the covered file/stdin instant pulls,
    materialized container index/row reads, materialized list slices, and simple
    resource-method single-return bodies, no recovery model for failing
-   value-producing resource methods beyond the returned file instant-pull
-   failure slice or for multi-statement method returns, no
+   value-producing resource methods beyond the returned file/stdin instant-pull
+   failure slices or for multi-statement method returns, no
    fallback recovery model for implicit cleanup, no cleanup-failure coverage for
    broader reassignment cleanup, no cleanup families beyond file close, no
    resource family that emits a non-failure
@@ -236,14 +241,15 @@ success/fallback/handler value paths, including explicit-target stdin `f64`,
 `string`, typed-list pulls, and `bounds` recovery for
 `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, and
 `STYIO_RUNTIME_MATRIX_INDEX` under `?|`; simple resource methods that return a
-file instant pull also recover matched `io` failures under `?|`, while direct
-`log.answer()` resource method calls no longer abort lowering.
+file instant pull or canonical stdin instant pull also recover matched `io` or
+`parse` failures under `?|`, while direct `log.answer()` resource method calls
+no longer abort lowering.
 Implicit cleanup fallback recovery, broader reassignment cleanup,
 broader resource-family cleanup, non-failure backpressure
 observation/escalation, pressure observers, broader post-acquire resource
 operations beyond the covered file iterator, close-method, and write-method
-paths, failing value-producing resource methods beyond returned file instant
-pulls, multi-statement value-producing resource methods, and
+paths, failing value-producing resource methods beyond returned file/stdin
+instant pulls, multi-statement value-producing resource methods, and
 arbitrary value-producing resource-effect recovery remain design-fixed but
 unfinished.
 
@@ -616,7 +622,8 @@ These should not be counted as missing implementation in this checkout:
    value-producing resource methods now return typed
    success/fallback/handler values, including explicit-target stdin `f64`,
    `string`, typed-list values, list slices, list/dict/matrix `bounds`
-   recovery, and returned file instant-pull `io` recovery. Resource
+   recovery, returned file instant-pull `io` recovery, and returned canonical
+   stdin instant-pull `parse` recovery. Resource
    method calls now enter statement `?|` settlement for direct file close
    success, fallback/`io` recovery, and no-fallback failure; statement-shaped
    file acquire now covers fallback/`io` recovery, successful acquire followed by
