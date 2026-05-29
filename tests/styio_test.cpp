@@ -5680,6 +5680,84 @@ TEST(StyioDiagnostics, NativeExternMissingBindingReportsNativeCode) {
   fs::remove(input);
 }
 
+TEST(StyioDiagnostics, NativeExternUnsupportedSignatureReportsNativeCode) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-native-unsupported-signature-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# bad_arg := @ extern(c) {\n";
+    out << "int bad_arg(struct Foo value) { return 0; }\n";
+    out << "}\n";
+    out << ">_(bad_arg(1))\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"native_interop\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("\"code\":\"STYIO_NATIVE_UNSUPPORTED_SIGNATURE\""),
+    std::string::npos);
+  EXPECT_NE(result.stdout_text.find("unsupported native parameter type `struct Foo`"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioDiagnostics, NativeExternVariadicSignatureReportsNativeCode) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-native-variadic-signature-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# log_value := @ extern(c) {\n";
+    out << "int log_value(int first, ...) { return first; }\n";
+    out << "}\n";
+    out << ">_(log_value(1))\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"native_interop\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("\"code\":\"STYIO_NATIVE_UNSUPPORTED_SIGNATURE\""),
+    std::string::npos);
+  EXPECT_NE(result.stdout_text.find("variadic native functions are not supported"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
+
+  fs::remove(input);
+}
+
 TEST(StyioDiagnostics, RetiredLegacyStateDeclReportsParseError) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
