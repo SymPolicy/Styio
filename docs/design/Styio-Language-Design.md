@@ -2,7 +2,7 @@
 
 **Purpose:** Styio 语言的 **权威语义与特性说明**（正文规格）；形式文法见 [`Styio-EBNF.md`](./Styio-EBNF.md)，符号与 token 名见 [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md)，`@` **目标**拓扑见 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)，当前实现缺口见 [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md)。
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-05-29
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -724,6 +724,18 @@ The old state-resource history-probe selector family is not active syntax.
 ```
 
 Both streams must deliver a pulse before the closure executes. The trigger frequency is `min(freq_A, freq_B)`.
+Finite zip also applies to the standard input line stream when the other side is a materialized
+list or an `@file` stream:
+
+```styio
+@stdin >> #(label) & prices >> #(price) => {
+    >_(label + " " + price)
+}
+```
+
+This consumes at most one stdin line per matched frame and terminates at stdin EOF or the
+shorter finite peer. Zipping `@stdin` with itself is not active syntax until duplicate
+consumption of the same external stream has a driver-level decision.
 
 Optional tolerance window:
 

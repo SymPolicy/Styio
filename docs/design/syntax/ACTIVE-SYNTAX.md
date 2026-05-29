@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the compact authoring map for current Styio syntax; grammar authority stays in [../Styio-EBNF.md](../Styio-EBNF.md), token authority stays in [../Styio-Symbol-Reference.md](../Styio-Symbol-Reference.md), and semantics stay in the owning design documents.
 
-**Last updated:** 2026-05-26
+**Last updated:** 2026-05-29
 
 ## Reading Contract
 
@@ -50,6 +50,7 @@
 | Stdin pull | `value <- @stdin` | Untyped scalar pull. |
 | Typed stdin pull | `a, b <- @stdin : (f64, f64)` | Tuple/list/scalar forms share the stdin-pull path. |
 | Stdin iteration | `@stdin >> #(line) => { ... }` | `@stdin` is read-only for data flow; explicit resource operations may still release it. |
+| Stdin zip source | `@stdin >> #(line) & xs >> #(x) => { ... }` | Finite zip is accepted with materialized lists or `@file` streams; duplicate `@stdin & @stdin` remains unsupported until the stream-driver contract defines duplicate consumption. |
 | Stdout/stderr scalar write | `expr -> @stdout`, `expr -> @stderr` | `@stdout` and `@stderr` are write-only data sinks; explicit resource operations may still release them. |
 | Stdout/stderr iterable write | `items >> @stdout`, `items >> @stderr` | Plain strings should use `->` unless explicitly split. |
 | File resource | `@("log.txt")`, `@file("log.txt")` | Runtime substrate is file-backed when resolved as a file. |
