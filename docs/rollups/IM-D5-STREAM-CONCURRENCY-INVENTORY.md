@@ -2,7 +2,7 @@
 
 **Purpose:** Record the accepted stream-runtime, concurrency, pulse-frame, cross-stream synchronization, and multi-writer merge decisions for IM-D5.
 
-**Last updated:** 2026-05-21
+**Last updated:** 2026-05-29
 
 ## Scope
 
@@ -34,9 +34,15 @@ Styio already has active design and partial implementation surfaces for streams:
   `f64`, `bool`, and `char` list elements: list sides use `styio_list_len` /
   `styio_list_get_*`, file sides read one line per frame, finite zip terminates
   at the shorter file EOF or list length, and the existing block/frame commit
-  path runs for each matched pair. This selector-snapshot slice remains ordinary
-  finite zip over materialized lists; snapshot joins, queue/timeout policy,
-  pressure observers, and multi-writer merge/conflict semantics remain open.
+  path runs for each matched pair. `@stdin` now participates as the accepted
+  standard input line-stream side for finite zip with materialized lists or
+  `@file` streams in both source orders; it reads one stdin line per matched
+  frame and terminates at stdin EOF or the shorter finite peer. Direct
+  `@stdin & @stdin` remains rejected until the stream-driver contract defines
+  duplicate consumption of the same external input. This selector-snapshot and
+  stdin-stream slice remains ordinary finite zip over already-materialized lists
+  or line streams; snapshot joins, queue/timeout policy, pressure observers, and
+  multi-writer merge/conflict semantics remain open.
 
 The implementation is still incomplete. Multi-stream zip and driver combinations are only partially lowered, unsupported combinations may still end in narrow lowering/codegen paths, and cross-stream sync needs a stable memory-model contract before the remaining implementation can be judged complete.
 

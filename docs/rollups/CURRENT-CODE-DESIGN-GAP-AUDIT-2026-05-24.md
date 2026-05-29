@@ -356,18 +356,23 @@ Current implementation reality:
    literal/file mixed pairs, materialized non-file `list[T]` handle pairs, mixed
    `@file` / materialized-list pairs in both directions, and bounded Topology
    selector snapshots that have already materialized as `list[T]` handles.
+   `@stdin` now participates as a standard-input line-stream zip source with
+   materialized lists or `@file` streams in both source orders, while duplicate
+   `@stdin & @stdin` consumption remains fail-closed pending a stream-driver
+   decision.
    Runtime list loops use `styio_list_len` / `styio_list_get_*`, cover `i64`,
    `string`, `f64`, `bool`, and `char` list elements, and terminate finite zip at the
-   shorter file EOF or list length. `t11_zip_bound_lists` proves the
+   shorter file EOF, stdin EOF, or list length. `t11_zip_bound_lists` proves the
    parser-shadow-safe bound-list/literal zip path, `t12_zip_file_bound_list`
    proves list-left / file-right feature coverage, and
    `t13_zip_resource_selector_snapshots` proves bounded `i64` and `string`
    selector snapshots feed the same finite zip barrier. Focused unit coverage
    proves f64/bool/char materialized-list zip lowering, both mixed file/list
-   directions, and keeps scalar resource selectors
+   directions, both mixed stdin/list and stdin/file directions, and keeps scalar
+   resource selectors plus duplicate stdin zip
    such as `@price[-1]` fail-closed as non-iterable zip inputs. This is not IM-D5
    snapshot-join semantics; it is the materialized-list zip slice over selector
-   snapshot values.
+   snapshot values plus the accepted standard-input line stream.
 2. Resource topology records backpressure edges for writes, collect, iterator,
    and zip paths, but that is analysis graph evidence rather than a complete
    runtime scheduling/effect system.
@@ -697,8 +702,8 @@ These should not be counted as missing implementation in this checkout:
    broader type-directed `<<` copy/clone for file, topology-resource, and
    future resource families still need distinct sema types, lowering, runtime
    values, and golden tests.
-3. Continue stream-source closure after the materialized list-handle and
-   bounded-selector-snapshot zip slices: true snapshot joins, pressure
+3. Continue stream-source closure after the materialized list-handle,
+   bounded-selector-snapshot, and stdin line-stream zip slices: true snapshot joins, pressure
    observers, timeouts, EOF/failure distinctions, and merge/conflict semantics
    still need dedicated checkpoints across parser, sema, lowering, runtime,
    topology graph, diagnostics, and tests.
