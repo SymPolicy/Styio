@@ -5428,22 +5428,79 @@ StyioToLLVM::toLLVMIR(SIOResourceWriteToFile* node) {
     "styio_file_close",
     llvm::FunctionType::get(theBuilder->getVoidTy(), {theBuilder->getInt64Ty()}, false));
 
+  auto emit_data_expr = [&]() {
+    llvm::Value* data = node->data_expr->toLLVMIR(this);
+    if (node->promote_data_to_cstr || !data->getType()->isPointerTy()) {
+      data = promote_to_cstr(data);
+    }
+    if (node->append_newline) {
+      llvm::Value* nl = theBuilder->CreateGlobalStringPtr("\n", "styio_w_nl");
+      llvm::FunctionCallee cat = theModule->getOrInsertFunction(
+        "styio_strcat_ab",
+        llvm::FunctionType::get(char_ptr, {char_ptr, char_ptr}, false));
+      llvm::Value* with_nl = theBuilder->CreateCall(cat, {data, nl});
+      free_owned_cstr_temp_if_tracked(data);
+      data = with_nl;
+      track_owned_cstr_temp(data);
+    }
+    return data;
+  };
+
+  if (!node->required_handle_var.empty()) {
+    auto slot_it = mutable_variables.find(node->required_handle_var);
+    if (slot_it != mutable_variables.end()) {
+      llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
+      llvm::Function* fn = cur != nullptr ? cur->getParent() : nullptr;
+      if (cur != nullptr && fn != nullptr && cur->getTerminator() == nullptr) {
+        llvm::Value* data = emit_data_expr();
+        const bool data_is_owned_temp = take_owned_cstr_temp(data);
+        auto emit_data_cleanup = [&]() {
+          if (data_is_owned_temp) {
+            free_cstr_if_runtime_owned(data);
+          }
+        };
+        auto emit_path_write = [&]() {
+          llvm::Value* path = node->path_expr->toLLVMIR(this);
+          llvm::Value* h = theBuilder->CreateCall(openw, {path});
+          theBuilder->CreateCall(write_fn, {h, data});
+          emit_data_cleanup();
+          theBuilder->CreateCall(close_fn, {h});
+        };
+        llvm::Value* handle = theBuilder->CreateLoad(theBuilder->getInt64Ty(), slot_it->second);
+        llvm::Value* invalid = theBuilder->CreateICmpEQ(handle, theBuilder->getInt64(0));
+        llvm::BasicBlock* invalid_bb =
+          llvm::BasicBlock::Create(*theContext, "file_write_invalid_handle", fn);
+        llvm::BasicBlock* write_bb =
+          llvm::BasicBlock::Create(*theContext, "file_write_path", fn);
+        llvm::BasicBlock* cont_bb =
+          llvm::BasicBlock::Create(*theContext, "file_write_done", fn);
+        theBuilder->CreateCondBr(invalid, invalid_bb, write_bb);
+
+        theBuilder->SetInsertPoint(invalid_bb);
+        llvm::Value* empty = theBuilder->CreateGlobalStringPtr("", "styio_invalid_write_empty");
+        theBuilder->CreateCall(write_fn, {handle, empty});
+        emit_data_cleanup();
+        theBuilder->CreateBr(cont_bb);
+
+        theBuilder->SetInsertPoint(write_bb);
+        emit_path_write();
+        if (llvm::BasicBlock* after_write = theBuilder->GetInsertBlock();
+            after_write != nullptr && after_write->getTerminator() == nullptr) {
+          theBuilder->CreateBr(cont_bb);
+        }
+
+        theBuilder->SetInsertPoint(cont_bb);
+        if (resource_effect_operation_depth_ == 0) {
+          emit_runtime_error_guard_return();
+        }
+        return theBuilder->getInt64(0);
+      }
+    }
+  }
+
   llvm::Value* path = node->path_expr->toLLVMIR(this);
   llvm::Value* h = theBuilder->CreateCall(openw, {path});
-  llvm::Value* data = node->data_expr->toLLVMIR(this);
-  if (node->promote_data_to_cstr || !data->getType()->isPointerTy()) {
-    data = promote_to_cstr(data);
-  }
-  if (node->append_newline) {
-    llvm::Value* nl = theBuilder->CreateGlobalStringPtr("\n", "styio_w_nl");
-    llvm::FunctionCallee cat = theModule->getOrInsertFunction(
-      "styio_strcat_ab",
-      llvm::FunctionType::get(char_ptr, {char_ptr, char_ptr}, false));
-    llvm::Value* with_nl = theBuilder->CreateCall(cat, {data, nl});
-    free_owned_cstr_temp_if_tracked(data);
-    data = with_nl;
-    track_owned_cstr_temp(data);
-  }
+  llvm::Value* data = emit_data_expr();
   theBuilder->CreateCall(write_fn, {h, data});
   free_owned_cstr_temp_if_tracked(data);
   theBuilder->CreateCall(close_fn, {h});

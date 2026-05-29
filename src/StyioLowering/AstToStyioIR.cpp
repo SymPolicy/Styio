@@ -3062,11 +3062,13 @@ AstToStyioIRLowerer::toStyioIR(FuncCallAST* ast) {
             && ast->getArgList().size() == 1) {
           StyioAST* resolved_receiver = resolveResourceReceiverExprLatest(ast->func_callee);
           FileResourceAST* fr = dynamic_cast<FileResourceAST*>(resolved_receiver);
+          std::string required_handle_var;
           if (fr == nullptr) {
             if (auto* name = dynamic_cast<NameAST*>(resolved_receiver)) {
               auto fit = file_resource_bindings_.find(name->getAsStr());
               if (fit != file_resource_bindings_.end()) {
                 fr = fit->second;
+                required_handle_var = name->getAsStr();
               }
             }
           }
@@ -3081,7 +3083,8 @@ AstToStyioIRLowerer::toStyioIR(FuncCallAST* ast) {
               fr->getPath()->toStyioIR(this),
               fr->isAutoDetect(),
               !is_str,
-              false
+              false,
+              required_handle_var
             );
           }
         }

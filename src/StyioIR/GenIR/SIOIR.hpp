@@ -198,13 +198,15 @@ public:
   bool is_auto_path = false;
   bool promote_data_to_cstr = false;
   bool append_newline = false;
+  std::string required_handle_var;
 
   static SIOResourceWriteToFile* Create(
     StyioIR* d,
     StyioIR* p,
     bool auto_p,
     bool prom,
-    bool append_nl = false
+    bool append_nl = false,
+    std::string required_handle = ""
   ) {
     auto* x = new SIOResourceWriteToFile();
     x->data_expr = d;
@@ -212,6 +214,7 @@ public:
     x->is_auto_path = auto_p;
     x->promote_data_to_cstr = prom;
     x->append_newline = append_nl;
+    x->required_handle_var = std::move(required_handle);
     return x;
   }
 

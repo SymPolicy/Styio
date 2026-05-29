@@ -1914,10 +1914,14 @@ std::string
 StyioRepr::toString(SIOResourceWriteToFile* node, int indent) {
   std::string d = node->data_expr ? node->data_expr->toString(this, indent) : std::string("null");
   std::string p = node->path_expr ? node->path_expr->toString(this, indent) : std::string("null");
-  return std::string("styio.ir.resource_write { data=") + d + ", path=" + p
+  std::string out = std::string("styio.ir.resource_write { data=") + d + ", path=" + p
          + ", auto_path=" + (node->is_auto_path ? "1" : "0")
          + ", promote=" + (node->promote_data_to_cstr ? "1" : "0")
-         + ", nl=" + (node->append_newline ? "1" : "0") + " }";
+         + ", nl=" + (node->append_newline ? "1" : "0");
+  if (!node->required_handle_var.empty()) {
+    out += ", guard=" + node->required_handle_var;
+  }
+  return out + " }";
 }
 
 std::string
