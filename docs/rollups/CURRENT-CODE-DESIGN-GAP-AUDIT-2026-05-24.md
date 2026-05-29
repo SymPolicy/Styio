@@ -218,8 +218,11 @@ Current implementation reality:
    returned value type, direct calls such as `log.answer()` no longer lower an
    inlined `SGReturn` into expression context, and
    `result = ?| log.answer() | fallback` returns the successful method value
-   while keeping fallback type mismatches fail-closed. Returned dynamic range
-   literals such as `<| [start..stop..step]` inline as ordinary `list[i64]`
+   while keeping fallback type mismatches fail-closed. Returned bool, f64, char,
+   string, and format-string expressions preserve their value family through
+   direct calls and guarded value paths, including
+   `@file::summary = (x: int) => { <| $"value={x + 1}" }`. Returned dynamic
+   range literals such as `<| [start..stop..step]` inline as ordinary `list[i64]`
    success values and keep non-integer range bounds fail-closed before lowering.
    When that single returned
    expression is a file instant pull, `result = ?| log.read_missing() | fallback`
@@ -424,19 +427,24 @@ This is mostly good failure behavior, but it is still a design gap wherever the
 surface appears in active docs, EBNF, examples, or parser support.
 
 Closed evidence inside this gap: resource method bodies now accept and inline
-single-byte `char` literals, format strings, and dynamic range literals.
+single-byte `char` literals, format strings, scalar leaf values, and dynamic range literals.
 `@file::marker = () => { >_('x') }`,
 `@file::summary = () => { $"value={1 + 2}" -> @stdout }`, and
+`@file::flag = () => { <| true }`,
+`@file::ratio = () => { <| 1.5 }`,
+`@file::word = () => { <| "ok" }`,
+`@file::summary = (x: int) => { <| $"value={x + 1}" }`, and
 `@file::span = (start: int, stop: int, step: int) => { <| [start..stop..step] }`
 run after resource method calls or under `?| method() | fallback`, while
 `@file::marker = () => { >_('xy') }`,
 `@file::summary = () => { $"value={1 + 2" -> @stdout }`, and
-non-integer range bounds fail closed. Single-return resource methods returning
+non-integer range bounds fail closed; returned format-string fallback type
+mismatches also report `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH`. Single-return resource methods returning
 materialized list index/list-slice, inline dict-index, ordered dict value-slice,
 or typed-parameter matrix cell/row or row-range slice expressions also inline
 through `ListAST`/`ListOpAST` and `DictAST` clone paths with type metadata
 preserved, while unimplemented lexical/global capture shapes stay fail-closed.
-That closes only the `CharAST`, `FmtStrAST`, `RangeAST`, and returned
+That closes only the `IntAST`, `BoolAST`, `FloatAST`, `StringAST`, `CharAST`, `FmtStrAST`, `RangeAST`, and returned
 list/dict/matrix bounds resource-method inline-clone slices of the state inline
 clone surface; other accepted AST families still need source-reachable evidence
 before the unsupported clone fallback can be retired.
