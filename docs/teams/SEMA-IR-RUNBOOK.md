@@ -79,6 +79,7 @@ High-value docs:
 45. Hash-tag iterator route diagnostics must remain diagnostic-only. `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED` proves the existing fail-closed `IterSeqAST` route boundary, not accepted stream route semantics; do not implement `>> #tag` runtime behavior until IM-D5-P1 defines or retires that syntax in the design SSOT.
 46. Resource-effect fallback mismatch and resource-method unsupported-body diagnostics must remain diagnostic-only. `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH` and `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY` prove existing fail-closed boundaries; do not use them as evidence for arbitrary fallback recovery, multi-statement resource method bodies, captures, dict slice recovery, or pressure handling.
 47. Native `@extern` source-read, explicit binding/signature, and unsupported-signature diagnostics must remain diagnostic-only. `STYIO_NATIVE_SOURCE_READ_FAILED`, `STYIO_NATIVE_SIGNATURE_NOT_FOUND`, and `STYIO_NATIVE_UNSUPPORTED_SIGNATURE` prove existing fail-closed sema/codegen boundaries while preserving explicit binding and current signature-support rules; do not use them as evidence for broader native signatures, hidden-symbol visibility, C++ symbol mapping, or host-toolchain behavior.
+48. Undeclared-symbol diagnostics must remain diagnostic-only. `STYIO_SEMA_UNDECLARED_SYMBOL` proves existing fail-closed function/resource resolution boundaries; do not use it as evidence for broader import resolution, resource lookup, hidden native symbol visibility, or cross-file symbol behavior.
 
 ## Change Classes
 

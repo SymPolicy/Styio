@@ -738,6 +738,17 @@ These should not be counted as missing implementation in this checkout:
     stable message fragments, and stop before following output. This is
     diagnostic refinement only; aggregate, variadic, broader C/C++ ABI, symbol
     visibility, and host compiler behavior remain unchanged.
+24. Unknown function/resource diagnostics are no longer only the broad
+    `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies stable
+    `unknown function` and `unknown resource` messages as
+    `STYIO_SEMA_UNDECLARED_SYMBOL`, while
+    `StyioDiagnostics.UnknownFunctionReportsSemaUndeclaredSymbolCode` and
+    `StyioDiagnostics.UnknownResourceReportsSemaUndeclaredSymbolCode` prove the
+    JSONL public phase is `sema`, the TypeError exit family remains stable,
+    stable message fragments are present, and following output does not execute.
+    This is diagnostic refinement only; it does not broaden symbol resolution,
+    hidden native symbol visibility, import behavior, or resource lookup
+    semantics.
 
 ## Recommended Closure Order
 
