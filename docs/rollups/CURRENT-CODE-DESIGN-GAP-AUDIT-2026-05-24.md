@@ -164,7 +164,8 @@ Current implementation reality:
    `text.lines()` under `?|` so ordinary method calls do not become implicit
    resource effects.
 11. The first value-producing non-task resource-effect slices are executable for
-   file and stdin instant pulls plus materialized container bounds reads:
+   file and stdin instant pulls, materialized container bounds reads, and simple
+   value-returning resource methods:
    `result = ?| (<< @file("data.txt")) | fallback`
    returns the successful `i64` file line value on success, clears a materialized
    file-open read failure before evaluating the fallback on failure, supports
@@ -187,13 +188,22 @@ Current implementation reality:
    fallback or a matched `bounds => handler`, and fail fast without a fallback.
    Plain `xs[i]`, `xs[0..]`, `d[key]`, and `m[row][col]` expressions outside
    `?|` now guard the same runtime bounds failures before a following statement.
+   User-defined resource methods with a single `<| expr` body now record the
+   returned value type, direct calls such as `log.answer()` no longer lower an
+   inlined `SGReturn` into expression context, and
+   `result = ?| log.answer() | fallback` returns the successful method value
+   while keeping fallback type mismatches fail-closed. Multi-statement resource
+   method returns intentionally fail closed before lowering until arbitrary
+   method-body value semantics are implemented.
    Parser/Sema keep `?| op | ...` statement-only, reject statement-shaped write
    operations where a value is required, reject fallback type mismatches, and
    keep dict/matrix slice-shaped resource-effect values fail-closed until those
    operation families have their own checkpoints.
 12. There is still no complete typed value-producing resource-effect model for
-   arbitrary resource operations beyond the covered file/stdin instant pulls and
-   materialized container index/row reads and materialized list slices, no
+   arbitrary resource operations beyond the covered file/stdin instant pulls,
+   materialized container index/row reads, materialized list slices, and simple
+   resource-method single-return bodies, no recovery model for failing
+   value-producing resource methods or multi-statement method returns, no
    fallback recovery model for implicit cleanup, no cleanup-failure coverage for
    broader reassignment cleanup, no cleanup families beyond file close, no
    resource family that emits a non-failure
@@ -215,16 +225,18 @@ direct file close and statement-shaped file handle acquire now enter the
 statement `?|` recovery path, including catch-all fallback, matched `io`
 handlers, no-fallback fail-fast settlement, and non-resource member-call
 rejection for method candidates. File/stdin instant-pull, materialized
-container-index, and materialized list-slice resource-effect expressions now cover the first typed
+container-index, materialized list-slice, and simple resource-method
+single-return resource-effect expressions now cover the first typed
 success/fallback/handler value paths, including explicit-target stdin `f64`,
 `string`, typed-list pulls, and `bounds` recovery for
 `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, and
-`STYIO_RUNTIME_MATRIX_INDEX` under `?|`.
+`STYIO_RUNTIME_MATRIX_INDEX` under `?|`, while direct `log.answer()` resource
+method calls no longer abort lowering.
 Implicit cleanup fallback recovery, broader reassignment cleanup,
 broader resource-family cleanup, non-failure backpressure
 observation/escalation, pressure observers, broader post-acquire resource
 operations beyond the covered file iterator, close-method, and write-method
-paths, and
+paths, failing or multi-statement value-producing resource methods, and
 arbitrary value-producing resource-effect recovery remain design-fixed but
 unfinished.
 

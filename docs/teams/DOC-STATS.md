@@ -27,16 +27,16 @@ python3 scripts/docs-audit.py --manifest valid --format json --output /tmp/styio
 | Team | Document | Word count | Character count |
 |------|----------|------------|-----------------|
 | CLI / Nano | [CLI-NANO-RUNBOOK.md](./CLI-NANO-RUNBOOK.md) | 2,495 | 11,230 |
-| Codegen / Runtime | [CODEGEN-RUNTIME-RUNBOOK.md](./CODEGEN-RUNTIME-RUNBOOK.md) | 3,564 | 17,089 |
+| Codegen / Runtime | [CODEGEN-RUNTIME-RUNBOOK.md](./CODEGEN-RUNTIME-RUNBOOK.md) | 3,615 | 17,371 |
 | Coordination | [COORDINATION-RUNBOOK.md](./COORDINATION-RUNBOOK.md) | 2,029 | 7,587 |
-| Docs / Ecosystem | [DOCS-ECOSYSTEM-RUNBOOK.md](./DOCS-ECOSYSTEM-RUNBOOK.md) | 7,085 | 33,610 |
-| Frontend | [FRONTEND-RUNBOOK.md](./FRONTEND-RUNBOOK.md) | 4,189 | 17,816 |
+| Docs / Ecosystem | [DOCS-ECOSYSTEM-RUNBOOK.md](./DOCS-ECOSYSTEM-RUNBOOK.md) | 7,142 | 33,868 |
+| Frontend | [FRONTEND-RUNBOOK.md](./FRONTEND-RUNBOOK.md) | 4,261 | 18,120 |
 | Grammar | [GRAMMAR-RUNBOOK.md](./GRAMMAR-RUNBOOK.md) | 933 | 3,774 |
 | IDE / LSP | [IDE-LSP-RUNBOOK.md](./IDE-LSP-RUNBOOK.md) | 1,398 | 6,244 |
 | Performance / Stability | [PERF-STABILITY-RUNBOOK.md](./PERF-STABILITY-RUNBOOK.md) | 1,888 | 8,141 |
-| Sema / IR | [SEMA-IR-RUNBOOK.md](./SEMA-IR-RUNBOOK.md) | 4,466 | 20,644 |
-| Test Quality | [TEST-QUALITY-RUNBOOK.md](./TEST-QUALITY-RUNBOOK.md) | 6,034 | 29,508 |
-| **Total** | Team runbooks only | **34,081** | **155,643** |
+| Sema / IR | [SEMA-IR-RUNBOOK.md](./SEMA-IR-RUNBOOK.md) | 4,545 | 21,015 |
+| Test Quality | [TEST-QUALITY-RUNBOOK.md](./TEST-QUALITY-RUNBOOK.md) | 6,095 | 29,815 |
+| **Total** | Team runbooks only | **34,401** | **157,165** |
 
 ## Support File Size
 
