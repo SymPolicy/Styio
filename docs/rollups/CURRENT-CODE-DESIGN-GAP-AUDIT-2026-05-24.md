@@ -726,6 +726,18 @@ These should not be counted as missing implementation in this checkout:
     does not execute. This is diagnostic refinement only; native ABI support,
     symbol visibility, host compiler behavior, C++ symbol mapping, and broader
     native effect semantics remain unchanged.
+23. Native interop unsupported-signature diagnostics are no longer only broad
+    native fallback cases at existing fail-closed signature boundaries.
+    `DiagnosticContract.hpp` now classifies unsupported native parameter/return
+    families, void parameters, empty/cannot-parse parameters, and variadic
+    signatures as `STYIO_NATIVE_UNSUPPORTED_SIGNATURE`. The focused
+    `StyioDiagnostics.NativeExternUnsupportedSignatureReportsNativeCode` and
+    `StyioDiagnostics.NativeExternVariadicSignatureReportsNativeCode` tests
+    prove aggregate parameter and variadic-signature failures report public
+    phase `native_interop`, keep the TypeError exit family stable, preserve
+    stable message fragments, and stop before following output. This is
+    diagnostic refinement only; aggregate, variadic, broader C/C++ ABI, symbol
+    visibility, and host compiler behavior remain unchanged.
 
 ## Recommended Closure Order
 
