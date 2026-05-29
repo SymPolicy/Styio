@@ -35,6 +35,8 @@ inline constexpr std::string_view kSemaCallArityMismatch =
   "STYIO_SEMA_CALL_ARITY_MISMATCH";
 inline constexpr std::string_view kSemaResourceCapabilityMismatch =
   "STYIO_SEMA_RESOURCE_CAPABILITY_MISMATCH";
+inline constexpr std::string_view kSemaResourcePressureObserverUnsupported =
+  "STYIO_SEMA_RESOURCE_PRESSURE_OBSERVER_UNSUPPORTED";
 inline constexpr std::string_view kSemaResourceMethodUnsupportedBody =
   "STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY";
 inline constexpr std::string_view kTypeError = "STYIO_TYPE_ERROR";
@@ -238,6 +240,10 @@ classify_type_or_lowering_code(std::string_view message) {
       || contains(message, "read-only stream; cannot")
       || contains(message, "write-only stream; cannot")) {
     return std::string(kSemaResourceCapabilityMismatch);
+  }
+  if (contains(message, "does not expose pressure stream")
+      || contains(message, "pressure observer requires a resource family")) {
+    return std::string(kSemaResourcePressureObserverUnsupported);
   }
   if (contains(message, "resource method return currently requires a single")) {
     return std::string(kSemaResourceMethodUnsupportedBody);

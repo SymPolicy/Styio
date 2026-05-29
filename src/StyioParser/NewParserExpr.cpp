@@ -54,6 +54,16 @@ enforce_nightly_internal_legacy_bridge_budget_latest(StyioContext& context, cons
   );
 }
 
+bool
+is_pressure_observer_attr_latest(StyioAST* node) {
+  auto* attr = dynamic_cast<AttrAST*>(node);
+  if (attr == nullptr) {
+    return false;
+  }
+  auto* attr_name = dynamic_cast<NameAST*>(attr->attr);
+  return attr_name != nullptr && attr_name->getAsStr() == "pressure";
+}
+
 [[noreturn]] void
 reject_authoritative_nightly_gap_latest(StyioContext& context, const char* construct) {
   throw StyioSyntaxError(
@@ -1679,7 +1689,7 @@ private:
       if (allow_extended_continuations && context_.cur_tok_type() == StyioTokenType::ITERATOR) {
         const StyioDoubleRightContinuationOps ops{
           parse_infinite_after_double_right_nightly_latest,
-          nullptr,
+          is_pressure_observer_attr_latest(owner.get()) ? parse_iterator_tail_nightly_draft : nullptr,
           "unsupported '>>' continuation in nightly parser subset",
         };
         owner.reset(parse_double_right_continuation_latest(context_, owner.release(), ops));
