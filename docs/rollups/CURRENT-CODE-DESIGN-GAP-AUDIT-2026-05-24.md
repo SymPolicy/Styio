@@ -62,11 +62,11 @@ Real compiler/runtime surfaces:
 4. Direct unsupported AST lowering now fails closed or lowers intentional empty
    forms to `SGNoOp`; codegen verifier gating and security tests are present.
 5. Accepted single-quoted `char` literals, format strings, dynamic range
-   literals, match expressions, value-producing resource-effect expressions, and single-return list/dict/matrix container bounds expressions are
+   literals, match expressions, ordinary function-call returns, value-producing resource-effect expressions, and single-return list/dict/matrix container bounds expressions are
    executable in ordinary expressions and in user-defined resource method bodies
    after inlining. The resource-method body parser now admits the same
    `CharAST`, `FmtStrAST`, `RangeAST`, `MatchCasesAST`, value-producing `ResourceEffectAST`,
-   list index/slice, inline `dict{...}` index, and typed-parameter matrix
+   `FuncCallAST`, list index/slice, inline `dict{...}` index, and typed-parameter matrix
    cell/row or row-range slice value shapes, and `StateExprCloneVisitor` clones
    them instead of reporting an unsupported inlined state expression.
 6. `@extern(c|c++)` is not just design prose: native interop feature tests and
@@ -229,6 +229,12 @@ Current implementation reality:
    `i64`/`f64`/`bool`/`char`/`string` result families through direct calls and
    guarded value paths, while returned container match results still fail closed
    before lowering.
+   Returned calls to ordinary block-form functions such as
+   `# plus_one := (x: i64) => { <| x + 1 }` plus
+   `@file::score = (x: i64) => { <| plus_one(x) }` now infer the called
+   function's explicit return/final-tail result type for direct and guarded
+   method calls; statement-only function bodies remain fail-closed as method
+   return values.
    Returned value-producing resource-effect expressions such as
    `<| ?| (<< @file("data.txt")) | io => 8 | 7` now parse through the nightly method
    body path, preserve their inferred result type during inline cloning, return
@@ -318,9 +324,10 @@ observation/escalation, pressure observer payload/runtime execution, broader pos
 operations beyond the covered file iterator, close-method, write-method, and
 acquired-handle instant-pull paths, failing value-producing resource methods beyond returned file/stdin
 instant pulls and returned list/dict/matrix bounds slices, multi-statement
-value-producing resource methods, resource-method lexical/global captures, and
-arbitrary value-producing resource-effect recovery remain design-fixed but
-unfinished.
+   value-producing resource methods beyond statement-only called-function bodies,
+   resource-method lexical/global captures, and
+   arbitrary value-producing resource-effect recovery remain design-fixed but
+   unfinished.
 
 ### P0. Topology v2 resource selectors parse, but slice/snapshot value semantics are not closed
 
@@ -711,7 +718,10 @@ These should not be counted as missing implementation in this checkout:
    `SGReturn`, scalar/string match-expression return families preserve their
    inferred type while returned container match results fail closed, fallback
    type mismatches fail closed, and multi-statement method returns are rejected
-   before lowering. The same group now proves a method
+   before lowering. Returned calls to ordinary functions with a value tail or
+   explicit `<| expr` also preserve the called function result family through
+   direct and guarded resource method calls; statement-only called functions
+   remain rejected with the same unsupported-body diagnostic. The same group now proves a method
    whose single return is a file instant pull can recover a returned
    `STYIO_RUNTIME_FILE_OPEN_READ` through catch-all fallback or a matched
    `io` handler, while no-fallback settlement fails before the following
