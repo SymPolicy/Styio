@@ -2,7 +2,7 @@
 
 **Purpose:** Styio 语言的 **权威语义与特性说明**（正文规格）；形式文法见 [`Styio-EBNF.md`](./Styio-EBNF.md)，符号与 token 名见 [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md)，`@` **目标**拓扑见 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)，当前实现缺口见 [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md)。
 
-**Last updated:** 2026-05-29
+**Last updated:** 2026-05-30
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -244,6 +244,10 @@ that compare the scrutinee to an integer (`(n == 1) => ...`) are semantically
 the same arm. AST lowering emits ordinary StyioIR, then the StyioIR optimizer
 canonicalizes equivalent match shapes before LLVM codegen so accepted source
 spellings can produce identical switch-shaped LLVM IR.
+
+Current executable match expression and function match sugar result families are
+`i64`, `f64`, `bool`, `char`, and `string`; tuple/container result families fail
+closed until their value IR and merge semantics are defined.
 
 ### 6.2 Infinite Loop
 
