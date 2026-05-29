@@ -458,6 +458,10 @@ Single-return resource methods may return calls to ordinary block-form
 functions whose body has a final value tail or explicit `<| expr`; direct calls
 and `?| method() | fallback` preserve the called function result family, while
 statement-only called functions remain fail-closed as method return values.
+Resource method/property bodies may use receiver-scoped property access such as
+`@file.path`, including property bindings like `@file::self_path := @file.path`
+and returned format strings such as `<| $"path={@file.path}"`; the same
+`@file.path` spelling outside a resource-family definition remains fail-closed.
 Single-return resource methods may also return a file instant pull and recover that
 returned `STYIO_RUNTIME_FILE_OPEN_READ` through fallback or matched `io`
 handlers under `?|`; they may also return canonical `(<- @stdin)` and recover

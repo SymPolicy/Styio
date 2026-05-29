@@ -453,10 +453,14 @@ expressions, and dynamic range literals.
 `@file::ratio = () => { <| 1.5 }`,
 `@file::word = () => { <| "ok" }`,
 `@file::summary = (x: int) => { <| $"value={x + 1}" }`,
+`@file::self_path := @file.path`,
+`@file::describe = () => { <| $"path={@file.path}" }`,
 `@file::pick = (x: int) => { <| x ?= { 0 => 'a' _ => 'b' } }`,
 `@file::span = (start: int, stop: int, step: int) => { <| [start..stop..step] }`,
 and `@file::read_or = () => { <| ?| (<< @file("data.txt")) | io => 8 | 7 }`
 run after resource method calls or under `?| method() | fallback`, while
+top-level `@file.path` remains a parse error rather than a constructor/property
+shortcut,
 `@file::marker = () => { >_('xy') }`,
 `@file::summary = () => { $"value={1 + 2" -> @stdout }`, and
 returned resource-effect discard, returned container match results, or non-integer range bounds fail closed; returned format-string fallback type
@@ -465,7 +469,7 @@ materialized list index/list-slice, inline dict-index, ordered dict value-slice,
 or typed-parameter matrix cell/row or row-range slice expressions also inline
 through `ListAST`/`ListOpAST` and `DictAST` clone paths with type metadata
 preserved, while unimplemented lexical/global capture shapes stay fail-closed.
-That closes only the `IntAST`, `BoolAST`, `FloatAST`, `StringAST`, `CharAST`, `FmtStrAST`, `RangeAST`, `MatchCasesAST`, `ResourceEffectAST`, and returned
+That closes only the `IntAST`, `BoolAST`, `FloatAST`, `StringAST`, `CharAST`, `FmtStrAST`, receiver-scoped `ResourceReceiverAST` / `AttrAST` property postfix, `RangeAST`, `MatchCasesAST`, `ResourceEffectAST`, and returned
 list/dict/matrix bounds resource-method inline-clone slices of the state inline
 clone surface; other accepted AST families still need source-reachable evidence
 before the unsupported clone fallback can be retired.
