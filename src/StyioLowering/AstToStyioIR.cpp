@@ -1247,7 +1247,20 @@ class StateExprCloneVisitor
   }
 
   StyioAST* clone(ListAST* expr) {
-    return ListAST::Create(clone_child_list(expr->getElements()));
+    ListAST* out = ListAST::Create(clone_child_list(expr->getElements()));
+    out->setDataType(expr->getDataType());
+    return out;
+  }
+
+  StyioAST* clone(DictAST* expr) {
+    std::vector<std::pair<StyioAST*, StyioAST*>> entries;
+    entries.reserve(expr->getEntries().size());
+    for (const auto& entry : expr->getEntries()) {
+      entries.emplace_back(clone(entry.key), clone(entry.value));
+    }
+    DictAST* out = DictAST::Create(std::move(entries));
+    out->setDataType(expr->getDataType());
+    return out;
   }
 
   StyioAST* clone(SetAST* expr) {
@@ -1507,6 +1520,8 @@ public:
         return clone(static_cast<TupleAST*>(expr));
       case StyioNodeType::List:
         return clone(static_cast<ListAST*>(expr));
+      case StyioNodeType::Dict:
+        return clone(static_cast<DictAST*>(expr));
       case StyioNodeType::Set:
         return clone(static_cast<SetAST*>(expr));
       case StyioNodeType::BinOp:

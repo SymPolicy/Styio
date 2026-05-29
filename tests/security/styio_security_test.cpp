@@ -1763,6 +1763,46 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueDictIndexFallbackE
   EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedDictIndexFallbackExpression) {
+  const std::string src =
+    "@file::read_missing = () => { <| dict{\"a\": 1}[\"missing\"] }\n"
+    "log := @file(\"/tmp/styio-resource-method-dict-index\")\n"
+    "result = ?| log.read_missing() | bounds => 9 | 7\n"
+    ">_(result)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("value: required"), std::string::npos);
+  EXPECT_NE(repr.find("handler:bounds"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_dict_get_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedListSliceFallbackExpression) {
+  const std::string src =
+    "@file::tail_missing = () => { <| [1,2][5..] }\n"
+    "log := @file(\"/tmp/styio-resource-method-list-slice\")\n"
+    "result = ?| log.tail_missing() | bounds => [9] | [7]\n"
+    ">_(result)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("value: required"), std::string::npos);
+  EXPECT_NE(repr.find("handler:bounds"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_list_slice"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueMatrixIndexFallbackExpression) {
   const std::string src =
     "m: matrix = [[1,2],[3,4]]\n"
@@ -1961,6 +2001,23 @@ TEST(StyioSecurityNightlySemantics, RejectsDictSliceResourceEffectValueBeforeDic
   try {
     parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
     FAIL() << "expected dict slice resource-effect value to stay fail-closed";
+  }
+  catch (const StyioTypeError& err) {
+    const std::string msg = err.what();
+    EXPECT_NE(msg.find("list slice requires a list value"), std::string::npos) << msg;
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsResourceMethodReturnedDictSliceBeforeDictSliceSupport) {
+  const std::string src =
+    "@file::bad_slice = () => { <| dict{\"a\": 1}[0..] }\n"
+    "log := @file(\"/tmp/styio-resource-method-dict-slice\")\n"
+    "result = ?| log.bad_slice() | [9]\n"
+    ">_(result)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected resource-method dict slice value to stay fail-closed";
   }
   catch (const StyioTypeError& err) {
     const std::string msg = err.what();
