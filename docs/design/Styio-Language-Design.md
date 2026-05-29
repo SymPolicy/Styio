@@ -508,9 +508,12 @@ evidence covers tracked file handles for those paths. It also covers the
 default file flex-rebind cleanup boundary: before `name = @file(...)`
 overwrites an existing tracked file handle, codegen closes the old handle,
 checks the cleanup error channel, and stops before the new acquire or later
-statements if cleanup failed. Broader resource-family cleanup and source-level
-fallback recovery for implicit or reassignment cleanup remain staged
-implementation work.
+statements if cleanup failed. Statement-shaped file rebind can now install an
+explicit settlement site with `?| name = @file(...) | fallback` or named
+handlers; under that wrapper, the old-handle cleanup error remains on the
+resource-effect channel instead of continuing into the replacement open.
+Broader resource-family cleanup and source-level fallback recovery for implicit
+cleanup remain staged implementation work.
 
 ### 8.6 Persistence via Redirection: `->`
 

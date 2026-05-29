@@ -147,7 +147,12 @@ Current implementation reality:
    handle before the RHS acquire/overwrite, guards the cleanup error channel
    before opening the replacement resource or running following statements, and
    same-path singleton slots left at zero by an explicit close are reopened
-   before later iteration.
+   before later iteration. Statement-shaped `?| name = @file(...) | fallback`
+   is now accepted only for file-resource flex rebinds: replacement open
+   failures recover through catch-all fallback or matched `io` handlers, scalar
+   flex binds stay fail-closed, value-required rebind expressions stay rejected,
+   and the cleanup-error branch reaches `SIOResourceEffect` before any
+   replacement open can run.
 8. File iterator error/EOF separation now covers same-path alias invalidation:
    zero file handles diagnose as `STYIO_RUNTIME_INVALID_FILE_HANDLE`, and
    `SIOFileLineIter` checks the runtime error channel before treating a null
@@ -162,8 +167,8 @@ Current implementation reality:
    resource scope state so function-local cleanup stacks do not leak into later
    codegen. File handle slots are entry allocated so same-path singleton reuse
    across loop branches does not violate LLVM dominance. This is a tracked-file
-   cleanup settlement slice; source-level fallback recovery for implicit or
-   reassignment cleanup and non-file cleanup families remain open.
+   cleanup settlement slice; source-level fallback recovery for implicit cleanup,
+   non-file reassignment cleanup, and non-file cleanup families remains open.
 10. Statement-shaped resource method calls now participate in resource-effect
    settlement. `?| @file("data.txt").close() | fallback` skips recovery after a
    successful open/close, missing direct file close recovers through catch-all
@@ -240,8 +245,8 @@ Current implementation reality:
    value-producing resource methods beyond the returned file/stdin instant-pull
    and returned list/dict/matrix bounds failure slices, or for multi-statement
    method returns and resource-method lexical/global captures, no
-   source-level fallback recovery model for implicit or reassignment cleanup,
-   no cleanup families beyond file close, no
+   source-level fallback recovery model for implicit cleanup or non-file
+   reassignment cleanup, no cleanup families beyond file close, no
    resource family that emits a non-failure
    `ResourceBackpressure` pressure event, and no pressure-observer
    implementation.
@@ -277,7 +282,7 @@ Typed resource method parameters now feed method-body inference and call-site
 checks, so returned matrix cell/row or row-range slice bounds failures recover
 through matched `bounds` handlers or catch-all fallback under `?|` without
 opening global matrix capture.
-Source-level fallback recovery for implicit or reassignment cleanup,
+Source-level fallback recovery for implicit cleanup and non-file reassignment cleanup,
 broader resource-family cleanup, non-failure backpressure
 observation/escalation, pressure observers, broader post-acquire resource
 operations beyond the covered file iterator, close-method, write-method, and
@@ -616,6 +621,16 @@ These should not be counted as missing implementation in this checkout:
    fails closed with `STYIO_RUNTIME_INVALID_FILE_HANDLE` when fallback recovers
    the open failure but later code tries to iterate, write through, or instant
    pull from the zeroed handle without recreating the file path.
+   The same statement route now covers file flex rebind:
+   `StyioResourceEffects.FlexRebindFallbackRecoversFileOpenFailure` and
+   `FlexRebindNamedIoHandlerRecoversFileOpenFailure` prove `?| f = @file(missing) | ...`
+   recovers replacement open failures and leaves the later acquired-handle pull
+   on the closed-handle path, while
+   `StyioSecurityNightlyParserStmt.ParsesResourceEffectFileRebindStatement`,
+   `RejectsScalarFlexBindResourceEffectStatement`, and
+   `RejectsFileRebindResourceEffectExpression` prove the no-fallback parser
+   route, scalar-assignment rejection, value-expression rejection, and cleanup
+   branch codegen shape.
    `StyioSecurityNightlyParserStmt.ParsesResourceEffectResourceMethodStatement`
    and `ParsesResourceEffectHandleAcquireStatement` /
    `ResourceEffectHandleAcquireFeedsLaterIterator` /
@@ -799,7 +814,7 @@ These should not be counted as missing implementation in this checkout:
    close-method receiver invalidation. Explicit returns and loop break/continue
    exits now close tracked file handles before leaving the function or loop
    resource scope. The next slices must cover
-   source-level fallback recovery for implicit or reassignment cleanup, broader
+   source-level fallback recovery for implicit cleanup and non-file reassignment cleanup, broader
    post-acquire resource operations beyond the covered file iterator,
    close-method, write-method, and acquired-handle instant-pull paths,
    dict slice-shaped
