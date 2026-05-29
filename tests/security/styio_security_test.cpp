@@ -3392,6 +3392,25 @@ TEST(StyioSecurityNightlySemantics, BoundedCharResourceSelectorsMaterializeCharL
   EXPECT_NE(llvm_ir.find("styio_char_cstr"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlySemantics, ResourceSelectorSnapshotIteratorUsesRuntimeListPath) {
+  const std::string src =
+    "@price : i64|..2|\n"
+    "[1,2] >> #(v) => {\n"
+    "  v -> @price\n"
+    "}\n"
+    "@price[...] >> #(v) => {\n"
+    "  >_(v)\n"
+    "}\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_list_push_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_get"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlySemantics, CharMaterializedListsFeedZipBarrier) {
   const std::string src =
     "['a','b'] >> #(left) & ['x','y'] >> #(right) => {\n"
