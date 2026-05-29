@@ -497,6 +497,12 @@ StyioToLLVM::toLLVMType(SCMatrixRow* node) {
 }
 
 llvm::Type*
+StyioToLLVM::toLLVMType(SCMatrixRowsSlice* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
 StyioToLLVM::toLLVMType(SCMatrixToString* node) {
   (void)node;
   return llvm::PointerType::get(*theContext, 0);

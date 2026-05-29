@@ -1822,6 +1822,25 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueMatrixIndexFallbac
   EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueMatrixSliceFallbackExpression) {
+  const std::string src =
+    "m: matrix = [[1,2],[3,4]]\n"
+    "result = ?| m[3..] | bounds => [[9]] | [[7]]\n"
+    ">_(result)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("value: required"), std::string::npos);
+  EXPECT_NE(repr.find("handler:bounds"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_matrix_rows_slice_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedMatrixIndexFallbackExpression) {
   const std::string src =
     "@file::cell_missing = (m: matrix) => { <| m[3][0] }\n"
@@ -1860,6 +1879,27 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedMatrixRowFallba
   const std::string llvm_ir =
     compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
   EXPECT_NE(llvm_ir.find("styio_matrix_row_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedMatrixSliceFallbackExpression) {
+  const std::string src =
+    "@file::rows_missing = (m: matrix) => { <| m[3..] }\n"
+    "m: matrix = [[1,2],[3,4]]\n"
+    "log := @file(\"/tmp/styio-resource-method-matrix-slice\")\n"
+    "result = ?| log.rows_missing(m) | bounds => [[9]] | [[7]]\n"
+    ">_(result)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("value: required"), std::string::npos);
+  EXPECT_NE(repr.find("handler:bounds"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_matrix_rows_slice_i64"), std::string::npos);
   EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
   EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
 }

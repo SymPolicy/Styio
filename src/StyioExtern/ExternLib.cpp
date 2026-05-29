@@ -1011,6 +1011,36 @@ check_matrix_index(const StyioMatrixBase* matrix, int64_t row, int64_t col) {
   return true;
 }
 
+bool
+check_matrix_row_slice_bounds(
+  const StyioMatrixBase* matrix,
+  int64_t start,
+  int64_t end_exclusive,
+  bool has_end,
+  int64_t& begin,
+  int64_t& finish
+) {
+  if (matrix == nullptr) {
+    return false;
+  }
+  if (start < 0) {
+    set_runtime_error_once(kRuntimeSubcodeMatrixIndex, "matrix row slice start out of bounds");
+    return false;
+  }
+  if (has_end && end_exclusive < 0) {
+    set_runtime_error_once(kRuntimeSubcodeMatrixIndex, "matrix row slice end out of bounds");
+    return false;
+  }
+  const int64_t stop = has_end ? end_exclusive : matrix->rows;
+  if (start > matrix->rows || stop > matrix->rows || stop < start) {
+    set_runtime_error_once(kRuntimeSubcodeMatrixIndex, "matrix row slice bounds out of range");
+    return false;
+  }
+  begin = start;
+  finish = stop;
+  return true;
+}
+
 size_t
 matrix_offset(const StyioMatrixBase* matrix, int64_t row, int64_t col) {
   return static_cast<size_t>(row * matrix->cols + col);
@@ -3109,6 +3139,54 @@ styio_matrix_row_f64(int64_t h, int64_t row) {
   auto* out = new StyioListF64();
   for (int64_t col = 0; col < m->cols; ++col) {
     out->elems.push_back(styio_matrix_get_f64(h, row, col));
+  }
+  return stash_list(out);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_matrix_rows_slice_i64(int64_t h, int64_t start, int64_t end_exclusive, int32_t has_end) {
+  StyioMatrixI64* m = as_matrix_i64(h, true);
+  int64_t begin = 0;
+  int64_t finish = 0;
+  if (m == nullptr
+      || !check_matrix_row_slice_bounds(m, start, end_exclusive, has_end != 0, begin, finish)) {
+    return 0;
+  }
+  auto* out = new StyioListListHandle();
+  out->elems.reserve(static_cast<size_t>(finish - begin));
+  for (int64_t row = begin; row < finish; ++row) {
+    auto* row_list = new StyioListI64();
+    row_list->elems.reserve(static_cast<size_t>(m->cols));
+    for (int64_t col = 0; col < m->cols; ++col) {
+      row_list->elems.push_back(m->elems[matrix_offset(m, row, col)]);
+    }
+    out->elems.push_back(stash_list(row_list));
+  }
+  return stash_list(out);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_matrix_rows_slice_f64(int64_t h, int64_t start, int64_t end_exclusive, int32_t has_end) {
+  StyioMatrixBase* m = as_matrix_base(h, true);
+  int64_t begin = 0;
+  int64_t finish = 0;
+  if (m == nullptr
+      || !check_matrix_row_slice_bounds(m, start, end_exclusive, has_end != 0, begin, finish)) {
+    return 0;
+  }
+  auto* out = new StyioListListHandle();
+  out->elems.reserve(static_cast<size_t>(finish - begin));
+  for (int64_t row = begin; row < finish; ++row) {
+    auto* row_list = new StyioListF64();
+    row_list->elems.reserve(static_cast<size_t>(m->cols));
+    for (int64_t col = 0; col < m->cols; ++col) {
+      const size_t off = matrix_offset(m, row, col);
+      row_list->elems.push_back(
+        m->elem_kind == StyioMatrixElemKind::F64
+          ? static_cast<StyioMatrixF64*>(m)->elems[off]
+          : static_cast<double>(static_cast<StyioMatrixI64*>(m)->elems[off]));
+    }
+    out->elems.push_back(stash_list(row_list));
   }
   return stash_list(out);
 }

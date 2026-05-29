@@ -267,6 +267,29 @@ public:
   }
 };
 
+class SCMatrixRowsSlice : public StyioIRTraits<SCMatrixRowsSlice>
+{
+public:
+  StyioIR* matrix = nullptr;
+  StyioIR* start = nullptr;
+  StyioIR* end = nullptr;
+  std::string elem_type = "i64";
+
+  SCMatrixRowsSlice(StyioIR* m, StyioIR* s, StyioIR* e, std::string et) :
+      matrix(m), start(s), end(e), elem_type(std::move(et)) {
+  }
+
+  ~SCMatrixRowsSlice() override {
+    delete matrix;
+    delete start;
+    delete end;
+  }
+
+  static SCMatrixRowsSlice* Create(StyioIR* m, StyioIR* s, StyioIR* e, std::string elem_type) {
+    return new SCMatrixRowsSlice(m, s, e, std::move(elem_type));
+  }
+};
+
 class SCMatrixToString : public StyioIRTraits<SCMatrixToString>
 {
 public:

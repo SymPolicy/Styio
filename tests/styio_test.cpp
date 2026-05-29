@@ -6897,7 +6897,9 @@ TEST(StyioResourceEffects, ValueResourceMethodFallbackRecoversReturnedMatrixBoun
     out << "@file::cell_missing = (m: matrix) => { <| m[4][0] }\n";
     out << "@file::row_ok = (m: matrix) => { <| m[1] }\n";
     out << "@file::row_missing = (m: matrix) => { <| m[4] }\n";
-    out << "m: matrix = [[1,2],[3,4]]\n";
+    out << "@file::rows_ok = (m: matrix) => { <| m[1..] }\n";
+    out << "@file::rows_missing = (m: matrix) => { <| m[4..] }\n";
+    out << "m: matrix = [[1,2],[3,4],[5,6]]\n";
     out << "log := @file(\"" << data.generic_string() << "\")\n";
     out << "cell_success = ?| log.cell_ok(m) | 8\n";
     out << ">_(cell_success)\n";
@@ -6907,6 +6909,10 @@ TEST(StyioResourceEffects, ValueResourceMethodFallbackRecoversReturnedMatrixBoun
     out << ">_(row_success)\n";
     out << "row_recovered: list[i64] = ?| log.row_missing(m) | [9]\n";
     out << ">_(row_recovered)\n";
+    out << "rows_success = ?| log.rows_ok(m) | [[9,9]]\n";
+    out << ">_(rows_success)\n";
+    out << "rows_recovered = ?| log.rows_missing(m) | [[9,9]]\n";
+    out << ">_(rows_recovered)\n";
     out << ">_(\"after\")\n";
   }
 
@@ -6922,7 +6928,7 @@ TEST(StyioResourceEffects, ValueResourceMethodFallbackRecoversReturnedMatrixBoun
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
-  EXPECT_EQ(result.stdout_text, "3\n8\n[3,4]\n[9]\nafter\n");
+  EXPECT_EQ(result.stdout_text, "3\n8\n[3,4]\n[9]\n[[3,4],[5,6]]\n[[9,9]]\nafter\n");
 
   fs::remove(input);
   fs::remove(data);
@@ -6945,10 +6951,13 @@ TEST(StyioResourceEffects, ValueResourceMethodNamedBoundsHandlerRecoversReturned
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
     out << "@file::cell_missing = (m: matrix) => { <| m[4][0] }\n";
+    out << "@file::rows_missing = (m: matrix) => { <| m[4..] }\n";
     out << "m: matrix = [[1,2],[3,4]]\n";
     out << "log := @file(\"" << data.generic_string() << "\")\n";
     out << "handled = ?| log.cell_missing(m) | io => 1 | bounds => 8 | 7\n";
     out << ">_(handled)\n";
+    out << "rows_handled = ?| log.rows_missing(m) | io => [[1,1]] | bounds => [[8,8]] | [[7,7]]\n";
+    out << ">_(rows_handled)\n";
     out << ">_(\"after\")\n";
   }
 
@@ -6964,7 +6973,7 @@ TEST(StyioResourceEffects, ValueResourceMethodNamedBoundsHandlerRecoversReturned
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
-  EXPECT_EQ(result.stdout_text, "8\nafter\n");
+  EXPECT_EQ(result.stdout_text, "8\n[[8,8]]\nafter\n");
   EXPECT_EQ(result.stdout_text.find("1"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("7"), std::string::npos);
 
@@ -7987,6 +7996,137 @@ TEST(StyioResourceEffects, ValueMatrixRowFallbackRecoversBoundsFailure) {
   fs::remove(input);
 }
 
+TEST(StyioResourceEffects, ValueMatrixSliceSuccessSkipsFallback) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-matrix-slice-success-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "m: matrix = [[1,2],[3,4],[5,6]]\n";
+    out << "rows = ?| m[1..3] | [[9,9]]\n";
+    out << ">_(rows)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "[[3,4],[5,6]]\nafter\n");
+
+  fs::remove(input);
+}
+
+TEST(StyioResourceEffects, ValueMatrixSliceFallbackRecoversBoundsFailure) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-matrix-slice-fallback-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "m: matrix = [[1,2],[3,4]]\n";
+    out << "rows = ?| m[3..] | [[9,9]]\n";
+    out << ">_(rows)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "[[9,9]]\nafter\n");
+
+  fs::remove(input);
+}
+
+TEST(StyioResourceEffects, ValueMatrixSliceNamedBoundsHandlerRecoversBoundsFailure) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-matrix-slice-handler-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "m: matrix = [[1,2],[3,4]]\n";
+    out << "rows = ?| m[3..] | io => [[1,1]] | bounds => [[7,7]] | [[9,9]]\n";
+    out << ">_(rows)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "[[7,7]]\nafter\n");
+  EXPECT_EQ(result.stdout_text.find("[[1,1]]"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("[[9,9]]"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioResourceEffects, ValueMatrixSliceNoFallbackStopsBoundsFailure) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-matrix-slice-no-fallback-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "m: matrix = [[1,2],[3,4]]\n";
+    out << "rows = ?| m[3..]\n";
+    out << ">_(rows)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 5) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_RUNTIME_MATRIX_INDEX\""), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("after"), std::string::npos);
+
+  fs::remove(input);
+}
+
 TEST(StyioDiagnostics, RuntimeMatrixIndexFailureStopsBeforeNextStatement) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
@@ -7998,6 +8138,38 @@ TEST(StyioDiagnostics, RuntimeMatrixIndexFailureStopsBeforeNextStatement) {
     ASSERT_TRUE(out.is_open());
     out << "m: matrix = [[1,2],[3,4]]\n";
     out << ">_(m[3][0])\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 5) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_RUNTIME_MATRIX_INDEX\""), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("after"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioDiagnostics, RuntimeMatrixSliceFailureStopsBeforeNextStatement) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-matrix-slice-default-guard-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "m: matrix = [[1,2],[3,4]]\n";
+    out << ">_(m[3..])\n";
     out << ">_(\"after\")\n";
   }
 

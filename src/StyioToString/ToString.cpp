@@ -1651,6 +1651,15 @@ StyioRepr::toString(SCMatrixRow* node, int indent) {
 }
 
 std::string
+StyioRepr::toString(SCMatrixRowsSlice* node, int indent) {
+  return std::string("styio.ir.matrix_rows_slice { matrix=")
+    + (node->matrix ? node->matrix->toString(this, indent) : std::string("null"))
+    + ", start=" + (node->start ? node->start->toString(this, indent) : std::string("null"))
+    + ", end=" + (node->end ? node->end->toString(this, indent) : std::string("end"))
+    + ", elem=" + node->elem_type + " }";
+}
+
+std::string
 StyioRepr::toString(SCMatrixToString* node, int indent) {
   (void)node;
   (void)indent;
