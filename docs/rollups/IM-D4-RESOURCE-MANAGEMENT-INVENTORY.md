@@ -125,6 +125,14 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   and guarded value paths, including `@file::summary = (x: int) => { <| $"value={x + 1}" }`.
   Returned dynamic range literals such as `<| [start..stop..step]` inline as
   ordinary `list[i64]` success values and still reject non-integer bounds before lowering.
+  Returned value-producing resource-effect expressions such as
+  `<| ?| (<< @file("data.txt")) | io => 8 | 7` parse through the authoritative
+  resource-effect expression route inside the method body, preserve the
+  inferred result type during inline cloning, return successful values through
+  direct method calls, and recover through their own fallback or named handler
+  before an outer `?| method() | fallback` sees a successful method value.
+  Returned resource-effect discard remains rejected because `?| op | ...` is
+  statement-only.
   Public JSONL classification now maps
   this fallback mismatch to `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH` and
   the existing unsupported multi-statement value-producing resource method body
@@ -147,8 +155,8 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   before the following statement. Multi-statement resource method returns,
   resource-method lexical/global captures,
   and failing value-producing resource-method recovery beyond the
-  covered returned file/stdin instant pulls plus returned list/dict/matrix
-  bounds slices remain open.
+  covered returned file/stdin instant pulls, returned resource-effect expression
+  wrappers, plus returned list/dict/matrix bounds slices remain open.
 - Plain file resource operations outside a `?|` recovery wrapper now settle at
   the ordinary statement boundary for the covered file acquire/write/release/
   iterator paths: missing `@file` acquire, missing-directory file write, direct
