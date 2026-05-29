@@ -73,6 +73,7 @@
 | Receiver reference | `@file` inside `@file::name` body | Refers to the receiver instance, not a constructor. |
 | Returned resource effect | `@file::read_or = () => { <\| ?\| (<< @file("data.txt")) \| 7 }` | Single-return method bodies may return a value-producing resource-effect expression; discard `?\| op \| ...` remains statement-only and is rejected as a returned expression. |
 | Returned match expression | `@file::pick = (x: int) => { <\| x ?= { 0 => 'a' _ => 'b' } }` | Single-return method bodies may return match expressions for the current scalar/string result families; container match results remain fail-closed. |
+| Returned function call | `@file::score = (x: i64) => { <\| plus_one(x) }` | Single-return method bodies may return calls to ordinary functions when the called function has a value tail or explicit `<\| expr`; statement-only function bodies remain fail-closed as method return values. |
 
 ## Tasks
 

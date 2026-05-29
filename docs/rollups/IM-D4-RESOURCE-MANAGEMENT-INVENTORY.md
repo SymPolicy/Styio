@@ -454,7 +454,11 @@ handlers; matrix row and row-range slice recovery use the same matrix bounds
 family, with row ranges lowering through `SCMatrixRowsSlice` /
 `styio_matrix_rows_slice_i64` or `styio_matrix_rows_slice_f64`, and list slice
 recovery uses `SCListSlice` / `styio_list_slice` with the list bounds family.
-Single-return resource methods may return a file instant pull and recover that
+Single-return resource methods may return calls to ordinary block-form
+functions whose body has a final value tail or explicit `<| expr`; direct calls
+and `?| method() | fallback` preserve the called function result family, while
+statement-only called functions remain fail-closed as method return values.
+Single-return resource methods may also return a file instant pull and recover that
 returned `STYIO_RUNTIME_FILE_OPEN_READ` through fallback or matched `io`
 handlers under `?|`; they may also return canonical `(<- @stdin)` and recover
 returned `STYIO_RUNTIME_NUMERIC_PARSE` through fallback or matched `parse`
@@ -478,7 +482,7 @@ keeps value-required rebind expressions rejected; the codegen cleanup branch
 routes prior-handle cleanup failure to the wrapper before opening a replacement.
 Broader resource families, cleanup/drop hooks,
 pressure-observer payloads and runtime execution, failing value-producing resource methods beyond returned
-file/stdin instant pulls and returned list/dict/matrix bounds slices,
+file/stdin instant pulls, returned block-form function calls, and returned list/dict/matrix bounds slices,
 multi-statement value-producing resource methods, resource-method lexical/global
 captures, and other non-instant-pull
 value-returning resource operations must remain separately implemented and
