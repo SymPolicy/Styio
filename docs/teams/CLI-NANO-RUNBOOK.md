@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-05-26
+**Last updated:** 2026-05-30
 
 ## Mission
 
@@ -65,6 +65,7 @@ Key handoff document:
 31. `src/main.cpp` carries embedded TOML project-config parsing, the styio-nano package/publish/manifest workflow, the `--machine-info=json` printer, and the parser shadow-compare driver in addition to CLI dispatch. This is tracked as **M-CLI-01** in [`../rollups/MIGRATION-LEDGER.md`](../rollups/MIGRATION-LEDGER.md); incremental moves should land non-CLI logic under `src/StyioServices/StyioConfig/` (or a future `src/StyioCLI/`) instead of growing `main.cpp` further.
 32. Nano negative-path coverage must track the compiler-owned handoff surface, not package-manager UX. Keep malformed repository markers and entries, malformed cloud manifests, blob hash/size mismatches, remote publish roots, create/publish mutual exclusion, missing nano mode selection, and create-only/publish-only option mixups covered by `StyioNanoPackage.*` tests before broadening static repository behavior.
 33. Compile-plan v1 malformed-input hardening must stay inside the resolved compiler request envelope: explicit optional fields with the wrong shape should fail instead of silently defaulting, package entries must have compiler-visible `id` fields, and `entry.package_id` must be present in the package list. Do not add resolver, install, registry, or package lifecycle behavior to close those compiler-side guards.
+34. When a public JSONL diagnostic family is narrowed from a broad fallback such as `STYIO_TYPE_ERROR`, add the code and classifier in `DiagnosticContract.hpp`, keep the process exit family stable unless the contract explicitly changes, update focused CLI JSONL tests, and refresh the StyioServices docs plus IM-D3 inventory in the same checkpoint.
 
 ## Change Classes
 

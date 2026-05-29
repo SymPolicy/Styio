@@ -2,7 +2,7 @@
 
 **Purpose:** Record the accepted stream-runtime, concurrency, pulse-frame, cross-stream synchronization, and multi-writer merge decisions for IM-D5.
 
-**Last updated:** 2026-05-29
+**Last updated:** 2026-05-30
 
 ## Scope
 
@@ -43,6 +43,11 @@ Styio already has active design and partial implementation surfaces for streams:
   stdin-stream slice remains ordinary finite zip over already-materialized lists
   or line streams; snapshot joins, queue/timeout policy, pressure observers, and
   multi-writer merge/conflict semantics remain open.
+- Unsupported non-iterable zip sources, including scalar resource selectors such
+  as `@price[-1]`, now fail closed with the feature-owned JSONL code
+  `STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE` instead of only the broad
+  `STYIO_TYPE_ERROR`. This is an IM-D3 diagnostic refinement, not an expansion
+  of accepted stream-driver semantics.
 
 The implementation is still incomplete. Multi-stream zip and driver combinations are only partially lowered, unsupported combinations may still end in narrow lowering/codegen paths, and cross-stream sync needs a stable memory-model contract before the remaining implementation can be judged complete.
 
