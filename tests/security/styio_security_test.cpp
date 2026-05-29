@@ -1964,6 +1964,29 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedListSliceFallba
   EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedRangeFallbackExpression) {
+  const std::string src =
+    "@file::span = (start: int, stop: int, step: int) => { <| [start..stop..step] }\n"
+    "start = 1\n"
+    "stop = 3\n"
+    "step = 1\n"
+    "log := @file(\"/tmp/styio-resource-method-range\")\n"
+    "result = ?| log.span(start, stop, step) | [9]\n"
+    ">_(result)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("value: required"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("range_list_hdr"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_new_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_push_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueMatrixIndexFallbackExpression) {
   const std::string src =
     "m: matrix = [[1,2],[3,4]]\n"
