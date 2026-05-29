@@ -2948,6 +2948,14 @@ parse_arithmetic_expr(StyioContext& context) {
       const auto saved = context.save_cursor();
       context.move_forward(1, "arith(");
       context.skip();
+      if (context.check(StyioTokenType::ARROW_SINGLE_LEFT)) {
+        return parse_parenthesized_instant_pull_latest(
+          context,
+          StyioTokenType::ARROW_SINGLE_LEFT,
+          "immediate pull needs @file(...), @{...}, or @stdin",
+          "expected ')' after immediate pull"
+        );
+      }
       if (context.check(StyioTokenType::EXTRACTOR)) {
         return parse_parenthesized_instant_pull_latest(
           context,
@@ -3538,7 +3546,16 @@ parse_binop_item(StyioContext& context) {
     case StyioTokenType::TOK_LPAREN: {
       context.move_forward(1, "binop_item(");
       context.skip();
-      if (context.check(StyioTokenType::EXTRACTOR)) {
+      if (context.check(StyioTokenType::ARROW_SINGLE_LEFT)) {
+        output = parse_parenthesized_instant_pull_latest(
+          context,
+          StyioTokenType::ARROW_SINGLE_LEFT,
+          "immediate pull needs @file(...), @{...}, or @stdin",
+          "expected ')' after immediate pull"
+        );
+        output = parse_arithmetic_tail_from_atom(context, output);
+      }
+      else if (context.check(StyioTokenType::EXTRACTOR)) {
         output = parse_parenthesized_instant_pull_latest(
           context,
           StyioTokenType::EXTRACTOR,
