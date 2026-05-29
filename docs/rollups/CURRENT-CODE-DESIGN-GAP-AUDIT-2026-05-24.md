@@ -691,6 +691,15 @@ These should not be counted as missing implementation in this checkout:
     stable message fragment is still present. This is diagnostic refinement
     only; tuple value IR and tuple return execution remain open language/runtime
     work.
+20. Undefined hash-tag stream route diagnostics are no longer only the broad
+    `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies the
+    stable fail-closed iterator-sequence message as
+    `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED`, while
+    `StyioDiagnostics.IteratorSequenceHashTagRoutingReportsFeatureCode` proves
+    the JSONL public phase is `type`, the exit family remains TypeError, and
+    execution still stops before the following statement. This is diagnostic
+    refinement only; IM-D5-P1 still owns whether hash-tag routes are retired or
+    defined, and no hash-tag route semantics are implemented.
 
 ## Recommended Closure Order
 

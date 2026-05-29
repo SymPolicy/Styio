@@ -2,7 +2,7 @@
 
 **Purpose:** Record compiler gaps found during the self-explanation audit that were either closed autonomously because they already matched accepted Styio design, or left for maintainer decision because closing them would define or change language semantics.
 
-**Last updated:** 2026-05-10
+**Last updated:** 2026-05-30
 
 **Status:** Active decision log for maintainer review.
 
@@ -11,7 +11,7 @@
 | Item | Why it was safe to close | Result | Proof |
 |------|--------------------------|--------|-------|
 | Format strings (`$"..."`) | `Styio-Language-Design.md`, `Styio-EBNF.md`, and active stdio-output fixtures already describe `$"..."`; the compiler had lexer/parser/AST shape but rejected the syntax and lowered `FmtStrAST` to a placeholder | Both legacy and nightly parser routes now parse `$"..."`; embedded expressions are type-inferred and lowered through existing string concatenation/runtime conversion | `ctest --test-dir build/default -R '^(StyioParserEngine\\.LegacyAndNightlyMatchOnStdioOutputFmtStringSample|stdio_output_t06_stdout_fmtstr)$' --output-on-failure` |
-| Hash-tag iterator sequence silent placeholder | The parser accepted forms such as `[1, 2] >> #price`, but active syntax docs do not define runnable semantics, and the previous IR path silently produced `SGConstInt(0)` | The path now fails closed with a `TypeError` instead of continuing execution with a bogus placeholder | `ctest --test-dir build/default -R '^StyioDiagnostics\\.IteratorSequenceHashTagRoutingFailsClosed$' --output-on-failure` |
+| Hash-tag iterator sequence silent placeholder | The parser accepted forms such as `[1, 2] >> #price`, but active syntax docs do not define runnable semantics, and the previous IR path silently produced `SGConstInt(0)` | The path now fails closed with `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED` instead of continuing execution with a bogus placeholder; this is diagnostic-only and does not define route semantics | `ctest --test-dir build -R '^StyioDiagnostics\\.IteratorSequenceHashTagRoutingReportsFeatureCode$' --output-on-failure` |
 | Hash-tag iterator diagnostics | Parser errors contained informal text and did not explain the accepted iterator body shape | Diagnostics now use maintainer-facing wording: `expected hash tag name after # in iterator sequence`, `iterator sequence expects another #tag after >`, and `expected #(param...) or #tag after >> in iterator` | Covered by build and parser tests; no new syntax added |
 
 ## Decisions Needed

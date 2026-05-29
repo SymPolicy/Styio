@@ -68,6 +68,7 @@ Key handoff document:
 34. When a public JSONL diagnostic family is narrowed from a broad fallback such as `STYIO_TYPE_ERROR`, add the code and classifier in `DiagnosticContract.hpp`, keep the process exit family stable unless the contract explicitly changes, update focused CLI JSONL tests, and refresh the StyioServices docs plus IM-D3 inventory in the same checkpoint.
 35. Immutable/final binding mutation diagnostics are sema-family public facts even when they surface through the TypeError exit family. Keep `STYIO_SEMA_IMMUTABLE_BINDING`, phase `sema`, exit code 4, and the stable message fragment covered together when those classifier messages change.
 36. Tuple function return annotation diagnostics are type-family public facts over an existing fail-closed boundary. Keep `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN`, phase `type`, exit code 4, and the stable tuple-value-IR message fragment covered without implying tuple value IR support.
+37. Hash-tag iterator route diagnostics are type-family public facts over an existing fail-closed boundary. Keep `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED`, phase `type`, exit code 4, the stable route-not-implemented message, and no-following-output coverage together without implying IM-D5-P1 route semantics.
 
 ## Change Classes
 

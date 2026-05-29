@@ -76,6 +76,7 @@ High-value docs:
 42. State/resource-method inline cloning must cover accepted source-reachable value ASTs before those forms are considered executable inside helper bodies. `StateExprCloneVisitor` currently clones `CharAST` and `FmtStrAST` along with the existing scalar leaves, so `@file::marker = () => { >_('x') }` and `@file::summary = () => { $"value={1 + 2}" -> @stdout }` can inline and run; keep the fallback diagnostic for unsupported node families until each accepted helper-body form has parser, clone, lowering, and runtime evidence.
 43. Immutable/final binding mutation is a semantic language-rule failure, not a pure type-family mismatch. Public JSONL diagnostics for stable final-binding mutation messages should use `STYIO_SEMA_IMMUTABLE_BINDING` and phase `sema` while keeping the existing TypeError exit family unless the process-exit contract changes separately.
 44. Tuple return diagnostic refinements must remain diagnostic-only. `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN` proves the existing fail-closed tuple-return boundary, not tuple value IR or tuple return execution.
+45. Hash-tag iterator route diagnostics must remain diagnostic-only. `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED` proves the existing fail-closed `IterSeqAST` route boundary, not accepted stream route semantics; do not implement `>> #tag` runtime behavior until IM-D5-P1 defines or retires that syntax in the design SSOT.
 
 ## Change Classes
 
