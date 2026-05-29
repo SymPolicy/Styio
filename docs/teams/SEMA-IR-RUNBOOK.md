@@ -82,6 +82,7 @@ High-value docs:
 48. Undeclared-symbol diagnostics must remain diagnostic-only. `STYIO_SEMA_UNDECLARED_SYMBOL` proves existing fail-closed function/resource resolution boundaries; do not use it as evidence for broader import resolution, resource lookup, hidden native symbol visibility, or cross-file symbol behavior.
 49. Call-arity diagnostics must remain diagnostic-only. `STYIO_SEMA_CALL_ARITY_MISMATCH` proves existing fail-closed user function and resource-method arity checks; do not use it as evidence for broader function overloading, optional arguments, implicit argument adaptation, or resource-method dispatch behavior.
 50. Call argument-type diagnostics must remain diagnostic-only. `STYIO_TYPE_CALL_ARGUMENT_MISMATCH` proves existing user function and resource-method argument compatibility checks; do not use it as evidence for broader implicit conversions, overload resolution, optional arguments, native ABI behavior, or resource-method dispatch semantics.
+51. Resource capability diagnostics must remain diagnostic-only. `STYIO_SEMA_RESOURCE_CAPABILITY_MISMATCH` proves existing fail-closed capability checks such as invalid standard-resource write or pull directions; do not use it as evidence for broader resource capability rules, new resource families, pressure observers, or fallback recovery semantics.
 
 ## Change Classes
 

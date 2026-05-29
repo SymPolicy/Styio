@@ -146,6 +146,7 @@ Key SSOTs:
 110. For undeclared-symbol diagnostic refinements, describe the change as a public diagnostic-code refinement only: record `STYIO_SEMA_UNDECLARED_SYMBOL`, the unknown function/resource routes that prove it, and the unchanged TypeError exit family without implying broader symbol resolution, imports, resource lookup, or hidden native symbol visibility.
 111. For call-arity diagnostic refinements, describe the change as a public diagnostic-code refinement only: record `STYIO_SEMA_CALL_ARITY_MISMATCH`, the user function and resource-method arity mismatch routes that prove it, and the unchanged TypeError exit family without implying broader function calling, optional arguments, overloads, or resource-method dispatch.
 112. For call argument-type diagnostic refinements, describe the change as a public diagnostic-code refinement only: record `STYIO_TYPE_CALL_ARGUMENT_MISMATCH`, the user function and resource-method argument mismatch routes that prove it, and the unchanged TypeError exit family without implying broader implicit conversion, overload resolution, native ABI behavior, or resource-method dispatch.
+113. For resource capability diagnostic refinements, describe the change as a public diagnostic-code refinement only: record `STYIO_SEMA_RESOURCE_CAPABILITY_MISMATCH`, the invalid capability routes that prove it, and the unchanged TypeError exit family without implying broader resource capability implementation, new resource families, pressure observers, or fallback recovery.
 
 ## Change Classes
 

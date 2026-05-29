@@ -787,6 +787,18 @@ These should not be counted as missing implementation in this checkout:
     execute. This is diagnostic refinement only; it does not broaden function
     calling, implicit argument adaptation, native ABI behavior, or resource-method
     dispatch semantics.
+27. Resource capability mismatch diagnostics are no longer only the broad
+    `STYIO_TYPE_ERROR` family for the focused standard-resource routes.
+    `DiagnosticContract.hpp` now classifies stable capability messages such as
+    write-to-`@stdin` and instant-pull-from-`@stderr` failures as
+    `STYIO_SEMA_RESOURCE_CAPABILITY_MISMATCH`, while
+    `StyioDiagnostics.ResourceWriteToStdinReportsSemaCapabilityCode` and
+    `StyioDiagnostics.InstantPullFromStderrReportsSemaCapabilityCode` prove the
+    JSONL public phase is `sema`, the TypeError exit family remains stable,
+    stable message fragments are present, and following output does not
+    execute. This is diagnostic refinement only; it does not broaden resource
+    capability rules, resource family support, pressure observers, or fallback
+    recovery semantics.
 
 ## Recommended Closure Order
 
