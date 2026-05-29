@@ -2,7 +2,7 @@
 
 **Purpose:** Record the current implementation-to-design gap audit for the `styio` repository after the recovery-era rebuild, using the live code, docs, build tree, and local gates as evidence.
 
-**Last updated:** 2026-05-29
+**Last updated:** 2026-05-30
 
 **Status:** Active rollup. Use this as a current, evidence-backed audit companion to
 [`CURRENT-STATE.md`](./CURRENT-STATE.md) and [`NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md).
@@ -437,11 +437,12 @@ Examples:
 4. Accepted match expressions and function match sugar now run Sema before
    lowering: scrutinees must infer integer type, case patterns stay on the
    integer-literal/equality subset that lowering accepts, arm/default bodies are
-   type-inferred in isolated branch scopes, and scalar/string tail result kinds
-   are recorded on `MatchCasesAST`. Undefined branch tail values and branch-local
-   binding leaks now fail as type errors instead of reaching codegen as default
-   `i64` values. Broader match result families such as tuple/list/dict/matrix
-   still remain future feature work.
+   type-inferred in isolated branch scopes, and `i64`/`f64`/`bool`/`char`/`string`
+   tail result kinds are recorded on `MatchCasesAST` and preserved through
+   `SGMatch` lowering/codegen. Undefined branch tail values, branch-local binding
+   leaks, and unsupported container result families now fail as type errors
+   instead of reaching codegen as default `i64` values. Broader match result
+   families such as tuple/list/dict/matrix still remain future feature work.
 
 Impact: these are not silent `SGConstInt(0)` placeholder AST lowerings, but they
 are still places where the design's expression-oriented and typed semantics have
@@ -654,12 +655,14 @@ These should not be counted as missing implementation in this checkout:
    `io` handler, while no-fallback settlement fails before the following
    statement.
 16. Match case semantics no longer bypass Sema before lowering. `MatchCasesAST`
-   stores the inferred scalar/string result family, function-body inference runs
-   with a recursion guard so function match sugar is checked when called, and
-   each match arm/default is inferred in an isolated branch scope. Runtime smoke
-   coverage keeps branch-local match tails executable, while security coverage
-   rejects undefined match arm values and branch-local binding leakage for both
-   ordinary match expressions and function match sugar.
+   stores the inferred `i64`/`f64`/`bool`/`char`/`string` result family,
+   function-body inference runs with a recursion guard so function match sugar
+   is checked when called, and each match arm/default is inferred in an isolated
+   branch scope. Runtime smoke coverage keeps branch-local match tails executable
+   and preserves `bool`/`char` print behavior, while security coverage rejects
+   undefined match arm values, unsupported container branch results, and
+   branch-local binding leakage for both ordinary match expressions and function
+   match sugar.
 
 ## Recommended Closure Order
 

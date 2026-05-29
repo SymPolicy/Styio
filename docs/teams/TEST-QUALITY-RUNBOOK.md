@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of feature tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-05-29
+**Last updated:** 2026-05-30
 
 ## Mission
 
@@ -53,7 +53,7 @@ Primary paths:
 27. Task_resource syntax needs both positive stdout goldens and semantic negatives: cover `answer <- job`, `job -> answer -> @stdout`, `?| job -> answer: T`, `?| job -> answer: T | fallback`, string and numeric results, failed-task fallback recovery, no-fallback await fail-fast behavior, undeclared flow targets, double-pull rejection, non-task `?|` sources, and reserved bare continuation freeze fallback rejection in the same feature or focused runtime registration.
 28. Profiler changes must keep `styio_profiler_frontend_smoke` on a task_using fixture and assert the JSON keys that prove scheduler counters and expanded phase names are wired, not just that a profile file exists. Native executable profiling changes must keep `styio_build_native_executable_stdin_echo` green and preserve opt-in `STYIO_NATIVE_PROFILE_OUT` behavior.
 29. Expression-oriented statement semantics need one runtime smoke that covers function match sugar, a block final expression returning from a function, a match-arm final expression returning from a branch, and a statement-only tail returning the default value.
-30. Match Sema changes need both executable and fail-closed evidence: keep a runtime smoke for branch-local final-expression tails, keep recursive function match sugar executable, and add security negatives for undefined arm tail values plus branch-local binding leakage in both ordinary match expressions and function match sugar.
+30. Match Sema changes need both executable and fail-closed evidence: keep a runtime smoke for branch-local final-expression tails, keep recursive function match sugar executable, preserve scalar-family output for `i64`/`f64`/`bool`/`char`/`string`, assert LLVM PHI widths for `bool` and `char` when those families are changed, and add security negatives for undefined arm tail values, unsupported container result families, plus branch-local binding leakage in both ordinary match expressions and function match sugar.
 31. Resource-topology safety tests live in `tests/resource_topology_test.cpp`. They must cover capability rejection, close-capable ownership, stream backpressure edges, hidden-ledger scope, and handle-table release/recycle before a resource lifecycle change is considered accepted.
 32. state-resource retirement coverage keeps positive feature fixtures on Topology v2 syntax and preserves retired state-family spellings only as registered negative tests with stable migration diagnostics.
 33. Native executable artifact coverage must build through `styio build <file_path> -o <artifact_name>`, assert the produced file is executable, and run the artifact against an existing golden so the test proves both artifact creation and runtime behavior.
