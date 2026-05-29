@@ -2802,20 +2802,23 @@ StyioSemaContext::typeInfer(ResourceRefAST* ast) {
     throw StyioTypeError("resource `" + ast->getNameStr() + "` does not support snapshot selection");
   }
   StyioDataType value_type = styio_topology_resource_value_type(resource_type);
+  StyioValueFamily value_family = styio_value_family_for_type(value_type);
   const bool bounded_history =
     (resource_type.resource_shape == StyioResourceShapeKind::Fixed
      || resource_type.resource_shape == StyioResourceShapeKind::Recent)
     && resource_type.resource_shape_bound > 0;
   const bool supported_bounded_history_value =
-    value_type.option == StyioDataTypeOption::Integer
-    || value_type.option == StyioDataTypeOption::Float
-    || value_type.option == StyioDataTypeOption::Bool
-    || value_type.option == StyioDataTypeOption::Char
-    || value_type.option == StyioDataTypeOption::String;
+    value_family == StyioValueFamily::Integer
+    || value_family == StyioValueFamily::Float
+    || value_family == StyioValueFamily::Bool
+    || value_family == StyioValueFamily::Char
+    || value_family == StyioValueFamily::String
+    || value_family == StyioValueFamily::ListHandle
+    || value_family == StyioValueFamily::DictHandle;
   if (ast->getSelectorKind() == ResourceSelectorKind::Offset) {
     if (bounded_history && !supported_bounded_history_value) {
       throw StyioTypeError(
-        "resource `" + ast->getNameStr() + "` history selection currently supports integer, float, bool, char, or string resources"
+        "resource `" + ast->getNameStr() + "` history selection currently supports integer, float, bool, char, string, list, or dict resources"
       );
     }
     ast->setDataType(value_type);
@@ -2829,7 +2832,7 @@ StyioSemaContext::typeInfer(ResourceRefAST* ast) {
   }
   if (!supported_bounded_history_value) {
     throw StyioTypeError(
-      "resource `" + ast->getNameStr() + "` slice/snapshot selection currently supports integer, float, bool, char, or string resources"
+      "resource `" + ast->getNameStr() + "` slice/snapshot selection currently supports integer, float, bool, char, string, list, or dict resources"
     );
   }
   if (resource_type.resource_shape_bound > static_cast<std::size_t>(std::numeric_limits<int>::max())) {

@@ -6792,6 +6792,58 @@ TEST(StyioTopologyV2, ResourceScalarSelectorIteratorFailsClosed) {
   fs::remove(input);
 }
 
+TEST(StyioTopologyV2, ResourceSelectorHandleSnapshotsCloneListAndDictValues) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-selector-handles-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@samples : list[list[i64]]|..2|\n";
+    out << "[[1,2], [3,4]] >> #(v) => {\n";
+    out << "  v -> @samples\n";
+    out << "  v[0] = 99\n";
+    out << "}\n";
+    out << ">_(@samples[-1])\n";
+    out << ">_(@samples[...])\n";
+    out << "@samples[...] >> #(xs) => {\n";
+    out << "  >_(xs)\n";
+    out << "}\n";
+    out << "@tables : dict[string,i64]|..2|\n";
+    out << "[dict{\"v\": 1}, dict{\"v\": 2}] >> #(d) => {\n";
+    out << "  d -> @tables\n";
+    out << "  d[\"v\"] = 99\n";
+    out << "}\n";
+    out << ">_(@tables[-1])\n";
+    out << ">_(@tables[...])\n";
+    out << "@tables[...] >> #(row) => {\n";
+    out << "  >_(row)\n";
+    out << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(
+    result.stdout_text,
+    "[3,4]\n[[1,2],[3,4]]\n[1,2]\n[3,4]\n"
+    "{\"v\":2}\n[{\"v\":1},{\"v\":2}]\n{\"v\":1}\n{\"v\":2}\n"
+  );
+
+  fs::remove(input);
+}
+
 TEST(StyioResourceEffects, FallbackRunsAfterFileWriteFailureAndContinues) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();

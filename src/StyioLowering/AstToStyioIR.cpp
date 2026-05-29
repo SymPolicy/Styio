@@ -2643,15 +2643,9 @@ AstToStyioIRLowerer::lowerResourceSinkWriteLatest(
 ) {
   data = resolveResourceReceiverExprLatest(data);
   resource = resolveResourceReceiverExprLatest(resource);
-  StyioIR* data_ir = data->toStyioIR(this);
-  if (expr_is_list_like(this, data)) {
-    data_ir = SCListToString::Create(data_ir);
-  }
-  else if (expr_is_dict_like(this, data)) {
-    data_ir = SCDictToString::Create(data_ir);
-  }
 
   if (auto* logical = dynamic_cast<ResourceRefAST*>(resource)) {
+    StyioIR* data_ir = data->toStyioIR(this);
     StyioDataType resource_type = resource_binding_types_[logical->getNameStr()];
     StyioDataType storage_type = resource_storage_type_latest(resource_type);
     return SGFlexBind::Create(
@@ -2659,6 +2653,14 @@ AstToStyioIRLowerer::lowerResourceSinkWriteLatest(
       data_ir,
       true
     );
+  }
+
+  StyioIR* data_ir = data->toStyioIR(this);
+  if (expr_is_list_like(this, data)) {
+    data_ir = SCListToString::Create(data_ir);
+  }
+  else if (expr_is_dict_like(this, data)) {
+    data_ir = SCDictToString::Create(data_ir);
   }
 
   if (auto* ss = dynamic_cast<StdStreamAST*>(resource)) {
@@ -2870,18 +2872,23 @@ AstToStyioIRLowerer::toStyioIR(ResourceOrderAST* ast) {
 static StyioDataType
 resource_storage_type_latest(const StyioDataType& resource_type) {
   StyioDataType value_type = styio_topology_resource_value_type(resource_type);
-  if ((value_type.option == StyioDataTypeOption::Integer
-       || value_type.option == StyioDataTypeOption::Float
-       || value_type.option == StyioDataTypeOption::Bool
-       || value_type.option == StyioDataTypeOption::Char
-       || value_type.option == StyioDataTypeOption::String)
+  StyioValueFamily value_family = styio_value_family_for_type(value_type);
+  if ((value_family == StyioValueFamily::Integer
+       || value_family == StyioValueFamily::Float
+       || value_family == StyioValueFamily::Bool
+       || value_family == StyioValueFamily::Char
+       || value_family == StyioValueFamily::String
+       || value_family == StyioValueFamily::ListHandle
+       || value_family == StyioValueFamily::DictHandle)
       && resource_type.resource_shape_bound > 0
       && (resource_type.resource_shape == StyioResourceShapeKind::Fixed || resource_type.resource_shape == StyioResourceShapeKind::Recent)) {
     std::string ring_name = std::string(kStyioBoundedRingPrefix);
-    if (value_type.option == StyioDataTypeOption::Float
-        || value_type.option == StyioDataTypeOption::Bool
-        || value_type.option == StyioDataTypeOption::Char
-        || value_type.option == StyioDataTypeOption::String) {
+    if (value_family == StyioValueFamily::Float
+        || value_family == StyioValueFamily::Bool
+        || value_family == StyioValueFamily::Char
+        || value_family == StyioValueFamily::String
+        || value_family == StyioValueFamily::ListHandle
+        || value_family == StyioValueFamily::DictHandle) {
       ring_name += value_type.name + ":";
     }
     ring_name += std::to_string(resource_type.resource_shape_bound);

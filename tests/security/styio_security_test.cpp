@@ -4489,6 +4489,60 @@ TEST(StyioSecurityTopologyV2, RejectsImplicitWholeResourceCopy) {
   );
 }
 
+TEST(StyioSecurityTopologyV2, LowersBoundedListAndDictResourceSelectors) {
+  const std::string src =
+    "@samples : list[list[i64]]|..2|\n"
+    "[[1,2], [3,4]] >> #(v) => {\n"
+    "  v -> @samples\n"
+    "}\n"
+    ">_(@samples[-1])\n"
+    ">_(@samples[...])\n"
+    "@samples[...] >> #(xs) => {\n"
+    "  >_(xs)\n"
+    "}\n"
+    "@tables : dict[string,i64]|..2|\n"
+    "[dict{\"v\": 1}, dict{\"v\": 2}] >> #(d) => {\n"
+    "  d -> @tables\n"
+    "}\n"
+    ">_(@tables[-1])\n"
+    ">_(@tables[...])\n"
+    "@tables[...] >> #(row) => {\n"
+    "  >_(row)\n"
+    "}\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_list_clone"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_dict_clone"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_new_list"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_new_dict"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_push_list"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_push_dict"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_get_list"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_get_dict"), std::string::npos);
+}
+
+TEST(StyioSecurityTopologyV2, KeepsMatrixResourceSelectorHistoryFailClosed) {
+  const std::string src =
+    "@bucket : matrix|..2|\n"
+    ">_(@bucket[...])\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected matrix selector history rejection";
+  }
+  catch (const StyioTypeError& ex) {
+    EXPECT_NE(
+      std::string(ex.what()).find(
+        "slice/snapshot selection currently supports integer, float, bool, char, string, list, or dict resources"),
+      std::string::npos
+    ) << ex.what();
+  }
+}
+
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnFinalBindSubsetSamples) {
   const std::vector<std::string> samples = {
     "x : i32 := 100\n>_(x)\n",
