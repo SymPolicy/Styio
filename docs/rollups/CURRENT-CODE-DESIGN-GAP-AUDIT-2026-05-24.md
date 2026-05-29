@@ -749,6 +749,16 @@ These should not be counted as missing implementation in this checkout:
     This is diagnostic refinement only; it does not broaden symbol resolution,
     hidden native symbol visibility, import behavior, or resource lookup
     semantics.
+25. User function and resource-method call arity diagnostics are no longer only
+    the broad `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies
+    stable `expects N argument(s), got M` messages as
+    `STYIO_SEMA_CALL_ARITY_MISMATCH`, while
+    `StyioDiagnostics.UserFunctionArityReportsSemaCallArityMismatchCode` and
+    `StyioDiagnostics.ResourceMethodArityReportsSemaCallArityMismatchCode`
+    prove the JSONL public phase is `sema`, the TypeError exit family remains
+    stable, stable message fragments are present, and following output does not
+    execute. This is diagnostic refinement only; it does not broaden function
+    calling or resource-method dispatch semantics.
 
 ## Recommended Closure Order
 
