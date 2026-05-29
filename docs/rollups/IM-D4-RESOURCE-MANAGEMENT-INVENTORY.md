@@ -2,7 +2,7 @@
 
 **Purpose:** Record the accepted resource-management decisions for IM-D4 without duplicating the IM-D1 StyioIR verifier, lowering, no-op, or codegen-gate contract.
 
-**Last updated:** 2026-05-26
+**Last updated:** 2026-05-29
 
 ## Scope
 
@@ -48,15 +48,22 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   and no-fallback settlement raises `STYIO_RUNTIME_FILE_OPEN_READ` before the
   next statement. The successful acquire path now participates in resource
   topology binding, so a following `f >> #(line) => { ... }` iterator can use
-  the handle, and a later `?| f.close() | fallback` resource-effect close can
-  consume it. After that close, topology still marks the receiver destroyed so
-  following `f.path` use fails closed. If fallback recovered the open failure
-  and later code tries to iterate the zeroed slot, the iterator reports
-  `STYIO_RUNTIME_INVALID_FILE_HANDLE`. Non-resource member calls such as
+  the handle, a later `?| f.close() | fallback` resource-effect close can
+  consume it, and a later guarded `?| f.write(...) | ...` write-method path can
+  write through the acquired resource subject. After that close, topology still
+  marks the receiver destroyed so following `f.path` use fails closed. If
+  fallback recovered the open failure and later code tries to iterate the
+  zeroed slot, the iterator reports `STYIO_RUNTIME_INVALID_FILE_HANDLE`. If
+  later code tries `f.write(...)` through the same zeroed slot, the write method
+  reports `STYIO_RUNTIME_INVALID_FILE_HANDLE`, may recover through a matched
+  `closed` handler, stops before the following statement when no fallback is
+  present, and does not recreate the file by reopening the saved path.
+  Non-resource member calls such as
   `text.lines()` remain rejected under `?|`, and statement-shaped acquire stays
   rejected where a value-producing `?|` expression is required. Broader
   post-acquire resource operations beyond the covered file iterator and
-  close-method paths still need separate implementation checkpoints.
+  close-method and write-method paths still need separate implementation
+  checkpoints.
 - The first value-producing non-task resource-effect expression slices are
   executable for file/stdin instant pulls and materialized container bounds
   reads, including materialized list slices.
@@ -290,7 +297,8 @@ explicit-target stdin `f64`, `string`, typed-list values, and list/dict/matrix
 `bounds` recovery. Source-level fallback recovery for implicit cleanup,
 cleanup-failure settlement for reassignments that can fail, release/commit hooks, non-file resource-family
 cleanup effects, using a handle acquired inside statement `?|` as a later
-resource operation beyond the covered file iterator and close-method paths, dict/matrix
+resource operation beyond the covered file iterator, close-method, and
+write-method paths, dict/matrix
 slice-shaped bounds recovery, and arbitrary value-producing resource operations
 still require separate implementation and tests.
 
@@ -350,11 +358,13 @@ recovers `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, and
 `STYIO_RUNTIME_MATRIX_INDEX` through catch-all fallback or matched `bounds`
 handlers; matrix row recovery uses the same matrix bounds family, and list slice
 recovery uses `SCListSlice` / `styio_list_slice` with the list bounds family.
-Statement-shaped writes, file acquire, and file close methods have the first
-statement settlement paths; file acquire also covers successful acquire followed
-by file iteration, successful acquire followed by a later resource-effect close
-method, close-method receiver invalidation, and fail-closed iteration after a
-recovered failed acquire.
+Statement-shaped writes, file acquire, file close methods, and guarded
+acquired-handle file write methods have the first statement settlement paths;
+file acquire also covers successful acquire followed by file iteration,
+successful acquire followed by a later resource-effect close method, successful
+acquire followed by a later guarded write method, close-method receiver
+invalidation, and fail-closed iterator or write-method use after a recovered
+failed acquire.
 Broader resource families, cleanup/drop hooks,
 pressure observations, value-producing resource methods, dict/matrix slice-shaped
 bounds recovery, and other non-instant-pull value-returning resource operations
