@@ -283,6 +283,9 @@ private:
       if (access->getOp() == StyioNodeType::Access_By_Slice && styio_is_matrix_type(base)) {
         return styio_make_list_type(styio_type_item_type_name(base));
       }
+      if (access->getOp() == StyioNodeType::Access_By_Slice && styio_is_dict_type(base)) {
+        return styio_make_list_type(styio_dict_value_type_name(base));
+      }
       return ast->getDataType();
     }
 

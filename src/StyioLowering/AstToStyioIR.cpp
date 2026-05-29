@@ -472,6 +472,9 @@ expr_lowered_type(AstToStyioIRLowerer* an, StyioAST* expr) {
     if (access->getOp() == StyioNodeType::Access_By_Slice && styio_is_matrix_type(base_type)) {
       return styio_make_list_type(styio_type_item_type_name(base_type));
     }
+    if (access->getOp() == StyioNodeType::Access_By_Slice && styio_is_dict_type(base_type)) {
+      return styio_make_list_type(styio_dict_value_type_name(base_type));
+    }
     if (styio_is_dict_type(base_type)) {
       return styio_data_type_from_name(styio_dict_value_type_name(base_type));
     }
@@ -2363,6 +2366,15 @@ AstToStyioIRLowerer::toStyioIR(ListOpAST* ast) {
         ast->getSlot1()->toStyioIR(this),
         ast->getSlot2() != nullptr ? ast->getSlot2()->toStyioIR(this) : nullptr,
         styio_matrix_elem_type_name(base_type)
+      );
+    }
+    if (styio_is_dict_type(base_type)) {
+      const std::string value_type = styio_dict_value_type_name(base_type);
+      return SCListSlice::Create(
+        SCDictValues::Create(ast->getList()->toStyioIR(this), value_type),
+        ast->getSlot1()->toStyioIR(this),
+        ast->getSlot2() != nullptr ? ast->getSlot2()->toStyioIR(this) : nullptr,
+        value_type
       );
     }
     if (!styio_is_list_type(base_type)) {
