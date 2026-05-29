@@ -2270,6 +2270,34 @@ parse_resource_ref_after_at_latest(StyioContext& context) {
   return ResourceRefAST::CreateSelector(name.release(), ResourceSelectorKind::Offset, offset);
 }
 
+static StyioAST*
+try_parse_resource_receiver_expr_after_at_latest(StyioContext& context) {
+  if (g_resource_method_receiver_family_latest.empty()
+      || !context.check(StyioTokenType::NAME)
+      || context.cur_tok()->original != g_resource_method_receiver_family_latest) {
+    return nullptr;
+  }
+
+  const auto receiver_saved = context.save_cursor();
+  const std::string family = context.cur_tok()->original;
+  context.move_forward(1, "resource_method_receiver");
+  context.skip();
+  if (!context.check(StyioTokenType::TOK_LPAREN)
+      && !context.check(StyioTokenType::TOK_COLON)) {
+    return ResourceReceiverAST::Create(family);
+  }
+  context.restore_cursor(receiver_saved);
+  return nullptr;
+}
+
+static StyioAST*
+parse_after_at_expr_atom_latest(StyioContext& context, bool file_only_resource) {
+  if (StyioAST* receiver = try_parse_resource_receiver_expr_after_at_latest(context)) {
+    return receiver;
+  }
+  return parse_after_at_common(context, file_only_resource);
+}
+
 StyioAST*
 parse_at_stmt_or_expr_latest(StyioContext& context) {
   context.move_forward(1, "stmt@");
@@ -2278,17 +2306,8 @@ parse_at_stmt_or_expr_latest(StyioContext& context) {
     if (parse_resource_method_route_after_at_latest(context)) {
       return parse_resource_method_def_after_at_latest(context);
     }
-    if (!g_resource_method_receiver_family_latest.empty()
-        && context.cur_tok()->original == g_resource_method_receiver_family_latest) {
-      const auto receiver_saved = context.save_cursor();
-      const std::string family = context.cur_tok()->original;
-      context.move_forward(1, "resource_method_receiver");
-      context.skip();
-      if (!context.check(StyioTokenType::TOK_LPAREN)
-          && !context.check(StyioTokenType::TOK_COLON)) {
-        return parse_expr_postfix(context, ResourceReceiverAST::Create(family));
-      }
-      context.restore_cursor(receiver_saved);
+    if (StyioAST* receiver = try_parse_resource_receiver_expr_after_at_latest(context)) {
+      return parse_expr_postfix(context, receiver);
     }
     auto saved_resource_decl = context.save_cursor();
     const std::string probe_name = context.cur_tok()->original;
@@ -3122,7 +3141,7 @@ parse_arithmetic_expr(StyioContext& context) {
       context.skip();
       return parse_arithmetic_tail_from_atom(
         context,
-        parse_after_at_common(context, false)
+        parse_after_at_expr_atom_latest(context, false)
       );
     } break;
 
@@ -3726,7 +3745,7 @@ parse_binop_item(StyioContext& context) {
     case StyioTokenType::TOK_AT: {
       context.move_forward(1, "binop_item@");
       context.skip();
-      output = parse_after_at_common(context, false);
+      output = parse_after_at_expr_atom_latest(context, false);
     } break;
 
     case StyioTokenType::TOK_DOLLAR: {

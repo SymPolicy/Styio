@@ -2008,6 +2008,39 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedScalarFmtFallba
   EXPECT_NE(llvm_ir.find("value="), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceReceiverPropertyAccessInsideDefinitions) {
+  const std::string src =
+    "@file::self_path := @file.path\n"
+    "@file::describe = () => { <| $\"path={@file.path}\" }\n"
+    "log := @file(\"/tmp/styio-resource-method-receiver-property\")\n"
+    ">_(log.self_path)\n"
+    ">_(log.describe())\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.method.def"), std::string::npos);
+  EXPECT_NE(repr.find("property"), std::string::npos);
+  EXPECT_NE(repr.find("@file"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("path="), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, RejectsResourceReceiverPropertyOutsideDefinition) {
+  const std::string src =
+    ">_(@file.path)\n";
+
+  try {
+    parse_program_to_repr_latest(src, true);
+    FAIL() << "expected resource receiver property outside a definition to fail closed";
+  }
+  catch (const StyioSyntaxError& err) {
+    const std::string msg = err.what();
+    EXPECT_NE(msg.find("which is expected to be ("), std::string::npos) << msg;
+  }
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedMatchCasesScalarFamilies) {
   const std::string src =
     "@file::flag = (x: int) => { <| x ?= {\n"
