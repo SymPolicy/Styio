@@ -81,15 +81,17 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   materializes typed stdin list values or recovers list-parse failures through
   fallback. `result = ?| xs[i] | fallback`, `result = ?| xs[0..] | fallback`,
   `result = ?| d[key] | fallback`, `result = ?| m[row][col] | fallback`, and
-  `row = ?| m[row] | fallback` return successful materialized container values,
-  recover `STYIO_RUNTIME_LIST_INDEX`,
+  `row = ?| m[row] | fallback` return successful materialized container values;
+  `rows = ?| m[start..end] | fallback` returns a materialized row-range
+  `list[list[T]]`. These paths recover `STYIO_RUNTIME_LIST_INDEX`,
   `STYIO_RUNTIME_DICT_KEY`, or `STYIO_RUNTIME_MATRIX_INDEX` through catch-all
   fallback or a matched `bounds => handler`, and fail fast without fallback.
-  Plain `xs[i]`, `xs[0..]`, `d[key]`, and `m[row][col]` outside `?|` now have
-  the same default runtime guards before the following statement. Expression
+  Plain `xs[i]`, `xs[0..]`, `d[key]`, `m[row][col]`, and `m[start..end]`
+  outside `?|` now have the same default runtime guards before the following
+  statement. Expression
   discard remains rejected, statement-shaped write operations remain rejected
-  where a value is required, and dict/matrix slice-shaped resource-effect values
-  stay fail-closed until those operation families have their own checkpoints.
+  where a value is required, and dict slice-shaped resource-effect values stay
+  fail-closed until ordered dict-slice semantics have their own checkpoint.
   User-defined resource methods with a single `<| expr` body now carry that
   expression's inferred result type, direct calls such as `log.answer()` return
   the inlined value without emitting an expression-context `SGReturn`, and
@@ -103,13 +105,14 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   values, recovers `STYIO_RUNTIME_NUMERIC_PARSE` through catch-all fallback or a
   matched `parse` handler, and fails fast without fallback. When that returned
   expression is a materialized list index, materialized list slice, inline
-  dict index, or typed-parameter matrix cell/row read, `?| method() | fallback`
+  dict index, or typed-parameter matrix cell/row or row-range slice read,
+  `?| method() | fallback`
   recovers `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, or
   `STYIO_RUNTIME_MATRIX_INDEX` through catch-all fallback or a matched
   `bounds` handler, and no-fallback dict-key or matrix-index settlement fails
   before the following statement. Multi-statement resource method returns,
-  resource-method lexical/global captures, dict/matrix slice-shaped method
-  returns, and failing value-producing resource-method recovery beyond the
+  resource-method lexical/global captures, dict slice-shaped method returns,
+  and failing value-producing resource-method recovery beyond the
   covered returned file/stdin instant pulls plus returned list/dict/matrix
   bounds slices remain open.
 - Plain file resource operations outside a `?|` recovery wrapper now settle at
@@ -317,12 +320,12 @@ when a stale same-path alias uses that zeroed slot. The file/stdin instant-pull
 and materialized container-index/list-slice paths now cover the first value-producing
 success/fallback/handler paths for non-task `?|` expressions, including
 explicit-target stdin `f64`, `string`, typed-list values, list/dict/matrix
-`bounds` recovery, and returned matrix cell/row bounds from typed resource
-method parameters. Source-level fallback recovery for implicit cleanup,
+`bounds` recovery, and returned matrix cell/row or row-range-slice bounds from
+typed resource method parameters. Source-level fallback recovery for implicit cleanup,
 cleanup-failure settlement for reassignments that can fail, release/commit hooks, non-file resource-family
 cleanup effects, using a handle acquired inside statement `?|` as a later
 resource operation beyond the covered file iterator, close-method, and
-write-method paths, dict/matrix
+write-method paths, dict
 slice-shaped bounds recovery, and arbitrary value-producing resource operations
 still require separate implementation and tests.
 
@@ -381,14 +384,17 @@ instant pulls still return `i64`; stdin instant pulls now cover the untyped
 under `?|` expression recovery. Materialized list, dict, and matrix indexing
 recovers `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, and
 `STYIO_RUNTIME_MATRIX_INDEX` through catch-all fallback or matched `bounds`
-handlers; matrix row recovery uses the same matrix bounds family, and list slice
+handlers; matrix row and row-range slice recovery use the same matrix bounds
+family, with row ranges lowering through `SCMatrixRowsSlice` /
+`styio_matrix_rows_slice_i64` or `styio_matrix_rows_slice_f64`, and list slice
 recovery uses `SCListSlice` / `styio_list_slice` with the list bounds family.
 Single-return resource methods may return a file instant pull and recover that
 returned `STYIO_RUNTIME_FILE_OPEN_READ` through fallback or matched `io`
 handlers under `?|`; they may also return canonical `(<- @stdin)` and recover
 returned `STYIO_RUNTIME_NUMERIC_PARSE` through fallback or matched `parse`
 handlers under `?|`, or return materialized list index/list-slice, inline
-dict-index, or typed-parameter matrix cell/row expressions that recover
+dict-index, or typed-parameter matrix cell/row or row-range slice expressions
+that recover
 returned `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, or
 `STYIO_RUNTIME_MATRIX_INDEX` through fallback or matched `bounds` handlers
 under `?|`. Declared resource method parameter types are bound while inferring
@@ -405,7 +411,7 @@ Broader resource families, cleanup/drop hooks,
 pressure observations, failing value-producing resource methods beyond returned
 file/stdin instant pulls and returned list/dict/matrix bounds slices,
 multi-statement value-producing resource methods, resource-method lexical/global
-captures, dict/matrix
+captures, dict
 slice-shaped bounds recovery, and other non-instant-pull
 value-returning resource operations must remain separately implemented and
 tested before the full typed resource-effect model is closed.
