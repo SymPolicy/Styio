@@ -237,7 +237,14 @@ Current implementation reality:
    operations where a value is required, reject fallback type mismatches, and
    keep dict slice-shaped resource-effect values fail-closed until ordered
    dict-slice semantics have their own checkpoint.
-12. There is still no complete typed value-producing resource-effect model for
+12. Pressure observer syntax now reaches the correct fail-closed resource-family
+   boundary: `channel.pressure >> #(p) => { ... }` parses through the nightly
+   iterator/attribute path, `channel.pressure` on a topology resource and
+   `@stdout.pressure` fail in Sema before codegen, and public JSONL diagnostics
+   report `STYIO_SEMA_RESOURCE_PRESSURE_OBSERVER_UNSUPPORTED` with phase
+   `sema`. This is closed evidence for the parser/Sema/diagnostic boundary only,
+   not pressure payload typing or runtime observer execution.
+13. There is still no complete typed value-producing resource-effect model for
    arbitrary resource operations beyond the covered file/stdin instant pulls,
    acquired-handle file instant pulls,
    materialized container index/row/slice reads, materialized list slices, and simple
@@ -248,8 +255,8 @@ Current implementation reality:
    source-level fallback recovery model for implicit cleanup or non-file
    reassignment cleanup, no cleanup families beyond file close, no
    resource family that emits a non-failure
-   `ResourceBackpressure` pressure event, and no pressure-observer
-   implementation.
+   `ResourceBackpressure` pressure event, and no pressure-observer runtime
+   implementation beyond the fail-closed unsupported-family boundary.
 
 Impact: statement-shaped fallback, audited discard, and named handler chains now
 have a real parser/Sema/IR/codegen/runtime path for current runtime error
@@ -281,10 +288,13 @@ while direct `log.answer()` resource method calls no longer abort lowering.
 Typed resource method parameters now feed method-body inference and call-site
 checks, so returned matrix cell/row or row-range slice bounds failures recover
 through matched `bounds` handlers or catch-all fallback under `?|` without
-opening global matrix capture.
+opening global matrix capture. Pressure observer syntax now has parser/Sema
+boundary coverage and a public unsupported-family diagnostic, so current resource
+families fail closed with `STYIO_SEMA_RESOURCE_PRESSURE_OBSERVER_UNSUPPORTED`
+instead of surfacing a broad parser subset or generic type error.
 Source-level fallback recovery for implicit cleanup and non-file reassignment cleanup,
 broader resource-family cleanup, non-failure backpressure
-observation/escalation, pressure observers, broader post-acquire resource
+observation/escalation, pressure observer payload/runtime execution, broader post-acquire resource
 operations beyond the covered file iterator, close-method, write-method, and
 acquired-handle instant-pull paths, failing value-producing resource methods beyond returned file/stdin
 instant pulls and returned list/dict/matrix bounds slices, multi-statement

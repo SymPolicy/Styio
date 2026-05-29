@@ -33,6 +33,12 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   unknown handler names fail closed, `effect => @()` remains invalid, unmatched
   handlers fall through to the next handler or final catch-all fallback, and
   unmatched failures without fallback keep the default fail-fast rule. This
+  checkpoint also recognizes the pressure-observer surface
+  `resource.pressure >> #(p) => { ... }` through the nightly parser and routes it
+  to Sema; because no current resource family declares a pressure stream,
+  `@stdout.pressure` and topology resource bindings such as
+  `channel.pressure` fail closed with
+  `STYIO_SEMA_RESOURCE_PRESSURE_OBSERVER_UNSUPPORTED`. This
   preserves task_await binding for `?| task -> value: T`; failed task pulls now
   run the await fallback after clearing the materialized task error, while
   failed task pulls without fallback stop at the await settlement site. Non-task
@@ -360,7 +366,8 @@ explicit-target stdin `f64`, `string`, typed-list values, list/dict/matrix
 `bounds` recovery, and returned matrix cell/row or row-range-slice bounds from
 typed resource method parameters. Source-level fallback recovery for implicit
 cleanup failures, non-file reassignment cleanup failures, release/commit hooks,
-non-file resource-family cleanup effects, using a handle acquired inside statement `?|` as a later
+non-file resource-family cleanup effects, pressure-observer runtime streams,
+using a handle acquired inside statement `?|` as a later
 resource operation beyond the covered file iterator, close-method, and
 write-method paths, dict
 slice-shaped bounds recovery, and arbitrary value-producing resource operations
@@ -448,7 +455,7 @@ recovery for replacement open failures, keeps scalar flex binds fail-closed, and
 keeps value-required rebind expressions rejected; the codegen cleanup branch
 routes prior-handle cleanup failure to the wrapper before opening a replacement.
 Broader resource families, cleanup/drop hooks,
-pressure observations, failing value-producing resource methods beyond returned
+pressure-observer payloads and runtime execution, failing value-producing resource methods beyond returned
 file/stdin instant pulls and returned list/dict/matrix bounds slices,
 multi-statement value-producing resource methods, resource-method lexical/global
 captures, dict
@@ -505,6 +512,11 @@ Accepted backpressure decision:
 - Pressure observers are ordinary side-effecting resource code. They can count,
   log, spawn a task, or call a recovery operation, but their own resource actions
   still use the same capability, snapshot/commit, and `?| ... | fallback` rules.
+- The current compiler recognizes `resource.pressure >> #(p) => { ... }`
+  syntax and then rejects every current resource family in Sema with
+  `STYIO_SEMA_RESOURCE_PRESSURE_OBSERVER_UNSUPPORTED`. This is an
+  unsupported-family boundary only; it does not define the pressure payload,
+  schedule observer execution, or add a runtime pressure stream.
 - Waiting, retry scheduling, fairness between streams, and producer throttling
   policies are IM-D5 stream/concurrency concerns, but IM-D4 owns the resource
   contract that makes pressure observable without pretending it is always a
