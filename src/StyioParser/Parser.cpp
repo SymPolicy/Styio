@@ -2709,6 +2709,56 @@ static StyioAST* parse_fallback_expr(StyioContext& context);
 
 static thread_local bool g_apply_pipe_tail_enabled_latest = true;
 
+static DictAST*
+parse_dict_literal_for_resource_body_latest(StyioContext& context) {
+  std::vector<std::pair<std::unique_ptr<StyioAST>, std::unique_ptr<StyioAST>>> entry_owners;
+  auto release_entries = [&]() -> std::vector<std::pair<StyioAST*, StyioAST*>>
+  {
+    std::vector<std::pair<StyioAST*, StyioAST*>> entries;
+    entries.reserve(entry_owners.size());
+    for (auto& entry : entry_owners) {
+      entries.emplace_back(entry.first.release(), entry.second.release());
+    }
+    return entries;
+  };
+
+  auto parse_entry_expr = [&]() -> StyioAST*
+  {
+    auto attempt = try_parse_expr_subset_until_latest(
+      context,
+      {StyioTokenType::TOK_COLON, StyioTokenType::TOK_COMMA, StyioTokenType::TOK_RCURBRAC}
+    );
+    if (attempt.status == ParseAttemptStatus::Parsed) {
+      return attempt.node;
+    }
+    if (attempt.status == ParseAttemptStatus::Fatal) {
+      std::rethrow_exception(attempt.error);
+    }
+    reject_authoritative_nightly_gap_latest(context, "dictionary literal expression");
+  };
+
+  context.try_match_panic(StyioTokenType::TOK_LCURBRAC);
+  context.skip();
+  if (context.match(StyioTokenType::TOK_RCURBRAC)) {
+    return DictAST::Create({});
+  }
+
+  while (true) {
+    std::unique_ptr<StyioAST> key(parse_entry_expr());
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_COLON);
+    context.skip();
+    std::unique_ptr<StyioAST> value(parse_entry_expr());
+    entry_owners.emplace_back(std::move(key), std::move(value));
+    context.skip();
+    if (context.match(StyioTokenType::TOK_RCURBRAC)) {
+      return DictAST::Create(release_entries());
+    }
+    context.try_match_panic(StyioTokenType::TOK_COMMA);
+    context.skip();
+  }
+}
+
 class ApplyPipeTailDisableScopeLatest
 {
 private:
@@ -2912,10 +2962,22 @@ parse_arithmetic_expr(StyioContext& context) {
     } break;
 
     case StyioTokenType::NAME: {
-      const std::string& id = context.cur_tok()->original;
+      const std::string id = context.cur_tok()->original;
       if (styio_is_bool_literal_name_latest(id)) {
         context.move_forward(1, "bool_lit");
         return BoolAST::Create(id == "true");
+      }
+      if (id == "dict") {
+        const auto saved = context.save_cursor();
+        context.move_forward(1, "arith_dict_lit");
+        context.skip_spaces_no_linebreak();
+        if (context.check(StyioTokenType::TOK_LCURBRAC)) {
+          return parse_arithmetic_tail_from_atom(
+            context,
+            parse_dict_literal_for_resource_body_latest(context)
+          );
+        }
+        context.restore_cursor(saved);
       }
       return parse_name_and_following_unsafe(context);
     } break;
@@ -3208,8 +3270,35 @@ parse_token_index_suffix(StyioContext& context, StyioAST* base) {
     return probe;
   }
 
-  std::unique_ptr<StyioAST> idx(parse_fallback_expr(context));
+  std::unique_ptr<StyioAST> idx;
+  if (context.check(StyioTokenType::ELLIPSIS)) {
+    idx.reset(IntAST::Create("0"));
+  }
+  else {
+    idx.reset(parse_fallback_expr(context));
+  }
   context.skip();
+  if (context.match(StyioTokenType::ELLIPSIS)) {
+    context.skip();
+    std::unique_ptr<StyioAST> end;
+    if (!context.check(StyioTokenType::TOK_RBOXBRAC)) {
+      end.reset(parse_fallback_expr(context));
+      context.skip();
+    }
+    context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
+    StyioAST* access = new ListOpAST(
+      StyioNodeType::Access_By_Slice,
+      base_owner.get(),
+      idx.get(),
+      end.get()
+    );
+    base_owner.release();
+    idx.release();
+    if (end) {
+      end.release();
+    }
+    return access;
+  }
   context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
   StyioAST* access = new ListOpAST(StyioNodeType::Access_By_Index, base_owner.get(), idx.get());
   base_owner.release();
@@ -3497,11 +3586,24 @@ parse_binop_item(StyioContext& context) {
   context.skip();
   switch (context.cur_tok_type()) {
     case StyioTokenType::NAME: {
-      const std::string& id = context.cur_tok()->original;
+      const std::string id = context.cur_tok()->original;
       if (styio_is_bool_literal_name_latest(id)) {
         context.move_forward(1, "binop_item_bool");
         output = BoolAST::Create(id == "true");
         output = parse_arithmetic_tail_from_atom(context, output);
+      }
+      else if (id == "dict") {
+        const auto saved = context.save_cursor();
+        context.move_forward(1, "binop_item_dict_lit");
+        context.skip_spaces_no_linebreak();
+        if (context.check(StyioTokenType::TOK_LCURBRAC)) {
+          output = parse_dict_literal_for_resource_body_latest(context);
+          output = parse_arithmetic_tail_from_atom(context, output);
+        }
+        else {
+          context.restore_cursor(saved);
+          output = parse_name_and_following_unsafe(context);
+        }
       }
       else {
         /* RHS calls: fact(n - 1) after + - * ... need `parse_name_and_following`, not name only. */

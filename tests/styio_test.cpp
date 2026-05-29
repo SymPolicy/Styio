@@ -6736,6 +6736,147 @@ TEST(StyioResourceEffects, ValueResourceMethodNoFallbackStopsReturnedStdinParseF
   fs::remove(data);
 }
 
+TEST(StyioResourceEffects, ValueResourceMethodFallbackRecoversReturnedContainerBoundsFailure) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-method-container-fallback-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-effect-method-container-fallback-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "seed\n";
+  }
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@file::list_ok = () => { <| [10,20][1] }\n";
+    out << "@file::list_missing = () => { <| [10,20][5] }\n";
+    out << "@file::slice_ok = () => { <| [10,20,30][1..] }\n";
+    out << "@file::slice_missing = () => { <| [10,20][5..] }\n";
+    out << "@file::dict_ok = () => { <| dict{\"a\": 10}[\"a\"] }\n";
+    out << "@file::dict_missing = () => { <| dict{\"a\": 10}[\"missing\"] }\n";
+    out << "log := @file(\"" << data.generic_string() << "\")\n";
+    out << "list_success = ?| log.list_ok() | 7\n";
+    out << ">_(list_success)\n";
+    out << "list_recovered = ?| log.list_missing() | 7\n";
+    out << ">_(list_recovered)\n";
+    out << "slice_success = ?| log.slice_ok() | [7]\n";
+    out << ">_(slice_success)\n";
+    out << "slice_recovered = ?| log.slice_missing() | [7]\n";
+    out << ">_(slice_recovered)\n";
+    out << "dict_success = ?| log.dict_ok() | 7\n";
+    out << ">_(dict_success)\n";
+    out << "dict_recovered = ?| log.dict_missing() | 7\n";
+    out << ">_(dict_recovered)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "20\n7\n[20,30]\n[7]\n10\n7\nafter\n");
+
+  fs::remove(input);
+  fs::remove(data);
+}
+
+TEST(StyioResourceEffects, ValueResourceMethodNamedBoundsHandlerRecoversReturnedDictFailure) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-method-dict-handler-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-effect-method-dict-handler-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "seed\n";
+  }
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@file::dict_missing = () => { <| dict{\"a\": 10}[\"missing\"] }\n";
+    out << "log := @file(\"" << data.generic_string() << "\")\n";
+    out << "handled = ?| log.dict_missing() | io => 1 | bounds => 8 | 7\n";
+    out << ">_(handled)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "8\nafter\n");
+  EXPECT_EQ(result.stdout_text.find("1"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("7"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove(data);
+}
+
+TEST(StyioResourceEffects, ValueResourceMethodNoFallbackStopsReturnedDictFailure) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-method-dict-no-fallback-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-effect-method-dict-no-fallback-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "seed\n";
+  }
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@file::dict_missing = () => { <| dict{\"a\": 10}[\"missing\"] }\n";
+    out << "log := @file(\"" << data.generic_string() << "\")\n";
+    out << "result = ?| log.dict_missing()\n";
+    out << ">_(result)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 5) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_RUNTIME_DICT_KEY\""), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("after"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove(data);
+}
+
 TEST(StyioResourceEffects, NamedIoHandlerRunsForFileWriteFailure) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
