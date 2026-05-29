@@ -1647,6 +1647,21 @@ flatten_single_stmt_block_latest(StyioIR* ir) {
   return ir;
 }
 
+StyioAST*
+resource_method_simple_return_expr_latest(StyioAST* body) {
+  if (auto* ret = dynamic_cast<ReturnAST*>(body)) {
+    return ret->getExpr();
+  }
+  auto* block = dynamic_cast<BlockAST*>(body);
+  if (block == nullptr || !block->followings.empty() || block->stmts.size() != 1) {
+    return nullptr;
+  }
+  if (auto* ret = dynamic_cast<ReturnAST*>(block->stmts.front())) {
+    return ret->getExpr();
+  }
+  return nullptr;
+}
+
 struct PulseScratch
 {
   std::vector<std::unique_ptr<StateDeclAST>> heap_decls;
@@ -3042,7 +3057,12 @@ AstToStyioIRLowerer::toStyioIR(FuncCallAST* ast) {
             if (inlined_body == nullptr) {
               throw StyioTypeError("resource method lowering produced no body");
             }
-            lowered = flatten_single_stmt_block_latest(inlined_body->toStyioIR(this));
+            if (StyioAST* returned_expr = resource_method_simple_return_expr_latest(inlined_body)) {
+              lowered = returned_expr->toStyioIR(this);
+            }
+            else {
+              lowered = flatten_single_stmt_block_latest(inlined_body->toStyioIR(this));
+            }
           }
           catch (...) {
             restore_receiver();
@@ -3177,7 +3197,12 @@ AstToStyioIRLowerer::toStyioIR(AttrAST* ast) {
           if (inlined_body == nullptr) {
             throw StyioTypeError("resource property lowering produced no body");
           }
-          lowered = flatten_single_stmt_block_latest(inlined_body->toStyioIR(this));
+          if (StyioAST* returned_expr = resource_method_simple_return_expr_latest(inlined_body)) {
+            lowered = returned_expr->toStyioIR(this);
+          }
+          else {
+            lowered = flatten_single_stmt_block_latest(inlined_body->toStyioIR(this));
+          }
         }
         catch (...) {
           restore_receiver();

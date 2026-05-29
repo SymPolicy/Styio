@@ -344,6 +344,7 @@ public:
     bool final_binding = false;
     bool consuming = false;
     bool property = false;
+    StyioDataType result_type{StyioDataTypeOption::Undefined, "undefined", 0};
     std::size_t param_count = 0;
   };
 
