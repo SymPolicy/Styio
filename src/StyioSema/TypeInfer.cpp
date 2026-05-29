@@ -3358,6 +3358,12 @@ StyioSemaContext::typeInfer(SnapshotDeclAST* ast) {
 void
 StyioSemaContext::typeInfer(InstantPullAST* ast) {
   ast->getResource()->typeInfer(this);
+  if (auto* name = dynamic_cast<NameAST*>(ast->getResource())) {
+    StyioDataType source_type = infer_expr_type(this, name);
+    if (source_type.handle_family != StyioHandleFamily::File) {
+      throw StyioTypeError("instant pull handle source must be an acquired file handle");
+    }
+  }
   StyioDataType result_type = ast->getDataType();
   if (styio_is_list_type(result_type)) {
     if (!styio_stdin_list_elem_type_supported(styio_type_item_type_name(result_type))) {

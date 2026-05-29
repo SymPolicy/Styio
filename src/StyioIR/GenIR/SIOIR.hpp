@@ -162,9 +162,16 @@ class SIOInstantPull : public StyioIRTraits<SIOInstantPull>
 {
 public:
   StyioIR* path_expr = nullptr;
+  bool from_handle = false;
+  std::string handle_var;
 
   explicit SIOInstantPull(StyioIR* p) :
       path_expr(p) {
+  }
+
+  explicit SIOInstantPull(std::string handle) :
+      from_handle(true),
+      handle_var(std::move(handle)) {
   }
 
   ~SIOInstantPull() override {
@@ -173,6 +180,10 @@ public:
 
   static SIOInstantPull* Create(StyioIR* p) {
     return new SIOInstantPull(p);
+  }
+
+  static SIOInstantPull* CreateFromHandle(std::string handle) {
+    return new SIOInstantPull(std::move(handle));
   }
 };
 

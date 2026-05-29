@@ -1810,6 +1810,10 @@ StyioRepr::toString(SGSnapshotShadowLoad* node, int indent) {
 
 std::string
 StyioRepr::toString(SIOInstantPull* node, int indent) {
+  if (node->from_handle) {
+    (void)indent;
+    return std::string("styio.ir.instant_pull { handle=") + node->handle_var + " }";
+  }
   std::string p = node->path_expr ? node->path_expr->toString(this, indent) : std::string("null");
   return std::string("styio.ir.instant_pull { path=") + p + " }";
 }

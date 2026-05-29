@@ -4012,6 +4012,21 @@ StyioToLLVM::toLLVMIR(SGSnapshotShadowLoad* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SIOInstantPull* node) {
+  if (node->from_handle) {
+    auto slot_it = mutable_variables.find(node->handle_var);
+    if (slot_it == mutable_variables.end()) {
+      return theBuilder->getInt64(0);
+    }
+    llvm::FunctionCallee read_fn = theModule->getOrInsertFunction(
+      "styio_file_read_i64line_from_handle",
+      llvm::FunctionType::get(theBuilder->getInt64Ty(), {theBuilder->getInt64Ty()}, false));
+    llvm::Value* handle = theBuilder->CreateLoad(theBuilder->getInt64Ty(), slot_it->second);
+    llvm::Value* out = theBuilder->CreateCall(read_fn, {handle});
+    if (resource_effect_operation_depth_ == 0) {
+      emit_runtime_error_guard_return();
+    }
+    return out;
+  }
   llvm::Type* char_ptr = llvm::PointerType::get(*theContext, 0);
   llvm::FunctionCallee read_fn = theModule->getOrInsertFunction(
     "styio_read_file_i64line",
