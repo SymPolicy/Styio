@@ -214,6 +214,8 @@ Required native diagnostic families:
 
 Diagnostics should be stable enough for tests and services to classify native interop failures without string-matching host compiler logs.
 
+Current public JSONL coverage maps missing referenced native sources to `STYIO_NATIVE_SOURCE_READ_FAILED` and explicit binding/signature misses to `STYIO_NATIVE_SIGNATURE_NOT_FOUND` while keeping the existing TypeError exit family for the sema/codegen route. The shared diagnostic taxonomy also reserves native interop families for unsupported ABI, host compile failure, load failure, symbol missing, toolchain unavailable, and the fallback `STYIO_NATIVE_INTEROP_ERROR`; these are diagnostic classifications only and do not broaden native ABI support, symbol visibility, or host compiler behavior.
+
 ## Fixture Requirements
 
 Every accepted native interop fixture should state or prove:

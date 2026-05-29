@@ -714,6 +714,18 @@ These should not be counted as missing implementation in this checkout:
     resource method body semantics, resource-method captures, dict slice-shaped
     recovery, pressure observers, and arbitrary resource-effect recovery remain
     open.
+22. Native interop source/signature diagnostics are no longer only broad
+    type/native fallback cases at two existing fail-closed boundaries.
+    `DiagnosticContract.hpp` now classifies missing referenced native source
+    files as `STYIO_NATIVE_SOURCE_READ_FAILED` and explicit binding/signature
+    misses as `STYIO_NATIVE_SIGNATURE_NOT_FOUND`. The focused
+    `StyioDiagnostics.NativeExternMissingSourceReportsNativeCode` and
+    `StyioDiagnostics.NativeExternMissingBindingReportsNativeCode` tests prove
+    the JSONL public phase is `native_interop`, the TypeError exit family
+    remains stable, stable message fragments are present, and following output
+    does not execute. This is diagnostic refinement only; native ABI support,
+    symbol visibility, host compiler behavior, C++ symbol mapping, and broader
+    native effect semantics remain unchanged.
 
 ## Recommended Closure Order
 
