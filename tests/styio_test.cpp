@@ -5486,7 +5486,7 @@ TEST(StyioDiagnostics, InvalidNumericStdinArgumentEmitsJsonlRuntimeDiagnostic) {
   fs::remove(input);
 }
 
-TEST(StyioDiagnostics, CompoundAssignOnImmutableBindingReportsTypeError) {
+TEST(StyioDiagnostics, CompoundAssignOnImmutableBindingReportsSemaCode) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -5513,8 +5513,8 @@ TEST(StyioDiagnostics, CompoundAssignOnImmutableBindingReportsTypeError) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 4);
   EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"phase\":\"type\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE_ERROR\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"sema\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SEMA_IMMUTABLE_BINDING\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"notes\":[]"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("compound assignment requires a mutable binding"), std::string::npos);
 
