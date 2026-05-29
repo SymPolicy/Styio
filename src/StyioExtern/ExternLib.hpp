@@ -17,6 +17,7 @@ extern "C" DLLEXPORT void styio_file_rewind(int64_t h);
 /* Borrowed pointer backed by thread-local buffers; valid until next read call on this thread. */
 /* Caller must NOT pass the return value to styio_free_cstr. */
 extern "C" DLLEXPORT const char* styio_file_read_line(int64_t h);
+extern "C" DLLEXPORT int64_t styio_file_read_i64line_from_handle(int64_t h);
 extern "C" DLLEXPORT void styio_file_write_cstr(int64_t h, const char* data);
 extern "C" DLLEXPORT int64_t styio_cstr_to_i64(const char* s);
 extern "C" DLLEXPORT double styio_cstr_to_f64(const char* s);

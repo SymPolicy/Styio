@@ -1631,6 +1631,25 @@ TEST(StyioSecurityNightlyParserStmt, ResourceEffectHandleAcquireFeedsLaterCloseM
   EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ResourceEffectHandleAcquireFeedsLaterInstantPull) {
+  const std::string src =
+    "?| f <- @file(\"tests/features/file_resources/data/hello.txt\")"
+    " | \"fallback\" -> @stderr\n"
+    "value = ?| (<< f) | 7\n"
+    ">_(value)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("instant.pull"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_file_read_i64line_from_handle"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
+  EXPECT_EQ(llvm_ir.find("styio_read_file_i64line"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectNamedHandlerStatement) {
   const std::string src =
     "?| \"x\" -> @stdout | io => \"fallback\" -> @stderr\n";
@@ -2156,6 +2175,23 @@ TEST(StyioSecurityNightlySemantics, RejectsUnsupportedTypedStdinResourceEffectVa
   catch (const StyioTypeError& err) {
     EXPECT_NE(
       std::string(err.what()).find("typed stdin pull supports i64, f64, string, or list[T] targets"),
+      std::string::npos);
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsNonFileHandleInstantPullResourceEffectValue) {
+  const std::string src =
+    "xs = [1,2]\n"
+    "value = ?| (<< xs) | 7\n"
+    ">_(value)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected non-file acquired-handle instant pull to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    EXPECT_NE(
+      std::string(err.what()).find("instant pull handle source must be an acquired file handle"),
       std::string::npos);
   }
 }
@@ -5345,6 +5381,11 @@ TEST(StyioSafetyRuntime, ZeroFileHandleReadSetsRuntimeError) {
   const char* msg = styio_runtime_last_error();
   ASSERT_NE(msg, nullptr);
   EXPECT_NE(std::strstr(msg, "invalid file handle: 0"), nullptr);
+  styio_runtime_clear_error();
+
+  EXPECT_EQ(styio_file_read_i64line_from_handle(0), 0);
+  EXPECT_EQ(styio_runtime_has_error(), 1);
+  EXPECT_STREQ(styio_runtime_last_error_subcode(), "STYIO_RUNTIME_INVALID_FILE_HANDLE");
   styio_runtime_clear_error();
 }
 

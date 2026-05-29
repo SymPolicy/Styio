@@ -1,6 +1,7 @@
 #include "Verifier.hpp"
 
 #include <string>
+#include <stdexcept>
 #include <typeinfo>
 #include <unordered_map>
 #include <unordered_set>
@@ -350,7 +351,14 @@ struct VerifierContext
       return;
     }
     if (auto* n = dynamic_cast<const SIOInstantPull*>(node)) {
-      visit_required(n->path_expr, "SIOInstantPull.path_expr");
+      if (n->from_handle) {
+        if (n->handle_var.empty()) {
+          throw std::runtime_error("SIOInstantPull.handle_var is empty");
+        }
+      }
+      else {
+        visit_required(n->path_expr, "SIOInstantPull.path_expr");
+      }
       return;
     }
     if (auto* n = dynamic_cast<const SIOResourceWriteToFile*>(node)) {

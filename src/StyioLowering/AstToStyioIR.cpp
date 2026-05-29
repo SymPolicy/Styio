@@ -3726,7 +3726,15 @@ AstToStyioIRLowerer::toStyioIR(InstantPullAST* ast) {
   }
   auto* fr = dynamic_cast<FileResourceAST*>(ast->getResource());
   if (!fr) {
-    throw StyioTypeError("instant pull needs @file(...), @{...}, or @stdin");
+    if (auto* name = dynamic_cast<NameAST*>(ast->getResource())) {
+      auto source_type = bound_type_of(this, name);
+      if (!source_type.has_value()
+          || source_type->handle_family != StyioHandleFamily::File) {
+        throw StyioTypeError("instant pull handle source must be an acquired file handle");
+      }
+      return SIOInstantPull::CreateFromHandle(name->getAsStr());
+    }
+    throw StyioTypeError("instant pull needs @file(...), @{...}, @stdin, or an acquired file handle");
   }
   return SIOInstantPull::Create(fr->getPath()->toStyioIR(this));
 }

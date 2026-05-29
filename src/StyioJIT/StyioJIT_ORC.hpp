@@ -65,6 +65,7 @@ public:
     add_symbol("styio_file_close", &styio_file_close);
     add_symbol("styio_file_rewind", &styio_file_rewind);
     add_symbol("styio_file_read_line", &styio_file_read_line);
+    add_symbol("styio_file_read_i64line_from_handle", &styio_file_read_i64line_from_handle);
     add_symbol("styio_file_write_cstr", &styio_file_write_cstr);
     add_symbol("styio_cstr_to_i64", &styio_cstr_to_i64);
     add_symbol("styio_cstr_to_f64", &styio_cstr_to_f64);

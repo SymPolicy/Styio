@@ -1993,6 +1993,15 @@ styio_file_read_line(int64_t h) {
 }
 
 extern "C" DLLEXPORT int64_t
+styio_file_read_i64line_from_handle(int64_t h) {
+  const char* line = styio_file_read_line(h);
+  if (line == nullptr) {
+    return 0;
+  }
+  return styio_cstr_to_i64(line);
+}
+
+extern "C" DLLEXPORT int64_t
 styio_cstr_to_i64(const char* s) {
   if (s == nullptr || s[0] == '\0') {
     set_runtime_error_once(kRuntimeSubcodeNumericParse, "cannot parse empty string as integer");

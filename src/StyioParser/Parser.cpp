@@ -2350,7 +2350,13 @@ parse_parenthesized_instant_pull_latest(
 ) {
   context.move_forward(1, prefix == StyioTokenType::ARROW_SINGLE_LEFT ? "instant<-" : "instant<<");
   context.skip();
-  StyioAST* ratom = parse_instant_pull_resource_atom_latest(context, diagnostic);
+  StyioAST* ratom = nullptr;
+  if (prefix == StyioTokenType::EXTRACTOR && context.check(StyioTokenType::NAME)) {
+    ratom = parse_name_unsafe(context);
+  }
+  else {
+    ratom = parse_instant_pull_resource_atom_latest(context, diagnostic);
+  }
   context.skip();
   if (!context.match(StyioTokenType::TOK_RPAREN)) {
     delete ratom;

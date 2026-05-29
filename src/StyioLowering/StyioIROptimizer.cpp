@@ -786,7 +786,9 @@ private:
       return;
     }
     if (auto* pull = dynamic_cast<SIOInstantPull*>(ir)) {
-      pull->path_expr = optimize(pull->path_expr);
+      if (!pull->from_handle) {
+        pull->path_expr = optimize(pull->path_expr);
+      }
       return;
     }
     if (auto* write = dynamic_cast<SIOResourceWriteToFile*>(ir)) {
