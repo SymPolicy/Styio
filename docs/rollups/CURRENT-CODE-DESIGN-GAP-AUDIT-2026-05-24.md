@@ -144,8 +144,10 @@ Current implementation reality:
 7. File-resource flex rebinding now covers the source-reachable cleanup edge for
    `name = @file(...)`: Sema treats a successful resource rebind as a new
    occupant after a consuming `.close()`, Codegen releases the prior tracked file
-   handle before overwrite, and same-path singleton slots left at zero by an
-   explicit close are reopened before later iteration.
+   handle before the RHS acquire/overwrite, guards the cleanup error channel
+   before opening the replacement resource or running following statements, and
+   same-path singleton slots left at zero by an explicit close are reopened
+   before later iteration.
 8. File iterator error/EOF separation now covers same-path alias invalidation:
    zero file handles diagnose as `STYIO_RUNTIME_INVALID_FILE_HANDLE`, and
    `SIOFileLineIter` checks the runtime error channel before treating a null
@@ -160,8 +162,8 @@ Current implementation reality:
    resource scope state so function-local cleanup stacks do not leak into later
    codegen. File handle slots are entry allocated so same-path singleton reuse
    across loop branches does not violate LLVM dominance. This is a tracked-file
-   cleanup settlement slice; fallback recovery for implicit cleanup, failing
-   reassignment cleanup, and non-file cleanup families remain open.
+   cleanup settlement slice; source-level fallback recovery for implicit or
+   reassignment cleanup and non-file cleanup families remain open.
 10. Statement-shaped resource method calls now participate in resource-effect
    settlement. `?| @file("data.txt").close() | fallback` skips recovery after a
    successful open/close, missing direct file close recovers through catch-all
@@ -238,8 +240,8 @@ Current implementation reality:
    value-producing resource methods beyond the returned file/stdin instant-pull
    and returned list/dict/matrix bounds failure slices, or for multi-statement
    method returns and resource-method lexical/global captures, no
-   fallback recovery model for implicit cleanup, no cleanup-failure coverage for
-   broader reassignment cleanup, no cleanup families beyond file close, no
+   source-level fallback recovery model for implicit or reassignment cleanup,
+   no cleanup families beyond file close, no
    resource family that emits a non-failure
    `ResourceBackpressure` pressure event, and no pressure-observer
    implementation.
@@ -275,7 +277,7 @@ Typed resource method parameters now feed method-body inference and call-site
 checks, so returned matrix cell/row or row-range slice bounds failures recover
 through matched `bounds` handlers or catch-all fallback under `?|` without
 opening global matrix capture.
-Implicit cleanup fallback recovery, broader reassignment cleanup,
+Source-level fallback recovery for implicit or reassignment cleanup,
 broader resource-family cleanup, non-failure backpressure
 observation/escalation, pressure observers, broader post-acquire resource
 operations beyond the covered file iterator, close-method, write-method, and
@@ -680,7 +682,7 @@ These should not be counted as missing implementation in this checkout:
    close-method receiver invalidation. Explicit returns and loop break/continue
    exits now close tracked file handles before leaving the function or loop
    resource scope. The next slices must cover
-   fallback recovery for implicit cleanup, reassignment cleanup, broader
+   source-level fallback recovery for implicit or reassignment cleanup, broader
    post-acquire resource operations beyond the covered file iterator,
    close-method, write-method, and acquired-handle instant-pull paths,
    dict slice-shaped

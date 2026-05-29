@@ -143,11 +143,14 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   channel after cleanup, loop `^` break and standalone `>>` continue branches
   clean the resource scopes they bypass before jumping to the loop target, and
   function codegen keeps function-local resource scope stacks isolated from
-  surrounding codegen. File handle slots are allocated so later same-path
-  singleton reuse across loop branches still satisfies LLVM dominance. This
-  covers tracked file handles on ordinary scope pop, explicit return, and loop
-  break/continue exits only; it does not yet provide a source-level fallback
-  recovery site for implicit cleanup failures, failing reassignment cleanup,
+  surrounding codegen. File flex-rebind also runs the tracked file-handle close
+  before the RHS acquire/overwrite, then checks the cleanup error channel so
+  cleanup failure stops at the rebind boundary. File handle slots are allocated
+  so later same-path singleton reuse across loop branches still satisfies LLVM
+  dominance. This covers tracked file handles on ordinary scope pop, explicit
+  return, loop break/continue exits, and default no-fallback file flex-rebind
+  cleanup settlement only; it does not yet provide a source-level fallback
+  recovery site for implicit or reassignment cleanup failures,
   release/commit hooks, or non-file cleanup families.
 - Bounded `i64`, `f64`, `bool`, `char`, and `string` resource selectors now have distinct
   executable value shapes: `@name[-n]` reads a scalar value, while
@@ -320,21 +323,22 @@ The remaining IM-D4 work is to implement this decision across resource families.
 The explicit file-write path now covers one cleanup-failure family:
 `fclose` failure reports `STYIO_RUNTIME_FILE_CLEANUP_FAILURE`, matches the
 `cleanup` handler family, and stays distinct from `io`. The file flex-rebind
-slice also releases a tracked file handle before `name = @file(...)` overwrites
-the owner, clears consumed-receiver state after a successful resource rebind, and
-reopens a same-path singleton slot that an explicit close left at zero. Tracked
-file handles are now also closed on explicit `<| return` before the LLVM return,
-normal scope-pop cleanup checks for cleanup failures after the cleanup boundary,
-and loop `^` / `>>` exits clean the tracked file scopes they bypass before
-branching. The file
+slice also releases a tracked file handle before `name = @file(...)` evaluates
+the RHS acquire or overwrites the owner, checks the cleanup error channel at that
+rebind boundary, clears consumed-receiver state after a successful resource
+rebind, and reopens a same-path singleton slot that an explicit close left at
+zero. Tracked file handles are now also closed on explicit `<| return` before
+the LLVM return, normal scope-pop cleanup checks for cleanup failures after the
+cleanup boundary, and loop `^` / `>>` exits clean the tracked file scopes they
+bypass before branching. The file
 iterator closed-handle slice reports a structured `closed`-family diagnostic
 when a stale same-path alias uses that zeroed slot. The file/stdin instant-pull
 and materialized container-index/list-slice paths now cover the first value-producing
 success/fallback/handler paths for non-task `?|` expressions, including
 explicit-target stdin `f64`, `string`, typed-list values, list/dict/matrix
 `bounds` recovery, and returned matrix cell/row or row-range-slice bounds from
-typed resource method parameters. Source-level fallback recovery for implicit cleanup,
-cleanup-failure settlement for reassignments that can fail, release/commit hooks, non-file resource-family
+typed resource method parameters. Source-level fallback recovery for implicit or
+reassignment cleanup failures, release/commit hooks, non-file resource-family
 cleanup effects, using a handle acquired inside statement `?|` as a later
 resource operation beyond the covered file iterator, close-method, and
 write-method paths, dict
