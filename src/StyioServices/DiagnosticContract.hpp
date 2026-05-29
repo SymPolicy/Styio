@@ -47,6 +47,7 @@ inline constexpr std::string_view kRuntimeError = "STYIO_RUNTIME_ERROR";
 inline constexpr std::string_view kNativeUnsupportedAbi = "STYIO_NATIVE_UNSUPPORTED_ABI";
 inline constexpr std::string_view kNativeSourceReadFailed = "STYIO_NATIVE_SOURCE_READ_FAILED";
 inline constexpr std::string_view kNativeSignatureNotFound = "STYIO_NATIVE_SIGNATURE_NOT_FOUND";
+inline constexpr std::string_view kNativeUnsupportedSignature = "STYIO_NATIVE_UNSUPPORTED_SIGNATURE";
 inline constexpr std::string_view kNativeHostCompileFailed = "STYIO_NATIVE_HOST_COMPILE_FAILED";
 inline constexpr std::string_view kNativeLoadFailed = "STYIO_NATIVE_LOAD_FAILED";
 inline constexpr std::string_view kNativeSymbolMissing = "STYIO_NATIVE_SYMBOL_MISSING";
@@ -167,6 +168,14 @@ classify_native_interop_code(std::string_view message) {
       || (contains(message, "@extern(") && contains(message, "block does not declare any callable function"))
       || contains(message, "@export does not match any @extern")) {
     return std::string(kNativeSignatureNotFound);
+  }
+  if (contains(message, "unsupported native parameter type")
+      || contains(message, "unsupported native return type")
+      || contains(message, "variadic native functions are not supported")
+      || contains(message, "empty native parameter in @extern block")
+      || contains(message, "cannot parse native parameter")
+      || (contains(message, "native parameter `") && contains(message, "cannot have type void"))) {
+    return std::string(kNativeUnsupportedSignature);
   }
   if ((contains(message, "native @extern(") && contains(message, "compile failed with command"))
       || contains(message, "native @extern artifact compile failed")) {
