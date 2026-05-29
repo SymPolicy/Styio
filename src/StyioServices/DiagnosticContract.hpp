@@ -30,6 +30,7 @@ inline constexpr std::string_view kParseUnsupportedSyntax = "STYIO_PARSE_UNSUPPO
 inline constexpr std::string_view kParseShadowMismatch = "STYIO_PARSE_SHADOW_MISMATCH";
 
 inline constexpr std::string_view kSemaImmutableBinding = "STYIO_SEMA_IMMUTABLE_BINDING";
+inline constexpr std::string_view kSemaUndeclaredSymbol = "STYIO_SEMA_UNDECLARED_SYMBOL";
 inline constexpr std::string_view kSemaResourceMethodUnsupportedBody =
   "STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY";
 inline constexpr std::string_view kTypeError = "STYIO_TYPE_ERROR";
@@ -211,6 +212,11 @@ classify_type_or_lowering_code(std::string_view message) {
       || (contains(message, "flow bind target") && contains(message, "is final and cannot be reassigned"))
       || contains(message, "is final and cannot be overridden")) {
     return std::string(kSemaImmutableBinding);
+  }
+  if (contains(message, "unknown function `")
+      || contains(message, "unknown resource `")
+      || contains(message, "unknown resource: @")) {
+    return std::string(kSemaUndeclaredSymbol);
   }
   if (contains(message, "resource method return currently requires a single")) {
     return std::string(kSemaResourceMethodUnsupportedBody);
