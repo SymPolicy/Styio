@@ -195,18 +195,20 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   settlement; it does not yet provide a source-level fallback recovery site for
   implicit cleanup failures, non-file reassignment cleanup failures,
   release/commit hooks, or non-file cleanup families.
-- Bounded `i64`, `f64`, `bool`, `char`, and `string` resource selectors now have distinct
-  executable value shapes: `@name[-n]` reads a scalar value, while
-  `@name[-n..]` and `@name[...]` materialize typed list snapshots from explicit
-  history reads. Char rings store `i8` values and materialized `list[char]`
-  snapshots render escaped char literals; string selector rings own cloned cstr
-  values and release them on overwrite or scope cleanup. Bounded selector
-  snapshots also feed iterator tails through the runtime-list path, while scalar
-  latest selectors such as `@name[-1] >> ...` stay rejected as non-iterable
-  inputs. Selectors that exceed
-  the declared bound, use non-bounded resource shapes, or require unsupported
-  tuple/list/dict/matrix history storage remain fail-closed until their
-  resource-family storage semantics are implemented.
+- Bounded `i64`, `f64`, `bool`, `char`, `string`, `list`, and `dict` resource
+  selectors now have distinct executable value shapes: `@name[-n]` reads the
+  latest/history value, while `@name[-n..]` and `@name[...]` materialize typed
+  list snapshots from explicit history reads. Char rings store `i8` values and
+  materialized `list[char]` snapshots render escaped char literals; string
+  selector rings own cloned cstr values and release them on overwrite or scope
+  cleanup; list/dict selector rings own cloned runtime handles, clone on
+  history reads, and release ring-owned handles on overwrite or scope cleanup.
+  Bounded selector snapshots also feed iterator tails through the runtime-list
+  path, while scalar latest selectors such as `@name[-1] >> ...` stay rejected
+  as non-iterable inputs. Selectors that exceed the declared bound, use
+  non-bounded resource shapes, or require unsupported tuple/matrix history
+  storage remain fail-closed until their resource-family storage semantics are
+  implemented.
 - The first explicit-copy selector slice is executable for those bounded
   resource families: `snapshot << @name[-n..]` and `snapshot << @name[...]`
   bind the materialized typed list snapshot to `snapshot`; `snapshot <<

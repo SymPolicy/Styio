@@ -340,14 +340,18 @@ Current implementation reality:
    and accepts `@name[-n]`, `@name[-n..]`, and `@name[...]`.
 2. Sema now distinguishes selector families for bounded topology
    resources: `@price[-1]` remains the scalar resource value, while bounded
-   `i64`, `f64`, `bool`, `char`, and `string` selectors infer `list[i64]`,
-   `list[f64]`, `list[bool]`, `list[char]`, and `list[string]`; unsupported non-bounded,
-   unsupported value-family, or out-of-window selector shapes fail closed.
+   `i64`, `f64`, `bool`, `char`, `string`, `list`, and `dict` selectors infer
+   typed materialized history lists such as `list[i64]`, `list[f64]`,
+   `list[bool]`, `list[char]`, `list[string]`, `list[list[T]]`, and
+   `list[dict[K,V]]`; unsupported non-bounded, unsupported value-family, or
+   out-of-window selector shapes fail closed.
 3. Lowering now handles `ResourceSelectorKind::Offset`,
    `ResourceSelectorKind::SliceFrom`, and `ResourceSelectorKind::SnapshotAll` for
-   bounded `i64`, `f64`, `bool`, `char`, and `string` resources. Slice/snapshot selectors
-   materialize a list literal from explicit history reads instead of falling
-   through to `SGResId::Create(name)`.
+   bounded `i64`, `f64`, `bool`, `char`, `string`, `list`, and `dict`
+   resources. Slice/snapshot selectors materialize a list literal from explicit
+   history reads instead of falling through to `SGResId::Create(name)`. Logical
+   resource writes keep raw handle values on the Topology path instead of
+   reusing stdout/file stringification.
 4. `tests/features/state_resources/t06_topology_selector_snapshot.styio` proves
    a recent-window resource prints distinct scalar, slice, and snapshot values:
    `@price[-1]` prints `40`, `@price[-2..]` prints `[30,40]`, and `@price[...]`
@@ -364,6 +368,11 @@ Current implementation reality:
    materialized history values instead of a constant-literal fallback, while
    `StyioTopologyV2.ResourceScalarSelectorIteratorFailsClosed` keeps
    `@price[-1] >> ...` rejected as a non-iterable scalar latest read.
+   `StyioTopologyV2.ResourceSelectorHandleSnapshotsCloneListAndDictValues`
+   proves bounded list/dict resource history snapshots keep independent cloned
+   handle values after the source iterator variable mutates, and
+   `StyioSecurityTopologyV2.LowersBoundedListAndDictResourceSelectors` proves
+   the LLVM path uses list/dict clone, push, get, and owned ring storage.
    Adjacent negative fixtures reject selectors deeper than the declared history
    bound and unsupported bounded `matrix` snapshots.
 5. Explicit selector copy now has the first executable bounded-selector slice:
@@ -383,13 +392,13 @@ Current implementation reality:
    bound-resource clone.
 
 Impact: the prior silent scalar/latest-resource collapse is closed for bounded
-`i64`, `f64`, `bool`, `char`, and `string` resource selectors, including explicit copy
-from their slice/snapshot selectors and iterator execution over materialized
-selector snapshots, and materialized list/dict/matrix handle cloning is closed
-for `copy << source`. Broader selector closure still needs
-unsupported tuple/list/dict/matrix value-family history storage,
-unbounded sequence snapshot policy, and broader type-directed `<<` copy/clone
-semantics for file, topology-resource, and future resource families
+`i64`, `f64`, `bool`, `char`, `string`, `list`, and `dict` resource selectors,
+including explicit copy from scalar/string slice/snapshot selectors, iterator
+execution over materialized selector snapshots, and runtime-owned handle
+history for list/dict values; materialized list/dict/matrix handle cloning is
+closed for `copy << source`. Broader selector closure still needs unsupported
+tuple/matrix value-family history storage, unbounded sequence snapshot policy,
+and broader type-directed `<<` copy/clone semantics for file, topology-resource, and future resource families
 before the complete Topology v2 selector model can be considered complete.
 
 ### P0. Stream concurrency and pressure are only partially executable
@@ -898,14 +907,14 @@ These should not be counted as missing implementation in this checkout:
    additional resource families that emit typed pressure or cleanup
    effects, and arbitrary value-producing recovery beyond the covered paths.
 2. Continue Topology v2 selector value semantics before adding new resource
-   features: bounded `i64`, `f64`, `bool`, `char`, and `string` selector storage is
-   closed, while bounded selector `snapshot << @x[...]` / `snapshot << @x[-n..]`
-   copy is closed for those families, and materialized list/dict/matrix handle
-   `copy << source` now has deep-copy runtime evidence. Unsupported
-   tuple/list/dict/matrix history storage, unbounded sequence snapshots, and
-   broader type-directed `<<` copy/clone for file, topology-resource, and
-   future resource families still need distinct sema types, lowering, runtime
-   values, and golden tests.
+   features: bounded `i64`, `f64`, `bool`, `char`, `string`, `list`, and `dict`
+   selector storage is closed, while bounded selector `snapshot << @x[...]` /
+   `snapshot << @x[-n..]` copy is closed for the scalar/string families, and
+   materialized list/dict/matrix handle `copy << source` now has deep-copy
+   runtime evidence. Unsupported tuple/matrix history storage, unbounded
+   sequence snapshots, and broader type-directed `<<` copy/clone for file,
+   topology-resource, and future resource families still need distinct sema
+   types, lowering, runtime values, and golden tests.
 3. Continue stream-source closure after the materialized list-handle,
    bounded-selector-snapshot, and stdin line-stream zip slices: true snapshot joins, pressure
    observers, timeouts, EOF/failure distinctions, and merge/conflict semantics
