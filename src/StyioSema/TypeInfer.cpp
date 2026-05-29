@@ -96,6 +96,50 @@ resource_effect_handler_name_supported_latest(const std::string& name) {
          || name == "cleanup";
 }
 
+ReturnAST*
+resource_method_simple_return_latest(StyioAST* body) {
+  if (auto* ret = dynamic_cast<ReturnAST*>(body)) {
+    return ret;
+  }
+  auto* block = dynamic_cast<BlockAST*>(body);
+  if (block == nullptr || !block->followings.empty() || block->stmts.size() != 1) {
+    return nullptr;
+  }
+  return dynamic_cast<ReturnAST*>(block->stmts.front());
+}
+
+bool
+resource_method_body_contains_return_latest(StyioAST* body) {
+  if (body == nullptr) {
+    return false;
+  }
+  if (dynamic_cast<ReturnAST*>(body) != nullptr) {
+    return true;
+  }
+  if (auto* block = dynamic_cast<BlockAST*>(body)) {
+    for (auto* stmt : block->stmts) {
+      if (resource_method_body_contains_return_latest(stmt)) {
+        return true;
+      }
+    }
+    for (auto* following : block->followings) {
+      if (resource_method_body_contains_return_latest(following)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+StyioDataType
+resource_method_simple_result_type_latest(StyioSemaContext* an, StyioAST* body) {
+  ReturnAST* ret = resource_method_simple_return_latest(body);
+  if (ret == nullptr || ret->getExpr() == nullptr) {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+  return infer_expr_type(an, ret->getExpr());
+}
+
 StyioDataType
 infer_list_literal_type(StyioSemaContext* an, ListAST* list) {
   auto const& els = list->getElements();
@@ -919,7 +963,7 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
         if (styio_is_resource_property_method_kind(builtin_method)) {
           return kStringType;
         }
-        return kI64Type;
+        return method->result_type.isUndefined() ? kI64Type : method->result_type;
       }
       return kI64Type;
     }
@@ -984,6 +1028,14 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
       auto it = an->func_defs.find(call->getNameAsStr());
       if (it != an->func_defs.end()) {
         return func_ret_type_of_def(an, it->second);
+      }
+      if (call->func_callee != nullptr) {
+        const std::string family = resource_family_for_expr(an, call->func_callee);
+        const StyioSemaContext::ResourceMethodInfo* method =
+          an->find_resource_method(family, call->getNameAsStr());
+        if (method != nullptr && !method->property) {
+          return method->result_type;
+        }
       }
       auto native_it = an->native_func_defs.find(call->getNameAsStr());
       if (native_it != an->native_func_defs.end()) {
@@ -2626,6 +2678,13 @@ StyioSemaContext::typeInfer(ResourceMethodDefAST* ast) {
   if (ast->getBody() != nullptr) {
     ast->getBody()->typeInfer(this);
   }
+  info.result_type = resource_method_simple_result_type_latest(this, ast->getBody());
+  if (resource_method_body_contains_return_latest(ast->getBody()) && info.result_type.isUndefined()) {
+    throw StyioTypeError(
+      "resource method return currently requires a single `<| expr` body"
+    );
+  }
+  methods[ast->getMethodName()] = info;
   active_resource_receiver_family_ = saved_receiver;
 }
 
@@ -3551,12 +3610,15 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
   binding_info_.clear();
   resource_method_defs_.clear();
   for (const auto& method : styio_builtin_resource_methods_latest()) {
-    resource_method_defs_[method.family][method.method] = ResourceMethodInfo{
-      method.final_binding,
-      method.consuming,
-      method.property,
-      method.param_count,
-    };
+    ResourceMethodInfo info;
+    info.final_binding = method.final_binding;
+    info.consuming = method.consuming;
+    info.property = method.property;
+    info.param_count = method.param_count;
+    if (styio_is_resource_property_method_kind(method.kind)) {
+      info.result_type = kStringType;
+    }
+    resource_method_defs_[method.family][method.method] = info;
   }
   resource_binding_types_.clear();
   collect_bind_resource_writes_.clear();
