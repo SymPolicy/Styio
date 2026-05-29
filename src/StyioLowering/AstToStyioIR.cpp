@@ -1495,7 +1495,9 @@ class StateExprCloneVisitor
     if (cloned_cases == nullptr || cloned_cases->getNodeType() != StyioNodeType::Cases) {
       throw StyioTypeError("match cases clone requires CasesAST");
     }
-    return MatchCasesAST::make(clone(expr->getScrutinee()), static_cast<CasesAST*>(cloned_cases));
+    auto* cloned = MatchCasesAST::make(clone(expr->getScrutinee()), static_cast<CasesAST*>(cloned_cases));
+    cloned->setDataType(expr->getDataType());
+    return cloned;
   }
 
   StyioAST* clone(InfiniteAST* expr) {

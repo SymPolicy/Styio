@@ -7416,6 +7416,75 @@ TEST(StyioResourceEffects, ValueResourceMethodScalarFamiliesReturnFromDirectAndF
   fs::remove(data);
 }
 
+TEST(StyioResourceEffects, ValueResourceMethodMatchCasesPreserveScalarFamilies) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-method-match-cases-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-method-match-cases-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "seed\n";
+  }
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@file::pick_i64 = (x: int) => { <| x ?= {\n";
+    out << "  0 => 11\n";
+    out << "  _ => 22\n";
+    out << "} }\n";
+    out << "@file::pick_bool = (x: int) => { <| x ?= {\n";
+    out << "  0 => true\n";
+    out << "  _ => false\n";
+    out << "} }\n";
+    out << "@file::pick_char = (x: int) => { <| x ?= {\n";
+    out << "  0 => 'a'\n";
+    out << "  _ => 'b'\n";
+    out << "} }\n";
+    out << "@file::pick_f64 = (x: int) => { <| x ?= {\n";
+    out << "  0 => 1.5\n";
+    out << "  _ => 2.5\n";
+    out << "} }\n";
+    out << "@file::pick_string = (x: int) => { <| x ?= {\n";
+    out << "  0 => \"zero\"\n";
+    out << "  _ => \"other\"\n";
+    out << "} }\n";
+    out << "log := @file(\"" << data.generic_string() << "\")\n";
+    out << ">_(log.pick_i64(0))\n";
+    out << ">_(log.pick_bool(0))\n";
+    out << ">_(log.pick_bool(1))\n";
+    out << ">_(log.pick_char(0))\n";
+    out << ">_(log.pick_char(1))\n";
+    out << ">_(log.pick_f64(1))\n";
+    out << ">_(log.pick_string(0))\n";
+    out << ">_(?| log.pick_bool(1) | true)\n";
+    out << ">_(?| log.pick_char(0) | 'x')\n";
+    out << ">_(?| log.pick_string(1) | \"fallback\")\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "11\ntrue\nfalse\na\nb\n2.500000\nzero\nfalse\na\nother\nafter\n");
+  EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove(data);
+}
+
 TEST(StyioResourceEffects, ValueResourceMethodReturnedResourceEffectRecoversInsideMethod) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();

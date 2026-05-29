@@ -1818,9 +1818,51 @@ braced_region_contains_token_latest(StyioContext& context, StyioTokenType needle
   return false;
 }
 
+static bool
+braced_region_contains_token_outside_box_latest(StyioContext& context, StyioTokenType needle) {
+  const auto& tokens = context.get_tokens();
+  size_t cursor = context.get_token_index();
+  int brace_depth = 0;
+  int box_depth = 0;
+
+  for (; cursor < tokens.size(); ++cursor) {
+    const StyioTokenType type = tokens[cursor]->type;
+    if (type == StyioTokenType::TOK_LCURBRAC) {
+      ++brace_depth;
+      continue;
+    }
+    if (type == StyioTokenType::TOK_RCURBRAC) {
+      --brace_depth;
+      if (brace_depth <= 0) {
+        return false;
+      }
+      continue;
+    }
+    if (brace_depth <= 0) {
+      continue;
+    }
+    if (type == StyioTokenType::TOK_LBOXBRAC || type == StyioTokenType::BOUNDED_BUFFER_OPEN) {
+      ++box_depth;
+      continue;
+    }
+    if (type == StyioTokenType::TOK_RBOXBRAC || type == StyioTokenType::BOUNDED_BUFFER_CLOSE) {
+      if (box_depth > 0) {
+        --box_depth;
+      }
+      continue;
+    }
+    if (box_depth == 0 && type == needle) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 static BlockAST*
 parse_resource_method_block_latest(StyioContext& context) {
-  if (braced_region_contains_token_latest(context, StyioTokenType::AWAIT_PIPE)) {
+  if (braced_region_contains_token_latest(context, StyioTokenType::AWAIT_PIPE)
+      || braced_region_contains_token_outside_box_latest(context, StyioTokenType::MATCH)) {
     return parse_block_subset_nightly(context);
   }
   return parse_block_only(context);
