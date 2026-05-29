@@ -671,6 +671,31 @@ match_branch_tail_type(StyioSemaContext* an, StyioAST* ast) {
   return result;
 }
 
+StyioDataType
+function_body_tail_type_latest(StyioSemaContext* an, StyioAST* ast) {
+  if (ast == nullptr) {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+  if (auto* ret = dynamic_cast<ReturnAST*>(ast)) {
+    if (ret->getExpr() == nullptr) {
+      return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    }
+    ret->getExpr()->typeInfer(an);
+    return infer_expr_type(an, ret->getExpr());
+  }
+  if (auto* block = dynamic_cast<BlockAST*>(ast)) {
+    if (block->stmts.empty()) {
+      return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    }
+    return function_body_tail_type_latest(an, block->stmts.back());
+  }
+  if (!match_tail_value_expected(ast)) {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+  ast->typeInfer(an);
+  return infer_expr_type(an, ast);
+}
+
 bool
 is_name_ast_latest(StyioAST* ast, const std::string& name) {
   auto* n = dynamic_cast<NameAST*>(ast);
@@ -832,7 +857,7 @@ func_ret_type_of_def(StyioSemaContext* an, StyioAST* def) {
     if (!inferred_return.isUndefined()) {
       return inferred_return;
     }
-    return infer_expr_type(an, f->func_body);
+    return function_body_tail_type_latest(an, f->func_body);
   }
 
   if (auto* f = dynamic_cast<SimpleFuncAST*>(def)) {
@@ -3135,7 +3160,7 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
       if (auto* f = dynamic_cast<FunctionAST*>(def_it->second)) {
         if (f->func_body != nullptr) {
           f->func_body->typeInfer(this);
-          record_inferred_function_return_type(infer_expr_type(this, f->func_body));
+          record_inferred_function_return_type(function_body_tail_type_latest(this, f->func_body));
         }
       }
       else if (auto* sf = dynamic_cast<SimpleFuncAST*>(def_it->second)) {

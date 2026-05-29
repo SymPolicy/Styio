@@ -7485,6 +7485,55 @@ TEST(StyioResourceEffects, ValueResourceMethodMatchCasesPreserveScalarFamilies) 
   fs::remove(data);
 }
 
+TEST(StyioResourceEffects, ValueResourceMethodReturnedBlockFunctionCallsInferResultFamilies) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-method-function-call-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-method-function-call-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "seed\n";
+  }
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# plus_one := (x: i64) => { <| x + 1 }\n";
+    out << "# label := (x: i64) => {\n";
+    out << "  $\"score={x + 2}\"\n";
+    out << "}\n";
+    out << "@file::score = (x: i64) => { <| plus_one(x) }\n";
+    out << "@file::label = (x: i64) => { <| label(x) }\n";
+    out << "log := @file(\"" << data.generic_string() << "\")\n";
+    out << ">_(log.score(4))\n";
+    out << ">_(?| log.score(5) | 0)\n";
+    out << ">_(log.label(3))\n";
+    out << ">_(?| log.label(4) | \"fallback\")\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "5\n6\nscore=5\nscore=6\nafter\n");
+  EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove(data);
+}
+
 TEST(StyioResourceEffects, ValueResourceMethodReturnedResourceEffectRecoversInsideMethod) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
@@ -7656,6 +7705,53 @@ TEST(StyioResourceEffects, ResourceMethodMultiStmtReturnReportsSemaCode) {
     out << "}\n";
     out << "log := @file(\"" << data.generic_string() << "\")\n";
     out << ">_(log.answer())\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"sema\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("\"code\":\"STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY\""),
+    std::string::npos);
+  EXPECT_NE(result.stdout_text.find("resource method return currently requires a single"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove(data);
+}
+
+TEST(StyioResourceEffects, ResourceMethodReturnedStatementOnlyFunctionReportsSemaCode) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-method-function-stmt-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-effect-method-function-stmt-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "seed\n";
+  }
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# emit := (x: i64) => { >_(x) }\n";
+    out << "@file::bad = (x: i64) => { <| emit(x) }\n";
+    out << "log := @file(\"" << data.generic_string() << "\")\n";
+    out << ">_(log.bad(4))\n";
     out << ">_(\"after\")\n";
   }
 
