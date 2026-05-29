@@ -1710,6 +1710,26 @@ TEST(StyioSecurityNightlyCodegen, ReturnRunsFileScopeCleanupBeforeRet) {
   std::filesystem::remove(data);
 }
 
+TEST(StyioSecurityNightlyCodegen, RebindRunsFileCleanupBeforeNextAcquire) {
+  const std::string src =
+    "f = @file(\"tests/features/file_resources/data/hello.txt\")\n"
+    "f = @file(\"tests/features/file_resources/data/numbers.txt\")\n"
+    ">_(\"after\")\n";
+
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  const std::size_t first_open_pos = llvm_ir.find("call i64 @styio_file_open");
+  ASSERT_NE(first_open_pos, std::string::npos) << llvm_ir;
+  const std::size_t close_pos = llvm_ir.find("call void @styio_file_close", first_open_pos);
+  ASSERT_NE(close_pos, std::string::npos) << llvm_ir;
+  const std::size_t guard_pos = llvm_ir.find("call i32 @styio_runtime_has_error", close_pos);
+  ASSERT_NE(guard_pos, std::string::npos) << llvm_ir;
+  const std::size_t second_open_pos = llvm_ir.find("call i64 @styio_file_open", guard_pos);
+  ASSERT_NE(second_open_pos, std::string::npos) << llvm_ir;
+  EXPECT_LT(close_pos, guard_pos);
+  EXPECT_LT(guard_pos, second_open_pos);
+}
+
 TEST(StyioSecurityNightlyCodegen, BreakRunsFileScopeCleanupBeforeLoopExitBranch) {
   const std::string src =
     "[1] >> #(i) => {\n"
