@@ -134,6 +134,19 @@ styio_coerce_bounded_ring_value(llvm::Value* value, llvm::Type* elem_ty, llvm::I
   throw StyioTypeError("bounded resource ring value type mismatch");
 }
 
+std::optional<StyioValueFamily>
+bounded_ring_handle_family_for_type(const StyioDataType& dt) {
+  auto type_name = styio_bounded_ring_value_type_name(dt);
+  if (!type_name.has_value()) {
+    return std::nullopt;
+  }
+  StyioValueFamily family = styio_value_family_from_type_name(*type_name);
+  if (family == StyioValueFamily::ListHandle || family == StyioValueFamily::DictHandle) {
+    return family;
+  }
+  return std::nullopt;
+}
+
 bool
 ir_yields_list_handle(StyioIR* value) {
   if (dynamic_cast<SCListLiteral*>(value)
@@ -416,7 +429,8 @@ StyioToLLVM::store_bounded_ring_value(
   llvm::ArrayType* array_type,
   llvm::AllocaInst* array,
   llvm::Value* index,
-  llvm::Value* value) {
+  llvm::Value* value,
+  std::optional<StyioValueFamily> handle_family) {
   if (array_type == nullptr || array == nullptr || index == nullptr || value == nullptr) {
     return;
   }
@@ -424,6 +438,14 @@ StyioToLLVM::store_bounded_ring_value(
   llvm::Value* zero = llvm::ConstantInt::get(theBuilder->getInt64Ty(), 0);
   llvm::Value* gep = theBuilder->CreateInBoundsGEP(array_type, array, {zero, index});
   value = styio_coerce_bounded_ring_value(value, elem_ty, theBuilder.get());
+  if (handle_family.has_value()) {
+    llvm::Value* old = theBuilder->CreateLoad(elem_ty, gep);
+    free_resource_handle_if_runtime_owned(old, *handle_family);
+    llvm::Value* owned = clone_resource_handle_for_runtime_owner(value, *handle_family);
+    theBuilder->CreateStore(owned, gep);
+    free_owned_resource_temp_if_tracked(value);
+    return;
+  }
   if (elem_ty->isPointerTy()) {
     llvm::Value* old = theBuilder->CreateLoad(elem_ty, gep);
     free_cstr_if_runtime_owned(old);
@@ -439,7 +461,8 @@ StyioToLLVM::move_bounded_ring_value(
   llvm::Value* dst_index,
   llvm::ArrayType* src_type,
   llvm::AllocaInst* src_array,
-  llvm::Value* src_index) {
+  llvm::Value* src_index,
+  std::optional<StyioValueFamily> handle_family) {
   if (dst_type == nullptr || dst_array == nullptr || dst_index == nullptr
       || src_type == nullptr || src_array == nullptr || src_index == nullptr) {
     return;
@@ -451,6 +474,13 @@ StyioToLLVM::move_bounded_ring_value(
   llvm::Value* dst_gep = theBuilder->CreateInBoundsGEP(dst_type, dst_array, {zero, dst_index});
   llvm::Value* value = theBuilder->CreateLoad(src_elem_ty, src_gep);
   value = styio_coerce_bounded_ring_value(value, dst_elem_ty, theBuilder.get());
+  if (handle_family.has_value()) {
+    llvm::Value* old = theBuilder->CreateLoad(dst_elem_ty, dst_gep);
+    free_resource_handle_if_runtime_owned(old, *handle_family);
+    theBuilder->CreateStore(value, dst_gep);
+    theBuilder->CreateStore(styio_zero_for_llvm_type(src_elem_ty, theBuilder.get()), src_gep);
+    return;
+  }
   if (dst_elem_ty->isPointerTy()) {
     llvm::Value* old = theBuilder->CreateLoad(dst_elem_ty, dst_gep);
     free_cstr_if_runtime_owned(old);
@@ -517,6 +547,43 @@ StyioToLLVM::free_owned_resource_temp_if_tracked(llvm::Value* v) {
     return;
   }
   free_resource_if_runtime_owned(v, *kind);
+}
+
+llvm::Value*
+StyioToLLVM::clone_resource_handle_for_runtime_owner(llvm::Value* v, StyioValueFamily family) {
+  if (v == nullptr) {
+    return v;
+  }
+  if (!v->getType()->isIntegerTy(64)) {
+    v = theBuilder->CreateSExtOrTrunc(v, theBuilder->getInt64Ty());
+  }
+  const char* clone_name = nullptr;
+  if (family == StyioValueFamily::ListHandle) {
+    clone_name = "styio_list_clone";
+  }
+  else if (family == StyioValueFamily::DictHandle) {
+    clone_name = "styio_dict_clone";
+  }
+  if (clone_name == nullptr) {
+    return v;
+  }
+  llvm::FunctionCallee clone_fn = theModule->getOrInsertFunction(
+    clone_name,
+    llvm::FunctionType::get(theBuilder->getInt64Ty(), {theBuilder->getInt64Ty()}, false));
+  return theBuilder->CreateCall(clone_fn, {v});
+}
+
+void
+StyioToLLVM::free_resource_handle_if_runtime_owned(llvm::Value* v, StyioValueFamily family) {
+  if (v == nullptr || !v->getType()->isIntegerTy(64)) {
+    return;
+  }
+  if (family == StyioValueFamily::ListHandle) {
+    theBuilder->CreateCall(list_release_fn(), {v});
+  }
+  else if (family == StyioValueFamily::DictHandle) {
+    theBuilder->CreateCall(dict_release_fn(), {v});
+  }
 }
 
 llvm::StructType*
@@ -683,6 +750,17 @@ StyioToLLVM::toLLVMIR(SGResId* node) {
     llvm::Value* gep = theBuilder->CreateInBoundsGEP(arrTy, arr, {zero, idx});
     llvm::Value* cell = theBuilder->CreateLoad(elem_ty, gep);
     llvm::Value* selected = theBuilder->CreateSelect(has, cell, zero_elem);
+    auto handle_family_it = bounded_ring_handle_family_.find(name);
+    if (handle_family_it != bounded_ring_handle_family_.end()) {
+      llvm::Value* owned = clone_resource_handle_for_runtime_owner(selected, handle_family_it->second);
+      if (handle_family_it->second == StyioValueFamily::ListHandle) {
+        track_owned_resource_temp(owned, TempResourceKind::List);
+      }
+      else if (handle_family_it->second == StyioValueFamily::DictHandle) {
+        track_owned_resource_temp(owned, TempResourceKind::Dict);
+      }
+      return owned;
+    }
     if (elem_ty->isPointerTy()) {
       llvm::Value* owned = clone_cstr_for_runtime_owner(selected);
       track_owned_cstr_temp(owned);
@@ -1435,6 +1513,11 @@ StyioToLLVM::emit_bounded_ring_pending_commit(const std::string& name) {
   auto cap_it = bounded_ring_capacity_.find(name);
   auto pending_it = bounded_ring_pending_slot_.find(name);
   auto count_it = bounded_ring_pending_count_slot_.find(name);
+  std::optional<StyioValueFamily> handle_family;
+  auto handle_family_it = bounded_ring_handle_family_.find(name);
+  if (handle_family_it != bounded_ring_handle_family_.end()) {
+    handle_family = handle_family_it->second;
+  }
   if (arr_it == mutable_variables.end()
       || head_it == bounded_ring_head_slot_.end()
       || cap_it == bounded_ring_capacity_.end()
@@ -1485,7 +1568,8 @@ StyioToLLVM::emit_bounded_ring_pending_commit(const std::string& name) {
     ring_idx,
     pending_ty,
     pending_it->second,
-    pending_idx);
+    pending_idx,
+    handle_family);
   theBuilder->CreateStore(theBuilder->CreateAdd(head, one), head_it->second);
   theBuilder->CreateStore(theBuilder->CreateAdd(i, one), idx_slot);
   theBuilder->CreateBr(hdr_bb);
@@ -1540,6 +1624,11 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
     llvm::Type* i64 = theBuilder->getInt64Ty();
     auto* arrTy = llvm::cast<llvm::ArrayType>(arr->getAllocatedType());
     llvm::Type* elem_ty = arrTy->getElementType();
+    std::optional<StyioValueFamily> handle_family;
+    auto handle_family_it = bounded_ring_handle_family_.find(varname);
+    if (handle_family_it != bounded_ring_handle_family_.end()) {
+      handle_family = handle_family_it->second;
+    }
     llvm::Value* next_value = node->value->toLLVMIR(this);
     next_value = styio_coerce_bounded_ring_value(next_value, elem_ty, theBuilder.get());
     if (node->pending_resource_write
@@ -1552,7 +1641,7 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
       llvm::Value* idx = theBuilder->CreateURem(
         pending_count,
         llvm::ConstantInt::get(i64, cap));
-      store_bounded_ring_value(pending_ty, pending, idx, next_value);
+      store_bounded_ring_value(pending_ty, pending, idx, next_value, handle_family);
       theBuilder->CreateStore(
         theBuilder->CreateAdd(pending_count, llvm::ConstantInt::get(i64, 1)),
         pending_count_slot);
@@ -1562,7 +1651,7 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
     llvm::AllocaInst* headSlot = bounded_ring_head_slot_[varname];
     llvm::Value* head = theBuilder->CreateLoad(i64, headSlot);
     llvm::Value* idx = theBuilder->CreateURem(head, llvm::ConstantInt::get(i64, cap));
-    store_bounded_ring_value(arrTy, arr, idx, next_value);
+    store_bounded_ring_value(arrTy, arr, idx, next_value, handle_family);
     llvm::Value* next_head = theBuilder->CreateAdd(head, llvm::ConstantInt::get(i64, 1));
     theBuilder->CreateStore(next_head, headSlot);
     return arr;
@@ -1658,6 +1747,8 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
     llvm::IRBuilder<> prealloc(ent, ent->getFirstInsertionPt());
     llvm::Type* i64 = theBuilder->getInt64Ty();
     llvm::Type* elem_ty = styio_bounded_ring_element_llvm_type(node->var->var_type->data_type, theBuilder.get());
+    std::optional<StyioValueFamily> handle_family =
+      bounded_ring_handle_family_for_type(node->var->var_type->data_type);
     auto* arrTy = llvm::ArrayType::get(elem_ty, *cap);
     llvm::AllocaInst* arr = prealloc.CreateAlloca(arrTy, nullptr, varname);
     llvm::AllocaInst* head = prealloc.CreateAlloca(i64, nullptr, varname + ".head");
@@ -1670,14 +1761,17 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
     llvm::Value* val = node->value->toLLVMIR(this);
     val = styio_coerce_bounded_ring_value(val, elem_ty, theBuilder.get());
     llvm::Value* z = llvm::ConstantInt::get(i64, 0);
-    store_bounded_ring_value(arrTy, arr, z, val);
+    store_bounded_ring_value(arrTy, arr, z, val, handle_family);
     theBuilder->CreateStore(llvm::ConstantInt::get(i64, 1), head);
     mutable_variables[varname] = arr;
     bounded_ring_head_slot_[varname] = head;
     bounded_ring_capacity_[varname] = *cap;
     bounded_ring_pending_slot_[varname] = pending;
     bounded_ring_pending_count_slot_[varname] = pending_count;
-    if (elem_ty->isPointerTy()) {
+    if (handle_family.has_value()) {
+      bounded_ring_handle_family_[varname] = *handle_family;
+    }
+    if (elem_ty->isPointerTy() || handle_family.has_value()) {
       register_bounded_ring_cstr_for_raii(varname);
     }
     return arr;
@@ -2031,6 +2125,7 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   auto saved_ring_c = bounded_ring_capacity_;
   auto saved_ring_pending = bounded_ring_pending_slot_;
   auto saved_ring_pending_count = bounded_ring_pending_count_slot_;
+  auto saved_ring_handle_family = bounded_ring_handle_family_;
   auto saved_bounded_ring_cstr_scopes = bounded_ring_cstr_scope_stack_;
   auto saved_dyn_names = dynamic_variable_names_;
   auto saved_list_names = list_slot_names_;
@@ -2045,6 +2140,7 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   bounded_ring_capacity_.clear();
   bounded_ring_pending_slot_.clear();
   bounded_ring_pending_count_slot_.clear();
+  bounded_ring_handle_family_.clear();
   bounded_ring_cstr_scope_stack_.clear();
   dynamic_variable_names_.clear();
   list_slot_names_.clear();
@@ -2098,6 +2194,7 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   bounded_ring_capacity_ = std::move(saved_ring_c);
   bounded_ring_pending_slot_ = std::move(saved_ring_pending);
   bounded_ring_pending_count_slot_ = std::move(saved_ring_pending_count);
+  bounded_ring_handle_family_ = std::move(saved_ring_handle_family);
   bounded_ring_cstr_scope_stack_ = std::move(saved_bounded_ring_cstr_scopes);
   dynamic_variable_names_ = std::move(saved_dyn_names);
   list_slot_names_ = std::move(saved_list_names);
@@ -3546,6 +3643,52 @@ StyioToLLVM::release_bounded_ring_cstr_array(
 }
 
 void
+StyioToLLVM::release_bounded_ring_handle_array(
+  llvm::ArrayType* array_type,
+  llvm::AllocaInst* array,
+  std::uint64_t capacity,
+  StyioValueFamily family,
+  const std::string& label) {
+  if (array_type == nullptr || array == nullptr || capacity == 0) {
+    return;
+  }
+  llvm::Type* elem_ty = array_type->getElementType();
+  if (!elem_ty->isIntegerTy(64)) {
+    return;
+  }
+  llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
+  if (cur == nullptr || cur->getTerminator() != nullptr) {
+    return;
+  }
+  llvm::Function* F = cur->getParent();
+  llvm::Type* i64 = theBuilder->getInt64Ty();
+  llvm::Value* zero = llvm::ConstantInt::get(i64, 0);
+  llvm::Value* one = llvm::ConstantInt::get(i64, 1);
+  llvm::Value* cap = llvm::ConstantInt::get(i64, capacity);
+  llvm::AllocaInst* idx_slot = theBuilder->CreateAlloca(i64, nullptr, label + ".cleanup.i");
+  theBuilder->CreateStore(zero, idx_slot);
+
+  llvm::BasicBlock* hdr_bb = llvm::BasicBlock::Create(*theContext, label + "_cleanup_hdr", F);
+  llvm::BasicBlock* body_bb = llvm::BasicBlock::Create(*theContext, label + "_cleanup_body", F);
+  llvm::BasicBlock* done_bb = llvm::BasicBlock::Create(*theContext, label + "_cleanup_done", F);
+  theBuilder->CreateBr(hdr_bb);
+
+  theBuilder->SetInsertPoint(hdr_bb);
+  llvm::Value* i = theBuilder->CreateLoad(i64, idx_slot);
+  llvm::Value* more = theBuilder->CreateICmpULT(i, cap);
+  theBuilder->CreateCondBr(more, body_bb, done_bb);
+
+  theBuilder->SetInsertPoint(body_bb);
+  llvm::Value* gep = theBuilder->CreateInBoundsGEP(array_type, array, {zero, i});
+  llvm::Value* value = theBuilder->CreateLoad(elem_ty, gep);
+  free_resource_handle_if_runtime_owned(value, family);
+  theBuilder->CreateStore(theBuilder->CreateAdd(i, one), idx_slot);
+  theBuilder->CreateBr(hdr_bb);
+
+  theBuilder->SetInsertPoint(done_bb);
+}
+
+void
 StyioToLLVM::release_bounded_ring_cstr_storage(const std::string& name) {
   auto arr_it = mutable_variables.find(name);
   auto pending_it = bounded_ring_pending_slot_.find(name);
@@ -3557,7 +3700,16 @@ StyioToLLVM::release_bounded_ring_cstr_storage(const std::string& name) {
   }
   auto* arr_ty = llvm::dyn_cast<llvm::ArrayType>(arr_it->second->getAllocatedType());
   auto* pending_ty = llvm::dyn_cast<llvm::ArrayType>(pending_it->second->getAllocatedType());
-  if (arr_ty == nullptr || pending_ty == nullptr || !arr_ty->getElementType()->isPointerTy()) {
+  if (arr_ty == nullptr || pending_ty == nullptr) {
+    return;
+  }
+  auto handle_family_it = bounded_ring_handle_family_.find(name);
+  if (handle_family_it != bounded_ring_handle_family_.end()) {
+    release_bounded_ring_handle_array(arr_ty, arr_it->second, cap_it->second, handle_family_it->second, name + ".ring");
+    release_bounded_ring_handle_array(pending_ty, pending_it->second, cap_it->second, handle_family_it->second, name + ".pending");
+    return;
+  }
+  if (!arr_ty->getElementType()->isPointerTy()) {
     return;
   }
   release_bounded_ring_cstr_array(arr_ty, arr_it->second, cap_it->second, name + ".ring");
