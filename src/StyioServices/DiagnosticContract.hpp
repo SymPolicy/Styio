@@ -33,6 +33,8 @@ inline constexpr std::string_view kSemaImmutableBinding = "STYIO_SEMA_IMMUTABLE_
 inline constexpr std::string_view kTypeError = "STYIO_TYPE_ERROR";
 inline constexpr std::string_view kTypeUnsupportedTupleReturn =
   "STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN";
+inline constexpr std::string_view kTypeStreamHashTagRouteUnsupported =
+  "STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED";
 inline constexpr std::string_view kTypeStreamZipUnsupportedSource =
   "STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE";
 inline constexpr std::string_view kLowerUnsupportedAst = "STYIO_LOWER_UNSUPPORTED_AST";
@@ -156,6 +158,9 @@ classify_type_or_lowering_code(std::string_view message) {
   }
   if (contains(message, "tuple function return annotations require tuple value IR")) {
     return std::string(kTypeUnsupportedTupleReturn);
+  }
+  if (contains(message, "iterator sequence hash-tag routing is not implemented")) {
+    return std::string(kTypeStreamHashTagRouteUnsupported);
   }
   if (contains(message, "zip requires iterable inputs on both sides")) {
     return std::string(kTypeStreamZipUnsupportedSource);

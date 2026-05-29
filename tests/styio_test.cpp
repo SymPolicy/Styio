@@ -5558,7 +5558,7 @@ TEST(StyioDiagnostics, StreamZipUnsupportedSourceReportsFeatureCode) {
   fs::remove(input);
 }
 
-TEST(StyioDiagnostics, IteratorSequenceHashTagRoutingFailsClosed) {
+TEST(StyioDiagnostics, IteratorSequenceHashTagRoutingReportsFeatureCode) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -5584,11 +5584,15 @@ TEST(StyioDiagnostics, IteratorSequenceHashTagRoutingFailsClosed) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 4);
   EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE_ERROR\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"type\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("\"code\":\"STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED\""),
+    std::string::npos);
   EXPECT_NE(
     result.stdout_text.find("iterator sequence hash-tag routing is not implemented"),
     std::string::npos
   );
+  EXPECT_EQ(result.stdout_text.find("\n99\n"), std::string::npos);
 
   fs::remove(input);
 }
