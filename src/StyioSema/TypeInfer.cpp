@@ -3165,6 +3165,22 @@ StyioSemaContext::typeInfer(AttrAST* ast) {
     return;
   }
   const std::string family = resource_family_for_expr(this, ast->body);
+  if (attr_str == "pressure") {
+    std::string pressure_family = family;
+    if (pressure_family.empty()) {
+      if (auto* name = dynamic_cast<NameAST*>(ast->body)) {
+        if (resource_binding_types_.find(name->getAsStr()) != resource_binding_types_.end()) {
+          pressure_family = "resource";
+        }
+      }
+    }
+    if (pressure_family.empty()) {
+      throw StyioTypeError("pressure observer requires a resource family that exposes a pressure stream");
+    }
+    throw StyioTypeError(
+      "resource family @" + pressure_family + " does not expose pressure stream: .pressure"
+    );
+  }
   if (!family.empty()) {
     const ResourceMethodInfo* method = find_resource_method(family, attr_str);
     if (method != nullptr && method->property) {

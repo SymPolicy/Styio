@@ -1714,6 +1714,36 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectResourceMethodStatement
   EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesPressureObserverStatementToSemaBoundary) {
+  const std::string src =
+    "@channel : i64|..4|\n"
+    "channel.pressure >> #(p) => {\n"
+    "  >_(p)\n"
+    "}\n";
+
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.iterator"), std::string::npos) << repr;
+  EXPECT_NE(repr.find("styio.ast.attr"), std::string::npos) << repr;
+  EXPECT_NE(repr.find("channel.pressure"), std::string::npos) << repr;
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsPressureObserverBeforeResourceFamilySupport) {
+  const std::string src =
+    "@channel : i64|..4|\n"
+    "channel.pressure >> #(p) => {\n"
+    "  >_(p)\n"
+    "}\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected pressure observer to fail closed before resource-family support";
+  }
+  catch (const StyioTypeError& err) {
+    const std::string msg = err.what();
+    EXPECT_NE(msg.find("resource family @resource does not expose pressure stream"), std::string::npos) << msg;
+  }
+}
+
 TEST(StyioSecurityNightlyCodegen, ReturnRunsFileScopeCleanupBeforeRet) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
