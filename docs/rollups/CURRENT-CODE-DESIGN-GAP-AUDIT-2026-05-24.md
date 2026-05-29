@@ -359,6 +359,11 @@ Current implementation reality:
    slice, snapshot, and selector-copy values, and
    `t11_topology_selector_snapshot_char.styio` proves bounded `char` latest,
    slice, snapshot, and selector-copy values with `list[char]` rendering.
+   `StyioTopologyV2.ResourceSelectorSnapshotIteratorUsesMaterializedValues`
+   proves `@price[...] >> #(v)` and `@price[-2..] >> #(v)` iterate over the
+   materialized history values instead of a constant-literal fallback, while
+   `StyioTopologyV2.ResourceScalarSelectorIteratorFailsClosed` keeps
+   `@price[-1] >> ...` rejected as a non-iterable scalar latest read.
    Adjacent negative fixtures reject selectors deeper than the declared history
    bound and unsupported bounded `matrix` snapshots.
 5. Explicit selector copy now has the first executable bounded-selector slice:
@@ -379,8 +384,9 @@ Current implementation reality:
 
 Impact: the prior silent scalar/latest-resource collapse is closed for bounded
 `i64`, `f64`, `bool`, `char`, and `string` resource selectors, including explicit copy
-from their slice/snapshot selectors, and materialized list/dict/matrix handle
-cloning is closed for `copy << source`. Broader selector closure still needs
+from their slice/snapshot selectors and iterator execution over materialized
+selector snapshots, and materialized list/dict/matrix handle cloning is closed
+for `copy << source`. Broader selector closure still needs
 unsupported tuple/list/dict/matrix value-family history storage,
 unbounded sequence snapshot policy, and broader type-directed `<<` copy/clone
 semantics for file, topology-resource, and future resource families

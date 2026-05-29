@@ -200,7 +200,10 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   `@name[-n..]` and `@name[...]` materialize typed list snapshots from explicit
   history reads. Char rings store `i8` values and materialized `list[char]`
   snapshots render escaped char literals; string selector rings own cloned cstr
-  values and release them on overwrite or scope cleanup. Selectors that exceed
+  values and release them on overwrite or scope cleanup. Bounded selector
+  snapshots also feed iterator tails through the runtime-list path, while scalar
+  latest selectors such as `@name[-1] >> ...` stay rejected as non-iterable
+  inputs. Selectors that exceed
   the declared bound, use non-bounded resource shapes, or require unsupported
   tuple/list/dict/matrix history storage remain fail-closed until their
   resource-family storage semantics are implemented.

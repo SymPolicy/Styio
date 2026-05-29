@@ -46,7 +46,7 @@
 | Sink write | `expr -> @price` | Produces a pending write against the current resource context. |
 | Resource block | `resource >> { ... }` / `resource >> #(x) => { ... }` | Enters a snapshot at `>>`; commits snapshot result at `}`. Chained block stages commit once per block. |
 | Latest read | `@price[-1]` | Reads committed resource state or the current block snapshot. |
-| Slice read | `@price[-3..]`, `@price[...]` | Resource-object selectors. |
+| Slice read | `@price[-3..]`, `@price[...]` | Resource-object selectors; bounded selector snapshots materialize iterable lists, while scalar latest reads remain non-iterable. |
 | Stdin pull | `value <- @stdin` | Untyped scalar pull. |
 | Typed stdin pull | `a, b <- @stdin : (f64, f64)` | Tuple/list/scalar forms share the stdin-pull path. |
 | Stdin iteration | `@stdin >> #(line) => { ... }` | `@stdin` is read-only for data flow; explicit resource operations may still release it. |
