@@ -192,9 +192,13 @@ Current implementation reality:
    returned value type, direct calls such as `log.answer()` no longer lower an
    inlined `SGReturn` into expression context, and
    `result = ?| log.answer() | fallback` returns the successful method value
-   while keeping fallback type mismatches fail-closed. Multi-statement resource
-   method returns intentionally fail closed before lowering until arbitrary
-   method-body value semantics are implemented.
+   while keeping fallback type mismatches fail-closed. When that single returned
+   expression is a file instant pull, `result = ?| log.read_missing() | fallback`
+   now recovers `STYIO_RUNTIME_FILE_OPEN_READ` through catch-all fallback or a
+   matched `io => handler`, and no-fallback settlement stops before the
+   following statement. Multi-statement resource method returns intentionally
+   fail closed before lowering until arbitrary method-body value semantics are
+   implemented.
    Parser/Sema keep `?| op | ...` statement-only, reject statement-shaped write
    operations where a value is required, reject fallback type mismatches, and
    keep dict/matrix slice-shaped resource-effect values fail-closed until those
@@ -203,7 +207,8 @@ Current implementation reality:
    arbitrary resource operations beyond the covered file/stdin instant pulls,
    materialized container index/row reads, materialized list slices, and simple
    resource-method single-return bodies, no recovery model for failing
-   value-producing resource methods or multi-statement method returns, no
+   value-producing resource methods beyond the returned file instant-pull
+   failure slice or for multi-statement method returns, no
    fallback recovery model for implicit cleanup, no cleanup-failure coverage for
    broader reassignment cleanup, no cleanup families beyond file close, no
    resource family that emits a non-failure
@@ -230,13 +235,15 @@ single-return resource-effect expressions now cover the first typed
 success/fallback/handler value paths, including explicit-target stdin `f64`,
 `string`, typed-list pulls, and `bounds` recovery for
 `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, and
-`STYIO_RUNTIME_MATRIX_INDEX` under `?|`, while direct `log.answer()` resource
-method calls no longer abort lowering.
+`STYIO_RUNTIME_MATRIX_INDEX` under `?|`; simple resource methods that return a
+file instant pull also recover matched `io` failures under `?|`, while direct
+`log.answer()` resource method calls no longer abort lowering.
 Implicit cleanup fallback recovery, broader reassignment cleanup,
 broader resource-family cleanup, non-failure backpressure
 observation/escalation, pressure observers, broader post-acquire resource
 operations beyond the covered file iterator, close-method, and write-method
-paths, failing or multi-statement value-producing resource methods, and
+paths, failing value-producing resource methods beyond returned file instant
+pulls, multi-statement value-producing resource methods, and
 arbitrary value-producing resource-effect recovery remain design-fixed but
 unfinished.
 
@@ -577,7 +584,17 @@ These should not be counted as missing implementation in this checkout:
    before the following statement, while `StyioSecurityNightlyParserStmt` /
    `StyioSecurityNightlySemantics` prove parser/codegen routing, fallback type
    checking, and the adjacent dict-slice resource-effect boundary.
-15. Match case semantics no longer bypass Sema before lowering. `MatchCasesAST`
+15. Simple value-producing resource methods are no longer excluded from the
+   first non-task `?|` value path. `StyioResourceEffects` proves direct
+   `log.answer()` and `result = ?| log.answer() | fallback` return simple
+   single-`<| expr` method values without lowering an expression-context
+   `SGReturn`, fallback type mismatches fail closed, and multi-statement method
+   returns are rejected before lowering. The same group now proves a method
+   whose single return is a file instant pull can recover a returned
+   `STYIO_RUNTIME_FILE_OPEN_READ` through catch-all fallback or a matched
+   `io` handler, while no-fallback settlement fails before the following
+   statement.
+16. Match case semantics no longer bypass Sema before lowering. `MatchCasesAST`
    stores the inferred scalar/string result family, function-body inference runs
    with a recursion guard so function match sugar is checked when called, and
    each match arm/default is inferred in an isolated branch scope. Runtime smoke
@@ -595,9 +612,11 @@ These should not be counted as missing implementation in this checkout:
    negative evidence. Plain file acquire/write/release, direct file iterator
    open, and same-path alias closed-handle failures now settle at ordinary
    statement boundaries outside `?|`, and file/stdin instant-pull plus materialized
-   container-index/list-slice resource-effect expressions now return typed
+   container-index/list-slice resource-effect expressions and simple
+   value-producing resource methods now return typed
    success/fallback/handler values, including explicit-target stdin `f64`,
-   `string`, typed-list values, list slices, and list/dict/matrix `bounds` recovery. Resource
+   `string`, typed-list values, list slices, list/dict/matrix `bounds`
+   recovery, and returned file instant-pull `io` recovery. Resource
    method calls now enter statement `?|` settlement for direct file close
    success, fallback/`io` recovery, and no-fallback failure; statement-shaped
    file acquire now covers fallback/`io` recovery, successful acquire followed by
