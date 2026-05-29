@@ -663,6 +663,16 @@ These should not be counted as missing implementation in this checkout:
    undefined match arm values, unsupported container branch results, and
    branch-local binding leakage for both ordinary match expressions and function
    match sugar.
+17. Stream zip unsupported-source diagnostics are no longer only the broad
+    `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies the stable
+    non-iterable zip message as `STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE`, while
+    `StyioDiagnostics.StreamZipUnsupportedSourceReportsFeatureCode` and
+    `StyioStreamZip.ResourceScalarSelectorFailsClosedAsZipInput` prove ordinary
+    scalar inputs and scalar resource selectors still fail closed with the
+    feature-owned JSONL code. This is diagnostic refinement only; duplicate
+    `@stdin & @stdin`, hash-tag stream routes, snapshot joins, pressure policy,
+    and broader stream-driver semantics remain at their existing open or
+    pending boundaries.
 
 ## Recommended Closure Order
 
