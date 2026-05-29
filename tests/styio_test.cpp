@@ -6722,7 +6722,7 @@ TEST(StyioResourceEffects, ValueResourceMethodReturnsFromDirectAndResourceEffect
   fs::remove(data);
 }
 
-TEST(StyioResourceEffects, RejectsResourceMethodValueFallbackTypeMismatch) {
+TEST(StyioResourceEffects, ResourceMethodValueFallbackTypeMismatchReportsTypeCode) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -6742,6 +6742,7 @@ TEST(StyioResourceEffects, RejectsResourceMethodValueFallbackTypeMismatch) {
     out << "log := @file(\"" << data.generic_string() << "\")\n";
     out << "result = ?| log.answer() | \"bad\"\n";
     out << ">_(result)\n";
+    out << ">_(\"after\")\n";
   }
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -6757,14 +6758,18 @@ TEST(StyioResourceEffects, RejectsResourceMethodValueFallbackTypeMismatch) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE_ERROR\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"type\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("\"code\":\"STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH\""),
+    std::string::npos);
   EXPECT_NE(result.stdout_text.find("resource-effect fallback expects int, got string"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
 
   fs::remove(input);
   fs::remove(data);
 }
 
-TEST(StyioResourceEffects, RejectsMultiStmtResourceMethodReturnBeforeLowering) {
+TEST(StyioResourceEffects, ResourceMethodMultiStmtReturnReportsSemaCode) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -6786,6 +6791,7 @@ TEST(StyioResourceEffects, RejectsMultiStmtResourceMethodReturnBeforeLowering) {
     out << "}\n";
     out << "log := @file(\"" << data.generic_string() << "\")\n";
     out << ">_(log.answer())\n";
+    out << ">_(\"after\")\n";
   }
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -6801,8 +6807,12 @@ TEST(StyioResourceEffects, RejectsMultiStmtResourceMethodReturnBeforeLowering) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE_ERROR\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"sema\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("\"code\":\"STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY\""),
+    std::string::npos);
   EXPECT_NE(result.stdout_text.find("resource method return currently requires a single"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
 
   fs::remove(input);
   fs::remove(data);
