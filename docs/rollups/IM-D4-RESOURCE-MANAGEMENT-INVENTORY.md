@@ -101,18 +101,21 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   returns cloned stdin lines, and `result: list[i64] = ?| (<- @stdin) | fallback`
   materializes typed stdin list values or recovers list-parse failures through
   fallback. `result = ?| xs[i] | fallback`, `result = ?| xs[0..] | fallback`,
-  `result = ?| d[key] | fallback`, `result = ?| m[row][col] | fallback`, and
+  `result = ?| d[key] | fallback`, `values = ?| d[start..end] | fallback`,
+  `result = ?| m[row][col] | fallback`, and
   `row = ?| m[row] | fallback` return successful materialized container values;
   `rows = ?| m[start..end] | fallback` returns a materialized row-range
   `list[list[T]]`. These paths recover `STYIO_RUNTIME_LIST_INDEX`,
   `STYIO_RUNTIME_DICT_KEY`, or `STYIO_RUNTIME_MATRIX_INDEX` through catch-all
   fallback or a matched `bounds => handler`, and fail fast without fallback.
-  Plain `xs[i]`, `xs[0..]`, `d[key]`, `m[row][col]`, and `m[start..end]`
+  Ordered dict value slices lower through `d.values` plus `SCListSlice`, so
+  out-of-range slice bounds use `STYIO_RUNTIME_LIST_INDEX` / `bounds` while key
+  lookup still uses `STYIO_RUNTIME_DICT_KEY`. Plain `xs[i]`, `xs[0..]`,
+  `d[key]`, `d[start..end]`, `m[row][col]`, and `m[start..end]`
   outside `?|` now have the same default runtime guards before the following
   statement. Expression
-  discard remains rejected, statement-shaped write operations remain rejected
-  where a value is required, and dict slice-shaped resource-effect values stay
-  fail-closed until ordered dict-slice semantics have their own checkpoint.
+  discard remains rejected, and statement-shaped write operations remain rejected
+  where a value is required.
   User-defined resource methods with a single `<| expr` body now carry that
   expression's inferred result type, direct calls such as `log.answer()` return
   the inlined value without emitting an expression-context `SGReturn`, and
@@ -131,13 +134,13 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   values, recovers `STYIO_RUNTIME_NUMERIC_PARSE` through catch-all fallback or a
   matched `parse` handler, and fails fast without fallback. When that returned
   expression is a materialized list index, materialized list slice, inline
-  dict index, or typed-parameter matrix cell/row or row-range slice read,
+  dict index, ordered dict value slice, or typed-parameter matrix cell/row or row-range slice read,
   `?| method() | fallback`
   recovers `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, or
   `STYIO_RUNTIME_MATRIX_INDEX` through catch-all fallback or a matched
   `bounds` handler, and no-fallback dict-key or matrix-index settlement fails
   before the following statement. Multi-statement resource method returns,
-  resource-method lexical/global captures, dict slice-shaped method returns,
+  resource-method lexical/global captures,
   and failing value-producing resource-method recovery beyond the
   covered returned file/stdin instant pulls plus returned list/dict/matrix
   bounds slices remain open.
@@ -363,14 +366,14 @@ when a stale same-path alias uses that zeroed slot. The file/stdin instant-pull
 and materialized container-index/list-slice paths now cover the first value-producing
 success/fallback/handler paths for non-task `?|` expressions, including
 explicit-target stdin `f64`, `string`, typed-list values, list/dict/matrix
-`bounds` recovery, and returned matrix cell/row or row-range-slice bounds from
+`bounds` recovery, ordered dict value-slice recovery through `d.values` plus
+the list-slice bounds path, and returned matrix cell/row or row-range-slice bounds from
 typed resource method parameters. Source-level fallback recovery for implicit
 cleanup failures, non-file reassignment cleanup failures, release/commit hooks,
 non-file resource-family cleanup effects, pressure-observer runtime streams,
 using a handle acquired inside statement `?|` as a later
 resource operation beyond the covered file iterator, close-method, and
-write-method paths, dict
-slice-shaped bounds recovery, and arbitrary value-producing resource operations
+write-method paths, and arbitrary value-producing resource operations
 still require separate implementation and tests.
 
 ### Fallible Operations
@@ -437,7 +440,7 @@ returned `STYIO_RUNTIME_FILE_OPEN_READ` through fallback or matched `io`
 handlers under `?|`; they may also return canonical `(<- @stdin)` and recover
 returned `STYIO_RUNTIME_NUMERIC_PARSE` through fallback or matched `parse`
 handlers under `?|`, or return materialized list index/list-slice, inline
-dict-index, or typed-parameter matrix cell/row or row-range slice expressions
+dict-index, ordered dict value-slice, or typed-parameter matrix cell/row or row-range slice expressions
 that recover
 returned `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, or
 `STYIO_RUNTIME_MATRIX_INDEX` through fallback or matched `bounds` handlers
@@ -458,8 +461,7 @@ Broader resource families, cleanup/drop hooks,
 pressure-observer payloads and runtime execution, failing value-producing resource methods beyond returned
 file/stdin instant pulls and returned list/dict/matrix bounds slices,
 multi-statement value-producing resource methods, resource-method lexical/global
-captures, dict
-slice-shaped bounds recovery, and other non-instant-pull
+captures, and other non-instant-pull
 value-returning resource operations must remain separately implemented and
 tested before the full typed resource-effect model is closed.
 
