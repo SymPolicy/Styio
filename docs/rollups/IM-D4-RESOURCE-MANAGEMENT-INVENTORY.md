@@ -123,6 +123,10 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   while rejecting fallback type mismatches. Returned bool, f64, char, string,
   and format-string expressions preserve their value family through direct calls
   and guarded value paths, including `@file::summary = (x: int) => { <| $"value={x + 1}" }`.
+  Returned match expressions such as `@file::pick = (x: int) => { <| x ?= { 0 => 'a' _ => 'b' } }`
+  preserve the current `i64`/`f64`/`bool`/`char`/`string` match result families
+  through direct calls and guarded value paths; returned container match results
+  remain rejected before lowering.
   Returned dynamic range literals such as `<| [start..stop..step]` inline as
   ordinary `list[i64]` success values and still reject non-integer bounds before lowering.
   Returned value-producing resource-effect expressions such as
@@ -438,7 +442,9 @@ Accepted resource fallback decision:
 Implementation note: the current value-producing non-task slices are limited to
 file instant pulls, stdin instant pulls, materialized container index/row
 reads, materialized list slices, and user-defined resource methods whose body is
-a single `<| expr` return. File
+a single `<| expr` return. Returned match expressions preserve the current
+scalar/string match result families, while returned container match results
+remain fail-closed. File
 instant pulls still return `i64`; stdin instant pulls now cover the untyped
 `i64` path plus explicit-target `f64`, `string`, and supported typed-list paths
 under `?|` expression recovery. Materialized list, dict, and matrix indexing

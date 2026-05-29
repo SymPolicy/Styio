@@ -62,10 +62,10 @@ Real compiler/runtime surfaces:
 4. Direct unsupported AST lowering now fails closed or lowers intentional empty
    forms to `SGNoOp`; codegen verifier gating and security tests are present.
 5. Accepted single-quoted `char` literals, format strings, dynamic range
-   literals, value-producing resource-effect expressions, and single-return list/dict/matrix container bounds expressions are
+   literals, match expressions, value-producing resource-effect expressions, and single-return list/dict/matrix container bounds expressions are
    executable in ordinary expressions and in user-defined resource method bodies
    after inlining. The resource-method body parser now admits the same
-   `CharAST`, `FmtStrAST`, `RangeAST`, value-producing `ResourceEffectAST`,
+   `CharAST`, `FmtStrAST`, `RangeAST`, `MatchCasesAST`, value-producing `ResourceEffectAST`,
    list index/slice, inline `dict{...}` index, and typed-parameter matrix
    cell/row or row-range slice value shapes, and `StateExprCloneVisitor` clones
    them instead of reporting an unsupported inlined state expression.
@@ -224,6 +224,11 @@ Current implementation reality:
    `@file::summary = (x: int) => { <| $"value={x + 1}" }`. Returned dynamic
    range literals such as `<| [start..stop..step]` inline as ordinary `list[i64]`
    success values and keep non-integer range bounds fail-closed before lowering.
+   Returned match expressions such as
+   `@file::pick = (x: int) => { <| x ?= { 0 => 'a' _ => 'b' } }` preserve
+   `i64`/`f64`/`bool`/`char`/`string` result families through direct calls and
+   guarded value paths, while returned container match results still fail closed
+   before lowering.
    Returned value-producing resource-effect expressions such as
    `<| ?| (<< @file("data.txt")) | io => 8 | 7` now parse through the nightly method
    body path, preserve their inferred result type during inline cloning, return
@@ -433,25 +438,27 @@ This is mostly good failure behavior, but it is still a design gap wherever the
 surface appears in active docs, EBNF, examples, or parser support.
 
 Closed evidence inside this gap: resource method bodies now accept and inline
-single-byte `char` literals, format strings, scalar leaf values, and dynamic range literals.
+single-byte `char` literals, format strings, scalar leaf values, match
+expressions, and dynamic range literals.
 `@file::marker = () => { >_('x') }`,
 `@file::summary = () => { $"value={1 + 2}" -> @stdout }`, and
 `@file::flag = () => { <| true }`,
 `@file::ratio = () => { <| 1.5 }`,
 `@file::word = () => { <| "ok" }`,
 `@file::summary = (x: int) => { <| $"value={x + 1}" }`,
+`@file::pick = (x: int) => { <| x ?= { 0 => 'a' _ => 'b' } }`,
 `@file::span = (start: int, stop: int, step: int) => { <| [start..stop..step] }`,
 and `@file::read_or = () => { <| ?| (<< @file("data.txt")) | io => 8 | 7 }`
 run after resource method calls or under `?| method() | fallback`, while
 `@file::marker = () => { >_('xy') }`,
 `@file::summary = () => { $"value={1 + 2" -> @stdout }`, and
-returned resource-effect discard or non-integer range bounds fail closed; returned format-string fallback type
+returned resource-effect discard, returned container match results, or non-integer range bounds fail closed; returned format-string fallback type
 mismatches also report `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH`. Single-return resource methods returning
 materialized list index/list-slice, inline dict-index, ordered dict value-slice,
 or typed-parameter matrix cell/row or row-range slice expressions also inline
 through `ListAST`/`ListOpAST` and `DictAST` clone paths with type metadata
 preserved, while unimplemented lexical/global capture shapes stay fail-closed.
-That closes only the `IntAST`, `BoolAST`, `FloatAST`, `StringAST`, `CharAST`, `FmtStrAST`, `RangeAST`, `ResourceEffectAST`, and returned
+That closes only the `IntAST`, `BoolAST`, `FloatAST`, `StringAST`, `CharAST`, `FmtStrAST`, `RangeAST`, `MatchCasesAST`, `ResourceEffectAST`, and returned
 list/dict/matrix bounds resource-method inline-clone slices of the state inline
 clone surface; other accepted AST families still need source-reachable evidence
 before the unsupported clone fallback can be retired.
@@ -701,8 +708,10 @@ These should not be counted as missing implementation in this checkout:
    first non-task `?|` value path. `StyioResourceEffects` proves direct
    `log.answer()` and `result = ?| log.answer() | fallback` return simple
    single-`<| expr` method values without lowering an expression-context
-   `SGReturn`, fallback type mismatches fail closed, and multi-statement method
-   returns are rejected before lowering. The same group now proves a method
+   `SGReturn`, scalar/string match-expression return families preserve their
+   inferred type while returned container match results fail closed, fallback
+   type mismatches fail closed, and multi-statement method returns are rejected
+   before lowering. The same group now proves a method
    whose single return is a file instant pull can recover a returned
    `STYIO_RUNTIME_FILE_OPEN_READ` through catch-all fallback or a matched
    `io` handler, while no-fallback settlement fails before the following
@@ -714,8 +723,8 @@ These should not be counted as missing implementation in this checkout:
    branch scope. Runtime smoke coverage keeps branch-local match tails executable
    and preserves `bool`/`char` print behavior, while security coverage rejects
    undefined match arm values, unsupported container branch results, and
-   branch-local binding leakage for both ordinary match expressions and function
-   match sugar.
+   branch-local binding leakage for ordinary match expressions, source-reachable
+   single-return resource method match bodies, and function match sugar.
 17. Stream zip unsupported-source diagnostics are no longer only the broad
     `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies the stable
     non-iterable zip message as `STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE`, while
