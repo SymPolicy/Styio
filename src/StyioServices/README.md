@@ -25,7 +25,7 @@ The complete service inventory is [MANIFEST.md](./MANIFEST.md).
 
 ## Diagnostic Contract
 
-All public service diagnostics use the shared taxonomy in [DiagnosticContract.hpp](./DiagnosticContract.hpp). Public codes follow `STYIO_<PHASE>_<ERROR_FAMILY>`, carry a stable public phase, and keep process exit codes coarse. CLI JSONL type diagnostics include feature-owned refinements such as `STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE` when a focused compiler family owns the condition. IDE and LSP diagnostics preserve compiler/service codes when they come from compiler-owned facts, and use service/editor codes for editor-only interaction diagnostics.
+All public service diagnostics use the shared taxonomy in [DiagnosticContract.hpp](./DiagnosticContract.hpp). Public codes follow `STYIO_<PHASE>_<ERROR_FAMILY>`, carry a stable public phase, and keep process exit codes coarse. CLI JSONL sema/type diagnostics include feature-owned refinements such as `STYIO_SEMA_IMMUTABLE_BINDING` and `STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE` when a focused compiler family owns the condition. IDE and LSP diagnostics preserve compiler/service codes when they come from compiler-owned facts, and use service/editor codes for editor-only interaction diagnostics.
 
 ## Use
 

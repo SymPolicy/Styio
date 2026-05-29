@@ -66,6 +66,7 @@ Key handoff document:
 32. Nano negative-path coverage must track the compiler-owned handoff surface, not package-manager UX. Keep malformed repository markers and entries, malformed cloud manifests, blob hash/size mismatches, remote publish roots, create/publish mutual exclusion, missing nano mode selection, and create-only/publish-only option mixups covered by `StyioNanoPackage.*` tests before broadening static repository behavior.
 33. Compile-plan v1 malformed-input hardening must stay inside the resolved compiler request envelope: explicit optional fields with the wrong shape should fail instead of silently defaulting, package entries must have compiler-visible `id` fields, and `entry.package_id` must be present in the package list. Do not add resolver, install, registry, or package lifecycle behavior to close those compiler-side guards.
 34. When a public JSONL diagnostic family is narrowed from a broad fallback such as `STYIO_TYPE_ERROR`, add the code and classifier in `DiagnosticContract.hpp`, keep the process exit family stable unless the contract explicitly changes, update focused CLI JSONL tests, and refresh the StyioServices docs plus IM-D3 inventory in the same checkpoint.
+35. Immutable/final binding mutation diagnostics are sema-family public facts even when they surface through the TypeError exit family. Keep `STYIO_SEMA_IMMUTABLE_BINDING`, phase `sema`, exit code 4, and the stable message fragment covered together when those classifier messages change.
 
 ## Change Classes
 

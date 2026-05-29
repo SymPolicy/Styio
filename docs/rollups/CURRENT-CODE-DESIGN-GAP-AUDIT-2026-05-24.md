@@ -673,6 +673,14 @@ These should not be counted as missing implementation in this checkout:
     `@stdin & @stdin`, hash-tag stream routes, snapshot joins, pressure policy,
     and broader stream-driver semantics remain at their existing open or
     pending boundaries.
+18. Immutable/final binding mutation diagnostics are no longer only the broad
+    `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies stable
+    final-binding mutation messages such as compound assignment to a final
+    binding as `STYIO_SEMA_IMMUTABLE_BINDING`, while
+    `StyioDiagnostics.CompoundAssignOnImmutableBindingReportsSemaCode` proves
+    the JSONL public phase is `sema`, the exit family remains TypeError, and
+    the stable message fragment is still present. This is diagnostic refinement
+    only; it does not broaden or change final-binding mutability semantics.
 
 ## Recommended Closure Order
 
