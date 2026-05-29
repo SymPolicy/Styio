@@ -1161,6 +1161,9 @@ resource_effect_operation_supported_latest(StyioSemaContext* an, StyioAST* ast) 
     (void)an;
     return dynamic_cast<FileResourceAST*>(acquire->getResource()) != nullptr;
   }
+  if (auto* bind = dynamic_cast<FlexBindAST*>(ast)) {
+    return dynamic_cast<FileResourceAST*>(bind->getValue()) != nullptr;
+  }
   if (dynamic_cast<ResourceWriteAST*>(ast) != nullptr
       || dynamic_cast<ResourceRedirectAST*>(ast) != nullptr
       || dynamic_cast<InstantPullAST*>(ast) != nullptr

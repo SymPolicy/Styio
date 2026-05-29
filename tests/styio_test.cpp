@@ -7843,6 +7843,104 @@ TEST(StyioResourceEffects, NamedCleanupHandlerRunsForFileCloseFailure) {
 #endif
 }
 
+TEST(StyioResourceEffects, FlexRebindFallbackRecoversFileOpenFailure) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-rebind-fallback-" + std::to_string(uniq) + ".styio");
+  const fs::path original =
+    fs::temp_directory_path() / ("styio-resource-effect-rebind-original-" + std::to_string(uniq) + ".txt");
+  const fs::path missing =
+    fs::temp_directory_path() / ("styio-resource-effect-rebind-missing-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(original);
+    ASSERT_TRUE(out.is_open());
+    out << "10\n20\n";
+  }
+  fs::remove(missing);
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "f = @file(\"" << original.generic_string() << "\")\n";
+    out << "?| f = @file(\"" << missing.generic_string()
+        << "\") | \"recovered\" -> @stdout\n";
+    out << "value = ?| (<< f) | closed => 99 | 7\n";
+    out << ">_(value)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "recovered\n99\nafter\n");
+  EXPECT_EQ(result.stdout_text.find("\n10\n"), std::string::npos);
+  EXPECT_FALSE(fs::exists(missing));
+
+  fs::remove(input);
+  fs::remove(original);
+}
+
+TEST(StyioResourceEffects, FlexRebindNamedIoHandlerRecoversFileOpenFailure) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-rebind-handler-" + std::to_string(uniq) + ".styio");
+  const fs::path original =
+    fs::temp_directory_path() / ("styio-resource-effect-rebind-handler-original-" + std::to_string(uniq) + ".txt");
+  const fs::path missing =
+    fs::temp_directory_path() / ("styio-resource-effect-rebind-handler-missing-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(original);
+    ASSERT_TRUE(out.is_open());
+    out << "10\n20\n";
+  }
+  fs::remove(missing);
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "f = @file(\"" << original.generic_string() << "\")\n";
+    out << "?| f = @file(\"" << missing.generic_string()
+        << "\") | parse => \"parse\" -> @stdout"
+        << " | io => \"io\" -> @stdout"
+        << " | \"fallback\" -> @stdout\n";
+    out << "value = ?| (<< f) | closed => 99 | 7\n";
+    out << ">_(value)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "io\n99\nafter\n");
+  EXPECT_EQ(result.stdout_text.find("parse"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("fallback"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\n10\n"), std::string::npos);
+  EXPECT_FALSE(fs::exists(missing));
+
+  fs::remove(input);
+  fs::remove(original);
+}
+
 TEST(StyioResourceEffects, IoHandlerDoesNotCatchFileCloseCleanupFailure) {
 #ifdef _WIN32
   GTEST_SKIP() << "/dev/full cleanup-failure fixture is Unix-specific";
