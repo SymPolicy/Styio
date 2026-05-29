@@ -141,6 +141,7 @@ Key SSOTs:
 105. For immutable/final binding diagnostic refinements, describe the change as a public diagnostic-code refinement only: record `STYIO_SEMA_IMMUTABLE_BINDING`, the final-binding mutation route that proves it, and the unchanged TypeError exit family without implying any new mutability behavior.
 106. For tuple return diagnostic refinements, describe the change as a public diagnostic-code refinement only: record `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN`, the tuple function return annotation route that proves it, and the unchanged TypeError exit family without implying tuple value IR or tuple return execution.
 107. For hash-tag iterator route diagnostic refinements, describe the change as a public diagnostic-code refinement only: record `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED`, the fail-closed `[1, 2] >> #tag` route that proves it, and the unchanged TypeError exit family without implying IM-D5-P1 stream route semantics.
+108. For resource-effect/resource-method diagnostic refinements, describe the change as a public diagnostic-code refinement only: record `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH`, `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY`, the stable fail-closed routes that prove them, and the unchanged TypeError exit family without implying broader resource-effect method bodies, captures, dict slices, pressure observers, or arbitrary recovery.
 
 ## Change Classes
 

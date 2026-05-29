@@ -700,6 +700,20 @@ These should not be counted as missing implementation in this checkout:
     execution still stops before the following statement. This is diagnostic
     refinement only; IM-D5-P1 still owns whether hash-tag routes are retired or
     defined, and no hash-tag route semantics are implemented.
+21. Resource-effect value and resource-method body diagnostics are no longer
+    only broad `STYIO_TYPE_ERROR` cases at two existing fail-closed boundaries.
+    `DiagnosticContract.hpp` now classifies stable resource-effect fallback
+    mismatch messages as `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH` and
+    unsupported multi-statement value-producing resource method bodies as
+    `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY`. The focused
+    `StyioResourceEffects.ResourceMethodValueFallbackTypeMismatchReportsTypeCode`
+    and `StyioResourceEffects.ResourceMethodMultiStmtReturnReportsSemaCode`
+    tests prove the public phases are `type` and `sema`, the TypeError exit
+    family remains stable, stable message fragments are present, and following
+    output does not execute. This is diagnostic refinement only; broader
+    resource method body semantics, resource-method captures, dict slice-shaped
+    recovery, pressure observers, and arbitrary resource-effect recovery remain
+    open.
 
 ## Recommended Closure Order
 
