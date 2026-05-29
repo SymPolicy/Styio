@@ -61,11 +61,11 @@ Real compiler/runtime surfaces:
    processing.
 4. Direct unsupported AST lowering now fails closed or lowers intentional empty
    forms to `SGNoOp`; codegen verifier gating and security tests are present.
-5. Accepted single-quoted `char` literals are executable in ordinary expressions
-   and in user-defined resource method bodies after inlining. The resource-method
-   body parser now admits the same `CharAST` literal shape, and
-   `StateExprCloneVisitor` clones it instead of reporting an unsupported inlined
-   state expression.
+5. Accepted single-quoted `char` literals and format strings are executable in
+   ordinary expressions and in user-defined resource method bodies after
+   inlining. The resource-method body parser now admits the same `CharAST` and
+   `FmtStrAST` value shapes, and `StateExprCloneVisitor` clones them instead of
+   reporting an unsupported inlined state expression.
 6. `@extern(c|c++)` is not just design prose: native interop feature tests and
    native executable build tests pass.
 7. The IDE/LSP core exists for completion, hover, definition, references,
@@ -339,11 +339,14 @@ This is mostly good failure behavior, but it is still a design gap wherever the
 surface appears in active docs, EBNF, examples, or parser support.
 
 Closed evidence inside this gap: resource method bodies now accept and inline
-single-byte `char` literals. `@file::marker = () => { >_('x') }` runs after a
-resource method call, while `@file::marker = () => { >_('xy') }` fails closed in
-the parser. That closes only the `CharAST` leaf-literal slice of the state inline
-clone surface; other accepted AST families still need source-reachable evidence
-before the unsupported clone fallback can be retired.
+single-byte `char` literals and format strings. `@file::marker = () => { >_('x') }`
+and `@file::summary = () => { $"value={1 + 2}" -> @stdout }` run after resource
+method calls, while `@file::marker = () => { >_('xy') }` and
+`@file::summary = () => { $"value={1 + 2" -> @stdout }` fail closed in the parser.
+That closes only the `CharAST` leaf-literal and `FmtStrAST` resource-method
+inline-clone slices of the state inline clone surface; other accepted AST
+families still need source-reachable evidence before the unsupported clone
+fallback can be retired.
 
 ### P1. Type semantics still contain recovery-era defaults
 
