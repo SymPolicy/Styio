@@ -497,7 +497,12 @@ f >> #(chunk: [byte; 4096]) => { buf += chunk }
 
 ### 8.5 Lifecycle: Scope-based RAII
 
-Resources are automatically released when their enclosing scope ends. The compiler inserts cleanup code at every exit path (including `^^` breaks and `<|` returns).
+Resources are automatically released when their enclosing scope ends. The
+compiler inserts cleanup code at every exit path, including normal scope exit,
+loop `^` / `>>` control-flow exits, and `<|` returns. Current implementation
+evidence covers tracked file handles for those paths; broader resource-family
+cleanup and source-level fallback recovery for implicit cleanup remain staged
+implementation work.
 
 ### 8.6 Persistence via Redirection: `->`
 

@@ -151,14 +151,17 @@ Current implementation reality:
    `SIOFileLineIter` checks the runtime error channel before treating a null
    line as normal EOF. `f1.close(); f2 >> #(line)` over a shared same-path file
    slot fails fast instead of silently continuing after the iterator.
-9. File scope-exit cleanup now covers the first explicit-return path for
-   tracked file handles. `SGReturn` emits active file-handle cleanup before the
-   LLVM `ret`, normal scope-pop cleanup checks the runtime error channel after
-   cleanup, and function-body codegen saves/restores resource scope state so
-   function-local cleanup stacks do not leak into later codegen. This is a
-   tracked-file cleanup settlement slice; fallback recovery for implicit
-   cleanup, failing reassignment cleanup, and non-file cleanup families remain
-   open.
+9. File scope-exit cleanup now covers tracked file handles on ordinary
+   scope-pop cleanup, explicit `<| return`, and loop control-flow exits.
+   `SGReturn` emits active file-handle cleanup before the LLVM `ret`, loop `^`
+   break and standalone `>>` continue branches clean the resource scopes they
+   bypass before jumping to the loop target, normal scope-pop cleanup checks the
+   runtime error channel after cleanup, and function-body codegen saves/restores
+   resource scope state so function-local cleanup stacks do not leak into later
+   codegen. File handle slots are entry allocated so same-path singleton reuse
+   across loop branches does not violate LLVM dominance. This is a tracked-file
+   cleanup settlement slice; fallback recovery for implicit cleanup, failing
+   reassignment cleanup, and non-file cleanup families remain open.
 10. Statement-shaped resource method calls now participate in resource-effect
    settlement. `?| @file("data.txt").close() | fallback` skips recovery after a
    successful open/close, missing direct file close recovers through catch-all
@@ -249,9 +252,10 @@ file acquire/write/release failures now fail fast before subsequent statements
 when no `?|` recovery wrapper is present, direct file iterators fail fast on open
 failure, successful direct file release continues normally, and same-path
 aliases now report closed-handle use instead of normal EOF after another alias
-closes the shared slot. Explicit returns and ordinary
-scope-pop exits now close tracked file handles before leaving the scope and
-settle cleanup failures at that boundary. Resource method calls such as
+closes the shared slot. Explicit returns, ordinary
+scope-pop exits, and loop break/continue exits now close tracked file handles
+before leaving the resource scope and settle cleanup failures at that boundary.
+Resource method calls such as
 direct file close and statement-shaped file handle acquire now enter the
 statement `?|` recovery path, including catch-all fallback, matched `io`
 handlers, no-fallback fail-fast settlement, and non-resource member-call
@@ -673,8 +677,9 @@ These should not be counted as missing implementation in this checkout:
    write method, or a later acquired-handle instant pull, no-fallback failure
    for file-open read errors, fail-closed later iterator, write-method, or
    instant-pull use after a recovered failed acquire, and
-   close-method receiver invalidation. Explicit returns now
-   close tracked file handles before leaving the function. The next slices must cover
+   close-method receiver invalidation. Explicit returns and loop break/continue
+   exits now close tracked file handles before leaving the function or loop
+   resource scope. The next slices must cover
    fallback recovery for implicit cleanup, reassignment cleanup, broader
    post-acquire resource operations beyond the covered file iterator,
    close-method, write-method, and acquired-handle instant-pull paths,

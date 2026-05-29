@@ -140,12 +140,15 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
 - Tracked file handles now have the first compiler-owned scope-exit cleanup
   settlement slice: explicit `<| return` closes active file-handle slots before
   emitting the LLVM `ret`, normal scope-pop cleanup checks the runtime error
-  channel after cleanup, and function codegen keeps function-local resource
-  scope stacks isolated from surrounding codegen. This covers tracked file
-  handles on ordinary scope pop and explicit return only; it does not yet
-  provide a source-level fallback recovery site for implicit cleanup failures,
-  failing reassignment cleanup, release/commit hooks, or non-file cleanup
-  families.
+  channel after cleanup, loop `^` break and standalone `>>` continue branches
+  clean the resource scopes they bypass before jumping to the loop target, and
+  function codegen keeps function-local resource scope stacks isolated from
+  surrounding codegen. File handle slots are allocated so later same-path
+  singleton reuse across loop branches still satisfies LLVM dominance. This
+  covers tracked file handles on ordinary scope pop, explicit return, and loop
+  break/continue exits only; it does not yet provide a source-level fallback
+  recovery site for implicit cleanup failures, failing reassignment cleanup,
+  release/commit hooks, or non-file cleanup families.
 - Bounded `i64`, `f64`, `bool`, `char`, and `string` resource selectors now have distinct
   executable value shapes: `@name[-n]` reads a scalar value, while
   `@name[-n..]` and `@name[...]` materialize typed list snapshots from explicit
@@ -321,8 +324,9 @@ slice also releases a tracked file handle before `name = @file(...)` overwrites
 the owner, clears consumed-receiver state after a successful resource rebind, and
 reopens a same-path singleton slot that an explicit close left at zero. Tracked
 file handles are now also closed on explicit `<| return` before the LLVM return,
-and normal scope-pop cleanup checks for cleanup failures after the cleanup
-boundary. The file
+normal scope-pop cleanup checks for cleanup failures after the cleanup boundary,
+and loop `^` / `>>` exits clean the tracked file scopes they bypass before
+branching. The file
 iterator closed-handle slice reports a structured `closed`-family diagnostic
 when a stale same-path alias uses that zeroed slot. The file/stdin instant-pull
 and materialized container-index/list-slice paths now cover the first value-producing
