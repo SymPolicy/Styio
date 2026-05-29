@@ -61,13 +61,14 @@ Real compiler/runtime surfaces:
    processing.
 4. Direct unsupported AST lowering now fails closed or lowers intentional empty
    forms to `SGNoOp`; codegen verifier gating and security tests are present.
-5. Accepted single-quoted `char` literals, format strings, and single-return
-   list/dict/matrix container bounds expressions are executable in ordinary
-   expressions and in user-defined resource method bodies after inlining. The
-   resource-method body parser now admits the same `CharAST`, `FmtStrAST`, list
-   index/slice, inline `dict{...}` index, and typed-parameter matrix cell/row or
-   row-range slice value shapes, and `StateExprCloneVisitor` clones them instead
-   of reporting an unsupported inlined state expression.
+5. Accepted single-quoted `char` literals, format strings, dynamic range
+   literals, and single-return list/dict/matrix container bounds expressions are
+   executable in ordinary expressions and in user-defined resource method bodies
+   after inlining. The resource-method body parser now admits the same
+   `CharAST`, `FmtStrAST`, `RangeAST`, list index/slice, inline `dict{...}`
+   index, and typed-parameter matrix cell/row or row-range slice value shapes,
+   and `StateExprCloneVisitor` clones them instead of reporting an unsupported
+   inlined state expression.
 6. `@extern(c|c++)` is not just design prose: native interop feature tests and
    native executable build tests pass.
 7. The IDE/LSP core exists for completion, hover, definition, references,
@@ -217,7 +218,10 @@ Current implementation reality:
    returned value type, direct calls such as `log.answer()` no longer lower an
    inlined `SGReturn` into expression context, and
    `result = ?| log.answer() | fallback` returns the successful method value
-   while keeping fallback type mismatches fail-closed. When that single returned
+   while keeping fallback type mismatches fail-closed. Returned dynamic range
+   literals such as `<| [start..stop..step]` inline as ordinary `list[i64]`
+   success values and keep non-integer range bounds fail-closed before lowering.
+   When that single returned
    expression is a file instant pull, `result = ?| log.read_missing() | fallback`
    now recovers `STYIO_RUNTIME_FILE_OPEN_READ` through catch-all fallback or a
    matched `io => handler`, and no-fallback settlement stops before the
@@ -420,18 +424,22 @@ This is mostly good failure behavior, but it is still a design gap wherever the
 surface appears in active docs, EBNF, examples, or parser support.
 
 Closed evidence inside this gap: resource method bodies now accept and inline
-single-byte `char` literals and format strings. `@file::marker = () => { >_('x') }`
-and `@file::summary = () => { $"value={1 + 2}" -> @stdout }` run after resource
-method calls, while `@file::marker = () => { >_('xy') }` and
-`@file::summary = () => { $"value={1 + 2" -> @stdout }` fail closed in the parser.
-Single-return resource methods returning materialized list index/list-slice,
-inline dict-index, ordered dict value-slice, or typed-parameter matrix cell/row or row-range slice
-expressions also inline through `ListAST`/`ListOpAST` and `DictAST` clone paths
-with type metadata preserved, while unimplemented
-lexical/global capture shapes stay fail-closed. That closes only the `CharAST`,
-`FmtStrAST`, and returned list/dict/matrix bounds resource-method inline-clone slices of the state
-inline clone surface; other accepted AST families still need source-reachable
-evidence before the unsupported clone fallback can be retired.
+single-byte `char` literals, format strings, and dynamic range literals.
+`@file::marker = () => { >_('x') }`,
+`@file::summary = () => { $"value={1 + 2}" -> @stdout }`, and
+`@file::span = (start: int, stop: int, step: int) => { <| [start..stop..step] }`
+run after resource method calls or under `?| method() | fallback`, while
+`@file::marker = () => { >_('xy') }`,
+`@file::summary = () => { $"value={1 + 2" -> @stdout }`, and
+non-integer range bounds fail closed. Single-return resource methods returning
+materialized list index/list-slice, inline dict-index, ordered dict value-slice,
+or typed-parameter matrix cell/row or row-range slice expressions also inline
+through `ListAST`/`ListOpAST` and `DictAST` clone paths with type metadata
+preserved, while unimplemented lexical/global capture shapes stay fail-closed.
+That closes only the `CharAST`, `FmtStrAST`, `RangeAST`, and returned
+list/dict/matrix bounds resource-method inline-clone slices of the state inline
+clone surface; other accepted AST families still need source-reachable evidence
+before the unsupported clone fallback can be retired.
 
 ### P1. Type semantics still contain recovery-era defaults
 

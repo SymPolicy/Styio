@@ -120,7 +120,9 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   expression's inferred result type, direct calls such as `log.answer()` return
   the inlined value without emitting an expression-context `SGReturn`, and
   `result = ?| log.answer() | fallback` produces the method value on success
-  while rejecting fallback type mismatches. Public JSONL classification now maps
+  while rejecting fallback type mismatches. Returned dynamic range literals such
+  as `<| [start..stop..step]` inline as ordinary `list[i64]` success values and
+  still reject non-integer bounds before lowering. Public JSONL classification now maps
   this fallback mismatch to `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH` and
   the existing unsupported multi-statement value-producing resource method body
   boundary to `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY`; this is an IM-D3
