@@ -92,6 +92,7 @@ class SCListSet;
 class SCListToString;
 class SCMatrixGet;
 class SCMatrixRow;
+class SCMatrixRowsSlice;
 class SCMatrixToString;
 class SCDictClone;
 class SCDictLen;

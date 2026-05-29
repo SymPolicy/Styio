@@ -287,6 +287,12 @@ struct VerifierContext
       visit_required(n->row, "SCMatrixRow.row");
       return;
     }
+    if (auto* n = dynamic_cast<const SCMatrixRowsSlice*>(node)) {
+      visit_required(n->matrix, "SCMatrixRowsSlice.matrix");
+      visit_required(n->start, "SCMatrixRowsSlice.start");
+      visit_optional(n->end);
+      return;
+    }
     if (auto* n = dynamic_cast<const SCMatrixToString*>(node)) {
       visit_required(n->matrix, "SCMatrixToString.matrix");
       return;

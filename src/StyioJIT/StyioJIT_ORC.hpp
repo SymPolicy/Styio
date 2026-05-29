@@ -163,6 +163,8 @@ public:
     add_symbol("styio_matrix_set_f64", &styio_matrix_set_f64);
     add_symbol("styio_matrix_row_i64", &styio_matrix_row_i64);
     add_symbol("styio_matrix_row_f64", &styio_matrix_row_f64);
+    add_symbol("styio_matrix_rows_slice_i64", &styio_matrix_rows_slice_i64);
+    add_symbol("styio_matrix_rows_slice_f64", &styio_matrix_rows_slice_f64);
     add_symbol("styio_matrix_add_i64", &styio_matrix_add_i64);
     add_symbol("styio_matrix_add_f64", &styio_matrix_add_f64);
     add_symbol("styio_matrix_sub_i64", &styio_matrix_sub_i64);

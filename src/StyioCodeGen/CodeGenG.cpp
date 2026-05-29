@@ -140,6 +140,7 @@ ir_yields_list_handle(StyioIR* value) {
       || dynamic_cast<SIOListReadStdin*>(value)
       || dynamic_cast<SCListClone*>(value)
       || dynamic_cast<SCListSlice*>(value)
+      || dynamic_cast<SCMatrixRowsSlice*>(value)
       || dynamic_cast<SCDictKeys*>(value)
       || dynamic_cast<SCDictValues*>(value)) {
     return true;
@@ -4329,6 +4330,45 @@ StyioToLLVM::toLLVMIR(SCMatrixRow* node) {
     row = theBuilder->CreateSExtOrTrunc(row, theBuilder->getInt64Ty());
   }
   llvm::Value* out = theBuilder->CreateCall(row_fn, {matrix, row});
+  free_owned_resource_temp_if_tracked(matrix);
+  if (resource_effect_operation_depth_ == 0) {
+    emit_runtime_error_guard_return();
+  }
+  track_owned_resource_temp(out, TempResourceKind::List);
+  return out;
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SCMatrixRowsSlice* node) {
+  const bool is_f64 = styio_value_family_from_type_name(node->elem_type) == StyioValueFamily::Float;
+  llvm::FunctionCallee slice_fn = theModule->getOrInsertFunction(
+    is_f64 ? "styio_matrix_rows_slice_f64" : "styio_matrix_rows_slice_i64",
+    llvm::FunctionType::get(
+      theBuilder->getInt64Ty(),
+      {
+        theBuilder->getInt64Ty(),
+        theBuilder->getInt64Ty(),
+        theBuilder->getInt64Ty(),
+        theBuilder->getInt32Ty(),
+      },
+      false));
+  llvm::Value* matrix = node->matrix->toLLVMIR(this);
+  llvm::Value* start = node->start->toLLVMIR(this);
+  llvm::Value* end = node->end != nullptr
+    ? node->end->toLLVMIR(this)
+    : theBuilder->getInt64(0);
+  if (!matrix->getType()->isIntegerTy(64)) {
+    matrix = theBuilder->CreateSExtOrTrunc(matrix, theBuilder->getInt64Ty());
+  }
+  if (!start->getType()->isIntegerTy(64)) {
+    start = theBuilder->CreateSExtOrTrunc(start, theBuilder->getInt64Ty());
+  }
+  if (!end->getType()->isIntegerTy(64)) {
+    end = theBuilder->CreateSExtOrTrunc(end, theBuilder->getInt64Ty());
+  }
+  llvm::Value* out = theBuilder->CreateCall(
+    slice_fn,
+    {matrix, start, end, theBuilder->getInt32(node->end != nullptr ? 1 : 0)});
   free_owned_resource_temp_if_tracked(matrix);
   if (resource_effect_operation_depth_ == 0) {
     emit_runtime_error_guard_return();

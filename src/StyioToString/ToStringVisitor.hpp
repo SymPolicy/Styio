@@ -389,6 +389,7 @@ public:
   std::string toString(SCMatrixLiteral* node, int indent = 0);
   std::string toString(SCMatrixGet* node, int indent = 0);
   std::string toString(SCMatrixRow* node, int indent = 0);
+  std::string toString(SCMatrixRowsSlice* node, int indent = 0);
   std::string toString(SCMatrixToString* node, int indent = 0);
   std::string toString(SGRangeFor* node, int indent = 0);
   std::string toString(SGIf* node, int indent = 0);

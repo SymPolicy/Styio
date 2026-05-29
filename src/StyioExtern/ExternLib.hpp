@@ -151,6 +151,16 @@ extern "C" DLLEXPORT void styio_matrix_set_i64(int64_t h, int64_t row, int64_t c
 extern "C" DLLEXPORT void styio_matrix_set_f64(int64_t h, int64_t row, int64_t col, double value);
 extern "C" DLLEXPORT int64_t styio_matrix_row_i64(int64_t h, int64_t row);
 extern "C" DLLEXPORT int64_t styio_matrix_row_f64(int64_t h, int64_t row);
+extern "C" DLLEXPORT int64_t styio_matrix_rows_slice_i64(
+  int64_t h,
+  int64_t start,
+  int64_t end_exclusive,
+  int32_t has_end);
+extern "C" DLLEXPORT int64_t styio_matrix_rows_slice_f64(
+  int64_t h,
+  int64_t start,
+  int64_t end_exclusive,
+  int32_t has_end);
 extern "C" DLLEXPORT int64_t styio_matrix_add_i64(int64_t lhs, int64_t rhs);
 extern "C" DLLEXPORT int64_t styio_matrix_add_f64(int64_t lhs, int64_t rhs);
 extern "C" DLLEXPORT int64_t styio_matrix_sub_i64(int64_t lhs, int64_t rhs);

@@ -150,6 +150,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SCListToString,
   class SCMatrixGet,
   class SCMatrixRow,
+  class SCMatrixRowsSlice,
   class SCMatrixToString,
   class SCDictClone,
   class SCDictLen,
@@ -330,6 +331,7 @@ public:
   llvm::Type* toLLVMType(SCListToString* node);
   llvm::Type* toLLVMType(SCMatrixGet* node);
   llvm::Type* toLLVMType(SCMatrixRow* node);
+  llvm::Type* toLLVMType(SCMatrixRowsSlice* node);
   llvm::Type* toLLVMType(SCMatrixToString* node);
   llvm::Type* toLLVMType(SCDictClone* node);
   llvm::Type* toLLVMType(SCDictLen* node);
@@ -431,6 +433,7 @@ public:
   llvm::Value* toLLVMIR(SCListToString* node);
   llvm::Value* toLLVMIR(SCMatrixGet* node);
   llvm::Value* toLLVMIR(SCMatrixRow* node);
+  llvm::Value* toLLVMIR(SCMatrixRowsSlice* node);
   llvm::Value* toLLVMIR(SCMatrixToString* node);
   llvm::Value* toLLVMIR(SCDictClone* node);
   llvm::Value* toLLVMIR(SCDictLen* node);

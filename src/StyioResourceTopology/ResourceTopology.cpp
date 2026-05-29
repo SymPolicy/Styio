@@ -274,8 +274,14 @@ private:
         return styio_data_type_from_name(styio_dict_value_type_name(base));
       }
       if (access->getOp() == StyioNodeType::Access_By_Index
-          && (styio_is_list_type(base) || styio_is_dict_type(base))) {
+          && (styio_is_list_type(base) || styio_is_dict_type(base) || styio_is_matrix_type(base))) {
         return styio_data_type_from_name(styio_type_item_type_name(base));
+      }
+      if (access->getOp() == StyioNodeType::Access_By_Slice && styio_is_list_type(base)) {
+        return base;
+      }
+      if (access->getOp() == StyioNodeType::Access_By_Slice && styio_is_matrix_type(base)) {
+        return styio_make_list_type(styio_type_item_type_name(base));
       }
       return ast->getDataType();
     }

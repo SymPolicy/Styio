@@ -469,6 +469,9 @@ expr_lowered_type(AstToStyioIRLowerer* an, StyioAST* expr) {
     if (access->getOp() == StyioNodeType::Access_By_Slice && styio_is_list_type(base_type)) {
       return base_type;
     }
+    if (access->getOp() == StyioNodeType::Access_By_Slice && styio_is_matrix_type(base_type)) {
+      return styio_make_list_type(styio_type_item_type_name(base_type));
+    }
     if (styio_is_dict_type(base_type)) {
       return styio_data_type_from_name(styio_dict_value_type_name(base_type));
     }
@@ -2309,6 +2312,14 @@ StyioIR*
 AstToStyioIRLowerer::toStyioIR(ListOpAST* ast) {
   if (ast->getOp() == StyioNodeType::Access_By_Slice) {
     StyioDataType base_type = expr_lowered_type(this, ast->getList());
+    if (styio_is_matrix_type(base_type)) {
+      return SCMatrixRowsSlice::Create(
+        ast->getList()->toStyioIR(this),
+        ast->getSlot1()->toStyioIR(this),
+        ast->getSlot2() != nullptr ? ast->getSlot2()->toStyioIR(this) : nullptr,
+        styio_matrix_elem_type_name(base_type)
+      );
+    }
     if (!styio_is_list_type(base_type)) {
       throw StyioTypeError("list slice lowering requires a list value");
     }
