@@ -49,21 +49,24 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   next statement. The successful acquire path now participates in resource
   topology binding, so a following `f >> #(line) => { ... }` iterator can use
   the handle, a later `?| f.close() | fallback` resource-effect close can
-  consume it, and a later guarded `?| f.write(...) | ...` write-method path can
-  write through the acquired resource subject. After that close, topology still
+  consume it, a later guarded `?| f.write(...) | ...` write-method path can
+  write through the acquired resource subject, and a later
+  `value = ?| (<< f) | fallback` instant-pull expression can read the next
+  `i64` line from that same acquired handle. After that close, topology still
   marks the receiver destroyed so following `f.path` use fails closed. If
   fallback recovered the open failure and later code tries to iterate the
   zeroed slot, the iterator reports `STYIO_RUNTIME_INVALID_FILE_HANDLE`. If
-  later code tries `f.write(...)` through the same zeroed slot, the write method
-  reports `STYIO_RUNTIME_INVALID_FILE_HANDLE`, may recover through a matched
-  `closed` handler, stops before the following statement when no fallback is
-  present, and does not recreate the file by reopening the saved path.
+  later code tries `f.write(...)` or `?| (<< f) | closed => value` through the
+  same zeroed slot, the operation reports `STYIO_RUNTIME_INVALID_FILE_HANDLE`,
+  may recover through a matched `closed` handler, stops before the following
+  statement when no fallback is present, and the write method does not recreate
+  the file by reopening the saved path.
   Non-resource member calls such as
   `text.lines()` remain rejected under `?|`, and statement-shaped acquire stays
   rejected where a value-producing `?|` expression is required. Broader
   post-acquire resource operations beyond the covered file iterator and
-  close-method and write-method paths still need separate implementation
-  checkpoints.
+  close-method, write-method, and acquired-handle instant-pull paths still need
+  separate implementation checkpoints.
 - The first value-producing non-task resource-effect expression slices are
   executable for file/stdin instant pulls, materialized container bounds reads
   including materialized list slices, and simple value-returning resource
@@ -71,7 +74,12 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   `result = ?| (<< @file("data.txt")) | fallback`
   returns the successful `i64` file line value on success, evaluates the fallback
   after clearing a materialized file-open read failure, and can recover through a
-  matched named handler such as `io => 9`. `result = ?| (<- @stdin) | fallback`
+  matched named handler such as `io => 9`. After a successful
+  `?| f <- @file("data.txt") | ...`, `result = ?| (<< f) | fallback` reads an
+  `i64` from the acquired file handle; if the acquire failure was recovered and
+  the slot is still zero, a matched `closed => value` handler can recover
+  `STYIO_RUNTIME_INVALID_FILE_HANDLE`, while no-fallback settlement stops before
+  the next statement. `result = ?| (<- @stdin) | fallback`
   returns a parsed stdin `i64` on success and recovers numeric parse failures
   through catch-all fallback or a matched `parse => handler` after the
   materialized parse error is cleared. Explicit target types now drive stdin
