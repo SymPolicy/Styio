@@ -1987,6 +1987,27 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedRangeFallbackEx
   EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedScalarFmtFallbackExpression) {
+  const std::string src =
+    "@file::summary = (x: int) => { <| $\"value={x + 1}\" }\n"
+    "@file::letter = () => { <| 'q' }\n"
+    "log := @file(\"/tmp/styio-resource-method-scalar-fmt\")\n"
+    "summary = ?| log.summary(4) | \"fallback\"\n"
+    "letter = ?| log.letter() | 'x'\n"
+    ">_(summary)\n"
+    ">_(letter)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("value: required"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("value="), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectValueMatrixIndexFallbackExpression) {
   const std::string src =
     "m: matrix = [[1,2],[3,4]]\n"
