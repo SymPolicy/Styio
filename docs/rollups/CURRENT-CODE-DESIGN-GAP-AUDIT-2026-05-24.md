@@ -65,9 +65,9 @@ Real compiler/runtime surfaces:
    list/dict/matrix container bounds expressions are executable in ordinary
    expressions and in user-defined resource method bodies after inlining. The
    resource-method body parser now admits the same `CharAST`, `FmtStrAST`, list
-   index/slice, inline `dict{...}` index, and typed-parameter matrix cell/row
-   value shapes, and `StateExprCloneVisitor` clones them instead of reporting an
-   unsupported inlined state expression.
+   index/slice, inline `dict{...}` index, and typed-parameter matrix cell/row or
+   row-range slice value shapes, and `StateExprCloneVisitor` clones them instead
+   of reporting an unsupported inlined state expression.
 6. `@extern(c|c++)` is not just design prose: native interop feature tests and
    native executable build tests pass.
 7. The IDE/LSP core exists for completion, hover, definition, references,
@@ -184,11 +184,12 @@ Current implementation reality:
    recovers typed list values while list parse failures report
    `STYIO_RUNTIME_LIST_PARSE` without fallback. `result = ?| xs[i] | fallback`,
    `result = ?| d[key] | fallback`, `result = ?| m[row][col] | fallback`,
-   `row = ?| m[row] | fallback`, and `slice = ?| xs[0..] | fallback` now also
-   return successful materialized container values, recover `STYIO_RUNTIME_LIST_INDEX`,
-   `STYIO_RUNTIME_DICT_KEY`, or `STYIO_RUNTIME_MATRIX_INDEX` through catch-all
-   fallback or a matched `bounds => handler`, and fail fast without a fallback.
-   Plain `xs[i]`, `xs[0..]`, `d[key]`, and `m[row][col]` expressions outside
+   `row = ?| m[row] | fallback`, `rows = ?| m[start..end] | fallback`, and
+   `slice = ?| xs[0..] | fallback` now also return successful materialized
+   container values, recover `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`,
+   or `STYIO_RUNTIME_MATRIX_INDEX` through catch-all fallback or a matched
+   `bounds => handler`, and fail fast without a fallback. Plain `xs[i]`,
+   `xs[0..]`, `d[key]`, `m[row][col]`, and `m[start..end]` expressions outside
    `?|` now guard the same runtime bounds failures before a following statement.
    User-defined resource methods with a single `<| expr` body now record the
    returned value type, direct calls such as `log.answer()` no longer lower an
@@ -204,22 +205,23 @@ Current implementation reality:
    success, recovers `STYIO_RUNTIME_NUMERIC_PARSE` through catch-all fallback or
    a matched `parse => handler`, and fails fast before following statements
    without a fallback. When the returned expression is a materialized list
-   index, list slice, inline dict index, or typed-parameter matrix cell/row read,
-   `?| method() | fallback` recovers `STYIO_RUNTIME_LIST_INDEX`,
-   `STYIO_RUNTIME_DICT_KEY`, or `STYIO_RUNTIME_MATRIX_INDEX` through catch-all
-   fallback or a matched `bounds => handler`, and no-fallback dict-key or
-   matrix-index settlement fails before the following statement. Resource method
+   index, list slice, inline dict index, or typed-parameter matrix cell/row or
+   row-range slice read, `?| method() | fallback` recovers
+   `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, or
+   `STYIO_RUNTIME_MATRIX_INDEX` through catch-all fallback or a matched
+   `bounds => handler`, and no-fallback dict-key or matrix-index settlement
+   fails before the following statement. Resource method
    declared parameter types are bound while inferring the method body and checked
    at call sites, while lexical/global captures remain fail-closed before
    lowering. Multi-statement resource method returns intentionally fail closed
    before lowering until arbitrary method-body value semantics are implemented.
    Parser/Sema keep `?| op | ...` statement-only, reject statement-shaped write
    operations where a value is required, reject fallback type mismatches, and
-   keep dict/matrix slice-shaped resource-effect values fail-closed until those
-   operation families have their own checkpoints.
+   keep dict slice-shaped resource-effect values fail-closed until ordered
+   dict-slice semantics have their own checkpoint.
 12. There is still no complete typed value-producing resource-effect model for
    arbitrary resource operations beyond the covered file/stdin instant pulls,
-   materialized container index/row reads, materialized list slices, and simple
+   materialized container index/row/slice reads, materialized list slices, and simple
    resource-method single-return bodies, no recovery model for failing
    value-producing resource methods beyond the returned file/stdin instant-pull
    and returned list/dict/matrix bounds failure slices, or for multi-statement
@@ -253,12 +255,13 @@ success/fallback/handler value paths, including explicit-target stdin `f64`,
 `STYIO_RUNTIME_MATRIX_INDEX` under `?|`; simple resource methods that return a
 file instant pull or canonical stdin instant pull also recover matched `io` or
 `parse` failures under `?|`, and simple resource methods that return
-materialized list index/list-slice or inline dict-index expressions recover the
-covered `bounds` failures under `?|`, while direct `log.answer()` resource
-method calls no longer abort lowering. Typed resource method parameters now
-feed method-body inference and call-site checks, so returned matrix cell/row
-bounds failures recover through matched `bounds` handlers or catch-all fallback
-under `?|` without opening global matrix capture.
+materialized list index/list-slice, inline dict-index, or typed-parameter matrix
+row-range slice expressions recover the covered `bounds` failures under `?|`,
+while direct `log.answer()` resource method calls no longer abort lowering.
+Typed resource method parameters now feed method-body inference and call-site
+checks, so returned matrix cell/row or row-range slice bounds failures recover
+through matched `bounds` handlers or catch-all fallback under `?|` without
+opening global matrix capture.
 Implicit cleanup fallback recovery, broader reassignment cleanup,
 broader resource-family cleanup, non-failure backpressure
 observation/escalation, pressure observers, broader post-acquire resource
@@ -385,11 +388,11 @@ and `@file::summary = () => { $"value={1 + 2}" -> @stdout }` run after resource
 method calls, while `@file::marker = () => { >_('xy') }` and
 `@file::summary = () => { $"value={1 + 2" -> @stdout }` fail closed in the parser.
 Single-return resource methods returning materialized list index/list-slice,
-inline dict-index, or typed-parameter matrix cell/row expressions also inline
-through `ListAST`/`ListOpAST` and `DictAST` clone paths with type metadata
-preserved, while returned dict-slice and unimplemented lexical/global capture
-shapes stay fail-closed. That closes only the `CharAST`, `FmtStrAST`, and
-returned list/dict/matrix bounds resource-method inline-clone slices of the state
+inline dict-index, or typed-parameter matrix cell/row or row-range slice
+expressions also inline through `ListAST`/`ListOpAST` and `DictAST` clone paths
+with type metadata preserved, while returned dict-slice and unimplemented
+lexical/global capture shapes stay fail-closed. That closes only the `CharAST`,
+`FmtStrAST`, and returned list/dict/matrix bounds resource-method inline-clone slices of the state
 inline clone surface; other accepted AST families still need source-reachable
 evidence before the unsupported clone fallback can be retired.
 
@@ -641,7 +644,7 @@ These should not be counted as missing implementation in this checkout:
    container-index/list-slice resource-effect expressions and simple
    value-producing resource methods now return typed
    success/fallback/handler values, including explicit-target stdin `f64`,
-   `string`, typed-list values, list slices, list/dict/matrix `bounds`
+   `string`, typed-list values, list slices, matrix row-range slices, list/dict/matrix `bounds`
    recovery, returned file instant-pull `io` recovery, and returned canonical
    stdin instant-pull `parse` recovery. Resource
    method calls now enter statement `?|` settlement for direct file close
@@ -655,7 +658,7 @@ These should not be counted as missing implementation in this checkout:
    fallback recovery for implicit cleanup, reassignment cleanup, broader
    post-acquire resource operations beyond the covered file iterator,
    close-method, and write-method paths,
-   dict/matrix slice-shaped
+   dict slice-shaped
    bounds recovery, additional resource families that emit typed pressure or cleanup
    effects, and arbitrary value-producing recovery beyond the covered paths.
 2. Continue Topology v2 selector value semantics before adding new resource
