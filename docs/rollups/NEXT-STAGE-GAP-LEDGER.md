@@ -131,6 +131,13 @@ Reference links used by the register:
 
 ### 5.8 Closed Since Previous Ledger
 
+Pressure observer syntax now has a narrow parser/Sema/diagnostic boundary:
+`resource.pressure >> #(p) => { ... }` reaches Sema through the nightly parser,
+and current resource families such as `@stdout` or topology resource bindings
+fail closed with `STYIO_SEMA_RESOURCE_PRESSURE_OBSERVER_UNSUPPORTED`. This is
+not pressure payload typing, observer execution, or runtime pressure-stream
+support; those remain open IM-D4/IM-D5 implementation work.
+
 | Closed item | Evidence | Verification |
 |-------------|----------|--------------|
 | `f32` dtype mapping and nearby numeric-promotion regression | `f32` maps to internal name `f32` in [src/StyioToken/Token.hpp](../../src/StyioToken/Token.hpp), and focused coverage exists in [tests/styio_test.cpp](../../tests/styio_test.cpp) (`StyioTypes.F32BuiltinMappingUsesF32InternalName`, `StyioTypes.GetMaxTypeNumericPromotionByBitWidth`) | `ctest --test-dir build-codex -R '^(StyioTypes\.F32BuiltinMappingUsesF32InternalName\|StyioTypes\.GetMaxTypeNumericPromotionByBitWidth)$' --output-on-failure` passed on 2026-04-21 |

@@ -413,6 +413,9 @@ channel.pressure >> #(p) => {
 This form is side-effecting resource code, not implicit error handling. The
 observer can count, log, spawn a task, or invoke recovery operations, and those
 operations still obey normal resource capabilities and fallback rules.
+The current compiler recognizes the observer syntax and rejects every current
+resource family in Sema with `STYIO_SEMA_RESOURCE_PRESSURE_OBSERVER_UNSUPPORTED`
+until a family declares a pressure payload and runtime stream.
 
 This pressure model is a core Styio design choice. The compiler may do additional
 effect inference when that preserves a valuable language feature: useful resource
