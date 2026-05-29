@@ -3659,11 +3659,20 @@ AstToStyioIRLowerer::toStyioIR(StreamZipAST* ast) {
   StyioAST* cb = ast->getCollectionB();
   bool fa = false;
   bool fb = false;
+  bool sa = false;
+  bool sb = false;
   StyioIR* ia = nullptr;
   StyioIR* ib = nullptr;
   if (ca->getNodeType() == StyioNodeType::FileResource) {
     fa = true;
     ia = static_cast<FileResourceAST*>(ca)->getPath()->toStyioIR(this);
+  }
+  else if (auto* stream = dynamic_cast<StdStreamAST*>(ca)) {
+    if (stream->getStreamKind() != StdStreamKind::Stdin) {
+      throw StyioTypeError("stream zip only supports @stdin among standard streams");
+    }
+    sa = true;
+    ia = SGNoOp::Create();
   }
   else {
     ia = ca->toStyioIR(this);
@@ -3672,8 +3681,18 @@ AstToStyioIRLowerer::toStyioIR(StreamZipAST* ast) {
     fb = true;
     ib = static_cast<FileResourceAST*>(cb)->getPath()->toStyioIR(this);
   }
+  else if (auto* stream = dynamic_cast<StdStreamAST*>(cb)) {
+    if (stream->getStreamKind() != StdStreamKind::Stdin) {
+      throw StyioTypeError("stream zip only supports @stdin among standard streams");
+    }
+    sb = true;
+    ib = SGNoOp::Create();
+  }
   else {
     ib = cb->toStyioIR(this);
+  }
+  if (sa && sb) {
+    throw StyioTypeError("zip over @stdin on both sides requires a distinct stream-driver decision");
   }
   bool astr = collection_elem_is_string(this, ca);
   bool bstr = collection_elem_is_string(this, cb);
@@ -3687,9 +3706,11 @@ AstToStyioIRLowerer::toStyioIR(StreamZipAST* ast) {
   auto* z = SIOStreamZip::Create(
     ia,
     fa,
+    sa,
     std::move(va),
     ib,
     fb,
+    sb,
     std::move(vb),
     astr,
     bstr,

@@ -4732,6 +4732,11 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
   llvm::FunctionCallee read_fn = theModule->getOrInsertFunction(
     "styio_file_read_line",
     llvm::FunctionType::get(char_ptr, {i64t}, false));
+  auto stdin_read_fn = [&]() {
+    return theModule->getOrInsertFunction(
+      "styio_stdin_read_line",
+      llvm::FunctionType::get(char_ptr, {}, false));
+  };
   llvm::FunctionCallee close_fn = theModule->getOrInsertFunction(
     "styio_file_close",
     llvm::FunctionType::get(theBuilder->getVoidTy(), {i64t}, false));
@@ -4868,10 +4873,10 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
   {
     throw StyioTypeError(
       "unsupported stream zip lowering (supported sources: list literals, "
-      "materialized list handles, @file streams, and file/list zip pairs)");
+      "materialized list handles, @file streams, @stdin streams, and finite stream/list pairs)");
   };
 
-  if (!node->a_is_file && !node->b_is_file) {
+  if (!node->a_is_file && !node->b_is_file && !node->a_is_stdin && !node->b_is_stdin) {
     if (!ir_yields_list_handle(node->iterable_a) || !ir_yields_list_handle(node->iterable_b)) {
       unsupported_zip();
     }
@@ -4983,19 +4988,24 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     return theBuilder->getInt64(0);
   }
 
-  auto emit_file_list_zip = [&](bool file_left) -> bool
+  auto emit_stream_list_zip = [&](bool stream_left) -> bool
   {
-    StyioIR* file_ir = file_left ? node->iterable_a : node->iterable_b;
-    StyioIR* list_ir = file_left ? node->iterable_b : node->iterable_a;
+    const bool stream_is_file = stream_left ? node->a_is_file : node->b_is_file;
+    const bool stream_is_stdin = stream_left ? node->a_is_stdin : node->b_is_stdin;
+    if (!stream_is_file && !stream_is_stdin) {
+      return false;
+    }
+    StyioIR* stream_ir = stream_left ? node->iterable_a : node->iterable_b;
+    StyioIR* list_ir = stream_left ? node->iterable_b : node->iterable_a;
     if (!ir_yields_list_handle(list_ir)) {
       return false;
     }
 
-    const bool file_elem_string = file_left ? node->a_elem_string : node->b_elem_string;
+    const bool stream_elem_string = stream_left ? node->a_elem_string : node->b_elem_string;
     const StyioValueFamily list_family = zip_value_family(
-      file_left ? node->b_elem_type : node->a_elem_type);
-    const std::string& file_var = file_left ? node->var_a : node->var_b;
-    const std::string& list_var = file_left ? node->var_b : node->var_a;
+      stream_left ? node->b_elem_type : node->a_elem_type);
+    const std::string& stream_var = stream_left ? node->var_a : node->var_b;
+    const std::string& list_var = stream_left ? node->var_b : node->var_a;
 
     llvm::FunctionCallee len_fn = theModule->getOrInsertFunction(
       "styio_list_len",
@@ -5004,8 +5014,13 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
       zip_get_name(list_family),
       llvm::FunctionType::get(zip_get_type(list_family), {i64t, i64t}, false));
 
-    llvm::Value* path = file_ir->toLLVMIR(this);
-    llvm::Value* h0 = theBuilder->CreateCall(open_fn, {path});
+    llvm::AllocaInst* h_slot = nullptr;
+    if (stream_is_file) {
+      llvm::Value* path = stream_ir->toLLVMIR(this);
+      llvm::Value* h0 = theBuilder->CreateCall(open_fn, {path});
+      h_slot = theBuilder->CreateAlloca(i64t, nullptr, "zip_stream_list_h");
+      theBuilder->CreateStore(h0, h_slot);
+    }
     llvm::Value* list_value = list_ir->toLLVMIR(this);
     if (!list_value->getType()->isIntegerTy(64)) {
       list_value = theBuilder->CreateSExtOrTrunc(list_value, i64t);
@@ -5014,18 +5029,16 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     const bool release_list =
       list_kind.has_value() && *list_kind == TempResourceKind::List;
 
-    llvm::AllocaInst* h_slot = theBuilder->CreateAlloca(i64t, nullptr, "zip_file_list_h");
-    llvm::AllocaInst* list_slot = theBuilder->CreateAlloca(i64t, nullptr, "zip_file_list_l");
-    llvm::AllocaInst* idx_slot = theBuilder->CreateAlloca(i64t, nullptr, "zip_file_list_i");
-    theBuilder->CreateStore(h0, h_slot);
+    llvm::AllocaInst* list_slot = theBuilder->CreateAlloca(i64t, nullptr, "zip_stream_list_l");
+    llvm::AllocaInst* idx_slot = theBuilder->CreateAlloca(i64t, nullptr, "zip_stream_list_i");
     theBuilder->CreateStore(list_value, list_slot);
     theBuilder->CreateStore(zero, idx_slot);
 
-    llvm::BasicBlock* exit_bb = llvm::BasicBlock::Create(*theContext, "zip_file_list_exit", F);
-    llvm::BasicBlock* hdr_bb = llvm::BasicBlock::Create(*theContext, "zip_file_list_hdr", F);
-    llvm::BasicBlock* read_bb = llvm::BasicBlock::Create(*theContext, "zip_file_list_read", F);
-    llvm::BasicBlock* body_bb = llvm::BasicBlock::Create(*theContext, "zip_file_list_body", F);
-    llvm::BasicBlock* step_bb = llvm::BasicBlock::Create(*theContext, "zip_file_list_step", F);
+    llvm::BasicBlock* exit_bb = llvm::BasicBlock::Create(*theContext, "zip_stream_list_exit", F);
+    llvm::BasicBlock* hdr_bb = llvm::BasicBlock::Create(*theContext, "zip_stream_list_hdr", F);
+    llvm::BasicBlock* read_bb = llvm::BasicBlock::Create(*theContext, "zip_stream_list_read", F);
+    llvm::BasicBlock* body_bb = llvm::BasicBlock::Create(*theContext, "zip_stream_list_body", F);
+    llvm::BasicBlock* step_bb = llvm::BasicBlock::Create(*theContext, "zip_stream_list_step", F);
     theBuilder->CreateBr(hdr_bb);
 
     theBuilder->SetInsertPoint(hdr_bb);
@@ -5037,9 +5050,11 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     theBuilder->CreateCondBr(idx_ok, read_bb, exit_bb);
 
     theBuilder->SetInsertPoint(read_bb);
-    llvm::Value* line = theBuilder->CreateCall(
-      read_fn,
-      {theBuilder->CreateLoad(i64t, h_slot)});
+    llvm::Value* line = stream_is_stdin
+                          ? theBuilder->CreateCall(stdin_read_fn(), {})
+                          : theBuilder->CreateCall(
+                              read_fn,
+                              {theBuilder->CreateLoad(i64t, h_slot)});
     llvm::Value* null_line = llvm::ConstantPointerNull::get(
       llvm::cast<llvm::PointerType>(char_ptr));
     llvm::Value* got_line = theBuilder->CreateICmpNE(line, null_line);
@@ -5055,26 +5070,26 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     if (list_family == StyioValueFamily::Bool) {
       list_elem = theBuilder->CreateICmpNE(list_elem, theBuilder->getInt64(0));
     }
-    llvm::Value* file_elem = line;
-    llvm::Type* file_slot_ty = char_ptr;
-    if (!file_elem_string) {
-      file_elem = cstr_to_i64_checked(line);
-      file_slot_ty = i64t;
+    llvm::Value* stream_elem = line;
+    llvm::Type* stream_slot_ty = char_ptr;
+    if (!stream_elem_string) {
+      stream_elem = cstr_to_i64_checked(line);
+      stream_slot_ty = i64t;
     }
 
-    llvm::AllocaInst* file_slot =
-      theBuilder->CreateAlloca(file_slot_ty, nullptr, file_var);
+    llvm::AllocaInst* stream_slot =
+      theBuilder->CreateAlloca(stream_slot_ty, nullptr, stream_var);
     llvm::AllocaInst* list_elem_slot =
       theBuilder->CreateAlloca(zip_slot_type(list_family), nullptr, list_var);
-    theBuilder->CreateStore(file_elem, file_slot);
+    theBuilder->CreateStore(stream_elem, stream_slot);
     theBuilder->CreateStore(list_elem, list_elem_slot);
-    if (file_left) {
-      mutable_variables[node->var_a] = file_slot;
+    if (stream_left) {
+      mutable_variables[node->var_a] = stream_slot;
       mutable_variables[node->var_b] = list_elem_slot;
     }
     else {
       mutable_variables[node->var_a] = list_elem_slot;
-      mutable_variables[node->var_b] = file_slot;
+      mutable_variables[node->var_b] = stream_slot;
     }
 
     run_pulse_prologue();
@@ -5096,7 +5111,9 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     theBuilder->CreateBr(hdr_bb);
 
     theBuilder->SetInsertPoint(exit_bb);
-    theBuilder->CreateCall(close_fn, {theBuilder->CreateLoad(i64t, h_slot)});
+    if (stream_is_file) {
+      theBuilder->CreateCall(close_fn, {theBuilder->CreateLoad(i64t, h_slot)});
+    }
     if (release_list) {
       theBuilder->CreateCall(list_release_fn(), {theBuilder->CreateLoad(i64t, list_slot)});
     }
@@ -5483,32 +5500,74 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     return theBuilder->getInt64(0);
   }
 
-  if (!node->a_is_file && node->b_is_file && emit_file_list_zip(false)) {
+  if (!node->a_is_file
+      && !node->a_is_stdin
+      && (node->b_is_file || node->b_is_stdin)
+      && emit_stream_list_zip(false)) {
     return theBuilder->getInt64(0);
   }
 
-  if (node->a_is_file && !node->b_is_file && emit_file_list_zip(true)) {
+  if ((node->a_is_file || node->a_is_stdin)
+      && !node->b_is_file
+      && !node->b_is_stdin
+      && emit_stream_list_zip(true)) {
     return theBuilder->getInt64(0);
   }
 
-  if (node->a_is_file && node->b_is_file) {
-    llvm::BasicBlock* exit_bb = llvm::BasicBlock::Create(*theContext, "zip_ff_exit", F);
-    llvm::BasicBlock* hdr_bb = llvm::BasicBlock::Create(*theContext, "zip_ff_hdr", F);
-    llvm::BasicBlock* body_bb = llvm::BasicBlock::Create(*theContext, "zip_ff_body", F);
+  if ((node->a_is_file || node->a_is_stdin) && (node->b_is_file || node->b_is_stdin)) {
+    const bool both_files = node->a_is_file && node->b_is_file;
+    llvm::BasicBlock* exit_bb = llvm::BasicBlock::Create(
+      *theContext,
+      both_files ? "zip_ff_exit" : "zip_streams_exit",
+      F);
+    llvm::BasicBlock* hdr_bb = llvm::BasicBlock::Create(
+      *theContext,
+      both_files ? "zip_ff_hdr" : "zip_streams_hdr",
+      F);
+    llvm::BasicBlock* body_bb = llvm::BasicBlock::Create(
+      *theContext,
+      both_files ? "zip_ff_body" : "zip_streams_body",
+      F);
 
-    llvm::Value* pa = node->iterable_a->toLLVMIR(this);
-    llvm::Value* pb = node->iterable_b->toLLVMIR(this);
-    llvm::Value* h0a = theBuilder->CreateCall(open_fn, {pa});
-    llvm::Value* h0b = theBuilder->CreateCall(open_fn, {pb});
-    llvm::AllocaInst* ha = theBuilder->CreateAlloca(i64t, nullptr, "zip_ff_ha");
-    llvm::AllocaInst* hb = theBuilder->CreateAlloca(i64t, nullptr, "zip_ff_hb");
-    theBuilder->CreateStore(h0a, ha);
-    theBuilder->CreateStore(h0b, hb);
+    llvm::AllocaInst* ha = nullptr;
+    llvm::AllocaInst* hb = nullptr;
+    llvm::Value* h0a = nullptr;
+    llvm::Value* h0b = nullptr;
+    if (node->a_is_file) {
+      llvm::Value* pa = node->iterable_a->toLLVMIR(this);
+      h0a = theBuilder->CreateCall(open_fn, {pa});
+    }
+    if (node->b_is_file) {
+      llvm::Value* pb = node->iterable_b->toLLVMIR(this);
+      h0b = theBuilder->CreateCall(open_fn, {pb});
+    }
+    if (node->a_is_file) {
+      ha = theBuilder->CreateAlloca(
+        i64t,
+        nullptr,
+        both_files ? "zip_ff_ha" : "zip_streams_ha");
+    }
+    if (node->b_is_file) {
+      hb = theBuilder->CreateAlloca(
+        i64t,
+        nullptr,
+        both_files ? "zip_ff_hb" : "zip_streams_hb");
+    }
+    if (node->a_is_file) {
+      theBuilder->CreateStore(h0a, ha);
+    }
+    if (node->b_is_file) {
+      theBuilder->CreateStore(h0b, hb);
+    }
 
     theBuilder->CreateBr(hdr_bb);
     theBuilder->SetInsertPoint(hdr_bb);
-    llvm::Value* la = theBuilder->CreateCall(read_fn, {theBuilder->CreateLoad(i64t, ha)});
-    llvm::Value* lb = theBuilder->CreateCall(read_fn, {theBuilder->CreateLoad(i64t, hb)});
+    llvm::Value* la = node->a_is_stdin
+                        ? theBuilder->CreateCall(stdin_read_fn(), {})
+                        : theBuilder->CreateCall(read_fn, {theBuilder->CreateLoad(i64t, ha)});
+    llvm::Value* lb = node->b_is_stdin
+                        ? theBuilder->CreateCall(stdin_read_fn(), {})
+                        : theBuilder->CreateCall(read_fn, {theBuilder->CreateLoad(i64t, hb)});
     llvm::Value* null_ln = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(char_ptr));
     llvm::Value* da = theBuilder->CreateICmpEQ(la, null_ln);
     llvm::Value* db = theBuilder->CreateICmpEQ(lb, null_ln);
@@ -5550,8 +5609,12 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     }
 
     theBuilder->SetInsertPoint(exit_bb);
-    theBuilder->CreateCall(close_fn, {theBuilder->CreateLoad(i64t, ha)});
-    theBuilder->CreateCall(close_fn, {theBuilder->CreateLoad(i64t, hb)});
+    if (node->a_is_file) {
+      theBuilder->CreateCall(close_fn, {theBuilder->CreateLoad(i64t, ha)});
+    }
+    if (node->b_is_file) {
+      theBuilder->CreateCall(close_fn, {theBuilder->CreateLoad(i64t, hb)});
+    }
     loop_stack_.pop_back();
     finish_zip();
     return theBuilder->getInt64(0);

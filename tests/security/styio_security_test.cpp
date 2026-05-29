@@ -3102,6 +3102,38 @@ TEST(StyioSecurityNightlySemantics, CharMaterializedListsFeedZipBarrier) {
   EXPECT_NE(llvm_ir.find("styio_char_cstr"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlySemantics, StdinFeedsStreamZipBarrier) {
+  const std::string src =
+    "@stdin >> #(line) & [1,2] >> #(rank) => {\n"
+    "  >_(line + rank)\n"
+    "}\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_stdin_read_line"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_len"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsDuplicateStdinZipBeforeDriverDecision) {
+  const std::string src =
+    "@stdin >> #(left) & @stdin >> #(right) => {\n"
+    "  >_(left + right)\n"
+    "}\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected duplicate stdin zip to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    EXPECT_NE(
+      std::string(err.what()).find(
+        "zip over @stdin on both sides requires a distinct stream-driver decision"),
+      std::string::npos);
+  }
+}
+
 TEST(StyioSecurityNightlySemantics, AllowsDictIndexingAttrsAndClone) {
   const std::string src =
     "d = dict{\"a\": 1, \"b\": 2}\n"

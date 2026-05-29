@@ -1009,11 +1009,13 @@ parse_iterator_collection_rhs_nightly_draft(StyioContext& context) {
     return parse_resource_zip_collection_atom_latest(context);
   }
   if (context.cur_tok_type() == StyioTokenType::NAME) {
-    const auto& tokens = context.get_tokens();
-    std::size_t next = skip_non_line_trivia_latest(tokens, context.get_token_index() + 1);
-    if (next < tokens.size() && tokens[next]->type == StyioTokenType::ITERATOR) {
-      return parse_name_unsafe(context);
+    const auto saved = context.save_cursor();
+    std::unique_ptr<NameAST> name(parse_name_unsafe(context));
+    context.skip();
+    if (context.check(StyioTokenType::ITERATOR)) {
+      return name.release();
     }
+    context.restore_cursor(saved);
   }
   auto attempt = try_parse_expr_subset_until_latest_impl(context, {StyioTokenType::ITERATOR});
   if (attempt.status == ParseAttemptStatus::Parsed) {

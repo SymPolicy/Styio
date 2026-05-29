@@ -3502,6 +3502,102 @@ TEST(StyioStreamZip, MixedFileAndMaterializedListsTerminateAtShorterInput) {
   fs::remove(input_b);
 }
 
+TEST(StyioStreamZip, StdinAndMaterializedListsTerminateAtShorterInput) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input_a =
+    fs::temp_directory_path() / ("styio-zip-stdin-list-" + std::to_string(uniq) + ".styio");
+  const fs::path input_b =
+    fs::temp_directory_path() / ("styio-zip-list-stdin-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input_a);
+    ASSERT_TRUE(out.is_open());
+    out << "nums = [1, 2, 3]\n";
+    out << "@stdin >> #(label) & nums >> #(n) => {\n";
+    out << "  line = label + \" \" + n\n";
+    out << "  >_(line)\n";
+    out << "}\n";
+  }
+  {
+    std::ofstream out(input_b);
+    ASSERT_TRUE(out.is_open());
+    out << "nums = [10, 20, 30]\n";
+    out << "nums >> #(n) & @stdin >> #(label) => {\n";
+    out << "  line = label + \" \" + n\n";
+    out << "  >_(line)\n";
+    out << "}\n";
+  }
+
+  const char* runner = styio_compiler_runner_latest();
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_a =
+    std::string("printf 'red\\nblue\\n' | \"") + runner
+    + "\" --parser-engine=nightly --file \"" + input_a.string() + "\" 2>&1";
+  const std::string cmd_b =
+    std::string("printf 'alpha\\nbeta\\ngamma\\ndelta\\n' | \"") + runner
+    + "\" --parser-engine=nightly --file \"" + input_b.string() + "\" 2>&1";
+
+  const CommandResult result_a = run_stdout_command(cmd_a);
+  EXPECT_EQ(result_a.exit_code, 0) << result_a.stdout_text;
+  EXPECT_EQ(result_a.stdout_text, "red 1\nblue 2\n");
+
+  const CommandResult result_b = run_stdout_command(cmd_b);
+  EXPECT_EQ(result_b.exit_code, 0) << result_b.stdout_text;
+  EXPECT_EQ(result_b.stdout_text, "alpha 10\nbeta 20\ngamma 30\n");
+
+  fs::remove(input_a);
+  fs::remove(input_b);
+}
+
+TEST(StyioStreamZip, StdinAndFileStreamsTerminateAtShorterInput) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input_a =
+    fs::temp_directory_path() / ("styio-zip-stdin-file-" + std::to_string(uniq) + ".styio");
+  const fs::path input_b =
+    fs::temp_directory_path() / ("styio-zip-file-stdin-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input_a);
+    ASSERT_TRUE(out.is_open());
+    out << "@stdin >> #(label) & @file(\"tests/features/stream_processing/data/prices_a.txt\") >> #(price) => {\n";
+    out << "  line = label + \" \" + price\n";
+    out << "  >_(line)\n";
+    out << "}\n";
+  }
+  {
+    std::ofstream out(input_b);
+    ASSERT_TRUE(out.is_open());
+    out << "@file(\"tests/features/stream_processing/data/prices_a.txt\") >> #(price) & @stdin >> #(label) => {\n";
+    out << "  line = label + \" \" + price\n";
+    out << "  >_(line)\n";
+    out << "}\n";
+  }
+
+  const char* runner = styio_compiler_runner_latest();
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_a =
+    std::string("printf 'left\\nright\\n' | \"") + runner
+    + "\" --parser-engine=nightly --file \"" + input_a.string() + "\" 2>&1";
+  const std::string cmd_b =
+    std::string("printf 'red\\nblue\\ngreen\\nextra\\n' | \"") + runner
+    + "\" --parser-engine=nightly --file \"" + input_b.string() + "\" 2>&1";
+
+  const CommandResult result_a = run_stdout_command(cmd_a);
+  EXPECT_EQ(result_a.exit_code, 0) << result_a.stdout_text;
+  EXPECT_EQ(result_a.stdout_text, "left 100\nright 200\n");
+
+  const CommandResult result_b = run_stdout_command(cmd_b);
+  EXPECT_EQ(result_b.exit_code, 0) << result_b.stdout_text;
+  EXPECT_EQ(result_b.stdout_text, "red 100\nblue 200\ngreen 300\n");
+
+  fs::remove(input_a);
+  fs::remove(input_b);
+}
+
 TEST(StyioStreamZip, ResourceScalarSelectorFailsClosedAsZipInput) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
