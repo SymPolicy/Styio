@@ -362,7 +362,10 @@ The same marker is the uniform resource-effect evaluation form:
 `?| resource_operation` settles the resource operation in place, while
 `?| resource_operation | fallback` recovers through normal type inference. The
 successful operation value and fallback value must match the surrounding use-site
-type. A bare `resource_operation | fallback` is not a resource fallback form.
+type. Current value-producing forms include file/stdin instant pulls,
+materialized container bounds reads, and user-defined resource methods whose
+body is a single `<| expr` return. A bare `resource_operation | fallback` is not
+a resource fallback form.
 Effect-specific handlers use the same boundary:
 `?| resource_operation | effect_name => handler` handles only the named typed
 effect family. For example, `?| res -> msg_queue | backpressure => do_something()`

@@ -101,9 +101,14 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   When that expression is canonical `(<- @stdin)`,
   `result = ?| log.read_stdin() | fallback` returns successful parsed `i64`
   values, recovers `STYIO_RUNTIME_NUMERIC_PARSE` through catch-all fallback or a
-  matched `parse` handler, and fails fast without fallback.
-  Multi-statement resource method returns and failing value-producing
-  resource-method recovery beyond returned file/stdin instant pulls remain open.
+  matched `parse` handler, and fails fast without fallback. When that returned
+  expression is a materialized list index, materialized list slice, or inline
+  dict index, `?| method() | fallback` recovers `STYIO_RUNTIME_LIST_INDEX` or
+  `STYIO_RUNTIME_DICT_KEY` through catch-all fallback or a matched `bounds`
+  handler, and no-fallback dict-key settlement fails before the following
+  statement. Multi-statement resource method returns and failing
+  value-producing resource-method recovery beyond returned file/stdin instant
+  pulls plus returned list/dict bounds slices remain open.
 - Plain file resource operations outside a `?|` recovery wrapper now settle at
   the ordinary statement boundary for the covered file acquire/write/release/
   iterator paths: missing `@file` acquire, missing-directory file write, direct
@@ -378,7 +383,10 @@ Single-return resource methods may return a file instant pull and recover that
 returned `STYIO_RUNTIME_FILE_OPEN_READ` through fallback or matched `io`
 handlers under `?|`; they may also return canonical `(<- @stdin)` and recover
 returned `STYIO_RUNTIME_NUMERIC_PARSE` through fallback or matched `parse`
-handlers under `?|`.
+handlers under `?|`, or return materialized list index/list-slice and inline
+dict-index expressions that recover returned `STYIO_RUNTIME_LIST_INDEX` or
+`STYIO_RUNTIME_DICT_KEY` through fallback or matched `bounds` handlers under
+`?|`.
 Statement-shaped writes, file acquire, file close methods, and guarded
 acquired-handle file write methods have the first statement settlement paths;
 file acquire also covers successful acquire followed by file iteration,
@@ -388,8 +396,9 @@ invalidation, and fail-closed iterator or write-method use after a recovered
 failed acquire.
 Broader resource families, cleanup/drop hooks,
 pressure observations, failing value-producing resource methods beyond returned
-file/stdin instant pulls, multi-statement value-producing resource methods,
-dict/matrix slice-shaped bounds recovery, and other non-instant-pull
+file/stdin instant pulls and returned list/dict bounds slices, returned matrix
+bounds, multi-statement value-producing resource methods, dict/matrix
+slice-shaped bounds recovery, and other non-instant-pull
 value-returning resource operations must remain separately implemented and
 tested before the full typed resource-effect model is closed.
 
