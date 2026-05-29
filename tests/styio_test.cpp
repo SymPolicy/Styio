@@ -6877,6 +6877,144 @@ TEST(StyioResourceEffects, ValueResourceMethodNoFallbackStopsReturnedDictFailure
   fs::remove(data);
 }
 
+TEST(StyioResourceEffects, ValueResourceMethodFallbackRecoversReturnedMatrixBoundsFailure) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-method-matrix-fallback-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-effect-method-matrix-fallback-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "seed\n";
+  }
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@file::cell_ok = (m: matrix) => { <| m[1][0] }\n";
+    out << "@file::cell_missing = (m: matrix) => { <| m[4][0] }\n";
+    out << "@file::row_ok = (m: matrix) => { <| m[1] }\n";
+    out << "@file::row_missing = (m: matrix) => { <| m[4] }\n";
+    out << "m: matrix = [[1,2],[3,4]]\n";
+    out << "log := @file(\"" << data.generic_string() << "\")\n";
+    out << "cell_success = ?| log.cell_ok(m) | 8\n";
+    out << ">_(cell_success)\n";
+    out << "cell_recovered = ?| log.cell_missing(m) | 8\n";
+    out << ">_(cell_recovered)\n";
+    out << "row_success: list[i64] = ?| log.row_ok(m) | [9]\n";
+    out << ">_(row_success)\n";
+    out << "row_recovered: list[i64] = ?| log.row_missing(m) | [9]\n";
+    out << ">_(row_recovered)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "3\n8\n[3,4]\n[9]\nafter\n");
+
+  fs::remove(input);
+  fs::remove(data);
+}
+
+TEST(StyioResourceEffects, ValueResourceMethodNamedBoundsHandlerRecoversReturnedMatrixFailure) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-method-matrix-handler-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-effect-method-matrix-handler-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "seed\n";
+  }
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@file::cell_missing = (m: matrix) => { <| m[4][0] }\n";
+    out << "m: matrix = [[1,2],[3,4]]\n";
+    out << "log := @file(\"" << data.generic_string() << "\")\n";
+    out << "handled = ?| log.cell_missing(m) | io => 1 | bounds => 8 | 7\n";
+    out << ">_(handled)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "8\nafter\n");
+  EXPECT_EQ(result.stdout_text.find("1"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("7"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove(data);
+}
+
+TEST(StyioResourceEffects, ValueResourceMethodNoFallbackStopsReturnedMatrixFailure) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-method-matrix-no-fallback-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-effect-method-matrix-no-fallback-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "seed\n";
+  }
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@file::cell_missing = (m: matrix) => { <| m[4][0] }\n";
+    out << "m: matrix = [[1,2],[3,4]]\n";
+    out << "log := @file(\"" << data.generic_string() << "\")\n";
+    out << "result = ?| log.cell_missing(m)\n";
+    out << ">_(result)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 5) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_RUNTIME_MATRIX_INDEX\""), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("after"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove(data);
+}
+
 TEST(StyioResourceEffects, NamedIoHandlerRunsForFileWriteFailure) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();

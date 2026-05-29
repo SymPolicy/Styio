@@ -2669,23 +2669,52 @@ StyioSemaContext::typeInfer(ResourceMethodDefAST* ast) {
   info.final_binding = ast->isFinalBinding();
   info.property = ast->isProperty();
   info.param_count = ast->getParams().size();
+  info.param_names.reserve(ast->getParams().size());
+  info.param_types.reserve(ast->getParams().size());
+  for (auto* param : ast->getParams()) {
+    if (param == nullptr) {
+      info.param_names.emplace_back();
+      info.param_types.push_back(StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0});
+      continue;
+    }
+    info.param_names.push_back(param->getNameAsStr());
+    info.param_types.push_back(param->getDType()->getDataType());
+  }
   info.consuming = !ast->isProperty()
                    && body_consumes_receiver(this, ast->getBody(), ast->getFamilyName());
   methods[ast->getMethodName()] = info;
 
   const std::string saved_receiver = active_resource_receiver_family_;
-  active_resource_receiver_family_ = ast->getFamilyName();
-  if (ast->getBody() != nullptr) {
-    ast->getBody()->typeInfer(this);
+  const auto saved_types = local_binding_types;
+  auto restore_resource_method_scope = [&]()
+  {
+    active_resource_receiver_family_ = saved_receiver;
+    local_binding_types = saved_types;
+  };
+
+  try {
+    active_resource_receiver_family_ = ast->getFamilyName();
+    for (std::size_t i = 0; i < info.param_names.size(); ++i) {
+      if (!info.param_names[i].empty() && !info.param_types[i].isUndefined()) {
+        local_binding_types[info.param_names[i]] = info.param_types[i];
+      }
+    }
+    if (ast->getBody() != nullptr) {
+      ast->getBody()->typeInfer(this);
+    }
+    info.result_type = resource_method_simple_result_type_latest(this, ast->getBody());
+    if (resource_method_body_contains_return_latest(ast->getBody()) && info.result_type.isUndefined()) {
+      throw StyioTypeError(
+        "resource method return currently requires a single `<| expr` body"
+      );
+    }
+    methods[ast->getMethodName()] = info;
   }
-  info.result_type = resource_method_simple_result_type_latest(this, ast->getBody());
-  if (resource_method_body_contains_return_latest(ast->getBody()) && info.result_type.isUndefined()) {
-    throw StyioTypeError(
-      "resource method return currently requires a single `<| expr` body"
-    );
+  catch (...) {
+    restore_resource_method_scope();
+    throw;
   }
-  methods[ast->getMethodName()] = info;
-  active_resource_receiver_family_ = saved_receiver;
+  restore_resource_method_scope();
 }
 
 void
@@ -2949,6 +2978,21 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
           + " expects " + std::to_string(method.param_count)
           + " argument(s), got " + std::to_string(arg_types.size())
         );
+      }
+      for (std::size_t i = 0; i < method.param_types.size() && i < arg_types.size(); ++i) {
+        const StyioDataType& declared_type = method.param_types[i];
+        if (declared_type.isUndefined()) {
+          continue;
+        }
+        if (!func_param_accepts_arg(declared_type, arg_types[i])) {
+          std::string param_name = i < method.param_names.size() && !method.param_names[i].empty()
+                                     ? method.param_names[i]
+                                     : std::to_string(i);
+          throw StyioTypeError(
+            "resource method argument type mismatch for parameter '" + param_name
+            + "': expected " + declared_type.name + ", got " + arg_types[i].name
+          );
+        }
       }
       if (method.consuming) {
         if (auto* receiver_name = dynamic_cast<NameAST*>(ast->func_callee)) {
