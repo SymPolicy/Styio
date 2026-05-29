@@ -500,8 +500,12 @@ f >> #(chunk: [byte; 4096]) => { buf += chunk }
 Resources are automatically released when their enclosing scope ends. The
 compiler inserts cleanup code at every exit path, including normal scope exit,
 loop `^` / `>>` control-flow exits, and `<|` returns. Current implementation
-evidence covers tracked file handles for those paths; broader resource-family
-cleanup and source-level fallback recovery for implicit cleanup remain staged
+evidence covers tracked file handles for those paths. It also covers the
+default file flex-rebind cleanup boundary: before `name = @file(...)`
+overwrites an existing tracked file handle, codegen closes the old handle,
+checks the cleanup error channel, and stops before the new acquire or later
+statements if cleanup failed. Broader resource-family cleanup and source-level
+fallback recovery for implicit or reassignment cleanup remain staged
 implementation work.
 
 ### 8.6 Persistence via Redirection: `->`
