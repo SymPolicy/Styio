@@ -981,6 +981,9 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
       if (styio_is_matrix_type(base_type)) {
         return styio_make_list_type(styio_type_item_type_name(base_type));
       }
+      if (styio_is_dict_type(base_type)) {
+        return styio_make_list_type(styio_dict_value_type_name(base_type));
+      }
       if (!styio_is_list_type(base_type)) {
         return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
       }
@@ -1145,7 +1148,9 @@ resource_effect_index_operation_supported_latest(StyioSemaContext* an, ListOpAST
   }
   StyioDataType base_type = infer_expr_type(an, access->getList());
   if (access->getOp() == StyioNodeType::Access_By_Slice) {
-    return styio_is_list_type(base_type) || styio_is_matrix_type(base_type);
+    return styio_is_list_type(base_type)
+           || styio_is_matrix_type(base_type)
+           || styio_is_dict_type(base_type);
   }
   if (access->getOp() != StyioNodeType::Access_By_Index) {
     return false;
@@ -2011,17 +2016,19 @@ StyioSemaContext::typeInfer(ListOpAST* ast) {
     return;
   }
   if (ast->getOp() == StyioNodeType::Access_By_Slice) {
-    if (!styio_is_list_type(list_type) && !styio_is_matrix_type(list_type)) {
-      throw StyioTypeError("list slice requires a list value");
+    if (!styio_is_list_type(list_type)
+        && !styio_is_matrix_type(list_type)
+        && !styio_is_dict_type(list_type)) {
+      throw StyioTypeError("slice access requires a list, matrix, or dict value");
     }
     StyioDataType start_type = infer_expr_type(this, ast->getSlot1());
     if (start_type.option != StyioDataTypeOption::Integer) {
-      throw StyioTypeError("list slice start must have integer type");
+      throw StyioTypeError("slice start must have integer type");
     }
     if (ast->getSlot2() != nullptr) {
       StyioDataType end_type = infer_expr_type(this, ast->getSlot2());
       if (end_type.option != StyioDataTypeOption::Integer) {
-        throw StyioTypeError("list slice end must have integer type");
+        throw StyioTypeError("slice end must have integer type");
       }
     }
     return;
