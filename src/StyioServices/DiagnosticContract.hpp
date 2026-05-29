@@ -31,6 +31,8 @@ inline constexpr std::string_view kParseShadowMismatch = "STYIO_PARSE_SHADOW_MIS
 
 inline constexpr std::string_view kSemaImmutableBinding = "STYIO_SEMA_IMMUTABLE_BINDING";
 inline constexpr std::string_view kTypeError = "STYIO_TYPE_ERROR";
+inline constexpr std::string_view kTypeUnsupportedTupleReturn =
+  "STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN";
 inline constexpr std::string_view kTypeStreamZipUnsupportedSource =
   "STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE";
 inline constexpr std::string_view kLowerUnsupportedAst = "STYIO_LOWER_UNSUPPORTED_AST";
@@ -151,6 +153,9 @@ classify_type_or_lowering_code(std::string_view message) {
       || (contains(message, "flow bind target") && contains(message, "is final and cannot be reassigned"))
       || contains(message, "is final and cannot be overridden")) {
     return std::string(kSemaImmutableBinding);
+  }
+  if (contains(message, "tuple function return annotations require tuple value IR")) {
+    return std::string(kTypeUnsupportedTupleReturn);
   }
   if (contains(message, "zip requires iterable inputs on both sides")) {
     return std::string(kTypeStreamZipUnsupportedSource);
