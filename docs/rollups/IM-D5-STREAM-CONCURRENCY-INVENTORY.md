@@ -48,6 +48,12 @@ Styio already has active design and partial implementation surfaces for streams:
   `STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE` instead of only the broad
   `STYIO_TYPE_ERROR`. This is an IM-D3 diagnostic refinement, not an expansion
   of accepted stream-driver semantics.
+- Undefined hash-tag iterator sequence routes such as `[1, 2] >> #price` now
+  fail closed with the feature-owned JSONL code
+  `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED` instead of only the broad
+  `STYIO_TYPE_ERROR`. This is also an IM-D3 diagnostic refinement; IM-D5-P1
+  still owns the decision to retire hash-tag routes or define them in the stream
+  design SSOT before any runtime behavior can be implemented.
 
 The implementation is still incomplete. Multi-stream zip and driver combinations are only partially lowered, unsupported combinations may still end in narrow lowering/codegen paths, and cross-stream sync needs a stable memory-model contract before the remaining implementation can be judged complete.
 

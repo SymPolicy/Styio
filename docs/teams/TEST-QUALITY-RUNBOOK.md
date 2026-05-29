@@ -103,6 +103,7 @@ Primary paths:
 77. Diagnostic family refinements must assert the exact public `code`, `phase`, exit family, and stable message fragment on the smallest source that reaches the owned condition. When the same condition has an adjacent route, add that route too; for stream zip unsupported-source diagnostics this means both a scalar binding input and a scalar resource-selector input must prove `STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE`.
 78. Immutable/final binding diagnostic refinements need the smallest final-binding mutation source, such as compound assignment to `name := expr`, and must assert `STYIO_SEMA_IMMUTABLE_BINDING`, public phase `sema`, TypeError exit family, and the stable binding-mutation message fragment without changing final-binding semantics.
 79. Tuple return diagnostic refinements need the smallest tuple function return annotation source and must assert `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN`, public phase `type`, TypeError exit family, and the stable tuple-value-IR message fragment without changing the fail-closed tuple-return semantics.
+80. Hash-tag iterator route diagnostic refinements need the smallest undefined route source, such as `[1, 2] >> #price`, and must assert `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED`, public phase `type`, TypeError exit family, the stable route-not-implemented message, and that following output does not execute. Do not treat this evidence as IM-D5-P1 route semantics.
 
 ## Change Classes
 

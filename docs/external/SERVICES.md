@@ -55,7 +55,7 @@ These contracts are still command-line surfaces, but their implementation now li
 
 They are suitable for package managers, build orchestrators, CI systems, and other tooling that needs stable compiler capability discovery or build/check/run/test handoff.
 
-Compile-plan and runtime JSONL diagnostics use the same public diagnostic identity fields: `schema_version`, `contract:"diagnostic"`, `severity`, `phase`, `category`, `code`, optional compatibility `subcode`, `file`, coarse source span fields, `message`, and `notes`. Feature-owned compiler diagnostics may use narrower codes such as `STYIO_SEMA_IMMUTABLE_BINDING`, `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN`, or `STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE` instead of broad fallback families when the condition has focused tests and a stable owner.
+Compile-plan and runtime JSONL diagnostics use the same public diagnostic identity fields: `schema_version`, `contract:"diagnostic"`, `severity`, `phase`, `category`, `code`, optional compatibility `subcode`, `file`, coarse source span fields, `message`, and `notes`. Feature-owned compiler diagnostics may use narrower codes such as `STYIO_SEMA_IMMUTABLE_BINDING`, `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN`, `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED`, or `STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE` instead of broad fallback families when the condition has focused tests and a stable owner.
 
 ### IDE C++ Services
 

@@ -140,6 +140,7 @@ Key SSOTs:
 104. When an IM-D3 diagnostic refinement narrows a broad public fallback code, update the diagnostic inventory, current gap audit, next-stage ledger, service docs, test catalog, owning runbooks, and `DOC-STATS.md` with the exact condition and focused evidence. Do not let a diagnostic-code closure imply that adjacent pending semantics, such as duplicate stdin stream drivers or hash-tag stream routes, have been implemented.
 105. For immutable/final binding diagnostic refinements, describe the change as a public diagnostic-code refinement only: record `STYIO_SEMA_IMMUTABLE_BINDING`, the final-binding mutation route that proves it, and the unchanged TypeError exit family without implying any new mutability behavior.
 106. For tuple return diagnostic refinements, describe the change as a public diagnostic-code refinement only: record `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN`, the tuple function return annotation route that proves it, and the unchanged TypeError exit family without implying tuple value IR or tuple return execution.
+107. For hash-tag iterator route diagnostic refinements, describe the change as a public diagnostic-code refinement only: record `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED`, the fail-closed `[1, 2] >> #tag` route that proves it, and the unchanged TypeError exit family without implying IM-D5-P1 stream route semantics.
 
 ## Change Classes
 
