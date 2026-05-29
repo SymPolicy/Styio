@@ -201,13 +201,17 @@ Current implementation reality:
    line, and `result: list[i64] = ?| (<- @stdin) | fallback` materializes or
    recovers typed list values while list parse failures report
    `STYIO_RUNTIME_LIST_PARSE` without fallback. `result = ?| xs[i] | fallback`,
-   `result = ?| d[key] | fallback`, `result = ?| m[row][col] | fallback`,
+   `result = ?| d[key] | fallback`, `values = ?| d[start..end] | fallback`,
+   `result = ?| m[row][col] | fallback`,
    `row = ?| m[row] | fallback`, `rows = ?| m[start..end] | fallback`, and
    `slice = ?| xs[0..] | fallback` now also return successful materialized
    container values, recover `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`,
    or `STYIO_RUNTIME_MATRIX_INDEX` through catch-all fallback or a matched
-   `bounds => handler`, and fail fast without a fallback. Plain `xs[i]`,
-   `xs[0..]`, `d[key]`, `m[row][col]`, and `m[start..end]` expressions outside
+   `bounds => handler`, and fail fast without a fallback. Ordered dict value
+   slices reuse the ordered `d.values` materialization and list-slice bounds
+   path, so out-of-range dict slice bounds report `STYIO_RUNTIME_LIST_INDEX`.
+   Plain `xs[i]`,
+   `xs[0..]`, `d[key]`, `d[start..end]`, `m[row][col]`, and `m[start..end]` expressions outside
    `?|` now guard the same runtime bounds failures before a following statement.
    User-defined resource methods with a single `<| expr` body now record the
    returned value type, direct calls such as `log.answer()` no longer lower an
@@ -223,7 +227,7 @@ Current implementation reality:
    success, recovers `STYIO_RUNTIME_NUMERIC_PARSE` through catch-all fallback or
    a matched `parse => handler`, and fails fast before following statements
    without a fallback. When the returned expression is a materialized list
-   index, list slice, inline dict index, or typed-parameter matrix cell/row or
+   index, list slice, inline dict index, ordered dict value slice, or typed-parameter matrix cell/row or
    row-range slice read, `?| method() | fallback` recovers
    `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, or
    `STYIO_RUNTIME_MATRIX_INDEX` through catch-all fallback or a matched
@@ -234,9 +238,7 @@ Current implementation reality:
    lowering. Multi-statement resource method returns intentionally fail closed
    before lowering until arbitrary method-body value semantics are implemented.
    Parser/Sema keep `?| op | ...` statement-only, reject statement-shaped write
-   operations where a value is required, reject fallback type mismatches, and
-   keep dict slice-shaped resource-effect values fail-closed until ordered
-   dict-slice semantics have their own checkpoint.
+   operations where a value is required, and reject fallback type mismatches.
 12. Pressure observer syntax now reaches the correct fail-closed resource-family
    boundary: `channel.pressure >> #(p) => { ... }` parses through the nightly
    iterator/attribute path, `channel.pressure` on a topology resource and
@@ -423,9 +425,9 @@ and `@file::summary = () => { $"value={1 + 2}" -> @stdout }` run after resource
 method calls, while `@file::marker = () => { >_('xy') }` and
 `@file::summary = () => { $"value={1 + 2" -> @stdout }` fail closed in the parser.
 Single-return resource methods returning materialized list index/list-slice,
-inline dict-index, or typed-parameter matrix cell/row or row-range slice
+inline dict-index, ordered dict value-slice, or typed-parameter matrix cell/row or row-range slice
 expressions also inline through `ListAST`/`ListOpAST` and `DictAST` clone paths
-with type metadata preserved, while returned dict-slice and unimplemented
+with type metadata preserved, while unimplemented
 lexical/global capture shapes stay fail-closed. That closes only the `CharAST`,
 `FmtStrAST`, and returned list/dict/matrix bounds resource-method inline-clone slices of the state
 inline clone surface; other accepted AST families still need source-reachable
@@ -655,21 +657,23 @@ These should not be counted as missing implementation in this checkout:
    remains destroyed after a later close.
    `StyioSecurityNightlyParserStmt.RejectsHandleAcquireResourceEffectExpression`
    keeps statement-shaped acquire out of value-required `?|` expressions.
-14. Materialized container index and list-slice value-producing resource effects are no longer
+14. Materialized container index/list-slice/dict-value-slice resource effects are no longer
    excluded from the first non-instant-pull `?|` value path.
    `StyioResourceEffects` proves `result = ?| xs[i] | fallback`,
-   `result = ?| d[key] | fallback`, `result = ?| m[row][col] | fallback`, and
+   `result = ?| d[key] | fallback`, `values = ?| d[start..end] | fallback`,
+   `result = ?| m[row][col] | fallback`, and
    `row = ?| m[row] | fallback` return successful container values, and
    `slice = ?| xs[0..] | fallback` returns a successful materialized list slice.
-   The same group proves container reads and list slices recover
+   Dict value slices return ordered value lists by reusing `d.values` plus
+   `SCListSlice`. The same group proves container reads and list/dict value slices recover
    `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, or
    `STYIO_RUNTIME_MATRIX_INDEX` through catch-all fallback or a matched
    `bounds` handler, and fail fast without a fallback before the following
    statement. `StyioDiagnostics` proves plain `xs[i]`, `xs[0..]`, `d[key]`,
-   and `m[row][col]` outside `?|` now emit JSONL bounds diagnostics and stop
+   `d[start..end]`, and `m[row][col]` outside `?|` now emit JSONL bounds diagnostics and stop
    before the following statement, while `StyioSecurityNightlyParserStmt` /
    `StyioSecurityNightlySemantics` prove parser/codegen routing, fallback type
-   checking, and the adjacent dict-slice resource-effect boundary.
+   checking, and the adjacent fallback-mismatch boundary.
 15. Simple value-producing resource methods are no longer excluded from the
    first non-task `?|` value path. `StyioResourceEffects` proves direct
    `log.answer()` and `result = ?| log.answer() | fallback` return simple
@@ -736,8 +740,8 @@ These should not be counted as missing implementation in this checkout:
     tests prove the public phases are `type` and `sema`, the TypeError exit
     family remains stable, stable message fragments are present, and following
     output does not execute. This is diagnostic refinement only; broader
-    resource method body semantics, resource-method captures, dict slice-shaped
-    recovery, pressure observers, and arbitrary resource-effect recovery remain
+    resource method body semantics, resource-method captures, pressure observers,
+    and arbitrary resource-effect recovery remain
     open.
 22. Native interop source/signature diagnostics are no longer only broad
     type/native fallback cases at two existing fail-closed boundaries.
@@ -839,8 +843,7 @@ These should not be counted as missing implementation in this checkout:
    source-level fallback recovery for implicit cleanup and non-file reassignment cleanup, broader
    post-acquire resource operations beyond the covered file iterator,
    close-method, write-method, and acquired-handle instant-pull paths,
-   dict slice-shaped
-   bounds recovery, additional resource families that emit typed pressure or cleanup
+   additional resource families that emit typed pressure or cleanup
    effects, and arbitrary value-producing recovery beyond the covered paths.
 2. Continue Topology v2 selector value semantics before adding new resource
    features: bounded `i64`, `f64`, `bool`, `char`, and `string` selector storage is

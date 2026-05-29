@@ -368,8 +368,9 @@ The same marker is the uniform resource-effect evaluation form:
 successful operation value and fallback value must match the surrounding use-site
 type. Current value-producing forms include file/stdin instant pulls,
 acquired file-handle instant pulls after a checked file acquire, materialized
-container bounds reads, and user-defined resource methods whose body is a single
-`<| expr` return. A bare `resource_operation | fallback` is not a resource
+container bounds reads, including ordered dict value slices that lower through
+`d.values` plus list-slice bounds recovery, and user-defined resource methods
+whose body is a single `<| expr` return. A bare `resource_operation | fallback` is not a resource
 fallback form.
 Effect-specific handlers use the same boundary:
 `?| resource_operation | effect_name => handler` handles only the named typed
