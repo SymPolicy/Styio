@@ -2008,6 +2008,59 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedScalarFmtFallba
   EXPECT_NE(llvm_ir.find("value="), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedMatchCasesScalarFamilies) {
+  const std::string src =
+    "@file::flag = (x: int) => { <| x ?= {\n"
+    "  0 => true\n"
+    "  _ => false\n"
+    "} }\n"
+    "@file::mark = (x: int) => { <| x ?= {\n"
+    "  0 => 'a'\n"
+    "  _ => 'b'\n"
+    "} }\n"
+    "@file::word = (x: int) => { <| x ?= {\n"
+    "  0 => \"zero\"\n"
+    "  _ => \"other\"\n"
+    "} }\n"
+    "log := @file(\"/tmp/styio-resource-method-match-cases\")\n"
+    "flag = ?| log.flag(0) | false\n"
+    "mark = ?| log.mark(1) | 'x'\n"
+    "word = ?| log.word(0) | \"fallback\"\n"
+    ">_(flag)\n"
+    ">_(mark)\n"
+    ">_(word)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.method.def"), std::string::npos);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("phi i1"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("phi i8"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsResourceMethodReturnedContainerMatchResult) {
+  const std::string src =
+    "@file::bad = (x: int) => { <| x ?= {\n"
+    "  0 => [1,2]\n"
+    "  _ => [3,4]\n"
+    "} }\n"
+    "log := @file(\"/tmp/styio-resource-method-container-match\")\n"
+    ">_(log.bad(0))\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected resource method returned container match result to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    const std::string msg = err.what();
+    EXPECT_NE(msg.find("match branch values support scalar and string results"), std::string::npos) << msg;
+  }
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedResourceEffectFallbackExpression) {
   const std::string src =
     "@file::read_or = () => { <| ?| (<< @file(\"/tmp/styio-resource-method-returned-effect-missing\")) | io => 8 | 7 }\n"
