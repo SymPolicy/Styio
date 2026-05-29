@@ -44,6 +44,13 @@ inline constexpr std::string_view kTypeStreamZipUnsupportedSource =
 inline constexpr std::string_view kLowerUnsupportedAst = "STYIO_LOWER_UNSUPPORTED_AST";
 inline constexpr std::string_view kCodegenError = "STYIO_CODEGEN_ERROR";
 inline constexpr std::string_view kRuntimeError = "STYIO_RUNTIME_ERROR";
+inline constexpr std::string_view kNativeUnsupportedAbi = "STYIO_NATIVE_UNSUPPORTED_ABI";
+inline constexpr std::string_view kNativeSourceReadFailed = "STYIO_NATIVE_SOURCE_READ_FAILED";
+inline constexpr std::string_view kNativeSignatureNotFound = "STYIO_NATIVE_SIGNATURE_NOT_FOUND";
+inline constexpr std::string_view kNativeHostCompileFailed = "STYIO_NATIVE_HOST_COMPILE_FAILED";
+inline constexpr std::string_view kNativeLoadFailed = "STYIO_NATIVE_LOAD_FAILED";
+inline constexpr std::string_view kNativeSymbolMissing = "STYIO_NATIVE_SYMBOL_MISSING";
+inline constexpr std::string_view kNativeToolchainUnavailable = "STYIO_NATIVE_TOOLCHAIN_UNAVAILABLE";
 inline constexpr std::string_view kNativeInteropError = "STYIO_NATIVE_INTEROP_ERROR";
 
 inline constexpr std::string_view kServiceInvalidArgument = "STYIO_SERVICE_INVALID_ARGUMENT";
@@ -142,6 +149,42 @@ classify_service_code(std::string_view subcode, std::string_view message) {
   return std::string(kServiceInvalidArgument);
 }
 
+inline bool
+looks_like_native_interop_message(std::string_view message) {
+  return contains(message, "native") || contains(message, "@extern")
+      || contains(message, "toolchain") || contains(message, "STYIO_NATIVE");
+}
+
+inline std::string
+classify_native_interop_code(std::string_view message) {
+  if (contains(message, "unsupported @extern ABI")) {
+    return std::string(kNativeUnsupportedAbi);
+  }
+  if (contains(message, "native @extern source file not found or unreadable")) {
+    return std::string(kNativeSourceReadFailed);
+  }
+  if (contains(message, "@extern binding does not declare native function")
+      || (contains(message, "@extern(") && contains(message, "block does not declare any callable function"))
+      || contains(message, "@export does not match any @extern")) {
+    return std::string(kNativeSignatureNotFound);
+  }
+  if ((contains(message, "native @extern(") && contains(message, "compile failed with command"))
+      || contains(message, "native @extern artifact compile failed")) {
+    return std::string(kNativeHostCompileFailed);
+  }
+  if (contains(message, "native @extern(") && contains(message, "dlopen failed")) {
+    return std::string(kNativeLoadFailed);
+  }
+  if (contains(message, "could not resolve exported symbol") || contains(message, "has no loaded address")) {
+    return std::string(kNativeSymbolMissing);
+  }
+  if (contains(message, "requires a bundled clang toolchain")
+      || contains(message, "invalid STYIO_NATIVE_TOOLCHAIN_MODE")) {
+    return std::string(kNativeToolchainUnavailable);
+  }
+  return std::string(kNativeInteropError);
+}
+
 inline std::string
 classify_type_or_lowering_code(std::string_view message) {
   if (contains(message, "Unsupported AST")
@@ -175,6 +218,9 @@ classify_type_or_lowering_code(std::string_view message) {
   if (contains(message, "zip requires iterable inputs on both sides")) {
     return std::string(kTypeStreamZipUnsupportedSource);
   }
+  if (looks_like_native_interop_message(message)) {
+    return classify_native_interop_code(message);
+  }
   return std::string(kTypeError);
 }
 
@@ -183,8 +229,8 @@ classify_runtime_or_native_code(std::string_view subcode, std::string_view messa
   if (starts_with(subcode, "STYIO_RUNTIME_") || starts_with(subcode, "STYIO_NATIVE_")) {
     return std::string(subcode);
   }
-  if (contains(message, "native") || contains(message, "extern") || contains(message, "toolchain")) {
-    return std::string(kNativeInteropError);
+  if (looks_like_native_interop_message(message)) {
+    return classify_native_interop_code(message);
   }
   return std::string(kRuntimeError);
 }

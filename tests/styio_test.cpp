@@ -5597,6 +5597,89 @@ TEST(StyioDiagnostics, IteratorSequenceHashTagRoutingReportsFeatureCode) {
   fs::remove(input);
 }
 
+TEST(StyioDiagnostics, NativeExternMissingSourceReportsNativeCode) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-native-missing-source-" + std::to_string(uniq) + ".styio");
+  const fs::path missing_source =
+    fs::temp_directory_path() / ("styio-native-missing-source-" + std::to_string(uniq) + ".c");
+
+  fs::remove(missing_source);
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# missing_add := @ extern(c) { \"" << missing_source.generic_string() << "\" }\n";
+    out << ">_(missing_add(1, 2))\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"native_interop\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("\"code\":\"STYIO_NATIVE_SOURCE_READ_FAILED\""),
+    std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("native @extern source file not found or unreadable"),
+    std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioDiagnostics, NativeExternMissingBindingReportsNativeCode) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-native-missing-binding-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# missing_add := @ extern(c) {\n";
+    out << "int fast_add(int a, int b) { return a + b; }\n";
+    out << "}\n";
+    out << ">_(missing_add(1, 2))\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"native_interop\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("\"code\":\"STYIO_NATIVE_SIGNATURE_NOT_FOUND\""),
+    std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("@extern binding does not declare native function `missing_add`"),
+    std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
+
+  fs::remove(input);
+}
+
 TEST(StyioDiagnostics, RetiredLegacyStateDeclReportsParseError) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
