@@ -5584,6 +5584,47 @@ TEST(StyioDiagnostics, ResourceMethodCharLiteralBodyRunsAfterInlineClone) {
   fs::remove(data);
 }
 
+TEST(StyioDiagnostics, ResourceMethodFmtStringBodyRunsAfterInlineClone) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-method-fmt-body-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-method-fmt-body-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "seed\n";
+  }
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@file::summary = () => { $\"value={1 + 2}\" -> @stdout }\n";
+    out << "log := @file(\"" << data.generic_string() << "\")\n";
+    out << "log.summary()\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(result.stdout_text, "value=3\nafter\n");
+  EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove(data);
+}
+
 TEST(StyioDiagnostics, ResourceMethodInvalidCharLiteralFailsClosed) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
@@ -5620,6 +5661,47 @@ TEST(StyioDiagnostics, ResourceMethodInvalidCharLiteralFailsClosed) {
   EXPECT_NE(result.stdout_text.find("\"category\":\"ParseError\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_PARSE_UNEXPECTED_TOKEN\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("char literal expects exactly one byte"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove(data);
+}
+
+TEST(StyioDiagnostics, ResourceMethodInvalidFmtStringFailsClosed) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-method-fmt-invalid-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-method-fmt-invalid-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "seed\n";
+  }
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@file::summary = () => { $\"value={1 + 2\" -> @stdout }\n";
+    out << "log := @file(\"" << data.generic_string() << "\")\n";
+    out << "log.summary()\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 3);
+  EXPECT_NE(result.stdout_text.find("\"category\":\"ParseError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("unterminated format string expression"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
 
   fs::remove(input);
   fs::remove(data);
