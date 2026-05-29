@@ -29,6 +29,7 @@ inline constexpr std::string_view kParseUnexpectedToken = "STYIO_PARSE_UNEXPECTE
 inline constexpr std::string_view kParseUnsupportedSyntax = "STYIO_PARSE_UNSUPPORTED_SYNTAX";
 inline constexpr std::string_view kParseShadowMismatch = "STYIO_PARSE_SHADOW_MISMATCH";
 
+inline constexpr std::string_view kSemaImmutableBinding = "STYIO_SEMA_IMMUTABLE_BINDING";
 inline constexpr std::string_view kTypeError = "STYIO_TYPE_ERROR";
 inline constexpr std::string_view kTypeStreamZipUnsupportedSource =
   "STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE";
@@ -139,6 +140,17 @@ classify_type_or_lowering_code(std::string_view message) {
       || contains(message, "unsupported AST")
       || contains(message, "unsupported node")) {
     return std::string(kLowerUnsupportedAst);
+  }
+  if (contains(message, "compound assignment requires a mutable binding")
+      || contains(message, "immutable binding cannot be reassigned")
+      || contains(message, "immutable binding cannot be redefined")
+      || contains(message, "parallel assignment cannot rebind final slot")
+      || (contains(message, "task pull target") && contains(message, "is final and cannot be reassigned"))
+      || contains(message, "resource clone cannot rebind final slot")
+      || contains(message, "final resource bind cannot redefine")
+      || (contains(message, "flow bind target") && contains(message, "is final and cannot be reassigned"))
+      || contains(message, "is final and cannot be overridden")) {
+    return std::string(kSemaImmutableBinding);
   }
   if (contains(message, "zip requires iterable inputs on both sides")) {
     return std::string(kTypeStreamZipUnsupportedSource);
