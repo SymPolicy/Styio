@@ -256,7 +256,7 @@ The example uses `|..2|` because it needs the previous and current published val
 | `__ : TypePattern := TypeExpr` type rewrite rules | **Implemented for type-position rewrite coverage** |
 | Top-level multi-resource `@a : T, @b : U := { driver }` | **Target syntax**; current compiler only has partial internal prelude resource declarations |
 | `expr -> @resource` as topology sink write | **Partially covered** by existing redirect/resource-write surfaces; strict topology semantics TBD |
-| Resource object selectors `@price[-1]`, `@price[-3..]`, `@price[...]` | **Implemented for v2 resource reads; retired state-history probes stay rejected** |
+| Resource object selectors `@price[-1]`, `@price[-3..]`, `@price[...]` | **Implemented for v2 resource reads and bounded selector iterators; `@price[-3..]` / `@price[...]` materialize iterable snapshots, scalar latest selector iterators stay rejected, and retired state-history probes stay rejected** |
 | Explicit selector/container copy `snapshot << @price[-n..]` / `snapshot << @price[...]` / `copy << list_or_dict_or_matrix` | **Implemented for bounded `i64`, `f64`, `bool`, `char`, and `string` selector snapshots plus materialized list/dict/matrix handle deep clones; scalar latest reads, `copy <- list_or_dict_or_matrix`, and broader file/topology `<<` clone/copy remain staged or rejected** |
 | Compiler-owned resource topology graph (RTG) | **Implemented for current resource AST surfaces** |
 
