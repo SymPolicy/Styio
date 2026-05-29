@@ -7360,6 +7360,62 @@ TEST(StyioResourceEffects, ValueResourceMethodReturnsFromDirectAndResourceEffect
   fs::remove(data);
 }
 
+TEST(StyioResourceEffects, ValueResourceMethodScalarFamiliesReturnFromDirectAndFallbackCalls) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-method-scalars-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-effect-method-scalars-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "seed\n";
+  }
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@file::flag = () => { <| true }\n";
+    out << "@file::ratio = () => { <| 1.5 }\n";
+    out << "@file::letter = () => { <| 'z' }\n";
+    out << "@file::word = () => { <| \"ok\" }\n";
+    out << "@file::summary = (x: int) => { <| $\"value={x + 1}\" }\n";
+    out << "log := @file(\"" << data.generic_string() << "\")\n";
+    out << ">_(log.flag())\n";
+    out << ">_(?| log.flag() | false)\n";
+    out << ">_(log.ratio())\n";
+    out << ">_(?| log.ratio() | 2.5)\n";
+    out << ">_(log.letter())\n";
+    out << ">_(?| log.letter() | 'q')\n";
+    out << ">_(log.word())\n";
+    out << ">_(?| log.word() | \"fallback\")\n";
+    out << ">_(log.summary(4))\n";
+    out << ">_(?| log.summary(5) | \"fallback\")\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(
+    result.stdout_text,
+    "true\ntrue\n1.500000\n1.500000\nz\nz\nok\nok\nvalue=5\nvalue=6\nafter\n");
+  EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove(data);
+}
+
 TEST(StyioResourceEffects, ResourceMethodValueFallbackTypeMismatchReportsTypeCode) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
@@ -7401,6 +7457,53 @@ TEST(StyioResourceEffects, ResourceMethodValueFallbackTypeMismatchReportsTypeCod
     result.stdout_text.find("\"code\":\"STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH\""),
     std::string::npos);
   EXPECT_NE(result.stdout_text.find("resource-effect fallback expects int, got string"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove(data);
+}
+
+TEST(StyioResourceEffects, ResourceMethodFmtStringValueFallbackTypeMismatchReportsTypeCode) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-method-fmt-mismatch-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-effect-method-fmt-mismatch-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "seed\n";
+  }
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@file::summary = () => { <| $\"value={1 + 2}\" }\n";
+    out << "log := @file(\"" << data.generic_string() << "\")\n";
+    out << "result = ?| log.summary() | 7\n";
+    out << ">_(result)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"type\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("\"code\":\"STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH\""),
+    std::string::npos);
+  EXPECT_NE(result.stdout_text.find("resource-effect fallback expects string, got int"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
 
   fs::remove(input);
