@@ -3324,6 +3324,15 @@ StyioSemaContext::typeInfer(StreamZipAST* ast) {
   auto saved = local_binding_types;
   auto saved_fixed = fixed_assignment_names_;
   auto saved_bind = binding_info_;
+  auto is_direct_stdin = [](StyioAST* expr) {
+    auto* stream = dynamic_cast<StdStreamAST*>(expr);
+    return stream != nullptr && stream->getStreamKind() == StdStreamKind::Stdin;
+  };
+  if (is_direct_stdin(ast->getCollectionA()) && is_direct_stdin(ast->getCollectionB())) {
+    throw StyioTypeError(
+      "zip over @stdin on both sides requires a distinct stream-driver decision"
+    );
+  }
   ast->getCollectionA()->typeInfer(this);
   ast->getCollectionB()->typeInfer(this);
   StyioDataType ta = infer_expr_type(this, ast->getCollectionA());

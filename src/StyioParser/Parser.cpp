@@ -3348,6 +3348,24 @@ parse_infinite_conditional_loop_after_iterator(StyioContext& context) {
 }
 
 static StyioAST*
+parse_zip_collection_rhs_latest(StyioContext& context) {
+  context.skip();
+  if (context.cur_tok_type() == StyioTokenType::TOK_AT) {
+    return parse_resource_zip_collection_atom_latest(context);
+  }
+  if (context.cur_tok_type() == StyioTokenType::NAME) {
+    const auto saved = context.save_cursor();
+    std::unique_ptr<NameAST> name(parse_name_unsafe(context));
+    context.skip();
+    if (context.check(StyioTokenType::ITERATOR)) {
+      return name.release();
+    }
+    context.restore_cursor(saved);
+  }
+  return parse_fallback_expr(context);
+}
+
+static StyioAST*
 parse_iterator_tail(StyioContext& context, StyioAST* collection) {
   std::unique_ptr<StyioAST> collection_owner(collection);
   std::vector<std::unique_ptr<ParamAST>> params;
@@ -3414,11 +3432,7 @@ parse_iterator_tail(StyioContext& context, StyioAST* collection) {
 
   if (context.try_match(StyioTokenType::TOK_AMP)) {
     context.skip();
-    std::unique_ptr<StyioAST> collection_b(
-      context.cur_tok_type() == StyioTokenType::TOK_AT
-        ? parse_resource_zip_collection_atom_latest(context)
-        : parse_fallback_expr(context)
-    );
+    std::unique_ptr<StyioAST> collection_b(parse_zip_collection_rhs_latest(context));
     context.skip();
     if (not context.match(StyioTokenType::ITERATOR)) {
       throw StyioSyntaxError(context.mark_cur_tok("expected >> after first stream in zip"));

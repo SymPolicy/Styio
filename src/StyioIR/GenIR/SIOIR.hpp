@@ -107,9 +107,11 @@ class SIOStreamZip : public StyioIRTraits<SIOStreamZip>
 public:
   StyioIR* iterable_a = nullptr;
   bool a_is_file = false;
+  bool a_is_stdin = false;
   std::string var_a;
   StyioIR* iterable_b = nullptr;
   bool b_is_file = false;
+  bool b_is_stdin = false;
   std::string var_b;
   bool a_elem_string = false;
   bool b_elem_string = false;
@@ -122,9 +124,11 @@ public:
   static SIOStreamZip* Create(
     StyioIR* ia,
     bool fa,
+    bool stdin_a,
     std::string va,
     StyioIR* ib,
     bool fb,
+    bool stdin_b,
     std::string vb,
     bool astr,
     bool bstr,
@@ -135,9 +139,11 @@ public:
     auto* z = new SIOStreamZip();
     z->iterable_a = ia;
     z->a_is_file = fa;
+    z->a_is_stdin = stdin_a;
     z->var_a = std::move(va);
     z->iterable_b = ib;
     z->b_is_file = fb;
+    z->b_is_stdin = stdin_b;
     z->var_b = std::move(vb);
     z->a_elem_string = astr;
     z->b_elem_string = bstr;
