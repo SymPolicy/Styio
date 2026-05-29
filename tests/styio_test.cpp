@@ -3629,7 +3629,10 @@ TEST(StyioStreamZip, ResourceScalarSelectorFailsClosedAsZipInput) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 4);
   EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE_ERROR\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("\"code\":\"STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE\""),
+    std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"type\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("zip requires iterable inputs on both sides"), std::string::npos);
 
   fs::remove(input);
@@ -5518,7 +5521,7 @@ TEST(StyioDiagnostics, CompoundAssignOnImmutableBindingReportsTypeError) {
   fs::remove(input);
 }
 
-TEST(StyioDiagnostics, StreamZipUnsupportedSourceReportsTypeError) {
+TEST(StyioDiagnostics, StreamZipUnsupportedSourceReportsFeatureCode) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -5546,7 +5549,10 @@ TEST(StyioDiagnostics, StreamZipUnsupportedSourceReportsTypeError) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 4);
   EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE_ERROR\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("\"code\":\"STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE\""),
+    std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"type\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("zip requires iterable inputs on both sides"), std::string::npos);
 
   fs::remove(input);

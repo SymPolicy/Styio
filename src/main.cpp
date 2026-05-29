@@ -276,12 +276,7 @@ styio_diagnostic_code(
     case StyioErrorCategory::ParseError:
       return diag::classify_parse_code(message);
     case StyioErrorCategory::TypeError:
-      if (diag::contains(message, "Unsupported AST")
-          || diag::contains(message, "unsupported AST")
-          || diag::contains(message, "unsupported node")) {
-        return std::string(diag::kLowerUnsupportedAst);
-      }
-      return std::string(diag::kTypeError);
+      return diag::classify_type_or_lowering_code(message);
     case StyioErrorCategory::RuntimeError:
       return diag::classify_runtime_or_native_code(subcode, message);
   }
