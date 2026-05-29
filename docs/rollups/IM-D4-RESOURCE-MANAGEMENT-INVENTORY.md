@@ -65,8 +65,9 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   close-method and write-method paths still need separate implementation
   checkpoints.
 - The first value-producing non-task resource-effect expression slices are
-  executable for file/stdin instant pulls and materialized container bounds
-  reads, including materialized list slices.
+  executable for file/stdin instant pulls, materialized container bounds reads
+  including materialized list slices, and simple value-returning resource
+  methods.
   `result = ?| (<< @file("data.txt")) | fallback`
   returns the successful `i64` file line value on success, evaluates the fallback
   after clearing a materialized file-open read failure, and can recover through a
@@ -89,6 +90,12 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   discard remains rejected, statement-shaped write operations remain rejected
   where a value is required, and dict/matrix slice-shaped resource-effect values
   stay fail-closed until those operation families have their own checkpoints.
+  User-defined resource methods with a single `<| expr` body now carry that
+  expression's inferred result type, direct calls such as `log.answer()` return
+  the inlined value without emitting an expression-context `SGReturn`, and
+  `result = ?| log.answer() | fallback` produces the method value on success
+  while rejecting fallback type mismatches. Multi-statement resource method
+  returns and failing value-producing resource-method recovery remain open.
 - Plain file resource operations outside a `?|` recovery wrapper now settle at
   the ordinary statement boundary for the covered file acquire/write/release/
   iterator paths: missing `@file` acquire, missing-directory file write, direct
@@ -350,7 +357,8 @@ Accepted resource fallback decision:
 
 Implementation note: the current value-producing non-task slices are limited to
 file instant pulls, stdin instant pulls, materialized container index/row
-reads, and materialized list slices. File
+reads, materialized list slices, and user-defined resource methods whose body is
+a single `<| expr` return. File
 instant pulls still return `i64`; stdin instant pulls now cover the untyped
 `i64` path plus explicit-target `f64`, `string`, and supported typed-list paths
 under `?|` expression recovery. Materialized list, dict, and matrix indexing
@@ -366,10 +374,10 @@ acquire followed by a later guarded write method, close-method receiver
 invalidation, and fail-closed iterator or write-method use after a recovered
 failed acquire.
 Broader resource families, cleanup/drop hooks,
-pressure observations, value-producing resource methods, dict/matrix slice-shaped
-bounds recovery, and other non-instant-pull value-returning resource operations
-must remain separately implemented and tested before the full typed
-resource-effect model is closed.
+pressure observations, failing or multi-statement value-producing resource
+methods, dict/matrix slice-shaped bounds recovery, and other non-instant-pull
+value-returning resource operations must remain separately implemented and
+tested before the full typed resource-effect model is closed.
 
 Allowed fallback installation points:
 
