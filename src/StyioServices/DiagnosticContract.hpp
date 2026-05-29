@@ -30,6 +30,8 @@ inline constexpr std::string_view kParseUnsupportedSyntax = "STYIO_PARSE_UNSUPPO
 inline constexpr std::string_view kParseShadowMismatch = "STYIO_PARSE_SHADOW_MISMATCH";
 
 inline constexpr std::string_view kTypeError = "STYIO_TYPE_ERROR";
+inline constexpr std::string_view kTypeStreamZipUnsupportedSource =
+  "STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE";
 inline constexpr std::string_view kLowerUnsupportedAst = "STYIO_LOWER_UNSUPPORTED_AST";
 inline constexpr std::string_view kCodegenError = "STYIO_CODEGEN_ERROR";
 inline constexpr std::string_view kRuntimeError = "STYIO_RUNTIME_ERROR";
@@ -129,6 +131,19 @@ classify_service_code(std::string_view subcode, std::string_view message) {
     return std::string(kServiceReadFailed);
   }
   return std::string(kServiceInvalidArgument);
+}
+
+inline std::string
+classify_type_or_lowering_code(std::string_view message) {
+  if (contains(message, "Unsupported AST")
+      || contains(message, "unsupported AST")
+      || contains(message, "unsupported node")) {
+    return std::string(kLowerUnsupportedAst);
+  }
+  if (contains(message, "zip requires iterable inputs on both sides")) {
+    return std::string(kTypeStreamZipUnsupportedSource);
+  }
+  return std::string(kTypeError);
 }
 
 inline std::string
