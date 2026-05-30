@@ -2008,6 +2008,27 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedScalarFmtFallba
   EXPECT_NE(llvm_ir.find("value="), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodStatementPrefaceReturnExpression) {
+  const std::string src =
+    "@file::answer = () => {\n"
+    "  >_(\"inside\")\n"
+    "  <| 42\n"
+    "}\n"
+    "log := @file(\"/tmp/styio-resource-method-preface\")\n"
+    "result = ?| log.answer() | 7\n"
+    ">_(result)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.method.def"), std::string::npos);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("inside"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceReceiverPropertyAccessInsideDefinitions) {
   const std::string src =
     "@file::self_path := @file.path\n"
@@ -2171,7 +2192,7 @@ TEST(StyioSecurityNightlySemantics, RejectsResourceMethodReturnedStatementOnlyFu
   }
   catch (const StyioTypeError& err) {
     const std::string msg = err.what();
-    EXPECT_NE(msg.find("resource method return currently requires a single"), std::string::npos) << msg;
+    EXPECT_NE(msg.find("statement-only preface followed by a final"), std::string::npos) << msg;
   }
 }
 
@@ -2514,6 +2535,26 @@ TEST(StyioSecurityNightlySemantics, RejectsResourceMethodArgumentTypeMismatch) {
     const std::string msg = err.what();
     EXPECT_NE(msg.find("resource method argument type mismatch for parameter 'm'"), std::string::npos) << msg;
     EXPECT_NE(msg.find("expected matrix"), std::string::npos) << msg;
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsResourceMethodLocalBindMultiStmtBeforeValueScopeSupport) {
+  const std::string src =
+    "@file::answer = () => {\n"
+    "  x = 41\n"
+    "  <| x + 1\n"
+    "}\n"
+    "log := @file(\"/tmp/styio-resource-method-local-bind\")\n"
+    "result = ?| log.answer() | 7\n"
+    ">_(result)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected resource method local-bind multi-statement return to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    const std::string msg = err.what();
+    EXPECT_NE(msg.find("statement-only preface followed by a final"), std::string::npos) << msg;
   }
 }
 
