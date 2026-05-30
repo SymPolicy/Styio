@@ -5950,6 +5950,41 @@ TEST(StyioDiagnostics, UserFunctionArgumentMismatchReportsTypeCallArgumentMismat
   fs::remove(input);
 }
 
+TEST(StyioDiagnostics, MatrixFunctionReturnFlatListFailsBeforeRuntime) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-matrix-function-return-flat-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# bad : matrix = () => { <| [1,2] }\n";
+    out << "result: matrix = bad()\n";
+    out << ">_(result)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"type\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("matrix rows must be list literals"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
+
+  fs::remove(input);
+}
+
 TEST(StyioDiagnostics, ResourceMethodArgumentMismatchReportsTypeCallArgumentMismatchCode) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
@@ -7930,6 +7965,52 @@ TEST(StyioResourceEffects, ValueResourceMethodReturnedBlockFunctionCallsInferRes
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_EQ(result.stdout_text, "5\n6\nscore=5\nscore=6\nafter\n");
   EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove(data);
+}
+
+TEST(StyioResourceEffects, ValueResourceMethodReturnedBlockFunctionMatrixResult) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-method-function-matrix-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-method-function-matrix-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "seed\n";
+  }
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# make_matrix : matrix = () => { <| [[1,2],[3,4]] }\n";
+    out << "@file::matrix_from_function = () => { <| make_matrix() }\n";
+    out << "log := @file(\"" << data.generic_string() << "\")\n";
+    out << "direct: matrix = make_matrix()\n";
+    out << ">_(direct)\n";
+    out << "method_direct: matrix = log.matrix_from_function()\n";
+    out << ">_(method_direct)\n";
+    out << "guarded: matrix = ?| log.matrix_from_function() | [[9,9],[8,8]]\n";
+    out << ">_(guarded)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "[[1,2],[3,4]]\n[[1,2],[3,4]]\n[[1,2],[3,4]]\nafter\n");
 
   fs::remove(input);
   fs::remove(data);

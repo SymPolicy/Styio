@@ -2101,6 +2101,44 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedBlockFunctionCa
   EXPECT_NE(llvm_ir.find("score="), std::string::npos);
 }
 
+TEST(StyioSecurityNightlySemantics, MatrixFunctionReturnFeedsResourceMethodValue) {
+  const std::string src =
+    "# make_matrix : matrix = () => { <| [[1,2],[3,4]] }\n"
+    "@file::matrix_from_function = () => { <| make_matrix() }\n"
+    "log := @file(\"/tmp/styio-resource-method-function-matrix\")\n"
+    "direct: matrix = make_matrix()\n"
+    "method_direct: matrix = log.matrix_from_function()\n"
+    "guarded: matrix = ?| log.matrix_from_function() | [[9,9],[8,8]]\n"
+    ">_(direct)\n"
+    ">_(method_direct)\n"
+    ">_(guarded)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("define i64 @make_matrix()"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_new_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_set_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsMatrixFunctionReturnFlatListBeforeRuntime) {
+  const std::string src =
+    "# bad : matrix = () => { <| [1,2] }\n"
+    "result: matrix = bad()\n"
+    ">_(result)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected matrix return flat list to fail before runtime";
+  }
+  catch (const StyioTypeError& err) {
+    const std::string msg = err.what();
+    EXPECT_NE(msg.find("matrix rows must be list literals"), std::string::npos) << msg;
+  }
+}
+
 TEST(StyioSecurityNightlySemantics, RejectsResourceMethodReturnedContainerMatchResult) {
   const std::string src =
     "@file::bad = (x: int) => { <| x ?= {\n"
