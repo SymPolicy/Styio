@@ -141,7 +141,9 @@ bounded_ring_handle_family_for_type(const StyioDataType& dt) {
     return std::nullopt;
   }
   StyioValueFamily family = styio_value_family_from_type_name(*type_name);
-  if (family == StyioValueFamily::ListHandle || family == StyioValueFamily::DictHandle) {
+  if (family == StyioValueFamily::ListHandle
+      || family == StyioValueFamily::DictHandle
+      || family == StyioValueFamily::MatrixHandle) {
     return family;
   }
   return std::nullopt;
@@ -564,6 +566,9 @@ StyioToLLVM::clone_resource_handle_for_runtime_owner(llvm::Value* v, StyioValueF
   else if (family == StyioValueFamily::DictHandle) {
     clone_name = "styio_dict_clone";
   }
+  else if (family == StyioValueFamily::MatrixHandle) {
+    clone_name = "styio_matrix_clone";
+  }
   if (clone_name == nullptr) {
     return v;
   }
@@ -583,6 +588,9 @@ StyioToLLVM::free_resource_handle_if_runtime_owned(llvm::Value* v, StyioValueFam
   }
   else if (family == StyioValueFamily::DictHandle) {
     theBuilder->CreateCall(dict_release_fn(), {v});
+  }
+  else if (family == StyioValueFamily::MatrixHandle) {
+    theBuilder->CreateCall(matrix_release_fn(), {v});
   }
 }
 
@@ -758,6 +766,9 @@ StyioToLLVM::toLLVMIR(SGResId* node) {
       }
       else if (handle_family_it->second == StyioValueFamily::DictHandle) {
         track_owned_resource_temp(owned, TempResourceKind::Dict);
+      }
+      else if (handle_family_it->second == StyioValueFamily::MatrixHandle) {
+        track_owned_resource_temp(owned, TempResourceKind::Matrix);
       }
       return owned;
     }
@@ -2233,6 +2244,9 @@ StyioToLLVM::toLLVMIR(SGCall* node) {
     if (suffix == "dict") {
       return StyioValueFamily::DictHandle;
     }
+    if (suffix == "matrix") {
+      return StyioValueFamily::MatrixHandle;
+    }
     return StyioValueFamily::Integer;
   };
   auto builtin_list_value_type = [&](StyioValueFamily family) -> llvm::Type* {
@@ -2446,7 +2460,8 @@ StyioToLLVM::toLLVMIR(SGCall* node) {
       free_owned_cstr_temp_if_tracked(value_raw);
     }
     else if (value_family == StyioValueFamily::ListHandle
-             || value_family == StyioValueFamily::DictHandle) {
+             || value_family == StyioValueFamily::DictHandle
+             || value_family == StyioValueFamily::MatrixHandle) {
       free_owned_resource_temp_if_tracked(value_raw);
     }
     free_owned_resource_temp_if_tracked(list_raw);
@@ -3010,6 +3025,7 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
   const bool elem_char = elem_family == StyioValueFamily::Char;
   const bool elem_list = elem_family == StyioValueFamily::ListHandle;
   const bool elem_dict = elem_family == StyioValueFamily::DictHandle;
+  const bool elem_matrix = elem_family == StyioValueFamily::MatrixHandle;
   llvm::Type* elem_ty = elem_string
     ? static_cast<llvm::Type*>(llvm::PointerType::get(*theContext, 0))
     : (elem_float
@@ -3036,7 +3052,9 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
                 ? "styio_list_get_bool"
                 : (elem_list
                     ? "styio_list_get_list"
-                    : (elem_dict ? "styio_list_get_dict" : "styio_list_get")))));
+                    : (elem_dict
+                        ? "styio_list_get_dict"
+                        : (elem_matrix ? "styio_list_get_matrix" : "styio_list_get"))))));
 
   llvm::FunctionCallee len_fn = theModule->getOrInsertFunction(
     "styio_list_len",
@@ -3103,6 +3121,10 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
     else if (elem_dict) {
       llvm::Value* cur = theBuilder->CreateLoad(i64t, vs);
       theBuilder->CreateCall(dict_release_fn(), {cur});
+    }
+    else if (elem_matrix) {
+      llvm::Value* cur = theBuilder->CreateLoad(i64t, vs);
+      theBuilder->CreateCall(matrix_release_fn(), {cur});
     }
     theBuilder->CreateBr(step_bb);
   }
@@ -3254,6 +3276,10 @@ StyioToLLVM::toLLVMIR(SCListLiteral* node) {
       new_name = "styio_list_new_dict";
       push_name = "styio_list_push_dict";
       break;
+    case StyioValueFamily::MatrixHandle:
+      new_name = "styio_list_new_matrix";
+      push_name = "styio_list_push_matrix";
+      break;
     case StyioValueFamily::Integer:
     default:
       break;
@@ -3308,7 +3334,8 @@ StyioToLLVM::toLLVMIR(SCListLiteral* node) {
       free_owned_cstr_temp_if_tracked(value);
     }
     else if (elem_family == StyioValueFamily::ListHandle
-             || elem_family == StyioValueFamily::DictHandle) {
+             || elem_family == StyioValueFamily::DictHandle
+             || elem_family == StyioValueFamily::MatrixHandle) {
       free_owned_resource_temp_if_tracked(value);
     }
   }
@@ -4383,6 +4410,7 @@ StyioToLLVM::toLLVMIR(SCListGet* node) {
   const bool char_elem = elem_family == StyioValueFamily::Char;
   const bool list_elem = elem_family == StyioValueFamily::ListHandle;
   const bool dict_elem = elem_family == StyioValueFamily::DictHandle;
+  const bool matrix_elem = elem_family == StyioValueFamily::MatrixHandle;
   llvm::Type* result_type = string_elem
     ? static_cast<llvm::Type*>(llvm::PointerType::get(*theContext, 0))
     : (float_elem
@@ -4401,7 +4429,9 @@ StyioToLLVM::toLLVMIR(SCListGet* node) {
                   ? "styio_list_get_bool"
                   : (list_elem
                       ? "styio_list_get_list"
-                      : (dict_elem ? "styio_list_get_dict" : "styio_list_get"))))),
+                      : (dict_elem
+                          ? "styio_list_get_dict"
+                          : (matrix_elem ? "styio_list_get_matrix" : "styio_list_get")))))),
     llvm::FunctionType::get(
       result_type,
       {theBuilder->getInt64Ty(), theBuilder->getInt64Ty()},
@@ -4427,6 +4457,9 @@ StyioToLLVM::toLLVMIR(SCListGet* node) {
   }
   if (dict_elem) {
     track_owned_resource_temp(out, TempResourceKind::Dict);
+  }
+  if (matrix_elem) {
+    track_owned_resource_temp(out, TempResourceKind::Matrix);
   }
   if (bool_elem) {
     return theBuilder->CreateICmpNE(out, theBuilder->getInt64(0));
@@ -4499,6 +4532,9 @@ StyioToLLVM::toLLVMIR(SCListSet* node) {
     case StyioValueFamily::DictHandle:
       set_name = "styio_list_set_dict";
       break;
+    case StyioValueFamily::MatrixHandle:
+      set_name = "styio_list_set_matrix";
+      break;
     case StyioValueFamily::Integer:
     default:
       break;
@@ -4558,7 +4594,8 @@ StyioToLLVM::toLLVMIR(SCListSet* node) {
     free_owned_cstr_temp_if_tracked(value_raw);
   }
   else if (value_family == StyioValueFamily::ListHandle
-           || value_family == StyioValueFamily::DictHandle) {
+           || value_family == StyioValueFamily::DictHandle
+           || value_family == StyioValueFamily::MatrixHandle) {
     free_owned_resource_temp_if_tracked(value_raw);
   }
   free_owned_resource_temp_if_tracked(list_raw);
@@ -5040,6 +5077,9 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     if (family == StyioValueFamily::DictHandle) {
       return "styio_list_get_dict";
     }
+    if (family == StyioValueFamily::MatrixHandle) {
+      return "styio_list_get_matrix";
+    }
     return "styio_list_get";
   };
   auto release_zip_elem = [&](StyioValueFamily family, llvm::AllocaInst* slot)
@@ -5055,6 +5095,10 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     else if (family == StyioValueFamily::DictHandle) {
       llvm::Value* cur = theBuilder->CreateLoad(i64t, slot);
       theBuilder->CreateCall(dict_release_fn(), {cur});
+    }
+    else if (family == StyioValueFamily::MatrixHandle) {
+      llvm::Value* cur = theBuilder->CreateLoad(i64t, slot);
+      theBuilder->CreateCall(matrix_release_fn(), {cur});
     }
   };
   auto unsupported_zip = []() -> void
