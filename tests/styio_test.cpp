@@ -3598,6 +3598,48 @@ TEST(StyioStreamZip, StdinAndFileStreamsTerminateAtShorterInput) {
   fs::remove(input_b);
 }
 
+TEST(StyioStreamZip, ResourceMatrixSelectorSnapshotsFeedZipBarrier) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-zip-resource-matrix-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@bucket : matrix|..2|\n";
+    out << "[1, 5] >> #(base) => {\n";
+    out << "  cur: matrix = [[base, base + 1], [base + 2, base + 3]]\n";
+    out << "  cur -> @bucket\n";
+    out << "  ok = mat_set(cur,0,0,99)\n";
+    out << "}\n";
+    out << "@bucket[...] >> #(m) & [10, 20, 30] >> #(rank) => {\n";
+    out << "  >_(m)\n";
+    out << "  >_(rank)\n";
+    out << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(
+    result.stdout_text,
+    "[[1,2],[3,4]]\n10\n"
+    "[[5,6],[7,8]]\n20\n"
+  );
+
+  fs::remove(input);
+}
+
 TEST(StyioStreamZip, ResourceScalarSelectorFailsClosedAsZipInput) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
@@ -3613,6 +3655,47 @@ TEST(StyioStreamZip, ResourceScalarSelectorFailsClosedAsZipInput) {
     out << "}\n";
     out << "@price[-1] >> #(p) & [1, 2] >> #(x) => {\n";
     out << "  >_(p + x)\n";
+    out << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4);
+  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("\"code\":\"STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE\""),
+    std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"type\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("zip requires iterable inputs on both sides"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioStreamZip, ResourceMatrixLatestSelectorFailsClosedAsZipInput) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-zip-resource-matrix-scalar-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@bucket : matrix|..2|\n";
+    out << "[1] >> #(base) => {\n";
+    out << "  cur: matrix = [[base, base + 1], [base + 2, base + 3]]\n";
+    out << "  cur -> @bucket\n";
+    out << "}\n";
+    out << "@bucket[-1] >> #(m) & [1] >> #(rank) => {\n";
+    out << "  >_(rank)\n";
     out << "}\n";
   }
 

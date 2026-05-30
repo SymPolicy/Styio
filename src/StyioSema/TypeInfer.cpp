@@ -3383,6 +3383,9 @@ StyioSemaContext::typeInfer(StreamZipAST* ast) {
     auto* stream = dynamic_cast<StdStreamAST*>(expr);
     return stream != nullptr && stream->getStreamKind() == StdStreamKind::Stdin;
   };
+  auto is_direct_file = [](StyioAST* expr) {
+    return expr != nullptr && expr->getNodeType() == StyioNodeType::FileResource;
+  };
   if (is_direct_stdin(ast->getCollectionA()) && is_direct_stdin(ast->getCollectionB())) {
     throw StyioTypeError(
       "zip over @stdin on both sides requires a distinct stream-driver decision"
@@ -3392,7 +3395,14 @@ StyioSemaContext::typeInfer(StreamZipAST* ast) {
   ast->getCollectionB()->typeInfer(this);
   StyioDataType ta = infer_expr_type(this, ast->getCollectionA());
   StyioDataType tb = infer_expr_type(this, ast->getCollectionB());
-  if (!styio_type_is_iterable(ta) || !styio_type_is_iterable(tb)) {
+  auto is_supported_zip_source = [&](StyioAST* expr, const StyioDataType& type) {
+    if (is_direct_file(expr) || is_direct_stdin(expr)) {
+      return true;
+    }
+    return styio_is_list_type(type);
+  };
+  if (!is_supported_zip_source(ast->getCollectionA(), ta)
+      || !is_supported_zip_source(ast->getCollectionB(), tb)) {
     throw StyioTypeError("zip requires iterable inputs on both sides");
   }
   StyioDataType ea = infer_collection_elem_type(this, ast->getCollectionA());

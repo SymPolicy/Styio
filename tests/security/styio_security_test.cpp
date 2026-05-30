@@ -3426,6 +3426,27 @@ TEST(StyioSecurityNightlySemantics, CharMaterializedListsFeedZipBarrier) {
   EXPECT_NE(llvm_ir.find("styio_char_cstr"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlySemantics, MatrixSelectorSnapshotsFeedZipBarrier) {
+  const std::string src =
+    "@bucket : matrix|..2|\n"
+    "[1, 5] >> #(base) => {\n"
+    "  cur: matrix = [[base, base + 1], [base + 2, base + 3]]\n"
+    "  cur -> @bucket\n"
+    "}\n"
+    "@bucket[...] >> #(m) & [10, 20] >> #(rank) => {\n"
+    "  >_(m)\n"
+    "  >_(rank)\n"
+    "}\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_list_len"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_get_matrix"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_release"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlySemantics, StdinFeedsStreamZipBarrier) {
   const std::string src =
     "@stdin >> #(line) & [1,2] >> #(rank) => {\n"
