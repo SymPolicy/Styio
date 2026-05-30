@@ -7796,6 +7796,51 @@ TEST(StyioResourceEffects, ValueResourceMethodReturnsFromDirectAndResourceEffect
   fs::remove(data);
 }
 
+TEST(StyioResourceEffects, ValueResourceMethodStatementPrefaceReturnsFromDirectAndResourceEffectCalls) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-method-preface-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-effect-method-preface-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "seed\n";
+  }
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@file::answer = () => {\n";
+    out << "  >_(\"inside\")\n";
+    out << "  <| 42\n";
+    out << "}\n";
+    out << "log := @file(\"" << data.generic_string() << "\")\n";
+    out << ">_(log.answer())\n";
+    out << ">_(?| log.answer() | 7)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "inside\n42\ninside\n42\nafter\n");
+  EXPECT_EQ(result.stdout_text.find("resource method return currently requires"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove(data);
+}
+
 TEST(StyioResourceEffects, ValueResourceMethodScalarFamiliesReturnFromDirectAndFallbackCalls) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
@@ -8165,7 +8210,7 @@ TEST(StyioResourceEffects, ResourceMethodFmtStringValueFallbackTypeMismatchRepor
   fs::remove(data);
 }
 
-TEST(StyioResourceEffects, ResourceMethodMultiStmtReturnReportsSemaCode) {
+TEST(StyioResourceEffects, ResourceMethodLocalBindMultiStmtReturnReportsSemaCode) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -8207,7 +8252,7 @@ TEST(StyioResourceEffects, ResourceMethodMultiStmtReturnReportsSemaCode) {
   EXPECT_NE(
     result.stdout_text.find("\"code\":\"STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY\""),
     std::string::npos);
-  EXPECT_NE(result.stdout_text.find("resource method return currently requires a single"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("statement-only preface followed by a final"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
 
   fs::remove(input);
@@ -8254,7 +8299,7 @@ TEST(StyioResourceEffects, ResourceMethodReturnedStatementOnlyFunctionReportsSem
   EXPECT_NE(
     result.stdout_text.find("\"code\":\"STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY\""),
     std::string::npos);
-  EXPECT_NE(result.stdout_text.find("resource method return currently requires a single"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("statement-only preface followed by a final"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
 
   fs::remove(input);

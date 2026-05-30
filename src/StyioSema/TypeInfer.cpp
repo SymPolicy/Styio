@@ -96,16 +96,39 @@ resource_effect_handler_name_supported_latest(const std::string& name) {
          || name == "cleanup";
 }
 
+bool
+resource_method_value_preface_supported_latest(StyioAST* stmt) {
+  if (stmt == nullptr) {
+    return false;
+  }
+  return dynamic_cast<CommentAST*>(stmt) != nullptr
+         || dynamic_cast<EmptyAST*>(stmt) != nullptr
+         || dynamic_cast<PassAST*>(stmt) != nullptr
+         || dynamic_cast<PrintAST*>(stmt) != nullptr
+         || dynamic_cast<ResourceWriteAST*>(stmt) != nullptr
+         || dynamic_cast<ResourceRedirectAST*>(stmt) != nullptr
+         || dynamic_cast<ResourceEffectAST*>(stmt) != nullptr;
+}
+
 ReturnAST*
-resource_method_simple_return_latest(StyioAST* body) {
+resource_method_value_tail_return_latest(StyioAST* body) {
   if (auto* ret = dynamic_cast<ReturnAST*>(body)) {
     return ret;
   }
   auto* block = dynamic_cast<BlockAST*>(body);
-  if (block == nullptr || !block->followings.empty() || block->stmts.size() != 1) {
+  if (block == nullptr || !block->followings.empty() || block->stmts.empty()) {
     return nullptr;
   }
-  return dynamic_cast<ReturnAST*>(block->stmts.front());
+  auto* tail = dynamic_cast<ReturnAST*>(block->stmts.back());
+  if (tail == nullptr) {
+    return nullptr;
+  }
+  for (std::size_t i = 0; i + 1 < block->stmts.size(); ++i) {
+    if (!resource_method_value_preface_supported_latest(block->stmts[i])) {
+      return nullptr;
+    }
+  }
+  return tail;
 }
 
 bool
@@ -133,7 +156,7 @@ resource_method_body_contains_return_latest(StyioAST* body) {
 
 StyioDataType
 resource_method_simple_result_type_latest(StyioSemaContext* an, StyioAST* body) {
-  ReturnAST* ret = resource_method_simple_return_latest(body);
+  ReturnAST* ret = resource_method_value_tail_return_latest(body);
   if (ret == nullptr || ret->getExpr() == nullptr) {
     return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
@@ -2842,6 +2865,7 @@ StyioSemaContext::typeInfer(ResourceMethodDefAST* ast) {
     if (resource_method_body_contains_return_latest(ast->getBody()) && info.result_type.isUndefined()) {
       throw StyioTypeError(
         "resource method return currently requires a single `<| expr` body"
+        " or statement-only preface followed by a final `<| expr`"
       );
     }
     methods[ast->getMethodName()] = info;

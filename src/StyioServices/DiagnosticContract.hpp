@@ -245,7 +245,7 @@ classify_type_or_lowering_code(std::string_view message) {
       || contains(message, "pressure observer requires a resource family")) {
     return std::string(kSemaResourcePressureObserverUnsupported);
   }
-  if (contains(message, "resource method return currently requires a single")) {
+  if (contains(message, "resource method return currently requires")) {
     return std::string(kSemaResourceMethodUnsupportedBody);
   }
   if (contains(message, "resource-effect fallback expects")) {

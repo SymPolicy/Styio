@@ -1276,6 +1276,14 @@ class StateExprCloneVisitor
     return NameAST::Create(expr->getAsStr());
   }
 
+  StyioAST* clone(CommentAST* expr) {
+    return CommentAST::Create(expr->getText());
+  }
+
+  StyioAST* clone(EmptyAST*) {
+    return EmptyAST::Create();
+  }
+
   StyioAST* clone(IntAST* expr) {
     return IntAST::Create(expr->value, expr->num_of_bit);
   }
@@ -1726,19 +1734,47 @@ flatten_single_stmt_block_latest(StyioIR* ir) {
   return ir;
 }
 
-StyioAST*
-resource_method_simple_return_expr_latest(StyioAST* body) {
+bool
+resource_method_value_preface_supported_latest(StyioAST* stmt) {
+  if (stmt == nullptr) {
+    return false;
+  }
+  return dynamic_cast<CommentAST*>(stmt) != nullptr
+         || dynamic_cast<EmptyAST*>(stmt) != nullptr
+         || dynamic_cast<PassAST*>(stmt) != nullptr
+         || dynamic_cast<PrintAST*>(stmt) != nullptr
+         || dynamic_cast<ResourceWriteAST*>(stmt) != nullptr
+         || dynamic_cast<ResourceRedirectAST*>(stmt) != nullptr
+         || dynamic_cast<ResourceEffectAST*>(stmt) != nullptr;
+}
+
+StyioIR*
+lower_resource_method_value_body_latest(AstToStyioIRLowerer* an, StyioAST* body) {
   if (auto* ret = dynamic_cast<ReturnAST*>(body)) {
-    return ret->getExpr();
+    return ret->getExpr() != nullptr ? ret->getExpr()->toStyioIR(an) : nullptr;
   }
   auto* block = dynamic_cast<BlockAST*>(body);
-  if (block == nullptr || !block->followings.empty() || block->stmts.size() != 1) {
+  if (block == nullptr || !block->followings.empty() || block->stmts.empty()) {
     return nullptr;
   }
-  if (auto* ret = dynamic_cast<ReturnAST*>(block->stmts.front())) {
-    return ret->getExpr();
+  auto* tail = dynamic_cast<ReturnAST*>(block->stmts.back());
+  if (tail == nullptr || tail->getExpr() == nullptr) {
+    return nullptr;
   }
-  return nullptr;
+  if (block->stmts.size() == 1) {
+    return tail->getExpr()->toStyioIR(an);
+  }
+
+  std::vector<StyioIR*> stmts;
+  stmts.reserve(block->stmts.size());
+  for (std::size_t i = 0; i + 1 < block->stmts.size(); ++i) {
+    if (!resource_method_value_preface_supported_latest(block->stmts[i])) {
+      return nullptr;
+    }
+    stmts.push_back(block->stmts[i]->toStyioIR(an));
+  }
+  stmts.push_back(tail->getExpr()->toStyioIR(an));
+  return styio::lowering::optimize_styio_ir(SGBlock::Create(std::move(stmts)));
 }
 
 struct PulseScratch
@@ -3162,8 +3198,8 @@ AstToStyioIRLowerer::toStyioIR(FuncCallAST* ast) {
             if (inlined_body == nullptr) {
               throw StyioTypeError("resource method lowering produced no body");
             }
-            if (StyioAST* returned_expr = resource_method_simple_return_expr_latest(inlined_body)) {
-              lowered = returned_expr->toStyioIR(this);
+            if (StyioIR* value_body = lower_resource_method_value_body_latest(this, inlined_body)) {
+              lowered = value_body;
             }
             else {
               lowered = flatten_single_stmt_block_latest(inlined_body->toStyioIR(this));
@@ -3302,8 +3338,8 @@ AstToStyioIRLowerer::toStyioIR(AttrAST* ast) {
           if (inlined_body == nullptr) {
             throw StyioTypeError("resource property lowering produced no body");
           }
-          if (StyioAST* returned_expr = resource_method_simple_return_expr_latest(inlined_body)) {
-            lowered = returned_expr->toStyioIR(this);
+          if (StyioIR* value_body = lower_resource_method_value_body_latest(this, inlined_body)) {
+            lowered = value_body;
           }
           else {
             lowered = flatten_single_stmt_block_latest(inlined_body->toStyioIR(this));
