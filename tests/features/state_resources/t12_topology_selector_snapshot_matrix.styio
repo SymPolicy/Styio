@@ -1,0 +1,19 @@
+@bucket : matrix|..2|
+[1, 5] >> #(base) => {
+  cur: matrix = [[base, base + 1], [base + 2, base + 3]]
+  cur -> @bucket
+  ok = mat_set(cur,0,0,99)
+}
+>_(@bucket[-1])
+>_(@bucket[-2..])
+snap << @bucket[...]
+[9] >> #(base) => {
+  cur: matrix = [[base, base + 1], [base + 2, base + 3]]
+  cur -> @bucket
+  okp = mat_set(cur,1,1,77)
+}
+>_(snap)
+>_(@bucket[...])
+@bucket[...] >> #(row) => {
+  >_(row)
+}

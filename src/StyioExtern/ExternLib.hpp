@@ -97,6 +97,7 @@ extern "C" DLLEXPORT int64_t styio_list_new_f64();
 extern "C" DLLEXPORT int64_t styio_list_new_cstr();
 extern "C" DLLEXPORT int64_t styio_list_new_list();
 extern "C" DLLEXPORT int64_t styio_list_new_dict();
+extern "C" DLLEXPORT int64_t styio_list_new_matrix();
 extern "C" DLLEXPORT void styio_list_push_bool(int64_t h, int64_t value);
 extern "C" DLLEXPORT void styio_list_push_char(int64_t h, int8_t value);
 extern "C" DLLEXPORT void styio_list_push_i64(int64_t h, int64_t value);
@@ -104,6 +105,7 @@ extern "C" DLLEXPORT void styio_list_push_f64(int64_t h, double value);
 extern "C" DLLEXPORT void styio_list_push_cstr(int64_t h, const char* value);
 extern "C" DLLEXPORT void styio_list_push_list(int64_t h, int64_t value);
 extern "C" DLLEXPORT void styio_list_push_dict(int64_t h, int64_t value);
+extern "C" DLLEXPORT void styio_list_push_matrix(int64_t h, int64_t value);
 extern "C" DLLEXPORT void styio_list_insert_bool(int64_t h, int64_t idx, int64_t value);
 extern "C" DLLEXPORT void styio_list_insert_char(int64_t h, int64_t idx, int8_t value);
 extern "C" DLLEXPORT void styio_list_insert_i64(int64_t h, int64_t idx, int64_t value);
@@ -111,6 +113,7 @@ extern "C" DLLEXPORT void styio_list_insert_f64(int64_t h, int64_t idx, double v
 extern "C" DLLEXPORT void styio_list_insert_cstr(int64_t h, int64_t idx, const char* value);
 extern "C" DLLEXPORT void styio_list_insert_list(int64_t h, int64_t idx, int64_t value);
 extern "C" DLLEXPORT void styio_list_insert_dict(int64_t h, int64_t idx, int64_t value);
+extern "C" DLLEXPORT void styio_list_insert_matrix(int64_t h, int64_t idx, int64_t value);
 extern "C" DLLEXPORT int64_t styio_list_clone(int64_t h);
 extern "C" DLLEXPORT int64_t styio_list_len(int64_t h);
 extern "C" DLLEXPORT int64_t styio_list_get_bool(int64_t h, int64_t idx);
@@ -120,6 +123,7 @@ extern "C" DLLEXPORT double styio_list_get_f64(int64_t h, int64_t idx);
 extern "C" DLLEXPORT const char* styio_list_get_cstr(int64_t h, int64_t idx);
 extern "C" DLLEXPORT int64_t styio_list_get_list(int64_t h, int64_t idx);
 extern "C" DLLEXPORT int64_t styio_list_get_dict(int64_t h, int64_t idx);
+extern "C" DLLEXPORT int64_t styio_list_get_matrix(int64_t h, int64_t idx);
 extern "C" DLLEXPORT int64_t styio_list_slice(
   int64_t h,
   int64_t start,
@@ -132,6 +136,7 @@ extern "C" DLLEXPORT void styio_list_set_f64(int64_t h, int64_t idx, double valu
 extern "C" DLLEXPORT void styio_list_set_cstr(int64_t h, int64_t idx, const char* value);
 extern "C" DLLEXPORT void styio_list_set_list(int64_t h, int64_t idx, int64_t value);
 extern "C" DLLEXPORT void styio_list_set_dict(int64_t h, int64_t idx, int64_t value);
+extern "C" DLLEXPORT void styio_list_set_matrix(int64_t h, int64_t idx, int64_t value);
 extern "C" DLLEXPORT void styio_list_pop(int64_t h);
 extern "C" DLLEXPORT const char* styio_list_to_cstr(int64_t h);
 extern "C" DLLEXPORT void styio_list_release(int64_t h);
@@ -141,6 +146,7 @@ extern "C" DLLEXPORT int64_t styio_matrix_new_i64(int64_t rows, int64_t cols);
 extern "C" DLLEXPORT int64_t styio_matrix_new_f64(int64_t rows, int64_t cols);
 extern "C" DLLEXPORT int64_t styio_matrix_identity_i64(int64_t n);
 extern "C" DLLEXPORT int64_t styio_matrix_identity_f64(int64_t n);
+extern "C" DLLEXPORT int64_t styio_matrix_clone(int64_t h);
 extern "C" DLLEXPORT int64_t styio_matrix_clone_i64(int64_t h);
 extern "C" DLLEXPORT int64_t styio_matrix_clone_f64(int64_t h);
 extern "C" DLLEXPORT int64_t styio_matrix_rows(int64_t h);

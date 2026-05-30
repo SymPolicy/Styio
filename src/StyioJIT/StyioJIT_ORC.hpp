@@ -113,6 +113,7 @@ public:
     add_symbol("styio_list_new_cstr", &styio_list_new_cstr);
     add_symbol("styio_list_new_list", &styio_list_new_list);
     add_symbol("styio_list_new_dict", &styio_list_new_dict);
+    add_symbol("styio_list_new_matrix", &styio_list_new_matrix);
     add_symbol("styio_list_push_bool", &styio_list_push_bool);
     add_symbol("styio_list_push_char", &styio_list_push_char);
     add_symbol("styio_list_push_i64", &styio_list_push_i64);
@@ -120,6 +121,7 @@ public:
     add_symbol("styio_list_push_cstr", &styio_list_push_cstr);
     add_symbol("styio_list_push_list", &styio_list_push_list);
     add_symbol("styio_list_push_dict", &styio_list_push_dict);
+    add_symbol("styio_list_push_matrix", &styio_list_push_matrix);
     add_symbol("styio_list_insert_bool", &styio_list_insert_bool);
     add_symbol("styio_list_insert_char", &styio_list_insert_char);
     add_symbol("styio_list_insert_i64", &styio_list_insert_i64);
@@ -127,6 +129,7 @@ public:
     add_symbol("styio_list_insert_cstr", &styio_list_insert_cstr);
     add_symbol("styio_list_insert_list", &styio_list_insert_list);
     add_symbol("styio_list_insert_dict", &styio_list_insert_dict);
+    add_symbol("styio_list_insert_matrix", &styio_list_insert_matrix);
     add_symbol("styio_list_clone", &styio_list_clone);
     add_symbol("styio_list_len", &styio_list_len);
     add_symbol("styio_list_get_bool", &styio_list_get_bool);
@@ -136,6 +139,7 @@ public:
     add_symbol("styio_list_get_cstr", &styio_list_get_cstr);
     add_symbol("styio_list_get_list", &styio_list_get_list);
     add_symbol("styio_list_get_dict", &styio_list_get_dict);
+    add_symbol("styio_list_get_matrix", &styio_list_get_matrix);
     add_symbol("styio_list_slice", &styio_list_slice);
     add_symbol("styio_list_set_bool", &styio_list_set_bool);
     add_symbol("styio_list_set_char", &styio_list_set_char);
@@ -144,6 +148,7 @@ public:
     add_symbol("styio_list_set_cstr", &styio_list_set_cstr);
     add_symbol("styio_list_set_list", &styio_list_set_list);
     add_symbol("styio_list_set_dict", &styio_list_set_dict);
+    add_symbol("styio_list_set_matrix", &styio_list_set_matrix);
     add_symbol("styio_list_pop", &styio_list_pop);
     add_symbol("styio_list_to_cstr", &styio_list_to_cstr);
     add_symbol("styio_list_release", &styio_list_release);
@@ -153,6 +158,7 @@ public:
     add_symbol("styio_matrix_new_f64", &styio_matrix_new_f64);
     add_symbol("styio_matrix_identity_i64", &styio_matrix_identity_i64);
     add_symbol("styio_matrix_identity_f64", &styio_matrix_identity_f64);
+    add_symbol("styio_matrix_clone", &styio_matrix_clone);
     add_symbol("styio_matrix_clone_i64", &styio_matrix_clone_i64);
     add_symbol("styio_matrix_clone_f64", &styio_matrix_clone_f64);
     add_symbol("styio_matrix_rows", &styio_matrix_rows);

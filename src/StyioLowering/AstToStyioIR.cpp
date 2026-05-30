@@ -848,6 +848,9 @@ predefined_list_operation_runtime_name(const std::string& method, const StyioDat
     case StyioValueFamily::DictHandle:
       suffix = "dict";
       break;
+    case StyioValueFamily::MatrixHandle:
+      suffix = "matrix";
+      break;
     case StyioValueFamily::Integer:
     default:
       break;
@@ -2879,7 +2882,8 @@ resource_storage_type_latest(const StyioDataType& resource_type) {
        || value_family == StyioValueFamily::Char
        || value_family == StyioValueFamily::String
        || value_family == StyioValueFamily::ListHandle
-       || value_family == StyioValueFamily::DictHandle)
+       || value_family == StyioValueFamily::DictHandle
+       || value_family == StyioValueFamily::MatrixHandle)
       && resource_type.resource_shape_bound > 0
       && (resource_type.resource_shape == StyioResourceShapeKind::Fixed || resource_type.resource_shape == StyioResourceShapeKind::Recent)) {
     std::string ring_name = std::string(kStyioBoundedRingPrefix);
@@ -2888,7 +2892,8 @@ resource_storage_type_latest(const StyioDataType& resource_type) {
         || value_family == StyioValueFamily::Char
         || value_family == StyioValueFamily::String
         || value_family == StyioValueFamily::ListHandle
-        || value_family == StyioValueFamily::DictHandle) {
+        || value_family == StyioValueFamily::DictHandle
+        || value_family == StyioValueFamily::MatrixHandle) {
       ring_name += value_type.name + ":";
     }
     ring_name += std::to_string(resource_type.resource_shape_bound);

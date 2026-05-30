@@ -2814,11 +2814,12 @@ StyioSemaContext::typeInfer(ResourceRefAST* ast) {
     || value_family == StyioValueFamily::Char
     || value_family == StyioValueFamily::String
     || value_family == StyioValueFamily::ListHandle
-    || value_family == StyioValueFamily::DictHandle;
+    || value_family == StyioValueFamily::DictHandle
+    || value_family == StyioValueFamily::MatrixHandle;
   if (ast->getSelectorKind() == ResourceSelectorKind::Offset) {
     if (bounded_history && !supported_bounded_history_value) {
       throw StyioTypeError(
-        "resource `" + ast->getNameStr() + "` history selection currently supports integer, float, bool, char, string, list, or dict resources"
+        "resource `" + ast->getNameStr() + "` history selection currently supports integer, float, bool, char, string, list, dict, or matrix resources"
       );
     }
     ast->setDataType(value_type);
@@ -2832,7 +2833,7 @@ StyioSemaContext::typeInfer(ResourceRefAST* ast) {
   }
   if (!supported_bounded_history_value) {
     throw StyioTypeError(
-      "resource `" + ast->getNameStr() + "` slice/snapshot selection currently supports integer, float, bool, char, string, list, or dict resources"
+      "resource `" + ast->getNameStr() + "` slice/snapshot selection currently supports integer, float, bool, char, string, list, dict, or matrix resources"
     );
   }
   if (resource_type.resource_shape_bound > static_cast<std::size_t>(std::numeric_limits<int>::max())) {

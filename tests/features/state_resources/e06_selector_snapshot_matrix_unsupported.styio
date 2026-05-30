@@ -1,2 +1,0 @@
-@bucket : matrix|..2|
->_(@bucket[...])

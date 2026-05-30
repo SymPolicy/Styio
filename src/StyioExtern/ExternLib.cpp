@@ -96,6 +96,7 @@ enum class StyioListElemKind : std::uint8_t
   ListHandle = 4,
   DictHandle = 5,
   Char = 6,
+  MatrixHandle = 7,
 };
 
 struct StyioListBase
@@ -167,6 +168,15 @@ struct StyioListDictHandle : public StyioListBase
 {
   StyioListDictHandle() :
       StyioListBase(StyioListElemKind::DictHandle) {
+  }
+
+  std::vector<int64_t> elems;
+};
+
+struct StyioListMatrixHandle : public StyioListBase
+{
+  StyioListMatrixHandle() :
+      StyioListBase(StyioListElemKind::MatrixHandle) {
   }
 
   std::vector<int64_t> elems;
@@ -584,6 +594,7 @@ void close_matrix(void* raw);
 void close_task(void* raw);
 int64_t clone_list_handle_value(int64_t h);
 int64_t clone_dict_handle_value(int64_t h);
+int64_t clone_matrix_handle_value(int64_t h);
 void append_list_handle_repr(std::string& out, int64_t h);
 void append_dict_handle_repr(std::string& out, int64_t h);
 void append_matrix_handle_repr(std::string& out, int64_t h);
@@ -929,6 +940,24 @@ as_list_dict_handle(int64_t h, bool diagnose_if_missing = false) {
   return static_cast<StyioListDictHandle*>(list);
 }
 
+StyioListMatrixHandle*
+as_list_matrix_handle(int64_t h, bool diagnose_if_missing = false) {
+  StyioListBase* list = as_list_base(h, diagnose_if_missing);
+  if (list == nullptr) {
+    return nullptr;
+  }
+  if (list->elem_kind != StyioListElemKind::MatrixHandle) {
+    if (diagnose_if_missing) {
+      set_runtime_error_once(
+        kRuntimeSubcodeListElemKind,
+        "list handle does not carry matrix-handle elements: "
+          + std::to_string(static_cast<long long>(h)));
+    }
+    return nullptr;
+  }
+  return static_cast<StyioListMatrixHandle*>(list);
+}
+
 bool
 check_matrix_dims(int64_t rows, int64_t cols) {
   if (rows <= 0 || cols <= 0) {
@@ -1102,6 +1131,13 @@ close_list(void* raw) {
       auto* handles = static_cast<StyioListDictHandle*>(list);
       for (int64_t elem : handles->elems) {
         (void)g_handle_table.release(elem, StyioHandleTable::HandleKind::Dict, close_dict);
+      }
+      delete handles;
+    } break;
+    case StyioListElemKind::MatrixHandle: {
+      auto* handles = static_cast<StyioListMatrixHandle*>(list);
+      for (int64_t elem : handles->elems) {
+        (void)g_handle_table.release(elem, StyioHandleTable::HandleKind::Matrix, close_matrix);
       }
       delete handles;
     } break;
@@ -1674,6 +1710,30 @@ clone_list_handle_value(int64_t h) {
       }
       return stash_list(clone);
     }
+    case StyioListElemKind::MatrixHandle: {
+      auto* clone = new StyioListMatrixHandle();
+      auto* handles = static_cast<StyioListMatrixHandle*>(src);
+      clone->elems.reserve(handles->elems.size());
+      for (int64_t elem : handles->elems) {
+        clone->elems.push_back(clone_matrix_handle_value(elem));
+      }
+      return stash_list(clone);
+    }
+  }
+  return 0;
+}
+
+int64_t
+clone_matrix_handle_value(int64_t h) {
+  StyioMatrixBase* src = as_matrix_base(h, true);
+  if (src == nullptr) {
+    return 0;
+  }
+  switch (src->elem_kind) {
+    case StyioMatrixElemKind::I64:
+      return clone_matrix(static_cast<StyioMatrixI64*>(src));
+    case StyioMatrixElemKind::F64:
+      return clone_matrix(static_cast<StyioMatrixF64*>(src));
   }
   return 0;
 }
@@ -1788,6 +1848,15 @@ append_list_handle_repr(std::string& out, int64_t h) {
             text.push_back(',');
           }
           append_dict_handle_repr(text, dicts->elems[i]);
+        }
+      } break;
+      case StyioListElemKind::MatrixHandle: {
+        auto* matrices = static_cast<StyioListMatrixHandle*>(list);
+        for (size_t i = 0; i < matrices->elems.size(); ++i) {
+          if (i > 0) {
+            text.push_back(',');
+          }
+          append_matrix_handle_repr(text, matrices->elems[i]);
         }
       } break;
     }
@@ -2554,6 +2623,11 @@ styio_list_new_dict() {
   return stash_list(new StyioListDictHandle());
 }
 
+extern "C" DLLEXPORT int64_t
+styio_list_new_matrix() {
+  return stash_list(new StyioListMatrixHandle());
+}
+
 extern "C" DLLEXPORT void
 styio_list_push_bool(int64_t h, int64_t value) {
   StyioListBool* list = as_list_bool(h, true);
@@ -2607,6 +2681,14 @@ styio_list_push_dict(int64_t h, int64_t value) {
   StyioListDictHandle* list = as_list_dict_handle(h, true);
   if (list != nullptr) {
     list->elems.push_back(clone_dict_handle_value(value));
+  }
+}
+
+extern "C" DLLEXPORT void
+styio_list_push_matrix(int64_t h, int64_t value) {
+  StyioListMatrixHandle* list = as_list_matrix_handle(h, true);
+  if (list != nullptr) {
+    list->elems.push_back(clone_matrix_handle_value(value));
   }
 }
 
@@ -2672,6 +2754,17 @@ styio_list_insert_dict(int64_t h, int64_t idx, int64_t value) {
     clone_dict_handle_value(value));
 }
 
+extern "C" DLLEXPORT void
+styio_list_insert_matrix(int64_t h, int64_t idx, int64_t value) {
+  StyioListMatrixHandle* list = as_list_matrix_handle(h, true);
+  if (list == nullptr || !check_list_index(list->elems.size(), idx, true)) {
+    return;
+  }
+  list->elems.insert(
+    list->elems.begin() + static_cast<size_t>(idx),
+    clone_matrix_handle_value(value));
+}
+
 extern "C" DLLEXPORT int64_t
 styio_list_clone(int64_t h) {
   return clone_list_handle_value(h);
@@ -2701,7 +2794,10 @@ styio_list_len(int64_t h) {
   if (list->elem_kind == StyioListElemKind::ListHandle) {
     return static_cast<int64_t>(static_cast<StyioListListHandle*>(list)->elems.size());
   }
-  return static_cast<int64_t>(static_cast<StyioListDictHandle*>(list)->elems.size());
+  if (list->elem_kind == StyioListElemKind::DictHandle) {
+    return static_cast<int64_t>(static_cast<StyioListDictHandle*>(list)->elems.size());
+  }
+  return static_cast<int64_t>(static_cast<StyioListMatrixHandle*>(list)->elems.size());
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2789,6 +2885,18 @@ styio_list_get_dict(int64_t h, int64_t idx) {
 }
 
 extern "C" DLLEXPORT int64_t
+styio_list_get_matrix(int64_t h, int64_t idx) {
+  StyioListMatrixHandle* list = as_list_matrix_handle(h, true);
+  if (list == nullptr) {
+    return 0;
+  }
+  if (!check_list_index(list->elems.size(), idx, false)) {
+    return 0;
+  }
+  return clone_matrix_handle_value(list->elems[static_cast<size_t>(idx)]);
+}
+
+extern "C" DLLEXPORT int64_t
 styio_list_slice(int64_t h, int64_t start, int64_t end_exclusive, int32_t has_end) {
   StyioListBase* list = as_list_base(h, true);
   if (list == nullptr) {
@@ -2836,6 +2944,20 @@ styio_list_slice(int64_t h, int64_t start, int64_t end_exclusive, int32_t has_en
       out->elems.reserve(finish - begin);
       for (size_t i = begin; i < finish; ++i) {
         out->elems.push_back(clone_dict_handle_value(src->elems[i]));
+      }
+      return stash_list(out);
+    }
+    case StyioListElemKind::MatrixHandle: {
+      auto* src = static_cast<StyioListMatrixHandle*>(list);
+      size_t begin = 0;
+      size_t finish = 0;
+      if (!check_list_slice_bounds(src->elems.size(), start, end_exclusive, bounded_end, begin, finish)) {
+        return 0;
+      }
+      auto* out = new StyioListMatrixHandle();
+      out->elems.reserve(finish - begin);
+      for (size_t i = begin; i < finish; ++i) {
+        out->elems.push_back(clone_matrix_handle_value(src->elems[i]));
       }
       return stash_list(out);
     }
@@ -2908,6 +3030,18 @@ styio_list_set_dict(int64_t h, int64_t idx, int64_t value) {
 }
 
 extern "C" DLLEXPORT void
+styio_list_set_matrix(int64_t h, int64_t idx, int64_t value) {
+  StyioListMatrixHandle* list = as_list_matrix_handle(h, true);
+  if (list == nullptr || !check_list_index(list->elems.size(), idx, false)) {
+    return;
+  }
+  const size_t pos = static_cast<size_t>(idx);
+  int64_t stored = clone_matrix_handle_value(value);
+  (void)g_handle_table.release(list->elems[pos], StyioHandleTable::HandleKind::Matrix, close_matrix);
+  list->elems[pos] = stored;
+}
+
+extern "C" DLLEXPORT void
 styio_list_pop(int64_t h) {
   StyioListBase* list = as_list_base(h, true);
   if (list == nullptr) {
@@ -2973,6 +3107,16 @@ styio_list_pop(int64_t h) {
       int64_t removed = values->elems.back();
       values->elems.pop_back();
       (void)g_handle_table.release(removed, StyioHandleTable::HandleKind::Dict, close_dict);
+      popped = true;
+    } break;
+    case StyioListElemKind::MatrixHandle: {
+      auto* values = static_cast<StyioListMatrixHandle*>(list);
+      if (values->elems.empty()) {
+        break;
+      }
+      int64_t removed = values->elems.back();
+      values->elems.pop_back();
+      (void)g_handle_table.release(removed, StyioHandleTable::HandleKind::Matrix, close_matrix);
       popped = true;
     } break;
   }
@@ -3045,6 +3189,11 @@ styio_matrix_identity_f64(int64_t n) {
 extern "C" DLLEXPORT int64_t
 styio_matrix_clone_i64(int64_t h) {
   return clone_matrix(as_matrix_i64(h, true));
+}
+
+extern "C" DLLEXPORT int64_t
+styio_matrix_clone(int64_t h) {
+  return clone_matrix_handle_value(h);
 }
 
 extern "C" DLLEXPORT int64_t

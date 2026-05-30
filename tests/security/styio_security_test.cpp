@@ -4533,19 +4533,45 @@ TEST(StyioSecurityTopologyV2, LowersBoundedListAndDictResourceSelectors) {
   EXPECT_NE(llvm_ir.find("styio_list_get_dict"), std::string::npos);
 }
 
-TEST(StyioSecurityTopologyV2, KeepsMatrixResourceSelectorHistoryFailClosed) {
+TEST(StyioSecurityTopologyV2, LowersBoundedMatrixResourceSelectors) {
   const std::string src =
     "@bucket : matrix|..2|\n"
+    "[1] >> #(base) => {\n"
+    "  cur: matrix = [[base, base + 1], [base + 2, base + 3]]\n"
+    "  cur -> @bucket\n"
+    "}\n"
+    ">_(@bucket[-1])\n"
+    ">_(@bucket[...])\n"
+    "snap << @bucket[...]\n"
+    ">_(snap)\n"
+    "@bucket[...] >> #(row) => {\n"
+    "  >_(row)\n"
+    "}\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_matrix_clone"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_new_matrix"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_push_matrix"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_get_matrix"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_release"), std::string::npos);
+}
+
+TEST(StyioSecurityTopologyV2, KeepsUnboundedMatrixResourceSelectorSnapshotFailClosed) {
+  const std::string src =
+    "@bucket : matrix\n"
     ">_(@bucket[...])\n";
 
   try {
     parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
-    FAIL() << "expected matrix selector history rejection";
+    FAIL() << "expected unbounded matrix selector snapshot rejection";
   }
   catch (const StyioTypeError& ex) {
     EXPECT_NE(
-      std::string(ex.what()).find(
-        "slice/snapshot selection currently supports integer, float, bool, char, string, list, or dict resources"),
+      std::string(ex.what()).find("resource `bucket` does not support snapshot selection"),
       std::string::npos
     ) << ex.what();
   }

@@ -6900,6 +6900,61 @@ TEST(StyioTopologyV2, ResourceSelectorHandleSnapshotCopiesStayMaterialized) {
   fs::remove(input);
 }
 
+TEST(StyioTopologyV2, ResourceSelectorMatrixSnapshotsCloneValues) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-selector-matrix-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@bucket : matrix|..2|\n";
+    out << "[1, 5] >> #(base) => {\n";
+    out << "  cur: matrix = [[base, base + 1], [base + 2, base + 3]]\n";
+    out << "  cur -> @bucket\n";
+    out << "  ok = mat_set(cur,0,0,99)\n";
+    out << "}\n";
+    out << ">_(@bucket[-1])\n";
+    out << ">_(@bucket[-2..])\n";
+    out << "snap << @bucket[...]\n";
+    out << "[9] >> #(base) => {\n";
+    out << "  cur: matrix = [[base, base + 1], [base + 2, base + 3]]\n";
+    out << "  cur -> @bucket\n";
+    out << "  okp = mat_set(cur,1,1,77)\n";
+    out << "}\n";
+    out << ">_(snap)\n";
+    out << ">_(@bucket[...])\n";
+    out << "@bucket[...] >> #(row) => {\n";
+    out << "  >_(row)\n";
+    out << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(
+    result.stdout_text,
+    "[[5,6],[7,8]]\n"
+    "[[[1,2],[3,4]],[[5,6],[7,8]]]\n"
+    "[[[1,2],[3,4]],[[5,6],[7,8]]]\n"
+    "[[[5,6],[7,8]],[[9,10],[11,12]]]\n"
+    "[[5,6],[7,8]]\n"
+    "[[9,10],[11,12]]\n"
+  );
+
+  fs::remove(input);
+}
+
 TEST(StyioResourceEffects, FallbackRunsAfterFileWriteFailureAndContinues) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
