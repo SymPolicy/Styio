@@ -31,10 +31,12 @@ Styio already has active design and partial implementation surfaces for streams:
 - Materialized non-file `list[T]` handles, mixed `@file` / materialized-list
   pairs, and bounded Topology selector snapshots that have already materialized
   as `list[T]` values now have a zip-barrier runtime slice for `i64`, `string`,
-  `f64`, `bool`, and `char` list elements: list sides use `styio_list_len` /
-  `styio_list_get_*`, file sides read one line per frame, finite zip terminates
-  at the shorter file EOF or list length, and the existing block/frame commit
-  path runs for each matched pair. `@stdin` now participates as the accepted
+  `f64`, `bool`, and `char` list elements, with bounded matrix selector
+  snapshots covered as materialized `list[matrix]`: list sides use
+  `styio_list_len` / `styio_list_get_*`, file sides read one line per frame,
+  finite zip terminates at the shorter file EOF or list length, and the existing
+  block/frame commit path runs for each matched pair. `@stdin` now participates
+  as the accepted
   standard input line-stream side for finite zip with materialized lists or
   `@file` streams in both source orders; it reads one stdin line per matched
   frame and terminates at stdin EOF or the shorter finite peer. Direct
@@ -43,8 +45,9 @@ Styio already has active design and partial implementation surfaces for streams:
   stdin-stream slice remains ordinary finite zip over already-materialized lists
   or line streams; snapshot joins, queue/timeout policy, pressure observers, and
   multi-writer merge/conflict semantics remain open.
-- Unsupported non-iterable zip sources, including scalar resource selectors such
-  as `@price[-1]`, now fail closed with the feature-owned JSONL code
+- Unsupported non-iterable or non-materialized-list zip sources, including scalar
+  resource selectors such as `@price[-1]` and raw matrix latest selectors such
+  as `@bucket[-1]`, now fail closed with the feature-owned JSONL code
   `STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE` instead of only the broad
   `STYIO_TYPE_ERROR`. This is an IM-D3 diagnostic refinement, not an expansion
   of accepted stream-driver semantics.
