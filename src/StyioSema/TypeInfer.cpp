@@ -142,6 +142,11 @@ resource_method_simple_result_type_latest(StyioSemaContext* an, StyioAST* body) 
 
 StyioDataType
 infer_list_literal_type(StyioSemaContext* an, ListAST* list) {
+  StyioDataType existing_type = list->getDataType();
+  if (styio_is_matrix_type(existing_type)) {
+    return existing_type;
+  }
+
   auto const& els = list->getElements();
   if (els.empty()) {
     return styio_make_list_type("i64");
@@ -164,6 +169,26 @@ infer_list_literal_type(StyioSemaContext* an, ListAST* list) {
   }
 
   return styio_make_list_type(elem_type.name);
+}
+
+StyioDataType
+declared_function_return_type_latest(StyioAST* def) {
+  auto declared_from_variant = [](const std::variant<TypeAST*, TypeTupleAST*>& ret_type) {
+    if (ret_type.valueless_by_exception() || !std::holds_alternative<TypeAST*>(ret_type)) {
+      return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    }
+    TypeAST* ty = std::get<TypeAST*>(ret_type);
+    return ty != nullptr
+      ? ty->getDataType()
+      : StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  };
+  if (auto* f = dynamic_cast<FunctionAST*>(def)) {
+    return declared_from_variant(f->ret_type);
+  }
+  if (auto* f = dynamic_cast<SimpleFuncAST*>(def)) {
+    return declared_from_variant(f->ret_type);
+  }
+  return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
 }
 
 struct MatrixLiteralInfo
@@ -328,6 +353,65 @@ require_same_matrix_shape(const StyioDataType& lhs, const StyioDataType& rhs) {
   if (lr != 0 && lc != 0 && rr != 0 && rc != 0 && (lr != rr || lc != rc)) {
     throw StyioTypeError("matrix shapes must match");
   }
+}
+
+StyioDataType
+apply_matrix_literal_context(
+  StyioSemaContext* an,
+  StyioAST* expr,
+  const StyioDataType& target_type
+) {
+  if (!styio_is_matrix_type(target_type) || expr == nullptr) {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+  if (auto* list = dynamic_cast<ListAST*>(expr)) {
+    MatrixLiteralInfo matrix = infer_matrix_literal_info(an, list);
+    StyioDataType actual_type =
+      styio_make_matrix_type(matrix.elem_type.name, matrix.rows, matrix.cols);
+    if (styio_matrix_row_count(target_type) != 0 || styio_matrix_col_count(target_type) != 0) {
+      require_same_matrix_shape(target_type, actual_type);
+    }
+    list->setDataType(actual_type);
+    return actual_type;
+  }
+  if (auto* ret = dynamic_cast<ReturnAST*>(expr)) {
+    return apply_matrix_literal_context(an, ret->getExpr(), target_type);
+  }
+  if (auto* block = dynamic_cast<BlockAST*>(expr)) {
+    StyioDataType applied{StyioDataTypeOption::Undefined, "undefined", 0};
+    for (auto* stmt : block->stmts) {
+      StyioDataType next = apply_matrix_literal_context(an, stmt, target_type);
+      if (!next.isUndefined()) {
+        applied = next;
+      }
+    }
+    for (auto* following : block->followings) {
+      StyioDataType next = apply_matrix_literal_context(an, following, target_type);
+      if (!next.isUndefined()) {
+        applied = next;
+      }
+    }
+    return applied;
+  }
+  return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+}
+
+void
+require_matrix_return_compatible_latest(
+  const std::string& function_name,
+  const StyioDataType& declared_return,
+  const StyioDataType& actual_return
+) {
+  if (!styio_is_matrix_type(declared_return)) {
+    return;
+  }
+  if (!styio_is_matrix_type(actual_return)) {
+    throw StyioTypeError(
+      "function `" + function_name
+      + "` matrix return requires a matrix-compatible expression"
+    );
+  }
+  require_same_matrix_shape(declared_return, actual_return);
 }
 
 void
@@ -849,6 +933,12 @@ func_ret_type_of_def(StyioSemaContext* an, StyioAST* def) {
       if (ty != nullptr) {
         StyioDataType dt = ty->getDataType();
         if (!dt.isUndefined()) {
+          if (styio_is_matrix_type(dt)) {
+            StyioDataType inferred_return = an->inferred_function_return_type(f->getNameAsStr());
+            if (styio_is_matrix_type(inferred_return)) {
+              return inferred_return;
+            }
+          }
           return dt;
         }
       }
@@ -869,6 +959,12 @@ func_ret_type_of_def(StyioSemaContext* an, StyioAST* def) {
       if (ty != nullptr) {
         StyioDataType dt = ty->getDataType();
         if (!dt.isUndefined()) {
+          if (styio_is_matrix_type(dt)) {
+            StyioDataType inferred_return = an->inferred_function_return_type(f->func_name->getAsStr());
+            if (styio_is_matrix_type(inferred_return)) {
+              return inferred_return;
+            }
+          }
           return dt;
         }
       }
@@ -2368,6 +2464,7 @@ StyioSemaContext::typeInfer(ResourceEffectAST* ast) {
       if (dynamic_cast<EmptyResourceAST*>(handler.body) != nullptr) {
         throw StyioTypeError("resource-effect handler must be executable code, not @()");
       }
+      apply_matrix_literal_context(this, handler.body, operation_type);
       handler.body->typeInfer(this);
       StyioDataType handler_type = infer_expr_type(this, handler.body);
       if (!operation_type.isUndefined()
@@ -2396,6 +2493,7 @@ StyioSemaContext::typeInfer(ResourceEffectAST* ast) {
     if (dynamic_cast<EmptyResourceAST*>(ast->getFallback()) != nullptr) {
       throw StyioTypeError("resource-effect fallback must be executable code, not @()");
     }
+    apply_matrix_literal_context(this, ast->getFallback(), operation_type);
     ast->getFallback()->typeInfer(this);
     StyioDataType fallback_type = infer_expr_type(this, ast->getFallback());
     if (!operation_type.isUndefined()
@@ -3126,6 +3224,8 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
   }
 
   const std::string function_name = ast->getNameAsStr();
+  const StyioDataType declared_return =
+    declared_function_return_type_latest(def_it->second);
   if (active_function_body_inference_.insert(function_name).second) {
     const auto saved_types = local_binding_types;
     const auto saved_funcs = func_defs;
@@ -3163,14 +3263,20 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
       push_active_function_body(function_name);
       if (auto* f = dynamic_cast<FunctionAST*>(def_it->second)) {
         if (f->func_body != nullptr) {
+          apply_matrix_literal_context(this, f->func_body, declared_return);
           f->func_body->typeInfer(this);
-          record_inferred_function_return_type(function_body_tail_type_latest(this, f->func_body));
+          StyioDataType return_type = function_body_tail_type_latest(this, f->func_body);
+          require_matrix_return_compatible_latest(function_name, declared_return, return_type);
+          record_inferred_function_return_type(return_type);
         }
       }
       else if (auto* sf = dynamic_cast<SimpleFuncAST*>(def_it->second)) {
         if (sf->ret_expr != nullptr) {
+          apply_matrix_literal_context(this, sf->ret_expr, declared_return);
           sf->ret_expr->typeInfer(this);
-          record_inferred_function_return_type(infer_expr_type(this, sf->ret_expr));
+          StyioDataType return_type = infer_expr_type(this, sf->ret_expr);
+          require_matrix_return_compatible_latest(function_name, declared_return, return_type);
+          record_inferred_function_return_type(return_type);
         }
       }
     }

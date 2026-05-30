@@ -1683,6 +1683,12 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
 
     llvm::Value* next_value = node->value->toLLVMIR(this);
     DynamicSlotPayload payload = dynamic_slot_payload_for_value(node->value, next_value);
+    const StyioDataType& declared_type = node->var->var_type->data_type;
+    if (styio_is_list_type(declared_type)
+        || styio_is_dict_type(declared_type)
+        || styio_is_matrix_type(declared_type)) {
+      payload = dynamic_slot_payload_for_type(declared_type, next_value);
+    }
 
     if (is_existing_slot) {
       release_dynamic_slot_contents(variable);
@@ -1743,6 +1749,12 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
     init_dynamic_slot_undef(variable);
     llvm::Value* value = node->value->toLLVMIR(this);
     DynamicSlotPayload payload = dynamic_slot_payload_for_value(node->value, value);
+    const StyioDataType& declared_type = node->var->var_type->data_type;
+    if (styio_is_list_type(declared_type)
+        || styio_is_dict_type(declared_type)
+        || styio_is_matrix_type(declared_type)) {
+      payload = dynamic_slot_payload_for_type(declared_type, value);
+    }
 
     store_dynamic_slot(variable, payload.tag, payload.i64v, payload.f64v, payload.ptrv);
     forget_dynamic_slot_payload_ownership(value, payload.tag);
