@@ -370,8 +370,10 @@ type. Current value-producing forms include file/stdin instant pulls,
 acquired file-handle instant pulls after a checked file acquire, materialized
 container bounds reads, including ordered dict value slices that lower through
 `d.values` plus list-slice bounds recovery, and user-defined resource methods
-whose body is a single `<| expr` return. A bare `resource_operation | fallback` is not a resource
-fallback form.
+whose body is a single `<| expr` return or a statement-only preface followed by
+a final `<| expr` return. Local value-binding prefaces and capture-dependent
+method bodies remain rejected until their scope semantics are implemented. A
+bare `resource_operation | fallback` is not a resource fallback form.
 Effect-specific handlers use the same boundary:
 `?| resource_operation | effect_name => handler` handles only the named typed
 effect family. For example, `?| res -> msg_queue | backpressure => do_something()`

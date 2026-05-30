@@ -215,11 +215,14 @@ Current implementation reality:
    Plain `xs[i]`,
    `xs[0..]`, `d[key]`, `d[start..end]`, `m[row][col]`, and `m[start..end]` expressions outside
    `?|` now guard the same runtime bounds failures before a following statement.
-   User-defined resource methods with a single `<| expr` body now record the
-   returned value type, direct calls such as `log.answer()` no longer lower an
-   inlined `SGReturn` into expression context, and
+   User-defined resource methods with a single `<| expr` body, or an accepted
+   statement-only preface followed by a final `<| expr`, now record the returned
+   value type, direct calls such as `log.answer()` no longer lower an inlined
+   `SGReturn` into expression context, and
    `result = ?| log.answer() | fallback` returns the successful method value
-   while keeping fallback type mismatches fail-closed. Returned bool, f64, char,
+   while keeping fallback type mismatches fail-closed. Statement-preface methods
+   such as `@file::answer = () => { >_("inside") <| 42 }` run the preface and
+   still return the value through direct and guarded calls. Returned bool, f64, char,
    string, and format-string expressions preserve their value family through
    direct calls and guarded value paths, including
    `@file::summary = (x: int) => { <| $"value={x + 1}" }`. Returned dynamic
@@ -264,8 +267,8 @@ Current implementation reality:
    fails before the following statement. Resource method
    declared parameter types are bound while inferring the method body and checked
    at call sites, while lexical/global captures remain fail-closed before
-   lowering. Multi-statement resource method returns intentionally fail closed
-   before lowering until arbitrary method-body value semantics are implemented.
+   lowering. Local-binding multi-statement resource method bodies intentionally
+   fail closed before lowering until method value-scope semantics are implemented.
    Parser/Sema keep `?| op | ...` statement-only, reject statement-shaped write
    operations where a value is required, reject returned resource-effect discard,
    and reject fallback type mismatches.
@@ -280,11 +283,11 @@ Current implementation reality:
    arbitrary resource operations beyond the covered file/stdin instant pulls,
    acquired-handle file instant pulls,
    materialized container index/row/slice reads, materialized list slices, and simple
-   resource-method single-return bodies, no recovery model for failing
+   resource-method single-return or statement-preface bodies, no recovery model for failing
    value-producing resource methods beyond the returned file/stdin instant-pull,
    returned explicit matrix-valued function success paths, and returned
-   list/dict/matrix bounds failure slices, or for multi-statement
-   method returns and resource-method lexical/global captures, no
+   list/dict/matrix bounds failure slices, or for local-binding/capture
+   method bodies and resource-method lexical/global captures, no
    source-level fallback recovery model for implicit cleanup or non-file
    reassignment cleanup, no cleanup families beyond file close, no
    resource family that emits a non-failure
@@ -333,8 +336,8 @@ observation/escalation, pressure observer payload/runtime execution, broader pos
 operations beyond the covered file iterator, close-method, write-method, and
 acquired-handle instant-pull paths, failing value-producing resource methods beyond returned file/stdin
 instant pulls, returned explicit matrix-valued function success paths, and
-returned list/dict/matrix bounds slices, multi-statement
-   value-producing resource methods beyond statement-only called-function bodies,
+returned list/dict/matrix bounds slices, local-binding/capture
+   value-producing resource method bodies beyond statement-only called-function bodies,
    resource-method lexical/global captures, and
    arbitrary value-producing resource-effect recovery remain design-fixed but
    unfinished.
@@ -493,6 +496,7 @@ expressions, and dynamic range literals.
 `@file::ratio = () => { <| 1.5 }`,
 `@file::word = () => { <| "ok" }`,
 `@file::summary = (x: int) => { <| $"value={x + 1}" }`,
+`@file::answer = () => { >_("inside") <| 42 }`,
 `@file::self_path := @file.path`,
 `@file::describe = () => { <| $"path={@file.path}" }`,
 `@file::pick = (x: int) => { <| x ?= { 0 => 'a' _ => 'b' } }`,
@@ -761,11 +765,12 @@ These should not be counted as missing implementation in this checkout:
 15. Simple value-producing resource methods are no longer excluded from the
    first non-task `?|` value path. `StyioResourceEffects` proves direct
    `log.answer()` and `result = ?| log.answer() | fallback` return simple
-   single-`<| expr` method values without lowering an expression-context
+   single-`<| expr` method values and accepted statement-preface final-return
+   bodies without lowering an expression-context
    `SGReturn`, scalar/string match-expression return families preserve their
    inferred type while returned container match results fail closed, fallback
-   type mismatches fail closed, and multi-statement method returns are rejected
-   before lowering. Returned calls to ordinary functions with a value tail or
+   type mismatches fail closed, and local-binding multi-statement method bodies
+   are rejected before lowering. Returned calls to ordinary functions with a value tail or
    explicit `<| expr` also preserve the called function result family through
    direct and guarded resource method calls; statement-only called functions
    remain rejected with the same unsupported-body diagnostic. The same group now proves a method
@@ -822,10 +827,10 @@ These should not be counted as missing implementation in this checkout:
     only broad `STYIO_TYPE_ERROR` cases at two existing fail-closed boundaries.
     `DiagnosticContract.hpp` now classifies stable resource-effect fallback
     mismatch messages as `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH` and
-    unsupported multi-statement value-producing resource method bodies as
+    unsupported local-binding multi-statement value-producing resource method bodies as
     `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY`. The focused
     `StyioResourceEffects.ResourceMethodValueFallbackTypeMismatchReportsTypeCode`
-    and `StyioResourceEffects.ResourceMethodMultiStmtReturnReportsSemaCode`
+    and `StyioResourceEffects.ResourceMethodLocalBindMultiStmtReturnReportsSemaCode`
     tests prove the public phases are `type` and `sema`, the TypeError exit
     family remains stable, stable message fragments are present, and following
     output does not execute. This is diagnostic refinement only; broader
