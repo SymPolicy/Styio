@@ -195,22 +195,22 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   settlement; it does not yet provide a source-level fallback recovery site for
   implicit cleanup failures, non-file reassignment cleanup failures,
   release/commit hooks, or non-file cleanup families.
-- Bounded `i64`, `f64`, `bool`, `char`, `string`, `list`, and `dict` resource
+- Bounded `i64`, `f64`, `bool`, `char`, `string`, `list`, `dict`, and `matrix` resource
   selectors now have distinct executable value shapes: `@name[-n]` reads the
   latest/history value, while `@name[-n..]` and `@name[...]` materialize typed
   list snapshots from explicit history reads. Char rings store `i8` values and
   materialized `list[char]` snapshots render escaped char literals; string
   selector rings own cloned cstr values and release them on overwrite or scope
-  cleanup; list/dict selector rings own cloned runtime handles, clone on
+  cleanup; list/dict/matrix selector rings own cloned runtime handles, clone on
   history reads, and release ring-owned handles on overwrite or scope cleanup.
   Bounded selector snapshots also feed iterator tails through the runtime-list
   path, while scalar latest selectors such as `@name[-1] >> ...` stay rejected
   as non-iterable inputs. Selectors that exceed the declared bound, use
-  non-bounded resource shapes, or require unsupported tuple/matrix history
-  storage remain fail-closed until their resource-family storage semantics are
+  non-bounded resource shapes, or require unsupported tuple history storage
+  remain fail-closed until their resource-family storage semantics are
   implemented.
 - The explicit-copy selector slice is executable for those bounded resource
-  families, including list/dict handle-valued snapshots: `snapshot <<
+  families, including list/dict/matrix handle-valued snapshots: `snapshot <<
   @name[-n..]` and `snapshot << @name[...]` bind the materialized typed list
   snapshot to `snapshot`; `snapshot << @name[-1]` remains rejected because the
   latest read is scalar rather than an enumerable snapshot copy.
