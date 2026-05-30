@@ -62,7 +62,8 @@ Real compiler/runtime surfaces:
 4. Direct unsupported AST lowering now fails closed or lowers intentional empty
    forms to `SGNoOp`; codegen verifier gating and security tests are present.
 5. Accepted single-quoted `char` literals, format strings, dynamic range
-   literals, match expressions, ordinary function-call returns, value-producing resource-effect expressions, and single-return list/dict/matrix container bounds expressions are
+   literals, match expressions, ordinary function-call returns including
+   explicit `matrix` return functions, value-producing resource-effect expressions, and single-return list/dict/matrix container bounds expressions are
    executable in ordinary expressions and in user-defined resource method bodies
    after inlining. The resource-method body parser now admits the same
    `CharAST`, `FmtStrAST`, `RangeAST`, `MatchCasesAST`, value-producing `ResourceEffectAST`,
@@ -235,6 +236,11 @@ Current implementation reality:
    function's explicit return/final-tail result type for direct and guarded
    method calls; statement-only function bodies remain fail-closed as method
    return values.
+   Explicit matrix return annotations now also apply matrix literal context to
+   returned nested-list tails, so `# make : matrix = () => { <| [[1,2],[3,4]] }`
+   can feed `result: matrix = make()`, `log.make()`, and
+   `?| log.make() | [[9,9],[8,8]]`; flat-list matrix returns such as
+   `<| [1,2]` fail closed in Sema before reaching runtime.
    Returned value-producing resource-effect expressions such as
    `<| ?| (<< @file("data.txt")) | io => 8 | 7` now parse through the nightly method
    body path, preserve their inferred result type during inline cloning, return
@@ -275,8 +281,9 @@ Current implementation reality:
    acquired-handle file instant pulls,
    materialized container index/row/slice reads, materialized list slices, and simple
    resource-method single-return bodies, no recovery model for failing
-   value-producing resource methods beyond the returned file/stdin instant-pull
-   and returned list/dict/matrix bounds failure slices, or for multi-statement
+   value-producing resource methods beyond the returned file/stdin instant-pull,
+   returned explicit matrix-valued function success paths, and returned
+   list/dict/matrix bounds failure slices, or for multi-statement
    method returns and resource-method lexical/global captures, no
    source-level fallback recovery model for implicit cleanup or non-file
    reassignment cleanup, no cleanup families beyond file close, no
@@ -307,7 +314,9 @@ success/fallback/handler value paths, including explicit-target stdin `f64`,
 `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, and
 `STYIO_RUNTIME_MATRIX_INDEX` under `?|`; simple resource methods that return a
 file instant pull or canonical stdin instant pull also recover matched `io` or
-`parse` failures under `?|`, and simple resource methods that return
+`parse` failures under `?|`, explicit matrix-return ordinary functions now feed
+direct matrix bindings, resource-method values, and matrix fallback literals
+without producing invalid matrix handles, and simple resource methods that return
 materialized list index/list-slice, inline dict-index, or typed-parameter matrix
 row-range slice expressions recover the covered `bounds` failures under `?|`,
 while direct `log.answer()` resource method calls no longer abort lowering.
@@ -323,7 +332,8 @@ broader resource-family cleanup, non-failure backpressure
 observation/escalation, pressure observer payload/runtime execution, broader post-acquire resource
 operations beyond the covered file iterator, close-method, write-method, and
 acquired-handle instant-pull paths, failing value-producing resource methods beyond returned file/stdin
-instant pulls and returned list/dict/matrix bounds slices, multi-statement
+instant pulls, returned explicit matrix-valued function success paths, and
+returned list/dict/matrix bounds slices, multi-statement
    value-producing resource methods beyond statement-only called-function bodies,
    resource-method lexical/global captures, and
    arbitrary value-producing resource-effect recovery remain design-fixed but
@@ -487,7 +497,9 @@ expressions, and dynamic range literals.
 `@file::describe = () => { <| $"path={@file.path}" }`,
 `@file::pick = (x: int) => { <| x ?= { 0 => 'a' _ => 'b' } }`,
 `@file::span = (start: int, stop: int, step: int) => { <| [start..stop..step] }`,
-and `@file::read_or = () => { <| ?| (<< @file("data.txt")) | io => 8 | 7 }`
+`@file::read_or = () => { <| ?| (<< @file("data.txt")) | io => 8 | 7 }`,
+and `# make : matrix = () => { <| [[1,2],[3,4]] }` feeding
+`@file::make = () => { <| make() }`
 run after resource method calls or under `?| method() | fallback`, while
 top-level `@file.path` remains a parse error rather than a constructor/property
 shortcut,
@@ -498,7 +510,8 @@ mismatches also report `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH`. Single-re
 materialized list index/list-slice, inline dict-index, ordered dict value-slice,
 or typed-parameter matrix cell/row or row-range slice expressions also inline
 through `ListAST`/`ListOpAST` and `DictAST` clone paths with type metadata
-preserved, while unimplemented lexical/global capture shapes stay fail-closed.
+preserved, and flat-list matrix returns fail closed before runtime, while
+unimplemented lexical/global capture shapes stay fail-closed.
 That closes only the `IntAST`, `BoolAST`, `FloatAST`, `StringAST`, `CharAST`, `FmtStrAST`, receiver-scoped `ResourceReceiverAST` / `AttrAST` property postfix, `RangeAST`, `MatchCasesAST`, `ResourceEffectAST`, and returned
 list/dict/matrix bounds resource-method inline-clone slices of the state inline
 clone surface; other accepted AST families still need source-reachable evidence

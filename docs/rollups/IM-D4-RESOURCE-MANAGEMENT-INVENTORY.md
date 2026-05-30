@@ -137,6 +137,11 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   before an outer `?| method() | fallback` sees a successful method value.
   Returned resource-effect discard remains rejected because `?| op | ...` is
   statement-only.
+  Returned explicit matrix-valued ordinary functions such as
+  `# make : matrix = () => { <| [[1,2],[3,4]] }` now preserve matrix handles
+  through direct matrix bindings, resource-method calls, and guarded matrix
+  fallback literals; flat-list matrix returns such as `<| [1,2]` fail closed in
+  Sema before reaching runtime.
   Public JSONL classification now maps
   this fallback mismatch to `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH` and
   the existing unsupported multi-statement value-producing resource method body
@@ -160,7 +165,8 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   resource-method lexical/global captures,
   and failing value-producing resource-method recovery beyond the
   covered returned file/stdin instant pulls, returned resource-effect expression
-  wrappers, plus returned list/dict/matrix bounds slices remain open.
+  wrappers, returned explicit matrix-valued function success paths, plus
+  returned list/dict/matrix bounds slices remain open.
 - Plain file resource operations outside a `?|` recovery wrapper now settle at
   the ordinary statement boundary for the covered file acquire/write/release/
   iterator paths: missing `@file` acquire, missing-directory file write, direct
