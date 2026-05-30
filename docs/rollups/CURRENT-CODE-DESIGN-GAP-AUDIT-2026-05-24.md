@@ -430,16 +430,19 @@ Current implementation reality:
    `@stdin & @stdin` consumption remains fail-closed pending a stream-driver
    decision.
    Runtime list loops use `styio_list_len` / `styio_list_get_*`, cover `i64`,
-   `string`, `f64`, `bool`, and `char` list elements, and terminate finite zip at the
+   `string`, `f64`, `bool`, and `char` list elements plus bounded matrix selector
+   snapshots materialized as `list[matrix]`, and terminate finite zip at the
    shorter file EOF, stdin EOF, or list length. `t11_zip_bound_lists` proves the
    parser-shadow-safe bound-list/literal zip path, `t12_zip_file_bound_list`
    proves list-left / file-right feature coverage, and
    `t13_zip_resource_selector_snapshots` proves bounded `i64` and `string`
-   selector snapshots feed the same finite zip barrier. Focused unit coverage
+   selector snapshots feed the same finite zip barrier, while
+   `t14_zip_matrix_selector_snapshots` proves the bounded matrix selector
+   snapshot path. Focused unit coverage
    proves f64/bool/char materialized-list zip lowering, both mixed file/list
-   directions, both mixed stdin/list and stdin/file directions, and keeps scalar
-   resource selectors plus duplicate stdin zip
-   such as `@price[-1]` fail-closed as non-iterable zip inputs. This is not IM-D5
+   directions, both mixed stdin/list and stdin/file directions, and keeps latest
+   resource selectors such as `@price[-1]` and raw matrix latest selectors plus
+   duplicate stdin zip fail-closed as unsupported zip inputs. This is not IM-D5
    snapshot-join semantics; it is the materialized-list zip slice over selector
    snapshot values plus the accepted standard-input line stream.
 2. Resource topology records backpressure edges for writes, collect, iterator,
