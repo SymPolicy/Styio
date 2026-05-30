@@ -209,11 +209,11 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   non-bounded resource shapes, or require unsupported tuple/matrix history
   storage remain fail-closed until their resource-family storage semantics are
   implemented.
-- The first explicit-copy selector slice is executable for those bounded
-  resource families: `snapshot << @name[-n..]` and `snapshot << @name[...]`
-  bind the materialized typed list snapshot to `snapshot`; `snapshot <<
-  @name[-1]` remains rejected because the latest read is scalar rather than an
-  enumerable snapshot copy.
+- The explicit-copy selector slice is executable for those bounded resource
+  families, including list/dict handle-valued snapshots: `snapshot <<
+  @name[-n..]` and `snapshot << @name[...]` bind the materialized typed list
+  snapshot to `snapshot`; `snapshot << @name[-1]` remains rejected because the
+  latest read is scalar rather than an enumerable snapshot copy.
 - The first type-directed materialized-container clone slice is executable:
   `copy << list_source`, `copy << dict_source`, and `copy << matrix_source`
   lower through list/dict/matrix clone IR and runtime helpers, produce
