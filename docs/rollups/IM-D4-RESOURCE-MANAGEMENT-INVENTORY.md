@@ -116,11 +116,14 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   statement. Expression
   discard remains rejected, and statement-shaped write operations remain rejected
   where a value is required.
-  User-defined resource methods with a single `<| expr` body now carry that
+  User-defined resource methods with a single `<| expr` body, or an accepted
+  statement-only preface followed by a final `<| expr`, now carry that
   expression's inferred result type, direct calls such as `log.answer()` return
   the inlined value without emitting an expression-context `SGReturn`, and
   `result = ?| log.answer() | fallback` produces the method value on success
-  while rejecting fallback type mismatches. Returned bool, f64, char, string,
+  while rejecting fallback type mismatches. Statement-preface methods such as
+  `@file::answer = () => { >_("inside") <| 42 }` run the preface and still
+  return the value through direct and guarded calls. Returned bool, f64, char, string,
   and format-string expressions preserve their value family through direct calls
   and guarded value paths, including `@file::summary = (x: int) => { <| $"value={x + 1}" }`.
   Returned match expressions such as `@file::pick = (x: int) => { <| x ?= { 0 => 'a' _ => 'b' } }`
@@ -144,7 +147,7 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   Sema before reaching runtime.
   Public JSONL classification now maps
   this fallback mismatch to `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH` and
-  the existing unsupported multi-statement value-producing resource method body
+  the existing unsupported local-binding multi-statement resource method body
   boundary to `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY`; this is an IM-D3
   diagnostic refinement only and does not broaden resource-effect or resource
   method semantics. When that single returned expression
@@ -161,7 +164,7 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   recovers `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, or
   `STYIO_RUNTIME_MATRIX_INDEX` through catch-all fallback or a matched
   `bounds` handler, and no-fallback dict-key or matrix-index settlement fails
-  before the following statement. Multi-statement resource method returns,
+  before the following statement. Local-binding/capture resource method bodies,
   resource-method lexical/global captures,
   and failing value-producing resource-method recovery beyond the
   covered returned file/stdin instant pulls, returned resource-effect expression
@@ -453,7 +456,8 @@ Accepted resource fallback decision:
 Implementation note: the current value-producing non-task slices are limited to
 file instant pulls, stdin instant pulls, materialized container index/row
 reads, materialized list slices, and user-defined resource methods whose body is
-a single `<| expr` return. Returned match expressions preserve the current
+a single `<| expr` return or a statement-only preface followed by a final
+`<| expr` return. Returned match expressions preserve the current
 scalar/string match result families, while returned container match results
 remain fail-closed. File
 instant pulls still return `i64`; stdin instant pulls now cover the untyped
@@ -465,7 +469,7 @@ handlers; matrix row and row-range slice recovery use the same matrix bounds
 family, with row ranges lowering through `SCMatrixRowsSlice` /
 `styio_matrix_rows_slice_i64` or `styio_matrix_rows_slice_f64`, and list slice
 recovery uses `SCListSlice` / `styio_list_slice` with the list bounds family.
-Single-return resource methods may return calls to ordinary block-form
+Single-return or statement-preface resource methods may return calls to ordinary block-form
 functions whose body has a final value tail or explicit `<| expr`; direct calls
 and `?| method() | fallback` preserve the called function result family, while
 statement-only called functions remain fail-closed as method return values.
@@ -473,7 +477,7 @@ Resource method/property bodies may use receiver-scoped property access such as
 `@file.path`, including property bindings like `@file::self_path := @file.path`
 and returned format strings such as `<| $"path={@file.path}"`; the same
 `@file.path` spelling outside a resource-family definition remains fail-closed.
-Single-return resource methods may also return a file instant pull and recover that
+Single-return or statement-preface resource methods may also return a file instant pull and recover that
 returned `STYIO_RUNTIME_FILE_OPEN_READ` through fallback or matched `io`
 handlers under `?|`; they may also return canonical `(<- @stdin)` and recover
 returned `STYIO_RUNTIME_NUMERIC_PARSE` through fallback or matched `parse`
@@ -498,7 +502,7 @@ routes prior-handle cleanup failure to the wrapper before opening a replacement.
 Broader resource families, cleanup/drop hooks,
 pressure-observer payloads and runtime execution, failing value-producing resource methods beyond returned
 file/stdin instant pulls, returned block-form function calls, and returned list/dict/matrix bounds slices,
-multi-statement value-producing resource methods, resource-method lexical/global
+local-binding/capture value-producing resource method bodies, resource-method lexical/global
 captures, and other non-instant-pull
 value-returning resource operations must remain separately implemented and
 tested before the full typed resource-effect model is closed.
