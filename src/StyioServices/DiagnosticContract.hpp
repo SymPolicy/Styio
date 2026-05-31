@@ -50,6 +50,8 @@ inline constexpr std::string_view kTypeStreamHashTagRouteUnsupported =
   "STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED";
 inline constexpr std::string_view kTypeStreamZipUnsupportedSource =
   "STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE";
+inline constexpr std::string_view kTypeIterationUnsupportedSource =
+  "STYIO_TYPE_ITERATION_UNSUPPORTED_SOURCE";
 inline constexpr std::string_view kTypeStdinUnsupportedTarget =
   "STYIO_TYPE_STDIN_UNSUPPORTED_TARGET";
 inline constexpr std::string_view kLowerUnsupportedAst = "STYIO_LOWER_UNSUPPORTED_AST";
@@ -265,6 +267,9 @@ classify_type_or_lowering_code(std::string_view message) {
   }
   if (contains(message, "zip requires iterable inputs on both sides")) {
     return std::string(kTypeStreamZipUnsupportedSource);
+  }
+  if (contains(message, "iteration requires an iterable value")) {
+    return std::string(kTypeIterationUnsupportedSource);
   }
   if (contains(message, "typed stdin pull supports i64, f64, string, or list[T] targets")
       || contains(message, "typed stdin list pull supports list[i64], list[f64], or list[string]")) {
