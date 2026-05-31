@@ -2,7 +2,7 @@
 
 **Purpose:** Record the accepted resource-management decisions for IM-D4 without duplicating the IM-D1 StyioIR verifier, lowering, no-op, or codegen-gate contract.
 
-**Last updated:** 2026-05-30
+**Last updated:** 2026-05-31
 
 ## Scope
 
@@ -147,10 +147,10 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   Sema before reaching runtime.
   Public JSONL classification now maps
   this fallback mismatch to `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH` and
-  the remaining unsupported local final/container/resource binding method body
+  the remaining unsupported local container/resource binding method body
   boundary to `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY`; this is an IM-D3
   diagnostic refinement only and does not broaden resource-effect or resource
-  method semantics beyond the scalar local-flex preface slice. When that single returned expression
+  method semantics beyond the scalar local-flex/final preface slices. When that single returned expression
   is a file instant pull, `result = ?| log.read_missing() | fallback` recovers
   `STYIO_RUNTIME_FILE_OPEN_READ` through catch-all fallback or a matched `io`
   handler, and no-fallback settlement fails before the following statement.
@@ -164,10 +164,11 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   recovers `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, or
   `STYIO_RUNTIME_MATRIX_INDEX` through catch-all fallback or a matched
   `bounds` handler, and no-fallback dict-key or matrix-index settlement fails
-  before the following statement. Scalar local `=` prefaces such as
-  `@file::answer = () => { x = 41 <| x + 1 }` are now scoped to the inlined
+  before the following statement. Scalar local `=` / `:=` prefaces such as
+  `@file::answer = () => { x = 41 <| x + 1 }` or
+  `@file::answer = () => { x := 41 <| x + 1 }` are now scoped to the inlined
   resource-method body and return through direct and guarded calls without
-  mutating same-named caller bindings. Local `:=`, local container/resource
+  mutating same-named caller bindings. Local container/resource
   bindings, resource-method lexical/global captures,
   and failing value-producing resource-method recovery beyond the
   covered returned file/stdin instant pulls, returned resource-effect expression
@@ -459,7 +460,8 @@ Accepted resource fallback decision:
 Implementation note: the current value-producing non-task slices are limited to
 file instant pulls, stdin instant pulls, materialized container index/row
 reads, materialized list slices, and user-defined resource methods whose body is
-a single `<| expr` return or a statement-only preface followed by a final
+a single `<| expr` return, a statement-only preface followed by a final
+`<| expr` return, or scalar local `=` / `:=` prefaces followed by a final
 `<| expr` return. Returned match expressions preserve the current
 scalar/string match result families, while returned container match results
 remain fail-closed. File
@@ -505,7 +507,7 @@ routes prior-handle cleanup failure to the wrapper before opening a replacement.
 Broader resource families, cleanup/drop hooks,
 pressure-observer payloads and runtime execution, failing value-producing resource methods beyond returned
 file/stdin instant pulls, returned block-form function calls, and returned list/dict/matrix bounds slices,
-local final/container/resource binding value-producing resource method bodies, resource-method lexical/global
+local container/resource binding value-producing resource method bodies, resource-method lexical/global
 captures, and other non-instant-pull
 value-returning resource operations must remain separately implemented and
 tested before the full typed resource-effect model is closed.

@@ -2,7 +2,7 @@
 
 **Purpose:** Styio 语言的 **权威语义与特性说明**（正文规格）；形式文法见 [`Styio-EBNF.md`](./Styio-EBNF.md)，符号与 token 名见 [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md)，`@` **目标**拓扑见 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)，当前实现缺口见 [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md)。
 
-**Last updated:** 2026-05-30
+**Last updated:** 2026-05-31
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -371,9 +371,9 @@ acquired file-handle instant pulls after a checked file acquire, materialized
 container bounds reads, including ordered dict value slices that lower through
 `d.values` plus list-slice bounds recovery, and user-defined resource methods
 whose body is a single `<| expr` return, a statement-only preface followed by a
-final `<| expr` return, or scalar local `=` value-binding prefaces followed by a
-final `<| expr` return. Method-local scalar `=` bindings are scoped to the
-inlined method body; local `:=` bindings, local container/resource bindings, and
+final `<| expr` return, or scalar local `=` / `:=` value-binding prefaces followed
+by a final `<| expr` return. Method-local scalar `=` and `:=` bindings are scoped
+to the inlined method body; local container/resource bindings and
 capture-dependent method bodies remain rejected until those scope semantics are implemented. A
 bare `resource_operation | fallback` is not a resource fallback form.
 Effect-specific handlers use the same boundary:
