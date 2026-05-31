@@ -2331,7 +2331,7 @@ TEST(StyioSecurityNightlySemantics, RejectsResourceMethodReturnedStatementOnlyFu
   }
   catch (const StyioTypeError& err) {
     const std::string msg = err.what();
-    EXPECT_NE(msg.find("scalar local preface followed by a final"), std::string::npos) << msg;
+    EXPECT_NE(msg.find("scalar/list/dict local preface followed by a final"), std::string::npos) << msg;
   }
 }
 
@@ -2693,24 +2693,28 @@ TEST(StyioSecurityNightlySemantics, RejectsResourceMethodArgumentTypeMismatch) {
   }
 }
 
-TEST(StyioSecurityNightlySemantics, RejectsResourceMethodLocalContainerReturnBeforeValueScopeSupport) {
+TEST(StyioSecurityNightlySemantics, ResourceMethodLocalContainerReturnsLowerThroughValueScope) {
   const std::string src =
-    "@file::answer = () => {\n"
+    "@file::list_answer = () => {\n"
     "  xs := [41, 42]\n"
     "  <| xs\n"
     "}\n"
+    "@file::dict_answer = () => {\n"
+    "  d := dict{\"a\": 40, \"b\": 2}\n"
+    "  <| d\n"
+    "}\n"
     "log := @file(\"/tmp/styio-resource-method-local-bind\")\n"
-    "result = ?| log.answer() | 7\n"
-    ">_(result)\n";
+    "list_result = ?| log.list_answer() | [7, 8]\n"
+    "dict_result = ?| log.dict_answer() | dict{\"a\": 7, \"b\": 8}\n"
+    ">_(list_result[0] + list_result[1] + dict_result[\"a\"] + dict_result[\"b\"])\n";
 
-  try {
-    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
-    FAIL() << "expected resource method local container return to fail closed";
-  }
-  catch (const StyioTypeError& err) {
-    const std::string msg = err.what();
-    EXPECT_NE(msg.find("local container prefaces must return a scalar or string value"), std::string::npos) << msg;
-  }
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("__styio_resource_method_local_"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_clone"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_dict_clone"), std::string::npos);
 }
 
 TEST(StyioSecurityNightlySemantics, RejectsResourceMethodLocalResourceBindBeforeResourceValueScopeSupport) {

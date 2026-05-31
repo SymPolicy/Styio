@@ -9054,13 +9054,13 @@ TEST(StyioResourceEffects, ResourceMethodFmtStringValueFallbackTypeMismatchRepor
   fs::remove(data);
 }
 
-TEST(StyioResourceEffects, ResourceMethodLocalContainerReturnReportsSemaCode) {
+TEST(StyioResourceEffects, ValueResourceMethodLocalContainerReturnsFromDirectAndFallbackCalls) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
-    fs::temp_directory_path() / ("styio-resource-effect-method-final-container-" + std::to_string(uniq) + ".styio");
+    fs::temp_directory_path() / ("styio-resource-effect-method-local-container-" + std::to_string(uniq) + ".styio");
   const fs::path data =
-    fs::temp_directory_path() / ("styio-resource-effect-method-final-container-data-" + std::to_string(uniq) + ".txt");
+    fs::temp_directory_path() / ("styio-resource-effect-method-local-container-data-" + std::to_string(uniq) + ".txt");
 
   {
     std::ofstream out(data);
@@ -9070,12 +9070,27 @@ TEST(StyioResourceEffects, ResourceMethodLocalContainerReturnReportsSemaCode) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "@file::answer = () => {\n";
+    out << "outer = [100]\n";
+    out << "@file::list_answer = () => {\n";
     out << "  xs := [41, 42]\n";
     out << "  <| xs\n";
     out << "}\n";
+    out << "@file::dict_answer = () => {\n";
+    out << "  d := dict{\"a\": 40, \"b\": 2}\n";
+    out << "  <| d\n";
+    out << "}\n";
     out << "log := @file(\"" << data.generic_string() << "\")\n";
-    out << ">_(log.answer())\n";
+    out << ">_(log.list_answer())\n";
+    out << "list_direct = log.list_answer()\n";
+    out << ">_(list_direct)\n";
+    out << ">_(list_direct[0] + list_direct[1])\n";
+    out << "list_guarded = ?| log.list_answer() | [7, 8]\n";
+    out << ">_(list_guarded[1])\n";
+    out << "dict_direct = log.dict_answer()\n";
+    out << ">_(dict_direct[\"a\"] + dict_direct[\"b\"])\n";
+    out << "dict_guarded = ?| log.dict_answer() | dict{\"a\": 7, \"b\": 8}\n";
+    out << ">_(dict_guarded[\"b\"])\n";
+    out << ">_(outer[0])\n";
     out << ">_(\"after\")\n";
   }
 
@@ -9090,14 +9105,10 @@ TEST(StyioResourceEffects, ResourceMethodLocalContainerReturnReportsSemaCode) {
     + input.string() + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
-  EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
-  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"phase\":\"sema\""), std::string::npos);
-  EXPECT_NE(
-    result.stdout_text.find("\"code\":\"STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY\""),
-    std::string::npos);
-  EXPECT_NE(result.stdout_text.find("local container prefaces must return a scalar or string value"), std::string::npos);
-  EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "[41,42]\n[41,42]\n83\n42\n42\n2\n100\nafter\n");
+  EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("resource method return currently requires"), std::string::npos);
 
   fs::remove(input);
   fs::remove(data);
@@ -9143,7 +9154,7 @@ TEST(StyioResourceEffects, ResourceMethodReturnedStatementOnlyFunctionReportsSem
   EXPECT_NE(
     result.stdout_text.find("\"code\":\"STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY\""),
     std::string::npos);
-  EXPECT_NE(result.stdout_text.find("scalar local preface followed by a final"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("scalar/list/dict local preface followed by a final"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
 
   fs::remove(input);

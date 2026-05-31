@@ -206,33 +206,14 @@ resource_method_simple_result_type_latest(StyioSemaContext* an, StyioAST* body) 
   if (ret == nullptr || ret->getExpr() == nullptr) {
     return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
-  bool has_local_container_preface = false;
   if (auto* block = dynamic_cast<BlockAST*>(body)) {
     for (std::size_t i = 0; i + 1 < block->stmts.size(); ++i) {
       if (!resource_method_value_preface_supported_latest(an, block->stmts[i])) {
         return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
       }
-      if (auto* bind = dynamic_cast<FlexBindAST*>(block->stmts[i])) {
-        has_local_container_preface =
-          has_local_container_preface
-          || resource_method_local_container_type_supported_latest(
-            infer_expr_type(an, bind->getValue())
-          );
-      }
-      if (auto* bind = dynamic_cast<FinalBindAST*>(block->stmts[i])) {
-        has_local_container_preface =
-          has_local_container_preface
-          || resource_method_local_container_type_supported_latest(
-            infer_expr_type(an, bind->getValue())
-          );
-      }
     }
   }
   StyioDataType result_type = infer_expr_type(an, ret->getExpr());
-  if (has_local_container_preface
-      && !resource_method_scalar_value_type_supported_latest(result_type)) {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
-  }
   return result_type;
 }
 
@@ -2972,8 +2953,7 @@ StyioSemaContext::typeInfer(ResourceMethodDefAST* ast) {
     if (resource_method_body_contains_return_latest(ast->getBody()) && info.result_type.isUndefined()) {
       throw StyioTypeError(
         "resource method return currently requires a single `<| expr` body"
-        " or statement-only/scalar local preface followed by a final `<| expr`;"
-        " local container prefaces must return a scalar or string value"
+        " or statement-only/scalar/list/dict local preface followed by a final `<| expr`"
       );
     }
     methods[ast->getMethodName()] = info;
