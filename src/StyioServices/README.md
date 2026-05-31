@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the source-level entrypoint for externally consumable Styio language services.
 
-**Last updated:** 2026-05-30
+**Last updated:** 2026-05-31
 
 ## Scope
 
@@ -25,7 +25,7 @@ The complete service inventory is [MANIFEST.md](./MANIFEST.md).
 
 ## Diagnostic Contract
 
-All public service diagnostics use the shared taxonomy in [DiagnosticContract.hpp](./DiagnosticContract.hpp). Public codes follow `STYIO_<PHASE>_<ERROR_FAMILY>`, carry a stable public phase, and keep process exit codes coarse. CLI JSONL sema/type/native diagnostics include feature-owned refinements such as `STYIO_SEMA_IMMUTABLE_BINDING`, `STYIO_SEMA_UNDECLARED_SYMBOL`, `STYIO_SEMA_CALL_ARITY_MISMATCH`, `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY`, `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH`, `STYIO_TYPE_CALL_ARGUMENT_MISMATCH`, `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN`, `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED`, `STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE`, `STYIO_TYPE_STDIN_UNSUPPORTED_TARGET`, `STYIO_NATIVE_SOURCE_READ_FAILED`, `STYIO_NATIVE_SIGNATURE_NOT_FOUND`, `STYIO_NATIVE_UNSUPPORTED_SIGNATURE`, `STYIO_NATIVE_HOST_COMPILE_FAILED`, `STYIO_NATIVE_LOAD_FAILED`, `STYIO_NATIVE_SYMBOL_MISSING`, and `STYIO_NATIVE_TOOLCHAIN_UNAVAILABLE` when a focused compiler family owns the condition. IDE and LSP diagnostics preserve compiler/service codes when they come from compiler-owned facts, and use service/editor codes for editor-only interaction diagnostics.
+All public service diagnostics use the shared taxonomy in [DiagnosticContract.hpp](./DiagnosticContract.hpp). Public codes follow `STYIO_<PHASE>_<ERROR_FAMILY>`, carry a stable public phase, and keep process exit codes coarse. CLI JSONL sema/type/native diagnostics include feature-owned refinements such as `STYIO_SEMA_IMMUTABLE_BINDING`, `STYIO_SEMA_UNDECLARED_SYMBOL`, `STYIO_SEMA_CALL_ARITY_MISMATCH`, `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY`, `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH`, `STYIO_TYPE_CALL_ARGUMENT_MISMATCH`, `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN`, `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED`, `STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE`, `STYIO_TYPE_ITERATION_UNSUPPORTED_SOURCE`, `STYIO_TYPE_STDIN_UNSUPPORTED_TARGET`, `STYIO_NATIVE_SOURCE_READ_FAILED`, `STYIO_NATIVE_SIGNATURE_NOT_FOUND`, `STYIO_NATIVE_UNSUPPORTED_SIGNATURE`, `STYIO_NATIVE_HOST_COMPILE_FAILED`, `STYIO_NATIVE_LOAD_FAILED`, `STYIO_NATIVE_SYMBOL_MISSING`, and `STYIO_NATIVE_TOOLCHAIN_UNAVAILABLE` when a focused compiler family owns the condition. IDE and LSP diagnostics preserve compiler/service codes when they come from compiler-owned facts, and use service/editor codes for editor-only interaction diagnostics.
 
 ## Use
 

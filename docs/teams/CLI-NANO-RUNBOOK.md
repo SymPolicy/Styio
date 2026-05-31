@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-05-30
+**Last updated:** 2026-05-31
 
 ## Mission
 
@@ -68,7 +68,7 @@ Key handoff document:
 34. When a public JSONL diagnostic family is narrowed from a broad fallback such as `STYIO_TYPE_ERROR`, add the code and classifier in `DiagnosticContract.hpp`, keep the process exit family stable unless the contract explicitly changes, update focused CLI JSONL tests, and refresh the StyioServices docs plus IM-D3 inventory in the same checkpoint.
 35. Immutable/final binding mutation diagnostics are sema-family public facts even when they surface through the TypeError exit family. Keep `STYIO_SEMA_IMMUTABLE_BINDING`, phase `sema`, exit code 4, and the stable message fragment covered together when those classifier messages change.
 36. Tuple function return annotation diagnostics are type-family public facts over an existing fail-closed boundary. Keep `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN`, phase `type`, exit code 4, and the stable tuple-value-IR message fragment covered without implying tuple value IR support.
-37. Hash-tag iterator route diagnostics are type-family public facts over an existing fail-closed boundary. Keep `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED`, phase `type`, exit code 4, the stable route-not-implemented message, and no-following-output coverage together without implying IM-D5-P1 route semantics.
+37. Iterator route/source diagnostics are type-family public facts over existing fail-closed boundaries. Keep `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED` for undefined hash-tag iterator routes and `STYIO_TYPE_ITERATION_UNSUPPORTED_SOURCE` for non-iterable ordinary iterator sources with phase `type`, exit code 4, stable message fragments, and no-following-output coverage together without implying IM-D5-P1 route semantics or broader iterator/source support.
 38. Resource-effect/resource-method diagnostic refinements are public JSONL facts over existing fail-closed boundaries. Keep `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH` with phase `type`, exit code 4, and the stable fallback mismatch fragment, and keep `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY` with phase `sema`, exit code 4, the stable scalar-local preface message fragment, and no-following-output coverage. Do not treat either code as resource-effect semantics expansion.
 39. Native interop diagnostic refinements are public JSONL facts over existing fail-closed boundaries. Keep `STYIO_NATIVE_SOURCE_READ_FAILED`, `STYIO_NATIVE_SIGNATURE_NOT_FOUND`, `STYIO_NATIVE_UNSUPPORTED_SIGNATURE`, `STYIO_NATIVE_HOST_COMPILE_FAILED`, `STYIO_NATIVE_LOAD_FAILED`, `STYIO_NATIVE_SYMBOL_MISSING`, and `STYIO_NATIVE_TOOLCHAIN_UNAVAILABLE` with phase `native_interop`, exit code 4 for the current sema/codegen TypeError route, stable message fragments, and no-following-output coverage without treating them as native ABI, signature support, artifact loading, symbol visibility, host compiler behavior, or toolchain behavior expansion.
 40. Undeclared-symbol diagnostic refinements are sema-family public facts over existing fail-closed resolution boundaries. Keep `STYIO_SEMA_UNDECLARED_SYMBOL`, phase `sema`, exit code 4 for the current TypeError route, stable unknown function/resource message fragments, and no-following-output coverage without treating them as broader symbol resolution, import, resource lookup, or hidden native symbol visibility support.
