@@ -2,7 +2,7 @@
 
 **Purpose:** Record the accepted stream-runtime, concurrency, pulse-frame, cross-stream synchronization, and multi-writer merge decisions for IM-D5.
 
-**Last updated:** 2026-05-30
+**Last updated:** 2026-05-31
 
 ## Scope
 
@@ -51,6 +51,12 @@ Styio already has active design and partial implementation surfaces for streams:
   `STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE` instead of only the broad
   `STYIO_TYPE_ERROR`. This is an IM-D3 diagnostic refinement, not an expansion
   of accepted stream-driver semantics.
+- Ordinary iterator sources that are not iterable, including scalar bindings and
+  scalar latest resource selectors such as `@price[-1] >> #(v) => { ... }`, now
+  fail closed with the feature-owned JSONL code
+  `STYIO_TYPE_ITERATION_UNSUPPORTED_SOURCE` instead of only the broad
+  `STYIO_TYPE_ERROR`. This is an IM-D3 diagnostic refinement, not an expansion
+  of accepted iterator, selector, or stream-driver semantics.
 - Undefined hash-tag iterator sequence routes such as `[1, 2] >> #price` now
   fail closed with the feature-owned JSONL code
   `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED` instead of only the broad
