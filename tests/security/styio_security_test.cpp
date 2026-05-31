@@ -1617,6 +1617,25 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectFileRebindStatement) {
   EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectFileIteratorStatement) {
+  const std::string src =
+    "?| @file(\"tests/features/file_resources/data/hello.txt\") >> #(line) => {\n"
+    "  >_(line)\n"
+    "} | io => \"io\" -> @stderr\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("styio.ast.iterator"), std::string::npos);
+  EXPECT_EQ(repr.find("styio.ast.FlowBind"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_file_open"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_file_read_line"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, RejectsScalarFlexBindResourceEffectStatement) {
   const std::string src =
     "?| x = 1 | \"fallback\" -> @stdout\n";
@@ -1628,6 +1647,23 @@ TEST(StyioSecurityNightlyParserStmt, RejectsScalarFlexBindResourceEffectStatemen
   catch (const StyioSyntaxError& err) {
     EXPECT_NE(
       std::string(err.what()).find("unsupported expression continuation in nightly parser subset"),
+      std::string::npos);
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsNonFileIteratorResourceEffectStatement) {
+  const std::string src =
+    "?| [1, 2] >> #(n) => {\n"
+    "  >_(n)\n"
+    "} | \"fallback\" -> @stdout\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected non-file iterator under resource-effect settlement to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    EXPECT_NE(
+      std::string(err.what()).find("`?|` resource settlement requires a resource operation"),
       std::string::npos);
   }
 }
