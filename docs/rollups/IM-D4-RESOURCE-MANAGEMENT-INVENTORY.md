@@ -152,10 +152,10 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   Sema before reaching runtime.
   Public JSONL classification now maps
   this fallback mismatch to `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH` and
-  the remaining unsupported local matrix/resource
+  the remaining unsupported local resource
   binding method-body boundaries to `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY`; this is an IM-D3
   diagnostic refinement only and does not broaden resource-effect or resource
-  method semantics beyond the scalar and local list/dict flex/final preface slices. When that single returned expression
+  method semantics beyond the scalar and local list/dict/matrix flex/final preface slices. When that single returned expression
   is a file instant pull, `result = ?| log.read_missing() | fallback` recovers
   `STYIO_RUNTIME_FILE_OPEN_READ` through catch-all fallback or a matched `io`
   handler, and no-fallback settlement fails before the following statement.
@@ -170,14 +170,14 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   `STYIO_RUNTIME_MATRIX_INDEX` through catch-all fallback or a matched
   `bounds` handler, and no-fallback dict-key or matrix-index settlement fails
   before the following statement. Scalar local `=` / `:=` prefaces such as
-  `@file::answer = () => { x = 41 <| x + 1 }` and local list/dict `=` / `:=`
-  prefaces such as `@file::answer = () => { xs = [40,2] <| xs[0] }` or
-  `@file::list_answer = () => { xs := [41,42] <| xs }` are now scoped
+  `@file::answer = () => { x = 41 <| x + 1 }` and local list/dict/matrix `=` / `:=`
+  prefaces such as `@file::answer = () => { xs = [40,2] <| xs[0] }`,
+  `@file::list_answer = () => { xs := [41,42] <| xs }`, or
+  `@file::matrix_answer = () => { m: matrix := [[40,2],[1,3]] <| m }` are now scoped
   to the inlined resource-method body and return scalar/string values or local
-  list/dict container handles through direct and guarded calls without mutating
-  same-named caller bindings. Returned local list/dict handles are cloned before
-  method-block dynamic-slot cleanup. Local matrix/resource
-  bindings, resource-method lexical/global captures,
+  list/dict/matrix container handles through direct and guarded calls without mutating
+  same-named caller bindings. Returned local list/dict/matrix handles are cloned before
+  method-block dynamic-slot cleanup. Local resource bindings, resource-method lexical/global captures,
   and failing value-producing resource-method recovery beyond the
   covered returned file/stdin instant pulls, returned resource-effect expression
   wrappers, returned explicit matrix-valued function success paths, plus
@@ -474,8 +474,8 @@ Implementation note: the current value-producing non-task slices are limited to
 file instant pulls, stdin instant pulls, materialized container index/row
 reads, materialized list slices, and user-defined resource methods whose body is
 a single `<| expr` return, a statement-only preface followed by a final
-`<| expr` return, or scalar local `=` / `:=` / local list/dict `=` / `:=`
-prefaces followed by a final scalar/string or local list/dict container
+`<| expr` return, or scalar local `=` / `:=` / local list/dict/matrix `=` / `:=`
+prefaces followed by a final scalar/string or local list/dict/matrix container
 `<| expr` return. Returned match expressions preserve the current
 scalar/string match result families, while returned container match results
 remain fail-closed. File
@@ -506,7 +506,7 @@ that recover
 returned `STYIO_RUNTIME_LIST_INDEX`, `STYIO_RUNTIME_DICT_KEY`, or
 `STYIO_RUNTIME_MATRIX_INDEX` through fallback or matched `bounds` handlers
 under `?|`. Declared resource method parameter types are bound while inferring
-the method body and are checked at call sites; local list/dict container returns
+the method body and are checked at call sites; local list/dict/matrix container returns
 clone the returned handle before method-scope dynamic-slot cleanup; unimplemented
 lexical/global capture still fails closed before lowering.
 Statement-shaped writes, file acquire, file rebind, file close methods, and guarded
@@ -525,8 +525,8 @@ Broader resource families, cleanup/drop hooks,
 pressure-observer payloads and runtime execution, failing value-producing resource-method recovery beyond the
 covered returned file/stdin instant pulls, returned resource-effect wrappers,
 returned explicit matrix-valued function success paths, returned block-form
-function calls, returned local list/dict container handles, and returned list/dict/matrix bounds slices,
-local matrix/resource binding value-producing resource method bodies, resource-method lexical/global
+function calls, returned local list/dict/matrix container handles, and returned list/dict/matrix bounds slices,
+local resource binding value-producing resource method bodies, resource-method lexical/global
 captures, and other non-instant-pull
 value-returning resource operations must remain separately implemented and
 tested before the full typed resource-effect model is closed.

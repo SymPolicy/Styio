@@ -279,11 +279,11 @@ Current implementation reality:
    fails before the following statement. Resource method
    declared parameter types are bound while inferring the method body and checked
    at call sites, while lexical/global captures remain fail-closed before
-   lowering. Scalar local `=` and `:=` prefaces plus local list/dict `=` and `:=`
-   prefaces that return scalar/string values or the local list/dict container
+   lowering. Scalar local `=` and `:=` prefaces plus local list/dict/matrix `=` and `:=`
+   prefaces that return scalar/string values or the local list/dict/matrix container
    value now have isolated method value-scope semantics and inline-clone
-   hygienic renaming; returned local list/dict handles are cloned before
-   method-scope cleanup. Local matrix/resource binding prefaces intentionally
+   hygienic renaming; returned local list/dict/matrix handles are cloned before
+   method-scope cleanup. Local resource binding prefaces intentionally
    fail closed before lowering until their value-scope semantics are implemented.
    Parser/Sema keep `?| op | ...` statement-only, reject statement-shaped write
    operations where a value is required, reject returned resource-effect discard,
@@ -299,11 +299,11 @@ Current implementation reality:
    arbitrary resource operations beyond the covered file/stdin instant pulls,
    acquired-handle file instant pulls,
    materialized container index/row/slice reads, materialized list slices, and simple
-   resource-method single-return or statement-preface/scalar-local and list/dict-local scalar/string or local-container-return bodies, no recovery model for failing
+   resource-method single-return or statement-preface/scalar-local and list/dict/matrix-local scalar/string or local-container-return bodies, no recovery model for failing
    value-producing resource methods beyond the returned file/stdin instant-pull,
    returned explicit matrix-valued function success paths, returned local
-   list/dict container returns, and returned list/dict/matrix bounds failure
-   slices, or for local matrix/resource binding method bodies and
+   list/dict/matrix container returns, and returned list/dict/matrix bounds failure
+   slices, or for local resource binding method bodies and
    resource-method lexical/global captures, no
    source-level fallback recovery model for implicit cleanup or non-file
    reassignment cleanup, no cleanup families beyond file close, no
@@ -355,9 +355,9 @@ broader resource-family cleanup, non-failure backpressure
 observation/escalation, pressure observer payload/runtime execution, broader post-acquire resource
 operations beyond the covered file iterator, close-method, direct-release, write-method, and
 acquired-handle instant-pull paths, failing value-producing resource methods beyond returned file/stdin
-instant pulls, returned explicit matrix-valued function success paths, returned
-local list/dict container handles, and returned list/dict/matrix bounds slices,
-local matrix/resource binding value-producing resource method bodies beyond statement-only called-function bodies,
+   instant pulls, returned explicit matrix-valued function success paths, returned
+   local list/dict/matrix container handles, and returned list/dict/matrix bounds slices,
+   local resource binding value-producing resource method bodies beyond statement-only called-function bodies,
    resource-method lexical/global captures, and
    arbitrary value-producing resource-effect recovery remain design-fixed but
    unfinished.
@@ -538,7 +538,7 @@ or typed-parameter matrix cell/row or row-range slice expressions also inline
 through `ListAST`/`ListOpAST` and `DictAST` clone paths with type metadata
 preserved, and flat-list matrix returns fail closed before runtime, while
 unimplemented lexical/global capture shapes stay fail-closed.
-That closes only the `IntAST`, `BoolAST`, `FloatAST`, `StringAST`, `CharAST`, `FmtStrAST`, receiver-scoped `ResourceReceiverAST` / `AttrAST` property postfix, `RangeAST`, `MatchCasesAST`, `ResourceEffectAST`, local list/dict container-return, and returned
+That closes only the `IntAST`, `BoolAST`, `FloatAST`, `StringAST`, `CharAST`, `FmtStrAST`, receiver-scoped `ResourceReceiverAST` / `AttrAST` property postfix, `RangeAST`, `MatchCasesAST`, `ResourceEffectAST`, local list/dict/matrix container-return, and returned
 list/dict/matrix bounds resource-method inline-clone slices of the state inline
 clone surface; other accepted AST families still need source-reachable evidence
 before the unsupported clone fallback can be retired.
@@ -792,10 +792,10 @@ These should not be counted as missing implementation in this checkout:
    `SGReturn`, scalar/string match-expression return families preserve their
    inferred type while returned container match results fail closed, fallback
    type mismatches fail closed, and scalar local `=` / `:=` plus local
-   list/dict `=` / `:=` preface method bodies that return scalar/string values
-   or local list/dict container handles return through direct and guarded calls
+   list/dict/matrix `=` / `:=` preface method bodies that return scalar/string values
+   or local list/dict/matrix container handles return through direct and guarded calls
    without leaking same-named caller bindings; returned local handles are cloned
-   before method-block cleanup. Local matrix/resource binding prefaces remain
+   before method-block cleanup. Local resource binding prefaces remain
    rejected before lowering. Returned calls to ordinary functions with a value tail or
    explicit `<| expr` also preserve the called function result family through
    direct and guarded resource method calls; statement-only called functions
@@ -875,7 +875,7 @@ These should not be counted as missing implementation in this checkout:
     `DiagnosticContract.hpp` now classifies stable resource-effect fallback
     mismatch messages as `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH` and
     unsupported resource method bodies such as statement-only called-function
-    returns and local matrix/resource binding method bodies as
+    returns and local resource binding method bodies as
     `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY`. The focused
     `StyioResourceEffects.ResourceMethodValueFallbackTypeMismatchReportsTypeCode`
     and `StyioResourceEffects.ResourceMethodReturnedStatementOnlyFunctionReportsSemaCode`
