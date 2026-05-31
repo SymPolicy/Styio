@@ -2245,6 +2245,7 @@ is_resource_effect_operation_nightly(StyioAST* ast) {
   return dynamic_cast<ResourceWriteAST*>(ast) != nullptr
          || dynamic_cast<ResourceRedirectAST*>(ast) != nullptr
          || dynamic_cast<HandleAcquireAST*>(ast) != nullptr
+         || dynamic_cast<IteratorAST*>(ast) != nullptr
          || (bind != nullptr && dynamic_cast<FileResourceAST*>(bind->getValue()) != nullptr)
          || dynamic_cast<InstantPullAST*>(ast) != nullptr
          || dynamic_cast<ResourceRefAST*>(ast) != nullptr

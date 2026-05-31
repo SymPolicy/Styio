@@ -1346,6 +1346,18 @@ resource_effect_index_operation_supported_latest(StyioSemaContext* an, ListOpAST
 }
 
 bool
+resource_effect_iterator_operation_supported_latest(StyioSemaContext* an, IteratorAST* iter) {
+  if (iter == nullptr || iter->getNodeType() == StyioNodeType::IterSeq) {
+    return false;
+  }
+  if (dynamic_cast<FileResourceAST*>(iter->collection) != nullptr) {
+    return true;
+  }
+  StyioDataType collection_type = infer_expr_type(an, iter->collection);
+  return collection_type.handle_family == StyioHandleFamily::File;
+}
+
+bool
 resource_effect_operation_supported_latest(StyioSemaContext* an, StyioAST* ast) {
   if (auto* acquire = dynamic_cast<HandleAcquireAST*>(ast)) {
     (void)an;
@@ -1362,6 +1374,9 @@ resource_effect_operation_supported_latest(StyioSemaContext* an, StyioAST* ast) 
   }
   if (auto* access = dynamic_cast<ListOpAST*>(ast)) {
     return resource_effect_index_operation_supported_latest(an, access);
+  }
+  if (auto* iter = dynamic_cast<IteratorAST*>(ast)) {
+    return resource_effect_iterator_operation_supported_latest(an, iter);
   }
   auto* call = dynamic_cast<FuncCallAST*>(ast);
   if (call == nullptr || call->func_callee == nullptr) {
