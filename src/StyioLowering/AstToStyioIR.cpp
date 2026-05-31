@@ -1516,6 +1516,21 @@ class StateExprCloneVisitor
     return FlexBindAST::Create(local_var, value);
   }
 
+  StyioAST* clone(FinalBindAST* expr) {
+    StyioAST* value = clone(expr->getValue());
+    const std::string original_name = expr->getName();
+    const std::string local_name =
+      alloc_lowering_tmp_name("__styio_resource_method_local_");
+    auto* local_var = VarAST::Create(
+      NameAST::Create(local_name),
+      clone_type_for_var(expr->getVar()->getDType())
+    );
+    auto* repl_name = NameAST::Create(local_name);
+    generated_repl_owners_.emplace_back(repl_name);
+    named_repls_[original_name] = repl_name;
+    return FinalBindAST::Create(local_var, value);
+  }
+
   StyioAST* clone(PrintAST* expr) {
     return PrintAST::Create(clone_child_list(expr->exprs));
   }
@@ -1698,6 +1713,8 @@ public:
         return clone(static_cast<ReturnAST*>(expr));
       case StyioNodeType::MutBind:
         return clone(static_cast<FlexBindAST*>(expr));
+      case StyioNodeType::FinalBind:
+        return clone(static_cast<FinalBindAST*>(expr));
       case StyioNodeType::Print:
         return clone(static_cast<PrintAST*>(expr));
       case StyioNodeType::Cases:
@@ -1795,15 +1812,21 @@ resource_method_value_preface_supported_latest(AstToStyioIRLowerer* an, StyioAST
       || dynamic_cast<ResourceEffectAST*>(stmt) != nullptr) {
     return true;
   }
-  auto* bind = dynamic_cast<FlexBindAST*>(stmt);
-  if (bind == nullptr) {
-    return false;
+  if (auto* bind = dynamic_cast<FlexBindAST*>(stmt)) {
+    StyioDataType type = bind->getVar()->getDType()->getDataType();
+    if (type.isUndefined()) {
+      type = expr_lowered_type(an, bind->getValue());
+    }
+    return resource_method_scalar_value_type_supported_latest(type);
   }
-  StyioDataType type = bind->getVar()->getDType()->getDataType();
-  if (type.isUndefined()) {
-    type = expr_lowered_type(an, bind->getValue());
+  if (auto* bind = dynamic_cast<FinalBindAST*>(stmt)) {
+    StyioDataType type = bind->getVar()->getDType()->getDataType();
+    if (type.isUndefined()) {
+      type = expr_lowered_type(an, bind->getValue());
+    }
+    return resource_method_scalar_value_type_supported_latest(type);
   }
-  return resource_method_scalar_value_type_supported_latest(type);
+  return false;
 }
 
 StyioIR*
