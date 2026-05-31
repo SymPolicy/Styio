@@ -7841,6 +7841,54 @@ TEST(StyioResourceEffects, ValueResourceMethodStatementPrefaceReturnsFromDirectA
   fs::remove(data);
 }
 
+TEST(StyioResourceEffects, ValueResourceMethodLocalFlexBindReturnsFromDirectAndResourceEffectCalls) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-effect-method-local-flex-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-effect-method-local-flex-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "seed\n";
+  }
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "x = 100\n";
+    out << "@file::answer = () => {\n";
+    out << "  x = 41\n";
+    out << "  <| x + 1\n";
+    out << "}\n";
+    out << "log := @file(\"" << data.generic_string() << "\")\n";
+    out << ">_(log.answer())\n";
+    out << ">_(?| log.answer() | 7)\n";
+    out << ">_(x)\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(result.stdout_text, "42\n42\n100\nafter\n");
+  EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("resource method return currently requires"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove(data);
+}
+
 TEST(StyioResourceEffects, ValueResourceMethodScalarFamiliesReturnFromDirectAndFallbackCalls) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
@@ -8210,7 +8258,7 @@ TEST(StyioResourceEffects, ResourceMethodFmtStringValueFallbackTypeMismatchRepor
   fs::remove(data);
 }
 
-TEST(StyioResourceEffects, ResourceMethodLocalBindMultiStmtReturnReportsSemaCode) {
+TEST(StyioResourceEffects, ResourceMethodLocalFinalBindMultiStmtReturnReportsSemaCode) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -8227,7 +8275,7 @@ TEST(StyioResourceEffects, ResourceMethodLocalBindMultiStmtReturnReportsSemaCode
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
     out << "@file::answer = () => {\n";
-    out << "  x = 41\n";
+    out << "  x := 41\n";
     out << "  <| x + 1\n";
     out << "}\n";
     out << "log := @file(\"" << data.generic_string() << "\")\n";

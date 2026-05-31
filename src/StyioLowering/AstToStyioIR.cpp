@@ -1252,6 +1252,7 @@ class StateExprCloneVisitor
   std::unordered_map<std::string, StyioAST*> named_repls_;
   std::string receiver_family_;
   StyioAST* receiver_repl_ = nullptr;
+  std::vector<std::unique_ptr<StyioAST>> generated_repl_owners_;
 
   template <typename Container>
   std::vector<StyioAST*> clone_child_list(const Container& items) {
@@ -1468,6 +1469,18 @@ class StateExprCloneVisitor
     return InstantPullAST::Create(clone(expr->getResource()), expr->getDataType());
   }
 
+  StyioAST* clone(VarAST* expr) {
+    if (expr == nullptr) {
+      return nullptr;
+    }
+    auto* name = NameAST::Create(expr->getNameAsStr());
+    auto* dtype = clone_type_for_var(expr->getDType());
+    if (expr->val_init == nullptr) {
+      return VarAST::Create(name, dtype);
+    }
+    return new VarAST(name, dtype, clone(expr->val_init));
+  }
+
   StyioAST* clone(HistoryProbeAST* expr) {
     StyioAST* cloned_target = clone(expr->getTarget());
     if (cloned_target == nullptr || cloned_target->getNodeType() != StyioNodeType::StateRef) {
@@ -1486,6 +1499,21 @@ class StateExprCloneVisitor
 
   StyioAST* clone(ReturnAST* expr) {
     return ReturnAST::Create(clone(expr->getExpr()));
+  }
+
+  StyioAST* clone(FlexBindAST* expr) {
+    StyioAST* value = clone(expr->getValue());
+    const std::string original_name = expr->getNameAsStr();
+    const std::string local_name =
+      alloc_lowering_tmp_name("__styio_resource_method_local_");
+    auto* local_var = VarAST::Create(
+      NameAST::Create(local_name),
+      clone_type_for_var(expr->getVar()->getDType())
+    );
+    auto* repl_name = NameAST::Create(local_name);
+    generated_repl_owners_.emplace_back(repl_name);
+    named_repls_[original_name] = repl_name;
+    return FlexBindAST::Create(local_var, value);
   }
 
   StyioAST* clone(PrintAST* expr) {
@@ -1532,8 +1560,14 @@ class StateExprCloneVisitor
   }
 
   StyioAST* clone(BlockAST* expr) {
-    std::vector<StyioAST*> stmts = clone_child_list(expr->stmts);
+    auto saved_repls = named_repls_;
+    std::vector<StyioAST*> stmts;
+    stmts.reserve(expr->stmts.size());
+    for (auto* stmt : expr->stmts) {
+      stmts.push_back(clone(stmt));
+    }
     std::vector<StyioAST*> followings = clone_child_list(expr->followings);
+    named_repls_ = std::move(saved_repls);
     auto* cloned_blk = BlockAST::Create(std::move(stmts));
     cloned_blk->set_followings(std::move(followings));
     return cloned_blk;
@@ -1652,6 +1686,8 @@ public:
         return clone(static_cast<ResourceEffectAST*>(expr));
       case StyioNodeType::InstantPull:
         return clone(static_cast<InstantPullAST*>(expr));
+      case StyioNodeType::Variable:
+        return clone(static_cast<VarAST*>(expr));
       case StyioNodeType::HistoryProbe:
         return clone(static_cast<HistoryProbeAST*>(expr));
       case StyioNodeType::StateRef:
@@ -1660,6 +1696,8 @@ public:
         return clone(static_cast<SeriesIntrinsicAST*>(expr));
       case StyioNodeType::Return:
         return clone(static_cast<ReturnAST*>(expr));
+      case StyioNodeType::MutBind:
+        return clone(static_cast<FlexBindAST*>(expr));
       case StyioNodeType::Print:
         return clone(static_cast<PrintAST*>(expr));
       case StyioNodeType::Cases:
@@ -1735,17 +1773,37 @@ flatten_single_stmt_block_latest(StyioIR* ir) {
 }
 
 bool
-resource_method_value_preface_supported_latest(StyioAST* stmt) {
+resource_method_scalar_value_type_supported_latest(const StyioDataType& type) {
+  return type.option == StyioDataTypeOption::Bool
+         || type.option == StyioDataTypeOption::Integer
+         || type.option == StyioDataTypeOption::Float
+         || type.option == StyioDataTypeOption::Char
+         || type.option == StyioDataTypeOption::String;
+}
+
+bool
+resource_method_value_preface_supported_latest(AstToStyioIRLowerer* an, StyioAST* stmt) {
   if (stmt == nullptr) {
     return false;
   }
-  return dynamic_cast<CommentAST*>(stmt) != nullptr
-         || dynamic_cast<EmptyAST*>(stmt) != nullptr
-         || dynamic_cast<PassAST*>(stmt) != nullptr
-         || dynamic_cast<PrintAST*>(stmt) != nullptr
-         || dynamic_cast<ResourceWriteAST*>(stmt) != nullptr
-         || dynamic_cast<ResourceRedirectAST*>(stmt) != nullptr
-         || dynamic_cast<ResourceEffectAST*>(stmt) != nullptr;
+  if (dynamic_cast<CommentAST*>(stmt) != nullptr
+      || dynamic_cast<EmptyAST*>(stmt) != nullptr
+      || dynamic_cast<PassAST*>(stmt) != nullptr
+      || dynamic_cast<PrintAST*>(stmt) != nullptr
+      || dynamic_cast<ResourceWriteAST*>(stmt) != nullptr
+      || dynamic_cast<ResourceRedirectAST*>(stmt) != nullptr
+      || dynamic_cast<ResourceEffectAST*>(stmt) != nullptr) {
+    return true;
+  }
+  auto* bind = dynamic_cast<FlexBindAST*>(stmt);
+  if (bind == nullptr) {
+    return false;
+  }
+  StyioDataType type = bind->getVar()->getDType()->getDataType();
+  if (type.isUndefined()) {
+    type = expr_lowered_type(an, bind->getValue());
+  }
+  return resource_method_scalar_value_type_supported_latest(type);
 }
 
 StyioIR*
@@ -1768,7 +1826,7 @@ lower_resource_method_value_body_latest(AstToStyioIRLowerer* an, StyioAST* body)
   std::vector<StyioIR*> stmts;
   stmts.reserve(block->stmts.size());
   for (std::size_t i = 0; i + 1 < block->stmts.size(); ++i) {
-    if (!resource_method_value_preface_supported_latest(block->stmts[i])) {
+    if (!resource_method_value_preface_supported_latest(an, block->stmts[i])) {
       return nullptr;
     }
     stmts.push_back(block->stmts[i]->toStyioIR(an));
