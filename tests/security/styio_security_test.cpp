@@ -1750,6 +1750,37 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectResourceMethodStatement
   EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectDirectFileReleaseStatement) {
+  const std::string src =
+    "?| @file(\"tests/features/file_resources/data/hello.txt\") -> @() | io => \"io\" -> @stderr\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  EXPECT_NE(repr.find("styio.ast.resource.redirect"), std::string::npos);
+  EXPECT_EQ(repr.find("styio.ast.FlowBind"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_file_close"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, ResourceEffectHandleAcquireFeedsLaterDirectRelease) {
+  const std::string src =
+    "?| f <- @file(\"tests/features/file_resources/data/hello.txt\")"
+    " | \"fallback\" -> @stderr\n"
+    "?| f -> @() | \"release fallback\" -> @stderr\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_file_open"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_file_close"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_runtime_error_matches_effect"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesPressureObserverStatementToSemaBoundary) {
   const std::string src =
     "@channel : i64|..4|\n"
@@ -2517,6 +2548,22 @@ TEST(StyioSecurityNightlyParserStmt, RejectsFileRebindResourceEffectExpression) 
   }
 }
 
+TEST(StyioSecurityNightlySemantics, RejectsDirectFileReleaseResourceEffectExpression) {
+  const std::string src =
+    "result = ?| @file(\"/tmp/styio-resource-effect-release-missing\") -> @() | 7\n"
+    ">_(result)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected statement-shaped file release expression to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    EXPECT_NE(
+      std::string(err.what()).find("resource-effect expression requires a value-producing resource operation"),
+      std::string::npos);
+  }
+}
+
 TEST(StyioSecurityNightlySemantics, RejectsResourceEffectValueFallbackTypeMismatch) {
   const std::string src =
     "result = ?| (<< @file(\"/tmp/styio-resource-effect-value-missing\")) | \"fallback\"\n"
@@ -2786,6 +2833,22 @@ TEST(StyioSecurityNightlySemantics, ResourceEffectAcquireThenCloseConsumesReceiv
   try {
     parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
     FAIL() << "expected resource-effect acquired handle to stay destroyed after close";
+  }
+  catch (const StyioTypeError& err) {
+    EXPECT_NE(std::string(err.what()).find("use-after-destroy"), std::string::npos);
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, ResourceEffectAcquireThenDirectReleaseConsumesReceiver) {
+  const std::string src =
+    "?| f <- @file(\"tests/features/file_resources/data/hello.txt\")"
+    " | \"fallback\" -> @stdout\n"
+    "?| f -> @() | \"release fallback\" -> @stdout\n"
+    "f.path\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected resource-effect direct release to consume the acquired handle";
   }
   catch (const StyioTypeError& err) {
     EXPECT_NE(std::string(err.what()).find("use-after-destroy"), std::string::npos);
