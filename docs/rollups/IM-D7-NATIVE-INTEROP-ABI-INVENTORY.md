@@ -2,7 +2,7 @@
 
 **Purpose:** Record the accepted native interop ABI decisions for IM-D7 so `@ extern(c|c++)` is governed by a stable source, signature, symbol, and function-pointer contract.
 
-**Last updated:** 2026-05-21
+**Last updated:** 2026-05-31
 
 ## Scope
 
@@ -214,7 +214,7 @@ Required native diagnostic families:
 
 Diagnostics should be stable enough for tests and services to classify native interop failures without string-matching host compiler logs.
 
-Current public JSONL coverage maps missing referenced native sources to `STYIO_NATIVE_SOURCE_READ_FAILED`, explicit binding/signature misses to `STYIO_NATIVE_SIGNATURE_NOT_FOUND`, and unsupported native signature shapes such as aggregate parameters or variadic signatures to `STYIO_NATIVE_UNSUPPORTED_SIGNATURE` while keeping the existing TypeError exit family for the sema/codegen route. The shared diagnostic taxonomy also reserves native interop families for unsupported ABI, host compile failure, load failure, symbol missing, toolchain unavailable, and the fallback `STYIO_NATIVE_INTEROP_ERROR`; these are diagnostic classifications only and do not broaden native ABI support, signature support, symbol visibility, or host compiler behavior.
+Current public JSONL coverage maps missing referenced native sources to `STYIO_NATIVE_SOURCE_READ_FAILED`, explicit binding/signature misses to `STYIO_NATIVE_SIGNATURE_NOT_FOUND`, unsupported native signature shapes such as aggregate parameters or variadic signatures to `STYIO_NATIVE_UNSUPPORTED_SIGNATURE`, and host compiler rejections to `STYIO_NATIVE_HOST_COMPILE_FAILED` while keeping the existing TypeError exit family for the sema/codegen route. The shared diagnostic taxonomy also reserves native interop families for unsupported ABI where the native layer owns it, load failure, symbol missing, toolchain unavailable, and the fallback `STYIO_NATIVE_INTEROP_ERROR`; these are diagnostic classifications only and do not broaden native ABI support, signature support, symbol visibility, or host compiler behavior.
 
 ## Fixture Requirements
 

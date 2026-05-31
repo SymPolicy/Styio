@@ -882,7 +882,17 @@ These should not be counted as missing implementation in this checkout:
     stable message fragments, and stop before following output. This is
     diagnostic refinement only; aggregate, variadic, broader C/C++ ABI, symbol
     visibility, and host compiler behavior remain unchanged.
-24. Unknown function/resource diagnostics are no longer only the broad
+24. Native interop host compile diagnostics are no longer only broad native
+    fallback cases at the existing host compiler rejection boundary.
+    `DiagnosticContract.hpp` now classifies host compiler rejection messages as
+    `STYIO_NATIVE_HOST_COMPILE_FAILED`, while
+    `StyioDiagnostics.NativeExternHostCompileFailureReportsNativeCode` proves
+    the JSONL public phase is `native_interop`, the TypeError exit family
+    remains stable, the stable compile-failed message fragment is present, and
+    following output does not execute. This is diagnostic refinement only; host
+    compiler behavior, native ABI support, signature support, symbol visibility,
+    artifact loading, and C++ symbol mapping remain unchanged.
+25. Unknown function/resource diagnostics are no longer only the broad
     `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies stable
     `unknown function` and `unknown resource` messages as
     `STYIO_SEMA_UNDECLARED_SYMBOL`, while
@@ -893,7 +903,7 @@ These should not be counted as missing implementation in this checkout:
     This is diagnostic refinement only; it does not broaden symbol resolution,
     hidden native symbol visibility, import behavior, or resource lookup
     semantics.
-25. User function and resource-method call arity diagnostics are no longer only
+26. User function and resource-method call arity diagnostics are no longer only
     the broad `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies
     stable `expects N argument(s), got M` messages as
     `STYIO_SEMA_CALL_ARITY_MISMATCH`, while
@@ -903,7 +913,7 @@ These should not be counted as missing implementation in this checkout:
     stable, stable message fragments are present, and following output does not
     execute. This is diagnostic refinement only; it does not broaden function
     calling or resource-method dispatch semantics.
-26. User function and resource-method call argument type mismatch diagnostics are
+27. User function and resource-method call argument type mismatch diagnostics are
     no longer only the broad `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp`
     now classifies stable `function argument type mismatch for parameter` and
     `resource method argument type mismatch for parameter` messages as
@@ -916,7 +926,7 @@ These should not be counted as missing implementation in this checkout:
     execute. This is diagnostic refinement only; it does not broaden function
     calling, implicit argument adaptation, native ABI behavior, or resource-method
     dispatch semantics.
-27. Resource capability mismatch diagnostics are no longer only the broad
+28. Resource capability mismatch diagnostics are no longer only the broad
     `STYIO_TYPE_ERROR` family for the focused standard-resource routes.
     `DiagnosticContract.hpp` now classifies stable capability messages such as
     write-to-`@stdin` and instant-pull-from-`@stderr` failures as
@@ -928,7 +938,7 @@ These should not be counted as missing implementation in this checkout:
     execute. This is diagnostic refinement only; it does not broaden resource
     capability rules, resource family support, pressure observers, or fallback
     recovery semantics.
-28. Unsupported typed stdin target diagnostics are no longer only the broad
+29. Unsupported typed stdin target diagnostics are no longer only the broad
     `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies the
     stable unsupported scalar and list target messages as
     `STYIO_TYPE_STDIN_UNSUPPORTED_TARGET`, while
