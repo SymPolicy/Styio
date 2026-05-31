@@ -124,19 +124,24 @@ resource_method_value_preface_supported_latest(StyioSemaContext* an, StyioAST* s
   if (resource_method_statement_preface_supported_latest(stmt)) {
     return true;
   }
-  auto* bind = dynamic_cast<FlexBindAST*>(stmt);
-  if (bind == nullptr) {
-    return false;
+  if (auto* bind = dynamic_cast<FlexBindAST*>(stmt)) {
+    return resource_method_scalar_value_type_supported_latest(
+      infer_expr_type(an, bind->getValue())
+    );
   }
-  return resource_method_scalar_value_type_supported_latest(
-    infer_expr_type(an, bind->getValue())
-  );
+  if (auto* bind = dynamic_cast<FinalBindAST*>(stmt)) {
+    return resource_method_scalar_value_type_supported_latest(
+      infer_expr_type(an, bind->getValue())
+    );
+  }
+  return false;
 }
 
 bool
 resource_method_value_preface_shape_supported_latest(StyioAST* stmt) {
   return resource_method_statement_preface_supported_latest(stmt)
-         || dynamic_cast<FlexBindAST*>(stmt) != nullptr;
+         || dynamic_cast<FlexBindAST*>(stmt) != nullptr
+         || dynamic_cast<FinalBindAST*>(stmt) != nullptr;
 }
 
 ReturnAST*
@@ -2920,7 +2925,7 @@ StyioSemaContext::typeInfer(ResourceMethodDefAST* ast) {
     if (resource_method_body_contains_return_latest(ast->getBody()) && info.result_type.isUndefined()) {
       throw StyioTypeError(
         "resource method return currently requires a single `<| expr` body"
-        " or statement-only preface followed by a final `<| expr`"
+        " or statement-only/scalar local preface followed by a final `<| expr`"
       );
     }
     methods[ast->getMethodName()] = info;
