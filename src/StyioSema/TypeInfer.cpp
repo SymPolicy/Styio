@@ -97,7 +97,7 @@ resource_effect_handler_name_supported_latest(const std::string& name) {
 }
 
 bool
-resource_method_value_preface_supported_latest(StyioAST* stmt) {
+resource_method_statement_preface_supported_latest(StyioAST* stmt) {
   if (stmt == nullptr) {
     return false;
   }
@@ -108,6 +108,35 @@ resource_method_value_preface_supported_latest(StyioAST* stmt) {
          || dynamic_cast<ResourceWriteAST*>(stmt) != nullptr
          || dynamic_cast<ResourceRedirectAST*>(stmt) != nullptr
          || dynamic_cast<ResourceEffectAST*>(stmt) != nullptr;
+}
+
+bool
+resource_method_scalar_value_type_supported_latest(const StyioDataType& type) {
+  return type.option == StyioDataTypeOption::Bool
+         || type.option == StyioDataTypeOption::Integer
+         || type.option == StyioDataTypeOption::Float
+         || type.option == StyioDataTypeOption::Char
+         || type.option == StyioDataTypeOption::String;
+}
+
+bool
+resource_method_value_preface_supported_latest(StyioSemaContext* an, StyioAST* stmt) {
+  if (resource_method_statement_preface_supported_latest(stmt)) {
+    return true;
+  }
+  auto* bind = dynamic_cast<FlexBindAST*>(stmt);
+  if (bind == nullptr) {
+    return false;
+  }
+  return resource_method_scalar_value_type_supported_latest(
+    infer_expr_type(an, bind->getValue())
+  );
+}
+
+bool
+resource_method_value_preface_shape_supported_latest(StyioAST* stmt) {
+  return resource_method_statement_preface_supported_latest(stmt)
+         || dynamic_cast<FlexBindAST*>(stmt) != nullptr;
 }
 
 ReturnAST*
@@ -124,7 +153,7 @@ resource_method_value_tail_return_latest(StyioAST* body) {
     return nullptr;
   }
   for (std::size_t i = 0; i + 1 < block->stmts.size(); ++i) {
-    if (!resource_method_value_preface_supported_latest(block->stmts[i])) {
+    if (!resource_method_value_preface_shape_supported_latest(block->stmts[i])) {
       return nullptr;
     }
   }
@@ -159,6 +188,13 @@ resource_method_simple_result_type_latest(StyioSemaContext* an, StyioAST* body) 
   ReturnAST* ret = resource_method_value_tail_return_latest(body);
   if (ret == nullptr || ret->getExpr() == nullptr) {
     return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+  if (auto* block = dynamic_cast<BlockAST*>(body)) {
+    for (std::size_t i = 0; i + 1 < block->stmts.size(); ++i) {
+      if (!resource_method_value_preface_supported_latest(an, block->stmts[i])) {
+        return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+      }
+    }
   }
   return infer_expr_type(an, ret->getExpr());
 }
@@ -2845,14 +2881,33 @@ StyioSemaContext::typeInfer(ResourceMethodDefAST* ast) {
 
   const std::string saved_receiver = active_resource_receiver_family_;
   const auto saved_types = local_binding_types;
+  const auto saved_fixed = fixed_assignment_names_;
+  const auto saved_bind = binding_info_;
+  const auto saved_consumed_tasks = consumed_task_names_;
+  const auto saved_consumed_resources = consumed_resource_names_;
+  const auto saved_owned_resources = owned_resource_names_;
+  const auto saved_snapshot_names = snapshot_var_names_;
   auto restore_resource_method_scope = [&]()
   {
     active_resource_receiver_family_ = saved_receiver;
     local_binding_types = saved_types;
+    fixed_assignment_names_ = saved_fixed;
+    binding_info_ = saved_bind;
+    consumed_task_names_ = saved_consumed_tasks;
+    consumed_resource_names_ = saved_consumed_resources;
+    owned_resource_names_ = saved_owned_resources;
+    snapshot_var_names_ = saved_snapshot_names;
   };
 
   try {
     active_resource_receiver_family_ = ast->getFamilyName();
+    local_binding_types.clear();
+    fixed_assignment_names_.clear();
+    binding_info_.clear();
+    consumed_task_names_.clear();
+    consumed_resource_names_.clear();
+    owned_resource_names_.clear();
+    snapshot_var_names_.clear();
     for (std::size_t i = 0; i < info.param_names.size(); ++i) {
       if (!info.param_names[i].empty() && !info.param_types[i].isUndefined()) {
         local_binding_types[info.param_names[i]] = info.param_types[i];
