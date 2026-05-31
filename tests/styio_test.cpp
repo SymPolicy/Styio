@@ -75,6 +75,21 @@ run_stdout_command(const std::string& cmd) {
 }
 
 std::string
+shell_quote_latest(const std::string& value) {
+  std::string quoted = "'";
+  for (const char ch : value) {
+    if (ch == '\'') {
+      quoted += "'\\''";
+    }
+    else {
+      quoted.push_back(ch);
+    }
+  }
+  quoted += "'";
+  return quoted;
+}
+
+std::string
 read_text_file_latest(const fs::path& path) {
   std::ifstream in(path, std::ios::binary);
   std::ostringstream ss;
@@ -6381,6 +6396,150 @@ TEST(StyioDiagnostics, NativeExternHostCompileFailureReportsNativeCode) {
   EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
 
   fs::remove(input);
+}
+
+TEST(StyioDiagnostics, NativeExternSymbolMissingReportsNativeCode) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-native-symbol-missing-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# hidden_native := @ extern(c) {\n";
+    out << "static int hidden_native(int x) { return x + 1; }\n";
+    out << "}\n";
+    out << ">_(hidden_native(1))\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("env -u STYIO_NATIVE_CC -u STYIO_NATIVE_CXX STYIO_NATIVE_TOOLCHAIN_MODE=system ")
+    + shell_quote_latest(runner) + " --error-format=jsonl --parser-engine=nightly --file "
+    + shell_quote_latest(input.string()) + " 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"native_interop\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("\"code\":\"STYIO_NATIVE_SYMBOL_MISSING\""),
+    std::string::npos);
+  EXPECT_NE(result.stdout_text.find("could not resolve exported symbol `hidden_native`"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioDiagnostics, NativeExternToolchainUnavailableReportsNativeCode) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-native-toolchain-unavailable-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# toolchain_probe := @ extern(c) {\n";
+    out << "int toolchain_probe(int x) { return x + 1; }\n";
+    out << "}\n";
+    out << ">_(toolchain_probe(1))\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("env -u STYIO_NATIVE_CC -u STYIO_NATIVE_CXX STYIO_NATIVE_TOOLCHAIN_MODE=invalid ")
+    + shell_quote_latest(runner) + " --error-format=jsonl --parser-engine=nightly --file "
+    + shell_quote_latest(input.string()) + " 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"native_interop\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("\"code\":\"STYIO_NATIVE_TOOLCHAIN_UNAVAILABLE\""),
+    std::string::npos);
+  EXPECT_NE(result.stdout_text.find("invalid STYIO_NATIVE_TOOLCHAIN_MODE `invalid`"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioDiagnostics, NativeExternLoadFailureReportsNativeCode) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-native-load-failure-" + std::to_string(uniq) + ".styio");
+  const fs::path fake_compiler =
+    fs::temp_directory_path() / ("styio-native-fake-cc-" + std::to_string(uniq) + ".sh");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# fake_load := @ extern(c) {\n";
+    out << "int fake_load(int x) { return x + 1; }\n";
+    out << "}\n";
+    out << ">_(fake_load(1))\n";
+    out << ">_(\"after\")\n";
+  }
+  {
+    std::ofstream out(fake_compiler);
+    ASSERT_TRUE(out.is_open());
+    out << "#!/bin/sh\n";
+    out << "out=\"\"\n";
+    out << "while [ \"$#\" -gt 0 ]; do\n";
+    out << "  if [ \"$1\" = \"-o\" ]; then\n";
+    out << "    shift\n";
+    out << "    out=\"$1\"\n";
+    out << "  fi\n";
+    out << "  shift || exit 1\n";
+    out << "done\n";
+    out << "if [ -z \"$out\" ]; then\n";
+    out << "  exit 2\n";
+    out << "fi\n";
+    out << "printf 'not a shared object\\n' > \"$out\"\n";
+    out << "exit 0\n";
+  }
+  fs::permissions(
+    fake_compiler,
+    fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
+    fs::perm_options::add);
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("env STYIO_NATIVE_TOOLCHAIN_MODE=system STYIO_NATIVE_CC=")
+    + shell_quote_latest(fake_compiler.string()) + " " + shell_quote_latest(runner)
+    + " --error-format=jsonl --parser-engine=nightly --file "
+    + shell_quote_latest(input.string()) + " 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"native_interop\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_NATIVE_LOAD_FAILED\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("native @extern(c) dlopen failed"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove(fake_compiler);
 }
 
 TEST(StyioDiagnostics, RetiredLegacyStateDeclReportsParseError) {
