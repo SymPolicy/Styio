@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the compact authoring map for current Styio syntax; grammar authority stays in [../Styio-EBNF.md](../Styio-EBNF.md), token authority stays in [../Styio-Symbol-Reference.md](../Styio-Symbol-Reference.md), and semantics stay in the owning design documents.
 
-**Last updated:** 2026-05-30
+**Last updated:** 2026-05-31
 
 ## Reading Contract
 
@@ -71,7 +71,7 @@
 | Method call | `log.close()` | Consuming methods invalidate the receiver immediately. |
 | Direct resource call | `@("log.txt").close()` | Late resource construction is still statically resolved before lowering. |
 | Receiver reference | `@file` / `@file.path` inside `@file::name` body | Refers to the receiver instance, not a constructor; receiver postfix property/method access is scoped to the resource-family definition body. |
-| Statement-preface return | `@file::answer = () => { >_("inside") <\| 42 }` | Value-returning method bodies may run accepted statement-only prefaces before a final returned expression. Scalar local `=` prefaces such as `x = 41; <\| x + 1` are scoped to the inlined method body; local `:=`, local container/resource bindings, and capture-dependent bodies remain fail-closed. |
+| Statement-preface return | `@file::answer = () => { >_("inside") <\| 42 }` | Value-returning method bodies may run accepted statement-only prefaces before a final returned expression. Scalar local `=` or `:=` prefaces such as `x = 41; <\| x + 1` or `x := 41; <\| x + 1` are scoped to the inlined method body; local container/resource bindings and capture-dependent bodies remain fail-closed. |
 | Returned resource effect | `@file::read_or = () => { <\| ?\| (<< @file("data.txt")) \| 7 }` | Single-return method bodies may return a value-producing resource-effect expression; discard `?\| op \| ...` remains statement-only and is rejected as a returned expression. |
 | Returned match expression | `@file::pick = (x: int) => { <\| x ?= { 0 => 'a' _ => 'b' } }` | Single-return method bodies may return match expressions for the current scalar/string result families; container match results remain fail-closed. |
 | Returned function call | `@file::score = (x: i64) => { <\| plus_one(x) }` | Single-return method bodies may return calls to ordinary functions when the called function has a value tail or explicit `<\| expr`; statement-only function bodies remain fail-closed as method return values. |
