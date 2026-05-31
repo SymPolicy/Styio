@@ -437,6 +437,15 @@ expr_lowered_type(AstToStyioIRLowerer* an, StyioAST* expr) {
         return styio_make_list_type("string");
       }
     }
+    if (call->func_callee != nullptr) {
+      StyioDataType receiver_type = expr_lowered_type(an, call->func_callee);
+      const std::string family = resource_family_for_lowering_type(receiver_type);
+      const StyioSemaContext::ResourceMethodInfo* method =
+        an->find_resource_method(family, call->getNameAsStr());
+      if (method != nullptr && !method->property && !method->result_type.isUndefined()) {
+        return method->result_type;
+      }
+    }
     StyioDataType matrix_type = matrix_intrinsic_lowered_type(an, call);
     if (!matrix_type.isUndefined()) {
       return matrix_type;
@@ -1917,26 +1926,14 @@ lower_resource_method_value_body_latest(AstToStyioIRLowerer* an, StyioAST* body)
   };
   std::vector<StyioIR*> stmts;
   stmts.reserve(block->stmts.size());
-  bool has_local_container_preface = false;
   try {
     for (std::size_t i = 0; i + 1 < block->stmts.size(); ++i) {
       if (!resource_method_value_preface_supported_latest(an, block->stmts[i])) {
         restore_local_types();
         return nullptr;
       }
-      StyioDataType bind_type = resource_method_preface_bind_type_latest(an, block->stmts[i]);
-      has_local_container_preface =
-        has_local_container_preface
-        || resource_method_local_container_type_supported_latest(bind_type);
       bind_resource_method_preface_local_latest(an, block->stmts[i]);
       stmts.push_back(block->stmts[i]->toStyioIR(an));
-    }
-    if (has_local_container_preface) {
-      StyioDataType result_type = expr_lowered_type(an, tail->getExpr());
-      if (!resource_method_scalar_value_type_supported_latest(result_type)) {
-        restore_local_types();
-        return nullptr;
-      }
     }
     stmts.push_back(tail->getExpr()->toStyioIR(an));
   }

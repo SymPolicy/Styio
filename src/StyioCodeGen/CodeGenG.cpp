@@ -151,6 +151,9 @@ bounded_ring_handle_family_for_type(const StyioDataType& dt) {
 
 bool
 ir_yields_list_handle(StyioIR* value) {
+  if (auto* block = dynamic_cast<SGBlock*>(value)) {
+    return !block->stmts.empty() && ir_yields_list_handle(block->stmts.back());
+  }
   if (dynamic_cast<SCListLiteral*>(value)
       || dynamic_cast<SIOListReadStdin*>(value)
       || dynamic_cast<SCListClone*>(value)
@@ -182,6 +185,9 @@ ir_yields_list_handle(StyioIR* value) {
 
 bool
 ir_yields_dict_handle(StyioIR* value) {
+  if (auto* block = dynamic_cast<SGBlock*>(value)) {
+    return !block->stmts.empty() && ir_yields_dict_handle(block->stmts.back());
+  }
   if (dynamic_cast<SCDictLiteral*>(value)
       || dynamic_cast<SCDictClone*>(value)) {
     return true;
@@ -200,6 +206,9 @@ ir_yields_dict_handle(StyioIR* value) {
 
 bool
 ir_yields_matrix_handle(StyioIR* value) {
+  if (auto* block = dynamic_cast<SGBlock*>(value)) {
+    return !block->stmts.empty() && ir_yields_matrix_handle(block->stmts.back());
+  }
   if (dynamic_cast<SCMatrixLiteral*>(value)
       || dynamic_cast<SCMatrixClone*>(value)) {
     return true;
@@ -2686,14 +2695,38 @@ StyioToLLVM::toLLVMIR(SGBlock* node) {
   styio::ir::require_verified_styio_ir(node);
   push_file_handle_scope();
   llvm::Value* last = nullptr;
+  StyioIR* last_ir = nullptr;
   for (auto const& s : node->stmts) {
     last = s->toLLVMIR(this);
+    last_ir = s;
     if (theBuilder->GetInsertBlock()->getTerminator()) {
       break;
     }
   }
   llvm::BasicBlock* bcur = theBuilder->GetInsertBlock();
   if (bcur && !bcur->getTerminator()) {
+    const bool scope_has_dynamic_slots =
+      !dynamic_slot_scope_stack_.empty() && !dynamic_slot_scope_stack_.back().empty();
+    const bool scope_has_cstr_slots =
+      !cstr_slot_scope_stack_.empty() && !cstr_slot_scope_stack_.back().empty();
+    if (last != nullptr && last_ir != nullptr && scope_has_dynamic_slots) {
+      if (ir_yields_list_handle(last_ir)) {
+        last = clone_resource_handle_for_runtime_owner(last, StyioValueFamily::ListHandle);
+        track_owned_resource_temp(last, TempResourceKind::List);
+      }
+      else if (ir_yields_dict_handle(last_ir)) {
+        last = clone_resource_handle_for_runtime_owner(last, StyioValueFamily::DictHandle);
+        track_owned_resource_temp(last, TempResourceKind::Dict);
+      }
+      else if (ir_yields_matrix_handle(last_ir)) {
+        last = clone_resource_handle_for_runtime_owner(last, StyioValueFamily::MatrixHandle);
+        track_owned_resource_temp(last, TempResourceKind::Matrix);
+      }
+    }
+    if (last != nullptr && scope_has_cstr_slots && last->getType()->isPointerTy()) {
+      last = clone_cstr_for_runtime_owner(last);
+      track_owned_cstr_temp(last);
+    }
     pop_file_handle_scope();
   }
   else {
