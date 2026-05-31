@@ -1799,6 +1799,50 @@ resource_method_scalar_value_type_supported_latest(const StyioDataType& type) {
 }
 
 bool
+resource_method_local_container_type_supported_latest(const StyioDataType& type) {
+  return styio_is_list_type(type)
+         || styio_is_dict_type(type);
+}
+
+bool
+resource_method_local_value_type_supported_latest(const StyioDataType& type) {
+  return resource_method_scalar_value_type_supported_latest(type)
+         || resource_method_local_container_type_supported_latest(type);
+}
+
+StyioDataType
+resource_method_preface_bind_type_latest(AstToStyioIRLowerer* an, StyioAST* stmt) {
+  VarAST* var = nullptr;
+  StyioAST* value = nullptr;
+  if (auto* bind = dynamic_cast<FlexBindAST*>(stmt)) {
+    var = bind->getVar();
+    value = bind->getValue();
+  }
+  else if (auto* bind = dynamic_cast<FinalBindAST*>(stmt)) {
+    var = bind->getVar();
+    value = bind->getValue();
+  }
+  if (var == nullptr || value == nullptr) {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+  StyioDataType type = var->getDType()->getDataType();
+  if (type.isUndefined()) {
+    type = expr_lowered_type(an, value);
+  }
+  return type;
+}
+
+StyioDataType
+bind_slot_type_latest(AstToStyioIRLowerer* an, const std::string& name, VarAST* var) {
+  (void)var;
+  auto local_it = an->resource_method_dynamic_local_binding_types.find(name);
+  if (local_it != an->resource_method_dynamic_local_binding_types.end()) {
+    return local_it->second;
+  }
+  return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+}
+
+bool
 resource_method_value_preface_supported_latest(AstToStyioIRLowerer* an, StyioAST* stmt) {
   if (stmt == nullptr) {
     return false;
@@ -1813,20 +1857,38 @@ resource_method_value_preface_supported_latest(AstToStyioIRLowerer* an, StyioAST
     return true;
   }
   if (auto* bind = dynamic_cast<FlexBindAST*>(stmt)) {
-    StyioDataType type = bind->getVar()->getDType()->getDataType();
-    if (type.isUndefined()) {
-      type = expr_lowered_type(an, bind->getValue());
-    }
-    return resource_method_scalar_value_type_supported_latest(type);
+    return resource_method_local_value_type_supported_latest(
+      resource_method_preface_bind_type_latest(an, bind)
+    );
   }
   if (auto* bind = dynamic_cast<FinalBindAST*>(stmt)) {
-    StyioDataType type = bind->getVar()->getDType()->getDataType();
-    if (type.isUndefined()) {
-      type = expr_lowered_type(an, bind->getValue());
-    }
-    return resource_method_scalar_value_type_supported_latest(type);
+    return resource_method_local_value_type_supported_latest(
+      resource_method_preface_bind_type_latest(an, bind)
+    );
   }
   return false;
+}
+
+void
+bind_resource_method_preface_local_latest(AstToStyioIRLowerer* an, StyioAST* stmt) {
+  VarAST* var = nullptr;
+  if (auto* bind = dynamic_cast<FlexBindAST*>(stmt)) {
+    var = bind->getVar();
+  }
+  else if (auto* bind = dynamic_cast<FinalBindAST*>(stmt)) {
+    var = bind->getVar();
+  }
+  if (var == nullptr) {
+    return;
+  }
+  StyioDataType type = resource_method_preface_bind_type_latest(an, stmt);
+  if (type.isUndefined()) {
+    return;
+  }
+  an->local_binding_types[var->getNameAsStr()] = type;
+  if (resource_method_local_container_type_supported_latest(type)) {
+    an->resource_method_dynamic_local_binding_types[var->getNameAsStr()] = type;
+  }
 }
 
 StyioIR*
@@ -1846,15 +1908,43 @@ lower_resource_method_value_body_latest(AstToStyioIRLowerer* an, StyioAST* body)
     return tail->getExpr()->toStyioIR(an);
   }
 
+  auto saved_local_types = an->local_binding_types;
+  auto saved_dynamic_local_types = an->resource_method_dynamic_local_binding_types;
+  auto restore_local_types = [&]()
+  {
+    an->local_binding_types = saved_local_types;
+    an->resource_method_dynamic_local_binding_types = saved_dynamic_local_types;
+  };
   std::vector<StyioIR*> stmts;
   stmts.reserve(block->stmts.size());
-  for (std::size_t i = 0; i + 1 < block->stmts.size(); ++i) {
-    if (!resource_method_value_preface_supported_latest(an, block->stmts[i])) {
-      return nullptr;
+  bool has_local_container_preface = false;
+  try {
+    for (std::size_t i = 0; i + 1 < block->stmts.size(); ++i) {
+      if (!resource_method_value_preface_supported_latest(an, block->stmts[i])) {
+        restore_local_types();
+        return nullptr;
+      }
+      StyioDataType bind_type = resource_method_preface_bind_type_latest(an, block->stmts[i]);
+      has_local_container_preface =
+        has_local_container_preface
+        || resource_method_local_container_type_supported_latest(bind_type);
+      bind_resource_method_preface_local_latest(an, block->stmts[i]);
+      stmts.push_back(block->stmts[i]->toStyioIR(an));
     }
-    stmts.push_back(block->stmts[i]->toStyioIR(an));
+    if (has_local_container_preface) {
+      StyioDataType result_type = expr_lowered_type(an, tail->getExpr());
+      if (!resource_method_scalar_value_type_supported_latest(result_type)) {
+        restore_local_types();
+        return nullptr;
+      }
+    }
+    stmts.push_back(tail->getExpr()->toStyioIR(an));
   }
-  stmts.push_back(tail->getExpr()->toStyioIR(an));
+  catch (...) {
+    restore_local_types();
+    throw;
+  }
+  restore_local_types();
   return styio::lowering::optimize_styio_ir(SGBlock::Create(std::move(stmts)));
 }
 
@@ -2095,6 +2185,18 @@ AstToStyioIRLowerer::toStyioIR(NameAST* ast) {
         throw StyioTypeError("cannot lower dynamic slot `" + ast->getAsStr() + "` with unknown runtime kind");
     }
   }
+  auto local_it = resource_method_dynamic_local_binding_types.find(ast->getAsStr());
+  if (local_it != resource_method_dynamic_local_binding_types.end()) {
+    if (styio_is_list_type(local_it->second)) {
+      return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::ListHandle);
+    }
+    if (styio_is_dict_type(local_it->second)) {
+      return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::DictHandle);
+    }
+    if (styio_is_matrix_type(local_it->second)) {
+      return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::MatrixHandle);
+    }
+  }
   return SGResId::Create(ast->getAsStr());
 }
 
@@ -2234,6 +2336,12 @@ AstToStyioIRLowerer::toStyioIR(FlexBindAST* ast) {
     var->is_list_slot = !it->second.dynamic_slot
                         && it->second.value_kind == BindingValueKind::ListHandle;
   }
+  StyioDataType var_type = bind_slot_type_latest(this, ast->getNameAsStr(), ast->getVar());
+  if (styio_is_list_type(var_type)
+      || styio_is_dict_type(var_type)
+      || styio_is_matrix_type(var_type)) {
+    var->is_dynamic_slot = true;
+  }
   return SGFlexBind::Create(var, ast->getValue()->toStyioIR(this));
 }
 
@@ -2260,6 +2368,12 @@ AstToStyioIRLowerer::toStyioIR(FinalBindAST* ast) {
                            || it->second.value_kind == BindingValueKind::TaskHandle;
     var->is_list_slot = !it->second.dynamic_slot
                         && it->second.value_kind == BindingValueKind::ListHandle;
+  }
+  StyioDataType var_type = bind_slot_type_latest(this, ast->getName(), ast->getVar());
+  if (styio_is_list_type(var_type)
+      || styio_is_dict_type(var_type)
+      || styio_is_matrix_type(var_type)) {
+    var->is_dynamic_slot = true;
   }
   return SGFinalBind::Create(var, ast->getValue()->toStyioIR(this));
 }

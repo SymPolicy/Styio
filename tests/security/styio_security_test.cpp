@@ -2142,6 +2142,32 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodLocalFinalBindReturnExp
   EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodLocalListDictBindReturnExpressions) {
+  const std::string src =
+    "@file::list_answer = () => {\n"
+    "  xs = [40, 2]\n"
+    "  <| xs[0] + xs[1]\n"
+    "}\n"
+    "@file::dict_answer = () => {\n"
+    "  d := dict{\"a\": 40, \"b\": 2}\n"
+    "  <| d[\"a\"] + d[\"b\"]\n"
+    "}\n"
+    "log := @file(\"/tmp/styio-resource-method-local-container\")\n"
+    "result = ?| log.list_answer() | 7\n"
+    "result2 = ?| log.dict_answer() | 7\n"
+    ">_(result + result2)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.resource.method.def"), std::string::npos);
+  EXPECT_NE(repr.find("styio.ast.resource.effect"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("__styio_resource_method_local_"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceReceiverPropertyAccessInsideDefinitions) {
   const std::string src =
     "@file::self_path := @file.path\n"
@@ -2667,11 +2693,11 @@ TEST(StyioSecurityNightlySemantics, RejectsResourceMethodArgumentTypeMismatch) {
   }
 }
 
-TEST(StyioSecurityNightlySemantics, RejectsResourceMethodLocalFinalContainerBindBeforeContainerValueScopeSupport) {
+TEST(StyioSecurityNightlySemantics, RejectsResourceMethodLocalContainerReturnBeforeValueScopeSupport) {
   const std::string src =
     "@file::answer = () => {\n"
     "  xs := [41, 42]\n"
-    "  <| xs[0]\n"
+    "  <| xs\n"
     "}\n"
     "log := @file(\"/tmp/styio-resource-method-local-bind\")\n"
     "result = ?| log.answer() | 7\n"
@@ -2679,19 +2705,19 @@ TEST(StyioSecurityNightlySemantics, RejectsResourceMethodLocalFinalContainerBind
 
   try {
     parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
-    FAIL() << "expected resource method local final container bind to fail closed";
+    FAIL() << "expected resource method local container return to fail closed";
   }
   catch (const StyioTypeError& err) {
     const std::string msg = err.what();
-    EXPECT_NE(msg.find("scalar local preface followed by a final"), std::string::npos) << msg;
+    EXPECT_NE(msg.find("local container prefaces must return a scalar or string value"), std::string::npos) << msg;
   }
 }
 
-TEST(StyioSecurityNightlySemantics, RejectsResourceMethodLocalContainerFlexBindBeforeContainerValueScopeSupport) {
+TEST(StyioSecurityNightlySemantics, RejectsResourceMethodLocalResourceBindBeforeResourceValueScopeSupport) {
   const std::string src =
     "@file::answer = () => {\n"
-    "  xs = [41, 42]\n"
-    "  <| xs[0]\n"
+    "  f <- @file(\"/tmp/styio-resource-method-local-resource-bind-data\")\n"
+    "  <| 42\n"
     "}\n"
     "log := @file(\"/tmp/styio-resource-method-local-list-bind\")\n"
     "result = ?| log.answer() | 7\n"
@@ -2699,11 +2725,31 @@ TEST(StyioSecurityNightlySemantics, RejectsResourceMethodLocalContainerFlexBindB
 
   try {
     parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
-    FAIL() << "expected resource method local container flex bind to fail closed";
+    FAIL() << "expected resource method local resource bind to fail closed";
+  }
+  catch (const std::exception& err) {
+    const std::string msg = err.what();
+    EXPECT_NE(msg.find("resource method return currently requires"), std::string::npos) << msg;
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsResourceMethodLocalMatrixBindBeforeMatrixValueScopeSupport) {
+  const std::string src =
+    "@file::answer = () => {\n"
+    "  m: matrix := [[40, 2]]\n"
+    "  <| m[0][0]\n"
+    "}\n"
+    "log := @file(\"/tmp/styio-resource-method-local-matrix-bind\")\n"
+    "result = ?| log.answer() | 7\n"
+    ">_(result)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected resource method local matrix bind to fail closed";
   }
   catch (const StyioTypeError& err) {
     const std::string msg = err.what();
-    EXPECT_NE(msg.find("scalar local preface followed by a final"), std::string::npos) << msg;
+    EXPECT_NE(msg.find("resource method return currently requires"), std::string::npos) << msg;
   }
 }
 
