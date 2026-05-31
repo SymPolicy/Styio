@@ -177,6 +177,7 @@ class StyioSemaContext : public StyioSemaLoweringVisitor
 public:
   unordered_map<string, StyioAST*> func_defs;
   unordered_map<string, StyioDataType> local_binding_types;
+  unordered_map<string, StyioDataType> resource_method_dynamic_local_binding_types;
   struct NativeFunctionType {
     StyioDataType return_type;
     std::vector<StyioDataType> arg_types;
