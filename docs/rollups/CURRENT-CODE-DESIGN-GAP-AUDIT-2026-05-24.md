@@ -129,7 +129,13 @@ Current implementation reality:
    acquire failure is recovered and the zeroed handle is later used, the file
    iterator, guarded write method, and acquired-handle instant pull report
    `STYIO_RUNTIME_INVALID_FILE_HANDLE` instead of treating the handle as a valid
-   stream or recreating the file by path.
+   stream or recreating the file by path. Direct file iterator settlement is
+   also covered as a statement-shaped resource operation:
+   `?| @file(missing) >> #(line) => { ... } | fallback` and matched `io`
+   handlers recover `STYIO_RUNTIME_FILE_OPEN_READ`, successful file iteration
+   skips recovery, no-fallback settlement fails fast before the following
+   statement, and non-file iterators such as list iteration stay rejected under
+   `?|`.
 5. File-close cleanup failure now has a real runtime subcode family:
    `fclose` failure is reported as `STYIO_RUNTIME_FILE_CLEANUP_FAILURE`,
    `styio_runtime_error_matches_effect("cleanup")` matches it, source-level
@@ -142,7 +148,8 @@ Current implementation reality:
    diagnostic and stop before a following `>_("after")`, while the same
    operation-local guard is suppressed inside `SIOResourceEffect` so catch-all
    fallback and named handlers still recover, including statement-shaped
-   `?| f <- @file(missing) | fallback` acquire recovery.
+   `?| f <- @file(missing) | fallback` acquire recovery and direct
+   `?| @file(missing) >> #(line) => { ... } | fallback` iterator recovery.
 7. File-resource flex rebinding now covers the source-reachable cleanup edge for
    `name = @file(...)`: Sema treats a successful resource rebind as a new
    occupant after a consuming `.close()`, Codegen releases the prior tracked file
@@ -311,7 +318,10 @@ Resource method calls such as
 direct file close and statement-shaped file handle acquire now enter the
 statement `?|` recovery path, including catch-all fallback, matched `io`
 handlers, no-fallback fail-fast settlement, and non-resource member-call
-rejection for method candidates. File/stdin instant-pull, materialized
+rejection for method candidates. Direct file iterators now enter the statement
+`?|` recovery path as well: success skips fallback, missing-file open failures
+recover through catch-all fallback or matched `io` handlers, no-fallback
+settlement fails fast, and non-file iterators remain rejected. File/stdin instant-pull, materialized
 container-index, materialized list-slice, and simple resource-method
 single-return resource-effect expressions now cover the first typed
 success/fallback/handler value paths, including explicit-target stdin `f64`,
@@ -930,6 +940,8 @@ These should not be counted as missing implementation in this checkout:
    stdin instant-pull `parse` recovery. Resource
    method calls now enter statement `?|` settlement for direct file close
    success, fallback/`io` recovery, and no-fallback failure; statement-shaped
+   direct file iterators now cover success, fallback/`io` recovery, no-fallback
+   failure, and non-file iterator rejection; statement-shaped
    file acquire now covers fallback/`io` recovery, successful acquire followed by
    file iteration, a later resource-effect close method, a later guarded file
    write method, or a later acquired-handle instant pull, no-fallback failure

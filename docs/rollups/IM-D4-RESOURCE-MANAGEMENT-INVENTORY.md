@@ -66,7 +66,12 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   same zeroed slot, the operation reports `STYIO_RUNTIME_INVALID_FILE_HANDLE`,
   may recover through a matched `closed` handler, stops before the following
   statement when no fallback is present, and the write method does not recreate
-  the file by reopening the saved path.
+  the file by reopening the saved path. Direct file iterator settlement is also
+  executable for `?| @file("data.txt") >> #(line) => { ... } | fallback`: successful
+  iteration skips recovery, missing-file open failures recover through catch-all
+  fallback or matched `io` handlers, no-fallback settlement raises
+  `STYIO_RUNTIME_FILE_OPEN_READ` before the next statement, and non-file
+  iterators such as list iteration remain rejected under `?|`.
   Statement-shaped file flex rebind now uses the same settlement route for
   `?| f = @file(next) | fallback`: the parser admits only the file-resource
   rebind shape, Sema keeps scalar `?| x = 1 | ...` rejected, runtime file-open
@@ -407,8 +412,8 @@ typed resource method parameters. Source-level fallback recovery for implicit
 cleanup failures, non-file reassignment cleanup failures, release/commit hooks,
 non-file resource-family cleanup effects, pressure-observer runtime streams,
 using a handle acquired inside statement `?|` as a later
-resource operation beyond the covered file iterator, close-method, and
-write-method paths, and arbitrary value-producing resource operations
+resource operation beyond the covered file iterator, close-method, write-method,
+and acquired-handle instant-pull paths, and arbitrary value-producing resource operations
 still require separate implementation and tests.
 
 ### Fallible Operations
@@ -496,7 +501,9 @@ the method body and are checked at call sites; unimplemented lexical/global
 capture still fails closed before lowering.
 Statement-shaped writes, file acquire, file rebind, file close methods, and guarded
 acquired-handle file write methods have the first statement settlement paths;
-file acquire also covers successful acquire followed by file iteration,
+direct file iterator statements also recover open-read failures through
+fallback or matched `io` handlers under `?|`; file acquire also covers
+successful acquire followed by file iteration,
 successful acquire followed by a later resource-effect close method, successful
 acquire followed by a later guarded write method, close-method receiver
 invalidation, and fail-closed iterator or write-method use after a recovered
