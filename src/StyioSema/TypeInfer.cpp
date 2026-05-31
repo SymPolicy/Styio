@@ -122,13 +122,36 @@ resource_method_scalar_value_type_supported_latest(const StyioDataType& type) {
 bool
 resource_method_local_container_type_supported_latest(const StyioDataType& type) {
   return styio_is_list_type(type)
-         || styio_is_dict_type(type);
+         || styio_is_dict_type(type)
+         || styio_is_matrix_type(type);
 }
 
 bool
 resource_method_local_value_type_supported_latest(const StyioDataType& type) {
   return resource_method_scalar_value_type_supported_latest(type)
          || resource_method_local_container_type_supported_latest(type);
+}
+
+StyioDataType
+resource_method_preface_bind_type_latest(StyioSemaContext* an, StyioAST* stmt) {
+  VarAST* var = nullptr;
+  StyioAST* value = nullptr;
+  if (auto* bind = dynamic_cast<FlexBindAST*>(stmt)) {
+    var = bind->getVar();
+    value = bind->getValue();
+  }
+  else if (auto* bind = dynamic_cast<FinalBindAST*>(stmt)) {
+    var = bind->getVar();
+    value = bind->getValue();
+  }
+  if (var == nullptr || value == nullptr) {
+    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+  StyioDataType type = var->getDType()->getDataType();
+  if (type.isUndefined()) {
+    type = infer_expr_type(an, value);
+  }
+  return type;
 }
 
 bool
@@ -138,15 +161,33 @@ resource_method_value_preface_supported_latest(StyioSemaContext* an, StyioAST* s
   }
   if (auto* bind = dynamic_cast<FlexBindAST*>(stmt)) {
     return resource_method_local_value_type_supported_latest(
-      infer_expr_type(an, bind->getValue())
+      resource_method_preface_bind_type_latest(an, bind)
     );
   }
   if (auto* bind = dynamic_cast<FinalBindAST*>(stmt)) {
     return resource_method_local_value_type_supported_latest(
-      infer_expr_type(an, bind->getValue())
+      resource_method_preface_bind_type_latest(an, bind)
     );
   }
   return false;
+}
+
+void
+bind_resource_method_preface_type_latest(StyioSemaContext* an, StyioAST* stmt) {
+  VarAST* var = nullptr;
+  if (auto* bind = dynamic_cast<FlexBindAST*>(stmt)) {
+    var = bind->getVar();
+  }
+  else if (auto* bind = dynamic_cast<FinalBindAST*>(stmt)) {
+    var = bind->getVar();
+  }
+  if (var == nullptr) {
+    return;
+  }
+  StyioDataType type = resource_method_preface_bind_type_latest(an, stmt);
+  if (!type.isUndefined()) {
+    an->local_binding_types[var->getNameAsStr()] = type;
+  }
 }
 
 bool
@@ -207,10 +248,23 @@ resource_method_simple_result_type_latest(StyioSemaContext* an, StyioAST* body) 
     return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
   if (auto* block = dynamic_cast<BlockAST*>(body)) {
-    for (std::size_t i = 0; i + 1 < block->stmts.size(); ++i) {
-      if (!resource_method_value_preface_supported_latest(an, block->stmts[i])) {
-        return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    auto saved_types = an->local_binding_types;
+    try {
+      for (std::size_t i = 0; i + 1 < block->stmts.size(); ++i) {
+        if (!resource_method_value_preface_supported_latest(an, block->stmts[i])) {
+          an->local_binding_types = saved_types;
+          return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+        }
+        bind_resource_method_preface_type_latest(an, block->stmts[i]);
       }
+      ret->getExpr()->typeInfer(an);
+      StyioDataType result_type = infer_expr_type(an, ret->getExpr());
+      an->local_binding_types = saved_types;
+      return result_type;
+    }
+    catch (...) {
+      an->local_binding_types = saved_types;
+      throw;
     }
   }
   StyioDataType result_type = infer_expr_type(an, ret->getExpr());
@@ -1167,7 +1221,18 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
     }
     case StyioNodeType::Access_By_Index: {
       auto* access = static_cast<ListOpAST*>(expr);
+      if (auto* row_access = dynamic_cast<ListOpAST*>(access->getList())) {
+        if (row_access->getOp() == StyioNodeType::Access_By_Index) {
+          StyioDataType matrix_type = infer_expr_type(an, row_access->getList());
+          if (styio_is_matrix_type(matrix_type)) {
+            return matrix_elem_type(matrix_type);
+          }
+        }
+      }
       StyioDataType base_type = infer_expr_type(an, access->getList());
+      if (styio_is_matrix_type(base_type)) {
+        return styio_make_list_type(styio_matrix_elem_type_name(base_type));
+      }
       if (!styio_type_is_indexable(base_type)) {
         return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
       }
@@ -2953,7 +3018,7 @@ StyioSemaContext::typeInfer(ResourceMethodDefAST* ast) {
     if (resource_method_body_contains_return_latest(ast->getBody()) && info.result_type.isUndefined()) {
       throw StyioTypeError(
         "resource method return currently requires a single `<| expr` body"
-        " or statement-only/scalar/list/dict local preface followed by a final `<| expr`"
+        " or statement-only/scalar/list/dict/matrix local preface followed by a final `<| expr`"
       );
     }
     methods[ast->getMethodName()] = info;

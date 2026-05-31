@@ -2142,7 +2142,7 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodLocalFinalBindReturnExp
   EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
 }
 
-TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodLocalListDictBindReturnExpressions) {
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodLocalListDictMatrixBindReturnExpressions) {
   const std::string src =
     "@file::list_answer = () => {\n"
     "  xs = [40, 2]\n"
@@ -2152,10 +2152,15 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodLocalListDictBindReturn
     "  d := dict{\"a\": 40, \"b\": 2}\n"
     "  <| d[\"a\"] + d[\"b\"]\n"
     "}\n"
+    "@file::matrix_answer = () => {\n"
+    "  m: matrix := [[42, 2], [1, 3]]\n"
+    "  <| m[0][0]\n"
+    "}\n"
     "log := @file(\"/tmp/styio-resource-method-local-container\")\n"
     "result = ?| log.list_answer() | 7\n"
     "result2 = ?| log.dict_answer() | 7\n"
-    ">_(result + result2)\n";
+    "result3 = ?| log.matrix_answer() | 7\n"
+    ">_(result + result2 + result3)\n";
 
   EXPECT_NO_THROW(
     parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
@@ -2166,6 +2171,7 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodLocalListDictBindReturn
     compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
   EXPECT_NE(llvm_ir.find("__styio_resource_method_local_"), std::string::npos);
   EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_get_i64"), std::string::npos);
 }
 
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceReceiverPropertyAccessInsideDefinitions) {
@@ -2331,7 +2337,7 @@ TEST(StyioSecurityNightlySemantics, RejectsResourceMethodReturnedStatementOnlyFu
   }
   catch (const StyioTypeError& err) {
     const std::string msg = err.what();
-    EXPECT_NE(msg.find("scalar/list/dict local preface followed by a final"), std::string::npos) << msg;
+    EXPECT_NE(msg.find("scalar/list/dict/matrix local preface followed by a final"), std::string::npos) << msg;
   }
 }
 
@@ -2703,10 +2709,15 @@ TEST(StyioSecurityNightlySemantics, ResourceMethodLocalContainerReturnsLowerThro
     "  d := dict{\"a\": 40, \"b\": 2}\n"
     "  <| d\n"
     "}\n"
+    "@file::matrix_answer = () => {\n"
+    "  m: matrix := [[40, 2], [1, 3]]\n"
+    "  <| m\n"
+    "}\n"
     "log := @file(\"/tmp/styio-resource-method-local-bind\")\n"
     "list_result = ?| log.list_answer() | [7, 8]\n"
     "dict_result = ?| log.dict_answer() | dict{\"a\": 7, \"b\": 8}\n"
-    ">_(list_result[0] + list_result[1] + dict_result[\"a\"] + dict_result[\"b\"])\n";
+    "matrix_result: matrix = ?| log.matrix_answer() | [[7, 8], [9, 10]]\n"
+    ">_(list_result[0] + list_result[1] + dict_result[\"a\"] + dict_result[\"b\"] + matrix_result[0][0] + matrix_result[0][1])\n";
 
   EXPECT_NO_THROW(
     parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
@@ -2715,6 +2726,7 @@ TEST(StyioSecurityNightlySemantics, ResourceMethodLocalContainerReturnsLowerThro
   EXPECT_NE(llvm_ir.find("__styio_resource_method_local_"), std::string::npos);
   EXPECT_NE(llvm_ir.find("styio_list_clone"), std::string::npos);
   EXPECT_NE(llvm_ir.find("styio_dict_clone"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_matrix_clone"), std::string::npos);
 }
 
 TEST(StyioSecurityNightlySemantics, RejectsResourceMethodLocalResourceBindBeforeResourceValueScopeSupport) {
@@ -2732,26 +2744,6 @@ TEST(StyioSecurityNightlySemantics, RejectsResourceMethodLocalResourceBindBefore
     FAIL() << "expected resource method local resource bind to fail closed";
   }
   catch (const std::exception& err) {
-    const std::string msg = err.what();
-    EXPECT_NE(msg.find("resource method return currently requires"), std::string::npos) << msg;
-  }
-}
-
-TEST(StyioSecurityNightlySemantics, RejectsResourceMethodLocalMatrixBindBeforeMatrixValueScopeSupport) {
-  const std::string src =
-    "@file::answer = () => {\n"
-    "  m: matrix := [[40, 2]]\n"
-    "  <| m[0][0]\n"
-    "}\n"
-    "log := @file(\"/tmp/styio-resource-method-local-matrix-bind\")\n"
-    "result = ?| log.answer() | 7\n"
-    ">_(result)\n";
-
-  try {
-    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
-    FAIL() << "expected resource method local matrix bind to fail closed";
-  }
-  catch (const StyioTypeError& err) {
     const std::string msg = err.what();
     EXPECT_NE(msg.find("resource method return currently requires"), std::string::npos) << msg;
   }
