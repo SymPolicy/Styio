@@ -474,7 +474,20 @@ expr_lowered_type(AstToStyioIRLowerer* an, StyioAST* expr) {
     }
   }
   if (auto* access = dynamic_cast<ListOpAST*>(expr)) {
+    if (access->getOp() == StyioNodeType::Access_By_Index) {
+      if (auto* row_access = dynamic_cast<ListOpAST*>(access->getList())) {
+        if (row_access->getOp() == StyioNodeType::Access_By_Index) {
+          StyioDataType matrix_type = expr_lowered_type(an, row_access->getList());
+          if (styio_is_matrix_type(matrix_type)) {
+            return styio_data_type_from_name(styio_matrix_elem_type_name(matrix_type));
+          }
+        }
+      }
+    }
     StyioDataType base_type = expr_lowered_type(an, access->getList());
+    if (access->getOp() == StyioNodeType::Access_By_Index && styio_is_matrix_type(base_type)) {
+      return styio_make_list_type(styio_matrix_elem_type_name(base_type));
+    }
     if (access->getOp() == StyioNodeType::Access_By_Slice && styio_is_list_type(base_type)) {
       return base_type;
     }
@@ -1810,7 +1823,8 @@ resource_method_scalar_value_type_supported_latest(const StyioDataType& type) {
 bool
 resource_method_local_container_type_supported_latest(const StyioDataType& type) {
   return styio_is_list_type(type)
-         || styio_is_dict_type(type);
+         || styio_is_dict_type(type)
+         || styio_is_matrix_type(type);
 }
 
 bool

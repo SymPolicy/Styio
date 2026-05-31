@@ -8631,7 +8631,7 @@ TEST(StyioResourceEffects, ValueResourceMethodLocalFinalBindReturnsFromDirectAnd
   fs::remove(data);
 }
 
-TEST(StyioResourceEffects, ValueResourceMethodLocalListDictBindsReturnScalarValues) {
+TEST(StyioResourceEffects, ValueResourceMethodLocalListDictMatrixBindsReturnScalarValues) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -8656,11 +8656,17 @@ TEST(StyioResourceEffects, ValueResourceMethodLocalListDictBindsReturnScalarValu
     out << "  d := dict{\"a\": 40, \"b\": 2}\n";
     out << "  <| d[\"a\"] + d[\"b\"]\n";
     out << "}\n";
+    out << "@file::matrix_answer = () => {\n";
+    out << "  m: matrix := [[42, 2], [1, 3]]\n";
+    out << "  <| m[0][0]\n";
+    out << "}\n";
     out << "log := @file(\"" << data.generic_string() << "\")\n";
     out << ">_(log.list_answer())\n";
     out << ">_(?| log.list_answer() | 7)\n";
     out << ">_(log.dict_answer())\n";
     out << ">_(?| log.dict_answer() | 7)\n";
+    out << ">_(log.matrix_answer())\n";
+    out << ">_(?| log.matrix_answer() | 7)\n";
     out << ">_(xs[0])\n";
     out << ">_(\"after\")\n";
   }
@@ -8677,7 +8683,7 @@ TEST(StyioResourceEffects, ValueResourceMethodLocalListDictBindsReturnScalarValu
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
-  EXPECT_EQ(result.stdout_text, "42\n42\n42\n42\n100\nafter\n");
+  EXPECT_EQ(result.stdout_text, "42\n42\n42\n42\n42\n42\n100\nafter\n");
   EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("resource method return currently requires"), std::string::npos);
 
@@ -9071,6 +9077,7 @@ TEST(StyioResourceEffects, ValueResourceMethodLocalContainerReturnsFromDirectAnd
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
     out << "outer = [100]\n";
+    out << "outer_m: matrix = [[100, 101]]\n";
     out << "@file::list_answer = () => {\n";
     out << "  xs := [41, 42]\n";
     out << "  <| xs\n";
@@ -9078,6 +9085,10 @@ TEST(StyioResourceEffects, ValueResourceMethodLocalContainerReturnsFromDirectAnd
     out << "@file::dict_answer = () => {\n";
     out << "  d := dict{\"a\": 40, \"b\": 2}\n";
     out << "  <| d\n";
+    out << "}\n";
+    out << "@file::matrix_answer = () => {\n";
+    out << "  m: matrix := [[40, 2], [1, 3]]\n";
+    out << "  <| m\n";
     out << "}\n";
     out << "log := @file(\"" << data.generic_string() << "\")\n";
     out << ">_(log.list_answer())\n";
@@ -9090,7 +9101,14 @@ TEST(StyioResourceEffects, ValueResourceMethodLocalContainerReturnsFromDirectAnd
     out << ">_(dict_direct[\"a\"] + dict_direct[\"b\"])\n";
     out << "dict_guarded = ?| log.dict_answer() | dict{\"a\": 7, \"b\": 8}\n";
     out << ">_(dict_guarded[\"b\"])\n";
+    out << ">_(log.matrix_answer())\n";
+    out << "matrix_direct: matrix = log.matrix_answer()\n";
+    out << ">_(matrix_direct)\n";
+    out << ">_(matrix_direct[0][0] + matrix_direct[0][1] + matrix_direct[1][0] + matrix_direct[1][1])\n";
+    out << "matrix_guarded: matrix = ?| log.matrix_answer() | [[7, 8], [9, 10]]\n";
+    out << ">_(matrix_guarded[1][1])\n";
     out << ">_(outer[0])\n";
+    out << ">_(outer_m[0][0])\n";
     out << ">_(\"after\")\n";
   }
 
@@ -9106,7 +9124,9 @@ TEST(StyioResourceEffects, ValueResourceMethodLocalContainerReturnsFromDirectAnd
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
-  EXPECT_EQ(result.stdout_text, "[41,42]\n[41,42]\n83\n42\n42\n2\n100\nafter\n");
+  EXPECT_EQ(
+    result.stdout_text,
+    "[41,42]\n[41,42]\n83\n42\n42\n2\n[[40,2],[1,3]]\n[[40,2],[1,3]]\n46\n3\n100\n100\nafter\n");
   EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("resource method return currently requires"), std::string::npos);
 
@@ -9154,7 +9174,7 @@ TEST(StyioResourceEffects, ResourceMethodReturnedStatementOnlyFunctionReportsSem
   EXPECT_NE(
     result.stdout_text.find("\"code\":\"STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY\""),
     std::string::npos);
-  EXPECT_NE(result.stdout_text.find("scalar/list/dict local preface followed by a final"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("scalar/list/dict/matrix local preface followed by a final"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
 
   fs::remove(input);
