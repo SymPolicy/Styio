@@ -44,6 +44,8 @@ inline constexpr std::string_view kTypeResourceEffectFallbackMismatch =
   "STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH";
 inline constexpr std::string_view kTypeCallArgumentMismatch =
   "STYIO_TYPE_CALL_ARGUMENT_MISMATCH";
+inline constexpr std::string_view kTypeMatrixLiteralInvalid =
+  "STYIO_TYPE_MATRIX_LITERAL_INVALID";
 inline constexpr std::string_view kTypeUnsupportedTupleReturn =
   "STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN";
 inline constexpr std::string_view kTypeStreamHashTagRouteUnsupported =
@@ -260,6 +262,14 @@ classify_type_or_lowering_code(std::string_view message) {
   if (contains(message, "function argument type mismatch for parameter '")
       || contains(message, "resource method argument type mismatch for parameter '")) {
     return std::string(kTypeCallArgumentMismatch);
+  }
+  if (contains(message, "matrix binding requires a nested list literal")
+      || contains(message, "matrix literal requires at least one row")
+      || contains(message, "matrix rows must be list literals")
+      || contains(message, "matrix rows must not be empty")
+      || contains(message, "matrix rows must have consistent length")
+      || contains(message, "matrix elements must be numeric scalar values")) {
+    return std::string(kTypeMatrixLiteralInvalid);
   }
   if (contains(message, "tuple function return annotations require tuple value IR")) {
     return std::string(kTypeUnsupportedTupleReturn);
