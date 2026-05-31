@@ -377,9 +377,9 @@ container bounds reads, including ordered dict value slices that lower through
 `d.values` plus list-slice bounds recovery, and user-defined resource methods
 whose body is a single `<| expr` return, a statement-only preface followed by a
 final `<| expr` return, or scalar local `=` / `:=` value-binding prefaces or local list/dict `=` / `:=`
-prefaces followed by a final scalar/string `<| expr` return. Method-local
+prefaces followed by a final scalar/string or local list/dict container `<| expr` return. Method-local
 scalar/list/dict `=` and `:=` bindings are scoped to the inlined method body;
-returning a local container, local matrix/resource bindings, and
+returning a local list/dict container clones the handle before method-scope cleanup, while local matrix/resource bindings and
 capture-dependent method bodies remain rejected until those scope semantics are implemented. A
 bare `resource_operation | fallback` is not a resource fallback form.
 Effect-specific handlers use the same boundary:
