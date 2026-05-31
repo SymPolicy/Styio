@@ -152,10 +152,10 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   Sema before reaching runtime.
   Public JSONL classification now maps
   this fallback mismatch to `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH` and
-  the remaining unsupported local container/resource binding method body
-  boundary to `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY`; this is an IM-D3
+  the remaining unsupported local container-return and local matrix/resource
+  binding method-body boundaries to `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY`; this is an IM-D3
   diagnostic refinement only and does not broaden resource-effect or resource
-  method semantics beyond the scalar local-flex/final preface slices. When that single returned expression
+  method semantics beyond the scalar and local list/dict flex/final preface slices. When that single returned expression
   is a file instant pull, `result = ?| log.read_missing() | fallback` recovers
   `STYIO_RUNTIME_FILE_OPEN_READ` through catch-all fallback or a matched `io`
   handler, and no-fallback settlement fails before the following statement.
@@ -170,10 +170,10 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   `STYIO_RUNTIME_MATRIX_INDEX` through catch-all fallback or a matched
   `bounds` handler, and no-fallback dict-key or matrix-index settlement fails
   before the following statement. Scalar local `=` / `:=` prefaces such as
-  `@file::answer = () => { x = 41 <| x + 1 }` or
-  `@file::answer = () => { x := 41 <| x + 1 }` are now scoped to the inlined
-  resource-method body and return through direct and guarded calls without
-  mutating same-named caller bindings. Local container/resource
+  `@file::answer = () => { x = 41 <| x + 1 }` and local list/dict `=` / `:=`
+  prefaces such as `@file::answer = () => { xs = [40,2] <| xs[0] }` are now scoped
+  to the inlined resource-method body and return scalar/string values through
+  direct and guarded calls without mutating same-named caller bindings. Local container returns, local matrix/resource
   bindings, resource-method lexical/global captures,
   and failing value-producing resource-method recovery beyond the
   covered returned file/stdin instant pulls, returned resource-effect expression
@@ -519,7 +519,7 @@ routes prior-handle cleanup failure to the wrapper before opening a replacement.
 Broader resource families, cleanup/drop hooks,
 pressure-observer payloads and runtime execution, failing value-producing resource methods beyond returned
 file/stdin instant pulls, returned block-form function calls, and returned list/dict/matrix bounds slices,
-local container/resource binding value-producing resource method bodies, resource-method lexical/global
+local container returns and local matrix/resource binding value-producing resource method bodies, resource-method lexical/global
 captures, and other non-instant-pull
 value-returning resource operations must remain separately implemented and
 tested before the full typed resource-effect model is closed.
