@@ -85,6 +85,7 @@ High-value docs:
 50. Call argument-type diagnostics must remain diagnostic-only. `STYIO_TYPE_CALL_ARGUMENT_MISMATCH` proves existing user function and resource-method argument compatibility checks; do not use it as evidence for broader implicit conversions, overload resolution, optional arguments, native ABI behavior, or resource-method dispatch semantics.
 51. Resource capability diagnostics must remain diagnostic-only. `STYIO_SEMA_RESOURCE_CAPABILITY_MISMATCH` proves existing fail-closed capability checks such as invalid standard-resource write or pull directions; do not use it as evidence for broader resource capability rules, new resource families, pressure observers, or fallback recovery semantics.
 52. Pressure observer unsupported-family diagnostics are sema-family public facts over an existing fail-closed boundary. Keep `STYIO_SEMA_RESOURCE_PRESSURE_OBSERVER_UNSUPPORTED`, phase `sema`, TypeError exit family, unsupported-family message fragments, parser boundary evidence, and no-following-output coverage together without implying pressure payload typing, observer execution, runtime pressure streams, or broader backpressure scheduling support.
+53. Matrix literal invalid diagnostics must remain diagnostic-only. `STYIO_TYPE_MATRIX_LITERAL_INVALID` proves existing matrix literal shape/context rejection for typed matrix bindings and explicit matrix returns; do not use it as evidence for broader matrix literal acceptance, matrix return compatibility, matrix operators, resource-method matrix bodies, or matrix runtime behavior.
 
 ## Change Classes
 

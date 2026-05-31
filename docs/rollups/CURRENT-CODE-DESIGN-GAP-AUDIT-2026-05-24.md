@@ -984,6 +984,17 @@ These should not be counted as missing implementation in this checkout:
     stable message fragments are present, and following output does not
     execute. This is diagnostic refinement only; it does not broaden supported
     stdin target families or resource-effect recovery semantics.
+33. Matrix literal shape/context diagnostics are no longer only the broad
+    `STYIO_TYPE_ERROR` family for the focused typed matrix literal routes.
+    `DiagnosticContract.hpp` now classifies stable matrix literal messages such
+    as inconsistent row lengths or flat-list matrix return tails as
+    `STYIO_TYPE_MATRIX_LITERAL_INVALID`. `StyioDiagnostics.MatrixBindingRaggedLiteralReportsTypeCode`
+    and `StyioDiagnostics.MatrixFunctionReturnFlatListFailsBeforeRuntime` prove
+    the JSONL public phase is `type`, the TypeError exit family remains stable,
+    stable message fragments are present, and following output does not
+    execute. This is diagnostic refinement only; it does not broaden matrix
+    literal acceptance, matrix return compatibility, matrix operators,
+    resource-method matrix bodies, or matrix runtime behavior.
 
 ## Recommended Closure Order
 
