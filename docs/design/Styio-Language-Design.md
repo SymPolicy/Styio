@@ -366,7 +366,12 @@ The same marker is the uniform resource-effect evaluation form:
 `?| resource_operation` settles the resource operation in place, while
 `?| resource_operation | fallback` recovers through normal type inference. The
 successful operation value and fallback value must match the surrounding use-site
-type. Current value-producing forms include file/stdin instant pulls,
+type. Current statement forms include file writes, file acquire/rebind,
+direct file line iteration such as
+`?| @file("data.txt") >> #(line) => { ... } | fallback`, and resource method
+calls; file iterator open failures recover through catch-all fallback or matched
+`io` handlers, while non-file iterators remain rejected under `?|`. Current
+value-producing forms include file/stdin instant pulls,
 acquired file-handle instant pulls after a checked file acquire, materialized
 container bounds reads, including ordered dict value slices that lower through
 `d.values` plus list-slice bounds recovery, and user-defined resource methods
