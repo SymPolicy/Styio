@@ -193,7 +193,12 @@ Topology v2 gives Styio an active source direction for resource declarations, wr
   dispatching fallback or named handlers, so explicit `?| ... | fallback`
   recovery remains the recovery surface, including statement-shaped
   `?| f <- @file(missing) | fallback` file-acquire recovery and
-  `?| f = @file(missing) | fallback` file-rebind recovery.
+  `?| f = @file(missing) | fallback` file-rebind recovery. Direct file release
+  to `@()` also has statement `?|` evidence: `?| @file("data.txt") -> @() |
+  fallback` skips recovery on success, recovers missing-file open failures
+  through catch-all fallback or matched `io`, fails fast without fallback, keeps
+  value-required release expressions rejected, and can release an acquired file
+  handle without weakening use-after-destroy checks.
 - Tracked file handles now have the first compiler-owned scope-exit cleanup
   settlement slice: explicit `<| return` closes active file-handle slots before
   emitting the LLVM `ret`, normal scope-pop cleanup checks the runtime error
@@ -455,7 +460,7 @@ Accepted resource fallback decision:
 - `?| resource_operation | effect_name => handler` is the effect-specific handler form. It handles only the named typed effect family, such as `backpressure`, and the handler result must still type-check against the operation's success type and surrounding use site.
 - `?| resource_operation | e1 => handler1 | e2 => handler2` chains effect-specific handlers. The first matching typed effect family runs; unmatched failure effects use the default fail-fast rule unless a final catch-all fallback is present.
 - A bare `| fallback` is not a resource fallback form. Bare `|` remains available for guard else branches and ordinary value-level fallback where those grammars already own it.
-- `?| resource_operation | ...` is an audited resource-effect discard statement. It is allowed only as a standalone statement, never as an expression or value-producing form. It means: execute and settle the resource operation; if resource effects arise, discard business recovery for this site; then continue with the next statement.
+- `?| resource_operation | ...` is an audited resource-effect discard statement. It is allowed only as a standalone statement, never as an expression or value-producing form. It means: execute and settle the resource operation; if resource effects arise, discard business recovery for this site; then continue with the next statement. Current statement resource operations with runtime evidence include file acquire/rebind, file writes, direct file iterators, direct file release to `@()`, and file resource-method settlement.
 - A discard statement does not pretend the operation succeeded, does not produce a value, does not skip resource-state settlement, and does not bypass cleanup, commit, diagnostic, trace, or pressure accounting required by the resource family.
 - `?| resource_operation | effect => @()` is also not accepted as a "do nothing" handler. `@()` is the empty resource / destroy sink, not an executable empty action.
 - Await keeps the same marker because task/future await is also a resource-like effect: `?| task -> value: T` raises immediately on failed pull, while `?| task -> value: T | fallback` recovers through the same typed fallback path.
