@@ -41,10 +41,12 @@ Styio already has active design and partial implementation surfaces for streams:
   `@file` streams in both source orders; it reads one stdin line per matched
   frame and terminates at stdin EOF or the shorter finite peer. Direct
   `@stdin & @stdin` remains rejected until the stream-driver contract defines
-  duplicate consumption of the same external input. This selector-snapshot and
-  stdin-stream slice remains ordinary finite zip over already-materialized lists
-  or line streams; snapshot joins, queue/timeout policy, pressure observers, and
-  multi-writer merge/conflict semantics remain open.
+  duplicate consumption of the same external input, and now reports
+  `STYIO_TYPE_STREAM_DUPLICATE_DRIVER_UNSUPPORTED` on public JSONL paths for
+  that fail-closed boundary. This selector-snapshot and stdin-stream slice
+  remains ordinary finite zip over already-materialized lists or line streams;
+  snapshot joins, queue/timeout policy, pressure observers, duplicate external
+  input consumption, and multi-writer merge/conflict semantics remain open.
 - Unsupported non-iterable or non-materialized-list zip sources, including scalar
   resource selectors such as `@price[-1]` and raw matrix latest selectors such
   as `@bucket[-1]`, now fail closed with the feature-owned JSONL code

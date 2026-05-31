@@ -818,7 +818,18 @@ These should not be counted as missing implementation in this checkout:
     `@stdin & @stdin`, hash-tag stream routes, snapshot joins, pressure policy,
     and broader stream-driver semantics remain at their existing open or
     pending boundaries.
-18. Iterator unsupported-source diagnostics are no longer only the broad
+18. Duplicate stdin zip diagnostics are no longer only the broad
+    `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies the stable
+    duplicate stream-driver decision-boundary message as
+    `STYIO_TYPE_STREAM_DUPLICATE_DRIVER_UNSUPPORTED`, while
+    `StyioDiagnostics.DuplicateStdinZipReportsFeatureCode` proves duplicate
+    `@stdin & @stdin` stream zip inputs still fail closed with public phase
+    `type`, the TypeError exit family, a stable message fragment, and
+    no-following-output behavior. This is diagnostic refinement only; it does
+    not implement duplicate external-input consumption, broader stream-driver
+    routing, snapshot joins, pressure policy, or IM-D5 duplicate-driver
+    semantics.
+19. Iterator unsupported-source diagnostics are no longer only the broad
     `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies the stable
     non-iterable iterator message as `STYIO_TYPE_ITERATION_UNSUPPORTED_SOURCE`,
     while `StyioDiagnostics.IteratorUnsupportedSourceReportsFeatureCode` and
@@ -828,7 +839,7 @@ These should not be counted as missing implementation in this checkout:
     fragments, and no-following-output behavior. This is diagnostic refinement
     only; it does not broaden iterator source support, selector semantics,
     hash-tag stream routes, snapshot joins, or stream-driver behavior.
-19. Immutable/final binding mutation diagnostics are no longer only the broad
+20. Immutable/final binding mutation diagnostics are no longer only the broad
     `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies stable
     final-binding mutation messages such as compound assignment to a final
     binding as `STYIO_SEMA_IMMUTABLE_BINDING`, while
@@ -836,7 +847,7 @@ These should not be counted as missing implementation in this checkout:
     the JSONL public phase is `sema`, the exit family remains TypeError, and
     the stable message fragment is still present. This is diagnostic refinement
     only; it does not broaden or change final-binding mutability semantics.
-20. Tuple function return annotation diagnostics are no longer only the broad
+21. Tuple function return annotation diagnostics are no longer only the broad
     `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies the
     stable tuple-value-IR rejection message as
     `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN`, while
@@ -845,7 +856,7 @@ These should not be counted as missing implementation in this checkout:
     stable message fragment is still present. This is diagnostic refinement
     only; tuple value IR and tuple return execution remain open language/runtime
     work.
-21. Undefined hash-tag stream route diagnostics are no longer only the broad
+22. Undefined hash-tag stream route diagnostics are no longer only the broad
     `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies the
     stable fail-closed iterator-sequence message as
     `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED`, while
@@ -854,7 +865,7 @@ These should not be counted as missing implementation in this checkout:
     execution still stops before the following statement. This is diagnostic
     refinement only; IM-D5-P1 still owns whether hash-tag routes are retired or
     defined, and no hash-tag route semantics are implemented.
-22. Resource-effect value and resource-method body diagnostics are no longer
+23. Resource-effect value and resource-method body diagnostics are no longer
     only broad `STYIO_TYPE_ERROR` cases at two existing fail-closed boundaries.
     `DiagnosticContract.hpp` now classifies stable resource-effect fallback
     mismatch messages as `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH` and
@@ -868,7 +879,7 @@ These should not be counted as missing implementation in this checkout:
     resource method body semantics, resource-method captures, pressure observers,
     and arbitrary resource-effect recovery remain
     open.
-23. Native interop source/signature diagnostics are no longer only broad
+24. Native interop source/signature diagnostics are no longer only broad
     type/native fallback cases at two existing fail-closed boundaries.
     `DiagnosticContract.hpp` now classifies missing referenced native source
     files as `STYIO_NATIVE_SOURCE_READ_FAILED` and explicit binding/signature
@@ -880,7 +891,7 @@ These should not be counted as missing implementation in this checkout:
     does not execute. This is diagnostic refinement only; native ABI support,
     symbol visibility, host compiler behavior, C++ symbol mapping, and broader
     native effect semantics remain unchanged.
-24. Native interop unsupported-signature diagnostics are no longer only broad
+25. Native interop unsupported-signature diagnostics are no longer only broad
     native fallback cases at existing fail-closed signature boundaries.
     `DiagnosticContract.hpp` now classifies unsupported native parameter/return
     families, void parameters, empty/cannot-parse parameters, and variadic
@@ -892,7 +903,7 @@ These should not be counted as missing implementation in this checkout:
     stable message fragments, and stop before following output. This is
     diagnostic refinement only; aggregate, variadic, broader C/C++ ABI, symbol
     visibility, and host compiler behavior remain unchanged.
-25. Native interop host compile diagnostics are no longer only broad native
+26. Native interop host compile diagnostics are no longer only broad native
     fallback cases at the existing host compiler rejection boundary.
     `DiagnosticContract.hpp` now classifies host compiler rejection messages as
     `STYIO_NATIVE_HOST_COMPILE_FAILED`, while
@@ -902,7 +913,7 @@ These should not be counted as missing implementation in this checkout:
     following output does not execute. This is diagnostic refinement only; host
     compiler behavior, native ABI support, signature support, symbol visibility,
     artifact loading, and C++ symbol mapping remain unchanged.
-26. Native interop load/symbol/toolchain diagnostics are no longer only broad
+27. Native interop load/symbol/toolchain diagnostics are no longer only broad
     native fallback cases at existing artifact-load, exported-symbol, and
     toolchain-configuration boundaries. `DiagnosticContract.hpp` now classifies
     native artifact `dlopen` failures as `STYIO_NATIVE_LOAD_FAILED`, missing
@@ -917,7 +928,7 @@ These should not be counted as missing implementation in this checkout:
     lookup without changing symbol visibility. This is diagnostic refinement only;
     native artifact loading, symbol visibility, C++ symbol mapping, ABI support,
     signature support, and host toolchain behavior remain unchanged.
-27. Unknown function/resource diagnostics are no longer only the broad
+28. Unknown function/resource diagnostics are no longer only the broad
     `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies stable
     `unknown function` and `unknown resource` messages as
     `STYIO_SEMA_UNDECLARED_SYMBOL`, while
@@ -928,7 +939,7 @@ These should not be counted as missing implementation in this checkout:
     This is diagnostic refinement only; it does not broaden symbol resolution,
     hidden native symbol visibility, import behavior, or resource lookup
     semantics.
-28. User function and resource-method call arity diagnostics are no longer only
+29. User function and resource-method call arity diagnostics are no longer only
     the broad `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies
     stable `expects N argument(s), got M` messages as
     `STYIO_SEMA_CALL_ARITY_MISMATCH`, while
@@ -938,7 +949,7 @@ These should not be counted as missing implementation in this checkout:
     stable, stable message fragments are present, and following output does not
     execute. This is diagnostic refinement only; it does not broaden function
     calling or resource-method dispatch semantics.
-29. User function and resource-method call argument type mismatch diagnostics are
+30. User function and resource-method call argument type mismatch diagnostics are
     no longer only the broad `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp`
     now classifies stable `function argument type mismatch for parameter` and
     `resource method argument type mismatch for parameter` messages as
@@ -951,7 +962,7 @@ These should not be counted as missing implementation in this checkout:
     execute. This is diagnostic refinement only; it does not broaden function
     calling, implicit argument adaptation, native ABI behavior, or resource-method
     dispatch semantics.
-30. Resource capability mismatch diagnostics are no longer only the broad
+31. Resource capability mismatch diagnostics are no longer only the broad
     `STYIO_TYPE_ERROR` family for the focused standard-resource routes.
     `DiagnosticContract.hpp` now classifies stable capability messages such as
     write-to-`@stdin` and instant-pull-from-`@stderr` failures as
@@ -963,7 +974,7 @@ These should not be counted as missing implementation in this checkout:
     execute. This is diagnostic refinement only; it does not broaden resource
     capability rules, resource family support, pressure observers, or fallback
     recovery semantics.
-31. Unsupported typed stdin target diagnostics are no longer only the broad
+32. Unsupported typed stdin target diagnostics are no longer only the broad
     `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies the
     stable unsupported scalar and list target messages as
     `STYIO_TYPE_STDIN_UNSUPPORTED_TARGET`, while
