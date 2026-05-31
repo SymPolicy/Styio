@@ -186,6 +186,11 @@ Current implementation reality:
    following statement. Sema rejects non-resource member calls such as
    `text.lines()` under `?|` so ordinary method calls do not become implicit
    resource effects.
+   Explicit direct file release through `?| @file("data.txt") -> @() | fallback`
+   now has the same statement settlement evidence: success skips recovery,
+   missing-file open failures recover through catch-all fallback or matched `io`,
+   no-fallback settlement stops before the following statement, and
+   value-required release expressions remain rejected.
 11. The first value-producing non-task resource-effect slices are executable for
    file and stdin instant pulls, materialized container bounds reads, and simple
    value-returning resource methods:
@@ -345,7 +350,7 @@ instead of surfacing a broad parser subset or generic type error.
 Source-level fallback recovery for implicit cleanup and non-file reassignment cleanup,
 broader resource-family cleanup, non-failure backpressure
 observation/escalation, pressure observer payload/runtime execution, broader post-acquire resource
-operations beyond the covered file iterator, close-method, write-method, and
+operations beyond the covered file iterator, close-method, direct-release, write-method, and
 acquired-handle instant-pull paths, failing value-producing resource methods beyond returned file/stdin
 instant pulls, returned explicit matrix-valued function success paths, and
 returned list/dict/matrix bounds slices, local container/resource binding
@@ -939,7 +944,10 @@ These should not be counted as missing implementation in this checkout:
    recovery, returned file instant-pull `io` recovery, and returned canonical
    stdin instant-pull `parse` recovery. Resource
    method calls now enter statement `?|` settlement for direct file close
-   success, fallback/`io` recovery, and no-fallback failure; statement-shaped
+   success, fallback/`io` recovery, and no-fallback failure. Direct file release
+   to `@()` now also enters statement `?|` settlement for success,
+   fallback/`io` recovery, no-fallback failure, acquired-handle direct release,
+   receiver invalidation after release, and value-context rejection; statement-shaped
    direct file iterators now cover success, fallback/`io` recovery, no-fallback
    failure, and non-file iterator rejection; statement-shaped
    file acquire now covers fallback/`io` recovery, successful acquire followed by

@@ -386,6 +386,11 @@ Effect-specific handlers use the same boundary:
 effect family. For example, `?| res -> msg_queue | backpressure => do_something()`
 is a pressure handler, not a `?=` match and not a catch-all fallback.
 Handlers may be chained: `?| op | e1 => handler1 | e2 => handler2`.
+The current statement implementation covers file acquire/rebind, direct file
+iterators, direct file release to `@()`, file resource-method settlement, and
+file writes under this boundary, while value-producing recovery remains limited
+to the explicitly listed instant-pull, container-bounds, and value-returning
+resource-method slices.
 `?| resource_operation | ...` is an audited discard form, but only as a
 standalone statement. It executes and settles the resource operation, discards
 business recovery for any effects at that site, produces no value, and continues
