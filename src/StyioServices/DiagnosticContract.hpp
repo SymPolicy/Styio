@@ -50,6 +50,8 @@ inline constexpr std::string_view kTypeStreamHashTagRouteUnsupported =
   "STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED";
 inline constexpr std::string_view kTypeStreamZipUnsupportedSource =
   "STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE";
+inline constexpr std::string_view kTypeStreamDuplicateDriverUnsupported =
+  "STYIO_TYPE_STREAM_DUPLICATE_DRIVER_UNSUPPORTED";
 inline constexpr std::string_view kTypeIterationUnsupportedSource =
   "STYIO_TYPE_ITERATION_UNSUPPORTED_SOURCE";
 inline constexpr std::string_view kTypeStdinUnsupportedTarget =
@@ -267,6 +269,9 @@ classify_type_or_lowering_code(std::string_view message) {
   }
   if (contains(message, "zip requires iterable inputs on both sides")) {
     return std::string(kTypeStreamZipUnsupportedSource);
+  }
+  if (contains(message, "zip over @stdin on both sides requires a distinct stream-driver decision")) {
+    return std::string(kTypeStreamDuplicateDriverUnsupported);
   }
   if (contains(message, "iteration requires an iterable value")) {
     return std::string(kTypeIterationUnsupportedSource);
