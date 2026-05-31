@@ -928,6 +928,16 @@ These should not be counted as missing implementation in this checkout:
     execute. This is diagnostic refinement only; it does not broaden resource
     capability rules, resource family support, pressure observers, or fallback
     recovery semantics.
+28. Unsupported typed stdin target diagnostics are no longer only the broad
+    `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies the
+    stable unsupported scalar and list target messages as
+    `STYIO_TYPE_STDIN_UNSUPPORTED_TARGET`, while
+    `StyioDiagnostics.UnsupportedTypedStdinTargetReportsTypeCode` and
+    `StyioDiagnostics.UnsupportedTypedStdinListTargetReportsTypeCode` prove the
+    JSONL public phase is `type`, the TypeError exit family remains stable,
+    stable message fragments are present, and following output does not
+    execute. This is diagnostic refinement only; it does not broaden supported
+    stdin target families or resource-effect recovery semantics.
 
 ## Recommended Closure Order
 
