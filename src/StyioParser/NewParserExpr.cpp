@@ -11,7 +11,6 @@ namespace
 
 constexpr int kMaxExprDelimiterNestingLatest = 64;
 constexpr int kMaxExprRecoveryFallbackNestingLatest = kMaxExprDelimiterNestingLatest - 4;
-constexpr size_t kMaxInternalLegacyBridgesPerTokenLatest = 4;
 
 void
 enforce_expr_delimiter_budget_latest(StyioContext& context, const char* construct) {
@@ -37,21 +36,6 @@ expr_recovery_limit_error_latest(StyioContext& context, const char* construct) {
       + std::to_string(kMaxExprRecoveryFallbackNestingLatest)
     )
   ));
-}
-
-void
-enforce_nightly_internal_legacy_bridge_budget_latest(StyioContext& context, const char* construct) {
-  const size_t bridge_count = context.note_nightly_internal_legacy_bridge_latest();
-  if (bridge_count <= kMaxInternalLegacyBridgesPerTokenLatest) {
-    return;
-  }
-  throw StyioParserResourceLimitError(
-    context.mark_cur_tok(
-      std::string(construct) + " exceeded nightly-to-legacy bridge limit of "
-      + std::to_string(kMaxInternalLegacyBridgesPerTokenLatest)
-      + " at one token"
-    )
-  );
 }
 
 bool

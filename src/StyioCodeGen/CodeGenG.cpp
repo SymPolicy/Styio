@@ -1,4 +1,5 @@
 // [C++ STL]
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
@@ -184,6 +185,28 @@ ir_yields_list_handle(StyioIR* value) {
 }
 
 bool
+stream_zip_static_literal_supported(const SCListLiteral* literal) {
+  if (literal == nullptr) {
+    return false;
+  }
+  StyioValueFamily family = styio_value_family_from_type_name(
+    literal->elem_type.empty() ? std::string("i64") : literal->elem_type);
+  if (family == StyioValueFamily::Integer) {
+    return std::all_of(
+      literal->elems.begin(),
+      literal->elems.end(),
+      [](StyioIR* elem) { return dynamic_cast<SGConstInt*>(elem) != nullptr; });
+  }
+  if (family == StyioValueFamily::String) {
+    return std::all_of(
+      literal->elems.begin(),
+      literal->elems.end(),
+      [](StyioIR* elem) { return dynamic_cast<SGConstString*>(elem) != nullptr; });
+  }
+  return false;
+}
+
+bool
 ir_yields_dict_handle(StyioIR* value) {
   if (auto* block = dynamic_cast<SGBlock*>(value)) {
     return !block->stmts.empty() && ir_yields_dict_handle(block->stmts.back());
@@ -243,6 +266,26 @@ ir_yields_task_handle(StyioIR* value) {
     return load->kind == SGDynLoadKind::TaskHandle;
   }
   return false;
+}
+
+bool
+dynamic_slot_declared_type_controls_payload(const StyioDataType& type) {
+  if (type.isUndefined()) {
+    return false;
+  }
+  if (styio_is_list_type(type) || styio_is_dict_type(type) || styio_is_matrix_type(type)) {
+    return true;
+  }
+  switch (styio_value_family_for_type(type)) {
+    case StyioValueFamily::TaskHandle:
+    case StyioValueFamily::String:
+    case StyioValueFamily::Float:
+    case StyioValueFamily::Bool:
+    case StyioValueFamily::Integer:
+      return true;
+    default:
+      return false;
+  }
 }
 }  // namespace
 
@@ -1693,9 +1736,7 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
     llvm::Value* next_value = node->value->toLLVMIR(this);
     DynamicSlotPayload payload = dynamic_slot_payload_for_value(node->value, next_value);
     const StyioDataType& declared_type = node->var->var_type->data_type;
-    if (styio_is_list_type(declared_type)
-        || styio_is_dict_type(declared_type)
-        || styio_is_matrix_type(declared_type)) {
+    if (dynamic_slot_declared_type_controls_payload(declared_type)) {
       payload = dynamic_slot_payload_for_type(declared_type, next_value);
     }
 
@@ -1759,9 +1800,7 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
     llvm::Value* value = node->value->toLLVMIR(this);
     DynamicSlotPayload payload = dynamic_slot_payload_for_value(node->value, value);
     const StyioDataType& declared_type = node->var->var_type->data_type;
-    if (styio_is_list_type(declared_type)
-        || styio_is_dict_type(declared_type)
-        || styio_is_matrix_type(declared_type)) {
+    if (dynamic_slot_declared_type_controls_payload(declared_type)) {
       payload = dynamic_slot_payload_for_type(declared_type, value);
     }
 
@@ -5013,6 +5052,10 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
 
   auto* lit_a = dynamic_cast<SCListLiteral*>(node->iterable_a);
   auto* lit_b = dynamic_cast<SCListLiteral*>(node->iterable_b);
+  const bool static_literal_zip =
+    !node->a_is_file && !node->b_is_file && !node->a_is_stdin && !node->b_is_stdin
+    && stream_zip_static_literal_supported(lit_a)
+    && stream_zip_static_literal_supported(lit_b);
 
   llvm::AllocaInst* ledger_alloc = nullptr;
   llvm::AllocaInst* snap_alloc = nullptr;
@@ -5153,7 +5196,8 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
       "materialized list handles, @file streams, @stdin streams, and finite stream/list pairs)");
   };
 
-  if (!node->a_is_file && !node->b_is_file && !node->a_is_stdin && !node->b_is_stdin) {
+  if (!node->a_is_file && !node->b_is_file && !node->a_is_stdin && !node->b_is_stdin
+      && !static_literal_zip) {
     if (!ir_yields_list_handle(node->iterable_a) || !ir_yields_list_handle(node->iterable_b)) {
       unsupported_zip();
     }
@@ -5399,7 +5443,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     return true;
   };
 
-  if (lit_a && lit_b && !node->a_is_file && !node->b_is_file) {
+  if (static_literal_zip) {
     size_t na = lit_a->elems.size();
     size_t nb = lit_b->elems.size();
     size_t nmin = na < nb ? na : nb;
