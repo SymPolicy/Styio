@@ -446,6 +446,161 @@ target_link_libraries(styio_security_test PRIVATE styio_core GTest::gtest_main)
 # library on Debian/libstdc++.
 styio_apply_llvm_compile_settings(styio_security_test)
 
+add_executable(styio_typeinfer_internal_test
+  typeinfer_internal_test.cpp
+  "${CMAKE_SOURCE_DIR}/src/StyioToken/Token.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioUnicode/Unicode.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioParser/Parser.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioParser/ParserLookahead.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioParser/NewParserExpr.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioParser/Tokenizer.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioProfiler/FrontendProfiler.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioNative/NativeInterop.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioResourceTopology/ResourceTopology.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioToString/ToString.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioIR/Verifier.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioLowering/AstToStyioIR.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioLowering/StyioIROptimizer.cpp"
+)
+target_include_directories(styio_typeinfer_internal_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(styio_typeinfer_internal_test PRIVATE
+  styio_symbol_core
+  styio_runtime_core
+  GTest::gtest_main
+  ${LLVM_LIBS}
+  ${CMAKE_DL_LIBS}
+)
+styio_apply_llvm_compile_settings(styio_typeinfer_internal_test)
+
+add_executable(styio_lowering_internal_test
+  lowering_internal_test.cpp
+  "${CMAKE_SOURCE_DIR}/src/StyioToken/Token.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioUnicode/Unicode.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioParser/Parser.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioParser/ParserLookahead.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioParser/NewParserExpr.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioParser/Tokenizer.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioProfiler/FrontendProfiler.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioNative/NativeInterop.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioResourceTopology/ResourceTopology.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioToString/ToString.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioIR/Verifier.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioSema/TypeInfer.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioLowering/StyioIROptimizer.cpp"
+)
+target_include_directories(styio_lowering_internal_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(styio_lowering_internal_test PRIVATE
+  styio_symbol_core
+  styio_runtime_core
+  GTest::gtest_main
+  ${LLVM_LIBS}
+  ${CMAKE_DL_LIBS}
+)
+styio_apply_llvm_compile_settings(styio_lowering_internal_test)
+
+add_executable(styio_newparser_internal_test
+  newparser_internal_test.cpp
+  "${CMAKE_SOURCE_DIR}/src/StyioToken/Token.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioUnicode/Unicode.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioParser/Parser.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioParser/ParserLookahead.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioParser/Tokenizer.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioProfiler/FrontendProfiler.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioNative/NativeInterop.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioResourceTopology/ResourceTopology.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioToString/ToString.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioIR/Verifier.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioLowering/AstToStyioIR.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioSema/TypeInfer.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioLowering/StyioIROptimizer.cpp"
+)
+target_include_directories(styio_newparser_internal_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(styio_newparser_internal_test PRIVATE
+  styio_symbol_core
+  styio_runtime_core
+  GTest::gtest_main
+  ${LLVM_LIBS}
+  ${CMAKE_DL_LIBS}
+)
+styio_apply_llvm_compile_settings(styio_newparser_internal_test)
+
+add_executable(styio_parser_internal_test
+  parser_internal_test.cpp
+  "${CMAKE_SOURCE_DIR}/src/StyioToken/Token.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioUnicode/Unicode.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioParser/NewParserExpr.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioParser/ParserLookahead.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioParser/Tokenizer.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioProfiler/FrontendProfiler.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioNative/NativeInterop.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioResourceTopology/ResourceTopology.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioToString/ToString.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioIR/Verifier.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioLowering/AstToStyioIR.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioSema/TypeInfer.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioLowering/StyioIROptimizer.cpp"
+)
+target_include_directories(styio_parser_internal_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(styio_parser_internal_test PRIVATE
+  styio_symbol_core
+  styio_runtime_core
+  GTest::gtest_main
+  ${LLVM_LIBS}
+  ${CMAKE_DL_LIBS}
+)
+styio_apply_llvm_compile_settings(styio_parser_internal_test)
+
+add_executable(styio_native_interop_internal_test
+  native_interop_internal_test.cpp
+)
+target_include_directories(styio_native_interop_internal_test PRIVATE
+  "${CMAKE_SOURCE_DIR}/src"
+  "${CMAKE_BINARY_DIR}/generated"
+)
+target_link_libraries(styio_native_interop_internal_test PRIVATE
+  GTest::gtest_main
+  ${CMAKE_DL_LIBS}
+)
+styio_apply_llvm_compile_settings(styio_native_interop_internal_test)
+
+add_executable(styio_externlib_internal_test
+  externlib_internal_test.cpp
+)
+target_include_directories(styio_externlib_internal_test PRIVATE
+  "${CMAKE_SOURCE_DIR}/src"
+  "${CMAKE_BINARY_DIR}/generated"
+)
+target_link_libraries(styio_externlib_internal_test PRIVATE
+  GTest::gtest_main
+  ${CMAKE_DL_LIBS}
+)
+styio_apply_llvm_compile_settings(styio_externlib_internal_test)
+
+add_executable(styio_codegen_internal_test
+  codegen_internal_test.cpp
+)
+target_link_libraries(styio_codegen_internal_test PRIVATE styio_core GTest::gtest_main)
+styio_apply_llvm_compile_settings(styio_codegen_internal_test)
+
+add_executable(styio_main_contract_test
+  main_contract_test.cpp
+)
+target_link_libraries(styio_main_contract_test PRIVATE
+  styio_core
+  styio_cli_contract_core
+  GTest::gtest_main
+)
+target_compile_definitions(styio_main_contract_test PRIVATE
+  "STYIO_PROJECT_VERSION=\"${PROJECT_VERSION}\""
+  "STYIO_RELEASE_CHANNEL=\"nightly\""
+  "STYIO_EDITION_MAX=\"2026\""
+  "STYIO_LLVM_DIR=\"${LLVM_DIR}\""
+  "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
+  "STYIO_CMAKE_C_COMPILER=\"${CMAKE_C_COMPILER}\""
+  "STYIO_CMAKE_CXX_COMPILER=\"${CMAKE_CXX_COMPILER}\""
+)
+styio_apply_llvm_compile_settings(styio_main_contract_test)
+
 add_executable(styio_resource_topology_test
   resource_topology_test.cpp
 )
@@ -476,6 +631,46 @@ gtest_discover_tests(styio_algorithm_equivalence_test
 gtest_discover_tests(styio_security_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES LABELS "security\\;safety\\;lexer\\;ffi"
+)
+
+gtest_discover_tests(styio_typeinfer_internal_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "security\\;safety\\;unit"
+)
+
+gtest_discover_tests(styio_lowering_internal_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "security\\;safety\\;unit"
+)
+
+gtest_discover_tests(styio_newparser_internal_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "security\\;safety\\;unit"
+)
+
+gtest_discover_tests(styio_parser_internal_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "security\\;safety\\;unit"
+)
+
+gtest_discover_tests(styio_native_interop_internal_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "security\\;safety\\;unit"
+)
+
+gtest_discover_tests(styio_externlib_internal_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "security\\;safety\\;unit"
+)
+
+gtest_discover_tests(styio_codegen_internal_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "security\\;safety\\;unit"
+)
+
+gtest_discover_tests(styio_main_contract_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "styio_pipeline\\;unit"
 )
 
 gtest_discover_tests(styio_resource_topology_test

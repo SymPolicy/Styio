@@ -7,6 +7,8 @@
 
 #include "StyioAST/AST.hpp"
 #include "StyioException/Exception.hpp"
+#include "StyioIR/GenIR/SGIR.hpp"
+#include "StyioIR/GenIR/SIOIR.hpp"
 #include "StyioIR/StyioIR.hpp"
 #include "StyioLowering/AstToStyioIRLowerer.hpp"
 #include "StyioParser/Parser.hpp"
@@ -123,7 +125,45 @@ void expect_type_error_contains(const std::string& src, const std::string& needl
   }
 }
 
+StyioDataType named_state_type(const std::string& name, StyioTypeState state) {
+  StyioDataType type{StyioDataTypeOption::Defined, name, 0};
+  type.state = state;
+  return type;
+}
+
 } // namespace
+
+TEST(StyioResourceTopology, EnumNamesCoverAllResourceTopologyKinds) {
+  EXPECT_EQ(rt::to_string(rt::NodeKind::Program), "Program");
+  EXPECT_EQ(rt::to_string(rt::NodeKind::DriverSource), "DriverSource");
+  EXPECT_EQ(rt::to_string(rt::NodeKind::Handle), "Handle");
+  EXPECT_EQ(rt::to_string(rt::NodeKind::StreamOp), "StreamOp");
+  EXPECT_EQ(rt::to_string(rt::NodeKind::StateSlot), "StateSlot");
+  EXPECT_EQ(rt::to_string(rt::NodeKind::HiddenLedger), "HiddenLedger");
+  EXPECT_EQ(rt::to_string(rt::NodeKind::Sink), "Sink");
+  EXPECT_EQ(rt::to_string(rt::NodeKind::Task), "Task");
+  EXPECT_EQ(rt::to_string(rt::NodeKind::FailureDomain), "FailureDomain");
+  EXPECT_EQ(rt::to_string(rt::NodeKind::Value), "Value");
+
+  EXPECT_EQ(rt::to_string(rt::EdgeKind::Flow), "Flow");
+  EXPECT_EQ(rt::to_string(rt::EdgeKind::Intent), "Intent");
+  EXPECT_EQ(rt::to_string(rt::EdgeKind::Ownership), "Ownership");
+  EXPECT_EQ(rt::to_string(rt::EdgeKind::Borrow), "Borrow");
+  EXPECT_EQ(rt::to_string(rt::EdgeKind::Mutation), "Mutation");
+  EXPECT_EQ(rt::to_string(rt::EdgeKind::Backpressure), "Backpressure");
+  EXPECT_EQ(rt::to_string(rt::EdgeKind::Commit), "Commit");
+  EXPECT_EQ(rt::to_string(rt::EdgeKind::HappensBefore), "HappensBefore");
+  EXPECT_EQ(rt::to_string(rt::EdgeKind::Failure), "Failure");
+  EXPECT_EQ(rt::to_string(rt::EdgeKind::Placement), "Placement");
+
+  EXPECT_EQ(rt::to_string(rt::TypeState::Unknown), "Unknown");
+  EXPECT_EQ(rt::to_string(rt::TypeState::Declared), "Declared");
+  EXPECT_EQ(rt::to_string(rt::TypeState::Open), "Open");
+  EXPECT_EQ(rt::to_string(rt::TypeState::Eof), "Eof");
+  EXPECT_EQ(rt::to_string(rt::TypeState::Closed), "Closed");
+  EXPECT_EQ(rt::to_string(rt::TypeState::Materialized), "Materialized");
+  EXPECT_EQ(rt::to_string(rt::TypeState::Ready), "Ready");
+}
 
 TEST(StyioResourceTopology, FileWriteOwnsCloseCapableSource) {
   auto root = program({
@@ -226,6 +266,86 @@ TEST(StyioResourceTopology, TopologyV2DeclWriteAndSelectorBuildPendingCommitEdge
     << result.graph.debug_string();
 }
 
+TEST(StyioResourceTopology, SnapshotDeclBuildsStateSlotAndResourceEdges) {
+  auto root = program({
+    SnapshotDeclAST::Create(
+      NameAST::Create("snap"),
+      FileResourceAST::Create(StringAST::Create("/tmp/styio-rtg-snap.txt"), false)),
+  });
+
+  rt::BuildResult result = rt::build(root.get());
+
+  EXPECT_TRUE(result.report.ok()) << result.report.message();
+  EXPECT_GE(result.graph.node_count(rt::NodeKind::StateSlot), 1u);
+  EXPECT_GE(result.graph.edge_count(rt::EdgeKind::Flow), 1u);
+  EXPECT_GE(result.graph.edge_count(rt::EdgeKind::Mutation), 1u);
+  EXPECT_GE(result.graph.edge_count(rt::EdgeKind::Ownership), 1u);
+  EXPECT_NE(result.graph.debug_string().find("snapshot:snap"), std::string::npos)
+    << result.graph.debug_string();
+}
+
+TEST(StyioResourceTopology, StreamZipBuildsIterBackpressureAndBodyEdges) {
+  auto root = program({
+    StreamZipAST::Create(
+      FileResourceAST::Create(StringAST::Create("/tmp/styio-rtg-zip-a.txt"), false),
+      {ParamAST::Create(NameAST::Create("a"))},
+      FileResourceAST::Create(StringAST::Create("/tmp/styio-rtg-zip-b.txt"), false),
+      {ParamAST::Create(NameAST::Create("b"))},
+      PrintAST::Create({NameAST::Create("a"), NameAST::Create("b")})),
+  });
+
+  rt::BuildResult result = rt::build(root.get());
+
+  EXPECT_TRUE(result.report.ok()) << result.report.message();
+  EXPECT_GE(result.graph.node_count(rt::NodeKind::StreamOp), 1u);
+  EXPECT_GE(result.graph.edge_count(rt::EdgeKind::Backpressure), 2u);
+  EXPECT_NE(result.graph.debug_string().find("stream:zip"), std::string::npos)
+    << result.graph.debug_string();
+  EXPECT_NE(result.graph.debug_string().find("zip-a"), std::string::npos)
+    << result.graph.debug_string();
+  EXPECT_NE(result.graph.debug_string().find("zip-b"), std::string::npos)
+    << result.graph.debug_string();
+  EXPECT_NE(result.graph.debug_string().find("zip-body"), std::string::npos)
+    << result.graph.debug_string();
+}
+
+TEST(StyioResourceTopology, ValueContainersAndGuardsBuildNestedValueNodes) {
+  auto root = program({
+    PrintAST::Create({
+      TupleAST::Create({IntAST::Create("1"), IntAST::Create("2")}),
+      SetAST::Create({StringAST::Create("a"), StringAST::Create("b")}),
+      DictAST::Create({
+        {StringAST::Create("k"), IntAST::Create("3")},
+      }),
+      FallbackAST::Create(IntAST::Create("4"), IntAST::Create("5")),
+      GuardSelectorAST::Create(NameAST::Create("candidate"), BoolAST::Create(true)),
+      EqProbeAST::Create(NameAST::Create("candidate"), IntAST::Create("6")),
+      WaveMergeAST::Create(BoolAST::Create(true), IntAST::Create("7"), IntAST::Create("8")),
+      WaveDispatchAST::Create(
+        BoolAST::Create(false),
+        BlockAST::Create({PrintAST::Create({StringAST::Create("left")})}),
+        BlockAST::Create({PrintAST::Create({StringAST::Create("right")})})),
+    }),
+  });
+
+  rt::BuildResult result = rt::build(root.get());
+  const std::string graph = result.graph.debug_string();
+
+  EXPECT_TRUE(result.report.ok()) << result.report.message();
+  for (const char* needle : {
+         "value:tuple",
+         "value:set",
+         "value:dict",
+         "value:fallback",
+         "value:guard",
+         "value:eq_probe",
+         "value:wave_merge",
+         "value:wave_dispatch",
+       }) {
+    EXPECT_NE(graph.find(needle), std::string::npos) << needle << "\n" << graph;
+  }
+}
+
 TEST(StyioResourceTopology, RejectsLocalTopologyV2ResourceDecl) {
   auto resource_type = styio_make_topology_resource_type(
     StyioDataType{StyioDataTypeOption::Integer, "i64", 64},
@@ -242,6 +362,9 @@ TEST(StyioResourceTopology, RejectsLocalTopologyV2ResourceDecl) {
   ASSERT_FALSE(result.report.ok());
   EXPECT_NE(result.report.message().find("resource declarations are top-level only"), std::string::npos)
     << result.report.message();
+  EXPECT_THROW(
+    rt::validate_or_throw(local.get(), "block-resource-topology"),
+    StyioTypeError);
 }
 
 TEST(StyioResourceTopology, EmptyResourceDestroySinkConsumesWithoutScopeDrop) {
@@ -258,6 +381,494 @@ TEST(StyioResourceTopology, EmptyResourceDestroySinkConsumesWithoutScopeDrop) {
     << result.graph.debug_string();
   EXPECT_EQ(result.graph.debug_string().find("scope-exit-drop"), std::string::npos)
     << result.graph.debug_string();
+}
+
+TEST(StyioResourceTopology, StandaloneResourcesUsePreciseLabelsAndCapabilities) {
+  auto root = program({
+    EmptyResourceAST::Create(),
+    ResourceReceiverAST::Create("stdin"),
+    ResourceReceiverAST::Create("stdout"),
+    ResourceReceiverAST::Create("stderr"),
+    ResourceReceiverAST::Create("file"),
+    FileResourceAST::Create(nullptr, false),
+    FileResourceAST::Create(NameAST::Create("path_expr"), false),
+    FileResourceAST::Create(NameAST::Create("auto_expr"), true),
+  });
+
+  rt::BuildResult result = rt::build(root.get());
+  const std::string graph = result.graph.debug_string();
+
+  EXPECT_TRUE(result.report.ok()) << result.report.message();
+  EXPECT_GE(result.graph.node_count(rt::NodeKind::Handle), 4u);
+  EXPECT_GE(result.graph.node_count(rt::NodeKind::DriverSource), 3u);
+  EXPECT_NE(graph.find("@()"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("receiver:@stdin"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("receiver:@stdout"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("receiver:@stderr"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("receiver:@file"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("@file(<null>)"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("@file(<expr>)"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("@{<expr>}"), std::string::npos) << graph;
+}
+
+TEST(StyioResourceTopology, BindingsTasksStatesAndResourceFamiliesBuildEdges) {
+  auto resource_type = styio_make_topology_resource_type(
+    StyioDataType{StyioDataTypeOption::Integer, "i64", 64},
+    StyioResourceShapeKind::Recent,
+    3);
+  auto generic_stream = styio_make_std_stream_type(StdStreamKind::Stdout, "string");
+  generic_stream.has_std_stream_kind = false;
+  auto topology_resource = styio_make_topology_resource_type(
+    StyioDataType{StyioDataTypeOption::Integer, "i64", 64},
+    StyioResourceShapeKind::Scalar);
+
+  auto root = program({
+    ResourceDeclAST::Create(
+      {{NameAST::Create("hist"), TypeAST::Create(resource_type)}},
+      BlockAST::Create({
+        ResourceRedirectAST::Create(
+          IntAST::Create("1"),
+          ResourceRefAST::Create(NameAST::Create("hist"))),
+      })),
+    PrintAST::Create({
+      ResourceRefAST::CreateSelector(NameAST::Create("hist"), ResourceSelectorKind::SnapshotAll),
+    }),
+    StateDeclAST::Create(
+      nullptr,
+      NameAST::Create("acc"),
+      IntAST::Create("10"),
+      nullptr,
+      NameAST::Create("acc")),
+    StateDeclAST::Create(
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
+      IntAST::Create("2")),
+    PrintAST::Create({NameAST::Create("acc")}),
+    HandleAcquireAST::Create(
+      VarAST::Create(NameAST::Create("lines")),
+      StdStreamAST::Create(StdStreamKind::Stdin),
+      HandleAcquireAST::BindMode::Flex),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("job")),
+      TaskBlockAST::Create(BlockAST::Create({
+        PrintAST::Create({IntAST::Create("3")}),
+      }))),
+    PrintAST::Create({NameAST::Create("job")}),
+    FlexBindAST::Create(
+      VarAST::Create(NameAST::Create("pipe")),
+      BlockAST::Create({
+        PrintAST::Create({IntAST::Create("4")}),
+      })),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("plain")),
+      IntAST::Create("5")),
+    ResourceOrderAST::Create(NameAST::Create("job"), NameAST::Create("plain")),
+    ResourceOrderAST::Create(NameAST::Create("pipe"), NameAST::Create("job")),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("ready"), TypeAST::Create(named_state_type("ready", StyioTypeState::Ready))),
+      IntAST::Create("6")),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("done"), TypeAST::Create(named_state_type("done", StyioTypeState::Done))),
+      IntAST::Create("7")),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("closed"), TypeAST::Create(named_state_type("closed", StyioTypeState::Closed))),
+      IntAST::Create("8")),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("materialized"), TypeAST::Create(named_state_type("materialized", StyioTypeState::Materialized))),
+      IntAST::Create("9")),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("streamish"), TypeAST::Create(generic_stream)),
+      IntAST::Create("10")),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("resourceish"), TypeAST::Create(topology_resource)),
+      IntAST::Create("11")),
+    FuncCallAST::Create(
+      FileResourceAST::Create(StringAST::Create("/tmp/styio-rtg-method.txt"), false),
+      NameAST::Create("write"),
+      {StringAST::Create("file")}),
+    FuncCallAST::Create(
+      StdStreamAST::Create(StdStreamKind::Stdout),
+      NameAST::Create("write"),
+      {StringAST::Create("stdout")}),
+    FuncCallAST::Create(
+      ResourceReceiverAST::Create("file"),
+      NameAST::Create("write"),
+      {StringAST::Create("receiver")}),
+    FuncCallAST::Create(
+      ResourceRefAST::Create(NameAST::Create("hist")),
+      NameAST::Create("write"),
+      {IntAST::Create("12")}),
+    FuncCallAST::Create(
+      NameAST::Create("streamish"),
+      NameAST::Create("write"),
+      {StringAST::Create("generic")}),
+    FuncCallAST::Create(
+      NameAST::Create("resourceish"),
+      NameAST::Create("write"),
+      {IntAST::Create("13")}),
+  });
+
+  rt::BuildResult result = rt::build(root.get());
+  const std::string graph = result.graph.debug_string();
+
+  EXPECT_TRUE(result.report.ok()) << result.report.message();
+  EXPECT_GE(result.graph.node_count(rt::NodeKind::StateSlot), 3u);
+  EXPECT_GE(result.graph.node_count(rt::NodeKind::Task), 1u);
+  EXPECT_GE(result.graph.node_count(rt::NodeKind::FailureDomain), 1u);
+  EXPECT_GE(result.graph.edge_count(rt::EdgeKind::Failure), 1u);
+  EXPECT_GE(result.graph.edge_count(rt::EdgeKind::HappensBefore), 2u);
+  EXPECT_NE(graph.find("resource:@hist"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("committed-snapshot-read"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("state:acc"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("state:<anonymous>"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("state-init"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("handle:lines"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("task:block"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("binding:pipe"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("binding:ready caps=none state=Ready"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("binding:done caps=none state=Ready"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("binding:closed caps=none state=Closed"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("binding:materialized caps=none state=Materialized"), std::string::npos) << graph;
+}
+
+TEST(StyioResourceTopology, FailsClosedForUnknownResourcesAndInvalidWindows) {
+  auto root = program({
+    PrintAST::Create({
+      ResourceRefAST::Create(NameAST::Create("missing")),
+    }),
+    StateDeclAST::Create(
+      IntAST::Create("0"),
+      nullptr,
+      nullptr,
+      nullptr,
+      SeriesIntrinsicAST::Create(
+        NameAST::Create("price"),
+        SeriesIntrinsicOp::Avg,
+        IntAST::Create("0"))),
+    StateDeclAST::Create(
+      IntAST::Create("not-a-number"),
+      NameAST::Create("bad"),
+      IntAST::Create("1"),
+      nullptr,
+      IntAST::Create("2")),
+  });
+
+  rt::BuildResult result = rt::build(root.get());
+  const std::string graph = result.graph.debug_string();
+
+  ASSERT_FALSE(result.report.ok());
+  EXPECT_NE(result.report.message().find("unknown resource: @missing"), std::string::npos)
+    << result.report.message();
+  EXPECT_NE(result.report.message().find("state window must be a positive integer"), std::string::npos)
+    << result.report.message();
+  EXPECT_NE(result.report.message().find("series intrinsic window must be a positive integer"), std::string::npos)
+    << result.report.message();
+  EXPECT_NE(graph.find("resource-ref:@missing"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("state:<anonymous>"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("state:bad"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("hidden-ledger:series"), std::string::npos) << graph;
+}
+
+TEST(StyioResourceTopology, NullRootsSparseWritesAndVarInitializersFailClosed) {
+  {
+    rt::BuildResult result = rt::build(static_cast<MainBlockAST*>(nullptr));
+    ASSERT_FALSE(result.report.ok());
+    EXPECT_NE(result.report.message().find("main block is null"), std::string::npos)
+      << result.report.message();
+  }
+
+  {
+    rt::BuildResult result = rt::build(static_cast<BlockAST*>(nullptr));
+    ASSERT_FALSE(result.report.ok());
+    EXPECT_NE(result.report.message().find("block is null"), std::string::npos)
+      << result.report.message();
+  }
+
+  auto root = program({
+    ResourceWriteAST::Create(StringAST::Create("payload"), nullptr),
+    new VarAST(NameAST::Create("initialized"), TypeAST::Create("i64"), IntAST::Create("42")),
+  });
+
+  rt::BuildResult result = rt::build(root.get());
+  const std::string graph = result.graph.debug_string();
+
+  ASSERT_FALSE(result.report.ok());
+  EXPECT_NE(result.report.message().find("write target must have push capability (missing node)"), std::string::npos)
+    << result.report.message();
+  EXPECT_NE(graph.find("sink:resource_write"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("value:styio.ast.string"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("value:styio.ast."), std::string::npos) << graph;
+  EXPECT_EQ(graph.find("var:initialized"), std::string::npos) << graph;
+}
+
+TEST(StyioResourceTopology, ResourceMethodConsumeScannerWalksBinopsAndConditions) {
+  auto root = program({
+    ResourceMethodDefAST::Create(
+      "file",
+      "drop_bin",
+      false,
+      false,
+      {},
+      BlockAST::Create({
+        BinOpAST::Create(
+          StyioOpType::Binary_Add,
+          IntAST::Create("0"),
+          ResourceRedirectAST::Create(ResourceReceiverAST::Create("file"), EmptyResourceAST::Create())),
+      })),
+    ResourceMethodDefAST::Create(
+      "file",
+      "drop_cond",
+      false,
+      false,
+      {},
+      CondAST::Create(
+        LogicType::AND,
+        BoolAST::Create(false),
+        ResourceRedirectAST::Create(ResourceReceiverAST::Create("file"), EmptyResourceAST::Create()))),
+    ResourceMethodDefAST::Create(
+      "file",
+      "drop_raw_cond",
+      false,
+      false,
+      {},
+      CondAST::Create(
+        LogicType::RAW,
+        ResourceRedirectAST::Create(ResourceReceiverAST::Create("file"), EmptyResourceAST::Create()))),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("bin_log")),
+      FileResourceAST::Create(StringAST::Create("/tmp/styio-rtg-bin.log"), false)),
+    FuncCallAST::Create(NameAST::Create("bin_log"), NameAST::Create("drop_bin"), {}),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("cond_log")),
+      FileResourceAST::Create(StringAST::Create("/tmp/styio-rtg-cond.log"), false)),
+    FuncCallAST::Create(NameAST::Create("cond_log"), NameAST::Create("drop_cond"), {}),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("raw_log")),
+      FileResourceAST::Create(StringAST::Create("/tmp/styio-rtg-raw.log"), false)),
+    FuncCallAST::Create(NameAST::Create("raw_log"), NameAST::Create("drop_raw_cond"), {}),
+  });
+
+  rt::BuildResult result = rt::build(root.get());
+  const std::string graph = result.graph.debug_string();
+
+  EXPECT_TRUE(result.report.ok()) << result.report.message();
+  EXPECT_NE(graph.find("resource-method:@file::drop_bin"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("resource-method:@file::drop_cond"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("resource-method:@file::drop_raw_cond"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("value:binop"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("value:condition"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("Mutation resource-method:drop_bin"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("Mutation resource-method:drop_cond"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("Mutation resource-method:drop_raw_cond"), std::string::npos) << graph;
+}
+
+TEST(StyioToStringContract, CoversSparseAstAndIrReprBranches) {
+  StyioRepr repr;
+
+  {
+    std::unique_ptr<ParamAST> param(ParamAST::Create(NameAST::Create("p"), TypeAST::Create("i64")));
+    std::unique_ptr<OptArgAST> opt_arg(OptArgAST::Create(NameAST::Create("rest")));
+    std::unique_ptr<OptKwArgAST> opt_kw(OptKwArgAST::Create(NameAST::Create("opts")));
+    EXPECT_NE(repr.toString(param.get()).find("p : i64"), std::string::npos);
+    EXPECT_NE(repr.toString(opt_arg.get()).find("{  }"), std::string::npos);
+    EXPECT_NE(repr.toString(opt_kw.get()).find("{  }"), std::string::npos);
+  }
+
+  {
+    std::unique_ptr<VarTupleAST> empty(VarTupleAST::Create({}));
+    std::unique_ptr<VarTupleAST> non_empty(VarTupleAST::Create({
+      VarAST::Create(NameAST::Create("lhs"), TypeAST::Create("i64")),
+      VarAST::Create(NameAST::Create("rhs"), TypeAST::Create("string")),
+    }));
+    EXPECT_NE(repr.toString(empty.get()).find("[ ]"), std::string::npos);
+    const std::string tuple_repr = repr.toString(non_empty.get());
+    EXPECT_NE(tuple_repr.find("lhs : i64"), std::string::npos) << tuple_repr;
+    EXPECT_NE(tuple_repr.find("rhs : string"), std::string::npos) << tuple_repr;
+  }
+
+  {
+    std::unique_ptr<IterSeqAST> iter(IterSeqAST::Create(
+      ListAST::Create({IntAST::Create("1"), IntAST::Create("2")}),
+      {HashTagNameAST::Create({"hot"}), HashTagNameAST::Create({"cold"})}));
+    const std::string iter_repr = repr.toString(iter.get());
+    EXPECT_NE(iter_repr.find("hot"), std::string::npos) << iter_repr;
+    EXPECT_NE(iter_repr.find("cold"), std::string::npos) << iter_repr;
+  }
+
+  {
+    std::unique_ptr<InfiniteAST> original(new InfiniteAST());
+    std::unique_ptr<InfiniteAST> incremental(new InfiniteAST(IntAST::Create("0"), IntAST::Create("1")));
+    EXPECT_NE(repr.toString(original.get()).find("{ }"), std::string::npos);
+    EXPECT_NE(repr.toString(incremental.get()).find("Increment"), std::string::npos);
+  }
+
+  {
+    std::unique_ptr<StructAST> ast(StructAST::Create(
+      NameAST::Create("Pair"),
+      {
+        ParamAST::Create(NameAST::Create("first"), TypeAST::Create("i64")),
+        ParamAST::Create(NameAST::Create("second"), TypeAST::Create("string")),
+      }));
+    const std::string struct_repr = repr.toString(ast.get());
+    EXPECT_NE(struct_repr.find("first"), std::string::npos) << struct_repr;
+    EXPECT_NE(struct_repr.find("second"), std::string::npos) << struct_repr;
+  }
+
+  {
+    std::unique_ptr<FmtStrAST> fmt(FmtStrAST::Create(
+      {"a", "b", "c"},
+      {NameAST::Create("x"), IntAST::Create("2")}));
+    const std::string fmt_repr = repr.toString(fmt.get());
+    EXPECT_NE(fmt_repr.find("x"), std::string::npos) << fmt_repr;
+    EXPECT_NE(fmt_repr.find("\n"), std::string::npos) << fmt_repr;
+  }
+
+  {
+    std::unique_ptr<ResourceAST> resources(ResourceAST::Create({
+      {StringAST::Create("one.txt"), "text"},
+      {FileResourceAST::Create(StringAST::Create("two.txt"), true), "file"},
+    }));
+    const std::string resource_repr = repr.toString(resources.get());
+    EXPECT_NE(resource_repr.find("one.txt"), std::string::npos) << resource_repr;
+    EXPECT_NE(resource_repr.find("two.txt"), std::string::npos) << resource_repr;
+  }
+
+  {
+    std::unique_ptr<ResourceDeclAST> decl(ResourceDeclAST::Create(
+      {
+        {NameAST::Create("input"), TypeAST::Create("i64")},
+        {NameAST::Create("output"), TypeAST::Create("string")},
+      },
+      BlockAST::Create({PassAST::Create()})));
+    const std::string decl_repr = repr.toString(decl.get());
+    EXPECT_NE(decl_repr.find("driver"), std::string::npos) << decl_repr;
+    EXPECT_NE(decl_repr.find("output"), std::string::npos) << decl_repr;
+  }
+
+  {
+    std::unique_ptr<FunctionAST> fn(FunctionAST::Create(
+      NameAST::Create("tupled"),
+      false,
+      {ParamAST::Create(NameAST::Create("x"), TypeAST::Create("i64"))},
+      TypeTupleAST::Create({TypeAST::Create("i64"), TypeAST::Create("f64")}),
+      BlockAST::Create({ReturnAST::Create(NameAST::Create("x"))})));
+    const std::string fn_repr = repr.toString(fn.get());
+    EXPECT_NE(fn_repr.find("ret_type"), std::string::npos) << fn_repr;
+  }
+
+  {
+    std::unique_ptr<IteratorAST> iter(IteratorAST::Create(
+      ListAST::Create({IntAST::Create("1")}),
+      {ParamAST::Create(NameAST::Create("item"))},
+      {
+        CheckEqualAST::Create({IntAST::Create("1")}),
+        CheckEqualAST::Create({IntAST::Create("2")}),
+      }));
+    const std::string iter_repr = repr.toString(iter.get());
+    EXPECT_NE(iter_repr.find("check.equal"), std::string::npos) << iter_repr;
+    EXPECT_NE(iter_repr.find("\n"), std::string::npos) << iter_repr;
+  }
+
+  {
+    std::unique_ptr<BlockAST> block(BlockAST::Create({
+      PrintAST::Create({IntAST::Create("1")}),
+    }));
+    block->set_followings({
+      CheckEqualAST::Create({IntAST::Create("2")}),
+      new CheckIsinAST(NameAST::Create("needle")),
+    });
+    const std::string block_repr = repr.toString(block.get());
+    EXPECT_NE(block_repr.find("check.equal"), std::string::npos) << block_repr;
+    EXPECT_NE(block_repr.find("check.isin"), std::string::npos) << block_repr;
+  }
+
+  {
+    std::unique_ptr<CODPAST> chain(CODPAST::Create(
+      "map",
+      {IntAST::Create("1"), IntAST::Create("2")},
+      nullptr,
+      CODPAST::Create("filter", {BoolAST::Create(true)})));
+    const std::string chain_repr = chain->toString(&repr);
+    EXPECT_NE(chain_repr.find("CODP.map"), std::string::npos) << chain_repr;
+    EXPECT_NE(chain_repr.find("CODP.filter"), std::string::npos) << chain_repr;
+  }
+
+  {
+    auto list_expr = []() {
+      return ListAST::Create({IntAST::Create("1"), IntAST::Create("2")});
+    };
+    const std::vector<StyioNodeType> one_slot_ops = {
+      StyioNodeType::Access,
+      StyioNodeType::Access_By_Index,
+      StyioNodeType::Access_By_Name,
+      StyioNodeType::Get_Index_By_Value,
+      StyioNodeType::Get_Indices_By_Many_Values,
+      StyioNodeType::Append_Value,
+      StyioNodeType::Remove_Item_By_Index,
+      StyioNodeType::Remove_Item_By_Value,
+      StyioNodeType::Remove_Items_By_Many_Indices,
+      StyioNodeType::Remove_Items_By_Many_Values,
+      StyioNodeType::Get_Index_By_Item_From_Right,
+    };
+    for (StyioNodeType op : one_slot_ops) {
+      std::unique_ptr<ListOpAST> node(new ListOpAST(op, list_expr(), IntAST::Create("0")));
+      EXPECT_FALSE(repr.toString(node.get()).empty());
+    }
+    std::unique_ptr<ListOpAST> reversed(new ListOpAST(StyioNodeType::Get_Reversed, list_expr()));
+    EXPECT_FALSE(repr.toString(reversed.get()).empty());
+    std::unique_ptr<ListOpAST> inserted(new ListOpAST(
+      StyioNodeType::Insert_Item_By_Index,
+      list_expr(),
+      IntAST::Create("0"),
+      IntAST::Create("9")));
+    EXPECT_NE(repr.toString(inserted.get()).find("Value:"), std::string::npos);
+  }
+
+  {
+    std::unique_ptr<CondFlowAST> fallback(new CondFlowAST(
+      StyioNodeType::Empty,
+      CondAST::Create(LogicType::RAW, BoolAST::Create(true)),
+      PrintAST::Create({IntAST::Create("1")})));
+    EXPECT_FALSE(repr.toString(fallback.get()).empty());
+  }
+
+  {
+    std::unique_ptr<SGVar> first(SGVar::Create(
+      SGResId::Create("first"),
+      SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64})));
+    std::unique_ptr<SGVar> second(SGVar::Create(
+      SGResId::Create("second"),
+      SGType::Create(StyioDataType{StyioDataTypeOption::String, "string", 0})));
+    std::unique_ptr<SGStruct> structure(SGStruct::Create({first.get(), second.get()}));
+    const std::string struct_repr = repr.toString(structure.get());
+    EXPECT_NE(struct_repr.find("styio.ir.struct"), std::string::npos) << struct_repr;
+    EXPECT_NE(struct_repr.find("first"), std::string::npos) << struct_repr;
+    EXPECT_NE(struct_repr.find("second"), std::string::npos) << struct_repr;
+  }
+
+  {
+    std::unique_ptr<SGExternBlock> ext(SGExternBlock::Create(
+      "c",
+      "int a(void);",
+      {"one.h", "two.h"},
+      {"a", "b"}));
+    const std::string ext_repr = repr.toString(ext.get());
+    EXPECT_NE(ext_repr.find("one.h,two.h"), std::string::npos) << ext_repr;
+    EXPECT_NE(ext_repr.find("a,b"), std::string::npos) << ext_repr;
+  }
+
+  {
+    std::unique_ptr<SGEntry> empty_entry(SGEntry::Create({}));
+    EXPECT_NE(repr.toString(empty_entry.get()).find("{ }"), std::string::npos);
+  }
+
+  {
+    std::unique_ptr<SIOInstantPull> pull(SIOInstantPull::Create(SGConstString::Create("input.txt")));
+    const std::string pull_repr = repr.toString(pull.get());
+    EXPECT_NE(pull_repr.find("input.txt"), std::string::npos) << pull_repr;
+  }
 }
 
 TEST(StyioResourceTopology, RejectsUnorderedExclusiveResourceBorrowsAcrossBlocks) {
