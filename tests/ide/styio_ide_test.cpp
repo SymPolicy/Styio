@@ -2,17 +2,20 @@
 #include <chrono>
 #include <gtest/gtest.h>
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <numeric>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "StyioAST/AST.hpp"
 #include "StyioServices/StyioIDE/CompilerBridge.hpp"
 #include "StyioServices/StyioIDE/HIR.hpp"
+#include "StyioServices/StyioIDE/Index.hpp"
 #include "StyioServices/StyioIDE/Service.hpp"
 #include "StyioServices/StyioIDE/Syntax.hpp"
 #include "StyioServices/StyioLSP/Server.hpp"
@@ -20,6 +23,10 @@
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
 #include "llvm/Support/FormatVariadic.h"
+
+#define analyze_document analyze_document_internal_for_test
+#include "../src/StyioServices/StyioIDE/CompilerBridge.cpp"
+#undef analyze_document
 
 namespace {
 
@@ -157,6 +164,40 @@ has_location(
     });
 }
 
+class EnvVarGuard
+{
+public:
+  explicit EnvVarGuard(std::string name) :
+      name_(std::move(name)) {
+    const char* value = std::getenv(name_.c_str());
+    if (value != nullptr) {
+      had_value_ = true;
+      old_value_ = value;
+    }
+  }
+
+  ~EnvVarGuard() {
+    if (had_value_) {
+      setenv(name_.c_str(), old_value_.c_str(), 1);
+    } else {
+      unsetenv(name_.c_str());
+    }
+  }
+
+  void set(const std::string& value) {
+    setenv(name_.c_str(), value.c_str(), 1);
+  }
+
+  void unset() {
+    unsetenv(name_.c_str());
+  }
+
+private:
+  std::string name_;
+  bool had_value_ = false;
+  std::string old_value_;
+};
+
 std::vector<std::size_t>
 syntax_statement_starts(const styio::ide::SyntaxSnapshot& syntax) {
   std::vector<std::size_t> starts;
@@ -283,6 +324,21 @@ has_token_boundary(
     [&](const styio::ide::SyntaxToken& token)
     {
       return token.lexeme == lexeme && token.range.start == start;
+    });
+}
+
+bool
+has_token(
+  const styio::ide::SyntaxSnapshot& syntax,
+  StyioTokenType type,
+  const std::string& lexeme
+) {
+  return std::any_of(
+    syntax.tokens.begin(),
+    syntax.tokens.end(),
+    [&](const styio::ide::SyntaxToken& token)
+    {
+      return token.type == type && token.lexeme == lexeme;
     });
 }
 
@@ -472,6 +528,274 @@ TEST(StyioVfs, AppliesSequentialTextEdits) {
   EXPECT_EQ(invalid_result.snapshot->buffer.text(), "ONE TWO THREE");
 }
 
+TEST(StyioIDECommon, TextBufferUriAndEnumHelpersCoverEdgeCases) {
+  styio::ide::TextBuffer empty_buffer;
+  EXPECT_TRUE(empty_buffer.empty());
+  EXPECT_EQ(empty_buffer.text(), "");
+  EXPECT_EQ(empty_buffer.size(), 0U);
+
+  styio::ide::TextBuffer buffer("alpha\nbeta");
+  EXPECT_FALSE(buffer.empty());
+  EXPECT_EQ(buffer.position_at(999).line, 1U);
+  EXPECT_EQ(buffer.position_at(999).character, 4U);
+  EXPECT_EQ(buffer.offset_at(styio::ide::Position{99, 99}), buffer.text().size());
+  EXPECT_EQ(buffer.offset_at(styio::ide::Position{0, 99}), 6U);
+
+  const auto line_seps = buffer.build_line_seps();
+  ASSERT_EQ(line_seps.size(), 2U);
+  const auto first_line = std::make_pair<std::size_t, std::size_t>(0, 5);
+  const auto second_line = std::make_pair<std::size_t, std::size_t>(6, 4);
+  EXPECT_EQ(line_seps[0], first_line);
+  EXPECT_EQ(line_seps[1], second_line);
+
+  const styio::ide::TextRange range{2, 7};
+  EXPECT_TRUE(range.contains(2));
+  EXPECT_TRUE(range.contains(7));
+  EXPECT_EQ(range.length(), 5U);
+  EXPECT_EQ((styio::ide::TextRange{9, 4}).length(), 0U);
+
+  EXPECT_EQ(styio::ide::path_from_uri("untitled:main.styio"), "untitled:main.styio");
+  EXPECT_EQ(
+    styio::ide::path_from_uri("file://tmp/space+name%2Fchild%41.styio"),
+    "/tmp/space name/childA.styio");
+  EXPECT_EQ(
+    styio::ide::path_from_uri("file:///tmp/bad%ZZ+name.styio"),
+    "/tmp/bad%ZZ name.styio");
+
+  EXPECT_EQ(
+    styio::ide::uri_from_path("relative dir/main file.styio"),
+    "file:///relative%20dir/main%20file.styio");
+  EXPECT_EQ(styio::ide::uri_from_path("/tmp/main#1.styio"), "file:///tmp/main%231.styio");
+
+  EXPECT_EQ(styio::ide::to_string(styio::ide::PositionKind::TopLevel), "TopLevel");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::PositionKind::StmtStart), "StmtStart");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::PositionKind::Expr), "Expr");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::PositionKind::Type), "Type");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::PositionKind::Pattern), "Pattern");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::PositionKind::MemberAccess), "MemberAccess");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::PositionKind::ImportPath), "ImportPath");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::PositionKind::CallArg), "CallArg");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::PositionKind::AttrName), "AttrName");
+  EXPECT_EQ(styio::ide::to_string(static_cast<styio::ide::PositionKind>(999)), "Expr");
+
+  EXPECT_EQ(styio::ide::to_string(styio::ide::SymbolKind::Variable), "variable");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::SymbolKind::Function), "function");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::SymbolKind::Parameter), "parameter");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::SymbolKind::Builtin), "builtin");
+  EXPECT_EQ(styio::ide::to_string(static_cast<styio::ide::SymbolKind>(999)), "variable");
+
+  EXPECT_EQ(styio::ide::to_string(styio::ide::CompletionItemKind::Variable), "variable");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::CompletionItemKind::Function), "function");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::CompletionItemKind::Type), "type");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::CompletionItemKind::Keyword), "keyword");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::CompletionItemKind::Snippet), "snippet");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::CompletionItemKind::Property), "property");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::CompletionItemKind::Module), "module");
+  EXPECT_EQ(styio::ide::to_string(static_cast<styio::ide::CompletionItemKind>(999)), "variable");
+
+  EXPECT_EQ(styio::ide::to_string(styio::ide::CompletionSource::Local), "local");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::CompletionSource::Imported), "imported");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::CompletionSource::Builtin), "builtin");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::CompletionSource::Keyword), "keyword");
+  EXPECT_EQ(styio::ide::to_string(styio::ide::CompletionSource::Snippet), "snippet");
+  EXPECT_EQ(styio::ide::to_string(static_cast<styio::ide::CompletionSource>(999)), "local");
+}
+
+TEST(StyioSemanticBridge, InternalCompilerBridgeHelpersCoverEdgeFacts) {
+  using namespace styio::ide;
+
+  EXPECT_EQ(normalize_import_path("pkg.math.utils"), "pkg/math/utils");
+  EXPECT_EQ(normalize_import_path("pkg/math/utils"), "pkg/math/utils");
+  EXPECT_EQ(normalize_import_path(""), "");
+  EXPECT_EQ(semantic_item_kind_key(static_cast<SemanticItemKind>(999)), "global");
+
+  {
+    std::unique_ptr<StringAST> path(StringAST::Create("plain.txt"));
+    EXPECT_EQ(path_name_from_ast(path.get()), "plain.txt");
+  }
+  {
+    std::unique_ptr<ResPathAST> path(ResPathAST::Create(StyioPathType::local_relevant_any, "rel/path"));
+    EXPECT_EQ(path_name_from_ast(path.get()), "rel/path");
+  }
+  {
+    std::unique_ptr<RemotePathAST> path(RemotePathAST::Create(StyioPathType::ipv4_addr, "127.0.0.1"));
+    EXPECT_EQ(path_name_from_ast(path.get()), "127.0.0.1");
+  }
+  {
+    std::unique_ptr<WebUrlAST> path(WebUrlAST::Create(StyioPathType::url_https, "https://example.test"));
+    EXPECT_EQ(path_name_from_ast(path.get()), "https://example.test");
+  }
+  {
+    std::unique_ptr<FileResourceAST> file(FileResourceAST::Create(StringAST::Create("nested.txt"), true));
+    EXPECT_EQ(path_name_from_ast(file.get()), "nested.txt");
+  }
+  {
+    std::unique_ptr<NameAST> name(NameAST::Create(""));
+    EXPECT_EQ(path_name_from_ast(name.get()), "");
+  }
+
+  std::variant<TypeAST*, TypeTupleAST*> tuple_ret(static_cast<TypeTupleAST*>(nullptr));
+  EXPECT_EQ(type_name_from_variant(tuple_ret), "undefined");
+  EXPECT_EQ(signature_for_function(IntAST::Create("1")), "");
+  EXPECT_EQ(type_name_from_var(nullptr), "");
+  {
+    std::unique_ptr<ParamAST> param(ParamAST::Create(NameAST::Create("p")));
+    const auto params = params_from_ast({nullptr, param.get()});
+    ASSERT_EQ(params.size(), 1u);
+    EXPECT_EQ(params[0].name, "p");
+    EXPECT_EQ(params[0].type_name, "");
+  }
+
+  SemanticSummary summary;
+  std::unordered_map<std::string, std::size_t> ordinals;
+  append_item_fact(
+    summary,
+    SemanticItemFact{SemanticItemKind::Import, "", {}, "import", "", 0, true},
+    ordinals);
+  append_item_fact(
+    summary,
+    SemanticItemFact{SemanticItemKind::Import, "pkg.math", {}, "import", "", 0, true},
+    ordinals);
+  ASSERT_EQ(summary.items.size(), 2u);
+  EXPECT_EQ(summary.items[0].name, "import");
+  EXPECT_EQ(summary.items[1].name, "pkg/math");
+
+  collect_semantic_items(summary, nullptr);
+  summary.inferred_types["mut"] = "string";
+  {
+    std::unique_ptr<MainBlockAST> main_block(MainBlockAST::Create({
+      nullptr,
+      FunctionAST::Create(
+        NameAST::Create("fn"),
+        false,
+        {ParamAST::Create(NameAST::Create("arg"), TypeAST::Create("i32"))},
+        TypeAST::Create("i64"),
+        BlockAST::Create({ReturnAST::Create(IntAST::Create("1"))})),
+      SimpleFuncAST::Create(
+        NameAST::Create("simple"),
+        {ParamAST::Create(NameAST::Create("value"))},
+        TypeAST::Create("string"),
+        StringAST::Create("ok")),
+      FlexBindAST::Create(
+        VarAST::Create(NameAST::Create("mut"), TypeAST::Create("i64")),
+        StringAST::Create("changed")),
+      FinalBindAST::Create(
+        VarAST::Create(NameAST::Create("fixed"), TypeAST::Create("bool")),
+        BoolAST::Create(true)),
+      new ExtPackAST({"tools.net", "already/path"}),
+      ResourceAST::Create({
+        {FinalBindAST::Create(
+           VarAST::Create(NameAST::Create("handle")),
+           FileResourceAST::Create(StringAST::Create("handle.txt"), false)), "file"},
+        {StringAST::Create("plain.txt"), "text"},
+        {FileResourceAST::Create(StringAST::Create("nested.txt"), true), ""},
+        {NameAST::Create(""), ""},
+      }),
+    }));
+    collect_semantic_items(summary, main_block.get());
+  }
+  const std::size_t before_malformed_items = summary.items.size();
+  {
+    std::unique_ptr<MainBlockAST> malformed(MainBlockAST::Create({
+      SimpleFuncAST::Create(),
+      FlexBindAST::Create(nullptr, IntAST::Create("1")),
+      FinalBindAST::Create(nullptr, IntAST::Create("2")),
+    }));
+    collect_semantic_items(summary, malformed.get());
+  }
+  EXPECT_EQ(summary.items.size(), before_malformed_items);
+
+  EXPECT_TRUE(std::any_of(
+    summary.items.begin(),
+    summary.items.end(),
+    [](const SemanticItemFact& item)
+    {
+      return item.kind == SemanticItemKind::Function
+        && item.name == "fn"
+        && item.detail.find("fn(arg: i32)") != std::string::npos;
+    }));
+  EXPECT_TRUE(std::any_of(
+    summary.items.begin(),
+    summary.items.end(),
+    [](const SemanticItemFact& item)
+    {
+      return item.kind == SemanticItemKind::GlobalBinding
+        && item.name == "mut"
+        && item.type_name == "string";
+    }));
+  EXPECT_TRUE(std::any_of(
+    summary.items.begin(),
+    summary.items.end(),
+    [](const SemanticItemFact& item)
+    {
+      return item.kind == SemanticItemKind::Resource && item.name == "resource@0";
+    }));
+  EXPECT_TRUE(std::any_of(
+    summary.items.begin(),
+    summary.items.end(),
+    [](const SemanticItemFact& item)
+    {
+      return item.kind == SemanticItemKind::Resource && item.name == "nested.txt";
+    }));
+}
+
+TEST(StyioIdeProject, EnvironmentFallbacksAndWorkspaceSkipsStayExplicit) {
+  EnvVarGuard xdg_cache_home("XDG_CACHE_HOME");
+  EnvVarGuard home("HOME");
+
+  const std::filesystem::path root = make_temp_project_dir("ide-project-env");
+  write_text_file((root / "main.styio").string(), "value: i32 := 1\n");
+  std::filesystem::create_directories(root / ".git");
+  std::filesystem::create_directories(root / "build");
+  std::filesystem::create_directories(root / "build-codex");
+  write_text_file((root / ".git" / "hidden.styio").string(), "hidden: i32 := 1\n");
+  write_text_file((root / "build" / "hidden.styio").string(), "hidden: i32 := 1\n");
+  write_text_file((root / "build-codex" / "hidden.styio").string(), "hidden: i32 := 1\n");
+
+  const std::filesystem::path cache = root / "cache-home";
+  xdg_cache_home.set(cache.string());
+  home.set((root / "home").string());
+  styio::ide::Project project;
+  project.set_root(root.string());
+  EXPECT_NE(project.cache_root().find((cache / "styio" / "ide").string()), std::string::npos);
+  ASSERT_EQ(project.workspace_files().size(), 1u);
+  EXPECT_EQ(std::filesystem::path(project.workspace_files()[0]).filename(), "main.styio");
+
+  xdg_cache_home.unset();
+  home.unset();
+  styio::ide::Project fallback;
+  fallback.set_root("");
+  EXPECT_TRUE(fallback.workspace_files().empty());
+  EXPECT_NE(fallback.cache_root().find("styio-ide-cache"), std::string::npos);
+}
+
+TEST(StyioIdeService, RuntimeSchedulingEdgesStayExplicit) {
+  const std::filesystem::path root = make_temp_project_dir("ide-service-runtime");
+  const std::filesystem::path lib_path = root / "lib.styio";
+  const std::filesystem::path other_path = root / "other.styio";
+  write_text_file(lib_path.string(), "# value := () => 1\n");
+  write_text_file(other_path.string(), "other: i32 := 2\n");
+
+  styio::ide::IdeService service;
+  service.initialize(styio::ide::uri_from_path(root.string()));
+
+  const std::string lib_uri = styio::ide::uri_from_path(lib_path.string());
+  service.did_open(lib_uri, "# value := () => 1\nvalue_result: i32 := value()\n", 1);
+  service.schedule_background_index_refresh();
+  EXPECT_EQ(service.pending_background_task_count(), 1u);
+  EXPECT_EQ(service.runtime_counters().background_tasks_enqueued, 1u);
+  EXPECT_EQ(service.run_background_tasks(10), 1u);
+  EXPECT_EQ(service.runtime_counters().background_tasks_completed, 1u);
+
+  const auto ticket = service.begin_foreground_request(
+    lib_uri,
+    styio::ide::RuntimeRequestKind::Completion,
+    9001);
+  service.did_close(lib_uri);
+  EXPECT_TRUE(service.completion(ticket, styio::ide::Position{0, 0}).empty());
+  EXPECT_EQ(service.runtime_counters().stale_request_drops, 1u);
+}
+
 TEST(StyioIdeService, DocumentSymbolsHoverDefinitionAndCompletion) {
   styio::ide::IdeService service;
   service.initialize(styio::ide::uri_from_path(make_temp_dir()));
@@ -545,6 +869,186 @@ TEST(StyioSyntaxParser, UsesTreeSitterBackendWhenAvailable) {
   EXPECT_TRUE(syntax.diagnostics.empty());
 }
 
+TEST(StyioSyntaxParser, TolerantTokenizerCoversWidePunctuationAndQueries) {
+  styio::ide::SyntaxParser parser;
+  styio::ide::DocumentSnapshot snapshot;
+  snapshot.file_id = 12;
+  snapshot.snapshot_id = 1;
+  snapshot.path = "memory://wide_syntax_tokens.styio";
+  snapshot.version = 1;
+  snapshot.buffer = styio::ide::TextBuffer{
+    "// comment\r\n"
+    "/* closed */\n"
+    "123 45.67 ... |<| -> <- << >> >= <= == != && || ** += -= *= /= %= [| |] |; <~ ~> ?? ?|\n"
+    "$ = ? < > | ! ^ ~ @ _ \"unterminated\n"
+    "{ [ ( name.member, other: i32 ?= _ ) ] }\n"};
+
+  const auto syntax = parser.parse(snapshot);
+
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::COMMENT_LINE, "// comment"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::TOK_CR, "\r"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::COMMENT_CLOSED, "/* closed */"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::INTEGER, "123"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::DECIMAL, "45.67"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::ELLIPSIS, "..."));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::RETURN_PIPE, "|<|"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::ARROW_SINGLE_RIGHT, "->"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::ARROW_SINGLE_LEFT, "<-"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::EXTRACTOR, "<<"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::ITERATOR, ">>"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::BINOP_GE, ">="));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::BINOP_LE, "<="));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::BINOP_EQ, "=="));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::BINOP_NE, "!="));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::LOGIC_AND, "&&"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::LOGIC_OR, "||"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::BINOP_POW, "**"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::COMPOUND_ADD, "+="));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::COMPOUND_SUB, "-="));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::COMPOUND_MUL, "*="));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::COMPOUND_DIV, "/="));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::COMPOUND_MOD, "%="));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::BOUNDED_BUFFER_OPEN, "[|"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::BOUNDED_BUFFER_CLOSE, "|]"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::PIPE_SEMICOLON, "|;"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::WAVE_LEFT, "<~"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::WAVE_RIGHT, "~>"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::DBQUESTION, "??"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::AWAIT_PIPE, "?|"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::TOK_DOLLAR, "$"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::TOK_EQUAL, "="));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::TOK_QUEST, "?"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::TOK_LANGBRAC, "<"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::TOK_RANGBRAC, ">"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::TOK_PIPE, "|"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::TOK_EXCLAM, "!"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::TOK_HAT, "^"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::TOK_TILDE, "~"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::TOK_UNDLINE, "_"));
+
+  EXPECT_NE(
+    std::find_if(
+      syntax.diagnostics.begin(),
+      syntax.diagnostics.end(),
+      [](const styio::ide::Diagnostic& diagnostic)
+      {
+        return diagnostic.message == "unterminated string literal";
+      }),
+    syntax.diagnostics.end());
+
+  EXPECT_EQ(syntax.position_kind_at(0), styio::ide::PositionKind::TopLevel);
+  EXPECT_EQ(
+    syntax.expected_tokens_at(0),
+    std::vector<std::string>({"NAME", "#", "@", "["}));
+  EXPECT_EQ(
+    syntax.expected_categories_at(0),
+    std::vector<std::string>({"value", "function", "keyword", "snippet"}));
+  const std::size_t member_offset = snapshot.buffer.text().find("member");
+  ASSERT_NE(member_offset, std::string::npos);
+  EXPECT_EQ(syntax.position_kind_at(member_offset), styio::ide::PositionKind::MemberAccess);
+  EXPECT_EQ(syntax.expected_categories_at(member_offset), std::vector<std::string>({"member"}));
+  const std::size_t type_offset = snapshot.buffer.text().find("i32");
+  ASSERT_NE(type_offset, std::string::npos);
+  EXPECT_EQ(syntax.position_kind_at(type_offset), styio::ide::PositionKind::Type);
+  EXPECT_EQ(syntax.expected_tokens_at(type_offset), std::vector<std::string>({"NAME"}));
+  EXPECT_EQ(syntax.expected_categories_at(type_offset), std::vector<std::string>({"type"}));
+  const std::size_t pattern_offset = snapshot.buffer.text().find("_ )");
+  ASSERT_NE(pattern_offset, std::string::npos);
+  EXPECT_EQ(syntax.position_kind_at(pattern_offset), styio::ide::PositionKind::Pattern);
+  EXPECT_EQ(
+    syntax.expected_tokens_at(pattern_offset),
+    std::vector<std::string>({"NAME", "INTEGER", "STRING", "_"}));
+  EXPECT_EQ(
+    syntax.expected_categories_at(pattern_offset),
+    std::vector<std::string>({"pattern", "literal"}));
+  const std::size_t attr_offset = snapshot.buffer.text().find("@ _");
+  ASSERT_NE(attr_offset, std::string::npos);
+  EXPECT_EQ(syntax.position_kind_at(attr_offset + 2), styio::ide::PositionKind::AttrName);
+  EXPECT_EQ(syntax.expected_tokens_at(attr_offset + 2), std::vector<std::string>({"NAME"}));
+  EXPECT_EQ(
+    syntax.expected_categories_at(attr_offset + 2),
+    std::vector<std::string>({"resource", "attribute"}));
+
+  EXPECT_EQ(syntax.prefix_at(snapshot.buffer.size() + 100), "");
+  EXPECT_FALSE(syntax.node_path_at(0).empty());
+  EXPECT_NE(syntax.node_at_offset(0), nullptr);
+  EXPECT_EQ(syntax.node_at_offset(snapshot.buffer.size() + 100), nullptr);
+  EXPECT_FALSE(syntax.token_index_at(snapshot.buffer.size() + 100).has_value());
+}
+
+TEST(StyioSyntaxParser, TolerantDiagnosticsAndContextQueriesCoverEdges) {
+  styio::ide::SyntaxParser parser;
+  styio::ide::DocumentSnapshot snapshot;
+  snapshot.file_id = 13;
+  snapshot.snapshot_id = 1;
+  snapshot.path = make_temp_dir() + "/syntax_edge_queries.styio";
+  snapshot.version = 1;
+  snapshot.buffer = styio::ide::TextBuffer{
+    "{\n"
+    "  fn(a, b) -\n"
+    "  list[0\n"
+    "}\n"
+    ")\n"
+    "/* unterminated"};
+
+  const auto syntax = parser.parse(snapshot);
+
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::COMMENT_CLOSED, "/* unterminated"));
+  EXPECT_TRUE(has_token(syntax, StyioTokenType::TOK_MINUS, "-"));
+  EXPECT_NE(
+    std::find_if(
+      syntax.diagnostics.begin(),
+      syntax.diagnostics.end(),
+      [](const styio::ide::Diagnostic& diagnostic)
+      {
+        return diagnostic.message == "unterminated block comment";
+      }),
+    syntax.diagnostics.end());
+  EXPECT_NE(
+    std::find_if(
+      syntax.diagnostics.begin(),
+      syntax.diagnostics.end(),
+      [](const styio::ide::Diagnostic& diagnostic)
+      {
+        return diagnostic.message.find("unmatched closing token") != std::string::npos;
+      }),
+    syntax.diagnostics.end());
+  EXPECT_NE(
+    std::find_if(
+      syntax.diagnostics.begin(),
+      syntax.diagnostics.end(),
+      [](const styio::ide::Diagnostic& diagnostic)
+      {
+        return diagnostic.message.find("unclosed opening token") != std::string::npos;
+      }),
+    syntax.diagnostics.end());
+
+  const std::size_t inner_offset = snapshot.buffer.text().find("fn");
+  ASSERT_NE(inner_offset, std::string::npos);
+  EXPECT_EQ(syntax.position_kind_at(inner_offset), styio::ide::PositionKind::StmtStart);
+  EXPECT_EQ(syntax.expected_categories_at(inner_offset), std::vector<std::string>({"value", "function", "keyword", "snippet"}));
+
+  const std::size_t arg_offset = snapshot.buffer.text().find("b)");
+  ASSERT_NE(arg_offset, std::string::npos);
+  EXPECT_EQ(syntax.position_kind_at(arg_offset), styio::ide::PositionKind::CallArg);
+  EXPECT_EQ(
+    syntax.expected_tokens_at(arg_offset),
+    std::vector<std::string>({"NAME", "INTEGER", "STRING", "(", "[", "@"}));
+
+  const auto next = syntax.next_non_trivia_index(0);
+  ASSERT_TRUE(next.has_value());
+  EXPECT_EQ(syntax.tokens[*next].type, StyioTokenType::TOK_LCURBRAC);
+
+  parser.drop_cached_file(snapshot.path);
+  styio::ide::DocumentSnapshot second = snapshot;
+  second.snapshot_id = 2;
+  second.version = 2;
+  second.buffer = styio::ide::TextBuffer{"value: i32 := 1\n"};
+  const auto reparsed = parser.parse(second);
+  EXPECT_FALSE(reparsed.tokens.empty());
+  EXPECT_TRUE(reparsed.diagnostics.empty());
+}
+
 TEST(StyioSyntaxParser, ReusesIncrementalTreeForSubsequentParses) {
   styio::ide::SyntaxParser parser;
 
@@ -578,6 +1082,126 @@ TEST(StyioSyntaxParser, ReusesIncrementalTreeForSubsequentParses) {
 #else
   EXPECT_FALSE(second.reused_incremental_tree);
 #endif
+}
+
+TEST(StyioIDEIndex, OpenBackgroundAndPersistentIndexCoverEdgeBranches) {
+  styio::ide::HirModule module;
+  module.symbols.push_back(styio::ide::HirSymbol{
+    1,
+    "alpha",
+    styio::ide::SymbolKind::Function,
+    0,
+    std::optional<styio::ide::ItemId>{1},
+    styio::ide::TextRange{0, 5},
+    styio::ide::TextRange{0, 20},
+    "alpha(x: i32) -> i64",
+    "",
+    "alpha-key",
+    true});
+  module.symbols.push_back(styio::ide::HirSymbol{
+    2,
+    "beta",
+    styio::ide::SymbolKind::Variable,
+    0,
+    std::nullopt,
+    styio::ide::TextRange{21, 25},
+    styio::ide::TextRange{21, 32},
+    "",
+    "string",
+    "beta-key",
+    true});
+  module.symbols.push_back(styio::ide::HirSymbol{
+    3,
+    "local_only",
+    styio::ide::SymbolKind::Variable,
+    7,
+    std::nullopt,
+    styio::ide::TextRange{33, 43},
+    styio::ide::TextRange{33, 50},
+    "",
+    "i64",
+    "local-key",
+    true});
+  module.references.push_back(styio::ide::HirReference{
+    "alpha",
+    0,
+    styio::ide::TextRange{60, 65},
+    std::optional<styio::ide::SymbolId>{1}});
+
+  const std::string path = make_temp_dir() + "/indexed.styio";
+  styio::ide::OpenFileIndex open_index;
+  open_index.update(path, module);
+  EXPECT_EQ(open_index.query_symbols("").size(), 2u);
+  EXPECT_EQ(open_index.query_symbols("alp").size(), 1u);
+  EXPECT_EQ(open_index.query_symbols_exact("beta").size(), 1u);
+  EXPECT_EQ(open_index.query_references("alpha").size(), 1u);
+  EXPECT_EQ(open_index.indexed_paths(), std::vector<std::string>({path}));
+  open_index.erase(path);
+  EXPECT_TRUE(open_index.query_symbols("").empty());
+  EXPECT_TRUE(open_index.query_references("alpha").empty());
+
+  styio::ide::BackgroundIndex background_index;
+  background_index.update(path, module);
+  EXPECT_EQ(background_index.query_symbols_exact("alpha").size(), 1u);
+  EXPECT_EQ(background_index.query_references("alpha").size(), 1u);
+  EXPECT_EQ(background_index.indexed_paths(), std::vector<std::string>({path}));
+  background_index.erase(path);
+  EXPECT_TRUE(background_index.query_symbols("").empty());
+
+  styio::ide::PersistentIndex empty_persistent;
+  empty_persistent.save_symbols({});
+  EXPECT_TRUE(empty_persistent.load_symbols().empty());
+
+  const std::filesystem::path cache_root = make_temp_project_dir("ide-index");
+  styio::ide::PersistentIndex persistent(cache_root.string());
+  EXPECT_TRUE(persistent.load_symbols().empty());
+  persistent.save_symbols({
+    styio::ide::IndexedSymbol{
+      path,
+      "alpha",
+      styio::ide::SymbolKind::Function,
+      styio::ide::TextRange{0, 20},
+      styio::ide::TextRange{0, 5},
+      "alpha(x: i32) -> i64"},
+    styio::ide::IndexedSymbol{
+      path,
+      "param",
+      styio::ide::SymbolKind::Parameter,
+      styio::ide::TextRange{6, 11},
+      styio::ide::TextRange{6, 11},
+      "i32"},
+    styio::ide::IndexedSymbol{
+      path,
+      "builtin",
+      styio::ide::SymbolKind::Builtin,
+      styio::ide::TextRange{12, 19},
+      styio::ide::TextRange{12, 19},
+      "builtin detail"},
+  });
+  const auto loaded = persistent.load_symbols();
+  ASSERT_EQ(loaded.size(), 3u);
+  EXPECT_EQ(loaded[0].kind, styio::ide::SymbolKind::Function);
+  EXPECT_EQ(loaded[1].kind, styio::ide::SymbolKind::Parameter);
+  EXPECT_EQ(loaded[2].kind, styio::ide::SymbolKind::Builtin);
+
+  write_text_file((cache_root / "symbols.json").string(), "{not-json");
+  EXPECT_TRUE(persistent.load_symbols().empty());
+  write_text_file((cache_root / "symbols.json").string(), "{\"symbols\":[]}");
+  EXPECT_TRUE(persistent.load_symbols().empty());
+  write_text_file(
+    (cache_root / "symbols.json").string(),
+    "[null,{\"path\":\"p\",\"name\":\"mystery\",\"kind\":\"unknown\","
+    "\"range_start\":2,\"range_end\":5,\"selection_start\":3,"
+    "\"selection_end\":4,\"detail\":\"d\"}]");
+  const auto unknown_kind = persistent.load_symbols();
+  ASSERT_EQ(unknown_kind.size(), 1u);
+  EXPECT_EQ(unknown_kind[0].kind, styio::ide::SymbolKind::Variable);
+  EXPECT_EQ(unknown_kind[0].range.start, 2u);
+  EXPECT_EQ(unknown_kind[0].selection_range.end, 4u);
+
+  persistent.set_cache_root("");
+  persistent.save_symbols(unknown_kind);
+  EXPECT_TRUE(persistent.load_symbols().empty());
 }
 
 TEST(StyioSyntaxParser, ReusesIncrementalTreeAcrossMultiEditDelta) {
@@ -707,6 +1331,10 @@ TEST(StyioHirBuilder, BuildsStableTopLevelItems) {
   EXPECT_TRUE(add->canonical);
   EXPECT_TRUE(add->scope_id.has_value());
   EXPECT_NE(add->detail.find("add"), std::string::npos);
+  EXPECT_EQ(module.item_by_id(add->id), add);
+  EXPECT_EQ(module.item_by_name("add"), add);
+  EXPECT_EQ(module.item_by_id(999999), nullptr);
+  EXPECT_EQ(module.item_by_name("missing"), nullptr);
 
   const auto* result = find_hir_item(module, "result", styio::ide::HirItemKind::GlobalBinding);
   ASSERT_NE(result, nullptr);
@@ -852,6 +1480,158 @@ TEST(StyioHirBuilder, ModelsNestedScopesAndBindings) {
   EXPECT_TRUE(has_nested_block);
 }
 
+TEST(StyioHirBuilder, ModelsLegacyFunctionAssignmentScopes) {
+  styio::ide::HirIdentityStore identity_store;
+  const std::string path = make_temp_dir() + "/hir_legacy_function.styio";
+  const std::string source =
+    "legacy(a: i32, b: i32) := {\n"
+    "  total: i32 := a + b\n"
+    "  <| total\n"
+    "}\n"
+    "out: i32 := legacy(1, 2)\n";
+
+  const auto module = build_hir_for_source(path, source, 26, 1, identity_store);
+  const auto* legacy = find_hir_item(module, "legacy", styio::ide::HirItemKind::Function);
+  ASSERT_NE(legacy, nullptr);
+  ASSERT_TRUE(legacy->scope_id.has_value());
+  EXPECT_NE(legacy->fingerprint, 0u);
+  EXPECT_NE(legacy->signature_fingerprint, legacy->body_fingerprint);
+
+  const auto* param_a = find_hir_symbol(module, "a", styio::ide::SymbolKind::Parameter);
+  const auto* param_b = find_hir_symbol(module, "b", styio::ide::SymbolKind::Parameter);
+  ASSERT_NE(param_a, nullptr);
+  ASSERT_NE(param_b, nullptr);
+  EXPECT_EQ(param_a->scope_id, *legacy->scope_id);
+  EXPECT_EQ(param_b->scope_id, *legacy->scope_id);
+  ASSERT_TRUE(param_a->item_id.has_value());
+  EXPECT_EQ(*param_a->item_id, legacy->id);
+
+  const auto* total = find_hir_symbol(module, "total", styio::ide::SymbolKind::Variable);
+  ASSERT_NE(total, nullptr);
+  EXPECT_EQ(total->scope_id, *legacy->scope_id);
+
+  const auto* out = find_hir_item(module, "out", styio::ide::HirItemKind::GlobalBinding);
+  ASSERT_NE(out, nullptr);
+
+  EXPECT_NE(module.reference_at(source.find("legacy(1")), nullptr);
+}
+
+TEST(StyioHirBuilder, ModelsHashLambdaBlockScopes) {
+  styio::ide::HirIdentityStore identity_store;
+  const std::string path = make_temp_dir() + "/hir_hash_lambda.styio";
+  const std::string source =
+    "#(item: i32) => {\n"
+    "  local: i32 := item\n"
+    "}\n";
+
+  const auto module = build_hir_for_source(path, source, 27, 1, identity_store);
+  const auto* item = find_hir_symbol(module, "item", styio::ide::SymbolKind::Parameter);
+  ASSERT_NE(item, nullptr);
+  EXPECT_NE(item->scope_id, 0u);
+  EXPECT_FALSE(item->item_id.has_value());
+
+  const auto* local = find_hir_symbol(module, "local", styio::ide::SymbolKind::Variable);
+  ASSERT_NE(local, nullptr);
+  EXPECT_EQ(local->scope_id, item->scope_id);
+
+  const bool has_lambda_block = std::any_of(
+    module.scopes.begin(),
+    module.scopes.end(),
+    [&](const styio::ide::HirScope& scope)
+    {
+      return scope.kind == styio::ide::HirScopeKind::Block
+        && scope.id == item->scope_id;
+    });
+  EXPECT_TRUE(has_lambda_block);
+  EXPECT_NE(module.reference_at(source.rfind("item")), nullptr);
+}
+
+TEST(StyioHirBuilder, CoversFallbackAndMalformedSyntaxEdges) {
+  const std::string root = make_temp_dir();
+
+  auto parse_syntax = [](const std::string& path,
+                         const std::string& source,
+                         styio::ide::FileId file_id,
+                         styio::ide::SnapshotId snapshot_id)
+  {
+    styio::ide::DocumentSnapshot snapshot;
+    snapshot.file_id = file_id;
+    snapshot.snapshot_id = snapshot_id;
+    snapshot.path = path;
+    snapshot.version = static_cast<styio::ide::DocumentVersion>(snapshot_id);
+    snapshot.buffer = styio::ide::TextBuffer{source};
+
+    styio::ide::SyntaxParser parser;
+    return parser.parse(snapshot);
+  };
+
+  styio::ide::SemanticSummary empty_semantic;
+
+  const auto empty_syntax = parse_syntax(root + "/hir_empty.styio", "", 31, 1);
+  const auto no_store_module = styio::ide::HirBuilder{}.build(empty_syntax, empty_semantic);
+  EXPECT_EQ(no_store_module.file_id, 31u);
+  EXPECT_TRUE(no_store_module.items.empty());
+  ASSERT_EQ(no_store_module.scopes.size(), 1u);
+  EXPECT_EQ(no_store_module.scopes.front().kind, styio::ide::HirScopeKind::Module);
+
+  styio::ide::HirIdentityStore identity_store;
+  const auto orphan_syntax = parse_syntax(root + "/hir_orphan.styio", "# orphan\n", 32, 1);
+  const auto orphan_module = styio::ide::HirBuilder{}.build(orphan_syntax, empty_semantic, identity_store);
+  const auto* orphan = find_hir_item(orphan_module, "orphan", styio::ide::HirItemKind::Function);
+  ASSERT_NE(orphan, nullptr);
+  EXPECT_EQ(orphan->signature_fingerprint, orphan->fingerprint);
+  EXPECT_EQ(orphan->body_fingerprint, orphan->fingerprint);
+
+  const auto odd_param_syntax = parse_syntax(
+    root + "/hir_odd_param.styio",
+    "# odd := (1, value: i32) => value\n",
+    33,
+    1);
+  const auto odd_module = styio::ide::HirBuilder{}.build(odd_param_syntax, empty_semantic, identity_store);
+  EXPECT_NE(find_hir_item(odd_module, "odd", styio::ide::HirItemKind::Function), nullptr);
+  EXPECT_NE(find_hir_symbol(odd_module, "value", styio::ide::SymbolKind::Parameter), nullptr);
+
+  const auto lambda_expr_syntax = parse_syntax(
+    root + "/hir_lambda_expr.styio",
+    "#(item: i32) => item\n",
+    34,
+    1);
+  const auto lambda_expr_module = styio::ide::HirBuilder{}.build(lambda_expr_syntax, empty_semantic, identity_store);
+  EXPECT_NE(find_hir_symbol(lambda_expr_module, "item", styio::ide::SymbolKind::Parameter), nullptr);
+  EXPECT_NE(lambda_expr_module.reference_at(lambda_expr_syntax.buffer.text().rfind("item")), nullptr);
+
+  const auto legacy_expr_syntax = parse_syntax(
+    root + "/hir_legacy_expr.styio",
+    "legacy(a: i32) := a\n",
+    35,
+    1);
+  const auto legacy_expr_module = styio::ide::HirBuilder{}.build(legacy_expr_syntax, empty_semantic, identity_store);
+  EXPECT_NE(find_hir_item(legacy_expr_module, "legacy", styio::ide::HirItemKind::Function), nullptr);
+  EXPECT_NE(legacy_expr_module.reference_at(legacy_expr_syntax.buffer.text().rfind("a")), nullptr);
+
+  const auto unmatched_block_syntax = parse_syntax(root + "/hir_unmatched_block.styio", "{\nmissing\n", 36, 1);
+  const auto unmatched_block_module = styio::ide::HirBuilder{}.build(unmatched_block_syntax, empty_semantic, identity_store);
+  EXPECT_NE(unmatched_block_module.reference_at(unmatched_block_syntax.buffer.text().find("missing")), nullptr);
+
+  styio::ide::SyntaxSnapshot bad_range_syntax;
+  bad_range_syntax.file_id = 37;
+  bad_range_syntax.snapshot_id = 1;
+  bad_range_syntax.path = root + "/hir_bad_range.styio";
+  bad_range_syntax.buffer = styio::ide::TextBuffer{""};
+  bad_range_syntax.tokens.push_back(styio::ide::SyntaxToken{
+    StyioTokenType::TOK_HASH,
+    "#",
+    styio::ide::TextRange{3, 4}});
+  bad_range_syntax.tokens.push_back(styio::ide::SyntaxToken{
+    StyioTokenType::NAME,
+    "bad_range",
+    styio::ide::TextRange{5, 14}});
+  const auto bad_range_module = styio::ide::HirBuilder{}.build(bad_range_syntax, empty_semantic, identity_store);
+  const auto* bad_range = find_hir_item(bad_range_module, "bad_range", styio::ide::HirItemKind::Function);
+  ASSERT_NE(bad_range, nullptr);
+  EXPECT_EQ(bad_range->fingerprint, 0u);
+}
+
 TEST(StyioIdeService, UsesHirBackedDocumentSymbolsAndDefinition) {
   styio::ide::IdeService service;
   service.initialize(styio::ide::uri_from_path(make_temp_dir()));
@@ -872,6 +1652,32 @@ TEST(StyioIdeService, UsesHirBackedDocumentSymbolsAndDefinition) {
   const auto definitions = service.definition(uri, styio::ide::Position{1, 16});
   ASSERT_EQ(definitions.size(), 1u);
   EXPECT_EQ(definitions[0].range.start, 2u);
+}
+
+TEST(StyioIdeService, FullResyncStatePublishesSyntaxAndSemanticDiagnostics) {
+  styio::ide::IdeService service;
+  service.initialize(styio::ide::uri_from_path(make_temp_dir()));
+
+  const std::string uri = temp_uri("full_resync_sample.styio");
+  const std::string source = "value: i32 := 1\n";
+  EXPECT_TRUE(service.did_open(uri, source, 1).empty());
+  service.drain_semantic_diagnostics();
+
+  styio::ide::DocumentDelta delta;
+  delta.requires_full_resync = true;
+  delta.resync_reason = "malformed content change";
+
+  const auto syntax_diagnostics = service.did_change(uri, delta, 2);
+  ASSERT_FALSE(syntax_diagnostics.empty());
+  EXPECT_EQ(syntax_diagnostics.back().code, "STYIO_SERVICE_LSP_RESYNC_REQUIRED");
+  EXPECT_NE(syntax_diagnostics.back().message.find("malformed content change"), std::string::npos);
+
+  const auto publications = service.drain_semantic_diagnostics();
+  ASSERT_EQ(publications.size(), 1u);
+  ASSERT_FALSE(publications[0].diagnostics.empty());
+  const auto& diagnostic = publications[0].diagnostics.back();
+  EXPECT_EQ(diagnostic.code, "STYIO_SERVICE_LSP_RESYNC_REQUIRED");
+  EXPECT_EQ(diagnostic.phase, "service");
 }
 
 TEST(StyioNameResolver, LocalBindingsShadowImportsAndGlobals) {
@@ -1155,6 +1961,52 @@ TEST(StyioIdeService, ExposesCallSiteExpectedTypes) {
   EXPECT_EQ(context.argument_index, 1u);
 }
 
+TEST(StyioSemanticDb, ExposesReceiverAndExpectedTypeQueriesDirectly) {
+  styio::ide::VirtualFileSystem vfs;
+  styio::ide::Project project;
+  styio::ide::SemanticDB semdb(vfs, project);
+  const std::string path = make_temp_dir() + "/semantic_type_contexts.styio";
+  const std::string source =
+    "items: list[i32] := [1, 2]\n"
+    "# take := (value: string) => value\n"
+    "member_result: i32 := items.len\n"
+    "call_result: string := take(\"text\")\n";
+  vfs.open(path, source, 1);
+  semdb.reset_query_stats();
+
+  const std::size_t member_offset = source.find("len");
+  ASSERT_NE(member_offset, std::string::npos);
+  const auto receiver = semdb.receiver_type_at(path, member_offset);
+  ASSERT_TRUE(receiver.has_value());
+  EXPECT_TRUE(receiver->known);
+  EXPECT_EQ(receiver->receiver_name, "items");
+  EXPECT_EQ(receiver->type_name, "list[i32]");
+
+  const auto receiver_again = semdb.receiver_type_at(path, member_offset);
+  ASSERT_TRUE(receiver_again.has_value());
+  EXPECT_EQ(receiver_again->type_name, receiver->type_name);
+
+  const std::size_t argument_offset = source.find("\"text\"");
+  ASSERT_NE(argument_offset, std::string::npos);
+  const auto expected = semdb.expected_type_at(path, argument_offset + 1);
+  ASSERT_TRUE(expected.has_value());
+  EXPECT_TRUE(expected->known);
+  EXPECT_EQ(expected->callee_name, "take");
+  EXPECT_EQ(expected->param_name, "value");
+  EXPECT_EQ(expected->type_name, "string");
+  EXPECT_EQ(expected->argument_index, 0u);
+
+  const auto expected_again = semdb.expected_type_at(path, argument_offset + 1);
+  ASSERT_TRUE(expected_again.has_value());
+  EXPECT_EQ(expected_again->type_name, expected->type_name);
+
+  const auto stats = semdb.query_stats();
+  EXPECT_EQ(stats.receiver_type.misses, 1u);
+  EXPECT_EQ(stats.receiver_type.hits, 1u);
+  EXPECT_EQ(stats.expected_type.misses, 1u);
+  EXPECT_EQ(stats.expected_type.hits, 1u);
+}
+
 TEST(StyioCompletionEngine, FiltersTypePositionCandidates) {
   const std::string root = make_temp_project_dir("ide_type_position");
   styio::ide::IdeService service;
@@ -1210,6 +2062,28 @@ TEST(StyioCompletionEngine, RanksLocalsAboveImportsAndBuiltins) {
   EXPECT_LT(completion_index(ranked_completion, "status"), completion_index(ranked_completion, "stable"));
 }
 
+TEST(StyioCompletionEngine, ReplacesOuterCompletionWithCloserDuplicate) {
+  const std::string root = make_temp_project_dir("ide_duplicate_completion");
+  styio::ide::IdeService service;
+  service.initialize(styio::ide::uri_from_path(root));
+
+  const std::string uri = styio::ide::uri_from_path((std::filesystem::path(root) / "duplicates.styio").string());
+  const std::string source =
+    "shadow: i32 := 1\n"
+    "# use := (shadow: string) => {\n"
+    "  sha\n"
+    "}\n";
+  service.did_open(uri, source, 1);
+
+  styio::ide::TextBuffer buffer(source);
+  const std::size_t completion_offset = source.find("sha\n");
+  ASSERT_NE(completion_offset, std::string::npos);
+  const auto completion = service.completion(uri, buffer.position_at(completion_offset + 3));
+  const std::size_t shadow_index = completion_index(completion, "shadow");
+  ASSERT_LT(shadow_index, completion.size());
+  EXPECT_EQ(completion[shadow_index].detail, "parameter");
+}
+
 TEST(StyioCompletionEngine, FiltersMembersByReceiverType) {
   const std::string root = make_temp_project_dir("ide_member_filter");
   styio::ide::IdeService service;
@@ -1229,6 +2103,54 @@ TEST(StyioCompletionEngine, FiltersMembersByReceiverType) {
   EXPECT_TRUE(has_completion_label(completion, "last"));
   EXPECT_FALSE(has_completion_label(completion, "keys"));
   EXPECT_FALSE(has_completion_label(completion, "values"));
+
+  const std::string dict_uri = styio::ide::uri_from_path((std::filesystem::path(root) / "dict_members.styio").string());
+  const std::string dict_source =
+    "lookup: dict[string,i32] := dict{\"a\": 1}\n"
+    "result := lookup.";
+  service.did_open(dict_uri, dict_source, 1);
+
+  styio::ide::TextBuffer dict_buffer(dict_source);
+  const auto dict_completion = service.completion(dict_uri, dict_buffer.position_at(dict_source.size()));
+
+  EXPECT_TRUE(has_completion_label(dict_completion, "len"));
+  EXPECT_TRUE(has_completion_label(dict_completion, "keys"));
+  EXPECT_TRUE(has_completion_label(dict_completion, "values"));
+  EXPECT_FALSE(has_completion_label(dict_completion, "first"));
+  EXPECT_FALSE(has_completion_label(dict_completion, "last"));
+
+  const std::size_t keys_index = completion_index(dict_completion, "keys");
+  const std::size_t values_index = completion_index(dict_completion, "values");
+  ASSERT_LT(keys_index, dict_completion.size());
+  ASSERT_LT(values_index, dict_completion.size());
+  EXPECT_EQ(dict_completion[keys_index].type_name, "list[string]");
+  EXPECT_EQ(dict_completion[values_index].type_name, "list[unknown]");
+
+  const std::string string_uri = styio::ide::uri_from_path((std::filesystem::path(root) / "string_members.styio").string());
+  const std::string string_source =
+    "word: string := \"hi\"\n"
+    "result := word.";
+  service.did_open(string_uri, string_source, 1);
+
+  styio::ide::TextBuffer string_buffer(string_source);
+  const auto string_completion = service.completion(string_uri, string_buffer.position_at(string_source.size()));
+
+  EXPECT_TRUE(has_completion_label(string_completion, "len"));
+  EXPECT_FALSE(has_completion_label(string_completion, "first"));
+  EXPECT_FALSE(has_completion_label(string_completion, "keys"));
+
+  const std::string scalar_uri = styio::ide::uri_from_path((std::filesystem::path(root) / "scalar_members.styio").string());
+  const std::string scalar_source =
+    "count: i32 := 1\n"
+    "result := count.";
+  service.did_open(scalar_uri, scalar_source, 1);
+
+  styio::ide::TextBuffer scalar_buffer(scalar_source);
+  const auto scalar_completion = service.completion(scalar_uri, scalar_buffer.position_at(scalar_source.size()));
+
+  EXPECT_TRUE(has_completion_label(scalar_completion, "len"));
+  EXPECT_FALSE(has_completion_label(scalar_completion, "first"));
+  EXPECT_FALSE(has_completion_label(scalar_completion, "keys"));
 }
 
 TEST(StyioCompletionEngine, UsesExpectedTypesAtCallSites) {
@@ -1486,6 +2408,108 @@ TEST(StyioSemanticDb, ReusesOffsetQueriesWithinSnapshot) {
   EXPECT_EQ(after_second_completion.hir_module.misses, after_first_completion.hir_module.misses);
 }
 
+TEST(StyioSemanticDb, ReusesDefinitionReferenceAndCompletionContextQueriesWithinSnapshot) {
+  styio::ide::VirtualFileSystem vfs;
+  styio::ide::Project project;
+  styio::ide::SemanticDB semdb(vfs, project);
+  const std::string path = make_temp_dir() + "/semantic_navigation_cache.styio";
+  const std::string source =
+    "# add := (a: i32, b: i32) => a + b\n"
+    "result: i32 := add(1, 2)\n";
+
+  vfs.open(path, source, 1);
+  semdb.reset_query_stats();
+
+  const std::size_t definition_offset = source.find("add");
+  const std::size_t call_offset = source.rfind("add(");
+  const std::size_t number_offset = source.find("1, 2");
+  ASSERT_NE(definition_offset, std::string::npos);
+  ASSERT_NE(call_offset, std::string::npos);
+  ASSERT_NE(number_offset, std::string::npos);
+
+  const auto first_definition = semdb.definition_at(path, call_offset);
+  ASSERT_EQ(first_definition.size(), 1u);
+  EXPECT_EQ(first_definition[0].path, path);
+  EXPECT_EQ(first_definition[0].range.start, definition_offset);
+  const auto after_first_definition = semdb.query_stats();
+
+  const auto second_definition = semdb.definition_at(path, call_offset);
+  EXPECT_EQ(second_definition.size(), first_definition.size());
+  const auto after_second_definition = semdb.query_stats();
+
+  EXPECT_EQ(after_first_definition.definition.misses, 1u);
+  EXPECT_EQ(after_second_definition.definition.hits, 1u);
+  EXPECT_EQ(after_second_definition.definition.misses, after_first_definition.definition.misses);
+
+  const auto first_references = semdb.references_of(path, definition_offset);
+  EXPECT_TRUE(has_location(first_references, path, call_offset));
+  const auto after_first_references = semdb.query_stats();
+
+  const auto second_references = semdb.references_of(path, definition_offset);
+  EXPECT_EQ(second_references.size(), first_references.size());
+  const auto after_second_references = semdb.query_stats();
+
+  EXPECT_EQ(after_first_references.references.misses, 1u);
+  EXPECT_EQ(after_second_references.references.hits, 1u);
+  EXPECT_EQ(after_second_references.references.misses, after_first_references.references.misses);
+
+  const auto first_empty_references = semdb.references_of(path, number_offset);
+  EXPECT_TRUE(first_empty_references.empty());
+  const auto after_first_empty_references = semdb.query_stats();
+
+  const auto second_empty_references = semdb.references_of(path, number_offset);
+  EXPECT_TRUE(second_empty_references.empty());
+  const auto after_second_empty_references = semdb.query_stats();
+
+  EXPECT_EQ(after_first_empty_references.references.misses, after_second_references.references.misses + 1);
+  EXPECT_EQ(after_second_empty_references.references.hits, after_first_empty_references.references.hits + 1);
+
+  const auto first_context = semdb.completion_context_at(path, call_offset + 2);
+  EXPECT_EQ(first_context.prefix, "ad");
+  const auto after_first_context = semdb.query_stats();
+
+  const auto second_context = semdb.completion_context_at(path, call_offset + 2);
+  EXPECT_EQ(second_context.prefix, first_context.prefix);
+  const auto after_second_context = semdb.query_stats();
+
+  EXPECT_EQ(after_first_context.completion_context.misses, 1u);
+  EXPECT_EQ(after_second_context.completion_context.hits, 1u);
+  EXPECT_EQ(after_second_context.completion_context.misses, after_first_context.completion_context.misses);
+}
+
+TEST(StyioSemanticDb, MemberCompletionInfersReceiverTypeFromImportedFunctionSignature) {
+  const std::string root = make_temp_project_dir("semantic_imported_receiver_signature");
+  const std::filesystem::path lib_path = std::filesystem::path(root) / "math.styio";
+  const std::string lib_source =
+    "# numbers : list[i32] := () => [1, 2]\n";
+  write_text_file(lib_path.string(), lib_source);
+
+  styio::ide::VirtualFileSystem vfs;
+  styio::ide::Project project;
+  project.set_root(root);
+  styio::ide::SemanticDB semdb(vfs, project);
+
+  const std::string main_path = (std::filesystem::path(root) / "main.styio").string();
+  const std::string source =
+    "@import { math }\n"
+    "value: i32 := numbers.len\n";
+  vfs.open(main_path, source, 1);
+
+  const std::size_t member_offset = source.find("len");
+  ASSERT_NE(member_offset, std::string::npos);
+  const auto receiver = semdb.receiver_type_at(main_path, member_offset);
+  ASSERT_TRUE(receiver.has_value());
+  EXPECT_TRUE(receiver->known);
+  EXPECT_EQ(receiver->receiver_name, "numbers");
+  EXPECT_EQ(receiver->type_name, "list[i32]");
+
+  const auto completion = semdb.complete_at(main_path, member_offset);
+  EXPECT_TRUE(has_completion_label(completion, "len"));
+  EXPECT_TRUE(has_completion_label(completion, "first"));
+  EXPECT_TRUE(has_completion_label(completion, "last"));
+  EXPECT_FALSE(has_completion_label(completion, "keys"));
+}
+
 TEST(StyioSemanticDb, InvalidatesQueriesAcrossSnapshots) {
   styio::ide::VirtualFileSystem vfs;
   styio::ide::Project project;
@@ -1579,6 +2603,42 @@ TEST(StyioSemanticBridge, RejectsMalformedInputWithoutRecovery) {
 
   const auto it = summary.function_signatures.find("stable");
   EXPECT_EQ(it, summary.function_signatures.end());
+}
+
+TEST(StyioSemanticBridge, CoversCompilerBridgeLexTupleAndResourceFacts) {
+  const auto lex_summary = styio::ide::analyze_document(
+    "memory://compiler_bridge_lex.styio",
+    "/* unterminated\n");
+  EXPECT_FALSE(lex_summary.parse_success);
+  ASSERT_FALSE(lex_summary.diagnostics.empty());
+  EXPECT_EQ(lex_summary.diagnostics.front().source, "styio-compiler");
+  EXPECT_EQ(lex_summary.diagnostics.front().phase, "lex");
+  EXPECT_NE(lex_summary.diagnostics.front().code.find("LEX"), std::string::npos);
+
+  const auto tuple_summary = styio::ide::analyze_document(
+    "memory://compiler_bridge_tuple.styio",
+    "# pair : (i64, f64) := (x: i64, y: f64) => x\n");
+  EXPECT_TRUE(tuple_summary.parse_success);
+  ASSERT_FALSE(tuple_summary.diagnostics.empty());
+  EXPECT_EQ(tuple_summary.diagnostics.front().phase, "type");
+  const auto signature = tuple_summary.function_signatures.find("pair");
+  ASSERT_NE(signature, tuple_summary.function_signatures.end());
+  EXPECT_NE(signature->second.find("pair(x: i64, y: f64) -> (i64, f64)"), std::string::npos);
+
+  const auto resource_summary = styio::ide::analyze_document(
+    "memory://compiler_bridge_resource.styio",
+    "@(slot <- seed)\n");
+  EXPECT_TRUE(resource_summary.parse_success);
+  const bool has_resource = std::any_of(
+    resource_summary.items.begin(),
+    resource_summary.items.end(),
+    [](const styio::ide::SemanticItemFact& item)
+    {
+      return item.kind == styio::ide::SemanticItemKind::Resource
+        && item.name == "slot"
+        && item.detail == "resource";
+    });
+  EXPECT_TRUE(has_resource);
 }
 
 TEST(StyioLspServer, PublishDiagnosticsCarriesStyioCodeAndPhase) {
@@ -1756,6 +2816,401 @@ TEST(StyioLspServer, AppliesMultipleIncrementalChangesInOrder) {
   const auto* first_symbol = (*symbols)[0].getAsObject();
   ASSERT_NE(first_symbol, nullptr);
   EXPECT_EQ(first_symbol->getString("name").value_or(""), "add");
+}
+
+TEST(StyioLspServer, Utf16CrLfAndIncrementalPositionEdgesStayExplicit) {
+  styio::lsp::Server server;
+  const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());
+  const std::string uri = temp_uri("server_utf16_crlf_sample.styio");
+  const std::string source =
+    "\xC3\xA9"
+    "\xE4\xB8\xAD"
+    "\xF0\x9D\x84\x9E"
+    "x\r\n"
+    "# fn := (p: i32) => p\n"
+    "value: i32 := fn(1)\n";
+
+  ASSERT_EQ(
+    server.handle(llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"id", 1},
+      {"method", "initialize"},
+      {"params", llvm::json::Object{{"rootUri", root_uri}}}})
+      .size(),
+    1u);
+
+  auto open_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didOpen"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{
+          {"uri", uri},
+          {"version", 1},
+          {"text", source}}}}}});
+  ASSERT_EQ(open_messages.size(), 1u);
+
+  auto completion_after_wide_chars = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 2},
+    {"method", "textDocument/completion"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{{"uri", uri}}},
+       {"position", lsp_position(0, 2)}}}});
+  ASSERT_EQ(completion_after_wide_chars.size(), 1u);
+  EXPECT_NE(completion_after_wide_chars[0].payload.getArray("result"), nullptr);
+
+  auto invalid_surrogate_position = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 3},
+    {"method", "textDocument/hover"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{{"uri", uri}}},
+       {"position", lsp_position(0, 3)}}}});
+  ASSERT_EQ(invalid_surrogate_position.size(), 1u);
+  EXPECT_NE(invalid_surrogate_position[0].payload.get("result"), nullptr);
+
+  llvm::json::Array changes;
+  changes.push_back(llvm::json::Object{
+    {"range", lsp_range(0, 4, 0, 5)},
+    {"text", "y"}});
+  auto change_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didChange"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{{"uri", uri}, {"version", 2}}},
+       {"contentChanges", std::move(changes)}}}});
+  ASSERT_EQ(change_messages.size(), 1u);
+  EXPECT_EQ(change_messages[0].payload.getString("method").value_or(""), "textDocument/publishDiagnostics");
+
+  auto symbols = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 4},
+    {"method", "textDocument/documentSymbol"},
+    {"params", llvm::json::Object{{"textDocument", llvm::json::Object{{"uri", uri}}}}}});
+  ASSERT_EQ(symbols.size(), 1u);
+  EXPECT_NE(symbols[0].payload.getArray("result"), nullptr);
+}
+
+TEST(StyioLspServer, HandlesNavigationWorkspaceTokensAndEdgeRequests) {
+  styio::lsp::Server server;
+  const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());
+  const std::string uri = temp_uri("server_navigation_sample.styio");
+
+  auto init_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", -7},
+    {"method", "initialize"},
+    {"params", llvm::json::Object{{"rootUri", root_uri}}}});
+  ASSERT_EQ(init_messages.size(), 1u);
+
+  const std::string source =
+    "# add := (a: i32, b: i32) => a + b\n"
+    "emoji_text := \"\xF0\x9F\x98\x80\"\n"
+    "result: i32 := add(1, 2)\n"
+    "typed_value: ";
+  auto open_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didOpen"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{
+          {"uri", uri},
+          {"version", 1},
+          {"text", source}}}}}});
+  ASSERT_EQ(open_messages.size(), 1u);
+
+  auto type_completion_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 2},
+    {"method", "textDocument/completion"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{{"uri", uri}}},
+       {"position", lsp_position(3, 13)}}}});
+  ASSERT_EQ(type_completion_messages.size(), 1u);
+  const auto* type_completion = type_completion_messages[0].payload.getArray("result");
+  ASSERT_NE(type_completion, nullptr);
+  const bool found_i32_type = std::any_of(
+    type_completion->begin(),
+    type_completion->end(),
+    [](const llvm::json::Value& item)
+    {
+      const auto* object = item.getAsObject();
+      return object != nullptr
+        && object->getString("label").value_or("") == "i32"
+        && object->getInteger("kind").value_or(0) == 7;
+    });
+  EXPECT_TRUE(found_i32_type);
+
+  auto hover_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", "3"},
+    {"method", "textDocument/hover"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{{"uri", uri}}},
+       {"position", lsp_position(2, 16)}}}});
+  ASSERT_EQ(hover_messages.size(), 1u);
+  const auto* hover = hover_messages[0].payload.getObject("result");
+  ASSERT_NE(hover, nullptr);
+  EXPECT_NE(hover->getString("contents").value_or("").find("add"), std::string::npos);
+  EXPECT_NE(hover->getObject("range"), nullptr);
+
+  auto emoji_hover_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 4},
+    {"method", "textDocument/hover"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{{"uri", uri}}},
+       {"position", lsp_position(1, 17)}}}});
+  ASSERT_EQ(emoji_hover_messages.size(), 1u);
+  EXPECT_NE(emoji_hover_messages[0].payload.get("result"), nullptr);
+
+  auto missing_line_hover = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 5},
+    {"method", "textDocument/hover"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{{"uri", uri}}},
+       {"position", lsp_position(99, 0)}}}});
+  ASSERT_EQ(missing_line_hover.size(), 1u);
+  EXPECT_NE(missing_line_hover[0].payload.get("result"), nullptr);
+
+  auto definition_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 6},
+    {"method", "textDocument/definition"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{{"uri", uri}}},
+       {"position", lsp_position(2, 16)}}}});
+  ASSERT_EQ(definition_messages.size(), 1u);
+  const auto* definitions = definition_messages[0].payload.getArray("result");
+  ASSERT_NE(definitions, nullptr);
+  ASSERT_FALSE(definitions->empty());
+
+  auto reference_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 7},
+    {"method", "textDocument/references"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{{"uri", uri}}},
+       {"position", lsp_position(2, 16)}}}});
+  ASSERT_EQ(reference_messages.size(), 1u);
+  const auto* references = reference_messages[0].payload.getArray("result");
+  ASSERT_NE(references, nullptr);
+
+  auto workspace_symbols = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 8},
+    {"method", "workspace/symbol"},
+    {"params", llvm::json::Object{{"query", "add"}}}});
+  ASSERT_EQ(workspace_symbols.size(), 1u);
+  const auto* workspace_result = workspace_symbols[0].payload.getArray("result");
+  ASSERT_NE(workspace_result, nullptr);
+  EXPECT_FALSE(workspace_result->empty());
+
+  auto semantic_tokens = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 9},
+    {"method", "textDocument/semanticTokens/full"},
+    {"params", llvm::json::Object{{"textDocument", llvm::json::Object{{"uri", uri}}}}}});
+  ASSERT_EQ(semantic_tokens.size(), 1u);
+  const auto* semantic_result = semantic_tokens[0].payload.getObject("result");
+  ASSERT_NE(semantic_result, nullptr);
+  EXPECT_NE(semantic_result->getArray("data"), nullptr);
+
+  auto cancel_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "$/cancelRequest"},
+    {"params", llvm::json::Object{{"id", "123"}}}});
+  EXPECT_TRUE(cancel_messages.empty());
+
+  auto null_response = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 10},
+    {"method", "styio/unknown"}});
+  ASSERT_EQ(null_response.size(), 1u);
+  EXPECT_NE(null_response[0].payload.get("result"), nullptr);
+
+  llvm::json::Array bad_changes;
+  bad_changes.push_back(llvm::json::Object{
+    {"range", lsp_range(99, 0, 99, 1)},
+    {"text", "x"}});
+  auto bad_change_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didChange"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{{"uri", uri}, {"version", 2}}},
+       {"contentChanges", std::move(bad_changes)}}}});
+  ASSERT_EQ(bad_change_messages.size(), 1u);
+  EXPECT_EQ(
+    bad_change_messages[0].payload.getString("method").value_or(""),
+    "textDocument/publishDiagnostics");
+
+  auto close_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didClose"},
+    {"params", llvm::json::Object{{"textDocument", llvm::json::Object{{"uri", uri}}}}}});
+  EXPECT_TRUE(close_messages.empty());
+}
+
+TEST(StyioLspServer, CoversTransportReaderAndMalformedRequestEdges) {
+  {
+    styio::lsp::Server server;
+    std::istringstream input("Content-Length: 16777217\r\n\r\n");
+    std::ostringstream output;
+    server.run(input, output);
+    EXPECT_TRUE(output.str().empty());
+  }
+
+  {
+    styio::lsp::Server server;
+    std::istringstream input("Content-Length: 999999999999999999999999999999\r\n\r\n");
+    std::ostringstream output;
+    server.run(input, output);
+    EXPECT_TRUE(output.str().empty());
+  }
+
+  {
+    styio::lsp::Server server;
+    std::istringstream input("Content-Length: 8\r\n\r\n{}");
+    std::ostringstream output;
+    server.run(input, output);
+    EXPECT_TRUE(output.str().empty());
+  }
+
+  {
+    styio::lsp::Server server;
+    std::string transport_input = "Content-Length: 7\r\n\r\nnotjson";
+    transport_input += "Content-Length: 2\r\n\r\n[]";
+    transport_input += lsp_frame(llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"id", 1},
+      {"method", "initialize"},
+      {"params", llvm::json::Object{{"rootUri", styio::ide::uri_from_path(make_temp_dir())}}}});
+
+    std::istringstream input(transport_input);
+    std::ostringstream output;
+    server.run(input, output);
+    EXPECT_NE(output.str().find("\"capabilities\""), std::string::npos);
+  }
+
+  styio::lsp::Server server;
+  const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());
+  const std::string uri = temp_uri("server_malformed_request_edges.styio");
+  ASSERT_EQ(
+    server.handle(llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"id", 2},
+      {"method", "initialize"},
+      {"params", llvm::json::Object{{"rootUri", root_uri}}}})
+      .size(),
+    1u);
+  ASSERT_EQ(
+    server.handle(llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"method", "textDocument/didOpen"},
+      {"params", llvm::json::Object{
+        {"textDocument", llvm::json::Object{
+          {"uri", uri},
+          {"version", 1},
+          {"text",
+           "# add := (a: i32, b: i32) => a + b\n"
+           "value := add(1, 2)\n"}}}}}})
+      .size(),
+    1u);
+
+  auto completion_notification = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/completion"},
+    {"params", llvm::json::Object{
+      {"textDocument", llvm::json::Object{{"uri", uri}}},
+      {"position", lsp_position(1, 9)}}}});
+  EXPECT_TRUE(completion_notification.empty());
+
+  auto missing_completion_target = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 3},
+    {"method", "textDocument/completion"},
+    {"params", llvm::json::Object{}}});
+  ASSERT_EQ(missing_completion_target.size(), 1u);
+  ASSERT_NE(missing_completion_target[0].payload.getArray("result"), nullptr);
+  EXPECT_TRUE(missing_completion_target[0].payload.getArray("result")->empty());
+
+  auto hover_missing_position = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 4},
+    {"method", "textDocument/hover"},
+    {"params", llvm::json::Object{{"textDocument", llvm::json::Object{{"uri", uri}}}}}});
+  ASSERT_EQ(hover_missing_position.size(), 1u);
+  EXPECT_NE(hover_missing_position[0].payload.get("result"), nullptr);
+
+  auto definition_notification = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/definition"},
+    {"params", llvm::json::Object{
+      {"textDocument", llvm::json::Object{{"uri", uri}}},
+      {"position", lsp_position(1, 9)}}}});
+  EXPECT_TRUE(definition_notification.empty());
+
+  auto document_symbol_missing_target = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 5},
+    {"method", "textDocument/documentSymbol"},
+    {"params", llvm::json::Object{}}});
+  ASSERT_EQ(document_symbol_missing_target.size(), 1u);
+  ASSERT_NE(document_symbol_missing_target[0].payload.getArray("result"), nullptr);
+  EXPECT_TRUE(document_symbol_missing_target[0].payload.getArray("result")->empty());
+
+  auto semantic_tokens_missing_target = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 6},
+    {"method", "textDocument/semanticTokens/full"},
+    {"params", llvm::json::Object{}}});
+  ASSERT_EQ(semantic_tokens_missing_target.size(), 1u);
+  const auto* semantic_tokens = semantic_tokens_missing_target[0].payload.getObject("result");
+  ASSERT_NE(semantic_tokens, nullptr);
+  ASSERT_NE(semantic_tokens->getArray("data"), nullptr);
+  EXPECT_TRUE(semantic_tokens->getArray("data")->empty());
+
+  auto fallback_unknown = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 7},
+    {"method", "styio/unknown"},
+    {"params", llvm::json::Object{}}});
+  ASSERT_EQ(fallback_unknown.size(), 1u);
+  EXPECT_NE(fallback_unknown[0].payload.get("result"), nullptr);
+
+  llvm::json::Array malformed_changes;
+  malformed_changes.push_back("not-an-object");
+  auto malformed_change_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didChange"},
+    {"params", llvm::json::Object{
+      {"textDocument", llvm::json::Object{{"uri", uri}, {"version", 2}}},
+      {"contentChanges", std::move(malformed_changes)}}}});
+  ASSERT_EQ(malformed_change_messages.size(), 1u);
+  EXPECT_EQ(
+    malformed_change_messages[0].payload.getString("method").value_or(""),
+    "textDocument/publishDiagnostics");
+
+  llvm::json::Array mixed_changes;
+  mixed_changes.push_back(llvm::json::Object{{"text", "value := 1\n"}});
+  mixed_changes.push_back(llvm::json::Object{
+    {"range", lsp_range(0, 8, 0, 9)},
+    {"text", "2"}});
+  auto mixed_change_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didChange"},
+    {"params", llvm::json::Object{
+      {"textDocument", llvm::json::Object{{"uri", uri}, {"version", 3}}},
+      {"contentChanges", std::move(mixed_changes)}}}});
+  ASSERT_EQ(mixed_change_messages.size(), 1u);
+  EXPECT_EQ(
+    mixed_change_messages[0].payload.getString("method").value_or(""),
+    "textDocument/publishDiagnostics");
+
+  auto cancel_without_params = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "$/cancelRequest"}});
+  EXPECT_TRUE(cancel_without_params.empty());
 }
 
 TEST(StyioLspRuntime, DropsStaleCompletionResponses) {

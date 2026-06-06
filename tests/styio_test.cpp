@@ -15,6 +15,7 @@
 #endif
 
 #include "StyioTesting/PipelineCheck.hpp"
+#include "StyioParser/Tokenizer.hpp"
 #include "StyioToken/Token.hpp"
 
 namespace fs = std::filesystem;
@@ -122,6 +123,74 @@ count_substring_latest(const std::string& text, const std::string& needle) {
     pos += needle.size();
   }
   return count;
+}
+
+std::string
+escape_pipeline_lexeme_latest(const std::string& s) {
+  std::string out;
+  out.reserve(s.size() + 8);
+  for (const unsigned char c : s) {
+    if (c == '\n') {
+      out += "\\n";
+    }
+    else if (c == '\r') {
+      out += "\\r";
+    }
+    else if (c == '\t') {
+      out += "\\t";
+    }
+    else if (c == '\\') {
+      out += "\\\\";
+    }
+    else {
+      out += static_cast<char>(c);
+    }
+  }
+  return out;
+}
+
+std::string
+pipeline_tokens_golden_latest(const std::string& source) {
+  std::vector<StyioToken*> tokens = StyioTokenizer::tokenize(source);
+  std::ostringstream out;
+  for (auto* tok : tokens) {
+    out << StyioToken::getTokName(tok->type) << '\t'
+        << escape_pipeline_lexeme_latest(tok->original) << '\n';
+    delete tok;
+  }
+  return out.str();
+}
+
+void
+write_text_file_latest(const fs::path& path, const std::string& text) {
+  std::error_code ec;
+  fs::create_directories(path.parent_path(), ec);
+  if (ec) {
+    throw std::runtime_error("cannot create parent directory: " + ec.message());
+  }
+  std::ofstream out(path, std::ios::binary | std::ios::trunc);
+  if (!out.is_open()) {
+    throw std::runtime_error("cannot write: " + path.string());
+  }
+  out << text;
+}
+
+fs::path
+make_temp_tree_latest(const std::string& stem) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  return fs::temp_directory_path() / ("styio-" + stem + "-" + std::to_string(uniq));
+}
+
+fs::path
+copy_pipeline_case_latest(const fs::path& source_case, const fs::path& root, const std::string& name) {
+  const fs::path dest = root / name;
+  std::error_code ec;
+  fs::copy(source_case, dest, fs::copy_options::recursive, ec);
+  if (ec) {
+    throw std::runtime_error("cannot copy pipeline fixture: " + ec.message());
+  }
+  return dest;
 }
 
 const char*
@@ -569,6 +638,176 @@ TEST(StyioFiveLayerPipeline, StandaloneCollectBindFromStdinMaterializesStringLis
   fs::remove(input);
 }
 
+TEST(StyioFiveLayerPipeline, ReportsMissingInputAndLexerGoldenFailures) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root = fs::temp_directory_path() / ("styio-pipeline-negative-" + std::to_string(uniq));
+  fs::create_directories(root);
+
+  const fs::path missing_input_case = root / "missing-input";
+  fs::create_directories(missing_input_case);
+  const std::string missing_input = styio::testing::run_pipeline_case(missing_input_case.string(), nullptr);
+  EXPECT_NE(missing_input.find("case missing input.styio"), std::string::npos) << missing_input;
+
+  const fs::path missing_golden_case = root / "missing-golden";
+  fs::create_directories(missing_golden_case / "expected");
+  {
+    std::ofstream out(missing_golden_case / "input.styio", std::ios::binary);
+    ASSERT_TRUE(out.is_open());
+    out << ">_(1)\n";
+  }
+  const std::string missing_golden = styio::testing::run_pipeline_case(missing_golden_case.string(), nullptr);
+  EXPECT_NE(missing_golden.find("Pipeline error: cannot read"), std::string::npos) << missing_golden;
+
+  const fs::path lexer_mismatch_case = root / "lexer-mismatch";
+  fs::create_directories(lexer_mismatch_case / "expected");
+  {
+    std::ofstream out(lexer_mismatch_case / "input.styio", std::ios::binary);
+    ASSERT_TRUE(out.is_open());
+    out << "\t\\\r\n";
+  }
+  {
+    std::ofstream out(lexer_mismatch_case / "expected" / "tokens.txt", std::ios::binary);
+    ASSERT_TRUE(out.is_open());
+    out << "definitely-wrong\n";
+  }
+
+#ifndef _WIN32
+  const char* old_dump = std::getenv("STYIO_PIPELINE_DUMP_FULL");
+  const bool had_old_dump = old_dump != nullptr;
+  const std::string old_dump_value = had_old_dump ? old_dump : "";
+  setenv("STYIO_PIPELINE_DUMP_FULL", "1", 1);
+#endif
+  const std::string mismatch = styio::testing::run_pipeline_case(lexer_mismatch_case.string(), nullptr);
+#ifndef _WIN32
+  if (had_old_dump) {
+    setenv("STYIO_PIPELINE_DUMP_FULL", old_dump_value.c_str(), 1);
+  }
+  else {
+    unsetenv("STYIO_PIPELINE_DUMP_FULL");
+  }
+#endif
+
+  EXPECT_NE(mismatch.find("Layer 1 (Lexer): tokens.txt: line 1"), std::string::npos) << mismatch;
+  EXPECT_NE(mismatch.find("--- got tokens (full) ---"), std::string::npos) << mismatch;
+  EXPECT_NE(mismatch.find("\\t"), std::string::npos) << mismatch;
+  EXPECT_NE(mismatch.find("\\r"), std::string::npos) << mismatch;
+  EXPECT_NE(mismatch.find("\\\\"), std::string::npos) << mismatch;
+
+  const std::string short_source = ">_(1)\n";
+  const std::string short_tokens = pipeline_tokens_golden_latest(short_source);
+  const fs::path expected_extra_case = root / "lexer-expected-extra";
+  fs::create_directories(expected_extra_case / "expected");
+  write_text_file_latest(expected_extra_case / "input.styio", short_source);
+  write_text_file_latest(
+    expected_extra_case / "expected" / "tokens.txt",
+    short_tokens + "EXTRA\tline\n");
+  const std::string expected_extra = styio::testing::run_pipeline_case(expected_extra_case.string(), nullptr);
+  EXPECT_NE(expected_extra.find("tokens.txt: missing line(s) from"), std::string::npos)
+    << expected_extra;
+
+  const fs::path got_extra_case = root / "lexer-got-extra";
+  fs::create_directories(got_extra_case / "expected");
+  write_text_file_latest(got_extra_case / "input.styio", short_source);
+  const std::size_t last_newline = short_tokens.find_last_of('\n', short_tokens.size() - 2);
+  ASSERT_NE(last_newline, std::string::npos);
+  write_text_file_latest(
+    got_extra_case / "expected" / "tokens.txt",
+    short_tokens.substr(0, last_newline + 1));
+  const std::string got_extra = styio::testing::run_pipeline_case(got_extra_case.string(), nullptr);
+  EXPECT_NE(got_extra.find("tokens.txt: extra line(s) from"), std::string::npos)
+    << got_extra;
+
+  fs::remove_all(root);
+}
+
+TEST(StyioFiveLayerPipeline, ReportsParserTypeAndGoldenLayerFailures) {
+  const fs::path root = make_temp_tree_latest("pipeline-negative-layers");
+  fs::create_directories(root);
+
+  const fs::path parser_case = root / "parser-failure";
+  fs::create_directories(parser_case / "expected");
+  const std::string bad_parse = ">_(1\n";
+  write_text_file_latest(parser_case / "input.styio", bad_parse);
+  write_text_file_latest(
+    parser_case / "expected" / "tokens.txt",
+    pipeline_tokens_golden_latest(bad_parse));
+  const std::string parser_err = styio::testing::run_pipeline_case(parser_case.string(), nullptr);
+  EXPECT_NE(parser_err.find("Layer 2 (Parser):"), std::string::npos) << parser_err;
+
+  const fs::path type_case = root / "type-failure";
+  fs::create_directories(type_case / "expected");
+  const std::string bad_type = ">_(missing_value)\n";
+  write_text_file_latest(type_case / "input.styio", bad_type);
+  write_text_file_latest(
+    type_case / "expected" / "tokens.txt",
+    pipeline_tokens_golden_latest(bad_type));
+  const std::string type_err = styio::testing::run_pipeline_case(type_case.string(), nullptr);
+  EXPECT_NE(type_err.find("Pipeline error:"), std::string::npos) << type_err;
+
+  fs::remove_all(root);
+}
+
+TEST(StyioFiveLayerPipeline, ReportsAstIrLlvmStdoutAndStderrGoldenFailures) {
+  const fs::path source_case =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "pipeline_cases" / "p01_print_add";
+  const fs::path root = make_temp_tree_latest("pipeline-golden-mismatch");
+  fs::create_directories(root);
+
+  const fs::path ast_case = copy_pipeline_case_latest(source_case, root, "ast");
+  write_text_file_latest(ast_case / "expected" / "ast.txt", "wrong ast\n");
+  const std::string ast_err = styio::testing::run_pipeline_case(ast_case.string(), nullptr);
+  EXPECT_NE(ast_err.find("Layer 2 (Parser/AST typed):"), std::string::npos) << ast_err;
+  EXPECT_NE(ast_err.find("-- untyped AST for debug --"), std::string::npos) << ast_err;
+
+  const fs::path ir_case = copy_pipeline_case_latest(source_case, root, "ir");
+  write_text_file_latest(ir_case / "expected" / "styio_ir.txt", "wrong ir\n");
+  const std::string ir_err = styio::testing::run_pipeline_case(ir_case.string(), nullptr);
+  EXPECT_NE(ir_err.find("Layer 3 (StyioIR):"), std::string::npos) << ir_err;
+
+  const fs::path llvm_case = copy_pipeline_case_latest(source_case, root, "llvm");
+  write_text_file_latest(llvm_case / "expected" / "llvm_ir.txt", "wrong llvm\n");
+  const std::string llvm_err = styio::testing::run_pipeline_case(llvm_case.string(), nullptr);
+  EXPECT_NE(llvm_err.find("Layer 4 (LLVM IR):"), std::string::npos) << llvm_err;
+
+  const fs::path legacy_llvm_case = copy_pipeline_case_latest(source_case, root, "legacy-llvm");
+  write_text_file_latest(
+    legacy_llvm_case / "expected" / "llvm_ir.txt",
+    "target triple = \"x86_64-unknown-linux-gnu\"\n"
+    "@styio_fmt_i64 = private unnamed_addr constant [4 x i8] c\"%ld\\00\"\n"
+    "@styio_fmt_str = private unnamed_addr constant [4 x i8] c\"%s\\00\"\n"
+    "declare i32 @printf(ptr, ...)\n"
+    "  %1 = call i32 (ptr, ...) @printf(ptr @styio_fmt_i64, i64 %42)\n"
+    "  %2 = call i32 (ptr, ...) @printf(ptr @styio_fmt_str, ptr %7)\n"
+    "  call i32 @puts(ptr @styio_print_at)\n"
+    "  %3 = call ptr @styio_f64_dec_cstr(double 1.5)\n"
+    "  call void @styio_stdout_write_cstr(ptr %3)\n"
+    "  call void @styio_stdout_write_cstr(ptr %9)\n"
+    "  keep trailing spaces   \n");
+  const std::string legacy_llvm_err =
+    styio::testing::run_pipeline_case(legacy_llvm_case.string(), nullptr);
+  EXPECT_NE(legacy_llvm_err.find("Layer 4 (LLVM IR):"), std::string::npos)
+    << legacy_llvm_err;
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const fs::path stdout_case = copy_pipeline_case_latest(source_case, root, "stdout");
+  write_text_file_latest(stdout_case / "expected" / "stdout.txt", "wrong stdout\n");
+  const std::string stdout_err = styio::testing::run_pipeline_case(stdout_case.string(), runner);
+  EXPECT_NE(stdout_err.find("Layer 5 (run stdout):"), std::string::npos) << stdout_err;
+
+  const fs::path stderr_case = copy_pipeline_case_latest(source_case, root, "stderr");
+  write_text_file_latest(stderr_case / "expected" / "stderr.txt", "wrong stderr\n");
+  const std::string stderr_err = styio::testing::run_pipeline_case(stderr_case.string(), runner);
+  EXPECT_NE(stderr_err.find("Layer 5 (run stderr):"), std::string::npos) << stderr_err;
+
+  fs::remove_all(root);
+}
+
 TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
   if (runner == nullptr || runner[0] == '\0') {
@@ -623,6 +862,58 @@ TEST(StyioDiagnostics, VersionPrintsCompilerVersion) {
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_EQ(result.stdout_text, "styio 0.0.1\n");
+}
+
+TEST(StyioDiagnostics, DebugModePrintsSourceAndTokens) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path source = fs::temp_directory_path() / ("styio-debug-dump-" + std::to_string(uniq) + ".styio");
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << ">_(1)\n";
+  }
+
+  const char* runner = styio_compiler_runner_latest();
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --debug --file \"" + source.string() + "\" 2>&1";
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("Code"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("|0|-[0:5] >_(1)"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("Tokens"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("1: <INT>"), std::string::npos);
+
+  fs::remove(source);
+}
+
+TEST(StyioDiagnostics, DumpFlagsPrintAstStyioIrAndLlvmIr) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path source = fs::temp_directory_path() / ("styio-ir-dump-" + std::to_string(uniq) + ".styio");
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << ">_(1)\n";
+  }
+
+  const char* runner = styio_compiler_runner_latest();
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --styio-ast --styio-ir --llvm-ir --file \""
+    + source.string() + "\" 2>&1";
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("LLVM IR"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("AST -Original"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("AST -Type-Checking"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("Styio IR"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("styio_stdout_write_cstr"), std::string::npos);
+
+  fs::remove(source);
 }
 
 TEST(StyioDiagnostics, SyntaxCheckJsonAcceptsSyntaxWithoutTypeChecking) {
@@ -759,6 +1050,74 @@ TEST(StyioDiagnostics, SyntaxCheckJsonReportsLexFailure) {
   fs::remove(source);
 }
 
+TEST(StyioDiagnostics, SyntaxCheckJsonEscapesContextAndAcceptsShortFileFlag) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-syntax-check-escapes-" + std::to_string(uniq));
+  fs::create_directories(root);
+
+  const fs::path no_newline_source = root / "no-newline.styio";
+  {
+    std::ofstream out(no_newline_source, std::ios::binary);
+    ASSERT_TRUE(out.is_open());
+    out << ">_(1)";
+  }
+
+  const std::string runner_cmd = shell_quote_latest(runner);
+  const CommandResult ok = run_stdout_command(
+    runner_cmd + " check --syntax --json -f "
+    + shell_quote_latest(no_newline_source.string()) + " 2>&1");
+  EXPECT_EQ(ok.exit_code, 0) << ok.stdout_text;
+  EXPECT_NE(ok.stdout_text.find("\"status\":\"ok\""), std::string::npos);
+  EXPECT_NE(ok.stdout_text.find("\"diagnostics\":[]"), std::string::npos);
+
+  const fs::path escaped_source = root / "escaped-context.styio";
+  {
+    std::ofstream out(escaped_source, std::ios::binary);
+    ASSERT_TRUE(out.is_open());
+    out << "\tbad_statement(\"quote\", \"slash\\value\") ???\r\n";
+  }
+
+  const CommandResult escaped = run_stdout_command(
+    runner_cmd + " check --syntax --json --file "
+    + shell_quote_latest(escaped_source.string()) + " 2>&1");
+  EXPECT_EQ(escaped.exit_code, 3) << escaped.stdout_text;
+  EXPECT_NE(escaped.stdout_text.find("\"code\":\"STYIO_PARSE_UNSUPPORTED_SYNTAX\""), std::string::npos);
+  EXPECT_NE(
+    escaped.stdout_text.find(R"(\tbad_statement(\"quote\", \"slash\\value\") ???\r\n)"),
+    std::string::npos)
+    << escaped.stdout_text;
+  EXPECT_NE(escaped.stdout_text.find("\"length\":2"), std::string::npos);
+  EXPECT_NE(escaped.stdout_text.find("\"range_start_column\":40"), std::string::npos);
+  EXPECT_NE(escaped.stdout_text.find("\"range_end_column\":42"), std::string::npos);
+  EXPECT_NE(escaped.stdout_text.find("\"caret\":\"                                       ^~\""), std::string::npos);
+
+  const fs::path control_source = root / "control-context.styio";
+  {
+    std::ofstream out(control_source, std::ios::binary);
+    ASSERT_TRUE(out.is_open());
+    out << (std::string("bad") + static_cast<char>(1) + "statement ???\n");
+  }
+
+  const CommandResult control = run_stdout_command(
+    runner_cmd + " check --syntax --json --file "
+    + shell_quote_latest(control_source.string()) + " 2>&1");
+  EXPECT_EQ(control.exit_code, 3) << control.stdout_text;
+  EXPECT_NE(control.stdout_text.find(R"(bad\u0001statement ???)"), std::string::npos)
+    << control.stdout_text;
+  EXPECT_NE(control.stdout_text.find("\"range_start_column\":4"), std::string::npos);
+  EXPECT_NE(control.stdout_text.find("\"caret\":\"   ^\""), std::string::npos);
+
+  fs::remove_all(root);
+}
+
 TEST(StyioDiagnostics, SyntaxCheckRejectsNonAuthoritativeParserEngine) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
@@ -789,6 +1148,71 @@ TEST(StyioDiagnostics, SyntaxCheckRejectsNonAuthoritativeParserEngine) {
     result.stdout_text.find("styio check --syntax only accepts the authoritative nightly parser"),
     std::string::npos);
   EXPECT_EQ(result.stdout_text.find("\"parser_engine\":\"legacy\""), std::string::npos);
+
+  fs::remove(source);
+}
+
+TEST(StyioDiagnostics, SyntaxCheckCliGuardsCoverHelpAndRequiredOptions) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path source =
+    fs::temp_directory_path() / ("styio-syntax-check-cli-guards-" + std::to_string(uniq) + ".styio");
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << ">_(1)\n";
+  }
+
+  const std::string runner_cmd = shell_quote_latest(runner);
+  const CommandResult help = run_stdout_command(runner_cmd + " check --help 2>&1");
+  EXPECT_EQ(help.exit_code, 0) << help.stdout_text;
+  EXPECT_NE(help.stdout_text.find("Usage: styio check --syntax --json --file"), std::string::npos);
+
+  const CommandResult long_equals =
+    run_stdout_command(
+      runner_cmd + " check --syntax --json --parser-engine=nightly --file="
+      + shell_quote_latest(source.string()) + " 2>&1");
+  EXPECT_EQ(long_equals.exit_code, 0) << long_equals.stdout_text;
+  EXPECT_NE(long_equals.stdout_text.find("\"status\":\"ok\""), std::string::npos);
+
+  struct CliCase {
+    std::string args;
+    std::string expected;
+  };
+  const std::vector<CliCase> cases = {
+    {"check --json --file " + shell_quote_latest(source.string()),
+     "styio check currently requires --syntax"},
+    {"check --syntax --file " + shell_quote_latest(source.string()),
+     "styio check --syntax currently requires --json"},
+    {"check --syntax --json", "styio check --syntax requires --file"},
+    {"check --syntax --json --file", "--file requires a path"},
+    {"check --syntax --json --file=", "styio check --syntax requires --file"},
+    {"check --syntax --json --parser-engine", "--parser-engine requires nightly"},
+    {"check --syntax --json --unsupported --file " + shell_quote_latest(source.string()),
+     "unsupported styio check option: --unsupported"},
+    {"check --syntax --json --file "
+       + shell_quote_latest((source.parent_path() / "styio-missing-syntax-check.styio").string()),
+     "file not found"},
+  };
+
+  for (const CliCase& cli_case : cases) {
+    SCOPED_TRACE(cli_case.args);
+    const CommandResult result =
+      run_stdout_command(runner_cmd + " " + cli_case.args + " 2>&1");
+    EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
+    EXPECT_NE(result.stdout_text.find("\"contract\":\"syntax-check\""), std::string::npos)
+      << result.stdout_text;
+    EXPECT_NE(result.stdout_text.find("\"status\":\"cli_error\""), std::string::npos)
+      << result.stdout_text;
+    EXPECT_NE(result.stdout_text.find(cli_case.expected), std::string::npos)
+      << result.stdout_text;
+  }
 
   fs::remove(source);
 }
@@ -863,6 +1287,218 @@ TEST(StyioDiagnostics, SourceBuildInfoJsonReportsOfficialSourceLayoutFields) {
   EXPECT_NE(result.stdout_text.find("\"src/StyioPrelude/resources.styio\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"macro_like_symbols\": ["), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"match\""), std::string::npos);
+}
+
+TEST(StyioDiagnostics, CliGuardRejectsUnsupportedFormatsAndProfileCombinations) {
+  const char* runner = styio_compiler_runner_latest();
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path source =
+    fs::temp_directory_path() / ("styio-cli-guard-" + std::to_string(uniq) + ".styio");
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << ">_(1)\n";
+  }
+
+  const CommandResult bad_machine_info =
+    run_stdout_command(std::string("\"") + runner + "\" --machine-info=toml 2>&1");
+  EXPECT_EQ(bad_machine_info.exit_code, 6) << bad_machine_info.stdout_text;
+  EXPECT_NE(
+    bad_machine_info.stdout_text.find("unsupported --machine-info format: toml"),
+    std::string::npos);
+
+  const CommandResult bad_source_build =
+    run_stdout_command(std::string("\"") + runner + "\" --source-build-info=toml 2>&1");
+  EXPECT_EQ(bad_source_build.exit_code, 6) << bad_source_build.stdout_text;
+  EXPECT_NE(
+    bad_source_build.stdout_text.find("unsupported --source-build-info format: toml"),
+    std::string::npos);
+
+  const CommandResult bad_error_format =
+    run_stdout_command(
+      std::string("\"") + runner + "\" --error-format=yaml --file \""
+      + source.string() + "\" 2>&1");
+  EXPECT_EQ(bad_error_format.exit_code, 6) << bad_error_format.stdout_text;
+  EXPECT_NE(
+    bad_error_format.stdout_text.find("unsupported --error-format: yaml"),
+    std::string::npos);
+
+  const CommandResult profile_out_without_profiler =
+    run_stdout_command(
+      std::string("\"") + runner + "\" --profile-out \""
+      + (source.parent_path() / "frontend-profile.json").string()
+      + "\" --file \"" + source.string() + "\" 2>&1");
+  EXPECT_EQ(profile_out_without_profiler.exit_code, 6)
+    << profile_out_without_profiler.stdout_text;
+  EXPECT_NE(
+    profile_out_without_profiler.stdout_text.find("--profile-out requires --profile-frontend"),
+    std::string::npos);
+
+  const CommandResult profiler_without_input =
+    run_stdout_command(std::string("\"") + runner + "\" --profile-frontend 2>&1");
+  EXPECT_EQ(profiler_without_input.exit_code, 6) << profiler_without_input.stdout_text;
+  EXPECT_NE(
+    profiler_without_input.stdout_text.find("--profile-frontend requires --file or --compile-plan"),
+    std::string::npos);
+
+  fs::remove(source);
+}
+
+TEST(StyioDiagnostics, ProjectConfigErrorsReportCliDiagnostics) {
+  const char* runner = styio_compiler_runner_latest();
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-project-config-errors-" + std::to_string(uniq));
+  const fs::path source = root / "main.styio";
+  ASSERT_TRUE(fs::create_directories(root));
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << ">_(1)\n";
+  }
+
+  const fs::path malformed = root / "malformed.toml";
+  {
+    std::ofstream out(malformed);
+    ASSERT_TRUE(out.is_open());
+    out << "[runtime\n";
+    out << "dict_impl = linear\n";
+  }
+  CommandResult result =
+    run_stdout_command(
+      std::string("\"") + runner + "\" --machine-info=json --config \""
+      + malformed.string() + "\" --file \"" + source.string() + "\" 2>&1");
+  EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
+  EXPECT_NE(
+    result.stdout_text.find("malformed section header in config file"),
+    std::string::npos);
+
+  const fs::path invalid_value = root / "invalid-value.toml";
+  {
+    std::ofstream out(invalid_value);
+    ASSERT_TRUE(out.is_open());
+    out << "[dictionary]\n";
+    out << "impl = ordered hash\n";
+  }
+  result =
+    run_stdout_command(
+      std::string("\"") + runner + "\" --machine-info=json --config \""
+      + invalid_value.string() + "\" --file \"" + source.string() + "\" 2>&1");
+  EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
+  EXPECT_NE(
+    result.stdout_text.find("invalid dict_impl value in config file"),
+    std::string::npos);
+
+  const fs::path unsupported = root / "unsupported.toml";
+  {
+    std::ofstream out(unsupported);
+    ASSERT_TRUE(out.is_open());
+    out << "dictionary_impl = missing\n";
+  }
+  result =
+    run_stdout_command(
+      std::string("\"") + runner + "\" --machine-info=json --config \""
+      + unsupported.string() + "\" --file \"" + source.string() + "\" 2>&1");
+  EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
+  EXPECT_NE(
+    result.stdout_text.find("unsupported dict_impl in config file"),
+    std::string::npos);
+
+  fs::remove_all(root);
+}
+
+TEST(StyioDiagnostics, NativeBuildCliGuardsReportUsageAndErrors) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const fs::path sample =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "scalar_expressions"
+    / "t01_int_arith.styio";
+  ASSERT_TRUE(fs::exists(sample));
+
+  const std::string runner_cmd = shell_quote_latest(runner);
+  const CommandResult help = run_stdout_command(runner_cmd + " build --help 2>&1");
+  EXPECT_EQ(help.exit_code, 0) << help.stdout_text;
+  EXPECT_NE(help.stdout_text.find("Usage: styio build"), std::string::npos);
+
+  struct GuardCase {
+    std::string args;
+    std::string expected;
+  };
+  const std::vector<GuardCase> cases = {
+    {"build", "styio build requires an input file"},
+    {"build --bad-option", "unsupported styio build option"},
+    {"build " + shell_quote_latest(sample.string()), "styio build requires -o"},
+    {"build " + shell_quote_latest(sample.string()) + " -o",
+     "styio build requires a path after -o"},
+    {"build " + shell_quote_latest(sample.string()) + " "
+       + shell_quote_latest(sample.string()) + " -o "
+       + shell_quote_latest("/tmp/styio-native-build-unused"),
+     "styio build accepts exactly one input file"},
+    {"build "
+       + shell_quote_latest(
+         (fs::temp_directory_path() / "styio-missing-build-input.styio").string())
+       + " -o " + shell_quote_latest("/tmp/styio-native-build-unused"),
+     "input file not found"},
+  };
+
+  for (const GuardCase& guard_case : cases) {
+    SCOPED_TRACE(guard_case.args);
+    const CommandResult result =
+      run_stdout_command(runner_cmd + " " + guard_case.args + " 2>&1");
+    EXPECT_NE(result.exit_code, 0) << result.stdout_text;
+    EXPECT_NE(result.stdout_text.find(guard_case.expected), std::string::npos)
+      << result.stdout_text;
+  }
+}
+
+TEST(StyioDiagnostics, NativeBuildEnvCompilerOverrideIsShellQuoted) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const fs::path sample =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "scalar_expressions"
+    / "t01_int_arith.styio";
+  ASSERT_TRUE(fs::exists(sample));
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-native-build-env-quote-" + std::to_string(uniq));
+  const fs::path marker = root / "injected-marker";
+  const fs::path artifact = root / "artifact";
+  ASSERT_TRUE(fs::create_directories(root));
+
+  const std::string injected =
+    "/bin/false; touch " + marker.string() + "; #";
+  const CommandResult result =
+    run_stdout_command(
+      "env STYIO_NATIVE_CXX=" + shell_quote_latest(injected)
+      + " " + shell_quote_latest(runner)
+      + " build " + shell_quote_latest(sample.string())
+      + " -o " + shell_quote_latest(artifact.string())
+      + " 2>&1");
+
+  EXPECT_EQ(result.exit_code, 5) << result.stdout_text;
+  EXPECT_NE(
+    result.stdout_text.find("native executable link failed"),
+    std::string::npos);
+  EXPECT_FALSE(fs::exists(marker));
+  EXPECT_FALSE(fs::exists(artifact));
+
+  fs::remove_all(root);
 }
 
 TEST(StyioDiagnostics, SourceBuildMinimalHelperScriptPrintsCompilerPath) {
@@ -2971,6 +3607,145 @@ TEST(StyioNanoPackage, CloudManifestRejectsMalformedPackageFile) {
   fs::remove_all(root);
 }
 
+TEST(StyioNanoPackage, CloudManifestFileUriMaterializesBundle) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-nano-package-file-uri-manifest-" + std::to_string(uniq));
+  const fs::path manifest = root / "manifest.toml";
+  const fs::path profile = root / "profile.toml";
+  const fs::path package_bin = root / "bin" / "styio-nano";
+  const fs::path output_dir = root / "install";
+  ASSERT_TRUE(fs::create_directories(package_bin.parent_path()));
+
+  {
+    std::ofstream out(package_bin);
+    ASSERT_TRUE(out.is_open());
+    out << "#!/bin/sh\n";
+    out << "echo '{\"variant\":\"nano\"}'\n";
+  }
+  {
+    std::error_code ec;
+    fs::permissions(
+      package_bin,
+      fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
+      fs::perm_options::add,
+      ec);
+    ASSERT_FALSE(ec) << ec.message();
+  }
+  {
+    std::ofstream out(profile);
+    ASSERT_TRUE(out.is_open());
+    out << "[profile]\nname = \"manifest-profile\"\n";
+  }
+  {
+    std::ofstream out(manifest);
+    ASSERT_TRUE(out.is_open());
+    out << "[package]\n";
+    out << "name = \"manifest-cloud-package\"\n";
+    out << "version = \"1.2.3\"\n";
+    out << "channel = \"edge\"\n";
+    out << "\n[artifact]\n";
+    out << "binary = \"bin/styio-nano\"\n";
+    out << "profile = \"profile.toml\"\n";
+  }
+
+  const CommandResult result =
+    run_stdout_command(
+      shell_quote_latest(runner)
+      + " --nano-create --nano-mode=cloud"
+      + " --nano-output " + shell_quote_latest(output_dir.string())
+      + " --nano-manifest " + shell_quote_latest("file://" + manifest.string())
+      + " 2>&1");
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+  ASSERT_TRUE(fs::exists(output_dir / "bin" / "styio-nano"));
+  ASSERT_TRUE(fs::exists(output_dir / "styio-nano.profile.toml"));
+  const std::string receipt = read_text_file_latest(output_dir / "styio-nano-package.toml");
+  EXPECT_NE(receipt.find("name = \"manifest-cloud-package\""), std::string::npos);
+  EXPECT_NE(receipt.find("channel = \"edge\""), std::string::npos);
+  EXPECT_NE(receipt.find("version = \"1.2.3\""), std::string::npos);
+  EXPECT_NE(receipt.find("artifact_profile = \"profile.toml\""), std::string::npos);
+
+  fs::remove_all(root);
+}
+
+TEST(StyioNanoPackage, SelectionGuardsCoverMissingRequiredNanoOptions) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-nano-selection-guards-" + std::to_string(uniq));
+  const fs::path package_dir = root / "package";
+  ASSERT_TRUE(fs::create_directories(package_dir));
+
+  const std::string runner_cmd = shell_quote_latest(runner);
+  struct GuardCase {
+    std::string args;
+    std::string expected;
+  };
+  const std::vector<GuardCase> create_cases = {
+    {"--nano-create", "styio-nano creation requires --nano-mode"},
+    {"--nano-create --nano-mode=unsupported --nano-output " + shell_quote_latest((root / "out-a").string()),
+     "unsupported --nano-mode"},
+    {"--nano-create --nano-mode=cloud --nano-output " + shell_quote_latest((root / "out-b").string()),
+     "cloud styio-nano creation requires either"},
+    {"--nano-create --nano-mode=local-subset --nano-output " + shell_quote_latest((root / "out-c").string()),
+     "local-subset styio-nano creation requires --nano-profile"},
+    {"--nano-create --nano-mode=local-subset --nano-profile " + shell_quote_latest((root / "missing-profile.toml").string()),
+     "styio-nano creation requires --nano-output"},
+  };
+  for (const GuardCase& guard : create_cases) {
+    SCOPED_TRACE(guard.expected);
+    const CommandResult result = run_stdout_command(runner_cmd + " " + guard.args + " 2>&1");
+    EXPECT_NE(result.exit_code, 0) << result.stdout_text;
+    EXPECT_NE(result.stdout_text.find(guard.expected), std::string::npos) << result.stdout_text;
+  }
+
+  const std::vector<GuardCase> publish_cases = {
+    {"--nano-publish", "styio-nano publish requires --nano-package-dir"},
+    {"--nano-publish --nano-package-dir " + shell_quote_latest((root / "missing-package").string()),
+     "styio-nano package directory not found"},
+    {"--nano-publish --nano-package-dir " + shell_quote_latest(package_dir.string()),
+     "styio-nano package directory is missing bin"},
+  };
+  for (const GuardCase& guard : publish_cases) {
+    SCOPED_TRACE(guard.expected);
+    const CommandResult result = run_stdout_command(runner_cmd + " " + guard.args + " 2>&1");
+    EXPECT_NE(result.exit_code, 0) << result.stdout_text;
+    EXPECT_NE(result.stdout_text.find(guard.expected), std::string::npos) << result.stdout_text;
+  }
+
+  ASSERT_TRUE(fs::create_directories(package_dir / "bin"));
+  {
+    std::ofstream out(package_dir / "bin" / "styio-nano");
+    ASSERT_TRUE(out.is_open());
+    out << "#!/bin/sh\n";
+  }
+  const std::vector<GuardCase> publish_with_binary_cases = {
+    {"--nano-publish --nano-package-dir " + shell_quote_latest(package_dir.string()),
+     "styio-nano publish requires --nano-registry"},
+  };
+  for (const GuardCase& guard : publish_with_binary_cases) {
+    SCOPED_TRACE(guard.expected);
+    const CommandResult result = run_stdout_command(runner_cmd + " " + guard.args + " 2>&1");
+    EXPECT_NE(result.exit_code, 0) << result.stdout_text;
+    EXPECT_NE(result.stdout_text.find(guard.expected), std::string::npos) << result.stdout_text;
+  }
+
+  fs::remove_all(root);
+}
+
 TEST(StyioNanoPackage, CliRejectsMutuallyExclusiveAndMisdirectedOptions) {
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
   if (runner == nullptr || runner[0] == '\0') {
@@ -3017,6 +3792,405 @@ TEST(StyioNanoPackage, CliRejectsMutuallyExclusiveAndMisdirectedOptions) {
     std::string::npos);
 
   fs::remove_all(root);
+}
+
+TEST(StyioNanoPackage, CreateSelectionCoversProfileDerivedNameAndConfigErrors) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-nano-package-selection-" + std::to_string(uniq));
+  const fs::path bad_source_root = root / "not-a-styio-repo";
+  const fs::path output_dir = root / "bundle";
+  const fs::path profile = root / "profile.toml";
+  const fs::path malformed_profile = root / "malformed-profile.toml";
+  const fs::path malformed_config = root / "malformed-create.toml";
+  const fs::path invalid_scalar_config = root / "invalid-create.toml";
+  const fs::path cloud_conflict_config = root / "cloud-conflict.toml";
+  ASSERT_TRUE(fs::create_directories(bad_source_root));
+
+  {
+    std::ofstream out(profile);
+    ASSERT_TRUE(out.is_open());
+    out << "# comments are ignored before the selected profile section\n";
+    out << "[profile]\n";
+    out << "name = \"derived-profile-package\"\n";
+  }
+  {
+    std::ofstream out(malformed_profile);
+    ASSERT_TRUE(out.is_open());
+    out << "[profile\n";
+    out << "name = \"ignored\"\n";
+  }
+  {
+    std::ofstream out(malformed_config);
+    ASSERT_TRUE(out.is_open());
+    out << "[nano\n";
+    out << "mode = \"cloud\"\n";
+  }
+  {
+    std::ofstream out(invalid_scalar_config);
+    ASSERT_TRUE(out.is_open());
+    out << "[nano]\n";
+    out << "mode = local subset\n";
+  }
+  {
+    std::ofstream out(cloud_conflict_config);
+    ASSERT_TRUE(out.is_open());
+    out << "[nano]\n";
+    out << "mode = \"cloud\"\n";
+    out << "output_dir = \"" << output_dir.string() << "\"\n";
+    out << "\n[nano.cloud]\n";
+    out << "manifest = \"manifest.toml\"\n";
+    out << "registry = \"file://" << (root / "repo").string() << "\"\n";
+    out << "package = \"edge/default\"\n";
+    out << "version = \"0.0.1\"\n";
+  }
+
+  const std::string runner_cmd = shell_quote_latest(runner);
+  const CommandResult profile_name =
+    run_stdout_command(
+      runner_cmd + " --nano-create --nano-mode=local-subset"
+      + " --nano-output " + shell_quote_latest(output_dir.string())
+      + " --nano-profile " + shell_quote_latest(profile.string())
+      + " --nano-source-root " + shell_quote_latest(bad_source_root.string())
+      + " 2>&1");
+  EXPECT_NE(profile_name.exit_code, 0) << profile_name.stdout_text;
+  EXPECT_NE(
+    profile_name.stdout_text.find("styio source root does not look like a styio repository"),
+    std::string::npos);
+
+  const CommandResult malformed_profile_result =
+    run_stdout_command(
+      runner_cmd + " --nano-create --nano-mode=local-subset"
+      + " --nano-output " + shell_quote_latest((root / "bad-profile-out").string())
+      + " --nano-profile " + shell_quote_latest(malformed_profile.string())
+      + " --nano-source-root " + shell_quote_latest(bad_source_root.string())
+      + " 2>&1");
+  EXPECT_NE(malformed_profile_result.exit_code, 0) << malformed_profile_result.stdout_text;
+  EXPECT_NE(
+    malformed_profile_result.stdout_text.find("styio source root does not look like a styio repository"),
+    std::string::npos);
+
+  const CommandResult malformed =
+    run_stdout_command(runner_cmd + " --nano-create --nano-package-config "
+                       + shell_quote_latest(malformed_config.string()) + " 2>&1");
+  EXPECT_NE(malformed.exit_code, 0) << malformed.stdout_text;
+  EXPECT_NE(
+    malformed.stdout_text.find("malformed section header in nano package config"),
+    std::string::npos);
+
+  const CommandResult invalid_scalar =
+    run_stdout_command(runner_cmd + " --nano-create --nano-package-config "
+                       + shell_quote_latest(invalid_scalar_config.string()) + " 2>&1");
+  EXPECT_NE(invalid_scalar.exit_code, 0) << invalid_scalar.stdout_text;
+  EXPECT_NE(
+    invalid_scalar.stdout_text.find("invalid nano package value in config file"),
+    std::string::npos);
+
+  const CommandResult cloud_conflict =
+    run_stdout_command(runner_cmd + " --nano-create --nano-package-config "
+                       + shell_quote_latest(cloud_conflict_config.string()) + " 2>&1");
+  EXPECT_NE(cloud_conflict.exit_code, 0) << cloud_conflict.stdout_text;
+  EXPECT_NE(
+    cloud_conflict.stdout_text.find("cloud styio-nano creation accepts either"),
+    std::string::npos);
+
+  fs::remove_all(root);
+}
+
+TEST(StyioNanoPackage, PublishSelectionCoversReceiptFallbackAndConfigErrors) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-nano-publish-selection-" + std::to_string(uniq));
+  const fs::path package_dir = root / "package";
+  const fs::path repo_dir = root / "repo";
+  const fs::path malformed_config = root / "malformed-publish.toml";
+  const fs::path invalid_scalar_config = root / "invalid-publish.toml";
+  ASSERT_TRUE(fs::create_directories(package_dir / "bin"));
+
+  {
+    std::ofstream out(package_dir / "bin" / "styio-nano");
+    ASSERT_TRUE(out.is_open());
+    out << "#!/bin/sh\n";
+  }
+  {
+    std::ofstream out(package_dir / "styio-nano-package.toml");
+    ASSERT_TRUE(out.is_open());
+    out << "[package]\n";
+    out << "name = \"receipt-only-package\"\n";
+    out << "channel = \"edge\"\n";
+    out << "binary = \"bin/styio-nano\"\n";
+  }
+  {
+    std::ofstream out(malformed_config);
+    ASSERT_TRUE(out.is_open());
+    out << "[nano.publish\n";
+    out << "package_dir = \"" << package_dir.string() << "\"\n";
+  }
+  {
+    std::ofstream out(invalid_scalar_config);
+    ASSERT_TRUE(out.is_open());
+    out << "[nano.publish]\n";
+    out << "package_dir = \"" << package_dir.string() << "\"\n";
+    out << "registry = file uri\n";
+  }
+
+  const std::string runner_cmd = shell_quote_latest(runner);
+  const CommandResult missing_version =
+    run_stdout_command(
+      runner_cmd + " --nano-publish"
+      + " --nano-package-dir " + shell_quote_latest(package_dir.string())
+      + " --nano-registry " + shell_quote_latest(("file://" + repo_dir.string()))
+      + " 2>&1");
+  EXPECT_NE(missing_version.exit_code, 0) << missing_version.stdout_text;
+  EXPECT_NE(
+    missing_version.stdout_text.find("package receipt has no version"),
+    std::string::npos);
+
+  const CommandResult malformed =
+    run_stdout_command(runner_cmd + " --nano-publish --nano-publish-config "
+                       + shell_quote_latest(malformed_config.string()) + " 2>&1");
+  EXPECT_NE(malformed.exit_code, 0) << malformed.stdout_text;
+  EXPECT_NE(
+    malformed.stdout_text.find("malformed section header in nano publish config"),
+    std::string::npos);
+
+  const CommandResult invalid_scalar =
+    run_stdout_command(runner_cmd + " --nano-publish --nano-publish-config "
+                       + shell_quote_latest(invalid_scalar_config.string()) + " 2>&1");
+  EXPECT_NE(invalid_scalar.exit_code, 0) << invalid_scalar.stdout_text;
+  EXPECT_NE(
+    invalid_scalar.stdout_text.find("invalid nano publish value in config file"),
+    std::string::npos);
+
+  fs::remove_all(root);
+}
+
+TEST(StyioFeatureCorpus, NightlyExecutesStablePositiveDesignSamples) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const fs::path source_root = fs::path(STYIO_SOURCE_DIR);
+  const std::vector<std::string> samples = {
+    "tests/features/control_flow/t01_match.styio",
+    "tests/features/control_flow/t02_match_expr.styio",
+    "tests/features/control_flow/t03_match_default.styio",
+    "tests/features/control_flow/t04_factorial.styio",
+    "tests/features/control_flow/t05_for_each.styio",
+    "tests/features/control_flow/t06_inf_break.styio",
+    "tests/features/control_flow/t07_while.styio",
+    "tests/features/control_flow/t08_multi_break.styio",
+    "tests/features/control_flow/t09_continue.styio",
+    "tests/features/control_flow/t10_fizzbuzz.styio",
+    "tests/features/file_resources/t01_read_file.styio",
+    "tests/features/file_resources/t02_write_file.styio",
+    "tests/features/file_resources/t04_raii.styio",
+    "tests/features/file_resources/t05_auto_detect.styio",
+    "tests/features/file_resources/t07_redirect.styio",
+    "tests/features/file_resources/t08_pipe_func.styio",
+    "tests/features/final_bindings/t01_bounded_final_bind.styio",
+    "tests/features/final_bindings/t02_bounded_read.styio",
+    "tests/features/final_bindings/t14_flex_other_var_after_final_ok.styio",
+    "tests/features/functions/t01_simple_func.styio",
+    "tests/features/functions/t02_typed_return.styio",
+    "tests/features/functions/t03_block_body.styio",
+    "tests/features/functions/t04_func_chain.styio",
+    "tests/features/functions/t05_float_func.styio",
+    "tests/features/functions/t06_multi_stmt.styio",
+    "tests/features/functions/t07_no_params.styio",
+    "tests/features/functions/t09_bind_call.styio",
+    "tests/features/functions/t10_nested.styio",
+    "tests/features/functions/t11_hash_assign_and_arrow.styio",
+    "tests/features/scalar_expressions/t01_int_arith.styio",
+    "tests/features/scalar_expressions/t02_precedence.styio",
+    "tests/features/scalar_expressions/t03_parens.styio",
+    "tests/features/scalar_expressions/t04_float.styio",
+    "tests/features/scalar_expressions/t05_mixed.styio",
+    "tests/features/scalar_expressions/t06_binding.styio",
+    "tests/features/scalar_expressions/t07_typed_bind.styio",
+    "tests/features/scalar_expressions/t08_string.styio",
+    "tests/features/scalar_expressions/t09_multi_print.styio",
+    "tests/features/scalar_expressions/t10_modulo.styio",
+    "tests/features/scalar_expressions/t11_compare.styio",
+    "tests/features/scalar_expressions/t12_logic.styio",
+    "tests/features/scalar_expressions/t13_negative.styio",
+    "tests/features/scalar_expressions/t14_compound.styio",
+    "tests/features/scalar_expressions/t15_int_div.styio",
+    "tests/features/scalar_expressions/t16_float_div.styio",
+    "tests/features/scalar_expressions/t17_power.styio",
+    "tests/features/scalar_expressions/t18_bool.styio",
+    "tests/features/scalar_expressions/t19_chain_bind.styio",
+    "tests/features/scalar_expressions/t20_combined.styio",
+    "tests/features/state_resources/t01_scan.styio",
+    "tests/features/state_resources/t02_running_max.styio",
+    "tests/features/state_resources/t03_window_avg.styio",
+    "tests/features/state_resources/t05_frame_lock.styio",
+    "tests/features/state_resources/t06_topology_selector_snapshot.styio",
+    "tests/features/state_resources/t07_topology_selector_snapshot_f64.styio",
+    "tests/features/state_resources/t08_topology_selector_snapshot_bool.styio",
+    "tests/features/state_resources/t09_topology_selector_explicit_copy.styio",
+    "tests/features/state_resources/t10_topology_selector_snapshot_string.styio",
+    "tests/features/state_resources/t11_topology_selector_snapshot_char.styio",
+    "tests/features/state_resources/t12_topology_selector_snapshot_matrix.styio",
+    "tests/features/stdio_output/t01_stdout_string.styio",
+    "tests/features/stdio_output/t02_stdout_int.styio",
+    "tests/features/stdio_output/t03_stdout_float.styio",
+    "tests/features/stdio_output/t04_stdout_bool.styio",
+    "tests/features/stdio_output/t05_stdout_var.styio",
+    "tests/features/stdio_output/t06_stdout_concat.styio",
+    "tests/features/stdio_output/t06_stdout_fmtstr.styio",
+    "tests/features/stdio_output/t08_stdout_multi.styio",
+    "tests/features/stdio_output/t09_stderr_string.styio",
+    "tests/features/stdio_output/t10_stderr_int.styio",
+    "tests/features/stdio_output/t11_mixed.styio",
+    "tests/features/stdio_output/t12_legacy_print.styio",
+    "tests/features/stream_processing/t01_zip_collections.styio",
+    "tests/features/stream_processing/t02_zip_unequal.styio",
+    "tests/features/stream_processing/t03_snapshot.styio",
+    "tests/features/stream_processing/t04_instant_pull.styio",
+    "tests/features/stream_processing/t05_zip_files.styio",
+    "tests/features/stream_processing/t06_snapshot_lock.styio",
+    "tests/features/stream_processing/t07_singleton.styio",
+    "tests/features/stream_processing/t08_arbitrage.styio",
+    "tests/features/stream_processing/t09_snapshot_accum.styio",
+    "tests/features/stream_processing/t10_full_pipeline.styio",
+    "tests/features/stream_processing/t11_zip_bound_lists.styio",
+    "tests/features/stream_processing/t12_zip_file_bound_list.styio",
+    "tests/features/stream_processing/t13_zip_resource_selector_snapshots.styio",
+    "tests/features/stream_processing/t14_zip_matrix_selector_snapshots.styio",
+    "tests/features/task_resources/t01_task_pull_left.styio",
+    "tests/features/task_resources/t02_task_flow_right.styio",
+    "tests/features/task_resources/t03_task_flow_string.styio",
+    "tests/features/task_resources/t04_task_capture_i64.styio",
+    "tests/features/task_resources/t05_task_capture_string.styio",
+    "tests/features/task_resources/t06_task_group_await.styio",
+    "tests/features/wave_dispatch/t01_wave_merge.styio",
+    "tests/features/wave_dispatch/t02_wave_false.styio",
+    "tests/features/wave_dispatch/t03_wave_dispatch.styio",
+    "tests/features/wave_dispatch/t16_wave_merge_question_cond.styio",
+  };
+
+  const std::string runner_cmd = shell_quote_latest(runner);
+  for (const std::string& sample : samples) {
+    SCOPED_TRACE(sample);
+    const fs::path input = source_root / sample;
+    ASSERT_TRUE(fs::exists(input));
+    const CommandResult result =
+      run_stdout_command(runner_cmd + " --parser-engine=nightly --file "
+                         + shell_quote_latest(input.string()) + " 2>&1");
+    EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  }
+}
+
+TEST(StyioFeatureCorpus, NightlyExecutesStdinPullDesignSamples) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  struct StdinSample {
+    std::string relpath;
+    std::string stdin_text;
+  };
+  const std::vector<StdinSample> samples = {
+    {"tests/features/stdio_input/t03_stdin_eof.styio", ""},
+    {"tests/features/stdio_input/t04_stdin_multi_pull.styio", "1\n2\n"},
+    {"tests/features/stdio_input/t07_stdin_typed_tuple_pull.styio", "10.5\n2.5\n"},
+    {"tests/features/stdio_input/t08_stdin_typed_f64_list_pull.styio", "[1.25, 2.5, 3.75]\n"},
+  };
+
+  const fs::path source_root = fs::path(STYIO_SOURCE_DIR);
+  const std::string runner_cmd = shell_quote_latest(runner);
+  for (const StdinSample& sample : samples) {
+    SCOPED_TRACE(sample.relpath);
+    const fs::path input = source_root / sample.relpath;
+    ASSERT_TRUE(fs::exists(input));
+    const CommandResult result =
+      run_stdout_command(
+        "printf %s " + shell_quote_latest(sample.stdin_text)
+        + " | " + runner_cmd + " --parser-engine=nightly --file "
+        + shell_quote_latest(input.string()) + " 2>&1");
+    EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  }
+}
+
+TEST(StyioFeatureCorpus, NightlyRejectsKnownNegativeDesignSamplesWithJsonlDiagnostics) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  struct NegativeSample {
+    std::string relpath;
+    int exit_code;
+    std::string phase;
+  };
+  const std::vector<NegativeSample> samples = {
+    {"tests/features/final_bindings/e01_final_then_flex_i64.styio", 4, "\"phase\":\"type\""},
+    {"tests/features/final_bindings/e02_final_then_flex_f64.styio", 4, "\"phase\":\"type\""},
+    {"tests/features/final_bindings/e03_final_then_flex_bool.styio", 4, "\"phase\":\"type\""},
+    {"tests/features/final_bindings/e04_final_then_flex_bounded.styio", 4, "\"phase\":\"type\""},
+    {"tests/features/final_bindings/e05_other_flex_ok_then_flex_fixed.styio", 4, "\"phase\":\"type\""},
+    {"tests/features/final_bindings/e06_final_print_then_flex.styio", 4, "\"phase\":\"type\""},
+    {"tests/features/final_bindings/e07_iterator_body_flex_on_fixed_outer.styio", 4, "\"phase\":\"type\""},
+    {"tests/features/final_bindings/e08_zip_body_flex_on_fixed_outer.styio", 4, "\"phase\":\"type\""},
+    {"tests/features/final_bindings/e09_final_string_then_flex.styio", 4, "\"phase\":\"type\""},
+    {"tests/features/final_bindings/e10_comment_between_final_and_flex.styio", 4, "\"phase\":\"type\""},
+    {"tests/features/state_resources/e01_legacy_state_decl.styio", 3, "\"phase\":\"parse\""},
+    {"tests/features/state_resources/e02_legacy_state_ref.styio", 3, "\"phase\":\"parse\""},
+    {"tests/features/state_resources/e03_legacy_history_probe.styio", 3, "\"phase\":\"parse\""},
+    {"tests/features/state_resources/e04_legacy_snapshot_decl.styio", 3, "\"phase\":\"parse\""},
+    {"tests/features/state_resources/e05_selector_slice_exceeds_bound.styio", 4, "\"phase\":\"type\""},
+    {"tests/features/state_resources/e06_selector_snapshot_unbounded_matrix_unsupported.styio", 4, "\"phase\":\"sema\""},
+    {"tests/features/state_resources/e07_selector_copy_scalar_unsupported.styio", 3, "\"phase\":\"parse\""},
+    {"tests/features/stdio_input/e01_write_to_stdin.styio", 4, "\"phase\":\"sema\""},
+    {"tests/features/stdio_input/e02_read_from_stdout.styio", 4, "\"phase\":\"type\""},
+    {"tests/features/stdio_input/e03_read_from_stderr.styio", 4, "\"phase\":\"sema\""},
+    {"tests/features/stdio_input/e04_bound_stdout_iter_error.styio", 4, "\"phase\":\"type\""},
+    {"tests/features/task_resources/e01_task_flow_undeclared.styio", 4, "\"phase\":\"type\""},
+    {"tests/features/task_resources/e02_task_double_pull.styio", 4, "\"phase\":\"type\""},
+    {"tests/features/task_resources/e03_bare_await_freeze.styio", 4, "\"phase\":\"type\""},
+    {"tests/features/task_resources/e04_await_non_task_source.styio", 4, "\"phase\":\"type\""},
+    {"tests/features/task_resources/e05_bare_await_fallback.styio", 3, "\"phase\":\"parse\""},
+    {"tests/features/wave_dispatch/e09_fallback_noop.styio", 3, "\"phase\":\"parse\""},
+  };
+
+  const fs::path source_root = fs::path(STYIO_SOURCE_DIR);
+  const std::string runner_cmd = shell_quote_latest(runner);
+  for (const NegativeSample& sample : samples) {
+    SCOPED_TRACE(sample.relpath);
+    const fs::path input = source_root / sample.relpath;
+    ASSERT_TRUE(fs::exists(input));
+    const CommandResult result =
+      run_stdout_command(
+        runner_cmd + " --parser-engine=nightly --error-format=jsonl --file "
+        + shell_quote_latest(input.string()) + " 2>&1");
+    EXPECT_EQ(result.exit_code, sample.exit_code) << result.stdout_text;
+    EXPECT_NE(result.stdout_text.find("\"contract\":\"diagnostic\""), std::string::npos)
+      << result.stdout_text;
+    EXPECT_NE(result.stdout_text.find("\"severity\":\"error\""), std::string::npos)
+      << result.stdout_text;
+    EXPECT_NE(result.stdout_text.find(sample.phase), std::string::npos)
+      << result.stdout_text;
+  }
 }
 
 TEST(StyioParserEngine, LegacyAndNightlyMatchOnScalarExpressionsSample) {
