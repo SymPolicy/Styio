@@ -21,6 +21,10 @@ Options:
   --build-dir <dir>         Forwarded to checkpoint-health
   --asan-build-dir <dir>    Forwarded to checkpoint-health; also enables ASan
   --fuzz-build-dir <dir>    Forwarded to checkpoint-health; also enables fuzz
+  --coverage-build-dir <dir>
+                            Forwarded to checkpoint-health coverage gate
+  --coverage-threshold <percent>
+                            Minimum line coverage percentage (default: 95)
   -h, --help                Show this help
 USAGE
 }
@@ -200,6 +204,8 @@ RUN_FUZZ=0
 BUILD_DIR=""
 ASAN_BUILD_DIR=""
 FUZZ_BUILD_DIR=""
+COVERAGE_BUILD_DIR=""
+COVERAGE_THRESHOLD=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -249,6 +255,14 @@ while [[ $# -gt 0 ]]; do
       RUN_FUZZ=1
       shift 2
       ;;
+    --coverage-build-dir)
+      COVERAGE_BUILD_DIR="$2"
+      shift 2
+      ;;
+    --coverage-threshold)
+      COVERAGE_THRESHOLD="$2"
+      shift 2
+      ;;
     -h|--help)
       usage
       exit 0
@@ -286,6 +300,12 @@ if [[ -n "$ASAN_BUILD_DIR" ]]; then
 fi
 if [[ -n "$FUZZ_BUILD_DIR" ]]; then
   HEALTH_CMD+=(--fuzz-build-dir "$FUZZ_BUILD_DIR")
+fi
+if [[ -n "$COVERAGE_BUILD_DIR" ]]; then
+  HEALTH_CMD+=(--coverage-build-dir "$COVERAGE_BUILD_DIR")
+fi
+if [[ -n "$COVERAGE_THRESHOLD" ]]; then
+  HEALTH_CMD+=(--coverage-threshold "$COVERAGE_THRESHOLD")
 fi
 if [[ "$RUN_ASAN" -eq 0 ]]; then
   HEALTH_CMD+=(--no-asan)

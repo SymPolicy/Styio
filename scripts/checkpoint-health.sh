@@ -9,6 +9,10 @@ Options:
   --build-dir <dir>       CMake build dir for normal tests (default: build/default)
   --asan-build-dir <dir>  CMake build dir for ASan/UBSan tests (default: build/asan-ubsan)
   --fuzz-build-dir <dir>  CMake build dir for fuzz smoke (default: auto-detect build/fuzz)
+  --coverage-build-dir <dir>
+                           CMake build dir for coverage gate (default: build/coverage)
+  --coverage-threshold <percent>
+                           Minimum line coverage percentage (default: 95)
   --no-asan               Skip ASan/UBSan verification
   --no-fuzz               Skip fuzz smoke verification
   -h, --help              Show this help
@@ -60,6 +64,8 @@ cd "$ROOT"
 BUILD_DIR="build/default"
 ASAN_BUILD_DIR="build/asan-ubsan"
 FUZZ_BUILD_DIR="build/fuzz"
+COVERAGE_BUILD_DIR="build/coverage"
+COVERAGE_THRESHOLD="95"
 RUN_ASAN=1
 RUN_FUZZ="auto"
 
@@ -76,6 +82,14 @@ while [[ $# -gt 0 ]]; do
     --fuzz-build-dir)
       FUZZ_BUILD_DIR="$2"
       RUN_FUZZ="1"
+      shift 2
+      ;;
+    --coverage-build-dir)
+      COVERAGE_BUILD_DIR="$2"
+      shift 2
+      ;;
+    --coverage-threshold)
+      COVERAGE_THRESHOLD="$2"
       shift 2
       ;;
     --no-asan)
@@ -153,6 +167,11 @@ echo "[checkpoint-health] stream processing parser shadow zero-internal-bridges 
 ctest --test-dir "$BUILD_DIR" \
   -R '^parser_shadow_gate_stream_processing_zero_internal_bridges$' \
   --output-on-failure
+
+echo "[checkpoint-health] coverage gate"
+scripts/coverage-gate.sh \
+  --build-dir "$COVERAGE_BUILD_DIR" \
+  --threshold "$COVERAGE_THRESHOLD"
 
 if [[ "$RUN_FUZZ" == "1" ]]; then
   echo "[checkpoint-health] fuzz build dir: ${FUZZ_BUILD_DIR}"

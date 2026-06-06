@@ -25,6 +25,7 @@ option(STYIO_USE_ICU "Enable ICU-backed Unicode handling for StyioUnicode and CL
 option(STYIO_BUILD_NANO "Build the profile-pruned styio-nano compiler target" ON)
 option(STYIO_NANO_OPTIMIZE_FOR_SIZE "Compile styio-nano with size-oriented optimization flags when supported" ON)
 option(STYIO_ENABLE_TREE_SITTER "Enable the generated Tree-sitter syntax backend for styio_ide_core" ON)
+option(STYIO_ENABLE_COVERAGE "Build Styio targets with LLVM source-based coverage instrumentation" OFF)
 option(STYIO_INSTALL_NATIVE_TOOLCHAIN
        "Install a clang+LLVM bundle next to styio so @extern(c/c++) works without user compiler configuration"
        OFF)
@@ -39,6 +40,15 @@ set(STYIO_NATIVE_TOOLCHAIN_RELATIVE_DIR "native-toolchain" CACHE STRING
     "Relative clang+LLVM bundle directory searched next to the styio executable")
 set(STYIO_NANO_PROFILE "${CMAKE_SOURCE_DIR}/configs/styio-nano-default.toml" CACHE FILEPATH
     "Path to the styio-nano profile TOML used to configure the styio-nano target")
+
+if(STYIO_ENABLE_COVERAGE)
+  if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang|AppleClang"
+      OR NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
+    message(FATAL_ERROR "STYIO_ENABLE_COVERAGE requires Clang/AppleClang and llvm-cov/llvm-profdata")
+  endif()
+  add_compile_options(-fprofile-instr-generate -fcoverage-mapping)
+  add_link_options(-fprofile-instr-generate -fcoverage-mapping)
+endif()
 
 string(TOLOWER "${STYIO_NATIVE_TOOLCHAIN_MODE}" STYIO_NATIVE_TOOLCHAIN_MODE_NORMALIZED)
 if(NOT STYIO_NATIVE_TOOLCHAIN_MODE_NORMALIZED MATCHES "^(auto|bundled|system)$")

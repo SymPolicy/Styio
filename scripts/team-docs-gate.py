@@ -106,6 +106,7 @@ TEAM_RULES: tuple[TeamRule, ...] = (
             "tests/workflow_scheduler_test.py",
             "scripts/parser-shadow-suite-gate.sh",
             "scripts/fuzz-regression-pack.sh",
+            "scripts/coverage-gate.sh",
             "scripts/checkpoint-health.sh",
         ),
     ),
