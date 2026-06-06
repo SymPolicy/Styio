@@ -149,6 +149,17 @@ jobs:
         working-directory: styio-nightly
         run: ctest --test-dir build/ci -R '^scalar_expressions_t01_int_arith$|^functions_t01_simple_func$' --output-on-failure
 
+      - name: Source coverage gate
+        working-directory: styio-nightly
+        run: >
+          scripts/coverage-gate.sh
+          --build-dir build/coverage
+          --threshold 95
+          --llvm-cov llvm-cov-18
+          --llvm-profdata llvm-profdata-18
+          --cc clang-18
+          --cxx clang++-18
+
       - name: Fuzz smoke
         working-directory: styio-nightly
         run: ctest --test-dir build/ci -L fuzz_smoke --output-on-failure
