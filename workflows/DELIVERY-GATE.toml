@@ -1,7 +1,7 @@
 id = "delivery-gate"
 title = "Styio Unified Delivery Gate"
 purpose = "Define the common delivery-floor entrypoint for local, branch, audit, and checkpoint health checks."
-last_updated = "2026-05-02"
+last_updated = "2026-06-05"
 doc = "DELIVERY-GATE.md"
 
 commands = [
@@ -9,6 +9,7 @@ commands = [
   "./scripts/delivery-gate.sh --skip-health",
   "./scripts/delivery-gate.sh --mode push --base origin/main --range origin/main..HEAD",
   "./scripts/delivery-gate.sh --mode release",
+  "./scripts/delivery-gate.sh --coverage-build-dir build/coverage --coverage-threshold 95",
 ]
 
 delegates = [
@@ -16,4 +17,5 @@ delegates = [
   "workflow scheduler",
   "external audit",
   "checkpoint health",
+  "coverage gate",
 ]

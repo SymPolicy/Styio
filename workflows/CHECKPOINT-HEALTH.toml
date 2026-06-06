@@ -1,16 +1,18 @@
 id = "checkpoint-health"
 title = "Checkpoint Health"
 purpose = "Define the repository-wide build/test health entrypoint for styio-nightly."
-last_updated = "2026-04-19"
+last_updated = "2026-06-05"
 doc = "CHECKPOINT-HEALTH.md"
 
 commands = [
   "./scripts/checkpoint-health.sh",
   "./scripts/checkpoint-health.sh --no-asan --no-fuzz",
+  "./scripts/checkpoint-health.sh --coverage-build-dir build/coverage --coverage-threshold 95",
 ]
 
 checks = [
   "configure or reuse normal build directory",
   "build required compiler and test targets",
   "run compiler labels and parser/security verification",
+  "run project source line coverage gate at 95 percent",
 ]

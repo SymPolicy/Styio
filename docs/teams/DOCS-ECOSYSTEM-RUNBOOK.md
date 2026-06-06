@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-05-31
+**Last updated:** 2026-06-05
 
 ## Mission
 
@@ -152,6 +152,7 @@ Key SSOTs:
 116. When bounded resource-selector history or selector-copy evidence gains handle-owned families such as list, dict, or matrix, update Resource Topology, current-state/gap rollups, the IM-D4 inventory, `workflows/TEST-CATALOG.md`, Sema / IR, Codegen / Runtime when lowering/storage changes, Test Quality, and `DOC-STATS.md` together; name the closed families and keep tuple history, unbounded selector snapshots, and broader file/topology-resource copy semantics open unless separately proven.
 117. For typed stdin unsupported-target diagnostic refinements, describe the change as a public diagnostic-code refinement only: record `STYIO_TYPE_STDIN_UNSUPPORTED_TARGET`, the scalar and list target routes such as `bool` and `list[bool]` that prove it, and the unchanged TypeError exit family without implying broader stdin target support or resource-effect recovery.
 118. For matrix literal invalid diagnostic refinements, describe the change as a public diagnostic-code refinement only: record `STYIO_TYPE_MATRIX_LITERAL_INVALID`, the direct matrix binding and explicit matrix-return routes that prove it, and the unchanged TypeError exit family without implying broader matrix literal acceptance, matrix return compatibility, matrix operators, resource-method matrix bodies, or matrix runtime behavior.
+119. When checkpoint or delivery gates add repository-wide quality metrics such as source coverage, update the gate script, workflow Markdown/TOML mirrors, CI wiring, release conformance rollups, Test Quality runbook, generated indexes, and `DOC-STATS.md` in the same delivery.
 
 ## Change Classes
 
