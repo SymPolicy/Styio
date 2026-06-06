@@ -2,7 +2,7 @@
 
 **Purpose:** Record the accepted release, conformance, and regression-matrix decisions for IM-D6 so nightly promotion is governed by explicit gate tiers instead of ad hoc "run more tests" guidance.
 
-**Last updated:** 2026-05-21
+**Last updated:** 2026-06-05
 
 ## Scope
 
@@ -97,6 +97,7 @@ Accepted baseline:
 | Unified delivery gate push profile | `required` | `block` | `./scripts/delivery-gate.sh --mode push ...` |
 | External audit | `required` for branch handoff and downstream promotion | `block` | `styio-audit gate --repo . --project styio` through delivery gate |
 | Checkpoint health fast lane | `required` for non-doc delivery | `block` | `./scripts/checkpoint-health.sh --no-asan --no-fuzz` |
+| Project source line coverage >= 95% | `required` for non-doc delivery | `block` | `scripts/coverage-gate.sh --build-dir build/coverage --threshold 95` through checkpoint health |
 | Service contract smoke | `affected-required` for `src/StyioServices/**`, CLI, IDE, LSP, contract JSON changes | `block-if-affected` | focused service tests and documented machine-readable outputs |
 | CTest baseline labels | `affected-required` for compiler/test changes | `block-if-affected` | labels from the owning team runbook |
 
@@ -131,6 +132,7 @@ Accepted nightly/release matrix:
 | Full checkpoint health | `required` | `required` | `block` |
 | ASan/UBSan | `required` on Linux x86_64 | `required` on Linux x86_64 | `block` |
 | Fuzz corpus replay / fuzz smoke | `required` | `required` | `block` |
+| Project source line coverage >= 95% | `required` | `required` | `block` |
 | Deep libFuzzer run | `advisory` nightly | `advisory` or scheduled release evidence | `record-debt` unless promoted |
 | Release perf quick route | `required` for runtime/codegen/scheduler/native deltas | `required` | `block-if-affected` for nightly, `block` for release candidate |
 | Soak smoke | `required` for runtime/resource/stream/scheduler deltas | `required` | `block-if-affected` for nightly, `block` for release candidate |
@@ -203,8 +205,9 @@ IM-D6 can close only when:
 4. nightly/release records can express `required`, `affected-required`, `advisory`, `pending`, and `skip-with-reason`,
 5. unsupported or unavailable lanes are visible as pending debt instead of silent success,
 6. Linux x86_64 required lanes pass for the requested promotion tier,
-7. conformance families have positive and negative evidence or explicit pending owners, and
-8. cross-platform, deep fuzz, and full perf lanes are either operational or explicitly tracked as advisory/pending.
+7. conformance families have positive and negative evidence or explicit pending owners,
+8. project source line coverage is at least 95% for required Linux x86_64 lanes, and
+9. cross-platform, deep fuzz, and full perf lanes are either operational or explicitly tracked as advisory/pending.
 
 Until then, a promotion may still happen only with a record that lists the missing matrix lanes as pending.
 

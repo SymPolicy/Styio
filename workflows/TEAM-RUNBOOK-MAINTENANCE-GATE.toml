@@ -1,7 +1,7 @@
 id = "team-runbook-maintenance-gate"
 title = "Team Runbook Maintenance Gate"
 purpose = "Require docs/teams runbooks to stay updated and shaped when owned folders change."
-last_updated = "2026-04-16"
+last_updated = "2026-06-05"
 doc = "TEAM-RUNBOOK-MAINTENANCE-GATE.md"
 
 commands = [

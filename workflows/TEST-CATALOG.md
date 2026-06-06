@@ -2,7 +2,7 @@
 
 **Purpose:** Define the feature-based Styio test inventory, CTest labels, fixture layout, and gate commands for language acceptance coverage.
 
-**Last updated:** 2026-05-31
+**Last updated:** 2026-06-05
 
 ---
 
@@ -66,6 +66,8 @@ ctest --test-dir build/default -L scalar_expressions --output-on-failure
 | `parser_shadow_gate_stream_processing_zero_fallback` | Keep stream-processing fixtures matched with zero legacy fallback. | `ctest --test-dir build/default -R '^parser_shadow_gate_stream_processing_zero_fallback$' --output-on-failure` |
 | `parser_shadow_gate_stream_processing_zero_internal_bridges` | Keep stream-processing fixtures matched with zero internal legacy bridges. | `ctest --test-dir build/default -R '^parser_shadow_gate_stream_processing_zero_internal_bridges$' --output-on-failure` |
 | `parser_legacy_entry_audit` | Reject new parser legacy-entry regressions. | `ctest --test-dir build/default -R '^parser_legacy_entry_audit$' --output-on-failure` |
+| `coverage-gate` | Build with LLVM source coverage, run the core coverage label set, and fail below 95% project source line coverage. | `scripts/coverage-gate.sh --build-dir build/coverage --threshold 95` |
+| `StyioSecurity` source-coverage sentinels | Keep high-gap internal code paths exercised while broader feature coverage catches up: pulse-plan codegen, direct IR type mapping, rare AST/IR text forms, token/string representation switches, runtime matrix/list/dict/task APIs, and stable runtime error-family classification. | `ctest --test-dir build/default -R '^(StyioSecurityNightlyCodegen\.(PulsePlanCodegenCoversStateSlotsAndSeriesIntrinsics\|GetTypeCoversScalarCollectionIoAndTaskNodes)\|StyioSecurityRepr\.RareAstAndIrNodesHaveStableTextForm\|StyioSecurityTokenRepr\.StableNamesCoverAstDataTypeOperatorAndTokenSwitches\|StyioSafetyRuntime\.(MatrixApiCoversI64F64OperationsAndStableErrors\|DictApiCoversBackendsFamiliesClonesAndViews\|TaskApiCoversReadySpawnPullProfilesAndInvalidHandles))$' --output-on-failure` |
 | `StyioDiagnostics.CompoundAssignOnImmutableBindingReportsSemaCode` | Prove compound assignment to a final binding keeps the TypeError exit family while reporting the narrower `STYIO_SEMA_IMMUTABLE_BINDING` code and public `sema` phase. | `ctest --test-dir build -R '^StyioDiagnostics\.CompoundAssignOnImmutableBindingReportsSemaCode$' --output-on-failure` |
 | `StyioDiagnostics` undeclared-symbol diagnostic refinements | Prove unknown user function calls and unknown Topology resource references keep the TypeError exit family while reporting `STYIO_SEMA_UNDECLARED_SYMBOL` with public phase `sema`, without broadening symbol resolution, hidden native symbol visibility, import behavior, or resource lookup semantics. | `ctest --test-dir build -R '^StyioDiagnostics\.(UnknownFunctionReportsSemaUndeclaredSymbolCode\|UnknownResourceReportsSemaUndeclaredSymbolCode)$' --output-on-failure` |
 | `StyioDiagnostics` call-arity diagnostic refinements | Prove user function and resource-method arity mismatches keep the TypeError exit family while reporting `STYIO_SEMA_CALL_ARITY_MISMATCH` with public phase `sema`, without broadening function calling or resource-method dispatch semantics. | `ctest --test-dir build -R '^StyioDiagnostics\.(UserFunctionArityReportsSemaCallArityMismatchCode\|ResourceMethodArityReportsSemaCallArityMismatchCode)$' --output-on-failure` |
@@ -104,7 +106,7 @@ ctest --test-dir build/default -L scalar_expressions --output-on-failure
 
 ## 4. Recovery Gate
 
-`checkpoint-health.sh` runs the feature catalog as part of the repository health floor through `styio_pipeline`, shadow gates, security, parser diagnostics, soak, and docs checks.
+`checkpoint-health.sh` runs the feature catalog as part of the repository health floor through `styio_pipeline`, shadow gates, security, parser diagnostics, soak, docs checks, and the 95% source coverage gate.
 
 ```bash
 ./scripts/checkpoint-health.sh --no-asan --no-fuzz

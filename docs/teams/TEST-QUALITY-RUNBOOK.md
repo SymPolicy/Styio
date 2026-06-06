@@ -1,12 +1,12 @@
 # Test Quality Runbook
 
-**Purpose:** Provide the daily-work entrypoint for maintainers of feature tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
+**Purpose:** Provide the daily-work entrypoint for maintainers of feature tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, source coverage gates, and test documentation.
 
-**Last updated:** 2026-05-31
+**Last updated:** 2026-06-05
 
 ## Mission
 
-Own the evidence that Styio behavior is accepted, reproducible, and recoverable. This team protects CTest registration, fixture layout, golden oracles, C++ reference equivalence cases, fuzz/security coverage, and test catalog accuracy. It does not decide language semantics without the design SSOT.
+Own the evidence that Styio behavior is accepted, reproducible, and recoverable. This team protects CTest registration, fixture layout, golden oracles, C++ reference equivalence cases, fuzz/security coverage, LLVM source coverage gates, and test catalog accuracy. It does not decide language semantics without the design SSOT.
 
 ## Owned Surface
 
@@ -21,6 +21,7 @@ Primary paths:
 7. [../../workflows/TEST-CATALOG.md](../../workflows/TEST-CATALOG.md)
 8. [../../workflows/FIVE-LAYER-PIPELINE.md](../../workflows/FIVE-LAYER-PIPELINE.md)
 9. [../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md](../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md)
+10. [../../scripts/coverage-gate.sh](../../scripts/coverage-gate.sh)
 
 ## Daily Workflow
 
@@ -132,7 +133,13 @@ ctest --test-dir build/default -L resource_topology
 ctest --test-dir build/default -R '^(StyioDiagnostics\.SyntaxCheckRejectsNonAuthoritativeParserEngine|StyioSemanticBridge\.RejectsMalformedInputWithoutRecovery|StyioSyntaxDrift\.CorpusMatchesApprovedEnvelope)$'
 ctest --test-dir build/default -R '^parser_shadow_gate_'
 ctest --test-dir build/default -L algorithm_equivalence
+scripts/coverage-gate.sh --build-dir build/coverage --threshold 95
 ```
+
+The coverage gate measures project source line coverage with LLVM source-based
+coverage instrumentation and excludes tests, build outputs, benchmark adapters,
+generated grammar code, and bundled third-party headers. Coverage below 95% is a
+blocking failure for checkpoint health and delivery.
 
 Fuzz smoke:
 

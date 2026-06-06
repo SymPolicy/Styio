@@ -2,7 +2,7 @@
 
 **Purpose:** Define the common delivery-floor entrypoint for Styio so contributors can run local, branch, audit, and checkpoint health checks through one safe auto command before checkpoint merge or branch delivery.
 
-**Last updated:** 2026-05-22
+**Last updated:** 2026-06-05
 
 ## Goal
 
@@ -49,25 +49,25 @@ Release-candidate local floor:
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint` when the worktree has changes
 2. `python3 scripts/workflow-scheduler.py run --profile delivery-push --base <ref> --range <ref>..HEAD` when `HEAD` is ahead of the inferred base
 3. `styio-audit gate --repo . --project styio`
-4. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`
+4. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`, including the 95% coverage gate
 
 `checkpoint` mode composes:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint`
 2. `styio-audit gate --repo . --project styio`
-3. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`
+3. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`, including the 95% coverage gate
 
 `push` mode composes:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-push --base <ref> --range <range>`
 2. `styio-audit gate --repo . --project styio`
-3. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`
+3. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`, including the 95% coverage gate
 
 `release` mode composes:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint`
 2. `styio-audit gate --repo . --project styio`
-3. `./scripts/checkpoint-health.sh` with ASan/UBSan and fuzz smoke enabled
+3. `./scripts/checkpoint-health.sh` with the 95% coverage gate, ASan/UBSan, and fuzz smoke enabled
 
 The scheduler expands those profiles into repository hygiene, runtime-surface alignment, team-runbook maintenance, docs audit, and ecosystem CLI doc checks in registered phase order.
 
@@ -85,7 +85,9 @@ Forwarded build-path options:
 ./scripts/delivery-gate.sh \
   --build-dir build/default \
   --asan-build-dir build/asan-ubsan \
-  --fuzz-build-dir build/fuzz
+  --fuzz-build-dir build/fuzz \
+  --coverage-build-dir build/coverage \
+  --coverage-threshold 95
 ```
 
 ## Scope Boundary

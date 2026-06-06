@@ -2,13 +2,18 @@
 
 **Purpose:** Define the repository-wide build/test health entrypoint for `styio-nightly` so CI and checkpoint delivery can call one script instead of wiring compiler-specific checks inline.
 
-**Last updated:** 2026-04-19
+**Last updated:** 2026-06-05
 
 ## Goal
 
 `scripts/checkpoint-health.sh` is the inner health gate for this repository. It owns configure/build steps, the compiler test labels, and repo-specific parser/security/soak verification needed at checkpoint scope.
 
 When `--asan-build-dir` points at a missing directory, the script now bootstraps a RelWithDebInfo ASan/UBSan configure in that location before running the sanitizer leg.
+
+The health gate also runs `scripts/coverage-gate.sh` with a default 95% project
+source line-coverage threshold. A coverage result below 95% fails checkpoint
+health and therefore fails the delivery gate unless the delivery is explicitly
+docs/process-only and uses `--skip-health`.
 
 ## Command
 
@@ -24,6 +29,12 @@ Fast local checkpoint health:
 ./scripts/checkpoint-health.sh --no-asan --no-fuzz
 ```
 
+Coverage build override:
+
+```bash
+./scripts/checkpoint-health.sh --coverage-build-dir build/coverage --coverage-threshold 95
+```
+
 ## What It Runs
 
 At the outer interface, callers only need to know that this script:
@@ -31,6 +42,7 @@ At the outer interface, callers only need to know that this script:
 1. configures or reuses the normal build directory
 2. builds the required compiler/test targets
 3. runs the docs, pipeline, security, parser, and soak legs needed for checkpoint health
-4. optionally runs ASan/UBSan and fuzz smoke when requested
+4. runs the coverage gate and fails below 95% project source line coverage
+5. optionally runs ASan/UBSan and fuzz smoke when requested
 
 The exact internal test labels and target names may evolve, but CI and delivery scripts should continue to call this file rather than inline its implementation details.
