@@ -1641,6 +1641,10 @@ public:
     }
 
     switch (expr->getNodeType()) {
+      case StyioNodeType::Comment:
+        return clone(static_cast<CommentAST*>(expr));
+      case StyioNodeType::Empty:
+        return clone(static_cast<EmptyAST*>(expr));
       case StyioNodeType::Id:
         return clone(static_cast<NameAST*>(expr));
       case StyioNodeType::Integer:
@@ -1796,7 +1800,7 @@ clone_resource_method_body_latest(
   return StateExprCloneVisitor(
            std::move(named_repls),
            method->getFamilyName(),
-           nullptr
+           receiver
   )
     .clone(method->getBody());
 }

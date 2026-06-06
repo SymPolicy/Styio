@@ -1,7 +1,6 @@
 #include "StyioTesting/PipelineCheck.hpp"
 
 #include <atomic>
-#include <array>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -54,21 +53,6 @@ normalize_text(std::string& s) {
     s.pop_back();
   }
   s.push_back('\n');
-}
-
-std::string
-capture_subprocess_stdout(const std::string& cmd) {
-  std::string out;
-  std::array<char, 4096> buf{};
-  FILE* pipe = popen(cmd.c_str(), "r");
-  if (pipe == nullptr) {
-    return {};
-  }
-  while (fgets(buf.data(), static_cast<int>(buf.size()), pipe) != nullptr) {
-    out += buf.data();
-  }
-  pclose(pipe);
-  return out;
 }
 
 struct SubprocessCaptureLatest

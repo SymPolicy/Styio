@@ -154,6 +154,17 @@ public:
     deactivate_session_arenas();
   }
 
+  static const char* phase_name_for_diagnostics(CompilationPhase phase) {
+    return phase_name(phase);
+  }
+
+  static bool phase_at_least(CompilationPhase current, CompilationPhase minimum) {
+    if (current == CompilationPhase::Failed) {
+      return false;
+    }
+    return phase_rank(current) >= phase_rank(minimum);
+  }
+
   void reset() {
     if (ir_ != nullptr) {
       delete ir_;

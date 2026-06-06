@@ -37,7 +37,6 @@ namespace
 {
 
 constexpr int kMaxParserDelimiterNestingLatest = 64;
-constexpr size_t kMaxInternalLegacyBridgesPerTokenLatest = 4;
 
 void
 enforce_parser_delimiter_budget_latest(StyioContext& context, const char* construct) {
@@ -48,21 +47,6 @@ enforce_parser_delimiter_budget_latest(StyioContext& context, const char* constr
     context.mark_cur_tok(
       std::string(construct) + " exceeds parser delimiter nesting limit of "
       + std::to_string(kMaxParserDelimiterNestingLatest)
-    )
-  );
-}
-
-void
-enforce_nightly_internal_legacy_bridge_budget_latest(StyioContext& context, const char* construct) {
-  const size_t bridge_count = context.note_nightly_internal_legacy_bridge_latest();
-  if (bridge_count <= kMaxInternalLegacyBridgesPerTokenLatest) {
-    return;
-  }
-  throw StyioParserResourceLimitError(
-    context.mark_cur_tok(
-      std::string(construct) + " exceeded nightly-to-legacy bridge limit of "
-      + std::to_string(kMaxInternalLegacyBridgesPerTokenLatest)
-      + " at one token"
     )
   );
 }
@@ -691,7 +675,6 @@ parse_bound_extern_after_at_latest(
 }
 
 static StyioAST* parse_token_index_suffix(StyioContext& context, StyioAST* base);
-static StyioAST* parse_state_ref_suffix(StyioContext& context, StateRefAST* sr);
 TypeAST* parse_styio_type(StyioContext& context);
 static StyioAST* parse_expr_postfix(StyioContext& context, StyioAST* lhs);
 static ResourceRefAST* parse_resource_ref_after_at_latest(StyioContext& context);
@@ -3007,15 +2990,6 @@ parse_arithmetic_tail_from_atom(StyioContext& context, StyioAST* output) {
 }
 
 static StyioAST*
-parse_state_ref_suffix(StyioContext& context, StateRefAST* sr) {
-  context.skip();
-  if (context.check(StyioTokenType::TOK_LBOXBRAC)) {
-    return parse_token_index_suffix(context, sr);
-  }
-  return sr;
-}
-
-static StyioAST*
 parse_guard_value_expr_latest(StyioContext& context);
 
 static StyioAST*
@@ -3308,22 +3282,6 @@ parse_token_index_suffix(StyioContext& context, StyioAST* base) {
   std::unique_ptr<StyioAST> base_owner(base);
   context.try_match_panic(StyioTokenType::TOK_LBOXBRAC);
   context.skip();
-
-  if (auto* sr = dynamic_cast<StateRefAST*>(base_owner.get())) {
-    if (context.check(StyioTokenType::EXTRACTOR)) {
-      context.move_forward(1, "retired_state_history_selector");
-      context.skip();
-      context.try_match_panic(StyioTokenType::TOK_COMMA);
-      context.skip();
-      std::unique_ptr<StyioAST> dep(parse_fallback_expr(context));
-      context.skip();
-      context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
-      StyioAST* probe = HistoryProbeAST::Create(sr, dep.get());
-      base_owner.release();
-      dep.release();
-      return probe;
-    }
-  }
 
   if (context.check(StyioTokenType::NAME)) {
     const std::string& idxsym = context.cur_tok()->original;
@@ -5441,30 +5399,6 @@ parse_print(StyioContext& context) {
 
   return PrintAST::Create(release_owned_exprs(std::move(exprs)));
 }
-
-// StyioAST* parse_panic (
-//   StyioContext& context) {
-//   do
-//   {
-//     /*
-//       Danger!
-//       when entering parse_panic(),
-//       the following symbol must be !
-//       this line will drop the next 1 character anyway!
-//     */
-//     context -> move(1);
-//   } while (context -> check('!'));
-
-//   if (context -> find_drop('(')) {
-//     /*
-//       parse_one_or_many_repr
-//       parse_fmt_str
-//     */
-
-//   } else {
-
-//   }
-// }
 
 StyioAST*
 parse_stmt_or_expr_legacy(

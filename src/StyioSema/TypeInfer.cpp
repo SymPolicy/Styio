@@ -771,13 +771,6 @@ merge_cond_flow_branch_type(
   if (type_is_numeric_family(then_type) && type_is_numeric_family(else_type)) {
     return getMaxType(then_type, else_type);
   }
-  if (!saved_type.isUndefined()) {
-    if ((then_type.equals(saved_type) || type_is_numeric_family(then_type))
-        && (else_type.equals(saved_type) || type_is_numeric_family(else_type))
-        && type_is_numeric_family(saved_type)) {
-      return getMaxType(getMaxType(saved_type, then_type), else_type);
-    }
-  }
   return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
 }
 
