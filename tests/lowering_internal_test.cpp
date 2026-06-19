@@ -1671,6 +1671,20 @@ TEST(StyioLoweringInternal, AdditionalLoweringGuardBranchesStayExplicit) {
     EXPECT_EQ(matrix_intrinsic_runtime_name(&analyzer, call.get()), "custom_runtime");
   }
   {
+    StyioRepr repr;
+    std::unique_ptr<MainBlockAST> empty_main(MainBlockAST::Create({}));
+    EXPECT_NE(empty_main->toString(&repr).find("{ }"), std::string::npos);
+
+    std::unique_ptr<SGMainEntry> empty_ir(SGMainEntry::Create({}));
+    EXPECT_EQ(empty_ir->toString(&repr), "styio.ir.main { }");
+
+    std::unique_ptr<ListOpAST> unsupported_list_op(new ListOpAST(
+      static_cast<StyioNodeType>(999),
+      NameAST::Create("items"),
+      IntAST::Create("0")));
+    EXPECT_NE(unsupported_list_op->toString(&repr).find("undefined"), std::string::npos);
+  }
+  {
     std::unique_ptr<ListAST> typed_empty(ListAST::Create());
     typed_empty->setDataType(styio_make_list_type("string"));
     EXPECT_TRUE(collection_elem_is_string(&analyzer, typed_empty.get()));
