@@ -788,6 +788,10 @@ TEST(StyioCodeGenInternal, TaskFlowIoAndScopedStringEdgesStayExplicit) {
       SGConstFloat::Create("1.0"),
       SGBlock::Create({SGConstInt::Create(1)}),
       SGBlock::Create({SGConstInt::Create(0)})),
+    SGBlock::Create({
+      SGFinalBind::Create(var("scoped_tail_text", string_type()), SGConstString::Create("held")),
+      SGConstString::Create("tail"),
+    }),
 
     SGFinalBind::Create(var("recent_f64", bounded_ring_type("f64", 2)), SGConstInt::Create(1)),
     SGFinalBind::Create(var("recent_i64_from_float", bounded_ring_type("i64", 2)), SGConstFloat::Create("2.5")),
