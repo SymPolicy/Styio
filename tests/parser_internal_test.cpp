@@ -1,6 +1,10 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <filesystem>
+#include <fstream>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -11,6 +15,8 @@
 #include "../src/StyioParser/Parser.cpp"
 
 namespace {
+
+namespace fs = std::filesystem;
 
 std::vector<std::pair<size_t, size_t>> build_line_seps(const std::string& src) {
   std::vector<std::pair<size_t, size_t>> seps;
@@ -37,6 +43,35 @@ void free_tokens(std::vector<StyioToken*>& tokens) {
     delete token;
   }
   tokens.clear();
+}
+
+std::string read_file_text(const fs::path& path) {
+  std::ifstream input(path, std::ios::binary);
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  return buffer.str();
+}
+
+void exercise_recovery_parser_for_source(const std::string& source, StyioParserEngine engine) {
+  std::vector<StyioToken*> tokens;
+  StyioContext* context = nullptr;
+  MainBlockAST* ast = nullptr;
+  try {
+    tokens = StyioTokenizer::tokenize(source);
+    context = StyioContext::Create(
+      "<parser-corpus>",
+      source,
+      build_line_seps(source),
+      tokens,
+      false);
+    ast = parse_main_block_with_engine_latest(context[0], engine, nullptr, StyioParseMode::Recovery);
+  }
+  catch (...) {
+  }
+  delete ast;
+  delete context;
+  free_tokens(tokens);
+  StyioAST::destroy_all_tracked_nodes();
 }
 
 class DirectContext {
@@ -1259,6 +1294,25 @@ TEST(StyioParserInternal, LegacyExpressionPostfixEdgesStayExplicit) {
     std::unique_ptr<StyioAST> ast(parse_expr_postfix(direct.get(), NameAST::Create("callable")));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Call);
+  }
+}
+
+TEST(StyioParserInternal, ParserFuzzCorpusExercisesRecoveryRoutes) {
+  std::vector<fs::path> corpus_paths;
+  for (const auto& entry : fs::directory_iterator("tests/fuzz/corpus/parser")) {
+    if (entry.is_regular_file()
+        && entry.path().filename().string().rfind("seed-", 0) == 0) {
+      corpus_paths.push_back(entry.path());
+    }
+  }
+  std::sort(corpus_paths.begin(), corpus_paths.end());
+  ASSERT_GT(corpus_paths.size(), 5u);
+
+  for (const auto& path : corpus_paths) {
+    const std::string source = read_file_text(path);
+    SCOPED_TRACE(path.string());
+    exercise_recovery_parser_for_source(source, StyioParserEngine::Legacy);
+    exercise_recovery_parser_for_source(source, StyioParserEngine::Nightly);
   }
 }
 
