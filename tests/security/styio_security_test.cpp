@@ -4059,24 +4059,29 @@ TEST(StyioIRContract, ResourceMethodInliningCoversDirectReturnCastsAndStatementC
 TEST(StyioUtilityContracts, CoversBoundedMethodAndDynamicTagEdgeCases) {
   const StyioDataType undefined{StyioDataTypeOption::Undefined, "undefined", 0};
   const StyioDataType plain_i64{StyioDataTypeOption::Integer, "i64", 64};
+  const StyioDataType defined_plain{StyioDataTypeOption::Defined, "plain_resource", 0};
   const StyioDataType bounded_default{StyioDataTypeOption::Defined, "bounded_ring:8", 0};
   const StyioDataType bounded_typed{StyioDataTypeOption::Defined, "bounded_ring:f64:16", 0};
   const StyioDataType bounded_empty_type{StyioDataTypeOption::Defined, "bounded_ring::16", 0};
   const StyioDataType bounded_zero{StyioDataTypeOption::Defined, "bounded_ring:i64:0", 0};
   const StyioDataType bounded_bad_digits{StyioDataTypeOption::Defined, "bounded_ring:i64:16x", 0};
+  const StyioDataType bounded_alpha_capacity{StyioDataTypeOption::Defined, "bounded_ring:i64:not-a-number", 0};
 
   EXPECT_FALSE(styio_bounded_ring_value_type_name(undefined).has_value());
   EXPECT_FALSE(styio_bounded_ring_value_type_name(plain_i64).has_value());
+  EXPECT_FALSE(styio_bounded_ring_value_type_name(defined_plain).has_value());
   EXPECT_EQ(styio_bounded_ring_value_type_name(bounded_default).value(), "i64");
   EXPECT_EQ(styio_bounded_ring_value_type_name(bounded_typed).value(), "f64");
   EXPECT_FALSE(styio_bounded_ring_value_type_name(bounded_empty_type).has_value());
 
   EXPECT_FALSE(styio_bounded_ring_capacity(undefined).has_value());
   EXPECT_FALSE(styio_bounded_ring_capacity(plain_i64).has_value());
+  EXPECT_FALSE(styio_bounded_ring_capacity(defined_plain).has_value());
   EXPECT_EQ(styio_bounded_ring_capacity(bounded_default).value(), 8U);
   EXPECT_EQ(styio_bounded_ring_capacity(bounded_typed).value(), 16U);
   EXPECT_FALSE(styio_bounded_ring_capacity(bounded_zero).has_value());
   EXPECT_FALSE(styio_bounded_ring_capacity(bounded_bad_digits).has_value());
+  EXPECT_FALSE(styio_bounded_ring_capacity(bounded_alpha_capacity).has_value());
 
   EXPECT_EQ(styio_builtin_method_kind("drop"), StyioBuiltinMethodKind::ResourceDrop);
   EXPECT_EQ(styio_builtin_method_kind("destroy"), StyioBuiltinMethodKind::ResourceDestroy);
@@ -6349,6 +6354,7 @@ TEST(StyioSecurityParserLookahead, SkipTriviaFindsNextToken) {
 
   EXPECT_TRUE(styio_try_check_non_trivia(tokens, 0, StyioTokenType::NAME));
   EXPECT_FALSE(styio_try_check_non_trivia(tokens, 0, StyioTokenType::INTEGER));
+  EXPECT_FALSE(styio_try_check_non_trivia({}, 0, StyioTokenType::NAME));
   free_tokens(tokens);
 }
 
@@ -13275,6 +13281,13 @@ TEST(StyioSecurityUnicode, DecodeUtf8CodepointBoundaries) {
   }
 
   {
+    std::string invalid_continuation = "\xF0\x28\x80\x80";
+    std::uint32_t cp = 0;
+    std::size_t width = 0;
+    EXPECT_FALSE(StyioUnicode::decode_utf8_codepoint(invalid_continuation, 0, cp, width));
+  }
+
+  {
     std::string invalid_leading_byte = "\xFF";
     std::uint32_t cp = 0;
     std::size_t width = 0;
@@ -13309,9 +13322,11 @@ TEST(StyioSecuritySymbolRegistry, DefaultRegistryGroupsAndNamesAreStable) {
   EXPECT_EQ(std::string(styio::symbols::to_string(RegistrySurface::Type)), "type");
   EXPECT_EQ(std::string(styio::symbols::to_string(RegistrySurface::Value)), "value");
   EXPECT_EQ(std::string(styio::symbols::to_string(RegistrySurface::Member)), "member");
+  EXPECT_EQ(std::string(styio::symbols::to_string(static_cast<RegistrySurface>(999))), "value");
   EXPECT_EQ(std::string(styio::symbols::to_string(RegistryOrigin::Builtin)), "builtin");
   EXPECT_EQ(std::string(styio::symbols::to_string(RegistryOrigin::Prelude)), "prelude");
   EXPECT_EQ(std::string(styio::symbols::to_string(RegistryOrigin::Macro)), "macro");
+  EXPECT_EQ(std::string(styio::symbols::to_string(static_cast<RegistryOrigin>(999))), "builtin");
 
   const auto builtins = styio::symbols::default_symbol_names_by_origin(RegistryOrigin::Builtin);
   const auto prelude = styio::symbols::default_symbol_names_by_origin(RegistryOrigin::Prelude);
