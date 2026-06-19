@@ -439,6 +439,47 @@ TEST(StyioCodeGenInternal, CollectionHandleLiteralsAndAccessorsStayExplicit) {
   });
 }
 
+TEST(StyioCodeGenInternal, DynamicLoadDefaultsAndFallbackValuesStayExplicit) {
+  expect_codegen_ok({
+    SGResId::Create("missing_name_falls_back_to_zero"),
+    SGDynLoad::Create("missing_bool", SGDynLoadKind::Bool),
+    SGDynLoad::Create("missing_i64", SGDynLoadKind::I64),
+    SGDynLoad::Create("missing_f64", SGDynLoadKind::F64),
+    SGDynLoad::Create("missing_cstr", SGDynLoadKind::CString),
+    SGDynLoad::Create("missing_list", SGDynLoadKind::ListHandle),
+    SGDynLoad::Create("missing_dict", SGDynLoadKind::DictHandle),
+    SGDynLoad::Create("missing_matrix", SGDynLoadKind::MatrixHandle),
+    SGDynLoad::Create("missing_task", SGDynLoadKind::TaskHandle),
+
+    SGFunc::Create(
+      SGType::Create(i64_type()),
+      SGResId::Create("default_i64"),
+      {},
+      SGBlock::Create({})),
+    SGFunc::Create(
+      SGType::Create(bool_type()),
+      SGResId::Create("default_bool"),
+      {},
+      SGBlock::Create({})),
+    SGCall::Create(SGResId::Create("default_i64"), {}),
+    SGCall::Create(SGResId::Create("default_bool"), {}),
+
+    SGCall::Create(SGResId::Create("__styio_list_push_f64"), {
+      SGConstInt::Create(1),
+      SGConstString::Create("not-a-number"),
+    }),
+    SGCall::Create(SGResId::Create("__styio_list_push_i64"), {
+      SGConstInt::Create(1),
+      SGConstChar::Create('x'),
+    }),
+  }, {
+    "default_i64",
+    "default_bool",
+    "styio_list_push_f64",
+    "styio_list_push",
+  });
+}
+
 TEST(StyioCodeGenInternal, UserCallArgumentCastsAndMixedMatchPromotionStayExplicit) {
   expect_codegen_ok({
     SGFunc::Create(
@@ -611,14 +652,22 @@ TEST(StyioCodeGenInternal, DynamicSlotsRingsScopesAndControlFlowStayExplicit) {
     SGFinalBind::Create(
       dynamic_var("dyn_task", task_type()),
       SIOTaskCreate::Create(SGBlock::Create({SGReturn::Create(SGConstInt::Create(7))}), i64_type())),
+    SGDynLoad::Create("dyn_bool", SGDynLoadKind::Bool),
+    SGDynLoad::Create("dyn_i64", SGDynLoadKind::I64),
+    SGDynLoad::Create("dyn_f64", SGDynLoadKind::F64),
+    SGDynLoad::Create("dyn_text", SGDynLoadKind::CString),
+    SGDynLoad::Create("dyn_list", SGDynLoadKind::ListHandle),
+    SGDynLoad::Create("dyn_dict", SGDynLoadKind::DictHandle),
+    SGDynLoad::Create("dyn_matrix", SGDynLoadKind::MatrixHandle),
+    SGDynLoad::Create("dyn_task", SGDynLoadKind::TaskHandle),
 
-	    SGFinalBind::Create(var("recent_text", bounded_ring_type("string", 2)), SGConstString::Create("a")),
-	    SGFlexBind::Create(var("recent_text", bounded_ring_type("string", 2)), SGConstString::Create("b"), true),
-		    SGFinalBind::Create(var("recent_i64", bounded_ring_type("i64", 2)), SGConstInt::Create(1)),
-		    SGFlexBind::Create(var("recent_i64", bounded_ring_type("i64", 2)), SGConstInt::Create(2), true),
-		    SGFlexBind::Create(var("recent_i64", bounded_ring_type("i64", 2)), SGConstInt::Create(3)),
-		    SGFinalBind::Create(var("recent_lists", bounded_ring_type("list[i64]", 2)), list_i64()),
-		    SGFlexBind::Create(var("recent_lists", bounded_ring_type("list[i64]", 2)), list_i64(), true),
+    SGFinalBind::Create(var("recent_text", bounded_ring_type("string", 2)), SGConstString::Create("a")),
+    SGFlexBind::Create(var("recent_text", bounded_ring_type("string", 2)), SGConstString::Create("b"), true),
+    SGFinalBind::Create(var("recent_i64", bounded_ring_type("i64", 2)), SGConstInt::Create(1)),
+    SGFlexBind::Create(var("recent_i64", bounded_ring_type("i64", 2)), SGConstInt::Create(2), true),
+    SGFlexBind::Create(var("recent_i64", bounded_ring_type("i64", 2)), SGConstInt::Create(3)),
+    SGFinalBind::Create(var("recent_lists", bounded_ring_type("list[i64]", 2)), list_i64()),
+    SGFlexBind::Create(var("recent_lists", bounded_ring_type("list[i64]", 2)), list_i64(), true),
 
     SGFallback::Create(SGUndef::Create(), SGConstString::Create("fallback")),
     SGWaveMerge::Create(SGConstInt::Create(1), SGConstString::Create("left"), SGConstString::Create("right")),
