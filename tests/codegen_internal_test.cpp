@@ -337,6 +337,20 @@ TEST(StyioCodeGenInternal, GetTypeUsesExistingFunctionReturnTypeForCalls) {
   EXPECT_TRUE(call_type->isDoubleTy());
 }
 
+TEST(StyioCodeGenInternal, GetTypeUsesBoundedRingElementTypeForResourceIds) {
+  auto generator = make_generator();
+  std::unique_ptr<SGMainEntry> entry(
+    SGMainEntry::Create({
+      SGFinalBind::Create(var("recent_values", bounded_ring_type("f64", 2)), SGConstFloat::Create("1.5")),
+    }));
+  EXPECT_NO_THROW((void)entry->toLLVMIR(generator.get()));
+
+  std::unique_ptr<StyioIR> ring_name(SGResId::Create("recent_values"));
+  llvm::Type* ring_element_type = ring_name->toLLVMType(generator.get());
+  ASSERT_NE(ring_element_type, nullptr);
+  EXPECT_TRUE(ring_element_type->isDoubleTy());
+}
+
 TEST(StyioCodeGenInternal, ScalarCastConditionAndDynamicSlotGuardsStayExplicit) {
   expect_codegen_ok({
     SGCast::Create(
