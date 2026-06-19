@@ -2027,6 +2027,102 @@ TEST(StyioSemanticDb, ExposesReceiverAndExpectedTypeQueriesDirectly) {
   EXPECT_EQ(stats.expected_type.hits, 1u);
 }
 
+TEST(StyioSemanticDb, CompletionScoringCoversExactPrefixesAndTypeAliases) {
+  styio::ide::VirtualFileSystem vfs;
+  styio::ide::Project project;
+  styio::ide::SemanticDB semdb(vfs, project);
+  const std::string path = make_temp_dir() + "/semantic_completion_scores.styio";
+  const std::string source =
+    "# make_str : str := () => \"hi\"\n"
+    "# make_int : int := () => 1\n"
+    "# make_long : long := () => 1\n"
+    "# make_float : float := () => 1.0\n"
+    "# make_double : double := () => 1.0\n"
+    "# take_string := (value: string) => value\n"
+    "# take_i32 := (value: i32) => value\n"
+    "# take_i64 := (value: i64) => value\n"
+    "# take_f32 := (value: f32) => value\n"
+    "# take_f64 := (value: f64) => value\n"
+    "# take_pair := (first: i32, second: string) => second\n"
+    "exact: i32 := 1\n"
+    "exact_result: i32 := exact\n"
+    "str_result: string := take_string()\n"
+    "int_result: i32 := take_i32()\n"
+    "long_result: i64 := take_i64()\n"
+    "float_result: f32 := take_f32()\n"
+    "double_result: f64 := take_f64()\n"
+    "pair_result: string := take_pair((1), \"x\")\n";
+
+  vfs.open(path, source, 1);
+
+  const std::size_t exact_offset = source.find("exact\n");
+  ASSERT_NE(exact_offset, std::string::npos);
+  const auto exact_completion = semdb.complete_at(path, exact_offset + std::string("exact").size());
+  ASSERT_FALSE(exact_completion.empty());
+  EXPECT_EQ(exact_completion.front().label, "exact");
+
+  auto expect_alias_completion = [&](const std::string& call, const std::string& expected_type, const std::string& label)
+  {
+    const std::size_t call_offset = source.rfind(call);
+    ASSERT_NE(call_offset, std::string::npos) << call;
+    const std::size_t arg_offset = call_offset + call.size();
+    const auto context = semdb.completion_context_at(path, arg_offset);
+    EXPECT_EQ(context.expected_type_name, expected_type);
+
+    const auto completion = semdb.complete_at(path, arg_offset);
+    EXPECT_LT(completion_index(completion, label), completion.size()) << label;
+  };
+
+  expect_alias_completion("take_string(", "string", "make_str");
+  expect_alias_completion("take_i32(", "i32", "make_int");
+  expect_alias_completion("take_i64(", "i64", "make_long");
+  expect_alias_completion("take_f32(", "f32", "make_float");
+  expect_alias_completion("take_f64(", "f64", "make_double");
+
+  const std::size_t pair_arg_offset = source.find("\"x\"");
+  ASSERT_NE(pair_arg_offset, std::string::npos);
+  const auto pair_expected = semdb.expected_type_at(path, pair_arg_offset + 1);
+  ASSERT_TRUE(pair_expected.has_value());
+  EXPECT_TRUE(pair_expected->known);
+  EXPECT_EQ(pair_expected->argument_index, 1u);
+  EXPECT_EQ(pair_expected->param_name, "second");
+}
+
+TEST(StyioSemanticDb, EmptyFilesReturnEmptyTypeQueryResults) {
+  styio::ide::VirtualFileSystem vfs;
+  styio::ide::Project project;
+  styio::ide::SemanticDB semdb(vfs, project);
+
+  const std::string empty_path = make_temp_dir() + "/semantic_empty_queries.styio";
+  vfs.open(empty_path, "\n", 1);
+  EXPECT_FALSE(semdb.type_signature_at(empty_path, 0).has_value());
+  EXPECT_FALSE(semdb.type_body_at(empty_path, 0).has_value());
+}
+
+TEST(StyioSemanticDb, BuiltinQueriesUseLocationlessTargets) {
+  styio::ide::VirtualFileSystem vfs;
+  styio::ide::Project project;
+  styio::ide::SemanticDB semdb(vfs, project);
+  const std::string path = make_temp_dir() + "/semantic_builtin_targets.styio";
+  const std::string source =
+    "first := stdin\n"
+    "second := stdin\n"
+    "call := stdin()\n";
+
+  vfs.open(path, source, 1);
+  const std::size_t first_stdin = source.find("stdin");
+  const std::size_t call_stdin = source.find("stdin()");
+  ASSERT_NE(first_stdin, std::string::npos);
+  ASSERT_NE(call_stdin, std::string::npos);
+
+  EXPECT_TRUE(semdb.definition_at(path, first_stdin).empty());
+  const auto references = semdb.references_of(path, first_stdin);
+  EXPECT_GE(references.size(), 2u);
+
+  const auto expected = semdb.expected_type_at(path, call_stdin + std::string("stdin(").size());
+  EXPECT_FALSE(expected.has_value());
+}
+
 TEST(StyioCompletionEngine, FiltersTypePositionCandidates) {
   const std::string root = make_temp_project_dir("ide_type_position");
   styio::ide::IdeService service;
