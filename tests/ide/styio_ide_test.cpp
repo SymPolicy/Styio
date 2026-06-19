@@ -3194,6 +3194,54 @@ TEST(StyioLspServer, HandlesInitializeOpenAndCompletion) {
   EXPECT_TRUE(found_add);
 }
 
+TEST(StyioLspServer, MemberAccessCompletionUsesPropertyKind) {
+  styio::lsp::Server server;
+  const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());
+  const std::string uri = temp_uri("server_member_completion_sample.styio");
+
+  ASSERT_EQ(
+    server.handle(llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"id", 1},
+      {"method", "initialize"},
+      {"params", llvm::json::Object{{"rootUri", root_uri}}}})
+      .size(),
+    1u);
+
+  auto open_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didOpen"},
+    {"params", llvm::json::Object{
+      {"textDocument", llvm::json::Object{
+        {"uri", uri},
+        {"version", 1},
+        {"text", "items := [1, 2]\nmember := items.\n"}}}}}});
+  ASSERT_EQ(open_messages.size(), 1u);
+
+  auto completion_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 2},
+    {"method", "textDocument/completion"},
+    {"params", llvm::json::Object{
+      {"textDocument", llvm::json::Object{{"uri", uri}}},
+      {"position", lsp_position(1, 16)}}}});
+  ASSERT_EQ(completion_messages.size(), 1u);
+  const auto* result = completion_messages[0].payload.getArray("result");
+  ASSERT_NE(result, nullptr);
+
+  const bool found_len_property = std::any_of(
+    result->begin(),
+    result->end(),
+    [](const llvm::json::Value& item)
+    {
+      const auto* object = item.getAsObject();
+      return object != nullptr
+        && object->getString("label").value_or("") == "len"
+        && object->getInteger("kind").value_or(0) == 10;
+    });
+  EXPECT_TRUE(found_len_property);
+}
+
 TEST(StyioLspServer, SkipsMalformedFramesAndHandlesLargeStringIds) {
   styio::lsp::Server server;
   const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());
