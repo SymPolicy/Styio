@@ -498,6 +498,10 @@ TEST(StyioCodeGenInternal, ScalarCastConditionAndDynamicSlotGuardsStayExplicit) 
       SGConstBool::Create(true),
       SGType::Create(bool_type()),
       SGType::Create(i64_type())),
+    SGCast::Create(
+      SGConstInt::Create(65),
+      SGType::Create(i64_type()),
+      SGType::Create(char_type())),
   }, {});
 
   expect_codegen_throws({
