@@ -15773,6 +15773,23 @@ TEST(StyioSafetyHandleTable, AcquireLookupAndReleaseHonorsKind) {
   EXPECT_EQ(table.size(), 0U);
 }
 
+TEST(StyioSafetyHandleTable, ReleaseWithoutCloserRecyclesHandle) {
+  StyioHandleTable table;
+  int payload = 7;
+
+  EXPECT_EQ(table.acquire(StyioHandleTable::HandleKind::File, nullptr), 0);
+
+  const auto id = table.acquire(StyioHandleTable::HandleKind::File, &payload);
+  ASSERT_NE(id, 0);
+  EXPECT_TRUE(table.release(id, StyioHandleTable::HandleKind::File));
+  EXPECT_FALSE(table.contains(id));
+  EXPECT_FALSE(table.release(id, StyioHandleTable::HandleKind::File));
+
+  const auto recycled_id = table.acquire(StyioHandleTable::HandleKind::Resource, &payload);
+  EXPECT_EQ(recycled_id, id);
+  EXPECT_EQ(table.lookup_as<int>(recycled_id, StyioHandleTable::HandleKind::Resource), &payload);
+}
+
 TEST(StyioSafetyHandleTable, ReleaseAllSkipsKindMismatchesAndDropsStubs) {
   StyioHandleTable table;
   int file_payload = 1;
