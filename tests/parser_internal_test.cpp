@@ -408,6 +408,7 @@ TEST(StyioParserInternal, ContextHelpersCoverAdditionalTokenEdges) {
   {
     DirectContext direct("name");
     EXPECT_THROW(direct.get().map_match(StyioTokenType::NAME), StyioSyntaxError);
+    EXPECT_EQ(direct.get().mark_cur_tok("name location"), "name location");
   }
   {
     DirectContext direct("1");
@@ -423,6 +424,10 @@ TEST(StyioParserInternal, ContextHelpersCoverAdditionalTokenEdges) {
   }
   {
     DirectContext direct(" \n/* skip */x");
+    EXPECT_TRUE(direct.get().find_drop_panic('x'));
+  }
+  {
+    DirectContext direct("// skip\nx");
     EXPECT_TRUE(direct.get().find_drop_panic('x'));
   }
   {
