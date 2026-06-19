@@ -4229,6 +4229,32 @@ TEST(StyioIRContract, UnsupportedAstNodesFailClosedInsteadOfPlaceholder) {
 }
 
 TEST(StyioIRContract, VerifierRejectsInactiveIR) {
+  styio::ir::StyioIRVerifierResult null_result = styio::ir::verify_styio_ir(nullptr);
+  EXPECT_FALSE(null_result.ok());
+  ASSERT_FALSE(null_result.diagnostics.empty());
+  EXPECT_NE(null_result.diagnostics.front().message.find("missing StyioIR root"), std::string::npos);
+
+  std::unique_ptr<SGCast> missing_value(SGCast::Create(
+    nullptr,
+    SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64}),
+    SGType::Create(StyioDataType{StyioDataTypeOption::Float, "f64", 64})));
+  styio::ir::StyioIRVerifierResult missing_child_result = styio::ir::verify_styio_ir(missing_value.get());
+  EXPECT_FALSE(missing_child_result.ok());
+  ASSERT_FALSE(missing_child_result.diagnostics.empty());
+  EXPECT_NE(
+    missing_child_result.diagnostics.front().message.find("missing required StyioIR child: SGCast.value"),
+    std::string::npos);
+
+  std::unique_ptr<SGNoOp> shared_child(SGNoOp::Create());
+  std::unique_ptr<SIOStdStreamWrite> repeated_child(SIOStdStreamWrite::Create(
+    SIOStdStreamWrite::Stream::Stdout,
+    {shared_child.get(), shared_child.get()}));
+  EXPECT_TRUE(styio::ir::verify_styio_ir(repeated_child.get()).ok());
+  repeated_child->exprs.clear();
+
+  std::unique_ptr<SIOInstantPull> missing_handle(SIOInstantPull::CreateFromHandle(""));
+  EXPECT_THROW((void)styio::ir::verify_styio_ir(missing_handle.get()), std::runtime_error);
+
   InactiveTestIR node;
 
   styio::ir::StyioIRVerifierResult result = styio::ir::verify_styio_ir(&node);
