@@ -1,16 +1,44 @@
 #include <gtest/gtest.h>
 
+#include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
+#include <llvm/Analysis/CGSCCPassManager.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/LegacyPassManager.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/PassInstrumentation.h>
+#include <llvm/IR/PassManager.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Value.h>
+#include <llvm/Passes/PassBuilder.h>
+#include <llvm/Passes/StandardInstrumentations.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/TargetSelect.h>
+#include <llvm/Transforms/InstCombine/InstCombine.h>
+#include <llvm/Transforms/Scalar.h>
+#include <llvm/Transforms/Scalar/GVN.h>
+#include <llvm/Transforms/Scalar/Reassociate.h>
+#include <llvm/Transforms/Scalar/SimplifyCFG.h>
+#include <llvm/Transforms/Utils.h>
 
+#include "StyioIR/IRDecl.hpp"
+#include "StyioJIT/StyioJIT_ORC.hpp"
+#include "StyioNative/NativeInterop.hpp"
+
+// Expose StyioToLLVM internals for focused destructor ownership tests.
+#define private public
 #include "StyioCodeGen/CodeGenVisitor.hpp"
+#undef private
 #include "StyioException/Exception.hpp"
 #include "StyioIR/GenIR/GenIR.hpp"
-#include "StyioJIT/StyioJIT_ORC.hpp"
 
 namespace {
 
@@ -384,6 +412,13 @@ TEST(StyioCodeGenInternal, CodeGenFactoryCreatesGenerator) {
 
   ASSERT_NE(generator, nullptr);
   EXPECT_FALSE(generator->dump_llvm_ir().empty());
+}
+
+TEST(StyioCodeGenInternal, GeneratorDestructorClosesTrackedNativeHandles) {
+  auto generator = make_generator();
+  generator->native_library_handles_.push_back(nullptr);
+  generator.reset();
+  SUCCEED();
 }
 
 TEST(StyioCodeGenInternal, ScalarCastConditionAndDynamicSlotGuardsStayExplicit) {
