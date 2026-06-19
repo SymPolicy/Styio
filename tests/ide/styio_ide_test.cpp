@@ -2351,6 +2351,21 @@ TEST(StyioSemanticDb, CoversTypeContextFallbackEdges) {
   const auto receiver_after_dot = semdb.receiver_type_at(receiver_path, member_dot_offset + 1);
   ASSERT_TRUE(receiver_after_dot.has_value());
   EXPECT_EQ(receiver_after_dot->type_name, "list[i32]");
+
+  const auto receiver_inside_member = semdb.receiver_type_at(receiver_path, member_dot_offset + 2);
+  ASSERT_TRUE(receiver_inside_member.has_value());
+  EXPECT_EQ(receiver_inside_member->type_name, "list[i32]");
+
+  const std::string dangling_path = make_temp_dir() + "/semantic_dangling_receiver_context.styio";
+  const std::string dangling_source =
+    "items: list[i32] := [1]\n"
+    "member_result := items.";
+  vfs.open(dangling_path, dangling_source, 1);
+  const auto dangling_receiver = semdb.receiver_type_at(dangling_path, dangling_source.size() + 4);
+  ASSERT_TRUE(dangling_receiver.has_value());
+  EXPECT_EQ(dangling_receiver->type_name, "list[i32]");
+
+  EXPECT_FALSE(semdb.receiver_type_at(receiver_path, 0).has_value());
 }
 
 TEST(StyioSemanticDb, WhiteBoxImportCandidatesAndSymbolItemsCoverEdges) {
@@ -2416,6 +2431,59 @@ TEST(StyioSemanticDb, WhiteBoxImportCandidatesAndSymbolItemsCoverEdges) {
   const auto* fallback_item = semdb.item_for_resolved_name(*opened, resolved);
   ASSERT_NE(fallback_item, nullptr);
   EXPECT_EQ(fallback_item->name, "value");
+
+  styio::ide::CompletionContext incomplete_list_context;
+  incomplete_list_context.position_kind = styio::ide::PositionKind::MemberAccess;
+  incomplete_list_context.receiver_type_name = "list[]";
+  incomplete_list_context.prefix = "f";
+  const auto incomplete_list_members = semdb.builtin_items(incomplete_list_context);
+  const auto first_member = std::find_if(
+    incomplete_list_members.begin(),
+    incomplete_list_members.end(),
+    [](const styio::ide::CompletionItem& item)
+    {
+      return item.label == "first";
+    });
+  ASSERT_NE(first_member, incomplete_list_members.end());
+  EXPECT_TRUE(first_member->type_name.empty());
+
+  styio::ide::DocumentSnapshot manual_document;
+  manual_document.file_id = 701;
+  manual_document.snapshot_id = 1;
+  manual_document.path = (std::filesystem::path(root) / "manual_signature.styio").string();
+  manual_document.buffer = styio::ide::TextBuffer{""};
+  styio::ide::HirModule manual_hir;
+  styio::ide::HirItem manual_item;
+  manual_item.id = 17;
+  manual_item.name = "manual";
+  manual_item.detail = "manual() -> double   ";
+  const auto& manual_signature = semdb.type_signature_query(manual_document, manual_hir, manual_item);
+  EXPECT_EQ(manual_signature.return_type_name, "double");
+
+  const std::filesystem::path cache_root = std::filesystem::path(root) / "persistent-cache";
+  styio::ide::PersistentIndex persistent(cache_root.string());
+  const std::string persistent_path = (std::filesystem::path(root) / "persistent-only.styio").string();
+  persistent.save_symbols({
+    styio::ide::IndexedSymbol{
+      persistent_path,
+      "persisted_same",
+      styio::ide::SymbolKind::Variable,
+      styio::ide::TextRange{20, 30},
+      styio::ide::TextRange{20, 30},
+      "late"},
+    styio::ide::IndexedSymbol{
+      persistent_path,
+      "persisted_same",
+      styio::ide::SymbolKind::Variable,
+      styio::ide::TextRange{5, 15},
+      styio::ide::TextRange{5, 15},
+      "early"},
+  });
+  semdb.configure_cache_root(cache_root.string());
+  const auto persistent_symbols = semdb.workspace_symbols("persisted_same");
+  ASSERT_EQ(persistent_symbols.size(), 2u);
+  EXPECT_EQ(persistent_symbols[0].selection_range.start, 5u);
+  EXPECT_EQ(persistent_symbols[1].selection_range.start, 20u);
 }
 
 TEST(StyioSemanticDb, BuiltinQueriesUseLocationlessTargets) {
