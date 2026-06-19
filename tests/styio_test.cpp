@@ -12965,6 +12965,94 @@ TEST(StyioDiagnostics, MalformedStatementPrefixReportsParseErrorWithoutCrash) {
   fs::remove(input);
 }
 
+TEST(StyioDiagnostics, NightlyScalarContainerAndExportRoutesStayExecutable) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-nightly-scalar-container-routes-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@export { missing.symbol; main }\n";
+    out << ">_(-42)\n";
+    out << ">_(-3.5)\n";
+    out << R"(>_('\\'))" << "\n";
+    out << R"(>_('\''))" << "\n";
+    out << R"(>_('\t'))" << "\n";
+    out << R"(>_('\n'))" << "\n";
+    out << R"(>_('\r'))" << "\n";
+    out << R"(>_('\0'))" << "\n";
+    out << "xs <- @stdin : list[i64]\n";
+    out << ">_(xs)\n";
+    out << "d: dict[string, i64] := dict{\"a\": 1}\n";
+    out << ">_(d[\"a\"])\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("printf '[1, 2, 3]\\n' | ") + shell_quote_latest(runner)
+    + " --parser-engine=nightly --file " + shell_quote_latest(input.string()) + " 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_EQ(
+    result.stdout_text,
+    "-42\n"
+    "-3.500000\n"
+    "\\\n"
+    "'\n"
+    "\t\n"
+    "\n"
+    "\n"
+    "\r\n"
+    "\n"
+    "[1,2,3]\n"
+    "1\n");
+
+  fs::remove(input);
+}
+
+TEST(StyioDiagnostics, ImportDeclarationFailsClosedAsUnsupportedRuntimeValue) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-import-runtime-value-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@import { pkg/core, util.io }\n";
+    out << ">_(1)\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    shell_quote_latest(runner)
+    + " --error-format=jsonl --parser-engine=nightly --file "
+    + shell_quote_latest(input.string()) + " 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"lowering\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_LOWER_UNSUPPORTED_AST\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("external package declarations are not runtime values"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\n1\n"), std::string::npos);
+
+  fs::remove(input);
+}
+
 TEST(StyioSamples, BubbleSortListInput) {
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
   if (runner == nullptr || runner[0] == '\0') {
