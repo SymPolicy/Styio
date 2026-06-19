@@ -284,3 +284,25 @@ TEST(StyioNativeInteropInternal, InvalidDiskCacheEntryIsDiscardedBeforeCompile) 
   std::error_code cleanup_ec;
   std::filesystem::remove_all(temp, cleanup_ec);
 }
+
+TEST(StyioNativeInteropInternal, DisabledDiskCacheLoadsFromTemporarySharedObject) {
+  using namespace styio::native;
+
+  EnvVarGuard cache_guard("STYIO_NATIVE_CACHE");
+  EnvVarGuard cc_guard("STYIO_NATIVE_CC");
+  EnvVarGuard mode_guard("STYIO_NATIVE_TOOLCHAIN_MODE");
+  cache_guard.set("off");
+  cc_guard.set("cc");
+  mode_guard.set("system");
+
+  const std::string symbol = "nocache_" + stable_hash_hex(std::to_string(::getpid())).substr(0, 8);
+  const std::string body = "int " + symbol + "(void) { return 11; }\n";
+
+  LoadedBlock loaded = compile_and_load_block("c", body, {symbol});
+
+  ASSERT_EQ(loaded.symbols.size(), 1u);
+  EXPECT_EQ(loaded.symbols[0].name, symbol);
+  auto* fn = reinterpret_cast<int (*)()>(loaded.symbols[0].address);
+  ASSERT_NE(fn, nullptr);
+  EXPECT_EQ(fn(), 11);
+}
