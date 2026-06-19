@@ -3762,6 +3762,13 @@ TEST(StyioLspRuntime, CancellationPropagatesThroughSemanticQueries) {
   const auto hover = service.hover(canceled_ticket, styio::ide::Position{1, 16});
   EXPECT_FALSE(hover.has_value());
 
+  const auto canceled_references_ticket =
+    service.begin_foreground_request(uri, styio::ide::RuntimeRequestKind::References, 79);
+  service.cancel_request(79);
+  const auto canceled_references =
+    service.references(canceled_references_ticket, styio::ide::Position{1, 16});
+  EXPECT_TRUE(canceled_references.empty());
+
   const auto stale_ticket = service.begin_foreground_request(uri, styio::ide::RuntimeRequestKind::Definition, 78);
   service.did_change(
     uri,
@@ -3774,7 +3781,7 @@ TEST(StyioLspRuntime, CancellationPropagatesThroughSemanticQueries) {
   const auto publications = service.drain_semantic_diagnostics();
   ASSERT_EQ(publications.size(), 1u);
   EXPECT_EQ(publications[0].snapshot->version, 2);
-  EXPECT_EQ(service.runtime_counters().canceled_requests, 1u);
+  EXPECT_EQ(service.runtime_counters().canceled_requests, 2u);
   EXPECT_EQ(service.runtime_counters().stale_request_drops, 1u);
 }
 
