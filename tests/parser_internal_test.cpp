@@ -665,6 +665,13 @@ TEST(StyioParserInternal, LegacyOperatorForwardAndCodpEdgesStayExplicit) {
     DirectContext direct("@(123)");
     EXPECT_THROW((void)parse_read_file(direct.get(), NameAST::Create("input")), StyioSyntaxError);
   }
+  {
+    DirectContext direct("1");
+    std::unique_ptr<BlockAST> body(parse_loop_body_clause(direct.get()));
+    ASSERT_NE(body, nullptr);
+    ASSERT_EQ(body->stmts.size(), 1u);
+    EXPECT_EQ(body->stmts[0]->getNodeType(), StyioNodeType::Integer);
+  }
 }
 
 TEST(StyioParserInternal, ParserHelperFailureEdgesStayExplicit) {
