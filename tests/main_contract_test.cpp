@@ -1056,6 +1056,210 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
   EXPECT_NE(error.find("cannot create artifact directory"), std::string::npos);
 }
 
+TEST(StyioMainContract, NanoRepositoryPublishAndCloudMaterializeRoundTrip) {
+  TempDir temp("nano-repository-roundtrip");
+  std::string error;
+  const std::string binary_name = styio_nano_binary_filename_latest();
+
+  const fs::path package_dir = temp.path() / "package";
+  WriteText(package_dir / "bin" / binary_name, "#!/usr/bin/env sh\nprintf nano\n");
+  MakeExecutable(package_dir / "bin" / binary_name);
+  WriteText(package_dir / "styio-nano.profile.toml", "[profile]\nname = \"demo\"\n");
+  WriteText(
+    package_dir / "styio-nano-package.toml",
+    "[package]\n"
+    "name = \"org/demo\"\n"
+    "version = \"1.2.3\"\n"
+    "channel = \"edge\"\n"
+    "[artifact]\n"
+    "binary = \"bin/" + binary_name + "\"\n"
+    "profile = \"styio-nano.profile.toml\"\n");
+
+  StyioNanoPublishSelectionLatest publish_selection;
+  publish_selection.package_dir = package_dir.string();
+  publish_selection.registry_root = (temp.path() / "repo").string();
+  publish_selection.registry_package = "org/demo";
+  publish_selection.registry_version = "1.2.3";
+  publish_selection.channel = "edge";
+  ASSERT_TRUE(styio_publish_nano_package_latest(publish_selection, error)) << error;
+
+  const fs::path repo = temp.path() / "repo";
+  EXPECT_TRUE(fs::exists(repo / styio_nano_repository_marker_relpath_latest()));
+  EXPECT_TRUE(fs::exists(repo / fs::path(styio_nano_repository_entry_relpath_latest("org/demo"))));
+
+  StyioNanoCreateSelectionLatest registry_selection;
+  registry_selection.mode = "cloud";
+  registry_selection.output_dir = (temp.path() / "from-registry").string();
+  registry_selection.registry_root = repo.string();
+  registry_selection.registry_package = "org/demo";
+  registry_selection.registry_version = "1.2.3";
+  ASSERT_TRUE(styio_materialize_cloud_nano_package_latest(registry_selection, error)) << error;
+  EXPECT_TRUE(styio_native_build_is_executable_file_latest(
+    temp.path() / "from-registry" / "bin" / binary_name));
+  const std::string registry_receipt = ReadText(temp.path() / "from-registry" / "styio-nano-package.toml");
+  EXPECT_NE(registry_receipt.find("mode = \"cloud\""), std::string::npos);
+  EXPECT_NE(registry_receipt.find("registry = \"" + repo.string() + "\""), std::string::npos);
+  EXPECT_NE(registry_receipt.find("published_at = \""), std::string::npos);
+
+  const fs::path manifest_root = temp.path() / "manifest-root";
+  WriteText(manifest_root / "payload" / binary_name, "#!/usr/bin/env sh\nprintf manifest\n");
+  MakeExecutable(manifest_root / "payload" / binary_name);
+  WriteText(manifest_root / "payload" / "profile.toml", "[profile]\nname = \"manifest\"\n");
+  WriteText(
+    manifest_root / "manifest.toml",
+    "[package]\n"
+    "name = \"manifest-demo\"\n"
+    "version = \"9.9.9\"\n"
+    "channel = \"stable\"\n"
+    "[artifact]\n"
+    "binary = \"payload/" + binary_name + "\"\n"
+    "profile = \"payload/profile.toml\"\n");
+
+  StyioNanoCreateSelectionLatest manifest_selection;
+  manifest_selection.mode = "cloud";
+  manifest_selection.output_dir = (temp.path() / "from-manifest").string();
+  manifest_selection.manifest_ref = (manifest_root / "manifest.toml").string();
+  ASSERT_TRUE(styio_materialize_cloud_nano_package_latest(manifest_selection, error)) << error;
+  EXPECT_TRUE(styio_native_build_is_executable_file_latest(
+    temp.path() / "from-manifest" / "bin" / binary_name));
+  EXPECT_EQ(
+    ReadText(temp.path() / "from-manifest" / "styio-nano.profile.toml"),
+    "[profile]\nname = \"manifest\"\n");
+  const std::string manifest_receipt = ReadText(temp.path() / "from-manifest" / "styio-nano-package.toml");
+  EXPECT_NE(manifest_receipt.find("name = \"manifest-demo\""), std::string::npos);
+  EXPECT_NE(manifest_receipt.find("artifact_profile = \"payload/profile.toml\""), std::string::npos);
+}
+
+TEST(StyioMainContract, NanoPackageArchiveHelpersCoverExtractionAndCMakeEdges) {
+  TempDir temp("nano-archive-helpers");
+  std::string error;
+  const std::string binary_name = styio_nano_binary_filename_latest();
+
+  fs::path package_root;
+  WriteText(temp.path() / "direct" / "bin" / binary_name, "#!/usr/bin/env sh\nexit 0\n");
+  EXPECT_TRUE(styio_resolve_extracted_nano_package_root_latest(
+    temp.path() / "direct",
+    package_root,
+    error));
+  EXPECT_EQ(package_root, temp.path() / "direct");
+
+  WriteText(temp.path() / "nested" / "only-child" / "bin" / binary_name, "#!/usr/bin/env sh\nexit 0\n");
+  EXPECT_TRUE(styio_resolve_extracted_nano_package_root_latest(
+    temp.path() / "nested",
+    package_root,
+    error));
+  EXPECT_EQ(package_root, temp.path() / "nested" / "only-child");
+
+  fs::create_directories(temp.path() / "empty-extract");
+  EXPECT_FALSE(styio_resolve_extracted_nano_package_root_latest(
+    temp.path() / "empty-extract",
+    package_root,
+    error));
+  EXPECT_NE(error.find("does not contain bin/" + binary_name), std::string::npos);
+
+  std::set<std::string> empty_closure;
+  EXPECT_FALSE(styio_write_nano_package_cmakelists_latest(
+    temp.path() / "empty-cmake",
+    empty_closure,
+    error));
+  EXPECT_NE(error.find("does not contain any C++ sources"), std::string::npos);
+
+  std::set<std::string> closure_files = {
+    "src/StyioToken/Token.cpp",
+    "src/main.cpp",
+    "src/StyioToken/Token.hpp",
+  };
+  fs::create_directories(temp.path() / "cmake");
+  ASSERT_TRUE(styio_write_nano_package_cmakelists_latest(
+    temp.path() / "cmake",
+    closure_files,
+    error)) << error;
+  const std::string cmake_text = ReadText(temp.path() / "cmake" / "CMakeLists.txt");
+  EXPECT_LT(cmake_text.find("  src/main.cpp\n"), cmake_text.find("  src/StyioToken/Token.cpp\n"));
+  EXPECT_NE(cmake_text.find("add_executable(styio_nano"), std::string::npos);
+}
+
+TEST(StyioMainContract, NanoLocalSubsetMaterializeCoversClosureAndBuildSuccess) {
+  TempDir temp("nano-local-materialize");
+  std::string error;
+  const fs::path source_root = temp.path() / "source";
+  const fs::path fake_bin = temp.path() / "fake-bin";
+  const std::string binary_name = styio_nano_binary_filename_latest();
+
+  WriteText(source_root / "CMakeLists.txt", "cmake_minimum_required(VERSION 3.20)\n");
+  for (const std::string& relpath : styio_nano_source_roots_latest(true)) {
+    WriteText(source_root / relpath, "// " + relpath + "\n");
+  }
+  WriteText(
+    source_root / "src" / "main.cpp",
+    "#include \"StyioToken/Token.hpp\"\n"
+    "#include \"StyioNative/NativeToolchainConfig.hpp\"\n"
+    "#include \"llvm/IR/Module.h\"\n");
+  WriteText(source_root / "src" / "StyioToken" / "Token.hpp", "// token header\n");
+  WriteText(
+    source_root / "scripts" / "gen-styio-nano-profile.py",
+    "import pathlib, sys\n"
+    "out = pathlib.Path(sys.argv[sys.argv.index('--cmake-out') + 1])\n"
+    "out.parent.mkdir(parents=True, exist_ok=True)\n"
+    "out.write_text('set(STYIO_NANO_INCLUDE_PIPELINE_CHECK ON)\\n', encoding='utf-8')\n");
+
+  WriteText(
+    fake_bin / "cmake",
+    "#!/usr/bin/env sh\n"
+    "if [ \"$1\" = \"-S\" ]; then\n"
+    "  build=''\n"
+    "  while [ \"$#\" -gt 0 ]; do\n"
+    "    if [ \"$1\" = \"-B\" ]; then shift; build=\"$1\"; fi\n"
+    "    shift || exit 2\n"
+    "  done\n"
+    "  mkdir -p \"$build/bin\"\n"
+    "  exit 0\n"
+    "fi\n"
+    "if [ \"$1\" = \"--build\" ]; then\n"
+    "  build=\"$2\"\n"
+    "  mkdir -p \"$build/bin\"\n"
+    "  printf '#!/usr/bin/env sh\\nprintf local-nano\\n' > \"$build/bin/" + binary_name + "\"\n"
+    "  chmod +x \"$build/bin/" + binary_name + "\"\n"
+    "  exit 0\n"
+    "fi\n"
+    "exit 3\n");
+  MakeExecutable(fake_bin / "cmake");
+
+  const fs::path profile = temp.path() / "profile.toml";
+  WriteText(profile, "[profile]\nname = \"local-demo\"\n");
+
+  EnvVarGuard path_guard("PATH");
+  const char* original_path = std::getenv("PATH");
+  path_guard.set(fake_bin.string() + (original_path == nullptr ? "" : ":" + std::string(original_path)));
+  EnvVarGuard jobs_guard("STYIO_NANO_BUILD_JOBS");
+  jobs_guard.set("3");
+  EXPECT_EQ(styio_nano_build_jobs_latest(), "3");
+  jobs_guard.set("0");
+  EXPECT_EQ(styio_nano_build_jobs_latest(), "2");
+  jobs_guard.set("not-a-number");
+  EXPECT_EQ(styio_nano_build_jobs_latest(), "2");
+  jobs_guard.set("3");
+
+  StyioNanoCreateSelectionLatest selection;
+  selection.mode = "local-subset";
+  selection.output_dir = (temp.path() / "local-out").string();
+  selection.profile_path = profile.string();
+  selection.source_root = source_root.string();
+  selection.package_name = "local-demo";
+  ASSERT_TRUE(styio_materialize_local_nano_package_latest(selection, "styio-driver", error)) << error;
+
+  const fs::path output = temp.path() / "local-out";
+  EXPECT_TRUE(styio_native_build_is_executable_file_latest(output / "bin" / binary_name));
+  EXPECT_TRUE(styio_native_build_is_executable_file_latest(output / "build-styio-nano.sh"));
+  EXPECT_EQ(ReadText(output / "styio-nano.profile.toml"), "[profile]\nname = \"local-demo\"\n");
+  const std::string closure_manifest = ReadText(output / "source-closure-manifest.txt");
+  EXPECT_NE(closure_manifest.find("src/StyioTesting/PipelineCheck.cpp"), std::string::npos);
+  EXPECT_NE(closure_manifest.find("src/StyioToken/Token.hpp"), std::string::npos);
+  const std::string receipt = ReadText(output / "styio-nano-package.toml");
+  EXPECT_NE(receipt.find("mode = \"local-subset\""), std::string::npos);
+  EXPECT_NE(receipt.find("source_root = \"" + source_root.string() + "\""), std::string::npos);
+}
+
 TEST(StyioMainContract, CompilePlanDirectorySetupFailuresEmitDiagnostics) {
   TempDir temp("compile-plan-dir-setup");
   const fs::path workspace = temp.path() / "workspace";
