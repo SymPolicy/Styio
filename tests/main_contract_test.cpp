@@ -186,6 +186,43 @@ std::string GoodSha(char ch = 'a') {
   return std::string(64, ch);
 }
 
+void PopulateMinimalNanoSourceRoot(const fs::path& root) {
+  WriteText(root / "CMakeLists.txt", "cmake_minimum_required(VERSION 3.20)\n");
+  for (const std::string& relpath : styio_nano_source_roots_latest(false)) {
+    WriteText(root / relpath, "// " + relpath + "\n");
+  }
+}
+
+void WriteNanoProfileGenerator(const fs::path& root, bool write_output) {
+  std::string script =
+    "#!/usr/bin/env python3\n"
+    "import argparse\n"
+    "parser = argparse.ArgumentParser()\n"
+    "parser.add_argument('--input')\n"
+    "parser.add_argument('--cmake-out', dest='cmake_out')\n"
+    "args = parser.parse_args()\n";
+  if (write_output) {
+    script +=
+      "with open(args.cmake_out, 'w', encoding='utf-8') as out:\n"
+      "    out.write('set(STYIO_NANO_INCLUDE_PIPELINE_CHECK OFF)\\n')\n";
+  }
+  WriteText(root / "scripts" / "gen-styio-nano-profile.py", script);
+}
+
+StyioNanoCreateSelectionLatest MakeLocalNanoSelection(
+  const fs::path& output_dir,
+  const fs::path& profile,
+  const fs::path& source_root
+) {
+  StyioNanoCreateSelectionLatest selection;
+  selection.mode = "local-subset";
+  selection.output_dir = output_dir.string();
+  selection.profile_path = profile.string();
+  selection.source_root = source_root.string();
+  selection.package_name = "local";
+  return selection;
+}
+
 } // namespace
 
 TEST(StyioMainContract, MainEntryDispatchAndEarlyCliExitsStayStable) {
@@ -946,6 +983,134 @@ TEST(StyioMainContract, LowLevelMainHelpersCoverFailureBoundaries) {
   MakeExecutable(fake_cmake);
   EXPECT_FALSE(styio_build_nano_package_latest(fake_nano_out, error));
   EXPECT_NE(error.find("styio-nano package build did not produce"), std::string::npos);
+}
+
+TEST(StyioMainContract, LocalNanoMaterializationCoversStagedFailures) {
+  TempDir temp("local-nano-materialize");
+  std::string error;
+  const std::string binary_name = styio_nano_binary_filename_latest();
+
+  const fs::path source_root = temp.path() / "source";
+  PopulateMinimalNanoSourceRoot(source_root);
+  const fs::path profile = temp.path() / "profile.toml";
+  WriteText(profile, "[profile]\nname = \"local\"\n");
+
+  {
+    const fs::path output = temp.path() / "copy-profile-failure";
+    fs::create_directories(output / "styio-nano.profile.toml");
+    StyioNanoCreateSelectionLatest selection = MakeLocalNanoSelection(output, profile, source_root);
+    error.clear();
+    EXPECT_FALSE(styio_materialize_local_nano_package_latest(selection, nullptr, error));
+    EXPECT_NE(error.find("failed to copy"), std::string::npos) << error;
+  }
+
+  {
+    StyioNanoCreateSelectionLatest selection =
+      MakeLocalNanoSelection(temp.path() / "missing-generator", profile, source_root);
+    error.clear();
+    EXPECT_FALSE(styio_materialize_local_nano_package_latest(selection, nullptr, error));
+    EXPECT_NE(error.find("profile generator not found"), std::string::npos) << error;
+  }
+
+  WriteNanoProfileGenerator(source_root, false);
+  {
+    StyioNanoCreateSelectionLatest selection =
+      MakeLocalNanoSelection(temp.path() / "missing-profile-cmake", profile, source_root);
+    error.clear();
+    EXPECT_FALSE(styio_materialize_local_nano_package_latest(selection, nullptr, error));
+    EXPECT_NE(error.find("cannot open file"), std::string::npos) << error;
+  }
+
+  WriteNanoProfileGenerator(source_root, true);
+  {
+    const fs::path missing_closure_root = temp.path() / "missing-closure-source";
+    WriteText(missing_closure_root / "CMakeLists.txt", "cmake_minimum_required(VERSION 3.20)\n");
+    WriteNanoProfileGenerator(missing_closure_root, true);
+    StyioNanoCreateSelectionLatest selection =
+      MakeLocalNanoSelection(temp.path() / "missing-closure", profile, missing_closure_root);
+    error.clear();
+    EXPECT_FALSE(styio_materialize_local_nano_package_latest(selection, nullptr, error));
+    EXPECT_NE(error.find("nano source closure is missing required file"), std::string::npos) << error;
+  }
+
+  {
+    const fs::path output = temp.path() / "manifest-write-failure";
+    fs::create_directories(output / "source-closure-manifest.txt");
+    StyioNanoCreateSelectionLatest selection = MakeLocalNanoSelection(output, profile, source_root);
+    error.clear();
+    EXPECT_FALSE(styio_materialize_local_nano_package_latest(selection, nullptr, error));
+    EXPECT_NE(error.find("cannot open file for writing"), std::string::npos) << error;
+  }
+
+  {
+    const fs::path output = temp.path() / "cmakelists-write-failure";
+    fs::create_directories(output / "CMakeLists.txt");
+    StyioNanoCreateSelectionLatest selection = MakeLocalNanoSelection(output, profile, source_root);
+    error.clear();
+    EXPECT_FALSE(styio_materialize_local_nano_package_latest(selection, nullptr, error));
+    EXPECT_NE(error.find("cannot open file for writing"), std::string::npos) << error;
+  }
+
+  {
+    const fs::path output = temp.path() / "helper-write-failure";
+    fs::create_directories(output / "build-styio-nano.sh");
+    StyioNanoCreateSelectionLatest selection = MakeLocalNanoSelection(output, profile, source_root);
+    error.clear();
+    EXPECT_FALSE(styio_materialize_local_nano_package_latest(selection, nullptr, error));
+    EXPECT_NE(error.find("cannot open file for writing"), std::string::npos) << error;
+  }
+
+  const fs::path fake_cmake_bin = temp.path() / "fake-cmake-bin-local";
+  const fs::path fake_cmake = fake_cmake_bin / "cmake";
+  EnvVarGuard path_guard("PATH");
+  const char* original_path_raw = std::getenv("PATH");
+  const std::string original_path = original_path_raw == nullptr ? "" : original_path_raw;
+  path_guard.set(fake_cmake_bin.string() + (original_path.empty() ? "" : ":" + original_path));
+
+  WriteText(
+    fake_cmake,
+    "#!/bin/sh\n"
+    "if [ \"$1\" = \"--build\" ]; then exit 8; fi\n"
+    "exit 0\n");
+  MakeExecutable(fake_cmake);
+  {
+    StyioNanoCreateSelectionLatest selection =
+      MakeLocalNanoSelection(temp.path() / "build-failure", profile, source_root);
+    error.clear();
+    EXPECT_FALSE(styio_materialize_local_nano_package_latest(selection, nullptr, error));
+    EXPECT_NE(error.find("styio-nano package build failed"), std::string::npos) << error;
+  }
+
+  WriteText(
+    fake_cmake,
+    "#!/bin/sh\n"
+    "if [ \"$1\" = \"--build\" ]; then\n"
+    "  build_dir=\"$2\"\n"
+    "  mkdir -p \"$build_dir/bin\"\n"
+    "  printf '#!/bin/sh\\nexit 0\\n' > \"$build_dir/bin/" + binary_name + "\"\n"
+    "  chmod +x \"$build_dir/bin/" + binary_name + "\"\n"
+    "fi\n"
+    "exit 0\n");
+  MakeExecutable(fake_cmake);
+  {
+    const fs::path output = temp.path() / "receipt-write-failure";
+    fs::create_directories(output / "styio-nano-package.toml");
+    StyioNanoCreateSelectionLatest selection = MakeLocalNanoSelection(output, profile, source_root);
+    error.clear();
+    EXPECT_FALSE(styio_materialize_local_nano_package_latest(selection, "styio", error));
+    EXPECT_NE(error.find("cannot open file for writing"), std::string::npos) << error;
+  }
+
+  {
+    const fs::path output = temp.path() / "success";
+    StyioNanoCreateSelectionLatest selection = MakeLocalNanoSelection(output, profile, source_root);
+    error.clear();
+    ASSERT_TRUE(styio_materialize_local_nano_package_latest(selection, nullptr, error)) << error;
+    EXPECT_TRUE(styio_native_build_is_executable_file_latest(output / "bin" / binary_name));
+    const std::string receipt = ReadText(output / "styio-nano-package.toml");
+    EXPECT_NE(receipt.find("name = \"local\""), std::string::npos);
+    EXPECT_NE(receipt.find("compiler = \"\""), std::string::npos);
+  }
 }
 
 TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
