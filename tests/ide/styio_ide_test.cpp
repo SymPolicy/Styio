@@ -3841,6 +3841,16 @@ TEST(StyioLspServer, CoversTransportReaderAndMalformedRequestEdges) {
   ASSERT_EQ(hover_missing_position.size(), 1u);
   EXPECT_NE(hover_missing_position[0].payload.get("result"), nullptr);
 
+  auto hover_past_line_end = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 40},
+    {"method", "textDocument/hover"},
+    {"params", llvm::json::Object{
+      {"textDocument", llvm::json::Object{{"uri", uri}}},
+      {"position", lsp_position(1, 999)}}}});
+  ASSERT_EQ(hover_past_line_end.size(), 1u);
+  EXPECT_NE(hover_past_line_end[0].payload.get("result"), nullptr);
+
   auto definition_notification = server.handle(llvm::json::Object{
     {"jsonrpc", "2.0"},
     {"method", "textDocument/definition"},
