@@ -87,6 +87,8 @@ TEST(StyioNativeInteropInternal, SignatureParsingRejectsAndSynthesizesEdgeParame
   EXPECT_TRUE(ctype.is_unsigned);
   ASSERT_TRUE(parse_c_type("extern \"C\" const char *", ctype));
   EXPECT_EQ(ctype.kind, CTypeKind::Pointer);
+  ctype.kind = static_cast<CTypeKind>(999);
+  EXPECT_TRUE(styio_data_type_for_c_type(ctype).isUndefined());
 
   EXPECT_THROW((void)parse_param("   ", 0), StyioTypeError);
   EXPECT_THROW((void)parse_param("...", 0), StyioTypeError);
