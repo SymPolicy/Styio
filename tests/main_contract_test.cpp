@@ -788,6 +788,16 @@ TEST(StyioMainContract, LowLevelMainHelpersCoverFailureBoundaries) {
   EXPECT_FALSE(styio_copy_directory_contents_latest(source_root, copy_dest_as_file, error));
   EXPECT_NE(error.find("failed to create directory"), std::string::npos);
 
+  const fs::path blocked_local_output = temp.path() / "blocked-local-output";
+  WriteText(blocked_local_output, "blocks local nano output directory\n");
+  StyioNanoCreateSelectionLatest blocked_local_materialize;
+  blocked_local_materialize.mode = "local-subset";
+  blocked_local_materialize.output_dir = blocked_local_output.string();
+  blocked_local_materialize.profile_path = (temp.path() / "unused.profile.toml").string();
+  blocked_local_materialize.source_root = source_root.string();
+  EXPECT_FALSE(styio_materialize_local_nano_package_latest(blocked_local_materialize, nullptr, error));
+  EXPECT_NE(error.find("failed to create output directory"), std::string::npos);
+
   StyioNanoCreateSelectionLatest missing_profile;
   missing_profile.mode = "local-subset";
   missing_profile.output_dir = (temp.path() / "local-out").string();
