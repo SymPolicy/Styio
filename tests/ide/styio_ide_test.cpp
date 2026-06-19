@@ -3646,6 +3646,25 @@ TEST(StyioLspServer, CoversTransportReaderAndMalformedRequestEdges) {
 
   {
     styio::lsp::Server server;
+    const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());
+    constexpr std::size_t kOversizedContentLength = 16u * 1024u * 1024u + 1u;
+    const std::string oversized_body(kOversizedContentLength, 'x');
+    std::string transport_input = "Content-Length: " + std::to_string(kOversizedContentLength) + "\r\n";
+    transport_input += oversized_body;
+    transport_input += lsp_frame(llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"id", 1},
+      {"method", "initialize"},
+      {"params", llvm::json::Object{{"rootUri", root_uri}}}});
+
+    std::istringstream input(transport_input);
+    std::ostringstream output;
+    server.run(input, output);
+    EXPECT_NE(output.str().find("\"capabilities\""), std::string::npos);
+  }
+
+  {
+    styio::lsp::Server server;
     std::istringstream input("Content-Length: 999999999999999999999999999999\r\n\r\n");
     std::ostringstream output;
     server.run(input, output);
@@ -3718,6 +3737,26 @@ TEST(StyioLspServer, CoversTransportReaderAndMalformedRequestEdges) {
   ASSERT_NE(missing_completion_target[0].payload.getArray("result"), nullptr);
   EXPECT_TRUE(missing_completion_target[0].payload.getArray("result")->empty());
 
+  auto completion_object_id = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", llvm::json::Object{{"opaque", true}}},
+    {"method", "textDocument/completion"},
+    {"params", llvm::json::Object{
+      {"textDocument", llvm::json::Object{{"uri", uri}}},
+      {"position", lsp_position(1, 9)}}}});
+  ASSERT_EQ(completion_object_id.size(), 1u);
+  ASSERT_NE(completion_object_id[0].payload.getArray("result"), nullptr);
+
+  auto hover_non_numeric_string_id = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", "not-digits"},
+    {"method", "textDocument/hover"},
+    {"params", llvm::json::Object{
+      {"textDocument", llvm::json::Object{{"uri", uri}}},
+      {"position", lsp_position(1, 9)}}}});
+  ASSERT_EQ(hover_non_numeric_string_id.size(), 1u);
+  EXPECT_NE(hover_non_numeric_string_id[0].payload.get("result"), nullptr);
+
   auto hover_missing_position = server.handle(llvm::json::Object{
     {"jsonrpc", "2.0"},
     {"id", 4},
@@ -3775,6 +3814,36 @@ TEST(StyioLspServer, CoversTransportReaderAndMalformedRequestEdges) {
     malformed_change_messages[0].payload.getString("method").value_or(""),
     "textDocument/publishDiagnostics");
 
+  llvm::json::Array missing_end_range_changes;
+  missing_end_range_changes.push_back(llvm::json::Object{
+    {"range", llvm::json::Object{{"start", lsp_position(0, 0)}}},
+    {"text", "x"}});
+  auto missing_end_range_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didChange"},
+    {"params", llvm::json::Object{
+      {"textDocument", llvm::json::Object{{"uri", uri}, {"version", 3}}},
+      {"contentChanges", std::move(missing_end_range_changes)}}}});
+  ASSERT_EQ(missing_end_range_messages.size(), 1u);
+  EXPECT_EQ(
+    missing_end_range_messages[0].payload.getString("method").value_or(""),
+    "textDocument/publishDiagnostics");
+
+  llvm::json::Array reversed_range_changes;
+  reversed_range_changes.push_back(llvm::json::Object{
+    {"range", lsp_range(0, 8, 0, 4)},
+    {"text", "x"}});
+  auto reversed_range_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didChange"},
+    {"params", llvm::json::Object{
+      {"textDocument", llvm::json::Object{{"uri", uri}, {"version", 4}}},
+      {"contentChanges", std::move(reversed_range_changes)}}}});
+  ASSERT_EQ(reversed_range_messages.size(), 1u);
+  EXPECT_EQ(
+    reversed_range_messages[0].payload.getString("method").value_or(""),
+    "textDocument/publishDiagnostics");
+
   llvm::json::Array mixed_changes;
   mixed_changes.push_back(llvm::json::Object{{"text", "value := 1\n"}});
   mixed_changes.push_back(llvm::json::Object{
@@ -3784,7 +3853,7 @@ TEST(StyioLspServer, CoversTransportReaderAndMalformedRequestEdges) {
     {"jsonrpc", "2.0"},
     {"method", "textDocument/didChange"},
     {"params", llvm::json::Object{
-      {"textDocument", llvm::json::Object{{"uri", uri}, {"version", 3}}},
+      {"textDocument", llvm::json::Object{{"uri", uri}, {"version", 5}}},
       {"contentChanges", std::move(mixed_changes)}}}});
   ASSERT_EQ(mixed_change_messages.size(), 1u);
   EXPECT_EQ(
