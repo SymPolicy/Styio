@@ -320,6 +320,50 @@ TEST(StyioCodeGenInternal, BuiltinCallGuardsFailBeforeBadLlvmEmission) {
   }, "matrix runtime helper `styio_matrix_rows` expects 1 argument");
 }
 
+TEST(StyioCodeGenInternal, ScalarCastConditionAndDynamicSlotGuardsStayExplicit) {
+  expect_codegen_ok({
+    SGCast::Create(
+      SGConstInt::Create(7),
+      SGType::Create(i64_type()),
+      SGType::Create(i32_type())),
+    SGCast::Create(
+      SGConstBool::Create(true),
+      SGType::Create(bool_type()),
+      SGType::Create(i64_type())),
+  }, {});
+
+  expect_codegen_throws({
+    SGCast::Create(
+      SGNoOp::Create(),
+      SGType::Create(i64_type()),
+      SGType::Create(i64_type())),
+  }, "cast lowering produced an invalid value or target type");
+
+  expect_codegen_throws({
+    SGBinOp::Create(
+      SGConstString::Create("left"),
+      SGConstString::Create("right"),
+      StyioOpType::Binary_Sub,
+      SGType::Create(string_type())),
+  }, "unsupported binary operand types in codegen");
+
+  expect_codegen_throws({
+    SGCond::Create(SGConstInt::Create(1), SGConstInt::Create(0), StyioOpType::Binary_Add),
+  }, "unsupported logical condition operator in codegen");
+
+  expect_codegen_throws({
+    SGFinalBind::Create(dynamic_var("dyn_bad_i64", i64_type()), SGConstString::Create("not-int")),
+  }, "dynamic slot integer field received a non-integer value");
+
+  expect_codegen_throws({
+    SGFinalBind::Create(dynamic_var("dyn_bad_f64", f64_type()), SGConstString::Create("not-float")),
+  }, "dynamic slot floating field received a non-numeric value");
+
+  expect_codegen_throws({
+    SGFinalBind::Create(dynamic_var("dyn_bad_string", string_type()), SGConstInt::Create(7)),
+  }, "dynamic slot pointer field received a non-pointer value");
+}
+
 TEST(StyioCodeGenInternal, CollectionHandleLiteralsAndAccessorsStayExplicit) {
   expect_codegen_ok({
     SCListLiteral::Create({SGConstBool::Create(true), SGConstInt::Create(0)}, "bool"),
@@ -417,10 +461,25 @@ TEST(StyioCodeGenInternal, UserCallArgumentCastsAndMixedMatchPromotionStayExplic
       SGResId::Create("take_string"),
       {SGFuncArg::Create("v", SGType::Create(string_type()))},
       SGBlock::Create({SGReturn::Create(SGResId::Create("v"))})),
+    SGFunc::Create(
+      SGType::Create(f64_type()),
+      SGResId::Create("default_f64"),
+      {},
+      SGBlock::Create({})),
+    SGFunc::Create(
+      SGType::Create(string_type()),
+      SGResId::Create("default_string"),
+      {},
+      SGBlock::Create({})),
     SGCall::Create(SGResId::Create("take_i32"), {SGConstString::Create("123")}),
     SGCall::Create(SGResId::Create("take_f32"), {SGConstFloat::Create("1.5")}),
     SGCall::Create(SGResId::Create("take_f64"), {SGConstFloat::Create("2.5")}),
+    SGCall::Create(SGResId::Create("take_f64"), {
+      SGCall::Create(SGResId::Create("take_f32"), {SGConstFloat::Create("3.5")}),
+    }),
     SGCall::Create(SGResId::Create("take_string"), {SGConstChar::Create('x')}),
+    SGCall::Create(SGResId::Create("default_f64"), {}),
+    SGCall::Create(SGResId::Create("default_string"), {}),
     SGMatch::Create(
       SGConstInt::Create(1),
       {{1, SGBlock::Create({SGReturn::Create(SGConstChar::Create('c'))})}},
