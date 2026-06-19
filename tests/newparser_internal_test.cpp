@@ -72,6 +72,38 @@ class DirectContext {
   StyioContext* context_ = nullptr;
 };
 
+class ManualTokenContext {
+ public:
+  explicit ManualTokenContext(std::vector<std::pair<StyioTokenType, std::string>> specs)
+    : tokens_()
+  {
+    tokens_.reserve(specs.size());
+    for (const auto& spec : specs) {
+      tokens_.push_back(StyioToken::Create(spec.first, spec.second));
+    }
+    context_ = StyioContext::Create(
+      "<newparser-manual-tokens>",
+      "",
+      {},
+      tokens_,
+      false);
+  }
+
+  ~ManualTokenContext() {
+    delete context_;
+    free_tokens(tokens_);
+    StyioAST::destroy_all_tracked_nodes();
+  }
+
+  StyioContext& get() {
+    return *context_;
+  }
+
+ private:
+  std::vector<StyioToken*> tokens_;
+  StyioContext* context_ = nullptr;
+};
+
 }  // namespace
 
 TEST(StyioNewParserInternal, DefaultValuesRecoveryAndTokenProbesStayExplicit) {
@@ -208,6 +240,31 @@ TEST(StyioNewParserInternal, DefaultValuesRecoveryAndTokenProbesStayExplicit) {
   {
     DirectContext direct("[\"a\",");
     EXPECT_FALSE(matches_legacy_string_list_import_nightly_latest(direct.get()));
+  }
+  {
+    ManualTokenContext direct({
+      {StyioTokenType::TOK_LBOXBRAC, "["},
+      {StyioTokenType::STRING, "\"a\""},
+    });
+    EXPECT_FALSE(matches_legacy_string_list_import_nightly_latest(direct.get()));
+  }
+  {
+    ManualTokenContext direct({
+      {StyioTokenType::TOK_LBOXBRAC, "["},
+      {StyioTokenType::STRING, "\"a\""},
+      {StyioTokenType::TOK_COMMA, ","},
+      {StyioTokenType::STRING, "\"b\""},
+    });
+    EXPECT_FALSE(matches_legacy_string_list_import_nightly_latest(direct.get()));
+  }
+  {
+    ManualTokenContext direct({});
+    EXPECT_FALSE(stmt_subset_route_supported_latest(direct.get()));
+    EXPECT_FALSE(expr_subset_route_supported_until_latest(direct.get(), {}));
+  }
+  {
+    DirectContext direct("name");
+    EXPECT_FALSE(can_route_hash_let_match_nightly_latest(direct.get()));
   }
   {
     DirectContext direct("name");
@@ -452,6 +509,11 @@ TEST(StyioNewParserInternal, HashLetMatchAndSubsetDeclinesStayExplicit) {
     DirectContext direct("a := 1");
     auto attempt = try_parse_block_only_subset_nightly(direct.get());
     EXPECT_EQ(attempt.status, ParseAttemptStatus::Declined);
+  }
+  {
+    DirectContext direct("{ @extern }");
+    auto attempt = try_parse_block_only_subset_nightly(direct.get());
+    EXPECT_EQ(attempt.status, ParseAttemptStatus::Fatal);
   }
   {
     DirectContext direct(")");
