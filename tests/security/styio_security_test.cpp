@@ -11028,6 +11028,107 @@ TEST(StyioSecurityIROptimizer, CanonicalizesRepeatedDefaultRebindAndHonorsGuards
     ASSERT_EQ(block->stmts.size(), 1u);
     EXPECT_NE(dynamic_cast<SGMatch*>(block->stmts[0]), nullptr);
   }
+
+  auto expect_hoisted_match = [&](StyioIR* scrutinee, StyioIR* rebind_value) {
+    std::unique_ptr<StyioIR> root(SGBlock::Create(std::vector<StyioIR*>{
+      make_match(scrutinee, rebind_value),
+    }));
+
+    auto* block = dynamic_cast<SGBlock*>(styio::lowering::optimize_styio_ir(root.get()));
+    ASSERT_NE(block, nullptr);
+    ASSERT_EQ(block->stmts.size(), 1u);
+    auto* hoisted = dynamic_cast<SGBlock*>(block->stmts[0]);
+    ASSERT_NE(hoisted, nullptr);
+    ASSERT_EQ(hoisted->stmts.size(), 2u);
+    EXPECT_NE(dynamic_cast<SGFlexBind*>(hoisted->stmts[0]), nullptr);
+    EXPECT_NE(dynamic_cast<SGMatch*>(hoisted->stmts[1]), nullptr);
+  };
+
+  expect_hoisted_match(SGConstBool::Create(true), SGConstBool::Create(true));
+  expect_hoisted_match(SGConstFloat::Create("1.5"), SGConstFloat::Create("1.5"));
+  expect_hoisted_match(
+    SGCond::Create(SGConstInt::Create(3), SGConstInt::Create(2), StyioOpType::Greater_Than),
+    SGCond::Create(SGConstInt::Create(3), SGConstInt::Create(2), StyioOpType::Greater_Than));
+
+  {
+    auto* shared_scrutinee = SGResId::Create("shared_source");
+    expect_hoisted_match(shared_scrutinee, shared_scrutinee);
+  }
+
+  auto expect_prefix_blocks_hoist = [&](StyioIR* prefix) {
+    std::unique_ptr<StyioIR> root(SGBlock::Create(std::vector<StyioIR*>{
+      prefix,
+      make_match(SGResId::Create("source"), SGResId::Create("source")),
+    }));
+
+    auto* block = dynamic_cast<SGBlock*>(styio::lowering::optimize_styio_ir(root.get()));
+    ASSERT_NE(block, nullptr);
+    ASSERT_EQ(block->stmts.size(), 2u);
+    EXPECT_NE(dynamic_cast<SGMatch*>(block->stmts[1]), nullptr);
+  };
+
+  auto expect_suffix_blocks_hoist = [&](StyioIR* suffix) {
+    std::unique_ptr<StyioIR> root(SGBlock::Create(std::vector<StyioIR*>{
+      make_match(SGResId::Create("source"), SGResId::Create("source")),
+      suffix,
+    }));
+
+    auto* block = dynamic_cast<SGBlock*>(styio::lowering::optimize_styio_ir(root.get()));
+    ASSERT_NE(block, nullptr);
+    ASSERT_EQ(block->stmts.size(), 2u);
+    EXPECT_NE(dynamic_cast<SGMatch*>(block->stmts[0]), nullptr);
+  };
+
+  expect_prefix_blocks_hoist(SCDictSet::Create(
+    SGResId::Create("target"),
+    SGConstString::Create("k"),
+    SGConstInt::Create(1),
+    "i64"));
+  expect_prefix_blocks_hoist(SGLoop::CreateWhile(
+    SGConstBool::Create(true),
+    SGBlock::Create(std::vector<StyioIR*>{
+      SGFlexBind::Create(make_target_var(), SGConstInt::Create(1)),
+    })));
+  expect_prefix_blocks_hoist(SGForEach::Create(
+    SGResId::Create("items"),
+    "target",
+    "i64",
+    make_returning_block(0)));
+  expect_prefix_blocks_hoist(SGRangeFor::Create(
+    SGConstInt::Create(0),
+    SGConstInt::Create(1),
+    SGConstInt::Create(1),
+    "target",
+    make_returning_block(0)));
+  expect_prefix_blocks_hoist(SGIf::Create(
+    SGConstBool::Create(true),
+    SGBlock::Create(std::vector<StyioIR*>{
+      SGFlexBind::Create(make_target_var(), SGConstInt::Create(1)),
+    }),
+    make_returning_block(0)));
+
+  expect_suffix_blocks_hoist(SGLoop::CreateWhile(
+    SGResId::Create("target"),
+    make_returning_block(0)));
+  expect_suffix_blocks_hoist(SGForEach::Create(
+    SGResId::Create("target"),
+    "item",
+    "i64",
+    make_returning_block(0)));
+  expect_suffix_blocks_hoist(SGIf::Create(
+    SGResId::Create("target"),
+    make_returning_block(1),
+    make_returning_block(0)));
+  expect_suffix_blocks_hoist(SCListSet::Create(
+    SGResId::Create("items"),
+    SGConstInt::Create(0),
+    SGResId::Create("target"),
+    "i64"));
+  expect_suffix_blocks_hoist(SCDictSet::Create(
+    SGResId::Create("dict"),
+    SGConstString::Create("k"),
+    SGResId::Create("target"),
+    "i64"));
 }
 
 TEST(StyioSecurityIROptimizer, RebindTransparencyCoversEffectFreeCollectionSelectors) {
