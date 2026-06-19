@@ -1326,6 +1326,54 @@ TEST(StyioSyntaxParser, MultiEditIncrementalMatchesFullParse) {
   EXPECT_EQ(incremental.nodes.front().range.end, full.nodes.front().range.end);
 }
 
+TEST(StyioSyntaxParser, InvalidIncrementalEditsFallBackToFreshTreeSitterParse) {
+  const std::string original_text =
+    "# add := (a: i32, b: i32) => {\n"
+    "  value: i32 := a + b\n"
+    "  <| value\n"
+    "}\n";
+
+  styio::ide::DocumentSnapshot first_snapshot;
+  first_snapshot.file_id = 21;
+  first_snapshot.snapshot_id = 1;
+  first_snapshot.path = make_temp_dir() + "/invalid_incremental_edit_sample.styio";
+  first_snapshot.version = 1;
+  first_snapshot.buffer = styio::ide::TextBuffer{original_text};
+
+  styio::ide::SyntaxParser invalid_range_parser;
+  const auto first = invalid_range_parser.parse(first_snapshot);
+
+  styio::ide::DocumentSnapshot invalid_range_snapshot = first_snapshot;
+  invalid_range_snapshot.snapshot_id = 2;
+  invalid_range_snapshot.version = 2;
+  invalid_range_snapshot.applied_edits.push_back(
+    styio::ide::TextEdit{styio::ide::TextRange{8, 4}, "sum"});
+  const auto invalid_range = invalid_range_parser.parse(invalid_range_snapshot);
+
+  styio::ide::SyntaxParser mismatch_parser;
+  (void)mismatch_parser.parse(first_snapshot);
+  styio::ide::DocumentSnapshot mismatch_snapshot = first_snapshot;
+  mismatch_snapshot.snapshot_id = 3;
+  mismatch_snapshot.version = 3;
+  mismatch_snapshot.applied_edits.push_back(
+    styio::ide::TextEdit{styio::ide::TextRange{0, 0}, "// inserted\n"});
+  const auto mismatch = mismatch_parser.parse(mismatch_snapshot);
+
+#ifdef STYIO_HAS_TREE_SITTER
+  EXPECT_EQ(first.backend, styio::ide::SyntaxBackendKind::TreeSitter);
+  EXPECT_EQ(invalid_range.backend, styio::ide::SyntaxBackendKind::TreeSitter);
+  EXPECT_EQ(mismatch.backend, styio::ide::SyntaxBackendKind::TreeSitter);
+  EXPECT_FALSE(invalid_range.reused_incremental_tree);
+  EXPECT_FALSE(mismatch.reused_incremental_tree);
+#else
+  EXPECT_EQ(first.backend, styio::ide::SyntaxBackendKind::Tolerant);
+  EXPECT_EQ(invalid_range.backend, styio::ide::SyntaxBackendKind::Tolerant);
+  EXPECT_EQ(mismatch.backend, styio::ide::SyntaxBackendKind::Tolerant);
+#endif
+  EXPECT_TRUE(invalid_range.diagnostics.empty());
+  EXPECT_TRUE(mismatch.diagnostics.empty());
+}
+
 TEST(StyioHirBuilder, BuildsStableTopLevelItems) {
   styio::ide::HirIdentityStore identity_store;
   const std::string path = make_temp_dir() + "/hir_items.styio";
