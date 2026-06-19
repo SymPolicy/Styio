@@ -868,6 +868,36 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
   EXPECT_EQ(create_selection.package_name, "profile-name");
   EXPECT_FALSE(create_selection.source_root.empty());
 
+  const fs::path configured_source_root = temp.path() / "configured-source";
+  const fs::path package_config = temp.path() / "nano-package.toml";
+  WriteText(
+    package_config,
+    "[nano]\n"
+    "mode = \"local-subset\"\n"
+    "output = \"configured-out\"\n"
+    "name = \"configured-name\"\n"
+    "[nano.local]\n"
+    "profile = \"local.profile.toml\"\n"
+    "binary = \"bin/config-nano\"\n"
+    "source_root = \"configured-source\"\n");
+  create_selection = StyioNanoCreateSelectionLatest{};
+  auto configured_local = ParseMainOptions({
+    "styio",
+    "--nano-package-config=" + package_config.string(),
+    "--nano-binary=" + (temp.path() / "cli-nano").string()});
+  ASSERT_TRUE(styio_resolve_nano_create_selection_latest(
+    configured_local,
+    nullptr,
+    create_selection,
+    error)) << error;
+  EXPECT_EQ(create_selection.config_path, package_config.string());
+  EXPECT_EQ(create_selection.mode, "local-subset");
+  EXPECT_EQ(create_selection.output_dir, styio_absolute_path_latest(temp.path() / "configured-out").string());
+  EXPECT_EQ(create_selection.package_name, "configured-name");
+  EXPECT_EQ(create_selection.profile_path, styio_absolute_path_latest(profile).string());
+  EXPECT_EQ(create_selection.source_root, styio_absolute_path_latest(configured_source_root).string());
+  EXPECT_EQ(create_selection.binary_path, styio_absolute_path_latest(temp.path() / "cli-nano").string());
+
   create_selection = StyioNanoCreateSelectionLatest{};
   auto cloud_manifest_success = ParseMainOptions({
     "styio",
@@ -881,6 +911,22 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
     error)) << error;
   EXPECT_TRUE(create_selection.package_name.empty());
   EXPECT_EQ(create_selection.manifest_ref, styio_absolute_path_latest("manifest.toml").string());
+
+  create_selection = StyioNanoCreateSelectionLatest{};
+  auto cloud_conflict = ParseMainOptions({
+    "styio",
+    "--nano-mode=cloud",
+    "--nano-output=" + (temp.path() / "cloud-conflict").string(),
+    "--nano-manifest=manifest.toml",
+    "--nano-registry=" + (temp.path() / "repo").string(),
+    "--nano-package=org/pkg",
+    "--nano-version=1.2.3"});
+  EXPECT_FALSE(styio_resolve_nano_create_selection_latest(
+    cloud_conflict,
+    nullptr,
+    create_selection,
+    error));
+  EXPECT_NE(error.find("accepts either nano.cloud.manifest"), std::string::npos);
 
   create_selection = StyioNanoCreateSelectionLatest{};
   auto cloud_registry_success = ParseMainOptions({
@@ -969,6 +1015,40 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
   EXPECT_EQ(publish_selection.registry_version, "7.8.9");
   EXPECT_EQ(publish_selection.channel, "beta");
   EXPECT_EQ(publish_selection.registry_root, "file://" + (temp.path() / "repo").string());
+
+  publish_selection = StyioNanoPublishSelectionLatest{};
+  auto publish_cli_overrides = ParseMainOptions({
+    "styio",
+    "--nano-package-dir=" + package_dir.string(),
+    "--nano-registry=" + (temp.path() / "repo2").string(),
+    "--nano-package=org/cli",
+    "--nano-version=1.0.0",
+    "--nano-channel=edge"});
+  ASSERT_TRUE(styio_resolve_nano_publish_selection_latest(
+    publish_cli_overrides,
+    publish_selection,
+    error)) << error;
+  EXPECT_EQ(publish_selection.registry_package, "org/cli");
+  EXPECT_EQ(publish_selection.registry_version, "1.0.0");
+  EXPECT_EQ(publish_selection.channel, "edge");
+  EXPECT_EQ(publish_selection.registry_root, styio_absolute_path_latest(temp.path() / "repo2").string());
+
+  std::error_code remove_ec;
+  fs::remove(package_dir / "styio-nano-package.toml", remove_ec);
+  ASSERT_FALSE(remove_ec) << remove_ec.message();
+  publish_selection = StyioNanoPublishSelectionLatest{};
+  auto publish_defaults_without_receipt = ParseMainOptions({
+    "styio",
+    "--nano-package-dir=" + package_dir.string(),
+    "--nano-registry=" + (temp.path() / "repo3").string(),
+    "--nano-version=2.0.0"});
+  ASSERT_TRUE(styio_resolve_nano_publish_selection_latest(
+    publish_defaults_without_receipt,
+    publish_selection,
+    error)) << error;
+  EXPECT_EQ(publish_selection.registry_package, package_dir.filename().string());
+  EXPECT_EQ(publish_selection.registry_version, "2.0.0");
+  EXPECT_EQ(publish_selection.channel, "nano");
 
   const fs::path project_config = temp.path() / "styio.toml";
   WriteText(project_config, "dict_impl = \"linear\"\n");
@@ -2181,7 +2261,16 @@ TEST(StyioMainContract, CloudMaterializationRejectsInvalidRegistryAndManifestInp
   const std::string binary_name = styio_nano_binary_filename_latest();
   std::string error;
 
+  const fs::path blocked_output = temp.path() / "blocked-output";
+  WriteText(blocked_output, "not a directory\n");
   StyioNanoCreateSelectionLatest selection;
+  selection.mode = "cloud";
+  selection.output_dir = blocked_output.string();
+  selection.manifest_ref = (temp.path() / "manifest.toml").string();
+  EXPECT_FALSE(styio_materialize_cloud_nano_package_latest(selection, error));
+  EXPECT_NE(error.find("failed to create output directory"), std::string::npos);
+
+  selection = StyioNanoCreateSelectionLatest{};
   selection.mode = "cloud";
   selection.output_dir = (temp.path() / "missing-manifest-out").string();
   selection.manifest_ref = (temp.path() / "missing-manifest.toml").string();
@@ -2343,7 +2432,25 @@ TEST(StyioMainContract, PublishNanoPackageWritesStaticRepositoryEntryAndBlob) {
   WriteText(package_dir / "styio-nano-package.toml", "[package]\nname = \"receipt-name\"\nversion = \"0.0.1\"\n");
   WriteText(package_dir / "payload.txt", "publish payload\n");
 
+  const fs::path repo_blocker = temp.path() / "repo-blocker";
+  WriteText(repo_blocker, "not a directory\n");
   StyioNanoPublishSelectionLatest selection;
+  selection.package_dir = package_dir.string();
+  selection.registry_root = repo_blocker.string();
+  selection.registry_package = "org/blocked";
+  selection.registry_version = "1.0.0";
+  EXPECT_FALSE(styio_publish_nano_package_latest(selection, error));
+  EXPECT_NE(error.find("failed to create nano repository root"), std::string::npos);
+
+  selection = StyioNanoPublishSelectionLatest{};
+  selection.package_dir = (temp.path() / "missing-package").string();
+  selection.registry_root = (temp.path() / "missing-package-repo").string();
+  selection.registry_package = "org/missing";
+  selection.registry_version = "1.0.0";
+  EXPECT_FALSE(styio_publish_nano_package_latest(selection, error));
+  EXPECT_NE(error.find("styio-nano package archive failed"), std::string::npos);
+
+  selection = StyioNanoPublishSelectionLatest{};
   selection.package_dir = package_dir.string();
   selection.registry_root = (temp.path() / "repo").string();
   selection.registry_package = "org/published";
