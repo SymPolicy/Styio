@@ -24,7 +24,10 @@
 #include "StyioServices/StyioIDE/SemDB.hpp"
 #undef private
 
+#define private public
 #include "StyioServices/StyioIDE/Service.hpp"
+#undef private
+
 #include "StyioServices/StyioLSP/Server.hpp"
 #include "StyioException/Exception.hpp"
 #include "StyioParser/Parser.hpp"
@@ -813,6 +816,68 @@ TEST(StyioIdeService, RuntimeSchedulingEdgesStayExplicit) {
     9001);
   service.did_close(lib_uri);
   EXPECT_TRUE(service.completion(ticket, styio::ide::Position{0, 0}).empty());
+  EXPECT_EQ(service.runtime_counters().stale_request_drops, 1u);
+}
+
+TEST(StyioIdeService, WhiteBoxSemanticQueueStateEdgesStayExplicit) {
+  const std::filesystem::path root = make_temp_project_dir("ide-service-runtime-private");
+  styio::ide::IdeService service;
+  service.initialize(styio::ide::uri_from_path(root.string()));
+
+  const std::string debounce_path = (root / "debounce.styio").string();
+  auto debounce_snapshot = service.vfs_.open(debounce_path, "value: i32 := 1\n", 1);
+  service.record_visible_snapshot(debounce_snapshot);
+  auto& debounce_state = service.runtime_state_for(debounce_path);
+  debounce_state.has_pending_semantic = true;
+  service.pending_semantic_paths_.clear();
+  service.pending_semantic_path_set_.clear();
+  service.reset_runtime_counters();
+
+  service.schedule_semantic_diagnostics(debounce_snapshot);
+  EXPECT_EQ(service.runtime_counters().semantic_diagnostic_debounces, 1u);
+  ASSERT_EQ(service.pending_semantic_paths_.size(), 1u);
+  EXPECT_EQ(service.pending_semantic_paths_.front(), debounce_path);
+
+  service.pending_semantic_paths_.clear();
+  service.pending_semantic_path_set_.clear();
+  service.pending_semantic_paths_.push_back((root / "missing.styio").string());
+  service.reset_runtime_counters();
+  EXPECT_TRUE(service.drain_semantic_diagnostics(1).empty());
+  EXPECT_EQ(service.runtime_counters().stale_request_drops, 0u);
+
+  const std::string stale_state_path = (root / "stale-state.styio").string();
+  auto stale_state_snapshot = service.vfs_.open(stale_state_path, "value: i32 := 1\n", 1);
+  service.record_visible_snapshot(stale_state_snapshot);
+  auto& stale_state = service.runtime_state_for(stale_state_path);
+  stale_state.has_pending_semantic = true;
+  stale_state.pending_semantic_snapshot_id = stale_state.snapshot_id;
+  stale_state.pending_semantic_version = stale_state.version;
+  stale_state.pending_semantic_generation = stale_state.generation + 1;
+  service.pending_semantic_paths_.clear();
+  service.pending_semantic_path_set_.clear();
+  service.pending_semantic_paths_.push_back(stale_state_path);
+  service.pending_semantic_path_set_.insert(stale_state_path);
+  service.reset_runtime_counters();
+
+  EXPECT_TRUE(service.drain_semantic_diagnostics(1).empty());
+  EXPECT_EQ(service.runtime_counters().stale_request_drops, 1u);
+
+  const std::string stale_snapshot_path = (root / "stale-snapshot.styio").string();
+  auto stale_snapshot = service.vfs_.open(stale_snapshot_path, "value: i32 := 1\n", 1);
+  service.record_visible_snapshot(stale_snapshot);
+  auto& stale_snapshot_state = service.runtime_state_for(stale_snapshot_path);
+  stale_snapshot_state.has_pending_semantic = true;
+  stale_snapshot_state.pending_semantic_snapshot_id = stale_snapshot_state.snapshot_id;
+  stale_snapshot_state.pending_semantic_version = stale_snapshot_state.version;
+  stale_snapshot_state.pending_semantic_generation = stale_snapshot_state.generation;
+  service.vfs_.update(stale_snapshot_path, "value: i32 := 2\n", 2);
+  service.pending_semantic_paths_.clear();
+  service.pending_semantic_path_set_.clear();
+  service.pending_semantic_paths_.push_back(stale_snapshot_path);
+  service.pending_semantic_path_set_.insert(stale_snapshot_path);
+  service.reset_runtime_counters();
+
+  EXPECT_TRUE(service.drain_semantic_diagnostics(1).empty());
   EXPECT_EQ(service.runtime_counters().stale_request_drops, 1u);
 }
 
