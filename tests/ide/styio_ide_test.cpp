@@ -2180,6 +2180,59 @@ TEST(StyioSemanticDb, EmptyFilesReturnEmptyTypeQueryResults) {
   EXPECT_FALSE(semdb.type_body_at(empty_path, 0).has_value());
 }
 
+TEST(StyioSemanticDb, CoversTypeContextFallbackEdges) {
+  styio::ide::VirtualFileSystem vfs;
+  styio::ide::Project project;
+  styio::ide::SemanticDB semdb(vfs, project);
+  const std::string path = make_temp_dir() + "/semantic_type_context_edges.styio";
+  const std::string source =
+    "# orphan\n"
+    "# recurse := (n: i32) => recurse(n)\n"
+    "# one := (value: i32) => value\n"
+    "items: list[i32] := [1, 2]\n"
+    "member_result: i32 := items.len\n"
+    "grouped: i32 := (1)\n"
+    "unknown_result: i32 := missing(1)\n"
+    "extra_result: i32 := one(1, 2)\n";
+
+  vfs.open(path, source, 1);
+
+  const std::size_t orphan_offset = source.find("orphan");
+  ASSERT_NE(orphan_offset, std::string::npos);
+  const auto orphan_signature = semdb.type_signature_at(path, orphan_offset);
+  ASSERT_TRUE(orphan_signature.has_value());
+  EXPECT_EQ(orphan_signature->return_type_name, "unknown");
+
+  const std::size_t recurse_call_offset = source.rfind("recurse(n)");
+  ASSERT_NE(recurse_call_offset, std::string::npos);
+  const auto recurse_body = semdb.type_body_at(path, recurse_call_offset);
+  ASSERT_TRUE(recurse_body.has_value());
+  EXPECT_FALSE(recurse_body->dependency_identity_keys.empty());
+
+  const std::size_t grouped_arg_offset = source.find("(1)");
+  ASSERT_NE(grouped_arg_offset, std::string::npos);
+  EXPECT_FALSE(semdb.expected_type_at(path, grouped_arg_offset + 1).has_value());
+
+  const std::size_t missing_arg_offset = source.find("missing(1)");
+  ASSERT_NE(missing_arg_offset, std::string::npos);
+  EXPECT_FALSE(semdb.expected_type_at(path, missing_arg_offset + std::string("missing(").size()).has_value());
+
+  const std::size_t extra_arg_offset = source.find("one(1, 2)");
+  ASSERT_NE(extra_arg_offset, std::string::npos);
+  EXPECT_FALSE(semdb.expected_type_at(path, extra_arg_offset + std::string("one(1, ").size()).has_value());
+
+  const std::string receiver_path = make_temp_dir() + "/semantic_receiver_context_edges.styio";
+  const std::string receiver_source =
+    "items: list[i32] := [1, 2]\n"
+    "member_result: i32 := items.len\n";
+  vfs.open(receiver_path, receiver_source, 1);
+  const std::size_t member_dot_offset = receiver_source.find(".len");
+  ASSERT_NE(member_dot_offset, std::string::npos);
+  const auto receiver_after_dot = semdb.receiver_type_at(receiver_path, member_dot_offset + 1);
+  ASSERT_TRUE(receiver_after_dot.has_value());
+  EXPECT_EQ(receiver_after_dot->type_name, "list[i32]");
+}
+
 TEST(StyioSemanticDb, BuiltinQueriesUseLocationlessTargets) {
   styio::ide::VirtualFileSystem vfs;
   styio::ide::Project project;
