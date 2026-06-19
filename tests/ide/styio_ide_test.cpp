@@ -2194,6 +2194,21 @@ TEST(StyioCompletionEngine, UsesExpectedTypesAtCallSites) {
   EXPECT_LT(completion_index(completion, "word"), completion_index(completion, "count"));
   ASSERT_LT(completion_index(completion, "word"), completion.size());
   EXPECT_EQ(completion[completion_index(completion, "word")].type_name, "string");
+
+  const std::string applied_source =
+    "word: string := \"hi\"\n"
+    "count: i32 := 1\n"
+    "# take := (value: string) => value\n"
+    "result: string := take(word)";
+  service.did_change(uri, applied_source, 2);
+  styio::ide::TextBuffer applied_buffer(applied_source);
+  const std::size_t word_arg_offset = applied_source.rfind("word");
+  ASSERT_NE(word_arg_offset, std::string::npos);
+
+  const auto hover = service.hover(uri, applied_buffer.position_at(word_arg_offset));
+  ASSERT_TRUE(hover.has_value());
+  EXPECT_NE(hover->contents.find("Type: `string`"), std::string::npos);
+  EXPECT_NE(hover->contents.find("Expected: `string`"), std::string::npos);
 }
 
 TEST(StyioCompletionEngine, RecoversInBrokenSyntax) {
