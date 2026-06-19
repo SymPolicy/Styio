@@ -3,6 +3,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "StyioParser/Tokenizer.hpp"
@@ -993,5 +994,128 @@ TEST(StyioParserInternal, InternalResourceAndMethodGuardsStayExplicit) {
   {
     DirectContext direct("price[-999999999999999999999]");
     EXPECT_THROW((void)parse_resource_ref_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+}
+
+TEST(StyioParserInternal, ContextCharacterHelpersCoverBoundaryEdges) {
+  {
+    DirectContext direct("");
+    EXPECT_NE(direct.get().label_cur_line(12, "empty-source").find("<empty>"), std::string::npos);
+    direct.get().move_forward(1000, "past_eof");
+    EXPECT_EQ(direct.get().mark_cur_tok("past-eof"), "past-eof");
+    EXPECT_FALSE(direct.get().try_check(StyioTokenType::NAME));
+    direct.get().skip();
+    direct.get().skip_spaces_no_linebreak();
+    EXPECT_EQ(direct.get().current_token_end_pos(), 0u);
+  }
+  {
+    DirectContext direct("  // hidden\n/*block*/ ; tail");
+    EXPECT_TRUE(direct.get().find_drop(';'));
+    EXPECT_FALSE(direct.get().find_drop(';'));
+  }
+  {
+    DirectContext direct("  /*block*/ => tail");
+    EXPECT_TRUE(direct.get().find_drop(std::string("=>")));
+    EXPECT_FALSE(direct.get().find_drop(std::string("=>")));
+  }
+  {
+    DirectContext direct("abc");
+    direct.get().restore_cursor({direct.get().get_token_index(), 4});
+    EXPECT_FALSE(direct.get().check_next("a"));
+    direct.get().restore_cursor({direct.get().get_token_index(), 3});
+    EXPECT_TRUE(direct.get().check_next(std::string()));
+    EXPECT_FALSE(direct.get().check_next("ab"));
+    direct.get().move(99);
+    EXPECT_EQ(direct.get().get_curr_pos(), 3u);
+  }
+  {
+    DirectContext direct("+ * / /* comment */ // line\nx");
+    EXPECT_TRUE(direct.get().check_binop());
+    auto [ok_add, add_op] = direct.get().get_binop_token();
+    EXPECT_TRUE(ok_add);
+    EXPECT_EQ(add_op, StyioOpType::Binary_Add);
+
+    direct.get().move(1);
+    direct.get().drop_all_spaces();
+    EXPECT_TRUE(direct.get().check_binop());
+    auto [ok_mul, mul_op] = direct.get().get_binop_token();
+    EXPECT_TRUE(ok_mul);
+    EXPECT_EQ(mul_op, StyioOpType::Binary_Mul);
+
+    direct.get().move(1);
+    direct.get().drop_all_spaces();
+    EXPECT_TRUE(direct.get().check_binop());
+    auto [ok_div, div_op] = direct.get().get_binop_token();
+    EXPECT_TRUE(ok_div);
+    EXPECT_EQ(div_op, StyioOpType::Binary_Div);
+
+    direct.get().move(1);
+    direct.get().drop_all_spaces();
+    EXPECT_FALSE(direct.get().check_binop());
+    auto [ok_comment, comment_op] = direct.get().get_binop_token();
+    EXPECT_FALSE(ok_comment);
+    EXPECT_EQ(comment_op, StyioOpType::Comment_MultiLine);
+
+    direct.get().drop_all_spaces_comments();
+    EXPECT_EQ(direct.get().get_curr_char(), 'x');
+    EXPECT_FALSE(direct.get().check_binop());
+  }
+  {
+    DirectContext direct("// comment\n/");
+    EXPECT_FALSE(direct.get().check_binop());
+    auto [ok_comment, comment_op] = direct.get().get_binop_token();
+    EXPECT_FALSE(ok_comment);
+    EXPECT_EQ(comment_op, StyioOpType::Comment_SingleLine);
+  }
+  {
+    DirectContext direct("name");
+    EXPECT_THROW((void)direct.get().map_match(StyioTokenType::NAME), StyioSyntaxError);
+    EXPECT_THROW((void)direct.get().try_match_panic(StyioTokenType::TOK_RPAREN), StyioSyntaxError);
+    EXPECT_THROW((void)direct.get().check_drop_panic('!'), StyioSyntaxError);
+  }
+}
+
+TEST(StyioParserInternal, ParserStaticHelpersCoverAdditionalFalseEdges) {
+  {
+    DirectContext direct("[\"pkg\", ]");
+    EXPECT_FALSE(matches_legacy_string_list_import_latest(direct.get()));
+  }
+  {
+    DirectContext direct("[\"pkg\";]");
+    EXPECT_FALSE(matches_legacy_string_list_import_latest(direct.get()));
+  }
+  {
+    DirectContext direct("[\"pkg\",");
+    EXPECT_FALSE(matches_legacy_string_list_import_latest(direct.get()));
+  }
+  {
+    DirectContext direct(".pkg");
+    EXPECT_THROW((void)parse_import_path_item_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("import { pkg. }");
+    EXPECT_THROW((void)parse_import_decl_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("module { symbol }");
+    EXPECT_THROW((void)parse_export_decl_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("extern (c) { body }");
+    EXPECT_EQ(strip_extern_source_string_latest("plain.styio"), "plain.styio");
+    EXPECT_FALSE(try_parse_extern_source_paths_from_body_latest(direct.get(), "plain.styio").has_value());
+    EXPECT_FALSE(try_parse_extern_source_paths_from_body_latest(direct.get(), "\"unterminated").has_value());
+    EXPECT_FALSE(try_parse_extern_source_paths_from_body_latest(direct.get(), "\"a.styio\",").has_value());
+    auto paths = try_parse_extern_source_paths_from_body_latest(direct.get(), "\"a.styio\"; \"b.styio\"");
+    ASSERT_TRUE(paths.has_value());
+    ASSERT_EQ(paths->size(), 2u);
+    EXPECT_NE((*paths)[0].find("a.styio"), std::string::npos);
+    EXPECT_NE((*paths)[1].find("b.styio"), std::string::npos);
+  }
+  {
+    DirectContext direct("'\\n'");
+    std::unique_ptr<CharAST> ast(parse_char_literal_token_latest(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Char);
   }
 }
