@@ -422,6 +422,28 @@ TEST(StyioCodeGenInternal, GeneratorDestructorClosesTrackedNativeHandles) {
   SUCCEED();
 }
 
+TEST(StyioCodeGenInternal, OwnershipHelpersIgnoreNullAndNonResourceValues) {
+  auto generator = make_generator();
+  llvm::LLVMContext context;
+  llvm::Value* i32_value = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 7);
+
+  EXPECT_EQ(generator->clone_cstr_for_runtime_owner(nullptr), nullptr);
+  EXPECT_FALSE(generator->take_owned_cstr_temp(nullptr));
+  generator->free_cstr_if_runtime_owned(nullptr);
+  generator->store_bounded_ring_value(nullptr, nullptr, nullptr, nullptr, std::nullopt);
+  generator->move_bounded_ring_value(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, std::nullopt);
+
+  generator->track_owned_resource_temp(nullptr, StyioToLLVM::TempResourceKind::List);
+  EXPECT_FALSE(generator->take_owned_resource_temp(nullptr).has_value());
+  generator->free_resource_if_runtime_owned(nullptr, StyioToLLVM::TempResourceKind::List);
+  EXPECT_EQ(generator->clone_resource_handle_for_runtime_owner(nullptr, StyioValueFamily::ListHandle), nullptr);
+
+  llvm::Value* widened = generator->clone_resource_handle_for_runtime_owner(i32_value, StyioValueFamily::Integer);
+  ASSERT_NE(widened, nullptr);
+  EXPECT_TRUE(widened->getType()->isIntegerTy(64));
+  generator->free_resource_handle_if_runtime_owned(nullptr, StyioValueFamily::ListHandle);
+}
+
 TEST(StyioCodeGenInternal, ScalarCastConditionAndDynamicSlotGuardsStayExplicit) {
   expect_codegen_ok({
     SGCast::Create(
