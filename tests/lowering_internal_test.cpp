@@ -1064,6 +1064,7 @@ TEST(StyioLoweringInternal, DirectLoweringFailureAndVariantBranchesStayExplicit)
   AstToStyioIRLowerer analyzer;
 
   EXPECT_THROW((void)VarTupleAST::Create({})->toStyioIR(&analyzer), StyioTypeError);
+  EXPECT_THROW((void)analyzer.toStyioIR(VarTupleAST::Create({})), StyioTypeError);
   EXPECT_THROW((void)(new RangeAST(IntAST::Create("1"), IntAST::Create("2"), IntAST::Create("0")))->toStyioIR(&analyzer), StyioTypeError);
   EXPECT_THROW((void)(new SizeOfAST(nullptr))->toStyioIR(&analyzer), StyioTypeError);
   EXPECT_THROW((void)(new SizeOfAST(IntAST::Create("1")))->toStyioIR(&analyzer), StyioTypeError);
@@ -1137,8 +1138,31 @@ TEST(StyioLoweringInternal, DirectLoweringFailureAndVariantBranchesStayExplicit)
     EXPECT_NE(dynamic_cast<SGFlexBind*>(ir.get()), nullptr);
   }
   {
+    analyzer.local_binding_types["dict_i"] = styio_make_dict_type("string", "i64");
+    std::unique_ptr<HandleAcquireAST> clone(HandleAcquireAST::Create(
+      VarAST::Create(NameAST::Create("final_copy"), TypeAST::Create(styio_make_dict_type("string", "i64"))),
+      NameAST::Create("dict_i")));
+    std::unique_ptr<StyioIR> ir(clone->toStyioIR(&analyzer));
+    EXPECT_NE(dynamic_cast<SGFinalBind*>(ir.get()), nullptr);
+  }
+  {
+    analyzer.local_binding_types["scalar_i"] = styio_data_type_from_name("i64");
+    std::unique_ptr<HandleAcquireAST> clone(HandleAcquireAST::Create(
+      VarAST::Create(NameAST::Create("bad_copy"), TypeAST::Create("i64")),
+      NameAST::Create("scalar_i"),
+      HandleAcquireAST::BindMode::Flex));
+    EXPECT_THROW((void)clone->toStyioIR(&analyzer), StyioTypeError);
+  }
+  {
     std::unique_ptr<ResourceWriteAST> write(ResourceWriteAST::Create(
       StringAST::Create("x"),
+      StdStreamAST::Create(StdStreamKind::Stdout)));
+    std::unique_ptr<StyioIR> ir(write->toStyioIR(&analyzer));
+    EXPECT_NE(dynamic_cast<SIOStdStreamWrite*>(ir.get()), nullptr);
+  }
+  {
+    std::unique_ptr<ResourceWriteAST> write(ResourceWriteAST::Create(
+      DictAST::Create({{StringAST::Create("k"), IntAST::Create("1")}}),
       StdStreamAST::Create(StdStreamKind::Stdout)));
     std::unique_ptr<StyioIR> ir(write->toStyioIR(&analyzer));
     EXPECT_NE(dynamic_cast<SIOStdStreamWrite*>(ir.get()), nullptr);
@@ -1719,7 +1743,87 @@ TEST(StyioLoweringInternal, AdditionalLoweringGuardBranchesStayExplicit) {
   EXPECT_FALSE(ast_value_mentions_float(nullptr));
 
   EXPECT_EQ(series_intrinsic_helper_body(nullptr, nullptr), nullptr);
+  {
+    std::unique_ptr<FuncCallAST> missing(FuncCallAST::Create(
+      NameAST::Create("series_missing"),
+      {NameAST::Create("x")}));
+    EXPECT_EQ(series_intrinsic_helper_body(&analyzer, missing.get()), nullptr);
+  }
+  {
+    std::unique_ptr<FunctionAST> regular(FunctionAST::Create(
+      NameAST::Create("series_regular"),
+      false,
+      {ParamAST::Create(NameAST::Create("x"))},
+      TypeAST::Create("i64"),
+      BlockAST::Create({ReturnAST::Create(NameAST::Create("x"))})));
+    analyzer.func_defs["series_regular"] = regular.get();
+    std::unique_ptr<FuncCallAST> call(FuncCallAST::Create(
+      NameAST::Create("series_regular"),
+      {NameAST::Create("x")}));
+    EXPECT_EQ(series_intrinsic_helper_body(&analyzer, call.get()), nullptr);
+  }
+  {
+    std::unique_ptr<SimpleFuncAST> mismatch(SimpleFuncAST::Create(
+      NameAST::Create("series_mismatch"),
+      {ParamAST::Create(NameAST::Create("x")), ParamAST::Create(NameAST::Create("y"))},
+      SeriesIntrinsicAST::Create(NameAST::Create("x"), SeriesIntrinsicOp::Avg, IntAST::Create("3"))));
+    analyzer.func_defs["series_mismatch"] = mismatch.get();
+    std::unique_ptr<FuncCallAST> call(FuncCallAST::Create(
+      NameAST::Create("series_mismatch"),
+      {NameAST::Create("x")}));
+    EXPECT_EQ(series_intrinsic_helper_body(&analyzer, call.get()), nullptr);
+  }
+  {
+    std::unique_ptr<SimpleFuncAST> not_series(SimpleFuncAST::Create(
+      NameAST::Create("series_not_body"),
+      {ParamAST::Create(NameAST::Create("x"))},
+      IntAST::Create("1")));
+    analyzer.func_defs["series_not_body"] = not_series.get();
+    std::unique_ptr<FuncCallAST> call(FuncCallAST::Create(
+      NameAST::Create("series_not_body"),
+      {NameAST::Create("x")}));
+    EXPECT_EQ(series_intrinsic_helper_body(&analyzer, call.get()), nullptr);
+  }
+  {
+    std::unique_ptr<SimpleFuncAST> base_mismatch(SimpleFuncAST::Create(
+      NameAST::Create("series_base_mismatch"),
+      {ParamAST::Create(NameAST::Create("x"))},
+      SeriesIntrinsicAST::Create(NameAST::Create("other"), SeriesIntrinsicOp::Avg, IntAST::Create("3"))));
+    analyzer.func_defs["series_base_mismatch"] = base_mismatch.get();
+    std::unique_ptr<FuncCallAST> call(FuncCallAST::Create(
+      NameAST::Create("series_base_mismatch"),
+      {NameAST::Create("x")}));
+    EXPECT_EQ(series_intrinsic_helper_body(&analyzer, call.get()), nullptr);
+  }
+  {
+    std::unique_ptr<BinOpAST> expression(BinOpAST::Create(
+      StyioOpType::Binary_Add,
+      SeriesIntrinsicAST::Create(NameAST::Create("state"), SeriesIntrinsicOp::Avg, IntAST::Create("3")),
+      IntAST::Create("1")));
+    EXPECT_NE(find_series_intrinsic(&analyzer, expression.get()), nullptr);
+  }
+  {
+    std::unique_ptr<SimpleFuncAST> avg_helper(SimpleFuncAST::Create(
+      NameAST::Create("series_avg_step"),
+      {ParamAST::Create(NameAST::Create("x"))},
+      SeriesIntrinsicAST::Create(NameAST::Create("x"), SeriesIntrinsicOp::Avg, IntAST::Create("3"))));
+    analyzer.func_defs["series_avg_step"] = avg_helper.get();
+    std::unique_ptr<FuncCallAST> call(FuncCallAST::Create(
+      NameAST::Create("series_avg_step"),
+      {IntAST::Create("9")}));
+    std::unique_ptr<StyioIR> ir(lower_state_rhs(&analyzer, call.get(), 7));
+    EXPECT_NE(dynamic_cast<SGSeriesAvgStep*>(ir.get()), nullptr);
+  }
   EXPECT_EQ(find_series_intrinsic(&analyzer, nullptr), nullptr);
+  EXPECT_TRUE(resource_method_preface_bind_type_latest(&analyzer, PassAST::Create()).isUndefined());
+  bind_resource_method_preface_local_latest(&analyzer, PassAST::Create());
+  {
+    std::unique_ptr<FlexBindAST> undefined_bind(FlexBindAST::Create(
+      VarAST::Create(NameAST::Create("preface_undefined")),
+      PassAST::Create()));
+    bind_resource_method_preface_local_latest(&analyzer, undefined_bind.get());
+    EXPECT_EQ(analyzer.local_binding_types.count("preface_undefined"), 0u);
+  }
   EXPECT_FALSE(stmt_may_contain_pulse_state(&analyzer, FuncCallAST::Create(NameAST::Create("missing"), {})));
   EXPECT_THROW((void)window_n_from_ast(StringAST::Create("bad")), StyioTypeError);
   {
