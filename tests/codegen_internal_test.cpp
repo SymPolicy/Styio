@@ -444,6 +444,45 @@ TEST(StyioCodeGenInternal, OwnershipHelpersIgnoreNullAndNonResourceValues) {
   generator->free_resource_handle_if_runtime_owned(nullptr, StyioValueFamily::ListHandle);
 }
 
+TEST(StyioCodeGenInternal, RuntimeReturnHelpersCoverGuardEdges) {
+  auto generator = make_generator();
+  llvm::LLVMContext context;
+  llvm::IRBuilder<> builder(context);
+
+  styio::native::CType invalid_c_type;
+  invalid_c_type.kind = static_cast<styio::native::CTypeKind>(255);
+  EXPECT_TRUE(generator->native_c_type_to_llvm(invalid_c_type)->isIntegerTy(64));
+
+  EXPECT_EQ(generator->default_runtime_return_value(nullptr), nullptr);
+  EXPECT_EQ(generator->default_runtime_return_value(builder.getVoidTy()), nullptr);
+  EXPECT_TRUE(generator->default_runtime_return_value(builder.getDoubleTy())->getType()->isDoubleTy());
+  EXPECT_TRUE(generator->default_runtime_return_value(llvm::PointerType::get(context, 0))->getType()->isPointerTy());
+  EXPECT_TRUE(generator->default_runtime_return_value(builder.getInt32Ty())->getType()->isIntegerTy(32));
+
+  auto* struct_ty = llvm::StructType::create(context, "styio.test.ret");
+  std::vector<llvm::Type*> struct_fields{builder.getInt64Ty()};
+  struct_ty->setBody(struct_fields);
+  EXPECT_TRUE(generator->default_runtime_return_value(struct_ty)->getType()->isStructTy());
+
+  generator->emit_file_handle_slot_close(nullptr);
+
+  auto* same_i64 = builder.getInt64(7);
+  EXPECT_EQ(generator->coerce_for_return(same_i64, same_i64->getType()), same_i64);
+  EXPECT_EQ(generator->coerce_for_return(nullptr, builder.getInt64Ty()), nullptr);
+  EXPECT_EQ(generator->coerce_for_return(same_i64, nullptr), same_i64);
+  EXPECT_TRUE(generator
+                ->coerce_for_return(
+                  llvm::ConstantFP::get(builder.getDoubleTy(), 1.0),
+                  builder.getInt1Ty())
+                ->getType()
+                ->isIntegerTy(1));
+
+  EXPECT_EQ(generator->cstr_to_i64_checked(nullptr), nullptr);
+  EXPECT_EQ(generator->cstr_to_i64_checked(same_i64), same_i64);
+  EXPECT_EQ(generator->cstr_to_f64_checked(nullptr), nullptr);
+  EXPECT_EQ(generator->cstr_to_f64_checked(same_i64), same_i64);
+}
+
 TEST(StyioCodeGenInternal, ScalarCastConditionAndDynamicSlotGuardsStayExplicit) {
   expect_codegen_ok({
     SGCast::Create(
