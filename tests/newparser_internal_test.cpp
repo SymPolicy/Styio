@@ -239,6 +239,16 @@ TEST(StyioNewParserInternal, DefaultValuesRecoveryAndTokenProbesStayExplicit) {
     EXPECT_TRUE(consume_hash_return_type_latest(probe));
   }
   {
+    DirectContext direct("[| i64 |]");
+    TokenProbeLatest probe(direct.get());
+    EXPECT_TRUE(consume_hash_return_type_latest(probe));
+  }
+  {
+    DirectContext direct("7");
+    TokenProbeLatest probe(direct.get());
+    EXPECT_FALSE(consume_hash_return_type_latest(probe));
+  }
+  {
     DirectContext direct("");
     EXPECT_FALSE(stmt_subset_route_supported_latest(direct.get()));
     EXPECT_FALSE(expr_subset_route_supported_until_latest(direct.get(), {StyioTokenType::TOK_EOF}));
@@ -266,6 +276,27 @@ TEST(StyioNewParserInternal, DefaultValuesRecoveryAndTokenProbesStayExplicit) {
     DirectContext direct("...");
     EXPECT_THROW((void)parse_iterator_collection_rhs_nightly_draft(direct.get()), StyioSyntaxError);
   }
+
+  EXPECT_EQ(expr_prec_of(StyioTokenType::BINOP_GT), 40);
+  EXPECT_EQ(expr_prec_of(StyioTokenType::TOK_RANGBRAC), 40);
+  EXPECT_EQ(expr_prec_of(StyioTokenType::TOK_PLUS), 50);
+  EXPECT_EQ(expr_prec_of(StyioTokenType::TOK_STAR), 60);
+  EXPECT_EQ(expr_prec_of(StyioTokenType::BINOP_POW), 70);
+  EXPECT_EQ(expr_prec_of(StyioTokenType::TOK_HASH), -1);
+  EXPECT_TRUE(expr_is_right_assoc(StyioTokenType::BINOP_POW));
+  EXPECT_FALSE(expr_is_right_assoc(StyioTokenType::TOK_STAR));
+  EXPECT_EQ(expr_map_binop(StyioTokenType::TOK_PLUS), StyioOpType::Binary_Add);
+  EXPECT_EQ(expr_map_binop(StyioTokenType::TOK_MINUS), StyioOpType::Binary_Sub);
+  EXPECT_EQ(expr_map_binop(StyioTokenType::TOK_STAR), StyioOpType::Binary_Mul);
+  EXPECT_EQ(expr_map_binop(StyioTokenType::TOK_SLASH), StyioOpType::Binary_Div);
+  EXPECT_EQ(expr_map_binop(StyioTokenType::TOK_PERCENT), StyioOpType::Binary_Mod);
+  EXPECT_EQ(expr_map_binop(StyioTokenType::BINOP_POW), StyioOpType::Binary_Pow);
+  EXPECT_EQ(expr_map_binop(StyioTokenType::TOK_HASH), StyioOpType::Undefined);
+  EXPECT_TRUE(expr_is_comp(StyioTokenType::BINOP_GT));
+  EXPECT_TRUE(expr_is_comp(StyioTokenType::BINOP_LE));
+  EXPECT_EQ(expr_map_comp(StyioTokenType::BINOP_GT), CompType::GT);
+  EXPECT_EQ(expr_map_comp(StyioTokenType::BINOP_LE), CompType::LE);
+  EXPECT_EQ(expr_map_comp(StyioTokenType::BINOP_EQ), CompType::EQ);
 }
 
 TEST(StyioNewParserInternal, AwaitResourceEffectAndTaskLookaheadStayExplicit) {
@@ -407,6 +438,11 @@ TEST(StyioNewParserInternal, HashLetMatchAndSubsetDeclinesStayExplicit) {
     DirectContext direct(")");
     EXPECT_THROW((void)parse_block_only_subset_with_legacy_fallback_latest_draft(direct.get()), StyioSyntaxError);
   }
+  {
+    DirectContext direct("name");
+    auto attempt = try_parse_hash_stmt_nightly_latest(direct.get());
+    EXPECT_EQ(attempt.status, ParseAttemptStatus::Declined);
+  }
 }
 
 TEST(StyioNewParserInternal, ForwardIteratorAndContinuationEdgesStayExplicit) {
@@ -457,6 +493,34 @@ TEST(StyioNewParserInternal, ForwardIteratorAndContinuationEdgesStayExplicit) {
     EXPECT_THROW(
       (void)parse_expr_core_allowing_follow_latest(direct.get(), {StyioTokenType::TOK_EOF}),
       StyioSyntaxError);
+  }
+  {
+    DirectContext direct("items[]");
+    EXPECT_THROW((void)parse_expr_subset_nightly(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("value ?= 1");
+    EXPECT_THROW((void)parse_expr_subset_nightly(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("42");
+    std::unique_ptr<StyioAST> ast(parse_expr_subset_nightly(direct.get()));
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Integer);
+  }
+  {
+    DirectContext direct("4.25");
+    std::unique_ptr<StyioAST> ast(parse_expr_subset_nightly(direct.get()));
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Float);
+  }
+  {
+    DirectContext direct("\"text\"");
+    std::unique_ptr<StyioAST> ast(parse_expr_subset_nightly(direct.get()));
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::String);
+  }
+  {
+    DirectContext direct("'x'");
+    std::unique_ptr<StyioAST> ast(parse_expr_subset_nightly(direct.get()));
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Char);
   }
 }
 
