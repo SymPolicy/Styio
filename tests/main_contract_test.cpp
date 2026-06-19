@@ -307,6 +307,11 @@ TEST(StyioMainContract, MainEntryCliGuardsStayFailClosed) {
     EXPECT_TRUE(result.stderr_text.empty());
   }
   {
+    const MainRunResult result = RunMain({"styio", "--machine-info"});
+    EXPECT_EQ(result.exit_code, static_cast<int>(StyioExitCode::CliError));
+    EXPECT_NE(result.stderr_text.find("[CliError]"), std::string::npos);
+  }
+  {
     const MainRunResult result = RunMain({"styio", "--dict-impl=bad"});
     EXPECT_EQ(result.exit_code, static_cast<int>(StyioExitCode::CliError));
     EXPECT_NE(result.stderr_text.find("unsupported --dict-impl"), std::string::npos);
@@ -439,6 +444,22 @@ TEST(StyioMainContract, MainEntryNanoAndCompilePlanGuardsStayFailClosed) {
     EXPECT_NE(result.stderr_text.find("only supports local repository roots"), std::string::npos);
   }
   {
+    TempDir temp("nano-publish-main-failure");
+    const fs::path package = temp.path() / "package";
+    WriteText(package / "bin" / styio_nano_binary_filename_latest(), "#!/usr/bin/env sh\nexit 0\n");
+    const fs::path repo_blocker = temp.path() / "repo-blocker";
+    WriteText(repo_blocker, "not a directory\n");
+    const MainRunResult result = RunMain({
+      "styio",
+      "--nano-publish",
+      "--nano-package-dir=" + package.string(),
+      "--nano-registry=" + repo_blocker.string(),
+      "--nano-package=org/pkg",
+      "--nano-version=1.0.0"});
+    EXPECT_EQ(result.exit_code, static_cast<int>(StyioExitCode::CliError));
+    EXPECT_NE(result.stderr_text.find("failed to create nano repository root"), std::string::npos);
+  }
+  {
     const MainRunResult result = RunMain({"styio", "--compile-plan=plan.json", "--file", "main.styio"});
     EXPECT_EQ(result.exit_code, static_cast<int>(StyioExitCode::CliError));
     EXPECT_NE(result.stderr_text.find("--compile-plan and --file are mutually exclusive"), std::string::npos);
@@ -448,6 +469,34 @@ TEST(StyioMainContract, MainEntryNanoAndCompilePlanGuardsStayFailClosed) {
     EXPECT_EQ(result.exit_code, static_cast<int>(StyioExitCode::CliError));
     EXPECT_NE(result.stderr_text.find("missing-plan.json"), std::string::npos);
   }
+}
+
+TEST(StyioMainContract, MainEntryFrontendDiagnosticsStayFailClosed) {
+  TempDir temp("frontend-diagnostics");
+
+  const fs::path lex_source = temp.path() / "lex.styio";
+  WriteText(lex_source, "/* unterminated");
+  const MainRunResult lex_result =
+    RunMain({"styio", "--file", lex_source.string(), "--error-format=jsonl"});
+  EXPECT_EQ(lex_result.exit_code, static_cast<int>(StyioExitCode::LexError));
+  EXPECT_NE(lex_result.stderr_text.find("\"category\":\"LexError\""), std::string::npos)
+    << lex_result.stderr_text;
+
+  const fs::path parse_source = temp.path() / "parse.styio";
+  WriteText(parse_source, "foo.bar(1).baz(2)\n");
+  const MainRunResult parse_result =
+    RunMain({"styio", "--file", parse_source.string(), "--error-format=jsonl"});
+  EXPECT_EQ(parse_result.exit_code, static_cast<int>(StyioExitCode::ParseError));
+  EXPECT_NE(parse_result.stderr_text.find("\"category\":\"ParseError\""), std::string::npos)
+    << parse_result.stderr_text;
+
+  const fs::path type_source = temp.path() / "type.styio";
+  WriteText(type_source, "x = missing(1)\n");
+  const MainRunResult type_result =
+    RunMain({"styio", "--file", type_source.string(), "--error-format=jsonl"});
+  EXPECT_EQ(type_result.exit_code, static_cast<int>(StyioExitCode::TypeError));
+  EXPECT_NE(type_result.stderr_text.find("\"category\":\"TypeError\""), std::string::npos)
+    << type_result.stderr_text;
 }
 
 TEST(StyioMainContract, EscapingDiagnosticsAndOptionMatchingStayStable) {
@@ -1457,6 +1506,18 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
   EXPECT_EQ(publish_selection.registry_package, package_dir.filename().string());
   EXPECT_EQ(publish_selection.registry_version, "2.0.0");
   EXPECT_EQ(publish_selection.channel, "nano");
+
+  publish_selection = StyioNanoPublishSelectionLatest{};
+  auto publish_trailing_slash_without_name = ParseMainOptions({
+    "styio",
+    "--nano-package-dir=" + package_dir.string() + "/",
+    "--nano-registry=" + (temp.path() / "repo4").string(),
+    "--nano-version=3.0.0"});
+  EXPECT_FALSE(styio_resolve_nano_publish_selection_latest(
+    publish_trailing_slash_without_name,
+    publish_selection,
+    error));
+  EXPECT_NE(error.find("publish requires --nano-package"), std::string::npos);
 
   const fs::path project_config = temp.path() / "styio.toml";
   WriteText(project_config, "dict_impl = \"linear\"\n");
@@ -3612,6 +3673,16 @@ TEST(StyioMainContract, NativeBuildArgsAndExecutableDiscoveryStayFailClosed) {
   path_guard.unset();
   EXPECT_FALSE(styio_native_build_find_executable_latest("fake-clang++", command));
   EXPECT_FALSE(styio_native_build_find_executable_latest("", command));
+
+  path_guard.set((temp.path() / "empty-bin").string());
+  fs::create_directories(temp.path() / "empty-bin");
+  EnvVarGuard cxx_guard("STYIO_NATIVE_CXX");
+  EnvVarGuard toolchain_guard("STYIO_NATIVE_TOOLCHAIN_ROOT");
+  cxx_guard.unset();
+  toolchain_guard.set((temp.path() / "missing-toolchain").string());
+  EXPECT_EQ(
+    styio_native_build_compiler_from_config_latest(temp.path() / "bin" / "styio", "g++"),
+    "clang++");
 
   const fs::path clang_root = temp.path() / "toolchain";
   WriteText(clang_root / "bin" / "clang++-18", "#!/usr/bin/env sh\nexit 0\n");
