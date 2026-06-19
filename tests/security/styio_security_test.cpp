@@ -11768,9 +11768,11 @@ TEST(StyioSecurityTokenTypes, ResourceAndValueFamilyHelpersCoverFallbacks) {
   EXPECT_EQ(styio_dict_value_type_name(StyioDataType{StyioDataTypeOption::Defined, "dict[string]", 0}), "i64");
   EXPECT_EQ(styio_matrix_elem_type_name(StyioDataType{StyioDataTypeOption::Defined, "matrix[]", 0}), "i64");
   EXPECT_EQ(styio_matrix_row_count(StyioDataType{StyioDataTypeOption::Defined, "not-matrix", 0}), 0U);
+  EXPECT_EQ(styio_matrix_row_count(StyioDataType{StyioDataTypeOption::Matrix, "not-matrix", 0}), 0U);
   EXPECT_EQ(styio_matrix_row_count(StyioDataType{StyioDataTypeOption::Matrix, "matrix[i64,,2]", 0}), 0U);
   EXPECT_EQ(styio_matrix_row_count(StyioDataType{StyioDataTypeOption::Matrix, "matrix[i64,NaN,2]", 0}), 0U);
   EXPECT_EQ(styio_matrix_col_count(StyioDataType{StyioDataTypeOption::Defined, "not-matrix", 0}), 0U);
+  EXPECT_EQ(styio_matrix_col_count(StyioDataType{StyioDataTypeOption::Matrix, "not-matrix", 0}), 0U);
   EXPECT_EQ(styio_matrix_col_count(StyioDataType{StyioDataTypeOption::Matrix, "matrix[i64,2,]", 0}), 0U);
   EXPECT_EQ(styio_matrix_col_count(StyioDataType{StyioDataTypeOption::Matrix, "matrix[i64,2,NaN]", 0}), 0U);
 
@@ -11818,6 +11820,9 @@ TEST(StyioSecurityTokenTypes, ResourceAndValueFamilyHelpersCoverFallbacks) {
   EXPECT_EQ(styio_type_item_value_family(task_i64), StyioValueFamily::Integer);
   EXPECT_EQ(styio_type_item_value_family(styio_make_list_type("bool")), StyioValueFamily::Bool);
   EXPECT_EQ(styio_dict_key_value_family(styio_make_dict_type("string", "i64")), StyioValueFamily::String);
+  StyioDataType dict_with_explicit_key_family = styio_make_dict_type("string", "i64");
+  dict_with_explicit_key_family.key_value_family = StyioValueFamily::Char;
+  EXPECT_EQ(styio_dict_key_value_family(dict_with_explicit_key_family), StyioValueFamily::Char);
 
   EXPECT_TRUE(styio_value_family_is_runtime_scalar(StyioValueFamily::Integer));
   EXPECT_FALSE(styio_value_family_is_runtime_scalar(StyioValueFamily::TaskHandle));
