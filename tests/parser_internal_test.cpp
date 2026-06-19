@@ -396,15 +396,34 @@ TEST(StyioParserInternal, ContextHelpersCoverAdditionalTokenEdges) {
     EXPECT_EQ(direct.find_line_index(), 0u);
     EXPECT_NE(direct.label_cur_line().find("<empty>"), std::string::npos);
     EXPECT_EQ(direct.mark_cur_tok(), "Unknown token location");
+    EXPECT_FALSE(direct.find_drop('x'));
     EXPECT_THROW(direct.try_match_panic(StyioTokenType::NAME), StyioParseError);
   }
   {
     StyioContext no_lines("<parser-internal>", "abc", {}, {}, false);
     EXPECT_NE(no_lines.label_cur_line(99, "tail").find("abc"), std::string::npos);
+    no_lines.restore_cursor({99, 0});
+    EXPECT_EQ(no_lines.mark_cur_tok("custom location"), "custom location");
   }
   {
     DirectContext direct("name");
     EXPECT_THROW(direct.get().map_match(StyioTokenType::NAME), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("1");
+    EXPECT_THROW(direct.get().try_match_panic(StyioTokenType::NAME, "custom panic"), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("one\ntwo");
+    EXPECT_EQ(direct.get().find_line_index(), 0u);
+  }
+  {
+    DirectContext direct("// skip\nvalue");
+    EXPECT_TRUE(direct.get().find_drop("value"));
+  }
+  {
+    DirectContext direct(" \n/* skip */x");
+    EXPECT_TRUE(direct.get().find_drop_panic('x'));
   }
   {
     DirectContext direct("^^^");
