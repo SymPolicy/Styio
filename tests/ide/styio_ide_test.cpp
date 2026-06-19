@@ -539,6 +539,9 @@ TEST(StyioIDECommon, TextBufferUriAndEnumHelpersCoverEdgeCases) {
   EXPECT_TRUE(empty_buffer.empty());
   EXPECT_EQ(empty_buffer.text(), "");
   EXPECT_EQ(empty_buffer.size(), 0U);
+  EXPECT_EQ(empty_buffer.position_at(42).line, 0U);
+  EXPECT_EQ(empty_buffer.position_at(42).character, 0U);
+  EXPECT_EQ(empty_buffer.offset_at(styio::ide::Position{42, 42}), 0U);
 
   styio::ide::TextBuffer buffer("alpha\nbeta");
   EXPECT_FALSE(buffer.empty());
