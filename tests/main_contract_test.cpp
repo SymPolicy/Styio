@@ -1747,6 +1747,9 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
     EXPECT_FALSE(styio::config::probe_compile_plan_diag_dir(
       write_plan("probe-relative.json", "{\"outputs\":{\"diag_dir\":\"relative\"}}"),
       probed));
+    EXPECT_FALSE(styio::config::probe_compile_plan_diag_dir(
+      write_plan("probe-empty-diag.json", "{\"outputs\":{\"diag_dir\":\"\"}}"),
+      probed));
     EXPECT_TRUE(styio::config::probe_compile_plan_diag_dir(
       write_plan("probe-ok.json", "{\"outputs\":{\"diag_dir\":\"" + quote(diag_dir) + "\"}}"),
       probed));
@@ -1760,6 +1763,19 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
   expect_parse_error(
     write_plan("missing-generated-by.json", "{\"plan_version\":1}"),
     "missing required object field: generated_by");
+  expect_parse_error(
+    write_plan("missing-packages-array.json",
+               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"spio\",\"version\":\"1\"},"
+               "\"intent\":\"test\",\"workspace_root\":\"" + quote(workspace) + "\","
+               "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"test\","
+               "\"target_name\":\"unit\",\"file\":\"" + quote(source) + "\"},"
+               "\"toolchain\":{},\"profile\":{\"name\":\"dev\"},"
+               "\"resolution\":{},\"outputs\":{\"build_root\":\"" + quote(build_root)
+               + "\",\"artifact_dir\":\"" + quote(artifact_dir)
+               + "\",\"diag_dir\":\"" + quote(diag_dir)
+               + "\"},\"emit\":{\"error_format\":\"text\",\"ast\":false,"
+               "\"styio_ir\":false,\"llvm_ir\":false}}"),
+    "missing required array field: packages");
   {
     StyioCompilePlanRequestLatest request;
     std::string error;
@@ -1773,6 +1789,33 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
   expect_parse_error(
     write_plan("bad-tool.json", valid_plan_text("other", "test", "minimal", "test", "jsonl")),
     "generated_by.tool");
+  expect_parse_error(
+    write_plan("missing-generated-by-version.json",
+               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"spio\"},"
+               "\"intent\":\"test\",\"workspace_root\":\"" + quote(workspace) + "\","
+               "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"test\","
+               "\"target_name\":\"unit\",\"file\":\"" + quote(source) + "\"},"
+               "\"toolchain\":{},\"profile\":{\"name\":\"dev\"},"
+               "\"packages\":[{\"id\":\"pkg/main\"}],\"resolution\":{},"
+               "\"outputs\":{\"build_root\":\"" + quote(build_root)
+               + "\",\"artifact_dir\":\"" + quote(artifact_dir)
+               + "\",\"diag_dir\":\"" + quote(diag_dir)
+               + "\"},\"emit\":{\"error_format\":\"text\",\"ast\":false,"
+               "\"styio_ir\":false,\"llvm_ir\":false}}"),
+    "missing required string field: version");
+  expect_parse_error(
+    write_plan("missing-profile-name.json",
+               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"spio\",\"version\":\"1\"},"
+               "\"intent\":\"test\",\"workspace_root\":\"" + quote(workspace) + "\","
+               "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"test\","
+               "\"target_name\":\"unit\",\"file\":\"" + quote(source) + "\"},"
+               "\"toolchain\":{},\"profile\":{},\"packages\":[{\"id\":\"pkg/main\"}],"
+               "\"resolution\":{},\"outputs\":{\"build_root\":\"" + quote(build_root)
+               + "\",\"artifact_dir\":\"" + quote(artifact_dir)
+               + "\",\"diag_dir\":\"" + quote(diag_dir)
+               + "\"},\"emit\":{\"error_format\":\"text\",\"ast\":false,"
+               "\"styio_ir\":false,\"llvm_ir\":false}}"),
+    "missing required string field: name");
   expect_parse_error(
     write_plan("empty-build-mode.json",
                valid_plan_text("spio", "test", "", "test", "jsonl")),
@@ -1837,6 +1880,20 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
                "\"styio_ir\":false,\"llvm_ir\":false}}"),
     "entry.package_id is not present");
   expect_parse_error(
+    write_plan("missing-entry-file.json",
+               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"spio\",\"version\":\"1\"},"
+               "\"intent\":\"test\",\"workspace_root\":\"" + quote(workspace) + "\","
+               "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"test\","
+               "\"target_name\":\"unit\"},"
+               "\"toolchain\":{},\"profile\":{\"name\":\"dev\"},"
+               "\"packages\":[{\"id\":\"pkg/main\"}],\"resolution\":{},"
+               "\"outputs\":{\"build_root\":\"" + quote(build_root)
+               + "\",\"artifact_dir\":\"" + quote(artifact_dir)
+               + "\",\"diag_dir\":\"" + quote(diag_dir)
+               + "\"},\"emit\":{\"error_format\":\"text\",\"ast\":false,"
+               "\"styio_ir\":false,\"llvm_ir\":false}}"),
+    "missing required string field: file");
+  expect_parse_error(
     write_plan("bad-target-kind.json",
                valid_plan_text("spio", "test", "minimal", "bench", "jsonl")),
     "unsupported compile-plan entry.target_kind");
@@ -1868,6 +1925,19 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
                + "\"},\"emit\":{\"error_format\":\"text\",\"styio_ir\":false,"
                "\"llvm_ir\":false}}"),
     "missing required boolean field: ast");
+  expect_parse_error(
+    write_plan("missing-build-root.json",
+               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"spio\",\"version\":\"1\"},"
+               "\"intent\":\"test\",\"workspace_root\":\"" + quote(workspace) + "\","
+               "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"test\","
+               "\"target_name\":\"unit\",\"file\":\"" + quote(source) + "\"},"
+               "\"toolchain\":{},\"profile\":{\"name\":\"dev\"},"
+               "\"packages\":[{\"id\":\"pkg/main\"}],\"resolution\":{},"
+               "\"outputs\":{\"artifact_dir\":\"" + quote(artifact_dir)
+               + "\",\"diag_dir\":\"" + quote(diag_dir)
+               + "\"},\"emit\":{\"error_format\":\"text\",\"ast\":false,"
+               "\"styio_ir\":false,\"llvm_ir\":false}}"),
+    "missing required string field: build_root");
   expect_parse_error(
     write_plan("bad-error-format.json",
                valid_plan_text("spio", "test", "minimal", "test", "yaml")),
