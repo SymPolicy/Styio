@@ -837,6 +837,15 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
   EXPECT_NE(error.find("unsupported --nano-mode"), std::string::npos);
 
   create_selection = StyioNanoCreateSelectionLatest{};
+  auto empty_package_config = ParseMainOptions({"styio", "--nano-package-config="});
+  EXPECT_FALSE(styio_resolve_nano_create_selection_latest(
+    empty_package_config,
+    nullptr,
+    create_selection,
+    error));
+  EXPECT_NE(error.find("--nano-package-config requires a non-empty path"), std::string::npos);
+
+  create_selection = StyioNanoCreateSelectionLatest{};
   auto missing_output = ParseMainOptions({"styio", "--nano-mode=cloud"});
   EXPECT_FALSE(styio_resolve_nano_create_selection_latest(
     missing_output,
@@ -974,6 +983,38 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
   EXPECT_NE(error.find("publish requires --nano-package-dir"), std::string::npos);
 
   publish_selection = StyioNanoPublishSelectionLatest{};
+  auto empty_publish_config = ParseMainOptions({"styio", "--nano-publish-config="});
+  EXPECT_FALSE(styio_resolve_nano_publish_selection_latest(
+    empty_publish_config,
+    publish_selection,
+    error));
+  EXPECT_NE(error.find("--nano-publish-config requires a non-empty path"), std::string::npos);
+
+  publish_selection = StyioNanoPublishSelectionLatest{};
+  auto publish_missing_package_dir = ParseMainOptions({
+    "styio",
+    "--nano-package-dir=" + (temp.path() / "missing-package").string(),
+    "--nano-registry=" + (temp.path() / "repo").string()});
+  EXPECT_FALSE(styio_resolve_nano_publish_selection_latest(
+    publish_missing_package_dir,
+    publish_selection,
+    error));
+  EXPECT_NE(error.find("styio-nano package directory not found"), std::string::npos);
+
+  const fs::path package_without_binary = temp.path() / "package-without-binary";
+  fs::create_directories(package_without_binary / "bin");
+  publish_selection = StyioNanoPublishSelectionLatest{};
+  auto publish_missing_binary = ParseMainOptions({
+    "styio",
+    "--nano-package-dir=" + package_without_binary.string(),
+    "--nano-registry=" + (temp.path() / "repo").string()});
+  EXPECT_FALSE(styio_resolve_nano_publish_selection_latest(
+    publish_missing_binary,
+    publish_selection,
+    error));
+  EXPECT_NE(error.find("missing bin/" + binary_name), std::string::npos);
+
+  publish_selection = StyioNanoPublishSelectionLatest{};
   auto publish_missing_registry = ParseMainOptions({
     "styio",
     "--nano-package-dir=" + package_dir.string()});
@@ -1010,6 +1051,20 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
     publish_selection,
     error));
   EXPECT_NE(error.find("requires --nano-version"), std::string::npos);
+
+  WriteText(package_dir / "styio-nano-package.toml", "[package\nname = bad\n");
+  publish_selection = StyioNanoPublishSelectionLatest{};
+  auto publish_bad_receipt = ParseMainOptions({
+    "styio",
+    "--nano-package-dir=" + package_dir.string(),
+    "--nano-registry=" + (temp.path() / "repo").string(),
+    "--nano-package=org/bad",
+    "--nano-version=0.0.1"});
+  EXPECT_FALSE(styio_resolve_nano_publish_selection_latest(
+    publish_bad_receipt,
+    publish_selection,
+    error));
+  EXPECT_NE(error.find("malformed section header"), std::string::npos);
 
   WriteText(
     package_dir / "styio-nano-package.toml",
@@ -1078,6 +1133,15 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
     error)) << error;
   EXPECT_EQ(dict_selection.source, "project-config");
   EXPECT_EQ(dict_selection.config_path, project_config.string());
+
+  dict_selection = StyioDictImplSelectionLatest{};
+  auto empty_dict_config = ParseMainOptions({"styio", "--config="});
+  EXPECT_FALSE(styio_resolve_dict_impl_selection_latest(
+    empty_dict_config,
+    "",
+    dict_selection,
+    error));
+  EXPECT_NE(error.find("--config requires a non-empty path"), std::string::npos);
 
   dict_selection = StyioDictImplSelectionLatest{};
   auto bad_dict_cli = ParseMainOptions({"styio", "--dict-impl=missing-impl"});
