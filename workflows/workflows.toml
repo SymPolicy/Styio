@@ -8,6 +8,11 @@ file = "WORKFLOW-ORCHESTRATION.toml"
 doc = "WORKFLOW-ORCHESTRATION.md"
 
 [[workflow]]
+id = "tool-skill-registry-gate"
+file = "TOOL-SKILL-REGISTRY-GATE.toml"
+doc = "TOOL-SKILL-REGISTRY-GATE.md"
+
+[[workflow]]
 id = "add-repo-file"
 file = "ADD-REPO-FILE.toml"
 doc = "ADD-REPO-FILE.md"

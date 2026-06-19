@@ -2,7 +2,7 @@
 
 **Purpose:** Map authoritative nightly parser coverage changes to files and required evidence.
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-06-19
 
 | Surface | Examples |
 |---------|----------|

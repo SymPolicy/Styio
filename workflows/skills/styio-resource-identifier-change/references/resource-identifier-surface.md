@@ -2,7 +2,7 @@
 
 **Purpose:** Map resource identifier changes to syntax, semantic, runtime, and docs surfaces.
 
-**Last updated:** 2026-05-04
+**Last updated:** 2026-06-19
 
 Resource changes start from internal Styio source:
 

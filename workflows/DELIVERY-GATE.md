@@ -2,11 +2,11 @@
 
 **Purpose:** Define the common delivery-floor entrypoint for Styio so contributors can run local, branch, audit, and checkpoint health checks through one safe auto command before checkpoint merge or branch delivery.
 
-**Last updated:** 2026-06-05
+**Last updated:** 2026-06-19
 
 ## Goal
 
-`checkpoint-health.sh` is the inner recovery/test gate, but a real delivery also needs repository hygiene, docs/runbook discipline, PR-range hygiene, and external audit. This workflow defines the shared floor that must run before a checkpoint merges or a branch is handed off, while delegating docs/process ownership to [DOCS-GATE.md](./DOCS-GATE.md). Tool ownership, ordering, and separation are registered in [WORKFLOW-ORCHESTRATION.md](./WORKFLOW-ORCHESTRATION.md).
+`checkpoint-health.sh` is the inner recovery/test gate, but a real delivery also needs current tool/skill inventory, repository hygiene, docs/runbook discipline, PR-range hygiene, and external audit. This workflow defines the shared floor that must run before a checkpoint merges or a branch is handed off, while delegating docs/process ownership to [DOCS-GATE.md](./DOCS-GATE.md). Tool ownership, ordering, and separation are registered in [WORKFLOW-ORCHESTRATION.md](./WORKFLOW-ORCHESTRATION.md).
 
 ## Command
 
@@ -69,7 +69,7 @@ Release-candidate local floor:
 2. `styio-audit gate --repo . --project styio`
 3. `./scripts/checkpoint-health.sh` with the 95% coverage gate, ASan/UBSan, and fuzz smoke enabled
 
-The scheduler expands those profiles into repository hygiene, runtime-surface alignment, team-runbook maintenance, docs audit, and ecosystem CLI doc checks in registered phase order.
+The scheduler expands those profiles into tool/skill registry validation, repository hygiene, runtime-surface alignment, team-runbook maintenance, docs audit, and ecosystem CLI doc checks in registered phase order.
 
 ## Options
 

@@ -102,9 +102,8 @@ TEAM_RULES: tuple[TeamRule, ...] = (
         (
             "tests/",
             "src/StyioTesting/",
-            "extend_tests.py",
             "tests/workflow_scheduler_test.py",
-            "scripts/parser-shadow-suite-gate.sh",
+            "benchmark/parser-shadow-suite-gate.sh",
             "scripts/fuzz-regression-pack.sh",
             "scripts/coverage-gate.sh",
             "scripts/checkpoint-health.sh",
@@ -193,7 +192,7 @@ def normalize_path(path: str) -> Path:
 
 
 def changed_from_worktree() -> List[Path]:
-    proc = run_git(["status", "--porcelain=v1", "--untracked-files=all"])
+    proc = run_git(["status", "--porcelain", "--untracked-files=all"])
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout).strip()
         raise RuntimeError(f"git status failed: {detail}")

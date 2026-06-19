@@ -2,7 +2,7 @@
 
 **Purpose:** Track every active historical-compatibility migration so the project can reduce historical burden checkpoint by checkpoint without losing visibility on the still-open seams. Each row has an explicit completion signal so the seam can be retired the day its closure conditions are met.
 
-**Last updated:** 2026-05-22
+**Last updated:** 2026-06-19
 
 > Search code, scripts, and docs for `MIGRATION-NEEDED:` to find every site annotated under this ledger.
 
@@ -25,15 +25,19 @@
 | M-CODEGEN-01 | `GetTypeIO.cpp` placeholder type | Codegen / Runtime | `src/StyioCodeGen/GetTypeIO.cpp` (returns `int64` for `SIOPath`, `SIOPrint`, `SIORead`) | Real type system for IO nodes lands; placeholder returns are removed. |
 | M-CODEGEN-02 | Pipeline-check legacy `printf/puts` canonicalization | Test Quality, Codegen / Runtime | `src/StyioTesting/PipelineCheck.hpp:20` (lowering normalization between legacy `printf/puts` and `styio_stdout_write_cstr`) | Codegen drops the legacy printf/puts emission path; the canonicalization is no longer needed. |
 | M-CLI-01 | `src/main.cpp` is too large | CLI / Nano | `src/main.cpp` (5,685 LOC; embedded TOML project-config parser, styio-nano package/publish/manifest workflow, `--machine-info=json` printer, parser shadow-compare driver) | Non-CLI logic is relocated under `StyioServices/StyioConfig/` or a new `src/StyioCLI/` so `main.cpp` shrinks to ~200-500 lines. |
-| M-CLI-02 | `extend_tests.py` is unreachable | Test Quality | `extend_tests.py` (hardcoded `<user-home>/tests/parsing/forward` path; `tests/parsing/` no longer exists; lit harness retired) | Pick one path and apply both sub-steps in the same commit. **Path A — rewrite:** (1) replace the helper with a CTest-wired scaffolder that emits `tests/features/<feature>/t<NN>_<name>.styio` plus an `expected/` golden; (2) keep the doc references intact. **Path B — remove:** (1) `git rm extend_tests.py`; (2) drop the matching references in `docs/specs/AGENT-SPEC.md:78`, `docs/specs/AGENT-SPEC.md:554`, `workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md:73`, `scripts/team-docs-gate.py:106` (one entry each). |
-| M-SCRIPT-01 | `scripts/perf-route.sh` wrapper | Performance / Stability | `scripts/perf-route.sh` (6-line shim around `benchmark/perf-route.sh`; no remaining caller outside `benchmark/README.md` and `docs/teams/PERF-STABILITY-RUNBOOK.md`, both of which already cite the canonical path) | One release cycle after a deprecation note in `benchmark/README.md`; then delete the wrapper. |
-| M-SCRIPT-02 | `scripts/soak-minimize.sh` wrapper | Performance / Stability | `scripts/soak-minimize.sh` (mirrors M-SCRIPT-01) | Same as M-SCRIPT-01. |
-| M-ECOSYSTEM-01 | `scripts/ecosystem-product-gate.py` shim | Docs / Ecosystem | `scripts/ecosystem-product-gate.py` (33 lines, delegates to `../styio-spio/scripts/ecosystem-product-gate.py`, exits 0 silently when sibling not present); `scripts/ecosystem-sample-workflow-gate.py` (same pattern) | Either wire both gates into `.github/workflows/` and `scripts/workflow-scheduler.py`, or remove. Today they always exit 0 silently and mask the contract failure mode. |
 | M-AUDIT-01 | Stale 2026-04-22 audit reports | Docs / Ecosystem | `docs/audit/EXTERNAL-AUDIT-2026-04-22.md`, `docs/audit/agent-findings/nightly-compiler-2026-04-22.md`, `docs/audit/agent-findings/nightly-ide-parser-2026-04-22.md`, `docs/audit/agent-findings/nightly-sema-codegen-2026-04-22.md` | Apply all four sub-steps in the same commit: (1) verify each finding is closed against `docs/adr/IMPLEMENTED-DECISIONS.md` and the matching `docs/rollups/IM-D*` inventory; (2) record the closure rows in `docs/archive/ARCHIVE-MANIFEST.json`; (3) regenerate `docs/archive/ARCHIVE-LEDGER.md`; (4) `git rm` the four files listed in the Site(s) cell. |
 | M-PRELUDE-01 | `src/StyioPrelude/` is data-only inside `src/` | CLI / Nano | `src/StyioPrelude/resources.styio` (only file; not C++) | Relocate to `share/styio/prelude/resources.styio` so `src/Styio*/` is uniformly C++ and `StyioServices/StyioConfig/SourceBuildInfo.cpp` references the new path. |
 | M-PLAN-01 | Spio dual-channel plan absorption | Docs / Ecosystem | `docs/plans/Styio-Spio-Dual-Channel-Source-Build-Implementation-Plan.md` ("Repo-local baseline completed.") | Apply all sub-steps in the same commit: (1) lift residual hardening rules into [`../plans/Styio-Ecosystem-Delivery-Master-Plan.md`](../plans/Styio-Ecosystem-Delivery-Master-Plan.md) phase tables; (2) confirm the `styio-spio` SSOT covers the cross-repo contract; (3) record closure in `docs/archive/ARCHIVE-MANIFEST.json` and regenerate `docs/archive/ARCHIVE-LEDGER.md`; (4) `git rm docs/plans/Styio-Spio-Dual-Channel-Source-Build-Implementation-Plan.md`. |
 | M-PLAN-02 | `docs/history/2026-05-19.md` snapshot | Docs / Ecosystem | `docs/history/2026-05-19.md` (single dated note explicitly referenced by `NEXT-STAGE-GAP-LEDGER.md`) | The owning ledger row closes; the snapshot is archived through the manifest and removed. |
 | M-DOCS-01 | `CHANGELOG.md` Unreleased line contradicts archive policy | Docs / Ecosystem | `CHANGELOG.md:12` ("Draft language experiments live under `docs/archive/`") vs `docs/archive/README.md` rule #2 | Rewrite the Unreleased note to reflect the current archive-as-lifecycle-only policy. |
+
+## Recently Closed (2026-06-19 tool and skill reduction pass)
+
+| Migration | Closure |
+|-----------|---------|
+| `extend_tests.py` unreachable scaffolder | Deleted the hardcoded lit-era helper and removed active references from agent specs, team-docs mapping, and workflow mapping; feature tests now stay under `tests/features/` and CTest. |
+| `scripts/perf-route.sh` and `scripts/soak-minimize.sh` wrappers | Deleted the script-level wrappers; retained only the current `benchmark/` adapters that locate `styio-benchmark` and pass `--styio-root`. |
+| `scripts/ecosystem-product-gate.py` and `scripts/ecosystem-sample-workflow-gate.py` silent proxies | Deleted the silent-success proxies; post-commit docs now point directly at the canonical `styio-spio` gates when cross-repo product/sample checks are required. |
 
 ## Recently Closed (2026-05-22 reduction pass)
 

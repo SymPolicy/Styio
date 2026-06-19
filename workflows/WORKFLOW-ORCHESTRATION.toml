@@ -1,7 +1,7 @@
 id = "workflow-orchestration"
 title = "Workflow Orchestration"
 purpose = "Define registered workflow documents, tool responsibilities, profile ordering, and scheduler entrypoints that keep delivery workflows separated and executable."
-last_updated = "2026-05-22"
+last_updated = "2026-06-19"
 doc = "WORKFLOW-ORCHESTRATION.md"
 
 separation_rules = [
@@ -11,10 +11,12 @@ separation_rules = [
   "profiles must run tools in ascending phase order",
   "registry, docs, CI entrypoint, and delivery entrypoint must agree before delivery",
   "every workflow markdown is paired with a machine-readable <NAME>.toml registered in workflows.toml",
+  "current repo-local skills and maintenance tools must pass the tool-skill registry gate before delivery",
 ]
 
 required_commands = [
   "python3 scripts/workflow-scheduler.py check",
+  "python3 scripts/tool-skill-registry-gate.py",
   "python3 scripts/workflow-scheduler.py list --format markdown",
   "python3 scripts/workflow-scheduler.py run --profile syntax-local",
   "python3 tests/workflow_scheduler_test.py",

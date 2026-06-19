@@ -70,7 +70,7 @@ Gate failures print the missing, duplicate, extra, or out-of-order section and p
 | `CLI-NANO-RUNBOOK.md` | `src/main.cpp`, `src/StyioServices/StyioCLI/`, `src/StyioServices/StyioConfig/`, `configs/`, `scripts/gen-styio-nano-profile.py`, `docs/external/for-spio/` |
 | `IDE-LSP-RUNBOOK.md` | `src/StyioServices/StyioIDE/`, `src/StyioServices/StyioLSP/`, `docs/external/for-ide/`, `tests/ide/` |
 | `GRAMMAR-RUNBOOK.md` | `grammar/tree-sitter-styio/`, `src/StyioServices/StyioIDE/TreeSitterBackend.*` |
-| `TEST-QUALITY-RUNBOOK.md` | `tests/`, `src/StyioTesting/`, `extend_tests.py`, parser shadow scripts, fuzz pack script, `scripts/coverage-gate.sh`, `scripts/checkpoint-health.sh` |
+| `TEST-QUALITY-RUNBOOK.md` | `tests/`, `src/StyioTesting/`, `tests/workflow_scheduler_test.py`, `benchmark/parser-shadow-suite-gate.sh`, fuzz pack script, `scripts/coverage-gate.sh`, `scripts/checkpoint-health.sh` |
 | `PERF-STABILITY-RUNBOOK.md` | `benchmark/` |
 | `DOCS-ECOSYSTEM-RUNBOOK.md` | `README.md`, `docs/`, `workflows/`, `templates/`, docs maintenance scripts, `scripts/delivery-gate.sh`, `scripts/team-docs-gate.py` |
 

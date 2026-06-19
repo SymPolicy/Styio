@@ -2,7 +2,7 @@
 
 **Purpose:** Map environment bootstrap changes to docs, scripts, and tests.
 
-**Last updated:** 2026-04-23
+**Last updated:** 2026-06-19
 
 | Surface | Examples |
 |---------|----------|

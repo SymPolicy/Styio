@@ -6,7 +6,7 @@ The benchmark coverage matrix is maintained in `styio-benchmark`:
 styio-benchmark/docs/COVERAGE-MATRIX.md
 ```
 
-Styio keeps only build-local probe adapters and compatibility adapters under
+Styio keeps only build-local probe adapters and active handoff adapters under
 `benchmark/`; migrated probe sources live in `styio-benchmark/styio-probes/`.
 Coverage changes, route changes, comparison workloads, historical baselines, and
 generated reports must be made in `styio-benchmark`.

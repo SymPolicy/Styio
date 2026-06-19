@@ -2,7 +2,7 @@
 
 **Purpose:** Define the registered workflow documents, tool responsibilities, ordering rules, and scheduler entrypoints that keep Styio delivery workflows separated and executable.
 
-**Last updated:** 2026-05-22
+**Last updated:** 2026-06-19
 
 ## Separation Rules
 
@@ -12,6 +12,7 @@
 4. Profiles must run tools in ascending phase order. Earlier phases may prepare evidence; later phases must not redefine earlier checks.
 5. A delivery workflow is not complete until the scheduler registry, workflow docs, CI entrypoint, and delivery entrypoint agree.
 6. Each workflow markdown is paired with a machine-readable `<NAME>.toml` registered in `workflows/workflows.toml`.
+7. Current repo-local skills and maintenance tools must pass [TOOL-SKILL-REGISTRY-GATE.md](./TOOL-SKILL-REGISTRY-GATE.md) before delivery.
 
 ## Audit Table
 
@@ -26,6 +27,7 @@ Current registered table:
 | Type | Key | Phase | Owner | Responsibility | Command / Path |
 |------|-----|-------|-------|----------------|----------------|
 | Workflow | `workflow-orchestration` | 5 | docs | Tool registry, workflow separation, profile ordering, and scheduler usage. | `workflows/WORKFLOW-ORCHESTRATION.md` |
+| Workflow | `tool-skill-registry-gate` | 7 | docs | Current repo-local skill and maintenance-tool inventory, release wiring, and module coverage. | `workflows/TOOL-SKILL-REGISTRY-GATE.md` |
 | Workflow | `repo-hygiene` | 10 | docs | Repository cleanliness, commit, push, and history rewriting standards. | `workflows/REPO-HYGIENE-COMMIT-STANDARD.md` |
 | Workflow | `add-repo-file` | 15 | docs | Repository file creation with metadata, indexes, ownership, and gates. | `workflows/ADD-REPO-FILE.md` |
 | Workflow | `change-bootstrap-env` | 20 | docs | Bootstrap environment dependency, version, path, and documentation changes. | `workflows/CHANGE-BOOTSTRAP-ENV.md` |
@@ -43,6 +45,7 @@ Current registered table:
 | Workflow | `checkpoint-health` | 70 | docs | Repository build/test health entrypoint for checkpoint delivery. | `workflows/CHECKPOINT-HEALTH.md` |
 | Tool | `workflow-scheduler-check` | 5 | Docs / Ecosystem | Validate workflow registry, separation, ordering, and discoverability. | `python3 scripts/workflow-scheduler.py check` |
 | Tool | `workflow-scheduler-tests` | 6 | Test Quality | Run scheduler unit tests for range resolution and registry invariants. | `python3 tests/workflow_scheduler_test.py` |
+| Tool | `tool-skill-registry` | 7 | Docs / Ecosystem | Validate current repo-local skills, maintenance tools, release wiring, and module coverage. | `python3 scripts/tool-skill-registry-gate.py` |
 | Tool | `repo-hygiene-push` | 10 | Docs / Ecosystem | Reject forbidden artifacts introduced by the incoming revision range. | `python3 scripts/repo-hygiene-gate.py --mode push --range {range}` |
 | Tool | `repo-hygiene-staged` | 10 | Docs / Ecosystem | Reject forbidden staged artifacts before checkpoint delivery. | `python3 scripts/repo-hygiene-gate.py --mode staged` |
 | Tool | `repo-hygiene-tracked` | 10 | Docs / Ecosystem | Reject forbidden tracked artifacts and repository cleanliness drift. | `python3 scripts/repo-hygiene-gate.py --mode tracked` |
@@ -59,11 +62,11 @@ Current registered table:
 
 | Profile | Scope | Ordered Call Chain |
 |---------|-------|--------------------|
-| `syntax-local` | Local syntax-change worktree verification. | scheduler check -> scheduler tests -> tracked hygiene -> runtime surface -> team docs -> docs audit -> ecosystem CLI docs |
-| `delivery-checkpoint` | Worktree process gates before checkpoint health. | worktree hygiene -> runtime surface -> worktree team docs -> docs audit -> ecosystem CLI docs |
-| `delivery-staged` | Staged-index process gates for commit hooks and staged handoff. | staged hygiene -> runtime surface -> staged team docs -> docs audit -> ecosystem CLI docs |
-| `delivery-push` | Branch handoff against a base ref. | push hygiene -> runtime surface -> base team docs -> docs audit -> ecosystem CLI docs |
-| `ci-prebuild` | GitHub Actions prebuild checks before compile/test. | scheduler check -> scheduler tests -> tracked hygiene -> incoming history hygiene -> runtime surface -> base team docs -> workspace ecosystem CLI docs |
+| `syntax-local` | Local syntax-change worktree verification. | scheduler check -> scheduler tests -> tool/skill registry -> tracked hygiene -> runtime surface -> team docs -> docs audit -> ecosystem CLI docs |
+| `delivery-checkpoint` | Worktree process gates before checkpoint health. | tool/skill registry -> worktree hygiene -> runtime surface -> worktree team docs -> docs audit -> ecosystem CLI docs |
+| `delivery-staged` | Staged-index process gates for commit hooks and staged handoff. | tool/skill registry -> staged hygiene -> runtime surface -> staged team docs -> docs audit -> ecosystem CLI docs |
+| `delivery-push` | Branch handoff against a base ref. | tool/skill registry -> push hygiene -> runtime surface -> base team docs -> docs audit -> ecosystem CLI docs |
+| `ci-prebuild` | GitHub Actions prebuild checks before compile/test. | scheduler check -> scheduler tests -> tool/skill registry -> tracked hygiene -> incoming history hygiene -> runtime surface -> base team docs -> workspace ecosystem CLI docs |
 
 ## Required Commands
 
@@ -71,6 +74,12 @@ Validate registry and ordering:
 
 ```bash
 python3 scripts/workflow-scheduler.py check
+```
+
+Validate tool and skill inventory:
+
+```bash
+python3 scripts/tool-skill-registry-gate.py
 ```
 
 Run local syntax workflow checks:
@@ -91,4 +100,4 @@ python3 scripts/workflow-scheduler.py run --profile delivery-push --base origin/
 2. If no existing workflow owns the responsibility, add the new document plus its paired `.toml` definition and register them in `WORKFLOW_DOCS`.
 3. Add or reuse tools in `TOOLS`, preserving one responsibility per tool.
 4. Add the tool to a profile only where the profile's scope requires it.
-5. Run `python3 scripts/workflow-scheduler.py check`, `python3 tests/workflow_scheduler_test.py`, and `python3 scripts/docs-index.py --write`.
+5. Run `python3 scripts/workflow-scheduler.py check`, `python3 scripts/tool-skill-registry-gate.py`, `python3 tests/workflow_scheduler_test.py`, and `python3 scripts/docs-index.py --write`.

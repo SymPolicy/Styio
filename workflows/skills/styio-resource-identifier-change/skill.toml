@@ -2,7 +2,7 @@
 name = "styio-resource-identifier-change"
 display_name = "Styio Resource Identifier Change"
 description = "Use when adding or changing `@name` resource identifiers, built-in resource symbols, capabilities, lifetimes, or resource syntax docs/tests."
-last_updated = "2026-05-04"
+last_updated = "2026-06-19"
 
 workflow = [
   "add or update the internal Styio resource declaration",

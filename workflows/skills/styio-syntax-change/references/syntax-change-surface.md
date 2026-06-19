@@ -6,7 +6,7 @@
 2. Lexer: `src/StyioParser/Tokenizer.cpp`
 3. IDE lexer: `src/StyioServices/StyioIDE/Syntax.cpp`
 4. Authoritative nightly parser: `src/StyioParser/Parser.cpp`, `src/StyioParser/NewParserExpr.cpp`
-5. Legacy parser migration evidence: `src/StyioParser/Parser.cpp`
+5. Retired parser-route audit evidence: `src/StyioParser/Parser.cpp`
 6. AST shape: `src/StyioAST/AST.hpp`
 7. Type/semantic checks: `src/StyioSema/TypeInfer.cpp`
 8. StyioIR lowering: `src/StyioLowering/AstToStyioIR.cpp`

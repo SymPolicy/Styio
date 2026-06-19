@@ -24,8 +24,8 @@ Focused changes may use a narrower test selector only when the final handoff sta
 
 ```bash
 python3 scripts/ecosystem-cli-doc-gate.py --workspace-root <user-home>
-python3 scripts/ecosystem-product-gate.py --workspace-root <user-home>
-python3 scripts/ecosystem-sample-workflow-gate.py --workspace-root <user-home>
+python3 ../styio-spio/scripts/ecosystem-product-gate.py --workspace-root <user-home>
+python3 ../styio-spio/scripts/ecosystem-sample-workflow-gate.py --workspace-root <user-home>
 ```
 
 The commit message body should record the checks that were actually run.
