@@ -23,7 +23,7 @@ Use this workflow when a maintainer or user reports that a Styio spelling is acc
 4. Inspect all syntax contract surfaces:
    - lexer/token names when tokens are involved
    - authoritative nightly parser
-   - legacy parser only as migration or negative evidence, not as an accepted-grammar fallback
+   - retired parser route only as audit or negative evidence, not as an accepted-grammar fallback
    - AST node shape and visitor path
    - Sema/type inference
    - lowering/runtime if execution semantics change

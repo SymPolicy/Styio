@@ -80,7 +80,7 @@ class LifecycleEntry:
 
 def default_manifest() -> Dict[str, object]:
     return {
-        "version": 1,
+        "schema": "archive-manifest",
         "last_updated": TODAY,
         "archive_root": "docs/archive",
         "rollup_root": "docs/rollups",
@@ -655,8 +655,8 @@ def run_validate(args: argparse.Namespace) -> int:
     manifest = load_manifest()
     errors: List[str] = []
 
-    if int(manifest.get("version", 0)) != 1:
-        errors.append("archive manifest version must be 1")
+    if manifest.get("schema") != "archive-manifest":
+        errors.append("archive manifest schema must be archive-manifest")
     if manifest.get("archive_root") != "docs/archive":
         errors.append("archive_root must be docs/archive")
     if manifest.get("rollup_root") != "docs/rollups":

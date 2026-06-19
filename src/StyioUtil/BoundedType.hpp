@@ -2,7 +2,7 @@
 #ifndef STYIO_BOUNDED_TYPE_H_
 #define STYIO_BOUNDED_TYPE_H_
 
-// Shared parsing for Topology v2 bounded buffer spellings on StyioDataType (see TypeAST::CreateBoundedRingBuffer).
+// Shared parsing for resource topology bounded buffer spellings on StyioDataType (see TypeAST::CreateBoundedRingBuffer).
 
 #include "../StyioToken/Token.hpp"
 

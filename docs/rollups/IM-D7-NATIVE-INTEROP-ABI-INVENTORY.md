@@ -151,7 +151,7 @@ extern "C" int ref_square(int x) {
 }
 ```
 
-Styio may later add explicit symbol mapping for advanced C++ forms, but v1 does not require users to accept C++ ABI instability as a language guarantee.
+Styio may later add explicit symbol mapping for advanced C++ forms, but the current ABI contract does not require users to accept C++ ABI instability as a language guarantee.
 
 ## Symbol Resolution
 

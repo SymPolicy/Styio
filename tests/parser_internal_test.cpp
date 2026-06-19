@@ -125,14 +125,14 @@ TEST(StyioParserInternal, ReassociatesResourceSinksAndParsesResourceHelpers) {
   }
   {
     DirectContext direct("slot: i64 := { << 1 }");
-    std::unique_ptr<ResourceDeclAST> decl(parse_resource_decl_v2_after_at_latest(direct.get()));
+    std::unique_ptr<ResourceDeclAST> decl(parse_resource_decl_after_at_latest(direct.get()));
     ASSERT_NE(decl, nullptr);
     ASSERT_EQ(decl->getSlots().size(), 1u);
     ASSERT_NE(decl->getDriver(), nullptr);
   }
   {
     DirectContext direct("a: i64, @b: f64");
-    std::unique_ptr<ResourceDeclAST> decl(parse_resource_decl_v2_after_at_latest(direct.get()));
+    std::unique_ptr<ResourceDeclAST> decl(parse_resource_decl_after_at_latest(direct.get()));
     ASSERT_NE(decl, nullptr);
     ASSERT_EQ(decl->getSlots().size(), 2u);
     EXPECT_EQ(decl->getSlots()[0].name->getAsStr(), "a");
@@ -681,7 +681,7 @@ TEST(StyioParserInternal, InternalResourceAndMethodGuardsStayExplicit) {
   }
   {
     DirectContext direct("slot: i64 := 1");
-    EXPECT_THROW((void)parse_resource_decl_v2_after_at_latest(direct.get()), StyioSyntaxError);
+    EXPECT_THROW((void)parse_resource_decl_after_at_latest(direct.get()), StyioSyntaxError);
   }
   {
     DirectContext direct("name");

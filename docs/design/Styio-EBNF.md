@@ -645,7 +645,7 @@ When the parser encounters `>>` (or longer `>>>`, `>>>>`, etc.):
 
 - `@` alone as a source expression: **parse error**. Use resource/intrinsic-produced absence; active feature fixtures must not author bare `@` directly.
 - `@` followed by `[` : **retired state-resource state-container family; parse error**
-- `@` followed by identifier then `:`: **Topology v2 resource declaration**
+- `@` followed by identifier then `:`: **resource topology resource declaration**
 - `@` followed by identifier then `(`: **Resource with explicit protocol**
 - `@` followed by identifier then `{`: **Invalid for explicit resources; use `@name(...)`**
 - `@{` or `@(`: **Anonymous resource**; `@()` is the empty resource / destroy sink
@@ -667,7 +667,7 @@ The lexer always prefers the two-character compound token over individual charac
 
 ---
 
-## Appendix B: Topology v2 — Resource declarations
+## Appendix B: resource topology — Resource declarations
 
 **Full narrative:** [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md).
 
@@ -678,16 +678,16 @@ pending writes, resource block snapshots, consuming methods, and commit boundari
 ### B.1 Program and top-level resource
 
 ```ebnf
-program_v2         = { top_level_decl_v2 } EOF ;
+program_topology         = { top_level_decl_topology } EOF ;
 
-top_level_decl_v2  = resource_decl_v2
+top_level_decl_topology  = resource_decl_topology
                    | (* existing: function, schema, stmt … *) ;
 
-resource_decl_v2   = "@" identifier ":" type_v2
-                     { "," "@" identifier ":" type_v2 }
-                     [ ":=" driver_block_v2 ] ;
+resource_decl_topology   = "@" identifier ":" type_topology
+                     { "," "@" identifier ":" type_topology }
+                     [ ":=" driver_block_topology ] ;
 
-driver_block_v2    = "{" stream_topology "}" ;
+driver_block_topology    = "{" stream_topology "}" ;
 (* stream_topology matches existing pipe: expr ">>" "#(" id ")" "=>" block *)
 (* resource >> block forms enter a snapshot at >> and commit that snapshot at block exit. *)
 (* Chained block stages, for example a => { ... } => { ... }, repeat that snapshot/commit rule once per block stage. *)
@@ -696,13 +696,13 @@ driver_block_v2    = "{" stream_topology "}" ;
 ### B.2 Types (extensions)
 
 ```ebnf
-type_v2            = type_primary { type_suffix } ;
+type_topology            = type_primary { type_suffix } ;
 
 type_primary       = scalar_type
                    | identifier "[" type_arg_list "]"
-                   | "(" type_v2 "," type_v2 { "," type_v2 } ")" ;
+                   | "(" type_topology "," type_topology { "," type_topology } ")" ;
 
-type_arg_list      = type_v2 { "," type_v2 } ;
+type_arg_list      = type_topology { "," type_topology } ;
 
 type_suffix        = "|" expression "|"            (* T|n| exact length *)
                    | "|" dot_run expression "|"    (* T|..n| recent n *)
@@ -716,7 +716,7 @@ scalar_type        = "f64" | "i64" | "bool" | "char" | "string" ;
 ### B.3 Type rewrite rules
 
 ```ebnf
-type_rewrite_v2    = type_placeholder ":" type_v2 ":=" type_v2 ;
+type_rewrite_topology    = type_placeholder ":" type_topology ":=" type_topology ;
 type_placeholder   = "__" { "_" } ;
 ```
 
@@ -731,8 +731,8 @@ __ : dict[K, V] := (K, V)..
 ### B.4 Resource write vs assignment (strict topology mode)
 
 ```ebnf
-resource_write_v2  = expression "->" "@" identifier ;
-assignment_v2      = identifier "=" expression ;   (* locals only *)
+resource_write_topology  = expression "->" "@" identifier ;
+assignment_topology      = identifier "=" expression ;   (* locals only *)
 ```
 
 Semantic check: a topology sink write must use `expr -> @name`. A bare `@name` expression is

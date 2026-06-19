@@ -49,7 +49,7 @@ Those items require explicit confirmation from the owning repositories.
 
 Accepted `styio` responsibilities:
 
-1. Parse and validate compile-plan v1.
+1. Parse and validate compile-plan resolved-request.
 2. Reject malformed plans with stable service diagnostics.
 3. Accept only compiler-supported intents: `build`, `check`, `run`, and `test`.
 4. Require `generated_by.tool == "spio"` for the current compile-plan producer contract.
@@ -69,7 +69,7 @@ Rejected `styio` responsibilities:
 5. Package publishing workflow beyond local static nano materialization.
 6. Package signing, account auth, token policy, or trust root management.
 7. Hosted workspace scheduling or cloud worker lifecycle.
-8. Deciding which package version a project should use.
+8. Deciding which package release state a project should use.
 
 `styio` may reject a bad plan. It should not repair, complete, or reinterpret package-manager decisions on behalf of `spio`.
 
@@ -80,7 +80,7 @@ The compile-plan should be a resolved compiler input, not an unresolved package-
 That means `spio` or the owning package workflow should resolve these before invoking `styio`:
 
 1. dependency graph,
-2. package versions,
+2. package release state markers,
 3. lockfile state,
 4. source materialization paths,
 5. target selection,
@@ -100,14 +100,14 @@ The following items must be confirmed in the active `spio` repository before IM-
 |-----------------|---------------------|------------------------------|-------------------------------|
 | IM-D10-S1 | What is the canonical manifest schema and package identity format? | Compile-plan `entry.package_id`, package lists, source-build handoff, and diagnostics need stable names. | Document only the compiler-facing fields that `styio` consumes. |
 | IM-D10-S2 | What is the lockfile schema and compatibility rule? | `styio` must know whether compile-plan package facts are already locked and reproducible. | Keep lockfile parsing out of `styio`; accept resolved facts only. |
-| IM-D10-S3 | What dependency resolver rules are accepted? | Compiler requests should not encode unresolved ranges or solver intent. | Require resolved package versions in plans if package versions become compiler-visible. |
+| IM-D10-S3 | What dependency resolver rules are accepted? | Compiler requests should not encode unresolved ranges or solver intent. | Require resolved package release-state markers in plans if package state becomes compiler-visible. |
 | IM-D10-S4 | What are the canonical `spio build/check/run/test` JSON success and failure payloads? | Vityo and other tools should not parse ad hoc stdout or duplicate workflow result logic. | Keep `styio` receipts and diagnostics stable; link to Spio payload docs once confirmed. |
 | IM-D10-S5 | What is the project graph payload contract? | IDEs and tools need package, target, dependency, source, lock, vendor, and toolchain facts without asking the compiler to infer them. | Do not add project graph inference to `styio`; consume only explicit compiler inputs. |
 | IM-D10-S6 | What is the toolchain install/use/pin lifecycle? | `styio --machine-info=json` and `--source-build-info=json` are only capability handshakes, not toolchain management UX. | Keep toolchain management in Spio; keep compiler capability discovery stable. |
 | IM-D10-S7 | How does Spio consume `--nano-create`, `--nano-publish`, and static nano repository layouts? | `styio` already owns local static nano producer/verifier behavior; Spio owns lifecycle UX. | Avoid duplicating package-manager commands in `styio`; harden producer negative paths only. |
 | IM-D10-S8 | How are `fetch`, `vendor`, `pack`, `publish`, `install`, `use`, `search`, and `update` split across local and remote modes? | These are package lifecycle operations and should not leak into compiler CLI scope. | Track them as out-of-scope handoff requirements unless a compiler-facing field is needed. |
 | IM-D10-S9 | How does Spio represent standard library packages and build trimming? | IM-D8 says stdlib may become official package content while remaining trimmable. | `styio` records compiler-visible stdlib contracts only after Spio confirms package shape. |
-| IM-D10-S10 | What compatibility matrix does Spio publish for compiler version, package format, registry format, and lockfile version? | `styio` needs to know what to expose through machine-info without owning package policy. | Add only compiler-side supported versions to machine-info or source-build-info. |
+| IM-D10-S10 | What compatibility matrix does Spio publish for compiler identity, package format, registry format, and lockfile schema? | `styio` needs to know what to expose through machine-info without owning package policy. | Add only compiler-side supported contract shapes to machine-info or source-build-info. |
 
 ## External Confirmation Required From Styio-Platform
 
@@ -131,8 +131,8 @@ Some decisions require both Spio and Styio-Platform to agree before `styio` can 
 | Confirmation ID | Shared decision | Required answer |
 |-----------------|-----------------|-----------------|
 | IM-D10-X1 | Registry ownership split | Which repo owns package semantics, which repo owns hosted infrastructure, and which repo owns client UX? |
-| IM-D10-X2 | Package identity | Canonical tuple for name, version, channel, namespace, target, platform, and optional feature set. |
-| IM-D10-X3 | Compatibility matrix | Versioned mapping across compiler contract version, package format, lockfile format, registry protocol, and platform API. |
+| IM-D10-X2 | Package identity | Canonical tuple for name, release state, channel, namespace, target, platform, and optional feature set. |
+| IM-D10-X3 | Compatibility matrix | Compatibility mapping across compiler contract shape, package format, lockfile format, registry protocol, and platform API. |
 | IM-D10-X4 | Failure taxonomy | Which failures are compiler diagnostics, Spio package-manager diagnostics, Platform service diagnostics, or transport/runtime failures? |
 | IM-D10-X5 | Standard library distribution | Whether stdlib is packaged by Spio, hosted by Platform, bundled by compiler fallback, or a staged combination. |
 | IM-D10-X6 | Reproducibility evidence | Which receipts, checksums, source provenance, lockfiles, and registry snapshots are required for reproducible package builds? |
@@ -144,17 +144,17 @@ Some decisions require both Spio and Styio-Platform to agree before `styio` can 
 IM-D10 can close inside `styio` only when:
 
 1. compiler-side package contracts are documented and tested as compiler contracts;
-2. compile-plan v1 remains a resolved compiler input and not a dependency-resolution request;
+2. compile-plan resolved-request remains a resolved compiler input and not a dependency-resolution request;
 3. `styio` rejects malformed package-facing plans with stable service diagnostics;
 4. nano producer/verifier and static repository behavior have positive and negative tests, including malformed repository entry schemas, malformed cloud package manifests, blob integrity failures, local/static publish boundaries, and create/publish CLI guard failures;
 5. `styio` docs do not present local Spio or Platform checkout observations as current implementation evidence;
 6. every Spio-owned package lifecycle decision is either confirmed by active Spio docs or listed as external confirmation required;
 7. every Styio-Platform registry or hosted-service decision is either confirmed by active Platform docs or listed as external confirmation required; and
-8. any future compiler-visible package field has a source-of-truth owner, version, negative-path diagnostic, and compatibility test.
+8. any future compiler-visible package field has a source-of-truth owner, schema marker, negative-path diagnostic, and compatibility test.
 
 ## Decision Closure
 
-IM-D10 is not closed by this inventory. The compiler-side boundary is clear enough to proceed with local hardening, and the current nano producer/verifier edge tests now cover malformed static repository entries, malformed cloud manifests, create/publish guard failures, blob integrity failures, and local/static publish boundaries. Compile-plan v1 validation now also rejects malformed explicit `profile.build_mode` values, malformed package entries, and entry-package inconsistencies while staying within the resolved compiler request envelope. The package lifecycle, remote registry, hosted platform, standard-library distribution, trust, and compatibility-matrix questions still require explicit confirmation from the active `spio` and Styio-Platform maintainers.
+IM-D10 is not closed by this inventory. The compiler-side boundary is clear enough to proceed with local hardening, and the current nano producer/verifier edge tests now cover malformed static repository entries, malformed cloud manifests, create/publish guard failures, blob integrity failures, and local/static publish boundaries. Compile-plan resolved-request validation now also rejects malformed explicit `profile.build_mode` values, malformed package entries, and entry-package inconsistencies while staying within the resolved compiler request envelope. The package lifecycle, remote registry, hosted platform, standard-library distribution, trust, and compatibility-matrix questions still require explicit confirmation from the active `spio` and Styio-Platform maintainers.
 
 ## Source Documents
 

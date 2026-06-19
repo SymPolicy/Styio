@@ -33,7 +33,7 @@ bool ok = styio::config::parse_compile_plan("compile-plan.json", request, error)
 | `default_build_mode_name()` | `CompilePlanContract.hpp` | Returns the canonical default build mode. |
 | `is_supported_build_mode(...)` | `CompilePlanContract.hpp` | Validates compile-plan build-mode values. |
 | `probe_compile_plan_diag_dir(...)` | `CompilePlanContract.hpp` | Extracts a diagnostics directory before full plan validation. |
-| `parse_compile_plan(...)` | `CompilePlanContract.hpp` | Parses and validates the versioned compile-plan JSON contract. |
+| `parse_compile_plan(...)` | `CompilePlanContract.hpp` | Parses and validates the resolved compile-plan JSON contract. |
 | `SourceBuildInfoOptions` | `SourceBuildInfo.hpp` | Carries compiler version, channel, and edition metadata for source-build info output. |
 | `default_source_origin()` | `SourceBuildInfo.hpp` | Returns the official source origin advertised to source-build consumers. |
 | `source_branch_for_channel(...)` | `SourceBuildInfo.hpp` | Maps binary channel names to source branches. |

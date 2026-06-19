@@ -1,18 +1,18 @@
-# Styio — Resource Topology & `@` Semantics (Design Spec v2)
+# Styio — Resource Topology & `@` Semantics (Design Spec)
 
 **Purpose:** `@` 资源定义、类型长度后缀、资源读取/复制/迭代、以及资源拓扑安全检查的设计级单一叙述；模块导入语法见 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 与 [`Styio-EBNF.md`](./Styio-EBNF.md)。与当前编译器差异见 [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md)。
 
 **Last updated:** 2026-05-21
 
-**Status:** Topology v2 source syntax plus current compiler-owned RTG validation.
+**Status:** resource topology source syntax plus current compiler-owned RTG validation.
 **Supersedes:** retired state-resource state containers, history probes, and shadow reads. The running compiler rejects those families; exact old spellings are recoverable from Git history and remain covered only by negative migration tests.
-**See also:** [`Styio-EBNF.md`](./Styio-EBNF.md) (Appendix: Topology v2), [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md).
+**See also:** [`Styio-EBNF.md`](./Styio-EBNF.md) (Appendix: resource topology), [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md).
 
 ---
 
 ## 1. Why this document exists
 
-Global, persistent resources must not look like local function calls. The v2 surface separates:
+Global, persistent resources must not look like local function calls. The active resource-topology surface separates:
 
 - **Resource identity:** `@name` is a resource object or resource entry, not a scalar latest value.
 - **Value shape:** type expressions define scalar, tuple, fixed-length, recent-window, and unbounded sequence shapes.
@@ -251,12 +251,12 @@ The example uses `|..2|` because it needs the previous and current published val
 | Item | Status |
 |------|--------|
 | Retired state-resource state family | **Retired**; active tests use negative migration fixtures |
-| `@name : Type|n|`, `@name : Type|..n|`, `T..` / `T...` | **Implemented for v2 resource declarations and selectors covered by feature tests** |
-| Type parameters as `list[T]` / `dict[K, V]` | **Implemented for v2 type-shape normalization covered by tests** |
+| `@name : Type|n|`, `@name : Type|..n|`, `T..` / `T...` | **Implemented for resource declarations and selectors covered by feature tests** |
+| Type parameters as `list[T]` / `dict[K, V]` | **Implemented for type-shape normalization covered by tests** |
 | `__ : TypePattern := TypeExpr` type rewrite rules | **Implemented for type-position rewrite coverage** |
 | Top-level multi-resource `@a : T, @b : U := { driver }` | **Target syntax**; current compiler only has partial internal prelude resource declarations |
 | `expr -> @resource` as topology sink write | **Partially covered** by existing redirect/resource-write surfaces; strict topology semantics TBD |
-| Resource object selectors `@price[-1]`, `@price[-3..]`, `@price[...]` | **Implemented for v2 resource reads and bounded selector iterators across scalar/string/char/bool/f64/i64 plus list-valued, dict-valued, and matrix-valued resources; `@price[-3..]` / `@price[...]` materialize iterable snapshots, scalar latest selector iterators stay rejected, unbounded snapshots stay rejected, and retired state-history probes stay rejected** |
+| Resource object selectors `@price[-1]`, `@price[-3..]`, `@price[...]` | **Implemented for resource reads and bounded selector iterators across scalar/string/char/bool/f64/i64 plus list-valued, dict-valued, and matrix-valued resources; `@price[-3..]` / `@price[...]` materialize iterable snapshots, scalar latest selector iterators stay rejected, unbounded snapshots stay rejected, and retired state-history probes stay rejected** |
 | Explicit selector/container copy `snapshot << @price[-n..]` / `snapshot << @price[...]` / `copy << list_or_dict_or_matrix` | **Implemented for bounded `i64`, `f64`, `bool`, `char`, `string`, `list`, `dict`, and `matrix` selector snapshots plus materialized list/dict/matrix handle deep clones; scalar latest reads, `copy <- list_or_dict_or_matrix`, and broader file/topology `<<` clone/copy remain staged or rejected** |
 | Compiler-owned resource topology graph (RTG) | **Implemented for current resource AST surfaces** |
 

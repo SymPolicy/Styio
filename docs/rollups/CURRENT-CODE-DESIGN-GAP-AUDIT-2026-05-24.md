@@ -56,7 +56,7 @@ Real compiler/runtime surfaces:
    scalar expressions, functions, file resources, and stream-processing fixtures
    pass with zero accepted-grammar fallback in the checked suites.
 3. The language feature matrix has runnable coverage for scalar expressions,
-   functions, control flow, wave dispatch, Topology v2 resource slots, final
+   functions, control flow, wave dispatch, resource topology resource slots, final
    bindings, native interop, tasks, stdio, file resources, and selected stream
    processing.
 4. Direct unsupported AST lowering now fails closed or lowers intentional empty
@@ -362,7 +362,7 @@ acquired-handle instant-pull paths, failing value-producing resource methods bey
    arbitrary value-producing resource-effect recovery remain design-fixed but
    unfinished.
 
-### P0. Topology v2 resource selectors parse, but slice/snapshot value semantics are not closed
+### P0. resource topology resource selectors parse, but slice/snapshot value semantics are not closed
 
 Design says `@price[-1]` reads a scalar, while `@price[-3..]` and `@price[...]`
 read snapshot/slice values. The active syntax map lists all three forms.
@@ -396,21 +396,21 @@ Current implementation reality:
    slice, snapshot, and selector-copy values, and
    `t11_topology_selector_snapshot_char.styio` proves bounded `char` latest,
    slice, snapshot, and selector-copy values with `list[char]` rendering.
-   `StyioTopologyV2.ResourceSelectorSnapshotIteratorUsesMaterializedValues`
+   `StyioResourceTopology.ResourceSelectorSnapshotIteratorUsesMaterializedValues`
    proves `@price[...] >> #(v)` and `@price[-2..] >> #(v)` iterate over the
    materialized history values instead of a constant-literal fallback, while
-   `StyioTopologyV2.ResourceScalarSelectorIteratorFailsClosed` keeps
+   `StyioResourceTopology.ResourceScalarSelectorIteratorFailsClosed` keeps
    `@price[-1] >> ...` rejected as a non-iterable scalar latest read.
-   `StyioTopologyV2.ResourceSelectorHandleSnapshotsCloneListAndDictValues`
+   `StyioResourceTopology.ResourceSelectorHandleSnapshotsCloneListAndDictValues`
    proves bounded list/dict resource history snapshots keep independent cloned
    handle values after the source iterator variable mutates, and
-   `StyioSecurityTopologyV2.LowersBoundedListAndDictResourceSelectors` proves
+   `StyioSecurityResourceTopology.LowersBoundedListAndDictResourceSelectors` proves
    the LLVM path uses list/dict clone, push, get, and owned ring storage.
    `tests/features/state_resources/t12_topology_selector_snapshot_matrix.styio`
-   and `StyioTopologyV2.ResourceSelectorMatrixSnapshotsCloneValues` prove
+   and `StyioResourceTopology.ResourceSelectorMatrixSnapshotsCloneValues` prove
    bounded matrix resource history snapshots keep independent cloned matrix
    handles after the source loop variable mutates, while
-   `StyioSecurityTopologyV2.LowersBoundedMatrixResourceSelectors` proves the
+   `StyioSecurityResourceTopology.LowersBoundedMatrixResourceSelectors` proves the
    LLVM path uses matrix clone, list push/get, and owned ring storage.
    Adjacent negative fixtures reject selectors deeper than the declared history
    bound and unbounded matrix snapshots.
@@ -422,7 +422,7 @@ Current implementation reality:
    `t09_topology_selector_explicit_copy`
    proves copied `i64`, `f64`, and `bool` snapshots, `t10` proves copied
    `string` snapshots, `t11` proves copied `char` snapshots, while
-   `StyioTopologyV2.ResourceSelectorHandleSnapshotCopiesStayMaterialized`
+   `StyioResourceTopology.ResourceSelectorHandleSnapshotCopiesStayMaterialized`
    proves copied list/dict handle snapshots stay materialized after later writes
    advance the source resource ring, `t12` proves the same selector-copy path
    for matrix handle snapshots, and
@@ -444,7 +444,7 @@ history for list/dict/matrix values; materialized list/dict/matrix handle clonin
 closed for `copy << source`. Broader selector closure still needs unsupported
 tuple value-family history storage, unbounded sequence snapshot policy,
 and broader type-directed `<<` copy/clone semantics for file, topology-resource, and future resource families
-before the complete Topology v2 selector model can be considered complete.
+before the complete resource topology selector model can be considered complete.
 
 ### P0. Stream concurrency and pressure are only partially executable
 
@@ -553,7 +553,7 @@ Examples:
    feature-owned `STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN`. Unspecified function
    returns infer final expression tails for the covered scalar families;
    statement-only tails still return the current generated default value.
-2. Topology v2 resource declaration lowering initializes declared slots to a
+2. resource topology resource declaration lowering initializes declared slots to a
    zero value by storage type. For `i64`, `f64`, `bool`, `char`, and `string`
    fixed/recent resources this becomes a bounded-ring storage value, but
    unsupported tuple/list/dict/matrix storage and absence/default semantics are
@@ -615,7 +615,7 @@ blob size mismatches, and HTTP(S) publish-root rejection are covered in
 Compiler-side `compile_plan` validation now also rejects malformed optional
 `profile.build_mode` values instead of silently defaulting them, rejects
 non-object package entries, and rejects plans whose `entry.package_id` is absent
-from `packages`. The coverage remains limited to the v1 compiler request
+from `packages`. The coverage remains limited to the resolved compiler request
 envelope and does not add resolver, install, registry, or lifecycle behavior.
 
 `styio` does not own full package lifecycle UX:
@@ -838,7 +838,7 @@ These should not be counted as missing implementation in this checkout:
     `STYIO_TYPE_ERROR` family. `DiagnosticContract.hpp` now classifies the stable
     non-iterable iterator message as `STYIO_TYPE_ITERATION_UNSUPPORTED_SOURCE`,
     while `StyioDiagnostics.IteratorUnsupportedSourceReportsFeatureCode` and
-    `StyioTopologyV2.ResourceScalarSelectorIteratorFailsClosed` prove ordinary
+    `StyioResourceTopology.ResourceScalarSelectorIteratorFailsClosed` prove ordinary
     scalar iterator sources and scalar latest resource selectors still fail
     closed with public phase `type`, the TypeError exit family, stable message
     fragments, and no-following-output behavior. This is diagnostic refinement
@@ -1038,7 +1038,7 @@ These should not be counted as missing implementation in this checkout:
    close-method, write-method, and acquired-handle instant-pull paths,
    additional resource families that emit typed pressure or cleanup
    effects, and arbitrary value-producing recovery beyond the covered paths.
-2. Continue Topology v2 selector value semantics before adding new resource
+2. Continue resource topology selector value semantics before adding new resource
    features: bounded `i64`, `f64`, `bool`, `char`, `string`, `list`, `dict`, and `matrix`
    selector storage is closed, while bounded selector `snapshot << @x[...]` /
    `snapshot << @x[-n..]` copy is closed for the scalar/string/list/dict/matrix families, and

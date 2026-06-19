@@ -171,7 +171,7 @@ cxxopts::ParseResult ParseMainOptions(std::initializer_list<std::string> raw_arg
     ("nano-manifest", "Cloud package manifest.", cxxopts::value<std::string>())
     ("nano-registry", "Static repository root.", cxxopts::value<std::string>())
     ("nano-package", "Static repository package id.", cxxopts::value<std::string>())
-    ("nano-version", "Static repository package version.", cxxopts::value<std::string>());
+    ("nano-version", "Static repository package version state.", cxxopts::value<std::string>());
   return options.parse(static_cast<int>(argv.size()), argv.data());
 }
 
@@ -1218,14 +1218,20 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
   expect_parse_error(temp.path() / "missing.json", "cannot read file");
   expect_parse_error(write_plan("invalid-json.json", "{bad"), "not valid JSON");
   expect_parse_error(write_plan("root-array.json", "[]"), "must be a JSON object");
-  expect_parse_error(write_plan("missing-version.json", "{}"), "missing required integer field: plan_version");
+  expect_parse_error(write_plan("missing-plan-marker.json", "{}"), "missing required integer field: plan_version");
   expect_parse_error(
     write_plan("missing-generated-by.json", "{\"plan_version\":1}"),
     "missing required object field: generated_by");
-  expect_parse_error(
-    write_plan("bad-version.json",
-               valid_plan_text("spio", "test", "minimal", "test", "jsonl").replace(16, 1, "2")),
-    "unsupported compile-plan version");
+  {
+    StyioCompilePlanRequestLatest request;
+    std::string error;
+    EXPECT_TRUE(styio::config::parse_compile_plan(
+      write_plan("state-plan-marker.json",
+                 valid_plan_text("spio", "test", "minimal", "test", "jsonl").replace(16, 1, "2")),
+      request,
+      error)) << error;
+    EXPECT_EQ(request.plan_version, 2);
+  }
   expect_parse_error(
     write_plan("bad-tool.json", valid_plan_text("other", "test", "minimal", "test", "jsonl")),
     "generated_by.tool");
@@ -1783,20 +1789,20 @@ TEST(StyioMainContract, NativeCompilerFallbackAndHttpFetchHelpersStayExplicit) {
 TEST(StyioMainContract, NanoRepositoryJsonContractsValidateAndRoundTrip) {
   std::string error;
   EXPECT_TRUE(styio_validate_nano_repository_marker_latest(
-    "{\n\"kind\":\"styio-nano-static\",\"schema_version\":1\n}\n",
+    "{\n\"kind\":\"styio-nano-static\",\"schema\":\"styio-nano-static-repository\"\n}\n",
     error));
   EXPECT_FALSE(styio_validate_nano_repository_marker_latest("{", error));
   EXPECT_NE(error.find("not valid JSON"), std::string::npos);
   EXPECT_FALSE(styio_validate_nano_repository_marker_latest("[]", error));
   EXPECT_EQ(error, "nano repository marker must be a JSON object");
   EXPECT_FALSE(styio_validate_nano_repository_marker_latest(
-    "{\"kind\":\"other\",\"schema_version\":1}",
+    "{\"kind\":\"other\",\"schema\":\"styio-nano-static-repository\"}",
     error));
   EXPECT_NE(error.find("does not match"), std::string::npos);
 
   const std::string valid_entry =
     "{"
-    "\"schema_version\":1,"
+    "\"schema\":\"styio-nano-repository-entry\","
     "\"package\":\"org/pkg\","
     "\"version\":\"1.0.0\","
     "\"channel\":\"edge\","
@@ -1816,7 +1822,7 @@ TEST(StyioMainContract, NanoRepositoryJsonContractsValidateAndRoundTrip) {
   EXPECT_EQ(entry.published_at, "2026-01-01T00:00:00Z");
 
   const std::string minimal_entry =
-    "{\"schema_version\":1,\"package\":\"org/pkg\",\"version\":\"1.0.0\","
+    "{\"schema\":\"styio-nano-repository-entry\",\"package\":\"org/pkg\",\"version\":\"1.0.0\","
     "\"sha256\":\"" + GoodSha('c') + "\",\"size_bytes\":0,\"blob_path\":\"blob.tar\"}";
   ASSERT_TRUE(styio_parse_nano_repository_entry_latest(minimal_entry, "org/pkg", "1.0.0", entry, error)) << error;
   EXPECT_EQ(entry.channel, "nano");
@@ -1827,28 +1833,28 @@ TEST(StyioMainContract, NanoRepositoryJsonContractsValidateAndRoundTrip) {
   EXPECT_FALSE(styio_parse_nano_repository_entry_latest("[]", "org/pkg", "1.0.0", entry, error));
   EXPECT_EQ(error, "nano repository entry must be a JSON object");
   EXPECT_FALSE(styio_parse_nano_repository_entry_latest(
-    "{\"schema_version\":2,\"package\":\"org/pkg\",\"version\":\"1.0.0\"}",
+    "{\"schema\":\"other-entry\",\"package\":\"org/pkg\",\"version\":\"1.0.0\"}",
     "org/pkg",
     "1.0.0",
     entry,
     error));
-  EXPECT_EQ(error, "nano repository entry has unsupported schema_version");
+  EXPECT_EQ(error, "nano repository entry does not match the supported schema");
   EXPECT_FALSE(styio_parse_nano_repository_entry_latest(
-    "{\"schema_version\":1,\"package\":\"other\",\"version\":\"1.0.0\"}",
+    "{\"schema\":\"styio-nano-repository-entry\",\"package\":\"other\",\"version\":\"1.0.0\"}",
     "org/pkg",
     "1.0.0",
     entry,
     error));
   EXPECT_EQ(error, "nano repository entry package mismatch");
   EXPECT_FALSE(styio_parse_nano_repository_entry_latest(
-    "{\"schema_version\":1,\"package\":\"org/pkg\",\"version\":\"2.0.0\"}",
+    "{\"schema\":\"styio-nano-repository-entry\",\"package\":\"org/pkg\",\"version\":\"2.0.0\"}",
     "org/pkg",
     "1.0.0",
     entry,
     error));
   EXPECT_EQ(error, "nano repository entry version mismatch");
   EXPECT_FALSE(styio_parse_nano_repository_entry_latest(
-    "{\"schema_version\":1,\"package\":\"org/pkg\",\"version\":\"1.0.0\","
+    "{\"schema\":\"styio-nano-repository-entry\",\"package\":\"org/pkg\",\"version\":\"1.0.0\","
     "\"sha256\":\"ABC\",\"size_bytes\":1,\"blob_path\":\"blob.tar\"}",
     "org/pkg",
     "1.0.0",
@@ -1856,7 +1862,7 @@ TEST(StyioMainContract, NanoRepositoryJsonContractsValidateAndRoundTrip) {
     error));
   EXPECT_EQ(error, "nano repository entry is missing a valid sha256 digest");
   EXPECT_FALSE(styio_parse_nano_repository_entry_latest(
-    "{\"schema_version\":1,\"package\":\"org/pkg\",\"version\":\"1.0.0\","
+    "{\"schema\":\"styio-nano-repository-entry\",\"package\":\"org/pkg\",\"version\":\"1.0.0\","
     "\"sha256\":\"" + GoodSha('d') + "\",\"size_bytes\":1}",
     "org/pkg",
     "1.0.0",
@@ -1864,7 +1870,7 @@ TEST(StyioMainContract, NanoRepositoryJsonContractsValidateAndRoundTrip) {
     error));
   EXPECT_EQ(error, "nano repository entry is missing blob_path");
   EXPECT_FALSE(styio_parse_nano_repository_entry_latest(
-    "{\"schema_version\":1,\"package\":\"org/pkg\",\"version\":\"1.0.0\","
+    "{\"schema\":\"styio-nano-repository-entry\",\"package\":\"org/pkg\",\"version\":\"1.0.0\","
     "\"sha256\":\"" + GoodSha('e') + "\",\"size_bytes\":-1,\"blob_path\":\"blob.tar\"}",
     "org/pkg",
     "1.0.0",
@@ -1901,7 +1907,7 @@ TEST(StyioMainContract, NanoRepositoryFilesAndRegistryRefsRoundTripLocally) {
   std::string entry_text;
   ASSERT_TRUE(styio_fetch_registry_text_latest(
     "file://" + repo.string(),
-    styio_nano_repository_entry_relpath_latest(entry.package_name, entry.version),
+    styio_nano_repository_entry_relpath_latest(entry.package_name),
     entry_text,
     error)) << error;
   StyioNanoRepositoryEntryLatest parsed;
@@ -1916,7 +1922,9 @@ TEST(StyioMainContract, NanoRepositoryFilesAndRegistryRefsRoundTripLocally) {
   EXPECT_NE(error.find("failed to download artifact via curl"), std::string::npos);
 
   const fs::path invalid_repo = temp.path() / "invalid-repo";
-  WriteText(invalid_repo / styio_nano_repository_marker_relpath_latest(), "{\"kind\":\"bad\",\"schema_version\":1}");
+  WriteText(
+    invalid_repo / styio_nano_repository_marker_relpath_latest(),
+    "{\"kind\":\"bad\",\"schema\":\"styio-nano-static-repository\"}");
   EXPECT_FALSE(styio_ensure_writable_nano_repository_latest(invalid_repo, error));
   EXPECT_NE(error.find("does not match"), std::string::npos);
 
@@ -2017,7 +2025,9 @@ TEST(StyioMainContract, CloudMaterializationRejectsInvalidRegistryAndManifestInp
   EXPECT_NE(error.find("cannot open file"), std::string::npos);
 
   const fs::path repo_bad_marker = temp.path() / "repo-bad-marker";
-  WriteText(repo_bad_marker / styio_nano_repository_marker_relpath_latest(), "{\"kind\":\"bad\",\"schema_version\":1}");
+  WriteText(
+    repo_bad_marker / styio_nano_repository_marker_relpath_latest(),
+    "{\"kind\":\"bad\",\"schema\":\"styio-nano-static-repository\"}");
   selection.output_dir = (temp.path() / "repo-bad-marker-out").string();
   selection.registry_root = repo_bad_marker.string();
   EXPECT_FALSE(styio_materialize_cloud_nano_package_latest(selection, error));
@@ -2140,7 +2150,7 @@ TEST(StyioMainContract, PublishNanoPackageWritesStaticRepositoryEntryAndBlob) {
   std::string entry_text;
   ASSERT_TRUE(styio_fetch_registry_text_latest(
     selection.registry_root,
-    styio_nano_repository_entry_relpath_latest(selection.registry_package, selection.registry_version),
+    styio_nano_repository_entry_relpath_latest(selection.registry_package),
     entry_text,
     error)) << error;
   StyioNanoRepositoryEntryLatest entry;

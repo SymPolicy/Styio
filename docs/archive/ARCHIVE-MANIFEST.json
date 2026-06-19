@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "schema": "archive-manifest",
   "last_updated": "2026-05-09",
   "archive_root": "docs/archive",
   "rollup_root": "docs/rollups",

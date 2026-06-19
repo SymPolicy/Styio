@@ -37,10 +37,9 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 (
                     "### 2.1 `styio --machine-info=json`",
                     "`active_integration_phase`",
-                    "`supported_contract_versions`",
                     "`supported_adapter_modes`",
                     "`feature_flags`",
-                    "`supported_contracts.compile_plan:[1]`",
+                    "`supported_contracts.compile_plan:[resolved-request]`",
                 ),
             ),
             DocRule(
@@ -48,7 +47,6 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 (
                     "### 2.1 `styio --machine-info=json`",
                     "`active_integration_phase`",
-                    "`supported_contract_versions`",
                     "`supported_adapter_modes`",
                     "`feature_flags`",
                 ),
@@ -57,10 +55,9 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 "styio-view/docs/external/for-styio/Styio-Compile-Run-Contract.md",
                 (
                     "`styio --machine-info=json`",
-                    "`supported_contract_versions`",
                     "`supported_adapter_modes`",
                     "`feature_flags`",
-                    "`supported_contracts.compile_plan:[1]`",
+                    "`supported_contracts.compile_plan:[resolved-request]`",
                 ),
             ),
         ),
@@ -73,7 +70,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 2.3 `styio --compile-plan <path>`",
-                    "`build/check/run/test` 都走 compile-plan v1",
+                    "`build/check/run/test` 都走同一条 compile-plan resolved-request 入口",
                     "`diagnostics.jsonl`",
                     "`CliError`",
                 ),
@@ -91,7 +88,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 "styio-view/docs/external/for-styio/Styio-Compile-Run-Contract.md",
                 (
                     "`styio --compile-plan <path>`",
-                    "`build/check/run/test` 都走同一条 compile-plan v1 入口",
+                    "`build/check/run/test` 都走同一条 compile-plan resolved-request 入口",
                     "`diagnostics.jsonl`",
                     "`CliError`",
                 ),
@@ -133,18 +130,18 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 3.1 `spio machine-info --json`",
-                    "`supported_contracts.project_graph:[1]`",
-                    "`supported_contracts.toolchain_state:[1]`",
-                    "`supported_contracts.workflow_success_payloads:[1]`",
+                    "`supported_contracts.project_graph:[package-workspace-shape]`",
+                    "`supported_contracts.toolchain_state:[compiler-toolchain-shape]`",
+                    "`supported_contracts.workflow_success_payloads:[execution-result-shape]`",
                 ),
             ),
             DocRule(
                 "styio-spio/docs/governance/Spio-CLI-Contract.md",
                 (
                     "spio machine-info --json",
-                    "`supported_contracts.project_graph` reports `[1]`",
-                    "`supported_contracts.toolchain_state` reports `[1]`",
-                    "`supported_contracts.workflow_success_payloads` reports `[1]`",
+                    "`supported_contracts.project_graph` reports `[package-workspace-shape]`",
+                    "`supported_contracts.toolchain_state` reports `[compiler-toolchain-shape]`",
+                    "`supported_contracts.workflow_success_payloads` reports `[execution-result-shape]`",
                 ),
             ),
             DocRule(
@@ -165,7 +162,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 3.2 `spio project-graph --manifest-path <path> --json`",
-                    "`project_graph v1`",
+                    "`project_graph package-workspace-shape`",
                     "`package_distribution`",
                     "`source_state`",
                     "`managed_toolchains`",
@@ -174,15 +171,15 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
             DocRule(
                 "styio-spio/docs/governance/Spio-CLI-Contract.md",
                 (
-                    "`spio project-graph --json` publishes `project_graph v1`",
-                    "`project_graph v1` includes at least `packages`, `dependencies`, `targets`, `toolchain`, `managed_toolchains`, `lock_state`, `vendor_state`, `notes`, `package_distribution`, and `source_state`",
+                    "`spio project-graph --json` publishes `project_graph package-workspace-shape`",
+                    "`project_graph package-workspace-shape` includes at least `packages`, `dependencies`, `targets`, `toolchain`, `managed_toolchains`, `lock_state`, `vendor_state`, `notes`, `package_distribution`, and `source_state`",
                 ),
             ),
             DocRule(
                 "styio-view/docs/external/for-spio/Spio-Project-Graph-Contract.md",
                 (
                     "`spio project-graph --manifest-path <path> --json`",
-                    "`project_graph v1`",
+                    "`project_graph package-workspace-shape`",
                     "`managed_toolchains`",
                     "`package_distribution`",
                     "`source_state`",
@@ -198,7 +195,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 3.3 `spio tool status --manifest-path <path> --json`",
-                    "`toolchain_state v1`",
+                    "`toolchain_state compiler-toolchain-shape`",
                     "`project_pin`",
                     "`current_compiler`",
                     "`managed_toolchains`",
@@ -207,7 +204,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
             DocRule(
                 "styio-spio/docs/governance/Spio-CLI-Contract.md",
                 (
-                    "`spio tool status --json` publishes `toolchain_state v1`",
+                    "`spio tool status --json` publishes `toolchain_state compiler-toolchain-shape`",
                     "`project_pin`",
                     "`current_compiler`",
                     "`managed_toolchains`",
@@ -217,7 +214,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 "styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md",
                 (
                     "`spio tool status --json`",
-                    "`toolchain_state v1`",
+                    "`toolchain_state compiler-toolchain-shape`",
                     "`project_pin`",
                     "`current_compiler`",
                     "`managed_toolchains`",
@@ -233,7 +230,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 3.4 `spio --json build/run/test`",
-                    "`workflow_success_payloads v1`",
+                    "`workflow_success_payloads execution-result-shape`",
                     "`receipt_path`",
                     "`diagnostics_path`",
                     "`stdout / stderr`",
@@ -242,7 +239,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
             DocRule(
                 "styio-spio/docs/governance/Spio-CLI-Contract.md",
                 (
-                    "`workflow_success_payloads v1`",
+                    "`workflow_success_payloads execution-result-shape`",
                     "`receipt.json`",
                     "`diagnostics.jsonl` path",
                     "captured stdout/stderr",
@@ -252,7 +249,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 "styio-view/docs/external/for-spio/Spio-Workflow-Success-Payloads.md",
                 (
                     "spio --json build --manifest-path <path> ...",
-                    "`workflow_success_payloads v1`",
+                    "`workflow_success_payloads execution-result-shape`",
                     "`receipt_path`",
                     "`diagnostics_path`",
                     "captured `stdout`",

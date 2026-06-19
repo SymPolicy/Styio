@@ -675,7 +675,7 @@ gtest_discover_tests(styio_main_contract_test
 
 gtest_discover_tests(styio_resource_topology_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-  PROPERTIES LABELS "styio_pipeline\\;resource_topology\\;topology_v2\\;safety\\;unit"
+  PROPERTIES LABELS "styio_pipeline\\;resource_topology\\;resource_topology\\;safety\\;unit"
 )
 
 gtest_discover_tests(styio_ide_test

@@ -15,7 +15,7 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 
 | Symbol | Name | C++ Token Kind | Physical Semantics |
 |--------|------|----------------|-------------------|
-| `@` | Resource Anchor | `TOK_AT` | **Before identifier + `:`:** Topology v2 resource declaration. **Before identifier + `(`:** resource with protocol. **Before `()` / `{...}`:** anonymous or empty resource. **Before `[`:** retired state-resource prefix, parse error. Source-level bare `@` is not an authoring form. |
+| `@` | Resource Anchor | `TOK_AT` | **Before identifier + `:`:** resource topology resource declaration. **Before identifier + `(`:** resource with protocol. **Before `()` / `{...}`:** anonymous or empty resource. **Before `[`:** retired state-resource prefix, parse error. Source-level bare `@` is not an authoring form. |
 | `@stdout` | Standard Output | `TOK_AT` + `NAME("stdout")` | Built-in write-only stream resource (fd 1). Scalar write: `expr -> @stdout`; iterable write: `items >> @stdout`. |
 | `@stderr` | Standard Error | `TOK_AT` + `NAME("stderr")` | Built-in write-only stream resource (fd 2, unbuffered). Scalar write: `expr -> @stderr`; iterable write: `items >> @stderr`. |
 | `@stdin` | Standard Input | `TOK_AT` + `NAME("stdin")` | Built-in read-only stream resource (fd 0). Iterate via `@stdin >> #(line) => {...}`. Internal declaration forms use `@ stdin := #() => { ... }` with `{ <\|[>_] }`, `{ <\|(>_) }`, and expanded `{ <\| <- [>_] }`. Legacy `(<< @stdin)` is compatibility-only, not canonical design spelling. |
@@ -148,7 +148,7 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | Input | Resolution |
 |-------|------------|
 | `@` alone | Retired source-level undefined value |
-| `@ident : Type` | Topology v2 resource declaration |
+| `@ident : Type` | resource topology resource declaration |
 | `@ident(...)` | Resource with explicit protocol |
 | `@ident{...}` | Invalid explicit-resource spelling |
 | `@{...}` or `@(...)` | Anonymous resource (auto-detect) |

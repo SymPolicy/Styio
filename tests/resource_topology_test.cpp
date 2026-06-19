@@ -237,7 +237,7 @@ TEST(StyioResourceTopology, StateOwnedSeriesIntrinsicCreatesHiddenLedger) {
   EXPECT_GE(result.graph.edge_count(rt::EdgeKind::Mutation), 1u);
 }
 
-TEST(StyioResourceTopology, TopologyV2DeclWriteAndSelectorBuildPendingCommitEdges) {
+TEST(StyioResourceTopology, ResourceTopologyDeclWriteAndSelectorBuildPendingCommitEdges) {
   auto resource_type = styio_make_topology_resource_type(
     StyioDataType{StyioDataTypeOption::Integer, "i64", 64},
     StyioResourceShapeKind::Recent,
@@ -346,7 +346,7 @@ TEST(StyioResourceTopology, ValueContainersAndGuardsBuildNestedValueNodes) {
   }
 }
 
-TEST(StyioResourceTopology, RejectsLocalTopologyV2ResourceDecl) {
+TEST(StyioResourceTopology, RejectsLocalResourceTopologyResourceDecl) {
   auto resource_type = styio_make_topology_resource_type(
     StyioDataType{StyioDataTypeOption::Integer, "i64", 64},
     StyioResourceShapeKind::Fixed,
