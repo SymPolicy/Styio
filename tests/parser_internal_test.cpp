@@ -1261,3 +1261,18 @@ TEST(StyioParserInternal, LegacyExpressionPostfixEdgesStayExplicit) {
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Call);
   }
 }
+
+TEST(StyioParserInternal, LegacyCharacterParserBranchesStayExplicit) {
+  {
+    DirectContext direct("(1 == 1)");
+    std::unique_ptr<CondAST> cond(parse_cond(direct.get()));
+    ASSERT_NE(cond, nullptr);
+    EXPECT_EQ(cond->getNodeType(), StyioNodeType::Condition);
+  }
+  {
+    DirectContext direct("(1 == 1 && 2 == 2 || 3 == 3)");
+    std::unique_ptr<CondAST> cond(parse_cond(direct.get()));
+    ASSERT_NE(cond, nullptr);
+    EXPECT_EQ(cond->getNodeType(), StyioNodeType::Condition);
+  }
+}
