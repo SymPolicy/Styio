@@ -395,6 +395,7 @@ TEST(StyioCodeGenInternal, GetTypeCoversScalarFallbackDefaults) {
     SGBlock::Create({SGNoOp::Create()}),
     SGMatchReprKind::ExprInt));
   expect_i64(SGFallback::Create(SGConstInt::Create(0), SGConstInt::Create(1)));
+  expect_i64(SGDynLoad::Create("invalid_dynamic_load", static_cast<SGDynLoadKind>(255)));
 
   StyioDataType invalid_type{static_cast<StyioDataTypeOption>(255), "invalid", 0};
   std::unique_ptr<StyioIR> invalid_effect(
