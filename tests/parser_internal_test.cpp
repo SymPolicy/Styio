@@ -1053,6 +1053,10 @@ TEST(StyioParserInternal, LegacyScannerRouteAndReceiverEdgesStayExplicit) {
     EXPECT_TRUE(file_resource_decl_body_calls_file_path_latest(direct.get()));
   }
   {
+    DirectContext direct("{ { } value");
+    EXPECT_FALSE(file_resource_decl_body_calls_file_path_latest(direct.get()));
+  }
+  {
     DirectContext direct("123: i64");
     EXPECT_THROW((void)parse_resource_decl_after_at_latest(direct.get()), StyioSyntaxError);
   }
@@ -1221,5 +1225,39 @@ TEST(StyioParserInternal, ParserStaticHelpersCoverAdditionalFalseEdges) {
     std::unique_ptr<CharAST> ast(parse_char_literal_token_latest(direct.get()));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Char);
+  }
+}
+
+TEST(StyioParserInternal, LegacyExpressionPostfixEdgesStayExplicit) {
+  {
+    std::unique_ptr<FuncCallAST> call(make_callable_apply_latest(
+      AttrAST::Create(NameAST::Create("obj"), NameAST::Create("member")),
+      IntAST::Create("1")));
+    ASSERT_NE(call, nullptr);
+    EXPECT_EQ(call->getNodeType(), StyioNodeType::Call);
+  }
+  {
+    DirectContext direct("1\n[2]");
+    direct.get().move_forward(1, "after_int");
+    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), IntAST::Create("1")));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Integer);
+  }
+  {
+    DirectContext direct("1\n(2)");
+    direct.get().move_forward(1, "after_int");
+    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), IntAST::Create("1")));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Integer);
+  }
+  {
+    DirectContext direct(". 1");
+    EXPECT_THROW((void)parse_expr_postfix(direct.get(), NameAST::Create("base")), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("(1)");
+    std::unique_ptr<StyioAST> ast(parse_expr_postfix(direct.get(), NameAST::Create("callable")));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Call);
   }
 }
