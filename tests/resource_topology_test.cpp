@@ -219,6 +219,21 @@ TEST(StyioResourceTopology, GraphApiCoversSparseEdgesAndInvalidLookups) {
     << graph.debug_string();
 }
 
+TEST(StyioResourceTopology, BuilderReusesCachedAstNodesForRepeatedVisits) {
+  auto* repeated = BinOpAST::Create(
+    StyioOpType::Binary_Add,
+    IntAST::Create("1"),
+    IntAST::Create("2"));
+  repeated->RHS = repeated->LHS;
+  auto root = program({PrintAST::Create({repeated})});
+
+  rt::BuildResult result = rt::build(root.get());
+
+  EXPECT_TRUE(result.report.ok()) << result.report.message();
+  EXPECT_EQ(result.graph.node_count(rt::NodeKind::Value), 2u)
+    << result.graph.debug_string();
+}
+
 TEST(StyioResourceTopology, SparseAstFallbacksCoverTraversalEdges) {
   StyioDataType stdout_stream = styio_make_std_stream_type(StdStreamKind::Stdout, "string");
   StyioDataType readable_opaque{StyioDataTypeOption::Defined, "opaque-readable", 0};
