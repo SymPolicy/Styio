@@ -309,6 +309,14 @@ TEST(StyioNewParserInternal, AwaitResourceEffectAndTaskLookaheadStayExplicit) {
     EXPECT_EQ(bind->getTarget()->getNameAsStr(), "out");
   }
   {
+    DirectContext direct("name");
+    EXPECT_FALSE(looks_like_await_bind_stmt_nightly(direct.get()));
+  }
+  {
+    DirectContext direct("?|");
+    EXPECT_FALSE(looks_like_await_bind_stmt_nightly(direct.get()));
+  }
+  {
     DirectContext direct("?| -> out: i64 | 0");
     EXPECT_THROW((void)parse_await_bind_stmt_nightly(direct.get()), StyioSyntaxError);
   }
@@ -354,6 +362,10 @@ TEST(StyioNewParserInternal, AwaitResourceEffectAndTaskLookaheadStayExplicit) {
   }
   {
     DirectContext direct("?| @stdout | first => 1 | ...");
+    EXPECT_THROW((void)parse_resource_effect_stmt_nightly(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("?| (<< @file(\"missing\")) | io => 1 | ...");
     EXPECT_THROW((void)parse_resource_effect_stmt_nightly(direct.get()), StyioSyntaxError);
   }
 
