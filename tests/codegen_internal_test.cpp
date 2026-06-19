@@ -351,6 +351,41 @@ TEST(StyioCodeGenInternal, GetTypeUsesBoundedRingElementTypeForResourceIds) {
   EXPECT_TRUE(ring_element_type->isDoubleTy());
 }
 
+TEST(StyioCodeGenInternal, GetTypeCoversScalarFallbackDefaults) {
+  auto generator = make_generator();
+  auto expect_i64 = [&](StyioIR* node)
+  {
+    std::unique_ptr<StyioIR> owner(node);
+    llvm::Type* type = node->toLLVMType(generator.get());
+    ASSERT_NE(type, nullptr);
+    EXPECT_TRUE(type->isIntegerTy(64));
+  };
+
+  expect_i64(SGMatch::Create(
+    SGConstInt::Create(1),
+    {},
+    SGBlock::Create({SGNoOp::Create()}),
+    SGMatchReprKind::ExprInt));
+  expect_i64(SGFallback::Create(SGConstInt::Create(0), SGConstInt::Create(1)));
+
+  StyioDataType invalid_type{static_cast<StyioDataTypeOption>(255), "invalid", 0};
+  std::unique_ptr<StyioIR> invalid_effect(
+    SIOResourceEffect::Create(SGNoOp::Create(), nullptr, false, invalid_type, {}, true));
+  llvm::Type* invalid_effect_type = invalid_effect->toLLVMType(generator.get());
+  ASSERT_NE(invalid_effect_type, nullptr);
+  EXPECT_TRUE(invalid_effect_type->isVoidTy());
+}
+
+TEST(StyioCodeGenInternal, CodeGenFactoryCreatesGenerator) {
+  init_llvm_once();
+  llvm::ExitOnError exit_on_error;
+  std::unique_ptr<StyioJIT_ORC> jit = exit_on_error(StyioJIT_ORC::Create());
+  std::unique_ptr<StyioToLLVM> generator(StyioToLLVM::Create(std::move(jit)));
+
+  ASSERT_NE(generator, nullptr);
+  EXPECT_FALSE(generator->dump_llvm_ir().empty());
+}
+
 TEST(StyioCodeGenInternal, ScalarCastConditionAndDynamicSlotGuardsStayExplicit) {
   expect_codegen_ok({
     SGCast::Create(
