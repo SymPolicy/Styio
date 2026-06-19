@@ -306,3 +306,65 @@ TEST(StyioNativeInteropInternal, DisabledDiskCacheLoadsFromTemporarySharedObject
   ASSERT_NE(fn, nullptr);
   EXPECT_EQ(fn(), 11);
 }
+
+TEST(StyioNativeInteropInternal, DisabledDiskCacheDlopenFailureRemovesTemporarySharedObject) {
+  using namespace styio::native;
+
+  const std::filesystem::path temp =
+    std::filesystem::current_path()
+    / "build"
+    / ("styio-native-interop-fakecc-" + stable_hash_hex(std::to_string(::getpid())));
+  std::filesystem::remove_all(temp);
+  std::filesystem::create_directories(temp);
+
+  std::string error;
+  const std::filesystem::path fake_cc = temp / "fake-cc";
+  ASSERT_TRUE(write_text_file(
+    fake_cc,
+    "#!/bin/sh\n"
+    "out=''\n"
+    "while [ \"$#\" -gt 0 ]; do\n"
+    "  if [ \"$1\" = '-o' ]; then\n"
+    "    shift\n"
+    "    out=\"$1\"\n"
+    "  fi\n"
+    "  shift || exit 2\n"
+    "done\n"
+    "test -n \"$out\" || exit 3\n"
+    "printf 'not a shared object\\n' > \"$out\"\n"
+    "exit 0\n",
+    error)) << error;
+
+  std::error_code perm_ec;
+  std::filesystem::permissions(
+    fake_cc,
+    std::filesystem::perms::owner_exec
+      | std::filesystem::perms::group_exec
+      | std::filesystem::perms::others_exec,
+    std::filesystem::perm_options::add,
+    perm_ec);
+  ASSERT_FALSE(perm_ec) << perm_ec.message();
+
+  EnvVarGuard cache_guard("STYIO_NATIVE_CACHE");
+  EnvVarGuard cc_guard("STYIO_NATIVE_CC");
+  EnvVarGuard mode_guard("STYIO_NATIVE_TOOLCHAIN_MODE");
+  cache_guard.set("off");
+  cc_guard.set(fake_cc.string());
+  mode_guard.set("system");
+
+  const std::string symbol = "bad_so_" + stable_hash_hex(temp.string()).substr(0, 8);
+  const std::string body = "int " + symbol + "(void) { return 13; }\n";
+
+  bool threw = false;
+  try {
+    (void)compile_and_load_block("c", body, {symbol});
+  }
+  catch (const StyioTypeError& ex) {
+    threw = true;
+    EXPECT_NE(std::string(ex.what()).find("dlopen failed"), std::string::npos);
+  }
+  EXPECT_TRUE(threw);
+
+  std::error_code cleanup_ec;
+  std::filesystem::remove_all(temp, cleanup_ec);
+}
