@@ -71,7 +71,7 @@
 - 官方 helper 入口：
   - `scripts/source-build-minimal.sh`
 - compile-plan `profile.build_mode`：
-  - 缺失时按 `minimal` 处理，兼容旧的 v1 plan
+  - 缺失时按 `minimal` 处理
   - 当前只接受显式值 `minimal`
   - 其它值必须由 compiler-side compile-plan consumer 直接拒绝
 - 允许的 override：
@@ -157,9 +157,9 @@ materialized package 目录至少包含：
 
 - `syntax_check_json`
 - `nano_package_materialize`
-- `nano_package_local_subset_closure_v1`
-- `nano_package_registry_consume_v1`
-- `nano_package_registry_publish_v1`
+- `nano_package_local_subset_closure`
+- `nano_package_registry_consume`
+- `nano_package_registry_publish`
 
 `spio`、IDE、CI 和其它工具后续可以用这些 capability 做兼容性判定，而不是猜测某个 `styio` 二进制支是否支持 syntax check、nano package workflow 或其它服务入口。
 
@@ -178,7 +178,7 @@ materialized package 目录至少包含：
 ```json
 {
   "kind": "styio-nano-static",
-  "schema_version": 1
+  "schema": "styio-nano-static-repository"
 }
 ```
 
@@ -186,13 +186,13 @@ materialized package 目录至少包含：
 
 索引条目路径：
 
-`index/<package>/<version>.json`
+`index/<package>/entry.json`
 
 当前字段：
 
 ```json
 {
-  "schema_version": 1,
+  "schema": "styio-nano-repository-entry",
   "package": "edge/default",
   "version": "0.0.1",
   "channel": "nano",
@@ -396,9 +396,9 @@ blob 内容是一个 tar 包，解开后必须能解析出 package root，并且
 
 这部分现在已经进入 **baseline live** 状态：
 
-- `--machine-info=json` 会公开 `supported_contracts.compile_plan:[1]`
-- `--machine-info=json` 会公开 `supported_contracts.syntax_check:[1]`，用于通用 `styio check --syntax --json --file <path>` 语法审核入口
-- `styio --compile-plan <path>` 会消费 versioned plan，并支持 `build` / `check` / `run` / `test`
+- `--machine-info=json` 会公开 `supported_contracts.compile_plan:[resolved-request]`
+- `--machine-info=json` 会公开 `supported_contracts.syntax_check:[syntax-json]`，用于通用 `styio check --syntax --json --file <path>` 语法审核入口
+- `styio --compile-plan <path>` 会消费 resolved-request plan，并支持 `build` / `check` / `run` / `test`
 - compile-plan 执行会在约定的 `outputs.build_root` / `artifact_dir` / `diag_dir` 内写出 receipt、编译产物和 `diagnostics.jsonl`
 - 若 plan 非法或 `--compile-plan` 与其它入口参数冲突，只要能解析到 `outputs.diag_dir`，也会把 `STYIO_SERVICE_COMPILE_PLAN_INVALID` 或 `STYIO_SERVICE_COMPILE_PLAN_CLI_CONFLICT` 诊断写入该目录；stderr 同样保持 machine-readable JSONL
 

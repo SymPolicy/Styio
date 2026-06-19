@@ -12756,7 +12756,7 @@ TEST(StyioSafetyStdStream, RejectsWriteShorthandToStdinAtLowering) {
   );
 }
 
-TEST(StyioSecurityTopologyV2, ParsesAndLowersTopLevelResourceDeclWriteAndRead) {
+TEST(StyioSecurityResourceTopology, ParsesAndLowersTopLevelResourceDeclWriteAndRead) {
   const std::string src =
     "@x : i64|2|\n"
     "1 -> @x\n"
@@ -12767,7 +12767,7 @@ TEST(StyioSecurityTopologyV2, ParsesAndLowersTopLevelResourceDeclWriteAndRead) {
   );
 }
 
-TEST(StyioSecurityTopologyV2, RejectsLocalResourceDeclarationsWithStableDiagnostic) {
+TEST(StyioSecurityResourceTopology, RejectsLocalResourceDeclarationsWithStableDiagnostic) {
   const std::string src =
     "{\n"
     "  @x : i64|2|\n"
@@ -12783,7 +12783,7 @@ TEST(StyioSecurityTopologyV2, RejectsLocalResourceDeclarationsWithStableDiagnost
   }
 }
 
-TEST(StyioSecurityTopologyV2, RejectsImplicitWholeResourceCopy) {
+TEST(StyioSecurityResourceTopology, RejectsImplicitWholeResourceCopy) {
   const std::string src =
     "@x : i64|2|\n"
     "copy = @x\n";
@@ -12794,7 +12794,7 @@ TEST(StyioSecurityTopologyV2, RejectsImplicitWholeResourceCopy) {
   );
 }
 
-TEST(StyioSecurityTopologyV2, LowersBoundedListAndDictResourceSelectors) {
+TEST(StyioSecurityResourceTopology, LowersBoundedListAndDictResourceSelectors) {
   const std::string src =
     "@samples : list[list[i64]]|..2|\n"
     "[[1,2], [3,4]] >> #(v) => {\n"
@@ -12838,7 +12838,7 @@ TEST(StyioSecurityTopologyV2, LowersBoundedListAndDictResourceSelectors) {
   EXPECT_NE(llvm_ir.find("styio_list_get_dict"), std::string::npos);
 }
 
-TEST(StyioSecurityTopologyV2, LowersBoundedMatrixResourceSelectors) {
+TEST(StyioSecurityResourceTopology, LowersBoundedMatrixResourceSelectors) {
   const std::string src =
     "@bucket : matrix|..2|\n"
     "[1] >> #(base) => {\n"
@@ -12865,7 +12865,7 @@ TEST(StyioSecurityTopologyV2, LowersBoundedMatrixResourceSelectors) {
   EXPECT_NE(llvm_ir.find("styio_matrix_release"), std::string::npos);
 }
 
-TEST(StyioSecurityTopologyV2, KeepsUnboundedMatrixResourceSelectorSnapshotFailClosed) {
+TEST(StyioSecurityResourceTopology, KeepsUnboundedMatrixResourceSelectorSnapshotFailClosed) {
   const std::string src =
     "@bucket : matrix\n"
     ">_(@bucket[...])\n";

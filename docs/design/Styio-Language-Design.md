@@ -650,7 +650,7 @@ Stream processing requires **memory across pulses**. A simple local variable res
 
 ### 9.2 Resource Object State
 
-Topology v2 treats named state as a resource object:
+resource topology treats named state as a resource object:
 
 ```styio
 @price : f64|..10| := { ... }

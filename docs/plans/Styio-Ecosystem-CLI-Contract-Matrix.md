@@ -37,12 +37,12 @@ styio --machine-info=json
 当前跨仓必须保持一致的要点：
 
 1. `active_integration_phase`
-2. `supported_contract_versions`
+2. `supported_contracts` reports supported contract shapes rather than numbered implementation lanes
 3. `supported_adapter_modes`
 4. `feature_flags`
-5. `supported_contracts.syntax_check:[1]`
-6. `supported_contracts.compile_plan:[1]`
-7. `supported_contracts.runtime_events:[1]`
+5. `supported_contracts.syntax_check:[syntax-json]`
+6. `supported_contracts.compile_plan:[resolved-request]`
+7. `supported_contracts.runtime_events:[jsonl]`
 8. `feature_flags.syntax_check:true`
 9. `feature_flags.runtime_event_stream:true`
 
@@ -83,7 +83,7 @@ styio --compile-plan <path>
 
 当前跨仓必须保持一致的要点：
 
-1. `build/check/run/test` 都走 compile-plan v1
+1. `build/check/run/test` 都走同一条 compile-plan resolved-request 入口
 2. 成功路径在 `build_root / artifact_dir / diag_dir` 内写出 receipt、产物、`diagnostics.jsonl` 和 `build_root/runtime-events.jsonl`
 3. invalid plan / CLI conflict 也返回 machine-readable `CliError`
 4. `receipt.json` 现在包含 `session_id` 与 `outputs.runtime_events_path`
@@ -153,9 +153,9 @@ spio machine-info --json
 当前跨仓必须保持一致的要点：
 
 1. `active_integration_phase`
-2. `supported_contracts.project_graph:[1]`
-3. `supported_contracts.toolchain_state:[1]`
-4. `supported_contracts.workflow_success_payloads:[1]`
+2. `supported_contracts.project_graph:[package-workspace-shape]`
+3. `supported_contracts.toolchain_state:[compiler-toolchain-shape]`
+4. `supported_contracts.workflow_success_payloads:[execution-result-shape]`
 5. `supported_adapter_modes:[cli]`
 6. `feature_flags.runtime_event_payload:true`
 
@@ -174,7 +174,7 @@ spio project-graph --manifest-path <path> --json
 
 当前跨仓必须保持一致的要点：
 
-1. `project_graph v1`
+1. `project_graph package-workspace-shape`
 2. `packages / dependencies / targets`
 3. `toolchain / active_compiler / managed_toolchains`
 4. `lock_state / vendor_state / notes`
@@ -196,7 +196,7 @@ spio tool status --manifest-path <path> --json
 
 当前跨仓必须保持一致的要点：
 
-1. `toolchain_state v1`
+1. `toolchain_state compiler-toolchain-shape`
 2. `toolchain`
 3. `project_pin`
 4. `active_compiler`
@@ -221,7 +221,7 @@ spio --json test --manifest-path <path> ...
 
 当前跨仓必须保持一致的要点：
 
-1. `workflow_success_payloads v1`
+1. `workflow_success_payloads execution-result-shape`
 2. `build_root / artifact_dir / diag_dir`
 3. `receipt_path`
 4. parsed `receipt`
@@ -275,7 +275,7 @@ spio --json tool pin --clear --manifest-path <path>
 当前跨仓必须保持一致的要点：
 
 1. toolchain lifecycle 通过 success JSON 返回，不靠 stdout prose
-2. project pin、managed installs、current compiler 统一回流到 `toolchain_state v1`
+2. project pin、managed installs、current compiler 统一回流到 `toolchain_state compiler-toolchain-shape`
 3. `styio-view` 只能触发 adapter，不再自己拼另一套命令语义
 
 Owner / consumer docs:

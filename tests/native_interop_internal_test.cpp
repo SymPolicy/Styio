@@ -66,7 +66,7 @@ TEST(StyioNativeInteropInternal, EscapingAndCacheEnvironmentBranchesStayExplicit
   cache_dir_guard.set(" ");
   xdg_guard.set((std::filesystem::temp_directory_path() / "styio-native-xdg").string());
   home_guard.unset();
-  EXPECT_NE(native_cache_dir().string().find("styio/native/v1"), std::string::npos);
+  EXPECT_NE(native_cache_dir().string().find("styio/native/abi-stable"), std::string::npos);
 
   xdg_guard.set(" ");
   home_guard.unset();

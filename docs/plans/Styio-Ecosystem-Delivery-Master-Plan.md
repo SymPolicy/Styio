@@ -240,7 +240,7 @@ Repo lead 可以继续下拆 sub-agent，但以下 choke point 不允许并行�
 
 能力出口：
 
-1. `runtime_events v1` 真正驱动 runtime surface、thread lanes、execution graph 和 debug console。
+1. `runtime_events jsonl` 真正驱动 runtime surface、thread lanes、execution graph 和 debug console。
 2. AI provider adapter、prompt/profile、agent panel 形成正式产品面。
 3. 主题系统、模块 manifest、capability matrix、staged update 和卸载回收闭环。
 

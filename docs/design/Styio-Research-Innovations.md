@@ -148,7 +148,7 @@ The comparison surface includes manual buffers, managed heaps, and external stat
 
 ### Styio's Contribution
 
-Styio's Topology v2 syntax lets developers declare resources **at the top level** while keeping reads and writes close to the logic that uses them. The compiler still globally optimizes the memory layout:
+Styio's resource topology syntax lets developers declare resources **at the top level** while keeping reads and writes close to the logic that uses them. The compiler still globally optimizes the memory layout:
 
 1. **Explicit resource table:** Top-level `@name : Type|..n|` declarations establish durable slots during analysis
 2. **Contiguous allocation:** Hoisted states are packed into a single memory block (the "anonymous ledger")

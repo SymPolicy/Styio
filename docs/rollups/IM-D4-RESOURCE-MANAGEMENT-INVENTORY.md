@@ -12,7 +12,7 @@ This document is intentionally narrower than "all resource-related implementatio
 
 ## Current State
 
-Topology v2 gives Styio an active source direction for resource declarations, writes, block execution, and selectors:
+resource topology gives Styio an active source direction for resource declarations, writes, block execution, and selectors:
 
 - `@name : Type` declares a named resource.
 - `expr -> @name` writes into a resource sink.
@@ -272,7 +272,7 @@ Accepted host-provided anchor decision:
 
 ### Capability Vocabulary
 
-Accepted v1 capability decision:
+Accepted capability decision:
 
 - The first public compiler-owned capability vocabulary is the complete baseline
   for the first implementation slice.
@@ -661,7 +661,7 @@ Until then, unsupported or retired resource forms must remain rejected by named 
 ## Decision Closure
 
 No IM-D4 language-design decision remains open in this inventory. Remaining work
-is implementation and tests: every accepted resource family must encode the v1
+is implementation and tests: every accepted resource family must encode the current
 capability requirement, stable typestate transition, post-effect state, fallback
 or discard behavior, cleanup rule, and negative diagnostics described above.
 
@@ -669,5 +669,5 @@ or discard behavior, cleanup rule, and negative diagnostics described above.
 
 - [Styio Resource Topology](../design/Styio-Resource-Topology.md)
 - [Styio Handle, Capability, and Failure Type System](../design/Styio-Handle-Capability-Type-System.md)
-- [Styio EBNF Appendix B: Topology v2](../design/Styio-EBNF.md#appendix-b-topology-v2--resource-declarations)
+- [Styio EBNF Appendix B: resource topology](../design/Styio-EBNF.md#appendix-b-resource-topology--resource-declarations)
 - [NEXT-STAGE-GAP-LEDGER.md](./NEXT-STAGE-GAP-LEDGER.md)

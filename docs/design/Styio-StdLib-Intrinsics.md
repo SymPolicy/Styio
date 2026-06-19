@@ -296,7 +296,7 @@ msg = last_result ?? reason
 
 ## 5. Accumulator Patterns (Scan)
 
-These are not intrinsics per se but common patterns enabled by Topology v2
+These are not intrinsics per se but common patterns enabled by resource topology
 resource declarations and writes.
 
 ### 5.1 Running Sum
@@ -369,7 +369,7 @@ Triggers `mmap`-based or copy-on-write serialization of the entire state ledger 
 
 ### 7.1 Auto-Vectorization
 
-For window operations over Topology v2 recent-window resources such as `@x : T|..n|`
+For window operations over resource topology recent-window resources such as `@x : T|..n|`
 where `n > 8`, the generated LLVM loop must:
 - Avoid loop-carried dependencies where possible
 - Use `<n x float>` vector types when the operation is element-wise

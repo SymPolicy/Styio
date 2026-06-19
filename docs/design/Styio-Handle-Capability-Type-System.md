@@ -102,7 +102,7 @@ A Styio value is iterable if and only if its type carries an iteration capabilit
 
 ### 5.1 Initial capability set
 
-The accepted v1 baseline supports exactly these public capabilities:
+The accepted capability baseline supports exactly these public capabilities:
 
 | Capability | Meaning |
 |------------|---------|
@@ -506,7 +506,7 @@ Add internal `Result` / `Step` modeling and a default fail-fast handler.
 
 ---
 
-## 16. Explicit non-goals for v1
+## 16. Explicit non-goals for the current capability model
 
 1. Any user-visible `borrow`, `shared`, `own`, or `pure` syntax.
 2. User-visible `unwrap` as a mandatory language pattern.

@@ -284,10 +284,6 @@ parse_compile_plan(
     return false;
   }
 
-  if (plan_version != 1) {
-    error_message = "unsupported compile-plan version: " + std::to_string(plan_version);
-    return false;
-  }
   out_request.plan_version = static_cast<int>(plan_version);
   out_request.plan_path = plan_path;
 

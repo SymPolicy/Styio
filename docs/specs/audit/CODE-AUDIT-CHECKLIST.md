@@ -71,7 +71,7 @@ Unsupported, unsafe, invalid, or ambiguous states must fail with typed diagnosti
 
 Audit questions:
 
-1. Does every unsupported syntax, AST node, protocol version, or runtime state produce an explicit failure?
+1. Does every unsupported syntax, AST node, protocol shape, or runtime state produce an explicit failure?
 2. Are placeholder values such as `0`, empty objects, empty diagnostics, or default success avoided on active paths?
 3. Does verifier, parser, sema, codegen, adapter, and gate failure propagate to the caller?
 4. Do fallback paths have explicit capability/status reporting and exit criteria?
@@ -150,7 +150,7 @@ Audit questions:
 
 1. Did the auditor run the smallest useful test set and the owning gate for the changed behavior?
 2. Do tests prove the expected user-visible and machine-visible effects, not only that a function returns successfully?
-3. Are boundary conditions covered, including empty input, minimum and maximum sizes, invalid syntax, missing files, permission failures, unsupported versions, partial writes, cancellation, and retries when relevant?
+3. Are boundary conditions covered, including empty input, minimum and maximum sizes, invalid syntax, missing files, permission failures, unsupported contract shapes, partial writes, cancellation, and retries when relevant?
 4. Are failures asserted with structured diagnostics or stable machine-readable outcomes instead of brittle human text?
 5. Is coverage measured with the project's available tools, or is the absence of a coverage tool recorded as an audit defect?
 6. Are skipped, flaky, environment-gated, or manually verified tests called out as incomplete evidence rather than treated as full closure?

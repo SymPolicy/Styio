@@ -2863,7 +2863,7 @@ AstToStyioIRLowerer::toStyioIR(HandleAcquireAST* ast) {
   }
 
   if (dynamic_cast<StdStreamAST*>(ast->getResource())) {
-    /* Standard stream aliases are compile-time handles in v1; lowering happens at the use site. */
+    /* Standard stream aliases are compile-time handles; lowering happens at the use site. */
     return SGNoOp::Create();
   }
   auto* fr = dynamic_cast<FileResourceAST*>(ast->getResource());

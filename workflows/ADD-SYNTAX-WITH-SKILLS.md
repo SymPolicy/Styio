@@ -27,7 +27,7 @@ Run this workflow whenever a change does at least one of the following:
    - token enum/name/lexer
    - IDE tokenizer
    - authoritative nightly parser
-   - legacy parser migration evidence only when the change touches retired syntax
+   - retired parser-route audit evidence only when the change touches retired syntax
    - AST/type/IR behavior
    - docs and runbooks
    - tests

@@ -26,7 +26,7 @@ namespace styio::native {
 namespace {
 
 constexpr const char* kCompileFlags = "-shared -fPIC -O2";
-constexpr const char* kNativeCacheVersion = "styio-native-cache-v1";
+constexpr const char* kNativeCacheScope = "styio-native-cache-abi-stable";
 
 struct CachedModule {
   void* handle = nullptr;
@@ -166,17 +166,17 @@ native_cache_dir() {
   }
   if (const char* env = std::getenv("STYIO_NATIVE_CACHE_DIR")) {
     if (std::string raw = trim_copy(env); !raw.empty()) {
-      return std::filesystem::path(raw) / "v1";
+      return std::filesystem::path(raw) / "abi-stable";
     }
   }
   if (const char* xdg = std::getenv("XDG_CACHE_HOME")) {
     if (std::string raw = trim_copy(xdg); !raw.empty()) {
-      return std::filesystem::path(raw) / "styio" / "native" / "v1";
+      return std::filesystem::path(raw) / "styio" / "native" / "abi-stable";
     }
   }
   if (const char* home = std::getenv("HOME")) {
     if (std::string raw = trim_copy(home); !raw.empty()) {
-      return std::filesystem::path(raw) / ".cache" / "styio" / "native" / "v1";
+      return std::filesystem::path(raw) / ".cache" / "styio" / "native" / "abi-stable";
     }
   }
   return {};
@@ -207,7 +207,7 @@ native_cache_key(
     + compiler.command.size()
     + compiler.source.size()
     + 96);
-  input += kNativeCacheVersion;
+  input += kNativeCacheScope;
   input.push_back('\0');
   input += normalized_abi;
   input.push_back('\0');

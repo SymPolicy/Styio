@@ -202,7 +202,7 @@ public:
   }
 
   /*
-    Topology v2 bounded ring [|n|] in type position (name prefix bounded_ring:n).
+    resource topology bounded ring [|n|] in type position (name prefix bounded_ring:n).
     CodeGen: alloca [n x i64] + head cursor; reads return last written cell (see BoundedType.hpp).
   */
   static TypeAST* CreateBoundedRingBuffer(string capacity_digits) {
@@ -2141,7 +2141,7 @@ public:
       [-: (i0, i1, ...)]
 
     Remove_Items_By_Many_Values
-      [-: ?^ (v0, v1, ...)]
+      [-: ?^ (x0, x_next, ...)]
 
     Get_Index_By_Item_From_Right
       [[<] ?= value]
@@ -2150,7 +2150,7 @@ public:
       [[<] -: ?= value]
 
     Remove_Items_By_Many_Values_From_Right
-      [[<] -: ?^ (v0, v1, ...)]
+      [[<] -: ?^ (x0, x_next, ...)]
   */
   ListOpAST(StyioNodeType opType, StyioAST* theList, StyioAST* item) :
       list_owner_(theList),
@@ -3584,10 +3584,10 @@ public:
     For each step of iteration, typeInfer if the element match the value
   expression, if match case is true, then execute the branch.
 
-  MatchCases: Fill + Cases
-    >> Element(Single) ?= {
-      v0 => {}
-      v1 => {}
+    MatchCases: Fill + Cases
+      >> Element(Single) ?= {
+      value_first => {}
+      value_next => {}
       _  => {}
     }
 

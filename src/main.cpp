@@ -1745,12 +1745,12 @@ styio_nano_repository_marker_relpath_latest() {
   return "styio-nano-repository.json";
 }
 
+static constexpr const char* kStyioNanoRepositoryMarkerSchemaLatest = "styio-nano-static-repository";
+static constexpr const char* kStyioNanoRepositoryEntrySchemaLatest = "styio-nano-repository-entry";
+
 static std::string
-styio_nano_repository_entry_relpath_latest(
-  const std::string& package_name,
-  const std::string& version
-) {
-  return (std::filesystem::path("index") / std::filesystem::path(package_name) / (version + ".json"))
+styio_nano_repository_entry_relpath_latest(const std::string& package_name) {
+  return (std::filesystem::path("index") / std::filesystem::path(package_name) / "entry.json")
     .generic_string();
 }
 
@@ -1807,8 +1807,9 @@ styio_validate_nano_repository_marker_latest(
     return false;
   }
   const auto kind = obj->getString("kind");
-  const auto schema_version = obj->getInteger("schema_version");
-  if (!kind.has_value() || *kind != "styio-nano-static" || !schema_version.has_value() || *schema_version != 1) {
+  const auto schema = obj->getString("schema");
+  if (!kind.has_value() || *kind != "styio-nano-static" || !schema.has_value()
+      || *schema != kStyioNanoRepositoryMarkerSchemaLatest) {
     error_message = "nano repository marker does not match the supported styio-nano static repository contract";
     return false;
   }
@@ -1834,7 +1835,7 @@ styio_parse_nano_repository_entry_latest(
     return false;
   }
 
-  const auto schema_version = obj->getInteger("schema_version");
+  const auto schema = obj->getString("schema");
   const auto package_name = obj->getString("package");
   const auto version = obj->getString("version");
   const auto sha256 = obj->getString("sha256");
@@ -1843,8 +1844,8 @@ styio_parse_nano_repository_entry_latest(
   const auto channel = obj->getString("channel");
   const auto published_at = obj->getString("published_at");
 
-  if (!schema_version.has_value() || *schema_version != 1) {
-    error_message = "nano repository entry has unsupported schema_version";
+  if (!schema.has_value() || *schema != kStyioNanoRepositoryEntrySchemaLatest) {
+    error_message = "nano repository entry does not match the supported schema";
     return false;
   }
   if (!package_name.has_value() || std::string(*package_name) != expected_package) {
@@ -1886,7 +1887,7 @@ styio_write_nano_repository_marker_latest(
   const std::string marker_text =
     "{\n"
     "  \"kind\": \"styio-nano-static\",\n"
-    "  \"schema_version\": 1\n"
+    "  \"schema\": \"styio-nano-static-repository\"\n"
     "}\n";
   return styio_write_text_file_latest(marker_path, marker_text, error_message);
 }
@@ -1922,7 +1923,7 @@ styio_write_nano_repository_entry_latest(
   std::string& error_message
 ) {
   const std::filesystem::path entry_path =
-    repo_root / std::filesystem::path(styio_nano_repository_entry_relpath_latest(entry.package_name, entry.version));
+    repo_root / std::filesystem::path(styio_nano_repository_entry_relpath_latest(entry.package_name));
   std::error_code ec;
   std::filesystem::create_directories(entry_path.parent_path(), ec);
   if (ec) {
@@ -1933,7 +1934,7 @@ styio_write_nano_repository_entry_latest(
 
   std::ostringstream out;
   out << "{\n";
-  out << "  \"schema_version\": 1,\n";
+  out << "  \"schema\": \"styio-nano-repository-entry\",\n";
   out << "  \"package\": \"" << styio_json_escape(entry.package_name) << "\",\n";
   out << "  \"version\": \"" << styio_json_escape(entry.version) << "\",\n";
   out << "  \"channel\": \"" << styio_json_escape(entry.channel) << "\",\n";
@@ -2515,7 +2516,8 @@ styio_resolve_nano_create_selection_latest(
       || !out_selection.registry_package.empty()
       || !out_selection.registry_version.empty();
     if (has_manifest && has_registry) {
-      error_message = "cloud styio-nano creation accepts either nano.cloud.manifest or nano.cloud.registry/package/version, not both";
+      error_message =
+        "cloud styio-nano creation accepts either nano.cloud.manifest or nano.cloud registry/package plus version state, not both";
       return false;
     }
     if (!has_manifest) {
@@ -2813,7 +2815,7 @@ styio_materialize_cloud_nano_package_latest(
     std::string entry_text;
     if (!styio_fetch_registry_text_latest(
           selection.registry_root,
-          styio_nano_repository_entry_relpath_latest(selection.registry_package, selection.registry_version),
+          styio_nano_repository_entry_relpath_latest(selection.registry_package),
           entry_text,
           error_message)) {
       return false;
@@ -3115,42 +3117,23 @@ styio_emit_machine_info_json(const StyioDictImplSelectionLatest& dict_impl_selec
     << ",\"channel\":\"" << styio_json_escape(STYIO_RELEASE_CHANNEL) << "\""
     << ",\"variant\":\"" << (STYIO_NANO_BUILD ? "nano" : "full") << "\""
     << ",\"active_integration_phase\":\"" << active_integration_phase << "\""
-    << ",\"supported_contracts\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":"
+    << ",\"supported_contracts\":{\"machine_info\":[\"json\"],\"jsonl_diagnostics\":[\"jsonl\"],\"syntax_check\":"
 #if STYIO_NANO_BUILD
     << "[]"
 #else
-    << "[1]"
+    << "[\"syntax-json\"]"
 #endif
     << ",\"compile_plan\":"
 #if STYIO_NANO_BUILD
     << "[]"
 #else
-    << "[1]"
+    << "[\"resolved-request\"]"
 #endif
     << ",\"runtime_events\":"
 #if STYIO_NANO_BUILD
     << "[]"
 #else
-    << "[1]"
-#endif
-    << "}"
-    << ",\"supported_contract_versions\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":"
-#if STYIO_NANO_BUILD
-    << "[]"
-#else
-    << "[1]"
-#endif
-    << ",\"compile_plan\":"
-#if STYIO_NANO_BUILD
-    << "[]"
-#else
-    << "[1]"
-#endif
-    << ",\"runtime_events\":"
-#if STYIO_NANO_BUILD
-    << "[]"
-#else
-    << "[1]"
+    << "[\"jsonl\"]"
 #endif
     << "}"
     << ",\"supported_adapter_modes\":[\"cli\"]"
@@ -3206,9 +3189,9 @@ styio_emit_machine_info_json(const StyioDictImplSelectionLatest& dict_impl_selec
 #endif
 #if !STYIO_NANO_BUILD
   std::cout << ",\"nano_package_materialize\"";
-  std::cout << ",\"nano_package_local_subset_closure_v1\"";
-  std::cout << ",\"nano_package_registry_consume_v1\"";
-  std::cout << ",\"nano_package_registry_publish_v1\"";
+  std::cout << ",\"nano_package_local_subset_closure\"";
+  std::cout << ",\"nano_package_registry_consume\"";
+  std::cout << ",\"nano_package_registry_publish\"";
 #endif
   std::cout
     << "]"
@@ -4076,7 +4059,7 @@ styio_native_build_write_compile_plan_latest(
     << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
     << "  \"profile\": {\"name\": \"native\", \"build_mode\": \"minimal\", \"opt_level\": 3, \"debug\": false, \"lto\": false},\n"
     << "  \"packages\": [{\"id\": \"styio/native-build@0\"}],\n"
-    << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"styio/native-build@0\"]},\n"
+    << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"styio/native-build@0\"]},\n"
     << "  \"outputs\": {\n"
     << "    \"build_root\": \"" << styio_json_escape(build_root.string()) << "\",\n"
     << "    \"artifact_dir\": \"" << styio_json_escape(artifact_dir.string()) << "\",\n"
@@ -4725,7 +4708,7 @@ main(
     "config", "Read project configuration from the given file. When omitted, styio.toml or .styio.toml is auto-discovered upward from --file.",
     cxxopts::value<std::string>()
   )(
-    "dict-impl", "Dictionary backend selector (ordered-hash|linear). Accepts aliases v2 and v1.",
+    "dict-impl", "Dictionary backend selector (ordered-hash|linear).",
     cxxopts::value<std::string>()
   )(
     "error-format", "Diagnostic output format: text|jsonl",
@@ -4743,7 +4726,7 @@ main(
 #if !STYIO_NANO_BUILD
   options.add_options()(
     "compile-plan",
-    "Read a versioned compile-plan JSON and treat it as the full compiler request envelope.",
+    "Read a resolved compile-plan JSON and treat it as the full compiler request envelope.",
     cxxopts::value<std::string>()
   )(
     "source-build-info",
@@ -4811,7 +4794,7 @@ main(
     cxxopts::value<std::string>()
   )(
     "nano-version",
-    "Package version to resolve inside the styio-nano static repository.",
+    "Package version state expected inside the styio-nano static repository entry.",
     cxxopts::value<std::string>()
   );
 #endif

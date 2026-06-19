@@ -941,7 +941,7 @@ enum class StyioNodeType
   Remove_Item_By_Index,          // [-: index]
   Remove_Items_By_Many_Indices,  // [-: (i0, i1, ...)]
   Remove_Item_By_Value,          // [-: ?= value]
-  Remove_Items_By_Many_Values,   // [-: ?^ (v0, v1, ...)]
+  Remove_Items_By_Many_Values,   // [-: ?^ (x0, x_next, ...)]
 
   Get_Reversed,                  // [<]
   Get_Index_By_Item_From_Right,  // [[<] ?= value]
@@ -1368,7 +1368,7 @@ enum class IterOverWhat
   /*
    * Accept: 2 [Two Variables]
    */
-  Dict,  // {k0: v0, k1: v1, kn: vn}
+  Dict,  // {key0: value0, key1: value1, keyN: valueN}
 
   /*
    * Accept: n [Any]
@@ -1503,7 +1503,7 @@ enum class StyioTokenType
   ELLIPSIS,       // ...
   INFINITE_LIST,  // [...]
 
-  /* Topology v2: bounded ring buffer type [| n |] — paired delimiters (distinct from [ ... ]). */
+  /* resource topology: bounded ring buffer type [| n |] — paired delimiters (distinct from [ ... ]). */
   BOUNDED_BUFFER_OPEN,   // [|
   BOUNDED_BUFFER_CLOSE,  // |]
 

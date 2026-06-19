@@ -15,7 +15,7 @@ steps = [
   "reproduce current behavior with the smallest .styio sample",
   "capture the compiler stage and exact diagnostic",
   "freeze accepted and rejected spellings before editing",
-  "inspect lexer, authoritative nightly parser, legacy migration evidence, AST, Sema, lowering, docs, and tests",
+  "inspect lexer, authoritative nightly parser, retired parser-route audit evidence, AST, Sema, lowering, docs, and tests",
   "decide parser-vs-Sema rejection boundary",
   "implement the narrowest change while preserving existing AST and visitor architecture",
   "add positive and negative tests",
@@ -27,7 +27,7 @@ steps = [
 contract_surfaces = [
   "lexer/token names",
   "authoritative nightly parser",
-  "legacy parser migration evidence",
+  "retired parser-route audit evidence",
   "AST node shape and visitor path",
   "Sema/type inference",
   "lowering/runtime",

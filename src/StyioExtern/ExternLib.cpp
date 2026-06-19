@@ -538,10 +538,10 @@ struct StyioDictBackendSpec
 
 constexpr StyioDictBackendSpec kStyioDictBackendRegistry[] = {
 #if STYIO_NANO_ENABLE_DICT_BACKEND_ORDERED_HASH
-  {StyioDictRuntimeImpl::OrderedHash, "ordered-hash", {"ordered_hash", "v2", nullptr}},
+  {StyioDictRuntimeImpl::OrderedHash, "ordered-hash", {"ordered_hash", nullptr, nullptr}},
 #endif
 #if STYIO_NANO_ENABLE_DICT_BACKEND_LINEAR
-  {StyioDictRuntimeImpl::Linear, "linear", {"v1", nullptr, nullptr}},
+  {StyioDictRuntimeImpl::Linear, "linear", {nullptr, nullptr, nullptr}},
 #endif
 };
 

@@ -100,7 +100,7 @@ Accepted decision:
 - Long term, the standard library should become official package content maintained separately from the compiler implementation.
 - The standard library must be usable through Spio / Styio-Platform management when that package path is ready.
 - Builds must support trimming/dead-code elimination so standard-library availability does not force thick artifacts.
-- Standard-library APIs need versioned contracts, tests, and diagnostics before being treated as stable.
+- Standard-library APIs need named contracts, schema markers, tests, and diagnostics before being treated as stable.
 
 This preserves the "thick library, thin artifact" model: development can load a useful standard library, while production builds can remove unused code.
 
@@ -144,10 +144,10 @@ Accepted decision:
 
 | From | To | Required evidence |
 |------|----|-------------------|
-| external example | standard library | spec, stable API, positive/negative tests, versioning note |
+| external example | standard library | spec, stable API, positive/negative tests, schema-marker note |
 | benchmark workload | compiler intrinsic | proof that compiler-owned representation is required, lowering/codegen evidence, perf evidence |
 | benchmark workload | standard library | stable non-benchmark API, tests, docs, no benchmark-only assumptions |
-| domain library | standard library | general-purpose API, ecosystem justification, versioned contract |
+| domain library | standard library | general-purpose API, ecosystem justification, named contract |
 | standard library | compiler intrinsic | one of the intrinsic admission reasons plus compiler tests |
 | compiler intrinsic | language-core | type-system or core semantic dependency |
 

@@ -1337,7 +1337,7 @@ parse_styio_type_atom_latest(StyioContext& context) {
 }
 
 /*
-  Extensible type parser: scalar names (f64, i64, …), Topology v2
+  Extensible type parser: scalar names (f64, i64, …), resource topology
   `T|n|` / `T|..n|` / `T..`, and container aliases.
 */
 TypeAST*
@@ -2049,7 +2049,7 @@ parse_at_name_colon_routes_to_internal_decl_latest(StyioContext& context) {
 }
 
 static ResourceDeclAST*
-parse_resource_decl_v2_after_at_latest(StyioContext& context) {
+parse_resource_decl_after_at_latest(StyioContext& context) {
   std::vector<std::pair<std::unique_ptr<NameAST>, std::unique_ptr<TypeAST>>> slot_owners;
   while (true) {
     if (!context.check(StyioTokenType::NAME)) {
@@ -2306,7 +2306,7 @@ parse_at_stmt_or_expr_latest(StyioContext& context) {
     }
     if (context.check(StyioTokenType::TOK_COLON) && !builtin_resource_name) {
       context.restore_cursor(saved_resource_decl);
-      return parse_resource_decl_v2_after_at_latest(context);
+      return parse_resource_decl_after_at_latest(context);
     }
     context.restore_cursor(saved_resource_decl);
   }
@@ -4290,7 +4290,7 @@ parse_chain_of_call(
   | [*] remove_item_by_value
     : [-: ?= item]
   | [ ] remove_many_items_by_values
-    : [-: ?^ (v0, v1, ...)]
+    : [-: ?^ (x0, x_next, ...)]
 
   | [*] get_reversed
     : [<]
@@ -4299,7 +4299,7 @@ parse_chain_of_call(
   | [ ] remove_item_by_value_from_right
     : [[<] -: ?= value]
   | [ ] remove_many_items_by_values_from_right
-    : [[<] -: ?^ (v0, v1, ...)]
+    : [[<] -: ?^ (x0, x_next, ...)]
 */
 
 StyioAST*
@@ -4468,7 +4468,7 @@ parse_index_op(StyioContext& context, StyioAST* theList) {
               break;
 
               /*
-                list[-: ?^ (v0, v1, ...)]
+                list[-: ?^ (x0, x_next, ...)]
               */
               case '^': {
                 context.move(1);

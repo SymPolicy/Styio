@@ -267,7 +267,7 @@ write_compile_plan_contract_case_latest(
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": " << profile_json << ",\n"
       << "  \"packages\": " << packages_json << ",\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\"build_root\": \"" << paths.build_root.string() << "\", \"artifact_dir\": \""
       << paths.artifact_dir.string() << "\", \"diag_dir\": \"" << paths.diag_dir.string() << "\"},\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
@@ -823,11 +823,7 @@ TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   EXPECT_NE(result.stdout_text.find("\"channel\":\"nightly\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"active_integration_phase\":\"compile-plan-live\""), std::string::npos);
   EXPECT_NE(
-    result.stdout_text.find("\"supported_contracts\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":[1],\"compile_plan\":[1],\"runtime_events\":[1]}"),
-    std::string::npos
-  );
-  EXPECT_NE(
-    result.stdout_text.find("\"supported_contract_versions\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":[1],\"compile_plan\":[1],\"runtime_events\":[1]}"),
+    result.stdout_text.find("\"supported_contracts\":{\"machine_info\":[\"json\"],\"jsonl_diagnostics\":[\"jsonl\"],\"syntax_check\":[\"syntax-json\"],\"compile_plan\":[\"resolved-request\"],\"runtime_events\":[\"jsonl\"]}"),
     std::string::npos
   );
   EXPECT_NE(result.stdout_text.find("\"supported_adapter_modes\":[\"cli\"]"), std::string::npos);
@@ -846,7 +842,7 @@ TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   EXPECT_NE(result.stdout_text.find("\"syntax_check_recovery_diagnostics\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"syntax_check_source_context\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"stable_diagnostic_codes\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"nano_package_registry_publish_v1\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"nano_package_registry_publish\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"dict_impl\":{\"selected\":\"ordered-hash\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"edition_max\":\"2026\""), std::string::npos);
 }
@@ -1232,21 +1228,6 @@ TEST(StyioDiagnostics, MachineInfoJsonReflectsCliDictImplSelection) {
   EXPECT_NE(result.stdout_text.find("\"source\":\"cli\""), std::string::npos);
 }
 
-TEST(StyioDiagnostics, MachineInfoJsonReflectsCliDictImplAliasSelection) {
-  const char* runner = std::getenv("STYIO_COMPILER_EXE");
-  if (runner == nullptr || runner[0] == '\0') {
-    runner = STYIO_COMPILER_EXE;
-  }
-  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
-
-  const std::string cmd =
-    std::string("\"") + runner + "\" --machine-info=json --dict-impl=v1";
-  const CommandResult result = run_stdout_command(cmd);
-  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
-  EXPECT_NE(result.stdout_text.find("\"dict_impl\":{\"selected\":\"linear\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"source\":\"cli\""), std::string::npos);
-}
-
 TEST(StyioDiagnostics, SourceBuildInfoJsonReportsOfficialSourceLayoutFields) {
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
   if (runner == nullptr || runner[0] == '\0') {
@@ -1579,7 +1560,7 @@ TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
       << "    \"build_root\": \"" << build_root.string() << "\",\n"
       << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
@@ -1661,7 +1642,7 @@ TEST(StyioDiagnostics, CompilePlanCheckWritesArtifactsWithoutExecutingEntry) {
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
       << "    \"build_root\": \"" << build_root.string() << "\",\n"
       << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
@@ -1743,7 +1724,7 @@ TEST(StyioDiagnostics, CompilePlanRunExecutesAndWritesReceiptAndRequestedArtifac
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
       << "    \"build_root\": \"" << build_root.string() << "\",\n"
       << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
@@ -1831,7 +1812,7 @@ TEST(StyioDiagnostics, CompilePlanTestExecutesAndPublishesUnitTestRuntimeEvents)
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
       << "    \"build_root\": \"" << build_root.string() << "\",\n"
       << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
@@ -1903,7 +1884,7 @@ TEST(StyioDiagnostics, CompilePlanFailureWritesJsonlDiagnosticIntoDiagDir) {
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
       << "    \"build_root\": \"" << build_root.string() << "\",\n"
       << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
@@ -1983,7 +1964,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidIntentReportsCliDiagnosticAndWritesDiag
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
       << "    \"build_root\": \"" << build_root.string() << "\",\n"
       << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
@@ -2054,7 +2035,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidBuildModeReportsCliDiagnosticAndWritesD
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"full\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
       << "    \"build_root\": \"" << build_root.string() << "\",\n"
       << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
@@ -2125,7 +2106,7 @@ TEST(StyioDiagnostics, CompilePlanCliConflictReportsCliDiagnosticAndWritesDiagDi
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
       << "    \"build_root\": \"" << build_root.string() << "\",\n"
       << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
@@ -2231,7 +2212,7 @@ TEST(StyioDiagnostics, CompilePlanGeneratedByMismatchReportsCliDiagnosticAndWrit
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
       << "    \"build_root\": \"" << build_root.string() << "\",\n"
       << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
@@ -2298,7 +2279,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedTargetKindReportsCliDiagnosticAndWr
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
       << "    \"build_root\": \"" << build_root.string() << "\",\n"
       << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
@@ -2365,7 +2346,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeWorkspaceRootReportsCliDiagnosticAndWr
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
       << "    \"build_root\": \"" << build_root.string() << "\",\n"
       << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
@@ -2430,7 +2411,7 @@ TEST(StyioDiagnostics, CompilePlanMissingOutputsReportsMachineReadableCliDiagnos
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
   }
@@ -2452,11 +2433,11 @@ TEST(StyioDiagnostics, CompilePlanMissingOutputsReportsMachineReadableCliDiagnos
   fs::remove_all(root);
 }
 
-TEST(StyioDiagnostics, CompilePlanUnsupportedVersionWritesCliDiagnosticToDiagDir) {
+TEST(StyioDiagnostics, CompilePlanVersionMarkerDoesNotSelectImplementation) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path root =
-    fs::temp_directory_path() / ("styio-compile-plan-version-" + std::to_string(uniq));
+    fs::temp_directory_path() / ("styio-compile-plan-marker-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
   const fs::path build_root = root / ".spio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
@@ -2468,7 +2449,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedVersionWritesCliDiagnosticToDiagDir
   {
     std::ofstream out(source);
     ASSERT_TRUE(out.is_open());
-    out << ">_(\"compile-plan-unsupported-version\")\n";
+    out << ">_(\"compile-plan-marker\")\n";
   }
   {
     std::ofstream out(plan_path);
@@ -2488,7 +2469,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedVersionWritesCliDiagnosticToDiagDir
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\"build_root\": \"" << build_root.string() << "\", \"artifact_dir\": \"" << artifact_dir.string()
       << "\", \"diag_dir\": \"" << diag_dir.string() << "\"},\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
@@ -2503,12 +2484,10 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedVersionWritesCliDiagnosticToDiagDir
 
   const CommandResult result =
     run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
-  EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
-  EXPECT_NE(result.stdout_text.find("unsupported compile-plan version: 9"), std::string::npos);
-  ASSERT_TRUE(fs::exists(diag_dir / "diagnostics.jsonl"));
-  const std::string diagnostics = read_text_file_latest(diag_dir / "diagnostics.jsonl");
-  EXPECT_NE(diagnostics.find("\"category\":\"CliError\""), std::string::npos);
-  EXPECT_NE(diagnostics.find("unsupported compile-plan version: 9"), std::string::npos);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  ASSERT_TRUE(fs::exists(build_root / "receipt.json"));
+  const std::string receipt = read_text_file_latest(build_root / "receipt.json");
+  EXPECT_NE(receipt.find("\"plan_version\":9"), std::string::npos);
 
   fs::remove_all(root);
 }
@@ -2549,7 +2528,7 @@ TEST(StyioDiagnostics, CompilePlanEmptyPackagesWritesCliDiagnosticToDiagDir) {
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [],\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\"build_root\": \"" << build_root.string() << "\", \"artifact_dir\": \"" << artifact_dir.string()
       << "\", \"diag_dir\": \"" << diag_dir.string() << "\"},\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
@@ -2652,7 +2631,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedErrorFormatWritesCliDiagnosticToDia
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\"build_root\": \"" << build_root.string() << "\", \"artifact_dir\": \"" << artifact_dir.string()
       << "\", \"diag_dir\": \"" << diag_dir.string() << "\"},\n"
       << "  \"emit\": {\"error_format\": \"yaml\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
@@ -2713,7 +2692,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeEntryFileWritesCliDiagnosticToDiagDir)
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\"build_root\": \"" << build_root.string() << "\", \"artifact_dir\": \"" << artifact_dir.string()
       << "\", \"diag_dir\": \"" << diag_dir.string() << "\"},\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
@@ -2773,7 +2752,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeArtifactDirWritesCliDiagnosticToDiagDi
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\"build_root\": \"" << build_root.string() << "\", \"artifact_dir\": \"artifacts\", \"diag_dir\": \""
       << diag_dir.string() << "\"},\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
@@ -2833,7 +2812,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeDiagDirReportsMachineReadableCliDiagno
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
-      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\"build_root\": \"" << build_root.string() << "\", \"artifact_dir\": \"" << artifact_dir.string()
       << "\", \"diag_dir\": \"diag\"},\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
@@ -3066,7 +3045,7 @@ TEST(StyioNanoPackage, CloudRepositoryConfigMaterializesBundle) {
   const std::string package_name = "edge/default";
   const std::string version = "0.0.1";
   const fs::path entry =
-    repo_dir / "index" / "edge" / "default" / (version + ".json");
+    repo_dir / "index" / "edge" / "default" / "entry.json";
   const fs::path config = root / "nano.toml";
   ASSERT_TRUE(fs::create_directories(package_root / "bin"));
   ASSERT_TRUE(fs::create_directories(repo_dir / "index" / "edge" / "default"));
@@ -3105,14 +3084,14 @@ TEST(StyioNanoPackage, CloudRepositoryConfigMaterializesBundle) {
     ASSERT_TRUE(out.is_open());
     out << "{\n";
     out << "  \"kind\": \"styio-nano-static\",\n";
-    out << "  \"schema_version\": 1\n";
+    out << "  \"schema\": \"styio-nano-static-repository\"\n";
     out << "}\n";
   }
   {
     std::ofstream out(entry);
     ASSERT_TRUE(out.is_open());
     out << "{\n";
-    out << "  \"schema_version\": 1,\n";
+    out << "  \"schema\": \"styio-nano-repository-entry\",\n";
     out << "  \"package\": \"" << package_name << "\",\n";
     out << "  \"version\": \"" << version << "\",\n";
     out << "  \"channel\": \"nano\",\n";
@@ -3172,7 +3151,7 @@ TEST(StyioNanoPackage, CloudRepositoryRejectsInvalidMarkerContract) {
     ASSERT_TRUE(out.is_open());
     out << "{\n";
     out << "  \"kind\": \"not-styio-nano-static\",\n";
-    out << "  \"schema_version\": 1\n";
+    out << "  \"schema\": \"styio-nano-static-repository\"\n";
     out << "}\n";
   }
   {
@@ -3219,7 +3198,7 @@ TEST(StyioNanoPackage, CloudRepositoryRejectsBlobSha256Mismatch) {
     fs::path("blobs") / "sha256" / "00" / "00" / (expected_sha + ".tar");
   const fs::path blob_path = repo_dir / blob_relpath;
   const fs::path entry =
-    repo_dir / "index" / "edge" / "default" / (version + ".json");
+    repo_dir / "index" / "edge" / "default" / "entry.json";
   ASSERT_TRUE(fs::create_directories(blob_path.parent_path()));
   ASSERT_TRUE(fs::create_directories(entry.parent_path()));
 
@@ -3228,7 +3207,7 @@ TEST(StyioNanoPackage, CloudRepositoryRejectsBlobSha256Mismatch) {
     ASSERT_TRUE(out.is_open());
     out << "{\n";
     out << "  \"kind\": \"styio-nano-static\",\n";
-    out << "  \"schema_version\": 1\n";
+    out << "  \"schema\": \"styio-nano-static-repository\"\n";
     out << "}\n";
   }
   {
@@ -3240,7 +3219,7 @@ TEST(StyioNanoPackage, CloudRepositoryRejectsBlobSha256Mismatch) {
     std::ofstream out(entry);
     ASSERT_TRUE(out.is_open());
     out << "{\n";
-    out << "  \"schema_version\": 1,\n";
+    out << "  \"schema\": \"styio-nano-repository-entry\",\n";
     out << "  \"package\": \"" << package_name << "\",\n";
     out << "  \"version\": \"" << version << "\",\n";
     out << "  \"channel\": \"nano\",\n";
@@ -3290,7 +3269,7 @@ TEST(StyioNanoPackage, CloudRepositoryRejectsBlobSizeMismatch) {
   const std::string package_name = "edge/default";
   const std::string version = "0.0.1";
   const fs::path entry =
-    repo_dir / "index" / "edge" / "default" / (version + ".json");
+    repo_dir / "index" / "edge" / "default" / "entry.json";
   ASSERT_TRUE(fs::create_directories(entry.parent_path()));
 
   {
@@ -3298,7 +3277,7 @@ TEST(StyioNanoPackage, CloudRepositoryRejectsBlobSizeMismatch) {
     ASSERT_TRUE(out.is_open());
     out << "{\n";
     out << "  \"kind\": \"styio-nano-static\",\n";
-    out << "  \"schema_version\": 1\n";
+    out << "  \"schema\": \"styio-nano-static-repository\"\n";
     out << "}\n";
   }
 
@@ -3324,7 +3303,7 @@ TEST(StyioNanoPackage, CloudRepositoryRejectsBlobSizeMismatch) {
     std::ofstream out(entry);
     ASSERT_TRUE(out.is_open());
     out << "{\n";
-    out << "  \"schema_version\": 1,\n";
+    out << "  \"schema\": \"styio-nano-repository-entry\",\n";
     out << "  \"package\": \"" << package_name << "\",\n";
     out << "  \"version\": \"" << version << "\",\n";
     out << "  \"channel\": \"nano\",\n";
@@ -3422,7 +3401,7 @@ TEST(StyioNanoPackage, PublishConfigWritesRepositoryAndRoundTripsToCloudInstall)
   ASSERT_EQ(published.exit_code, 0) << published.stdout_text;
 
   const fs::path marker = repo_dir / "styio-nano-repository.json";
-  const fs::path entry = repo_dir / "index" / "edge" / "default" / (version + ".json");
+  const fs::path entry = repo_dir / "index" / "edge" / "default" / "entry.json";
   ASSERT_TRUE(fs::exists(marker));
   ASSERT_TRUE(fs::exists(entry));
   EXPECT_NE(read_text_file_latest(entry).find("\"package\": \"" + package_name + "\""), std::string::npos);
@@ -3517,7 +3496,7 @@ TEST(StyioNanoPackage, CloudRepositoryRejectsMalformedEntrySchema) {
   const std::string package_name = "edge/default";
   const std::string version = "0.0.1";
   const fs::path entry =
-    repo_dir / "index" / "edge" / "default" / (version + ".json");
+    repo_dir / "index" / "edge" / "default" / "entry.json";
   ASSERT_TRUE(fs::create_directories(entry.parent_path()));
 
   {
@@ -3525,14 +3504,14 @@ TEST(StyioNanoPackage, CloudRepositoryRejectsMalformedEntrySchema) {
     ASSERT_TRUE(out.is_open());
     out << "{\n";
     out << "  \"kind\": \"styio-nano-static\",\n";
-    out << "  \"schema_version\": 1\n";
+    out << "  \"schema\": \"styio-nano-static-repository\"\n";
     out << "}\n";
   }
   {
     std::ofstream out(entry);
     ASSERT_TRUE(out.is_open());
     out << "{\n";
-    out << "  \"schema_version\": 1,\n";
+    out << "  \"schema\": \"styio-nano-repository-entry\",\n";
     out << "  \"package\": \"" << package_name << "\",\n";
     out << "  \"version\": \"" << version << "\",\n";
     out << "  \"channel\": \"nano\",\n";
@@ -8336,11 +8315,11 @@ TEST(StyioDiagnostics, ResourceMethodInvalidFmtStringFailsClosed) {
   fs::remove(data);
 }
 
-TEST(StyioTopologyV2, LogicalResourceWritesCommitAtPulseEnd) {
+TEST(StyioResourceTopology, LogicalResourceWritesCommitAtPulseEnd) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
-    fs::temp_directory_path() / ("styio-topology-v2-lazy-commit-" + std::to_string(uniq) + ".styio");
+    fs::temp_directory_path() / ("styio-resource-topology-lazy-commit-" + std::to_string(uniq) + ".styio");
 
   {
     std::ofstream out(input);
@@ -8370,7 +8349,7 @@ TEST(StyioTopologyV2, LogicalResourceWritesCommitAtPulseEnd) {
   fs::remove(input);
 }
 
-TEST(StyioTopologyV2, AwaitPipeResourceEffectDiscardCommitsWrite) {
+TEST(StyioResourceTopology, AwaitPipeResourceEffectDiscardCommitsWrite) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -8403,7 +8382,7 @@ TEST(StyioTopologyV2, AwaitPipeResourceEffectDiscardCommitsWrite) {
   fs::remove(input);
 }
 
-TEST(StyioTopologyV2, ResourceSelectorSnapshotIteratorUsesMaterializedValues) {
+TEST(StyioResourceTopology, ResourceSelectorSnapshotIteratorUsesMaterializedValues) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -8442,7 +8421,7 @@ TEST(StyioTopologyV2, ResourceSelectorSnapshotIteratorUsesMaterializedValues) {
   fs::remove(input);
 }
 
-TEST(StyioTopologyV2, ResourceScalarSelectorIteratorFailsClosed) {
+TEST(StyioResourceTopology, ResourceScalarSelectorIteratorFailsClosed) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -8483,7 +8462,7 @@ TEST(StyioTopologyV2, ResourceScalarSelectorIteratorFailsClosed) {
   fs::remove(input);
 }
 
-TEST(StyioTopologyV2, ResourceSelectorHandleSnapshotsCloneListAndDictValues) {
+TEST(StyioResourceTopology, ResourceSelectorHandleSnapshotsCloneListAndDictValues) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -8535,7 +8514,7 @@ TEST(StyioTopologyV2, ResourceSelectorHandleSnapshotsCloneListAndDictValues) {
   fs::remove(input);
 }
 
-TEST(StyioTopologyV2, ResourceSelectorHandleSnapshotCopiesStayMaterialized) {
+TEST(StyioResourceTopology, ResourceSelectorHandleSnapshotCopiesStayMaterialized) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -8591,7 +8570,7 @@ TEST(StyioTopologyV2, ResourceSelectorHandleSnapshotCopiesStayMaterialized) {
   fs::remove(input);
 }
 
-TEST(StyioTopologyV2, ResourceSelectorMatrixSnapshotsCloneValues) {
+TEST(StyioResourceTopology, ResourceSelectorMatrixSnapshotsCloneValues) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
