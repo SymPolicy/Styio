@@ -530,6 +530,8 @@ TEST(StyioVfs, AppliesSequentialTextEdits) {
   ASSERT_NE(invalid_result.snapshot, nullptr);
   EXPECT_TRUE(invalid_result.needs_full_resync);
   EXPECT_EQ(invalid_result.snapshot->buffer.text(), "ONE TWO THREE");
+
+  vfs.close(path + ".missing");
 }
 
 TEST(StyioIDECommon, TextBufferUriAndEnumHelpersCoverEdgeCases) {
@@ -562,6 +564,9 @@ TEST(StyioIDECommon, TextBufferUriAndEnumHelpersCoverEdgeCases) {
   EXPECT_EQ(
     styio::ide::path_from_uri("file://tmp/space+name%2Fchild%41.styio"),
     "/tmp/space name/childA.styio");
+  EXPECT_EQ(
+    styio::ide::path_from_uri("file:///tmp/lower%2fhex%61.styio"),
+    "/tmp/lower/hexa.styio");
   EXPECT_EQ(
     styio::ide::path_from_uri("file:///tmp/bad%ZZ+name.styio"),
     "/tmp/bad%ZZ name.styio");
@@ -979,6 +984,16 @@ TEST(StyioSyntaxParser, TolerantTokenizerCoversWidePunctuationAndQueries) {
   EXPECT_NE(syntax.node_at_offset(0), nullptr);
   EXPECT_EQ(syntax.node_at_offset(snapshot.buffer.size() + 100), nullptr);
   EXPECT_FALSE(syntax.token_index_at(snapshot.buffer.size() + 100).has_value());
+
+  styio::ide::SyntaxSnapshot equal_span_nodes;
+  equal_span_nodes.nodes = {
+    styio::ide::SyntaxNode{styio::ide::SyntaxNodeKind::Group, "same-a", styio::ide::TextRange{0, 2}, {}},
+    styio::ide::SyntaxNode{styio::ide::SyntaxNodeKind::Group, "same-b", styio::ide::TextRange{0, 2}, {}},
+    styio::ide::SyntaxNode{styio::ide::SyntaxNodeKind::Group, "later", styio::ide::TextRange{1, 3}, {}},
+  };
+  EXPECT_EQ(
+    equal_span_nodes.node_path_at(1),
+    std::vector<std::size_t>({0, 1, 2}));
 }
 
 TEST(StyioSyntaxParser, TolerantDiagnosticsAndContextQueriesCoverEdges) {
