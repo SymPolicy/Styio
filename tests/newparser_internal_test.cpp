@@ -295,6 +295,7 @@ TEST(StyioNewParserInternal, DefaultValuesRecoveryAndTokenProbesStayExplicit) {
   EXPECT_TRUE(expr_is_comp(StyioTokenType::BINOP_GT));
   EXPECT_TRUE(expr_is_comp(StyioTokenType::BINOP_LE));
   EXPECT_EQ(expr_map_comp(StyioTokenType::BINOP_GT), CompType::GT);
+  EXPECT_EQ(expr_map_comp(StyioTokenType::BINOP_LT), CompType::LT);
   EXPECT_EQ(expr_map_comp(StyioTokenType::BINOP_LE), CompType::LE);
   EXPECT_EQ(expr_map_comp(StyioTokenType::BINOP_EQ), CompType::EQ);
 }
@@ -438,6 +439,16 @@ TEST(StyioNewParserInternal, HashLetMatchAndSubsetDeclinesStayExplicit) {
     ASSERT_NE(block, nullptr);
   }
   {
+    DirectContext direct("{ ?| -> out: i64 | 0 }");
+    auto attempt = try_parse_block_only_subset_nightly(direct.get());
+    EXPECT_EQ(attempt.status, ParseAttemptStatus::Fatal);
+  }
+  {
+    DirectContext direct("{ $state }");
+    auto attempt = try_parse_block_only_subset_nightly(direct.get());
+    EXPECT_EQ(attempt.status, ParseAttemptStatus::Fatal);
+  }
+  {
     DirectContext direct("a := 1");
     auto attempt = try_parse_block_only_subset_nightly(direct.get());
     EXPECT_EQ(attempt.status, ParseAttemptStatus::Declined);
@@ -447,7 +458,17 @@ TEST(StyioNewParserInternal, HashLetMatchAndSubsetDeclinesStayExplicit) {
     EXPECT_THROW((void)parse_stmt_subset_with_legacy_fallback_latest_draft(direct.get()), StyioSyntaxError);
   }
   {
+    DirectContext direct("a, 1 = 2");
+    auto attempt = try_parse_stmt_subset_nightly(direct.get());
+    EXPECT_EQ(attempt.status, ParseAttemptStatus::Fatal);
+    EXPECT_THROW((void)parse_stmt_subset_with_legacy_fallback_latest_draft(direct.get()), StyioSyntaxError);
+  }
+  {
     DirectContext direct(")");
+    EXPECT_THROW((void)parse_block_only_subset_with_legacy_fallback_latest_draft(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("{ ?| -> out: i64 | 0 }");
     EXPECT_THROW((void)parse_block_only_subset_with_legacy_fallback_latest_draft(direct.get()), StyioSyntaxError);
   }
   {
@@ -505,6 +526,12 @@ TEST(StyioNewParserInternal, ForwardIteratorAndContinuationEdgesStayExplicit) {
     EXPECT_THROW(
       (void)parse_expr_core_allowing_follow_latest(direct.get(), {StyioTokenType::TOK_EOF}),
       StyioSyntaxError);
+  }
+  {
+    DirectContext direct("name [0]");
+    std::unique_ptr<StyioAST> ast(parse_expr_core_allowing_follow_latest(direct.get(), {}));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Access_By_Index);
   }
   {
     DirectContext direct("items[]");
@@ -641,6 +668,10 @@ TEST(StyioNewParserInternal, RouteDictIteratorAndStatementHelpersStayExplicit) {
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::BinOp);
   }
+  {
+    DirectContext direct("(");
+    EXPECT_THROW((void)parse_iterator_collection_rhs_nightly_draft(direct.get()), StyioSyntaxError);
+  }
 
   {
     DirectContext direct("<< 1");
@@ -655,11 +686,19 @@ TEST(StyioNewParserInternal, RouteDictIteratorAndStatementHelpersStayExplicit) {
     EXPECT_EQ(cases->getNodeType(), StyioNodeType::Cases);
   }
   {
+    DirectContext direct("{ ) => { << 0 } }");
+    EXPECT_THROW((void)parse_cases_only_nightly_draft(direct.get()), StyioSyntaxError);
+  }
+  {
     DirectContext direct("=> { << 1 }");
     std::vector<StyioAST*> followings = parse_forward_as_list_nightly_draft(direct.get());
     ASSERT_EQ(followings.size(), 1u);
     std::unique_ptr<StyioAST> owner(followings[0]);
     EXPECT_EQ(owner->getNodeType(), StyioNodeType::Block);
+  }
+  {
+    DirectContext direct("?= (");
+    EXPECT_THROW((void)parse_forward_as_list_nightly_draft(direct.get()), StyioSyntaxError);
   }
 
   {
