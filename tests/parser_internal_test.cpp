@@ -388,7 +388,23 @@ TEST(StyioParserInternal, ContextHelpersCoverAdditionalTokenEdges) {
   }
   {
     StyioContext direct("<parser-internal>", "", {}, {}, false);
+    EXPECT_EQ(direct.current_token_end_pos(), 0u);
+    direct.move_forward(1, "empty_context");
+    EXPECT_EQ(direct.get_token_index(), 0u);
+    direct.skip();
+    direct.skip_spaces_no_linebreak();
+    EXPECT_EQ(direct.find_line_index(), 0u);
+    EXPECT_NE(direct.label_cur_line().find("<empty>"), std::string::npos);
+    EXPECT_EQ(direct.mark_cur_tok(), "Unknown token location");
     EXPECT_THROW(direct.try_match_panic(StyioTokenType::NAME), StyioParseError);
+  }
+  {
+    StyioContext no_lines("<parser-internal>", "abc", {}, {}, false);
+    EXPECT_NE(no_lines.label_cur_line(99, "tail").find("abc"), std::string::npos);
+  }
+  {
+    DirectContext direct("name");
+    EXPECT_THROW(direct.get().map_match(StyioTokenType::NAME), StyioSyntaxError);
   }
   {
     DirectContext direct("^^^");
