@@ -219,6 +219,115 @@ TEST(StyioResourceTopology, GraphApiCoversSparseEdgesAndInvalidLookups) {
     << graph.debug_string();
 }
 
+TEST(StyioResourceTopology, SparseAstFallbacksCoverTraversalEdges) {
+  StyioDataType stdout_stream = styio_make_std_stream_type(StdStreamKind::Stdout, "string");
+  StyioDataType readable_opaque{StyioDataTypeOption::Defined, "opaque-readable", 0};
+  readable_opaque.capabilities = styio_caps(StyioTypeCapability::Readable);
+
+  auto root = program({
+    AttrAST::Create(NameAST::Create("opaque"), IntAST::Create("1")),
+    ResourceMethodDefAST::Create(
+      "file",
+      "drop_via_close",
+      false,
+      false,
+      {},
+      FuncCallAST::Create(
+        ResourceReceiverAST::Create("file"),
+        NameAST::Create("close"),
+        {})),
+    ResourceMethodDefAST::Create(
+      "file",
+      "drop_via_arg",
+      false,
+      false,
+      {},
+      FuncCallAST::Create(
+        NameAST::Create("wrap"),
+        {ResourceRedirectAST::Create(ResourceReceiverAST::Create("file"), EmptyResourceAST::Create())})),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("typed_stdout"), TypeAST::Create(stdout_stream)),
+      IntAST::Create("1")),
+    FuncCallAST::Create(
+      NameAST::Create("typed_stdout"),
+      NameAST::Create("write"),
+      {StringAST::Create("out")}),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("readable"), TypeAST::Create(readable_opaque)),
+      IntAST::Create("2")),
+    FuncCallAST::Create(
+      NameAST::Create("readable"),
+      NameAST::Create("peek"),
+      {}),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("job")),
+      TaskGroupLaunchAST::Create({
+        TaskBlockAST::Create(BlockAST::Create({PrintAST::Create({IntAST::Create("3")})})),
+      })),
+    PrintAST::Create({NameAST::Create("job")}),
+    new VarAST(NameAST::Create("standalone")),
+    ResourceOrderAST::Create(IntAST::Create("4"), IntAST::Create("5")),
+  });
+
+  rt::BuildResult result = rt::build(root.get());
+  const std::string graph = result.graph.debug_string();
+
+  EXPECT_TRUE(result.report.ok()) << result.report.message();
+  EXPECT_NE(graph.find("value:attr"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("resource-method:@file::drop_via_close"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("resource-method:@file::drop_via_arg"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("binding:typed_stdout"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("resource-method:write"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("resource-method:peek"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("task_ref"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("var:standalone"), std::string::npos) << graph;
+  EXPECT_GE(result.graph.edge_count(rt::EdgeKind::HappensBefore), 1u);
+
+  rt::BuildOptions options;
+  options.require_close_owner = false;
+  auto permissive_root = program({
+    FileResourceAST::Create(StringAST::Create("/tmp/styio-rtg-permissive.txt"), false),
+  });
+  rt::BuildResult permissive = rt::build(permissive_root.get(), options);
+
+  EXPECT_TRUE(permissive.report.ok()) << permissive.report.message();
+}
+
+TEST(StyioResourceTopology, ResourceOrderTraversalVisitsCyclesBeforeConflict) {
+  auto root = program({
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("log")),
+      FileResourceAST::Create(StringAST::Create("/tmp/styio-rtg-cycle.log"), true)),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("t1")),
+      BlockAST::Create({
+        FuncCallAST::Create(NameAST::Create("log"), NameAST::Create("write"), {StringAST::Create("a")}),
+      })),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("t2")),
+      BlockAST::Create({PrintAST::Create({IntAST::Create("2")})})),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("t3")),
+      BlockAST::Create({PrintAST::Create({IntAST::Create("3")})})),
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("t4")),
+      BlockAST::Create({
+        FuncCallAST::Create(NameAST::Create("log"), NameAST::Create("write"), {StringAST::Create("b")}),
+      })),
+    ResourceOrderAST::Create(NameAST::Create("t1"), NameAST::Create("t2")),
+    ResourceOrderAST::Create(NameAST::Create("t1"), NameAST::Create("t3")),
+    ResourceOrderAST::Create(NameAST::Create("t2"), NameAST::Create("t3")),
+    ResourceOrderAST::Create(NameAST::Create("t3"), NameAST::Create("t2")),
+  });
+
+  rt::BuildResult result = rt::build(root.get());
+
+  ASSERT_FALSE(result.report.ok());
+  EXPECT_NE(result.report.message().find("unordered exclusive resource borrow"), std::string::npos)
+    << result.report.message();
+  EXPECT_GE(result.graph.edge_count(rt::EdgeKind::HappensBefore), 4u);
+}
+
 TEST(StyioResourceTopology, FileWriteOwnsCloseCapableSource) {
   auto root = program({
     ResourceWriteAST::Create(
