@@ -53,6 +53,13 @@ TOOLS: tuple[Tool, ...] = (
         ("python3", "tests/workflow_scheduler_test.py"),
     ),
     Tool(
+        "tool-skill-registry",
+        7,
+        "Docs / Ecosystem",
+        "Validate current repo-local skills, maintenance tools, release wiring, and module coverage.",
+        ("python3", "scripts/tool-skill-registry-gate.py"),
+    ),
+    Tool(
         "repo-hygiene-worktree",
         10,
         "Docs / Ecosystem",
@@ -229,6 +236,12 @@ WORKFLOW_DOCS: tuple[WorkflowDoc, ...] = (
         5,
         "Tool registry, workflow separation, profile ordering, and scheduler usage.",
     ),
+    WorkflowDoc(
+        "tool-skill-registry-gate",
+        "workflows/TOOL-SKILL-REGISTRY-GATE.md",
+        7,
+        "Current repo-local skill and maintenance-tool inventory, release wiring, and module coverage.",
+    ),
 )
 
 
@@ -237,6 +250,7 @@ PROFILES: tuple[Profile, ...] = (
         "delivery-checkpoint",
         "Common worktree process gates for checkpoint delivery before optional checkpoint-health.",
         (
+            "tool-skill-registry",
             "repo-hygiene-worktree",
             "runtime-surface",
             "team-docs-worktree",
@@ -248,6 +262,7 @@ PROFILES: tuple[Profile, ...] = (
         "delivery-staged",
         "Common staged-index process gates for commit hooks and staged handoff.",
         (
+            "tool-skill-registry",
             "repo-hygiene-staged",
             "runtime-surface",
             "team-docs-staged",
@@ -259,6 +274,7 @@ PROFILES: tuple[Profile, ...] = (
         "delivery-push",
         "Common process gates for branch handoff against a base ref and incoming revision range.",
         (
+            "tool-skill-registry",
             "repo-hygiene-push",
             "runtime-surface",
             "team-docs-base",
@@ -272,6 +288,7 @@ PROFILES: tuple[Profile, ...] = (
         (
             "workflow-scheduler-check",
             "workflow-scheduler-tests",
+            "tool-skill-registry",
             "repo-hygiene-tracked",
             "runtime-surface",
             "team-docs-worktree",
@@ -285,6 +302,7 @@ PROFILES: tuple[Profile, ...] = (
         (
             "workflow-scheduler-check",
             "workflow-scheduler-tests",
+            "tool-skill-registry",
             "repo-hygiene-tracked",
             "repo-hygiene-push",
             "runtime-surface",

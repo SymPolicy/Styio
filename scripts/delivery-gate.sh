@@ -51,7 +51,7 @@ ref_exists() {
 }
 
 has_worktree_changes() {
-  [[ -n "$(git status --porcelain=v1 --untracked-files=all)" ]]
+  [[ -n "$(git status --porcelain --untracked-files=all)" ]]
 }
 
 rev_count() {

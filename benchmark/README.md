@@ -11,10 +11,10 @@ next to the Styio build:
   - Builds Styio-owned probe binaries from
     `styio-benchmark/styio-probes/*.cpp`.
 - `parser-shadow-suite-gate.sh`
-  - Parser correctness gate wrapper used by Styio CTest feature suites.
+  - Parser correctness gate used by Styio CTest feature suites.
 - `perf-route.sh`, `perf-report.py`, and `soak-minimize.sh`
-  - Compatibility adapters that locate `styio-benchmark` and forward with
-    `--styio-root` set to this checkout.
+  - Active adapters that locate `styio-benchmark` and forward with `--styio-root`
+    set to this checkout.
 - `regressions/` and `reports/`
   - Local-only output locations. Do not commit generated benchmark artifacts
     here; promote durable reports in `styio-benchmark` instead.

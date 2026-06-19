@@ -2,7 +2,7 @@
 
 **Purpose:** Map new file classes to the repo surfaces that usually need updates.
 
-**Last updated:** 2026-04-23
+**Last updated:** 2026-06-19
 
 | Class | Usual Surfaces |
 |-------|----------------|

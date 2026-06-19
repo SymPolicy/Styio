@@ -195,7 +195,7 @@ def worktree_files(repo_root: Path) -> list[str]:
     out = run_git(
         repo_root,
         "status",
-        "--porcelain=v1",
+        "--porcelain",
         "--untracked-files=all",
     )
     paths: list[str] = []

@@ -75,7 +75,6 @@ Styio/
 ├── .clang-format               # C++ formatting rules (MUST use)
 ├── .gitignore
 ├── README.md
-├── extend_tests.py             # Test scaffolding script
 │
 ├── docs/                       # Project documentation root
 │   ├── README.md               # Taxonomy and entrypoints
@@ -346,7 +345,7 @@ Update `getTokName()` in `Token.hpp` or `Token.cpp` so that debug printing shows
 
 ### Step 5: Write Lexer Test
 
-Create a `.styio` file in `tests/parsing/` that uses the new token. Verify it tokenizes correctly using `--debug` mode.
+Create a `.styio` feature fixture under `tests/features/<feature>/` that uses the new token, add the expected oracle when needed, and wire it through `tests/CMakeLists.txt`. Use focused `ctest` selectors as the acceptance harness.
 
 ---
 
@@ -552,7 +551,7 @@ Every change MUST include tests for:
 
 **Human-readable index:** `../../workflows/TEST-CATALOG.md` (must list **input**, **oracle** or side-effect path, and **`ctest -R` / `-L`**). When you add a fixture, update both CMake and the catalog.
 
-**Ad-hoc parsing/scaffolding** may still use `extend_tests.py` and numbered files under `tests/parsing/` if present; do not use that layout for feature regressions unless those tests are also wired into CTest.
+Do not add numbered `tests/parsing/` or lit-style scaffolding. Current feature regressions must be CTest-wired under `tests/features/`.
 
 ### 10.3 GoogleTest
 
@@ -659,7 +658,7 @@ Agents working on specific areas should consult:
 |------|-------------------|
 | Adding syntax | `../design/Styio-EBNF.md` (grammar), `../design/Styio-Symbol-Reference.md` (tokens) |
 | Active syntax map | `../design/syntax/ACTIVE-SYNTAX.md` (compact authoring surface) |
-| Topology v2 (`@name : Type|n|`, `@name : Type|..n|`, `T..`, `expr -> @name`) | `../design/Styio-Resource-Topology.md`, `../design/syntax/ACTIVE-SYNTAX.md`, `../rollups/NEXT-STAGE-GAP-LEDGER.md` |
+| resource topology (`@name : Type|n|`, `@name : Type|..n|`, `T..`, `expr -> @name`) | `../design/Styio-Resource-Topology.md`, `../design/syntax/ACTIVE-SYNTAX.md`, `../rollups/NEXT-STAGE-GAP-LEDGER.md` |
 | Implementing `@` propagation | `../design/Styio-Language-Design.md` §3.4 (Undefined type) |
 | Reserved wave tokens `<~` / `~>` | `../design/Styio-Symbol-Reference.md` §3 (reserved tokens) |
 | Stream sync `&` / `<<` | `../design/Styio-Language-Design.md` §9 (Stream Synchronization) |

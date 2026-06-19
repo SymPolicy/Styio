@@ -31,7 +31,7 @@ Build and test targets:
 4. Do not treat editor syntax snapshots as grammar authority. Malformed source may keep token/CST interaction hints, but compiler semantic facts must come from strict nightly parsing.
 5. Keep `docs/external/for-ide/BUILD.md` scoped to IDE/LSP targets; repository-wide bootstrap and common compiler commands belong in [../BUILD-AND-DEV-ENV.md](../BUILD-AND-DEV-ENV.md).
 6. Update `docs/external/for-ide/`, the relevant source-level module README, and `src/StyioServices/MANIFEST.md` when public host behavior changes.
-7. When IDE build docs mention compiler prerequisites, reflect the shared repository baseline instead of creating a second LLVM/CMake/Python version matrix under `docs/external/for-ide/`.
+7. When IDE build docs mention compiler prerequisites, reflect the shared repository baseline instead of creating a second LLVM/CMake/Python toolchain baseline table under `docs/external/for-ide/`.
 8. Tree-sitter maintenance instructions in `docs/external/for-ide/BUILD.md` must keep using the repository-standard Node.js `v24.15.0` LTS line instead of a floating `stable` or distro-default Node release.
 9. Keep builtin/default-symbol completions sourced from the shared compiler-owned symbol registry under `src/StyioParser/`; do not reintroduce a private IDE-only builtin or keyword table.
 10. Preserve the runtime scheduling contract: request-loop drains are budgeted, foreground work yields over queued background reindexing, and explicit idle slices drain semantic diagnostics before background work.

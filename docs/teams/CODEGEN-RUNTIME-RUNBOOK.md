@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-05-30
+**Last updated:** 2026-06-19
 
 ## Mission
 
@@ -75,6 +75,7 @@ Minimum local commands:
 
 ```bash
 python3 scripts/runtime-surface-gate.py
+python3 scripts/tool-skill-registry-gate.py
 ctest --test-dir build/default -L styio_pipeline
 ctest --test-dir build/default -L security
 ctest --test-dir build/default -L language_feature
