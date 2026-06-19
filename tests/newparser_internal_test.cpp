@@ -263,8 +263,19 @@ TEST(StyioNewParserInternal, DefaultValuesRecoveryAndTokenProbesStayExplicit) {
     EXPECT_FALSE(expr_subset_route_supported_until_latest(direct.get(), {}));
   }
   {
+    ManualTokenContext direct({
+      {StyioTokenType::AWAIT_PIPE, "?|"},
+      {StyioTokenType::TOK_SPACE, " "},
+    });
+    EXPECT_FALSE(looks_like_await_bind_stmt_nightly(direct.get()));
+  }
+  {
     DirectContext direct("name");
     EXPECT_FALSE(can_route_hash_let_match_nightly_latest(direct.get()));
+  }
+  {
+    DirectContext direct("?| source");
+    EXPECT_FALSE(looks_like_await_bind_stmt_nightly(direct.get()));
   }
   {
     DirectContext direct("name");
@@ -514,6 +525,13 @@ TEST(StyioNewParserInternal, HashLetMatchAndSubsetDeclinesStayExplicit) {
     DirectContext direct("{ @extern }");
     auto attempt = try_parse_block_only_subset_nightly(direct.get());
     EXPECT_EQ(attempt.status, ParseAttemptStatus::Fatal);
+  }
+  {
+    ManualTokenContext direct({
+      {StyioTokenType::TOK_LCURBRAC, "{"},
+    });
+    auto attempt = try_parse_block_only_subset_nightly(direct.get());
+    EXPECT_EQ(attempt.status, ParseAttemptStatus::Declined);
   }
   {
     DirectContext direct(")");
