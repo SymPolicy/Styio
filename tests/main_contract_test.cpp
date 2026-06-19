@@ -223,6 +223,31 @@ StyioNanoCreateSelectionLatest MakeLocalNanoSelection(
   return selection;
 }
 
+void WriteNanoRepositoryBlobEntry(
+  const fs::path& repo,
+  const fs::path& blob,
+  const std::string& package,
+  const std::string& version,
+  StyioNanoRepositoryEntryLatest& entry,
+  std::string& error
+) {
+  std::string sha256;
+  ASSERT_TRUE(styio_compute_file_sha256_latest(blob, sha256, error)) << error;
+  std::error_code ec;
+  const uint64_t size_bytes = fs::file_size(blob, ec);
+  ASSERT_FALSE(ec) << ec.message();
+
+  entry = StyioNanoRepositoryEntryLatest{};
+  entry.package_name = package;
+  entry.version = version;
+  entry.channel = "nano";
+  entry.sha256 = sha256;
+  entry.blob_path = styio_nano_repository_blob_relpath_latest(sha256);
+  entry.size_bytes = size_bytes;
+  ASSERT_TRUE(styio_copy_file_with_exec_latest(blob, repo / fs::path(entry.blob_path), false, error)) << error;
+  ASSERT_TRUE(styio_write_nano_repository_entry_latest(repo, entry, error)) << error;
+}
+
 } // namespace
 
 TEST(StyioMainContract, MainEntryDispatchAndEarlyCliExitsStayStable) {
@@ -2799,6 +2824,21 @@ TEST(StyioMainContract, CloudMaterializationRejectsInvalidRegistryAndManifestInp
   EXPECT_FALSE(styio_materialize_cloud_nano_package_latest(selection, error));
   EXPECT_NE(error.find("artifact not found"), std::string::npos);
 
+  WriteText(
+    source / "receipt-block.toml",
+    "[package]\n"
+    "name = \"receipt-block\"\n"
+    "[artifact]\n"
+    "binary = \"bin/" + binary_name + "\"\n");
+  const fs::path manifest_receipt_block_out = temp.path() / "manifest-receipt-block-out";
+  fs::create_directories(manifest_receipt_block_out / "styio-nano-package.toml");
+  selection = StyioNanoCreateSelectionLatest{};
+  selection.mode = "cloud";
+  selection.output_dir = manifest_receipt_block_out.string();
+  selection.manifest_ref = (source / "receipt-block.toml").string();
+  EXPECT_FALSE(styio_materialize_cloud_nano_package_latest(selection, error));
+  EXPECT_NE(error.find("cannot open file for writing"), std::string::npos) << error;
+
   const fs::path repo_missing_marker = temp.path() / "repo-missing-marker";
   selection = StyioNanoCreateSelectionLatest{};
   selection.mode = "cloud";
@@ -2856,6 +2896,72 @@ TEST(StyioMainContract, CloudMaterializationRejectsInvalidRegistryAndManifestInp
   selection.registry_root = repo_sha_mismatch.string();
   EXPECT_FALSE(styio_materialize_cloud_nano_package_latest(selection, error));
   EXPECT_NE(error.find("blob sha256 mismatch"), std::string::npos);
+
+  const fs::path repo_missing_blob = temp.path() / "repo-missing-blob";
+  ASSERT_TRUE(styio_ensure_writable_nano_repository_latest(repo_missing_blob, error)) << error;
+  entry = StyioNanoRepositoryEntryLatest{};
+  entry.package_name = "org/missing-blob";
+  entry.version = "1.0.0";
+  entry.channel = "nano";
+  entry.sha256 = GoodSha('c');
+  entry.blob_path = styio_nano_repository_blob_relpath_latest(entry.sha256);
+  entry.size_bytes = 1;
+  ASSERT_TRUE(styio_write_nano_repository_entry_latest(repo_missing_blob, entry, error)) << error;
+  selection.output_dir = (temp.path() / "repo-missing-blob-out").string();
+  selection.registry_root = repo_missing_blob.string();
+  selection.registry_package = entry.package_name;
+  selection.registry_version = entry.version;
+  EXPECT_FALSE(styio_materialize_cloud_nano_package_latest(selection, error));
+  EXPECT_NE(error.find("artifact not found"), std::string::npos) << error;
+
+  const fs::path repo_bad_tar = temp.path() / "repo-bad-tar";
+  ASSERT_TRUE(styio_ensure_writable_nano_repository_latest(repo_bad_tar, error)) << error;
+  const fs::path bad_tar_blob = temp.path() / "bad-blob.tar";
+  WriteText(bad_tar_blob, "not a tar archive\n");
+  WriteNanoRepositoryBlobEntry(repo_bad_tar, bad_tar_blob, "org/bad-tar", "1.0.0", entry, error);
+  selection.output_dir = (temp.path() / "repo-bad-tar-out").string();
+  selection.registry_root = repo_bad_tar.string();
+  selection.registry_package = entry.package_name;
+  selection.registry_version = entry.version;
+  EXPECT_FALSE(styio_materialize_cloud_nano_package_latest(selection, error));
+  EXPECT_NE(error.find("blob extraction"), std::string::npos) << error;
+
+  const fs::path no_bin_root = temp.path() / "no-bin-root";
+  WriteText(no_bin_root / "README.txt", "no binary here\n");
+  const fs::path no_bin_blob = temp.path() / "no-bin.tar";
+  RunShellOrFail(
+    "tar -cf " + styio_shell_quote_latest(no_bin_blob.string()) + " -C "
+      + styio_shell_quote_latest(no_bin_root.string()) + " .",
+    "test no-bin nano archive");
+  const fs::path repo_no_bin = temp.path() / "repo-no-bin";
+  ASSERT_TRUE(styio_ensure_writable_nano_repository_latest(repo_no_bin, error)) << error;
+  WriteNanoRepositoryBlobEntry(repo_no_bin, no_bin_blob, "org/no-bin", "1.0.0", entry, error);
+  selection.output_dir = (temp.path() / "repo-no-bin-out").string();
+  selection.registry_root = repo_no_bin.string();
+  selection.registry_package = entry.package_name;
+  selection.registry_version = entry.version;
+  EXPECT_FALSE(styio_materialize_cloud_nano_package_latest(selection, error));
+  EXPECT_NE(error.find("does not contain bin/" + binary_name), std::string::npos) << error;
+
+  const fs::path copy_fail_root = temp.path() / "copy-fail-root";
+  WriteText(copy_fail_root / "bin" / binary_name, "#!/usr/bin/env sh\nexit 0\n");
+  WriteText(copy_fail_root / "conflict" / "payload.txt", "conflict\n");
+  const fs::path copy_fail_blob = temp.path() / "copy-fail.tar";
+  RunShellOrFail(
+    "tar -cf " + styio_shell_quote_latest(copy_fail_blob.string()) + " -C "
+      + styio_shell_quote_latest(copy_fail_root.string()) + " .",
+    "test copy-fail nano archive");
+  const fs::path repo_copy_fail = temp.path() / "repo-copy-fail";
+  ASSERT_TRUE(styio_ensure_writable_nano_repository_latest(repo_copy_fail, error)) << error;
+  WriteNanoRepositoryBlobEntry(repo_copy_fail, copy_fail_blob, "org/copy-fail", "1.0.0", entry, error);
+  const fs::path copy_fail_output = temp.path() / "repo-copy-fail-out";
+  WriteText(copy_fail_output / "conflict", "blocks directory copy\n");
+  selection.output_dir = copy_fail_output.string();
+  selection.registry_root = repo_copy_fail.string();
+  selection.registry_package = entry.package_name;
+  selection.registry_version = entry.version;
+  EXPECT_FALSE(styio_materialize_cloud_nano_package_latest(selection, error));
+  EXPECT_NE(error.find("failed to copy package content"), std::string::npos) << error;
 }
 
 TEST(StyioMainContract, CloudRepositoryMaterializationVerifiesBlobAndExtractsPackage) {
@@ -2941,6 +3047,17 @@ TEST(StyioMainContract, PublishNanoPackageWritesStaticRepositoryEntryAndBlob) {
   selection.registry_version = "1.0.0";
   EXPECT_FALSE(styio_publish_nano_package_latest(selection, error));
   EXPECT_NE(error.find("styio-nano package archive failed"), std::string::npos);
+
+  const fs::path repo_blob_blocker = temp.path() / "repo-blob-blocker";
+  ASSERT_TRUE(styio_ensure_writable_nano_repository_latest(repo_blob_blocker, error)) << error;
+  WriteText(repo_blob_blocker / "blobs", "blocks blob directory\n");
+  selection = StyioNanoPublishSelectionLatest{};
+  selection.package_dir = package_dir.string();
+  selection.registry_root = repo_blob_blocker.string();
+  selection.registry_package = "org/blob-blocked";
+  selection.registry_version = "1.0.0";
+  EXPECT_FALSE(styio_publish_nano_package_latest(selection, error));
+  EXPECT_NE(error.find("failed to copy"), std::string::npos) << error;
 
   selection = StyioNanoPublishSelectionLatest{};
   selection.package_dir = package_dir.string();
