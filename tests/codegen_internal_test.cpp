@@ -465,6 +465,8 @@ TEST(StyioCodeGenInternal, RuntimeReturnHelpersCoverGuardEdges) {
   EXPECT_TRUE(generator->default_runtime_return_value(struct_ty)->getType()->isStructTy());
 
   generator->emit_file_handle_slot_close(nullptr);
+  generator->emit_bounded_ring_pending_commit("missing_ring");
+  generator->emit_bounded_ring_pending_commits();
 
   auto* same_i64 = builder.getInt64(7);
   EXPECT_EQ(generator->coerce_for_return(same_i64, same_i64->getType()), same_i64);
@@ -481,6 +483,9 @@ TEST(StyioCodeGenInternal, RuntimeReturnHelpersCoverGuardEdges) {
   EXPECT_EQ(generator->cstr_to_i64_checked(same_i64), same_i64);
   EXPECT_EQ(generator->cstr_to_f64_checked(nullptr), nullptr);
   EXPECT_EQ(generator->cstr_to_f64_checked(same_i64), same_i64);
+  generator->free_resource_if_runtime_owned(
+    llvm::ConstantInt::get(builder.getInt32Ty(), 1),
+    StyioToLLVM::TempResourceKind::List);
 }
 
 TEST(StyioCodeGenInternal, ScalarCastConditionAndDynamicSlotGuardsStayExplicit) {
@@ -513,6 +518,19 @@ TEST(StyioCodeGenInternal, ScalarCastConditionAndDynamicSlotGuardsStayExplicit) 
   expect_codegen_throws({
     SGCond::Create(SGConstInt::Create(1), SGConstInt::Create(0), StyioOpType::Binary_Add),
   }, "unsupported logical condition operator in codegen");
+
+  expect_codegen_ok({
+    SGBinOp::Create(
+      SGConstInt::Create(2),
+      SGConstFloat::Create("3.5"),
+      StyioOpType::Binary_Add,
+      SGType::Create(i64_type())),
+    SGBinOp::Create(
+      SGConstInt::Create(2),
+      SGConstFloat::Create("3.5"),
+      StyioOpType::Binary_Mul,
+      SGType::Create(i64_type())),
+  }, {});
 
   expect_codegen_throws({
     SGFinalBind::Create(dynamic_var("dyn_bad_i64", i64_type()), SGConstString::Create("not-int")),
