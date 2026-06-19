@@ -3142,7 +3142,7 @@ TEST(StyioMainContract, FrontendProfilerSerializesPhasesCountersAndWriteFailures
   const fs::path output = temp.path() / "profiles" / "frontend.json";
 
   FrontendProfiler profiler;
-  profiler.enable("weird\\file\"name\n.styio", "nightly\tengine", output.string());
+  profiler.enable("weird\\file\"name\nreturn\r.styio", "nightly\tengine", output.string());
   EXPECT_TRUE(profiler.enabled());
   EXPECT_FALSE(profiler.written());
   EXPECT_EQ(profiler.output_path(), output.string());
@@ -3177,7 +3177,7 @@ TEST(StyioMainContract, FrontendProfilerSerializesPhasesCountersAndWriteFailures
   }
 
   const std::string json = profiler.to_json();
-  EXPECT_NE(json.find("weird\\\\file\\\"name\\n.styio"), std::string::npos);
+  EXPECT_NE(json.find("weird\\\\file\\\"name\\nreturn\\r.styio"), std::string::npos);
   EXPECT_NE(json.find("nightly\\tengine"), std::string::npos);
   EXPECT_NE(json.find("\\u0001"), std::string::npos);
   EXPECT_NE(json.find("\"manual_counter\": 7"), std::string::npos);
