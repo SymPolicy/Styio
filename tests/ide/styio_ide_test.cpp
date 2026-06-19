@@ -503,6 +503,10 @@ find_hir_symbol(
 
 TEST(StyioVfs, AppliesSequentialTextEdits) {
   styio::ide::VirtualFileSystem vfs;
+  const auto empty_path_snapshot = vfs.open("", "", 0);
+  ASSERT_NE(empty_path_snapshot, nullptr);
+  EXPECT_EQ(empty_path_snapshot->path, "");
+
   const std::string path = make_temp_dir() + "/vfs_multi_edit.styio";
   vfs.open(path, "one two three", 1);
 
@@ -757,6 +761,7 @@ TEST(StyioIdeProject, EnvironmentFallbacksAndWorkspaceSkipsStayExplicit) {
   home.set((root / "home").string());
   styio::ide::Project project;
   project.set_root(root.string());
+  EXPECT_EQ(project.project_id(), 1u);
   EXPECT_NE(project.cache_root().find((cache / "styio" / "ide").string()), std::string::npos);
   ASSERT_EQ(project.workspace_files().size(), 1u);
   EXPECT_EQ(std::filesystem::path(project.workspace_files()[0]).filename(), "main.styio");
