@@ -320,6 +320,23 @@ TEST(StyioCodeGenInternal, BuiltinCallGuardsFailBeforeBadLlvmEmission) {
   }, "matrix runtime helper `styio_matrix_rows` expects 1 argument");
 }
 
+TEST(StyioCodeGenInternal, GetTypeUsesExistingFunctionReturnTypeForCalls) {
+  auto generator = make_generator();
+  auto* function =
+    SGFunc::Create(
+      SGType::Create(f64_type()),
+      SGResId::Create("typed_call_target"),
+      {},
+      SGBlock::Create({SGReturn::Create(SGConstFloat::Create("1.0"))}));
+  std::unique_ptr<SGMainEntry> entry(SGMainEntry::Create({function}));
+  EXPECT_NO_THROW((void)entry->toLLVMIR(generator.get()));
+
+  std::unique_ptr<StyioIR> call(SGCall::Create(SGResId::Create("typed_call_target"), {}));
+  llvm::Type* call_type = call->toLLVMType(generator.get());
+  ASSERT_NE(call_type, nullptr);
+  EXPECT_TRUE(call_type->isDoubleTy());
+}
+
 TEST(StyioCodeGenInternal, ScalarCastConditionAndDynamicSlotGuardsStayExplicit) {
   expect_codegen_ok({
     SGCast::Create(
