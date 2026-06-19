@@ -3628,6 +3628,16 @@ TEST(StyioMainContract, FrontendProfilerSerializesPhasesCountersAndWriteFailures
   blocked_parent.enable("file.styio", "nightly", (parent_blocker / "profile.json").string());
   EXPECT_FALSE(blocked_parent.write(&error));
   EXPECT_NE(error.find("cannot create profile output directory"), std::string::npos);
+
+#ifndef _WIN32
+  if (fs::exists("/dev/full")) {
+    FrontendProfiler full_output;
+    full_output.enable("file.styio", "nightly", "/dev/full");
+    full_output.mark_status("failed", std::string(1 << 20, 'x'));
+    EXPECT_FALSE(full_output.write(&error));
+    EXPECT_NE(error.find("cannot write profile output path"), std::string::npos);
+  }
+#endif
 }
 
 TEST(StyioMainContract, NativeBuildArgsAndExecutableDiscoveryStayFailClosed) {
