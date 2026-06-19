@@ -3635,6 +3635,82 @@ TEST(StyioLspServer, HandlesNavigationWorkspaceTokensAndEdgeRequests) {
   EXPECT_TRUE(close_messages.empty());
 }
 
+TEST(StyioLspServer, WorkspaceSymbolMapsPersistentParameterAndBuiltinKinds) {
+  EnvVarGuard xdg_cache_home("XDG_CACHE_HOME");
+  EnvVarGuard home("HOME");
+
+  const std::filesystem::path root = make_temp_project_dir("lsp_persistent_symbol_kinds");
+  const std::filesystem::path cache_home = root / "cache-home";
+  xdg_cache_home.set(cache_home.string());
+  home.set((root / "home").string());
+
+  styio::lsp::Server server;
+  ASSERT_EQ(
+    server.handle(llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"id", 1},
+      {"method", "initialize"},
+      {"params", llvm::json::Object{{"rootUri", styio::ide::uri_from_path(root.string())}}}})
+      .size(),
+    1u);
+
+  const std::filesystem::path target_dir = std::filesystem::path(make_temp_dir()) / "lsp-persistent-targets";
+  std::filesystem::create_directories(target_dir);
+  const std::filesystem::path target_path = target_dir / "persistent_kinds_target.styio";
+  const std::string target_text =
+    "persistent_builtin_lsp\n"
+    "persistent_param_lsp\n";
+  write_text_file(target_path.string(), target_text);
+
+  const std::size_t builtin_start = target_text.find("persistent_builtin_lsp");
+  const std::size_t param_start = target_text.find("persistent_param_lsp");
+  ASSERT_NE(builtin_start, std::string::npos);
+  ASSERT_NE(param_start, std::string::npos);
+
+  const std::filesystem::path cache_root =
+    cache_home / "styio" / "ide" / std::to_string(std::hash<std::string>{}(root.lexically_normal().string()));
+  styio::ide::PersistentIndex(cache_root.string()).save_symbols({
+    styio::ide::IndexedSymbol{
+      target_path.string(),
+      "persistent_builtin_lsp",
+      styio::ide::SymbolKind::Builtin,
+      styio::ide::TextRange{builtin_start, builtin_start + std::string("persistent_builtin_lsp").size()},
+      styio::ide::TextRange{builtin_start, builtin_start + std::string("persistent_builtin_lsp").size()},
+      "builtin detail"},
+    styio::ide::IndexedSymbol{
+      target_path.string(),
+      "persistent_param_lsp",
+      styio::ide::SymbolKind::Parameter,
+      styio::ide::TextRange{param_start, param_start + std::string("persistent_param_lsp").size()},
+      styio::ide::TextRange{param_start, param_start + std::string("persistent_param_lsp").size()},
+      "parameter detail"},
+  });
+
+  auto workspace_symbols = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 2},
+    {"method", "workspace/symbol"},
+    {"params", llvm::json::Object{{"query", "persistent_"}}}});
+  ASSERT_EQ(workspace_symbols.size(), 1u);
+  const auto* result = workspace_symbols[0].payload.getArray("result");
+  ASSERT_NE(result, nullptr);
+
+  bool found_builtin = false;
+  bool found_parameter = false;
+  for (const auto& item : *result) {
+    const auto* object = item.getAsObject();
+    ASSERT_NE(object, nullptr);
+    if (object->getString("name").value_or("") == "persistent_builtin_lsp") {
+      found_builtin = object->getInteger("kind").value_or(0) == 14;
+    }
+    if (object->getString("name").value_or("") == "persistent_param_lsp") {
+      found_parameter = object->getInteger("kind").value_or(0) == 13;
+    }
+  }
+  EXPECT_TRUE(found_builtin);
+  EXPECT_TRUE(found_parameter);
+}
+
 TEST(StyioLspServer, CoversTransportReaderAndMalformedRequestEdges) {
   {
     styio::lsp::Server server;
