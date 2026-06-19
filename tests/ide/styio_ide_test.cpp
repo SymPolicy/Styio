@@ -1614,6 +1614,17 @@ TEST(StyioHirBuilder, CoversFallbackAndMalformedSyntaxEdges) {
   EXPECT_NE(find_hir_item(odd_module, "odd", styio::ide::HirItemKind::Function), nullptr);
   EXPECT_NE(find_hir_symbol(odd_module, "value", styio::ide::SymbolKind::Parameter), nullptr);
 
+  const auto blank_param_syntax = parse_syntax(
+    root + "/hir_blank_param.styio",
+    "# blank := (   ) => 1\n",
+    40,
+    1);
+  const auto blank_param_module =
+    styio::ide::HirBuilder{}.build(blank_param_syntax, empty_semantic, identity_store);
+  const auto* blank = find_hir_item(blank_param_module, "blank", styio::ide::HirItemKind::Function);
+  ASSERT_NE(blank, nullptr);
+  EXPECT_TRUE(blank->params.empty());
+
   const auto lambda_expr_syntax = parse_syntax(
     root + "/hir_lambda_expr.styio",
     "#(item: i32) => item\n",
