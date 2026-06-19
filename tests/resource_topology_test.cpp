@@ -509,6 +509,30 @@ TEST(StyioResourceTopology, ValueContainersAndGuardsBuildNestedValueNodes) {
   }
 }
 
+TEST(StyioResourceTopology, DictAccessTypeHintsUseExplicitBindingTypes) {
+  auto dict_type = styio_make_dict_type("string", "i64");
+  auto root = program({
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("lookup"), TypeAST::Create(dict_type)),
+      DictAST::Create({
+        {StringAST::Create("answer"), IntAST::Create("42")},
+      })),
+    PrintAST::Create({
+      new ListOpAST(
+        StyioNodeType::Access_By_Name,
+        NameAST::Create("lookup"),
+        StringAST::Create("answer")),
+    }),
+  });
+
+  rt::BuildResult result = rt::build(root.get());
+  const std::string graph = result.graph.debug_string();
+
+  EXPECT_TRUE(result.report.ok()) << result.report.message();
+  EXPECT_NE(graph.find("binding:lookup"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("value:listop"), std::string::npos) << graph;
+}
+
 TEST(StyioResourceTopology, RejectsLocalResourceTopologyResourceDecl) {
   auto resource_type = styio_make_topology_resource_type(
     StyioDataType{StyioDataTypeOption::Integer, "i64", 64},
@@ -768,6 +792,17 @@ TEST(StyioResourceTopology, NullRootsSparseWritesAndVarInitializersFailClosed) {
   EXPECT_NE(graph.find("value:styio.ast.string"), std::string::npos) << graph;
   EXPECT_NE(graph.find("value:styio.ast."), std::string::npos) << graph;
   EXPECT_EQ(graph.find("var:initialized"), std::string::npos) << graph;
+
+  auto sparse_root = program({
+    FinalBindAST::Create(VarAST::Create(NameAST::Create("missing_rhs")), nullptr),
+    FinalBindAST::Create(VarAST::Create(NameAST::Create("")), nullptr),
+  });
+  rt::BuildResult sparse = rt::build(sparse_root.get());
+  const std::string sparse_graph = sparse.graph.debug_string();
+
+  EXPECT_TRUE(sparse.report.ok()) << sparse.report.message();
+  EXPECT_NE(sparse_graph.find("binding:missing_rhs"), std::string::npos) << sparse_graph;
+  EXPECT_NE(sparse_graph.find("binding:"), std::string::npos) << sparse_graph;
 }
 
 TEST(StyioResourceTopology, ResourceMethodConsumeScannerWalksBinopsAndConditions) {
