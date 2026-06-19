@@ -480,6 +480,23 @@ TEST(StyioCodeGenInternal, DynamicLoadDefaultsAndFallbackValuesStayExplicit) {
   });
 }
 
+TEST(StyioCodeGenInternal, MainReturnTruncationCoversFloatAndVoidValues) {
+  expect_codegen_ok({
+    SGConstFloat::Create("2.75"),
+  }, {
+    "ret i32 2",
+  });
+
+  expect_codegen_ok({
+    SGExportDecl::Create({"native_void_tail"}),
+    SGExternBlock::Create("c", "void native_void_tail(void) {}\n"),
+    SGCall::Create(SGResId::Create("native_void_tail"), {}),
+  }, {
+    "native_void_tail",
+    "ret i32 0",
+  });
+}
+
 TEST(StyioCodeGenInternal, UserCallArgumentCastsAndMixedMatchPromotionStayExplicit) {
   expect_codegen_ok({
     SGFunc::Create(
