@@ -36,6 +36,7 @@
 #define STYIO_SOURCE_DIR "."
 #endif
 
+#include "StyioAST/AST.hpp"
 #include "StyioCodeGen/CodeGenVisitor.hpp"
 #include "StyioException/Exception.hpp"
 #include "StyioExtern/ExternLib.hpp"
@@ -53,7 +54,13 @@
 #include "StyioParser/Tokenizer.hpp"
 #include "StyioRuntime/HandleTable.hpp"
 #include "StyioServices/DiagnosticContract.hpp"
+#include "StyioSession/SessionAllocation.hpp"
+#include "StyioToken/Token.hpp"
+
+// Expose CompilationSession internals for focused white-box state-machine tests.
+#define private public
 #include "StyioSession/CompilationSession.hpp"
+#undef private
 #include "StyioUnicode/Unicode.hpp"
 #include "StyioUtil/BoundedType.hpp"
 #include "StyioUtil/BuiltinMethods.hpp"
@@ -13508,6 +13515,46 @@ TEST(StyioSecuritySession, InvalidPhaseTransitionsAreRejected) {
   EXPECT_EQ(session.phase(), CompilationPhase::Failed);
   session.mark_failed();
   EXPECT_EQ(session.phase(), CompilationPhase::Failed);
+}
+
+TEST(StyioSecuritySession, WhiteBoxTransitionAndReplacementEdges) {
+  EXPECT_EQ(CompilationSession::phase_rank(static_cast<CompilationPhase>(999)), 0);
+  EXPECT_FALSE(CompilationSession::can_transition(
+    CompilationPhase::Failed,
+    CompilationPhase::Parsed));
+
+  CompilationSession failed_session;
+  failed_session.phase_ = CompilationPhase::Failed;
+  try {
+    failed_session.transition_to(CompilationPhase::Parsed, "whitebox");
+    FAIL() << "transition from Failed should be rejected";
+  } catch (const std::logic_error& error) {
+    const std::string message = error.what();
+    EXPECT_NE(
+      message.find("invalid compilation session transition in whitebox"),
+      std::string::npos);
+    EXPECT_NE(message.find("Failed -> Parsed"), std::string::npos);
+  }
+
+  CompilationSession ast_session;
+  ast_session.adopt_tokens(StyioTokenizer::tokenize("x = 1\n"));
+  auto* first_ast = MainBlockAST::Create({});
+  ASSERT_EQ(ast_session.attach_ast(first_ast), first_ast);
+  ast_session.phase_ = CompilationPhase::Tokenized;
+  auto* second_ast = MainBlockAST::Create({});
+  EXPECT_EQ(ast_session.attach_ast(second_ast), second_ast);
+  EXPECT_EQ(ast_session.ast(), second_ast);
+
+  CompilationSession ir_session;
+  ir_session.adopt_tokens(StyioTokenizer::tokenize("x = 1\n"));
+  ir_session.attach_ast(MainBlockAST::Create({}));
+  ir_session.mark_type_checked();
+  auto* first_ir = SGNoOp::Create();
+  ASSERT_EQ(ir_session.attach_ir(first_ir), first_ir);
+  ir_session.phase_ = CompilationPhase::Typed;
+  auto* second_ir = SGNoOp::Create();
+  EXPECT_EQ(ir_session.attach_ir(second_ir), second_ir);
+  EXPECT_EQ(ir_session.ir(), second_ir);
 }
 
 TEST(StyioSecurityAstOwnership, BinOpOwnsChildExprs) {
