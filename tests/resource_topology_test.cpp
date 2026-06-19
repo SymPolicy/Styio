@@ -1121,3 +1121,25 @@ TEST(StyioResourceTopology, HandleTableReleaseAllClosesAndRecyclesSlots) {
     }));
   EXPECT_EQ(table.size(), 0u);
 }
+
+TEST(StyioResourceTopology, HandleTableStubReservationReusesFreedSlots) {
+  StyioHandleTable table;
+  table.invalidate(0);
+  EXPECT_EQ(table.size(), 0u);
+
+  int payload = 42;
+  const auto released_id = table.acquire(StyioHandleTable::HandleKind::File, &payload);
+  ASSERT_NE(released_id, 0);
+  EXPECT_TRUE(table.release(released_id, StyioHandleTable::HandleKind::File));
+
+  const auto stub_id = table.reserve_stub(StyioHandleTable::HandleKind::Task);
+  EXPECT_EQ(stub_id, released_id);
+  EXPECT_TRUE(table.contains(stub_id));
+  EXPECT_EQ(table.lookup(stub_id, StyioHandleTable::HandleKind::Task), nullptr);
+  EXPECT_EQ(table.size(), 1u);
+
+  table.invalidate(stub_id);
+  EXPECT_FALSE(table.contains(stub_id));
+  EXPECT_EQ(table.size(), 0u);
+  table.invalidate(stub_id);
+}
