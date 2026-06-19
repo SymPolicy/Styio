@@ -245,3 +245,42 @@ TEST(StyioNativeInteropInternal, ReferencedSourcesAndEarlyLoadRejectionsStayExpl
   std::filesystem::remove(rel, cleanup_ec);
   std::filesystem::remove_all(temp, cleanup_ec);
 }
+
+TEST(StyioNativeInteropInternal, InvalidDiskCacheEntryIsDiscardedBeforeCompile) {
+  using namespace styio::native;
+
+  const std::filesystem::path temp =
+    std::filesystem::temp_directory_path()
+    / ("styio-native-interop-cache-" + stable_hash_hex(std::to_string(::getpid())));
+  std::filesystem::remove_all(temp);
+  std::filesystem::create_directories(temp);
+
+  EnvVarGuard cache_guard("STYIO_NATIVE_CACHE");
+  EnvVarGuard cache_dir_guard("STYIO_NATIVE_CACHE_DIR");
+  EnvVarGuard cc_guard("STYIO_NATIVE_CC");
+  EnvVarGuard mode_guard("STYIO_NATIVE_TOOLCHAIN_MODE");
+  cache_guard.set("1");
+  cache_dir_guard.set((temp / "cache").string());
+  cc_guard.set("cc");
+  mode_guard.set("system");
+
+  const std::string symbol = "bad_cache_" + stable_hash_hex(temp.string()).substr(0, 8);
+  const std::string body = "int " + symbol + "(void) { return 7; }\n";
+  const CompilerResolution compiler = resolve_compiler_for_abi("c");
+  const std::string source_text = source_text_for_block("c", body, {});
+  const std::string cache_key = native_cache_key("c", compiler, source_text);
+
+  std::string error;
+  const std::filesystem::path cache_path = native_cache_path_for_key(cache_key, error);
+  ASSERT_FALSE(cache_path.empty()) << error;
+  ASSERT_TRUE(write_text_file(cache_path, "not a shared object\n", error)) << error;
+
+  LoadedBlock loaded = compile_and_load_block("c", body, {symbol});
+
+  ASSERT_EQ(loaded.symbols.size(), 1u);
+  EXPECT_EQ(loaded.symbols[0].name, symbol);
+  EXPECT_TRUE(std::filesystem::exists(cache_path));
+
+  std::error_code cleanup_ec;
+  std::filesystem::remove_all(temp, cleanup_ec);
+}
