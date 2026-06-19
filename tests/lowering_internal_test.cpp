@@ -1487,6 +1487,7 @@ TEST(StyioLoweringInternal, AstAccessorAndFailClosedDispatchStayExplicit) {
     std::unique_ptr<ResourceWriteAST> write(ResourceWriteAST::Create(
       StringAST::Create("payload"),
       StdStreamAST::Create(StdStreamKind::Stdout)));
+    EXPECT_TRUE(is_undefined(write->getDataType()));
     std::unique_ptr<StyioAST> write_data(write->release_data_latest());
     std::unique_ptr<StyioAST> write_resource(write->release_resource_latest());
     EXPECT_EQ(write->getData(), nullptr);
@@ -1562,6 +1563,15 @@ TEST(StyioLoweringInternal, AstAccessorAndFailClosedDispatchStayExplicit) {
     EXPECT_FALSE(unnamed->hasName());
     EXPECT_FALSE(unnamed->hasRetType());
     unnamed->setRetType(styio_data_type_from_name("f64"));
+
+    std::variant<TypeAST*, TypeTupleAST*> tuple_ret(TypeTupleAST::Create({TypeAST::Create("i64")}));
+    std::unique_ptr<FunctionAST> tuple_function(FunctionAST::Create(
+      NameAST::Create("tuple_variant"),
+      false,
+      {},
+      tuple_ret,
+      BlockAST::Create()));
+    EXPECT_TRUE(std::holds_alternative<TypeTupleAST*>(tuple_function->ret_type));
 
     std::variant<TypeAST*, TypeTupleAST*> ret(TypeAST::Create("i64"));
     std::unique_ptr<SimpleFuncAST> simple(SimpleFuncAST::Create(
