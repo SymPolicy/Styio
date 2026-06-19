@@ -34,6 +34,9 @@ class LowererProbe : public AstToStyioIRLowerer
 {
 public:
   using StyioSemaContext::binding_info_;
+  using StyioSemaContext::resource_binding_types_;
+  using StyioSemaContext::set_post_pulse_hist_context;
+  using StyioSemaContext::snapshot_var_names_;
 };
 
 void exercise_to_ir(StyioAST* node) {
@@ -1623,6 +1626,225 @@ TEST(StyioLoweringInternal, AstAccessorAndFailClosedDispatchStayExplicit) {
     VarTupleAST::Create({VarAST::Create(NameAST::Create("x"))}),
     {},
     {}));
+}
+
+TEST(StyioLoweringInternal, AdditionalLoweringGuardBranchesStayExplicit) {
+  AstToStyioIRLowerer analyzer;
+
+  EXPECT_TRUE(lowering_type_convert_target_type(static_cast<NumPromoTy>(99)).isUndefined());
+  EXPECT_TRUE(lowering_type_convert_source_fallback_type(static_cast<NumPromoTy>(99)).isUndefined());
+  EXPECT_EQ(
+    merge_tail_value_type(styio_make_list_type("i64"), styio_make_dict_type("string", "i64")).name,
+    "list[i64]");
+
+  {
+    const std::string scrutinee = "value";
+    std::unique_ptr<BinCompAST> cmp(new BinCompAST(
+      CompType::EQ,
+      NameAST::Create("other"),
+      IntAST::Create("7")));
+    EXPECT_FALSE(match_case_pattern_value_for_name(cmp.get(), &scrutinee).has_value());
+  }
+  {
+    auto type = matrix_intrinsic_lowered_type(
+      &analyzer,
+      FuncCallAST::Create(NameAST::Create("mat_zeros"), {NameAST::Create("rows")}));
+    EXPECT_EQ(styio_matrix_row_count(type), 0u);
+    EXPECT_EQ(styio_matrix_col_count(type), 0u);
+  }
+  {
+    auto type = matrix_intrinsic_lowered_type(
+      &analyzer,
+      FuncCallAST::Create(
+        NameAST::Create("mat_zeros_i64"),
+        {IntAST::Create("999999999999999999999999"), IntAST::Create("2")}));
+    EXPECT_EQ(styio_matrix_row_count(type), 0u);
+    EXPECT_EQ(styio_matrix_col_count(type), 2u);
+  }
+  {
+    std::unique_ptr<FuncCallAST> call(FuncCallAST::Create(NameAST::Create("norm"), {NameAST::Create("matrix_i")}));
+    analyzer.local_binding_types["matrix_i"] = styio_make_matrix_type("f64", 2, 2);
+    EXPECT_EQ(matrix_intrinsic_runtime_name(&analyzer, call.get()), "__styio_matrix_norm");
+  }
+  {
+    std::unique_ptr<FuncCallAST> call(FuncCallAST::Create(NameAST::Create("custom_runtime"), {}));
+    EXPECT_EQ(matrix_intrinsic_runtime_name(&analyzer, call.get()), "custom_runtime");
+  }
+  {
+    std::unique_ptr<ListAST> typed_empty(ListAST::Create());
+    typed_empty->setDataType(styio_make_list_type("string"));
+    EXPECT_TRUE(collection_elem_is_string(&analyzer, typed_empty.get()));
+  }
+
+  bool has_string = false;
+  bool has_int = false;
+  bool has_float = false;
+  scan_returns_for_value_kinds(nullptr, has_string, has_int, has_float);
+  scan_returns_for_value_kinds(ReturnAST::Create(nullptr), has_string, has_int, has_float);
+  EXPECT_FALSE(has_string);
+  EXPECT_FALSE(has_int);
+  EXPECT_FALSE(has_float);
+  EXPECT_FALSE(ast_value_mentions_float(nullptr));
+
+  EXPECT_EQ(series_intrinsic_helper_body(nullptr, nullptr), nullptr);
+  EXPECT_EQ(find_series_intrinsic(&analyzer, nullptr), nullptr);
+  EXPECT_FALSE(stmt_may_contain_pulse_state(&analyzer, FuncCallAST::Create(NameAST::Create("missing"), {})));
+  EXPECT_THROW((void)window_n_from_ast(StringAST::Create("bad")), StyioTypeError);
+  {
+    SGStateSlotDesc desc{};
+    desc.kind = static_cast<SGStateSlotKind>(99);
+    desc.win_n = 4;
+    EXPECT_EQ(slot_byte_size(desc), 8);
+  }
+  {
+    SGStateSlotDesc desc{};
+    std::unique_ptr<StateDeclAST> state(StateDeclAST::Create(
+      nullptr,
+      nullptr,
+      nullptr,
+      VarAST::Create(NameAST::Create("out"), TypeAST::Create("i64")),
+      IntAST::Create("1")));
+    EXPECT_THROW(classify_state_slot(&analyzer, state.get(), desc), StyioTypeError);
+  }
+  {
+    std::unique_ptr<TypeAST> cloned_type(clone_type_for_var(nullptr));
+    ASSERT_NE(cloned_type, nullptr);
+    EXPECT_TRUE(cloned_type->getDataType().isUndefined());
+    EXPECT_EQ(clone_var_ast(nullptr), nullptr);
+    std::unique_ptr<VarAST> seed(new VarAST(
+      NameAST::Create("seed"),
+      TypeAST::Create("i64"),
+      IntAST::Create("5")));
+    std::unique_ptr<VarAST> cloned_var(clone_var_ast(seed.get()));
+    ASSERT_NE(cloned_var, nullptr);
+    ASSERT_NE(cloned_var->val_init, nullptr);
+    EXPECT_EQ(cloned_var->val_init->getNodeType(), StyioNodeType::Integer);
+  }
+
+  {
+    std::unique_ptr<CharAST> bad_char(CharAST::Create("ab"));
+    EXPECT_THROW((void)bad_char->toStyioIR(&analyzer), StyioTypeError);
+  }
+  {
+    const auto max = std::numeric_limits<std::int64_t>::max();
+    std::unique_ptr<RangeAST> overflow(new RangeAST(
+      IntAST::Create(std::to_string(max - 1)),
+      IntAST::Create(std::to_string(max)),
+      IntAST::Create("2")));
+    EXPECT_THROW((void)overflow->toStyioIR(&analyzer), StyioTypeError);
+  }
+  {
+    const auto min = std::numeric_limits<std::int64_t>::min();
+    std::unique_ptr<RangeAST> overflow(new RangeAST(
+      IntAST::Create(std::to_string(min + 1)),
+      IntAST::Create(std::to_string(min)),
+      IntAST::Create("-2")));
+    EXPECT_THROW((void)overflow->toStyioIR(&analyzer), StyioTypeError);
+  }
+  {
+    std::unique_ptr<ResourceRedirectAST> release(ResourceRedirectAST::Create(
+      IntAST::Create("1"),
+      EmptyResourceAST::Create()));
+    EXPECT_THROW((void)release->toStyioIR(&analyzer), StyioTypeError);
+  }
+  {
+    auto huge_resource = styio_make_topology_resource_type(
+      styio_data_type_from_name("i64"),
+      StyioResourceShapeKind::Fixed,
+      static_cast<std::size_t>(std::numeric_limits<int>::max()) + 1u);
+    std::unique_ptr<ResourceRefAST> all(ResourceRefAST::CreateSelector(
+      NameAST::Create("history"),
+      ResourceSelectorKind::SnapshotAll));
+    EXPECT_THROW((void)resource_selector_snapshot_depth_latest(all.get(), huge_resource), StyioTypeError);
+  }
+  {
+    auto fixed_resource = styio_make_topology_resource_type(
+      styio_data_type_from_name("i64"),
+      StyioResourceShapeKind::Fixed,
+      3);
+    std::unique_ptr<ResourceRefAST> too_deep(ResourceRefAST::CreateSelector(
+      NameAST::Create("history"),
+      ResourceSelectorKind::SliceFrom,
+      std::numeric_limits<int>::min()));
+    EXPECT_THROW((void)resource_selector_snapshot_depth_latest(too_deep.get(), fixed_resource), StyioTypeError);
+    std::unique_ptr<ResourceRefAST> whole(ResourceRefAST::Create(NameAST::Create("history")));
+    EXPECT_THROW((void)lower_resource_selector_snapshot_latest(whole.get(), fixed_resource), StyioTypeError);
+  }
+  {
+    LowererProbe probe;
+    std::unique_ptr<ResourceRefAST> missing(ResourceRefAST::CreateSelector(
+      NameAST::Create("missing"),
+      ResourceSelectorKind::SliceFrom,
+      -1));
+    EXPECT_THROW((void)missing->toStyioIR(&probe), StyioTypeError);
+  }
+  {
+    LowererProbe probe;
+    probe.snapshot_var_names_.insert("snap");
+    std::unique_ptr<StateRefAST> snap(StateRefAST::Create(NameAST::Create("snap")));
+    std::unique_ptr<StyioIR> ir(snap->toStyioIR(&probe));
+    EXPECT_NE(dynamic_cast<SGSnapshotShadowLoad*>(ir.get()), nullptr);
+  }
+  {
+    LowererProbe probe;
+    SGPulsePlan plan;
+    probe.set_post_pulse_hist_context(5, &plan);
+    std::unique_ptr<HistoryProbeAST> hist(HistoryProbeAST::Create(
+      StateRefAST::Create(NameAST::Create("missing")),
+      IntAST::Create("1")));
+    EXPECT_THROW((void)hist->toStyioIR(&probe), StyioTypeError);
+  }
+  {
+    analyzer.set_active_series_slot(7);
+    std::unique_ptr<SeriesIntrinsicAST> avg(SeriesIntrinsicAST::Create(
+      NameAST::Create("x"),
+      SeriesIntrinsicOp::Avg,
+      IntAST::Create("3")));
+    std::unique_ptr<StyioIR> ir(avg->toStyioIR(&analyzer));
+    EXPECT_NE(dynamic_cast<SGSeriesAvgStep*>(ir.get()), nullptr);
+    analyzer.set_active_series_slot(-1);
+  }
+  {
+    PulseScratch scratch;
+    std::unordered_map<StyioAST*, StateDeclAST*> cache;
+    std::unique_ptr<BlockAST> block(BlockAST::Create({PassAST::Create()}));
+    std::unique_ptr<SGPulsePlan> plan(build_pulse_plan(&analyzer, block.get(), &scratch, cache));
+    EXPECT_TRUE(plan->slots.empty());
+    std::unique_ptr<SGBlock> lowered(lower_pulse_body(&analyzer, block.get(), plan.get(), &scratch, cache));
+    ASSERT_NE(lowered, nullptr);
+    ASSERT_EQ(lowered->stmts.size(), 1u);
+    EXPECT_NE(dynamic_cast<SGNoOp*>(lowered->stmts[0]), nullptr);
+  }
+  {
+    std::unique_ptr<TaskBlockAST> task(TaskBlockAST::Create(BlockAST::Create({PassAST::Create()})));
+    std::unique_ptr<StyioIR> ir(task_>toStyioIR(&analyzer));
+    EXPECT_NE(dynamic_cast<SIOTaskCreate*>(ir.get()), nullptr);
+  }
+  {
+    std::unique_ptr<TaskGroupLaunchAST> group(TaskGroupLaunchAST::Create({
+      TaskBlockAST::Create(BlockAST::Create({PassAST::Create()}))
+    }));
+    std::unique_ptr<StyioIR> ir(group->toStyioIR(&analyzer));
+    EXPECT_NE(dynamic_cast<SGEntry*>(ir.get()), nullptr);
+  }
+  {
+    analyzer.local_binding_types["task_source"] = styio_make_task_type("i64");
+    std::unique_ptr<FlowBindAST> flow(FlowBindAST::CreateAwait(
+      NameAST::Create("task_source"),
+      VarAST::Create(NameAST::Create("task_result"), TypeAST::Create("i64")),
+      IntAST::Create("0")));
+    std::unique_ptr<StyioIR> ir(flow->toStyioIR(&analyzer));
+    EXPECT_NE(dynamic_cast<SIOFlowBind*>(ir.get()), nullptr);
+  }
+  {
+    std::unique_ptr<StreamZipAST> zip(StreamZipAST::Create(
+      ListAST::Create({IntAST::Create("1")}),
+      {ParamAST::Create(NameAST::Create("left"))},
+      StdStreamAST::Create(StdStreamKind::Stdout),
+      {ParamAST::Create(NameAST::Create("right"))},
+      BlockAST::Create({PassAST::Create()})));
+    EXPECT_THROW((void)zip->toStyioIR(&analyzer), StyioTypeError);
+  }
 }
 
 }  // namespace
