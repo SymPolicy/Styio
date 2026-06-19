@@ -333,6 +333,99 @@ TEST(StyioParserInternal, ContextHelpersCoverNavigationDiagnosticsAndDisplayEdge
   }
 }
 
+TEST(StyioParserInternal, ContextHelpersCoverAdditionalTokenEdges) {
+  {
+    DirectContext direct(";; name");
+    consume_statement_separators_latest(direct.get());
+    EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::NAME);
+  }
+  {
+    EXPECT_TRUE(is_statement_separator_latest(StyioTokenType::TOK_SEMICOLON));
+    EXPECT_TRUE(is_statement_separator_latest(StyioTokenType::PIPE_SEMICOLON));
+    EXPECT_FALSE(is_statement_separator_latest(StyioTokenType::NAME));
+    EXPECT_TRUE(is_import_list_separator_latest(StyioTokenType::TOK_COMMA));
+    EXPECT_TRUE(is_import_list_separator_latest(StyioTokenType::TOK_SEMICOLON));
+    EXPECT_FALSE(is_import_list_separator_latest(StyioTokenType::NAME));
+    EXPECT_TRUE(is_import_path_separator_latest(StyioTokenType::TOK_SLASH));
+    EXPECT_TRUE(is_import_path_separator_latest(StyioTokenType::TOK_DOT));
+    EXPECT_FALSE(is_import_path_separator_latest(StyioTokenType::NAME));
+  }
+  {
+    DirectContext direct("left\n.right");
+    direct.get().move_forward(2, "linebreak_dot");
+    EXPECT_TRUE(has_linebreak_before_current_token_latest(direct.get()));
+  }
+  {
+    DirectContext direct("left.right");
+    direct.get().move_forward(1, "same_line_dot");
+    EXPECT_FALSE(has_linebreak_before_current_token_latest(direct.get()));
+  }
+  {
+    DirectContext direct("[\"core\", \"util\"]");
+    EXPECT_TRUE(matches_legacy_string_list_import_latest(direct.get()));
+  }
+  {
+    DirectContext direct("[\"core\",]");
+    EXPECT_FALSE(matches_legacy_string_list_import_latest(direct.get()));
+  }
+  {
+    DirectContext direct("name");
+    EXPECT_FALSE(matches_legacy_string_list_import_latest(direct.get()));
+  }
+  {
+    DirectContext direct(" name");
+    EXPECT_TRUE(direct.get().try_check(StyioTokenType::NAME));
+    EXPECT_TRUE(direct.get().try_match(StyioTokenType::NAME));
+    EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::TOK_EOF);
+  }
+  {
+    DirectContext direct("");
+    EXPECT_FALSE(direct.get().try_check(StyioTokenType::NAME));
+    EXPECT_FALSE(direct.get().try_match(StyioTokenType::NAME));
+    EXPECT_THROW(direct.get().try_match_panic(StyioTokenType::NAME), StyioSyntaxError);
+    EXPECT_EQ(direct.get().current_token_end_pos(), 0u);
+  }
+  {
+    StyioContext direct("<parser-internal>", "", {}, {}, false);
+    EXPECT_THROW(direct.try_match_panic(StyioTokenType::NAME), StyioParseError);
+  }
+  {
+    DirectContext direct("^^^");
+    EXPECT_EQ(direct.get().check_seq_of(StyioTokenType::TOK_HAT), 3u);
+  }
+  {
+    DirectContext direct("12");
+    EXPECT_EQ(direct.get().current_token_end_pos(), 2u);
+    EXPECT_FALSE(direct.get().is_recovery_mode());
+    direct.get().set_parse_mode(StyioParseMode::Recovery);
+    EXPECT_TRUE(direct.get().is_recovery_mode());
+    direct.get().record_parse_diagnostic(5, 3, "clamped");
+    ASSERT_EQ(direct.get().parse_diagnostics().size(), 1u);
+    EXPECT_EQ(direct.get().parse_diagnostics()[0].start, 5u);
+    EXPECT_EQ(direct.get().parse_diagnostics()[0].end, 6u);
+    direct.get().clear_parse_diagnostics();
+    EXPECT_TRUE(direct.get().parse_diagnostics().empty());
+
+    StyioParserRouteStats stats;
+    direct.get().set_parser_route_stats_latest(&stats);
+    EXPECT_EQ(direct.get().note_nightly_internal_legacy_bridge_latest(), 1u);
+    EXPECT_EQ(stats.nightly_internal_legacy_bridges, 1u);
+    EXPECT_EQ(direct.get().note_nightly_internal_legacy_bridge_latest(), 2u);
+    EXPECT_EQ(stats.nightly_internal_legacy_bridges, 2u);
+    direct.get().set_parser_route_stats_latest(nullptr);
+    EXPECT_EQ(direct.get().note_nightly_internal_legacy_bridge_latest(), 3u);
+
+    direct.get().move(1);
+    EXPECT_TRUE(direct.get().check_next("2"));
+    EXPECT_TRUE(direct.get().check_next(""));
+    EXPECT_FALSE(direct.get().check_next("234"));
+    EXPECT_TRUE(direct.get().check_ahead(-1, '1'));
+    EXPECT_FALSE(direct.get().check_ahead(-9, '1'));
+    EXPECT_TRUE(direct.get().peak_isdigit(-1));
+    EXPECT_FALSE(direct.get().peak_isdigit(-9));
+  }
+}
+
 TEST(StyioParserInternal, HashFunctionCommonEdgesStayExplicit) {
   StyioHashFunctionParserOps ops{
     false,
@@ -612,6 +705,181 @@ TEST(StyioParserInternal, ParserHelperFailureEdgesStayExplicit) {
     StyioParserRouteStats stats;
     EXPECT_THROW(
       (void)parse_main_block_with_engine_latest(direct.get(), StyioParserEngine::Nightly, &stats),
+      StyioSyntaxError);
+  }
+}
+
+TEST(StyioParserInternal, ImportExportAndRawBodyEdgesStayExplicit) {
+  {
+    DirectContext direct("import { pkg.core, util/io }");
+    std::unique_ptr<ExtPackAST> ast(parse_import_decl_after_at_latest(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    ASSERT_EQ(ast->getPaths().size(), 2u);
+    EXPECT_EQ(ast->getPaths()[0], "pkg/core");
+    EXPECT_EQ(ast->getPaths()[1], "util/io");
+  }
+  {
+    DirectContext direct("export { main; mod.symbol }");
+    std::unique_ptr<ExportDeclAST> ast(parse_export_decl_after_at_latest(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    ASSERT_EQ(ast->getSymbols().size(), 2u);
+    EXPECT_EQ(ast->getSymbols()[0], "main");
+    EXPECT_EQ(ast->getSymbols()[1], "mod/symbol");
+  }
+  {
+    DirectContext direct("(import { pkg })");
+    direct.get().move_forward(1, "nested_import");
+    EXPECT_THROW((void)parse_import_decl_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("module { pkg }");
+    EXPECT_THROW((void)parse_import_decl_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("import { }");
+    EXPECT_THROW((void)parse_import_decl_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("import { pkg.core/io }");
+    EXPECT_THROW((void)parse_import_decl_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("import { pkg other }");
+    EXPECT_THROW((void)parse_import_decl_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("import { pkg, }");
+    EXPECT_THROW((void)parse_import_decl_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("export { }");
+    EXPECT_THROW((void)parse_export_decl_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("export { symbol, }");
+    EXPECT_THROW((void)parse_export_decl_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("module { symbol }");
+    EXPECT_THROW((void)parse_export_decl_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("{ alpha { beta } gamma }");
+    EXPECT_NE(parse_raw_braced_body_latest(direct.get(), "test").find("beta"), std::string::npos);
+  }
+  {
+    DirectContext direct("{ alpha { beta }");
+    EXPECT_THROW((void)parse_raw_braced_body_latest(direct.get(), "test"), StyioSyntaxError);
+  }
+}
+
+TEST(StyioParserInternal, ValueGuardIteratorAndPostfixEdgesStayExplicit) {
+  {
+    DirectContext direct("i64|999999999999999999999999999999999999999|");
+    EXPECT_THROW((void)parse_styio_type(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("#(123)");
+    EXPECT_THROW((void)parse_internal_resource_params_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("123 := #() => { ... }");
+    EXPECT_THROW((void)parse_internal_resource_decl_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("123");
+    EXPECT_THROW((void)parse_resource_method_def_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("item");
+    std::unique_ptr<StyioAST> ast(parse_var_name_or_value_expr(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Id);
+  }
+  {
+    DirectContext direct("42");
+    std::unique_ptr<StyioAST> ast(parse_var_name_or_value_expr(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Integer);
+  }
+  {
+    DirectContext direct("3.5");
+    std::unique_ptr<StyioAST> ast(parse_var_name_or_value_expr(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Float);
+  }
+  {
+    DirectContext direct("\"name\"");
+    std::unique_ptr<StyioAST> ast(parse_var_name_or_value_expr(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::String);
+  }
+  {
+    DirectContext direct("|value|");
+    EXPECT_THROW((void)parse_value_expr(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("@");
+    EXPECT_THROW((void)parse_value_expr(direct.get()), StyioParseError);
+  }
+  {
+    DirectContext direct("'\n'");
+    EXPECT_THROW((void)parse_expr(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("?(true) => 1 | 2");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::WaveMerge);
+  }
+  {
+    DirectContext direct("?(true) => 1 2");
+    EXPECT_THROW((void)parse_expr(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("1 ?= 2");
+    EXPECT_THROW((void)parse_expr(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("base . 1");
+    EXPECT_THROW((void)parse_expr(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("base.member.next");
+    EXPECT_THROW((void)parse_expr(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("#tag > #next");
+    std::unique_ptr<StyioAST> ast(parse_iterator_tail(
+      direct.get(),
+      ListAST::Create({IntAST::Create("1")})));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::IterSeq);
+  }
+  {
+    DirectContext direct("# >");
+    EXPECT_THROW(
+      (void)parse_iterator_tail(direct.get(), ListAST::Create({IntAST::Create("1")})),
+      StyioSyntaxError);
+  }
+  {
+    DirectContext direct("(a) & other >> (b) => b");
+    std::unique_ptr<StyioAST> ast(parse_iterator_tail(
+      direct.get(),
+      ListAST::Create({IntAST::Create("1")})));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::StreamZip);
+  }
+  {
+    DirectContext direct("(a) & other => b");
+    EXPECT_THROW(
+      (void)parse_iterator_tail(direct.get(), ListAST::Create({IntAST::Create("1")})),
+      StyioSyntaxError);
+  }
+  {
+    DirectContext direct("(a) & other >> (b) b");
+    EXPECT_THROW(
+      (void)parse_iterator_tail(direct.get(), ListAST::Create({IntAST::Create("1")})),
       StyioSyntaxError);
   }
 }
