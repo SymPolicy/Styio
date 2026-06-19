@@ -285,6 +285,79 @@ TEST(StyioNativeInteropInternal, InvalidDiskCacheEntryIsDiscardedBeforeCompile) 
   std::filesystem::remove_all(temp, cleanup_ec);
 }
 
+TEST(StyioNativeInteropInternal, CacheRacePrefersExistingSharedObjectAfterCompile) {
+  using namespace styio::native;
+
+  const std::filesystem::path temp =
+    std::filesystem::temp_directory_path()
+    / ("styio-native-interop-cache-race-" + stable_hash_hex(std::to_string(::getpid())));
+  std::filesystem::remove_all(temp);
+  std::filesystem::create_directories(temp);
+
+  EnvVarGuard cache_guard("STYIO_NATIVE_CACHE");
+  EnvVarGuard cache_dir_guard("STYIO_NATIVE_CACHE_DIR");
+  EnvVarGuard cc_guard("STYIO_NATIVE_CC");
+  EnvVarGuard mode_guard("STYIO_NATIVE_TOOLCHAIN_MODE");
+  EnvVarGuard race_path_guard("STYIO_TEST_NATIVE_CACHE_RACE_PATH");
+
+  cache_guard.set("1");
+  cache_dir_guard.set((temp / "cache").string());
+  mode_guard.set("system");
+
+  const std::filesystem::path fake_cc = temp / "fake-cc";
+  cc_guard.set(fake_cc.string());
+
+  const std::string symbol = "cache_race_" + stable_hash_hex(temp.string()).substr(0, 8);
+  const std::string body = "int " + symbol + "(void) { return 17; }\n";
+  const std::string source_text = source_text_for_block("c", body, {});
+  const CompilerResolution compiler{fake_cc.string(), "env:STYIO_NATIVE_CC"};
+  const std::string cache_key = native_cache_key("c", compiler, source_text);
+
+  std::string error;
+  const std::filesystem::path cache_path = native_cache_path_for_key(cache_key, error);
+  ASSERT_FALSE(cache_path.empty()) << error;
+  race_path_guard.set(cache_path.string());
+
+  ASSERT_TRUE(write_text_file(
+    fake_cc,
+    "#!/bin/sh\n"
+    "out=''\n"
+    "prev=''\n"
+    "for arg in \"$@\"; do\n"
+    "  if [ \"$prev\" = '-o' ]; then\n"
+    "    out=\"$arg\"\n"
+    "  fi\n"
+    "  prev=\"$arg\"\n"
+    "done\n"
+    "test -n \"$out\" || exit 3\n"
+    "cc \"$@\" || exit 4\n"
+    "cp \"$out\" \"$STYIO_TEST_NATIVE_CACHE_RACE_PATH\" || exit 5\n"
+    "exit 0\n",
+    error)) << error;
+
+  std::error_code perm_ec;
+  std::filesystem::permissions(
+    fake_cc,
+    std::filesystem::perms::owner_exec
+      | std::filesystem::perms::group_exec
+      | std::filesystem::perms::others_exec,
+    std::filesystem::perm_options::add,
+    perm_ec);
+  ASSERT_FALSE(perm_ec) << perm_ec.message();
+
+  LoadedBlock loaded = compile_and_load_block("c", body, {symbol});
+
+  ASSERT_EQ(loaded.symbols.size(), 1u);
+  EXPECT_EQ(loaded.symbols[0].name, symbol);
+  auto* fn = reinterpret_cast<int (*)()>(loaded.symbols[0].address);
+  ASSERT_NE(fn, nullptr);
+  EXPECT_EQ(fn(), 17);
+  EXPECT_TRUE(std::filesystem::exists(cache_path));
+
+  std::error_code cleanup_ec;
+  std::filesystem::remove_all(temp, cleanup_ec);
+}
+
 TEST(StyioNativeInteropInternal, DisabledDiskCacheLoadsFromTemporarySharedObject) {
   using namespace styio::native;
 
