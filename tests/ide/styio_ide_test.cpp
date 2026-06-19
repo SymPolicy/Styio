@@ -2289,6 +2289,27 @@ TEST(StyioSemanticDb, CompletionScoringCoversExactPrefixesAndTypeAliases) {
   EXPECT_EQ(pair_expected->param_name, "second");
 }
 
+TEST(StyioSemanticDb, CompletionSeesParentScopeSymbolsFromNestedBlocks) {
+  styio::ide::VirtualFileSystem vfs;
+  styio::ide::Project project;
+  styio::ide::SemanticDB semdb(vfs, project);
+  const std::string path = make_temp_dir() + "/semantic_parent_scope_completion.styio";
+  const std::string source =
+    "# outer := (needle: i32) => {\n"
+    "  {\n"
+    "    nee\n"
+    "  }\n"
+    "}\n";
+
+  vfs.open(path, source, 1);
+
+  const std::size_t completion_offset = source.find("nee\n");
+  ASSERT_NE(completion_offset, std::string::npos);
+  const auto completion = semdb.complete_at(path, completion_offset + 3);
+
+  EXPECT_TRUE(has_completion_label(completion, "needle"));
+}
+
 TEST(StyioSemanticDb, EmptyFilesReturnEmptyTypeQueryResults) {
   styio::ide::VirtualFileSystem vfs;
   styio::ide::Project project;
