@@ -16,8 +16,15 @@
 #include "StyioServices/StyioIDE/CompilerBridge.hpp"
 #include "StyioServices/StyioIDE/HIR.hpp"
 #include "StyioServices/StyioIDE/Index.hpp"
-#include "StyioServices/StyioIDE/Service.hpp"
+#include "StyioServices/StyioIDE/Project.hpp"
 #include "StyioServices/StyioIDE/Syntax.hpp"
+#include "StyioServices/StyioIDE/VFS.hpp"
+
+#define private public
+#include "StyioServices/StyioIDE/SemDB.hpp"
+#undef private
+
+#include "StyioServices/StyioIDE/Service.hpp"
 #include "StyioServices/StyioLSP/Server.hpp"
 #include "StyioException/Exception.hpp"
 #include "StyioParser/Parser.hpp"
@@ -2279,6 +2286,71 @@ TEST(StyioSemanticDb, CoversTypeContextFallbackEdges) {
   const auto receiver_after_dot = semdb.receiver_type_at(receiver_path, member_dot_offset + 1);
   ASSERT_TRUE(receiver_after_dot.has_value());
   EXPECT_EQ(receiver_after_dot->type_name, "list[i32]");
+}
+
+TEST(StyioSemanticDb, WhiteBoxImportCandidatesAndSymbolItemsCoverEdges) {
+  const std::string root = make_temp_project_dir("semantic_private_edges");
+  const std::filesystem::path importer_dir = std::filesystem::path(root) / "src";
+  std::filesystem::create_directories(importer_dir);
+
+  styio::ide::VirtualFileSystem vfs;
+  styio::ide::Project project;
+  project.set_root(root);
+  styio::ide::SemanticDB semdb(vfs, project);
+
+  styio::ide::DocumentSnapshot document;
+  document.path = (importer_dir / "main.styio").string();
+  document.buffer = styio::ide::TextBuffer{""};
+
+  EXPECT_TRUE(semdb.import_candidate_paths(document, "").empty());
+
+  const auto absolute_spec = (std::filesystem::path(root) / "absolute_mod").lexically_normal();
+  const auto absolute_candidates = semdb.import_candidate_paths(document, absolute_spec.string());
+  ASSERT_EQ(absolute_candidates.size(), 2u);
+  EXPECT_EQ(absolute_candidates[0], absolute_spec.string());
+  EXPECT_EQ(absolute_candidates[1], (absolute_spec.string() + ".styio"));
+
+  const auto relative_candidates = semdb.import_candidate_paths(document, "./local_mod");
+  ASSERT_EQ(relative_candidates.size(), 2u);
+  EXPECT_EQ(relative_candidates[0], (importer_dir / "local_mod").lexically_normal().string());
+  EXPECT_EQ(relative_candidates[1], (importer_dir / "local_mod.styio").lexically_normal().string());
+
+  const auto dotted_candidates = semdb.import_candidate_paths(document, "pkg.math");
+  ASSERT_EQ(dotted_candidates.size(), 4u);
+  EXPECT_EQ(dotted_candidates[0], (std::filesystem::path(root) / "pkg/math").lexically_normal().string());
+  EXPECT_EQ(dotted_candidates[1], (std::filesystem::path(root) / "pkg/math.styio").lexically_normal().string());
+  EXPECT_EQ(dotted_candidates[2], (importer_dir / "pkg/math").lexically_normal().string());
+  EXPECT_EQ(dotted_candidates[3], (importer_dir / "pkg/math.styio").lexically_normal().string());
+
+  styio::ide::HirModule hir;
+  hir.items.push_back(styio::ide::HirItem{
+    7,
+    styio::ide::HirItemKind::GlobalBinding,
+    "target",
+    styio::ide::TextRange{0, 6},
+    styio::ide::TextRange{0, 18}});
+
+  styio::ide::HirSymbol unbound_symbol;
+  EXPECT_EQ(semdb.item_for_symbol(hir, unbound_symbol), nullptr);
+
+  styio::ide::HirSymbol bound_symbol;
+  bound_symbol.item_id = 7;
+  const auto* bound_item = semdb.item_for_symbol(hir, bound_symbol);
+  ASSERT_NE(bound_item, nullptr);
+  EXPECT_EQ(bound_item->name, "target");
+
+  const std::string source = "value: i32 := 1\n";
+  auto opened = vfs.open(document.path, source, 1);
+  styio::ide::SemanticDB::ResolvedName resolved;
+  resolved.kind = styio::ide::SemanticDB::ResolvedNameKind::Symbol;
+  resolved.name = "mismatched";
+  resolved.path = document.path;
+  resolved.selection_range = styio::ide::TextRange{1, 2};
+  resolved.has_location = true;
+
+  const auto* fallback_item = semdb.item_for_resolved_name(*opened, resolved);
+  ASSERT_NE(fallback_item, nullptr);
+  EXPECT_EQ(fallback_item->name, "value");
 }
 
 TEST(StyioSemanticDb, BuiltinQueriesUseLocationlessTargets) {
