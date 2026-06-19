@@ -592,7 +592,7 @@ TEST(StyioMainContract, ConfigPathFetchAndNativeLookupHelpersCoverEdges) {
   }
 
   const fs::path profile = temp.path() / "profile.toml";
-  WriteText(profile, "[profile]\nname = \"demo\"\n");
+  WriteText(profile, "[profile]\nignored-without-equals\nname = \"demo\"\n");
   std::string profile_name;
   ASSERT_TRUE(styio_parse_nano_profile_name_latest(profile, profile_name, error)) << error;
   EXPECT_EQ(profile_name, "demo");
@@ -1310,6 +1310,15 @@ TEST(StyioMainContract, NanoRepositoryPublishAndCloudMaterializeRoundTrip) {
   const std::string manifest_receipt = ReadText(temp.path() / "from-manifest" / "styio-nano-package.toml");
   EXPECT_NE(manifest_receipt.find("name = \"manifest-demo\""), std::string::npos);
   EXPECT_NE(manifest_receipt.find("artifact_profile = \"payload/profile.toml\""), std::string::npos);
+
+  const fs::path bad_manifest = temp.path() / "bad-manifest.toml";
+  WriteText(bad_manifest, "[package\nname = bad\n");
+  StyioNanoCreateSelectionLatest bad_manifest_selection;
+  bad_manifest_selection.mode = "cloud";
+  bad_manifest_selection.output_dir = (temp.path() / "bad-manifest").string();
+  bad_manifest_selection.manifest_ref = bad_manifest.string();
+  EXPECT_FALSE(styio_materialize_cloud_nano_package_latest(bad_manifest_selection, error));
+  EXPECT_NE(error.find("malformed section header"), std::string::npos);
 }
 
 TEST(StyioMainContract, NanoPackageArchiveHelpersCoverExtractionAndCMakeEdges) {
@@ -1759,6 +1768,9 @@ TEST(StyioMainContract, ConfigScalarsCommentsAndProjectConfigAreParsedConservati
   const fs::path config = temp.path() / "styio.toml";
   WriteText(
     config,
+    "\n"
+    "# ignored comment\n"
+    "ignored-without-equals\n"
     "dict_impl = \"ordered-hash\"\n"
     "[dictionary]\n"
     "impl = 'ordered-hash'\n"
@@ -2073,7 +2085,7 @@ TEST(StyioMainContract, NanoProfileNameUsesProfileFieldAndStemFallback) {
   EXPECT_EQ(profile_name, "tiny-local");
 
   const fs::path fallback = temp.path() / "fallback.profile.toml";
-  WriteText(fallback, "[profile]\nthreads = 1\n");
+  WriteText(fallback, "[profile]\nignored-without-equals\nthreads = 1\n");
   EXPECT_TRUE(styio_parse_nano_profile_name_latest(fallback, profile_name, error)) << error;
   EXPECT_EQ(profile_name, "fallback.profile");
 
@@ -2853,6 +2865,22 @@ TEST(StyioMainContract, FileProcessAndRuntimeSinksCoverFailureAndAppendPaths) {
   std::string sha256;
   EXPECT_FALSE(styio_compute_file_sha256_latest(temp.path() / "missing.bin", sha256, error));
   EXPECT_NE(error.find("failed to compute sha256"), std::string::npos);
+  {
+    const fs::path fake_bin = temp.path() / "fake-sha-bin";
+    WriteText(fake_bin / "shasum", "#!/bin/sh\nexit 7\n");
+    WriteText(
+      fake_bin / "sha256sum",
+      "#!/bin/sh\n"
+      "printf '%s  %s\\n' '" + GoodSha('b') + "' \"$1\"\n");
+    MakeExecutable(fake_bin / "shasum");
+    MakeExecutable(fake_bin / "sha256sum");
+    WriteText(temp.path() / "payload.bin", "payload\n");
+
+    EnvVarGuard path_guard("PATH");
+    path_guard.set(fake_bin.string());
+    ASSERT_TRUE(styio_compute_file_sha256_latest(temp.path() / "payload.bin", sha256, error)) << error;
+    EXPECT_EQ(sha256, GoodSha('b'));
+  }
   EXPECT_TRUE(styio_is_hex_digest_64_latest(GoodSha('a')));
   EXPECT_FALSE(styio_is_hex_digest_64_latest(std::string(63, 'a')));
   EXPECT_FALSE(styio_is_hex_digest_64_latest(std::string(64, 'A')));
