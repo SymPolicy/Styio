@@ -11683,6 +11683,19 @@ TEST(StyioSecurityTokenRepr, StableNamesCoverAstDataTypeOperatorAndTokenSwitches
     joined += StyioToken::getTokName(token_type);
   }
 
+  EXPECT_EQ(reprToken(static_cast<StyioOpType>(999)), "<Undefined>");
+  EXPECT_EQ(reprToken(static_cast<LogicType>(999)), "<NULL>");
+  EXPECT_EQ(reprToken(static_cast<CompType>(999)), "<NULL>");
+  EXPECT_EQ(reprDataTypeOption(static_cast<StyioDataTypeOption>(999)), "unknown");
+  EXPECT_EQ(StyioToken::getTokName(static_cast<StyioTokenType>(999)), "<UNKNOWN>");
+
+  const StyioDataType bool_type{StyioDataTypeOption::Bool, "bool", 1};
+  const StyioDataType also_bool_type{StyioDataTypeOption::Bool, "bool", 1};
+  EXPECT_EQ(getMaxType(bool_type, also_bool_type).option, StyioDataTypeOption::Bool);
+  EXPECT_EQ(
+    getMaxType(bool_type, StyioDataType{StyioDataTypeOption::String, "string", 0}).option,
+    StyioDataTypeOption::Undefined);
+
   std::unique_ptr<StyioToken> name(StyioToken::Create(StyioTokenType::NAME, "price"));
   std::unique_ptr<StyioToken> integer(StyioToken::Create(StyioTokenType::INTEGER, "42"));
   std::unique_ptr<StyioToken> decimal(StyioToken::Create(StyioTokenType::DECIMAL, "4.2"));
@@ -13157,11 +13170,13 @@ TEST(StyioSecurityUnicode, ByteClassificationIsStable) {
   EXPECT_TRUE(StyioUnicode::is_identifier_start('_'));
   EXPECT_FALSE(StyioUnicode::is_identifier_start('9'));
   EXPECT_FALSE(StyioUnicode::is_identifier_start(static_cast<std::uint32_t>(0x80)));
+  EXPECT_TRUE(StyioUnicode::is_identifier_start(static_cast<std::uint32_t>('A')));
 
   EXPECT_TRUE(StyioUnicode::is_identifier_continue('9'));
   EXPECT_TRUE(StyioUnicode::is_identifier_continue('_'));
   EXPECT_FALSE(StyioUnicode::is_identifier_continue('-'));
   EXPECT_FALSE(StyioUnicode::is_identifier_continue(static_cast<std::uint32_t>(0x80)));
+  EXPECT_TRUE(StyioUnicode::is_identifier_continue(static_cast<std::uint32_t>('9')));
 
   EXPECT_TRUE(StyioUnicode::is_digit('7'));
   EXPECT_TRUE(StyioUnicode::is_decimal_digit(static_cast<std::uint32_t>('5')));
@@ -13218,10 +13233,24 @@ TEST(StyioSecurityUnicode, DecodeUtf8CodepointBoundaries) {
   }
 
   {
+    std::string truncated = "\xC2";
+    std::uint32_t cp = 0;
+    std::size_t width = 0;
+    EXPECT_FALSE(StyioUnicode::decode_utf8_codepoint(truncated, 0, cp, width));
+  }
+
+  {
     std::string invalid_continuation = "\xE2\x28\xA1";
     std::uint32_t cp = 0;
     std::size_t width = 0;
     EXPECT_FALSE(StyioUnicode::decode_utf8_codepoint(invalid_continuation, 0, cp, width));
+  }
+
+  {
+    std::string truncated = "\xE2\x82";
+    std::uint32_t cp = 0;
+    std::size_t width = 0;
+    EXPECT_FALSE(StyioUnicode::decode_utf8_codepoint(truncated, 0, cp, width));
   }
 
   {
@@ -13236,6 +13265,20 @@ TEST(StyioSecurityUnicode, DecodeUtf8CodepointBoundaries) {
     std::uint32_t cp = 0;
     std::size_t width = 0;
     EXPECT_FALSE(StyioUnicode::decode_utf8_codepoint(out_of_range, 0, cp, width));
+  }
+
+  {
+    std::string out_of_range = "\xF5\x80\x80\x80";
+    std::uint32_t cp = 0;
+    std::size_t width = 0;
+    EXPECT_FALSE(StyioUnicode::decode_utf8_codepoint(out_of_range, 0, cp, width));
+  }
+
+  {
+    std::string invalid_leading_byte = "\xFF";
+    std::uint32_t cp = 0;
+    std::size_t width = 0;
+    EXPECT_FALSE(StyioUnicode::decode_utf8_codepoint(invalid_leading_byte, 0, cp, width));
   }
 
   {
