@@ -16,6 +16,7 @@
 #include "StyioResourceTopology/ResourceTopology.hpp"
 #include "StyioRuntime/HandleTable.hpp"
 #include "StyioToString/ToStringVisitor.hpp"
+#include "StyioUtil/ResourceNames.hpp"
 
 namespace rt = styio::resource_topology;
 
@@ -163,6 +164,21 @@ TEST(StyioResourceTopology, EnumNamesCoverAllResourceTopologyKinds) {
   EXPECT_EQ(rt::to_string(rt::TypeState::Closed), "Closed");
   EXPECT_EQ(rt::to_string(rt::TypeState::Materialized), "Materialized");
   EXPECT_EQ(rt::to_string(rt::TypeState::Ready), "Ready");
+}
+
+TEST(StyioResourceTopology, ResourceNameAndDefaultIrFactoriesCoverFallbacks) {
+  EXPECT_STREQ(styio_std_stream_family_name(static_cast<StdStreamKind>(999)), "");
+  EXPECT_EQ(styio_std_stream_resource_label(static_cast<StdStreamKind>(999)), "@");
+
+  std::unique_ptr<SGResId> empty_id(SGResId::Create());
+  EXPECT_EQ(empty_id->as_str(), "");
+  EXPECT_FALSE(empty_id->has_history_selector);
+  EXPECT_EQ(empty_id->history_offset, 0);
+
+  std::unique_ptr<SIOStdStreamPull> default_pull(SIOStdStreamPull::Create());
+  EXPECT_EQ(default_pull->result_type.option, StyioDataTypeOption::Integer);
+  EXPECT_EQ(default_pull->result_type.name, "i64");
+  EXPECT_EQ(default_pull->result_type.num_of_bit, 64u);
 }
 
 TEST(StyioResourceTopology, FileWriteOwnsCloseCapableSource) {
