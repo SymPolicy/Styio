@@ -2938,6 +2938,27 @@ TEST(StyioMainContract, NanoSourceClosureHelpersCoverSuccessAndFailureEdges) {
   EXPECT_FALSE(styio_collect_nano_closure_files_latest(temp.path() / "missing-source", false, missing_closure, error));
   EXPECT_NE(error.find("nano source closure is missing required file"), std::string::npos);
 
+  const fs::path unreadable_source_root = temp.path() / "unreadable-source";
+  for (const std::string& relpath : roots_without_pipeline) {
+    WriteText(unreadable_source_root / relpath, "// " + relpath + "\n");
+  }
+  const fs::path unreadable_source = unreadable_source_root / "src" / "main.cpp";
+  std::error_code perm_ec;
+  fs::permissions(
+    unreadable_source,
+    fs::perms::owner_read | fs::perms::group_read | fs::perms::others_read,
+    fs::perm_options::remove,
+    perm_ec);
+  ASSERT_FALSE(perm_ec) << perm_ec.message();
+  std::set<std::string> unreadable_closure;
+  EXPECT_FALSE(styio_collect_nano_closure_files_latest(
+    unreadable_source_root,
+    false,
+    unreadable_closure,
+    error));
+  EXPECT_NE(error.find("cannot read nano closure source"), std::string::npos);
+  fs::permissions(unreadable_source, fs::perms::owner_read, fs::perm_options::add, perm_ec);
+
   const fs::path output_dir = temp.path() / "out";
   ASSERT_TRUE(styio_copy_closure_files_latest(source_root, output_dir, closure_files, error)) << error;
   EXPECT_TRUE(fs::exists(output_dir / "src" / "main.cpp"));
