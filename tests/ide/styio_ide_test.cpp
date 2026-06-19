@@ -1650,6 +1650,73 @@ TEST(StyioHirBuilder, CoversFallbackAndMalformedSyntaxEdges) {
   const auto* bad_range = find_hir_item(bad_range_module, "bad_range", styio::ide::HirItemKind::Function);
   ASSERT_NE(bad_range, nullptr);
   EXPECT_EQ(bad_range->fingerprint, 0u);
+
+  styio::ide::SemanticSummary invalid_semantic;
+  invalid_semantic.items.push_back(styio::ide::SemanticItemFact{
+    static_cast<styio::ide::SemanticItemKind>(999),
+    "fallback",
+    {},
+    "binding",
+    "i32",
+    0,
+    true});
+  const auto invalid_fact_module = styio::ide::HirBuilder{}.build(empty_syntax, invalid_semantic, identity_store);
+  EXPECT_NE(find_hir_item(invalid_fact_module, "fallback", styio::ide::HirItemKind::GlobalBinding), nullptr);
+
+  const auto mismatch_syntax = parse_syntax(root + "/hir_semantic_mismatch.styio", "# target := () => 1\n", 38, 1);
+  styio::ide::SemanticSummary mismatch_semantic;
+  mismatch_semantic.items.push_back(styio::ide::SemanticItemFact{
+    styio::ide::SemanticItemKind::Function,
+    "other",
+    {},
+    "other() -> i32",
+    "",
+    0,
+    true});
+  mismatch_semantic.items.push_back(styio::ide::SemanticItemFact{
+    styio::ide::SemanticItemKind::Function,
+    "target",
+    {},
+    "target() -> i32",
+    "",
+    0,
+    true});
+  const auto mismatch_module = styio::ide::HirBuilder{}.build(mismatch_syntax, mismatch_semantic, identity_store);
+  const auto* target = find_hir_item(mismatch_module, "target", styio::ide::HirItemKind::Function);
+  ASSERT_NE(target, nullptr);
+  EXPECT_EQ(target->detail, "target() -> i32");
+
+  const auto missing_match_syntax = parse_syntax(
+    root + "/hir_missing_matching_paren.styio",
+    "# missing_match := (value: i32 => value\n",
+    39,
+    1);
+  const auto missing_match_module =
+    styio::ide::HirBuilder{}.build(missing_match_syntax, empty_semantic, identity_store);
+  EXPECT_NE(find_hir_item(missing_match_module, "missing_match", styio::ide::HirItemKind::Function), nullptr);
+  EXPECT_NE(missing_match_module.reference_at(missing_match_syntax.buffer.text().rfind("value")), nullptr);
+}
+
+TEST(StyioHirBuilder, ResolvesDuplicateLocalSymbolsToNearestDeclaration) {
+  styio::ide::HirIdentityStore identity_store;
+  const std::string path = make_temp_dir() + "/hir_duplicate_locals.styio";
+  const std::string source =
+    "# choose := () => {\n"
+    "  value: i32 := 1\n"
+    "  value: i32 := 2\n"
+    "  result: i32 := value\n"
+    "  <| result\n"
+    "}\n";
+
+  const auto module = build_hir_for_source(path, source, 40, 1, identity_store);
+  const std::size_t value_ref_offset = source.rfind("value");
+  ASSERT_NE(value_ref_offset, std::string::npos);
+  const auto* reference = module.reference_at(value_ref_offset);
+  ASSERT_NE(reference, nullptr);
+  ASSERT_TRUE(reference->target_symbol.has_value());
+  const auto* target = module.symbol_by_id(*reference->target_symbol);
+  ASSERT_NE(target, nullptr);
+  EXPECT_EQ(target->name_range.start, source.find("value: i32 := 2"));
 }
 
 TEST(StyioIdeService, UsesHirBackedDocumentSymbolsAndDefinition) {
