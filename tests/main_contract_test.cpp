@@ -79,6 +79,13 @@ void WriteText(const fs::path& path, const std::string& text) {
   ASSERT_TRUE(styio_write_text_file_latest(path, text, error)) << error;
 }
 
+TEST(StyioMainContractSourceBuildInfo, BranchMappingDefaultsToStable) {
+  EXPECT_STREQ(styio::config::default_source_origin(), "https://github.com/eBioRing/Styio.git");
+  EXPECT_STREQ(styio::config::source_branch_for_channel("nightly"), "nightly");
+  EXPECT_STREQ(styio::config::source_branch_for_channel("stable"), "stable");
+  EXPECT_STREQ(styio::config::source_branch_for_channel("dev"), "stable");
+}
+
 std::string ReadText(const fs::path& path) {
   std::string text;
   std::string error;
