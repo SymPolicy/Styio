@@ -182,6 +182,7 @@ TEST(StyioLoweringInternal, FunctionTailAndMatchHelpersStayExplicit) {
   const StyioDataType string_type = styio_data_type_from_name("string");
   const StyioDataType char_type = styio_data_type_from_name("char");
   EXPECT_EQ(merge_tail_value_type(undefined, string_type).name, "string");
+  EXPECT_EQ(merge_tail_value_type(string_type, undefined).name, "string");
   EXPECT_EQ(merge_tail_value_type(string_type, i64).name, "string");
   EXPECT_EQ(merge_tail_value_type(i64, f64).name, "f64");
   EXPECT_EQ(merge_tail_value_type(bool_type(), bool_type()).name, "bool");
@@ -211,6 +212,14 @@ TEST(StyioLoweringInternal, FunctionTailAndMatchHelpersStayExplicit) {
         {{IntAST::Create("1"), ReturnAST::Create(BoolAST::Create(true))}},
         ReturnAST::Create(BoolAST::Create(false)))));
     EXPECT_EQ(infer_tail_value_type(&analyzer, match.get()).name, "bool");
+  }
+  {
+    std::unique_ptr<MatchCasesAST> nested_return(MatchCasesAST::make(
+      NameAST::Create("x"),
+      CasesAST::Create(
+        {{IntAST::Create("1"), BlockAST::Create({ReturnAST::Create(IntAST::Create("1")), PassAST::Create()})}},
+        PassAST::Create())));
+    EXPECT_TRUE(stmt_has_return_tree(nested_return.get()));
   }
 
   bool has_string = false;
@@ -246,6 +255,7 @@ TEST(StyioLoweringInternal, FunctionTailAndMatchHelpersStayExplicit) {
     EXPECT_EQ(classify_cases(typed_cases.get(), &bool_data_type), SGMatchReprKind::ExprBool);
     EXPECT_EQ(classify_cases(typed_cases.get(), &char_type), SGMatchReprKind::ExprChar);
     EXPECT_EQ(classify_cases(typed_cases.get(), &i64), SGMatchReprKind::ExprInt);
+    EXPECT_FALSE(match_repr_kind_for_type(styio_make_list_type("i64")).has_value());
   }
   {
     std::unique_ptr<CasesAST> string_cases(CasesAST::Create(
@@ -1072,6 +1082,19 @@ TEST(StyioLoweringInternal, DirectLoweringFailureAndVariantBranchesStayExplicit)
   EXPECT_THROW((void)CondAST::Create(static_cast<LogicType>(999), IntAST::Create("1"))->toStyioIR(&analyzer), StyioTypeError);
   EXPECT_THROW((void)StdStreamAST::Create(StdStreamKind::Stdout)->toStyioIR(&analyzer), StyioTypeError);
   EXPECT_THROW((void)FuncCallAST::CreateCallable(NameAST::Create("cont"), {})->toStyioIR(&analyzer), StyioTypeError);
+  EXPECT_THROW((void)FuncCallAST::Create(NameAST::Create("missing_lowering_fn"), {})->toStyioIR(&analyzer), StyioTypeError);
+  {
+    analyzer.local_binding_types["line_text"] = styio_data_type_from_name("string");
+    EXPECT_THROW(
+      (void)FuncCallAST::Create(
+        NameAST::Create("line_text"),
+        NameAST::Create("lines"),
+        {IntAST::Create("1")})->toStyioIR(&analyzer),
+      StyioTypeError);
+  }
+  EXPECT_THROW(
+    (void)AttrAST::Create(NameAST::Create("attr_obj"), IntAST::Create("1"))->toStyioIR(&analyzer),
+    StyioTypeError);
   {
     std::unique_ptr<SimpleFuncAST> one_arg(SimpleFuncAST::Create(
       NameAST::Create("one_arg"),
@@ -1113,6 +1136,13 @@ TEST(StyioLoweringInternal, DirectLoweringFailureAndVariantBranchesStayExplicit)
     std::unique_ptr<ListAST> rowless(ListAST::Create({IntAST::Create("1")}));
     rowless->setDataType(styio_make_matrix_type("i64", 1, 1));
     EXPECT_THROW((void)rowless->toStyioIR(&analyzer), StyioTypeError);
+  }
+  {
+    std::unique_ptr<ResourceDeclAST> decl(ResourceDeclAST::Create(
+      {{NameAST::Create("driven_slot"), TypeAST::Create("i64")}},
+      BlockAST::Create({PassAST::Create()})));
+    std::unique_ptr<StyioIR> ir(decl->toStyioIR(&analyzer));
+    EXPECT_NE(dynamic_cast<SGBlock*>(ir.get()), nullptr);
   }
   {
     analyzer.local_binding_types["d"] = styio_make_dict_type("string", "i64");
@@ -1166,6 +1196,13 @@ TEST(StyioLoweringInternal, DirectLoweringFailureAndVariantBranchesStayExplicit)
       StdStreamAST::Create(StdStreamKind::Stdout)));
     std::unique_ptr<StyioIR> ir(write->toStyioIR(&analyzer));
     EXPECT_NE(dynamic_cast<SIOStdStreamWrite*>(ir.get()), nullptr);
+  }
+  {
+    std::unique_ptr<AttrAST> path(AttrAST::Create(
+      FileResourceAST::Create(StringAST::Create("input.txt"), false),
+      NameAST::Create("path")));
+    std::unique_ptr<StyioIR> ir(path->toStyioIR(&analyzer));
+    EXPECT_NE(ir, nullptr);
   }
   {
     LowererProbe probe;
@@ -1710,6 +1747,7 @@ TEST(StyioLoweringInternal, AdditionalLoweringGuardBranchesStayExplicit) {
   }
   {
     std::unique_ptr<FuncCallAST> call(FuncCallAST::Create(NameAST::Create("custom_runtime"), {}));
+    EXPECT_TRUE(matrix_intrinsic_lowered_type(&analyzer, call.get()).isUndefined());
     EXPECT_EQ(matrix_intrinsic_runtime_name(&analyzer, call.get()), "custom_runtime");
   }
   {
