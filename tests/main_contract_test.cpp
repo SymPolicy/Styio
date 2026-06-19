@@ -606,6 +606,7 @@ TEST(StyioMainContract, ConfigPathFetchAndNativeLookupHelpersCoverEdges) {
     "mode = \"cloud\"\n"
     "output = \"out\"\n"
     "name = \"pkg\"\n"
+    "ignored = \"skip\"\n"
     "[nano.local]\n"
     "profile = \"profile.toml\"\n"
     "binary = \"bin/styio-nano\"\n"
@@ -634,7 +635,8 @@ TEST(StyioMainContract, ConfigPathFetchAndNativeLookupHelpersCoverEdges) {
     "registry = \"repo\"\n"
     "package = \"org/pkg\"\n"
     "version = \"2.0.0\"\n"
-    "channel = \"beta\"\n");
+    "channel = \"beta\"\n"
+    "ignored = \"skip\"\n");
   StyioNanoPublishConfigLatest publish_values;
   ASSERT_TRUE(styio_parse_nano_publish_config_latest(publish_config, publish_values, error)) << error;
   EXPECT_TRUE(publish_values.has_package_dir);
@@ -651,6 +653,7 @@ TEST(StyioMainContract, ConfigPathFetchAndNativeLookupHelpersCoverEdges) {
     "name = \"pkg\"\n"
     "version = \"3.0.0\"\n"
     "channel = \"stable\"\n"
+    "ignored = \"skip\"\n"
     "binary_ref = \"bin/styio-nano\"\n"
     "profile_ref = \"profile.toml\"\n"
     "[artifact]\n"
@@ -1134,6 +1137,11 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
   EXPECT_EQ(dict_selection.source, "project-config");
   EXPECT_EQ(dict_selection.config_path, project_config.string());
 
+  testing::internal::CaptureStdout();
+  styio_emit_machine_info_json(dict_selection);
+  const std::string machine_info_with_config = testing::internal::GetCapturedStdout();
+  EXPECT_NE(machine_info_with_config.find("\"config_file\":\"" + project_config.string() + "\""), std::string::npos);
+
   dict_selection = StyioDictImplSelectionLatest{};
   auto empty_dict_config = ParseMainOptions({"styio", "--config="});
   EXPECT_FALSE(styio_resolve_dict_impl_selection_latest(
@@ -1151,6 +1159,19 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
     dict_selection,
     error));
   EXPECT_NE(error.find("unsupported --dict-impl"), std::string::npos);
+
+  const fs::path discovered_bad_config = temp.path() / "project" / "styio.toml";
+  const fs::path discovered_source = temp.path() / "project" / "src" / "main.styio";
+  WriteText(discovered_bad_config, "[dict]\nimpl = two words\n");
+  WriteText(discovered_source, "print(1)\n");
+  dict_selection = StyioDictImplSelectionLatest{};
+  auto discover_bad_config = ParseMainOptions({"styio"});
+  EXPECT_FALSE(styio_resolve_dict_impl_selection_latest(
+    discover_bad_config,
+    discovered_source.string(),
+    dict_selection,
+    error));
+  EXPECT_NE(error.find("invalid dict_impl value"), std::string::npos);
 
   StyioCompilePlanRequestLatest request;
   request.plan_version = 1;
@@ -2896,6 +2917,7 @@ TEST(StyioMainContract, FileProcessAndRuntimeSinksCoverFailureAndAppendPaths) {
   EXPECT_NE(events.find("\"intent\":\"test\""), std::string::npos);
   EXPECT_STREQ(styio_runtime_phase_name_latest(CompilationPhase::Empty), "empty");
   EXPECT_STREQ(styio_runtime_phase_name_latest(CompilationPhase::Failed), "failed");
+  EXPECT_STREQ(styio_runtime_phase_name_latest(static_cast<CompilationPhase>(999)), "unknown");
   styio_clear_runtime_event_sink_latest();
 }
 
