@@ -649,6 +649,19 @@ TEST(StyioFiveLayerPipeline, ReportsMissingInputAndLexerGoldenFailures) {
   const std::string missing_input = styio::testing::run_pipeline_case(missing_input_case.string(), nullptr);
   EXPECT_NE(missing_input.find("case missing input.styio"), std::string::npos) << missing_input;
 
+#ifndef _WIN32
+  const fs::path unreadable_input_case = root / "unreadable-input";
+  fs::create_directories(unreadable_input_case);
+  write_text_file_latest(unreadable_input_case / "input.styio", ">_(1)\n");
+  std::error_code input_perm_ec;
+  fs::permissions(unreadable_input_case / "input.styio", fs::perms::none, input_perm_ec);
+  ASSERT_FALSE(input_perm_ec) << input_perm_ec.message();
+  const std::string unreadable_input =
+    styio::testing::run_pipeline_case(unreadable_input_case.string(), nullptr);
+  EXPECT_NE(unreadable_input.find("Pipeline error: cannot open"), std::string::npos)
+    << unreadable_input;
+#endif
+
   const fs::path missing_golden_case = root / "missing-golden";
   fs::create_directories(missing_golden_case / "expected");
   {
