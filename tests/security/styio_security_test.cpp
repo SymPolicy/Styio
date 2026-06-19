@@ -4405,6 +4405,9 @@ TEST(StyioSecurityParserContext, EmptyTokenVectorFallsBackToEofToken) {
   EXPECT_FALSE(ctx->match(StyioTokenType::NAME));
   EXPECT_FALSE(ctx->try_match(StyioTokenType::NAME));
   EXPECT_EQ(ctx->mark_cur_tok("empty-token-context"), "empty-token-context");
+  EXPECT_EQ(ctx->current_token_end_pos(), 0u);
+  ctx->move_forward(1, "empty-token-context");
+  EXPECT_EQ(ctx->get_curr_pos(), 0u);
 
   bool map_matched = false;
   EXPECT_NO_THROW({
@@ -4413,6 +4416,24 @@ TEST(StyioSecurityParserContext, EmptyTokenVectorFallsBackToEofToken) {
   EXPECT_FALSE(map_matched);
 
   delete ctx;
+}
+
+TEST(StyioSecurityParserContext, LabelCurrentLineClampsSparseLineSeparators) {
+  auto tokens = StyioTokenizer::tokenize("x");
+  StyioContext* ctx = StyioContext::Create(
+    "<sparse-line-seps>",
+    "x",
+    {{50, 10}},
+    tokens,
+    false
+  );
+
+  const std::string label = ctx->label_cur_line(50, "sparse-line-seps");
+  EXPECT_NE(label.find("sparse-line-seps"), std::string::npos) << label;
+  EXPECT_NE(label.find("Line 0"), std::string::npos) << label;
+
+  delete ctx;
+  free_tokens(tokens);
 }
 
 TEST(StyioSecurityParserContext, MoveForwardBeyondTokenTailIsClampedToEof) {
