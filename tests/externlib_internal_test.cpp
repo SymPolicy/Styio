@@ -54,6 +54,7 @@ TEST(StyioExternLibInternal, DictTemplateHelpersCoverNullLinearAndInvalidBackend
 
   size_t pos = 0;
   EXPECT_FALSE(dict_find_pos(static_cast<StyioDictI64*>(nullptr), "x", pos));
+  dict_set(static_cast<StyioDictI64*>(nullptr), "x", int64_t{1});
 
   StyioDictI64 invalid(static_cast<StyioDictRuntimeImpl>(255));
   EXPECT_FALSE(dict_find_pos(&invalid, "x", pos));
@@ -67,6 +68,7 @@ TEST(StyioExternLibInternal, DictTemplateHelpersCoverNullLinearAndInvalidBackend
   StyioDictI64 linear(StyioDictRuntimeImpl::Linear);
   dict_set(&linear, "a", int64_t{1});
   dict_set(&linear, "a", int64_t{2});
+  dict_set(&linear, nullptr, int64_t{3});
   ASSERT_EQ(linear.entries.size(), 1u);
   EXPECT_EQ(linear.entries[0].second, 2);
   EXPECT_TRUE(dict_find_pos(&linear, "a", pos));
@@ -76,8 +78,10 @@ TEST(StyioExternLibInternal, DictTemplateHelpersCoverNullLinearAndInvalidBackend
 
   int releases = 0;
   StyioDictListHandle handles(StyioDictRuntimeImpl::Linear);
+  dict_set_handle(static_cast<StyioDictListHandle*>(nullptr), "slot", int64_t{10}, [&](int64_t) { ++releases; });
   dict_set_handle(&handles, "slot", int64_t{11}, [&](int64_t) { ++releases; });
   dict_set_handle(&handles, "slot", int64_t{12}, [&](int64_t) { ++releases; });
+  dict_set_handle(&handles, nullptr, int64_t{13}, [&](int64_t) { ++releases; });
   ASSERT_EQ(handles.entries.size(), 1u);
   EXPECT_EQ(handles.entries[0].second, 12);
   EXPECT_EQ(releases, 1);
@@ -296,6 +300,7 @@ TEST(StyioExternLibInternal, ListCloneSliceAndEmptyMutationEdgesStayExplicit) {
   EXPECT_EQ(styio_list_get_dict(empty_dicts, 0), 0);
   EXPECT_EQ(styio_list_get_matrix(empty_matrices, 0), 0);
 
+  EXPECT_EQ(styio_list_slice(0, 0, 1, 1), 0);
   EXPECT_EQ(styio_list_slice(empty_list, -1, 0, 1), 0);
   EXPECT_EQ(styio_list_slice(empty_dicts, 0, 1, 1), 0);
   EXPECT_EQ(styio_list_slice(empty_matrices, 0, 1, 1), 0);
@@ -306,6 +311,10 @@ TEST(StyioExternLibInternal, ListCloneSliceAndEmptyMutationEdgesStayExplicit) {
   styio_list_set_dict(0, 0, 0);
   styio_list_set_matrix(0, 0, 0);
   EXPECT_EQ(styio_list_to_cstr(0), nullptr);
+
+  styio_runtime_clear_error();
+  styio_list_pop(0);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
 
   std::vector<int64_t> empties = {
     empty_bool,
@@ -393,6 +402,23 @@ TEST(StyioExternLibInternal, MatrixAndDictInvalidApiEdgesStayExplicit) {
   styio_dict_release(dicts);
   styio_dict_release(inner_b);
   styio_dict_release(inner_a);
+
+  int64_t list_value = styio_list_new_i64();
+  styio_list_push_i64(list_value, 42);
+  int64_t list_dict = styio_dict_new_list();
+  styio_dict_set_list(list_dict, "items", list_value);
+  int64_t list_dict_clone = styio_dict_clone(list_dict);
+  ASSERT_NE(list_dict_clone, 0);
+  int64_t cloned_items = styio_dict_get_list(list_dict_clone, "items");
+  ASSERT_NE(cloned_items, 0);
+  EXPECT_EQ(styio_list_get(cloned_items, 0), 42);
+  int64_t list_values = styio_dict_values_list(list_dict_clone);
+  EXPECT_EQ(styio_list_len(list_values), 1);
+  styio_list_release(list_values);
+  styio_list_release(cloned_items);
+  styio_dict_release(list_dict_clone);
+  styio_dict_release(list_dict);
+  styio_list_release(list_value);
 }
 
 TEST(StyioExternLibInternal, NullAndWrongKindHandleCastsStayExplicit) {
