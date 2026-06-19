@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <limits>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -164,6 +166,10 @@ TEST(StyioResourceTopology, EnumNamesCoverAllResourceTopologyKinds) {
   EXPECT_EQ(rt::to_string(rt::TypeState::Closed), "Closed");
   EXPECT_EQ(rt::to_string(rt::TypeState::Materialized), "Materialized");
   EXPECT_EQ(rt::to_string(rt::TypeState::Ready), "Ready");
+
+  EXPECT_EQ(rt::to_string(static_cast<rt::NodeKind>(255)), "UnknownNode");
+  EXPECT_EQ(rt::to_string(static_cast<rt::EdgeKind>(255)), "UnknownEdge");
+  EXPECT_EQ(rt::to_string(static_cast<rt::TypeState>(255)), "UnknownState");
 }
 
 TEST(StyioResourceTopology, ResourceNameAndDefaultIrFactoriesCoverFallbacks) {
@@ -179,6 +185,38 @@ TEST(StyioResourceTopology, ResourceNameAndDefaultIrFactoriesCoverFallbacks) {
   EXPECT_EQ(default_pull->result_type.option, StyioDataTypeOption::Integer);
   EXPECT_EQ(default_pull->result_type.name, "i64");
   EXPECT_EQ(default_pull->result_type.num_of_bit, 64u);
+}
+
+TEST(StyioResourceTopology, GraphApiCoversSparseEdgesAndInvalidLookups) {
+  rt::Graph graph;
+
+  graph.add_edge(
+    rt::EdgeKind::Flow,
+    std::numeric_limits<std::size_t>::max(),
+    1,
+    "missing");
+  EXPECT_TRUE(graph.edges().empty());
+  EXPECT_THROW(graph.node(0), std::out_of_range);
+
+  const std::size_t first = graph.add_node(
+    rt::NodeKind::Value,
+    "first",
+    rt::Capability::Pull | rt::Capability::Clone | rt::Capability::Task,
+    rt::TypeState::Ready);
+  const std::size_t second = graph.add_node(
+    rt::NodeKind::Sink,
+    "second",
+    rt::Capability::None,
+    rt::TypeState::Closed);
+  graph.add_edge(rt::EdgeKind::Placement, first, second, "place");
+
+  EXPECT_EQ(graph.node(first).label, "first");
+  EXPECT_EQ(graph.node_count(rt::NodeKind::Value), 1u);
+  EXPECT_EQ(graph.edge_count(rt::EdgeKind::Placement), 1u);
+  EXPECT_NE(graph.debug_string().find("pull|clone|task"), std::string::npos)
+    << graph.debug_string();
+  EXPECT_NE(graph.debug_string().find("Placement place"), std::string::npos)
+    << graph.debug_string();
 }
 
 TEST(StyioResourceTopology, FileWriteOwnsCloseCapableSource) {
@@ -524,6 +562,10 @@ TEST(StyioResourceTopology, BindingsTasksStatesAndResourceFamiliesBuildEdges) {
       NameAST::Create("resourceish"),
       NameAST::Create("write"),
       {IntAST::Create("13")}),
+    FuncCallAST::Create(
+      FileResourceAST::Create(StringAST::Create("/tmp/styio-rtg-unknown-method.txt"), false),
+      NameAST::Create("flush"),
+      {}),
   });
 
   rt::BuildResult result = rt::build(root.get());
