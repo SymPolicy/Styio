@@ -2340,6 +2340,24 @@ TEST(StyioWorkspaceIndex, ClosedFileRefreshesFromDiskBeforeBackgroundIndexing) {
   EXPECT_TRUE(has_indexed_symbol(symbols, "new_symbol", path));
 }
 
+TEST(StyioWorkspaceIndex, DirectFileIndexingErasesDeletedBackgroundSymbols) {
+  const std::string root = make_temp_project_dir("ide_direct_deleted_index");
+  const std::string path = (std::filesystem::path(root) / "deleted.styio").string();
+  write_text_file(path, "# vanishing_symbol := (x: i32) => x\n");
+
+  styio::ide::VirtualFileSystem vfs;
+  styio::ide::Project project;
+  project.set_root(root);
+  styio::ide::SemanticDB semdb(vfs, project);
+
+  semdb.index_workspace_file(path);
+  EXPECT_TRUE(has_indexed_symbol(semdb.workspace_symbols("vanishing_symbol"), "vanishing_symbol", path));
+
+  std::filesystem::remove(path);
+  semdb.index_workspace_file(path);
+  EXPECT_FALSE(has_indexed_symbol(semdb.workspace_symbols("vanishing_symbol"), "vanishing_symbol", path));
+}
+
 TEST(StyioSemanticDb, ReusesFileQueriesWithinSnapshot) {
   styio::ide::VirtualFileSystem vfs;
   styio::ide::Project project;
