@@ -582,6 +582,22 @@ add_executable(styio_codegen_internal_test
 target_link_libraries(styio_codegen_internal_test PRIVATE styio_core GTest::gtest_main)
 styio_apply_llvm_compile_settings(styio_codegen_internal_test)
 
+add_executable(styio_syntax_check_internal_test
+  syntax_check_internal_test.cpp
+)
+target_include_directories(styio_syntax_check_internal_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(styio_syntax_check_internal_test PRIVATE
+  styio_frontend_core
+  GTest::gtest_main
+  ${LLVM_LIBS}
+)
+target_compile_definitions(styio_syntax_check_internal_test PRIVATE
+  "STYIO_PROJECT_VERSION=\"${PROJECT_VERSION}\""
+  "STYIO_RELEASE_CHANNEL=\"nightly\""
+  "STYIO_EDITION_MAX=\"2026\""
+)
+styio_apply_llvm_compile_settings(styio_syntax_check_internal_test)
+
 add_executable(styio_main_contract_test
   main_contract_test.cpp
 )
@@ -664,6 +680,11 @@ gtest_discover_tests(styio_externlib_internal_test
 )
 
 gtest_discover_tests(styio_codegen_internal_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "security\\;safety\\;unit"
+)
+
+gtest_discover_tests(styio_syntax_check_internal_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES LABELS "security\\;safety\\;unit"
 )

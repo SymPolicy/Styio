@@ -194,6 +194,7 @@ BUILD_TARGETS=(
   styio_native_interop_internal_test
   styio_externlib_internal_test
   styio_codegen_internal_test
+  styio_syntax_check_internal_test
   styio_main_contract_test
   styio_resource_topology_test
   styio_ide_test
@@ -250,6 +251,7 @@ for object in \
   "$BUILD_DIR/bin/styio_native_interop_internal_test" \
   "$BUILD_DIR/bin/styio_externlib_internal_test" \
   "$BUILD_DIR/bin/styio_codegen_internal_test" \
+  "$BUILD_DIR/bin/styio_syntax_check_internal_test" \
   "$BUILD_DIR/bin/styio_main_contract_test" \
   "$BUILD_DIR/bin/styio_resource_topology_test" \
   "$BUILD_DIR/bin/styio_ide_test" \
