@@ -461,6 +461,12 @@ TEST(StyioMainContract, ConfigPathFetchAndNativeLookupHelpersCoverEdges) {
   EXPECT_EQ(
     styio_parse_project_config_field_latest(StyioProjectConfigSectionLatest::Other, "impl"),
     StyioProjectConfigFieldLatest::None);
+  EXPECT_EQ(
+    styio_parse_project_config_field_latest(StyioProjectConfigSectionLatest::RootOrRuntime, "unknown"),
+    StyioProjectConfigFieldLatest::None);
+  EXPECT_EQ(
+    styio_parse_project_config_field_latest(StyioProjectConfigSectionLatest::Dict, "unknown"),
+    StyioProjectConfigFieldLatest::None);
 
   EXPECT_EQ(
     styio_parse_nano_package_config_section_latest("nano.local"),
@@ -480,6 +486,15 @@ TEST(StyioMainContract, ConfigPathFetchAndNativeLookupHelpersCoverEdges) {
   EXPECT_EQ(
     styio_parse_nano_package_config_field_latest(StyioNanoPackageConfigSectionLatest::Other, "mode"),
     StyioNanoPackageConfigFieldLatest::None);
+  EXPECT_EQ(
+    styio_parse_nano_package_config_field_latest(StyioNanoPackageConfigSectionLatest::RootOrNano, "unknown"),
+    StyioNanoPackageConfigFieldLatest::None);
+  EXPECT_EQ(
+    styio_parse_nano_package_config_field_latest(StyioNanoPackageConfigSectionLatest::NanoLocal, "unknown"),
+    StyioNanoPackageConfigFieldLatest::None);
+  EXPECT_EQ(
+    styio_parse_nano_package_config_field_latest(StyioNanoPackageConfigSectionLatest::NanoCloud, "unknown"),
+    StyioNanoPackageConfigFieldLatest::None);
 
   EXPECT_EQ(
     styio_parse_nano_publish_config_section_latest("publish"),
@@ -492,6 +507,9 @@ TEST(StyioMainContract, ConfigPathFetchAndNativeLookupHelpersCoverEdges) {
     StyioNanoPublishFieldLatest::PackageDir);
   EXPECT_EQ(
     styio_parse_nano_publish_field_latest(StyioNanoPublishConfigSectionLatest::Other, "registry"),
+    StyioNanoPublishFieldLatest::None);
+  EXPECT_EQ(
+    styio_parse_nano_publish_field_latest(StyioNanoPublishConfigSectionLatest::Publish, "unknown"),
     StyioNanoPublishFieldLatest::None);
 
   EXPECT_EQ(
@@ -509,9 +527,24 @@ TEST(StyioMainContract, ConfigPathFetchAndNativeLookupHelpersCoverEdges) {
   EXPECT_EQ(
     styio_parse_nano_manifest_field_latest(StyioNanoManifestSectionLatest::Other, "binary"),
     StyioNanoManifestFieldLatest::None);
+  EXPECT_EQ(
+    styio_parse_nano_manifest_field_latest(StyioNanoManifestSectionLatest::PackageRoot, "unknown"),
+    StyioNanoManifestFieldLatest::None);
+  EXPECT_EQ(
+    styio_parse_nano_manifest_field_latest(StyioNanoManifestSectionLatest::Artifact, "unknown"),
+    StyioNanoManifestFieldLatest::None);
 
   const fs::path config_path = temp.path() / "cfg" / "styio.toml";
   WriteText(config_path, "dict_impl = \"linear\"\n");
+  fs::path empty_discovered_config;
+  EXPECT_FALSE(styio_find_project_config_latest("", empty_discovered_config));
+  const fs::path nested_config = temp.path() / "nested-project" / ".styio.toml";
+  const fs::path nested_source = temp.path() / "nested-project" / "src" / "main.styio";
+  WriteText(nested_config, "[dict]\nimpl = \"linear\"\n");
+  WriteText(nested_source, "print(1)\n");
+  fs::path discovered_config;
+  ASSERT_TRUE(styio_find_project_config_latest(nested_source.string(), discovered_config));
+  EXPECT_EQ(discovered_config, nested_config);
   EXPECT_EQ(styio_file_uri_to_path_latest("file:///tmp/styio"), "/tmp/styio");
   EXPECT_EQ(styio_file_uri_to_path_latest("file://tmp/styio"), "/tmp/styio");
   EXPECT_EQ(styio_file_uri_to_path_latest("plain"), "plain");
@@ -666,6 +699,20 @@ TEST(StyioMainContract, ConfigPathFetchAndNativeLookupHelpersCoverEdges) {
   EXPECT_EQ(manifest_values.channel, "stable");
   EXPECT_EQ(manifest_values.binary_ref, "bin/override");
   EXPECT_EQ(manifest_values.profile_ref, "profile-override.toml");
+  const fs::path defaulted_manifest = temp.path() / "defaulted.toml";
+  WriteText(defaulted_manifest, "[artifact]\nbinary = \"bin/styio-nano\"\n");
+  StyioNanoPackageManifestLatest defaulted_manifest_values;
+  ASSERT_TRUE(styio_parse_nano_package_manifest_latest(
+    defaulted_manifest,
+    defaulted_manifest_values,
+    error)) << error;
+  EXPECT_EQ(defaulted_manifest_values.package_name, "defaulted");
+  EXPECT_EQ(defaulted_manifest_values.channel, "nano");
+  WriteText(temp.path() / "bad-manifest-scalar.toml", "[artifact]\nbinary = two words\n");
+  EXPECT_FALSE(styio_parse_nano_package_manifest_latest(
+    temp.path() / "bad-manifest-scalar.toml",
+    defaulted_manifest_values,
+    error));
   WriteText(temp.path() / "manifest-missing-binary.toml", "[package]\nname = \"pkg\"\n");
   StyioNanoPackageManifestLatest missing_manifest_values;
   EXPECT_FALSE(styio_parse_nano_package_manifest_latest(
@@ -762,11 +809,53 @@ TEST(StyioMainContract, LowLevelMainHelpersCoverFailureBoundaries) {
     include_pipeline_check,
     error));
   EXPECT_NE(error.find("cannot open file"), std::string::npos);
+  const fs::path profile_without_pipeline = temp.path() / "profile-no-pipeline.cmake";
+  WriteText(profile_without_pipeline, "set(STYIO_NANO_INCLUDE_PIPELINE_CHECK OFF)\n");
+  ASSERT_TRUE(styio_profile_cmake_includes_pipeline_check_latest(
+    profile_without_pipeline,
+    include_pipeline_check,
+    error)) << error;
+  EXPECT_FALSE(include_pipeline_check);
+  const fs::path profile_with_pipeline = temp.path() / "profile-with-pipeline.cmake";
+  WriteText(profile_with_pipeline, "set(STYIO_NANO_INCLUDE_PIPELINE_CHECK ON)\n");
+  ASSERT_TRUE(styio_profile_cmake_includes_pipeline_check_latest(
+    profile_with_pipeline,
+    include_pipeline_check,
+    error)) << error;
+  EXPECT_TRUE(include_pipeline_check);
 
   const fs::path source_root = temp.path() / "closure-source";
   for (const std::string& relpath : styio_nano_source_roots_latest(false)) {
     WriteText(source_root / relpath, "// " + relpath + "\n");
   }
+  std::string include_relpath;
+  WriteText(source_root / "src" / "local.hpp", "// local\n");
+  EXPECT_TRUE(styio_resolve_local_include_relpath_latest(
+    source_root,
+    "src/main.cpp",
+    "local.hpp",
+    include_relpath));
+  EXPECT_EQ(include_relpath, "src/local.hpp");
+  WriteText(source_root / "src" / "StyioParser" / "Shared.hpp", "// shared\n");
+  EXPECT_TRUE(styio_resolve_local_include_relpath_latest(
+    source_root,
+    "src/main.cpp",
+    "StyioParser/Shared.hpp",
+    include_relpath));
+  EXPECT_EQ(include_relpath, "src/StyioParser/Shared.hpp");
+  WriteText(source_root / "RootOnly.hpp", "// root\n");
+  EXPECT_TRUE(styio_resolve_local_include_relpath_latest(
+    source_root,
+    "src/main.cpp",
+    "RootOnly.hpp",
+    include_relpath));
+  EXPECT_EQ(include_relpath, "RootOnly.hpp");
+  WriteText(temp.path() / "outside.hpp", "// outside\n");
+  EXPECT_FALSE(styio_resolve_local_include_relpath_latest(
+    source_root,
+    "src/main.cpp",
+    "../../outside.hpp",
+    include_relpath));
   WriteText(source_root / "src" / "main.cpp", "#include \"missing-local.hpp\"\n");
   std::set<std::string> closure_files;
   EXPECT_FALSE(styio_collect_nano_closure_files_latest(source_root, false, closure_files, error));
@@ -816,6 +905,47 @@ TEST(StyioMainContract, LowLevelMainHelpersCoverFailureBoundaries) {
   bad_source_root.source_root = (temp.path() / "not-a-repo").string();
   EXPECT_FALSE(styio_materialize_local_nano_package_latest(bad_source_root, nullptr, error));
   EXPECT_NE(error.find("does not look like a styio repository"), std::string::npos);
+
+  std::string token;
+  EXPECT_TRUE(styio_read_first_command_token_latest("printf 'first second\\n'", token));
+  EXPECT_EQ(token, "first");
+  EXPECT_FALSE(styio_read_first_command_token_latest("sh -c 'exit 7'", token));
+
+  EnvVarGuard jobs_guard("STYIO_NANO_BUILD_JOBS");
+  jobs_guard.unset();
+  EXPECT_EQ(styio_nano_build_jobs_latest(), "2");
+  jobs_guard.set("4");
+  EXPECT_EQ(styio_nano_build_jobs_latest(), "4");
+  jobs_guard.set("0");
+  EXPECT_EQ(styio_nano_build_jobs_latest(), "2");
+  jobs_guard.set("abc");
+  EXPECT_EQ(styio_nano_build_jobs_latest(), "2");
+
+  const fs::path fake_cmake_bin = temp.path() / "fake-cmake-bin";
+  const fs::path fake_cmake = fake_cmake_bin / "cmake";
+  EnvVarGuard fake_cmake_path_guard("PATH");
+  fake_cmake_path_guard.set(fake_cmake_bin.string());
+  const fs::path fake_nano_out = temp.path() / "fake-nano-out";
+  WriteText(fake_nano_out / "CMakeLists.txt", "cmake_minimum_required(VERSION 3.16)\n");
+
+  WriteText(fake_cmake, "#!/bin/sh\nexit 9\n");
+  MakeExecutable(fake_cmake);
+  EXPECT_FALSE(styio_build_nano_package_latest(fake_nano_out, error));
+  EXPECT_NE(error.find("styio-nano package configure failed"), std::string::npos);
+
+  WriteText(
+    fake_cmake,
+    "#!/bin/sh\n"
+    "if [ \"$1\" = \"--build\" ]; then exit 8; fi\n"
+    "exit 0\n");
+  MakeExecutable(fake_cmake);
+  EXPECT_FALSE(styio_build_nano_package_latest(fake_nano_out, error));
+  EXPECT_NE(error.find("styio-nano package build failed"), std::string::npos);
+
+  WriteText(fake_cmake, "#!/bin/sh\nexit 0\n");
+  MakeExecutable(fake_cmake);
+  EXPECT_FALSE(styio_build_nano_package_latest(fake_nano_out, error));
+  EXPECT_NE(error.find("styio-nano package build did not produce"), std::string::npos);
 }
 
 TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
@@ -896,6 +1026,19 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
     error)) << error;
   EXPECT_EQ(create_selection.package_name, "profile-name");
   EXPECT_FALSE(create_selection.source_root.empty());
+
+  create_selection = StyioNanoCreateSelectionLatest{};
+  auto local_default_name = ParseMainOptions({
+    "styio",
+    "--nano-mode=local-subset",
+    "--nano-output=" + (temp.path() / "local-default-name").string(),
+    "--nano-profile=" + (temp.path() / "missing-default.profile.toml").string()});
+  ASSERT_TRUE(styio_resolve_nano_create_selection_latest(
+    local_default_name,
+    nullptr,
+    create_selection,
+    error)) << error;
+  EXPECT_EQ(create_selection.package_name, "styio-nano");
 
   const fs::path configured_source_root = temp.path() / "configured-source";
   const fs::path package_config = temp.path() / "nano-package.toml";
