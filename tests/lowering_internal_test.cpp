@@ -443,6 +443,14 @@ TEST(StyioLoweringInternal, OptimizerCanonicalizesRebindAndVisitsIrFamilies) {
 TEST(StyioLoweringInternal, OptimizerPrivateReadWriteAndEquivalenceEdgesStayExplicit) {
   using namespace styio::lowering;
 
+  EXPECT_TRUE(is_speculatable_op(StyioOpType::Unary_Positive));
+  EXPECT_TRUE(is_speculatable_op(StyioOpType::Unary_Negative));
+  EXPECT_FALSE(ir_expr_is_speculatable(nullptr));
+  EXPECT_TRUE(ir_expr_has_no_runtime_effects(nullptr));
+  EXPECT_TRUE(stmt_is_rebind_hoist_transparent(nullptr));
+  EXPECT_FALSE(stmt_writes_name(nullptr, "missing"));
+  EXPECT_FALSE(stmt_reads_name(nullptr, "missing"));
+
   {
     std::unique_ptr<StyioIR> rhs(SGConstInt::Create(1));
     EXPECT_TRUE(ir_expr_equiv(nullptr, nullptr));
