@@ -551,6 +551,20 @@ TEST(StyioParserInternal, HashFunctionCommonEdgesStayExplicit) {
     EXPECT_EQ(out, nullptr);
     EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::TOK_HASH);
   }
+  {
+    DirectContext direct("foo := @extern(\"c\", \"int foo(void) { return 1; }\")");
+    StyioAST* out = nullptr;
+    EXPECT_FALSE(try_parse_hash_extern_binding_common_latest(direct.get(), out));
+    EXPECT_EQ(out, nullptr);
+    EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::NAME);
+  }
+  {
+    DirectContext direct("#foo := @not_extern(\"c\", \"int foo(void) { return 1; }\")");
+    StyioAST* out = nullptr;
+    EXPECT_FALSE(try_parse_hash_extern_binding_common_latest(direct.get(), out));
+    EXPECT_EQ(out, nullptr);
+    EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::TOK_HASH);
+  }
 }
 
 TEST(StyioParserInternal, LegacyOperatorForwardAndCodpEdgesStayExplicit) {
