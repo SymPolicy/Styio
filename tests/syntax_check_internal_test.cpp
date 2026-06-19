@@ -83,15 +83,29 @@ TEST(StyioSyntaxCheckInternal, SourceContextAndOffsetHelpersCoverEmptyFallbacks)
   EXPECT_TRUE(empty_context.line_text.empty());
 
   const SourceText source = make_source_text("alpha\nbeta");
+  EXPECT_EQ(position_at(source, 0), (std::pair<std::size_t, std::size_t>{1, 1}));
   EXPECT_EQ(diagnostic_offset_from_message("no marker here", source), 0u);
   EXPECT_EQ(diagnostic_offset_from_message("bad at offset end", source), 0u);
   EXPECT_EQ(diagnostic_offset_from_message("bad at offset 999", source), source.text.size());
+
+  const SourceContext first_context = source_context_at(source, 0, 0);
+  EXPECT_EQ(first_context.caret, "^");
+  EXPECT_EQ(first_context.range_start_column, 1u);
+  EXPECT_EQ(first_context.range_end_column, 2u);
 
   const SourceContext context = source_context_at(source, 6, 8);
   EXPECT_EQ(context.line_text, "beta");
   EXPECT_EQ(context.range_start_column, 1u);
   EXPECT_EQ(context.range_end_column, 5u);
   EXPECT_EQ(context.caret, "^~~~");
+
+  const SourceContext eof_context = source_context_at(source, source.text.size(), 4);
+  EXPECT_EQ(eof_context.caret, "    ^");
+  EXPECT_EQ(eof_context.range_end_column, 6u);
+
+  const SourceText crlf_source = make_source_text("alpha\r\nbeta");
+  const SourceContext crlf_context = source_context_at(crlf_source, 0, 5);
+  EXPECT_EQ(crlf_context.line_text, "alpha");
 }
 
 TEST(StyioSyntaxCheckInternal, JsonEscapeCoversControlBytes) {
@@ -105,6 +119,80 @@ TEST(StyioSyntaxCheckInternal, JsonEscapeCoversControlBytes) {
   EXPECT_NE(escaped.find("\\r"), std::string::npos);
   EXPECT_NE(escaped.find("\\n"), std::string::npos);
   EXPECT_NE(escaped.find("\\u0001"), std::string::npos);
+}
+
+TEST(StyioSyntaxCheckInternal, ResultEmissionAndFileFailureHelpersStayExplicit) {
+  using namespace styio::services;
+
+  std::string output;
+  std::string error;
+  EXPECT_FALSE(read_file("/definitely/not/a/styio/source/file.styio", output, error));
+  EXPECT_EQ(error, "file not found");
+
+  const SourceText source = make_source_text("first\nsecond\n");
+  testing::internal::CaptureStdout();
+  emit_result(
+    "quoted\"file.styio",
+    "custom",
+    true,
+    std::string(diagnostics::kPhaseParse),
+    StyioParserEngine::Nightly,
+    source,
+    {
+      Diagnostic{std::string(diagnostics::kPhaseParse), "P1", "one", 0, 1},
+      Diagnostic{std::string(diagnostics::kPhaseParse), "P2", "two", 6, 0},
+    });
+  output = testing::internal::GetCapturedStdout();
+  EXPECT_NE(output.find("\"ok\":true"), std::string::npos) << output;
+  EXPECT_NE(output.find("},{\"phase\":\"parse\""), std::string::npos) << output;
+  EXPECT_NE(output.find("quoted\\\"file.styio"), std::string::npos) << output;
+
+  std::vector<StyioToken*> tokens = StyioTokenizer::tokenize("");
+  StyioContext* context = StyioContext::Create("<empty>", "", {}, tokens, false);
+  context->record_parse_diagnostic(0, 0, "empty recovery");
+  const SourceText empty_source = make_source_text("");
+  const std::vector<Diagnostic> diagnostics = parse_diagnostics_from_context(*context, empty_source);
+  ASSERT_EQ(diagnostics.size(), 1u);
+  EXPECT_EQ(diagnostics[0].length, 0u);
+  delete context;
+  delete_tokens(tokens);
+  StyioAST::destroy_all_tracked_nodes();
+}
+
+TEST(StyioSyntaxCheckInternal, CliErrorAndHelpHelpersEmitJsonAndUsage) {
+  using namespace styio::services;
+
+  testing::internal::CaptureStdout();
+  EXPECT_EQ(emit_cli_error("bad option", "input.styio"), 6);
+  std::string output = testing::internal::GetCapturedStdout();
+  EXPECT_NE(output.find("\"status\":\"cli_error\""), std::string::npos) << output;
+  EXPECT_NE(output.find("input.styio"), std::string::npos) << output;
+
+  testing::internal::CaptureStdout();
+  print_help();
+  output = testing::internal::GetCapturedStdout();
+  EXPECT_NE(output.find("Usage: styio check --syntax"), std::string::npos) << output;
+
+  char styio[] = "styio";
+  char check[] = "check";
+  char syntax[] = "--syntax";
+  char json[] = "--json";
+  char parser_engine[] = "--parser-engine";
+  char* null_arg = nullptr;
+  {
+    char* argv[] = {styio, check, null_arg};
+    testing::internal::CaptureStdout();
+    EXPECT_EQ(run_syntax_check_cli(3, argv), 6);
+    output = testing::internal::GetCapturedStdout();
+    EXPECT_NE(output.find("unsupported styio check option"), std::string::npos) << output;
+  }
+  {
+    char* argv[] = {styio, check, syntax, json, parser_engine, null_arg};
+    testing::internal::CaptureStdout();
+    EXPECT_EQ(run_syntax_check_cli(6, argv), 6);
+    output = testing::internal::GetCapturedStdout();
+    EXPECT_NE(output.find("--parser-engine requires nightly"), std::string::npos) << output;
+  }
 }
 
 TEST(StyioSyntaxCheckInternal, RunCliCoversLexAndParseDiagnostics) {
