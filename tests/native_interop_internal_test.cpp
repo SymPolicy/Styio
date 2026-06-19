@@ -112,6 +112,12 @@ TEST(StyioNativeInteropInternal, SignatureParsingRejectsAndSynthesizesEdgeParame
     EXPECT_EQ(param.name, "name");
     EXPECT_EQ(param.type.kind, CTypeKind::Pointer);
   }
+  {
+    FunctionParam param = parse_param("unsigned long !", 6);
+    EXPECT_EQ(param.name, "!");
+    EXPECT_EQ(param.type.kind, CTypeKind::I64);
+    EXPECT_TRUE(param.type.is_unsigned);
+  }
   EXPECT_THROW((void)parse_param("const char", 0), StyioTypeError);
 
   size_t open = std::string::npos;
