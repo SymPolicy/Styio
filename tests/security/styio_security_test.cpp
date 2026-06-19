@@ -13458,12 +13458,25 @@ TEST(StyioSecuritySession, ResetClearsSessionState) {
 
 TEST(StyioSecuritySession, InvalidPhaseTransitionsAreRejected) {
   CompilationSession session;
+  EXPECT_FALSE(CompilationSession::phase_at_least(
+    CompilationPhase::Executed,
+    CompilationPhase::Failed));
   EXPECT_THROW(session.mark_type_checked(), std::logic_error);
+  EXPECT_THROW(session.attach_context(nullptr), std::logic_error);
+  EXPECT_THROW(session.attach_ast(nullptr), std::logic_error);
   EXPECT_THROW(session.attach_ir(nullptr), std::logic_error);
 
   session.adopt_tokens(StyioTokenizer::tokenize("x = 1\n"));
+  auto duplicate_tokens = StyioTokenizer::tokenize("y = 2\n");
+  EXPECT_THROW(session.adopt_tokens(std::move(duplicate_tokens)), std::logic_error);
+  free_tokens(duplicate_tokens);
   EXPECT_THROW(session.mark_codegen_ready(), std::logic_error);
   EXPECT_THROW(session.mark_executed(), std::logic_error);
+
+  session.mark_failed();
+  EXPECT_EQ(session.phase(), CompilationPhase::Failed);
+  session.mark_failed();
+  EXPECT_EQ(session.phase(), CompilationPhase::Failed);
 }
 
 TEST(StyioSecurityAstOwnership, BinOpOwnsChildExprs) {
