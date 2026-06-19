@@ -1037,6 +1037,61 @@ TEST(StyioParserInternal, InternalResourceAndMethodGuardsStayExplicit) {
   }
 }
 
+TEST(StyioParserInternal, LegacyScannerRouteAndReceiverEdgesStayExplicit) {
+  {
+    DirectContext direct("{ value");
+    EXPECT_FALSE(braced_region_contains_token_latest(direct.get(), StyioTokenType::AWAIT_PIPE));
+    EXPECT_FALSE(braced_region_contains_token_outside_box_latest(direct.get(), StyioTokenType::MATCH));
+    EXPECT_FALSE(file_resource_decl_body_calls_file_path_latest(direct.get()));
+  }
+  {
+    DirectContext direct("prefix { [ ?= ]");
+    EXPECT_FALSE(braced_region_contains_token_outside_box_latest(direct.get(), StyioTokenType::MATCH));
+  }
+  {
+    DirectContext direct("{ file (\"path\")");
+    EXPECT_TRUE(file_resource_decl_body_calls_file_path_latest(direct.get()));
+  }
+  {
+    DirectContext direct("123: i64");
+    EXPECT_THROW((void)parse_resource_decl_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("123: i64 := #()");
+    EXPECT_FALSE(parse_at_name_colon_routes_to_internal_decl_latest(direct.get()));
+  }
+  {
+    DirectContext direct("name: [|id|] := #()");
+    EXPECT_THROW((void)parse_at_name_colon_routes_to_internal_decl_latest(direct.get()), StyioSyntaxError);
+    EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::NAME);
+  }
+  {
+    DirectContext direct("123");
+    EXPECT_FALSE(parse_resource_method_route_after_at_latest(direct.get()));
+  }
+  {
+    DirectContext direct("file:: = 1");
+    EXPECT_FALSE(parse_resource_method_route_after_at_latest(direct.get()));
+    EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::NAME);
+  }
+  {
+    ResourceMethodReceiverScopeLatest scope("file");
+    DirectContext direct("file(path)");
+    EXPECT_EQ(try_parse_resource_receiver_expr_after_at_latest(direct.get()), nullptr);
+    EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::NAME);
+  }
+  {
+    DirectContext direct("<- @stdin");
+    EXPECT_THROW(
+      (void)parse_parenthesized_instant_pull_latest(
+        direct.get(),
+        StyioTokenType::ARROW_SINGLE_LEFT,
+        "expected readable resource",
+        "expected ) after instant pull"),
+      StyioSyntaxError);
+  }
+}
+
 TEST(StyioParserInternal, ContextCharacterHelpersCoverBoundaryEdges) {
   {
     DirectContext direct("");
@@ -1117,7 +1172,15 @@ TEST(StyioParserInternal, ContextCharacterHelpersCoverBoundaryEdges) {
 
 TEST(StyioParserInternal, ParserStaticHelpersCoverAdditionalFalseEdges) {
   {
+    DirectContext direct("name");
+    EXPECT_FALSE(has_linebreak_before_current_token_latest(direct.get()));
+  }
+  {
     DirectContext direct("[\"pkg\", ]");
+    EXPECT_FALSE(matches_legacy_string_list_import_latest(direct.get()));
+  }
+  {
+    DirectContext direct("[\"pkg\"");
     EXPECT_FALSE(matches_legacy_string_list_import_latest(direct.get()));
   }
   {
@@ -1144,6 +1207,7 @@ TEST(StyioParserInternal, ParserStaticHelpersCoverAdditionalFalseEdges) {
     DirectContext direct("extern (c) { body }");
     EXPECT_EQ(strip_extern_source_string_latest("plain.styio"), "plain.styio");
     EXPECT_FALSE(try_parse_extern_source_paths_from_body_latest(direct.get(), "plain.styio").has_value());
+    EXPECT_FALSE(try_parse_extern_source_paths_from_body_latest(direct.get(), "   ").has_value());
     EXPECT_FALSE(try_parse_extern_source_paths_from_body_latest(direct.get(), "\"unterminated").has_value());
     EXPECT_FALSE(try_parse_extern_source_paths_from_body_latest(direct.get(), "\"a.styio\",").has_value());
     auto paths = try_parse_extern_source_paths_from_body_latest(direct.get(), "\"a.styio\"; \"b.styio\"");
