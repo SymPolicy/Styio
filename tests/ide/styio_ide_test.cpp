@@ -2310,6 +2310,25 @@ TEST(StyioSemanticDb, CompletionSeesParentScopeSymbolsFromNestedBlocks) {
   EXPECT_TRUE(has_completion_label(completion, "needle"));
 }
 
+TEST(StyioSemanticDb, SkipsSelfImportWhenResolvingReferences) {
+  const std::string root = make_temp_project_dir("semantic_self_import");
+  const std::string path = (std::filesystem::path(root) / "main.styio").string();
+
+  styio::ide::VirtualFileSystem vfs;
+  styio::ide::Project project;
+  project.set_root(root);
+  styio::ide::SemanticDB semdb(vfs, project);
+
+  const std::string source =
+    "@import { main }\n"
+    "result: i32 := add(1)\n";
+  vfs.open(path, source, 1);
+
+  const std::size_t add_offset = source.find("add(1)");
+  ASSERT_NE(add_offset, std::string::npos);
+  EXPECT_TRUE(semdb.definition_at(path, add_offset).empty());
+}
+
 TEST(StyioSemanticDb, EmptyFilesReturnEmptyTypeQueryResults) {
   styio::ide::VirtualFileSystem vfs;
   styio::ide::Project project;
