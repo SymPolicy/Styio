@@ -494,6 +494,12 @@ TEST(StyioCodeGenInternal, RuntimeReturnHelpersCoverGuardEdges) {
   auto generator = make_generator();
   llvm::LLVMContext context;
   llvm::IRBuilder<> builder(context);
+  llvm::Module scratch_module("styio.codegen.internal", context);
+  auto* scratch_fn_type = llvm::FunctionType::get(builder.getVoidTy(), false);
+  auto* scratch_fn = llvm::Function::Create(
+    scratch_fn_type, llvm::Function::ExternalLinkage, "scratch", scratch_module);
+  auto* scratch_entry = llvm::BasicBlock::Create(context, "entry", scratch_fn);
+  builder.SetInsertPoint(scratch_entry);
 
   styio::native::CType invalid_c_type;
   invalid_c_type.kind = static_cast<styio::native::CTypeKind>(255);
@@ -513,6 +519,16 @@ TEST(StyioCodeGenInternal, RuntimeReturnHelpersCoverGuardEdges) {
   generator->emit_file_handle_slot_close(nullptr);
   generator->emit_bounded_ring_pending_commit("missing_ring");
   generator->emit_bounded_ring_pending_commits();
+  generator->release_bounded_ring_cstr_array(nullptr, nullptr, 0, "missing_ring");
+  generator->release_bounded_ring_handle_array(
+    nullptr, nullptr, 0, StyioValueFamily::ListHandle, "missing_ring");
+  auto* i64_array_type = llvm::ArrayType::get(builder.getInt64Ty(), 1);
+  auto* i64_array = builder.CreateAlloca(i64_array_type);
+  auto* ptr_array_type = llvm::ArrayType::get(llvm::PointerType::get(context, 0), 1);
+  auto* ptr_array = builder.CreateAlloca(ptr_array_type);
+  generator->release_bounded_ring_cstr_array(i64_array_type, i64_array, 1, "i64_ring");
+  generator->release_bounded_ring_handle_array(
+    ptr_array_type, ptr_array, 1, StyioValueFamily::ListHandle, "ptr_ring");
 
   auto* same_i64 = builder.getInt64(7);
   EXPECT_EQ(generator->coerce_for_return(same_i64, same_i64->getType()), same_i64);
