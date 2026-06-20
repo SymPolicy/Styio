@@ -488,6 +488,44 @@ TEST(StyioCodeGenInternal, RuntimeReturnHelpersCoverGuardEdges) {
     StyioToLLVM::TempResourceKind::List);
 }
 
+TEST(StyioCodeGenInternal, PulseHelpersCoverMissingPlanCommitAndRegionEdges) {
+  auto plan = std::make_unique<SGPulsePlan>();
+  plan->slots.push_back(SGStateSlotDesc{SGStateSlotKind::Acc, 0, 0, 8, 0, "", "missing"});
+  plan->slots.push_back(SGStateSlotDesc{
+    static_cast<SGStateSlotKind>(255),
+    1,
+    8,
+    8,
+    0,
+    "",
+    "invalid_slot"});
+  plan->commits = {
+    {0, "missing"},
+    {1, "invalid_slot"},
+  };
+  plan->total_bytes = 16;
+
+  auto* pulse_loop = SGForEach::Create(
+    SCListLiteral::Create({SGConstInt::Create(1)}),
+    "tick",
+    "i64",
+    SGBlock::Create({
+      SGFlexBind::Create(var("invalid_slot", i64_type()), SGConstInt::Create(7)),
+    }));
+  pulse_loop->set_pulse_plan(std::move(plan));
+
+  expect_codegen_ok({
+    SGFlexBind::Create(var("avg_without_pulse", i64_type()), SGSeriesAvgStep::Create(0, SGConstInt::Create(1))),
+    SGFlexBind::Create(var("max_without_pulse", i64_type()), SGSeriesMaxStep::Create(0, SGConstInt::Create(1))),
+    pulse_loop,
+    SGFlexBind::Create(var("missing_region_hist", i64_type()), SGStateHistLoad::Create(0, 1, 404)),
+  }, {
+    "avg_without_pulse",
+    "max_without_pulse",
+    "missing_region_hist",
+  });
+}
+
 TEST(StyioCodeGenInternal, ScalarCastConditionAndDynamicSlotGuardsStayExplicit) {
   expect_codegen_ok({
     SGCast::Create(
