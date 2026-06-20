@@ -2537,6 +2537,142 @@ TEST(StyioSemanticDb, WhiteBoxImportCandidatesAndSymbolItemsCoverEdges) {
   EXPECT_EQ(persistent_symbols[1].selection_range.start, 20u);
 }
 
+TEST(StyioSemanticDb, WhiteBoxQueryCachesCoverDefensiveEdges) {
+  const std::string root = make_temp_project_dir("semantic_query_cache_edges");
+
+  styio::ide::VirtualFileSystem vfs;
+  styio::ide::Project project;
+  project.set_root(root);
+  styio::ide::SemanticDB semdb(vfs, project);
+
+  const std::string completion_path = (std::filesystem::path(root) / "completion_aliases.styio").string();
+  vfs.open(completion_path, "alias\n", 1);
+  auto completion_document = semdb.document_for_path(completion_path);
+  const std::size_t completion_offset = completion_document->buffer.text().size();
+
+  styio::ide::HirModule alias_hir;
+  alias_hir.scopes.push_back(styio::ide::HirScope{
+    4,
+    404,
+    styio::ide::TextRange{0, completion_offset},
+    styio::ide::HirScopeKind::Block,
+    std::nullopt,
+    "dangling-parent"});
+  const std::vector<std::pair<std::string, std::string>> alias_symbols = {
+    {"make_str", "str"},
+    {"make_int", "int"},
+    {"make_long", "long"},
+    {"make_float", "float"},
+    {"make_double", "double"},
+  };
+  styio::ide::SymbolId next_symbol_id = 1;
+  for (const auto& [name, type_name] : alias_symbols) {
+    styio::ide::HirSymbol symbol;
+    symbol.id = next_symbol_id++;
+    symbol.name = name;
+    symbol.kind = styio::ide::SymbolKind::Variable;
+    symbol.scope_id = 0;
+    symbol.name_range = styio::ide::TextRange{0, name.size()};
+    symbol.full_range = symbol.name_range;
+    symbol.type_name = type_name;
+    symbol.identity_key = name;
+    alias_hir.symbols.push_back(symbol);
+  }
+
+  styio::ide::CompletionContext alias_context;
+  alias_context.file_id = completion_document->file_id;
+  alias_context.snapshot_id = completion_document->snapshot_id;
+  alias_context.offset = completion_offset;
+  alias_context.position_kind = styio::ide::PositionKind::Expr;
+  alias_context.scope_id = 4;
+  alias_context.expected_type_name = "string";
+
+  semdb.hir_module_cache_[semdb.file_key_for(*completion_document)] = alias_hir;
+  semdb.completion_context_cache_[semdb.offset_key_for(*completion_document, completion_offset)] = alias_context;
+  const auto alias_completion = semdb.complete_at(completion_path, completion_offset);
+  for (const auto& [name, type_name] : alias_symbols) {
+    SCOPED_TRACE(name);
+    const std::size_t index = completion_index(alias_completion, name);
+    ASSERT_LT(index, alias_completion.size());
+    EXPECT_EQ(alias_completion[index].type_name, type_name);
+  }
+
+  const std::string receiver_path = (std::filesystem::path(root) / "empty_receiver_type.styio").string();
+  vfs.open(receiver_path, "receiver.\n", 1);
+  auto receiver_document = semdb.document_for_path(receiver_path);
+  const std::size_t receiver_offset = receiver_document->buffer.text().find('.');
+  ASSERT_NE(receiver_offset, std::string::npos);
+  semdb.receiver_type_cache_[semdb.offset_key_for(*receiver_document, receiver_offset)] =
+    styio::ide::ReceiverTypeResult{
+      "receiver",
+      "",
+      styio::ide::TextRange{0, 8},
+      true};
+  const auto& receiver_context = semdb.completion_context_query(*receiver_document, receiver_offset);
+  EXPECT_TRUE(receiver_context.receiver_type_name.empty());
+  EXPECT_EQ(receiver_context.receiver_type_id, 0u);
+
+  const std::string signature_path = (std::filesystem::path(root) / "symbol_signature.styio").string();
+  vfs.open(signature_path, "standalone\n", 1);
+  auto signature_document = semdb.document_for_path(signature_path);
+  styio::ide::HirModule signature_hir;
+  styio::ide::HirItem signature_item;
+  signature_item.id = 17;
+  signature_item.kind = styio::ide::HirItemKind::GlobalBinding;
+  signature_item.name = "standalone";
+  signature_item.name_range = styio::ide::TextRange{20, 30};
+  signature_item.full_range = styio::ide::TextRange{20, 35};
+  signature_item.type_name = "i32";
+  signature_item.identity_key = "standalone";
+  signature_hir.items.push_back(signature_item);
+  styio::ide::HirSymbol signature_symbol;
+  signature_symbol.id = 3;
+  signature_symbol.name = "standalone";
+  signature_symbol.kind = styio::ide::SymbolKind::Variable;
+  signature_symbol.scope_id = 0;
+  signature_symbol.item_id = signature_item.id;
+  signature_symbol.name_range = styio::ide::TextRange{0, 10};
+  signature_symbol.full_range = signature_symbol.name_range;
+  signature_symbol.type_name = "i32";
+  signature_symbol.identity_key = "standalone";
+  signature_hir.symbols.push_back(signature_symbol);
+  semdb.hir_module_cache_[semdb.file_key_for(*signature_document)] = signature_hir;
+  const auto symbol_signature = semdb.type_signature_at(signature_path, 4);
+  ASSERT_TRUE(symbol_signature.has_value());
+  EXPECT_EQ(symbol_signature->name, "standalone");
+  EXPECT_EQ(symbol_signature->return_type_name, "i32");
+
+  const std::string body_path = (std::filesystem::path(root) / "self_body.styio").string();
+  vfs.open(body_path, "self\n", 1);
+  auto body_document = semdb.document_for_path(body_path);
+  styio::ide::HirModule body_hir;
+  styio::ide::HirItem body_item;
+  body_item.id = 23;
+  body_item.kind = styio::ide::HirItemKind::Function;
+  body_item.name = "self";
+  body_item.full_range = styio::ide::TextRange{0, 50};
+  body_item.type_name = "i32";
+  body_item.identity_key = "self";
+  styio::ide::HirSymbol body_symbol;
+  body_symbol.id = 9;
+  body_symbol.name = "self";
+  body_symbol.kind = styio::ide::SymbolKind::Function;
+  body_symbol.scope_id = 0;
+  body_symbol.item_id = body_item.id;
+  body_symbol.name_range = styio::ide::TextRange{5, 9};
+  body_symbol.full_range = body_symbol.name_range;
+  body_symbol.type_name = "i32";
+  body_symbol.identity_key = "self";
+  body_hir.symbols.push_back(body_symbol);
+  body_hir.references.push_back(styio::ide::HirReference{
+    "self",
+    0,
+    styio::ide::TextRange{12, 16},
+    body_symbol.id});
+  const auto& body_result = semdb.type_body_query(*body_document, body_hir, body_item);
+  EXPECT_TRUE(body_result.dependency_identity_keys.empty());
+}
+
 TEST(StyioSemanticDb, BuiltinQueriesUseLocationlessTargets) {
   styio::ide::VirtualFileSystem vfs;
   styio::ide::Project project;
