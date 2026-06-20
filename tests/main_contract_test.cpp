@@ -2790,6 +2790,21 @@ TEST(StyioMainContract, NanoRepositoryFilesAndRegistryRefsRoundTripLocally) {
   EXPECT_FALSE(styio_ensure_writable_nano_repository_latest(invalid_repo, error));
   EXPECT_NE(error.find("does not match"), std::string::npos);
 
+  const fs::path unreadable_marker_repo = temp.path() / "unreadable-marker-repo";
+  const fs::path unreadable_marker =
+    unreadable_marker_repo / styio_nano_repository_marker_relpath_latest();
+  WriteText(unreadable_marker, "{\"kind\":\"styio-nano-static\"}\n");
+  std::error_code perm_ec;
+  fs::permissions(
+    unreadable_marker,
+    fs::perms::owner_read | fs::perms::group_read | fs::perms::others_read,
+    fs::perm_options::remove,
+    perm_ec);
+  ASSERT_FALSE(perm_ec) << perm_ec.message();
+  EXPECT_FALSE(styio_ensure_writable_nano_repository_latest(unreadable_marker_repo, error));
+  EXPECT_NE(error.find("cannot open file"), std::string::npos);
+  fs::permissions(unreadable_marker, fs::perms::owner_read, fs::perm_options::add, perm_ec);
+
   EXPECT_EQ(styio_nano_repository_package_leaf_latest("org/pkg"), "pkg");
   EXPECT_EQ(styio_nano_repository_package_leaf_latest("pkg"), "pkg");
   EXPECT_EQ(styio_nano_repository_package_leaf_latest("org/"), "org/");
