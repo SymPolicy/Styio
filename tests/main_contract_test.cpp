@@ -3145,6 +3145,27 @@ TEST(StyioMainContract, PublishNanoPackageWritesStaticRepositoryEntryAndBlob) {
   EXPECT_FALSE(styio_publish_nano_package_latest(selection, error));
   EXPECT_NE(error.find("styio-nano package archive failed"), std::string::npos);
 
+  {
+    const fs::path fake_tar_bin = temp.path() / "fake-tar-bin";
+    const fs::path fake_tar = fake_tar_bin / "tar";
+    WriteText(fake_tar, "#!/bin/sh\nexit 0\n");
+    MakeExecutable(fake_tar);
+    EnvVarGuard path_guard("PATH");
+    const char* original_path_raw = std::getenv("PATH");
+    path_guard.set(
+      fake_tar_bin.string()
+      + (original_path_raw == nullptr ? "" : ":" + std::string(original_path_raw)));
+
+    selection = StyioNanoPublishSelectionLatest{};
+    selection.package_dir = package_dir.string();
+    selection.registry_root = (temp.path() / "repo-missing-tar-output").string();
+    selection.registry_package = "org/missing-tar-output";
+    selection.registry_version = "1.0.0";
+    error.clear();
+    EXPECT_FALSE(styio_publish_nano_package_latest(selection, error));
+    EXPECT_NE(error.find("failed to compute sha256"), std::string::npos) << error;
+  }
+
   const fs::path repo_blob_blocker = temp.path() / "repo-blob-blocker";
   ASSERT_TRUE(styio_ensure_writable_nano_repository_latest(repo_blob_blocker, error)) << error;
   WriteText(repo_blob_blocker / "blobs", "blocks blob directory\n");
