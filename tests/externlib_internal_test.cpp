@@ -519,9 +519,25 @@ TEST(StyioExternLibInternal, NullAndWrongKindHandleCastsStayExplicit) {
 TEST(StyioExternLibInternal, TaskSchedulerAndPendingTaskReleaseEdgesStayExplicit) {
   EnvVarGuard threads("STYIO_TASK_THREADS");
   threads.set("128");
-  const std::size_t workers = StyioTaskScheduler::instance().worker_count();
-  EXPECT_GE(workers, 1u);
-  EXPECT_LE(workers, 64u);
+  std::atomic<bool> start_workers{false};
+  std::vector<std::size_t> worker_counts(32, 0);
+  std::vector<std::thread> starters;
+  for (std::size_t i = 0; i < worker_counts.size(); ++i) {
+    starters.emplace_back([&, i]() {
+      while (!start_workers.load(std::memory_order_acquire)) {
+        std::this_thread::yield();
+      }
+      worker_counts[i] = StyioTaskScheduler::instance().worker_count();
+    });
+  }
+  start_workers.store(true, std::memory_order_release);
+  for (auto& starter : starters) {
+    starter.join();
+  }
+  for (const std::size_t workers : worker_counts) {
+    EXPECT_GE(workers, 1u);
+    EXPECT_LE(workers, 64u);
+  }
 
   auto* task = new StyioTask(StyioTaskValueKind::I64);
   ++g_active_task_handles;
