@@ -1525,6 +1525,36 @@ TEST(StyioLoweringInternal, AstAccessorAndFailClosedDispatchStayExplicit) {
     ASSERT_NE(ir, nullptr);
   }
   {
+    AstToStyioIRLowerer analyzer;
+    auto* inner_path = ResourceMethodDefAST::Create(
+      "file",
+      "inner_path",
+      false,
+      true,
+      {},
+      ReturnAST::Create(IntAST::Create("9")));
+    auto* outer_path = ResourceMethodDefAST::Create(
+      "file",
+      "outer_path",
+      false,
+      true,
+      {},
+      ReturnAST::Create(AttrAST::Create(
+        ResourceReceiverAST::Create("file"),
+        NameAST::Create("inner_path"))));
+    ASSERT_NO_THROW(inner_path->typeInfer(&analyzer));
+    ASSERT_NO_THROW(outer_path->typeInfer(&analyzer));
+    std::unique_ptr<MainBlockAST> main_block(MainBlockAST::Create({
+      inner_path,
+      outer_path,
+      AttrAST::Create(
+        FileResourceAST::Create(StringAST::Create("input.txt"), false),
+        NameAST::Create("outer_path"))
+    }));
+    std::unique_ptr<StyioIR> ir(main_block->toStyioIR(&analyzer));
+    ASSERT_NE(ir, nullptr);
+  }
+  {
     std::unique_ptr<VarAST> typed(VarAST::Create(NameAST::Create("v"), TypeAST::Create("i64")));
     EXPECT_TRUE(typed->isTyped());
     EXPECT_EQ(typed->getTypeAsStr(), "i64");
