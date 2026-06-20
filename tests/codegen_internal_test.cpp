@@ -489,6 +489,11 @@ TEST(StyioCodeGenInternal, RuntimeReturnHelpersCoverGuardEdges) {
 }
 
 TEST(StyioCodeGenInternal, PulseHelpersCoverMissingPlanCommitAndRegionEdges) {
+  {
+    auto generator = make_generator();
+    generator->emit_pulse_commit_all(nullptr, nullptr);
+  }
+
   auto plan = std::make_unique<SGPulsePlan>();
   plan->slots.push_back(SGStateSlotDesc{SGStateSlotKind::Acc, 0, 0, 8, 0, "", "missing"});
   plan->slots.push_back(SGStateSlotDesc{
