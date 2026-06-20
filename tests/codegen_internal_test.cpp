@@ -409,6 +409,36 @@ TEST(StyioCodeGenInternal, GetTypeCoversScalarFallbackDefaults) {
   EXPECT_TRUE(invalid_effect_type->isVoidTy());
 }
 
+TEST(StyioCodeGenInternal, ResourceEffectValueEdgesStayExplicit) {
+  expect_codegen_ok({
+    SIOResourceEffect::Create(SGNoOp::Create(), nullptr, false, i64_type(), {}, true),
+    SIOResourceEffect::Create(
+      SGConstInt::Create(7),
+      nullptr,
+      false,
+      i64_type(),
+      {SIOResourceEffect::Handler("io", SGConstInt::Create(1))},
+      true),
+  }, {
+    "resource_effect_continue",
+    "resource_handler",
+  });
+
+  expect_codegen_ok({
+    SIOResourceEffect::Create(
+      SGReturn::Create(SGConstInt::Create(9)),
+      nullptr,
+      false,
+      i64_type(),
+      {},
+      true),
+  }, {});
+
+  expect_codegen_throws({
+    SIOResourceEffect::Create(SGBreak::Create(), nullptr, false, i64_type(), {}, true),
+  }, "break outside enclosing loop");
+}
+
 TEST(StyioCodeGenInternal, CodeGenFactoryCreatesGenerator) {
   init_llvm_once();
   llvm::ExitOnError exit_on_error;
