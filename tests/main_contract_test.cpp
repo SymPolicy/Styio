@@ -1108,6 +1108,27 @@ TEST(StyioMainContract, LocalNanoMaterializationCoversStagedFailures) {
   }
 
   {
+    const fs::path output = temp.path() / "closure-copy-failure";
+    WriteText(output / "styio-nano.profile.toml", "");
+    WriteText(output / "styio_nano_profile.cmake", "");
+    std::error_code create_ec;
+    fs::create_directories(output / "bin", create_ec);
+    ASSERT_FALSE(create_ec) << create_ec.message();
+    std::error_code perm_ec;
+    fs::permissions(
+      output,
+      fs::perms::owner_write | fs::perms::group_write | fs::perms::others_write,
+      fs::perm_options::remove,
+      perm_ec);
+    ASSERT_FALSE(perm_ec) << perm_ec.message();
+    StyioNanoCreateSelectionLatest selection = MakeLocalNanoSelection(output, profile, source_root);
+    error.clear();
+    EXPECT_FALSE(styio_materialize_local_nano_package_latest(selection, nullptr, error));
+    EXPECT_NE(error.find("failed to copy"), std::string::npos) << error;
+    fs::permissions(output, fs::perms::owner_write, fs::perm_options::add, perm_ec);
+  }
+
+  {
     const fs::path output = temp.path() / "manifest-write-failure";
     fs::create_directories(output / "source-closure-manifest.txt");
     StyioNanoCreateSelectionLatest selection = MakeLocalNanoSelection(output, profile, source_root);
