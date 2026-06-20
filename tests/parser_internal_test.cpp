@@ -1449,6 +1449,84 @@ TEST(StyioParserInternal, ParserStaticHelpersCoverAdditionalFalseEdges) {
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Char);
   }
+  {
+    DirectContext direct("123");
+    std::unique_ptr<StyioAST> ast(parse_negative_numeric_literal_latest(direct.get()));
+    auto* value = dynamic_cast<IntAST*>(ast.get());
+    ASSERT_NE(value, nullptr);
+    EXPECT_EQ(value->getValue(), "-123");
+  }
+  {
+    DirectContext direct("1.5");
+    std::unique_ptr<StyioAST> ast(parse_negative_numeric_literal_latest(direct.get()));
+    auto* value = dynamic_cast<FloatAST*>(ast.get());
+    ASSERT_NE(value, nullptr);
+    EXPECT_EQ(value->getValue(), "-1.5");
+  }
+  {
+    DirectContext direct("name");
+    EXPECT_EQ(parse_negative_numeric_literal_latest(direct.get()), nullptr);
+  }
+  {
+    auto expect_char = [](const std::string& source, const std::string& expected)
+    {
+      DirectContext direct(source);
+      std::unique_ptr<CharAST> ast(parse_char_literal_token_latest(direct.get()));
+      ASSERT_NE(ast, nullptr);
+      EXPECT_EQ(ast->getValue(), expected);
+    };
+    expect_char("'\\r'", std::string(1, '\r'));
+    expect_char("'\\t'", std::string(1, '\t'));
+    expect_char("'\\0'", std::string(1, '\0'));
+    expect_char("'\\\\'", "\\");
+    expect_char("'\\''", "'");
+    expect_char("'x'", "x");
+  }
+  {
+    DirectContext direct("'\\q'");
+    EXPECT_THROW((void)parse_char_literal_token_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("'ab'");
+    EXPECT_THROW((void)parse_char_literal_token_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("'x");
+    EXPECT_THROW((void)parse_char_literal_token_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("[|8|]");
+    std::unique_ptr<TypeAST> type(parse_styio_type(direct.get()));
+    ASSERT_NE(type, nullptr);
+    EXPECT_EQ(type->getTypeName(), "bounded_ring:8");
+  }
+  {
+    DirectContext direct("list[i64]");
+    std::unique_ptr<TypeAST> type(parse_styio_type(direct.get()));
+    ASSERT_NE(type, nullptr);
+    EXPECT_EQ(type->getTypeName(), "list[i64]");
+  }
+  {
+    DirectContext direct("dict[string, i64]");
+    std::unique_ptr<TypeAST> type(parse_styio_type(direct.get()));
+    ASSERT_NE(type, nullptr);
+    EXPECT_EQ(type->getTypeName(), "dict[string,i64]");
+  }
+  {
+    DirectContext direct("(\"typed\": i64, \"plain\", sink <- value)");
+    std::unique_ptr<ResourceAST> resources(parse_resources_after_at(direct.get()));
+    ASSERT_NE(resources, nullptr);
+    ASSERT_EQ(resources->res_list.size(), 3u);
+    EXPECT_EQ(resources->res_list[0].second, "i64");
+    EXPECT_EQ(resources->res_list[1].second, "");
+    EXPECT_EQ(resources->res_list[2].first->getNodeType(), StyioNodeType::FinalBind);
+  }
+  {
+    DirectContext direct("()");
+    std::unique_ptr<ResourceAST> resources(parse_resources_after_at(direct.get()));
+    ASSERT_NE(resources, nullptr);
+    EXPECT_TRUE(resources->res_list.empty());
+  }
 }
 
 TEST(StyioParserInternal, LegacyExpressionPostfixEdgesStayExplicit) {
