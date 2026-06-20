@@ -87,6 +87,10 @@ StyioDataType char_type() {
   return StyioDataType{StyioDataTypeOption::Char, "char", 8};
 }
 
+StyioDataType opaque_defined_type() {
+  return StyioDataType{StyioDataTypeOption::Defined, "opaque", 0};
+}
+
 StyioDataType list_type(const std::string& elem_type = "i64") {
   return styio_make_list_type(elem_type);
 }
@@ -890,6 +894,7 @@ TEST(StyioCodeGenInternal, DynamicSlotsRingsScopesAndControlFlowStayExplicit) {
     SGFinalBind::Create(dynamic_var("dyn_f64", f64_type()), SGConstFloat::Create("1.25")),
     SGFinalBind::Create(dynamic_var("dyn_text", string_type()), SGConstString::Create("first")),
     SGFlexBind::Create(dynamic_var("dyn_text", string_type()), SGConstString::Create("second")),
+    SGFinalBind::Create(dynamic_var("dyn_opaque", opaque_defined_type()), SGConstInt::Create(5)),
     SGFinalBind::Create(dynamic_var("dyn_list", list_type()), list_i64()),
     SGFlexBind::Create(dynamic_var("dyn_list", list_type()), list_i64()),
     SGFinalBind::Create(dynamic_var("dyn_dict", dict_type()), dict_i64()),
