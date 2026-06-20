@@ -77,6 +77,10 @@ TEST(StyioExternLibInternal, DictTemplateHelpersCoverNullLinearAndInvalidBackend
   EXPECT_FALSE(dict_find_pos(&linear, nullptr, pos));
 
   int releases = 0;
+  StyioDictListHandle invalid_handles(static_cast<StyioDictRuntimeImpl>(255));
+  dict_set_handle(&invalid_handles, "slot", int64_t{10}, [&](int64_t) { ++releases; });
+  EXPECT_TRUE(invalid_handles.entries.empty());
+
   StyioDictListHandle handles(StyioDictRuntimeImpl::Linear);
   dict_set_handle(static_cast<StyioDictListHandle*>(nullptr), "slot", int64_t{10}, [&](int64_t) { ++releases; });
   dict_set_handle(&handles, "slot", int64_t{11}, [&](int64_t) { ++releases; });
@@ -213,6 +217,7 @@ TEST(StyioExternLibInternal, RuntimeRepresentationCloneAndConfigHelpersStayExpli
     StyioDictRuntimeImpl::Linear);
   const int64_t invalid_dict_handle = stash_dict(invalid_dict);
   EXPECT_EQ(clone_dict_handle_value(invalid_dict_handle), 0);
+  EXPECT_EQ(styio_dict_len(invalid_dict_handle), 0);
   styio_dict_release(invalid_dict_handle);
   delete invalid_dict;
 }
@@ -382,12 +387,16 @@ TEST(StyioExternLibInternal, MatrixAndDictInvalidApiEdgesStayExplicit) {
   int64_t b = styio_matrix_new_i64(2, 1);
   EXPECT_EQ(styio_matrix_add_i64(a, b), 0);
   EXPECT_EQ(styio_matrix_matmul_i64(a, a), 0);
+  int64_t scaled_f64 = styio_matrix_scale_f64(a, 0.5);
+  ASSERT_NE(scaled_f64, 0);
+  EXPECT_DOUBLE_EQ(styio_matrix_get_f64(scaled_f64, 0, 0), 0.0);
   int64_t af = styio_matrix_clone_f64(a);
   int64_t bf = styio_matrix_clone_f64(b);
   EXPECT_EQ(styio_matrix_add_f64(af, bf), 0);
   EXPECT_EQ(styio_matrix_matmul_f64(af, af), 0);
   styio_matrix_release(bf);
   styio_matrix_release(af);
+  styio_matrix_release(scaled_f64);
   styio_matrix_release(b);
   styio_matrix_release(a);
 
