@@ -1527,6 +1527,101 @@ TEST(StyioParserInternal, ParserStaticHelpersCoverAdditionalFalseEdges) {
     ASSERT_NE(resources, nullptr);
     EXPECT_TRUE(resources->res_list.empty());
   }
+  {
+    DirectContext direct("{\"auto.txt\"}");
+    std::unique_ptr<StyioAST> path(parse_braced_string_path(direct.get()));
+    ASSERT_NE(path, nullptr);
+    EXPECT_EQ(path->getNodeType(), StyioNodeType::String);
+  }
+  {
+    DirectContext direct("(\"manual.txt\")");
+    std::unique_ptr<StyioAST> path(parse_parenthesized_string_path(direct.get()));
+    ASSERT_NE(path, nullptr);
+    EXPECT_EQ(path->getNodeType(), StyioNodeType::String);
+  }
+  {
+    DirectContext direct("file(\"input.txt\")");
+    std::unique_ptr<StyioAST> resource(parse_after_at_common(direct.get(), true));
+    auto* file = dynamic_cast<FileResourceAST*>(resource.get());
+    ASSERT_NE(file, nullptr);
+    EXPECT_FALSE(file->isAutoDetect());
+  }
+  {
+    DirectContext direct("{\"auto.txt\"}");
+    std::unique_ptr<StyioAST> resource(parse_after_at_common(direct.get(), true));
+    auto* file = dynamic_cast<FileResourceAST*>(resource.get());
+    ASSERT_NE(file, nullptr);
+    EXPECT_TRUE(file->isAutoDetect());
+  }
+  {
+    EXPECT_TRUE(resource_operand_accepts_latest(
+      StyioNodeType::FileResource,
+      ResourceOperandPurposeLatest::FileAtom));
+    EXPECT_TRUE(resource_operand_accepts_latest(
+      StyioNodeType::InstantPull,
+      ResourceOperandPurposeLatest::FileAtom));
+    EXPECT_TRUE(resource_operand_accepts_latest(
+      StyioNodeType::StdoutResource,
+      ResourceOperandPurposeLatest::InstantPullSource));
+    EXPECT_FALSE(resource_operand_accepts_latest(
+      StyioNodeType::InstantPull,
+      ResourceOperandPurposeLatest::InstantPullSource));
+    EXPECT_TRUE(resource_operand_accepts_latest(
+      StyioNodeType::EmptyResource,
+      ResourceOperandPurposeLatest::SinkTarget));
+    EXPECT_TRUE(resource_operand_accepts_latest(
+      StyioNodeType::InstantPull,
+      ResourceOperandPurposeLatest::SinkTarget));
+    EXPECT_FALSE(resource_operand_accepts_latest(
+      StyioNodeType::Integer,
+      ResourceOperandPurposeLatest::SinkTarget));
+  }
+  {
+    DirectContext direct("history");
+    std::unique_ptr<ResourceRefAST> ref(parse_resource_ref_after_at_latest(direct.get()));
+    ASSERT_NE(ref, nullptr);
+    EXPECT_TRUE(ref->isWholeResource());
+  }
+  {
+    DirectContext direct("history[...]");
+    std::unique_ptr<ResourceRefAST> ref(parse_resource_ref_after_at_latest(direct.get()));
+    ASSERT_NE(ref, nullptr);
+    EXPECT_EQ(ref->getSelectorKind(), ResourceSelectorKind::SnapshotAll);
+  }
+  {
+    DirectContext direct("history[-2...]");
+    std::unique_ptr<ResourceRefAST> ref(parse_resource_ref_after_at_latest(direct.get()));
+    ASSERT_NE(ref, nullptr);
+    EXPECT_EQ(ref->getSelectorKind(), ResourceSelectorKind::SliceFrom);
+    EXPECT_EQ(ref->getSelectorOffset(), -2);
+  }
+  {
+    DirectContext direct("history[-3]");
+    std::unique_ptr<ResourceRefAST> ref(parse_resource_ref_after_at_latest(direct.get()));
+    ASSERT_NE(ref, nullptr);
+    EXPECT_EQ(ref->getSelectorKind(), ResourceSelectorKind::Offset);
+    EXPECT_EQ(ref->getSelectorOffset(), -3);
+  }
+  {
+    DirectContext direct("@file(\"input.txt\")");
+    std::unique_ptr<StyioAST> resource(parse_resource_file_atom_latest(direct.get()));
+    ASSERT_NE(resource, nullptr);
+    EXPECT_EQ(resource->getNodeType(), StyioNodeType::FileResource);
+  }
+  {
+    DirectContext direct("@history[-1]");
+    std::unique_ptr<StyioAST> resource(parse_resource_zip_collection_atom_latest(direct.get()));
+    auto* ref = dynamic_cast<ResourceRefAST*>(resource.get());
+    ASSERT_NE(ref, nullptr);
+    EXPECT_EQ(ref->getSelectorKind(), ResourceSelectorKind::Offset);
+  }
+  {
+    DirectContext direct("@stdout");
+    std::unique_ptr<StyioAST> resource(
+      parse_instant_pull_resource_atom_latest(direct.get(), "expected readable resource"));
+    ASSERT_NE(resource, nullptr);
+    EXPECT_EQ(resource->getNodeType(), StyioNodeType::StdoutResource);
+  }
 }
 
 TEST(StyioParserInternal, LegacyExpressionPostfixEdgesStayExplicit) {
