@@ -853,6 +853,35 @@ TEST(StyioParserInternal, ParserHelperFailureEdgesStayExplicit) {
     DirectContext direct("$ name");
     EXPECT_THROW((void)parse_fmt_str_token_latest(direct.get(), StyioParserEngine::Nightly), StyioSyntaxError);
   }
+  {
+    DirectContext direct("\"left {{ brace }} right\"");
+    std::unique_ptr<FmtStrAST> fmt(parse_fmt_str(direct.get()));
+    ASSERT_NE(fmt, nullptr);
+    ASSERT_EQ(fmt->getFragments().size(), 1u);
+    EXPECT_EQ(fmt->getFragments()[0], "left { brace } right");
+    EXPECT_TRUE(fmt->getExprs().empty());
+  }
+  {
+    DirectContext direct("\"bad }\"");
+    EXPECT_THROW((void)parse_fmt_str(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("$\"left {1 + 2} {{ brace }}\"");
+    std::unique_ptr<FmtStrAST> fmt(parse_fmt_str_token_latest(direct.get(), StyioParserEngine::Nightly));
+    ASSERT_NE(fmt, nullptr);
+    ASSERT_EQ(fmt->getFragments().size(), 2u);
+    EXPECT_EQ(fmt->getFragments()[0], "left ");
+    EXPECT_EQ(fmt->getFragments()[1], " { brace }");
+    ASSERT_EQ(fmt->getExprs().size(), 1u);
+  }
+  {
+    DirectContext direct("$\"bad }\"");
+    EXPECT_THROW((void)parse_fmt_str_token_latest(direct.get(), StyioParserEngine::Nightly), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("$\"{}\"");
+    EXPECT_THROW((void)parse_fmt_str_token_latest(direct.get(), StyioParserEngine::Nightly), StyioSyntaxError);
+  }
 
   {
     DirectContext direct("{name}");
