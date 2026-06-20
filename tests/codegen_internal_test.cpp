@@ -552,6 +552,48 @@ TEST(StyioCodeGenInternal, RuntimeReturnHelpersCoverGuardEdges) {
 
   generator->emit_scope_cleanup_to_depth(0);
   generator->pop_file_handle_scope();
+
+  {
+    auto terminated_generator = make_generator();
+    std::unique_ptr<SGMainEntry> entry(SGMainEntry::Create({
+      SGFinalBind::Create(
+        var("recent_text_guard", bounded_ring_type("string", 2)),
+        SGConstString::Create("a")),
+      SGFlexBind::Create(
+        var("recent_text_guard", bounded_ring_type("string", 2)),
+        SGConstString::Create("b"),
+        true),
+      SGFinalBind::Create(
+        var("recent_lists_guard", bounded_ring_type("list[i64]", 2)),
+        list_i64()),
+      SGFlexBind::Create(
+        var("recent_lists_guard", bounded_ring_type("list[i64]", 2)),
+        list_i64(),
+        true),
+      SGReturn::Create(SGConstInt::Create(0)),
+    }));
+    ASSERT_NO_THROW((void)entry->toLLVMIR(terminated_generator.get()));
+
+    terminated_generator->emit_runtime_error_guard_return();
+    terminated_generator->emit_runtime_error_guard_return_after_cleanup();
+    terminated_generator->emit_bounded_ring_pending_commit("recent_text_guard");
+    terminated_generator->emit_bounded_ring_pending_commits();
+    terminated_generator->release_bounded_ring_cstr_storage("recent_text_guard");
+    terminated_generator->release_bounded_ring_cstr_storage("recent_lists_guard");
+
+    std::unique_ptr<StyioIR> late_return(SGReturn::Create(SGConstInt::Create(9)));
+    EXPECT_NE(late_return->toLLVMIR(terminated_generator.get()), nullptr);
+  }
+
+  {
+    auto missing_function_generator = make_generator();
+    std::unique_ptr<SGFunc> missing_func(SGFunc::Create(
+      SGType::Create(i64_type()),
+      SGResId::Create("missing_definition_target"),
+      {},
+      SGBlock::Create({SGReturn::Create(SGConstInt::Create(1))})));
+    missing_function_generator->define_sgfunc_body(missing_func.get());
+  }
 }
 
 TEST(StyioCodeGenInternal, PulseHelpersCoverMissingPlanCommitAndRegionEdges) {
