@@ -549,6 +549,9 @@ TEST(StyioCodeGenInternal, RuntimeReturnHelpersCoverGuardEdges) {
   generator->free_resource_if_runtime_owned(
     llvm::ConstantInt::get(builder.getInt32Ty(), 1),
     StyioToLLVM::TempResourceKind::List);
+
+  generator->emit_scope_cleanup_to_depth(0);
+  generator->pop_file_handle_scope();
 }
 
 TEST(StyioCodeGenInternal, PulseHelpersCoverMissingPlanCommitAndRegionEdges) {
@@ -1005,6 +1008,7 @@ TEST(StyioCodeGenInternal, DynamicSlotsRingsScopesAndControlFlowStayExplicit) {
       dynamic_var("dyn_task", task_type()),
       SIOTaskCreate::Create(SGBlock::Create({SGReturn::Create(SGConstInt::Create(7))}), i64_type())),
     SGDynLoad::Create("dyn_bool", SGDynLoadKind::Bool),
+    SGDynLoad::Create("dyn_bool", static_cast<SGDynLoadKind>(255)),
     SGDynLoad::Create("dyn_i64", SGDynLoadKind::I64),
     SGDynLoad::Create("dyn_f64", SGDynLoadKind::F64),
     SGDynLoad::Create("dyn_text", SGDynLoadKind::CString),
