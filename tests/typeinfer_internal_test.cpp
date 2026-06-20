@@ -139,6 +139,19 @@ TEST(StyioTypeInferInternal, FlowAndMatchMergeHelpersCoverAnonymousBranches) {
   EXPECT_TRUE(match_result_type_supported(i64));
   EXPECT_TRUE(match_result_type_supported(string_type));
   EXPECT_FALSE(match_result_type_supported(list_i64));
+
+  {
+    AstToStyioIRLowerer analyzer;
+    std::unique_ptr<CondFlowAST> then_only_binding(new CondFlowAST(
+      StyioNodeType::CondFlow_Both,
+      CondAST::Create(LogicType::RAW, BoolAST::Create(true)),
+      BlockAST::Create({
+        FinalBindAST::Create(VarAST::Create(NameAST::Create("then_only")), IntAST::Create("1"))
+      }),
+      BlockAST::Create({PassAST::Create()})));
+    EXPECT_NO_THROW(then_only_binding->typeInfer(&analyzer));
+    EXPECT_EQ(analyzer.local_binding_types.find("then_only"), analyzer.local_binding_types.end());
+  }
 }
 
 TEST(StyioTypeInferInternal, CollectionListOperationAndTaskPullEdgesStayExplicit) {
@@ -1400,6 +1413,28 @@ TEST(StyioTypeInferInternal, ErrorGuardsAndUnsupportedBranchesStayExplicit) {
       NameAST::Create("accepts_untyped"),
       {IntAST::Create("7")}));
     EXPECT_NO_THROW(call->typeInfer(&analyzer));
+  }
+  {
+    std::unique_ptr<ResourceMethodDefAST> close_again(ResourceMethodDefAST::Create(
+      "file",
+      "close_again",
+      false,
+      false,
+      {ParamAST::Create(NameAST::Create("ignored"))},
+      ResourceRedirectAST::Create(ResourceReceiverAST::Create("file"), EmptyResourceAST::Create())));
+    EXPECT_NO_THROW(close_again->typeInfer(&analyzer));
+    analyzer.local_binding_types["destroyed_handle"] = styio_make_file_handle_type("i64");
+    StyioSemaContext::BindingInfo handle_info;
+    handle_info.resource_value = true;
+    handle_info.declared_type = styio_make_file_handle_type("i64");
+    analyzer.binding_info_["destroyed_handle"] = handle_info;
+    std::unique_ptr<FuncCallAST> call(FuncCallAST::Create(
+      NameAST::Create("destroyed_handle"),
+      NameAST::Create("close_again"),
+      {ResourceRedirectAST::Create(NameAST::Create("destroyed_handle"), EmptyResourceAST::Create())}));
+    EXPECT_THROW(call->typeInfer(&analyzer), StyioTypeError);
+    analyzer.binding_info_.erase("destroyed_handle");
+    analyzer.local_binding_types.erase("destroyed_handle");
   }
   {
     std::unique_ptr<SimpleFuncAST> echo(SimpleFuncAST::Create(
