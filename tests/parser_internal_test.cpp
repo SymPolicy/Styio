@@ -758,6 +758,12 @@ TEST(StyioParserInternal, LegacyOperatorForwardAndCodpEdgesStayExplicit) {
     EXPECT_THROW((void)parse_codp(direct.get(), nullptr), StyioParseError);
   }
   {
+    DirectContext direct("noop{}");
+    CODPAST* previous = CODPAST::Create("filter", {}, nullptr);
+    std::unique_ptr<CODPAST> pipeline(parse_codp(direct.get(), previous));
+    ASSERT_NE(pipeline, nullptr);
+  }
+  {
     DirectContext direct("left, <- @stdin");
     EXPECT_THROW((void)parse_stmt_or_expr_legacy(direct.get()), StyioSyntaxError);
   }
