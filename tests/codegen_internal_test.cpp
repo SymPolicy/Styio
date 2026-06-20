@@ -861,6 +861,10 @@ TEST(StyioCodeGenInternal, NumericOperatorsNativeExternsAndReturnCoercionsStayEx
     SGCall::Create(SGResId::Create("native_i64"), {SGConstBool::Create(true)}),
     SGCall::Create(SGResId::Create("native_f32"), {SGConstFloat::Create("2.25")}),
     SGCall::Create(SGResId::Create("native_f64"), {SGConstString::Create("2.5")}),
+    SGCall::Create(SGResId::Create("native_f64"), {SGConstInt::Create(7)}),
+    SGCall::Create(SGResId::Create("native_f64"), {
+      SGCall::Create(SGResId::Create("native_f32"), {SGConstFloat::Create("3.25")}),
+    }),
     SGCall::Create(SGResId::Create("native_ptr"), {SGConstString::Create("ok")}),
     SGCall::Create(SGResId::Create("return_f32"), {}),
     SGCall::Create(SGResId::Create("return_bool"), {}),
