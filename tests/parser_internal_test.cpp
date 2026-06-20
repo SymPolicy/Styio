@@ -79,7 +79,8 @@ class DirectContext {
   explicit DirectContext(
       std::string src,
       bool omit_equal_tokens = false,
-      std::string file_name = "<parser-internal>")
+      std::string file_name = "<parser-internal>",
+      bool debug_mode = false)
     : source_(std::move(src)),
       file_name_(std::move(file_name)),
       tokens_(StyioTokenizer::tokenize(source_)),
@@ -103,7 +104,7 @@ class DirectContext {
         source_,
         build_line_seps(source_),
         tokens_,
-        false);
+        debug_mode);
   }
 
   ~DirectContext() {
@@ -1526,6 +1527,15 @@ TEST(StyioParserInternal, ContextCharacterHelpersCoverBoundaryEdges) {
     EXPECT_THROW((void)direct.get().map_match(StyioTokenType::NAME), StyioSyntaxError);
     EXPECT_THROW((void)direct.get().try_match_panic(StyioTokenType::TOK_RPAREN), StyioSyntaxError);
     EXPECT_THROW((void)direct.get().check_drop_panic('!'), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("x\n", false, "<parser-debug>", true);
+    testing::internal::CaptureStdout();
+    const std::string label = direct.get().label_cur_line(0, "debug-label");
+    const std::string debug_log = testing::internal::GetCapturedStdout();
+    EXPECT_NE(debug_log.find("find_line_index(), starts with position: 0"), std::string::npos);
+    EXPECT_NE(label.find("File \"<parser-debug>\""), std::string::npos);
+    EXPECT_NE(label.find("debug-label"), std::string::npos);
   }
 }
 
