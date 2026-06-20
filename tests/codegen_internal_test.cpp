@@ -865,6 +865,26 @@ TEST(StyioCodeGenInternal, NumericOperatorsNativeExternsAndReturnCoercionsStayEx
         SGCall::Create(SGResId::Create("native_f32"), {SGConstFloat::Create("0.25")}))})}},
       SGBlock::Create({SGReturn::Create(SGConstString::Create("fallback"))}),
       SGMatchReprKind::ExprMixed),
+    SGMatch::Create(
+      SGConstInt::Create(0),
+      {},
+      SGBlock::Create({SGReturn::Create(SGConstInt::Create(42))}),
+      SGMatchReprKind::ExprInt),
+    SGMatch::Create(
+      SGConstInt::Create(1),
+      {{1, SGBlock::Create({SGReturn::Create(
+        SGBinOp::Create(
+          SGConstString::Create("left"),
+          SGConstString::Create("arm"),
+          StyioOpType::Binary_Add,
+          SGType::Create(string_type())))})}},
+      SGBlock::Create({SGReturn::Create(
+        SGBinOp::Create(
+          SGConstString::Create("right"),
+          SGConstString::Create("default"),
+          StyioOpType::Binary_Add,
+          SGType::Create(string_type())))}),
+      SGMatchReprKind::ExprMixed),
 
     SGCall::Create(SGResId::Create("native_void"), {}),
     SGCall::Create(SGResId::Create("native_bool"), {SGConstBool::Create(true)}),
