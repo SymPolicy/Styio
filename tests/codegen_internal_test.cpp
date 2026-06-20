@@ -599,6 +599,7 @@ TEST(StyioCodeGenInternal, ScalarCastConditionAndDynamicSlotGuardsStayExplicit) 
 TEST(StyioCodeGenInternal, CollectionHandleLiteralsAndAccessorsStayExplicit) {
   expect_codegen_ok({
     SCListLiteral::Create({SGConstBool::Create(true), SGConstInt::Create(0)}, "bool"),
+    SCListLiteral::Create({SGConstChar::Create('n')}, "i64"),
     SCListLiteral::Create({SGConstInt::Create(65), SGConstFloat::Create("2.5")}, "char"),
     SCListLiteral::Create({SGConstInt::Create(1), SGConstString::Create("not-number")}, "f64"),
     SCListLiteral::Create({SGConstString::Create("ok"), SGConstInt::Create(7)}, "string"),
@@ -610,7 +611,9 @@ TEST(StyioCodeGenInternal, CollectionHandleLiteralsAndAccessorsStayExplicit) {
     SCMatrixLiteral::Create({SGConstInt::Create(1), SGConstString::Create("bad")}, "f64", 1, 2),
 
     SCDictLiteral::Create({{SGConstString::Create("flag"), SGConstBool::Create(true)}}, "bool"),
+    SCDictLiteral::Create({{SGConstString::Create("narrow"), SGConstChar::Create('n')}}, "i64"),
     SCDictLiteral::Create({{SGConstString::Create("ratio"), SGConstInt::Create(2)}}, "f64"),
+    SCDictLiteral::Create({{SGConstString::Create("fallback_ratio"), SGConstString::Create("bad")}}, "f64"),
     SCDictLiteral::Create({{SGConstString::Create("text"), SGConstInt::Create(9)}}, "string"),
     SCDictLiteral::Create({{SGConstString::Create("list"), list_i64()}}, "list[i64]"),
     SCDictLiteral::Create({{SGConstString::Create("dict"), dict_i64()}}, "dict[string,i64]"),
@@ -624,6 +627,7 @@ TEST(StyioCodeGenInternal, CollectionHandleLiteralsAndAccessorsStayExplicit) {
     SCListGet::Create(SGConstBool::Create(true), SGConstInt::Create(0), "matrix[i64,1,2]"),
     SCListSlice::Create(SGConstBool::Create(true), SGConstBool::Create(false), nullptr, "i64"),
     SCListSlice::Create(SGConstBool::Create(true), SGConstBool::Create(false), SGConstBool::Create(true), "i64"),
+    SCListSet::Create(SGConstBool::Create(true), SGConstBool::Create(false), SGConstChar::Create('n'), "i64"),
     SCListSet::Create(SGConstBool::Create(true), SGConstBool::Create(false), SGConstInt::Create(1), "string"),
     SCListSet::Create(SGConstBool::Create(true), SGConstBool::Create(false), SGConstString::Create("bad"), "f64"),
     SCListSet::Create(SGConstBool::Create(true), SGConstBool::Create(false), SGConstString::Create("bad"), "char"),
@@ -646,6 +650,7 @@ TEST(StyioCodeGenInternal, CollectionHandleLiteralsAndAccessorsStayExplicit) {
     SCDictGet::Create(SGConstBool::Create(true), SGConstString::Create("ratio"), "f64"),
     SCDictGet::Create(SGConstBool::Create(true), SGConstString::Create("list"), "list[i64]"),
     SCDictGet::Create(SGConstBool::Create(true), SGConstString::Create("dict"), "dict[string,i64]"),
+    SCDictSet::Create(SGConstBool::Create(true), SGConstString::Create("narrow"), SGConstChar::Create('n'), "i64"),
     SCDictSet::Create(SGConstBool::Create(true), SGConstString::Create("text"), SGConstInt::Create(1), "string"),
     SCDictSet::Create(SGConstBool::Create(true), SGConstString::Create("ratio"), SGConstString::Create("bad"), "f64"),
     SCDictSet::Create(SGConstBool::Create(true), SGConstString::Create("list"), list_i64(), "list[i64]"),
