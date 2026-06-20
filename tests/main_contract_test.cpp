@@ -633,7 +633,7 @@ TEST(StyioMainContract, MainEntryAstAndIrTTYOutputUsesAnsiHeaders) {
   const std::string child_command =
     styio_shell_quote_latest(styio_binary.string())
     + " --file " + styio_shell_quote_latest(source.string())
-    + " --styio-ast --styio-ir";
+    + " --styio-ast --styio-ir --llvm-ir";
   const std::string command =
     styio_shell_quote_latest(script_path)
     + " -q -e -c " + styio_shell_quote_latest(child_command)
@@ -648,6 +648,8 @@ TEST(StyioMainContract, MainEntryAstAndIrTTYOutputUsesAnsiHeaders) {
   EXPECT_NE(tty_output.find("\033[1;32mAST\033[0m \033[1;33m-Type-Checking\033[0m"), std::string::npos)
     << tty_output;
   EXPECT_NE(tty_output.find("\033[1;32mStyio IR\033[0m"), std::string::npos)
+    << tty_output;
+  EXPECT_NE(tty_output.find("\033[1;32mLLVM IR\033[0m"), std::string::npos)
     << tty_output;
 }
 
