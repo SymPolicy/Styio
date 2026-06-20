@@ -909,6 +909,11 @@ TEST(StyioParserInternal, ImportExportAndRawBodyEdgesStayExplicit) {
     EXPECT_EQ(ast->getSymbols()[1], "mod/symbol");
   }
   {
+    DirectContext direct("(export { main })");
+    direct.get().move_forward(1, "nested_export");
+    EXPECT_THROW((void)parse_export_decl_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
     DirectContext direct("(import { pkg })");
     direct.get().move_forward(1, "nested_import");
     EXPECT_THROW((void)parse_import_decl_after_at_latest(direct.get()), StyioSyntaxError);
@@ -939,6 +944,10 @@ TEST(StyioParserInternal, ImportExportAndRawBodyEdgesStayExplicit) {
   }
   {
     DirectContext direct("export { symbol, }");
+    EXPECT_THROW((void)parse_export_decl_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("export { symbol helper }");
     EXPECT_THROW((void)parse_export_decl_after_at_latest(direct.get()), StyioSyntaxError);
   }
   {
@@ -1014,6 +1023,10 @@ TEST(StyioParserInternal, ImportExportAndRawBodyEdgesStayExplicit) {
     DirectContext direct("(@extern(c) { int nested(void) { return 0; } })");
     direct.get().move_forward(1, "nested_extern");
     EXPECT_THROW((void)parse_at_stmt_or_expr_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("import(c) {}");
+    EXPECT_THROW((void)parse_extern_decl_after_at_latest(direct.get()), StyioSyntaxError);
   }
   {
     DirectContext direct("@extern(123) {}");
@@ -1308,6 +1321,20 @@ TEST(StyioParserInternal, LegacyScannerRouteAndReceiverEdgesStayExplicit) {
     EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::NAME);
   }
   {
+    ResourceMethodReceiverScopeLatest scope("file");
+    DirectContext direct("file");
+    std::unique_ptr<StyioAST> receiver(parse_after_at_expr_atom_latest(direct.get(), false));
+    ASSERT_NE(receiver, nullptr);
+    EXPECT_EQ(receiver->getNodeType(), StyioNodeType::ResourceReceiver);
+  }
+  {
+    ResourceMethodReceiverScopeLatest scope("file");
+    DirectContext direct("@file.name");
+    std::unique_ptr<StyioAST> ast(parse_at_stmt_or_expr_latest(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Attribute);
+  }
+  {
     DirectContext direct("<- @stdin");
     EXPECT_THROW(
       (void)parse_parenthesized_instant_pull_latest(
@@ -1513,6 +1540,10 @@ TEST(StyioParserInternal, ParserStaticHelpersCoverAdditionalFalseEdges) {
     EXPECT_EQ(type->getTypeName(), "dict[string,i64]");
   }
   {
+    EXPECT_EQ(resource_suffix_value_type_latest(styio_make_list_type("i64")).name, "i64");
+    EXPECT_EQ(resource_suffix_value_type_latest(styio_data_type_from_name("f64")).name, "f64");
+  }
+  {
     DirectContext direct("(\"typed\": i64, \"plain\", sink <- value)");
     std::unique_ptr<ResourceAST> resources(parse_resources_after_at(direct.get()));
     ASSERT_NE(resources, nullptr);
@@ -1601,6 +1632,10 @@ TEST(StyioParserInternal, ParserStaticHelpersCoverAdditionalFalseEdges) {
     ASSERT_NE(ref, nullptr);
     EXPECT_EQ(ref->getSelectorKind(), ResourceSelectorKind::Offset);
     EXPECT_EQ(ref->getSelectorOffset(), -3);
+  }
+  {
+    DirectContext direct("history[name]");
+    EXPECT_THROW((void)parse_resource_ref_after_at_latest(direct.get()), StyioSyntaxError);
   }
   {
     DirectContext direct("@file(\"input.txt\")");
