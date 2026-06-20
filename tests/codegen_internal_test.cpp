@@ -820,6 +820,12 @@ TEST(StyioCodeGenInternal, NumericOperatorsNativeExternsAndReturnCoercionsStayEx
       {},
       SGBlock::Create({SGReturn::Create(SGConstFloat::Create("1.0"))})),
     SGFunc::Create(
+      SGType::Create(bool_type()),
+      SGResId::Create("return_bool_from_f32"),
+      {},
+      SGBlock::Create({SGReturn::Create(
+        SGCall::Create(SGResId::Create("native_f32"), {SGConstFloat::Create("0.5")}))})),
+    SGFunc::Create(
       SGType::Create(string_type()),
       SGResId::Create("return_string"),
       {},
@@ -868,6 +874,7 @@ TEST(StyioCodeGenInternal, NumericOperatorsNativeExternsAndReturnCoercionsStayEx
     SGCall::Create(SGResId::Create("native_ptr"), {SGConstString::Create("ok")}),
     SGCall::Create(SGResId::Create("return_f32"), {}),
     SGCall::Create(SGResId::Create("return_bool"), {}),
+    SGCall::Create(SGResId::Create("return_bool_from_f32"), {}),
     SGCall::Create(SGResId::Create("return_string"), {}),
     SGConstInt::Create(0),
   }, {
