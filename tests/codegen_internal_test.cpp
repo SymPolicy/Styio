@@ -1119,6 +1119,38 @@ TEST(StyioCodeGenInternal, TaskFlowIoAndScopedStringEdgesStayExplicit) {
   });
 }
 
+TEST(StyioCodeGenInternal, TaskCaptureScannerCoversNestedReturnExpressions) {
+  expect_codegen_ok({
+    SGFlexBind::Create(var("outer_task_value", i64_type()), SGConstInt::Create(2)),
+    SIOTaskCreate::Create(
+      SGBlock::Create({
+        SGReturn::Create(SGBlock::Create({
+          SGFlexBind::Create(var("inner_task_value", i64_type()), SGResId::Create("outer_task_value")),
+          SGFinalBind::Create(var("inner_task_const", i64_type()), SGResId::Create("inner_task_value")),
+          SGResId::Create("inner_task_const"),
+        })),
+      }),
+      i64_type()),
+    SIOTaskCreate::Create(
+      SGBlock::Create({
+        SGReturn::Create(SGFlexBind::Create(
+          var("bind_expr_task_value", i64_type()),
+          SGConstInt::Create(4))),
+      }),
+      i64_type()),
+    SIOTaskCreate::Create(
+      SGBlock::Create({
+        SGReturn::Create(SGFinalBind::Create(
+          var("final_expr_task_value", i64_type()),
+          SGConstInt::Create(5))),
+      }),
+      i64_type()),
+  }, {
+    "outer_task_value.capture",
+    "styio_task_i64_spawn",
+  });
+}
+
 TEST(StyioCodeGenInternal, ResourceEffectZipNativeAndDriverEdgesStayExplicit) {
   expect_codegen_ok({
     SGFinalBind::Create(var("recent_i64_from_bool", bounded_ring_type("i64", 2)), SGConstBool::Create(true)),
