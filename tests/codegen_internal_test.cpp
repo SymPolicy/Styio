@@ -1076,6 +1076,7 @@ TEST(StyioCodeGenInternal, TaskFlowIoAndScopedStringEdgesStayExplicit) {
     SIOTaskCreate::Create(SGBlock::Create({SGReturn::Create(SGConstBool::Create(true))}), i64_type()),
     SIOTaskCreate::Create(SGBlock::Create({SGReturn::Create(SGConstFloat::Create("8.5"))}), i64_type()),
     SIOTaskCreate::Create(SGBlock::Create({SGReturn::Create(SGConstString::Create("11"))}), i64_type()),
+    SIOTaskCreate::Create(SGBlock::Create({SGReturn::Create(SGConstChar::Create('q'))}), i64_type()),
     SIOTaskCreate::Create(SGBlock::Create({SGReturn::Create(SGConstInt::Create(12))}), string_type()),
 
     SGFinalBind::Create(dynamic_var("flow_dyn", string_type()), SGConstString::Create("before")),
@@ -1087,6 +1088,7 @@ TEST(StyioCodeGenInternal, TaskFlowIoAndScopedStringEdgesStayExplicit) {
     SIOFlowBind::Create(SGConstBool::Create(true), "flow_i64", i64_type(), false),
     SIOFlowBind::Create(SGConstInt::Create(2), "flow_f64", f64_type(), false),
     SIOFlowBind::Create(SGConstFloat::Create("2.5"), "flow_i32", i32_type(), false),
+    SIOFlowBind::Create(SGConstInt::Create(3), "flow_i32_from_i64", i32_type(), false),
 
     SGRangeFor::Create(
       SGConstInt::Create(0),
