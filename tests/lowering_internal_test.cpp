@@ -30,6 +30,11 @@ SGVar* sg_i64_var(const std::string& name) {
   return SGVar::Create(SGResId::Create(name), SGType::Create(i64_type()));
 }
 
+void seed_builtin_resource_methods(AstToStyioIRLowerer& analyzer) {
+  std::unique_ptr<MainBlockAST> seed(MainBlockAST::Create({PassAST::Create()}));
+  seed->typeInfer(&analyzer);
+}
+
 class LowererProbe : public AstToStyioIRLowerer
 {
 public:
@@ -1104,6 +1109,44 @@ TEST(StyioLoweringInternal, DirectLoweringFailureAndVariantBranchesStayExplicit)
         NameAST::Create("line_text"),
         NameAST::Create("lines"),
         {IntAST::Create("1")})->toStyioIR(&analyzer),
+      StyioTypeError);
+  }
+  {
+    AstToStyioIRLowerer path_analyzer;
+    seed_builtin_resource_methods(path_analyzer);
+    std::unique_ptr<AttrAST> path(AttrAST::Create(
+      FileResourceAST::Create(StringAST::Create("input.txt"), false),
+      NameAST::Create("path")));
+    std::unique_ptr<StyioIR> ir(path->toStyioIR(&path_analyzer));
+    EXPECT_NE(dynamic_cast<SGConstString*>(ir.get()), nullptr);
+  }
+  {
+    AstToStyioIRLowerer path_analyzer;
+    seed_builtin_resource_methods(path_analyzer);
+    path_analyzer.local_binding_types["loose_file"] = styio_make_file_handle_type("i64");
+    std::unique_ptr<AttrAST> path(AttrAST::Create(
+      NameAST::Create("loose_file"),
+      NameAST::Create("path")));
+    std::unique_ptr<StyioIR> ir(path->toStyioIR(&path_analyzer));
+    EXPECT_NE(dynamic_cast<SGConstString*>(ir.get()), nullptr);
+  }
+  {
+    AstToStyioIRLowerer topology_analyzer;
+    std::unique_ptr<ResourceMethodDefAST> pressure(ResourceMethodDefAST::Create(
+      "resource",
+      "custom_pressure",
+      false,
+      true,
+      {},
+      ReturnAST::Create(IntAST::Create("1"))));
+    ASSERT_NO_THROW(pressure->typeInfer(&topology_analyzer));
+    topology_analyzer.local_binding_types["topo"] = styio_make_topology_resource_type(
+      i64_type(),
+      StyioResourceShapeKind::Scalar);
+    EXPECT_THROW(
+      (void)AttrAST::Create(
+        NameAST::Create("topo"),
+        NameAST::Create("custom_pressure"))->toStyioIR(&topology_analyzer),
       StyioTypeError);
   }
   EXPECT_THROW(
