@@ -387,6 +387,21 @@ TEST(StyioMainContract, NativeBuildAndNanoBinaryCliGuardsStayFailClosed) {
   EXPECT_NE(blocked_output.stderr_text.find("cannot create output directory"), std::string::npos)
     << blocked_output.stderr_text;
 
+  const fs::path frontend_error_source = temp.path() / "frontend-error.styio";
+  WriteText(frontend_error_source, "x = missing(1)\n");
+  const fs::path styio_binary = CurrentTestBinaryDir() / "styio";
+  ASSERT_TRUE(fs::exists(styio_binary)) << styio_binary.string();
+  const MainRunResult frontend_error = RunExternalTool(
+    styio_binary,
+    {
+      "build",
+      frontend_error_source.string(),
+      "-o",
+      (temp.path() / "frontend-error-out").string()});
+  EXPECT_EQ(frontend_error.exit_code, static_cast<int>(StyioExitCode::RuntimeError));
+  EXPECT_NE(frontend_error.stderr_text.find("styio build frontend compilation failed"), std::string::npos)
+    << frontend_error.stderr_text;
+
   const fs::path styio_nano = CurrentTestBinaryDir() / "styio-nano";
   ASSERT_TRUE(fs::exists(styio_nano)) << styio_nano.string();
   const MainRunResult nano_result = RunExternalTool(styio_nano, {"--nano-create"});
