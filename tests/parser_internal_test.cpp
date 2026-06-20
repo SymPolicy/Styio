@@ -405,6 +405,26 @@ TEST(StyioParserInternal, ContextHelpersCoverAdditionalTokenEdges) {
     EXPECT_FALSE(matches_legacy_string_list_import_latest(direct.get()));
   }
   {
+    DirectContext direct("[");
+    EXPECT_FALSE(matches_legacy_string_list_import_latest(direct.get()));
+  }
+  {
+    std::vector<StyioToken*> tokens{
+      StyioToken::Create(StyioTokenType::TOK_LBOXBRAC, "["),
+      StyioToken::Create(StyioTokenType::STRING, "pkg"),
+    };
+    {
+      StyioContext context(
+        "<parser-internal>",
+        "[\"pkg\"",
+        build_line_seps("[\"pkg\""),
+        tokens,
+        false);
+      EXPECT_FALSE(matches_legacy_string_list_import_latest(context));
+    }
+    free_tokens(tokens);
+  }
+  {
     DirectContext direct("name");
     EXPECT_FALSE(matches_legacy_string_list_import_latest(direct.get()));
   }
@@ -634,6 +654,17 @@ TEST(StyioParserInternal, LegacyOperatorForwardAndCodpEdgesStayExplicit) {
     EXPECT_EQ(cases->getNodeType(), StyioNodeType::Cases);
   }
   {
+    DirectContext direct("?= { _ => 1 }");
+    auto followings = parse_forward_as_list(direct.get());
+    ASSERT_EQ(followings.size(), 1u);
+    std::unique_ptr<StyioAST> following(followings[0]);
+    EXPECT_EQ(following->getNodeType(), StyioNodeType::Cases);
+  }
+  {
+    DirectContext direct("?");
+    EXPECT_THROW((void)parse_forward_as_list(direct.get()), StyioParseError);
+  }
+  {
     DirectContext direct(">>(item) => { << item }");
     std::unique_ptr<StyioAST> ast(parse_iterator_with_forward(
       direct.get(),
@@ -649,6 +680,12 @@ TEST(StyioParserInternal, LegacyOperatorForwardAndCodpEdgesStayExplicit) {
       direct.get(),
       ListAST::Create({IntAST::Create("1")})));
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::IterSeq);
+  }
+  {
+    DirectContext direct(">>(item) > #tag => { << item } => 1");
+    EXPECT_THROW(
+      (void)parse_iterator_with_forward(direct.get(), ListAST::Create({IntAST::Create("1")})),
+      StyioParseError);
   }
   {
     SCOPED_TRACE("iterator check-equal forward rejected");
