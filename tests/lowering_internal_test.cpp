@@ -1478,6 +1478,17 @@ TEST(StyioLoweringInternal, AstAccessorAndFailClosedDispatchStayExplicit) {
     EXPECT_EQ(br->getDepth(), 1u);
   }
   {
+    AstToStyioIRLowerer analyzer;
+    std::unique_ptr<MainBlockAST> main_block(MainBlockAST::Create({
+      ResourceMethodDefAST::Create("file", "empty_body", false, false, {}, nullptr),
+      FuncCallAST::Create(
+        FileResourceAST::Create(StringAST::Create("input.txt"), false),
+        NameAST::Create("empty_body"),
+        {})
+    }));
+    EXPECT_THROW((void)main_block->toStyioIR(&analyzer), StyioTypeError);
+  }
+  {
     std::unique_ptr<VarAST> typed(VarAST::Create(NameAST::Create("v"), TypeAST::Create("i64")));
     EXPECT_TRUE(typed->isTyped());
     EXPECT_EQ(typed->getTypeAsStr(), "i64");
