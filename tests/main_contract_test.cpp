@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include <sys/wait.h>
+
 #define main styio_main_entry_for_unit_tests
 #include "../src/main.cpp"
 #undef main
@@ -147,6 +149,46 @@ MainRunResult RunMain(std::initializer_list<std::string> raw_args) {
   result.exit_code = exit_code;
   result.stdout_text = testing::internal::GetCapturedStdout();
   result.stderr_text = testing::internal::GetCapturedStderr();
+  return result;
+}
+
+fs::path CurrentTestBinaryDir() {
+  std::error_code ec;
+  const fs::path self = fs::read_symlink("/proc/self/exe", ec);
+  if (ec || self.empty()) {
+    return {};
+  }
+  return self.parent_path();
+}
+
+MainRunResult RunExternalTool(
+  const fs::path& binary,
+  std::initializer_list<std::string> raw_args
+) {
+  TempDir temp("external-tool");
+  const fs::path stdout_path = temp.path() / "stdout.txt";
+  const fs::path stderr_path = temp.path() / "stderr.txt";
+
+  std::string command = styio_shell_quote_latest(binary.string());
+  for (const std::string& arg : raw_args) {
+    command += " " + styio_shell_quote_latest(arg);
+  }
+  command += " > " + styio_shell_quote_latest(stdout_path.string())
+             + " 2> " + styio_shell_quote_latest(stderr_path.string());
+
+  const int status = std::system(command.c_str());
+  MainRunResult result;
+  if (status == -1) {
+    result.exit_code = -1;
+  }
+  else if (WIFEXITED(status)) {
+    result.exit_code = WEXITSTATUS(status);
+  }
+  else {
+    result.exit_code = status;
+  }
+  result.stdout_text = ReadText(stdout_path);
+  result.stderr_text = ReadText(stderr_path);
   return result;
 }
 
@@ -298,6 +340,44 @@ TEST(StyioMainContract, MainEntryDispatchAndEarlyCliExitsStayStable) {
     EXPECT_EQ(result.exit_code, static_cast<int>(StyioExitCode::CliError));
     EXPECT_NE(result.stderr_text.find("unsupported --source-build-info format"), std::string::npos);
   }
+}
+
+TEST(StyioMainContract, NativeBuildAndNanoBinaryCliGuardsStayFailClosed) {
+  TempDir temp("native-build-cli-guards");
+  std::string error;
+
+  {
+    const fs::path tmp_blocker = temp.path() / "tmp-blocker";
+    WriteText(tmp_blocker, "not a directory\n");
+    EnvVarGuard tmpdir_guard("TMPDIR");
+    tmpdir_guard.set(tmp_blocker.string());
+
+    const fs::path temp_root = styio_create_native_build_temp_root_latest(error);
+    EXPECT_TRUE(temp_root.empty());
+    EXPECT_NE(error.find("cannot resolve temporary directory"), std::string::npos) << error;
+  }
+
+  const fs::path source = temp.path() / "main.styio";
+  WriteText(source, "print(1)\n");
+  const fs::path output_parent_blocker = temp.path() / "out-parent";
+  WriteText(output_parent_blocker, "not a directory\n");
+  const MainRunResult blocked_output = RunMain({
+    "styio",
+    "build",
+    source.string(),
+    "-o",
+    (output_parent_blocker / "app").string()});
+  EXPECT_EQ(blocked_output.exit_code, static_cast<int>(StyioExitCode::CliError));
+  EXPECT_NE(blocked_output.stderr_text.find("cannot create output directory"), std::string::npos)
+    << blocked_output.stderr_text;
+
+  const fs::path styio_nano = CurrentTestBinaryDir() / "styio-nano";
+  ASSERT_TRUE(fs::exists(styio_nano)) << styio_nano.string();
+  const MainRunResult nano_result = RunExternalTool(styio_nano, {"--nano-create"});
+  EXPECT_EQ(nano_result.exit_code, static_cast<int>(StyioExitCode::CliError));
+  EXPECT_NE(
+    nano_result.stderr_text.find("styio-nano packaging commands are only available in the full styio compiler"),
+    std::string::npos) << nano_result.stderr_text;
 }
 
 TEST(StyioMainContract, MainEntryCliGuardsStayFailClosed) {
