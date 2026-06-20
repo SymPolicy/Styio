@@ -194,6 +194,27 @@ TEST(StyioExternLibInternal, RuntimeRepresentationCloneAndConfigHelpersStayExpli
   EXPECT_EQ(take_owned_cstr(styio_matrix_to_cstr(cloned)), "[[1.500000,2.500000]]");
   styio_matrix_release(cloned);
   styio_matrix_release(matrix);
+
+  auto* invalid_list = new StyioListBase(static_cast<StyioListElemKind>(255));
+  const int64_t invalid_list_handle = stash_list(invalid_list);
+  EXPECT_EQ(clone_list_handle_value(invalid_list_handle), 0);
+  EXPECT_EQ(styio_list_slice(invalid_list_handle, 0, 1, 1), 0);
+  styio_list_release(invalid_list_handle);
+  delete invalid_list;
+
+  auto* invalid_matrix = new StyioMatrixBase(static_cast<StyioMatrixElemKind>(255), 1, 1);
+  const int64_t invalid_matrix_handle = stash_matrix(invalid_matrix);
+  EXPECT_EQ(clone_matrix_handle_value(invalid_matrix_handle), 0);
+  styio_matrix_release(invalid_matrix_handle);
+  delete invalid_matrix;
+
+  auto* invalid_dict = new StyioDictBase(
+    static_cast<StyioDictValueKind>(255),
+    StyioDictRuntimeImpl::Linear);
+  const int64_t invalid_dict_handle = stash_dict(invalid_dict);
+  EXPECT_EQ(clone_dict_handle_value(invalid_dict_handle), 0);
+  styio_dict_release(invalid_dict_handle);
+  delete invalid_dict;
 }
 
 TEST(StyioExternLibInternal, ListCloneSliceAndEmptyMutationEdgesStayExplicit) {
