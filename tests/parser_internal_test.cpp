@@ -662,6 +662,10 @@ TEST(StyioParserInternal, LegacyOperatorForwardAndCodpEdgesStayExplicit) {
     EXPECT_THROW((void)parse_codp(direct.get(), nullptr), StyioParseError);
   }
   {
+    DirectContext direct("{ 1");
+    EXPECT_THROW((void)parse_block_only(direct.get()), StyioSyntaxError);
+  }
+  {
     DirectContext direct("@(123)");
     EXPECT_THROW((void)parse_read_file(direct.get(), NameAST::Create("input")), StyioSyntaxError);
   }
