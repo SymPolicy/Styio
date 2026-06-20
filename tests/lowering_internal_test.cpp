@@ -1091,6 +1091,12 @@ TEST(StyioLoweringInternal, DirectLoweringFailureAndVariantBranchesStayExplicit)
   EXPECT_THROW((void)StdStreamAST::Create(StdStreamKind::Stdout)->toStyioIR(&analyzer), StyioTypeError);
   EXPECT_THROW((void)FuncCallAST::CreateCallable(NameAST::Create("cont"), {})->toStyioIR(&analyzer), StyioTypeError);
   EXPECT_THROW((void)FuncCallAST::Create(NameAST::Create("missing_lowering_fn"), {})->toStyioIR(&analyzer), StyioTypeError);
+  EXPECT_THROW(
+    (void)FuncCallAST::Create(
+      FileResourceAST::Create(StringAST::Create("input.txt"), false),
+      NameAST::Create("missing_resource_method"),
+      {})->toStyioIR(&analyzer),
+    StyioTypeError);
   {
     analyzer.local_binding_types["line_text"] = styio_data_type_from_name("string");
     EXPECT_THROW(
