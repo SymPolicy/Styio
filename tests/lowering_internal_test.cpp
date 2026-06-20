@@ -282,6 +282,53 @@ TEST(StyioLoweringInternal, FunctionTailAndMatchHelpersStayExplicit) {
       (void)lower_cases_with_scrutinee(&analyzer, bad_pattern.get(), SGConstInt::Create(0), nullptr),
       StyioTypeError);
   }
+  {
+    AstToStyioIRLowerer function_analyzer;
+    std::unique_ptr<FunctionAST> bad_match_sugar(FunctionAST::Create(
+      NameAST::Create("bad_match_sugar"),
+      false,
+      {},
+      TypeAST::Create("i64"),
+      CasesAST::Create(
+        {{IntAST::Create("1"), ReturnAST::Create(IntAST::Create("1"))}},
+        ReturnAST::Create(IntAST::Create("0")))));
+    EXPECT_THROW((void)bad_match_sugar->toStyioIR(&function_analyzer), StyioTypeError);
+  }
+  {
+    AstToStyioIRLowerer function_analyzer;
+    std::unique_ptr<FunctionAST> throwing_body(FunctionAST::Create(
+      NameAST::Create("throwing_body"),
+      false,
+      {ParamAST::Create(NameAST::Create("x"))},
+      TypeAST::Create("i64"),
+      BlockAST::Create({
+        AttrAST::Create(NameAST::Create("x"), IntAST::Create("1"))
+      })));
+    EXPECT_THROW((void)throwing_body->toStyioIR(&function_analyzer), StyioTypeError);
+  }
+  {
+    AstToStyioIRLowerer function_analyzer;
+    std::unique_ptr<SimpleFuncAST> string_match(SimpleFuncAST::Create(
+      NameAST::Create("string_match"),
+      {ParamAST::Create(NameAST::Create("x"))},
+      BlockAST::Create({
+        MatchCasesAST::make(
+          NameAST::Create("x"),
+          CasesAST::Create(
+            {{IntAST::Create("1"), ReturnAST::Create(StringAST::Create("one"))}},
+            ReturnAST::Create(StringAST::Create("default"))))
+      })));
+    std::unique_ptr<StyioIR> ir(string_match->toStyioIR(&function_analyzer));
+    ASSERT_NE(ir, nullptr);
+  }
+  {
+    AstToStyioIRLowerer function_analyzer;
+    std::unique_ptr<SimpleFuncAST> throwing_body(SimpleFuncAST::Create(
+      NameAST::Create("throwing_simple"),
+      {},
+      AttrAST::Create(NameAST::Create("x"), IntAST::Create("1"))));
+    EXPECT_THROW((void)throwing_body->toStyioIR(&function_analyzer), StyioTypeError);
+  }
 }
 
 TEST(StyioLoweringInternal, OptimizerCanonicalizesRebindAndVisitsIrFamilies) {
