@@ -432,8 +432,11 @@ TEST(StyioTypeInferInternal, MatrixIntrinsicDictAndResourceHelpersStayExplicit) 
     StyioTypeError);
 
   expect_matrix_type(matrix_binary_result(matrix_i64_2x3, i64, StyioOpType::Binary_Mul), "i64", 2, 3);
+  expect_matrix_type(matrix_binary_result(matrix_i64_2x3, matrix_i64_2x3, StyioOpType::Binary_Add), "i64", 2, 3);
+  expect_matrix_type(matrix_binary_result(matrix_i64_2x3, matrix_f64_3x2, StyioOpType::Binary_Mul), "f64", 2, 2);
   EXPECT_THROW((void)matrix_binary_result(matrix_i64_2x3, styio_data_type_from_name("string"), StyioOpType::Binary_Mul), StyioTypeError);
   EXPECT_THROW((void)matrix_binary_result(matrix_i64_2x3, i64, StyioOpType::Binary_Add), StyioTypeError);
+  EXPECT_THROW((void)matrix_binary_result(matrix_i64_2x3, matrix_i64_2x3, StyioOpType::Binary_Div), StyioTypeError);
   EXPECT_TRUE(matrix_binary_result(i64, f64, StyioOpType::Binary_Add).isUndefined());
 
   {
