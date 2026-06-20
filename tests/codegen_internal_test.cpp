@@ -787,12 +787,47 @@ TEST(StyioCodeGenInternal, MainReturnTruncationCoversFloatAndVoidValues) {
   });
 
   expect_codegen_ok({
+    SGBlock::Create({
+      SGReturn::Create(SGConstInt::Create(3)),
+      SGConstInt::Create(4),
+    }),
+  }, {
+    "ret i32 3",
+  });
+
+  expect_codegen_ok({
+    SGEntry::Create({
+      SGReturn::Create(SGConstInt::Create(5)),
+      SGConstInt::Create(6),
+    }),
+  }, {
+    "ret i32 5",
+  });
+
+  expect_codegen_ok({
     SGExportDecl::Create({"native_void_tail"}),
     SGExternBlock::Create("c", "void native_void_tail(void) {}\n"),
     SGCall::Create(SGResId::Create("native_void_tail"), {}),
   }, {
     "native_void_tail",
     "ret i32 0",
+  });
+
+  expect_codegen_ok({
+    SGFunc::Create(
+      SGType::Create(i64_type()),
+      SGResId::Create("duplicate_codegen_func"),
+      {},
+      SGBlock::Create({SGReturn::Create(SGConstInt::Create(1))})),
+    SGFunc::Create(
+      SGType::Create(i64_type()),
+      SGResId::Create("duplicate_codegen_func"),
+      {},
+      SGBlock::Create({SGReturn::Create(SGConstInt::Create(2))})),
+    SGCall::Create(SGResId::Create("duplicate_codegen_func"), {}),
+  }, {
+    "duplicate_codegen_func",
+    "ret i64 1",
   });
 }
 
