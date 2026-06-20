@@ -1736,6 +1736,11 @@ TEST(StyioHirBuilder, CoversFallbackAndMalformedSyntaxEdges) {
   EXPECT_EQ(orphan->signature_fingerprint, orphan->fingerprint);
   EXPECT_EQ(orphan->body_fingerprint, orphan->fingerprint);
 
+  const auto lone_hash_syntax = parse_syntax(root + "/hir_lone_hash.styio", "#\n", 41, 1);
+  const auto lone_hash_module = styio::ide::HirBuilder{}.build(lone_hash_syntax, empty_semantic, identity_store);
+  EXPECT_TRUE(lone_hash_module.items.empty());
+  EXPECT_TRUE(lone_hash_module.symbols.empty());
+
   const auto odd_param_syntax = parse_syntax(
     root + "/hir_odd_param.styio",
     "# odd := (1, value: i32) => value\n",
