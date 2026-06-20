@@ -980,6 +980,12 @@ TEST(StyioCodeGenInternal, DynamicSlotsRingsScopesAndControlFlowStayExplicit) {
           SGBlock::Create({SGContinue::Create()}),
           SGBlock::Create({SGBreak::Create()})),
       })),
+    SGRangeFor::Create(
+      SGConstBool::Create(false),
+      SGConstChar::Create(2),
+      SGConstBool::Create(true),
+      "wide_i",
+      SGBlock::Create({SGNoOp::Create()})),
   }, {
     "styio_list_release",
     "styio_dict_release",
