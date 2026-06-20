@@ -6388,6 +6388,43 @@ TEST(StyioSecurityLexer, TokenizesRarePunctuationAndNativeExternBodies) {
 
   free_tokens(tokens);
 
+  const std::vector<std::string> malformed_extern_prefixes = {
+    "){ int body; }",
+    "extern c) { int body; }",
+    "notextern(c) { int body; }",
+  };
+  for (const auto& malformed : malformed_extern_prefixes) {
+    auto malformed_tokens = StyioTokenizer::tokenize(malformed);
+    EXPECT_TRUE(std::none_of(
+      malformed_tokens.begin(),
+      malformed_tokens.end(),
+      [](const StyioToken* token)
+      {
+        return token != nullptr && token->type == StyioTokenType::NATIVE_EXTERN_BODY;
+      })) << malformed;
+    free_tokens(malformed_tokens);
+  }
+
+  const std::string malformed_raw_source =
+    "@extern(c) => {\n"
+    "  auto no_open = R\"no_paren\";\n"
+    "  auto no_close = R\"x(no close\";\n"
+    "  int done(void) { return 2; }\n"
+    "}\n";
+  auto malformed_raw_tokens = StyioTokenizer::tokenize(malformed_raw_source);
+  const auto malformed_raw_body = std::find_if(
+    malformed_raw_tokens.begin(),
+    malformed_raw_tokens.end(),
+    [](const StyioToken* token)
+    {
+      return token != nullptr && token->type == StyioTokenType::NATIVE_EXTERN_BODY;
+    });
+  ASSERT_NE(malformed_raw_body, malformed_raw_tokens.end());
+  EXPECT_NE((*malformed_raw_body)->original.find("no_open"), std::string::npos);
+  EXPECT_NE((*malformed_raw_body)->original.find("no_close"), std::string::npos);
+  EXPECT_NE((*malformed_raw_body)->original.find("done(void)"), std::string::npos);
+  free_tokens(malformed_raw_tokens);
+
   EXPECT_THROW(
     {
       auto unterminated = StyioTokenizer::tokenize("@extern(c) => { int missing(void) { return 1; ");
