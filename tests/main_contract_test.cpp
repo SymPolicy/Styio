@@ -517,6 +517,9 @@ TEST(StyioMainContract, EscapingDiagnosticsAndOptionMatchingStayStable) {
   EXPECT_EQ(std::string(styio_category_name(StyioErrorCategory::ParseError)), "ParseError");
   EXPECT_EQ(std::string(styio_category_name(StyioErrorCategory::TypeError)), "TypeError");
   EXPECT_EQ(std::string(styio_category_name(StyioErrorCategory::RuntimeError)), "RuntimeError");
+  EXPECT_EQ(
+    styio_diagnostic_code(StyioErrorCategory::CliError, "ignored", "STYIO_CUSTOM_CODE"),
+    "STYIO_CUSTOM_CODE");
   EXPECT_EQ(styio_category_phase(StyioErrorCategory::CliError), "service");
   EXPECT_EQ(styio_category_phase(StyioErrorCategory::LexError), "lex");
   EXPECT_EQ(styio_category_phase(StyioErrorCategory::ParseError), "parse");
@@ -527,6 +530,10 @@ TEST(StyioMainContract, EscapingDiagnosticsAndOptionMatchingStayStable) {
   EXPECT_EQ(styio_exit_code(StyioErrorCategory::ParseError), 3);
   EXPECT_EQ(styio_exit_code(StyioErrorCategory::TypeError), 4);
   EXPECT_EQ(styio_exit_code(StyioErrorCategory::RuntimeError), 5);
+  EXPECT_STREQ(styio_runtime_phase_name_latest(CompilationPhase::Tokenized), "tokenized");
+  EXPECT_STREQ(styio_runtime_phase_name_latest(CompilationPhase::Lowered), "lowered");
+  EXPECT_STREQ(styio_runtime_phase_name_latest(CompilationPhase::CodegenReady), "codegen_ready");
+  EXPECT_STREQ(styio_runtime_phase_name_latest(CompilationPhase::Executed), "executed");
 
   const auto category = styio_parse_nano_option_category_latest("--nano-mode=cloud");
   ASSERT_TRUE(category.has_value());
@@ -873,17 +880,34 @@ TEST(StyioMainContract, LowLevelMainHelpersCoverFailureBoundaries) {
   EXPECT_NE(unreadable_read.error_message.find("cannot open file"), std::string::npos);
   fs::permissions(unreadable, fs::perms::owner_read, fs::perm_options::add, perm_ec);
 
+  tmp_code_wrap printable_code;
+  printable_code.code_text = "a\nb\n";
+  printable_code.line_seps = {{0, 2}, {2, 2}};
+  testing::internal::CaptureStdout();
+  show_code_with_linenum(printable_code);
+  const std::string code_dump = testing::internal::GetCapturedStdout();
+  EXPECT_NE(code_dump.find("|0|-[0:2]"), std::string::npos);
+
+  StyioToken* lf = StyioToken::Create(StyioTokenType::TOK_LF, "\n");
   StyioToken* space = StyioToken::Create(StyioTokenType::TOK_SPACE, " ");
   StyioToken* name = StyioToken::Create(StyioTokenType::NAME, "alpha");
   StyioToken* string = StyioToken::Create(StyioTokenType::STRING, "\"beta\"");
+  StyioToken* integer = StyioToken::Create(StyioTokenType::INTEGER, "42");
+  StyioToken* plus = StyioToken::Create(StyioTokenType::TOK_PLUS, "+");
   testing::internal::CaptureStdout();
-  show_tokens({space, name, string});
+  show_tokens({lf, space, name, string, integer, plus});
   const std::string token_dump = testing::internal::GetCapturedStdout();
+  EXPECT_NE(token_dump.find("\\n"), std::string::npos);
   EXPECT_NE(token_dump.find("alpha"), std::string::npos);
   EXPECT_NE(token_dump.find("\"beta\""), std::string::npos);
+  EXPECT_NE(token_dump.find("42"), std::string::npos);
+  EXPECT_NE(token_dump.find("+"), std::string::npos);
+  delete lf;
   delete space;
   delete name;
   delete string;
+  delete integer;
+  delete plus;
 
   const auto invalid_category = static_cast<StyioErrorCategory>(999);
   EXPECT_STREQ(styio_category_name(invalid_category), "RuntimeError");
@@ -1238,6 +1262,19 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
     error));
   EXPECT_NE(error.find("--nano-package-config requires a non-empty path"), std::string::npos);
 
+  const fs::path bad_create_config = temp.path() / "bad-create-config.toml";
+  WriteText(bad_create_config, "[nano\nmode = \"cloud\"\n");
+  create_selection = StyioNanoCreateSelectionLatest{};
+  auto malformed_package_config = ParseMainOptions({
+    "styio",
+    "--nano-package-config=" + bad_create_config.string()});
+  EXPECT_FALSE(styio_resolve_nano_create_selection_latest(
+    malformed_package_config,
+    nullptr,
+    create_selection,
+    error));
+  EXPECT_NE(error.find("malformed section header"), std::string::npos);
+
   create_selection = StyioNanoCreateSelectionLatest{};
   auto missing_output = ParseMainOptions({"styio", "--nano-mode=cloud"});
   EXPECT_FALSE(styio_resolve_nano_create_selection_latest(
@@ -1286,6 +1323,23 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
     error)) << error;
   EXPECT_EQ(create_selection.package_name, "profile-name");
   EXPECT_FALSE(create_selection.source_root.empty());
+
+  const fs::path cli_source_root = temp.path() / "cli-source-root";
+  create_selection = StyioNanoCreateSelectionLatest{};
+  auto local_cli_overrides = ParseMainOptions({
+    "styio",
+    "--nano-mode=local-subset",
+    "--nano-output=" + (temp.path() / "local-cli").string(),
+    "--nano-profile=" + profile.string(),
+    "--nano-name=cli-name",
+    "--nano-source-root=" + cli_source_root.string()});
+  ASSERT_TRUE(styio_resolve_nano_create_selection_latest(
+    local_cli_overrides,
+    "styio",
+    create_selection,
+    error)) << error;
+  EXPECT_EQ(create_selection.package_name, "cli-name");
+  EXPECT_EQ(create_selection.source_root, styio_absolute_path_latest(cli_source_root).string());
 
   create_selection = StyioNanoCreateSelectionLatest{};
   auto local_default_name = ParseMainOptions({
@@ -1395,6 +1449,18 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
     publish_selection,
     error));
   EXPECT_NE(error.find("--nano-publish-config requires a non-empty path"), std::string::npos);
+
+  const fs::path bad_publish_config = temp.path() / "bad-resolve-publish.toml";
+  WriteText(bad_publish_config, "[publish\npackage_dir = \"pkg\"\n");
+  publish_selection = StyioNanoPublishSelectionLatest{};
+  auto malformed_publish_config = ParseMainOptions({
+    "styio",
+    "--nano-publish-config=" + bad_publish_config.string()});
+  EXPECT_FALSE(styio_resolve_nano_publish_selection_latest(
+    malformed_publish_config,
+    publish_selection,
+    error));
+  EXPECT_NE(error.find("malformed section header"), std::string::npos);
 
   publish_selection = StyioNanoPublishSelectionLatest{};
   auto publish_missing_package_dir = ParseMainOptions({
@@ -1558,6 +1624,30 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
   EXPECT_NE(machine_info_with_config.find("\"config_file\":\"" + project_config.string() + "\""), std::string::npos);
 
   dict_selection = StyioDictImplSelectionLatest{};
+  auto dict_from_cli = ParseMainOptions({"styio", "--dict-impl=linear"});
+  ASSERT_TRUE(styio_resolve_dict_impl_selection_latest(
+    dict_from_cli,
+    "",
+    dict_selection,
+    error)) << error;
+  EXPECT_EQ(dict_selection.impl_name, "linear");
+  EXPECT_EQ(dict_selection.source, "cli");
+
+  dict_selection = StyioDictImplSelectionLatest{};
+  auto dict_default = ParseMainOptions({"styio"});
+  ASSERT_TRUE(styio_resolve_dict_impl_selection_latest(
+    dict_default,
+    "",
+    dict_selection,
+    error)) << error;
+  EXPECT_EQ(dict_selection.impl_name, "ordered-hash");
+
+  testing::internal::CaptureStdout();
+  styio_emit_machine_info_json(dict_selection);
+  const std::string machine_info_default = testing::internal::GetCapturedStdout();
+  EXPECT_NE(machine_info_default.find("\"dict_impl\":{\"selected\":\"ordered-hash\""), std::string::npos);
+
+  dict_selection = StyioDictImplSelectionLatest{};
   auto empty_dict_config = ParseMainOptions({"styio", "--config="});
   EXPECT_FALSE(styio_resolve_dict_impl_selection_latest(
     empty_dict_config,
@@ -1574,6 +1664,17 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
     dict_selection,
     error));
   EXPECT_NE(error.find("unsupported --dict-impl"), std::string::npos);
+
+  const fs::path unsupported_project_config = temp.path() / "unsupported-dict.toml";
+  WriteText(unsupported_project_config, "dict_impl = \"missing-impl\"\n");
+  dict_selection = StyioDictImplSelectionLatest{};
+  auto unsupported_dict_config = ParseMainOptions({"styio", "--config=" + unsupported_project_config.string()});
+  EXPECT_FALSE(styio_resolve_dict_impl_selection_latest(
+    unsupported_dict_config,
+    "",
+    dict_selection,
+    error));
+  EXPECT_NE(error.find("unsupported dict_impl in config file"), std::string::npos);
 
   const fs::path discovered_bad_config = temp.path() / "project" / "styio.toml";
   const fs::path discovered_source = temp.path() / "project" / "src" / "main.styio";
@@ -1628,6 +1729,10 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
     temp.path() / "artifact" / "out.txt",
     "artifact\n",
     error)) << error;
+  ASSERT_TRUE(styio_write_compile_plan_artifact_latest(
+    temp.path() / "artifact" / "second.txt",
+    "second\n",
+    error)) << error;
   EXPECT_EQ(ReadText(temp.path() / "artifact" / "out.txt"), "artifact\n");
 
   request.entry_package_id = "pkg/main";
@@ -1636,7 +1741,7 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
   request.entry_file = temp.path() / "src" / "main.styio";
   ASSERT_TRUE(styio_write_compile_plan_receipt_latest(
     request,
-    {temp.path() / "artifact" / "out.txt"},
+    {temp.path() / "artifact" / "out.txt", temp.path() / "artifact" / "second.txt"},
     "linear",
     "session-1",
     true,
@@ -2284,6 +2389,10 @@ TEST(StyioMainContract, ConfigScalarsCommentsAndProjectConfigAreParsedConservati
   WriteText(temp.path() / "bad.toml", "[dict]\nimpl = ordered hash\n");
   EXPECT_FALSE(styio_parse_project_config_latest(temp.path() / "bad.toml", bad_project, error));
   EXPECT_NE(error.find("invalid dict_impl value"), std::string::npos);
+
+  WriteText(temp.path() / "bad-section.toml", "[dict\nimpl = \"linear\"\n");
+  EXPECT_FALSE(styio_parse_project_config_latest(temp.path() / "bad-section.toml", bad_project, error));
+  EXPECT_NE(error.find("malformed section header"), std::string::npos);
 }
 
 TEST(StyioMainContract, ConfigEnumFallbacksAndPathHelpersCoverBoundaryBranches) {
@@ -2493,6 +2602,13 @@ TEST(StyioMainContract, NanoConfigParsersHonorSectionsAliasesAndFailures) {
   EXPECT_FALSE(styio_parse_nano_publish_config_latest(temp.path() / "bad-publish.toml", bad_publish, error));
   EXPECT_NE(error.find("invalid nano publish value"), std::string::npos);
 
+  WriteText(temp.path() / "bad-publish-section.toml", "[publish\nversion = \"1.0.0\"\n");
+  EXPECT_FALSE(styio_parse_nano_publish_config_latest(
+    temp.path() / "bad-publish-section.toml",
+    bad_publish,
+    error));
+  EXPECT_NE(error.find("malformed section header"), std::string::npos);
+
   StyioNanoPublishConfigLatest missing_publish;
   EXPECT_FALSE(styio_parse_nano_publish_config_latest(
     temp.path() / "missing-publish.toml",
@@ -2562,6 +2678,8 @@ TEST(StyioMainContract, NanoProfileNameUsesProfileFieldAndStemFallback) {
   const fs::path named = temp.path() / "custom.profile.toml";
   WriteText(
     named,
+    "\n"
+    "# leading trivia is ignored\n"
     "[ignored]\n"
     "name = nope\n"
     "[profile]\n"
