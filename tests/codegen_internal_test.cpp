@@ -859,6 +859,12 @@ TEST(StyioCodeGenInternal, NumericOperatorsNativeExternsAndReturnCoercionsStayEx
     SGBinOp::Create(SGConstInt::Create(2), SGConstFloat::Create("3.0"), StyioOpType::Less_Than, SGType::Create(bool_type())),
     SGBinOp::Create(SGConstInt::Create(2), SGConstFloat::Create("2.0"), StyioOpType::Less_Than_Equal, SGType::Create(bool_type())),
     SGBinOp::Create(SGConstChar::Create('x'), SGConstInt::Create(7), StyioOpType::Binary_Add, SGType::Create(string_type())),
+    SGMatch::Create(
+      SGConstInt::Create(1),
+      {{1, SGBlock::Create({SGReturn::Create(
+        SGCall::Create(SGResId::Create("native_f32"), {SGConstFloat::Create("0.25")}))})}},
+      SGBlock::Create({SGReturn::Create(SGConstString::Create("fallback"))}),
+      SGMatchReprKind::ExprMixed),
 
     SGCall::Create(SGResId::Create("native_void"), {}),
     SGCall::Create(SGResId::Create("native_bool"), {SGConstBool::Create(true)}),
@@ -884,6 +890,7 @@ TEST(StyioCodeGenInternal, NumericOperatorsNativeExternsAndReturnCoercionsStayEx
     "styio_cstr_to_i64",
     "styio_cstr_to_f64",
     "styio_char_cstr",
+    "styio_empty",
   });
 
   expect_codegen_throws({
