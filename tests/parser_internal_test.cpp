@@ -686,6 +686,31 @@ TEST(StyioParserInternal, ParserHelperFailureEdgesStayExplicit) {
     }
     EXPECT_EQ(direct.get().parser_route_stats_latest(), &outer);
   }
+  {
+    DirectContext direct("1");
+    StyioParserRouteStats stats;
+    stats.nightly_subset_statements = 3;
+    std::unique_ptr<MainBlockAST> ast(parse_main_block_with_engine_latest(
+      direct.get(),
+      StyioParserEngine::Legacy,
+      &stats));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(stats.nightly_subset_statements, 0u);
+  }
+  {
+    EXPECT_STREQ(
+      styio_parser_engine_name_latest(static_cast<StyioParserEngine>(255)),
+      "legacy");
+    DirectContext direct("2");
+    StyioParserRouteStats stats;
+    stats.nightly_declined_statements = 4;
+    std::unique_ptr<MainBlockAST> ast(parse_main_block_with_engine_latest(
+      direct.get(),
+      static_cast<StyioParserEngine>(255),
+      &stats));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(stats.nightly_declined_statements, 0u);
+  }
 
   {
     try {
