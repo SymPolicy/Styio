@@ -116,6 +116,21 @@ class DirectContext {
     return *context_;
   }
 
+  void align_token(StyioTokenType type, size_t occurrence = 0) {
+    size_t seen = 0;
+    for (size_t i = 0; i < tokens_.size(); ++i) {
+      if (tokens_[i]->type != type) {
+        continue;
+      }
+      if (seen == occurrence) {
+        context_->restore_cursor({i, 0});
+        return;
+      }
+      seen += 1;
+    }
+    throw std::runtime_error("parser internal token not found");
+  }
+
  private:
   std::string source_;
   std::string file_name_;
@@ -1142,6 +1157,16 @@ TEST(StyioParserInternal, ValueGuardIteratorAndPostfixEdgesStayExplicit) {
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Id);
   }
   {
+    SCOPED_TRACE("var index guard");
+    DirectContext direct("item[0]");
+    EXPECT_THROW((void)parse_var_name_or_value_expr(direct.get()), StyioParseError);
+  }
+  {
+    SCOPED_TRACE("var call guard");
+    DirectContext direct("item(0)");
+    EXPECT_THROW((void)parse_var_name_or_value_expr(direct.get()), StyioParseError);
+  }
+  {
     DirectContext direct("42");
     std::unique_ptr<StyioAST> ast(parse_var_name_or_value_expr(direct.get()));
     ASSERT_NE(ast, nullptr);
@@ -1158,6 +1183,12 @@ TEST(StyioParserInternal, ValueGuardIteratorAndPostfixEdgesStayExplicit) {
     std::unique_ptr<StyioAST> ast(parse_var_name_or_value_expr(direct.get()));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::String);
+  }
+  {
+    SCOPED_TRACE("insert by index");
+    DirectContext direct("[^2 <- 9]");
+    direct.align_token(StyioTokenType::INTEGER);
+    EXPECT_THROW((void)parse_index_op(direct.get(), NameAST::Create("items")), StyioParseError);
   }
   {
     DirectContext direct("|value|");
