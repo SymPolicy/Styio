@@ -1158,6 +1158,20 @@ TEST(StyioCodeGenInternal, TaskCaptureScannerCoversNestedReturnExpressions) {
   });
 }
 
+TEST(StyioCodeGenInternal, TaskCaptureScannerSkipsUnsupportedCaptureSlots) {
+  expect_codegen_ok({
+    SGFinalBind::Create(var("wide_slot", bounded_ring_type("i64", 2)), SGConstInt::Create(1)),
+    SIOTaskCreate::Create(
+      SGBlock::Create({
+        SGReturn::Create(SGConstInt::Create(1)),
+        SGResId::Create("wide_slot"),
+      }),
+      i64_type()),
+  }, {
+    "styio_task_i64_spawn",
+  });
+}
+
 TEST(StyioCodeGenInternal, ResourceEffectZipNativeAndDriverEdgesStayExplicit) {
   expect_codegen_ok({
     SGFinalBind::Create(var("recent_i64_from_bool", bounded_ring_type("i64", 2)), SGConstBool::Create(true)),
