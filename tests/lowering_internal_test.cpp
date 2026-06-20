@@ -1108,10 +1108,20 @@ TEST(StyioLoweringInternal, CloneResourceMethodAndPulseHelpersStayExplicit) {
       StyioResourceShapeKind::Fixed,
       2);
     EXPECT_EQ(resource_storage_type_latest(fixed_list).name, "bounded_ring:list[i64]:2");
+    auto fixed_i64 = styio_make_topology_resource_type(
+      styio_data_type_from_name("i64"),
+      StyioResourceShapeKind::Fixed,
+      4);
+    EXPECT_EQ(resource_storage_type_latest(fixed_i64).name, "bounded_ring:4");
     auto scalar_i64 = styio_make_topology_resource_type(
       styio_data_type_from_name("i64"),
       StyioResourceShapeKind::Scalar);
     EXPECT_EQ(resource_storage_type_latest(scalar_i64).name, "i64");
+    EXPECT_EQ(
+      resource_selector_snapshot_depth_latest(
+        ResourceRefAST::Create(NameAST::Create("whole_resource")),
+        scalar_i64),
+      0);
 
     std::unique_ptr<StyioIR> zero_f64(zero_value_for_type_latest(resource_storage_type_latest(fixed_f64)));
     EXPECT_NE(dynamic_cast<SGConstFloat*>(zero_f64.get()), nullptr);
@@ -1119,6 +1129,8 @@ TEST(StyioLoweringInternal, CloneResourceMethodAndPulseHelpersStayExplicit) {
     EXPECT_NE(dynamic_cast<SGConstBool*>(zero_bool.get()), nullptr);
     std::unique_ptr<StyioIR> zero_string(zero_value_for_type_latest(resource_storage_type_latest(recent_string)));
     EXPECT_NE(dynamic_cast<SGConstString*>(zero_string.get()), nullptr);
+    std::unique_ptr<StyioIR> zero_fixed_i64(zero_value_for_type_latest(resource_storage_type_latest(fixed_i64)));
+    EXPECT_NE(dynamic_cast<SGConstInt*>(zero_fixed_i64.get()), nullptr);
     std::unique_ptr<StyioIR> zero_i64(zero_value_for_type_latest(styio_data_type_from_name("i64")));
     EXPECT_NE(dynamic_cast<SGConstInt*>(zero_i64.get()), nullptr);
     std::unique_ptr<StyioIR> zero_plain_bool(zero_value_for_type_latest(styio_data_type_from_name("bool")));
@@ -2218,6 +2230,14 @@ TEST(StyioLoweringInternal, AdditionalLoweringGuardBranchesStayExplicit) {
       NameAST::Create("task_source"),
       VarAST::Create(NameAST::Create("task_result"), TypeAST::Create("i64")),
       IntAST::Create("0")));
+    std::unique_ptr<StyioIR> ir(flow->toStyioIR(&analyzer));
+    EXPECT_NE(dynamic_cast<SIOFlowBind*>(ir.get()), nullptr);
+  }
+  {
+    analyzer.local_binding_types["scalar_source"] = styio_data_type_from_name("i64");
+    std::unique_ptr<FlowBindAST> flow(FlowBindAST::Create(
+      NameAST::Create("scalar_source"),
+      VarAST::Create(NameAST::Create("scalar_result"))));
     std::unique_ptr<StyioIR> ir(flow->toStyioIR(&analyzer));
     EXPECT_NE(dynamic_cast<SIOFlowBind*>(ir.get()), nullptr);
   }
