@@ -42,6 +42,16 @@ TEST(StyioTypeInferInternal, MatrixLiteralAndReturnHelpersCoverAnonymousBranches
   const StyioDataType string_type = styio_data_type_from_name("string");
   const StyioDataType matrix_f64_1x2 = styio_make_matrix_type("f64", 1, 2);
 
+  {
+    std::unique_ptr<FunctionAST> fn(FunctionAST::Create(
+      NameAST::Create("takes_arg"),
+      false,
+      {ParamAST::Create(NameAST::Create("value"), TypeAST::Create("i64"))},
+      TypeAST::Create("i64"),
+      BlockAST::Create({ReturnAST::Create(NameAST::Create("value"))})));
+    EXPECT_EQ(params_of_func_def(fn.get()).size(), 1u);
+  }
+
   EXPECT_EQ(merge_matrix_elem_types(undefined_type(), i64).name, "i64");
   EXPECT_EQ(merge_matrix_elem_types(i64, undefined_type()).name, "i64");
   EXPECT_EQ(merge_matrix_elem_types(i64, f64).name, "f64");
@@ -81,6 +91,15 @@ TEST(StyioTypeInferInternal, MatrixLiteralAndReturnHelpersCoverAnonymousBranches
     EXPECT_EQ(info.elem_type.name, "f64");
     EXPECT_EQ(info.rows, 1u);
     EXPECT_EQ(info.cols, 2u);
+  }
+  {
+    std::unique_ptr<ListAST> empty(ListAST::Create({}));
+    EXPECT_EQ(infer_list_literal_type(&analyzer, empty.get()).name, "list[i64]");
+  }
+  {
+    std::unique_ptr<ListAST> already_matrix(ListAST::Create({IntAST::Create("1")}));
+    already_matrix->setDataType(styio_make_matrix_type("i64", 1, 1));
+    expect_matrix_type(infer_list_literal_type(&analyzer, already_matrix.get()), "i64", 1, 1);
   }
 
   EXPECT_TRUE(apply_matrix_literal_context(&analyzer, nullptr, matrix_f64_1x2).isUndefined());
@@ -364,12 +383,25 @@ TEST(StyioTypeInferInternal, MatrixIntrinsicDictAndResourceHelpersStayExplicit) 
     2,
     3);
   expect_matrix_type(
+    infer_call(FuncCallAST::Create(NameAST::Create("mat_zeros_i64"), {IntAST::Create("2"), IntAST::Create("3")})),
+    "i64",
+    2,
+    3);
+  expect_matrix_type(
+    infer_call(FuncCallAST::Create(NameAST::Create("mat_identity"), {IntAST::Create("4")})),
+    "f64",
+    4,
+    4);
+  expect_matrix_type(
     infer_call(FuncCallAST::Create(NameAST::Create("mat_identity_i64"), {IntAST::Create("4")})),
     "i64",
     4,
     4);
   EXPECT_EQ(
     infer_call(FuncCallAST::Create(NameAST::Create("mat_rows"), {NameAST::Create("mi23")})).name,
+    "i64");
+  EXPECT_EQ(
+    infer_call(FuncCallAST::Create(NameAST::Create("mat_cols"), {NameAST::Create("mi23")})).name,
     "i64");
   EXPECT_EQ(
     infer_call(FuncCallAST::Create(NameAST::Create("mat_shape"), {NameAST::Create("mi23")})).name,
@@ -391,6 +423,27 @@ TEST(StyioTypeInferInternal, MatrixIntrinsicDictAndResourceHelpersStayExplicit) 
     2);
   expect_matrix_type(
     infer_call(FuncCallAST::Create(
+      NameAST::Create("mat_add"),
+      {NameAST::Create("mi23"), NameAST::Create("mi23")})),
+    "i64",
+    2,
+    3);
+  expect_matrix_type(
+    infer_call(FuncCallAST::Create(
+      NameAST::Create("mat_hadamard"),
+      {NameAST::Create("mi23"), NameAST::Create("mi23")})),
+    "i64",
+    2,
+    3);
+  expect_matrix_type(
+    infer_call(FuncCallAST::Create(
+      NameAST::Create("mat_scale"),
+      {NameAST::Create("mi23"), FloatAST::Create("2.5")})),
+    "f64",
+    2,
+    3);
+  expect_matrix_type(
+    infer_call(FuncCallAST::Create(
       NameAST::Create("matmul"),
       {NameAST::Create("mi23"), NameAST::Create("mf32")})),
     "f64",
@@ -402,6 +455,9 @@ TEST(StyioTypeInferInternal, MatrixIntrinsicDictAndResourceHelpersStayExplicit) 
   EXPECT_EQ(
     infer_call(FuncCallAST::Create(NameAST::Create("norm"), {NameAST::Create("mi23")})).name,
     "f64");
+  EXPECT_EQ(
+    infer_call(FuncCallAST::Create(NameAST::Create("mat_sum"), {NameAST::Create("mi23")})).name,
+    "i64");
   EXPECT_TRUE(
     infer_call(FuncCallAST::Create(NameAST::Create("not_matrix_intrinsic"), {})).isUndefined());
   EXPECT_TRUE(
@@ -415,6 +471,9 @@ TEST(StyioTypeInferInternal, MatrixIntrinsicDictAndResourceHelpersStayExplicit) 
   }
   EXPECT_THROW(
     (void)infer_call(FuncCallAST::Create(NameAST::Create("mat_zeros"), {IntAST::Create("2")})),
+    StyioTypeError);
+  EXPECT_THROW(
+    (void)infer_call(FuncCallAST::Create(NameAST::Create("mat_zeros"), {StringAST::Create("bad"), IntAST::Create("2")})),
     StyioTypeError);
   EXPECT_THROW(
     (void)infer_call(FuncCallAST::Create(NameAST::Create("mat_rows"), {NameAST::Create("scalar")})),
@@ -431,9 +490,12 @@ TEST(StyioTypeInferInternal, MatrixIntrinsicDictAndResourceHelpersStayExplicit) 
     (void)infer_call(FuncCallAST::Create(NameAST::Create("matmul"), {NameAST::Create("mi23"), NameAST::Create("mi23")})),
     StyioTypeError);
 
+  EXPECT_EQ(merge_numeric_elem_type(i64, i64).name, "i64");
+  EXPECT_THROW((void)merge_numeric_elem_type(i64, styio_data_type_from_name("string")), StyioTypeError);
   expect_matrix_type(matrix_binary_result(matrix_i64_2x3, i64, StyioOpType::Binary_Mul), "i64", 2, 3);
   expect_matrix_type(matrix_binary_result(matrix_i64_2x3, matrix_i64_2x3, StyioOpType::Binary_Add), "i64", 2, 3);
   expect_matrix_type(matrix_binary_result(matrix_i64_2x3, matrix_f64_3x2, StyioOpType::Binary_Mul), "f64", 2, 2);
+  EXPECT_THROW((void)matrix_binary_result(matrix_i64_2x3, matrix_f64_3x2, StyioOpType::Binary_Add), StyioTypeError);
   EXPECT_THROW((void)matrix_binary_result(matrix_i64_2x3, styio_data_type_from_name("string"), StyioOpType::Binary_Mul), StyioTypeError);
   EXPECT_THROW((void)matrix_binary_result(matrix_i64_2x3, i64, StyioOpType::Binary_Add), StyioTypeError);
   EXPECT_THROW((void)matrix_binary_result(matrix_i64_2x3, matrix_i64_2x3, StyioOpType::Binary_Div), StyioTypeError);
@@ -548,11 +610,23 @@ TEST(StyioTypeInferInternal, FunctionReturnAndReceiverScanHelpersStayExplicit) {
   EXPECT_TRUE(resource_method_statement_preface_supported_latest(PassAST::Create()));
   EXPECT_TRUE(resource_method_value_preface_shape_supported_latest(
     FlexBindAST::Create(VarAST::Create(NameAST::Create("x")), IntAST::Create("1"))));
+  EXPECT_TRUE(resource_method_value_preface_supported_latest(
+    &analyzer,
+    FlexBindAST::Create(VarAST::Create(NameAST::Create("flex_pref")), IntAST::Create("1"))));
   EXPECT_FALSE(resource_method_value_preface_shape_supported_latest(ReturnAST::Create(IntAST::Create("1"))));
   EXPECT_FALSE(resource_method_value_preface_supported_latest(&analyzer, ReturnAST::Create(IntAST::Create("1"))));
   EXPECT_TRUE(resource_method_scalar_value_type_supported_latest(styio_data_type_from_name("char")));
   EXPECT_TRUE(resource_method_local_container_type_supported_latest(styio_make_matrix_type("i64", 1, 1)));
   EXPECT_FALSE(resource_method_local_value_type_supported_latest(styio_make_file_handle_type("i64")));
+  {
+    auto* bind = FlexBindAST::Create(
+      VarAST::Create(NameAST::Create("flex_local")),
+      FloatAST::Create("1.25"));
+    EXPECT_EQ(resource_method_preface_bind_type_latest(&analyzer, bind).name, "f64");
+    bind_resource_method_preface_type_latest(&analyzer, bind);
+    EXPECT_EQ(analyzer.local_binding_types["flex_local"].name, "f64");
+    delete bind;
+  }
   {
     auto* bind = FinalBindAST::Create(
       VarAST::Create(NameAST::Create("pref"), TypeAST::Create("i64")),
@@ -565,6 +639,10 @@ TEST(StyioTypeInferInternal, FunctionReturnAndReceiverScanHelpersStayExplicit) {
   {
     std::unique_ptr<BlockAST> block(BlockAST::Create({PassAST::Create()}));
     block->set_followings({ReturnAST::Create(IntAST::Create("9"))});
+    EXPECT_TRUE(resource_method_body_contains_return_latest(block.get()));
+  }
+  {
+    std::unique_ptr<BlockAST> block(BlockAST::Create({ReturnAST::Create(IntAST::Create("9"))}));
     EXPECT_TRUE(resource_method_body_contains_return_latest(block.get()));
   }
   {
@@ -685,13 +763,21 @@ TEST(StyioTypeInferInternal, TailDictResourceAndFunctionReturnHelperEdgesStayExp
 
   EXPECT_TRUE(match_branch_tail_type(&analyzer, nullptr).isUndefined());
   EXPECT_TRUE(match_branch_tail_type(&analyzer, BlockAST::Create({})).isUndefined());
+  EXPECT_EQ(match_branch_tail_type(&analyzer, BlockAST::Create({IntAST::Create("3")})).name, "int");
+  EXPECT_EQ(match_branch_tail_type(&analyzer, IntAST::Create("4")).name, "int");
+  EXPECT_TRUE(match_branch_tail_type(&analyzer, PassAST::Create()).isUndefined());
+  EXPECT_THROW((void)match_branch_tail_type(&analyzer, NameAST::Create("missing_value")), StyioTypeError);
   EXPECT_THROW(
     (void)match_branch_tail_type(&analyzer, ReturnAST::Create(PassAST::Create())),
     StyioTypeError);
 
   EXPECT_TRUE(function_body_tail_type_latest(&analyzer, nullptr).isUndefined());
   EXPECT_TRUE(function_body_tail_type_latest(&analyzer, ReturnAST::Create(nullptr)).isUndefined());
+  EXPECT_EQ(function_body_tail_type_latest(&analyzer, ReturnAST::Create(IntAST::Create("5"))).name, "int");
   EXPECT_TRUE(function_body_tail_type_latest(&analyzer, BlockAST::Create({})).isUndefined());
+  EXPECT_EQ(function_body_tail_type_latest(&analyzer, BlockAST::Create({IntAST::Create("6")})).name, "int");
+  EXPECT_EQ(function_body_tail_type_latest(&analyzer, IntAST::Create("7")).name, "int");
+  EXPECT_TRUE(function_body_tail_type_latest(&analyzer, PassAST::Create()).isUndefined());
 
   {
     std::unique_ptr<DictAST> dict(DictAST::Create({
@@ -736,11 +822,34 @@ TEST(StyioTypeInferInternal, HelperFallbacksAndBindingEdgesStayExplicit) {
   AstToStyioIRLowerer analyzer;
 
   EXPECT_TRUE(params_of_func_def(IntAST::Create("1")).empty());
+  EXPECT_EQ(type_convert_target_type(NumPromoTy::Bool_To_Int).name, "i64");
+  EXPECT_EQ(type_convert_target_type(NumPromoTy::Int_To_Float).name, "f64");
   EXPECT_TRUE(type_convert_target_type(static_cast<NumPromoTy>(99)).isUndefined());
+  EXPECT_EQ(type_convert_source_fallback_type(NumPromoTy::Bool_To_Int).name, "bool");
+  EXPECT_EQ(type_convert_source_fallback_type(NumPromoTy::Int_To_Float).name, "i64");
   EXPECT_TRUE(type_convert_source_fallback_type(static_cast<NumPromoTy>(99)).isUndefined());
   EXPECT_TRUE(resource_method_preface_bind_type_latest(&analyzer, PassAST::Create()).isUndefined());
   EXPECT_FALSE(resource_method_body_contains_return_latest(nullptr));
   EXPECT_TRUE(resource_method_simple_result_type_latest(&analyzer, nullptr).isUndefined());
+  EXPECT_EQ(
+    resource_method_value_tail_return_latest(
+      BlockAST::Create({ReturnAST::Create(IntAST::Create("1"))}))->getNodeType(),
+    StyioNodeType::Return);
+  EXPECT_EQ(
+    resource_method_value_tail_return_latest(BlockAST::Create({PassAST::Create()})),
+    nullptr);
+  EXPECT_EQ(
+    resource_method_value_tail_return_latest(BlockAST::Create({
+      ReturnAST::Create(IntAST::Create("1")),
+      PassAST::Create(),
+    })),
+    nullptr);
+  EXPECT_EQ(
+    resource_method_value_tail_return_latest(BlockAST::Create({
+      ReturnAST::Create(IntAST::Create("1")),
+      ReturnAST::Create(IntAST::Create("2")),
+    })),
+    nullptr);
   {
     std::unique_ptr<BlockAST> unsupported_preface(BlockAST::Create({
       FinalBindAST::Create(
@@ -916,6 +1025,22 @@ TEST(StyioTypeInferInternal, ErrorGuardsAndUnsupportedBranchesStayExplicit) {
   }
 
   EXPECT_FALSE(match_pattern_supported_latest(nullptr, nullptr));
+  {
+    std::unique_ptr<BinCompAST> eq_left(new BinCompAST(
+      CompType::EQ,
+      NameAST::Create("x"),
+      IntAST::Create("1")));
+    std::string scrutinee = "x";
+    EXPECT_TRUE(match_pattern_supported_latest(eq_left.get(), &scrutinee));
+  }
+  {
+    std::unique_ptr<BinCompAST> eq_right(new BinCompAST(
+      CompType::EQ,
+      IntAST::Create("1"),
+      NameAST::Create("x")));
+    std::string scrutinee = "x";
+    EXPECT_TRUE(match_pattern_supported_latest(eq_right.get(), &scrutinee));
+  }
   {
     std::unique_ptr<BinCompAST> non_eq(new BinCompAST(
       CompType::NE,
@@ -1265,6 +1390,8 @@ TEST(StyioTypeInferInternal, ErrorGuardsAndUnsupportedBranchesStayExplicit) {
   EXPECT_FALSE(match_tail_value_expected(nullptr));
   EXPECT_EQ(merge_dict_value_types(undefined_type(), i64).name, "i64");
   EXPECT_EQ(merge_dict_value_types(i64, undefined_type()).name, "i64");
+  EXPECT_EQ(merge_cond_flow_branch_type(i64, i64, undefined_type()).name, "i64");
+  EXPECT_EQ(merge_match_value_type(styio_make_list_type("i64"), styio_make_list_type("i64")).name, "list[i64]");
   EXPECT_TRUE(func_param_accepts_arg(i64, undefined_type()));
   EXPECT_TRUE(task_result_type_from_task_type(i64).isUndefined());
   EXPECT_EQ(task_result_type_from_task_type(styio_make_task_type("unit")).name, "i64");
