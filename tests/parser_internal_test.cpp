@@ -662,6 +662,20 @@ TEST(StyioParserInternal, LegacyOperatorForwardAndCodpEdgesStayExplicit) {
     EXPECT_THROW((void)parse_codp(direct.get(), nullptr), StyioParseError);
   }
   {
+    DirectContext direct("left, <- @stdin");
+    EXPECT_THROW((void)parse_stmt_or_expr_legacy(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("left, right <- @stdin");
+    EXPECT_THROW((void)parse_stmt_or_expr_legacy(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("left, right");
+    std::unique_ptr<StyioAST> ast(parse_stmt_or_expr_legacy(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Id);
+  }
+  {
     DirectContext direct("{ 1");
     EXPECT_THROW((void)parse_block_only(direct.get()), StyioSyntaxError);
   }
