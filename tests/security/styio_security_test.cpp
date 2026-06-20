@@ -6425,6 +6425,22 @@ TEST(StyioSecurityLexer, TokenizesRarePunctuationAndNativeExternBodies) {
   EXPECT_NE((*malformed_raw_body)->original.find("done(void)"), std::string::npos);
   free_tokens(malformed_raw_tokens);
 
+  const std::string raw_without_open_paren_source =
+    "@extern(c) => {\n"
+    "  auto no_open = R\"no_paren\";\n"
+    "}\n";
+  auto raw_without_open_paren_tokens = StyioTokenizer::tokenize(raw_without_open_paren_source);
+  const auto raw_without_open_paren_body = std::find_if(
+    raw_without_open_paren_tokens.begin(),
+    raw_without_open_paren_tokens.end(),
+    [](const StyioToken* token)
+    {
+      return token != nullptr && token->type == StyioTokenType::NATIVE_EXTERN_BODY;
+    });
+  ASSERT_NE(raw_without_open_paren_body, raw_without_open_paren_tokens.end());
+  EXPECT_NE((*raw_without_open_paren_body)->original.find("no_open"), std::string::npos);
+  free_tokens(raw_without_open_paren_tokens);
+
   EXPECT_THROW(
     {
       auto unterminated = StyioTokenizer::tokenize("@extern(c) => { int missing(void) { return 1; ");
