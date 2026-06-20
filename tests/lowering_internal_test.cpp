@@ -1566,6 +1566,44 @@ TEST(StyioLoweringInternal, IteratorAndZipPulsePlansAttachToIterableIrNodes) {
       BlockAST::Create({PassAST::Create()})));
     EXPECT_THROW((void)zip->toStyioIR(&analyzer), StyioTypeError);
   }
+
+  {
+    AstToStyioIRLowerer analyzer;
+    std::unique_ptr<MainBlockAST> main_block(MainBlockAST::Create({
+      IteratorAST::Create(
+        make_i64_list(),
+        {ParamAST::Create(NameAST::Create("item"))},
+        make_pulse_body("item", "main_list_state")),
+    }));
+    std::unique_ptr<StyioIR> ir(main_block->toStyioIR(&analyzer));
+    EXPECT_NE(dynamic_cast<SGMainEntry*>(ir.get()), nullptr);
+  }
+
+  {
+    AstToStyioIRLowerer analyzer;
+    std::unique_ptr<MainBlockAST> main_block(MainBlockAST::Create({
+      IteratorAST::Create(
+        FileResourceAST::Create(StringAST::Create("main.txt"), false),
+        {ParamAST::Create(NameAST::Create("line"))},
+        make_pulse_body("line", "main_file_state")),
+    }));
+    std::unique_ptr<StyioIR> ir(main_block->toStyioIR(&analyzer));
+    EXPECT_NE(dynamic_cast<SGMainEntry*>(ir.get()), nullptr);
+  }
+
+  {
+    AstToStyioIRLowerer analyzer;
+    std::unique_ptr<MainBlockAST> main_block(MainBlockAST::Create({
+      StreamZipAST::Create(
+        make_i64_list(),
+        {ParamAST::Create(NameAST::Create("left"))},
+        FileResourceAST::Create(StringAST::Create("right.txt"), false),
+        {ParamAST::Create(NameAST::Create("right"))},
+        make_pulse_body("left", "main_zip_state")),
+    }));
+    std::unique_ptr<StyioIR> ir(main_block->toStyioIR(&analyzer));
+    EXPECT_NE(dynamic_cast<SGMainEntry*>(ir.get()), nullptr);
+  }
 }
 
 TEST(StyioLoweringInternal, AstAccessorAndFailClosedDispatchStayExplicit) {
