@@ -73,6 +73,22 @@ class EnvVarGuard {
   std::optional<std::string> original_;
 };
 
+class CurrentPathGuard {
+ public:
+  CurrentPathGuard()
+    : original_(fs::current_path())
+  {
+  }
+
+  ~CurrentPathGuard() {
+    std::error_code ec;
+    fs::current_path(original_, ec);
+  }
+
+ private:
+  fs::path original_;
+};
+
 void WriteText(const fs::path& path, const std::string& text) {
   std::error_code ec;
   fs::create_directories(path.parent_path(), ec);
@@ -378,6 +394,23 @@ TEST(StyioMainContract, NativeBuildAndNanoBinaryCliGuardsStayFailClosed) {
   EXPECT_NE(
     nano_result.stderr_text.find("styio-nano packaging commands are only available in the full styio compiler"),
     std::string::npos) << nano_result.stderr_text;
+}
+
+TEST(StyioMainContract, PathHelpersFallBackWhenCurrentDirectoryIsUnavailable) {
+  TempDir temp("deleted-cwd");
+  CurrentPathGuard cwd_guard;
+  std::error_code ec;
+  const fs::path deleted_cwd = temp.path() / "gone";
+  fs::create_directories(deleted_cwd, ec);
+  ASSERT_FALSE(ec) << ec.message();
+  fs::current_path(deleted_cwd, ec);
+  ASSERT_FALSE(ec) << ec.message();
+  fs::remove_all(deleted_cwd, ec);
+  ASSERT_FALSE(ec) << ec.message();
+
+  EXPECT_EQ(styio_absolute_path_latest(fs::path("rel") / ".." / "file.styio"), fs::path("file.styio"));
+  fs::path discovered_config;
+  EXPECT_FALSE(styio_find_project_config_latest("rel/main.styio", discovered_config));
 }
 
 TEST(StyioMainContract, MainEntryCliGuardsStayFailClosed) {
