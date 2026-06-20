@@ -127,6 +127,13 @@ StyioDataType bounded_ring_type(const std::string& elem_type, std::uint64_t capa
     0};
 }
 
+StyioDataType malformed_bounded_ring_type() {
+  return StyioDataType{
+    StyioDataTypeOption::Defined,
+    "bounded_ring::2",
+    0};
+}
+
 SGVar* var(const std::string& name, StyioDataType type) {
   return SGVar::Create(SGResId::Create(name), SGType::Create(std::move(type)));
 }
@@ -1067,6 +1074,12 @@ TEST(StyioCodeGenInternal, NumericOperatorsNativeExternsAndReturnCoercionsStayEx
     SGFinalBind::Create(var("fixed_again", i64_type()), SGConstInt::Create(1)),
     SGFinalBind::Create(var("fixed_again", i64_type()), SGConstInt::Create(2)),
   }, "immutable binding cannot be redefined");
+
+  expect_codegen_throws({
+    SGExportDecl::Create({"native_conflict"}),
+    SGExternBlock::Create("c", "int native_conflict(void) { return 1; }\n"),
+    SGExternBlock::Create("c", "double native_conflict(void) { return 1.0; }\n"),
+  }, "conflicts with an existing function type");
 }
 
 TEST(StyioCodeGenInternal, DynamicSlotsRingsScopesAndControlFlowStayExplicit) {
@@ -1099,6 +1112,7 @@ TEST(StyioCodeGenInternal, DynamicSlotsRingsScopesAndControlFlowStayExplicit) {
     SGFinalBind::Create(var("recent_i64", bounded_ring_type("i64", 2)), SGConstInt::Create(1)),
     SGFlexBind::Create(var("recent_i64", bounded_ring_type("i64", 2)), SGConstInt::Create(2), true),
     SGFlexBind::Create(var("recent_i64", bounded_ring_type("i64", 2)), SGConstInt::Create(3)),
+    SGFinalBind::Create(var("recent_empty_type", malformed_bounded_ring_type()), SGConstInt::Create(4)),
     SGFinalBind::Create(var("recent_lists", bounded_ring_type("list[i64]", 2)), list_i64()),
     SGFlexBind::Create(var("recent_lists", bounded_ring_type("list[i64]", 2)), list_i64(), true),
 
