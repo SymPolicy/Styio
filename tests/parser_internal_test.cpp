@@ -375,6 +375,18 @@ TEST(StyioParserInternal, ContextHelpersCoverNavigationDiagnosticsAndDisplayEdge
 }
 
 TEST(StyioParserInternal, ContextHelpersCoverAdditionalTokenEdges) {
+  EXPECT_TRUE(is_all_underscore_identifier_latest("__"));
+  EXPECT_FALSE(is_all_underscore_identifier_latest("_x"));
+  {
+    std::vector<StyioToken*> tokens{
+      StyioToken::Create(StyioTokenType::NAME, "__"),
+    };
+    {
+      StyioContext context("<parser-internal>", "__", build_line_seps("__"), tokens, false);
+      EXPECT_TRUE(is_default_case_wildcard_latest(context));
+    }
+    free_tokens(tokens);
+  }
   {
     DirectContext direct(";; name");
     consume_statement_separators_latest(direct.get());
@@ -394,6 +406,11 @@ TEST(StyioParserInternal, ContextHelpersCoverAdditionalTokenEdges) {
   {
     DirectContext direct("left\n.right");
     direct.get().move_forward(2, "linebreak_dot");
+    EXPECT_TRUE(has_linebreak_before_current_token_latest(direct.get()));
+  }
+  {
+    DirectContext direct("left\n   .right");
+    direct.get().move_forward(3, "linebreak_space_dot");
     EXPECT_TRUE(has_linebreak_before_current_token_latest(direct.get()));
   }
   {
@@ -426,6 +443,28 @@ TEST(StyioParserInternal, ContextHelpersCoverAdditionalTokenEdges) {
         tokens,
         false);
       EXPECT_FALSE(matches_legacy_string_list_import_latest(context));
+    }
+    free_tokens(tokens);
+  }
+  {
+    std::vector<StyioToken*> tokens{
+      StyioToken::Create(StyioTokenType::TOK_LBOXBRAC, "["),
+      StyioToken::Create(StyioTokenType::TOK_SPACE, " "),
+      StyioToken::Create(StyioTokenType::STRING, "\"core\""),
+      StyioToken::Create(StyioTokenType::TOK_COMMA, ","),
+      StyioToken::Create(StyioTokenType::TOK_SPACE, " "),
+      StyioToken::Create(StyioTokenType::STRING, "\"util\""),
+      StyioToken::Create(StyioTokenType::TOK_SPACE, " "),
+      StyioToken::Create(StyioTokenType::TOK_RBOXBRAC, "]"),
+    };
+    {
+      StyioContext context(
+        "<parser-internal>",
+        "[ \"core\", \"util\" ]",
+        build_line_seps("[ \"core\", \"util\" ]"),
+        tokens,
+        false);
+      EXPECT_TRUE(matches_legacy_string_list_import_latest(context));
     }
     free_tokens(tokens);
   }
@@ -1695,6 +1734,93 @@ TEST(StyioParserInternal, LegacyExpressionPostfixEdgesStayExplicit) {
       IntAST::Create("1")));
     ASSERT_NE(call, nullptr);
     EXPECT_EQ(call->getNodeType(), StyioNodeType::Call);
+  }
+  {
+    DirectContext direct("<| 2");
+    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), NameAST::Create("fn")));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Call);
+  }
+  {
+    DirectContext direct("fn\n<| 2");
+    direct.get().move_forward(2, "apply_pipe_newline");
+    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), NameAST::Create("fn")));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Id);
+  }
+  {
+    DirectContext direct("(1)");
+    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), NameAST::Create("fn")));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Call);
+  }
+  {
+    DirectContext direct("[0]");
+    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), NameAST::Create("items")));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Access_By_Index);
+  }
+  {
+    DirectContext direct("[2]");
+    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), IntAST::Create("1")));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Integer);
+  }
+  {
+    DirectContext direct("- 2");
+    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), IntAST::Create("1")));
+    auto* bin = dynamic_cast<BinOpAST*>(ast.get());
+    ASSERT_NE(bin, nullptr);
+    EXPECT_EQ(bin->getOp(), StyioOpType::Binary_Sub);
+  }
+  {
+    DirectContext direct("** 2");
+    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), IntAST::Create("1")));
+    auto* bin = dynamic_cast<BinOpAST*>(ast.get());
+    ASSERT_NE(bin, nullptr);
+    EXPECT_EQ(bin->getOp(), StyioOpType::Binary_Pow);
+  }
+  {
+    DirectContext direct("/ 2");
+    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), IntAST::Create("1")));
+    auto* bin = dynamic_cast<BinOpAST*>(ast.get());
+    ASSERT_NE(bin, nullptr);
+    EXPECT_EQ(bin->getOp(), StyioOpType::Binary_Div);
+  }
+  {
+    DirectContext direct("% 2");
+    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), IntAST::Create("1")));
+    auto* bin = dynamic_cast<BinOpAST*>(ast.get());
+    ASSERT_NE(bin, nullptr);
+    EXPECT_EQ(bin->getOp(), StyioOpType::Binary_Mod);
+  }
+  {
+    DirectContext direct("<~");
+    EXPECT_THROW(
+      (void)parse_arithmetic_tail_from_atom(direct.get(), IntAST::Create("1")),
+      StyioSyntaxError);
+  }
+  {
+    DirectContext direct("3.5");
+    std::unique_ptr<StyioAST> ast(parse_arithmetic_expr(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Float);
+  }
+  {
+    DirectContext direct("-1");
+    std::unique_ptr<StyioAST> ast(parse_arithmetic_expr(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Integer);
+  }
+  {
+    DirectContext direct("$\"value {1}\"");
+    std::unique_ptr<StyioAST> ast(parse_arithmetic_expr(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::FmtStr);
+  }
+  {
+    DirectContext direct("$ name");
+    EXPECT_THROW((void)parse_arithmetic_expr(direct.get()), StyioSyntaxError);
   }
   {
     DirectContext direct("1\n[2]");
