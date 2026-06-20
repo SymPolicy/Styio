@@ -1117,6 +1117,25 @@ TEST(StyioCodeGenInternal, DynamicSlotsRingsScopesAndControlFlowStayExplicit) {
     SGFlexBind::Create(var("recent_lists", bounded_ring_type("list[i64]", 2)), list_i64(), true),
 
     SGFallback::Create(SGUndef::Create(), SGConstString::Create("fallback")),
+    SGFallback::Create(
+      SGUndef::Create(),
+      SGBinOp::Create(
+        SGConstString::Create("owned"),
+        SGConstString::Create("fallback"),
+        StyioOpType::Binary_Add,
+        SGType::Create(string_type()))),
+    SGFallback::Create(SGConstString::Create("primary"), SGConstInt::Create(1)),
+    SGMatch::Create(
+      SGConstInt::Create(1),
+      {{1, SGBlock::Create({
+        SGMatch::Create(
+          SGConstInt::Create(1),
+          {{1, SGBlock::Create({SGReturn::Create(SGConstString::Create("nested"))})}},
+          SGBlock::Create({SGReturn::Create(SGConstInt::Create(0))}),
+          SGMatchReprKind::ExprMixed),
+      })}},
+      SGBlock::Create({SGReturn::Create(SGConstString::Create("outer"))}),
+      SGMatchReprKind::ExprMixed),
     SGWaveMerge::Create(SGConstInt::Create(1), SGConstString::Create("left"), SGConstString::Create("right")),
     SGGuardSelect::Create(SGConstInt::Create(42), SGConstInt::Create(1)),
     SIOFileLineIter::CreateFromPath(
