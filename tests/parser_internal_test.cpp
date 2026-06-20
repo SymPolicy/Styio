@@ -76,8 +76,12 @@ void exercise_recovery_parser_for_source(const std::string& source, StyioParserE
 
 class DirectContext {
  public:
-  explicit DirectContext(std::string src, bool omit_equal_tokens = false)
+  explicit DirectContext(
+      std::string src,
+      bool omit_equal_tokens = false,
+      std::string file_name = "<parser-internal>")
     : source_(std::move(src)),
+      file_name_(std::move(file_name)),
       tokens_(StyioTokenizer::tokenize(source_)),
       context_(nullptr)
   {
@@ -95,7 +99,7 @@ class DirectContext {
       tokens_ = std::move(filtered);
     }
     context_ = StyioContext::Create(
-        "<parser-internal>",
+        file_name_,
         source_,
         build_line_seps(source_),
         tokens_,
@@ -114,6 +118,7 @@ class DirectContext {
 
  private:
   std::string source_;
+  std::string file_name_;
   std::vector<StyioToken*> tokens_;
   StyioContext* context_ = nullptr;
 };
@@ -947,6 +952,88 @@ TEST(StyioParserInternal, ImportExportAndRawBodyEdgesStayExplicit) {
   {
     DirectContext direct("{ alpha { beta }");
     EXPECT_THROW((void)parse_raw_braced_body_latest(direct.get(), "test"), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("@extern(c) { int native_body(void) { return 1; } }");
+    std::unique_ptr<StyioAST> ast(parse_at_stmt_or_expr_latest(direct.get()));
+    auto* extern_block = dynamic_cast<ExternBlockAST*>(ast.get());
+    ASSERT_NE(extern_block, nullptr);
+    EXPECT_EQ(extern_block->getAbi(), "c");
+    EXPECT_NE(extern_block->getBody().find("native_body"), std::string::npos);
+    EXPECT_TRUE(extern_block->getSourcePaths().empty());
+  }
+  {
+    DirectContext direct("extern(c) => \"native/helper.h\"", false, "/tmp/styio-parser/project/main.styio");
+    std::unique_ptr<ExternBlockAST> ast(parse_extern_decl_after_at_latest(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getAbi(), "c");
+    ASSERT_EQ(ast->getSourcePaths().size(), 1u);
+    EXPECT_EQ(ast->getSourcePaths()[0], "/tmp/styio-parser/project/native/helper.h");
+    EXPECT_TRUE(ast->getBody().empty());
+  }
+  {
+    DirectContext direct(
+      "extern(c++) { \"native/a.h\", \"native/b.h\" }",
+      false,
+      "/tmp/styio-parser/project/main.styio");
+    std::unique_ptr<ExternBlockAST> ast(parse_extern_decl_after_at_latest(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getAbi(), "c++");
+    ASSERT_EQ(ast->getSourcePaths().size(), 2u);
+    EXPECT_EQ(ast->getSourcePaths()[0], "/tmp/styio-parser/project/native/a.h");
+    EXPECT_EQ(ast->getSourcePaths()[1], "/tmp/styio-parser/project/native/b.h");
+    EXPECT_TRUE(ast->getBody().empty());
+  }
+  {
+    DirectContext direct("", false, "/tmp/styio-parser/project/main.styio");
+    auto source_paths = try_parse_extern_source_paths_from_body_latest(
+      direct.get(),
+      "\"native/a.h\", \"native/with\\\\escape.h\"");
+    ASSERT_TRUE(source_paths.has_value());
+    ASSERT_EQ(source_paths->size(), 2u);
+    EXPECT_EQ((*source_paths)[0], "/tmp/styio-parser/project/native/a.h");
+    EXPECT_NE((*source_paths)[1].find("with"), std::string::npos);
+  }
+  {
+    DirectContext direct("extern(c) { int body { nested } }");
+    std::unique_ptr<ExternBlockAST> ast(parse_extern_decl_after_at_latest(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getAbi(), "c");
+    EXPECT_NE(ast->getBody().find("nested"), std::string::npos);
+    EXPECT_TRUE(ast->getSourcePaths().empty());
+  }
+  {
+    DirectContext direct("@extern(c) { int exported(void) { return 2; } }");
+    std::unique_ptr<ExternBlockAST> ast(
+      parse_bound_extern_after_at_latest(direct.get(), {"exported"}));
+    ASSERT_NE(ast, nullptr);
+    ASSERT_EQ(ast->getExportedSymbols().size(), 1u);
+    EXPECT_EQ(ast->getExportedSymbols()[0], "exported");
+  }
+  {
+    DirectContext direct("(@extern(c) { int nested(void) { return 0; } })");
+    direct.get().move_forward(1, "nested_extern");
+    EXPECT_THROW((void)parse_at_stmt_or_expr_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("@extern(123) {}");
+    direct.get().move_forward(1, "extern_bad_abi");
+    EXPECT_THROW((void)parse_extern_decl_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("@extern(rust) {}");
+    direct.get().move_forward(1, "extern_unsupported_abi");
+    EXPECT_THROW((void)parse_extern_decl_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("@extern(c+) {}");
+    direct.get().move_forward(1, "extern_bad_cpp_abi");
+    EXPECT_THROW((void)parse_extern_decl_after_at_latest(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("@extern(c) => 123");
+    direct.get().move_forward(1, "extern_bad_arrow_target");
+    EXPECT_THROW((void)parse_extern_decl_after_at_latest(direct.get()), StyioSyntaxError);
   }
 }
 
