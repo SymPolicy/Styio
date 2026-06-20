@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <llvm/Analysis/CGSCCPassManager.h>
+#include <llvm/ExecutionEngine/Orc/ThreadSafeModule.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/LegacyPassManager.h>
@@ -447,6 +448,17 @@ TEST(StyioCodeGenInternal, CodeGenFactoryCreatesGenerator) {
 
   ASSERT_NE(generator, nullptr);
   EXPECT_FALSE(generator->dump_llvm_ir().empty());
+}
+
+TEST(StyioCodeGenInternal, JitAddModuleUsesDefaultResourceTracker) {
+  init_llvm_once();
+  llvm::ExitOnError exit_on_error;
+  std::unique_ptr<StyioJIT_ORC> jit = exit_on_error(StyioJIT_ORC::Create());
+  auto context = std::make_unique<llvm::LLVMContext>();
+  auto module = std::make_unique<llvm::Module>("empty_default_tracker", *context);
+  module->setDataLayout(jit->getDataLayout());
+
+  exit_on_error(jit->addModule(llvm::orc::ThreadSafeModule(std::move(module), std::move(context))));
 }
 
 TEST(StyioCodeGenInternal, GeneratorDestructorClosesTrackedNativeHandles) {
