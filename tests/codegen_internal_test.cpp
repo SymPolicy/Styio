@@ -519,6 +519,7 @@ TEST(StyioCodeGenInternal, RuntimeReturnHelpersCoverGuardEdges) {
   generator->emit_file_handle_slot_close(nullptr);
   generator->emit_bounded_ring_pending_commit("missing_ring");
   generator->emit_bounded_ring_pending_commits();
+  generator->release_bounded_ring_cstr_storage("missing_ring");
   generator->release_bounded_ring_cstr_array(nullptr, nullptr, 0, "missing_ring");
   generator->release_bounded_ring_handle_array(
     nullptr, nullptr, 0, StyioValueFamily::ListHandle, "missing_ring");
