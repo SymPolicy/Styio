@@ -38,6 +38,10 @@
 #include "../src/StyioServices/StyioIDE/CompilerBridge.cpp"
 #undef analyze_document
 
+#define parse_with_tree_sitter parse_with_tree_sitter_internal_for_test
+#include "../src/StyioServices/StyioIDE/TreeSitterBackend.cpp"
+#undef parse_with_tree_sitter
+
 namespace {
 
 std::string
@@ -952,6 +956,13 @@ TEST(StyioSyntaxParser, UsesTreeSitterBackendWhenAvailable) {
 
   EXPECT_FALSE(syntax.folding_ranges.empty());
   EXPECT_TRUE(syntax.diagnostics.empty());
+}
+
+TEST(StyioTreeSitterBackend, ContainsNewlineClampsInvalidRanges) {
+  using namespace styio::ide;
+
+  EXPECT_FALSE(contains_newline("a\nb", TextRange{5, 99}));
+  EXPECT_FALSE(contains_newline("a\nb", TextRange{2, 1}));
 }
 
 TEST(StyioSyntaxParser, TolerantTokenizerCoversWidePunctuationAndQueries) {
