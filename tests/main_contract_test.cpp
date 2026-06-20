@@ -612,6 +612,45 @@ TEST(StyioMainContract, MainEntryFrontendDiagnosticsStayFailClosed) {
     << type_result.stderr_text;
 }
 
+TEST(StyioMainContract, MainEntryAstAndIrTTYOutputUsesAnsiHeaders) {
+  std::string script_path;
+  if (!styio_native_build_find_executable_latest("script", script_path)) {
+    GTEST_SKIP() << "script command is required for pseudo-terminal coverage";
+  }
+
+  const fs::path styio_binary = CurrentTestBinaryDir() / "styio";
+  if (!fs::exists(styio_binary)) {
+    GTEST_SKIP() << "styio binary is not available next to the test binary";
+  }
+
+  TempDir temp("tty-output");
+  const fs::path source = temp.path() / "main.styio";
+  WriteText(source, "x = 1\n");
+
+  const fs::path transcript = temp.path() / "transcript.txt";
+  const fs::path stdout_path = temp.path() / "script.stdout";
+  const fs::path stderr_path = temp.path() / "script.stderr";
+  const std::string child_command =
+    styio_shell_quote_latest(styio_binary.string())
+    + " --file " + styio_shell_quote_latest(source.string())
+    + " --styio-ast --styio-ir";
+  const std::string command =
+    styio_shell_quote_latest(script_path)
+    + " -q -e -c " + styio_shell_quote_latest(child_command)
+    + " " + styio_shell_quote_latest(transcript.string())
+    + " > " + styio_shell_quote_latest(stdout_path.string())
+    + " 2> " + styio_shell_quote_latest(stderr_path.string());
+  RunShellOrFail(command, "run styio AST/IR dump under pseudo-terminal");
+
+  const std::string tty_output = ReadText(transcript);
+  EXPECT_NE(tty_output.find("\033[1;32mAST\033[0m \033[31m-Original\033[0m"), std::string::npos)
+    << tty_output;
+  EXPECT_NE(tty_output.find("\033[1;32mAST\033[0m \033[1;33m-Type-Checking\033[0m"), std::string::npos)
+    << tty_output;
+  EXPECT_NE(tty_output.find("\033[1;32mStyio IR\033[0m"), std::string::npos)
+    << tty_output;
+}
+
 TEST(StyioMainContract, EscapingDiagnosticsAndOptionMatchingStayStable) {
   EXPECT_EQ(styio_json_escape("a\\b\"c\n\r\t"), "a\\\\b\\\"c\\n\\r\\t");
   EXPECT_EQ(styio_toml_escape_string_latest("a\\b\"c\n\r\t"), "a\\\\b\\\"c\\n\\r\\t");
