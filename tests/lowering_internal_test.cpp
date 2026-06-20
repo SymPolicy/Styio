@@ -908,6 +908,14 @@ TEST(StyioLoweringInternal, CloneResourceMethodAndPulseHelpersStayExplicit) {
     EXPECT_EQ(analyzer.local_binding_types.find("local"), analyzer.local_binding_types.end());
   }
   {
+    std::unique_ptr<BlockAST> throwing_tail(BlockAST::Create({
+      FinalBindAST::Create(VarAST::Create(NameAST::Create("local"), TypeAST::Create("i64")), IntAST::Create("1")),
+      ReturnAST::Create(EmptyResourceAST::Create())
+    }));
+    EXPECT_THROW((void)lower_resource_method_value_body_latest(&analyzer, throwing_tail.get()), StyioTypeError);
+    EXPECT_EQ(analyzer.local_binding_types.find("local"), analyzer.local_binding_types.end());
+  }
+  {
     EXPECT_FALSE(resource_method_value_preface_supported_latest(&analyzer, nullptr));
     EXPECT_TRUE(resource_method_value_preface_supported_latest(&analyzer, CommentAST::Create("ok")));
     EXPECT_TRUE(resource_method_value_preface_supported_latest(&analyzer, EmptyAST::Create()));
