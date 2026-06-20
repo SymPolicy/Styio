@@ -270,6 +270,14 @@ TEST(StyioNewParserInternal, DefaultValuesRecoveryAndTokenProbesStayExplicit) {
     EXPECT_FALSE(looks_like_await_bind_stmt_nightly(direct.get()));
   }
   {
+    ManualTokenContext direct({
+      {StyioTokenType::AWAIT_PIPE, "?|"},
+      {StyioTokenType::TOK_SPACE, " "},
+      {StyioTokenType::NAME, "source"},
+    });
+    EXPECT_FALSE(looks_like_await_bind_stmt_nightly(direct.get()));
+  }
+  {
     DirectContext direct("name");
     EXPECT_FALSE(can_route_hash_let_match_nightly_latest(direct.get()));
   }
@@ -903,6 +911,10 @@ TEST(StyioNewParserInternal, RouteDictIteratorAndStatementHelpersStayExplicit) {
   {
     DirectContext direct("||> 1");
     EXPECT_THROW((void)parse_expr_subset_nightly(direct.get()), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("||> 1");
+    EXPECT_THROW((void)parse_stmt_subset_nightly(direct.get()), StyioSyntaxError);
   }
   {
     DirectContext direct("(1");
