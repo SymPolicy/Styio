@@ -8,9 +8,11 @@
 #include "StyioLowering/StyioIROptimizer.hpp"
 
 #include "../src/StyioLowering/AstToStyioIR.cpp"
+#define STYIO_IR_OPTIMIZER_INTERNAL_TEST_INCLUDE
 #define optimize_styio_ir optimize_styio_ir_internal_for_test
 #include "../src/StyioLowering/StyioIROptimizer.cpp"
 #undef optimize_styio_ir
+#undef STYIO_IR_OPTIMIZER_INTERNAL_TEST_INCLUDE
 
 namespace {
 
@@ -500,6 +502,68 @@ TEST(StyioLoweringInternal, OptimizerCanonicalizesRebindAndVisitsIrFamilies) {
   }));
   EXPECT_EQ(styio::lowering::optimize_styio_ir(families.get()), families.get());
   ASSERT_FALSE(families->stmts.empty());
+}
+
+TEST(StyioLoweringInternal, PassManagerRunsCanonicalizationAndVerifierStages) {
+  auto make_rebind_match = []() {
+    return SGMatch::Create(
+      SGResId::Create("source"),
+      {},
+      SGBlock::Create({
+        SGFlexBind::Create(sg_i64_var("memo"), SGResId::Create("source")),
+        SGReturn::Create(SGResId::Create("memo")),
+      }),
+      SGMatchReprKind::ExprInt);
+  };
+
+  {
+    std::unique_ptr<SGMainEntry> root(SGMainEntry::Create({make_rebind_match()}));
+    styio::lowering::StyioIRPassPipelineOptions options;
+    options.collect_ir_dumps = true;
+    const auto result = styio::lowering::run_default_styio_ir_pass_pipeline(root.get(), options);
+
+    ASSERT_TRUE(result.ok()) << result.diagnostics.front().message;
+    EXPECT_EQ(result.root, root.get());
+    ASSERT_EQ(result.passes.size(), 1u);
+    EXPECT_EQ(result.passes[0].name, "styioir-canonicalization");
+    EXPECT_TRUE(result.passes[0].verifier_before_ok);
+    EXPECT_TRUE(result.passes[0].verifier_after_ok);
+    EXPECT_FALSE(result.initial_ir.empty());
+    EXPECT_FALSE(result.final_ir.empty());
+    EXPECT_EQ(result.initial_ir, result.passes[0].ir_before);
+    EXPECT_EQ(result.final_ir, result.passes[0].ir_after);
+    EXPECT_NE(result.initial_ir, result.final_ir);
+    EXPECT_NE(result.passes[0].ir_before.find("styio.ir.match"), std::string::npos);
+    EXPECT_NE(result.passes[0].ir_after.find("styio.ir.block"), std::string::npos);
+    auto* wrapper = dynamic_cast<SGBlock*>(root->stmts[0]);
+    ASSERT_NE(wrapper, nullptr);
+    ASSERT_EQ(wrapper->stmts.size(), 2u);
+    EXPECT_NE(dynamic_cast<SGFlexBind*>(wrapper->stmts[0]), nullptr);
+    EXPECT_NE(dynamic_cast<SGMatch*>(wrapper->stmts[1]), nullptr);
+  }
+
+  {
+    std::unique_ptr<SGMainEntry> root(SGMainEntry::Create({make_rebind_match()}));
+    styio::lowering::StyioIRPassPipelineOptions options;
+    options.opt_level = 0;
+    const auto result = styio::lowering::run_default_styio_ir_pass_pipeline(root.get(), options);
+
+    ASSERT_TRUE(result.ok()) << result.diagnostics.front().message;
+    EXPECT_TRUE(result.passes.empty());
+    EXPECT_NE(dynamic_cast<SGMatch*>(root->stmts[0]), nullptr);
+  }
+
+  {
+    std::unique_ptr<SGMainEntry> root(SGMainEntry::Create({SGReturn::Create(nullptr)}));
+    const auto result = styio::lowering::run_default_styio_ir_pass_pipeline(root.get());
+
+    EXPECT_FALSE(result.ok());
+    EXPECT_TRUE(result.passes.empty());
+    ASSERT_FALSE(result.diagnostics.empty());
+    EXPECT_EQ(result.diagnostics.front().phase, "ir_verify");
+    EXPECT_EQ(result.diagnostics.front().code, "STYIO_IR_VERIFY_CONTRACT");
+    EXPECT_NE(result.diagnostics.front().message.find("SGReturn.expr"), std::string::npos);
+  }
 }
 
 TEST(StyioLoweringInternal, OptimizerPrivateReadWriteAndEquivalenceEdgesStayExplicit) {

@@ -24,6 +24,13 @@ fuzz_build_has_ctest_latest() {
   [[ -f "$dir/CTestTestfile.cmake" || -f "$dir/tests/CTestTestfile.cmake" ]]
 }
 
+cmake_target_exists_latest() {
+  local dir="$1"
+  local target="$2"
+  cmake --build "$dir" --target help 2>/dev/null \
+    | grep -Eq "(^|[[:space:]])${target}([[:space:]:]|$)"
+}
+
 configure_build_dir_latest() {
   local requested="$1"
   local fallback="$2"
@@ -114,25 +121,42 @@ done
 
 BUILD_DIR="$(configure_build_dir_latest "$BUILD_DIR" "build/default")"
 echo "[checkpoint-health] build dir: ${BUILD_DIR}"
-cmake --build "$BUILD_DIR" --target styio_test styio_security_test styio_soak_test styio_ide_test -j8
+cmake --build "$BUILD_DIR" --target styio_test styio_security_test styio_ide_test -j8
+
+HAS_SOAK_TARGET=0
+if cmake_target_exists_latest "$BUILD_DIR" "styio_soak_test"; then
+  HAS_SOAK_TARGET=1
+  cmake --build "$BUILD_DIR" --target styio_soak_test -j8
+else
+  echo "[checkpoint-health] external soak target skipped (styio_soak_test is not registered)"
+fi
 
 echo "[checkpoint-health] docs audit"
 ctest --test-dir "$BUILD_DIR" -L docs --output-on-failure
+
+echo "[checkpoint-health] core benchmark smoke"
+ctest --test-dir "$BUILD_DIR" \
+  -R '^styio_core_benchmark_smoke$' \
+  --output-on-failure
 
 echo "[checkpoint-health] parser default + state inline diagnostics"
 ctest --test-dir "$BUILD_DIR" \
   -R '^Styio(ParserEngine\.DefaultEngineIsNightlyInShadowArtifact|Diagnostics\.(SingleArgStateFunctionInliningUsesCallArgument|BlockStateFunctionInliningUsesCallArgument|StateInlineMatchCasesFunctionUsesCallArgument|StateInlineInfiniteLiteralFunctionUsesCallArgument))$' \
   --output-on-failure
 
-echo "[checkpoint-health] soak smoke (state inline focus)"
-ctest --test-dir "$BUILD_DIR" \
-  -R '^StyioSoakSingleThread\.(StateInlineHelperProgramLoop|StateInlineMatchCasesProgramLoop|StateInlineInfiniteProgramLoop)$' \
-  --output-on-failure
+if [[ "$HAS_SOAK_TARGET" -eq 1 ]]; then
+  echo "[checkpoint-health] soak smoke (state inline focus)"
+  ctest --test-dir "$BUILD_DIR" \
+    -R '^StyioSoakSingleThread\.(StateInlineHelperProgramLoop|StateInlineMatchCasesProgramLoop|StateInlineInfiniteProgramLoop)$' \
+    --output-on-failure
 
-echo "[checkpoint-health] deep soak (state inline focus)"
-ctest --test-dir "$BUILD_DIR" \
-  -R '^soak_deep_state_inline_(program|matchcases_program|infinite_program)$' \
-  --output-on-failure
+  echo "[checkpoint-health] deep soak (state inline focus)"
+  ctest --test-dir "$BUILD_DIR" \
+    -R '^soak_deep_state_inline_(program|matchcases_program|infinite_program)$' \
+    --output-on-failure
+else
+  echo "[checkpoint-health] soak smoke skipped (external styio-benchmark probes unavailable)"
+fi
 
 echo "[checkpoint-health] pipeline + security labels"
 ctest --test-dir "$BUILD_DIR" -L styio_pipeline --output-on-failure

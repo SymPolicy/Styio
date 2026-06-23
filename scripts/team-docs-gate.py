@@ -124,6 +124,7 @@ TEAM_RULES: tuple[TeamRule, ...] = (
         (
             "README.md",
             "docs/",
+            "library/",
             "workflows/",
             "templates/",
             "scripts/docs-index.py",
@@ -132,6 +133,7 @@ TEAM_RULES: tuple[TeamRule, ...] = (
             "scripts/docs_config.py",
             "scripts/docs-lifecycle.py",
             "scripts/delivery-gate.sh",
+            "scripts/stdlib-manifest-gate.py",
             "scripts/workflow-scheduler.py",
             "scripts/team-docs-gate.py",
         ),

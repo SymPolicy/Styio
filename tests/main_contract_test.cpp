@@ -120,8 +120,13 @@ void MakeExecutable(const fs::path& path) {
 }
 
 void RunShellOrFail(const std::string& command, const std::string& purpose) {
+  const int status = std::system(command.c_str());
+  ASSERT_EQ(status, 0) << purpose << ": " << command;
+}
+
+void RunProcessOrFail(const std::vector<std::string>& argv, const std::string& purpose) {
   std::string error;
-  ASSERT_TRUE(styio_run_shell_command_latest(command, purpose, error)) << error;
+  ASSERT_TRUE(styio_run_process_latest(argv, purpose, error)) << error;
 }
 
 bool ParseNativeBuildArgs(
@@ -1211,9 +1216,9 @@ TEST(StyioMainContract, LowLevelMainHelpersCoverFailureBoundaries) {
   EXPECT_NE(error.find("does not look like a styio repository"), std::string::npos);
 
   std::string token;
-  EXPECT_TRUE(styio_read_first_command_token_latest("printf 'first second\\n'", token));
+  EXPECT_TRUE(styio_read_first_process_token_latest({"printf", "first second\n"}, token));
   EXPECT_EQ(token, "first");
-  EXPECT_FALSE(styio_read_first_command_token_latest("sh -c 'exit 7'", token));
+  EXPECT_FALSE(styio_read_first_process_token_latest({"/bin/false"}, token));
 
   EnvVarGuard jobs_guard("STYIO_NANO_BUILD_JOBS");
   jobs_guard.unset();
@@ -3313,9 +3318,8 @@ TEST(StyioMainContract, CloudMaterializationRejectsInvalidRegistryAndManifestInp
   const fs::path no_bin_root = temp.path() / "no-bin-root";
   WriteText(no_bin_root / "README.txt", "no binary here\n");
   const fs::path no_bin_blob = temp.path() / "no-bin.tar";
-  RunShellOrFail(
-    "tar -cf " + styio_shell_quote_latest(no_bin_blob.string()) + " -C "
-      + styio_shell_quote_latest(no_bin_root.string()) + " .",
+  RunProcessOrFail(
+    {"tar", "-cf", no_bin_blob.string(), "-C", no_bin_root.string(), "."},
     "test no-bin nano archive");
   const fs::path repo_no_bin = temp.path() / "repo-no-bin";
   ASSERT_TRUE(styio_ensure_writable_nano_repository_latest(repo_no_bin, error)) << error;
@@ -3331,9 +3335,8 @@ TEST(StyioMainContract, CloudMaterializationRejectsInvalidRegistryAndManifestInp
   WriteText(copy_fail_root / "bin" / binary_name, "#!/usr/bin/env sh\nexit 0\n");
   WriteText(copy_fail_root / "conflict" / "payload.txt", "conflict\n");
   const fs::path copy_fail_blob = temp.path() / "copy-fail.tar";
-  RunShellOrFail(
-    "tar -cf " + styio_shell_quote_latest(copy_fail_blob.string()) + " -C "
-      + styio_shell_quote_latest(copy_fail_root.string()) + " .",
+  RunProcessOrFail(
+    {"tar", "-cf", copy_fail_blob.string(), "-C", copy_fail_root.string(), "."},
     "test copy-fail nano archive");
   const fs::path repo_copy_fail = temp.path() / "repo-copy-fail";
   ASSERT_TRUE(styio_ensure_writable_nano_repository_latest(repo_copy_fail, error)) << error;
@@ -3360,9 +3363,8 @@ TEST(StyioMainContract, CloudRepositoryMaterializationVerifiesBlobAndExtractsPac
   WriteText(package_root / "README.txt", "payload\n");
 
   const fs::path blob = temp.path() / "package.tar";
-  RunShellOrFail(
-    "tar -cf " + styio_shell_quote_latest(blob.string()) + " -C "
-      + styio_shell_quote_latest(package_root.string()) + " .",
+  RunProcessOrFail(
+    {"tar", "-cf", blob.string(), "-C", package_root.string(), "."},
     "test nano package archive");
 
   std::string sha256;
@@ -3769,8 +3771,8 @@ TEST(StyioMainContract, FileProcessAndRuntimeSinksCoverFailureAndAppendPaths) {
 
   EXPECT_FALSE(styio_write_text_file_latest(temp.path() / "missing" / "write.txt", "x", error));
   EXPECT_NE(error.find("cannot open file for writing"), std::string::npos);
-  EXPECT_FALSE(styio_run_shell_command_latest("sh -c 'exit 3'", "expected failure", error));
-  EXPECT_EQ(error, "expected failure failed");
+  EXPECT_FALSE(styio_run_process_latest({"/bin/false"}, "expected failure", error));
+  EXPECT_NE(error.find("expected failure failed"), std::string::npos);
   EXPECT_FALSE(styio_copy_file_with_exec_latest(
     temp.path() / "missing-source.txt",
     temp.path() / "out" / "copy.txt",
@@ -3779,9 +3781,9 @@ TEST(StyioMainContract, FileProcessAndRuntimeSinksCoverFailureAndAppendPaths) {
   EXPECT_NE(error.find("failed to copy"), std::string::npos);
 
   std::string first_token;
-  EXPECT_TRUE(styio_read_first_command_token_latest("printf 'alpha beta\\n'", first_token));
+  EXPECT_TRUE(styio_read_first_process_token_latest({"printf", "alpha beta\n"}, first_token));
   EXPECT_EQ(first_token, "alpha");
-  EXPECT_FALSE(styio_read_first_command_token_latest("sh -c 'exit 7'", first_token));
+  EXPECT_FALSE(styio_read_first_process_token_latest({"/bin/false"}, first_token));
 
   std::string sha256;
   EXPECT_FALSE(styio_compute_file_sha256_latest(temp.path() / "missing.bin", sha256, error));
@@ -4065,6 +4067,39 @@ TEST(StyioMainContract, NativeBuildCompilerAndGeneratedArtifactsAreDeterministic
   EXPECT_EQ(styio_native_build_compiler_latest(temp.path() / "bin" / "styio"), "/tmp/custom-native-cxx");
   cxx_guard.unset();
   EXPECT_FALSE(styio_native_build_compiler_latest(temp.path() / "bin" / "styio").empty());
+
+  const auto frontend_argv = styio_native_build_frontend_argv_latest(
+    temp.path() / "styio self; touch nope",
+    temp.path() / "plan file.json");
+  ASSERT_EQ(frontend_argv.size(), 3u);
+  EXPECT_EQ(frontend_argv[0], (temp.path() / "styio self; touch nope").string());
+  EXPECT_EQ(frontend_argv[1], "--compile-plan");
+  EXPECT_EQ(frontend_argv[2], (temp.path() / "plan file.json").string());
+
+  const std::vector<fs::path> extern_objects = {
+    temp.path() / "extern one.o",
+    temp.path() / "extern;two.o",
+  };
+  const auto link_argv = styio_native_build_link_argv_latest(
+    "/tmp/clang++; touch nope",
+    temp.path() / "native ir.ll",
+    temp.path() / "wrapper file.cpp",
+    std::vector<fs::path>{temp.path() / "runtime file.cpp"},
+    temp.path() / "include dir",
+    extern_objects,
+    temp.path() / "out file");
+  ASSERT_EQ(link_argv.size(), 16u);
+  EXPECT_EQ(link_argv[0], "/tmp/clang++; touch nope");
+  EXPECT_EQ(link_argv[1], "-std=c++20");
+  EXPECT_EQ(link_argv[5], (temp.path() / "native ir.ll").string());
+  EXPECT_EQ(link_argv[8], "-I");
+  EXPECT_EQ(link_argv[9], (temp.path() / "include dir").string());
+  EXPECT_EQ(link_argv[10], extern_objects[0].string());
+  EXPECT_EQ(link_argv[11], extern_objects[1].string());
+  EXPECT_EQ(link_argv[12], "-o");
+  EXPECT_EQ(link_argv[13], (temp.path() / "out file").string());
+  EXPECT_EQ(link_argv[14], "-ldl");
+  EXPECT_EQ(link_argv[15], "-pthread");
 
   const fs::path input = temp.path() / "src" / "main.styio";
   WriteText(input, "print(1)\n");

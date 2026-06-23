@@ -12,6 +12,8 @@
 namespace styio::ir {
 namespace {
 
+namespace diag = styio::services::diagnostics;
+
 enum class HandleState
 {
   Unknown,
@@ -25,10 +27,13 @@ struct VerifierContext
   std::unordered_set<const StyioIR*> visited;
   std::unordered_map<std::string, HandleState> handle_states;
 
-  void add_error(std::string message) {
+  void add_error(
+    std::string message,
+    std::string code = std::string(diag::kIrVerifyContract)
+  ) {
     result.diagnostics.push_back(StyioIRVerifierDiagnostic{
-      "styioir",
-      "STYIO_IR_CONTRACT",
+      std::string(diag::kPhaseIrVerify),
+      std::move(code),
       std::move(message),
     });
   }
@@ -81,7 +86,9 @@ struct VerifierContext
       return;
     }
     if (!node->is_active()) {
-      add_error(std::string("inactive StyioIR node reached codegen boundary: ") + typeid(*node).name());
+      add_error(
+        std::string("inactive StyioIR node reached codegen boundary: ") + typeid(*node).name(),
+        std::string(diag::kIrVerifyInactiveNode));
       return;
     }
 

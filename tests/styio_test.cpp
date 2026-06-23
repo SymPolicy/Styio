@@ -1455,7 +1455,7 @@ TEST(StyioDiagnostics, NativeBuildCliGuardsReportUsageAndErrors) {
   }
 }
 
-TEST(StyioDiagnostics, NativeBuildEnvCompilerOverrideIsShellQuoted) {
+TEST(StyioDiagnostics, NativeBuildEnvCompilerOverrideIsNotInterpretedByShell) {
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
   if (runner == nullptr || runner[0] == '\0') {
     runner = STYIO_COMPILER_EXE;

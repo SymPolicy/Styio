@@ -209,6 +209,8 @@ def classify_markdown(path: Path) -> ManifestEntry:
         return ManifestEntry(path, "valid", "approved docs/ collection", character_count, word_count)
     if has_prefix(path, Path("benchmark")):
         return ManifestEntry(path, "valid", "approved benchmark documentation", character_count, word_count)
+    if has_prefix(path, Path("library")):
+        return ManifestEntry(path, "valid", "approved standard-library documentation", character_count, word_count)
     if has_prefix(path, Path("templates")):
         return ManifestEntry(path, "valid", "approved reusable template documentation", character_count, word_count)
     if has_prefix(path, Path("workflows")):

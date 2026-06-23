@@ -15,13 +15,16 @@
 #include <vector>
 
 #include "StyioAST/AST.hpp"
+#include "StyioCodeGen/LLVMEmission.hpp"
 #include "StyioLowering/AstToStyioIRLowerer.hpp"
+#include "StyioLowering/AstToStyioIRStage.hpp"
 #include "StyioCodeGen/CodeGenVisitor.hpp"
 #include "StyioException/Exception.hpp"
 #include "StyioIR/StyioIR.hpp"
 #include "StyioJIT/StyioJIT_ORC.hpp"
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
+#include "StyioSema/SemanticAnalysis.hpp"
 #include "StyioToString/ToStringVisitor.hpp"
 #include "StyioToken/Token.hpp"
 
@@ -345,7 +348,7 @@ run_pipeline_case(const std::string& case_dir, const char* layer5_compiler_exe) 
     const std::string ast_pre = ast->toString(&repr);
 
     AstToStyioIRLowerer analyzer;
-    analyzer.typeInfer(ast);
+    styio::sema::require_semantic_analysis(ast, &analyzer);
     std::string ast_typed = ast->toString(&repr);
 
     std::string exp_ast = read_text_file(gold / "ast.txt");
@@ -364,7 +367,7 @@ run_pipeline_case(const std::string& case_dir, const char* layer5_compiler_exe) 
         + ast_pre;
     }
 
-    StyioIR* ir = analyzer.toStyioIR(ast);
+    StyioIR* ir = styio::lowering::lower_semantic_ast_to_styio_ir(ast, &analyzer);
     std::string got_ir = ir->toString(&repr);
     std::string exp_ir = read_text_file(gold / "styio_ir.txt");
     normalize_text(got_ir);
@@ -387,7 +390,7 @@ run_pipeline_case(const std::string& case_dir, const char* layer5_compiler_exe) 
     llvm::ExitOnError exit_on_error;
     std::unique_ptr<StyioJIT_ORC> jit = exit_on_error(StyioJIT_ORC::Create());
     StyioToLLVM generator(std::move(jit));
-    ir->toLLVMIR(&generator);
+    styio::codegen::emit_llvm_ir(ir, &generator);
     std::string got_llvm = generator.dump_llvm_ir();
     std::string exp_llvm = read_text_file(gold / "llvm_ir.txt");
     normalize_llvm_module_text(got_llvm);

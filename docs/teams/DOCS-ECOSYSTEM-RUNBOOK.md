@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-06-05
+**Last updated:** 2026-06-21
 
 ## Mission
 
@@ -24,6 +24,7 @@ Primary paths:
 10. `scripts/team-docs-gate.py`
 11. `scripts/workflow-scheduler.py`
 12. `scripts/delivery-gate.sh`
+13. `library/`
 
 Key SSOTs:
 
@@ -87,11 +88,12 @@ Key SSOTs:
 52. Public resource-management statements must cite primary language or platform sources and map each borrowed practice to Styio's actual compiler evidence. Keep the wording at "modern resource-management language" unless formal proof, async/task stress evidence, and driver-family validation justify a stronger statement.
 53. Keep public wording concise and evidence-scoped. Do not speculate about companies, organizations, individuals, projects, products, or their capabilities; do not use absolute marketing superlatives or unsupported superiority language in repository docs.
 54. README showcase examples must point to repository-local Styio source that can be run from the repository root, and the documented command/output pair must be verified before publication.
-55. Root community files such as `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, and release-policy documents are approved public docs only when `scripts/docs-audit.py` classifies them explicitly and their wording stays evidence-scoped.
-56. Active `example/` and `tests/` directories must not carry non-runnable language drafts. Delete drafts from the current tree after durable rules are promoted, and keep active README links pointed at CTest-covered examples.
-57. Do not describe Styio as equivalent to another language's resource model. State the exact compiler evidence Styio has, then list external practices only as references.
-58. Historical deprecated syntax belongs in Git history, not active docs; do not recreate old syntax catalogs or copy historical syntax into active examples without checking the active SSOT.
-59. When an audit creates a maintainer decision log under `docs/plans/`, keep it separate from language SSOTs: record autonomous closures, unresolved decisions, and verification evidence without defining new syntax there.
+55. Keep `library/manifest.json`, `library/*/README.md`, `scripts/stdlib-manifest-gate.py`, IM-D8, the tool registry, docs gate, install layout, and the test catalog aligned whenever standard-library module ownership changes. Planned modules are directory and contract reservations only until active source and test evidence are recorded.
+56. Root community files such as `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, and release-policy documents are approved public docs only when `scripts/docs-audit.py` classifies them explicitly and their wording stays evidence-scoped.
+57. Active `example/` and `tests/` directories must not carry non-runnable language drafts. Delete drafts from the current tree after durable rules are promoted, and keep active README links pointed at CTest-covered examples.
+58. Do not describe Styio as equivalent to another language's resource model. State the exact compiler evidence Styio has, then list external practices only as references.
+59. Historical deprecated syntax belongs in Git history, not active docs; do not recreate old syntax catalogs or copy historical syntax into active examples without checking the active SSOT.
+60. When an audit creates a maintainer decision log under `docs/plans/`, keep it separate from language SSOTs: record autonomous closures, unresolved decisions, and verification evidence without defining new syntax there.
 60. When closing a rollup ledger item for sanitizer, fuzz, or fail-closed compiler work, cite the exact local command that proved the closure, preserve the GitHub run or artifact id and backflow seed when the finding came from CI, and keep broader open-gap rows intact unless the whole class is actually retired.
 61. Keep `docs/external/SERVICES.md` as the consumer-neutral catalog for package-manager, IDE, CI, and editor-facing compiler services. Consumer-specific pages under `for-spio/` or `for-ide/` should point to that catalog when they describe shared service contracts such as syntax checking.
 62. Source-level Markdown remains disallowed under `src/` except for `src/StyioServices/**/README.md` and `src/StyioServices/MANIFEST.md`, which document service usage at the code boundary. Do not broaden the docs-audit exception without updating this runbook and the service catalog.
@@ -153,6 +155,7 @@ Key SSOTs:
 117. For typed stdin unsupported-target diagnostic refinements, describe the change as a public diagnostic-code refinement only: record `STYIO_TYPE_STDIN_UNSUPPORTED_TARGET`, the scalar and list target routes such as `bool` and `list[bool]` that prove it, and the unchanged TypeError exit family without implying broader stdin target support or resource-effect recovery.
 118. For matrix literal invalid diagnostic refinements, describe the change as a public diagnostic-code refinement only: record `STYIO_TYPE_MATRIX_LITERAL_INVALID`, the direct matrix binding and explicit matrix-return routes that prove it, and the unchanged TypeError exit family without implying broader matrix literal acceptance, matrix return compatibility, matrix operators, resource-method matrix bodies, or matrix runtime behavior.
 119. When checkpoint or delivery gates add repository-wide quality metrics such as source coverage, update the gate script, workflow Markdown/TOML mirrors, CI wiring, release conformance rollups, Test Quality runbook, generated indexes, and `DOC-STATS.md` in the same delivery.
+120. When adding a broad source-architecture or external-language comparison audit under `docs/rollups/`, keep the wording evidence-scoped to the local sources reviewed, map follow-up work to the owning `IM-D*` inventories or runbooks, regenerate generated indexes, and refresh `DOC-STATS.md` when this runbook changes.
 
 ## Change Classes
 

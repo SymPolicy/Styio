@@ -2,11 +2,9 @@
 #ifndef STYIO_RUNTIME_HANDLE_TABLE_HPP_
 #define STYIO_RUNTIME_HANDLE_TABLE_HPP_
 
-// MIGRATION-NEEDED: M-RUNTIME-01 (docs/rollups/MIGRATION-LEDGER.md)
-// This is the only file under src/StyioRuntime/. Either flesh out the
-// directory with the real runtime entry points (and rename the cmake
-// "runtime support" variable so naming is consistent), or merge this
-// header into src/StyioExtern/ and drop StyioRuntime/ entirely.
+// Runtime handle identity stays below the C ABI exported from StyioExtern.
+// Keep ownership tables and runtime state in src/StyioRuntime/ so new helpers
+// do not grow the extern boundary by default.
 
 #include <cstddef>
 #include <cstdint>

@@ -8,14 +8,16 @@
 #include <cstdlib>
 #include <cstring>
 #include <dlfcn.h>
+#include <fcntl.h>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <mutex>
 #include <sstream>
 #include <stdexcept>
+#include <sys/wait.h>
 #include <system_error>
 #include <unistd.h>
-#include <mutex>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -259,22 +261,86 @@ native_cache_tmp_path_for_key(const std::filesystem::path& cache_path) {
        + ".tmp");
 }
 
-std::string
-native_compile_command(
-  const CompilerResolution& compiler,
-  const std::filesystem::path& source_path,
-  const std::filesystem::path& shared_path,
-  const std::filesystem::path& log_path
+void
+close_native_fd(int fd) {
+  if (fd >= 0) {
+    (void)::close(fd);
+  }
+}
+
+void
+close_native_fds(int stdout_fd, int stderr_fd) {
+  close_native_fd(stdout_fd);
+  if (stderr_fd != stdout_fd) {
+    close_native_fd(stderr_fd);
+  }
+}
+
+NativeCommandResult
+run_native_command_with_open_logs(
+  const std::vector<std::string>& argv,
+  int stdout_fd,
+  int stderr_fd
 ) {
-  return shell_quote(compiler.command)
-    + " "
-    + kCompileFlags
-    + " "
-    + shell_quote(source_path.string())
-    + " -o "
-    + shell_quote(shared_path.string())
-    + " 2>"
-    + shell_quote(log_path.string());
+  std::vector<char*> exec_argv;
+  exec_argv.reserve(argv.size() + 1);
+  for (const std::string& arg : argv) {
+    exec_argv.push_back(const_cast<char*>(arg.c_str()));
+  }
+  exec_argv.push_back(nullptr);
+  const bool command_has_path_separator = argv[0].find('/') != std::string::npos;
+
+  const pid_t pid = ::fork();
+  if (pid < 0) {
+    close_native_fds(stdout_fd, stderr_fd);
+    return NativeCommandResult{127, std::string("cannot fork native command: ") + std::strerror(errno)};
+  }
+
+  if (pid == 0) {
+    if (stdout_fd >= 0 && ::dup2(stdout_fd, STDOUT_FILENO) < 0) {
+      _exit(126);
+    }
+    if (stderr_fd >= 0 && ::dup2(stderr_fd, STDERR_FILENO) < 0) {
+      _exit(126);
+    }
+    if (stdout_fd > STDERR_FILENO) {
+      (void)::close(stdout_fd);
+    }
+    if (stderr_fd > STDERR_FILENO && stderr_fd != stdout_fd) {
+      (void)::close(stderr_fd);
+    }
+
+    if (command_has_path_separator) {
+      ::execv(argv[0].c_str(), exec_argv.data());
+    }
+    else {
+      ::execvp(argv[0].c_str(), exec_argv.data());
+    }
+    const int exec_errno = errno;
+    const char message[] = "styio: failed to exec native command\n";
+    (void)::write(STDERR_FILENO, message, sizeof(message) - 1);
+    _exit(exec_errno == ENOENT ? 127 : 126);
+  }
+  close_native_fds(stdout_fd, stderr_fd);
+
+  int status = 0;
+  pid_t waited = 0;
+  do {
+    waited = ::waitpid(pid, &status, 0);
+  } while (waited < 0 && errno == EINTR);
+
+  if (waited < 0) {
+    return NativeCommandResult{127, std::string("cannot wait for native command: ") + std::strerror(errno)};
+  }
+  if (WIFEXITED(status)) {
+    return NativeCommandResult{WEXITSTATUS(status), ""};
+  }
+  if (WIFSIGNALED(status)) {
+    return NativeCommandResult{
+      128 + WTERMSIG(status),
+      "native command terminated by signal " + std::to_string(WTERMSIG(status))};
+  }
+  return NativeCommandResult{127, "native command did not exit normally"};
 }
 
 bool
@@ -952,6 +1018,106 @@ resolve_compiler_for_abi(const std::string& abi) {
   return CompilerResolution{normalized_abi == "c++" ? "c++" : "cc", "system"};
 }
 
+std::vector<std::string>
+native_shared_compile_argv(
+  const CompilerResolution& compiler,
+  const std::filesystem::path& source_path,
+  const std::filesystem::path& shared_path
+) {
+  return {
+    compiler.command,
+    "-shared",
+    "-fPIC",
+    "-O2",
+    source_path.string(),
+    "-o",
+    shared_path.string(),
+  };
+}
+
+std::vector<std::string>
+native_object_compile_argv(
+  const CompilerResolution& compiler,
+  const std::string& abi,
+  const std::filesystem::path& source_path,
+  const std::filesystem::path& object_path
+) {
+  const std::string normalized_abi = normalize_abi(abi);
+  return {
+    compiler.command,
+    normalized_abi == "c++" ? "-std=c++20" : "-std=c11",
+    "-O2",
+    "-fPIC",
+    "-c",
+    source_path.string(),
+    "-o",
+    object_path.string(),
+  };
+}
+
+std::string
+native_command_display(const std::vector<std::string>& argv) {
+  std::string out;
+  for (const std::string& arg : argv) {
+    if (!out.empty()) {
+      out.push_back(' ');
+    }
+    out += shell_quote(arg);
+  }
+  return out;
+}
+
+NativeCommandResult
+run_native_command_to_log(
+  const std::vector<std::string>& argv,
+  const std::filesystem::path& log_path,
+  bool capture_stdout
+) {
+  if (argv.empty() || argv[0].empty()) {
+    return NativeCommandResult{127, "native command argv is empty"};
+  }
+
+  const int log_fd = ::open(log_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  if (log_fd < 0) {
+    return NativeCommandResult{
+      127,
+      "cannot open native command log `" + log_path.string() + "`: " + std::strerror(errno)};
+  }
+
+  return run_native_command_with_open_logs(
+    argv,
+    capture_stdout ? log_fd : -1,
+    log_fd);
+}
+
+NativeCommandResult
+run_native_command_to_logs(
+  const std::vector<std::string>& argv,
+  const std::filesystem::path& stdout_log_path,
+  const std::filesystem::path& stderr_log_path
+) {
+  if (argv.empty() || argv[0].empty()) {
+    return NativeCommandResult{127, "native command argv is empty"};
+  }
+
+  const int stdout_fd = ::open(stdout_log_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  if (stdout_fd < 0) {
+    return NativeCommandResult{
+      127,
+      "cannot open native command stdout log `" + stdout_log_path.string() + "`: " + std::strerror(errno)};
+  }
+
+  const int stderr_fd = ::open(stderr_log_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  if (stderr_fd < 0) {
+    close_native_fd(stdout_fd);
+    return NativeCommandResult{
+      127,
+      "cannot open native command stderr log `" + stderr_log_path.string() + "`: " + std::strerror(errno)};
+  }
+
+  return run_native_command_with_open_logs(argv, stdout_fd, stderr_fd);
+}
+
 std::vector<FunctionSignature>
 parse_function_signatures(const std::string& body) {
   const std::string clean = top_level_signature_text(strip_comments_for_signatures(body));
@@ -1103,10 +1269,12 @@ compile_and_load_block(
     throw StyioTypeError(write_error);
   }
 
-  const std::string command = native_compile_command(compiler, source_path, compile_shared_path, log_path);
+  const std::vector<std::string> argv =
+    native_shared_compile_argv(compiler, source_path, compile_shared_path);
+  const std::string command = native_command_display(argv);
 
-  const int rc = std::system(command.c_str());
-  if (rc != 0) {
+  const NativeCommandResult result = run_native_command_to_log(argv, log_path, false);
+  if (!result.ok()) {
     std::string log;
     (void)read_text_file(log_path, log);
     std::filesystem::remove(compile_shared_path);
@@ -1114,6 +1282,7 @@ compile_and_load_block(
     throw StyioTypeError(
       "native @extern(" + normalized_abi + ") compile failed with command `" + command + "`"
       + " using " + compiler.source
+      + (result.launch_error.empty() ? std::string() : "\n" + result.launch_error)
       + (log.empty() ? std::string() : "\n" + log));
   }
 

@@ -97,12 +97,13 @@ Accepted decision:
 
 - The standard library is small, necessary, and commonly loaded.
 - For now, standard-library contracts and any current implementation may remain in this repository.
+- The repository-local standard-library envelope is `library/manifest.json`; it records active source-backed modules and planned module directories.
 - Long term, the standard library should become official package content maintained separately from the compiler implementation.
 - The standard library must be usable through Spio / Styio-Platform management when that package path is ready.
 - Builds must support trimming/dead-code elimination so standard-library availability does not force thick artifacts.
-- Standard-library APIs need named contracts, schema markers, tests, and diagnostics before being treated as stable.
+- Standard-library APIs need named contracts, schema markers, tests, diagnostics, and manifest-gate coverage before being treated as stable.
 
-This preserves the "thick library, thin artifact" model: development can load a useful standard library, while production builds can remove unused code.
+This preserves the "thick library, thin artifact" model: development can load a useful standard library, while production builds can remove unused code. The current `std.resource` manifest entry points at `src/StyioPrelude/resources.styio` as compatibility source until it can move to a package-aware library location. Runtime installs include `share/styio/library/manifest.json`, module README files, and `share/styio/src/StyioPrelude/resources.styio` so the installed manifest can be validated even when repository test evidence is not installed with the runtime component.
 
 ## External Examples
 
@@ -119,12 +120,12 @@ Accepted decision:
 
 Accepted decision:
 
-- Benchmark workloads, runners, baselines, reports, and performance comparisons belong in `styio-benchmark`.
-- This repository may keep probes, compatibility wrappers, and command references needed to integrate with `styio-benchmark`.
+- Deep benchmark workloads, runners, baselines, reports, and performance comparisons belong in `styio-benchmark`.
+- This repository may keep probes, compatibility wrappers, command references needed to integrate with `styio-benchmark`, and a tiny deterministic `benchmark/core/` corpus for release-conformance timing-schema evidence.
 - A benchmark workload does not become a standard-library API by existing as a workload.
 - If benchmark work identifies a useful library capability, it must still pass the standard-library or compiler-intrinsic acceptance process before becoming an accepted API.
 
-`styio-benchmark` remains the SSOT for performance workloads and reports.
+`styio-benchmark` remains the SSOT for deep performance workloads, comparisons, baselines, and reports. `benchmark/core/` is not a competing benchmark suite; it exists so the compiler checkout always has a reproducible smoke corpus.
 
 ## Domain Libraries
 

@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-06-19
+**Last updated:** 2026-06-21
 
 ## Mission
 
@@ -27,7 +27,7 @@ Related docs:
 
 ## Daily Workflow
 
-1. Confirm the incoming StyioIR shape before changing LLVM emission.
+1. Confirm the incoming StyioIR shape before changing LLVM emission, and keep product orchestration on `styio::codegen::emit_llvm_ir(...)` rather than direct `StyioIR::toLLVMIR(...)` calls.
 2. Keep runtime helper ownership explicit, especially for strings, handles, and file resources.
 3. Treat diagnostic code, exit code, and runtime error category changes as public behavior.
 4. Update security, five-layer, and soak coverage before accepting a runtime contract change.
@@ -36,7 +36,7 @@ Related docs:
 7. Treat `runtime-events.jsonl` as a published artifact: changes to `compile.* / run.* / thread.* / unit.* / unit.test.* / state.* / transition.fired / log.emitted / diagnostic.emitted` require same-checkpoint tests and consumer doc updates.
 8. Keep `stdout/stderr` helper hooks lossless: runtime log replay may enrich the artifact stream, but must not change observable program output semantics.
 9. Keep the ORC JIT symbol registry aligned with the full `src/StyioExtern/ExternLib.hpp` export surface and every runtime helper that codegen emits; when a new `getOrInsertFunction("styio_*")` call or extern export appears, update `src/StyioJIT/StyioJIT_ORC.hpp` in the same delivery.
-10. Treat `python3 scripts/runtime-surface-gate.py` as the static blocker for syntax/runtime deliveries; do not rely on manual review to spot a missing export or ORC registration.
+10. Treat `python3 scripts/runtime-surface-gate.py` and the `runtime_surface_gate` CTest as the static blocker for syntax/runtime deliveries; do not rely on manual review to spot a missing export or ORC registration.
 11. Keep native extern JIT registration intact when resolving upstream merges: `StyioJIT_ORC::defineAbsoluteSymbol` is the bridge used by `StyioCodeGen` to expose compiled C/C++ extern blocks to ORC, and it must stay aligned with native interop tests.
 12. Matrix runtime helpers own the flat row-major storage contract. When adding or changing matrix lowering, keep `ExternLib.hpp`, `ExternLib.cpp`, `HandleTable.hpp`, ORC registrations, direct-data helpers, clone helpers such as `styio_matrix_clone_i64` / `styio_matrix_clone_f64`, release paths, and security/codegen tests in the same checkpoint.
 13. Empty lexical scopes must not emit unused runtime declarations; exact LLVM IR comparison tests protect StyioIR optimizer canonicalization from backend-only drift.
@@ -52,7 +52,7 @@ Related docs:
 23. Dynamic-slot stores must fail closed on mismatched LLVM value families. Do not replace invalid integer, floating, or pointer fields with zero/null sentinels unless the IR node explicitly represents an undefined value.
 24. Internal IR operator dispatch must fail closed. Unknown binary or logical operators are typed diagnostics, not zero/left-operand fallbacks, and each new operator family needs a focused security/codegen regression before it can reach LLVM emission.
 25. Runtime helpers may include public service configuration headers from `src/StyioServices/StyioConfig/`, but service-layer moves must not change the emitted helper ABI, exported `styio_*` symbol set, or ORC registration requirements.
-26. Native `@extern` codegen must keep JIT and `styio build` artifacts equivalent. Inline bodies and referenced C/C++ source files both flow through `StyioNative::source_text_for_block(...)`; artifact builds must compile those units into objects and link them into the final executable so exported symbols are available without relying on process-local JIT state. When `SGExternBlock` carries explicit binding symbols from `# name[, other] := @ extern(...) { ... }`, codegen must pass that block-local symbol list instead of the legacy module-wide `@export` list.
+26. Native `@extern` codegen must keep JIT and `styio build` artifacts equivalent. Inline bodies and referenced C/C++ source files both flow through `StyioNative::source_text_for_block(...)`; artifact builds must compile those units into objects and link them into the final executable so exported symbols are available without relying on process-local JIT state. JIT shared-object compilation, artifact object compilation, compile-plan frontend self-calls, and final native executable links must build argv and run through the exec-based native command runner; command strings are diagnostics-only display text, not shell input. When `SGExternBlock` carries explicit binding symbols from `# name[, other] := @ extern(...) { ... }`, codegen must pass that block-local symbol list instead of the legacy module-wide `@export` list.
 27. Codegen must treat the independent StyioIR verifier as its input gate. `SGMainEntry`, `SGEntry`, and `SGBlock` emission must require verified active IR before LLVM builder work begins; optimization remains a separate lowering-side pass, and codegen must not reinterpret inactive, tombstone, or placeholder IR nodes as executable defaults.
 27. Scalar type lowering must keep AST, Sema, IR, and LLVM type widths consistent. `char` is an 8-bit scalar through `CharAST`, `SGConstChar`, `SGType(char)`, list helpers, bounded-ring storage, and LLVM `i8`; print/output paths should route scalar chars through `styio_char_cstr` instead of integer formatting. Do not widen or default it to `i64` without a language-level scalar-width decision.
 28. `SGCast` must emit real LLVM scalar conversions for compiler-owned numeric promotions. It must not return placeholder zero/default values, `bool -> int` must widen as `0` or `1`, and unsupported cast families must fail closed.
@@ -76,6 +76,7 @@ Minimum local commands:
 ```bash
 python3 scripts/runtime-surface-gate.py
 python3 scripts/tool-skill-registry-gate.py
+ctest --test-dir build/default -R '^runtime_surface_gate$' --output-on-failure
 ctest --test-dir build/default -L styio_pipeline
 ctest --test-dir build/default -L security
 ctest --test-dir build/default -L language_feature

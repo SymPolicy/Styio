@@ -255,7 +255,7 @@ lower_func_body(AstToStyioIRLowerer* an, StyioAST* body, bool implicit_tail_valu
     for (auto* following : blk->followings) {
       stmts.push_back(following->toStyioIR(an));
     }
-    return static_cast<SGBlock*>(styio::lowering::optimize_styio_ir(SGBlock::Create(std::move(stmts))));
+    return static_cast<SGBlock*>(styio::lowering::require_default_styio_ir_pass_pipeline(SGBlock::Create(std::move(stmts))));
   }
   std::vector<StyioIR*> one;
   one.push_back(implicit_tail_value ? lower_tail_stmt(an, body) : body->toStyioIR(an));
@@ -1960,7 +1960,7 @@ lower_resource_method_value_body_latest(AstToStyioIRLowerer* an, StyioAST* body)
     throw;
   }
   restore_local_types();
-  return styio::lowering::optimize_styio_ir(SGBlock::Create(std::move(stmts)));
+  return styio::lowering::require_default_styio_ir_pass_pipeline(SGBlock::Create(std::move(stmts)));
 }
 
 struct PulseScratch
@@ -4234,7 +4234,7 @@ AstToStyioIRLowerer::toStyioIR(BlockAST* ast) {
   for (auto* following : ast->followings) {
     ir_stmts.push_back(following->toStyioIR(this));
   }
-  return styio::lowering::optimize_styio_ir(SGBlock::Create(std::move(ir_stmts)));
+  return styio::lowering::require_default_styio_ir_pass_pipeline(SGBlock::Create(std::move(ir_stmts)));
 }
 
 StyioIR*
@@ -4288,5 +4288,5 @@ AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
   }
   set_post_pulse_hist_context(-1, nullptr);
 
-  return styio::lowering::optimize_styio_ir(SGMainEntry::Create(std::move(ir_stmts)));
+  return styio::lowering::require_default_styio_ir_pass_pipeline(SGMainEntry::Create(std::move(ir_stmts)));
 }

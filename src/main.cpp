@@ -35,7 +35,9 @@
 
 // [Styio]
 #include "StyioAST/AST.hpp"
+#include "StyioCodeGen/LLVMEmission.hpp"
 #include "StyioLowering/AstToStyioIRLowerer.hpp"
+#include "StyioLowering/AstToStyioIRStage.hpp"
 #include "StyioCodeGen/CodeGenVisitor.hpp" /* StyioToLLVMIR Code Generator */
 #include "StyioException/Exception.hpp"
 #include "StyioExtern/ExternLib.hpp"
@@ -50,6 +52,7 @@
 #include "StyioServices/StyioConfig/CompilePlanContract.hpp"
 #include "StyioServices/StyioConfig/NanoProfile.hpp"
 #include "StyioServices/StyioConfig/SourceBuildInfo.hpp"
+#include "StyioSema/SemanticAnalysis.hpp"
 #include "StyioRuntime/HandleTable.hpp"
 #include "StyioSession/CompilationSession.hpp"
 #include "StyioToString/ToStringVisitor.hpp" /* StyioRepr */
@@ -1192,6 +1195,13 @@ styio_make_file_executable_latest(const std::filesystem::path& path) {
 }
 
 static bool
+styio_run_process_latest(
+  const std::vector<std::string>& argv,
+  const std::string& purpose,
+  std::string& error_message
+);
+
+static bool
 styio_copy_file_with_exec_latest(
   const std::filesystem::path& source_path,
   const std::filesystem::path& dest_path,
@@ -1233,11 +1243,12 @@ styio_fetch_ref_to_file_latest(
   if (styio_ref_is_http_url_latest(ref)) {
     std::error_code ec;
     std::filesystem::create_directories(dest_path.parent_path(), ec);
-    const std::string cmd = "curl -fsSL " + styio_shell_quote_latest(ref)
-                            + " -o " + styio_shell_quote_latest(dest_path.string());
-    const int status = std::system(cmd.c_str());
-    if (status != 0) {
-      error_message = "failed to download artifact via curl: " + ref;
+    std::string process_error;
+    if (!styio_run_process_latest(
+          {"curl", "-fsSL", ref, "-o", dest_path.string()},
+          "failed to download artifact via curl: " + ref,
+          process_error)) {
+      error_message = process_error;
       return false;
     }
     if (make_executable) {
@@ -1635,38 +1646,76 @@ styio_read_text_file_latest(
   return true;
 }
 
-static bool
-styio_run_shell_command_latest(
-  const std::string& command,
-  const std::string& purpose,
-  std::string& error_message
-) {
-  const int status = std::system(command.c_str());
-  if (status != 0) {
-    error_message = purpose + " failed";
-    return false;
+static std::filesystem::path
+styio_process_log_path_latest(const std::string& purpose) {
+  std::string safe_name;
+  safe_name.reserve(purpose.size());
+  for (char ch : purpose) {
+    safe_name.push_back(
+      std::isalnum(static_cast<unsigned char>(ch)) ? ch : '-');
   }
-  return true;
+  if (safe_name.empty()) {
+    safe_name = "process";
+  }
+  return std::filesystem::temp_directory_path()
+    / ("styio-" + safe_name + "-" + styio_now_token_latest() + ".log");
 }
 
 static bool
-styio_read_first_command_token_latest(
-  const std::string& command,
+styio_run_process_latest(
+  const std::vector<std::string>& argv,
+  const std::string& purpose,
+  std::string& error_message
+) {
+  const std::filesystem::path log_path = styio_process_log_path_latest(purpose);
+  const auto result = styio::native::run_native_command_to_log(argv, log_path, true);
+  if (result.ok()) {
+    std::error_code cleanup_ec;
+    std::filesystem::remove(log_path, cleanup_ec);
+    return true;
+  }
+
+  std::string log_text;
+  std::string log_error;
+  (void)styio_read_text_file_latest(log_path, log_text, log_error);
+  std::error_code cleanup_ec;
+  std::filesystem::remove(log_path, cleanup_ec);
+
+  error_message = purpose + " failed";
+  if (!argv.empty()) {
+    error_message += " with command `" + styio::native::native_command_display(argv) + "`";
+  }
+  if (!result.launch_error.empty()) {
+    error_message += "\n" + result.launch_error;
+  }
+  if (!log_text.empty()) {
+    error_message += "\n" + log_text;
+  }
+  return false;
+}
+
+static bool
+styio_read_first_process_token_latest(
+  const std::vector<std::string>& argv,
   std::string& out_token
 ) {
-  FILE* pipe = popen(command.c_str(), "r");
-  if (pipe == nullptr) {
+  const std::filesystem::path stdout_path = styio_process_log_path_latest("stdout");
+  const std::filesystem::path stderr_path = styio_process_log_path_latest("stderr");
+  const auto result = styio::native::run_native_command_to_logs(argv, stdout_path, stderr_path);
+  if (!result.ok()) {
+    std::error_code cleanup_ec;
+    std::filesystem::remove(stdout_path, cleanup_ec);
+    std::filesystem::remove(stderr_path, cleanup_ec);
     return false;
   }
 
   std::string output;
-  char buffer[4096];
-  while (fgets(buffer, static_cast<int>(sizeof(buffer)), pipe) != nullptr) {
-    output += buffer;
-  }
-
-  const int status = pclose(pipe);
-  if (status != 0) {
+  std::string error;
+  const bool read_ok = styio_read_text_file_latest(stdout_path, output, error);
+  std::error_code cleanup_ec;
+  std::filesystem::remove(stdout_path, cleanup_ec);
+  std::filesystem::remove(stderr_path, cleanup_ec);
+  if (!read_ok) {
     return false;
   }
 
@@ -1681,11 +1730,10 @@ styio_compute_file_sha256_latest(
   std::string& out_sha256,
   std::string& error_message
 ) {
-  const std::string quoted_path = styio_shell_quote_latest(path.string());
-  if (styio_read_first_command_token_latest("shasum -a 256 " + quoted_path + " 2>/dev/null", out_sha256)) {
+  if (styio_read_first_process_token_latest({"shasum", "-a", "256", path.string()}, out_sha256)) {
     return true;
   }
-  if (styio_read_first_command_token_latest("sha256sum " + quoted_path + " 2>/dev/null", out_sha256)) {
+  if (styio_read_first_process_token_latest({"sha256sum", path.string()}, out_sha256)) {
     return true;
   }
   error_message = "failed to compute sha256 for: " + path.string();
@@ -1978,14 +2026,18 @@ styio_nano_source_roots_latest(bool include_pipeline_check) {
     "src/StyioToString/ToString.cpp",
     "src/StyioIR/Verifier.cpp",
     "src/StyioSema/TypeInfer.cpp",
+    "src/StyioSema/SemanticAnalysis.cpp",
     "src/StyioLowering/AstToStyioIR.cpp",
+    "src/StyioLowering/AstToStyioIRStage.cpp",
     "src/StyioLowering/StyioIROptimizer.cpp",
     "src/StyioCodeGen/GetTypeG.cpp",
     "src/StyioCodeGen/CodeGenG.cpp",
+    "src/StyioCodeGen/LLVMEmission.cpp",
     "src/StyioCodeGen/CodeGenPulse.cpp",
     "src/StyioCodeGen/GetTypeIO.cpp",
     "src/StyioCodeGen/CodeGenIO.cpp",
     "src/StyioExtern/ExternLib.cpp",
+    "src/StyioRuntime/RuntimeState.cpp",
   };
   if (include_pipeline_check) {
     sources.push_back("src/StyioTesting/PipelineCheck.cpp");
@@ -2145,12 +2197,17 @@ styio_generate_profile_cmake_latest(
     error_message = "styio-nano profile generator not found: " + script_path.string();
     return false;
   }
-  const std::string command =
-    "python3 "
-    + styio_shell_quote_latest(script_path.string())
-    + " --input " + styio_shell_quote_latest(input_profile.string())
-    + " --cmake-out " + styio_shell_quote_latest(output_profile_cmake.string());
-  return styio_run_shell_command_latest(command, "styio-nano profile generation", error_message);
+  return styio_run_process_latest(
+    {
+      "python3",
+      script_path.string(),
+      "--input",
+      input_profile.string(),
+      "--cmake-out",
+      output_profile_cmake.string(),
+    },
+    "styio-nano profile generation",
+    error_message);
 }
 
 static bool
@@ -2260,33 +2317,40 @@ styio_build_nano_package_latest(
   std::string& error_message
 ) {
   const std::filesystem::path build_dir = output_dir / ".nano-build";
-  std::string compiler_args;
+  std::vector<std::string> configure_argv = {
+    "cmake",
+    "-S",
+    output_dir.string(),
+    "-B",
+    build_dir.string(),
+  };
   if (const char* cc = std::getenv("CC"); cc == nullptr || cc[0] == '\0') {
     if (std::string(STYIO_CMAKE_C_COMPILER).empty() == false) {
-      compiler_args += " -DCMAKE_C_COMPILER="
-        + styio_shell_quote_latest(STYIO_CMAKE_C_COMPILER);
+      configure_argv.push_back("-DCMAKE_C_COMPILER=" + std::string(STYIO_CMAKE_C_COMPILER));
     }
   }
   if (const char* cxx = std::getenv("CXX"); cxx == nullptr || cxx[0] == '\0') {
     if (std::string(STYIO_CMAKE_CXX_COMPILER).empty() == false) {
-      compiler_args += " -DCMAKE_CXX_COMPILER="
-        + styio_shell_quote_latest(STYIO_CMAKE_CXX_COMPILER);
+      configure_argv.push_back("-DCMAKE_CXX_COMPILER=" + std::string(STYIO_CMAKE_CXX_COMPILER));
     }
   }
-  const std::string configure_cmd =
-    "cmake -S " + styio_shell_quote_latest(output_dir.string())
-    + " -B " + styio_shell_quote_latest(build_dir.string())
-    + compiler_args;
-  if (!styio_run_shell_command_latest(configure_cmd, "styio-nano package configure", error_message)) {
+  if (!styio_run_process_latest(configure_argv, "styio-nano package configure", error_message)) {
     return false;
   }
 
   const std::string build_jobs = styio_nano_build_jobs_latest();
-  const std::string build_cmd =
-    "cmake --build " + styio_shell_quote_latest(build_dir.string())
-    + " --parallel " + build_jobs
-    + " --target styio_nano";
-  if (!styio_run_shell_command_latest(build_cmd, "styio-nano package build", error_message)) {
+  if (!styio_run_process_latest(
+        {
+          "cmake",
+          "--build",
+          build_dir.string(),
+          "--parallel",
+          build_jobs,
+          "--target",
+          "styio_nano",
+        },
+        "styio-nano package build",
+        error_message)) {
     return false;
   }
 
@@ -2865,10 +2929,10 @@ styio_materialize_cloud_nano_package_latest(
     const std::filesystem::path extract_root =
       std::filesystem::temp_directory_path() / ("styio-nano-extract-" + styio_now_token_latest());
     std::filesystem::create_directories(extract_root, cleanup_ec);
-    const std::string extract_cmd =
-      "tar -xf " + styio_shell_quote_latest(blob_path.string())
-      + " -C " + styio_shell_quote_latest(extract_root.string());
-    if (!styio_run_shell_command_latest(extract_cmd, "styio-nano blob extraction", error_message)) {
+    if (!styio_run_process_latest(
+          {"tar", "-xf", blob_path.string(), "-C", extract_root.string()},
+          "styio-nano blob extraction",
+          error_message)) {
       std::filesystem::remove(blob_path, cleanup_ec);
       std::filesystem::remove_all(extract_root, cleanup_ec);
       return false;
@@ -2997,11 +3061,19 @@ styio_publish_nano_package_latest(
   const std::filesystem::path package_dir = styio_absolute_path_latest(selection.package_dir);
   const std::filesystem::path tar_path =
     std::filesystem::temp_directory_path() / ("styio-nano-publish-" + styio_now_token_latest() + ".tar");
-  const std::string tar_cmd =
-    "tar -cf " + styio_shell_quote_latest(tar_path.string())
-    + " --exclude=.nano-build --exclude=./.nano-build"
-    + " -C " + styio_shell_quote_latest(package_dir.string()) + " .";
-  if (!styio_run_shell_command_latest(tar_cmd, "styio-nano package archive", error_message)) {
+  if (!styio_run_process_latest(
+        {
+          "tar",
+          "-cf",
+          tar_path.string(),
+          "--exclude=.nano-build",
+          "--exclude=./.nano-build",
+          "-C",
+          package_dir.string(),
+          ".",
+        },
+        "styio-nano package archive",
+        error_message)) {
     return false;
   }
 
@@ -4294,18 +4366,15 @@ styio_native_build_compile_extern_units_latest(
     }
 
     const auto compiler = styio::native::resolve_compiler_for_abi(abi);
-    const std::string command =
-      styio_shell_quote_latest(compiler.command)
-      + (abi == "c++" ? " -std=c++20" : " -std=c11")
-      + " -O2 -fPIC -c "
-      + styio_shell_quote_latest(source_path.string())
-      + " -o "
-      + styio_shell_quote_latest(object_path.string())
-      + " > "
-      + styio_shell_quote_latest(log_path.string())
-      + " 2>&1";
-    if (std::system(command.c_str()) != 0) {
+    const auto argv =
+      styio::native::native_object_compile_argv(compiler, abi, source_path, object_path);
+    const std::string command = styio::native::native_command_display(argv);
+    const auto result = styio::native::run_native_command_to_log(argv, log_path, true);
+    if (!result.ok()) {
       error_message = "native @extern artifact compile failed with command `" + command + "`";
+      if (!result.launch_error.empty()) {
+        error_message += "\n" + result.launch_error;
+      }
       std::string log_text;
       std::string log_error;
       (void)styio_read_text_file_latest(log_path, log_text, log_error);
@@ -4328,6 +4397,52 @@ styio_native_build_read_log_latest(const std::filesystem::path& path) {
     return "";
   }
   return text;
+}
+
+static std::vector<std::string>
+styio_native_build_frontend_argv_latest(
+  const std::filesystem::path& self_exe,
+  const std::filesystem::path& plan_path
+) {
+  return {
+    self_exe.string(),
+    "--compile-plan",
+    plan_path.string(),
+  };
+}
+
+static std::vector<std::string>
+styio_native_build_link_argv_latest(
+  const std::string& cxx,
+  const std::filesystem::path& native_ir_path,
+  const std::filesystem::path& wrapper_path,
+  const std::vector<std::filesystem::path>& runtime_srcs,
+  const std::filesystem::path& include_dir,
+  const std::vector<std::filesystem::path>& native_extern_objects,
+  const std::filesystem::path& output_path
+) {
+  std::vector<std::string> argv = {
+    cxx,
+    "-std=c++20",
+    "-O3",
+    "-DNDEBUG",
+    "-Wno-override-module",
+    native_ir_path.string(),
+    wrapper_path.string(),
+  };
+  for (const auto& src : runtime_srcs) {
+    argv.push_back(src.string());
+  }
+  argv.push_back("-I");
+  argv.push_back(include_dir.string());
+  for (const auto& object_path : native_extern_objects) {
+    argv.push_back(object_path.string());
+  }
+  argv.push_back("-o");
+  argv.push_back(output_path.string());
+  argv.push_back("-ldl");
+  argv.push_back("-pthread");
+  return argv;
 }
 
 static int
@@ -4417,13 +4532,16 @@ styio_native_build_cli_latest(int argc, char* argv[]) {
     return static_cast<int>(StyioExitCode::CliError);
   }
 
-  const std::string frontend_cmd =
-    styio_shell_quote_latest(self_exe.string())
-    + " --compile-plan " + styio_shell_quote_latest(plan_path.string())
-    + " > " + styio_shell_quote_latest(frontend_stdout.string())
-    + " 2> " + styio_shell_quote_latest(frontend_stderr.string());
-  if (std::system(frontend_cmd.c_str()) != 0) {
-    std::cerr << "[RuntimeError] styio build frontend compilation failed";
+  const std::vector<std::string> frontend_argv =
+    styio_native_build_frontend_argv_latest(self_exe, plan_path);
+  const auto frontend_result =
+    styio::native::run_native_command_to_logs(frontend_argv, frontend_stdout, frontend_stderr);
+  if (!frontend_result.ok()) {
+    std::cerr << "[RuntimeError] styio build frontend compilation failed with command `"
+              << styio::native::native_command_display(frontend_argv) << "`";
+    if (!frontend_result.launch_error.empty()) {
+      std::cerr << "\n" << frontend_result.launch_error;
+    }
     const std::string stderr_text = styio_native_build_read_log_latest(frontend_stderr);
     const std::string stdout_text = styio_native_build_read_log_latest(frontend_stdout);
     if (!stderr_text.empty()) {
@@ -4465,26 +4583,29 @@ styio_native_build_cli_latest(int argc, char* argv[]) {
     return static_cast<int>(StyioExitCode::RuntimeError);
   }
 
-  const std::filesystem::path runtime_src = source_root / "src" / "StyioExtern" / "ExternLib.cpp";
+  const std::vector<std::filesystem::path> runtime_srcs = {
+    source_root / "src" / "StyioExtern" / "ExternLib.cpp",
+    source_root / "src" / "StyioRuntime" / "RuntimeState.cpp",
+  };
   const std::filesystem::path include_dir = source_root / "src";
   const std::string cxx = styio_native_build_compiler_latest(self_exe);
-  std::string native_cmd =
-    styio_shell_quote_latest(cxx)
-    + " -std=c++20 -O3 -DNDEBUG -Wno-override-module"
-    + " " + styio_shell_quote_latest(native_ir_path.string())
-    + " " + styio_shell_quote_latest(wrapper_path.string())
-    + " " + styio_shell_quote_latest(runtime_src.string())
-    + " -I " + styio_shell_quote_latest(include_dir.string());
-  for (const auto& object_path : native_extern_objects) {
-    native_cmd += " " + styio_shell_quote_latest(object_path.string());
-  }
-  native_cmd +=
-    " -o " + styio_shell_quote_latest(output_path.string())
-    + " -ldl -pthread"
-    + " > " + styio_shell_quote_latest(native_compile_log.string())
-    + " 2>&1";
-  if (std::system(native_cmd.c_str()) != 0) {
-    std::cerr << "[RuntimeError] native executable link failed";
+  const std::vector<std::string> native_argv =
+    styio_native_build_link_argv_latest(
+      cxx,
+      native_ir_path,
+      wrapper_path,
+      runtime_srcs,
+      include_dir,
+      native_extern_objects,
+      output_path);
+  const auto native_result =
+    styio::native::run_native_command_to_log(native_argv, native_compile_log, true);
+  if (!native_result.ok()) {
+    std::cerr << "[RuntimeError] native executable link failed with command `"
+              << styio::native::native_command_display(native_argv) << "`";
+    if (!native_result.launch_error.empty()) {
+      std::cerr << "\n" << native_result.launch_error;
+    }
     const std::string log_text = styio_native_build_read_log_latest(native_compile_log);
     if (!log_text.empty()) {
       std::cerr << "\n" << log_text;
@@ -5535,7 +5656,7 @@ main(
   try {
     {
       auto profile_phase = frontend_profiler.phase("type_infer");
-      analyzer.typeInfer(session.ast());
+      styio::sema::require_semantic_analysis(session.ast(), &analyzer);
     }
     const CompilationPhase previous_phase = session.phase();
     session.mark_type_checked();
@@ -5575,7 +5696,7 @@ main(
     const CompilationPhase previous_phase = session.phase();
     {
       auto profile_phase = frontend_profiler.phase("lower_styio_ir");
-      session.attach_ir(analyzer.toStyioIR(session.ast()));
+      session.attach_ir(styio::lowering::lower_semantic_ast_to_styio_ir(session.ast(), &analyzer));
     }
     emit_compile_plan_session_transition(previous_phase, "attach_ir");
     frontend_profiler.mark_status("frontend_complete");
@@ -5635,7 +5756,7 @@ main(
     {
       auto profile_phase = frontend_profiler.phase("llvm_ir");
       generator = std::make_unique<StyioToLLVM>(std::move(jit));
-      session.ir()->toLLVMIR(generator.get());
+      styio::codegen::emit_llvm_ir(session.ir(), generator.get());
       const CompilationPhase previous_phase = session.phase();
       session.mark_codegen_ready();
       emit_compile_plan_session_transition(previous_phase, "mark_codegen_ready");

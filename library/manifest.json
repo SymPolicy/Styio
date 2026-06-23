@@ -1,0 +1,113 @@
+{
+  "schema": "styio.stdlib_manifest.v1",
+  "package": "std",
+  "version_status": "pre-1",
+  "description": "Repository-local standard-library envelope. Planned modules reserve ownership boundaries only; active modules name existing source and test evidence.",
+  "modules": [
+    {
+      "name": "std.core",
+      "status": "planned",
+      "directory": "library/core",
+      "schema_marker": "STYIO_STDLIB_CORE_V1",
+      "contract": "Core scalar and absence-adjacent helpers once they have named API contracts.",
+      "version_status": "planned",
+      "trim_policy": "Must be trimmable when unused."
+    },
+    {
+      "name": "std.collections",
+      "status": "planned",
+      "directory": "library/collections",
+      "schema_marker": "STYIO_STDLIB_COLLECTIONS_V1",
+      "contract": "List, dict, matrix, and iterator helpers that do not require compiler-intrinsic ownership.",
+      "version_status": "planned",
+      "trim_policy": "Must be trimmable when unused."
+    },
+    {
+      "name": "std.io",
+      "status": "planned",
+      "directory": "library/io",
+      "schema_marker": "STYIO_STDLIB_IO_V1",
+      "contract": "IO helpers above language-core resource identifiers and runtime primitives.",
+      "version_status": "planned",
+      "trim_policy": "Must be trimmable when unused."
+    },
+    {
+      "name": "std.math",
+      "status": "planned",
+      "directory": "library/math",
+      "schema_marker": "STYIO_STDLIB_MATH_V1",
+      "contract": "General numeric helpers after scalar/container typing and diagnostics are stable.",
+      "version_status": "planned",
+      "trim_policy": "Must be trimmable when unused."
+    },
+    {
+      "name": "std.path",
+      "status": "planned",
+      "directory": "library/path",
+      "schema_marker": "STYIO_STDLIB_PATH_V1",
+      "contract": "Path manipulation helpers that remain separate from raw resource topology syntax.",
+      "version_status": "planned",
+      "trim_policy": "Must be trimmable when unused."
+    },
+    {
+      "name": "std.process",
+      "status": "planned",
+      "directory": "library/process",
+      "schema_marker": "STYIO_STDLIB_PROCESS_V1",
+      "contract": "Process helpers after CLI/native trust boundaries and resource effects are specified.",
+      "version_status": "planned",
+      "trim_policy": "Must be trimmable when unused."
+    },
+    {
+      "name": "std.resource",
+      "status": "active",
+      "directory": "library/resource",
+      "source": "src/StyioPrelude/resources.styio",
+      "schema_marker": "STYIO_STDLIB_RESOURCE_V1",
+      "contract": "Compatibility manifest entry for the current standard resource prelude declarations.",
+      "version_status": "compat-prelude",
+      "trim_policy": "May move out of src and become package-managed after compiler import/package handoff exists.",
+      "tests": [
+        "tests/features/file_resources",
+        "tests/features/stdio_input",
+        "tests/features/stdio_output"
+      ]
+    },
+    {
+      "name": "std.stream",
+      "status": "planned",
+      "directory": "library/stream",
+      "schema_marker": "STYIO_STDLIB_STREAM_V1",
+      "contract": "Stream helpers after IM-D5 route, zip, backpressure, and task semantics are stable.",
+      "version_status": "planned",
+      "trim_policy": "Must be trimmable when unused."
+    },
+    {
+      "name": "std.test",
+      "status": "planned",
+      "directory": "library/test",
+      "schema_marker": "STYIO_STDLIB_TEST_V1",
+      "contract": "Test helper API after source-level test runner behavior is specified.",
+      "version_status": "planned",
+      "trim_policy": "Must be trimmable when unused."
+    },
+    {
+      "name": "std.text",
+      "status": "planned",
+      "directory": "library/text",
+      "schema_marker": "STYIO_STDLIB_TEXT_V1",
+      "contract": "Text/string helpers above compiler-owned string literals and format strings.",
+      "version_status": "planned",
+      "trim_policy": "Must be trimmable when unused."
+    },
+    {
+      "name": "std.time",
+      "status": "planned",
+      "directory": "library/time",
+      "schema_marker": "STYIO_STDLIB_TIME_V1",
+      "contract": "Time and duration helpers after runtime clock/error contracts are specified.",
+      "version_status": "planned",
+      "trim_policy": "Must be trimmable when unused."
+    }
+  ]
+}

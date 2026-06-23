@@ -112,3 +112,21 @@ install(
     PATTERN "*.out"
     PATTERN "README.md"
 )
+
+install(
+  DIRECTORY "${CMAKE_SOURCE_DIR}/library/"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/styio/library"
+  COMPONENT Runtime
+  FILES_MATCHING
+    PATTERN "*.json"
+    PATTERN "*.md"
+    PATTERN "*.styio"
+)
+
+install(
+  DIRECTORY "${CMAKE_SOURCE_DIR}/src/StyioPrelude/"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/styio/src/StyioPrelude"
+  COMPONENT Runtime
+  FILES_MATCHING
+    PATTERN "*.styio"
+)

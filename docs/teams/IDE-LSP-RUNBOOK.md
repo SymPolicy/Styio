@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of `styio_ide_core`, `styio_lspd`, IDE-facing C++ APIs, VFS snapshots, syntax/HIR/SemDB services, and LSP protocol behavior.
 
-**Last updated:** 2026-06-05
+**Last updated:** 2026-06-21
 
 ## Mission
 
@@ -38,7 +38,7 @@ Build and test targets:
 11. Mirror lexer token additions in the editor syntax snapshot layer so highlighting, grouping, and completion contexts do not drift from compiler tokenization.
 12. When async, continuation, or task syntax adds tokens such as `?|` or `||>`, update `src/StyioServices/StyioIDE/Syntax.cpp` in the same change so editor highlighting and diagnostics recognize the new token boundary, then prove accepted grammar through the compiler parser path.
 13. When testing `VFS` close/drop-open-file behavior, put expected closed-file contents on disk before closing the in-memory document; closed snapshots intentionally reload from disk instead of retaining stale open-buffer query state.
-14. Keep compiler bridge code pointed at `AstToStyioIRLowerer` for semantic truth; do not rebuild a separate IDE analyzer. The historical `StyioAnalyzer` compatibility alias has been removed.
+14. Keep compiler bridge code pointed at the shared compiler stage entry `styio::sema::require_semantic_analysis(...)` with `AstToStyioIRLowerer` as the semantic context; do not call AST visitor hooks directly from IDE orchestration and do not rebuild a separate IDE analyzer. The historical `StyioAnalyzer` compatibility alias has been removed.
 15. Treat `StyioSyntaxDrift.CorpusMatchesApprovedEnvelope` as an approved-drift ledger, not a permanent suppression list. If compiler strict parsing accepts a corpus case and the compiler outline matches the editor syntax outline, remove the approved exception; if strict parsing rejects malformed source, the exception must say the editor snapshot is non-authoritative.
 16. `analyze_document` must not use recovery parsing to publish later semantic facts from malformed source. Syntax-validity consumers should use `styio check --syntax --json --file`, not IDE token/CST snapshots.
 17. IDE and LSP diagnostics must preserve shared Styio diagnostic identity: compiler facts carry compiler/service codes, editor-only facts use `styio-editor` service codes, and LSP publishes `Diagnostic.code` plus `data.phase`.

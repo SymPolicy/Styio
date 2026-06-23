@@ -59,6 +59,8 @@ inline constexpr std::string_view kTypeIterationUnsupportedSource =
 inline constexpr std::string_view kTypeStdinUnsupportedTarget =
   "STYIO_TYPE_STDIN_UNSUPPORTED_TARGET";
 inline constexpr std::string_view kLowerUnsupportedAst = "STYIO_LOWER_UNSUPPORTED_AST";
+inline constexpr std::string_view kIrVerifyContract = "STYIO_IR_VERIFY_CONTRACT";
+inline constexpr std::string_view kIrVerifyInactiveNode = "STYIO_IR_VERIFY_INACTIVE_NODE";
 inline constexpr std::string_view kCodegenError = "STYIO_CODEGEN_ERROR";
 inline constexpr std::string_view kRuntimeError = "STYIO_RUNTIME_ERROR";
 inline constexpr std::string_view kNativeUnsupportedAbi = "STYIO_NATIVE_UNSUPPORTED_ABI";
@@ -217,6 +219,15 @@ classify_type_or_lowering_code(std::string_view message) {
       || contains(message, "unsupported AST")
       || contains(message, "unsupported node")) {
     return std::string(kLowerUnsupportedAst);
+  }
+  if (contains(message, "StyioIR verifier failed")
+      || contains(message, "missing StyioIR root")
+      || contains(message, "missing required StyioIR child")
+      || contains(message, "inactive StyioIR node reached codegen boundary")) {
+    if (contains(message, "inactive StyioIR node reached codegen boundary")) {
+      return std::string(kIrVerifyInactiveNode);
+    }
+    return std::string(kIrVerifyContract);
   }
   if (contains(message, "compound assignment requires a mutable binding")
       || contains(message, "immutable binding cannot be reassigned")
