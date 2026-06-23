@@ -8,6 +8,29 @@ add_test(
 set_tests_properties(docs_audit PROPERTIES LABELS "docs")
 
 add_test(
+  NAME stdlib_manifest_gate
+  COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/stdlib-manifest-gate.py"
+          --repo-root "${CMAKE_SOURCE_DIR}"
+          --manifest "${CMAKE_SOURCE_DIR}/library/manifest.json"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(stdlib_manifest_gate PROPERTIES LABELS "docs;stdlib;workflow")
+
+add_test(
+  NAME runtime_surface_gate
+  COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/runtime-surface-gate.py"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(runtime_surface_gate PROPERTIES LABELS "security;safety;runtime_surface;unit")
+
+add_test(
+  NAME architecture_layer_gate
+  COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/architecture-layer-gate.py"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(architecture_layer_gate PROPERTIES LABELS "architecture;workflow;unit")
+
+add_test(
   NAME bootstrap_dev_env_dependency_scope
   COMMAND bash -c "bash -n \"${CMAKE_SOURCE_DIR}/scripts/bootstrap-dev-env.sh\" && \"${CMAKE_SOURCE_DIR}/scripts/bootstrap-dev-env.sh\" --help | grep -q 'installs dependencies only' && \"${CMAKE_SOURCE_DIR}/scripts/bootstrap-dev-env.sh\" --help | grep -q 'does not configure, build, test' && grep -q 'Bootstrap scope:' \"${CMAKE_SOURCE_DIR}/docs/BUILD-AND-DEV-ENV.md\""
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
@@ -565,6 +588,7 @@ styio_apply_llvm_compile_settings(styio_native_interop_internal_test)
 
 add_executable(styio_externlib_internal_test
   externlib_internal_test.cpp
+  "${CMAKE_SOURCE_DIR}/src/StyioRuntime/RuntimeState.cpp"
 )
 target_include_directories(styio_externlib_internal_test PRIVATE
   "${CMAKE_SOURCE_DIR}/src"

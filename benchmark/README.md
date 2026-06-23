@@ -1,15 +1,19 @@
-# `benchmark/` - Styio Probe And Adapter Surface
+# `benchmark/` - Styio Benchmark Boundary
 
 The canonical benchmark repository is `styio-benchmark`.
 
-All performance workloads, benchmark runners, cross-runtime harnesses, native C++
-comparison code, stored reports, baseline documents, and migrated C++ probe
-sources belong there. This directory remains only for interfaces that must live
-next to the Styio build:
+Deep performance workloads, cross-runtime harnesses, native C++ comparison code,
+stored reports, baseline documents, and migrated C++ probe sources belong there.
+This repository still keeps a tiny core corpus so a Styio checkout can always
+produce local, machine-readable performance evidence without an external clone.
 
 - `CMakeLists.txt`
-  - Builds Styio-owned probe binaries from
-    `styio-benchmark/styio-probes/*.cpp`.
+  - Registers the in-repo core benchmark smoke and, when available, builds
+    Styio-owned probe binaries from `styio-benchmark/styio-probes/*.cpp`.
+- `core/manifest.json` and `core/run-core.py`
+  - Minimal reproducible workloads backed by existing algorithm fixtures. These
+    prove executable coverage and timing-schema stability; they are not
+    cross-runtime comparison evidence.
 - `parser-shadow-suite-gate.sh`
   - Parser correctness gate used by Styio CTest feature suites.
 - `perf-route.sh`, `perf-report.py`, and `soak-minimize.sh`
@@ -32,7 +36,10 @@ Equivalent direct form:
 /path/to/styio-benchmark/tools/perf-route.sh --styio-root /path/to/styio --quick
 ```
 
-Do not add new benchmark implementation files under this directory. If a new
-measurement needs Styio internals, put the smallest necessary probe source under
-`styio-benchmark/styio-probes/`, expose only the target or ABI needed by this
-checkout, then keep the workload and runner in `styio-benchmark`.
+Do not add broad benchmark suites under this directory. If a new measurement
+needs Styio internals or cross-runtime comparison, put the smallest necessary
+probe source under `styio-benchmark/styio-probes/`, expose only the target or ABI
+needed by this checkout, then keep the workload and runner in `styio-benchmark`.
+Only add to `benchmark/core/` when the workload is small, deterministic, already
+has behavior coverage in this repository, and is useful as release-conformance
+evidence.

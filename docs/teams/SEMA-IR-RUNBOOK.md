@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of AST lifecycle, semantic analysis, type inference, StyioIR lowering, string representation, and compilation session ownership.
 
-**Last updated:** 2026-05-31
+**Last updated:** 2026-06-21
 
 ## Mission
 
@@ -32,10 +32,10 @@ High-value docs:
 
 1. Start from the language or capability SSOT for the feature.
 2. Identify the AST node, type-inference rule, lowering rule, and IR node together before editing.
-3. Keep `StyioSemaContext` responsible for type inference/state and `AstToStyioIRLowerer` responsible for AST-to-IR conversion. The historical `StyioAnalyzer` compatibility alias has been removed; new code references the canonical class names directly.
+3. Keep product orchestration on the public stage entries: `styio::sema::require_semantic_analysis(...)` for Sema and `styio::lowering::lower_semantic_ast_to_styio_ir(...)` for AST-to-StyioIR lowering. `StyioSemaContext` remains responsible for type inference/state and `AstToStyioIRLowerer` remains responsible for conversion internals. The historical `StyioAnalyzer` compatibility alias has been removed; new code references the canonical class names directly.
 4. Keep ownership/view changes small and covered by safety or security tests.
 5. Update five-layer goldens when AST or StyioIR textual shape intentionally changes.
-6. Coordinate with Codegen / Runtime before changing IR consumed by LLVM emission.
+6. Coordinate with Codegen / Runtime before changing IR consumed by LLVM emission, and keep `architecture_layer_gate` green when touching AST, Sema, lowering, StyioIR, Codegen, runtime, or stage orchestration. The gate fixes the approved entrypoints for `typeInfer`, `toStyioIR`, and `toLLVMIR` / `toLLVMType`, requires product orchestration to use stage APIs instead of direct visitor calls, and rejects backend/runtime includes that reach back into parser, AST, Sema, or lowering implementation headers.
 7. Keep semantic lowering fail-closed: unknown user calls, user-call arity mismatches, unsupported AST nodes, and missing type slots must produce typed diagnostics or covered lowering rules, not `SGConstInt(0)` placeholders.
 8. When adding or repairing AST nodes such as `SizeOf`, prove the full lifecycle: owned child expression, writable inferred type slot, typed inference result, and StyioIR lowering shape.
 9. When parser syntax can represent one-shot continuations before lowering exists, emit explicit semantic errors instead of letting internal resume names leak as unknown user functions.
@@ -62,7 +62,7 @@ High-value docs:
 27. Internal lowering dispatch must reject unknown comparison, list, and logical operator values with `StyioTypeError`. Do not map unknown enum values to equality, constant zero, raw value, or other placeholder IR.
 28. IR and lowering ownership must be exception-safe across optimizer rewrites. When a lowering path creates temporary AST or IR nodes, keep a local owner until the target IR node adopts them; when an optimizer replaces or hoists child IR, either transfer that exact pointer into the new owner or delete the superseded child before overwriting the field. ASan security coverage is required for parser recovery seeds and IR rewrite paths that previously leaked.
 29. Native `@extern` source references are middle-layer metadata, not parsed Styio syntax. Preserve `ExternBlockAST::getSourcePaths()` and explicit binding symbols from `# name[, other] := @ extern(...) { ... }` through `SGExternBlock`, include them in textual reprs for diagnostics/goldens, and let native signature discovery read the referenced C/C++ sources during sema so missing files fail as typed semantic errors rather than parser errors. Bound externs must register only the named symbols and fail if a named native function is not declared by that block.
-30. Every concrete `StyioIR` node must expose `is_active()`. Current canonical IR nodes default to active through `StyioIRTraits`; any future retired, tombstone, compatibility-only, or placeholder IR node must override it to `false`. The independent `StyioIR` verifier owns contract state such as resource/handle capability side tables, runs after lowering and before codegen, and rejects inactive nodes on accepted execution paths.
+30. Every concrete `StyioIR` node must expose `is_active()`. Current canonical IR nodes default to active through `StyioIRTraits`; any future retired, tombstone, compatibility-only, or placeholder IR node must override it to `false`. The independent `StyioIR` verifier owns contract state such as resource/handle capability side tables, runs after lowering and before codegen, and rejects inactive nodes on accepted execution paths. Accepted AST-to-IR entry points must run through `require_default_styio_ir_pass_pipeline(...)` so canonicalization, stable pass naming, opt-level gating, optional before/after dumps, timing metadata, and verifier-before/after checks are not optional; `optimize_styio_ir` remains a compatibility single-canonicalization helper, not the pipeline authority.
 31. Intentional empty statement forms lower to explicit `SGNoOp`, not scalar sentinel values. `CommentAST`, `EmptyAST`, and `PassAST` are no-op statements; expression-like absence such as `NoneAST` must not be silently reclassified as no-op without a separate language decision.
 32. Keep [../rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md](../rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md) aligned with lowering reality. Accepted metadata such as resource preludes or resource method definitions may lower to `SGNoOp`; accepted executable sugar such as function-level match cases needs real StyioIR; unsupported value syntax must fail closed instead of returning `SGConstInt(0)`.
 33. `TypeConvertAST` is accepted only for compiler-owned scalar promotions in this slice. It must carry its source value into `SGCast(value, from_type, to_type)`, remain visible to verifier and optimizer traversal, and stay separate from source-level cast syntax until an explicit language decision accepts that syntax.

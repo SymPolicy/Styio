@@ -9,6 +9,8 @@
 
 #include <cstdint>
 
+#include "StyioRuntime/RuntimeState.hpp"
+
 extern "C" DLLEXPORT int64_t styio_file_open(const char* path);
 extern "C" DLLEXPORT int64_t styio_file_open_auto(const char* path);
 extern "C" DLLEXPORT int64_t styio_file_open_write(const char* path);
@@ -41,7 +43,6 @@ extern "C" DLLEXPORT const char* styio_runtime_last_error();
 extern "C" DLLEXPORT const char* styio_runtime_last_error_subcode();
 extern "C" DLLEXPORT int styio_runtime_error_matches_effect(const char* effect_name);
 extern "C" DLLEXPORT void styio_runtime_clear_error();
-using StyioRuntimeLogSink = void (*)(const char* stream, const char* message);
 extern "C" DLLEXPORT void styio_runtime_set_log_sink(StyioRuntimeLogSink sink);
 
 /* Standard streams: write to stdout / stderr */

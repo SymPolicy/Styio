@@ -30,10 +30,6 @@ thread_local char g_read_line_bufs[2][65536];
 thread_local int g_read_line_buf_which = 0;
 thread_local StyioHandleTable g_handle_table;
 thread_local std::unordered_set<const void*> g_owned_cstr_ptrs;
-thread_local bool g_runtime_error = false;
-thread_local std::string g_runtime_error_message;
-thread_local std::string g_runtime_error_subcode;
-thread_local StyioRuntimeLogSink g_runtime_log_sink = nullptr;
 
 constexpr const char* kRuntimeSubcodeInvalidFileHandle = "STYIO_RUNTIME_INVALID_FILE_HANDLE";
 constexpr const char* kRuntimeSubcodeFilePathNull = "STYIO_RUNTIME_FILE_PATH_NULL";
@@ -53,39 +49,6 @@ constexpr const char* kRuntimeSubcodeMatrixIndex = "STYIO_RUNTIME_MATRIX_INDEX";
 constexpr const char* kRuntimeSubcodeMatrixShape = "STYIO_RUNTIME_MATRIX_SHAPE";
 constexpr const char* kRuntimeSubcodeMatrixElemKind = "STYIO_RUNTIME_MATRIX_ELEM_KIND";
 constexpr const char* kRuntimeSubcodeNumericParse = "STYIO_RUNTIME_NUMERIC_PARSE";
-
-bool
-runtime_subcode_matches_effect_family(const char* subcode, const char* effect_name) {
-  if (subcode == nullptr || effect_name == nullptr) {
-    return false;
-  }
-  if (std::strcmp(effect_name, "io") == 0) {
-    return std::strcmp(subcode, kRuntimeSubcodeFilePathNull) == 0
-           || std::strcmp(subcode, kRuntimeSubcodeFileOpenRead) == 0
-           || std::strcmp(subcode, kRuntimeSubcodeFileOpenWrite) == 0;
-  }
-  if (std::strcmp(effect_name, "parse") == 0) {
-    return std::strcmp(subcode, kRuntimeSubcodeNumericParse) == 0
-           || std::strcmp(subcode, kRuntimeSubcodeListParse) == 0;
-  }
-  if (std::strcmp(effect_name, "bounds") == 0) {
-    return std::strcmp(subcode, kRuntimeSubcodeListIndex) == 0
-           || std::strcmp(subcode, kRuntimeSubcodeDictKey) == 0
-           || std::strcmp(subcode, kRuntimeSubcodeMatrixIndex) == 0;
-  }
-  if (std::strcmp(effect_name, "closed") == 0) {
-    return std::strcmp(subcode, kRuntimeSubcodeInvalidFileHandle) == 0
-           || std::strcmp(subcode, kRuntimeSubcodeInvalidListHandle) == 0
-           || std::strcmp(subcode, kRuntimeSubcodeInvalidDictHandle) == 0
-           || std::strcmp(subcode, kRuntimeSubcodeInvalidMatrixHandle) == 0
-           || std::strcmp(subcode, kRuntimeSubcodeInvalidTaskHandle) == 0
-           || std::strcmp(subcode, kRuntimeSubcodeTaskConsumed) == 0;
-  }
-  if (std::strcmp(effect_name, "cleanup") == 0) {
-    return std::strcmp(subcode, kRuntimeSubcodeFileCleanupFailure) == 0;
-  }
-  return false;
-}
 
 enum class StyioListElemKind : std::uint8_t
 {
@@ -269,13 +232,7 @@ task_scheduler_profile_enabled() {
 
 void
 clear_runtime_error_state() {
-  g_runtime_error = false;
-  if (!g_runtime_error_message.empty()) {
-    g_runtime_error_message.clear();
-  }
-  if (!g_runtime_error_subcode.empty()) {
-    g_runtime_error_subcode.clear();
-  }
+  styio::runtime::clear_error_state();
 }
 
 void
@@ -355,13 +312,14 @@ struct StyioTask
           }
           break;
       }
-      if (g_runtime_error) {
+      const styio::runtime::RuntimeErrorSnapshot runtime_error =
+        styio::runtime::take_error();
+      if (runtime_error.has_error) {
         local_failed = true;
-        local_error = !g_runtime_error_message.empty()
-          ? g_runtime_error_message
+        local_error = !runtime_error.message.empty()
+          ? runtime_error.message
           : std::string("task runtime error");
-        local_subcode = g_runtime_error_subcode;
-        clear_runtime_error_state();
+        local_subcode = runtime_error.subcode;
       }
     }
     catch (const std::exception& ex) {
@@ -680,11 +638,7 @@ resolve_read_path(const char* path) {
 
 void
 set_runtime_error_once(const char* subcode, const std::string& message) {
-  g_runtime_error = true;
-  if (g_runtime_error_message.empty()) {
-    g_runtime_error_message = message;
-    g_runtime_error_subcode = (subcode != nullptr) ? subcode : "";
-  }
+  styio::runtime::set_error_once(subcode, message);
 }
 
 int64_t
@@ -2209,31 +2163,22 @@ styio_char_cstr(int64_t v) {
 
 extern "C" DLLEXPORT int
 styio_runtime_has_error() {
-  return g_runtime_error ? 1 : 0;
+  return styio::runtime::has_error() ? 1 : 0;
 }
 
 extern "C" DLLEXPORT const char*
 styio_runtime_last_error() {
-  if (!g_runtime_error || g_runtime_error_message.empty()) {
-    return nullptr;
-  }
-  return g_runtime_error_message.c_str();
+  return styio::runtime::last_error();
 }
 
 extern "C" DLLEXPORT const char*
 styio_runtime_last_error_subcode() {
-  if (!g_runtime_error || g_runtime_error_subcode.empty()) {
-    return nullptr;
-  }
-  return g_runtime_error_subcode.c_str();
+  return styio::runtime::last_error_subcode();
 }
 
 extern "C" DLLEXPORT int
 styio_runtime_error_matches_effect(const char* effect_name) {
-  if (!g_runtime_error || g_runtime_error_subcode.empty()) {
-    return 0;
-  }
-  return runtime_subcode_matches_effect_family(g_runtime_error_subcode.c_str(), effect_name) ? 1 : 0;
+  return styio::runtime::error_matches_effect(effect_name) ? 1 : 0;
 }
 
 extern "C" DLLEXPORT void
@@ -2243,7 +2188,7 @@ styio_runtime_clear_error() {
 
 extern "C" DLLEXPORT void
 styio_runtime_set_log_sink(StyioRuntimeLogSink sink) {
-  g_runtime_log_sink = sink;
+  styio::runtime::set_log_sink(sink);
 }
 
 /* Standard streams: write a C-string to stdout with trailing newline and immediate flush.
@@ -2253,9 +2198,7 @@ styio_stdout_write_cstr(const char* s) {
   if (s != nullptr) {
     std::fprintf(stdout, "%s\n", s);
     std::fflush(stdout);
-    if (g_runtime_log_sink != nullptr) {
-      g_runtime_log_sink("stdout", s);
-    }
+    styio::runtime::log_to_sink("stdout", s);
   }
 }
 
@@ -2266,9 +2209,7 @@ styio_stderr_write_cstr(const char* s) {
   if (s != nullptr) {
     std::fprintf(stderr, "%s\n", s);
     std::fflush(stderr);
-    if (g_runtime_log_sink != nullptr) {
-      g_runtime_log_sink("stderr", s);
-    }
+    styio::runtime::log_to_sink("stderr", s);
   }
 }
 

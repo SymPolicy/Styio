@@ -50,6 +50,30 @@ TEST(StyioNativeInteropInternal, EscapingAndCacheEnvironmentBranchesStayExplicit
   EXPECT_EQ(shell_quote("a'b"), "'a'\\''b'");
   EXPECT_EQ(c_string_escape(std::string("\\\"\n\r\tplain")), "\\\\\\\"\\n\\r\\tplain");
 
+  const CompilerResolution compiler{"/tmp/compiler dir/cc tool", "test"};
+  const auto shared_argv = native_shared_compile_argv(
+    compiler,
+    "/tmp/source file.c",
+    "/tmp/out;safe.so");
+  ASSERT_EQ(shared_argv.size(), 7u);
+  EXPECT_EQ(shared_argv[0], compiler.command);
+  EXPECT_EQ(shared_argv[1], "-shared");
+  EXPECT_EQ(shared_argv[4], "/tmp/source file.c");
+  EXPECT_EQ(shared_argv[6], "/tmp/out;safe.so");
+  EXPECT_EQ(
+    native_command_display(shared_argv),
+    "'/tmp/compiler dir/cc tool' '-shared' '-fPIC' '-O2' '/tmp/source file.c' '-o' '/tmp/out;safe.so'");
+
+  const auto object_argv = native_object_compile_argv(
+    compiler,
+    " c++ ",
+    "/tmp/source file.cpp",
+    "/tmp/out file.o");
+  ASSERT_EQ(object_argv.size(), 8u);
+  EXPECT_EQ(object_argv[1], "-std=c++20");
+  EXPECT_EQ(object_argv[5], "/tmp/source file.cpp");
+  EXPECT_EQ(object_argv[7], "/tmp/out file.o");
+
   EnvVarGuard cache_guard("STYIO_NATIVE_CACHE");
   EnvVarGuard cache_dir_guard("STYIO_NATIVE_CACHE_DIR");
   EnvVarGuard xdg_guard("XDG_CACHE_HOME");
@@ -353,6 +377,139 @@ TEST(StyioNativeInteropInternal, CacheRacePrefersExistingSharedObjectAfterCompil
   ASSERT_NE(fn, nullptr);
   EXPECT_EQ(fn(), 17);
   EXPECT_TRUE(std::filesystem::exists(cache_path));
+
+  std::error_code cleanup_ec;
+  std::filesystem::remove_all(temp, cleanup_ec);
+}
+
+TEST(StyioNativeInteropInternal, NativeCommandRunnerExecsArgvWithoutShell) {
+  using namespace styio::native;
+
+  const std::filesystem::path temp =
+    std::filesystem::temp_directory_path()
+    / ("styio-native-interop-runner-" + stable_hash_hex(std::to_string(::getpid())));
+  std::filesystem::remove_all(temp);
+  std::filesystem::create_directories(temp);
+
+  const std::filesystem::path marker = temp / "shell_pwned";
+  const std::filesystem::path log_path = temp / "run.log";
+  const std::vector<std::string> argv = {
+    "/bin/true; touch " + marker.string(),
+  };
+
+  const NativeCommandResult result = run_native_command_to_log(argv, log_path, true);
+
+  EXPECT_FALSE(result.ok());
+  EXPECT_FALSE(std::filesystem::exists(marker));
+  std::string log;
+  EXPECT_TRUE(read_text_file(log_path, log));
+  EXPECT_NE(log.find("failed to exec native command"), std::string::npos);
+
+  std::error_code cleanup_ec;
+  std::filesystem::remove_all(temp, cleanup_ec);
+}
+
+TEST(StyioNativeInteropInternal, NativeCommandRunnerCanSplitStdoutAndStderrLogs) {
+  using namespace styio::native;
+
+  const std::filesystem::path temp =
+    std::filesystem::temp_directory_path()
+    / ("styio-native-interop-split-logs-" + stable_hash_hex(std::to_string(::getpid())));
+  std::filesystem::remove_all(temp);
+  std::filesystem::create_directories(temp);
+
+  const std::filesystem::path command = temp / "split-logs";
+  const std::filesystem::path stdout_log = temp / "stdout.log";
+  const std::filesystem::path stderr_log = temp / "stderr.log";
+
+  std::string error;
+  ASSERT_TRUE(write_text_file(
+    command,
+    "#!/bin/sh\n"
+    "printf 'stdout-line\\n'\n"
+    "printf 'stderr-line\\n' >&2\n",
+    error)) << error;
+
+  std::error_code perm_ec;
+  std::filesystem::permissions(
+    command,
+    std::filesystem::perms::owner_exec
+      | std::filesystem::perms::group_exec
+      | std::filesystem::perms::others_exec,
+    std::filesystem::perm_options::add,
+    perm_ec);
+  ASSERT_FALSE(perm_ec) << perm_ec.message();
+
+  const NativeCommandResult result =
+    run_native_command_to_logs({command.string()}, stdout_log, stderr_log);
+
+  ASSERT_TRUE(result.ok()) << result.launch_error;
+  std::string stdout_text;
+  std::string stderr_text;
+  EXPECT_TRUE(read_text_file(stdout_log, stdout_text));
+  EXPECT_TRUE(read_text_file(stderr_log, stderr_text));
+  EXPECT_EQ(stdout_text, "stdout-line\n");
+  EXPECT_EQ(stderr_text, "stderr-line\n");
+
+  std::error_code cleanup_ec;
+  std::filesystem::remove_all(temp, cleanup_ec);
+}
+
+TEST(StyioNativeInteropInternal, CompilerPathWithShellMetacharactersIsExecutedLiterally) {
+  using namespace styio::native;
+
+  const std::filesystem::path temp =
+    std::filesystem::temp_directory_path()
+    / ("styio-native-interop-argv-" + stable_hash_hex(std::to_string(::getpid())));
+  std::filesystem::remove_all(temp);
+  std::filesystem::create_directories(temp);
+
+  const std::filesystem::path fake_cc = temp / "fake cc; touch shell_pwned";
+  const std::filesystem::path marker = temp / "shell_pwned";
+  const std::filesystem::path arg_log = temp / "argv.log";
+
+  std::string error;
+  ASSERT_TRUE(write_text_file(
+    fake_cc,
+    "#!/bin/sh\n"
+    "printf '%s\\n' \"$@\" > \"$STYIO_TEST_NATIVE_ARGV_LOG\"\n"
+    "exec cc \"$@\"\n",
+    error)) << error;
+
+  std::error_code perm_ec;
+  std::filesystem::permissions(
+    fake_cc,
+    std::filesystem::perms::owner_exec
+      | std::filesystem::perms::group_exec
+      | std::filesystem::perms::others_exec,
+    std::filesystem::perm_options::add,
+    perm_ec);
+  ASSERT_FALSE(perm_ec) << perm_ec.message();
+
+  EnvVarGuard cache_guard("STYIO_NATIVE_CACHE");
+  EnvVarGuard cc_guard("STYIO_NATIVE_CC");
+  EnvVarGuard mode_guard("STYIO_NATIVE_TOOLCHAIN_MODE");
+  EnvVarGuard arg_log_guard("STYIO_TEST_NATIVE_ARGV_LOG");
+  cache_guard.set("off");
+  cc_guard.set(fake_cc.string());
+  mode_guard.set("system");
+  arg_log_guard.set(arg_log.string());
+
+  const std::string symbol = "argv_compile_" + stable_hash_hex(temp.string()).substr(0, 8);
+  const std::string body = "int " + symbol + "(void) { return 23; }\n";
+
+  LoadedBlock loaded = compile_and_load_block("c", body, {symbol});
+
+  ASSERT_EQ(loaded.symbols.size(), 1u);
+  auto* fn = reinterpret_cast<int (*)()>(loaded.symbols[0].address);
+  ASSERT_NE(fn, nullptr);
+  EXPECT_EQ(fn(), 23);
+  EXPECT_FALSE(std::filesystem::exists(marker));
+  std::string argv_log_text;
+  EXPECT_TRUE(read_text_file(arg_log, argv_log_text));
+  EXPECT_NE(argv_log_text.find("-shared\n"), std::string::npos);
+  EXPECT_NE(argv_log_text.find("-fPIC\n"), std::string::npos);
+  EXPECT_NE(argv_log_text.find("-o\n"), std::string::npos);
 
   std::error_code cleanup_ec;
   std::filesystem::remove_all(temp, cleanup_ec);

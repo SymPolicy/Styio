@@ -5,14 +5,18 @@
 #include "StyioIROptimizer.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <unordered_set>
 #include <vector>
 
+#include "../StyioException/Exception.hpp"
 #include "../StyioIR/GenIR/GenIR.hpp"
+#include "../StyioToString/ToStringVisitor.hpp"
 
 namespace styio::lowering {
 namespace {
@@ -828,6 +832,150 @@ private:
 };
 
 }  // namespace
+
+#ifndef STYIO_IR_OPTIMIZER_INTERNAL_TEST_INCLUDE
+
+const char*
+pass_name(StyioIRPassManager::PassKind kind) {
+  switch (kind) {
+    case StyioIRPassManager::PassKind::Canonicalization:
+      return "styioir-canonicalization";
+  }
+  return "styioir-unknown";
+}
+
+bool
+append_verifier_diagnostics(
+  const StyioIR* root,
+  std::vector<styio::ir::StyioIRVerifierDiagnostic>& diagnostics
+) {
+  try {
+    styio::ir::StyioIRVerifierResult verifier = styio::ir::verify_styio_ir(root);
+    diagnostics.insert(
+      diagnostics.end(),
+      verifier.diagnostics.begin(),
+      verifier.diagnostics.end());
+    return verifier.ok();
+  }
+  catch (const std::exception& ex) {
+    diagnostics.push_back(styio::ir::StyioIRVerifierDiagnostic{
+      std::string(styio::services::diagnostics::kPhaseIrVerify),
+      std::string(styio::services::diagnostics::kIrVerifyContract),
+      ex.what(),
+    });
+    return false;
+  }
+}
+
+std::string
+render_ir_dump(StyioIR* root) {
+  if (root == nullptr) {
+    return "<null StyioIR>";
+  }
+  StyioRepr repr;
+  return root->toString(&repr);
+}
+
+void
+StyioIRPassManager::add_canonicalization_pass() {
+  passes_.push_back(PassKind::Canonicalization);
+}
+
+StyioIRPassPipelineResult
+StyioIRPassManager::run(
+  StyioIR* root,
+  const StyioIRPassPipelineOptions& options
+) const {
+  StyioIRPassPipelineResult result;
+  result.root = root;
+  if (options.collect_ir_dumps) {
+    result.initial_ir = render_ir_dump(result.root);
+  }
+
+  auto finish = [&]() {
+    if (options.collect_ir_dumps) {
+      result.final_ir = render_ir_dump(result.root);
+    }
+    return result;
+  };
+
+  if (options.verify_before && !append_verifier_diagnostics(result.root, result.diagnostics)) {
+    return finish();
+  }
+
+  for (PassKind pass : passes_) {
+    StyioIRPassRecord record;
+    record.name = pass_name(pass);
+    if (options.collect_ir_dumps) {
+      record.ir_before = render_ir_dump(result.root);
+    }
+
+    if (options.verify_before && !append_verifier_diagnostics(result.root, result.diagnostics)) {
+      record.verifier_before_ok = false;
+      result.passes.push_back(record);
+      return finish();
+    }
+
+    const auto started = std::chrono::steady_clock::now();
+    switch (pass) {
+      case PassKind::Canonicalization: {
+        Optimizer optimizer;
+        result.root = optimizer.optimize(result.root);
+        break;
+      }
+    }
+    const auto ended = std::chrono::steady_clock::now();
+    if (options.collect_timing) {
+      record.duration_ns =
+        static_cast<uint64_t>(
+          std::chrono::duration_cast<std::chrono::nanoseconds>(ended - started).count());
+    }
+    if (options.collect_ir_dumps) {
+      record.ir_after = render_ir_dump(result.root);
+    }
+
+    if (options.verify_after_each_pass
+        && !append_verifier_diagnostics(result.root, result.diagnostics)) {
+      record.verifier_after_ok = false;
+      result.passes.push_back(record);
+      return finish();
+    }
+    result.passes.push_back(record);
+  }
+
+  return finish();
+}
+
+StyioIRPassManager
+default_styio_ir_pass_manager(unsigned opt_level) {
+  StyioIRPassManager manager;
+  if (opt_level > 0) {
+    manager.add_canonicalization_pass();
+  }
+  return manager;
+}
+
+StyioIRPassPipelineResult
+run_default_styio_ir_pass_pipeline(
+  StyioIR* root,
+  const StyioIRPassPipelineOptions& options
+) {
+  return default_styio_ir_pass_manager(options.opt_level).run(root, options);
+}
+
+StyioIR*
+require_default_styio_ir_pass_pipeline(
+  StyioIR* root,
+  const StyioIRPassPipelineOptions& options
+) {
+  StyioIRPassPipelineResult result = run_default_styio_ir_pass_pipeline(root, options);
+  if (result.ok()) {
+    return result.root;
+  }
+  throw StyioTypeError("StyioIR pass pipeline failed: " + result.diagnostics.front().message);
+}
+
+#endif  // STYIO_IR_OPTIMIZER_INTERNAL_TEST_INCLUDE
 
 StyioIR*
 optimize_styio_ir(StyioIR* root) {

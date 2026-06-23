@@ -4115,7 +4115,7 @@ TEST(StyioDiagnosticContract, ClassifiersCoverFallbackAndPhaseFamilies) {
   EXPECT_EQ(diag::to_upper_ascii("styio_native"), "STYIO_NATIVE");
   EXPECT_EQ(diag::diagnostic_phase_for_code("STYIO_LEX_INVALID_TOKEN"), "lex");
   EXPECT_EQ(diag::diagnostic_phase_for_code("STYIO_LOWER_UNSUPPORTED_AST"), "lowering");
-  EXPECT_EQ(diag::diagnostic_phase_for_code("STYIO_IR_VERIFY_INACTIVE"), "ir_verify");
+  EXPECT_EQ(diag::diagnostic_phase_for_code("STYIO_IR_VERIFY_INACTIVE_NODE"), "ir_verify");
   EXPECT_EQ(diag::diagnostic_phase_for_code("STYIO_CODEGEN_ERROR"), "codegen");
   EXPECT_EQ(diag::diagnostic_phase_for_code("STYIO_UNKNOWN"), "service");
 
@@ -4141,6 +4141,14 @@ TEST(StyioDiagnosticContract, ClassifiersCoverFallbackAndPhaseFamilies) {
   EXPECT_EQ(
     diag::classify_type_or_lowering_code("unsupported AST lowering: CasesAST"),
     "STYIO_LOWER_UNSUPPORTED_AST");
+  EXPECT_EQ(
+    diag::classify_type_or_lowering_code(
+      "StyioIR verifier failed: inactive StyioIR node reached codegen boundary"),
+    "STYIO_IR_VERIFY_INACTIVE_NODE");
+  EXPECT_EQ(
+    diag::classify_type_or_lowering_code(
+      "StyioIR verifier failed: missing required StyioIR child: SGReturn.expr"),
+    "STYIO_IR_VERIFY_CONTRACT");
   EXPECT_EQ(
     diag::classify_type_or_lowering_code("native subsystem returned an unknown failure"),
     "STYIO_NATIVE_INTEROP_ERROR");
@@ -4267,8 +4275,8 @@ TEST(StyioIRContract, VerifierRejectsInactiveIR) {
   styio::ir::StyioIRVerifierResult result = styio::ir::verify_styio_ir(&node);
   EXPECT_FALSE(result.ok());
   ASSERT_FALSE(result.diagnostics.empty());
-  EXPECT_EQ(result.diagnostics.front().phase, "styioir");
-  EXPECT_EQ(result.diagnostics.front().code, "STYIO_IR_CONTRACT");
+  EXPECT_EQ(result.diagnostics.front().phase, "ir_verify");
+  EXPECT_EQ(result.diagnostics.front().code, "STYIO_IR_VERIFY_INACTIVE_NODE");
 
   EXPECT_THROW(styio::ir::require_verified_styio_ir(&node), StyioTypeError);
 }
@@ -8663,7 +8671,7 @@ TEST(StyioSecurityNativeToolchain, ParsesNativeSignaturesCommentsAndReferencedSo
   std::filesystem::remove_all(root);
 }
 
-TEST(StyioSecurityNativeToolchain, EnvCompilerCommandIsShellQuoted) {
+TEST(StyioSecurityNativeToolchain, EnvCompilerCommandIsNotInterpretedByShell) {
   EnvSnapshot cc("STYIO_NATIVE_CC");
   EnvSnapshot mode("STYIO_NATIVE_TOOLCHAIN_MODE");
   EnvSnapshot root_env("STYIO_NATIVE_TOOLCHAIN_ROOT");

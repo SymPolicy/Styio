@@ -2,7 +2,7 @@
 
 **Purpose:** Record the accepted native interop ABI decisions for IM-D7 so `@ extern(c|c++)` is governed by a stable source, signature, symbol, and function-pointer contract.
 
-**Last updated:** 2026-05-31
+**Last updated:** 2026-06-21
 
 ## Scope
 
@@ -38,7 +38,7 @@ The preferred authoring surface is explicit binding syntax:
 
 Compatibility coverage still exists for legacy parser forms, but new feature fixtures, artifact tests, and examples use `# name[, other] := @ extern(...) { ... }`.
 
-The current compiler already treats inline bodies and referenced source files as native source material, compiles them through a host compiler, loads a native artifact, resolves exported symbols, and registers callable addresses with the JIT/runtime.
+The current compiler already treats inline bodies and referenced source files as native source material, compiles them through a host compiler, loads a native artifact, resolves exported symbols, and registers callable addresses with the JIT/runtime. Native compile, frontend self-call, and artifact link routes pass process arguments through argv/exec helpers; shell-quoted command text is retained only for human-readable diagnostics.
 
 ## Accepted Native Model
 
@@ -173,6 +173,7 @@ Native interop diagnostics and artifacts should record enough evidence to reprod
 
 - normalized ABI: `c` or `c++`,
 - compiler command and source of compiler resolution,
+- compiler argv used for execution and diagnostics-only command display,
 - compile flags owned by Styio,
 - source text or source hash,
 - referenced source paths,

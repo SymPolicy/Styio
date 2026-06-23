@@ -46,7 +46,52 @@ std::string take_owned_cstr(const char* raw) {
   return out;
 }
 
+std::vector<std::string> g_runtime_log_events;
+
+void test_runtime_log_sink(const char* stream, const char* message) {
+  g_runtime_log_events.push_back(
+    std::string(stream != nullptr ? stream : "<null>")
+    + "="
+    + std::string(message != nullptr ? message : "<null>"));
+}
+
 }  // namespace
+
+TEST(StyioExternLibInternal, RuntimeStateSubsystemOwnsErrorsAndLogSink) {
+  styio::runtime::clear_error_state();
+  EXPECT_FALSE(styio::runtime::has_error());
+
+  styio::runtime::set_error_once("STYIO_RUNTIME_NUMERIC_PARSE", "first");
+  styio::runtime::set_error_once("STYIO_RUNTIME_FILE_OPEN_READ", "second");
+  EXPECT_TRUE(styio::runtime::has_error());
+  EXPECT_STREQ(styio::runtime::last_error(), "first");
+  EXPECT_STREQ(styio::runtime::last_error_subcode(), "STYIO_RUNTIME_NUMERIC_PARSE");
+  EXPECT_TRUE(styio::runtime::error_matches_effect("parse"));
+  EXPECT_FALSE(styio::runtime::error_matches_effect("io"));
+
+  std::thread worker([] {
+    EXPECT_FALSE(styio::runtime::has_error());
+    styio::runtime::set_error_once("STYIO_RUNTIME_FILE_OPEN_READ", "worker");
+    EXPECT_TRUE(styio::runtime::error_matches_effect("io"));
+    styio::runtime::clear_error_state();
+  });
+  worker.join();
+
+  const styio::runtime::RuntimeErrorSnapshot snapshot =
+    styio::runtime::take_error();
+  EXPECT_TRUE(snapshot.has_error);
+  EXPECT_EQ(snapshot.message, "first");
+  EXPECT_EQ(snapshot.subcode, "STYIO_RUNTIME_NUMERIC_PARSE");
+  EXPECT_FALSE(styio::runtime::has_error());
+
+  g_runtime_log_events.clear();
+  styio::runtime::set_log_sink(test_runtime_log_sink);
+  styio::runtime::log_to_sink("stdout", "hello");
+  styio::runtime::set_log_sink(nullptr);
+  styio::runtime::log_to_sink("stderr", "ignored");
+  ASSERT_EQ(g_runtime_log_events.size(), 1u);
+  EXPECT_EQ(g_runtime_log_events[0], "stdout=hello");
+}
 
 TEST(StyioExternLibInternal, DictTemplateHelpersCoverNullLinearAndInvalidBackends) {
   rebuild_dict_index(static_cast<StyioDictI64*>(nullptr));

@@ -11,6 +11,7 @@
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
 #include "StyioServices/DiagnosticContract.hpp"
+#include "StyioSema/SemanticAnalysis.hpp"
 
 namespace styio::ide {
 
@@ -357,7 +358,7 @@ analyze_document(const std::string& path, const std::string& text) {
     AstToStyioIRLowerer analyzer;
     if (ast != nullptr) {
       try {
-        ast->typeInfer(&analyzer);
+        styio::sema::require_semantic_analysis(ast, &analyzer);
       } catch (const StyioBaseException& ex) {
         summary.diagnostics.push_back(Diagnostic{
           TextRange{0, text.size()},

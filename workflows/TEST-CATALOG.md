@@ -2,7 +2,7 @@
 
 **Purpose:** Define the feature-based Styio test inventory, CTest labels, fixture layout, and gate commands for language acceptance coverage.
 
-**Last updated:** 2026-06-05
+**Last updated:** 2026-06-21
 
 ---
 
@@ -66,6 +66,11 @@ ctest --test-dir build/default -L scalar_expressions --output-on-failure
 | `parser_shadow_gate_stream_processing_zero_fallback` | Keep stream-processing fixtures matched with zero legacy fallback. | `ctest --test-dir build/default -R '^parser_shadow_gate_stream_processing_zero_fallback$' --output-on-failure` |
 | `parser_shadow_gate_stream_processing_zero_internal_bridges` | Keep stream-processing fixtures matched with zero internal legacy bridges. | `ctest --test-dir build/default -R '^parser_shadow_gate_stream_processing_zero_internal_bridges$' --output-on-failure` |
 | `parser_legacy_entry_audit` | Reject new parser legacy-entry regressions. | `ctest --test-dir build/default -R '^parser_legacy_entry_audit$' --output-on-failure` |
+| `architecture_layer_gate` | Keep product orchestration on the approved Sema, lowering, and LLVM emission stage APIs while keeping internal AST type inference, AST-to-StyioIR lowering, StyioIR-to-LLVM codegen, and runtime/backend include dependencies inside layer boundaries. | `ctest --test-dir build/default -R '^architecture_layer_gate$' --output-on-failure` |
+| `StyioIRContract` verifier diagnostic baseline | Prove StyioIR verifier failures use the public `ir_verify` phase and `STYIO_IR_VERIFY_*` code families, including inactive-node and pass-manager contract failures. | `ctest --test-dir build -R '^(StyioDiagnosticContract\.ClassifiersCoverFallbackAndPhaseFamilies\|StyioIRContract\.VerifierRejectsInactiveIR\|StyioLoweringInternal\.PassManagerRunsCanonicalizationAndVerifierStages)$' --output-on-failure` |
+| `runtime_surface_gate` | Lock the exported runtime helper surface across `ExternLib.hpp/.cpp`, ORC registrations, and codegen-emitted `styio_*` helper references. | `ctest --test-dir build/default -R '^runtime_surface_gate$' --output-on-failure` |
+| `stdlib_manifest_gate` | Validate the first-class `library/manifest.json` standard-library envelope, including module uniqueness, reserved directories, schema markers, and active prelude source/test evidence. | `ctest --test-dir build/default -R '^stdlib_manifest_gate$' --output-on-failure` |
+| `styio_core_benchmark_smoke` | Prove the in-repo core performance corpus executes through `styio`, writes `styio.core_benchmark_result.v1` JSON, and keeps timing-schema evidence available without the external benchmark checkout. | `ctest --test-dir build/default -R '^styio_core_benchmark_smoke$' --output-on-failure` |
 | `coverage-gate` | Build with LLVM source coverage, run the core coverage label set, and fail below 95% project source line coverage. | `scripts/coverage-gate.sh --build-dir build/coverage --threshold 95` |
 | `StyioSecurity` source-coverage sentinels | Keep high-gap internal code paths exercised while broader feature coverage catches up: pulse-plan codegen, direct IR type mapping, rare AST/IR text forms, token/string representation switches, runtime matrix/list/dict/task APIs, and stable runtime error-family classification. | `ctest --test-dir build/default -R '^(StyioSecurityNightlyCodegen\.(PulsePlanCodegenCoversStateSlotsAndSeriesIntrinsics\|GetTypeCoversScalarCollectionIoAndTaskNodes)\|StyioSecurityRepr\.RareAstAndIrNodesHaveStableTextForm\|StyioSecurityTokenRepr\.StableNamesCoverAstDataTypeOperatorAndTokenSwitches\|StyioSafetyRuntime\.(MatrixApiCoversI64F64OperationsAndStableErrors\|DictApiCoversBackendsFamiliesClonesAndViews\|TaskApiCoversReadySpawnPullProfilesAndInvalidHandles))$' --output-on-failure` |
 | `StyioDiagnostics.CompoundAssignOnImmutableBindingReportsSemaCode` | Prove compound assignment to a final binding keeps the TypeError exit family while reporting the narrower `STYIO_SEMA_IMMUTABLE_BINDING` code and public `sema` phase. | `ctest --test-dir build -R '^StyioDiagnostics\.CompoundAssignOnImmutableBindingReportsSemaCode$' --output-on-failure` |

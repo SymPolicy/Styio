@@ -5,14 +5,16 @@
 #include <string>
 #include <vector>
 
+#include "StyioServices/DiagnosticContract.hpp"
+
 class StyioIR;
 
 namespace styio::ir {
 
 struct StyioIRVerifierDiagnostic
 {
-  std::string phase = "styioir";
-  std::string code = "STYIO_IR_CONTRACT";
+  std::string phase = std::string(styio::services::diagnostics::kPhaseIrVerify);
+  std::string code = std::string(styio::services::diagnostics::kIrVerifyContract);
   std::string message;
 };
 

@@ -42,6 +42,14 @@ purpose = "Prepare the standardized local development dependency baseline."
 last_reviewed = "2026-06-19"
 
 [[tool]]
+id = "architecture-layer-gate"
+path = "scripts/architecture-layer-gate.py"
+owner = "Sema / IR"
+kind = "gate"
+purpose = "Validate the approved AST, Sema, StyioIR, CodeGen, and runtime layer boundary entrypoints."
+last_reviewed = "2026-06-21"
+
+[[tool]]
 id = "checkpoint-health"
 path = "scripts/checkpoint-health.sh"
 owner = "Test Quality"
@@ -208,6 +216,14 @@ owner = "Codegen / Runtime"
 kind = "gate"
 purpose = "Keep codegen helper calls, ExternLib exports, implementations, and ORC registrations aligned."
 last_reviewed = "2026-06-19"
+
+[[tool]]
+id = "stdlib-manifest-gate"
+path = "scripts/stdlib-manifest-gate.py"
+owner = "Docs / Ecosystem"
+kind = "gate"
+purpose = "Validate the first-class Styio standard-library manifest, module directories, and active source/test evidence."
+last_reviewed = "2026-06-21"
 
 [[tool]]
 id = "source-build-minimal"
