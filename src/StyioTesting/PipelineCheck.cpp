@@ -123,7 +123,7 @@ std::string
 tokens_to_golden(const std::vector<StyioToken*>& tokens) {
   std::ostringstream out;
   for (auto* tok : tokens) {
-    out << StyioToken::getTokName(tok->type) << '\t' << escape_lexeme(tok->original) << '\n';
+    out << StyioToken::getTokName(tok->type) << '\t' << escape_lexeme(tok->textString()) << '\n';
   }
   return out.str();
 }

@@ -155,7 +155,7 @@ pipeline_tokens_golden_latest(const std::string& source) {
   std::ostringstream out;
   for (auto* tok : tokens) {
     out << StyioToken::getTokName(tok->type) << '\t'
-        << escape_pipeline_lexeme_latest(tok->original) << '\n';
+        << escape_pipeline_lexeme_latest(tok->textString()) << '\n';
     delete tok;
   }
   return out.str();
