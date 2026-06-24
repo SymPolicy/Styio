@@ -175,6 +175,23 @@ MainBlockAST* safe_parse(StyioContext& ctx) {
 
 } // anonymous namespace
 
+namespace {
+
+/// Helper: capture route cache counters from a StyioContext into a BenchmarkSample.
+styio::bench::BenchmarkSample capture_route_cache_sample(
+    const StyioContext& ctx, const std::string& label) {
+  styio::bench::BenchmarkSample s;
+  s.phase = "route_cache";
+  s.label = label;
+  s.route_cache_scan_count = static_cast<int64_t>(ctx.route_scan_count());
+  s.route_cache_hit_count = static_cast<int64_t>(ctx.route_cache_hit_count());
+  s.route_cache_miss_count = static_cast<int64_t>(ctx.route_cache_miss_count());
+  s.route_cache_disabled_count = static_cast<int64_t>(ctx.route_cache_disabled_count());
+  return s;
+}
+
+} // namespace
+
 int main(int argc, char** argv) {
   using namespace styio::bench;
 
@@ -305,6 +322,27 @@ int main(int argc, char** argv) {
       for (int i = 0; i < 1000; ++i) sum += i;
       (void)sum;
     }));
+  }
+
+  // --- 9. Route cache stats (single-run capture, not timed) ---
+  {
+    auto capture_route_cache_for = [&](const std::string& label, const std::string& code) {
+      CompilationSession session;
+      auto tokens = StyioTokenizer::tokenize(code);
+      session.adopt_tokens(std::move(tokens));
+      auto* ctx = make_context("bench.styio", code, session.tokens());
+      session.attach_context(ctx);
+      auto* ast = safe_parse(*ctx);
+      if (ast) session.attach_ast(ast);
+      BenchmarkSample s = capture_route_cache_sample(*ctx, label);
+      result.samples.push_back(std::move(s));
+    };
+
+    capture_route_cache_for("many_stmts_1k", gen_many_bindings(1000));
+    capture_route_cache_for("deep_expr_200", gen_deep_expr(200));
+    capture_route_cache_for("name_resolution_5k", gen_many_names(5000));
+    capture_route_cache_for("typed_bindings_1k", gen_typed_bindings(1000));
+    capture_route_cache_for("resource_dag_200", gen_resource_ops(200));
   }
 
   // --- Output ---

@@ -581,6 +581,7 @@ can_route_hash_let_match_nightly_latest(const StyioContext& context) {
     return false;
   }
 
+  context.note_route_scan();
   return scan_subset_route_tokens_latest(
     context.get_tokens(),
     context.get_token_index(),
@@ -601,7 +602,8 @@ can_route_hash_let_match_nightly_latest(const StyioContext& context) {
              || type == StyioTokenType::TOK_CR
              || is_statement_separator_nightly_latest(type)
              || type == StyioTokenType::TOK_RCURBRAC;
-    }
+    },
+    false
   );
 }
 
@@ -630,6 +632,7 @@ can_route_hash_stmt_nightly_latest(const StyioContext& context) {
     return false;
   }
 
+  context.note_route_scan();
   return scan_subset_route_tokens_latest(
     context.get_tokens(),
     context.get_token_index(),
@@ -650,7 +653,8 @@ can_route_hash_stmt_nightly_latest(const StyioContext& context) {
              || type == StyioTokenType::TOK_CR
              || is_statement_separator_nightly_latest(type)
              || type == StyioTokenType::TOK_RCURBRAC;
-    }
+    },
+    false
   );
 }
 
@@ -666,6 +670,7 @@ stmt_subset_route_supported_latest(const StyioContext& context) {
   if (context.has_route_cache(start, StyioContext::kRouteStmtSubset)) {
     return context.get_route_cache(start, StyioContext::kRouteStmtSubset);
   }
+  context.note_route_cache_miss();
 
   const StyioTokenType start_type = tokens[start]->type;
   if (!styio_parser_stmt_subset_start_nightly(start_type)) {
@@ -673,7 +678,6 @@ stmt_subset_route_supported_latest(const StyioContext& context) {
     return false;
   }
   if (start_type == StyioTokenType::TOK_HASH) {
-    context.inc_route_scan_count();
     bool result = can_route_hash_let_match_nightly_latest(context)
                || can_route_hash_stmt_nightly_latest(context);
     context.set_route_cache(start, StyioContext::kRouteStmtSubset, result);
@@ -681,7 +685,7 @@ stmt_subset_route_supported_latest(const StyioContext& context) {
   }
   const bool allow_single_pipe = start_type == StyioTokenType::AWAIT_PIPE;
 
-  context.inc_route_scan_count();
+  context.note_route_scan();
   bool result = scan_subset_route_tokens_latest(
     tokens,
     start,
@@ -723,6 +727,7 @@ expr_subset_route_supported_until_latest(
     return false;
   }
 
+  context.note_route_scan();
   return scan_subset_route_tokens_latest(
     tokens,
     start,

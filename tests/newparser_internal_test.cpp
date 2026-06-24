@@ -1003,3 +1003,98 @@ TEST(StyioNewParserInternal, RouteDictIteratorAndStatementHelpersStayExplicit) {
     EXPECT_THROW((void)parse_stmt_subset_nightly(direct.get()), StyioSyntaxError);
   }
 }
+
+TEST(StyioNewParserInternal, RouteCacheCountersStayAccurate) {
+  // --- 1. Cache hit on repeated query at same start position ---
+  {
+    DirectContext direct("x := 1");
+    StyioContext& ctx = direct.get();
+    EXPECT_EQ(ctx.route_scan_count(), 0u);
+    EXPECT_EQ(ctx.route_cache_hit_count(), 0u);
+    EXPECT_EQ(ctx.route_cache_miss_count(), 0u);
+
+    // First query: cache miss, triggers scan.
+    EXPECT_TRUE(stmt_subset_route_supported_latest(ctx));
+    EXPECT_GE(ctx.route_scan_count(), 1u);
+    EXPECT_EQ(ctx.route_cache_hit_count(), 0u);
+    EXPECT_EQ(ctx.route_cache_miss_count(), 1u);
+
+    // Second query at same position: cache hit, no new scan.
+    const size_t scans_before = ctx.route_scan_count();
+    EXPECT_TRUE(stmt_subset_route_supported_latest(ctx));
+    EXPECT_EQ(ctx.route_scan_count(), scans_before);
+    EXPECT_GE(ctx.route_cache_hit_count(), 1u);
+    EXPECT_EQ(ctx.route_cache_miss_count(), 1u);
+  }
+
+  // --- 2. Different start positions produce separate cache entries ---
+  {
+    DirectContext direct("x := 1\ny := 2\nz := 3");
+    StyioContext& ctx = direct.get();
+    ctx.clear_route_cache();
+
+    // First stmt at position 0: miss.
+    EXPECT_TRUE(stmt_subset_route_supported_latest(ctx));
+    EXPECT_EQ(ctx.route_cache_miss_count(), 1u);
+
+    // Advance past first stmt.
+    ctx.move_forward(3);  // skip "x", ":=", "1"
+    ctx.skip();
+    EXPECT_TRUE(stmt_subset_route_supported_latest(ctx));
+    // Second stmt at different start: should also be a miss (new position).
+    EXPECT_EQ(ctx.route_cache_miss_count(), 2u);
+  }
+
+  // --- 3. Cache disabled via env var ---
+  {
+    // Set env to disable cache.
+    setenv("STYIO_PARSER_ROUTE_CACHE", "0", 1);
+
+    DirectContext direct("x := 1");
+    StyioContext& ctx = direct.get();
+    ctx.clear_route_cache();  // clears counters
+
+    // First call: disabled, so misses and scans.
+    EXPECT_TRUE(stmt_subset_route_supported_latest(ctx));
+    EXPECT_GE(ctx.route_scan_count(), 1u);
+    EXPECT_EQ(ctx.route_cache_disabled_count(), 1u);
+
+    // Second call: still disabled, should miss and scan again.
+    const size_t scans_before = ctx.route_scan_count();
+    EXPECT_TRUE(stmt_subset_route_supported_latest(ctx));
+    EXPECT_GT(ctx.route_scan_count(), scans_before);
+    EXPECT_GE(ctx.route_cache_disabled_count(), 2u);
+
+    // Restore env (unset).
+    unsetenv("STYIO_PARSER_ROUTE_CACHE");
+  }
+
+  // --- 4. clear_route_cache resets counters ---
+  {
+    DirectContext direct("x := 1");
+    StyioContext& ctx = direct.get();
+    EXPECT_TRUE(stmt_subset_route_supported_latest(ctx));
+    EXPECT_GT(ctx.route_scan_count(), 0u);
+
+    ctx.clear_route_cache();
+    EXPECT_EQ(ctx.route_scan_count(), 0u);
+    EXPECT_EQ(ctx.route_cache_hit_count(), 0u);
+    EXPECT_EQ(ctx.route_cache_miss_count(), 0u);
+    EXPECT_EQ(ctx.route_cache_disabled_count(), 0u);
+
+    // After reset, first query is a miss again.
+    EXPECT_TRUE(stmt_subset_route_supported_latest(ctx));
+    EXPECT_EQ(ctx.route_cache_miss_count(), 1u);
+  }
+
+  // --- 5. expr_subset_route_supported_until_latest increments scan count ---
+  {
+    DirectContext direct("1 + 2");
+    StyioContext& ctx = direct.get();
+    ctx.clear_route_cache();
+
+    const size_t scans_before = ctx.route_scan_count();
+    EXPECT_TRUE(expr_subset_route_supported_until_latest(ctx, {StyioTokenType::TOK_EOF}));
+    EXPECT_GT(ctx.route_scan_count(), scans_before);
+  }
+}
