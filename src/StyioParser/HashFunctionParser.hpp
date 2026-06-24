@@ -113,7 +113,7 @@ try_parse_hash_extern_binding_common_latest(StyioContext& context, StyioAST*& ou
     context.restore_cursor(saved);
     return false;
   }
-  exported_symbols.push_back(context.cur_tok()->original);
+  exported_symbols.push_back(context.curTextString());
   context.move_forward(1, "hash_extern_binding_name");
   context.skip();
 
@@ -124,7 +124,7 @@ try_parse_hash_extern_binding_common_latest(StyioContext& context, StyioAST*& ou
       context.restore_cursor(saved);
       return false;
     }
-    exported_symbols.push_back(context.cur_tok()->original);
+    exported_symbols.push_back(context.curTextString());
     context.move_forward(1, "hash_extern_binding_name");
     context.skip();
   }
@@ -147,7 +147,7 @@ try_parse_hash_extern_binding_common_latest(StyioContext& context, StyioAST*& ou
   context.skip();
   const bool is_extern =
     context.cur_tok_type() == StyioTokenType::NAME
-    && context.cur_tok()->original == "extern";
+    && context.curLexeme() == "extern";
   context.restore_cursor(at_saved);
   if (!is_extern) {
     context.restore_cursor(saved);

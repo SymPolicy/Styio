@@ -115,23 +115,17 @@ styio_recent_tokens_open_native_extern_body(const std::vector<StyioToken*>& toke
   if (!cur || tokens[*cur]->type != StyioTokenType::NAME) {
     return false;
   }
-  std::string abi = tokens[*cur]->original;
-  std::transform(
-    abi.begin(),
-    abi.end(),
-    abi.begin(),
+  auto abi_view = tokens[*cur]->lexeme();
+  std::string abi(abi_view);
+  std::transform(abi.begin(), abi.end(), abi.begin(),
     [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-  if (abi != "c") {
-    return false;
-  }
+  if (abi != "c") { return false; }
 
   cur = styio_prev_non_trivia_index(tokens, *cur);
-  if (!cur || tokens[*cur]->type != StyioTokenType::TOK_LPAREN) {
-    return false;
-  }
+  if (!cur || tokens[*cur]->type != StyioTokenType::TOK_LPAREN) { return false; }
 
   cur = styio_prev_non_trivia_index(tokens, *cur);
-  if (!cur || tokens[*cur]->type != StyioTokenType::NAME || tokens[*cur]->original != "extern") {
+  if (!cur || tokens[*cur]->type != StyioTokenType::NAME || tokens[*cur]->lexeme() != "extern") {
     return false;
   }
 
@@ -140,7 +134,7 @@ styio_recent_tokens_open_native_extern_body(const std::vector<StyioToken*>& toke
 }
 
 bool
-styio_try_scan_raw_string_literal_end(const std::string& code, size_t start, size_t& end) {
+styio_try_scan_raw_string_literal_end(std::string_view code, size_t start, size_t& end) {
   std::string prefix;
   if (code.compare(start, 3, "u8R") == 0) {
     prefix = "u8R";
@@ -167,7 +161,7 @@ styio_try_scan_raw_string_literal_end(const std::string& code, size_t start, siz
     return false;
   }
 
-  const std::string delimiter = code.substr(quote_pos + 1, open_paren - quote_pos - 1);
+  const std::string delimiter = std::string(code.substr(quote_pos + 1, open_paren - quote_pos - 1));
   const std::string close_marker = ")" + delimiter + "\"";
   const size_t close_pos = code.find(close_marker, open_paren + 1);
   if (close_pos == std::string::npos) {
@@ -179,7 +173,7 @@ styio_try_scan_raw_string_literal_end(const std::string& code, size_t start, siz
 }
 
 size_t
-styio_scan_native_extern_body_end(const std::string& code, size_t body_start) {
+styio_scan_native_extern_body_end(std::string_view code, size_t body_start) {
   enum class Mode { Normal, LineComment, BlockComment, StringLiteral, CharLiteral };
   Mode mode = Mode::Normal;
   bool escaped = false;
@@ -431,8 +425,8 @@ StringScanResult scan_string_literal(const char* data, size_t code_len, size_t s
     "unterminated string literal at offset " + std::to_string(start));
 }
 
-// Helper: push a pure-span token (no owned text allocation).
-inline void push_span_token(
+// Helper: push a span-only token (zero allocation).
+inline void push_token(
   TokenAccumulator& tokens, StyioTokenizerMetrics* m,
   StyioTokenType type, const char* data, size_t begin, size_t length
 ) {
@@ -440,25 +434,14 @@ inline void push_span_token(
   if (m) { m->source_view_token_count++; m->source_span_token_count++; }
 }
 
-// Helper: push an owned-text token (NAME, INTEGER, DECIMAL).
-inline void push_owned_token(
-  TokenAccumulator& tokens, StyioTokenizerMetrics* m,
-  StyioTokenType type, const char* data, size_t begin, size_t length
-) {
-  std::string text(data + begin, length);
-  if (m) { m->owned_text_bytes += text.size(); m->owned_text_token_count++; }
-  tokens.push_back(StyioToken::CreateOwned(type, data, begin, length, std::move(text)));
-}
-
-// Helper: push a STRING token. Raw text is zero-copy from source span.
-// Only the decoded/escaped value is stored as owned text.
+// Helper: push a STRING token. Raw text is source span (zero-copy).
+// decoded value stored separately.
 inline void push_string_token(
   TokenAccumulator& tokens, StyioTokenizerMetrics* m,
   const char* src, const StringScanResult& sr
 ) {
-  if (m) { m->string_decodes++; }
-  tokens.push_back(StyioToken::CreateString(
-    src, sr.raw_begin, sr.raw_length, sr.decoded));
+  if (m) { m->string_decodes++; if (!sr.decoded.empty()) { m->decoded_text_token_count++; m->decoded_text_bytes += sr.decoded.size(); } }
+  tokens.push_back(StyioToken::CreateString(src, sr.raw_begin, sr.raw_length, sr.decoded));
 }
 
 }  // namespace
@@ -482,15 +465,15 @@ tokenize_impl(const char* src_data, size_t code_len, StyioTokenizerMetrics* m) {
 
     // ---- Whitespace ----
     if (ch == ' ' || ch == '\t' || ch == '\v' || ch == '\f') {
-      push_span_token(tokens,m, StyioTokenType::TOK_SPACE, src_data, loc, 1);
+      push_token(tokens,m, StyioTokenType::TOK_SPACE, src_data, loc, 1);
       loc += 1; continue;
     }
     if (ch == '\n') {
-      push_span_token(tokens,m, StyioTokenType::TOK_LF, src_data, loc, 1);
+      push_token(tokens,m, StyioTokenType::TOK_LF, src_data, loc, 1);
       loc += 1; continue;
     }
     if (ch == '\r') {
-      push_span_token(tokens,m, StyioTokenType::TOK_CR, src_data, loc, 1);
+      push_token(tokens,m, StyioTokenType::TOK_CR, src_data, loc, 1);
       loc += 1; continue;
     }
 
@@ -498,7 +481,7 @@ tokenize_impl(const char* src_data, size_t code_len, StyioTokenizerMetrics* m) {
     if (ch == '/' && loc + 1 < code_len && src_data[loc + 1] == '/') {
       size_t begin = loc; loc += 2;
       while (loc < code_len && src_data[loc] != '\n' && src_data[loc] != '\r') ++loc;
-      push_span_token(tokens,m, StyioTokenType::COMMENT_LINE, src_data, begin, loc - begin);
+      push_token(tokens,m, StyioTokenType::COMMENT_LINE, src_data, begin, loc - begin);
       continue;
     }
 
@@ -509,7 +492,7 @@ tokenize_impl(const char* src_data, size_t code_len, StyioTokenizerMetrics* m) {
       if (loc + 1 >= code_len)
         throw StyioLexError("Unterminated block comment at offset " + std::to_string(begin));
       loc += 2;
-      push_span_token(tokens,m, StyioTokenType::COMMENT_CLOSED, src_data, begin, loc - begin);
+      push_token(tokens,m, StyioTokenType::COMMENT_CLOSED, src_data, begin, loc - begin);
       continue;
     }
 
@@ -519,9 +502,9 @@ tokenize_impl(const char* src_data, size_t code_len, StyioTokenizerMetrics* m) {
       while (loc < code_len && StyioUnicode::is_identifier_continue(src_data[loc])) ++loc;
       size_t len = loc - begin;
       if (len == 1 && src_data[begin] == '_')
-        push_span_token(tokens,m, StyioTokenType::TOK_UNDLINE, src_data, begin, 1);
+        push_token(tokens,m, StyioTokenType::TOK_UNDLINE, src_data, begin, 1);
       else
-        push_owned_token(tokens, m, StyioTokenType::NAME, src_data, begin, len);
+        push_token(tokens, m, StyioTokenType::NAME, src_data, begin, len);
       continue;
     }
 
@@ -532,9 +515,9 @@ tokenize_impl(const char* src_data, size_t code_len, StyioTokenizerMetrics* m) {
       if (loc + 1 < code_len && src_data[loc] == '.' && StyioUnicode::is_digit(src_data[loc + 1])) {
         loc += 1;
         while (loc < code_len && StyioUnicode::is_digit(src_data[loc])) ++loc;
-        push_owned_token(tokens, m, StyioTokenType::DECIMAL, src_data, begin, loc - begin);
+        push_token(tokens, m, StyioTokenType::DECIMAL, src_data, begin, loc - begin);
       } else {
-        push_owned_token(tokens, m, StyioTokenType::INTEGER, src_data, begin, loc - begin);
+        push_token(tokens, m, StyioTokenType::INTEGER, src_data, begin, loc - begin);
       }
       continue;
     }
@@ -565,74 +548,74 @@ tokenize_impl(const char* src_data, size_t code_len, StyioTokenizerMetrics* m) {
 
     // ---- Single-char and repeat-char dispatch ----
     switch (ch) {
-      case '!': push_span_token(tokens,m,StyioTokenType::TOK_EXCLAM,src_data,loc,1); loc+=1; break;
-      case '#': push_span_token(tokens,m,StyioTokenType::TOK_HASH,src_data,loc,1); loc+=1; break;
-      case '$': push_span_token(tokens,m,StyioTokenType::TOK_DOLLAR,src_data,loc,1); loc+=1; break;
-      case '%': push_span_token(tokens,m,StyioTokenType::TOK_PERCENT,src_data,loc,1); loc+=1; break;
-      case '&': push_span_token(tokens,m,StyioTokenType::TOK_AMP,src_data,loc,1); loc+=1; break;
-      case '\'': push_span_token(tokens,m,StyioTokenType::TOK_SQUOTE,src_data,loc,1); loc+=1; break;
-      case '(': push_span_token(tokens,m,StyioTokenType::TOK_LPAREN,src_data,loc,1); loc+=1; break;
-      case ')': push_span_token(tokens,m,StyioTokenType::TOK_RPAREN,src_data,loc,1); loc+=1; break;
-      case '*': push_span_token(tokens,m,StyioTokenType::TOK_STAR,src_data,loc,1); loc+=1; break;
-      case '+': push_span_token(tokens,m,StyioTokenType::TOK_PLUS,src_data,loc,1); loc+=1; break;
-      case ',': push_span_token(tokens,m,StyioTokenType::TOK_COMMA,src_data,loc,1); loc+=1; break;
+      case '!': push_token(tokens,m,StyioTokenType::TOK_EXCLAM,src_data,loc,1); loc+=1; break;
+      case '#': push_token(tokens,m,StyioTokenType::TOK_HASH,src_data,loc,1); loc+=1; break;
+      case '$': push_token(tokens,m,StyioTokenType::TOK_DOLLAR,src_data,loc,1); loc+=1; break;
+      case '%': push_token(tokens,m,StyioTokenType::TOK_PERCENT,src_data,loc,1); loc+=1; break;
+      case '&': push_token(tokens,m,StyioTokenType::TOK_AMP,src_data,loc,1); loc+=1; break;
+      case '\'': push_token(tokens,m,StyioTokenType::TOK_SQUOTE,src_data,loc,1); loc+=1; break;
+      case '(': push_token(tokens,m,StyioTokenType::TOK_LPAREN,src_data,loc,1); loc+=1; break;
+      case ')': push_token(tokens,m,StyioTokenType::TOK_RPAREN,src_data,loc,1); loc+=1; break;
+      case '*': push_token(tokens,m,StyioTokenType::TOK_STAR,src_data,loc,1); loc+=1; break;
+      case '+': push_token(tokens,m,StyioTokenType::TOK_PLUS,src_data,loc,1); loc+=1; break;
+      case ',': push_token(tokens,m,StyioTokenType::TOK_COMMA,src_data,loc,1); loc+=1; break;
       case '-': {
         size_t n = 1 + count_consecutive_chars(src_data,code_len,loc+1,'-');
-        if (n >= 3) { push_span_token(tokens,m,StyioTokenType::SINGLE_SEP_LINE,src_data,loc,n); loc+=n; }
-        else { push_span_token(tokens,m,StyioTokenType::TOK_MINUS,src_data,loc,1); loc+=1; }
+        if (n >= 3) { push_token(tokens,m,StyioTokenType::SINGLE_SEP_LINE,src_data,loc,n); loc+=n; }
+        else { push_token(tokens,m,StyioTokenType::TOK_MINUS,src_data,loc,1); loc+=1; }
         break;
       }
       case '.': {
         size_t n = 1 + count_consecutive_chars(src_data,code_len,loc+1,'.');
-        push_span_token(tokens,m, n==1?StyioTokenType::TOK_DOT:StyioTokenType::ELLIPSIS,src_data,loc,n);
+        push_token(tokens,m, n==1?StyioTokenType::TOK_DOT:StyioTokenType::ELLIPSIS,src_data,loc,n);
         loc+=n; break;
       }
-      case '/': push_span_token(tokens,m,StyioTokenType::TOK_SLASH,src_data,loc,1); loc+=1; break;
-      case ':': push_span_token(tokens,m,StyioTokenType::TOK_COLON,src_data,loc,1); loc+=1; break;
-      case ';': push_span_token(tokens,m,StyioTokenType::TOK_SEMICOLON,src_data,loc,1); loc+=1; break;
+      case '/': push_token(tokens,m,StyioTokenType::TOK_SLASH,src_data,loc,1); loc+=1; break;
+      case ':': push_token(tokens,m,StyioTokenType::TOK_COLON,src_data,loc,1); loc+=1; break;
+      case ';': push_token(tokens,m,StyioTokenType::TOK_SEMICOLON,src_data,loc,1); loc+=1; break;
       case '<': {
         size_t n = 1 + count_consecutive_chars(src_data,code_len,loc+1,'<');
-        push_span_token(tokens,m, n>=2?StyioTokenType::EXTRACTOR:StyioTokenType::TOK_LANGBRAC,src_data,loc,n);
+        push_token(tokens,m, n>=2?StyioTokenType::EXTRACTOR:StyioTokenType::TOK_LANGBRAC,src_data,loc,n);
         loc+=n; break;
       }
       case '=': {
         size_t n = 1 + count_consecutive_chars(src_data,code_len,loc+1,'=');
-        if (n>=3) { push_span_token(tokens,m,StyioTokenType::DOUBLE_SEP_LINE,src_data,loc,n); loc+=n; }
-        else if (n==2) { push_span_token(tokens,m,StyioTokenType::BINOP_EQ,src_data,loc,2); loc+=2; }
-        else { push_span_token(tokens,m,StyioTokenType::TOK_EQUAL,src_data,loc,1); loc+=1; }
+        if (n>=3) { push_token(tokens,m,StyioTokenType::DOUBLE_SEP_LINE,src_data,loc,n); loc+=n; }
+        else if (n==2) { push_token(tokens,m,StyioTokenType::BINOP_EQ,src_data,loc,2); loc+=2; }
+        else { push_token(tokens,m,StyioTokenType::TOK_EQUAL,src_data,loc,1); loc+=1; }
         break;
       }
       case '>': {
         size_t n = 1 + count_consecutive_chars(src_data,code_len,loc+1,'>');
-        push_span_token(tokens,m, n>=2?StyioTokenType::ITERATOR:StyioTokenType::TOK_RANGBRAC,src_data,loc,n);
+        push_token(tokens,m, n>=2?StyioTokenType::ITERATOR:StyioTokenType::TOK_RANGBRAC,src_data,loc,n);
         loc+=n; break;
       }
-      case '?': push_span_token(tokens,m,StyioTokenType::TOK_QUEST,src_data,loc,1); loc+=1; break;
-      case '@': push_span_token(tokens,m,StyioTokenType::TOK_AT,src_data,loc,1); loc+=1; break;
-      case '[': push_span_token(tokens,m,StyioTokenType::TOK_LBOXBRAC,src_data,loc,1); loc+=1; break;
-      case '\\': push_span_token(tokens,m,StyioTokenType::TOK_BACKSLASH,src_data,loc,1); loc+=1; break;
-      case ']': push_span_token(tokens,m,StyioTokenType::TOK_RBOXBRAC,src_data,loc,1); loc+=1; break;
-      case '^': push_span_token(tokens,m,StyioTokenType::TOK_HAT,src_data,loc,1); loc+=1; break;
-      case '_': push_span_token(tokens,m,StyioTokenType::TOK_UNDLINE,src_data,loc,1); loc+=1; break;
-      case '`': push_span_token(tokens,m,StyioTokenType::TOK_BQUOTE,src_data,loc,1); loc+=1; break;
+      case '?': push_token(tokens,m,StyioTokenType::TOK_QUEST,src_data,loc,1); loc+=1; break;
+      case '@': push_token(tokens,m,StyioTokenType::TOK_AT,src_data,loc,1); loc+=1; break;
+      case '[': push_token(tokens,m,StyioTokenType::TOK_LBOXBRAC,src_data,loc,1); loc+=1; break;
+      case '\\': push_token(tokens,m,StyioTokenType::TOK_BACKSLASH,src_data,loc,1); loc+=1; break;
+      case ']': push_token(tokens,m,StyioTokenType::TOK_RBOXBRAC,src_data,loc,1); loc+=1; break;
+      case '^': push_token(tokens,m,StyioTokenType::TOK_HAT,src_data,loc,1); loc+=1; break;
+      case '_': push_token(tokens,m,StyioTokenType::TOK_UNDLINE,src_data,loc,1); loc+=1; break;
+      case '`': push_token(tokens,m,StyioTokenType::TOK_BQUOTE,src_data,loc,1); loc+=1; break;
       case '{': {
         bool is_native = styio_recent_tokens_open_native_extern_body(tokens.view());
-        push_span_token(tokens,m,StyioTokenType::TOK_LCURBRAC,src_data,loc,1); loc+=1;
+        push_token(tokens,m,StyioTokenType::TOK_LCURBRAC,src_data,loc,1); loc+=1;
         if (is_native) {
           size_t body_start = loc;
           size_t body_end = styio_scan_native_extern_body_end(
-            std::string(src_data, code_len), body_start);
-          push_owned_token(tokens,m,StyioTokenType::NATIVE_EXTERN_BODY,src_data,body_start,body_end-body_start);
-          push_span_token(tokens,m,StyioTokenType::TOK_RCURBRAC,src_data,body_end,1);
+            std::string_view(src_data, code_len), body_start);
+          push_token(tokens,m,StyioTokenType::NATIVE_EXTERN_BODY,src_data,body_start,body_end-body_start);
+          push_token(tokens,m,StyioTokenType::TOK_RCURBRAC,src_data,body_end,1);
           loc = body_end + 1;
         }
         break;
       }
-      case '|': push_span_token(tokens,m,StyioTokenType::TOK_PIPE,src_data,loc,1); loc+=1; break;
-      case '}': push_span_token(tokens,m,StyioTokenType::TOK_RCURBRAC,src_data,loc,1); loc+=1; break;
-      case '~': push_span_token(tokens,m,StyioTokenType::TOK_TILDE,src_data,loc,1); loc+=1; break;
+      case '|': push_token(tokens,m,StyioTokenType::TOK_PIPE,src_data,loc,1); loc+=1; break;
+      case '}': push_token(tokens,m,StyioTokenType::TOK_RCURBRAC,src_data,loc,1); loc+=1; break;
+      case '~': push_token(tokens,m,StyioTokenType::TOK_TILDE,src_data,loc,1); loc+=1; break;
       default:
-        push_span_token(tokens,m,StyioTokenType::UNKNOWN,src_data,loc,1); loc+=1; break;
+        push_token(tokens,m,StyioTokenType::UNKNOWN,src_data,loc,1); loc+=1; break;
     }
   }
 
@@ -658,18 +641,25 @@ StyioTokenizer::tokenizeOwned(std::string source) {
   return StyioTokenStream(std::move(source), std::move(tokens));
 }
 
+// Per-call source buffer registry — keeps source alive for legacy tokenize().
+static std::vector<std::unique_ptr<std::string>> g_legacy_sources;
+
 std::vector<StyioToken*>
 StyioTokenizer::tokenize(const std::string& code) {
-  // Legacy bridge: copy source to heap so tokens have stable views.
-  // One allocation (the string copy), not per-token.
-  auto* copy = new std::string(code);
-  return tokenize_impl(copy->data(), copy->size(), nullptr);
+  auto copy = std::make_unique<std::string>(code);
+  auto* data = copy->data();
+  auto size = copy->size();
+  g_legacy_sources.push_back(std::move(copy));
+  return tokenize_impl(data, size, nullptr);
 }
 
 std::vector<StyioToken*>
 StyioTokenizer::tokenizeWithMetrics(const std::string& code, void* metrics_out) {
   auto* m = static_cast<StyioTokenizerMetrics*>(metrics_out);
   if (m) m->source_copy_bytes = code.size();
-  auto* copy = new std::string(code);
-  return tokenize_impl(copy->data(), copy->size(), m);
+  auto copy = std::make_unique<std::string>(code);
+  auto* data = copy->data();
+  auto size = copy->size();
+  g_legacy_sources.push_back(std::move(copy));
+  return tokenize_impl(data, size, m);
 }

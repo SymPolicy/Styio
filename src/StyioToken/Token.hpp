@@ -1629,41 +1629,24 @@ public:
     O(1) time, O(1) space beyond the token object itself.
     source_data must outlive the token.
   */
+  /*
+    CreateFromSpan — TRUE zero-copy. ZERO text allocation.
+    O(1). Only stores type + begin_ + length_ + source_data_.
+    lexeme() returns source view. original is left EMPTY.
+  */
   static StyioToken* CreateFromSpan(
     StyioTokenType token_type,
     const char* source_data,
     size_t begin,
     size_t length
   ) {
-    auto* t = new StyioToken(token_type, source_data, begin, length);
-    if (length > 0) t->original.assign(source_data + begin, length);
-    return t;
+    return new StyioToken(token_type, source_data, begin, length);
   }
 
   /*
-    CreateOwned — for tokens needing independent owned text (NAME/INTEGER/DECIMAL).
-    Allocates one std::string for the owned text. Also stores the source span.
-  */
-  static StyioToken* CreateOwned(
-    StyioTokenType token_type,
-    const char* source_data,
-    size_t begin,
-    size_t length,
-    std::string owned_text
-  ) {
-    auto* t = new StyioToken(token_type, source_data, begin, length);
-    t->owned_text_ = std::move(owned_text);
-    // Backward compat: mirror owned text into deprecated original field
-    if (t->owned_text_.has_value()) {
-      t->original = *t->owned_text_;
-    }
-    return t;
-  }
-
-  /*
-    CreateString — for STRING tokens with separate raw and decoded values.
-    source span provides the raw quoted form (zero-copy).
-    decoded_value is stored separately for semantic use.
+    CreateString — STRING token. Raw text is source span (zero-copy).
+    decoded_value is stored in decoded_text_ for semantic use.
+    original is NOT populated.
   */
   static StyioToken* CreateString(
     const char* source_data,
@@ -1673,19 +1656,16 @@ public:
   ) {
     auto* t = new StyioToken(StyioTokenType::STRING, source_data, begin, length);
     t->decoded_text_ = std::move(decoded_value);
-    // Backward compat: put raw quoted form in deprecated original
-    t->original = std::string(source_data + begin, length);
     return t;
   }
 
   /*
-    Legacy factory: creates a token with owned text but no source span.
-    ONLY for synthetic/manual tokens. NEVER in the tokenizer hot path.
+    Legacy factory: synthetic/manual token with owned text, no source span.
+    NOT for tokenizer hot path.
   */
   static StyioToken* Create(StyioTokenType token_type, std::string text) {
     auto* t = new StyioToken(token_type, nullptr, 0, 0);
     t->owned_text_ = std::move(text);
-    if (t->owned_text_.has_value()) t->original = *t->owned_text_;
     return t;
   }
 
@@ -1693,7 +1673,6 @@ public:
     void* mem = ::operator new(sizeof(StyioToken));
     auto* t = ::new(mem) StyioToken(token_type, nullptr, 0, 0);
     t->owned_text_ = std::move(text);
-    if (t->owned_text_.has_value()) t->original = *t->owned_text_;
     return t;
   }
 
