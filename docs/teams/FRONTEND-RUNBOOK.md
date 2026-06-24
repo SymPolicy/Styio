@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of Styio tokenization, parsing, Unicode handling, and the authoritative nightly parser contract; this file links to language and test SSOTs instead of redefining grammar.
 
-**Last updated:** 2026-06-24
+**Last updated:** 2026-06-25
 
 ## Mission
 

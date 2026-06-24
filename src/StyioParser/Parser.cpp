@@ -1889,7 +1889,7 @@ file_resource_decl_body_calls_file_path_latest(StyioContext& context) {
       continue;
     }
     if (type == StyioTokenType::NAME
-        && styio_is_file_resource_family_name(tokens[i]->original)) {
+        && styio_is_file_resource_family_name(tokens[i]->textString())) {
       size_t next = i + 1;
       while (next < tokens.size() && styio_is_trivia_token(tokens[next]->type)) {
         ++next;
