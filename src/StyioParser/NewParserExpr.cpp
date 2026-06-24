@@ -128,7 +128,7 @@ is_default_case_wildcard_latest(StyioContext& context) {
   if (context.cur_tok_type() != StyioTokenType::NAME) {
     return false;
   }
-  return is_all_underscore_identifier_latest(context.cur_tok()->original);
+  return is_all_underscore_identifier_latest(context.curTextString());
 }
 
 StyioAST*
@@ -842,7 +842,7 @@ try_parse_hash_let_match_nightly_latest(StyioContext& context) {
     if (context.cur_tok_type() != StyioTokenType::NAME) {
       throw StyioSyntaxError(context.mark_cur_tok("expected binding name after #("));
     }
-    const std::string bind_name = context.cur_tok()->original;
+    const std::string bind_name = context.curTextString();
     context.move_forward(1, "new_stmt:hash_let_match_name");
     context.skip();
     context.try_match_panic(StyioTokenType::TOK_EQUAL);
@@ -1539,7 +1539,7 @@ private:
     char value = '\0';
     if (context_.cur_tok_type() == StyioTokenType::TOK_BACKSLASH) {
       context_.move_forward(1, "new_expr:char_escape");
-      const std::string raw = context_.cur_tok() != nullptr ? context_.cur_tok()->original : "";
+      const std::string raw = context_.cur_tok() != nullptr ? context_.cur_tok()->textString() : "";
       if (raw == "n") {
         value = '\n';
       }
@@ -1564,7 +1564,7 @@ private:
       context_.move_forward(1, "new_expr:char_escaped_value");
     }
     else {
-      const std::string raw = context_.cur_tok() != nullptr ? context_.cur_tok()->original : "";
+      const std::string raw = context_.cur_tok() != nullptr ? context_.cur_tok()->textString() : "";
       if (context_.cur_tok_type() == StyioTokenType::TOK_SQUOTE || raw.size() != 1) {
         throw StyioSyntaxError(context_.mark_cur_tok("char literal expects exactly one byte"));
       }
@@ -1591,7 +1591,7 @@ private:
         if (context_.cur_tok_type() != StyioTokenType::NAME) {
           throw StyioSyntaxError("expected name after '.' in nightly parser subset");
         }
-        const std::string member_name = context_.cur_tok()->original;
+        const std::string member_name = context_.cur_tok()->textString();
         context_.move_forward(1, "new_expr:dot_name");
         context_.skip_spaces_no_linebreak();
         if (context_.cur_tok_type() == StyioTokenType::TOK_LPAREN) {
@@ -1682,7 +1682,7 @@ private:
       if (allow_extended_continuations && context_.match(StyioTokenType::ARROW_SINGLE_RIGHT)) {
         context_.skip();
         if (context_.cur_tok_type() == StyioTokenType::NAME) {
-          const std::string target_name = context_.cur_tok()->original;
+          const std::string target_name = context_.cur_tok()->textString();
           context_.move_forward(1, "new_expr:flow_bind_target");
           owner.reset(FlowBindAST::Create(
             owner.release(),
@@ -1843,17 +1843,17 @@ private:
 
     switch (context_.cur_tok_type()) {
       case StyioTokenType::INTEGER: {
-        const std::string lit = context_.cur_tok()->original;
+        const std::string lit = context_.cur_tok()->textString();
         context_.move_forward(1, "new_expr:int");
         return IntAST::Create(lit);
       }
       case StyioTokenType::DECIMAL: {
-        const std::string lit = context_.cur_tok()->original;
+        const std::string lit = context_.cur_tok()->textString();
         context_.move_forward(1, "new_expr:float");
         return FloatAST::Create(lit);
       }
       case StyioTokenType::STRING: {
-        const std::string lit = context_.cur_tok()->original;
+        const std::string lit = context_.cur_tok()->textString();
         context_.move_forward(1, "new_expr:string");
         return StringAST::Create(lit);
       }
@@ -1879,7 +1879,7 @@ private:
         return parse_resource_effect_expr_nightly(context_);
       }
       case StyioTokenType::NAME: {
-        const std::string name = context_.cur_tok()->original;
+        const std::string name = context_.cur_tok()->textString();
         context_.move_forward(1, "new_expr:name");
         context_.skip_spaces_no_linebreak();
         if (name == "dict" && context_.cur_tok_type() == StyioTokenType::TOK_LCURBRAC) {
@@ -1937,12 +1937,12 @@ private:
       context_.skip();
       switch (context_.cur_tok_type()) {
         case StyioTokenType::INTEGER: {
-          const std::string lit = "-" + context_.cur_tok()->original;
+          const std::string lit = "-" + context_.cur_tok()->textString();
           context_.move_forward(1, "new_expr:negative_int");
           return parse_postfix(IntAST::Create(lit), false);
         }
         case StyioTokenType::DECIMAL: {
-          const std::string lit = "-" + context_.cur_tok()->original;
+          const std::string lit = "-" + context_.cur_tok()->textString();
           context_.move_forward(1, "new_expr:negative_float");
           return parse_postfix(FloatAST::Create(lit), false);
         }
@@ -2525,7 +2525,7 @@ parse_break_nightly(StyioContext& context) {
 
 ContinueAST*
 parse_continue_nightly(StyioContext& context) {
-  size_t n = context.cur_tok()->original.size();
+  size_t n = context.curLexeme().size();
   unsigned depth = static_cast<unsigned>(n > 1 ? n - 1 : 1);
   context.move_forward(1, "new_stmt:continue");
   return ContinueAST::Create(depth);
@@ -2607,7 +2607,7 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
 
   if (context.cur_tok_type() == StyioTokenType::NAME) {
     const auto saved = context.save_cursor();
-    const std::string id = context.cur_tok()->original;
+    const std::string id = context.curTextString();
     if (styio_is_bool_literal_name_latest(id)) {
       return parse_expr_subset_nightly(context);
     }
@@ -2645,7 +2645,7 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
         if (context.cur_tok_type() != StyioTokenType::NAME) {
           throw StyioSyntaxError("parallel assignment targets must be names or indexed list elements");
         }
-        const std::string next_id = context.cur_tok()->original;
+        const std::string next_id = context.curTextString();
         context.move_forward(1, "new_stmt:target_name");
         lhs_owned.emplace_back(parse_target_suffix(NameAST::Create(next_id)));
         context.skip();
@@ -2762,7 +2762,7 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
         return pull;
       }
       if (context.cur_tok_type() == StyioTokenType::NAME) {
-        const std::string src = context.cur_tok()->original;
+        const std::string src = context.curTextString();
         context.move_forward(1, "new_stmt:clone_from_name");
         std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(id)));
         std::unique_ptr<NameAST> source(NameAST::Create(src));
@@ -2782,7 +2782,7 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
       context.move_forward(1, "new_stmt:resource_write");
       context.skip();
       if (context.cur_tok_type() == StyioTokenType::NAME) {
-        const std::string src = context.cur_tok()->original;
+        const std::string src = context.curTextString();
         context.move_forward(1, "new_stmt:clone_into_name");
         std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(id)));
         std::unique_ptr<NameAST> source(NameAST::Create(src));

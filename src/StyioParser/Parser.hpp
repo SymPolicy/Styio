@@ -339,6 +339,30 @@ public:
     return cur_tok()->type;
   }
 
+  std::string_view curLexeme() const {
+    if (index_of_token >= tokens.size()) return {};
+    return tokens[index_of_token]->lexeme();
+  }
+
+  std::string_view curRawText() const {
+    if (index_of_token >= tokens.size()) return {};
+    return tokens[index_of_token]->rawText();
+  }
+
+  std::string_view curDecodedString() const {
+    if (index_of_token >= tokens.size()) return {};
+    return tokens[index_of_token]->decodedString();
+  }
+
+  bool curTextIs(std::string_view expected) const {
+    return curLexeme() == expected;
+  }
+
+  std::string curTextString() const {
+    if (index_of_token >= tokens.size()) return {};
+    return tokens[index_of_token]->textString();
+  }
+
   const std::vector<StyioToken*>&
   get_tokens() const {
     return tokens;
