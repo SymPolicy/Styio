@@ -1,6 +1,9 @@
 include(GoogleTest)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
+# In-repo core benchmark binary (TASK-00).
+add_subdirectory(internal)
+
 set(STYIO_BENCHMARK_ROOT "" CACHE PATH
     "Path to the external styio-benchmark checkout that owns migrated benchmark probe sources")
 option(STYIO_REQUIRE_EXTERNAL_BENCHMARK

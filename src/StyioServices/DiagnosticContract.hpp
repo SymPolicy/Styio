@@ -5,11 +5,112 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <string>
 #include <string_view>
 
 namespace styio::services::diagnostics {
 
+// ---------------------------------------------------------------------------
+// Structured diagnostic codes — replaces substring-based classify_*()
+// ---------------------------------------------------------------------------
+enum class DiagnosticCode : std::uint16_t {
+  InternalError = 0,
+
+  // Lex
+  LexInvalidToken,
+  LexUnterminatedString,
+  LexUnterminatedBlockComment,
+
+  // Parse
+  ParseUnexpectedToken,
+  ParseUnsupportedSyntax,
+  ParseShadowMismatch,
+
+  // Sema
+  SemaImmutableBinding,
+  SemaUndeclaredSymbol,
+  SemaCallArityMismatch,
+  SemaResourceCapabilityMismatch,
+  SemaResourcePressureObserverUnsupported,
+  SemaResourceMethodUnsupportedBody,
+
+  // Type
+  TypeError,
+  TypeResourceEffectFallbackMismatch,
+  TypeCallArgumentMismatch,
+  TypeMatrixLiteralInvalid,
+  TypeUnsupportedTupleReturn,
+  TypeStreamHashTagRouteUnsupported,
+  TypeStreamZipUnsupportedSource,
+  TypeStreamDuplicateDriverUnsupported,
+  TypeIterationUnsupportedSource,
+  TypeStdinUnsupportedTarget,
+
+  // Lowering
+  LowerUnsupportedAst,
+
+  // IR Verify
+  IrVerifyContract,
+  IrVerifyInactiveNode,
+
+  // Codegen
+  CodegenError,
+
+  // Runtime
+  RuntimeError,
+
+  // Native Interop
+  NativeUnsupportedAbi,
+  NativeSourceReadFailed,
+  NativeSignatureNotFound,
+  NativeUnsupportedSignature,
+  NativeHostCompileFailed,
+  NativeLoadFailed,
+  NativeSymbolMissing,
+  NativeToolchainUnavailable,
+  NativeInteropError,
+
+  // Resource Topology (TASK-07)
+  ResourceTopologyCycle,
+
+  // Service
+  ServiceInvalidArgument,
+  ServiceReadFailed,
+  ServiceCompilePlanInvalid,
+  ServiceCompilePlanCliConflict,
+  ServiceEditorSyntax,
+  ServiceLspResyncRequired,
+};
+
+/// Map a DiagnosticCode to its phase string.
+inline std::string_view phase_for_code(DiagnosticCode code) {
+  auto v = static_cast<std::uint16_t>(code);
+  if (v <= static_cast<std::uint16_t>(DiagnosticCode::LexUnterminatedBlockComment))
+    return "lex";
+  if (v <= static_cast<std::uint16_t>(DiagnosticCode::ParseShadowMismatch))
+    return "parse";
+  if (v <= static_cast<std::uint16_t>(DiagnosticCode::SemaResourceMethodUnsupportedBody))
+    return "sema";
+  if (v <= static_cast<std::uint16_t>(DiagnosticCode::TypeStdinUnsupportedTarget))
+    return "type";
+  if (v <= static_cast<std::uint16_t>(DiagnosticCode::LowerUnsupportedAst))
+    return "lowering";
+  if (v <= static_cast<std::uint16_t>(DiagnosticCode::IrVerifyInactiveNode))
+    return "ir_verify";
+  if (v == static_cast<std::uint16_t>(DiagnosticCode::CodegenError)) return "codegen";
+  if (v == static_cast<std::uint16_t>(DiagnosticCode::RuntimeError)) return "runtime";
+  if (v <= static_cast<std::uint16_t>(DiagnosticCode::NativeInteropError)
+      && v >= static_cast<std::uint16_t>(DiagnosticCode::NativeUnsupportedAbi))
+    return "native_interop";
+  if (v == static_cast<std::uint16_t>(DiagnosticCode::ResourceTopologyCycle)) return "resource_topology";
+  return "service";
+}
+
+/// String name for a DiagnosticCode (uppercase constant style).
+inline std::string_view diagnostic_code_name(DiagnosticCode code);
+
+// Keep legacy string constants for backward compatibility during migration.
 inline constexpr std::string_view kPhaseLex = "lex";
 inline constexpr std::string_view kPhaseParse = "parse";
 inline constexpr std::string_view kPhaseSema = "sema";
@@ -316,6 +417,59 @@ classify_runtime_or_native_code(std::string_view subcode, std::string_view messa
     return classify_native_interop_code(message);
   }
   return std::string(kRuntimeError);
+}
+
+// ---------------------------------------------------------------------------
+// diagnostic_code_name — compile-time mapping from code to string constant
+// ---------------------------------------------------------------------------
+inline std::string_view diagnostic_code_name(DiagnosticCode code) {
+  switch (code) {
+    case DiagnosticCode::InternalError: return "STYIO_INTERNAL_ERROR";
+    case DiagnosticCode::LexInvalidToken: return "STYIO_LEX_INVALID_TOKEN";
+    case DiagnosticCode::LexUnterminatedString: return "STYIO_LEX_UNTERMINATED_STRING";
+    case DiagnosticCode::LexUnterminatedBlockComment: return "STYIO_LEX_UNTERMINATED_BLOCK_COMMENT";
+    case DiagnosticCode::ParseUnexpectedToken: return "STYIO_PARSE_UNEXPECTED_TOKEN";
+    case DiagnosticCode::ParseUnsupportedSyntax: return "STYIO_PARSE_UNSUPPORTED_SYNTAX";
+    case DiagnosticCode::ParseShadowMismatch: return "STYIO_PARSE_SHADOW_MISMATCH";
+    case DiagnosticCode::SemaImmutableBinding: return "STYIO_SEMA_IMMUTABLE_BINDING";
+    case DiagnosticCode::SemaUndeclaredSymbol: return "STYIO_SEMA_UNDECLARED_SYMBOL";
+    case DiagnosticCode::SemaCallArityMismatch: return "STYIO_SEMA_CALL_ARITY_MISMATCH";
+    case DiagnosticCode::SemaResourceCapabilityMismatch: return "STYIO_SEMA_RESOURCE_CAPABILITY_MISMATCH";
+    case DiagnosticCode::SemaResourcePressureObserverUnsupported: return "STYIO_SEMA_RESOURCE_PRESSURE_OBSERVER_UNSUPPORTED";
+    case DiagnosticCode::SemaResourceMethodUnsupportedBody: return "STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY";
+    case DiagnosticCode::TypeError: return "STYIO_TYPE_ERROR";
+    case DiagnosticCode::TypeResourceEffectFallbackMismatch: return "STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH";
+    case DiagnosticCode::TypeCallArgumentMismatch: return "STYIO_TYPE_CALL_ARGUMENT_MISMATCH";
+    case DiagnosticCode::TypeMatrixLiteralInvalid: return "STYIO_TYPE_MATRIX_LITERAL_INVALID";
+    case DiagnosticCode::TypeUnsupportedTupleReturn: return "STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN";
+    case DiagnosticCode::TypeStreamHashTagRouteUnsupported: return "STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED";
+    case DiagnosticCode::TypeStreamZipUnsupportedSource: return "STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE";
+    case DiagnosticCode::TypeStreamDuplicateDriverUnsupported: return "STYIO_TYPE_STREAM_DUPLICATE_DRIVER_UNSUPPORTED";
+    case DiagnosticCode::TypeIterationUnsupportedSource: return "STYIO_TYPE_ITERATION_UNSUPPORTED_SOURCE";
+    case DiagnosticCode::TypeStdinUnsupportedTarget: return "STYIO_TYPE_STDIN_UNSUPPORTED_TARGET";
+    case DiagnosticCode::LowerUnsupportedAst: return "STYIO_LOWER_UNSUPPORTED_AST";
+    case DiagnosticCode::IrVerifyContract: return "STYIO_IR_VERIFY_CONTRACT";
+    case DiagnosticCode::IrVerifyInactiveNode: return "STYIO_IR_VERIFY_INACTIVE_NODE";
+    case DiagnosticCode::CodegenError: return "STYIO_CODEGEN_ERROR";
+    case DiagnosticCode::RuntimeError: return "STYIO_RUNTIME_ERROR";
+    case DiagnosticCode::NativeUnsupportedAbi: return "STYIO_NATIVE_UNSUPPORTED_ABI";
+    case DiagnosticCode::NativeSourceReadFailed: return "STYIO_NATIVE_SOURCE_READ_FAILED";
+    case DiagnosticCode::NativeSignatureNotFound: return "STYIO_NATIVE_SIGNATURE_NOT_FOUND";
+    case DiagnosticCode::NativeUnsupportedSignature: return "STYIO_NATIVE_UNSUPPORTED_SIGNATURE";
+    case DiagnosticCode::NativeHostCompileFailed: return "STYIO_NATIVE_HOST_COMPILE_FAILED";
+    case DiagnosticCode::NativeLoadFailed: return "STYIO_NATIVE_LOAD_FAILED";
+    case DiagnosticCode::NativeSymbolMissing: return "STYIO_NATIVE_SYMBOL_MISSING";
+    case DiagnosticCode::NativeToolchainUnavailable: return "STYIO_NATIVE_TOOLCHAIN_UNAVAILABLE";
+    case DiagnosticCode::NativeInteropError: return "STYIO_NATIVE_INTEROP_ERROR";
+    case DiagnosticCode::ResourceTopologyCycle: return "STYIO_RESOURCE_TOPOLOGY_CYCLE";
+    case DiagnosticCode::ServiceInvalidArgument: return "STYIO_SERVICE_INVALID_ARGUMENT";
+    case DiagnosticCode::ServiceReadFailed: return "STYIO_SERVICE_READ_FAILED";
+    case DiagnosticCode::ServiceCompilePlanInvalid: return "STYIO_SERVICE_COMPILE_PLAN_INVALID";
+    case DiagnosticCode::ServiceCompilePlanCliConflict: return "STYIO_SERVICE_COMPILE_PLAN_CLI_CONFLICT";
+    case DiagnosticCode::ServiceEditorSyntax: return "STYIO_SERVICE_EDITOR_SYNTAX";
+    case DiagnosticCode::ServiceLspResyncRequired: return "STYIO_SERVICE_LSP_RESYNC_REQUIRED";
+  }
+  return "STYIO_INTERNAL_ERROR";
 }
 
 }  // namespace styio::services::diagnostics

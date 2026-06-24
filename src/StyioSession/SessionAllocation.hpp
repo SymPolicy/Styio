@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+namespace styio::session { class SymbolInterner; }
+
 namespace styio::session_alloc {
 
 class SessionArena
@@ -174,6 +176,44 @@ inline void*
 allocate_token_object(std::size_t object_size) {
   return allocate_object(current_token_arena, object_size);
 }
+
+// Thread-local symbol interner (mirrors arena pattern for session-scoped access).
+class SymbolInterner;
+inline thread_local SymbolInterner* current_interner = nullptr;
+
+inline SymbolInterner*
+set_current_interner(SymbolInterner* interner) noexcept {
+  SymbolInterner* prev = current_interner;
+  current_interner = interner;
+  return prev;
+}
+
+// Thread-local IR arena (TASK-08).
+class StyioIR;
+inline thread_local SessionArena* current_ir_arena = nullptr;
+
+inline SessionArena*
+set_current_ir_arena(SessionArena* arena) noexcept {
+  SessionArena* prev = current_ir_arena;
+  current_ir_arena = arena;
+  return prev;
+}
+
+/// Placement-new factory for IR nodes. Uses the thread-local IR arena when
+/// active, falls back to ::operator new otherwise (backward compatible).
+template <typename T, typename... Args>
+T* make_ir(Args&&... args) {
+  void* mem = current_ir_arena
+    ? current_ir_arena->allocate_span(sizeof(T))
+    : ::operator new(sizeof(T));
+  return ::new (mem) T(std::forward<Args>(args)...);
+}
+
+/// Non-recursive IR subtree destruction. Calls destructors on all reachable
+/// nodes via collect_children(), then (if no arena active) frees memory.
+/// When an IR arena is active, individual deallocations are no-ops;
+/// the arena reset handles bulk cleanup.
+void destroy_ir_subtree(StyioIR* root);
 
 } // namespace styio::session_alloc
 

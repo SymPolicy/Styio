@@ -20,12 +20,13 @@ public:
       var_name(std::move(v)), path_expr(p), is_auto(a) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SIOHandleAcquire() override {
     delete path_expr;
   }
 
   static SIOHandleAcquire* Create(std::string v, StyioIR* p, bool a) {
-    return new SIOHandleAcquire(std::move(v), p, a);
+    return styio::session_alloc::make_ir<SIOHandleAcquire>(std::move(v), p, a);
   }
 };
 
@@ -52,6 +53,7 @@ public:
     return x;
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SIOHandleRelease() override {
     delete path_expr;
   }
@@ -93,6 +95,7 @@ public:
     pulse_plan = std::move(p);
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SIOFileLineIter() override {
     delete path_expr;
     delete body;
@@ -157,6 +160,7 @@ public:
     pulse_plan = std::move(p);
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SIOStreamZip() override {
     delete iterable_a;
     delete iterable_b;
@@ -180,16 +184,17 @@ public:
       handle_var(std::move(handle)) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SIOInstantPull() override {
     delete path_expr;
   }
 
   static SIOInstantPull* Create(StyioIR* p) {
-    return new SIOInstantPull(p);
+    return styio::session_alloc::make_ir<SIOInstantPull>(p);
   }
 
   static SIOInstantPull* CreateFromHandle(std::string handle) {
-    return new SIOInstantPull(std::move(handle));
+    return styio::session_alloc::make_ir<SIOInstantPull>(std::move(handle));
   }
 };
 
@@ -203,7 +208,7 @@ public:
   }
 
   static SIOListReadStdin* Create(std::string elem_type) {
-    return new SIOListReadStdin(std::move(elem_type));
+    return styio::session_alloc::make_ir<SIOListReadStdin>(std::move(elem_type));
   }
 };
 
@@ -260,6 +265,7 @@ public:
     return x;
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SIOStdStreamWrite() override {
     styio_delete_ir_nodes(exprs);
   }
@@ -305,6 +311,7 @@ public:
     return x;
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SIOResourceEffect() override {
     delete operation;
     delete fallback;
@@ -337,6 +344,7 @@ public:
     pulse_plan = std::move(p);
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SIOStdStreamLineIter() override {
     delete body;
   }
@@ -352,11 +360,11 @@ public:
   StyioDataType result_type{StyioDataTypeOption::Integer, "i64", 64};
 
   static SIOStdStreamPull* Create() {
-    return new SIOStdStreamPull();
+    return styio::session_alloc::make_ir<SIOStdStreamPull>();
   }
 
   static SIOStdStreamPull* Create(StyioDataType result_type) {
-    return new SIOStdStreamPull(std::move(result_type));
+    return styio::session_alloc::make_ir<SIOStdStreamPull>(std::move(result_type));
   }
 
   SIOStdStreamPull() = default;
@@ -415,6 +423,7 @@ public:
     return x;
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SIOFlowBind() override {
     delete source_expr;
     delete fallback_expr;
@@ -441,7 +450,7 @@ public:
   }
 
   static SIOPath* Create(std::string path) {
-    return new SIOPath(path);
+    return styio::session_alloc::make_ir<SIOPath>(path);
   }
 };
 
@@ -459,7 +468,7 @@ public:
   }
 
   static SIOPrint* Create(std::vector<StyioIR*> expr) {
-    return new SIOPrint(expr);
+    return styio::session_alloc::make_ir<SIOPrint>(expr);
   }
 };
 
@@ -472,13 +481,63 @@ public:
       file_path(file_path) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SIORead() override {
     delete file_path;
   }
 
   static SIORead* Create(SIOPath* file_path) {
-    return new SIORead(file_path);
+    return styio::session_alloc::make_ir<SIORead>(file_path);
   }
 };
+
+
+// --- out-of-line collect_children() (TASK-08) ---
+inline void SIOHandleAcquire::collect_children(std::vector<StyioIR*>& out) {
+  if (path_expr) out.push_back(static_cast<StyioIR*>(path_expr));
+}
+
+inline void SIOHandleRelease::collect_children(std::vector<StyioIR*>& out) {
+  if (path_expr) out.push_back(static_cast<StyioIR*>(path_expr));
+}
+
+inline void SIOFileLineIter::collect_children(std::vector<StyioIR*>& out) {
+  if (path_expr) out.push_back(static_cast<StyioIR*>(path_expr));
+  if (body) out.push_back(static_cast<StyioIR*>(body));
+}
+
+inline void SIOStreamZip::collect_children(std::vector<StyioIR*>& out) {
+  if (iterable_a) out.push_back(static_cast<StyioIR*>(iterable_a));
+  if (iterable_b) out.push_back(static_cast<StyioIR*>(iterable_b));
+  if (body) out.push_back(static_cast<StyioIR*>(body));
+}
+
+inline void SIOInstantPull::collect_children(std::vector<StyioIR*>& out) {
+  if (path_expr) out.push_back(static_cast<StyioIR*>(path_expr));
+}
+
+inline void SIOStdStreamWrite::collect_children(std::vector<StyioIR*>& out) {
+  for (auto* c : exprs) out.push_back(static_cast<StyioIR*>(c));
+}
+
+inline void SIOResourceEffect::collect_children(std::vector<StyioIR*>& out) {
+  if (operation) out.push_back(static_cast<StyioIR*>(operation));
+  if (fallback) out.push_back(static_cast<StyioIR*>(fallback));
+  for (auto& p : handlers) out.push_back(static_cast<StyioIR*>(p.body));
+}
+
+inline void SIOStdStreamLineIter::collect_children(std::vector<StyioIR*>& out) {
+  if (body) out.push_back(static_cast<StyioIR*>(body));
+}
+
+inline void SIOFlowBind::collect_children(std::vector<StyioIR*>& out) {
+  if (source_expr) out.push_back(static_cast<StyioIR*>(source_expr));
+  if (fallback_expr) out.push_back(static_cast<StyioIR*>(fallback_expr));
+}
+
+inline void SIORead::collect_children(std::vector<StyioIR*>& out) {
+  if (file_path) out.push_back(static_cast<StyioIR*>(file_path));
+}
+
 
 #endif

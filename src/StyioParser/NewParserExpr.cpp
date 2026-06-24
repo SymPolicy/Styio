@@ -662,17 +662,25 @@ stmt_subset_route_supported_latest(const StyioContext& context) {
     return false;
   }
 
+  // Route cache (TASK-06): skip redundant scan.
+  if (context.has_route_cache(start, StyioContext::kRouteStmtSubset)) {
+    return context.get_route_cache(start, StyioContext::kRouteStmtSubset);
+  }
+
   const StyioTokenType start_type = tokens[start]->type;
   if (!styio_parser_stmt_subset_start_nightly(start_type)) {
+    context.set_route_cache(start, StyioContext::kRouteStmtSubset, false);
     return false;
   }
   if (start_type == StyioTokenType::TOK_HASH) {
-    return can_route_hash_let_match_nightly_latest(context)
-           || can_route_hash_stmt_nightly_latest(context);
+    bool result = can_route_hash_let_match_nightly_latest(context)
+               || can_route_hash_stmt_nightly_latest(context);
+    context.set_route_cache(start, StyioContext::kRouteStmtSubset, result);
+    return result;
   }
   const bool allow_single_pipe = start_type == StyioTokenType::AWAIT_PIPE;
 
-  return scan_subset_route_tokens_latest(
+  bool result = scan_subset_route_tokens_latest(
     tokens,
     start,
     [](StyioTokenType type)
@@ -695,6 +703,8 @@ stmt_subset_route_supported_latest(const StyioContext& context) {
     },
     allow_single_pipe
   );
+  context.set_route_cache(start, StyioContext::kRouteStmtSubset, result);
+  return result;
 }
 
 bool
