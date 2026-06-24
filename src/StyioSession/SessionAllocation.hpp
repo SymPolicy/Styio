@@ -202,7 +202,9 @@ struct SessionAllocationStats
 };
 
 // Thread-local IR arena (TASK-08) and statistics.
-class StyioIR;
+// Note: StyioIR lives in the global namespace (StyioIR.hpp). We use
+// an elaborated type specifier in the function declarations below
+// to avoid creating a separate forward-declared name inside this namespace.
 inline thread_local SessionArena* current_ir_arena = nullptr;
 inline thread_local SessionAllocationStats* current_ir_stats = nullptr;
 
@@ -275,12 +277,6 @@ T* make_ir(Args&&... args) {
   }
   return ::new (mem) T(std::forward<Args>(args)...);
 }
-
-/// Non-recursive IR subtree destruction. Calls destructors on all reachable
-/// nodes via collect_children(), then (if no arena active) frees memory.
-/// When an IR arena is active, individual deallocations are no-ops;
-/// the arena reset handles bulk cleanup.
-void destroy_ir_subtree(StyioIR* root);
 
 } // namespace styio::session_alloc
 
