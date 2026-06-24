@@ -16,6 +16,7 @@ using std::unordered_map;
 // [Styio]
 #include "../StyioAST/ASTDecl.hpp"
 #include "../StyioIR/IRDecl.hpp"
+#include "../StyioSession/SymbolInterner.hpp"
 #include "../StyioToken/Token.hpp"
 
 struct SGPulsePlan;
@@ -175,9 +176,15 @@ using StyioSemaLoweringVisitor = AnalyzerVisitor<
 class StyioSemaContext : public StyioSemaLoweringVisitor
 {
 public:
+  // String-keyed maps (backward compatible)
   unordered_map<string, StyioAST*> func_defs;
   unordered_map<string, StyioDataType> local_binding_types;
   unordered_map<string, StyioDataType> resource_method_dynamic_local_binding_types;
+
+  // SymbolId-keyed maps (fast path for interned identifiers)
+  unordered_map<styio::session::SymbolId, StyioAST*> func_defs_by_sid;
+  unordered_map<styio::session::SymbolId, StyioDataType> local_binding_types_by_sid;
+  unordered_map<styio::session::SymbolId, StyioDataType> resource_method_dynamic_local_binding_types_by_sid;
   struct NativeFunctionType {
     StyioDataType return_type;
     std::vector<StyioDataType> arg_types;
@@ -370,12 +377,22 @@ protected:
   int active_series_slot_ = -1;
   int post_pulse_hist_region_ = -1;
   SGPulsePlan* post_pulse_hist_plan_ = nullptr;
+  /* String-keyed maps (backward compatible) */
   std::unordered_set<std::string> snapshot_var_names_;
   /* Names bound by final assignment (x : T := …); may not be reassigned via flex (=). */
   std::unordered_set<std::string> fixed_assignment_names_;
   std::unordered_map<std::string, BindingInfo> binding_info_;
   std::unordered_map<std::string, std::unordered_map<std::string, ResourceMethodInfo>> resource_method_defs_;
   std::unordered_map<std::string, StyioDataType> resource_binding_types_;
+
+  /* SymbolId-keyed maps (fast path for interned identifiers) */
+  std::unordered_set<styio::session::SymbolId> snapshot_var_names_by_sid_;
+  std::unordered_set<styio::session::SymbolId> fixed_assignment_names_by_sid_;
+  std::unordered_map<styio::session::SymbolId, BindingInfo> binding_info_by_sid_;
+  std::unordered_map<styio::session::SymbolId, StyioDataType> resource_binding_types_by_sid_;
+  std::unordered_set<styio::session::SymbolId> consumed_task_names_by_sid_;
+  std::unordered_set<styio::session::SymbolId> consumed_resource_names_by_sid_;
+  std::unordered_set<styio::session::SymbolId> owned_resource_names_by_sid_;
   std::unordered_set<ResourceWriteAST*> collect_bind_resource_writes_;
   std::unordered_set<HandleAcquireAST*> collect_bind_handle_acquires_;
   std::unordered_map<ResourceWriteAST*, StyioDataType> collect_bind_resource_write_types_;
