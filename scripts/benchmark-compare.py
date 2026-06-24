@@ -19,29 +19,58 @@ def load_results(path: str) -> dict:
     with open(path, "r") as f:
         data = json.load(f)
 
+    # Support both v1 (samples) and v2 (benchmarks) schema
+    bench_list = data.get("benchmarks", data.get("samples", []))
     samples = {}
-    for s in data.get("samples", []):
-        key = f"{s['phase']}/{s['label']}"
-        samples[key] = s["duration_ns"]
+    for s in bench_list:
+        # v2: "name" = "phase/label"; v1: separate "phase"/"label"
+        if "name" in s:
+            key = s["name"]
+        else:
+            key = f"{s['phase']}/{s['label']}"
+        # Use median_ns if available, else duration_ns
+        ns = s.get("median_ns", s.get("duration_ns", 0))
+        samples[key] = {
+            "median_ns": ns,
+            "mean_ns": s.get("mean_ns", ns),
+            "p95_ns": s.get("p95_ns", ns),
+            "min_ns": s.get("min_ns", ns),
+            "max_ns": s.get("max_ns", ns),
+            "iterations": s.get("iterations", 0),
+        }
     return {
-        "git_sha": data.get("git_sha", "unknown"),
+        "git_sha": data.get("commit", data.get("git_sha", "unknown")),
         "build_type": data.get("build_type", "unknown"),
         "samples": samples,
     }
 
 
-def compare(baseline: dict, current: dict, threshold_pct: float) -> int:
+def compare(baseline: dict, current: dict, threshold_pct: float,
+            markdown_path: str = None, allow_missing_new: bool = False,
+            require_improvement: dict = None) -> int:
     baseline_samples = baseline["samples"]
     current_samples = current["samples"]
 
     all_keys = sorted(set(baseline_samples.keys()) | set(current_samples.keys()))
 
-    print(f"Baseline: {baseline['git_sha']} ({baseline['build_type']})")
-    print(f"Current:  {current['git_sha']} ({current['build_type']})")
-    print(f"Threshold: {threshold_pct}%")
-    print()
-    print(f"{'Benchmark':<45} {'Baseline':>12} {'Current':>12} {'Delta %':>10} {'Status':>12}")
-    print("-" * 93)
+    lines = []
+    md_lines = []
+
+    def emit(s: str):
+        lines.append(s)
+
+    def md(s: str):
+        md_lines.append(s)
+
+    emit(f"Baseline: {baseline['git_sha']} ({baseline['build_type']})")
+    emit(f"Current:  {current['git_sha']} ({current['build_type']})")
+    emit(f"Threshold: {threshold_pct}%")
+    emit("")
+    emit(f"{'Benchmark':<45} {'Baseline':>12} {'Current':>12} {'Delta %':>10} {'Status':>12}")
+    emit("-" * 93)
+
+    md("| Benchmark | Baseline | Current | Delta % | Status |")
+    md("|-----------|----------|---------|---------|--------|")
 
     regressions = 0
     improvements = 0
@@ -49,20 +78,32 @@ def compare(baseline: dict, current: dict, threshold_pct: float) -> int:
     new_benchmarks = 0
 
     for key in all_keys:
-        base_ns = baseline_samples.get(key)
-        curr_ns = current_samples.get(key)
+        base = baseline_samples.get(key)
+        curr = current_samples.get(key)
 
-        if base_ns is None:
-            print(f"{key:<45} {'N/A':>12} {_fmt_ns(curr_ns):>12} {'N/A':>10} {'NEW':>12}")
+        if base is None:
+            msg = f"{key:<45} {'N/A':>12} {_fmt_ns(curr['median_ns']):>12} {'N/A':>10} {'NEW':>12}"
+            emit(msg)
+            md(f"| {key} | N/A | {_fmt_ns(curr['median_ns'])} | N/A | NEW |")
             new_benchmarks += 1
+            if not allow_missing_new:
+                missing += 1
             continue
 
-        if curr_ns is None:
-            print(f"{key:<45} {_fmt_ns(base_ns):>12} {'N/A':>12} {'N/A':>10} {'MISSING':>12}")
+        if curr is None:
+            msg = f"{key:<45} {_fmt_ns(base['median_ns']):>12} {'N/A':>12} {'N/A':>10} {'MISSING':>12}"
+            emit(msg)
+            md(f"| {key} | {_fmt_ns(base['median_ns'])} | N/A | N/A | MISSING |")
             missing += 1
             continue
 
-        delta_pct = ((curr_ns - base_ns) / base_ns) * 100.0
+        base_ns = base["median_ns"]
+        curr_ns = curr["median_ns"]
+
+        if base_ns == 0:
+            delta_pct = 0.0
+        else:
+            delta_pct = ((curr_ns - base_ns) / base_ns) * 100.0
 
         if delta_pct > threshold_pct:
             status = "REGRESSION"
@@ -73,21 +114,57 @@ def compare(baseline: dict, current: dict, threshold_pct: float) -> int:
         else:
             status = "stable"
 
-        print(
+        emit(
             f"{key:<45} {_fmt_ns(base_ns):>12} {_fmt_ns(curr_ns):>12} "
             f"{delta_pct:>+9.1f}% {status:>12}"
         )
+        md(f"| {key} | {_fmt_ns(base_ns)} | {_fmt_ns(curr_ns)} | {delta_pct:+.1f}% | {status} |")
 
-    print()
-    print(f"Summary: {regressions} regression(s), {improvements} improvement(s), "
-          f"{new_benchmarks} new, {missing} missing")
+    emit("")
+    emit(f"Summary: {regressions} regression(s), {improvements} improvement(s), "
+         f"{new_benchmarks} new, {missing} missing")
+    md("")
+    md(f"**Summary:** {regressions} regression(s), {improvements} improvement(s), "
+       f"{new_benchmarks} new, {missing} missing")
+
+    # Check required improvements
+    req_failures = []
+    if require_improvement:
+        for bench_name, required_pct in require_improvement.items():
+            if bench_name in baseline_samples and bench_name in current_samples:
+                base_ns = baseline_samples[bench_name]["median_ns"]
+                curr_ns = current_samples[bench_name]["median_ns"]
+                if base_ns > 0:
+                    actual_pct = -((base_ns - curr_ns) / base_ns) * 100.0
+                    if actual_pct < required_pct:
+                        req_failures.append(
+                            f"{bench_name}: required {required_pct}% improvement, "
+                            f"got {actual_pct:+.1f}%"
+                        )
+            else:
+                req_failures.append(f"{bench_name}: missing from baseline or current")
+
+    # Write markdown if requested
+    if markdown_path:
+        with open(markdown_path, "w") as f:
+            f.write("\n".join(md_lines) + "\n")
+
+    # Print output
+    print("\n".join(lines))
+
+    # Print requirement failures
+    if req_failures:
+        print(f"\nFAIL: {len(req_failures)} required improvement(s) not met:")
+        for f in req_failures:
+            print(f"  - {f}")
 
     if regressions > 0:
         print(f"\nFAIL: {regressions} benchmark(s) degraded beyond {threshold_pct}% threshold.")
         return 1
-    else:
-        print(f"\nPASS: all benchmarks within {threshold_pct}% threshold.")
-        return 0
+    if req_failures:
+        return 1
+    print(f"\nPASS: all benchmarks within {threshold_pct}% threshold.")
+    return 0
 
 
 def _fmt_ns(ns: int) -> str:
@@ -111,6 +188,18 @@ def main():
         "--threshold", type=float, default=5.0,
         help="Regression threshold in percent (default: 5.0)"
     )
+    parser.add_argument(
+        "--markdown", type=str, default=None,
+        help="Write markdown summary to this path"
+    )
+    parser.add_argument(
+        "--allow-missing-new", action="store_true", default=False,
+        help="Allow new benchmarks in current that are missing from baseline"
+    )
+    parser.add_argument(
+        "--require-improvement", type=str, default=None,
+        help="Comma-separated bench:min_pct entries that must improve, e.g. 'parse/many_stmts_1k:10'"
+    )
     args = parser.parse_args()
 
     if not Path(args.baseline).exists():
@@ -120,10 +209,22 @@ def main():
         print(f"ERROR: current file not found: {args.current}")
         sys.exit(2)
 
+    # Parse required improvements
+    req_improve = {}
+    if args.require_improvement:
+        for item in args.require_improvement.split(","):
+            item = item.strip()
+            if ":" in item:
+                name, pct = item.rsplit(":", 1)
+                req_improve[name.strip()] = float(pct)
+
     baseline = load_results(args.baseline)
     current = load_results(args.current)
 
-    return compare(baseline, current, args.threshold)
+    return compare(baseline, current, args.threshold,
+                   markdown_path=args.markdown,
+                   allow_missing_new=args.allow_missing_new,
+                   require_improvement=req_improve if req_improve else None)
 
 
 if __name__ == "__main__":

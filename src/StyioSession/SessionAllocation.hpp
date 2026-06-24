@@ -188,9 +188,23 @@ set_current_interner(SymbolInterner* interner) noexcept {
   return prev;
 }
 
-// Thread-local IR arena (TASK-08).
+/// Allocation statistics for measuring arena vs heap allocation behaviour.
+struct SessionAllocationStats
+{
+  std::size_t arena_allocations = 0;   // nodes placed via arena (make_ir with active arena)
+  std::size_t raw_allocations = 0;     // nodes allocated via raw ::new (make_ir fallback or explicit new)
+  std::size_t bytes_allocated = 0;     // total bytes requested (sum of sizeof(T) across all allocations)
+  std::size_t node_count = 0;          // currently alive nodes
+  std::size_t max_node_count = 0;      // peak concurrent node_count
+  std::size_t destructor_calls = 0;    // total StyioIR destructor invocations
+
+  void reset() noexcept { *this = SessionAllocationStats{}; }
+};
+
+// Thread-local IR arena (TASK-08) and statistics.
 class StyioIR;
 inline thread_local SessionArena* current_ir_arena = nullptr;
+inline thread_local SessionAllocationStats* current_ir_stats = nullptr;
 
 inline SessionArena*
 set_current_ir_arena(SessionArena* arena) noexcept {
@@ -199,13 +213,66 @@ set_current_ir_arena(SessionArena* arena) noexcept {
   return prev;
 }
 
+inline SessionAllocationStats*
+set_current_ir_stats(SessionAllocationStats* stats) noexcept {
+  SessionAllocationStats* prev = current_ir_stats;
+  current_ir_stats = stats;
+  return prev;
+}
+
+inline bool
+ir_stats_active() noexcept {
+  return current_ir_stats != nullptr;
+}
+
+/// Helper: record a raw heap allocation for tracking purposes.
+/// Returns the pointer unchanged so it can be used inline.
+template <typename T>
+T*
+track_raw_allocation(T* ptr) noexcept {
+  if (current_ir_stats) {
+    current_ir_stats->raw_allocations++;
+    current_ir_stats->bytes_allocated += sizeof(T);
+    current_ir_stats->node_count++;
+    if (current_ir_stats->node_count > current_ir_stats->max_node_count) {
+      current_ir_stats->max_node_count = current_ir_stats->node_count;
+    }
+  }
+  return ptr;
+}
+
+/// Allocate a raw IR node via ::new T() and track it.
+template <typename T>
+T*
+raw_new() {
+  return track_raw_allocation(::new T());
+}
+
 /// Placement-new factory for IR nodes. Uses the thread-local IR arena when
 /// active, falls back to ::operator new otherwise (backward compatible).
+/// Increments allocation counters via thread-local SessionAllocationStats.
 template <typename T, typename... Args>
 T* make_ir(Args&&... args) {
-  void* mem = current_ir_arena
-    ? current_ir_arena->allocate_span(sizeof(T))
-    : ::operator new(sizeof(T));
+  void* mem = nullptr;
+  if (current_ir_arena) {
+    mem = current_ir_arena->allocate_span(sizeof(T));
+    if (current_ir_stats) {
+      current_ir_stats->arena_allocations++;
+      current_ir_stats->bytes_allocated += sizeof(T);
+    }
+  } else {
+    mem = ::operator new(sizeof(T));
+    if (current_ir_stats) {
+      current_ir_stats->raw_allocations++;
+      current_ir_stats->bytes_allocated += sizeof(T);
+    }
+  }
+  if (current_ir_stats) {
+    current_ir_stats->node_count++;
+    if (current_ir_stats->node_count > current_ir_stats->max_node_count) {
+      current_ir_stats->max_node_count = current_ir_stats->node_count;
+    }
+  }
   return ::new (mem) T(std::forward<Args>(args)...);
 }
 
