@@ -156,6 +156,7 @@ Key SSOTs:
 118. For matrix literal invalid diagnostic refinements, describe the change as a public diagnostic-code refinement only: record `STYIO_TYPE_MATRIX_LITERAL_INVALID`, the direct matrix binding and explicit matrix-return routes that prove it, and the unchanged TypeError exit family without implying broader matrix literal acceptance, matrix return compatibility, matrix operators, resource-method matrix bodies, or matrix runtime behavior.
 119. When checkpoint or delivery gates add repository-wide quality metrics such as source coverage, update the gate script, workflow Markdown/TOML mirrors, CI wiring, release conformance rollups, Test Quality runbook, generated indexes, and `DOC-STATS.md` in the same delivery.
 120. When adding a broad source-architecture or external-language comparison audit under `docs/rollups/`, keep the wording evidence-scoped to the local sources reviewed, map follow-up work to the owning `IM-D*` inventories or runbooks, regenerate generated indexes, and refresh `DOC-STATS.md` when this runbook changes.
+121. When IM-D1 StyioIR contract inventory adds new capabilities (IR walker, pass manager, tokenizer span infrastructure), record the capability, current state, and evidence links in the manifest table of `docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md` without removing existing entries. Each entry must name at least one source file as live evidence.
 
 ## Change Classes
 

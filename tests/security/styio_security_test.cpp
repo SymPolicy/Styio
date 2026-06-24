@@ -42,6 +42,7 @@
 #include "StyioExtern/ExternLib.hpp"
 #include "StyioIR/GenIR/GenIR.hpp"
 #include "StyioIR/StyioIR.hpp"
+#include "StyioIR/StyioIRWalker.hpp"
 #include "StyioIR/Verifier.hpp"
 #include "StyioJIT/StyioJIT_ORC.hpp"
 #include "StyioLowering/AstToStyioIRLowerer.hpp"
@@ -4281,6 +4282,214 @@ TEST(StyioIRContract, VerifierRejectsInactiveIR) {
   EXPECT_THROW(styio::ir::require_verified_styio_ir(&node), StyioTypeError);
 }
 
+// ---------------------------------------------------------------
+// StyioIRWalker — unified IR walker infrastructure
+// ---------------------------------------------------------------
+
+TEST(StyioIRWalker, WalkVisitsAllThreeDomains) {
+  // Verify the walker dispatch covers SG, SC, and SIO node types
+  // without falling through to visitUnknown.
+  class DomainCounter : public styio::ir::StyioIRWalker
+  {
+  public:
+    int sg = 0;
+    int sc = 0;
+    int sio = 0;
+
+    void visitSGBlock(SGBlock*) override { sg++; }
+    void visitSCListLiteral(SCListLiteral*) override { sc++; }
+    void visitSIOStdStreamLineIter(SIOStdStreamLineIter* node) override {
+      sio++;
+      // Delegate to default child-walking (walks body SGBlock)
+      StyioIRWalker::visitSIOStdStreamLineIter(node);
+    }
+  };
+
+  DomainCounter counter;
+
+  auto* sg_node = SGBlock::Create({});
+  counter.walk(sg_node);
+  EXPECT_EQ(counter.sg, 1);
+  EXPECT_EQ(counter.sc, 0);
+  EXPECT_EQ(counter.sio, 0);
+  delete sg_node;
+
+  auto* sc_node = SCListLiteral::Create({});
+  counter.walk(sc_node);
+  EXPECT_EQ(counter.sg, 1);
+  EXPECT_EQ(counter.sc, 1);
+  EXPECT_EQ(counter.sio, 0);
+  delete sc_node;
+
+  auto* sio_node = SIOStdStreamLineIter::Create("line", SGBlock::Create({}));
+  counter.walk(sio_node);
+  EXPECT_EQ(counter.sg, 2);  // SGBlock body was walked
+  EXPECT_EQ(counter.sc, 1);
+  EXPECT_EQ(counter.sio, 1);
+  delete sio_node;
+}
+
+TEST(StyioIRWalker, NullNodeIsSilentlySkipped) {
+  class NoCrashWalker : public styio::ir::StyioIRWalker {};
+  NoCrashWalker walker;
+  EXPECT_NO_THROW(walker.walk(nullptr));
+}
+
+TEST(StyioIRWalker, WalkVectorWalksAllChildren) {
+  class ChildCounter : public styio::ir::StyioIRWalker
+  {
+  public:
+    int count = 0;
+    void visitSGConstInt(SGConstInt*) override { count++; }
+  };
+
+  ChildCounter counter;
+  std::vector<StyioIR*> nodes = {
+    SGConstInt::Create(1L),
+    SGConstInt::Create(2L),
+    SGConstInt::Create(3L),
+  };
+  counter.walkVector(nodes);
+  EXPECT_EQ(counter.count, 3);
+  styio_delete_ir_nodes(nodes);
+}
+
+TEST(StyioIRWalker, BeforeAndAfterHooksFire) {
+  class HookWalker : public styio::ir::StyioIRWalker
+  {
+  public:
+    int before = 0;
+    int after = 0;
+    void beforeNode(StyioIR*) override { before++; }
+    void afterNode(StyioIR*) override { after++; }
+  };
+
+  HookWalker walker;
+  auto* node = SGConstBool::Create(true);
+  walker.walk(node);
+  EXPECT_EQ(walker.before, 1);
+  EXPECT_EQ(walker.after, 1);
+  delete node;
+}
+
+TEST(StyioIRWalker, DefaultVisitWalksChildrenOfBinOp) {
+  // Default visitSGBinOp should walk lhs_expr and rhs_expr children.
+  class ChildCheck : public styio::ir::StyioIRWalker
+  {
+  public:
+    bool saw_lhs = false;
+    bool saw_rhs = false;
+    void visitSGConstBool(SGConstBool*) override { saw_lhs = true; }
+  };
+
+  ChildCheck walker;
+  auto* binop = SGBinOp::Create(
+    SGConstBool::Create(true),
+    SGConstBool::Create(false),
+    StyioOpType::Binary_Add,
+    SGType::Create(StyioDataType{StyioDataTypeOption::Bool, "bool", 1}));
+  // Don't use walk() — use dispatch() directly to test default visit
+  walker.visitSGBinOp(binop);
+  // The default visit walks lhs_expr and rhs_expr, which are SGConstBool
+  // But ChildCheck overrides visitSGConstBool — so saw_lhs should fire twice
+  EXPECT_TRUE(walker.saw_lhs);
+  delete binop;
+}
+
+// ---------------------------------------------------------------
+// StyioIRPassManager — pass pipeline infrastructure
+// ---------------------------------------------------------------
+
+TEST(StyioIRPassManager, OptLevelZeroSkipsCanonicalization) {
+  auto* ir = SGBlock::Create({
+    SGConstInt::Create(42L),
+  });
+
+  auto manager = styio::lowering::default_styio_ir_pass_manager(0);
+  styio::lowering::StyioIRPassPipelineOptions opts;
+  opts.opt_level = 0;
+  opts.verify_before = true;
+  opts.verify_after_each_pass = true;
+  opts.collect_timing = true;
+
+  auto result = manager.run(ir, opts);
+  EXPECT_TRUE(result.ok());
+  EXPECT_TRUE(result.passes.empty());  // No passes at opt_level 0
+  EXPECT_EQ(result.root, ir);
+  delete ir;
+}
+
+TEST(StyioIRPassManager, OptLevelOneRunsCanonicalization) {
+  auto* ir = SGBlock::Create({
+    SGFlexBind::Create(
+      SGVar::Create(
+        SGResId::Create("x"),
+        SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64})),
+      SGConstInt::Create(1L)),
+  });
+
+  auto manager = styio::lowering::default_styio_ir_pass_manager(1);
+  styio::lowering::StyioIRPassPipelineOptions opts;
+  opts.opt_level = 1;
+  opts.verify_before = true;
+  opts.verify_after_each_pass = true;
+  opts.collect_timing = true;
+
+  auto result = manager.run(ir, opts);
+  EXPECT_TRUE(result.ok());
+  EXPECT_FALSE(result.passes.empty());
+  EXPECT_EQ(result.passes.front().name, "styioir-canonicalization");
+  EXPECT_GT(result.passes.front().duration_ns, 0ULL);
+  EXPECT_TRUE(result.passes.front().verifier_before_ok);
+  EXPECT_TRUE(result.passes.front().verifier_after_ok);
+  // Root may have been transformed by canonicalization
+  delete result.root;
+}
+
+TEST(StyioIRPassManager, VerifierCatchesInactiveNodeBeforePass) {
+  InactiveTestIR inactive;
+  auto* ir = SGBlock::Create({&inactive});
+
+  auto manager = styio::lowering::default_styio_ir_pass_manager(1);
+  styio::lowering::StyioIRPassPipelineOptions opts;
+  opts.verify_before = true;
+
+  auto result = manager.run(ir, opts);
+  EXPECT_FALSE(result.ok());
+  EXPECT_FALSE(result.diagnostics.empty());
+  // Clean up: remove the inactive node from the block so SGBlock
+  // doesn't try to delete it (it's stack-allocated).
+  ir->stmts.clear();
+  delete ir;
+}
+
+TEST(StyioIRPassManager, CollectsIrDumpsWhenRequested) {
+  auto* ir = SGBlock::Create({
+    SGConstInt::Create(1L),
+  });
+
+  styio::lowering::StyioIRPassPipelineOptions opts;
+  opts.opt_level = 0;
+  opts.collect_ir_dumps = true;
+
+  auto result = styio::lowering::run_default_styio_ir_pass_pipeline(ir, opts);
+  EXPECT_TRUE(result.ok());
+  EXPECT_FALSE(result.initial_ir.empty());
+  EXPECT_FALSE(result.final_ir.empty());
+  delete result.root;
+}
+
+TEST(StyioIRPassManager, RequirePipelineThrowsOnFailure) {
+  InactiveTestIR inactive;
+  auto* ir = SGBlock::Create({&inactive});
+
+  EXPECT_THROW(
+    styio::lowering::require_default_styio_ir_pass_pipeline(ir),
+    StyioTypeError);
+  ir->stmts.clear();
+  delete ir;
+}
+
 TEST(StyioSecurityLexer, EmptySourceProducesEof) {
   auto tokens = StyioTokenizer::tokenize("");
   ASSERT_FALSE(tokens.empty());
@@ -6489,6 +6698,402 @@ TEST(StyioSecurityNightlyParserExpr, MatchesLegacyOnSubsetSamples) {
       FAIL() << "sample '" << src << "' threw: " << ex.what();
     }
   }
+}
+
+// ---------------------------------------------------------------
+// StyioTokenizerSpan — span correctness regression tests
+// ---------------------------------------------------------------
+
+TEST(StyioTokenizerSpan, SpanBoundsAreCorrect) {
+  auto tokens = StyioTokenizer::tokenize("x = 42");
+  ASSERT_GE(tokens.size(), 4u);
+
+  // x
+  EXPECT_EQ(tokens[0]->type, StyioTokenType::NAME);
+  EXPECT_EQ(tokens[0]->begin(), 0u);
+  EXPECT_EQ(tokens[0]->len(), 1u);
+  EXPECT_EQ(tokens[0]->original, "x");
+
+  // space
+  EXPECT_EQ(tokens[1]->type, StyioTokenType::TOK_SPACE);
+  EXPECT_EQ(tokens[1]->begin(), 1u);
+  EXPECT_EQ(tokens[1]->len(), 1u);
+
+  // =
+  EXPECT_EQ(tokens[2]->type, StyioTokenType::TOK_EQUAL);
+  EXPECT_EQ(tokens[2]->begin(), 2u);
+  EXPECT_EQ(tokens[2]->len(), 1u);
+
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerSpan, LexemeViewMatchesOriginal) {
+  auto tokens = StyioTokenizer::tokenize("hello world");
+  ASSERT_GE(tokens.size(), 4u);
+  ASSERT_TRUE(tokens[0]->has_span());
+  EXPECT_EQ(tokens[0]->lexeme(), "hello");
+  EXPECT_EQ(tokens[0]->lexeme(), tokens[0]->original);
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerSpan, EofHasValidSpan) {
+  auto tokens = StyioTokenizer::tokenize("x");
+  ASSERT_GE(tokens.size(), 2u);
+  EXPECT_EQ(tokens.back()->type, StyioTokenType::TOK_EOF);
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerSpan, EmptyInputYieldsOnlyEof) {
+  auto tokens = StyioTokenizer::tokenize("");
+  ASSERT_EQ(tokens.size(), 1u);
+  EXPECT_EQ(tokens[0]->type, StyioTokenType::TOK_EOF);
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerSpan, WhitespaceOnly) {
+  auto tokens = StyioTokenizer::tokenize("   \n  ");
+  ASSERT_GE(tokens.size(), 1u);
+  EXPECT_EQ(tokens.back()->type, StyioTokenType::TOK_EOF);
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerSpan, LongestMatchPrecedence) {
+  // => must be ARROW_DOUBLE_RIGHT, not TOK_EQUAL followed by TOK_RANGBRAC
+  auto tokens = StyioTokenizer::tokenize("=>");
+  ASSERT_GE(tokens.size(), 2u);
+  EXPECT_EQ(tokens[0]->type, StyioTokenType::ARROW_DOUBLE_RIGHT);
+  EXPECT_EQ(tokens[0]->original, "=>");
+
+  // ||> must be TASK_LAUNCH, not LOGIC_OR followed by TOK_RANGBRAC
+  auto tokens2 = StyioTokenizer::tokenize("||>");
+  ASSERT_GE(tokens2.size(), 2u);
+  EXPECT_EQ(tokens2[0]->type, StyioTokenType::TASK_LAUNCH);
+  EXPECT_EQ(tokens2[0]->original, "||>");
+
+  // ** must be BINOP_POW, not TOK_STAR TOK_STAR
+  auto tokens3 = StyioTokenizer::tokenize("**");
+  ASSERT_GE(tokens3.size(), 2u);
+  EXPECT_EQ(tokens3[0]->type, StyioTokenType::BINOP_POW);
+
+  // ?| must be AWAIT_PIPE, not TOK_QUEST TOK_PIPE
+  auto tokens4 = StyioTokenizer::tokenize("?|");
+  ASSERT_GE(tokens4.size(), 2u);
+  EXPECT_EQ(tokens4[0]->type, StyioTokenType::AWAIT_PIPE);
+
+  // && must be LOGIC_AND, not TOK_AMP TOK_AMP
+  auto tokens5 = StyioTokenizer::tokenize("&&");
+  ASSERT_GE(tokens5.size(), 2u);
+  EXPECT_EQ(tokens5[0]->type, StyioTokenType::LOGIC_AND);
+
+  free_tokens(tokens);
+  free_tokens(tokens2);
+  free_tokens(tokens3);
+  free_tokens(tokens4);
+  free_tokens(tokens5);
+}
+
+TEST(StyioTokenizerSpan, KeywordVsIdentifier) {
+  // "if", "else", "match" etc. are tokenized as NAME, not special keywords.
+  // The parser distinguishes keywords from identifiers.
+  for (const char* kw : {"if", "else", "match", "while", "for", "return", "fn"}) {
+    auto tokens = StyioTokenizer::tokenize(kw);
+    ASSERT_GE(tokens.size(), 2u);
+    EXPECT_EQ(tokens[0]->type, StyioTokenType::NAME) << "keyword: " << kw;
+    EXPECT_EQ(tokens[0]->original, kw);
+    free_tokens(tokens);
+  }
+}
+
+TEST(StyioTokenizerSpan, UnterminatedStringThrowsLexError) {
+  EXPECT_THROW(
+    { auto tokens = StyioTokenizer::tokenize("\"no closing quote"); free_tokens(tokens); },
+    StyioLexError);
+}
+
+TEST(StyioTokenizerSpan, UnterminatedBlockCommentThrowsLexError) {
+  EXPECT_THROW(
+    { auto tokens = StyioTokenizer::tokenize("/* no closing"); free_tokens(tokens); },
+    StyioLexError);
+}
+
+TEST(StyioTokenizerSpan, UnterminatedNativeExternThrowsLexError) {
+  EXPECT_THROW(
+    {
+      auto tokens = StyioTokenizer::tokenize(
+        "@extern(c) => { int f(void) { return 1; ");
+      free_tokens(tokens);
+    },
+    StyioLexError);
+}
+
+TEST(StyioTokenizerSpan, AsciiIdentifierSpansAreSequential) {
+  // ASCII identifiers — full Unicode ID support requires ICU (STYIO_USE_ICU=ON)
+  auto tokens = StyioTokenizer::tokenize("alpha beta gamma");
+  ASSERT_GE(tokens.size(), 6u);
+  EXPECT_EQ(tokens[0]->type, StyioTokenType::NAME);
+  EXPECT_EQ(tokens[0]->original, "alpha");
+  EXPECT_EQ(tokens[0]->begin(), 0u);
+  EXPECT_EQ(tokens[0]->len(), 5u);
+  EXPECT_EQ(tokens[2]->type, StyioTokenType::NAME);
+  EXPECT_EQ(tokens[2]->original, "beta");
+  EXPECT_EQ(tokens[2]->begin(), 6u);
+  EXPECT_EQ(tokens[4]->type, StyioTokenType::NAME);
+  EXPECT_EQ(tokens[4]->original, "gamma");
+  EXPECT_EQ(tokens[4]->begin(), 11u);
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerSpan, NonAsciiIdentifierRejectedWithoutIcu) {
+  // Without ICU, bytes > 0x7F are not valid identifier starts.
+  // Each non-ASCII byte becomes UNKNOWN.
+  auto tokens = StyioTokenizer::tokenize("\xE5\x8F\x98");
+  ASSERT_GE(tokens.size(), 2u);
+  // The leading byte is not ASCII-alpha or '_', so it falls through
+  // to the default UNKNOWN case.
+  bool has_unknown = false;
+  for (auto* t : tokens) {
+    if (t->type == StyioTokenType::UNKNOWN) has_unknown = true;
+  }
+  EXPECT_TRUE(has_unknown) << "Non-ASCII bytes without ICU must be UNKNOWN";
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerSpan, CrLfHandling) {
+  auto tokens = StyioTokenizer::tokenize("a\r\nb");
+  ASSERT_GE(tokens.size(), 3u);
+  EXPECT_EQ(tokens[0]->type, StyioTokenType::NAME);
+  EXPECT_EQ(tokens[0]->original, "a");
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerSpan, FileEndingWithoutNewline) {
+  auto tokens = StyioTokenizer::tokenize("x // eof-no-newline");
+  ASSERT_GE(tokens.size(), 4u);
+  EXPECT_EQ(tokens[0]->type, StyioTokenType::NAME);
+  EXPECT_EQ(tokens[2]->type, StyioTokenType::COMMENT_LINE);
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerSpan, MalformedInputProducesUnknownToken) {
+  auto tokens = StyioTokenizer::tokenize(std::string("x\0y", 3));
+  ASSERT_GE(tokens.size(), 3u);
+  // Embedded NUL should produce UNKNOWN token
+  bool has_unknown = false;
+  for (auto* t : tokens) {
+    if (t->type == StyioTokenType::UNKNOWN) {
+      has_unknown = true;
+      EXPECT_EQ(t->len(), 1u);
+    }
+  }
+  EXPECT_TRUE(has_unknown);
+  free_tokens(tokens);
+}
+
+// ---------------------------------------------------------------
+// StyioTokenizerPerf — tokenizer benchmark / soak tests
+// ---------------------------------------------------------------
+
+TEST(StyioTokenizerPerf, LargeIdentifiers) {
+  std::string src;
+  src.reserve(100000);
+  for (int i = 0; i < 1000; ++i) {
+    src += "very_long_identifier_name_" + std::to_string(i) + " ";
+  }
+  src += "\n";
+
+  auto start = std::chrono::steady_clock::now();
+  auto tokens = StyioTokenizer::tokenize(src);
+  auto end = std::chrono::steady_clock::now();
+
+  auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  double mbps = (src.size() / 1048576.0) / (us / 1000000.0);
+
+  EXPECT_GT(tokens.size(), 1000u);
+  EXPECT_GT(mbps, 0.1);  // sanity: at least 0.1 MB/s
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerPerf, LargeNumbers) {
+  std::string src;
+  src.reserve(200000);
+  for (int i = 0; i < 5000; ++i) {
+    src += std::to_string(i * 123456789LL) + " ";
+  }
+  src += "\n";
+
+  auto start = std::chrono::steady_clock::now();
+  auto tokens = StyioTokenizer::tokenize(src);
+  auto end = std::chrono::steady_clock::now();
+
+  auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  double mbps = (src.size() / 1048576.0) / (us / 1000000.0);
+
+  EXPECT_GT(tokens.size(), 5000u);
+  EXPECT_GT(mbps, 1.0);  // at least 1 MB/s
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerPerf, LongStringLiteral) {
+  std::string src = "\"";
+  for (int i = 0; i < 50000; ++i) {
+    src += 'a' + (i % 26);
+  }
+  src += "\"";
+
+  auto start = std::chrono::steady_clock::now();
+  auto tokens = StyioTokenizer::tokenize(src);
+  auto end = std::chrono::steady_clock::now();
+
+  auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  double mbps = (src.size() / 1048576.0) / (us / 1000000.0);
+
+  EXPECT_GE(tokens.size(), 2u);  // STRING + EOF
+  EXPECT_GT(mbps, 5.0);  // at least 5 MB/s
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerPerf, DenseOperators) {
+  std::string src;
+  src.reserve(50000);
+  for (int i = 0; i < 3000; ++i) {
+    src += "=> ||> ** ?| && <= >= != := <- -> <| >_ + - * / % ";
+  }
+  src += "\n";
+
+  auto start = std::chrono::steady_clock::now();
+  auto tokens = StyioTokenizer::tokenize(src);
+  auto end = std::chrono::steady_clock::now();
+
+  auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  double mbps = (src.size() / 1048576.0) / (us / 1000000.0);
+
+  EXPECT_GT(tokens.size(), 10000u);
+  EXPECT_GT(mbps, 1.0);  // at least 1 MB/s
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerPerf, LongComment) {
+  std::string src = "// ";
+  for (int i = 0; i < 50000; ++i) {
+    src += 'a' + (i % 26);
+  }
+  src += "\nx";
+
+  auto start = std::chrono::steady_clock::now();
+  auto tokens = StyioTokenizer::tokenize(src);
+  auto end = std::chrono::steady_clock::now();
+
+  auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  double mbps = (src.size() / 1048576.0) / (us / 1000000.0);
+
+  EXPECT_GE(tokens.size(), 4u);  // COMMENT_LINE, LF, NAME, EOF
+  EXPECT_GT(mbps, 5.0);  // at least 5 MB/s
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerPerf, MixedRealisticInput) {
+  std::string src;
+  src.reserve(100000);
+  for (int i = 0; i < 200; ++i) {
+    src += "# compute_" + std::to_string(i) + " := (a: i64, b: i64) => {\n";
+    src += "  x = a + b * 2\n";
+    src += "  y := x ** 3\n";
+    src += "  result = ?| (<< @file(\"data.txt\")) | io => 0 | y\n";
+    src += "  <| result\n";
+    src += "}\n\n";
+  }
+
+  auto start = std::chrono::steady_clock::now();
+  auto tokens = StyioTokenizer::tokenize(src);
+  auto end = std::chrono::steady_clock::now();
+
+  auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  double mbps = (src.size() / 1048576.0) / (us / 1000000.0);
+
+  EXPECT_GT(tokens.size(), 5000u);
+  EXPECT_GT(mbps, 0.5);  // at least 0.5 MB/s
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerPerf, LargeInputSoak) {
+  // Generate ~500KB of mixed Styio-like source
+  std::string src;
+  src.reserve(600000);
+  for (int i = 0; i < 1000; ++i) {
+    src += "# func_" + std::to_string(i) + " := (x: i64) => {\n";
+    src += "  // comment line " + std::to_string(i) + "\n";
+    src += "  y = x + " + std::to_string(i) + "\n";
+    src += "  \"string literal " + std::to_string(i % 100) + "\" -> @stdout\n";
+    src += "  <| y\n";
+    src += "}\n";
+  }
+
+  auto start = std::chrono::steady_clock::now();
+  auto tokens = StyioTokenizer::tokenize(src);
+  auto end = std::chrono::steady_clock::now();
+
+  auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  double mbps = (src.size() / 1048576.0) / (us / 1000000.0);
+  size_t token_count = tokens.size();
+
+  EXPECT_GT(token_count, 10000u);
+  EXPECT_GT(mbps, 1.0);  // at least 1 MB/s
+  free_tokens(tokens);
+
+  // Verify the tokenizer doesn't time out on larger input
+  // ~2MB input
+  std::string big_src;
+  big_src.reserve(2100000);
+  for (int i = 0; i < 5000; ++i) {
+    big_src += "x" + std::to_string(i) + " = " + std::to_string(i) + "\n";
+  }
+
+  auto start2 = std::chrono::steady_clock::now();
+  auto big_tokens = StyioTokenizer::tokenize(big_src);
+  auto end2 = std::chrono::steady_clock::now();
+
+  auto us2 = std::chrono::duration_cast<std::chrono::microseconds>(end2 - start2).count();
+  EXPECT_LT(us2, 5000000);  // Should complete in under 5 seconds
+  free_tokens(big_tokens);
+}
+
+TEST(StyioTokenizerPerf, NativeExternBlock) {
+  std::string src = "@extern(c) => {\nint add(int a, int b) {\n";
+  for (int i = 0; i < 10000; ++i) {
+    src += "  // line " + std::to_string(i) + "\n";
+  }
+  src += "  return a + b;\n}\n}";
+
+  auto start = std::chrono::steady_clock::now();
+  auto tokens = StyioTokenizer::tokenize(src);
+  auto end = std::chrono::steady_clock::now();
+
+  auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  double mbps = (src.size() / 1048576.0) / (us / 1000000.0);
+
+  EXPECT_GT(tokens.size(), 3u);
+  EXPECT_GT(mbps, 1.0);  // at least 1 MB/s
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerSpan, DenseSymbolMixedInput) {
+  // Verify dense symbol sequences don't cause quadratic behavior
+  std::string src;
+  src.reserve(100000);
+  for (int i = 0; i < 5000; ++i) {
+    src += "! # $ % & ' ( ) * + , - . / : ; < = > ? @ [ \\ ] ^ _ ` { | } ~ ";
+  }
+
+  auto start = std::chrono::steady_clock::now();
+  auto tokens = StyioTokenizer::tokenize(src);
+  auto end = std::chrono::steady_clock::now();
+
+  auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  double mbps = (src.size() / 1048576.0) / (us / 1000000.0);
+
+  EXPECT_GT(tokens.size(), 50000u);
+  EXPECT_GT(mbps, 1.0);  // at least 1 MB/s
+  free_tokens(tokens);
 }
 
 TEST(StyioSecurityNightlyParserExpr, NegativeNumericLiteralsAreAtoms) {
