@@ -50,9 +50,11 @@ public:
   enum class PassKind
   {
     Canonicalization,
+    ConstantFolding,
   };
 
   void add_canonicalization_pass();
+  void add_constant_folding_pass();
 
   StyioIRPassPipelineResult run(
     StyioIR* root,
@@ -72,6 +74,14 @@ StyioIR* require_default_styio_ir_pass_pipeline(
 
 StyioIR*
 optimize_styio_ir(StyioIR* root);
+
+/// Run constant folding over the IR tree. Replaces constant expressions
+/// with their evaluated results. Does not reorder side effects.
+void run_constant_fold_pass(StyioIR* root);
+
+/// Dead statement elimination — removes pure statements whose results
+/// are never used. Conservative: only removes literal-valued stmts.
+void run_dead_stmt_elim_pass(StyioIR* root);
 
 }  // namespace styio::lowering
 

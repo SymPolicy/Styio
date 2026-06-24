@@ -11,6 +11,8 @@
 #include "../StyioIR/StyioIR.hpp"
 #include "../StyioParser/Parser.hpp"
 #include "SessionAllocation.hpp"
+#include "SymbolInterner.hpp"
+#include "TypeTable.hpp"
 #include "../StyioToken/Token.hpp"
 
 enum class CompilationPhase
@@ -44,6 +46,8 @@ private:
   styio::session_alloc::SessionArena token_arena_;
   styio::session_alloc::SessionArena* previous_ast_arena_ = nullptr;
   styio::session_alloc::SessionArena* previous_token_arena_ = nullptr;
+  styio::session::SymbolInterner symbols_;
+  styio::session::TypeTable types_;
   CompilationPhase phase_ = CompilationPhase::Empty;
 
   static int phase_rank(CompilationPhase phase) {
@@ -287,6 +291,14 @@ public:
   std::size_t token_arena_bytes() const {
     return token_arena_.bytes_used();
   }
+
+  /// Symbol interning: deduplicates identifier strings across the session.
+  styio::session::SymbolInterner& symbols() noexcept { return symbols_; }
+  const styio::session::SymbolInterner& symbols() const noexcept { return symbols_; }
+
+  /// Canonical type table: O(1) type equality via TypeId.
+  styio::session::TypeTable& types() noexcept { return types_; }
+  const styio::session::TypeTable& types() const noexcept { return types_; }
 };
 
 #endif // STYIO_COMPILATION_SESSION_HPP_

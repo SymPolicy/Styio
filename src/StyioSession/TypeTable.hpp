@@ -40,14 +40,26 @@ struct TypeKey {
 
 struct TypeKeyHash {
   std::size_t operator()(const TypeKey& k) const noexcept {
-    // Simple hash combining first few fields (most discriminative)
-    std::size_t h = static_cast<std::size_t>(k.option);
-    h = h * 31 + static_cast<std::size_t>(k.name_id);
-    h = h * 31 + static_cast<std::size_t>(k.bit_width);
-    h = h * 31 + static_cast<std::size_t>(k.handle_family);
-    h = h * 31 + static_cast<std::size_t>(k.item_type_name_id);
-    h = h * 31 + static_cast<std::size_t>(k.key_type_name_id);
-    h = h * 31 + static_cast<std::size_t>(k.capabilities);
+    // Hash all fields to avoid collisions. Uses the standard hash-combine pattern.
+    auto combine = [](std::size_t& seed, auto val) {
+      seed ^= std::hash<std::size_t>{}(static_cast<std::size_t>(val)) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    };
+    std::size_t h = 0;
+    combine(h, k.option);
+    combine(h, k.name_id);
+    combine(h, k.bit_width);
+    combine(h, k.handle_family);
+    combine(h, k.state);
+    combine(h, k.capabilities);
+    combine(h, k.item_type_name_id);
+    combine(h, k.key_type_name_id);
+    combine(h, k.resource_value_type_name_id);
+    combine(h, k.is_resource_type ? 1 : 0);
+    combine(h, k.value_family);
+    combine(h, k.item_value_family);
+    combine(h, k.key_value_family);
+    combine(h, k.resource_shape);
+    combine(h, k.resource_shape_bound);
     return h;
   }
 };

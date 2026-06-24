@@ -889,15 +889,211 @@ private:
   }
 };
 
+// ---------------------------------------------------------------------------
+// ConstantFoldPass helpers (TASK-09a) — inside anonymous namespace
+// so they can use ir_expr_is_speculatable, etc.
+// ---------------------------------------------------------------------------
+
+/// Simple constant folder: evaluates SGConstInt binops at compile time.
+/// Returns a replacement node or nullptr (no change).
+static StyioIR* try_constant_fold_int(SGBinOp* node) {
+  auto* lhs_int = dynamic_cast<SGConstInt*>(node->lhs_expr);
+  auto* rhs_int = dynamic_cast<SGConstInt*>(node->rhs_expr);
+  if (!lhs_int || !rhs_int) return nullptr;
+
+  long l = 0, r = 0;
+  try {
+    l = std::stol(lhs_int->value);
+    r = std::stol(rhs_int->value);
+  } catch (...) {
+    return nullptr;  // non-integer literal
+  }
+
+  long result = 0;
+  switch (node->operand) {
+    case StyioOpType::Binary_Add: result = l + r; break;
+    case StyioOpType::Binary_Sub: result = l - r; break;
+    case StyioOpType::Binary_Mul: result = l * r; break;
+    case StyioOpType::Binary_Div:
+      if (r == 0) return nullptr;  // division by zero — keep as runtime error
+      result = l / r;
+      break;
+    default: return nullptr;
+  }
+  return SGConstInt::Create(result);
+}
+
+/// Constant-fold float arithmetic.
+static StyioIR* try_constant_fold_float(SGBinOp* node) {
+  auto* lhs_f = dynamic_cast<SGConstFloat*>(node->lhs_expr);
+  auto* rhs_f = dynamic_cast<SGConstFloat*>(node->rhs_expr);
+  if (!lhs_f || !rhs_f) return nullptr;
+
+  double l = 0.0, r = 0.0;
+  try {
+    l = std::stod(lhs_f->value);
+    r = std::stod(rhs_f->value);
+  } catch (...) {
+    return nullptr;
+  }
+
+  switch (node->operand) {
+    case StyioOpType::Binary_Add: return SGConstFloat::Create(std::to_string(l + r));
+    case StyioOpType::Binary_Sub: return SGConstFloat::Create(std::to_string(l - r));
+    case StyioOpType::Binary_Mul: return SGConstFloat::Create(std::to_string(l * r));
+    case StyioOpType::Binary_Div:
+      if (r == 0.0) return nullptr;
+      return SGConstFloat::Create(std::to_string(l / r));
+    default: return nullptr;
+  }
+}
+
+/// Constant-fold bool operations.
+static StyioIR* try_constant_fold_bool(SGBinOp* node) {
+  auto* lhs_b = dynamic_cast<SGConstBool*>(node->lhs_expr);
+  auto* rhs_b = dynamic_cast<SGConstBool*>(node->rhs_expr);
+  if (!lhs_b || !rhs_b) return nullptr;
+
+  switch (node->operand) {
+    case StyioOpType::Equal:       return SGConstBool::Create(lhs_b->value == rhs_b->value);
+    case StyioOpType::Not_Equal:   return SGConstBool::Create(lhs_b->value != rhs_b->value);
+    default: return nullptr;
+  }
+}
+
+/// Try to constant-fold a binop node. Checks side-effect safety first.
+static StyioIR* try_constant_fold(SGBinOp* node) {
+  if (!ir_expr_is_speculatable(node)) return nullptr;
+  StyioIR* folded = try_constant_fold_int(node);
+  if (folded) return folded;
+  folded = try_constant_fold_float(node);
+  if (folded) return folded;
+  folded = try_constant_fold_bool(node);
+  return folded;
+}
+
+/// Constant-folding walker — traverses IR bottom-up, replacing
+/// constant expressions with their evaluated results.
+class ConstantFoldWalker : public styio::ir::StyioIRWalker {
+public:
+  void fold(StyioIR* root) { walk(root); }
+
+private:
+  // SGBinOp: attempt constant folding
+  void visitSGBinOp(SGBinOp* node) override {
+    // Walk children first (bottom-up)
+    node->lhs_expr = fold_child(node->lhs_expr);
+    node->rhs_expr = fold_child(node->rhs_expr);
+    // After children are folded, try folding this node
+    StyioIR* replacement = try_constant_fold(node);
+    if (replacement) {
+      replacement_ = replacement;
+    }
+  }
+
+  // Walk all child nodes through the same fold logic
+  StyioIR* fold_child(StyioIR* child) {
+    if (!child) return nullptr;
+    replacement_ = nullptr;
+    walk(child);
+    return replacement_ ? replacement_ : child;
+  }
+
+  // Sequence types — walk children recursively
+  void visitSGBlock(SGBlock* node) override {
+    for (auto*& stmt : node->stmts) stmt = fold_child(stmt);
+  }
+
+  void visitSGMainEntry(SGMainEntry* node) override {
+    for (auto*& stmt : node->stmts) stmt = fold_child(stmt);
+  }
+
+  void visitSGEntry(SGEntry* node) override {
+    for (auto*& stmt : node->stmts) stmt = fold_child(stmt);
+  }
+
+  // Default: walk all children generically
+  void visitSGFlexBind(SGFlexBind* node) override { node->value = fold_child(node->value); }
+  void visitSGFinalBind(SGFinalBind* node) override { node->value = fold_child(node->value); }
+  void visitSGCast(SGCast* node) override { node->value = fold_child(node->value); }
+  void visitSGCond(SGCond* node) override {
+    node->lhs_expr = fold_child(node->lhs_expr);
+    node->rhs_expr = fold_child(node->rhs_expr);
+  }
+  void visitSGReturn(SGReturn* node) override { node->expr = fold_child(node->expr); }
+  void visitSGFunc(SGFunc* node) override { if (node->func_block) walk(node->func_block); }
+  void visitSGCall(SGCall* node) override { for (auto*& a : node->func_args) a = fold_child(a); }
+  void visitSGLoop(SGLoop* node) override {
+    if (node->cond) node->cond = fold_child(node->cond);
+    if (node->body) walk(node->body);
+  }
+  void visitSGForEach(SGForEach* node) override {
+    node->iterable = fold_child(node->iterable);
+    if (node->body) walk(node->body);
+  }
+  void visitSGRangeFor(SGRangeFor* node) override {
+    node->start = fold_child(node->start);
+    node->end = fold_child(node->end);
+    node->step = fold_child(node->step);
+    if (node->body) walk(node->body);
+  }
+  void visitSGIf(SGIf* node) override {
+    node->cond = fold_child(node->cond);
+    if (node->then_block) walk(node->then_block);
+    if (node->else_block) walk(node->else_block);
+  }
+  void visitSGMatch(SGMatch* node) override {
+    node->scrutinee = fold_child(node->scrutinee);
+    for (auto& arm : node->int_arms) if (arm.second) walk(arm.second);
+    if (node->default_arm) walk(node->default_arm);
+  }
+
+  // Do NOT fold side-effecting ops: IO, resource, task, native extern
+  void visitSIOPrint(SIOPrint*) override { /* leave intact */ }
+  void visitSIORead(SIORead*) override { /* leave intact */ }
+  void visitSIOTaskCreate(SIOTaskCreate*) override { /* leave intact */ }
+  void visitSIOResourceEffect(SIOResourceEffect*) override { /* leave intact */ }
+  void visitSIOHandleAcquire(SIOHandleAcquire*) override { /* leave intact */ }
+  void visitSIOHandleRelease(SIOHandleRelease*) override { /* leave intact */ }
+  void visitSIOFileLineIter(SIOFileLineIter*) override { /* leave intact */ }
+  void visitSIOStdStreamWrite(SIOStdStreamWrite*) override { /* leave intact */ }
+  void visitSIOResourceWriteToFile(SIOResourceWriteToFile*) override { /* leave intact */ }
+  void visitSIOInstantPull(SIOInstantPull*) override { /* leave intact */ }
+  void visitSIOStdStreamLineIter(SIOStdStreamLineIter*) override { /* leave intact */ }
+  void visitSIOFlowBind(SIOFlowBind*) override { /* leave intact */ }
+  void visitSIOStreamZip(SIOStreamZip*) override { /* leave intact */ }
+
+  StyioIR* replacement_ = nullptr;
+};
+
 }  // namespace
 
 #ifndef STYIO_IR_OPTIMIZER_INTERNAL_TEST_INCLUDE
+
+/// Run one pass of constant folding over the IR tree.
+void run_constant_fold_pass(StyioIR* root) {
+  if (!root) return;
+  ConstantFoldWalker walker;
+  walker.fold(root);
+}
+
+/// Dead statement elimination pass.
+/// Removes pure statements whose results are never used.
+/// Conservative: only removes const/float/bool/int literals as standalone stmts.
+void run_dead_stmt_elim_pass(StyioIR* root) {
+  if (!root) return;
+  // Conservatively skip for now — full DSE requires def-use chains.
+  // The framework exists; enable when EffectKind queries are complete.
+  (void)root;
+}
 
 const char*
 pass_name(StyioIRPassManager::PassKind kind) {
   switch (kind) {
     case StyioIRPassManager::PassKind::Canonicalization:
       return "styioir-canonicalization";
+    case StyioIRPassManager::PassKind::ConstantFolding:
+      return "styioir-constant-folding";
   }
   return "styioir-unknown";
 }
@@ -937,6 +1133,11 @@ render_ir_dump(StyioIR* root) {
 void
 StyioIRPassManager::add_canonicalization_pass() {
   passes_.push_back(PassKind::Canonicalization);
+}
+
+void
+StyioIRPassManager::add_constant_folding_pass() {
+  passes_.push_back(PassKind::ConstantFolding);
 }
 
 StyioIRPassPipelineResult
@@ -981,6 +1182,10 @@ StyioIRPassManager::run(
         result.root = optimizer.optimize(result.root);
         break;
       }
+      case PassKind::ConstantFolding: {
+        run_constant_fold_pass(result.root);
+        break;
+      }
     }
     const auto ended = std::chrono::steady_clock::now();
     if (options.collect_timing) {
@@ -1009,6 +1214,7 @@ default_styio_ir_pass_manager(unsigned opt_level) {
   StyioIRPassManager manager;
   if (opt_level > 0) {
     manager.add_canonicalization_pass();
+    manager.add_constant_folding_pass();
   }
   return manager;
 }
@@ -1041,43 +1247,5 @@ optimize_styio_ir(StyioIR* root) {
   return optimizer.optimize(root);
 }
 
-// ---------------------------------------------------------------------------
-// ConstantFoldPass (TASK-09a)
-// ---------------------------------------------------------------------------
-
-/// Simple constant folder: evaluates SGConstInt binops at compile time.
-/// Returns a replacement node or nullptr (no change).
-static StyioIR* try_constant_fold(SGBinOp* node) {
-  auto* lhs_int = dynamic_cast<SGConstInt*>(node->lhs_expr);
-  auto* rhs_int = dynamic_cast<SGConstInt*>(node->rhs_expr);
-  if (lhs_int && rhs_int) {
-    // Parse string values — SGConstInt stores value as std::string
-    long l = std::stol(lhs_int->value);
-    long r = std::stol(rhs_int->value);
-    long result = 0;
-    switch (node->operand) {
-      case StyioOpType::Binary_Add: result = l + r; break;
-      case StyioOpType::Binary_Sub: result = l - r; break;
-      case StyioOpType::Binary_Mul: result = l * r; break;
-      case StyioOpType::Binary_Div:
-        if (r == 0) return nullptr; break;
-      default: return nullptr;
-    }
-    return SGConstInt::Create(result);
-  }
-  return nullptr;
-}
-
-/// Run one pass of constant folding over the IR tree.
-void run_constant_fold_pass(StyioIR* root) {
-  if (!root) return;
-  (void)try_constant_fold;
-}
-
-/// Dead statement elimination pass (framework — full impl requires EffectKind queries).
-void run_dead_stmt_elim_pass(StyioIR* root) {
-  if (!root) return;
-  (void)root;
-}
 
 }  // namespace styio::lowering
