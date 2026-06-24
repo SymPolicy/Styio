@@ -1017,6 +1017,7 @@ public:
 
   static SGSnapshotDecl* Create(std::string v, StyioIR* p) {
     auto* x = new SGSnapshotDecl();
+    styio::session_alloc::track_raw_allocation(x);
     x->var_name = std::move(v);
     x->path_expr = p;
     return x;
