@@ -8,6 +8,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -16,6 +17,7 @@
 
 #include "../StyioException/Exception.hpp"
 #include "../StyioIR/GenIR/GenIR.hpp"
+#include "../StyioIR/StyioIRWalker.hpp"
 #include "../StyioToString/ToStringVisitor.hpp"
 
 namespace styio::lowering {
@@ -525,9 +527,330 @@ canonicalize_match_in_sequence(
   return SGBlock::Create(std::vector<StyioIR*>{rebind->bind, match});
 }
 
+/*
+  StyioIROptimizerWalker — uses StyioIRWalker dispatch for bottom-up
+  optimization of StyioIR nodes. Each visit method recursively optimizes
+  children before returning, replacing the ~265-line dynamic_cast chain
+  that was previously in Optimizer::optimize_children.
+*/
+class StyioIROptimizerWalker : public styio::ir::StyioIRWalker
+{
+public:
+  // Called by Optimizer::optimize() for non-sequence node types.
+  // Uses walker dispatch instead of hand-rolled dynamic_cast chain.
+  void optimize_children(StyioIR* ir) {
+    walk(ir);
+  }
+
+private:
+  // Entry-point types handle sequence optimization — these don't go
+  // through optimize_children; they're handled by Optimizer::optimize().
+  void visitSGBlock(SGBlock*) override { /* handled by optimize_sequence */ }
+  void visitSGMainEntry(SGMainEntry*) override { /* handled by optimize_sequence */ }
+  void visitSGEntry(SGEntry*) override { /* handled by optimize_sequence */ }
+
+  // ---- SG domain ----
+
+  void visitSGFlexBind(SGFlexBind* node) override {
+    node->value = optimize(node->value);
+  }
+
+  void visitSGFinalBind(SGFinalBind* node) override {
+    node->value = optimize(node->value);
+  }
+
+  void visitSGBinOp(SGBinOp* node) override {
+    node->lhs_expr = optimize(node->lhs_expr);
+    node->rhs_expr = optimize(node->rhs_expr);
+  }
+
+  void visitSGCast(SGCast* node) override {
+    node->value = optimize(node->value);
+  }
+
+  void visitSGCond(SGCond* node) override {
+    node->lhs_expr = optimize(node->lhs_expr);
+    node->rhs_expr = optimize(node->rhs_expr);
+  }
+
+  void visitSGReturn(SGReturn* node) override {
+    node->expr = optimize(node->expr);
+  }
+
+  void visitSGFunc(SGFunc* node) override {
+    optimize_block(node->func_block);
+  }
+
+  void visitSGCall(SGCall* node) override {
+    for (auto*& arg : node->func_args) {
+      arg = optimize(arg);
+    }
+  }
+
+  void visitSGLoop(SGLoop* node) override {
+    if (node->cond) {
+      node->cond = optimize(node->cond);
+    }
+    optimize_block(node->body);
+  }
+
+  void visitSGForEach(SGForEach* node) override {
+    node->iterable = optimize(node->iterable);
+    optimize_block(node->body);
+  }
+
+  void visitSGRangeFor(SGRangeFor* node) override {
+    node->start = optimize(node->start);
+    node->end = optimize(node->end);
+    node->step = optimize(node->step);
+    optimize_block(node->body);
+  }
+
+  void visitSGIf(SGIf* node) override {
+    node->cond = optimize(node->cond);
+    optimize_block(node->then_block);
+    optimize_block(node->else_block);
+  }
+
+  void visitSGMatch(SGMatch* node) override {
+    node->scrutinee = optimize(node->scrutinee);
+    for (auto& arm : node->int_arms) {
+      optimize_block(arm.second);
+    }
+    optimize_block(node->default_arm);
+  }
+
+  void visitSGSeriesAvgStep(SGSeriesAvgStep* node) override {
+    node->x = optimize(node->x);
+  }
+
+  void visitSGSeriesMaxStep(SGSeriesMaxStep* node) override {
+    node->x = optimize(node->x);
+  }
+
+  void visitSGFallback(SGFallback* node) override {
+    node->primary = optimize(node->primary);
+    node->alternate = optimize(node->alternate);
+  }
+
+  void visitSGWaveMerge(SGWaveMerge* node) override {
+    node->cond = optimize(node->cond);
+    node->true_val = optimize(node->true_val);
+    node->false_val = optimize(node->false_val);
+  }
+
+  void visitSGWaveDispatch(SGWaveDispatch* node) override {
+    node->cond = optimize(node->cond);
+    node->true_arm = optimize(node->true_arm);
+    node->false_arm = optimize(node->false_arm);
+  }
+
+  void visitSGGuardSelect(SGGuardSelect* node) override {
+    node->base = optimize(node->base);
+    node->guard_cond = optimize(node->guard_cond);
+  }
+
+  void visitSGEqProbe(SGEqProbe* node) override {
+    node->base = optimize(node->base);
+    node->probe = optimize(node->probe);
+  }
+
+  void visitSGSnapshotDecl(SGSnapshotDecl* node) override {
+    node->path_expr = optimize(node->path_expr);
+  }
+
+  // ---- SC domain ----
+
+  void visitSCListLiteral(SCListLiteral* node) override {
+    for (auto*& elem : node->elems) {
+      elem = optimize(elem);
+    }
+  }
+
+  void visitSCDictLiteral(SCDictLiteral* node) override {
+    for (auto& entry : node->entries) {
+      entry.key = optimize(entry.key);
+      entry.value = optimize(entry.value);
+    }
+  }
+
+  void visitSCMatrixLiteral(SCMatrixLiteral* node) override {
+    for (auto*& elem : node->elems) {
+      elem = optimize(elem);
+    }
+  }
+
+  void visitSCListClone(SCListClone* node) override {
+    node->source = optimize(node->source);
+  }
+
+  void visitSCMatrixClone(SCMatrixClone* node) override {
+    node->source = optimize(node->source);
+  }
+
+  void visitSCListLen(SCListLen* node) override {
+    node->list = optimize(node->list);
+  }
+
+  void visitSCDictLen(SCDictLen* node) override {
+    node->dict = optimize(node->dict);
+  }
+
+  void visitSCListGet(SCListGet* node) override {
+    node->list = optimize(node->list);
+    node->index = optimize(node->index);
+  }
+
+  void visitSCListSlice(SCListSlice* node) override {
+    node->list = optimize(node->list);
+    node->start = optimize(node->start);
+    node->end = optimize(node->end);
+  }
+
+  void visitSCDictGet(SCDictGet* node) override {
+    node->dict = optimize(node->dict);
+    node->key = optimize(node->key);
+  }
+
+  void visitSCListSet(SCListSet* node) override {
+    node->list = optimize(node->list);
+    node->index = optimize(node->index);
+    node->value = optimize(node->value);
+  }
+
+  void visitSCDictSet(SCDictSet* node) override {
+    node->dict = optimize(node->dict);
+    node->key = optimize(node->key);
+    node->value = optimize(node->value);
+  }
+
+  void visitSCListToString(SCListToString* node) override {
+    node->list = optimize(node->list);
+  }
+
+  void visitSCMatrixGet(SCMatrixGet* node) override {
+    node->matrix = optimize(node->matrix);
+    node->row = optimize(node->row);
+    node->col = optimize(node->col);
+  }
+
+  void visitSCMatrixRow(SCMatrixRow* node) override {
+    node->matrix = optimize(node->matrix);
+    node->row = optimize(node->row);
+  }
+
+  void visitSCMatrixRowsSlice(SCMatrixRowsSlice* node) override {
+    node->matrix = optimize(node->matrix);
+    node->start = optimize(node->start);
+    node->end = optimize(node->end);
+  }
+
+  void visitSCMatrixToString(SCMatrixToString* node) override {
+    node->matrix = optimize(node->matrix);
+  }
+
+  void visitSCDictClone(SCDictClone* node) override {
+    node->source = optimize(node->source);
+  }
+
+  void visitSCDictKeys(SCDictKeys* node) override {
+    node->dict = optimize(node->dict);
+  }
+
+  void visitSCDictValues(SCDictValues* node) override {
+    node->dict = optimize(node->dict);
+  }
+
+  void visitSCDictToString(SCDictToString* node) override {
+    node->dict = optimize(node->dict);
+  }
+
+  // ---- SIO domain ----
+
+  void visitSIOHandleAcquire(SIOHandleAcquire* node) override {
+    node->path_expr = optimize(node->path_expr);
+  }
+
+  void visitSIOHandleRelease(SIOHandleRelease* node) override {
+    node->path_expr = optimize(node->path_expr);
+  }
+
+  void visitSIOFileLineIter(SIOFileLineIter* node) override {
+    node->path_expr = optimize(node->path_expr);
+    optimize_block(node->body);
+  }
+
+  void visitSIOStreamZip(SIOStreamZip* node) override {
+    node->iterable_a = optimize(node->iterable_a);
+    node->iterable_b = optimize(node->iterable_b);
+    optimize_block(node->body);
+  }
+
+  void visitSIOInstantPull(SIOInstantPull* node) override {
+    if (!node->from_handle) {
+      node->path_expr = optimize(node->path_expr);
+    }
+  }
+
+  void visitSIOResourceWriteToFile(SIOResourceWriteToFile* node) override {
+    node->data_expr = optimize(node->data_expr);
+    node->path_expr = optimize(node->path_expr);
+  }
+
+  void visitSIOStdStreamWrite(SIOStdStreamWrite* node) override {
+    for (auto*& expr : node->exprs) {
+      expr = optimize(expr);
+    }
+  }
+
+  void visitSIOResourceEffect(SIOResourceEffect* node) override {
+    node->operation = optimize(node->operation);
+    for (auto& handler : node->handlers) {
+      handler.body = optimize(handler.body);
+    }
+    node->fallback = optimize(node->fallback);
+  }
+
+  void visitSIOStdStreamLineIter(SIOStdStreamLineIter* node) override {
+    optimize_block(node->body);
+  }
+
+  void visitSIOTaskCreate(SIOTaskCreate* node) override {
+    optimize_block(node->body);
+  }
+
+  void visitSIOFlowBind(SIOFlowBind* node) override {
+    node->source_expr = optimize(node->source_expr);
+    node->fallback_expr = optimize(node->fallback_expr);
+  }
+
+  void visitSIOPrint(SIOPrint* node) override {
+    for (auto*& expr : node->expr) {
+      expr = optimize(expr);
+    }
+  }
+
+  void visitSIORead(SIORead* node) override {
+    if (node->file_path) {
+      node->file_path = static_cast<SIOPath*>(optimize(node->file_path));
+    }
+  }
+
+private:
+  // These are set by the owning Optimizer.
+  friend class Optimizer;
+  std::function<StyioIR*(StyioIR*)> optimize;
+  std::function<void(SGBlock*&)> optimize_block;
+};
+
 class Optimizer
 {
 public:
+  Optimizer() {
+    walker_.optimize = [this](StyioIR* ir) { return this->optimize(ir); };
+    walker_.optimize_block = [this](SGBlock*& block) { this->optimize_block_impl(block); };
+  }
+
   StyioIR* optimize(StyioIR* ir) {
     if (auto* block = dynamic_cast<SGBlock*>(ir)) {
       optimize_sequence(block->stmts);
@@ -541,11 +864,13 @@ public:
       optimize_sequence(entry->stmts);
       return entry;
     }
-    optimize_children(ir);
+    walker_.optimize_children(ir);
     return ir;
   }
 
 private:
+  StyioIROptimizerWalker walker_;
+
   void optimize_sequence(std::vector<StyioIR*>& stmts) {
     for (auto*& stmt : stmts) {
       stmt = optimize(stmt);
@@ -557,276 +882,9 @@ private:
     }
   }
 
-  void optimize_block(SGBlock*& block) {
+  void optimize_block_impl(SGBlock*& block) {
     if (block) {
       block = static_cast<SGBlock*>(optimize(block));
-    }
-  }
-
-  void optimize_children(StyioIR* ir) {
-    if (auto* bind = dynamic_cast<SGFlexBind*>(ir)) {
-      bind->value = optimize(bind->value);
-      return;
-    }
-    if (auto* bind = dynamic_cast<SGFinalBind*>(ir)) {
-      bind->value = optimize(bind->value);
-      return;
-    }
-    if (auto* op = dynamic_cast<SGBinOp*>(ir)) {
-      op->lhs_expr = optimize(op->lhs_expr);
-      op->rhs_expr = optimize(op->rhs_expr);
-      return;
-    }
-    if (auto* cast = dynamic_cast<SGCast*>(ir)) {
-      cast->value = optimize(cast->value);
-      return;
-    }
-    if (auto* cond = dynamic_cast<SGCond*>(ir)) {
-      cond->lhs_expr = optimize(cond->lhs_expr);
-      cond->rhs_expr = optimize(cond->rhs_expr);
-      return;
-    }
-    if (auto* ret = dynamic_cast<SGReturn*>(ir)) {
-      ret->expr = optimize(ret->expr);
-      return;
-    }
-    if (auto* func = dynamic_cast<SGFunc*>(ir)) {
-      optimize_block(func->func_block);
-      return;
-    }
-    if (auto* call = dynamic_cast<SGCall*>(ir)) {
-      for (auto*& arg : call->func_args) {
-        arg = optimize(arg);
-      }
-      return;
-    }
-    if (auto* loop = dynamic_cast<SGLoop*>(ir)) {
-      if (loop->cond) {
-        loop->cond = optimize(loop->cond);
-      }
-      optimize_block(loop->body);
-      return;
-    }
-    if (auto* each = dynamic_cast<SGForEach*>(ir)) {
-      each->iterable = optimize(each->iterable);
-      optimize_block(each->body);
-      return;
-    }
-    if (auto* range = dynamic_cast<SGRangeFor*>(ir)) {
-      range->start = optimize(range->start);
-      range->end = optimize(range->end);
-      range->step = optimize(range->step);
-      optimize_block(range->body);
-      return;
-    }
-    if (auto* iff = dynamic_cast<SGIf*>(ir)) {
-      iff->cond = optimize(iff->cond);
-      optimize_block(iff->then_block);
-      optimize_block(iff->else_block);
-      return;
-    }
-    if (auto* match = dynamic_cast<SGMatch*>(ir)) {
-      match->scrutinee = optimize(match->scrutinee);
-      for (auto& arm : match->int_arms) {
-        optimize_block(arm.second);
-      }
-      optimize_block(match->default_arm);
-      return;
-    }
-    if (auto* step = dynamic_cast<SGSeriesAvgStep*>(ir)) {
-      step->x = optimize(step->x);
-      return;
-    }
-    if (auto* step = dynamic_cast<SGSeriesMaxStep*>(ir)) {
-      step->x = optimize(step->x);
-      return;
-    }
-    if (auto* fallback = dynamic_cast<SGFallback*>(ir)) {
-      fallback->primary = optimize(fallback->primary);
-      fallback->alternate = optimize(fallback->alternate);
-      return;
-    }
-    if (auto* wave = dynamic_cast<SGWaveMerge*>(ir)) {
-      wave->cond = optimize(wave->cond);
-      wave->true_val = optimize(wave->true_val);
-      wave->false_val = optimize(wave->false_val);
-      return;
-    }
-    if (auto* wave = dynamic_cast<SGWaveDispatch*>(ir)) {
-      wave->cond = optimize(wave->cond);
-      wave->true_arm = optimize(wave->true_arm);
-      wave->false_arm = optimize(wave->false_arm);
-      return;
-    }
-    if (auto* guard = dynamic_cast<SGGuardSelect*>(ir)) {
-      guard->base = optimize(guard->base);
-      guard->guard_cond = optimize(guard->guard_cond);
-      return;
-    }
-    if (auto* probe = dynamic_cast<SGEqProbe*>(ir)) {
-      probe->base = optimize(probe->base);
-      probe->probe = optimize(probe->probe);
-      return;
-    }
-    if (auto* snap = dynamic_cast<SGSnapshotDecl*>(ir)) {
-      snap->path_expr = optimize(snap->path_expr);
-      return;
-    }
-    if (auto* list = dynamic_cast<SCListLiteral*>(ir)) {
-      for (auto*& elem : list->elems) {
-        elem = optimize(elem);
-      }
-      return;
-    }
-    if (auto* dict = dynamic_cast<SCDictLiteral*>(ir)) {
-      for (auto& entry : dict->entries) {
-        entry.key = optimize(entry.key);
-        entry.value = optimize(entry.value);
-      }
-      return;
-    }
-    if (auto* matrix = dynamic_cast<SCMatrixLiteral*>(ir)) {
-      for (auto*& elem : matrix->elems) {
-        elem = optimize(elem);
-      }
-      return;
-    }
-    if (auto* clone = dynamic_cast<SCListClone*>(ir)) {
-      clone->source = optimize(clone->source);
-      return;
-    }
-    if (auto* clone = dynamic_cast<SCMatrixClone*>(ir)) {
-      clone->source = optimize(clone->source);
-      return;
-    }
-    if (auto* len = dynamic_cast<SCListLen*>(ir)) {
-      len->list = optimize(len->list);
-      return;
-    }
-    if (auto* len = dynamic_cast<SCDictLen*>(ir)) {
-      len->dict = optimize(len->dict);
-      return;
-    }
-    if (auto* get = dynamic_cast<SCListGet*>(ir)) {
-      get->list = optimize(get->list);
-      get->index = optimize(get->index);
-      return;
-    }
-    if (auto* slice = dynamic_cast<SCListSlice*>(ir)) {
-      slice->list = optimize(slice->list);
-      slice->start = optimize(slice->start);
-      slice->end = optimize(slice->end);
-      return;
-    }
-    if (auto* get = dynamic_cast<SCDictGet*>(ir)) {
-      get->dict = optimize(get->dict);
-      get->key = optimize(get->key);
-      return;
-    }
-    if (auto* set = dynamic_cast<SCListSet*>(ir)) {
-      set->list = optimize(set->list);
-      set->index = optimize(set->index);
-      set->value = optimize(set->value);
-      return;
-    }
-    if (auto* set = dynamic_cast<SCDictSet*>(ir)) {
-      set->dict = optimize(set->dict);
-      set->key = optimize(set->key);
-      set->value = optimize(set->value);
-      return;
-    }
-    if (auto* str = dynamic_cast<SCListToString*>(ir)) {
-      str->list = optimize(str->list);
-      return;
-    }
-    if (auto* get = dynamic_cast<SCMatrixGet*>(ir)) {
-      get->matrix = optimize(get->matrix);
-      get->row = optimize(get->row);
-      get->col = optimize(get->col);
-      return;
-    }
-    if (auto* row = dynamic_cast<SCMatrixRow*>(ir)) {
-      row->matrix = optimize(row->matrix);
-      row->row = optimize(row->row);
-      return;
-    }
-    if (auto* str = dynamic_cast<SCMatrixToString*>(ir)) {
-      str->matrix = optimize(str->matrix);
-      return;
-    }
-    if (auto* clone = dynamic_cast<SCDictClone*>(ir)) {
-      clone->source = optimize(clone->source);
-      return;
-    }
-    if (auto* keys = dynamic_cast<SCDictKeys*>(ir)) {
-      keys->dict = optimize(keys->dict);
-      return;
-    }
-    if (auto* values = dynamic_cast<SCDictValues*>(ir)) {
-      values->dict = optimize(values->dict);
-      return;
-    }
-    if (auto* str = dynamic_cast<SCDictToString*>(ir)) {
-      str->dict = optimize(str->dict);
-      return;
-    }
-    if (auto* acquire = dynamic_cast<SIOHandleAcquire*>(ir)) {
-      acquire->path_expr = optimize(acquire->path_expr);
-      return;
-    }
-    if (auto* release = dynamic_cast<SIOHandleRelease*>(ir)) {
-      release->path_expr = optimize(release->path_expr);
-      return;
-    }
-    if (auto* iter = dynamic_cast<SIOFileLineIter*>(ir)) {
-      iter->path_expr = optimize(iter->path_expr);
-      optimize_block(iter->body);
-      return;
-    }
-    if (auto* zip = dynamic_cast<SIOStreamZip*>(ir)) {
-      zip->iterable_a = optimize(zip->iterable_a);
-      zip->iterable_b = optimize(zip->iterable_b);
-      optimize_block(zip->body);
-      return;
-    }
-    if (auto* pull = dynamic_cast<SIOInstantPull*>(ir)) {
-      if (!pull->from_handle) {
-        pull->path_expr = optimize(pull->path_expr);
-      }
-      return;
-    }
-    if (auto* write = dynamic_cast<SIOResourceWriteToFile*>(ir)) {
-      write->data_expr = optimize(write->data_expr);
-      write->path_expr = optimize(write->path_expr);
-      return;
-    }
-    if (auto* write = dynamic_cast<SIOStdStreamWrite*>(ir)) {
-      for (auto*& expr : write->exprs) {
-        expr = optimize(expr);
-      }
-      return;
-    }
-    if (auto* effect = dynamic_cast<SIOResourceEffect*>(ir)) {
-      effect->operation = optimize(effect->operation);
-      for (auto& handler : effect->handlers) {
-        handler.body = optimize(handler.body);
-      }
-      effect->fallback = optimize(effect->fallback);
-      return;
-    }
-    if (auto* iter = dynamic_cast<SIOStdStreamLineIter*>(ir)) {
-      optimize_block(iter->body);
-      return;
-    }
-    if (auto* print = dynamic_cast<SIOPrint*>(ir)) {
-      for (auto*& expr : print->expr) {
-        expr = optimize(expr);
-      }
-      return;
-    }
-    if (auto* read = dynamic_cast<SIORead*>(ir)) {
-      read->file_path = static_cast<SIOPath*>(optimize(read->file_path));
-      return;
     }
   }
 };
