@@ -1,0 +1,90 @@
+name: Benchmark Regression Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline_sha:
+        description: 'Git SHA of baseline (leave empty for stored baseline)'
+        required: false
+        type: string
+      threshold:
+        description: 'Regression threshold percent'
+        required: false
+        default: '5.0'
+        type: string
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install LLVM 18
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          sudo add-apt-repository -y 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main'
+          sudo apt-get update
+          sudo apt-get install -y llvm-18 llvm-18-dev clang-18 libclang-18-dev
+
+      - name: Configure (Release)
+        run: |
+          cmake -S . -B build/bench \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=clang-18 \
+            -DCMAKE_CXX_COMPILER=clang++-18
+
+      - name: Build benchmark
+        run: cmake --build build/bench --target styio_core_bench -j$(nproc)
+
+      - name: Run benchmark
+        run: |
+          mkdir -p benchmark/results
+          build/bench/bin/styio_core_bench \
+            --output benchmark/results/current.json
+
+      - name: Restore baseline
+        if: ${{ !inputs.baseline_sha }}
+        uses: actions/cache/restore@v4
+        with:
+          path: benchmark/results/baseline.json
+          key: styio-benchmark-baseline-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Checkout baseline commit
+        if: ${{ inputs.baseline_sha }}
+        run: |
+          git worktree add /tmp/baseline ${{ inputs.baseline_sha }}
+          cd /tmp/baseline
+          # If baseline was built before, restore; otherwise build and run
+          if [ ! -f benchmark/results/baseline.json ]; then
+            cmake -S . -B build/bl -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
+            cmake --build build/bl --target styio_core_bench -j$(nproc)
+            build/bl/bin/styio_core_bench --output benchmark/results/baseline.json
+          fi
+          cp /tmp/baseline/benchmark/results/baseline.json benchmark/results/
+
+      - name: Compare
+        run: |
+          python3 scripts/benchmark-compare.py \
+            benchmark/results/baseline.json \
+            benchmark/results/current.json \
+            --threshold ${{ inputs.threshold }}
+
+      - name: Store baseline cache
+        if: ${{ !inputs.baseline_sha }}
+        uses: actions/cache/save@v4
+        with:
+          path: benchmark/results/baseline.json
+          key: styio-benchmark-baseline-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark/results/current.json

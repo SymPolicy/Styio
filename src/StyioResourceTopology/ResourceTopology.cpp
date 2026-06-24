@@ -1,6 +1,7 @@
 #include "ResourceTopology.hpp"
 
 #include <algorithm>
+#include <deque>
 #include <limits>
 #include <sstream>
 #include <stdexcept>
@@ -1308,6 +1309,20 @@ private:
   }
 
   void finalize() {
+    // Cycle detection (TASK-07): check HappensBefore + Flow edges.
+    {
+      auto cycles = result_.graph.detect_cycles();
+      for (const auto& ci : cycles) {
+        std::string desc;
+        for (std::size_t i = 0; i < ci.node_ids.size(); ++i) {
+          if (i > 0) desc += " -> ";
+          desc += result_.graph.node(ci.node_ids[i]).label;
+        }
+        error("resource dependency cycle: " + desc,
+              result_.graph.node(ci.node_ids.front()).source);
+      }
+    }
+
     for (std::size_t i = 0; i < resource_accesses_.size(); ++i) {
       for (std::size_t j = i + 1; j < resource_accesses_.size(); ++j) {
         const auto& a = resource_accesses_[i];
@@ -1440,6 +1455,69 @@ Graph::debug_string() const {
     }
   }
   return out.str();
+}
+
+std::vector<CycleInfo>
+Graph::detect_cycles() const {
+  // Build adjacency list and in-degree map for ordering edges.
+  std::unordered_map<std::size_t, std::vector<std::size_t>> adj;
+  std::unordered_map<std::size_t, int> in_degree;
+
+  // Use edge indices for cycle reporting.
+  std::unordered_map<std::size_t, std::vector<std::size_t>> edge_adj;
+
+  for (std::size_t ei = 0; ei < edges_.size(); ++ei) {
+    const auto& e = edges_[ei];
+    if (e.kind != EdgeKind::HappensBefore && e.kind != EdgeKind::Flow) {
+      continue;
+    }
+    adj[e.from].push_back(e.to);
+    edge_adj[e.from].push_back(ei);
+    in_degree[e.to]++;
+    if (in_degree.find(e.from) == in_degree.end()) {
+      in_degree[e.from] = 0;
+    }
+  }
+
+  // Kahn: collect zero-in-degree nodes.
+  std::deque<std::size_t> queue;
+  for (auto& [node, deg] : in_degree) {
+    if (deg == 0) {
+      queue.push_back(node);
+    }
+  }
+
+  std::size_t processed = 0;
+  const std::size_t total = in_degree.size();
+
+  while (!queue.empty()) {
+    std::size_t u = queue.front();
+    queue.pop_front();
+    processed++;
+
+    for (std::size_t v : adj[u]) {
+      if (--in_degree[v] == 0) {
+        queue.push_back(v);
+      }
+    }
+  }
+
+  // If all nodes processed, graph is acyclic.
+  if (processed == total) {
+    return {};
+  }
+
+  // Remaining nodes form cycles — collect them.
+  std::vector<CycleInfo> cycles;
+  for (auto& [node, deg] : in_degree) {
+    if (deg > 0) {
+      CycleInfo ci;
+      ci.node_ids.push_back(node);
+      cycles.push_back(ci);
+    }
+  }
+
+  return cycles;
 }
 
 std::string

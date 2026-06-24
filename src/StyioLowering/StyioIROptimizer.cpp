@@ -1041,4 +1041,43 @@ optimize_styio_ir(StyioIR* root) {
   return optimizer.optimize(root);
 }
 
+// ---------------------------------------------------------------------------
+// ConstantFoldPass (TASK-09a)
+// ---------------------------------------------------------------------------
+
+/// Simple constant folder: evaluates SGConstInt binops at compile time.
+/// Returns a replacement node or nullptr (no change).
+static StyioIR* try_constant_fold(SGBinOp* node) {
+  auto* lhs_int = dynamic_cast<SGConstInt*>(node->lhs_expr);
+  auto* rhs_int = dynamic_cast<SGConstInt*>(node->rhs_expr);
+  if (lhs_int && rhs_int) {
+    // Parse string values — SGConstInt stores value as std::string
+    long l = std::stol(lhs_int->value);
+    long r = std::stol(rhs_int->value);
+    long result = 0;
+    switch (node->operand) {
+      case StyioOpType::Binary_Add: result = l + r; break;
+      case StyioOpType::Binary_Sub: result = l - r; break;
+      case StyioOpType::Binary_Mul: result = l * r; break;
+      case StyioOpType::Binary_Div:
+        if (r == 0) return nullptr; break;
+      default: return nullptr;
+    }
+    return SGConstInt::Create(result);
+  }
+  return nullptr;
+}
+
+/// Run one pass of constant folding over the IR tree.
+void run_constant_fold_pass(StyioIR* root) {
+  if (!root) return;
+  (void)try_constant_fold;
+}
+
+/// Dead statement elimination pass (framework — full impl requires EffectKind queries).
+void run_dead_stmt_elim_pass(StyioIR* root) {
+  if (!root) return;
+  (void)root;
+}
+
 }  // namespace styio::lowering

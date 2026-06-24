@@ -5892,6 +5892,7 @@ parse_main_block_with_engine_latest(
   StyioParseMode mode
 ) {
   ParseModeScopeLatestDraft parse_mode_scope(context, mode);
+  context.clear_route_cache();  // TASK-06: fresh cache per top-level parse
   switch (engine) {
     case StyioParserEngine::Legacy:
       if (route_stats != nullptr) {

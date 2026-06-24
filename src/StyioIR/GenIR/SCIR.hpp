@@ -19,12 +19,13 @@ public:
       elems(std::move(e)), elem_type(std::move(et)) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCListLiteral() override {
     styio_delete_ir_nodes(elems);
   }
 
   static SCListLiteral* Create(std::vector<StyioIR*> e, std::string elem_type = "i64") {
-    return new SCListLiteral(std::move(e), std::move(elem_type));
+    return styio::session_alloc::make_ir<SCListLiteral>(std::move(e), std::move(elem_type));
   }
 };
 
@@ -44,6 +45,7 @@ public:
       entries(std::move(e)), value_type(std::move(vt)) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCDictLiteral() override {
     for (auto& entry : entries) {
       delete entry.key;
@@ -53,7 +55,7 @@ public:
   }
 
   static SCDictLiteral* Create(std::vector<Entry> e, std::string value_type = "i64") {
-    return new SCDictLiteral(std::move(e), std::move(value_type));
+    return styio::session_alloc::make_ir<SCDictLiteral>(std::move(e), std::move(value_type));
   }
 };
 
@@ -69,6 +71,7 @@ public:
       elems(std::move(e)), elem_type(std::move(et)), rows(r), cols(c) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCMatrixLiteral() override {
     styio_delete_ir_nodes(elems);
   }
@@ -79,7 +82,7 @@ public:
     size_t rows,
     size_t cols
   ) {
-    return new SCMatrixLiteral(std::move(e), std::move(elem_type), rows, cols);
+    return styio::session_alloc::make_ir<SCMatrixLiteral>(std::move(e), std::move(elem_type), rows, cols);
   }
 };
 
@@ -92,12 +95,13 @@ public:
       source(src) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCListClone() override {
     delete source;
   }
 
   static SCListClone* Create(StyioIR* src) {
-    return new SCListClone(src);
+    return styio::session_alloc::make_ir<SCListClone>(src);
   }
 };
 
@@ -111,12 +115,13 @@ public:
       source(src), elem_type(std::move(et)) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCMatrixClone() override {
     delete source;
   }
 
   static SCMatrixClone* Create(StyioIR* src, std::string elem_type = "i64") {
-    return new SCMatrixClone(src, std::move(elem_type));
+    return styio::session_alloc::make_ir<SCMatrixClone>(src, std::move(elem_type));
   }
 };
 
@@ -129,12 +134,13 @@ public:
       list(l) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCListLen() override {
     delete list;
   }
 
   static SCListLen* Create(StyioIR* l) {
-    return new SCListLen(l);
+    return styio::session_alloc::make_ir<SCListLen>(l);
   }
 };
 
@@ -149,13 +155,14 @@ public:
       list(l), index(idx), elem_type(std::move(elem)) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCListGet() override {
     delete list;
     delete index;
   }
 
   static SCListGet* Create(StyioIR* l, StyioIR* idx, std::string elem = "i64") {
-    return new SCListGet(l, idx, std::move(elem));
+    return styio::session_alloc::make_ir<SCListGet>(l, idx, std::move(elem));
   }
 };
 
@@ -171,6 +178,7 @@ public:
       list(l), start(s), end(e), elem_type(std::move(elem)) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCListSlice() override {
     delete list;
     delete start;
@@ -178,7 +186,7 @@ public:
   }
 
   static SCListSlice* Create(StyioIR* l, StyioIR* s, StyioIR* e, std::string elem = "i64") {
-    return new SCListSlice(l, s, e, std::move(elem));
+    return styio::session_alloc::make_ir<SCListSlice>(l, s, e, std::move(elem));
   }
 };
 
@@ -194,6 +202,7 @@ public:
       list(l), index(idx), value(v), elem_type(std::move(elem)) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCListSet() override {
     delete list;
     delete index;
@@ -201,7 +210,7 @@ public:
   }
 
   static SCListSet* Create(StyioIR* l, StyioIR* idx, StyioIR* v, std::string elem_type = "i64") {
-    return new SCListSet(l, idx, v, std::move(elem_type));
+    return styio::session_alloc::make_ir<SCListSet>(l, idx, v, std::move(elem_type));
   }
 };
 
@@ -214,12 +223,13 @@ public:
       list(l) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCListToString() override {
     delete list;
   }
 
   static SCListToString* Create(StyioIR* l) {
-    return new SCListToString(l);
+    return styio::session_alloc::make_ir<SCListToString>(l);
   }
 };
 
@@ -235,6 +245,7 @@ public:
       matrix(m), row(r), col(c), elem_type(std::move(et)) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCMatrixGet() override {
     delete matrix;
     delete row;
@@ -242,7 +253,7 @@ public:
   }
 
   static SCMatrixGet* Create(StyioIR* m, StyioIR* r, StyioIR* c, std::string elem_type) {
-    return new SCMatrixGet(m, r, c, std::move(elem_type));
+    return styio::session_alloc::make_ir<SCMatrixGet>(m, r, c, std::move(elem_type));
   }
 };
 
@@ -257,13 +268,14 @@ public:
       matrix(m), row(r), elem_type(std::move(et)) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCMatrixRow() override {
     delete matrix;
     delete row;
   }
 
   static SCMatrixRow* Create(StyioIR* m, StyioIR* r, std::string elem_type) {
-    return new SCMatrixRow(m, r, std::move(elem_type));
+    return styio::session_alloc::make_ir<SCMatrixRow>(m, r, std::move(elem_type));
   }
 };
 
@@ -279,6 +291,7 @@ public:
       matrix(m), start(s), end(e), elem_type(std::move(et)) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCMatrixRowsSlice() override {
     delete matrix;
     delete start;
@@ -286,7 +299,7 @@ public:
   }
 
   static SCMatrixRowsSlice* Create(StyioIR* m, StyioIR* s, StyioIR* e, std::string elem_type) {
-    return new SCMatrixRowsSlice(m, s, e, std::move(elem_type));
+    return styio::session_alloc::make_ir<SCMatrixRowsSlice>(m, s, e, std::move(elem_type));
   }
 };
 
@@ -299,12 +312,13 @@ public:
       matrix(m) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCMatrixToString() override {
     delete matrix;
   }
 
   static SCMatrixToString* Create(StyioIR* m) {
-    return new SCMatrixToString(m);
+    return styio::session_alloc::make_ir<SCMatrixToString>(m);
   }
 };
 
@@ -317,12 +331,13 @@ public:
       source(src) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCDictClone() override {
     delete source;
   }
 
   static SCDictClone* Create(StyioIR* src) {
-    return new SCDictClone(src);
+    return styio::session_alloc::make_ir<SCDictClone>(src);
   }
 };
 
@@ -335,12 +350,13 @@ public:
       dict(d) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCDictLen() override {
     delete dict;
   }
 
   static SCDictLen* Create(StyioIR* d) {
-    return new SCDictLen(d);
+    return styio::session_alloc::make_ir<SCDictLen>(d);
   }
 };
 
@@ -355,13 +371,14 @@ public:
       dict(d), key(k), value_type(std::move(vt)) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCDictGet() override {
     delete dict;
     delete key;
   }
 
   static SCDictGet* Create(StyioIR* d, StyioIR* k, std::string value_type = "i64") {
-    return new SCDictGet(d, k, std::move(value_type));
+    return styio::session_alloc::make_ir<SCDictGet>(d, k, std::move(value_type));
   }
 };
 
@@ -377,6 +394,7 @@ public:
       dict(d), key(k), value(v), value_type(std::move(vt)) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCDictSet() override {
     delete dict;
     delete key;
@@ -384,7 +402,7 @@ public:
   }
 
   static SCDictSet* Create(StyioIR* d, StyioIR* k, StyioIR* v, std::string value_type = "i64") {
-    return new SCDictSet(d, k, v, std::move(value_type));
+    return styio::session_alloc::make_ir<SCDictSet>(d, k, v, std::move(value_type));
   }
 };
 
@@ -397,12 +415,13 @@ public:
       dict(d) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCDictKeys() override {
     delete dict;
   }
 
   static SCDictKeys* Create(StyioIR* d) {
-    return new SCDictKeys(d);
+    return styio::session_alloc::make_ir<SCDictKeys>(d);
   }
 };
 
@@ -416,12 +435,13 @@ public:
       dict(d), value_type(std::move(vt)) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCDictValues() override {
     delete dict;
   }
 
   static SCDictValues* Create(StyioIR* d, std::string value_type = "i64") {
-    return new SCDictValues(d, std::move(value_type));
+    return styio::session_alloc::make_ir<SCDictValues>(d, std::move(value_type));
   }
 };
 
@@ -434,13 +454,114 @@ public:
       dict(d) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SCDictToString() override {
     delete dict;
   }
 
   static SCDictToString* Create(StyioIR* d) {
-    return new SCDictToString(d);
+    return styio::session_alloc::make_ir<SCDictToString>(d);
   }
 };
+
+
+// --- out-of-line collect_children() (TASK-08) ---
+inline void SCListLiteral::collect_children(std::vector<StyioIR*>& out) {
+  for (auto* c : elems) out.push_back(static_cast<StyioIR*>(c));
+}
+
+inline void SCDictLiteral::collect_children(std::vector<StyioIR*>& out) {
+  for (auto& p : entries) out.push_back(static_cast<StyioIR*>(p.value));
+}
+
+inline void SCMatrixLiteral::collect_children(std::vector<StyioIR*>& out) {
+  for (auto* c : elems) out.push_back(static_cast<StyioIR*>(c));
+}
+
+inline void SCListClone::collect_children(std::vector<StyioIR*>& out) {
+  if (source) out.push_back(static_cast<StyioIR*>(source));
+}
+
+inline void SCMatrixClone::collect_children(std::vector<StyioIR*>& out) {
+  if (source) out.push_back(static_cast<StyioIR*>(source));
+}
+
+inline void SCListLen::collect_children(std::vector<StyioIR*>& out) {
+  if (list) out.push_back(static_cast<StyioIR*>(list));
+}
+
+inline void SCListGet::collect_children(std::vector<StyioIR*>& out) {
+  if (list) out.push_back(static_cast<StyioIR*>(list));
+  if (index) out.push_back(static_cast<StyioIR*>(index));
+}
+
+inline void SCListSlice::collect_children(std::vector<StyioIR*>& out) {
+  if (list) out.push_back(static_cast<StyioIR*>(list));
+  if (start) out.push_back(static_cast<StyioIR*>(start));
+  if (end) out.push_back(static_cast<StyioIR*>(end));
+}
+
+inline void SCListSet::collect_children(std::vector<StyioIR*>& out) {
+  if (list) out.push_back(static_cast<StyioIR*>(list));
+  if (index) out.push_back(static_cast<StyioIR*>(index));
+  if (value) out.push_back(static_cast<StyioIR*>(value));
+}
+
+inline void SCListToString::collect_children(std::vector<StyioIR*>& out) {
+  if (list) out.push_back(static_cast<StyioIR*>(list));
+}
+
+inline void SCMatrixGet::collect_children(std::vector<StyioIR*>& out) {
+  if (matrix) out.push_back(static_cast<StyioIR*>(matrix));
+  if (row) out.push_back(static_cast<StyioIR*>(row));
+  if (col) out.push_back(static_cast<StyioIR*>(col));
+}
+
+inline void SCMatrixRow::collect_children(std::vector<StyioIR*>& out) {
+  if (matrix) out.push_back(static_cast<StyioIR*>(matrix));
+  if (row) out.push_back(static_cast<StyioIR*>(row));
+}
+
+inline void SCMatrixRowsSlice::collect_children(std::vector<StyioIR*>& out) {
+  if (matrix) out.push_back(static_cast<StyioIR*>(matrix));
+  if (start) out.push_back(static_cast<StyioIR*>(start));
+  if (end) out.push_back(static_cast<StyioIR*>(end));
+}
+
+inline void SCMatrixToString::collect_children(std::vector<StyioIR*>& out) {
+  if (matrix) out.push_back(static_cast<StyioIR*>(matrix));
+}
+
+inline void SCDictClone::collect_children(std::vector<StyioIR*>& out) {
+  if (source) out.push_back(static_cast<StyioIR*>(source));
+}
+
+inline void SCDictLen::collect_children(std::vector<StyioIR*>& out) {
+  if (dict) out.push_back(static_cast<StyioIR*>(dict));
+}
+
+inline void SCDictGet::collect_children(std::vector<StyioIR*>& out) {
+  if (dict) out.push_back(static_cast<StyioIR*>(dict));
+  if (key) out.push_back(static_cast<StyioIR*>(key));
+}
+
+inline void SCDictSet::collect_children(std::vector<StyioIR*>& out) {
+  if (dict) out.push_back(static_cast<StyioIR*>(dict));
+  if (key) out.push_back(static_cast<StyioIR*>(key));
+  if (value) out.push_back(static_cast<StyioIR*>(value));
+}
+
+inline void SCDictKeys::collect_children(std::vector<StyioIR*>& out) {
+  if (dict) out.push_back(static_cast<StyioIR*>(dict));
+}
+
+inline void SCDictValues::collect_children(std::vector<StyioIR*>& out) {
+  if (dict) out.push_back(static_cast<StyioIR*>(dict));
+}
+
+inline void SCDictToString::collect_children(std::vector<StyioIR*>& out) {
+  if (dict) out.push_back(static_cast<StyioIR*>(dict));
+}
+
 
 #endif

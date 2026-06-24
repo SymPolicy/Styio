@@ -622,6 +622,48 @@ target_compile_definitions(styio_syntax_check_internal_test PRIVATE
 )
 styio_apply_llvm_compile_settings(styio_syntax_check_internal_test)
 
+add_executable(styio_source_map_test
+  source_map_test.cpp
+)
+target_include_directories(styio_source_map_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(styio_source_map_test PRIVATE
+  styio_frontend_core
+  GTest::gtest_main
+  ${LLVM_LIBS}
+)
+styio_apply_llvm_compile_settings(styio_source_map_test)
+
+add_executable(styio_symbol_interner_test
+  symbol_interner_test.cpp
+)
+target_include_directories(styio_symbol_interner_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(styio_symbol_interner_test PRIVATE
+  styio_frontend_core
+  GTest::gtest_main
+  ${LLVM_LIBS}
+)
+styio_apply_llvm_compile_settings(styio_symbol_interner_test)
+
+add_executable(styio_type_table_test
+  type_table_test.cpp
+)
+target_include_directories(styio_type_table_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(styio_type_table_test PRIVATE
+  styio_frontend_core
+  GTest::gtest_main
+  ${LLVM_LIBS}
+)
+styio_apply_llvm_compile_settings(styio_type_table_test)
+
+add_executable(styio_runtime_scheduler_test
+  runtime_scheduler_test.cpp
+)
+target_include_directories(styio_runtime_scheduler_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(styio_runtime_scheduler_test PRIVATE
+  GTest::gtest_main
+)
+styio_apply_llvm_compile_settings(styio_runtime_scheduler_test)
+
 add_executable(styio_main_contract_test
   main_contract_test.cpp
 )

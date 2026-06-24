@@ -96,6 +96,10 @@ private:
   std::vector<StyioParseDiagnostic> parse_diagnostics_;
   std::vector<size_t> nightly_internal_legacy_bridge_counts_;
 
+  // Route cache: maps start cursor → route scan result (TASK-06).
+  // Key: (start_index << 8) | route_kind. Value: bool (supported).
+  mutable std::unordered_map<size_t, bool> route_cache_;
+
   bool debug_mode = false;
 
   std::vector<std::vector<std::pair<size_t, size_t>>> token_segmentation; /* offset, length */
@@ -417,6 +421,34 @@ public:
   void
   clear_parse_diagnostics() {
     parse_diagnostics_.clear();
+  }
+
+  // Route cache (TASK-06): avoids redundant scan_subset_route_tokens_latest() calls.
+  enum RouteKind : uint8_t {
+    kRouteHashLetMatch = 0,
+    kRouteHashStmt = 1,
+    kRouteStmtSubset = 2,
+    kRouteExprUntil = 3,
+  };
+
+  bool get_route_cache(size_t start, RouteKind kind) const {
+    size_t key = (start << 8) | static_cast<uint8_t>(kind);
+    auto it = route_cache_.find(key);
+    return it != route_cache_.end() && it->second;
+  }
+
+  bool has_route_cache(size_t start, RouteKind kind) const {
+    size_t key = (start << 8) | static_cast<uint8_t>(kind);
+    return route_cache_.find(key) != route_cache_.end();
+  }
+
+  void set_route_cache(size_t start, RouteKind kind, bool supported) const {
+    size_t key = (start << 8) | static_cast<uint8_t>(kind);
+    route_cache_[key] = supported;
+  }
+
+  void clear_route_cache() {
+    route_cache_.clear();
   }
 
   const std::vector<StyioParseDiagnostic>&

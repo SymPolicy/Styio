@@ -58,6 +58,11 @@ public:
     tokens_.push_back(token);
   }
 
+  void
+  reserve(std::size_t n) {
+    tokens_.reserve(n);
+  }
+
   const std::vector<StyioToken*>&
   view() const {
     return tokens_;
@@ -458,6 +463,7 @@ tokenize_impl(const char* src_data, size_t code_len, StyioTokenizerMetrics* m) {
   if (m) { m->input_bytes = code_len; }
 
   TokenAccumulator tokens;
+  tokens.reserve(std::max<size_t>(16, code_len / 4));
   size_t loc = 0;
 
   while (loc < code_len) {

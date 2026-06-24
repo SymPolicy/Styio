@@ -103,6 +103,12 @@ struct Edge
   std::string label;
 };
 
+struct CycleInfo
+{
+  std::vector<std::size_t> node_ids;
+  std::vector<std::size_t> edge_ids;
+};
+
 class Graph
 {
   std::vector<Node> nodes_;
@@ -131,6 +137,10 @@ public:
   std::size_t node_count(NodeKind kind) const;
   std::size_t edge_count(EdgeKind kind) const;
   std::string debug_string() const;
+
+  /// Detect cycles in the dependency graph (HappensBefore + Flow edges).
+  /// Uses Kahn's algorithm (O(V+E)). Returns empty vector if graph is acyclic.
+  std::vector<CycleInfo> detect_cycles() const;
 };
 
 struct ValidationError
