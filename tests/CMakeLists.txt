@@ -770,6 +770,18 @@ gtest_discover_tests(styio_ide_test
   PROPERTIES LABELS "ide\\;lsp\\;unit"
 )
 
+gtest_discover_tests(styio_source_map_test
+  PROPERTIES LABELS "util\\;unit"
+)
+
+gtest_discover_tests(styio_symbol_interner_test
+  PROPERTIES LABELS "session\\;unit"
+)
+
+gtest_discover_tests(styio_type_table_test
+  PROPERTIES LABELS "session\\;unit"
+)
+
 option(STYIO_ENABLE_FUZZ "Build libFuzzer targets" OFF)
 if(STYIO_ENABLE_FUZZ)
   add_subdirectory(fuzz)

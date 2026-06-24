@@ -524,14 +524,17 @@ TEST(StyioLoweringInternal, PassManagerRunsCanonicalizationAndVerifierStages) {
 
     ASSERT_TRUE(result.ok()) << result.diagnostics.front().message;
     EXPECT_EQ(result.root, root.get());
-    ASSERT_EQ(result.passes.size(), 1u);
+    ASSERT_EQ(result.passes.size(), 2u);  // Canonicalization + ConstantFolding
     EXPECT_EQ(result.passes[0].name, "styioir-canonicalization");
     EXPECT_TRUE(result.passes[0].verifier_before_ok);
     EXPECT_TRUE(result.passes[0].verifier_after_ok);
+    EXPECT_EQ(result.passes[1].name, "styioir-constant-folding");
+    EXPECT_TRUE(result.passes[1].verifier_before_ok);
+    EXPECT_TRUE(result.passes[1].verifier_after_ok);
     EXPECT_FALSE(result.initial_ir.empty());
     EXPECT_FALSE(result.final_ir.empty());
     EXPECT_EQ(result.initial_ir, result.passes[0].ir_before);
-    EXPECT_EQ(result.final_ir, result.passes[0].ir_after);
+    EXPECT_EQ(result.final_ir, result.passes[1].ir_after);
     EXPECT_NE(result.initial_ir, result.final_ir);
     EXPECT_NE(result.passes[0].ir_before.find("styio.ir.match"), std::string::npos);
     EXPECT_NE(result.passes[0].ir_after.find("styio.ir.block"), std::string::npos);
