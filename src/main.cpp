@@ -208,14 +208,14 @@ show_tokens(std::vector<StyioToken*> tokens) {
       std::cout << sep + " ";
     }
     else if (tok->type == StyioTokenType::NAME) {
-      std::cout << sep + tok->original;
+      std::cout << sep + tok->textString();
     }
     else if (tok->type == StyioTokenType::STRING) {
-      std::cout << sep + tok->original;
+      std::cout << sep + tok->textString();
     }
     else if (tok->type == StyioTokenType::INTEGER
              || tok->type == StyioTokenType::DECIMAL) {
-      std::cout << sep + tok->original + ": " + StyioToken::getTokName(tok->type);
+      std::cout << sep + tok->textString() + ": " + StyioToken::getTokName(tok->type);
     }
     else {
       std::cout << sep + StyioToken::getTokName(tok->type);
