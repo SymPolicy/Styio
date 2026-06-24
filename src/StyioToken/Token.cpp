@@ -925,7 +925,7 @@ StyioToken::getTokName(StyioTokenType type) {
 
 size_t
 StyioToken::length() {
-  return original.length();
+  return lexeme().size();
 }
 
 std::string
@@ -939,10 +939,10 @@ StyioToken::as_str() {
   else if (type == StyioTokenType::NAME
            || type == StyioTokenType::INTEGER
            || type == StyioTokenType::DECIMAL) {
-    return getTokName(this->type) + " = " + this->original;
+    return getTokName(this->type) + " = " + this->textString();
   }
   else if (type == StyioTokenType::STRING) {
-    return "\"" + this->original + "\"";
+    return "\"" + this->textString() + "\"";
   }
   else {
     return getTokName(this->type);
