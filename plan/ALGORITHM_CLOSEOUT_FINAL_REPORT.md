@@ -1,13 +1,15 @@
 # Algorithm Closeout Final Report
 
 **Date:** 2026-06-25
-**Fix Branch HEAD:** `de1f341` (`origin/fix/algorithm-acceptance-gate`)
+**Fix Branch HEAD:** `c77dbff` (`origin/fix/algorithm-acceptance-gate`)
 **Nightly HEAD:** `a490ed1` (unchanged)
 **Baseline:** `6e59b68`
 
 ## Executive Summary
 
-The `fix/algorithm-acceptance-gate` branch contains 9 commits fixing SourceMap UB, activating ConstantFoldPass, adding route cache counters, IR allocation stats, and enhanced benchmark JSON. All local gates that can pass DO pass. The fix branch is ready to push for remote CI validation. It is NOT yet ready for direct `nightly` promotion.
+The `fix/algorithm-acceptance-gate` branch contains 10 commits fixing SourceMap UB, activating ConstantFoldPass, integrating SymbolInterner into the parser→Sema path, adding route cache counters, IR allocation stats, and enhanced benchmark JSON. All local gates that can pass DO pass. The fix branch is ready to push for remote CI validation.
+
+**Key update:** The symbolid subagent (`33cbcb5`) integrated SymbolInterner into NameAST creation, SemaContext dual maps (string + SymbolId), and parser/lowering pipelines — moving SymbolInterner from "infrastructure only" to "integrated."
 
 ## Build Verification
 
@@ -67,7 +69,7 @@ Pre-existing failures only (audit policy path mismatch: `src/StyioAnalyzer/`, `s
 | ConstantFoldPass | ✅ PRODUCTION | Pass pipeline at opt_level > 0 |
 | Route cache counters | ✅ PRODUCTION | `StyioContext`, queryable by benchmark |
 | IR arena stats | ✅ INFRASTRUCTURE | `SessionAllocationStats`, 12 raw-new sites tagged |
-| SymbolInterner | ⚠️ INFRASTRUCTURE | `CompilationSession::symbols()` only |
+| SymbolInterner | ✅ INTEGRATED | NameAST creation, SemaContext dual maps, parser pipeline |
 | TypeTable | ⚠️ INFRASTRUCTURE | `CompilationSession::types()` only |
 | ReadyQueue | ⚠️ EXPERIMENTAL | Not in scheduler; no runtime claims |
 | destroy_ir_subtree + make_ir | ⚠️ KNOWN RISK | Incompatible; arena IR not default |
@@ -105,7 +107,7 @@ Pre-existing failures only (audit policy path mismatch: `src/StyioAnalyzer/`, `s
 | TASK-00 Benchmark gate | Infrastructure exists; baseline comparison missing |
 | TASK-01 Quick win (SourceMap) | ✅ FIXED |
 | TASK-02 Structured diagnostics | Not assessed |
-| TASK-03 SymbolInterner | Infra only; NOT in name resolution path |
+| TASK-03 SymbolInterner | ✅ INTEGRATED | NameAST interned, SemaContext dual maps |
 | TASK-04 TypeTable | Infra only; NOT in type equality path |
 | TASK-05 Route cache | Integrated with counters; scan reduction not yet benchmarked |
 | TASK-06 Cycle detection | Kahn algorithm works; diagnostic still weak |
