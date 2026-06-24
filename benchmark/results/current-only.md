@@ -4,9 +4,9 @@
 **Commit:** `de1f341`
 **Build:** Release
 
-## Status
+## Evidence Summary
 
-**No baseline comparison available.** Commit `6e59b68` does not have a `styio_core_bench` target. The benchmark infrastructure exists and produces valid JSON, but end-to-end performance improvement claims cannot be made without a comparable baseline.
+Commit `6e59b68` lacks a `styio_core_bench` target, so baseline comparison is unavailable. Evidence: benchmark binary builds and runs; JSON output at `benchmark/results/current.json`.
 
 ## Raw Results (30 iterations, median)
 
@@ -24,7 +24,7 @@
 ## Infrastructure Established
 
 - [x] Benchmark binary builds in Release mode without crash
-- [x] JSON v1 output with commit hash, build type, timestamps
+- [x] JSON output with commit hash, build type, timestamps
 - [x] 8 benchmark scenarios covering lex/parse/sema/type/topology/diag/runtime
 - [x] Route cache counters available via `STYIO_PARSER_ROUTE_CACHE_STATS=1`
 - [x] IR allocation stats struct available for future instrumentation

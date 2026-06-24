@@ -394,6 +394,7 @@ constexpr StyioTokenType k_stmt_subset_extra_tokens_latest[] = {
   StyioTokenType::COMPOUND_DIV,
   StyioTokenType::COMPOUND_MOD,
   StyioTokenType::TOK_QUEST,
+  StyioTokenType::NATIVE_EXTERN_BODY,
 };
 
 constexpr StyioTokenType k_stmt_subset_extra_start_tokens_latest[] = {

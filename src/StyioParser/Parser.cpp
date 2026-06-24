@@ -385,7 +385,7 @@ parse_import_decl_after_at_latest(StyioContext& context) {
     throw StyioSyntaxError(context.mark_cur_tok("@import is only allowed at file top level"));
   }
 
-  if (context.cur_tok_type() != StyioTokenType::NAME || context.curTextIs("import")) {
+  if (context.cur_tok_type() != StyioTokenType::NAME || !context.curTextIs("import")) {
     throw StyioSyntaxError(context.mark_cur_tok("expected import after @"));
   }
 
@@ -425,7 +425,7 @@ parse_export_decl_after_at_latest(StyioContext& context) {
     throw StyioSyntaxError(context.mark_cur_tok("@export is only allowed at file top level"));
   }
 
-  if (context.cur_tok_type() != StyioTokenType::NAME || context.curTextIs("export")) {
+  if (context.cur_tok_type() != StyioTokenType::NAME || !context.curTextIs("export")) {
     throw StyioSyntaxError(context.mark_cur_tok("expected export after @"));
   }
 
@@ -589,7 +589,7 @@ parse_extern_block_after_at_name_latest(
     throw StyioSyntaxError(context.mark_cur_tok("@extern is only allowed at file top level"));
   }
 
-  if (context.cur_tok_type() != StyioTokenType::NAME || context.curTextIs("extern")) {
+  if (context.cur_tok_type() != StyioTokenType::NAME || !context.curTextIs("extern")) {
     throw StyioSyntaxError(context.mark_cur_tok("expected extern after @"));
   }
 
