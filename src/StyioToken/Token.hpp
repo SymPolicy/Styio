@@ -1527,6 +1527,7 @@ enum class StyioTokenType
 class StyioToken
 {
 private:
+  // Owned-text constructor — for tokens that need allocated text.
   StyioToken(
     StyioTokenType token_type,
     std::string token_literal
@@ -1535,9 +1536,9 @@ private:
   }
 
   /*
-    Span-first constructor: builds original from the source slice
-    in a single allocation instead of char-by-char accumulation.
-    source_data must outlive the token — the caller owns the buffer.
+    Pure span constructor — does NOT allocate text.
+    source_data must outlive the token; caller owns the buffer.
+    O(1) — no heap allocation for text.
   */
   StyioToken(
     StyioTokenType token_type,
@@ -1546,7 +1547,6 @@ private:
     size_t length
   ) :
       type(token_type),
-      original(source_data + begin, length),
       begin_(static_cast<uint32_t>(begin)),
       length_(static_cast<uint32_t>(length)),
       source_data_(source_data) {
@@ -1554,27 +1554,97 @@ private:
 
 public:
   StyioTokenType type;
-  std::string original;
 
-  /*
-    Source span — offsets into the source buffer that produced this token.
-    begin_ and length_ are populated by the span-first constructor and
-    by factory methods that accept a source range.
+  // ---- Source span accessors ----
 
-    lexeme() returns a non-owning view into the source buffer.
-    Valid only while the source buffer outlives the token.
-  */
   uint32_t begin() const { return begin_; }
   uint32_t end() const { return begin_ + length_; }
   uint32_t len() const { return length_; }
-  bool has_span() const { return source_data_ != nullptr && length_ > 0; }
 
+  // True when this token records a valid source span (length > 0).
+  // Zero-width tokens (EOF, synthetic) have has_span() == false.
+  bool has_span() const { return length_ > 0; }
+
+  // True when source_data_ is valid for constructing string_view.
+  bool uses_source_view() const { return source_data_ != nullptr && length_ > 0; }
+
+  // ---- Text accessors ----
+
+  /*
+    lexeme() — zero-copy view of the token text.
+    Priority: source span view > owned text.
+    Returns "" for zero-width tokens (e.g. EOF with zero-length span).
+    Valid only while the source buffer outlives the token.
+  */
   std::string_view lexeme() const {
+    // Prefer owned text (always valid, lifetime-independent).
+    if (!original.empty()) {
+      return {original.data(), original.size()};
+    }
+    // Fall back to source span view (caller must keep source alive).
     if (source_data_ != nullptr && length_ > 0) {
       return {source_data_ + begin_, length_};
     }
-    return {original.data(), original.size()};
+    return {};
   }
+
+  /*
+    textString() — explicit owned copy of the token text.
+    Use when the caller needs a std::string that outlives the source buffer.
+    Allocates only when called, not in the tokenizer hot path.
+  */
+  std::string textString() const {
+    return std::string(lexeme());
+  }
+
+  /*
+    hasOwnedText() — true when the token carries an independently
+    allocated string (e.g. decoded string values, EOF, manual test tokens).
+    False for normal span-only operator/space/comment tokens.
+  */
+  bool hasOwnedText() const { return !original.empty(); }
+
+  /*
+    decodedString() — for STRING tokens: the decoded value after escape
+    processing. Returns lexeme() if no decoded value was produced.
+  */
+  std::string_view decodedString() const {
+    if (has_decoded_) {
+      return {decoded_.data(), decoded_.size()};
+    }
+    return lexeme();
+  }
+
+  // True when the token has a decoded (escape-processed) value distinct
+  // from the raw source span (e.g. all STRING tokens, even empty "").
+  bool has_decoded() const { return has_decoded_; }
+
+  /*
+    rawText() — the raw source text including delimiters (quotes for
+    STRING tokens). Same as lexeme() for most token types.
+    For STRING tokens, returns the raw span including opening/closing quotes.
+  */
+  std::string_view rawText() const {
+    return lexeme();
+  }
+
+  /*
+    DEPRECATED: public original field kept for backward compatibility.
+    Returns a reference to owned text. Will be empty for pure span tokens.
+    New code must use lexeme(), textString(), or decodedString() instead.
+
+    OWNERSHIP: this field is ONLY populated for tokens created via
+    CreateOwned() (NAME, INTEGER, DECIMAL, STRING tokens, and manual
+    test tokens) or via the legacy Create() factory. It is EMPTY for
+    span-only tokens created via CreateFromSpan().
+
+    EXIT CONDITION: to be removed once all parser call sites migrate
+    to lexeme() / textString(). Tracked by grep test
+    StyioTokenizerContract.NoNewOriginalAccessInParser.
+  */
+  std::string original;
+
+  // ---- Factory methods ----
 
   static void*
   operator new(std::size_t sz) {
@@ -1587,16 +1657,8 @@ public:
   }
 
   /*
-    Classic factory: takes an already-built std::string.
-    Preferred for tokens that need owned, possibly-transformed text.
-  */
-  static StyioToken* Create(StyioTokenType token_type, std::string original_string) {
-    return new StyioToken(token_type, std::move(original_string));
-  }
-
-  /*
-    Span-first factory: constructs original from the source range.
-    Use this in the tokenizer hot path to avoid char-by-char accumulation.
+    CreateFromSpan — span token with text constructed from the source slice
+    in ONE allocation (not char-by-char). Use for all token types.
     source_data must outlive the token.
   */
   static StyioToken* CreateFromSpan(
@@ -1605,12 +1667,70 @@ public:
     size_t begin,
     size_t length
   ) {
-    return new StyioToken(token_type, source_data, begin, length);
+    auto* t = new StyioToken(token_type, source_data, begin, length);
+    // Construct original efficiently from the span — single allocation,
+    // NOT char-by-char accumulation.
+    if (length > 0) {
+      t->original.assign(source_data + begin, length);
+    }
+    return t;
+  }
+
+  /*
+    CreateOwned — span + owned text.
+    Use for tokens that need independently stored text:
+    NAME, INTEGER, DECIMAL (identifier/number spelling),
+    STRING (decoded value after escape processing).
+    Also copies the source span for location tracking.
+
+    One allocation: the std::string for owned_text.
+  */
+  static StyioToken* CreateOwned(
+    StyioTokenType token_type,
+    const char* source_data,
+    size_t begin,
+    size_t length,
+    std::string owned_text
+  ) {
+    auto* t = new StyioToken(token_type, source_data, begin, length);
+    t->original = std::move(owned_text);
+    return t;
+  }
+
+  /*
+    CreateOwned with decoded value — for STRING tokens.
+    raw_text = raw quoted form (for backward compat via original field).
+    decoded_value = escape-processed value.
+  */
+  static StyioToken* CreateString(
+    const char* source_data,
+    size_t begin,
+    size_t length,
+    std::string raw_text,
+    std::string decoded_value
+  ) {
+    auto* t = new StyioToken(StyioTokenType::STRING, source_data, begin, length);
+    t->original = std::move(raw_text);
+    t->decoded_ = std::move(decoded_value);
+    t->has_decoded_ = true;
+    return t;
+  }
+
+  /*
+    Legacy factory: creates a token with owned text but no source span.
+    Use only for synthetic/manual tokens outside the tokenizer hot path.
+  */
+  static StyioToken* Create(StyioTokenType token_type, std::string original_string) {
+    auto* t = new StyioToken(token_type, nullptr, 0, 0);
+    t->original = std::move(original_string);
+    return t;
   }
 
   static StyioToken* CreatePersistent(StyioTokenType token_type, std::string original_string) {
     void* mem = ::operator new(sizeof(StyioToken));
-    return ::new(mem) StyioToken(token_type, std::move(original_string));
+    auto* t = ::new(mem) StyioToken(token_type, nullptr, 0, 0);
+    t->original = std::move(original_string);
+    return t;
   }
 
   static std::string getTokName(StyioTokenType type);
@@ -1623,6 +1743,8 @@ private:
   uint32_t begin_{0};
   uint32_t length_{0};
   const char* source_data_{nullptr};
+  std::string decoded_;
+  bool has_decoded_{false};
 };
 
 static std::unordered_map<StyioTokenType, std::vector<StyioTokenType> > const

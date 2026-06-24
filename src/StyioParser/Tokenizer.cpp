@@ -1,5 +1,6 @@
 // [C++ STL]
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
@@ -277,541 +278,370 @@ styio_scan_native_extern_body_end(const std::string& code, size_t body_start) {
 }
 
 // ---------------------------------------------------------------
-// Operator dispatch table — O(1) lookup by first-char bucket,
-// longest-match via length-descending entries within each bucket.
+// Operator dispatch — constexpr precomputed bucket index.
+// O(1) lookup: kOperatorBuckets[static_cast<unsigned char>(ch)].
+// Bucket entries are length-descending for longest-match.
 // ---------------------------------------------------------------
 
-struct OperatorEntry
-{
+struct OperatorEntry {
   const char* spelling;
   StyioTokenType type;
-  uint8_t length;        // strlen(spelling), precomputed
-  uint8_t min_match;     // minimum chars to match before checking (optimization)
+  uint8_t length;
 };
 
-/*
-  Each bucket contains entries sorted by length descending so the
-  first match is always the longest (longest-match rule).
-
-  Entries with length 1 are handled by the ASCII-mapped single-char
-  dispatch and don't appear here unless they have multi-char siblings.
-*/
-
-// Operator entries organized by first character for longest-match.
-// Ordered longest-first within each character group.
 static constexpr OperatorEntry kOperatorTable[] = {
   // '!' (33)
-  {"!=", StyioTokenType::BINOP_NE, 2, 2},
-
+  {"!=", StyioTokenType::BINOP_NE, 2},
   // '%' (37)
-  {"%=", StyioTokenType::COMPOUND_MOD, 2, 2},
-
+  {"%=", StyioTokenType::COMPOUND_MOD, 2},
   // '&' (38)
-  {"&&", StyioTokenType::LOGIC_AND, 2, 2},
-
+  {"&&", StyioTokenType::LOGIC_AND, 2},
   // '*' (42)
-  {"**", StyioTokenType::BINOP_POW, 2, 2},
-  {"*=", StyioTokenType::COMPOUND_MUL, 2, 2},
-
+  {"**", StyioTokenType::BINOP_POW, 2},
+  {"*=", StyioTokenType::COMPOUND_MUL, 2},
   // '+' (43)
-  {"+=", StyioTokenType::COMPOUND_ADD, 2, 2},
-
+  {"+=", StyioTokenType::COMPOUND_ADD, 2},
   // '-' (45)
-  {"->", StyioTokenType::ARROW_SINGLE_RIGHT, 2, 2},
-  {"-=", StyioTokenType::COMPOUND_SUB, 2, 2},
-
+  {"->", StyioTokenType::ARROW_SINGLE_RIGHT, 2},
+  {"-=", StyioTokenType::COMPOUND_SUB, 2},
   // '/' (47)
-  {"/=", StyioTokenType::COMPOUND_DIV, 2, 2},
-
+  {"/=", StyioTokenType::COMPOUND_DIV, 2},
   // ':' (58)
-  {":=", StyioTokenType::WALRUS, 2, 2},
-
+  {":=", StyioTokenType::WALRUS, 2},
   // '<' (60) — longest-first
-  {"<=", StyioTokenType::BINOP_LE, 2, 2},
-  {"<~", StyioTokenType::WAVE_LEFT, 2, 2},
-  {"<|", StyioTokenType::YIELD_PIPE, 2, 2},
-  {"<-", StyioTokenType::ARROW_SINGLE_LEFT, 2, 2},
-
-  // '=' (61) — longest-first
-  // "==" is handled by consecutive-count logic, not the table
-  {"=>", StyioTokenType::ARROW_DOUBLE_RIGHT, 2, 2},
-
-  // '>' (62) — longest-first
-  {">=", StyioTokenType::BINOP_GE, 2, 2},
-  {">_", StyioTokenType::PRINT, 2, 2},
-
+  {"<=", StyioTokenType::BINOP_LE, 2},
+  {"<~", StyioTokenType::WAVE_LEFT, 2},
+  {"<|", StyioTokenType::YIELD_PIPE, 2},
+  {"<-", StyioTokenType::ARROW_SINGLE_LEFT, 2},
+  // '=' (61) — longest-first ("==" handled by consecutive-count)
+  {"=>", StyioTokenType::ARROW_DOUBLE_RIGHT, 2},
+  // '>' (62)
+  {">=", StyioTokenType::BINOP_GE, 2},
+  {">_", StyioTokenType::PRINT, 2},
   // '?' (63)
-  {"?|", StyioTokenType::AWAIT_PIPE, 2, 2},
-  {"?=", StyioTokenType::MATCH, 2, 2},
-  {"??", StyioTokenType::DBQUESTION, 2, 2},
-
+  {"?|", StyioTokenType::AWAIT_PIPE, 2},
+  {"?=", StyioTokenType::MATCH, 2},
+  {"??", StyioTokenType::DBQUESTION, 2},
   // '[' (91)
-  {"[|", StyioTokenType::BOUNDED_BUFFER_OPEN, 2, 2},
-
+  {"[|", StyioTokenType::BOUNDED_BUFFER_OPEN, 2},
   // '|' (124) — longest-first
-  {"|<|", StyioTokenType::RETURN_PIPE, 3, 2},
-  {"||>", StyioTokenType::TASK_LAUNCH, 3, 2},
-  {"||", StyioTokenType::LOGIC_OR, 2, 2},
-  {"|;", StyioTokenType::PIPE_SEMICOLON, 2, 2},
-  {"|]", StyioTokenType::BOUNDED_BUFFER_CLOSE, 2, 2},
-
+  {"|<|", StyioTokenType::RETURN_PIPE, 3},
+  {"||>", StyioTokenType::TASK_LAUNCH, 3},
+  {"||", StyioTokenType::LOGIC_OR, 2},
+  {"|;", StyioTokenType::PIPE_SEMICOLON, 2},
+  {"|]", StyioTokenType::BOUNDED_BUFFER_CLOSE, 2},
   // '~' (126)
-  {"~>", StyioTokenType::WAVE_RIGHT, 2, 2},
+  {"~>", StyioTokenType::WAVE_RIGHT, 2},
 };
-
-/*
-  Bucket index table: for each ASCII char 0-127, the start index
-  into kOperatorTable. 0xFF means no multi-char operators for that char.
-  kOperatorTable is already ordered by first character so buckets are
-  contiguous ranges.
-*/
-struct OperatorBucket
-{
-  uint8_t start;  // index into kOperatorTable
-  uint8_t count;  // number of entries for this first char
-};
-
 static constexpr size_t kOpTableSize = sizeof(kOperatorTable) / sizeof(kOperatorTable[0]);
 
-// Build the bucket index at compile time via a helper.
-// The table is ordered by first-char, so we compute run lengths.
-static constexpr OperatorBucket
-build_op_bucket(char c) {
-  OperatorBucket bucket = {0, 0};
-  bool found = false;
+struct OperatorBucket { uint8_t start; uint8_t count; };
+static constexpr OperatorBucket kEmptyBucket{0, 0};
+
+// Precomputed at compile time: index into kOperatorTable by first char (0-127).
+// Each entry stores start+count in the ordered kOperatorTable.
+static constexpr std::array<OperatorBucket, 128> make_op_buckets() {
+  std::array<OperatorBucket, 128> buckets{};
+  for (auto& b : buckets) b = kEmptyBucket;
+  uint8_t run_start = 0;
+  char run_char = 0;
+  bool in_run = false;
   for (size_t i = 0; i < kOpTableSize; ++i) {
-    if (kOperatorTable[i].spelling[0] == c) {
-      if (!found) {
-        bucket.start = static_cast<uint8_t>(i);
-        found = true;
-      }
-      bucket.count++;
-    }
-    else if (found) {
-      break;  // past this char's run
+    char fc = kOperatorTable[i].spelling[0];
+    if (fc < 0 || fc >= 128) continue;
+    auto uc = static_cast<unsigned char>(fc);
+    if (!in_run || fc != run_char) {
+      if (in_run) { buckets[static_cast<unsigned char>(run_char)] = {run_start, static_cast<uint8_t>(i - run_start)}; }
+      run_start = static_cast<uint8_t>(i);
+      run_char = fc;
+      in_run = true;
     }
   }
-  return bucket;
+  if (in_run) { buckets[static_cast<unsigned char>(run_char)] = {run_start, static_cast<uint8_t>(kOpTableSize - run_start)}; }
+  return buckets;
 }
+static constexpr auto kOperatorBuckets = make_op_buckets();
 
-// Inline helper: try to match a multi-char operator starting at loc.
-// Returns the matched token or nullptr if no match.
-inline StyioToken*
-try_match_operator(
-  const char* data,
-  size_t code_len,
-  size_t loc,
-  const OperatorBucket& bucket
-) {
+// O(1) longest-match: kOperatorBuckets[ch] → try entries length-descending.
+inline StyioToken* try_match_op(const char* data, size_t code_len, size_t loc, unsigned char ch) {
+  if (ch >= 128) return nullptr;
+  auto& bucket = kOperatorBuckets[ch];
   for (uint8_t i = 0; i < bucket.count; ++i) {
-    const auto& entry = kOperatorTable[bucket.start + i];
-    if (loc + entry.length <= code_len
-        && std::string_view(data + loc, entry.length) == entry.spelling) {
-      return StyioToken::CreateFromSpan(entry.type, data, loc, entry.length);
-    }
+    auto& e = kOperatorTable[bucket.start + i];
+    if (loc + e.length <= code_len && std::string_view(data + loc, e.length) == e.spelling)
+      return StyioToken::CreateFromSpan(e.type, data, loc, e.length);
   }
   return nullptr;
 }
 
-// Repeat-char tokens: ---, ===, ..., <<<, >>>  etc.
-// Counts consecutive repeats of character ch starting at loc.
-inline size_t
-count_consecutive_chars(const char* data, size_t code_len, size_t start, char target) {
-  size_t count = 0;
-  while (start + count < code_len && data[start + count] == target) {
-    count += 1;
+inline size_t count_consecutive_chars(const char* data, size_t code_len, size_t start, char t) {
+  size_t n = 0;
+  while (start + n < code_len && data[start + n] == t) ++n;
+  return n;
+}
+
+// ---------------------------------------------------------------
+// String literal scanner with escape processing.
+// Returns raw span (including quotes) and decoded value.
+// Throws StyioLexError on unterminated strings or illegal newlines.
+// ---------------------------------------------------------------
+struct StringScanResult {
+  size_t raw_begin;
+  size_t raw_length;   // includes both quotes
+  std::string decoded;
+};
+
+StringScanResult scan_string_literal(const char* data, size_t code_len, size_t start) {
+  if (start >= code_len || data[start] != '"')
+    throw StyioLexError("string literal must start with \" at offset " + std::to_string(start));
+
+  size_t loc = start + 1;  // skip opening "
+  std::string decoded;
+  decoded.reserve(32);
+
+  while (loc < code_len) {
+    char ch = data[loc];
+    if (ch == '"') {
+      loc += 1;  // skip closing "
+      return {start, loc - start, std::move(decoded)};
+    }
+    if (ch == '\\' && loc + 1 < code_len) {
+      loc += 1;
+      char esc = data[loc];
+      switch (esc) {
+        case '"':  decoded += '"';  break;
+        case '\\': decoded += '\\'; break;
+        case 'n':  decoded += '\n'; break;
+        case 't':  decoded += '\t'; break;
+        case 'r':  decoded += '\r'; break;
+        case '0':  decoded += '\0'; break;
+        default:
+          // Unknown escape: keep both chars in decoded for stability.
+          decoded += '\\';
+          decoded += esc;
+          break;
+      }
+      loc += 1;
+      continue;
+    }
+    decoded += ch;
+    loc += 1;
   }
-  return count;
+  throw StyioLexError(
+    "unterminated string literal at offset " + std::to_string(start));
+}
+
+// Helper: push a pure-span token (no owned text allocation).
+inline void push_span_token(
+  TokenAccumulator& tokens, StyioTokenizerMetrics* m,
+  StyioTokenType type, const char* data, size_t begin, size_t length
+) {
+  tokens.push_back(StyioToken::CreateFromSpan(type, data, begin, length));
+  if (m) { m->span_token_count++; }
+}
+
+// Helper: push an owned-text token (NAME, INTEGER, DECIMAL).
+inline void push_owned_token(
+  TokenAccumulator& tokens, StyioTokenizerMetrics* m,
+  StyioTokenType type, const char* data, size_t begin, size_t length
+) {
+  std::string text(data + begin, length);
+  if (m) { m->owned_text_bytes += text.size(); m->owned_text_token_count++; }
+  tokens.push_back(StyioToken::CreateOwned(type, data, begin, length, std::move(text)));
+}
+
+// Helper: push a string token with decoded value.
+inline void push_string_token(
+  TokenAccumulator& tokens, StyioTokenizerMetrics* m,
+  const char* src, const StringScanResult& sr
+) {
+  std::string raw(src + sr.raw_begin, sr.raw_length);
+  if (m) { m->owned_text_bytes += raw.size(); m->owned_text_token_count++; m->string_decodes++; }
+  tokens.push_back(StyioToken::CreateString(
+    src, sr.raw_begin, sr.raw_length, std::move(raw), sr.decoded));
 }
 
 }  // namespace
 
 // ---------------------------------------------------------------
-// Public tokenizer entry point (span-first)
-//
-// Complexity: O(n) single-pass linear scan over the source.
-// Tokens store source spans; `original` strings are constructed
-// once from the span (not char-by-char).
+// Public entry points
 // ---------------------------------------------------------------
+
 std::vector<StyioToken*>
 StyioTokenizer::tokenize(const std::string& code) {
+  return tokenizeWithMetrics(code, nullptr);
+}
+
+std::vector<StyioToken*>
+StyioTokenizer::tokenizeWithMetrics(const std::string& code, void* metrics_out) {
+  auto* m = static_cast<StyioTokenizerMetrics*>(metrics_out);
+  if (m) { m->input_bytes = code.size(); }
+
   TokenAccumulator tokens;
-  const char* data = code.data();
+  const char* src_data = code.data();
   const size_t code_len = code.size();
   size_t loc = 0;
 
   while (loc < code_len) {
-    const char ch = data[loc];
+    const char ch = src_data[loc];
 
-    // ---- Whitespace fast-path ----
-    switch (ch) {
-      case ' ':
-      case '\t':
-      case '\v':
-      case '\f': {
-        tokens.push_back(
-          StyioToken::CreateFromSpan(StyioTokenType::TOK_SPACE, data, loc, 1));
-        loc += 1;
-        continue;
-      }
-      case '\n': {
-        tokens.push_back(
-          StyioToken::CreateFromSpan(StyioTokenType::TOK_LF, data, loc, 1));
-        loc += 1;
-        continue;
-      }
-      case '\r': {
-        tokens.push_back(
-          StyioToken::CreateFromSpan(StyioTokenType::TOK_CR, data, loc, 1));
-        loc += 1;
-        continue;
-      }
-      default:
-        break;
+    // ---- Whitespace ----
+    if (ch == ' ' || ch == '\t' || ch == '\v' || ch == '\f') {
+      push_span_token(tokens,m, StyioTokenType::TOK_SPACE, src_data, loc, 1);
+      loc += 1; continue;
+    }
+    if (ch == '\n') {
+      push_span_token(tokens,m, StyioTokenType::TOK_LF, src_data, loc, 1);
+      loc += 1; continue;
+    }
+    if (ch == '\r') {
+      push_span_token(tokens,m, StyioTokenType::TOK_CR, src_data, loc, 1);
+      loc += 1; continue;
     }
 
     // ---- Line comment // ----
-    if (ch == '/' && loc + 1 < code_len && data[loc + 1] == '/') {
-      const size_t begin = loc;
-      loc += 2;
-      while (loc < code_len && data[loc] != '\n' && data[loc] != '\r') {
-        loc += 1;
-      }
-      tokens.push_back(
-        StyioToken::CreateFromSpan(StyioTokenType::COMMENT_LINE, data, begin, loc - begin));
+    if (ch == '/' && loc + 1 < code_len && src_data[loc + 1] == '/') {
+      size_t begin = loc; loc += 2;
+      while (loc < code_len && src_data[loc] != '\n' && src_data[loc] != '\r') ++loc;
+      push_span_token(tokens,m, StyioTokenType::COMMENT_LINE, src_data, begin, loc - begin);
       continue;
     }
 
-    // ---- Block comment /* ... */ ----
-    if (ch == '/' && loc + 1 < code_len && data[loc + 1] == '*') {
-      const size_t begin = loc;
+    // ---- Block comment /* */ ----
+    if (ch == '/' && loc + 1 < code_len && src_data[loc + 1] == '*') {
+      size_t begin = loc; loc += 2;
+      while (loc + 1 < code_len && !(src_data[loc] == '*' && src_data[loc + 1] == '/')) ++loc;
+      if (loc + 1 >= code_len)
+        throw StyioLexError("Unterminated block comment at offset " + std::to_string(begin));
       loc += 2;
-      while (loc + 1 < code_len && !(data[loc] == '*' && data[loc + 1] == '/')) {
-        loc += 1;
-      }
-      if (loc + 1 >= code_len) {
-        throw StyioLexError(
-          "Unterminated block comment at offset " + std::to_string(begin));
-      }
-      loc += 2;  // consume */
-      tokens.push_back(
-        StyioToken::CreateFromSpan(StyioTokenType::COMMENT_CLOSED, data, begin, loc - begin));
+      push_span_token(tokens,m, StyioTokenType::COMMENT_CLOSED, src_data, begin, loc - begin);
       continue;
     }
 
-    // ---- Identifier / keyword ----
+    // ---- Identifier ----
     if (StyioUnicode::is_identifier_start(ch)) {
-      const size_t begin = loc;
-      loc += 1;
-      while (loc < code_len
-             && StyioUnicode::is_identifier_continue(data[loc])) {
-        loc += 1;
-      }
-      const size_t len = loc - begin;
-      if (len == 1 && data[begin] == '_') {
-        tokens.push_back(
-          StyioToken::CreateFromSpan(StyioTokenType::TOK_UNDLINE, data, begin, 1));
-      }
-      else {
-        tokens.push_back(
-          StyioToken::CreateFromSpan(StyioTokenType::NAME, data, begin, len));
-      }
+      size_t begin = loc; loc += 1;
+      while (loc < code_len && StyioUnicode::is_identifier_continue(src_data[loc])) ++loc;
+      size_t len = loc - begin;
+      if (len == 1 && src_data[begin] == '_')
+        push_span_token(tokens,m, StyioTokenType::TOK_UNDLINE, src_data, begin, 1);
+      else
+        push_owned_token(tokens, m, StyioTokenType::NAME, src_data, begin, len);
       continue;
     }
 
-    // ---- Number (integer / float) ----
+    // ---- Number ----
     if (StyioUnicode::is_digit(ch)) {
-      const size_t begin = loc;
-      loc += 1;
-      while (loc < code_len && StyioUnicode::is_digit(data[loc])) {
+      size_t begin = loc; loc += 1;
+      while (loc < code_len && StyioUnicode::is_digit(src_data[loc])) ++loc;
+      if (loc + 1 < code_len && src_data[loc] == '.' && StyioUnicode::is_digit(src_data[loc + 1])) {
         loc += 1;
-      }
-      // Float: xxx.yyy
-      if (loc + 1 < code_len && data[loc] == '.'
-          && StyioUnicode::is_digit(data[loc + 1])) {
-        loc += 1;  // consume '.'
-        while (loc < code_len && StyioUnicode::is_digit(data[loc])) {
-          loc += 1;
-        }
-        tokens.push_back(
-          StyioToken::CreateFromSpan(StyioTokenType::DECIMAL, data, begin, loc - begin));
-      }
-      else {
-        tokens.push_back(
-          StyioToken::CreateFromSpan(StyioTokenType::INTEGER, data, begin, loc - begin));
+        while (loc < code_len && StyioUnicode::is_digit(src_data[loc])) ++loc;
+        push_owned_token(tokens, m, StyioTokenType::DECIMAL, src_data, begin, loc - begin);
+      } else {
+        push_owned_token(tokens, m, StyioTokenType::INTEGER, src_data, begin, loc - begin);
       }
       continue;
     }
 
-    // ---- String literal ----
+    // ---- String literal (with escape processing) ----
     if (ch == '"') {
-      const size_t begin = loc;
-      loc += 1;
-      while (loc < code_len && data[loc] != '"') {
-        loc += 1;
-      }
-      if (loc >= code_len) {
-        throw StyioLexError(
-          "Unterminated string literal at offset " + std::to_string(begin));
-      }
-      loc += 1;  // consume closing "
-      tokens.push_back(
-        StyioToken::CreateFromSpan(StyioTokenType::STRING, data, begin, loc - begin));
+      auto sr = scan_string_literal(src_data, code_len, loc);
+      size_t end = sr.raw_begin + sr.raw_length;
+      push_string_token(tokens, m, src_data, sr);
+      loc = end;
       continue;
     }
 
-    // ---- Operator / symbol dispatch ----
-    // Try multi-char first (longest-match), then fall back to single-char.
-
-    // Characters that have multi-char operator entries
-    if (ch == '!' || ch == '%' || ch == '&' || ch == '*' || ch == '+' || ch == '-'
-        || ch == '/' || ch == ':' || ch == '<' || ch == '=' || ch == '>' || ch == '?'
-        || ch == '[' || ch == '|' || ch == '~') {
-      OperatorBucket bucket = build_op_bucket(ch);
-      if (bucket.count > 0) {
-        StyioToken* matched = try_match_operator(data, code_len, loc, bucket);
-        if (matched != nullptr) {
+    // ---- Multi-char operator (constexpr bucket lookup) ----
+    {
+      auto uc = static_cast<unsigned char>(ch);
+      if (uc < 128 && kOperatorBuckets[uc].count > 0) {
+        if (m) m->operator_bucket_probes++;
+        StyioToken* matched = try_match_op(src_data, code_len, loc, uc);
+        if (matched) {
           tokens.push_back(matched);
+          if (m) m->span_token_count++;
           loc += matched->len();
           continue;
         }
       }
     }
 
-    // ---- Character-level dispatch for remaining cases ----
+    // ---- Single-char and repeat-char dispatch ----
     switch (ch) {
-      case '!':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_EXCLAM, data, loc, 1));
-        loc += 1;
-        break;
-
-      case '#':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_HASH, data, loc, 1));
-        loc += 1;
-        break;
-
-      case '$':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_DOLLAR, data, loc, 1));
-        loc += 1;
-        break;
-
-      case '%':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_PERCENT, data, loc, 1));
-        loc += 1;
-        break;
-
-      case '&':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_AMP, data, loc, 1));
-        loc += 1;
-        break;
-
-      case '\'':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_SQUOTE, data, loc, 1));
-        loc += 1;
-        break;
-
-      case '(':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_LPAREN, data, loc, 1));
-        loc += 1;
-        break;
-
-      case ')':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_RPAREN, data, loc, 1));
-        loc += 1;
-        break;
-
-      case '*':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_STAR, data, loc, 1));
-        loc += 1;
-        break;
-
-      case '+':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_PLUS, data, loc, 1));
-        loc += 1;
-        break;
-
-      case ',':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_COMMA, data, loc, 1));
-        loc += 1;
-        break;
-
+      case '!': push_span_token(tokens,m,StyioTokenType::TOK_EXCLAM,src_data,loc,1); loc+=1; break;
+      case '#': push_span_token(tokens,m,StyioTokenType::TOK_HASH,src_data,loc,1); loc+=1; break;
+      case '$': push_span_token(tokens,m,StyioTokenType::TOK_DOLLAR,src_data,loc,1); loc+=1; break;
+      case '%': push_span_token(tokens,m,StyioTokenType::TOK_PERCENT,src_data,loc,1); loc+=1; break;
+      case '&': push_span_token(tokens,m,StyioTokenType::TOK_AMP,src_data,loc,1); loc+=1; break;
+      case '\'': push_span_token(tokens,m,StyioTokenType::TOK_SQUOTE,src_data,loc,1); loc+=1; break;
+      case '(': push_span_token(tokens,m,StyioTokenType::TOK_LPAREN,src_data,loc,1); loc+=1; break;
+      case ')': push_span_token(tokens,m,StyioTokenType::TOK_RPAREN,src_data,loc,1); loc+=1; break;
+      case '*': push_span_token(tokens,m,StyioTokenType::TOK_STAR,src_data,loc,1); loc+=1; break;
+      case '+': push_span_token(tokens,m,StyioTokenType::TOK_PLUS,src_data,loc,1); loc+=1; break;
+      case ',': push_span_token(tokens,m,StyioTokenType::TOK_COMMA,src_data,loc,1); loc+=1; break;
       case '-': {
-        // Check for --- (SINGLE_SEP_LINE) — multi-dash
-        size_t dash_count = 1 + count_consecutive_chars(data, code_len, loc + 1, '-');
-        if (dash_count >= 3) {
-          tokens.push_back(
-            StyioToken::CreateFromSpan(StyioTokenType::SINGLE_SEP_LINE, data, loc, dash_count));
-          loc += dash_count;
-        }
-        else {
-          tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_MINUS, data, loc, 1));
-          loc += 1;
-        }
+        size_t n = 1 + count_consecutive_chars(src_data,code_len,loc+1,'-');
+        if (n >= 3) { push_span_token(tokens,m,StyioTokenType::SINGLE_SEP_LINE,src_data,loc,n); loc+=n; }
+        else { push_span_token(tokens,m,StyioTokenType::TOK_MINUS,src_data,loc,1); loc+=1; }
         break;
       }
-
       case '.': {
-        size_t dot_count = 1 + count_consecutive_chars(data, code_len, loc + 1, '.');
-        if (dot_count == 1) {
-          tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_DOT, data, loc, 1));
-        }
-        else {
-          tokens.push_back(
-            StyioToken::CreateFromSpan(StyioTokenType::ELLIPSIS, data, loc, dot_count));
-        }
-        loc += dot_count;
-        break;
+        size_t n = 1 + count_consecutive_chars(src_data,code_len,loc+1,'.');
+        push_span_token(tokens,m, n==1?StyioTokenType::TOK_DOT:StyioTokenType::ELLIPSIS,src_data,loc,n);
+        loc+=n; break;
       }
-
-      case '/':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_SLASH, data, loc, 1));
-        loc += 1;
-        break;
-
-      case ':':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_COLON, data, loc, 1));
-        loc += 1;
-        break;
-
-      case ';':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_SEMICOLON, data, loc, 1));
-        loc += 1;
-        break;
-
+      case '/': push_span_token(tokens,m,StyioTokenType::TOK_SLASH,src_data,loc,1); loc+=1; break;
+      case ':': push_span_token(tokens,m,StyioTokenType::TOK_COLON,src_data,loc,1); loc+=1; break;
+      case ';': push_span_token(tokens,m,StyioTokenType::TOK_SEMICOLON,src_data,loc,1); loc+=1; break;
       case '<': {
-        // <<, <<< etc. → EXTRACTOR
-        size_t lt_count = 1 + count_consecutive_chars(data, code_len, loc + 1, '<');
-        if (lt_count >= 2) {
-          tokens.push_back(
-            StyioToken::CreateFromSpan(StyioTokenType::EXTRACTOR, data, loc, lt_count));
-          loc += lt_count;
-        }
-        else {
-          tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_LANGBRAC, data, loc, 1));
-          loc += 1;
-        }
-        break;
+        size_t n = 1 + count_consecutive_chars(src_data,code_len,loc+1,'<');
+        push_span_token(tokens,m, n>=2?StyioTokenType::EXTRACTOR:StyioTokenType::TOK_LANGBRAC,src_data,loc,n);
+        loc+=n; break;
       }
-
       case '=': {
-        // => already tried, now handle = / == / ===
-        size_t eq_count = 1 + count_consecutive_chars(data, code_len, loc + 1, '=');
-        if (eq_count >= 3) {
-          tokens.push_back(
-            StyioToken::CreateFromSpan(StyioTokenType::DOUBLE_SEP_LINE, data, loc, eq_count));
-          loc += eq_count;
-        }
-        else if (eq_count == 2) {
-          tokens.push_back(
-            StyioToken::CreateFromSpan(StyioTokenType::BINOP_EQ, data, loc, 2));
-          loc += 2;
-        }
-        else {
-          tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_EQUAL, data, loc, 1));
-          loc += 1;
-        }
+        size_t n = 1 + count_consecutive_chars(src_data,code_len,loc+1,'=');
+        if (n>=3) { push_span_token(tokens,m,StyioTokenType::DOUBLE_SEP_LINE,src_data,loc,n); loc+=n; }
+        else if (n==2) { push_span_token(tokens,m,StyioTokenType::BINOP_EQ,src_data,loc,2); loc+=2; }
+        else { push_span_token(tokens,m,StyioTokenType::TOK_EQUAL,src_data,loc,1); loc+=1; }
         break;
       }
-
       case '>': {
-        // >>, >>> etc. → ITERATOR
-        size_t gt_count = 1 + count_consecutive_chars(data, code_len, loc + 1, '>');
-        if (gt_count >= 2) {
-          tokens.push_back(
-            StyioToken::CreateFromSpan(StyioTokenType::ITERATOR, data, loc, gt_count));
-          loc += gt_count;
-        }
-        else {
-          tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_RANGBRAC, data, loc, 1));
-          loc += 1;
-        }
-        break;
+        size_t n = 1 + count_consecutive_chars(src_data,code_len,loc+1,'>');
+        push_span_token(tokens,m, n>=2?StyioTokenType::ITERATOR:StyioTokenType::TOK_RANGBRAC,src_data,loc,n);
+        loc+=n; break;
       }
-
-      case '?':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_QUEST, data, loc, 1));
-        loc += 1;
-        break;
-
-      case '@':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_AT, data, loc, 1));
-        loc += 1;
-        break;
-
-      case '[':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_LBOXBRAC, data, loc, 1));
-        loc += 1;
-        break;
-
-      case '\\':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_BACKSLASH, data, loc, 1));
-        loc += 1;
-        break;
-
-      case ']':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_RBOXBRAC, data, loc, 1));
-        loc += 1;
-        break;
-
-      case '^':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_HAT, data, loc, 1));
-        loc += 1;
-        break;
-
-      case '_':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_UNDLINE, data, loc, 1));
-        loc += 1;
-        break;
-
-      case '`':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_BQUOTE, data, loc, 1));
-        loc += 1;
-        break;
-
+      case '?': push_span_token(tokens,m,StyioTokenType::TOK_QUEST,src_data,loc,1); loc+=1; break;
+      case '@': push_span_token(tokens,m,StyioTokenType::TOK_AT,src_data,loc,1); loc+=1; break;
+      case '[': push_span_token(tokens,m,StyioTokenType::TOK_LBOXBRAC,src_data,loc,1); loc+=1; break;
+      case '\\': push_span_token(tokens,m,StyioTokenType::TOK_BACKSLASH,src_data,loc,1); loc+=1; break;
+      case ']': push_span_token(tokens,m,StyioTokenType::TOK_RBOXBRAC,src_data,loc,1); loc+=1; break;
+      case '^': push_span_token(tokens,m,StyioTokenType::TOK_HAT,src_data,loc,1); loc+=1; break;
+      case '_': push_span_token(tokens,m,StyioTokenType::TOK_UNDLINE,src_data,loc,1); loc+=1; break;
+      case '`': push_span_token(tokens,m,StyioTokenType::TOK_BQUOTE,src_data,loc,1); loc+=1; break;
       case '{': {
-        const bool is_native_extern_body =
-          styio_recent_tokens_open_native_extern_body(tokens.view());
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_LCURBRAC, data, loc, 1));
-        loc += 1;
-        if (is_native_extern_body) {
-          const size_t body_start = loc;
-          const size_t body_end = styio_scan_native_extern_body_end(code, body_start);
-          tokens.push_back(
-            StyioToken::CreateFromSpan(
-              StyioTokenType::NATIVE_EXTERN_BODY, data, body_start, body_end - body_start));
-          tokens.push_back(
-            StyioToken::CreateFromSpan(StyioTokenType::TOK_RCURBRAC, data, body_end, 1));
+        bool is_native = styio_recent_tokens_open_native_extern_body(tokens.view());
+        push_span_token(tokens,m,StyioTokenType::TOK_LCURBRAC,src_data,loc,1); loc+=1;
+        if (is_native) {
+          size_t body_start = loc;
+          size_t body_end = styio_scan_native_extern_body_end(code, body_start);
+          push_span_token(tokens,m,StyioTokenType::NATIVE_EXTERN_BODY,src_data,body_start,body_end-body_start);
+          push_span_token(tokens,m,StyioTokenType::TOK_RCURBRAC,src_data,body_end,1);
           loc = body_end + 1;
         }
         break;
       }
-
-      case '|':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_PIPE, data, loc, 1));
-        loc += 1;
-        break;
-
-      case '}':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_RCURBRAC, data, loc, 1));
-        loc += 1;
-        break;
-
-      case '~':
-        tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_TILDE, data, loc, 1));
-        loc += 1;
-        break;
-
-      default: {
-        // Unrecognized byte (e.g. embedded NUL): advance past it.
-        tokens.push_back(
-          StyioToken::CreateFromSpan(StyioTokenType::UNKNOWN, data, loc, 1));
-        loc += 1;
-        break;
-      }
+      case '|': push_span_token(tokens,m,StyioTokenType::TOK_PIPE,src_data,loc,1); loc+=1; break;
+      case '}': push_span_token(tokens,m,StyioTokenType::TOK_RCURBRAC,src_data,loc,1); loc+=1; break;
+      case '~': push_span_token(tokens,m,StyioTokenType::TOK_TILDE,src_data,loc,1); loc+=1; break;
+      default:
+        push_span_token(tokens,m,StyioTokenType::UNKNOWN,src_data,loc,1); loc+=1; break;
     }
   }
 
-  // EOF sentinel
-  tokens.push_back(StyioToken::Create(StyioTokenType::TOK_EOF, ""));
+  // EOF — zero-width span at source end
+  tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_EOF, src_data, code_len, 0));
+  if (m) { m->token_count = tokens.view().size(); m->span_token_count++; }
   return tokens.release();
 }
