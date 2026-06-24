@@ -1243,7 +1243,7 @@ clone_var_ast(VarAST* v) {
   if (!v) {
     return nullptr;
   }
-  auto* name = NameAST::Create(v->getNameAsStr());
+  auto* name = NameAST::Clone(v->getName());
   auto* dtype = clone_type_for_var(v->var_type);
   if (!v->val_init) {
     return VarAST::Create(name, dtype);
@@ -1264,7 +1264,7 @@ clone_name_ast(NameAST* n) {
   if (!n) {
     return nullptr;
   }
-  return NameAST::Create(n->getAsStr());
+  return NameAST::Clone(n);
 }
 
 class StateExprCloneVisitor
@@ -1296,7 +1296,7 @@ class StateExprCloneVisitor
     if (named != named_repls_.end() && named->second != nullptr) {
       return clone_without_subst(named->second);
     }
-    return NameAST::Create(expr->getAsStr());
+    return NameAST::Clone(expr);
   }
 
   StyioAST* clone(CommentAST* expr) {
@@ -1420,9 +1420,9 @@ class StateExprCloneVisitor
   StyioAST* clone(FuncCallAST* expr) {
     std::vector<StyioAST*> args = clone_child_list(expr->getArgList());
     if (expr->func_callee != nullptr) {
-      return FuncCallAST::Create(clone(expr->func_callee), NameAST::Create(expr->getNameAsStr()), std::move(args));
+      return FuncCallAST::Create(clone(expr->func_callee), NameAST::Clone(expr->func_name), std::move(args));
     }
-    return FuncCallAST::Create(NameAST::Create(expr->getNameAsStr()), std::move(args));
+    return FuncCallAST::Create(NameAST::Clone(expr->func_name), std::move(args));
   }
 
   StyioAST* clone(AttrAST* expr) {
@@ -1453,10 +1453,10 @@ class StateExprCloneVisitor
 
   StyioAST* clone(ResourceRefAST* expr) {
     if (expr->isWholeResource()) {
-      return ResourceRefAST::Create(NameAST::Create(expr->getNameStr()));
+      return ResourceRefAST::Create(NameAST::Clone(expr->getName()));
     }
     return ResourceRefAST::CreateSelector(
-      NameAST::Create(expr->getNameStr()),
+      NameAST::Clone(expr->getName()),
       expr->getSelectorKind(),
       expr->getSelectorOffset()
     );
@@ -1495,7 +1495,7 @@ class StateExprCloneVisitor
     if (expr == nullptr) {
       return nullptr;
     }
-    auto* name = NameAST::Create(expr->getNameAsStr());
+    auto* name = NameAST::Clone(expr->getName());
     auto* dtype = clone_type_for_var(expr->getDType());
     if (expr->val_init == nullptr) {
       return VarAST::Create(name, dtype);
@@ -1512,7 +1512,7 @@ class StateExprCloneVisitor
   }
 
   StyioAST* clone(StateRefAST* expr) {
-    return StateRefAST::Create(NameAST::Create(expr->getNameStr()));
+    return StateRefAST::Create(NameAST::Clone(expr->getName()));
   }
 
   StyioAST* clone(SeriesIntrinsicAST* expr) {
@@ -2410,7 +2410,7 @@ AstToStyioIRLowerer::toStyioIR(ParallelAssignAST* ast) {
   for (size_t i = 0; i < ast->getLHS().size(); ++i) {
     StyioIR* rhs_val = SGResId::Create(tmp_names[i]);
     if (auto* nm = dynamic_cast<NameAST*>(ast->getLHS()[i])) {
-      std::unique_ptr<VarAST> lhs_var(VarAST::Create(NameAST::Create(nm->getAsStr())));
+      std::unique_ptr<VarAST> lhs_var(VarAST::Create(NameAST::Clone(nm)));
       auto* sg_var = static_cast<SGVar*>(lhs_var->toStyioIR(this));
       auto it = binding_info_.find(nm->getAsStr());
       if (it != binding_info_.end()) {

@@ -102,6 +102,10 @@ private:
 
   bool debug_mode = false;
 
+  /// Optional SymbolInterner for session-local identifier deduplication.
+  /// Set by CompilationSession::attach_context before parsing begins.
+  styio::session::SymbolInterner* symbol_interner_ = nullptr;
+
   std::vector<std::vector<std::pair<size_t, size_t>>> token_segmentation; /* offset, length */
   std::vector<std::pair<size_t, size_t>> token_coordinates;               /* row, col */
   std::vector<std::string> token_lines;                                   /* lines */
@@ -326,6 +330,30 @@ public:
   const string&
   get_file_name() const {
     return file_name;
+  }
+
+  /// Attach a session-local SymbolInterner for identifier deduplication.
+  void set_symbol_interner(styio::session::SymbolInterner& si) {
+    symbol_interner_ = &si;
+  }
+
+  /// Returns the attached SymbolInterner, or nullptr if none is set.
+  styio::session::SymbolInterner* symbol_interner() {
+    return symbol_interner_;
+  }
+
+  /// Returns the attached SymbolInterner (const overload).
+  const styio::session::SymbolInterner* symbol_interner() const {
+    return symbol_interner_;
+  }
+
+  /// Create a NameAST with the given spelling, interning it if a SymbolInterner is attached.
+  NameAST* interned_name(std::string spelling) {
+    styio::session::SymbolId sid = styio::session::kInvalidSymbolId;
+    if (symbol_interner_) {
+      sid = symbol_interner_->intern(spelling);
+    }
+    return NameAST::Create(std::move(spelling), sid);
   }
 
   /*
