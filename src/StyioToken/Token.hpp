@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <new>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -1530,12 +1531,50 @@ private:
     StyioTokenType token_type,
     std::string token_literal
   ) :
-      type(token_type), original(token_literal) {
+      type(token_type), original(std::move(token_literal)) {
+  }
+
+  /*
+    Span-first constructor: builds original from the source slice
+    in a single allocation instead of char-by-char accumulation.
+    source_data must outlive the token — the caller owns the buffer.
+  */
+  StyioToken(
+    StyioTokenType token_type,
+    const char* source_data,
+    size_t begin,
+    size_t length
+  ) :
+      type(token_type),
+      original(source_data + begin, length),
+      begin_(static_cast<uint32_t>(begin)),
+      length_(static_cast<uint32_t>(length)),
+      source_data_(source_data) {
   }
 
 public:
   StyioTokenType type;
   std::string original;
+
+  /*
+    Source span — offsets into the source buffer that produced this token.
+    begin_ and length_ are populated by the span-first constructor and
+    by factory methods that accept a source range.
+
+    lexeme() returns a non-owning view into the source buffer.
+    Valid only while the source buffer outlives the token.
+  */
+  uint32_t begin() const { return begin_; }
+  uint32_t end() const { return begin_ + length_; }
+  uint32_t len() const { return length_; }
+  bool has_span() const { return source_data_ != nullptr && length_ > 0; }
+
+  std::string_view lexeme() const {
+    if (source_data_ != nullptr && length_ > 0) {
+      return {source_data_ + begin_, length_};
+    }
+    return {original.data(), original.size()};
+  }
 
   static void*
   operator new(std::size_t sz) {
@@ -1547,13 +1586,31 @@ public:
     styio::session_alloc::free_object(ptr);
   }
 
+  /*
+    Classic factory: takes an already-built std::string.
+    Preferred for tokens that need owned, possibly-transformed text.
+  */
   static StyioToken* Create(StyioTokenType token_type, std::string original_string) {
-    return new StyioToken(token_type, original_string);
+    return new StyioToken(token_type, std::move(original_string));
+  }
+
+  /*
+    Span-first factory: constructs original from the source range.
+    Use this in the tokenizer hot path to avoid char-by-char accumulation.
+    source_data must outlive the token.
+  */
+  static StyioToken* CreateFromSpan(
+    StyioTokenType token_type,
+    const char* source_data,
+    size_t begin,
+    size_t length
+  ) {
+    return new StyioToken(token_type, source_data, begin, length);
   }
 
   static StyioToken* CreatePersistent(StyioTokenType token_type, std::string original_string) {
     void* mem = ::operator new(sizeof(StyioToken));
-    return ::new(mem) StyioToken(token_type, original_string);
+    return ::new(mem) StyioToken(token_type, std::move(original_string));
   }
 
   static std::string getTokName(StyioTokenType type);
@@ -1561,6 +1618,11 @@ public:
   size_t length();
 
   std::string as_str();
+
+private:
+  uint32_t begin_{0};
+  uint32_t length_{0};
+  const char* source_data_{nullptr};
 };
 
 static std::unordered_map<StyioTokenType, std::vector<StyioTokenType> > const
