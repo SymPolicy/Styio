@@ -994,9 +994,12 @@ private:
   // Walk all child nodes through the same fold logic
   StyioIR* fold_child(StyioIR* child) {
     if (!child) return nullptr;
+    StyioIR* saved = replacement_;
     replacement_ = nullptr;
     walk(child);
-    return replacement_ ? replacement_ : child;
+    StyioIR* result = replacement_ ? replacement_ : child;
+    replacement_ = saved;
+    return result;
   }
 
   // Sequence types — walk children recursively
