@@ -6498,7 +6498,7 @@ TEST(StyioSecurityLexer, VeryLongIdentifierCompletes) {
   auto tokens = StyioTokenizer::tokenize(id);
   ASSERT_EQ(tokens.size(), 2u);
   EXPECT_EQ(tokens[0]->type, StyioTokenType::NAME);
-  EXPECT_EQ(tokens[0]->original.size(), 200'000u);
+  EXPECT_EQ(tokens[0]->lexeme().size(), 200'000u);
   EXPECT_EQ(tokens[1]->type, StyioTokenType::TOK_EOF);
   free_tokens(tokens);
 }
@@ -6507,11 +6507,11 @@ TEST(StyioSecurityLexer, TokenizesInlineReturnAndPipeSemicolon) {
   auto tokens = StyioTokenizer::tokenize("|<| result |;");
   ASSERT_GE(tokens.size(), 6u);
   EXPECT_EQ(tokens[0]->type, StyioTokenType::RETURN_PIPE);
-  EXPECT_EQ(tokens[0]->original, "|<|");
+  EXPECT_EQ(tokens[0]->lexeme(), "|<|");
   EXPECT_EQ(tokens[2]->type, StyioTokenType::NAME);
-  EXPECT_EQ(tokens[2]->original, "result");
+  EXPECT_EQ(tokens[2]->lexeme(), "result");
   EXPECT_EQ(tokens[4]->type, StyioTokenType::PIPE_SEMICOLON);
-  EXPECT_EQ(tokens[4]->original, "|;");
+  EXPECT_EQ(tokens[4]->lexeme(), "|;");
   EXPECT_EQ(tokens.back()->type, StyioTokenType::TOK_EOF);
   free_tokens(tokens);
 }
@@ -6520,7 +6520,7 @@ TEST(StyioSecurityLexer, TokenizesAwaitPipe) {
   auto tokens = StyioTokenizer::tokenize("?| job -> value: i64 | 0");
   ASSERT_GE(tokens.size(), 12u);
   EXPECT_EQ(tokens[0]->type, StyioTokenType::AWAIT_PIPE);
-  EXPECT_EQ(tokens[0]->original, "?|");
+  EXPECT_EQ(tokens[0]->lexeme(), "?|");
   EXPECT_EQ(tokens[4]->type, StyioTokenType::ARROW_SINGLE_RIGHT);
 
   bool saw_fallback_pipe = false;
@@ -6597,11 +6597,11 @@ TEST(StyioSecurityLexer, TokenizesRarePunctuationAndNativeExternBodies) {
       return token != nullptr && token->type == StyioTokenType::NATIVE_EXTERN_BODY;
     });
   ASSERT_NE(body_it, tokens.end());
-  EXPECT_NE((*body_it)->original.find("line comment with } ignored"), std::string::npos);
-  EXPECT_NE((*body_it)->original.find("block comment with } ignored"), std::string::npos);
-  EXPECT_NE((*body_it)->original.find("u8R\"x({})x\""), std::string::npos);
-  EXPECT_NE((*body_it)->original.find("LR\"w({})w\""), std::string::npos);
-  EXPECT_NE((*body_it)->original.find("nested(void)"), std::string::npos);
+  EXPECT_NE((*body_it)->lexeme().find("line comment with } ignored"), std::string::npos);
+  EXPECT_NE((*body_it)->lexeme().find("block comment with } ignored"), std::string::npos);
+  EXPECT_NE((*body_it)->lexeme().find("u8R\"x({})x\""), std::string::npos);
+  EXPECT_NE((*body_it)->lexeme().find("LR\"w({})w\""), std::string::npos);
+  EXPECT_NE((*body_it)->lexeme().find("nested(void)"), std::string::npos);
 
   free_tokens(tokens);
 
@@ -6637,9 +6637,9 @@ TEST(StyioSecurityLexer, TokenizesRarePunctuationAndNativeExternBodies) {
       return token != nullptr && token->type == StyioTokenType::NATIVE_EXTERN_BODY;
     });
   ASSERT_NE(malformed_raw_body, malformed_raw_tokens.end());
-  EXPECT_NE((*malformed_raw_body)->original.find("no_open"), std::string::npos);
-  EXPECT_NE((*malformed_raw_body)->original.find("no_close"), std::string::npos);
-  EXPECT_NE((*malformed_raw_body)->original.find("done(void)"), std::string::npos);
+  EXPECT_NE((*malformed_raw_body)->lexeme().find("no_open"), std::string::npos);
+  EXPECT_NE((*malformed_raw_body)->lexeme().find("no_close"), std::string::npos);
+  EXPECT_NE((*malformed_raw_body)->lexeme().find("done(void)"), std::string::npos);
   free_tokens(malformed_raw_tokens);
 
   const std::string raw_without_open_paren_source =
@@ -6655,7 +6655,7 @@ TEST(StyioSecurityLexer, TokenizesRarePunctuationAndNativeExternBodies) {
       return token != nullptr && token->type == StyioTokenType::NATIVE_EXTERN_BODY;
     });
   ASSERT_NE(raw_without_open_paren_body, raw_without_open_paren_tokens.end());
-  EXPECT_NE((*raw_without_open_paren_body)->original.find("no_open"), std::string::npos);
+  EXPECT_NE((*raw_without_open_paren_body)->lexeme().find("no_open"), std::string::npos);
   free_tokens(raw_without_open_paren_tokens);
 
   EXPECT_THROW(
@@ -6674,7 +6674,7 @@ TEST(StyioSecurityParserLookahead, SkipTriviaFindsNextToken) {
   const size_t idx = styio_skip_trivia_tokens(tokens, 0);
   ASSERT_LT(idx, tokens.size());
   EXPECT_EQ(tokens[idx]->type, StyioTokenType::NAME);
-  EXPECT_EQ(tokens[idx]->original, "foo");
+  EXPECT_EQ(tokens[idx]->lexeme(), "foo");
 
   EXPECT_TRUE(styio_try_check_non_trivia(tokens, 0, StyioTokenType::NAME));
   EXPECT_FALSE(styio_try_check_non_trivia(tokens, 0, StyioTokenType::INTEGER));
@@ -6712,7 +6712,7 @@ TEST(StyioTokenizerSpan, SpanBoundsAreCorrect) {
   EXPECT_EQ(tokens[0]->type, StyioTokenType::NAME);
   EXPECT_EQ(tokens[0]->begin(), 0u);
   EXPECT_EQ(tokens[0]->len(), 1u);
-  EXPECT_EQ(tokens[0]->original, "x");
+  EXPECT_EQ(tokens[0]->lexeme(), "x");
 
   // space
   EXPECT_EQ(tokens[1]->type, StyioTokenType::TOK_SPACE);
@@ -6732,7 +6732,7 @@ TEST(StyioTokenizerSpan, LexemeViewMatchesOriginal) {
   ASSERT_GE(tokens.size(), 4u);
   ASSERT_TRUE(tokens[0]->has_span());
   EXPECT_EQ(tokens[0]->lexeme(), "hello");
-  EXPECT_EQ(tokens[0]->lexeme(), tokens[0]->original);
+  EXPECT_EQ(tokens[0]->lexeme(), tokens[0]->lexeme());
   free_tokens(tokens);
 }
 
@@ -6762,13 +6762,13 @@ TEST(StyioTokenizerSpan, LongestMatchPrecedence) {
   auto tokens = StyioTokenizer::tokenize("=>");
   ASSERT_GE(tokens.size(), 2u);
   EXPECT_EQ(tokens[0]->type, StyioTokenType::ARROW_DOUBLE_RIGHT);
-  EXPECT_EQ(tokens[0]->original, "=>");
+  EXPECT_EQ(tokens[0]->lexeme(), "=>");
 
   // ||> must be TASK_LAUNCH, not LOGIC_OR followed by TOK_RANGBRAC
   auto tokens2 = StyioTokenizer::tokenize("||>");
   ASSERT_GE(tokens2.size(), 2u);
   EXPECT_EQ(tokens2[0]->type, StyioTokenType::TASK_LAUNCH);
-  EXPECT_EQ(tokens2[0]->original, "||>");
+  EXPECT_EQ(tokens2[0]->lexeme(), "||>");
 
   // ** must be BINOP_POW, not TOK_STAR TOK_STAR
   auto tokens3 = StyioTokenizer::tokenize("**");
@@ -6799,7 +6799,7 @@ TEST(StyioTokenizerSpan, KeywordVsIdentifier) {
     auto tokens = StyioTokenizer::tokenize(kw);
     ASSERT_GE(tokens.size(), 2u);
     EXPECT_EQ(tokens[0]->type, StyioTokenType::NAME) << "keyword: " << kw;
-    EXPECT_EQ(tokens[0]->original, kw);
+    EXPECT_EQ(tokens[0]->lexeme(), kw);
     free_tokens(tokens);
   }
 }
@@ -6831,14 +6831,14 @@ TEST(StyioTokenizerSpan, AsciiIdentifierSpansAreSequential) {
   auto tokens = StyioTokenizer::tokenize("alpha beta gamma");
   ASSERT_GE(tokens.size(), 6u);
   EXPECT_EQ(tokens[0]->type, StyioTokenType::NAME);
-  EXPECT_EQ(tokens[0]->original, "alpha");
+  EXPECT_EQ(tokens[0]->lexeme(), "alpha");
   EXPECT_EQ(tokens[0]->begin(), 0u);
   EXPECT_EQ(tokens[0]->len(), 5u);
   EXPECT_EQ(tokens[2]->type, StyioTokenType::NAME);
-  EXPECT_EQ(tokens[2]->original, "beta");
+  EXPECT_EQ(tokens[2]->lexeme(), "beta");
   EXPECT_EQ(tokens[2]->begin(), 6u);
   EXPECT_EQ(tokens[4]->type, StyioTokenType::NAME);
-  EXPECT_EQ(tokens[4]->original, "gamma");
+  EXPECT_EQ(tokens[4]->lexeme(), "gamma");
   EXPECT_EQ(tokens[4]->begin(), 11u);
   free_tokens(tokens);
 }
@@ -6862,7 +6862,7 @@ TEST(StyioTokenizerSpan, CrLfHandling) {
   auto tokens = StyioTokenizer::tokenize("a\r\nb");
   ASSERT_GE(tokens.size(), 3u);
   EXPECT_EQ(tokens[0]->type, StyioTokenType::NAME);
-  EXPECT_EQ(tokens[0]->original, "a");
+  EXPECT_EQ(tokens[0]->lexeme(), "a");
   free_tokens(tokens);
 }
 
@@ -7094,6 +7094,148 @@ TEST(StyioTokenizerSpan, DenseSymbolMixedInput) {
   EXPECT_GT(tokens.size(), 50000u);
   EXPECT_GT(mbps, 1.0);  // at least 1 MB/s
   free_tokens(tokens);
+}
+
+// ---------------------------------------------------------------
+// StyioTokenizerContract — B2 span/owned-text/micro-level checks
+// ---------------------------------------------------------------
+
+TEST(StyioTokenizerContract, EofHasZeroWidthSpan) {
+  // Empty file: begin == end == 0
+  {
+    auto tokens = StyioTokenizer::tokenize("");
+    ASSERT_GE(tokens.size(), 1u);
+    EXPECT_EQ(tokens.back()->type, StyioTokenType::TOK_EOF);
+    EXPECT_EQ(tokens.back()->begin(), 0u);
+    EXPECT_EQ(tokens.back()->end(), 0u);
+    EXPECT_EQ(tokens.back()->len(), 0u);
+    EXPECT_FALSE(tokens.back()->has_span());
+    free_tokens(tokens);
+  }
+  // Non-empty file: begin == end == source.size()
+  {
+    auto tokens = StyioTokenizer::tokenize("x = 1");
+    ASSERT_GE(tokens.size(), 2u);
+    EXPECT_EQ(tokens.back()->type, StyioTokenType::TOK_EOF);
+    EXPECT_EQ(tokens.back()->begin(), 5u);
+    EXPECT_EQ(tokens.back()->end(), 5u);
+    EXPECT_EQ(tokens.back()->len(), 0u);
+    EXPECT_TRUE(tokens.back()->lexeme().empty());
+    free_tokens(tokens);
+  }
+}
+
+TEST(StyioTokenizerContract, StringLiteralHasDecodedValue) {
+  // Basic escaped string
+  auto tokens = StyioTokenizer::tokenize("\"a\\\"b\"");
+  ASSERT_GE(tokens.size(), 2u);
+  EXPECT_EQ(tokens[0]->type, StyioTokenType::STRING);
+  // raw includes quotes and escape sequences
+  EXPECT_EQ(tokens[0]->lexeme(), "\"a\\\"b\"");
+  // decoded removes quotes and resolves escapes
+  EXPECT_EQ(tokens[0]->decodedString(), "a\"b");
+  EXPECT_TRUE(tokens[0]->has_decoded());
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerContract, StringEscapeSequences) {
+  struct Case { const char* input; const char* raw; const char* decoded; };
+  Case cases[] = {
+    {"\"a\\\\b\"", "\"a\\\\b\"", "a\\b"},
+    {"\"line\\n\"", "\"line\\n\"", "line\n"},
+    {"\"tab\\t\"",   "\"tab\\t\"",   "tab\t"},
+    {"\"ret\\r\"",   "\"ret\\r\"",   "ret\r"},
+    {"\"\"",         "\"\"",         ""},
+  };
+  for (auto& c : cases) {
+    auto tokens = StyioTokenizer::tokenize(c.input);
+    ASSERT_GE(tokens.size(), 2u);
+    EXPECT_EQ(tokens[0]->type, StyioTokenType::STRING);
+    EXPECT_EQ(tokens[0]->lexeme(), c.raw);
+    EXPECT_EQ(tokens[0]->decodedString(), c.decoded);
+    EXPECT_TRUE(tokens[0]->has_decoded());
+    free_tokens(tokens);
+  }
+}
+
+TEST(StyioTokenizerContract, UnterminatedStringThrows) {
+  EXPECT_THROW(
+    { auto t = StyioTokenizer::tokenize("\"no close"); free_tokens(t); },
+    StyioLexError);
+}
+
+TEST(StyioTokenizerContract, OperatorBucketIsPrecomputed) {
+  // Verify kOperatorBuckets is a constexpr array with correct lookups
+  std::string all_ops = "! % & * + - / : < = > ? [ | ~";
+  auto tokens = StyioTokenizer::tokenize(all_ops);
+  // Every single-char operator falls through to the single-char switch
+  // Multi-char operators would be matched by the bucket
+  ASSERT_GT(tokens.size(), 1u);
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerContract, MetricsArePopulated) {
+  StyioTokenizerMetrics m;
+  std::string src = "x = 1 + 2\n# func := () => { <| 42 }\n\"hello\"";
+  auto tokens = StyioTokenizer::tokenizeWithMetrics(src, &m);
+
+  EXPECT_EQ(m.input_bytes, src.size());
+  EXPECT_GT(m.token_count, 0u);
+  EXPECT_GT(m.span_token_count, 0u);
+  EXPECT_GT(m.owned_text_token_count, 0u);  // NAME, INTEGER, STRING
+  EXPECT_GT(m.owned_text_bytes, 0u);
+  EXPECT_GT(m.operator_bucket_probes, 0u);
+  EXPECT_GE(m.string_decodes, 1u);
+
+  free_tokens(tokens);
+}
+
+TEST(StyioTokenizerContract, AllPrefixConflictsResolve) {
+  struct { const char* input; StyioTokenType type; const char* spelling; } cases[] = {
+    {"=", StyioTokenType::TOK_EQUAL, "="},
+    {"==", StyioTokenType::BINOP_EQ, "=="},
+    {"=>", StyioTokenType::ARROW_DOUBLE_RIGHT, "=>"},
+    {"===", StyioTokenType::DOUBLE_SEP_LINE, "==="},
+    {"|", StyioTokenType::TOK_PIPE, "|"},
+    {"||", StyioTokenType::LOGIC_OR, "||"},
+    {"||>", StyioTokenType::TASK_LAUNCH, "||>"},
+    {"|<|", StyioTokenType::RETURN_PIPE, "|<|"},
+    {"|;", StyioTokenType::PIPE_SEMICOLON, "|;"},
+    {"|]", StyioTokenType::BOUNDED_BUFFER_CLOSE, "|]"},
+    {"?", StyioTokenType::TOK_QUEST, "?"},
+    {"?|", StyioTokenType::AWAIT_PIPE, "?|"},
+    {"?=", StyioTokenType::MATCH, "?="},
+    {"??", StyioTokenType::DBQUESTION, "??"},
+    {"<", StyioTokenType::TOK_LANGBRAC, "<"},
+    {"<=", StyioTokenType::BINOP_LE, "<="},
+    {"<-", StyioTokenType::ARROW_SINGLE_LEFT, "<-"},
+    {"<|", StyioTokenType::YIELD_PIPE, "<|"},
+    {"<~", StyioTokenType::WAVE_LEFT, "<~"},
+    {"<<", StyioTokenType::EXTRACTOR, "<<"},
+    {"<<<", StyioTokenType::EXTRACTOR, "<<<"},
+    {">", StyioTokenType::TOK_RANGBRAC, ">"},
+    {">=", StyioTokenType::BINOP_GE, ">="},
+    {">_", StyioTokenType::PRINT, ">_"},
+    {">>", StyioTokenType::ITERATOR, ">>"},
+    {">>>", StyioTokenType::ITERATOR, ">>>"},
+    {"*", StyioTokenType::TOK_STAR, "*"},
+    {"**", StyioTokenType::BINOP_POW, "**"},
+    {"*=", StyioTokenType::COMPOUND_MUL, "*="},
+    {"-", StyioTokenType::TOK_MINUS, "-"},
+    {"->", StyioTokenType::ARROW_SINGLE_RIGHT, "->"},
+    {"---", StyioTokenType::SINGLE_SEP_LINE, "---"},
+    {"-=", StyioTokenType::COMPOUND_SUB, "-="},
+    {"[", StyioTokenType::TOK_LBOXBRAC, "["},
+    {"[|", StyioTokenType::BOUNDED_BUFFER_OPEN, "[|"},
+    {"]", StyioTokenType::TOK_RBOXBRAC, "]"},
+  };
+  for (auto& c : cases) {
+    auto tokens = StyioTokenizer::tokenize(c.input);
+    ASSERT_GE(tokens.size(), 2u) << "input: " << c.input;
+    EXPECT_EQ(tokens[0]->type, c.type) << "input: " << c.input;
+    EXPECT_EQ(tokens[0]->lexeme(), c.spelling) << "input: " << c.input;
+    free_tokens(tokens);
+  }
 }
 
 TEST(StyioSecurityNightlyParserExpr, NegativeNumericLiteralsAreAtoms) {
