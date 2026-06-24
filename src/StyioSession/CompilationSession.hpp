@@ -232,6 +232,7 @@ public:
       delete context_;
     }
     context_ = ctx;
+    context_->set_symbol_interner(symbols_);
     return context_;
   }
 
