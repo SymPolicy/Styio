@@ -100,6 +100,12 @@ private:
   // Key: (start_index << 8) | route_kind. Value: bool (supported).
   mutable std::unordered_map<size_t, bool> route_cache_;
 
+  // Route cache statistics counters (TASK-06).
+  mutable size_t route_scan_count_ = 0;
+  mutable size_t route_cache_hit_count_ = 0;
+  mutable size_t route_cache_miss_count_ = 0;
+  mutable size_t route_cache_disabled_count_ = 0;
+
   bool debug_mode = false;
 
   std::vector<std::vector<std::pair<size_t, size_t>>> token_segmentation; /* offset, length */
@@ -431,24 +437,70 @@ public:
     kRouteExprUntil = 3,
   };
 
+  /// Check whether the route cache is enabled (respects STYIO_PARSER_ROUTE_CACHE env var).
+  bool route_cache_enabled() const {
+    static int cached = -1;
+    if (cached < 0) {
+      const char* env = std::getenv("STYIO_PARSER_ROUTE_CACHE");
+      cached = (env && (env[0] == '0' || env[0] == 'n' || env[0] == 'N')) ? 0 : 1;
+    }
+    return cached != 0;
+  }
+
   bool get_route_cache(size_t start, RouteKind kind) const {
+    if (!route_cache_enabled()) return false;  // cache disabled → always miss
     size_t key = (start << 8) | static_cast<uint8_t>(kind);
     auto it = route_cache_.find(key);
-    return it != route_cache_.end() && it->second;
+    bool hit = it != route_cache_.end();
+    if (hit) {
+      route_cache_hit_count_++;
+    }
+    return hit && it->second;
   }
 
   bool has_route_cache(size_t start, RouteKind kind) const {
+    if (!route_cache_enabled()) return false;
     size_t key = (start << 8) | static_cast<uint8_t>(kind);
-    return route_cache_.find(key) != route_cache_.end();
+    bool hit = route_cache_.find(key) != route_cache_.end();
+    if (!hit) route_cache_miss_count_++;
+    return hit;
   }
 
   void set_route_cache(size_t start, RouteKind kind, bool supported) const {
+    if (!route_cache_enabled()) {
+      route_cache_disabled_count_++;
+      return;
+    }
     size_t key = (start << 8) | static_cast<uint8_t>(kind);
     route_cache_[key] = supported;
   }
 
   void clear_route_cache() {
+    // Dump stats if env var is set
+    if (const char* env = std::getenv("STYIO_PARSER_ROUTE_CACHE_STATS")) {
+      if (env[0] == '1' || env[0] == 'y' || env[0] == 'Y') {
+        std::cerr << "[parser-route-cache] scan=" << route_scan_count_
+                  << " hit=" << route_cache_hit_count_
+                  << " miss=" << route_cache_miss_count_
+                  << " disabled=" << route_cache_disabled_count_ << "\n";
+      }
+    }
     route_cache_.clear();
+  }
+
+  /// Increment route scan counter (call from scan_subset_route_tokens_latest).
+  void inc_route_scan_count() const { route_scan_count_++; }
+
+  // Route cache stats accessors
+  size_t route_scan_count() const { return route_scan_count_; }
+  size_t route_cache_hit_count() const { return route_cache_hit_count_; }
+  size_t route_cache_miss_count() const { return route_cache_miss_count_; }
+  size_t route_cache_disabled_count() const { return route_cache_disabled_count_; }
+  void reset_route_cache_stats() const {
+    route_scan_count_ = 0;
+    route_cache_hit_count_ = 0;
+    route_cache_miss_count_ = 0;
+    route_cache_disabled_count_ = 0;
   }
 
   const std::vector<StyioParseDiagnostic>&

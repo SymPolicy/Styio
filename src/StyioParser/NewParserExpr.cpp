@@ -673,6 +673,7 @@ stmt_subset_route_supported_latest(const StyioContext& context) {
     return false;
   }
   if (start_type == StyioTokenType::TOK_HASH) {
+    context.inc_route_scan_count();
     bool result = can_route_hash_let_match_nightly_latest(context)
                || can_route_hash_stmt_nightly_latest(context);
     context.set_route_cache(start, StyioContext::kRouteStmtSubset, result);
@@ -680,6 +681,7 @@ stmt_subset_route_supported_latest(const StyioContext& context) {
   }
   const bool allow_single_pipe = start_type == StyioTokenType::AWAIT_PIPE;
 
+  context.inc_route_scan_count();
   bool result = scan_subset_route_tokens_latest(
     tokens,
     start,
