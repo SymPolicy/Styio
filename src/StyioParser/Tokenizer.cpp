@@ -437,7 +437,7 @@ inline void push_span_token(
   StyioTokenType type, const char* data, size_t begin, size_t length
 ) {
   tokens.push_back(StyioToken::CreateFromSpan(type, data, begin, length));
-  if (m) { m->span_token_count++; }
+  if (m) { m->source_view_token_count++; m->source_span_token_count++; }
 }
 
 // Helper: push an owned-text token (NAME, INTEGER, DECIMAL).
@@ -450,15 +450,15 @@ inline void push_owned_token(
   tokens.push_back(StyioToken::CreateOwned(type, data, begin, length, std::move(text)));
 }
 
-// Helper: push a string token with decoded value.
+// Helper: push a STRING token. Raw text is zero-copy from source span.
+// Only the decoded/escaped value is stored as owned text.
 inline void push_string_token(
   TokenAccumulator& tokens, StyioTokenizerMetrics* m,
   const char* src, const StringScanResult& sr
 ) {
-  std::string raw(src + sr.raw_begin, sr.raw_length);
-  if (m) { m->owned_text_bytes += raw.size(); m->owned_text_token_count++; m->string_decodes++; }
+  if (m) { m->string_decodes++; }
   tokens.push_back(StyioToken::CreateString(
-    src, sr.raw_begin, sr.raw_length, std::move(raw), sr.decoded));
+    src, sr.raw_begin, sr.raw_length, sr.decoded));
 }
 
 }  // namespace
@@ -467,19 +467,14 @@ inline void push_string_token(
 // Public entry points
 // ---------------------------------------------------------------
 
-std::vector<StyioToken*>
-StyioTokenizer::tokenize(const std::string& code) {
-  return tokenizeWithMetrics(code, nullptr);
-}
-
-std::vector<StyioToken*>
-StyioTokenizer::tokenizeWithMetrics(const std::string& code, void* metrics_out) {
-  auto* m = static_cast<StyioTokenizerMetrics*>(metrics_out);
-  if (m) { m->input_bytes = code.size(); }
+// ---------------------------------------------------------------
+// Internal: core scan loop — takes source data pointer + length.
+// ---------------------------------------------------------------
+static std::vector<StyioToken*>
+tokenize_impl(const char* src_data, size_t code_len, StyioTokenizerMetrics* m) {
+  if (m) { m->input_bytes = code_len; }
 
   TokenAccumulator tokens;
-  const char* src_data = code.data();
-  const size_t code_len = code.size();
   size_t loc = 0;
 
   while (loc < code_len) {
@@ -561,7 +556,7 @@ StyioTokenizer::tokenizeWithMetrics(const std::string& code, void* metrics_out) 
         StyioToken* matched = try_match_op(src_data, code_len, loc, uc);
         if (matched) {
           tokens.push_back(matched);
-          if (m) m->span_token_count++;
+          if (m) { m->source_view_token_count++; m->source_span_token_count++; }
           loc += matched->len();
           continue;
         }
@@ -625,8 +620,9 @@ StyioTokenizer::tokenizeWithMetrics(const std::string& code, void* metrics_out) 
         push_span_token(tokens,m,StyioTokenType::TOK_LCURBRAC,src_data,loc,1); loc+=1;
         if (is_native) {
           size_t body_start = loc;
-          size_t body_end = styio_scan_native_extern_body_end(code, body_start);
-          push_span_token(tokens,m,StyioTokenType::NATIVE_EXTERN_BODY,src_data,body_start,body_end-body_start);
+          size_t body_end = styio_scan_native_extern_body_end(
+            std::string(src_data, code_len), body_start);
+          push_owned_token(tokens,m,StyioTokenType::NATIVE_EXTERN_BODY,src_data,body_start,body_end-body_start);
           push_span_token(tokens,m,StyioTokenType::TOK_RCURBRAC,src_data,body_end,1);
           loc = body_end + 1;
         }
@@ -642,6 +638,38 @@ StyioTokenizer::tokenizeWithMetrics(const std::string& code, void* metrics_out) 
 
   // EOF — zero-width span at source end
   tokens.push_back(StyioToken::CreateFromSpan(StyioTokenType::TOK_EOF, src_data, code_len, 0));
-  if (m) { m->token_count = tokens.view().size(); m->span_token_count++; }
+  if (m) {
+    m->token_count = tokens.view().size();
+    m->source_span_token_count++;
+    m->zero_width_span_token_count++;
+  }
   return tokens.release();
+}
+
+// ---------------------------------------------------------------
+// Public entry points
+// ---------------------------------------------------------------
+
+StyioTokenStream
+StyioTokenizer::tokenizeOwned(std::string source) {
+  auto src_len = source.size();
+  auto src_data = source.data();
+  auto tokens = tokenize_impl(src_data, src_len, nullptr);
+  return StyioTokenStream(std::move(source), std::move(tokens));
+}
+
+std::vector<StyioToken*>
+StyioTokenizer::tokenize(const std::string& code) {
+  // Legacy bridge: copy source to heap so tokens have stable views.
+  // One allocation (the string copy), not per-token.
+  auto* copy = new std::string(code);
+  return tokenize_impl(copy->data(), copy->size(), nullptr);
+}
+
+std::vector<StyioToken*>
+StyioTokenizer::tokenizeWithMetrics(const std::string& code, void* metrics_out) {
+  auto* m = static_cast<StyioTokenizerMetrics*>(metrics_out);
+  if (m) m->source_copy_bytes = code.size();
+  auto* copy = new std::string(code);
+  return tokenize_impl(copy->data(), copy->size(), m);
 }

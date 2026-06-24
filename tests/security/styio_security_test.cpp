@@ -6730,7 +6730,7 @@ TEST(StyioTokenizerSpan, SpanBoundsAreCorrect) {
 TEST(StyioTokenizerSpan, LexemeViewMatchesOriginal) {
   auto tokens = StyioTokenizer::tokenize("hello world");
   ASSERT_GE(tokens.size(), 4u);
-  ASSERT_TRUE(tokens[0]->has_span());
+  ASSERT_TRUE(tokens[0]->hasSourceSpan());
   EXPECT_EQ(tokens[0]->lexeme(), "hello");
   EXPECT_EQ(tokens[0]->lexeme(), tokens[0]->lexeme());
   free_tokens(tokens);
@@ -7109,7 +7109,7 @@ TEST(StyioTokenizerContract, EofHasZeroWidthSpan) {
     EXPECT_EQ(tokens.back()->begin(), 0u);
     EXPECT_EQ(tokens.back()->end(), 0u);
     EXPECT_EQ(tokens.back()->len(), 0u);
-    EXPECT_FALSE(tokens.back()->has_span());
+    EXPECT_TRUE(tokens.back()->hasSourceSpan());
     free_tokens(tokens);
   }
   // Non-empty file: begin == end == source.size()
@@ -7134,7 +7134,7 @@ TEST(StyioTokenizerContract, StringLiteralHasDecodedValue) {
   EXPECT_EQ(tokens[0]->lexeme(), "\"a\\\"b\"");
   // decoded removes quotes and resolves escapes
   EXPECT_EQ(tokens[0]->decodedString(), "a\"b");
-  EXPECT_TRUE(tokens[0]->has_decoded());
+  EXPECT_TRUE(tokens[0]->hasDecodedText());
   free_tokens(tokens);
 }
 
@@ -7153,7 +7153,7 @@ TEST(StyioTokenizerContract, StringEscapeSequences) {
     EXPECT_EQ(tokens[0]->type, StyioTokenType::STRING);
     EXPECT_EQ(tokens[0]->lexeme(), c.raw);
     EXPECT_EQ(tokens[0]->decodedString(), c.decoded);
-    EXPECT_TRUE(tokens[0]->has_decoded());
+    EXPECT_TRUE(tokens[0]->hasDecodedText());
     free_tokens(tokens);
   }
 }
@@ -7181,7 +7181,7 @@ TEST(StyioTokenizerContract, MetricsArePopulated) {
 
   EXPECT_EQ(m.input_bytes, src.size());
   EXPECT_GT(m.token_count, 0u);
-  EXPECT_GT(m.span_token_count, 0u);
+  EXPECT_GT(m.source_view_token_count, 0u);
   EXPECT_GT(m.owned_text_token_count, 0u);  // NAME, INTEGER, STRING
   EXPECT_GT(m.owned_text_bytes, 0u);
   EXPECT_GT(m.operator_bucket_probes, 0u);
