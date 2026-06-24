@@ -2038,6 +2038,9 @@ styio_nano_source_roots_latest(bool include_pipeline_check) {
     "src/StyioCodeGen/CodeGenIO.cpp",
     "src/StyioExtern/ExternLib.cpp",
     "src/StyioRuntime/RuntimeState.cpp",
+    "src/StyioSession/SymbolInterner.cpp",
+    "src/StyioSession/TypeTable.cpp",
+    "src/StyioUtil/SourceMap.cpp",
   };
   if (include_pipeline_check) {
     sources.push_back("src/StyioTesting/PipelineCheck.cpp");

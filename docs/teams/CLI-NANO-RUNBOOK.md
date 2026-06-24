@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-06-21
+**Last updated:** 2026-06-24
 
 ## Mission
 
@@ -80,6 +80,7 @@ Key handoff document:
 46. Typed stdin unsupported-target diagnostics are type-family public facts over existing fail-closed scalar/list target checks. Keep `STYIO_TYPE_STDIN_UNSUPPORTED_TARGET`, phase `type`, exit code 4 for the current TypeError route, stable unsupported-target message fragments, and no-following-output coverage without treating the code as new stdin target support or resource-effect recovery behavior.
 47. Matrix literal invalid diagnostics are type-family public facts over existing fail-closed matrix literal shape/context checks. Keep `STYIO_TYPE_MATRIX_LITERAL_INVALID`, phase `type`, exit code 4 for the current TypeError route, stable matrix literal message fragments, and no-following-output coverage without treating the code as broader matrix literal acceptance, matrix return compatibility, matrix operators, resource-method matrix bodies, or matrix runtime behavior.
 48. Cloud manifest nano creation must preserve the manifest-owned package identity when `--package-name` is omitted. Do not apply the local `styio-nano` fallback before manifest materialization can read `[package].name`; keep this covered by `StyioNanoPackage.CloudManifestFileUriMaterializesBundle`.
+49. SymbolInterner, TypeTable, and SourceMap were added to `styio_nano_source_roots_latest(...)` in commit 8117705. When new `src/StyioSession/` or `src/StyioUtil/` implementation files are added, they must be added to `styio_nano_source_roots_latest(...)` as well so that clean-room local-subset nano packages link correctly.
 
 ## Change Classes
 
