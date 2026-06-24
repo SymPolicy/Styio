@@ -3,6 +3,7 @@
 #define STYIO_PARSER_H_
 
 #include <algorithm>
+#include <cstdlib>
 #include <regex>
 
 #include "../StyioAST/AST.hpp"
@@ -99,6 +100,25 @@ private:
   // Route cache: maps start cursor → route scan result (TASK-06).
   // Key: (start_index << 8) | route_kind. Value: bool (supported).
   mutable std::unordered_map<size_t, bool> route_cache_;
+
+  // Cache statistics counters (TASK-06).
+  mutable size_t route_scan_count_ = 0;
+  mutable size_t route_cache_hit_count_ = 0;
+  mutable size_t route_cache_miss_count_ = 0;
+  mutable size_t route_cache_disabled_count_ = 0;
+
+  // Check whether route cache is enabled via env (default: enabled).
+  static bool route_cache_enabled() {
+    const char* env = std::getenv("STYIO_PARSER_ROUTE_CACHE");
+    // Disabled only when explicitly set to "0".
+    return env == nullptr || std::string(env) != "0";
+  }
+
+  // Check whether route cache stats dumping is enabled via env.
+  static bool route_cache_stats_enabled() {
+    const char* env = std::getenv("STYIO_PARSER_ROUTE_CACHE_STATS");
+    return env != nullptr && std::string(env) == "1";
+  }
 
   bool debug_mode = false;
 
@@ -429,27 +449,66 @@ public:
     kRouteHashStmt = 1,
     kRouteStmtSubset = 2,
     kRouteExprUntil = 3,
+    kRouteMax = 4,
   };
 
   bool get_route_cache(size_t start, RouteKind kind) const {
+    if (!route_cache_enabled()) {
+      route_cache_disabled_count_++;
+      return false;
+    }
     size_t key = (start << 8) | static_cast<uint8_t>(kind);
     auto it = route_cache_.find(key);
-    return it != route_cache_.end() && it->second;
+    if (it != route_cache_.end()) {
+      route_cache_hit_count_++;
+      return it->second;
+    }
+    return false;
   }
 
   bool has_route_cache(size_t start, RouteKind kind) const {
+    if (!route_cache_enabled()) {
+      route_cache_disabled_count_++;
+      return false;
+    }
     size_t key = (start << 8) | static_cast<uint8_t>(kind);
     return route_cache_.find(key) != route_cache_.end();
   }
 
   void set_route_cache(size_t start, RouteKind kind, bool supported) const {
+    if (!route_cache_enabled()) {
+      return;
+    }
     size_t key = (start << 8) | static_cast<uint8_t>(kind);
     route_cache_[key] = supported;
   }
 
   void clear_route_cache() {
+    if (route_cache_stats_enabled()) {
+      std::cerr
+        << "[route-cache] scan=" << route_scan_count_
+        << " hit=" << route_cache_hit_count_
+        << " miss=" << route_cache_miss_count_
+        << " disabled=" << route_cache_disabled_count_
+        << " size=" << route_cache_.size()
+        << std::endl;
+    }
     route_cache_.clear();
+    route_scan_count_ = 0;
+    route_cache_hit_count_ = 0;
+    route_cache_miss_count_ = 0;
+    route_cache_disabled_count_ = 0;
   }
+
+  // Public accessors for cache statistics (benchmark / test inspection).
+  size_t route_scan_count() const { return route_scan_count_; }
+  size_t route_cache_hit_count() const { return route_cache_hit_count_; }
+  size_t route_cache_miss_count() const { return route_cache_miss_count_; }
+  size_t route_cache_disabled_count() const { return route_cache_disabled_count_; }
+
+  // Increment counters (called from const refs in parser route functions).
+  void note_route_scan() const { route_scan_count_++; }
+  void note_route_cache_miss() const { route_cache_miss_count_++; }
 
   const std::vector<StyioParseDiagnostic>&
   parse_diagnostics() const {
