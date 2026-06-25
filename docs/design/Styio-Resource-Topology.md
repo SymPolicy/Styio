@@ -207,7 +207,7 @@ Rules:
 
 ## 7. Intrinsics and hidden state (`p[avg, n]`)
 
-User code may write `p[avg, 20]` or a helper such as `get_ma(p, 20)`. The compiler:
+Design target: user code may write `p[avg, 20]` or a helper such as `get_ma(p, 20)`. The compiler:
 
 1. Fingerprints the triple `(source, avg, 20)` for deduplication.
 2. Allocates implicit ledger slots for the raw samples and running state required by the intrinsic.
@@ -221,9 +221,17 @@ This hidden memory is not the same as a visible resource declaration. A strategy
 
 while the intrinsic still keeps the 20 raw samples it needs internally.
 
+Current implementation evidence is narrower: `avg` and `max` are active only for the current
+i64 pulse/state intrinsic path described in
+[Styio-StdLib-Intrinsics.md](./Styio-StdLib-Intrinsics.md). Other series operators and broader
+numeric families remain deferred.
+
 ---
 
 ## 8. Golden Cross example
+
+This example is illustrative topology design, not a complete current execution contract for every
+shown numeric family.
 
 ```styio
 @ma5 : f64|..2|, @ma20 : f64|..2| := {

@@ -2,7 +2,7 @@
 
 **Purpose:** Record the implementation contract for IM-D2 so accepted Styio grammar is judged by the compiler-owned parser instead of legacy fallback, editor snapshot drift, or consumer-local syntax approximations.
 
-**Last updated:** 2026-05-30
+**Last updated:** 2026-06-25
 
 **Status:** Active contract inventory. This document supports [NEXT-STAGE-GAP-LEDGER.md](./NEXT-STAGE-GAP-LEDGER.md) §5.7 `IM-D2`.
 
@@ -11,6 +11,7 @@
 | Contract item | Implemented position | Evidence |
 |---------------|----------------------|----------|
 | Parser authority | The hand-written nightly compiler parser is the only accepted grammar authority | [../../src/StyioParser/Parser.cpp](../../src/StyioParser/Parser.cpp) |
+| Parser engine dispatch | Unknown internal parser engine enum values are named `invalid` and fail closed instead of falling back to `legacy`, including format-string embedded expression parsing | [../../src/StyioParser/Parser.cpp](../../src/StyioParser/Parser.cpp), `StyioParserInternal.ParserHelperFailureEdgesStayExplicit` |
 | Public syntax service | `styio check --syntax --json --file` uses nightly parser only; `legacy` is rejected | [../../src/StyioServices/StyioCLI/SyntaxCheck.cpp](../../src/StyioServices/StyioCLI/SyntaxCheck.cpp), `StyioDiagnostics.SyntaxCheckRejectsNonAuthoritativeParserEngine` |
 | Accepted grammar no-fallback | Nightly top-level statement declines now fail with a syntax diagnostic instead of calling `parse_stmt_or_expr_legacy` | [../../src/StyioParser/Parser.cpp](../../src/StyioParser/Parser.cpp) |
 | Internal bridge no-fallback | List, dict, block, statement, match, iterator, and hash-statement internal fallback points now reject unsupported syntax instead of routing to legacy parser helpers | [../../src/StyioParser/NewParserExpr.cpp](../../src/StyioParser/NewParserExpr.cpp), [../../src/StyioParser/Parser.cpp](../../src/StyioParser/Parser.cpp) |

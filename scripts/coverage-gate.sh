@@ -11,7 +11,8 @@ labels, and fail when project source line coverage is below the threshold.
 Options:
   --build-dir <dir>       Coverage build dir (default: build/coverage)
   --threshold <percent>   Minimum line coverage percentage (default: 95)
-  --jobs <n>              Build parallelism (default: nproc or 8)
+  --jobs <n>              Build parallelism (default: STYIO_COVERAGE_JOBS,
+                          CMAKE_BUILD_PARALLEL_LEVEL, or memory-capped auto)
   --llvm-cov <path>       llvm-cov executable (default: llvm-cov-18/17/16/llvm-cov)
   --llvm-profdata <path>  llvm-profdata executable (default: llvm-profdata-18/17/16/llvm-profdata)
   --cc <path>             C compiler for coverage build (default: clang-18/17/16/clang)
@@ -45,9 +46,55 @@ find_tool() {
   return 1
 }
 
+positive_integer() {
+  [[ "$1" =~ ^[1-9][0-9]*$ ]]
+}
+
+detect_build_jobs() {
+  local explicit="${STYIO_COVERAGE_JOBS:-${CMAKE_BUILD_PARALLEL_LEVEL:-}}"
+  local cpu_jobs mem_kib mem_jobs jobs
+
+  if [[ -n "$explicit" ]]; then
+    if ! positive_integer "$explicit"; then
+      echo "coverage gate failed: build jobs must be a positive integer: ${explicit}" >&2
+      return 2
+    fi
+    printf '%s\n' "$explicit"
+    return 0
+  fi
+
+  cpu_jobs="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo 2)"
+  if ! positive_integer "$cpu_jobs"; then
+    cpu_jobs=2
+  fi
+
+  mem_jobs=4
+  if [[ -r /proc/meminfo ]]; then
+    mem_kib="$(awk '/^MemTotal:/ { print $2; exit }' /proc/meminfo)"
+    if positive_integer "${mem_kib:-}"; then
+      mem_jobs=$((mem_kib / 3145728))
+      if (( mem_jobs < 1 )); then
+        mem_jobs=1
+      fi
+    fi
+  fi
+
+  jobs="$cpu_jobs"
+  if (( jobs > mem_jobs )); then
+    jobs="$mem_jobs"
+  fi
+  if (( jobs > 4 )); then
+    jobs=4
+  fi
+  if (( jobs < 1 )); then
+    jobs=1
+  fi
+  printf '%s\n' "$jobs"
+}
+
 BUILD_DIR="build/coverage"
 THRESHOLD="95"
-JOBS="${STYIO_COVERAGE_JOBS:-}"
+JOBS=""
 LLVM_COV="${LLVM_COV:-}"
 LLVM_PROFDATA="${LLVM_PROFDATA:-}"
 CC_BIN="${CC:-}"
@@ -121,11 +168,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$JOBS" ]]; then
-  if command -v nproc >/dev/null 2>&1; then
-    JOBS="$(nproc)"
-  else
-    JOBS="8"
-  fi
+  JOBS="$(detect_build_jobs)"
+elif ! positive_integer "$JOBS"; then
+  echo "coverage gate failed: build jobs must be a positive integer: ${JOBS}" >&2
+  exit 2
 fi
 
 LLVM_COV_BIN="$(find_tool "$LLVM_COV" llvm-cov-18 llvm-cov-17 llvm-cov-16 llvm-cov)" || {
@@ -174,6 +220,7 @@ echo "[coverage-gate] threshold: ${THRESHOLD}%"
 echo "[coverage-gate] llvm-cov: ${LLVM_COV_BIN}"
 echo "[coverage-gate] llvm-profdata: ${LLVM_PROFDATA_BIN}"
 echo "[coverage-gate] compiler: ${CC_BIN} / ${CXX_BIN}"
+echo "[coverage-gate] build jobs: ${JOBS}"
 
 cmake -S . -B "$BUILD_DIR" \
   -DCMAKE_BUILD_TYPE=Debug \
@@ -208,7 +255,7 @@ if [[ "$RUN_ALL" -eq 1 || "$INCLUDE_PERFORMANCE" -eq 1 ]]; then
   BUILD_TARGETS+=(styio_task_scheduler_perf_test)
 fi
 
-cmake --build "$BUILD_DIR" --target "${BUILD_TARGETS[@]}" -j"$JOBS"
+cmake --build "$BUILD_DIR" --parallel "$JOBS" --target "${BUILD_TARGETS[@]}"
 
 PROFILE_DIR="$BUILD_DIR/coverage-profiles"
 if [[ "$KEEP_PROFILES" -eq 0 ]]; then

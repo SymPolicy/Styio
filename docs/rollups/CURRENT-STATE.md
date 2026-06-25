@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the compressed default read-in for the current repository state so future agents can orient themselves from active docs first; Git history and minimal lifecycle provenance are optional background, not required maintenance input.
 
-**Last updated:** 2026-06-05
+**Last updated:** 2026-06-25
 
 ## Default Read Order
 
@@ -24,6 +24,7 @@
 3. The active parser/toolchain baseline is authoritative-nightly rather than legacy-first. Shadow zero-fallback and five-layer pipeline coverage remain migration evidence, but accepted grammar must pass through the hand-written nightly compiler parser without fallback.
 4. Repository docs now distinguish active maintenance docs (`docs/design`, `docs/specs`, `docs/teams`, root `workflows/`, current `docs/rollups/`) from Git-history provenance and the minimal `docs/archive/` lifecycle shell.
 5. File governance is now on the shared three-repo baseline: root `.gitignore` freezes the common ignore floor, `docs/**` and `tests/**` temp/build-style tracked fixtures use explicit negate rules, and `scripts/repo-hygiene-gate.py` checks both the patterns and the key governance doc links.
+6. Standard-library governance is manifest-first: `library/manifest.json` currently has only `std.resource` active, backed by `src/StyioPrelude/resources.styio` and resource/stdin/stdout evidence. Matrix helper calls and series `avg/max` selectors are compiler intrinsics, not active `std.*` modules.
 
 ## Current Development Front
 

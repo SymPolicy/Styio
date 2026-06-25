@@ -4269,7 +4269,16 @@ TEST(StyioIRContract, VerifierRejectsInactiveIR) {
   repeated_child->exprs.clear();
 
   std::unique_ptr<SIOInstantPull> missing_handle(SIOInstantPull::CreateFromHandle(""));
-  EXPECT_THROW((void)styio::ir::verify_styio_ir(missing_handle.get()), std::runtime_error);
+  styio::ir::StyioIRVerifierResult missing_handle_result =
+    styio::ir::verify_styio_ir(missing_handle.get());
+  EXPECT_FALSE(missing_handle_result.ok());
+  ASSERT_FALSE(missing_handle_result.diagnostics.empty());
+  EXPECT_EQ(missing_handle_result.diagnostics.front().phase, "ir_verify");
+  EXPECT_EQ(missing_handle_result.diagnostics.front().code, "STYIO_IR_VERIFY_CONTRACT");
+  EXPECT_NE(
+    missing_handle_result.diagnostics.front().message.find("SIOInstantPull.handle_var"),
+    std::string::npos);
+  EXPECT_THROW(styio::ir::require_verified_styio_ir(missing_handle.get()), StyioTypeError);
 
   InactiveTestIR node;
 

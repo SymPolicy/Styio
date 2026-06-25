@@ -233,7 +233,7 @@ public:
     add_symbol("styio_dict_runtime_set_impl", &styio_dict_runtime_set_impl);
     add_symbol("styio_dict_runtime_get_impl", &styio_dict_runtime_get_impl);
 
-    auto err = MainJD.define(llvm::orc::absoluteSymbols(std::move(runtime_symbols)));
+    llvm::cantFail(MainJD.define(llvm::orc::absoluteSymbols(std::move(runtime_symbols))));
 
     // llvm::DenseSet<llvm::orc::SymbolStringPtr> AllowList({
     //   Mangle("something")

@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-06-21
+**Last updated:** 2026-06-25
 
 ## Mission
 
@@ -62,6 +62,8 @@ Related docs:
 32. Bounded selector snapshots in zip or iterator tails are not a new stream driver. They must arrive at codegen as materialized `SCListLiteral` / list-handle values produced by selector lowering, then use the existing runtime-list zip or `SGForEach` loop and ownership cleanup. Keep the constant-i64 `SGForEach` fast path limited to true `SGConstInt` literals so selector-history `SGResId` entries use the runtime-list path, preserve owned string/list/dict/matrix element temporaries, and do not reinterpret raw topology resources, scalar selectors, raw/latest matrix selector handles, or true snapshot joins as this materialized-list slice.
 33. Expression-bound range literals materialize as owned `list[i64]` handles through the internal `__styio_list_range_i64` call. Codegen must expand that helper locally with `styio_list_new_i64` / `styio_list_push_i64`, track the result for dynamic-slot and temporary-list cleanup, preserve constant-range `SCListLiteral` behavior, and keep non-integer operands rejected by Sema rather than coercing them in LLVM.
 34. Native interop diagnostic refinements are diagnostic-only. `STYIO_NATIVE_SOURCE_READ_FAILED`, `STYIO_NATIVE_SIGNATURE_NOT_FOUND`, `STYIO_NATIVE_UNSUPPORTED_SIGNATURE`, `STYIO_NATIVE_HOST_COMPILE_FAILED`, `STYIO_NATIVE_LOAD_FAILED`, `STYIO_NATIVE_SYMBOL_MISSING`, and `STYIO_NATIVE_TOOLCHAIN_UNAVAILABLE` classify existing fail-closed referenced-source, explicit-binding/signature, unsupported-signature, host-compile, artifact-load, missing-symbol, and toolchain-unavailable routes; do not treat those codes as new ABI support, signature support, hidden-symbol visibility, host compiler fallback, artifact linking, C++ symbol mapping, or native effect behavior.
+35. Path-backed file iterators and stream zip sources create temporary file handles owned by codegen. Register those handles in the existing file-handle cleanup table immediately after a successful open, guard runtime open failures at the operation boundary outside `SIOResourceEffect`, close through the shared file-slot cleanup helper on normal exit, and run the post-cleanup guard so close failures do not get mistaken for EOF or ordinary stream termination. Missing files in stream zip must preserve `STYIO_RUNTIME_FILE_OPEN_READ` and fail closed instead of silently truncating the zip.
+36. ORC runtime symbol registration returns an `llvm::Error` and must be consumed in the same statement that defines the absolute symbol table. Do not leave unchecked `llvm::Error` values alive across JIT construction, because LLVM treats destruction of unchecked errors as a contract violation.
 
 ## Change Classes
 

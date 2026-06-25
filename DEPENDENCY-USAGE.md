@@ -2,7 +2,7 @@
 
 **Purpose:** Record dependency authorization boundaries for `styio` / `styio-nightly`.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-06-25
 
 `styio` / `styio-nightly` is an Apache-2.0 compiler/runtime source project. Its current build, test, docs, and fixture dependency boundary is:
 
@@ -12,6 +12,7 @@
 - `googletest` is a test-only dependency and must remain outside runtime and shipped compiler artifacts.
 - JavaScript, TypeScript, Zig, Nix, Bazel, and other language/tooling surfaces are fixture surfaces unless separately promoted with explicit manifest evidence.
 - Repository workflows may invoke system tools such as `git`, `cmake`, shell utilities, and configured compiler/runtime tools through explicit process boundaries.
+- The repository-local standard-library manifest, active resource prelude, compiler intrinsics, and matrix/stdin runtime helpers do not authorize new external dependencies by themselves. Any dependency added to implement a library or intrinsic capability must be recorded here before delivery.
 
 Named manifest dependencies currently in scope:
 
@@ -26,3 +27,4 @@ Dependency policy:
 - Any future dependency must be listed here with its license evidence, source boundary, and usage boundary before it can pass audit.
 - Fixture-only dependencies must stay fixture-scoped and must not become runtime requirements without this file being updated.
 - Generated reports and gate summaries must summarize dependency and license evidence without copying target repository source.
+- Planned `std.*` modules in `library/manifest.json` are directory reservations only; they must not imply dependency approval before implementation and license evidence exist.

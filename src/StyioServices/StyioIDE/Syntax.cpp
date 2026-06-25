@@ -422,17 +422,20 @@ node_kind_for_token(StyioTokenType type) {
   }
 }
 
+std::string
+diagnostic_key(const Diagnostic& diagnostic) {
+  return std::to_string(diagnostic.range.start) + ":" + std::to_string(diagnostic.range.end)
+    + ":" + diagnostic.code
+    + ":" + diagnostic.message;
+}
+
 void
 append_unique_diagnostic(
   std::vector<Diagnostic>& diagnostics,
   std::unordered_set<std::string>& seen,
   Diagnostic diagnostic
 ) {
-  const std::string key =
-    std::to_string(diagnostic.range.start) + ":" + std::to_string(diagnostic.range.end)
-    + ":" + diagnostic.code
-    + ":" + diagnostic.message;
-  if (seen.insert(key).second) {
+  if (seen.insert(diagnostic_key(diagnostic)).second) {
     diagnostics.push_back(std::move(diagnostic));
   }
 }
@@ -683,8 +686,7 @@ SyntaxParser::parse(const DocumentSnapshot& snapshot) const {
   std::unordered_set<std::string> folding_keys;
   const std::vector<TolerantToken> tolerant_tokens = tokenize_tolerant(snapshot.buffer.text(), diagnostics);
   for (const auto& diagnostic : diagnostics) {
-    diagnostic_keys.insert(
-      std::to_string(diagnostic.range.start) + ":" + std::to_string(diagnostic.range.end) + ":" + diagnostic.message);
+    diagnostic_keys.insert(diagnostic_key(diagnostic));
   }
 
   syntax.tokens.reserve(tolerant_tokens.size());

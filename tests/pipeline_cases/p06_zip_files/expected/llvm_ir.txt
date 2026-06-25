@@ -8,89 +8,138 @@ target datalayout = "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128"
 
 define i32 @main() {
 main_entry:
-  %0 = call i64 @styio_file_open(ptr @styio_str)
-  %1 = call i64 @styio_file_open(ptr @styio_str.1)
   %zip_ff_ha = alloca i64, align 8
-  %zip_ff_hb = alloca i64, align 8
+  %0 = call i64 @styio_file_open(ptr @styio_str)
   store i64 %0, ptr %zip_ff_ha, align 8
-  store i64 %1, ptr %zip_ff_hb, align 8
-  br label %zip_ff_hdr
+  %1 = call i32 @styio_runtime_has_error()
+  %2 = icmp ne i32 %1, 0
+  br i1 %2, label %runtime_fail, label %runtime_ok
 
 zip_ff_exit:                                      ; preds = %zip_ff_hdr
-  %2 = load i64, ptr %zip_ff_ha, align 8
-  call void @styio_file_close(i64 %2)
-  %3 = load i64, ptr %zip_ff_hb, align 8
+  %3 = load i64, ptr %zip_ff_ha, align 8
   call void @styio_file_close(i64 %3)
-  ret i32 0
+  store i64 0, ptr %zip_ff_ha, align 8
+  %4 = load i64, ptr %zip_ff_hb, align 8
+  call void @styio_file_close(i64 %4)
+  store i64 0, ptr %zip_ff_hb, align 8
+  %5 = call i32 @styio_runtime_has_error()
+  %6 = icmp ne i32 %5, 0
+  br i1 %6, label %runtime_fail7, label %runtime_ok8
 
-zip_ff_hdr:                                       ; preds = %print_done, %main_entry
-  %4 = load i64, ptr %zip_ff_ha, align 8
-  %5 = call ptr @styio_file_read_line(i64 %4)
-  %6 = load i64, ptr %zip_ff_hb, align 8
-  %7 = call ptr @styio_file_read_line(i64 %6)
-  %8 = icmp eq ptr %5, null
-  %9 = icmp eq ptr %7, null
-  %10 = or i1 %8, %9
-  br i1 %10, label %zip_ff_exit, label %zip_ff_body
+zip_ff_hdr:                                       ; preds = %print_done, %runtime_ok2
+  %7 = load i64, ptr %zip_ff_ha, align 8
+  %8 = call ptr @styio_file_read_line(i64 %7)
+  %9 = load i64, ptr %zip_ff_hb, align 8
+  %10 = call ptr @styio_file_read_line(i64 %9)
+  %11 = icmp eq ptr %8, null
+  %12 = icmp eq ptr %10, null
+  %13 = or i1 %11, %12
+  br i1 %13, label %zip_ff_exit, label %zip_ff_body
 
 zip_ff_body:                                      ; preds = %zip_ff_hdr
-  %11 = call i64 @styio_cstr_to_i64(ptr %5)
-  %12 = call i32 @styio_runtime_has_error()
-  %13 = icmp ne i32 %12, 0
-  br i1 %13, label %runtime_fail, label %runtime_ok
-
-runtime_fail:                                     ; preds = %zip_ff_body
-  ret i32 0
-
-runtime_ok:                                       ; preds = %zip_ff_body
-  %14 = call i64 @styio_cstr_to_i64(ptr %7)
+  %14 = call i64 @styio_cstr_to_i64(ptr %8)
   %15 = call i32 @styio_runtime_has_error()
   %16 = icmp ne i32 %15, 0
-  br i1 %16, label %runtime_fail1, label %runtime_ok2
+  br i1 %16, label %runtime_fail3, label %runtime_ok4
+
+runtime_fail:                                     ; preds = %main_entry
+  %17 = load i64, ptr %zip_ff_ha, align 8
+  call void @styio_file_close(i64 %17)
+  store i64 0, ptr %zip_ff_ha, align 8
+  ret i32 0
+
+runtime_ok:                                       ; preds = %main_entry
+  %zip_ff_hb = alloca i64, align 8
+  %18 = call i64 @styio_file_open(ptr @styio_str.1)
+  store i64 %18, ptr %zip_ff_hb, align 8
+  %19 = call i32 @styio_runtime_has_error()
+  %20 = icmp ne i32 %19, 0
+  br i1 %20, label %runtime_fail1, label %runtime_ok2
 
 runtime_fail1:                                    ; preds = %runtime_ok
+  %21 = load i64, ptr %zip_ff_ha, align 8
+  call void @styio_file_close(i64 %21)
+  store i64 0, ptr %zip_ff_ha, align 8
+  %22 = load i64, ptr %zip_ff_hb, align 8
+  call void @styio_file_close(i64 %22)
+  store i64 0, ptr %zip_ff_hb, align 8
   ret i32 0
 
 runtime_ok2:                                      ; preds = %runtime_ok
+  br label %zip_ff_hdr
+
+runtime_fail3:                                    ; preds = %zip_ff_body
+  %23 = load i64, ptr %zip_ff_ha, align 8
+  call void @styio_file_close(i64 %23)
+  store i64 0, ptr %zip_ff_ha, align 8
+  %24 = load i64, ptr %zip_ff_hb, align 8
+  call void @styio_file_close(i64 %24)
+  store i64 0, ptr %zip_ff_hb, align 8
+  ret i32 0
+
+runtime_ok4:                                      ; preds = %zip_ff_body
+  %25 = call i64 @styio_cstr_to_i64(ptr %10)
+  %26 = call i32 @styio_runtime_has_error()
+  %27 = icmp ne i32 %26, 0
+  br i1 %27, label %runtime_fail5, label %runtime_ok6
+
+runtime_fail5:                                    ; preds = %runtime_ok4
+  %28 = load i64, ptr %zip_ff_ha, align 8
+  call void @styio_file_close(i64 %28)
+  store i64 0, ptr %zip_ff_ha, align 8
+  %29 = load i64, ptr %zip_ff_hb, align 8
+  call void @styio_file_close(i64 %29)
+  store i64 0, ptr %zip_ff_hb, align 8
+  ret i32 0
+
+runtime_ok6:                                      ; preds = %runtime_ok4
   %a = alloca i64, align 8
   %b = alloca i64, align 8
-  store i64 %11, ptr %a, align 8
-  store i64 %14, ptr %b, align 8
-  %17 = load i64, ptr %a, align 8
-  %18 = load i64, ptr %b, align 8
-  %19 = icmp eq i64 %17, -9223372036854775808
-  %20 = icmp eq i64 %18, -9223372036854775808
-  %21 = or i1 %19, %20
-  %22 = sub i64 %17, %18
-  %23 = select i1 %21, i64 -9223372036854775808, i64 %22
-  %24 = icmp eq i64 %23, -9223372036854775808
-  br i1 %24, label %print_at, label %print_i64
+  store i64 %14, ptr %a, align 8
+  store i64 %25, ptr %b, align 8
+  %30 = load i64, ptr %a, align 8
+  %31 = load i64, ptr %b, align 8
+  %32 = icmp eq i64 %30, -9223372036854775808
+  %33 = icmp eq i64 %31, -9223372036854775808
+  %34 = or i1 %32, %33
+  %35 = sub i64 %30, %31
+  %36 = select i1 %34, i64 -9223372036854775808, i64 %35
+  %37 = icmp eq i64 %36, -9223372036854775808
+  br i1 %37, label %print_at, label %print_i64
 
-print_at:                                         ; preds = %runtime_ok2
+print_at:                                         ; preds = %runtime_ok6
   call void @styio_stdout_write_cstr(ptr @styio_print_at)
   br label %print_done
 
-print_i64:                                        ; preds = %runtime_ok2
-  %25 = call ptr @styio_i64_dec_cstr(i64 %23)
-  call void @styio_stdout_write_cstr(ptr %25)
+print_i64:                                        ; preds = %runtime_ok6
+  %38 = call ptr @styio_i64_dec_cstr(i64 %36)
+  call void @styio_stdout_write_cstr(ptr %38)
   br label %print_done
 
 print_done:                                       ; preds = %print_i64, %print_at
   br label %zip_ff_hdr
+
+runtime_fail7:                                    ; preds = %zip_ff_exit
+  ret i32 0
+
+runtime_ok8:                                      ; preds = %zip_ff_exit
+  ret i32 0
 }
 
 declare i64 @styio_file_open(ptr)
 
 declare ptr @styio_file_read_line(i64)
 
+declare i32 @styio_runtime_has_error()
+
 declare void @styio_file_close(i64)
 
 declare i64 @styio_cstr_to_i64(ptr)
-
-declare i32 @styio_runtime_has_error()
 
 declare void @styio_stdout_write_cstr(ptr)
 
 declare ptr @styio_i64_dec_cstr(i64)
 
 declare ptr @styio_f64_dec_cstr(double)
+
+declare ptr @styio_char_cstr(i64)

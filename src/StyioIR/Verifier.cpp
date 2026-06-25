@@ -101,6 +101,12 @@ class StyioIRVerifier : public StyioIRWalker
     StyioIRWalker::dispatch(node);
   }
 
+  void
+  visitUnknown(StyioIR* node) override {
+    add_error(
+      std::string("unsupported StyioIR node reached verifier: ") + typeid(*node).name());
+  }
+
   // ---------------------------------------------------------------
   // Override visit methods to add null-field validation.
   // The base walker handles child traversal; we add requirement
@@ -451,10 +457,16 @@ class StyioIRVerifier : public StyioIRWalker
   visitSIOInstantPull(SIOInstantPull* node) override {
     if (node->from_handle) {
       if (node->handle_var.empty()) {
-        throw std::runtime_error("SIOInstantPull.handle_var is empty");
+        add_error("SIOInstantPull.handle_var is empty");
+      }
+      if (node->path_expr != nullptr) {
+        add_error("SIOInstantPull.path_expr must be empty for handle pulls");
       }
     }
     else {
+      if (!node->handle_var.empty()) {
+        add_error("SIOInstantPull.handle_var must be empty for path pulls");
+      }
       walk_required(node->path_expr, "SIOInstantPull.path_expr");
     }
   }

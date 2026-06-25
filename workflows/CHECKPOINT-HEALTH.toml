@@ -7,6 +7,7 @@ doc = "CHECKPOINT-HEALTH.md"
 commands = [
   "./scripts/checkpoint-health.sh",
   "./scripts/checkpoint-health.sh --no-asan --no-fuzz",
+  "./scripts/checkpoint-health.sh --build-jobs 2",
   "./scripts/checkpoint-health.sh --coverage-build-dir build/coverage --coverage-threshold 95",
 ]
 

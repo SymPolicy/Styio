@@ -2,7 +2,7 @@
 
 **Purpose:** Record the accepted language-core, compiler-intrinsic, standard-library, example, benchmark, and domain-library ownership decisions for IM-D8.
 
-**Last updated:** 2026-05-21
+**Last updated:** 2026-06-25
 
 ## Scope
 
@@ -30,6 +30,16 @@ Styio already has several library-like surfaces:
 - benchmark/probe wrappers that point to the external `styio-benchmark` repository.
 
 The maturity gap is not that every useful library must live in the compiler repository. The gap is to keep the three retained layers explicit and migrate all other library-like material to its owning project.
+
+## Current Implementation Evidence
+
+| Surface | Layer | Current evidence | Boundary |
+|---------|-------|------------------|----------|
+| `std.resource` compatibility prelude | standard library compatibility module | `library/manifest.json`, `library/resource/README.md`, `src/StyioPrelude/resources.styio`, `stdlib_manifest_gate`, file/stdin/stdout feature suites, and `StyioSecurityNightlyParserStmt.ParsesResourcePreludeSourceFile` | Active only as the compatibility prelude. It does not broaden resource semantics or activate the other planned `std.*` modules. |
+| `std.core`, `std.collections`, `std.io`, `std.math`, `std.path`, `std.process`, `std.stream`, `std.test`, `std.text`, `std.time` | planned standard-library modules | Directory README files and manifest entries reserve ownership boundaries | Planned modules are not accepted APIs until manifest source, tests, diagnostics, and catalog evidence are added. |
+| Series selectors `series[avg, n]` and `series[max, n]` | compiler-intrinsic | Parser recognition, `SeriesIntrinsicAST`, `SGSeriesAvgStep` / `SGSeriesMaxStep` lowering, pulse codegen, and focused security/codegen tests | Active only for the current i64 pulse/state path. `[min]`, `[std]`, `[ema]`, `[rsi]`, crossover helpers, and broader time-series algorithms remain deferred. |
+| Matrix helper calls `mat_*`, `matmul`, `transpose`, `dot`, `norm` | compiler-intrinsic | Sema shape/element checks, typed lowering/runtime-helper selection, matrix runtime helpers, `StyioSamples.MatrixOperationsAndIntrinsics`, and matrix type/lowering/security tests | Compiler-owned because type shape, runtime helper choice, and fail-closed diagnostics depend on compiler analysis. They are not `std.math` or `std.collections` APIs without a promotion record. |
+| Typed stdin helper routing | compiler/runtime helper | `src/StyioUtil/IOIntrinsics.hpp`, typed stdin feature tests, and diagnostics for unsupported targets | This is an implementation route for accepted stdin syntax, not a public `std.io` API. |
 
 ## Accepted Layer Model
 

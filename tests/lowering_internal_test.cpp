@@ -46,6 +46,26 @@ public:
   using StyioSemaContext::snapshot_var_names_;
 };
 
+class UnknownActiveIRForVerifier final : public StyioIR
+{
+public:
+  std::string toString(StyioRepr*, int = 0) override {
+    return "unknown-active-ir";
+  }
+
+  llvm::Type* toLLVMType(StyioToLLVM*) override {
+    return nullptr;
+  }
+
+  llvm::Value* toLLVMIR(StyioToLLVM*) override {
+    return nullptr;
+  }
+
+  bool is_active() const override {
+    return true;
+  }
+};
+
 void exercise_to_ir(StyioAST* node) {
   AstToStyioIRLowerer analyzer;
   std::unique_ptr<StyioAST> owner(node);
@@ -567,6 +587,43 @@ TEST(StyioLoweringInternal, PassManagerRunsCanonicalizationAndVerifierStages) {
     EXPECT_EQ(result.diagnostics.front().code, "STYIO_IR_VERIFY_CONTRACT");
     EXPECT_NE(result.diagnostics.front().message.find("SGReturn.expr"), std::string::npos);
   }
+
+  {
+    std::unique_ptr<SIOInstantPull> invalid_pull(SIOInstantPull::CreateFromHandle(""));
+    styio::ir::StyioIRVerifierResult verifier_result;
+    EXPECT_NO_THROW(verifier_result = styio::ir::verify_styio_ir(invalid_pull.get()));
+    ASSERT_FALSE(verifier_result.ok());
+    ASSERT_FALSE(verifier_result.diagnostics.empty());
+    EXPECT_EQ(verifier_result.diagnostics.front().phase, "ir_verify");
+    EXPECT_EQ(verifier_result.diagnostics.front().code, "STYIO_IR_VERIFY_CONTRACT");
+    EXPECT_NE(verifier_result.diagnostics.front().message.find("SIOInstantPull.handle_var"), std::string::npos);
+  }
+
+  {
+    std::unique_ptr<SGMainEntry> root(SGMainEntry::Create({
+      SIOInstantPull::CreateFromHandle("")
+    }));
+    const auto result = styio::lowering::run_default_styio_ir_pass_pipeline(root.get());
+
+    EXPECT_FALSE(result.ok());
+    EXPECT_TRUE(result.passes.empty());
+    ASSERT_FALSE(result.diagnostics.empty());
+    EXPECT_EQ(result.diagnostics.front().phase, "ir_verify");
+    EXPECT_EQ(result.diagnostics.front().code, "STYIO_IR_VERIFY_CONTRACT");
+    EXPECT_NE(result.diagnostics.front().message.find("SIOInstantPull.handle_var"), std::string::npos);
+  }
+}
+
+TEST(StyioLoweringInternal, VerifierRejectsUnsupportedActiveIRNodes) {
+  UnknownActiveIRForVerifier unknown;
+  const auto result = styio::ir::verify_styio_ir(&unknown);
+
+  ASSERT_FALSE(result.ok());
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.diagnostics.front().phase, "ir_verify");
+  EXPECT_EQ(result.diagnostics.front().code, "STYIO_IR_VERIFY_CONTRACT");
+  EXPECT_NE(result.diagnostics.front().message.find("unsupported StyioIR node"), std::string::npos);
+  EXPECT_THROW(styio::ir::require_verified_styio_ir(&unknown), StyioTypeError);
 }
 
 TEST(StyioLoweringInternal, OptimizerPrivateReadWriteAndEquivalenceEdgesStayExplicit) {

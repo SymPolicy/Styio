@@ -821,15 +821,16 @@ TEST(StyioParserInternal, ParserHelperFailureEdgesStayExplicit) {
   {
     EXPECT_STREQ(
       styio_parser_engine_name_latest(static_cast<StyioParserEngine>(255)),
-      "legacy");
+      "invalid");
     DirectContext direct("2");
     StyioParserRouteStats stats;
     stats.nightly_declined_statements = 4;
-    std::unique_ptr<MainBlockAST> ast(parse_main_block_with_engine_latest(
-      direct.get(),
-      static_cast<StyioParserEngine>(255),
-      &stats));
-    ASSERT_NE(ast, nullptr);
+    EXPECT_THROW(
+      (void)parse_main_block_with_engine_latest(
+        direct.get(),
+        static_cast<StyioParserEngine>(255),
+        &stats),
+      StyioParseError);
     EXPECT_EQ(stats.nightly_declined_statements, 0u);
   }
 
@@ -904,6 +905,9 @@ TEST(StyioParserInternal, ParserHelperFailureEdgesStayExplicit) {
     EXPECT_THROW((void)find_format_expr_end_latest("unterminated {", 0), StyioSyntaxError);
     EXPECT_THROW((void)parse_format_expr_text_latest("   ", StyioParserEngine::Nightly), StyioSyntaxError);
     EXPECT_THROW((void)parse_format_expr_text_latest("1 2", StyioParserEngine::Nightly), StyioSyntaxError);
+    EXPECT_THROW(
+      (void)parse_format_expr_text_latest("1", static_cast<StyioParserEngine>(255)),
+      StyioParseError);
   }
 
   {
@@ -942,6 +946,12 @@ TEST(StyioParserInternal, ParserHelperFailureEdgesStayExplicit) {
   {
     DirectContext direct("$\"{}\"");
     EXPECT_THROW((void)parse_fmt_str_token_latest(direct.get(), StyioParserEngine::Nightly), StyioSyntaxError);
+  }
+  {
+    DirectContext direct("$\"{1}\"");
+    EXPECT_THROW(
+      (void)parse_fmt_str_token_latest(direct.get(), static_cast<StyioParserEngine>(255)),
+      StyioParseError);
   }
 
   {
