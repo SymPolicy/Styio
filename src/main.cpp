@@ -208,14 +208,14 @@ show_tokens(std::vector<StyioToken*> tokens) {
       std::cout << sep + " ";
     }
     else if (tok->type == StyioTokenType::NAME) {
-      std::cout << sep + tok->original;
+      std::cout << sep + tok->textString();
     }
     else if (tok->type == StyioTokenType::STRING) {
-      std::cout << sep + tok->original;
+      std::cout << sep + tok->textString();
     }
     else if (tok->type == StyioTokenType::INTEGER
              || tok->type == StyioTokenType::DECIMAL) {
-      std::cout << sep + tok->original + ": " + StyioToken::getTokName(tok->type);
+      std::cout << sep + tok->textString() + ": " + StyioToken::getTokName(tok->type);
     }
     else {
       std::cout << sep + StyioToken::getTokName(tok->type);
@@ -2038,6 +2038,9 @@ styio_nano_source_roots_latest(bool include_pipeline_check) {
     "src/StyioCodeGen/CodeGenIO.cpp",
     "src/StyioExtern/ExternLib.cpp",
     "src/StyioRuntime/RuntimeState.cpp",
+    "src/StyioSession/SymbolInterner.cpp",
+    "src/StyioSession/TypeTable.cpp",
+    "src/StyioUtil/SourceMap.cpp",
   };
   if (include_pipeline_check) {
     sources.push_back("src/StyioTesting/PipelineCheck.cpp");

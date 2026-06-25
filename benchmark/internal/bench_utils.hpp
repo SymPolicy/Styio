@@ -14,6 +14,12 @@ struct BenchmarkSample {
   std::string label;       // descriptive sub-label
   int64_t duration_ns = 0;
   int64_t alloc_count = 0; // 0 if not measured
+
+  // Route cache counters (TASK-06): non-zero when captured.
+  int64_t route_cache_scan_count = 0;
+  int64_t route_cache_hit_count = 0;
+  int64_t route_cache_miss_count = 0;
+  int64_t route_cache_disabled_count = 0;
 };
 
 struct BenchmarkResult {
@@ -105,6 +111,18 @@ inline std::string BenchmarkResult::to_json() const {
     out += "\"duration_ns\": " + std::to_string(s.duration_ns);
     if (s.alloc_count > 0) {
       out += ", \"alloc_count\": " + std::to_string(s.alloc_count);
+    }
+    if (s.route_cache_scan_count > 0) {
+      out += ", \"route_cache_scan_count\": " + std::to_string(s.route_cache_scan_count);
+    }
+    if (s.route_cache_hit_count > 0) {
+      out += ", \"route_cache_hit_count\": " + std::to_string(s.route_cache_hit_count);
+    }
+    if (s.route_cache_miss_count > 0) {
+      out += ", \"route_cache_miss_count\": " + std::to_string(s.route_cache_miss_count);
+    }
+    if (s.route_cache_disabled_count > 0) {
+      out += ", \"route_cache_disabled_count\": " + std::to_string(s.route_cache_disabled_count);
     }
     out += "}";
     if (i + 1 < samples.size()) out += ",";

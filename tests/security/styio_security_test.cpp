@@ -7182,8 +7182,8 @@ TEST(StyioTokenizerContract, MetricsArePopulated) {
   EXPECT_EQ(m.input_bytes, src.size());
   EXPECT_GT(m.token_count, 0u);
   EXPECT_GT(m.source_view_token_count, 0u);
-  EXPECT_GT(m.owned_text_token_count, 0u);  // NAME, INTEGER, STRING
-  EXPECT_GT(m.owned_text_bytes, 0u);
+  // owned_text_token_count/bytes are always 0 in the zero-copy span-first tokenizer
+  EXPECT_GT(m.source_span_token_count, 0u);
   EXPECT_GT(m.operator_bucket_probes, 0u);
   EXPECT_GE(m.string_decodes, 1u);
 

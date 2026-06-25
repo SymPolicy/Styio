@@ -16,6 +16,7 @@ using std::vector;
 // [Styio]
 #include "../StyioLowering/AstToStyioIRLowerer.hpp"
 #include "../StyioSession/SessionAllocation.hpp"
+#include "../StyioSession/SymbolInterner.hpp"
 #include "../StyioToString/ToStringVisitor.hpp"
 #include "../StyioToken/Token.hpp"
 #include "../StyioUtil/ResourceNames.hpp"
@@ -139,10 +140,15 @@ class NameAST : public StyioASTTraits<NameAST>
 {
 private:
   string name_str;
+  styio::session::SymbolId sid_ = styio::session::kInvalidSymbolId;
 
 public:
   NameAST(string name) :
       name_str(name) {
+  }
+
+  NameAST(string name, styio::session::SymbolId sid) :
+      name_str(name), sid_(sid) {
   }
 
   static NameAST* Create() {
@@ -153,8 +159,26 @@ public:
     return new NameAST(name);
   }
 
+  static NameAST* Create(string name, styio::session::SymbolId sid) {
+    return new NameAST(name, sid);
+  }
+
+  /// Clone a NameAST, preserving its SymbolId.
+  static NameAST* Clone(NameAST* other) {
+    if (!other) return Create();
+    return new NameAST(other->name_str, other->sid_);
+  }
+
   const string& getAsStr() {
     return name_str;
+  }
+
+  styio::session::SymbolId getSymbolId() const {
+    return sid_;
+  }
+
+  void setSymbolId(styio::session::SymbolId sid) {
+    sid_ = sid;
   }
 
   const StyioNodeType getNodeType() const {

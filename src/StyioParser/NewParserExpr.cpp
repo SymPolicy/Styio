@@ -394,6 +394,7 @@ constexpr StyioTokenType k_stmt_subset_extra_tokens_latest[] = {
   StyioTokenType::COMPOUND_DIV,
   StyioTokenType::COMPOUND_MOD,
   StyioTokenType::TOK_QUEST,
+  StyioTokenType::NATIVE_EXTERN_BODY,
 };
 
 constexpr StyioTokenType k_stmt_subset_extra_start_tokens_latest[] = {
@@ -581,6 +582,7 @@ can_route_hash_let_match_nightly_latest(const StyioContext& context) {
     return false;
   }
 
+  context.note_route_scan();
   return scan_subset_route_tokens_latest(
     context.get_tokens(),
     context.get_token_index(),
@@ -601,7 +603,8 @@ can_route_hash_let_match_nightly_latest(const StyioContext& context) {
              || type == StyioTokenType::TOK_CR
              || is_statement_separator_nightly_latest(type)
              || type == StyioTokenType::TOK_RCURBRAC;
-    }
+    },
+    false
   );
 }
 
@@ -630,6 +633,7 @@ can_route_hash_stmt_nightly_latest(const StyioContext& context) {
     return false;
   }
 
+  context.note_route_scan();
   return scan_subset_route_tokens_latest(
     context.get_tokens(),
     context.get_token_index(),
@@ -650,7 +654,8 @@ can_route_hash_stmt_nightly_latest(const StyioContext& context) {
              || type == StyioTokenType::TOK_CR
              || is_statement_separator_nightly_latest(type)
              || type == StyioTokenType::TOK_RCURBRAC;
-    }
+    },
+    false
   );
 }
 
@@ -666,6 +671,7 @@ stmt_subset_route_supported_latest(const StyioContext& context) {
   if (context.has_route_cache(start, StyioContext::kRouteStmtSubset)) {
     return context.get_route_cache(start, StyioContext::kRouteStmtSubset);
   }
+  context.note_route_cache_miss();
 
   const StyioTokenType start_type = tokens[start]->type;
   if (!styio_parser_stmt_subset_start_nightly(start_type)) {
@@ -680,6 +686,7 @@ stmt_subset_route_supported_latest(const StyioContext& context) {
   }
   const bool allow_single_pipe = start_type == StyioTokenType::AWAIT_PIPE;
 
+  context.note_route_scan();
   bool result = scan_subset_route_tokens_latest(
     tokens,
     start,
@@ -721,6 +728,7 @@ expr_subset_route_supported_until_latest(
     return false;
   }
 
+  context.note_route_scan();
   return scan_subset_route_tokens_latest(
     tokens,
     start,
@@ -875,11 +883,11 @@ try_parse_hash_let_match_nightly_latest(StyioContext& context) {
     std::unique_ptr<CasesAST> cases(parse_cases_only_nightly_draft(context));
     std::vector<StyioAST*> stmts;
     stmts.push_back(FlexBindAST::Create(
-      VarAST::Create(NameAST::Create(bind_name)),
+      VarAST::Create(context.interned_name(bind_name)),
       bind_value.get()
     ));
     stmts.push_back(MatchCasesAST::make(
-      NameAST::Create(bind_name),
+      context.interned_name(bind_name),
       cases.get()
     ));
     bind_value.release();
@@ -1607,7 +1615,7 @@ private:
         if (context_.cur_tok_type() == StyioTokenType::TOK_LPAREN) {
           auto arg_owners = parse_call_arg_owners();
           auto args = call_arg_view(arg_owners);
-          std::unique_ptr<NameAST> member(NameAST::Create(member_name));
+          std::unique_ptr<NameAST> member(context_.interned_name(member_name));
           FuncCallAST* call = FuncCallAST::Create(owner.get(), member.get(), args);
           owner.release();
           member.release();
@@ -1615,7 +1623,7 @@ private:
           owner.reset(call);
           continue;
         }
-        owner.reset(AttrAST::Create(owner.release(), NameAST::Create(member_name)));
+        owner.reset(AttrAST::Create(owner.release(), context_.interned_name(member_name)));
         continue;
       }
       if (context_.cur_tok_type() == StyioTokenType::TOK_LBOXBRAC) {
@@ -1696,7 +1704,7 @@ private:
           context_.move_forward(1, "new_expr:flow_bind_target");
           owner.reset(FlowBindAST::Create(
             owner.release(),
-            VarAST::Create(NameAST::Create(target_name)),
+            VarAST::Create(context_.interned_name(target_name)),
             false
           ));
           continue;
@@ -1777,7 +1785,7 @@ private:
   StyioAST* parse_call_after_name(const std::string& callee_name) {
     auto arg_owners = parse_call_arg_owners();
     auto args = call_arg_view(arg_owners);
-    std::unique_ptr<NameAST> name(NameAST::Create(callee_name));
+    std::unique_ptr<NameAST> name(context_.interned_name(callee_name));
     FuncCallAST* call = FuncCallAST::Create(name.get(), args);
     name.release();
     release_call_args(arg_owners);
@@ -1794,7 +1802,7 @@ private:
       return parse_call_after_name(name);
     }
 
-    return NameAST::Create(name);
+    return context_.interned_name(name);
   }
 
   StyioAST* parse_guard_value_expr() {
@@ -2645,7 +2653,7 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
       };
 
       std::vector<std::unique_ptr<StyioAST>> lhs_owned;
-      lhs_owned.emplace_back(parse_target_suffix(NameAST::Create(id)));
+      lhs_owned.emplace_back(parse_target_suffix(context.interned_name(id)));
       context.skip();
       bool saw_multi_target = false;
       while (context.cur_tok_type() == StyioTokenType::TOK_COMMA) {
@@ -2657,7 +2665,7 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
         }
         const std::string next_id = context.curTextString();
         context.move_forward(1, "new_stmt:target_name");
-        lhs_owned.emplace_back(parse_target_suffix(NameAST::Create(next_id)));
+        lhs_owned.emplace_back(parse_target_suffix(context.interned_name(next_id)));
         context.skip();
       }
       const bool indexed_target =
@@ -2707,7 +2715,7 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
       if (context.cur_tok_type() == StyioTokenType::WALRUS) {
         context.move_forward(1, "new_stmt:final_bind_walrus");
         context.skip();
-        std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(id), ty.get()));
+        std::unique_ptr<VarAST> var(VarAST::Create(context.interned_name(id), ty.get()));
         ty.release();
         std::unique_ptr<StyioAST> value(parse_expr_subset_nightly(context));
         auto* bind = FinalBindAST::Create(var.get(), value.get());
@@ -2718,7 +2726,7 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
       if (context.cur_tok_type() == StyioTokenType::TOK_EQUAL) {
         context.move_forward(1, "new_stmt:typed_flex_bind_equal");
         context.skip();
-        std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(id), ty.get()));
+        std::unique_ptr<VarAST> var(VarAST::Create(context.interned_name(id), ty.get()));
         ty.release();
         std::unique_ptr<StyioAST> value(parse_expr_subset_nightly(context));
         auto* bind = FlexBindAST::Create(var.get(), value.get());
@@ -2726,7 +2734,7 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
         value.release();
         return bind;
       }
-      std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(id), ty.get()));
+      std::unique_ptr<VarAST> var(VarAST::Create(context.interned_name(id), ty.get()));
       const auto dtype = ty->getDataType();
       ty.release();
       std::unique_ptr<StyioAST> value(make_default_value_for_decl_latest(dtype));
@@ -2738,7 +2746,7 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
     if (context.cur_tok_type() == StyioTokenType::WALRUS) {
       context.move_forward(1, "new_stmt:untyped_final_bind");
       context.skip();
-      std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(id)));
+      std::unique_ptr<VarAST> var(VarAST::Create(context.interned_name(id)));
       std::unique_ptr<StyioAST> value(parse_expr_subset_nightly(context));
       auto* bind = FinalBindAST::Create(var.get(), value.get());
       var.release();
@@ -2748,7 +2756,7 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
     if (context.cur_tok_type() == StyioTokenType::ARROW_DOUBLE_RIGHT) {
       context.move_forward(1, "new_stmt:resource_order");
       context.skip();
-      std::unique_ptr<NameAST> before(NameAST::Create(id));
+      std::unique_ptr<NameAST> before(context.interned_name(id));
       std::unique_ptr<StyioAST> after(parse_expr_subset_nightly(context));
       auto* order = ResourceOrderAST::Create(before.get(), after.get());
       before.release();
@@ -2758,7 +2766,7 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
     if (context.cur_tok_type() == StyioTokenType::TOK_EQUAL) {
       context.move_forward(1, "new_stmt:flex_bind");
       context.skip();
-      std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(id)));
+      std::unique_ptr<VarAST> var(VarAST::Create(context.interned_name(id)));
       std::unique_ptr<StyioAST> value(parse_expr_subset_nightly(context));
       auto* bind = FlexBindAST::Create(var.get(), value.get());
       var.release();
@@ -2774,14 +2782,14 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
       if (context.cur_tok_type() == StyioTokenType::NAME) {
         const std::string src = context.curTextString();
         context.move_forward(1, "new_stmt:clone_from_name");
-        std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(id)));
-        std::unique_ptr<NameAST> source(NameAST::Create(src));
+        std::unique_ptr<VarAST> var(VarAST::Create(context.interned_name(id)));
+        std::unique_ptr<NameAST> source(context.interned_name(src));
         auto* acquire = HandleAcquireAST::Create(var.get(), source.get());
         var.release();
         source.release();
         return acquire;
       }
-      std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(id)));
+      std::unique_ptr<VarAST> var(VarAST::Create(context.interned_name(id)));
       std::unique_ptr<StyioAST> source(parse_resource_file_atom_latest(context));
       auto* acquire = HandleAcquireAST::Create(var.get(), source.get());
       var.release();
@@ -2794,8 +2802,8 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
       if (context.cur_tok_type() == StyioTokenType::NAME) {
         const std::string src = context.curTextString();
         context.move_forward(1, "new_stmt:clone_into_name");
-        std::unique_ptr<VarAST> var(VarAST::Create(NameAST::Create(id)));
-        std::unique_ptr<NameAST> source(NameAST::Create(src));
+        std::unique_ptr<VarAST> var(VarAST::Create(context.interned_name(id)));
+        std::unique_ptr<NameAST> source(context.interned_name(src));
         auto* acquire = HandleAcquireAST::Create(
           var.get(),
           source.get(),
@@ -2805,7 +2813,7 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
         source.release();
         return acquire;
       }
-      std::unique_ptr<NameAST> source(NameAST::Create(id));
+      std::unique_ptr<NameAST> source(context.interned_name(id));
       return parse_resource_extractor_write_tail_latest(context, source.release());
     }
     if (context.cur_tok_type() == StyioTokenType::ITERATOR) {
@@ -2814,13 +2822,13 @@ parse_stmt_subset_impl_nightly(StyioContext& context) {
         parse_iterator_tail_nightly_draft,
         "unsupported '>>' continuation after name in nightly parser subset",
       };
-      return parse_double_right_continuation_latest(context, NameAST::Create(id), ops);
+      return parse_double_right_continuation_latest(context, context.interned_name(id), ops);
     }
     StyioOpType cop = styio_compound_assign_op_latest(context.cur_tok_type());
     if (cop != StyioOpType::Undefined) {
       context.move_forward(1, "new_stmt:compound_assign");
       context.skip();
-      std::unique_ptr<NameAST> lhs(NameAST::Create(id));
+      std::unique_ptr<NameAST> lhs(context.interned_name(id));
       std::unique_ptr<StyioAST> rhs(parse_expr_subset_nightly(context));
       auto* binop = BinOpAST::Create(cop, lhs.get(), rhs.get());
       lhs.release();

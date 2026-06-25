@@ -271,7 +271,7 @@ parse_hash_function_common_latest(
         context.mark_cur_tok("Confusing: The iterator (>>) can not be applied to multiple objects.")
       );
     }
-    std::unique_ptr<NameAST> iter_collection(NameAST::Create(state.param_at(0)->getName()));
+    std::unique_ptr<NameAST> iter_collection(context.interned_name(state.param_at(0)->getName()));
     std::unique_ptr<StyioAST> body(ops.parse_iterator(context, iter_collection.release()));
     return FunctionAST::Create(
       state.release_name(),
@@ -317,7 +317,7 @@ parse_hash_function_common_latest(
         context.mark_cur_tok("expected case block after function match sugar ?=")
       );
     }
-    std::unique_ptr<NameAST> scrutinee(NameAST::Create(scrutinee_name));
+    std::unique_ptr<NameAST> scrutinee(context.interned_name(scrutinee_name));
     std::unique_ptr<CasesAST> cases(ops.parse_cases(context));
     std::unique_ptr<StyioAST> body(MatchCasesAST::make(scrutinee.get(), cases.get()));
     scrutinee.release();
