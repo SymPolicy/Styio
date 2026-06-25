@@ -55,17 +55,17 @@ std::string_view SourceMap::line_text(std::size_t line) const {
     return {};
   }
   const std::size_t start = line_starts_[line];
-  const std::size_t end =
+  std::size_t end =
     line + 1 < line_starts_.size() ? line_starts_[line + 1] : text_.size();
-  std::size_t len = end - start;
-  // Trim trailing newline
-  if (len > 0 && text_[end - 1] == '\n') {
-    len -= 1;
+  // Safely trim trailing newline sequences: only \n or \r\n pairs.
+  // Standalone \r is NOT a line terminator in this model.
+  if (end > start && text_[end - 1] == '\n') {
+    --end;
+    if (end > start && text_[end - 1] == '\r') {
+      --end;
+    }
   }
-  if (len > 0 && text_[end - 2] == '\r') {
-    len -= 1;
-  }
-  return text_.substr(start, len);
+  return text_.substr(start, end - start);
 }
 
 std::vector<std::pair<std::size_t, std::size_t>> SourceMap::build_line_seps() const {

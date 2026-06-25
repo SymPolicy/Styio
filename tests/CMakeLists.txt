@@ -471,6 +471,7 @@ styio_apply_llvm_compile_settings(styio_security_test)
 
 add_executable(styio_typeinfer_internal_test
   typeinfer_internal_test.cpp
+  "${CMAKE_SOURCE_DIR}/src/StyioSession/SymbolInterner.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioToken/Token.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioUnicode/Unicode.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioParser/Parser.cpp"
@@ -497,6 +498,7 @@ styio_apply_llvm_compile_settings(styio_typeinfer_internal_test)
 
 add_executable(styio_lowering_internal_test
   lowering_internal_test.cpp
+  "${CMAKE_SOURCE_DIR}/src/StyioSession/SymbolInterner.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioToken/Token.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioUnicode/Unicode.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioParser/Parser.cpp"
@@ -523,6 +525,7 @@ styio_apply_llvm_compile_settings(styio_lowering_internal_test)
 
 add_executable(styio_newparser_internal_test
   newparser_internal_test.cpp
+  "${CMAKE_SOURCE_DIR}/src/StyioSession/SymbolInterner.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioToken/Token.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioUnicode/Unicode.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioParser/Parser.cpp"
@@ -549,6 +552,7 @@ styio_apply_llvm_compile_settings(styio_newparser_internal_test)
 
 add_executable(styio_parser_internal_test
   parser_internal_test.cpp
+  "${CMAKE_SOURCE_DIR}/src/StyioSession/SymbolInterner.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioToken/Token.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioUnicode/Unicode.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioParser/NewParserExpr.cpp"
@@ -768,6 +772,18 @@ gtest_discover_tests(styio_resource_topology_test
 gtest_discover_tests(styio_ide_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES LABELS "ide\\;lsp\\;unit"
+)
+
+gtest_discover_tests(styio_source_map_test
+  PROPERTIES LABELS "util\\;unit"
+)
+
+gtest_discover_tests(styio_symbol_interner_test
+  PROPERTIES LABELS "session\\;unit"
+)
+
+gtest_discover_tests(styio_type_table_test
+  PROPERTIES LABELS "session\\;unit"
 )
 
 option(STYIO_ENABLE_FUZZ "Build libFuzzer targets" OFF)

@@ -11,6 +11,7 @@
 #include "llvm/IR/Value.h"
 
 // [Styio]
+#include "../StyioSession/SessionAllocation.hpp"
 #include "../StyioToString/ToStringVisitor.hpp"
 #include "../StyioCodeGen/CodeGenVisitor.hpp"
 #include "IRDecl.hpp"
@@ -18,7 +19,12 @@
 class StyioIR
 {
 public:
-  virtual ~StyioIR() {}
+  virtual ~StyioIR() {
+    // Track destructor invocations for allocation-count verification.
+    if (auto* stats = styio::session_alloc::current_ir_stats) {
+      stats->destructor_calls++;
+    }
+  }
 
   /* StyioAST to String */
   virtual std::string toString(StyioRepr* visitor, int indent = 0) = 0;

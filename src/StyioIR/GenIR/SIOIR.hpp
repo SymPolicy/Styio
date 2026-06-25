@@ -40,6 +40,7 @@ public:
 
   static SIOHandleRelease* CreateFromVar(std::string v) {
     auto* x = new SIOHandleRelease();
+    styio::session_alloc::track_raw_allocation(x);
     x->var_name = std::move(v);
     x->from_path = false;
     return x;
@@ -47,6 +48,7 @@ public:
 
   static SIOHandleRelease* CreateFromPath(StyioIR* p, bool a) {
     auto* x = new SIOHandleRelease();
+    styio::session_alloc::track_raw_allocation(x);
     x->path_expr = p;
     x->is_auto = a;
     x->from_path = true;
@@ -75,6 +77,7 @@ public:
 
   static SIOFileLineIter* CreateFromPath(StyioIR* path, std::string line, SGBlock* b) {
     auto* r = new SIOFileLineIter();
+    styio::session_alloc::track_raw_allocation(r);
     r->from_path = true;
     r->path_expr = path;
     r->line_var = std::move(line);
@@ -84,6 +87,7 @@ public:
 
   static SIOFileLineIter* CreateFromHandle(std::string hvar, std::string line, SGBlock* b) {
     auto* r = new SIOFileLineIter();
+    styio::session_alloc::track_raw_allocation(r);
     r->from_path = false;
     r->handle_var = std::move(hvar);
     r->line_var = std::move(line);
@@ -140,6 +144,7 @@ public:
     SGBlock* b
   ) {
     auto* z = new SIOStreamZip();
+    styio::session_alloc::track_raw_allocation(z);
     z->iterable_a = ia;
     z->a_is_file = fa;
     z->a_is_stdin = stdin_a;
@@ -231,6 +236,7 @@ public:
     std::string required_handle = ""
   ) {
     auto* x = new SIOResourceWriteToFile();
+    styio::session_alloc::track_raw_allocation(x);
     x->data_expr = d;
     x->path_expr = p;
     x->is_auto_path = auto_p;
@@ -260,6 +266,7 @@ public:
 
   static SIOStdStreamWrite* Create(Stream s, std::vector<StyioIR*> e) {
     auto* x = new SIOStdStreamWrite();
+    styio::session_alloc::track_raw_allocation(x);
     x->stream = s;
     x->exprs = std::move(e);
     return x;
@@ -302,6 +309,7 @@ public:
     bool requires_value = false
   ) {
     auto* x = new SIOResourceEffect();
+    styio::session_alloc::track_raw_allocation(x);
     x->operation = op;
     x->fallback = fb;
     x->handlers = std::move(effect_handlers);
@@ -335,6 +343,7 @@ public:
 
   static SIOStdStreamLineIter* Create(std::string line, SGBlock* b) {
     auto* r = new SIOStdStreamLineIter();
+    styio::session_alloc::track_raw_allocation(r);
     r->line_var = std::move(line);
     r->body = b;
     return r;
@@ -382,6 +391,7 @@ public:
 
   static SIOTaskCreate* Create(SGBlock* b, StyioDataType result) {
     auto* x = new SIOTaskCreate();
+    styio::session_alloc::track_raw_allocation(x);
     x->body = b;
     x->result_type = std::move(result);
     return x;
@@ -414,6 +424,7 @@ public:
     bool is_await = false
   ) {
     auto* x = new SIOFlowBind();
+    styio::session_alloc::track_raw_allocation(x);
     x->source_expr = source;
     x->fallback_expr = fallback;
     x->target_name = std::move(target);
