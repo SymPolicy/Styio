@@ -831,12 +831,15 @@ blocks for equality-style branching.
 ### 11.4 Plugin Operators: `[op, n]`
 
 ```
-prices[avg, 20]    // 20-period moving average (compiler intrinsic)
-prices[max, 14]    // 14-period rolling maximum
-prices[std, 20]    // 20-period standard deviation
+prices[avg, 20]    // moving average compiler intrinsic in the pulse/state path
+prices[max, 14]    // rolling maximum compiler intrinsic in the pulse/state path
 ```
 
-These are **compiler intrinsics** — the compiler inlines optimized algorithms (O(1) sliding sum, monotonic queue, Welford's algorithm) directly into the generated code.
+Current compiler-owned series intrinsics are limited to `avg` and `max`, with the
+implementation and limits recorded in
+[Styio-StdLib-Intrinsics.md](./Styio-StdLib-Intrinsics.md). Other proposed
+operators such as `min`, `std`, `ema`, and `rsi` are deferred until they have
+parser, Sema, lowering, runtime/codegen, and test evidence.
 
 ### 11.5 Retired History Probe Family
 
@@ -927,19 +930,24 @@ Missing data within a stream becomes runtime absence, displayed as `@` in diagno
 
 ### 13.3 Diagnostic Tracing
 
-In debug mode, `@` values carry tainted metadata:
+Design target: in debug mode, `@` values may carry tainted metadata:
 
 ```
 last_signal ?? reason    // "DataSource(@binance) timeout at 14:22:05.123"
 ```
 
-The `??` operator extracts the diagnostic context from a tainted `@`.
+The `??` operator is deferred until the absence-metadata contract, parser surface,
+type behavior, and runtime route are implemented.
 
 ### 13.4 Guard-based Recovery
 
 ```
 safe_price = price | @last_valid_price[-1]    // value fallback if price carries runtime absence
 ```
+
+Value-level absence fallback is a design target. Current implemented recovery
+evidence is the resource-effect form `?| operation | fallback` and its named
+handler variants described in the active test catalog.
 
 The `|` operator provides a value fallback when the left side carries runtime
 absence. Resource failures do not use bare `|`; they use

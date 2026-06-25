@@ -13,10 +13,67 @@ Options:
                            CMake build dir for coverage gate (default: build/coverage)
   --coverage-threshold <percent>
                            Minimum line coverage percentage (default: 95)
+  --build-jobs <jobs>      Build parallelism for all cmake --build calls
+                           (default: STYIO_CHECKPOINT_BUILD_JOBS,
+                           CMAKE_BUILD_PARALLEL_LEVEL, or memory-capped auto)
   --no-asan               Skip ASan/UBSan verification
   --no-fuzz               Skip fuzz smoke verification
   -h, --help              Show this help
 USAGE
+}
+
+positive_integer_latest() {
+  [[ "$1" =~ ^[1-9][0-9]*$ ]]
+}
+
+detect_build_jobs_latest() {
+  local explicit="${STYIO_CHECKPOINT_BUILD_JOBS:-${CMAKE_BUILD_PARALLEL_LEVEL:-}}"
+  local cpu_jobs mem_kib mem_jobs jobs
+
+  if [[ -n "$explicit" ]]; then
+    if ! positive_integer_latest "$explicit"; then
+      echo "Build jobs must be a positive integer: ${explicit}" >&2
+      return 2
+    fi
+    printf '%s\n' "$explicit"
+    return 0
+  fi
+
+  cpu_jobs="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo 2)"
+  if ! positive_integer_latest "$cpu_jobs"; then
+    cpu_jobs=2
+  fi
+
+  # Styio's LLVM-heavy C++ targets can exceed worker memory when all cores build
+  # at once. Use total RAM for a stable cold-start cap and keep an env override.
+  mem_jobs=4
+  if [[ -r /proc/meminfo ]]; then
+    mem_kib="$(awk '/^MemTotal:/ { print $2; exit }' /proc/meminfo)"
+    if positive_integer_latest "${mem_kib:-}"; then
+      mem_jobs=$((mem_kib / 3145728))
+      if (( mem_jobs < 1 )); then
+        mem_jobs=1
+      fi
+    fi
+  fi
+
+  jobs="$cpu_jobs"
+  if (( jobs > mem_jobs )); then
+    jobs="$mem_jobs"
+  fi
+  if (( jobs > 4 )); then
+    jobs=4
+  fi
+  if (( jobs < 1 )); then
+    jobs=1
+  fi
+  printf '%s\n' "$jobs"
+}
+
+cmake_build_latest() {
+  local dir="$1"
+  shift
+  cmake --build "$dir" --parallel "$BUILD_JOBS" --target "$@"
 }
 
 fuzz_build_has_ctest_latest() {
@@ -73,6 +130,7 @@ ASAN_BUILD_DIR="build/asan-ubsan"
 FUZZ_BUILD_DIR="build/fuzz"
 COVERAGE_BUILD_DIR="build/coverage"
 COVERAGE_THRESHOLD="95"
+BUILD_JOBS=""
 RUN_ASAN=1
 RUN_FUZZ="auto"
 
@@ -99,6 +157,10 @@ while [[ $# -gt 0 ]]; do
       COVERAGE_THRESHOLD="$2"
       shift 2
       ;;
+    --build-jobs)
+      STYIO_CHECKPOINT_BUILD_JOBS="$2"
+      shift 2
+      ;;
     --no-asan)
       RUN_ASAN=0
       shift
@@ -119,14 +181,16 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+BUILD_JOBS="$(detect_build_jobs_latest)"
+echo "[checkpoint-health] build jobs: ${BUILD_JOBS}"
 BUILD_DIR="$(configure_build_dir_latest "$BUILD_DIR" "build/default")"
 echo "[checkpoint-health] build dir: ${BUILD_DIR}"
-cmake --build "$BUILD_DIR" --target styio_test styio_security_test styio_ide_test -j8
+cmake_build_latest "$BUILD_DIR" styio_test styio_security_test styio_ide_test
 
 HAS_SOAK_TARGET=0
 if cmake_target_exists_latest "$BUILD_DIR" "styio_soak_test"; then
   HAS_SOAK_TARGET=1
-  cmake --build "$BUILD_DIR" --target styio_soak_test -j8
+  cmake_build_latest "$BUILD_DIR" styio_soak_test
 else
   echo "[checkpoint-health] external soak target skipped (styio_soak_test is not registered)"
 fi
@@ -195,17 +259,18 @@ ctest --test-dir "$BUILD_DIR" \
 echo "[checkpoint-health] coverage gate"
 scripts/coverage-gate.sh \
   --build-dir "$COVERAGE_BUILD_DIR" \
-  --threshold "$COVERAGE_THRESHOLD"
+  --threshold "$COVERAGE_THRESHOLD" \
+  --jobs "$BUILD_JOBS"
 
 if [[ "$RUN_FUZZ" == "1" ]]; then
   echo "[checkpoint-health] fuzz build dir: ${FUZZ_BUILD_DIR}"
-  cmake --build "$FUZZ_BUILD_DIR" --target styio_fuzz_suite -j8
+  cmake_build_latest "$FUZZ_BUILD_DIR" styio_fuzz_suite
   echo "[checkpoint-health] fuzz smoke"
   ctest --test-dir "$FUZZ_BUILD_DIR" -L fuzz_smoke --output-on-failure
 elif [[ "$RUN_FUZZ" == "auto" ]]; then
   if fuzz_build_has_ctest_latest "$FUZZ_BUILD_DIR"; then
     echo "[checkpoint-health] fuzz build dir: ${FUZZ_BUILD_DIR}"
-    cmake --build "$FUZZ_BUILD_DIR" --target styio_fuzz_suite -j8
+    cmake_build_latest "$FUZZ_BUILD_DIR" styio_fuzz_suite
     echo "[checkpoint-health] fuzz smoke"
     ctest --test-dir "$FUZZ_BUILD_DIR" -L fuzz_smoke --output-on-failure
   else
@@ -216,7 +281,7 @@ fi
 if [[ "$RUN_ASAN" -eq 1 ]]; then
   ASAN_BUILD_DIR="$(configure_asan_build_dir_latest "$ASAN_BUILD_DIR")"
   echo "[checkpoint-health] asan build dir: ${ASAN_BUILD_DIR}"
-  cmake --build "$ASAN_BUILD_DIR" --target styio_test -j8
+  cmake_build_latest "$ASAN_BUILD_DIR" styio_test
   ASAN_OPTIONS='detect_leaks=0:halt_on_error=1:abort_on_error=1' \
   UBSAN_OPTIONS='print_stacktrace=1:halt_on_error=1' \
   ctest --test-dir "$ASAN_BUILD_DIR" \

@@ -13,3 +13,13 @@ Include:
 
 Security fixes should include a regression test or a documented reason why a
 test cannot be added in the same change.
+
+For standard-library, prelude, or compiler-intrinsic issues, include the active
+surface and evidence path in the report:
+
+- `library/manifest.json` module name when a standard-library module is involved
+- `src/StyioPrelude/resources.styio` when standard resources are involved
+- the intrinsic family and maintaining tests when compiler-owned helper behavior is involved
+
+Do not report planned `std.*` modules or deferred intrinsics as exploitable
+runtime behavior unless the issue reaches an implemented compiler/runtime path.

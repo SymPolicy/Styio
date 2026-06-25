@@ -1,424 +1,96 @@
-# Styio Standard Library — Compiler Intrinsics Specification
+# Styio Compiler Intrinsics and Standard-Library Boundary
 
-**Purpose:** 编译器内建 **`[op, n]`** 等算法的规范（行为、复杂度、`@` 处理、代码生成提示）；**不**重复语言总语义（见 `Styio-Language-Design.md`）。
+**Purpose:** Record compiler-owned intrinsic surfaces with implementation evidence, and keep deferred algorithm ideas separate from standard-library promises.
 
-**Last updated:** 2026-05-09
-
-**Version:** 1.0-draft  
-**Date:** 2026-03-28  
-**Target Audience:** Compiler developers, LLVM CodeGen implementors, quantitative strategy researchers
+**Last updated:** 2026-06-25
 
 ---
 
-## 1. Design Principles
+## Scope
 
-All intrinsics in this document are **compiler-inlined**. They are not function calls — the compiler recognizes the `[op, n]` selector syntax and emits optimized LLVM IR directly.
+This document governs capabilities that need compiler ownership for parsing, type inference,
+lowering, runtime helper routing, pulse-state storage, or code generation.
 
-### 1.1 Zero Heap Allocation
+Compiler intrinsics are not automatically standard-library APIs. A capability may be active as a
+compiler intrinsic while `library/manifest.json` still records only `std.resource` as an active
+standard-library compatibility module. Planned standard-library modules remain reservations until
+they have source, tests, diagnostics, and manifest evidence.
 
-Every intrinsic operates on **pre-allocated** memory. Ring buffers, accumulators, and queues are sized at compile time and placed on the stack or in the global state ledger. No `malloc`/`new` at runtime.
+## Evidence Rules
 
-### 1.2 Honest Missing (`@`) Handling
+An intrinsic entry is active only when it names current implementation evidence:
 
-Default behavior when input is `@`:
-- **Aggregators:** Skip the pulse. Do not update internal state. Do not emit downstream.
-- **Signal generators:** Emit `false` (not `@`) — signals should never be uncertain.
-- **Sanitizers:** Explicitly handle `@` as their primary purpose.
+1. accepted source or call surface,
+2. type/Sema behavior,
+3. lowering or runtime route,
+4. codegen or runtime helper behavior,
+5. positive execution coverage,
+6. negative diagnostic coverage when adjacent unsupported forms exist, and
+7. `workflows/TEST-CATALOG.md` evidence for the maintaining gate.
 
-### 1.3 Inlining Requirement
+Performance wording is allowed only when a measured benchmark or codegen-shape test is recorded.
 
-All intrinsics must be marked `alwaysinline` in LLVM IR. The goal is zero function-call overhead.
+## Active Intrinsics
 
----
+### Series Intrinsics
 
-## 2. Time-Series Aggregators
+| Surface | Current status | Evidence | Limits |
+|---------|----------------|----------|--------|
+| `series[avg, n]` | Active compiler intrinsic for the pulse/state path | Parser recognizes `avg` in `src/StyioParser/Parser.cpp`; AST is `SeriesIntrinsicAST`; lowering emits `SGSeriesAvgStep` in `src/StyioLowering/AstToStyioIR.cpp`; codegen is in `src/StyioCodeGen/CodeGenPulse.cpp`; parser, lowering, ownership, representation, and codegen tests live in `tests/security/styio_security_test.cpp`. | `n` must be an integer literal. Lowering requires an enclosing state slot. Current codegen is the i64 pulse-ledger route and emits the internal undefined sentinel during cold start or skipped undefined input. |
+| `series[max, n]` | Active compiler intrinsic for the pulse/state path | Parser recognizes `max`; lowering emits `SGSeriesMaxStep`; codegen is in `src/StyioCodeGen/CodeGenPulse.cpp`; focused tests cover parser AST, state-slot classification, IR lowering, and codegen shape. | Same pulse/state limits as `avg`. The current codegen scans the bounded ring for the current window; do not document a monotonic-deque guarantee without new evidence. |
 
-These operate on streaming data within a **sliding window** of size `n`.
+Deferred series operators: `[min, n]`, `[std, n]`, `[ema, n]`, `[rsi, n]`,
+`cross_over`, and `cross_under` are not active compiler contracts in this
+checkout. They require the full evidence list above before being described as
+accepted behavior.
 
-### 2.1 Simple Moving Average: `[avg, n]`
+### Matrix Intrinsics
 
-**Syntax:**
+Matrix helpers are ordinary call syntax at the grammar level and compiler-owned during Sema,
+lowering, and runtime dispatch.
 
-```
-ma20 = price[avg, 20]
-```
+| Surface | Current behavior | Evidence |
+|---------|------------------|----------|
+| `mat_zeros`, `mat_zeros_i64` | Construct f64 or i64 matrices from integer dimensions. Static positive dimensions are preserved in the inferred type. | `infer_matrix_intrinsic_type` in `src/StyioSema/TypeInfer.cpp`; lowering/runtime routing in `src/StyioLowering/AstToStyioIR.cpp`; sample execution in `StyioSamples.MatrixOperationsAndIntrinsics`. |
+| `mat_identity`, `mat_identity_i64` | Construct square identity matrices. Static positive size is preserved in the inferred type. | Same matrix-intrinsic Sema/lowering/runtime evidence. |
+| `mat_shape`, `mat_rows`, `mat_cols` | Return shape metadata as `list[i64]` or `i64`. | Type and lowering tests in `StyioTypeInferenceContract.MatrixIntrinsicCallsInferShapesAndRejectBadInputs` and `StyioIRContract.MatrixIntrinsicLoweringUsesTypedRuntimeEntryPoints`. |
+| `mat_get`, `mat_set`, `mat_clone` | Access, mutate, and clone matrix handles. `mat_set` returns `i64` status and checks element compatibility before lowering. | Runtime and sample tests cover i64/f64 operations, clone independence, and stable error boundaries. |
+| `mat_add`, `mat_sub`, `mat_scale`, `mat_hadamard`, `matmul`, `transpose`, `dot`, `mat_sum`, `norm` | Numeric matrix arithmetic, transforms, and reductions with static shape checks where dimensions are known. | Sema shape checks, lowering entrypoint tests, `StyioSamples.MatrixOperationsAndIntrinsics`, and runtime C API coverage. |
 
-**Algorithm:** O(1) Incremental Sliding Sum
+Matrix intrinsics remain compiler-owned because the compiler must track element kind, static shape,
+runtime helper selection, and fail-closed diagnostics before codegen. They are not `std.math` or
+`std.collections` APIs until a standard-library promotion record updates `library/manifest.json`
+and the catalog.
 
-```
-State: ring_buffer[n], sum, cursor, count
+### IO Helper Intrinsics
 
-On new value x:
-    if x == @: skip (do not advance cursor)
-    old = ring_buffer[cursor]
-    ring_buffer[cursor] = x
-    sum = sum - old + x
-    cursor = (cursor + 1) % n
-    count = min(count + 1, n)
-    if count < n: emit @    // cold start
-    else: emit sum / n
-```
+`src/StyioUtil/IOIntrinsics.hpp` selects runtime helper names for typed stdin list pulls. The
+active element families are i64/int aliases, f64/float aliases, and string aliases. This is a
+compiler/runtime helper route for accepted stdin syntax, not a public `std.io` API.
 
-**Memory:** `n * sizeof(T) + 3 scalars`
+## Deferred Candidates
 
-**LLVM hint:** The division by `n` can be replaced with multiplication by `1.0/n` (precomputed constant) for floating-point types.
+The following surfaces are design candidates only in this document:
 
----
+| Candidate | Required before acceptance |
+|-----------|----------------------------|
+| `[min, n]`, `[std, n]`, `[ema, n]`, `[rsi, n]` | Parser recognition, AST tests, Sema/type rules, state-slot classification, lowering, codegen/runtime behavior, positive execution tests, adjacent unsupported diagnostics, and catalog updates. |
+| `cross_over(a, b)`, `cross_under(a, b)` | Accepted source form, history-selector decision, type rules, execution semantics, and negative tests for unavailable history. |
+| `is_valid(x)` and `x ?? reason` | Absence metadata contract, source syntax, type behavior, lowering/runtime route, and diagnostics. |
+| Value-level `x \| default` absence fallback | A source-level absence value contract distinct from current resource-effect `?\| op \| fallback` behavior. |
+| Order dispatch and global state snapshot examples | Resource driver or runtime contract, trust/failure model, and tests. |
+| Vectorization or `alwaysinline` guarantees | Codegen-shape tests or benchmark evidence tied to the exact intrinsic path. |
 
-### 2.2 Rolling Maximum: `[max, n]`
+Deferred candidates must not be cited as active language, standard-library, or performance behavior.
 
-**Syntax:**
+## Admission Checklist
 
-```
-high14 = price[max, 14]
-```
+Before adding or promoting an intrinsic:
 
-**Algorithm:** O(1) amortized Monotonic Deque
-
-```
-State: ring_buffer[n], deque_indices[n], head, tail, cursor
-
-On new value x:
-    if x == @: skip
-    // Remove expired indices
-    while head != tail && deque_indices[head] <= cursor - n:
-        head++
-    // Remove smaller elements from back
-    while head != tail && ring_buffer[deque_indices[tail-1]] <= x:
-        tail--
-    deque_indices[tail++] = cursor
-    ring_buffer[cursor % n] = x
-    cursor++
-    emit ring_buffer[deque_indices[head]]
-```
-
-**Memory:** `2 * n * sizeof(T) + 4 scalars`
-
----
-
-### 2.3 Rolling Minimum: `[min, n]`
-
-Identical to `[max, n]` with reversed comparison (`>=` instead of `<=` in the deque pruning step).
-
----
-
-### 2.4 Rolling Standard Deviation: `[std, n]`
-
-**Syntax:**
-
-```
-vol20 = price[std, 20]
-```
-
-**Algorithm:** Sliding Welford's (windowed online variance)
-
-For a fixed-size sliding window, we maintain:
-
-```
-State: ring_buffer[n], mean, m2, cursor, count
-
-On new value x:
-    if x == @: skip
-    old = ring_buffer[cursor % n]
-    ring_buffer[cursor % n] = x
-    
-    if count < n:
-        // Growing phase: standard Welford update
-        count++
-        delta = x - mean
-        mean += delta / count
-        delta2 = x - mean
-        m2 += delta * delta2
-    else:
-        // Sliding phase: remove old, add new
-        old_mean = mean
-        mean += (x - old) / n
-        m2 += (x - old) * ((x - mean) + (old - old_mean))
-    
-    cursor++
-    if count < n: emit @
-    else: emit sqrt(m2 / (n - 1))    // sample std dev
-```
-
-**Memory:** `n * sizeof(T) + 4 scalars`
-
-**Precision note:** For `f32` with large `n` (>1000), consider promoting internal accumulators to `f64` to avoid catastrophic cancellation.
-
----
-
-### 2.5 Exponential Moving Average: `[ema, n]`
-
-**Syntax:**
-
-```
-ema20 = price[ema, 20]
-```
-
-**Algorithm:** Wilder's Smoothing (no ring buffer needed)
-
-```
-State: ema_val, initialized (bool)
-Constant: alpha = 2.0 / (n + 1)
-
-On new value x:
-    if x == @: skip
-    if !initialized:
-        ema_val = x
-        initialized = true
-    else:
-        ema_val = alpha * x + (1 - alpha) * ema_val
-    emit ema_val
-```
-
-**Memory:** `2 scalars` (extremely lightweight)
-
----
-
-## 3. Signal Generators
-
-These produce **boolean** streams for trading logic.
-
-### 3.1 Crossover Detection: `cross_over(a, b)` / `cross_under(a, b)`
-
-**Syntax:**
-
-```
-buy_signal = cross_over(@ma5[-1], @ma20[-1])
-sell_signal = cross_under(@ma5[-1], @ma20[-1])
-```
-
-**2026-04-24 revision:** `cross_over(a, b)` and `cross_under(a, b)` wait for the
-revised history selector. Retired history-probe spellings must not be used in
-new feature fixtures.
-
-**Requirement:** Both `a` and `b` should be values read from resource-object
-selectors such as `@ma5[-1]`. Do not reintroduce retired state/history probe
-families in active tests.
-
-**Output:** Strict `bool` — never `@`.
-
----
-
-### 3.2 Relative Strength Index: `[rsi, n]`
-
-**Syntax:**
-
-```
-rsi14 = price[rsi, 14]
-```
-
-**Algorithm:** Wilder's Smoothed RSI
-
-```
-State: avg_gain, avg_loss, prev_price, initialized, warm_count
-Constant: period = n
-
-On new value x:
-    if x == @: skip
-    if prev_price == @:
-        prev_price = x
-        emit @
-        return
-    
-    change = x - prev_price
-    prev_price = x
-    gain = (change > 0) ? change : 0
-    loss = (change < 0) ? -change : 0
-    
-    if warm_count < period:
-        avg_gain += gain
-        avg_loss += loss
-        warm_count++
-        if warm_count == period:
-            avg_gain /= period
-            avg_loss /= period
-        else:
-            emit @
-            return
-    else:
-        avg_gain = (avg_gain * (period - 1) + gain) / period
-        avg_loss = (avg_loss * (period - 1) + loss) / period
-    
-    if avg_loss == 0: emit 100.0
-    else:
-        rs = avg_gain / avg_loss
-        emit 100.0 - (100.0 / (1.0 + rs))
-```
-
-**Memory:** `5 scalars`
-
----
-
-## 4. Sanitization & Recovery Operators
-
-### 4.1 Validity Check: `is_valid(x)`
-
-**Syntax:**
-
-```
-?(is_valid(p)) => {
-    process(p)
-}
-```
-
-**LLVM IR:** Single `icmp` or metadata flag test. Emits `i1` (boolean).
-
----
-
-### 4.2 Value Fallback: `x | default`
-
-**Syntax:**
-
-```
-safe = price | @last_valid[-1]
-```
-
-**LLVM IR:** Compiles to a single `select` instruction (no branch, no phi node). If left operand's undefined flag is set, return right operand.
-
-This is value-level fallback for runtime absence. Resource-effect fallback uses
-the uniform `?| resource_operation | fallback` surface instead: `?| op` settles
-the operation in place and raises immediately on failure, while `?| op | fallback`
-recovers through normal type inference.
-
----
-
-### 4.3 Diagnostic Extract: `x ?? reason`
-
-**Syntax:**
-
-```
-msg = last_result ?? reason
-```
-
-**Runtime:** In debug mode, extracts the `ReasonCode` and `SourceLocation` from the tainted `@` metadata. In release mode, this is a no-op that returns an empty string.
-
----
-
-## 5. Accumulator Patterns (Scan)
-
-These are not intrinsics per se but common patterns enabled by resource topology
-resource declarations and writes.
-
-### 5.1 Running Sum
-
-```
-@total_vol : f64|..1|
-next_total = @total_vol[-1] + volume
-next_total -> @total_vol
-```
-
-### 5.2 Running Maximum
-
-```
-@high_price : f64|..1|
-prev_high = @high_price[-1]
-next_high = ?(p > prev_high) => p | prev_high
-next_high -> @high_price
-```
-
-### 5.3 Running Count
-
-```
-@break_times : i64|..1|
-prev_count = @break_times[-1]
-next_count = ?(signal) => prev_count + 1 | prev_count
-next_count -> @break_times
-```
-
-### 5.4 VWAP (Volume-Weighted Average Price)
-
-```
-@total_pv : f64|..1|
-@total_vol : f64|..1|
-next_pv = @total_pv[-1] + (price * volume)
-next_vol = @total_vol[-1] + volume
-next_pv -> @total_pv
-next_vol -> @total_vol
-vwap = next_pv / next_vol
-```
-
----
-
-## 6. Execution Primitives
-
-These interact with the resource driver layer.
-
-### 6.1 Order Dispatch
-
-```
-?(signal) => {
-    @order("Limit", price, qty)
-}
-```
-
-Compiles to an **async non-blocking** call to the trade execution driver. Must not block the pulse clock.
-
-### 6.2 State Snapshot
-
-```
-?(time == 15:00) => {
-    GlobalState.snapshot()
-}
-```
-
-Triggers `mmap`-based or copy-on-write serialization of the entire state ledger to disk.
-
----
-
-## 7. LLVM CodeGen Constraints
-
-### 7.1 Auto-Vectorization
-
-For window operations over resource topology recent-window resources such as `@x : T|..n|`
-where `n > 8`, the generated LLVM loop must:
-- Avoid loop-carried dependencies where possible
-- Use `<n x float>` vector types when the operation is element-wise
-- Emit `llvm.vector.reduce.*` intrinsics for reductions
-
-### 7.2 Branch Prediction
-
-For guard conditionals:
-- Prefer LLVM `select` instruction over `br` + `phi` when both branches are pure expressions
-- Use `br` only when branches have side effects, such as dispatching to different resource drivers
-
-### 7.3 Memory Layout
-
-State containers in the anonymous ledger must be allocated in a **single contiguous block**:
-
-```
-[Ring_MA5 (5*f64)] [Ring_MA20 (20*f64)] [Scalar_total (f64)] [Scalar_count (i64)] ...
-```
-
-Base address is stored in a single pointer. Resource selector reads compile to `base_ptr + constant_offset`, enabling the CPU prefetcher to work effectively.
-
----
-
-## Appendix: Consultant's Additional Notes
-
-### On the `[op, n]` Extensibility Model
-
-The current design hardcodes intrinsic names (`avg`, `max`, `std`, `rsi`) in the parser's selector mode. This is performant but inflexible. Consider a two-tier approach:
-
-1. **Tier 1 (Compiler Intrinsics):** The operators listed in this document. Recognized by the parser, inlined by codegen. Fixed set.
-2. **Tier 2 (User-Defined Selectors):** Allow users to register custom selector functions that the compiler can optionally inline via LTO. Syntax could be:
-
-```
-# [bollinger, n, k] := (src) => {
-    mu = src[avg, n]
-    sigma = src[std, n]
-    <| (mu + k * sigma, mu - k * sigma)
-}
-```
-
-This would let the quant community build a shared library of indicators without forking the compiler.
-
-### On Cold Start Behavior
-
-All windowed intrinsics emit `@` during their warm-up period (first `n-1` pulses). This is consistent with the "honest missing" philosophy but means the first ~20 seconds of a 20-period MA on 1-second data will produce no output. For live trading, consider:
-
-- A `warm_from` directive that pre-loads historical data into the buffer before the main loop starts
-- Integration with the resource driver's "replay" capability to fast-forward through historical ticks
-
-### On Numerical Stability
-
-The sliding Welford algorithm for `[std, n]` can accumulate floating-point drift over millions of ticks. For production systems running 24/7, consider periodic "ground-truth recalculation" — every `N` ticks, recompute from the full ring buffer. This adds O(n) cost once every N ticks but bounds the maximum drift.
+1. Update this document with the exact accepted surface and explicit non-goals.
+2. Add Sema/type rules and fail-closed diagnostics for adjacent unsupported forms.
+3. Add lowering and codegen/runtime evidence.
+4. Add positive execution coverage and negative diagnostics.
+5. Update `workflows/TEST-CATALOG.md` with the maintaining gate.
+6. Update IM-D8 when the capability changes the compiler-intrinsic vs standard-library boundary.
+7. Update `library/manifest.json` only when the capability becomes an active standard-library module or API.

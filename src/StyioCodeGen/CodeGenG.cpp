@@ -4212,11 +4212,16 @@ StyioToLLVM::toLLVMIR(SIOFileLineIter* node) {
 
   llvm::AllocaInst* h_slot = nullptr;
   llvm::Value* h0 = nullptr;
+  std::string temp_handle_name;
   if (node->from_path) {
     llvm::Value* path = node->path_expr->toLLVMIR(this);
     h0 = theBuilder->CreateCall(open_fn, {path});
     h_slot = theBuilder->CreateAlloca(theBuilder->getInt64Ty(), nullptr, "file_iter_h");
     theBuilder->CreateStore(h0, h_slot);
+    temp_handle_name =
+      "__styio_file_iter_h_" + std::to_string(file_handle_temp_counter_++);
+    mutable_variables[temp_handle_name] = h_slot;
+    register_file_handle_for_raii(temp_handle_name);
     if (resource_effect_operation_depth_ == 0) {
       emit_runtime_error_guard_return();
     }
@@ -4323,11 +4328,13 @@ StyioToLLVM::toLLVMIR(SIOFileLineIter* node) {
     pulse_region_ledgers_[node->pulse_region_id] = {li8, node->pulse_plan.get()};
   }
   if (node->from_path) {
-    llvm::FunctionCallee close_fn = theModule->getOrInsertFunction(
-      "styio_file_close",
-      llvm::FunctionType::get(theBuilder->getVoidTy(), {theBuilder->getInt64Ty()}, false));
-    llvm::Value* hf = theBuilder->CreateLoad(theBuilder->getInt64Ty(), h_slot);
-    theBuilder->CreateCall(close_fn, {hf});
+    emit_file_handle_slot_close(h_slot);
+    if (!temp_handle_name.empty()) {
+      mutable_variables.erase(temp_handle_name);
+    }
+    if (resource_effect_operation_depth_ == 0) {
+      emit_runtime_error_guard_return_after_cleanup();
+    }
   }
   return theBuilder->getInt64(0);
 }
@@ -5046,9 +5053,38 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
       "styio_stdin_read_line",
       llvm::FunctionType::get(char_ptr, {}, false));
   };
-  llvm::FunctionCallee close_fn = theModule->getOrInsertFunction(
-    "styio_file_close",
-    llvm::FunctionType::get(theBuilder->getVoidTy(), {i64t}, false));
+  auto register_temp_file_handle = [&](llvm::AllocaInst* slot, const char* label)
+  {
+    if (slot == nullptr) {
+      return std::string();
+    }
+    std::string name =
+      std::string("__styio_") + label + "_" + std::to_string(file_handle_temp_counter_++);
+    mutable_variables[name] = slot;
+    register_file_handle_for_raii(name);
+    return name;
+  };
+  auto close_temp_file_handle = [&](llvm::AllocaInst* slot, const std::string& name)
+  {
+    if (slot != nullptr) {
+      emit_file_handle_slot_close(slot);
+    }
+    if (!name.empty()) {
+      mutable_variables.erase(name);
+    }
+  };
+  auto guard_runtime_error_if_unwrapped = [&]()
+  {
+    if (resource_effect_operation_depth_ == 0) {
+      emit_runtime_error_guard_return();
+    }
+  };
+  auto guard_cleanup_error_if_unwrapped = [&]()
+  {
+    if (resource_effect_operation_depth_ == 0) {
+      emit_runtime_error_guard_return_after_cleanup();
+    }
+  };
 
   auto* lit_a = dynamic_cast<SCListLiteral*>(node->iterable_a);
   auto* lit_b = dynamic_cast<SCListLiteral*>(node->iterable_b);
@@ -5336,11 +5372,14 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
       llvm::FunctionType::get(zip_get_type(list_family), {i64t, i64t}, false));
 
     llvm::AllocaInst* h_slot = nullptr;
+    std::string h_slot_name;
     if (stream_is_file) {
       llvm::Value* path = stream_ir->toLLVMIR(this);
       llvm::Value* h0 = theBuilder->CreateCall(open_fn, {path});
       h_slot = theBuilder->CreateAlloca(i64t, nullptr, "zip_stream_list_h");
       theBuilder->CreateStore(h0, h_slot);
+      h_slot_name = register_temp_file_handle(h_slot, "zip_stream_list_h");
+      guard_runtime_error_if_unwrapped();
     }
     llvm::Value* list_value = list_ir->toLLVMIR(this);
     if (!list_value->getType()->isIntegerTy(64)) {
@@ -5433,7 +5472,8 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
 
     theBuilder->SetInsertPoint(exit_bb);
     if (stream_is_file) {
-      theBuilder->CreateCall(close_fn, {theBuilder->CreateLoad(i64t, h_slot)});
+      close_temp_file_handle(h_slot, h_slot_name);
+      guard_cleanup_error_if_unwrapped();
     }
     if (release_list) {
       theBuilder->CreateCall(list_release_fn(), {theBuilder->CreateLoad(i64t, list_slot)});
@@ -5638,6 +5678,8 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     llvm::Value* h0 = theBuilder->CreateCall(open_fn, {pb});
     llvm::AllocaInst* hb = theBuilder->CreateAlloca(i64t, nullptr, "zip_lf_h");
     theBuilder->CreateStore(h0, hb);
+    std::string hb_name = register_temp_file_handle(hb, "zip_lf_h");
+    guard_runtime_error_if_unwrapped();
 
     llvm::AllocaInst* idx_slot = theBuilder->CreateAlloca(i64t, nullptr, "zip_lf_i");
     theBuilder->CreateStore(zero, idx_slot);
@@ -5697,8 +5739,8 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     theBuilder->CreateBr(hdr_bb);
 
     theBuilder->SetInsertPoint(exit_bb);
-    llvm::Value* hf = theBuilder->CreateLoad(i64t, hb);
-    theBuilder->CreateCall(close_fn, {hf});
+    close_temp_file_handle(hb, hb_name);
+    guard_cleanup_error_if_unwrapped();
     loop_stack_.pop_back();
     finish_zip();
     return theBuilder->getInt64(0);
@@ -5756,6 +5798,8 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     llvm::Value* h0a = theBuilder->CreateCall(open_fn, {pa});
     llvm::AllocaInst* ha = theBuilder->CreateAlloca(i64t, nullptr, "zip_fl_h");
     theBuilder->CreateStore(h0a, ha);
+    std::string ha_name = register_temp_file_handle(ha, "zip_fl_h");
+    guard_runtime_error_if_unwrapped();
 
     llvm::AllocaInst* idx_slot = theBuilder->CreateAlloca(i64t, nullptr, "zip_fl_i");
     theBuilder->CreateStore(zero, idx_slot);
@@ -5814,8 +5858,8 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     theBuilder->CreateBr(hdr_bb);
 
     theBuilder->SetInsertPoint(exit_bb);
-    llvm::Value* hfe = theBuilder->CreateLoad(i64t, ha);
-    theBuilder->CreateCall(close_fn, {hfe});
+    close_temp_file_handle(ha, ha_name);
+    guard_cleanup_error_if_unwrapped();
     loop_stack_.pop_back();
     finish_zip();
     return theBuilder->getInt64(0);
@@ -5852,33 +5896,33 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
 
     llvm::AllocaInst* ha = nullptr;
     llvm::AllocaInst* hb = nullptr;
-    llvm::Value* h0a = nullptr;
-    llvm::Value* h0b = nullptr;
+    std::string ha_name;
+    std::string hb_name;
     if (node->a_is_file) {
       llvm::Value* pa = node->iterable_a->toLLVMIR(this);
-      h0a = theBuilder->CreateCall(open_fn, {pa});
-    }
-    if (node->b_is_file) {
-      llvm::Value* pb = node->iterable_b->toLLVMIR(this);
-      h0b = theBuilder->CreateCall(open_fn, {pb});
-    }
-    if (node->a_is_file) {
       ha = theBuilder->CreateAlloca(
         i64t,
         nullptr,
         both_files ? "zip_ff_ha" : "zip_streams_ha");
+      llvm::Value* h0a = theBuilder->CreateCall(open_fn, {pa});
+      theBuilder->CreateStore(h0a, ha);
+      ha_name = register_temp_file_handle(
+        ha,
+        both_files ? "zip_ff_ha" : "zip_streams_ha");
+      guard_runtime_error_if_unwrapped();
     }
     if (node->b_is_file) {
+      llvm::Value* pb = node->iterable_b->toLLVMIR(this);
       hb = theBuilder->CreateAlloca(
         i64t,
         nullptr,
         both_files ? "zip_ff_hb" : "zip_streams_hb");
-    }
-    if (node->a_is_file) {
-      theBuilder->CreateStore(h0a, ha);
-    }
-    if (node->b_is_file) {
+      llvm::Value* h0b = theBuilder->CreateCall(open_fn, {pb});
       theBuilder->CreateStore(h0b, hb);
+      hb_name = register_temp_file_handle(
+        hb,
+        both_files ? "zip_ff_hb" : "zip_streams_hb");
+      guard_runtime_error_if_unwrapped();
     }
 
     theBuilder->CreateBr(hdr_bb);
@@ -5931,10 +5975,13 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
 
     theBuilder->SetInsertPoint(exit_bb);
     if (node->a_is_file) {
-      theBuilder->CreateCall(close_fn, {theBuilder->CreateLoad(i64t, ha)});
+      close_temp_file_handle(ha, ha_name);
     }
     if (node->b_is_file) {
-      theBuilder->CreateCall(close_fn, {theBuilder->CreateLoad(i64t, hb)});
+      close_temp_file_handle(hb, hb_name);
+    }
+    if (node->a_is_file || node->b_is_file) {
+      guard_cleanup_error_if_unwrapped();
     }
     loop_stack_.pop_back();
     finish_zip();

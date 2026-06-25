@@ -54,7 +54,7 @@ Before making any language-level change, agents MUST read:
 - `../design/Styio-Language-Design.md` — Full language specification
 - `../design/Styio-EBNF.md` — Formal grammar
 - `../design/Styio-Symbol-Reference.md` — Symbol lookup table
-- `../design/Styio-StdLib-Intrinsics.md` — Standard library algorithms
+- `../design/Styio-StdLib-Intrinsics.md` — compiler intrinsic and standard-library boundary evidence
 - `../design/Styio-Resource-Driver.md` — Resource driver interface
 - `../design/Styio-Research-Innovations.md` — Research novelty points (do not break these)
 - `./DOCUMENTATION-POLICY.md` — Doc layout, **§0** maintenance (minimal change, three-doc SSOT), history/checkpoint/feature-test rules
@@ -497,7 +497,7 @@ llvm::Value* StyioToLLVM::toLLVMIR(SGWaveExpr* node) {
 ### CodeGen Rules
 
 - **Prefer `select` over `br` + `phi`** for conditional values without side effects
-- **Mark intrinsic implementations as `alwaysinline`**
+- **Use direct LLVM inlining only when that is the implemented intrinsic route; runtime-helper intrinsics must instead name their registered helper boundary**
 - **Never allocate on the heap** from generated code — all state must be stack-allocated or in the pre-allocated state ledger
 - **Respect the type system** — always call `getDataType()` on the AST/IR node to determine the correct LLVM type
 
@@ -505,20 +505,28 @@ llvm::Value* StyioToLLVM::toLLVMIR(SGWaveExpr* node) {
 
 ## 9. How to Add a New Compiler Intrinsic
 
-Compiler intrinsics are recognized selector modes like `[avg, n]`, `[max, n]`, etc.
+Compiler intrinsics are compiler-owned surfaces that need parser, Sema, lowering,
+runtime helper routing, or codegen participation. Current active examples are
+the `avg`/`max` series selector slice and matrix helper calls such as `mat_zeros`,
+`matmul`, `transpose`, `dot`, and `norm`. Do not treat deferred algorithm names
+as accepted behavior until `../design/Styio-StdLib-Intrinsics.md`,
+`workflows/TEST-CATALOG.md`, and the owning tests name implementation evidence.
 
-### Step 1: Define Selector Mode
+### Step 1: Define The Compiler-Owned Surface
 
-Add the mode string to the selector_mode recognition in the parser (e.g., `"avg"`, `"max"`, `"std"`, `"ema"`, `"rsi"`).
+For selector-style intrinsics, add the mode string to the parser only when the
+same checkpoint also adds Sema/lowering/codegen evidence. For call-style
+intrinsics, keep the grammar as ordinary calls and add the compiler-owned
+recognition in Sema/lowering instead.
 
 ### Step 2: Document the Algorithm
 
 Add a full specification to `../design/Styio-StdLib-Intrinsics.md` including:
 - Algorithm pseudocode
-- Time complexity (must be O(1) amortized per pulse)
-- Memory requirements (exact byte count)
-- `@` handling behavior
-- LLVM codegen hints
+- Time and memory behavior only when supported by implementation or measured evidence
+- absence/resource-effect behavior
+- LLVM codegen or runtime-helper route
+- deferred non-goals for nearby unsupported forms
 
 ### Step 3: Implement State Allocation
 
@@ -526,7 +534,10 @@ The intrinsic's state (ring buffer, accumulator, deque) must be allocated as par
 
 ### Step 4: Implement Inline CodeGen
 
-Generate LLVM IR that performs the algorithm directly without helper calls. Record benchmark evidence before making performance statements about the generated path.
+Generate LLVM IR directly when the intrinsic requires codegen ownership, or route
+to an explicitly registered runtime helper when the active implementation uses
+that boundary. Record benchmark evidence before adding performance wording about
+the generated path.
 
 ---
 
@@ -784,7 +795,8 @@ Features from the design documents and their current implementation state:
 | Continue (`>>>`) | §5.6 | — | — | — | — | — | — | **Not Started** |
 | Stream Zip (`&`) | §9.1 | — | — | — | — | — | — | **Not Started** |
 | Snapshot Pull (`<< @res`) | §9.2 | — | — | — | — | — | — | **Not Started** |
-| Selector intrinsics (`[avg,n]`) | Intrinsics §2 | — | — | — | — | — | — | **Not Started** |
+| Selector intrinsics (`[avg,n]`, `[max,n]`) | Intrinsics §2 | ✅ | ✅ | ✅ | Partial | Partial | Partial | **Partial: avg/max pulse-state slice only** |
+| Matrix helper intrinsics (`mat_*`, `matmul`, `transpose`, `dot`, `norm`) | Intrinsics / matrix design | ✅ | ordinary calls | ✅ | ✅ | ✅ | ✅ | **Working** |
 | Diagnostic `??` | §12.3 | — | — | — | — | — | — | **Not Started** |
 | Anonymous Ledger | §8.6 | — | — | — | — | — | — | **Not Started** |
 | Context capture `$(...)` | §4.3 | — | — | — | — | — | — | **Not Started** |

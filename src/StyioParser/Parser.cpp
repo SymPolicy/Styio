@@ -1133,9 +1133,18 @@ parse_format_expr_text_latest(const std::string& expr_text, StyioParserEngine en
     false
   );
 
-  StyioAST* expr = (engine == StyioParserEngine::Nightly)
-                     ? parse_expr_subset_nightly(expr_context)
-                     : parse_expr(expr_context);
+  StyioAST* expr = nullptr;
+  switch (engine) {
+    case StyioParserEngine::Legacy:
+      expr = parse_expr(expr_context);
+      break;
+    case StyioParserEngine::Nightly:
+      expr = parse_expr_subset_nightly(expr_context);
+      break;
+  }
+  if (expr == nullptr) {
+    throw StyioParseError("unknown parser engine in format string expression");
+  }
   expr_context.skip();
   if (expr_context.cur_tok_type() != StyioTokenType::TOK_EOF) {
     throw StyioSyntaxError(
@@ -5830,7 +5839,7 @@ styio_parser_engine_name_latest(StyioParserEngine engine) {
     case StyioParserEngine::Nightly:
       return "nightly";
   }
-  return "legacy";
+  return "invalid";
 }
 
 static MainBlockAST*
@@ -5920,5 +5929,5 @@ parse_main_block_with_engine_latest(
   if (route_stats != nullptr) {
     *route_stats = StyioParserRouteStats{};
   }
-  return parse_main_block_legacy(context);
+  throw StyioParseError("unknown parser engine");
 }

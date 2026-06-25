@@ -1510,3 +1510,31 @@ TEST(StyioCodeGenInternal, ResourceEffectZipNativeAndDriverEdgesStayExplicit) {
   const std::string stderr_text = testing::internal::GetCapturedStderr();
   EXPECT_NE(stderr_text.find("main not found"), std::string::npos);
 }
+
+TEST(StyioCodeGenInternal, StreamZipMissingFileFailsClosedAtRuntime) {
+  styio_runtime_clear_error();
+  auto generator = make_generator();
+  std::unique_ptr<SGMainEntry> entry(SGMainEntry::Create({
+    SIOStreamZip::Create(
+      SGConstString::Create(
+        "/tmp/styio_codegen_missing_stream_zip_9b8fe8e2_7dfe_42ed_9ce2_4f9e587f7f6d.txt"),
+      true,
+      false,
+      "line",
+      SCListLiteral::Create({SGConstInt::Create(1)}, "i64"),
+      false,
+      false,
+      "item",
+      true,
+      false,
+      "string",
+      "i64",
+      SGBlock::Create({SGNoOp::Create()})),
+  }));
+
+  EXPECT_NO_THROW(entry->toLLVMIR(generator.get()));
+  EXPECT_NO_THROW(generator->execute());
+  EXPECT_EQ(styio_runtime_has_error(), 1);
+  EXPECT_STREQ(styio_runtime_last_error_subcode(), "STYIO_RUNTIME_FILE_OPEN_READ");
+  styio_runtime_clear_error();
+}

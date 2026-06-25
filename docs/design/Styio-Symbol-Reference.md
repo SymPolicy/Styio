@@ -62,11 +62,9 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | `[?, cond]` | Retired Predicate Guard | Inactive old syntax | Use `?(cond) => value \| fallback` or `?(cond) => { ... }` |
 | `[?=, val]` | Retired Equality Probe | Inactive old syntax | Use `?=` match blocks |
 | Retired history-probe selector | Retired History Probe | Inactive old syntax | Use resource-object selectors such as `@price[-1]` and `@price[-3..]` |
-| `[avg, n]` | Moving Average | Postfix on stream | Compiler intrinsic: O(1) sliding sum |
-| `[max, n]` | Rolling Maximum | Postfix on stream | Compiler intrinsic: monotonic queue |
-| `[min, n]` | Rolling Minimum | Postfix on stream | Compiler intrinsic: monotonic queue |
-| `[std, n]` | Rolling Std Dev | Postfix on stream | Compiler intrinsic: Welford's algorithm |
-| `[rsi, n]` | RSI Oscillator | Postfix on stream | Compiler intrinsic: Wilder SMMA |
+| `[avg, n]` | Moving Average | Postfix on stream/state input | Active compiler intrinsic for the i64 pulse-ledger path; see `Styio-StdLib-Intrinsics.md` for limits |
+| `[max, n]` | Rolling Maximum | Postfix on stream/state input | Active compiler intrinsic for the i64 pulse-ledger path; see `Styio-StdLib-Intrinsics.md` for limits |
+| `[min, n]`, `[std, n]`, `[ema, n]`, `[rsi, n]` | Deferred series intrinsics | Not active syntax contract | Design candidates only until parser, Sema, lowering, runtime/codegen, and tests land |
 
 ---
 

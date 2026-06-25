@@ -1,7 +1,15 @@
 # Examples
 
+**Purpose:** List runnable repository-local examples and their checked outputs.
+
+**Last updated:** 2026-06-25
+
 The active examples in this directory are runnable with
 `build/default/bin/styio` and are covered by CTest.
+
+These examples are smoke coverage and user-facing samples. They do not define
+standard-library APIs or compiler-intrinsic behavior; promotion requires the
+manifest, IM-D8, and test-catalog evidence path.
 
 ## Hello World
 

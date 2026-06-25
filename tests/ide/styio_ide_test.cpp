@@ -28,11 +28,14 @@
 #include "StyioServices/StyioIDE/Service.hpp"
 #undef private
 
-#include "StyioServices/StyioLSP/Server.hpp"
 #include "StyioException/Exception.hpp"
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
 #include "llvm/Support/FormatVariadic.h"
+
+#define private public
+#include "StyioServices/StyioLSP/Server.hpp"
+#undef private
 
 #define analyze_document analyze_document_internal_for_test
 #include "../src/StyioServices/StyioIDE/CompilerBridge.cpp"
@@ -3333,6 +3336,38 @@ TEST(StyioSemanticBridge, RejectsMalformedInputWithoutRecovery) {
   EXPECT_EQ(it, summary.function_signatures.end());
 }
 
+TEST(StyioSemanticBridge, EditorSyntaxOutlineDoesNotBecomeCompilerAcceptance) {
+  const std::string source =
+    "# broken := (a: i32, b: i32) => {\n"
+    "  value: i32 := a +\n"
+    "}\n"
+    "# stable := (x: i32, y: i32) => x + y\n"
+    "result: i32 := stable(1, 2)\n";
+
+  styio::ide::SyntaxParser parser;
+  styio::ide::DocumentSnapshot snapshot;
+  snapshot.file_id = 91;
+  snapshot.snapshot_id = 1;
+  snapshot.path = "memory://editor_outline_is_auxiliary.styio";
+  snapshot.version = 1;
+  snapshot.buffer = styio::ide::TextBuffer{source};
+
+  const auto syntax = parser.parse(snapshot);
+  EXPECT_EQ(
+    syntax_outline(syntax),
+    std::vector<std::string>({"function:broken", "function:stable", "binding:result"}));
+
+  const auto summary = styio::ide::analyze_document(snapshot.path, source);
+  EXPECT_FALSE(summary.parse_success);
+  EXPECT_FALSE(summary.used_recovery);
+  EXPECT_TRUE(summary.items.empty());
+  EXPECT_TRUE(summary.inferred_types.empty());
+  EXPECT_TRUE(summary.function_signatures.empty());
+  ASSERT_FALSE(summary.diagnostics.empty());
+  EXPECT_EQ(summary.diagnostics.front().source, "styio-compiler");
+  EXPECT_EQ(summary.diagnostics.front().phase, "parse");
+}
+
 TEST(StyioSemanticBridge, CoversCompilerBridgeLexTupleAndResourceFacts) {
   const auto lex_summary = styio::ide::analyze_document(
     "memory://compiler_bridge_lex.styio",
@@ -3404,6 +3439,36 @@ TEST(StyioLspServer, PublishDiagnosticsCarriesStyioCodeAndPhase) {
   const auto* data = diagnostic->getObject("data");
   ASSERT_NE(data, nullptr);
   EXPECT_EQ(data->getString("phase").value_or(""), "service");
+}
+
+TEST(StyioLspServer, DiagnosticPhaseFallsBackFromStyioCode) {
+  styio::lsp::Server server;
+  const styio::ide::TextBuffer buffer("value\n");
+  const std::vector<styio::ide::Diagnostic> diagnostics{
+    styio::ide::Diagnostic{
+      styio::ide::TextRange{0, 5},
+      styio::ide::DiagnosticSeverity::Error,
+      "styio-compiler",
+      "parse failed",
+      "STYIO_PARSE_UNEXPECTED_TOKEN",
+      ""}};
+
+  const auto notification = server.make_diagnostic_notification(
+    "file:///phase_fallback.styio",
+    buffer,
+    diagnostics);
+  const auto* params = notification.getObject("params");
+  ASSERT_NE(params, nullptr);
+  const auto* items = params->getArray("diagnostics");
+  ASSERT_NE(items, nullptr);
+  ASSERT_EQ(items->size(), 1u);
+
+  const auto* diagnostic = (*items)[0].getAsObject();
+  ASSERT_NE(diagnostic, nullptr);
+  EXPECT_EQ(diagnostic->getString("code").value_or(""), "STYIO_PARSE_UNEXPECTED_TOKEN");
+  const auto* data = diagnostic->getObject("data");
+  ASSERT_NE(data, nullptr);
+  EXPECT_EQ(data->getString("phase").value_or(""), "parse");
 }
 
 TEST(StyioLspServer, HandlesInitializeOpenAndCompletion) {

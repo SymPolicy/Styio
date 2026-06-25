@@ -10,6 +10,8 @@
 
 When `--asan-build-dir` points at a missing directory, the script now bootstraps a RelWithDebInfo ASan/UBSan configure in that location before running the sanitizer leg.
 
+Build parallelism is controlled by `--build-jobs`, `STYIO_CHECKPOINT_BUILD_JOBS`, or `CMAKE_BUILD_PARALLEL_LEVEL`. If none is set, the script caps parallelism by detected CPU count and total memory so cold builds on smaller CI workers do not fail before reaching CTest. The same job count is forwarded to the coverage leg.
+
 The health gate also runs `scripts/coverage-gate.sh` with a default 95% project
 source line-coverage threshold. A coverage result below 95% fails checkpoint
 health and therefore fails the delivery gate unless the delivery is explicitly
@@ -27,6 +29,12 @@ Fast local checkpoint health:
 
 ```bash
 ./scripts/checkpoint-health.sh --no-asan --no-fuzz
+```
+
+Memory-constrained worker:
+
+```bash
+./scripts/checkpoint-health.sh --build-jobs 2
 ```
 
 Coverage build override:

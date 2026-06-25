@@ -6,6 +6,8 @@
 #include <exception>
 #include <sstream>
 
+#include "StyioServices/DiagnosticContract.hpp"
+
 namespace styio::lsp {
 
 namespace {
@@ -356,8 +358,12 @@ Server::make_diagnostic_notification(
     if (!diagnostic.code.empty()) {
       item["code"] = diagnostic.code;
     }
-    if (!diagnostic.phase.empty()) {
-      item["data"] = llvm::json::Object{{"phase", diagnostic.phase}};
+    std::string phase = diagnostic.phase;
+    if (phase.empty() && diagnostic.code.rfind("STYIO_", 0) == 0) {
+      phase = styio::services::diagnostics::diagnostic_phase_for_code(diagnostic.code);
+    }
+    if (!phase.empty()) {
+      item["data"] = llvm::json::Object{{"phase", std::move(phase)}};
     }
     items.push_back(std::move(item));
   }

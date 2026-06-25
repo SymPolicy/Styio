@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of feature tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, source coverage gates, and test documentation.
 
-**Last updated:** 2026-06-21
+**Last updated:** 2026-06-25
 
 ## Mission
 
@@ -34,7 +34,7 @@ Primary paths:
 7. When compile-plan artifacts grow, add assertions for receipt fields and auxiliary artifacts such as `runtime-events.jsonl`, not just exit codes.
 8. Keep five-layer Layer 4 LLVM goldens semantic, not implementation-bound: when stdout lowering moves between legacy `printf/puts` and runtime helpers such as `styio_stdout_write_cstr`, or when LLVM stops printing unused `declare` lines and renumbers transient `%<n>` temporaries, update the pipeline canonicalization before touching large golden sets.
 9. Treat workflow scheduler tests as gate-level regression coverage; changes to scheduler profiles, phase ordering, or registry validation must update `tests/workflow_scheduler_test.py`.
-10. Treat `StyioTaskSchedulerPerf.SleepTasksRunConcurrently` as the task_resources task_runtime performance sentinel. It must compare against an in-process sequential baseline rather than a fixed absolute timeout so CI variance does not hide loss of concurrency. Treat `styio_core_benchmark_smoke` as release-conformance evidence for executable core workloads and JSON timing schema only; new `benchmark/core/` entries must be deterministic, backed by existing behavior tests, and must not be used as comparison evidence. `checkpoint-health.sh` must always run the core benchmark smoke, and it may skip external soak targets only when the optional `styio-benchmark` probe target is not registered in the configured build.
+10. Treat `StyioTaskSchedulerPerf.SleepTasksRunConcurrently` as the task_resources task_runtime performance sentinel. It must compare against an in-process sequential baseline rather than a fixed absolute timeout so CI variance does not hide loss of concurrency. Treat `styio_core_benchmark_smoke` as release-conformance evidence for executable core workloads and JSON timing schema only; new `benchmark/core/` entries must be deterministic, backed by existing behavior tests, and must not be used as comparison evidence. `checkpoint-health.sh` must always run the core benchmark smoke, and it may skip external soak targets only when the optional `styio-benchmark` probe target is not registered in the configured build. Keep checkpoint and coverage build parallelism configurable with `--build-jobs`, `--jobs`, `STYIO_CHECKPOINT_BUILD_JOBS`, `STYIO_COVERAGE_JOBS`, or `CMAKE_BUILD_PARALLEL_LEVEL`; the auto default should remain memory-capped so constrained workers reach CTest instead of failing in cold C++ compilation.
 11. When compiler handoff contracts grow, add or update regression coverage for both `--machine-info=json` and `--source-build-info=json` so `spio`-facing metadata cannot drift silently.
 12. When language service contracts grow, add focused CLI regression coverage for the public entrypoint and its machine-readable fields; syntax-only services must prove that parser success is independent from later type-checking or execution.
 13. When the compiler-side source-build helper changes, keep a lightweight regression on `scripts/source-build-minimal.sh --help` or an equivalent smoke path so the published helper entry does not silently rot.

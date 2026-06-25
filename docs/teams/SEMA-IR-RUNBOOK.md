@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of AST lifecycle, semantic analysis, type inference, StyioIR lowering, string representation, and compilation session ownership.
 
-**Last updated:** 2026-06-21
+**Last updated:** 2026-06-25
 
 ## Mission
 
@@ -87,6 +87,7 @@ High-value docs:
 52. Pressure observer unsupported-family diagnostics are sema-family public facts over an existing fail-closed boundary. Keep `STYIO_SEMA_RESOURCE_PRESSURE_OBSERVER_UNSUPPORTED`, phase `sema`, TypeError exit family, unsupported-family message fragments, parser boundary evidence, and no-following-output coverage together without implying pressure payload typing, observer execution, runtime pressure streams, or broader backpressure scheduling support.
 53. Matrix literal invalid diagnostics must remain diagnostic-only. `STYIO_TYPE_MATRIX_LITERAL_INVALID` proves existing matrix literal shape/context rejection for typed matrix bindings and explicit matrix returns; do not use it as evidence for broader matrix literal acceptance, matrix return compatibility, matrix operators, resource-method matrix bodies, or matrix runtime behavior.
 54. StyioIR walker infrastructure centralizes IR tree traversal. `StyioIRWalker` (`src/StyioIR/StyioIRWalker.hpp`) provides a single `dynamic_cast` dispatch chain shared by all analysis and optimization passes. Each IR node type has a default `visit*` method that walks children. The verifier (`src/StyioIR/Verifier.cpp`) and optimizer (`src/StyioLowering/StyioIROptimizer.cpp`) use walker-based dispatch instead of hand-rolled `dynamic_cast` cascades. New IR analysis passes should subclass `StyioIRWalker` and override only the `visit*` methods they need; child traversal is handled by the base class. The optimizer's `StyioIROptimizerWalker` demonstrates the bottom-up rewriter pattern. Per-pass before/after verifier checks, timing collection, and opt-level gating are provided by `StyioIRPassManager`. Passes must respect effect/resource barriers: do not reorder nodes with resource effects, I/O, runtime failure paths, fallback handlers, task operations, or pressure observers. When adding a new IR node type, update `StyioIRWalker::dispatch()` and add the corresponding `visit*` method.
+55. The IR verifier is the fail-closed boundary for unknown active IR. `StyioIRWalker::visitUnknown` overrides in verifier code must produce `STYIO_IR_VERIFY_CONTRACT` diagnostics, and malformed structural states such as inconsistent `SIOInstantPull` handle/path fields must be reported as verifier diagnostics rather than raw runtime exceptions. Codegen must not receive unknown active IR or partially valid pull nodes.
 
 ## Change Classes
 
