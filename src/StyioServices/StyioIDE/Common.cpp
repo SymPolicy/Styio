@@ -53,7 +53,7 @@ std::string
 percent_encode(const std::string& input) {
   std::ostringstream oss;
   for (unsigned char ch : input) {
-    if (std::isalnum(ch) || ch == '/' || ch == '.' || ch == '-' || ch == '_' || ch == '~') {
+    if (std::isalnum(ch) || ch == '/' || ch == ':' || ch == '.' || ch == '-' || ch == '_' || ch == '~') {
       oss << static_cast<char>(ch);
       continue;
     }
@@ -143,16 +143,28 @@ path_from_uri(const std::string& uri) {
   }
 
   std::string decoded = percent_decode(uri.substr(7));
+#if defined(_WIN32)
+  std::replace(decoded.begin(), decoded.end(), '/', '\\');
+  if (decoded.size() >= 3
+      && decoded[0] == '\\'
+      && std::isalpha(static_cast<unsigned char>(decoded[1]))
+      && decoded[2] == ':') {
+    decoded.erase(decoded.begin());
+  } else if (!decoded.empty() && decoded[0] != '\\') {
+    decoded.insert(decoded.begin(), '\\');
+  }
+#else
   if (!decoded.empty() && decoded[0] != '/') {
     decoded.insert(decoded.begin(), '/');
   }
+#endif
   return decoded;
 }
 
 std::string
 uri_from_path(const std::string& path) {
   std::filesystem::path fs_path(path);
-  std::string normalized = fs_path.lexically_normal().string();
+  std::string normalized = fs_path.lexically_normal().generic_string();
   if (normalized.empty() || normalized[0] != '/') {
     normalized = "/" + normalized;
   }

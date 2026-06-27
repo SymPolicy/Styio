@@ -3747,6 +3747,7 @@ StyioToLLVM::release_bounded_ring_cstr_array(
   llvm::Value* gep = theBuilder->CreateInBoundsGEP(array_type, array, {zero, i});
   llvm::Value* value = theBuilder->CreateLoad(elem_ty, gep);
   free_cstr_if_runtime_owned(value);
+  theBuilder->CreateStore(styio_zero_for_llvm_type(elem_ty, theBuilder.get()), gep);
   theBuilder->CreateStore(theBuilder->CreateAdd(i, one), idx_slot);
   theBuilder->CreateBr(hdr_bb);
 
@@ -3793,6 +3794,7 @@ StyioToLLVM::release_bounded_ring_handle_array(
   llvm::Value* gep = theBuilder->CreateInBoundsGEP(array_type, array, {zero, i});
   llvm::Value* value = theBuilder->CreateLoad(elem_ty, gep);
   free_resource_handle_if_runtime_owned(value, family);
+  theBuilder->CreateStore(styio_zero_for_llvm_type(elem_ty, theBuilder.get()), gep);
   theBuilder->CreateStore(theBuilder->CreateAdd(i, one), idx_slot);
   theBuilder->CreateBr(hdr_bb);
 

@@ -24,6 +24,10 @@ def escape_cmake_string(value):
     return value.replace("\\", "\\\\").replace("\"", "\\\"")
 
 
+def cxx_path_string(value):
+    return pathlib.PurePath(value).as_posix()
+
+
 def make_definition(name, value):
     if isinstance(value, bool):
         numeric = "1" if value else "0"
@@ -73,7 +77,7 @@ def main():
     defs = [
         make_definition("STYIO_NANO_BUILD", True),
         make_definition("STYIO_NANO_PROFILE_NAME", profile_name),
-        make_definition("STYIO_NANO_PROFILE_SOURCE", str(input_path)),
+        make_definition("STYIO_NANO_PROFILE_SOURCE", cxx_path_string(str(input_path))),
         make_definition("STYIO_NANO_ENABLE_MACHINE_INFO", read_bool(compiler, "machine_info", True)),
         make_definition("STYIO_NANO_ENABLE_DEBUG_CLI", read_bool(compiler, "debug_cli", False)),
         make_definition("STYIO_NANO_ENABLE_AST_DUMP_CLI", read_bool(compiler, "ast_dump_cli", False)),
@@ -88,7 +92,7 @@ def main():
 
     cmake_lines = [
         f'set(STYIO_NANO_PROFILE_NAME "{escape_cmake_string(profile_name)}")',
-        f'set(STYIO_NANO_PROFILE_SOURCE "{escape_cmake_string(str(input_path))}")',
+        f'set(STYIO_NANO_PROFILE_SOURCE "{escape_cmake_string(cxx_path_string(str(input_path)))}")',
         f'set(STYIO_NANO_INCLUDE_PIPELINE_CHECK {cmake_bool(read_bool(build, "include_pipeline_check", False))})',
         "set(STYIO_NANO_COMPILE_DEFINITIONS",
     ]

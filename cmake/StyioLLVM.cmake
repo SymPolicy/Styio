@@ -1,3 +1,6 @@
+find_package(ZLIB QUIET)
+find_package(zstd CONFIG QUIET)
+find_package(LibXml2 QUIET)
 find_package(LLVM 18.1.0 REQUIRED CONFIG)
 
 # LLVM headers ship a libc++abi-flavored cxxabi.h. On Debian + libstdc++,
@@ -15,7 +18,14 @@ message(STATUS "[LLVM] Using LLVMConfig.cmake in: ${LLVM_DIR}")
 llvm_map_components_to_libnames(LLVM_LIBS support core irreader orcjit native)
 
 function(styio_apply_llvm_compile_settings target_name)
-  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU|AppleClang")
+  if(MSVC)
+    target_compile_options(${target_name} PRIVATE
+      "$<$<COMPILE_LANGUAGE:C>:/utf-8>"
+      "$<$<COMPILE_LANGUAGE:CXX>:/utf-8>"
+    )
+  endif()
+
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU|AppleClang" AND NOT MSVC)
     foreach(llvm_include_dir IN LISTS LLVM_INCLUDE_DIRS)
       target_compile_options(${target_name} PRIVATE
         "$<$<COMPILE_LANGUAGE:C>:SHELL:-idirafter ${llvm_include_dir}>"

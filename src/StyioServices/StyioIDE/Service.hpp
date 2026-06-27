@@ -18,6 +18,10 @@
 #include "SemDB.hpp"
 #include "VFS.hpp"
 
+#ifndef STYIO_IDE_INTERNAL_ACCESS
+#define STYIO_IDE_INTERNAL_ACCESS private
+#endif
+
 namespace styio::ide {
 
 enum class RuntimeRequestKind
@@ -77,7 +81,7 @@ struct RuntimeCounters
 
 class IdeService
 {
-private:
+STYIO_IDE_INTERNAL_ACCESS:
   struct RuntimeDocumentState
   {
     SnapshotId snapshot_id = 0;

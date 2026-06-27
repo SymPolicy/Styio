@@ -12,6 +12,10 @@
 #include "StyioServices/StyioIDE/Service.hpp"
 #include "llvm/Support/JSON.h"
 
+#ifndef STYIO_IDE_INTERNAL_ACCESS
+#define STYIO_IDE_INTERNAL_ACCESS private
+#endif
+
 namespace styio::lsp {
 
 struct OutboundMessage
@@ -22,7 +26,7 @@ struct OutboundMessage
 
 class Server
 {
-private:
+STYIO_IDE_INTERNAL_ACCESS:
   styio::ide::IdeService service_;
   std::vector<OutboundMessage> pending_notifications_;
 
