@@ -182,6 +182,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 BUILD_JOBS="$(detect_build_jobs_latest)"
+echo "[checkpoint-health] pre-test cutover self-check: for functional changes, read workflows/FEATURE-CUTOVER-WORKFLOW.md before treating final tests as complete."
+echo "[checkpoint-health] commit readiness self-check: before commit or handoff, read workflows/FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md and verify targeted feature behavior plus upstream/downstream surfaces, check version-style naming against the feature or transformation result, or record objective unable-to-verify blockers."
 echo "[checkpoint-health] build jobs: ${BUILD_JOBS}"
 BUILD_DIR="$(configure_build_dir_latest "$BUILD_DIR" "build/default")"
 echo "[checkpoint-health] build dir: ${BUILD_DIR}"

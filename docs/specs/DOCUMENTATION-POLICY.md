@@ -2,7 +2,7 @@
 
 **Purpose:** Define where development Markdown belongs, how SSOT references work, and how `docs/` metadata, indexes, and maintenance gates are enforced; language semantics still live in `../design/Styio-Language-Design.md` and related design documents.
 
-**Last updated:** 2026-05-10
+**Last updated:** 2026-06-28
 
 **Automation (verify doc links + test registration):** 从仓库根目录配置并运行语言特性测试：
 
@@ -37,6 +37,10 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 
 - 增补约定时 **优先** 修改现有章节并加交叉链接，**非必要不新增** Markdown 文件。
 - 若内容可并入现有权威文档（如下表），则不应另立平行长文。
+- 新建 Markdown 前必须先搜索生成索引、`docs/adr/`、owning SSOT、team runbook、workflow、plan 与 rollup；只有确认现有文档不能承载时，才允许创建单一职责（single responsibility）的新文档。
+- 使用 `scripts/docs-scaffold.py` 创建文档时必须传 `--reuse-reviewed`，表示已经完成上述搜索并确认不是重复文档。
+- 一个功能不允许拆成多个平行解释文档；除非各文件分别拥有不同 artifact class，例如 design SSOT、test catalog、team runbook、workflow 或 external handoff。
+- ADR 记录当前决策，不记录旧决策与新决策的并置历史。若已有 active ADR 覆盖同一决策边界，更新原 ADR 的当前 `Decision`；旧文本由 Git history 提供。
 
 ### 0.3 「三处规则」：去重后再引用
 
@@ -110,6 +114,8 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 
 ### 0.7 文件命名约定
 
+0. Feature, module, workflow, skill, and documentation transformations must not use version-style names such as `v2`, `version`, `new`, `old`, `legacy`, or `latest`; name the artifact by the feature or transformation result so the active tree has one current implementation and no renamed old/new residue.
+0. Repo-owned documentation and skills must not expose developer-machine paths, server-machine paths, private endpoints, account names, hostnames, or deployment roots. Use placeholders such as `<workspace-root>`, `<user-home>`, `<server-host>`, `<service-url>`, `<private-ip>`, or documented environment variables, and run `python3 scripts/local-info-leak-gate.py --mode worktree` before delivery.
 1. `docs/design/`：设计级 SSOT 使用稳定、可搜索的主题名；当前约定为 `Styio-*.md`。
 2. `docs/specs/`：规范文件使用稳定、可搜索的全大写短横线命名。
 3. `docs/teams/`：团队日常入口使用 `<TEAM>-RUNBOOK.md`；跨团队协调入口固定为 `COORDINATION-RUNBOOK.md`；集合统计固定为 `DOC-STATS.md`。

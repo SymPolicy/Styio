@@ -73,7 +73,11 @@ class WorkflowSchedulerTest(unittest.TestCase):
 
     def test_markdown_table_exposes_syntax_workflow(self) -> None:
         table = workflow_scheduler.markdown_table()
+        self.assertIn("FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md", table)
+        self.assertIn("FEATURE-CUTOVER-WORKFLOW.md", table)
+        self.assertIn("LOCAL-INFO-LEAK-GATE.md", table)
         self.assertIn("ADD-SYNTAX-WITH-SKILLS.md", table)
+        self.assertIn("local-info-leak-worktree", table)
         self.assertIn("runtime-surface", table)
 
 

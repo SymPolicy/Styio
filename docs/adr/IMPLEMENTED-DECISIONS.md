@@ -2,13 +2,14 @@
 
 **Purpose:** Compress implemented architecture and workflow decisions that no longer need one file per decision in the current tree; exact previous ADR wording is available from Git history when needed.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-06-28
 
 ## Reading Contract
 
 1. This file is provenance, not an active planning queue.
 2. Active rules live in the owning design, spec, workflow, team, test, or rollup document.
 3. Add a new ADR file only while a decision still needs direct review as a decision record; after implementation and SSOT absorption, compress it here or remove it.
+4. Update an existing ADR or owning SSOT before creating a new ADR; the current tree should not accumulate one ADR per small implementation change.
 
 ## Compressed Decision Groups
 

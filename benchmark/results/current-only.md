@@ -28,10 +28,11 @@ Commit `6e59b68` lacks a `styio_core_bench` target, so baseline comparison is un
 - [x] 8 benchmark scenarios covering lex/parse/sema/type/topology/diag/runtime
 - [x] Route cache counters available via `STYIO_PARSER_ROUTE_CACHE_STATS=1`
 - [x] IR allocation stats struct available for future instrumentation
+- [x] Route cache counters now emitted in route-cache report (`scripts/benchmark-compare.py --route-cache`)
 
 ## Next Steps for Performance Proof
 
 1. Build benchmark on `6e59b68` (or build `styio` binary and use `--styio-bin` mode)
 2. Compare current vs baseline with `scripts/benchmark-compare.py --threshold 5 --markdown`
-3. Add route cache counter readout to benchmark JSON
+3. Keep route cache counter evidence current (`benchmark/results/current-route-cache-report.md`)
 4. Add IR allocation counter readout to benchmark JSON

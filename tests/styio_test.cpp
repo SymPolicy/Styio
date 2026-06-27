@@ -151,6 +151,43 @@ shell_quote_latest(const std::string& value) {
 }
 
 std::string
+windows_cmd_quote_latest(const std::string& value) {
+  std::string quoted = "\"";
+  for (const char ch : value) {
+    if (ch == '"') {
+      quoted += "\\\"";
+    }
+    else {
+      quoted.push_back(ch);
+    }
+  }
+  quoted += "\"";
+  return quoted;
+}
+
+std::string
+compile_plan_command_latest(const char* runner, const fs::path& plan_path) {
+#ifdef _WIN32
+  return std::string("call ") + windows_cmd_quote_latest(runner) + " --compile-plan "
+         + windows_cmd_quote_latest(plan_path.string()) + " 2>&1";
+#else
+  return shell_quote_latest(runner) + " --compile-plan " + shell_quote_latest(plan_path.string()) + " 2>&1";
+#endif
+}
+
+std::string
+compile_plan_with_file_command_latest(const char* runner, const fs::path& plan_path, const fs::path& source_path) {
+#ifdef _WIN32
+  return std::string("call ") + windows_cmd_quote_latest(runner) + " --compile-plan "
+         + windows_cmd_quote_latest(plan_path.string()) + " --file " + windows_cmd_quote_latest(source_path.string())
+         + " 2>&1";
+#else
+  return shell_quote_latest(runner) + " --compile-plan " + shell_quote_latest(plan_path.string()) + " --file "
+         + shell_quote_latest(source_path.string()) + " 2>&1";
+#endif
+}
+
+std::string
 read_text_file_latest(const fs::path& path) {
   std::ifstream in(path, std::ios::binary);
   std::ostringstream ss;
@@ -420,7 +457,7 @@ expect_compile_plan_invalid_with_diag_latest(
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"subcode\":\"compile_plan_invalid\""), std::string::npos)
     << result.stdout_text;
@@ -1738,7 +1775,7 @@ TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_EQ(result.stdout_text.find("compile-plan-build"), std::string::npos);
   ASSERT_TRUE(fs::exists(artifact_dir / "demo.llvm.ir"));
@@ -1820,7 +1857,7 @@ TEST(StyioDiagnostics, CompilePlanCheckWritesArtifactsWithoutExecutingEntry) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_EQ(result.stdout_text.find("compile-plan-check"), std::string::npos);
   ASSERT_TRUE(fs::exists(artifact_dir / "demo-check.llvm.ir"));
@@ -1902,7 +1939,7 @@ TEST(StyioDiagnostics, CompilePlanRunExecutesAndWritesReceiptAndRequestedArtifac
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("compile-plan-run"), std::string::npos);
   ASSERT_TRUE(fs::exists(artifact_dir / "demo-run.original.ast.txt"));
@@ -1990,7 +2027,7 @@ TEST(StyioDiagnostics, CompilePlanTestExecutesAndPublishesUnitTestRuntimeEvents)
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("compile-plan-test"), std::string::npos);
   ASSERT_TRUE(fs::exists(artifact_dir / "smoke.llvm.ir"));
@@ -2062,7 +2099,7 @@ TEST(StyioDiagnostics, CompilePlanFailureWritesJsonlDiagnosticIntoDiagDir) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_NE(result.exit_code, 0);
 
   const fs::path diag_path = diag_dir / "diagnostics.jsonl";
@@ -2142,7 +2179,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidIntentReportsCliDiagnosticAndWritesDiag
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"CliError\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
@@ -2213,7 +2250,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidBuildModeReportsCliDiagnosticAndWritesD
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"CliError\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
@@ -2284,10 +2321,7 @@ TEST(StyioDiagnostics, CompilePlanCliConflictReportsCliDiagnosticAndWritesDiagDi
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(
-      std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" --file \"" + source.string()
-      + "\" 2>&1"
-    );
+    run_stdout_command(compile_plan_with_file_command_latest(runner, plan_path, source));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"CliError\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_CLI_CONFLICT\""), std::string::npos);
@@ -2326,7 +2360,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidJsonReportsMachineReadableCliDiagnostic
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"CliError\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
@@ -2390,7 +2424,7 @@ TEST(StyioDiagnostics, CompilePlanGeneratedByMismatchReportsCliDiagnosticAndWrit
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("compile-plan generated_by.tool must equal \\\"spio\\\""), std::string::npos);
@@ -2457,7 +2491,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedTargetKindReportsCliDiagnosticAndWr
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("unsupported compile-plan entry.target_kind: bench"), std::string::npos);
@@ -2524,7 +2558,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeWorkspaceRootReportsCliDiagnosticAndWr
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("compile-plan path must be absolute: workspace_root"), std::string::npos);
@@ -2584,7 +2618,7 @@ TEST(StyioDiagnostics, CompilePlanMissingOutputsReportsMachineReadableCliDiagnos
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"CliError\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
@@ -2644,7 +2678,7 @@ TEST(StyioDiagnostics, CompilePlanVersionMarkerDoesNotSelectImplementation) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
   ASSERT_TRUE(fs::exists(build_root / "receipt.json"));
   const std::string receipt = read_text_file_latest(build_root / "receipt.json");
@@ -2703,7 +2737,7 @@ TEST(StyioDiagnostics, CompilePlanEmptyPackagesWritesCliDiagnosticToDiagDir) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("compile-plan packages array must not be empty"), std::string::npos);
   ASSERT_TRUE(fs::exists(diag_dir / "diagnostics.jsonl"));
@@ -2740,6 +2774,139 @@ TEST(StyioDiagnostics, CompilePlanMalformedPackageEntryWritesCliDiagnosticToDiag
     "compile-plan packages[0] must be an object");
 
   fs::remove_all(plan.root);
+}
+
+TEST(StyioDiagnostics, CompilePlanMalformedPackageIdTypeWritesCliDiagnosticToDiagDir) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-compile-plan-malformed-package-id-type-" + std::to_string(uniq));
+  const fs::path source = root / "src" / "main.styio";
+  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path artifact_dir = build_root / "artifacts";
+  const fs::path diag_dir = build_root / "diag";
+  const fs::path plan_path = build_root / "plan.json";
+  ASSERT_TRUE(fs::create_directories(source.parent_path()));
+  ASSERT_TRUE(fs::create_directories(build_root));
+
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << ">_(\"compile-plan-malformed-package-id-type\")\n";
+  }
+  {
+    std::ofstream out(plan_path);
+    ASSERT_TRUE(out.is_open());
+    out
+      << "{\n"
+      << "  \"plan_version\": 1,\n"
+      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"intent\": \"build\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
+      << "  \"entry\": {\n"
+      << "    \"package_id\": \"demo/app@0.1.0\",\n"
+      << "    \"target_kind\": \"bin\",\n"
+      << "    \"target_name\": \"demo-malformed-package-id\",\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
+      << "  },\n"
+      << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"packages\": [{\"id\": 42}],\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"outputs\": {\"build_root\": \"" << build_root.generic_string() << "\", \"artifact_dir\": \""
+      << artifact_dir.generic_string() << "\", \"diag_dir\": \"" << diag_dir.generic_string() << "\"},\n"
+      << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
+      << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const CommandResult result =
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
+  EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"subcode\":\"compile_plan_invalid\""), std::string::npos)
+    << result.stdout_text;
+  EXPECT_NE(
+    result.stdout_text.find("compile-plan field must be a non-empty string: packages[0].id"),
+    std::string::npos);
+
+  ASSERT_TRUE(fs::exists(diag_dir / "diagnostics.jsonl"));
+  const std::string diagnostics = read_text_file_latest(diag_dir / "diagnostics.jsonl");
+  EXPECT_NE(diagnostics.find("\"category\":\"CliError\""), std::string::npos);
+  EXPECT_NE(
+    diagnostics.find("compile-plan field must be a non-empty string: packages[0].id"),
+    std::string::npos);
+
+  fs::remove_all(root);
+}
+
+TEST(StyioDiagnostics, CompilePlanMalformedEntryFileWritesCliDiagnosticToDiagDir) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-compile-plan-malformed-entry-file-" + std::to_string(uniq));
+  const fs::path source = root / "src" / "main.styio";
+  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path artifact_dir = build_root / "artifacts";
+  const fs::path diag_dir = build_root / "diag";
+  const fs::path plan_path = build_root / "plan.json";
+  ASSERT_TRUE(fs::create_directories(source.parent_path()));
+  ASSERT_TRUE(fs::create_directories(build_root));
+
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << ">_(\"compile-plan-malformed-entry-file\")\n";
+  }
+  {
+    std::ofstream out(plan_path);
+    ASSERT_TRUE(out.is_open());
+    out
+      << "{\n"
+      << "  \"plan_version\": 1,\n"
+      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"intent\": \"build\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
+      << "  \"entry\": {\n"
+      << "    \"package_id\": \"demo/app@0.1.0\",\n"
+      << "    \"target_kind\": \"bin\",\n"
+      << "    \"target_name\": \"demo-malformed-entry-file\",\n"
+      << "    \"file\": {\"invalid\": true}\n"
+      << "  },\n"
+      << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"outputs\": {\"build_root\": \"" << build_root.generic_string() << "\", \"artifact_dir\": \""
+      << artifact_dir.generic_string() << "\", \"diag_dir\": \"" << diag_dir.generic_string() << "\"},\n"
+      << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
+      << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const CommandResult result =
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
+  EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("compile-plan field must be a non-empty string: entry.file"), std::string::npos)
+    << result.stdout_text;
+
+  ASSERT_TRUE(fs::exists(diag_dir / "diagnostics.jsonl"));
+  const std::string diagnostics = read_text_file_latest(diag_dir / "diagnostics.jsonl");
+  EXPECT_NE(diagnostics.find("\"category\":\"CliError\""), std::string::npos);
+  EXPECT_NE(
+    diagnostics.find("compile-plan field must be a non-empty string: entry.file"),
+    std::string::npos);
+
+  fs::remove_all(root);
 }
 
 TEST(StyioDiagnostics, CompilePlanEntryPackageMissingWritesCliDiagnosticToDiagDir) {
@@ -2806,7 +2973,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedErrorFormatWritesCliDiagnosticToDia
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("unsupported compile-plan emit.error_format: yaml"), std::string::npos);
   ASSERT_TRUE(fs::exists(diag_dir / "diagnostics.jsonl"));
@@ -2867,7 +3034,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeEntryFileWritesCliDiagnosticToDiagDir)
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("compile-plan path must be absolute: file"), std::string::npos);
   ASSERT_TRUE(fs::exists(diag_dir / "diagnostics.jsonl"));
@@ -2927,7 +3094,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeArtifactDirWritesCliDiagnosticToDiagDi
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("compile-plan path must be absolute: artifact_dir"), std::string::npos);
   ASSERT_TRUE(fs::exists(diag_dir / "diagnostics.jsonl"));
@@ -2987,9 +3154,67 @@ TEST(StyioDiagnostics, CompilePlanRelativeDiagDirReportsMachineReadableCliDiagno
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("compile-plan path must be absolute: diag_dir"), std::string::npos);
+  EXPECT_FALSE(fs::exists(build_root / "diag" / "diagnostics.jsonl"));
+
+  fs::remove_all(root);
+}
+
+TEST(StyioDiagnostics, CompilePlanMalformedDiagDirTypeSkipsDiagnosticSink) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-compile-plan-malformed-diag-dir-type-" + std::to_string(uniq));
+  const fs::path source = root / "src" / "main.styio";
+  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path artifact_dir = build_root / "artifacts";
+  const fs::path plan_path = build_root / "plan.json";
+  ASSERT_TRUE(fs::create_directories(source.parent_path()));
+  ASSERT_TRUE(fs::create_directories(build_root));
+
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << ">_(\"compile-plan-malformed-diag-dir-type\")\n";
+  }
+  {
+    std::ofstream out(plan_path);
+    ASSERT_TRUE(out.is_open());
+    out
+      << "{\n"
+      << "  \"plan_version\": 1,\n"
+      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"intent\": \"build\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
+      << "  \"entry\": {\n"
+      << "    \"package_id\": \"demo/app@0.1.0\",\n"
+      << "    \"target_kind\": \"bin\",\n"
+      << "    \"target_name\": \"demo-malformed-diag-dir\",\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
+      << "  },\n"
+      << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"outputs\": {\"build_root\": \"" << build_root.generic_string() << "\", \"artifact_dir\": \""
+      << artifact_dir.generic_string() << "\", \"diag_dir\": 123},\n"
+      << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
+      << "}\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const CommandResult result =
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
+  EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("compile-plan field must be a non-empty string: outputs.diag_dir"), std::string::npos)
+    << result.stdout_text;
   EXPECT_FALSE(fs::exists(build_root / "diag" / "diagnostics.jsonl"));
 
   fs::remove_all(root);

@@ -2,11 +2,28 @@
 
 **Purpose:** 作为 `styio-nightly` 侧适配 `styio-spio` 双通道工具链模型的总实施计划，冻结 compiler-side contract、源码分层、默认符号层收敛、source-build 入口、测试与交付阶段顺序。当前 repo-local baseline 已完成；本文件保留在 `docs/plans/`，用于记录完成证据和后续 hardening/生态对齐边界，而不是替代 `docs/external/for-spio/` handoff contract 或 `spio` 仓库自己的 SSOT。
 
-**Last updated:** 2026-04-21
+**Last updated:** 2026-06-28
 
 **Plan status:** Repo-local baseline completed. Remaining ecosystem-wide closure is tracked in [Styio-Ecosystem-Delivery-Master-Plan.md](./Styio-Ecosystem-Delivery-Master-Plan.md) and the owning consumer plans.
 
 > **MIGRATION-NEEDED: M-PLAN-01** ([../rollups/MIGRATION-LEDGER.md](../rollups/MIGRATION-LEDGER.md)). Once the master plan absorbs the residual hardening rules and the `spio` SSOT covers the cross-repo contract, archive this file through `docs/archive/ARCHIVE-MANIFEST.json` and remove it from the current tree.
+
+## 前置条件
+
+1. 并行: source-build hardening should split by binary contract, source-build contract, source layout, symbol registry, tests, docs, and consumer-handoff lanes. Only shared compiler service metadata, CMake/source-layout substrate, and docs-gate ownership changes are serial merge gates.
+2. 子智能体: sub-agents may audit or prototype one lane at a time, but compiler-side source-build contract changes must be reconciled by the CLI / Nano and Docs / Ecosystem owners.
+3. 基座: shared source-build metadata, docs gate, workflow, or CMake/source-layout substrate changes must land first through [Styio-Common-Foundation-Plan.md](./Styio-Common-Foundation-Plan.md).
+4. Upstream dependency: remaining ecosystem closure is sequenced by [Styio-Ecosystem-Delivery-Master-Plan.md](./Styio-Ecosystem-Delivery-Master-Plan.md).
+
+## Parallel Lane Map
+
+| Lane | Parallel work allowed | Serial merge gate |
+|------|-----------------------|-------------------|
+| Binary contract | `--machine-info=json`, compile-plan receipt, diagnostics, and runtime-event compatibility audits. | Published payload fields or consumer-facing contract shape changes. |
+| Source-build contract | `--source-build-info=json`, minimal source graph, toolchain metadata, and helper-script evidence. | Source-layout/CMake substrate changes shared by more than one consumer. |
+| Symbol registry | Default symbol/builtin inventory, consumer references, and drift checks. | Compiler-owned registry schema or generated artifact shape changes. |
+| Tests and gates | Negative-path discovery, docs gate dry runs, cross-repo handoff checks, and fixture inventory. | New required gate policy, generated index updates, and final acceptance evidence. |
+| Ecosystem handoff | Spio/view confirmation questions, mirror-doc deltas, and migration-readiness notes. | Cross-repo SSOT wording, package/toolchain ownership, or release-channel policy. |
 
 ## 1. Goal
 
@@ -300,3 +317,10 @@ Owner focus:
 5. [../teams/IDE-LSP-RUNBOOK.md](../teams/IDE-LSP-RUNBOOK.md)
 6. [../teams/TEST-QUALITY-RUNBOOK.md](../teams/TEST-QUALITY-RUNBOOK.md)
 7. [../teams/DOCS-ECOSYSTEM-RUNBOOK.md](../teams/DOCS-ECOSYSTEM-RUNBOOK.md)
+
+## 验收条件
+
+1. `styio --machine-info=json`, `styio --compile-plan <path>`, and `styio --source-build-info=json` remain aligned with the consumer handoff docs.
+2. Source-build helper, source graph, symbol registry, tests, and docs gates name the same compiler-side contract.
+3. Any remaining ecosystem hardening is either moved into the master plan or routed through the common foundation plan before upper-layer work depends on it.
+4. `python3 scripts/ecosystem-cli-doc-gate.py`, `python3 scripts/docs-audit.py`, and the relevant CLI / Nano tests pass before this plan is treated as current evidence.

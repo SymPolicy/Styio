@@ -1,18 +1,29 @@
 [skill]
 name = "styio-file-onboarding"
 display_name = "Styio File Onboarding"
-description = "Use when adding tracked files or directories so indexes, registries, metadata, tests, and repo hygiene gates stay aligned."
+description = "Use when adding tracked files or directories, especially Markdown docs or ADRs, so existing owner files are searched first, unnecessary new documents are avoided, and indexes, registries, metadata, tests, and repo hygiene gates stay aligned."
 last_updated = "2026-06-28"
 
 workflow = [
+  "search existing docs, ADRs, generated indexes, owner SSOTs, runbooks, workflows, plans, and rollups before creating files",
+  "prefer updating an existing owner file over adding a new parallel file",
   "classify the file before editing",
   "check references/file-onboarding-surface.md",
+  "for docs, use scripts/docs-scaffold.py only with --reuse-reviewed after deciding a new single-purpose document is necessary",
+  "for ADRs, update an existing active ADR or owning SSOT so it records the current decision only",
+  "name new docs, workflows, skills, and transformed feature/module files by their feature or transformation result instead of version-style placeholders",
   "update generated indexes or registries for the file class",
   "add the smallest gate or test that protects the file class",
   "run gates from workflows/ADD-REPO-FILE.toml",
 ]
 
 constraints = [
+  "do not create a new Markdown file before searching for an existing owner document",
+  "do not create one ADR per small implementation change",
+  "do not keep old and new decisions side by side in an active ADR",
+  "do not split one feature across multiple documents with overlapping responsibilities",
+  "do not use version-style names such as v2, version, new, old, legacy, or latest for new files or replacement surfaces",
+  "do not record developer-machine or server-machine paths, account names, private endpoints, or deployment roots; use placeholders such as <workspace-root>, <user-home>, <server-host>, or environment variables",
   "do not add files without checking whether a generated index must change",
   "do not bypass TOML metadata for workflow or skill files",
   "do not stage unrelated files as part of onboarding",
@@ -20,7 +31,10 @@ constraints = [
 
 completion_report = [
   "new paths",
+  "existing owners searched",
+  "why a new file was necessary, or existing file updated",
   "file class",
+  "local/server info placeholder check",
   "registries updated",
   "gates run",
 ]

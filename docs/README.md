@@ -2,7 +2,7 @@
 
 **Purpose:** Define the boundary of the `docs/` tree and point readers to the generated inventory in [INDEX.md](./INDEX.md); detailed file listings live in directory-level `INDEX.md` files, not here.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-06-28
 
 ## Tree Contract
 
@@ -49,3 +49,6 @@
 3. Regenerate indexes with `python3 scripts/docs-index.py --write` after docs-tree changes.
 4. Validate archive/rollup state with `python3 scripts/docs-lifecycle.py validate`.
 5. Verify the tree with `python3 scripts/docs-audit.py` or `ctest --test-dir build/default -L docs`.
+6. Before creating a Markdown file, search [INDEX.md](./INDEX.md), owning SSOTs, runbooks, workflows, plans, rollups, and [adr/README.md](./adr/README.md); update an existing owner unless a new single-purpose document is necessary.
+7. Do not name feature/module/documentation transformations with `v2`, `new`, `old`, `legacy`, `latest`, or other version-style placeholders; use the feature or transformation result.
+8. Do not record developer-machine paths, server-machine paths, private endpoints, account names, hostnames, or deployment roots; use placeholders and run `python3 scripts/local-info-leak-gate.py --mode worktree`.

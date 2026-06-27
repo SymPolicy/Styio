@@ -2,11 +2,13 @@
 
 **Purpose:** Define the repository-wide build/test health entrypoint for `styio-nightly` so CI and checkpoint delivery can call one script instead of wiring compiler-specific checks inline.
 
-**Last updated:** 2026-06-05
+**Last updated:** 2026-06-28
 
 ## Goal
 
 `scripts/checkpoint-health.sh` is the inner health gate for this repository. It owns configure/build steps, the compiler test labels, and repo-specific parser/security/soak verification needed at checkpoint scope.
+
+For functional changes, this gate is intentionally after the [FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md](./FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md) self-check and, when behavior is replaced or migrated, after the [FEATURE-CUTOVER-WORKFLOW.md](./FEATURE-CUTOVER-WORKFLOW.md) self-check. The changed feature must have targeted validation, upstream/downstream adaptation, version-style naming checked against the feature or transformation result, and objective unable-to-verify records before final tests are treated as complete. The script prints those reminders before its build/test legs.
 
 When `--asan-build-dir` points at a missing directory, the script now bootstraps a RelWithDebInfo ASan/UBSan configure in that location before running the sanitizer leg.
 
@@ -52,5 +54,7 @@ At the outer interface, callers only need to know that this script:
 3. runs the docs, pipeline, security, parser, and soak legs needed for checkpoint health
 4. runs the coverage gate and fails below 95% project source line coverage
 5. optionally runs ASan/UBSan and fuzz smoke when requested
+
+It does not prove commit readiness or cutover by itself; the caller must complete the commit-readiness self-check for functional changes and the feature-cutover self-check when the change replaces or migrates existing behavior.
 
 The exact internal test labels and target names may evolve, but CI and delivery scripts should continue to call this file rather than inline its implementation details.

@@ -1,0 +1,40 @@
+[skill]
+name = "styio-feature-cutover"
+display_name = "Styio Feature Cutover"
+description = "Use before final testing when changing, optimizing, replacing, migrating, or broadening an existing Styio feature so the new behavior becomes canonical, all callers/docs/tests migrate, and old implementation or compatibility paths are removed or explicitly rejected."
+last_updated = "2026-06-28"
+
+workflow = [
+  "state the new canonical behavior and old behavior being replaced",
+  "check references/feature-cutover-surface.md",
+  "search old names, routes, flags, fixtures, docs, and fallback markers before final tests",
+  "migrate callers and owner documents to the new behavior",
+  "delete old implementation paths unless an explicit compatibility decision owns them",
+  "rename changed feature, module, workflow, skill, and doc surfaces by the feature or transformation result instead of version-style names",
+  "add positives for the new path and adjacent negatives for old acceptance",
+  "run styio-functional-commit-readiness before commit or handoff",
+  "run gates from workflows/FEATURE-CUTOVER-WORKFLOW.toml",
+]
+
+constraints = [
+  "do not call a feature complete while old and new implementations both remain active",
+  "do not leave new behavior linked through old implementation paths",
+  "do not use version-style placeholders such as v2, version, new, old, legacy, or latest for the replacement name",
+  "do not record developer-machine or server-machine paths, account names, private endpoints, or deployment roots; use placeholders such as <workspace-root>, <user-home>, <server-host>, or environment variables",
+  "do not keep compatibility adapters without an owning SSOT, tests, and follow-up checkpoint",
+  "do not use tests that pass through old acceptance as evidence for the new canonical path",
+]
+
+completion_report = [
+  "new canonical behavior",
+  "old paths searched and removed",
+  "compatibility retained or none",
+  "version-style naming check",
+  "local/server info placeholder check",
+  "docs and tests updated",
+  "gates run",
+]
+
+references = [
+  "references/feature-cutover-surface.md",
+]

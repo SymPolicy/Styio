@@ -20,6 +20,7 @@ constraints = [
   "C++ may provide substrate behavior but must not be the resource definition source of truth",
   "prefer fail-closed diagnostics over partially lowered resources",
   "keep resource prelude declarations compact and machine-readable",
+  "do not record developer-machine or server-machine paths, account names, private endpoints, or deployment roots; use placeholders such as <workspace-root>, <user-home>, <server-host>, or environment variables",
 ]
 
 completion_report = [
@@ -27,6 +28,7 @@ completion_report = [
   "accepted source forms",
   "lifecycle behavior",
   "docs updated",
+  "local/server info placeholder check",
   "tests and gates run",
 ]
 

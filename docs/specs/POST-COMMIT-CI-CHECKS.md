@@ -2,7 +2,7 @@
 
 **Purpose:** Define the required workflow for checking GitHub Actions after a local commit is pushed, including what must be verified before committing and what must be watched after pushing.
 
-**Last updated:** 2026-04-25
+**Last updated:** 2026-06-28
 
 ## Scope
 
@@ -12,10 +12,13 @@ This spec applies to agent and maintainer work on `styio-nightly` branches. It c
 
 Before creating a commit, the agent must run the closest local equivalent of the GitHub Actions checks affected by the change.
 
+Functional changes must first complete [../../workflows/FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md](../../workflows/FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md): run targeted feature validation, verify upstream/downstream adaptation, and record every objective unable-to-verify blocker with owner, substitute evidence, and follow-up gate. Changes that replace, migrate, broaden, or retire behavior must also complete [../../workflows/FEATURE-CUTOVER-WORKFLOW.md](../../workflows/FEATURE-CUTOVER-WORKFLOW.md) before commit.
+
 Minimum local checks for normal changes:
 
 ```bash
 ctest --test-dir build/default --output-on-failure
+python3 scripts/local-info-leak-gate.py --mode worktree
 python3 scripts/repo-hygiene-gate.py --mode tracked
 python3 scripts/docs-audit.py
 ```
@@ -23,12 +26,13 @@ python3 scripts/docs-audit.py
 Focused changes may use a narrower test selector only when the final handoff states the narrower scope. Cross-repository contract or product changes must also run the matching ecosystem gate from this repository, such as:
 
 ```bash
-python3 scripts/ecosystem-cli-doc-gate.py --workspace-root <user-home>
-python3 ../styio-spio/scripts/ecosystem-product-gate.py --workspace-root <user-home>
-python3 ../styio-spio/scripts/ecosystem-sample-workflow-gate.py --workspace-root <user-home>
+export STYIO_ECOSYSTEM_WORKSPACE=<workspace-root>
+python3 scripts/ecosystem-cli-doc-gate.py --workspace-root "$STYIO_ECOSYSTEM_WORKSPACE"
+python3 ../styio-spio/scripts/ecosystem-product-gate.py --workspace-root "$STYIO_ECOSYSTEM_WORKSPACE"
+python3 ../styio-spio/scripts/ecosystem-sample-workflow-gate.py --workspace-root "$STYIO_ECOSYSTEM_WORKSPACE"
 ```
 
-The commit message body should record the checks that were actually run.
+The commit message body or handoff should record the checks that were actually run, including functional commit-readiness evidence or objective blockers.
 
 ## Post-Push Verification
 

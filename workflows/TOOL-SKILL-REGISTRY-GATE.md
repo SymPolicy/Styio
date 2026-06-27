@@ -22,8 +22,9 @@ python3 scripts/tool-skill-registry-gate.py
 2. Deleted compatibility shims such as old `scripts/perf-route.sh`, `scripts/soak-minimize.sh`, and the retired `extend_tests.py` cannot reappear.
 3. Active tool files do not carry migration markers, compatibility-wrapper language, one-release-cycle retention notes, or silent-success proxy behavior.
 4. Repo-local skills under `workflows/skills/` match the registry, have current `last_updated` values, and keep references resolvable.
-5. The workflow scheduler includes this gate in local, staged, push, syntax, CI, and release-oriented profiles.
-6. Every team module listed in the TOML has at least one registered non-library maintenance tool and a concrete command.
+5. The local info leak gate is registered so repo-local skills and other repository-owned files cannot carry developer-machine or server-specific structure instead of placeholders.
+6. The workflow scheduler includes this gate in local, staged, push, syntax, CI, and release-oriented profiles.
+7. Every team module listed in the TOML has at least one registered non-library maintenance tool and a concrete command.
 
 ## Update Rules
 
@@ -32,6 +33,7 @@ python3 scripts/tool-skill-registry-gate.py
 3. If a tool is retired, delete it and remove it from the registry in the same change.
 4. If a workflow skill remains active, bump its `last_updated` date when this registry review changes the accepted project state.
 5. When a new team module or business line is added, add a `module_coverage` entry before release.
+6. Advance `current_state_review_date` only when every active registered tool and skill has been reviewed for that date; for a focused addition, update the new entries' `last_reviewed` values without re-certifying the full inventory.
 
 ## Release Policy
 

@@ -2,7 +2,23 @@
 
 **Purpose:** 作为三仓协调镜像，冻结 `styio-nightly`、`styio-spio`、`styio-view` 当前 active internal CLI contract 集合，并给跨仓文档一致性 gate 提供固定对照面。
 
-**Last updated:** 2026-04-20
+**Last updated:** 2026-06-28
+
+## 前置条件
+
+1. 并行: contract rows should be audited in parallel by owner command, consumer repository, payload field family, and negative-path evidence. Only shared payload vocabulary, canonical spellings, and gate ownership changes are serial coordinator merge gates.
+2. 子智能体: sub-agents may check one contract family against one consumer repository, or one payload family across repositories, but one coordinator must merge the matrix update and gate evidence.
+3. 基座: shared CLI payload, docs gate, workflow, or machine-readable contract substrate changes must land first through [Styio-Common-Foundation-Plan.md](./Styio-Common-Foundation-Plan.md).
+4. Upstream dependency: ecosystem sequencing remains governed by [Styio-Ecosystem-Delivery-Master-Plan.md](./Styio-Ecosystem-Delivery-Master-Plan.md).
+
+## Parallel Lane Map
+
+| Lane | Parallel work allowed | Serial merge gate |
+|------|-----------------------|-------------------|
+| Owner-command rows | Audit each `styio`, `spio`, or `view` command family against its owner SSOT. | Canonical command spelling or payload vocabulary changes. |
+| Consumer handoff rows | Check one consumer repo's docs against the matrix and record drift. | Matrix row changes that alter cross-repo expectations. |
+| Payload fields | Verify diagnostics, receipts, runtime events, project graph, toolchain state, registry, and deploy payload fields independently. | Shared envelope/schema changes or compatibility promises. |
+| Negative-path evidence | Discover missing malformed-input, dependency, publish, deploy, or execution failure tests independently. | New required gate policy or release-blocking matrix changes. |
 
 ## 1. Rules
 
@@ -260,6 +276,13 @@ Owner / consumer docs:
 1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
 2. `styio-view/docs/external/for-spio/Spio-Workflow-Success-Payloads.md`
 3. `styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md`
+
+## 验收条件
+
+1. Every active internal CLI contract row names the canonical invocation and owner or consumer docs.
+2. Cross-repository mirrors are updated in the same checkpoint when a contract shape changes.
+3. `python3 scripts/ecosystem-cli-doc-gate.py` passes for local contract consistency.
+4. Any shared payload or gate substrate change is first accepted through the common foundation plan.
 
 ### 3.6 `spio --json tool install/use/pin`
 

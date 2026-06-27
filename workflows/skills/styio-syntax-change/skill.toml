@@ -21,12 +21,14 @@ constraints = [
   "hide internal sentinel names behind typed errors",
   "do not let postfix/infix syntax consume the next statement across a line break unless explicitly designed",
   "treat docs and tests as part of the syntax change",
+  "do not record developer-machine or server-machine paths, account names, private endpoints, or deployment roots; use placeholders such as <workspace-root>, <user-home>, <server-host>, or environment variables",
 ]
 
 completion_report = [
   "accepted forms and reserved forms",
   "supported lowering vs fail-closed paths",
   "docs updated",
+  "local/server info placeholder check",
   "tests and gates run",
 ]
 

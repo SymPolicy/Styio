@@ -18,12 +18,14 @@ constraints = [
   "do not let expression parsing consume the next statement across line breaks unless explicitly designed",
   "do not hide fallback regressions behind passing runtime output",
   "keep parser errors stable for rejected samples",
+  "do not record developer-machine or server-machine paths, account names, private endpoints, or deployment roots; use placeholders such as <workspace-root>, <user-home>, <server-host>, or environment variables",
 ]
 
 completion_report = [
   "accepted samples",
   "rejected samples",
   "no-fallback evidence",
+  "local/server info placeholder check",
   "tests and gates run",
 ]
 

@@ -1,7 +1,7 @@
 id = "repo-hygiene-commit-standard"
 title = "Repo Hygiene Commit Standard"
 purpose = "Constrain local cleanup, ignored outputs, pre-commit checks, push checks, and history rewrite boundaries."
-last_updated = "2026-04-17"
+last_updated = "2026-06-28"
 doc = "REPO-HYGIENE-COMMIT-STANDARD.md"
 
 forbidden = [
@@ -20,4 +20,14 @@ github_hard_blob_limit = "100MB"
 commands = [
   "python3 scripts/repo-hygiene-gate.py --mode tracked",
   "python3 scripts/repo-hygiene-gate.py --mode staged",
+  "python3 scripts/local-info-leak-gate.py --mode staged",
+  "./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit",
+]
+
+functional_commit_checks = [
+  "targeted feature validation",
+  "upstream/downstream adaptation",
+  "version-style naming check against the feature or transformation result",
+  "local/server info placeholder check",
+  "objective unable-to-verify blocker record when needed",
 ]

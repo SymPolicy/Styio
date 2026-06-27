@@ -3977,6 +3977,69 @@ TEST(StyioIRContract, ResourceMethodInliningClonesWritePreface) {
   EXPECT_NE(dynamic_cast<SGConstString*>(value_scope->stmts.back()), nullptr);
 }
 
+TEST(StyioIRContract, ResourceMethodInliningClonesHandleAcquireIteratorStatements) {
+  AstToStyioIRLowerer analyzer;
+  auto var_typed = [](const std::string& name, TypeAST* type) {
+    return VarAST::Create(NameAST::Create(name), type);
+  };
+
+  std::unique_ptr<MainBlockAST> program(MainBlockAST::Create({
+    ResourceMethodDefAST::Create(
+      "file",
+      "scan",
+      false,
+      false,
+      {},
+      BlockAST::Create({
+        HandleAcquireAST::Create(
+          var_typed("input", TypeAST::Create(styio_make_file_handle_type("string"))),
+          FileResourceAST::Create(
+            StringAST::Create("tests/features/file_resources/data/hello.txt"),
+            false)
+        ),
+        IteratorAST::Create(
+          NameAST::Create("input"),
+          {ParamAST::Create(NameAST::Create("line"), TypeAST::Create("string"))},
+          BlockAST::Create({
+            PrintAST::Create({NameAST::Create("line")})
+          }))
+      })
+    ),
+    FinalBindAST::Create(
+      var_typed("input", TypeAST::Create("i64")),
+      IntAST::Create("7")
+    ),
+    FuncCallAST::Create(
+      FileResourceAST::Create(StringAST::Create("/tmp/styio-resource-method-handle-iter"), false),
+      NameAST::Create("scan"),
+      {})
+  }));
+
+  program->typeInfer(&analyzer);
+  std::unique_ptr<StyioIR> ir(program->toStyioIR(&analyzer));
+  auto* entry = dynamic_cast<SGMainEntry*>(ir.get());
+  ASSERT_NE(entry, nullptr);
+  ASSERT_EQ(entry->stmts.size(), 3u);
+
+  auto* call_block = dynamic_cast<SGBlock*>(entry->stmts[2]);
+  ASSERT_NE(call_block, nullptr);
+  ASSERT_EQ(call_block->stmts.size(), 2u);
+
+  auto* acquire = dynamic_cast<SIOHandleAcquire*>(call_block->stmts[0]);
+  ASSERT_NE(acquire, nullptr);
+  EXPECT_NE(acquire->var_name, "input");
+  EXPECT_EQ(acquire->var_name.rfind("__styio_resource_method_local_", 0), 0u);
+
+  auto* iter = dynamic_cast<SIOFileLineIter*>(call_block->stmts[1]);
+  ASSERT_NE(iter, nullptr);
+  EXPECT_FALSE(iter->from_path);
+  EXPECT_EQ(iter->handle_var, acquire->var_name);
+  EXPECT_EQ(iter->line_var, "line");
+  ASSERT_NE(iter->body, nullptr);
+  ASSERT_FALSE(iter->body->stmts.empty());
+  EXPECT_NE(dynamic_cast<SIOStdStreamWrite*>(iter->body->stmts.front()), nullptr);
+}
+
 TEST(StyioIRContract, ResourceMethodInliningCoversDirectReturnCastsAndStatementCloneEdges) {
   auto var_typed = [](const std::string& name, TypeAST* type) {
     return VarAST::Create(NameAST::Create(name), type);
@@ -6481,7 +6544,7 @@ TEST(StyioSecurityParserPath, ClassifiesPathFamiliesAndRejectsUnterminatedPath) 
   };
 
   EXPECT_EQ(parse_path_node_type("/tmp/styio.txt"), StyioNodeType::LocalPath);
-  EXPECT_EQ(parse_path_node_type("C:/tmp/styio.txt"), StyioNodeType::LocalPath);
+  EXPECT_EQ(parse_path_node_type("C:/<drive-root>/styio.txt"), StyioNodeType::LocalPath);
   EXPECT_EQ(parse_path_node_type("relative/styio.txt"), StyioNodeType::LocalPath);
   EXPECT_EQ(parse_path_node_type("http://example.test/styio"), StyioNodeType::WebUrl);
   EXPECT_EQ(parse_path_node_type("https://example.test/styio"), StyioNodeType::WebUrl);
@@ -6491,9 +6554,9 @@ TEST(StyioSecurityParserPath, ClassifiesPathFamiliesAndRejectsUnterminatedPath) 
   EXPECT_EQ(parse_path_node_type("mongo://db/styio"), StyioNodeType::DBUrl);
   EXPECT_EQ(parse_path_node_type("localhost:8080/styio"), StyioNodeType::RemotePath);
   EXPECT_EQ(parse_path_node_type("127.0.0.1:8080/styio"), StyioNodeType::RemotePath);
-  EXPECT_EQ(parse_path_node_type("192.168.0.1/styio"), StyioNodeType::RemotePath);
+  EXPECT_EQ(parse_path_node_type("192.0.2.1/styio"), StyioNodeType::RemotePath);
   EXPECT_EQ(parse_path_node_type("2001:0db8:85a3:0000:0000:8a2e:0370:7334"), StyioNodeType::RemotePath);
-  EXPECT_EQ(parse_path_node_type("\\\\server\\share\\styio"), StyioNodeType::RemotePath);
+  EXPECT_EQ(parse_path_node_type("\\\\<server>\\<share>\\styio"), StyioNodeType::RemotePath);
 
   const std::string unterminated = "\"unterminated";
   std::vector<StyioToken*> tokens;
@@ -8119,6 +8182,31 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodStatementPrefaceReturnE
     compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
   EXPECT_NE(llvm_ir.find("inside"), std::string::npos);
   EXPECT_NE(llvm_ir.find("resource_effect_value"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodHandleAcquireIteratorStatementBody) {
+  const std::string src =
+    "@file::scan = () => {\n"
+    "  input <- @file(\"tests/features/file_resources/data/hello.txt\")\n"
+    "  input >> #(line) => {\n"
+    "    >_(line)\n"
+    "  }\n"
+    "}\n"
+    "input = 7\n"
+    "log := @file(\"/tmp/styio-resource-method-handle-iter\")\n"
+    "log.scan()\n"
+    ">_(input)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string repr = parse_program_to_repr_latest(src, true);
+  EXPECT_NE(repr.find("styio.ast.handle.acquire"), std::string::npos);
+  EXPECT_NE(repr.find("styio.ast.iterator"), std::string::npos);
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_file_open"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_file_rewind"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_file_read_line"), std::string::npos);
 }
 
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodLocalFlexBindReturnExpression) {
@@ -9866,6 +9954,36 @@ TEST(StyioSecurityNightlySemantics, RejectsMatrixCopyByLeftArrow) {
     EXPECT_NE(
       std::string(err.what()).find("must use `<<`; `<-` only acquires external resources"),
       std::string::npos)
+      << err.what();
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsTopologyResourceCloneByCopyOperator) {
+  const std::string src =
+    "@samples : i64|2|\n"
+    "samples_copy << @samples\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected topology resource clone with `<<` to fail";
+  }
+  catch (const StyioTypeError& err) {
+    EXPECT_NE(std::string(err.what()).find("topology resource"), std::string::npos)
+      << err.what();
+  }
+}
+
+TEST(StyioSecurityNightlySemantics, RejectsFileHandleCloneByCopyOperator) {
+  const std::string src =
+    "f <- @file(\"tests/features/stream_processing/data/ref.txt\")\n"
+    "f_copy << f\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected file handle clone with `<<` to fail closed";
+  }
+  catch (const StyioTypeError& err) {
+    EXPECT_NE(std::string(err.what()).find("file/stream handle"), std::string::npos)
       << err.what();
   }
 }

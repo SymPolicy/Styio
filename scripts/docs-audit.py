@@ -43,6 +43,201 @@ APPROVED_GITHUB_MARKDOWN = {
 APPROVED_EXAMPLE_MARKDOWN = {
     "example/README.md",
 }
+PLAN_DOC_EXEMPT_NAMES = {"README.md", "INDEX.md"}
+PLAN_REQUIRED_SECTIONS = ("前置条件", "验收条件")
+PLAN_PRECONDITION_NEEDLES = ("并行", "子智能体", "基座")
+FOUNDATION_KEY_RE = re.compile(r"^\*\*Foundation key:\*\*\s+([a-z0-9][a-z0-9-]*)\s*$", re.M)
+VERSION_NAMING_TOKEN_RE = re.compile(
+    r"(^|[-_.\s])(v[0-9]+|version[0-9]*|ver[0-9]+|new|old|legacy|latest)(?=$|[-_.\s])",
+    re.I,
+)
+VERSION_NAMING_EXEMPT_NAMES = {"README", "README_zh", "INDEX", "IMPLEMENTED-DECISIONS"}
+DOC_REUSE_NEEDLES = {
+    "scripts/docs-scaffold.py": (
+        "--reuse-reviewed",
+        "existing docs/ADR/SSOT",
+        "single-purpose document",
+    ),
+    "docs/README.md": (
+        "Before creating a Markdown file",
+        "update an existing owner",
+    ),
+    "docs/specs/DOCUMENTATION-POLICY.md": (
+        "--reuse-reviewed",
+        "single responsibility",
+        "version-style",
+        "Git history",
+    ),
+    "docs/adr/README.md": (
+        "Existing ADR Search",
+        "current decision only",
+        "Git history",
+    ),
+    "workflows/ADD-REPO-FILE.md": (
+        "Search existing docs",
+        "single responsibility",
+        "Existing owner files searched",
+    ),
+    "workflows/DOCS-MAINTENANCE-WORKFLOW.md": (
+        "--reuse-reviewed",
+        "existing owner",
+        "current decision only",
+    ),
+    "workflows/DOCS-GATE.md": (
+        "search existing owner documents and ADRs first",
+        "--reuse-reviewed",
+    ),
+    "workflows/skills/styio-file-onboarding/skill.toml": (
+        "existing owner",
+        "one ADR per small implementation change",
+        "old and new decisions side by side",
+        "version-style",
+    ),
+}
+VERSION_NAMING_NEEDLES = {
+    "workflows/FEATURE-CUTOVER-WORKFLOW.md": (
+        "version-style names",
+        "feature or transformation result",
+    ),
+    "workflows/FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md": (
+        "version-style names",
+        "feature or transformation result",
+    ),
+    "workflows/skills/styio-feature-cutover/skill.toml": (
+        "version-style",
+        "feature or transformation result",
+    ),
+    "workflows/skills/styio-functional-commit-readiness/skill.toml": (
+        "version-style",
+        "feature or transformation result",
+    ),
+    "workflows/skills/styio-file-onboarding/references/file-onboarding-surface.md": (
+        "version-style",
+        "feature or transformation result",
+    ),
+    "scripts/docs-scaffold.py": (
+        "VERSION_NAMING_TOKEN_RE",
+        "version-style document names are not allowed",
+    ),
+}
+LOCAL_INFO_POLICY_NEEDLES = {
+    "scripts/local-info-leak-gate.py": (
+        "WINDOWS_ABSOLUTE_PATH_RE",
+        "WARNING",
+        "developer-machine or server-specific",
+    ),
+    "scripts/workflow-scheduler.py": (
+        "local-info-leak-worktree",
+        "local-info-leak-push",
+    ),
+    "workflows/LOCAL-INFO-LEAK-GATE.md": (
+        "developer-machine",
+        "<workspace-root>",
+        "WARNING",
+    ),
+    "workflows/LOCAL-INFO-LEAK-GATE.toml": (
+        "local-info-leak-gate",
+        "<workspace-root>",
+    ),
+    "workflows/WORKFLOW-ORCHESTRATION.md": (
+        "LOCAL-INFO-LEAK-GATE.md",
+        "local-info scan",
+    ),
+    "workflows/README.md": (
+        "LOCAL-INFO-LEAK-GATE.md",
+        "developer-machine and server-specific",
+    ),
+    "workflows/TOOL-SKILL-REGISTRY-GATE.toml": (
+        "local-info-leak-gate",
+        "scripts/local-info-leak-gate.py",
+    ),
+    "workflows/TOOL-SKILL-REGISTRY-GATE.md": (
+        "local info leak gate",
+        "placeholders",
+    ),
+    "workflows/skills/README.md": (
+        "developer-machine paths",
+        "<workspace-root>",
+    ),
+    "workflows/ADD-REPO-FILE.md": (
+        "local-info-leak-gate.py",
+        "developer-machine paths",
+    ),
+    "workflows/DOCS-MAINTENANCE-WORKFLOW.md": (
+        "local-info-leak-gate.py",
+        "server-machine",
+    ),
+    "docs/specs/DOCUMENTATION-POLICY.md": (
+        "local-info-leak-gate.py",
+        "<workspace-root>",
+    ),
+}
+ADR_REQUIRED_SECTIONS = ("Status", "Context", "Decision", "Alternatives", "Consequences")
+ADR_FORBIDDEN_HISTORY_HEADINGS = {
+    "History",
+    "Decision History",
+    "Previous Decision",
+    "Previous Decisions",
+    "Old Decision",
+    "Old Decisions",
+    "Superseded",
+    "Changelog",
+    "Change Log",
+    "Migration History",
+}
+COMMIT_READINESS_NEEDLES = {
+    "workflows/FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md": (
+        "upstream",
+        "downstream",
+        "targeted feature",
+        "objective blocker",
+    ),
+    "workflows/FUNCTIONAL-COMMIT-READINESS-WORKFLOW.toml": (
+        "functional-commit-readiness",
+        "upstream/downstream",
+        "unrecorded_unable_to_verify",
+    ),
+    "scripts/delivery-gate.sh": (
+        "FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md",
+        "STYIO_COMMIT_READINESS_REQUIRE",
+        "STYIO_COMMIT_READINESS_CONFIRMED",
+        "version-style naming",
+    ),
+    "scripts/checkpoint-health.sh": (
+        "FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md",
+        "upstream/downstream",
+        "version-style naming",
+    ),
+    "scripts/install-repo-hygiene-hooks.sh": (
+        "STYIO_COMMIT_READINESS_REQUIRE=1",
+        "delivery-gate.sh",
+    ),
+    ".github/PULL_REQUEST_TEMPLATE.md": (
+        "Functional changes:",
+        "upstream/downstream",
+        "version-style names",
+        "unable-to-verify blockers",
+    ),
+    "workflows/README.md": (
+        "FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md",
+        "before commit",
+    ),
+    "workflows/DELIVERY-GATE.md": (
+        "FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md",
+        "upstream/downstream",
+        "version-style naming",
+    ),
+    "workflows/CHECKPOINT-HEALTH.md": (
+        "FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md",
+        "upstream/downstream",
+        "version-style naming",
+    ),
+    "workflows/REPO-HYGIENE-COMMIT-STANDARD.md": (
+        "FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md",
+        "STYIO_COMMIT_READINESS_CONFIRMED",
+        "version-style naming check",
+    ),
+}
 PARAM_RESOURCE_PSEUDO_DEF_RE = re.compile(r"@[A-Za-z_][A-Za-z0-9_]*\s*[\{\(][^\n`]*\s*:=")
 FILE_PATH_PSEUDO_PRIMITIVE_RE = re.compile(r"\bfile\s*\(\s*path\s*\)")
 RESOURCE_PSEUDO_DEF_NEGATION_RE = re.compile(r"\b(do not|don't|must not|never|not|invalid|forbid|forbidden|reject|rejected)\b", re.I)
@@ -645,6 +840,215 @@ def check_workflow_toml(errors: List[str]) -> None:
                 errors.append(f"missing skill.toml: {skill_dir.relative_to(ROOT)}")
 
 
+def h2_headings(text: str) -> List[str]:
+    return [line[3:].strip() for line in text.splitlines() if line.startswith("## ")]
+
+
+def section_body(text: str, heading: str) -> str:
+    lines = text.splitlines()
+    start = None
+    for index, line in enumerate(lines):
+        if line == f"## {heading}":
+            start = index + 1
+            break
+    if start is None:
+        return ""
+    end = len(lines)
+    for index in range(start, len(lines)):
+        if lines[index].startswith("## "):
+            end = index
+            break
+    return "\n".join(lines[start:end]).strip()
+
+
+def check_plan_docs(errors: List[str]) -> None:
+    plans_dir = DOCS / "plans"
+    if not plans_dir.exists():
+        return
+
+    readme = plans_dir / "README.md"
+    readme_text = readme.read_text(encoding="utf-8") if readme.exists() else ""
+    if "## 通用基座计划索引" not in readme_text:
+        errors.append("docs/plans/README.md is missing required section: ## 通用基座计划索引")
+
+    foundation_keys: Dict[str, Path] = {}
+    for path in sorted(plans_dir.glob("*.md")):
+        if path.name in PLAN_DOC_EXEMPT_NAMES:
+            continue
+        rel = path.relative_to(ROOT)
+        text = path.read_text(encoding="utf-8")
+        headings = h2_headings(text)
+
+        for heading in PLAN_REQUIRED_SECTIONS:
+            if heading not in headings:
+                errors.append(f"plan document is missing required section ## {heading}: {rel}")
+        if all(heading in headings for heading in PLAN_REQUIRED_SECTIONS):
+            if headings.index("前置条件") > headings.index("验收条件"):
+                errors.append(f"plan document must place ## 前置条件 before ## 验收条件: {rel}")
+
+        preconditions = section_body(text, "前置条件")
+        if preconditions:
+            for needle in PLAN_PRECONDITION_NEEDLES:
+                if needle not in preconditions:
+                    errors.append(f"plan ## 前置条件 must state {needle} policy: {rel}")
+        acceptance = section_body(text, "验收条件")
+        if acceptance and len(strip_code_fences(acceptance).strip()) < 20:
+            errors.append(f"plan ## 验收条件 is too thin to be actionable: {rel}")
+
+        keys = FOUNDATION_KEY_RE.findall(text)
+        if len(keys) > 1:
+            errors.append(f"plan document declares multiple foundation keys: {rel}")
+        if keys:
+            key = keys[0]
+            previous = foundation_keys.get(key)
+            if previous is not None:
+                errors.append(
+                    "duplicate foundation plan key "
+                    f"{key}: {previous.relative_to(ROOT)} and {rel}"
+                )
+            foundation_keys[key] = path
+
+    for key, path in sorted(foundation_keys.items()):
+        if key not in readme_text or path.name not in readme_text:
+            errors.append(
+                "docs/plans/README.md foundation index must list "
+                f"{key} -> {path.relative_to(ROOT)}"
+            )
+
+
+def check_commit_readiness_workflow(errors: List[str]) -> None:
+    for rel_path, needles in COMMIT_READINESS_NEEDLES.items():
+        path = ROOT / rel_path
+        if not path.is_file():
+            errors.append(f"commit-readiness workflow required file is missing: {rel_path}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for needle in needles:
+            if needle not in text:
+                errors.append(f"commit-readiness workflow is not wired into {rel_path}: missing {needle!r}")
+
+
+def check_doc_reuse_policy(errors: List[str]) -> None:
+    for rel_path, needles in DOC_REUSE_NEEDLES.items():
+        path = ROOT / rel_path
+        if not path.is_file():
+            errors.append(f"document-reuse policy required file is missing: {rel_path}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for needle in needles:
+            if needle not in text:
+                errors.append(f"document-reuse policy is not wired into {rel_path}: missing {needle!r}")
+
+
+def check_adr_docs(errors: List[str]) -> None:
+    adr_dir = DOCS / "adr"
+    if not adr_dir.exists():
+        return
+    for path in sorted(adr_dir.glob("ADR-*.md")):
+        rel = path.relative_to(ROOT)
+        if not ADR_FILE_RE.match(path.name):
+            continue
+        text = path.read_text(encoding="utf-8")
+        headings = h2_headings(text)
+        for heading in ADR_REQUIRED_SECTIONS:
+            if heading not in headings:
+                errors.append(f"active ADR is missing required section ## {heading}: {rel}")
+        for heading in headings:
+            if heading in ADR_FORBIDDEN_HISTORY_HEADINGS:
+                errors.append(
+                    "active ADR must record the current decision only; "
+                    f"use Git history for old decision text: {rel} has ## {heading}"
+                )
+
+
+def version_naming_part(path: Path) -> str:
+    for part in path.parts:
+        stem = Path(part).stem
+        if stem in VERSION_NAMING_EXEMPT_NAMES:
+            continue
+        if DATE_FILE_RE.match(f"{stem}.md"):
+            continue
+        if ADR_FILE_RE.match(f"{stem}.md"):
+            continue
+        if VERSION_NAMING_TOKEN_RE.search(stem):
+            return part
+    return ""
+
+
+def check_version_naming_policy(errors: List[str]) -> None:
+    for rel_path, needles in VERSION_NAMING_NEEDLES.items():
+        path = ROOT / rel_path
+        if not path.is_file():
+            errors.append(f"version-naming policy required file is missing: {rel_path}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for needle in needles:
+            if needle not in text:
+                errors.append(f"version-naming policy is not wired into {rel_path}: missing {needle!r}")
+
+    for entry in collect_manifest("worktree"):
+        if entry.status != "valid":
+            continue
+        rel = entry.path
+        if rel.parts[0] not in {"docs", "workflows"}:
+            continue
+        bad_name = version_naming_part(rel)
+        if bad_name:
+            errors.append(
+                "version-style names are not allowed for active docs/workflows; "
+                f"name by feature or transformation result instead: {entry.rel_path} ({bad_name})"
+            )
+
+    for path in sorted((ROOT / "workflows").rglob("*.toml")):
+        try:
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
+        except tomllib.TOMLDecodeError:
+            continue
+        candidates: List[tuple[str, str]] = []
+        for field in ("id", "title", "name", "display_name"):
+            value = data.get(field)
+            if isinstance(value, str):
+                candidates.append((field, value))
+        skill = data.get("skill")
+        if isinstance(skill, dict):
+            for field in ("name", "display_name"):
+                value = skill.get(field)
+                if isinstance(value, str):
+                    candidates.append((f"skill.{field}", value))
+        for field, value in candidates:
+            if VERSION_NAMING_TOKEN_RE.search(value):
+                errors.append(
+                    "version-style workflow/skill names are not allowed; "
+                    f"name by feature or transformation result instead: {path.relative_to(ROOT)} {field}={value!r}"
+                )
+
+
+def check_local_info_policy(errors: List[str]) -> None:
+    for rel_path, needles in LOCAL_INFO_POLICY_NEEDLES.items():
+        path = ROOT / rel_path
+        if not path.is_file():
+            errors.append(f"local-info leak policy required file is missing: {rel_path}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for needle in needles:
+            if needle not in text:
+                errors.append(f"local-info leak policy is not wired into {rel_path}: missing {needle!r}")
+
+    skill_dir = ROOT / "workflows" / "skills"
+    for path in sorted(skill_dir.glob("*/skill.toml")):
+        text = path.read_text(encoding="utf-8")
+        if "developer-machine or server-machine paths" not in text:
+            errors.append(
+                "repo-local skills must forbid local/server machine details: "
+                f"{path.relative_to(ROOT)}"
+            )
+        if "local/server info placeholder check" not in text:
+            errors.append(
+                "repo-local skills must report local/server placeholder checks: "
+                f"{path.relative_to(ROOT)}"
+            )
+
+
 def check_resource_identifier_governance(errors: List[str]) -> None:
     search_roots = [DOCS, ROOT / "workflows"]
     suffixes = {".md", ".toml"}
@@ -692,6 +1096,12 @@ def run_audit() -> int:
     check_lifecycle(errors)
     check_team_docs_gate(errors)
     check_workflow_toml(errors)
+    check_plan_docs(errors)
+    check_commit_readiness_workflow(errors)
+    check_doc_reuse_policy(errors)
+    check_adr_docs(errors)
+    check_version_naming_policy(errors)
+    check_local_info_policy(errors)
     check_resource_identifier_governance(errors)
     check_public_wording(errors)
 

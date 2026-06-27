@@ -2,7 +2,7 @@
 
 **Purpose:** Record the package, module, release, `spio`, and Styio-Platform boundary for IM-D10 while explicitly listing the external confirmations that cannot be derived from this local checkout.
 
-**Last updated:** 2026-05-22
+**Last updated:** 2026-06-28
 
 ## Scope
 
@@ -139,6 +139,26 @@ Some decisions require both Spio and Styio-Platform to agree before `styio` can 
 | IM-D10-X7 | Offline and edge mode | How static nano packages, local mirrors, vendored packages, and hosted registry fallback interact. |
 | IM-D10-X8 | Security policy | Where signing, provenance, SBOM, audit evidence, auth tokens, and trust roots are defined and enforced. |
 
+## External Confirmation Track
+
+The active IM-D10 execution track is to confirm Spio and Styio-Platform ownership before `styio` documents or consumes package/platform facts beyond the compiler request boundary.
+
+Required confirmation groups can run in parallel because they are external fact-finding lanes, not compiler implementation lanes:
+
+1. Spio-owned package facts: manifest identity, lockfile schema, resolver rules, workflow payloads, project graph, toolchain lifecycle, nano consumption, package lifecycle split, standard-library package shape, and compatibility matrix.
+2. Styio-Platform-owned service facts: remote registry ownership, channel/index APIs, auth/signing/trust, hosted worker invocation, storage retention, mirror/offline coordination, release promotion, and hosted API payload ownership.
+3. Shared Spio / Platform facts: registry ownership split, package identity tuple, compatibility mapping, failure taxonomy, standard-library distribution, reproducibility evidence, offline/edge behavior, and security policy.
+
+Each lane should return owner links, current status, unresolved questions, and any compiler-facing field or diagnostic implication. The serial merge gate is the moment `styio` records a confirmed fact as a compiler-facing contract; until then the lane output remains external confirmation evidence only.
+
+`styio` implementation remains limited to compiler-side hardening while this track is open:
+
+1. keep compile-plan as a resolved compiler input;
+2. reject malformed compiler-facing package fields with stable diagnostics;
+3. harden nano producer/verifier and source-build metadata;
+4. link confirmed external facts only after the owning repository publishes them; and
+5. do not add package-manager, registry, trust, hosted workspace, or standard-library distribution policy to the compiler CLI.
+
 ## Stop Condition
 
 IM-D10 can close inside `styio` only when:
@@ -148,13 +168,14 @@ IM-D10 can close inside `styio` only when:
 3. `styio` rejects malformed package-facing plans with stable service diagnostics;
 4. nano producer/verifier and static repository behavior have positive and negative tests, including malformed repository entry schemas, malformed cloud package manifests, blob integrity failures, local/static publish boundaries, and create/publish CLI guard failures;
 5. `styio` docs do not present local Spio or Platform checkout observations as current implementation evidence;
-6. every Spio-owned package lifecycle decision is either confirmed by active Spio docs or listed as external confirmation required;
-7. every Styio-Platform registry or hosted-service decision is either confirmed by active Platform docs or listed as external confirmation required; and
-8. any future compiler-visible package field has a source-of-truth owner, schema marker, negative-path diagnostic, and compatibility test.
+6. the external confirmation track above has an owner-facing status for each Spio, Styio-Platform, and shared confirmation group;
+7. every Spio-owned package lifecycle decision is either confirmed by active Spio docs or listed as external confirmation required;
+8. every Styio-Platform registry or hosted-service decision is either confirmed by active Platform docs or listed as external confirmation required; and
+9. any future compiler-visible package field has a source-of-truth owner, schema marker, negative-path diagnostic, and compatibility test.
 
 ## Decision Closure
 
-IM-D10 is not closed by this inventory. The compiler-side boundary is clear enough to proceed with local hardening, and the current nano producer/verifier edge tests now cover malformed static repository entries, malformed cloud manifests, create/publish guard failures, blob integrity failures, and local/static publish boundaries. Compile-plan resolved-request validation now also rejects malformed explicit `profile.build_mode` values, malformed package entries, and entry-package inconsistencies while staying within the resolved compiler request envelope. The package lifecycle, remote registry, hosted platform, standard-library distribution, trust, and compatibility-matrix questions still require explicit confirmation from the active `spio` and Styio-Platform maintainers.
+IM-D10 is not closed by this inventory. The compiler-side boundary is clear enough to proceed with local hardening, and the current nano producer/verifier edge tests now cover malformed static repository entries, malformed cloud manifests, create/publish guard failures, blob integrity failures, and local/static publish boundaries. Compile-plan resolved-request validation now also rejects malformed explicit `profile.build_mode` values, malformed package entries, and entry-package inconsistencies while staying within the resolved compiler request envelope. The active follow-up is the external confirmation track above: package lifecycle, remote registry, hosted platform, standard-library distribution, trust, reproducibility, offline/edge behavior, and compatibility-matrix questions must be confirmed by the active `spio` and Styio-Platform maintainers before `styio` records them as anything more than compiler-side handoff requirements.
 
 ## Source Documents
 

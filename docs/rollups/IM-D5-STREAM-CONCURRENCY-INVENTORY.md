@@ -2,7 +2,7 @@
 
 **Purpose:** Record the accepted stream-runtime, concurrency, pulse-frame, cross-stream synchronization, and multi-writer merge decisions for IM-D5.
 
-**Last updated:** 2026-05-31
+**Last updated:** 2026-06-28
 
 ## Scope
 
@@ -43,7 +43,10 @@ Styio already has active design and partial implementation surfaces for streams:
   `@stdin & @stdin` remains rejected until the stream-driver contract defines
   duplicate consumption of the same external input, and now reports
   `STYIO_TYPE_STREAM_DUPLICATE_DRIVER_UNSUPPORTED` on public JSONL paths for
-  that fail-closed boundary. This selector-snapshot and stdin-stream slice
+  that fail-closed boundary. The owner decision is to keep duplicate stdin zip
+  rejected until a future explicit tee/buffer or duplicate-driver design is
+  accepted; the current language does not implement implicit stdin duplication
+  or sequential double reads. This selector-snapshot and stdin-stream slice
   remains ordinary finite zip over already-materialized lists or line streams;
   snapshot joins, queue/timeout policy, pressure observers, duplicate external
   input consumption, and multi-writer merge/conflict semantics remain open.
@@ -62,9 +65,10 @@ Styio already has active design and partial implementation surfaces for streams:
 - Undefined hash-tag iterator sequence routes such as `[1, 2] >> #price` now
   fail closed with the feature-owned JSONL code
   `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED` instead of only the broad
-  `STYIO_TYPE_ERROR`. This is also an IM-D3 diagnostic refinement; IM-D5-P1
-  still owns the decision to retire hash-tag routes or define them in the stream
-  design SSOT before any runtime behavior can be implemented.
+  `STYIO_TYPE_ERROR`. This is also an IM-D3 diagnostic refinement; IM-D5-P1 is
+  closed as a retirement decision. The syntax must stay non-runnable with
+  stable migration diagnostics unless a future owner decision reopens it through
+  the stream design SSOT.
 
 The implementation is still incomplete. Multi-stream zip and driver combinations are only partially lowered, unsupported combinations may still end in narrow lowering/codegen paths, and cross-stream sync needs a stable memory-model contract before the remaining implementation can be judged complete.
 
