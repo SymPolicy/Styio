@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "../EnvTestUtil.hpp"
 #include "StyioAST/AST.hpp"
 #include "StyioServices/StyioIDE/CompilerBridge.hpp"
 #include "StyioServices/StyioIDE/HIR.hpp"
@@ -20,22 +21,16 @@
 #include "StyioServices/StyioIDE/Syntax.hpp"
 #include "StyioServices/StyioIDE/VFS.hpp"
 
-#define private public
 #include "StyioServices/StyioIDE/SemDB.hpp"
-#undef private
 
-#define private public
 #include "StyioServices/StyioIDE/Service.hpp"
-#undef private
 
 #include "StyioException/Exception.hpp"
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
 #include "llvm/Support/FormatVariadic.h"
 
-#define private public
 #include "StyioServices/StyioLSP/Server.hpp"
-#undef private
 
 #define analyze_document analyze_document_internal_for_test
 #include "../src/StyioServices/StyioIDE/CompilerBridge.cpp"
@@ -195,18 +190,18 @@ public:
 
   ~EnvVarGuard() {
     if (had_value_) {
-      setenv(name_.c_str(), old_value_.c_str(), 1);
+      styio_test_setenv(name_.c_str(), old_value_.c_str(), 1);
     } else {
-      unsetenv(name_.c_str());
+      styio_test_unsetenv(name_.c_str());
     }
   }
 
   void set(const std::string& value) {
-    setenv(name_.c_str(), value.c_str(), 1);
+    styio_test_setenv(name_.c_str(), value.c_str(), 1);
   }
 
   void unset() {
-    unsetenv(name_.c_str());
+    styio_test_unsetenv(name_.c_str());
   }
 
 private:
@@ -581,15 +576,20 @@ TEST(StyioIDECommon, TextBufferUriAndEnumHelpersCoverEdgeCases) {
   EXPECT_EQ((styio::ide::TextRange{9, 4}).length(), 0U);
 
   EXPECT_EQ(styio::ide::path_from_uri("untitled:main.styio"), "untitled:main.styio");
-  EXPECT_EQ(
-    styio::ide::path_from_uri("file://tmp/space+name%2Fchild%41.styio"),
-    "/tmp/space name/childA.styio");
+#if defined(_WIN32)
+  const std::string tmp_child_path = "\\tmp\\space name\\childA.styio";
+  const std::string tmp_lower_path = "\\tmp\\lower\\hexa.styio";
+  const std::string tmp_bad_path = "\\tmp\\bad%ZZ name.styio";
+#else
+  const std::string tmp_child_path = "/tmp/space name/childA.styio";
+  const std::string tmp_lower_path = "/tmp/lower/hexa.styio";
+  const std::string tmp_bad_path = "/tmp/bad%ZZ name.styio";
+#endif
+  EXPECT_EQ(styio::ide::path_from_uri("file://tmp/space+name%2Fchild%41.styio"), tmp_child_path);
   EXPECT_EQ(
     styio::ide::path_from_uri("file:///tmp/lower%2fhex%61.styio"),
-    "/tmp/lower/hexa.styio");
-  EXPECT_EQ(
-    styio::ide::path_from_uri("file:///tmp/bad%ZZ+name.styio"),
-    "/tmp/bad%ZZ name.styio");
+    tmp_lower_path);
+  EXPECT_EQ(styio::ide::path_from_uri("file:///tmp/bad%ZZ+name.styio"), tmp_bad_path);
 
   EXPECT_EQ(
     styio::ide::uri_from_path("relative dir/main file.styio"),
@@ -3143,7 +3143,8 @@ TEST(StyioSemanticDb, ReusesDefinitionReferenceAndCompletionContextQueriesWithin
   styio::ide::VirtualFileSystem vfs;
   styio::ide::Project project;
   styio::ide::SemanticDB semdb(vfs, project);
-  const std::string path = make_temp_dir() + "/semantic_navigation_cache.styio";
+  const std::string path =
+    (std::filesystem::path(make_temp_dir()) / "semantic_navigation_cache.styio").string();
   const std::string source =
     "# add := (a: i32, b: i32) => a + b\n"
     "result: i32 := add(1, 2)\n";

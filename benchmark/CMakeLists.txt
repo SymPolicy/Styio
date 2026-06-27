@@ -79,7 +79,7 @@ if(STYIO_BENCHMARK_ROOT_RESOLVED)
   target_link_libraries(styio_soak_test PRIVATE styio_core GTest::gtest_main)
   styio_apply_llvm_compile_settings(styio_soak_test)
   target_compile_definitions(styio_soak_test PRIVATE
-    "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
+    "STYIO_SOURCE_DIR=\"${STYIO_DEFINE_SOURCE_DIR}\""
     "STYIO_COMPILER_EXE=\"$<TARGET_FILE:styio>\""
   )
   add_dependencies(styio_soak_test styio)

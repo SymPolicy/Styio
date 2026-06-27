@@ -6,9 +6,29 @@
 #include <optional>
 #include <string>
 
+#include "EnvTestUtil.hpp"
+
 #include "../src/StyioNative/NativeInterop.cpp"
 
+#ifndef STYIO_TEST_C_COMPILER
+#define STYIO_TEST_C_COMPILER "cc"
+#endif
+
+#ifndef STYIO_TEST_CXX_COMPILER
+#define STYIO_TEST_CXX_COMPILER "c++"
+#endif
+
 namespace {
+
+std::string test_c_compiler() {
+  std::string compiler = STYIO_TEST_C_COMPILER;
+  return compiler.empty() ? "cc" : compiler;
+}
+
+std::string test_cxx_compiler() {
+  std::string compiler = STYIO_TEST_CXX_COMPILER;
+  return compiler.empty() ? "c++" : compiler;
+}
 
 class EnvVarGuard {
  public:
@@ -22,19 +42,19 @@ class EnvVarGuard {
 
   ~EnvVarGuard() {
     if (original_.has_value()) {
-      setenv(name_.c_str(), original_->c_str(), 1);
+      styio_test_setenv(name_.c_str(), original_->c_str(), 1);
     }
     else {
-      unsetenv(name_.c_str());
+      styio_test_unsetenv(name_.c_str());
     }
   }
 
   void set(const std::string& value) {
-    setenv(name_.c_str(), value.c_str(), 1);
+    styio_test_setenv(name_.c_str(), value.c_str(), 1);
   }
 
   void unset() {
-    unsetenv(name_.c_str());
+    styio_test_unsetenv(name_.c_str());
   }
 
  private:
@@ -55,6 +75,13 @@ TEST(StyioNativeInteropInternal, EscapingAndCacheEnvironmentBranchesStayExplicit
     compiler,
     "/tmp/source file.c",
     "/tmp/out;safe.so");
+#if defined(_WIN32)
+  ASSERT_EQ(shared_argv.size(), 6u);
+  EXPECT_EQ(shared_argv[0], compiler.command);
+  EXPECT_EQ(shared_argv[1], "-shared");
+  EXPECT_EQ(shared_argv[3], "/tmp/source file.c");
+  EXPECT_EQ(shared_argv[5], "/tmp/out;safe.so");
+#else
   ASSERT_EQ(shared_argv.size(), 7u);
   EXPECT_EQ(shared_argv[0], compiler.command);
   EXPECT_EQ(shared_argv[1], "-shared");
@@ -63,16 +90,24 @@ TEST(StyioNativeInteropInternal, EscapingAndCacheEnvironmentBranchesStayExplicit
   EXPECT_EQ(
     native_command_display(shared_argv),
     "'/tmp/compiler dir/cc tool' '-shared' '-fPIC' '-O2' '/tmp/source file.c' '-o' '/tmp/out;safe.so'");
+#endif
 
   const auto object_argv = native_object_compile_argv(
     compiler,
     " c++ ",
     "/tmp/source file.cpp",
     "/tmp/out file.o");
+#if defined(_WIN32)
+  ASSERT_EQ(object_argv.size(), 7u);
+  EXPECT_EQ(object_argv[1], "-std=c++20");
+  EXPECT_EQ(object_argv[4], "/tmp/source file.cpp");
+  EXPECT_EQ(object_argv[6], "/tmp/out file.o");
+#else
   ASSERT_EQ(object_argv.size(), 8u);
   EXPECT_EQ(object_argv[1], "-std=c++20");
   EXPECT_EQ(object_argv[5], "/tmp/source file.cpp");
   EXPECT_EQ(object_argv[7], "/tmp/out file.o");
+#endif
 
   EnvVarGuard cache_guard("STYIO_NATIVE_CACHE");
   EnvVarGuard cache_dir_guard("STYIO_NATIVE_CACHE_DIR");
@@ -85,16 +120,26 @@ TEST(StyioNativeInteropInternal, EscapingAndCacheEnvironmentBranchesStayExplicit
   std::string error;
   EXPECT_TRUE(native_cache_path_for_key("disabled", error).empty());
   EXPECT_FALSE(ensure_directory({}, error));
+  EXPECT_EQ(
+    native_cache_tmp_path_for_key(
+      std::filesystem::path("native") / ("cached" + std::string(styio::platform::shared_library_suffix())))
+      .extension()
+      .string(),
+    styio::platform::shared_library_suffix());
 
   cache_guard.set("1");
   cache_dir_guard.set(" ");
   xdg_guard.set((std::filesystem::temp_directory_path() / "styio-native-xdg").string());
   home_guard.unset();
-  EXPECT_NE(native_cache_dir().string().find("styio/native/abi-stable"), std::string::npos);
+  EXPECT_NE(native_cache_dir().generic_string().find("styio/native/abi-stable"), std::string::npos);
 
   xdg_guard.set(" ");
   home_guard.unset();
+#if defined(_WIN32)
+  EXPECT_FALSE(native_cache_dir().empty());
+#else
   EXPECT_TRUE(native_cache_dir().empty());
+#endif
 }
 
 TEST(StyioNativeInteropInternal, SignatureParsingRejectsAndSynthesizesEdgeParameters) {
@@ -172,7 +217,7 @@ TEST(StyioNativeInteropInternal, FilesystemAndCompilerResolutionFailuresStayExpl
 
   const std::filesystem::path temp =
     std::filesystem::temp_directory_path()
-    / ("styio-native-interop-internal-" + stable_hash_hex(std::to_string(::getpid())));
+    / ("styio-native-interop-internal-" + stable_hash_hex(std::to_string(styio::platform::process_id())));
   std::filesystem::remove_all(temp);
   std::filesystem::create_directories(temp);
 
@@ -221,7 +266,7 @@ TEST(StyioNativeInteropInternal, ReferencedSourcesAndEarlyLoadRejectionsStayExpl
 
   const std::filesystem::path temp =
     std::filesystem::temp_directory_path()
-    / ("styio-native-interop-sources-" + stable_hash_hex(std::to_string(::getpid())));
+    / ("styio-native-interop-sources-" + stable_hash_hex(std::to_string(styio::platform::process_id())));
   std::filesystem::remove_all(temp);
   std::filesystem::create_directories(temp);
 
@@ -275,7 +320,7 @@ TEST(StyioNativeInteropInternal, InvalidDiskCacheEntryIsDiscardedBeforeCompile) 
 
   const std::filesystem::path temp =
     std::filesystem::temp_directory_path()
-    / ("styio-native-interop-cache-" + stable_hash_hex(std::to_string(::getpid())));
+    / ("styio-native-interop-cache-" + stable_hash_hex(std::to_string(styio::platform::process_id())));
   std::filesystem::remove_all(temp);
   std::filesystem::create_directories(temp);
 
@@ -285,7 +330,11 @@ TEST(StyioNativeInteropInternal, InvalidDiskCacheEntryIsDiscardedBeforeCompile) 
   EnvVarGuard mode_guard("STYIO_NATIVE_TOOLCHAIN_MODE");
   cache_guard.set("1");
   cache_dir_guard.set((temp / "cache").string());
-  cc_guard.set("cc");
+#if defined(_WIN32)
+  cc_guard.unset();
+#else
+  cc_guard.set(test_c_compiler());
+#endif
   mode_guard.set("system");
 
   const std::string symbol = "bad_cache_" + stable_hash_hex(temp.string()).substr(0, 8);
@@ -310,11 +359,14 @@ TEST(StyioNativeInteropInternal, InvalidDiskCacheEntryIsDiscardedBeforeCompile) 
 }
 
 TEST(StyioNativeInteropInternal, CacheRacePrefersExistingSharedObjectAfterCompile) {
+#if defined(_WIN32)
+  GTEST_SKIP() << "POSIX shell-script fake compiler coverage; Windows native compiler coverage runs in other tests.";
+#endif
   using namespace styio::native;
 
   const std::filesystem::path temp =
     std::filesystem::temp_directory_path()
-    / ("styio-native-interop-cache-race-" + stable_hash_hex(std::to_string(::getpid())));
+    / ("styio-native-interop-cache-race-" + stable_hash_hex(std::to_string(styio::platform::process_id())));
   std::filesystem::remove_all(temp);
   std::filesystem::create_directories(temp);
 
@@ -354,7 +406,7 @@ TEST(StyioNativeInteropInternal, CacheRacePrefersExistingSharedObjectAfterCompil
     "  prev=\"$arg\"\n"
     "done\n"
     "test -n \"$out\" || exit 3\n"
-    "cc \"$@\" || exit 4\n"
+    + std::string(shell_quote(test_c_compiler())) + " \"$@\" || exit 4\n"
     "cp \"$out\" \"$STYIO_TEST_NATIVE_CACHE_RACE_PATH\" || exit 5\n"
     "exit 0\n",
     error)) << error;
@@ -387,15 +439,21 @@ TEST(StyioNativeInteropInternal, NativeCommandRunnerExecsArgvWithoutShell) {
 
   const std::filesystem::path temp =
     std::filesystem::temp_directory_path()
-    / ("styio-native-interop-runner-" + stable_hash_hex(std::to_string(::getpid())));
+    / ("styio-native-interop-runner-" + stable_hash_hex(std::to_string(styio::platform::process_id())));
   std::filesystem::remove_all(temp);
   std::filesystem::create_directories(temp);
 
   const std::filesystem::path marker = temp / "shell_pwned";
   const std::filesystem::path log_path = temp / "run.log";
+#if defined(_WIN32)
+  const std::vector<std::string> argv = {
+    (temp / "true; touch shell_pwned.exe").string(),
+  };
+#else
   const std::vector<std::string> argv = {
     "/bin/true; touch " + marker.string(),
   };
+#endif
 
   const NativeCommandResult result = run_native_command_to_log(argv, log_path, true);
 
@@ -403,7 +461,9 @@ TEST(StyioNativeInteropInternal, NativeCommandRunnerExecsArgvWithoutShell) {
   EXPECT_FALSE(std::filesystem::exists(marker));
   std::string log;
   EXPECT_TRUE(read_text_file(log_path, log));
-  EXPECT_NE(log.find("failed to exec native command"), std::string::npos);
+  EXPECT_TRUE(
+    log.find("failed to exec native command") != std::string::npos
+    || result.launch_error.find("cannot launch native command") != std::string::npos);
 
   std::error_code cleanup_ec;
   std::filesystem::remove_all(temp, cleanup_ec);
@@ -414,7 +474,7 @@ TEST(StyioNativeInteropInternal, NativeCommandRunnerCanSplitStdoutAndStderrLogs)
 
   const std::filesystem::path temp =
     std::filesystem::temp_directory_path()
-    / ("styio-native-interop-split-logs-" + stable_hash_hex(std::to_string(::getpid())));
+    / ("styio-native-interop-split-logs-" + stable_hash_hex(std::to_string(styio::platform::process_id())));
   std::filesystem::remove_all(temp);
   std::filesystem::create_directories(temp);
 
@@ -422,6 +482,12 @@ TEST(StyioNativeInteropInternal, NativeCommandRunnerCanSplitStdoutAndStderrLogs)
   const std::filesystem::path stdout_log = temp / "stdout.log";
   const std::filesystem::path stderr_log = temp / "stderr.log";
 
+#if defined(_WIN32)
+  const NativeCommandResult result = run_native_command_to_logs(
+    {"cmd.exe", "/C", "echo stdout-line&&echo stderr-line>&2"},
+    stdout_log,
+    stderr_log);
+#else
   std::string error;
   ASSERT_TRUE(write_text_file(
     command,
@@ -442,12 +508,17 @@ TEST(StyioNativeInteropInternal, NativeCommandRunnerCanSplitStdoutAndStderrLogs)
 
   const NativeCommandResult result =
     run_native_command_to_logs({command.string()}, stdout_log, stderr_log);
+#endif
 
   ASSERT_TRUE(result.ok()) << result.launch_error;
   std::string stdout_text;
   std::string stderr_text;
   EXPECT_TRUE(read_text_file(stdout_log, stdout_text));
   EXPECT_TRUE(read_text_file(stderr_log, stderr_text));
+#if defined(_WIN32)
+  stdout_text.erase(std::remove(stdout_text.begin(), stdout_text.end(), '\r'), stdout_text.end());
+  stderr_text.erase(std::remove(stderr_text.begin(), stderr_text.end(), '\r'), stderr_text.end());
+#endif
   EXPECT_EQ(stdout_text, "stdout-line\n");
   EXPECT_EQ(stderr_text, "stderr-line\n");
 
@@ -456,11 +527,14 @@ TEST(StyioNativeInteropInternal, NativeCommandRunnerCanSplitStdoutAndStderrLogs)
 }
 
 TEST(StyioNativeInteropInternal, CompilerPathWithShellMetacharactersIsExecutedLiterally) {
+#if defined(_WIN32)
+  GTEST_SKIP() << "POSIX shell-script fake compiler coverage; Windows native command runner coverage runs separately.";
+#endif
   using namespace styio::native;
 
   const std::filesystem::path temp =
     std::filesystem::temp_directory_path()
-    / ("styio-native-interop-argv-" + stable_hash_hex(std::to_string(::getpid())));
+    / ("styio-native-interop-argv-" + stable_hash_hex(std::to_string(styio::platform::process_id())));
   std::filesystem::remove_all(temp);
   std::filesystem::create_directories(temp);
 
@@ -473,7 +547,7 @@ TEST(StyioNativeInteropInternal, CompilerPathWithShellMetacharactersIsExecutedLi
     fake_cc,
     "#!/bin/sh\n"
     "printf '%s\\n' \"$@\" > \"$STYIO_TEST_NATIVE_ARGV_LOG\"\n"
-    "exec cc \"$@\"\n",
+    "exec " + std::string(shell_quote(test_c_compiler())) + " \"$@\"\n",
     error)) << error;
 
   std::error_code perm_ec;
@@ -522,10 +596,15 @@ TEST(StyioNativeInteropInternal, DisabledDiskCacheLoadsFromTemporarySharedObject
   EnvVarGuard cc_guard("STYIO_NATIVE_CC");
   EnvVarGuard mode_guard("STYIO_NATIVE_TOOLCHAIN_MODE");
   cache_guard.set("off");
-  cc_guard.set("cc");
+#if defined(_WIN32)
+  cc_guard.unset();
+#else
+  cc_guard.set(test_c_compiler());
+#endif
   mode_guard.set("system");
 
-  const std::string symbol = "nocache_" + stable_hash_hex(std::to_string(::getpid())).substr(0, 8);
+  const std::string symbol =
+    "nocache_" + stable_hash_hex(std::to_string(styio::platform::process_id())).substr(0, 8);
   const std::string body = "int " + symbol + "(void) { return 11; }\n";
 
   LoadedBlock loaded = compile_and_load_block("c", body, {symbol});
@@ -537,13 +616,45 @@ TEST(StyioNativeInteropInternal, DisabledDiskCacheLoadsFromTemporarySharedObject
   EXPECT_EQ(fn(), 11);
 }
 
+TEST(StyioNativeInteropInternal, NativeCppBlockCompilesAndExportsSymbol) {
+  using namespace styio::native;
+
+  EnvVarGuard cache_guard("STYIO_NATIVE_CACHE");
+  EnvVarGuard cxx_guard("STYIO_NATIVE_CXX");
+  EnvVarGuard mode_guard("STYIO_NATIVE_TOOLCHAIN_MODE");
+  cache_guard.set("off");
+#if defined(_WIN32)
+  cxx_guard.unset();
+#else
+  cxx_guard.set(test_cxx_compiler());
+#endif
+  mode_guard.set("system");
+
+  const std::string symbol =
+    "cpp_square_" + stable_hash_hex(std::to_string(styio::platform::process_id())).substr(0, 8);
+  const std::string body =
+    "#include <vector>\n"
+    "extern \"C\" int " + symbol + "(int x) { std::vector<int> v; v.push_back(x); return v[0] * v[0]; }\n";
+
+  LoadedBlock loaded = compile_and_load_block("c++", body, {symbol});
+
+  ASSERT_EQ(loaded.symbols.size(), 1u);
+  EXPECT_EQ(loaded.symbols[0].name, symbol);
+  auto* fn = reinterpret_cast<int (*)(int)>(loaded.symbols[0].address);
+  ASSERT_NE(fn, nullptr);
+  EXPECT_EQ(fn(7), 49);
+}
+
 TEST(StyioNativeInteropInternal, DisabledDiskCacheDlopenFailureRemovesTemporarySharedObject) {
+#if defined(_WIN32)
+  GTEST_SKIP() << "POSIX shell-script fake compiler coverage; Windows LoadLibrary failure paths are covered by invalid cache tests.";
+#endif
   using namespace styio::native;
 
   const std::filesystem::path temp =
     std::filesystem::current_path()
     / "build"
-    / ("styio-native-interop-fakecc-" + stable_hash_hex(std::to_string(::getpid())));
+    / ("styio-native-interop-fakecc-" + stable_hash_hex(std::to_string(styio::platform::process_id())));
   std::filesystem::remove_all(temp);
   std::filesystem::create_directories(temp);
 

@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdio>
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
@@ -30,6 +31,16 @@
 #include "StyioSession/CompilationSession.hpp"
 
 namespace {
+
+#if defined(_WIN32)
+#define styio_bench_popen _popen
+#define styio_bench_pclose _pclose
+constexpr const char* kGitShaCommand = "git rev-parse --short HEAD 2>nul";
+#else
+#define styio_bench_popen popen
+#define styio_bench_pclose pclose
+constexpr const char* kGitShaCommand = "git rev-parse --short HEAD 2>/dev/null";
+#endif
 
 // -------------------------------------------------------------------
 // Synthetic source generators
@@ -123,11 +134,11 @@ int bench_iters(const char* env_name, int default_val) {
 }
 
 std::string get_git_sha() {
-  FILE* fp = popen("git rev-parse --short HEAD 2>/dev/null", "r");
+  FILE* fp = styio_bench_popen(kGitShaCommand, "r");
   if (!fp) return "unknown";
   char buf[64] = {};
-  if (!fgets(buf, sizeof(buf), fp)) { pclose(fp); return "unknown"; }
-  pclose(fp);
+  if (!fgets(buf, sizeof(buf), fp)) { styio_bench_pclose(fp); return "unknown"; }
+  styio_bench_pclose(fp);
   std::string s(buf);
   while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
   return s;

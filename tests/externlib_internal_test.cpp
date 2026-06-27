@@ -8,6 +8,8 @@
 #include <thread>
 #include <vector>
 
+#include "EnvTestUtil.hpp"
+
 #include "../src/StyioExtern/ExternLib.cpp"
 
 namespace {
@@ -24,15 +26,15 @@ class EnvVarGuard {
 
   ~EnvVarGuard() {
     if (original_.has_value()) {
-      setenv(name_.c_str(), original_->c_str(), 1);
+      styio_test_setenv(name_.c_str(), original_->c_str(), 1);
     }
     else {
-      unsetenv(name_.c_str());
+      styio_test_unsetenv(name_.c_str());
     }
   }
 
   void set(const std::string& value) {
-    setenv(name_.c_str(), value.c_str(), 1);
+    styio_test_setenv(name_.c_str(), value.c_str(), 1);
   }
 
  private:

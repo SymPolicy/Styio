@@ -49,9 +49,23 @@ read_text_file(const fs::path& p) {
   return ss.str();
 }
 
-/** Strip trailing CR/LF then append a single \\n (stable golden comparison). */
+/** Normalize host line endings, strip trailing CR/LF, then append a single \\n. */
 void
 normalize_text(std::string& s) {
+  std::string normalized;
+  normalized.reserve(s.size());
+  for (std::size_t i = 0; i < s.size(); ++i) {
+    if (s[i] == '\r') {
+      if (i + 1 < s.size() && s[i + 1] == '\n') {
+        continue;
+      }
+      normalized.push_back('\n');
+    }
+    else {
+      normalized.push_back(s[i]);
+    }
+  }
+  s = std::move(normalized);
   while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) {
     s.pop_back();
   }

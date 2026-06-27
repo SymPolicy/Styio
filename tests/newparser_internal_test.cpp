@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "EnvTestUtil.hpp"
 #include "StyioParser/Tokenizer.hpp"
 
 #include "../src/StyioParser/NewParserExpr.cpp"
@@ -1048,7 +1049,7 @@ TEST(StyioNewParserInternal, RouteCacheCountersStayAccurate) {
   // --- 3. Cache disabled via env var ---
   {
     // Set env to disable cache.
-    setenv("STYIO_PARSER_ROUTE_CACHE", "0", 1);
+    styio_test_setenv("STYIO_PARSER_ROUTE_CACHE", "0", 1);
 
     DirectContext direct("x := 1");
     StyioContext& ctx = direct.get();
@@ -1066,7 +1067,7 @@ TEST(StyioNewParserInternal, RouteCacheCountersStayAccurate) {
     EXPECT_GE(ctx.route_cache_disabled_count(), 2u);
 
     // Restore env (unset).
-    unsetenv("STYIO_PARSER_ROUTE_CACHE");
+    styio_test_unsetenv("STYIO_PARSER_ROUTE_CACHE");
   }
 
   // --- 4. clear_route_cache resets counters ---
