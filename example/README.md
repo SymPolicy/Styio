@@ -47,6 +47,18 @@ Expected output:
 [1,2,3]
 ```
 
+## Eight Queens
+
+```bash
+build/default/bin/styio --file example/algorithms/eight_queens.styio
+```
+
+Expected output:
+
+```text
+92
+```
+
 ## CLI Calculator
 
 ```bash

@@ -1,7 +1,7 @@
 id = "delivery-gate"
 title = "Styio Unified Delivery Gate"
-purpose = "Define the common delivery-floor entrypoint for local, branch, audit, and checkpoint health checks."
-last_updated = "2026-06-19"
+purpose = "Define the common delivery-floor entrypoint for local, branch, local-info leak, audit, and checkpoint health checks."
+last_updated = "2026-06-28"
 doc = "DELIVERY-GATE.md"
 
 commands = [
@@ -13,7 +13,9 @@ commands = [
 ]
 
 delegates = [
+  "functional commit readiness prompt",
   "tool and skill registry",
+  "local-info leak gate",
   "repo hygiene",
   "workflow scheduler",
   "external audit",

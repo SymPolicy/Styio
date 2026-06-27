@@ -1,0 +1,42 @@
+[skill]
+name = "styio-functional-commit-readiness"
+display_name = "Styio Functional Commit Readiness"
+description = "Use after implementing, refactoring, optimizing, or migrating a Styio feature and before commit, branch handoff, final validation, or delivery-gate evidence so the feature is a self-contained commit unit with targeted validation, upstream/downstream adaptation, cutover status, and objective unable-to-verify records."
+last_updated = "2026-06-28"
+
+workflow = [
+  "state the single feature unit this commit delivers",
+  "check references/commit-readiness-surface.md",
+  "run the smallest targeted command that proves the feature behavior",
+  "debug upstream producers and input shapes against the changed behavior",
+  "debug downstream callers and consumers against the changed behavior",
+  "run feature cutover if the work replaces, migrates, broadens, or retires old behavior",
+  "confirm changed feature, module, workflow, skill, and doc names use the feature or transformation result instead of version-style names",
+  "run staged delivery or checkpoint-grade gates according to scope",
+  "record objective unable-to-verify blockers before handoff or commit",
+]
+
+constraints = [
+  "do not commit a functional change that only works in isolation while callers remain unadapted",
+  "do not use a broad gate as the only evidence when a targeted feature command exists",
+  "do not record unable-to-verify without the skipped surface, blocker, owner, substitute evidence, and follow-up gate",
+  "do not commit version-style names such as v2, version, new, old, legacy, or latest for the changed feature unit",
+  "do not record developer-machine or server-machine paths, account names, private endpoints, or deployment roots; use placeholders such as <workspace-root>, <user-home>, <server-host>, or environment variables",
+  "do not mix a committable feature unit with unrelated half-finished work",
+]
+
+completion_report = [
+  "feature unit",
+  "upstream surfaces verified",
+  "downstream surfaces verified",
+  "targeted command and result",
+  "integration command and result",
+  "feature cutover result or not applicable",
+  "version-style naming check result",
+  "local/server info placeholder check",
+  "unverified surfaces or none",
+]
+
+references = [
+  "references/commit-readiness-surface.md",
+]

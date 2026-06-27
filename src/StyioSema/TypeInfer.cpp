@@ -2428,6 +2428,14 @@ StyioSemaContext::typeInfer(HandleAcquireAST* ast) {
   }
 
   ast->getResource()->typeInfer(this);
+  if (auto* ref = dynamic_cast<ResourceRefAST*>(ast->getResource());
+      ref != nullptr && ref->isWholeResource()) {
+    throw StyioTypeError(
+      "resource clone source `" + ref->getNameStr()
+      + "` is a topology resource and cannot be cloned as a whole with `<<`; "
+      "copy snapshots with `<< <resource>[...]` or `<< <resource>[-n..]` instead"
+    );
+  }
 
   BindingInfo info;
   info.final_slot = !ast->isFlexBind();
@@ -2465,6 +2473,23 @@ StyioSemaContext::typeInfer(HandleAcquireAST* ast) {
       collect_bind_handle_acquire_types_[ast] = collected_type;
     }
     else {
+      const bool source_is_file_handle =
+        source_type.handle_family == StyioHandleFamily::File
+        || source_type.handle_family == StyioHandleFamily::Stream;
+      if (source_is_file_handle) {
+        throw StyioTypeError(
+          "resource clone source `" + src->getAsStr()
+          + "` is a file/stream handle and cannot be cloned with `<<`; "
+          "use `<-` to acquire or operate the handle directly"
+        );
+      }
+      if (styio_is_topology_resource_type(source_type)) {
+        throw StyioTypeError(
+          "resource clone source `" + src->getAsStr()
+          + "` is a topology resource and cannot be cloned as a whole with `<<`; "
+          "copy snapshots with `<< <resource>[...]` or `<< <resource>[-n..]` instead"
+        );
+      }
       if (it == binding_info_.end() || !it->second.resource_value
           || !styio_type_is_cloneable(source_type)) {
         throw StyioTypeError(
@@ -2487,6 +2512,40 @@ StyioSemaContext::typeInfer(HandleAcquireAST* ast) {
     }
   }
   else {
+    if (auto* resource_ref = dynamic_cast<ResourceRefAST*>(ast->getResource())) {
+      auto resource_ref_type_it = resource_binding_types_.find(resource_ref->getNameStr());
+      if (resource_ref_type_it != resource_binding_types_.end()) {
+        const auto& ref_type = resource_ref_type_it->second;
+        if (styio_is_topology_resource_type(ref_type)) {
+          throw StyioTypeError(
+            "resource clone source `" + resource_ref->getNameStr()
+            + "` is a topology resource and cannot be cloned as a whole with `<<`; "
+            + "copy snapshots with `<< <resource>[...]` or `<< <resource>[-n..]` instead"
+          );
+        }
+        if (ref_type.handle_family == StyioHandleFamily::File
+            || ref_type.handle_family == StyioHandleFamily::Stream) {
+          throw StyioTypeError(
+            "resource clone source `" + resource_ref->getNameStr()
+            + "` is a file/stream handle and cannot be cloned with `<<`; "
+            "use `<-` to acquire or operate the handle directly"
+          );
+        }
+      }
+    }
+    if (styio_is_topology_resource_type(info.declared_type)) {
+      throw StyioTypeError(
+        "resource clone source is a topology resource and cannot be cloned as a whole with `<<`; "
+        "copy snapshots with `<< <resource>[...]` or `<< <resource>[-n..]` instead"
+      );
+    }
+    if (info.declared_type.handle_family == StyioHandleFamily::File
+        || info.declared_type.handle_family == StyioHandleFamily::Stream) {
+      throw StyioTypeError(
+        "resource clone source is a file/stream handle and cannot be cloned with `<<`; "
+        "use `<-` to acquire or operate the handle directly"
+      );
+    }
     if (info.declared_type.isUndefined()) {
       throw StyioTypeError("handle acquire needs a typed resource source");
     }
@@ -2511,9 +2570,35 @@ StyioSemaContext::typeInfer(HandleAcquireAST* ast) {
 
 void
 StyioSemaContext::typeInfer(ResourceWriteAST* ast) {
+  auto report_unsupported_whole_resource_copy = [](const ResourceRefAST* target_resource) {
+    if (target_resource == nullptr || !target_resource->isWholeResource()) {
+      return false;
+    }
+    return true;
+  };
+
   ast->getResource()->typeInfer(this);
   if (dynamic_cast<EmptyResourceAST*>(ast->getResource()) != nullptr) {
     throw StyioTypeError("@() is a destroy sink; use `resource -> @()` to destroy");
+  }
+  auto* target_resource = dynamic_cast<ResourceRefAST*>(ast->getResource());
+  if (report_unsupported_whole_resource_copy(target_resource)) {
+    StyioDataType target_type = infer_expr_type(this, ast->getResource());
+    if (styio_is_topology_resource_type(target_type)) {
+      throw StyioTypeError(
+        "resource write source `" + target_resource->getNameStr()
+        + "` is a topology resource and cannot be copied as a whole with `<<`; "
+        "copy snapshots with `<< <resource>[...]` or `<< <resource>[-n..]` instead"
+      );
+    }
+    if (target_type.handle_family == StyioHandleFamily::File
+        || target_type.handle_family == StyioHandleFamily::Stream) {
+      throw StyioTypeError(
+        "resource write source `" + target_resource->getNameStr()
+        + "` is a file/stream handle and cannot be copied with `<<`; "
+        "use `<-` to acquire or operate the handle directly"
+      );
+    }
   }
   auto* target_name = dynamic_cast<NameAST*>(ast->getData());
   StyioDataType resource_type = infer_expr_type(this, ast->getResource());

@@ -13,9 +13,9 @@ This audit checked the seven design principles in `docs/specs/audit/CODE-AUDIT-C
 
 ## Verification
 
-- `python3 <user-home>/styio-audit/bin/styio-audit --framework-root <user-home>/styio-audit --format text gate --repo <user-home>/styio-nightly --project styio` failed because `docs/audit/defects/STYIO-NIGHTLY-2026-04-22.md` is still `Open`.
-- `cmake --build <user-home>/styio-nightly/build-codex --target styio_test styio_ide_test styio_security_test -j8` completed with no rebuild needed.
-- `ctest --test-dir <user-home>/styio-nightly/build-codex -R 'StyioTypes\\.GetMaxTypeNumericPromotionByBitWidth|StyioLspServer\\.RunDrainsRuntimeDiagnostics|StyioLspRuntime\\.RuntimeDrainCanBeBudgetedForScheduling' --output-on-failure` passed.
+- `python3 <styio-audit-bin> --framework-root <styio-audit-root> --format text gate --repo <workspace-root> --project styio` failed because `docs/audit/defects/STYIO-NIGHTLY-2026-04-22.md` is still `Open`.
+- `cmake --build <workspace-root>/build-codex --target styio_test styio_ide_test styio_security_test -j8` completed with no rebuild needed.
+- `ctest --test-dir <workspace-root>/build-codex -R 'StyioTypes\\.GetMaxTypeNumericPromotionByBitWidth|StyioLspServer\\.RunDrainsRuntimeDiagnostics|StyioLspRuntime\\.RuntimeDrainCanBeBudgetedForScheduling' --output-on-failure` passed.
 - `./scripts/checkpoint-health.sh --build-dir build-codex --no-asan --no-fuzz` passed after syncing `docs/audit/INDEX.md` with the new report entry.
 
 ## Positive Coverage

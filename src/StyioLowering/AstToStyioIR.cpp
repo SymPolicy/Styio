@@ -1251,6 +1251,19 @@ clone_var_ast(VarAST* v) {
   return new VarAST(name, dtype, clone_state_expr(v->val_init));
 }
 
+ParamAST*
+clone_param_ast(ParamAST* p) {
+  if (!p) {
+    return nullptr;
+  }
+  auto* name = NameAST::Create(p->getNameAsStr());
+  auto* dtype = clone_type_for_var(p->getDType());
+  if (!p->val_init) {
+    return ParamAST::Create(name, dtype);
+  }
+  return ParamAST::Create(name, dtype, clone_state_expr(p->val_init));
+}
+
 IntAST*
 clone_int_ast(IntAST* i) {
   if (!i) {
@@ -1407,6 +1420,21 @@ class StateExprCloneVisitor
     return TypeConvertAST::Create(clone(expr->getValue()), expr->getPromoTy());
   }
 
+  StyioAST* clone(HandleAcquireAST* expr) {
+    StyioAST* resource = clone(expr->getResource());
+    const std::string original_name = expr->getVar()->getNameAsStr();
+    const std::string local_name =
+      alloc_lowering_tmp_name("__styio_resource_method_local_");
+    auto* local_var = VarAST::Create(
+      NameAST::Create(local_name),
+      clone_type_for_var(expr->getVar()->getDType())
+    );
+    auto* repl_name = NameAST::Create(local_name);
+    generated_repl_owners_.emplace_back(repl_name);
+    named_repls_[original_name] = repl_name;
+    return HandleAcquireAST::Create(local_var, resource, expr->getBindMode());
+  }
+
   StyioAST* clone(ListOpAST* expr) {
     if (expr->getSlot1() != nullptr && expr->getSlot2() != nullptr) {
       return new ListOpAST(expr->getOp(), clone(expr->getList()), clone(expr->getSlot1()), clone(expr->getSlot2()));
@@ -1557,6 +1585,25 @@ class StateExprCloneVisitor
     return PrintAST::Create(clone_child_list(expr->exprs));
   }
 
+  StyioAST* clone(IteratorAST* expr) {
+    StyioAST* collection = clone(expr->collection);
+    std::vector<ParamAST*> params;
+    params.reserve(expr->params.size());
+    for (auto* param : expr->params) {
+      params.push_back(clone_param_ast(param));
+    }
+
+    auto saved_repls = named_repls_;
+    for (auto* param : params) {
+      if (param != nullptr) {
+        named_repls_.erase(param->getNameAsStr());
+      }
+    }
+    std::vector<StyioAST*> following = clone_child_list(expr->following);
+    named_repls_ = std::move(saved_repls);
+    return IteratorAST::Create(collection, std::move(params), std::move(following));
+  }
+
   StyioAST* clone(CasesAST* expr) {
     std::vector<std::pair<StyioAST*, StyioAST*>> cloned_cases;
     cloned_cases.reserve(expr->getCases().size());
@@ -1687,6 +1734,8 @@ public:
         return clone(static_cast<RangeAST*>(expr));
       case StyioNodeType::NumConvert:
         return clone(static_cast<TypeConvertAST*>(expr));
+      case StyioNodeType::HandleAcquire:
+        return clone(static_cast<HandleAcquireAST*>(expr));
       case StyioNodeType::Access:
       case StyioNodeType::Access_By_Index:
       case StyioNodeType::Access_By_Slice:
@@ -1743,6 +1792,8 @@ public:
         return clone(static_cast<FinalBindAST*>(expr));
       case StyioNodeType::Print:
         return clone(static_cast<PrintAST*>(expr));
+      case StyioNodeType::Iterator:
+        return clone(static_cast<IteratorAST*>(expr));
       case StyioNodeType::Cases:
         return clone(static_cast<CasesAST*>(expr));
       case StyioNodeType::MatchCases:
@@ -2789,6 +2840,50 @@ AstToStyioIRLowerer::toStyioIR(StdStreamAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(HandleAcquireAST* ast) {
+  auto binding_value_kind_for_type_latest = [](const StyioDataType& type) {
+    if (styio_is_list_type(type)) {
+      return BindingValueKind::ListHandle;
+    }
+    if (styio_is_dict_type(type)) {
+      return BindingValueKind::DictHandle;
+    }
+    if (styio_is_matrix_type(type)) {
+      return BindingValueKind::MatrixHandle;
+    }
+    if (type.handle_family == StyioHandleFamily::Task) {
+      return BindingValueKind::TaskHandle;
+    }
+    if (type.option == StyioDataTypeOption::String) {
+      return BindingValueKind::String;
+    }
+    if (type.option == StyioDataTypeOption::Float) {
+      return BindingValueKind::F64;
+    }
+    if (type.option == StyioDataTypeOption::Bool) {
+      return BindingValueKind::Bool;
+    }
+    if (type.option == StyioDataTypeOption::Integer) {
+      return BindingValueKind::I64;
+    }
+    return BindingValueKind::Unknown;
+  };
+  auto register_bound_name = [&](const std::string& name,
+                                 const StyioDataType& type,
+                                 bool resource_value,
+                                 BindingValueKind kind) {
+    if (type.isUndefined()) {
+      return;
+    }
+    local_binding_types[name] = type;
+    BindingInfo info;
+    info.final_slot = !ast->isFlexBind();
+    info.dynamic_slot = ast->isFlexBind();
+    info.resource_value = resource_value;
+    info.value_kind = kind;
+    info.declared_type = type;
+    binding_info_[name] = info;
+  };
+  const std::string target_name = ast->getVar()->getNameAsStr();
   if (auto* task_name = dynamic_cast<NameAST*>(ast->getResource())) {
     auto source_type = bound_type_of(this, task_name);
     if (source_type.has_value() && source_type->handle_family == StyioHandleFamily::Task) {
@@ -2796,9 +2891,15 @@ AstToStyioIRLowerer::toStyioIR(HandleAcquireAST* ast) {
       if (result_type.name == "unit") {
         result_type = StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
       }
+      register_bound_name(
+        target_name,
+        result_type,
+        false,
+        binding_value_kind_for_type_latest(result_type)
+      );
       return SIOFlowBind::Create(
         task_name->toStyioIR(this),
-        ast->getVar()->getNameAsStr(),
+        target_name,
         result_type,
         true
       );
@@ -2810,11 +2911,17 @@ AstToStyioIRLowerer::toStyioIR(HandleAcquireAST* ast) {
     if (type_it != collect_bind_handle_acquire_types_.end()) {
       collected_type = type_it->second;
     }
+    register_bound_name(
+      target_name,
+      collected_type,
+      true,
+      BindingValueKind::ListHandle
+    );
     auto* var = SGVar::Create(
-      SGResId::Create(ast->getVar()->getNameAsStr()),
+      SGResId::Create(target_name),
       SGType::Create(collected_type)
     );
-    auto bit = binding_info_.find(ast->getVar()->getNameAsStr());
+    auto bit = binding_info_.find(target_name);
     if (bit != binding_info_.end()) {
       var->is_dynamic_slot = bit->second.dynamic_slot
                              || bit->second.value_kind == BindingValueKind::ListHandle;
@@ -2828,7 +2935,7 @@ AstToStyioIRLowerer::toStyioIR(HandleAcquireAST* ast) {
   }
   if (dynamic_cast<NameAST*>(ast->getResource())) {
     auto* var = static_cast<SGVar*>(ast->getVar()->toStyioIR(this));
-    auto it = binding_info_.find(ast->getVar()->getNameAsStr());
+    auto it = binding_info_.find(target_name);
     if (it != binding_info_.end()) {
       var->is_dynamic_slot = it->second.dynamic_slot
                              || it->second.value_kind == BindingValueKind::ListHandle
@@ -2840,6 +2947,18 @@ AstToStyioIRLowerer::toStyioIR(HandleAcquireAST* ast) {
 
     StyioIR* rhs = nullptr;
     auto src_type = bound_type_of(this, ast->getResource());
+    if (src_type.has_value()
+        && (src_type->handle_family == StyioHandleFamily::File
+            || src_type->handle_family == StyioHandleFamily::Stream)) {
+      throw StyioTypeError(
+        "resource clone source has no implemented `<<` clone lowering for file/stream handles"
+      );
+    }
+    if (src_type.has_value() && styio_is_topology_resource_type(*src_type)) {
+      throw StyioTypeError(
+        "resource clone source has no implemented `<<` clone lowering for topology resources"
+      );
+    }
     if (src_type.has_value() && styio_is_dict_type(*src_type)) {
       rhs = SCDictClone::Create(ast->getResource()->toStyioIR(this));
     }
@@ -2856,6 +2975,15 @@ AstToStyioIRLowerer::toStyioIR(HandleAcquireAST* ast) {
       throw StyioTypeError("resource clone source has no implemented `<<` clone lowering");
     }
 
+    if (src_type.has_value()) {
+      register_bound_name(
+        target_name,
+        *src_type,
+        it != binding_info_.end() ? it->second.resource_value : styio_type_is_resource_handle(*src_type),
+        it != binding_info_.end() ? it->second.value_kind : binding_value_kind_for_type_latest(*src_type)
+      );
+    }
+
     if (ast->isFlexBind()) {
       return SGFlexBind::Create(var, rhs);
     }
@@ -2864,15 +2992,31 @@ AstToStyioIRLowerer::toStyioIR(HandleAcquireAST* ast) {
 
   if (dynamic_cast<StdStreamAST*>(ast->getResource())) {
     /* Standard stream aliases are compile-time handles; lowering happens at the use site. */
+    register_bound_name(
+      target_name,
+      expr_lowered_type(this, ast->getResource()),
+      true,
+      BindingValueKind::Unknown
+    );
     return SGNoOp::Create();
   }
   auto* fr = dynamic_cast<FileResourceAST*>(ast->getResource());
   if (!fr) {
     throw StyioTypeError("handle acquire needs @file(...) or @{...}");
   }
-  file_resource_bindings_[ast->getVar()->getNameAsStr()] = fr;
+  StyioDataType file_type = ast->getVar()->getDType()->getDataType();
+  if (file_type.isUndefined()) {
+    file_type = expr_lowered_type(this, ast->getResource());
+  }
+  register_bound_name(
+    target_name,
+    file_type,
+    true,
+    binding_value_kind_for_type_latest(file_type)
+  );
+  file_resource_bindings_[target_name] = fr;
   return SIOHandleAcquire::Create(
-    ast->getVar()->getNameAsStr(),
+    target_name,
     fr->getPath()->toStyioIR(this),
     fr->isAutoDetect()
   );

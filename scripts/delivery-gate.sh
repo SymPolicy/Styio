@@ -38,6 +38,46 @@ run_cmd() {
   "$@"
 }
 
+commit_readiness_prompt() {
+  log "commit readiness: read workflows/FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md before committing functional changes."
+  log "commit readiness prompt: Have upstream and downstream surfaces been verified against this changed feature, and does the expected behavior pass?"
+  log "commit readiness prompt: Are changed feature/module/workflow/skill/doc names free of version-style placeholders and named by the feature or transformation result?"
+  log "commit readiness prompt: If not, keep fixing. If verification is objectively unavailable, record blocker, owner, substitute evidence, and follow-up gate before commit."
+}
+
+confirm_commit_readiness_if_needed() {
+  local answer
+
+  commit_readiness_prompt
+
+  if [[ "$MODE" != "staged" ]]; then
+    return 0
+  fi
+
+  if [[ "${STYIO_COMMIT_READINESS_CONFIRMED:-}" == "1" ]]; then
+    log "commit readiness confirmation: STYIO_COMMIT_READINESS_CONFIRMED=1"
+    return 0
+  fi
+
+  if [[ "${STYIO_COMMIT_READINESS_REQUIRE:-}" != "1" ]]; then
+    log "commit readiness confirmation: reminder only; set STYIO_COMMIT_READINESS_REQUIRE=1 to require confirmation."
+    return 0
+  fi
+
+  if [[ -t 0 ]]; then
+    read -r -p "[delivery-gate] Type yes if this is not a functional change, or targeted feature validation, upstream/downstream checks, and version-style naming checks are done, or objective blockers are recorded: " answer
+    if [[ "$answer" == "yes" ]]; then
+      return 0
+    fi
+    echo "[delivery-gate] commit readiness not confirmed; stop before commit." >&2
+    exit 2
+  fi
+
+  echo "[delivery-gate] commit readiness confirmation required but stdin is non-interactive." >&2
+  echo "[delivery-gate] Confirm this is not a functional change, or verify upstream/downstream behavior, check version-style naming, or record objective blockers, then rerun with STYIO_COMMIT_READINESS_CONFIRMED=1 only if true." >&2
+  exit 2
+}
+
 default_upstream_base() {
   git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true
 }
@@ -144,8 +184,8 @@ resolve_audit_bin() {
     echo "$STYIO_AUDIT_BIN"
     return 0
   fi
-  if [[ -e <user-home>/eBioRing/styio-audit/bin/styio-audit ]]; then
-    echo <user-home>/eBioRing/styio-audit/bin/styio-audit
+  if [[ -n "${STYIO_AUDIT_HOME:-}" && -x "${STYIO_AUDIT_HOME}/bin/styio-audit" ]]; then
+    echo "${STYIO_AUDIT_HOME}/bin/styio-audit"
     return 0
   fi
   if command -v styio-audit >/dev/null 2>&1; then
@@ -315,6 +355,7 @@ if [[ "$RUN_FUZZ" -eq 0 ]]; then
 fi
 
 log "mode: ${MODE}"
+confirm_commit_readiness_if_needed
 
 case "$MODE" in
   auto)

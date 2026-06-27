@@ -1,6 +1,6 @@
 title = "Styio Workflows Registry"
 purpose = "Registry of root-level workflow TOML definitions and repo-local skills."
-last_updated = "2026-05-22"
+last_updated = "2026-06-28"
 
 [[workflow]]
 id = "workflow-orchestration"
@@ -11,6 +11,21 @@ doc = "WORKFLOW-ORCHESTRATION.md"
 id = "tool-skill-registry-gate"
 file = "TOOL-SKILL-REGISTRY-GATE.toml"
 doc = "TOOL-SKILL-REGISTRY-GATE.md"
+
+[[workflow]]
+id = "local-info-leak-gate"
+file = "LOCAL-INFO-LEAK-GATE.toml"
+doc = "LOCAL-INFO-LEAK-GATE.md"
+
+[[workflow]]
+id = "feature-cutover"
+file = "FEATURE-CUTOVER-WORKFLOW.toml"
+doc = "FEATURE-CUTOVER-WORKFLOW.md"
+
+[[workflow]]
+id = "functional-commit-readiness"
+file = "FUNCTIONAL-COMMIT-READINESS-WORKFLOW.toml"
+doc = "FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md"
 
 [[workflow]]
 id = "add-repo-file"
@@ -94,6 +109,14 @@ file = "skills/styio-env-bootstrap/skill.toml"
 [[skill]]
 id = "styio-file-onboarding"
 file = "skills/styio-file-onboarding/skill.toml"
+
+[[skill]]
+id = "styio-feature-cutover"
+file = "skills/styio-feature-cutover/skill.toml"
+
+[[skill]]
+id = "styio-functional-commit-readiness"
+file = "skills/styio-functional-commit-readiness/skill.toml"
 
 [[skill]]
 id = "styio-parser-subset"

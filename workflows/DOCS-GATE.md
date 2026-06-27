@@ -2,11 +2,13 @@
 
 **Purpose:** Define the common docs/process gate entrypoint for `styio-nightly` so contributors can run owner-runbook maintenance, docs audit, and ecosystem CLI contract consistency through one command.
 
-**Last updated:** 2026-04-19
+**Last updated:** 2026-06-28
 
 ## Goal
 
 The repository already has individual docs tools, but delivery and CI should not wire them together ad hoc. This workflow freezes `scripts/docs-gate.sh` as the single docs/process entrypoint.
+
+Docs changes must follow [DOCS-MAINTENANCE-WORKFLOW.md](./DOCS-MAINTENANCE-WORKFLOW.md): search existing owner documents and ADRs first, update existing files when possible, create new Markdown only with a single responsibility after `--reuse-reviewed` has been satisfied, and avoid version-style placeholders in favor of feature or transformation result names.
 
 ## Command
 

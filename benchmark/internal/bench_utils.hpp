@@ -112,16 +112,17 @@ inline std::string BenchmarkResult::to_json() const {
     if (s.alloc_count > 0) {
       out += ", \"alloc_count\": " + std::to_string(s.alloc_count);
     }
-    if (s.route_cache_scan_count > 0) {
+    const bool is_route_cache_sample = s.phase == "route_cache";
+    if (is_route_cache_sample || s.route_cache_scan_count > 0) {
       out += ", \"route_cache_scan_count\": " + std::to_string(s.route_cache_scan_count);
     }
-    if (s.route_cache_hit_count > 0) {
+    if (is_route_cache_sample || s.route_cache_hit_count > 0) {
       out += ", \"route_cache_hit_count\": " + std::to_string(s.route_cache_hit_count);
     }
-    if (s.route_cache_miss_count > 0) {
+    if (is_route_cache_sample || s.route_cache_miss_count > 0) {
       out += ", \"route_cache_miss_count\": " + std::to_string(s.route_cache_miss_count);
     }
-    if (s.route_cache_disabled_count > 0) {
+    if (is_route_cache_sample || s.route_cache_disabled_count > 0) {
       out += ", \"route_cache_disabled_count\": " + std::to_string(s.route_cache_disabled_count);
     }
     out += "}";

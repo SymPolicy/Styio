@@ -1,0 +1,36 @@
+# pow2 := (exp: i32) => {
+    exp ?= {
+        0 => { <| 1 }
+        _ => { <| 2 * pow2(exp - 1) }
+    }
+}
+
+# occupied := (mask: i32, index: i32) => (mask / pow2(index)) % 2
+# add_bit := (mask: i32, index: i32) => mask + pow2(index)
+
+# search := (row: i32, cols: i32, diag_down: i32, diag_up: i32) => {
+    row ?= {
+        8 => { <| 1 }
+        _ => {
+            count = 0
+
+            [0..7] >> #(col) => {
+                down = row + col
+                up = row - col + 7
+
+                ?(occupied(cols, col) == 0) =>
+                    ?(occupied(diag_down, down) == 0) =>
+                        ?(occupied(diag_up, up) == 0) => {
+                            next_cols = add_bit(cols, col)
+                            next_down = add_bit(diag_down, down)
+                            next_up = add_bit(diag_up, up)
+                            count += search(row + 1, next_cols, next_down, next_up)
+                        }
+            }
+
+            <| count
+        }
+    }
+}
+
+>_(search(0, 0, 0, 0))

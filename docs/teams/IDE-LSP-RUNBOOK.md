@@ -47,6 +47,7 @@ Build and test targets:
 20. Keep `StyioIDECommon.*` tests covering URI/path conversion, `TextBuffer` offset mapping, range helpers, and host-facing enum string contracts when those common service helpers change.
 21. IDE/LSP Windows compatibility changes must keep `styio_lspd` and `styio_ide_test` buildable with native CMake generators. Test fixtures that touch paths, environment variables, subprocesses, or executable names should use portable helpers so IDE service validation does not depend on POSIX shells or Unix path semantics on Windows.
 22. LSP stdio transport changes must preserve byte-exact JSON-RPC framing on Windows and POSIX hosts; validate binary-mode setup, CRLF handling, stderr draining, and real `styio_lspd` initialize/shutdown traffic before exposing the daemon to editor clients.
+23. Treat `textDocument/rename` as the next planned public LSP method, but do not advertise it until semantic identity, freshness, workspace index agreement, diagnostics publication, and stale-work suppression are proven through focused tests. `codeAction` and `inlayHint` remain after `rename` unless a later owner decision changes the public-surface order.
 
 ## Change Classes
 
@@ -75,6 +76,14 @@ When runtime scheduling or LSP drain behavior changes:
 ```bash
 ctest --test-dir build/default -L ide --tests-regex 'StyioLspRuntime|StyioLspServer.RunDrainsRuntimeDiagnostics' --output-on-failure
 python3 scripts/docs-audit.py
+```
+
+When `rename` readiness or another LSP public-surface expansion changes:
+
+```bash
+ctest --test-dir build/default -L ide --tests-regex 'Rename|Definition|References|WorkspaceSymbol|PublishDiagnostics|Stale' --output-on-failure
+python3 scripts/docs-audit.py
+python3 scripts/team-docs-gate.py
 ```
 
 ## Cross-Team Dependencies

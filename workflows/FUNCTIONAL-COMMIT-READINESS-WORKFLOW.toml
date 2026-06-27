@@ -1,0 +1,64 @@
+id = "functional-commit-readiness"
+title = "Functional Commit Readiness Workflow"
+purpose = "Require functional changes to be self-contained, upstream/downstream verified, and ready as a revertible commit unit before commit or handoff."
+last_updated = "2026-06-28"
+doc = "FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md"
+skill = "skills/styio-functional-commit-readiness/skill.toml"
+
+steps = [
+  "name the single feature unit delivered by the commit",
+  "run the smallest targeted command that proves the changed feature",
+  "verify upstream producers, input shapes, configs, generators, and workflow entries that feed the feature",
+  "verify downstream callers, consumers, CLIs, services, tests, examples, and generated artifacts that depend on the feature",
+  "run feature cutover when the work replaces, migrates, broadens, or retires old behavior",
+  "confirm changed feature/module/workflow/skill/doc names use the feature or transformation result instead of version-style names",
+  "run staged delivery or checkpoint-grade gates according to scope",
+  "record every objective unable-to-verify blocker with owner, skipped command, substitute evidence, and follow-up gate",
+]
+
+required_evidence = [
+  "feature unit delivered",
+  "upstream surfaces checked",
+  "downstream surfaces checked",
+  "targeted feature command and result",
+  "integration or owner-team command and result",
+  "feature cutover result or not applicable",
+  "version-style naming check result",
+  "unverified surfaces or none",
+  "objective blocker record for every unverified surface",
+]
+
+commit_prompt = [
+  "Have upstream and downstream surfaces been verified against this changed feature?",
+  "Does the expected behavior pass?",
+  "If not, keep fixing before commit.",
+  "If verification is objectively unavailable, record blocker, owner, substitute evidence, and follow-up gate before commit.",
+]
+
+gates = [
+  "read workflows/FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md before committing functional changes",
+  "read workflows/FEATURE-CUTOVER-WORKFLOW.md when behavior replaces, migrates, broadens, or retires old behavior",
+  "run the targeted feature command",
+  "run the upstream/downstream integration or owner-team command",
+  "run ./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit before commit when changes are staged",
+  "run ./scripts/delivery-gate.sh or ./scripts/checkpoint-health.sh --no-asan --no-fuzz for checkpoint-grade or cross-surface work",
+]
+
+[failure_policy]
+partial_feature_unit = "blocking"
+missing_upstream_downstream_validation = "blocking"
+untargeted_evidence_only = "blocking"
+unrecorded_unable_to_verify = "blocking"
+version_style_name = "blocking"
+
+[handoff]
+report = [
+  "feature unit",
+  "upstream surfaces",
+  "downstream surfaces",
+  "targeted validation",
+  "integration validation",
+  "cutover validation",
+  "version-style naming validation",
+  "unverified surfaces and objective blockers",
+]

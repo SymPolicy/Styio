@@ -2,7 +2,14 @@
 
 **Purpose:** 作为 `styio-nightly`、`styio-spio`、`styio-view` 的统一交付总纲，定义权威里程碑、跨仓文档落地顺序、共享门禁与完成定义，确保三仓以同一套语言产品目标推进，而不是各自演化。当前它仍然是 active ecosystem plan，而不是已闭合的历史记录。
 
-**Last updated:** 2026-04-21
+**Last updated:** 2026-06-28
+
+## 前置条件
+
+1. 并行: repo-level work should split by repository, phase slice, consumer handoff, and gate-evidence lane as soon as the lane names and current authority are known. Only milestone IDs, repo exits, published payload shapes, and gate ownership changes are serial coordinator merge gates.
+2. 子智能体: sub-agents may own one repository lane, phase slice, contract audit, mirror-doc check, or gate-evidence lane in parallel, but a coordinator must reconcile shared contracts and cross-repo acceptance evidence.
+3. 基座: shared gates, payload envelopes, service contracts, source-build substrate, and repo-wide workflow changes must land first through [Styio-Common-Foundation-Plan.md](./Styio-Common-Foundation-Plan.md).
+4. Dependency order: foundation checkpoints block only dependent implementation merges. Application-lane inventory, downstream confirmation, mirror-doc drift checks, and test discovery may proceed in parallel while the foundation merge gate is pending.
 
 **Plan status:** Active ecosystem master plan. `styio-nightly` 已完成 compiler-side dual-channel/source-build baseline 和统一 docs gate 基线，但本总纲对应的跨仓交付目标仍停留在未闭合状态，尤其是 `Phase 4`-`Phase 6` 的 runtime/module/mobile/cloud/hosted product closure。
 
@@ -83,12 +90,21 @@ Program Coordinator 负责：
 
 ### 3.3 Repo Sub-Agents
 
-Repo lead 可以继续下拆 sub-agent，但以下 choke point 不允许并行改写：
+Repo lead 可以继续下拆 sub-agent. Parallel lanes are preferred for repo inventory, consumer contract checks, mirror-doc drift checks, failure-path matrices, and gate evidence. 以下 choke point 不允许并行改写，只能由 coordinator 串行合并：
 
 1. `machine-info` / `compile-plan` / `runtime events` 的 published shape
 2. `project_graph` / `toolchain_state` / `workflow_success_payloads` 的 published shape
 3. `ExecutionSession` / `RuntimeEventEnvelope` / environment/deploy contract
 4. 跨仓里程碑 ID、repo exit 和 cutover gate
+
+### 3.4 Parallel Lane Map
+
+| Lane | Parallel work allowed | Serial merge gate |
+|------|-----------------------|-------------------|
+| `styio-nightly` compiler/runtime/IDE | Compiler-side hardening inventory, IDE readiness tests, runtime event evidence, docs drift checks. | Published compiler contract shape, language semantics, LSP capability advertising, and release truth updates. |
+| `styio-spio` package/workflow/toolchain | Manifest, lockfile, resolver, registry, toolchain lifecycle, and failure-payload confirmation tracks. | Canonical package-manager UX, registry/trust policy, workflow success/failure payload shape, and release compatibility matrix. |
+| `styio-view` editor/platform/product | Adapter consumption checks, runtime/event UI mapping, environment UX inventory, module/theme/mobile/cloud gaps. | Public editor/platform wording, hosted workspace contract, deployment payload shape, and shared runtime envelope changes. |
+| Cross-repo docs and gates | Mirror drift checks, handoff link audit, test-matrix discovery, history/update checklist preparation. | Milestone ID, repo exit, cutover gate, generated index, and shared evidence matrix updates. |
 
 ## 4. 现有计划映射
 
@@ -325,3 +341,10 @@ Repo lead 可以继续下拆 sub-agent，但以下 choke point 不允许并行�
 7. publish / deploy preflight
 8. runtime events / diagnostics
 9. Android / iOS cloud / hosted workspace / blocked path
+
+## 验收条件
+
+1. Phase exits name the owner repository, acceptance gate, and cross-repo mirror update required for closure.
+2. Shared milestone IDs, payload envelopes, and cutover gates stay synchronized across `styio-nightly`, `styio-spio`, and `styio-view`.
+3. Application-layer work starts only after any shared common-foundation prerequisite is accepted.
+4. `python3 scripts/ecosystem-cli-doc-gate.py --require-workspace --json` or the current cross-repo equivalent passes before ecosystem closure is recorded.

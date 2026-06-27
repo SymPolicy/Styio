@@ -33,7 +33,7 @@ High-value docs:
 ## Daily Workflow
 
 1. Decide whether the question is compile-stage, micro hotspot, full-stack wall time, error-path, or soak stability.
-2. Use structured outputs under `styio-benchmark/reports/<run-id>/`; compare `results.json` or `benchmarks.csv`, not screenshots. Use `scripts/benchmark-compare.py` for repository-local JSON regression comparisons.
+2. Use structured outputs under `styio-benchmark/reports/<run-id>/`; compare `results.json` or `benchmarks.csv`, not screenshots. Use `scripts/benchmark-compare.py` for repository-local JSON regression comparisons, and add `--route-cache` when the evidence needs parser route-cache scan/hit/miss/disabled counters.
 3. Keep benchmark workloads representative and tied to `styio-benchmark/docs/COVERAGE-MATRIX.md`.
 4. Keep `benchmark/core/manifest.json` tiny, deterministic, and backed by existing repository behavior coverage. It is release evidence for executable workloads and timing schema, not cross-runtime comparison or historical baseline evidence.
 5. Minimize soak failures before handing them to implementation owners.
@@ -74,6 +74,13 @@ Focused benchmark route:
 ```bash
 STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
   ./benchmark/perf-route.sh --phase-iters 5000 --micro-iters 5000 --execute-iters 20
+
+python3 scripts/benchmark-compare.py \
+  --baseline benchmark/results/current.json \
+  --current benchmark/results/current.json \
+  --threshold 5 \
+  --markdown benchmark/results/current-route-cache-report.md \
+  --route-cache
 ```
 
 Async runtime comparison:

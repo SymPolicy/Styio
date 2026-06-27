@@ -17,11 +17,13 @@ constraints = [
   "bootstrap must not configure, build, test, commit, or push",
   "prefer non-invasive tests over package installation in CI",
   "document host assumptions explicitly",
+  "do not record developer-machine or server-machine paths, account names, private endpoints, or deployment roots; use placeholders such as <workspace-root>, <user-home>, <server-host>, or environment variables",
 ]
 
 completion_report = [
   "dependency or baseline changed",
   "host assumptions",
+  "local/server info placeholder check",
   "test used",
   "gates run",
 ]

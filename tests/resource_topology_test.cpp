@@ -1229,6 +1229,22 @@ TEST(StyioResourceTopology, TaskCannotConsumeOuterResource) {
   expect_type_error_contains(src, "task cannot consume outer resource");
 }
 
+TEST(StyioResourceTopology, RejectsTopologyResourceCloneByCopyOperator) {
+  const std::string src =
+    "@samples : i64|2|\n"
+    "samples_copy << @samples\n";
+
+  expect_type_error_contains(src, "topology resource");
+}
+
+TEST(StyioResourceTopology, RejectsFileHandleCloneByCopyOperator) {
+  const std::string src =
+    "f <- @file(\"tests/features/stream_processing/data/ref.txt\")\n"
+    "f_copy << f\n";
+
+  expect_type_error_contains(src, "file/stream handle");
+}
+
 TEST(StyioResourceTopology, FileWriteAndCloseMethodsLowerToIO) {
   const std::string src =
     "log := @(\"log.txt\")\n"

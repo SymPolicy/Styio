@@ -15,9 +15,9 @@
 - `SizeOfAST` was a real silent-fallback path. It now owns a writable type slot, type-infers to `i64`, and lowers to `SGListLen` / `SGDictLen` instead of `SGConstInt(0)`.
 - Coverage was added in `tests/security/styio_security_test.cpp` as `StyioSecurityAstOwnership.SizeOfLowersListLength`.
 - Verification run:
-  - `cmake --build <user-home>/styio-nightly/build-codex --target styio_test styio_security_test -j8`
-  - `ctest --test-dir <user-home>/styio-nightly/build-codex -R 'StyioSecurityAstOwnership\\.(SizeOfOwnsValueExpr|SizeOfLowersListLength)$' --output-on-failure`
-  - `ctest --test-dir <user-home>/styio-nightly/build-codex -R 'StyioFiveLayerPipeline\\.P01_print_add$' --output-on-failure`
+  - `cmake --build <workspace-root>/build-codex --target styio_test styio_security_test -j8`
+  - `ctest --test-dir <workspace-root>/build-codex -R 'StyioSecurityAstOwnership\\.(SizeOfOwnsValueExpr|SizeOfLowersListLength)$' --output-on-failure`
+  - `ctest --test-dir <workspace-root>/build-codex -R 'StyioFiveLayerPipeline\\.P01_print_add$' --output-on-failure`
 
 ## Open Findings
 

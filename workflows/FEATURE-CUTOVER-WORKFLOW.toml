@@ -1,0 +1,54 @@
+id = "feature-cutover"
+title = "Feature Cutover Workflow"
+purpose = "Require functional changes to fully migrate to the new canonical behavior and remove old implementation paths before final testing."
+last_updated = "2026-06-28"
+doc = "FEATURE-CUTOVER-WORKFLOW.md"
+skill = "skills/styio-feature-cutover/skill.toml"
+
+steps = [
+  "name the new canonical behavior and the old behavior it replaces",
+  "inventory old implementation paths, callers, fixtures, docs, flags, adapters, and fallback routes",
+  "migrate every in-scope caller and owner document to the new behavior",
+  "remove old implementation paths or record an explicit compatibility decision",
+  "rename replacement surfaces by the feature or transformation result instead of version-style names",
+  "replace old acceptance tests with new canonical positives and adjacent negatives",
+  "run narrow feature tests before final delivery or checkpoint tests",
+  "run functional commit readiness before commit or handoff",
+]
+
+required_evidence = [
+  "old paths searched and removed",
+  "new canonical paths and callers",
+  "retained compatibility, or none",
+  "docs, runbooks, catalogs, and generated indexes updated",
+  "tests proving the new path",
+  "tests or searches proving old acceptance is gone or rejected",
+  "version-style naming check result",
+]
+
+gates = [
+  "read workflows/FEATURE-CUTOVER-WORKFLOW.md before final tests",
+  "run the narrow feature or owner-team gate",
+  "run workflows/FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md before commit or handoff",
+  "run python3 scripts/workflow-scheduler.py check",
+  "run python3 scripts/tool-skill-registry-gate.py",
+  "run python3 scripts/docs-audit.py",
+  "run ./scripts/delivery-gate.sh or ./scripts/checkpoint-health.sh as appropriate",
+]
+
+[failure_policy]
+partial_migration = "blocking"
+silent_compatibility = "blocking"
+old_tests_left_green = "blocking unless documented compatibility decision exists"
+version_style_name = "blocking"
+
+[handoff]
+report = [
+  "new canonical behavior",
+  "old behavior removed",
+  "version-style naming checked",
+  "compatibility retained or none",
+  "searches performed",
+  "tests and gates run",
+  "follow-up checkpoint if compatibility is explicitly retained",
+]

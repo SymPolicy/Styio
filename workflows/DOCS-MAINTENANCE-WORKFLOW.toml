@@ -1,7 +1,7 @@
 id = "docs-maintenance"
 title = "Docs Maintenance Workflow"
 purpose = "Maintain docs metadata, generated indexes, archive lifecycle state, and structural validation."
-last_updated = "2026-04-23"
+last_updated = "2026-06-28"
 doc = "DOCS-MAINTENANCE-WORKFLOW.md"
 
 commands = [
@@ -17,7 +17,11 @@ commands = [
 ]
 
 steps = [
-  "scaffold new docs files or collection directories",
+  "search existing docs, ADRs, owning SSOTs, runbooks, workflows, plans, and rollups",
+  "prefer updating an existing owner document",
+  "scaffold new docs files or collection directories only with --reuse-reviewed",
+  "reject version-style doc/workflow names and use the feature or transformation result",
+  "replace local/server details with placeholders and run local-info-leak-gate",
   "edit docs or move files",
   "regenerate indexes",
   "validate lifecycle",

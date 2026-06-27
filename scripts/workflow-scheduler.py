@@ -60,6 +60,34 @@ TOOLS: tuple[Tool, ...] = (
         ("python3", "scripts/tool-skill-registry-gate.py"),
     ),
     Tool(
+        "local-info-leak-worktree",
+        8,
+        "Docs / Ecosystem",
+        "Warn and fail on developer-machine or server-specific information in Git-visible worktree files.",
+        ("python3", "scripts/local-info-leak-gate.py", "--mode", "worktree"),
+    ),
+    Tool(
+        "local-info-leak-tracked",
+        8,
+        "Docs / Ecosystem",
+        "Warn and fail on developer-machine or server-specific information in tracked files.",
+        ("python3", "scripts/local-info-leak-gate.py", "--mode", "tracked"),
+    ),
+    Tool(
+        "local-info-leak-staged",
+        8,
+        "Docs / Ecosystem",
+        "Warn and fail on developer-machine or server-specific information in staged files.",
+        ("python3", "scripts/local-info-leak-gate.py", "--mode", "staged"),
+    ),
+    Tool(
+        "local-info-leak-push",
+        8,
+        "Docs / Ecosystem",
+        "Warn and fail on developer-machine or server-specific information introduced by the incoming revision range.",
+        ("python3", "scripts/local-info-leak-gate.py", "--mode", "push", "--range", "{range}"),
+    ),
+    Tool(
         "repo-hygiene-worktree",
         10,
         "Docs / Ecosystem",
@@ -207,6 +235,18 @@ WORKFLOW_DOCS: tuple[WorkflowDoc, ...] = (
         "Repository cleanliness, commit, push, and history rewriting standards.",
     ),
     WorkflowDoc(
+        "feature-cutover",
+        "workflows/FEATURE-CUTOVER-WORKFLOW.md",
+        15,
+        "Pre-test self-check for complete migration to the new canonical feature path.",
+    ),
+    WorkflowDoc(
+        "functional-commit-readiness",
+        "workflows/FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md",
+        55,
+        "Pre-commit self-check for targeted feature validation and upstream/downstream adaptation.",
+    ),
+    WorkflowDoc(
         "promote-nightly-parser-subset",
         "workflows/PROMOTE-NIGHTLY-PARSER-SUBSET.md",
         25,
@@ -242,6 +282,12 @@ WORKFLOW_DOCS: tuple[WorkflowDoc, ...] = (
         7,
         "Current repo-local skill and maintenance-tool inventory, release wiring, and module coverage.",
     ),
+    WorkflowDoc(
+        "local-info-leak-gate",
+        "workflows/LOCAL-INFO-LEAK-GATE.md",
+        8,
+        "Developer-machine and server-specific information leakage scan across repository-owned files.",
+    ),
 )
 
 
@@ -251,6 +297,7 @@ PROFILES: tuple[Profile, ...] = (
         "Common worktree process gates for checkpoint delivery before optional checkpoint-health.",
         (
             "tool-skill-registry",
+            "local-info-leak-worktree",
             "repo-hygiene-worktree",
             "runtime-surface",
             "team-docs-worktree",
@@ -263,6 +310,7 @@ PROFILES: tuple[Profile, ...] = (
         "Common staged-index process gates for commit hooks and staged handoff.",
         (
             "tool-skill-registry",
+            "local-info-leak-staged",
             "repo-hygiene-staged",
             "runtime-surface",
             "team-docs-staged",
@@ -275,6 +323,7 @@ PROFILES: tuple[Profile, ...] = (
         "Common process gates for branch handoff against a base ref and incoming revision range.",
         (
             "tool-skill-registry",
+            "local-info-leak-push",
             "repo-hygiene-push",
             "runtime-surface",
             "team-docs-base",
@@ -289,6 +338,7 @@ PROFILES: tuple[Profile, ...] = (
             "workflow-scheduler-check",
             "workflow-scheduler-tests",
             "tool-skill-registry",
+            "local-info-leak-worktree",
             "repo-hygiene-tracked",
             "runtime-surface",
             "team-docs-worktree",
@@ -303,6 +353,8 @@ PROFILES: tuple[Profile, ...] = (
             "workflow-scheduler-check",
             "workflow-scheduler-tests",
             "tool-skill-registry",
+            "local-info-leak-tracked",
+            "local-info-leak-push",
             "repo-hygiene-tracked",
             "repo-hygiene-push",
             "runtime-surface",

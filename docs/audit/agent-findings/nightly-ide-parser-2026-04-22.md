@@ -27,9 +27,9 @@
 
 ## Validation
 
-- `cmake --build <user-home>/styio-nightly/build-codex --target styio_ide_test styio_lspd -j8`
-- `ctest --test-dir <user-home>/styio-nightly/build-codex -R 'StyioWorkspaceIndex\\.(PersistentIndexClearsDeletedSymbolsOnNewSession|ClosedFileRefreshesFromDiskBeforeBackgroundIndexing)|StyioLspServer\\.(HandlesInitializeOpenAndCompletion|SkipsMalformedFramesAndHandlesLargeStringIds|RunDrainsRuntimeDiagnostics)' --output-on-failure`
-- `ctest --test-dir <user-home>/styio-nightly/build-codex -R 'StyioLspRuntime\\.(RunAdvancesBackgroundWorkAsRequestDrivenFallback|BackgroundIndexYieldsToForegroundRequests|IdleSliceDrainsSemanticBeforeBackgroundWork|CancellationPropagatesThroughSemanticQueries|DebouncesSemanticDiagnostics)' --output-on-failure`
+- `cmake --build <workspace-root>/build-codex --target styio_ide_test styio_lspd -j8`
+- `ctest --test-dir <workspace-root>/build-codex -R 'StyioWorkspaceIndex\\.(PersistentIndexClearsDeletedSymbolsOnNewSession|ClosedFileRefreshesFromDiskBeforeBackgroundIndexing)|StyioLspServer\\.(HandlesInitializeOpenAndCompletion|SkipsMalformedFramesAndHandlesLargeStringIds|RunDrainsRuntimeDiagnostics)' --output-on-failure`
+- `ctest --test-dir <workspace-root>/build-codex -R 'StyioLspRuntime\\.(RunAdvancesBackgroundWorkAsRequestDrivenFallback|BackgroundIndexYieldsToForegroundRequests|IdleSliceDrainsSemanticBeforeBackgroundWork|CancellationPropagatesThroughSemanticQueries|DebouncesSemanticDiagnostics)' --output-on-failure`
 
 ## Residual Risk
 

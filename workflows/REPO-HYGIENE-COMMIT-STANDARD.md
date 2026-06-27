@@ -2,7 +2,7 @@
 
 **Purpose:** 约束 Styio 仓库的本地清理、`.gitignore`、提交前检查、push 前检查、历史重写与 `force-push` 边界；不定义语言语义与功能重构步骤（见 `CHECKPOINT-WORKFLOW.md` / `../docs/assets/templates/REFACTOR-WORKFLOW-TEMPLATE.md`）。
 
-**Last updated:** 2026-05-22
+**Last updated:** 2026-06-28
 
 ---
 
@@ -75,6 +75,7 @@
 ```bash
 git status --short
 git diff --cached --name-only
+python3 scripts/local-info-leak-gate.py --mode staged
 ./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit
 ```
 
@@ -89,6 +90,9 @@ git diff --cached --name-only
 1. 暂存区只包含本次 checkpoint 的目标改动。
 2. 不包含 `build*`、`Testing/`、`cmake_test_discovery_*.json`、二进制与库文件。
 3. 不把“功能改动”和“误提交的垃圾产物清理”混成无法审查的黑盒，除非本次提交本身就是清理修复。
+4. 若本次是功能新增、功能优化或功能改造，必须先完成 [`FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md`](./FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md)：最小功能验证、upstream/downstream 适配调试、version-style 命名检查（按 feature or transformation result 命名）、预期效果确认、以及无法验证时的客观 blocker 记录。
+5. 若本次功能替换、迁移、扩展或退休旧行为，还必须完成 [`FEATURE-CUTOVER-WORKFLOW.md`](./FEATURE-CUTOVER-WORKFLOW.md)，不能把新路径挂回旧实现再提交。
+6. 若本次新增或修改技能、文档、脚本、测试、配置或 handoff 记录，必须通过 [`LOCAL-INFO-LEAK-GATE.md`](./LOCAL-INFO-LEAK-GATE.md)，不得提交真实本机路径、服务器路径、私有端点、账号名、主机名或部署根。
 
 可选快速筛查：
 
@@ -259,6 +263,7 @@ fix: <行为修复>
 4. `.gitignore` 已覆盖本次引入的所有新生成产物。
 5. 若本次引入了 temp/build 风格 fixture，已同批补显式 negate rule，且 `python3 scripts/repo-hygiene-gate.py --mode tracked` 通过。
 6. 对应测试或恢复脚本已跑通。
+7. 功能提交已记录 targeted feature validation、upstream/downstream checks、version-style naming check、local/server info placeholder check、cutover 状态，或对每个未验证面留下客观 blocker、owner、替代证据与后续 gate。
 
 仓库提供了配套自动化：
 
@@ -268,7 +273,7 @@ fix: <行为修复>
 
 安装后：
 
-1. `pre-commit` 会通过 `./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit` 检查暂存区路径、二进制、本机产物、runtime surface 和 staged docs/runbook 责任。
+1. `pre-commit` 会带 `STYIO_COMMIT_READINESS_REQUIRE=1` 调用 `./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit`，检查暂存区路径、二进制、本机产物、runtime surface 和 staged docs/runbook 责任，并在交互终端要求确认本次不是功能改动，或功能验证、upstream/downstream 调试与 version-style naming check 已经完成；非交互提交只有在确认属实后才能显式使用 `STYIO_COMMIT_READINESS_CONFIRMED=1` 重跑。
 2. `pre-push` 会通过 `./scripts/delivery-gate.sh --mode push --skip-health` 检查待推送历史里的禁止路径、大 blob、docs/runbook 分支责任和 external audit。
 3. GitHub Actions `repo-hygiene` 会在所有 `push` 与 `pull_request` 上快速检查 tracked tree 与 incoming history range。
 4. GitHub Actions `styio-ci-gate` 会在受管分支的 `push` 与所有 `pull_request` 上通过 workflow scheduler 重复执行完整交付门禁。
@@ -277,6 +282,8 @@ fix: <行为修复>
 
 ## 10. 与其它文档的关系
 
-1. 重构拆刀、ADR、恢复记录：见 [`CHECKPOINT-WORKFLOW.md`](./CHECKPOINT-WORKFLOW.md)
-2. 通用执行模板：见 [`../docs/assets/templates/REFACTOR-WORKFLOW-TEMPLATE.md`](../docs/assets/templates/REFACTOR-WORKFLOW-TEMPLATE.md)
-3. 文档职责与 SSOT：见 [`../docs/specs/DOCUMENTATION-POLICY.md`](../docs/specs/DOCUMENTATION-POLICY.md)
+1. 功能提交闭环：见 [`FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md`](./FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md)
+2. 完整迁移与旧实现移除：见 [`FEATURE-CUTOVER-WORKFLOW.md`](./FEATURE-CUTOVER-WORKFLOW.md)
+3. 重构拆刀、ADR、恢复记录：见 [`CHECKPOINT-WORKFLOW.md`](./CHECKPOINT-WORKFLOW.md)
+4. 通用执行模板：见 [`../docs/assets/templates/REFACTOR-WORKFLOW-TEMPLATE.md`](../docs/assets/templates/REFACTOR-WORKFLOW-TEMPLATE.md)
+5. 文档职责与 SSOT：见 [`../docs/specs/DOCUMENTATION-POLICY.md`](../docs/specs/DOCUMENTATION-POLICY.md)

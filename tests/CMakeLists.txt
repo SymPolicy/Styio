@@ -144,6 +144,18 @@ add_test(
 set_tests_properties(example_bubble_sort PROPERTIES LABELS "example;styio_pipeline;algorithm_equivalence")
 
 add_test(
+  NAME example_eight_queens
+  COMMAND "${Python3_EXECUTABLE}" "${STYIO_TEST_RUNNER}"
+          run
+          --styio "${STYIO_EXE}"
+          --source "${CMAKE_SOURCE_DIR}/example/algorithms/eight_queens.styio"
+          --cwd "${CMAKE_SOURCE_DIR}"
+          --expect-stdout "${CMAKE_SOURCE_DIR}/example/expected/eight_queens.out"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(example_eight_queens PROPERTIES LABELS "example;styio_pipeline;algorithm_equivalence")
+
+add_test(
   NAME example_cli_calculator
   COMMAND "${Python3_EXECUTABLE}" "${STYIO_TEST_RUNNER}"
           calc

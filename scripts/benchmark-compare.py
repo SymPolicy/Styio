@@ -14,6 +14,13 @@ import sys
 import argparse
 from pathlib import Path
 
+ROUTE_CACHE_FIELDS = (
+    ("scan", "route_cache_scan_count"),
+    ("miss", "route_cache_miss_count"),
+    ("hit", "route_cache_hit_count"),
+    ("disabled", "route_cache_disabled_count"),
+)
+
 
 def load_results(path: str) -> dict:
     with open(path, "r") as f:
@@ -28,6 +35,7 @@ def load_results(path: str) -> dict:
             key = s["name"]
         else:
             key = f"{s['phase']}/{s['label']}"
+        is_route_cache = key.startswith("route_cache/")
         # Use median_ns if available, else duration_ns
         ns = s.get("median_ns", s.get("duration_ns", 0))
         samples[key] = {
@@ -38,6 +46,11 @@ def load_results(path: str) -> dict:
             "max_ns": s.get("max_ns", ns),
             "iterations": s.get("iterations", 0),
         }
+        for _, source_key in ROUTE_CACHE_FIELDS:
+            if source_key in s:
+                samples[key][source_key] = s[source_key]
+            elif is_route_cache:
+                samples[key][source_key] = 0
     return {
         "git_sha": data.get("commit", data.get("git_sha", "unknown")),
         "build_type": data.get("build_type", "unknown"),
@@ -47,7 +60,8 @@ def load_results(path: str) -> dict:
 
 def compare(baseline: dict, current: dict, threshold_pct: float,
             markdown_path: str = None, allow_missing_new: bool = False,
-            require_improvement: dict = None) -> int:
+            require_improvement: dict = None,
+            show_route_cache: bool = False) -> int:
     baseline_samples = baseline["samples"]
     current_samples = current["samples"]
 
@@ -127,6 +141,47 @@ def compare(baseline: dict, current: dict, threshold_pct: float,
     md(f"**Summary:** {regressions} regression(s), {improvements} improvement(s), "
        f"{new_benchmarks} new, {missing} missing")
 
+    if show_route_cache:
+        emit("")
+        emit("Route cache counters:")
+        emit(f"{'Benchmark':<45} {'Metric':<10} {'Baseline':>12} {'Current':>12} {'Delta':>12}")
+        emit("-" * 93)
+        md_lines.append("| Benchmark | Metric | Baseline | Current | Delta |")
+        md_lines.append("|----------|--------|----------|---------|-------|")
+        for key in all_keys:
+            base_sample = baseline_samples.get(key)
+            curr_sample = current_samples.get(key)
+            if not (_has_route_cache_fields(base_sample) or _has_route_cache_fields(curr_sample)):
+                continue
+            for metric_name, source_key in ROUTE_CACHE_FIELDS:
+                if base_sample is None or source_key not in base_sample:
+                    base_val = None
+                    base_display = "N/A"
+                else:
+                    base_val = base_sample[source_key]
+                    base_display = str(base_val)
+
+                if curr_sample is None or source_key not in curr_sample:
+                    curr_val = None
+                    curr_display = "N/A"
+                else:
+                    curr_val = curr_sample[source_key]
+                    curr_display = str(curr_val)
+
+                if base_val is None or curr_val is None:
+                    delta_display = "N/A"
+                else:
+                    delta = curr_val - base_val
+                    delta_display = f"{delta:+d}"
+
+                emit(
+                    f"{key:<45} {metric_name:<10} "
+                    f"{base_display:>12} {curr_display:>12} {delta_display:>12}"
+                )
+                md_lines.append(
+                    f"| {key} | {metric_name} | {base_display} | {curr_display} | {delta_display} |"
+                )
+
     # Check required improvements
     req_failures = []
     if require_improvement:
@@ -167,6 +222,12 @@ def compare(baseline: dict, current: dict, threshold_pct: float,
     return 0
 
 
+def _has_route_cache_fields(sample) -> bool:
+    if sample is None:
+        return False
+    return any(field in sample for _, field in ROUTE_CACHE_FIELDS)
+
+
 def _fmt_ns(ns: int) -> str:
     if ns >= 1_000_000_000:
         return f"{ns / 1_000_000_000:.2f} s"
@@ -200,6 +261,10 @@ def main():
         "--require-improvement", type=str, default=None,
         help="Comma-separated bench:min_pct entries that must improve, e.g. 'parse/many_stmts_1k:10'"
     )
+    parser.add_argument(
+        "--route-cache", action="store_true", default=False,
+        help="Include route cache counter summary in the report."
+    )
     args = parser.parse_args()
 
     if not Path(args.baseline).exists():
@@ -224,7 +289,8 @@ def main():
     return compare(baseline, current, args.threshold,
                    markdown_path=args.markdown,
                    allow_missing_new=args.allow_missing_new,
-                   require_improvement=req_improve if req_improve else None)
+                   require_improvement=req_improve if req_improve else None,
+                   show_route_cache=args.route_cache)
 
 
 if __name__ == "__main__":
