@@ -2,7 +2,7 @@
 name = "styio-env-bootstrap"
 display_name = "Styio Env Bootstrap"
 description = "Use when changing the development environment bootstrap script, baseline tool versions, dependency installation, or bootstrap documentation."
-last_updated = "2026-06-19"
+last_updated = "2026-06-28"
 
 workflow = [
   "classify the change as dependency, version baseline, path, or documentation",

@@ -2,7 +2,7 @@
 name = "styio-parser-subset"
 display_name = "Styio Parser Subset"
 description = "Use when moving syntax coverage into the authoritative nightly parser, changing parser token gates, no-fallback evidence, or parser route statistics."
-last_updated = "2026-06-19"
+last_updated = "2026-06-28"
 
 workflow = [
   "freeze accepted and rejected samples before parser edits",

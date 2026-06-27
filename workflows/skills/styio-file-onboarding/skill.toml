@@ -2,7 +2,7 @@
 name = "styio-file-onboarding"
 display_name = "Styio File Onboarding"
 description = "Use when adding tracked files or directories so indexes, registries, metadata, tests, and repo hygiene gates stay aligned."
-last_updated = "2026-06-19"
+last_updated = "2026-06-28"
 
 workflow = [
   "classify the file before editing",
