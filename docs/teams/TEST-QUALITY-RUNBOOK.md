@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of feature tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, source coverage gates, and test documentation.
 
-**Last updated:** 2026-06-25
+**Last updated:** 2026-06-28
 
 ## Mission
 
@@ -22,6 +22,7 @@ Primary paths:
 8. [../../workflows/FIVE-LAYER-PIPELINE.md](../../workflows/FIVE-LAYER-PIPELINE.md)
 9. [../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md](../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md)
 10. [../../scripts/coverage-gate.sh](../../scripts/coverage-gate.sh)
+11. Parser shadow suite gates: [../../benchmark/parser-shadow-suite-gate.py](../../benchmark/parser-shadow-suite-gate.py) and [../../benchmark/parser-shadow-suite-gate.sh](../../benchmark/parser-shadow-suite-gate.sh)
 
 ## Daily Workflow
 
@@ -115,6 +116,7 @@ Primary paths:
 87. Pressure observer unsupported-family coverage needs both parser and public-diagnostic evidence: prove `resource.pressure >> #(p) => { ... }` constructs the expected iterator/attribute parser shape, prove current topology resources fail closed in Sema before family support, and prove CLI JSONL reports `STYIO_SEMA_RESOURCE_PRESSURE_OBSERVER_UNSUPPORTED`, public phase `sema`, TypeError exit family, stable unsupported-family fragments, and no-following-output behavior for both a standard anchor such as `@stdout` and a topology resource binding. Do not treat this as pressure payload typing, observer execution, runtime pressure streams, or broader backpressure scheduling support.
 88. Matrix literal invalid diagnostic refinements need the smallest direct typed matrix binding and explicit matrix-return sources, and must assert `STYIO_TYPE_MATRIX_LITERAL_INVALID`, public phase `type`, TypeError exit family, stable matrix literal fragments, and no-following-output behavior. Do not treat these tests as broader matrix literal acceptance, matrix return compatibility, matrix operators, resource-method matrix bodies, or matrix runtime behavior.
 89. Tokenizer span and performance tests live under `StyioTokenizerSpan` and `StyioTokenizerPerf` in `tests/security/styio_security_test.cpp`. Span tests must prove begin()/len()/lexeme() correctness for each token type, longest-match operator precedence, keyword-vs-identifier separation, unterminated-string/comment diagnostic stability, CRLF/EOF/empty/malformed-input safety, and ASCII-identifier sequential spans. Perf tests must cover large identifiers, large numbers, long strings, dense operators, long comments, mixed realistic input, large-input soak, and native extern blocks with at least 0.5 MB/s throughput on Release builds. When tokenizer span behavior changes, rerun all `StyioTokenizerSpan*` and `StyioTokenizerPerf*` tests and verify `language_feature`, `styio_pipeline`, and `security` labels stay green.
+90. Windows-native CTest coverage must not shell out through Bash, grep, cmp, cat, rm, mktemp, chmod, or `/tmp`-only assumptions unless the test is explicitly POSIX-only and excluded from the Windows registration. Prefer CMake/Python helpers, `${CMAKE_BINARY_DIR}` artifacts, platform environment helpers, and targeted Windows gtest slices that still cover native interop, process execution, CLI contracts, and core unit behavior.
 
 ## Change Classes
 

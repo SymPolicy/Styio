@@ -87,6 +87,9 @@ jobs:
             lld-18 \
             llvm-18-dev \
             libicu-dev \
+            zlib1g-dev \
+            libzstd-dev \
+            libcurl4-openssl-dev \
             python3
 
       - name: Configure
@@ -163,3 +166,98 @@ jobs:
       - name: Fuzz smoke
         working-directory: styio-nightly
         run: ctest --test-dir build/ci -L fuzz_smoke --output-on-failure
+
+  styio-windows-native:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          path: styio-nightly
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13.5"
+
+      - name: Set up MSVC command environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install CMake, Ninja, and LLVM 18 development package
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: styio-llvm18
+          cache-environment: true
+          create-args: >-
+            cmake
+            ninja
+            llvm=18.1.8
+            llvmdev=18.1.8
+            clang-tools=18.1.8
+
+      - name: Locate LLVM 18
+        shell: pwsh
+        run: |
+          $condaPrefix = Join-Path $env:MAMBA_ROOT_PREFIX "envs\styio-llvm18"
+          if (!(Test-Path $condaPrefix) -and $env:CONDA_PREFIX) {
+            $condaPrefix = $env:CONDA_PREFIX
+          }
+          if (!(Test-Path $condaPrefix)) {
+            throw "micromamba environment was not found"
+          }
+
+          $llvmRoot = Join-Path $condaPrefix "Library"
+          $llvmConfig = Join-Path $llvmRoot "lib\cmake\llvm\LLVMConfig.cmake"
+          if (!(Test-Path $llvmConfig)) {
+            throw "LLVMConfig.cmake was not found in $llvmRoot"
+          }
+          $clang = Join-Path $llvmRoot "bin\clang.exe"
+          $clangCl = Join-Path $llvmRoot "bin\clang-cl.exe"
+          if (!(Test-Path $clang) -and !(Test-Path $clangCl)) {
+            throw "neither clang.exe nor clang-cl.exe was found in $llvmRoot\bin"
+          }
+
+          $llvmDir = Split-Path -Parent $llvmConfig
+
+          Add-Content $env:GITHUB_PATH (Join-Path $llvmRoot "bin")
+          Add-Content $env:GITHUB_PATH (Join-Path $condaPrefix "Scripts")
+          Add-Content $env:GITHUB_ENV "LLVM_DIR=$llvmDir"
+          Add-Content $env:GITHUB_ENV "STYIO_NATIVE_TOOLCHAIN_ROOT=$llvmRoot"
+
+      - name: Tool versions
+        shell: pwsh
+        run: |
+          cmake --version
+          ninja --version
+          python --version
+          where.exe cl
+          clang --version
+
+      - name: Configure
+        shell: pwsh
+        working-directory: styio-nightly
+        run: >
+          cmake -S . -B build/windows -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_COMPILER=cl
+          -DCMAKE_CXX_COMPILER=cl
+          -DLLVM_DIR="$env:LLVM_DIR"
+          -DSTYIO_NATIVE_TOOLCHAIN_ROOT="$env:STYIO_NATIVE_TOOLCHAIN_ROOT"
+          -DSTYIO_NATIVE_TOOLCHAIN_MODE=auto
+
+      - name: Build
+        shell: pwsh
+        working-directory: styio-nightly
+        run: |
+          cmake --build build/windows --target all
+          cmake --build build/windows --target styio styio_lspd styio-nano styio_test
+
+      - name: Test
+        shell: pwsh
+        working-directory: styio-nightly
+        run: ctest --test-dir build/windows --output-on-failure

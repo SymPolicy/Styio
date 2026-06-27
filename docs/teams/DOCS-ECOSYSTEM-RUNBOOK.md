@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-06-25
+**Last updated:** 2026-06-28
 
 ## Mission
 
@@ -25,6 +25,7 @@ Primary paths:
 11. `scripts/workflow-scheduler.py`
 12. `scripts/delivery-gate.sh`
 13. `library/`
+14. `scripts/tool-skill-registry-gate.py`
 
 Key SSOTs:
 
@@ -118,6 +119,7 @@ Key SSOTs:
 79. Keep the dedicated `repo-hygiene` GitHub Actions workflow aligned with `scripts/repo-hygiene-gate.py` whenever the gate modes, push-range calculation, Python baseline, or documented delivery floor changes.
 80. When updating the active rollup ledger for package or service contract hardening, keep the change evidence-scoped: record the exact local test command, preserve the `styio` compiler-side boundary, and leave unresolved package-manager or platform lifecycle questions in IM-D10 instead of turning them into `styio` commitments. For nano static repository hardening, keep marker, SHA256, size, and remote-publish guard evidence together when the baseline changes. For compile-plan resolved-request hardening, describe only request-envelope shape, machine-readable diagnostics, and entry-package consistency unless Spio has explicitly confirmed broader resolver or lifecycle ownership.
 81. Keep the Draft PR checkpoint rule in [../../workflows/REPO-HYGIENE-COMMIT-STANDARD.md](../../workflows/REPO-HYGIENE-COMMIT-STANDARD.md) and [../../workflows/CHECKPOINT-WORKFLOW.md](../../workflows/CHECKPOINT-WORKFLOW.md) aligned whenever commit, push, or recovery-branch practice changes; the minimum push unit is an engineering slice such as a syntax/semantic slice, feature-closure unit, test-evidence group, or docs/governance closure, and exists to protect remote recoverability before long-running tasks are fully polished.
+82. Native Windows build documentation must distinguish compiler-tool installs from LLVM development installs. `docs/BUILD-AND-DEV-ENV.md` and Windows CI should point `LLVM_DIR` at a package that provides `LLVMConfig.cmake` plus LLVM C++ headers, document `STYIO_NATIVE_TOOLCHAIN_ROOT` for native `@extern`, and avoid requiring WSL, MSYS, Git Bash, or POSIX shell tools for normal Windows configure/build/test.
 82. Branch-consolidation pushes must run whitespace checks over the full push range, not only the worktree. If an older tracked docs file fails range hygiene, fix the active file in the consolidation commit and refresh `DOC-STATS.md` when team runbooks changed.
 83. Current implementation-vs-design gap audits belong in `docs/rollups/` only when they are evidence-backed active summaries. Keep them tied to `CURRENT-STATE.md`, `NEXT-STAGE-GAP-LEDGER.md`, exact local verification commands, and explicit non-gap boundaries so they do not become a parallel language SSOT or a stale audit bundle.
 84. When an accepted industrial-maturity design slice is implemented while adjacent questions remain undecided, update the owning IM inventory with the accepted behavior, keep the unresolved question as a named pending decision in [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md), and do not let the ledger become the authority for already accepted syntax.

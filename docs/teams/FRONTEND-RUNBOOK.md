@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of Styio tokenization, parsing, Unicode handling, and the authoritative nightly parser contract; this file links to language and test SSOTs instead of redefining grammar.
 
-**Last updated:** 2026-06-25
+**Last updated:** 2026-06-28
 
 ## Mission
 
@@ -17,6 +17,7 @@ Primary paths:
 3. `src/StyioParser/`
 4. Git history only when a deleted parser snapshot is needed for migration reference
 5. Parser-facing tests under `tests/features/`, `tests/fuzz/`, and parser shadow gates
+6. Parser legacy-entry audit scripts: `scripts/parser-legacy-entry-audit.py` and `scripts/parser-legacy-entry-audit.sh`
 
 Build and test targets:
 
@@ -49,7 +50,7 @@ Build and test targets:
 20. Typed annotation recovery is part of the same ownership contract. Keep parsed `TypeAST`, declared `VarAST`, await targets, resource declaration slots, and parameter nodes behind local owners until the parser has seen the required delimiter or assignment token and the final AST node has adopted them.
 21. Parser resource limits are fail-closed. Deep delimiter nesting and unclosed expression contexts must raise parser diagnostics directly instead of being swallowed by legacy fallback; minimized OOM fuzz seeds belong in `tests/fuzz/corpus/` with a deterministic security regression.
 22. `StyioToken::length()` and `StyioToken::as_str()` use `lexeme()`/`textString()` instead of `original` (commit 8117705). The `original` field is deprecated and empty for all tokenizer-produced zero-copy span tokens. When new token facade methods are added, they must use `lexeme()` or `textString()` instead of `original`.
-22. Accepted grammar is no-fallback. When nightly expression, statement, block, list, dict, match, iterator, or hash-statement parsing declines, either implement the missing nightly route with tests or reject it with a stable syntax diagnostic; do not rewind into `parse_expr(context)`, `parse_block_only(context)`, `parse_stmt_or_expr_legacy(context)`, or `parse_hash_tag(context)`.
+22. Accepted grammar is no-fallback. When nightly expression, statement, block, list, dict, match, iterator, or hash-statement parsing declines, either implement the missing nightly route with tests or reject it with a stable syntax diagnostic; do not rewind into `parse_expr(context)`, `parse_block_only(context)`, `parse_stmt_or_expr_legacy(context)`, or `parse_hash_tag(context)`. Retired `filter` / `slice` CODP spellings, legacy value-position `|expr|`, malformed `|name` size probes, and unsupported indexed or call postfixes after var-name/value-expression routes must fail closed instead of falling into legacy iterator or index parsing.
 23. Public syntax validation is locked to the hand-written nightly parser. `styio check --syntax --json` may accept `--parser-engine nightly` as an explicit no-op, but non-authoritative engines such as `legacy` or `new` must stay rejected by tests.
 24. Temporary ASTs produced during parser failures must stay under local ownership until `ListAST`, `DictAST`, `BlockAST`, `MainBlockAST`, `RangeAST`, parameter-list adopters, or equivalent final AST nodes take them. Session-arena release does not run destructors for abandoned parser nodes, so exception paths that drop partially parsed literals, block statements, or function and iterator parameter lists can leak nested string storage even when the outer AST object memory comes from the arena.
 25. Statement-local expression accumulators follow the same rule. Parser helpers such as `parse_print(...)` and nightly statement subsets must keep temporary expression lists behind RAII until `PrintAST` or another final adopter takes ownership, or a malformed outer delimiter can leak inner call-argument buffers after the callee AST has already been constructed.

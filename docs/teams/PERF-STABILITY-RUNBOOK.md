@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of benchmark routes, soak tests, performance reports, regression templates, and stability guardrails.
 
-**Last updated:** 2026-06-21
+**Last updated:** 2026-06-28
 
 ## Mission
 
@@ -21,6 +21,7 @@ Primary paths:
 7. `benchmark/perf-report.py`
 8. `benchmark/soak-minimize.sh`
 9. `src/StyioProfiler/`
+10. `scripts/benchmark-compare.py`
 
 High-value docs:
 
@@ -32,7 +33,7 @@ High-value docs:
 ## Daily Workflow
 
 1. Decide whether the question is compile-stage, micro hotspot, full-stack wall time, error-path, or soak stability.
-2. Use structured outputs under `styio-benchmark/reports/<run-id>/`; compare `results.json` or `benchmarks.csv`, not screenshots.
+2. Use structured outputs under `styio-benchmark/reports/<run-id>/`; compare `results.json` or `benchmarks.csv`, not screenshots. Use `scripts/benchmark-compare.py` for repository-local JSON regression comparisons.
 3. Keep benchmark workloads representative and tied to `styio-benchmark/docs/COVERAGE-MATRIX.md`.
 4. Keep `benchmark/core/manifest.json` tiny, deterministic, and backed by existing repository behavior coverage. It is release evidence for executable workloads and timing schema, not cross-runtime comparison or historical baseline evidence.
 5. Minimize soak failures before handing them to implementation owners.
@@ -48,6 +49,7 @@ High-value docs:
 15. Async runtime framework checks use pytest as the black-box contract runner over `styio-benchmark/async-runtime/run-async-bench.py`; keep runtime selection explicit with `--runtime` and promote only JSON/CSV/Markdown report outputs as evidence.
 16. Native C++ comparisons must run from `styio-benchmark/native-cpp/` across the three standard routes: `full-cli`, `cached-jit`, and `runtime-only`. Use one generated input per workload and report both raw throughput and normalized relative performance. The per-route normalization baseline is `1.00x`; routes without a real implementation must be marked `unsupported`, not approximated by another route.
 17. Soak workloads that exercise state-like behavior must use resource topology resource declarations, `expr -> @name` writes, and `@name[-1]` selectors. Retired state-resource spellings belong only in negative parser/security tests, not performance baselines.
+18. Benchmark and stability helpers must stay native-Windows buildable when they are part of default targets. Prefer C++ standard library, `_popen`/`_pclose` guarded probes, CMake, or Python over POSIX-only shell commands so Windows CI can build `all` before running CTest without adding MSYS/Git Bash as a dependency.
 
 ## Change Classes
 
