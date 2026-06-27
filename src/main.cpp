@@ -45,6 +45,7 @@
 #include "StyioNative/NativeInterop.hpp"
 #include "StyioNative/NativeToolchainConfig.hpp"
 #include "StyioParser/Parser.hpp"
+#include "StyioPlatform/Platform.hpp"
 #include "StyioParser/Tokenizer.hpp"
 #include "StyioProfiler/FrontendProfiler.hpp"
 #include "StyioServices/DiagnosticContract.hpp"
@@ -103,6 +104,10 @@
 
 #ifndef STYIO_CMAKE_CXX_COMPILER
 #define STYIO_CMAKE_CXX_COMPILER ""
+#endif
+
+#ifndef STYIO_CMAKE_MAKE_PROGRAM
+#define STYIO_CMAKE_MAKE_PROGRAM ""
 #endif
 
 struct tmp_code_wrap
@@ -2020,6 +2025,7 @@ styio_nano_source_roots_latest(bool include_pipeline_check) {
     "src/StyioParser/NewParserExpr.cpp",
     "src/StyioParser/Tokenizer.cpp",
     "src/StyioProfiler/FrontendProfiler.cpp",
+    "src/StyioPlatform/Platform.cpp",
     "src/StyioNative/NativeInterop.cpp",
     "src/StyioNative/NativeToolchainConfig.hpp.in",
     "src/StyioResourceTopology/ResourceTopology.cpp",
@@ -2202,7 +2208,11 @@ styio_generate_profile_cmake_latest(
   }
   return styio_run_process_latest(
     {
+#if defined(_WIN32)
+      "python",
+#else
       "python3",
+#endif
       script_path.string(),
       "--input",
       input_profile.string(),
@@ -2277,15 +2287,22 @@ styio_write_nano_package_cmakelists_latest(
   cmake << "add_executable(styio_nano ${STYIO_NANO_CPP_SOURCES})\n";
   cmake << "set_target_properties(styio_nano PROPERTIES OUTPUT_NAME \"" << styio_nano_binary_filename_latest() << "\")\n";
   cmake << "target_include_directories(styio_nano PUBLIC \"${CMAKE_SOURCE_DIR}/src\" \"${CMAKE_BINARY_DIR}/generated\")\n";
-  cmake << "foreach(_llvm_include_dir IN LISTS LLVM_INCLUDE_DIRS)\n";
-  cmake << "  target_compile_options(styio_nano PRIVATE \"SHELL:-idirafter ${_llvm_include_dir}\")\n";
-  cmake << "endforeach()\n";
+  cmake << "if(MSVC)\n";
+  cmake << "  target_compile_options(styio_nano PRIVATE /utf-8)\n";
+  cmake << "endif()\n";
+  cmake << "if(CMAKE_CXX_COMPILER_ID MATCHES \"Clang|GNU|AppleClang\" AND NOT MSVC)\n";
+  cmake << "  foreach(_llvm_include_dir IN LISTS LLVM_INCLUDE_DIRS)\n";
+  cmake << "    target_compile_options(styio_nano PRIVATE \"SHELL:-idirafter ${_llvm_include_dir}\")\n";
+  cmake << "  endforeach()\n";
+  cmake << "else()\n";
+  cmake << "  target_include_directories(styio_nano SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})\n";
+  cmake << "endif()\n";
   cmake << "target_compile_definitions(styio_nano PRIVATE ${LLVM_DEFINITIONS_LIST} ${STYIO_NANO_COMPILE_DEFINITIONS} ";
   cmake << "\"STYIO_PROJECT_VERSION=\\\"" << STYIO_PROJECT_VERSION << "\\\"\" ";
   cmake << "\"STYIO_RELEASE_CHANNEL=\\\"nano\\\"\" ";
   cmake << "\"STYIO_EDITION_MAX=\\\"" << STYIO_EDITION_MAX << "\\\"\")\n";
   cmake << "target_link_libraries(styio_nano PRIVATE ${STYIO_NANO_LLVM_LINK_LIBS} ${CMAKE_DL_LIBS})\n\n";
-  cmake << "if(CMAKE_CXX_COMPILER_ID MATCHES \"Clang|GNU|AppleClang\")\n";
+  cmake << "if(CMAKE_CXX_COMPILER_ID MATCHES \"Clang|GNU|AppleClang\" AND NOT MSVC)\n";
   cmake << "  target_compile_options(styio_nano PRIVATE -Os)\n";
   cmake << "elseif(MSVC)\n";
   cmake << "  target_compile_options(styio_nano PRIVATE /O1)\n";
@@ -2314,6 +2331,65 @@ styio_nano_build_jobs_latest() {
   return "2";
 }
 
+static std::string
+styio_env_value_or_empty_latest(const char* name) {
+  const char* raw = std::getenv(name);
+  return raw == nullptr ? std::string() : std::string(raw);
+}
+
+static bool
+styio_basename_is_ninja_latest(const std::string& command) {
+  std::string base = std::filesystem::path(command).filename().string();
+  std::transform(base.begin(), base.end(), base.begin(), [](unsigned char ch) {
+    return static_cast<char>(std::tolower(ch));
+  });
+  return base == "ninja" || base == "ninja.exe";
+}
+
+static std::string
+styio_nano_cmake_make_program_latest() {
+  std::string make_program = styio_env_value_or_empty_latest("STYIO_NANO_CMAKE_MAKE_PROGRAM");
+  if (!make_program.empty()) {
+    return make_program;
+  }
+  return STYIO_CMAKE_MAKE_PROGRAM;
+}
+
+static std::string
+styio_nano_cmake_generator_latest(const std::string& make_program) {
+  std::string generator = styio_env_value_or_empty_latest("STYIO_NANO_CMAKE_GENERATOR");
+  if (!generator.empty()) {
+    return generator;
+  }
+  return styio_basename_is_ninja_latest(make_program) ? "Ninja" : std::string();
+}
+
+static void
+styio_append_nano_cmake_generator_args_latest(std::vector<std::string>& argv) {
+  const std::string make_program = styio_nano_cmake_make_program_latest();
+  const std::string generator = styio_nano_cmake_generator_latest(make_program);
+  if (!generator.empty()) {
+    argv.push_back("-G");
+    argv.push_back(generator);
+  }
+  if (!make_program.empty() && (generator == "Ninja" || generator == "Ninja Multi-Config")) {
+    argv.push_back("-DCMAKE_MAKE_PROGRAM=" + make_program);
+  }
+}
+
+static std::string
+styio_bash_double_quote_escape_latest(const std::string& text) {
+  std::string out;
+  out.reserve(text.size());
+  for (char ch : text) {
+    if (ch == '\\' || ch == '"' || ch == '$' || ch == '`') {
+      out.push_back('\\');
+    }
+    out.push_back(ch);
+  }
+  return out;
+}
+
 static bool
 styio_build_nano_package_latest(
   const std::filesystem::path& output_dir,
@@ -2327,6 +2403,7 @@ styio_build_nano_package_latest(
     "-B",
     build_dir.string(),
   };
+  styio_append_nano_cmake_generator_args_latest(configure_argv);
   if (const char* cc = std::getenv("CC"); cc == nullptr || cc[0] == '\0') {
     if (std::string(STYIO_CMAKE_C_COMPILER).empty() == false) {
       configure_argv.push_back("-DCMAKE_C_COMPILER=" + std::string(STYIO_CMAKE_C_COMPILER));
@@ -2808,6 +2885,19 @@ styio_materialize_local_nano_package_latest(
     "build_dir=\"${1:-$script_dir/build}\"\n"
     ": \"${STYIO_NANO_BUILD_JOBS:=2}\"\n"
     "cmake_args=()\n"
+    "compiled_make_program=\"" + styio_bash_double_quote_escape_latest(std::string(STYIO_CMAKE_MAKE_PROGRAM)) + "\"\n"
+    "if [[ -n \"${STYIO_NANO_CMAKE_GENERATOR:-}\" ]]; then\n"
+    "  cmake_args+=(\"-G\" \"$STYIO_NANO_CMAKE_GENERATOR\")\n"
+    "elif [[ -n \"$compiled_make_program\" ]]; then\n"
+    "  case \"$(basename \"$compiled_make_program\")\" in\n"
+    "    ninja|ninja.exe) cmake_args+=(\"-G\" \"Ninja\") ;;\n"
+    "  esac\n"
+    "fi\n"
+    "if [[ -n \"${STYIO_NANO_CMAKE_MAKE_PROGRAM:-}\" ]]; then\n"
+    "  cmake_args+=(\"-DCMAKE_MAKE_PROGRAM=$STYIO_NANO_CMAKE_MAKE_PROGRAM\")\n"
+    "elif [[ ${#cmake_args[@]} -ge 2 && \"${cmake_args[0]}\" == \"-G\" && \"${cmake_args[1]}\" == \"Ninja\" && -n \"$compiled_make_program\" ]]; then\n"
+    "  cmake_args+=(\"-DCMAKE_MAKE_PROGRAM=$compiled_make_program\")\n"
+    "fi\n"
     "if [[ -z \"${CC:-}\" && -n \"" + std::string(STYIO_CMAKE_C_COMPILER) + "\" ]]; then\n"
     "  cmake_args+=(\"-DCMAKE_C_COMPILER=" + std::string(STYIO_CMAKE_C_COMPILER) + "\")\n"
     "fi\n"
@@ -3864,9 +3954,8 @@ styio_parse_native_build_args_latest(
 
 static std::filesystem::path
 styio_resolve_current_executable_latest(const char* argv0) {
-  std::error_code ec;
-  std::filesystem::path self = std::filesystem::read_symlink("/proc/self/exe", ec);
-  if (!ec && !self.empty()) {
+  const std::filesystem::path self = styio::platform::current_executable_path();
+  if (!self.empty()) {
     return self;
   }
   if (argv0 != nullptr && argv0[0] != '\0') {
@@ -3921,56 +4010,27 @@ styio_resolve_source_root_latest(const std::filesystem::path& self_exe) {
 
 static std::filesystem::path
 styio_create_native_build_temp_root_latest(std::string& error_message) {
-  std::error_code ec;
-  const std::filesystem::path base = std::filesystem::temp_directory_path(ec);
-  if (ec) {
-    error_message = "cannot resolve temporary directory: " + ec.message();
+  std::filesystem::path path =
+    styio::platform::create_temp_directory("styio-native-build", error_message);
+  if (path.empty()) {
     return {};
   }
-
-  std::uint64_t seed =
-    static_cast<std::uint64_t>(
-      std::chrono::steady_clock::now().time_since_epoch().count());
-  try {
-    std::random_device rd;
-    seed ^= (static_cast<std::uint64_t>(rd()) << 32);
-    seed ^= static_cast<std::uint64_t>(rd());
+#if !defined(_WIN32)
+  std::error_code ec;
+  std::filesystem::permissions(
+    path,
+    std::filesystem::perms::owner_all,
+    std::filesystem::perm_options::replace,
+    ec);
+  if (ec) {
+    std::error_code remove_ec;
+    std::filesystem::remove(path, remove_ec);
+    error_message = "cannot secure native build temp directory: "
+      + path.string() + ": " + ec.message();
+    return {};
   }
-  catch (...) {
-    seed ^= static_cast<std::uint64_t>(std::time(nullptr));
-  }
-
-  std::mt19937_64 rng(seed);
-  for (int attempt = 0; attempt < 128; ++attempt) {
-    const std::filesystem::path candidate =
-      base / ("styio-native-build-" + std::to_string(rng()));
-    ec.clear();
-    if (std::filesystem::create_directory(candidate, ec)) {
-      std::filesystem::permissions(
-        candidate,
-        std::filesystem::perms::owner_all,
-        std::filesystem::perm_options::replace,
-        ec);
-      if (ec) {
-        std::error_code remove_ec;
-        std::filesystem::remove(candidate, remove_ec);
-        error_message = "cannot secure native build temp directory: "
-          + candidate.string() + ": " + ec.message();
-        return {};
-      }
-      return candidate;
-    }
-    std::error_code exists_ec;
-    const bool already_exists = std::filesystem::exists(candidate, exists_ec);
-    if (ec && !already_exists) {
-      error_message = "cannot create native build temp directory: "
-        + candidate.string() + ": " + ec.message();
-      return {};
-    }
-  }
-
-  error_message = "cannot allocate a unique native build temp directory";
-  return {};
+#endif
+  return path;
 }
 
 static std::string
@@ -3989,16 +4049,14 @@ styio_native_build_command_looks_like_clang_cxx_latest(const std::string& comman
 }
 
 static bool
+styio_native_build_command_looks_like_clang_cl_latest(const std::string& command) {
+  const std::string base = styio_native_build_lower_basename_latest(command);
+  return base == "clang-cl" || base == "clang-cl.exe";
+}
+
+static bool
 styio_native_build_is_executable_file_latest(const std::filesystem::path& path) {
-  std::error_code ec;
-  const auto status = std::filesystem::status(path, ec);
-  if (ec || !std::filesystem::is_regular_file(status)) {
-    return false;
-  }
-  const auto perms = status.permissions();
-  return (perms & std::filesystem::perms::owner_exec) != std::filesystem::perms::none
-    || (perms & std::filesystem::perms::group_exec) != std::filesystem::perms::none
-    || (perms & std::filesystem::perms::others_exec) != std::filesystem::perms::none;
+  return styio::platform::is_executable_file(path);
 }
 
 static bool
@@ -4011,29 +4069,17 @@ styio_native_build_find_executable_latest(
   }
 
   const std::filesystem::path direct(name);
-  if (direct.has_parent_path()) {
-    if (styio_native_build_is_executable_file_latest(direct)) {
-      out_command = direct.string();
-      return true;
+  if (direct.has_parent_path() || direct.is_absolute()) {
+    for (const auto& candidate : styio::platform::executable_name_candidates(direct)) {
+      if (styio_native_build_is_executable_file_latest(candidate)) {
+        out_command = candidate.string();
+        return true;
+      }
     }
     return false;
   }
 
-  const char* path_env = std::getenv("PATH");
-  if (path_env == nullptr || path_env[0] == '\0') {
-    return false;
-  }
-  std::stringstream paths(path_env);
-  std::string dir;
-  while (std::getline(paths, dir, ':')) {
-    const std::filesystem::path candidate =
-      (dir.empty() ? std::filesystem::path(".") : std::filesystem::path(dir)) / name;
-    if (styio_native_build_is_executable_file_latest(candidate)) {
-      out_command = candidate.string();
-      return true;
-    }
-  }
-  return false;
+  return styio::platform::find_executable(name, out_command);
 }
 
 static bool
@@ -4045,11 +4091,12 @@ styio_native_build_find_clang_in_root_latest(
     return false;
   }
   for (const auto& dir : {root / "bin", root}) {
-    for (const auto& name : {"clang++", "clang++-18"}) {
-      const std::filesystem::path candidate = dir / name;
-      if (styio_native_build_is_executable_file_latest(candidate)) {
-        out_command = candidate.string();
-        return true;
+    for (const auto& name : {"clang++", "clang++-18", "clang-cl"}) {
+      for (const auto& candidate : styio::platform::executable_name_candidates(dir / name)) {
+        if (styio_native_build_is_executable_file_latest(candidate)) {
+          out_command = candidate.string();
+          return true;
+        }
       }
     }
   }
@@ -4092,7 +4139,7 @@ styio_native_build_compiler_from_config_latest(
     }
   }
 
-  for (const auto& candidate : {"clang++", "clang++-18"}) {
+  for (const auto& candidate : {"clang++", "clang++-18", "clang-cl"}) {
     if (styio_native_build_find_executable_latest(candidate, resolved)) {
       return resolved;
     }
@@ -4360,7 +4407,7 @@ styio_native_build_compile_extern_units_latest(
     const std::filesystem::path source_path =
       native_dir / ("extern-" + std::to_string(i) + (abi == "c++" ? ".cpp" : ".c"));
     const std::filesystem::path object_path =
-      native_dir / ("extern-" + std::to_string(i) + ".o");
+      native_dir / ("extern-" + std::to_string(i) + styio::platform::object_suffix());
     const std::filesystem::path log_path =
       native_dir / ("extern-" + std::to_string(i) + ".log");
 
@@ -4424,6 +4471,27 @@ styio_native_build_link_argv_latest(
   const std::vector<std::filesystem::path>& native_extern_objects,
   const std::filesystem::path& output_path
 ) {
+  if (styio_native_build_command_looks_like_clang_cl_latest(cxx)) {
+    std::vector<std::string> argv = {
+      cxx,
+      "/std:c++20",
+      "/O2",
+      "/DNDEBUG",
+      native_ir_path.string(),
+      wrapper_path.string(),
+    };
+    for (const auto& src : runtime_srcs) {
+      argv.push_back(src.string());
+    }
+    argv.push_back("/I");
+    argv.push_back(include_dir.string());
+    for (const auto& object_path : native_extern_objects) {
+      argv.push_back(object_path.string());
+    }
+    argv.push_back("/Fe" + output_path.string());
+    return argv;
+  }
+
   std::vector<std::string> argv = {
     cxx,
     "-std=c++20",
@@ -4443,9 +4511,21 @@ styio_native_build_link_argv_latest(
   }
   argv.push_back("-o");
   argv.push_back(output_path.string());
+#if !defined(_WIN32)
   argv.push_back("-ldl");
   argv.push_back("-pthread");
+#endif
   return argv;
+}
+
+static std::filesystem::path
+styio_native_build_output_path_latest(const std::filesystem::path& requested) {
+#if defined(_WIN32)
+  if (requested.extension().empty()) {
+    return std::filesystem::path(requested.string() + styio::platform::executable_suffix());
+  }
+#endif
+  return requested;
 }
 
 static int
@@ -4469,7 +4549,8 @@ styio_native_build_cli_latest(int argc, char* argv[]) {
   }
 
   const std::filesystem::path input_path = styio_absolute_path_latest(args.input);
-  const std::filesystem::path output_path = styio_absolute_path_latest(args.output);
+  const std::filesystem::path output_path =
+    styio_absolute_path_latest(styio_native_build_output_path_latest(args.output));
   std::error_code ec;
   if (!std::filesystem::is_regular_file(input_path, ec)) {
     std::cerr << "[CliError] input file not found: " << input_path.string() << std::endl;
@@ -4622,6 +4703,7 @@ styio_native_build_cli_latest(int argc, char* argv[]) {
     cleanup();
     return static_cast<int>(StyioExitCode::RuntimeError);
   }
+#if !defined(_WIN32)
   std::filesystem::permissions(
     output_path,
     std::filesystem::perms::owner_exec
@@ -4629,6 +4711,7 @@ styio_native_build_cli_latest(int argc, char* argv[]) {
       | std::filesystem::perms::others_exec,
     std::filesystem::perm_options::add,
     ec);
+#endif
   cleanup();
   return static_cast<int>(StyioExitCode::Success);
 #endif

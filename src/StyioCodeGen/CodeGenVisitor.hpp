@@ -37,6 +37,10 @@
 #include "llvm/Transforms/Scalar/SimplifyCFG.h" /* SimplifyCFGPass */
 #include "llvm/Transforms/Utils.h"
 
+#ifndef STYIO_CODEGEN_INTERNAL_ACCESS
+#define STYIO_CODEGEN_INTERNAL_ACCESS private
+#endif
+
 using std::string;
 using std::unordered_map;
 using std::vector;
@@ -464,7 +468,7 @@ public:
   llvm::Value* toLLVMIR(SIOPrint* node);
   llvm::Value* toLLVMIR(SIORead* node);
 
-private:
+STYIO_CODEGEN_INTERNAL_ACCESS:
   std::vector<void*> native_library_handles_;
 
   void declare_sgfunc(SGFunc* node);

@@ -18,6 +18,10 @@
 #include "Syntax.hpp"
 #include "VFS.hpp"
 
+#ifndef STYIO_IDE_INTERNAL_ACCESS
+#define STYIO_IDE_INTERNAL_ACCESS private
+#endif
+
 namespace styio::ide {
 
 struct IdeSnapshot
@@ -169,7 +173,7 @@ struct SemanticQueryStats
 
 class SemanticDB
 {
-private:
+STYIO_IDE_INTERNAL_ACCESS:
   enum class ResolvedNameKind
   {
     Symbol,

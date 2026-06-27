@@ -3,6 +3,7 @@ set(STYIO_SYMBOL_SOURCES
 )
 
 set(STYIO_FRONTEND_FOUNDATION_SOURCES
+  StyioPlatform/Platform.cpp
   StyioToken/Token.cpp
   StyioUnicode/Unicode.cpp
   StyioParser/Parser.cpp

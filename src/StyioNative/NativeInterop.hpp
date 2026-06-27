@@ -40,6 +40,7 @@ struct FunctionSignature {
   CType return_type;
   std::vector<FunctionParam> params;
   bool variadic = false;
+  bool internal_linkage = false;
 };
 
 struct LoadedSymbol {

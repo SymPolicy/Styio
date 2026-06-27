@@ -2769,10 +2769,10 @@ parse_var_name_or_value_expr(StyioContext& context) {
   if (context.check(StyioTokenType::NAME)) {
     auto varname = parse_name(context);
     if (context.check(StyioTokenType::TOK_LBOXBRAC) /* [ */) {
-      output = parse_index_op(context, varname);
+      throw StyioParseError("parse_var_name_or_value_expr: indexed names are not simple values");
     }
     else if (context.check(StyioTokenType::TOK_LPAREN) /* ( */) {
-      output = parse_index_op(context, varname);
+      throw StyioParseError("parse_var_name_or_value_expr: calls are not simple values");
     }
     else {
       output = varname;
@@ -2802,7 +2802,7 @@ parse_value_expr(StyioContext& context) {
     return parse_int_or_float(context);
   }
   else if (context.check_next('|')) {
-    return parse_size_of(context);
+    throw StyioSyntaxError("legacy |expr| size-of syntax is not accepted as a value expression");
   }
 
   string errmsg = string("parse_value() // Unexpected value expression, starting with ") + char(context.get_curr_char());
@@ -4167,10 +4167,13 @@ parse_iterable(StyioContext& context) {
 
 SizeOfAST*
 parse_size_of(StyioContext& context) {
-  SizeOfAST* output;
-
   // eliminate | at the start
   context.move(1);
+
+  if (context.get_code().find('|', context.get_curr_pos()) == std::string::npos) {
+    string errmsg = string("|expr| // SizeOf: Expecting | at the end, but got .:| ") + char(context.get_curr_char()) + " |:.";
+    throw StyioSyntaxError(errmsg);
+  }
 
   if (StyioUnicode::is_identifier_start(context.get_curr_char())) {
     StyioAST* var = parse_var_name_or_value_expr(context);
@@ -4179,7 +4182,7 @@ parse_size_of(StyioContext& context) {
     if (context.check_next('|')) {
       context.move(1);
 
-      output = new SizeOfAST((var));
+      return new SizeOfAST((var));
     }
     else {
       string errmsg = string("|expr| // SizeOf: Expecting | at the end, but got .:| ") + char(context.get_curr_char()) + " |:.";
@@ -4190,8 +4193,6 @@ parse_size_of(StyioContext& context) {
     string errmsg = string("|expr| // SizeOf: Unexpected expression, starting with .:| ") + char(context.get_curr_char()) + " |:.";
     throw StyioParseError(errmsg);
   }
-
-  return output;
 }
 
 /*
@@ -5306,14 +5307,14 @@ parse_iterator_only_latest(
 */
 BackwardAST*
 parse_backward(StyioContext& context, bool is_func) {
-  BackwardAST* output;
-
-  return output;
+  (void)context;
+  (void)is_func;
+  throw StyioParseError("parse_backward is not implemented");
 }
 
 ExtractorAST*
 parse_tuple_operations(StyioContext& context, TupleAST* the_tuple) {
-  ExtractorAST* result;
+  (void)the_tuple;
 
   if (context.check_drop("<<")) {
     // parse_extractor
@@ -5325,10 +5326,10 @@ parse_tuple_operations(StyioContext& context, TupleAST* the_tuple) {
     // parse_forward
   }
   else {
-    // Exception: Tuple Operation Not Found (unacceptable in this function.)
+    throw StyioParseError("tuple operation not found");
   }
 
-  return result;
+  throw StyioParseError("tuple operation is not implemented");
 }
 
 /*
@@ -5346,7 +5347,7 @@ parse_codp(StyioContext& context, CODPAST* prev_op) {
   vector<StyioAST*> op_args;
 
   if (name == "filter") {
-    op_args.push_back(parse_cond(context));
+    throw StyioSyntaxError("CODP filter syntax is retired");
   }
   else if (name == "sort" or name == "map") {
     do {
@@ -5355,10 +5356,7 @@ parse_codp(StyioContext& context, CODPAST* prev_op) {
     } while (context.find_drop(','));
   }
   else if (name == "slice") {
-    do {
-      context.drop_all_spaces_comments();
-      op_args.push_back(parse_int(context));
-    } while (context.find_drop(','));
+    throw StyioParseError("CODP slice syntax is retired");
   }
 
   context.find_drop_panic('}');

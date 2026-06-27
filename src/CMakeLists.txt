@@ -49,10 +49,11 @@ target_compile_definitions(styio PRIVATE
   "STYIO_PROJECT_VERSION=\"${PROJECT_VERSION}\""
   "STYIO_RELEASE_CHANNEL=\"nightly\""
   "STYIO_EDITION_MAX=\"2026\""
-  "STYIO_LLVM_DIR=\"${LLVM_DIR}\""
-  "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
-  "STYIO_CMAKE_C_COMPILER=\"${CMAKE_C_COMPILER}\""
-  "STYIO_CMAKE_CXX_COMPILER=\"${CMAKE_CXX_COMPILER}\""
+  "STYIO_LLVM_DIR=\"${STYIO_DEFINE_LLVM_DIR}\""
+  "STYIO_SOURCE_DIR=\"${STYIO_DEFINE_SOURCE_DIR}\""
+  "STYIO_CMAKE_C_COMPILER=\"${STYIO_DEFINE_CMAKE_C_COMPILER}\""
+  "STYIO_CMAKE_CXX_COMPILER=\"${STYIO_DEFINE_CMAKE_CXX_COMPILER}\""
+  "STYIO_CMAKE_MAKE_PROGRAM=\"${STYIO_DEFINE_CMAKE_MAKE_PROGRAM}\""
 )
 target_link_libraries(styio PRIVATE styio_core styio_cli_contract_core)
 install(TARGETS styio RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT Runtime)
@@ -87,21 +88,23 @@ if(STYIO_BUILD_NANO)
     "STYIO_PROJECT_VERSION=\"${PROJECT_VERSION}\""
     "STYIO_RELEASE_CHANNEL=\"nano\""
     "STYIO_EDITION_MAX=\"2026\""
-    "STYIO_LLVM_DIR=\"${LLVM_DIR}\""
-    "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
-    "STYIO_CMAKE_C_COMPILER=\"${CMAKE_C_COMPILER}\""
-    "STYIO_CMAKE_CXX_COMPILER=\"${CMAKE_CXX_COMPILER}\""
+    "STYIO_LLVM_DIR=\"${STYIO_DEFINE_LLVM_DIR}\""
+    "STYIO_SOURCE_DIR=\"${STYIO_DEFINE_SOURCE_DIR}\""
+    "STYIO_CMAKE_C_COMPILER=\"${STYIO_DEFINE_CMAKE_C_COMPILER}\""
+    "STYIO_CMAKE_CXX_COMPILER=\"${STYIO_DEFINE_CMAKE_CXX_COMPILER}\""
+    "STYIO_CMAKE_MAKE_PROGRAM=\"${STYIO_DEFINE_CMAKE_MAKE_PROGRAM}\""
   )
   target_link_libraries(styio_nano PRIVATE styio_nano_core)
+  add_custom_target(styio-nano DEPENDS styio_nano)
   install(TARGETS styio_nano RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT Runtime)
 
   if(STYIO_NANO_OPTIMIZE_FOR_SIZE)
-    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU|AppleClang")
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU|AppleClang" AND NOT MSVC)
       target_compile_options(styio_nano_core PRIVATE -Os)
       target_compile_options(styio_nano PRIVATE -Os)
     elseif(MSVC)
-      target_compile_options(styio_nano_core PRIVATE /O1)
-      target_compile_options(styio_nano PRIVATE /O1)
+      target_compile_options(styio_nano_core PRIVATE "$<$<NOT:$<CONFIG:Debug>>:/O1>")
+      target_compile_options(styio_nano PRIVATE "$<$<NOT:$<CONFIG:Debug>>:/O1>")
     endif()
   endif()
 endif()

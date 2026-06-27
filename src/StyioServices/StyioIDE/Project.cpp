@@ -6,6 +6,21 @@
 
 namespace styio::ide {
 
+namespace {
+
+bool
+has_skipped_component(const std::filesystem::path& path) {
+  for (const auto& component : path) {
+    const std::string name = component.string();
+    if (name == ".git" || name == "build" || name == "build-codex") {
+      return true;
+    }
+  }
+  return false;
+}
+
+}  // namespace
+
 void
 Project::set_root(const std::string& root_path) {
   root_path_ = std::filesystem::path(root_path).lexically_normal().string();
@@ -36,10 +51,7 @@ Project::scan_workspace() {
       continue;
     }
     const auto path = entry.path();
-    const std::string text = path.string();
-    if (text.find("/.git/") != std::string::npos
-        || text.find("/build/") != std::string::npos
-        || text.find("/build-codex/") != std::string::npos) {
+    if (has_skipped_component(path)) {
       continue;
     }
     if (path.extension() == ".styio") {
