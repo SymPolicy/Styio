@@ -39,3 +39,13 @@ set_tests_properties(styio_core_benchmark_json_output PROPERTIES
   LABELS "benchmark;performance;core_internal"
   ENVIRONMENT "STYIO_BENCH_WARMUP=1;STYIO_BENCH_MEASURED=3"
 )
+
+if(WIN32)
+  # The Python-driven core benchmark smoke remains enabled on Windows. These
+  # in-process performance-only probes are disabled until the benchmark binary
+  # has a Windows-stable teardown path.
+  set_tests_properties(
+    styio_core_benchmark_internal
+    styio_core_benchmark_json_output
+    PROPERTIES DISABLED TRUE)
+endif()

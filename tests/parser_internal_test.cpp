@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "StyioParser/Tokenizer.hpp"
@@ -17,6 +18,11 @@
 namespace {
 
 namespace fs = std::filesystem;
+
+std::string
+native_path(std::string path) {
+  return fs::path(std::move(path)).lexically_normal().string();
+}
 
 std::vector<std::pair<size_t, size_t>> build_line_seps(const std::string& src) {
   std::vector<std::pair<size_t, size_t>> seps;
@@ -1077,7 +1083,7 @@ TEST(StyioParserInternal, ImportExportAndRawBodyEdgesStayExplicit) {
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getAbi(), "c");
     ASSERT_EQ(ast->getSourcePaths().size(), 1u);
-    EXPECT_EQ(ast->getSourcePaths()[0], "/tmp/styio-parser/project/native/helper.h");
+    EXPECT_EQ(ast->getSourcePaths()[0], native_path("/tmp/styio-parser/project/native/helper.h"));
     EXPECT_TRUE(ast->getBody().empty());
   }
   {
@@ -1089,8 +1095,8 @@ TEST(StyioParserInternal, ImportExportAndRawBodyEdgesStayExplicit) {
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getAbi(), "c++");
     ASSERT_EQ(ast->getSourcePaths().size(), 2u);
-    EXPECT_EQ(ast->getSourcePaths()[0], "/tmp/styio-parser/project/native/a.h");
-    EXPECT_EQ(ast->getSourcePaths()[1], "/tmp/styio-parser/project/native/b.h");
+    EXPECT_EQ(ast->getSourcePaths()[0], native_path("/tmp/styio-parser/project/native/a.h"));
+    EXPECT_EQ(ast->getSourcePaths()[1], native_path("/tmp/styio-parser/project/native/b.h"));
     EXPECT_TRUE(ast->getBody().empty());
   }
   {
@@ -1100,7 +1106,7 @@ TEST(StyioParserInternal, ImportExportAndRawBodyEdgesStayExplicit) {
       "\"native/a.h\", \"native/with\\\\escape.h\"");
     ASSERT_TRUE(source_paths.has_value());
     ASSERT_EQ(source_paths->size(), 2u);
-    EXPECT_EQ((*source_paths)[0], "/tmp/styio-parser/project/native/a.h");
+    EXPECT_EQ((*source_paths)[0], native_path("/tmp/styio-parser/project/native/a.h"));
     EXPECT_NE((*source_paths)[1].find("with"), std::string::npos);
   }
   {

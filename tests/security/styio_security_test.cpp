@@ -11,6 +11,7 @@
 #include <chrono>
 #include <algorithm>
 #include <cmath>
+#include <cctype>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -26,7 +27,16 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#ifndef _WIN32
+#ifdef _WIN32
+#include <io.h>
+#ifndef STDIN_FILENO
+#define STDIN_FILENO 0
+#endif
+#define close _close
+#define dup _dup
+#define dup2 _dup2
+#define fileno _fileno
+#else
 #include <dlfcn.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -36,6 +46,11 @@
 #define STYIO_SOURCE_DIR "."
 #endif
 
+#ifndef STYIO_TEST_C_COMPILER
+#define STYIO_TEST_C_COMPILER "cc"
+#endif
+
+#include "../EnvTestUtil.hpp"
 #include "StyioAST/AST.hpp"
 #include "StyioCodeGen/CodeGenVisitor.hpp"
 #include "StyioException/Exception.hpp"
@@ -102,23 +117,22 @@ public:
 
   ~EnvSnapshot() {
     if (had_value_) {
-      setenv(name_.c_str(), old_value_.c_str(), 1);
+      styio_test_setenv(name_.c_str(), old_value_.c_str(), 1);
     }
     else {
-      unsetenv(name_.c_str());
+      styio_test_unsetenv(name_.c_str());
     }
   }
 
   void set(const std::string& value) {
-    setenv(name_.c_str(), value.c_str(), 1);
+    styio_test_setenv(name_.c_str(), value.c_str(), 1);
   }
 
   void unset() {
-    unsetenv(name_.c_str());
+    styio_test_unsetenv(name_.c_str());
   }
 };
 
-#ifndef _WIN32
 class ScopedStdinRedirect
 {
   int saved_fd_ = -1;
@@ -155,9 +169,40 @@ public:
     return saved_fd_ >= 0 && tmp_ != nullptr;
   }
 };
-#endif
 
 std::vector<std::pair<std::string, std::string>> g_runtime_log_events;
+
+std::string
+native_path(std::string path) {
+  return std::filesystem::path(std::move(path)).lexically_normal().string();
+}
+
+std::string
+slash_normalized(std::string text) {
+  std::replace(text.begin(), text.end(), '\\', '/');
+  return text;
+}
+
+std::string
+posix_shell_quote(std::string text) {
+  std::string out = "'";
+  for (char ch : text) {
+    if (ch == '\'') {
+      out += "'\\''";
+    }
+    else {
+      out.push_back(ch);
+    }
+  }
+  out.push_back('\'');
+  return out;
+}
+
+std::string
+test_c_compiler() {
+  std::string compiler = STYIO_TEST_C_COMPILER;
+  return compiler.empty() ? "cc" : compiler;
+}
 
 void
 capture_runtime_log(const char* stream, const char* message) {
@@ -701,12 +746,6 @@ execute_program_engine_with_stdin_latest(
   StyioParserEngine engine,
   const std::string& stdin_text
 ) {
-#ifdef _WIN32
-  (void)source;
-  (void)engine;
-  (void)stdin_text;
-  GTEST_SKIP() << "stdin redirection helper is POSIX-only";
-#else
   auto tokens = StyioTokenizer::tokenize(source);
   StyioContext* ctx = StyioContext::Create(
     "<engine-exec-test>",
@@ -774,7 +813,6 @@ execute_program_engine_with_stdin_latest(
   close(saved_stdin);
   std::fclose(tmp);
   cleanup();
-#endif
 }
 }  // namespace
 
@@ -5785,7 +5823,7 @@ TEST(StyioSecurityParserContext, CoversBoundExternManualTokenBoundariesDirectly)
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getAbi(), "c++");
     ASSERT_EQ(ast->getSourcePaths().size(), 2u);
-    EXPECT_EQ(ast->getSourcePaths()[0], "/tmp/styio-parser/manual/native/a.c");
+    EXPECT_EQ(ast->getSourcePaths()[0], native_path("/tmp/styio-parser/manual/native/a.c"));
     EXPECT_NE(ast->getSourcePaths()[1].find("with"), std::string::npos);
     EXPECT_TRUE(ast->getBody().empty());
   }
@@ -9147,15 +9185,16 @@ TEST(StyioSecurityNightlyParserStmt, CoversImportExportExternBoundarySyntax) {
   EXPECT_EQ(nightly, legacy);
   EXPECT_NE(nightly.find("styio.ast.extern"), std::string::npos);
   EXPECT_NE(nightly.find("sources:"), std::string::npos);
-  EXPECT_NE(nightly.find("native/arrow_source.c"), std::string::npos);
+  EXPECT_NE(slash_normalized(nightly).find("native/arrow_source.c"), std::string::npos);
 
   const std::string bound_source_list =
     "# ref_one, ref_two := @ extern(c) { \"native/ref_one.c\"; \"native/ref_two.c\" }\n";
   const std::string bound_nightly = parse_program_to_repr_latest(bound_source_list, true);
   const std::string bound_legacy = parse_program_to_repr_latest(bound_source_list, false);
   EXPECT_EQ(bound_nightly, bound_legacy);
-  EXPECT_NE(bound_nightly.find("native/ref_one.c"), std::string::npos);
-  EXPECT_NE(bound_nightly.find("native/ref_two.c"), std::string::npos);
+  const std::string bound_nightly_slashes = slash_normalized(bound_nightly);
+  EXPECT_NE(bound_nightly_slashes.find("native/ref_one.c"), std::string::npos);
+  EXPECT_NE(bound_nightly_slashes.find("native/ref_two.c"), std::string::npos);
   EXPECT_NE(bound_nightly.find("exports: ref_one ref_two"), std::string::npos);
 
   const std::vector<std::string> rejected = {
@@ -9294,7 +9333,21 @@ TEST(StyioSecurityNativeToolchain, SystemModeSkipsBundledClangSearch) {
   root_env.set("/tmp/styio-ignored-toolchain-root");
 
   const auto resolved = styio::native::resolve_compiler_for_abi("c++");
+#if defined(_WIN32)
+  std::string resolved_name =
+    std::filesystem::path(resolved.command).filename().string();
+  std::transform(
+    resolved_name.begin(),
+    resolved_name.end(),
+    resolved_name.begin(),
+    [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  EXPECT_TRUE(
+    resolved_name.find("clang++") != std::string::npos
+    || resolved_name.find("clang-cl") != std::string::npos)
+    << resolved.command;
+#else
   EXPECT_EQ(resolved.command, "c++");
+#endif
   EXPECT_EQ(resolved.source, "system");
 }
 
@@ -9346,6 +9399,7 @@ TEST(StyioSecurityNativeToolchain, ParsesNativeSignaturesCommentsAndReferencedSo
 
   const auto& count_items = find_sig("count_items");
   EXPECT_EQ(count_items.return_type.kind, CTypeKind::I64);
+  EXPECT_TRUE(count_items.internal_linkage);
   EXPECT_TRUE(count_items.return_type.is_unsigned);
   ASSERT_EQ(count_items.params.size(), 1U);
   EXPECT_EQ(count_items.params[0].type.kind, CTypeKind::I64);
@@ -9381,7 +9435,11 @@ TEST(StyioSecurityNativeToolchain, ParsesNativeSignaturesCommentsAndReferencedSo
   const auto root =
     std::filesystem::temp_directory_path()
     / ("styio-native-signature-test-" + std::to_string(static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count())));
+#if defined(_WIN32)
+  const auto source_path = root / "native quoted.h";
+#else
   const auto source_path = root / "native \"quoted\".h";
+#endif
   std::filesystem::remove_all(root);
   ASSERT_TRUE(std::filesystem::create_directories(root));
   {
@@ -9406,7 +9464,11 @@ TEST(StyioSecurityNativeToolchain, ParsesNativeSignaturesCommentsAndReferencedSo
     "int inline_decl(int x);\n",
     {source_path.string()});
   EXPECT_NE(c_source.find("#include <stdbool.h>"), std::string::npos);
+#if defined(_WIN32)
+  EXPECT_NE(c_source.find("native quoted.h"), std::string::npos);
+#else
   EXPECT_NE(c_source.find("\\\"quoted\\\""), std::string::npos);
+#endif
   EXPECT_NE(c_source.find("hash="), std::string::npos);
   const std::string cpp_source = styio::native::source_text_for_block(" c++ ", "", {});
   EXPECT_NE(cpp_source.find("#include <cstdint>"), std::string::npos);
@@ -9455,6 +9517,9 @@ TEST(StyioSecurityNativeToolchain, EnvCompilerCommandIsNotInterpretedByShell) {
 }
 
 TEST(StyioSecurityNativeToolchain, NativeSourceCacheAvoidsRepeatedCompilerInvocation) {
+#if defined(_WIN32)
+  GTEST_SKIP() << "POSIX shell-wrapper compiler counter coverage; Windows cache load paths use the native compiler tests.";
+#endif
   EnvSnapshot cc("STYIO_NATIVE_CC");
   EnvSnapshot mode("STYIO_NATIVE_TOOLCHAIN_MODE");
   EnvSnapshot root_env("STYIO_NATIVE_TOOLCHAIN_ROOT");
@@ -9475,7 +9540,7 @@ TEST(StyioSecurityNativeToolchain, NativeSourceCacheAvoidsRepeatedCompilerInvoca
         << "if [ -f \"$count_file\" ]; then n=$(cat \"$count_file\"); else n=0; fi\n"
         << "n=$((n + 1))\n"
         << "printf '%s\\n' \"$n\" > \"$count_file\"\n"
-        << "exec cc \"$@\"\n";
+        << "exec " << posix_shell_quote(test_c_compiler()) << " \"$@\"\n";
   }
 #ifndef _WIN32
   chmod(wrapper.c_str(), 0755);

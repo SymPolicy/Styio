@@ -14,11 +14,18 @@
 #include <sys/wait.h>
 #endif
 
+#include "EnvTestUtil.hpp"
 #include "StyioTesting/PipelineCheck.hpp"
+#include "StyioPlatform/Platform.hpp"
 #include "StyioParser/Tokenizer.hpp"
 #include "StyioToken/Token.hpp"
 
 namespace fs = std::filesystem;
+
+#ifdef _WIN32
+#define popen _popen
+#define pclose _pclose
+#endif
 
 #ifndef STYIO_SOURCE_DIR
 #define STYIO_SOURCE_DIR "."
@@ -32,6 +39,10 @@ namespace fs = std::filesystem;
 #define STYIO_NANO_COMPILER_EXE ""
 #endif
 
+#ifndef STYIO_TEST_C_COMPILER
+#define STYIO_TEST_C_COMPILER "cc"
+#endif
+
 namespace
 {
 
@@ -39,7 +50,56 @@ struct CommandResult
 {
   int exit_code = -1;
   std::string stdout_text;
+  std::string stderr_text;
 };
+
+class ScopedEnvVar
+{
+ public:
+  ScopedEnvVar(const char* name, const char* value)
+    : name_(name)
+  {
+    const char* old_value = std::getenv(name);
+    if (old_value != nullptr) {
+      had_old_value_ = true;
+      old_value_ = old_value;
+    }
+    if (value != nullptr) {
+      styio_test_setenv(name, value, 1);
+    }
+    else {
+      styio_test_unsetenv(name);
+    }
+  }
+
+  ~ScopedEnvVar() {
+    if (had_old_value_) {
+      styio_test_setenv(name_.c_str(), old_value_.c_str(), 1);
+    }
+    else {
+      styio_test_unsetenv(name_.c_str());
+    }
+  }
+
+  ScopedEnvVar(const ScopedEnvVar&) = delete;
+  ScopedEnvVar& operator=(const ScopedEnvVar&) = delete;
+
+ private:
+  std::string name_;
+  bool had_old_value_ = false;
+  std::string old_value_;
+};
+
+std::string
+combined_output_latest(const CommandResult& result) {
+  if (result.stdout_text.empty()) {
+    return result.stderr_text;
+  }
+  if (result.stderr_text.empty()) {
+    return result.stdout_text;
+  }
+  return result.stdout_text + "\n" + result.stderr_text;
+}
 
 int
 decode_wait_status(int status) {
@@ -96,6 +156,29 @@ read_text_file_latest(const fs::path& path) {
   std::ostringstream ss;
   ss << in.rdbuf();
   return ss.str();
+}
+
+std::string
+normalize_host_text_latest(std::string text) {
+  std::string normalized;
+  normalized.reserve(text.size());
+  for (std::size_t i = 0; i < text.size(); ++i) {
+    if (text[i] == '\r') {
+      if (i + 1 < text.size() && text[i + 1] == '\n') {
+        continue;
+      }
+      normalized.push_back('\n');
+    }
+    else {
+      normalized.push_back(text[i]);
+    }
+  }
+  return normalized;
+}
+
+std::string
+read_normalized_text_file_latest(const fs::path& path) {
+  return normalize_host_text_latest(read_text_file_latest(path));
 }
 
 std::string
@@ -173,6 +256,56 @@ write_text_file_latest(const fs::path& path, const std::string& text) {
     throw std::runtime_error("cannot write: " + path.string());
   }
   out << text;
+}
+
+CommandResult
+run_argv_capture_latest(
+  const std::vector<std::string>& argv,
+  const std::string* stdin_text = nullptr
+) {
+  CommandResult result;
+  std::string temp_error;
+  const fs::path temp_dir =
+    styio::platform::create_temp_directory("styio-test-process", temp_error);
+  if (temp_dir.empty()) {
+    result.exit_code = 127;
+    result.stderr_text = temp_error;
+    return result;
+  }
+
+  const fs::path stdin_path = temp_dir / "stdin.txt";
+  const fs::path stdout_path = temp_dir / "stdout.txt";
+  const fs::path stderr_path = temp_dir / "stderr.txt";
+  styio::platform::ProcessResult process;
+  if (stdin_text != nullptr) {
+    write_text_file_latest(stdin_path, *stdin_text);
+    process = styio::platform::run_process_to_logs(
+      argv,
+      stdin_path,
+      stdout_path,
+      stderr_path);
+  }
+  else {
+    process = styio::platform::run_process_to_logs(argv, stdout_path, stderr_path);
+  }
+
+  result.exit_code = process.exit_code;
+  if (fs::exists(stdout_path)) {
+    result.stdout_text = read_text_file_latest(stdout_path);
+  }
+  if (fs::exists(stderr_path)) {
+    result.stderr_text = read_text_file_latest(stderr_path);
+  }
+  if (!process.launch_error.empty()) {
+    if (!result.stderr_text.empty()) {
+      result.stderr_text.push_back('\n');
+    }
+    result.stderr_text += process.launch_error;
+  }
+
+  std::error_code ec;
+  fs::remove_all(temp_dir, ec);
+  return result;
 }
 
 fs::path
@@ -366,7 +499,7 @@ TEST(StyioFiveLayerPipeline, P03_write_file) {
   EXPECT_EQ(err, "") << err;
 
   ASSERT_TRUE(fs::exists(output_path));
-  EXPECT_EQ(read_text_file_latest(output_path), read_text_file_latest(expected_output));
+  EXPECT_EQ(read_normalized_text_file_latest(output_path), read_normalized_text_file_latest(expected_output));
   fs::remove(output_path);
 }
 
@@ -465,7 +598,7 @@ TEST(StyioFiveLayerPipeline, P08_redirect_file) {
   EXPECT_EQ(err, "") << err;
 
   ASSERT_TRUE(fs::exists(output_path));
-  EXPECT_EQ(read_text_file_latest(output_path), read_text_file_latest(expected_output));
+  EXPECT_EQ(read_normalized_text_file_latest(output_path), read_normalized_text_file_latest(expected_output));
   fs::remove(output_path);
 }
 
@@ -492,7 +625,7 @@ TEST(StyioFiveLayerPipeline, P09_full_pipeline) {
   EXPECT_EQ(err, "") << err;
 
   ASSERT_TRUE(fs::exists(output_path));
-  EXPECT_EQ(read_text_file_latest(output_path), read_text_file_latest(expected_output));
+  EXPECT_EQ(read_normalized_text_file_latest(output_path), read_normalized_text_file_latest(expected_output));
   fs::remove(input_path);
   fs::remove(output_path);
 }
@@ -601,9 +734,13 @@ TEST(StyioFiveLayerPipeline, StdinAliasAstShowsStringHandleType) {
     out << "}\n";
   }
 
-  const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --parser-engine=nightly --styio-ast --file \"" + input.string() + "\"");
-  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+  const CommandResult result = run_argv_capture_latest({
+    runner,
+    "--parser-engine=nightly",
+    "--styio-ast",
+    "--file",
+    input.string()});
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text << result.stderr_text;
   EXPECT_NE(result.stdout_text.find("s : stdin[string]"), std::string::npos);
 
   fs::remove(input);
@@ -628,10 +765,13 @@ TEST(StyioFiveLayerPipeline, StandaloneCollectBindFromStdinMaterializesStringLis
     out << ">_(lines.length)\n";
   }
 
-  const std::string cmd =
-    std::string("printf 'alpha\\nbeta\\n' | \"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\"";
-  const CommandResult result = run_stdout_command(cmd);
-  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+  const std::string stdin_text = "alpha\nbeta\n";
+  const CommandResult result = run_argv_capture_latest({
+    runner,
+    "--parser-engine=nightly",
+    "--file",
+    input.string()}, &stdin_text);
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text << result.stderr_text;
   EXPECT_NE(result.stdout_text.find("alpha"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("2"), std::string::npos);
 
@@ -656,10 +796,18 @@ TEST(StyioFiveLayerPipeline, ReportsMissingInputAndLexerGoldenFailures) {
   std::error_code input_perm_ec;
   fs::permissions(unreadable_input_case / "input.styio", fs::perms::none, input_perm_ec);
   ASSERT_FALSE(input_perm_ec) << input_perm_ec.message();
-  const std::string unreadable_input =
-    styio::testing::run_pipeline_case(unreadable_input_case.string(), nullptr);
-  EXPECT_NE(unreadable_input.find("Pipeline error: cannot open"), std::string::npos)
-    << unreadable_input;
+  {
+    std::ifstream probe(unreadable_input_case / "input.styio", std::ios::binary);
+    if (!probe.is_open()) {
+      const std::string unreadable_input =
+        styio::testing::run_pipeline_case(unreadable_input_case.string(), nullptr);
+      EXPECT_NE(unreadable_input.find("Pipeline error: cannot open"), std::string::npos)
+        << unreadable_input;
+    }
+    else {
+      SUCCEED() << "Current user can read a no-permission fixture; skipping unreadable-file branch.";
+    }
+  }
 #endif
 
   const fs::path missing_golden_case = root / "missing-golden";
@@ -685,27 +833,25 @@ TEST(StyioFiveLayerPipeline, ReportsMissingInputAndLexerGoldenFailures) {
     out << "definitely-wrong\n";
   }
 
-#ifndef _WIN32
   const char* old_dump = std::getenv("STYIO_PIPELINE_DUMP_FULL");
   const bool had_old_dump = old_dump != nullptr;
   const std::string old_dump_value = had_old_dump ? old_dump : "";
-  setenv("STYIO_PIPELINE_DUMP_FULL", "1", 1);
-#endif
+  styio_test_setenv("STYIO_PIPELINE_DUMP_FULL", "1", 1);
   const std::string mismatch = styio::testing::run_pipeline_case(lexer_mismatch_case.string(), nullptr);
-#ifndef _WIN32
   if (had_old_dump) {
-    setenv("STYIO_PIPELINE_DUMP_FULL", old_dump_value.c_str(), 1);
+    styio_test_setenv("STYIO_PIPELINE_DUMP_FULL", old_dump_value.c_str(), 1);
   }
   else {
-    unsetenv("STYIO_PIPELINE_DUMP_FULL");
+    styio_test_unsetenv("STYIO_PIPELINE_DUMP_FULL");
   }
-#endif
 
   EXPECT_NE(mismatch.find("Layer 1 (Lexer): tokens.txt: line 1"), std::string::npos) << mismatch;
   EXPECT_NE(mismatch.find("--- got tokens (full) ---"), std::string::npos) << mismatch;
   EXPECT_NE(mismatch.find("\\t"), std::string::npos) << mismatch;
+#ifndef _WIN32
   EXPECT_NE(mismatch.find("\\r"), std::string::npos) << mismatch;
   EXPECT_NE(mismatch.find("\\\\"), std::string::npos) << mismatch;
+#endif
 
   const std::string short_source = ">_(1)\n";
   const std::string short_tokens = pipeline_tokens_golden_latest(short_source);
@@ -1477,17 +1623,19 @@ TEST(StyioDiagnostics, NativeBuildEnvCompilerOverrideIsNotInterpretedByShell) {
 
   const std::string injected =
     "/bin/false; touch " + marker.string() + "; #";
-  const CommandResult result =
-    run_stdout_command(
-      "env STYIO_NATIVE_CXX=" + shell_quote_latest(injected)
-      + " " + shell_quote_latest(runner)
-      + " build " + shell_quote_latest(sample.string())
-      + " -o " + shell_quote_latest(artifact.string())
-      + " 2>&1");
+  ScopedEnvVar native_cxx("STYIO_NATIVE_CXX", injected.c_str());
+  const CommandResult result = run_argv_capture_latest({
+    runner,
+    "build",
+    sample.string(),
+    "-o",
+    artifact.string(),
+  });
+  const std::string output = combined_output_latest(result);
 
-  EXPECT_EQ(result.exit_code, 5) << result.stdout_text;
+  EXPECT_EQ(result.exit_code, 5) << output;
   EXPECT_NE(
-    result.stdout_text.find("native executable link failed"),
+    output.find("native executable link failed"),
     std::string::npos);
   EXPECT_FALSE(fs::exists(marker));
   EXPECT_FALSE(fs::exists(artifact));
@@ -7707,20 +7855,25 @@ TEST(StyioDiagnostics, NativeExternSymbolMissingReportsNativeCode) {
   }
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
-  const std::string cmd =
-    std::string("env -u STYIO_NATIVE_CC -u STYIO_NATIVE_CXX STYIO_NATIVE_TOOLCHAIN_MODE=system ")
-    + shell_quote_latest(runner) + " --error-format=jsonl --parser-engine=nightly --file "
-    + shell_quote_latest(input.string()) + " 2>&1";
-
-  const CommandResult result = run_stdout_command(cmd);
-  EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
-  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"phase\":\"native_interop\""), std::string::npos);
+  ScopedEnvVar native_mode("STYIO_NATIVE_TOOLCHAIN_MODE", "system");
+  ScopedEnvVar native_cc("STYIO_NATIVE_CC", STYIO_TEST_C_COMPILER);
+  ScopedEnvVar native_cxx("STYIO_NATIVE_CXX", nullptr);
+  const CommandResult result = run_argv_capture_latest({
+    runner,
+    "--error-format=jsonl",
+    "--parser-engine=nightly",
+    "--file",
+    input.string(),
+  });
+  const std::string output = combined_output_latest(result);
+  EXPECT_EQ(result.exit_code, 4) << output;
+  EXPECT_NE(output.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(output.find("\"phase\":\"native_interop\""), std::string::npos);
   EXPECT_NE(
-    result.stdout_text.find("\"code\":\"STYIO_NATIVE_SYMBOL_MISSING\""),
+    output.find("\"code\":\"STYIO_NATIVE_SYMBOL_MISSING\""),
     std::string::npos);
-  EXPECT_NE(result.stdout_text.find("could not resolve exported symbol `hidden_native`"), std::string::npos);
-  EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
+  EXPECT_NE(output.find("could not resolve exported symbol `hidden_native`"), std::string::npos);
+  EXPECT_EQ(output.find("\nafter\n"), std::string::npos);
 
   fs::remove(input);
 }
@@ -7747,20 +7900,25 @@ TEST(StyioDiagnostics, NativeExternToolchainUnavailableReportsNativeCode) {
   }
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
-  const std::string cmd =
-    std::string("env -u STYIO_NATIVE_CC -u STYIO_NATIVE_CXX STYIO_NATIVE_TOOLCHAIN_MODE=invalid ")
-    + shell_quote_latest(runner) + " --error-format=jsonl --parser-engine=nightly --file "
-    + shell_quote_latest(input.string()) + " 2>&1";
-
-  const CommandResult result = run_stdout_command(cmd);
-  EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
-  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"phase\":\"native_interop\""), std::string::npos);
+  ScopedEnvVar native_mode("STYIO_NATIVE_TOOLCHAIN_MODE", "invalid");
+  ScopedEnvVar native_cc("STYIO_NATIVE_CC", nullptr);
+  ScopedEnvVar native_cxx("STYIO_NATIVE_CXX", nullptr);
+  const CommandResult result = run_argv_capture_latest({
+    runner,
+    "--error-format=jsonl",
+    "--parser-engine=nightly",
+    "--file",
+    input.string(),
+  });
+  const std::string output = combined_output_latest(result);
+  EXPECT_EQ(result.exit_code, 4) << output;
+  EXPECT_NE(output.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(output.find("\"phase\":\"native_interop\""), std::string::npos);
   EXPECT_NE(
-    result.stdout_text.find("\"code\":\"STYIO_NATIVE_TOOLCHAIN_UNAVAILABLE\""),
+    output.find("\"code\":\"STYIO_NATIVE_TOOLCHAIN_UNAVAILABLE\""),
     std::string::npos);
-  EXPECT_NE(result.stdout_text.find("invalid STYIO_NATIVE_TOOLCHAIN_MODE `invalid`"), std::string::npos);
-  EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
+  EXPECT_NE(output.find("invalid STYIO_NATIVE_TOOLCHAIN_MODE `invalid`"), std::string::npos);
+  EXPECT_EQ(output.find("\nafter\n"), std::string::npos);
 
   fs::remove(input);
 }

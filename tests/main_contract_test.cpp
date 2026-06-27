@@ -8,7 +8,11 @@
 #include <string>
 #include <vector>
 
+#include "EnvTestUtil.hpp"
+
+#ifndef _WIN32
 #include <sys/wait.h>
+#endif
 
 #define main styio_main_entry_for_unit_tests
 #include "../src/main.cpp"
@@ -53,19 +57,19 @@ class EnvVarGuard {
 
   ~EnvVarGuard() {
     if (original_.has_value()) {
-      setenv(name_.c_str(), original_->c_str(), 1);
+      styio_test_setenv(name_.c_str(), original_->c_str(), 1);
     }
     else {
-      unsetenv(name_.c_str());
+      styio_test_unsetenv(name_.c_str());
     }
   }
 
   void set(const std::string& value) {
-    setenv(name_.c_str(), value.c_str(), 1);
+    styio_test_setenv(name_.c_str(), value.c_str(), 1);
   }
 
   void unset() {
-    unsetenv(name_.c_str());
+    styio_test_unsetenv(name_.c_str());
   }
 
  private:
@@ -174,12 +178,15 @@ MainRunResult RunMain(std::initializer_list<std::string> raw_args) {
 }
 
 fs::path CurrentTestBinaryDir() {
-  std::error_code ec;
-  const fs::path self = fs::read_symlink("/proc/self/exe", ec);
-  if (ec || self.empty()) {
+  const fs::path self = styio::platform::current_executable_path();
+  if (self.empty()) {
     return {};
   }
   return self.parent_path();
+}
+
+fs::path CurrentTestBinaryPath(const std::string& name) {
+  return CurrentTestBinaryDir() / (name + std::string(styio::platform::executable_suffix()));
 }
 
 MainRunResult RunExternalTool(
@@ -190,26 +197,19 @@ MainRunResult RunExternalTool(
   const fs::path stdout_path = temp.path() / "stdout.txt";
   const fs::path stderr_path = temp.path() / "stderr.txt";
 
-  std::string command = styio_shell_quote_latest(binary.string());
+  std::vector<std::string> argv = {binary.string()};
   for (const std::string& arg : raw_args) {
-    command += " " + styio_shell_quote_latest(arg);
+    argv.push_back(arg);
   }
-  command += " > " + styio_shell_quote_latest(stdout_path.string())
-             + " 2> " + styio_shell_quote_latest(stderr_path.string());
 
-  const int status = std::system(command.c_str());
+  const auto status = styio::native::run_native_command_to_logs(argv, stdout_path, stderr_path);
   MainRunResult result;
-  if (status == -1) {
-    result.exit_code = -1;
-  }
-  else if (WIFEXITED(status)) {
-    result.exit_code = WEXITSTATUS(status);
-  }
-  else {
-    result.exit_code = status;
+  result.exit_code = status.exit_code;
+  if (!status.launch_error.empty()) {
+    result.stderr_text = status.launch_error;
   }
   result.stdout_text = ReadText(stdout_path);
-  result.stderr_text = ReadText(stderr_path);
+  result.stderr_text += ReadText(stderr_path);
   return result;
 }
 
@@ -394,7 +394,7 @@ TEST(StyioMainContract, NativeBuildAndNanoBinaryCliGuardsStayFailClosed) {
 
   const fs::path frontend_error_source = temp.path() / "frontend-error.styio";
   WriteText(frontend_error_source, "x = missing(1)\n");
-  const fs::path styio_binary = CurrentTestBinaryDir() / "styio";
+  const fs::path styio_binary = CurrentTestBinaryPath("styio");
   ASSERT_TRUE(fs::exists(styio_binary)) << styio_binary.string();
   const MainRunResult frontend_error = RunExternalTool(
     styio_binary,
@@ -407,7 +407,7 @@ TEST(StyioMainContract, NativeBuildAndNanoBinaryCliGuardsStayFailClosed) {
   EXPECT_NE(frontend_error.stderr_text.find("styio build frontend compilation failed"), std::string::npos)
     << frontend_error.stderr_text;
 
-  const fs::path styio_nano = CurrentTestBinaryDir() / "styio-nano";
+  const fs::path styio_nano = CurrentTestBinaryPath("styio-nano");
   ASSERT_TRUE(fs::exists(styio_nano)) << styio_nano.string();
   const MainRunResult nano_result = RunExternalTool(styio_nano, {"--nano-create"});
   EXPECT_EQ(nano_result.exit_code, static_cast<int>(StyioExitCode::CliError));
@@ -638,7 +638,7 @@ TEST(StyioMainContract, MainEntryAstAndIrTTYOutputUsesAnsiHeaders) {
     GTEST_SKIP() << "script command is required for pseudo-terminal coverage";
   }
 
-  const fs::path styio_binary = CurrentTestBinaryDir() / "styio";
+  const fs::path styio_binary = CurrentTestBinaryPath("styio");
   if (!fs::exists(styio_binary)) {
     GTEST_SKIP() << "styio binary is not available next to the test binary";
   }
@@ -4021,7 +4021,11 @@ TEST(StyioMainContract, NativeBuildArgsAndExecutableDiscoveryStayFailClosed) {
   TempDir temp("native-discovery");
   const fs::path tool = temp.path() / "fake-clang++";
   WriteText(tool, "#!/usr/bin/env sh\nexit 0\n");
+#if defined(_WIN32)
+  EXPECT_TRUE(styio_native_build_is_executable_file_latest(tool));
+#else
   EXPECT_FALSE(styio_native_build_is_executable_file_latest(tool));
+#endif
   MakeExecutable(tool);
 
   std::string command;
@@ -4043,9 +4047,14 @@ TEST(StyioMainContract, NativeBuildArgsAndExecutableDiscoveryStayFailClosed) {
   EnvVarGuard toolchain_guard("STYIO_NATIVE_TOOLCHAIN_ROOT");
   cxx_guard.unset();
   toolchain_guard.set((temp.path() / "missing-toolchain").string());
+#if defined(_WIN32)
+  EXPECT_FALSE(
+    styio_native_build_compiler_from_config_latest(temp.path() / "bin" / "styio", "g++").empty());
+#else
   EXPECT_EQ(
     styio_native_build_compiler_from_config_latest(temp.path() / "bin" / "styio", "g++"),
     "clang++");
+#endif
 
   const fs::path clang_root = temp.path() / "toolchain";
   WriteText(clang_root / "bin" / "clang++-18", "#!/usr/bin/env sh\nexit 0\n");
@@ -4088,7 +4097,11 @@ TEST(StyioMainContract, NativeBuildCompilerAndGeneratedArtifactsAreDeterministic
     temp.path() / "include dir",
     extern_objects,
     temp.path() / "out file");
+#if defined(_WIN32)
+  ASSERT_EQ(link_argv.size(), 14u);
+#else
   ASSERT_EQ(link_argv.size(), 16u);
+#endif
   EXPECT_EQ(link_argv[0], "/tmp/clang++; touch nope");
   EXPECT_EQ(link_argv[1], "-std=c++20");
   EXPECT_EQ(link_argv[5], (temp.path() / "native ir.ll").string());
@@ -4098,8 +4111,10 @@ TEST(StyioMainContract, NativeBuildCompilerAndGeneratedArtifactsAreDeterministic
   EXPECT_EQ(link_argv[11], extern_objects[1].string());
   EXPECT_EQ(link_argv[12], "-o");
   EXPECT_EQ(link_argv[13], (temp.path() / "out file").string());
+#if !defined(_WIN32)
   EXPECT_EQ(link_argv[14], "-ldl");
   EXPECT_EQ(link_argv[15], "-pthread");
+#endif
 
   const fs::path input = temp.path() / "src" / "main.styio";
   WriteText(input, "print(1)\n");
@@ -4286,8 +4301,8 @@ TEST(StyioMainContract, NativeExternCompileSuccessPersistsSourceAndObject) {
   )) << error;
 
   ASSERT_EQ(objects.size(), 2u);
-  EXPECT_EQ(objects[0].filename(), fs::path("extern-0.o"));
-  EXPECT_EQ(objects[1].filename(), fs::path("extern-1.o"));
+  EXPECT_EQ(objects[0].filename(), fs::path(std::string("extern-0") + styio::platform::object_suffix()));
+  EXPECT_EQ(objects[1].filename(), fs::path(std::string("extern-1") + styio::platform::object_suffix()));
   EXPECT_TRUE(fs::is_regular_file(objects[0]));
   EXPECT_TRUE(fs::is_regular_file(objects[1]));
   EXPECT_NE(ReadText(temp.path() / "native-extern" / "extern-0.c").find("styio_native_add_one"), std::string::npos);
