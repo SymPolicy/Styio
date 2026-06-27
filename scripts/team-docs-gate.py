@@ -31,6 +31,8 @@ TEAM_RULES: tuple[TeamRule, ...] = (
             "src/StyioUnicode/",
             "src/StyioParser/",
             "src/Deprecated/",
+            "scripts/parser-legacy-entry-audit.py",
+            "scripts/parser-legacy-entry-audit.sh",
         ),
     ),
     TeamRule(
@@ -103,6 +105,7 @@ TEAM_RULES: tuple[TeamRule, ...] = (
             "tests/",
             "src/StyioTesting/",
             "tests/workflow_scheduler_test.py",
+            "benchmark/parser-shadow-suite-gate.py",
             "benchmark/parser-shadow-suite-gate.sh",
             "scripts/fuzz-regression-pack.sh",
             "scripts/coverage-gate.sh",
@@ -115,6 +118,7 @@ TEAM_RULES: tuple[TeamRule, ...] = (
         Path("docs/teams/PERF-STABILITY-RUNBOOK.md"),
         (
             "benchmark/",
+            "scripts/benchmark-compare.py",
         ),
     ),
     TeamRule(

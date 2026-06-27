@@ -2,7 +2,7 @@
 name = "styio-syntax-change"
 display_name = "Styio Syntax Change"
 description = "Use when adding, changing, or reserving Styio syntax, operators, tokens, grammar, parser behavior, IDE highlighting, semantic lowering, or syntax-facing docs/tests in styio-nightly."
-last_updated = "2026-06-19"
+last_updated = "2026-06-28"
 
 workflow = [
   "state accepted syntax shape with one or two executable examples",

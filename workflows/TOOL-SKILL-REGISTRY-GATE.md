@@ -2,7 +2,7 @@
 
 **Purpose:** Define the gate that keeps repo-local skills and maintenance tools current, registered, release-wired, and mapped to owned modules.
 
-**Last updated:** 2026-06-19
+**Last updated:** 2026-06-28
 
 ## Goal
 
@@ -18,7 +18,7 @@ python3 scripts/tool-skill-registry-gate.py
 
 ## What It Checks
 
-1. Every top-level script under `scripts/` and active adapter under `benchmark/` is registered in [TOOL-SKILL-REGISTRY-GATE.toml](./TOOL-SKILL-REGISTRY-GATE.toml).
+1. Every top-level script under `scripts/` and active adapter under `benchmark/` is registered in [TOOL-SKILL-REGISTRY-GATE.toml](./TOOL-SKILL-REGISTRY-GATE.toml), including portable Python companions used by CTest or Windows-native validation.
 2. Deleted compatibility shims such as old `scripts/perf-route.sh`, `scripts/soak-minimize.sh`, and the retired `extend_tests.py` cannot reappear.
 3. Active tool files do not carry migration markers, compatibility-wrapper language, one-release-cycle retention notes, or silent-success proxy behavior.
 4. Repo-local skills under `workflows/skills/` match the registry, have current `last_updated` values, and keep references resolvable.

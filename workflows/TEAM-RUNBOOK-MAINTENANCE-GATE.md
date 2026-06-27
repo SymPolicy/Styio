@@ -2,7 +2,7 @@
 
 **Purpose:** Define the delivery gate that requires team runbooks under `docs/teams/` to be updated and kept in the standard template shape when files in corresponding team-owned folders are added, modified, renamed, or deleted.
 
-**Last updated:** 2026-06-05
+**Last updated:** 2026-06-28
 
 ## Goal
 
@@ -64,15 +64,15 @@ Gate failures print the missing, duplicate, extra, or out-of-order section and p
 
 | Team doc | Watched paths |
 |----------|---------------|
-| `FRONTEND-RUNBOOK.md` | `src/StyioToken/`, `src/StyioUnicode/`, `src/StyioParser/`, `src/Deprecated/` |
-| `SEMA-IR-RUNBOOK.md` | `src/StyioAST/`, `src/StyioSema/`, `src/StyioLowering/`, `src/StyioIR/`, `src/StyioToString/`, `src/StyioSession/` |
-| `CODEGEN-RUNTIME-RUNBOOK.md` | `src/StyioCodeGen/`, `src/StyioJIT/`, `src/StyioExtern/`, `src/StyioRuntime/` |
-| `CLI-NANO-RUNBOOK.md` | `src/main.cpp`, `src/StyioServices/StyioCLI/`, `src/StyioServices/StyioConfig/`, `configs/`, `scripts/gen-styio-nano-profile.py`, `docs/external/for-spio/` |
+| `FRONTEND-RUNBOOK.md` | `src/StyioToken/`, `src/StyioUnicode/`, `src/StyioParser/`, `src/Deprecated/`, parser legacy-entry audit scripts |
+| `SEMA-IR-RUNBOOK.md` | `src/StyioAST/`, `src/StyioSema/`, `src/StyioLowering/`, `src/StyioIR/`, `src/StyioResourceTopology/`, `src/StyioToString/`, `src/StyioSession/`, frontend source CMake map |
+| `CODEGEN-RUNTIME-RUNBOOK.md` | `src/StyioCodeGen/`, `src/StyioJIT/`, `src/StyioExtern/`, `src/StyioRuntime/`, `scripts/runtime-surface-gate.py` |
+| `CLI-NANO-RUNBOOK.md` | `src/main.cpp`, `src/StyioServices/StyioCLI/`, `src/StyioServices/StyioConfig/`, `configs/`, `scripts/gen-styio-nano-profile.py`, `scripts/source-build-minimal.sh`, `docs/external/for-spio/` |
 | `IDE-LSP-RUNBOOK.md` | `src/StyioServices/StyioIDE/`, `src/StyioServices/StyioLSP/`, `docs/external/for-ide/`, `tests/ide/` |
 | `GRAMMAR-RUNBOOK.md` | `grammar/tree-sitter-styio/`, `src/StyioServices/StyioIDE/TreeSitterBackend.*` |
-| `TEST-QUALITY-RUNBOOK.md` | `tests/`, `src/StyioTesting/`, `tests/workflow_scheduler_test.py`, `benchmark/parser-shadow-suite-gate.sh`, fuzz pack script, `scripts/coverage-gate.sh`, `scripts/checkpoint-health.sh` |
-| `PERF-STABILITY-RUNBOOK.md` | `benchmark/` |
-| `DOCS-ECOSYSTEM-RUNBOOK.md` | `README.md`, `docs/`, `workflows/`, `templates/`, docs maintenance scripts, `scripts/delivery-gate.sh`, `scripts/team-docs-gate.py` |
+| `TEST-QUALITY-RUNBOOK.md` | `tests/`, `src/StyioTesting/`, `tests/workflow_scheduler_test.py`, parser shadow suite gates, fuzz pack script, `scripts/coverage-gate.sh`, `scripts/checkpoint-health.sh` |
+| `PERF-STABILITY-RUNBOOK.md` | `benchmark/`, `scripts/benchmark-compare.py` |
+| `DOCS-ECOSYSTEM-RUNBOOK.md` | `README.md`, `docs/`, `library/`, `workflows/`, `templates/`, docs maintenance scripts, `scripts/delivery-gate.sh`, `scripts/stdlib-manifest-gate.py`, `scripts/team-docs-gate.py`, `scripts/workflow-scheduler.py` |
 
 Generated `docs/**/INDEX.md` files do not themselves require runbook updates. They are regenerated inventory, not a maintenance decision.
 
