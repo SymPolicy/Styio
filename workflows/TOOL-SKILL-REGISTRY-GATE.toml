@@ -1,9 +1,9 @@
 id = "tool-skill-registry-gate"
 title = "Tool And Skill Registry Gate"
 purpose = "Validate the current repo-local skill and maintenance-tool inventory before delivery or release."
-last_updated = "2026-06-19"
+last_updated = "2026-06-28"
 doc = "TOOL-SKILL-REGISTRY-GATE.md"
-current_state_review_date = "2026-06-19"
+current_state_review_date = "2026-06-28"
 
 commands = [
   "python3 scripts/tool-skill-registry-gate.py",
@@ -202,6 +202,14 @@ purpose = "Ensure retired parser routes remain audit-only and are not selected b
 last_reviewed = "2026-06-19"
 
 [[tool]]
+id = "parser-retired-route-audit-python"
+path = "scripts/parser-legacy-entry-audit.py"
+owner = "Frontend"
+kind = "gate"
+purpose = "Run the portable parser legacy route audit from CTest and Windows-native validation."
+last_reviewed = "2026-06-28"
+
+[[tool]]
 id = "repo-hygiene-gate"
 path = "scripts/repo-hygiene-gate.py"
 owner = "Docs / Ecosystem"
@@ -266,6 +274,22 @@ purpose = "Run parser shadow comparisons for feature suites and enforce no accep
 last_reviewed = "2026-06-19"
 
 [[tool]]
+id = "benchmark-parser-shadow-suite-gate-python"
+path = "benchmark/parser-shadow-suite-gate.py"
+owner = "Frontend"
+kind = "gate"
+purpose = "Run portable parser shadow comparisons for CTest and Windows-native validation."
+last_reviewed = "2026-06-28"
+
+[[tool]]
+id = "benchmark-compare"
+path = "scripts/benchmark-compare.py"
+owner = "Performance / Stability"
+kind = "gate"
+purpose = "Compare benchmark JSON outputs and fail when regressions exceed the configured threshold."
+last_reviewed = "2026-06-28"
+
+[[tool]]
 id = "benchmark-perf-report"
 path = "benchmark/perf-report.py"
 owner = "Performance / Stability"
@@ -292,7 +316,7 @@ last_reviewed = "2026-06-19"
 [[module_coverage]]
 module = "Frontend"
 runbook = "docs/teams/FRONTEND-RUNBOOK.md"
-tool_ids = ["benchmark-parser-shadow-suite-gate", "parser-retired-route-audit"]
+tool_ids = ["benchmark-parser-shadow-suite-gate", "benchmark-parser-shadow-suite-gate-python", "parser-retired-route-audit", "parser-retired-route-audit-python"]
 maintenance_command = "ctest --test-dir build/default -R '^(StyioParserEngine\\.|parser_shadow_gate_|parser_legacy_entry_audit$)' --output-on-failure"
 
 [[module_coverage]]
@@ -328,13 +352,13 @@ maintenance_command = "cd grammar/tree-sitter-styio && npx --yes tree-sitter-cli
 [[module_coverage]]
 module = "Test Quality"
 runbook = "docs/teams/TEST-QUALITY-RUNBOOK.md"
-tool_ids = ["coverage-gate", "fuzz-regression-pack", "checkpoint-health", "benchmark-parser-shadow-suite-gate"]
+tool_ids = ["coverage-gate", "fuzz-regression-pack", "checkpoint-health", "benchmark-parser-shadow-suite-gate", "benchmark-parser-shadow-suite-gate-python"]
 maintenance_command = "ctest --test-dir build/default -L language_feature --output-on-failure"
 
 [[module_coverage]]
 module = "Performance / Stability"
 runbook = "docs/teams/PERF-STABILITY-RUNBOOK.md"
-tool_ids = ["benchmark-perf-route", "benchmark-soak-minimize", "benchmark-perf-report"]
+tool_ids = ["benchmark-perf-route", "benchmark-soak-minimize", "benchmark-perf-report", "benchmark-compare"]
 maintenance_command = "STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark ./benchmark/perf-route.sh --quick"
 
 [[module_coverage]]

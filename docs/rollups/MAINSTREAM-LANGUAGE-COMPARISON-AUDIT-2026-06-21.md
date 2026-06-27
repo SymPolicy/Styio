@@ -16,7 +16,7 @@ This audit used four parallel read-only sub-agent reviews plus a main-thread sou
 | Styio quality surface | [tests](../../tests), [benchmark](../../benchmark), [workflows](../../workflows), [docs/rollups/CURRENT-STATE.md](./CURRENT-STATE.md), [docs/rollups/NEXT-STAGE-GAP-LEDGER.md](./NEXT-STAGE-GAP-LEDGER.md) |
 | External language sources | `<user-home>/styio-org/lang-sources/rust`, `<user-home>/styio-org/lang-sources/go`, `<user-home>/styio-org/lang-sources/python`, `<user-home>/styio-org/lang-sources/ruby`, `<user-home>/styio-org/lang-sources/ocaml`, `<user-home>/styio-org/lang-sources/ghc` |
 
-The local external source directory is intentionally partial for some languages. [SOURCE_INDEX.md](<user-home>/styio-org/lang-sources/SOURCE_INDEX.md) states that Ruby and OCaml are full working trees, while Go, Rust, CPython, and GHC are source-focused sparse checkouts. Conclusions below are limited to locally visible source structure and should not be read as exhaustive statements about every upstream file.
+The local external source directory is intentionally partial for some languages. The external `lang-sources/SOURCE_INDEX.md` notes that Ruby and OCaml are full working trees, while Go, Rust, CPython, and GHC are source-focused sparse checkouts. Conclusions below are limited to locally visible source structure and should not be read as exhaustive statements about every upstream file.
 
 The initial audit was a static source and architecture review. Follow-up implementation work added automated gates and targeted tests for the direct baselines listed below.
 

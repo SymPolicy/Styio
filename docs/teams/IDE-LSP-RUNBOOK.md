@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of `styio_ide_core`, `styio_lspd`, IDE-facing C++ APIs, VFS snapshots, syntax/HIR/SemDB services, and LSP protocol behavior.
 
-**Last updated:** 2026-06-21
+**Last updated:** 2026-06-26
 
 ## Mission
 
@@ -45,6 +45,7 @@ Build and test targets:
 18. Treat Vityo and Spio as first-party service consumers, not generic LSP-only clients. They may use deep convenience adapters over `StyioServices`, but those adapters must reuse shared service facts and must not become separate grammar, diagnostic, or semantic authorities.
 19. Host-facing service payloads should preserve `documentId`, `revision`, `protocolVersion`, `toolchainId`, `parserEngine`, `grammarVersion`, `configPath`, `workingDirectory`, and per-capability state whenever those fields apply.
 20. Keep `StyioIDECommon.*` tests covering URI/path conversion, `TextBuffer` offset mapping, range helpers, and host-facing enum string contracts when those common service helpers change.
+21. IDE/LSP Windows compatibility changes must keep `styio_lspd` and `styio_ide_test` buildable with native CMake generators. Test fixtures that touch paths, environment variables, subprocesses, or executable names should use portable helpers so IDE service validation does not depend on POSIX shells or Unix path semantics on Windows.
 
 ## Change Classes
 

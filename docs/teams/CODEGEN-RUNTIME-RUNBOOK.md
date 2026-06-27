@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-06-25
+**Last updated:** 2026-06-27
 
 ## Mission
 
@@ -32,7 +32,7 @@ Related docs:
 3. Treat diagnostic code, exit code, and runtime error category changes as public behavior.
 4. Update security, five-layer, and soak coverage before accepting a runtime contract change.
 5. Use benchmark routes for hot paths, not terminal timing impressions.
-6. Preserve the current legacy bounded final-bind compatibility contract until an explicit final-binding/Topology checkpoint changes it: legacy bounded rings lower to `[n x i64] + head`, reads return the latest slot, same-name flex after final bind is rejected, and function-parameter ring semantics remain incomplete. Typed Topology rings such as bounded `f64`, bounded `bool`, bounded `char`, bounded `string`, bounded `list`, bounded `dict`, and bounded `matrix` must derive storage behavior from the ring data type instead of reintroducing an unconditional `i64` ring assumption. Char rings store `i8` values; string rings must clone values into ring-owned cstrs, return cloned cstrs to consumers, and release ring-owned cstrs on overwrite and scope cleanup; list/dict/matrix rings store runtime handles as `i64`, clone handles on write/read, move pending handles into committed slots, and release ring-owned handles on overwrite and scope cleanup.
+6. Preserve the current legacy bounded final-bind compatibility contract until an explicit final-binding/Topology checkpoint changes it: legacy bounded rings lower to `[n x i64] + head`, reads return the latest slot, same-name flex after final bind is rejected, and function-parameter ring semantics remain incomplete. Typed Topology rings such as bounded `f64`, bounded `bool`, bounded `char`, bounded `string`, bounded `list`, bounded `dict`, and bounded `matrix` must derive storage behavior from the ring data type instead of reintroducing an unconditional `i64` ring assumption. Char rings store `i8` values; string rings must clone values into ring-owned cstrs, return cloned cstrs to consumers, release ring-owned cstrs on overwrite and scope cleanup, and zero the cleaned slot so later pending commits cannot double-release a stale owner if an allocator reuses the address; list/dict/matrix rings store runtime handles as `i64`, clone handles on write/read, move pending handles into committed slots, and release plus zero ring-owned handles on overwrite and scope cleanup.
 7. Treat `runtime-events.jsonl` as a published artifact: changes to `compile.* / run.* / thread.* / unit.* / unit.test.* / state.* / transition.fired / log.emitted / diagnostic.emitted` require same-checkpoint tests and consumer doc updates.
 8. Keep `stdout/stderr` helper hooks lossless: runtime log replay may enrich the artifact stream, but must not change observable program output semantics.
 9. Keep the ORC JIT symbol registry aligned with the full `src/StyioExtern/ExternLib.hpp` export surface and every runtime helper that codegen emits; when a new `getOrInsertFunction("styio_*")` call or extern export appears, update `src/StyioJIT/StyioJIT_ORC.hpp` in the same delivery.
