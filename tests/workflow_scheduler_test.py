@@ -48,6 +48,29 @@ class WorkflowSchedulerTest(unittest.TestCase):
             phases = [workflow_scheduler.TOOLS_BY_KEY[key].phase for key in profile.tools]
             self.assertEqual(sorted(phases), phases, profile.key)
 
+    def test_ecosystem_workspace_gate_triggers_on_contract_files(self) -> None:
+        self.assertTrue(
+            workflow_scheduler.ecosystem_workspace_gate_required(
+                ["docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md"]
+            )
+        )
+        self.assertTrue(
+            workflow_scheduler.ecosystem_workspace_gate_required(
+                ["scripts/ecosystem-cli-doc-gate.py"]
+            )
+        )
+
+    def test_ecosystem_workspace_gate_skips_unrelated_lsp_changes(self) -> None:
+        self.assertFalse(
+            workflow_scheduler.ecosystem_workspace_gate_required(
+                [
+                    "src/StyioServices/StyioLSP/main.cpp",
+                    "tests/lsp_stdio_framing_test.py",
+                    ".github/workflows/styio-ci-gate.yml",
+                ]
+            )
+        )
+
     def test_markdown_table_exposes_syntax_workflow(self) -> None:
         table = workflow_scheduler.markdown_table()
         self.assertIn("ADD-SYNTAX-WITH-SKILLS.md", table)

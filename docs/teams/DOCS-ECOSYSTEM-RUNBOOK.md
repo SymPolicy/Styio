@@ -161,6 +161,7 @@ Key SSOTs:
 120. When adding a broad source-architecture or external-language comparison audit under `docs/rollups/`, keep the wording evidence-scoped to the local sources reviewed, map follow-up work to the owning `IM-D*` inventories or runbooks, regenerate generated indexes, and refresh `DOC-STATS.md` when this runbook changes.
 121. When IM-D1 StyioIR contract inventory adds new capabilities (IR walker, pass manager, tokenizer span infrastructure), record the capability, current state, and evidence links in the manifest table of `docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md` without removing existing entries. Each entry must name at least one source file as live evidence.
 122. When CI carries a temporary released-audit policy normalization for renamed compiler source directories, keep the workflow step narrowly scoped, record the current source layout in the same checkpoint, and remove the normalization once the external audit policy catches up.
+123. Workspace-level ecosystem CLI docs checks should block changes to the ecosystem contract SSOTs, `docs/external/for-spio/`, or `scripts/ecosystem-cli-doc-gate.py`; unrelated compiler, IDE, or CI-maintenance changes may skip the sibling-repository workspace gate while still running the local ecosystem docs gate.
 
 ## Change Classes
 
