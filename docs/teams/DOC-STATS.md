@@ -35,8 +35,8 @@ python3 scripts/docs-audit.py --manifest valid --format json --output /tmp/styio
 | IDE / LSP | [IDE-LSP-RUNBOOK.md](./IDE-LSP-RUNBOOK.md) | 1,609 | 7,347 |
 | Performance / Stability | [PERF-STABILITY-RUNBOOK.md](./PERF-STABILITY-RUNBOOK.md) | 2,161 | 9,427 |
 | Sema / IR | [SEMA-IR-RUNBOOK.md](./SEMA-IR-RUNBOOK.md) | 6,556 | 30,550 |
-| Test Quality | [TEST-QUALITY-RUNBOOK.md](./TEST-QUALITY-RUNBOOK.md) | 8,823 | 44,407 |
-| **Total** | Team runbooks only | **45,625** | **214,453** |
+| Test Quality | [TEST-QUALITY-RUNBOOK.md](./TEST-QUALITY-RUNBOOK.md) | 8,880 | 44,690 |
+| **Total** | Team runbooks only | **45,682** | **214,736** |
 
 ## Support File Size
 

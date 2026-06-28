@@ -119,6 +119,7 @@ Primary paths:
 90. Windows-native CTest coverage must not shell out through Bash, grep, cmp, cat, rm, mktemp, chmod, or `/tmp`-only assumptions unless the test is explicitly POSIX-only and excluded from the Windows registration. Prefer CMake/Python helpers, `${CMAKE_BINARY_DIR}` artifacts, platform environment helpers, and targeted Windows gtest slices that still cover native interop, process execution, CLI contracts, and core unit behavior.
 91. LSP transport smoke tests should exercise the built daemon as a subprocess, drain stdout and stderr concurrently, send byte-exact JSON-RPC frames, and reject malformed line-ending frames so Windows stdio regressions cannot pass through a POSIX-only test harness.
 92. Workflow scheduler tests must cover any change to conditional gate execution, especially skip decisions that narrow a CI workspace gate to affected files, so unrelated feature PRs cannot accidentally bypass the gate that owns their changed surface.
+93. Coverage-gate target lists must include every executable that a selected CTest label can spawn through `$<TARGET_FILE:...>`, including daemon-style smoke targets such as `styio_lspd`; otherwise coverage builds can pass compilation but fail at runtime with missing test binaries.
 
 ## Change Classes
 
