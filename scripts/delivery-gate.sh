@@ -144,8 +144,8 @@ resolve_audit_bin() {
     echo "$STYIO_AUDIT_BIN"
     return 0
   fi
-  if [[ -e <user-home>/eBioRing/styio-audit/bin/styio-audit ]]; then
-    echo <user-home>/eBioRing/styio-audit/bin/styio-audit
+  if [[ -n "${STYIO_AUDIT_HOME:-}" && -x "${STYIO_AUDIT_HOME}/bin/styio-audit" ]]; then
+    echo "${STYIO_AUDIT_HOME}/bin/styio-audit"
     return 0
   fi
   if command -v styio-audit >/dev/null 2>&1; then
