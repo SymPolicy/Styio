@@ -1,7 +1,6 @@
 # ADR-0121: LSP Windows Stdio Binary Mode
 
-**Purpose:** Record the decision to force `styio_lspd` standard input and
-standard output into binary mode on Windows so LSP framing stays byte-exact.
+**Purpose:** Record the decision to force `styio_lspd` standard input and standard output into binary mode on Windows so LSP framing stays byte-exact.
 
 **Last updated:** 2026-06-28
 

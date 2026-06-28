@@ -162,6 +162,7 @@ Key SSOTs:
 121. When IM-D1 StyioIR contract inventory adds new capabilities (IR walker, pass manager, tokenizer span infrastructure), record the capability, current state, and evidence links in the manifest table of `docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md` without removing existing entries. Each entry must name at least one source file as live evidence.
 122. When CI carries a temporary released-audit policy normalization for renamed compiler source directories, keep the workflow step narrowly scoped, record the current source layout in the same checkpoint, and remove the normalization once the external audit policy catches up.
 123. Workspace-level ecosystem CLI docs checks should block changes to the ecosystem contract SSOTs, `docs/external/for-spio/`, or `scripts/ecosystem-cli-doc-gate.py`; unrelated compiler, IDE, or CI-maintenance changes may skip the sibling-repository workspace gate while still running the local ecosystem docs gate.
+124. Generated workflow and skill indexes are part of the Docs / Ecosystem surface; when `docs-index.py --write` updates `workflows/INDEX.md` or `workflows/skills/INDEX.md`, keep the runbook rule and `DOC-STATS.md` in the same checkpoint instead of treating the index refresh as a detached generated-only change.
 
 ## Change Classes
 
