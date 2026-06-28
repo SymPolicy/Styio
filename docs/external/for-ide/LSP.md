@@ -9,6 +9,10 @@
 1. Binary: `build/default/bin/styio_lspd`
 2. Protocol: LSP 3.17 over stdio
 3. Lifetime: one long-lived local daemon per workspace root
+4. Windows stdio must remain byte-exact. `styio_lspd` sets stdin/stdout to
+   binary mode before entering the LSP loop so `Content-Length: N\r\n\r\n`
+   headers are not expanded to `\r\r\n\r\r\n` by the C runtime. See
+   `docs/adr/ADR-0121-lsp-windows-stdio-binary-mode.md`.
 
 ## Supported Methods
 

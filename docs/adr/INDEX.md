@@ -11,4 +11,5 @@
 | Path | Entry | Summary |
 |------|-------|---------|
 | `ADR-0120-native-extern-jit-interop.md` | [ADR-0120: Native Extern JIT Interop](./ADR-0120-native-extern-jit-interop.md) | Record the decision, context, alternatives, and consequences for compiling C/C++ @extern blocks and calling their symbols through the Styio JIT. |
+| `ADR-0121-lsp-windows-stdio-binary-mode.md` | [ADR-0121: LSP Windows Stdio Binary Mode](./ADR-0121-lsp-windows-stdio-binary-mode.md) | Force styio_lspd stdio into binary mode on Windows so LSP Content-Length framing remains byte-exact for VS Code clients. |
 | `IMPLEMENTED-DECISIONS.md` | [Implemented Decisions Summary](./IMPLEMENTED-DECISIONS.md) | Compress implemented architecture and workflow decisions that no longer need one file per decision in the current tree; exact previous ADR wording is available from Git history when needed. |
