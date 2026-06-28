@@ -828,7 +828,7 @@ TEST(StyioTypeInferInternal, SymbolInternerResolvesOwnedResourcesBySymbolId) {
       NameAST::Create("outer_resource_by_sid", resource_sid),
       EmptyResourceAST::Create())
   })));
-  EXPECT_THROW(task_>typeInfer(&analyzer), StyioTypeError);
+  EXPECT_THROW((*task).typeInfer(&analyzer), StyioTypeError);
   EXPECT_TRUE(analyzer.task_outer_resource_names_stack_.empty());
   EXPECT_TRUE(analyzer.task_outer_resource_names_by_sid_stack_.empty());
 
@@ -842,7 +842,7 @@ TEST(StyioTypeInferInternal, SymbolInternerResolvesOwnedResourcesBySymbolId) {
       NameAST::Create("string_outer_resource"),
       EmptyResourceAST::Create())
   })));
-  EXPECT_THROW(string_task_>typeInfer(&analyzer), StyioTypeError);
+  EXPECT_THROW((*string_task).typeInfer(&analyzer), StyioTypeError);
   EXPECT_TRUE(analyzer.task_outer_resource_names_stack_.empty());
   EXPECT_TRUE(analyzer.task_outer_resource_names_by_sid_stack_.empty());
 }
@@ -2018,12 +2018,12 @@ TEST(StyioTypeInferInternal, ErrorGuardsAndUnsupportedBranchesStayExplicit) {
     std::unique_ptr<FlowBindAST> await_non_task(FlowBindAST::CreateAwait(
       IntAST::Create("1"),
       VarAST::Create(NameAST::Create("await_scalar"))));
-    EXPECT_THROW(await_non_task_>typeInfer(&analyzer), StyioTypeError);
+    EXPECT_THROW((*await_non_task).typeInfer(&analyzer), StyioTypeError);
     analyzer.consumed_task_names_.insert("task");
     std::unique_ptr<FlowBindAST> consumed_task(FlowBindAST::CreateAwait(
       NameAST::Create("task"),
       VarAST::Create(NameAST::Create("task_value"))));
-    EXPECT_THROW(consumed_task_>typeInfer(&analyzer), StyioTypeError);
+    EXPECT_THROW((*consumed_task).typeInfer(&analyzer), StyioTypeError);
   }
 
   {
