@@ -90,7 +90,7 @@ find_googletest_source() {
 }
 
 find_llvm_prefix() {
-  local candidate
+  local candidate formula
 
   if [[ -n "${STYIO_LLVM_PREFIX:-}" ]] &&
      [[ -x "${STYIO_LLVM_PREFIX}/bin/clang++" ]] &&
@@ -99,9 +99,14 @@ find_llvm_prefix() {
     return 0
   fi
 
-  for candidate in \
-    <homebrew-prefix>/opt/llvm@18 \
-    <homebrew-prefix>/opt/llvm; do
+  for formula in llvm@18 llvm; do
+    if ! command -v brew >/dev/null 2>&1; then
+      continue
+    fi
+    candidate="$(brew --prefix "$formula" 2>/dev/null || true)"
+    if [[ -z "$candidate" ]]; then
+      continue
+    fi
     if [[ -x "$candidate/bin/clang++" && -d "$candidate/lib/cmake/llvm" ]]; then
       printf '%s\n' "$candidate"
       return 0
@@ -161,10 +166,16 @@ if [[ "$SKIP_CONFIGURE" -ne 1 ]]; then
   fi
 
   PREFIX_PATHS=("$LLVM_PREFIX")
-  if [[ -d <homebrew-prefix>/opt/icu4c@78 ]]; then
-    PREFIX_PATHS+=(<homebrew-prefix>/opt/icu4c@78)
-  elif [[ -d <homebrew-prefix>/opt/icu4c ]]; then
-    PREFIX_PATHS+=(<homebrew-prefix>/opt/icu4c)
+  if [[ -n "${STYIO_ICU_PREFIX:-}" && -d "${STYIO_ICU_PREFIX}" ]]; then
+    PREFIX_PATHS+=("$STYIO_ICU_PREFIX")
+  elif command -v brew >/dev/null 2>&1; then
+    for formula in icu4c@78 icu4c; do
+      candidate="$(brew --prefix "$formula" 2>/dev/null || true)"
+      if [[ -n "$candidate" && -d "$candidate" ]]; then
+        PREFIX_PATHS+=("$candidate")
+        break
+      fi
+    done
   fi
   if [[ "${#PREFIX_PATHS[@]}" -gt 0 ]]; then
     CMAKE_PREFIX_PATH_VALUE="$(IFS=';'; printf '%s' "${PREFIX_PATHS[*]}")"

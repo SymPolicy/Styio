@@ -11,15 +11,17 @@ This gate configures the Clang/libFuzzer build, reuses already-populated local T
 ## Build
 
 ```bash
+LLVM_PREFIX="$(brew --prefix llvm@18)"
+ICU_PREFIX="$(brew --prefix icu4c@78)"
 cmake -S . -B build/fuzz \
   -DSTYIO_ENABLE_FUZZ=ON \
-  -DCMAKE_C_COMPILER=<homebrew-prefix>/opt/llvm@18/bin/clang \
-  -DCMAKE_CXX_COMPILER=<homebrew-prefix>/opt/llvm@18/bin/clang++ \
+  -DCMAKE_C_COMPILER="$LLVM_PREFIX/bin/clang" \
+  -DCMAKE_CXX_COMPILER="$LLVM_PREFIX/bin/clang++" \
   -DCMAKE_OSX_SYSROOT="$(xcrun --show-sdk-path)" \
   -DCMAKE_CXX_FLAGS='-stdlib=libc++' \
   -DCMAKE_EXE_LINKER_FLAGS='-stdlib=libc++' \
-  -DLLVM_DIR=<homebrew-prefix>/opt/llvm@18/lib/cmake/llvm \
-  -DCMAKE_PREFIX_PATH='<homebrew-prefix>/opt/llvm@18;<homebrew-prefix>/opt/icu4c@78' \
+  -DLLVM_DIR="$LLVM_PREFIX/lib/cmake/llvm" \
+  -DCMAKE_PREFIX_PATH="$LLVM_PREFIX;$ICU_PREFIX" \
   -DFETCHCONTENT_SOURCE_DIR_TREE_SITTER_RUNTIME="$PWD/build/default/_deps/tree_sitter_runtime-src"
 cmake --build build/fuzz --target styio_fuzz_suite
 ```
