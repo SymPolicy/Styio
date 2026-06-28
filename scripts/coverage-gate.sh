@@ -231,6 +231,7 @@ cmake -S . -B "$BUILD_DIR" \
 
 BUILD_TARGETS=(
   styio
+  styio_lspd
   styio_nano
   styio_test
   styio_security_test
@@ -288,6 +289,7 @@ PROFDATA="$BUILD_DIR/styio-coverage.profdata"
 COVERAGE_OBJECTS=()
 for object in \
   "$BUILD_DIR/bin/styio" \
+  "$BUILD_DIR/bin/styio_lspd" \
   "$BUILD_DIR/bin/styio-nano" \
   "$BUILD_DIR/bin/styio_test" \
   "$BUILD_DIR/bin/styio_security_test" \
