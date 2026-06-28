@@ -2338,7 +2338,7 @@ TEST(StyioLoweringInternal, AdditionalLoweringGuardBranchesStayExplicit) {
   }
   {
     std::unique_ptr<TaskBlockAST> task(TaskBlockAST::Create(BlockAST::Create({PassAST::Create()})));
-    std::unique_ptr<StyioIR> ir(task_>toStyioIR(&analyzer));
+    std::unique_ptr<StyioIR> ir((*task).toStyioIR(&analyzer));
     EXPECT_NE(dynamic_cast<SIOTaskCreate*>(ir.get()), nullptr);
   }
   {
