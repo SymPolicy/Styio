@@ -198,11 +198,11 @@ TEST(BoundedMPMCReadyQueue, MultiProducerMultiConsumerNoLossNoDupes) {
         }
 
         auto* task = static_cast<TaggedTask*>(raw);
-        if (task_>id < 0 || task_>id >= kTotal) {
+        if ((*task).id < 0 || (*task).id >= kTotal) {
           bad_id_hits.fetch_add(1);
         }
         else {
-          int previous = seen[task_>id].fetch_add(1);
+          int previous = seen[(*task).id].fetch_add(1);
           if (previous != 0) {
             duplicate_hits.fetch_add(1);
           }

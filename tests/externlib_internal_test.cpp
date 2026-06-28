@@ -596,8 +596,8 @@ TEST(StyioExternLibInternal, TaskSchedulerAndPendingTaskReleaseEdgesStayExplicit
   auto* task = new StyioTask(StyioTaskValueKind::I64);
   ++g_active_task_handles;
   std::thread ready([task]() {
-    task_>ready.store(true, std::memory_order_release);
-    task_>ready.notify_all();
+    (*task).ready.store(true, std::memory_order_release);
+    (*task).ready.notify_all();
   });
   close_task(task);
   ready.join();

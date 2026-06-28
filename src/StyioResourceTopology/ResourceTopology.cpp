@@ -1087,7 +1087,7 @@ private:
         TypeState::Ready,
         task);
       result_.graph.add_edge(EdgeKind::Failure, node, failure, "task_failure");
-      visit(task_>getBody(), Context{node, ctx.in_state_decl});
+      visit((*task).getBody(), Context{node, ctx.in_state_decl});
       return node;
     }
 

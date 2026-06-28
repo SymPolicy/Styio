@@ -3246,8 +3246,8 @@ TEST(StyioTypeInferenceContract, LeafNoopAndFailClosedTypeInferNodesStayExplicit
         ReturnAST::Create(FloatAST::Create("1.25"))
       })
     })));
-    EXPECT_NO_THROW(task_>typeInfer(&analyzer));
-    EXPECT_EQ(task_>getResultType().name, "f64");
+    EXPECT_NO_THROW((*task).typeInfer(&analyzer));
+    EXPECT_EQ((*task).getResultType().name, "f64");
   }
   {
     std::unique_ptr<StyioAST> bad_method(ResourceMethodDefAST::Create(
